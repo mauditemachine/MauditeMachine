@@ -174,3 +174,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-10 : MM-RYTM, niveaux par defaut des voix remontes (kick inchange), courbe de velocite adoucie ; moteur des reglages des FX (DELAY TONE, REVERB SIZE/TONE/PRE, DIST TONE, CHORUS RATE/DEPTH, BIT RATE, COMP ATTACK/RELEASE). Spec R14-253.
 - 2026-10-10 : MM-RYTM, une page de reglages par FX global (DIST, CHORUS, DELAY, REVERB, BIT, COMP) : une tape sur le FX ou son encodeur l'ouvre, la touche FX revient. Spec R14-254.
 - 2026-10-10 : Mixer sans la voie MM-BASS cachee (1 RYTM, 2 ARP, 3 A, 4 B), setups Roto regeneres (version 1010 : RYTM avec BIT et COMP, MIXER et LIVE sans BASS). Spec R14-255.
+- 2026-10-10 : MM-ARP, un SUB parametrable : SUB (niveau, dans le melangeur), OCT (-1 / -2) et WAVE (SINE, TRI, SQUARE), face desktop et telephone, ecran, INFOS, RANDOM, Roto ARP 1010.2. Spec R14-256.

@@ -118,6 +118,10 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     keyTrack: between(rnd, 0.4, 0.65),
     accent: between(rnd, 0.4, 0.65),
     sync: 0,
+    // SUB (2026-10-10, tire en dernier : les tirages d'avant ne bougent pas) : quatre fois sur dix, surtout a -1, en sinus
+    sub: sometimes(rnd, 0.6, 0.2, 0.55),
+    subOct: weighted(rnd, [0.8, 0.2]),
+    subWave: weighted(rnd, [0.55, 0.15, 0.3]),
   };
 }
 
@@ -220,6 +224,10 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         ...oscTune(!low && chance(rnd, 0.5) ? 0 : 1),
         osc1: between(rnd, 0.75, 0.95),
         osc2: between(rnd, 0.45, 0.8),
+        // SUB (2026-10-10) : un sinus une octave dessous, six fois sur dix ; jamais sous la ligne deja tout en bas (OCTAVE -2)
+        sub: low ? 0 : sometimes(rnd, 0.4, 0.3, 0.55),
+        subOct: 0,
+        subWave: 0,
         fm: sometimes(rnd, 0.8, 0.05, 0.2),
         ...detune(rnd, 0.1, 0.35),
         cutoff: between(rnd, 0.28, 0.48),

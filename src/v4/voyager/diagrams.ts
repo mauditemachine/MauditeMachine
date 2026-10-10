@@ -27,6 +27,8 @@ import {
   OCTAVES,
   OSC_RANGES,
   SEMIS,
+  SUB_OCTS,
+  SUB_WAVES,
   WAVES1,
   WAVES2,
   attackS,
@@ -293,6 +295,27 @@ function mixerDiagram(id: VoyKnobId, values: Readonly<VoyValues>): VoyDiagram {
     p.p(rbox(x - 10, y - 3, 20, 6, 2), k === id ? 'hot' : 'main', true);
     p.label(names[i], x, BOT, 'middle');
   });
+  return p.done();
+}
+
+/**
+ * SUB (2026-10-10) : la note (OSC 1, en fantome) et le SUB dessous, une ou
+ * deux octaves plus bas (deux fois ou quatre fois plus lent), dans sa forme,
+ * a la hauteur de son niveau ; a 0, en fantome (coupe).
+ */
+function subDiagram(values: Readonly<VoyValues>): VoyDiagram {
+  const p = new Pic();
+  const oct = stepIndex('subOct', values.subOct);
+  const wi = stepIndex('subWave', values.subWave);
+  const w = [0, 1, 3][wi];
+  const lvl = values.sub;
+  const on = lvl > 0.005;
+  const div = oct === 1 ? 4 : 2;
+  p.p(axis(), 'grid');
+  p.p(curve((t) => MID - 14 * shapeAt(2, (t * 4) % 1), X0, X1, 240), 'ghost');
+  p.p(curve((t) => MID - (on ? 10 + 26 * lvl : 18) * shapeAt(w, ((t * 4) / div) % 1), X0, X1, 240), on ? 'hot' : 'ghost');
+  p.label(`${SUB_OCTS[oct]} OCT  ${SUB_WAVES[wi]}`, X0, BOT);
+  p.label(on ? `${Math.round(lvl * 100)}%` : 'OFF', X1, BOT, 'end');
   return p.done();
 }
 
@@ -1000,6 +1023,10 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
       return mixerDiagram(id, values);
     case 'noise':
       return noiseDiagram(c.v);
+    case 'sub':
+    case 'subOct':
+    case 'subWave':
+      return subDiagram(values);
     case 'fm':
       return fmDiagram(c.v, values);
     case 'ratio':

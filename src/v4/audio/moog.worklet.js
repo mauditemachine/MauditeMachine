@@ -47,6 +47,13 @@
  * a son accord (tune1, tune2 : RANGE et SEMI, en demi-tons), son FINE
  * (fine1, fine2, en cents) et son ON (on1, on2, multiplie son gain, lisse) ;
  * ils remplacent TUNE 2 et l'ecart FINE de part et d'autre de la note.
+ * SUB (2026-10-10, Mika : "pour l'ARP rajoute un sub parametrable") : un
+ * troisieme oscillateur, une ou deux octaves sous la note jouee (subOct : 1
+ * ou 2), sinus, triangle ou carre (subWave : la forme 0, 1 ou 3), dose par
+ * sub (lisse). Il suit la note (pas RANGE ni SEMI d'OSC 1), mais prend le
+ * FINE et la derive d'OSC 1 : cale sur lui, il ne bat pas contre lui ; pas
+ * de FM ni de SYNC (des graves propres) ; il passe par le filtre, comme les
+ * autres. A 0, rien n'est calcule (le son d'avant, au bit pres).
  * Jusqu'a 12 notes en meme temps (les queues de RELEASE se chevauchent) ;
  * au-dela, la plus ancienne repart de son niveau.
  * Notes recues avec leur instant (temps du contexte), jouees a
@@ -288,7 +295,8 @@ class Voice {
     this.midi = 60;
     this.logf = Math.log(261.6);
     this.logT = this.logf;
-    this.ph = [Math.random(), Math.random(), Math.random()];
+    // OSC 1, OSC 2, l'operateur FM, le SUB
+    this.ph = [Math.random(), Math.random(), Math.random(), Math.random()];
     // Bruit : xorshift 32 bits, une graine par voix (jamais 0)
     this.seed = ((Math.random() * 0x7fffffff) | 0) | 1;
     this.nz = 0;
@@ -317,6 +325,7 @@ class Voice {
     // les pas de phase et les gains des quatre etages
     this.d1 = 0;
     this.d2 = 0;
+    this.d3 = 0;
     this.Ga = 0;
     this.Gb = 0;
     this.Gc = 0;
@@ -396,13 +405,16 @@ class MMVoyager extends AudioWorkletProcessor {
       width: 0.22,
       keyTrack: 0.5,
       sync: 0,
+      sub: 0,
+      subOct: 1,
+      subWave: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
+    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, sub: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) Object.assign(this.p, o.params);
-    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1 * this.p.on1, o2: this.p.osc2 * this.p.on2, fm: this.p.fm, noise: this.p.noise, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
+    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1 * this.p.on1, o2: this.p.osc2 * this.p.on2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
     this.coefs();
     if (o.notes) for (const n of o.notes) this.add(n);
     this.port.onmessage = (e) => this.onMsg(e.data);
@@ -487,6 +499,7 @@ class MMVoyager extends AudioWorkletProcessor {
       v.ph[0] = p.phase;
       v.ph[1] = p.phase;
       v.ph[2] = p.phase;
+      v.ph[3] = p.phase;
     }
     // Presque analogique (DRIFT) : chaque note a ses petits ecarts, et sa place dans l'image (WIDTH)
     const dr = p.drift;
@@ -577,6 +590,11 @@ class MMVoyager extends AudioWorkletProcessor {
       const fmDepth = fmEff * fmEff * FM_MAX;
       sm.noise += (p.noise - sm.noise) * K;
       const nGain = sm.noise * sm.noise * NOISE_MAX;
+      // SUB : son gain (deja au carre, params.ts), son octave sous la note, sa forme
+      sm.sub += (p.sub - sm.sub) * K;
+      const g3 = sm.sub;
+      const subDiv = p.subOct === 2 ? 0.25 : 0.5;
+      const subW = p.subWave === 1 ? 1 : p.subWave === 3 ? 3 : 0;
       const newNoise = i2 % OS === 0;
       // MODE du filtre : chaque sortie glisse vers son poids (1 pour le mode choisi)
       const wm = this.wm;
@@ -656,6 +674,8 @@ class MMVoyager extends AudioWorkletProcessor {
           const f = Math.exp(v.logf);
           v.d1 = (f * ratio1 * Math.pow(2, (v.drift[0] * drift + fine1 + v.vTune + pitchMod) / 1200)) / sr;
           v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] * drift + fine2 + v.vTune + pitchMod) / 1200)) / sr;
+          // SUB : la note, une ou deux octaves dessous, avec le FINE et la derive d'OSC 1
+          v.d3 = (f * subDiv * Math.pow(2, (v.drift[0] * drift + fine1 + v.vTune + pitchMod) / 1200)) / sr;
         }
         const d1 = v.d1;
         const d2 = v.d2;
@@ -673,6 +693,9 @@ class MMVoyager extends AudioWorkletProcessor {
         let o1 = shape1(i1, p1, d1, ph[0], o2, pm);
         if (f1m > 1e-4) o1 += (shape1(i1 + 1, p1, d1, ph[0], o2, pm) - o1) * f1m;
         let o = g1 * o1 + g2 * o2;
+        if (g3 > 1e-6) o += g3 * shape(ph[3], v.d3, subW);
+        ph[3] += v.d3;
+        if (ph[3] >= 1) ph[3] -= Math.floor(ph[3]);
         if (nGain > 1e-6) {
           if (newNoise) {
             let x = v.seed;

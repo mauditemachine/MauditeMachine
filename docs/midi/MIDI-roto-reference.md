@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 10 octobre 2026 depuis le code du site (`npm run docs:midi`) : 576 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 10 octobre 2026 depuis le code du site (`npm run docs:midi`) : 582 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -18,7 +18,7 @@ Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MI
 
 - Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.
 - Les adresses sont gelees (2026-10-08, `src/v4/midi/rotoKeys.ts`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115 ; les colonnes Canal et CC ci-dessous font foi.
-- **Version des setups : 2026-10-10.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1010, ARP 1010, DECK 1010, MIXER 1010, LIVE 1010, RSEQ 1010) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
+- **Version des setups : 2026-10-10.2.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1010.2, ARP 1010.2, DECK 1010.2, MIXER 1010.2, LIVE 1010.2, RSEQ 1010.2) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
 - Ces CC n'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).
 - Ce que dit le fichier JSON, c'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).
 
@@ -57,7 +57,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 {
   "version": 1,
   "type": "MIDI",
-  "name": "ARP 1010",
+  "name": "ARP 1010.2",
   "index": 11,
   "knobs": [
     {
@@ -135,7 +135,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 | Champ | Sens |
 | --- | --- |
 | version, type | 1 et "MIDI" (toujours) |
-| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1010) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
+| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1010.2) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
 | controlIndex | le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1) |
 | controlMode | 0 : CC |
 | controlChannel | canal MIDI 1 a 16 (potards N, boutons N + 8) |
@@ -277,7 +277,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 11 | 2.4 | 2 | 25 | FILTER MODE | jaune | voy:knob:fmode | MODE | potard a 4 crans : MOOG / LP12 / BP / HP |
 | 12 | 2.5 | 2 | 26 | OSC 1 LEVEL | or | voy:knob:osc1 | OSC 1 | continu |
 | 13 | 2.6 | 2 | 27 | OSC 2 LEVEL | or | voy:knob:osc2 | OSC 2 | continu |
-| 14 | 2.7 | 2 | 28 | NOISE | or | voy:knob:noise | NOISE | continu |
+| 14 | 2.7 | 2 | 3 | SUB LEVEL | or | voy:knob:sub | SUB | continu |
 | 15 | 2.8 | 2 | 29 | FM | or | voy:knob:fm | FM | continu |
 | 16 | 3.1 | 2 | 30 | FLT ATTACK | vert | voy:knob:fA | ATTACK | continu |
 | 17 | 3.2 | 2 | 31 | FLT DECAY | vert | voy:knob:fD | DECAY | continu |
@@ -318,6 +318,10 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 15 | 2.8 | 10 | 29 | Dmaj7 | bleu | voy:pad:7 | CHORD Dmaj7 | appui |
 | 16 | 3.1 | 10 | 30 | OSC 1 ON | vert | voy:knob:on1 | OSC 1 | bascule (la LED suit le site) |
 | 17 | 3.2 | 10 | 31 | OSC 2 ON | vert | voy:knob:on2 | OSC 2 | bascule (la LED suit le site) |
+| 18 | 3.3 | 10 | 102 | SUB -2 OCT | or | voy:knob:subOct | SUB OCT | bascule (la LED suit le site) |
+| 19 | 3.4 | 10 | 103 | SUB SINE | or | voy:subwave:0 | SUB WAVE SINE | appui |
+| 20 | 3.5 | 10 | 104 | SUB TRI | or | voy:subwave:1 | SUB WAVE TRI | appui |
+| 21 | 3.6 | 10 | 105 | SUB SQUARE | or | voy:subwave:2 | SUB WAVE SQUARE | appui |
 
 ### DECK (SETUP 13, potards canal 3, boutons canal 11)
 
@@ -985,7 +989,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:seq:voice:HT` | SEQ VOICE HT (SELECT, SILENT) | appui |  | RSEQ |
 | `rytm:seq:voice:CY` | SEQ VOICE CY (SELECT, SILENT) | appui |  | RSEQ |
 
-### MM-ARP (scope `voy`, 67 cibles)
+### MM-ARP (scope `voy`, 73 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1006,6 +1010,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:on2` | OSC 2 | valeur 0 a 127 | 2 | ARP |
 | `voy:knob:osc1` | OSC 1 | valeur 0 a 127 |  | ARP |
 | `voy:knob:osc2` | OSC 2 | valeur 0 a 127 |  | ARP |
+| `voy:knob:sub` | SUB | valeur 0 a 127 |  | ARP |
+| `voy:knob:subOct` | SUB OCT | valeur 0 a 127 | 2 | ARP |
+| `voy:knob:subWave` | SUB WAVE | valeur 0 a 127 | 3 |  |
 | `voy:knob:fm` | FM | valeur 0 a 127 |  | ARP |
 | `voy:knob:ratio` | RATIO | valeur 0 a 127 | 9 |  |
 | `voy:knob:octave` | OCTAVE | valeur 0 a 127 | 5 | ARP |
@@ -1013,7 +1020,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:cutoff` | CUTOFF | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:res` | RES | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:envAmt` | ENV AMT | valeur 0 a 127 |  | ARP, LIVE |
-| `voy:knob:noise` | NOISE | valeur 0 a 127 |  | ARP |
+| `voy:knob:noise` | NOISE | valeur 0 a 127 |  |  |
 | `voy:knob:fmode` | MODE | valeur 0 a 127 | 4 | ARP |
 | `voy:knob:fA` | ATTACK | valeur 0 a 127 |  | ARP |
 | `voy:knob:fD` | DECAY | valeur 0 a 127 |  | ARP, LIVE |
@@ -1049,6 +1056,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:pad:5` | CHORD A | appui |  | ARP, LIVE |
 | `voy:pad:6` | CHORD F#m7 | appui |  | ARP, LIVE |
 | `voy:pad:7` | CHORD Dmaj7 | appui |  | ARP, LIVE |
+| `voy:subwave:0` | SUB WAVE SINE | appui |  | ARP |
+| `voy:subwave:1` | SUB WAVE TRI | appui |  | ARP |
+| `voy:subwave:2` | SUB WAVE SQUARE | appui |  | ARP |
 | `voy:run` | RUN/STOP | appui |  |  |
 | `voy:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | ARP, MIXER, LIVE |
 | `voy:clear` | CLEAR | appui |  | ARP |

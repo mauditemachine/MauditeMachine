@@ -133,6 +133,21 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     text: "Le volume d'OSC 2 dans le filtre (au carré du potard). Plus il monte, plus il pousse la saturation des étages du filtre.",
     tip: "Les deux au maximum avec un peu d'OVERDRIVE : la crasse analogique de la dark disco.",
   },
+  sub: {
+    title: 'SUB',
+    text: "Le volume du SUB dans le filtre (au carré du potard) : un troisième oscillateur sous la note jouée, une ou deux octaves plus bas (SUB OCT), en sinus, triangle ou carré (SUB WAVE). Il prend le FINE d'OSC 1 et ne bat pas contre lui. À 0, il est coupé.",
+    tip: "SUB vers 50 % en SINE à -1 : l'arpège gagne du poids sans salir le bas ; avec BASS MONO (TWEAKS), il reste au centre.",
+  },
+  subOct: {
+    title: 'SUB OCT',
+    text: "L'octave du SUB : -1, une octave sous la note jouée, ou -2, deux octaves sous elle. Il suit la note, pas RANGE ni SEMI d'OSC 1.",
+    tip: "-2 en SINE sur un arpège aigu : un grave profond façon 808 sous chaque note.",
+  },
+  subWave: {
+    title: 'SUB WAVE',
+    text: "La forme du SUB : SINE (un grave pur), TRI (un peu plus présent) ou SQUARE (creux et gras, il passe mieux sur de petites enceintes).",
+    tip: "SQUARE à -1 avec la coupure basse : le grondement d'une basse Moog sous l'arpège.",
+  },
   noise: {
     title: 'NOISE',
     text: "Un bruit blanc par voix, envoyé dans le filtre avec les oscillateurs (son niveau au carré du potard). Il suit les enveloppes : un souffle sur l'attaque, ou un tapis continu.",

@@ -96,7 +96,8 @@ function knobTexts(where: VoySilkKind): Text[] {
     const p = voyKnobPlace(k.id);
     if (p.where !== where) continue;
     // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE ; ON : son nom sous le commutateur)
-    const name = isOscOn(k.id) ? 'ON' : k.face ?? k.label;
+    // SUB OCT et SUB WAVE : OCT et WAVE a cote de SUB (desktop, la rangee du melangeur) ; leur nom entier au telephone (au bout des rangees d'oscillateurs)
+    const name = isOscOn(k.id) ? 'ON' : PORTRAIT && (k.id === 'subOct' || k.id === 'subWave') ? k.label : k.face ?? k.label;
     // Au telephone tenu droit (2026-10-05, Mika : "trop difficile a lire") : des noms plus gros, un corps par rangee
     if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: PORTRAIT ? 0.1 : 0.068, maxW: PORTRAIT ? 0.84 : 0.76, group: PORTRAIT ? `knob${Math.round(p.labelZ * 4)}` : 'knob' });
     // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP) ; ON : sa LED les dit

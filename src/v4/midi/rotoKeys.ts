@@ -612,4 +612,11 @@ export const ROTO_KEYS: readonly RotoKey[] = [
   ['MIXER', 12, 114, 'nav:all'],
   ['LIVE', 6, 3, 'dj:dj-ch3-filter'],
   ['LIVE', 14, 3, 'nav:all'],
+  // 2026-10-10 : le SUB du MM-ARP, SUB LEVEL sur la page 2 (a la place de NOISE, qui garde son adresse), SUB -2 OCT et
+  // ses trois formes sur la page 3 des boutons
+  ['ARP', 2, 3, 'voy:knob:sub'],
+  ['ARP', 10, 102, 'voy:knob:subOct'],
+  ['ARP', 10, 103, 'voy:subwave:0'],
+  ['ARP', 10, 104, 'voy:subwave:1'],
+  ['ARP', 10, 105, 'voy:subwave:2'],
 ];

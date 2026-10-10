@@ -259,7 +259,8 @@ function buildSetups(): RotoSetup[] {
       v('fmode', 'FILTER MODE', C.yellow),
       v('osc1', 'OSC 1 LEVEL', C.gold),
       v('osc2', 'OSC 2 LEVEL', C.gold),
-      v('noise', 'NOISE', C.gold),
+      // SUB (2026-10-10) a la place de NOISE (son adresse reste a NOISE)
+      v('sub', 'SUB LEVEL', C.gold),
       v('fm', 'FM', C.gold),
       // 3 : les enveloppes
       v('fA', 'FLT ATTACK', C.green),
@@ -295,6 +296,11 @@ function buildSetups(): RotoSetup[] {
       // 3 : les oscillateurs
       tog('voy:knob:on1', 'OSC 1 ON', C.green),
       tog('voy:knob:on2', 'OSC 2 ON', C.green),
+      // le SUB (2026-10-10) : -2 OCT allume (eteint : -1), puis sa forme
+      tog('voy:knob:subOct', 'SUB -2 OCT', C.gold),
+      b('voy:subwave:0', 'SUB SINE', C.gold),
+      b('voy:subwave:1', 'SUB TRI', C.gold),
+      b('voy:subwave:2', 'SUB SQUARE', C.gold),
     ],
   };
 
@@ -736,8 +742,10 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * BSEQ pages 3 et 4) : 1009.3. A reimporter : BASS (15) et BSEQ (18).
  */
 /* 2026-10-10 : RYTM page 1 = les huit FX globaux de la face (BIT, COMP), MASTER et TEMPO en page 4 ; MIXER et LIVE
- * sans la voie du MM-BASS cache, BASS et BSEQ retires : 1010. A reimporter : RYTM, MIXER, LIVE. */
-export const ROTO_VERSION = '2026-10-10';
+ * sans la voie du MM-BASS cache, BASS et BSEQ retires : 1010. A reimporter : RYTM, MIXER, LIVE.
+ * Le meme jour, le SUB du MM-ARP : SUB LEVEL a la place de NOISE (ARP page 2), SUB -2 OCT et ses trois formes en
+ * boutons (page 3) : 1010.2. A reimporter : ARP (12). */
+export const ROTO_VERSION = '2026-10-10.2';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);

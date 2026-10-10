@@ -66,7 +66,7 @@ import { PATTERN_SLOTS, slotName } from '../state/patterns';
 import { ENCODERS, GLOBAL_ENCODERS, PADS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
 import { STEP_COUNT } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
-import { VOY_KNOBS, voyParams } from '../voyager/params';
+import { SUB_WAVES, VOY_KNOBS, voyParams } from '../voyager/params';
 import { seqFollow, seqPress, seqRelease, seqSetFollow, seqVoice, seqWindow } from './seqlink';
 
 export type TargetScope = MachineId | 'global';
@@ -315,6 +315,8 @@ function coreTargets(): MidiTarget[] {
       });
     }
     CHORDS.forEach((c, i) => out.push(press(`voy:pad:${i}`, 'voy', `CHORD ${c.label}`, () => voyPad(i, getStage()))));
+    // SUB WAVE en touches (2026-10-10, le Roto) : une forme par touche
+    SUB_WAVES.forEach((w, i) => out.push(press(`voy:subwave:${i}`, 'voy', `SUB WAVE ${w}`, () => voyDial('subWave', i / (SUB_WAVES.length - 1)))));
     out.push(press('voy:run', 'voy', 'RUN/STOP', () => void voyRun(getStage())));
     out.push({
       id: 'voy:running',

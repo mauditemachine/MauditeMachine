@@ -38,6 +38,12 @@
  * de la note) : au depart OSC 1 en 8' et OSC 2 en 16', FINE a -8 et +8
  * cents, le son d'avant ; un reglage ou un preset d'avant se convertit
  * (migrateKnobs).
+ *
+ * SUB (2026-10-10, Mika : "pour l'ARP rajoute un sub parametrable") : un
+ * oscillateur sous la note, facon MiniBrute : SUB (son volume, dans le
+ * melangeur), SUB OCT (-1 ou -2 octaves sous la note jouee) et SUB WAVE
+ * (SINE, TRI, SQUARE). A 0 au depart : le son d'avant ; un preset d'avant
+ * n'en a pas (audio/moog.worklet.js).
  */
 
 export type VoyKnobId =
@@ -58,6 +64,9 @@ export type VoyKnobId =
   | 'on2'
   | 'osc1'
   | 'osc2'
+  | 'sub'
+  | 'subOct'
+  | 'subWave'
   | 'fm'
   | 'ratio'
   | 'octave'
@@ -145,6 +154,11 @@ export const LFO_DESTS = ['WAVE', 'CUTOFF', 'FM', 'PITCH', 'W+CUT'] as const;
 /** RATIO : frequence de l'operateur FM / OSC 1, des rapports harmoniques (le son reste dans la tonalite). */
 export const RATIOS = ['1/2', '1', '3/2', '2', '3', '7/2', '4', '5', '7'] as const;
 const RATIO_X = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7] as const;
+/** SUB : une ou deux octaves sous la note ; sa forme (sinus, triangle, carre). */
+export const SUB_OCTS = ['-1', '-2'] as const;
+export const SUB_WAVES = ['SINE', 'TRI', 'SQUARE'] as const;
+/** La forme du SUB dans le moteur (audio/moog.worklet.js shape : 0 sinus, 1 triangle, 3 carre). */
+const SUB_SHAPE = [0, 1, 3] as const;
 export const NOTES = ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'] as const;
 /** CHORD : l'arpege d'avant (BASIC), puis les accords enchaines au plus pres, de la triade a la onzieme. */
 export const CHORD_TYPES = ['BASIC', 'TRIAD', '7TH', '9TH', '11TH'] as const;
@@ -170,6 +184,10 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   // 0.84 : 0.62 de gain chacun, le MIX au centre d'avant
   { id: 'osc1', label: 'OSC 1', aria: 'Oscillator 1 level', section: 'osc', def: 0.84 },
   { id: 'osc2', label: 'OSC 2', aria: 'Oscillator 2 level', section: 'osc', def: 0.84 },
+  // SUB (2026-10-10) : 0 au depart, le son d'avant
+  { id: 'sub', label: 'SUB', aria: 'Sub oscillator level, one or two octaves below the note', section: 'osc', def: 0 },
+  { id: 'subOct', label: 'SUB OCT', face: 'OCT', aria: 'Sub oscillator octave: one or two octaves below the note', section: 'osc', def: 0, steps: SUB_OCTS },
+  { id: 'subWave', label: 'SUB WAVE', face: 'WAVE', aria: 'Sub oscillator wave: sine, triangle or square', section: 'osc', def: 0, steps: SUB_WAVES },
   { id: 'fm', label: 'FM', aria: 'FM amount, a sine operator modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
   { id: 'ratio', label: 'RATIO', aria: 'FM ratio, the operator frequency against oscillator 1', section: 'osc', def: 1 / 8, steps: RATIOS },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
@@ -371,6 +389,10 @@ export interface EngineParams {
   on2: number;
   osc1: number;
   osc2: number;
+  /** SUB : son gain (0.88 x potard au carre, comme OSC 1 et 2), son octave sous la note (1 ou 2), sa forme (0 sinus, 1 triangle, 3 carre) */
+  sub: number;
+  subOct: number;
+  subWave: number;
   /** FM : 0 a 1 (l'indice suit l'enveloppe du filtre) ; RATIO : operateur / OSC 1 */
   fm: number;
   ratio: number;
@@ -415,6 +437,9 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     on2: stepIndex('on2', v.on2),
     osc1: 0.88 * v.osc1 * v.osc1,
     osc2: 0.88 * v.osc2 * v.osc2,
+    sub: 0.88 * v.sub * v.sub,
+    subOct: stepIndex('subOct', v.subOct) + 1,
+    subWave: SUB_SHAPE[stepIndex('subWave', v.subWave)],
     fm: v.fm,
     ratio: fmRatio(v.ratio),
     glide: glideS(v.glide),
@@ -447,6 +472,8 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
 /** Texte de l'ecran et du jumeau : CUTOFF 64%, RATE 1/16, MODE UP/DN. */
 export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
+  // SUB OCT : "SUB -2 OCT" (pas "SUB OCT -2 OCT")
+  if (id === 'subOct') return `SUB ${voyValueText(id, v)}`;
   if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck') return `${k.label} ${voyValueText(id, v)}`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
@@ -460,6 +487,7 @@ export function voyValueText(id: VoyKnobId, v: number): string {
   if (id === 'phase') return v < PHASE_FREE ? 'FREE' : `${Math.round(phaseStart(v) * 360)} DEG`;
   if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
   if (id === 'duck') return v < DUCK_OFF ? 'OFF' : `-${Math.round(duckDepthDb(v))} DB`;
+  if (id === 'subOct') return `${SUB_OCTS[stepIndex('subOct', v)]} OCT`;
   if (id === 'fine1' || id === 'fine2') {
     const c = Math.round(fineCents(v));
     return `${c > 0 ? '+' : ''}${c} CT`;

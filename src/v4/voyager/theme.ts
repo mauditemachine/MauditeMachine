@@ -161,7 +161,9 @@ type Spot = readonly [number, number, KnobSize];
  *   OSCILLATORS (2026-10-04, facon Mini V, Mika : "tu pourrais avoir les
  *     oscillateurs de cette maniere") : une rangee par oscillateur, son
  *     numero a gauche, WAVEFORM, RANGE, SEMI, FINE, ON et sa LED ; dessous
- *     le melangeur et la FM : OSC 1, OSC 2, NOISE, FM, RATIO ;
+ *     le melangeur et la FM : OSC 1, OSC 2, NOISE, FM, RATIO ; le SUB
+ *     (2026-10-10) s'y glisse apres NOISE : SUB, SUB OCT, SUB WAVE (la
+ *     rangee resserree au pas de 0.62, FM et RATIO poussees a droite) ;
  *   FILTER : CUTOFF en tres grand, RES et ENV AMT dessous, MODE en bas ;
  *   FILTER EG, AMP EG, MOD (DEPTH plus gros) : trois rangees de petits ;
  *   EFFECTS : quatre petits ; OUTPUT : VOLUME en grand.
@@ -190,11 +192,14 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   semi2: [DESK_OSC.semi, RB, 'm'],
   fine2: [DESK_OSC.fine, RB, 's'],
   on2: [DESK_OSC.on, RB, 'sw'],
-  osc1: [-5.55, RC, 's'],
-  osc2: [-4.75, RC, 's'],
-  noise: [-3.95, RC, 's'],
-  fm: [-2.95, RC, 'm'],
-  ratio: [-2.05, RC, 's'],
+  osc1: [-5.945, RC, 's'],
+  osc2: [-5.325, RC, 's'],
+  noise: [-4.705, RC, 's'],
+  sub: [-4.085, RC, 's'],
+  subOct: [-3.465, RC, 's'],
+  subWave: [-2.845, RC, 's'],
+  fm: [-2.17, RC, 'm'],
+  ratio: [-1.49, RC, 's'],
   cutoff: [DESK_FILTER_X, -0.5, 'xl'],
   res: [DESK_FILTER_X - 0.5, RB, 'm'],
   envAmt: [DESK_FILTER_X + 0.5, RB, 'm'],
@@ -241,10 +246,10 @@ const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
  * Portrait : trois zones :
  *   OSCILLATORS (2026-10-04, facon Mini V) : une rangee par oscillateur,
  *     son numero a gauche, WAVEFORM, RANGE, SEMI, FINE, ON et sa LED, puis
- *     FM (rangee 1) et RATIO (rangee 2) ; pas de crochet, les numeros
- *     disent les rangees ;
+ *     FM (rangee 1) et RATIO (rangee 2), puis SUB OCT et SUB WAVE au bout
+ *     (2026-10-10) ; pas de crochet, les numeros disent les rangees ;
  *   FILTER : CUTOFF en tres grand, RES, ENV AMT, MODE ; MIXER : OSC 1,
- *     OSC 2, NOISE ;
+ *     OSC 2, NOISE, SUB (2026-10-10, quatre petits) ;
  *   FILTER EG et MOD : une rangee de huit, sur toute la largeur.
  * Le plateau prend l'ecran et VOLUME, le transport, l'arpegiateur (RATE
  * MODE RANGE NOTES GATE OCTAVE GLIDE), AMP EG et EFFECTS (descendus du
@@ -255,7 +260,7 @@ const PORT_O1 = -2.15;
 const PORT_O2 = -0.72;
 const PORT_F = 0.78;
 const PORT_E1 = 2.32;
-const PORT_OSC = { badge: -3.66, wave: -2.95, range: -1.8, semi: -0.6, fine: 0.5, on: 1.5, fm: 2.8 } as const;
+const PORT_OSC = { badge: -3.66, wave: -2.95, range: -1.8, semi: -0.6, fine: 0.5, on: 1.5, fm: 2.3, sub: 3.2 } as const;
 /** Les huit colonnes des rangees de petits (deux groupes de quatre), panneau et plateau. */
 const PORT_EIGHT = [-3.3, -2.42, -1.54, -0.66, 0.56, 1.44, 2.32, 3.2] as const;
 const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
@@ -265,19 +270,22 @@ const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   fine1: [PORT_OSC.fine, PORT_O1, 's'],
   on1: [PORT_OSC.on, PORT_O1, 'sw'],
   fm: [PORT_OSC.fm, PORT_O1, 'm'],
+  subOct: [PORT_OSC.sub, PORT_O1, 's'],
   wave2: [PORT_OSC.wave, PORT_O2, 'sel'],
   range2: [PORT_OSC.range, PORT_O2, 's'],
   semi2: [PORT_OSC.semi, PORT_O2, 'm'],
   fine2: [PORT_OSC.fine, PORT_O2, 's'],
   on2: [PORT_OSC.on, PORT_O2, 'sw'],
   ratio: [PORT_OSC.fm, PORT_O2, 's'],
+  subWave: [PORT_OSC.sub, PORT_O2, 's'],
   cutoff: [-2.65, PORT_F + 0.15, 'xl'],
-  res: [-1.3, PORT_F, 'm'],
-  envAmt: [-0.35, PORT_F, 'm'],
-  fmode: [0.55, PORT_F, 'sw'],
-  osc1: [1.5, PORT_F, 'm'],
-  osc2: [2.4, PORT_F, 'm'],
-  noise: [3.25, PORT_F, 's'],
+  res: [-1.52, PORT_F, 'm'],
+  envAmt: [-0.66, PORT_F, 'm'],
+  fmode: [0.34, PORT_F, 'sw'],
+  osc1: [1.22, PORT_F, 's'],
+  osc2: [1.88, PORT_F, 's'],
+  noise: [2.54, PORT_F, 's'],
+  sub: [3.2, PORT_F, 's'],
   fA: [PORT_EIGHT[0], PORT_E1, 's'],
   fD: [PORT_EIGHT[1], PORT_E1, 's'],
   fS: [PORT_EIGHT[2], PORT_E1, 's'],
@@ -553,7 +561,7 @@ const padGroup = (): VoyGroup => ({
 export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
   ? [
       knobGroup('FILTER', ['cutoff', 'res', 'envAmt', 'fmode'], ['osc1']),
-      knobGroup('MIXER', ['osc1', 'osc2', 'noise'], ['cutoff']),
+      knobGroup('MIXER', ['osc1', 'osc2', 'noise', 'sub'], ['cutoff']),
       knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR'], ['lfoAmt']),
       knobGroup('MOD', ['lfoRate', 'lfoShape', 'lfoDest', 'lfoAmt'], ['fA']),
       knobGroup('AMP EG', ['aA', 'aD', 'aS', 'aR'], ['dist']),

@@ -371,6 +371,9 @@ voy:knob:fine2,voy,MM-ARP,FINE 2,value,,
 voy:knob:on2,voy,MM-ARP,OSC 2,value,2,ARP
 voy:knob:osc1,voy,MM-ARP,OSC 1,value,,ARP
 voy:knob:osc2,voy,MM-ARP,OSC 2,value,,ARP
+voy:knob:sub,voy,MM-ARP,SUB,value,,ARP
+voy:knob:subOct,voy,MM-ARP,SUB OCT,value,2,ARP
+voy:knob:subWave,voy,MM-ARP,SUB WAVE,value,3,
 voy:knob:fm,voy,MM-ARP,FM,value,,ARP
 voy:knob:ratio,voy,MM-ARP,RATIO,value,9,
 voy:knob:octave,voy,MM-ARP,OCTAVE,value,5,ARP
@@ -378,7 +381,7 @@ voy:knob:glide,voy,MM-ARP,GLIDE,value,,ARP
 voy:knob:cutoff,voy,MM-ARP,CUTOFF,value,,ARP LIVE
 voy:knob:res,voy,MM-ARP,RES,value,,ARP LIVE
 voy:knob:envAmt,voy,MM-ARP,ENV AMT,value,,ARP LIVE
-voy:knob:noise,voy,MM-ARP,NOISE,value,,ARP
+voy:knob:noise,voy,MM-ARP,NOISE,value,,
 voy:knob:fmode,voy,MM-ARP,MODE,value,4,ARP
 voy:knob:fA,voy,MM-ARP,ATTACK,value,,ARP
 voy:knob:fD,voy,MM-ARP,DECAY,value,,ARP LIVE
@@ -414,6 +417,9 @@ voy:pad:4,voy,MM-ARP,CHORD Bm,press,,ARP LIVE
 voy:pad:5,voy,MM-ARP,CHORD A,press,,ARP LIVE
 voy:pad:6,voy,MM-ARP,CHORD F#m7,press,,ARP LIVE
 voy:pad:7,voy,MM-ARP,CHORD Dmaj7,press,,ARP LIVE
+voy:subwave:0,voy,MM-ARP,SUB WAVE SINE,press,,ARP
+voy:subwave:1,voy,MM-ARP,SUB WAVE TRI,press,,ARP
+voy:subwave:2,voy,MM-ARP,SUB WAVE SQUARE,press,,ARP
 voy:run,voy,MM-ARP,RUN/STOP,press,,
 voy:running,voy,MM-ARP,RUN (ON / OFF),value,2,ARP MIXER LIVE
 voy:clear,voy,MM-ARP,CLEAR,press,,ARP
