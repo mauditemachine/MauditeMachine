@@ -9,8 +9,8 @@
  * chaque voix, la ligne de basse, le patch et les accords du synthe), plus
  * aucune ligne tiree au hasard. Les memes dix styles sur le MM-RYTM, le
  * MM-ARP et le MM-BASS (charger DARK DISCO sur les trois donne un morceau
- * qui tient), plus DEEP SUB pour la basse ; depuis le 2026-10-09 le MM-BASS
- * en a 35, chacun sa ligne (plus bas, la grosse liste). Tout est en fa diese
+ * qui tient), plus DEEP SUB pour la basse ; depuis le 2026-10-10 le MM-BASS
+ * en a 33, chacun son son et sa ligne (plus bas, la machine a bassline). Tout est en fa diese
  * mineur, la tonalite du site : les kicks sont accordes sur F# (un demi-ton), la basse
  * suit les accords du MM-ARP quand le style change d'accord (ROOT ARP).
  *
@@ -526,39 +526,41 @@ export function arpFactory(seqMax: number): { name: string; data: ArpFactory }[]
 /* ---------------- MM-BASS ---------------- */
 
 /*
- * La grosse liste du MM-BASS (2026-10-09, Mika : "dans BASS on doit avoir une
- * bonne grosse liste de presets ! Fais-en au moins 30 avec des placements de
- * notes differents"). 35 presets, chacun sa ligne de seize pas ecrite a la
- * main : aucune ne pose ses notes, ses silences et ses liaisons aux memes
- * pas qu'une autre (verifie hors ligne : les masques note / silence /
- * liaison sont tous differents, et deux lignes different toujours d'au moins
- * trois attaques). Ranges par style pour que PREV / NEXT les parcoure d'un
- * style a l'autre, le meilleur d'abord, le monde de Mika en tete (dark disco,
- * indie dance, minimale hypnotique, psy prog), puis italo, EBM, electro,
- * acid, techno, house, sub. Le premier de chaque style porte le nom du style
- * (le meme preset sur le MM-RYTM et le MM-ARP : les trois ensemble font un
- * morceau qui tient) ; les autres ont leur nom, douze lettres au plus.
+ * La machine a bassline (2026-10-10, Mika : "je veux dans PRESET des presets vraiment differents entre eux, JE VEUX
+ * QUE CE SOIT UNE MACHINE A BASSLINE ! et que ce soit simple pour en faire une super bonne simplement et je peux aller
+ * dans les details pour la custom"). Avant, 35 presets tires de treize recettes : trop se ressemblaient (MINIMAL,
+ * THREE STEP et GHOST NOTES presque pareils, la meme famille de patch d'un style a l'autre). Maintenant 33 presets,
+ * chacun son caractere et son patch complet (plus de recette partagee), nomme d'apres lui ; ensemble ils font le tour
+ * des basses de machine qu'attend un DJ de dark disco, d'indie dance, de minimale, d'italo, d'EBM, d'acid, de techno
+ * et de house : la scie grasse du Moog, le carre creux, l'impulsion nasale, le sinus du sub, les scies desaccordees
+ * (reese), la 303 qui couine (MODE 303), le pincement en caoutchouc, le funk aux accents, la basse liee qui glisse, le
+ * grondement de FEEDBACK et de DRIVE, la techno qui souffle, la basse de tete brillante, le dub qui flotte (DRIFT),
+ * l'octave italo, les doubles croches de l'EBM, le filtre qui s'ouvre lentement (F.ATTACK), le contour a l'envers
+ * (POLARITY NEG), les couleurs LP12, LP6 et BP, le bip aigu, l'orgue de la house. Chaque preset est une ligne finie
+ * des qu'il charge (son niveau, son tempo de style, ses effets) ; ses potards restent loin des butees, pour le
+ * retoucher.
  *
- * Les onze d'avant restent (leur son, lui, passe au moteur MONARK le meme jour, plus bas : les patchs Moog) : EBM perd trois doubles croches
- * (xxx. au lieu de toutes : elle tombait sur la meme grille que ITALO), ACID
- * une (la septieme avant le dernier accent), TECHNO remonte de 2 dB (sa crete
- * etait a -13 dBFS, sous la regle).
+ * Mesure hors ligne (jamais de son : le worklet du depot, la sequence de bass/seq.ts, quatre mesures au tempo du
+ * style) : un vecteur de traits par preset (brillance, aigus, grave, registre, grain, remplissage de la note,
+ * attaque, creux des harmoniques impaires, mouvement du filtre, sonie, espace des effets) et sa ligne (attaques,
+ * tenues, accents, slides, hauteurs), sur des echelles ou 1.0 est un ecart net sur un axe. La paire la plus proche
+ * est a 2.80 (avant : 0.72, dix-huit paires sous 2.0 ; MINIMAL, THREE STEP et GHOST NOTES, que Mika entendait
+ * pareils, etaient entre 2.0 et 2.2) ; deux lignes ont toujours au moins cinq points d'ecart (une attaque de plus ou
+ * de moins compte un point), et chaque ligne a son masque note / silence / liaison a elle.
  *
- * Les tonalites : fa diese mineur presque partout (les kicks y sont
- * accordes, le MM-ARP y joue) ; ARP sur les lignes qui tiennent sur la
- * tonique (elles suivent les accords) ; la couleur phrygienne la ou la ligne
- * joue la note qui change (le sol bequarre de CURSED KISS et STEEL BOOTS).
- * Une couleur de gamme sur une tonique fixe frotte contre les accords du
- * MM-ARP de son style (un accord par mesure ; 2026-10-09, la revue : le re
- * diese dorien de WAREHOUSE contre le re de Dmaj7 et de Bm, le mi diese
- * harmonique de COSMIC LOVE contre le mi de A et de E, le sol de CURSED KISS
- * contre le sol diese de E) : ces trois-la suivent les accords (ARP), en
- * mineur ou en phrygien, les deux seules gammes ou ARP tombe toujours sur la
- * racine de l'accord (en DORIAN, la racine re donnerait do diese ; en
- * HARMONIC, mi donnerait re). Quatre lignes sur une
- * autre tonique, toujours dans les notes de fa diese mineur (une pedale :
- * GHOST NOTES sur la, DEEP CUT sur do diese, DUB CHAMBER sur re, SUB PULSE
- * sur si ; leurs lignes n'y jouent que la tonique et la quinte).
+ * Ranges par style pour que PREV / NEXT les parcoure d'un style a l'autre, le monde de Mika en tete (dark disco,
+ * indie dance), puis l'acid, la techno, la minimale, l'italo, l'EBM, l'electro, la house, la psy prog, le sub ; dans
+ * chaque style le plus fort d'abord. Le premier de chaque style porte le nom du style (le meme preset sur le MM-RYTM
+ * et le MM-ARP : les trois ensemble font un morceau qui tient) et sa ligne est la prise 01 du potard STYLE ; les
+ * autres portent le nom de leur caractere, douze lettres au plus (les noms d'avant restent la ou ils disent encore le
+ * son).
+ *
+ * Les tonalites : fa diese mineur presque partout (les kicks y sont accordes, le MM-ARP y joue) ; ARP sur les lignes
+ * qui tiennent sur la tonique (elles suivent les accords du MM-ARP de leur style), en mineur ou en phrygien, les deux
+ * seules gammes ou ARP tombe toujours sur la racine de l'accord (2026-10-09, la revue : en DORIAN, la racine re
+ * donnerait do diese ; en HARMONIC, mi donnerait re). Trois lignes sur une autre tonique, toujours dans les notes de fa
+ * diese mineur (une pedale : DEEP CUT sur do diese, DUB CHAMBER sur re, SUB PULSE sur si ; leurs lignes n'y jouent que
+ * la tonique et la quinte).
  */
 
 interface BassGenre {
@@ -634,30 +636,34 @@ const BU = {
 } as const;
 
 /*
- * Les patchs Moog des presets (2026-10-09, Mika : "je veux vraiment un son a la MONARK de Native Instruments !
- * BASS doit etre vraiment bon ! et les presets vraiment excellents !") : treize recettes de Model D (sound.md
- * section 8), en unites reelles par BU ; chaque preset MONARK part d'une d'elles et y pose ses ecarts. Les regles :
- * la resonance basse (la brillance vient du contour et d'un cutoff bas), le gras par LOAD (DRIVE) et les trois
- * niveaux du melangeur (pas par SUB), le desaccord seulement entre OSC 1 et OSC 2, OSC 3 a 32' pour le poids,
- * l'ampli plus long que le contour du filtre, KEY TRK a 1/3 sur les lignes qui sautent d'octave. DECAY, AMP DECAY et
- * RELEASE sont des constantes de temps (un temps a -40 dB du Model D de T ms : T / 4.6). Ce que la recette ne dit
- * pas : F.ATTACK 0.5 ms (0), POLARITY POS, SEMI 0, SUB OCT -1, TUNE 0, ACC DECAY 200 ms ; un oscillateur coupe :
- * son niveau a 0. Le grave le plus bas d'un preset ne descend jamais sous 30 Hz (OSC 3 a 32' avec OCTAVE -1 y
- * passerait : ces presets-la mettent leur oscillateur grave a 16').
+ * Les patchs (2026-10-10) : chaque preset ecrit le sien en entier, en unites reelles (BU), par quatre aides qui se
+ * lisent comme la face : OSC 1, OSC 2, OSC 3 (forme, pieds, niveau, cents, demi-tons), le filtre (MODE, CUTOFF en Hz,
+ * EMPH, ENV MOD en octaves, DECAY en constante de temps, F.SUSTAIN, KEY TRK), l'ampli (ATTACK, AMP DECAY vers SUSTAIN,
+ * RELEASE, en ms). Ce qu'un preset ne dit pas : BASE (OSC 2 et OSC 3 coupes, NOISE, FEEDBACK, F.ATTACK et SUB a 0,
+ * POLARITY POS, SEMI 0, SUB OCT -1, TUNE 0, ACC DECAY 200 ms, les effets a leur def). Le grave le plus bas d'un preset
+ * ne descend jamais sous 30 Hz (OSC 3 a 32' sous une note grave, ou le SUB sous OCTAVE -1, y passeraient : ces
+ * presets-la gardent leur oscillateur grave a 16').
  */
 type Patch = Partial<Record<BassKnobId, number>>;
-const MOOG_BASE: Patch = {
-  fmode: BU.mode('LP24'),
-  wave: 0,
-  pw: 0,
-  o2wave: BU.wave('SAW'),
-  o2range: BU.range("16'"),
-  o2semi: BU.semi(0),
-  o2fine: BU.fine(0),
-  o3wave: BU.wave('SQR'),
-  o3range: BU.range("32'"),
-  o3semi: BU.semi(0),
-  o3fine: BU.fine(0),
+type Wave = 'TRI' | 'SHARK' | 'REV SAW' | 'SAW' | 'SQR' | 'WIDE' | 'NARROW';
+type Feet = "32'" | "16'" | "8'" | "4'";
+/**
+ * OSC 1 : la scie ou le carre, et son niveau. Toujours a PW 50 % : une impulsion d'OSC 1 porte du continu
+ * (bass.worklet.js ne le retire que sur OSC 2 et OSC 3), des coups sous 25 Hz a chaque note ; les impulsions etroites
+ * passent par OSC 2 et OSC 3 (WIDE, NARROW)
+ */
+const o1 = (w: 'SAW' | 'SQR', lvl: number): Patch => ({ wave: w === 'SQR' ? 1 : 0, pw: 0, o1lvl: lvl });
+/** OSC 2 : sa forme, ses pieds, son niveau, ses cents, ses demi-tons */
+const o2 = (w: Wave, ft: Feet, lvl: number, ct = 0, st = 0): Patch => ({ o2wave: BU.wave(w), o2range: BU.range(ft), o2lvl: lvl, o2fine: BU.fine(ct), o2semi: BU.semi(st) });
+/** OSC 3 : la meme chose (REV SAW a la place de SHARK) */
+const o3 = (w: Wave, ft: Feet, lvl: number, ct = 0, st = 0): Patch => ({ o3wave: BU.wave(w), o3range: BU.range(ft), o3lvl: lvl, o3fine: BU.fine(ct), o3semi: BU.semi(st) });
+/** Le filtre : MODE, CUTOFF (Hz), EMPH, ENV MOD (octaves), DECAY (constante de temps, ms), F.SUSTAIN, KEY TRK */
+const flt = (mode: BassMode, hz: number, e: number, oct: number, tau: number, sus: number, kt: number): Patch => ({ fmode: BU.mode(mode), cutoff: BU.cut(hz), reso: BU.emph(e), envmod: BU.env(oct), decay: BU.tau(tau), fsustain: sus, keytrack: kt });
+/** L'ampli : ATTACK, AMP DECAY (vers SUSTAIN), SUSTAIN, RELEASE (ms) */
+const amp = (a: number, d: number, s: number, r: number): Patch => ({ attack: BU.atk(a), adecay: BU.adec(d), sustain: s, release: BU.rel(r) });
+const BASE: Patch = {
+  ...o2('SAW', "16'", 0),
+  ...o3('SQR', "32'", 0),
   noise: 0,
   feedback: 0,
   fattack: 0,
@@ -667,195 +673,160 @@ const MOOG_BASE: Patch = {
   suboct: 0,
   tune: 0.5,
 };
-/** OSC 1 en carre (WAVE 1, PW 0 : 50 %), ou en impulsion large (PW 70 %). */
-const O1_SQR: Patch = { wave: 1, pw: 0 };
-const O1_WIDE: Patch = { wave: 1, pw: BU.pw(70) };
-const PATCH = {
-  /** MM CLASSIC, la basse Moog d'ecole (le patch de depart, les defs de bass/params.ts) : deux scies a 5 cents, le carre a 32' */
-  CLASSIC: { ...MOOG_BASE, o1lvl: 0.9, o2fine: BU.fine(5), o2lvl: 0.8, o3fine: BU.fine(-3), o3lvl: 0.6, drive: 0.55, cutoff: BU.cut(140), reso: BU.emph(0.2), envmod: BU.env(2.6), decay: BU.tau(56.5), fsustain: 0.15, keytrack: 0.33, attack: BU.atk(1), adecay: BU.adec(130.4), sustain: 0.85, release: BU.rel(20), accent: 0.5, sweep: 0.15, glide: BU.glide(39.1), drift: 0.4 },
-  /** NIGHT BASS : scie, carre a -7 cents, scie a 32', plus de LOAD et de contour, l'ampli qui retombe (le galop) */
-  NIGHT: { ...MOOG_BASE, o1lvl: 0.8, o2wave: BU.wave('SQR'), o2fine: BU.fine(-7), o2lvl: 0.6, o3wave: BU.wave('SAW'), o3lvl: 0.5, drive: 0.65, cutoff: BU.cut(110), reso: BU.emph(0.3), envmod: BU.env(3), decay: BU.tau(39), fsustain: 0.1, keytrack: 0.33, attack: BU.atk(1), adecay: BU.adec(76), sustain: 0.6, release: BU.rel(20), accent: 0.6, sweep: 0.2, glide: BU.glide(39), drift: 0.4 },
-  /** PUNK FUNK : deux scies a 12 cents (large), LOAD haut, FEEDBACK chaud, un souffle pour l'attaque du mediator */
-  PUNK: { ...MOOG_BASE, o1lvl: 0.9, o2fine: BU.fine(12), o2lvl: 0.8, o3lvl: 0, noise: 0.05, drive: 0.8, feedback: 0.35, cutoff: BU.cut(300), reso: BU.emph(0.15), envmod: BU.env(2.2), decay: BU.tau(30), fsustain: 0.2, keytrack: 0.67, attack: BU.atk(1), adecay: BU.adec(54), sustain: 0.5, release: BU.rel(18), accent: 0.6, sweep: 0.2, glide: BU.glide(39), drift: 0.4 },
-  /** BLOOP : le triangle rond, un peu de carre, un contour court et ample, KEY TRK plein (la minimale) */
-  BLOOP: { ...MOOG_BASE, ...O1_SQR, o1lvl: 0.3, o2wave: BU.wave('TRI'), o2lvl: 1, o3lvl: 0, drive: 0.3, cutoff: BU.cut(90), reso: BU.emph(0.45), envmod: BU.env(3.5), decay: BU.tau(20), fsustain: 0, keytrack: 1, attack: BU.atk(1), adecay: BU.adec(43), sustain: 0.3, release: BU.rel(25), accent: 0.5, sweep: 0.1, glide: BU.glide(39), drift: 0.3 },
-  /** MUNICH : deux scies a l'octave (16' et 8', Moroder), le filtre plus haut, des notes courtes */
-  MUNICH: { ...MOOG_BASE, o1lvl: 0.9, o2range: BU.range("8'"), o2lvl: 0.5, o3lvl: 0, drive: 0.45, cutoff: BU.cut(400), reso: BU.emph(0.2), envmod: BU.env(2), decay: BU.tau(26), fsustain: 0.2, keytrack: 0.67, attack: BU.atk(1), adecay: BU.adec(39), sustain: 0.4, release: BU.rel(15), accent: 0.45, sweep: 0.1, glide: BU.glide(30), drift: 0.3 },
-  /** BODY : deux scies a -9 cents, le carre a 32', LOAD presque au bout, FEEDBACK qui gratte, tout court (l'EBM) */
-  BODY: { ...MOOG_BASE, o1lvl: 0.9, o2fine: BU.fine(-9), o2lvl: 0.8, o3lvl: 0.6, drive: 0.9, feedback: 0.25, cutoff: BU.cut(180), reso: BU.emph(0.25), envmod: BU.env(2.8), decay: BU.tau(24), fsustain: 0, keytrack: 0.33, attack: BU.atk(0.5), adecay: BU.adec(30), sustain: 0.6, release: BU.rel(10), accent: 0.6, sweep: 0.2, glide: BU.glide(25), drift: 0 },
-  /** MOOG ACID : une scie seule, l'emphase haute, l'accent qui pousse (l'acid sur un Moog, pas une 303) */
-  ACID: { ...MOOG_BASE, o1lvl: 1, o2lvl: 0, o3lvl: 0, drive: 0.4, cutoff: BU.cut(220), reso: BU.emph(0.85), envmod: BU.env(3.2), decay: BU.tau(65), fsustain: 0, keytrack: 0.33, attack: BU.atk(1), adecay: BU.adec(130), sustain: 0.9, release: BU.rel(20), accent: 0.8, sweep: 0.4, glide: BU.glide(60), drift: 0.3 },
-  /** DEEP SUB : le triangle et une scie douce a 32', le filtre presque ferme, l'ampli plein, un glide lent */
-  SUB: { ...MOOG_BASE, o1lvl: 0, o2wave: BU.wave('TRI'), o2lvl: 1, o3wave: BU.wave('SAW'), o3lvl: 0.35, drive: 0.25, cutoff: BU.cut(70), reso: BU.emph(0), envmod: BU.env(1.2), decay: BU.tau(87), fsustain: 0.3, keytrack: 0.33, attack: BU.atk(3), adecay: BU.adec(435), sustain: 1, release: BU.rel(60), accent: 0.2, sweep: 0, glide: BU.glide(150), drift: 0.1, sub: 0.3 },
-  /** SHARK : la forme mi triangle mi scie, un triangle a +4 cents, une pointe de SUB : chaud (la house, le velours) */
-  SHARK: { ...MOOG_BASE, o1lvl: 0.4, o2wave: BU.wave('SHARK'), o2lvl: 0.9, o3wave: BU.wave('TRI'), o3range: BU.range("16'"), o3fine: BU.fine(4), o3lvl: 0.5, drive: 0.6, cutoff: BU.cut(200), reso: BU.emph(0.35), envmod: BU.env(2.2), decay: BU.tau(43), fsustain: 0.2, keytrack: 0.33, attack: BU.atk(2), adecay: BU.adec(87), sustain: 0.7, release: BU.rel(30), accent: 0.4, sweep: 0.15, glide: BU.glide(60), drift: 0.5, sub: 0.15 },
-  /** HOLLOW : le carre creux et une impulsion etroite a 8', le filtre ouvert (la new wave, l'electro) */
-  HOLLOW: { ...MOOG_BASE, ...O1_SQR, o1lvl: 0.9, o2wave: BU.wave('NARROW'), o2range: BU.range("8'"), o2lvl: 0.5, o3lvl: 0, drive: 0.5, cutoff: BU.cut(350), reso: BU.emph(0.3), envmod: BU.env(1.8), decay: BU.tau(35), fsustain: 0.25, keytrack: 0.67, attack: BU.atk(1), adecay: BU.adec(65), sustain: 0.6, release: BU.rel(20), accent: 0.5, sweep: 0.15, glide: BU.glide(39), drift: 0.3 },
-  /** SWELL : deux scies a 6 cents, le filtre haut et le contour NEG (il se creuse, puis revient : le pincement a l'envers) */
-  SWELL: { ...MOOG_BASE, o1lvl: 0.9, o2fine: BU.fine(6), o2lvl: 0.7, o3lvl: 0, drive: 0.5, cutoff: BU.cut(1200), reso: BU.emph(0.3), envmod: BU.env(2), fpol: BU.pol('NEG'), decay: BU.tau(54), fsustain: 0, keytrack: 0.33, attack: BU.atk(1), adecay: BU.adec(87), sustain: 0.7, release: BU.rel(30), accent: 0.4, sweep: 0, glide: BU.glide(39), drift: 0.4 },
-  /** GROWL : scie et carre a 32', LOAD et FEEDBACK hauts, un souffle (le grondement techno) */
-  GROWL: { ...MOOG_BASE, o1lvl: 0.9, o2wave: BU.wave('SQR'), o2range: BU.range("32'"), o2lvl: 0.7, o3lvl: 0, noise: 0.08, drive: 0.8, feedback: 0.6, cutoff: BU.cut(160), reso: BU.emph(0.2), envmod: BU.env(2.4), decay: BU.tau(33), fsustain: 0.1, keytrack: 0.33, attack: BU.atk(1), adecay: BU.adec(65), sustain: 0.7, release: BU.rel(20), accent: 0.6, sweep: 0.2, glide: BU.glide(39), drift: 0.2 },
-  /** PING : les oscillateurs presque fermes, l'echelle au bord de l'auto-oscillation : chaque note fait sonner le filtre */
-  PING: { ...MOOG_BASE, o1lvl: 0.1, o2wave: BU.wave('TRI'), o2lvl: 0.1, o3lvl: 0, drive: 0.2, cutoff: BU.cut(92), reso: BU.emph(0.9), envmod: BU.env(1.5), decay: BU.tau(17), fsustain: 0, keytrack: 1, attack: BU.atk(0.5), adecay: BU.adec(26), sustain: 0, release: BU.rel(20), accent: 0.6, sweep: 0, glide: BU.glide(39), drift: 0.2 },
-} as const;
+/**
+ * MM CLASSIC, la basse Moog d'ecole : le patch de depart de la machine (les defs de bass/params.ts, une premiere visite
+ * sonne comme DARK DISCO) ; deux scies a 5 cents, le carre a 32', LOAD 0.55, le filtre a 140 Hz qui pince
+ */
+const CLASSIC: Patch = { ...BASE, ...o1('SAW', 0.9), ...o2('SAW', "16'", 0.8, 5), ...o3('SQR', "32'", 0.6, -3), drive: 0.55, cutoff: BU.cut(140), reso: BU.emph(0.2), envmod: BU.env(2.6), decay: BU.tau(56.5), fsustain: 0.15, keytrack: 0.33, attack: BU.atk(1), adecay: BU.adec(130.4), sustain: 0.85, release: BU.rel(20), accent: 0.5, sweep: 0.15, glide: BU.glide(39.1), drift: 0.4, fmode: BU.mode('LP24') };
 
 const BASS: readonly BassGenre[] = [
   /* ---- DARK DISCO (118 BPM) : le disco lent et lourd, entre italo, new wave et EBM ---- */
-  // Le galop (x.xx) et l'octave sur la derniere double croche de chaque temps, une relance en fin de mesure.
-  // MM CLASSIC tel quel : le son de depart de la machine (une premiere visite sonne comme A01)
-  { name: 'DARK DISCO', style: 'DARK DISCO', p: { ...PATCH.CLASSIC, volume: 0.78, density: 0.6, slides: 0.1, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A . 0 0+  0 . 0 0+  0A . 0 0+  0 . 6 4' },
-  // La basse qui pompe entre les kicks (le "et"), l'octave apres le deuxieme, et une montee quinte grave, sixte,
-  // septieme sur le dernier temps qui ramene la tonique. NIGHT BASS : scie, carre, scie a 32', LOAD pousse, un echo
-  // court ; l'ampli tenu (SUSTAIN 0.85, RELEASE 90 ms) : six notes seulement, elles gardent le poids du style
-  { name: 'NIGHT DRIVE', style: 'DARK DISCO', p: { ...PATCH.NIGHT, adecay: BU.adec(120), sustain: 0.85, accent: 0.5, drive: 0.7, release: BU.rel(90), delay: 0.08, dtime: BU.dt['1/8'], dfb: BU.fb(25), volume: 0.873, density: 0.55, slides: 0.15, accents: 0.35 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '. . 0 .  . . 0A 0+  . . 0 .  . 4_ 5_S 6_' },
-  // Des notes tenues qui se lient et glissent : la tonique longue, l'octave, la tierce sur le "et", la quinte et
-  // la quarte qui glisse vers le temps suivant. SHARK en velours : une attaque douce, un glide plus lent, DRIFT haut,
-  // un contour faible et lent (F.ATTACK 8 ms, DECAY 120 ms) : un preset tenu, sans pincement
-  { name: 'VELVET DISCO', style: 'DARK DISCO', p: { ...PATCH.SHARK, envmod: BU.env(1.1), decay: BU.tau(120), fsustain: 0.35, fattack: BU.atk(8), glide: BU.glide(77), attack: BU.atk(4), release: BU.rel(60), keytrack: 0.3, drift: 0.6, reverb: 0.06, rsize: BU.rsize(1.6), volume: 1.0, density: 0.45, slides: 0.35, accents: 0.15 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 - - 0+  . 0 2 -  - 0 - 0+  . 4 - 3S' },
-  // La menace phrygienne : la seconde mineure (sol) qui frotte contre la tonique, l'octave a contretemps, la
-  // quinte grave et le sol qui redescend en glissant sur le temps. ARP (2026-10-09, la revue : en fa diese fixe, le sol
-  // frottait contre le sol diese de l'accord de mi) : la ligne suit les accords, le sol ne sonne que sur fa diese.
-  // MOOG ACID adouci : une seconde scie a +7 cents, l'emphase a mi-course, LOAD haut, des accents qui mordent
-  { name: 'CURSED KISS', style: 'DARK DISCO', p: { ...PATCH.ACID, o2fine: BU.fine(7), o2lvl: 0.4, reso: BU.emph(0.55), drive: 0.7, accent: 0.75, sweep: 0.6, accdecay: BU.accd(160), keytrack: 0.15, volume: 0.708, density: 0.6, slides: 0.2, accents: 0.45 }, octave: 0, range: 2, scale: 'PHRYGIAN', root: 'ARP', line: '0A . 1 0  . 0 0+ .  0A . 1 0  . 0+ 4_ 1S' },
-  // La cadence andalouse qui descend, un accord par temps (fa diese, mi, re, do diese) : le grave sur le temps,
-  // l'octave sur sa derniere double croche. HOLLOW : le carre creux et l'impulsion a 8', un echo pointe
-  { name: 'DESCENT', style: 'DARK DISCO', p: { ...PATCH.HOLLOW, keytrack: 0.35, delay: 0.1, dtime: BU.dt['3/16'], dfb: BU.fb(30), volume: 0.81, density: 0.55, slides: 0.1, accents: 0.35 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A . . 0+  6_A . . 6  5_A . . 5  4_A . 4 4_' },
-  // Elle esquive le premier temps : "e" et "et" en octave, l'accent sur les temps 2 et 4, la septieme et la quinte
-  // graves pour finir. SWELL : le contour NEG creuse chaque note, l'ampli pince, l'accent plus fort (le NEG l'assombrit).
-  // Sans l'impulsion large du cahier sur OSC 1 : a PW 70 % elle porte du continu (bass.worklet.js ne le retire que sur
-  // OSC 2 et OSC 3), des coups sous 25 Hz a chaque note
-  { name: 'BLACK SATIN', style: 'DARK DISCO', p: { ...PATCH.SWELL, accent: 0.7, adecay: BU.adec(54), sustain: 0.55, release: BU.rel(30), volume: 0.947, density: 0.55, slides: 0.15, accents: 0.4 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '. 0 0+ .  0A . . 0  . 0 0+ .  0A . 6_ 4_' },
+  // LA SCIE GRASSE. Le galop (x.xx) et l'octave sur la derniere double croche de chaque temps, une relance en fin de
+  // mesure ; MM CLASSIC tel quel
+  { name: 'DARK DISCO', style: 'DARK DISCO', p: { ...CLASSIC, volume: 0.78, slides: 0.1, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A . 0 0+  0 . 0 0+  0A . 0 0+  0 . 6 4' },
+  // LE CONTOUR A L'ENVERS (POLARITY NEG) : chaque note part sombre (le filtre plonge de 3.5 octaves sous 2 kHz) et
+  // s'ouvre en 70 ms, un "wouah" qui fleurit ; la ligne esquive le premier temps, l'accent sur 2 et 4, des notes
+  // longues (LENGTH 75 %) pour l'entendre s'ouvrir
+  { name: 'BLACK SATIN', style: 'DARK DISCO', p: { ...BASE, ...o1('SAW', 0.9), ...o2('SAW', "16'", 0.7, 7), ...flt('LP24', 2000, 0.35, 3.5, 70, 0, 0.33), fpol: BU.pol('NEG'), ...amp(1, 150, 0.6, 30), drive: 0.6, accent: 0.6, sweep: 0, glide: BU.glide(39), drift: 0.4, length: BU.len(75), volume: 0.843, slides: 0.15, accents: 0.4 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '. 0 0+ .  0A . . 0  . 0 0+ .  0A . 6_ 4_' },
+  // LE FILTRE QUI S'OUVRE LENTEMENT : F.ATTACK 350 ms, de longues notes (six, quatre, deux pas) qui gonflent, l'emphase
+  // (0.6) qui chante pendant l'ouverture ; scie, carre a -6 cents, scie a 32', une reverbe courte
+  { name: 'SWELL', style: 'DARK DISCO', p: { ...BASE, ...o1('SAW', 0.9), ...o2('SQR', "16'", 0.6, -6), ...o3('SAW', "32'", 0.4, 3), ...flt('LP24', 70, 0.6, 4.2, 900, 0.6, 0.33), fattack: BU.atk(350), ...amp(4, 900, 1, 120), drive: 0.6, accent: 0.3, sweep: 0, glide: BU.glide(80), drift: 0.5, reverb: 0.06, rsize: BU.rsize(2.5), volume: 0.775, slides: 0.1, accents: 0.15 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 - - -  - - . 0+  - - - .  6_ - 4_ -' },
+  // L'EMPHASE QUI MORD (LP12) : la menace phrygienne, la seconde mineure (sol) qui frotte contre la tonique, l'octave a
+  // contretemps ; une scie et une impulsion large, LP12 a l'emphase haute (0.78), LOAD pousse, des accents qui
+  // balaient le filtre (SWEEP), des notes assez longues (LENGTH 70 %) pour que la resonance chante. ARP (2026-10-09,
+  // la revue : en fa diese fixe, le sol frottait contre le sol diese de l'accord de mi)
+  { name: 'CURSED KISS', style: 'DARK DISCO', p: { ...BASE, ...o1('SAW', 1), ...o2('WIDE', "16'", 0.4, 3), ...flt('LP12', 160, 0.78, 3.3, 75, 0.05, 0.4), ...amp(1, 220, 0.7, 30), drive: 0.75, accent: 0.85, sweep: 0.6, accdecay: BU.accd(160), glide: BU.glide(50), drift: 0.3, length: BU.len(70), volume: 0.863, slides: 0.2, accents: 0.45 }, octave: 0, range: 2, scale: 'PHRYGIAN', root: 'ARP', line: '0A . 1 0  . 0 0+ .  0A . 1 0  . 0+ 4_ 1S' },
 
   /* ---- INDIE DANCE (122 BPM) : l'energie rock et new wave sur une grille club ---- */
-  // Des croches qui poussent, l'octave accentuee sur le "et", une relance tierce, quinte. PUNK FUNK : large et sale
-  // (LOAD 0.6, SUSTAIN 0.4 : le niveau des autres du style)
-  { name: 'INDIE DANCE', style: 'INDIE DANCE', p: { ...PATCH.PUNK, drive: 0.6, sustain: 0.4, volume: 0.743, density: 0.65, slides: 0.15, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 . 0+A 0  0 . 0+A .  0 0 0+A .  0 2 0+A 4' },
-  // Le tresillo du nu disco (3 + 3 + 2 par demi-mesure) : la tonique, l'octave sur la derniere double croche, la
-  // septieme grave qui relance. MUNICH : les scies a l'octave, des notes un peu plus longues, un echo en croches,
-  // l'ampli de l'indie (65 ms vers 0.5)
-  { name: 'NEON HEART', style: 'INDIE DANCE', p: { ...PATCH.MUNICH, adecay: BU.adec(65), sustain: 0.5, drive: 0.55, length: BU.len(60), delay: 0.06, dtime: BU.dt['1/8'], dfb: BU.fb(20), volume: 0.863, density: 0.5, slides: 0.1, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A . . 0+  . . 0 .  0A . . 0+  . . 6_ 0' },
-  // Le disco punk : des doubles croches funk, l'octave sur le "e" du deuxieme temps, la tierce sur le "et" du
-  // troisieme, la quinte puis la quarte qui glisse vers le premier temps ; les accents sur les temps 1 et 4.
-  // GROWL plus propre : FEEDBACK 0.3, LOAD 0.65 (l'accent passe encore la saturation ; celui du premier temps est la
-  // cible du slide du pas 16, sans nouvelle attaque), un souffle pour le mediator, l'ampli tenu
-  { name: 'DISCO PUNK', style: 'INDIE DANCE', p: { ...PATCH.GROWL, feedback: 0.3, drive: 0.65, accent: 0.9, adecay: BU.adec(90), sustain: 0.85, noise: 0.06, release: BU.rel(40), keytrack: 0.25, volume: 0.732, density: 0.55, slides: 0.2, accents: 0.35 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A . . 0  . 0+ . 0  . . 2 .  0+A . 4 3S' },
-  // Le slow burn : quatre notes longues qui chantent (tonique, octave, quinte, quarte), la tierce qui glisse vers
-  // la tonique. DEEP SUB qui s'ouvre un peu : une attaque douce, un glide lent, DRIFT haut, delai et reverbe
-  { name: 'SLOW BURN', style: 'INDIE DANCE', p: { ...PATCH.SUB, cutoff: BU.cut(90), reso: BU.emph(0.15), glide: BU.glide(130), attack: BU.atk(12), release: BU.rel(90), drift: 0.6, delay: 0.07, dtime: BU.dt['3/8'], dfb: BU.fb(35), reverb: 0.1, rsize: BU.rsize(2.5), rtone: BU.rtone(3000), volume: 0.896, density: 0.35, slides: 0.4, accents: 0.1 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 - - -  . . 0+ -  4 - - .  3 - 2S 0' },
-  // La synth pop : deux doubles croches et un trou (grave, octave, rien, grave), sur la tonique, la tierce, la
-  // quinte. HOLLOW en LP12 (le bourdonnement), court, un echo en croches ; l'ampli qui retombe vite (35 ms vers 0.15) :
-  // la ligne la plus dense du style ne sonne pas plus fort que les autres
-  { name: 'NEW ROMANCE', style: 'INDIE DANCE', p: { ...PATCH.HOLLOW, fmode: BU.mode('LP12'), envmod: BU.env(2.2), adecay: BU.adec(35), sustain: 0.15, drive: 0.35, keytrack: 0.35, length: BU.len(40), delay: 0.07, dtime: BU.dt['1/8'], dfb: BU.fb(20), volume: 0.941, density: 0.8, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 0+ . 0  0 0+ . 0  2 2+ . 2  4 4+ . 3' },
+  // LA SCIE BRUTE (LP6) : le filtre a 6 dB par octave laisse passer tout le haut, deux scies a 14 cents, LOAD presque
+  // au bout, FEEDBACK chaud, un souffle de mediator ; des croches qui poussent, l'octave accentuee sur le "et"
+  { name: 'INDIE DANCE', style: 'INDIE DANCE', p: { ...BASE, ...o1('SAW', 0.9), ...o2('SAW', "16'", 0.8, 14), noise: 0.06, ...flt('LP6', 220, 0.1, 2.5, 45, 0.25, 0.67), ...amp(1, 90, 0.45, 20), drive: 0.85, feedback: 0.3, accent: 0.6, sweep: 0.2, glide: BU.glide(39), drift: 0.5, volume: 0.807, slides: 0.15, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 . 0+A 0  0 . 0+A .  0 0 0+A .  0 2 0+A 4' },
+  // L'IMPULSION NASALE : une impulsion etroite (NARROW) et une large a 8' dans le passe-bande (BP) a 700 Hz, le "nez"
+  // de la new wave, un SUB propre dessous pour le poids ; le tresillo du nu disco (3 + 3 + 2), un echo en croches
+  { name: 'NEON HEART', style: 'INDIE DANCE', p: { ...BASE, ...o1('SQR', 0.3), ...o2('NARROW', "16'", 0.9), ...o3('WIDE', "8'", 0.3, 5), ...flt('BP', 700, 0.4, 1, 70, 0.45, 0.67), sub: 0.35, ...amp(1, 200, 0.85, 25), drive: 0.6, accent: 0.5, sweep: 0.15, glide: BU.glide(39), drift: 0.3, delay: 0.06, dtime: BU.dt['1/8'], dfb: BU.fb(20), volume: 0.784, slides: 0.1, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A . . 0+  . . 0 .  0A . . 0+  . . 6_ 0' },
+  // LE FUNK : des doubles croches qui claquent, l'accent au maximum (le niveau et le contour sautent) et le SWEEP qui
+  // charge, les notes fantomes dessous ; deux carres et le carre a 32' pour le poids, un contour enorme et tres court
+  // (+4.2 octaves, 22 ms) pour le claquement, LOAD modere (l'accent passe au-dessus)
+  { name: 'DISCO PUNK', style: 'INDIE DANCE', p: { ...BASE, ...o1('SQR', 0.9), ...o2('SQR', "16'", 0.6, -4), ...o3('SQR', "32'", 0.3), ...flt('LP24', 300, 0.3, 4.2, 22, 0.1, 0.5), ...amp(0.5, 150, 0.5, 15), drive: 0.55, feedback: 0.2, accent: 1, sweep: 0.6, accdecay: BU.accd(140), glide: BU.glide(39), drift: 0.3, volume: 0.586, slides: 0.2, accents: 0.35 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A . . 0  . 0+A . 0  . . 2 .  0+A . 4 3S' },
+  // LA BASSE QUI GLISSE : des notes tenues reliees par des glissements lents (GLIDE 140 ms par octave), tonique,
+  // octave qui glisse vers la quinte, la quarte vers la tierce, la tonique vers la quinte grave ; scie et triangle,
+  // l'ampli plein, DRIFT haut, un echo long
+  { name: 'SLOW BURN', style: 'INDIE DANCE', p: { ...BASE, ...o1('SAW', 0.7), ...o2('TRI', "16'", 0.9, 4), ...flt('LP24', 140, 0.2, 1.2, 300, 0.6, 0.33), fattack: BU.atk(20), ...amp(6, 1500, 1, 120), drive: 0.5, accent: 0.3, sweep: 0, glide: BU.glide(140), drift: 0.6, delay: 0.07, dtime: BU.dt['3/8'], dfb: BU.fb(35), reverb: 0.08, rsize: BU.rsize(2.5), rtone: BU.rtone(3000), volume: 0.865, slides: 0.4, accents: 0.1 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 - - 0+S  4 - - 3S  2 - - 0S  4_ - - .' },
 
-  /* ---- MINIMAL (125 BPM, swing lourd) : la minimale hypnotique, presque rien sur les temps ---- */
-  // Quatre notes rondes entre les kicks, la derniere sur la septieme ; une octave plus bas. BLOOP, le filtre a 120 Hz
-  // (KEY TRK plein : une octave plus bas, a 90 Hz il se refermait sur la fondamentale), un RELEASE de 70 ms qui arrondit
-  { name: 'MINIMAL', style: 'MINIMAL', p: { ...PATCH.BLOOP, cutoff: BU.cut(120), accent: 0.6, attack: BU.atk(3), adecay: BU.adec(50), release: BU.rel(70), volume: 0.946, density: 0.35, slides: 0.05, accents: 0.2 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. . . 0  . . 0A .  . . . 0  . . 6 .' },
-  // Une seule note, sur les "e" (le swing les retarde) et un "a" : deux accents, le reste en notes fantomes (ACCENT
-  // tres haut : sans accent, la note est loin dessous) ; une pedale de la sous le kick, l'espace dans le delai. BLOOP
-  // plus pointu que MINIMAL : plus de carre, d'emphase et de contour (+4 oct, 15 ms)
-  { name: 'GHOST NOTES', style: 'MINIMAL', p: { ...PATCH.BLOOP, o1lvl: 0.6, reso: BU.emph(0.55), envmod: BU.env(4), decay: BU.tau(15), cutoff: BU.cut(120), drive: 0.4, adecay: BU.adec(50), release: BU.rel(70), accent: 0.95, accdecay: BU.accd(260), sweep: 0.3, length: BU.len(30), delay: 0.12, dtime: BU.dt['3/16'], dfb: BU.fb(40), volume: 0.733, density: 0.3, slides: 0.05, accents: 0.3 }, octave: -1, range: 1, scale: 'MINOR', root: 'A', line: '. 0 . .  . 0A . 0  . 0 . .  . 0A . .' },
-  // Trois contre quatre : une note tous les trois pas (2, 5, 8, 11, 14), la figure tourne contre la mesure ; l'echo
-  // en 3/16 la redouble, une octave pour finir. BLOOP et un petit carre a 8' qui pique, des accents qui balaient le
-  // filtre (SWEEP), une longue chute (RELEASE 150 ms)
-  { name: 'THREE STEP', style: 'MINIMAL', p: { ...PATCH.BLOOP, o3range: BU.range("8'"), o3lvl: 0.2, cutoff: BU.cut(120), drive: 0.4, keytrack: 0.67, accent: 0.9, sweep: 0.3, attack: BU.atk(3), adecay: BU.adec(50), release: BU.rel(150), length: BU.len(35), delay: 0.1, dtime: BU.dt['3/16'], dfb: BU.fb(35), volume: 0.819, density: 0.4, slides: 0.05, accents: 0.25 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '. 0 . .  0 . . 0A  . . 0 .  . 0+ . .' },
-  // Profonde : deux notes tenues sur le "a" du premier temps et le "et" du troisieme, la quinte grave qui remonte
-  // en glissant ; une pedale de do diese (la quinte de la tonalite). DEEP SUB creuse : OSC 1 en carre plein, le
-  // triangle, la scie a 16' a +4 cents (deux formes a l'unisson exact s'annulent), sans SUB (la quinte grave est un sol
-  // diese a 52 Hz : a 32' ou en SUB elle passerait sous 30 Hz), le filtre a 120 Hz, VOLUME au bout
-  { name: 'DEEP CUT', style: 'MINIMAL', p: { ...PATCH.SUB, ...O1_SQR, o1lvl: 1, o3range: BU.range("16'"), o3fine: BU.fine(4), o3lvl: 0.5, sub: 0, cutoff: BU.cut(120), drive: 0.6, envmod: BU.env(1), fattack: BU.atk(10), attack: BU.atk(1), adecay: BU.adec(100), sustain: 0.3, glide: BU.glide(120), release: BU.rel(50), reverb: 0.05, rsize: BU.rsize(1.2), volume: 1.0, density: 0.3, slides: 0.25, accents: 0.15 }, octave: 0, range: 1, scale: 'MINOR', root: 'C#', line: '. . . 0  - . . .  . . 0 -  . . 4_S 0' },
-  // Des bips courts et haut perches (l'octave sur le "et", un accent sur un "e", la tierce au bout). PING : l'echelle
-  // sous l'auto-oscillation (EMPH 0.88) que chaque note fait sonner, le carre et le triangle pleins, un contour ample
-  // (+3 oct) pour le bip, l'ampli assez long pour que l'anneau monte, beaucoup d'echo
-  { name: 'MICRO BLEEP', style: 'MINIMAL', p: { ...PATCH.PING, ...O1_SQR, o1lvl: 1, o2lvl: 1, reso: BU.emph(0.88), drive: 0.4, envmod: BU.env(3), decay: BU.tau(20), adecay: BU.adec(160), sustain: 0.2, release: BU.rel(80), accent: 0.35, length: BU.len(25), delay: 0.14, dtime: BU.dt['1/8'], dfb: BU.fb(45), volume: 0.749, density: 0.35, slides: 0.05, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '. . 0+ .  . 0 . .  . 0+A . 0  . . . 2' },
-
-  /* ---- PSY PROG (138 BPM) : la psytrance progressive, le kick seul sur le temps ---- */
-  // Le roulement : la basse sur les trois doubles croches apres chaque kick (K B B B), une seule note. BODY serre :
-  // les deux scies a -9 cents seules (OCTAVE -1 : le carre a 32' descendrait a 23 Hz, a 16' il annulait la fondamentale
-  // des scies), un contour tres court, l'ampli court (60 ms vers 0.3), sans FEEDBACK ni DRIFT (la machine droite)
-  { name: 'PSY PROG', style: 'PSY PROG', p: { ...PATCH.BODY, o1lvl: 1, o2lvl: 1, o3lvl: 0, cutoff: BU.cut(220), envmod: BU.env(3), decay: BU.tau(15), adecay: BU.adec(60), sustain: 0.3, release: BU.rel(15), feedback: 0, drive: 0.8, drift: 0, volume: 0.997, density: 0.85, slides: 0, accents: 0.15 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. 0 0 0  . 0 0 0  . 0 0 0  . 0 0 0' },
-  // Le galop (K B B .) : deux doubles croches apres le kick, la derniere libre ; l'octave et la septieme pour
-  // finir la mesure. Le BODY serre de PSY PROG, le contour un peu plus long, l'accent plus bref
-  { name: 'MOON GALLOP', style: 'PSY PROG', p: { ...PATCH.BODY, o1lvl: 1, o2lvl: 1, o3lvl: 0, cutoff: BU.cut(220), envmod: BU.env(3), decay: BU.tau(18), accdecay: BU.accd(120), adecay: BU.adec(60), sustain: 0.3, release: BU.rel(15), feedback: 0, drive: 0.8, drift: 0, volume: 0.959, density: 0.75, slides: 0, accents: 0.15 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '. 0 0 .  . 0 0 .  . 0 0 .  . 0+ 6 .' },
-
-  /* ---- ITALO (120 BPM) : l'italo disco, Moroder, Kano, les boites des annees 80 ---- */
-  // L'octave qui rebondit en doubles croches (grave, aigue), sur les accords. MUNICH
-  { name: 'ITALO', style: 'ITALO', p: { ...PATCH.MUNICH, volume: 0.904, density: 0.7, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A 0+ 0 0+  0 0+ 0 0+  0A 0+ 0 0+  0 0+ 0 0+' },
-  // Munich, 1977 : des croches (grave, octave) que l'echo en double croche fait galoper ; fa diese deux temps, puis
-  // re et mi graves, un accent au debut de chaque moitie. MUNICH, court, l'ampli un peu tenu, l'echo fort
-  { name: 'MUNICH 77', style: 'ITALO', p: { ...PATCH.MUNICH, adecay: BU.adec(50), sustain: 0.6, length: BU.len(40), delay: 0.32, dtime: BU.dt['1/16'], dfb: BU.fb(18), volume: 0.88, density: 0.7, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A . 0+ .  0 . 0+ .  5_A . 5 .  6_ . 6 .' },
-  // L'octave en croches, poussee par une double croche aux temps 2 et 4 ; la note sous la tonique qui y remonte,
-  // sur chaque accord (ARP : 2026-10-09, la revue : le mi diese de la gamme harmonique, en fa diese fixe, frottait
-  // contre le mi des accords de la et de mi). MUNICH en LP12 (brillant), KEY TRK 0.45, echo et reverbe. Sans
-  // l'impulsion large a 8' du cahier : sa fondamentale (l'octave) passait devant celle de la note, sur toutes
-  { name: 'COSMIC LOVE', style: 'ITALO', p: { ...PATCH.MUNICH, fmode: BU.mode('LP12'), keytrack: 0.45, delay: 0.06, dtime: BU.dt['1/8'], dfb: BU.fb(20), reverb: 0.08, rsize: BU.rsize(1.8), volume: 0.985, density: 0.75, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 . 0+ .  0 0+ . 0  0 . 0+ .  0 0+ . 6_' },
-
-  /* ---- EBM (124 BPM) : l'Electronic Body Music, carre et martial, aucun swing ---- */
-  // Le sequenceur qui martele : trois doubles croches et un trou par temps, l'octave sur la troisieme. BODY
-  { name: 'EBM', style: 'EBM', p: { ...PATCH.BODY, volume: 0.926, density: 0.9, slides: 0, accents: 0.25 }, octave: 0, range: 1, scale: 'MINOR', root: 'ARP', line: '0A 0 0+ .  0A 0 0+ .  0A 0 0+ .  0A 0 4 0+' },
-  // Des paires de doubles croches en 3 + 3 + 2 (xx. xx. xx), l'accent qui se deplace. BODY au carre, plus sec
-  { name: 'BODY MUSIC', style: 'EBM', p: { ...PATCH.BODY, ...O1_SQR, release: BU.rel(10), volume: 0.895, density: 0.85, slides: 0, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A 0 . 0+  0 . 0A 0  0+ 0 . 0A  0 . 0+ 0' },
-  // La marche : chaque temps accentue, une double croche qui le pousse, la seconde phrygienne (sol) qui grince.
-  // GROWL : LOAD et FEEDBACK hauts, le carre a 32' a mi-niveau, des accents qui balaient le filtre, un souffle, une
-  // piece courte
-  { name: 'STEEL BOOTS', style: 'EBM', p: { ...PATCH.GROWL, o2lvl: 0.5, accent: 0.8, sweep: 0.45, accdecay: BU.accd(140), noise: 0.08, reverb: 0.05, rsize: BU.rsize(0.8), volume: 0.8, density: 0.7, slides: 0, accents: 0.4 }, octave: 0, range: 1, scale: 'PHRYGIAN', root: 'F#', line: '0A . . 0  0A . 1 .  0A . . 0  0A 1 0 .' },
-
-  /* ---- ELECTRO (128 BPM) : Detroit, d'apres Kraftwerk ---- */
-  // La syncope du kick (1, le "et" de 2, le "et" de 3) et des sauts d'octave carres. HOLLOW en LP12, plus d'emphase
-  { name: 'ELECTRO', style: 'ELECTRO', p: { ...PATCH.HOLLOW, fmode: BU.mode('LP12'), reso: BU.emph(0.45), accent: 0.6, volume: 0.87, density: 0.6, slides: 0.1, accents: 0.45 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A . . 0+  . . 0 .  . 0+ 0A .  2 . 0+ 6' },
-  // Sous la mer : des notes graves tenues par-dessus les temps (liaisons), l'octave sur le 2 et le "e" du 4, la
-  // quinte au bout. SWELL : le contour NEG, un echo et une reverbe sombres
-  { name: 'DEEP SEA', style: 'ELECTRO', p: { ...PATCH.SWELL, keytrack: 0.3, delay: 0.08, dtime: BU.dt['3/16'], dfb: BU.fb(40), reverb: 0.06, rsize: BU.rsize(2), rtone: BU.rtone(2000), volume: 0.891, density: 0.5, slides: 0.15, accents: 0.35 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '0 - . .  0+ . . 0  - . 0 .  . 0+ . 4' },
-
-  /* ---- ACID (130 BPM) : la TB-303, de Chicago a Berlin (MODE 303, le son d'avant a l'echantillon pres) ---- */
-  // Doubles croches, accents a contretemps, slides, sauts d'octave
-  { name: 'ACID', style: 'ACID', p: { cutoff: 0.26, reso: 0.82, envmod: 0.7, decay: 0.42, accent: 0.8, wave: 0, sub: 0.1, drive: 0.4, glide: 0.38, volume: 0.75, density: 0.75, slides: 0.45, accents: 0.45 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A 0 0+S 0  . 0 3A 0+S  0 . 2A 0S  0+ . 0A 4S' },
-  // Plus lente et plus sombre : des trous, l'octave accentuee qui glisse, la septieme et la quinte au troisieme
-  // temps ; filtre ferme, resonance au bord, l'accent long qui s'accumule, un echo pointe
-  { name: 'BERLIN ACID', style: 'ACID', p: { cutoff: 0.2, reso: 0.88, envmod: 0.75, decay: 0.5, accent: 0.85, wave: 0, sub: 0.15, drive: 0.55, glide: 0.42, accdecay: BU.accd(230), sweep: 0.7, delay: 0.1, dtime: BU.dt['3/16'], dfb: BU.fb(45), reverb: 0.04, volume: 0.73, density: 0.6, slides: 0.5, accents: 0.5 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0 . 0+AS 0  . 0 . 0+S  0A . 6S 4  . 0 0+A .' },
-  // Le carre de la 303, des slides en chaine (octave, tonique, tierce), les accents sur les contretemps
-  { name: 'ACID RAIN', style: 'ACID', p: { cutoff: 0.3, reso: 0.78, envmod: 0.65, decay: 0.3, accent: 0.75, wave: 1, sub: 0.1, drive: 0.3, glide: 0.35, keytrack: 0.2, sweep: 0.6, volume: 0.71, density: 0.7, slides: 0.55, accents: 0.45 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0S 0+A . 0  0 . 0+AS 0  . 0 0S 2A  . 0+S 0 .' },
+  /* ---- ACID (130 BPM) : la TB-303, de Chicago a Berlin (MODE 303, la voix d'avant le moteur MONARK) ---- */
+  // LA 303 QUI COUINE : doubles croches, accents a contretemps, slides, sauts d'octave
+  { name: 'ACID', style: 'ACID', p: { cutoff: 0.26, reso: 0.82, envmod: 0.7, decay: 0.42, accent: 0.8, wave: 0, sub: 0.1, drive: 0.4, glide: 0.38, volume: 0.715, slides: 0.45, accents: 0.45 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A 0 0+S 0  . 0 3A 0+S  0 . 2A 0S  0+ . 0A 4S' },
+  // LA 303 CARREE ET GRAVE : le carre de la 303 une octave plus bas (OCTAVE -1, sans SUB : il tomberait a 23 Hz), le
+  // filtre un peu plus ouvert ; des slides en chaine (octave, tonique, tierce), les accents sur les contretemps
+  { name: 'ACID RAIN', style: 'ACID', p: { cutoff: 0.36, reso: 0.78, envmod: 0.65, decay: 0.3, accent: 0.75, wave: 1, sub: 0, drive: 0.3, glide: 0.35, keytrack: 0.2, sweep: 0.6, volume: 0.682, slides: 0.55, accents: 0.45 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '0S 0+A . 0  0 . 0+AS 0  . 0 0S 2A  . 0+S 0 .' },
+  // LA 303 DE NUIT : plus lente et plus sombre, des trous, l'octave accentuee qui glisse, la septieme et la quinte au
+  // troisieme temps ; filtre ferme, resonance au bord, l'accent long qui s'accumule, un echo pointe
+  { name: 'BERLIN ACID', style: 'ACID', p: { cutoff: 0.2, reso: 0.88, envmod: 0.75, decay: 0.5, accent: 0.85, wave: 0, sub: 0.15, drive: 0.55, glide: 0.42, accdecay: BU.accd(230), sweep: 0.7, delay: 0.1, dtime: BU.dt['3/16'], dfb: BU.fb(45), reverb: 0.04, volume: 0.706, slides: 0.5, accents: 0.5 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0 . 0+AS 0  . 0 . 0+S  0A . 6S 4  . 0 0+A .' },
 
   /* ---- TECHNO (132 BPM) : la techno de hangar ---- */
-  // Sur le "et" de chaque temps, une double croche qui gronde derriere, la septieme pour relancer. GROWL, peu de
-  // DRIFT ; OCTAVE -1 : son carre grave a 16' (a 32' il descendrait a 21 Hz)
-  { name: 'TECHNO', style: 'TECHNO', p: { ...PATCH.GROWL, o2range: BU.range("16'"), drift: 0.2, volume: 0.912, density: 0.5, slides: 0.05, accents: 0.3 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. . 0A 0  . . 0A 0  . . 0A 0  . . 0A 6' },
-  // La dub techno : trois notes tenues, presque rien, l'echo pointe et la grande reverbe font le reste ; une
-  // pedale de re (la sixte de la tonalite). SHARK feutre : une attaque douce, l'ampli tenu, une longue chute
-  { name: 'DUB CHAMBER', style: 'TECHNO', p: { ...PATCH.SHARK, sustain: 0.9, adecay: BU.adec(150), drive: 0.7, keytrack: 0.3, attack: BU.atk(6), release: BU.rel(120), delay: 0.3, dtime: BU.dt['3/16'], dfb: BU.fb(55), reverb: 0.15, rsize: BU.rsize(4), rtone: BU.rtone(2200), volume: 1.0, density: 0.25, slides: 0.1, accents: 0.1 }, octave: 0, range: 1, scale: 'MINOR', root: 'D', line: '. . 0 -  . . . .  . 0 . .  . . 0 -' },
+  // LA TECHNO QUI SOUFFLE : un grondement grave (OCTAVE -1) plein de bruit rose, de FEEDBACK et de LOAD, LP12 assez
+  // ouvert pour que le souffle passe, des notes tenues (LENGTH 70 %) ; sur le "et" de chaque temps avec une double
+  // croche derriere, la septieme pour relancer ; une piece courte
+  { name: 'TECHNO', style: 'TECHNO', p: { ...BASE, ...o1('SAW', 0.8), ...o2('SQR', "16'", 0.6, -8), noise: 0.65, ...flt('LP12', 400, 0.2, 2, 35, 0.1, 0.33), ...amp(0.5, 120, 0.6, 40), drive: 0.9, feedback: 0.6, accent: 0.6, sweep: 0.2, glide: BU.glide(39), drift: 0.2, length: BU.len(70), reverb: 0.05, rsize: BU.rsize(1.5), volume: 0.851, slides: 0.05, accents: 0.3 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. . 0A 0  . . 0A 0  . . 0A 0  . . 0A 6' },
+  // LES SCIES DESACCORDEES (REESE) : trois scies a -18 et +11 cents qui battent lentement, de longues notes, DRIFT haut,
+  // le filtre qui s'entrouvre (F.ATTACK 30 ms) ; la tonique sur deux temps, la septieme grave, un glissement vers la
+  // quinte grave
+  { name: 'REESE', style: 'TECHNO', p: { ...BASE, ...o1('SAW', 0.9), ...o2('SAW', "16'", 0.9, -18), ...o3('SAW', "32'", 0.5, 11), ...flt('LP24', 260, 0.2, 1, 400, 0.5, 0.33), fattack: BU.atk(30), ...amp(3, 1200, 0.95, 80), drive: 0.7, accent: 0.4, sweep: 0.1, glide: BU.glide(90), drift: 0.8, volume: 0.878, slides: 0.3, accents: 0.15 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0 - - -  - - - 0S  6_ - - -  - . 5_S 4_' },
+  // LE DUB QUI FLOTTE : deux triangles a 9 cents et DRIFT au bout (la hauteur et le filtre vacillent), LP12 tendre ;
+  // trois notes tenues, presque rien, l'echo pointe et la grande reverbe font le reste ; une pedale de re
+  { name: 'DUB CHAMBER', style: 'TECHNO', p: { ...BASE, ...o1('SAW', 0.25), ...o2('TRI', "16'", 0.9), ...o3('TRI', "16'", 0.6, 9), ...flt('LP12', 300, 0.3, 1.4, 160, 0.3, 0.33), ...amp(8, 400, 0.6, 150), drive: 0.55, accent: 0.3, sweep: 0, glide: BU.glide(39), drift: 1, delay: 0.32, dtime: BU.dt['3/16'], dfb: BU.fb(55), reverb: 0.15, rsize: BU.rsize(4), rtone: BU.rtone(2200), volume: 0.84, slides: 0.1, accents: 0.1 }, octave: 0, range: 1, scale: 'MINOR', root: 'D', line: '. . 0 -  . . . .  . 0 . .  . . 0 -' },
+
+  /* ---- MINIMAL (125 BPM, swing lourd) : la minimale hypnotique, presque rien sur les temps ---- */
+  // LE BLOOP ROND : quatre notes rondes entre les kicks (OCTAVE -1), la derniere sur la septieme ; le triangle et un
+  // peu de carre, l'emphase a mi-course, un contour ample et tres court, KEY TRK plein
+  { name: 'MINIMAL', style: 'MINIMAL', p: { ...BASE, ...o1('SQR', 0.3), ...o2('TRI', "16'", 1), ...flt('LP24', 120, 0.45, 3.5, 22, 0, 1), ...amp(3, 50, 0.3, 70), drive: 0.3, accent: 0.6, sweep: 0.1, glide: BU.glide(39), drift: 0.3, volume: 0.994, slides: 0.05, accents: 0.2 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. . . 0  . . 0A .  . . . 0  . . 6 .' },
+  // LE BIP AIGU : le triangle a 8' et un carre a 4', l'echelle au bord de l'auto-oscillation (EMPH 0.9) que chaque note
+  // fait sonner, un SUB propre une octave sous la note pour le poids (le bip de Sheffield) ; beaucoup d'echo
+  { name: 'MICRO BLEEP', style: 'MINIMAL', p: { ...BASE, ...o1('SAW', 0), ...o2('TRI', "8'", 0.5), ...o3('SQR', "4'", 0.12), ...flt('LP24', 300, 0.9, 2, 40, 0, 1), sub: 0.5, ...amp(0.5, 180, 0.15, 60), drive: 0.35, accent: 0.4, sweep: 0, glide: BU.glide(39), drift: 0.2, length: BU.len(25), delay: 0.14, dtime: BU.dt['1/8'], dfb: BU.fb(45), volume: 0.874, slides: 0.05, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '. . 0+ .  . 0 . .  . 0+A . 0  . . . 2' },
+  // LE FEUTRE (LP6) : deux triangles presque des sinus, une pointe d'octave, le filtre a 6 dB qui s'entrouvre a peine ;
+  // deux notes tenues sur le "a" du premier temps et le "et" du troisieme, la quinte grave qui remonte en glissant ;
+  // une pedale de do diese (la quinte de la tonalite)
+  { name: 'DEEP CUT', style: 'MINIMAL', p: { ...BASE, ...o1('SAW', 0), ...o2('TRI', "16'", 1), ...o3('TRI', "8'", 0.15, 4), ...flt('LP6', 120, 0, 0.8, 150, 0.3, 0.33), fattack: BU.atk(10), ...amp(2, 300, 0.5, 60), drive: 0.45, accent: 0.3, sweep: 0, glide: BU.glide(120), drift: 0.4, reverb: 0.05, rsize: BU.rsize(1.2), volume: 1, slides: 0.25, accents: 0.15 }, octave: 0, range: 1, scale: 'MINOR', root: 'C#', line: '. . . 0  - . . .  . . 0 -  . . 4_S 0' },
+
+  /* ---- ITALO (120 BPM) : l'italo disco, Moroder, Kano, les boites des annees 80 ---- */
+  // L'OCTAVE QUI REBONDIT : grave, aigue, en doubles croches, sur les accords ; deux scies a l'octave (16' et 8'), le
+  // filtre plus haut, des notes courtes
+  { name: 'ITALO', style: 'ITALO', p: { ...BASE, ...o1('SAW', 0.9), ...o2('SAW', "8'", 0.6), ...flt('LP24', 800, 0.2, 2, 26, 0.2, 0.67), ...amp(1, 39, 0.4, 15), drive: 0.45, accent: 0.45, sweep: 0.1, glide: BU.glide(30), drift: 0.3, length: BU.len(30), volume: 0.883, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0A 0+ 0 0+  0 0+ 0 0+  0A 0+ 0 0+  0 0+ 0 0+' },
+  // MUNICH, 1977 : des croches (grave, octave) que l'echo en double croche (fort, 30 % de retour) fait galoper ; une
+  // scie seule et le carre a 32' dans LP12 ; fa diese deux temps, puis re et mi graves, un accent au debut de chaque
+  // moitie
+  { name: 'MUNICH 77', style: 'ITALO', p: { ...BASE, ...o1('SAW', 1), ...o3('SQR', "32'", 0.5), ...flt('LP12', 250, 0.35, 2.8, 50, 0.1, 0.5), ...amp(1, 60, 0.5, 20), drive: 0.35, accent: 0.5, sweep: 0.15, glide: BU.glide(39), drift: 0.3, length: BU.len(40), delay: 0.42, dtime: BU.dt['1/16'], dfb: BU.fb(30), volume: 0.84, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A . 0+ .  0 . 0+ .  5_A . 5 .  6_ . 6 .' },
+  // LA BASSE DE TETE : une scie, une scie a 8' une quinte plus haut (le reflet d'un oscillateur synchronise), le carre
+  // a 32' pour le poids, LP12 a l'emphase haute que le contour (+4 octaves) balaie a travers les harmoniques ;
+  // l'octave en croches poussee par une double croche, la note sous la tonique qui y remonte. ARP (2026-10-09, la revue : en fa diese fixe, le mi diese de
+  // la gamme harmonique frottait contre le mi des accords de la et de mi)
+  { name: 'COSMIC LOVE', style: 'ITALO', p: { ...BASE, ...o1('SAW', 0.8), ...o2('SAW', "8'", 0.35, 0, 7), ...o3('SQR', "32'", 0.45), ...flt('LP12', 200, 0.65, 4, 110, 0.25, 0.67), ...amp(1, 250, 0.7, 40), drive: 0.55, accent: 0.5, sweep: 0.3, glide: BU.glide(40), drift: 0.3, delay: 0.06, dtime: BU.dt['1/8'], dfb: BU.fb(20), reverb: 0.08, rsize: BU.rsize(1.8), volume: 0.899, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 . 0+ .  0 0+ . 0  0 . 0+ .  0 0+ . 6_' },
+
+  /* ---- EBM (124 BPM) : l'Electronic Body Music, carre et martial, aucun swing ---- */
+  // LA MACHINE QUI MARTELE : trois doubles croches et un trou par temps, l'octave sur la troisieme ; deux scies a -9
+  // cents, le carre a 32', LOAD presque au bout, FEEDBACK qui gratte, tout court, aucune derive
+  { name: 'EBM', style: 'EBM', p: { ...BASE, ...o1('SAW', 0.9), ...o2('SAW', "16'", 0.8, -9), ...o3('SQR', "32'", 0.6), noise: 0.1, ...flt('LP24', 240, 0.25, 3.2, 18, 0, 0.33), ...amp(0.5, 20, 0.15, 8), drive: 0.9, feedback: 0.7, accent: 0.6, sweep: 0.2, glide: BU.glide(25), drift: 0, volume: 0.955, slides: 0, accents: 0.25 }, octave: 0, range: 1, scale: 'MINOR', root: 'ARP', line: '0A 0 0+ .  0A 0 0+ .  0A 0 0+ .  0A 0 4 0+' },
+  // LE GRONDEMENT : FEEDBACK et LOAD presque au bout, un carre une quinte plus haut (un grain de FM), le carre a 32'
+  // pour le poids, LP12 a l'emphase moyenne et un contour lent ; des notes tenues (LENGTH 75 %) qui grondent ; la
+  // marche, chaque temps accentue, une double croche qui le pousse, la seconde phrygienne (sol) qui grince
+  { name: 'GROWL', style: 'EBM', p: { ...BASE, ...o1('SAW', 0.9), ...o2('SQR', "16'", 0.45, 0, 7), ...o3('SQR', "32'", 0.5), noise: 0.05, ...flt('LP12', 320, 0.5, 2, 300, 0.4, 0.33), ...amp(0.5, 300, 0.7, 40), drive: 0.9, feedback: 0.85, accent: 0.8, sweep: 0.45, accdecay: BU.accd(140), glide: BU.glide(39), drift: 0.2, length: BU.len(75), reverb: 0.05, rsize: BU.rsize(0.8), volume: 0.759, slides: 0, accents: 0.4 }, octave: 0, range: 1, scale: 'PHRYGIAN', root: 'F#', line: '0A . . 0  0A . 1 .  0A . . 0  0A 1 0 .' },
+  // LE CARRE DUR (BP) : deux carres dans le passe-bande, le creux et la durete de Nitzer Ebb, un SUB propre dessous ;
+  // des paires de doubles croches en 3 + 3 + 2 (xx. xx. xx), l'accent qui se deplace
+  { name: 'BODY MUSIC', style: 'EBM', p: { ...BASE, ...o1('SQR', 0.9), ...o2('SQR', "16'", 0.7, -6), ...flt('BP', 380, 0.25, 1.6, 40, 0.25, 0.5), sub: 0.35, ...amp(0.5, 120, 0.85, 12), drive: 0.9, accent: 0.45, sweep: 0.2, glide: BU.glide(25), drift: 0, volume: 0.749, slides: 0, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A 0 . 0+  0 . 0A 0  0+ 0 . 0A  0 . 0+ 0' },
+
+  /* ---- ELECTRO (128 BPM) : Detroit, d'apres Kraftwerk ---- */
+  // LE CARRE CREUX : deux carres a -6 cents dans LP12 a l'emphase moyenne (les harmoniques impaires seules : le creux) ;
+  // la syncope du kick (1, le "et" de 2, le "et" de 3) et des sauts d'octave
+  { name: 'ELECTRO', style: 'ELECTRO', p: { ...BASE, ...o1('SQR', 0.9), ...o2('SQR', "16'", 0.6, -6), ...flt('LP12', 260, 0.5, 2, 35, 0.25, 0.67), ...amp(1, 65, 0.6, 20), drive: 0.5, accent: 0.6, sweep: 0.15, glide: BU.glide(39), drift: 0.3, volume: 0.755, slides: 0.1, accents: 0.45 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A . . 0+  . . 0 .  . 0+ 0A .  2 . 0+ 6' },
+  // LE ZAP : l'emphase haute (0.85) et un contour enorme (+5 octaves) qui retombe en 20 ms, un "pew" au debut de chaque
+  // note grave (OCTAVE -1) ; carre et scie, LOAD faible (le zap reste net) ; la ligne qui saute de l'octave a la
+  // tierce, syncopee
+  { name: 'LASER', style: 'ELECTRO', p: { ...BASE, ...o1('SQR', 0.8), ...o2('SAW', "16'", 0.5, -5), ...flt('LP24', 100, 0.85, 5, 20, 0, 0.67), ...amp(0.5, 140, 0.65, 20), drive: 0.3, accent: 0.6, sweep: 0.2, glide: BU.glide(39), drift: 0.2, volume: 0.838, slides: 0.05, accents: 0.35 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '0A . . 0+  2+ . 0+ .  0A . . 0+  6 . 4 .' },
+  // SOUS LA MER (BP) : une scie et un triangle a 8' dans le passe-bande, un SUB propre pour le fond, le filtre qui
+  // s'ouvre (F.ATTACK 80 ms), DRIFT ; des notes graves tenues par-dessus les temps, l'octave sur le 2 et le "e" du 4, un
+  // echo pointe et une reverbe sombres
+  { name: 'DEEP SEA', style: 'ELECTRO', p: { ...BASE, ...o1('SAW', 0), ...o2('SAW', "16'", 0.8), ...o3('TRI', "8'", 0.2), ...flt('BP', 220, 0.3, 1.5, 200, 0.3, 0.33), fattack: BU.atk(80), sub: 0.5, ...amp(5, 400, 0.7, 100), drive: 0.5, accent: 0.4, sweep: 0, glide: BU.glide(60), drift: 0.6, delay: 0.1, dtime: BU.dt['3/16'], dfb: BU.fb(45), reverb: 0.06, rsize: BU.rsize(2), rtone: BU.rtone(2000), volume: 0.793, slides: 0.15, accents: 0.35 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0 - . .  0+ . . 0  - . 0 .  . 0+ . 4' },
 
   /* ---- HOUSE (124 BPM) : de Chicago a la deep house ---- */
-  // La deep house : des notes tenues sur l'accord, l'octave, la quinte et la septieme pour tourner. SHARK, chaud,
-  // un glide court sur les slides, un peu plus de SUB pour le systeme du club
-  { name: 'HOUSE', style: 'HOUSE', p: { ...PATCH.SHARK, glide: BU.glide(46), sub: 0.25, volume: 0.95, density: 0.55, slides: 0.3, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '. . 0 -  . 0 . 0+  . . 0 -  . 4 . 6' },
-  // Chicago qui jacke : la basse evite le premier temps, saute a l'octave sur les "a", l'accent sur le 3, la
-  // septieme de l'accord au bout ; des notes un peu plus longues. ARP (2026-10-09, la revue : en fa diese fixe, la
-  // sixte doriene, re diese, frottait contre le re des accords de re et de si) : elle suit les accords.
-  // MM CLASSIC, un peu plus d'emphase, KEY TRK bas (l'octave reste ronde)
-  { name: 'WAREHOUSE', style: 'HOUSE', p: { ...PATCH.CLASSIC, reso: BU.emph(0.35), keytrack: 0.2, length: BU.len(55), volume: 0.772, density: 0.6, slides: 0.15, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '. . 0 0+  . 0 . .  0A - 0 0+  . 0 . 6' },
+  // LA DEEP HOUSE CHAUDE : la forme SHARK, un triangle a +4 cents, une pointe de scie et de SUB, l'ampli tenu ; des
+  // notes tenues sur l'accord, l'octave, la quinte et la septieme pour tourner
+  { name: 'HOUSE', style: 'HOUSE', p: { ...BASE, ...o1('SAW', 0.3), ...o2('SHARK', "16'", 0.9), ...o3('TRI', "16'", 0.5, 4), ...flt('LP24', 200, 0.3, 1.6, 80, 0.3, 0.33), sub: 0.25, ...amp(2, 400, 0.75, 40), drive: 0.6, accent: 0.4, sweep: 0.1, glide: BU.glide(46), drift: 0.5, volume: 0.969, slides: 0.3, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '. . 0 -  . 0 . 0+  . . 0 -  . 4 . 6' },
+  // LE CAOUTCHOUC : un contour enorme (+4.6 octaves) et tres court (16 ms) sous une emphase haute, l'ampli sans
+  // SUSTAIN : chaque note rebondit ("boing") ; Chicago qui jacke, l'octave sur les "a", l'accent sur le 3
+  { name: 'RUBBER', style: 'HOUSE', p: { ...BASE, ...o1('SAW', 0.6), ...o2('SQR', "16'", 0.7), ...flt('LP24', 80, 0.62, 4.6, 16, 0, 0.67), ...amp(0.5, 280, 0, 30), drive: 0.5, accent: 0.4, sweep: 0.3, glide: BU.glide(39), drift: 0.3, volume: 0.861, slides: 0.15, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '. . 0 0+  . 0 . .  0A - 0 0+  . 0 . 6' },
+  // L'ORGUE : trois carres et triangles a 16', 8' et 4' (les tirettes d'un orgue), le filtre ouvert et immobile,
+  // l'ampli plein qui coupe net ; la syncope de la house des annees 90 (1, le "a" du 1, le "et" de 2), la quinte et la
+  // septieme graves
+  { name: 'ORGAN BASS', style: 'HOUSE', p: { ...BASE, ...o1('SQR', 0.6), ...o2('SQR', "8'", 0.45), ...o3('TRI', "4'", 0.25), ...flt('LP12', 1500, 0.1, 0.3, 100, 0.8, 0.5), sub: 0.3, ...amp(1, 2000, 1, 25), drive: 0.3, accent: 0.3, sweep: 0, glide: BU.glide(39), drift: 0.3, reverb: 0.06, rsize: BU.rsize(1.2), volume: 0.745, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 . . 0  . . 0 -  . . 0 .  4_ . 6_ .' },
+
+  /* ---- PSY PROG (138 BPM) : la psytrance progressive, le kick seul sur le temps ---- */
+  // LE ROULEMENT : la basse sur les trois doubles croches apres chaque kick (K B B B), une seule note grave (OCTAVE -1) ;
+  // deux scies a -9 cents, un contour tres court, l'ampli court, aucune derive (la machine droite)
+  { name: 'PSY PROG', style: 'PSY PROG', p: { ...BASE, ...o1('SAW', 1), ...o2('SAW', "16'", 1, -9), ...flt('LP24', 300, 0.25, 3.5, 15, 0, 0.33), ...amp(0.5, 60, 0.3, 15), drive: 0.85, feedback: 0.2, accent: 0.5, sweep: 0.2, glide: BU.glide(25), drift: 0, volume: 0.946, slides: 0, accents: 0.15 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. 0 0 0  . 0 0 0  . 0 0 0  . 0 0 0' },
+  // LE COUP SEC : le triangle et un peu de carre, grave (OCTAVE -1), un contour et un ampli tres courts (12 et 40 ms,
+  // aucun SUSTAIN), propre : un coup de bois tendu ; deux doubles croches apres le kick (K B B .), l'octave et la
+  // septieme pour finir la mesure
+  { name: 'MOON GALLOP', style: 'PSY PROG', p: { ...BASE, ...o1('SQR', 0.4), ...o2('TRI', "16'", 1), ...flt('LP24', 250, 0.2, 2.5, 12, 0, 0.67), ...amp(0.5, 40, 0, 10), drive: 0.5, accent: 0.5, sweep: 0.2, accdecay: BU.accd(120), glide: BU.glide(25), drift: 0.1, volume: 0.987, slides: 0, accents: 0.15 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '. 0 0 .  . 0 0 .  . 0 0 .  . 0+ 6 .' },
 
   /* ---- SUB (basse seule) : les grandes notes graves ---- */
-  // De longues notes de sub liees : la tonique, la quinte, la tierce qui glisse vers la tonique. DEEP SUB : le
-  // triangle, la scie a 32', le SUB, le filtre a 85 Hz qui s'ouvre lentement (F.ATTACK 30 ms : aucun pincement)
-  { name: 'DEEP SUB', style: 'SUB', p: { ...PATCH.SUB, cutoff: BU.cut(85), sub: 0.45, drive: 0.3, o3lvl: 0.45, envmod: BU.env(1), decay: BU.tau(100), fattack: BU.atk(30), volume: 0.933, density: 0.4, slides: 0.4, accents: 0.1 }, octave: 0, range: 1, scale: 'MINOR', root: 'F#', line: '0 - - -  - - - .  4 - - -  2S 0 - -' },
-  // Des pulsations de sub sur chaque contretemps, tenues deux pas, la quinte grave a la fin ; une pedale de si
-  // (la quarte de la tonalite). Un carre et un triangle a 16' sous un filtre ferme qui s'ouvre lentement, sans SUB (la
-  // quinte grave est un fa diese a 46 Hz : le SUB y tomberait a 23 Hz)
-  { name: 'SUB PULSE', style: 'SUB', p: { ...PATCH.SUB, ...O1_SQR, o1lvl: 0.9, o2lvl: 0.6, o3lvl: 0, cutoff: BU.cut(90), reso: BU.emph(0.1), envmod: BU.env(1), decay: BU.tau(100), fsustain: 0.3, fattack: BU.atk(30), attack: BU.atk(3), adecay: BU.adec(120), sustain: 0.85, release: BU.rel(40), sub: 0, volume: 0.942, density: 0.4, slides: 0.1, accents: 0.1 }, octave: -1, range: 1, scale: 'MINOR', root: 'B', line: '. . 0 -  . . 0 -  . . 0 -  . . 4_ -' },
+  // LE SINUS DU SUB : un triangle seul sous un filtre presque ferme (presque un sinus), le SUB propre dessous ; de
+  // longues notes liees, la tonique, la quinte, la tierce qui glisse vers la tonique, un glide lent
+  { name: 'DEEP SUB', style: 'SUB', p: { ...BASE, ...o1('SAW', 0), ...o2('TRI', "16'", 1), ...flt('LP24', 70, 0, 0.5, 300, 0.5, 0.33), sub: 0.5, ...amp(3, 2000, 1, 80), drive: 0.25, accent: 0.2, sweep: 0, glide: BU.glide(150), drift: 0.1, volume: 0.958, slides: 0.4, accents: 0.1 }, octave: 0, range: 1, scale: 'MINOR', root: 'F#', line: '0 - - -  - - - .  4 - - -  2S 0 - -' },
+  // LE SUB QUI POMPE : des pulsations sur chaque contretemps, tenues deux pas, une attaque de 15 ms et un filtre qui
+  // s'ouvre lentement (le pompage du sidechain) ; un carre et un triangle a 16' sous un filtre ferme ; une pedale de si
+  // (la quarte de la tonalite), la quinte grave a la fin
+  { name: 'SUB PULSE', style: 'SUB', p: { ...BASE, ...o1('SQR', 0.9), ...o2('TRI', "16'", 0.6), ...flt('LP24', 90, 0.1, 1, 100, 0.3, 0.33), fattack: BU.atk(30), ...amp(15, 300, 0.6, 40), drive: 0.4, accent: 0.2, sweep: 0, glide: BU.glide(39), drift: 0.2, volume: 0.992, slides: 0.1, accents: 0.1 }, octave: -1, range: 1, scale: 'MINOR', root: 'B', line: '. . 0 -  . . 0 -  . . 0 -  . . 4_ -' },
 ];
 
 /*
- * VOLUME de chaque ligne (2026-10-09, le moteur MONARK, Mika : "les presets vraiment excellents") : la regle de Mika,
- * la crete 2 dB sous le kick du MM-RYTM (il crete a -9.3 dBFS), -11.3 dBFS, SUB -12.0 (un sinus tenu pese plus que sa
- * crete). Chaque preset rendu hors ligne (le worklet du depot, la sequence de bass/seq.ts pas a pas, quatre mesures au
- * tempo de son style sur le MM-RYTM, puis 2.5 s de queues), VOLUME seul cale : les 32 MONARK cretent entre -11.3 et
- * -12.3 dBFS (VELVET DISCO, DEEP CUT et DUB CHAMBER a VOLUME 1 : -11.7, -12.3, -11.5), les deux SUB a -12.0. La crete
- * ne fait pas le niveau d'une basse (sound.md 9) : le son de chaque preset est regle pour que sa sonie (BS.1770, mesures
- * 2 a 4) tombe dans la fenetre de son style, -24 a -29 LUFS pour les styles pleins (de -24.3 a -28.8), -27 a -33 pour
- * la minimale (-27.8 a -31.5), -20 a -25 pour les SUB (-23.1, -24.2), au plus 4 LU d'ecart dans un style et entre deux
- * voisins de PREV / NEXT (6 d'un style a l'autre) ; facteur de crete de 7.2 a 16.9 dB. Une ligne qui ne tenait pas les
- * deux a change de son, pas de regle (plus de LOAD, un ampli tenu, un RELEASE plus long, un filtre plus ouvert). Le
- * trio ACID garde son VOLUME (le 303 d'avant) : -10.9 a -11.3 dBFS, -22.8 a -23.9 LUFS.
+ * VOLUME de chaque ligne (2026-10-10) : la regle de Mika, la crete 2 dB sous le kick du MM-RYTM (il crete a -9.3
+ * dBFS) : -11.3 dBFS, a 0.9 dB pres. Chaque preset rendu hors ligne (le worklet du depot, la sequence de bass/seq.ts
+ * pas a pas, quatre mesures au tempo de son style sur le MM-RYTM, puis 2.5 s de queues), VOLUME seul cale : la crete
+ * un peu plus basse pour un son tenu (REESE, SWELL, DEEP SUB : -12.2), un peu plus haute pour un son pince (RUBBER,
+ * LASER, NEON HEART : -10.4), pour que PREV / NEXT ne saute pas trop fort. Les 33 cretent de -12.2 a -10.4 dBFS, leur
+ * sonie (BS.1770, mesures 2 a 4) va de -30.6 a -21.0 LUFS ; aucun grave sous 34.6 Hz, aucun echantillon non fini, le
+ * continu sous 1e-5. DARK DISCO garde VOLUME 0.78 (le patch de depart, -11.31 dBFS) ; le trio ACID est cale comme
+ * les autres.
  */
 
 /** Une ligne ecrite (BassGenre.line) en seize pas. */
