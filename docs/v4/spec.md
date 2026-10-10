@@ -2533,3 +2533,8 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 
 - With the EDIT panel open the screen keeps its page and its zones (blocks, tabs, title, chips) stay enabled: rig.ts gates them on rollOnScreen() (EDIT_ON_SCREEN and EDIT open), no longer on EDIT alone.
 - The EDIT panel is below the machine on desktop too (useEditorPanel inset: the framing lifts the whole machine), so the screen, its six keys and the page keys are never covered; desktop rows 10 px, the 16 patterns on one row, the hint on one line.
+
+### R14-252 MM-BASS hidden by default (2026-10-10)
+
+- Mika: "hide BASS for now, it's too complex, I'll come back to it next week; focus on RYTM and ARP". state/focus.ts BASS is now false unless ?bass=1 (kept for the tab in sessionStorage mm.v4.bass; ?bass=0 hides it again). Without it: no MM-BASS on the table, in the header, the machine nav, the drawer or ?m=bass; its modules are not loaded (state/bassload.ts). The mixer keeps its channel 2 named BASS (silent).
+- The untested preset rewrite (e2ef2ee) is reverted before deploying and kept in history for next week.

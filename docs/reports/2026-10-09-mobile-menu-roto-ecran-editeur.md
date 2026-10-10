@@ -170,3 +170,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-10 : MM-BASS, plus de potards STYLE et NOTES sur la face ; GEN a cote de RUN et CLEAR (EDIT OPEN PRESET au-dessus). Spec R14-249.
 - 2026-10-10 : MM-BASS, rangee VEL dans le panneau EDIT (la velocite de chaque note = son VOLUME en P-LOCK). Spec R14-250.
 - 2026-10-10 : MM-BASS, en EDIT l'ecran reste reglable (VOICE, FILTER...) ; le panneau EDIT passe sous la machine au desktop. Spec R14-251.
+- 2026-10-10 : MM-BASS cache par defaut (?bass=1 le montre) ; la refonte des presets BASS (non testee, commit e2ef2ee) annulee avant le deploiement, a reprendre la semaine prochaine. Spec R14-252.

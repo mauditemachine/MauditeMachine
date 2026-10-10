@@ -50,17 +50,18 @@ export const DJ: boolean = (() => {
  * Le MM-BASS (2026-10-07, Mika : "un prototype de generateur de bassline,
  * la meme taille que MM-RYTM") : a droite du MM-RYTM, le MM-ARP apres lui
  * (la place d'abord a droite du MM-ARP, changee le meme jour).
- * Pour tout le monde ; ?bass=0 le retire (retenu pour l'onglet), ?bass=1 le
- * remet. Il suppose le MM-VOYAGER sur la table.
+ * Cache par defaut depuis le 2026-10-10 (Mika : "cache BASS pour l'instant, c'est trop complexe, je reviendrai
+ * dessus la semaine prochaine, je veux me concentrer sur RYTM et ARP") : ?bass=1 le montre (retenu pour l'onglet),
+ * ?bass=0 le recache. Il suppose le MM-VOYAGER sur la table.
  */
 export const BASS: boolean = (() => {
   if (typeof window === 'undefined' || !VOYAGER) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('bass');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.bass', q);
-    return window.sessionStorage.getItem('mm.v4.bass') !== '0';
+    return window.sessionStorage.getItem('mm.v4.bass') === '1';
   } catch {
-    return true;
+    return false;
   }
 })();
 
