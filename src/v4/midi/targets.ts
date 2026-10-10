@@ -29,7 +29,8 @@
  *   SRC SMPL ouvrent VOICE, AMP ouvre ENV), rytm:page a quatre crans,
  *   rytm:screen:<ecran> (un onglet : voice synth fltr env fxv fxg ; depuis le
  *   2026-10-10 la page d'un FX global : fxdist fxchorus fxdelay fxreverb fxbit
- *   fxcomp, ses reglages en rytm:enc:xtone, dtone, rsize...) ;
+ *   fxcomp, ses reglages en rytm:enc:xtone, dtone, rsize... ; et sous la voix,
+ *   l'onglet de la voix de ces pages : fxvdist fxvchorus fxvdelay fxvreverb) ;
  *   rytm:knob:<1-8> reste le bloc k de l'ecran affiche (en P-LOCK, son
  *   verrou) ; les encodeurs du desktop apprennent leur FX global
  *   (rytm:enc:dist... theme.ts GLOBAL_ENCODERS), avec rytm:enc:dtime et

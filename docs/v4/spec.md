@@ -2577,3 +2577,10 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Measured live on the MIXER channels in a muted headless browser (default pattern and patch, nothing audible): RYTM peaked at -2.7 dBFS (p90 -6.4, median -10.6), ARP at -13.4 (p90 -16.2, median -18.4); ARP factory presets all peak 13.6 to 16.3 dB under 0 offline.
 - Changes: RYTM_TRIM 0.71 -> 0.53 (-2.5 dB, audio/drums.ts); the kick 1.5 dB under the reference (shotsdsp.ts SHOT_BELOW.BD 0 -> 1.5, other voices keep their ceilings from SHOT_KICK_PEAK); ARP VOLUME_K 0.37 -> 0.66 (+5 dB, audio/synth.ts).
 - After: RYTM peak -5.7 (p90 -9, median -13.9), ARP peak -8.8 (p90 -11, median -13.4): same median, both well under the red segment (-0.5 dBFS).
+
+### R14-259 MM-RYTM: mute a voice from its pad; MUTE brings every voice back (2026-10-10)
+
+- Mika: "quand je clic droit ou double tap sur mobile je veux mute une voice ; quand je clic sur MUTE ca release tous les mutes ; quand je clic sur une voice mutee je ne la demute pas, je peux l'edit sans entendre, et quand je la demute j'entends la modification".
+- Right click on a voice pad (mouse) or two taps on the same pad within 400 ms (touch): the voice mutes or comes back, without playing (actions.ts padMute; ui/Hotspots.tsx). The first tap of a double tap still selects the voice.
+- A tap or click on a muted voice selects it and plays nothing (no pad preview), it stays muted: edit it silently, hear the change when unmuting.
+- MUTE (face key, M, MIDI/Roto rytm:mute): every muted voice comes back (ALL VOICES ON); with nothing muted it says how to mute (RIGHT CLICK or DOUBLE TAP A VOICE). The armed MUTE modes (ONE / MULTI) are gone; holding MUTE still brings everything back; SOLO is unchanged. The screen hint reads MUTE: ALL ON; the MUTE INFOS card is rewritten.

@@ -547,7 +547,8 @@ function modeLines(): { left: string; tip: string; short: string } | null {
       ? { left: `MULTI MUTE: ${v.muted.length ? v.muted.join(' ') : 'TAP VOICES'}`, tip: 'MUTE: DONE  HOLD: ALL ON', short: 'HOLD: ALL ON' }
       : { left: 'MUTE: TAP A VOICE', tip: 'MUTE AGAIN: SEVERAL', short: 'AGAIN: SEVERAL' };
   if (v.solo.length) return { left: `SOLO: ${v.solo.join(' ')}`, tip: 'HOLD SOLO: ALL OFF', short: 'HOLD: ALL OFF' };
-  if (v.muted.length) return { left: `MUTED: ${v.muted.join(' ')}`, tip: 'HOLD MUTE: ALL ON', short: 'HOLD: ALL ON' };
+  // MUTE rend toutes les voix d'une tape (2026-10-10)
+  if (v.muted.length) return { left: `MUTED: ${v.muted.join(' ')}`, tip: 'MUTE: ALL ON', short: 'MUTE: ALL ON' };
   return null;
 }
 
@@ -1793,7 +1794,8 @@ export class Screen {
       // (revue du 2026-10-09 : 909+BLUEPRINT ici, BLUEPRINT + 909 dans SOUND), jamais coupe au milieu d'un nom (BLUEP.) :
       // le sample seul s'il n'y a pas la place des deux, sinon rien
       const room = rightX - x;
-      if (rp.page !== 'voice' && room > 18) {
+      // La page d'un FX sous GLOBAL (2026-10-10) : la quantite de la machine, ce que joue la voix n'y a rien a faire
+      if (rp.page !== 'voice' && room > 18 && !(scope && screen === scope.global)) {
         const plays = voiceSoundText(inst, stepPlays(inst, lock));
         const shown = plays === inst ? '' : ([plays, plays.split(' + ')[0]].find((t) => this.textWidth(t, T.sound, 600, 0.6) <= room) ?? '');
         if (shown) this.text(shown, x, y, T.sound, HALF, 600, 'left', 0.6);

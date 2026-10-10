@@ -96,6 +96,7 @@ import {
   muteToggle,
   openToggle,
   padHit,
+  padMute,
   page,
   resetView,
   runToggle,
@@ -495,6 +496,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       return quadToUnit(quad, x, y);
     };
 
+    /** Deux tapes au doigt sur le meme pad de voix en moins de ce temps : la voix se coupe ou revient (2026-10-10). */
+    const PAD_DOUBLE_TAP_MS = 400;
+    /** La derniere tape au doigt sur un pad de voix (le double tape qui coupe la voix). */
+    let lastPad: { inst: Inst; at: number } | null = null;
     const isCoarse = (e: PointerEvent): boolean =>
       e.pointerType === 'touch' || e.pointerType === 'pen' || coarseMql.matches;
     const pickAt = (e: Point, coarse: boolean): HotspotView | null =>
@@ -617,7 +622,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d.kind === 'step' && d.lockHold) return d.id;
       // La carte, et la navigation sans un son (une touche de page tourne la page, un pad choisit sa voix : actions.ts)
       if (!d.mouse && d.id && rytmInfoTouch(d.id) && rytmInfoTap(d.id)) return d.id;
-      if (d.kind === 'pad' && d.inst) padHit(d.inst, stage);
+      if (d.kind === 'pad' && d.inst) {
+        // Double tape au doigt sur le meme pad (2026-10-10) : la voix se coupe ou revient (la premiere tape l'a choisie)
+        const t = performance.now();
+        if (!d.mouse && lastPad && lastPad.inst === d.inst && t - lastPad.at <= PAD_DOUBLE_TAP_MS) {
+          lastPad = null;
+          padMute(d.inst, stage);
+        } else {
+          lastPad = d.mouse ? null : { inst: d.inst, at: t };
+          padHit(d.inst, stage);
+        }
+      }
       else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);
       else if (d.kind === 'open') openToggle(stage, 'mm808');
       else if (d.kind === 'step' && d.index !== undefined) {
@@ -725,6 +740,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     const onDown = (e: PointerEvent): void => {
+      // Clic droit sur un pad de voix du MM-RYTM (2026-10-10) : la voix se coupe ou revient (actions.ts padMute)
+      if (e.pointerType === 'mouse' && e.button === 2) {
+        rect = el.getBoundingClientRect();
+        const hm = pickAt(e, false);
+        if (hm && hm.kind === 'pad' && hm.inst && hm.enabled !== false) padMute(hm.inst, stage);
+        return;
+      }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       gesture();
       // Le clavier reprend la ou il en etait, mais Espace redevient RUN/STOP

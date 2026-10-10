@@ -183,21 +183,21 @@ const RAW: Record<RytmInfoId, Raw> = {
   fx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, BIT et COMP ; ceux-là ne se verrouillent jamais. Une tape sur DIST, CHORUS, DELAY, REVERB, BIT ou COMP ouvre sa page, avec ses réglages ; la touche FX ramène GLOBAL FX. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre : en tourner un ouvre sa page.",
+    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, BIT et COMP ; ceux-là ne se verrouillent jamais. Une tape sur DIST, CHORUS, DELAY, REVERB, BIT ou COMP ouvre sa page, avec ses réglages ; sur celles de DIST, CHORUS, DELAY et REVERB, deux onglets en haut : GLOBAL (la quantité de la machine) et la voix (BD : son envoi à elle, verrouillable), les réglages à côté restent ceux de la machine. Une tape sur un FX de VOICE FX ouvre sa page sur la voix ; la touche FX ramène GLOBAL FX, ou VOICE FX depuis la voix. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre : en tourner un ouvre sa page.",
     tip: 'En dark disco, un DELAY sur la seule caisse claire (VOICE FX, SD) : l’écho reste derrière le kick.',
   },
   fxv: {
     section: 'PAGES',
     title: 'VOICE FX',
-    text: "Les effets de la voix choisie, son nom en étiquette (au téléphone, l'onglet BD FX de l'en-tête le dit) : DIST (la saturation parallèle), CHORUS (l'élargissement), DELAY et REVERB (leurs envois). Tous se verrouillent pas par pas : un pas garde sa DIST, l'effet tient jusqu'au coup suivant de la voix, comme sur une Elektron. Pour le kick, ce sont ses seuls effets : les FX globaux ne le touchent pas.",
+    text: "Les effets de la voix choisie, son nom en étiquette (au téléphone, l'onglet BD FX de l'en-tête le dit) : DIST (la saturation parallèle), CHORUS (l'élargissement), DELAY et REVERB (leurs envois). Tous se verrouillent pas par pas : un pas garde sa DIST, l'effet tient jusqu'au coup suivant de la voix, comme sur une Elektron. Pour le kick, ce sont ses seuls effets : les FX globaux ne le touchent pas. Une tape sur l'un d'eux ouvre sa page sur la voix : son envoi en grand, les réglages de la machine à côté (DELAY : TIME, FEEDBACK, TONE), GLOBAL en haut pour passer à la quantité de la machine ; la touche FX revient ici (sous GLOBAL, à GLOBAL FX).",
     tip: 'Une REVERB verrouillée sur le dernier clap de la mesure seulement : l’espace s’ouvre une fois, puis se referme.',
   },
   fxg: {
     section: 'PAGES',
     title: 'GLOBAL FX',
-    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). GLOBAL dans l'en-tête, la touche FX ou Échap ramènent GLOBAL FX ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ou Échap ramènent GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     phone: {
-      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). GLOBAL dans l'en-tête ou la touche FX ramènent GLOBAL FX ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ramène GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     },
     tip: 'Sur la page DELAY, TIME sur 1/8D et FEEDBACK vers 70 % : le rebond de l’indie dance ; un peu de DELAY global suffit.',
   },
@@ -454,7 +454,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE FX',
     title: 'DIST',
     lock: 'yes',
-    text: "La saturation de la voix choisie, en parallèle : une copie saturée (tanh, de 1 à 13 fois le gain) se mélange au son sec, qui baisse d'autant ; à fond, 85 % de saturé pour 15 % de sec. Après le filtre de la voix (TONE), avant son CHORUS ; à 0, rien n'est calculé. Verrouillée sur un pas, elle tient jusqu'au coup suivant de la voix.",
+    text: "La saturation de la voix choisie, en parallèle : une copie saturée (tanh, de 1 à 13 fois le gain) se mélange au son sec, qui baisse d'autant ; à fond, 85 % de saturé pour 15 % de sec. Après le filtre de la voix (TONE), avant son CHORUS ; à 0, rien n'est calculé. Verrouillée sur un pas, elle tient jusqu'au coup suivant de la voix. Sa page (une tape sur ce bloc) montre aussi TONE, celui de la DIST de la machine : il ne colore pas celle de la voix.",
     tip: 'Un peu de DIST sur la caisse claire et le clap (20 à 30 %) : du mordant indie dance sans toucher au kick.',
     voice: {
       bd: { tip: 'Sur BD, c’est la seule DIST qui touche le kick (la globale ne le voit pas). Avec DRIVE (VOICE SYNTH), dose-la peu.' },
@@ -464,21 +464,21 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE FX',
     title: 'CHORUS',
     lock: 'yes',
-    text: "Élargit la voix choisie : deux copies retardées de 14 et 21 ms qui ondulent lentement (0,53 et 0,71 Hz, ±7 ms), l'une à gauche, l'autre à droite. À fond, le son sec tombe à la moitié et le chorus joue plein. À 0, rien n'est calculé. Verrouillé sur un pas, il tient jusqu'au coup suivant de la voix.",
+    text: "Élargit la voix choisie : deux copies retardées de 14 et 21 ms qui ondulent lentement (0,53 et 0,71 Hz, ±7 ms), l'une à gauche, l'autre à droite. À fond, le son sec tombe à la moitié et le chorus joue plein. À 0, rien n'est calculé. Verrouillé sur un pas, il tient jusqu'au coup suivant de la voix. Sa page (une tape sur ce bloc) montre aussi RATE et DEPTH, ceux du CHORUS de la machine : celui de la voix garde ses ondulations.",
     tip: 'Sur les charleys ou un clap en dark disco ; jamais sur le kick, il paraîtrait doublé.',
   },
   vdelay: {
     section: 'VOICE FX',
     title: 'DELAY',
     lock: 'yes',
-    text: "Envoie la voix choisie dans le DELAY du MM-RYTM, celui de toutes les voix : des répétitions au temps de TIME (la croche pointée au départ, calée sur le tempo), au retour de FEEDBACK (58 % au départ), assombries par TONE (4,5 kHz au départ) ; ces trois réglages sont sur la page DELAY de GLOBAL FX. L'envoi part après MASTER : baisser MASTER baisse aussi l'écho.",
+    text: "Envoie la voix choisie dans le DELAY du MM-RYTM, celui de toutes les voix : des répétitions au temps de TIME (la croche pointée au départ, calée sur le tempo), au retour de FEEDBACK (58 % au départ), assombries par TONE (4,5 kHz au départ) ; ces trois réglages sont sur la page DELAY, à côté de cet envoi (une tape sur ce bloc l'ouvre sur la voix, GLOBAL en haut passe à la machine). L'envoi part après MASTER : baisser MASTER baisse aussi l'écho.",
     tip: 'Un DELAY sur la caisse claire en dark disco, ou sur un tom en minimal : l’écho remplit les trous sans rien programmer.',
   },
   vreverb: {
     section: 'VOICE FX',
     title: 'REVERB',
     lock: 'yes',
-    text: "Envoie la voix choisie dans la REVERB du MM-RYTM, celle de toutes les voix : une salle de 2,4 s au départ (-60 dB au bout), aux aigus qui s'éteignent avant les graves ; sa longueur, ses aigus et son pré-delay (SIZE, TONE, PRE) sont sur la page REVERB de GLOBAL FX. Comme le DELAY, l'envoi part après MASTER.",
+    text: "Envoie la voix choisie dans la REVERB du MM-RYTM, celle de toutes les voix : une salle de 2,4 s au départ (-60 dB au bout), aux aigus qui s'éteignent avant les graves ; sa longueur, ses aigus et son pré-delay (SIZE, TONE, PRE) sont sur la page REVERB, à côté de cet envoi (une tape sur ce bloc l'ouvre sur la voix). Comme le DELAY, l'envoi part après MASTER.",
     tip: 'Peu de REVERB, et seulement sur la caisse claire, le clap ou la cymbale : le kick reste sec et devant.',
   },
 
@@ -909,9 +909,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   mute: {
     section: 'TRANSPORT',
     title: 'MUTE',
-    text: "Une tape : MUTE attend une voix (sa LED clignote) ; touche un pad, cette voix se coupe ou revient, et MUTE se range. Encore une tape pendant qu'il attend : MULTI MUTE (LED fixe), chaque pad touché se coupe ou revient, autant que tu veux. Une tape de plus : MUTE se range, les voix coupées le restent (LED à peine allumée). Tiens MUTE 600 ms : toutes les voix reviennent. Échap sort du mode sans rien changer. Une voix coupée a son pad rouge, et ses verrous ne jouent pas.",
+    text: "Un clic droit sur un pad (au doigt : deux tapes rapides) coupe sa voix, ou la rend ; autant de voix que tu veux. Une tape sur MUTE : toutes les voix reviennent. Une voix coupée a son pad rouge, ses pas et ses verrous ne jouent pas ; une tape sur son pad la choisit sans la rendre ni la jouer : tu la règles sans l'entendre, et tu entends le changement quand tu la rends.",
     key: 'M',
-    tip: 'En live : MULTI MUTE, coupe le kick et les charleys huit mesures, puis tiens MUTE : tout revient d’un coup.',
+    tip: 'En live : coupe le kick et les charleys d’un clic droit, prépare-les en silence, puis MUTE : tout revient d’un coup.',
   },
   solo: {
     section: 'TRANSPORT',

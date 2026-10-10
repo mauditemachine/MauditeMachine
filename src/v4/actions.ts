@@ -82,8 +82,9 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   }
   // En lecture (2026-10-05, Mika : "quand RYTM est sur RUN, cliquer sur une voix ne doit pas la jouer, juste la
   // selectionner") : la voix est choisie, sans coup ; a l'arret, elle sonne comme avant, a la velocite des nouveaux
-  // pas de la voix (VEL de VOICE, 2026-10-09 : HIGH au depart, le coup d'avant)
-  if (!clock.running) trigger(inst, undefined, false, undefined, VEL_GAIN[rytmPage.tapVel(inst)] ?? 1);
+  // pas de la voix (VEL de VOICE, 2026-10-09 : HIGH au depart, le coup d'avant). Une voix coupee (2026-10-10, Mika :
+  // "quand je clique sur une voix mutee je ne la demute pas, je peux l'editer sans entendre") : choisie, sans un son
+  if (!clock.running && !voices.isMuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[rytmPage.tapVel(inst)] ?? 1);
   selectVoice(inst);
   stage?.pads.press(inst);
 }
@@ -101,6 +102,19 @@ function muteVoice(inst: Inst): void {
   voices.toggleMute(inst);
   if (!voices.get().muteMulti) voices.disarm('mute');
   lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
+}
+
+/**
+ * Le mute d'une voix au pad (2026-10-10, Mika : "quand je clic droit ou double tap sur mobile je veux muter une
+ * voix ; quand je clique sur MUTE ca release tous les mutes ; quand je clique sur une voix mutee je ne la demute
+ * pas, je peux l'editer sans entendre, et quand je la demute j'entends la modification") : clic droit (souris) ou
+ * double tape (doigt) sur le pad, la voix se coupe ou revient, sans jouer ; elle n'est pas choisie pour autant.
+ */
+export function padMute(inst: Inst, stage: Stage | null): void {
+  gesture();
+  voices.toggleMute(inst);
+  lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
+  stage?.pads.press(inst);
 }
 
 /**
@@ -375,8 +389,18 @@ export function runToggle(stage: Stage | null = null): boolean {
 export function muteToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('mute');
-  return modeTap('mute');
+  // 2026-10-10 (Mika : "quand je clique sur MUTE ca release tous les mutes que j'ai cliques") : MUTE rend toutes les
+  // voix ; on coupe une voix au pad (clic droit, double tape : padMute). Plus de mode a armer.
+  const v = voices.get();
+  if (v.muted.length || v.muteMode) {
+    voices.release('mute');
+    lcdMessage.show('ALL VOICES ON', MODE_MSG_MS);
+  } else lcdMessage.show(coarsePointer() ? 'MUTE: DOUBLE TAP A VOICE' : 'MUTE: RIGHT CLICK A VOICE', MODE_MSG_MS);
+  return false;
 }
+
+/** Un ecran tactile (le doigt plutot que la souris) : l'aide de MUTE parle de double tape. */
+const coarsePointer = (): boolean => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 
 /** SOLO (2026-10-04 ; refait le 2026-10-07 et le 2026-10-09) : la meme machine a etats que MUTE. */
 export function soloToggle(stage: Stage | null = null): boolean {
