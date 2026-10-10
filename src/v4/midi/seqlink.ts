@@ -956,8 +956,8 @@ const rytm: SeqMachine = {
       rytmLockTap(i);
       return;
     }
-    // Un geste, un etat (un trig d'Elektron) : vide, un coup a la VEL des nouveaux pas de la voix (VOICE VEL,
-    // 2026-10-09, comme la face, le Dock et le clavier) ; un coup, vide
+    // Un geste, un etat (un trig d'Elektron) : vide, un coup a la VEL des nouveaux pas de la voix (HIGH au depart,
+    // sans bloc depuis le 2026-10-10 ; comme la face, le Dock et le clavier) ; un coup, vide
     const on = velocity(pattern.get().steps, inst, i) === 0;
     const vel = rytmPage.tapVel(inst);
     if (on) pattern.set(inst, i, vel);

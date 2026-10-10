@@ -8,9 +8,9 @@
  */
 
 import workletUrl from './bass.worklet.js?url';
-import { synthPort } from '../audio/drums';
+import { setBassDuck, synthPort } from '../audio/drums';
 import { pattern } from '../audio/pattern';
-import { ENGINE_IDS, bassParams } from './params';
+import { ENGINE_IDS, bassParams, sidechainDepth } from './params';
 import type { BassLocks } from './state';
 
 /** La duree d'un pas (une double croche) au tempo du motif. */
@@ -94,6 +94,10 @@ function ensure(): Promise<Graph | null> {
 }
 
 bassParams.subscribe(() => graph?.node.port.postMessage({ type: 'params', p: params() }));
+// SIDECHAIN (2026-10-10) : pas un reglage du worklet ; l'entree du MM-BASS baisse a chaque kick du MM-RYTM (audio/drums.ts)
+const applyDuck = (): void => setBassDuck(sidechainDepth(bassParams.of('sidechain')));
+bassParams.subscribe(applyDuck);
+applyDuck();
 // Le tempo : le temps du DELAY reste en pas (2026-10-08)
 let lastStep = stepS();
 pattern.subscribe(() => {

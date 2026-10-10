@@ -48,6 +48,8 @@
  * d'avant / annuler, pour les boutons du Roto), bass:notes:up et
  * bass:notes:down (une note de plus ou de moins). LED bass:mutate : une
  * mutation a annuler. Les ids d'avant restent.
+ * SIDECHAIN (2026-10-10) : bass:global:sidechain (le reglage global, comme
+ * les autres FX) ; bass:knob:sidechain vient de lui-meme avec le reglage.
  */
 
 import { registerTargets, type MidiTarget } from '../midi/targets';
@@ -104,6 +106,8 @@ function all(): MidiTarget[] {
     const def = bassKnob(id);
     out.push({ id: `bass:global:${id}`, scope: 'bass', label: `${def.label} (GLOBAL)`, kind: 'value', steps: def.steps ?? 0, get: () => bassParams.of(id), set: (v) => void bassParams.set(id, v) });
   }
+  // SIDECHAIN (2026-10-10, page FX E) : le FX global de la machine, jamais un P-lock (bass:knob:sidechain existe aussi)
+  out.push({ id: 'bass:global:sidechain', scope: 'bass', label: 'SIDECHAIN (GLOBAL, THE MM-RYTM KICK)', kind: 'value', steps: 0, get: () => bassParams.of('sidechain'), set: (v) => void bassParams.set('sidechain', v) });
   // Une touche de page pressee (2026-10-09) : la page allumee passe a son onglet suivant
   for (const p of BASS_PAGES) out.push({ id: `bass:page:${p.id}`, scope: 'bass', label: `PAGE ${p.label} (AGAIN: NEXT TAB)`, kind: 'press', down: () => bassPagePress(p.id) });
   // Un onglet (2026-10-09) : VOICE MAIN, OSC, MIX ; FILTER MAIN, CONTOUR ; ENV ; FX

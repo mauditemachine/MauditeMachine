@@ -148,7 +148,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   voice: {
     section: 'PAGES',
     title: 'VOICE',
-    text: "Tout ce que joue la voix choisie, sur un seul écran (TRIG, SRC et SMPL réunis) : SOUND en grand (OFF, 909, 808, MM, puis les samples de sa famille, une seule liste), VOL (son niveau), VEL (la vélocité des nouveaux pas ; en P-LOCK, celle du pas), PITCH et FINE (la hauteur de toute la voix) ; pour BD et SD, LEN et REV règlent le sample. Sur BD et SD, la touche VOICE allumée passe à l'onglet SYNTH (la machine sous le sample, MIX), puis revient ; sur les autres voix, elle montre HOME. C'est la page de départ.",
+    text: "Tout ce que joue la voix choisie, sur un seul écran (TRIG, SRC et SMPL réunis) : SOUND en grand (OFF, 909, 808, MM, puis les samples de sa famille, une seule liste), VOL en grand (son niveau ; en P-LOCK, celui du pas : vélocité et volume ne font qu'un), PITCH et FINE (la hauteur de toute la voix) ; pour BD et SD, LEN et REV règlent le sample. Sur BD et SD, la touche VOICE allumée passe à l'onglet SYNTH (la machine sous le sample, MIX), puis revient ; sur les autres voix, elle montre HOME. C'est la page de départ.",
     tip: 'Choisis le son (SOUND), puis son niveau (VOL) : la voix est posée. En P-LOCK, SOUND change le son d’un seul pas : un sample lock, comme sur l’Analog Rytm.',
   },
   synth: {
@@ -224,21 +224,21 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE',
     title: 'VOL',
     lock: 'yes',
-    text: "Le niveau de la voix : 0.0 dB à 102 (80 %, le réglage d'usine), +3,9 dB tout en haut, rien à 0 ; la ligne du dessous le donne en dB. Les voix sont déjà calées sous le kick : la crête de la caisse claire reste au moins 1,5 dB sous la sienne, celle du clap 3,5 dB, celle des charleys 5,5 à 6 dB ; VOL part de là. En P-LOCK, c'est le volume du pas : il change le gain de ce coup seulement, jusqu'à +12 dB au-dessus du VOL de la voix ; une voix à 0 reste muette, même verrouillée plus haut.",
+    text: "Le niveau de la voix : 0.0 dB à 102 (80 %, le réglage d'usine), +3,9 dB tout en haut, rien à 0 ; la ligne du dessous le donne en dB. Les voix sont déjà calées sous le kick : la crête de la caisse claire reste au moins 1,5 dB sous la sienne, celle du clap 3,5 dB, celle des charleys 5,5 à 6 dB ; VOL part de là. En P-LOCK, c'est le volume du pas : il change le gain de ce coup seulement, jusqu'à +12 dB au-dessus du VOL de la voix ; une voix à 0 reste muette, même verrouillée plus haut. VOL fait aussi la vélocité (le bloc VEL l'a rejoint) : pour un coup plus doux sur un pas, verrouille son VOL, ou tiens le pas et glisse (sa vélocité, neuf niveaux).",
     tip: 'Règle d’abord le kick, la référence (il sort vers -9 dBFS), puis monte le reste juste sous lui.',
     voice: {
       bd: { tip: 'Sur BD, VOL dose aussi le SIDECHAIN du MM-ARP. Le kick est la référence : règle le reste sous lui.' },
     },
   },
+  // Plus de bloc VEL (2026-10-10, fusionne dans VOL) : la carte reste pour les ids d'avant, sans phrase de verrou
   'step:vel': {
     section: 'VOICE',
     title: 'VEL',
-    lock: 'vel',
-    text: "Hors P-LOCK, la vélocité des nouveaux pas de la voix (NEW STEPS à l'écran) : un pas vide touché la prend, un pad joué à l'arrêt aussi. En P-LOCK, celle du pas lui-même (STEP à l'écran : ce n'est pas un verrou, son bloc reste en clair et ne compte pas dans les P-LOCKS). Neuf niveaux de 14 à 127 à l'écran : 127 (HIGH) joue le coup plein, 85 (MID) à 60 % du gain, 42 (LOW) à 32 % ; en P-LOCK, 0 (OFF) vide le pas (ses verrous restent).",
-    tip: 'VEL sur 85 pour poser les charleys, puis un 127 juste avant le temps : le roulement qui fait avancer l’indie dance.',
+    text: "La vélocité n'a plus de bloc à l'écran : VOL fait les deux (en P-LOCK, le volume du pas). Un pas vide touché prend la vélocité des nouveaux pas de la voix (HIGH au départ), un pad joué à l'arrêt aussi ; celle d'un pas se change en le tenant puis en glissant, ou dans la rangée VEL de EDIT. Neuf niveaux de 14 à 127 : 127 (HIGH) joue le coup plein, 85 (MID) à 60 % du gain, 42 (LOW) à 32 %.",
+    tip: 'Tiens un pas de charley et glisse vers 85, puis laisse un 127 juste avant le temps : le roulement qui fait avancer l’indie dance.',
     voice: {
       bd: { tip: 'Sur BD, la vélocité dose aussi le SIDECHAIN du MM-ARP : un kick plus doux le creuse moins.' },
-      none: { text: "La vélocité des nouveaux pas de la voix, en neuf niveaux de 14 à 127 ; en P-LOCK, celle du pas. Touche d'abord un pad : les pas sont ceux de la voix choisie." },
+      none: { text: "La vélocité n'a plus de bloc à l'écran : VOL fait les deux. Touche d'abord un pad, puis tiens un de ses pas et glisse : sa vélocité, en neuf niveaux de 14 à 127." },
     },
   },
   vtune: {
@@ -717,7 +717,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'pad:BD': {
     section: 'VOICES',
     title: 'BD',
-    text: "Le kick, la référence du mix : il sort le plus fort, les autres voix sont calées sous sa crête. Il a sa propre voie (les FX globaux ne le touchent pas, il a les siens dans VOICE FX) et il est monophonique : un nouveau coup coupe la queue du précédent en 3 ms. Le pad le choisit : les pas et l'écran le règlent ; à l'arrêt, il le joue aussi, à la vélocité des nouveaux pas (VEL). Le dessin montre ce qu'il joue et ses 16 pas.",
+    text: "Le kick, la référence du mix : il sort le plus fort, les autres voix sont calées sous sa crête. Il a sa propre voie (les FX globaux ne le touchent pas, il a les siens dans VOICE FX) et il est monophonique : un nouveau coup coupe la queue du précédent en 3 ms. Le pad le choisit : les pas et l'écran le règlent ; à l'arrêt, il le joue aussi, à la vélocité des nouveaux pas (HIGH au départ). Le dessin montre ce qu'il joue et ses 16 pas.",
     key: 'A',
     tip: 'Choisis la voix avant de toucher les pas : ils montrent et changent sa rangée.',
   },
@@ -775,13 +775,13 @@ const RAW: Record<RytmInfoId, Raw> = {
   step: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Les 16 pas de la voix choisie. Touche un pas vide : il prend la vélocité des nouveaux pas (VEL, sur VOICE : HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
+    text: "Les 16 pas de la voix choisie. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
     tip: 'Le kick sur 1, 5, 9 et 13 (les pas encadrés), le clap ou la caisse claire sur 5 et 13 : la base du four on the floor.',
     phone: {
-      text: "Les 16 pas de la voix choisie. Touche un pas vide : il prend la vélocité des nouveaux pas (VEL, sur VOICE : HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : P-LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
+      text: "Les 16 pas de la voix choisie. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : P-LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
     },
     voice: {
-      none: { text: "Les 16 pas de la voix choisie : touche d'abord un pad (l'écran dit TAP A PAD FIRST). Ensuite, une touche sur un pas vide le pose à la vélocité de VEL ; tenu 350 ms : P-LOCK." },
+      none: { text: "Les 16 pas de la voix choisie : touche d'abord un pad (l'écran dit TAP A PAD FIRST). Ensuite, une touche sur un pas vide le pose à la vélocité des nouveaux pas (HIGH au départ) ; tenu 350 ms : P-LOCK." },
     },
   },
   lock: {

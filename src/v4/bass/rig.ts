@@ -186,6 +186,8 @@ export const BASS_I_ID = 'bass-key-i';
 export const BASS_PLOCK_ID = 'bass-lcd-plock';
 /** Le rouleau d'EDIT (2026-10-09) : on y glisse la hauteur des notes. */
 export const BASS_ROLL_ID = 'bass-roll';
+/** Le rouleau d'EDIT sur l'ecran (2026-10-09) ; false depuis le 2026-10-10 : le panneau EDIT (bass/EditPanel.tsx) le remplace. */
+const EDIT_ON_SCREEN = false;
 /** Un bloc de l'ecran (2026-10-08, la revue) : k de 0 a 7, bass-blk-1 a 8, il repond comme son encodeur. */
 export const bassBlockId = (k: number): string => `bass-blk-${k + 1}`;
 export const bassTrigId = (i: number): string => `bass-trig-${i + 1}`;
@@ -1086,7 +1088,8 @@ export class BassRig {
       }, left + 16);
     }
     const fresh = !!t && left > 0;
-    if (editor.get() === 'bass') {
+    // EDIT sur l'ecran (le rouleau) : remplace le 2026-10-10 par le panneau du MM-RYTM (bass/EditPanel.tsx), l'ecran garde sa page
+    if (EDIT_ON_SCREEN && editor.get() === 'bass') {
       const m: BassEditModel = bassEditModel({
         steps: s.steps,
         values,

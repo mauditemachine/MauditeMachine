@@ -22,8 +22,9 @@
  *   l'editeur) ;
  * - popup : le FX global qu'un encodeur du desktop vient de tourner (son nom,
  *   sa valeur, un instant, sans changer de page) ;
- * - vel : la velocite des nouveaux pas de chaque voix (VEL de VOICE hors
- *   P-LOCK, la velocite par defaut d'une Elektron ; le pad la joue aussi).
+ * - vel : la velocite des nouveaux pas de chaque voix (la velocite par
+ *   defaut d'une Elektron ; le pad la joue aussi). Son bloc VEL de VOICE est
+ *   fusionne dans VOL depuis le 2026-10-10 : plus rien ne la change a l'ecran.
  * Retenus sous mm.v4.rytm.page.3 : la page, ses onglets, la vue, les
  * velocites ; la cle .2 d'avant (TRIG SRC SMPL FLTR AMP FX) se lit encore : une
  * page qui n'existe plus ouvre la sienne d'aujourd'hui (TRIG, SRC, SMPL :
@@ -82,6 +83,8 @@ export const POPUP_MS = 1100;
 const zeroTabs = (): Record<RytmPageId, number> => Object.fromEntries(RYTM_PAGES.map((p) => [p.id, 0])) as Record<RytmPageId, number>;
 const fullVel = (): Record<Inst, number> => Object.fromEntries(INSTS.map((i) => [i, TAP_VEL_DEFAULT])) as Record<Inst, number>;
 
+/** Relire la velocite des nouveaux pas gardee (false depuis le 2026-10-10 : plus de bloc VEL pour la changer). */
+const VEL_FROM_STORE = false;
 const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, tabs: zeroTabs(), view: 'page', echo: null, sel: -1, held: -1, hover: -1, popup: null, vel: fullVel() };
 
 function load(): RytmPageState {
@@ -100,7 +103,8 @@ function load(): RytmPageState {
           if (typeof t === 'number' && Number.isInteger(t) && t >= 0 && t < PAGE_TABS[pg.id].length) out.tabs[pg.id] = t;
         }
       }
-      if (o.vel && typeof o.vel === 'object') {
+      // La velocite des nouveaux pas n'est plus a l'ecran (2026-10-10, VEL fondu dans VOL) : plus relue, tout repart HIGH
+      if (VEL_FROM_STORE && o.vel && typeof o.vel === 'object') {
         for (const i of INSTS) {
           const v = (o.vel as Record<string, unknown>)[i];
           if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 9) out.vel[i] = v;

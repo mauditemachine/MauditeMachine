@@ -228,7 +228,7 @@ export function stepToggle(i: number, stage: Stage | null = null): boolean {
     rytmLockTap(i);
     return true;
   }
-  // Un pas vide recoit la velocite des nouveaux pas de la voix (VEL de VOICE, 2026-10-09 : HIGH au depart) ; un pas pose
+  // Un pas vide recoit la velocite des nouveaux pas de la voix (2026-10-09 : HIGH au depart ; sans bloc depuis le 2026-10-10) ; un pas pose
   // passe au cran d'en dessous comme avant (MID, LOW, vide)
   if (velocity(pattern.get().steps, inst, i) === 0) pattern.set(inst, i, rytmPage.tapVel(inst));
   else pattern.toggle(inst, i);
@@ -277,7 +277,8 @@ export function stepVelocity(i: number, v: number): boolean {
   }
   const n = Math.max(1, Math.min(VEL_MAX, Math.round(v)));
   if (velocity(pattern.get().steps, inst, i) !== n) pattern.set(inst, i, n);
-  // La vue PAGE (2026-10-08) : TRIG en coup d'oeil, le bloc VEL montre ce pas
+  // La vue PAGE (2026-10-08) : TRIG en coup d'oeil ; plus de bloc VEL depuis le 2026-10-10 (fusionne dans VOL) :
+  // touchPage ne trouve rien a cerner, l'ecran dit la velocite du pas
   rytmPage.select(i);
   touchPage('step:vel', inst);
   lcdMessage.show(stepLine(inst, i), POT_UI.readoutMs, true);
@@ -1407,7 +1408,10 @@ function voiceMixDial(v: number): void {
   touchPage('voice:mix', inst);
 }
 
-/** VEL hors P-LOCK (2026-10-09) : la velocite des nouveaux pas de la voix (et de son pad), 1 a 9. */
+/**
+ * VEL hors P-LOCK (2026-10-09) : la velocite des nouveaux pas de la voix (et de son pad), 1 a 9. Plus de bloc VEL
+ * depuis le 2026-10-10 (fusionne dans VOL) : seul un bloc step:vel l'appellerait encore.
+ */
 function tapVelDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {

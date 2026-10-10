@@ -5519,3 +5519,127 @@ html:has(body.v4-active.v4-light) {
 .v4-beat-cell[data-lock='idle'] .v4-beat-lock {
   opacity: 0.45;
 }
+
+/* L'editeur EDIT du MM-BASS (bass/EditPanel.tsx, 2026-10-10, Mika : "j'aime bien cette fenetre EDIT du RYTM") : le
+   panneau du MM-RYTM, une rangee par note de la gamme (les toniques plus claires), ACC SLIDE TIE et LEN dessous ; les
+   pas au-dela de la longueur pales. */
+.v4-bassed .v4-beat-grid,
+.v4-seq[data-place='machine'] .v4-bassed .v4-beat-grid {
+  grid-template-rows: repeat(var(--rows, 15), var(--beat-row, 12px));
+}
+
+.v4-bassed .v4-bassed-names {
+  display: grid;
+  grid-template-rows: repeat(var(--rows, 15), var(--beat-row, 12px));
+  gap: 2px;
+}
+
+.v4-bassed-name {
+  display: flex;
+  align-items: center;
+  color: var(--seq-dim);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.v4-bassed-name[data-root='1'] {
+  color: var(--seq-note);
+}
+
+.v4-bassed .v4-beat-row[data-root='1'] .v4-beat-cell {
+  background: var(--seq-guide);
+}
+
+.v4-bassed .v4-beat-cell[data-out='1'] {
+  opacity: 0.3;
+}
+
+.v4-bassed-hit[data-tie='1'] {
+  left: -3px;
+  opacity: 0.55;
+}
+
+.v4-bassed-hit[data-acc='1'] {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.v4-bassed-lane {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 0;
+  height: 14px;
+}
+
+.v4-root .v4-bassed-sw {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--seq-cell);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v4-root .v4-bassed-sw[data-can='1'] {
+  box-shadow: inset 0 0 0 1px var(--seq-guide);
+}
+
+.v4-root .v4-bassed-sw[data-on='1'] {
+  background: var(--seq-note);
+}
+
+.v4-root .v4-bassed-sw[data-play='1'] {
+  box-shadow: inset 0 0 0 1px var(--seq-on);
+}
+
+.v4-root .v4-bassed-sw[data-out='1'] {
+  opacity: 0.3;
+}
+
+.v4-bassed-len {
+  cursor: ew-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.v4-bassed-len:focus-visible {
+  box-shadow: 0 0 0 2px var(--seq-note);
+}
+
+.v4-bassed-lencell {
+  border-radius: 3px;
+  background: var(--seq-cell);
+}
+
+.v4-bassed-lencell[data-in='1'] {
+  background: var(--seq-root);
+}
+
+.v4-bassed-lencell[data-play='1'] {
+  background: var(--seq-on);
+}
+
+@media (max-width: 767px) {
+  .v4-bassed .v4-beat-grid,
+  .v4-bassed .v4-bassed-names {
+    grid-template-rows: repeat(var(--rows, 15), 13px);
+  }
+
+  .v4-bassed-lane {
+    height: 20px;
+  }
+}
+
+.v4-bassed .v4-beat-clear,
+.v4-bassed .v4-seq-chord {
+  white-space: nowrap;
+}
+
+.v4-bassed .v4-beat-clear:disabled {
+  opacity: 0.35;
+}

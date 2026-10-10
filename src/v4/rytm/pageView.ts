@@ -27,7 +27,8 @@
  * portent BOTH. L'etape 2 (2026-10-09, rytm/pages.ts) : chaque bloc a sa case
  * (cell : colonne, rangee, largeur, hauteur) ; SOUND dit ce que joue la voix
  * (BLUEPRINT + 909), MIX la part de ses deux couches, VEL la velocite des
- * nouveaux pas hors P-LOCK (celle du pas en P-LOCK) ; les dessins (graph :
+ * nouveaux pas hors P-LOCK (celle du pas en P-LOCK ; plus sur aucun ecran
+ * depuis le 2026-10-10, VOL l'a absorbe) ; les dessins (graph :
  * l'enveloppe de ENV, la courbe de FLTR) n'ont ni valeur ni zone.
  */
 
@@ -232,7 +233,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     return b;
   }
   if (t === 'step:vel') {
-    // VEL hors P-LOCK (2026-10-09) : la velocite des nouveaux pas de la voix (et de son pad)
+    // VEL hors P-LOCK (2026-10-09) : la velocite des nouveaux pas de la voix (et de son pad) ; sans bloc depuis le 2026-10-10
     const v = inst ? rytmPage.tapVel(inst) : 9;
     b.state = 'live';
     b.text = String(velTo127(v));

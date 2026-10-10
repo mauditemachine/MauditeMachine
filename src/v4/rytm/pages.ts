@@ -26,8 +26,9 @@
  * - VOICE : ce que joue la voix, en grand (SOUND : OFF, 909, 808, MM, les
  *   samples de sa famille, en une seule liste ; BLUEPRINT + 909 quand les deux
  *   couches jouent), son volume (VOL ; en P-LOCK celui du pas, Mika : "le
- *   volume du voice ou du step selectionne doit se retrouver dans Voice"), VEL
- *   (la velocite des nouveaux pas ; en P-LOCK celle du pas), PITCH et FINE (une
+ *   volume du voice ou du step selectionne doit se retrouver dans Voice" ; sur
+ *   deux cases depuis le 2026-10-10, VEL fusionne dedans, Mika : "velocite et
+ *   volume pour moi c'est la meme chose donc on merge !"), PITCH et FINE (une
  *   seule hauteur, toute la voix), LEN et REV (le sample). Un second onglet,
  *   SYNTH (BD et SD : la machine de la couche SYNTH, MIX pour la poser sous le
  *   sample, ses potards ; ils ne tiennent pas dans les huit blocs d'un ecran
@@ -111,7 +112,9 @@ export const FOLLOW_TOUCH = false;
  * pas en P-LOCK, sinon celle des nouveaux pas de la voix), le son de la voix
  * (voice:sound, la liste unique de VOICE), le melange de ses deux couches
  * (voice:mix), l'echantillon de la couche SAMPLE (smpl:sample, l'ancien SMPL
- * SAMPLE : le MIDI et l'INFOS le connaissent encore).
+ * SAMPLE : le MIDI et l'INFOS le connaissent encore). step:vel n'est plus sur
+ * aucun ecran depuis le 2026-10-10 (VEL fusionne dans VOL) : la cible reste
+ * pour actions.ts et la carte INFOS d'avant.
  */
 export type SlotTarget = DialId | 'step:vel' | 'smpl:sample' | 'voice:sound' | 'voice:mix';
 
@@ -200,8 +203,10 @@ const synth = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey,
 
 /** SOUND : le grand bloc de VOICE, ce que la voix joue (une liste : OFF, 909, 808, MM, ses samples). */
 const SOUND: PageSlot = { ...lockable('SOUND', 'voice:sound', 'sound', 'snd', { locks: ['snd', 'mach', 'syn', 'slev'], level: true }), w: 2 };
-const VOL = lockable('VOL', 'vol', 'level', 'level');
-const VEL = lockable('VEL', 'step:vel', 'level', 'vel');
+// VOL sur deux cases (2026-10-10, Mika : "velocite et volume pour moi c'est la meme chose donc on merge !") : plus de bloc
+// VEL ; les nouveaux pas gardent la velocite de la voix (HIGH au depart), un pas tenu puis glisse change encore la sienne
+// (la rangee VEL de EDIT aussi), et en P-LOCK VOL verrouille le volume du pas
+const VOL: PageSlot = { ...lockable('VOL', 'vol', 'level', 'level'), w: 2 };
 // PITCH et FINE (et START de ENV) reglent toute la voix : sans l'etiquette BOTH (la revue du 2026-10-09 : au telephone
 // elle coupait ROOT et FROM TOP), elle reste aux potards de machine qui touchent aussi le sample (ATTACK, DRIVE, SNAPPY)
 const PITCH: PageSlot = lockable('PITCH', 'vtune', 'barc', 'tune');
@@ -219,10 +224,10 @@ const SAMPLE_FAMS: ReadonlySet<KitFamily> = new Set(['bd', 'sd']);
 
 /** VOICE, l'onglet principal, selon la famille de la voix. */
 function voiceMain(f: KitFamily | null): readonly PageSlot[] {
-  if (f && SAMPLE_FAMS.has(f)) return [SOUND, VOL, VEL, PITCH, FINE, LEN, REV];
+  if (f && SAMPLE_FAMS.has(f)) return [SOUND, VOL, PITCH, FINE, LEN, REV];
   // Le clap garde GATE (la piece de son 909 et de son MM), sa seule touche de machine
-  if (f === 'cp') return [SOUND, VOL, VEL, PITCH, FINE, synth('GATE', 'r:gate', 'notch', 'gate')];
-  return [SOUND, VOL, VEL, PITCH, FINE];
+  if (f === 'cp') return [SOUND, VOL, PITCH, FINE, synth('GATE', 'r:gate', 'notch', 'gate')];
+  return [SOUND, VOL, PITCH, FINE];
 }
 
 /** VOICE SYNTH (BD, SD) : la machine de la couche SYNTH, MIX (la synthese sous le sample), ses potards. */

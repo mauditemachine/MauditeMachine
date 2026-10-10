@@ -350,6 +350,8 @@ const DjTwins = lazy(() => import('./dj/Twins'));
 const BassTwins = lazy(() => import('./bass/Twins'));
 /** Ses INFOS (2026-10-08) : la carte et la pastille INFOS ON, avec le reste du MM-BASS */
 const BassInfosCard = lazy(() => import('./bass/InfosCard'));
+// L'editeur EDIT du MM-BASS (2026-10-10) : le panneau du MM-RYTM, avec la machine (son module est charge avec elle)
+const BassEditPanel = lazy(() => import('./bass/EditPanel'));
 /** Les INFOS du MM-ARP (2026-10-08, la touche i de son grand ecran) : sa carte et sa pastille */
 const VoyInfosCard = lazy(() => import('./voyager/InfosCard'));
 /** Les INFOS du MM-RYTM (2026-10-08, l'etape R4, la touche i de son ecran) : sa carte, ses textes et ses dessins, a part */
@@ -575,6 +577,11 @@ const V4Shell: React.FC = () => {
           {/* Les editeurs (EDIT sur la machine) : la suite de l'arpege, le motif du MM-RYTM et ses velocites */}
           {VOYAGER && <SeqPanel stage={stage} mobile={mobile} />}
           <BeatPanel stage={stage} mobile={mobile} />
+          {BASS && (
+            <Suspense fallback={null}>
+              <BassEditPanel stage={stage} mobile={mobile} />
+            </Suspense>
+          )}
           {/* Le MM-DECKS : la liste des morceaux, ouverte par LOAD */}
           {DJ && (
             <Suspense fallback={null}>

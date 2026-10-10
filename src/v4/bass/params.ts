@@ -58,6 +58,7 @@
  * OSC 1 WAVE et OSC 1 PW (les ids ne changent pas).
  */
 
+import { duckDb } from '../audio/duck';
 import { BASS_LEGACY_SOUNDS } from '../state/bassLegacy';
 
 export type BassKnobId =
@@ -114,7 +115,9 @@ export type BassKnobId =
   | 'fmode'
   | 'fattack'
   | 'fsustain'
-  | 'fpol';
+  | 'fpol'
+  // SIDECHAIN (2026-10-10) : pas un reglage du worklet, la prise baisse a chaque kick du MM-RYTM (audio/drums.ts)
+  | 'sidechain';
 
 export interface BassKnobDef {
   id: BassKnobId;
@@ -186,6 +189,9 @@ export const dfbPct = (v: number): number => 90 * v;
 /** La valeur d'un potard pour une valeur voulue (les defauts = les anciennes constantes). */
 const inv = (lo: number, hi: number, x: number): number => Math.log(x / lo) / Math.log(hi / lo);
 const c01 = (v: number): number => Math.min(1, Math.max(0, v));
+/** SIDECHAIN (2026-10-10) : la profondeur envoyee a audio/drums.ts (0 : OFF), et la baisse au coup en dB (jusqu'a 24). */
+export const sidechainDepth = (v: number): number => (v <= 0.001 ? 0 : c01(v));
+export const sidechainDb = (v: number): number => duckDb(sidechainDepth(v));
 
 /* ---------------- les lois du moteur MONARK (2026-10-09), les memes que bass.worklet.js ---------------- */
 
@@ -318,6 +324,9 @@ export const BASS_KNOBS: readonly BassKnobDef[] = [
   { id: 'reverb', label: 'REVERB', aria: 'Reverb send', def: 0 },
   { id: 'rsize', label: 'REV SIZE', aria: 'Reverb length, 0.3 to 8 seconds', def: inv(0.3, 8, 2) },
   { id: 'rtone', label: 'REV TONE', aria: 'Reverb tone: how much treble the tail keeps, 800 hertz to 12 kilohertz', def: inv(800, 12000, 4000) },
+  // SIDECHAIN (2026-10-10, Mika : "BASS : faut rajouter l'effet SIDECHAIN ! a partir du kick de RYTM !") : le meme que
+  // celui du MM-ARP (audio/duck.ts), -24 dB x SIDECHAIN au coup ; 0 OFF, le son d'avant (un preset d'avant le prend)
+  { id: 'sidechain', label: 'SIDECHAIN', aria: 'Sidechain: the MM-BASS output, effects included, ducks under every MM-RYTM kick, for as long as the kick lasts', def: 0 },
   // Le moteur MONARK (2026-10-09) : legacy, le son d'avant (OSC 2, OSC 3, NOISE, FEEDBACK, DRIFT a 0, MODE 303)
   { id: 'o1lvl', label: 'OSC 1', aria: 'Oscillator 1 level in the mixer', def: 0.9, legacy: 1 },
   { id: 'o2wave', label: 'OSC 2 WAVE', aria: 'Oscillator 2 waveform: triangle, shark, saw, square, wide or narrow pulse', def: 0.4, steps: 6, names: OSC2_WAVES },
@@ -408,6 +417,7 @@ export function bassValueText(id: BassKnobId, v: number): string {
   if (id === 'rtone') return hzText(rtoneHz(v));
   if (id === 'dfb') return `${Math.round(dfbPct(v))} %`;
   if ((id === 'delay' || id === 'reverb' || id === 'feedback') && v <= 0.001) return 'OFF';
+  if (id === 'sidechain') return sidechainDepth(v) === 0 ? 'OFF' : `-${sidechainDb(v).toFixed(1)} DB`;
   return pct(v);
 }
 
@@ -489,6 +499,9 @@ export function bassUnit(id: BassKnobId, v: number, bpm = 120): string {
     case 'delay':
     case 'reverb':
       return v <= 0.001 ? 'OFF' : `SEND ${Math.round(v * 100)} %`;
+    case 'sidechain':
+      // La baisse au coup de chaque kick du MM-RYTM (2026-10-10), comme le SIDECHAIN du MM-ARP
+      return sidechainDepth(v) === 0 ? 'OFF' : `-${sidechainDb(v).toFixed(1)} DB ON KICK`;
     case 'dfb': {
       // Ce que perd chaque repetition (2026-10-08, la revue : FEEDBACK 45 % sous un grand 64 se contredisait)
       const g = dfbPct(v) / 100;

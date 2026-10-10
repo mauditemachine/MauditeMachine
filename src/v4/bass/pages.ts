@@ -30,7 +30,8 @@
  * - FX : DRIVE, l'envoi DELAY et l'envoi REVERB se verrouillent, DLY TIME,
  *   DLY FB, REV SIZE, REV TONE sont GLOBAL ; E, VOLUME (la revue du meme
  *   jour), comme l'encodeur E de la face : la page FX est la rangee des
- *   encodeurs ;
+ *   encodeurs (2026-10-10 : E passe a SIDECHAIN, GLOBAL ; VOLUME reste sur
+ *   VOICE H) ;
  * - les huit encodeurs de la face (desktop) ne suivent plus la page : ils
  *   tiennent pour de bon les FX globaux de la machine (BASS_FX_KNOBS), et
  *   ne posent jamais de P-lock. La page se regle a l'ecran (ses blocs), au
@@ -100,9 +101,10 @@ export const BASS_SCREEN_SLOTS: Readonly<Record<BassScreenId, readonly (BassKnob
   filter: ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'accdecay', 'sweep', 'keytrack'],
   contour: ['fmode', 'fattack', 'decay', 'fsustain', 'envmod', 'fpol', null, null],
   env: ['attack', 'adecay', 'sustain', 'release', 'length', null, null, null],
-  // E : VOLUME, comme l'encodeur E de la face (la revue du 2026-10-09 : la case vide faisait la page inachevee) ; le
-  // meme reglage que VOICE H, verrouillable de meme
-  fx: ['drive', 'delay', 'dtime', 'dfb', 'volume', 'reverb', 'rsize', 'rtone'],
+  // E : SIDECHAIN (2026-10-10, Mika : "BASS : faut rajouter l'effet SIDECHAIN !"), GLOBAL, sous DRIVE (la colonne de la
+  // dynamique) ; il prend la place de VOLUME, qui comblait la case (la revue du 2026-10-09) et reste sur VOICE H : aucun
+  // reglage ne quitte les ecrans, REV TONE garde la sienne
+  fx: ['drive', 'delay', 'dtime', 'dfb', 'sidechain', 'reverb', 'rsize', 'rtone'],
 };
 /** Les huit cases de la premiere page de chaque touche (l'alias d'avant les onglets). */
 export const BASS_PAGE_SLOTS: Readonly<Record<BassPageId, readonly (BassKnobId | null)[]>> = {

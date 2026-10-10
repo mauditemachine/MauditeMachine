@@ -307,8 +307,9 @@ export function bassClear(): void {
   bassLine.clear();
   // Les effets a sec (2026-10-10, Mika : "quand j'appuie sur CLEAR je veux tout a 0 et la je vois qu'il y a des FX qui
   // restent") : DRIVE, l'envoi DELAY et l'envoi REVERB a 0, d'un seul message au worklet (DRIVE 0 : propre, jamais
-  // muet) ; VOLUME, la voix, le filtre, les enveloppes, DLY TIME, DLY FB, REV SIZE et REV TONE restent
-  bassParams.setMany({ drive: 0, delay: 0, reverb: 0 });
+  // muet) ; VOLUME, la voix, le filtre, les enveloppes, DLY TIME, DLY FB, REV SIZE et REV TONE restent ; SIDECHAIN aussi
+  // a 0 (2026-10-10)
+  bassParams.setMany({ drive: 0, delay: 0, reverb: 0, sidechain: 0 });
   showGen('density', before, 'CLEARED · FX OFF · TURN NOTES UP: THE TAKE COMES BACK', true);
 }
 
@@ -365,6 +366,12 @@ export function bassStepTap(i: number): void {
   const st = bassState.get();
   if (i < 0 || i >= BASS_STEPS) return;
   const s = st.steps[i];
+  // Le pas en P-LOCK (2026-10-10, Mika : "pour quitter le P-LOCK je clique sur le step mais j'annule le step") : la
+  // tape sort du P-LOCK, la note reste
+  if (st.lock === i) {
+    bassLockOff();
+    return;
+  }
   if (st.lock >= 0) lockGen += 1;
   if (s.kind === 'off') {
     bassLine.edit(i, hand({ kind: 'note', deg: 0, oct: 0, acc: false, slide: false }));
@@ -519,6 +526,44 @@ export function bassLenSet(n: number): void {
   const len = Math.max(1, Math.min(BASS_STEPS, Math.round(n)));
   if (len === bassState.get().len) return;
   bassState.say(`LENGTH ${len} STEP${len > 1 ? 'S' : ''}`, 1400, { len });
+}
+
+/**
+ * Le panneau EDIT (2026-10-10, bass/EditPanel.tsx) : un pas change a la main, sur sa colonne : vide (off), ACCENT, SLIDE,
+ * liaison (tie, seulement apres un pas qui joue) ; l'ecran le dit.
+ */
+export function bassGridSet(i: number, what: 'off' | 'acc' | 'slide' | 'tie'): void {
+  gesture();
+  const st = bassState.get();
+  const s = st.steps[i];
+  if (!s) return;
+  if (what === 'off') {
+    if (s.kind === 'off') return;
+    bassLine.edit(i, hand({ kind: 'off' }), { sel: i });
+    afterEdit(st.steps);
+    bassState.say(`STEP ${two(i)}  OFF`, 1200);
+    return;
+  }
+  if (what === 'tie') {
+    const prev = st.steps[(i + BASS_STEPS - 1) % BASS_STEPS];
+    if (s.kind === 'tie') bassLine.edit(i, hand({ kind: 'off' }), { sel: i });
+    else if (prev.kind !== 'off') bassLine.edit(i, hand({ kind: 'tie' }), { sel: i });
+    else {
+      bassState.say('TIE: THE STEP BEFORE MUST PLAY', 1400);
+      return;
+    }
+    afterEdit(st.steps);
+    bassState.say(`STEP ${two(i)}  ${bassState.get().steps[i].kind === 'tie' ? 'TIE' : 'OFF'}`, 1200);
+    return;
+  }
+  if (s.kind === 'off') {
+    bassState.say('PUT A NOTE ON THIS STEP FIRST', 1400);
+    return;
+  }
+  const on = what === 'acc' ? !s.acc : !s.slide;
+  bassLine.edit(i, hand(what === 'acc' ? { acc: on } : { slide: on }), { sel: i });
+  bassState.say(`STEP ${two(i)}  ${what === 'acc' ? 'ACCENT' : 'SLIDE'} ${on ? 'ON' : 'OFF'}`, 1200);
+  audition(i);
 }
 
 /** Une tape sur une note du rouleau : note, liaison (apres une note), vide ; une liaison : vide. */

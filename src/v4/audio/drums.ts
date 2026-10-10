@@ -142,11 +142,15 @@ interface Graph {
   arpOut: GainNode;
   /** la prise du MM-BASS (2026-10-07) : sa voie du mixer du MM-DECKS peut la prendre */
   bassOut: GainNode;
+  /** SIDECHAIN du MM-BASS (2026-10-10) : son moteur entre ici, puis bassOut ; seul bassDuck automatise ce gain */
+  bassIn: GainNode;
   arpReverb: SendBus;
   /** les envois REVERB et DELAY des voix partent apres MASTER (LEVEL) : MASTER baisse aussi leurs queues */
   taps: GainNode[];
   /** SIDECHAIN du MM-ARP (2026-10-04, audio/duck.ts) : le gain de arpOut baisse a chaque kick */
   duck: Ducker;
+  /** SIDECHAIN du MM-BASS (2026-10-10) : le gain de bassIn baisse aux memes kicks */
+  bassDuck: Ducker;
 }
 
 export interface TriggerInfo {
@@ -331,6 +335,9 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   rytmOut.connect(analyser);
   arpOut.connect(analyser);
   bassOut.connect(analyser);
+  // SIDECHAIN du MM-BASS (2026-10-10) : le moteur entre par un gain a lui (le Ducker n'y croise aucune autre automation)
+  const bassIn = c.createGain();
+  bassIn.connect(bassOut);
   // BIT et COMP (2026-10-10) : le sec, la REVERB et le DELAY du MM-RYTM passent par glueIn, puis sa prise
   const glueIn = c.createGain();
   glueIn.connect(rytmOut);
@@ -418,7 +425,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   }
 
   const duck = new Ducker(c, arpOut.gain);
-  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, glueIn, glue: null, arpOut, bassOut, arpReverb, taps, duck };
+  const bassDuck = new Ducker(c, bassIn.gain);
+  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, glueIn, glue: null, arpOut, bassOut, bassIn, arpReverb, taps, duck, bassDuck };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -643,7 +651,7 @@ export interface SynthPort {
   ctx: AudioContext;
   input: AudioNode;
   arp: AudioNode;
-  /** la prise du MM-BASS (2026-10-07) */
+  /** la prise du MM-BASS (2026-10-07) ; depuis le 2026-10-10 son entree bassIn (le gain du SIDECHAIN), puis bassOut */
   bass: AudioNode;
   /** la sortie apres le limiteur, avant MASTER (vumetre master du MM-DECKS) */
   out: AudioNode;
@@ -653,7 +661,7 @@ export interface SynthPort {
 
 export function synthPort(): SynthPort | null {
   if (!ctx || !graph) return null;
-  return { ctx, input: graph.analyser, arp: graph.arpOut, bass: graph.bassOut, out: graph.post, reverb: graph.arpReverb, delay: graph.delay };
+  return { ctx, input: graph.analyser, arp: graph.arpOut, bass: graph.bassIn, out: graph.post, reverb: graph.arpReverb, delay: graph.delay };
 }
 
 /** Les prises des machines (un MM-RYTM, un MM-BASS, un MM-ARP). */
@@ -1057,10 +1065,11 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   // Les envois verrouilles du pas (revue de R2) : sur sa tranche a l'instant du coup ; DIST et CHORUS aussi (2026-10-09)
   postSends(g, inst, t, lock, v);
   postInserts(g, inst, t, lock, v);
-  // Un kick : le MM-ARP s'efface avec lui (SIDECHAIN), a sa velocite et a son VOLUME
-  if (v.kick && arpDuck > 0) {
+  // Un kick : le MM-ARP et le MM-BASS (2026-10-10) s'effacent avec lui (SIDECHAIN), a sa velocite et a son VOLUME
+  if (v.kick && (arpDuck > 0 || bassDuckDepth > 0)) {
     v.kick.vel = Math.max(0, vel) * Math.min(1, voiceGain(lock?.level ?? fx.level));
-    g.duck.add(duckCurve(t, v.kick, arpDuck), v);
+    if (arpDuck > 0) g.duck.add(duckCurve(t, v.kick, arpDuck), v);
+    if (bassDuckDepth > 0) g.bassDuck.add(duckCurve(t, v.kick, bassDuckDepth), v);
   }
   out?.push(v);
   triggers += 1;
@@ -1205,7 +1214,10 @@ voiceFx.subscribe(() => prepareLocks());
  * qui leverait au second stop() laisse ainsi une voix muette, pas un coup).
  */
 export function cancelVoice(v: Voice): void {
-  if (v.kick) graph?.duck.cancel(v);
+  if (v.kick) {
+    graph?.duck.cancel(v);
+    graph?.bassDuck.cancel(v);
+  }
   // Ses points d'envoi (revue de R2, les verrous DELAY et REVERB) : retires, les autres coups gardent les leurs ; DIST et CHORUS de meme (2026-10-09)
   if (v.sends) for (const snd of v.sends) snd.cancel(v);
   if (v.inserts) for (const ins of v.inserts) ins.cancel(v);
@@ -1261,6 +1273,25 @@ export function duckInfo(): { depth: number; kicks: number; added: number; gain:
   if (!graph) return null;
   const now = graph.ctx.currentTime;
   return { depth: arpDuck, kicks: graph.duck.size, added: graph.duck.added, gain: graph.arpOut.gain.value, at: graph.duck.at(now) };
+}
+
+/* ---------------- SIDECHAIN du MM-BASS (2026-10-10) : les memes kicks, son entree bassIn ---------------- */
+
+/** SIDECHAIN du MM-BASS de 0 (OFF) a 1 (-24 dB au coup) ; pose par bass/engine.ts depuis son reglage (bass/params.ts). */
+let bassDuckDepth = 0;
+
+export function setBassDuck(depth: number): void {
+  const d = Number.isFinite(depth) ? Math.max(0, Math.min(1, depth)) : 0;
+  if (d === bassDuckDepth) return;
+  bassDuckDepth = d;
+  if (d === 0) graph?.bassDuck.clear();
+}
+
+/** Revue (__v4.audio.bassDuck) : la profondeur, les kicks suivis, le gain de l'entree du MM-BASS a cet instant. */
+export function bassDuckInfo(): { depth: number; kicks: number; added: number; gain: number; at: number } | null {
+  if (!graph) return null;
+  const now = graph.ctx.currentTime;
+  return { depth: bassDuckDepth, kicks: graph.bassDuck.size, added: graph.bassDuck.added, gain: graph.bassIn.gain.value, at: graph.bassDuck.at(now) };
 }
 
 /* ---------------- TONE, LEVEL (spec 7.2), SWING, DIST, REVERB (spec 20.8) ---------------- */
@@ -1603,6 +1634,8 @@ export interface AudioDebug {
   shots(): ReturnType<typeof shots.info>;
   /** le SIDECHAIN du MM-ARP (2026-10-04) */
   duck(): ReturnType<typeof duckInfo>;
+  /** le SIDECHAIN du MM-BASS (2026-10-10) */
+  bassDuck(): ReturnType<typeof bassDuckInfo>;
   /** TONE (-1 a 1, revision 5) et STRETCH (-1 a 1, 2026-10-01) */
   readonly tone: number;
   readonly stretch: number;
@@ -1672,6 +1705,7 @@ export const audioDebug: AudioDebug = {
   comp: COMP,
   shots: () => shots.info(),
   duck: () => duckInfo(),
+  bassDuck: () => bassDuckInfo(),
   get ctx() {
     return ctx;
   },

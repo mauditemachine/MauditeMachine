@@ -33,7 +33,7 @@ import { bassFactory } from '../state/factory';
 import { PORTRAIT } from '../theme';
 import { generate, isFreeStep, type GenOpts } from './gen';
 import type { BassInfoId } from './infos';
-import { BASS_FEET, BASS_MODES, BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, LOAD_MAKEUP, OSC2_WAVES, OSC3_WAVES, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassBig, bassKnob, bassValueText, cutoffHz, decayMs, dfbPct, driveGain, emphOf, envOct, fineCt, glideMs, ladderMag, lengthPct, loadDb, loadGain, modeName, noiseDb, pwPct, rangeOct, releaseMs, rsizeS, rtoneHz, semiName, semiSt, stepOf, sweepOct, tuneCents, type BassKnobId, type BassMode, type BassStyle, type BassValues } from './params';
+import { BASS_FEET, BASS_MODES, BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, LOAD_MAKEUP, OSC2_WAVES, OSC3_WAVES, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassBig, bassKnob, bassValueText, cutoffHz, decayMs, dfbPct, driveGain, emphOf, envOct, fineCt, glideMs, ladderMag, lengthPct, loadDb, loadGain, modeName, noiseDb, pwPct, rangeOct, releaseMs, rsizeS, rtoneHz, semiName, semiSt, sidechainDb, stepOf, sweepOct, tuneCents, type BassKnobId, type BassMode, type BassStyle, type BassValues } from './params';
 import { BASS_SCREEN_SLOTS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassSlotOf, type BassScreenId } from './pages';
 import { BASS_STEPS, type BassStep } from './state';
 
@@ -1398,6 +1398,7 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   reverb: (values) => tail(values, 'reverb'),
   rsize: (values) => tail(values, 'rsize'),
   rtone: (values) => tail(values, 'rtone'),
+  sidechain: (values, c) => pump(values, c),
   pvoice: () => pageGrid('voice'),
   pfilter: () => pageGrid('filter'),
   penv: () => pageGrid('env'),
@@ -1855,6 +1856,44 @@ function tail(values: BassValues, hot: 'reverb' | 'rsize' | 'rtone'): BassDiagra
   p.label(`-60 DB AT ${rt.toFixed(1)} S`, Math.min(tx(rt) + 4, X1 - 70), 22);
   p.label(hot === 'rtone' ? `TREBLE ABOVE ${hzText(tone)} DIES FIRST` : `${span.toFixed(1)} S`, X0, BOT);
   return valueOf(p, hot, values).done();
+}
+
+/**
+ * SIDECHAIN (2026-10-10) : une mesure, un kick du MM-RYTM par temps ; le gain de la basse plonge au coup et remonte avec
+ * le kick (audio/duck.ts : la baisse suit son niveau, plus rien 12 dB sous sa crete, retour en puissance 1.5). Ici le
+ * kick de depart (le 909, 0.44 s) ; des kicks qui se chevauchent gardent la plus forte baisse.
+ */
+function pump(values: BassValues, c: BassDiagramCtx): BassDiagram {
+  const p = new Pic();
+  const sd = stepS(c.bpm);
+  const beat = 4 * sd;
+  const span = 16 * sd;
+  const db = sidechainDb(values.sidechain);
+  const KICK_S = 0.44;
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  // 0 dB en haut, -24 dB en bas
+  const top = 28;
+  const base = 96;
+  const yDb = (d: number): number => top + ((base - top) * Math.min(24, Math.max(0, d))) / 24;
+  sixteenths(p, beat, span, 22, 100);
+  p.p(seg(X0, top, X1, top), 'grid').p(seg(X0, base, X1, base), 'grid');
+  // Les kicks : un trait sous chaque temps
+  for (let k = 0; k < 4; k += 1) p.p(seg(tx(k * beat), base + 2, tx(k * beat), base + 8), 'main');
+  const pts: Pt[] = [];
+  for (let i = 0; i <= 192; i += 1) {
+    const t = (span * i) / 192;
+    let gr = 0;
+    for (let k = 0; k * beat <= t; k += 1) {
+      const l = 1 - (t - k * beat) / KICK_S;
+      if (l > 0) gr = Math.max(gr, db * Math.pow(l, 1.5));
+    }
+    pts.push([tx(t), yDb(gr)]);
+  }
+  p.p(poly(pts), db > 0 ? 'hot' : 'main');
+  p.label(db > 0 ? 'THE BASS DIPS ON EACH KICK' : 'OFF: THE BASS STAYS STILL', X0, TOP);
+  p.label('-24 DB', X1, base - 3, 'end');
+  p.label('ONE BAR, A MM-RYTM KICK ON EACH BEAT', X0, BOT);
+  return valueOf(p, 'sidechain', values).done();
 }
 
 /**

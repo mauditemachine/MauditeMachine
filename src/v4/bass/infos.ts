@@ -189,8 +189,8 @@ const RAW: Record<BassInfoId, RawInfo> = {
   volume: {
     section: 'OUTPUT',
     title: 'VOLUME',
-    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur les pages VOICE (H) et FX (E). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
-    tip: "Aussi sur la page FX (E).",
+    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur la page VOICE (H). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
+    tip: "Règle d'abord le kick, puis monte la basse juste sous lui ; SIDECHAIN (page FX, E) la fait s'effacer sous chaque coup.",
   },
 
   /* ---------- TWEAKS, sous le capot : les regles du generateur ---------- */
@@ -329,6 +329,13 @@ const RAW: Record<BassInfoId, RawInfo> = {
     title: 'REV TONE',
     text: "La couleur de la REVERB : sombre à gauche (les aigus s'éteignent vite), claire à droite. Global.",
     tip: "Sombre pour une basse : elle reste derrière le kick.",
+  },
+  // SIDECHAIN (2026-10-10) : le meme que celui du MM-ARP, sur la prise du MM-BASS
+  sidechain: {
+    section: 'FX',
+    title: 'SIDECHAIN',
+    text: "La basse, effets compris, s'efface à chaque kick du MM-RYTM et revient avec lui : la baisse suit le kick joué (son, DECAY, vélocité), jusqu'à -24 dB au coup. À 0 (OFF), rien ne bouge. Global : le même pour tous les pas.",
+    tip: "Vers 50 (environ -9 dB) : le kick passe devant, la basse respire avec lui.",
   },
 
   /* ---------- le moteur MONARK (2026-10-09) : les oscillateurs 2 et 3 (onglet OSC) ---------- */
@@ -483,7 +490,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   pfx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux (les mêmes pour tous les pas : en P-LOCK, leur bloc dit GLOBAL). Ils se règlent ici, sur l'écran ; les huit encodeurs de la face tiennent le filtre et son enveloppe.",
+    text: "Les blocs de l'écran règlent les effets : DRIVE, l'envoi DELAY et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, SIDECHAIN (la basse s'efface sous le kick du MM-RYTM), REV SIZE et REV TONE sont globaux (les mêmes pour tous les pas : en P-LOCK, leur bloc dit GLOBAL). Ils se règlent ici, sur l'écran ; les huit encodeurs de la face tiennent le filtre et son enveloppe. VOLUME est sur VOICE (H).",
   },
   enc: {
     section: 'SCREEN',
@@ -511,7 +518,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   clear: {
     section: 'KEYS',
     title: 'CLEAR',
-    text: "Efface toute la ligne, tes notes et leurs P-locks compris : NOTES tombe à 0. Les effets aussi passent à 0 (DRIVE, envoi DELAY, envoi REVERB) : le son repart à sec ; VOLUME, la voix, le filtre, DLY TIME, DLY FB, REV SIZE et REV TONE restent. Remonte NOTES : les notes de la prise reviennent une à une, dans leur ordre. En P-LOCK, seulement les verrous du pas (toutes les pages).",
+    text: "Efface toute la ligne, tes notes et leurs P-locks compris : NOTES tombe à 0. Les effets aussi passent à 0 (DRIVE, envoi DELAY, envoi REVERB, SIDECHAIN) : le son repart à sec ; VOLUME, la voix, le filtre, DLY TIME, DLY FB, REV SIZE et REV TONE restent. Remonte NOTES : les notes de la prise reviennent une à une, dans leur ordre. En P-LOCK, seulement les verrous du pas (toutes les pages).",
   },
   // Les touches du pas, en bas de l'ecran (la face simple, 2026-10-09, le soir)
   accentkey: {
@@ -554,7 +561,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   edit: {
     section: 'KEYS',
     title: 'EDIT',
-    text: "L'éditeur des notes : une grille, une rangée par note (son nom à gauche), une colonne par pas. Les 16 touches du bas montrent les notes de la ligne, comme hors EDIT (touche : une note, encore : vide). En bas de l'écran, PATTERNS : touche un pattern pour le jouer à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. En haut, la barre LEN en haut règle la longueur de la ligne (1 à 16 pas) : touche ou glisse jusqu'au pas voulu, par exemple le 4 pour une boucle de 4 pas ; les pas au-delà sont grisés et ne jouent pas. Dessous, la ligne en rouleau : glisse une note vers le haut ou le bas pour changer sa hauteur (son nom s'affiche), clique dans une rangée pour y poser cette note, clique une note pour la lier (TIE) puis l'effacer ; le pattern le garde, tu l'entends au tour suivant. Dessous, les P-locks de la page allumée.", keys: "Touche E.",
+    text: "Le panneau EDIT, comme celui du MM-RYTM : posé sur la machine à la place des pas (au téléphone, sous elle). En haut, PTN : touche un pattern pour le jouer à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. Dessous, la grille : une rangée par note de la gamme (son nom à gauche, les toniques en couleur), une colonne par pas. Clique une case : la note de ce pas, à cette hauteur ; clique la note : le pas se vide ; glisse le long d'une rangée : la même note sur les pas traversés. OCT - et OCT + montrent l'octave d'en dessous ou d'au-dessus. Puis ACC, SLIDE et TIE, un interrupteur par pas (TIE : le pas prolonge la note d'avant), et LEN, la longueur de la ligne (1 à 16 pas, par exemple 4 pour une boucle de 4 pas ; les pas au-delà pâlissent et ne jouent pas). CLEAR vide la ligne, DONE ou EDIT referment.", keys: "Touche E.",
   },
   open: {
     section: 'KEYS',
@@ -608,7 +615,7 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     text: "Le filtre, en deux onglets : MAIN (CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK ; le titre dit le MODE) et CONTOUR (le MODE et le contour du filtre). Touche encore FILTER, sous l'écran, ou une puce de l'en-tête, pour passer de l'un à l'autre. C'est la page de départ.",
   },
   penv: { text: "AMP ENV : les blocs règlent l'enveloppe de l'ampli (ATTACK, AMP DECAY, SUSTAIN, RELEASE) et la longueur des notes (LENGTH). À droite, l'enveloppe en grand, telle qu'elle sonne : la note qui joue jusqu'à NOTE OFF, en pointillé la même note tenue. En P-LOCK, l'écran dit AMP ENV · P-LOCKS et montre l'enveloppe du pas." },
-  pfx: { text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux, les FX de toute la machine : sors du P-LOCK pour les régler (en P-LOCK, leur bloc dit GLB)." },
+  pfx: { text: "Les blocs de l'écran règlent les effets : DRIVE, l'envoi DELAY et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, SIDECHAIN (la basse s'efface sous le kick du MM-RYTM), REV SIZE et REV TONE sont globaux, les FX de toute la machine : sors du P-LOCK pour les régler (en P-LOCK, leur bloc dit GLB). VOLUME est sur VOICE (H)." },
   // Au telephone, un reglage global dit GLB sur son bloc (2026-10-09)
   fmode: {
     text: "Le filtre, pour toute la machine : LP24, le passe-bas en échelle du Moog (24 dB par octave, rond et gras) ; LP12 et LP6, des pentes plus douces qui gardent plus d'aigus ; BP, un passe-bande (les graves et les aigus coupés, une basse nasale) ; 303, le filtre de la TB-303 d'avant, avec son enveloppe. Le passage d'un mode à l'autre se fait en douceur, même en pleine note. Global : un P-lock ne le change pas (en P-LOCK, son bloc dit GLB).",
@@ -627,11 +634,11 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     text: "Les huit blocs de l'écran règlent l'onglet allumé (les touches de page sous l'écran ; touchée encore, une page passe à son onglet suivant) : glisse un bloc vers le haut ou le bas pour changer sa valeur, de 0 à 127 ; deux tapes la remettent à sa valeur de départ. Cette case est vide sur cet onglet.",
   },
   volume: {
-    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur les pages VOICE (H) et FX (E). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
+    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur la page VOICE (H). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
     tip: "Règle d'abord le kick, puis monte la basse juste sous lui.",
   },
   edit: {
-    text: "L'éditeur des notes : une grille, une rangée par note (son nom à gauche), une colonne par pas. Les 16 touches du bas montrent les notes de la ligne, comme hors EDIT (touche : une note, encore : vide). En bas de l'écran, PATTERNS : touche un pattern pour le jouer à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. En haut, la barre LEN en haut règle la longueur de la ligne (1 à 16 pas) : touche ou glisse jusqu'au pas voulu, par exemple le 4 pour une boucle de 4 pas ; les pas au-delà sont grisés et ne jouent pas. Dessous, la ligne en rouleau : glisse une note du doigt pour changer sa hauteur (son nom s'affiche), touche une rangée pour y poser cette note, touche une note pour la lier (TIE) puis l'effacer ; le pattern le garde.",
+    text: "Le panneau EDIT, comme celui du MM-RYTM, sous la machine. En haut, PTN : touche un pattern pour le jouer à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. Dessous, la grille : une rangée par note de la gamme, une colonne par pas. Touche une case : la note de ce pas à cette hauteur ; touche la note : le pas se vide ; glisse le long d'une rangée : la même note sur les pas traversés. OCT - et OCT + changent d'octave. Puis ACC, SLIDE, TIE (un interrupteur par pas) et LEN, la longueur de la ligne (1 à 16 pas). CLEAR vide la ligne, DONE ou EDIT referment.",
   },
   plock: {
     text: "Le pas choisi est en P-LOCK : tout ce que tu glisses sur l'écran ne change que lui, l'en-tête est en négatif et chaque bloc verrouillé porte un P. Touche cette pastille pour sortir : les blocs règlent de nouveau toute la ligne (le son de tous les pas, les FX globaux).",
