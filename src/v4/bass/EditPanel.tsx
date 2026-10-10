@@ -16,7 +16,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalSto
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { useEditorPanel } from '../ui/editorPanel';
-import { bassClear, bassEditNote, bassGridSet, bassLenSet, bassPatternHold, bassPatternTap, noteName } from './actions';
+import { bassClear, bassEditNote, bassGridSet, bassLenSet, bassPatternHold, bassPatternTap, bassStepVel, noteName } from './actions';
 import { BASS_SCALES, SCALE_TONES, bassParams, stepOf } from './params';
 import { BASS_SLOTS, bassPatterns } from './patterns';
 import { bassSeq, midiOf } from './seq';
@@ -165,7 +165,6 @@ export const BassEditor: React.FC<{ variant: 'desk' | 'mobile'; shown: boolean }
     const d = r % L;
     return noteName(midiOf({ kind: 'note', deg: d, oct: o, acc: false, slide: false }));
   };
-  void params;
 
   const cellAt = (x: number, y: number): { row: number; c: number } | null => {
     const el = grid.current;
@@ -225,6 +224,29 @@ export const BassEditor: React.FC<{ variant: 'desk' | 'mobile'; shown: boolean }
 
   const onLen = (x: number): void => bassLenSet(colAt(x, lenLane.current) + 1);
 
+  // VEL (2026-10-10) : la velocite de chaque note, son verrou de VOLUME ; glisser dessine les barres (les pas traverses
+  // suivent la ligne), deux clics sur une barre : celle de la ligne
+  const velLane = useRef<HTMLDivElement>(null);
+  const velDraw = useRef<{ id: number; i: number; v: number } | null>(null);
+  const velAt = (y: number): number => {
+    const el = velLane.current;
+    if (!el) return 1;
+    const r = el.getBoundingClientRect();
+    return Math.min(1, Math.max(0.05, (r.bottom - y) / r.height));
+  };
+  const onVel = (x: number, y: number): void => {
+    const d = velDraw.current;
+    if (!d) return;
+    const i = colAt(x, velLane.current);
+    const v = velAt(y);
+    if (d.i >= 0 && Math.abs(i - d.i) > 1) {
+      const dir = i > d.i ? 1 : -1;
+      for (let j = d.i + dir; j !== i; j += dir) bassStepVel(j, d.v + ((v - d.v) * (j - d.i)) / (i - d.i));
+    }
+    bassStepVel(i, v);
+    velDraw.current = { id: d.id, i, v };
+  };
+
   const steps = st.steps;
   const len = st.len;
   const lane = (what: 'acc' | 'slide' | 'tie', label: string): React.ReactElement => (
@@ -278,7 +300,7 @@ export const BassEditor: React.FC<{ variant: 'desk' | 'mobile'; shown: boolean }
         <button type="button" className="v4-seq-mode v4-beat-clear" aria-label="Clear the bass line" onClick={() => bassClear()}>
           CLEAR
         </button>
-        {variant === 'desk' && <span className="v4-seq-hint">Tap a cell: a note at that pitch, tap it again: off, drag along a row: the same note. ACC, SLIDE, TIE per step, LEN: the length. Patterns: tap to play, tap tap to chain, hold an empty one to copy.</span>}
+        {variant === 'desk' && <span className="v4-seq-hint">Tap a cell: a note at that pitch, tap it again: off, drag along a row: the same note. ACC, SLIDE, TIE per step, VEL: draw the velocities (double click: the line's), LEN: the length. Patterns: tap to play, tap tap to chain, hold an empty one to copy.</span>}
         <button type="button" className="v4-seq-done" aria-label="Close the bass editor" onClick={() => editor.close()}>
           DONE
         </button>
@@ -329,6 +351,69 @@ export const BassEditor: React.FC<{ variant: 'desk' | 'mobile'; shown: boolean }
       {lane('acc', 'ACC')}
       {lane('slide', 'SLIDE')}
       {lane('tie', 'TIE')}
+      <div className="v4-beat-main">
+        <span className="v4-beat-lanelabel">VEL</span>
+        <div
+          ref={velLane}
+          className="v4-seq-lane v4-beat-lane v4-bassed-vel"
+          style={{ '--n': BASS_STEPS } as React.CSSProperties}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            try {
+              e.currentTarget.setPointerCapture(e.pointerId);
+            } catch {
+              /* pointeur deja relache */
+            }
+            velDraw.current = { id: e.pointerId, i: -1, v: -1 };
+            onVel(e.clientX, e.clientY);
+          }}
+          onPointerMove={(e) => {
+            if (velDraw.current?.id === e.pointerId) onVel(e.clientX, e.clientY);
+          }}
+          onPointerUp={() => {
+            velDraw.current = null;
+          }}
+          onPointerCancel={() => {
+            velDraw.current = null;
+          }}
+          onDoubleClick={(e) => bassStepVel(colAt(e.clientX, velLane.current), null)}
+        >
+          {STEPS.map((i) => {
+            const s = steps[i];
+            const lock = s.kind === 'note' ? s.locks?.volume : undefined;
+            const v = lock ?? params.volume;
+            return (
+              <div
+                key={i}
+                className="v4-seq-col"
+                role="slider"
+                tabIndex={s.kind === 'note' ? 0 : -1}
+                aria-label={`Velocity of step ${i + 1}`}
+                aria-valuemin={0}
+                aria-valuemax={127}
+                aria-valuenow={Math.round(v * 127)}
+                data-on={head === i ? '1' : '0'}
+                data-rest={s.kind !== 'note' ? '1' : '0'}
+                data-tone="1"
+                data-own={lock !== undefined ? '1' : '0'}
+                data-out={i >= len ? '1' : '0'}
+                onKeyDown={(e) => {
+                  if (s.kind !== 'note') return;
+                  const step = 4 / 127;
+                  if (e.key === 'ArrowUp' || e.key === 'ArrowRight') bassStepVel(i, v + step);
+                  else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') bassStepVel(i, v - step);
+                  else if (e.key === 'Delete' || e.key === 'Backspace') bassStepVel(i, null);
+                  else return;
+                  e.preventDefault();
+                }}
+              >
+                {s.kind === 'note' && <span className="v4-seq-bar" style={{ height: `${v * 100}%` }} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
       <div className="v4-beat-main v4-bassed-lanerow">
         <span className="v4-beat-lanelabel">LEN {len}</span>
         <div

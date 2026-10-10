@@ -5643,3 +5643,21 @@ html:has(body.v4-active.v4-light) {
 .v4-bassed .v4-beat-clear:disabled {
   opacity: 0.35;
 }
+
+/* VEL du MM-BASS (2026-10-10) : la velocite d'une note, son verrou de VOLUME ; sans verrou, la barre de la ligne, pale */
+.v4-bassed-vel .v4-seq-col[data-own='0'] .v4-seq-bar {
+  opacity: 0.4;
+}
+
+.v4-bassed-vel .v4-seq-col[data-out='1'] {
+  opacity: 0.3;
+}
+
+.v4-seq[data-place='machine'] .v4-seq-lane.v4-beat-lane.v4-bassed-vel {
+  height: 36px;
+}
+
+.v4-bassed .v4-seq-chord {
+  flex: 0 0 auto;
+  min-width: 128px;
+}

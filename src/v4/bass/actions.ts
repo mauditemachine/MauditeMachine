@@ -98,7 +98,7 @@ import { PORTRAIT } from '../theme';
 import { bassEngine } from './engine';
 import { isFreeStep } from './gen';
 import { bassLine, styleName, takeLadder, type GenResult } from './line';
-import type { BassState, BassStep } from './state';
+import type { BassLocks, BassState, BassStep } from './state';
 import { BASS_SCALES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
 import { BASS_FX_KNOBS, BASS_PAGES, BASS_SCREEN_SLOTS, PAGE_TABS, SCREEN_LABEL, bassFxEncOf, bassPage, bassPageDef, isBassGlobal, screenTitle, type BassPageId, type BassScreenId } from './pages';
 import { bassPatterns, bassSlotName } from './patterns';
@@ -564,6 +564,22 @@ export function bassGridSet(i: number, what: 'off' | 'acc' | 'slide' | 'tie'): v
   bassLine.edit(i, hand(what === 'acc' ? { acc: on } : { slide: on }), { sel: i });
   bassState.say(`STEP ${two(i)}  ${what === 'acc' ? 'ACCENT' : 'SLIDE'} ${on ? 'ON' : 'OFF'}`, 1200);
   audition(i);
+}
+
+/**
+ * La velocite d'un pas (2026-10-10, Mika : "la-dedans je devrais pouvoir changer la velocite") : la rangee VEL du
+ * panneau EDIT, le verrou de VOLUME du pas (une note plus forte ou plus douce) ; null : il reprend celui de la ligne.
+ */
+export function bassStepVel(i: number, v: number | null): void {
+  const s = bassState.get().steps[i];
+  if (!s || s.kind !== 'note') return;
+  if (v !== null && !Number.isFinite(v)) return;
+  const locks: BassLocks = { ...(s.locks ?? {}) };
+  if (v === null) delete locks.volume;
+  else locks.volume = Math.round(Math.min(1, Math.max(0.05, v)) * 127) / 127;
+  if (s.locks?.volume === locks.volume) return;
+  bassLine.edit(i, { locks: Object.keys(locks).length ? locks : undefined }, { sel: i });
+  bassState.say(`STEP ${two(i)}  VEL ${locks.volume === undefined ? 'OF THE LINE' : Math.round(locks.volume * 127)}`, 1000);
 }
 
 /** Une tape sur une note du rouleau : note, liaison (apres une note), vide ; une liaison : vide. */

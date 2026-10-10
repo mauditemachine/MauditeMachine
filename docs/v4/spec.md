@@ -2524,3 +2524,7 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - The face has no dedicated knob any more (style and density lose `face`, theme.ts SHOW_GEN_KNOBS = false, no GENERATOR bracket); both params stay in presets and MIDI.
 - Desktop right column: EDIT OPEN PRESET on the top row, RUN CLEAR GEN on the row of the page keys (keys 0.62 wide). Phone: EDIT OPEN PRESET, then RUN CLEAR GEN, three keys per row.
 - After CLEAR the screen says GEN: A NEW LINE (GEN on an empty line plays the take's full count).
+
+### R14-250 MM-BASS EDIT panel: VEL lane (2026-10-10)
+
+- A VEL lane under TIE: one bar per note step, its height the step's VOLUME P-lock (bassStepVel, 0.05 to 1 rounded to 1/127); a step without one shows the line's VOLUME, paler. Drag draws (crossed steps follow the line), double click gives the step back the line's value; keys Up/Down change it, Delete clears it. Off and tie steps have no bar.
