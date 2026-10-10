@@ -55,7 +55,7 @@ import { seqFollow, seqPress, seqRegister, seqRelease, seqSetFollow, seqWindow, 
 import { bassInfos } from '../state/bassInfos';
 import { editor } from '../state/editor';
 import { presetMode } from '../state/presetMode';
-import { bassCanUndo, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassGenBack, bassGenerate, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassMutate, bassMutateUndo, bassNotesStep, bassPagePress, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassScreenSet, bassStepTap, bassStepToggle } from './actions';
+import { bassCanUndo, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassGenBack, bassGenerate, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassMutate, bassMutateUndo, bassNotesStep, bassPagePress, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassScreenSet, bassStepTap, bassStepToggle , bassLenSet } from './actions';
 import { GEN_HOLD_MS, bassKeyAction } from './gestures';
 import { bassLine } from './line';
 import { BASS_FX_KNOBS, BASS_OLD_GLOBAL, BASS_PAGES, BASS_SCREENS, ENC_LETTERS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef } from './pages';
@@ -108,6 +108,8 @@ function all(): MidiTarget[] {
   for (const p of BASS_PAGES) out.push({ id: `bass:page:${p.id}`, scope: 'bass', label: `PAGE ${p.label} (AGAIN: NEXT TAB)`, kind: 'press', down: () => bassPagePress(p.id) });
   // Un onglet (2026-10-09) : VOICE MAIN, OSC, MIX ; FILTER MAIN, CONTOUR ; ENV ; FX
   for (const s of BASS_SCREENS) out.push({ id: `bass:screen:${s}`, scope: 'bass', label: `SCREEN ${bassPageDef(SCREEN_PAGE[s]).label} ${SCREEN_LABEL[s]}`, kind: 'press', down: () => bassScreenSet(s) });
+  // La longueur de la ligne (2026-10-10), 1 a 16 pas
+  out.push({ id: 'bass:len', scope: 'bass', label: 'LENGTH (1 TO 16 STEPS)', kind: 'value', steps: 16, get: () => (bassState.get().len - 1) / 15, set: (v) => bassLenSet(1 + Math.round(v * 15)) });
   out.push({
     id: 'bass:page',
     scope: 'bass',

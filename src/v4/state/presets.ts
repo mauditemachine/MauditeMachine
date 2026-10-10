@@ -50,7 +50,7 @@ import { BASS_KNOBS, ENGINE_IDS, bassKnob, bassParams, legacyOf, type BassKnobId
 import { bassLoad } from './bassload';
 import { focus } from './focus';
 import { bassLine } from '../bass/line';
-import { bassState, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
+import { bassState, cleanLen, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
 import { arpFactory, bassFactory, rytmFactory } from './factory';
 
 export type PresetMachine = 'voy' | 'mm808' | 'bass';
@@ -60,6 +60,8 @@ interface BassData {
   steps: readonly BassStep[];
   /** la recette de la ligne (2026-10-09), absente d'un preset d'avant */
   recipe?: BassRecipe;
+  /** la longueur de la ligne (2026-10-10), absente : 16 */
+  len?: number;
 }
 
 interface VoyData {
@@ -273,7 +275,8 @@ function capture(m: PresetMachine): VoyData | RytmData | BassData {
   if (m === 'bass') {
     const recipe = bassState.get().recipe;
     // La recette v2 (2026-10-09) : une copie entiere (son echelle et ses memoires de style)
-    return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })), ...(recipe ? { recipe: JSON.parse(JSON.stringify(recipe)) as BassRecipe } : {}) };
+    const len = bassState.get().len;
+    return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })), ...(recipe ? { recipe: JSON.parse(JSON.stringify(recipe)) as BassRecipe } : {}), ...(len !== 16 ? { len } : {}) };
   }
   if (m === 'voy') {
     return { knobs: { ...voyParams.get() }, seq: { ...seq.get(), buf: [...seq.get().buf] }, prog: [...arp.get().prog] };
@@ -311,6 +314,8 @@ function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
     // La recette decide STYLE et NOTES (2026-10-09 : params.style et params.density du preset ne comptent pas) ; une
     // recette d'avant (v1, aucune) est adoptee, les pas ne changent pas
     if (steps) bassLine.load(steps, b.recipe ?? null, { lock: -1 });
+    // La longueur de la ligne (2026-10-10) : celle du preset, 16 s'il n'en dit rien
+    bassState.set({ len: cleanLen(b.len) });
     return;
   }
   if (m === 'voy') {

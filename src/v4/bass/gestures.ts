@@ -95,7 +95,7 @@ import { quadToUnit } from '../scene/quad';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { PORTRAIT } from '../theme';
-import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenBack, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassNotesTo, bassOct, bassPagePress, bassPatternHold, bassPitchAt, bassPresetKey, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenBack, bassGenerate, bassKnobValue, bassLenSet, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassNotesTo, bassOct, bassPagePress, bassPatternHold, bassPitchAt, bassPresetKey, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
 import { bassLine } from './line';
 import { bassPage, isBassGlobal, isBassScreen, type BassScreenId } from './pages';
 import { bassKnob, bassParams, type BassKnobId } from './params';
@@ -199,6 +199,8 @@ interface Grip {
    */
   empty: boolean;
   near: number;
+  /** la barre LENGTH du rouleau tenue (2026-10-10) : la longueur suit le pointeur */
+  len: boolean;
   touch: boolean;
   /** un potard dedie (STYLE, DENSITY..., la plaque) tenu : son echo reste a l'ecran (le rig, holdPot) */
   pot: boolean;
@@ -235,7 +237,7 @@ export class BassGestures {
   }
 
   private grip(h: HotspotView, x: number, y: number, touch: boolean): Grip {
-    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.screen(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, touch, pot: false, notes0: 0, ver: 0 };
+    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.screen(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, len: false, touch, pot: false, notes0: 0, ver: 0 };
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
@@ -586,6 +588,12 @@ export class BassGestures {
     const r = this.stage.bass?.screen.editRoll();
     const at = this.screenAt(x, y);
     if (!r || !at) return;
+    // La barre LENGTH (2026-10-10) : la longueur va jusqu'au pas touche
+    if (at.y <= r.lenY1 + (g.touch ? 1.5 : 1)) {
+      g.len = true;
+      bassLenSet(this.rollStep(at.x) + 1);
+      return;
+    }
     g.lo = r.lo;
     g.hi = r.hi;
     g.step = this.rollStep(at.x);
@@ -629,6 +637,11 @@ export class BassGestures {
 
   /** Le glisser sur le rouleau : la note du pas monte ou descend d'autant que le pointeur (une liaison devient une note). */
   private rollMove(g: Grip, x: number, y: number): void {
+    if (g.len) {
+      const at = this.screenAt(x, y);
+      if (at) bassLenSet(this.rollStep(at.x) + 1);
+      return;
+    }
     if (g.step < 0) return;
     const dy = y - g.y0;
     if (!g.dragged && Math.abs(dy) < AXIS_PX) return;

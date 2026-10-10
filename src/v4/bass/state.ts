@@ -173,9 +173,25 @@ export interface BassState {
    * ligne (une ligne d'avant : adoptee, ses pas ne changent pas)
    */
   recipe: BassRecipe | null;
+  /**
+   * la longueur de la ligne, 1 a 16 pas (2026-10-10, Mika : "je ne sais pas comment on fait pour changer la longueur du
+   * sequenceur, par exemple je voudrais 4 steps") : la sequence boucle sur les len premiers pas
+   */
+  len: number;
 }
 
 const KEY = 'mm.v4.bass.state';
+/** La longueur de la ligne (2026-10-10), a part : une sauvegarde d'avant se lit toujours (16). */
+const LEN_KEY = 'mm.v4.bass.len';
+/** Une longueur propre : un entier de 1 a 16, 16 pour tout le reste. */
+export const cleanLen = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(1, Math.min(16, Math.round(v))) : 16);
+function loadLen(): number {
+  try {
+    return cleanLen(JSON.parse(window.localStorage.getItem(LEN_KEY) ?? '16') as unknown);
+  } catch {
+    return 16;
+  }
+}
 /** La recette de la ligne (2026-10-09), a part : une sauvegarde d'avant (la suite seule sous KEY) se lit toujours. */
 const RECIPE_KEY = 'mm.v4.bass.recipe';
 const off = (): BassStep => ({ kind: 'off', deg: 0, oct: 0, acc: false, slide: false });
@@ -358,7 +374,7 @@ function load(): BassStep[] {
 }
 
 const loaded = typeof window === 'undefined' ? initial() : load();
-let state: BassState = { steps: loaded, sel: 0, running: false, message: null, gen: 0, lock: -1, touched: null, recipe: null };
+let state: BassState = { steps: loaded, sel: 0, running: false, message: null, gen: 0, lock: -1, touched: null, recipe: null, len: typeof window === 'undefined' ? 16 : loadLen() };
 const listeners = new Set<() => void>();
 let msgTimer = 0;
 let saveTimer = 0;
@@ -381,8 +397,17 @@ export const bassState = {
   get: (): BassState => state,
   set(patch: Partial<BassState>): void {
     const keep = (patch.steps !== undefined && patch.steps !== state.steps) || (patch.recipe !== undefined && patch.recipe !== state.recipe);
+    if (patch.len !== undefined) patch = { ...patch, len: cleanLen(patch.len) };
+    const lenChanged = patch.len !== undefined && patch.len !== state.len;
     state = { ...state, ...patch };
     if (keep) save();
+    if (lenChanged) {
+      try {
+        window.localStorage.setItem(LEN_KEY, String(state.len));
+      } catch {
+        /* stockage indisponible : la longueur vit pour la visite */
+      }
+    }
     listeners.forEach((fn) => fn());
   },
   /** Un pas change (les autres restent) ; also : le reste de l'etat dans la meme notification (2026-10-08 : un encodeur en LOCK, un seul dessin de l'ecran). */

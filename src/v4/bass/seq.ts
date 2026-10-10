@@ -152,9 +152,10 @@ function scheduleStep(): void {
     firstBar = false;
   }
   const steps = bassState.get().steps;
+  const L = lineLen();
   const s = steps[stepIdx];
-  const next = steps[(stepIdx + 1) % BASS_STEPS];
-  const prev = steps[(stepIdx + BASS_STEPS - 1) % BASS_STEPS];
+  const next = steps[(stepIdx + 1) % L];
+  const prev = steps[(stepIdx + L - 1) % L];
   if (s.kind === 'off') {
     if (holding) bassEngine.off(when);
     holding = false;
@@ -181,9 +182,13 @@ function scheduleStep(): void {
 
 function advance(): void {
   const g = gridOf(nextTime + stepDur * 0.5);
+  const L = lineLen();
   if (g) {
+    // 16 pas : cale sur le pas du MM-RYTM, comme avant ; plus court (2026-10-10) : la ligne boucle sur sa longueur, un
+    // pas de plus par pas de la grille (polymetrique, comme les longueurs de piste d'une Elektron)
+    const k = Math.max(1, Math.round((g.time - nextTime) / g.dur));
+    stepIdx = L === BASS_STEPS ? g.step % BASS_STEPS : (stepIdx + k) % L;
     nextTime = g.time;
-    stepIdx = g.step % BASS_STEPS;
     stepDur = g.dur;
     anchor = nextTime;
     n = 0;
@@ -199,7 +204,13 @@ function advance(): void {
     n += 1;
     nextTime = anchor + n * stepDur;
   }
-  stepIdx = (stepIdx + 1) % BASS_STEPS;
+  stepIdx = (stepIdx + 1) % L;
+}
+
+/** La longueur de la ligne (2026-10-10), 1 a 16 pas. */
+function lineLen(): number {
+  const l = bassState.get().len;
+  return l >= 1 && l <= BASS_STEPS ? l : BASS_STEPS;
 }
 
 function tick(): void {
@@ -247,10 +258,12 @@ const ask = (): void => {
   if (running) askReschedule(me);
 };
 let lastSteps = bassState.get().steps;
+let lastLen = bassState.get().len;
 bassState.subscribe(() => {
   const st = bassState.get();
-  if (st.steps === lastSteps) return;
+  if (st.steps === lastSteps && st.len === lastLen) return;
   lastSteps = st.steps;
+  lastLen = st.len;
   if (!switching) ask();
 });
 let pitchKey = '';
@@ -283,7 +296,7 @@ export const bassSeq = {
     const g = gridOf(now + 0.02);
     if (g) {
       nextTime = g.time;
-      stepIdx = g.step % BASS_STEPS;
+      stepIdx = g.step % lineLen();
       stepDur = g.dur;
     } else {
       stepDur = 60 / pattern.get().bpm / 4;

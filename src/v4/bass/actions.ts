@@ -540,6 +540,18 @@ export function bassEditNote(i: number, deg: number, oct: number): void {
   audition(i);
 }
 
+/**
+ * La longueur de la ligne, 1 a 16 pas (2026-10-10, Mika : "je ne sais pas comment on fait pour changer la longueur du
+ * sequenceur, par exemple je voudrais 4 steps ; je clique sur EDIT, je pensais voir ca la") : la barre LENGTH de l'ecran
+ * EDIT ; la sequence boucle sur les n premiers pas (les autres restent ecrits, eteints).
+ */
+export function bassLenSet(n: number): void {
+  if (!Number.isFinite(n)) return;
+  const len = Math.max(1, Math.min(BASS_STEPS, Math.round(n)));
+  if (len === bassState.get().len) return;
+  bassState.say(`LENGTH ${len} STEP${len > 1 ? 'S' : ''}`, 1400, { len });
+}
+
 /** Une tape sur une note du rouleau : note, liaison (apres une note), vide ; une liaison : vide. */
 export function bassEditCycle(i: number): void {
   const st = bassState.get();

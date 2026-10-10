@@ -215,6 +215,9 @@ export interface BassRollGeom {
   cw: number;
   lo: number;
   hi: number;
+  /** la barre LENGTH au-dessus des notes (2026-10-10) : son haut et son bas ; la zone du rouleau part de lenY0 */
+  lenY0: number;
+  lenY1: number;
   /** la hauteur MIDI d'une ordonnee (unites de l'ecran), et l'inverse */
   UW: number;
   UH: number;
@@ -1615,7 +1618,11 @@ export class BassScreen {
     const lx0 = PORTRAIT ? 46 : 58;
     const rx0 = lx0;
     const rx1 = UW - P;
-    const ry0 = LAY.hd - (PORTRAIT ? 1 : 0);
+    // La barre LENGTH en haut du rouleau (2026-10-10, Mika : "je voudrais 4 steps") : un pas par case, les notes dessous
+    const lenY0 = LAY.hd - (PORTRAIT ? 1 : 0);
+    const lenH = PORTRAIT ? 6 : 8;
+    const lenY1 = lenY0 + lenH;
+    const ry0 = lenY1 + (PORTRAIT ? 2 : 3);
     const ry1 = laneTop - LAY.small - (PORTRAIT ? 3.5 : 6);
     const cw = (rx1 - rx0) / BASS_STEPS;
     const c = this.ctx;
@@ -1636,7 +1643,15 @@ export class BassScreen {
     }
     const yOf = (n: number): number => ry1 - 3 - ((n - lo) / Math.max(1, hi - lo)) * (ry1 - ry0 - 6);
     // UH : tout le verre (le rig et les gestes y rapportent le pointeur)
-    this.roll = { x0: rx0, x1: rx1, y0: ry0, y1: ry1, cw, lo, hi, UW, UH: this.FH };
+    this.roll = { x0: rx0, x1: rx1, y0: ry0, y1: ry1, cw, lo, hi, lenY0, lenY1, UW, UH: this.FH };
+    const len = Math.max(1, Math.min(BASS_STEPS, m.len));
+    for (let i = 0; i < BASS_STEPS; i += 1) {
+      const xx = rx0 + i * cw + 0.6;
+      if (i < len) this.box(xx, lenY0, cw - 1.2, lenH, i === m.play ? INK : 'rgba(246, 241, 231, 0.42)', null, 1, 1.2);
+      else this.box(xx, lenY0, cw - 1.2, lenH, null, FAINT, 0.6, 1.2);
+    }
+    this.text(String(len), rx0 + (len - 0.5) * cw, lenY0 + lenH / 2 + lenH * 0.3, lenH * 0.82, BLACK, 700, 'center');
+    this.text('LEN', P, lenY0 + lenH / 2 + LAY.small * 0.3, LAY.small * 0.8, HALF, 700);
     // La colonne sous la souris (desktop) : on voit le pas qu'on va toucher
     if (m.hover >= 0 && !m.drag) {
       c.fillStyle = 'rgba(246, 241, 231, 0.06)';
@@ -1700,6 +1715,12 @@ export class BassScreen {
       }
     });
 
+    // Les pas au-dela de la longueur ne jouent pas : grises
+    if (len < BASS_STEPS) {
+      c.fillStyle = 'rgba(5, 5, 6, 0.78)';
+      c.fillRect(rx0 + len * cw, ry0, rx1 - rx0 - len * cw, ry1 - ry0);
+    }
+
     // Les verrous de la page : une piste par reglage verrouille, une barre par pas, sur la grille du rouleau
     const lh = PORTRAIT ? 7.4 : 8;
     const head = `P-LOCKS  ${m.pageLabel}`;
@@ -1740,6 +1761,10 @@ export class BassScreen {
         this.text(t, xx + lcw / 2, y0 + vs, this.fit(t, 600, vs, lcw - 1, 3), hot ? INK : HALF, 600, 'center');
       }
     });
+    if (len < BASS_STEPS && m.lanes.length) {
+      c.fillStyle = 'rgba(5, 5, 6, 0.78)';
+      c.fillRect(lx0 + len * lcw, lanesY0, rx1 - lx0 - len * lcw, lanesY1 - lanesY0);
+    }
     if (m.more > 0) this.text(`+${m.more} MORE`, UW - P, lanesY1 + (PORTRAIT ? 0.5 : 1), LAY.small * 0.8, HALF, 700, 'right');
 
     // Les seize patterns (sur les pas : en EDIT, ce sont eux qu'on touche)

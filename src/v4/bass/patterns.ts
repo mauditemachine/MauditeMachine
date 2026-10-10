@@ -24,7 +24,7 @@
 
 import { bassLine, migrate, takeRecipe } from './line';
 import { bassParams, stepOf } from './params';
-import { BASS_STEPS, bassState, cleanSteps, emptyStep, type BassRecipe, type BassStep } from './state';
+import { BASS_STEPS, bassState, cleanLen, cleanSteps, emptyStep, type BassRecipe, type BassStep } from './state';
 
 export const BASS_SLOTS = 16;
 /** Taper un autre pattern dans ce delai l'ajoute a la chaine. */
@@ -37,6 +37,8 @@ export interface BassPatternsState {
   slots: readonly (readonly BassStep[] | null)[];
   /** la recette de chaque emplacement (2026-10-09), null : aucune */
   recipes: readonly (BassRecipe | null)[];
+  /** la longueur de chaque emplacement (2026-10-10), 16 par defaut */
+  lens: readonly number[];
   cur: number;
   chain: readonly number[];
   pos: number;
@@ -52,15 +54,17 @@ const emptyLine = (): BassStep[] => Array.from({ length: BASS_STEPS }, emptyStep
 function load(): BassPatternsState {
   const slots: (readonly BassStep[] | null)[] = Array.from({ length: BASS_SLOTS }, () => null);
   const recipes: (BassRecipe | null)[] = Array.from({ length: BASS_SLOTS }, () => null);
+  const lens: number[] = Array.from({ length: BASS_SLOTS }, () => 16);
   let cur = 0;
   let chain: number[] = [0];
   try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; recipes?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; recipes?: unknown[]; lens?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
     if (raw && Array.isArray(raw.slots)) {
       for (let i = 0; i < BASS_SLOTS; i += 1) slots[i] = raw.slots[i] ? cleanSteps(raw.slots[i]) : null;
       for (let i = 0; i < BASS_SLOTS; i += 1) {
         const s = slots[i];
         recipes[i] = s ? migrate(s, Array.isArray(raw.recipes) ? raw.recipes[i] : null) : null;
+        lens[i] = cleanLen(Array.isArray(raw.lens) ? raw.lens[i] : 16);
       }
       if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < BASS_SLOTS) cur = raw.cur as number;
       if (Array.isArray(raw.chain)) {
@@ -74,11 +78,12 @@ function load(): BassPatternsState {
   // La ligne du moment (retenue par bass/state.ts) est celle de l'emplacement courant
   slots[cur] = bassState.get().steps;
   recipes[cur] = bassState.get().recipe;
+  lens[cur] = bassState.get().len;
   if (!chain.includes(cur)) chain = [cur];
-  return { slots, recipes, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
+  return { slots, recipes, lens, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
 }
 
-let state: BassPatternsState = typeof window === 'undefined' ? { slots: [], recipes: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
+let state: BassPatternsState = typeof window === 'undefined' ? { slots: [], recipes: [], lens: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
 const listeners = new Set<() => void>();
 let saveTimer = 0;
 let loading = false;
@@ -90,7 +95,7 @@ function save(): void {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     try {
-      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, recipes: state.recipes, cur: state.cur, chain: state.chain }));
+      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, recipes: state.recipes, lens: state.lens, cur: state.cur, chain: state.chain }));
     } catch {
       /* stockage indisponible : les patterns vivent pour la visite */
     }
@@ -111,6 +116,7 @@ function apply(i: number): void {
   loading = true;
   const r = state.recipes[i] ?? { ...takeRecipe(stepOf('style', bassParams.of('style')), 1), on: 0 };
   bassLine.load(state.slots[i] ?? emptyLine(), r, { lock: -1 });
+  bassState.set({ len: state.lens[i] ?? 16 });
   loading = false;
 }
 
@@ -118,18 +124,22 @@ function apply(i: number): void {
 if (typeof window !== 'undefined') {
   let last = bassState.get().steps;
   let lastRecipe = bassState.get().recipe;
+  let lastLen = bassState.get().len;
   bassState.subscribe(() => {
-    const { steps, recipe } = bassState.get();
-    if (steps === last && recipe === lastRecipe) return;
+    const { steps, recipe, len } = bassState.get();
+    if (steps === last && recipe === lastRecipe && len === lastLen) return;
     last = steps;
     lastRecipe = recipe;
+    lastLen = len;
     if (loading) return;
     const had = state.slots[state.cur];
     const slots = state.slots.slice();
     const recipes = state.recipes.slice();
+    const lens = state.lens.slice();
     slots[state.cur] = isEmpty(steps) && !had ? null : steps;
     recipes[state.cur] = slots[state.cur] ? recipe : null;
-    setState({ ...state, slots, recipes });
+    lens[state.cur] = len;
+    setState({ ...state, slots, recipes, lens });
   });
 }
 
@@ -175,7 +185,9 @@ export const bassPatterns = {
     const recipes = state.recipes.slice();
     slots[i] = steps;
     recipes[i] = bassState.get().recipe;
-    setState({ ...state, slots, recipes });
+    const lens = state.lens.slice();
+    lens[i] = bassState.get().len;
+    setState({ ...state, slots, recipes, lens });
     return true;
   },
   /**

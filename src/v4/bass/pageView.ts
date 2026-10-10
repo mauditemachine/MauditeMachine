@@ -556,6 +556,8 @@ export interface BassEditModel {
   drag: { step: number; name: string; lo?: number; hi?: number } | null;
   /** le pas du rouleau sous la souris (desktop), -1 : aucun */
   hover: number;
+  /** la longueur de la ligne, 1 a 16 pas (2026-10-10) */
+  len: number;
 }
 
 export interface EditInput {
@@ -581,6 +583,7 @@ export interface EditInput {
   drag?: { step: number; name: string; lo?: number; hi?: number } | null;
   hover?: number;
   phone?: boolean;
+  len?: number;
 }
 
 const slotName = (i: number): string => `A${String(i + 1).padStart(2, '0')}`;
@@ -607,7 +610,7 @@ export function bassEditModel(inp: EditInput): BassEditModel {
   const chain = chainOn ? inp.chain.map(slotName).join(' > ') : inp.next >= 0 ? `NEXT ${slotName(inp.next)}` : !inp.filled[inp.cur] ? 'EMPTY' : inp.running ? 'PLAYING' : 'READY';
   const drag = inp.drag ?? null;
   // Le rouleau se glisse (2026-10-09) : la ligne du bas dit le geste, pendant le glisser la note qui sonne
-  const how = inp.phone ? 'DRAG A NOTE: PITCH  TAP: ADD, TIE, OFF' : 'DRAG A NOTE UP OR DOWN: PITCH  CLICK: ADD, TIE, OFF  STEP KEYS: PATTERNS';
+  const how = inp.phone ? 'TOP BAR: LENGTH  DRAG: PITCH  TAP: ADD, TIE, OFF' : 'TOP BAR: LENGTH  DRAG A NOTE: PITCH  CLICK: ADD, TIE, OFF  STEP KEYS: PATTERNS';
   return {
     running: inp.running,
     bpm: inp.bpm,
@@ -628,5 +631,6 @@ export function bassEditModel(inp: EditInput): BassEditModel {
     lineHot: !!inp.message || !!drag,
     drag,
     hover: inp.hover ?? -1,
+    len: inp.len ?? 16,
   };
 }

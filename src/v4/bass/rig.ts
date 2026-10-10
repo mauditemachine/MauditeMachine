@@ -819,7 +819,7 @@ export class BassRig {
       const S = BASS.screen;
       const u0 = g.x0 / g.UW;
       const u1 = g.x1 / g.UW;
-      const v0 = g.y0 / g.UH;
+      const v0 = g.lenY0 / g.UH;
       const v1 = g.y1 / g.UH;
       const x = S.x - S.w / 2 + ((u0 + u1) / 2) * S.w;
       const z = S.z - S.d / 2 + ((v0 + v1) / 2) * S.d;
@@ -1018,7 +1018,8 @@ export class BassRig {
       // LOCK : le pas qu'on regle clignote en or (comme les trigs verrouilles d'une Elektron)
       const locking = s.lock === i;
       const lit = held || (i === at && st.kind !== 'off') ? DJ_GLOW.yellow : locking ? scale(DJ_GLOW.yellow, this.blink ? 1 : 0.3) : i === at ? scale(DJ_GLOW.yellow, 0.25) : i === s.sel ? scale(base[0] > 0.05 ? base : DJ_GLOW.orange, base[0] > 0.05 ? 1.45 : 0.12) : base;
-      set(this.trigEm, i, lit);
+      // Au-dela de la longueur (2026-10-10) : le pas ne joue pas, sa LED s'eteint presque
+      set(this.trigEm, i, i >= s.len && !held && !locking ? scale(DJ_GLOW.dim, 0.35) : lit);
     }
     return changed;
   }
@@ -1116,6 +1117,7 @@ export class BassRig {
         drag: this.rollDrag,
         hover: this.hoverRoll,
         phone: PORTRAIT,
+        len: s.len,
       });
       return { view: 'edit', m };
     }
