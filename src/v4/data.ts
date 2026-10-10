@@ -303,13 +303,13 @@ export const FEATURED_MERCH = {
  * Mika : "ma description de Maudite Machine et un petit texte disant que je
  * suis l'auteur de ce site web et de ces machines, donc ce serait bien qu'il
  * fasse un tour dans la boutique ou dans mon bandcamp pour me supporter,
- * faire la promo des t-shirts"). La bio est celle du press kit 2027
- * (docs/presskit-2027/content.mjs), raccourcie ; le mot est a la premiere
- * personne, signe.
+ * faire la promo des t-shirts"). La bio est la bio courte EN du brief de
+ * Mika (2026-10-10), mot pour mot ; le mot est a la premiere personne,
+ * signe.
  */
 export const MENU_ABOUT = {
   kicker: 'Behind the machines',
-  bio: 'Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays indie dance and psy prog: deep, rolling, made for the second half of the night.',
+  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
   note: 'I built this website and every machine on it myself. If you like playing with them, you can support me: grab a tee or the new hoodie in the shop, or pick up some music on Bandcamp. Thank you!',
   sign: 'Mika',
 } as const;

@@ -1,6 +1,6 @@
 # Press kit 2027
 
-Six pages A4 (révision 2, 2026-10-01), en anglais seulement, tout en SF Pro Display, fond clair, texte `#434343`. Une photo au moins par page, une grande sur les pages 1, 3 et 5. Aucun QR code : chaque lien est une vraie balise `<a href>`, que Chrome garde cliquable dans le PDF. Le site l'ouvre dans sa visionneuse devant la machine : `https://mauditemachine.com/presskit/` (page statique générée au build, 200), ou le bouton PRESS.
+Six pages A4 (révision 3, 2026-10-10 : positionnement indie dance and dark disco with a psychedelic edge, bios du brief, base Montpellier, sous-titres des formats), en anglais seulement, tout en SF Pro Display, fond clair, texte `#434343`. Une photo au moins par page, une grande sur les pages 1, 3 et 5. Aucun QR code : chaque lien est une vraie balise `<a href>`, que Chrome garde cliquable dans le PDF. Le site l'ouvre dans sa visionneuse devant la machine : `https://mauditemachine.com/presskit/` (page statique générée au build, 200), ou le bouton PRESS.
 
 Pages : 1 couverture (la salle pleine), 2 Background (portrait couleur, bio, chiffres clés), 3 The sound (la cabine en grand, les deux formats), 4 Selected shows (la foule vue de la cabine), 5 Listen (mix, titres, pochettes), 6 Technical and contact (portrait noir et blanc en vignette).
 
@@ -19,7 +19,7 @@ Produit :
 - une copie de la version neutre à l'ancienne adresse déjà envoyée : `Presskit_Maudite_Machine_2026-27.pdf` ;
 - la fiche technique, 2 pages, mêmes données et même style (plan de scène dessiné) : `public/Tech_Rider_Maudite_Machine_2026-27.pdf` (adresse gardée).
 
-Outils : Google Chrome (variable `CHROME` s'il est ailleurs), `pdftoppm` (poppler) et `cwebp` (webp), via Homebrew. Aucune dépendance npm.
+Outils : Google Chrome (variable `CHROME` s'il est ailleurs, `CHROME_FLAGS` pour des options en plus, par exemple `--no-sandbox` dans un conteneur Linux en root), `pdftoppm` (poppler) et `cwebp` (webp), via Homebrew. Aucune dépendance npm.
 
 ## Fichiers
 

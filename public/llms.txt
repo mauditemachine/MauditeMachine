@@ -1,6 +1,12 @@
 # Maudite Machine
 
-> Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays indie dance and psy prog, as a DJ (CDJ) and as a hybrid live act (synths and grooveboxes). He founded VRSTL Records, an independent label with 21 EPs and 2 albums, and is a member of the 8day collective in Montréal. Available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.
+> Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.
+
+Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.
+
+He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.
+
+He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).
 
 The website is an interactive drum machine (MM-RYTM), bassline generator with a TB-303 style filter and deep subs (MM-BASS), arpeggiator synthesizer (MM-ARP), pair of DJ decks with a mixer and a sampler in each deck, with a slicer and a granular engine (MM-DECKS), in 3D; every section also has a plain HTML page.
 
@@ -20,9 +26,12 @@ The website is an interactive drum machine (MM-RYTM), bassline generator with a 
 
 ## Facts
 
-- Genre: indie dance and psy prog
+- Genre: indie dance and dark disco with a psychedelic edge (short: Indie Dance, Dark Disco)
+- Based in: Montpellier, south of France, after fifteen years in the Montréal underground
 - Formats: DJ set (90 minutes to 4 hours) and hybrid live (60 to 75 minutes)
 - Label: VRSTL Records (founder and A&R)
+- Collective: member of 8day, Montréal
+- Available for: club and festival dates across France, Spain and the rest of Europe, and still playing Canada
 - Latest album: Limbos, VRSTL Records, October 2025 (9 tracks)
 - Latest single: Voodoo, VRSTL Records, February 2026
 - Played: Techno Parade Paris, OKAMI Festival, Piknic Électronik, SAT, Igloofest afters, Groove and Bass

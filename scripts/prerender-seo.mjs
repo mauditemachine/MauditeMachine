@@ -31,17 +31,45 @@
  *   machine), mixtapes de la machine, profils officiels, ContactPage ;
  * - titre et description de /shows/ avec les prochaines dates.
  * Les donnees communes avec sitemap.xml : scripts/seo-shared.mjs.
+ *
+ * 2026-10-10 (brief de Mika, mise a jour complete) : un seul titre et une
+ * seule description par langue pour toutes les pages (sauf les pages de
+ * morceaux, qui gardent les leurs), le jeu Open Graph complet du brief sur
+ * chaque page, un seul MusicGroup par page (le bloc id="ld-artist" de
+ * seo-shared.mjs, les autres noeuds le citent par son @id), nouveau
+ * positionnement (indie dance et dark disco), base Montpellier, bios du
+ * brief mot pour mot.
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { C, URL as KIT_URL } from '../docs/presskit-2027/content.mjs';
-import { ROOT, SITE, readJson, readText, inPublic, norm, loadDisco, loadGoodies, coverOf, loadSocials } from './seo-shared.mjs';
+import {
+  ROOT,
+  SITE,
+  readJson,
+  readText,
+  inPublic,
+  norm,
+  loadDisco,
+  loadGoodies,
+  coverOf,
+  loadSocials,
+  SEO_TITLE,
+  OG_IMAGE as OG_DEFAULT,
+  OG_LOCALE,
+  OG_LOCALE_ALTERNATES,
+  POSITIONING,
+  POSITIONING_SHORT,
+  BIO_SHORT,
+  BIO_LONG,
+  ARTIST_ID,
+  artistScript,
+} from './seo-shared.mjs';
 
 const DIST = join(ROOT, 'dist');
-const OG_IMAGE = `${SITE}/images/og-image.jpg?v=2027`;
-/** L'image d'apercu du site (1200 x 630, declaree dans index.html). */
-const OG_DEFAULT = { url: OG_IMAGE, width: 1200, height: 630, type: 'image/jpeg', alt: 'Maudite Machine - DJ & Producer' };
+/** L'image d'apercu du site (1200 x 630, la photo booth-blue recadree, declaree dans index.html). */
+const OG_IMAGE = OG_DEFAULT.url;
 
 // Source unique partagee avec src/lib/seo.ts (pas de divergence possible)
 const SEO_META = readJson('src/data/seo-meta.json', {});
@@ -74,10 +102,18 @@ const REACT_PAGES = new Set(['/techrider/', '/radar/']);
 
 const indexPath = join(DIST, 'index.html');
 if (!existsSync(indexPath)) {
-  console.error('❌ dist/index.html introuvable, lancer vite build avant');
+  console.error('ERREUR : dist/index.html introuvable, lancer vite build avant');
   process.exit(1);
 }
-const baseHtml = readFileSync(indexPath, 'utf8');
+/**
+ * Le bloc JSON-LD de l'artiste (id="ld-artist") remplace par celui de
+ * seo-shared.mjs : la copie d'index.html (ou de /press/) ne peut pas
+ * diverger. Absent : il est ajoute, toujours un seul.
+ */
+const LD_ARTIST = /<script\s+type=["']application\/ld\+json["']\s+id=["']ld-artist["']\s*>[\s\S]*?<\/script>/i;
+const withArtist = (html) => (LD_ARTIST.test(html) ? html.replace(LD_ARTIST, () => artistScript()) : html.replace('</head>', () => `    ${artistScript()}\n  </head>`));
+
+const baseHtml = withArtist(readFileSync(indexPath, 'utf8'));
 
 /** Echappe les caracteres qui casseraient un attribut HTML. */
 function escapeAttr(s) {
@@ -125,7 +161,6 @@ function setCanonical(html, href) {
 function setImage(html, img) {
   let out = html;
   out = upsertMeta(out, 'property', 'og:image', img.url);
-  out = upsertMeta(out, 'property', 'og:image:secure_url', img.url);
   out = upsertMeta(out, 'property', 'og:image:width', String(img.width));
   out = upsertMeta(out, 'property', 'og:image:height', String(img.height));
   out = upsertMeta(out, 'property', 'og:image:type', img.type);
@@ -135,7 +170,11 @@ function setImage(html, img) {
   return out;
 }
 
-/** Titre, description, canonical, Open Graph et Twitter d'une page. */
+/**
+ * Titre, description, canonical, Open Graph et Twitter d'une page.
+ * og:site_name, og:locale (fr_FR, en_GB et es_ES en alternatives) et
+ * twitter:card viennent d'index.html, les memes sur chaque page.
+ */
 function pageHead(html, { title, description, url, ogType, image = OG_DEFAULT, extra = [] }) {
   let out = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeAttr(title)}</title>`);
   out = upsertMeta(out, 'name', 'description', description);
@@ -146,7 +185,6 @@ function pageHead(html, { title, description, url, ogType, image = OG_DEFAULT, e
   out = upsertMeta(out, 'property', 'og:description', description);
   out = upsertMeta(out, 'name', 'twitter:title', title);
   out = upsertMeta(out, 'name', 'twitter:description', description);
-  out = upsertMeta(out, 'name', 'twitter:url', url);
   out = setImage(out, image);
   for (const [prop, content] of extra) out = toHead(out, `<meta property="${prop}" content="${escapeAttr(content)}" />`);
   return out;
@@ -189,6 +227,23 @@ const STUDIO = (() => {
   return { setup: tsString(block, /setup:\s*'([^'\\]*)'/), lessons, print: tsString(block, /print:\s*'([^'\\]*)'/) };
 })();
 
+/*
+ * 2026-10-10 (brief de Mika, A1 a A3) : le positionnement et la base des
+ * pages statiques viennent de seo-shared.mjs, pas du press kit
+ * (docs/presskit-2027/content.mjs, qui a son propre calendrier) ; les faits
+ * du press kit gardent leurs valeurs, sauf un genre ou une base de l'ancien
+ * positionnement.
+ */
+const LEAD = `${POSITIONING.en} · DJ and hybrid live · Montpellier, south of France`;
+const FACTS = { Genre: POSITIONING_SHORT, Base: 'Montpellier, south of France' };
+const STALE_FACT = /psy ?-?prog|Canada · France · Spain/i;
+const factOf = (k, v) => (STALE_FACT.test(v) ? FACTS[k] ?? v : v);
+/** Les en-tetes de format de la fiche technique (brief A3). */
+const RIDER_FORMATS = {
+  'DJ set': 'Indie dance and dark disco. 90 minutes to 4 hours.',
+  'Hybrid live': 'Indie dance and dark disco. 60 to 75 minutes.',
+};
+
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const a = (text, href) => `<a href="${escapeAttr(href)}">${esc(text)}</a>`;
 const ul = (items) => `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>`;
@@ -197,7 +252,6 @@ const h2 = (t) => `<h2>${esc(t)}</h2>`;
 const p = (t) => `<p>${esc(t)}</p>`;
 const fmtDate = (iso) =>
   ISO_DAY.test(String(iso)) ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : String(iso ?? '');
-const fmtShort = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 /** "a, b and c" */
 const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
@@ -289,13 +343,14 @@ function fit(desc, max = 160) {
   return parts.join(' ');
 }
 
+// 2026-10-10 : le nouveau positionnement (brief A1), indie dance et dark disco
 function trackDescription(t) {
-  if (isEdit(t)) return fit(`${t.title}: an unofficial edit by Maudite Machine (${t.year}), free download on SoundCloud. Indie dance and psy prog DJ and producer.`);
-  if (isRemix(t)) return fit(`${t.title}: a remix by Maudite Machine (${t.year}).${listenOn(t)} Indie dance and psy prog DJ and producer.`);
-  if (isLimbos(t)) return fit(`${t.title}, track ${t.trackNo} of Limbos, the album by Maudite Machine on VRSTL Records (October 2025). Indie dance and psy prog.${listenOn(t)}`);
+  if (isEdit(t)) return fit(`${t.title}: an unofficial edit by Maudite Machine (${t.year}), free download on SoundCloud. Indie dance and dark disco DJ and producer.`);
+  if (isRemix(t)) return fit(`${t.title}: a remix by Maudite Machine (${t.year}).${listenOn(t)} Indie dance and dark disco DJ and producer.`);
+  if (isLimbos(t)) return fit(`${t.title}, track ${t.trackNo} of Limbos, the album by Maudite Machine on VRSTL Records (October 2025). Indie dance and dark disco.${listenOn(t)}`);
   const kind = isEp(t) ? 'an EP' : 'a single';
-  if (onVrstl(t)) return fit(`${t.title}, ${kind} by Maudite Machine on VRSTL Records, ${released(t)}. Indie dance and psy prog.${listenOn(t)}`);
-  return fit(`${t.title}, ${kind} by Maudite Machine, ${released(t)}. Indie dance and psy prog from the founder of VRSTL Records.${listenOn(t)}`);
+  if (onVrstl(t)) return fit(`${t.title}, ${kind} by Maudite Machine on VRSTL Records, ${released(t)}. Indie dance and dark disco.${listenOn(t)}`);
+  return fit(`${t.title}, ${kind} by Maudite Machine, ${released(t)}. Indie dance and dark disco from the founder of VRSTL Records.${listenOn(t)}`);
 }
 
 /** Les morceaux voisins : meme projet d'abord, puis les plus proches dans le temps. */
@@ -353,13 +408,14 @@ function trackContent(t) {
       ? `${h2(C.limbos.text)}${p(`${C.limbos.meta}. ${C.limbos.about}`)}<h3>Tracklist</h3><ol>${album.map((o) => `<li>${o.id === t.id ? esc(o.title) : a(o.title, trackUrl(o))}</li>`).join('')}</ol>`
       : '',
     `<h2>More tracks</h2>${ul(related(t, 6, Boolean(album)).map((o) => a(o.title, trackUrl(o))))}`,
-    `${h2('About Maudite Machine')}<p>${esc(C.positioning)}. ${a('Biography and press kit', `${SITE}/presskit/`)}</p>`,
+    `${h2('About Maudite Machine')}<p>${esc(BIO_SHORT.en)} ${a('Biography and press kit', `${SITE}/presskit/`)}</p>`,
     `<p>${a('All tracks and releases', `${SITE}/tracks/`)}</p>`,
   ].join('');
 }
 
 const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
-const ARTIST_REF = { '@type': 'MusicGroup', '@id': `${SITE}/#artist`, name: 'Maudite Machine', url: `${SITE}/` };
+/** L'artiste cite par son @id (2026-10-10) : le seul MusicGroup complet de la page est le bloc ld-artist. */
+const ARTIST_REF = { '@id': ARTIST_ID };
 const LABEL_REF = { '@type': 'Organization', '@id': 'https://vrstlrecords.com/#organization', name: 'VRSTL Records', url: 'https://vrstlrecords.com/' };
 const coverImage = (t) => {
   const c = coverOf(t, COVERS);
@@ -572,87 +628,30 @@ function merchProducts() {
 }
 const MERCH = merchProducts();
 
-/* ---------- descriptions et titres tires des donnees ---------- */
+/* ---------- titre, description et noms des pages ---------- */
 
-/** "Theatre Paradoxe - Mtl" -> Montreal (avec accent), "Bryson, QC" -> "Bryson", "St Cristaud (France)" -> "St Cristaud". */
-function cityOf(location) {
-  const loc = String(location || '').trim();
-  if (/\s-\s(Mtl|Montr[eé]al)$/i.test(loc) || /^Montr[eé]al\b/i.test(loc)) return 'Montréal';
-  return loc.replace(/\s*\([^)]*\)$/, '').split(',')[0].trim();
-}
+/*
+ * 2026-10-10 (brief de Mika, B2 et B3) : le meme titre et la meme
+ * description sur toutes les pages hors morceaux (src/data/seo-meta.json) ;
+ * les titres et descriptions tires des donnees (/shows/ avec ses prochaines
+ * dates, /merch/, /radar/, /goodies/) sont retires.
+ */
+const describe = (_route, meta) => meta.description;
+const titleOf = () => SEO_TITLE;
 
-/** /shows/ : les prochaines dates dans la description (tant qu'elle tient sous 160 signes). */
-function showsDescription(fallback) {
-  if (!UPCOMING.length) return fallback;
-  const years = new Set(UPCOMING.map((e) => e.date.slice(0, 4)));
-  // Une seule annee : elle va dans l'en-tete, les dates restent courtes ("16 Oct")
-  const oneYear = years.size === 1 ? [...years][0] : null;
-  const day = (iso) => (oneYear ? fmtShort(iso).replace(/\s\d{4}$/, '') : fmtShort(iso));
-  const head = `Maudite Machine shows${oneYear ? ` ${oneYear}` : ''}: `;
-  const tail = '. Indie dance and psy prog, archive since 2010.';
-  const parts = [];
-  for (const e of UPCOMING) {
-    const part = `${e.title} (${cityOf(e.location)}, ${day(e.date)})`;
-    if (`${head}${[...parts, part].join(', ')}${tail}`.length > 160) break;
-    parts.push(part);
-  }
-  return parts.length ? `${head}${parts.join(', ')}${tail}` : fallback;
-}
-
-/** /goodies/ : ce qu'on telecharge vraiment (src/data/goodies.ts). */
-function goodiesDescription(fallback) {
-  const n = (cat) => GOODIES.filter((g) => g.category === cat).length;
-  const [desk, phone, covers] = [n('wallpaper-desktop'), n('wallpaper-phone'), n('cover')];
-  if (!desk && !phone && !covers) return fallback;
-  const named = COVERS.slice(0, 3).map((c) => c.title);
-  const what = [desk ? `${desk} desktop wallpapers` : '', phone ? `${phone} phone wallpapers` : '', covers ? `${covers} release covers (${andList(named)}...)` : ''].filter(Boolean);
-  return fit(`Free Maudite Machine downloads: ${andList(what)}. Full resolution, no signup.`);
-}
-
-function showsTitle(fallback) {
-  if (!UPCOMING.length) return fallback;
-  const years = [...new Set(UPCOMING.map((e) => e.date.slice(0, 4)))];
-  const span = years.length > 1 ? `${years[0]}-${years[years.length - 1]}` : years[0];
-  const t = fallback.replace(' |', ` ${span} |`);
-  return t !== fallback && t.length <= 60 ? t : fallback;
-}
-
-/** "50$ CAD" -> { amount: 50, currency: "CAD" } */
-const parsePrice = (s) => {
-  const m = String(s).match(/(\d+(?:[.,]\d+)?)\s*\$?\s*([A-Z]{3})?/);
-  return m ? { amount: Number(m[1].replace(',', '.')), currency: m[2] ?? '' } : null;
+/** Le nom de chaque page dans son fil d'Ariane (le titre ne le porte plus). */
+const PAGE_NAMES = {
+  '/techrider/': 'Tech rider',
+  '/presskit/': 'Press kit',
+  '/tracks/': 'Tracks',
+  '/mixtapes/': 'Mixtapes',
+  '/shows/': 'Shows',
+  '/contact/': 'Contact and booking',
+  '/goodies/': 'Goodies',
+  '/merch/': 'Merch',
+  '/studio/': 'Studio',
+  '/radar/': 'Radar',
 };
-
-function merchDescription(fallback) {
-  if (!MERCH.length) return fallback;
-  const prices = MERCH.map((m) => parsePrice(m.price)).filter(Boolean);
-  const currency = prices[0]?.currency ?? '';
-  const sameCurrency = prices.length === MERCH.length && prices.every((x) => x.currency === currency);
-  const lo = Math.min(...prices.map((x) => x.amount));
-  const hi = Math.max(...prices.map((x) => x.amount));
-  const range = sameCurrency ? (lo === hi ? `, ${lo} ${currency}` : `, from ${lo} to ${hi} ${currency}`) : '';
-  const lead = MERCH_TEXT ? ` ${MERCH_TEXT.split(/(?<=\.)\s/)[0]}` : '';
-  const d = `Maudite Machine merch: ${andList(MERCH.map((m) => m.name.toLowerCase()))}${range}.${lead} Order through the contact form.`;
-  return d;
-}
-
-function radarDescription(fallback) {
-  if (!RELEASES.length) return fallback;
-  const names = [...new Set(RELEASES.filter((r) => !/^V\/A\b/i.test(r.artist)).map((r) => r.artist))];
-  const nA = asArray(FOLLOWING.artists).length;
-  const nL = asArray(FOLLOWING.labels).length;
-  const tail = nA && nL ? ` and more, from the ${nA} artists and ${nL} labels he follows.` : ' and more.';
-  const picked = [];
-  for (const n of names) {
-    if (`New releases picked by Maudite Machine: ${[...picked, n].join(', ')}${tail}`.length > 160) break;
-    picked.push(n);
-  }
-  return picked.length ? `New releases picked by Maudite Machine: ${picked.join(', ')}${tail}` : fallback;
-}
-
-const DYNAMIC = { '/shows/': showsDescription, '/merch/': merchDescription, '/radar/': radarDescription, '/goodies/': goodiesDescription };
-const describe = (route, meta) => fit((DYNAMIC[route] ?? ((d) => d))(meta.description));
-const titleOf = (route, meta) => (route === '/shows/' ? showsTitle(meta.title) : meta.title);
 
 /** Le contenu lisible de chaque adresse : ce que la machine montre, en HTML simple. */
 function contentFor(route) {
@@ -660,8 +659,8 @@ function contentFor(route) {
     case '/':
       return [
         h1('Maudite Machine'),
-        p(C.positioning),
-        p(C.bio),
+        p(LEAD),
+        ...BIO_LONG.en.map(p),
         h2('Upcoming shows'),
         upcomingList(),
         `<p>${a('All shows and tour dates', `${SITE}/shows/`)}</p>`,
@@ -695,7 +694,7 @@ function contentFor(route) {
     case '/tracks/':
       return [
         h1('Maudite Machine tracks and releases'),
-        p(C.positioning),
+        p(LEAD),
         h2('Tracks'),
         tracksList(),
         h2(C.limbos.text),
@@ -722,15 +721,15 @@ function contentFor(route) {
       ].join('');
     case '/contact/': {
       const formats = C.set.find(([t]) => /format/i.test(t))?.[1] ?? [];
-      return [h1('Contact and booking'), p(C.bio), h2(C.contactTitle), contacts(), formats.length ? h2('Formats') + ul(formats.map(esc)) : '', h2('Profiles'), profiles()].join('');
+      return [h1('Contact and booking'), p(BIO_SHORT.en), h2(C.contactTitle), contacts(), formats.length ? h2('Formats') + ul(formats.map(esc)) : '', h2('Profiles'), profiles()].join('');
     }
     case '/presskit/':
       return [
         h1('Maudite Machine press kit 2027'),
-        p(C.positioning),
-        ...C.bioLong.map(p),
+        p(LEAD),
+        ...BIO_LONG.en.map(p),
         h2('Facts'),
-        ul(C.facts.map(([k, v]) => `${esc(k)}: ${esc(v)}`)),
+        ul(C.facts.map(([k, v]) => `${esc(k)}: ${esc(factOf(k, v))}`)),
         h2(C.sharedTitle),
         p(`${C.shared.join(', ')}.`),
         `<p>${a('Download the press kit (PDF)', `${SITE}/Presskit_Maudite_Machine_2027_generic.pdf`)}</p>`,
@@ -741,7 +740,7 @@ function contentFor(route) {
       return [
         h1('Maudite Machine tech rider'),
         p(C.techIntro),
-        ...C.tech.map(([t, items]) => h2(t) + ul(items.map(esc))),
+        ...C.tech.map(([t, items]) => h2(t) + (RIDER_FORMATS[t] ? p(RIDER_FORMATS[t]) : '') + ul(items.filter((x) => x !== RIDER_FORMATS[t]).map(esc))),
       ].join('');
     case '/goodies/': {
       const groups = [
@@ -774,11 +773,10 @@ function contentFor(route) {
         `<p>${a('Order through the contact form', `${SITE}/contact/`)}</p>`,
       ].join('');
     case '/studio/': {
-      const lessonsBio = C.bioLong.find((x) => /Ableton/.test(x));
       return [
         h1('Maudite Machine studio, lessons and print'),
         STUDIO.setup ? h2('The setup') + p(STUDIO.setup) : '',
-        STUDIO.lessons.length || lessonsBio ? h2('Ableton Live lessons') + STUDIO.lessons.map(p).join('') + (lessonsBio ? p(lessonsBio) : '') : '',
+        STUDIO.lessons.length ? h2('Ableton Live lessons') + STUDIO.lessons.map(p).join('') : '',
         `<p>${a('Ask about a lesson', `${SITE}/contact/`)}</p>`,
         STUDIO.print ? h2('Print and merch production') + p(STUDIO.print) + (MASSIVE_HREF ? `<p>${a('massivemedias.com', MASSIVE_HREF)}</p>` : '') : '',
       ].join('');
@@ -804,7 +802,7 @@ function contentFor(route) {
     }
     default: {
       const meta = SEO_META[STATIC_LANG][route.replace(/\/$/, '')];
-      return [h1(meta?.title ?? 'Maudite Machine'), p(meta?.description ?? C.positioning)].join('');
+      return [h1(meta?.title ?? 'Maudite Machine'), p(meta?.description ?? LEAD)].join('');
     }
   }
 }
@@ -857,7 +855,7 @@ function eventsJsonLd() {
     performer: ARTIST_REF,
     image: [inPublic(e.image) ? `${SITE}/${String(e.image).replace(/^\/+/, '')}` : OG_IMAGE],
     url: e.url || `${SITE}/shows/`,
-    description: `Maudite Machine plays ${e.title} (${e.location}). Indie dance and psy prog DJ set.`,
+    description: `Maudite Machine plays ${e.title} (${e.location}). Indie dance and dark disco DJ set.`,
   }));
   return ld(items);
 }
@@ -885,29 +883,27 @@ function alternatesTags() {
   ].join('\n    ');
 }
 
-/** L'accueil anglais : ses versions FR et ES, et les locales Open Graph. */
-function withAlternates(html) {
-  let out = toHead(html, alternatesTags());
-  out = upsertMeta(out, 'property', 'og:locale', 'en_US');
-  return toHead(out, `<meta property="og:locale:alternate" content="fr_FR" />\n    <meta property="og:locale:alternate" content="es_ES" />`);
-}
+/**
+ * L'accueil anglais : ses versions FR et ES. Les locales Open Graph
+ * (fr_FR, en_GB et es_ES, brief B4) sont celles d'index.html, sur chaque page.
+ */
+const withAlternates = (html) => toHead(html, alternatesTags());
 
-const FESTIVAL_NAMES = C.festivals.map(([n, y]) => `${n.split(',')[0]} · ${y}`);
+/** og:description de toutes les pages hors morceaux : la description EN (brief B4). */
+const OG_DESCRIPTION = SEO_META.en['/'].description;
+
+// Le nom avant le lieu ("Techno Parade, Paris, France" : "Techno Parade") ; la virgule d'un nombre (1,200) n'est pas un separateur
+const FESTIVAL_NAMES = C.festivals.map(([n, y]) => `${n.split(', ')[0]} · ${y}`);
 
 const T = {
   fr: {
     htmlLang: 'fr',
-    locale: 'fr_FR',
     dateLocale: 'fr-FR',
-    lead: 'Indie dance et psy prog · DJ et live hybride · Canada · France · Espagne',
-    bio: [
-      "Maudite Machine est un DJ et producteur basé entre le Canada, la France et l'Espagne, après quinze ans dans l'underground montréalais. Il joue de l'indie dance et de la psy prog : profond, roulant, fait pour la deuxième moitié de la nuit.",
-      "Il dirige VRSTL Records, un label indépendant de 21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe, et il fait partie du collectif 8day à Montréal. Il a joué à la Techno Parade de Paris, à la SAT, au Piknic Électronik et aux afters de l'Igloofest, à l'affiche avec Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly et Damon Jee.",
-      "Il est disponible pour les clubs et les festivals en France, en Espagne et dans le reste de l'Europe, et joue toujours au Canada.",
-    ],
+    lead: `${POSITIONING.fr} · DJ et live hybride · Montpellier, Sud de la France`,
+    bio: BIO_LONG.fr,
     soundTitle: 'Le son',
     sound: [
-      "Indie dance et psy prog : une basse qui roule, des changements lents sous la surface, aucun pic artificiel. Pensé pour durer, pas pour l'effet.",
+      `${POSITIONING.fr} : basses qui roulent, synthés sombres, tension qui monte sur la longueur du set.`,
       'DJ set sur CDJ, de 90 minutes à 4 heures, plus long sur demande.',
       'Live hybride avec synthés et grooveboxes, 60 à 75 minutes, séquences jouées en direct, suivi d\'un DJ set quand le créneau le permet.',
     ],
@@ -926,17 +922,12 @@ const T = {
   },
   es: {
     htmlLang: 'es',
-    locale: 'es_ES',
     dateLocale: 'es-ES',
-    lead: 'Indie dance y psy prog · DJ y live híbrido · Canadá · Francia · España',
-    bio: [
-      'Maudite Machine es un DJ y productor con base entre Canadá, Francia y España, después de quince años en el underground de Montreal. Toca indie dance y psy prog: profundo, envolvente, hecho para la segunda mitad de la noche.',
-      'Dirige VRSTL Records, un sello independiente con 21 EPs y 2 álbumes de artistas de Québec, Brasil, Argentina y Europa, y forma parte del colectivo 8day en Montreal. Ha tocado en la Techno Parade de París, la SAT, Piknic Électronik y los afters de Igloofest, en carteles con Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly y Damon Jee.',
-      'Está disponible para clubes y festivales en Francia, España y el resto de Europa, y sigue tocando en Canadá.',
-    ],
+    lead: `${POSITIONING.es} · DJ y live híbrido · Montpellier, sur de Francia`,
+    bio: BIO_LONG.es,
     soundTitle: 'El sonido',
     sound: [
-      'Indie dance y psy prog: un bajo que rueda, cambios lentos bajo la superficie, sin picos artificiales. Hecho para durar, no para el efecto.',
+      `${POSITIONING.es}: bajos que ruedan, sintes oscuros y una tensión que crece a lo largo del set.`,
       'DJ set en CDJ, de 90 minutos a 4 horas, más largo a pedido.',
       'Live híbrido con sintetizadores y grooveboxes, 60 a 75 minutos, secuencias tocadas en directo, seguido de un DJ set cuando el horario lo permite.',
     ],
@@ -973,7 +964,7 @@ function langPage(lang) {
     name: L.title,
     description: L.description,
     inLanguage: L.htmlLang,
-    mainEntity: { ...ARTIST_REF, description: L.bio[0], genre: ['Indie Dance', 'Psy Prog'], sameAs: PROFILES.map(([, u]) => u) },
+    mainEntity: ARTIST_REF,
   };
   // Orange du texte assombri (#B04508, contraste 5 sur creme), CTA a l'encre sur orange (6.1)
   const css = `@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
@@ -1005,24 +996,28 @@ footer{max-width:780px;margin:0 auto;padding:0 20px 48px;font-size:13px;color:#6
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="${url}" />
     ${alternatesTags()}
-    <meta property="og:type" content="profile" />
+    <meta property="og:type" content="music.musician" />
     <meta property="og:site_name" content="Maudite Machine" />
-    <meta property="og:url" content="${url}" />
     <meta property="og:title" content="${escapeAttr(L.title)}" />
-    <meta property="og:description" content="${escapeAttr(L.description)}" />
+    <meta property="og:description" content="${escapeAttr(OG_DESCRIPTION)}" />
+    <meta property="og:url" content="${url}" />
     <meta property="og:image" content="${OG_IMAGE}" />
     <meta property="og:image:width" content="${OG_DEFAULT.width}" />
     <meta property="og:image:height" content="${OG_DEFAULT.height}" />
+    <meta property="og:image:type" content="${OG_DEFAULT.type}" />
     <meta property="og:image:alt" content="${escapeAttr(OG_DEFAULT.alt)}" />
-    <meta property="og:locale" content="${L.locale}" />
+    <meta property="og:locale" content="${OG_LOCALE}" />
+    ${OG_LOCALE_ALTERNATES.map((l) => `<meta property="og:locale:alternate" content="${l}" />`).join('\n    ')}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeAttr(L.title)}" />
-    <meta name="twitter:description" content="${escapeAttr(L.description)}" />
+    <meta name="twitter:description" content="${escapeAttr(OG_DESCRIPTION)}" />
     <meta name="twitter:image" content="${OG_IMAGE}" />
+    <meta name="twitter:image:alt" content="${escapeAttr(OG_DEFAULT.alt)}" />
     <meta name="theme-color" content="#F6F1E7" />
     <link rel="icon" href="/logo/favicon.ico" type="image/x-icon" />
     <link rel="preload" href="/fonts/SF-Pro-Display-Black.woff2" as="font" type="font/woff2" crossorigin />
     <style>${css}</style>
+    ${artistScript()}
     ${ld(ldPage)}
     ${ld(breadcrumb([['Maudite Machine', `${SITE}/`], [lang.toUpperCase(), url]]))}
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"></script>
@@ -1069,17 +1064,17 @@ const writePage = (dirRel, html) => {
 for (const route of ROUTES) {
   const meta = SEO_META[STATIC_LANG][route] ?? SEO_META[STATIC_LANG][route.replace(/\/$/, '')];
   if (!meta) {
-    console.warn(`⚠️  pas de meta pour ${route}, ignoré`);
+    console.warn(`ATTENTION : pas de meta pour ${route}, ignoré`);
     continue;
   }
   const url = `${SITE}${route}`;
   const title = titleOf(route, meta);
   const description = describe(route, meta);
 
-  let html = pageHead(baseHtml, { title, description, url, ogType: 'website' });
+  let html = pageHead(baseHtml, { title, description, url, ogType: 'music.musician' });
   html = withContent(html, route);
   if (route === '/shows/') html = withEvents(html);
-  html = toHead(html, ld(breadcrumb([['Maudite Machine', `${SITE}/`], [meta.title.split('|')[0].trim(), url]])));
+  html = toHead(html, ld(breadcrumb([['Maudite Machine', `${SITE}/`], [PAGE_NAMES[route] ?? 'Maudite Machine', url]])));
   if (route === '/tracks/') html = toHead(html, tracksJsonLd());
   if (route === '/mixtapes/') html = toHead(html, mixtapesJsonLd());
   if (route === '/contact/') html = toHead(html, contactJsonLd(url, title, description));
@@ -1118,10 +1113,15 @@ if (existsSync(notFoundPath)) {
   nf = upsertMeta(nf, 'name', 'robots', 'noindex, follow');
   nf = upsertMeta(nf, 'name', 'googlebot', 'noindex, follow');
   nf = nf.replace(/\n?\s*<link\s+rel=["']canonical["'][^>]*>/i, '');
-  writeFileSync(notFoundPath, nf, 'utf8');
+  writeFileSync(notFoundPath, withArtist(nf), 'utf8');
 }
+
+// /press/ (public/press/index.html, servie telle quelle) : son bloc de
+// l'artiste remplace par celui de seo-shared.mjs, comme partout (2026-10-10)
+const pressPath = join(DIST, 'press', 'index.html');
+if (existsSync(pressPath)) writeFileSync(pressPath, withArtist(readFileSync(pressPath, 'utf8')), 'utf8');
 
 const covers = [...ogCache.values()].filter(Boolean).length;
 console.log(
-  `✅ prerender SEO : ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'} (meta ${STATIC_LANG})`,
+  `prerender SEO : ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'} (meta ${STATIC_LANG})`,
 );

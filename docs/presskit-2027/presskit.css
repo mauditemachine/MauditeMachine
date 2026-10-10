@@ -615,6 +615,18 @@ a {
   break-after: avoid;
 }
 
+.nw {
+  white-space: nowrap;
+}
+
+/* Le sous-titre d'un format (DJ set, Hybrid live) : sous son nom, sans puce, en texte clair, attache a la suite */
+.fmt {
+  margin: -0.5mm 0 0.4mm;
+  color: var(--text-light);
+  break-inside: avoid;
+  break-after: avoid;
+}
+
 .flow li {
   break-inside: avoid;
 }
@@ -719,6 +731,18 @@ a {
 
 .p4:not(.rider) {
   line-height: 1.25;
+}
+
+/* Page 6 : les sous-titres DJ set et live hybride (brief du 2026-10-10)
+   ajoutent deux lignes ; l'ecart entre les lignes et entre les blocs se
+   resserre (le corps et l'interligne ne changent pas), le bas garde sa
+   marge au-dessus du folio */
+.p4:not(.rider) .items li {
+  margin-top: 0.2mm;
+}
+
+.p4:not(.rider) .flow > div + div {
+  margin-top: 1.2mm;
 }
 
 /* ---------- fiche technique (2 pages) ---------- */

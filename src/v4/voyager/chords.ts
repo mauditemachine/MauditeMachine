@@ -34,7 +34,7 @@ export const CHORDS: readonly Chord[] = [
 
 /**
  * Progressions de RANDOM (indices de CHORDS) : des enchainements qui
- * marchent en indie dance et en psy prog.
+ * marchent en indie dance et en dark disco.
  */
 export const PROGRESSIONS: readonly (readonly number[])[] = [
   [0, 1, 5, 2],

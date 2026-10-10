@@ -386,7 +386,7 @@ const AdminEvents: React.FC = () => {
                 </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Genre</label>
-                  <input className="admin-input" value={releaseForm.genre} onChange={e => setReleaseForm({...releaseForm, genre: e.target.value})} placeholder="Psy Prog" />
+                  <input className="admin-input" value={releaseForm.genre} onChange={e => setReleaseForm({...releaseForm, genre: e.target.value})} placeholder="Dark Disco" />
                 </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Format</label>

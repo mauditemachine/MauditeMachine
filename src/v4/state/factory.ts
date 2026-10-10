@@ -19,11 +19,11 @@
  * - kicks : BLUEPRINT (sol 1, court, attaque ronde : house, italo),
  *   VNTM (fa 1, le plus court et le plus grave : minimal), ENGELHARDT (sol
  *   1, le plus long, aucune attaque, presque une 808 : techno, electro),
- *   CARASSI (sol 1, le plus claquant, queue rapide : acid, psy prog, EBM),
+ *   CARASSI (sol 1, le plus claquant, queue rapide : acid, rolling, EBM),
  *   STEIN (sol 1, un corps qui tient : dark disco), AFFKT (la 1, le plus
  *   aigu, attaque nette : indie dance) ;
  * - snares : PSY 02 (corps rond vers 140 Hz : indie dance, techno, house),
- *   PSY 12 (brillante et seche : acid, minimal, psy prog), PSY 26 (tres
+ *   PSY 12 (brillante et seche : acid, minimal, rolling), PSY 26 (tres
  *   brillante, longue queue : EBM, coupee par DECAY), 707 (courte, annees
  *   80 : dark disco, electro, italo).
  * Les deux couches (2026-10-08, l'etape R3, audio/kit.ts) : ces samples
@@ -62,7 +62,7 @@
  *   repondent, tout est court et sec, l'espace est dans le delai ; la basse,
  *   quatre notes rondes entre les kicks, la meme figure ; le synthe, un bip
  *   de trois notes contre la mesure, beaucoup de delai.
- * - PSY PROG (138) : la psytrance progressive (Ace Ventura, Liquid Soul) ;
+ * - ROLLING (138) : le roulement hypnotique ;
  *   tout droit, un kick court sur chaque temps et la basse qui roule sur
  *   les trois doubles croches d'apres (K B B B), clap et snare brillants sur
  *   2 et 4, l'ouvert a contretemps ; une note de basse, staccato, enveloppe
@@ -236,7 +236,7 @@ const RYTM: readonly RytmGenre[] = [
     },
   },
   {
-    name: 'PSY PROG',
+    name: 'ROLLING',
     bpm: 138,
     fx: { swing: 0, drive: 0.1, reverb: 0.12, delay: 0.06 },
     kick: { key: KICK.carassi, or: '909' },
@@ -469,7 +469,7 @@ const ARP: readonly ArpGenre[] = [
   },
   {
     // Doubles croches resonantes ; le LFO ouvre le filtre sur deux mesures ; un long delai
-    name: 'PSY PROG',
+    name: 'ROLLING',
     knobs: { volume: 0.79, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[2], gate: 0.35, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine2: cents(5), fmode: FMODE.MOOG, cutoff: 0.35, res: 0.62, envAmt: 0.55, fD: 0.2, fS: 0.1, aD: 0.25, aS: 0.2, aR: 0.2, lfoRate: LFO_RATE['2 BAR'], lfoShape: 0, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.35, chorus: 0.1, delay: 0.45, reverb: 0.25, duck: 0.4, chord: CHORD.BASIC },
     prog: [0],
   },
@@ -549,7 +549,7 @@ export function arpFactory(seqMax: number): { name: string; data: ArpFactory }[]
  * de moins compte un point), et chaque ligne a son masque note / silence / liaison a elle.
  *
  * Ranges par style pour que PREV / NEXT les parcoure d'un style a l'autre, le monde de Mika en tete (dark disco,
- * indie dance), puis l'acid, la techno, la minimale, l'italo, l'EBM, l'electro, la house, la psy prog, le sub ; dans
+ * indie dance), puis l'acid, la techno, la minimale, l'italo, l'EBM, l'electro, la house, le rolling, le sub ; dans
  * chaque style le plus fort d'abord. Le premier de chaque style porte le nom du style (le meme preset sur le MM-RYTM
  * et le MM-ARP : les trois ensemble font un morceau qui tient) et sa ligne est la prise 01 du potard STYLE ; les
  * autres portent le nom de leur caractere, douze lettres au plus (les noms d'avant restent la ou ils disent encore le
@@ -799,14 +799,14 @@ const BASS: readonly BassGenre[] = [
   // septieme graves
   { name: 'ORGAN BASS', style: 'HOUSE', p: { ...BASE, ...o1('SQR', 0.6), ...o2('SQR', "8'", 0.45), ...o3('TRI', "4'", 0.25), ...flt('LP12', 1500, 0.1, 0.3, 100, 0.8, 0.5), sub: 0.3, ...amp(1, 2000, 1, 25), drive: 0.3, accent: 0.3, sweep: 0, glide: BU.glide(39), drift: 0.3, reverb: 0.06, rsize: BU.rsize(1.2), volume: 0.745, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 . . 0  . . 0 -  . . 0 .  4_ . 6_ .' },
 
-  /* ---- PSY PROG (138 BPM) : la psytrance progressive, le kick seul sur le temps ---- */
+  /* ---- ROLLING (138 BPM) : le roulement, le kick seul sur le temps ---- */
   // LE ROULEMENT : la basse sur les trois doubles croches apres chaque kick (K B B B), une seule note grave (OCTAVE -1) ;
   // deux scies a -9 cents, un contour tres court, l'ampli court, aucune derive (la machine droite)
-  { name: 'PSY PROG', style: 'PSY PROG', p: { ...BASE, ...o1('SAW', 1), ...o2('SAW', "16'", 1, -9), ...flt('LP24', 300, 0.25, 3.5, 15, 0, 0.33), ...amp(0.5, 60, 0.3, 15), drive: 0.85, feedback: 0.2, accent: 0.5, sweep: 0.2, glide: BU.glide(25), drift: 0, volume: 0.946, slides: 0, accents: 0.15 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. 0 0 0  . 0 0 0  . 0 0 0  . 0 0 0' },
+  { name: 'ROLLING', style: 'ROLLING', p: { ...BASE, ...o1('SAW', 1), ...o2('SAW', "16'", 1, -9), ...flt('LP24', 300, 0.25, 3.5, 15, 0, 0.33), ...amp(0.5, 60, 0.3, 15), drive: 0.85, feedback: 0.2, accent: 0.5, sweep: 0.2, glide: BU.glide(25), drift: 0, volume: 0.946, slides: 0, accents: 0.15 }, octave: -1, range: 1, scale: 'MINOR', root: 'F#', line: '. 0 0 0  . 0 0 0  . 0 0 0  . 0 0 0' },
   // LE COUP SEC : le triangle et un peu de carre, grave (OCTAVE -1), un contour et un ampli tres courts (12 et 40 ms,
   // aucun SUSTAIN), propre : un coup de bois tendu ; deux doubles croches apres le kick (K B B .), l'octave et la
   // septieme pour finir la mesure
-  { name: 'MOON GALLOP', style: 'PSY PROG', p: { ...BASE, ...o1('SQR', 0.4), ...o2('TRI', "16'", 1), ...flt('LP24', 250, 0.2, 2.5, 12, 0, 0.67), ...amp(0.5, 40, 0, 10), drive: 0.5, accent: 0.5, sweep: 0.2, accdecay: BU.accd(120), glide: BU.glide(25), drift: 0.1, volume: 0.987, slides: 0, accents: 0.15 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '. 0 0 .  . 0 0 .  . 0 0 .  . 0+ 6 .' },
+  { name: 'MOON GALLOP', style: 'ROLLING', p: { ...BASE, ...o1('SQR', 0.4), ...o2('TRI', "16'", 1), ...flt('LP24', 250, 0.2, 2.5, 12, 0, 0.67), ...amp(0.5, 40, 0, 10), drive: 0.5, accent: 0.5, sweep: 0.2, accdecay: BU.accd(120), glide: BU.glide(25), drift: 0.1, volume: 0.987, slides: 0, accents: 0.15 }, octave: -1, range: 2, scale: 'MINOR', root: 'F#', line: '. 0 0 .  . 0 0 .  . 0 0 .  . 0+ 6 .' },
 
   /* ---- SUB (basse seule) : les grandes notes graves ---- */
   // LE SINUS DU SUB : un triangle seul sous un filtre presque ferme (presque un sinus), le SUB propre dessous ; de

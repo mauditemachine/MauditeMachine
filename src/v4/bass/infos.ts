@@ -94,7 +94,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   style: {
     section: 'GENERATOR',
     title: 'STYLE',
-    text: "Le genre de la ligne : ACID, DARK DISCO, INDIE DANCE, MINIMAL, PSY PROG, TECHNO, HOUSE, ELECTRO, EBM, ITALO ou SUB. Chaque cran joue tout de suite la ligne typique du style (sa prise 01, avec son nombre de notes) ; l'écran montre son nom et ses 16 pas en grand. Tes notes à toi et tes P-locks restent. STYLE change les notes, pas le son : le son, ce sont les pages VOICE, FILTER, ENV et FX.",
+    text: "Le genre de la ligne : ACID, DARK DISCO, INDIE DANCE, MINIMAL, ROLLING, TECHNO, HOUSE, ELECTRO, EBM, ITALO ou SUB. Chaque cran joue tout de suite la ligne typique du style (sa prise 01, avec son nombre de notes) ; l'écran montre son nom et ses 16 pas en grand. Tes notes à toi et tes P-locks restent. STYLE change les notes, pas le son : le son, ce sont les pages VOICE, FILTER, ENV et FX.",
     tip: "Chaque style garde la prise où tu l'as laissé : d'ACID 07 à DARK DISCO 03 et retour, ACID 07 revient tel quel. Deux tapes sur STYLE : la ligne typique, prise 01.",
   },
   density: {
@@ -162,7 +162,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
     section: 'ENVELOPE',
     title: 'DECAY',
     text: "Le temps que met le contour du filtre à redescendre. Sur l'échelle (LP24 à BP), de 10 ms à 2,5 s, vers F.SUSTAIN (onglet CONTOUR) : court pour des notes qui claquent, long pour des notes qui respirent. En MODE 303, de 120 ms à 2,5 s jusqu'en bas, et une note accentuée garde sa décroissance courte (ACC DECAY), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
-    tip: "Moins de 250 ms en EBM et en psy prog, plus long en house.",
+    tip: "Moins de 250 ms en EBM et en ROLLING, plus long en house.",
   },
 
   /* ---------- ACCENT / SLIDE ---------- */
@@ -197,7 +197,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   slides: {
     section: 'TWEAKS / GENERATOR',
     title: 'SLIDE PROB',
-    text: "La chance qu'une note du générateur glisse vers la suivante ; les notes de la machine suivent le potard à chaque cran ; tes notes et les notes écrites d'un preset gardent les leurs. Le style la module : beaucoup en ACID et en SUB, presque jamais en EBM et en PSY PROG. GLIDE, page VOICE, règle la durée du glissement.",
+    text: "La chance qu'une note du générateur glisse vers la suivante ; les notes de la machine suivent le potard à chaque cran ; tes notes et les notes écrites d'un preset gardent les leurs. Le style la module : beaucoup en ACID et en SUB, presque jamais en EBM et en ROLLING. GLIDE, page VOICE, règle la durée du glissement.",
     tip: "Vers 40 % pour une acid bavarde, 10 % pour une dark disco qui reste droite.",
   },
   accents: {
@@ -210,7 +210,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
     section: 'TWEAKS / GENERATOR',
     title: 'RANGE',
     text: "Jusqu'où les notes générées peuvent monter : 1 octave pour une ligne serrée et hypnotique, 3 pour des sauts plus fous. Les notes de la machine suivent le potard à chaque cran ; tes notes et les notes écrites d'un preset gardent les leurs.",
-    tip: "1 pour le minimal et la psy prog, 2 pour la dark disco et l'acid.",
+    tip: "1 pour le minimal et le ROLLING, 2 pour la dark disco et l'acid.",
   },
   root: {
     section: 'TWEAKS / GENERATOR',

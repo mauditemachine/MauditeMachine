@@ -146,9 +146,10 @@ export async function staticSeo() {
     {
       key: 'title',
       label: 'Titre du site',
-      ok: !!title && /montr[ée]al/i.test(title),
+      // 2026-10-10 (le positionnement) : le titre porte le style et le label, plus Montréal
+      ok: !!title && /dark disco/i.test(title) && /vrstl/i.test(title),
       detail: title || 'absent',
-      why: 'Le titre est la première chose que Google affiche. Contenir « Montréal » aide à sortir sur « DJ Montréal ».',
+      why: 'Le titre est la première chose que Google affiche. Il porte le style (Dark Disco) et le label (VRSTL Records).',
     },
     {
       key: 'description',
@@ -161,17 +162,11 @@ export async function staticSeo() {
       key: 'localBusiness',
       label: 'Zones desservies (booking local)',
       ok: !!musicGroup?.areaServed,
+      // Des noms simples depuis le 2026-10-10 (France, Spain...), des objets Place avant
       detail: musicGroup?.areaServed
-        ? musicGroup.areaServed.map((a: any) => a.name).join(', ')
+        ? [].concat(musicGroup.areaServed).map((a: any) => (typeof a === 'string' ? a : a?.name)).join(', ')
         : 'non déclarées',
       why: 'Indique à Google les villes où tu es disponible pour jouer.',
-    },
-    {
-      key: 'offer',
-      label: 'Service DJ déclaré',
-      ok: !!musicGroup?.makesOffer,
-      detail: musicGroup?.makesOffer ? musicGroup.makesOffer.itemOffered.name : 'non déclaré',
-      why: 'Permet à Google de comprendre que tu proposes des prestations.',
     },
     {
       key: 'socials',

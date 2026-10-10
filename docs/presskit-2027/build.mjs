@@ -28,6 +28,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
 const PUB = join(ROOT, 'public');
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// Options de plus pour Chrome (ex. CHROME_FLAGS=--no-sandbox dans un conteneur Linux en root), sans effet sur le rendu
+const CHROME_FLAGS = (process.env.CHROME_FLAGS || '').split(/\s+/).filter(Boolean);
 const PAGES = 6;
 
 const VARIANTS = [
@@ -50,6 +52,13 @@ const items = (list) =>
     })
     .join('')}</ul>`;
 
+/** Les noms a trait d'union ne se coupent pas en fin de ligne (D-Nox). */
+const nobreak = (html) => html.replace(/\b(D-Nox)\b/g, '<span class="nw">$1</span>');
+/** Le sous-titre d'un format (DJ set, Hybrid live), sous son nom. */
+const fmt = (h) => (C.techFormats && C.techFormats[h] ? `<p class="fmt">${esc(C.techFormats[h])}</p>` : '');
+/** La bio de la couverture, sans sa premiere phrase quand elle redit le positionnement ecrit juste au-dessus. */
+const coverBio = () => (C.bio.startsWith(`${C.positioning}. `) ? C.bio.slice(C.positioning.length + 2) : C.bio);
+
 const perf = (rows) => `<ul class="perf">${rows.map(([n, y]) => `<li><span>${esc(n)}</span><span>${esc(y)}</span></li>`).join('')}</ul>`;
 
 function pages(v) {
@@ -63,7 +72,7 @@ function pages(v) {
   <div class="meta"><span class="sub">${esc(C.kit)}</span>${v.banner ? `<span class="sub boom">${esc(v.banner)}</span>` : ''}</div>
   <h1>${esc(C.name)}</h1>
   <p class="pos">${esc(C.positioning)}</p>
-  <p class="bio">${esc(C.bio)}</p>
+  <p class="bio">${esc(coverBio())}</p>
   <dl class="facts">${C.facts.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('')}</dl>
   <p class="p1-links">${a('mauditemachine.com', URL.site)}<span>·</span>${a('mauditemachine.com/press', URL.press)}<span>·</span>${a(C.mix.text, C.mix.url)}</p>
   ${folio(1)}
@@ -77,7 +86,7 @@ function pages(v) {
     ${img('portrait', 'p2-portrait.jpg')}
     <div class="main">
       <p class="lead">${esc(C.bioLead)}</p>
-      ${C.bioLong.map((p) => `<p class="para">${esc(p)}</p>`).join('')}
+      ${C.bioLong.map((p) => `<p class="para">${nobreak(esc(p))}</p>`).join('')}
     </div>
   </div>
   <div class="stats">${C.stats.map(([n, l]) => `<div><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('')}</div>
@@ -163,7 +172,7 @@ function pages(v) {
   ${title(C.techTitle)}
   <p class="intro">${esc(C.techIntro)}</p>
   <div class="flow tech">
-    ${C.tech.map(([h, list]) => `<div><p class="sub">${esc(h)}</p>${items(list)}</div>`).join('')}
+    ${C.tech.map(([h, list]) => `<div><p class="sub">${esc(h)}</p>${fmt(h)}${items(list)}</div>`).join('')}
   </div>
   ${title(C.hospTitle)}
   <div class="flow hosp">
@@ -199,7 +208,7 @@ function riderPages() {
   ${title(C.techTitle)}
   <p class="intro">${esc(C.techIntro)}</p>
   <div class="flow tech">
-    ${[dj, live, length].map(([h, list]) => `<div><p class="sub">${esc(h)}</p>${items(list)}</div>`).join('')}
+    ${[dj, live, length].map(([h, list]) => `<div><p class="sub">${esc(h)}</p>${fmt(h)}${items(list)}</div>`).join('')}
   </div>
   ${title(plot[0])}
   <div class="stage">
@@ -259,7 +268,7 @@ function render(v, pdf) {
   try {
     execFileSync(
       CHROME,
-      ['--headless', '--disable-gpu', '--allow-file-access-from-files', '--no-pdf-header-footer', '--virtual-time-budget=20000', `--print-to-pdf=${pdf}`, pathToFileURL(tmp).href],
+      [...CHROME_FLAGS, '--headless', '--disable-gpu', '--allow-file-access-from-files', '--no-pdf-header-footer', '--virtual-time-budget=20000', `--print-to-pdf=${pdf}`, pathToFileURL(tmp).href],
       { stdio: ['ignore', 'ignore', 'pipe'] }
     );
   } finally {

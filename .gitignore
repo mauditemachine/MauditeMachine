@@ -39,3 +39,7 @@ api/.env
 *.nosync/
 node_modules
 .next
+
+# Sorties regenerables des scripts (ex. footprints.csv de
+# scripts/seo-backlinks-footprints.js) : local uniquement.
+scripts/output/

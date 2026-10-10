@@ -119,11 +119,8 @@ const TechRiderPage: React.FC = () => {
   const [lang, setLang] = useState<'en' | 'fr'>('en');
   const t = RIDER[lang];
 
-  useV2Chrome(
-    lang === 'fr'
-      ? 'Maudite Machine | Fiche technique 2026-27'
-      : 'Maudite Machine | Tech Rider 2026-27'
-  );
+  // 2026-10-10 (brief de Mika, B2) : le titre de tout le site, en FR comme en EN
+  useV2Chrome('Maudite Machine | DJ & Producer Dark Disco | VRSTL Records');
 
   const plotLabel = (k: string) => {
     if (k === 'optional') return lang === 'fr' ? '(OPTIONNEL)' : '(OPTIONAL)';
@@ -172,6 +169,7 @@ const TechRiderPage: React.FC = () => {
                 <span className="v2-section-num">{b.num}</span>
                 {b.title}
               </h2>
+              {b.subtitle && <p className="v2-label">{b.subtitle}</p>}
               <dl className="v2-rider-list">
                 {b.items.map((it) => (
                   <div className="v2-rider-row" key={it.term}>

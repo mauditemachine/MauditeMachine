@@ -1907,11 +1907,12 @@ export const PRESSKIT_ROUTE = {
   delayMs: 250,
   frameCapMs: 50,
   hintMs: 5000,
-  title: 'Press Kit 2027 | Maudite Machine',
+  // 2026-10-10 (brief de Mika, B2) : le titre de tout le site, le meme que src/data/seo-meta.json
+  title: 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records',
 } as const;
 
 export const COPY = {
-  title: 'Maudite Machine | DJ & Producer \u00B7 Indie Dance \u00B7 Psy Prog',
+  title: 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records',
   wordmark: 'MAUDITE MACHINE',
   model: 'MM-RYTM',
 } as const;

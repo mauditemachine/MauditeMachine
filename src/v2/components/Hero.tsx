@@ -84,7 +84,7 @@ const Hero: React.FC = () => {
         </h1>
 
         <div className="v2-hero-tagline">
-          <span className="v2-label">Indie dance · Psy prog</span>
+          <span className="v2-label">Indie Dance, Dark Disco</span>
           <span className="v2-label">DJ &amp; producer · Booking &amp; live</span>
         </div>
 

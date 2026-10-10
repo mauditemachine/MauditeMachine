@@ -443,7 +443,7 @@ const STYLE_GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = {
   'DARK DISCO': 0.45,
   'INDIE DANCE': 0.45,
   MINIMAL: 0.32,
-  'PSY PROG': 0.38,
+  ROLLING: 0.38,
   TECHNO: 0.42,
   HOUSE: 0.62,
   ELECTRO: 0.42,

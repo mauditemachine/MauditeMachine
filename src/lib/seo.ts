@@ -16,7 +16,12 @@ import type { Lang } from '../translations';
 import seoMeta from '../data/seo-meta.json';
 
 export const SITE_URL = 'https://mauditemachine.com';
-export const OG_IMAGE = `${SITE_URL}/images/og-image.jpg?v=2027`;
+/**
+ * 2026-10-10 (brief de Mika, B4) : l'image de partage de tout le site, la
+ * photo booth-blue recadree en 1200 x 630 (la meme que scripts/seo-shared.mjs).
+ */
+export const OG_IMAGE = `${SITE_URL}/press/og-maudite-machine.jpg`;
+const OG_IMAGE_ALT = 'Maudite Machine in the booth under a blue spotlight';
 
 type SeoEntry = { title: string; description: string };
 type RouteKey = '/' | '/about' | '/shows' | '/radar' | '/merch' | '/goodies' | '/techrider' | '/contact';
@@ -30,10 +35,20 @@ type RouteKey = '/' | '/about' | '/shows' | '/radar' | '/merch' | '/goodies' | '
  */
 export const SEO_META = seoMeta as Record<Lang, Record<RouteKey, SeoEntry>>;
 
-const OG_LOCALE: Record<Lang, string> = {
-  fr: 'fr_CA',
-  en: 'en_US',
-  es: 'es_ES',
+/** Locale Open Graph de toutes les pages et ses alternatives (brief B4), quelle que soit la langue. */
+const OG_LOCALE = 'fr_FR';
+const OG_LOCALE_ALTERNATES = ['en_GB', 'es_ES'];
+
+/** Le nom de chaque page dans son fil d'Ariane (le titre, le meme partout, ne le porte plus). */
+const PAGE_NAMES: Record<RouteKey, string> = {
+  '/': 'Maudite Machine',
+  '/about': 'Biography',
+  '/shows': 'Shows',
+  '/radar': 'Radar',
+  '/merch': 'Merch',
+  '/goodies': 'Goodies',
+  '/techrider': 'Tech rider',
+  '/contact': 'Contact and booking',
 };
 
 /** Normalise un pathname vers une RouteKey connue (fallback '/'). */
@@ -54,6 +69,19 @@ function setMeta(attr: 'name' | 'property', key: string, content: string) {
     document.head.appendChild(el);
   }
   el.setAttribute('content', content);
+}
+
+/** Remplace les <meta property=...> repetees (og:locale:alternate) par cette liste. */
+function setMetaList(property: string, contents: readonly string[]) {
+  if (typeof document === 'undefined') return;
+  document.head.querySelectorAll(`meta[property="${property}"]`).forEach((el) => el.remove());
+  for (const content of contents) {
+    const el = document.createElement('meta');
+    el.setAttribute('property', property);
+    el.setAttribute('content', content);
+    el.setAttribute('data-seo-managed', 'true');
+    document.head.appendChild(el);
+  }
 }
 
 /** Cree ou met a jour un <link rel> (canonical, alternate hreflang...). */
@@ -107,21 +135,27 @@ export function useSEO() {
     // Canonical
     setLink('canonical', canonical);
 
-    // Open Graph
-    setMeta('property', 'og:type', route === '/' ? 'website' : 'article');
-    setMeta('property', 'og:url', canonical);
-    setMeta('property', 'og:title', meta.title);
-    setMeta('property', 'og:description', meta.description);
-    setMeta('property', 'og:image', OG_IMAGE);
+    // Open Graph (2026-10-10, brief B4 : le meme jeu sur chaque page,
+    // og:description en anglais quelle que soit la langue)
+    const ogDescription = SEO_META.en[route].description;
+    setMeta('property', 'og:type', 'music.musician');
     setMeta('property', 'og:site_name', 'Maudite Machine');
-    setMeta('property', 'og:locale', OG_LOCALE[lang]);
+    setMeta('property', 'og:title', meta.title);
+    setMeta('property', 'og:description', ogDescription);
+    setMeta('property', 'og:url', canonical);
+    setMeta('property', 'og:image', OG_IMAGE);
+    setMeta('property', 'og:image:width', '1200');
+    setMeta('property', 'og:image:height', '630');
+    setMeta('property', 'og:image:alt', OG_IMAGE_ALT);
+    setMeta('property', 'og:locale', OG_LOCALE);
+    setMetaList('og:locale:alternate', OG_LOCALE_ALTERNATES);
 
-    // Twitter Card
+    // Twitter Card : les memes titre, description et image que l'Open Graph
     setMeta('name', 'twitter:card', 'summary_large_image');
-    setMeta('name', 'twitter:url', canonical);
     setMeta('name', 'twitter:title', meta.title);
-    setMeta('name', 'twitter:description', meta.description);
+    setMeta('name', 'twitter:description', ogDescription);
     setMeta('name', 'twitter:image', OG_IMAGE);
+    setMeta('name', 'twitter:image:alt', OG_IMAGE_ALT);
 
     // hreflang : meme URL sert les 3 langues (detection navigator.language),
     // on declare les variantes via ?lang= qui est notre override supporte.
@@ -136,7 +170,7 @@ export function useSEO() {
       crumbs.push({
         '@type': 'ListItem',
         position: 2,
-        name: meta.title.split('|')[0].trim(),
+        name: PAGE_NAMES[route],
         item: canonical,
       });
     }

@@ -8,7 +8,7 @@
  * Docs : https://developers.google.com/search/docs/appearance/structured-data/event
  */
 
-import { SITE_URL } from './seo';
+import { SITE_URL, OG_IMAGE } from './seo';
 
 export interface UpcomingEvent {
   date: string;      // "2026-07-23"
@@ -18,16 +18,11 @@ export interface UpcomingEvent {
   image?: string;    // "events/grooveandbass2026.jpg"
 }
 
-const PERFORMER = {
-  '@type': 'MusicGroup',
-  name: 'Maudite Machine',
-  url: SITE_URL,
-  sameAs: [
-    'https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4',
-    'https://soundcloud.com/mauditemachine',
-    'https://www.instagram.com/mauditemachine/',
-  ],
-};
+/**
+ * 2026-10-10 (brief de Mika, B1) : un seul MusicGroup par page, celui
+ * d'index.html (id="ld-artist") ; l'artiste est cite par son @id.
+ */
+const PERFORMER = { '@id': `${SITE_URL}/#artist` };
 
 /**
  * Parse "Bryson, QC" ou "St Cristaud (France)" en objet Place schema.org.
@@ -63,7 +58,7 @@ function toPlace(location: string) {
       },
     };
   }
-  // Lieu simple ("Theatre Paradoxe") : Montreal par defaut (base de l'artiste)
+  // Lieu simple ("Theatre Paradoxe") : Montreal par defaut (les salles des anciennes dates)
   return {
     '@type': 'Place',
     name: clean || 'Montréal',
@@ -78,7 +73,7 @@ function toPlace(location: string) {
 
 /** Resout une image d'event en URL absolue (requis par schema.org). */
 function toAbsoluteImage(image?: string): string {
-  if (!image) return `${SITE_URL}/images/og-image.jpg`;
+  if (!image) return OG_IMAGE;
   if (/^https?:\/\//.test(image)) return image;
   return `${SITE_URL}/${image.replace(/^\//, '')}`;
 }

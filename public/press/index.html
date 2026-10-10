@@ -3,26 +3,145 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Maudite Machine - Press assets</title>
-    <meta name="description" content="Press photos, logo, artwork, press kit and tech rider for Maudite Machine. Free to use for press and promoters." />
+    <!-- 2026-10-10 (brief de Mika, mise a jour complete) : le titre, la description EN,
+         le jeu Open Graph et le MusicGroup de tout le site (scripts/seo-shared.mjs ; le
+         prerender remplace le bloc id="ld-artist" par l'original au build) -->
+    <title>Maudite Machine | DJ &amp; Producer Dark Disco | VRSTL Records</title>
+    <meta name="description" content="Maudite Machine, Dark Disco DJ and producer based in the south of France, founder of VRSTL Records in Montréal. Sets, releases, press kit and booking." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://mauditemachine.com/press/" />
+    <link rel="icon" href="/logo/favicon.ico" type="image/x-icon" />
     <!-- 2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement aussi, c'est important.") :
-         apercu de partage (Open Graph, Twitter : l'image du site, la photo de couverture pese 1,2 Mo), page et fil d'Ariane -->
-    <meta property="og:type" content="website" />
+         apercu de partage (Open Graph, Twitter), page et fil d'Ariane ; 2026-10-10 : l'image 1200 x 630
+         tiree de la photo booth-blue (/press/og-maudite-machine.jpg) -->
+    <meta property="og:type" content="music.musician" />
     <meta property="og:site_name" content="Maudite Machine" />
+    <meta property="og:title" content="Maudite Machine | DJ &amp; Producer Dark Disco | VRSTL Records" />
+    <meta property="og:description" content="Maudite Machine, Dark Disco DJ and producer based in the south of France, founder of VRSTL Records in Montréal. Sets, releases, press kit and booking." />
     <meta property="og:url" content="https://mauditemachine.com/press/" />
-    <meta property="og:title" content="Maudite Machine - Press assets" />
-    <meta property="og:description" content="Press photos, logo, artwork, press kit and tech rider for Maudite Machine. Free to use for press and promoters." />
-    <meta property="og:image" content="https://mauditemachine.com/images/og-image.jpg?v=2027" />
+    <meta property="og:image" content="https://mauditemachine.com/press/og-maudite-machine.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Maudite Machine - DJ &amp; Producer" />
-    <meta property="og:locale" content="en_US" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:alt" content="Maudite Machine in the booth under a blue spotlight" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:locale:alternate" content="es_ES" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Maudite Machine - Press assets" />
-    <meta name="twitter:description" content="Press photos, logo, artwork, press kit and tech rider for Maudite Machine. Free to use for press and promoters." />
-    <meta name="twitter:image" content="https://mauditemachine.com/images/og-image.jpg?v=2027" />
+    <meta name="twitter:title" content="Maudite Machine | DJ &amp; Producer Dark Disco | VRSTL Records" />
+    <meta name="twitter:description" content="Maudite Machine, Dark Disco DJ and producer based in the south of France, founder of VRSTL Records in Montréal. Sets, releases, press kit and booking." />
+    <meta name="twitter:image" content="https://mauditemachine.com/press/og-maudite-machine.jpg" />
+    <meta name="twitter:image:alt" content="Maudite Machine in the booth under a blue spotlight" />
+    <script type="application/ld+json" id="ld-artist">
+      [
+        {
+          "@context": "https://schema.org",
+          "@type": "MusicGroup",
+          "@id": "https://mauditemachine.com/#artist",
+          "name": "Maudite Machine",
+          "genre": [
+            "Dark Disco",
+            "Indie Dance",
+            "Indie Electronic"
+          ],
+          "recordLabel": {
+            "@type": "Organization",
+            "name": "VRSTL Records",
+            "url": "https://vrstlrecords.com"
+          },
+          "location": {
+            "@type": "Place",
+            "name": "Montpellier, France",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Montpellier",
+              "addressRegion": "Occitanie",
+              "addressCountry": "FR"
+            }
+          },
+          "foundingLocation": {
+            "@type": "Place",
+            "name": "Montreal, Canada"
+          },
+          "areaServed": [
+            "France",
+            "Spain",
+            "Europe",
+            "Canada"
+          ],
+          "album": [
+            {
+              "@type": "MusicAlbum",
+              "name": "Limbos (2025)"
+            },
+            {
+              "@type": "MusicAlbum",
+              "name": "Voodoo (2026)"
+            }
+          ],
+          "description": "Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.",
+          "url": "https://mauditemachine.com",
+          "sameAs": [
+            "https://soundcloud.com/mauditemachine",
+            "https://mauditemachine.bandcamp.com",
+            "https://instagram.com/mauditemachine",
+            "https://facebook.com/MauditeMachine",
+            "https://youtube.com/@mauditemachine-official",
+            "https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4",
+            "https://www.deezer.com/fr/artist/8651600",
+            "https://www.mixcloud.com/mauditemachine/",
+            "https://www.tiktok.com/@mauditemachine",
+            "https://x.com/mauditemachine",
+            "https://music.apple.com/us/artist/maudite-machine/1028417516",
+            "https://www.beatport.com/artist/maudite-machine/500537",
+            "https://www.songkick.com/artists/10363218-maudite-machine",
+            "https://www.gigmit.com/maudite-machine",
+            "https://linktr.ee/mauditemachine"
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "@id": "https://vrstlrecords.com/#organization",
+          "name": "VRSTL Records",
+          "url": "https://vrstlrecords.com",
+          "description": "Independent electronic music label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.",
+          "founder": {
+            "@id": "https://mauditemachine.com/#artist"
+          },
+          "sameAs": [
+            "https://vrstlrecords.bandcamp.com"
+          ],
+          "email": "vrstlrecords@gmail.com",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Montréal",
+            "addressRegion": "QC",
+            "addressCountry": "CA"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "@id": "https://mauditemachine.com/#website",
+          "name": "Maudite Machine",
+          "alternateName": "mauditemachine.com",
+          "url": "https://mauditemachine.com/",
+          "description": "Official website of Maudite Machine, DJ and producer",
+          "inLanguage": [
+            "en",
+            "fr",
+            "es"
+          ],
+          "about": {
+            "@id": "https://mauditemachine.com/#artist"
+          },
+          "publisher": {
+            "@id": "https://mauditemachine.com/#artist"
+          }
+        }
+      ]
+    </script>
     <script type="application/ld+json">
       [{
         "@context": "https://schema.org",
@@ -31,7 +150,7 @@
         "url": "https://mauditemachine.com/press/",
         "name": "Maudite Machine - Press assets",
         "description": "Press photos, logo, artwork, press kit and tech rider for Maudite Machine. Free to use for press and promoters.",
-        "about": { "@type": "MusicGroup", "@id": "https://mauditemachine.com/#artist", "name": "Maudite Machine", "url": "https://mauditemachine.com/" },
+        "about": { "@id": "https://mauditemachine.com/#artist" },
         "primaryImageOfPage": { "@type": "ImageObject", "url": "https://mauditemachine.com/press/maudite-machine-2027-cover-dj.jpg" }
       },
       {
@@ -197,7 +316,7 @@
         </a>
         <a class="btn" href="/Presskit_Maudite_Machine_2027_generic.pdf" target="_blank" rel="noopener">
           Press Kit 2027
-          <span>PDF · EN · 4 pages</span>
+          <span>PDF · EN · 6 pages</span>
         </a>
         <a class="btn" href="/Tech_Rider_Maudite_Machine_2026-27.pdf" target="_blank" rel="noopener">
           Tech Rider

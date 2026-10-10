@@ -4,7 +4,7 @@
  * qui peut descendre super bas", inspire du Torso T-1 : des regles plutot
  * que des notes). Onze styles de musique electronique (2026-10-07, Mika :
  * "des styles de musique electro differents, et pas juste Disco"), ceux que
- * Mika joue d'abord (dark disco, indie dance, minimal hypnotique, psy prog) :
+ * Mika joue d'abord (dark disco, indie dance, minimal hypnotique, rolling) :
  * - ACID : des doubles croches de 303, la tonique et ses voisines, des sauts
  *   d'octave, des accents plutot a contretemps, des slides ;
  * - DARK DISCO : l'octave qui saute (basse sur le temps, haute sur le "et"),
@@ -12,7 +12,7 @@
  * - INDIE DANCE : des croches qui poussent, l'octave a contretemps, des
  *   doubles croches fantomes ;
  * - MINIMAL : peu de notes, a cote des temps, une figure de huit pas repetee ;
- * - PSY PROG : le roulement (K B B B, ou K . B B plus clair) ;
+ * - ROLLING : le roulement (K B B B, ou K . B B plus clair) ;
  * - TECHNO : la basse sur le contretemps, un grondement autour ;
  * - HOUSE : des rythmes qui chaloupent, des notes tenues, des notes en plus
  *   quand DENSITY monte ;
@@ -119,7 +119,7 @@ function gate(u: number, a: number, b: number): number {
 }
 
 /** Les slides : l'acid et le sub glissent le plus. */
-export const slideK = (style: BassStyle): number => (style === 'ACID' ? 0.6 : style === 'SUB' ? 0.5 : style === 'HOUSE' ? 0.4 : style === 'EBM' || style === 'PSY PROG' ? 0.05 : 0.18);
+export const slideK = (style: BassStyle): number => (style === 'ACID' ? 0.6 : style === 'SUB' ? 0.5 : style === 'HOUSE' ? 0.4 : style === 'EBM' || style === 'ROLLING' ? 0.05 : 0.18);
 
 /** La graine des options (absente : tiree de rnd, ou du hasard). */
 const seedOf = (o: GenOpts): number => (o.seed !== undefined ? o.seed >>> 0 : Math.floor((o.rnd ?? Math.random)() * 4294967296) >>> 0);
@@ -216,9 +216,9 @@ export function candidates(o: GenOpts, seed: number): Cand[] {
       }
       break;
     }
-    case 'PSY PROG': {
+    case 'ROLLING': {
       // Le roulement : la grosse caisse sur le temps, la basse sur les trois doubles croches d'apres (K B B B) ;
-      // moins dense : la double croche d'apres le temps reste vide (K . B B, la prog)
+      // moins dense : la double croche d'apres le temps reste vide (K . B B, plus clair)
       for (let i = 0; i < N; i += 1) {
         const q = i % 4;
         if (q === 0) continue;
@@ -370,15 +370,21 @@ export const beatClass = (i: number): number => (i === 0 ? 0 : i % 4 === 0 ? 1 :
 /** Un style lie (SUB) : un pas libre apres un pas qui sonne le continue, sauf un silence ecrit. */
 export const isLegato = (style: BassStyle): boolean => style === 'SUB';
 
-/** FNV-1a, le hachage de state/factory.ts seedOfName. */
-export function fnv1a(s: string): number {
-  let h = 0x811c9dc5;
+/** FNV-1a, le hachage de state/factory.ts seedOfName ; h0, l'etat de depart (un prefixe deja hache). */
+export function fnv1a(s: string, h0 = 0x811c9dc5): number {
+  let h = h0 >>> 0;
   for (let i = 0; i < s.length; i += 1) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
   return h >>> 0;
 }
 
+/**
+ * Le hachage du nom d'un style renomme (2026-10-10) : celui de son nom d'avant, pour que ses prises gardent leurs
+ * notes (ROLLING 05 joue la meme ligne qu'avant le nouveau nom). Les autres styles : leur nom.
+ */
+const SEED_PREFIX: Partial<Record<BassStyle, number>> = { ROLLING: 0x33cddadd };
+
 /** La graine d'une prise (ACID 07 : ACID#7), la meme pour tout le monde, a chaque visite. */
-export const takeSeed = (style: BassStyle, take: number): number => fnv1a(`${style}#${take}`);
+export const takeSeed = (style: BassStyle, take: number): number => fnv1a(`#${take}`, SEED_PREFIX[style] ?? fnv1a(style));
 
 /** Ce qui joue sur une echelle : le style (ses slides), SLIDE PROB et ACC PROB (0 a 1), RANGE (1 a 3 octaves). */
 export interface LineOpts {

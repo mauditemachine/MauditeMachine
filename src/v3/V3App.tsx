@@ -254,7 +254,7 @@ const V3Shell: React.FC = () => {
   useLayoutEffect(() => {
     document.body.classList.add('v3-active');
     const prevTitle = document.title;
-    document.title = 'Maudite Machine | Acid Line';
+    document.title = 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records';
     const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     const prevTheme = theme?.getAttribute('content') ?? null;
     let madeTheme: HTMLMetaElement | null = null;

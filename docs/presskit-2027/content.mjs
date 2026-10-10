@@ -1,11 +1,12 @@
 /**
- * Contenu du press kit 2027, en anglais seulement (version 4 pages).
+ * Contenu du press kit 2027, en anglais seulement (version 6 pages).
  * Sources : le press kit 2026-27 (faits, dates, salles, jauges, fiche
- * technique), le brief Boom Festival 2027, les consignes de Mika du
- * 2026-09-30 (Canada, France, Espagne a la place de Montpellier) et du
- * 2026-10-01 (positionnement : indie dance and psy prog ; plus d'etiquette
- * deep, hypnotic ou hard techno). Aucun fait invente. Mots bannis : raw,
- * hypnotic.
+ * technique), le brief Boom Festival 2027 et le brief de Mika du
+ * 2026-10-10 (positionnement : indie dance and dark disco with a
+ * psychedelic edge ; bios courte et longue mot pour mot ; base :
+ * Montpellier, Sud de la France, Montreal en historique seulement ;
+ * sous-titres des formats DJ set et live hybride). Aucun fait invente.
+ * Mots bannis : raw, hypnotic.
  * Chaque lien est une vraie adresse : le PDF les garde cliquables.
  */
 
@@ -22,12 +23,11 @@ export const URL = {
 export const C = {
   kit: 'Press kit 2027',
   name: 'MAUDITE MACHINE',
-  positioning: 'Indie dance and psy prog · DJ and hybrid live · Canada · France · Spain',
+  positioning: 'Indie dance and dark disco with a psychedelic edge',
   folio: 'Maudite Machine · Press kit 2027',
 
   /* 1. couverture et identite */
-  bio:
-    'Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays indie dance and psy prog: deep, rolling, made for the second half of the night. He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, and is a member of the 8day collective in Montréal. He has played the Techno Parade in Paris, the SAT, Piknic Électronik and the Igloofest afters, on bills with Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly and Damon Jee, and is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.',
+  bio: 'Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
   stats: [
     ['15+', 'Years active'],
     ['21', 'EPs on VRSTL'],
@@ -36,9 +36,9 @@ export const C = {
   ],
   facts: [
     ['Artist', 'Maudite Machine (Michael “Mika” Sanchez)'],
-    ['Genre', 'Indie dance and psy prog'],
+    ['Genre', 'Indie Dance, Dark Disco'],
     ['Formats', 'DJ set (CDJ) · Hybrid live (synths and grooveboxes)'],
-    ['Base', 'Canada · France · Spain'],
+    ['Base', 'Montpellier, France'],
     ['Roots', 'Montréal, Canada'],
     ['Languages', 'French · English · Spanish'],
     ['Passports', 'Canada · France (EU)'],
@@ -54,10 +54,9 @@ export const C = {
   bioTitle: 'Background',
   bioLead: 'Fifteen years in the Montréal underground',
   bioLong: [
-    'Maudite Machine started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. In 2013 he played the Techno Parade in Paris on the MEG float. He has played Piknic and the SAT ever since, along with the Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount, Québec festivals from TOTEM and Illusion to Groove and Bass, and Future Forest in New Brunswick. In 2026 he played OKAMI Festival in France, on the Selva stage.',
-    'His sets move between indie dance and psy prog. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it two ways: as a DJ on CDJs, and as a hybrid live set where synths and grooveboxes drive the sequences in real time.',
-    'He founded VRSTL Records, an independent label that has released 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own catalogue on VRSTL runs to 13 releases since July 2024, including Limbos (October 2025), a nine-track album about a complete stop and an unexpected return.',
-    'He also teaches Ableton Live production, remotely and in person, and has trained more than 70 students. Based between Canada, France and Spain, he is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.',
+    'Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.',
+    'He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.',
+    'He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).',
   ],
   perfTitle: 'Selected performances',
   festivalsTitle: 'Festivals and events',
@@ -103,7 +102,7 @@ export const C = {
   /* 3. le son et l'ecoute */
   setTitle: 'The set',
   set: [
-    ['The sound', ['Indie dance and psy prog: a rolling bass line, slow changes beneath the surface, no artificial peaks. Built to last, not for effect.']],
+    ['The sound', ['Indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and a long tension that builds across the set. The changes come slowly and under the surface, until the room stops watching the booth and moves as one. He plays it as a DJ on CDJs or as a hybrid live with synths and grooveboxes.']],
     [
       'Two formats',
       [
@@ -162,6 +161,11 @@ export const C = {
   /* 4. technique et contact */
   techTitle: 'Tech rider',
   techIntro: 'Two formats. Please confirm which one is booked and send the booth details (mixer, players, monitors, photos) at least 7 days before the show.',
+  // Le sous-titre de chaque format, sous son nom (2026-10-10, le nouveau positionnement)
+  techFormats: {
+    'DJ set': 'Indie dance and dark disco. 90 minutes to 4 hours.',
+    'Hybrid live': 'Indie dance and dark disco. 60 to 75 minutes.',
+  },
   tech: [
     [
       'DJ set',

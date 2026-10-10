@@ -9,6 +9,8 @@
 export interface RiderBlock {
   num: string;
   title: string;
+  /** Sous-titre des en-tetes de format (DJ set, live hybride), brief de Mika du 2026-10-10 */
+  subtitle?: string;
   items: { term: string; text: string }[];
 }
 
@@ -41,6 +43,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
       {
         num: '01',
         title: 'Hybrid live',
+        subtitle: 'Indie dance and dark disco. 60 to 75 minutes.',
         items: [
           {
             term: 'Artist brings',
@@ -71,6 +74,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
       {
         num: '02',
         title: 'DJ set',
+        subtitle: 'Indie dance and dark disco. 90 minutes to 4 hours.',
         items: [
           {
             term: 'Players',
@@ -188,6 +192,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
       {
         num: '01',
         title: 'Live hybride',
+        subtitle: 'Indie dance et dark disco. 60 à 75 minutes.',
         items: [
           {
             term: 'Apporté par l’artiste',
@@ -218,6 +223,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
       {
         num: '02',
         title: 'DJ set',
+        subtitle: 'Indie dance et dark disco. 90 minutes à 4 heures.',
         items: [
           {
             term: 'Platines',
