@@ -57,6 +57,18 @@ export interface SampleTweak {
 export const SAMPLE_START_MAX = 0.9;
 /** La part gardee pour LEN (12 % a 100 %). */
 export const sampleLenPart = (len: number): number => (len >= 1 ? 1 : 0.12 + 0.88 * Math.max(0, len));
+/**
+ * La fin de LEN (2026-10-10, Mika : "quand j'ajuste le BD LENGTH ce n'est
+ * pas vraiment super precis") : un fondu court juste avant la coupe, 12 %
+ * de la part gardee, de 6 a 25 ms (jamais plus de sa moitie). Avant, le
+ * fondu prenait toute la seconde moitie de la part : le coup baissait des
+ * son milieu et l'oreille ne trouvait pas ou il s'arretait ; il garde
+ * maintenant son corps jusqu'a la duree affichee (rytm/values.ts layerUnit).
+ */
+export const SAMPLE_LEN_FADE = { part: 0.12, minS: 0.006, maxS: 0.025 } as const;
+/** Le fondu de fin de LEN, en secondes, pour une part gardee de keptS secondes. */
+export const sampleLenFadeS = (keptS: number): number =>
+  Math.min(keptS * 0.5, Math.max(SAMPLE_LEN_FADE.minS, Math.min(SAMPLE_LEN_FADE.maxS, keptS * SAMPLE_LEN_FADE.part)));
 /** LEN d'apres le DECAY d'un kit d'avant R3 (sampleDecayPart) : la meme part. */
 export const lenOfDecay = (decay: number): number => (decay >= 0.45 ? 1 : Math.max(0, decay) / 0.45);
 
@@ -106,12 +118,12 @@ export function playSample(p: SamplePcm, srOut: number, tw: SampleTweak): { L: F
   const off = tw.start > 0 ? Math.round(Math.min(1, tw.start) * SAMPLE_START_MAX * p.L.length) : 0;
   const durIn = (p.L.length - off) / p.sr;
   let nOut = Math.max(1, Math.ceil((durIn / ratio) * srOut));
-  // LEN : une fin en fondu (cosinus) sur la seconde moitie de la part gardee
+  // LEN : la part gardee, puis un fondu court (cosinus) juste avant la coupe (SAMPLE_LEN_FADE)
   const part = sampleLenPart(tw.len);
   const end = Math.max(1, Math.round(nOut * part));
   nOut = Math.min(nOut, end + 1);
   const outs = chans.map((x) => readChannel(x, p.sr, srOut, ratio, nOut, off));
-  const fade0 = part < 1 ? Math.round(end * 0.5) : nOut;
+  const fade0 = part < 1 ? end - Math.max(1, Math.round(sampleLenFadeS(end / srOut) * srOut)) : nOut;
   // ATTACK : une frappe en plus (une bosse qui retombe en 4 ms) ou une montee douce
   const a = kick ? tw.attack - 0.5 : 0;
   const boost = a > 0 ? 2 * a : 0;

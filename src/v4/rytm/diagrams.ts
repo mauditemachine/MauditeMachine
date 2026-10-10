@@ -27,7 +27,7 @@
 
 import type { BassDiagram } from '../bass/diagrams';
 import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, delayDiv, delayFb, fxLaw } from '../audio/pattern';
-import { sampleLenPart } from '../audio/sampledsp';
+import { SAMPLE_LEN_FADE, sampleLenPart } from '../audio/sampledsp';
 import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
 import { toneHpHz, toneLpHz, toneSemitones } from '../audio/tone';
@@ -691,7 +691,7 @@ const layerLevel =
     return p.value(v <= 0 ? 'OFF' : dbText(v * v)).done();
   };
 
-/** LEN de la couche SAMPLE : la part du fichier gardee, sa fin en fondu (sampledsp.ts sampleLenPart). */
+/** LEN de la couche SAMPLE : la part du fichier gardee, un fondu court juste avant la coupe (sampledsp.ts sampleLenPart, SAMPLE_LEN_FADE). */
 const drawSampleLen: Draw = (_c, v) => {
   const p = new Pic();
   const yOf = (a: number): number => Y1 - a * (Y1 - Y0 - 6);
@@ -700,7 +700,8 @@ const drawSampleLen: Draw = (_c, v) => {
   const tx = (t: number): number => X0 + (X1 - X0) * t;
   const file: Pt[] = [];
   const kept: Pt[] = [];
-  const fade0 = part < 1 ? part * 0.5 : 1;
+  // Le fondu de fin : 12 % de la part (le dessin ne connait pas la duree du fichier : la part seule)
+  const fade0 = part < 1 ? part * (1 - SAMPLE_LEN_FADE.part) : 1;
   for (let k = 0; k <= 96; k += 1) {
     const t = k / 96;
     const a = Math.exp(-t / 0.3);

@@ -780,7 +780,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'LEN',
     lock: 'yes',
     tip: "Un LEN court sur le kick : la queue du sample s'arrête juste avant la basse.",
-    text: "La part du sample gardée après son début, de 12 % à tout le fichier (FULL) ; sa fin s'éteint en fondu sur la seconde moitié de cette part. La ligne du dessous donne ce qui sonne vraiment, en ms. Il ne règle que le sample : DEC (ENV) coupe toute la voix.",
+    text: "La part du sample gardée après son début, de 12 % à tout le fichier (FULL) : le coup garde tout son corps jusque-là, puis s'éteint en un fondu court (6 à 25 ms). La ligne du dessous donne où il s'arrête, en ms. Il ne règle que le sample : DEC (ENV) coupe toute la voix.",
   },
   'r3:smplevel': {
     section: 'VOICE SYNTH',
