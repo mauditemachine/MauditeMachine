@@ -12,7 +12,7 @@ import { makeBrushTexture } from '../scene/silk';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { APPEARANCE } from '../theme';
-import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_DECKS, DJ_FADER, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, MIX, UNIT_X, djTone, unitW, type DjTone, type DjUnit } from './theme';
+import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_FADER, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, MIX, UNIT_X, djTone, unitW, type DjTone, type DjUnit } from './theme';
 import { DJ_FADERS } from './layout';
 
 type P2 = [number, number];
@@ -309,7 +309,7 @@ function backPanel(u: DjUnit, seg: number): BufferGeometry[] {
   const at = (k: number): number => cx - k;
   const y = 0.78;
   if (u === 'mix') {
-    for (let ch = 0; ch < DJ_CHANNELS; ch += 1) {
+    for (let ch = 0; ch < DJ_SHOWN.length; ch += 1) {
       const k = -hw + 1.0 + ch * 0.8;
       out.push(...rca(at(k), y + 0.18, seg), ...rca(at(k), y - 0.18, seg));
     }

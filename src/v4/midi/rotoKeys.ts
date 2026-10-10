@@ -601,4 +601,15 @@ export const ROTO_KEYS: readonly RotoKey[] = [
   ['BASS', 13, 9, 'bass:mutate'],
   ['BSEQ', 16, 3, 'bass:mutate'],
   ['BSEQ', 16, 9, 'bass:gen'],
+  // 2026-10-10 : BIT et COMP sur la page 1 du RYTM ; sans le MM-BASS cache, MID et GAIN du RYTM et de l'ARP sur la page 2
+  // du MIXER, le filtre de l'ARP et MM-STUDIO a la place de la voie et du RUN du MM-BASS (MIXER, LIVE)
+  ['RYTM', 1, 3, 'rytm:enc:bits'],
+  ['RYTM', 1, 9, 'rytm:enc:comp'],
+  ['MIXER', 4, 3, 'dj:dj-ch1-mid'],
+  ['MIXER', 4, 9, 'dj:dj-ch1-gain'],
+  ['MIXER', 4, 85, 'dj:dj-ch3-mid'],
+  ['MIXER', 4, 86, 'dj:dj-ch3-gain'],
+  ['MIXER', 12, 114, 'nav:all'],
+  ['LIVE', 6, 3, 'dj:dj-ch3-filter'],
+  ['LIVE', 14, 3, 'nav:all'],
 ];

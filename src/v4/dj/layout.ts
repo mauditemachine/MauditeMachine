@@ -12,7 +12,7 @@
  */
 
 import { PORTRAIT } from '../theme';
-import { DECK, DJ_CHANNELS, DJ_DECKS, DJ_DECKS_MAX, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DECK, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_MAX, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /**
  * fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a
@@ -122,8 +122,10 @@ function fxAt(i: number): { x: number; z: number } {
 
 function buildKnobs(): DjKnobSpec[] {
   const knobs: DjKnobSpec[] = [];
-  MIX.cols.forEach((cx, i) => {
-    const ch = i as DjChannel;
+  // Les colonnes des voies dessinees (DJ_SHOWN, 2026-10-10 : sans le MM-BASS cache) ; i : le numero de la voie
+  MIX.cols.forEach((cx, j) => {
+    const ch = DJ_SHOWN[j];
+    const i = ch as number;
     DJ_EQ.forEach((e, r) => {
       const big = e.id === 'hi' || e.id === 'mid' || e.id === 'low';
       knobs.push({
@@ -163,7 +165,8 @@ function buildKnobs(): DjKnobSpec[] {
 function buildFaders(): DjFaderSpec[] {
   const faders: DjFaderSpec[] = [];
   // Tenu droit, les voies n'ont plus de fader (leur volume est un potard)
-  if (!PORTRAIT) MIX.cols.forEach((cx, i) => {
+  if (!PORTRAIT) MIX.cols.forEach((cx, j) => {
+    const i = DJ_SHOWN[j] as number;
     faders.push({
       id: `dj-ch${i + 1}-fader`,
       label: `CH ${i + 1}`,
@@ -240,7 +243,7 @@ function buildKeys(): DjKeySpec[] {
   const P = MIX.play;
   keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
   // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place
-  const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_CHANNELS) / 2 - dx);
+  const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_SHOWN.length) / 2 - dx);
   const A = MIX.add;
   if (DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine

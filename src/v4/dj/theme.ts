@@ -21,6 +21,7 @@
 
 import { APPEARANCE, PORTRAIT } from '../theme';
 import { VOY_BODY, VOY_X } from '../voyager/theme';
+import { BASS } from '../state/focus';
 
 /* ---------- blocs ---------- */
 
@@ -89,6 +90,14 @@ export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b'];
 /** Le nombre de voies de la table : le MM-RYTM, le MM-BASS, le MM-ARP, puis une par platine. */
 export let DJ_CHANNELS = 5;
 /**
+ * Les voies dessinees sur la table, de gauche a droite (2026-10-10, Mika : "supprime la voix BASS dans le MIXER") :
+ * le MM-BASS cache (state/focus.ts BASS), sa voie 2 n'est plus sur la table ; les numeros des voies ne bougent pas
+ * (ids dj-ch3-..., MIDI, Roto, l'etat garde), seules leurs colonnes se resserrent. DJ_COL : la colonne d'une voie.
+ */
+export let DJ_SHOWN: readonly DjChannel[] = [0, 1, 2, 3, 4];
+/** La voie d'une colonne de la table (son rang dans DJ_SHOWN). */
+export const djShownOf = (n: number): DjChannel[] => Array.from({ length: n }, (_, i) => i as DjChannel).filter((c) => BASS || c !== 1);
+/**
  * La table s'elargit d'une colonne par voie en plus. Au telephone tenu
  * droit (2026-10-05, Mika : "redesign le MIXER en mobile, ca doit rentrer
  * dans la fenetre") : a quatre voies, la largeur d'une platine, en une
@@ -104,7 +113,7 @@ export const UNIT_X: Record<DjUnit, number> = { a: 0, b: 0, c: 0, d: 0, mix: 0, 
 const MIX_VIEW = 5.6;
 const MIX_VIEWS = ['mix1', 'mix2', 'mix3'] as const;
 export const unitW = (u: DjUnit): number =>
-  u === 'mix' ? mixWidth(DJ_CHANNELS) : u === 'mix1' || u === 'mix2' || u === 'mix3' ? MIX_VIEW : u === 'add' ? DJ_UNIT.addW : DJ_UNIT.deckW;
+  u === 'mix' ? mixWidth(DJ_SHOWN.length) : u === 'mix1' || u === 'mix2' || u === 'mix3' ? MIX_VIEW : u === 'add' ? DJ_UNIT.addW : DJ_UNIT.deckW;
 /** Combien de vues pour la table au telephone : deux a quatre voies, trois au-dela. */
 let mixViews = 2;
 /** Largeur de l'ensemble pose. */
@@ -141,9 +150,10 @@ const readDecks = (): number => {
 function place(n: number): void {
   DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
   DJ_CHANNELS = DJ_MACHINE_CHANNELS + n;
+  DJ_SHOWN = djShownOf(DJ_CHANNELS);
   DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1)];
   // Au telephone couche, la table se voit en deux ou trois vues, de gauche a droite ; tenu droit, en une
-  mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_CHANNELS) / MIX_VIEW)));
+  mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_SHOWN.length) / MIX_VIEW)));
   const views: DjUnit[] = PORTRAIT ? ['mix'] : [...MIX_VIEWS.slice(0, mixViews)];
   DJ_VIEW_UNITS = DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u]));
   const widths = DJ_UNITS_ON.map(unitW);
@@ -157,7 +167,7 @@ function place(n: number): void {
   // Le + : juste a droite de l'ensemble, hors de son cadrage (desktop)
   UNIT_X.add = DJ_W / 2 + DJ_UNIT.gap + DJ_UNIT.addW / 2;
   // Les vues de la table : la premiere contre son bord gauche, la derniere contre son bord droit
-  const mw = mixWidth(DJ_CHANNELS);
+  const mw = mixWidth(DJ_SHOWN.length);
   const c0 = -mw / 2 + MIX_VIEW / 2;
   const c1 = mw / 2 - MIX_VIEW / 2;
   MIX_VIEWS.forEach((u, i) => {
@@ -167,7 +177,7 @@ function place(n: number): void {
   DJ_FRAME.radius.closed = DJ_W / 2 + 0.6;
   DJ_FRAME.radius.open = DJ_W / 2 + 0.6;
   DJ_FRAME.extent = DJ_W / 2 + 2;
-  placeMix(DJ_CHANNELS);
+  placeMix(DJ_SHOWN.length);
 }
 
 let decks = typeof window === 'undefined' ? DJ_DECKS_MIN : readDecks();

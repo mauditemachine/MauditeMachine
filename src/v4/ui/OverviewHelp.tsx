@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
-import { focus, type MachineId } from '../state/focus';
+import { BASS, focus, type MachineId } from '../state/focus';
 import { overviewHover } from '../state/overviewHover';
 
 export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: string; text: readonly string[] }>> = {
@@ -43,7 +43,7 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     text: [
       'Two decks (up to four): search Maudite Machine or SoundCloud tracks in a deck screen and load them. CUE, PLAY, loops, pitch and SYNC, like a club player.',
       'Each deck has a sampler: REC DECK grabs its last beats (or its loop), REC MIX the last beats of the mixer. SMPL shows it on the screen: slices on pads, grain clouds, a 16 step sequence, SAVE as a WAV.',
-      'The mixer also takes the three machines on channels 1 to 3 (MM-RYTM, MM-BASS, MM-ARP), with EQ, filter, effects and FX TO; playing decks follow their tempo. ADD DECK sits in its header.',
+      BASS ? 'The mixer also takes the three machines on channels 1 to 3 (MM-RYTM, MM-BASS, MM-ARP), with EQ, filter, effects and FX TO; playing decks follow their tempo. ADD DECK sits in its header.' : 'The mixer also takes the two machines on channels 1 and 2 (MM-RYTM, MM-ARP), with EQ, filter, effects and FX TO; playing decks follow their tempo. ADD DECK sits in its header.',
     ],
   },
 };

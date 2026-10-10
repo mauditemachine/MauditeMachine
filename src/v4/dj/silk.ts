@@ -17,7 +17,7 @@ import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 't
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { DJ_FADERS, DJ_KNOBS, DJ_KEYS, knobLabelZ, type DjKeySpec } from './layout';
-import { DECK, DJ_CHANNELS, DJ_CH_NAMES, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
+import { DECK, DJ_CHANNELS, DJ_CH_NAMES, DJ_SHOWN, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -82,7 +82,7 @@ function head(u: DjUnit): Text[] {
   // La platine qu'on peut retirer : REMOVE DECK prend la place du sous-titre ; sur la table, ADD DECK (2026-10-05)
   const removable = DJ_KEYS.some((k) => k.target.kind === 'removedeck' && k.target.deck === u);
   // ADD DECK est pres du logotype depuis que LOOP > SMPL est parti (2026-10-07) : le sous-titre de la table revient
-  const sub = u === 'mix' ? `${DJ_CHANNELS} CHANNEL ${c.sub}` : removable ? '' : c.sub;
+  const sub = u === 'mix' ? `${DJ_SHOWN.length} CHANNEL ${c.sub}` : removable ? '' : c.sub;
   return headTexts(c.name, sub, unitW(u), z, u === 'mix' ? 1.55 : 1.85);
 }
 
@@ -149,7 +149,7 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     texts.push({ text: k.label, x: k.x - ux, z: knobLabelZ(k), cap: PORTRAIT ? 0.085 : 0.062, alpha: pale, maxW: PORTRAIT ? (isFx ? 1.3 : 0.95) : 0.9, group: isFx ? 'fx' : 'knob' });
     // FX TO : un cran par position (ALL puis chaque voie), ALL ecrit au premier
     if (k.target.kind === 'fxto') {
-      const n = DJ_CHANNELS;
+      const n = DJ_SHOWN.length;
       for (let j = 1; j < n; j += 1) {
         const a = ((225 - (270 * j) / n) * Math.PI) / 180;
         lines.push([kx + Math.cos(a) * r0, k.z - Math.sin(a) * r0, kx + Math.cos(a) * r1, k.z - Math.sin(a) * r1]);
@@ -172,9 +172,11 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   for (const k of times) texts.push({ text: k.label, x: k.x - ux, z: k.z + k.d / 2 + 0.15, cap: PORTRAIT ? 0.075 : 0.058, weight: 600, group: 'time' });
   texts.push({ text: 'TIME', x: T.x0 + ((times.length - 1) * T.pitch) / 2, z: T.z - T.d / 2 - 0.17, cap: PORTRAIT ? 0.08 : 0.07, weight: 700 });
   // Voies : le numero, et la platine qui y joue
-  MIX.cols.forEach((cx, i) => {
-    // Chaque voie joue : 1 le MM-RYTM, 2 le MM-BASS, 3 le MM-ARP, puis les platines (Mika, 2026-10-04 et 2026-10-07)
-    texts.push({ text: String(i + 1), x: cx - 0.1, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1, align: 'right', ...(fxTo === i ? { ink: 'orange' as const } : {}) });
+  MIX.cols.forEach((cx, j) => {
+    // Chaque voie joue : 1 le MM-RYTM, 2 le MM-BASS, 3 le MM-ARP, puis les platines (Mika, 2026-10-04 et 2026-10-07) ;
+    // les voies dessinees seulement (DJ_SHOWN, 2026-10-10), numerotees de gauche a droite
+    const i = DJ_SHOWN[j] as number;
+    texts.push({ text: String(j + 1), x: cx - 0.1, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1, align: 'right', ...(fxTo === i ? { ink: 'orange' as const } : {}) });
     texts.push({ text: DJ_CH_NAMES[i], x: cx + 0.02, z: MIX.numZ, cap: 0.09, weight: 700, ink: 'orange', alpha: 1, align: 'left', maxW: 0.62, group: 'chname' });
     // Graduation du fader de voie : 11 tics, 10 en haut (tenu droit, pas de fader)
     const F = MIX.fader;

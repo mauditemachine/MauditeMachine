@@ -50,6 +50,7 @@ import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { bassKnob, type BassKnobId } from '../bass/params';
 import { PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS } from '../theme';
 import { ROTO_KEYS, type RotoKey } from './rotoKeys';
+import { BASS as BASS_ON } from '../state/focus';
 
 export type RotoSetupName = 'RYTM' | 'ARP' | 'BASS' | 'DECK' | 'MIXER' | 'LIVE' | 'RSEQ' | 'BSEQ';
 /** Les setups sequenceurs (2026-10-09, midi/seqlink.ts) : leurs pas et leurs LEDs sont tenus par le site. */
@@ -143,7 +144,8 @@ const kitSound = (f: KitFamily, n: string): Ctl => {
 const mute = (i: string): Ctl => tog(`rytm:voice:${i}:mute`, `MUTE ${i}`, C.pink);
 const chord = (i: number): Ctl => b(`voy:pad:${i}`, CHORD_NAMES[i], C.blue);
 const fx = (id: string, n: string): Ctl => dj(`fx-${id}`, n, C.purple);
-const FX_TO: Ctl = { ...dj('fxto', 'FX TO', C.white), steps: ['ALL', 'RYTM', 'BASS', 'ARP', 'A', 'B'] };
+// FX TO : ses crans sont les voies de la table (2026-10-10 : sans le MM-BASS cache, sa voie n'y est plus)
+const FX_TO: Ctl = { ...dj('fxto', 'FX TO', C.white), steps: BASS_ON ? ['ALL', 'RYTM', 'BASS', 'ARP', 'A', 'B'] : ['ALL', 'RYTM', 'ARP', 'A', 'B'] };
 
 /**
  * La table, ses cinq voies (2026-10-07 : 1 RYTM, 2 BASS, 3 ARP, 4 A, 5 B) :
@@ -151,16 +153,30 @@ const FX_TO: Ctl = { ...dj('fxto', 'FX TO', C.white), steps: ['ALL', 'RYTM', 'BA
  * MIXER et du LIVE) ; les filtres du MM-BASS et du MM-ARP sont sur la page 2
  * du MIXER (et leur CUTOFF sur leur machine).
  */
-const MIX_PAGE: readonly Ctl[] = [
-  dj('ch1-fader', 'FADER RYTM', C.white),
-  dj('ch2-fader', 'FADER BASS', C.white),
-  dj('ch3-fader', 'FADER ARP', C.white),
-  dj('ch4-fader', 'FADER A', C.white),
-  dj('ch5-fader', 'FADER B', C.white),
-  mid(dj('ch1-filter', 'FILTER RYTM', C.orange)),
-  mid(dj('ch4-filter', 'FILTER A', C.orange)),
-  mid(dj('ch5-filter', 'FILTER B', C.orange)),
-];
+const MIX_PAGE: readonly Ctl[] = BASS_ON
+  ? [
+      dj('ch1-fader', 'FADER RYTM', C.white),
+      dj('ch2-fader', 'FADER BASS', C.white),
+      dj('ch3-fader', 'FADER ARP', C.white),
+      dj('ch4-fader', 'FADER A', C.white),
+      dj('ch5-fader', 'FADER B', C.white),
+      mid(dj('ch1-filter', 'FILTER RYTM', C.orange)),
+      mid(dj('ch4-filter', 'FILTER A', C.orange)),
+      mid(dj('ch5-filter', 'FILTER B', C.orange)),
+    ]
+  : // Sans le MM-BASS (2026-10-10, Mika : "supprime la voix BASS dans le MIXER") : quatre voies, leurs faders et leurs filtres
+    [
+      dj('ch1-fader', 'FADER RYTM', C.white),
+      dj('ch3-fader', 'FADER ARP', C.white),
+      dj('ch4-fader', 'FADER A', C.white),
+      dj('ch5-fader', 'FADER B', C.white),
+      mid(dj('ch1-filter', 'FILTER RYTM', C.orange)),
+      mid(dj('ch3-filter', 'FILTER ARP', C.orange)),
+      mid(dj('ch4-filter', 'FILTER A', C.orange)),
+      mid(dj('ch5-filter', 'FILTER B', C.orange)),
+    ];
+/** Le bouton de la page 1 du MIXER et du LIVE qui lancait le MM-BASS : sans lui, la vue d'ensemble. */
+const RUN_BASS = (): Ctl => (BASS_ON ? tog('bass:running', 'RUN BASS', C.red) : b('nav:all', 'MM-STUDIO', C.white));
 const FX_PAGE: readonly Ctl[] = [fx('overdrive', 'OVERDRIVE'), fx('crush', 'CRUSH'), fx('chorus', 'CHORUS'), fx('flanger', 'FLANGER'), fx('trans', 'TRANS'), fx('delay', 'DELAY'), fx('reverb', 'REVERB'), FX_TO];
 
 /** Les setups, construits au telechargement (le choix de son du kit compte tes samples). */
@@ -170,15 +186,16 @@ function buildSetups(): RotoSetup[] {
     slot: 11,
     ch: 1,
     knobs: [
-      // 1 : la machine
-      k('rytm:enc:level', 'MASTER', C.white),
-      k('rytm:enc:tempo', 'TEMPO', C.white),
-      k('rytm:enc:swing', 'SWING', C.orange),
-      mid(k('rytm:enc:stretch', 'STRETCH', C.orange)),
+      // 1 : les huit FX globaux, dans l'ordre des encodeurs de la face (2026-10-10 : BIT et COMP a la place de DLY TIME
+      // et DLY FB ; MASTER et TEMPO passent en page 4)
       k('rytm:enc:dist', 'DIST', C.purple),
       k('rytm:enc:chorus', 'CHORUS', C.purple),
       k('rytm:enc:delay', 'DELAY', C.purple),
       k('rytm:enc:reverb', 'REVERB', C.purple),
+      mid(k('rytm:enc:stretch', 'STRETCH', C.orange)),
+      k('rytm:enc:swing', 'SWING', C.orange),
+      k('rytm:enc:bits', 'BIT', C.purple),
+      k('rytm:enc:comp', 'COMP', C.purple),
       // 2 : la voix choisie (ses boutons la choisissent) : la rangee VOICE FX de la machine, dans son ordre
       // (2026-10-05 : SAMPLE a droite de VOLUME ; ses crans suivent la voix, il est continu sur le Roto)
       k('rytm:enc:vol', 'VOLUME', C.yellow),
@@ -192,13 +209,14 @@ function buildSetups(): RotoSetup[] {
       // 3 : les volumes des voix (leurs boutons : leurs mutes)
       ...VOICES8.map((i) => k(`rytm:voice:${i}:level`, `${i} VOL`, C.cream)),
       // 4 : le kit (le son du kick, ses reglages, la caisse claire, les charleys)
+      // 4 : la machine et le kit (2026-10-10 : MASTER et TEMPO ici, a la place de KICK ATTACK et SNAPPY)
+      k('rytm:enc:level', 'MASTER', C.white),
+      k('rytm:enc:tempo', 'TEMPO', C.white),
       kitSound('bd', 'KICK SOUND'),
       mid(k('rytm:kit:tune', 'KICK TUNE', C.gold)),
-      k('rytm:kit:attack', 'KICK ATTACK', C.gold),
       k('rytm:kit:decay', 'KICK DECAY', C.gold),
       k('rytm:kit:drive', 'KICK DRIVE', C.gold),
       kitSound('sd', 'SNARE SOUND'),
-      k('rytm:kit:snappy', 'SNAPPY', C.gold),
       kitSound('hh', 'HATS SOUND'),
     ],
     buttons: [
@@ -354,15 +372,29 @@ function buildSetups(): RotoSetup[] {
     knobs: [
       // 1 : les cinq faders, les filtres du MM-RYTM et des platines
       ...MIX_PAGE,
-      // 2 : les trois machines (2026-10-07) : les filtres du MM-BASS et du MM-ARP, HI et LOW de chacune
-      mid(dj('ch2-filter', 'FILTER BASS', C.orange)),
-      mid(dj('ch3-filter', 'FILTER ARP', C.orange)),
-      mid(dj('ch1-hi', 'HI RYTM', C.yellow)),
-      mid(dj('ch1-low', 'LOW RYTM', C.yellow)),
-      mid(dj('ch2-hi', 'HI BASS', C.peach)),
-      mid(dj('ch2-low', 'LOW BASS', C.peach)),
-      mid(dj('ch3-hi', 'HI ARP', C.gold)),
-      mid(dj('ch3-low', 'LOW ARP', C.gold)),
+      // 2 : les machines (2026-10-07) : les filtres du MM-BASS et du MM-ARP, HI et LOW de chacune ; sans le MM-BASS
+      // (2026-10-10) : HI MID LOW et GAIN du MM-RYTM et du MM-ARP
+      ...(BASS_ON
+        ? [
+            mid(dj('ch2-filter', 'FILTER BASS', C.orange)),
+            mid(dj('ch3-filter', 'FILTER ARP', C.orange)),
+            mid(dj('ch1-hi', 'HI RYTM', C.yellow)),
+            mid(dj('ch1-low', 'LOW RYTM', C.yellow)),
+            mid(dj('ch2-hi', 'HI BASS', C.peach)),
+            mid(dj('ch2-low', 'LOW BASS', C.peach)),
+            mid(dj('ch3-hi', 'HI ARP', C.gold)),
+            mid(dj('ch3-low', 'LOW ARP', C.gold)),
+          ]
+        : [
+            mid(dj('ch1-hi', 'HI RYTM', C.yellow)),
+            mid(dj('ch1-mid', 'MID RYTM', C.yellow)),
+            mid(dj('ch1-low', 'LOW RYTM', C.yellow)),
+            mid(dj('ch1-gain', 'GAIN RYTM', C.yellow)),
+            mid(dj('ch3-hi', 'HI ARP', C.gold)),
+            mid(dj('ch3-mid', 'MID ARP', C.gold)),
+            mid(dj('ch3-low', 'LOW ARP', C.gold)),
+            mid(dj('ch3-gain', 'GAIN ARP', C.gold)),
+          ]),
       // 3 : les platines
       mid(dj('ch4-hi', 'HI A', C.cyan)),
       mid(dj('ch4-mid', 'MID A', C.cyan)),
@@ -378,7 +410,7 @@ function buildSetups(): RotoSetup[] {
     buttons: [
       // 1 : ce qui joue (le MM-BASS depuis le 2026-10-07)
       tog('rytm:running', 'RUN RYTM', C.red),
-      tog('bass:running', 'RUN BASS', C.red),
+      RUN_BASS(),
       tog('voy:running', 'RUN ARP', C.red),
       dj('a-play', 'PLAY A', C.yellow),
       dj('b-play', 'PLAY B', C.yellow),
@@ -437,7 +469,7 @@ function buildSetups(): RotoSetup[] {
     ],
     buttons: [
       tog('rytm:running', 'RUN RYTM', C.red),
-      tog('bass:running', 'RUN BASS', C.red),
+      RUN_BASS(),
       tog('voy:running', 'RUN ARP', C.red),
       dj('a-play', 'PLAY A', C.yellow),
       dj('b-play', 'PLAY B', C.yellow),
@@ -671,7 +703,8 @@ function buildSetups(): RotoSetup[] {
     ],
   };
 
-  return [RYTM, ARP, BASS, DECK, MIXER, LIVE, RSEQ, BSEQ];
+  // Le MM-BASS cache (2026-10-10, state/focus.ts) : ni BASS ni BSEQ dans les setups
+  return BASS_ON ? [RYTM, ARP, BASS, DECK, MIXER, LIVE, RSEQ, BSEQ] : [RYTM, ARP, DECK, MIXER, LIVE, RSEQ];
 }
 
 /** Les setups (au chargement ; refaits au telechargement : rotoSetups). */
@@ -702,7 +735,9 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * 2, BSEQ page 3), GEN et MUTATE tenus sur de nouvelles adresses (BASS page 1,
  * BSEQ pages 3 et 4) : 1009.3. A reimporter : BASS (15) et BSEQ (18).
  */
-export const ROTO_VERSION = '2026-10-09.3';
+/* 2026-10-10 : RYTM page 1 = les huit FX globaux de la face (BIT, COMP), MASTER et TEMPO en page 4 ; MIXER et LIVE
+ * sans la voie du MM-BASS cache, BASS et BSEQ retires : 1010. A reimporter : RYTM, MIXER, LIVE. */
+export const ROTO_VERSION = '2026-10-10';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "type": "MIDI",
-  "name": "DECK 1009.3",
+  "name": "DECK 1010",
   "index": 12,
   "knobs": [
     {
@@ -776,14 +776,14 @@
       "hapticMode": 1,
       "hapticIndent1": 255,
       "hapticIndent2": 255,
-      "hapticSteps": 6,
+      "hapticSteps": 5,
       "stepNames": [
         "ALL",
         "RYTM",
-        "BASS",
         "ARP",
         "A",
         "B",
+        "",
         "",
         "",
         "",

@@ -22,7 +22,7 @@ import { analyseGrid, gridAnalyseMs } from './grid';
 import { phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
-import { DJ_CHANNELS, DJ_CH_NAMES, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DJ_CHANNELS, DJ_CH_NAMES, DJ_SHOWN, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
 
@@ -488,19 +488,22 @@ export function djSetFx(id: DjFxId, v: number): void {
 }
 
 /** La voie des effets (FX TO) parmi celles posees : -1 toutes. */
-export const fxTarget = (s = djState.get()): number => (s.fxTo >= DJ_CHANNELS ? -1 : s.fxTo);
+export const fxTarget = (s = djState.get()): number => (s.fxTo >= DJ_CHANNELS || !(DJ_SHOWN as readonly number[]).includes(s.fxTo) ? -1 : s.fxTo);
 
-/** FX TO en mots : ALL, ou le numero et le nom de la voie, comme sur la table (2 BASS). */
-export const fxToText = (t = fxTarget()): string => (t < 0 ? 'ALL' : `${t + 1} ${DJ_CH_NAMES[t]}`);
+/** FX TO en mots : ALL, ou le numero et le nom de la voie, comme sur la table (2 ARP sans le MM-BASS). */
+export const fxToText = (t = fxTarget()): string => (t < 0 ? 'ALL' : `${(DJ_SHOWN as readonly number[]).indexOf(t) + 1} ${DJ_CH_NAMES[t]}`);
 
-/** FX TO en position de potard (0 a 1, DJ_CHANNELS + 1 crans : ALL puis les voies). */
-export const fxToValue = (t = fxTarget()): number => (t + 1) / DJ_CHANNELS;
-export const fxToOfValue = (v: number): number => Math.round(Math.max(0, Math.min(1, v)) * DJ_CHANNELS) - 1;
+/** FX TO en position de potard (0 a 1, une voie dessinee + 1 crans : ALL puis les voies de la table, DJ_SHOWN). */
+export const fxToValue = (t = fxTarget()): number => ((DJ_SHOWN as readonly number[]).indexOf(t) + 1) / DJ_SHOWN.length;
+export const fxToOfValue = (v: number): number => {
+  const k = Math.round(Math.max(0, Math.min(1, v)) * DJ_SHOWN.length) - 1;
+  return k < 0 ? -1 : DJ_SHOWN[k];
+};
 
-/** FX TO : -1 toutes les voies, sinon une voie (0 a 6) ; au-dela des voies posees : toutes. */
+/** FX TO : -1 toutes les voies, sinon une voie (0 a 6) ; une voie hors de la table : toutes. */
 export function djSetFxTo(t: number): void {
   engine();
-  djState.setFxTo(t >= DJ_CHANNELS ? -1 : t);
+  djState.setFxTo(t >= DJ_CHANNELS || !(DJ_SHOWN as readonly number[]).includes(t) ? -1 : t);
 }
 
 export function djSetMaster(v: number): void {

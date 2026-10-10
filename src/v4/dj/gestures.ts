@@ -32,7 +32,7 @@ import { KILL, eqDb, gainDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
 import { samplerOf } from '../sampler/sampler';
 import { djState } from './state';
-import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_CHANNELS, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
 const KNOB_PX = 150;
 const FINE = 0.1;
@@ -101,7 +101,7 @@ export function setKnob(k: DjKnobSpec, v: number): void {
 }
 
 /** Les crans d'un potard : FX TO, ALL puis chaque voie posee ; 0 : continu. */
-export const knobSteps = (k: DjKnobSpec): number => (k.target.kind === 'fxto' ? DJ_CHANNELS + 1 : 0);
+export const knobSteps = (k: DjKnobSpec): number => (k.target.kind === 'fxto' ? DJ_SHOWN.length + 1 : 0);
 
 export const knobNeutral = (k: DjKnobSpec): number => (k.bipolar ? 0 : k.target.kind === 'master' ? 0.88 : k.target.kind === 'vol' ? 0.8 : 0);
 export const knobMin = (k: DjKnobSpec): number => (k.bipolar ? -1 : 0);

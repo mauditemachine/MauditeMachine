@@ -33,7 +33,7 @@ import { DjWaves } from './waveform';
 import { DjSilk, setSilkFxTo } from './silk';
 import { LICENSE_LABEL } from './soundcloud';
 import { DJ_WAVE_LABEL, djState, type DjDeckState, type DjState, type DjTrack } from './state';
-import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
+import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_SHOWN, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
 import type { DjSyncLight } from './screens';
 
 export interface DjRigOpts {
@@ -346,7 +346,8 @@ export class DjRig {
     const dt = this.vuAt > 0 ? Math.min(0.1, (now - this.vuAt) / 1000) : 0;
     this.vuAt = now;
     const floor = VU_DB[0] - 6;
-    const levels = [...e.mixer.ch.slice(0, DJ_CHANNELS).map((c) => c.level()), ...e.mixer.masterLevels()];
+    // Les VU des voies dessinees (DJ_SHOWN, 2026-10-10), dans l'ordre de leurs colonnes
+    const levels = [...DJ_SHOWN.map((ch) => e.mixer.ch[ch].level()), ...e.mixer.masterLevels()];
     const meters = [...this.controls.ledMap.vu.map((col, i) => ({ col, m: this.vu[i] })), ...this.controls.ledMap.master.map((col, i) => ({ col, m: this.vu[DJ_CHANNELS_MAX + i] }))];
     meters.forEach(({ col, m }, i) => {
       const peak = toDbfs(levels[i] ?? 0);

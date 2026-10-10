@@ -1,7 +1,7 @@
 id,scope,machine,nom,type,crans,dans_les_setups
 rytm:enc:level,mm808,MM-RYTM,MASTER,value,,RYTM RSEQ
-rytm:enc:tempo,mm808,MM-RYTM,TEMPO,value,,RYTM RSEQ BSEQ
-rytm:enc:swing,mm808,MM-RYTM,SWING,value,,RYTM BASS LIVE RSEQ BSEQ
+rytm:enc:tempo,mm808,MM-RYTM,TEMPO,value,,RYTM RSEQ
+rytm:enc:swing,mm808,MM-RYTM,SWING,value,,RYTM LIVE RSEQ
 rytm:enc:stretch,mm808,MM-RYTM,STRETCH,value,,RYTM LIVE RSEQ
 rytm:enc:dist,mm808,MM-RYTM,DIST,value,,RYTM LIVE RSEQ
 rytm:enc:chorus,mm808,MM-RYTM,CHORUS,value,,RYTM RSEQ
@@ -29,6 +29,18 @@ rytm:enc:vfatk,mm808,MM-RYTM,F.ATK (SELECTED VOICE),value,,
 rytm:enc:vfdec,mm808,MM-RYTM,F.DEC (SELECTED VOICE),value,,
 rytm:enc:dtime,mm808,MM-RYTM,DLY TIME,value,6,
 rytm:enc:dfb,mm808,MM-RYTM,DLY FB,value,,
+rytm:enc:bits,mm808,MM-RYTM,BIT,value,,RYTM
+rytm:enc:comp,mm808,MM-RYTM,COMP,value,,RYTM
+rytm:enc:dtone,mm808,MM-RYTM,DLY TONE,value,,
+rytm:enc:rsize,mm808,MM-RYTM,REV SIZE,value,,
+rytm:enc:rtone,mm808,MM-RYTM,REV TONE,value,,
+rytm:enc:rpre,mm808,MM-RYTM,REV PRE,value,,
+rytm:enc:xtone,mm808,MM-RYTM,DIST TONE,value,,
+rytm:enc:crate,mm808,MM-RYTM,CHO RATE,value,,
+rytm:enc:cdepth,mm808,MM-RYTM,CHO DEPTH,value,,
+rytm:enc:brate,mm808,MM-RYTM,BIT RATE,value,,
+rytm:enc:catk,mm808,MM-RYTM,COMP ATK,value,,
+rytm:enc:crel,mm808,MM-RYTM,COMP REL,value,,
 rytm:voice:BD:tone,mm808,MM-RYTM,BD TONE,value,,
 rytm:voice:BD:decay,mm808,MM-RYTM,BD DECAY,value,,
 rytm:voice:BD:level,mm808,MM-RYTM,BD VOLUME,value,,RYTM RSEQ
@@ -192,11 +204,11 @@ rytm:voice:CY:mute,mm808,MM-RYTM,MUTE CY,value,2,RYTM MIXER LIVE
 rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM MIXER LIVE RSEQ
 rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,RYTM
 rytm:kit:tune,mm808,MM-RYTM,TWEAK TUNE,value,,RYTM LIVE
-rytm:kit:attack,mm808,MM-RYTM,TWEAK ATTACK,value,,RYTM
+rytm:kit:attack,mm808,MM-RYTM,TWEAK ATTACK,value,,
 rytm:kit:decay,mm808,MM-RYTM,TWEAK DECAY,value,,RYTM LIVE
 rytm:kit:drive,mm808,MM-RYTM,TWEAK DRIVE,value,,RYTM LIVE
 rytm:kit:sd,mm808,MM-RYTM,TWEAK SNARE,value,7,RYTM
-rytm:kit:snappy,mm808,MM-RYTM,TWEAK SNAPPY,value,,RYTM
+rytm:kit:snappy,mm808,MM-RYTM,TWEAK SNAPPY,value,,
 rytm:kit:cp,mm808,MM-RYTM,TWEAK CLAP,value,3,
 rytm:kit:gate,mm808,MM-RYTM,TWEAK GATE,value,2,
 rytm:kit:hh,mm808,MM-RYTM,TWEAK HATS,value,3,RYTM
@@ -251,6 +263,12 @@ rytm:screen:fltr,mm808,MM-RYTM,SCREEN FLTR,press,,
 rytm:screen:env,mm808,MM-RYTM,SCREEN ENV,press,,
 rytm:screen:fxv,mm808,MM-RYTM,SCREEN VOICE FX,press,,
 rytm:screen:fxg,mm808,MM-RYTM,SCREEN GLOBAL FX,press,,
+rytm:screen:fxdist,mm808,MM-RYTM,SCREEN GLOBAL FX · DIST,press,,
+rytm:screen:fxchorus,mm808,MM-RYTM,SCREEN GLOBAL FX · CHORUS,press,,
+rytm:screen:fxdelay,mm808,MM-RYTM,SCREEN GLOBAL FX · DELAY,press,,
+rytm:screen:fxreverb,mm808,MM-RYTM,SCREEN GLOBAL FX · REVERB,press,,
+rytm:screen:fxbit,mm808,MM-RYTM,SCREEN GLOBAL FX · BIT,press,,
+rytm:screen:fxcomp,mm808,MM-RYTM,SCREEN GLOBAL FX · COMP,press,,
 rytm:page,mm808,MM-RYTM,PAGE (VOICE TO FX),value,4,
 rytm:home,mm808,MM-RYTM,HOME / PAGE SCREEN,press,,
 rytm:pad:BD,mm808,MM-RYTM,PAD BD,press,,RYTM
@@ -403,179 +421,16 @@ voy:random,voy,MM-ARP,RANDOM,press,,ARP
 voy:edit,voy,MM-ARP,EDIT,press,,ARP
 voy:open,voy,MM-ARP,OPEN,press,,ARP
 voy:infos,voy,MM-ARP,INFOS (HELP ON HOVER),press,,
-bass:knob:cutoff,bass,MM-BASS,CUTOFF,value,,BASS BSEQ
-bass:knob:reso,bass,MM-BASS,RESO,value,,BASS BSEQ
-bass:knob:envmod,bass,MM-BASS,ENV MOD,value,,BASS BSEQ
-bass:knob:decay,bass,MM-BASS,DECAY,value,,BASS BSEQ
-bass:knob:accent,bass,MM-BASS,ACCENT,value,,BASS BSEQ
-bass:knob:wave,bass,MM-BASS,OSC 1 WAVE,value,,BASS
-bass:knob:sub,bass,MM-BASS,SUB,value,,BASS
-bass:knob:drive,bass,MM-BASS,DRIVE,value,,BASS
-bass:knob:glide,bass,MM-BASS,GLIDE,value,,BASS
-bass:knob:volume,bass,MM-BASS,VOLUME,value,,BASS BSEQ
-bass:knob:octave,bass,MM-BASS,OCTAVE,value,4,BASS BSEQ
-bass:knob:style,bass,MM-BASS,STYLE,value,11,BASS BSEQ
-bass:knob:density,bass,MM-BASS,NOTES (0 TO 16),value,17,BASS BSEQ
-bass:knob:slides,bass,MM-BASS,SLIDE PROB,value,,BASS BSEQ
-bass:knob:accents,bass,MM-BASS,ACC PROB,value,,BASS BSEQ
-bass:knob:range,bass,MM-BASS,RANGE,value,3,BASS BSEQ
-bass:knob:root,bass,MM-BASS,ROOT,value,13,BASS BSEQ
-bass:knob:scale,bass,MM-BASS,SCALE,value,5,BASS BSEQ
-bass:knob:length,bass,MM-BASS,LENGTH,value,,BASS
-bass:knob:accdecay,bass,MM-BASS,ACC DECAY,value,,BASS
-bass:knob:sweep,bass,MM-BASS,SWEEP,value,,BASS
-bass:knob:release,bass,MM-BASS,RELEASE,value,,BASS
-bass:knob:suboct,bass,MM-BASS,SUB OCT,value,2,
-bass:knob:tune,bass,MM-BASS,TUNE,value,,BASS
-bass:knob:pw,bass,MM-BASS,OSC 1 PW,value,,
-bass:knob:keytrack,bass,MM-BASS,KEY TRK,value,,
-bass:knob:attack,bass,MM-BASS,ATTACK,value,,
-bass:knob:adecay,bass,MM-BASS,AMP DECAY,value,,
-bass:knob:sustain,bass,MM-BASS,SUSTAIN,value,,
-bass:knob:delay,bass,MM-BASS,DELAY,value,,
-bass:knob:dtime,bass,MM-BASS,DLY TIME,value,6,
-bass:knob:dfb,bass,MM-BASS,DLY FB,value,,
-bass:knob:reverb,bass,MM-BASS,REVERB,value,,
-bass:knob:rsize,bass,MM-BASS,REV SIZE,value,,
-bass:knob:rtone,bass,MM-BASS,REV TONE,value,,
-bass:knob:o1lvl,bass,MM-BASS,OSC 1,value,,
-bass:knob:o2wave,bass,MM-BASS,OSC 2 WAVE,value,6,
-bass:knob:o2range,bass,MM-BASS,OSC 2 RANGE,value,4,
-bass:knob:o2semi,bass,MM-BASS,OSC 2 SEMI,value,15,
-bass:knob:o2fine,bass,MM-BASS,OSC 2 FINE,value,,BASS
-bass:knob:o2lvl,bass,MM-BASS,OSC 2,value,,BASS
-bass:knob:o3wave,bass,MM-BASS,OSC 3 WAVE,value,6,
-bass:knob:o3range,bass,MM-BASS,OSC 3 RANGE,value,4,
-bass:knob:o3semi,bass,MM-BASS,OSC 3 SEMI,value,15,
-bass:knob:o3fine,bass,MM-BASS,OSC 3 FINE,value,,
-bass:knob:o3lvl,bass,MM-BASS,OSC 3,value,,BASS
-bass:knob:noise,bass,MM-BASS,NOISE,value,,BASS
-bass:knob:feedback,bass,MM-BASS,FEEDBACK,value,,BASS
-bass:knob:drift,bass,MM-BASS,DRIFT,value,,
-bass:knob:fmode,bass,MM-BASS,MODE,value,5,BASS
-bass:knob:fattack,bass,MM-BASS,F.ATTACK,value,,BASS
-bass:knob:fsustain,bass,MM-BASS,F.SUSTAIN,value,,BASS
-bass:knob:fpol,bass,MM-BASS,POLARITY,value,2,
-bass:gen:back,bass,MM-BASS,GEN BACK (THE TAKE BEFORE),press,,
-bass:mutate:undo,bass,MM-BASS,MUTATE UNDO,press,,
-bass:gen,bass,MM-BASS,"GEN (TAP: NEXT TAKE, HOLD: THE TAKE BEFORE)",hold,,BASS BSEQ
-bass:mutate,bass,MM-BASS,"MUTATE (TAP: MUTATE, HOLD: UNDO)",hold,,BASS BSEQ
-bass:notes:up,bass,MM-BASS,NOTES +1,press,,
-bass:notes:down,bass,MM-BASS,NOTES -1,press,,
-bass:knob:1,bass,MM-BASS,SCREEN VALUE A (PAGE),value,,BSEQ
-bass:knob:2,bass,MM-BASS,SCREEN VALUE B (PAGE),value,,BSEQ
-bass:knob:3,bass,MM-BASS,SCREEN VALUE C (PAGE),value,,BSEQ
-bass:knob:4,bass,MM-BASS,SCREEN VALUE D (PAGE),value,,BSEQ
-bass:knob:5,bass,MM-BASS,SCREEN VALUE E (PAGE),value,,BSEQ
-bass:knob:6,bass,MM-BASS,SCREEN VALUE F (PAGE),value,,BSEQ
-bass:knob:7,bass,MM-BASS,SCREEN VALUE G (PAGE),value,,BSEQ
-bass:knob:8,bass,MM-BASS,SCREEN VALUE H (PAGE),value,,BSEQ
-bass:global:cutoff,bass,MM-BASS,"CUTOFF (GLOBAL, KNOB A)",value,,
-bass:global:reso,bass,MM-BASS,"RESO (GLOBAL, KNOB B)",value,,
-bass:global:envmod,bass,MM-BASS,"ENV MOD (GLOBAL, KNOB C)",value,,
-bass:global:drive,bass,MM-BASS,"DRIVE (GLOBAL, KNOB D)",value,,
-bass:global:fattack,bass,MM-BASS,"F.ATTACK (GLOBAL, KNOB E)",value,,
-bass:global:decay,bass,MM-BASS,"DECAY (GLOBAL, KNOB F)",value,,
-bass:global:fsustain,bass,MM-BASS,"F.SUSTAIN (GLOBAL, KNOB G)",value,,
-bass:global:release,bass,MM-BASS,"RELEASE (GLOBAL, KNOB H)",value,,
-bass:global:delay,bass,MM-BASS,DELAY (GLOBAL),value,,
-bass:global:dtime,bass,MM-BASS,DLY TIME (GLOBAL),value,6,
-bass:global:dfb,bass,MM-BASS,DLY FB (GLOBAL),value,,
-bass:global:volume,bass,MM-BASS,VOLUME (GLOBAL),value,,
-bass:global:reverb,bass,MM-BASS,REVERB (GLOBAL),value,,
-bass:global:rsize,bass,MM-BASS,REV SIZE (GLOBAL),value,,
-bass:global:rtone,bass,MM-BASS,REV TONE (GLOBAL),value,,
-bass:page:voice,bass,MM-BASS,PAGE VOICE (AGAIN: NEXT TAB),press,,BSEQ
-bass:page:filter,bass,MM-BASS,PAGE FILTER (AGAIN: NEXT TAB),press,,BSEQ
-bass:page:env,bass,MM-BASS,PAGE ENV (AGAIN: NEXT TAB),press,,BSEQ
-bass:page:fx,bass,MM-BASS,PAGE FX (AGAIN: NEXT TAB),press,,BSEQ
-bass:screen:voice,bass,MM-BASS,SCREEN VOICE MAIN,press,,
-bass:screen:osc,bass,MM-BASS,SCREEN VOICE OSC,press,,
-bass:screen:mix,bass,MM-BASS,SCREEN VOICE MIX,press,,
-bass:screen:filter,bass,MM-BASS,SCREEN FILTER MAIN,press,,
-bass:screen:contour,bass,MM-BASS,SCREEN FILTER CONTOUR,press,,
-bass:screen:env,bass,MM-BASS,SCREEN ENV ENV,press,,
-bass:screen:fx,bass,MM-BASS,SCREEN FX FX,press,,
-bass:page,bass,MM-BASS,PAGE (VOICE FILTER ENV FX),value,4,
-bass:key:i,bass,MM-BASS,INFOS (THE i OF THE SCREEN),press,,
-bass:key:run,bass,MM-BASS,RUN/STOP,press,,
-bass:key:edit,bass,MM-BASS,EDIT,press,,BASS BSEQ
-bass:key:open,bass,MM-BASS,OPEN,press,,
-bass:key:gen,bass,MM-BASS,GEN,press,,
-bass:key:mutate,bass,MM-BASS,MUTATE,press,,
-bass:key:clear,bass,MM-BASS,CLEAR,press,,BASS BSEQ
-bass:key:accent,bass,MM-BASS,ACCENT,press,,BASS BSEQ
-bass:key:slide,bass,MM-BASS,SLIDE,press,,BASS BSEQ
-bass:key:notedn,bass,MM-BASS,NOTE -,press,,BASS BSEQ
-bass:key:noteup,bass,MM-BASS,NOTE +,press,,BASS BSEQ
-bass:key:octdn,bass,MM-BASS,OCT -,press,,BASS BSEQ
-bass:key:octup,bass,MM-BASS,OCT +,press,,BASS BSEQ
-bass:key:pvoice,bass,MM-BASS,VOICE,press,,
-bass:key:pfilter,bass,MM-BASS,FILTER,press,,
-bass:key:penv,bass,MM-BASS,ENV,press,,
-bass:key:pfx,bass,MM-BASS,FX,press,,
-bass:key:preset,bass,MM-BASS,PRESET,press,,
-bass:running,bass,MM-BASS,RUN (ON / OFF),value,2,BASS MIXER LIVE BSEQ
-bass:trig:0,bass,MM-BASS,STEP 1,press,,BASS
-bass:trig:1,bass,MM-BASS,STEP 2,press,,BASS
-bass:trig:2,bass,MM-BASS,STEP 3,press,,BASS
-bass:trig:3,bass,MM-BASS,STEP 4,press,,BASS
-bass:trig:4,bass,MM-BASS,STEP 5,press,,BASS
-bass:trig:5,bass,MM-BASS,STEP 6,press,,BASS
-bass:trig:6,bass,MM-BASS,STEP 7,press,,BASS
-bass:trig:7,bass,MM-BASS,STEP 8,press,,BASS
-bass:trig:8,bass,MM-BASS,STEP 9,press,,BASS
-bass:trig:9,bass,MM-BASS,STEP 10,press,,BASS
-bass:trig:10,bass,MM-BASS,STEP 11,press,,BASS
-bass:trig:11,bass,MM-BASS,STEP 12,press,,BASS
-bass:trig:12,bass,MM-BASS,STEP 13,press,,BASS
-bass:trig:13,bass,MM-BASS,STEP 14,press,,BASS
-bass:trig:14,bass,MM-BASS,STEP 15,press,,BASS
-bass:trig:15,bass,MM-BASS,STEP 16,press,,BASS
-bass:lock:0,bass,MM-BASS,LOCK 1,press,,
-bass:lock:1,bass,MM-BASS,LOCK 2,press,,
-bass:lock:2,bass,MM-BASS,LOCK 3,press,,
-bass:lock:3,bass,MM-BASS,LOCK 4,press,,
-bass:lock:4,bass,MM-BASS,LOCK 5,press,,
-bass:lock:5,bass,MM-BASS,LOCK 6,press,,
-bass:lock:6,bass,MM-BASS,LOCK 7,press,,
-bass:lock:7,bass,MM-BASS,LOCK 8,press,,
-bass:lock:8,bass,MM-BASS,LOCK 9,press,,
-bass:lock:9,bass,MM-BASS,LOCK 10,press,,
-bass:lock:10,bass,MM-BASS,LOCK 11,press,,
-bass:lock:11,bass,MM-BASS,LOCK 12,press,,
-bass:lock:12,bass,MM-BASS,LOCK 13,press,,
-bass:lock:13,bass,MM-BASS,LOCK 14,press,,
-bass:lock:14,bass,MM-BASS,LOCK 15,press,,
-bass:lock:15,bass,MM-BASS,LOCK 16,press,,
-bass:lock,bass,MM-BASS,LOCK (CHOSEN STEP),press,,BASS BSEQ
-bass:infos,bass,MM-BASS,INFOS (HELP ON HOVER),press,,
-bass:seq:1,bass,MM-BASS,"SEQ STEP 1|9 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:2,bass,MM-BASS,"SEQ STEP 2|10 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:3,bass,MM-BASS,"SEQ STEP 3|11 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:4,bass,MM-BASS,"SEQ STEP 4|12 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:5,bass,MM-BASS,"SEQ STEP 5|13 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:6,bass,MM-BASS,"SEQ STEP 6|14 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:7,bass,MM-BASS,"SEQ STEP 7|15 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:8,bass,MM-BASS,"SEQ STEP 8|16 (TAP, HOLD + TURN)",hold,,BSEQ
-bass:seq:window,bass,MM-BASS,SEQ STEPS 1-8 / 9-16,press,,BSEQ
-bass:seq:follow,bass,MM-BASS,SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD),value,2,BSEQ
-bass:seq:tie,bass,MM-BASS,TIE (THE CHOSEN STEP),press,,BSEQ
-dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,
+dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,MIXER
 dj:dj-ch1-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ HI,value,,MIXER
-dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,
+dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,MIXER
 dj:dj-ch1-low,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ LOW,value,,MIXER
 dj:dj-ch1-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) FILTER,value,,MIXER LIVE
-dj:dj-ch2-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-BASS) GAIN,value,,
-dj:dj-ch2-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-BASS) EQ HI,value,,MIXER
-dj:dj-ch2-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-BASS) EQ MID,value,,
-dj:dj-ch2-low,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-BASS) EQ LOW,value,,MIXER
-dj:dj-ch2-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-BASS) FILTER,value,,MIXER
-dj:dj-ch3-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) GAIN,value,,
+dj:dj-ch3-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) GAIN,value,,MIXER
 dj:dj-ch3-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) EQ HI,value,,MIXER
-dj:dj-ch3-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) EQ MID,value,,
+dj:dj-ch3-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) EQ MID,value,,MIXER
 dj:dj-ch3-low,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) EQ LOW,value,,MIXER
-dj:dj-ch3-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) FILTER,value,,MIXER
+dj:dj-ch3-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) FILTER,value,,MIXER LIVE
 dj:dj-ch4-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK A) GAIN,value,,DECK MIXER
 dj:dj-ch4-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK A) EQ HI,value,,DECK MIXER
 dj:dj-ch4-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK A) EQ MID,value,,DECK MIXER
@@ -593,10 +448,9 @@ dj:dj-fx-flanger,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT FLANGE
 dj:dj-fx-trans,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT TRANS,value,,DECK MIXER LIVE
 dj:dj-fx-delay,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT DELAY,value,,DECK MIXER LIVE
 dj:dj-fx-reverb,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT REVERB,value,,DECK MIXER LIVE
-dj:dj-fxto,dj,"MM-DECKS (table, platines, samplers, effets)","EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL",value,6,DECK MIXER LIVE
+dj:dj-fxto,dj,"MM-DECKS (table, platines, samplers, effets)","EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL",value,5,DECK MIXER LIVE
 dj:dj-master,dj,"MM-DECKS (table, platines, samplers, effets)",MASTER VOLUME,value,,DECK
 dj:dj-ch1-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) FADER,value,,MIXER LIVE
-dj:dj-ch2-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-BASS) FADER,value,,MIXER LIVE
 dj:dj-ch3-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (MM-ARP) FADER,value,,MIXER LIVE
 dj:dj-ch4-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK A) FADER,value,,DECK MIXER LIVE
 dj:dj-ch5-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 5 (DECK B) FADER,value,,DECK MIXER LIVE
@@ -714,11 +568,10 @@ dj:smpl:b:pad:12,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 13
 dj:smpl:b:pad:13,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 14,hold,,
 dj:smpl:b:pad:14,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 15,hold,,
 dj:smpl:b:pad:15,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 16,hold,,
-nav:all,global,Partout (navigation),MM-STUDIO (ALL THE MACHINES),press,,BASS MIXER
+nav:all,global,Partout (navigation),MM-STUDIO (ALL THE MACHINES),press,,MIXER LIVE
 nav:mm808,global,Partout (navigation),GO TO MM-RYTM,press,,
-nav:bass,global,Partout (navigation),GO TO MM-BASS,press,,
 nav:voy,global,Partout (navigation),GO TO MM-ARP,press,,
 nav:dj,global,Partout (navigation),GO TO MM-DECKS,press,,
-nav:prev,global,Partout (navigation),PREVIOUS MACHINE,press,,RYTM ARP BASS MIXER LIVE RSEQ BSEQ
-nav:next,global,Partout (navigation),NEXT MACHINE,press,,RYTM ARP BASS MIXER LIVE RSEQ BSEQ
-nav:machines,global,Partout (navigation),PLAY/STOP MACHINES,press,,RYTM ARP BASS MIXER LIVE RSEQ BSEQ
+nav:prev,global,Partout (navigation),PREVIOUS MACHINE,press,,RYTM ARP MIXER LIVE RSEQ
+nav:next,global,Partout (navigation),NEXT MACHINE,press,,RYTM ARP MIXER LIVE RSEQ
+nav:machines,global,Partout (navigation),PLAY/STOP MACHINES,press,,RYTM ARP MIXER LIVE RSEQ
