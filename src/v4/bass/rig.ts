@@ -820,7 +820,7 @@ export class BassRig {
       const u0 = g.x0 / g.UW;
       const u1 = g.x1 / g.UW;
       const v0 = g.lenY0 / g.UH;
-      const v1 = g.y1 / g.UH;
+      const v1 = g.slotY1 / g.UH;
       const x = S.x - S.w / 2 + ((u0 + u1) / 2) * S.w;
       const z = S.z - S.d / 2 + ((v0 + v1) / 2) * S.d;
       const hx = ((u1 - u0) / 2) * S.w;
@@ -1000,21 +1000,12 @@ export class BassRig {
       const has = !!s.steps[i].locks;
       set(this.lockEm, i, held ? DJ_GLOW.yellow : s.lock === i ? scale(DJ_GLOW.yellow, this.blink ? 1 : 0.3) : editing ? scale(DJ_GLOW.dim, 0.5) : has ? scale(DJ_GLOW.orange, 0.45) : DJ_GLOW.dim);
     }
-    if (editing) {
-      // EDIT : les seize patterns
-      const p = bassPatterns.get();
-      for (let i = 0; i < BASS_SLOTS; i += 1) {
-        const held = this.held.has(bassTrigId(i));
-        const lit = held || i === p.next ? DJ_GLOW.yellow : i === p.cur ? DJ_GLOW.orange : p.chain.length > 1 && p.chain.includes(i) ? scale(DJ_GLOW.orange, 0.5) : bassPatterns.filled(i) ? scale(DJ_GLOW.orange, 0.2) : DJ_GLOW.dim;
-        set(this.trigEm, i, lit);
-      }
-      return changed;
-    }
     const at = this.stepAt;
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const st = s.steps[i];
       const held = this.held.has(bassTrigId(i));
-      const base = st.kind === 'note' ? (st.acc ? DJ_GLOW.orange : scale(DJ_GLOW.orange, 0.5)) : st.kind === 'tie' ? scale(DJ_GLOW.orange, 0.2) : DJ_GLOW.dim;
+      // Les notes, en EDIT aussi (2026-10-10, Mika : "les touches montrent les notes") : bien allumees, l'accent plein
+      const base = st.kind === 'note' ? (st.acc ? DJ_GLOW.orange : scale(DJ_GLOW.orange, 0.78)) : st.kind === 'tie' ? scale(DJ_GLOW.orange, 0.35) : DJ_GLOW.dim;
       // LOCK : le pas qu'on regle clignote en or (comme les trigs verrouilles d'une Elektron)
       const locking = s.lock === i;
       const lit = held || (i === at && st.kind !== 'off') ? DJ_GLOW.yellow : locking ? scale(DJ_GLOW.yellow, this.blink ? 1 : 0.3) : i === at ? scale(DJ_GLOW.yellow, 0.25) : i === s.sel ? scale(base[0] > 0.05 ? base : DJ_GLOW.orange, base[0] > 0.05 ? 1.45 : 0.12) : base;

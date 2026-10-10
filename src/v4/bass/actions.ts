@@ -353,14 +353,10 @@ const hand = (patch: Partial<BassStep>): Partial<BassStep> => ({ ...patch, src: 
 /**
  * Taper un pas (2026-10-10, Mika : "tout est en p-locks") : comme un sequenceur, une tape pose la note (la tonique) sur
  * un pas vide, enleve celle d'un pas plein ; un P-LOCK en cours s'en va. Le P-LOCK : tenir le pas (gestures.ts).
- * En EDIT : son pattern.
+ * En EDIT aussi (2026-10-10) : les patterns se choisissent sur l'ecran.
  */
 export function bassStepTap(i: number): void {
   gesture();
-  if (bassEditing()) {
-    bassPatternTap(i);
-    return;
-  }
   const st = bassState.get();
   if (i < 0 || i >= BASS_STEPS) return;
   const s = st.steps[i];
@@ -980,7 +976,7 @@ export function bassEditToggle(): void {
   editor.toggle('bass');
   const on = bassEditing();
   if (on && bassState.get().lock >= 0) bassState.set({ lock: -1 });
-  bassState.say(on ? `PATTERNS  ${bassSlotName(bassPatterns.get().cur)}  DRAG A NOTE ON THE SCREEN` : 'EDIT CLOSED', 1800);
+  bassState.say(on ? `EDIT ${bassSlotName(bassPatterns.get().cur)}  CLICK THE GRID: A NOTE` : 'EDIT CLOSED', 1800);
 }
 
 const chainLine = (c: readonly number[]): string => `CHAIN ${c.map(bassSlotName).join(' > ')}`;

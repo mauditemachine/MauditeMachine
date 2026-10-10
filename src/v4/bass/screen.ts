@@ -218,6 +218,9 @@ export interface BassRollGeom {
   /** la barre LENGTH au-dessus des notes (2026-10-10) : son haut et son bas ; la zone du rouleau part de lenY0 */
   lenY0: number;
   lenY1: number;
+  /** EDIT : la rangee des patterns, en bas */
+  slotY0: number;
+  slotY1: number;
   /** la hauteur MIDI d'une ordonnee (unites de l'ecran), et l'inverse */
   UW: number;
   UH: number;
@@ -1576,7 +1579,7 @@ export class BassScreen {
     }
     const yOf = (n: number): number => ry1 - 3 - ((n - lo) / Math.max(1, hi - lo)) * (ry1 - ry0 - 6);
     // UH : tout le verre (le rig et les gestes y rapportent le pointeur)
-    this.roll = { x0: rx0, x1: rx1, y0: ry0, y1: ry1, cw, lo, hi, lenY0, lenY1, UW, UH: this.FH };
+    this.roll = { x0: rx0, x1: rx1, y0: ry0, y1: ry1, cw, lo, hi, lenY0, lenY1, slotY0: slotY, slotY1: slotY + slotH, UW, UH: this.FH };
     const len = Math.max(1, Math.min(BASS_STEPS, m.len));
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const xx = rx0 + i * cw + 0.6;

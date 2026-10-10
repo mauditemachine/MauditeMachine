@@ -610,7 +610,7 @@ export function bassEditModel(inp: EditInput): BassEditModel {
   const chain = chainOn ? inp.chain.map(slotName).join(' > ') : inp.next >= 0 ? `NEXT ${slotName(inp.next)}` : !inp.filled[inp.cur] ? 'EMPTY' : inp.running ? 'PLAYING' : 'READY';
   const drag = inp.drag ?? null;
   // Le rouleau se glisse (2026-10-09) : la ligne du bas dit le geste, pendant le glisser la note qui sonne
-  const how = inp.phone ? 'TOP BAR: LENGTH  DRAG: PITCH  TAP: ADD, TIE, OFF' : 'TOP BAR: LENGTH  DRAG A NOTE: PITCH  CLICK: ADD, TIE, OFF  STEP KEYS: PATTERNS';
+  const how = inp.phone ? 'TAP A ROW: NOTE  DRAG: PITCH  TOP BAR: LENGTH' : 'CLICK A ROW: NOTE  DRAG: PITCH  CLICK IT AGAIN: TIE, OFF  TOP BAR: LENGTH  PATTERNS: TAP, HOLD AN EMPTY ONE TO COPY';
   return {
     running: inp.running,
     bpm: inp.bpm,

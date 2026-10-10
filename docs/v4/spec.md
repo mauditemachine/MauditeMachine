@@ -2499,3 +2499,9 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - EDIT roll is a note grid: one row per semitone (white keys lighter), each row named when it has room, the C rows always; notes are filled cells; a click in a row places the note at that pitch.
 - AMP ENV is drawn as a plain ADSR: four straight segments, A, D and R wider when longer, the SUSTAIN plateau in the middle, NOTE OFF at its end, each value under its segment.
 - Face and screen hints say TAP: NOTE ON, OFF / HOLD: P-LOCK.
+
+### R14-246 MM-BASS: in EDIT the step keys show and edit the notes; patterns on the screen (2026-10-10)
+
+- In EDIT the 16 step keys light the notes of the line (as outside EDIT) and a tap puts or removes a note; hold: P-LOCK (EDIT closes).
+- Patterns are chosen on the screen's PATTERNS row: tap plays the pattern (at the bar when running), several in a row chain them, hold an empty one to copy the current line. The bass-roll hotspot reaches down to that row; the P-LOCK lanes in between do nothing.
+- Step LEDs brighter: a note 0.78 orange, an accent full, a tie 0.35.

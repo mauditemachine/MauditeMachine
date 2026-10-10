@@ -164,3 +164,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 
 - 2026-10-10 : MM-BASS, longueur de la ligne 1 a 16 pas (barre LEN en haut du rouleau EDIT, pas au-dela grises, par pattern et par preset, MIDI bass:len). Spec R14-244.
 - 2026-10-10 : MM-BASS, une tape sur un pas pose ou enleve la note, tenir = P-LOCK ; EDIT en grille de notes (une rangee par demi-ton, noms des notes) ; AMP ENV dessinee en ADSR classique. Spec R14-245.
+- 2026-10-10 : MM-BASS, en EDIT les touches du bas montrent et posent les notes ; les patterns se touchent sur l'ecran (tenir un vide : copie). Spec R14-246.
