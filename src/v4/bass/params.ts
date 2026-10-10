@@ -299,8 +299,10 @@ export const BASS_KNOBS: readonly BassKnobDef[] = [
   // STYLE et NOTES (2026-10-09, Mika : "Je trouve Style et Density complexe a utiliser") : les miroirs de la ligne
   // (bass/line.ts) ; STYLE part sur DARK DISCO (la prise 01, la ligne du preset A01), NOTES compte les notes, 0 a 16
   // (l'id reste density : les sauvegardes, le MIDI LEARN de Mika)
-  { id: 'style', label: 'STYLE', aria: 'Style: the groove family. Each notch plays its typical line; your own notes stay', def: 1 / (BASS_STYLES.length - 1), steps: BASS_STYLES.length, names: BASS_STYLES, face: true },
-  { id: 'density', label: 'NOTES', aria: 'Notes: how many notes in the bar, 0 to 16. One notch is one note, always in the same order; your own notes stay', def: 12 / 16, steps: 17, names: BASS_NOTES, face: true },
+  { id: 'style', label: 'STYLE', aria: 'Style: the groove family. Each notch plays its typical line; your own notes stay', def: 1 / (BASS_STYLES.length - 1), steps: BASS_STYLES.length, names: BASS_STYLES },
+  { id: 'density', label: 'NOTES', aria: 'Notes: how many notes in the bar, 0 to 16. One notch is one note, always in the same order; your own notes stay', def: 12 / 16, steps: 17, names: BASS_NOTES },
+  // STYLE et NOTES quittent la face (2026-10-10, Mika : "mets-moi un bouton GEN a cote de RUN et CLEAR, je veux plus
+  // voir ces knobs") : ils restent au MIDI et dans les presets ; GEN tire la prise suivante
   { id: 'slides', label: 'SLIDE PROB', aria: 'Generator: chance of a slide when GEN writes a line', def: 0.3, plate: true },
   { id: 'accents', label: 'ACC PROB', aria: 'Generator: chance of an accent when GEN writes a line', def: 0.35, plate: true },
   { id: 'range', label: 'RANGE', aria: 'Generator: range in octaves', def: 0.5, steps: 3, names: BASS_RANGES, plate: true },

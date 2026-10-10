@@ -2518,3 +2518,9 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - MM-BASS: a tap on the step that is in P-LOCK leaves P-LOCK and keeps the note (bassStepTap).
 - MM-BASS SIDECHAIN (param sidechain, global, default 0, MIDI bass:global:sidechain): a Ducker on a new gain bassIn between the engine and bassOut, fired by the same RYTM kicks as the MM-ARP's; shown as OFF or -x DB ON KICK; FX block E (VOLUME stays on VOICE H). CLEAR sets it to 0.
 - MM-RYTM VOICE page: the VEL block is gone, VOL spans two cells; new steps play HIGH (the stored per-voice new-step velocity is no longer read). VOICE knobs after VOL shift down by one (PITCH k2, FINE k3, LEN k4, REV k5, GATE k4).
+
+### R14-249 MM-BASS: STYLE and NOTES knobs off the face, GEN next to RUN and CLEAR (2026-10-10)
+
+- The face has no dedicated knob any more (style and density lose `face`, theme.ts SHOW_GEN_KNOBS = false, no GENERATOR bracket); both params stay in presets and MIDI.
+- Desktop right column: EDIT OPEN PRESET on the top row, RUN CLEAR GEN on the row of the page keys (keys 0.62 wide). Phone: EDIT OPEN PRESET, then RUN CLEAR GEN, three keys per row.
+- After CLEAR the screen says GEN: A NEW LINE (GEN on an empty line plays the take's full count).

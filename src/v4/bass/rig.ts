@@ -557,6 +557,8 @@ export class BassRig {
     // STYLE et DENSITY : capuchon noir, repere os (des potards : leur angle est leur valeur)
     this.knobs = new InstancedMesh(knobGeometry(opts.mobile, 'knob', 'mark'), knobMat, Math.max(1, BASS_KNOBS.length));
     this.knobs.name = 'bassKnobs';
+    // Plus de potard sur la face (2026-10-10) : la maille reste, vide
+    this.knobs.count = BASS_KNOBS.length;
     // Les encodeurs : aluminium cannele, un point sombre (il montre le geste, pas une valeur) ; aucun au telephone
     this.encs = BASS_ENC_N > 0 ? new InstancedMesh(encoderGeometry(opts.mobile), knobMat, BASS_ENC_N) : null;
     if (this.encs) this.encs.name = 'bassEncoders';

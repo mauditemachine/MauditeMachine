@@ -127,7 +127,8 @@ export const BASS = PORTRAIT
  * soir) : le crochet sous STYLE et NOTES seulement (GEN est dans le carre
  * GEN PRESET / RUN CLEAR).
  */
-export const BASS_SECTIONS: readonly { name: string; ids: readonly BassKnobId[]; ink?: 'orange' }[] = [{ name: 'GENERATOR', ids: ['style', 'density'], ink: 'orange' }];
+// Plus de potards sur la face (2026-10-10, STYLE et NOTES retires) : plus de crochet GENERATOR
+export const BASS_SECTIONS: readonly { name: string; ids: readonly BassKnobId[]; ink?: 'orange' }[] = [];
 
 /** Les potards, leur place (repere top), leur echelle. */
 interface KnobPlace {
@@ -157,6 +158,9 @@ const ENC = PORTRAIT ? { x: PH_X, z: [-3.0, -1.7], s: 1.25, pageZ: PH_PAGE.z } :
 /** Au telephone, la rangee de STYLE NOTES EDIT OPEN et celle de RUN CLEAR GEN PRESET (la face simple, 2026-10-09). */
 const PH_ROW = { a: PH_PAGE.z + 1.37, b: PH_PAGE.z + 2.82 } as const;
 
+/** STYLE et NOTES sur la face (false depuis le 2026-10-10 : GEN a cote de RUN et CLEAR suffit). */
+const SHOW_GEN_KNOBS = false;
+
 const desk = (): KnobPlace[] => [
   // Le generateur, sous EDIT et OPEN : STYLE (le choix musical), DENSITY
   { id: 'style', x: 4.55, z: -1.2, s: 1.25 },
@@ -168,7 +172,8 @@ const phone = (): KnobPlace[] => [
   { id: 'density', x: PH_X[1], z: PH_ROW.a, s: 1.05 },
 ];
 
-export const BASS_KNOB_PLACES: readonly KnobPlace[] = PORTRAIT ? phone() : desk();
+// Plus de potards sur la face (2026-10-10, STYLE et NOTES retires) : leurs places restent ecrites, plus posees
+export const BASS_KNOB_PLACES: readonly KnobPlace[] = SHOW_GEN_KNOBS ? (PORTRAIT ? phone() : desk()) : [];
 export const bassKnobAt = (id: BassKnobId): KnobPlace => BASS_KNOB_PLACES.find((k) => k.id === id) ?? { id, x: 0, z: 0, s: 1 };
 
 /** Le capuchon d'un potard dedie : noir pour le generateur. */
@@ -268,24 +273,27 @@ const PLACES: Readonly<Record<FaceKey, { x: number; z: number; w: number; d: num
       pfilter: { x: PH_PAGE.x[1], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
       penv: { x: PH_PAGE.x[2], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
       pfx: { x: PH_PAGE.x[3], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
-      edit: { x: PH_X[2], z: PH_ROW.a, w: 1.5, d: 0.58 },
-      open: { x: PH_X[3], z: PH_ROW.a, w: 1.5, d: 0.58 },
-      run: { x: -2.95, z: PH_ROW.b, w: 1.55, d: 0.6 },
-      clear: { x: -0.98, z: PH_ROW.b, w: 1.55, d: 0.6 },
-      gen: { x: 0.98, z: PH_ROW.b, w: 1.55, d: 0.6 },
-      preset: { x: 2.95, z: PH_ROW.b, w: 1.55, d: 0.6 },
+      // Sans STYLE ni NOTES (2026-10-10) : EDIT OPEN PRESET, puis RUN CLEAR GEN, trois touches par rangee
+      edit: { x: -2.6, z: PH_ROW.a, w: 2.2, d: 0.6 },
+      open: { x: 0, z: PH_ROW.a, w: 2.2, d: 0.6 },
+      preset: { x: 2.6, z: PH_ROW.a, w: 2.2, d: 0.6 },
+      run: { x: -2.6, z: PH_ROW.b, w: 2.2, d: 0.6 },
+      clear: { x: 0, z: PH_ROW.b, w: 2.2, d: 0.6 },
+      gen: { x: 2.6, z: PH_ROW.b, w: 2.2, d: 0.6 },
     }
   : {
       pvoice: { x: ENC.x[0], z: ENC.pageZ, w: 0.8, d: 0.38 },
       pfilter: { x: ENC.x[1], z: ENC.pageZ, w: 0.8, d: 0.38 },
       penv: { x: ENC.x[2], z: ENC.pageZ, w: 0.8, d: 0.38 },
       pfx: { x: ENC.x[3], z: ENC.pageZ, w: 0.8, d: 0.38 },
-      edit: { x: 4.55, z: -2.55, w: 0.95, d: 0.44 },
-      open: { x: 5.55, z: -2.55, w: 0.95, d: 0.44 },
-      gen: { x: 4.55, z: 0.3, w: 0.95, d: 0.44 },
-      preset: { x: 5.55, z: 0.3, w: 0.95, d: 0.44 },
-      run: { x: 4.55, z: ENC.pageZ, w: 0.95, d: 0.44 },
-      clear: { x: 5.55, z: ENC.pageZ, w: 0.95, d: 0.44 },
+      // Sans STYLE ni NOTES (2026-10-10, Mika : "un bouton GEN a cote de RUN et CLEAR") : EDIT OPEN PRESET en haut,
+      // RUN CLEAR GEN sur la rangee des touches de page
+      edit: { x: 4.38, z: -2.55, w: 0.62, d: 0.44 },
+      open: { x: 5.05, z: -2.55, w: 0.62, d: 0.44 },
+      preset: { x: 5.72, z: -2.55, w: 0.62, d: 0.44 },
+      run: { x: 4.38, z: ENC.pageZ, w: 0.62, d: 0.44 },
+      clear: { x: 5.05, z: ENC.pageZ, w: 0.62, d: 0.44 },
+      gen: { x: 5.72, z: ENC.pageZ, w: 0.62, d: 0.44 },
     };
 
 /** Les touches de la face, dans l'ordre de leurs LED (rig.ts) et de leurs jumeaux. */

@@ -310,7 +310,7 @@ export function bassClear(): void {
   // muet) ; VOLUME, la voix, le filtre, les enveloppes, DLY TIME, DLY FB, REV SIZE et REV TONE restent ; SIDECHAIN aussi
   // a 0 (2026-10-10)
   bassParams.setMany({ drive: 0, delay: 0, reverb: 0, sidechain: 0 });
-  showGen('density', before, 'CLEARED · FX OFF · TURN NOTES UP: THE TAKE COMES BACK', true);
+  showGen('density', before, 'CLEARED · FX OFF · GEN: A NEW LINE', true);
 }
 
 /**
