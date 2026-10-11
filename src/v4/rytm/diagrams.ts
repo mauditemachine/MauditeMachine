@@ -26,7 +26,7 @@
  */
 
 import type { BassDiagram } from '../bass/diagrams';
-import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, delayDiv, delayFb, fxLaw } from '../audio/pattern';
+import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, compRatio, compThreshold, delayDiv, delayFb, fxLaw } from '../audio/pattern';
 import { SAMPLE_LEN_FADE, sampleLenPart } from '../audio/sampledsp';
 import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
@@ -1008,17 +1008,29 @@ const bitsPic = (hot: 'bits' | 'rate'): Draw => (c, v) => {
 };
 const drawBits = bitsPic('bits');
 
-/** COMP (2026-10-10) : le niveau qui entre (en bas) et celui qui sort (a gauche), de -48 a 0 dB ; le seuil marque. */
+/**
+ * COMP (2026-10-10, refait le 2026-10-11 : audio/glue.worklet.js) : le niveau qui entre (en bas) et celui qui sort (a
+ * gauche), de -48 a 0 dB, a genou doux ; le seuil marque. Le dessin rattrape la reduction d'un niveau typique (-14 dB),
+ * comme le moteur au depart (il suit ensuite la reduction moyenne).
+ */
 const drawComp: Draw = (_c, v) => {
   const p = new Pic();
   const cp = clamp(v, 0, 1);
-  const thr = -30 * cp;
-  const ratio = 1 + 7 * cp;
-  const makeup = -thr * (1 - 1 / ratio) * 0.6;
+  const thr = compThreshold(cp);
+  const ratio = compRatio(cp);
+  const slope = 1 - 1 / ratio;
+  const knee = 8;
+  const gr = (db: number): number => {
+    const o = db - thr;
+    if (2 * o <= -knee) return 0;
+    if (2 * o < knee) return (-slope * (o + knee / 2) ** 2) / (2 * knee);
+    return -slope * o;
+  };
+  const makeup = cp > 0 ? Math.min(15, -gr(-14)) : 0;
   const lo = -48;
   const tx = (db: number): number => X0 + ((db - lo) / -lo) * (X1 - X0);
   const ty = (db: number): number => Y1 - ((Math.max(lo, Math.min(0, db)) - lo) / -lo) * (Y1 - Y0);
-  const out = (db: number): number => (db > thr ? thr + (db - thr) / ratio : db) + makeup;
+  const out = (db: number): number => db + gr(db) + makeup;
   p.p(seg(X0, Y1, X1, Y1), 'grid');
   p.p(seg(tx(lo), ty(lo), tx(0), ty(0)), 'ghost');
   if (cp > 0) p.p(seg(tx(thr), Y0, tx(thr), Y1), 'grid');

@@ -555,7 +555,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'COMP',
     lock: 'global',
-    text: "Le compresseur de tout le MM-RYTM, kick compris : à 0 (OFF) rien ne bouge ; en montant, le seuil descend jusqu'à -30 dB et le rapport monte de 1:1 à 8:1 (affiché sous la valeur), le niveau rattrapé : le groove se serre, les queues remontent. Sa page (une tape sur son bloc de GLOBAL FX) règle son attaque et son retour : ATTACK (3 ms au départ) et RELEASE (120 ms). Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP.",
+    text: "Le compresseur de bus de tout le MM-RYTM, kick compris, façon SSL : à 0 (OFF) rien ne bouge ; en montant, le seuil descend de -6 à -24 dB et le rapport monte de 1,5:1 à 4:1 (affiché sous la valeur), avec un genou doux. Son détecteur n'écoute pas le sub (au-dessus de 60 Hz) : le kick ne fait plus baisser le snare ni le reste. Le niveau perdu est rattrapé tout seul (la réduction moyenne) : quand tu montes COMP, le volume reste le même et le groove se serre. Sa page règle ATTACK (30 ms au départ : la frappe passe, le corps et les queues se serrent) et RELEASE (150 ms). Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP.",
     tip: 'Vers 30 à 40 % pour coller le kit ; à fond pour un pompage marqué sur les charlestons et la reverb.',
   },
 
@@ -620,14 +620,14 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX · COMP',
     title: 'ATTACK',
     lock: 'global',
-    text: "Le temps que met le COMP à serrer après un coup, de 0,1 ms (il écrase la frappe) à 50 ms (la frappe passe, le corps est compressé) ; 3 ms au départ, en ms sous la valeur.",
+    text: "Le temps que met le COMP à serrer après un coup, de 0,1 ms (il écrase la frappe) à 50 ms (la frappe passe, le corps est compressé) ; 30 ms au départ, en ms sous la valeur.",
     tip: '10 à 30 ms : le kick et la caisse claire gardent leur claque, le reste se serre.',
   },
   crel: {
     section: 'GLOBAL FX · COMP',
     title: 'RELEASE',
     lock: 'global',
-    text: "Le temps que met le COMP à relâcher, de 20 à 800 ms ; 120 ms au départ, en ms sous la valeur. Court, le niveau remonte entre les coups et les queues gonflent (le pompage) ; long, le kit reste serré et égal.",
+    text: "Le temps que met le COMP à relâcher, de 20 à 800 ms ; 150 ms au départ, en ms sous la valeur. Court, le niveau remonte entre les coups et les queues gonflent (le pompage) ; long, le kit reste serré et égal.",
     tip: 'Calé sur une double croche (vers 120 ms à 128 BPM) : le pompage respire avec le groove.',
   },
 

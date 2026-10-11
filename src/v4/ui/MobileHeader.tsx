@@ -10,7 +10,7 @@
 import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
-import { goHome } from './Header';
+import { UndoButton, goHome } from './Header';
 import { MenuSheet } from './MenuSheet';
 
 interface Props {
@@ -43,6 +43,8 @@ export const MobileHeader: React.FC<Props> = ({ getStage }) => {
           <span className="v4-logotype" aria-hidden="true" />
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={104} height={23} />
         </a>
+        {/* UNDO (2026-10-11, state/undo.ts) : a cote du menu, la fleche seule */}
+        <UndoButton compact />
         <button
           ref={burgerRef}
           type="button"

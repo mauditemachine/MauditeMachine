@@ -7,7 +7,9 @@
  * page actionne le bouton de la machine (actions.page, comme le pad, avec
  * la trace) ; GOODIES, MERCH et STUDIO ouvrent leur section (le capot,
  * avant le 2026-10-04). 52 px, transparent sur un degrade : la machine
- * reste le sujet.
+ * reste le sujet. UNDO (2026-10-11, Mika : "un bouton UNDO juste a gauche de
+ * MIDI") : la derniere etape de toutes les machines (state/undo.ts), Maj+clic
+ * la refait ; au telephone, a cote du menu (ui/MobileHeader.tsx).
  */
 
 import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
@@ -17,6 +19,7 @@ import { appearance } from '../state/appearance';
 import { bassExplode, explode, voyExplode } from '../state/explode';
 import { MACHINES, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { section } from '../state/section';
+import { UNDO_MACHINE_NAME, undo } from '../state/undo';
 import { MOBILE_QUERY, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
 import { MidiButton } from './MidiPanel';
@@ -66,6 +69,40 @@ export function openHood(id: HoodId, _stage: Stage | null): void {
 interface Props {
   getStage: () => Stage | null;
 }
+
+/** Cmd sur un Mac (et l'iPad au clavier), Ctrl ailleurs : le titre du bouton UNDO. */
+const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent) ? 'Cmd' : 'Ctrl';
+
+/**
+ * UNDO (2026-10-11) : la fleche qui revient et le mot (seule la fleche au telephone, compact). Rien a defaire : le
+ * bouton s'eteint (aria-disabled, il reste au clavier) ; Maj+clic : REDO.
+ */
+export const UndoButton: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+  const v = useSyncExternalStore(undo.subscribe, undo.get, undo.get);
+  const can = v.undo > 0;
+  const who = v.next ? UNDO_MACHINE_NAME[v.next] : null;
+  return (
+    <button
+      type="button"
+      className="v4-undo-btn"
+      data-compact={compact ? '1' : '0'}
+      data-can={can ? '1' : '0'}
+      aria-disabled={!can}
+      aria-label={who ? `Undo the last change on the ${who}` : 'Undo: nothing to undo yet'}
+      title={`Undo (${MOD}+Z)\nRedo: Shift+${MOD}+Z`}
+      onClick={(e) => {
+        if (e.shiftKey) undo.redo();
+        else if (can) undo.undo();
+      }}
+    >
+      <svg className="v4-undo-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <path d="M5.5 3.5L2.5 6.5l3 3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M2.8 6.5H10a3.5 3.5 0 0 1 0 7H7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+      {!compact && <span aria-hidden="true">UNDO</span>}
+    </button>
+  );
+};
 
 /**
  * Les machines en haut a droite (2026-10-05, Mika : "voir les machines en
@@ -118,6 +155,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
         </a>
         <div className="v4-header-end">
+        <UndoButton />
         <MidiButton />
         {VOYAGER && <HeaderMachines />}
         <button

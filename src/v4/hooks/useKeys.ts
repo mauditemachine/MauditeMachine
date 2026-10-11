@@ -20,7 +20,10 @@
  * M (2026-10-09) : MUTE du MM-RYTM, Maj + M : SOLO (la meme machine a etats
  * que la touche : une tape, le mode suivant, au lacher ; tenue MODE_HOLD_MS,
  * toutes les voix reviennent).
- * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
+ * UNDO et REDO (2026-10-11, state/undo.ts) : Cmd+Z (Ctrl+Z hors Mac) defait,
+ * Maj+Cmd+Z (Maj+Ctrl+Z) ou Ctrl+Y refait, sur toutes les machines ; un champ
+ * qu'on tape (le nom d'un preset) garde les siens.
+ * Rien d'autre ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
  * repetition de touche. Espace est laisse au controle qui l'utilise deja
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
  * encodeur (role slider) n'a rien a faire d'Espace : il reste RUN/STOP.
@@ -37,6 +40,7 @@ import { rytmPage } from '../state/rytmPage';
 import { section } from '../state/section';
 import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
+import { undo } from '../state/undo';
 import { PADS, PAGES, type PageId } from '../theme';
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
@@ -83,6 +87,17 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         return;
       }
       if (!on.current) return;
+      // UNDO et REDO (2026-10-11) : Cmd+Z, Maj+Cmd+Z, Ctrl+Y ; la touche tenue ne repete pas (chaque etape recalcule les sons)
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !isEditable(e.target)) {
+        const k = e.key.toLowerCase();
+        if (k === 'z' || (k === 'y' && e.ctrlKey && !e.metaKey && !e.shiftKey)) {
+          e.preventDefault();
+          if (e.repeat) return;
+          if (k === 'z' && !e.shiftKey) undo.undo();
+          else undo.redo();
+          return;
+        }
+      }
       if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || isEditable(e.target)) return;
       // Mode presets (2026-10-04) : gauche et droite passent d'un preset a l'autre
       const pm = presetMode.get().machine;

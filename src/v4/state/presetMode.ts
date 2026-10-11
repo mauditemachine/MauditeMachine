@@ -16,12 +16,32 @@
  * MM-BASS aussi (2026-10-07) ; ses 35 presets d'usine (2026-10-09) montrent
  * leur style devant leur rang, et chaque preset du MM-BASS sa ligne sous son
  * nom (ou tombent les notes).
+ *
+ * Rien ne se perd (2026-10-11, Mika : "je voulais enregistrer un preset que
+ * j'avais fait mais ca ne fonctionne pas bien.. du coup j'ai tout perdu..
+ * parce que j'ai du passer un preset nouveau.. je voulais revenir en
+ * arriere") :
+ * - ouvrir le mode avec un son garde nulle part le met de cote et le montre
+ *   d'abord : NOT SAVED, YOUR SOUND, SAVE et EXIT ; avant, l'ecran montrait
+ *   un preset d'usine (ACID) comme si c'etait le son du moment, et chercher
+ *   une place libre avec NEXT ecrasait le son sans retour ;
+ * - les sons mis de cote (state/presets.ts drafts, trois au plus) sont avant
+ *   les presets : PREV depuis le premier preset y revient et les recharge
+ *   (YOUR SOUND, YOUR SOUND 2, leur heure a la place du rang) ; leur index
+ *   est negatif (-1 le plus recent), celui des presets ne bouge pas
+ *   (voyager/patch.ts le lit dans presets.list) ;
+ * - la deuxieme tape d'un double clic (ou d'une double tape) sur l'ecran
+ *   n'est plus un PREV ou un NEXT : la zone qui ouvre le mode est sous celles
+ *   de PREV et NEXT, un double clic ouvrait le mode ET chargeait un preset ;
+ * - SAVE dit quand le navigateur ne l'a pas pris (NOT SAVED: STORAGE FULL,
+ *   le titre THIS VISIT ONLY ensuite) et quand les 99 places sont prises
+ *   (FULL: DELETE ONE FIRST) ; avant, SAVED dans tous les cas.
  */
 
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, stepOf } from '../bass/params';
 import { cleanSteps } from '../bass/state';
 import { focus } from './focus';
-import { presets, type Preset, type PresetMachine } from './presets';
+import { presets, type Draft, type Preset, type PresetMachine, type StoreFail } from './presets';
 
 /**
  * Le style d'un preset d'usine du MM-BASS (2026-10-09 : 35 presets ranges par style, Mika : "une bonne grosse
@@ -77,7 +97,7 @@ export type PresetKey = 'open' | 'prev' | 'next' | 'save' | 'name' | 'del' | 'ex
 
 interface ModeState {
   machine: PresetMachine | null;
-  /** le preset montre (0 : le plus recent) */
+  /** le preset montre (0 : le plus recent de presets.list) ; -1, -2, -3 : un son mis de cote (presets.drafts, -1 le plus recent) */
   index: number;
   /** DEL touche une fois : SURE? */
   confirm: boolean;
@@ -87,8 +107,35 @@ interface ModeState {
 
 const IDLE_MS = 15000;
 const NOTE_MS = 1600;
+/** Un echec (NOT SAVED, FULL) reste le temps d'etre lu. */
+const FAIL_MS = 4500;
+/** PREV et NEXT si tot apres l'ouverture : la deuxieme tape d'un double clic, rien ne se charge (2026-10-11). */
+const DOUBLE_MS = 450;
 
 let state: ModeState = { machine: null, index: 0, confirm: false, note: '' };
+let openedAt = -Infinity;
+
+/** Ce que dit l'ecran quand le navigateur n'a pas pris une ecriture. */
+const FAIL_NOTE: Readonly<Record<StoreFail, string>> = { full: 'NOT SAVED: STORAGE FULL', off: 'NOT SAVED: STORAGE OFF' };
+
+/** Les rangs du mode : les sons mis de cote (-n a -1), puis presets.list (0 a len - 1). */
+function bounds(m: PresetMachine): { lo: number; hi: number } {
+  return { lo: -presets.drafts(m).length, hi: presets.list(m).length - 1 };
+}
+const clampIndex = (m: PresetMachine, i: number): number => {
+  const { lo, hi } = bounds(m);
+  return Math.max(lo, Math.min(Math.max(lo, hi), i));
+};
+/** Le rang d'un son mis de cote (-1 le plus recent), 0 s'il n'y est plus. */
+const draftIndex = (m: PresetMachine, id: string): number => {
+  const j = presets.drafts(m).findIndex((d) => d.id === id);
+  return j < 0 ? 0 : -(j + 1);
+};
+/** L'heure ou un son a ete mis de cote (14:32). */
+const hhmm = (at: number): string => {
+  const d = new Date(at);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
 /**
  * Le dernier preset charge ou garde de chaque machine, par son id (2026-10-09, la revue : avec 35 presets d'usine,
  * rouvrir le mode repartait de 1/35 et nommait un preset qui ne jouait pas ; NEXT rechargeait le deuxieme). Le mode
@@ -96,11 +143,12 @@ let state: ModeState = { machine: null, index: 0, confirm: false, note: '' };
  */
 const last: Partial<Record<PresetMachine, string>> = {};
 
-/** Le rang ou rouvrir : le dernier preset charge ou garde s'il est encore dans la liste, sinon le premier. */
+/** Le rang ou rouvrir : le dernier preset (ou son mis de cote) charge ou garde s'il est encore la, sinon le premier preset. */
 function startIndex(m: PresetMachine): number {
   const id = last[m];
-  const i = id ? presets.list(m).findIndex((p) => p.id === id) : -1;
-  return Math.max(0, i);
+  if (!id) return 0;
+  const i = presets.list(m).findIndex((p) => p.id === id);
+  return i >= 0 ? i : draftIndex(m, id);
 }
 const listeners = new Set<() => void>();
 let idle = 0;
@@ -116,11 +164,11 @@ function touch(): void {
   idle = window.setTimeout(() => presetMode.close(), IDLE_MS);
 }
 
-function note(text: string): void {
+function note(text: string, ms: number = NOTE_MS): void {
   window.clearTimeout(noteTimer);
   noteTimer = window.setTimeout(() => {
     if (state.note) commit({ ...state, note: '' });
-  }, NOTE_MS);
+  }, ms);
   commit({ ...state, note: text });
 }
 
@@ -141,9 +189,9 @@ export interface PresetView {
 /** Les jumeaux (lecteurs d'ecran, clavier) : le nom de chaque touche de l'ecran. */
 export const PRESET_KEY_ARIA: Readonly<Record<PresetKey, string>> = {
   open: 'Presets, on the screen',
-  prev: 'Previous preset',
+  prev: 'Previous preset, or back to your sound',
   next: 'Next preset',
-  save: 'Save this as a new preset',
+  save: 'Save the sound playing now as a new preset',
   name: 'Another name for this preset',
   del: 'Delete this preset, press twice',
   exit: 'Close the presets',
@@ -170,7 +218,16 @@ export const presetMode = {
   key(m: PresetMachine, k: PresetKey): void {
     if (k === 'open') {
       touch();
-      commit({ machine: m, index: Math.min(state.machine === m ? state.index : startIndex(m), Math.max(0, presets.list(m).length - 1)), confirm: false, note: '' });
+      if (state.machine === m) {
+        commit({ ...state, index: clampIndex(m, state.index), confirm: false, note: '' });
+        return;
+      }
+      openedAt = performance.now();
+      // Le son du moment, garde nulle part : mis de cote et montre d'abord (YOUR SOUND, NOT SAVED), SAVE dessous
+      const fresh = presets.setAside(m);
+      const index = fresh ? -1 : clampIndex(m, startIndex(m));
+      if (fresh) last[m] = presets.drafts(m)[0]?.id;
+      commit({ machine: m, index, confirm: false, note: '' });
       return;
     }
     if (state.machine !== m) return;
@@ -181,29 +238,53 @@ export const presetMode = {
     touch();
     const list = presets.list(m);
     if (k === 'save') {
-      last[m] = presets.save(m).id;
+      const r = presets.save(m);
+      if (!r.preset) {
+        // 99 presets : rien n'est garde, le son du moment ne bouge pas
+        commit({ ...state, confirm: false });
+        note('FULL: DELETE ONE FIRST', FAIL_MS);
+        return;
+      }
+      last[m] = r.preset.id;
       commit({ ...state, index: 0, confirm: false });
-      // Le nom est dessous : le titre le dit en un mot
-      note('SAVED');
+      // Le nom est dessous : le titre le dit en un mot ; le navigateur ne l'a pas pris : l'ecran le dit, plus longtemps
+      if (r.kept) note('SAVED');
+      else note(FAIL_NOTE[r.why], FAIL_MS);
       return;
     }
-    if (list.length === 0) return;
-    const cur = list[Math.min(state.index, list.length - 1)];
     if (k === 'prev' || k === 'next') {
-      const i = (state.index + (k === 'next' ? 1 : -1) + list.length) % list.length;
+      // La deuxieme tape d'un double clic sur l'ecran (la premiere l'a ouvert) : rien ne se charge
+      if (performance.now() - openedAt < DOUBLE_MS) return;
+      const { lo, hi } = bounds(m);
+      const span = hi - lo + 1;
+      if (span <= 0) return;
+      const at = clampIndex(m, state.index);
+      const i = ((at + (k === 'next' ? 1 : -1) - lo + span) % span) + lo;
+      if (i < 0) {
+        // Un son mis de cote : il revient (celui du moment, s'il n'est garde nulle part, est mis de cote avant)
+        const d = presets.drafts(m)[-i - 1];
+        if (d && presets.restore(m, d.id)) last[m] = d.id;
+        commit({ ...state, index: d ? draftIndex(m, d.id) : 0, confirm: false });
+        note('RESTORED');
+        return;
+      }
       if (presets.load(m, list[i].id)) last[m] = list[i].id;
       commit({ ...state, index: i, confirm: false });
       note('LOADED');
       return;
     }
+    // Un son mis de cote n'a ni nom ni place a effacer : SAVE en fait un preset
+    if (state.index < 0 || list.length === 0) return;
+    const cur = list[Math.min(state.index, list.length - 1)];
     // Un preset d'usine ne se renomme ni ne s'efface (SAVE en fait un a soi)
     if ((k === 'name' || k === 'del') && cur.factory) {
       note('FACTORY');
       return;
     }
     if (k === 'name') {
-      presets.rename(m, cur.id);
+      const res = presets.rename(m, cur.id);
       commit({ ...state, confirm: false });
+      if (res !== 'ok') note(FAIL_NOTE[res], FAIL_MS);
       return;
     }
     if (k === 'del') {
@@ -211,25 +292,42 @@ export const presetMode = {
         commit({ ...state, confirm: true });
         return;
       }
-      presets.remove(m, cur.id);
-      commit({ ...state, index: Math.max(0, Math.min(state.index, list.length - 2)), confirm: false });
-      note('DELETED');
+      const res = presets.remove(m, cur.id);
+      commit({ ...state, index: Math.max(0, Math.min(state.index, presets.list(m).length - 1)), confirm: false });
+      note(res === 'ok' ? 'DELETED' : FAIL_NOTE[res], res === 'ok' ? NOTE_MS : FAIL_MS);
     }
   },
   /** Ce que l'ecran montre (null : le mode est ferme pour cette machine). */
   view(m: PresetMachine): PresetView | null {
     if (state.machine !== m) return null;
     const list = presets.list(m);
+    const i = clampIndex(m, state.index);
+    // Un son mis de cote (2026-10-11) : NOT SAVED, YOUR SOUND (YOUR SOUND 2...), son heure a la place du rang, SAVE et EXIT
+    const d: Draft | undefined = i < 0 ? presets.drafts(m)[-i - 1] : undefined;
+    if (d) {
+      const line = m === 'bass' ? bassLine({ id: d.id, name: '', at: d.at, data: d.data }) : null;
+      return {
+        title: state.note || 'NOT SAVED',
+        count: hhmm(d.at),
+        group: '',
+        name: i === -1 ? 'YOUR SOUND' : `YOUR SOUND ${-i}`,
+        keys: ['SAVE', '', '', 'EXIT'],
+        empty: false,
+        ...(line ? { line } : {}),
+      };
+    }
     const empty = list.length === 0;
-    const i = Math.min(state.index, Math.max(0, list.length - 1));
-    const fac = !empty && !!list[i].factory;
-    const group = fac && m === 'bass' ? bassGroup(list[i]) : '';
-    const line = !empty && m === 'bass' ? bassLine(list[i]) : null;
+    const j = Math.max(0, i);
+    const fac = !empty && !!list[j].factory;
+    const group = fac && m === 'bass' ? bassGroup(list[j]) : '';
+    const line = !empty && m === 'bass' ? bassLine(list[j]) : null;
+    // Un preset que le navigateur n'a pas pris (plein ou refuse) : il partira au rechargement, le titre le dit
+    const visit = !empty && !fac && presets.unsaved(list[j].id);
     return {
-      title: state.note || (fac ? 'FACTORY' : 'PRESETS'),
-      count: empty ? '' : `${i + 1}/${list.length}`,
+      title: state.note || (fac ? 'FACTORY' : visit ? 'THIS VISIT ONLY' : 'PRESETS'),
+      count: empty ? '' : `${j + 1}/${list.length}`,
       group,
-      name: empty ? 'NOTHING SAVED YET' : list[i].name.toUpperCase(),
+      name: empty ? 'NOTHING SAVED YET' : list[j].name.toUpperCase(),
       keys: ['SAVE', empty || fac ? '' : 'NAME', empty || fac ? '' : state.confirm ? 'DEL?' : 'DEL', 'EXIT'],
       empty,
       ...(line ? { line } : {}),

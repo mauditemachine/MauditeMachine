@@ -106,7 +106,12 @@ export interface Fx {
  * affiche les configurations de ce FX, pareil pour tous les autres") : 0 a 1, leur valeur de depart rend le son
  * d'avant (le delay filtre a 4.5 kHz, la reverbe de 2.4 s, son pre-delay de 20 ms, etc.). Leurs lois : fxLaw.
  */
-export const FX_SETTINGS = { dtone: 0.638, rsize: 0.566, rtone: 0.442, rpre: 0.167, xtone: 1, crate: 0.624, cdepth: 0.5, brate: 0, catk: 0.547, crel: 0.486 } as const;
+// catk 0.918 (30 ms) et crel 0.546 (150 ms) le 2026-10-11 (3 ms et 120 ms avant) : le COMP refait en compresseur de bus,
+// la frappe passe, le corps et les queues se serrent (audio/glue.worklet.js)
+export const FX_SETTINGS = { dtone: 0.638, rsize: 0.566, rtone: 0.442, rpre: 0.167, xtone: 1, crate: 0.624, cdepth: 0.5, brate: 0, catk: 0.918, crel: 0.546 } as const;
+/** COMP (2026-10-11, audio/glue.worklet.js) : le seuil (-6 a -24 dB, la racine de la quantite) et le rapport (1.5 a 4) d'une quantite 0 a 1. */
+export const compThreshold = (cp: number): number => -6 - 18 * Math.sqrt(Math.max(0, Math.min(1, cp)));
+export const compRatio = (cp: number): number => 1.5 + 2.5 * Math.max(0, Math.min(1, cp));
 export type FxSettingId = keyof typeof FX_SETTINGS;
 export const FX_SETTING_IDS = Object.keys(FX_SETTINGS) as FxSettingId[];
 export const isFxSetting = (id: string): id is FxSettingId => Object.prototype.hasOwnProperty.call(FX_SETTINGS, id);

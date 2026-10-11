@@ -570,6 +570,83 @@ html:has(body.v4-active) {
   background: rgba(241, 237, 229, 0.7);
 }
 
+/* UNDO (2026-10-11, Mika : "un bouton UNDO juste a gauche de MIDI") : la meme pastille que MIDI ; rien a defaire, eteint */
+.v4-root .v4-undo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(20, 20, 23, 0.6);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--bone-70);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: color 140ms ease, opacity 140ms ease;
+}
+
+.v4-root .v4-undo-btn:hover {
+  color: var(--bone);
+}
+
+.v4-root .v4-undo-btn:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.v4-root .v4-undo-btn[data-can='0'] {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.v4-root .v4-undo-btn[data-can='0']:hover {
+  color: var(--bone-70);
+}
+
+.v4-root .v4-undo-icon {
+  display: block;
+  flex: none;
+}
+
+.v4-root[data-v4-theme='light'] .v4-undo-btn {
+  background: rgba(241, 237, 229, 0.7);
+}
+
+/* Un desktop etroit (768 a 1023 px) : la fleche seule, MENU reste dans l'ecran */
+@media (max-width: 1023px) {
+  .v4-root .v4-header .v4-undo-btn {
+    justify-content: center;
+    width: 38px;
+    padding: 0;
+  }
+  .v4-root .v4-header .v4-undo-btn > span {
+    display: none;
+  }
+}
+
+/* Au telephone : la fleche seule, a cote du menu, la cible du hamburger (44 px) */
+.v4-root .v4-mhead .v4-undo-btn[data-compact='1'] {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  margin-right: 2px;
+  padding: 0;
+  color: var(--bone);
+}
+
+.v4-root .v4-mhead .v4-undo-btn[data-compact='1'] .v4-undo-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .v4-root .v4-midi-panel {
   z-index: 60;
   width: 360px;

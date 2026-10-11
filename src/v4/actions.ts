@@ -34,6 +34,7 @@ import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { editor, type EditorId } from './state/editor';
 import { patterns, slotName } from './state/patterns';
 import { presetMode, type PresetKey } from './state/presetMode';
+import { undo } from './state/undo';
 import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
@@ -444,6 +445,8 @@ export function modeHold(k: 'mute' | 'solo'): void {
 
 /** CLEAR : les quatre rangees a zero, la lecture continue. */
 export function clearPattern(stage: Stage | null = null): void {
+  // UNDO (2026-10-11, state/undo.ts) : CLEAR fait son etape a lui, jamais melee au geste d'avant
+  undo.boundary('mm808', 'step');
   resume();
   stage?.pressButton('clear');
   // En LOCK (2026-10-08) : CLEAR efface les verrous du pas en LOCK, rien d'autre
@@ -471,6 +474,8 @@ let lastStyle: BeatStyle | null = null;
  * s'enfonce, l'ecran dit le style.
  */
 export function randomPattern(stage: Stage | null = null): void {
+  // UNDO : chaque RANDOM fait son etape (le precedent etait mieux : UNDO y revient)
+  undo.boundary('mm808', 'step');
   resume();
   const { style, steps } = randomBeat(pattern.get().steps, lastStyle);
   lastStyle = style;
@@ -872,6 +877,7 @@ export function voyPad(i: number, stage: Stage | null = null): void {
 
 /** CLEAR : plus d'accord, l'arpege s'arrete, les effets a sec. */
 export function voyClear(stage: Stage | null = null): void {
+  undo.boundary('voy', 'step');
   resume();
   stage?.voy?.keys.pressButton('clear');
   // EDIT ouvert (2026-10-05, plus de touches AUTO / EDIT dans la page) : CLEAR rend la suite des potards
@@ -898,6 +904,7 @@ export function voyClear(stage: Stage | null = null): void {
 let lastVoyStyle: VoyStyle | null = null;
 
 export function voyRandom(stage: Stage | null = null): void {
+  undo.boundary('voy', 'step');
   gesture();
   if (!arp.get().running) sc.pauseForRun();
   const r = randomVoyStyle(lastVoyStyle);
@@ -920,6 +927,9 @@ export function voyRandom(stage: Stage | null = null): void {
 /** Une touche de l'ecran en mode presets (state/presetMode.ts), ou l'ecran touche au repos (open). */
 export function presetKey(m: PresetMachine, k: PresetKey): void {
   gesture();
+  // UNDO (2026-10-11, Mika : "j'ai du passer un preset nouveau.. je voulais revenir en arriere") : le geste d'avant se
+  // ferme ; PREV et NEXT chargent un preset, son etape a lui (des presets parcourus a la suite : une seule)
+  undo.boundary(m, k === 'prev' || k === 'next' ? 'preset' : undefined);
   presetMode.key(m, k);
 }
 

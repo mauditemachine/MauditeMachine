@@ -15,7 +15,7 @@ import { samplePcm } from '../audio/samples';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
 import { FENV_OCT, START_MAX, atkS, cutHz, decayTau, fatkS, fdecTau, fineCents, filterType, holdS, resoQ, tuneSt, voiceGain } from '../audio/voicefx';
-import { VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, delayFb, fxLaw } from '../audio/pattern';
+import { VEL_GAIN, VEL_MAX, VEL_NAMES, compRatio, delayDiv, delayFb, fxLaw } from '../audio/pattern';
 import { swingRatio, type EncId } from '../theme';
 
 /** Le nombre 0 a 127 d'une course 0 a 1 ; a zero au centre : -64 a +63 (le centre exact vaut 0). */
@@ -182,7 +182,7 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
     case 'bits':
       return v <= 0 ? 'OFF' : `${Math.round(16 - 12 * Math.min(1, v))} BIT`;
     case 'comp':
-      return v <= 0 ? 'OFF' : `${(1 + 7 * Math.min(1, v)).toFixed(1)}:1`;
+      return v <= 0 ? 'OFF' : `${compRatio(v).toFixed(1)}:1`;
     // Les reglages des FX globaux (2026-10-10, leurs pages ; les lois de audio/pattern.ts fxLaw, celles du son)
     case 'dtone':
     case 'rtone':

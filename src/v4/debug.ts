@@ -63,6 +63,7 @@ import { rytmPage, type RytmPageState, type RytmView } from './state/rytmPage';
 import { rytmLock, type RytmLockState } from './state/rytmLock';
 import type { Locks } from './audio/locks';
 import { section } from './state/section';
+import { undo } from './state/undo';
 import { view } from './state/view';
 import type { Inst, SectionId } from './theme';
 import { hitDebug } from './ui/Hotspots';
@@ -241,6 +242,11 @@ export interface V4Debug {
     /** les verrous du motif (audio/locks.ts), une copie */
     readonly locks: Locks;
   };
+  /**
+   * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
+   * sans leurs etats, les rafales ouvertes), peek(i) (l'etat d'une etape), reset(), save().
+   */
+  readonly undo: typeof undo;
 }
 
 const NO_STATS: StageStats = {
@@ -431,6 +437,7 @@ export function installDebug(src: DebugSource): () => void {
         return JSON.parse(JSON.stringify(pattern.get().locks)) as Locks;
       },
     },
+    undo,
   };
   window.__v4 = api;
   return () => {

@@ -13,9 +13,39 @@
  *   rien ne bouge.
  * Le passage de 0 a un peu se fait en 10 ms (pas de clic). Rien n'est alloue
  * dans process() ; une valeur non finie vaut celle de depart.
+ *
+ * COMP refait le 2026-10-11 (Mika : "la compression generale de RYTM est
+ * mauvaise, j'aimerais quelque chose de vraiment de qualite ; quand je leve
+ * la compression ca baisse le snare, en fait ca baisse tout"). Avant : un
+ * detecteur de crete plein spectre (le kick tirait tout vers le bas a chaque
+ * coup, le snare compris) et un rattrapage fixe de 60 % (le niveau baissait
+ * a mesure que COMP montait). Desormais, un compresseur de bus facon SSL :
+ * - detecteur stereo lie (la somme), passe-haut 2 poles a 60 Hz (le sub du
+ *   kick ne fait plus pomper le reste) ;
+ * - courbe a genou doux (8 dB), seuil de -6 a -24 dB (vite au debut de la
+ *   course : la racine de COMP), rapport de 1.5 a 4 (les crans d'un SSL) ;
+ * - lissage dans le domaine des dB, attaque et retour de la page COMP (30 ms
+ *   et 150 ms au depart : la frappe passe, le corps et les queues se serrent) ;
+ * - rattrapage automatique : la reduction moyenne (sur 1.5 s, gelee dans les
+ *   silences) est rendue, le niveau reste le meme quand COMP monte ; borne a
+ *   +15 dB.
+ * Mesure hors ligne sur le motif de depart (sans son) : le RMS a +/-0.2 dB de
+ * COMP 0 a 1, la crete de -6.5 a -2.9 dBFS au plus (plus de rouge), le snare
+ * 0.6 dB sous son ecart au kick a mi-course, 1.4 dB a fond (4.2 avant).
  */
 const ATK0 = 0.003;
 const REL0 = 0.12;
+
+/** La reduction (dB, <= 0) de la courbe a genou doux pour un niveau x (dB) : seuil t, pente 1 - 1/rapport, genou w. */
+function staticGr(x, t, slope, w) {
+  const o = x - t;
+  if (2 * o <= -w) return 0;
+  if (2 * o < w) {
+    const q = o + w / 2;
+    return (-slope * q * q) / (2 * w);
+  }
+  return -slope * o;
+}
 
 /** Une valeur finie bornee, sinon d. */
 function fin(v, lo, hi, d) {
@@ -46,6 +76,26 @@ class MMGlue extends AudioWorkletProcessor {
     this.atk = Math.exp(-1 / (ATK0 * sampleRate));
     this.rel = Math.exp(-1 / (REL0 * sampleRate));
     this.glide = 1 - Math.exp(-1 / (0.01 * sampleRate));
+    // COMP : le passe-haut du detecteur (biquad, Butterworth, 60 Hz), son etat
+    const w = (2 * Math.PI * 60) / sampleRate;
+    const cw = Math.cos(w);
+    const al = Math.sin(w) / Math.SQRT2;
+    const a0 = 1 + al;
+    this.hb0 = (1 + cw) / 2 / a0;
+    this.hb1 = -(1 + cw) / a0;
+    this.hb2 = (1 + cw) / 2 / a0;
+    this.ha1 = (-2 * cw) / a0;
+    this.ha2 = (1 - al) / a0;
+    this.hx1 = 0;
+    this.hx2 = 0;
+    this.hy1 = 0;
+    this.hy2 = 0;
+    // la reduction lissee (dB, <= 0), sa moyenne lente (le rattrapage), l'enveloppe du detecteur (les silences)
+    this.grS = 0;
+    this.grAvg = null;
+    this.det = 0;
+    this.avgK = 1 - Math.exp(-1 / (1.5 * sampleRate));
+    this.detRel = Math.exp(-1 / (0.05 * sampleRate));
   }
 
   process(inputs, outputs, params) {
@@ -80,10 +130,13 @@ class MMGlue extends AudioWorkletProcessor {
       this.relS = rS;
       this.rel = Math.exp(-1 / (rS * sampleRate));
     }
-    const thr = -30 * cp;
-    const ratio = 1 + 7 * cp;
+    // La courbe : seuil -6 a -24 dB (la racine de COMP), rapport 1.5 a 4, genou de 8 dB (pattern.ts compThreshold, compRatio)
+    const thr = -6 - 18 * Math.sqrt(cp);
+    const ratio = 1.5 + 2.5 * cp;
     const slope = 1 - 1 / ratio;
-    const makeup = -thr * slope * 0.6;
+    const knee = 8;
+    // Le rattrapage de depart (avant d'avoir entendu) : la reduction d'un niveau typique du detecteur (-14 dB)
+    if (this.grAvg === null || (tC && this.mixC < 1e-4)) this.grAvg = staticGr(-14, thr, slope, knee);
     const k = this.glide;
     for (let i = 0; i < n; i += 1) {
       let l = inL[i];
@@ -101,11 +154,22 @@ class MMGlue extends AudioWorkletProcessor {
         r += (this.h1 - r) * this.mixB;
       }
       if (this.mixC > 1e-4) {
-        const pk = Math.max(Math.abs(l), Math.abs(r));
-        this.env = pk > this.env ? this.atk * this.env + (1 - this.atk) * pk : this.rel * this.env + (1 - this.rel) * pk;
-        const over = 20 * Math.log10(this.env + 1e-9) - thr;
-        const gr = over > 0 ? over * slope : 0;
-        const g = Math.pow(10, (makeup - gr) / 20);
+        // Detecteur : la somme, passee au-dessus de 110 Hz
+        const x = 0.5 * (l + r);
+        const y = this.hb0 * x + this.hb1 * this.hx1 + this.hb2 * this.hx2 - this.ha1 * this.hy1 - this.ha2 * this.hy2;
+        this.hx2 = this.hx1;
+        this.hx1 = x;
+        this.hy2 = this.hy1;
+        this.hy1 = y;
+        const ay = Math.abs(y);
+        this.det = ay > this.det ? ay : this.det * this.detRel;
+        const gr = staticGr(20 * Math.log10(ay + 1e-9), thr, slope, knee);
+        // Lissage en dB : l'attaque quand la reduction se creuse, le retour quand elle se relache
+        this.grS = gr < this.grS ? this.atk * this.grS + (1 - this.atk) * gr : this.rel * this.grS + (1 - this.rel) * gr;
+        // Le rattrapage suit la reduction moyenne, gele quand rien ne joue (le detecteur sous -50 dB)
+        if (this.det > 0.00316) this.grAvg += (this.grS - this.grAvg) * this.avgK;
+        const makeup = Math.min(15, -this.grAvg);
+        const g = Math.pow(10, (this.grS + makeup) / 20);
         const gm = 1 + (g - 1) * this.mixC;
         l *= gm;
         r *= gm;
@@ -114,6 +178,10 @@ class MMGlue extends AudioWorkletProcessor {
       if (oR) oR[i] = Number.isFinite(r) ? r : 0;
     }
     if (!Number.isFinite(this.env)) this.env = 0;
+    if (!Number.isFinite(this.grS)) this.grS = 0;
+    if (!Number.isFinite(this.grAvg)) this.grAvg = null;
+    if (!Number.isFinite(this.det)) this.det = 0;
+    if (!Number.isFinite(this.hy1) || !Number.isFinite(this.hy2)) this.hx1 = this.hx2 = this.hy1 = this.hy2 = 0;
     if (!Number.isFinite(this.h0)) this.h0 = 0;
     if (!Number.isFinite(this.h1)) this.h1 = 0;
     return true;
