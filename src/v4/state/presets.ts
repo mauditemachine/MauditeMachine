@@ -270,8 +270,8 @@ function commit(next: All): void {
   listeners.forEach((fn) => fn());
 }
 
-/** L'etat de la machine, tel qu'il est. */
-function capture(m: PresetMachine): VoyData | RytmData | BassData {
+/** L'etat de la machine, tel qu'il est (aussi l'instantane de UNDO, 2026-10-11 : state/undo.ts). */
+export function capture(m: PresetMachine): VoyData | RytmData | BassData {
   if (m === 'bass') {
     const recipe = bassState.get().recipe;
     // La recette v2 (2026-10-09) : une copie entiere (son echelle et ses memoires de style)
@@ -299,7 +299,8 @@ function capture(m: PresetMachine): VoyData | RytmData | BassData {
   };
 }
 
-function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
+/** Un etat capture (un preset, ou un instantane de UNDO) remis sur la machine. */
+export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
   if (m === 'bass') {
     const b = d as BassData;
     // Un reglage absent : sa valeur d'heritage (2026-10-09 ; avant, def : un preset d'avant le moteur MONARK revient en
