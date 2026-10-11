@@ -181,3 +181,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-10 : MM-RYTM, mute au pad (clic droit, double tape au doigt), MUTE rend toutes les voix, une voix mutee se choisit et se regle sans son. Spec R14-259.
 - 2026-10-10 : MM-RYTM, pages DIST CHORUS DELAY REVERB avec onglets GLOBAL / voix (l'envoi de la voix, verrouillable, et les reglages du FX) ; correctif : les onglets de l'en-tete ne tombent plus sur PRESETS. Spec R14-260.
 - 2026-10-11 : MM-RYTM, COMP refait en compresseur de bus (detecteur sans le sub, genou doux, rattrapage automatique) : le niveau ne baisse plus, le snare reste devant. Spec R14-261.
+- 2026-10-11 : bouton UNDO a gauche de MIDI (Cmd+Z, Maj+Cmd+Z), historique commun RYTM ARP BASS ; presets : le son du moment mis de cote avant chaque chargement, echecs de SAVE affiches, son revenu par UNDO reconnu ; voix et STRETCH du MM-RYTM gardes au rechargement. Spec R14-262.
