@@ -187,6 +187,15 @@ export const patterns = {
     setState({ ...state, cur: i, chain: [i], pos: 0, next: -1 });
     return 'now';
   },
+  /**
+   * UNDO (state/undo.ts, 2026-10-11) : l'emplacement d'une etape devient tout de suite le courant (meme en lecture),
+   * seul dans sa chaine, pour que l'etape s'y pose au lieu de ne rien changer a celui qu'on regarde.
+   */
+  select(i: number): void {
+    if (i < 0 || i >= PATTERN_SLOTS || (i === state.cur && state.chain.length === 1 && state.next < 0)) return;
+    if (i !== state.cur) apply(i);
+    setState({ ...state, cur: i, chain: [i], pos: 0, next: -1 });
+  },
   /** Tenir un emplacement vide : il recoit une copie du pattern courant ; false s'il est plein (ou le courant vide). */
   copyTo(i: number): boolean {
     if (i < 0 || i >= PATTERN_SLOTS || patterns.filled(i) || isEmpty(pattern.get().steps)) return false;

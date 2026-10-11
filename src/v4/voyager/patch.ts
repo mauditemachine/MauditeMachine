@@ -41,13 +41,15 @@ interface Origin {
   sig: string;
 }
 
-/** L'empreinte du son tel qu'il est. */
-function sigNow(): string {
-  const v = voyParams.get();
-  const s = seq.get();
-  const added = ADDED_IDS.some((id) => v[id] !== voyParams.def(id)) ? [ADDED_IDS.map((id) => v[id])] : [];
-  return JSON.stringify([SOUND_IDS.map((id) => v[id]), s.edit ? [s.len, s.buf] : 0, ...added]);
+/** L'empreinte d'un son : ses potards (un absent : sa valeur de depart) et sa suite d'EDIT. */
+function sigOf(v: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len: number; buf: readonly unknown[] }): string {
+  const at = (id: VoyKnobId): number => v[id] ?? voyParams.def(id);
+  const added = ADDED_IDS.some((id) => at(id) !== voyParams.def(id)) ? [ADDED_IDS.map(at)] : [];
+  return JSON.stringify([SOUND_IDS.map(at), s.edit ? [s.len, s.buf] : 0, ...added]);
 }
+
+/** L'empreinte du son tel qu'il est. */
+const sigNow = (): string => sigOf(voyParams.get(), seq.get());
 
 /** L'empreinte du son de depart (INIT). */
 const INIT_SIG = JSON.stringify([SOUND_IDS.map((id) => voyParams.def(id)), 0]);
@@ -77,6 +79,23 @@ function remember(next: Origin): void {
   listeners.forEach((fn) => fn());
 }
 
+/**
+ * Le son revenu tel quel a un preset (un UNDO, 2026-10-11 : le nom restait sur l'ancien, avec son etoile) : il
+ * devient l'origine, apres le dessin (remember previent l'ecran).
+ */
+function matchPreset(now: string): string | null {
+  const p = presets.list('voy').find((x) => {
+    const d = x.data as { knobs?: Partial<Record<VoyKnobId, number>>; seq?: { edit: boolean; len: number; buf: readonly unknown[] } };
+    return !!d.knobs && !!d.seq && sigOf(d.knobs, d.seq) === now;
+  });
+  if (!p) return null;
+  const name = p.name.toUpperCase();
+  queueMicrotask(() => {
+    if (sigNow() === now) remember({ id: p.id, name, sig: now });
+  });
+  return name;
+}
+
 function compute(): string {
   const now = sigNow();
   if (origin) {
@@ -86,11 +105,11 @@ function compute(): string {
       const p = presets.list('voy').find((x) => x.id === id);
       // Le preset efface : son nom part avec lui
       if (p) name = p.name.toUpperCase();
-      else return now === INIT_SIG ? 'INIT' : '';
+      else return matchPreset(now) ?? (now === INIT_SIG ? 'INIT' : '');
     }
-    return now === origin.sig ? name : `${name}*`;
+    return now === origin.sig ? name : (matchPreset(now) ?? `${name}*`);
   }
-  return now === INIT_SIG ? 'INIT' : '';
+  return matchPreset(now) ?? (now === INIT_SIG ? 'INIT' : '');
 }
 
 // Ce qui change le nom : les potards, la suite, la liste des presets (NAME, DEL)

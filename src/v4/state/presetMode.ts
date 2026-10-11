@@ -33,9 +33,10 @@
  * - la deuxieme tape d'un double clic (ou d'une double tape) sur l'ecran
  *   n'est plus un PREV ou un NEXT : la zone qui ouvre le mode est sous celles
  *   de PREV et NEXT, un double clic ouvrait le mode ET chargeait un preset ;
- * - SAVE dit quand le navigateur ne l'a pas pris (NOT SAVED: STORAGE FULL,
- *   le titre THIS VISIT ONLY ensuite) et quand les 99 places sont prises
- *   (FULL: DELETE ONE FIRST) ; avant, SAVED dans tous les cas.
+ * - SAVE dit quand le navigateur ne l'a pas pris (NOT SAVED: NO SPACE, puis
+ *   le titre NOT SAVED tant que le preset ne vit que pour la visite) et quand
+ *   les 99 places sont prises (LIST FULL: DEL ONE) ; avant, SAVED dans tous
+ *   les cas.
  */
 
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, stepOf } from '../bass/params';
@@ -109,14 +110,36 @@ const IDLE_MS = 15000;
 const NOTE_MS = 1600;
 /** Un echec (NOT SAVED, FULL) reste le temps d'etre lu. */
 const FAIL_MS = 4500;
-/** PREV et NEXT si tot apres l'ouverture : la deuxieme tape d'un double clic, rien ne se charge (2026-10-11). */
-const DOUBLE_MS = 450;
+/**
+ * PREV et NEXT si tot apres l'ouverture : la deuxieme tape d'un double clic, rien ne se charge (2026-10-11 ; le double
+ * clic des systemes va jusqu'a 500 ms).
+ */
+const DOUBLE_MS = 600;
 
 let state: ModeState = { machine: null, index: 0, confirm: false, note: '' };
 let openedAt = -Infinity;
 
-/** Ce que dit l'ecran quand le navigateur n'a pas pris une ecriture. */
-const FAIL_NOTE: Readonly<Record<StoreFail, string>> = { full: 'NOT SAVED: STORAGE FULL', off: 'NOT SAVED: STORAGE OFF' };
+/**
+ * L'instant du geste : celui de l'evenement en cours (window.event : la tape, le clic, la touche), meme traite en
+ * retard (un telephone lent, l'ecran qui se redessine apres l'ouverture : la deuxieme tape d'un double clic arrivait
+ * 700 ms apres la premiere) ; hors d'un evenement, ou un horodatage d'une autre horloge : maintenant.
+ */
+function gestureAt(): number {
+  const now = performance.now();
+  const e = typeof window !== 'undefined' ? (window as { event?: Event }).event : undefined;
+  const t = e?.timeStamp;
+  return typeof t === 'number' && t > 0 && t <= now && now - t < 5000 ? t : now;
+}
+
+/**
+ * Ce que dit l'ecran quand le navigateur n'a pas pris une ecriture (plein, ou refuse : navigation privee) ; 20 lettres au
+ * plus, la ligne du titre du MM-RYTM (state/lcd.ts), le rang s'efface le temps de la lire (LONG_NOTE).
+ */
+const FAIL_NOTE: Readonly<Record<StoreFail, string>> = { full: 'NOT SAVED: NO SPACE', off: 'NOT SAVED: BLOCKED' };
+/** Les 99 presets : SAVE refuse. */
+const MAX_NOTE = 'LIST FULL: DEL ONE';
+/** Une note plus longue : le rang ne s'affiche pas a cote d'elle (la ligne du titre du MM-RYTM tient 20 lettres). */
+const LONG_NOTE = 12;
 
 /** Les rangs du mode : les sons mis de cote (-n a -1), puis presets.list (0 a len - 1). */
 function bounds(m: PresetMachine): { lo: number; hi: number } {
@@ -143,9 +166,12 @@ const hhmm = (at: number): string => {
  */
 const last: Partial<Record<PresetMachine, string>> = {};
 
-/** Le rang ou rouvrir : le dernier preset (ou son mis de cote) charge ou garde s'il est encore la, sinon le premier preset. */
+/**
+ * Le rang ou rouvrir : le dernier preset (ou son mis de cote) charge ou garde s'il est encore la ; sinon (une autre
+ * visite) celui qui joue tel quel ; sinon le premier preset.
+ */
 function startIndex(m: PresetMachine): number {
-  const id = last[m];
+  const id = last[m] ?? presets.playing(m);
   if (!id) return 0;
   const i = presets.list(m).findIndex((p) => p.id === id);
   return i >= 0 ? i : draftIndex(m, id);
@@ -222,7 +248,7 @@ export const presetMode = {
         commit({ ...state, index: clampIndex(m, state.index), confirm: false, note: '' });
         return;
       }
-      openedAt = performance.now();
+      openedAt = gestureAt();
       // Le son du moment, garde nulle part : mis de cote et montre d'abord (YOUR SOUND, NOT SAVED), SAVE dessous
       const fresh = presets.setAside(m);
       const index = fresh ? -1 : clampIndex(m, startIndex(m));
@@ -242,7 +268,7 @@ export const presetMode = {
       if (!r.preset) {
         // 99 presets : rien n'est garde, le son du moment ne bouge pas
         commit({ ...state, confirm: false });
-        note('FULL: DELETE ONE FIRST', FAIL_MS);
+        note(MAX_NOTE, FAIL_MS);
         return;
       }
       last[m] = r.preset.id;
@@ -254,7 +280,7 @@ export const presetMode = {
     }
     if (k === 'prev' || k === 'next') {
       // La deuxieme tape d'un double clic sur l'ecran (la premiere l'a ouvert) : rien ne se charge
-      if (performance.now() - openedAt < DOUBLE_MS) return;
+      if (gestureAt() - openedAt < DOUBLE_MS) return;
       const { lo, hi } = bounds(m);
       const span = hi - lo + 1;
       if (span <= 0) return;
@@ -308,7 +334,7 @@ export const presetMode = {
       const line = m === 'bass' ? bassLine({ id: d.id, name: '', at: d.at, data: d.data }) : null;
       return {
         title: state.note || 'NOT SAVED',
-        count: hhmm(d.at),
+        count: state.note.length > LONG_NOTE ? '' : hhmm(d.at),
         group: '',
         name: i === -1 ? 'YOUR SOUND' : `YOUR SOUND ${-i}`,
         keys: ['SAVE', '', '', 'EXIT'],
@@ -324,8 +350,8 @@ export const presetMode = {
     // Un preset que le navigateur n'a pas pris (plein ou refuse) : il partira au rechargement, le titre le dit
     const visit = !empty && !fac && presets.unsaved(list[j].id);
     return {
-      title: state.note || (fac ? 'FACTORY' : visit ? 'THIS VISIT ONLY' : 'PRESETS'),
-      count: empty ? '' : `${j + 1}/${list.length}`,
+      title: state.note || (fac ? 'FACTORY' : visit ? 'NOT SAVED' : 'PRESETS'),
+      count: empty || state.note.length > LONG_NOTE ? '' : `${j + 1}/${list.length}`,
       group,
       name: empty ? 'NOTHING SAVED YET' : list[j].name.toUpperCase(),
       keys: ['SAVE', empty || fac ? '' : 'NAME', empty || fac ? '' : state.confirm ? 'DEL?' : 'DEL', 'EXIT'],

@@ -224,7 +224,17 @@ let last: TriggerInfo | null = null;
 /** TONE : -1 a 1, 0 = bypass (revision 5) */
 let tone = 0;
 /** STRETCH : -1 a 1, 0 = duree d'origine (2026-10-01, audio/time.ts) */
-let stretch = 0;
+/** STRETCH garde dans le navigateur (2026-10-11 : il repartait a 0 a chaque rechargement). */
+const STRETCH_KEY = 'mm.v4.rytm.stretch.1';
+let stretch = ((): number => {
+  try {
+    const v = Number(window.localStorage.getItem(STRETCH_KEY));
+    return Number.isFinite(v) ? snapTime(v) : 0;
+  } catch {
+    return 0;
+  }
+})();
+let stretchTimer = 0;
 let level = 0.8;
 /**
  * Etat voulu du contexte : la derniere demande gagne, quel que soit l'ordre
@@ -1409,6 +1419,15 @@ export function setStretch(v: number): void {
   stretch = t;
   emitMix();
   prepareLocks();
+  window.clearTimeout(stretchTimer);
+  stretchTimer = window.setTimeout(() => {
+    try {
+      if (stretch === 0) window.localStorage.removeItem(STRETCH_KEY);
+      else window.localStorage.setItem(STRETCH_KEY, String(stretch));
+    } catch {
+      /* il vit pour la visite */
+    }
+  }, 300);
 }
 
 /** Pilote le gain LEVEL (niveau au carre), jamais le master. */

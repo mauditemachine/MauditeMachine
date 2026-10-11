@@ -176,8 +176,56 @@ const clamp = (p: VoiceParam, v: number): number => {
 
 const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 
-let state: Readonly<Record<Inst, Readonly<VoiceFx>>> = Object.fromEntries(INSTS.map((i) => [i, { ...VOICE_FX_DEFAULT }])) as Record<Inst, VoiceFx>;
+/**
+ * Gardes dans le navigateur (2026-10-11, Mika : "j'ai tout perdu") : avant, les reglages des voix repartaient au
+ * neutre a chaque rechargement ; relus au depart, chacun passe par clamp (un reglage absent : sa valeur neutre).
+ */
+const KEY = 'mm.v4.rytm.voices.1';
+const SAVE_MS = 300;
+
+function load(): Record<Inst, VoiceFx> {
+  const out = Object.fromEntries(INSTS.map((i) => [i, { ...VOICE_FX_DEFAULT }])) as Record<Inst, VoiceFx>;
+  if (typeof window === 'undefined') return out;
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as Partial<Record<Inst, Partial<Record<VoiceParam, unknown>>>> | null;
+    if (!raw || typeof raw !== 'object') return out;
+    for (const i of INSTS) {
+      const r = raw[i];
+      if (!r || typeof r !== 'object') continue;
+      for (const p of VOICE_PARAMS) {
+        const v = r[p];
+        if (typeof v === 'number' && Number.isFinite(v)) out[i][p] = clamp(p, v);
+      }
+    }
+  } catch {
+    /* rien de retenu */
+  }
+  return out;
+}
+
+let state: Readonly<Record<Inst, Readonly<VoiceFx>>> = load();
 const listeners = new Set<() => void>();
+let saveTimer = 0;
+
+function changed(): void {
+  listeners.forEach((l) => l());
+  if (typeof window === 'undefined') return;
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    try {
+      // Seulement ce qui quitte le neutre : le JSON reste court
+      const keep: Partial<Record<Inst, Partial<VoiceFx>>> = {};
+      for (const i of INSTS) {
+        const d = VOICE_PARAMS.filter((p) => state[i][p] !== VOICE_FX_DEFAULT[p]);
+        if (d.length) keep[i] = Object.fromEntries(d.map((p) => [p, state[i][p]]));
+      }
+      if (Object.keys(keep).length) window.localStorage.setItem(KEY, JSON.stringify(keep));
+      else window.localStorage.removeItem(KEY);
+    } catch {
+      /* stockage plein ou bloque : les reglages vivent pour la visite */
+    }
+  }, SAVE_MS);
+}
 
 export const voiceFx = {
   get: (): Readonly<Record<Inst, Readonly<VoiceFx>>> => state,
@@ -187,12 +235,12 @@ export const voiceFx = {
     const t = clamp(p, v);
     if (state[inst][p] === t) return;
     state = { ...state, [inst]: { ...state[inst], [p]: t } };
-    listeners.forEach((l) => l());
+    changed();
   },
   /** La voix revient au neutre. */
   reset(inst: Inst): void {
     state = { ...state, [inst]: { ...VOICE_FX_DEFAULT } };
-    listeners.forEach((l) => l());
+    changed();
   },
   /** true si la voix a au moins un effet engage. */
   active: (inst: Inst): boolean => VOICE_PARAMS.some((p) => state[inst][p] !== VOICE_FX_DEFAULT[p]),

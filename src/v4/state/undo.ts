@@ -88,6 +88,7 @@ export const UNDO_MACHINE_NAME: Readonly<Record<PresetMachine, string>> = { mm80
 interface BassSlots {
   get(): { cur: number; slots: readonly (readonly unknown[] | null)[]; recipes: readonly unknown[]; lens: readonly number[] };
   subscribe(fn: () => void): () => void;
+  select(i: number): void;
 }
 
 /** Ils arrivent avec le code du MM-BASS (state/bassload.ts) ; null avant. */
@@ -368,8 +369,20 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
   if (!t) return false;
   const now = capture(e.m);
   const nowSlot = slotOf(e.m);
-  // Une etape d'un autre emplacement : le motif de celui qu'on regarde reste
-  const data = e.slot !== null && nowSlot !== null && e.slot !== nowSlot ? withPart(e.m, e.data, partOf(e.m, now)) : e.data;
+  let data = e.data;
+  if (e.slot !== null && nowSlot !== null && e.slot !== nowSlot) {
+    // Une etape d'un autre emplacement : on y retourne et elle s'y pose (avant, le motif de celui qu'on regardait
+    // restait : une etape qui ne changeait que ses pas ne faisait rien) ; sans banque : le motif d'ici reste
+    const sel = e.m === 'mm808' ? patterns : e.m === 'bass' ? bassSlots : null;
+    if (sel) {
+      applying = true;
+      try {
+        sel.select(e.slot);
+      } finally {
+        applying = false;
+      }
+    } else data = withPart(e.m, e.data, partOf(e.m, now));
+  }
   let ok = true;
   applying = true;
   try {

@@ -253,10 +253,10 @@ function merged(st: All): All {
   return out;
 }
 
-/** Relit le navigateur avant une ecriture. */
+/** Relit le navigateur avant une ecriture (illisible ou casse : la liste en memoire fait foi). */
 function refresh(): void {
   const st = readStored();
-  if (st) all = merged(st);
+  if (st && corrupt === null) all = merged(st);
 }
 
 /** Les presets d'usine, faits a la premiere demande. */
@@ -549,8 +549,8 @@ export interface Draft {
 
 /**
  * L'empreinte du dernier etat connu (un preset charge ou garde, un son mis de cote) : full pour cette visite, kept sans
- * ce qu'une visite ne retrouve pas (les reglages des voix du MM-RYTM, audio/voicefx.ts, et la progression du MM-ARP
- * ne sont pas gardes par le navigateur : apres un rechargement, leur absence n'est pas un son nouveau).
+ * ce qu'une visite ne retrouve pas (les reglages des voix du MM-RYTM, audio/voicefx.ts, son STRETCH, et la progression
+ * du MM-ARP ne sont pas gardes par le navigateur : apres un rechargement, leur absence n'est pas un son nouveau).
  */
 interface Mark {
   full: string;
@@ -560,13 +560,30 @@ interface Mark {
 
 /** Cette visite (une empreinte full d'une autre visite ne vaut plus). */
 const VISIT = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-const LOST_ON_RELOAD: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: ['voices'], voy: ['prog'], bass: [] };
+// Les voix et STRETCH du MM-RYTM sont gardes depuis le 2026-10-11 (audio/voicefx.ts, audio/drums.ts)
+const LOST_ON_RELOAD: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: [], voy: ['prog'], bass: [] };
 
-/** L'empreinte d'un etat : son JSON au millieme (les magasins arrondissent ce qu'ils gardent), sans skip au premier niveau. */
+/** Une valeur dans une forme stable : les nombres au millieme (les magasins arrondissent ce qu'ils gardent), les cles triees. */
+function canon(v: unknown): unknown {
+  if (typeof v === 'number') return Math.round(v * 1000) / 1000;
+  if (Array.isArray(v)) return v.map(canon);
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(o).sort()) if (o[k] !== undefined) out[k] = canon(o[k]);
+    return out;
+  }
+  return v;
+}
+
+/**
+ * L'empreinte d'un etat, sans skip au premier niveau : l'ordre des cles n'y compte pas (un magasin relu du navigateur
+ * les range autrement : le meme son, une autre empreinte, un son mis de cote pour rien a chaque visite).
+ */
 function sig(d: Preset['data'], skip: readonly string[] = []): string {
   const o: Record<string, unknown> = { ...(d as unknown as Record<string, unknown>) };
   for (const k of skip) delete o[k];
-  return JSON.stringify(o, (_k, v: unknown) => (typeof v === 'number' ? Math.round(v * 1000) / 1000 : v));
+  return JSON.stringify(canon(o));
 }
 
 /** Une chaine de patterns en lecture (MM-RYTM) : les pas changent a chaque mesure, ce n'est pas un son nouveau. */
@@ -609,8 +626,12 @@ function keepDrafts(): void {
 /** Le son de la machine n'est-il garde nulle part (ni le dernier preset charge ou garde, ni un son mis de cote) ? */
 function unsavedNow(m: PresetMachine, d: Preset['data'] = capture(m)): boolean {
   const k = marks[m];
-  if (!k) return true;
-  return k.visit === VISIT ? sig(d, skipOf(m, false)) !== k.full : sig(d, skipOf(m, true)) !== k.kept;
+  const moved = !k || (k.visit === VISIT ? sig(d, skipOf(m, false)) !== k.full : sig(d, skipOf(m, true)) !== k.kept);
+  if (!moved) return false;
+  // Revenu tel quel a un son deja garde (un UNDO, 2026-10-11) : un de tes presets, un d'usine ou un son mis de cote
+  const skip = skipOf(m, false);
+  const s = sig(d, skip);
+  return ![...all[m], ...factoryOf(m), ...drafts[m]].some((x) => sig(x.data, skip) === s);
 }
 
 /**
@@ -681,6 +702,15 @@ export const presets = {
   unsaved: (id: string): boolean => unsaved.has(id),
   /** Les sons mis de cote de la machine, le plus recent d'abord (YOUR SOUND). */
   drafts: (m: PresetMachine): readonly Draft[] => drafts[m],
+  /**
+   * Ce qui joue, s'il est tel quel un son mis de cote ou un de tes presets : son id, null sinon (apres un rechargement,
+   * le mode presets rouvre sur lui, pas sur le premier preset de la liste qui ne joue pas).
+   */
+  playing(m: PresetMachine): string | null {
+    const skip = LOST_ON_RELOAD[m];
+    const s = sig(capture(m), skip);
+    return drafts[m].find((x) => sig(x.data, skip) === s)?.id ?? all[m].find((p) => sig(p.data, skip) === s)?.id ?? null;
+  },
   /** Le son du moment n'est garde nulle part : il est mis de cote (ouvrir le mode presets) ; true s'il l'a ete. */
   setAside(m: PresetMachine): boolean {
     const did = setAside(m);
@@ -734,6 +764,14 @@ export const presets = {
   remove(m: PresetMachine, id: string): 'ok' | StoreFail {
     refresh();
     if (m === 'bass' && bassMark?.id === id) bassMark = null;
+    // Le preset efface est ce qui joue : ce son n'est plus garde nulle part, le prochain preset charge le mettra de cote
+    const gone = all[m].find((p) => p.id === id);
+    if (gone && sig(gone.data) === sig(capture(m))) {
+      const next = { ...marks };
+      delete next[m];
+      marks = next;
+      keepDrafts();
+    }
     return commit({ ...all, [m]: all[m].filter((p) => p.id !== id) }, { id, gone: true });
   },
   /** Un autre nom au hasard (le nom ne plait pas) ; 'ok', ou pourquoi le navigateur ne l'a pas pris. */

@@ -91,6 +91,8 @@ export const UndoButton: React.FC<{ compact?: boolean }> = ({ compact = false })
       aria-label={who ? `Undo the last change on the ${who}` : 'Undo: nothing to undo yet'}
       title={`Undo (${MOD}+Z)\nRedo: Shift+${MOD}+Z`}
       onClick={(e) => {
+        // Un clic de souris ne garde pas le focus : Espace reste RUN
+        if (e.detail > 0) e.currentTarget.blur();
         if (e.shiftKey) undo.redo();
         else if (can) undo.undo();
       }}
