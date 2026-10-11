@@ -739,6 +739,8 @@ const scopeName = (s: TargetScope | undefined): string => (!s ? 'UNKNOWN' : s ==
 /** Ce qu'a fait un message, pour le panneau. */
 function describe(key: string, r: Route, ri: RotoKeyInfo | null): string {
   const t = targetOf(r.id);
+  // Une commande partie (OSC 1 ON, OSC 2 ON du MM-ARP, 2026-10-11) : un ancien setup du Roto l'envoie encore
+  if (!t && RETIRED_TARGETS.has(r.id)) return `${keyText(key)} -> nothing (${r.id} is gone: re-import the Roto setups)`;
   const where = scopeName(t?.scope ?? SCOPE_OF_PREFIX[prefixOf(r.id)]);
   // Un pas d'un sequenceur : le pas vraiment pris (STEP 3|11 -> le 11 : la fenetre 9-16), la revue du 2026-10-09
   const hit = r.src === 'roto' ? seqStepOf(key) : null;

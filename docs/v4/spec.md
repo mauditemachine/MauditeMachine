@@ -2609,3 +2609,12 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Presets: the current sound is put aside as YOUR SOUND (drafts, mm.v4.presets.drafts.1) before any load, so a load never destroys unsaved work; a failed SAVE says why (NOT SAVED: NO SPACE, LIST FULL: DEL ONE, 99 presets max); two tabs merge instead of overwriting; a corrupt list is backed up (.bad) instead of wiped; PREV/NEXT within 600 ms of OPEN are ignored (double tap).
 - A sound brought back by UNDO that equals one of the user presets, a factory preset or a draft is recognised as saved (no duplicate YOUR SOUND, no NOT SAVED), and the MM-ARP header shows that preset's name (voyager/patch.ts matches presets by fingerprint).
 - MM-RYTM voice settings (audio/voicefx.ts, mm.v4.rytm.voices.1, only non-neutral values) and STRETCH (audio/drums.ts, mm.v4.rytm.stretch.1) now survive a reload (300 ms debounce, values clamped on read); LOST_ON_RELOAD for mm808 is empty.
+
+### R14-263 MM-ARP: no OSC ON switches; SUB OCT is a push button (2026-10-11)
+
+- Mika: "ces knobs ne servent a rien.. si on veut pas les osc on coupe les volumes" and, on SUB OCT, "un knob a deux positions ... ptete un bouton poussoir".
+- on1 / on2 are gone from the face, Dock, INFOS, screen, MIDI targets, Roto ARP setup (ROTO_VERSION 2026-10-11, re-import ARP 12; rotoKeys.ts untouched) and the worklet. To silence an oscillator, turn its level down.
+- Migration (voyager/params.ts migrateKnobs): an old ON at OFF becomes level 0 for that oscillator, on localStorage load and in presets apply() (user presets, drafts, UNDO snapshots). Factory ACID and MINIMAL use osc2: 0. Stored MIDI-learn maps to on1/on2 are dropped.
+- Fingerprints stay stable: voyager/patch.ts keeps the legacy id order with on1/on2 read as ON, old knobs folded the same way; presets.ts folds ARP knobs before comparing, so old presets and drafts are still recognised (no false '*', no NOT SAVED).
+- SUB OCT: a small rubber key (voyager/pads.ts) with -1 / -2 LEDs (silk.ts), hotspot kind 'vpush' (tap toggles, press animation, screen echo SUB OCT -2), keyboard twin button with the octave in its label, MIDI learn voy:knob:subOct. The Dock keeps a 2-step dial.
+- Layout: desktop rows 1 and 2 end with FM / RATIO (old ON column); bottom row evenly spread: OSC 1, OSC 2, NOISE, SUB, SUB WAVE, SUB OCT button. Phone: FM / RATIO in the old ON column, then SUB OCT button (row 1) and SUB WAVE (row 2).
