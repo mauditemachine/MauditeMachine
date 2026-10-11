@@ -180,3 +180,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-10 : niveaux au MIXER, MM-RYTM -2.5 dB et kick -1.5 dB de plus, MM-ARP +5 dB : memes niveaux au VU, loin du rouge. Spec R14-258.
 - 2026-10-10 : MM-RYTM, mute au pad (clic droit, double tape au doigt), MUTE rend toutes les voix, une voix mutee se choisit et se regle sans son. Spec R14-259.
 - 2026-10-10 : MM-RYTM, pages DIST CHORUS DELAY REVERB avec onglets GLOBAL / voix (l'envoi de la voix, verrouillable, et les reglages du FX) ; correctif : les onglets de l'en-tete ne tombent plus sur PRESETS. Spec R14-260.
+- 2026-10-11 : MM-RYTM, COMP refait en compresseur de bus (detecteur sans le sub, genou doux, rattrapage automatique) : le niveau ne baisse plus, le snare reste devant. Spec R14-261.
