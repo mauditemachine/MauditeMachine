@@ -239,7 +239,6 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
     else if (id === 'lfoRate') unit = 'ONE CYCLE';
     else if (id === 'lfoShape') unit = ['TRIANGLE', 'RAMP DOWN', 'SQUARE', 'RANDOM STEPS'][stepIndex('lfoShape', v)];
     else if (id === 'lfoDest') unit = 'MOD TARGET';
-    else if (id === 'on1' || id === 'on2') unit = id === 'on1' ? 'OSCILLATOR 1' : 'OSCILLATOR 2';
     else if (id === 'sync') unit = stepIndex('sync', v) === 1 ? 'OSC 2 HARD SYNCED' : 'OSC 2 RUNS FREE';
     else if (id === 'chord') unit = 'CHORD NOTES';
     return { value: name, unit };

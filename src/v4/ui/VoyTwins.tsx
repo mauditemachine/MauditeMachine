@@ -8,11 +8,13 @@
  * 10 %, Debut et Fin), puis, capot ouvert, les TWEAKS (2026-10-04 : a la
  * place des puces des pages). Inertes tant qu'on n'utilise pas le
  * Voyager. La touche i du grand ecran (2026-10-08) : un bouton de plus,
- * apres les touches de l'ecran (INFOS, state/voyInfos.ts).
+ * apres les touches de l'ecran (INFOS, state/voyInfos.ts). SUB OCT, un
+ * bouton poussoir depuis le 2026-10-11 : un bouton (Entree ou Espace passe a
+ * l'autre octave), son nom dit l'octave du moment.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { editToggle, openToggle, presetKey, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
+import { editToggle, openToggle, presetKey, voyClear, voyDial, voyPad, voyPush, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode } from '../state/presetMode';
@@ -22,8 +24,8 @@ import { voyInfos } from '../state/voyInfos';
 import { DIAL_KEYS, OPEN_ARIA } from '../theme';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
-import { VOY_FACE_KNOBS, VOY_TWEAKS, voyParams, voyValueText, type VoyKnob, type VoyKnobId } from '../voyager/params';
-import { VOY_BUTTONS, VOY_COPY } from '../voyager/theme';
+import { VOY_FACE_KNOBS, VOY_TWEAKS, stepIndex, voyParams, voyValueText, type VoyKnob, type VoyKnobId } from '../voyager/params';
+import { VOY_BUTTONS, VOY_COPY, isPush } from '../voyager/theme';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -240,6 +242,24 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         const steps = k.steps ? k.steps.length - 1 : 0;
         // Les TWEAKS : sous le capot, au clavier une fois decouverts
         const under = k.section === 'tweak';
+        // Un bouton poussoir (SUB OCT, 2026-10-11) : un bouton, son nom dit le cran du moment et le suivant
+        if (isPush(k.id) && k.steps) {
+          const i = stepIndex(k.id, v);
+          const next = k.steps[(i + 1) % k.steps.length];
+          return (
+            <button
+              key={id}
+              ref={refFor(id)}
+              type="button"
+              className="v4-twin"
+              data-twin="vpush"
+              data-hotspot={id}
+              aria-label={`${k.aria}. Now ${voyValueText(k.id, v)}, press for ${next} OCT`}
+              onKeyDown={noRepeat}
+              onClick={() => voyPush(k.id, stageRef.current)}
+            />
+          );
+        }
         return (
           <div
             key={id}

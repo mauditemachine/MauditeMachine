@@ -75,7 +75,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   /* ---------- OSCILLATORS (le panneau) ---------- */
   wave1: {
     title: 'WAVEFORM 1',
-    text: "La forme d'OSC 1, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE (14 %), puis FM (sa sinusoïde dont OSC 2 décale la phase). Entre deux crans, les deux formes se mélangent, sans creux ni saut de niveau.",
+    text: "La forme d'OSC 1, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE (14 %), puis FM (sa sinusoïde dont OSC 2 décale la phase). Entre deux crans, les deux formes se mélangent, sans creux ni saut de niveau. Pour couper OSC 1, baisse son niveau (OSC 1, dans le mélangeur) à 0.",
     tip: "Entre SAW et SQUARE pour une dark disco grasse ; MOD sur WAVE fait respirer le timbre sur une mesure.",
   },
   range1: {
@@ -93,14 +93,9 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     text: "L'accord fin d'OSC 1, de -50 à +50 cents. Désaccordé contre OSC 2, il bat : plus l'écart grandit, plus le battement accélère. Au départ, -8 et +8 cents : le centre reste juste.",
     tip: "±8 à ±12 cents pour l'épaisseur d'un vieux Moog ; au-delà de 25, ça sonne faux, à garder pour un effet.",
   },
-  on1: {
-    title: 'ON 1',
-    text: "Allume ou coupe OSC 1 sans toucher à son volume (OSC 1 du MIXER) ; la LED rouge le dit. Le passage est lissé : jamais de clic.",
-    tip: "Coupe un oscillateur pour entendre l'autre seul pendant que tu règles sa forme.",
-  },
   wave2: {
     title: 'WAVEFORM 2',
-    text: "La forme d'OSC 2, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE. C'est aussi lui qui module OSC 1 quand WAVEFORM 1 est sur FM, et lui qui crie avec SYNC (sous le capot).",
+    text: "La forme d'OSC 2, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE. C'est aussi lui qui module OSC 1 quand WAVEFORM 1 est sur FM, et lui qui crie avec SYNC (sous le capot). Pour couper OSC 2, baisse son niveau (OSC 2, dans le mélangeur) à 0.",
     tip: "Un SQUARE une octave sous OSC 1 donne du corps sans voler les médiums.",
   },
   range2: {
@@ -118,20 +113,15 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     text: "L'accord fin d'OSC 2, de -50 à +50 cents, contre OSC 1 : le battement qui épaissit le son.",
     tip: "Garde FINE 1 et FINE 2 de part et d'autre de 0 : le son grossit sans sortir de la tonalité.",
   },
-  on2: {
-    title: 'ON 2',
-    text: "Allume ou coupe OSC 2 sans toucher à son volume ; sa LED rouge le dit.",
-    tip: "OSC 2 coupé et WAVEFORM 1 en SINE : une basse pure pour les drops.",
-  },
   osc1: {
     title: 'OSC 1',
-    text: "Le volume d'OSC 1 dans le filtre (au carré du potard, 0,88 au maximum). Les deux à 84 % : le mélange de départ, à mi-chemin.",
-    tip: "Baisse un peu OSC 2 quand il est une octave dessous, la basse reste nette.",
+    text: "Le volume d'OSC 1 dans le filtre (au carré du potard, 0,88 au maximum). Les deux à 84 % : le mélange de départ, à mi-chemin. À 0, OSC 1 se tait : c'est comme ça qu'on le coupe, en douceur, sans clic.",
+    tip: "Coupe OSC 1 pour entendre OSC 2 seul pendant que tu règles sa forme ; baisse un peu OSC 2 quand il est une octave dessous, la basse reste nette.",
   },
   osc2: {
     title: 'OSC 2',
-    text: "Le volume d'OSC 2 dans le filtre (au carré du potard). Plus il monte, plus il pousse la saturation des étages du filtre.",
-    tip: "Les deux au maximum avec un peu d'OVERDRIVE : la crasse analogique de la dark disco.",
+    text: "Le volume d'OSC 2 dans le filtre (au carré du potard). Plus il monte, plus il pousse la saturation des étages du filtre. À 0, OSC 2 se tait (il module encore OSC 1 quand WAVEFORM 1 est sur FM).",
+    tip: "Les deux au maximum avec un peu d'OVERDRIVE : la crasse analogique de la dark disco ; OSC 2 à 0 et WAVEFORM 1 en SINE : une basse pure pour les drops.",
   },
   sub: {
     title: 'SUB',
@@ -140,7 +130,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   subOct: {
     title: 'SUB OCT',
-    text: "L'octave du SUB : -1, une octave sous la note jouée, ou -2, deux octaves sous elle. Il suit la note, pas RANGE ni SEMI d'OSC 1.",
+    text: "L'octave du SUB, un bouton poussoir : chaque appui passe de -1 (une octave sous la note jouée) à -2 (deux octaves sous elle), et revient ; la LED allumée dit laquelle. Il suit la note, pas RANGE ni SEMI d'OSC 1.",
     tip: "-2 en SINE sur un arpège aigu : un grave profond façon 808 sous chaque note.",
   },
   subWave: {

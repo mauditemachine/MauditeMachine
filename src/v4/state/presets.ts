@@ -67,7 +67,7 @@ import { KIT_FAMILIES, KIT_IDS, KIT_KNOBS, LAYER_DEFAULT, LAYER_TUNE_ST, cleanKn
 import { lenOfDecay, sampleTuneSt } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
-import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
+import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, withoutOscOn, type VoyValues } from '../voyager/params';
 import { SEQ_MAX, seq, type SeqState } from '../voyager/seq';
 import { BASS_KNOBS, ENGINE_IDS, bassKnob, bassParams, legacyOf, type BassKnobId } from '../bass/params';
 import { bassLoad } from './bassload';
@@ -443,7 +443,8 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
   if (m === 'voy') {
     const v = d as VoyData;
     // Un preset d'avant un potard (les TWEAKS, 2026-10-04) : ce potard a sa valeur de depart, le son d'alors ;
-    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits ; un preset d'avant CHORD (2026-10-05) : BASIC, ses arpeges d'alors
+    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits ; un preset d'avant CHORD (2026-10-05) : BASIC, ses arpeges d'alors ;
+    // un oscillateur coupe d'avant le 2026-10-11 (on1, on2 a OFF) : son niveau a 0 (presets, sons mis de cote, UNDO)
     const knobs: Record<string, unknown> = { ...v.knobs, ...migrateKnobs(v.knobs) };
     for (const id of VOY_KNOB_IDS) {
       const x = knobs[id];
@@ -577,19 +578,40 @@ function canon(v: unknown): unknown {
 }
 
 /**
+ * Les potards d'un etat du MM-ARP sans les ON d'avant le 2026-10-11 (un OFF plie dans son niveau, params.ts
+ * withoutOscOn) : un preset, un son mis de cote, une empreinte garde avant eux est le meme son qu'apres sa migration.
+ */
+function voyNow(m: PresetMachine, o: Record<string, unknown>): Record<string, unknown> {
+  if (m !== 'voy' || !o.knobs || typeof o.knobs !== 'object') return o;
+  return { ...o, knobs: withoutOscOn(o.knobs as Record<string, unknown>) };
+}
+
+/**
  * L'empreinte d'un etat, sans skip au premier niveau : l'ordre des cles n'y compte pas (un magasin relu du navigateur
  * les range autrement : le meme son, une autre empreinte, un son mis de cote pour rien a chaque visite).
  */
-function sig(d: Preset['data'], skip: readonly string[] = []): string {
+function sig(m: PresetMachine, d: Preset['data'], skip: readonly string[] = []): string {
   const o: Record<string, unknown> = { ...(d as unknown as Record<string, unknown>) };
   for (const k of skip) delete o[k];
-  return JSON.stringify(canon(o));
+  return JSON.stringify(canon(voyNow(m, o)));
+}
+
+/** Une empreinte gardee (une marque, avant le 2026-10-11 : ses ON) ramenee a celle d'aujourd'hui ; illisible : telle quelle. */
+function sigNow(m: PresetMachine, kept: string): string {
+  if (m !== 'voy') return kept;
+  try {
+    const o = JSON.parse(kept) as unknown;
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return kept;
+    return JSON.stringify(canon(voyNow(m, o as Record<string, unknown>)));
+  } catch {
+    return kept;
+  }
 }
 
 /** Une chaine de patterns en lecture (MM-RYTM) : les pas changent a chaque mesure, ce n'est pas un son nouveau. */
 const chaining = (m: PresetMachine): boolean => m === 'mm808' && patterns.get().chain.length > 1;
 const skipOf = (m: PresetMachine, kept: boolean): string[] => [...(kept ? LOST_ON_RELOAD[m] : []), ...(chaining(m) ? ['steps', 'locks'] : [])];
-const markOf = (m: PresetMachine, d: Preset['data']): Mark => ({ full: sig(d, skipOf(m, false)), kept: sig(d, skipOf(m, true)), visit: VISIT });
+const markOf = (m: PresetMachine, d: Preset['data']): Mark => ({ full: sig(m, d, skipOf(m, false)), kept: sig(m, d, skipOf(m, true)), visit: VISIT });
 
 const okDraft = (m: PresetMachine, d: unknown): boolean => {
   if (!d || typeof d !== 'object') return false;
@@ -609,7 +631,8 @@ if (typeof window !== 'undefined') {
       const xs = raw?.drafts?.[m];
       if (Array.isArray(xs)) drafts[m] = (xs as Partial<Draft>[]).filter((x): x is Draft => !!x && typeof x.id === 'string' && typeof x.at === 'number' && okDraft(m, x.data)).slice(0, DRAFTS);
       const k = raw?.marks?.[m] as Partial<Mark> | undefined;
-      if (k && typeof k.full === 'string' && typeof k.kept === 'string' && typeof k.visit === 'string') marks[m] = { full: k.full, kept: k.kept, visit: k.visit };
+      // Une marque gardee avant le 2026-10-11 (les ON du MM-ARP) : ramenee a l'empreinte d'aujourd'hui
+      if (k && typeof k.full === 'string' && typeof k.kept === 'string' && typeof k.visit === 'string') marks[m] = { full: sigNow(m, k.full), kept: sigNow(m, k.kept), visit: k.visit };
     }
   } catch {
     drafts = { voy: [], mm808: [], bass: [] };
@@ -626,12 +649,12 @@ function keepDrafts(): void {
 /** Le son de la machine n'est-il garde nulle part (ni le dernier preset charge ou garde, ni un son mis de cote) ? */
 function unsavedNow(m: PresetMachine, d: Preset['data'] = capture(m)): boolean {
   const k = marks[m];
-  const moved = !k || (k.visit === VISIT ? sig(d, skipOf(m, false)) !== k.full : sig(d, skipOf(m, true)) !== k.kept);
+  const moved = !k || (k.visit === VISIT ? sig(m, d, skipOf(m, false)) !== k.full : sig(m, d, skipOf(m, true)) !== k.kept);
   if (!moved) return false;
   // Revenu tel quel a un son deja garde (un UNDO, 2026-10-11) : un de tes presets, un d'usine ou un son mis de cote
   const skip = skipOf(m, false);
-  const s = sig(d, skip);
-  return ![...all[m], ...factoryOf(m), ...drafts[m]].some((x) => sig(x.data, skip) === s);
+  const s = sig(m, d, skip);
+  return ![...all[m], ...factoryOf(m), ...drafts[m]].some((x) => sig(m, x.data, skip) === s);
 }
 
 /**
@@ -641,8 +664,8 @@ function unsavedNow(m: PresetMachine, d: Preset['data'] = capture(m)): boolean {
 function setAside(m: PresetMachine, pin: string | null = null): boolean {
   const data = capture(m);
   if (!unsavedNow(m, data)) return false;
-  const s = sig(data);
-  const same = drafts[m].find((x) => sig(x.data) === s);
+  const s = sig(m, data);
+  const same = drafts[m].find((x) => sig(m, x.data) === s);
   let list = [{ id: same?.id ?? `draft-${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, at: Date.now(), data }, ...drafts[m].filter((x) => x !== same)];
   while (list.length > DRAFTS) {
     const i = list.map((x) => x.id !== pin).lastIndexOf(true);
@@ -692,8 +715,8 @@ export const presets = {
     // cote (le preset de la visite partira au rechargement)
     if (res === 'ok') {
       settle(m, data);
-      const s = sig(data);
-      drafts = { ...drafts, [m]: drafts[m].filter((x) => sig(x.data) !== s) };
+      const s = sig(m, data);
+      drafts = { ...drafts, [m]: drafts[m].filter((x) => sig(m, x.data) !== s) };
       keepDrafts();
     }
     return res === 'ok' ? { preset: p, kept: true } : { preset: p, kept: false, why: res };
@@ -708,8 +731,8 @@ export const presets = {
    */
   playing(m: PresetMachine): string | null {
     const skip = LOST_ON_RELOAD[m];
-    const s = sig(capture(m), skip);
-    return drafts[m].find((x) => sig(x.data, skip) === s)?.id ?? all[m].find((p) => sig(p.data, skip) === s)?.id ?? null;
+    const s = sig(m, capture(m), skip);
+    return drafts[m].find((x) => sig(m, x.data, skip) === s)?.id ?? all[m].find((p) => sig(m, p.data, skip) === s)?.id ?? null;
   },
   /** Le son du moment n'est garde nulle part : il est mis de cote (ouvrir le mode presets) ; true s'il l'a ete. */
   setAside(m: PresetMachine): boolean {
@@ -766,7 +789,7 @@ export const presets = {
     if (m === 'bass' && bassMark?.id === id) bassMark = null;
     // Le preset efface est ce qui joue : ce son n'est plus garde nulle part, le prochain preset charge le mettra de cote
     const gone = all[m].find((p) => p.id === id);
-    if (gone && sig(gone.data) === sig(capture(m))) {
+    if (gone && sig(m, gone.data) === sig(m, capture(m))) {
       const next = { ...marks };
       delete next[m];
       marks = next;

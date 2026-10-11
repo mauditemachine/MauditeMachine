@@ -109,6 +109,7 @@ import {
   rytmInfoTap,
   voyClear,
   voyPad,
+  voyPush,
   voyRandom,
   voyRun,
   kitDial,
@@ -208,6 +209,8 @@ interface Down {
   /** MM-VOYAGER : pad d'accord, CLEAR ou RANDOM */
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random' | 'edit';
+  /** MM-ARP : le reglage d'un bouton poussoir du panneau (SUB OCT, 2026-10-11) */
+  vknob?: VoyKnobId;
   lcd?: PresetKey;
   /** une touche de page du MM-RYTM (2026-10-08) */
   rpage?: string;
@@ -656,6 +659,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'random') voyRandom(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'run') voyRun(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
+      // Un bouton poussoir du panneau (SUB OCT, 2026-10-11) : le cran suivant, la touche s'enfonce
+      else if (d.kind === 'vpush' && d.vknob) voyPush(d.vknob, stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
@@ -814,6 +819,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         chip: h?.chip,
         vpad: h?.vpad,
         vbtn: h?.vbtn,
+        vknob: h?.kind === 'vpush' ? h.vknob : undefined,
         lcd: h?.lcd,
         rpage: h?.rpage,
         multi,

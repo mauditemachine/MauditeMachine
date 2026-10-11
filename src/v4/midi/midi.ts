@@ -230,14 +230,20 @@ function readSaved(): Saved {
   }
 }
 
-/** Des assignations lues (stockage, fichier importe) : seulement des chaines bien formees. */
+/**
+ * Des cibles parties (2026-10-11 : OSC 1 ON et OSC 2 ON du MM-ARP, Mika : "si on veut pas les osc on coupe les
+ * volumes") : leurs assignations apprises s'oublient a la lecture (avant, elles restaient dans le panneau sans rien faire).
+ */
+const RETIRED_TARGETS: ReadonlySet<string> = new Set(['voy:knob:on1', 'voy:knob:on2']);
+
+/** Des assignations lues (stockage, fichier importe) : seulement des chaines bien formees, vers une cible qui existe encore. */
 function cleanMaps(raw: unknown): MidiMaps {
   const out: MidiMaps = {};
   if (!raw || typeof raw !== 'object') return out;
   for (const [scope, m] of Object.entries(raw as Record<string, unknown>)) {
     if (!['mm808', 'voy', 'bass', 'dj', 'global'].includes(scope) || !m || typeof m !== 'object') continue;
     const clean: Record<string, string> = {};
-    for (const [k, t] of Object.entries(m as Record<string, unknown>)) if (KEY_RE.test(k) && typeof t === 'string' && t.length < 80) clean[k] = t;
+    for (const [k, t] of Object.entries(m as Record<string, unknown>)) if (KEY_RE.test(k) && typeof t === 'string' && t.length < 80 && !RETIRED_TARGETS.has(t)) clean[k] = t;
     out[scope as TargetScope] = clean;
   }
   return out;

@@ -40,12 +40,13 @@ const morph = (rnd: Rnd, shapes: number): number => (rnd() < 0.5 ? Math.floor(rn
 /**
  * Les rangees d'oscillateurs (2026-10-04, facon Mini V) : OSC 1 en 8' (la
  * note), OSC 2 par crans musicaux comme l'ancien TUNE 2 : 0 octave dessous,
- * 1 unisson, 2 quinte, 3 octave, 4 deux octaves (RANGE et SEMI) ; les deux
- * allumes.
+ * 1 unisson, 2 quinte, 3 octave, 4 deux octaves (RANGE et SEMI). Les deux
+ * allumes jusqu'au 2026-10-11 (on1, on2) : plus de ON, chaque patch pose les
+ * niveaux OSC 1 et OSC 2 (randomVoyPatch).
  */
 function oscTune(i: number): Partial<Record<VoyKnobId, number>> {
   const k = Math.max(0, Math.min(4, Math.round(i)));
-  return { range1: 3 / 5, semi1: 0.5, on1: 1, range2: [2, 3, 3, 4, 5][k] / 5, semi2: (k === 2 ? 14 : 7) / 14, on2: 1 };
+  return { range1: 3 / 5, semi1: 0.5, range2: [2, 3, 3, 4, 5][k] / 5, semi2: (k === 2 ? 14 : 7) / 14 };
 }
 
 /** Le desaccord des deux oscillateurs, de part et d'autre de la note (lo..hi : l'ancien FINE, 0 a 45 cents d'ecart). */

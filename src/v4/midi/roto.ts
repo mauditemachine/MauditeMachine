@@ -28,7 +28,7 @@
  * - 0 a 127 sur toute la course (le test de Mika : son potard etait borne
  *   de 15 a 115 dans son setup) ; un selecteur a crans du site devient un
  *   potard a crans du Roto (TYPE STEP), ses crans nommes quand le site les
- *   connait ; un etat (RUN, un mute, OSC ON), un bouton TOGGLE dont la
+ *   connait ; un etat (RUN, un mute, SUB -2 OCT), un bouton TOGGLE dont la
  *   LED suit le site ; une action, un bouton PUSH ; un potard bipolaire
  *   (EQ, FILTER, GAIN, PITCH, TONE...), un cran au milieu ;
  * - les noms courts (12 lettres au plus, la limite du Roto), une couleur par
@@ -119,7 +119,7 @@ const bs = (id: BassKnobId, n: string, c: number): Ctl => k(`bass:knob:${id}`, n
  * Une page du Roto montre huit potards ET huit boutons : chaque page va
  * ensemble (2026-10-05, Mika : "tout mappe de la meilleure maniere possible,
  * la plus efficace pour le jeu en live") ; un bouton qui a un etat (RUN, un
- * mute, OSC ON) est une bascule dont la LED suit le site ; un potard
+ * mute, SUB -2 OCT) est une bascule dont la LED suit le site ; un potard
  * bipolaire (EQ, FILTER, GAIN, PITCH, TONE, STRETCH, TUNE) a un cran au
  * milieu (sa valeur neutre).
  */
@@ -293,10 +293,8 @@ function buildSetups(): RotoSetup[] {
       b('nav:next', 'NEXT MACHINE', C.white),
       // 2 : les accords, sous le filtre
       ...CHORD_NAMES.map((_, i) => chord(i)),
-      // 3 : les oscillateurs
-      tog('voy:knob:on1', 'OSC 1 ON', C.green),
-      tog('voy:knob:on2', 'OSC 2 ON', C.green),
-      // le SUB (2026-10-10) : -2 OCT allume (eteint : -1), puis sa forme
+      // 3 : le SUB (2026-10-10) : -2 OCT allume (eteint : -1), puis sa forme ; OSC 1 ON et OSC 2 ON partis le 2026-10-11
+      // (leurs adresses restent a leurs cibles disparues, midi/rotoKeys.ts : un ancien setup ne fait plus rien avec elles)
       tog('voy:knob:subOct', 'SUB -2 OCT', C.gold),
       b('voy:subwave:0', 'SUB SINE', C.gold),
       b('voy:subwave:1', 'SUB TRI', C.gold),
@@ -744,8 +742,11 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
 /* 2026-10-10 : RYTM page 1 = les huit FX globaux de la face (BIT, COMP), MASTER et TEMPO en page 4 ; MIXER et LIVE
  * sans la voie du MM-BASS cache, BASS et BSEQ retires : 1010. A reimporter : RYTM, MIXER, LIVE.
  * Le meme jour, le SUB du MM-ARP : SUB LEVEL a la place de NOISE (ARP page 2), SUB -2 OCT et ses trois formes en
- * boutons (page 3) : 1010.2. A reimporter : ARP (12). */
-export const ROTO_VERSION = '2026-10-10.2';
+ * boutons (page 3) : 1010.2. A reimporter : ARP (12).
+ * 2026-10-11 : les boutons OSC 1 ON et OSC 2 ON sont partis (les ON des oscillateurs du MM-ARP aussi, Mika : "si on
+ * veut pas les osc on coupe les volumes") ; SUB -2 OCT et les trois formes du SUB ouvrent la page 3 : 1011. A
+ * reimporter : ARP (12). */
+export const ROTO_VERSION = '2026-10-11';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);

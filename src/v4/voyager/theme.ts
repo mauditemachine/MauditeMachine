@@ -160,10 +160,15 @@ type Spot = readonly [number, number, KnobSize];
  * chaque section une composition, plus une grille :
  *   OSCILLATORS (2026-10-04, facon Mini V, Mika : "tu pourrais avoir les
  *     oscillateurs de cette maniere") : une rangee par oscillateur, son
- *     numero a gauche, WAVEFORM, RANGE, SEMI, FINE, ON et sa LED ; dessous
- *     le melangeur et la FM : OSC 1, OSC 2, NOISE, FM, RATIO ; le SUB
- *     (2026-10-10) s'y glisse apres NOISE : SUB, SUB OCT, SUB WAVE (la
- *     rangee resserree au pas de 0.62, FM et RATIO poussees a droite) ;
+ *     numero a gauche, WAVEFORM, RANGE, SEMI, FINE, puis FM (rangee 1) et
+ *     RATIO (rangee 2) au bout ; dessous le melangeur et le SUB, repartis sur
+ *     toute la largeur de la section : OSC 1, OSC 2, NOISE, SUB, SUB WAVE et
+ *     le bouton SUB OCT. Depuis le 2026-10-11 (Mika : "je pense que ces knobs
+ *     ne servent a rien.. si on veut pas les osc on coupe les volumes" et "le
+ *     knob Oct a deux positions il faut qu'on fasse un peu d'espace") : plus
+ *     de ON ni de leur LED, FM et RATIO prennent leur colonne (les colonnes
+ *     des rangees un peu a gauche : le +50 de FINE loin de FM) ; la rangee du
+ *     bas passe du pas de 0.62 (FM et RATIO y etaient) a 0.9 ;
  *   FILTER : CUTOFF en tres grand, RES et ENV AMT dessous, MODE en bas ;
  *   FILTER EG, AMP EG, MOD (DEPTH plus gros) : trois rangees de petits ;
  *   EFFECTS : quatre petits ; OUTPUT : VOLUME en grand.
@@ -175,7 +180,15 @@ const DESK_ROWS = [-0.72, 0.66, 1.72];
 const DESK_TITLE_Z = -1.6;
 const [RA, RB, RC] = DESK_ROWS;
 /** les colonnes des rangees d'oscillateurs, du melangeur, des enveloppes et des effets ; les filets entre les sections */
-const DESK_OSC = { badge: -6.1, wave: -5.38, range: -4.28, semi: -3.17, fine: -2.17, on: -1.42 } as const;
+// 2026-10-11 : semi -3.17, fine -2.17 et on -1.42 avant ; fm a -1.44 (sa jupe a 0.08 du filet, a 0.12 des reperes de FINE)
+const DESK_OSC = { badge: -6.1, wave: -5.38, range: -4.28, semi: -3.18, fine: -2.22, fm: -1.44 } as const;
+/** n colonnes egales de a a b. */
+const spread = (a: number, b: number, n: number): number[] => Array.from({ length: n }, (_, i) => a + ((b - a) * i) / (n - 1));
+/**
+ * La rangee du bas (2026-10-11) : six colonnes egales, d'OSC 1 (sous les numeros) a SUB OCT (sous FM et RATIO) ;
+ * avant, sept petits au pas de 0.62 (-5.945 a -2.845) puis FM et RATIO.
+ */
+const DESK_RC_X = spread(-5.93, DESK_OSC.fm, 6);
 const DESK_EG = [1.12, 1.84, 2.56, 3.28] as const;
 const DESK_FX = [4.02, 4.72] as const;
 const DESK_FILTER_X = -0.15;
@@ -186,20 +199,19 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   range1: [DESK_OSC.range, RA, 's'],
   semi1: [DESK_OSC.semi, RA, 'm'],
   fine1: [DESK_OSC.fine, RA, 's'],
-  on1: [DESK_OSC.on, RA, 'sw'],
+  fm: [DESK_OSC.fm, RA, 'm'],
   wave2: [DESK_OSC.wave, RB, 'sel'],
   range2: [DESK_OSC.range, RB, 's'],
   semi2: [DESK_OSC.semi, RB, 'm'],
   fine2: [DESK_OSC.fine, RB, 's'],
-  on2: [DESK_OSC.on, RB, 'sw'],
-  osc1: [-5.945, RC, 's'],
-  osc2: [-5.325, RC, 's'],
-  noise: [-4.705, RC, 's'],
-  sub: [-4.085, RC, 's'],
-  subOct: [-3.465, RC, 's'],
-  subWave: [-2.845, RC, 's'],
-  fm: [-2.17, RC, 'm'],
-  ratio: [-1.49, RC, 's'],
+  ratio: [DESK_OSC.fm, RB, 's'],
+  osc1: [DESK_RC_X[0], RC, 's'],
+  osc2: [DESK_RC_X[1], RC, 's'],
+  noise: [DESK_RC_X[2], RC, 's'],
+  sub: [DESK_RC_X[3], RC, 's'],
+  subWave: [DESK_RC_X[4], RC, 's'],
+  // Le bouton poussoir (isPush) : son nom sur la ligne de ceux des petits potards de la rangee
+  subOct: [DESK_RC_X[5], RC, 's'],
   cutoff: [DESK_FILTER_X, -0.5, 'xl'],
   res: [DESK_FILTER_X - 0.5, RB, 'm'],
   envAmt: [DESK_FILTER_X + 0.5, RB, 'm'],
@@ -245,9 +257,11 @@ const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
 /**
  * Portrait : trois zones :
  *   OSCILLATORS (2026-10-04, facon Mini V) : une rangee par oscillateur,
- *     son numero a gauche, WAVEFORM, RANGE, SEMI, FINE, ON et sa LED, puis
- *     FM (rangee 1) et RATIO (rangee 2), puis SUB OCT et SUB WAVE au bout
- *     (2026-10-10) ; pas de crochet, les numeros disent les rangees ;
+ *     son numero a gauche, WAVEFORM, RANGE, SEMI, FINE, puis FM (rangee 1)
+ *     et RATIO (rangee 2), puis le bouton SUB OCT (rangee 1) et SUB WAVE
+ *     (rangee 2) au bout (2026-10-10 ; plus de ON depuis le 2026-10-11, les
+ *     colonnes reparties au pas de 1.2 sur la largeur liberee) ; pas de
+ *     crochet, les numeros disent les rangees ;
  *   FILTER : CUTOFF en tres grand, RES, ENV AMT, MODE ; MIXER : OSC 1,
  *     OSC 2, NOISE, SUB (2026-10-10, quatre petits) ;
  *   FILTER EG et MOD : une rangee de huit, sur toute la largeur.
@@ -260,7 +274,8 @@ const PORT_O1 = -2.15;
 const PORT_O2 = -0.72;
 const PORT_F = 0.78;
 const PORT_E1 = 2.32;
-const PORT_OSC = { badge: -3.66, wave: -2.95, range: -1.8, semi: -0.6, fine: 0.5, on: 1.5, fm: 2.3, sub: 3.2 } as const;
+// 2026-10-11 : fine 0.5, on 1.5, fm 2.3, sub 3.2 avant ; de RANGE au SUB, un pas de 1.2
+const PORT_OSC = { badge: -3.66, wave: -2.95, range: -1.8, semi: -0.6, fine: 0.6, fm: 1.8, sub: 3.0 } as const;
 /** Les huit colonnes des rangees de petits (deux groupes de quatre), panneau et plateau. */
 const PORT_EIGHT = [-3.3, -2.42, -1.54, -0.66, 0.56, 1.44, 2.32, 3.2] as const;
 const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
@@ -268,14 +283,12 @@ const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   range1: [PORT_OSC.range, PORT_O1, 's'],
   semi1: [PORT_OSC.semi, PORT_O1, 'm'],
   fine1: [PORT_OSC.fine, PORT_O1, 's'],
-  on1: [PORT_OSC.on, PORT_O1, 'sw'],
   fm: [PORT_OSC.fm, PORT_O1, 'm'],
   subOct: [PORT_OSC.sub, PORT_O1, 's'],
   wave2: [PORT_OSC.wave, PORT_O2, 'sel'],
   range2: [PORT_OSC.range, PORT_O2, 's'],
   semi2: [PORT_OSC.semi, PORT_O2, 'm'],
   fine2: [PORT_OSC.fine, PORT_O2, 's'],
-  on2: [PORT_OSC.on, PORT_O2, 'sw'],
   ratio: [PORT_OSC.fm, PORT_O2, 's'],
   subWave: [PORT_OSC.sub, PORT_O2, 's'],
   cutoff: [-2.65, PORT_F + 0.15, 'xl'],
@@ -344,8 +357,8 @@ export const switchThrowDeg = (n: number): number => (n <= 2 ? 90 : n <= 4 ? 150
  * Les echelles des rangees d'oscillateurs (2026-10-04, facon Mini V) :
  * RANGE, un selecteur a six crans (LO a 2') sur 180 deg, chaque cran ecrit ;
  * SEMI, quinze crans sur la course entiere, les impairs ecrits ; FINE,
- * -50 0 +50 (le capuchon noir des autres potards). ON : un commutateur,
- * son nom dessous, sa LED rouge au-dessus.
+ * -50 0 +50 (le capuchon noir des autres potards). ON (un commutateur, sa
+ * LED rouge au-dessus) est parti le 2026-10-11 : sa LED sert a SUB OCT.
  */
 export type VoyScale = 'range' | 'semi' | 'fine';
 export function voyScale(id: VoyKnobId): VoyScale | null {
@@ -354,7 +367,6 @@ export function voyScale(id: VoyKnobId): VoyScale | null {
   if (id === 'fine1' || id === 'fine2') return 'fine';
   return null;
 }
-export const isOscOn = (id: VoyKnobId): boolean => id === 'on1' || id === 'on2';
 export const RANGE_THROW_DEG = 180;
 /** Course d'un potard de n crans (deg) : commutateur, RANGE, ou la course entiere. */
 export const knobThrowDeg = (id: VoyKnobId, n: number): number => (isSwitch(id) ? switchThrowDeg(n) : voyScale(id) === 'range' ? RANGE_THROW_DEG : TEMPO_UI.sweepDeg);
@@ -371,8 +383,27 @@ export const VOY_OSC_BADGES: readonly { text: string; x: number; z: number }[] =
       { text: '1', x: DESK_OSC.badge, z: RA },
       { text: '2', x: DESK_OSC.badge, z: RB },
     ];
-/** La LED de ON : rouge allumee, au-dessus du commutateur (dz sous le haut de sa jupe). */
-export const VOY_LED = { r: 0.055, dz: 0.15, on: '#ff3b2f', off: 'rgba(110, 24, 18, 0.55)' } as const;
+/** La LED (celle de ON jusqu'au 2026-10-11, celles de SUB OCT depuis) : rouge allumee, sombre eteinte. */
+export const VOY_LED = { r: 0.055, on: '#ff3b2f', off: 'rgba(110, 24, 18, 0.55)' } as const;
+
+/**
+ * Le bouton poussoir de SUB OCT (2026-10-11, Mika : "le knob Oct a deux
+ * positions il faut qu'on fasse un peu d'espace ya pas un endroit meilleure ?
+ * ou ptete un bouton poussoir je sais pas") : une petite touche de caoutchouc,
+ * celle du plateau en petit (voyager/pads.ts), son nom dessous, sur la ligne
+ * des noms des petits potards de sa rangee, et deux LED au-dessus, -1 et -2,
+ * l'octave choisie allumee ; chaque appui passe a l'autre. w, d, h : la
+ * touche ; press : sa course ; labelGap : du centre du nom au bas de la
+ * touche ; led : l'ecart de chaque LED au centre (dx), du haut de la touche a
+ * leur centre (dz), de leur centre a leur nom (textDz).
+ */
+// La touche : a peu pres la largeur d'un petit potard de sa rangee (0.38 x 0.25 et 0.52 x 0.34 au premier essai : trop chetive)
+export const VOY_PUSH = PORTRAIT
+  ? { w: 0.62, d: 0.4, h: 0.11, press: 0.035, labelGap: 0.15, led: { dx: 0.16, dz: 0.13, textDz: 0.15 } }
+  : { w: 0.44, d: 0.28, h: 0.09, press: 0.03, labelGap: 0.13, led: { dx: 0.11, dz: 0.1, textDz: 0.12 } };
+const PUSHES = new Set<VoyKnobId>(['subOct']);
+/** Un bouton poussoir (SUB OCT) : pas de potard, une touche et ses LED ; chaque appui passe au cran suivant. */
+export const isPush = (id: VoyKnobId): boolean => PUSHES.has(id);
 /** Libelle sous la jupe : 0.13 sous son bord ; sous la couronne d'un selecteur ; plus bas sous des graduations. */
 const labelBelow = (id: VoyKnobId, s: number): number => {
   if (isSelector(id)) return VOY_SEL.labelR * s;
@@ -389,9 +420,22 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
   const where: VoyWhere = deck ? 'deck' : 'panel';
   const base = where === 'deck' ? VOY_KNOB.scale : VOY_KNOB.panelScale;
   const s = base * SIZE_SCALE[spot[2]];
+  // Un bouton poussoir (2026-10-11) : son nom ou serait celui d'un potard de sa taille, la touche juste au-dessus (z : son centre)
+  if (isPush(id)) {
+    const labelZ = spot[1] + labelBelow(id, s);
+    return { id, where, x: spot[0], z: labelZ - VOY_PUSH.labelGap - VOY_PUSH.d / 2, s, labelZ };
+  }
   // Un commutateur pose plus bas : son libelle s'aligne sur ceux de la rangee (taille m)
   const z = spot[1] + (spot[2] === 'sw' ? VOY_KNOB.skirt.r * base * (SIZE_SCALE.m - SIZE_SCALE.sw) : 0);
   return { id, where, x: spot[0], z, s, labelZ: z + labelBelow(id, s) };
+}
+
+/** Les LED d'un bouton poussoir, une par cran (-1, -2), et leurs noms au-dessus (plan de la touche). */
+export function voyPushLeds(id: VoyKnobId, steps: readonly string[]): { x: number; z: number; text: string; tz: number }[] {
+  const p = voyKnobPlace(id);
+  const L = VOY_PUSH.led;
+  const z = p.z - VOY_PUSH.d / 2 - L.dz;
+  return steps.map((text, i) => ({ x: p.x + (2 * i - (steps.length - 1)) * L.dx, z, text, tz: z - L.textDz }));
 }
 
 /** Titres entre deux rangees (AMP EG, MOD) : au milieu du jour entre les libelles du dessus et les petits potards du dessous. */

@@ -18,6 +18,10 @@
  * (knobThrowDeg). SEMI et FINE ont perdu leur capuchon chrome le meme
  * jour (Mika : "les boutons sont d'une autre couleur, j'aimerais que ce
  * soit la meme chose que les autres").
+ *
+ * SUB OCT n'est plus un potard depuis le 2026-10-11 : un bouton poussoir
+ * (voyager/pads.ts VoyKeys, theme.ts isPush) ; DIALS, les potards de la face
+ * sans lui.
  */
 
 import {
@@ -39,7 +43,7 @@ import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
 import { LIT, TEMPO_UI } from '../theme';
 import { VOY_FACE_KNOBS, type VoyKnobId } from './params';
-import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
+import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -48,6 +52,8 @@ const quat = new Quaternion();
 const scl = new Vector3();
 /** Le panneau dans le repere du capot (rig.ts le pose pareil). */
 const PANEL_M = new Matrix4().compose(new Vector3(0, VOY_PANEL.cy, VOY_PANEL.cz), new Quaternion().setFromEuler(new Euler(VOY_PANEL.angle, 0, 0)), new Vector3(1, 1, 1));
+/** Les potards de la face, sans les boutons poussoirs (SUB OCT, 2026-10-11). */
+const DIALS = VOY_FACE_KNOBS.filter((k) => !isPush(k.id));
 
 export function buildKnobGeometry(mobile: boolean): BufferGeometry {
   const K = VOY_KNOB;
@@ -96,16 +102,16 @@ export class VoyKnobs {
     // Un peu de metal : la jupe d'aluminium accroche la lumiere, le capuchon reste mat
     this.material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.material.name = 'voyKnob';
-    this.mesh = new InstancedMesh(buildKnobGeometry(opts.mobile), this.material, VOY_FACE_KNOBS.length);
+    this.mesh = new InstancedMesh(buildKnobGeometry(opts.mobile), this.material, DIALS.length);
     this.mesh.name = 'voyKnobs';
     this.mesh.castShadow = opts.castShadow;
     this.mesh.receiveShadow = true;
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    for (const k of VOY_FACE_KNOBS) this.place(k.id);
+    for (const k of DIALS) this.place(k.id);
   }
 
   private place(id: VoyKnobId): void {
-    const i = VOY_FACE_KNOBS.findIndex((k) => k.id === id);
+    const i = DIALS.findIndex((k) => k.id === id);
     if (i < 0) return;
     const pl = voyKnobPlace(id);
     quat.setFromAxisAngle(AXIS_Y, this.angle.get(id) ?? 0);
@@ -117,7 +123,7 @@ export class VoyKnobs {
 
   /** Valeur 0 a 1 -> angle ; true s'il faut une frame. */
   setValue(id: VoyKnobId, v: number): boolean {
-    const k = VOY_FACE_KNOBS.find((x) => x.id === id);
+    const k = DIALS.find((x) => x.id === id);
     if (!k) return false;
     const n = k.steps?.length ?? 2;
     const a = Math.fround(potAngle(v) * (knobThrowDeg(id, n) / TEMPO_UI.sweepDeg));
@@ -129,7 +135,7 @@ export class VoyKnobs {
 
   /** Les potards pour le picking : un cylindre de la jupe, jusqu'au haut du capuchon ; repere de leur plan. */
   hotspots(panel: Object3D, deck: Object3D): HotspotDef[] {
-    return VOY_FACE_KNOBS.map((k) => {
+    return DIALS.map((k) => {
       const pl = voyKnobPlace(k.id);
       // Un commutateur se prend aussi par ses reperes (12, 24) : sa cible deborde
       // Au telephone, au moins la demi-colonne (2026-10-07) : un doigt l'attrape sans viser la jupe
@@ -153,8 +159,8 @@ export class VoyKnobs {
 
   info(): { ids: VoyKnobId[]; angleDeg: number[] } {
     return {
-      ids: VOY_FACE_KNOBS.map((k) => k.id),
-      angleDeg: VOY_FACE_KNOBS.map((k) => +(((this.angle.get(k.id) ?? 0) * 180) / Math.PI).toFixed(2)),
+      ids: DIALS.map((k) => k.id),
+      angleDeg: DIALS.map((k) => +(((this.angle.get(k.id) ?? 0) * 180) / Math.PI).toFixed(2)),
     };
   }
 

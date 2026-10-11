@@ -21,7 +21,7 @@
 
 import { presetMode } from '../state/presetMode';
 import { presets } from '../state/presets';
-import { VOY_KNOB_IDS, voyParams, type VoyKnobId } from './params';
+import { RETIRED_ON, VOY_KNOB_IDS, voyParams, withoutOscOn, type VoyKnobId } from './params';
 import { seq } from './seq';
 
 const KEY = 'mm.v4.voyager.preset';
@@ -31,8 +31,20 @@ const KEY = 'mm.v4.voyager.preset';
  * une empreinte gardee avant eux reste donc valable (pas d'etoile pour rien).
  */
 const ADDED_IDS: readonly VoyKnobId[] = ['sub', 'subOct', 'subWave'];
+/**
+ * Les ON des oscillateurs (on1 apres FINE 1, on2 apres FINE 2), retires le 2026-10-11 (Mika : "si on veut pas les osc
+ * on coupe les volumes") : l'empreinte garde leur place, a ON (1), la valeur qu'ils ont toujours une fois un son migre
+ * (un OFF est devenu le niveau a 0, params.ts migrateKnobs) ; une empreinte gardee avant eux reste valable (read les
+ * y ramene : un OFF y devient ON et son niveau 0, comme les potards).
+ */
+type SigId = VoyKnobId | 'on1' | 'on2';
+const RETIRED_AFTER: Readonly<Partial<Record<VoyKnobId, SigId>>> = { fine1: 'on1', fine2: 'on2' };
 /** Le niveau de sortie n'est pas le son : VOLUME tourne ne marque pas le patch (RANDOM le garde aussi). */
-const SOUND_IDS = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id));
+const SOUND_IDS: readonly SigId[] = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id)).flatMap((id): SigId[] => {
+  const after = RETIRED_AFTER[id];
+  return after ? [id, after] : [id];
+});
+const isRetired = (id: SigId): id is 'on1' | 'on2' => id === 'on1' || id === 'on2';
 
 interface Origin {
   /** l'id du preset (presets.list), null : RANDOM */
@@ -41,24 +53,50 @@ interface Origin {
   sig: string;
 }
 
-/** L'empreinte d'un son : ses potards (un absent : sa valeur de depart) et sa suite d'EDIT. */
-function sigOf(v: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len: number; buf: readonly unknown[] }): string {
+/** L'empreinte d'un son : ses potards (un absent : sa valeur de depart ; un ON d'avant plie dans son niveau) et sa suite d'EDIT. */
+function sigOf(raw: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len: number; buf: readonly unknown[] }): string {
+  const v = withoutOscOn(raw) as Partial<Record<VoyKnobId, number>>;
   const at = (id: VoyKnobId): number => v[id] ?? voyParams.def(id);
+  const sound = (id: SigId): number => (isRetired(id) ? 1 : at(id));
   const added = ADDED_IDS.some((id) => at(id) !== voyParams.def(id)) ? [ADDED_IDS.map(at)] : [];
-  return JSON.stringify([SOUND_IDS.map(at), s.edit ? [s.len, s.buf] : 0, ...added]);
+  return JSON.stringify([SOUND_IDS.map(sound), s.edit ? [s.len, s.buf] : 0, ...added]);
+}
+
+/**
+ * Une empreinte gardee avant le 2026-10-11 (ses ON a leur place) : un oscillateur coupe (ON a 0) y devient ON et son
+ * niveau 0, comme ses potards a la lecture ; le meme son, la meme empreinte (pas d'etoile pour rien).
+ */
+function migrateSig(sig: string): string {
+  try {
+    const a = JSON.parse(sig) as unknown[];
+    const knobs = Array.isArray(a) ? a[0] : null;
+    if (!Array.isArray(knobs) || knobs.length !== SOUND_IDS.length) return sig;
+    let moved = false;
+    for (const [on, osc] of RETIRED_ON) {
+      const i = SOUND_IDS.indexOf(on as SigId);
+      const j = SOUND_IDS.indexOf(osc);
+      if (i < 0 || j < 0 || typeof knobs[i] !== 'number' || knobs[i] >= 0.5) continue;
+      knobs[i] = 1;
+      knobs[j] = 0;
+      moved = true;
+    }
+    return moved ? JSON.stringify(a) : sig;
+  } catch {
+    return sig;
+  }
 }
 
 /** L'empreinte du son tel qu'il est. */
 const sigNow = (): string => sigOf(voyParams.get(), seq.get());
 
 /** L'empreinte du son de depart (INIT). */
-const INIT_SIG = JSON.stringify([SOUND_IDS.map((id) => voyParams.def(id)), 0]);
+const INIT_SIG = JSON.stringify([SOUND_IDS.map((id) => (isRetired(id) ? 1 : voyParams.def(id))), 0]);
 
 function read(): Origin | null {
   try {
     const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as Partial<Origin> | null;
     if (!raw || typeof raw.name !== 'string' || typeof raw.sig !== 'string') return null;
-    return { id: typeof raw.id === 'string' ? raw.id : null, name: raw.name, sig: raw.sig };
+    return { id: typeof raw.id === 'string' ? raw.id : null, name: raw.name, sig: migrateSig(raw.sig) };
   } catch {
     return null;
   }

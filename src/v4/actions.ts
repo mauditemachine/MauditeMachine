@@ -48,7 +48,7 @@ import { BOARD_CHIPS, GLOBAL_ENCODERS, MOBILE_QUERY, PAGE_KNOB_LETTERS, POT_UI, 
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
-import { voyKnob, voyParams, voyReadout, voyValueText, type VoyKnobId } from './voyager/params';
+import { stepIndex, voyKnob, voyParams, voyReadout, voyValueText, type VoyKnobId } from './voyager/params';
 import { randomVoyStyle, type VoyStyle } from './voyager/random';
 import { SEQ_MAX, seq } from './voyager/seq';
 
@@ -1029,6 +1029,19 @@ export function voyDial(id: VoyKnobId, v: number): void {
   // MODE, RANGE et NOTES fabriquent la suite : la tourner repasse en AUTO (voyager/seq.ts)
   if (voyParams.set(id, v) && (id === 'mode' || id === 'range' || id === 'notes')) seq.auto();
   voyEcho.touch(id);
+}
+
+/**
+ * Un bouton poussoir du MM-ARP (2026-10-11, SUB OCT, Mika : "le knob Oct a
+ * deux positions il faut qu'on fasse un peu d'espace ya pas un endroit
+ * meilleure ? ou ptete un bouton poussoir je sais pas") : chaque appui passe
+ * au cran suivant (-1, -2, puis -1) ; la touche s'enfonce, l'ecran le dit
+ * comme pour un potard (l'echo : SUB -2 OCT), ses LED suivent.
+ */
+export function voyPush(id: VoyKnobId, stage: Stage | null = null): void {
+  const n = voyKnob(id).steps?.length ?? 2;
+  voyDial(id, ((stepIndex(id, voyParams.of(id)) + 1) % n) / Math.max(1, n - 1));
+  stage?.voy?.keys.pressPush(id);
 }
 
 /**

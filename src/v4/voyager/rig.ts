@@ -14,7 +14,8 @@
  *   2026-10-04 : la plaque des TWEAKS a leur place (tweaks.ts) ;
  * - lid : le capot (plateau, son ecran, ses pads et boutons, les potards
  *   des deux plans) ; OPEN le souleve (scene/explode.ts, VOY_EXPLODE) ;
- * - panel : enfant du capot, incline : sa serigraphie.
+ * - panel : enfant du capot, incline : sa serigraphie, ses boutons poussoirs
+ *   (SUB OCT, 2026-10-11).
  *
  * Le grand ecran (2026-10-08, voyager/screen.ts, a la place du petit ecran
  * de lcd.ts) : le rig compose ce qu'il montre (screenState : l'accord qui
@@ -170,6 +171,8 @@ export class VoyagerRig {
 
     this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
     this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed);
+    // Les boutons poussoirs (SUB OCT, 2026-10-11) : sur le panneau incline, comme sa serigraphie
+    this.panel.add(this.keys.pushes);
     this.knobs = new VoyKnobs({ mobile: opts.mobile, castShadow: !opts.mobile });
     this.lid.add(this.knobs.mesh);
     this.lcd = new VoyScreen(opts.anisotropy);
@@ -239,7 +242,7 @@ export class VoyagerRig {
       enabled: true,
     };
     const seqDefs = this.seqScreen ? [this.seqScreen.hotspot(this.lid)] : [];
-    this.defs = [...keyDefs, ...seqDefs, ...lcdDefs, infoDef, ...this.knobs.hotspots(this.panel, this.lid), ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'voy' as const }));
+    this.defs = [...keyDefs, ...seqDefs, ...lcdDefs, infoDef, ...this.knobs.hotspots(this.panel, this.lid), ...this.keys.pushHotspots(this.panel), ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'voy' as const }));
     this.seqDef = this.defs.find((d) => d.kind === 'vseq') ?? null;
     this.padDefs = this.defs.filter((d) => d.kind === 'vpad');
     // Les copies portent l'etat : retrouver les TWEAKS dans la liste finale
@@ -316,11 +319,10 @@ export class VoyagerRig {
     const w2 = Math.round(morphPos('wave2', v.wave2) * 20) / 20;
     if (this.panelSilk.setSelectors(w1, w2)) changed = true;
     if (this.deckSilk.setSelectors(w1, w2)) changed = true;
-    // Les LED de ON des deux oscillateurs (facon Mini V)
-    const on1 = stepIndex('on1', v.on1) === 1;
-    const on2 = stepIndex('on2', v.on2) === 1;
-    if (this.panelSilk.setLeds(on1, on2)) changed = true;
-    if (this.deckSilk.setLeds(on1, on2)) changed = true;
+    // Les LED du bouton SUB OCT (2026-10-11, a la place de celles de ON) : l'octave choisie
+    const oct = stepIndex('subOct', v.subOct);
+    if (this.panelSilk.setPush('subOct', oct)) changed = true;
+    if (this.deckSilk.setPush('subOct', oct)) changed = true;
     if (this.syncLcd(false)) changed = true;
     if (changed) {
       if (this.knobs.mesh.castShadow) this.opts.invalidate();
@@ -588,7 +590,9 @@ export class VoyagerRig {
       const i = this.keys.buttonIndex(id.slice(5) as never);
       slot = i >= 0 ? CHORDS.length + i : -1;
     }
-    return this.keys.setHover(slot);
+    // Un bouton poussoir du panneau (SUB OCT, 2026-10-11) : un peu de lumiere au survol, comme les touches
+    const push = this.keys.setPushHover(id);
+    return this.keys.setHover(slot) || push;
   }
 
   /** Polices ou logos arrives : la serigraphie se redessine. */
@@ -613,6 +617,8 @@ export class VoyagerRig {
       screen: { ...this.lcd.info, size: [...this.lcd.info.size], ladder: [...this.lcd.info.ladder] },
       lastPad: this.lastPad,
       silkDraws: [this.deckSilk.draws, this.panelSilk.draws],
+      // Les LED des boutons poussoirs (SUB OCT, 2026-10-11) : le cran allume, sur chaque plan
+      pushLeds: { panel: { ...this.panelSilk.pushes }, deck: { ...this.deckSilk.pushes } },
       pcb: { prepared: this.pcb.info().prepared },
     };
   }

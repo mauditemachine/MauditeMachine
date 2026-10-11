@@ -267,18 +267,6 @@ function fineDiagram(v: number): VoyDiagram {
   return p.done();
 }
 
-/** ON : la forme qui sonne, ou le trait plat. */
-function onDiagram(on: boolean): VoyDiagram {
-  const p = new Pic();
-  p.p(axis(), 'grid');
-  if (on) p.p(curve((t) => MID - 28 * shapeAt(2, (t * 3) % 1), X0, X1, 240), 'hot');
-  else {
-    p.p(curve((t) => MID - 28 * shapeAt(2, (t * 3) % 1), X0, X1, 240), 'ghost');
-    p.p(axis(), 'hot');
-  }
-  p.label(on ? 'ON' : 'OFF', X1, BOT, 'end');
-  return p.done();
-}
 
 /** Le melangeur : OSC 1, OSC 2, NOISE en faders ; celui qu'on touche en plein. */
 function mixerDiagram(id: VoyKnobId, values: Readonly<VoyValues>): VoyDiagram {
@@ -1015,9 +1003,6 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
     case 'fine1':
     case 'fine2':
       return fineDiagram(c.v);
-    case 'on1':
-    case 'on2':
-      return onDiagram(stepIndex(id, c.v) === 1);
     case 'osc1':
     case 'osc2':
       return mixerDiagram(id, values);

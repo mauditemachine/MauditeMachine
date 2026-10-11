@@ -15,6 +15,12 @@
  *   orange plein qui respire, faible machine ouverte ; CLEAR et RANDOM :
  *   eteints, un eclat a l'appui.
  * Appui : la touche s'enfonce et remonte (reduced motion : la lumiere seule).
+ *
+ * Les boutons poussoirs du panneau (2026-10-11, SUB OCT, Mika : "ou ptete un
+ * bouton poussoir je sais pas") : la meme touche de caoutchouc en petit
+ * (VOY_PUSH), posee dans le repere du panneau (rig.ts), eteinte, un peu de
+ * lumiere au survol ; elle s'enfonce a l'appui. Ses LED (-1, -2) sont
+ * dessinees sur la serigraphie (silk.ts).
  */
 
 import {
@@ -41,15 +47,19 @@ import type { HotspotDef } from '../scene/hit';
 import { albedo, withInstanceEmissive } from '../scene/materials';
 import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
-import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, gainOf } from '../theme';
+import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PORTRAIT, gainOf } from '../theme';
 import { CHORDS } from './chords';
-import { VOY_BUTTON, VOY_BUTTONS, VOY_PAD, voyPadAt, type VoyButtonId } from './theme';
+import { VOY_FACE_KNOBS, voyKnob, type VoyKnobId } from './params';
+import { VOY_BUTTON, VOY_BUTTONS, VOY_KNOB, VOY_PAD, VOY_PUSH, isPush, voyKnobPlace, voyPadAt, voyPushLeds, type VoyButtonId } from './theme';
 
 const PADS = CHORDS.length;
 const BTNS = VOY_BUTTONS.length;
 const OPEN_I = VOY_BUTTONS.findIndex((b) => b.id === 'open');
 const RUN_I = VOY_BUTTONS.findIndex((b) => b.id === 'run');
 const EDIT_I = VOY_BUTTONS.findIndex((b) => b.id === 'edit');
+/** Les boutons poussoirs du panneau (SUB OCT, 2026-10-11). */
+const PUSH_IDS: readonly VoyKnobId[] = VOY_FACE_KNOBS.filter((k) => isPush(k.id)).map((k) => k.id);
+const PUSHES = PUSH_IDS.length;
 
 type Glow = 'off' | 'faint' | 'hover' | 'queued' | 'active' | 'flash' | 'orange' | 'orangeDim';
 const RGB: Record<Glow, readonly number[]> = {
@@ -136,6 +146,16 @@ function padGeometry(mobile: boolean): BufferGeometry {
   return merged;
 }
 
+/** Un bouton poussoir du panneau (2026-10-11) : la touche du plateau a sa taille (des coins a sa mesure, pas ceux d'une touche reduite). */
+function pushGeometry(mobile: boolean): BufferGeometry {
+  const P = VOY_PUSH;
+  const g = new RoundedBoxGeometry(P.w, P.h, P.d, mobile ? 2 : 3, Math.min(0.04, P.h / 2 - 0.005));
+  g.translate(0, P.h / 2, 0);
+  g.deleteAttribute('uv');
+  paintRubber(g);
+  return g;
+}
+
 /** Touche unite (1 x h x 1), mise a l'echelle par instance. */
 function buttonGeometry(mobile: boolean): BufferGeometry {
   const g = new RoundedBoxGeometry(1, VOY_BUTTON.h, 1, mobile ? 2 : 3, VOY_BUTTON.radius);
@@ -156,6 +176,12 @@ export class VoyKeys {
   readonly pads: InstancedMesh;
   readonly buttons: InstancedMesh;
   readonly halos: InstancedMesh;
+  /** les boutons poussoirs du panneau (SUB OCT, 2026-10-11) : rig.ts les pose dans le repere du panneau */
+  readonly pushes: InstancedMesh;
+  private pushEm: InstancedBufferAttribute;
+  private pushY = new Float32Array(PUSHES);
+  /** le bouton poussoir survole (-1 : aucun) */
+  private pushHover = -1;
   /** le temoin de RUN/STOP (une barre sur la touche, comme sur la 808) */
   readonly runLed: Mesh;
   private ledMat: MeshBasicMaterial;
@@ -214,6 +240,20 @@ export class VoyKeys {
     const rubber = albedo('pad', new Color(), gainOf('pad'));
     this.buttons.setColorAt(RUN_I, col.setRGB(LIT.run[0] / rubber.r, LIT.run[1] / rubber.g, LIT.run[2] / rubber.b));
     this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
+    // Les boutons poussoirs : la matiere des touches (le caoutchouc, sa lumiere par instance), eteints
+    const ug = pushGeometry(opts.mobile);
+    this.pushEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, PUSHES) * 3), 3);
+    this.pushEm.setUsage(DynamicDrawUsage);
+    ug.setAttribute('instanceEmissive', this.pushEm);
+    this.pushes = new InstancedMesh(ug, this.btnMat, PUSHES);
+    this.pushes.name = 'voyPushes';
+    this.pushes.castShadow = !opts.mobile;
+    this.pushes.receiveShadow = true;
+    this.pushes.instanceMatrix.setUsage(DynamicDrawUsage);
+    for (let i = 0; i < PUSHES; i += 1) {
+      this.pushes.setColorAt(i, col.setRGB(1, 1, 1));
+      this.placePush(i);
+    }
     // Son temoin : eteint, une fente (line) ; allume, jaune
     const lg = new PlaneGeometry(Math.min(BTN_LED.w, VOY_BUTTONS[RUN_I].w * 0.6), BTN_LED.d);
     lg.rotateX(-Math.PI / 2);
@@ -256,6 +296,43 @@ export class VoyKeys {
     this.buttons.instanceMatrix.needsUpdate = true;
     // Le temoin suit sa touche quand elle s'enfonce
     if (i === RUN_I && this.runLed) this.runLed.position.set(b.x, this.btnY[i] + VOY_BUTTON.h + BTN_LED.y, b.z - b.d / 2 + BTN_LED.back);
+  }
+
+  private placePush(i: number): void {
+    const p = voyKnobPlace(PUSH_IDS[i]);
+    this.pushes.setMatrixAt(i, m4.makeTranslation(p.x, this.pushY[i], p.z));
+    this.pushes.instanceMatrix.needsUpdate = true;
+  }
+
+  private setPushGlow(i: number, g: Glow): void {
+    const a = this.pushEm.array as Float32Array;
+    const c = RGB[g];
+    a[i * 3] = c[0];
+    a[i * 3 + 1] = c[1];
+    a[i * 3 + 2] = c[2];
+    this.pushEm.needsUpdate = true;
+  }
+
+  /** Survol d'un bouton poussoir (son id de saisie, vk-subOct ; null : aucun) ; true s'il faut une frame. */
+  setPushHover(hotspot: string | null): boolean {
+    const i = hotspot && hotspot.startsWith('vk-') ? PUSH_IDS.indexOf(hotspot.slice(3) as VoyKnobId) : -1;
+    if (i === this.pushHover) return false;
+    const prev = this.pushHover;
+    this.pushHover = i;
+    if (prev >= 0) this.setPushGlow(prev, 'off');
+    if (i >= 0) this.setPushGlow(i, 'hover');
+    return true;
+  }
+
+  /** Appui sur un bouton poussoir : il s'enfonce et remonte. */
+  pressPush(id: VoyKnobId, now = performance.now()): void {
+    const i = PUSH_IDS.indexOf(id);
+    if (i < 0) return;
+    this.tweenY(`vpush.${i}`, this.pushY[i], (v) => {
+      this.pushY[i] = v;
+      this.placePush(i);
+    }, VOY_PUSH.press, now);
+    this.opts.repaint();
   }
 
   private haloColor(i: number, g: Glow, k = 1): void {
@@ -495,12 +572,47 @@ export class VoyKeys {
     return out;
   }
 
-  info(): { padGlow: Glow[]; btnGlow: Glow[]; flashes: number[]; playing: number; queued: number[] } {
-    return { padGlow: [...this.padGlow], btnGlow: [...this.btnGlow], flashes: Array.from(this.flashes), playing: this.playing, queued: [...this.queued] };
+  /**
+   * Les boutons poussoirs pour le picking (vk-<id>, comme un potard : INFOS, MIDI LEARN, le jumeau) ; repere du
+   * panneau. La zone prend les LED et leurs noms ; au telephone aussi le nom dessous, et au moins la demi-colonne
+   * d'un potard en largeur (touchR).
+   */
+  pushHotspots(layer: Object3D): HotspotDef[] {
+    return PUSH_IDS.map((id) => {
+      const p = voyKnobPlace(id);
+      const top = Math.min(p.z - VOY_PUSH.d / 2, ...voyPushLeds(id, voyKnob(id).steps ?? []).map((l) => l.tz)) - 0.05;
+      const bottom = PORTRAIT ? p.labelZ + 0.06 : p.z + VOY_PUSH.d / 2 + 0.03;
+      const hx = Math.max(VOY_KNOB.touchR, VOY_PUSH.w / 2 + 0.04);
+      return {
+        id: `vk-${id}`,
+        kind: 'vpush' as const,
+        layer,
+        shape: 'box' as const,
+        x: p.x,
+        z: (top + bottom) / 2,
+        hx,
+        hz: (bottom - top) / 2,
+        y0: 0,
+        y1: VOY_PUSH.h,
+        enabled: true,
+        vknob: id,
+      };
+    });
+  }
+
+  info(): { padGlow: Glow[]; btnGlow: Glow[]; flashes: number[]; playing: number; queued: number[]; pushes: { id: VoyKnobId; y: number; hover: boolean }[] } {
+    return {
+      padGlow: [...this.padGlow],
+      btnGlow: [...this.btnGlow],
+      flashes: Array.from(this.flashes),
+      playing: this.playing,
+      queued: [...this.queued],
+      pushes: PUSH_IDS.map((id, i) => ({ id, y: +this.pushY[i].toFixed(4), hover: i === this.pushHover })),
+    };
   }
 
   dispose(): void {
-    for (const m of [this.pads, this.buttons, this.halos]) {
+    for (const m of [this.pads, this.buttons, this.halos, this.pushes]) {
       m.geometry.dispose();
       m.dispose();
     }

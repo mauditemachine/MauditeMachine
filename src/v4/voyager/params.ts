@@ -9,7 +9,7 @@
  * GLIDE ; deux oscillateurs facon Typhon depuis le 2026-10-03), FILTER (CUTOFF, RES, ENV AMT),
  * deux enveloppes ADSR (FILTER EG et AMP EG), EFFECTS (OVERDRIVE, CHORUS, DELAY,
  * REVERB) et OUTPUT (VOLUME). Les potards a crans (RATE, MODE, RANGE,
- * NOTES, OCTAVE, RANGE, SEMI, ON...) gardent une valeur ronde : idx / (n - 1).
+ * NOTES, OCTAVE, RANGE, SEMI...) gardent une valeur ronde : idx / (n - 1).
  *
  * NOTES (2026-10-03, Mika : "le choix du nombre de notes dans l'arp") : la
  * longueur du motif. ALL : toutes les notes de l'accord sur RANGE octaves,
@@ -33,11 +33,18 @@
  * d'oscillateurs du Mini V : "tu pourrais avoir les oscillateurs de cette
  * maniere") : une rangee par oscillateur, WAVEFORM, RANGE (LO, 32', 16',
  * 8', 4', 2' : de trois octaves dessous a deux dessus), SEMI (-7 a +7
- * demi-tons), FINE (-50 a +50 cents) et ON (le couper sans toucher a son
- * volume). Ils remplacent TUNE 2 et FINE (un desaccord de part et d'autre
- * de la note) : au depart OSC 1 en 8' et OSC 2 en 16', FINE a -8 et +8
- * cents, le son d'avant ; un reglage ou un preset d'avant se convertit
- * (migrateKnobs).
+ * demi-tons) et FINE (-50 a +50 cents). Ils remplacent TUNE 2 et FINE (un
+ * desaccord de part et d'autre de la note) : au depart OSC 1 en 8' et OSC 2
+ * en 16', FINE a -8 et +8 cents, le son d'avant ; un reglage ou un preset
+ * d'avant se convertit (migrateKnobs).
+ *
+ * Plus de ON (2026-10-11, Mika : "je pense que ces knobs ne servent a
+ * rien.. si on veut pas les osc on coupe les volumes") : on1 et on2 sont
+ * partis ; pour faire taire un oscillateur, son niveau (OSC 1, OSC 2 du
+ * melangeur) a 0. Un reglage, un preset, un son mis de cote ou une etape
+ * d'UNDO d'avant qui avait un oscillateur coupe (ON a OFF) revient avec son
+ * niveau a 0, au meme son ; ON a ON garde son niveau (migrateKnobs,
+ * withoutOscOn pour les empreintes).
  *
  * SUB (2026-10-10, Mika : "pour l'ARP rajoute un sub parametrable") : un
  * oscillateur sous la note, facon MiniBrute : SUB (son volume, dans le
@@ -56,12 +63,10 @@ export type VoyKnobId =
   | 'range1'
   | 'semi1'
   | 'fine1'
-  | 'on1'
   | 'wave2'
   | 'range2'
   | 'semi2'
   | 'fine2'
-  | 'on2'
   | 'osc1'
   | 'osc2'
   | 'sub'
@@ -110,7 +115,7 @@ export interface VoyKnob {
   id: VoyKnobId;
   /** nom a l'ecran (WAVE 1, RANGE 2...) ; aussi la serigraphie, sauf face */
   label: string;
-  /** serigraphie quand elle differe (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE ; '' : rien) */
+  /** serigraphie quand elle differe (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE) */
   face?: string;
   /** nom lu (jumeau, role slider) */
   aria: string;
@@ -139,7 +144,6 @@ export const OSC_RANGES = ['LO', "32'", "16'", "8'", "4'", "2'"] as const;
 const OSC_RANGE_SEMI = [-36, -24, -12, 0, 12, 24] as const;
 /** SEMI : -7 a +7 demi-tons. */
 export const SEMIS = ['-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '+1', '+2', '+3', '+4', '+5', '+6', '+7'] as const;
-export const ON_OFF = ['OFF', 'ON'] as const;
 /**
  * MODE du filtre (2026-10-04) : le passe-bas 24 dB du Moog (le filtre
  * d'origine, la position de depart ; nomme MOOG depuis que Mika ne le
@@ -175,19 +179,18 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'range1', label: 'RANGE 1', face: 'RANGE', aria: "Oscillator 1 range: LO, 32, 16, 8, 4 or 2 feet; 8 feet plays the note", section: 'osc', def: 3 / 5, steps: OSC_RANGES },
   { id: 'semi1', label: 'SEMI 1', face: 'SEMI', aria: 'Oscillator 1 semitones, -7 to +7', section: 'osc', def: 0.5, steps: SEMIS },
   { id: 'fine1', label: 'FINE 1', face: 'FINE', aria: 'Oscillator 1 fine tune, -50 to +50 cents', section: 'osc', def: 0.42 },
-  { id: 'on1', label: 'OSC 1', face: '', aria: 'Oscillator 1 on or off', section: 'osc', def: 1, steps: ON_OFF },
   { id: 'wave2', label: 'WAVE 2', face: 'WAVEFORM', aria: 'Oscillator 2 wave, morphs from sine to triangle, saw, square and pulse', section: 'osc', def: 2 / 4, steps: WAVES2, morph: true },
   { id: 'range2', label: 'RANGE 2', face: 'RANGE', aria: "Oscillator 2 range: LO, 32, 16, 8, 4 or 2 feet; 8 feet plays the note", section: 'osc', def: 2 / 5, steps: OSC_RANGES },
   { id: 'semi2', label: 'SEMI 2', face: 'SEMI', aria: 'Oscillator 2 semitones, -7 to +7', section: 'osc', def: 0.5, steps: SEMIS },
   { id: 'fine2', label: 'FINE 2', face: 'FINE', aria: 'Oscillator 2 fine tune, -50 to +50 cents', section: 'osc', def: 0.58 },
-  { id: 'on2', label: 'OSC 2', face: '', aria: 'Oscillator 2 on or off', section: 'osc', def: 1, steps: ON_OFF },
   // 0.84 : 0.62 de gain chacun, le MIX au centre d'avant
   { id: 'osc1', label: 'OSC 1', aria: 'Oscillator 1 level', section: 'osc', def: 0.84 },
   { id: 'osc2', label: 'OSC 2', aria: 'Oscillator 2 level', section: 'osc', def: 0.84 },
   // SUB (2026-10-10) : 0 au depart, le son d'avant
   { id: 'sub', label: 'SUB', aria: 'Sub oscillator level, one or two octaves below the note', section: 'osc', def: 0 },
-  { id: 'subOct', label: 'SUB OCT', face: 'OCT', aria: 'Sub oscillator octave: one or two octaves below the note', section: 'osc', def: 0, steps: SUB_OCTS },
-  { id: 'subWave', label: 'SUB WAVE', face: 'WAVE', aria: 'Sub oscillator wave: sine, triangle or square', section: 'osc', def: 0, steps: SUB_WAVES },
+  // SUB OCT, un bouton poussoir sur la face depuis le 2026-10-11 (voyager/theme.ts isPush) ; leurs noms entiers sur la face
+  { id: 'subOct', label: 'SUB OCT', aria: 'Sub oscillator octave: one or two octaves below the note', section: 'osc', def: 0, steps: SUB_OCTS },
+  { id: 'subWave', label: 'SUB WAVE', aria: 'Sub oscillator wave: sine, triangle or square', section: 'osc', def: 0, steps: SUB_WAVES },
   { id: 'fm', label: 'FM', aria: 'FM amount, a sine operator modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
   { id: 'ratio', label: 'RATIO', aria: 'FM ratio, the operator frequency against oscillator 1', section: 'osc', def: 1 / 8, steps: RATIOS },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
@@ -348,13 +351,43 @@ export const octaveShift = (v: number): number => stepIndex('octave', v) - 2;
 export const oscSemis = (range: number, semi: number): number => OSC_RANGE_SEMI[stepIndex('range1', range)] + stepIndex('semi1', semi) - 7;
 
 /**
+ * Les ON des oscillateurs, retires le 2026-10-11 : leur cle et le niveau
+ * qu'ils coupaient. OFF (le cran 0, une valeur sous 0.5) devient ce niveau
+ * a 0 ; ON garde le niveau.
+ */
+export const RETIRED_ON: readonly (readonly [string, VoyKnobId])[] = [
+  ['on1', 'osc1'],
+  ['on2', 'osc2'],
+];
+const isOff = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v) && v < 0.5;
+
+/**
+ * Des potards gardes (un preset, un son mis de cote) sans les ON d'avant :
+ * un OFF plie dans son niveau (0), la cle partie. Pour les empreintes
+ * (state/presets.ts sig, voyager/patch.ts) : un son garde avant le
+ * 2026-10-11 reste le meme son qu'apres sa migration.
+ */
+export function withoutOscOn(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  if (!RETIRED_ON.some(([on]) => on in raw)) return raw as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...raw };
+  for (const [on, osc] of RETIRED_ON) {
+    if (!(on in out)) continue;
+    if (isOff(out[on])) out[osc] = 0;
+    delete out[on];
+  }
+  return out;
+}
+
+/**
  * Un reglage d'avant les rangees d'oscillateurs (TUNE 2, FINE) : sa
  * traduction (RANGE 2 et SEMI 2, FINE 1 et 2), pour ce qui ne la porte
  * pas deja. TUNE 2 : -1 OCT, 0, 5TH, +1 OCT, +2 OCT ; FINE : 0 a 45 cents
- * d'ecart, de part et d'autre de la note.
+ * d'ecart, de part et d'autre de la note. Un oscillateur coupe d'avant le
+ * 2026-10-11 (on1, on2 a OFF) : son niveau a 0.
  */
 export function migrateKnobs(raw: Readonly<Record<string, unknown>>): Partial<Record<VoyKnobId, number>> {
   const out: Partial<Record<VoyKnobId, number>> = {};
+  for (const [on, osc] of RETIRED_ON) if (isOff(raw[on])) out[osc] = 0;
   const t = raw.tune2;
   if (typeof t === 'number' && Number.isFinite(t) && raw.range2 === undefined && raw.semi2 === undefined) {
     const i = Math.max(0, Math.min(4, Math.round(t * 4)));
@@ -380,13 +413,11 @@ export interface EngineParams {
   /** formes : position du morphing dans WAVES1 (0 a 5) et WAVES2 (0 a 4), fractionnaire */
   wave1: number;
   wave2: number;
-  /** chaque oscillateur : accord en demi-tons (RANGE et SEMI), FINE en cents, ON (0 ou 1) ; OSC 1 et OSC 2 : son gain (0.88 x potard au carre) */
+  /** chaque oscillateur : accord en demi-tons (RANGE et SEMI), FINE en cents ; OSC 1 et OSC 2 : son gain (0.88 x potard au carre, 0 le coupe) */
   tune1: number;
   tune2: number;
   fine1: number;
   fine2: number;
-  on1: number;
-  on2: number;
   osc1: number;
   osc2: number;
   /** SUB : son gain (0.88 x potard au carre, comme OSC 1 et 2), son octave sous la note (1 ou 2), sa forme (0 sinus, 1 triangle, 3 carre) */
@@ -433,8 +464,6 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     tune2: oscSemis(v.range2, v.semi2),
     fine1: fineCents(v.fine1),
     fine2: fineCents(v.fine2),
-    on1: stepIndex('on1', v.on1),
-    on2: stepIndex('on2', v.on2),
     osc1: 0.88 * v.osc1 * v.osc1,
     osc2: 0.88 * v.osc2 * v.osc2,
     sub: 0.88 * v.sub * v.sub,
@@ -509,7 +538,7 @@ function load(): VoyValues {
     if (!text) return out;
     const raw = JSON.parse(text) as { v?: unknown; knobs?: Record<string, unknown> };
     if (raw.v !== 1 || !raw.knobs || typeof raw.knobs !== 'object') return out;
-    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits
+    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits ; un ON a OFF d'avant le 2026-10-11 : le niveau a 0
     const knobs: Record<string, unknown> = { ...raw.knobs, ...migrateKnobs(raw.knobs) };
     for (const id of VOY_KNOB_IDS) {
       const v = knobs[id];

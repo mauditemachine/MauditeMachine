@@ -91,9 +91,11 @@ interface Group {
 const v = (id: string, label: string): Dial => ({ id: `v:${id}` as DialId, label });
 const e = (id: string, label: string): Dial => ({ id: id as DialId, label });
 
+// Plus de ON dans OSC 1 et OSC 2 (2026-10-11, Mika : "si on veut pas les osc on coupe les volumes") : LEVEL a 0 les coupe.
+// SUB OCT reste un potard a deux crans ici (une tape passe a l'autre, comme le bouton de la face)
 const ARP_GROUPS: readonly Group[] = [
-  { id: 'osc1', label: 'OSC 1', dials: [v('wave1', 'WAVE'), v('range1', 'RANGE'), v('semi1', 'SEMI'), v('fine1', 'FINE'), v('on1', 'ON'), v('osc1', 'LEVEL')] },
-  { id: 'osc2', label: 'OSC 2', dials: [v('wave2', 'WAVE'), v('range2', 'RANGE'), v('semi2', 'SEMI'), v('fine2', 'FINE'), v('on2', 'ON'), v('osc2', 'LEVEL')] },
+  { id: 'osc1', label: 'OSC 1', dials: [v('wave1', 'WAVE'), v('range1', 'RANGE'), v('semi1', 'SEMI'), v('fine1', 'FINE'), v('osc1', 'LEVEL')] },
+  { id: 'osc2', label: 'OSC 2', dials: [v('wave2', 'WAVE'), v('range2', 'RANGE'), v('semi2', 'SEMI'), v('fine2', 'FINE'), v('osc2', 'LEVEL')] },
   { id: 'sub', label: 'SUB', dials: [v('sub', 'LEVEL'), v('subOct', 'OCT'), v('subWave', 'WAVE')] },
   { id: 'mix', label: 'MIX', dials: [v('noise', 'NOISE'), v('fm', 'FM'), v('ratio', 'RATIO'), v('volume', 'VOLUME')] },
   { id: 'filter', label: 'FILTER', dials: [v('cutoff', 'CUTOFF'), v('res', 'RES'), v('envAmt', 'ENV AMT'), v('fmode', 'MODE')] },

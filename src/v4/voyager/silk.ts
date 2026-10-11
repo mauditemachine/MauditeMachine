@@ -15,8 +15,10 @@
  *   pales (redessine quand le cran change).
  * - les rangees d'oscillateurs facon Mini V (2026-10-04) : le numero de
  *   chaque rangee en onglet, les crans de RANGE ecrits (LO a 2'), l'echelle
- *   de SEMI (-7 a +7, les impairs ecrits), celle de FINE (-50 0 +50), la
- *   LED rouge de ON (redessinee quand ON change).
+ *   de SEMI (-7 a +7, les impairs ecrits), celle de FINE (-50 0 +50) ;
+ * - les deux LED rouges du bouton SUB OCT (2026-10-11, a la place de celles
+ *   de ON) et leurs noms, -1 et -2 : l'octave choisie allumee (redessinees
+ *   quand elle change).
  * Deux textures canvas sur deux plans couches sur le capot ; redessinees
  * a l'arrivee des polices et des logos, et OPEN <-> CLOSE.
  */
@@ -26,7 +28,7 @@ import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } f
 import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
-import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, voyParams } from './params';
+import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
 import {
   VOY_BODY,
   VOY_BUTTONS,
@@ -48,7 +50,7 @@ import {
   VOY_SWITCH,
   isSelector,
   isBigKnob,
-  isOscOn,
+  isPush,
   isSwitch,
   knobThrowDeg,
   stepDeg,
@@ -57,6 +59,7 @@ import {
   switchThrowDeg,
   voyKnobPlace,
   voyPadAt,
+  voyPushLeds,
 } from './theme';
 
 /** Angle (deg, 90 : en haut) de la position i d'un commutateur : 12 a gauche, 24 a droite. */
@@ -95,14 +98,14 @@ function knobTexts(where: VoySilkKind): Text[] {
   for (const k of VOY_FACE_KNOBS) {
     const p = voyKnobPlace(k.id);
     if (p.where !== where) continue;
-    // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE ; ON : son nom sous le commutateur)
-    // SUB OCT et SUB WAVE : OCT et WAVE a cote de SUB (desktop, la rangee du melangeur) ; leur nom entier au telephone (au bout des rangees d'oscillateurs)
-    const name = isOscOn(k.id) ? 'ON' : PORTRAIT && (k.id === 'subOct' || k.id === 'subWave') ? k.label : k.face ?? k.label;
+    // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE) ; SUB OCT et SUB WAVE en entier,
+    // partout depuis le 2026-10-11 (desktop : OCT et WAVE avant, la rangee du bas au pas de 0.62 ; elle est au pas de 0.9)
+    const name = k.face ?? k.label;
     // Au telephone tenu droit (2026-10-05, Mika : "trop difficile a lire") : des noms plus gros, un corps par rangee
     if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: PORTRAIT ? 0.1 : 0.068, maxW: PORTRAIT ? 0.84 : 0.76, group: PORTRAIT ? `knob${Math.round(p.labelZ * 4)}` : 'knob' });
-    // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP) ; ON : sa LED les dit
+    // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP)
     const steps = k.steps;
-    if (isSwitch(k.id) && steps && !isOscOn(k.id)) {
+    if (isSwitch(k.id) && steps) {
       steps.forEach((step, i) => {
         const a = switchDeg(i, steps.length);
         const r = VOY_KNOB.skirt.r * p.s + VOY_SWITCH.markR;
@@ -178,8 +181,8 @@ export class VoySilk {
   /** crans choisis des deux selecteurs de forme */
   /** positions des morphings (rig.ts les arrondit au vingtieme de cran : un dessin par vingtieme) */
   private sel = { wave1: morphPos('wave1', voyParams.of('wave1')), wave2: morphPos('wave2', voyParams.of('wave2')) };
-  /** ON des deux oscillateurs (leurs LED) */
-  private on = { on1: voyParams.of('on1') >= 0.5, on2: voyParams.of('on2') >= 0.5 };
+  /** le cran de chaque bouton poussoir (SUB OCT : 0 pour -1, 1 pour -2), sa LED allumee */
+  private push: Partial<Record<VoyKnobId, number>> = Object.fromEntries(VOY_FACE_KNOBS.filter((k) => isPush(k.id)).map((k) => [k.id, stepIndex(k.id, voyParams.of(k.id))]));
 
   constructor(
     private kind: VoySilkKind,
@@ -304,7 +307,7 @@ export class VoySilk {
     }
     // Plus d'arcs imprimes autour des potards (2026-10-04, Mika : "les contours des knobs, enleve ca") : seules les couronnes de WAVE 1 et WAVE 2 restent
     this.selectors();
-    // Les rangees d'oscillateurs facon Mini V : echelles, numeros, LED
+    // Les rangees d'oscillateurs facon Mini V : echelles, numeros ; les LED des boutons poussoirs
     this.oscScales();
     this.badges();
     this.leds();
@@ -522,37 +525,52 @@ export class VoySilk {
     }
   }
 
-  /** La LED de ON au-dessus de chaque commutateur : rouge allumee (elle luit), sombre eteinte. */
+  /**
+   * Les LED de chaque bouton poussoir (SUB OCT, 2026-10-11 : celles de ON avant), une par cran, son nom au-dessus (-1,
+   * -2) : le cran choisi rouge allume (elle luit), les autres sombres.
+   */
   private leds(): void {
-    const ctx = this.ctx;
-    for (const id of ['on1', 'on2'] as const) {
-      const p = voyKnobPlace(id);
-      if (p.where !== this.kind) continue;
-      const x = this.px(p.x);
-      const y = this.py(p.z - VOY_KNOB.skirt.r * p.s - VOY_LED.dz);
-      const r = VOY_LED.r * PPU;
-      const lit = this.on[id];
-      if (lit) {
-        const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
-        g.addColorStop(0, 'rgba(255, 70, 50, 0.55)');
-        g.addColorStop(1, 'rgba(255, 70, 50, 0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.fillStyle = lit ? VOY_LED.on : VOY_LED.off;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
+    for (const k of VOY_FACE_KNOBS) {
+      if (!isPush(k.id) || voyKnobPlace(k.id).where !== this.kind) continue;
+      const cur = this.push[k.id] ?? 0;
+      voyPushLeds(k.id, k.steps ?? []).forEach((led, i) => {
+        this.led(led.x, led.z, i === cur);
+        this.mini(led.text, led.x, led.tz, 0.05 * K, 0.85);
+      });
     }
   }
 
-  /** ON des oscillateurs (leurs LED) ; true si redessine. */
-  setLeds(on1: boolean, on2: boolean): boolean {
-    if (on1 === this.on.on1 && on2 === this.on.on2) return false;
-    this.on = { on1, on2 };
-    if (voyKnobPlace('on1').where !== this.kind && voyKnobPlace('on2').where !== this.kind) return false;
+  /** Une LED en (x, z) : rouge allumee (elle luit), sombre eteinte. */
+  private led(lx: number, lz: number, lit: boolean): void {
+    const ctx = this.ctx;
+    const x = this.px(lx);
+    const y = this.py(lz);
+    const r = VOY_LED.r * PPU;
+    if (lit) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
+      g.addColorStop(0, 'rgba(255, 70, 50, 0.55)');
+      g.addColorStop(1, 'rgba(255, 70, 50, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = lit ? VOY_LED.on : VOY_LED.off;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /** Les crans des boutons poussoirs, leur LED allumee (revue : window.__v4.voyager.rig). */
+  get pushes(): Readonly<Partial<Record<VoyKnobId, number>>> {
+    return this.push;
+  }
+
+  /** Le cran d'un bouton poussoir (sa LED) ; true si redessine. */
+  setPush(id: VoyKnobId, step: number): boolean {
+    if (!isPush(id) || this.push[id] === step) return false;
+    this.push = { ...this.push, [id]: step };
+    if (voyKnobPlace(id).where !== this.kind) return false;
     this.draw();
     return true;
   }
