@@ -8,11 +8,24 @@ He has played Techno Parade Paris, Okami Festival in France and Groove and Bass 
 
 He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).
 
-The website is an interactive drum machine (MM-RYTM), bassline generator with a TB-303 style filter and deep subs (MM-BASS), arpeggiator synthesizer (MM-ARP), pair of DJ decks with a mixer and a sampler in each deck, with a slicer and a granular engine (MM-DECKS), in 3D; every section also has a plain HTML page.
+The home page of the website is MM-STUDIO, a 3D studio played in the browser; every section of the site also has a plain HTML page.
+
+## MM-STUDIO
+
+MM-STUDIO by Maudite Machine is free in the browser, with no account and nothing to install. Mika designed and built every machine. The machines play in time with each other:
+
+- [MM-RYTM](https://mauditemachine.com/mm-studio/drum-machine/): drum machine, eight voices (BD, SD, CH, OH, CP, TOM, HT, CY), 16 steps, parameter locks, 16 patterns, a SYNTH or SAMPLE layer per voice, voice and global effects
+- [MM-ARP](https://mauditemachine.com/mm-studio/synth/): synth with two oscillators and a sub, a ladder filter, an arpeggiator and eight chord pads in F# minor
+- [MM-DECKS](https://mauditemachine.com/mm-studio/dj-decks/): two to four DJ decks and a mixer (GAIN -12 to +12 dB, three band EQ, VU meters) that also takes MM-RYTM and MM-ARP, with a sampler in each deck
+- MIDI: every parameter can be assigned with MIDI LEARN (Web MIDI: Chrome, Edge, Opera, Firefox); ready-made setups for a Melbourne Instruments Roto-Control, downloaded from the MIDI panel and imported in ROTO-SETUP, with no MIDI LEARN needed
+- UNDO and REDO, presets saved in the browser, Dark and Light appearances
+- Requires WebGL 2 and the Web Audio API; a plain HTML version opens without WebGL 2
+- Overview: [MM-STUDIO](https://mauditemachine.com/mm-studio/), also in [French](https://mauditemachine.com/fr/mm-studio/) and [Spanish](https://mauditemachine.com/es/mm-studio/)
 
 ## Main pages
 
 - [Home](https://mauditemachine.com/): bio, upcoming shows, listening links, booking
+- [MM-STUDIO](https://mauditemachine.com/mm-studio/): the drum machine, synth and DJ decks of the home page, playable in the browser
 - [Accueil en français](https://mauditemachine.com/fr/)
 - [Inicio en español](https://mauditemachine.com/es/)
 - [Tracks and releases](https://mauditemachine.com/tracks/): every original track and remix, one page each

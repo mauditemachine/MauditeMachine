@@ -264,6 +264,12 @@ export interface StageOpts {
   onVisibility?: (visible: boolean) => void;
   /** pas d'intro (reconstruction apres un changement d'apparence) */
   skipIntro?: boolean;
+  /**
+   * Premiere construction sans intro (2026-10-11, referencement : arrivee par l'adresse d'une section hors
+   * capot, /tracks/, /shows/...) : la meme vue que le mouvement reduit (vue d'ensemble desktop, MM-RYTM au
+   * telephone, ?m= respecte), a la difference de skipIntro qui garde la machine en cours.
+   */
+  noIntro?: boolean;
 }
 
 export interface StageStats {
@@ -940,7 +946,7 @@ export class Stage {
     // pas d'intro, on y arrive directement.
     const st = startMachine.take();
     const hood: readonly MachineId[] = this.voy ? ['mm808', 'voy'] : ['mm808'];
-    if (!motion.reduced() && !opts.skipIntro && (st === null || hood.includes(st))) {
+    if (!motion.reduced() && !opts.skipIntro && !opts.noIntro && (st === null || hood.includes(st))) {
       this.introOn = true;
       this.introPick = st ?? hood[Math.floor(Math.random() * hood.length)];
       this.introSign = Math.random() < 0.5 ? -1 : 1;
@@ -959,7 +965,7 @@ export class Stage {
     } else {
       intro.set('done');
       if (this.voy) {
-        // Premiere arrivee sans intro (mouvement reduit) : la machine de ?m= (2026-10-04),
+        // Premiere arrivee sans intro (mouvement reduit, ou noIntro : l'adresse d'une section, 2026-10-11) : la machine de ?m= (2026-10-04),
         // sinon desktop, la vue d'ensemble ; au telephone, jamais la vue d'ensemble hors de l'intro
         // (pris une seule fois : une reconstruction avant la fin de l'intro, React en dev, l'arrivee encore)
         if (st) focus.set(st);

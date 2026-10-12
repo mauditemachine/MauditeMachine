@@ -64,7 +64,7 @@ import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
 import { HOOD_SECTIONS, SECTION_ROUTES, sectionFromPath, sectionTitle } from './state/sectionRoute';
 import { view } from './state/view';
-import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, applyAppearance } from './theme';
+import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, applyAppearance, type SectionId } from './theme';
 import { BeatPanel } from './ui/BeatEditor';
 import { InstallPrompt } from './ui/InstallPrompt';
 import { MobileHeader } from './ui/MobileHeader';
@@ -251,16 +251,40 @@ function useSectionsLifecycle(): void {
 }
 
 /**
+ * Arrivee par l'adresse d'une section hors capot (2026-10-11, referencement :
+ * le texte du panneau restait invisible pendant l'intro et les liens profonds
+ * l'attendaient) : /tracks/, /tracks/<morceau>/, /mixtapes/, /shows/,
+ * /contact/. La section s'ouvre au montage, le premier Stage se construit
+ * ensuite sans intro (noIntro, la vue du mouvement reduit). Les puces du
+ * capot (goodies, merch, studio) et l'accueil gardent l'intro.
+ */
+const panelArrival = (): SectionId | null => {
+  if (typeof window === 'undefined') return null;
+  const id = sectionFromPath(window.location.pathname);
+  return id && !HOOD_SECTIONS.includes(id) ? id : null;
+};
+
+/**
  * Adresses des sections (2026-10-02, state/sectionRoute.ts). Arrivee par
- * /shows/ (etc.) : la section s'ouvre une fois l'intro finie (les puces du
- * PCB ouvrent d'abord la machine). Ensuite l'adresse et le titre de l'onglet
- * suivent la section ouverte (pushState) ; le retour arriere la change.
+ * /goodies/, /merch/ ou /studio/ : la section s'ouvre une fois l'intro finie
+ * (les puces du PCB ouvrent d'abord la machine) ; par /shows/ (etc.) : au
+ * montage (2026-10-11, panelArrival). Ensuite l'adresse et le titre de
+ * l'onglet suivent la section ouverte (pushState) ; le retour arriere la
+ * change.
  */
 function useSectionRoute(getStage: () => Stage | null): void {
   // Arrivee sur une adresse de section
   useEffect(() => {
     const id = sectionFromPath(window.location.pathname);
     if (!id) return undefined;
+    if (!HOOD_SECTIONS.includes(id)) {
+      // Hors capot : aucune intro a attendre. La section s'ouvre des le montage, avant le Stage (construit
+      // deux images plus tard, sans intro) : le panneau se peint avant la premiere frame de la scene, la plus
+      // longue (mesure sous rendu logiciel : 3 s de fil principal) ; le Stage le trouve ouvert et cadre
+      // aussitot (applySection, sans animation). Sans WebGL : la section, seule.
+      section.set(id);
+      return undefined;
+    }
     let tries = 0;
     const t = window.setInterval(() => {
       tries += 1;
@@ -268,10 +292,8 @@ function useSectionRoute(getStage: () => Stage | null): void {
       const ready = intro.get() === 'done';
       if (!ready && tries < 50) return;
       window.clearInterval(t);
-      if (HOOD_SECTIONS.includes(id)) {
-        if (stage) openHood(id as 'goodies' | 'merch' | 'studio', stage);
-        else section.set(id);
-      } else section.set(id);
+      if (stage) openHood(id as 'goodies' | 'merch' | 'studio', stage);
+      else section.set(id);
     }, 200);
     return () => window.clearInterval(t);
   }, [getStage]);
@@ -357,6 +379,54 @@ const VoyInfosCard = lazy(() => import('./voyager/InfosCard'));
 /** Les INFOS du MM-RYTM (2026-10-08, l'etape R4, la touche i de son ecran) : sa carte, ses textes et ses dessins, a part */
 const RytmInfosCard = lazy(() => import('./rytm/InfosCard'));
 
+/** La page statique de l'adresse (#seo-static) est-elle dans le document ? */
+const hasStaticPage = (): boolean => typeof document !== 'undefined' && document.getElementById('seo-static') !== null;
+
+/** Le premier element de ces selecteurs qui prend le focus (un groupe inert, un element cache le refusent). */
+const focusFirst = (selectors: readonly string[]): void => {
+  for (const sel of selectors) {
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) {
+      el.focus({ preventScroll: true });
+      if (document.activeElement === el) return;
+    }
+  }
+};
+
+/** Le bouton MENU : desktop (ui/Header.tsx), telephone (ui/MobileHeader.tsx). */
+const MENU_TARGETS: readonly string[] = ['.v4-root .v4-menu-btn', '.v4-root .v4-burger'];
+/**
+ * Les machines : le premier jumeau de la machine ouverte ; en vue d'ensemble les jumeaux dorment (inert,
+ * aria-hidden), le nom de la premiere machine (ui/MachineNav.tsx), sinon le selecteur du telephone ou celui
+ * de l'en-tete.
+ */
+const MACHINE_TARGETS: readonly string[] = ['#v4-controls .v4-twins:not([aria-hidden="true"]) .v4-twin:not([tabindex="-1"])', '.v4-root .v4-mname', '.v4-root .v4-mswitch-btn', '.v4-root .v4-hmachines-btn'];
+
+/**
+ * Liens d'evitement (2026-10-11, clavier) : les deux premiers arrets de la
+ * tabulation, hors ecran tant qu'ils n'ont pas le focus (v4.css .v4-skip),
+ * avec le contour de focus de la page. L'en-tete reste a sa place dans le
+ * DOM (apres la scene) : "Skip to menu" donne le focus au bouton MENU,
+ * "Skip to the machines" aux commandes des machines.
+ */
+const SkipLinks: React.FC = () => {
+  const go =
+    (targets: readonly string[]) =>
+    (e: React.MouseEvent<HTMLAnchorElement>): void => {
+      e.preventDefault();
+      focusFirst(targets);
+    };
+  return (
+    <>
+      <a className="v4-skip" href="#v4-mmenu" onClick={go(MENU_TARGETS)}>
+        Skip to menu
+      </a>
+      <a className="v4-skip" href="#v4-controls" onClick={go(MACHINE_TARGETS)}>
+        Skip to the machines
+      </a>
+    </>
+  );
+};
+
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
   const getStage = useCallback(() => stageRef.current, []);
@@ -393,6 +463,12 @@ const V4Shell: React.FC = () => {
   // Le nombre de platines du MM-DECKS (2026-10-04) : en ajouter ou en retirer reconstruit la scene, comme Dark / Light
   const djCount = useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
   const builtOnce = useRef(false);
+  // L'adresse d'arrivee, lue au montage (2026-10-11) : une section hors capot construit le premier Stage sans intro
+  const arrival = useRef(panelArrival());
+  // Un seul h1 (2026-10-11) : celui de la page statique (#seo-static, scripts/prerender-seo.mjs) s'il est la
+  const [staticPage, setStaticPage] = useState(hasStaticPage);
+  // Une navigation du routeur le retire avant ce montage (StaticContentGuard, src/App.tsx) : relu une fois
+  useEffect(() => setStaticPage(hasStaticPage()), []);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const stageElRef = useRef<HTMLDivElement>(null);
@@ -423,46 +499,59 @@ const V4Shell: React.FC = () => {
     const host = hostRef.current;
     const input = stageElRef.current;
     if (!host || !input) return undefined;
-    const stage = Stage.create({
-      // Une reconstruction (changement d'apparence) ne rejoue pas l'intro
-      skipIntro: builtOnce.current,
-      host,
-      input,
-      // Palier de qualite par classe d'appareil, pas par largeur : un
-      // telephone en paysage (844 px) ou une tablette reste au palier mobile
-      // (budget de 16 draw calls, DPR 1.5) ; le cadrage suit la mise en page
-      mobile: window.matchMedia(MOBILE_QUERY).matches || window.matchMedia(COARSE_QUERY).matches,
-      dev: IS_DEV,
-      onError,
-      onContextLost: () => {
-        // Aucun pas en attente ne doit partir avant l'affichage du repli
-        clock.stop();
+    let stage: Stage | null = null;
+    const build = (): void => {
+      stage = Stage.create({
+        // Une reconstruction (changement d'apparence) ne rejoue pas l'intro
+        skipIntro: builtOnce.current,
+        // Arrivee par /tracks/, /shows/... (2026-10-11) : le premier Stage sans intro, le panneau tout de suite
+        noIntro: !builtOnce.current && arrival.current !== null,
+        host,
+        input,
+        // Palier de qualite par classe d'appareil, pas par largeur : un
+        // telephone en paysage (844 px) ou une tablette reste au palier mobile
+        // (budget de 16 draw calls, DPR 1.5) ; le cadrage suit la mise en page
+        mobile: window.matchMedia(MOBILE_QUERY).matches || window.matchMedia(COARSE_QUERY).matches,
+        dev: IS_DEV,
+        onError,
+        onContextLost: () => {
+          // Aucun pas en attente ne doit partir avant l'affichage du repli
+          clock.stop();
+          setGl('fallback');
+        },
+        onContextRestored: () => setGl('webgl'),
+        // Onglet cache ou canvas hors ecran : le rendu dort ; le son aussi, sauf si quelque chose joue
+        // (2026-10-05 : une autre fenetre devant ou une autre app ne coupe plus la musique)
+        onVisibility: (visible) => {
+          if (visible) resume();
+          else if (!anyPlaying()) suspend();
+        },
+      });
+      if (!stage) {
         setGl('fallback');
-      },
-      onContextRestored: () => setGl('webgl'),
-      // Onglet cache ou canvas hors ecran : le rendu dort ; le son aussi, sauf si quelque chose joue
-      // (2026-10-05 : une autre fenetre devant ou une autre app ne coupe plus la musique)
-      onVisibility: (visible) => {
-        if (visible) resume();
-        else if (!anyPlaying()) suspend();
-      },
-    });
-    if (!stage) {
-      setGl('fallback');
-      return undefined;
-    }
-    builtOnce.current = true;
-    stageRef.current = stage;
-    setStage(stage);
-    // Un premier montage en echec (StrictMode, contexte sature) ne fige pas le repli
-    setGl('webgl');
+        return;
+      }
+      builtOnce.current = true;
+      stageRef.current = stage;
+      setStage(stage);
+      // Un premier montage en echec (StrictMode, contexte sature) ne fige pas le repli
+      setGl('webgl');
+    };
+    // Arrivee sur une section (2026-10-11) : le panneau, ouvert au montage, se peint d'abord (sa transition
+    // tourne sur le compositeur) ; la scene se construit deux images plus tard
+    let raf = 0;
+    if (!builtOnce.current && arrival.current !== null) raf = window.requestAnimationFrame(() => (raf = window.requestAnimationFrame(build)));
+    else build();
     return () => {
+      window.cancelAnimationFrame(raf);
+      const built = stage;
+      if (!built) return;
       // La scene se reconstruit (Dark / Light, ADD DECK, REMOVE DECK : plusieurs secondes de fil principal
       // au telephone) : la musique est programmee d'avance, elle ne s'arrete pas (2026-10-05)
       reserve(3);
       stageRef.current = null;
       setStage(null);
-      stage.dispose();
+      built.dispose();
     };
   }, [onError, glFailed, look, djCount]);
 
@@ -518,11 +607,17 @@ const V4Shell: React.FC = () => {
       data-v4-iosbar={IOS_FLOATING_BAR ? '1' : '0'}
       data-v4-focus={machineFocus}
     >
-      {gl === 'webgl' && (
-        <h1 className="v4-sr">
-          {COPY.wordmark} {COPY.model}
-        </h1>
-      )}
+      {gl === 'webgl' && <SkipLinks />}
+      {gl === 'webgl' &&
+        (staticPage ? (
+          <p className="v4-sr">
+            {COPY.wordmark} MM-STUDIO
+          </p>
+        ) : (
+          <h1 className="v4-sr">
+            {COPY.wordmark} MM-STUDIO
+          </h1>
+        ))}
       <div ref={stageElRef} className="v4-stage">
         <StageBoundary onError={onError}>
           <div ref={hostRef} className="v4-canvas-host" aria-hidden="true" />
@@ -530,18 +625,21 @@ const V4Shell: React.FC = () => {
         {gl === 'webgl' && (
           <StageBoundary onError={onError}>
             <HitLayer getStage={getStage} stage={stage} />
-            <Twins stage={stage} />
-            {VOYAGER && <VoyTwins stage={stage} />}
-            {DJ && (
-              <Suspense fallback={null}>
-                <DjTwins stage={stage} />
-              </Suspense>
-            )}
-            {BASS && (
-              <Suspense fallback={null}>
-                <BassTwins stage={stage} />
-              </Suspense>
-            )}
+            {/* Les jumeaux des machines, une region nommee (2026-10-11) : sans style, rien ne bouge (ils se placent sur .v4-stage) */}
+            <section id="v4-controls" aria-label="MM-STUDIO controls">
+              <Twins stage={stage} />
+              {VOYAGER && <VoyTwins stage={stage} />}
+              {DJ && (
+                <Suspense fallback={null}>
+                  <DjTwins stage={stage} />
+                </Suspense>
+              )}
+              {BASS && (
+                <Suspense fallback={null}>
+                  <BassTwins stage={stage} />
+                </Suspense>
+              )}
+            </section>
           </StageBoundary>
         )}
       </div>

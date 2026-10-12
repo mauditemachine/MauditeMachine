@@ -39,6 +39,18 @@
  * seo-shared.mjs, les autres noeuds le citent par son @id), nouveau
  * positionnement (indie dance et dark disco), base Montpellier, bios du
  * brief mot pour mot.
+ *
+ * 2026-10-11 (referencement, Mika : "je veux que le site soit vraiment tres
+ * utilise et remarque par des journaux de news sur la musique electronique,
+ * ca doit etre affiche dans les recherches") :
+ * - MM-STUDIO (la machine de l'accueil) a ses pages statiques : un hub et
+ *   une page par machine (MM-RYTM, MM-ARP, MM-DECKS), en EN, FR et ES, sur
+ *   le modele des pages FR / ES (scripts/mm-studio-content.mjs, le texte) ;
+ *   un WebApplication en JSON-LD, relie a l'accueil ;
+ * - maillage : NAV, l'accueil, /studio/ et les pages FR / ES y menent ;
+ * - MusicEvent : le pays tire du dernier segment du lieu (jamais CA par
+ *   defaut), le performer complet, les champs optionnels d'events.json ;
+ * - favicon.svg et favicon.ico a la racine, sur les pages simples aussi.
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -66,6 +78,7 @@ import {
   ARTIST_ID,
   artistScript,
 } from './seo-shared.mjs';
+import { MM_STUDIO_PAGES, MM_STUDIO_APP_ID, MM_STUDIO_MACHINES, MM_STUDIO_SHOTS, MM_STUDIO_FEATURES, MM_STUDIO_OG_ALT, clusterOf, englishOf } from './mm-studio-content.mjs';
 
 const DIST = join(ROOT, 'dist');
 /** L'image d'apercu du site (1200 x 630, la photo booth-blue recadree, declaree dans index.html). */
@@ -257,6 +270,8 @@ const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join('
 
 const NAV_LINKS = [
   ['Home', '/'],
+  // 2026-10-11 : les pages de MM-STUDIO (la machine de l'accueil)
+  ['MM-STUDIO', '/mm-studio/'],
   ['Tracks', '/tracks/'],
   ['Mixtapes', '/mixtapes/'],
   ['Shows', '/shows/'],
@@ -272,6 +287,16 @@ const NAV_LINKS = [
   ['Español', '/es/'],
 ];
 const NAV = `<nav aria-label="Site">${ul(NAV_LINKS.map(([t, path]) => a(t, `${SITE}${path}`)))}</nav>`;
+
+/** Les pages de MM-STUDIO (2026-10-11), en anglais : le hub et ses trois machines. */
+const STUDIO_LINKS = {
+  en: [
+    ['MM-STUDIO: drum machine, synth and DJ decks in your browser', '/mm-studio/'],
+    ['MM-RYTM drum machine', '/mm-studio/drum-machine/'],
+    ['MM-ARP synth and arpeggiator', '/mm-studio/synth/'],
+    ['MM-DECKS DJ decks and mixer', '/mm-studio/dj-decks/'],
+  ],
+};
 
 const upcomingList = () =>
   UPCOMING.length
@@ -661,6 +686,12 @@ function contentFor(route) {
         h1('Maudite Machine'),
         p(LEAD),
         ...BIO_LONG.en.map(p),
+        // 2026-10-11 : la machine de cette page, ses pages et ses machines
+        h2('MM-STUDIO'),
+        p(
+          'This home page is MM-STUDIO by Maudite Machine, a 3D studio you play in the browser for free: the MM-RYTM drum machine, the MM-ARP synth and the MM-DECKS DJ decks, all in time. Mika designed and built every machine, and MIDI controllers and the Roto-Control work with all of them.',
+        ),
+        ul(STUDIO_LINKS.en.map(([t, path]) => a(t, `${SITE}${path}`))),
         h2('Upcoming shows'),
         upcomingList(),
         `<p>${a('All shows and tour dates', `${SITE}/shows/`)}</p>`,
@@ -778,6 +809,8 @@ function contentFor(route) {
         STUDIO.setup ? h2('The setup') + p(STUDIO.setup) : '',
         STUDIO.lessons.length ? h2('Ableton Live lessons') + STUDIO.lessons.map(p).join('') : '',
         `<p>${a('Ask about a lesson', `${SITE}/contact/`)}</p>`,
+        // 2026-10-11 : cette page n'est pas MM-STUDIO (les machines jouables du site)
+        `<p>This page covers the studio, the Ableton Live lessons and print. The drum machine, synth and DJ decks you play on this site are MM-STUDIO, with their own page: ${a('MM-STUDIO', `${SITE}/mm-studio/`)}.</p>`,
         STUDIO.print ? h2('Print and merch production') + p(STUDIO.print) + (MASSIVE_HREF ? `<p>${a('massivemedias.com', MASSIVE_HREF)}</p>` : '') : '',
       ].join('');
     }
@@ -827,36 +860,124 @@ function withContent(html, route, body = contentFor(route)) {
 }
 
 /** Codes pays des lieux ecrits en toutes lettres ("St Cristaud (France)"). */
-const COUNTRY = { france: 'FR', spain: 'ES', espagne: 'ES', 'españa': 'ES', canada: 'CA', belgium: 'BE', belgique: 'BE', germany: 'DE', netherlands: 'NL', italy: 'IT', portugal: 'PT', usa: 'US' };
+const COUNTRY = { france: 'FR', spain: 'ES', espagne: 'ES', espana: 'ES', canada: 'CA', belgium: 'BE', belgique: 'BE', germany: 'DE', netherlands: 'NL', italy: 'IT', portugal: 'PT', usa: 'US' };
+/**
+ * 2026-10-11 : les provinces canadiennes (code ou nom) et Montreal valent
+ * le Canada ; un lieu sans pays reconnaissable n'en recoit aucun (avant :
+ * CA par defaut, "Sainte Catherine Hall" ou une date en France passaient
+ * au Canada).
+ */
+const PROVINCES = { qc: 'QC', quebec: 'QC', on: 'ON', ontario: 'ON', bc: 'BC', ab: 'AB', mb: 'MB', ns: 'NS', nb: 'NB', 'new brunswick': 'NB' };
+const MONTREAL = new Set(['mtl', 'montreal']);
+/** Un segment de lieu compare sans accents, casse ni points ("Québec" -> "quebec"). */
+const placeKey = (s) =>
+  String(s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-/** Lieu schema.org d'une date ("Theatre - Mtl", "Ville, QC", "Ville (Pays)"). */
+/** Ce que dit le dernier segment d'un lieu : pays, province (et le Canada), ou Montreal. */
+function placeTail(tail) {
+  const k = placeKey(tail);
+  if (MONTREAL.has(k)) return { addressLocality: 'Montréal', addressRegion: 'QC', addressCountry: 'CA' };
+  if (PROVINCES[k]) return { addressRegion: PROVINCES[k], addressCountry: 'CA' };
+  if (COUNTRY[k]) return { addressCountry: COUNTRY[k] };
+  return null;
+}
+
+/**
+ * Lieu schema.org d'une date ("Theatre - Mtl", "Ville, QC", "Ville (Pays)").
+ * Le dernier segment (apres le tiret, la derniere virgule, ou entre
+ * parentheses) donne le pays ; inconnu : pas de addressCountry, le lieu
+ * garde son nom en adresse texte (rien d'invente).
+ */
 function place(location) {
   const loc = String(location || '').trim();
-  const dash = loc.match(/^(.*?)\s+-\s+(Mtl|Montr[eé]al)$/i);
-  if (dash) return { '@type': 'Place', name: dash[1], address: { '@type': 'PostalAddress', addressLocality: 'Montréal', addressRegion: 'QC', addressCountry: 'CA' } };
+  const dash = loc.match(/^(.*?)\s+-\s+([^-]+)$/);
   const paren = loc.match(/^(.*?)\s*\(([^)]+)\)$/);
-  if (paren) return { '@type': 'Place', name: paren[1], address: { '@type': 'PostalAddress', addressLocality: paren[1], addressCountry: COUNTRY[paren[2].trim().toLowerCase()] ?? paren[2] } };
-  const comma = loc.split(',').map((x) => x.trim());
-  if (comma.length >= 2) return { '@type': 'Place', name: loc, address: { '@type': 'PostalAddress', addressLocality: comma[0], addressRegion: comma[1], addressCountry: 'CA' } };
-  return { '@type': 'Place', name: loc, address: { '@type': 'PostalAddress', addressCountry: 'CA' } };
+  const comma = loc.split(',').map((x) => x.trim()).filter(Boolean);
+  let name = loc;
+  let locality = null;
+  let tail = null;
+  if (dash) {
+    name = dash[1].trim();
+    tail = dash[2];
+  } else if (paren) {
+    name = paren[1].trim();
+    locality = name;
+    tail = paren[2];
+  } else if (comma.length >= 2) {
+    // "Ville, QC", "Salle, Ville, QC" : la ville est le segment avant le dernier
+    locality = comma[comma.length - 2];
+    tail = comma[comma.length - 1];
+  } else tail = loc;
+  const known = placeTail(tail);
+  if (!known) return { '@type': 'Place', name, address: loc };
+  // "Bryson, QC" : la ville du segment d'avant ; "Lieu - Mtl" ou "Salle, Montreal" : Montreal (la salle reste le nom)
+  const address = { '@type': 'PostalAddress', ...(locality && !known.addressLocality ? { addressLocality: locality } : {}), ...known };
+  return { '@type': 'Place', name, address };
 }
+
+/**
+ * Les champs optionnels d'une date (2026-10-11), lus s'ils sont la, jamais
+ * inventes : venue, city, country (nom ou code a deux lettres), endDate,
+ * startTime avec son fuseau ("22:00-04:00", "21:30+02:00", ou une date ISO
+ * complete), ticketUrl (offers.url), organizer (texte ou { name, url }).
+ */
+const HAS_TZ = /^\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$/;
+const ISO_FULL = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2}))?$/;
+const httpUrl = (u) => typeof u === 'string' && /^https?:\/\/\S+$/i.test(u.trim());
+function eventPlace(e) {
+  const venue = typeof e.venue === 'string' && e.venue.trim() ? e.venue.trim() : null;
+  const city = typeof e.city === 'string' && e.city.trim() ? e.city.trim() : null;
+  const country = typeof e.country === 'string' && e.country.trim() ? e.country.trim() : null;
+  if (!venue && !city) return place(e.location);
+  const code = country ? (/^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : placeTail(country)?.addressCountry ?? null) : null;
+  const fromCity = city ? placeTail(city) : null;
+  const address = {
+    '@type': 'PostalAddress',
+    ...(city ? { addressLocality: city } : {}),
+    ...(fromCity?.addressRegion ? { addressRegion: fromCity.addressRegion } : {}),
+    ...(code ?? fromCity?.addressCountry ? { addressCountry: code ?? fromCity.addressCountry } : {}),
+  };
+  return { '@type': 'Place', name: venue ?? city, address };
+}
+function organizerOf(o) {
+  if (typeof o === 'string' && o.trim()) return { '@type': 'Organization', name: o.trim() };
+  if (o && typeof o === 'object' && typeof o.name === 'string' && o.name.trim()) return { '@type': 'Organization', name: o.name.trim(), ...(httpUrl(o.url) ? { url: o.url.trim() } : {}) };
+  return null;
+}
+
+/** L'artiste en performer : le MusicGroup cite par son @id, avec son nom et son adresse (2026-10-11). */
+const PERFORMER = { '@type': 'MusicGroup', '@id': ARTIST_ID, name: 'Maudite Machine', url: `${SITE}/` };
 
 /** Les dates a venir en MusicEvent (resultats enrichis Google Events). */
 function eventsJsonLd() {
   if (!UPCOMING.length) return '';
-  const items = UPCOMING.map((e) => ({
-    '@context': 'https://schema.org',
-    '@type': 'MusicEvent',
-    name: `${e.title} · Maudite Machine`,
-    startDate: e.date,
-    eventStatus: 'https://schema.org/EventScheduled',
-    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-    location: place(e.location),
-    performer: ARTIST_REF,
-    image: [inPublic(e.image) ? `${SITE}/${String(e.image).replace(/^\/+/, '')}` : OG_IMAGE],
-    url: e.url || `${SITE}/shows/`,
-    description: `Maudite Machine plays ${e.title} (${e.location}). Indie dance and dark disco DJ set.`,
-  }));
+  const items = UPCOMING.map((e) => {
+    const start = typeof e.startTime === 'string' && HAS_TZ.test(e.startTime.trim()) ? `${e.date}T${e.startTime.trim()}` : typeof e.startTime === 'string' && ISO_FULL.test(e.startTime.trim()) && e.startTime.includes('T') ? e.startTime.trim() : e.date;
+    const end = typeof e.endDate === 'string' && ISO_FULL.test(e.endDate.trim()) ? e.endDate.trim() : null;
+    const organizer = organizerOf(e.organizer);
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'MusicEvent',
+      name: `${e.title} · Maudite Machine`,
+      startDate: start,
+      ...(end ? { endDate: end } : {}),
+      eventStatus: 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      location: eventPlace(e),
+      performer: PERFORMER,
+      ...(organizer ? { organizer } : {}),
+      ...(httpUrl(e.ticketUrl) ? { offers: { '@type': 'Offer', url: e.ticketUrl.trim() } } : {}),
+      image: [inPublic(e.image) ? `${SITE}/${String(e.image).replace(/^\/+/, '')}` : OG_IMAGE],
+      url: e.url || `${SITE}/shows/`,
+      description: `Maudite Machine plays ${e.title} (${e.location}). Indie dance and dark disco DJ set.`,
+    };
+  });
   return ld(items);
 }
 
@@ -915,7 +1036,7 @@ const T = {
     mix: 'Mixtape 39, en live à Groove & Bass 2026 (1 h 29)',
     bookingTitle: 'Booking',
     roles: { 'Booking · international': 'Booking · international', 'Booking · Canada and USA': 'Booking · Canada et États-Unis', Label: 'Label' },
-    links: [['Press kit 2027 (PDF)', `${SITE}/Presskit_Maudite_Machine_2027_generic.pdf`], ['Fiche technique', `${SITE}/techrider/`], ['Éléments presse', `${SITE}/press/`]],
+    links: [['Press kit 2027 (PDF)', `${SITE}/Presskit_Maudite_Machine_2027_generic.pdf`], ['Fiche technique', `${SITE}/techrider/`], ['Éléments presse', `${SITE}/press/`], ['MM-STUDIO', `${SITE}/fr/mm-studio/`]],
     cta: 'Entrer dans la machine',
     title: SEO_META.fr['/'].title,
     description: SEO_META.fr['/'].description,
@@ -939,12 +1060,48 @@ const T = {
     mix: 'Mixtape 39, en directo en Groove & Bass 2026 (1 h 29)',
     bookingTitle: 'Booking',
     roles: { 'Booking · international': 'Booking · internacional', 'Booking · Canada and USA': 'Booking · Canadá y Estados Unidos', Label: 'Sello' },
-    links: [['Press kit 2027 (PDF)', `${SITE}/Presskit_Maudite_Machine_2027_generic.pdf`], ['Rider técnico', `${SITE}/techrider/`], ['Material de prensa', `${SITE}/press/`]],
+    links: [['Press kit 2027 (PDF)', `${SITE}/Presskit_Maudite_Machine_2027_generic.pdf`], ['Rider técnico', `${SITE}/techrider/`], ['Material de prensa', `${SITE}/press/`], ['MM-STUDIO', `${SITE}/es/mm-studio/`]],
     cta: 'Entrar en la máquina',
     title: SEO_META.es['/'].title,
     description: SEO_META.es['/'].description,
   },
 };
+
+/**
+ * Le CSS des pages simples (FR, ES et MM-STUDIO, 2026-10-11 : sorti de
+ * langPage pour etre partage tel quel, la meme DA creme).
+ * Orange du texte assombri (#B04508, contraste 5 sur creme), CTA a l'encre sur orange (6.1).
+ */
+const STATIC_CSS = `@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Semibold.woff2') format('woff2');font-weight:600;font-display:swap}
+@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Black.woff2') format('woff2');font-weight:900;font-display:swap}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:#F6F1E7;color:#191919;font:400 17px/1.6 'SF Pro Display',system-ui,-apple-system,'Segoe UI',sans-serif}
+.top{display:flex;justify-content:space-between;align-items:center;max-width:780px;margin:0 auto;padding:20px 20px 0}
+.top img{display:block;height:24px;width:auto}
+.langs{font-size:13px;font-weight:600;letter-spacing:.12em}.langs a{margin-left:12px}.langs [aria-current]{color:#B04508;text-decoration:none}
+main{max-width:780px;margin:0 auto;padding:12px 20px 72px}
+h1{font-weight:900;font-size:clamp(40px,9vw,72px);line-height:1;letter-spacing:.01em;text-transform:uppercase;margin:40px 0 14px}
+.lead{color:#B04508;font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 28px}
+h2{font-size:13px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;margin:44px 0 12px;padding-top:18px;border-top:1px solid #DDD5C6}
+a{color:#191919;text-decoration-color:#FF6A13;text-underline-offset:3px}
+ul{padding-left:20px;margin:0}li{margin:6px 0}
+.cta{display:inline-block;margin-top:36px;background:#FF6A13;color:#191919;padding:15px 24px;border-radius:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;text-decoration:none}
+footer{max-width:780px;margin:0 auto;padding:0 20px 48px;font-size:13px;color:#6B655B}`;
+
+/** Les icones du site (2026-10-11) : favicon.svg (le A creme sur #0c0b09) et favicon.ico 16 et 32 px, a la racine. */
+const FAVICON_TAGS = `<link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />`;
+
+/**
+ * Google Analytics 4 (G-HP92HGMNJT, le meme ID que index.html) des pages
+ * simples : /fr/, /es/ et, depuis le 2026-10-11, les douze pages de
+ * MM-STUDIO (les visiteurs venus de la recherche y arrivent). Pas de pixel
+ * Facebook sur ces pages, comme avant.
+ */
+const GTAG_TAGS = `<script async src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HP92HGMNJT');</script>`;
 
 /** Une page complete en francais ou en espagnol, visible, legere (aucun JS de la machine). */
 function langPage(lang) {
@@ -966,23 +1123,6 @@ function langPage(lang) {
     inLanguage: L.htmlLang,
     mainEntity: ARTIST_REF,
   };
-  // Orange du texte assombri (#B04508, contraste 5 sur creme), CTA a l'encre sur orange (6.1)
-  const css = `@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
-@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Semibold.woff2') format('woff2');font-weight:600;font-display:swap}
-@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Black.woff2') format('woff2');font-weight:900;font-display:swap}
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;background:#F6F1E7;color:#191919;font:400 17px/1.6 'SF Pro Display',system-ui,-apple-system,'Segoe UI',sans-serif}
-.top{display:flex;justify-content:space-between;align-items:center;max-width:780px;margin:0 auto;padding:20px 20px 0}
-.top img{display:block;height:24px;width:auto}
-.langs{font-size:13px;font-weight:600;letter-spacing:.12em}.langs a{margin-left:12px}.langs [aria-current]{color:#B04508;text-decoration:none}
-main{max-width:780px;margin:0 auto;padding:12px 20px 72px}
-h1{font-weight:900;font-size:clamp(40px,9vw,72px);line-height:1;letter-spacing:.01em;text-transform:uppercase;margin:40px 0 14px}
-.lead{color:#B04508;font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 28px}
-h2{font-size:13px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;margin:44px 0 12px;padding-top:18px;border-top:1px solid #DDD5C6}
-a{color:#191919;text-decoration-color:#FF6A13;text-underline-offset:3px}
-ul{padding-left:20px;margin:0}li{margin:6px 0}
-.cta{display:inline-block;margin-top:36px;background:#FF6A13;color:#191919;padding:15px 24px;border-radius:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;text-decoration:none}
-footer{max-width:780px;margin:0 auto;padding:0 20px 48px;font-size:13px;color:#6B655B}`;
   const langLinks = Object.entries(LANG_PAGES)
     .map(([l, href]) => `<a href="${href}" hreflang="${l}"${l === lang ? ' aria-current="page"' : ''}>${l.toUpperCase()}</a>`)
     .join('');
@@ -1014,14 +1154,13 @@ footer{max-width:780px;margin:0 auto;padding:0 20px 48px;font-size:13px;color:#6
     <meta name="twitter:image" content="${OG_IMAGE}" />
     <meta name="twitter:image:alt" content="${escapeAttr(OG_DEFAULT.alt)}" />
     <meta name="theme-color" content="#F6F1E7" />
-    <link rel="icon" href="/logo/favicon.ico" type="image/x-icon" />
+    ${FAVICON_TAGS}
     <link rel="preload" href="/fonts/SF-Pro-Display-Black.woff2" as="font" type="font/woff2" crossorigin />
-    <style>${css}</style>
+    <style>${STATIC_CSS}</style>
     ${artistScript()}
     ${ld(ldPage)}
     ${ld(breadcrumb([['Maudite Machine', `${SITE}/`], [lang.toUpperCase(), url]]))}
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"></script>
-    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HP92HGMNJT');</script>
+    ${GTAG_TAGS}
   </head>
   <body>
     <div class="top"><a href="${SITE}/"><img src="/logo/mauditemachine-logo-ink.svg" alt="Maudite Machine" width="140" height="24" /></a><nav class="langs" aria-label="Langue">${langLinks}</nav></div>
@@ -1050,6 +1189,217 @@ footer{max-width:780px;margin:0 auto;padding:0 20px 48px;font-size:13px;color:#6
 </html>
 `;
 }
+
+/* ---------- MM-STUDIO : le hub et ses trois machines (2026-10-11) ---------- */
+
+/*
+ * Les pages de MM-STUDIO, sur le modele de langPage() : visibles, legeres,
+ * sans le JS de la machine ni pixel, avec le gtag de /fr/ et /es/ (GTAG_TAGS,
+ * 2026-10-11 : sans lui, les visites venues de la recherche ne comptaient
+ * pas). Le texte
+ * vient de scripts/mm-studio-content.mjs (la meme liste que sitemap.xml).
+ * Chaque famille (hub, rytm, arp, decks) a ses hreflang EN FR ES, x-default
+ * l'anglais. JSON-LD : un WebPage par page ; le hub anglais porte le
+ * WebApplication MM-STUDIO (@id #app), les hubs FR et ES le citent ; chaque
+ * page de machine porte le WebApplication de sa machine (isPartOf #app).
+ * Aucune note ni avis (aggregateRating, review) : rien a inventer.
+ */
+
+/** Les mots de l'interface, par langue. */
+const STUDIO_UI = {
+  en: { home: `${SITE}/`, langs: 'Language', crumbs: 'Breadcrumb', footer: 'MM-STUDIO by Maudite Machine · VRSTL Records' },
+  fr: { home: `${SITE}/fr/`, langs: 'Langue', crumbs: "Fil d'Ariane", footer: 'MM-STUDIO by Maudite Machine · VRSTL Records' },
+  es: { home: `${SITE}/es/`, langs: 'Idioma', crumbs: 'Ruta', footer: 'MM-STUDIO by Maudite Machine · VRSTL Records' },
+};
+
+/** Le complement du CSS partage (listes numerotees, fil d'Ariane, capture). */
+const STUDIO_CSS = `ol{padding-left:22px;margin:0}
+.crumbs{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin:32px 0 0}.crumbs+h1{margin-top:12px}
+figure{margin:28px 0 0}figure img{display:block;width:100%;height:auto;border-radius:12px}`;
+
+/** Un chemin du site (/press/) en adresse absolue ; une adresse complete reste telle quelle. */
+const siteHref = (href) => (href.startsWith('/') ? `${SITE}${href}` : href);
+
+/** Le texte du module, ses liens [texte](/chemin/) rendus en vrais liens (le reste echappe). */
+function inline(text) {
+  const out = [];
+  let last = 0;
+  for (const m of String(text).matchAll(/\[([^\]]+)\]\(([^)\s]+)\)/g)) {
+    out.push(esc(text.slice(last, m.index)), a(m[1], siteHref(m[2])));
+    last = m.index + m[0].length;
+  }
+  out.push(esc(String(text).slice(last)));
+  return out.join('');
+}
+
+/** Une capture de T9 si son fichier existe dans public/ (adresse absolue, dimensions). */
+const studioShot = (key) => {
+  const s = MM_STUDIO_SHOTS[key];
+  return s && inPublic(s.path) ? { url: `${SITE}${s.path}`, path: s.path, width: s.width, height: s.height } : null;
+};
+
+/**
+ * L'image d'apercu : la capture og 1200 x 630 si elle existe (les trois
+ * machines, son alt MM_STUDIO_OG_ALT dans la langue de la page), sinon
+ * l'image du site.
+ */
+function studioImage(page) {
+  const og = studioShot('og');
+  return og ? { url: og.url, width: og.width, height: og.height, type: 'image/jpeg', alt: MM_STUDIO_OG_ALT[page.lang] ?? MM_STUDIO_OG_ALT.en } : OG_DEFAULT;
+}
+
+/** Ce que les WebApplication ont en commun (gratuit, dans le navigateur). */
+const APP_COMMON = {
+  applicationCategory: 'MultimediaApplication',
+  operatingSystem: 'Web browser',
+  browserRequirements: 'Requires WebGL 2 and the Web Audio API',
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: 0, priceCurrency: 'EUR' },
+  creator: ARTIST_REF,
+  author: ARTIST_REF,
+};
+const machineAppId = (cluster) => `${SITE}${englishOf(cluster).path}#app`;
+const shotsOf = (keys) => keys.map(studioShot).filter(Boolean).map((s) => ({ '@type': 'ImageObject', url: s.url, width: s.width, height: s.height }));
+
+/** Le WebApplication MM-STUDIO, complet (sur le hub anglais). */
+function studioApp(page) {
+  const shots = shotsOf(['hub', 'rytm', 'arp']);
+  return {
+    '@type': 'WebApplication',
+    '@id': MM_STUDIO_APP_ID,
+    name: 'MM-STUDIO',
+    alternateName: 'MM-STUDIO by Maudite Machine',
+    url: MM_STUDIO_MACHINES.hub.start,
+    description: page.description,
+    ...APP_COMMON,
+    featureList: MM_STUDIO_FEATURES.hub,
+    hasPart: ['rytm', 'arp', 'decks'].map((c) => ({ '@id': machineAppId(c) })),
+    ...(shots.length ? { screenshot: shots } : {}),
+  };
+}
+
+/** Le WebApplication d'une machine (MM-RYTM, MM-ARP, MM-DECKS), partie de MM-STUDIO. */
+function machineApp(page) {
+  const shots = shotsOf([page.cluster]);
+  const en = englishOf(page.cluster);
+  return {
+    '@type': 'WebApplication',
+    '@id': machineAppId(page.cluster),
+    name: MM_STUDIO_MACHINES[page.cluster].name,
+    url: MM_STUDIO_MACHINES[page.cluster].start,
+    description: en.description,
+    ...APP_COMMON,
+    featureList: MM_STUDIO_FEATURES[page.cluster],
+    isPartOf: { '@id': MM_STUDIO_APP_ID },
+    ...(shots.length ? { screenshot: shots } : {}),
+  };
+}
+
+/** Les hreflang d'une famille : ses trois langues, x-default l'anglais. */
+function studioAlternates(cluster) {
+  return [
+    ...clusterOf(cluster).map((p) => `<link rel="alternate" hreflang="${p.lang}" href="${SITE}${p.path}" />`),
+    `<link rel="alternate" hreflang="x-default" href="${SITE}${englishOf(cluster).path}" />`,
+  ].join('\n    ');
+}
+
+/** Une page de MM-STUDIO, complete. */
+function studioPage(page) {
+  const url = `${SITE}${page.path}`;
+  const ui = STUDIO_UI[page.lang];
+  const hub = clusterOf('hub').find((p) => p.lang === page.lang);
+  const isHub = page.cluster === 'hub';
+  const image = studioImage(page);
+  const shot = studioShot(page.cluster);
+  const mainEntity = isHub ? (page.lang === 'en' ? studioApp(page) : { '@id': MM_STUDIO_APP_ID }) : machineApp(page);
+  const ldPage = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${url}#page`,
+    url,
+    name: page.title,
+    description: page.description,
+    inLanguage: page.lang,
+    isPartOf: { '@id': `${SITE}/#website` },
+    author: ARTIST_REF,
+    mainEntity,
+    ...(shot ? { primaryImageOfPage: { '@type': 'ImageObject', url: shot.url } } : {}),
+  };
+  const crumbs = [['Maudite Machine', ui.home], ['MM-STUDIO', `${SITE}${hub.path}`], ...(isHub ? [] : [[page.h1, url]])];
+  const langLinks = clusterOf(page.cluster)
+    .map((p) => `<a href="${SITE}${p.path}" hreflang="${p.lang}"${p.lang === page.lang ? ' aria-current="page"' : ''}>${p.lang.toUpperCase()}</a>`)
+    .join('');
+  const sections = page.sections
+    .map((s) => {
+      const list = s.items?.length ? `<${s.ordered ? 'ol' : 'ul'}>${s.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${s.ordered ? 'ol' : 'ul'}>` : '';
+      return [s.h2 ? `<h2>${esc(s.h2)}</h2>` : '', ...(s.paragraphs ?? []).map((x) => `<p>${inline(x)}</p>`), list].filter(Boolean).join('\n      ');
+    })
+    .join('\n      ');
+  return `<!DOCTYPE html>
+<html lang="${page.lang}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeAttr(page.title)}</title>
+    <meta name="description" content="${escapeAttr(page.description)}" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="${url}" />
+    ${studioAlternates(page.cluster)}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Maudite Machine" />
+    <meta property="og:title" content="${escapeAttr(page.title)}" />
+    <meta property="og:description" content="${escapeAttr(page.description)}" />
+    <meta property="og:url" content="${url}" />
+    <meta property="og:image" content="${escapeAttr(image.url)}" />
+    <meta property="og:image:width" content="${image.width}" />
+    <meta property="og:image:height" content="${image.height}" />
+    <meta property="og:image:type" content="${image.type}" />
+    <meta property="og:image:alt" content="${escapeAttr(image.alt)}" />
+    <meta property="og:locale" content="${OG_LOCALE}" />
+    ${OG_LOCALE_ALTERNATES.map((l) => `<meta property="og:locale:alternate" content="${l}" />`).join('\n    ')}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeAttr(page.title)}" />
+    <meta name="twitter:description" content="${escapeAttr(page.description)}" />
+    <meta name="twitter:image" content="${escapeAttr(image.url)}" />
+    <meta name="twitter:image:alt" content="${escapeAttr(image.alt)}" />
+    <meta name="theme-color" content="#F6F1E7" />
+    ${FAVICON_TAGS}
+    <link rel="preload" href="/fonts/SF-Pro-Display-Black.woff2" as="font" type="font/woff2" crossorigin />
+    <style>${STATIC_CSS}
+${STUDIO_CSS}</style>
+    ${artistScript()}
+    ${ld(ldPage)}
+    ${ld(breadcrumb(crumbs))}
+    ${GTAG_TAGS}
+  </head>
+  <body>
+    <div class="top"><a href="${ui.home}"><img src="/logo/mauditemachine-logo-ink.svg" alt="Maudite Machine" width="140" height="24" /></a><nav class="langs" aria-label="${escapeAttr(ui.langs)}">${langLinks}</nav></div>
+    <main>
+      ${isHub ? '' : `<nav class="crumbs" aria-label="${escapeAttr(ui.crumbs)}"><a href="${SITE}${hub.path}">MM-STUDIO</a> / ${esc(page.h1)}</nav>\n      `}<h1>${esc(page.h1)}</h1>
+      <p class="lead">${esc(page.lead)}</p>
+      ${sections}
+      ${shot ? `<figure><img src="${shot.path}" alt="${escapeAttr(page.imageAlt)}" width="${shot.width}" height="${shot.height}" loading="lazy" /></figure>\n      ` : ''}<a class="cta" href="${escapeAttr(page.cta.href)}">${esc(page.cta.text)}</a>
+    </main>
+    <footer>${esc(ui.footer)}</footer>
+  </body>
+</html>
+`;
+}
+
+/**
+ * L'accueil (dist/index.html) : MM-STUDIO en WebApplication minimal, le
+ * meme @id que le hub, qui le decrit en entier (2026-10-11).
+ */
+const HOME_APP = ld({
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  '@id': MM_STUDIO_APP_ID,
+  name: 'MM-STUDIO',
+  alternateName: 'MM-STUDIO by Maudite Machine',
+  url: `${SITE}/`,
+  ...APP_COMMON,
+  subjectOf: { '@type': 'WebPage', '@id': `${SITE}/mm-studio/#page`, url: `${SITE}/mm-studio/` },
+});
 
 /* ---------- ecriture ---------- */
 
@@ -1101,8 +1451,11 @@ for (const t of DISCO) {
 // Les pages en francais et en espagnol (des pages simples, sans la machine)
 for (const lang of ['fr', 'es']) writePage(lang, langPage(lang));
 
-// L'accueil : son contenu, les dates a venir et ses versions FR / ES, dans dist/index.html meme
-writeFileSync(indexPath, withAlternates(withEvents(withContent(baseHtml, '/'))), 'utf8');
+// Les pages de MM-STUDIO (2026-10-11) : le hub et ses trois machines, en EN, FR et ES
+for (const page of MM_STUDIO_PAGES) writePage(page.path.replace(/^\/|\/$/g, ''), studioPage(page));
+
+// L'accueil : son contenu, les dates a venir, ses versions FR / ES et MM-STUDIO, dans dist/index.html meme
+writeFileSync(indexPath, toHead(withAlternates(withEvents(withContent(baseHtml, '/'))), HOME_APP), 'utf8');
 
 // 404.html (copie d'index.html, servie avec le statut 404 pour toute adresse
 // inconnue, et pour /v1, /v2, /v3, /mm-admin) : noindex, pas de canonical
@@ -1123,5 +1476,5 @@ if (existsSync(pressPath)) writeFileSync(pressPath, withArtist(readFileSync(pres
 
 const covers = [...ogCache.values()].filter(Boolean).length;
 console.log(
-  `prerender SEO : ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'} (meta ${STATIC_LANG})`,
+  `prerender SEO : ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES, ${MM_STUDIO_PAGES.length} MM-STUDIO) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'}${studioShot('og') ? ', captures MM-STUDIO' : ''} (meta ${STATIC_LANG})`,
 );

@@ -162,7 +162,7 @@ const EPK: React.FC = () => {
             <span className="v2-label">{t.riderMeta}</span>
           </a>
 
-          <Link className="v2-download" to="/techrider">
+          <Link className="v2-download" to="/techrider/">
             <span>{t.riderPage}</span>
             <span className="v2-label">{t.riderPageMeta}</span>
           </Link>

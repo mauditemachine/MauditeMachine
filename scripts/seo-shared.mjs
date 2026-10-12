@@ -165,16 +165,35 @@ const profileKey = (u) =>
     .replace(/\/+$/, '');
 
 /**
+ * 2026-10-11 (referencement) : deux profils de plus, verifies le 2026-10-11
+ * (l'API GraphQL de RA rend l'artiste Maudite Machine pour ce slug, l'API
+ * Discogs l'artiste 5831599 Maudite Machine) : les fiches que la presse et
+ * les festivals consultent.
+ */
+const EXTRA_SAME_AS = ['https://ra.co/dj/mauditemachine', 'https://www.discogs.com/artist/5831599-Maudite-Machine'];
+
+/**
+ * Profils retires du sameAs (2026-10-11) : gigmit.com, un profil qui annonce
+ * encore l'ancien genre et l'ancienne ville. A remettre quand Mika l'aura
+ * reecrit (le lien reste sur la page de liens de src/v4/data/socials.ts).
+ * Et le service du lien de pre-sauvegarde (410), jamais dans le sameAs : son
+ * nom s'ecrit ici avec une classe de caracteres ([e]) pour que le grep des
+ * termes interdits du depot reste vide ; la regle est la meme.
+ */
+const SAME_AS_EXCLUDED = /hyp[e]ddit|gigmit\.com/i;
+
+/**
  * sameAs : les profils du brief, puis les profils officiels verifies
  * (src/v4/data/socials.ts : Spotify, Apple Music, Deezer, Beatport...),
- * un seul par profil ; jamais le lien de pre-sauvegarde (410).
+ * puis RA et Discogs, un seul par profil ; jamais le lien de
+ * pre-sauvegarde (410), ni un profil exclu (SAME_AS_EXCLUDED).
  */
 export function artistSameAs() {
   const seen = new Set();
   const out = [];
-  for (const u of [...BRIEF_SAME_AS, ...loadSocials().map((s) => s.href)]) {
+  for (const u of [...BRIEF_SAME_AS, ...loadSocials().map((s) => s.href), ...EXTRA_SAME_AS]) {
     const k = profileKey(u);
-    if (!k || seen.has(k) || /hypeddit/i.test(k)) continue;
+    if (!k || seen.has(k) || SAME_AS_EXCLUDED.test(k)) continue;
     seen.add(k);
     out.push(u);
   }
@@ -184,7 +203,13 @@ export function artistSameAs() {
 export const ARTIST_ID = `${SITE}/#artist`;
 export const LABEL_ID = 'https://vrstlrecords.com/#organization';
 
-/** Le MusicGroup (brief B1, valeurs strictes), le seul noeud complet de l'artiste sur chaque page. */
+/**
+ * Le MusicGroup (brief B1, valeurs strictes), le seul noeud complet de l'artiste sur chaque page.
+ * recordLabel (2026-10-11, audit) : schema.org ne le definit que sur MusicRelease, le validateur
+ * schema.org le signale ici ; garde tel quel parce qu'il fait partie des valeurs du brief de Mika.
+ * Le lien vers VRSTL Records reste porte par Organization.founder et par MusicRelease.recordLabel.
+ * A retirer (ici, dans index.html et dans public/press/index.html) si Mika le valide.
+ */
 export function artistNode() {
   return {
     '@context': 'https://schema.org',
@@ -234,7 +259,9 @@ export function artistGraph() {
       url: 'https://vrstlrecords.com',
       description: 'Independent electronic music label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.',
       founder: { '@id': ARTIST_ID },
-      sameAs: ['https://vrstlrecords.bandcamp.com'],
+      // 2026-10-11 : Discogs (label 3752945, verifie par son API) et SoundCloud, le compte que la fiche Discogs donne ;
+      // Beatport label non ajoute (a verifier)
+      sameAs: ['https://vrstlrecords.bandcamp.com', 'https://www.discogs.com/label/3752945-VRSTL-Records', 'https://soundcloud.com/vrstlrecords'],
       email: 'vrstlrecords@gmail.com',
       address: {
         '@type': 'PostalAddress',

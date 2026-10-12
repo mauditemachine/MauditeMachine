@@ -1028,11 +1028,11 @@ function buildBoard(W: number, H: number): BufferGeometry {
 
 /* ---------------- textures annexes ---------------- */
 
-function canvas2d(w: number, h: number): { canvas: HTMLCanvasElement; ctx: Ctx } {
+function canvas2d(w: number, h: number, settings?: CanvasRenderingContext2DSettings): { canvas: HTMLCanvasElement; ctx: Ctx } {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', settings);
   if (!ctx) throw new Error('pcb: no 2d context');
   return { canvas, ctx: ctx as Ctx };
 }
@@ -1213,8 +1213,9 @@ export class Pcb {
 
     this.prints = footprints(this.variant, this.chips, this.clear);
 
-    // Relief plat tant que la carte n'est pas dessinee
-    const nrm = canvas2d(4, 4);
+    // Relief plat tant que la carte n'est pas dessinee. Relu par getImageData (normals) : willReadFrequently
+    // des le premier contexte (2026-10-11 ; pose plus tard il serait ignore, et Chrome avertit en console)
+    const nrm = canvas2d(4, 4, { willReadFrequently: true });
     nrm.ctx.fillStyle = 'rgb(128, 128, 255)';
     nrm.ctx.fillRect(0, 0, 4, 4);
     this.normalCanvas = nrm.canvas;
@@ -2022,7 +2023,7 @@ export class Pcb {
     const c = this.normalCanvas;
     c.width = W;
     c.height = H;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
     ctx.drawImage(height, 0, 0, W, H);
     const img = ctx.getImageData(0, 0, W, H);

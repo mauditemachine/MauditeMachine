@@ -10,7 +10,9 @@
     <meta name="description" content="Maudite Machine, Dark Disco DJ and producer based in the south of France, founder of VRSTL Records in Montréal. Sets, releases, press kit and booking." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://mauditemachine.com/press/" />
-    <link rel="icon" href="/logo/favicon.ico" type="image/x-icon" />
+    <!-- 2026-10-11 : favicon.svg et favicon.ico (16 et 32 px) a la racine, comme tout le site -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!-- 2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement aussi, c'est important.") :
          apercu de partage (Open Graph, Twitter), page et fil d'Ariane ; 2026-10-10 : l'image 1200 x 630
          tiree de la photo booth-blue (/press/og-maudite-machine.jpg) -->
@@ -95,8 +97,9 @@
             "https://music.apple.com/us/artist/maudite-machine/1028417516",
             "https://www.beatport.com/artist/maudite-machine/500537",
             "https://www.songkick.com/artists/10363218-maudite-machine",
-            "https://www.gigmit.com/maudite-machine",
-            "https://linktr.ee/mauditemachine"
+            "https://linktr.ee/mauditemachine",
+            "https://ra.co/dj/mauditemachine",
+            "https://www.discogs.com/artist/5831599-Maudite-Machine"
           ]
         },
         {
@@ -110,7 +113,9 @@
             "@id": "https://mauditemachine.com/#artist"
           },
           "sameAs": [
-            "https://vrstlrecords.bandcamp.com"
+            "https://vrstlrecords.bandcamp.com",
+            "https://www.discogs.com/label/3752945-VRSTL-Records",
+            "https://soundcloud.com/vrstlrecords"
           ],
           "email": "vrstlrecords@gmail.com",
           "address": {
@@ -289,6 +294,18 @@
 
       figcaption { margin-top: 8px; display: flex; justify-content: space-between; gap: 10px; }
 
+      /* 2026-10-11 : MM-STUDIO (fiche de faits) et logos sur fond sombre ou clair */
+      .facts { display: grid; grid-template-columns: minmax(120px, 200px) 1fr; gap: 0 22px; max-width: 900px; margin: 26px 0 0; }
+      .facts dt, .facts dd { margin: 0; padding: 11px 0; border-bottom: 1px solid var(--line); }
+      .facts dd { font-size: 15px; line-height: 1.5; }
+      @media (max-width: 560px) { .facts { grid-template-columns: 1fr; } .facts dt { border-bottom: 0; padding-bottom: 0; } }
+
+      .grid.shots { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+      .grid.logos img { padding: 26px; height: 150px; object-fit: contain; }
+      .grid.logos figcaption { flex-direction: column; gap: 2px; }
+      figure.on-dark img { background: #0c0b09; border-color: #0c0b09; }
+      figure.on-light img { background: #fff; }
+
       footer {
         margin-top: 11vh;
         padding-top: 22px;
@@ -312,7 +329,7 @@
       <div class="actions">
         <a class="btn" href="/press/maudite-machine-press-kit.zip" download>
           Download everything
-          <span>ZIP · photos, logo, artwork, PDF</span>
+          <span>ZIP · photos, logos, artwork, PDF</span>
         </a>
         <a class="btn" href="/Presskit_Maudite_Machine_2027_generic.pdf" target="_blank" rel="noopener">
           Press Kit 2027
@@ -324,6 +341,81 @@
         </a>
       </div>
     </header>
+
+    <!-- 2026-10-11 : MM-STUDIO, la machine de l'accueil (faits relus dans le code, scripts/mm-studio-content.mjs) -->
+    <section id="mm-studio">
+      <div class="head">
+        <h2>MM-STUDIO</h2>
+        <span class="label">The home page of mauditemachine.com</span>
+      </div>
+      <p class="intro">
+        MM-STUDIO by Maudite Machine is a 3D studio played in the browser: the MM-RYTM drum machine,
+        the MM-ARP synth and the MM-DECKS DJ decks and mixer, all in time. It is free, with no account
+        and nothing to install. Mika designed and built the site and every machine on it.
+      </p>
+      <dl class="facts">
+        <dt class="label">MM-RYTM</dt>
+        <dd>Drum machine: 8 voices (BD, SD, CH, OH, CP, TOM, HT, CY), 16 steps, parameter locks, 16 patterns, a SYNTH or SAMPLE layer per voice, voice and global effects</dd>
+        <dt class="label">MM-ARP</dt>
+        <dd>Synth: two oscillators and a sub, ladder filter with four modes, arpeggiator, 8 chord pads in F# minor, OVERDRIVE, CHORUS, DELAY, REVERB</dd>
+        <dt class="label">MM-DECKS</dt>
+        <dd>Two to four DJ decks and a mixer (GAIN -12 to +12 dB, three band EQ, VU meters) that also takes MM-RYTM and MM-ARP, a sampler in each deck</dd>
+        <dt class="label">MIDI</dt>
+        <dd>MIDI LEARN for every parameter; ready-made Melbourne Instruments Roto-Control setups, downloaded from the MIDI panel and imported in ROTO-SETUP, no MIDI LEARN needed</dd>
+        <dt class="label">Also</dt>
+        <dd>UNDO and REDO, presets saved in the browser, Dark and Light appearances</dd>
+        <dt class="label">Runs on</dt>
+        <dd>Any browser with WebGL 2 and the Web Audio API, on a computer or a phone; Web MIDI in Chrome, Edge, Opera and Firefox</dd>
+        <dt class="label">Built with</dt>
+        <dd>Three.js, Web Audio API, Web MIDI API</dd>
+        <dt class="label">Design and build</dt>
+        <dd>Mika (Maudite Machine)</dd>
+      </dl>
+      <div class="actions">
+        <a class="btn" href="/mm-studio/">
+          About MM-STUDIO
+          <span>Page · EN · FR · ES</span>
+        </a>
+        <a class="btn" href="/?m=rytm">
+          Play MM-RYTM
+          <span>Drum machine</span>
+        </a>
+        <a class="btn" href="/?m=arp">
+          Play MM-ARP
+          <span>Synth and arpeggiator</span>
+        </a>
+        <a class="btn" href="/?m=decks">
+          Play MM-DECKS
+          <span>DJ decks and mixer</span>
+        </a>
+      </div>
+      <div class="grid shots">
+        <figure>
+          <a href="/press/mm-studio/mm-studio-overview.jpg" target="_blank" rel="noopener">
+            <img src="/press/mm-studio/mm-studio-overview.jpg" alt="MM-STUDIO: MM-RYTM, MM-ARP and MM-DECKS side by side in 3D" width="2400" height="1500" loading="lazy" />
+          </a>
+          <figcaption><span class="label">MM-STUDIO · Overview</span><span class="label">JPG, 2400 px</span></figcaption>
+        </figure>
+        <figure>
+          <a href="/press/mm-studio/mm-studio-rytm.jpg" target="_blank" rel="noopener">
+            <img src="/press/mm-studio/mm-studio-rytm.jpg" alt="The MM-RYTM drum machine of MM-STUDIO" width="2400" height="1500" loading="lazy" />
+          </a>
+          <figcaption><span class="label">MM-RYTM</span><span class="label">JPG, 2400 px</span></figcaption>
+        </figure>
+        <figure>
+          <a href="/press/mm-studio/mm-studio-arp.jpg" target="_blank" rel="noopener">
+            <img src="/press/mm-studio/mm-studio-arp.jpg" alt="The MM-ARP synth of MM-STUDIO" width="2400" height="1500" loading="lazy" />
+          </a>
+          <figcaption><span class="label">MM-ARP</span><span class="label">JPG, 2400 px</span></figcaption>
+        </figure>
+        <figure>
+          <a href="/press/mm-studio/og-mm-studio.jpg" target="_blank" rel="noopener">
+            <img src="/press/mm-studio/og-mm-studio.jpg" alt="MM-STUDIO, the three machines, share image" width="1200" height="630" loading="lazy" />
+          </a>
+          <figcaption><span class="label">Share image</span><span class="label">JPG, 1200 x 630</span></figcaption>
+        </figure>
+      </div>
+    </section>
 
     <section>
       <div class="head">
@@ -391,14 +483,46 @@
     <section>
       <div class="head">
         <h2>Logo</h2>
-        <span class="label">1 file · PNG</span>
+        <span class="label">6 files · SVG, PNG</span>
       </div>
-      <div class="grid">
-        <figure>
+      <!-- 2026-10-11 : les SVG de public/logo (regardes un par un) et l'usage de chacun ; le PNG blanc
+           s'affiche sur fond sombre (avant : blanc sur blanc) -->
+      <div class="grid logos">
+        <figure class="on-dark">
           <a href="/press/maudite-machine-logo.png" target="_blank" rel="noopener">
-            <img src="/press/maudite-machine-logo.png" alt="Maudite Machine logo" loading="lazy" />
+            <img src="/press/maudite-machine-logo.png" alt="Maudite Machine logo, white" loading="lazy" />
           </a>
-          <figcaption><span class="label">Logo</span><span class="label">PNG</span></figcaption>
+          <figcaption><span class="label">Logo · white</span><span class="label">PNG · dark backgrounds</span></figcaption>
+        </figure>
+        <figure class="on-dark">
+          <a href="/logo/mauditemachine-logo.svg" target="_blank" rel="noopener">
+            <img src="/logo/mauditemachine-logo.svg" alt="Maudite Machine logo, white, vector" loading="lazy" />
+          </a>
+          <figcaption><span class="label">Logo · white</span><span class="label">SVG · dark backgrounds</span></figcaption>
+        </figure>
+        <figure class="on-light">
+          <a href="/logo/mauditemachine-logo-ink.svg" target="_blank" rel="noopener">
+            <img src="/logo/mauditemachine-logo-ink.svg" alt="Maudite Machine logo, dark grey, vector" loading="lazy" />
+          </a>
+          <figcaption><span class="label">Logo · ink</span><span class="label">SVG · light backgrounds</span></figcaption>
+        </figure>
+        <figure class="on-dark">
+          <a href="/logo/mauditemachine-logo-yellow.svg" target="_blank" rel="noopener">
+            <img src="/logo/mauditemachine-logo-yellow.svg" alt="Maudite Machine logo, yellow, vector" loading="lazy" />
+          </a>
+          <figcaption><span class="label">Logo · yellow</span><span class="label">SVG · dark backgrounds</span></figcaption>
+        </figure>
+        <figure class="on-dark">
+          <a href="/logo/mauditemachine-logotype.svg" target="_blank" rel="noopener">
+            <img src="/logo/mauditemachine-logotype.svg" alt="Maudite Machine A mark, white, vector" loading="lazy" />
+          </a>
+          <figcaption><span class="label">A mark · white</span><span class="label">SVG · dark backgrounds</span></figcaption>
+        </figure>
+        <figure class="on-dark">
+          <a href="/logo/mauditemachine-logo-white.png" target="_blank" rel="noopener">
+            <img src="/logo/mauditemachine-logo-white.png" alt="Maudite Machine logo on one line, yellow" loading="lazy" />
+          </a>
+          <figcaption><span class="label">One line · yellow</span><span class="label">PNG · dark backgrounds</span></figcaption>
         </figure>
       </div>
     </section>

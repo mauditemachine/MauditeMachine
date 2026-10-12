@@ -17,11 +17,17 @@
  *   repond 301 vers /techrider/). Les routes du routeur (src/App.tsx) hors
  *   sitemap : /v1, /v2, /v3, les admins (noindex), /v4, /about, /archives
  *   et /v2/radar (redirections).
+ *
+ * 2026-10-11 (referencement) : les douze pages de MM-STUDIO (le hub et ses
+ * trois machines, en EN, FR et ES), lues dans scripts/mm-studio-content.mjs
+ * (la meme liste que le prerender), priority 0.5 comme le reste (B5), chacune
+ * avec les hreflang de sa famille ; leurs captures en image si elles existent.
  */
 
 import { writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, SITE, OG_IMAGE, loadDisco, loadGoodies, coverOf } from './seo-shared.mjs';
+import { ROOT, SITE, OG_IMAGE, loadDisco, loadGoodies, coverOf, inPublic } from './seo-shared.mjs';
+import { MM_STUDIO_PAGES, MM_STUDIO_SHOTS, clusterOf } from './mm-studio-content.mjs';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -51,14 +57,28 @@ const ROUTES = [
   { path: '/radar/', changefreq: 'weekly' },
 ];
 
-/** L'accueil et ses deux versions : chacune annonce les trois (hreflang), x-default l'anglais. */
+// MM-STUDIO (2026-10-11) : le hub et ses machines, apres les sections de la machine
+const studioShot = (key) => (MM_STUDIO_SHOTS[key] && inPublic(MM_STUDIO_SHOTS[key].path) ? [`${SITE}${MM_STUDIO_SHOTS[key].path}`] : []);
+for (const page of MM_STUDIO_PAGES) {
+  ROUTES.push({ path: page.path, changefreq: 'monthly', images: studioShot(page.cluster), cluster: page.cluster });
+}
+
+/**
+ * Les versions d'une page (hreflang), x-default l'anglais : l'accueil et ses
+ * deux versions, et chaque famille de MM-STUDIO (2026-10-11).
+ */
 const HOME_ALTERNATES = { en: `${SITE}/`, fr: `${SITE}/fr/`, es: `${SITE}/es/` };
-const ALT_PATHS = new Set(['/', '/fr/', '/es/']);
-const alternates = () =>
-  [
-    ...Object.entries(HOME_ALTERNATES).map(([l, href]) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${href}" />`),
-    `    <xhtml:link rel="alternate" hreflang="x-default" href="${HOME_ALTERNATES.en}" />`,
+const ALT_GROUPS = new Map([['/', HOME_ALTERNATES], ['/fr/', HOME_ALTERNATES], ['/es/', HOME_ALTERNATES]]);
+for (const page of MM_STUDIO_PAGES) {
+  ALT_GROUPS.set(page.path, Object.fromEntries(clusterOf(page.cluster).map((p) => [p.lang, `${SITE}${p.path}`])));
+}
+const alternates = (path) => {
+  const group = ALT_GROUPS.get(path);
+  return [
+    ...Object.entries(group).map(([l, href]) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${href}" />`),
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${group.en}" />`,
   ].join('\n');
+};
 
 /** Une page par morceau (2026-10-03), la meme liste que le prerender ; sa pochette en image. */
 const COVERS = loadGoodies().filter((g) => g.category === 'cover');
@@ -93,7 +113,7 @@ const xmlEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').rep
 
 const urls = ROUTES.map((r) => {
   const loc = `${SITE}${r.path}`;
-  const alt = ALT_PATHS.has(r.path) ? `\n${alternates()}` : '';
+  const alt = ALT_GROUPS.has(r.path) ? `\n${alternates(r.path)}` : '';
   const imgs = (r.images ?? []).map((u) => `\n    <image:image>\n      <image:loc>${xmlEsc(u)}</image:loc>\n    </image:image>`).join('');
   return `  <url>
     <loc>${xmlEsc(loc)}</loc>

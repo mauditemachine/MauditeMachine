@@ -55,6 +55,9 @@ const SITES: readonly { id: string; label: string; href: string; icon: string; c
 
 const BANDCAMP = SOCIALS.find((x) => x.id === 'bandcamp');
 
+/** La page statique de MM-STUDIO (2026-10-11) : un vrai chargement, elle est hors de la machine. */
+const MM_STUDIO_PAGE = '/mm-studio/';
+
 /** Le store.json du hoodie se lit quand la page respire, pour que l'encart soit la a la premiere ouverture. */
 const PREFETCH_MS = 2500;
 
@@ -237,6 +240,12 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
               <Icon name="fa-solid fa-arrows-rotate" />
               <span>Reset view</span>
             </button>
+            {/* 2026-10-11 (referencement) : la page qui explique MM-STUDIO, au pied a cote de RESET VIEW,
+                hors du mot signe de Mika ; meme ligne, rien d'autre ne bouge dans le menu */}
+            <a className="v4-mmenu-reset v4-mmenu-howto" href={MM_STUDIO_PAGE}>
+              <Icon name="fa-solid fa-circle-info" />
+              <span>How MM-STUDIO works</span>
+            </a>
           </div>
         </div>
       </div>

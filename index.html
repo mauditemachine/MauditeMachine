@@ -20,19 +20,19 @@
 
     <!-- Resource hints pour les services externes
          2026-10-04 (referencement) : sans crossorigin pour gtag et le pixel, charges en script
-         simple (une connexion ouverte en mode CORS ne leur servait pas) -->
-    <link rel="preconnect" href="https://www.googletagmanager.com" />
-    <link rel="preconnect" href="https://connect.facebook.net" />
+         simple (une connexion ouverte en mode CORS ne leur servait pas)
+         2026-10-11 : gtag et le pixel partent apres le chargement (plus bas) : une simple
+         resolution DNS suffit ; lightwidget retire (src/components/InstagramFeed.tsx l'injecte) -->
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://connect.facebook.net" />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
     <link rel="dns-prefetch" href="https://w.soundcloud.com" />
-    <link rel="dns-prefetch" href="https://cdn.lightwidget.com" />
 
-    <!-- Favicon optimisé -->
-    <link rel="icon" href="%BASE_URL%logo/favicon.ico" type="image/x-icon" />
-    <link rel="shortcut icon" href="%BASE_URL%logo/favicon.ico" type="image/x-icon" />
+    <!-- Favicon (2026-10-11) : le A creme sur carre #0c0b09, favicon.svg et favicon.ico (16 et 32 px)
+         a la racine (avant : logo/favicon.ico de 14 x 12 et le logotype PNG en 16 et 32) -->
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="32x32" />
+    <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icons/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%logo/mauditemachine-logo.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="%BASE_URL%logo/mauditemachine-logo.png" />
     <link rel="manifest" href="%BASE_URL%manifest.json" />
     <!-- Sur l'ecran d'accueil de l'iPhone (2026-10-04, Mika : "comme une app qu'on ouvre en plein ecran") :
          ouvert sans la barre de Safari, la page passe sous la barre d'etat (l'en-tete garde sa zone sure) -->
@@ -50,7 +50,8 @@
          2026-10-10 (brief de Mika : un seul MusicGroup par page, valeurs strictes du brief) :
          copie de scripts/seo-shared.mjs (artistGraph), le prerender remplace ce bloc
          (id="ld-artist") par l'original au build. sameAs = profils du brief + profils
-         verifies de src/v4/data/socials.ts ; VRSTL Records et le site relies par @id -->
+         verifies de src/v4/data/socials.ts ; VRSTL Records et le site relies par @id
+         2026-10-11 : RA et Discogs ajoutes, gigmit retire (voir seo-shared.mjs) -->
     <script type="application/ld+json" id="ld-artist">
     [
       {
@@ -114,8 +115,9 @@
           "https://music.apple.com/us/artist/maudite-machine/1028417516",
           "https://www.beatport.com/artist/maudite-machine/500537",
           "https://www.songkick.com/artists/10363218-maudite-machine",
-          "https://www.gigmit.com/maudite-machine",
-          "https://linktr.ee/mauditemachine"
+          "https://linktr.ee/mauditemachine",
+          "https://ra.co/dj/mauditemachine",
+          "https://www.discogs.com/artist/5831599-Maudite-Machine"
         ]
       },
       {
@@ -129,7 +131,9 @@
           "@id": "https://mauditemachine.com/#artist"
         },
         "sameAs": [
-          "https://vrstlrecords.bandcamp.com"
+          "https://vrstlrecords.bandcamp.com",
+          "https://www.discogs.com/label/3752945-VRSTL-Records",
+          "https://soundcloud.com/vrstlrecords"
         ],
         "email": "vrstlrecords@gmail.com",
         "address": {
@@ -162,35 +166,63 @@
     ]
     </script>
 
-    <!-- Facebook Pixel Code -->
+    <!-- Facebook Pixel Code
+         2026-10-11 (performance de l'accueil) : la file fbq et les appels init et PageView tout
+         de suite, comme avant ; seul le script fbevents.js part apres le chargement (plus bas) -->
     <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      !function(f)
+      {if(f.fbq)return;var n=f.fbq=function(){n.callMethod?
       n.callMethod.apply(n,arguments):n.queue.push(arguments)};
       if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
+      n.queue=[]}(window);
       fbq('init', '1410022320201825');
       fbq('track', 'PageView');
     </script>
     <!-- End Facebook Pixel Code -->
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"></script>
+    <!-- Google tag (gtag.js) : dataLayer et les appels js et config tout de suite, gtag.js apres le chargement -->
     <script>
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);} 
+      function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-HP92HGMNJT');
+    </script>
+    <script>
+      // 2026-10-11 : gtag.js et fbevents.js (memes IDs) inseres apres window load, au premier
+      // moment libre (requestIdleCallback, 2 s au plus ; sans lui, 2 s apres le chargement) :
+      // ils ne prennent plus de bande passante ni de temps de calcul au premier affichage.
+      // Leurs files (dataLayer, fbq.queue) gardent les appels faits avant.
+      (function () {
+        function add(src) {
+          var t = document.createElement('script');
+          t.async = true;
+          t.src = src;
+          document.head.appendChild(t);
+        }
+        function load() {
+          add('https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT');
+          add('https://connect.facebook.net/en_US/fbevents.js');
+        }
+        function idle() {
+          if ('requestIdleCallback' in window) window.requestIdleCallback(load, { timeout: 2000 });
+          else window.setTimeout(load, 2000);
+        }
+        if (document.readyState === 'complete') idle();
+        else window.addEventListener('load', idle, { once: true });
+      })();
     </script>
     <script>
       // ========================================
       // SOLUTION ULTIME ANTI-CREATEPATTERN ERROR
       // ========================================
-      
+      // 2026-10-11 : seulement sur les pages archivees et les admins (/v1, /v2, /v3,
+      // /mm-admin, /ms-admin, servies par 404.html). La machine (/, src/v4) n'appelle
+      // jamais createPattern (src/v4/scene/silk.ts, ni three) : sur elle, plus aucune
+      // reecriture de console, Object.defineProperty, setPrototypeOf ou getContext, ni
+      // de minuterie toutes les 100 ms.
+
       (function() {
+        if (!/^\/(v1|v2|v3|mm-admin|ms-admin)(\/|$)/.test(window.location.pathname)) return;
         // MÉTHODE NUCLÉAIRE - DÉSACTIVER COMPLÈTEMENT createPattern
         const ORIGINAL_CREATE_PATTERN = CanvasRenderingContext2D.prototype.createPattern;
         
@@ -380,16 +412,6 @@
       })();
     </script>
     
-    <!--
-      Encore un site Maudite Machine cette années ! oue... je suis productif et je devrais faire de la musique au lieu de coder comme un coquin !
-      
-      Site Maudite Machine 2025
-      - Stack: Vite + React + TypeScript, CSS custom
-      - Lecteur: widget SoundCloud API + composant personnalisé (playlist, drag window)
-      - Assets: dans /medias (images, fonts, JSON: events/messages)
-      - Déploiement: build Vite (dist) publié sur gh-pages (+ /medias) ou via GitHub Actions
-      - Domaine: CNAME mauditemachine.com + .nojekyll
-    -->
     <!-- Open Graph / Facebook
          2026-10-10 (brief de Mika, B4) : le jeu complet sur chaque page, og:url = le canonical,
          og:description = la description EN, image 1200 x 630 tiree de la photo booth-blue
@@ -417,19 +439,49 @@
     <meta name="twitter:image:alt" content="Maudite Machine in the booth under a blue spotlight" />
     <!-- Feuilles externes NON bloquantes (2026-10-03, referencement : 2 s de
          premier affichage perdues sur mobile) : chargees en media=print, puis
-         appliquees ; la page s'affiche sans les attendre. Font Awesome (icones),
-         et les polices des pages archivees (v1, v2, radar), sorties de styles.css. -->
+         appliquees ; la page s'affiche sans les attendre. Font Awesome (icones de
+         src/v4/ui/MenuSheet.tsx, VoyDock.tsx, MidiPanel.tsx, Dock.tsx).
+         2026-10-11 : plus de Google Fonts ni de fonts.cdnfonts.com sur toutes les pages.
+         Space Grotesk et Lato ne servaient nulle part ; Robot Radicals est servie par le
+         site (/fonts/RobotRadicals.otf, declaree dans v4.css et styles.css) ; Inter ne sert
+         qu'aux admins (.admin-page, src/styles.css) : chargee seulement sur /mm-admin et
+         /ms-admin. Le script lightwidget.js est injecte par src/components/InstagramFeed.tsx
+         quand il sert. -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Lato:wght@300;400;700;900&display=swap" media="print" onload="this.media='all'" />
-    <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/robot-radicals" media="print" onload="this.media='all'" />
+    <script>
+      if (/^\/(mm-admin|ms-admin)(\/|$)/.test(window.location.pathname)) {
+        (function () {
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap';
+          document.head.appendChild(l);
+        })();
+      }
+    </script>
     <noscript>
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Lato:wght@300;400;700;900&display=swap" />
+      <!-- 2026-10-11 : sans JavaScript, le texte de la page (#seo-static, pose par
+           scripts/prerender-seo.mjs, cache comme un texte pour lecteur d'ecran) devient
+           visible et lisible, sur le creme du site ; #root, vide sans JS, ne prend plus
+           d'ecran. !important : le style en ligne du bloc (HIDDEN) doit perdre. -->
+      <style>
+        html:root, html:root body { background: #F6F1E7 !important; color: #191919 !important; height: auto !important; overflow: auto !important; }
+        #root:empty { display: none !important; }
+        #seo-static, .seo-static {
+          position: static !important; width: auto !important; height: auto !important;
+          clip: auto !important; overflow: visible !important; white-space: normal !important;
+          margin: 0 auto !important; padding: 24px 16px 64px !important; border: 0 !important;
+          max-width: 780px !important; background: #F6F1E7 !important; color: #191919 !important;
+          font: 400 17px/1.6 'SF Pro Display', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+          text-align: left !important; overflow-wrap: anywhere !important;
+        }
+        #seo-static h1, .seo-static h1 { font-size: 40px !important; line-height: 1.05 !important; margin: 24px 0 14px !important; color: #191919 !important; }
+        #seo-static h2, .seo-static h2 { font-size: 15px !important; letter-spacing: .12em !important; text-transform: uppercase !important; margin: 36px 0 10px !important; color: #191919 !important; }
+        #seo-static p, #seo-static li, .seo-static p, .seo-static li { color: #191919 !important; margin: 6px 0 !important; }
+        #seo-static ul, #seo-static ol, .seo-static ul, .seo-static ol { padding-left: 20px !important; margin: 0 !important; list-style: disc !important; }
+        #seo-static a, .seo-static a { color: #191919 !important; text-decoration: underline !important; text-decoration-color: #FF6A13 !important; text-underline-offset: 3px !important; }
+      </style>
     </noscript>
-    <!-- LightWidget WIDGET (pages archivees) : differe, ne bloque plus l'affichage -->
-    <script defer src="https://cdn.lightwidget.com/widgets/lightwidget.js"></script>
   </head>
   <body>
     <!-- Facebook Pixel noscript fallback -->

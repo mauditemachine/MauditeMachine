@@ -8,29 +8,21 @@ Disallow: /mm-admin
 
 # Bots IA autorisés : visibilité de l'artiste dans les réponses des assistants
 # (2026-10-03 : les robots de recherche des assistants aussi ; resume : /llms.txt)
+# 2026-10-11 : un seul groupe, avec les memes Disallow que le groupe * : un robot
+# ne suit que le groupe qui le nomme (RFC 9309), sans eux il ne voyait pas les
+# panneaux d'administration ni /v1 comme exclus.
 User-agent: GPTBot
-Allow: /
-
 User-agent: OAI-SearchBot
-Allow: /
-
 User-agent: ChatGPT-User
-Allow: /
-
 User-agent: ClaudeBot
-Allow: /
-
 User-agent: Claude-SearchBot
-Allow: /
-
 User-agent: PerplexityBot
-Allow: /
-
 User-agent: Google-Extended
-Allow: /
-
 User-agent: Applebot-Extended
 Allow: /
+Disallow: /ms-admin/
+Disallow: /v1
+Disallow: /mm-admin
 
 # Crawlers SEO commerciaux agressifs : bloqués pour économiser la bande passante
 User-agent: AhrefsBot

@@ -361,8 +361,9 @@ function buildPanel(): BufferGeometry {
   paintFaces(slab, (_nx, ny) => (ny > 0.995 ? 'panel' : ny > 0.15 ? 'panelEdge' : 'panelSide'));
   const b = OLED.bezel;
   const bezelIndexed = new BoxGeometry(b.w, b.h, b.d);
-  const bezel = bezelIndexed.toNonIndexed();
-  bezelIndexed.dispose();
+  // Meme garde que part() (2026-10-11) : toNonIndexed sur une geometrie deja non indexee avertit en console
+  const bezel = bezelIndexed.index ? bezelIndexed.toNonIndexed() : bezelIndexed;
+  if (bezel !== bezelIndexed) bezelIndexed.dispose();
   bezel.translate(OLED.x, b.h / 2, OLED.z);
   paintSolid(bezel, 'oled', GAIN.parts);
   const merged = mergeGeometries([slab, bezel], false);

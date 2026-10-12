@@ -1197,6 +1197,8 @@ html:has(body.v4-active) {
    numerotes, le capot en pastilles, le grand bouton orange au pied. */
 .v4-mmenu {
   --mm-ink: var(--bone);
+  /* L'orange des textes du menu (2026-10-11) : celui de la page ; le theme clair a le sien (plus bas) */
+  --mm-hot: var(--orange);
   position: absolute;
   top: calc(52px + env(safe-area-inset-top, 0px));
   left: 0;
@@ -1277,7 +1279,7 @@ html:has(body.v4-active) {
 
 .v4-root .v4-mm-page:hover .v4-mm-go,
 .v4-root .v4-mm-page:active .v4-mm-go {
-  color: var(--orange);
+  color: var(--mm-hot);
   transform: translateX(3px);
 }
 
@@ -1285,7 +1287,7 @@ html:has(body.v4-active) {
 .v4-root .v4-mm-page[data-active='1'],
 .v4-root .v4-mm-page[data-active='1'] .v4-mm-num,
 .v4-root .v4-mm-page[data-active='1'] .v4-mm-go {
-  color: var(--orange);
+  color: var(--mm-hot);
 }
 
 .v4-mm-kicker {
@@ -1330,7 +1332,7 @@ html:has(body.v4-active) {
 
 .v4-root .v4-mm-pill[data-active='1'] {
   box-shadow: inset 0 0 0 1.5px var(--orange);
-  color: var(--orange);
+  color: var(--mm-hot);
 }
 
 /* Les reseaux et les sites amis (2026-10-04, Mika : "les noms des liens et
@@ -1427,6 +1429,11 @@ html:has(body.v4-active) {
   font-size: 14px;
 }
 
+/* Le lien vers /mm-studio/ (2026-10-11), au pied a cote de RESET VIEW : le meme style, sans soulignement */
+.v4-root a.v4-mmenu-howto {
+  text-decoration: none;
+}
+
 /* Desktop (2026-10-04, 2026-10-09) : l'interrupteur Dark / Light en haut a
    gauche, les pages dessous en tres grand ; a droite le mot de Mika en
    haut, puis le hoodie et le reste (capot, reseaux, pied). Deux colonnes
@@ -1482,19 +1489,19 @@ html:has(body.v4-active) {
 /* Survol : le titre glisse et s'allume, la fleche arrive */
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:hover .v4-mm-label,
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:focus-visible .v4-mm-label {
-  color: var(--orange);
+  color: var(--mm-hot);
   transform: translateX(14px);
 }
 
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:hover .v4-mm-num,
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:focus-visible .v4-mm-num {
-  color: var(--orange);
+  color: var(--mm-hot);
 }
 
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:hover .v4-mm-go,
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:focus-visible .v4-mm-go,
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page[data-active='1'] .v4-mm-go {
-  color: var(--orange);
+  color: var(--mm-hot);
   opacity: 1;
   transform: none;
 }
@@ -1508,7 +1515,7 @@ html:has(body.v4-active) {
 }
 
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mmenu-reset:hover {
-  color: var(--orange);
+  color: var(--mm-hot);
 }
 
 @keyframes v4-mmenu-in {
@@ -3116,6 +3123,42 @@ html:has(body.v4-active) {
   border: 0;
 }
 
+/* Liens d'evitement (2026-10-11, clavier, index.tsx SkipLinks) : caches comme .v4-sr tant qu'ils n'ont
+   pas le focus ; au focus, une etiquette en haut a gauche, par-dessus l'en-tete et le menu, avec le
+   contour de focus de la page (.v4-root :focus-visible). Rien ne bouge a l'ecran. */
+.v4-root .v4-skip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.v4-root .v4-skip:focus {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 10px 14px;
+  overflow: visible;
+  clip: auto;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--bone);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
 /* ---------- repli sans WebGL ---------- */
 
 .v4-fallback {
@@ -3281,11 +3324,14 @@ html:has(body.v4-active.v4-light) {
   background: linear-gradient(to bottom, rgba(241, 237, 229, 0.92), rgba(241, 237, 229, 0));
 }
 
-/* Le menu clair : le papier creme du site, l'encre noire pour les titres */
+/* Le menu clair : le papier creme du site, l'encre noire pour les titres. Ses textes orange
+   (2026-10-11, contraste) : #B04508, l'orange des textes des pages /fr/ et /es/ (5,04:1 sur le
+   creme #F6F1E7, #FF6A13 n'y fait que 2,55:1) ; les filets, les icones et le A gardent #FF6A13 */
 .v4-root[data-v4-theme='light'] .v4-mmenu,
 .v4-root[data-v4-theme='light'] .v4-mhead[data-menu='1'],
 .v4-root[data-v4-theme='light'] .v4-header[data-menu='1'] {
   --mm-ink: #191919;
+  --mm-hot: #b04508;
   background: #f6f1e7;
 }
 

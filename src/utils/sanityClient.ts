@@ -1,5 +1,6 @@
 import {createClient, type SanityClient} from '@sanity/client'
-import imageUrlBuilder from '@sanity/image-url'
+// 2026-10-11 : l'export nomme (@sanity/image-url 2.x), l'export par defaut est deprecie (avertissement en console)
+import {createImageUrlBuilder} from '@sanity/image-url'
 import type {SanityImageSource} from '@sanity/image-url/lib/types/types'
 
 export const sanityClient: SanityClient = createClient({
@@ -9,6 +10,6 @@ export const sanityClient: SanityClient = createClient({
   useCdn: true,
 })
 
-const builder = imageUrlBuilder(sanityClient)
+const builder = createImageUrlBuilder(sanityClient)
 
 export const urlFor = (source: SanityImageSource) => builder.image(source)

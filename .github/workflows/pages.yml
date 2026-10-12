@@ -2,6 +2,11 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ main ]
+  # 2026-10-11 (referencement) : un rebuild chaque matin (05:17 UTC) : les dates passees sortent
+  # des MusicEvent, sitemap.xml et les pages statiques gardent la date du jour ; et a la main
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
 permissions:
   contents: read
   pages: write

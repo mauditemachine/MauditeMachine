@@ -121,7 +121,7 @@ export const LIVE_DOCS: readonly { label: string; href: string; size: string; vi
 ];
 
 /** Les deux pages du site ouvertes par PRESS, en nouvel onglet. */
-export const LIVE_PAGES = { press: '/press/', techrider: '/techrider' } as const;
+export const LIVE_PAGES = { press: '/press/', techrider: '/techrider/' } as const;
 
 /** Massive Medias (revision 4) : STUDIO et CONTACT, nouvel onglet ; https://massivemedias.com repond 200. */
 export const MASSIVE_LINK = {

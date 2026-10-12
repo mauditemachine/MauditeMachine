@@ -1,9 +1,12 @@
 import React, { Suspense, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Layout from './components/Layout';
-import HomePage from './pages/HomePage';
-import AdminGate from './components/ui/AdminGate';
 import { AppProvider } from './context/AppContext';
+import NotFoundPage from './pages/NotFoundPage';
+// 2026-10-11 (poids du chunk d'entree) : le Layout et l'accueil de la v1 et la barriere admin en lazy ;
+// AdminGate tirait adminApi, donc le client Sanity, dans le chunk d'entree de toutes les pages
+const Layout = React.lazy(() => import('./components/Layout'));
+const HomePage = React.lazy(() => import('./pages/HomePage'));
+const AdminGate = React.lazy(() => import('./components/ui/AdminGate'));
 const AdminStatsPage = React.lazy(() => import('./pages/AdminStatsPage'));
 
 // Pages v1 (archivees sous /v1) : lazy load pour code-splitting
@@ -86,8 +89,8 @@ export default function App() {
           <Route path="/about" element={<Navigate to="/" replace />} />
 
           {/* ============ v1 archivee, navigable sous /v1 (noindex) ============ */}
-          <Route path="/v1" element={<Layout />}>
-            <Route index element={<HomePage />} />
+          <Route path="/v1" element={lazyEl(<Layout />)}>
+            <Route index element={lazyEl(<HomePage />)} />
             <Route path="about" element={lazyEl(<AboutPage />)} />
             <Route path="shows" element={lazyEl(<ShowsPage />)} />
             <Route path="merch" element={lazyEl(<MerchPage />)} />
@@ -99,7 +102,7 @@ export default function App() {
           {/* ============ Admin (inchange) ============ */}
           {/* Le radar admin garde le Layout v1 : son lecteur global
               (PlayerProvider) y vit. */}
-          <Route path="/mm-admin/radar" element={<Layout />}>
+          <Route path="/mm-admin/radar" element={lazyEl(<Layout />)}>
             <Route index element={lazyEl(<AdminRadarPage />)} />
           </Route>
           <Route
@@ -114,6 +117,10 @@ export default function App() {
           {/* Shell admin : la route statique stats ci-dessus gagne sur le
               splat (ranking React Router). */}
           <Route path="/mm-admin/*" element={lazyEl(<AdminApp />)} />
+
+          {/* 2026-10-11 (referencement) : toute autre adresse, la page 404 (src/pages/NotFoundPage.tsx) ;
+              404.html reste en noindex (scripts/prerender-seo.mjs) */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AppProvider>
     </Router>
