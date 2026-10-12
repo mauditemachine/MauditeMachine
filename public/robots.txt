@@ -1,10 +1,11 @@
 User-agent: *
-Allow: /
-
 # Panneaux d'administration : contenu privé, aucun intérêt pour la recherche
+# (2026-10-11 : les Disallow avant Allow, pour les robots qui prennent la
+# premiere regle qui correspond ; Google prend la plus longue, meme resultat)
 Disallow: /ms-admin/
 Disallow: /v1
 Disallow: /mm-admin
+Allow: /
 
 # Bots IA autorisés : visibilité de l'artiste dans les réponses des assistants
 # (2026-10-03 : les robots de recherche des assistants aussi ; resume : /llms.txt)
@@ -19,10 +20,10 @@ User-agent: Claude-SearchBot
 User-agent: PerplexityBot
 User-agent: Google-Extended
 User-agent: Applebot-Extended
-Allow: /
 Disallow: /ms-admin/
 Disallow: /v1
 Disallow: /mm-admin
+Allow: /
 
 # Crawlers SEO commerciaux agressifs : bloqués pour économiser la bande passante
 User-agent: AhrefsBot
