@@ -343,7 +343,9 @@ function softClipCurve(): Float32Array {
  * MM-RYTM cretait a -2.7 dBFS, l'ARP a -13.4. Le MM-RYTM descend de 2.5 dB (0.71 avant), le kick de 1.5 dB de
  * plus (shotsdsp.ts SHOT_BELOW.BD), l'ARP monte de 5 dB (synth.ts VOLUME_K) : les deux se lisent pareil, loin du rouge.
  */
-const RYTM_TRIM = 0.53;
+// 2026-10-12 : +0.57 dB (0.53 avant) : les voix recalees sur leur sonie (shotsdsp.ts SHOT_TARGET, toms plus bas)
+// faisaient lire le motif de depart 0.57 dB plus bas au MIXER
+const RYTM_TRIM = 0.566;
 
 function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bus = c.createGain();

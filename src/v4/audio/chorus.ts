@@ -110,6 +110,8 @@ export interface ChorusInfo {
   /** CHORUS RATE et DEPTH (2026-10-10) : le facteur des vitesses, la profondeur (s) ; absents des chorus sans setMod */
   mul?: number;
   depth?: number;
+  /** le chorus du MM-ARP (2026-10-12, facon Juno-106) : la vitesse de son triangle (Hz), 0 coupe */
+  rate?: number;
 }
 
 export interface ChorusStage {
@@ -267,46 +269,80 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
 }
 
 /**
- * Le chorus du MM-VOYAGER (2026-10-03, Mika : "comme un Juno-106") : deux
- * lignes BBD, une par cote, autour de 3.5 ms, modulees par UN triangle lent
- * en opposition de phase (le son s'ouvre en stereo et ondule large), un
- * passe-bas a 8 kHz sur le mouille (la couleur des BBD), sec et mouille a
- * parts egales des que le chorus est engage : il s'entend tout de suite.
- * Le potard va du mode I (0.5 Hz) au mode II (0.85 Hz) ; au-dela des trois
- * quarts, le I+II : un second triangle rapide et peu profond (8 Hz) ajoute
- * son frisson. Insert a bypass reel a 0.
+ * Le chorus du MM-ARP, refait le 2026-10-12 a l'identique de celui du Roland
+ * Juno-106 (Mika : "ARP le chorus n'est pas efficace.. je veux le meme chorus
+ * sur le Roland Juno 106"). D'apres le schema de la carte JACK du Juno-106
+ * (service notes, 31 juillet 1984) et les mesures publiees du Juno-60 (le
+ * meme circuit : deux MN3009 de 256 etages, leurs horloges MN3101) :
+ * - un seul LFO triangle (IC1 : un trigger et un integrateur, C3 0.1 uF) et
+ *   son inverse (IC2a, 33K sur 33K) : chacun mene l'horloge d'un BBD, les
+ *   deux lignes en opposition de phase, une par sortie ;
+ * - les modes ne changent que sa vitesse (Tr1 court-circuite R3, 2.2M) :
+ *   I 0.513 Hz, II 0.863 Hz (mesures ; le calcul du schema donne 0.55 et
+ *   0.90, un Juno-106 mesure 0.5 et 0.8), la meme course de 1.66 a 5.35 ms
+ *   (mesuree, filtres compris) ; pas de I+II sur le 106 : la carte n'a que
+ *   deux commandes, CHORUS ON/OFF et CHORUS I/II ;
+ * - l'horloge suit le triangle (un VCO a courant) et le retard d'un BBD est
+ *   256 / (2 x horloge) : le retard suit l'inverse du triangle, la hauteur
+ *   ondule plus vers le long retard (le vibrato du Juno, jusqu'a 22 cents en
+ *   I et 37 en II, contre 8 avant) ;
+ * - chaque sortie (IC6) : le sec plein (100K / 47K) et sa ligne (100K / 39K,
+ *   apres le diviseur des deux sorties du BBD, 47K sur 1.65K) : 1.16 fois
+ *   plus de mouille que de sec, a gauche avec une ligne, a droite avec
+ *   l'autre ; chorus coupe, le sec seul ;
+ * - autour des BBD (un 4 poles avant, le meme apres) : deux Sallen-Key a 22K,
+ *   820p / 680p (9.7 kHz, Q 0.55) et 1.8n / 270p (10.4 kHz, Q 1.29), un
+ *   Butterworth vers 10 kHz, plus 10K et 2.2n (7.2 kHz) a l'entree du BBD :
+ *   le mouille s'eteint vers 7 kHz, plus sombre que le sec.
+ * TRIM : le niveau d'ensemble, pour que le MM-ARP lise au VU du MIXER ce
+ * qu'il lisait avec le chorus d'avant a son depart (R14-258) ; le rapport
+ * du Juno entre sec et mouille ne change pas. Insert a bypass reel : OFF,
+ * la branche n'existe pas (aucun calcul).
  */
-const JUNO = {
-  base: 0.0035,
-  depth: { min: 0.0016, max: 0.0021 },
-  rate: { min: 0.5, max: 0.85 },
-  fast: { rate: 8, depth: 0.00022, from: 0.75 },
-  lowpass: 8000,
-  /** mouille plein des 30 % du potard ; sec et mouille a parts egales (un peu plus de mouille au bout) */
-  full: 0.3,
-  dry: 0.62,
-  wet: 0.78,
+export const JUNO = {
+  /** les vitesses du triangle, mode I puis II (Hz) */
+  rates: [0.513, 0.863],
+  /** la course du retard entendu (s), mesuree filtres compris */
+  delay: { min: 0.00166, max: 0.00535 },
+  /** le retard de groupe des filtres (s) : la ligne seule va de min - 0.106 ms a max - 0.106 ms */
+  filterDelay: 0.000106,
+  /** les Sallen-Key d'avant et d'apres les BBD (Hz, Q), et le pole de l'entree du BBD (Hz) */
+  biquads: [
+    [9688, 0.549],
+    [10378, 1.291],
+    [9688, 0.549],
+    [10378, 1.291],
+  ],
+  pole: 7234,
+  /** le mouille contre le sec, sur chaque sortie (R71 / R72 et le diviseur des sorties du BBD) */
+  wet: 1.16,
+  /** le niveau d'ensemble, chorus en marche (0.66 avant le 2026-10-12 : +0.36 dB au MIXER contre l'ancien chorus) */
+  trim: 0.633,
 } as const;
+
+/** Les modes du chorus du MM-ARP : 0 OFF, 1 I, 2 II. */
+export type JunoMode = 0 | 1 | 2;
 
 export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStage {
   const input = c.createGain();
   input.gain.value = 1;
   const insert = new Insert(c, input, out);
-  let value = 0;
+  let mode: JunoMode = 0;
   let built = 0;
   let branch: {
     nodes: AudioNode[];
     lfos: OscillatorNode[];
-    /** les DelayNode d'avant (sans worklet) */
+    /** les DelayNode de secours (sans worklet) : leur LFO */
     slow?: OscillatorNode;
-    depth?: GainNode;
-    fastDepth?: GainNode;
     /** le worklet (interpolation sinc) */
     node?: AudioWorkletNode;
   } | null = null;
+  const lineMin = JUNO.delay.min - JUNO.filterDelay;
+  const lineMax = JUNO.delay.max - JUNO.filterDelay;
+  const rateOf = (m: JunoMode): number => JUNO.rates[m === 2 ? 1 : 0];
 
   const build = (): void => {
-    const w = chorusNode(c, { kind: 'juno', base: JUNO.base, depth: JUNO.depth.min, lowpass: JUNO.lowpass });
+    const w = chorusNode(c, { kind: 'juno', dmin: lineMin, dmax: lineMax, biquads: JUNO.biquads, pole: JUNO.pole, rate: rateOf(mode) });
     if (w) {
       const wIn = c.createGain();
       wIn.connect(w);
@@ -315,43 +351,43 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
       insert.setBranch(wIn, w);
       return;
     }
+    // Sans worklet : deux DelayNode, un triangle lineaire (le meme centre, la meme course), les deux Sallen-Key d'avant
     const bIn = c.createGain();
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = JUNO.lowpass;
-    lp.Q.value = 0.5;
-    bIn.connect(lp);
+    let last: AudioNode = bIn;
+    const nodes: AudioNode[] = [bIn];
+    for (const [hz, q] of JUNO.biquads.slice(0, 2)) {
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = hz;
+      f.Q.value = 20 * Math.log10(q);
+      last.connect(f);
+      nodes.push(f);
+      last = f;
+    }
     const dl = c.createDelay(0.02);
     const dr = c.createDelay(0.02);
-    dl.delayTime.value = JUNO.base;
-    dr.delayTime.value = JUNO.base;
-    lp.connect(dl);
-    lp.connect(dr);
+    const mid = (lineMin + lineMax) / 2;
+    dl.delayTime.value = mid;
+    dr.delayTime.value = mid;
+    last.connect(dl);
+    last.connect(dr);
     const slow = c.createOscillator();
     slow.type = 'triangle';
-    slow.frequency.value = JUNO.rate.min;
+    slow.frequency.value = rateOf(mode);
     const depth = c.createGain();
-    depth.gain.value = JUNO.depth.min;
+    depth.gain.value = (lineMax - lineMin) / 2;
     const inv = c.createGain();
     inv.gain.value = -1;
     slow.connect(depth);
     depth.connect(dl.delayTime);
     depth.connect(inv);
     inv.connect(dr.delayTime);
-    const fast = c.createOscillator();
-    fast.type = 'triangle';
-    fast.frequency.value = JUNO.fast.rate;
-    const fastDepth = c.createGain();
-    fastDepth.gain.value = 0;
-    fast.connect(fastDepth);
-    fastDepth.connect(dl.delayTime);
-    fastDepth.connect(dr.delayTime);
     const merge = c.createChannelMerger(2);
     dl.connect(merge, 0, 0);
     dr.connect(merge, 0, 1);
     slow.start();
-    fast.start();
-    branch = { nodes: [bIn, lp, dl, dr, depth, inv, fastDepth, merge, slow, fast], lfos: [slow, fast], slow, depth, fastDepth };
+    nodes.push(dl, dr, depth, inv, merge, slow);
+    branch = { nodes, lfos: [slow], slow };
     built += 1;
     insert.setBranch(bIn, merge);
     whenChorusReady(c, upgrade);
@@ -371,53 +407,44 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
   };
   insert.onIdle = teardown;
 
+  // Chaque sortie : le sec et sa ligne, au rapport du Juno ; TRIM pour le niveau d'ensemble
+  const engage = (): void => insert.engage(JUNO.trim, JUNO.trim * JUNO.wet);
+
   // Le module arrive : les DelayNode s'effacent en 20 ms, le worklet prend la suite
   function upgrade(): void {
-    if (!branch || value === 0 || branch.node) return;
-    const m = Math.min(1, value / JUNO.full);
-    insert.engage(1 - (1 - JUNO.dry) * m, 0);
+    if (!branch || mode === 0 || branch.node) return;
+    insert.engage(JUNO.trim, 0);
     setTimeout(() => {
-      if (value === 0 || !branch || branch.node) return;
+      if (mode === 0 || !branch || branch.node) return;
       teardown();
       build();
-      apply(value);
+      engage();
     }, UNLINK_MS);
-  }
-
-  function apply(t: number): void {
-    const b = branch;
-    if (b) {
-      const rate = JUNO.rate.min + (JUNO.rate.max - JUNO.rate.min) * t;
-      const depth = JUNO.depth.min + (JUNO.depth.max - JUNO.depth.min) * t;
-      const f = t > JUNO.fast.from ? (t - JUNO.fast.from) / (1 - JUNO.fast.from) : 0;
-      const fastDepth = JUNO.fast.depth * f;
-      if (b.node) b.node.port.postMessage({ rate, depth, fastDepth });
-      if (b.slow) b.slow.frequency.value = rate;
-      if (b.depth) b.depth.gain.value = depth;
-      if (b.fastDepth) b.fastDepth.gain.value = fastDepth;
-    }
-    const m = Math.min(1, t / JUNO.full);
-    insert.engage(1 - (1 - JUNO.dry) * m, JUNO.wet * m * (0.85 + 0.15 * t));
   }
 
   return {
     input,
+    /** v : le mode (0 OFF, 1 I, 2 II) ; I et II ne changent que la vitesse du triangle, sans saut */
     set(v: number) {
-      const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
-      if (t === value) return;
-      value = t;
-      if (t === 0) {
+      const m: JunoMode = v >= 1.5 ? 2 : v >= 0.5 ? 1 : 0;
+      if (m === mode) return;
+      const was = mode;
+      mode = m;
+      if (m === 0) {
         insert.release();
         return;
       }
-      if (!branch) build();
-      apply(t);
+      if (branch) {
+        if (branch.node) branch.node.port.postMessage({ rate: rateOf(m) });
+        if (branch.slow) branch.slow.frequency.value = rateOf(m);
+      } else build();
+      if (was === 0) engage();
     },
-    value: () => value,
+    value: () => mode,
     reset() {
-      value = 0;
+      mode = 0;
       insert.reset();
     },
-    info: () => ({ value, live: branch !== null, built, insert: insert.info() }),
+    info: () => ({ value: mode, live: branch !== null, built, insert: insert.info(), rate: mode ? rateOf(mode) : 0 }),
   };
 }

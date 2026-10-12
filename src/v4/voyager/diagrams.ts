@@ -18,6 +18,7 @@
  * deja en grand et ne la reprend pas).
  */
 
+import { JUNO } from '../audio/chorus';
 import { ACCENT_DEPTHS, arpPreview } from './preview';
 import { CHORDS, chordNotes, voicedDegrees, degreeMidi } from './chords';
 import {
@@ -539,14 +540,33 @@ function driveDiagram(v: number): VoyDiagram {
   return p.done();
 }
 
+/**
+ * CHORUS (2026-10-12, le Juno-106, audio/chorus.ts JUNO) : le retard de chaque ligne sur deux secondes, gauche et
+ * droite en sens contraire, 1.66 ms en bas et 5.35 ms en haut ; il suit l'inverse du triangle (l'horloge des BBD),
+ * pointu vers le haut. I lent, II plus rapide ; OFF : rien ne bouge, en fantome.
+ */
 function chorusDiagram(v: number): VoyDiagram {
   const p = new Pic();
-  p.p(axis(), 'grid');
-  p.p(curve((t) => MID - 26 * Math.sin(2 * Math.PI * t * 3), X0, X1, 240), 'ghost');
-  // Facon Juno : deux copies retardees, leur retard qui ondule (la quantite suit le potard)
-  p.p(curve((t) => MID - 26 * Math.sin(2 * Math.PI * (t * 3 - v * 0.18 * (1 + Math.sin(2 * Math.PI * t)))), X0, X1, 240), 'hot');
-  p.p(curve((t) => MID - 26 * Math.sin(2 * Math.PI * (t * 3 + v * 0.18 * (1 + Math.sin(2 * Math.PI * t + Math.PI)))), X0, X1, 240), 'main');
-  p.label('L', X0, BOT).label('R', X1, BOT, 'end');
+  const mode = stepIndex('chorus', v);
+  const { min, max } = JUNO.delay;
+  const c0 = 0.5 * (1 / min + 1 / max);
+  const c1 = 0.5 * (1 / min - 1 / max);
+  const tri = (q: number): number => {
+    const f = q - Math.floor(q);
+    return f < 0.25 ? 4 * f : f < 0.75 ? 2 - 4 * f : 4 * f - 4;
+  };
+  const yOf = (d: number): number => Y1 - ((d - min) / (max - min)) * (Y1 - Y0);
+  p.p(axis(Y0) + axis(Y1), 'grid');
+  if (mode === 0) {
+    p.p(axis(yOf(1 / c0)), 'ghost');
+    p.label('OFF', X0, BOT).label('1.7 TO 5.4 MS', X1, BOT, 'end');
+    return p.done();
+  }
+  // Deux secondes de triangle a la vitesse du mode
+  const cycles = 2 * JUNO.rates[mode - 1];
+  p.p(curve((t) => yOf(1 / (c0 - c1 * tri(cycles * t))), X0, X1, 240), 'main');
+  p.p(curve((t) => yOf(1 / (c0 + c1 * tri(cycles * t))), X0, X1, 240), 'hot');
+  p.label('L', X0, BOT).label(`${mode === 1 ? 'I' : 'II'}  ${JUNO.rates[mode - 1].toFixed(2)} HZ`, (X0 + X1) / 2, BOT, 'middle').label('R', X1, BOT, 'end');
   return p.done();
 }
 

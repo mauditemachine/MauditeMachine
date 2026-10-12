@@ -67,7 +67,7 @@ import { KIT_FAMILIES, KIT_IDS, KIT_KNOBS, LAYER_DEFAULT, LAYER_TUNE_ST, cleanKn
 import { lenOfDecay, sampleTuneSt } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
-import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, withoutOscOn, type VoyValues } from '../voyager/params';
+import { VOY_KNOB_IDS, foldLegacyKnobs, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
 import { SEQ_MAX, seq, type SeqState } from '../voyager/seq';
 import { BASS_KNOBS, ENGINE_IDS, bassKnob, bassParams, legacyOf, type BassKnobId } from '../bass/params';
 import { bassLoad } from './bassload';
@@ -444,7 +444,8 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
     const v = d as VoyData;
     // Un preset d'avant un potard (les TWEAKS, 2026-10-04) : ce potard a sa valeur de depart, le son d'alors ;
     // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits ; un preset d'avant CHORD (2026-10-05) : BASIC, ses arpeges d'alors ;
-    // un oscillateur coupe d'avant le 2026-10-11 (on1, on2 a OFF) : son niveau a 0 (presets, sons mis de cote, UNDO)
+    // un oscillateur coupe d'avant le 2026-10-11 (on1, on2 a OFF) : son niveau a 0 (presets, sons mis de cote, UNDO) ;
+    // le CHORUS continu d'avant le 2026-10-12 : son mode (OFF, I, II)
     const knobs: Record<string, unknown> = { ...v.knobs, ...migrateKnobs(v.knobs) };
     for (const id of VOY_KNOB_IDS) {
       const x = knobs[id];
@@ -578,12 +579,13 @@ function canon(v: unknown): unknown {
 }
 
 /**
- * Les potards d'un etat du MM-ARP sans les ON d'avant le 2026-10-11 (un OFF plie dans son niveau, params.ts
- * withoutOscOn) : un preset, un son mis de cote, une empreinte garde avant eux est le meme son qu'apres sa migration.
+ * Les potards d'un etat du MM-ARP ramenes a aujourd'hui (params.ts foldLegacyKnobs : les ON d'avant le 2026-10-11
+ * plies dans leur niveau, le CHORUS continu d'avant le 2026-10-12 a son mode) : un preset, un son mis de cote, une
+ * empreinte garde avant eux est le meme son qu'apres sa migration.
  */
 function voyNow(m: PresetMachine, o: Record<string, unknown>): Record<string, unknown> {
   if (m !== 'voy' || !o.knobs || typeof o.knobs !== 'object') return o;
-  return { ...o, knobs: withoutOscOn(o.knobs as Record<string, unknown>) };
+  return { ...o, knobs: foldLegacyKnobs(o.knobs as Record<string, unknown>) };
 }
 
 /**

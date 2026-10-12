@@ -16,11 +16,13 @@
  *   eteints, un eclat a l'appui.
  * Appui : la touche s'enfonce et remonte (reduced motion : la lumiere seule).
  *
- * Les boutons poussoirs du panneau (2026-10-11, SUB OCT, Mika : "ou ptete un
- * bouton poussoir je sais pas") : la meme touche de caoutchouc en petit
- * (VOY_PUSH), posee dans le repere du panneau (rig.ts), eteinte, un peu de
- * lumiere au survol ; elle s'enfonce a l'appui. Ses LED (-1, -2) sont
- * dessinees sur la serigraphie (silk.ts).
+ * Les boutons poussoirs (2026-10-11, SUB OCT, Mika : "ou ptete un bouton
+ * poussoir je sais pas" ; 2026-10-12, CHORUS, les modes du Juno-106) : la
+ * meme touche de caoutchouc en petit (VOY_PUSH), posee dans le repere de son
+ * plan (rig.ts : le panneau, ou le plateau pour CHORUS au telephone), un
+ * InstancedMesh par plan ; eteinte, un peu de lumiere au survol, elle
+ * s'enfonce a l'appui. Ses LED (-1, -2 ; I, II) sont dessinees sur la
+ * serigraphie (silk.ts).
  */
 
 import {
@@ -50,16 +52,24 @@ import { easeOutCubic, linear, type Tweens } from '../scene/tween';
 import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PORTRAIT, gainOf } from '../theme';
 import { CHORDS } from './chords';
 import { VOY_FACE_KNOBS, voyKnob, type VoyKnobId } from './params';
-import { VOY_BUTTON, VOY_BUTTONS, VOY_KNOB, VOY_PAD, VOY_PUSH, isPush, voyKnobPlace, voyPadAt, voyPushLeds, type VoyButtonId } from './theme';
+import { VOY_BUTTON, VOY_BUTTONS, VOY_KNOB, VOY_PAD, VOY_PUSH, isPush, voyKnobPlace, voyPadAt, voyPushLeds, type VoyButtonId, type VoyWhere } from './theme';
 
 const PADS = CHORDS.length;
 const BTNS = VOY_BUTTONS.length;
 const OPEN_I = VOY_BUTTONS.findIndex((b) => b.id === 'open');
 const RUN_I = VOY_BUTTONS.findIndex((b) => b.id === 'run');
 const EDIT_I = VOY_BUTTONS.findIndex((b) => b.id === 'edit');
-/** Les boutons poussoirs du panneau (SUB OCT, 2026-10-11). */
-const PUSH_IDS: readonly VoyKnobId[] = VOY_FACE_KNOBS.filter((k) => isPush(k.id)).map((k) => k.id);
+/** Les boutons poussoirs (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12). */
+export const PUSH_KNOB_IDS: readonly VoyKnobId[] = VOY_FACE_KNOBS.filter((k) => isPush(k.id)).map((k) => k.id);
+const PUSH_IDS = PUSH_KNOB_IDS;
 const PUSHES = PUSH_IDS.length;
+const WHERES: readonly VoyWhere[] = ['panel', 'deck'];
+/** Chaque bouton : son plan, sa place dans l'InstancedMesh de ce plan. */
+const PUSH_SLOT = PUSH_IDS.map((id) => {
+  const where = voyKnobPlace(id).where;
+  return { where, j: PUSH_IDS.filter((x) => voyKnobPlace(x).where === where).indexOf(id) };
+});
+const pushCount = (where: VoyWhere): number => PUSH_SLOT.filter((s) => s.where === where).length;
 
 type Glow = 'off' | 'faint' | 'hover' | 'queued' | 'active' | 'flash' | 'orange' | 'orangeDim';
 const RGB: Record<Glow, readonly number[]> = {
@@ -176,9 +186,9 @@ export class VoyKeys {
   readonly pads: InstancedMesh;
   readonly buttons: InstancedMesh;
   readonly halos: InstancedMesh;
-  /** les boutons poussoirs du panneau (SUB OCT, 2026-10-11) : rig.ts les pose dans le repere du panneau */
-  readonly pushes: InstancedMesh;
-  private pushEm: InstancedBufferAttribute;
+  /** les boutons poussoirs, un InstancedMesh par plan : rig.ts pose chacun dans le repere de son plan */
+  readonly pushes: Record<VoyWhere, InstancedMesh>;
+  private pushEm: Record<VoyWhere, InstancedBufferAttribute>;
   private pushY = new Float32Array(PUSHES);
   /** le bouton poussoir survole (-1 : aucun) */
   private pushHover = -1;
@@ -240,18 +250,28 @@ export class VoyKeys {
     const rubber = albedo('pad', new Color(), gainOf('pad'));
     this.buttons.setColorAt(RUN_I, col.setRGB(LIT.run[0] / rubber.r, LIT.run[1] / rubber.g, LIT.run[2] / rubber.b));
     this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
-    // Les boutons poussoirs : la matiere des touches (le caoutchouc, sa lumiere par instance), eteints
-    const ug = pushGeometry(opts.mobile);
-    this.pushEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, PUSHES) * 3), 3);
-    this.pushEm.setUsage(DynamicDrawUsage);
-    ug.setAttribute('instanceEmissive', this.pushEm);
-    this.pushes = new InstancedMesh(ug, this.btnMat, PUSHES);
-    this.pushes.name = 'voyPushes';
-    this.pushes.castShadow = !opts.mobile;
-    this.pushes.receiveShadow = true;
-    this.pushes.instanceMatrix.setUsage(DynamicDrawUsage);
+    // Les boutons poussoirs : la matiere des touches (le caoutchouc, sa lumiere par instance), eteints ; un jeu par plan
+    const mk = (where: VoyWhere): [InstancedMesh, InstancedBufferAttribute] => {
+      const n = pushCount(where);
+      const ug = pushGeometry(opts.mobile);
+      const em = new InstancedBufferAttribute(new Float32Array(Math.max(1, n) * 3), 3);
+      em.setUsage(DynamicDrawUsage);
+      ug.setAttribute('instanceEmissive', em);
+      const m = new InstancedMesh(ug, this.btnMat, n);
+      m.name = where === 'panel' ? 'voyPushes' : 'voyDeckPushes';
+      m.castShadow = !opts.mobile;
+      m.receiveShadow = true;
+      m.visible = n > 0;
+      m.instanceMatrix.setUsage(DynamicDrawUsage);
+      return [m, em];
+    };
+    const [pp, pe] = mk('panel');
+    const [dp, de] = mk('deck');
+    this.pushes = { panel: pp, deck: dp };
+    this.pushEm = { panel: pe, deck: de };
     for (let i = 0; i < PUSHES; i += 1) {
-      this.pushes.setColorAt(i, col.setRGB(1, 1, 1));
+      const s = PUSH_SLOT[i];
+      this.pushes[s.where].setColorAt(s.j, col.setRGB(1, 1, 1));
       this.placePush(i);
     }
     // Son temoin : eteint, une fente (line) ; allume, jaune
@@ -300,20 +320,23 @@ export class VoyKeys {
 
   private placePush(i: number): void {
     const p = voyKnobPlace(PUSH_IDS[i]);
-    this.pushes.setMatrixAt(i, m4.makeTranslation(p.x, this.pushY[i], p.z));
-    this.pushes.instanceMatrix.needsUpdate = true;
+    const { where, j } = PUSH_SLOT[i];
+    this.pushes[where].setMatrixAt(j, m4.makeTranslation(p.x, this.pushY[i], p.z));
+    this.pushes[where].instanceMatrix.needsUpdate = true;
   }
 
   private setPushGlow(i: number, g: Glow): void {
-    const a = this.pushEm.array as Float32Array;
+    const { where, j } = PUSH_SLOT[i];
+    const em = this.pushEm[where];
+    const a = em.array as Float32Array;
     const c = RGB[g];
-    a[i * 3] = c[0];
-    a[i * 3 + 1] = c[1];
-    a[i * 3 + 2] = c[2];
-    this.pushEm.needsUpdate = true;
+    a[j * 3] = c[0];
+    a[j * 3 + 1] = c[1];
+    a[j * 3 + 2] = c[2];
+    em.needsUpdate = true;
   }
 
-  /** Survol d'un bouton poussoir (son id de saisie, vk-subOct ; null : aucun) ; true s'il faut une frame. */
+  /** Survol d'un bouton poussoir (son id de saisie, vk-subOct, vk-chorus ; null : aucun) ; true s'il faut une frame. */
   setPushHover(hotspot: string | null): boolean {
     const i = hotspot && hotspot.startsWith('vk-') ? PUSH_IDS.indexOf(hotspot.slice(3) as VoyKnobId) : -1;
     if (i === this.pushHover) return false;
@@ -573,12 +596,13 @@ export class VoyKeys {
   }
 
   /**
-   * Les boutons poussoirs pour le picking (vk-<id>, comme un potard : INFOS, MIDI LEARN, le jumeau) ; repere du
-   * panneau. La zone prend les LED et leurs noms ; au telephone aussi le nom dessous, et au moins la demi-colonne
-   * d'un potard en largeur (touchR).
+   * Les boutons poussoirs pour le picking (vk-<id>, comme un potard : INFOS, MIDI LEARN, le jumeau) ; chacun dans le
+   * repere de son plan (layers : le panneau, le plateau). La zone prend les LED et leurs noms ; au telephone aussi le
+   * nom dessous, et au moins la demi-colonne d'un potard en largeur (touchR).
    */
-  pushHotspots(layer: Object3D): HotspotDef[] {
-    return PUSH_IDS.map((id) => {
+  pushHotspots(layers: Record<VoyWhere, Object3D>): HotspotDef[] {
+    return PUSH_IDS.map((id, i) => {
+      const layer = layers[PUSH_SLOT[i].where];
       const p = voyKnobPlace(id);
       const top = Math.min(p.z - VOY_PUSH.d / 2, ...voyPushLeds(id, voyKnob(id).steps ?? []).map((l) => l.tz)) - 0.05;
       const bottom = PORTRAIT ? p.labelZ + 0.06 : p.z + VOY_PUSH.d / 2 + 0.03;
@@ -612,7 +636,7 @@ export class VoyKeys {
   }
 
   dispose(): void {
-    for (const m of [this.pads, this.buttons, this.halos, this.pushes]) {
+    for (const m of [this.pads, this.buttons, this.halos, ...WHERES.map((w) => this.pushes[w])]) {
       m.geometry.dispose();
       m.dispose();
     }

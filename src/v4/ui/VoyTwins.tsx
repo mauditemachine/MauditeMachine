@@ -9,8 +9,9 @@
  * place des puces des pages). Inertes tant qu'on n'utilise pas le
  * Voyager. La touche i du grand ecran (2026-10-08) : un bouton de plus,
  * apres les touches de l'ecran (INFOS, state/voyInfos.ts). SUB OCT, un
- * bouton poussoir depuis le 2026-10-11 : un bouton (Entree ou Espace passe a
- * l'autre octave), son nom dit l'octave du moment.
+ * bouton poussoir depuis le 2026-10-11 (CHORUS aussi depuis le 2026-10-12) :
+ * un bouton (Entree ou Espace passe au cran suivant), son nom dit le cran du
+ * moment et le suivant.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
@@ -242,10 +243,10 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         const steps = k.steps ? k.steps.length - 1 : 0;
         // Les TWEAKS : sous le capot, au clavier une fois decouverts
         const under = k.section === 'tweak';
-        // Un bouton poussoir (SUB OCT, 2026-10-11) : un bouton, son nom dit le cran du moment et le suivant
+        // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : un bouton, son nom dit le cran du moment et le suivant
         if (isPush(k.id) && k.steps) {
           const i = stepIndex(k.id, v);
-          const next = k.steps[(i + 1) % k.steps.length];
+          const next = voyValueText(k.id, ((i + 1) % k.steps.length) / Math.max(1, k.steps.length - 1));
           return (
             <button
               key={id}
@@ -254,7 +255,7 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               className="v4-twin"
               data-twin="vpush"
               data-hotspot={id}
-              aria-label={`${k.aria}. Now ${voyValueText(k.id, v)}, press for ${next} OCT`}
+              aria-label={`${k.aria}. Now ${voyValueText(k.id, v)}, press for ${next}`}
               onKeyDown={noRepeat}
               onClick={() => voyPush(k.id, stageRef.current)}
             />

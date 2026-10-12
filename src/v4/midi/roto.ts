@@ -277,6 +277,7 @@ function buildSetups(): RotoSetup[] {
       v('lfoDest', 'MOD TARGET', C.cyan),
       v('lfoAmt', 'MOD DEPTH', C.cyan),
       v('dist', 'OVERDRIVE', C.purple),
+      // CHORUS (2026-10-12) : trois crans, OFF, I, II (ses crans viennent du site, voyager/params.ts)
       v('chorus', 'CHORUS', C.purple),
       v('delay', 'DELAY', C.purple),
       v('reverb', 'REVERB', C.purple),
@@ -745,8 +746,10 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * boutons (page 3) : 1010.2. A reimporter : ARP (12).
  * 2026-10-11 : les boutons OSC 1 ON et OSC 2 ON sont partis (les ON des oscillateurs du MM-ARP aussi, Mika : "si on
  * veut pas les osc on coupe les volumes") ; SUB -2 OCT et les trois formes du SUB ouvrent la page 3 : 1011. A
- * reimporter : ARP (12). */
-export const ROTO_VERSION = '2026-10-11';
+ * reimporter : ARP (12).
+ * 2026-10-12 : le CHORUS du MM-ARP, les modes du Juno-106 (Mika : "je veux le meme chorus sur le Roland Juno 106") :
+ * son potard (ARP page 4, la meme adresse) devient un potard a trois crans, OFF, I, II : 1012. A reimporter : ARP (12). */
+export const ROTO_VERSION = '2026-10-12';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);

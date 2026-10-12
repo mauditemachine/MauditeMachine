@@ -194,7 +194,12 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
 
   /* ---------- EFFECTS / OUTPUT ---------- */
   dist: { title: 'OVERDRIVE', text: "Un overdrive doux et asymétrique dans le filtre et à sa sortie : il ajoute des harmoniques et tasse les crêtes, le volume est rattrapé.", tip: "20 à 35 % pour la chaleur d'une console ; au-delà pour un arpège qui grogne." },
-  chorus: { title: 'CHORUS', text: "Un chorus façon Juno-106 : deux copies légèrement retardées dont le retard ondule, à gauche et à droite. Il élargit le son ; BASS MONO (sous le capot) garde les graves au centre.", tip: "40 % : la largeur de départ ; coupe-le pour un arpège sec et frontal." },
+  // Le CHORUS du Juno-106, un bouton poussoir a trois modes (2026-10-12)
+  chorus: {
+    title: 'CHORUS',
+    text: "Le chorus du Roland Juno-106, refait d'après son schéma, un bouton poussoir comme sur le Juno : chaque appui passe de OFF à I, puis II, puis revient à OFF ; la LED allumée dit le mode. Deux lignes à retard ondulent en sens contraire, une à gauche, une à droite, mêlées au son direct : le son s'ouvre en stéréo et chatoie. I : l'ondulation lente (environ une seconde par aller, deux par cycle), large et douce, le son des nappes du Juno. II : plus rapide (un peu plus d'une demi-seconde par aller) : sur la même course, la hauteur ondule davantage, le son tangue. OFF : le son direct, sans chorus.",
+    tip: "I sur presque tout ; II sur des accords tenus ou un arpège italo ; OFF pour une basse qui tape droit. BASS MONO (sous le capot) garde les graves hors du chorus.",
+  },
   delay: { title: 'DELAY', text: "Un délai ping-pong en croche pointée calé sur le tempo (gauche, droite, gauche...) ; le potard monte l'envoi et la réinjection (0,35 à 0,68), filtrée dans la boucle.", tip: "La croche pointée contre des doubles croches : l'arpège se dédouble en contre-chant, signature de l'indie dance." },
   reverb: { title: 'REVERB', text: "L'envoi vers la réverbe partagée avec le MM-RYTM. Le volume est rattrapé quand elle monte.", tip: "Peu de réverbe sur un arpège rapide : il reste net ; plus sur 1/8 lent." },
   volume: { title: 'VOLUME', text: "Le volume du MM-ARP (au carré du potard), réglé 3 à 5 dB sous le kick du MM-RYTM au départ.", tip: "Le kick reste la référence : règle l'arpège à l'oreille contre lui, pas seul." },

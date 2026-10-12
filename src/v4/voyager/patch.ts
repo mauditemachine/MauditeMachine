@@ -21,7 +21,7 @@
 
 import { presetMode } from '../state/presetMode';
 import { presets } from '../state/presets';
-import { RETIRED_ON, VOY_KNOB_IDS, voyParams, withoutOscOn, type VoyKnobId } from './params';
+import { RETIRED_ON, VOY_KNOB_IDS, chorusStep, foldLegacyKnobs, voyParams, type VoyKnobId } from './params';
 import { seq } from './seq';
 
 const KEY = 'mm.v4.voyager.preset';
@@ -53,9 +53,12 @@ interface Origin {
   sig: string;
 }
 
-/** L'empreinte d'un son : ses potards (un absent : sa valeur de depart ; un ON d'avant plie dans son niveau) et sa suite d'EDIT. */
+/**
+ * L'empreinte d'un son : ses potards (un absent : sa valeur de depart ; un ON d'avant plie dans son niveau, le CHORUS
+ * continu d'avant le 2026-10-12 a son mode) et sa suite d'EDIT.
+ */
 function sigOf(raw: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len: number; buf: readonly unknown[] }): string {
-  const v = withoutOscOn(raw) as Partial<Record<VoyKnobId, number>>;
+  const v = foldLegacyKnobs(raw) as Partial<Record<VoyKnobId, number>>;
   const at = (id: VoyKnobId): number => v[id] ?? voyParams.def(id);
   const sound = (id: SigId): number => (isRetired(id) ? 1 : at(id));
   const added = ADDED_IDS.some((id) => at(id) !== voyParams.def(id)) ? [ADDED_IDS.map(at)] : [];
@@ -64,8 +67,10 @@ function sigOf(raw: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len:
 
 /**
  * Une empreinte gardee avant le 2026-10-11 (ses ON a leur place) : un oscillateur coupe (ON a 0) y devient ON et son
- * niveau 0, comme ses potards a la lecture ; le meme son, la meme empreinte (pas d'etoile pour rien).
+ * niveau 0, comme ses potards a la lecture ; le meme son, la meme empreinte (pas d'etoile pour rien). Le CHORUS
+ * continu d'avant le 2026-10-12 : son mode (params.ts chorusStep), comme a la lecture des potards.
  */
+const CHORUS_AT = SOUND_IDS.indexOf('chorus');
 function migrateSig(sig: string): string {
   try {
     const a = JSON.parse(sig) as unknown[];
@@ -78,6 +83,11 @@ function migrateSig(sig: string): string {
       if (i < 0 || j < 0 || typeof knobs[i] !== 'number' || knobs[i] >= 0.5) continue;
       knobs[i] = 1;
       knobs[j] = 0;
+      moved = true;
+    }
+    const c = knobs[CHORUS_AT];
+    if (CHORUS_AT >= 0 && typeof c === 'number' && chorusStep(c) !== c) {
+      knobs[CHORUS_AT] = chorusStep(c);
       moved = true;
     }
     return moved ? JSON.stringify(a) : sig;

@@ -51,6 +51,14 @@
  * melangeur), SUB OCT (-1 ou -2 octaves sous la note jouee) et SUB WAVE
  * (SINE, TRI, SQUARE). A 0 au depart : le son d'avant ; un preset d'avant
  * n'en a pas (audio/moog.worklet.js).
+ *
+ * CHORUS a trois crans (2026-10-12, Mika : "ARP le chorus n'est pas
+ * efficace.. je veux le meme chorus sur le Roland Juno 106") : OFF, I et II,
+ * ceux du Juno-106 (audio/chorus.ts JUNO), un bouton poussoir sur la face ;
+ * son id ne change pas. Un reglage, un preset, un son mis de cote ou une
+ * etape d'UNDO d'avant (le potard continu) prend son mode : OFF jusqu'a 0.05 compris,
+ * I sous 0.6, II au-dela (chorusStep, dans migrateKnobs et pour les
+ * empreintes foldLegacyKnobs ; les crans d'aujourd'hui y restent tels quels).
  */
 
 export type VoyKnobId =
@@ -164,6 +172,8 @@ export const SUB_WAVES = ['SINE', 'TRI', 'SQUARE'] as const;
 /** La forme du SUB dans le moteur (audio/moog.worklet.js shape : 0 sinus, 1 triangle, 3 carre). */
 const SUB_SHAPE = [0, 1, 3] as const;
 export const NOTES = ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'] as const;
+/** CHORUS : les modes du Juno-106 (2026-10-12) ; pas de I+II sur le 106. */
+export const CHORUS_MODES = ['OFF', 'I', 'II'] as const;
 /** CHORD : l'arpege d'avant (BASIC), puis les accords enchaines au plus pres, de la triade a la onzieme. */
 export const CHORD_TYPES = ['BASIC', 'TRIAD', '7TH', '9TH', '11TH'] as const;
 
@@ -214,7 +224,8 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'lfoAmt', label: 'DEPTH', aria: 'Modulation depth', section: 'mod', def: 0 },
   // OVERDRIVE (2026-10-04, Mika : "c'est pas DIST qu'on veut c'est OVERDRIVE") : l'id reste 'dist' (reglages et presets retenus)
   { id: 'dist', label: 'OVERDRIVE', aria: 'Overdrive', section: 'fx', def: 0 },
-  { id: 'chorus', label: 'CHORUS', aria: 'Chorus', section: 'fx', def: 0.4 },
+  // CHORUS (2026-10-12) : un bouton poussoir, OFF, I, II du Juno-106 ; I au depart (0.4 du potard continu avant)
+  { id: 'chorus', label: 'CHORUS', aria: 'Chorus, the Roland Juno-106 one: off, mode I or mode II', section: 'fx', def: 0.5, steps: CHORUS_MODES },
   { id: 'delay', label: 'DELAY', aria: 'Delay', section: 'fx', def: 0.25 },
   { id: 'reverb', label: 'REVERB', aria: 'Reverb', section: 'fx', def: 0.25 },
   { id: 'volume', label: 'VOLUME', aria: 'Synth volume', section: 'out', def: 0.75 },
@@ -379,15 +390,41 @@ export function withoutOscOn(raw: Readonly<Record<string, unknown>>): Record<str
 }
 
 /**
+ * Le mode du CHORUS d'une valeur gardee (2026-10-12) : le potard continu
+ * d'avant, OFF jusqu'a 0.05 compris, I sous 0.6, II au-dela ; les crans d'aujourd'hui
+ * (0, 0.5, 1) restent les memes (la regle les rend tels quels).
+ */
+// 0.05 compris dans OFF (2026-10-12 : l'ancien MINIMAL, a peine, comme le MINIMAL d'usine)
+export const chorusStep = (v: number): number => (v < 0.075 ? 0 : v < 0.6 ? 0.5 : 1);
+/** Le mode du chorus (0 OFF, 1 I, 2 II) d'une valeur du potard (audio/synth.ts). */
+export const chorusMode = (v: number): 0 | 1 | 2 => stepIndex('chorus', v) as 0 | 1 | 2;
+
+/**
+ * Des potards gardes ramenes a aujourd'hui, pour les empreintes (state/presets.ts sig, voyager/patch.ts) : les ON
+ * d'avant le 2026-10-11 plies dans leur niveau (withoutOscOn), le CHORUS d'avant le 2026-10-12 a son mode
+ * (chorusStep) ; un son garde avant eux reste le meme son qu'apres sa migration.
+ */
+export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const out = withoutOscOn(raw);
+  const c = out.chorus;
+  if (typeof c !== 'number' || !Number.isFinite(c) || chorusStep(c) === c) return out;
+  return { ...out, chorus: chorusStep(c) };
+}
+
+/**
  * Un reglage d'avant les rangees d'oscillateurs (TUNE 2, FINE) : sa
  * traduction (RANGE 2 et SEMI 2, FINE 1 et 2), pour ce qui ne la porte
  * pas deja. TUNE 2 : -1 OCT, 0, 5TH, +1 OCT, +2 OCT ; FINE : 0 a 45 cents
  * d'ecart, de part et d'autre de la note. Un oscillateur coupe d'avant le
- * 2026-10-11 (on1, on2 a OFF) : son niveau a 0.
+ * 2026-10-11 (on1, on2 a OFF) : son niveau a 0. Le CHORUS (2026-10-12) :
+ * son mode (chorusStep).
  */
 export function migrateKnobs(raw: Readonly<Record<string, unknown>>): Partial<Record<VoyKnobId, number>> {
   const out: Partial<Record<VoyKnobId, number>> = {};
   for (const [on, osc] of RETIRED_ON) if (isOff(raw[on])) out[osc] = 0;
+  // Le CHORUS continu d'avant le 2026-10-12 : son mode (OFF, I, II)
+  const ch = raw.chorus;
+  if (typeof ch === 'number' && Number.isFinite(ch)) out.chorus = chorusStep(ch);
   const t = raw.tune2;
   if (typeof t === 'number' && Number.isFinite(t) && raw.range2 === undefined && raw.semi2 === undefined) {
     const i = Math.max(0, Math.min(4, Math.round(t * 4)));
@@ -538,7 +575,8 @@ function load(): VoyValues {
     if (!text) return out;
     const raw = JSON.parse(text) as { v?: unknown; knobs?: Record<string, unknown> };
     if (raw.v !== 1 || !raw.knobs || typeof raw.knobs !== 'object') return out;
-    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits ; un ON a OFF d'avant le 2026-10-11 : le niveau a 0
+    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits ; un ON a OFF d'avant le 2026-10-11 : le niveau a 0 ;
+    // le CHORUS continu d'avant le 2026-10-12 : son mode
     const knobs: Record<string, unknown> = { ...raw.knobs, ...migrateKnobs(raw.knobs) };
     for (const id of VOY_KNOB_IDS) {
       const v = knobs[id];

@@ -59,7 +59,7 @@ export type HotspotKind =
   | 'vopen'
   | 'vbtn'
   | 'vknob'
-  // MM-ARP (2026-10-11) : un bouton poussoir du panneau (SUB OCT, vknob) : une tape passe au cran suivant
+  // MM-ARP (2026-10-11) : un bouton poussoir (SUB OCT ; CHORUS depuis le 2026-10-12 ; vknob) : une tape passe au cran suivant
   | 'vpush'
   | 'vchip'
   // MM-ARP (2026-10-05) : l'ecran de la suite, monte par EDIT (voyager/seqscreen.ts)

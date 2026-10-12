@@ -229,6 +229,7 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   lfoDest: [DESK_EG[2], RC, 's'],
   lfoAmt: [DESK_EG[3], RC, 'm'],
   dist: [DESK_FX[0], RA, 's'],
+  // CHORUS, un bouton poussoir depuis le 2026-10-12 (isPush) : son nom sur la ligne de celui d'OVERDRIVE
   chorus: [DESK_FX[1], RA, 's'],
   delay: [DESK_FX[0], RB, 's'],
   reverb: [DESK_FX[1], RB, 's'],
@@ -334,6 +335,7 @@ const PORT_DECK: Partial<Record<VoyKnobId, Spot>> = {
   aS: [PORT_EIGHT[2], PORT_E2, 's'],
   aR: [PORT_EIGHT[3], PORT_E2, 's'],
   dist: [PORT_EIGHT[4], PORT_E2, 's'],
+  // CHORUS, un bouton poussoir sur le plateau (2026-10-12, isPush)
   chorus: [PORT_EIGHT[5], PORT_E2, 's'],
   delay: [PORT_EIGHT[6], PORT_E2, 's'],
   reverb: [PORT_EIGHT[7], PORT_E2, 's'],
@@ -387,6 +389,8 @@ export const VOY_OSC_BADGES: readonly { text: string; x: number; z: number }[] =
 export const VOY_LED = { r: 0.055, on: '#ff3b2f', off: 'rgba(110, 24, 18, 0.55)' } as const;
 
 /**
+ * Les boutons poussoirs : SUB OCT, puis CHORUS (2026-10-12, a la place de
+ * son potard, au panneau au desktop, sur le plateau au telephone).
  * Le bouton poussoir de SUB OCT (2026-10-11, Mika : "le knob Oct a deux
  * positions il faut qu'on fasse un peu d'espace ya pas un endroit meilleure ?
  * ou ptete un bouton poussoir je sais pas") : une petite touche de caoutchouc,
@@ -401,9 +405,15 @@ export const VOY_LED = { r: 0.055, on: '#ff3b2f', off: 'rgba(110, 24, 18, 0.55)'
 export const VOY_PUSH = PORTRAIT
   ? { w: 0.62, d: 0.4, h: 0.11, press: 0.035, labelGap: 0.15, led: { dx: 0.16, dz: 0.13, textDz: 0.15 } }
   : { w: 0.44, d: 0.28, h: 0.09, press: 0.03, labelGap: 0.13, led: { dx: 0.11, dz: 0.1, textDz: 0.12 } };
-const PUSHES = new Set<VoyKnobId>(['subOct']);
-/** Un bouton poussoir (SUB OCT) : pas de potard, une touche et ses LED ; chaque appui passe au cran suivant. */
-export const isPush = (id: VoyKnobId): boolean => PUSHES.has(id);
+/**
+ * Les boutons poussoirs et le premier cran qui a sa LED : SUB OCT, une par
+ * cran (-1, -2) ; CHORUS (2026-10-12, Mika : "je veux le meme chorus sur le
+ * Roland Juno 106"), comme le panneau du Juno-106 : une LED par mode, I et
+ * II, aucune pour OFF.
+ */
+const PUSHES: Readonly<Partial<Record<VoyKnobId, { ledFrom: number }>>> = { subOct: { ledFrom: 0 }, chorus: { ledFrom: 1 } };
+/** Un bouton poussoir (SUB OCT, CHORUS) : pas de potard, une touche et ses LED ; chaque appui passe au cran suivant. */
+export const isPush = (id: VoyKnobId): boolean => PUSHES[id] !== undefined;
 /** Libelle sous la jupe : 0.13 sous son bord ; sous la couronne d'un selecteur ; plus bas sous des graduations. */
 const labelBelow = (id: VoyKnobId, s: number): number => {
   if (isSelector(id)) return VOY_SEL.labelR * s;
@@ -430,12 +440,17 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
   return { id, where, x: spot[0], z, s, labelZ: z + labelBelow(id, s) };
 }
 
-/** Les LED d'un bouton poussoir, une par cran (-1, -2), et leurs noms au-dessus (plan de la touche). */
-export function voyPushLeds(id: VoyKnobId, steps: readonly string[]): { x: number; z: number; text: string; tz: number }[] {
+/**
+ * Les LED d'un bouton poussoir et leurs noms au-dessus (plan de la touche) : une par cran a partir de ledFrom (SUB
+ * OCT : -1, -2 ; CHORUS : I, II), step le cran qu'elle montre.
+ */
+export function voyPushLeds(id: VoyKnobId, steps: readonly string[]): { x: number; z: number; text: string; tz: number; step: number }[] {
   const p = voyKnobPlace(id);
   const L = VOY_PUSH.led;
   const z = p.z - VOY_PUSH.d / 2 - L.dz;
-  return steps.map((text, i) => ({ x: p.x + (2 * i - (steps.length - 1)) * L.dx, z, text, tz: z - L.textDz }));
+  const from = PUSHES[id]?.ledFrom ?? 0;
+  const lit = steps.slice(from);
+  return lit.map((text, i) => ({ x: p.x + (2 * i - (lit.length - 1)) * L.dx, z, text, tz: z - L.textDz, step: from + i }));
 }
 
 /** Titres entre deux rangees (AMP EG, MOD) : au milieu du jour entre les libelles du dessus et les petits potards du dessous. */

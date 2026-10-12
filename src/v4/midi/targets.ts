@@ -433,7 +433,7 @@ export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string
     case 'open':
       return `rytm:${h.kind}`;
     case 'vknob':
-    // Un bouton poussoir du panneau (SUB OCT, 2026-10-11) : son reglage, comme un potard (un CC pose le cran)
+    // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : son reglage, comme un potard (un CC pose le cran)
     case 'vpush':
       return h.vknob ? `voy:knob:${h.vknob}` : null;
     case 'vpad':

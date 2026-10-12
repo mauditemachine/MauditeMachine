@@ -12,9 +12,13 @@
  * - 'bus' (la boite a rythmes et ses voix) : deux voix, chacune un retard
  *   de base module par un sinus lent, chacune placee comme un
  *   StereoPannerNode le ferait (memes formules : le son ne change pas) ;
- * - 'juno' (le MM-ARP) : l'entree en mono, passe-bas 8 kHz (la couleur des
- *   BBD), deux lectures en opposition de phase (un triangle lent), plus un
- *   triangle rapide commun (le mode I+II).
+ * - 'juno' (le MM-ARP, refait le 2026-10-12 d'apres le Juno-106, chorus.ts
+ *   JUNO) : l'entree en mono, les filtres des BBD (deux Butterworth de 4
+ *   poles vers 10 kHz et un 7.2 kHz a l'entree du BBD), une seule ligne et
+ *   deux lectures, chacune a 1 / (c0 +/- c1 triangle) : l'horloge de chaque
+ *   BBD suit le triangle (ou son inverse), son retard suit l'inverse de son
+ *   horloge. Les modes I et II ne changent que la vitesse du triangle, sans
+ *   saut (sa phase continue).
  * Sans entree branchee, le processeur rend la main (process -> false) : le
  * noeud d'une branche debranchee peut partir.
  */
@@ -111,30 +115,55 @@ class MMChorus extends AudioWorkletProcessor {
     // Bus (2026-10-10, CHORUS RATE et DEPTH du MM-RYTM) : le facteur des vitesses, lisse comme la profondeur (smDepth)
     this.mul = Number.isFinite(o.mul) && o.mul > 0 ? o.mul : 1;
     this.smMul = this.mul;
-    this.ph = this.voices.map(() => 0);
-    // Juno : vitesses et profondeurs (messages), lissees
-    this.rate = 0.5;
-    this.fastRate = 8;
-    this.fastDepth = 0;
-    this.base = Number(o.base) || 0.0035;
-    this.slowPh = 0;
-    this.fastPh = 0;
+    this.vph = this.voices.map(() => 0);
     this.smDepth = this.depth;
-    this.smFast = 0;
     this.k = 1 - Math.exp(-1 / (0.02 * sampleRate));
-    // Passe-bas 8 kHz (RBJ, Q 0.5) du Juno
-    const w0 = (TAU * Math.min(Number(o.lowpass) || 8000, sampleRate * 0.45)) / sampleRate;
-    const al = Math.sin(w0) / (2 * 0.5);
-    const a0 = 1 + al;
-    this.lp = { b0: (1 - Math.cos(w0)) / 2 / a0, b1: (1 - Math.cos(w0)) / a0, b2: (1 - Math.cos(w0)) / 2 / a0, a1: (-2 * Math.cos(w0)) / a0, a2: (1 - al) / a0, z1: 0, z2: 0 };
+    // Juno (2026-10-12) : le triangle (sa vitesse : le mode, par message), la course de la ligne, ses filtres
+    this.rate = Number.isFinite(o.rate) && o.rate > 0 ? o.rate : 0.513;
+    this.ph = 0;
+    if (this.kind === 'juno') this.initJuno(o);
     this.port.onmessage = (e) => {
       const m = e.data || {};
       // Les valeurs finies seulement (2026-10-10) : un NaN ne gagne jamais la ligne
       if (Number.isFinite(m.depth)) this.depth = Math.max(0, Math.min(0.02, m.depth));
-      if (Number.isFinite(m.rate)) this.rate = m.rate;
-      if (Number.isFinite(m.fastDepth)) this.fastDepth = m.fastDepth;
+      if (Number.isFinite(m.rate) && m.rate > 0) this.rate = Math.min(20, m.rate);
       if (Number.isFinite(m.mul) && m.mul > 0) this.mul = Math.min(8, m.mul);
     };
+  }
+
+  /**
+   * Le Juno-106 (2026-10-12) : la ligne entre dmin et dmax (s, chorus.ts), son inverse lineaire en triangle (l'horloge
+   * du BBD : c0 +/- c1 en 1/s) ; les filtres d'avant et d'apres les BBD reunis avant la ligne (le retard bouge si
+   * lentement, 2 % au plus, que filtrer avant ou apres revient au meme : un seul jeu de filtres pour deux lectures).
+   */
+  initJuno(o) {
+    const sr = sampleRate;
+    const dmin = Math.max(Number(o.dmin) || 0.00155, (HALF + 1) / sr);
+    const dmax = Math.min(Math.max(Number(o.dmax) || 0.00524, dmin), 0.05);
+    this.c0 = 0.5 * (1 / dmin + 1 / dmax);
+    this.c1 = 0.5 * (1 / dmin - 1 / dmax);
+    // RBJ passe-bas (Q) en forme transposee II : b0 = b2, b1 = 2 b0
+    const lp = (hz, q) => {
+      const w0 = (TAU * Math.min(hz, sr * 0.45)) / sr;
+      const al = Math.sin(w0) / (2 * q);
+      const cw = Math.cos(w0);
+      const a0 = 1 + al;
+      return { b0: (1 - cw) / 2 / a0, a1: (-2 * cw) / a0, a2: (1 - al) / a0 };
+    };
+    const bq = (Array.isArray(o.biquads) ? o.biquads : []).map((f) => lp(Number(f[0]) || 10000, Number(f[1]) || 0.707));
+    this.bq = new Float64Array(bq.length * 3);
+    bq.forEach((c, i) => {
+      this.bq[i * 3] = c.b0;
+      this.bq[i * 3 + 1] = c.a1;
+      this.bq[i * 3 + 2] = c.a2;
+    });
+    this.bz = new Float64Array(bq.length * 2);
+    // Le passe-bas d'un pole (10K et 2.2n a l'entree du BBD), bilineaire
+    const t = Math.tan((Math.PI * Math.min(Number(o.pole) || 7234, sr * 0.45)) / sr);
+    this.pb = t / (1 + t);
+    this.pa = (1 - t) / (1 + t);
+    this.px = 0;
+    this.py = 0;
   }
 
   process(inputs, outputs) {
@@ -154,26 +183,48 @@ class MMChorus extends AudioWorkletProcessor {
     const bR = this.bufR;
     const n = bL.length;
     if (this.kind === 'juno') {
-      const lp = this.lp;
+      const B = this.bq;
+      const Z = this.bz;
+      const nb = Z.length / 2;
+      const c0 = this.c0;
+      const c1 = this.c1;
+      const pb = this.pb;
+      const pa = this.pa;
+      const dph = this.rate / sr;
+      let px = this.px;
+      let py = this.py;
+      let ph = this.ph;
+      let w = this.w;
       for (let i = 0; i < N; i += 1) {
-        // Entree mono, passe-bas, dans la ligne (une seule : les deux lectures la partagent)
+        // Entree mono, les filtres des BBD, dans la ligne (une seule : les deux lectures la partagent)
         const x = 0.5 * (inL[i] + inR[i]);
-        const y = lp.b0 * x + lp.z1;
-        lp.z1 = lp.b1 * x - lp.a1 * y + lp.z2;
-        lp.z2 = lp.b2 * x - lp.a2 * y;
-        bL[this.w] = y;
-        this.smDepth += (this.depth - this.smDepth) * this.k;
-        this.smFast += (this.fastDepth - this.smFast) * this.k;
-        const s = triangle(this.slowPh) * this.smDepth;
-        const f = triangle(this.fastPh) * this.smFast;
-        this.slowPh += this.rate / sr;
-        this.fastPh += this.fastRate / sr;
-        if (this.slowPh >= 1) this.slowPh -= 1;
-        if (this.fastPh >= 1) this.fastPh -= 1;
-        oL[i] = readFrac(bL, this.w, (this.base + s + f) * sr);
-        oR[i] = readFrac(bL, this.w, (this.base - s + f) * sr);
-        this.w = (this.w + 1) % n;
+        py = pb * (x + px) + pa * py;
+        px = x;
+        let y = py;
+        for (let j = 0; j < nb; j += 1) {
+          const b0 = B[j * 3];
+          const yo = b0 * y + Z[j * 2];
+          Z[j * 2] = 2 * b0 * y - B[j * 3 + 1] * yo + Z[j * 2 + 1];
+          Z[j * 2 + 1] = b0 * y - B[j * 3 + 2] * yo;
+          y = yo;
+        }
+        bL[w] = y;
+        // Le triangle (TP4) et son inverse (TP3) : chaque horloge, son retard (s) = 1 / horloge
+        const t = triangle(ph) * c1;
+        ph += dph;
+        if (ph >= 1) ph -= 1;
+        oL[i] = readFrac(bL, w, sr / (c0 + t));
+        oR[i] = readFrac(bL, w, sr / (c0 - t));
+        w += 1;
+        if (w === n) w = 0;
       }
+      // Les etats tres petits (un silence) reviennent a 0 : pas de nombres denormaux dans les filtres
+      if (Math.abs(py) < 1e-20) py = 0;
+      for (let j = 0; j < Z.length; j += 1) if (Math.abs(Z[j]) < 1e-20) Z[j] = 0;
+      this.px = px;
+      this.py = py;
+      this.ph = ph;
+      this.w = w;
       return true;
     }
     // Bus : chaque voix retarde les deux canaux, puis les place (StereoPannerNode : formules mono ou stereo)
@@ -190,11 +241,11 @@ class MMChorus extends AudioWorkletProcessor {
       this.smMul += (this.mul - this.smMul) * kS;
       for (let k = 0; k < V.length; k += 1) {
         const v = V[k];
-        const d0 = (v.delay + Math.sin(TAU * this.ph[k]) * this.smDepth) * sr;
+        const d0 = (v.delay + Math.sin(TAU * this.vph[k]) * this.smDepth) * sr;
         // 8 echantillons au moins (la fenetre sinc) : une profondeur de 14 ms sur le retard de 14 ms ne lit jamais l'avenir
         const d = d0 < HALF ? HALF : d0;
-        this.ph[k] += (v.rate * this.smMul) / sr;
-        if (this.ph[k] >= 1) this.ph[k] -= 1;
+        this.vph[k] += (v.rate * this.smMul) / sr;
+        if (this.vph[k] >= 1) this.vph[k] -= 1;
         const dl = readFrac(bL, this.w, d);
         if (mono) {
           l += dl * v.ml;

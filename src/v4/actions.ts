@@ -1034,9 +1034,10 @@ export function voyDial(id: VoyKnobId, v: number): void {
 /**
  * Un bouton poussoir du MM-ARP (2026-10-11, SUB OCT, Mika : "le knob Oct a
  * deux positions il faut qu'on fasse un peu d'espace ya pas un endroit
- * meilleure ? ou ptete un bouton poussoir je sais pas") : chaque appui passe
- * au cran suivant (-1, -2, puis -1) ; la touche s'enfonce, l'ecran le dit
- * comme pour un potard (l'echo : SUB -2 OCT), ses LED suivent.
+ * meilleure ? ou ptete un bouton poussoir je sais pas" ; 2026-10-12, CHORUS,
+ * les modes du Juno-106) : chaque appui passe au cran suivant (-1, -2, puis
+ * -1 ; OFF, I, II, puis OFF) ; la touche s'enfonce, l'ecran le dit comme pour
+ * un potard (l'echo : SUB -2 OCT, CHORUS II), ses LED suivent.
  */
 export function voyPush(id: VoyKnobId, stage: Stage | null = null): void {
   const n = voyKnob(id).steps?.length ?? 2;

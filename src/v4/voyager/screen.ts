@@ -241,6 +241,8 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
     else if (id === 'lfoDest') unit = 'MOD TARGET';
     else if (id === 'sync') unit = stepIndex('sync', v) === 1 ? 'OSC 2 HARD SYNCED' : 'OSC 2 RUNS FREE';
     else if (id === 'chord') unit = 'CHORD NOTES';
+    // CHORUS (2026-10-12) : les modes du Juno-106, la vitesse de leur triangle
+    else if (id === 'chorus') unit = ['DRY, NO CHORUS', 'JUNO-106 SLOW, 0.51 HZ', 'JUNO-106 FAST, 0.86 HZ'][stepIndex('chorus', v)];
     return { value: name, unit };
   }
   let unit = pct(v);
@@ -257,7 +259,7 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
   else if (id === 'osc1' || id === 'osc2' || id === 'volume') unit = v <= 0 ? '-INF DB' : `${(20 * Math.log10((id === 'volume' ? 1 : 0.88) * v * v)).toFixed(1)} DB`;
   else if (id === 'fm') unit = `INDEX ${(6 * v * v).toFixed(1)}`;
   else if (id === 'delay') unit = `FEEDBACK ${Math.round((0.35 + 0.33 * v) * 100)} %  ${Math.round(step * 3 * 1000)} MS`;
-  else if (id === 'reverb' || id === 'chorus') unit = `${pct(v)} SEND`;
+  else if (id === 'reverb') unit = `${pct(v)} SEND`;
   else if (id === 'dist') unit = `${pct(v)} DRIVE`;
   else if (id === 'phase' || id === 'monoLow' || id === 'duck') unit = voyValueText(id, v);
   return { value: String(n127), unit };

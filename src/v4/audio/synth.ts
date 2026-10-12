@@ -8,7 +8,7 @@
  * son instant (temps du contexte).
  *
  * Apres lui, dans le graphe :
- *   moteur -> CHORUS (facon Juno-106, chorus.ts) -> VOLUME -> analyseur
+ *   moteur -> CHORUS (celui du Juno-106 : OFF, I, II, chorus.ts) -> VOLUME -> analyseur
  *   de la boite a rythmes, apres son compresseur (drums.synthPort :
  *   analyseur, limiteur, master, ?mute=1 tient)
  *   VOLUME -> DELAY : le sien, ping-pong stereo en croche pointee calee sur
@@ -24,7 +24,7 @@
  */
 
 import workletUrl from './moog.worklet.js?url';
-import { duckDepthDb, engineParams, monoLowHz, voyParams, type VoyValues } from '../voyager/params';
+import { chorusMode, duckDepthDb, engineParams, monoLowHz, voyParams, type VoyValues } from '../voyager/params';
 import { buildJunoChorus, loadChorus, type ChorusStage } from './chorus';
 import { setArpDuck, synthPort } from './drums';
 import { glide } from './glide';
@@ -170,7 +170,8 @@ function build(c: BaseAudioContext, out: AudioNode, reverb: { attach(src: AudioN
 
 /** CHORUS, DELAY, REVERB, VOLUME et BASS MONO sur la chaine. */
 function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
-  g.chorus.set(p.chorus);
+  // CHORUS (2026-10-12) : OFF, I ou II du Juno-106
+  g.chorus.set(chorusMode(p.chorus));
   g.reverb.set(p.reverb);
   const fb = PINGPONG.fbMin + (PINGPONG.fbMax - PINGPONG.fbMin) * p.delay;
   const v = (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);

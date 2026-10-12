@@ -18,7 +18,8 @@
  *   de SEMI (-7 a +7, les impairs ecrits), celle de FINE (-50 0 +50) ;
  * - les deux LED rouges du bouton SUB OCT (2026-10-11, a la place de celles
  *   de ON) et leurs noms, -1 et -2 : l'octave choisie allumee (redessinees
- *   quand elle change).
+ *   quand elle change) ; celles du bouton CHORUS (2026-10-12), I et II comme
+ *   sur le Juno-106, eteintes a OFF.
  * Deux textures canvas sur deux plans couches sur le capot ; redessinees
  * a l'arrivee des polices et des logos, et OPEN <-> CLOSE.
  */
@@ -181,7 +182,7 @@ export class VoySilk {
   /** crans choisis des deux selecteurs de forme */
   /** positions des morphings (rig.ts les arrondit au vingtieme de cran : un dessin par vingtieme) */
   private sel = { wave1: morphPos('wave1', voyParams.of('wave1')), wave2: morphPos('wave2', voyParams.of('wave2')) };
-  /** le cran de chaque bouton poussoir (SUB OCT : 0 pour -1, 1 pour -2), sa LED allumee */
+  /** le cran de chaque bouton poussoir (SUB OCT : 0 pour -1, 1 pour -2 ; CHORUS : 0 OFF, 1 I, 2 II), sa LED allumee */
   private push: Partial<Record<VoyKnobId, number>> = Object.fromEntries(VOY_FACE_KNOBS.filter((k) => isPush(k.id)).map((k) => [k.id, stepIndex(k.id, voyParams.of(k.id))]));
 
   constructor(
@@ -526,17 +527,18 @@ export class VoySilk {
   }
 
   /**
-   * Les LED de chaque bouton poussoir (SUB OCT, 2026-10-11 : celles de ON avant), une par cran, son nom au-dessus (-1,
-   * -2) : le cran choisi rouge allume (elle luit), les autres sombres.
+   * Les LED de chaque bouton poussoir (SUB OCT, 2026-10-11 : celles de ON avant ; CHORUS, 2026-10-12), son nom
+   * au-dessus de chacune (-1, -2 ; I, II) : celle du cran choisi rouge allumee (elle luit), les autres sombres ;
+   * CHORUS a OFF : toutes eteintes.
    */
   private leds(): void {
     for (const k of VOY_FACE_KNOBS) {
       if (!isPush(k.id) || voyKnobPlace(k.id).where !== this.kind) continue;
       const cur = this.push[k.id] ?? 0;
-      voyPushLeds(k.id, k.steps ?? []).forEach((led, i) => {
-        this.led(led.x, led.z, i === cur);
+      for (const led of voyPushLeds(k.id, k.steps ?? [])) {
+        this.led(led.x, led.z, led.step === cur);
         this.mini(led.text, led.x, led.tz, 0.05 * K, 0.85);
-      });
+      }
     }
   }
 

@@ -2618,3 +2618,17 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Fingerprints stay stable: voyager/patch.ts keeps the legacy id order with on1/on2 read as ON, old knobs folded the same way; presets.ts folds ARP knobs before comparing, so old presets and drafts are still recognised (no false '*', no NOT SAVED).
 - SUB OCT: a small rubber key (voyager/pads.ts) with -1 / -2 LEDs (silk.ts), hotspot kind 'vpush' (tap toggles, press animation, screen echo SUB OCT -2), keyboard twin button with the octave in its label, MIDI learn voy:knob:subOct. The Dock keeps a 2-step dial.
 - Layout: desktop rows 1 and 2 end with FM / RATIO (old ON column); bottom row evenly spread: OSC 1, OSC 2, NOISE, SUB, SUB WAVE, SUB OCT button. Phone: FM / RATIO in the old ON column, then SUB OCT button (row 1) and SUB WAVE (row 2).
+
+### R14-264 MM-ARP: a Roland Juno-106 chorus on a push button (2026-10-12)
+
+- Mika: "le chorus n'est pas efficace.. je veux le meme chorus sur le Roland Juno 106".
+- From the Juno-106 service notes (JACK board) and the Juno-60 chorus analysis (same circuit): one triangle LFO driving two BBD clocks in anti-phase, I 0.513 Hz, II 0.863 Hz, heard delay 1.66 to 5.35 ms, wet 1.16 for dry 1 on each output, 4-pole Butterworth band limit (9.69 kHz Q 0.549 + 10.38 kHz Q 1.291) and a 7.23 kHz pole, no I+II (the 106 board only has ON/OFF and I/II). Delay follows 1 / clock (deduced from the schematic): stronger, asymmetric pitch wobble; a linear read is a one-line change in chorus.worklet.js if II sounds too seasick. True bypass at OFF. Level trim 0.633 keeps the MIXER reading (R14-258).
+- Old cause: the knob was nearly inert past 30 %, default 0.4 sat between I and II, an 8 Hz I+II that the 106 lacks, a brighter wet.
+- CHORUS is a push button (generalised 'vpush', shared with SUB OCT): OFF -> I -> II -> OFF, LEDs I / II, echo "CHORUS I, JUNO-106 SLOW, 0.51 HZ". 3-step param, default I. Migration: old value <= 0.05 OFF, < 0.6 I, else II, at every entry point and in fingerprints. Factory presets picked one by one. Roto ARP 1012 (CHORUS a 3-step knob): re-import ARP (12).
+
+### R14-265 MM-RYTM: faithful BD samples, real 808 / 909 kicks, every voice at its loudness (2026-10-12)
+
+- Mika: "des problemes pour le son des BD surtout des samples que j'ai choisi, les 808 et 909 sonnent mal ... controle les volumes de chaque voice".
+- Samples: decoded at the file's own rate (samples.ts headerRate), exact copy when rates match, windowed-sinc resampler otherwise (Hermite gone: it dulled 12-20 kHz), resample cached per rate/pitch/REV; stereo top kept above 150 Hz (lows mono); DRIVE without the jump at its first notch. At neutral a sample now matches its file to -80 / -109 dB in the full chain.
+- 909 rebuilt (diode-shaped triangle, two-stage sweep 230 Hz at 5 ms, 160 at 10 ms, VCA hold, ATTACK pulse + noise); 808 rebuilt (bridged-T octave punch for 4.5 ms, the 57 to 49.5 Hz sigh, TONE 600 Hz to 7.2 kHz on the click, nearly clean drive). Decay ranges: 909 35 to 245 ms, 808 55 to 660 ms. Hit rendered at 4x, tail at the output rate (8 to 38 ms per render instead of 98 to 212).
+- Loudness: every voice, model, sample and variant calibrated on BS.1770 momentary loudness to SHOT_TARGET (LU under BD: SD -1, CP -3, TOM -3, HT -3.5, OH -5, CH held -7.5, CH -11.5, CY -7), within 0.05 dB; samples (bundled and user-loaded) measured once, nothing per hit; knobs keep their relative meaning. RYTM_TRIM 0.566 (0.53) keeps the MIXER reading. Screen and INFOS texts give the loudness targets.

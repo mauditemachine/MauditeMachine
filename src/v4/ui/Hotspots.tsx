@@ -209,7 +209,7 @@ interface Down {
   /** MM-VOYAGER : pad d'accord, CLEAR ou RANDOM */
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random' | 'edit';
-  /** MM-ARP : le reglage d'un bouton poussoir du panneau (SUB OCT, 2026-10-11) */
+  /** MM-ARP : le reglage d'un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) */
   vknob?: VoyKnobId;
   lcd?: PresetKey;
   /** une touche de page du MM-RYTM (2026-10-08) */
@@ -659,7 +659,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'random') voyRandom(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'run') voyRun(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
-      // Un bouton poussoir du panneau (SUB OCT, 2026-10-11) : le cran suivant, la touche s'enfonce
+      // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran suivant, la touche s'enfonce
       else if (d.kind === 'vpush' && d.vknob) voyPush(d.vknob, stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);

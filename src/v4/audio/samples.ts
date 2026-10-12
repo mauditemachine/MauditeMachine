@@ -73,8 +73,46 @@ export const sampleByKey = (key: string): KitSample | undefined => SAMPLES.find(
 
 /* ---------------- chargement ---------------- */
 
-/** La frequence de decodage (le calcul relit ensuite a celle du contexte). */
+/**
+ * La frequence de decodage (le calcul relit ensuite a celle du contexte) : celle du fichier depuis le
+ * 2026-10-12 (Mika : "des problemes pour le son des BD, surtout des samples que j'ai choisis"). Decoder a
+ * 48 kHz faisait reechantillonner par le navigateur les fichiers de Mika (tous a 44.1 kHz), puis le calcul
+ * les ramenait a 44.1 kHz quand le contexte y tournait : deux passages, des aigus ternis. Lue dans l'en-tete
+ * (WAV, AIFF) ; un autre format, ou un en-tete illisible : 48 kHz, comme avant.
+ */
 const DECODE_SR = 48000;
+
+/** La frequence d'un fichier WAV ou AIFF lue dans son en-tete ; null sinon. */
+export function headerRate(data: ArrayBuffer): number | null {
+  const v = new DataView(data);
+  const tag = (o: number): string => (o + 4 <= v.byteLength ? String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3)) : '');
+  const ok = (sr: number): number | null => (Number.isFinite(sr) && sr >= 8000 && sr <= 192000 ? Math.round(sr) : null);
+  try {
+    if (tag(0) === 'RIFF' && tag(8) === 'WAVE') {
+      for (let o = 12; o + 8 <= v.byteLength; ) {
+        const size = v.getUint32(o + 4, true);
+        if (tag(o) === 'fmt ' && o + 16 <= v.byteLength) return ok(v.getUint32(o + 12, true));
+        o += 8 + size + (size & 1);
+      }
+    }
+    if (tag(0) === 'FORM' && (tag(8) === 'AIFF' || tag(8) === 'AIFC')) {
+      for (let o = 12; o + 8 <= v.byteLength; ) {
+        const size = v.getUint32(o + 4, false);
+        if (tag(o) === 'COMM' && o + 26 <= v.byteLength) {
+          // Le flottant de 80 bits de l'AIFF : signe et exposant, puis la mantisse (ses 32 bits de poids fort suffisent)
+          const ex = v.getUint16(o + 16, false) & 0x7fff;
+          const hi = v.getUint32(o + 18, false);
+          return ok(hi * Math.pow(2, ex - 16383 - 31));
+        }
+        o += 8 + size + (size & 1);
+      }
+    }
+  } catch {
+    /* un en-tete coupe : la frequence par defaut */
+  }
+  return null;
+}
+
 const pcm = new Map<string, SamplePcm>();
 const pending = new Map<string, Promise<SamplePcm | null>>();
 const failed = new Set<string>();
@@ -96,7 +134,7 @@ export function loadSample(key: string): Promise<SamplePcm | null> {
       const res = await fetch(s.url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.arrayBuffer();
-      const ctx = new OfflineAudioContext(1, 1, DECODE_SR);
+      const ctx = new OfflineAudioContext(1, 1, headerRate(data) ?? DECODE_SR);
       const buf = await ctx.decodeAudioData(data);
       const L = Float32Array.from(buf.getChannelData(0));
       const R = buf.numberOfChannels > 1 ? Float32Array.from(buf.getChannelData(1)) : null;

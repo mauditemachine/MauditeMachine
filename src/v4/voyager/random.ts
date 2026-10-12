@@ -12,6 +12,9 @@
  * souvent au centre ; les basses et l'acid recalent leur phase, derivent
  * peu et gardent leurs graves en mono (BASS MONO 105 a 170 Hz) : elles
  * frappent pareil a chaque note.
+ * CHORUS (2026-10-12) : un des modes du Juno-106 (OFF, I, II), tire selon le
+ * style : les basses et l'acid surtout sans, les plucks et les leads en I ou
+ * II.
  */
 
 import { NOTES, PHASE_FREE, RATIOS, type VoyKnobId } from './params';
@@ -108,7 +111,8 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     lfoAmt,
     // Effets (doses d'avant)
     dist: sometimes(rnd, 0.5, 0.08, 0.4),
-    chorus: between(rnd, 0.25, 0.85),
+    // CHORUS (2026-10-12) : un mode du Juno-106 tire selon le style (OFF, I, II)
+    chorus: weighted(rnd, [0.15, 0.55, 0.3]),
     delay: sometimes(rnd, 0.35, 0.15, 0.55),
     reverb: between(rnd, 0.1, 0.5),
     // TWEAKS : phase libre, analogique modere, BASS MONO 80 a 120 Hz six fois sur dix
@@ -246,7 +250,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aR: between(rnd, 0.08, 0.2),
         ...(chance(rnd, 0.4) ? mod(1, chance(rnd, 0.5) ? 5 : 6, 0, 0.1, 0.3) : { lfoAmt: 0 }),
         dist: sometimes(rnd, 0.5, 0.08, 0.3),
-        chorus: between(rnd, 0, 0.15),
+        chorus: weighted(rnd, [0.75, 0.25, 0]),
         delay: sometimes(rnd, 0.85, 0.1, 0.2),
         reverb: between(rnd, 0, 0.1),
         // TWEAKS : la phase recalee a 0 deg, peu de derive, serre, les graves en mono (135 a 170 Hz)
@@ -295,7 +299,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aR: between(rnd, 0.1, 0.2),
         ...(chance(rnd, 0.6) ? mod(1, chance(rnd, 0.5) ? 3 : 4, 0, 0.15, 0.4) : { lfoAmt: 0 }),
         dist: between(rnd, 0.2, 0.5),
-        chorus: between(rnd, 0, 0.2),
+        chorus: weighted(rnd, [0.65, 0.3, 0.05]),
         delay: sometimes(rnd, 0.5, 0.15, 0.35),
         reverb: between(rnd, 0.05, 0.2),
         // TWEAKS : phase recalee, accents marques, la coupure suit la note (105 a 150 Hz en mono)
@@ -344,7 +348,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         osc2: between(rnd, 0.6, 0.9),
         ...(chance(rnd, 0.5) ? mod(0, 4, 0, 0.15, 0.45) : { lfoAmt: 0 }),
         dist: between(rnd, 0, 0.1),
-        chorus: between(rnd, 0.35, 0.75),
+        chorus: weighted(rnd, [0.05, 0.5, 0.45]),
         delay: between(rnd, 0.25, 0.5),
         reverb: between(rnd, 0.2, 0.45),
         // TWEAKS : large et vivant
@@ -389,7 +393,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aR: between(rnd, 0.25, 0.45),
         ...(chance(rnd, 0.5) ? mod(3, chance(rnd, 0.5) ? 0 : 1, 0, 0.1, 0.25) : { lfoAmt: 0 }),
         dist: between(rnd, 0, 0.15),
-        chorus: between(rnd, 0.2, 0.5),
+        chorus: weighted(rnd, [0.15, 0.55, 0.3]),
         delay: between(rnd, 0.3, 0.55),
         reverb: between(rnd, 0.25, 0.45),
         // TWEAKS : SYNC une fois sur trois (OSC 2 a la quinte ou a l'octave : il crie)
@@ -429,7 +433,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aS: between(rnd, 0.4, 0.7),
         ...mod(1, chance(rnd, 0.5) ? 0 : 1, 3, 0.25, 0.5),
         dist: between(rnd, 0.1, 0.35),
-        chorus: between(rnd, 0, 0.2),
+        chorus: weighted(rnd, [0.55, 0.35, 0.1]),
         delay: between(rnd, 0.25, 0.45),
         reverb: between(rnd, 0.15, 0.3),
         // TWEAKS : plus analogique, parfois synchronise

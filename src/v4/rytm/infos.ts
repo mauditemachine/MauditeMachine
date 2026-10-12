@@ -235,7 +235,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE',
     title: 'VOL',
     lock: 'yes',
-    text: "Le niveau de la voix : 0.0 dB à 102 (80 %, le réglage d'usine), +3,9 dB tout en haut, rien à 0 ; la ligne du dessous le donne en dB. Les voix sont déjà calées sous le kick : la crête de la caisse claire reste au moins 1,5 dB sous la sienne, celle du clap 3,5 dB, celle des charleys 5,5 à 6 dB ; VOL part de là. En P-LOCK, c'est le volume du pas : il change le gain de ce coup seulement, jusqu'à +12 dB au-dessus du VOL de la voix ; une voix à 0 reste muette, même verrouillée plus haut. VOL fait aussi la vélocité (le bloc VEL l'a rejoint) : pour un coup plus doux sur un pas, verrouille son VOL, ou tiens le pas et glisse (sa vélocité, neuf niveaux).",
+    text: "Le niveau de la voix : 0.0 dB à 102 (80 %, le réglage d'usine), +3,9 dB tout en haut, rien à 0 ; la ligne du dessous le donne en dB. Chaque voix est déjà calée sur sa sonie, quel que soit le sample ou la machine choisie : la caisse claire 1 dB sous le kick, le clap et le tom 3 dB, le tom aigu 3,5 dB, le charley ouvert 5 dB, la cymbale 7 dB, le charley fermé 11,5 dB (7,5 dB tenu) ; VOL part de là. En P-LOCK, c'est le volume du pas : il change le gain de ce coup seulement, jusqu'à +12 dB au-dessus du VOL de la voix ; une voix à 0 reste muette, même verrouillée plus haut. VOL fait aussi la vélocité (le bloc VEL l'a rejoint) : pour un coup plus doux sur un pas, verrouille son VOL, ou tiens le pas et glisse (sa vélocité, neuf niveaux).",
     tip: 'Règle d’abord le kick, la référence (il sort vers -9 dBFS), puis monte le reste juste sous lui.',
     voice: {
       bd: { tip: 'Sur BD, VOL dose aussi le SIDECHAIN du MM-ARP. Le kick est la référence : règle le reste sous lui.' },
@@ -307,7 +307,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'ATTACK',
     lock: 'yes',
     plate: { title: 'ATTACK', section: 'TWEAKS / KICK' },
-    text: "La frappe du kick, sur ses deux couches (BOTH à l'écran). Sur la synthèse : le front du déclencheur vers 3,2 kHz et un souffle de 3 ms en 909, un petit tic vers 1,1 kHz en 808, un clic feutré vers 1,6 kHz en MM ; à 0, plus de clic. Sur le sample : le milieu (64) garde sa frappe ; plus haut elle claque (jusqu'à +6 dB sur ses 4 premières ms), plus bas elle s'adoucit.",
+    text: "La frappe du kick, sur ses deux couches (BOTH à l'écran). Sur la synthèse : en 909, une impulsion et un souffle sous 5 kHz éteints en 2 ms (au départ, le haut de la frappe vers -12 dB sous la crête, comme un vrai 909) ; en 808, l'impulsion de 1 ms qui déclenche son pont en T, plus forte et plus claire en montant (le TONE de la 808, un passe-bas de 600 Hz à 7,2 kHz) ; en MM, un clic feutré vers 1,6 kHz ; à 0, plus de clic. Sur le sample : le milieu (64) garde sa frappe ; plus haut elle claque (jusqu'à +6 dB sur ses 4 premières ms), plus bas elle s'adoucit.",
     tip: 'Plus d’ATTACK pour un kick qui perce sur un petit système ; moins pour un kick d’indie dance rond qui laisse la place à la basse.',
   },
   'r:decay': {
@@ -315,15 +315,15 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'DECAY',
     lock: 'yes',
     plate: { title: 'SYN DECAY', section: 'TWEAKS / KICK' },
-    text: "La longueur du kick de synthèse, la queue de son boum ; la ligne du dessous donne sa constante de temps : de 90 à 630 ms en 909 (216 ms au départ), de 160 ms à 1,28 s en 808, de 60 à 240 ms en MM. Il ne règle que la couche SYNTH : le sample a son LEN (VOICE). DEC (ENV) coupe en plus la queue des deux, après coup.",
-    tip: 'Court (909 vers 150 ms) pour une techno serrée ; long en 808 pour un minimal où le kick tient aussi le grave.',
+    text: "La longueur du kick de synthèse, la queue de son boum ; la ligne du dessous donne sa constante de temps : de 35 à 245 ms en 909 (84 ms au départ : son VCA tient le corps plein pendant la frappe, puis il s'éteint vers 400 ms, comme un 909), de 55 à 660 ms en 808 (168 ms au départ, plusieurs secondes de queue à fond), de 60 à 240 ms en MM. Il ne règle que la couche SYNTH : le sample a son LEN (VOICE). DEC (ENV) coupe en plus la queue des deux, après coup.",
+    tip: 'Court (909 vers 50 ms) pour une techno serrée ; long en 808 pour un minimal où le kick tient aussi le grave.',
   },
   'r:drive': {
     section: 'VOICE SYNTH',
     title: 'DRIVE',
     lock: 'yes',
     plate: { title: 'DRIVE', section: 'TWEAKS / KICK' },
-    text: "La saturation du kick, sur ses deux couches (BOTH à l'écran), du rond vers le chaud et le compressé : tanh de 1,2 à 5,2 en 909, de 0,6 à 3,6 en 808, de 0,6 à 4,2 en MM ; sur le sample, propre jusqu'au quart (32), puis de plus en plus saturé. Le kick est ensuite recalé sur sa crête : DRIVE change son corps et sa couleur, pas son niveau de crête.",
+    text: "La saturation du kick, sur ses deux couches (BOTH à l'écran), du rond vers le chaud et le compressé : en 909, les deux diodes qui arrondissent son triangle, attaquées de x0,6 à x6 (x1 à 32, la machine d'origine ; à fond, le triangle tend vers le carré) ; en 808, presque propre au départ (tanh 0,4) jusqu'à tanh 4,5 ; de 0,6 à 4,2 en MM ; sur le sample, propre jusqu'au quart (32), puis de plus en plus saturé, sans saut au premier cran. Le kick est ensuite recalé sur sa crête : DRIVE change son corps et sa couleur, pas son niveau de crête.",
     tip: '30 à 50 pour l’indie dance et la dark disco : le kick s’épaissit sans écraser la basse.',
   },
   'r:snappy': {
@@ -731,7 +731,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'SWEEP',
     lock: 'yes',
     tip: 'Plus de SWEEP pour une techno qui claque ; presque rien pour un kick rond de dark disco qui laisse le grave à la basse.',
-    text: "La descente de hauteur du kick de synthèse, sa profondeur : de rien (un sinus qui ne descend pas) à deux fois celle d'origine (64) ; la ligne du dessous dit de combien d'octaves il tombe. En 909 la descente est rapide et profonde, en 808 courte, en MM entre les deux.",
+    text: "La descente de hauteur du kick de synthèse, sa profondeur : de rien (un sinus qui ne descend pas) à deux fois celle d'origine (64) ; la ligne du dessous dit de combien d'octaves il tombe. En 909 elle part de 5,8 fois la note et redescend en deux temps (230 Hz à 5 ms, 160 Hz à 10 ms, la note vers 80 ms) ; en 808, c'est la frappe de son pont en T (plus d'une octave au-dessus de la note pendant 5 ms) et son soupir (de 57 à 49 Hz sur 150 ms) ; en MM, entre les deux.",
   },
   'r3:sdtune': {
     section: 'VOICE SYNTH',
@@ -808,7 +808,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'pad:SD': {
     section: 'VOICES',
     title: 'SD',
-    text: "La caisse claire : sa crête reste au moins 1,5 dB sous celle du kick. Le pad la choisit : les pas et l'écran la règlent ; à l'arrêt, il la joue aussi.",
+    text: "La caisse claire : calée 1 dB sous le kick, quel que soit son son. Le pad la choisit : les pas et l'écran la règlent ; à l'arrêt, il la joue aussi.",
     key: 'S',
     tip: 'Sur 5 et 13 pour l’indie dance ; une ghost note plus douce (VOL verrouillé) sur le 15 fait rouler la mesure.',
   },
@@ -829,7 +829,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'pad:CP': {
     section: 'VOICES',
     title: 'CP',
-    text: "Le clap : sa crête reste au moins 3,5 dB sous celle du kick. Le pad le choisit ; à l'arrêt, il le joue aussi.",
+    text: "Le clap : calé 3 dB sous le kick, quel que soit son son. Le pad le choisit ; à l'arrêt, il le joue aussi.",
     key: 'Z',
     tip: 'Avec la caisse claire sur 5 et 13 : la dark disco ; seul et plus bas, il suffit à un minimal.',
   },
