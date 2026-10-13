@@ -14,8 +14,7 @@
  *   RIF de 127 coefficients (fenetre de Kaiser, plus de 80 dB de rejet) ;
  * - chaque son est fait de couches (corps, frappe, bruit), sature en
  *   douceur, puis cale sur sa sonie (SHOT_LOUD, 2026-10-05 ; sa crete
- *   avant) ; depuis le 2026-10-12, etalonne ensuite sur la sonie de sa voix
- *   (SHOT_TARGET), quels que soient son modele ou son echantillon ;
+ *   avant) ;
  * - la caisse claire a sa reverbe a porte (un FDN a 8 lignes, stereo,
  *   coupee net apres 130 ms) ; le clap une petite piece ;
  * - les sons bruites ont plusieurs variantes (VARIANTS), jouees en
@@ -101,8 +100,7 @@ export const SD_DECAY_S: Readonly<Record<KitModel, number>> = { '909': 0.11, '80
 /** Le passe-haut du timbre de chaque caisse claire (Hz) : l'unite de SD TONE. */
 export const SD_TONE_HZ: Readonly<Record<KitModel, number>> = { '909': 600, '808': 1800, mm: 1200 };
 /** La descente du kick de chaque modele (le depart, en fois la note, moins 1) : l'unite de SWEEP. */
-// 2026-10-12 : le 909 part de 5.8 fois sa note (3.85 avant), le 808 de 2.28 fois (sa frappe et son soupir ; 0.3 avant)
-export const KICK_SWEEP: Readonly<Record<KitModel, number>> = { '909': 5.8, '808': 1.28, mm: 147 / 52 };
+export const KICK_SWEEP: Readonly<Record<KitModel, number>> = { '909': 3.85, '808': 0.3, mm: 147 / 52 };
 
 /**
  * La hauteur du kick (Hz, le bas du balayage) pour TUNE : une octave de
@@ -114,15 +112,10 @@ export function kickHz(m: KitModel, tune: number): number {
   return base * Math.pow(2, tune - 0.5);
 }
 
-/**
- * La constante de temps de la queue du kick (s) pour DECAY : la 808 tient bien plus longtemps que la 909. Depuis
- * le 2026-10-12 (les deux refaits, bd909 et bd808) : le 909 de 35 a 245 ms (84 ms au depart, son VCA tient le
- * corps plein au debut : un 909 d'origine s'eteint en 0.3 a 0.5 s), le 808 de 55 a 660 ms (168 ms au depart, une
- * queue de plusieurs secondes a fond) ; avant, 90 a 630 ms et 160 ms a 1.3 s (un 909 qui durait une seconde).
- */
+/** La constante de temps de la queue du kick (s) pour DECAY : la 808 tient bien plus longtemps que la 909. */
 export function kickDecayS(m: KitModel, decay: number): number {
-  if (m === '808') return 0.055 * Math.pow(12, decay);
-  if (m === '909') return 0.035 * Math.pow(7, decay);
+  if (m === '808') return 0.16 * Math.pow(8, decay);
+  if (m === '909') return 0.09 * Math.pow(7, decay);
   return 0.06 * Math.pow(4, decay);
 }
 
@@ -162,8 +155,6 @@ const TAU = Math.PI * 2;
  * toms -12, l'open hat -19, le charley -24 (un coup court bute sur son plafond de crete et n'a presque pas d'energie).
  * Le kick reste la reference (sa crete ne bouge pas) ; les autres montent de 2.5 a 4 dB, leurs plafonds se resserrent
  * (rien ne crete encore au niveau du kick : 0.5 dB dessous au plus pres).
- * Depuis le 2026-10-12, c'est la regle de chaque rendu (ruleShot) : l'etalonnage (SHOT_TARGET, plus bas) pose
- * ensuite chaque modele et chaque echantillon sur la sonie de sa voix.
  */
 export const SHOT_KICK_PEAK = -2.5;
 export const SHOT_LOUD: Readonly<Record<ShotId, number>> = {
@@ -191,48 +182,6 @@ export const SHOT_BELOW: Readonly<Record<ShotId, number>> = {
   CY: 3.5,
 };
 const LOUD_WIN_S = 0.1;
-
-/*
- * L'etalonnage des voix (2026-10-12, Mika : "controle aussi pour les volumes de chaque voices ya des choses plus
- * forte que d'autre.. dependant du sample biensur mais quand meme"). Mesure hors ligne de chaque voix, chaque
- * machine et chaque sample, reglages de depart, par le chemin reel de la boite (VOL, LEVEL, RYTM_TRIM), en sonie
- * momentanee (BS.1770 : ponderee K, la plus forte fenetre de 400 ms, LUFS) : la regle d'avant (le kick cale sur
- * sa crete, les autres sur leur sonie de 100 ms sous un plafond de crete) laissait 3.5 dB d'ecart entre les kicks
- * (ENGELHARDT sous BLUEPRINT), 5.2 dB entre les caisses claires (PSY 12 et 707 sous PSY 02 : ils butaient sur le
- * plafond), 4.5 dB entre les claps, 3.8 dB entre les charleys (et jusqu'a 2.9 dB d'une variante a l'autre), et
- * les toms sortaient au-dessus du kick (+0.4 a +1.9 dB), le charley ouvert 909 a 1 dB de lui, la cymbale au-dessus
- * du charley ouvert. Desormais chaque son garde sa regle d'avant (ses potards font ce qu'ils faisaient), puis un gain
- * fixe le pose sur la sonie cible de sa voix (SHOT_TARGET) : celui de son modele (synthCal, mesure une fois par voix,
- * modele et variante, a ses reglages de depart, a la frequence de rendu) ou de son echantillon (sampleCalGain, mesure
- * une fois par fichier, au repos). Apres : chaque voix a sa cible a 0.1 dB pres, a 44.1 et a 48 kHz, quel que soit
- * son son ; LEVEL, VOL, la velocite et les niveaux des couches gardent leur sens.
- * Les cibles, en LU sous le kick (le kick de depart, BLUEPRINT, ne bouge pas : SHOT_REF_LUFS), d'apres l'usage
- * d'un mix de batterie et les reglages que Mika a valides (le motif de depart) : la caisse claire juste dessous
- * (Mika : "mon snare a -13 ou -14 quand le kick est a -12"), le clap un peu plus bas, les toms sous la caisse
- * claire, les charleys nettement dessous (le ferme, court, plus bas que l'ouvert), la cymbale sous le charley ouvert.
- */
-export const SHOT_TARGET: Readonly<Record<ShotId, number>> = {
-  BD: 0,
-  SD: -1,
-  CP: -3,
-  TOM: -3,
-  HT: -3.5,
-  OH: -5,
-  CHopen: -7.5,
-  CH: -11.5,
-  CY: -7,
-};
-/** La sonie du kick de reference au niveau du coup (LUFS momentane) : BLUEPRINT au repos, -22.3 LUFS a la prise du MM-RYTM. */
-export const SHOT_REF_LUFS = -12.97;
-/** La fenetre de la sonie momentanee (s, BS.1770). */
-const MOMENT_S = 0.4;
-/**
- * La crete d'un coup etalonne ne depasse jamais +3 dBFS (a la prise, LEVEL et VOL de depart : -6.4 dBFS ; les deux a
- * fond : +1.4, le limiteur de sortie la tient). Les sons de la boite restent dessous : PSY 12 a +1.7, ENGELHARDT a -0.5.
- */
-const SHOT_MAX_PEAK = Math.pow(10, 3 / 20);
-/** L'etalonnage reste dans +/-12 dB (un fichier presque muet ne monte pas sans fin). */
-const CAL_MAX_DB = 12;
 
 /** Un biquad applique en place (forme directe I). */
 function biquad(x: Float32Array, b0: number, b1: number, b2: number, a1: number, a2: number): Float32Array {
@@ -282,42 +231,9 @@ export function shotLoudness(s: Shot, sr: number): number {
   return 10 * Math.log10(best + 1e-12) + 2.32;
 }
 
-/**
- * La sonie momentanee d'un coup (2026-10-12, LUFS, BS.1770 : ponderee K, la somme des deux canaux, la plus forte
- * fenetre de 400 ms ; un coup plus court compte sur 400 ms, comme l'oreille qui l'entend dans le motif) : la mesure
- * de l'etalonnage des voix (SHOT_TARGET).
- */
-export function shotMomentary(s: Shot, sr: number): number {
-  const kl = kWeight(s.L, sr);
-  const kr = s.R === s.L ? kl : kWeight(s.R, sr);
-  const n = Math.min(kl.length, kr.length);
-  const w = Math.max(1, Math.round(MOMENT_S * sr));
-  let acc = 0;
-  let best = 0;
-  for (let i = 0; i < n; i += 1) {
-    acc += kl[i] * kl[i] + kr[i] * kr[i];
-    if (i >= w) acc -= kl[i - w] * kl[i - w] + kr[i - w] * kr[i - w];
-    if (acc > best) best = acc;
-  }
-  return -0.691 + 10 * Math.log10(best / w + 1e-12);
-}
-
-/** Le gain qui pose un coup de sonie `lufs` sur la cible de la voix id (dans +/-CAL_MAX_DB). */
-function calGain(id: ShotId, lufs: number): number {
-  const db = SHOT_REF_LUFS + SHOT_TARGET[id] - lufs;
-  return Number.isFinite(db) ? Math.pow(10, Math.max(-CAL_MAX_DB, Math.min(CAL_MAX_DB, db)) / 20) : 1;
-}
-
-/** Un coup etalonne : son gain d'etalonnage, sous la crete SHOT_MAX_PEAK. */
-function calibrate(s: Shot, k: number): void {
-  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
-  applyGain(s, p > 0 ? Math.min(k, SHOT_MAX_PEAK / p) : k);
-}
-
 /** Le gain qui met un coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond (SHOT_BELOW). */
 function loudGain(id: ShotId, s: Shot, sr: number): number {
-  // Un kick stereo (le haut d'un sample, monoLows, 2026-10-12) se cale sur la crete de son milieu : le meme gain que sa somme mono d'avant
-  const p = id === 'BD' && s.L !== s.R ? midPeak(s) : peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
+  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
   const cap = Math.pow(10, (SHOT_KICK_PEAK - SHOT_BELOW[id]) / 20) / p;
   return id === 'BD' ? cap : Math.min(cap, Math.pow(10, (SHOT_LOUD[id] - shotLoudness(s, sr)) / 20));
 }
@@ -592,14 +508,6 @@ function fdn(input: Float32Array, fs: number, len: number, rt60: number, dampHz:
 function peakOf(chs: readonly Float32Array[]): number {
   let p = 0;
   for (const c of chs) for (let i = 0; i < c.length; i += 1) p = Math.max(p, Math.abs(c[i]));
-  return p;
-}
-
-/** Crete du milieu (L + R) / 2 d'un coup stereo. */
-function midPeak(s: Shot): number {
-  let p = 0;
-  const n = Math.min(s.L.length, s.R.length);
-  for (let i = 0; i < n; i += 1) p = Math.max(p, Math.abs(0.5 * (s.L[i] + s.R[i])));
   return p;
 }
 
@@ -882,186 +790,73 @@ function tom(sr: number, ts: number, r: () => number, to: number, from: number, 
 
 /* ---------------- les sons a la facon de la 909 et de la 808 (2026-10-04, audio/kit.ts) ---------------- */
 
-/*
- * Le 909 et le 808 refaits (2026-10-12, Mika : "les 808 et 909 pour moi sonnent mal"). Mesure hors ligne de ceux
- * d'avant : le 909 tombait a 87 Hz des 10 ms (un vrai 909 : 230 Hz a 5 ms, 160 Hz a 10 ms), sa queue tenait
- * -20 dB a 610 ms et -40 dB a 1.1 s (un 909 s'eteint en 300 a 500 ms) et sa saturation (tanh 2.2) l'ecrasait a
- * 5 dB de facteur de crete : un sinus plat, long, sans claque. Le 808 n'avait ni la frappe de son pont en T (plus
- * d'une octave au-dessus de sa note pendant 5 a 6 ms) ni son soupir (de 56 a 49.5 Hz sur 150 ms), et sa queue
- * (-20 dB a 1 s, sature par un tanh 1.35) sonnait comme un sinus de synthe. Les sources :
- * - 808 : K. J. Werner, J. Abel, J. O. Smith, "A Physically-Informed, Circuit-Bendable, Digital Model of the
- *   Roland TR-808 Bass Drum Circuit", DAFx-14 : impulsion de 1 ms, pont en T vers 49.5 Hz, sa frequence
- *   relevee de plus d'une octave pendant environ 6 ms (la frappe "punchier, crisper"), le soupir par fuite
- *   (leur figure 11 : 57 Hz vers 10 ms, 49.5 Hz a 300 ms), TONE un passe-bas sur la sortie ;
- * - 909 : R. Whittle, "TR-909 sound mods" (firstpr.com.au) : un triangle arrondi en sinus par deux diodes tete
- *   beche, TUNE la duree d'une enveloppe qui part haut et redescend a la note ; G. Reid, Synth Secrets
- *   "Practical Bass Drum Synthesis" (SOS 2002) : ATTACK, une impulsion et du bruit passe-bas sous une enveloppe
- *   breve ; normalsounds.com : la note vers 55 Hz ; mesures d'enregistrements de 909 (tacowars/windsor, issues
- *   243 et 329) : 230 Hz a 5 ms, 160 Hz a 10 ms, la note (49 a 50 Hz) vers 80 ms, le corps a plein niveau
- *   50 a 80 ms, le clic au-dessus de 1 kHz vers -12 dB sous la crete, les alternances negatives 1.35 fois les
- *   positives pendant la frappe.
- * Chaque son est calcule en deux temps : la frappe (le balayage, le clic) a 4 x puis ramenee par le RIF, la queue
- * (la note posee) directement a sr, la meme formule et la meme phase (exacte, integree) : 3 a 10 fois moins de
- * calcul qu'avant (un 808 : 130 a 210 ms avant, 8 a 25 ms). Un DRIVE fort garde tout a 4 x (ses harmoniques ne se replient pas).
- */
-
-/** La descente du 909 (SWEEP a x1), en fois la note moins 1 : deux segments, 5.8 fois la note au depart (354 Hz pour 52 Hz). */
-const BD909_SWEEP = { a1: 4.56, t1: 0.00815, a2: 1.24, t2: 0.0193 } as const;
-/** Le 808 : son pont en T releve (en fois la note moins 1) pendant `hold`, redescendu en `fall` ; son soupir. */
-const BD808_PITCH = { shift: 1.1, hold: 0.0045, fall: 0.002, sigh: 0.18, sighT: 0.055 } as const;
-/** Le corps du 808 apres son impulsion (s). */
-const BD808_LAG = 0.001;
-
-/**
- * La hauteur du kick de synthese a l'instant t (Hz), f0 sa note (kickHz) et sw la profondeur de SWEEP
- * (sweepDepth) : celle que le calcul joue et que les schemas de l'ecran dessinent (rytm/diagrams.ts).
- */
-export function kickPitchHz(m: KitModel, f0: number, t: number, sw: number): number {
-  if (m === '909') return f0 * (1 + sw * (BD909_SWEEP.a1 * Math.exp(-t / BD909_SWEEP.t1) + BD909_SWEEP.a2 * Math.exp(-t / BD909_SWEEP.t2)));
-  if (m === '808') {
-    const P = BD808_PITCH;
-    const u = t - P.hold;
-    const w = u <= 0 ? 1 : u >= P.fall ? 0 : 0.5 + 0.5 * Math.cos((Math.PI * u) / P.fall);
-    return f0 * (1 + sw * (P.shift * w + P.sigh * Math.exp(-t / P.sighT)));
-  }
-  return (52 + 125 * sw * Math.exp(-t / 0.009) + 22 * sw * Math.exp(-t / 0.045)) * (f0 / 52);
-}
-
-/** Sa phase en tours : l'integrale exacte de kickPitchHz (909, 808), la meme a 4 x et a sr. */
-function kickPhase(m: KitModel, f0: number, t: number, sw: number): number {
-  if (m === '909') {
-    const S = BD909_SWEEP;
-    return f0 * (t + sw * (S.a1 * S.t1 * (1 - Math.exp(-t / S.t1)) + S.a2 * S.t2 * (1 - Math.exp(-t / S.t2))));
-  }
-  const P = BD808_PITCH;
-  const u = t - P.hold;
-  const w = u <= 0 ? t : u >= P.fall ? P.hold + P.fall / 2 : P.hold + u / 2 + (P.fall / (2 * Math.PI)) * Math.sin((Math.PI * u) / P.fall);
-  return f0 * (t + sw * (P.shift * w + P.sigh * P.sighT * (1 - Math.exp(-t / P.sighT))));
-}
-
-/** Le VCA du 909 : son enveloppe le sature au depart (le corps a plein niveau), puis il se ferme plus vite qu'une exponentielle sous -40 dB. */
-const BD909_VCA = { sat: 2.5, close: 0.01 } as const;
-/** Le niveau du corps du kick de synthese a l'instant t (0 a 1), tau la constante de DECAY (kickDecayS). */
-export function kickAmp(m: KitModel, tau: number, t: number): number {
-  if (m === '909') {
-    const g = Math.tanh(BD909_VCA.sat * Math.exp(-t / tau)) / Math.tanh(BD909_VCA.sat);
-    return (g * g) / (g + BD909_VCA.close);
-  }
-  return Math.exp(-t / tau);
-}
-
-/** Le facteur de DRIVE du 909 : les diodes de son triangle attaquees x0.6 (0) a x6 (127), x1 au depart (32, la machine d'origine). */
-export const bd909Drive = (d: number): number => (d >= 0.25 ? Math.pow(6, (d - 0.25) / 0.75) : Math.pow(0.6, (0.25 - d) / 0.25));
-/** La saturation de sortie du 808 (tanh k x / k) : presque rien au depart (k 0.4), franche a fond (k 4.5). */
-export const bd808DriveK = (d: number): number => 0.1 + 4.4 * d * d;
-/** La force du clic de chaque kick de synthese pour ATTACK (le 909 : impulsion et bruit ; le 808 : son impulsion de 1 ms ; MM : son clic feutre). */
-export const kickClickAmt = (m: KitModel, a: number): number => (m === '909' ? 1.5 * a : m === '808' ? 1.3 * a : 0.36 * a);
-/** Le passe-bas de l'impulsion du 808 (son TONE) pour ATTACK : 600 Hz a 7.2 kHz, 2.1 kHz au depart. */
-export const bd808ToneHz = (a: number): number => 600 * Math.pow(12, a);
-
-/** Les diodes du 909 : tanh(a x + b), b l'asymetrie (les alternances negatives plus amples pendant la frappe). */
-const BD909_BIAS = 0.25;
-/** La moyenne de tanh(a x + b) sur le triangle (x uniforme sur [-1, 1]) : retiree, le corps reste centre. */
-function diodeMean(a: number): number {
-  const lc = (v: number): number => Math.log(Math.cosh(v));
-  return (lc(a + BD909_BIAS) - lc(-a + BD909_BIAS)) / (2 * a);
-}
-
-/** Le passage de la frappe a 4 x a la queue a sr : assez loin du bord du RIF (16 echantillons de sr de chaque cote). */
-const HEAD_PAD = 24;
-
-/**
- * Un kick en deux temps : `head` secondes a 4 x (tete(t) : la frappe entiere, ses filtres compris), ramenees par le
- * RIF, puis la queue a sr (queue(t) : la meme formule sans le clic, eteint) ; full : tout a 4 x.
- */
-function twoRate(sr: number, lenS: number, headS: number, full: boolean, tete: (t: number) => number, queue: (t: number) => number): Float32Array {
-  const fs = sr * OS;
-  const n = Math.round(lenS * sr);
-  if (full || headS >= lenS) {
-    const x = new Float64Array(n * OS);
-    for (let i = 0; i < x.length; i += 1) x[i] = tete(i / fs);
-    fadeOut(x, fs, Math.min(0.05, lenS / 4));
-    return decimate(x);
-  }
-  const J = Math.min(n, Math.round(headS * sr));
-  const x = new Float64Array((J + HEAD_PAD) * OS);
-  for (let i = 0; i < x.length; i += 1) x[i] = tete(i / fs);
-  const h = decimate(x);
-  const y = new Float32Array(n);
-  y.set(h.subarray(0, J));
-  for (let j = J; j < n; j += 1) y[j] = queue(j / sr);
-  fadeOut(y, sr, Math.min(0.05, lenS / 4));
-  return y;
+/** Un front de 1.5 ms filtre en bande : le clic d'un declencheur (la frappe d'une 909, le tic d'une 808). */
+function trigClick(bp: Bq, t: number): number {
+  return bp.run(t < 0.0015 ? 1 : 0);
 }
 
 /**
- * KICK 909 (2026-10-04, Mika : "le kick sonne flat.. met un kick de 909" ; refait le 2026-10-12, voir plus haut).
- * Le triangle (sa phase exacte) arrondi par les deux diodes, un rien asymetrique ; sa hauteur part de 5.8 fois
- * la note et redescend en deux segments (230 Hz a 5 ms, 160 Hz a 10 ms, 95 Hz a 20 ms, la note vers 80 ms pour
- * 52 Hz ; SWEEP x0 a x2) ; le VCA sature au depart (le corps plein pendant la frappe, -1 dB jusqu'a 50 ms au
- * depart) puis se ferme ; DECAY : sa constante, 35 ms a 245 ms (84 ms au depart : -20 dB vers 255 ms, -40 dB
- * vers 410 ms). ATTACK : une impulsion de 0.8 ms et du bruit sous 5 kHz, eteints en 2 ms (au depart, le haut
- * au-dessus de 1 kHz vers -12 dB sous la crete) ; DRIVE : l'attaque des diodes (bd909Drive, le triangle vers le
- * carre), puis une saturation douce de l'ensemble.
+ * KICK 909 (Mika : "le kick sonne flat.. met un kick de 909") : la frappe
+ * d'abord. Le balayage descend tres vite (de 4.4 fois la note a la note,
+ * 4.5 ms, puis un reste de 30 ms), l'oscillateur est un sinus un peu
+ * pince (un quart de triangle : le grain de l'original), la queue
+ * exponentielle (DECAY : 90 ms a 630 ms) ; ATTACK : le clic du
+ * declencheur (un front filtre vers 3.2 kHz) et un souffle tres bref
+ * (bruit sous 5 kHz, 3 ms) ; DRIVE : la saturation (tanh 1.2 a 5.2).
  */
 function bd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const fs = sr * OS;
   const f0 = kickHz('909', tw.tune);
   const tau = kickDecayS('909', tw.decay) * ts;
+  const len = Math.round(fs * Math.max(0.25, Math.min(2.5, 6 * tau + 0.05)));
+  const x = new Float64Array(len);
+  const clickBp = new Bq('bp', 3200, 0.7, fs);
+  const noiseLp = new Bq('lp', 5000, 0.7, fs);
+  const k = 1.2 + 4 * tw.drive;
+  const amt = 2 * tw.attack;
+  // SWEEP (2026-10-08, R3) : la profondeur du balayage, x1 au depart
   const sw = sweepDepth(tw.sweep);
-  const g = bd909Drive(tw.drive);
-  const k = 1.6 * g;
-  const c = diodeMean(k);
-  const norm = 1 / Math.tanh(k + BD909_BIAS);
-  const amt = kickClickAmt('909', tw.attack);
-  const outK = 0.8;
-  // Le clic : l'impulsion (passe-haut 250 Hz, puis passe-bas 7 kHz) et le bruit (passe-bas 5 kHz), sous leur enveloppe breve
-  const pHp = new Bq('hp', 250, 0.6, fs);
-  const pLp = new Bq('lp', 7000, 0.7, fs);
-  const nLp = new Bq('lp', 5000, 0.7, fs);
-  const body = (t: number): number => {
-    const ph = kickPhase('909', f0, t, sw);
-    const x = tri(ph + 0.25);
-    return (Math.tanh(k * x + BD909_BIAS) - c) * norm * kickAmp('909', tau, t) * (1 - Math.exp(-t / 0.0003));
-  };
-  const tete = (t: number): number => {
-    const pulse = pLp.run(pHp.run(t < 0.0008 ? 1 : 0));
-    const noise = nLp.run(r() * 2 - 1) * Math.exp(-t / 0.002);
-    return sat(body(t) + amt * (0.55 * pulse + 0.35 * noise), outK);
-  };
-  const queue = (t: number): number => sat(body(t), outK);
-  // La longueur : jusqu'a -60 dB environ (le VCA ferme), au plus 2.5 s
-  const lenS = Math.max(0.2, Math.min(2.5, 6.5 * tau + 0.03));
-  const y = twoRate(sr, lenS, 0.1, g > 2, tete, queue);
+  let ph = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    const f = f0 * (1 + 3.4 * sw * Math.exp(-t / 0.0045) + 0.45 * sw * Math.exp(-t / 0.03));
+    ph += f / fs;
+    const osc = 0.85 * Math.sin(TAU * ph) + 0.15 * tri(ph + 0.25);
+    const amp = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tau);
+    const click = amt * (0.9 * trigClick(clickBp, t) + 0.3 * noiseLp.run(r() * 2 - 1) * Math.exp(-t / 0.003));
+    x[i] = sat(osc * amp + click, k);
+  }
+  fadeOut(x, fs, Math.min(0.05, len / fs / 4));
+  const y = decimate(x);
   dcBlock(y, sr, 18);
   return { L: y, R: y };
 }
 
 /**
- * KICK 808 (refait le 2026-10-12, voir plus haut) : le pont en T qui sonne une sinusoide presque pure, sa
- * frappe (la note x2.1 pendant 4.5 ms, redescendue en 2 ms : la premiere alternance courte et forte) et son
- * soupir (+18 % qui retombent en 55 ms : 57 Hz a 10 ms, 52.5 Hz a 50 ms, 49 Hz ensuite pour 49 Hz) ; SWEEP les
- * deux, x0 a x2. L'impulsion de 1 ms qui le declenche passe aussi a la sortie (le petit tic), par le passe-bas
- * de TONE : ATTACK sa force et son passe-bas (bd808ToneHz). DECAY : la queue exponentielle, 55 ms a 660 ms
- * (168 ms au depart : -20 dB vers 370 ms, -40 dB vers 750 ms) ; DRIVE : presque propre au depart, sature a fond (bd808DriveK).
+ * KICK 808 : le resonateur en T ponte, un sinus presque pur qui ne
+ * descend que d'un quart (10 ms), la longue queue du boom (DECAY : 160 ms
+ * a 1.3 s) ; ATTACK : le petit tic du declencheur (vers 1.1 kHz) ; DRIVE :
+ * de la rondeur a la saturation (tanh 0.6 a 3.6).
  */
-function bd808(sr: number, ts: number, tw: ShotTweak): Shot {
+function bd808(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const fs = sr * OS;
   const f0 = kickHz('808', tw.tune);
   const tau = kickDecayS('808', tw.decay) * ts;
+  const len = Math.round(fs * Math.max(0.3, Math.min(3, 5.5 * tau + 0.05)));
+  const x = new Float64Array(len);
+  const clickBp = new Bq('bp', 1100, 0.9, fs);
+  const k = 0.6 + 3 * tw.drive;
+  const amt = 0.7 * tw.attack;
   const sw = sweepDepth(tw.sweep);
-  const k = bd808DriveK(tw.drive);
-  const amt = kickClickAmt('808', tw.attack);
-  // L'impulsion par le "pulse shaper" (un passe-haut doux) puis le passe-bas de TONE
-  const pHp = new Bq('hp', 90, 0.6, fs);
-  const pLp = new Bq('lp', bd808ToneHz(tw.attack), 0.6, fs);
-  // Le pont en T sonne des fronts de l'impulsion : son corps part 1 ms apres elle (la figure 10 de Werner et al. : +0.6
-  // pendant l'impulsion, puis l'alternance negative la plus ample vers 3.5 ms)
-  const body = (t: number): number => (t <= BD808_LAG ? 0 : -Math.sin(TAU * kickPhase('808', f0, t - BD808_LAG, sw)) * kickAmp('808', tau, t - BD808_LAG));
-  const tete = (t: number): number => sat(body(t) + amt * pLp.run(pHp.run(t < 0.001 ? 1 : 0)), k);
-  const queue = (t: number): number => sat(body(t), k);
-  const lenS = Math.max(0.25, Math.min(3, 6.2 * tau + 0.03));
-  const y = twoRate(sr, lenS, 0.03, k > 1.5, tete, queue);
+  let ph = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    ph += (f0 * (1 + 0.3 * sw * Math.exp(-t / 0.01))) / fs;
+    const amp = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / tau);
+    x[i] = sat(Math.sin(TAU * ph) * amp + amt * trigClick(clickBp, t) + 0.05 * amt * (r() * 2 - 1) * Math.exp(-t / 0.001), k);
+  }
+  fadeOut(x, fs, Math.min(0.08, len / fs / 4));
+  const y = decimate(x);
   dcBlock(y, sr, 16);
   return { L: y, R: y };
 }
@@ -1266,8 +1061,8 @@ function tomModel(sr: number, ts: number, r: () => number, m: '909' | '808', hig
   return { L: y, R: y };
 }
 
-/** Calcule un son, cale par la regle d'avant (le kick sur sa crete, les autres sur SHOT_LOUD sous leur plafond). Deterministe : (son, variante, STRETCH, frequence). */
-function ruleShot(id: ShotId, sr: number, stretch: number, variant: number, tw: ShotTweak): Shot {
+/** Calcule un son, cale sur sa sonie (SHOT_LOUD). Deterministe : (son, variante, STRETCH, frequence). */
+export function renderShot(id: ShotId, sr: number, stretch: number, variant: number, tw: ShotTweak = TWEAK_MM): Shot {
   // STRETCH (2026-10-04) : le son a sa duree naturelle, puis etire en grains facon Impulse (audio/stretch.ts)
   const ts = 1;
   const seed = 0x9e3779b1 ^ (id.charCodeAt(0) * 7919 + id.charCodeAt(1) * 104729 + id.length * 131 + variant * 2654435761);
@@ -1277,7 +1072,7 @@ function ruleShot(id: ShotId, sr: number, stretch: number, variant: number, tw: 
   let s: Shot;
   switch (id) {
     case 'BD':
-      s = m === '909' ? bd909(sr, ts, r, tw) : m === '808' ? bd808(sr, ts, tw) : bd(sr, ts, r, tw);
+      s = m === '909' ? bd909(sr, ts, r, tw) : m === '808' ? bd808(sr, ts, r, tw) : bd(sr, ts, r, tw);
       break;
     case 'SD':
       s = m === '909' ? sd909(sr, ts, r, tw) : m === '808' ? sd808(sr, ts, r, tw) : sd(sr, ts, r, tw);
@@ -1315,51 +1110,6 @@ function ruleShot(id: ShotId, sr: number, stretch: number, variant: number, tw: 
   return s;
 }
 
-/**
- * L'etalonnage d'un modele (2026-10-12) : ses reglages de depart (TUNE, ATTACK, DECAY, DRIVE, SWEEP, SNAPPY et ceux
- * de la caisse claire a leur milieu, GATE OFF), STRETCH 0, a la frequence de rendu (celle du contexte, divisee par la
- * hauteur de TONE) : les sons bruites tirent leur bruit echantillon par echantillon, la regle d'avant (une crete)
- * donnait a 44.1 kHz jusqu'a 2.9 dB d'ecart a ce qu'elle donnait a 48 kHz. Une fois par frequence, voix, modele et
- * variante (chaque variante a son gain : deux coups bruites sonnent pareil), garde ; un son a ses reglages de depart
- * se mesure lui-meme (rien de plus a calculer : les charleys, les toms, la cymbale, le kit de depart), un autre
- * calcule une fois celui de depart, en fond comme lui (jamais pendant la lecture).
- */
-const TWEAK_DEF: Readonly<ShotTweak> = { model: 'mm', tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5 };
-const SYNTH_CAL = new Map<string, number>();
-/** Les gains gardes au plus (frequences de rendu, voix, modeles, variantes) : bien plus que ce qu'une session demande. */
-const CAL_KEEP = 256;
-/** Le modele qui joue vraiment (la cymbale n'en a qu'un). */
-const calModel = (id: ShotId, m: KitModel): KitModel => (id === 'CY' ? 'mm' : m);
-/** Les reglages de tw sont-ils ceux de depart pour ce son ? (le son calcule est alors celui de l'etalonnage) */
-function atDefault(id: ShotId, tw: ShotTweak): boolean {
-  if (id === 'BD') return tw.tune === 0.5 && tw.attack === 0.5 && tw.decay === 0.45 && tw.drive === 0.25 && sweepDepth(tw.sweep) === 1;
-  if (id === 'SD') return tw.snappy === 0.5 && !tw.gate && sdTuneFactor(tw.sdTune) === 1 && sdDecayFactor(tw.sdDecay) === 1 && sdToneFactor(tw.sdTone) === 1;
-  if (id === 'CP') return !tw.gate;
-  return true;
-}
-function synthCal(id: ShotId, m: KitModel, variant: number, sr: number, s?: Shot): number {
-  const key = `${sr}|${id}|${calModel(id, m)}|${variant}`;
-  let k = SYNTH_CAL.get(key);
-  if (k === undefined) {
-    k = calGain(id, shotMomentary(s ?? ruleShot(id, sr, 1, variant, { ...TWEAK_DEF, model: m }), sr));
-    if (SYNTH_CAL.size >= CAL_KEEP) SYNTH_CAL.clear();
-    SYNTH_CAL.set(key, k);
-  }
-  return k;
-}
-
-/**
- * Calcule un son a son niveau (2026-10-12) : la regle d'avant (ruleShot), puis le gain d'etalonnage de son modele
- * (synthCal) : a ses reglages de depart, chaque modele de chaque voix sort a la sonie de sa voix (SHOT_TARGET) ;
- * ses potards, STRETCH et TONE changent son niveau comme avant.
- */
-export function renderShot(id: ShotId, sr: number, stretch: number, variant: number, tw: ShotTweak = TWEAK_MM): Shot {
-  const s = ruleShot(id, sr, stretch, variant, tw);
-  const self = Math.abs(stretch - 1) <= 1e-3 && atDefault(id, tw);
-  calibrate(s, synthCal(id, tw.model, variant, sr, self ? s : undefined));
-  return s;
-}
-
 /** Le son principal d'une famille (un echantillon d'une autre famille se cale comme lui, un sample lock). */
 const FAMILY_SHOT: Readonly<Record<string, ShotId>> = { bd: 'BD', sd: 'SD', cp: 'CP', hh: 'CH', tom: 'TOM' };
 const familyOfShot = (id: ShotId): string => (id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh');
@@ -1379,56 +1129,18 @@ export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: S
   const l = tw.smp ?? SAMPLE_LAYER_DEFAULT;
   const { family, cal } = sampleCal(id, l);
   const s = sampleBody(pcm, sr, stretch, family, cal, tw, l);
-  // Les reglages de depart (le fichier entier, a l'endroit, a sa hauteur) : cale sur lui-meme, le calcul d'avant ;
-  // puis l'etalonnage du fichier (2026-10-12, sampleCalGain), qui le pose sur la sonie de sa voix
+  // Les reglages de depart (le fichier entier, a l'endroit, a sa hauteur) : cale sur lui-meme, le calcul d'avant
   if (atRest(l)) {
     setLoudness(cal, s, sr);
-    calibrate(s, sampleCalGain(pcm, sr, family, cal, Math.abs(stretch - 1) <= 1e-3 && neutralChar(family, tw) ? s : undefined));
     return s;
   }
-  const c = sampleCalGain(pcm, sr, family, cal);
   // Sinon le gain du fichier entier (revue de R3, 2026-10-08) : caler la part gardee sur elle-meme remontait la queue
   // a pleine voix (START a 50 % sur la caisse claire : +23 dB, un coup fort au lieu d'une fin douce) ; une
   // Elektron joue ce qui reste du fichier a son niveau. Jamais au-dessus du plafond de la voix.
-  const p = cal === 'BD' && s.L !== s.R ? midPeak(s) : peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
+  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
   const k = refGain(pcm, sr, stretch, family, cal, tw);
   applyGain(s, p > 0 ? Math.min(k, shotCeiling(cal) / p) : k);
-  calibrate(s, c);
   return s;
-}
-
-/**
- * L'etalonnage d'un echantillon (2026-10-12) : mesure une fois par fichier decode (ceux du site comme tout autre
- * SamplePcm, garde avec lui), par frequence de rendu et par voix ou il se cale, au repos (le fichier entier, a
- * l'endroit, a sa hauteur), ATTACK, DRIVE et SNAPPY a leur depart, GATE OFF : le gain qui pose sa regle d'avant sur
- * la sonie de sa voix. A la frequence de rendu (le fichier y est deja relu pour jouer, rien de plus a relire) : la
- * regle d'avant voit la crete du fichier relu, un peu plus haute entre ses echantillons (PSY 02 : 0.4 dB de moins a
- * 48 kHz qu'a 44.1 kHz). Ses reglages (SMPL, ATTACK, DRIVE...) changent ensuite son niveau comme avant ; LEVEL, VOL
- * et les niveaux des couches gardent leur sens. s : le coup au repos deja calcule a ces reglages (il se mesure lui-meme).
- */
-const SAMPLE_CAL = new WeakMap<SamplePcm, Map<string, number>>();
-/** Le caractere de la voix a son depart sur un echantillon de la famille (ATTACK et DRIVE du kick ; SNAPPY et GATE de la caisse claire). */
-const neutralChar = (family: string, tw: ShotTweak): boolean =>
-  family === 'bd' ? tw.attack === 0.5 && tw.drive === 0.25 : family === 'sd' ? tw.snappy === 0.5 && !tw.gate : true;
-function sampleCalGain(pcm: SamplePcm, sr: number, family: string, cal: ShotId, s?: Shot): number {
-  let m = SAMPLE_CAL.get(pcm);
-  if (!m) {
-    m = new Map();
-    SAMPLE_CAL.set(pcm, m);
-  }
-  const key = `${sr}|${family}|${cal}`;
-  let k = m.get(key);
-  if (k === undefined) {
-    let x = s;
-    if (!x) {
-      x = sampleBody(pcm, sr, 1, family, cal, TWEAK_DEF, SAMPLE_LAYER_DEFAULT);
-      setLoudness(cal, x, sr);
-    }
-    k = calGain(cal, shotMomentary(x, sr));
-    if (m.size >= 32) m.clear();
-    m.set(key, k);
-  }
-  return k;
 }
 
 /** La famille dont un echantillon garde le caractere, et la voix sur laquelle il se cale (un sample lock : la sienne). */
@@ -1450,7 +1162,11 @@ function sampleBody(pcm: SamplePcm, sr: number, stretch: number, family: string,
   if (family === 'sd' && tw.gate) s = gatedVerb(s.L, s.R, sr, 1);
   // Le kick en mono (2026-10-08, "un bon kick") : les fichiers ont un leger cote stereo (-28 a -44 dB, un decalage
   // L/R de quelques echantillons sur certains) ; le grave d'un kick se tient au centre
-  if (cal === 'BD' && s.L !== s.R) s = monoLows(s.L, s.R, sr);
+  if (cal === 'BD' && s.L !== s.R) {
+    const m = new Float32Array(s.L.length);
+    for (let i = 0; i < m.length; i += 1) m[i] = 0.5 * (s.L[i] + s.R[i]);
+    s = { L: m, R: m };
+  }
   if (Math.abs(stretch - 1) > 1e-3) {
     if (s.L === s.R) {
       const one = timeStretch(s.L, stretch, sr);
@@ -1458,44 +1174,6 @@ function sampleBody(pcm: SamplePcm, sr: number, stretch: number, family: string,
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
   return s;
-}
-
-/**
- * Le grave du kick au centre, le haut tel que le fichier (2026-10-12, Mika : "des problemes pour le son des BD,
- * surtout des samples que j'ai choisis"). La somme mono de 2026-10-08 tenait bien le grave, mais elle mangeait le
- * cote stereo de la frappe : AFFKT perdait 4 a 6 dB au-dessus de 6 kHz sur chaque canal, Stein 0.6 dB au-dessus de
- * 12 kHz, leur clic sonnait plus terne que le fichier. Le milieu reste la somme d'avant, au bit pres ; le cote passe
- * par un passe-haut (Butterworth, 150 Hz, 12 dB par octave) : sous 150 Hz le kick est mono comme avant, au-dessus il
- * a sa largeur. Un cote (au-dessus de 150 Hz) sous -40 dB du milieu (BLUEPRINT, VNTM, ENGELHARDT, CARASSI) : la
- * somme mono d'avant, rien de plus.
- */
-const KICK_MONO_HZ = 150;
-function monoLows(L: Float32Array, R: Float32Array, sr: number): Shot {
-  const n = Math.min(L.length, R.length);
-  const m = new Float32Array(n);
-  const side = new Float32Array(n);
-  for (let i = 0; i < n; i += 1) {
-    m[i] = 0.5 * (L[i] + R[i]);
-    side[i] = 0.5 * (L[i] - R[i]);
-  }
-  const w = Math.tan((Math.PI * KICK_MONO_HZ) / sr);
-  const q = Math.SQRT2;
-  const a0 = 1 + q * w + w * w;
-  const hs = biquad(side, 1 / a0, -2 / a0, 1 / a0, (2 * (w * w - 1)) / a0, (1 - q * w + w * w) / a0);
-  let em = 0;
-  let es = 0;
-  for (let i = 0; i < n; i += 1) {
-    em += m[i] * m[i];
-    es += hs[i] * hs[i];
-  }
-  if (es <= 1e-4 * em) return { L: m, R: m };
-  const l = new Float32Array(n);
-  const r = new Float32Array(n);
-  for (let i = 0; i < n; i += 1) {
-    l[i] = m[i] + hs[i];
-    r[i] = m[i] - hs[i];
-  }
-  return { L: l, R: r };
 }
 
 /** Le gain du fichier entier, par echantillon decode et par reglage de caractere (un calcul par cle, garde). */
@@ -1527,6 +1205,11 @@ export const layerGain = (v: number): number => {
 
 /** La marge de crete d'un coup a deux couches (dB) : leurs attaques s'additionnent, la somme peut monter un peu au-dessus de la voix seule. */
 const LAYER_HEADROOM_DB = 2;
+/** Le plafond d'un coup a deux couches : 2 dB au-dessus de sa voix, jamais a moins de 0.5 dB sous la crete du kick (le kick seul la passe). */
+const layerCap = (id: ShotId): number => {
+  const up = shotCeiling(id) * Math.pow(10, LAYER_HEADROOM_DB / 20);
+  return id === 'BD' ? up : Math.min(up, Math.pow(10, (SHOT_KICK_PEAK - 0.5) / 20));
+};
 
 /**
  * Le coup complet d'une voix, ses deux couches ensemble (2026-10-08, l'etape
@@ -1541,9 +1224,8 @@ const LAYER_HEADROOM_DB = 2;
  * un sample change son grain sans faire sauter la voix (mesure sur les six
  * kicks de Mika et le 909 a 127 : en calant la somme sur la crete, elle
  * perdait 1 a 4 dB de sonie, leurs attaques s'additionnant) ; sa crete au plus
- * LAYER_HEADROOM_DB au-dessus de la plus haute des deux couches (2026-10-12 :
- * chacune etalonnee sur la sonie de sa voix ; avant, au-dessus du plafond de la
- * voix, et une autre voix jamais a moins de 0.5 dB sous la crete du kick). Les deux
+ * LAYER_HEADROOM_DB au-dessus de celle de la voix, et une autre voix jamais a
+ * moins de 0.5 dB sous la crete du kick : le kick reste la reference. Les deux
  * a 0 : un coup muet. pcm : l'echantillon decode de la couche SAMPLE
  * (audio/samples.ts) ; sans lui, la couche SAMPLE ne joue pas.
  */
@@ -1574,14 +1256,12 @@ export function renderLayers(id: ShotId, sr: number, stretch: number, variant: n
   const sum: Shot = { L, R };
   // La sonie de la plus forte des deux couches a son niveau, sous le plafond de crete ; un sample emprunte a une
   // autre famille (un sample lock, SYN LEVEL verrouille avec lui) garde au moins le plafond de la sienne (revue de R3 :
-  // un kick sur la voie des charleys jouait 5 dB sous son niveau). Depuis le 2026-10-12, la sonie momentanee de
-  // l'etalonnage (shotMomentary), et le plafond : LAYER_HEADROOM_DB au-dessus de la plus haute crete des deux couches
-  // (chacune deja etalonnee sur sa voix, un sample lock sur la sienne), jamais au-dessus de SHOT_MAX_PEAK
-  const target = Math.max(shotMomentary(a, sr) + 20 * Math.log10(ga), shotMomentary(b, sr) + 20 * Math.log10(gb));
+  // un kick sur la voie des charleys jouait 5 dB sous son niveau)
+  const target = Math.max(shotLoudness(a, sr) + 20 * Math.log10(ga), shotLoudness(b, sr) + 20 * Math.log10(gb));
   const p = peakOf(mono ? [L] : [L, R]);
-  let k = Math.pow(10, (target - shotMomentary(sum, sr)) / 20);
-  const top = Math.max(ga * peakOf(a.L === a.R ? [a.L] : [a.L, a.R]), gb * peakOf(b.L === b.R ? [b.L] : [b.L, b.R]));
-  const cap = Math.min(SHOT_MAX_PEAK, top * Math.pow(10, LAYER_HEADROOM_DB / 20));
+  let k = Math.pow(10, (target - shotLoudness(sum, sr)) / 20);
+  const { cal } = sampleCal(id, tw.smp ?? SAMPLE_LAYER_DEFAULT);
+  const cap = cal === id ? layerCap(id) : Math.max(layerCap(id), shotCeiling(cal));
   if (p > 0) k = Math.min(k, cap / p);
   if (Number.isFinite(k) && k > 0 && k !== 1) {
     for (let i = 0; i < n; i += 1) L[i] *= k;

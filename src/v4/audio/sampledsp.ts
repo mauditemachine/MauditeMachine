@@ -10,8 +10,8 @@
  * machine") : l'echantillon est une couche de la voix, sous la couche SYNTH
  * (audio/shotsdsp.ts renderLayers), avec ses reglages a elle (la page SMPL) :
  * - TUNE et FINE : sa hauteur, en demi-tons et en cents (le fichier relu plus
- *   vite ou plus lentement, par un sinc fenetre depuis le 2026-10-12, l'Hermite
- *   avant : le calcul est fait une fois, jamais a la lecture) ;
+ *   vite ou plus lentement, interpolation Hermite : le calcul est fait une
+ *   fois, jamais a la lecture) ;
  * - START : ou il commence dans le fichier (0 a 90 %) ;
  * - LEN : la part gardee apres START (12 % a 100 %), la fin en fondu
  *   (cosinus) sur la seconde moitie de cette part, comme DECAY d'avant ;
@@ -77,113 +77,27 @@ export const sampleTuneSt = (v: number): number => Math.round((Math.min(1, Math.
 /** DECAY d'un echantillon : la part de sa duree qu'il garde (1 de 0.45 a 1). */
 export const sampleDecayPart = (v: number): number => (v >= 0.45 ? 1 : 0.12 + 0.88 * (Math.max(0, v) / 0.45));
 
-/*
- * La relecture (2026-10-12, Mika : "des problemes pour le son des BD, surtout des samples que j'ai choisis") :
- * mesure hors ligne, le fichier passait par deux reechantillonnages quand le contexte tournait a 44.1 kHz
- * (le decodage a 48 kHz du navigateur, puis l'Hermite de 48 a 44.1 kHz : -0.7 a -0.9 dB au-dessus de 12 kHz,
- * un residu a -54 dB sur AFFKT), et l'Hermite ternissait les aigus de tout echantillon transpose. Le fichier
- * est maintenant decode a sa propre frequence (audio/samples.ts) : a la meme frequence et a sa hauteur, il est
- * recopie tel quel, echantillon pour echantillon ; sinon relu par un sinc fenetre (Kaiser, 32 passages par
- * zero de chaque cote, coupe a la Nyquist la plus basse : rien ne se replie quand on le relit plus vite).
- */
-const SINC_HALF = 32;
-const SINC_PHASES = 256;
-const SINC_LEN = SINC_HALF * SINC_PHASES;
-
-/** Bessel I0 (la fenetre de Kaiser). */
-function besselI0(x: number): number {
-  let s = 1;
-  let t = 1;
-  for (let k = 1; k < 40; k += 1) {
-    t *= (x / (2 * k)) * (x / (2 * k));
-    s += t;
-    if (t < 1e-12 * s) break;
-  }
-  return s;
+/** Lecture interpolee (Hermite, Catmull-Rom) d'un canal en x (fractionnaire). */
+function hermite(x: Float32Array, pos: number): number {
+  const i = Math.floor(pos);
+  const f = pos - i;
+  const n = x.length;
+  const xm1 = i - 1 >= 0 && i - 1 < n ? x[i - 1] : 0;
+  const x0 = i >= 0 && i < n ? x[i] : 0;
+  const x1 = i + 1 < n ? x[i + 1] : 0;
+  const x2 = i + 2 < n ? x[i + 2] : 0;
+  const c1 = 0.5 * (x1 - xm1);
+  const c2 = xm1 - 2.5 * x0 + 2 * x1 - 0.5 * x2;
+  const c3 = 0.5 * (x2 - xm1) + 1.5 * (x0 - x1);
+  return ((c3 * f + c2) * f + c1) * f + x0;
 }
 
-/** Le noyau tabule une fois (256 phases par passage par zero, interpole lineairement entre elles). */
-const SINC_TAB: Float32Array = (() => {
-  const t = new Float32Array(SINC_LEN + 2);
-  const beta = 8;
-  const i0b = besselI0(beta);
-  for (let k = 0; k <= SINC_LEN; k += 1) {
-    const u = k / SINC_PHASES;
-    const s = k === 0 ? 1 : Math.sin(Math.PI * u) / (Math.PI * u);
-    const r = u / SINC_HALF;
-    t[k] = r >= 1 ? 0 : (s * besselI0(beta * Math.sqrt(1 - r * r))) / i0b;
-  }
-  return t;
-})();
-
-/** Le canal relu a srOut, a sa hauteur, sur nOut echantillons. */
-function readChannel(x: Float32Array, srIn: number, srOut: number, ratio: number, nOut: number): Float32Array {
+/** Le canal relu a srOut depuis off (START), hauteur et longueur comprises. */
+function readChannel(x: Float32Array, srIn: number, srOut: number, ratio: number, nOut: number, off = 0): Float32Array {
   const out = new Float32Array(nOut);
   const step = (ratio * srIn) / srOut;
-  const n = x.length;
-  // La frequence du fichier, a sa hauteur : le fichier lui-meme
-  if (step === 1) {
-    out.set(x.subarray(0, Math.min(n, nOut)));
-    return out;
-  }
-  // Relu plus vite (plus aigu, ou vers une frequence plus basse) : la coupure suit la Nyquist de la sortie
-  const c = step > 1 ? 1 / step : 1;
-  const reach = SINC_HALF / c;
-  const scale = c * SINC_PHASES;
-  const T = SINC_TAB;
-  for (let i = 0; i < nOut; i += 1) {
-    const pos = i * step;
-    const mid = Math.floor(pos);
-    const j0 = Math.max(0, Math.ceil(pos - reach));
-    const j1 = Math.min(n - 1, Math.floor(pos + reach));
-    let acc = 0;
-    // A gauche de pos (la distance baisse d'un pas a chaque echantillon), puis a droite (elle monte)
-    let u = (pos - j0) * scale;
-    for (let j = j0; j <= mid && j <= j1; j += 1, u -= scale) {
-      const k = u | 0;
-      if (k < SINC_LEN) acc += x[j] * (T[k] + (u - k) * (T[k + 1] - T[k]));
-    }
-    u = (mid + 1 - pos) * scale;
-    for (let j = Math.max(j0, mid + 1); j <= j1; j += 1, u += scale) {
-      const k = u | 0;
-      if (k >= SINC_LEN) break;
-      acc += x[j] * (T[k] + (u - k) * (T[k + 1] - T[k]));
-    }
-    out[i] = acc * c;
-  }
-  return out;
-}
-
-/**
- * Le fichier relu a srOut, a sa hauteur, a l'endroit ou a l'envers (2026-10-12) : le sinc coute quelques dizaines
- * de ms par fichier, il est fait une fois par frequence et par hauteur (quatre gardees par fichier) ; ATTACK, DRIVE,
- * START, LEN qui tournent ne relisent plus rien.
- */
-const RELU = new WeakMap<SamplePcm, Map<string, Float32Array[]>>();
-function relu(p: SamplePcm, srOut: number, ratio: number, rev: boolean): Float32Array[] {
-  let m = RELU.get(p);
-  if (!m) {
-    m = new Map();
-    RELU.set(p, m);
-  }
-  const key = `${srOut}|${ratio}|${rev ? 1 : 0}`;
-  const hit = m.get(key);
-  if (hit) {
-    m.delete(key);
-    m.set(key, hit);
-    return hit;
-  }
-  const srcs = p.R ? [p.L, p.R] : [p.L];
-  // REV : une copie a l'envers (le fichier decode sert aux autres coups)
-  const chans = rev ? srcs.map((x) => Float32Array.from(x).reverse()) : srcs;
-  const n = Math.max(1, Math.ceil((p.L.length / p.sr / ratio) * srOut));
-  const out = chans.map((x) => readChannel(x, p.sr, srOut, ratio, n));
-  m.set(key, out);
-  while (m.size > 4) {
-    const first = m.keys().next().value;
-    if (first === undefined) break;
-    m.delete(first);
-  }
+  if (off === 0) for (let i = 0; i < nOut; i += 1) out[i] = hermite(x, i * step);
+  else for (let i = 0; i < nOut; i += 1) out[i] = hermite(x, off + i * step);
   return out;
 }
 
@@ -197,6 +111,9 @@ export function playSample(p: SamplePcm, srOut: number, tw: SampleTweak): { L: F
   const kick = tw.family === 'bd';
   const snare = tw.family === 'sd';
   const ratio = tw.st === 0 ? 1 : Math.pow(2, tw.st / 12);
+  // REV : le fichier a l'envers (une copie : le fichier decode sert aux autres coups)
+  const srcs = p.R ? [p.L, p.R] : [p.L];
+  const chans = tw.rev ? srcs.map((x) => Float32Array.from(x).reverse()) : srcs;
   // START : les premiers echantillons sautes (en echantillons du fichier)
   const off = tw.start > 0 ? Math.round(Math.min(1, tw.start) * SAMPLE_START_MAX * p.L.length) : 0;
   const durIn = (p.L.length - off) / p.sr;
@@ -205,25 +122,16 @@ export function playSample(p: SamplePcm, srOut: number, tw: SampleTweak): { L: F
   const part = sampleLenPart(tw.len);
   const end = Math.max(1, Math.round(nOut * part));
   nOut = Math.min(nOut, end + 1);
-  // Le fichier entier relu a srOut (REV : a l'envers), garde ; START en prend la suite (au plus pres de son echantillon)
-  const full = relu(p, srOut, ratio, tw.rev);
-  const at = off > 0 ? Math.round((off * srOut) / (ratio * p.sr)) : 0;
-  const outs = full.map((x) => {
-    const y = new Float32Array(nOut);
-    y.set(x.subarray(Math.min(x.length, at), Math.min(x.length, at + nOut)));
-    return y;
-  });
+  const outs = chans.map((x) => readChannel(x, p.sr, srOut, ratio, nOut, off));
   const fade0 = part < 1 ? end - Math.max(1, Math.round(sampleLenFadeS(end / srOut) * srOut)) : nOut;
   // ATTACK : une frappe en plus (une bosse qui retombe en 4 ms) ou une montee douce
   const a = kick ? tw.attack - 0.5 : 0;
   const boost = a > 0 ? 2 * a : 0;
   const riseN = a < 0 ? Math.round(-a * 2 * 0.006 * srOut) : 0;
   const tauN = 0.004 * srOut;
-  // DRIVE : tanh, au-dessus de 0.25. Sans saut depuis le 2026-10-12 : tanh(k x) / tanh(k) part de la droite (k pres de 0) ;
-  // avant, k partait de 1 et le premier cran au-dessus de 0.25 ecrasait deja le fichier (+1.7 dB a mi-hauteur, +3 dB
-  // a DRIVE 0.30, la valeur des presets d'usine sur les kicks de Mika). A fond, la meme saturation qu'avant (k 9)
+  // DRIVE : tanh, au-dessus de 0.25
   const amt = kick ? Math.max(0, tw.drive - 0.25) / 0.75 : 0;
-  const k = 9 * amt;
+  const k = 1 + 8 * amt;
   const norm = amt > 0 ? 1 / Math.tanh(k) : 1;
   // SNAPPY : le dessus (au-dessus d'environ 2 kHz) en plus ou en moins
   const s = snare ? tw.snappy - 0.5 : 0;

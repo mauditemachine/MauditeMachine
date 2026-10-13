@@ -28,7 +28,7 @@
 import type { BassDiagram } from '../bass/diagrams';
 import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, compRatio, compThreshold, delayDiv, delayFb, fxLaw } from '../audio/pattern';
 import { SAMPLE_LEN_FADE, sampleLenPart } from '../audio/sampledsp';
-import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_TARGET, bd808DriveK, bd909Drive, kickAmp, kickClickAmt, kickDecayS, kickHz, kickPitchHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
+import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
 import { toneHpHz, toneLpHz, toneSemitones } from '../audio/tone';
 import { FENV_OCT, FILTER_TYPES, START_MAX, TUNE_ST, atkS, cutHz, decayTau, fdecTau, filterIndex, holdS, resoQ, voiceGain } from '../audio/voicefx';
@@ -444,7 +444,7 @@ const drawKickTune: Draw = (c, v) => {
   return p.value(`${Math.round(f)} HZ`).done();
 };
 
-/** DECAY du kick de synthese : sa queue (shotsdsp.ts kickAmp : e^(-t/tau), le VCA du 909 depuis le 2026-10-12) ; le sample a son LEN (SMPL F, drawSampleLen). */
+/** DECAY du kick de synthese : sa queue e^(-t/tau) (shotsdsp.ts kickDecayS) ; le sample a son LEN (SMPL F, drawSampleLen). */
 const drawKickDecay: Draw = (c, v) => {
   const p = new Pic();
   const sd = stepS(c.bpm);
@@ -459,7 +459,7 @@ const drawKickDecay: Draw = (c, v) => {
     const pts: Pt[] = [];
     for (let k = 0; k <= 96; k += 1) {
       const t = (span * k) / 96;
-      pts.push([tx(t), yOf(kickAmp(m, tt, t))]);
+      pts.push([tx(t), yOf(Math.exp(-t / tt))]);
     }
     return pts;
   };
@@ -508,15 +508,16 @@ const drawKickAttack: Draw = (c, v) => {
   const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
   const yc = 62;
   const amp = 26;
-  // La force du clic de chaque son (shotsdsp.ts kickClickAmt) et sa duree (le 909 : 2 ms ; le 808 : son impulsion de 1 ms)
-  const amt = kickClickAmt(m, a);
-  const ct = m === '808' ? 0.001 : 0.002;
+  // La force du clic de chaque son (shotsdsp.ts bd909, bd808, bd) et sa duree
+  const amt = m === '909' ? 2 * a : m === '808' ? 0.7 * a : 0.36 * a;
+  const ct = m === 'mm' ? 0.002 : 0.0012;
   let ph = 0;
   const body: Pt[] = [];
   for (let k = 0; k <= n; k += 1) {
     const t = (span * k) / n;
-    ph += kickPitchHz(m, f0, t, 1) * (span / n);
-    const env = (1 - Math.exp(-t / 0.0005)) * kickAmp(m, tau, t);
+    const f = m === '909' ? f0 * (1 + 3.4 * Math.exp(-t / 0.0045) + 0.45 * Math.exp(-t / 0.03)) : m === '808' ? f0 * (1 + 0.3 * Math.exp(-t / 0.01)) : (52 + 125 * Math.exp(-t / 0.009) + 22 * Math.exp(-t / 0.045)) * (f0 / 52);
+    ph += f * (span / n);
+    const env = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / tau);
     body.push([tx(t), yc - amp * env * Math.sin(2 * Math.PI * ph)]);
   }
   p.p(seg(X0, yc, X1, yc), 'grid');
@@ -543,17 +544,15 @@ const drawKickDrive: Draw = (c, v) => {
   let k: number;
   let clean = false;
   if (c.sample) {
-    // sampledsp.ts (2026-10-12) : tanh(9 a x) / tanh(9 a), sans saut au-dessus du quart
     const amt = Math.max(0, d - 0.25) / 0.75;
     clean = amt === 0;
-    k = 9 * amt;
+    k = 1 + 8 * amt;
   } else {
-    // shotsdsp.ts (2026-10-12) : le 909, les diodes de son triangle (1.6 x bd909Drive) ; le 808, sa sortie (bd808DriveK)
     const m = c.model ?? '909';
-    k = m === '909' ? 1.6 * bd909Drive(d) : m === '808' ? bd808DriveK(d) : 1.5 * (0.4 + 2.4 * d);
+    k = m === '909' ? 1.2 + 4 * d : m === '808' ? 0.6 + 3 * d : 1.5 * (0.4 + 2.4 * d);
   }
   // A fond (revue de R4) : la course en repere, meme quand le reglage est encore propre
-  const kMax = c.sample ? 9 : c.model === '808' ? bd808DriveK(1) : c.model === 'mm' ? 4.2 : 1.6 * bd909Drive(1);
+  const kMax = c.sample ? 9 : c.model === '808' ? 3.6 : c.model === 'mm' ? 4.2 : 5.2;
   const yc = 60;
   p.p(seg(X0, yc, X1, yc), 'grid');
   p.p(poly(shaped((x) => x, yc, 32)), 'ghost');
@@ -756,7 +755,11 @@ const drawSweep: Draw = (c, v) => {
   const f0 = kickHz(m, c.kit?.tune ?? 0.5);
   const sw = sweepDepth(clamp(v, 0, 1));
   const span = 0.06;
-  const fOf = (t: number, k: number): number => kickPitchHz(m, f0, t, k);
+  const fOf = (t: number, k: number): number => {
+    if (m === '909') return f0 * (1 + 3.4 * k * Math.exp(-t / 0.0045) + 0.45 * k * Math.exp(-t / 0.03));
+    if (m === '808') return f0 * (1 + 0.3 * k * Math.exp(-t / 0.01));
+    return (52 + 125 * k * Math.exp(-t / 0.009) + 22 * k * Math.exp(-t / 0.045)) * (f0 / 52);
+  };
   const top = f0 * (1 + KICK_SWEEP[m] * 2);
   const yOf = (f: number): number => Y1 - ((Math.log(f) - Math.log(f0 * 0.9)) / (Math.log(top) - Math.log(f0 * 0.9))) * (Y1 - Y0);
   const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
@@ -1335,16 +1338,15 @@ const drawHome: Draw = (c) => {
  * disait rien a un musicien) : ses couches (SYN et sa MACHINE, SMP et son
  * sample, chacune a son niveau ; CY, son seul son), ses seize pas (la
  * velocite, un point sous les pas verrouilles), combien de coups (MUTED,
- * coupee) ; dessous, sa sonie sous celle du kick (shotsdsp.ts SHOT_TARGET, depuis le 2026-10-12 : la crete
- * ne disait plus rien, chaque son est cale sur sa sonie).
+ * coupee) ; dessous, sa crete sous celle du kick (shotsdsp.ts SHOT_BELOW).
  */
 function padVoice(voice: Inst, c: RytmDiagramCtx): RytmDiagram {
   const p = new Pic();
   const layers = c.layers ?? [];
   layers.slice(0, 2).forEach((l, i) => p.label(l, X0, TOP + i * 13));
   strip(p, c, 40, 38, -1, false);
-  const b = -SHOT_TARGET[voice];
-  p.label(voice === 'BD' ? 'THE MIX REFERENCE' : `${b} LU UNDER THE KICK`, X0, BOT);
+  const b = SHOT_BELOW[voice];
+  p.label(voice === 'BD' ? 'THE MIX REFERENCE: THE LOUDEST PEAK' : `PEAK ${b} DB UNDER THE KICK`, X0, BOT);
   let hits = 0;
   for (let i = 0; i < 16; i += 1) if (c.steps && c.steps.charCodeAt(i) > 48) hits += 1;
   return p.value(c.muted ? 'MUTED' : `${hits} ${hits === 1 ? 'HIT' : 'HITS'}`).done();
