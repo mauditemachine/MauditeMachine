@@ -903,7 +903,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   random: {
     section: 'TRANSPORT',
     title: 'RANDOM',
-    text: "Tire un motif 4x4 pour toutes les voix dans un style (HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, PROG ou ELECTRO), jamais deux fois le même style de suite, avec un TONE et un VOL tirés pour chaque voix. Le tempo, les effets, les autres réglages des voix et les verrous restent.",
+    text: "Compose un motif 4x4 neuf pour toutes les voix dans un style (HOUSE, DEEP HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, DARK DISCO, ITALO, PROG ou ELECTRO), jamais deux fois le même style de suite : le kick reste sur les quatre temps, le reste change à chaque appui (backbeat, charleys en croches, doubles croches, galop ou euclidiens, percussions euclidiennes, roulements, ride ou crash, vélocités sur neuf niveaux) et le motif s'éloigne toujours du précédent. Le SWING suit le style ; TONE, VOL, DECAY et PAN sont tirés pour chaque voix sauf le kick, qui garde son son. Le tempo, les autres effets, les autres réglages des voix et les verrous restent.",
     tip: 'Appuie jusqu’à ce qu’un groove t’accroche, puis garde-le dans un pattern avec EDIT.',
   },
   mute: {

@@ -2632,3 +2632,18 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Samples: decoded at the file's own rate (samples.ts headerRate), exact copy when rates match, windowed-sinc resampler otherwise (Hermite gone: it dulled 12-20 kHz), resample cached per rate/pitch/REV; stereo top kept above 150 Hz (lows mono); DRIVE without the jump at its first notch. At neutral a sample now matches its file to -80 / -109 dB in the full chain.
 - 909 rebuilt (diode-shaped triangle, two-stage sweep 230 Hz at 5 ms, 160 at 10 ms, VCA hold, ATTACK pulse + noise); 808 rebuilt (bridged-T octave punch for 4.5 ms, the 57 to 49.5 Hz sigh, TONE 600 Hz to 7.2 kHz on the click, nearly clean drive). Decay ranges: 909 35 to 245 ms, 808 55 to 660 ms. Hit rendered at 4x, tail at the output rate (8 to 38 ms per render instead of 98 to 212).
 - Loudness: every voice, model, sample and variant calibrated on BS.1770 momentary loudness to SHOT_TARGET (LU under BD: SD -1, CP -3, TOM -3, HT -3.5, OH -5, CH held -7.5, CH -11.5, CY -7), within 0.05 dB; samples (bundled and user-loaded) measured once, nothing per hit; knobs keep their relative meaning. RYTM_TRIM 0.566 (0.53) keeps the MIXER reading. Screen and INFOS texts give the loudness targets.
+
+### R14-266 MM-RYTM: R14-265 audio reverted (2026-10-13)
+
+- Mika: "Le kick par defaut sonne vraiment mal ! tres tres mal ! jai fait clear et mis juste un kick".
+- The R14-265 RYTM audio (sample decoding and resampler, rebuilt 808 / 909, loudness calibration, RYTM_TRIM 0.566) is reverted to the 2026-10-11 code (RYTM_TRIM 0.53). The R14-264 Juno chorus of the MM-ARP stays.
+- Fresh-state measurements (offline render, live capture at the analyser, COMP on a lone kick) showed the default BluePrint kick faithful to its file in both versions; the leading suspect is stored voice state (voice settings persist since R14-262, CLEAR keeps tone, tune, filter, start). The R14-265 code is kept aside for a later, re-checked return.
+
+### R14-267 MM-RYTM: RANDOM really changes (2026-10-14)
+
+- Mika: "le random ne fais pas assez de random ! c'est toujours presque pareil ! ca doit vraiment changer".
+- Old cause: two to four frozen figures per voice, percussion absent three times out of four, three velocities: every draw had the same skeleton. Consecutive draws differed by 18 cells (of 128) at the median and could differ by 1.
+- audio/beats.ts rewritten as recipes, not figures: ten styles (HOUSE, DEEP HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, DARK DISCO, ITALO, PROG, ELECTRO), never the same twice in a row; an ENERGY per draw (hat density, 0 to 3 percussion voices, ghosts); kick always four on the floor plus 0 to 2 extras; backbeat clap / snare / both / none / half-time with ghosts and flams; closed hat in eighths, sixteenths (accent on, off, push or every three), gallop cells or euclidean, with a varying bar end; open hat offbeats, some offbeats, the "a", euclidean, one at the bar end or none; TOM, HT and the free SD as euclidean (2 to 7 hits, random rotation), repeated cells, call and response or end-of-bar rolls; cymbal crash, ride on beats or offbeats, euclidean bell; velocities on the nine levels with light humanizing.
+- Each draw sits at least 14 cells away from the current pattern (12 tries, the farthest kept). 3000 chained draws: median distance 27, minimum 14, 3000 distinct patterns, HT present 56 % (16 %).
+- RANDOM also sets the style's SWING (HOUSE 0.25-0.55, DEEP HOUSE 0.4-0.65, TECHNO, PROG, ELECTRO, ITALO nearly straight) and draws TONE, VOL, DECAY and PAN for every voice except BD, which keeps its sound (hats panned one side, percussion the other; SD and CP centred). One UNDO step as before. audio/house.ts removed (no longer used).
+

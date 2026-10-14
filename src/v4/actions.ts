@@ -14,7 +14,7 @@ import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
 import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './audio/locks';
 import { sampleByKey, samplesOf } from './audio/samples';
-import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
+import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, DELAY_DIVS, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, isFxSetting, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
@@ -469,22 +469,23 @@ let lastStyle: BeatStyle | null = null;
 /**
  * RANDOM (2026-10-01 ; tous les 4x4 depuis le 2026-10-04, audio/beats.ts) :
  * un style et son motif, pour toutes les voix, plus le TONE et le VOLUME de
- * chaque voix (Mika : "le tone, le volume") ; la lecture continue, tempo,
- * GLOBAL FX et les autres VOICE FX restent ceux de l'utilisateur. Le bouton
- * s'enfonce, l'ecran dit le style.
+ * chaque voix (Mika : "le tone, le volume") ; depuis le 2026-10-14 (Mika : "le
+ * random ne fais pas assez de random") aussi leur DECAY et leur PAN, et le
+ * SWING du style ; la grosse caisse garde son son. La lecture continue, le
+ * tempo, les autres GLOBAL FX et VOICE FX restent ceux de l'utilisateur. Le
+ * bouton s'enfonce, l'ecran dit le style.
  */
 export function randomPattern(stage: Stage | null = null): void {
   // UNDO : chaque RANDOM fait son etape (le precedent etait mieux : UNDO y revient)
   undo.boundary('mm808', 'step');
   resume();
-  const { style, steps } = randomBeat(pattern.get().steps, lastStyle);
+  const { style, steps, swing } = randomBeat(pattern.get().steps, lastStyle);
   lastStyle = style;
   pattern.replace(steps);
+  // Le SWING du style (2026-10-14) ; les autres GLOBAL FX restent ceux de l'utilisateur
+  pattern.fx.set({ swing });
   const colors = randomColors();
-  for (const inst of INSTRUMENTS) {
-    voiceFx.set(inst, 'tone', colors[inst].tone);
-    voiceFx.set(inst, 'level', colors[inst].level);
-  }
+  for (const inst of COLOR_VOICES) for (const p of ['tone', 'level', 'decay', 'pan'] as const) voiceFx.set(inst, p, colors[inst][p]);
   stage?.pressButton('random');
   lcdMessage.show(`RANDOM ${style}`);
 }
