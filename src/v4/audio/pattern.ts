@@ -99,6 +99,12 @@ export interface Fx {
   brate: number;
   catk: number;
   crel: number;
+  /** Le COMP refait le 2026-10-18 (FX_SETTINGS) : seuil, rapport, genou, rattrapage, passe-haut de sa chaine laterale */
+  cthr: number;
+  cratio: number;
+  cknee: number;
+  cmake: number;
+  chpf: number;
 }
 
 /**
@@ -106,12 +112,46 @@ export interface Fx {
  * affiche les configurations de ce FX, pareil pour tous les autres") : 0 a 1, leur valeur de depart rend le son
  * d'avant (le delay filtre a 4.5 kHz, la reverbe de 2.4 s, son pre-delay de 20 ms, etc.). Leurs lois : fxLaw.
  */
-// catk 0.918 (30 ms) et crel 0.546 (150 ms) le 2026-10-11 (3 ms et 120 ms avant) : le COMP refait en compresseur de bus,
-// la frappe passe, le corps et les queues se serrent (audio/glue.worklet.js)
-export const FX_SETTINGS = { dtone: 0.638, rsize: 0.566, rtone: 0.442, rpre: 0.167, xtone: 1, crate: 0.624, cdepth: 0.5, brate: 0, catk: 0.918, crel: 0.546 } as const;
-/** COMP (2026-10-11, audio/glue.worklet.js) : le seuil (-6 a -24 dB, la racine de la quantite) et le rapport (1.5 a 4) d'une quantite 0 a 1. */
-export const compThreshold = (cp: number): number => -6 - 18 * Math.sqrt(Math.max(0, Math.min(1, cp)));
-export const compRatio = (cp: number): number => 1.5 + 2.5 * Math.max(0, Math.min(1, cp));
+/*
+ * Le COMP refait le 2026-10-18 (Mika : "donne-moi le choix avec du ratio et threshold ! Fais un bon compresseur",
+ * audio/glue.worklet.js) : COMP (pattern.fx.comp, l'encodeur H) est son MIX, 0 = le son tel quel ; ses reglages sont
+ * ceux d'un compresseur de bus : THRESH (cthr, -18 dB au depart), RATIO (cratio, 4:1), ATTACK (catk, 10 ms ; 0.742),
+ * RELEASE (crel, AUTO tout en haut : 1), KNEE (cknee, 6 dB), MAKEUP (cmake, AUTO tout en bas : 0), HPF de la chaine
+ * laterale (chpf, 60 Hz). catk 0.918 et crel 0.546 du 2026-10-11 (30 et 150 ms affiches) sonnaient en fait 3 et 120 ms
+ * (drums.ts FX_BEFORE) : depuis, chaque reglage du COMP suit sa loi, ce que l'ecran dit est ce qu'on entend.
+ */
+export const FX_SETTINGS = {
+  dtone: 0.638,
+  rsize: 0.566,
+  rtone: 0.442,
+  rpre: 0.167,
+  xtone: 1,
+  crate: 0.624,
+  cdepth: 0.5,
+  brate: 0,
+  catk: 0.742,
+  crel: 1,
+  cthr: 0.45,
+  cratio: 0.571,
+  cknee: 0.5,
+  cmake: 0,
+  chpf: 0.5,
+} as const;
+/** Les crans du RATIO (2026-10-18) : 1:1 (rien), 1.5, 2, 3, 4 (le depart), 6, 10, 20 (presque un limiteur). */
+export const COMP_RATIOS: readonly number[] = [1, 1.5, 2, 3, 4, 6, 10, 20];
+/** Les crans du passe-haut de la chaine laterale (Hz ; 0 : aucun, le kick entier fait compresser). */
+export const COMP_HPF: readonly number[] = [0, 60, 120];
+/** RELEASE tout en haut (127) : AUTO, le retour suit la musique ; MAKEUP tout en bas (0) : AUTO, fixe, de la courbe. */
+export const CREL_AUTO = 0.996;
+export const CMAKE_AUTO = 0.004;
+/**
+ * Le niveau de programme que suppose MAKEUP AUTO (dB a l'entree du COMP, avant RYTM_TRIM : le motif de depart y crete
+ * vers 0 dBFS pour un RMS de -14.7 dBFS ; son detecteur lit les coups vers -12.5) et la douceur de son genou (dB).
+ */
+const MAKEUP_REF_DB = -12.5;
+const MAKEUP_SOFT_DB = 3.6;
+/** Le rattrapage AUTO le plus fort (dB), celui de MAKEUP a la main. */
+export const CMAKE_MAX_DB = 18;
 export type FxSettingId = keyof typeof FX_SETTINGS;
 export const FX_SETTING_IDS = Object.keys(FX_SETTINGS) as FxSettingId[];
 export const isFxSetting = (id: string): id is FxSettingId => Object.prototype.hasOwnProperty.call(FX_SETTINGS, id);
@@ -134,11 +174,70 @@ export const fxLaw = {
   cdepth: (v: number): number => 0.014 * lawClamp(v),
   /** BIT RATE : l'echantillonnage divise par 1 a 16 */
   brate: (v: number): number => 1 + Math.round(lawClamp(v) * 15),
-  /** COMP ATTACK : 0.1 a 50 ms */
+  /** COMP ATTACK : 0.1 a 50 ms (10 ms au depart) */
   catk: (v: number): number => 0.0001 * Math.pow(500, lawClamp(v)),
-  /** COMP RELEASE : 20 a 800 ms */
+  /** COMP RELEASE : 20 ms a 0.78 s ; tout en haut AUTO (compRelAuto) */
   crel: (v: number): number => 0.02 * Math.pow(40, lawClamp(v)),
+  /** COMP THRESH : 0 a -40 dB (-18 au depart) */
+  cthr: (v: number): number => -40 * lawClamp(v),
+  /** COMP RATIO : ses huit crans (COMP_RATIOS, 4:1 au depart) */
+  cratio: (v: number): number => COMP_RATIOS[Math.round(lawClamp(v) * (COMP_RATIOS.length - 1))],
+  /** COMP KNEE : 0 (genou dur) a 12 dB (6 au depart) */
+  cknee: (v: number): number => 12 * lawClamp(v),
+  /** COMP MAKEUP a la main : -6 a +18 dB (tout en bas : AUTO, compMakeAuto) */
+  cmake: (v: number): number => -6 + 24 * lawClamp(v),
+  /** COMP HPF : le passe-haut de la chaine laterale, OFF, 60 Hz (le depart) ou 120 Hz */
+  chpf: (v: number): number => COMP_HPF[Math.round(lawClamp(v) * (COMP_HPF.length - 1))],
 } as const satisfies Record<FxSettingId, (v: number) => number>;
+
+/** Les crans d'un reglage de FX (0 : continu) : RATIO et HPF du COMP. */
+export const FX_NOTCHES: Readonly<Partial<Record<FxSettingId, number>>> = { cratio: COMP_RATIOS.length, chpf: COMP_HPF.length };
+/** Un reglage de FX pose sur son cran le plus proche (les autres tels quels). */
+export function fxSnap(id: FxSettingId, v: number): number {
+  const n = FX_NOTCHES[id];
+  return n ? Math.round(lawClamp(v) * (n - 1)) / (n - 1) : v;
+}
+/** RELEASE sur AUTO (tout en haut) ; MAKEUP sur AUTO (tout en bas). */
+export const compRelAuto = (v: number): boolean => lawClamp(v) >= CREL_AUTO;
+export const compMakeAuto = (v: number): boolean => lawClamp(v) <= CMAKE_AUTO;
+/**
+ * MAKEUP AUTO (2026-10-18) : un gain fixe, de la courbe seule (seuil et rapport), jamais une moyenne qui suit le
+ * motif (celui du 2026-10-11 respirait) : la reduction d'un programme de niveau MAKEUP_REF_DB, le genou adouci de
+ * MAKEUP_SOFT_DB (un programme n'est pas un sinus). Mesure hors ligne : le motif de depart garde son RMS a 0.3 dB pres de
+ * -6 a -30 dB et de 1.5:1 a 20:1 (plus bas, la borne de +18 dB laisse le son un peu sous le sec) ; un motif plus fort
+ * sort un peu plus bas, un plus doux un peu plus haut (6 dB plus doux, a -30 dB et 20:1 : jusqu'a +5.8 dB).
+ */
+export function compAutoMakeup(thrDb: number, ratio: number): number {
+  const slope = 1 - 1 / Math.max(1, ratio);
+  const x = (MAKEUP_REF_DB - thrDb) / MAKEUP_SOFT_DB;
+  const over = MAKEUP_SOFT_DB * (x > 30 ? x : Math.log1p(Math.exp(x)));
+  return Math.min(CMAKE_MAX_DB, slope * over);
+}
+/** Le rattrapage (dB) de ces reglages : AUTO (de la courbe) ou celui de la main. */
+export function compMakeup(f: Readonly<Pick<Fx, 'cthr' | 'cratio' | 'cmake'>>): number {
+  return compMakeAuto(f.cmake) ? compAutoMakeup(fxLaw.cthr(f.cthr), fxLaw.cratio(f.cratio)) : fxLaw.cmake(f.cmake);
+}
+
+/**
+ * Un COMP d'avant le 2026-10-18 (aucun reglage cthr : un seul potard, son seuil -6 a -24 dB et son rapport 1.5 a 4
+ * ensemble, tout compresse, genou de 8 dB) : son seuil, le cran de RATIO le plus proche, son genou, MAKEUP AUTO, et COMP
+ * (le MIX) a 100 % ; son ATTACK et son RELEASE restent les siens. Un motif, un preset, un son mis de cote ou un pas
+ * d'UNDO gardes avant gardent ainsi leur caractere ; COMP a 0 (ou un etat d'aujourd'hui) : rien a traduire.
+ */
+export function compLegacy(raw: unknown): Partial<Fx> {
+  if (!raw || typeof raw !== 'object') return {};
+  const o = raw as Record<string, unknown>;
+  if (o.cthr !== undefined) return {};
+  const a = o.comp;
+  if (typeof a !== 'number' || !Number.isFinite(a) || a <= 0 || a > 1) return {};
+  const thr = -6 - 18 * Math.sqrt(a);
+  const ratio = 1.5 + 2.5 * a;
+  let best = 0;
+  COMP_RATIOS.forEach((r, i) => {
+    if (Math.abs(Math.log(r / ratio)) < Math.abs(Math.log(COMP_RATIOS[best] / ratio))) best = i;
+  });
+  return { comp: 1, cthr: r3(thr / -40), cratio: r3(best / (COMP_RATIOS.length - 1)), cknee: r3(8 / 12), cmake: 0 };
+}
 
 /** Les divisions du DELAY, en doubles croches (pas) : 1/16, 1/8, 1/8 pointee (le depart), 1/4, 1/4 pointee, 1/2. */
 export const DELAY_DIVS: readonly { steps: number; label: string }[] = [
@@ -271,7 +370,8 @@ export function validateFx(raw: unknown): Fx {
     const v = f[k];
     if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1) out[k] = v;
   }
-  return out;
+  // Un COMP d'avant le 2026-10-18 : ses reglages d'aujourd'hui (compLegacy)
+  return { ...out, ...compLegacy(f) };
 }
 
 /** Le motif stocke ; legacy : celui de la cle '.2' (avant les neuf niveaux), a convertir. */

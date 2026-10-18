@@ -16,7 +16,7 @@ import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './au
 import { loadSample, sampleByKey, sampleLabel, samplePcm, samplesChanged, samplesOf, samplesVersion, type KitSample } from './audio/samples';
 import { UserSampleError, userSamples } from './audio/usersamples';
 import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
-import { BPM, DELAY_DIVS, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, isFxSetting, pattern, velocity } from './audio/pattern';
+import { BPM, DELAY_DIVS, FX_NOTCHES, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, fxSnap, isFxSetting, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
@@ -661,7 +661,8 @@ export function dial(id: EncId, v: number, popup = false): void {
   else if (id === 'dfb') pattern.fx.set({ dfb: v });
   else if (id === 'bits') pattern.fx.set({ bits: v });
   else if (id === 'comp') pattern.fx.set({ comp: v });
-  else if (isFxSetting(id)) pattern.fx.set({ [id]: v });
+  // Un reglage de FX (2026-10-10) ; a crans (RATIO et HPF du COMP, 2026-10-18) : sur son cran
+  else if (isFxSetting(id)) pattern.fx.set({ [id]: fxSnap(id, v) });
   else setChorus(v);
   // popup : un encodeur du desktop, son popup dit la valeur, seul (revue du 2026-10-09 : la ligne du pied en disait une
   // autre au meme instant, a la place des verrous du pas en P-LOCK)
@@ -1713,6 +1714,8 @@ export function dialSteps(id: DialId): number {
   if (t === 'vfine') return 129;
   if (t === 'vftype') return 3;
   if (t === 'dtime') return DELAY_DIVS.length;
+  // RATIO et HPF du COMP (2026-10-18, audio/pattern.ts FX_NOTCHES) : leurs crans
+  if (isFxSetting(t) && FX_NOTCHES[t]) return FX_NOTCHES[t] ?? 0;
   if (t === 'smpl:sample' && inPage && lockMode()) return lockSampleList().length;
   if (t === 'smpl:sample') {
     const n = sampleCount();

@@ -145,6 +145,11 @@ export function modelOf(hotspot: string): Model | null {
   // BIT et son RATE (2026-10-10, la page BIT) : l'un se dessine avec l'autre
   dc.bits = pattern.fx.get().bits;
   dc.brate = pattern.fx.get().brate;
+  // Le COMP (2026-10-18, sa page) : la courbe d'un reglage se dessine avec les autres
+  {
+    const f = pattern.fx.get();
+    dc.comp = { comp: f.comp, cthr: f.cthr, cratio: f.cratio, cknee: f.cknee, cmake: f.cmake, catk: f.catk, crel: f.crel, chpf: f.chpf };
+  }
   let id = hit.id;
   let locked = false;
   let tag = '';

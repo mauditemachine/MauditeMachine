@@ -50,7 +50,7 @@ import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
 import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
-import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
+import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
 import { loadSample, sampleByKey, samplePcm, samplesOf, samplesVersion } from './samples';
 import { userSamples } from './usersamples';
@@ -280,10 +280,13 @@ const stepOf = (bpm: number): number => 60 / bpm / 4;
  * Les reglages des FX globaux en valeurs reelles (2026-10-10, pattern.ts
  * fxLaw : Hz, s, facteur, diviseur). A sa valeur de depart, chacun rend
  * EXACTEMENT la constante d'avant (la loi la donne a 0.1 % pres : 4502 Hz,
- * 2.4017 s, x0.9993, 2.994 ms...) : un motif qui n'y touche pas sonne au bit
- * pres comme avant ; un cran a cote, la loi.
+ * 2.4017 s, x0.9993...) : un motif qui n'y touche pas sonne au bit pres comme
+ * avant ; un cran a cote, la loi. Les reglages du COMP n'y sont plus (2026-10-18) :
+ * catk et crel y rendaient 3 ms et 120 ms quand l'ecran disait 30 et 150 (leur
+ * depart avait change le 2026-10-11, pas leur constante), une des causes du son
+ * etouffe ; chacun suit sa loi, ce que l'ecran dit.
  */
-const FX_BEFORE: Readonly<Record<FxSettingId, number>> = {
+const FX_BEFORE: Readonly<Partial<Record<FxSettingId, number>>> = {
   dtone: DELAY_TONE_HZ,
   rsize: IR_DEFAULT.seconds,
   rtone: IR_DEFAULT.hiEnd,
@@ -292,12 +295,11 @@ const FX_BEFORE: Readonly<Record<FxSettingId, number>> = {
   crate: 1,
   cdepth: CHORUS_DEPTH,
   brate: 1,
-  catk: 0.003,
-  crel: 0.12,
 };
 const fxValue = (f: Readonly<Partial<Fx>>, k: FxSettingId): number => {
   const v = f[k] ?? FX_SETTINGS[k];
-  return Math.abs(v - FX_SETTINGS[k]) < 1e-6 ? FX_BEFORE[k] : fxLaw[k](v);
+  const before = FX_BEFORE[k];
+  return before !== undefined && Math.abs(v - FX_SETTINGS[k]) < 1e-6 ? before : fxLaw[k](v);
 };
 /** REVERB SIZE, TONE et PRE : la forme de la reponse (fx.ts makeImpulse). */
 const irShapeOf = (f: Readonly<Partial<Fx>>): IrShape => ({ seconds: fxValue(f, 'rsize'), hiEnd: fxValue(f, 'rtone'), preDelay: fxValue(f, 'rpre') });
@@ -607,36 +609,113 @@ export function ensure(): AudioContext | undefined {
   // Le chorus sans interpolation lineaire (audio/chorus.worklet.js) : pret pour la premiere branche
   void loadChorus(ctx);
   attachLimiter(ctx, graph);
-  attachGlue(ctx, graph);
+  void attachGlue(ctx, graph, () => pattern.fx.get(), true);
   return ctx;
 }
 
-/** BIT et COMP (2026-10-10) : le worklet prend place entre glueIn et la prise du MM-RYTM des qu'il est pret. */
-function attachGlue(c: BaseAudioContext, g: Graph): void {
-  if (!c.audioWorklet) return;
-  c.audioWorklet
+/**
+ * BIT et COMP (2026-10-10) : le worklet prend place entre glueIn et la prise du MM-RYTM des qu'il est pret ; hors
+ * ligne (2026-10-18) aussi, avant le rendu (les tests mesurent le COMP sur le graphe reel). fx : les reglages lus au
+ * moment ou il arrive (en direct ceux du store, ses changements suivent par applyFxSettings) ; live : l'aiguille de
+ * la page COMP lit sa reduction.
+ */
+function attachGlue(c: BaseAudioContext, g: Graph, fx: () => Readonly<Fx>, live: boolean): Promise<void> {
+  if (!c.audioWorklet) return Promise.resolve();
+  return c.audioWorklet
     .addModule(glueUrl)
     .then(() => {
       const node = new AudioWorkletNode(c, 'mm-glue', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit', channelInterpretation: 'speakers' });
-      setGlue(node, pattern.fx.get());
+      setGlue(node, fx());
       node.connect(g.rytmOut);
       g.glueIn.connect(node);
       g.glueIn.disconnect(g.rytmOut);
       g.glue = node;
+      if (live) {
+        node.port.onmessage = (e: MessageEvent<{ gr?: unknown }>) => {
+          const gr = e.data?.gr;
+          if (typeof gr === 'number' && Number.isFinite(gr)) {
+            compMeter.gr = gr;
+            compMeter.at = performance.now();
+          }
+        };
+      }
     })
     .catch(() => {
       /* sans worklet : le MM-RYTM sort sans BIT ni COMP */
     });
 }
 
+/** Ce que le COMP a recu en dernier (2026-10-18, debug : window.__v4.audio.glue) : les valeurs reelles. */
+export interface GlueSet {
+  bits: number;
+  rate: number;
+  /** le MIX (COMP), 0 a 1 */
+  comp: number;
+  thr: number;
+  ratio: number;
+  knee: number;
+  atk: number;
+  rel: number;
+  rauto: boolean;
+  makeup: number;
+  hpf: number;
+}
+let glueSet: GlueSet | null = null;
+
+/** Les reglages du COMP en valeurs reelles (pattern.ts fxLaw, compMakeup) : ceux que le worklet recoit, ceux de l'ecran. */
+export function glueValues(f: Readonly<Fx>): GlueSet {
+  const g = (k: FxSettingId): number => f[k] ?? FX_SETTINGS[k];
+  return {
+    bits: clamp01(f.bits ?? 0),
+    rate: fxValue(f, 'brate'),
+    comp: clamp01(f.comp ?? 0),
+    thr: fxValue(f, 'cthr'),
+    ratio: fxValue(f, 'cratio'),
+    knee: fxValue(f, 'cknee'),
+    atk: fxValue(f, 'catk'),
+    rel: fxValue(f, 'crel'),
+    rauto: compRelAuto(g('crel')),
+    makeup: compMakeup({ cthr: g('cthr'), cratio: g('cratio'), cmake: g('cmake') }),
+    hpf: fxValue(f, 'chpf'),
+  };
+}
+
 function setGlue(node: AudioWorkletNode, f: Readonly<Fx>): void {
   const t = node.context.currentTime;
-  node.parameters.get('bits')?.setValueAtTime(Math.max(0, Math.min(1, f.bits ?? 0)), t);
-  node.parameters.get('comp')?.setValueAtTime(Math.max(0, Math.min(1, f.comp ?? 0)), t);
-  // BIT RATE (le diviseur), COMP ATTACK et RELEASE (s) (2026-10-10, leurs pages) : 1, 3 ms et 120 ms au depart
-  node.parameters.get('rate')?.setValueAtTime(fxValue(f, 'brate'), t);
-  node.parameters.get('atk')?.setValueAtTime(fxValue(f, 'catk'), t);
-  node.parameters.get('rel')?.setValueAtTime(fxValue(f, 'crel'), t);
+  const v = glueValues(f);
+  const set = (name: string, x: number): void => {
+    node.parameters.get(name)?.setValueAtTime(x, t);
+  };
+  set('bits', v.bits);
+  set('comp', v.comp);
+  // BIT RATE (le diviseur) ; le COMP (2026-10-18) : seuil, rapport, genou, attaque et retour (s, AUTO), rattrapage, HPF
+  set('rate', v.rate);
+  set('thr', v.thr);
+  set('ratio', v.ratio);
+  set('knee', v.knee);
+  set('atk', v.atk);
+  set('rel', v.rel);
+  set('rauto', v.rauto ? 1 : 0);
+  set('makeup', v.makeup);
+  set('hpf', v.hpf);
+  if (node === graph?.glue) glueSet = v;
+}
+
+/**
+ * L'aiguille du COMP (2026-10-18) : la plus forte reduction (dB) que le worklet a vue depuis la lecture d'avant,
+ * demandee par le port au plus toutes les 40 ms (seulement quand l'ecran la montre : rien ne circule sinon). Sans
+ * reponse depuis 250 ms (contexte endormi, COMP a 0) : 0.
+ */
+const compMeter = { gr: 0, at: 0, asked: 0 };
+export function compGr(): number {
+  const node = graph?.glue;
+  if (!node) return 0;
+  const now = performance.now();
+  if (now - compMeter.asked >= 40) {
+    compMeter.asked = now;
+    node.port.postMessage('gr');
+  }
+  return now - compMeter.at < 250 ? compMeter.gr : 0;
 }
 
 /**
@@ -1556,6 +1635,15 @@ export interface OfflineOpts {
   dfb?: number;
   /** les reglages des FX (2026-10-10, 0 a 1 ; hors ligne, ceux absents a leur depart FX_SETTINGS : le son d'avant) */
   fxs?: Partial<Record<FxSettingId, number>>;
+  /**
+   * BIT et COMP (le MIX du compresseur, 2026-10-18) : 0 par defaut hors ligne, le worklet en place mais en bypass reel
+   * (le son au bit pres comme sans lui) ; glue false : le rendu sans le worklet du tout
+   */
+  bits?: number;
+  comp?: number;
+  glue?: boolean;
+  /** les reglages de BIT et du COMP pendant le rendu (2026-10-18, les clics) : [instant (s), reglages 0 a 1], 50 ms d'ecart au moins */
+  fxAt?: [number, Partial<Fx>][];
   /** effets par voix (neutres par defaut hors ligne) */
   voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
   /** reference : sans aucun stage TONE ni CHORUS, voix sans tranche */
@@ -1677,6 +1765,9 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     bdGate = bGate;
     bdEnd = bEnd;
   }
+  // BIT et COMP (2026-10-18) : le worklet en place comme en direct, avec les reglages du rendu (ceux absents a leur depart)
+  let glueFx: Fx = { ...pattern.fx.get(), ...FX_SETTINGS, ...(o.fxs ?? {}), bits: o.bits ?? 0, comp: o.comp ?? 0 };
+  if (!o.bare && o.glue !== false) await attachGlue(oc, g, () => glueFx, false);
   // La sortie comme en direct : le limiteur (rendu sans lui si l'AudioWorklet manque)
   if (!o.bare && o.limiter !== false) await attachLimiter(oc, g);
   // Chaque reglage : pose a son instant, puis une pause de 80 ms (temps reel)
@@ -1691,6 +1782,15 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         g.kickTone?.set(snapTone(v));
       },
     }))
+    .concat(
+      (o.fxAt ?? []).map(([t, patch]) => ({
+        t,
+        run: () => {
+          glueFx = { ...glueFx, ...patch };
+          if (g.glue) setGlue(g.glue, glueFx);
+        },
+      }))
+    )
     .sort((a, b) => a.t - b.t);
   const used = new Set<number>();
   for (const e of events) {
@@ -1737,6 +1837,10 @@ export interface AudioDebug {
   duck(): ReturnType<typeof duckInfo>;
   /** le SIDECHAIN du MM-BASS (2026-10-10) */
   bassDuck(): ReturnType<typeof bassDuckInfo>;
+  /** BIT et COMP (2026-10-18) : le worklet en place, ce qu'il a recu en dernier (valeurs reelles) ; null avant lui */
+  readonly glue: { ready: boolean; set: GlueSet | null } | null;
+  /** la reduction du COMP (dB) que montre l'aiguille de sa page */
+  compGr(): number;
   /** TONE (-1 a 1, revision 5) et STRETCH (-1 a 1, 2026-10-01) */
   readonly tone: number;
   readonly stretch: number;
@@ -1813,6 +1917,10 @@ export const audioDebug: AudioDebug = {
   samples: { samplesOf, sampleByKey, loadSample, samplePcm, version: samplesVersion },
   duck: () => duckInfo(),
   bassDuck: () => bassDuckInfo(),
+  get glue() {
+    return graph ? { ready: graph.glue !== null, set: glueSet } : null;
+  },
+  compGr,
   get ctx() {
     return ctx;
   },

@@ -15,7 +15,7 @@ import { samplePcm } from '../audio/samples';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
 import { FENV_OCT, START_MAX, atkS, cutHz, decayTau, fatkS, fdecTau, fineCents, filterType, holdS, resoQ, tuneSt, voiceGain } from '../audio/voicefx';
-import { VEL_GAIN, VEL_MAX, VEL_NAMES, compRatio, delayDiv, delayFb, fxLaw } from '../audio/pattern';
+import { VEL_GAIN, VEL_MAX, VEL_NAMES, compMakeAuto, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern } from '../audio/pattern';
 import { swingRatio, type EncId } from '../theme';
 
 /** Le nombre 0 a 127 d'une course 0 a 1 ; a zero au centre : -64 a +63 (le centre exact vaut 0). */
@@ -61,8 +61,23 @@ export function encText(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number, cours
   }
   if (id === 'vftype') return filterType(v);
   if (id === 'dtime') return delayDiv(v).label;
+  // Le COMP (2026-10-18, Mika : "donne-moi le choix avec du ratio et threshold") : ses reglages dans leur domaine, en
+  // grand (THRESH -18, RATIO 4:1, KNEE 6, MAKEUP +3 ou AUTO, HPF 60) ; RELEASE dit AUTO tout en haut
+  if (id === 'cthr') return signed(Math.round(fxLaw.cthr(v)));
+  if (id === 'cratio') return ratioText(fxLaw.cratio(v));
+  if (id === 'cknee') return String(Math.round(fxLaw.cknee(v)));
+  if (id === 'cmake') return compMakeAuto(v) ? 'AUTO' : signed(Math.round(fxLaw.cmake(v)));
+  if (id === 'chpf') return fxLaw.chpf(v) > 0 ? String(fxLaw.chpf(v)) : 'OFF';
+  if (id === 'crel' && compRelAuto(v)) return 'AUTO';
   return v127Text(course, bipolar);
 }
+
+/** Un nombre signe : +3, -18, 0. */
+const signed = (n: number): string => (n > 0 ? `+${n}` : String(n === 0 ? 0 : n));
+/** Un rapport : 4:1, 1.5:1. */
+const ratioText = (r: number): string => `${Number.isInteger(r) ? r : r.toFixed(1)}:1`;
+/** Ce qu'un cran de RATIO fait au bus (2026-10-18) : la ligne d'unite de RATIO. */
+const RATIO_WORDS: Readonly<Record<string, string>> = { '1': 'NO COMP', '1.5': 'SOFT', '2': 'GENTLE', '3': 'GLUE', '4': 'GLUE', '6': 'PUNCH', '10': 'SMASH', '20': 'LIMIT' };
 
 /**
  * Le mot d'une velocite de pas (revue de R2 : 'VEL 7' sous 99 melangeait les
@@ -178,11 +193,11 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       return 'NOTE';
     case 'dfb':
       return `${Math.round(delayFb(v) * 100)}% FB`;
-    // BIT : la profondeur (16 a 4 bits), OFF a 0 ; COMP : le rapport (1:1 a 8:1), OFF a 0
+    // BIT : la profondeur (16 a 4 bits), OFF a 0 ; COMP (2026-10-18) : son MIX, la part compressee, OFF a 0
     case 'bits':
       return v <= 0 ? 'OFF' : `${Math.round(16 - 12 * Math.min(1, v))} BIT`;
     case 'comp':
-      return v <= 0 ? 'OFF' : `${compRatio(v).toFixed(1)}:1`;
+      return v <= 0 ? 'OFF' : `${Math.round(Math.min(1, v) * 100)}% MIX`;
     // Les reglages des FX globaux (2026-10-10, leurs pages ; les lois de audio/pattern.ts fxLaw, celles du son)
     case 'dtone':
     case 'rtone':
@@ -207,8 +222,25 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       return n <= 1 ? 'OFF' : `/${n}`;
     }
     case 'catk':
+      return ms(fxLaw.catk(v));
+    // RELEASE tout en haut : AUTO, le retour suit la musique (2026-10-18)
     case 'crel':
-      return ms(fxLaw[id](v));
+      return compRelAuto(v) ? 'PROGRAM' : ms(fxLaw.crel(v));
+    // Le COMP (2026-10-18) : la ligne d'unite de ses reglages ; MAKEUP AUTO dit le gain qu'il rend, celui de la courbe
+    // du moment (le seuil et le rapport du motif)
+    case 'cthr':
+      return 'DB';
+    case 'cratio':
+      return RATIO_WORDS[String(fxLaw.cratio(v))] ?? '';
+    case 'cknee':
+      return fxLaw.cknee(v) < 0.5 ? 'HARD' : 'DB SOFT';
+    case 'cmake': {
+      if (!compMakeAuto(v)) return 'DB';
+      const d = Math.round(compMakeup({ ...pattern.fx.get(), cmake: v }) * 10) / 10;
+      return `${d > 0 ? '+' : ''}${d.toFixed(1)} DB`;
+    }
+    case 'chpf':
+      return fxLaw.chpf(v) > 0 ? 'HZ' : 'FULL KICK';
     default:
       return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
   }

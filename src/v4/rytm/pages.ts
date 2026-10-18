@@ -256,7 +256,8 @@ export type SlotLayer = 'synth' | 'sample';
  * decay, swing, stretch), des crans (notch), un petit potard (bar), un
  * petit potard depuis le centre (barc) ; depuis le 2026-10-09 le son (sound,
  * le grand bloc de VOICE), le melange (mix), l'attaque et la tenue (atk,
- * hold), le filtre (cut, reso, ftype), le temps du delay (time).
+ * hold), le filtre (cut, reso, ftype), le temps du delay (time) ; depuis le
+ * 2026-10-18 le COMP de sa page (gr : son potard et l'aiguille de sa reduction).
  */
 export type SlotDraw =
   | 'level'
@@ -275,7 +276,8 @@ export type SlotDraw =
   | 'cut'
   | 'reso'
   | 'ftype'
-  | 'time';
+  | 'time'
+  | 'gr';
 
 /** Un dessin qui n'est pas un reglage (2026-10-09) : l'enveloppe AHD de ENV, la courbe du filtre de FLTR. */
 export type SlotGraph = 'ahd' | 'filter';
@@ -460,8 +462,19 @@ const FX_DETAIL_SLOTS: Readonly<Record<FxDetailId, readonly PageSlot[]>> = {
   fxreverb: [fxAmount('REVERB', 'reverb', true), fxSet('SIZE', 'rsize', 'decay', 2, 1), fxSet('TONE', 'rtone', 'cut', 1, 1), fxSet('PRE', 'rpre', 'start', 1, 1)],
   // BIT : la profondeur, puis l'echantillonnage divise (RATE)
   fxbit: [fxAmount('BIT', 'bits', false), fxSet('RATE', 'brate', 'bar', 2, 2)],
-  // COMP : le rapport et le seuil, puis son attaque et son retour
-  fxcomp: [fxAmount('COMP', 'comp', false), fxSet('ATTACK', 'catk', 'atk', 1, 2), fxSet('RELEASE', 'crel', 'decay', 1, 2)],
+  // COMP (refait le 2026-10-18, Mika : "donne-moi le choix avec du ratio et threshold !") : COMP, son MIX (0 : le son
+  // tel quel), en haut a gauche sur deux rangees avec l'aiguille de sa reduction ; THRESH et RATIO juste a cote, en haut ;
+  // ATTACK ; dessous RELEASE (AUTO tout en haut), MAKEUP (AUTO tout en bas) et le HPF de sa chaine laterale (OFF, 60,
+  // 120 Hz). KNEE (6 dB au depart) n'a pas de case : MIDI rytm:enc:cknee, sa carte INFOS
+  fxcomp: [
+    { ...fxAmount('COMP', 'comp', false), w: 1, h: 2, draw: 'gr' },
+    fxSet('THRESH', 'cthr', 'bar', 1, 1),
+    fxSet('RATIO', 'cratio', 'notch', 1, 1),
+    fxSet('ATTACK', 'catk', 'atk', 1, 1),
+    fxSet('RELEASE', 'crel', 'decay', 1, 1),
+    fxSet('MAKEUP', 'cmake', 'bar', 1, 1),
+    fxSet('HPF', 'chpf', 'notch', 1, 1),
+  ],
 };
 
 /*

@@ -139,7 +139,7 @@
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { clock } from '../audio/clock';
-import { mix } from '../audio/drums';
+import { compGr, mix } from '../audio/drums';
 import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../audio/kit';
 import { sampleByKey, samplesChanged } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
@@ -237,6 +237,8 @@ export interface ScreenInfo {
 const MIN_GAP_MS = 60;
 /** Les animations courtes : une image tous les 50 ms. */
 const ANIM_MS = 50;
+/** L'aiguille du COMP sur sa page (2026-10-18) : une image toutes les 50 ms tant qu'elle bouge. */
+const METER_MS = 50;
 const BLINK_MS = 600;
 /** Un coup qui sonne : il pulse PULSE_MS. */
 const PULSE_MS = 260;
@@ -765,6 +767,8 @@ export class Screen {
    * reste libre, un potard qu'on continue de tourner redessine tout de suite.
    */
   private echoTimer = 0;
+  /** l'aiguille du COMP est a l'ecran et bouge (2026-10-18) : paintPage redemande une image */
+  private meterLive = false;
   private armEcho(ms: number): void {
     window.clearTimeout(this.echoTimer);
     this.echoTimer = 0;
@@ -1633,6 +1637,7 @@ export class Screen {
    */
   private paintPage(s: LcdState, rp: RytmPageState, inst: Inst | null, cur: number, now: number, lockStep: number): number {
     let next = 0;
+    this.meterLive = false;
     const mode = this.blockMode(inst, lockStep, now);
     const screen = screenIn(rp, inst);
     this.info.screen = screen;
@@ -1671,6 +1676,8 @@ export class Screen {
       this.paintPopup(pop.id);
       next = next > 0 ? Math.min(next, pop.until - now + 1) : pop.until - now + 1;
     }
+    // L'aiguille du COMP (2026-10-18) : une image toutes les 50 ms tant qu'elle bouge
+    if (this.meterLive) next = next > 0 ? Math.min(next, METER_MS) : METER_MS;
     return next;
   }
 
@@ -2245,6 +2252,9 @@ export class Screen {
       case 'reso':
         this.drawReso(r, b.course);
         break;
+      case 'gr':
+        this.drawGr(r, b.course, T.tagSize);
+        break;
       default:
         // Un grand carre (2 x 2, la quantite d'un FX sur sa page, 2026-10-10) : le potard a droite de la valeur, sur toute la
         // hauteur du bloc (sous l'unite, il restait petit au milieu d'un grand vide) ; jamais sur la valeur la plus large (127)
@@ -2252,6 +2262,32 @@ export class Screen {
         else if (tall) this.drawBigArc(r, b.course, b.draw === 'barc' || b.bipolar);
         else this.drawArc(r, b.course, b.draw === 'barc' || b.bipolar);
     }
+  }
+
+  /**
+   * COMP sur sa page (2026-10-18) : son potard (le MIX) en haut, l'aiguille de sa reduction dessous, une barre qui part
+   * de la droite (0 dB) vers la gauche (24 dB), en racine (3 dB se voient), reperes a 3, 6 et 12 dB ; la reduction lue
+   * par le port du worklet (audio/drums.ts compGr), la plus forte des 50 dernieres ms. COMP a 0 : la barre reste vide.
+   */
+  private drawGr(r: Rect, course: number, ts: number): void {
+    const gr = course > 0 ? compGr() : 0;
+    const barH = TALL ? 5 : 4;
+    const rowH = ts + 3;
+    const y1 = r.y1;
+    const y0 = y1 - barH;
+    if (r.y1 - r.y0 > barH + rowH + 12) this.drawBigArc({ x0: r.x0, y0: r.y0, x1: r.x1, y1: y0 - rowH - 2 }, course, false);
+    const w = r.x1 - r.x0;
+    const at = (db: number): number => r.x1 - w * Math.sqrt(Math.min(1, Math.max(0, db) / 24));
+    this.roundRect(r.x0, y0, w, barH, 1.2, null, this.pal.faint, 0.7);
+    if (gr > 0.05) this.roundRect(at(gr), y0, r.x1 - at(gr), barH, 1.2, this.pal.ink);
+    for (const t of [3, 6, 12]) this.line([at(t), y0 - 1.5, at(t), y0], this.pal.half, 0.6);
+    const ty = y0 - 2.5;
+    this.text('GR', r.x0, ty, ts, this.pal.half, 700, 'left', 0.5);
+    const word = gr > 0.05 ? `-${gr < 10 ? gr.toFixed(1) : Math.round(gr)} DB` : '0 DB';
+    this.text(word, r.x1, ty, ts, gr > 0.05 ? this.pal.ink : this.pal.half, 700, 'right', 0.3);
+    this.info.graph = `GR ${gr.toFixed(1)}`;
+    // L'aiguille vit : une autre image dans 50 ms tant que le COMP joue (ou que sa reduction retombe)
+    if ((course > 0 && clock.running) || gr > 0.05) this.meterLive = true;
   }
 
   /** SOUND (2026-10-09) : la liste en points, le son du moment plein ; trop de sons : une barre et son rang. */
