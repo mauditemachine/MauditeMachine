@@ -108,6 +108,31 @@ let start: MachineId | null = (() => {
   const id = q ? START_ALIASES[q.trim().toLowerCase()] : undefined;
   return id && MACHINES.includes(id) ? id : null;
 })();
+/**
+ * La derniere machine utilisee (2026-10-18, Mika : "je voudrais que le site
+ * arrive sur la machine la plus recemment utilisee") : retenue dans le
+ * navigateur a chaque cadrage d'une machine (jamais la vue d'ensemble) ; a la
+ * visite suivante le site y arrive (scene/renderer.ts), sauf si ?m= en
+ * demande une autre. Lecture et ecriture sous try/catch : navigation privee,
+ * stockage refuse, rien ne leve.
+ */
+const LAST_KEY = 'mm.v4.machine.last';
+const readLast = (): MachineId | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const v = window.localStorage.getItem(LAST_KEY);
+    return v && MACHINES.includes(v as MachineId) ? (v as MachineId) : null;
+  } catch {
+    return null;
+  }
+};
+const writeLast = (m: MachineId): void => {
+  try {
+    window.localStorage.setItem(LAST_KEY, m);
+  } catch {
+    /* stockage refuse : la visite suivante arrive comme avant */
+  }
+};
 export const startMachine = {
   /** La machine demandee par ?m=, une fois ; null ensuite (ou sans parametre). */
   take(): MachineId | null {
@@ -115,7 +140,27 @@ export const startMachine = {
     start = null;
     return s;
   },
+  /** La machine de la visite d'avant (la derniere cadree), ou null la premiere fois. */
+  remembered: (): MachineId | null => readLast(),
+  /** La machine de l'arrivee, retenue meme quand le store est deja dessus (la 808 au depart : set n'ecrit rien). */
+  remember(m: MachineId): void {
+    if (MACHINES.includes(m)) writeLast(m);
+  },
+  /**
+   * Une arrivee remise a plus tard : la scene de l'intro demontee avant sa fin
+   * (StrictMode en dev, une reconstruction) passe la machine ou l'intro
+   * devait mener a la scene suivante, qui la prend une fois.
+   */
+  defer(m: MachineId): void {
+    deferred = m;
+  },
+  takeDeferred(): MachineId | null {
+    const d = deferred;
+    deferred = null;
+    return d;
+  },
 };
+let deferred: MachineId | null = null;
 
 let current: Focus = 'mm808';
 /** le cadrage est arrive (false pendant le zoom d'une machine a l'autre) */
@@ -134,6 +179,7 @@ export const focus = {
     current = next;
     settled = false;
     changes += 1;
+    if (next !== 'all') writeLast(next);
     emit();
   },
   /** Le Stage : le cadrage est arrive. */

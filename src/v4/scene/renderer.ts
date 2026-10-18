@@ -521,6 +521,8 @@ export class Stage {
   /** l'intro d'une machine (2026-10-05) : celle qui s'ouvre et se ferme, le cote d'ou arrive la camera */
   private introPick: MachineId = 'mm808';
   private introSign = 1;
+  /** la machine de la visite d'avant sans capot (MM-BASS, MM-DECKS) : on y va a la fin de l'intro (2026-10-18) */
+  private introLand: MachineId | null = null;
   /** le MM-DECKS arrive pendant l'intro : pose a sa fin (pas de saccade, pas de saut de cadrage) */
   private pendingDj: typeof DjRig | null = null;
   private pendingBass: typeof BassRig | null = null;
@@ -944,11 +946,19 @@ export class Stage {
     // dans la vue par defaut") : celle de ?m= (MM-RYTM ou MM-ARP), sinon l'une
     // des deux au hasard ; une machine sans capot demandee (?m=dj) :
     // pas d'intro, on y arrive directement.
+    // La machine de la visite d'avant (2026-10-18, Mika : "que le site arrive
+    // sur la machine la plus recemment utilisee", state/focus.ts) : sans ?m=,
+    // l'intro se joue sur elle si elle a un capot, sinon sur l'une des deux au
+    // hasard et on la rejoint a la fin (introLand) ; une seule fois (focus.changes).
     const st = startMachine.take();
+    const last = st === null && focus.changes === 0 ? startMachine.remembered() : null;
     const hood: readonly MachineId[] = this.voy ? ['mm808', 'voy'] : ['mm808'];
     if (!motion.reduced() && !opts.skipIntro && !opts.noIntro && (st === null || hood.includes(st))) {
       this.introOn = true;
-      this.introPick = st ?? hood[Math.floor(Math.random() * hood.length)];
+      this.introPick = st ?? (last && hood.includes(last) ? last : hood[Math.floor(Math.random() * hood.length)]);
+      this.introLand = last && !hood.includes(last) && this.voy ? last : null;
+      // La machine de l'arrivee compte comme utilisee (la 808 au depart : focus.set n'ecrirait rien)
+      startMachine.remember(this.introLand ?? this.introPick);
       this.introSign = Math.random() < 0.5 ? -1 : 1;
       // L'intro montre le PCB eclate : ses textures se font maintenant
       this.pcb.prepare();
@@ -968,8 +978,12 @@ export class Stage {
         // Premiere arrivee sans intro (mouvement reduit, ou noIntro : l'adresse d'une section, 2026-10-11) : la machine de ?m= (2026-10-04),
         // sinon desktop, la vue d'ensemble ; au telephone, jamais la vue d'ensemble hors de l'intro
         // (pris une seule fois : une reconstruction avant la fin de l'intro, React en dev, l'arrivee encore)
-        if (st) focus.set(st);
-        else if (!opts.skipIntro && !this.layoutMobile && focus.changes === 0) focus.set('all');
+        // ... ou la machine qu'une intro demontee avant sa fin devait rejoindre (startMachine.defer)
+        const land = st ?? last ?? startMachine.takeDeferred();
+        if (land) {
+          focus.set(land);
+          startMachine.remember(land);
+        } else if (!opts.skipIntro && !this.layoutMobile && focus.changes === 0) focus.set('all');
         if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
         this.snapFocus();
       }
@@ -2222,6 +2236,12 @@ export class Stage {
       this.updateCamera();
       // Au telephone, une machine a la fois (l'intro en montre deja une, celle de ?m= ou au hasard)
       if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
+      // La machine sans capot de la visite d'avant (2026-10-18) : on la rejoint maintenant
+      if (this.introLand) {
+        const land = this.introLand;
+        this.introLand = null;
+        if (MACHINES.includes(land)) focus.set(land);
+      }
     }
     // Le MM-DECKS arrive pendant l'intro se pose maintenant
     const dj = this.pendingDj;
@@ -3015,6 +3035,9 @@ export class Stage {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    // L'intro demontee avant sa fin (2026-10-18) : la machine qu'elle devait rejoindre passe a la scene suivante
+    if (this.introOn && this.introLand) startMachine.defer(this.introLand);
+    this.introLand = null;
     cancelAnimationFrame(this.raf);
     cancelAnimationFrame(this.resizeRaf);
     this.raf = 0;

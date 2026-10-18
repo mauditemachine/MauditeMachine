@@ -108,12 +108,17 @@ export const RYTM_PARAM_IDS = [
 ] as const;
 export type RytmParamId = (typeof RYTM_PARAM_IDS)[number];
 
-/** Les choix de son de la plaque TWEAKS (OPEN) : KICK, SNARE, CLAP, HATS, TOMS. */
-export const RYTM_PLATE_SOUND_IDS = ['r:bd', 'r:sd', 'r:cp', 'r:hh', 'r:tom'] as const;
+/**
+ * Les choix de son des familles (r:<famille>, audio/kit.ts) : une par voix
+ * depuis le 2026-10-18. Sur la plaque TWEAKS (OPEN) : KICK, SNARE, CLAP, le
+ * charley ferme (CL HAT) et le tom grave (TOM) ; OH, HT et CY n'ont leur choix
+ * qu'a l'ecran et au MIDI (rytm:kit:oh, ht, cy), leur carte est la meme.
+ */
+export const RYTM_PLATE_SOUND_IDS = ['r:bd', 'r:sd', 'r:cp', 'r:ch', 'r:oh', 'r:tom', 'r:ht', 'r:cy'] as const;
 export type RytmPlateSoundId = (typeof RYTM_PLATE_SOUND_IDS)[number];
 
 /** Les potards de la plaque TWEAKS, dans l'ordre de scene/rytmTweaks.ts (KIT_IDS). */
-export const RYTM_PLATE_IDS = ['r:bd', 'r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:sd', 'r:snappy', 'r:cp', 'r:gate', 'r:hh', 'r:tom'] as const;
+export const RYTM_PLATE_IDS = ['r:bd', 'r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:sd', 'r:snappy', 'r:cp', 'r:gate', 'r:ch', 'r:tom'] as const;
 
 /**
  * Les reglages a venir de l'etude (inv/rytm-synthesis.md 2.2), sur aucun

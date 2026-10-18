@@ -660,17 +660,35 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "Le son du clap : 909, 808 ou MM, sa machine (SOUND, sur VOICE quand CP est choisi), remise à fond. GATE lui donne sa petite pièce en MM et en 909.",
     tip: '909 avec GATE sur ON : le clap large de la dark disco ; 808, sec et court, pour un minimal.',
   },
-  'r:hh': {
-    section: 'TWEAKS / HATS',
-    title: 'HATS',
-    text: "Le son des deux charleys, CH et OH : 909, 808 ou MM, leur machine (SOUND, sur VOICE quand CH ou OH est choisi), remise à fond.",
+  'r:ch': {
+    section: 'TWEAKS / CL HAT',
+    title: 'CL HAT',
+    text: "Le son du charley fermé, CH, en un geste : 909, 808 ou MM, sa machine (SOUND, sur VOICE quand CH est choisi), remise à fond, puis ses samples (le sample seul). Depuis le 2026-10-18, OH a son propre choix : à l'écran (SOUND) et au MIDI (rytm:kit:oh), pas sur la carte.",
     tip: '808 pour un minimal métallique, 909 pour une house qui respire.',
   },
+  'r:oh': {
+    section: 'VOICE',
+    title: 'OP HAT',
+    text: "Le son du charley ouvert, OH, en un geste : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). À l'écran (SOUND, sur VOICE quand OH est choisi) et au MIDI (rytm:kit:oh) ; la carte n'a pas de sélecteur à lui.",
+    tip: 'Un 909 ouvert sur les contretemps au-dessus d’un CH 808 : la house qui respire.',
+  },
   'r:tom': {
-    section: 'TWEAKS / TOMS',
-    title: 'TOMS',
-    text: "Le son des deux toms, TOM (le grave) et HT (l'aigu) : 909, 808 ou MM, leur machine (SOUND, sur VOICE quand TOM ou HT est choisi), remise à fond.",
+    section: 'TWEAKS / TOM',
+    title: 'TOM',
+    text: "Le son du tom grave, TOM, en un geste : 909, 808 ou MM, sa machine (SOUND, sur VOICE quand TOM est choisi), remise à fond, puis ses samples (le sample seul). Depuis le 2026-10-18, HT a son propre choix : à l'écran (SOUND) et au MIDI (rytm:kit:ht), pas sur la carte.",
     tip: '808 pour des toms ronds de dark disco ; MM, plus courts, pour une ligne de percussions minimal accordée en P-LOCK.',
+  },
+  'r:ht': {
+    section: 'VOICE',
+    title: 'HI TOM',
+    text: "Le son du tom aigu, HT, en un geste : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (toms aigus, percussions, congas, rims ; le sample seul). À l'écran (SOUND, sur VOICE quand HT est choisi) et au MIDI (rytm:kit:ht) ; la carte n'a pas de sélecteur à lui.",
+    tip: 'HT en 909 au-dessus d’un TOM 808 : deux timbres pour une relance de toms.',
+  },
+  'r:cy': {
+    section: 'VOICE',
+    title: 'CYMBAL',
+    text: "Le son de la cymbale, CY, en un geste : sa synthèse (909, 808 et MM donnent aujourd'hui le même son calculé), puis ses samples (cymbales, crashs, rides ; le sample seul). À l'écran (SOUND, sur VOICE quand CY est choisi) et au MIDI (rytm:kit:cy) ; la carte n'a pas de sélecteur à lui.",
+    tip: 'Un crash de Mika sur le premier pas, verrouillé plus doux en P-LOCK sur le neuvième : la mesure respire.',
   },
 
   /* ---------- les reglages a venir (l'etude, sur aucun ecran) ---------- */

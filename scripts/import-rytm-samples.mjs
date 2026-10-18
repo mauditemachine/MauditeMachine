@@ -16,14 +16,18 @@
  *
  *   npm run samples:import -- "/Users/mauditemachine/Desktop/Samples" --replace
  *
- * La famille d'un fichier :
+ * La famille d'un fichier (une par voix depuis le 2026-10-18 : bd, sd, ch,
+ * oh, cp, tom, ht, cy ; les huit dossiers de public/samples/rytm/) :
  * - son sous-dossier le plus proche, s'il porte le nom d'une famille (sans
  *   tenir compte des majuscules) : BD, Kick, Kicks, Bassdrum ; SD, Snare,
- *   Snares ; CP, Clap ; HH, Hat, Hats, CH, OH ; TOM ; RS, Rim (puis le nom du
- *   dossier donne lui-meme) ;
- * - sinon un mot de son nom (kick, snare, clap, hat, tom, rim, puis les
- *   abreviations BD, SD, CP, HH, CH, OH, RS), le mot apres le tiret d'abord
- *   (AT Tom Trago - Kick F : un kick) ;
+ *   Snares ; CH, Hat, Hats, Hihat, Closed Hat, CHH ; OH, Open Hat, Open, OHH ;
+ *   CP, Clap ; TOM, Low Tom, Floor Tom ; HT, Hi Tom, High Tom, Perc,
+ *   Percussion, Conga, Bongo, Shaker, Rim, Rimshot, Cowbell ; CY, Cymbal,
+ *   Cym, Crash, Ride (puis le nom du dossier donne lui-meme) ;
+ * - sinon un mot de son nom (les memes mots, puis les abreviations BD, SD,
+ *   CH, HH, OH, CP, LT, HT, RS, CY), le mot apres le tiret d'abord
+ *   (AT Tom Trago - Kick F : un kick) ; "open hat" est un oh (pas un ch),
+ *   "hi tom" un ht (pas un tom) ;
  * - sinon il est liste INCONNU et laisse de cote (le ranger dans un dossier
  *   BD ou SD suffit).
  *
@@ -81,31 +85,62 @@ let writing = false;
 /** La plaque coupe a 18 caracteres (sampleLabel). */
 const MAX_NAME = 18;
 
-/** Les familles qui jouent un echantillon (src/v4/audio/samples.ts, FAMILY_DIRS), dans l'ordre du resume. */
-const FAMILIES = ['bd', 'sd', 'cp', 'hh', 'tom', 'rs'];
-const TITLE = { bd: 'BD (kicks)', sd: 'SD (snares)', cp: 'CP (claps)', hh: 'HH (charleys)', tom: 'TOM', rs: 'RS (rims)' };
+/**
+ * Les familles qui jouent un echantillon (src/v4/audio/samples.ts,
+ * FAMILY_DIRS) : une par voix depuis le 2026-10-18 (Mika : "un selecteur de
+ * sample environ 20 samples dans chacun des voices qui sont en rapport avec
+ * les dossiers"), dans l'ordre des pads. hh (les deux charleys) et rs (les
+ * rims) n'existent plus : les rims vont dans ht (percussions).
+ */
+const FAMILIES = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
+const TITLE = {
+  bd: 'BD (kicks)',
+  sd: 'SD (snares)',
+  ch: 'CH (closed hats)',
+  oh: 'OH (open hats)',
+  cp: 'CP (claps)',
+  tom: 'TOM (low toms)',
+  ht: 'HT (hi toms, percs, rims)',
+  cy: 'CY (cymbals, crashes, rides)',
+};
 
 /**
  * Les mots d'une famille : forts (kick, snare...) puis abreviations. Les
- * mots colles (bass drum, hi hat) se lisent aussi en un seul.
+ * mots colles (bass drum, hi hat, open hat, hi tom) se lisent aussi en un
+ * seul. over : les familles que celle-ci l'emporte sur quand les deux ont un
+ * mot fort (open hat : oh, pas ch ; hi tom : ht, pas tom). Un "hat" ou un
+ * "hihat" seul est un charley ferme ; "open" seul, un ouvert.
  */
 const WORDS = {
   bd: { strong: ['kick', 'kicks', 'kickdrum', 'kickdrums', 'bassdrum', 'bassdrums'], weak: ['bd'] },
   sd: { strong: ['snare', 'snares', 'snaredrum', 'snaredrums'], weak: ['sd'] },
+  ch: { strong: ['hat', 'hats', 'hihat', 'hihats', 'closedhat', 'closedhats', 'closedhihat', 'closedhihats', 'closed', 'chh'], weak: ['hh', 'ch'] },
+  oh: { strong: ['openhat', 'openhats', 'openhihat', 'openhihats', 'open', 'ohh'], weak: ['oh'], over: ['ch'] },
   cp: { strong: ['clap', 'claps', 'handclap', 'handclaps'], weak: ['cp'] },
-  hh: { strong: ['hat', 'hats', 'hihat', 'hihats', 'openhat', 'openhats', 'closedhat', 'closedhats'], weak: ['hh', 'ch', 'oh'] },
-  tom: { strong: ['tom', 'toms'], weak: [] },
-  rs: { strong: ['rim', 'rims', 'rimshot', 'rimshots', 'sidestick', 'sidesticks'], weak: ['rs'] },
+  tom: { strong: ['tom', 'toms', 'lowtom', 'lowtoms', 'lotom', 'lotoms', 'floortom', 'floortoms'], weak: ['lt'] },
+  ht: {
+    strong: ['hitom', 'hitoms', 'hightom', 'hightoms', 'perc', 'percs', 'percussion', 'percussions', 'conga', 'congas', 'bongo', 'bongos', 'shaker', 'shakers', 'rim', 'rims', 'rimshot', 'rimshots', 'cowbell', 'cowbells'],
+    weak: ['ht', 'rs'],
+    over: ['tom'],
+  },
+  cy: { strong: ['cymbal', 'cymbals', 'cym', 'cyms', 'crash', 'crashes', 'ride', 'rides'], weak: ['cy'] },
 };
 
 /** Ce qu'on retire du nom propre, par famille (seulement les mots de sa famille : AT Tom Trago - Kick F garde Tom). */
 const STRIP = {
   bd: { words: 'kick\\s?drums?|bass\\s?drums?|kicks?', glued: 'kicks?', camel: 'Kicks?|Kickdrums?|Bassdrums?', abbr: 'BD' },
   sd: { words: 'snare\\s?drums?|snares?', glued: 'snares?', camel: 'Snares?', abbr: 'SD' },
+  ch: { words: 'closed\\s?hi[\\s-]?hats?|closed\\s?hats?|hi[\\s-]?hats?|hats?|closed', glued: 'hats?', camel: 'Hats?|Hihats?|Closed', abbr: 'CH|HH|CHH' },
+  oh: { words: 'open\\s?hi[\\s-]?hats?|open\\s?hats?|hi[\\s-]?hats?|hats?|open', glued: 'hats?', camel: 'Hats?|Hihats?|Open', abbr: 'OH|OHH' },
   cp: { words: 'hand\\s?claps?|claps?', glued: 'claps?', camel: 'Claps?', abbr: 'CP' },
-  hh: { words: 'hi[\\s-]?hats?|hats?', glued: 'hats?', camel: 'Hats?|Hihats?', abbr: 'HH' },
-  tom: { words: 'toms?', glued: 'toms?', camel: 'Toms?', abbr: 'TOM' },
-  rs: { words: 'rim\\s?shots?|side\\s?sticks?|rims?', glued: 'rims?', camel: 'Rims?|Rimshots?', abbr: 'RS' },
+  tom: { words: 'low\\s?toms?|lo\\s?toms?|floor\\s?toms?|toms?', glued: 'toms?', camel: 'Toms?', abbr: 'TOM|LT' },
+  ht: {
+    words: 'hi(?:gh)?\\s?toms?|toms?|percussions?|percs?|congas?|bongos?|shakers?|rim\\s?shots?|rims?|cowbells?',
+    glued: 'toms?|percs?',
+    camel: 'Toms?|Percs?|Percussions?|Congas?|Bongos?|Shakers?|Rims?|Rimshots?|Cowbells?',
+    abbr: 'HT|RS|PERC',
+  },
+  cy: { words: 'cymbals?|cyms?|crash(?:es)?|rides?', glued: 'cymbals?|crash', camel: 'Cymbals?|Crash(?:es)?|Rides?', abbr: 'CY|CYM' },
 };
 
 /**
@@ -116,9 +151,9 @@ function sampleLabel(file) {
   let t = file.replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' ');
   t = t.replace(/^\s*\d+\s*[-.]?\s+/, '');
   t = t.replace(/^AT\s+/i, '');
-  t = t.replace(/\b(master\s+)?(kicks?|snares?|claps?|hats?|hihats?|toms?|rims?)\b/gi, ' ');
+  t = t.replace(/\b(master\s+)?(kicks?|snares?|claps?|hats?|hihats?|toms?|rims?|cymbals?|cyms?)\b/gi, ' ');
   t = t.replace(/(master\s+)?(kicks?|snares?)(?=\d)/gi, ' ');
-  t = t.replace(/^\s*(BD|SD|CP|HH|RS)\s+/i, '');
+  t = t.replace(/^\s*(BD|SD|CP|HH|CH|OH|HT|CY|RS)\s+/i, '');
   t = t.replace(/\s+-\s+/g, ' ').replace(/\s-\s*$/, '').replace(/\s+/g, ' ').trim();
   return (t || file).toUpperCase().slice(0, 18);
 }
@@ -129,7 +164,7 @@ const USAGE = `Usage : npm run samples:import -- "/chemin/vers/Samples" [--repla
 
   --replace         retire d'abord les anciens fichiers des familles qui en recoivent des nouveaux
   --dry             montre le plan sans rien ecrire
-  --families bd,sd  seulement ces familles (bd sd cp hh tom rs ; par defaut : toutes celles trouvees)
+  --families bd,sd  seulement ces familles (bd sd ch oh cp tom ht cy, une par voix ; par defaut : toutes celles trouvees)
 
 Sans dossier : ${DEFAULT_SRC}`;
 
@@ -280,28 +315,28 @@ function tokens(s) {
   return [...t, ...pairs];
 }
 
-/** La famille d'une liste de mots : un mot fort l'emporte sur une abreviation ; deux familles = ambigu. */
+/**
+ * La famille d'une liste de mots : un mot fort l'emporte sur une abreviation ;
+ * une famille qui l'emporte sur une autre (over : open hat est oh, pas ch ;
+ * hi tom est ht, pas tom) la fait sortir ; deux familles qui restent = ambigu.
+ */
 function familyOfWords(words) {
   for (const kind of ['strong', 'weak']) {
-    const hit = FAMILIES.filter((f) => WORDS[f][kind].some((w) => words.includes(w)));
+    let hit = FAMILIES.filter((f) => WORDS[f][kind].some((w) => words.includes(w)));
+    if (hit.length > 1) hit = hit.filter((f) => !hit.some((g) => WORDS[g].over?.includes(f)));
     if (hit.length === 1) return { fam: hit[0] };
     if (hit.length > 1) return { ambiguous: hit };
   }
   return null;
 }
 
-/** La famille d'un fichier : son dossier le plus proche, puis son nom. */
-function classify(file, srcBase) {
-  const dirs = file.rel.split(path.sep).slice(0, -1);
-  for (const d of [...dirs].reverse()) {
-    const r = familyOfWords(tokens(d));
-    if (r?.fam) return { fam: r.fam, via: `dossier ${d}` };
-  }
-  const own = familyOfWords(tokens(srcBase));
-  if (own?.fam) return { fam: own.fam, via: `dossier ${srcBase}` };
+/** Les familles jumelles (2026-10-18) : un dossier Hats range les deux charleys et le nom dit lequel ; de meme un dossier Toms. */
+const SIBLING = { ch: 'oh', oh: 'ch', tom: 'ht', ht: 'tom' };
+
+/** La famille que dit le nom du fichier : le mot apres le tiret d'abord ("AT Tom Trago - Kick F" est un kick), puis tout le nom. */
+function familyOfName(file) {
   const base = file.name.replace(/\.[^.]+$/, '');
   const parts = base.split(/\s+-\s+/);
-  // Le mot apres le tiret d'abord : "AT Tom Trago - Kick F" est un kick
   if (parts.length > 1) {
     const r = familyOfWords(tokens(parts[parts.length - 1]));
     if (r?.fam) return { fam: r.fam, via: `nom (${parts[parts.length - 1].trim()})` };
@@ -310,6 +345,24 @@ function classify(file, srcBase) {
   if (r?.fam) return { fam: r.fam, via: 'nom' };
   if (r?.ambiguous) return { fam: null, why: `plusieurs familles dans le nom (${r.ambiguous.join(', ')})` };
   return { fam: null, why: 'aucun dossier ni mot de famille' };
+}
+
+/**
+ * La famille d'un fichier : son dossier le plus proche, puis son nom. Dans un
+ * dossier de charleys ou de toms, le nom choisit la jumelle (Hats/Open Hat
+ * 01.wav : oh ; Toms/Hi Tom.wav : ht), sinon le dossier fait foi.
+ */
+function classify(file, srcBase) {
+  const dirs = file.rel.split(path.sep).slice(0, -1);
+  const byName = familyOfName(file);
+  const refine = (fam, via) => (byName.fam && SIBLING[fam] === byName.fam ? { fam: byName.fam, via: `${via}, ${byName.via}` } : { fam, via });
+  for (const d of [...dirs].reverse()) {
+    const r = familyOfWords(tokens(d));
+    if (r?.fam) return refine(r.fam, `dossier ${d}`);
+  }
+  const own = familyOfWords(tokens(srcBase));
+  if (own?.fam) return refine(own.fam, `dossier ${srcBase}`);
+  return byName;
 }
 
 /* ---------------- le nom propre ---------------- */
@@ -356,6 +409,9 @@ function candidates(file, fam) {
   let full = strip(base, true);
   // "707 Snare" : sans le numero il ne reste rien, le numero est le nom
   if (!full) full = strip(base, false);
+  // Plus rien du tout (Low Tom, Rimshot, Ride Cymbal : que des mots de la famille) : le nom du fichier tel quel,
+  // plutot que SAMPLE (2026-10-18, les familles ht et cy strippent beaucoup de mots)
+  if (!full) full = tidy(base.replace(/^\s*\d+\s*[-.]?\s+/, '').replace(/^AT\s+/i, ''));
   // Rien que des chiffres : le dossier qui les range, s'il dit quelque chose (Techno/Kick 01 : Techno 01)
   if (!hasLetter(full)) {
     const ctx = file.rel
@@ -432,7 +488,7 @@ async function codeKeys(dir = path.join(ROOT, 'src/v4'), out = []) {
     if (e.isDirectory()) await codeKeys(full, out);
     else if (/\.tsx?$/.test(e.name)) {
       const text = await readFile(full, 'utf8').catch(() => '');
-      for (const m of text.matchAll(/['"`]((?:bd|sd|cp|hh|tom|rs)\/[^'"`\n]+\.(?:wav|aiff?|mp3|flac|m4a|ogg))['"`]/gi)) {
+      for (const m of text.matchAll(/['"`]((?:bd|sd|ch|oh|cp|tom|ht|cy)\/[^'"`\n]+\.(?:wav|aiff?|mp3|flac|m4a|ogg))['"`]/gi)) {
         out.push({ key: m[1], where: path.relative(ROOT, full) });
       }
     }
@@ -543,10 +599,10 @@ async function main() {
     if (p.adds.length === 0) console.log('  (rien de nouveau : la famille reste comme elle est)');
     console.log('');
   }
-  if (plan.length === 0) console.log('Aucun sample de BD, SD, CP, HH, TOM ou RS trouve.\n');
+  if (plan.length === 0) console.log('Aucun sample de BD, SD, CH, OH, CP, TOM, HT ou CY trouve.\n');
 
   if (unknown.length > 0) {
-    console.log(`INCONNUS, laisses de cote (${unknown.length}) : range-les dans un dossier BD, SD, CP, HH, TOM ou RS, ou mets kick / snare dans leur nom`);
+    console.log(`INCONNUS, laisses de cote (${unknown.length}) : range-les dans un dossier BD, SD, CH, OH, CP, TOM, HT ou CY, ou mets kick / snare / hat / open / clap / tom / perc / cymbal dans leur nom`);
     for (const f of unknown) console.log(`  ? ${f.rel} : ${f.why}`);
     console.log('');
   }
