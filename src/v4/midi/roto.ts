@@ -751,8 +751,11 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * 2026-10-12 : le CHORUS du MM-ARP, les modes du Juno-106 (Mika : "je veux le meme chorus sur le Roland Juno 106") :
  * son potard (ARP page 4, la meme adresse) devient un potard a trois crans, OFF, I, II : 1012. A reimporter : ARP (12).
  * 2026-10-18 : une famille de sons par voix au MM-RYTM ; HATS SOUND (RYTM page 4, la meme adresse) devient CL HAT
- * SOUND, il ne regle plus que le charley ferme, ses crans suivent les samples de CH : 1018. A reimporter : RYTM. */
-export const ROTO_VERSION = '2026-10-18';
+ * SOUND, il ne regle plus que le charley ferme, ses crans suivent les samples de CH : 1018. A reimporter : RYTM.
+ * Le meme jour, le hasard de MOD du MM-ARP (Mika : "dans les MOD je veux un random aussi et qui se cale au beat") :
+ * MOD SHAPE (ARP page 4, la meme adresse) passe a cinq crans, TRI, SAW, RND, SQR, S&H : 1018.2. A reimporter : ARP
+ * (12). Un Roto encore en 1018 tient ses quatre formes (ses crans tombent sur TRI, SAW, SQR, S&H), sans RND. */
+export const ROTO_VERSION = '2026-10-18.2';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);

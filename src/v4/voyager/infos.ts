@@ -187,8 +187,17 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   aR: { title: 'RELEASE', text: "Le temps que la note met à s'éteindre après sa fin, de 5 ms à 3 s ; les queues de plusieurs notes se chevauchent (jusqu'à 12 voix).", tip: "Un RELEASE long sur 1/16 crée un tapis d'accords sans toucher aux pads." },
 
   /* ---------- MOD ---------- */
-  lfoRate: { title: 'SPEED', text: "La durée d'un cycle du LFO, calée sur le tempo : de 1/16 à 4 mesures. Il repart de zéro à la première note après un STOP.", tip: "1 BAR sur la coupure : le mouvement classique qui suit la mesure." },
-  lfoShape: { title: 'SHAPE', text: "La forme du LFO : TRI (triangle), SAW (dent de scie), SQR (carré) ou S&H (une valeur tirée au hasard par cycle, tenue).", tip: "S&H en 1/16 sur CUTOFF : le gargouillis aléatoire des vieux arpégiateurs." },
+  // MOD cale sur la mesure, RND (2026-10-18)
+  lfoRate: {
+    title: 'SPEED',
+    text: "La durée d'un cycle du LFO, calée sur le tempo : de 1/16 à 4 mesures. Chaque cycle part pile sur la grille de l'arpège : sur chaque double croche en 1/16, sur chaque temps en 1/4, sur chaque mesure en 1 BAR ; en 2 BAR et 4 BAR, sur la première mesure de l'arpège, puis toutes les deux ou quatre mesures. Au RUN, il part avec la mesure ; ensuite, ni un changement de tempo ni un silence ne le décalent. À l'arrêt, il continue de tourner au tempo.",
+    tip: "1 BAR sur la coupure : le mouvement classique qui suit la mesure.",
+  },
+  lfoShape: {
+    title: 'SHAPE',
+    text: "La forme du LFO : TRI (triangle), SAW (dent de scie), RND (le hasard qui glisse : d'une valeur tirée au hasard à la suivante, en douceur, sur chaque cycle), SQR (carré) ou S&H (une valeur tirée au hasard à chaque cycle, tenue jusqu'au suivant). Les deux hasards changent pile sur la grille de SPEED, et chaque tirage s'écarte du précédent d'au moins un quart de la course : on l'entend toujours, sur toute la profondeur de DEPTH.",
+    tip: "S&H en 1/16 sur CUTOFF : le gargouillis aléatoire des vieux arpégiateurs. RND en 1/4 sur CUTOFF : une ligne de filtre qui ondule comme à la main, toujours sur le temps.",
+  },
   lfoDest: { title: 'TARGET', text: "Ce que le LFO pousse : WAVE (les deux formes d'onde, jusqu'à 2 crans), CUTOFF (jusqu'à 3 octaves), FM, PITCH (un demi-ton) ou W+CUT (formes et coupure à moitié chacune).", tip: "W+CUT en 2 BAR : le son change de couleur sans que personne ne sache pourquoi." },
   lfoAmt: { title: 'DEPTH', text: "La profondeur du LFO sur sa cible. À 0, MOD ne fait rien.", tip: "Commence bas (15 %) : sur la coupure, un peu suffit." },
 

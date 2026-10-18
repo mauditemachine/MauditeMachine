@@ -59,6 +59,19 @@
  * etape d'UNDO d'avant (le potard continu) prend son mode : OFF jusqu'a 0.05 compris,
  * I sous 0.6, II au-dela (chorusStep, dans migrateKnobs et pour les
  * empreintes foldLegacyKnobs ; les crans d'aujourd'hui y restent tels quels).
+ *
+ * MOD cale sur la mesure, et son hasard (2026-10-18, Mika : "dans les MOD je
+ * veux un random aussi et qui se cale au beat") : chaque cycle du LFO part
+ * pile sur la grille de l'arpege (audio/moog.worklet.js) ; SHAPE gagne RND,
+ * le hasard lisse (d'une valeur tiree au hasard a la suivante, sur chaque
+ * cycle), a cote de S&H (tiree, tenue). Cinq crans : TRI, SAW, RND, SQR,
+ * S&H. RND au milieu, pas au bout : les crans d'avant (0, 1/3, 2/3, 1)
+ * tombent ainsi tout seuls sur TRI, SAW, SQR et S&H (le cran le plus proche
+ * sur cinq) ; au bout, un 1 garde aurait pu etre S&H d'avant ou RND
+ * d'aujourd'hui. Un reglage, un preset, un son mis de cote, une etape
+ * d'UNDO, un patch ou un Roto d'avant gardent donc leur forme, sans
+ * migration ; les empreintes ramenent la valeur sur ses cinq crans
+ * (lfoShapeStep, foldLegacyKnobs).
  */
 
 export type VoyKnobId =
@@ -158,10 +171,16 @@ export const SEMIS = ['-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '+1', '+2',
  * retrouvait plus), passe-bas 12 dB, passe-bande, passe-haut.
  */
 export const FMODES = ['MOOG', 'LP12', 'BP', 'HP'] as const;
-/** MOD : la vitesse du LFO en duree d'un cycle, calee sur le tempo (en temps). */
+/** MOD : la vitesse du LFO en duree d'un cycle, calee sur le tempo (en temps) ; chaque cycle part sur la grille. */
 export const LFO_RATES = ['1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR', '4 BAR'] as const;
-const LFO_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16] as const;
-export const LFO_SHAPES = ['TRI', 'SAW', 'SQR', 'S&H'] as const;
+export const LFO_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16] as const;
+/**
+ * MOD : les formes (2026-10-18 : RND, le hasard lisse, au milieu ; les crans d'avant restent les leurs, voir plus
+ * haut). Triangle, dent de scie descendante, hasard lisse, carre, hasard tenu (S&H).
+ */
+export const LFO_SHAPES = ['TRI', 'SAW', 'RND', 'SQR', 'S&H'] as const;
+/** La forme dans le moteur (audio/moog.worklet.js lfoShape : 0 triangle, 1 dent de scie, 2 carre, 3 S&H, 4 RND). */
+const LFO_SHAPE_CODE = [0, 1, 4, 2, 3] as const;
 export const LFO_DESTS = ['WAVE', 'CUTOFF', 'FM', 'PITCH', 'W+CUT'] as const;
 /** RATIO : frequence de l'operateur FM / OSC 1, des rapports harmoniques (le son reste dans la tonalite). */
 export const RATIOS = ['1/2', '1', '3/2', '2', '3', '7/2', '4', '5', '7'] as const;
@@ -218,8 +237,8 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'aD', label: 'DECAY', aria: 'Amp envelope decay', section: 'aeg', def: 0.35 },
   { id: 'aS', label: 'SUSTAIN', aria: 'Amp envelope sustain', section: 'aeg', def: 0.6 },
   { id: 'aR', label: 'RELEASE', aria: 'Amp envelope release', section: 'aeg', def: 0.3 },
-  { id: 'lfoRate', label: 'SPEED', aria: 'Modulation speed, in time with the tempo', section: 'mod', def: 4 / 6, steps: LFO_RATES },
-  { id: 'lfoShape', label: 'SHAPE', aria: 'Modulation shape: triangle, saw, square, sample and hold', section: 'mod', def: 0, steps: LFO_SHAPES },
+  { id: 'lfoRate', label: 'SPEED', aria: 'Modulation speed, locked to the beat: every cycle starts on the grid', section: 'mod', def: 4 / 6, steps: LFO_RATES },
+  { id: 'lfoShape', label: 'SHAPE', aria: 'Modulation shape: triangle, saw, smooth random, square, sample and hold', section: 'mod', def: 0, steps: LFO_SHAPES },
   { id: 'lfoDest', label: 'TARGET', aria: 'Modulation target: wave, cutoff, FM, pitch, or wave and cutoff', section: 'mod', def: 0, steps: LFO_DESTS },
   { id: 'lfoAmt', label: 'DEPTH', aria: 'Modulation depth', section: 'mod', def: 0 },
   // OVERDRIVE (2026-10-04, Mika : "c'est pas DIST qu'on veut c'est OVERDRIVE") : l'id reste 'dist' (reglages et presets retenus)
@@ -402,14 +421,27 @@ export const chorusMode = (v: number): 0 | 1 | 2 => stepIndex('chorus', v) as 0 
 /**
  * Des potards gardes ramenes a aujourd'hui, pour les empreintes (state/presets.ts sig, voyager/patch.ts) : les ON
  * d'avant le 2026-10-11 plies dans leur niveau (withoutOscOn), le CHORUS d'avant le 2026-10-12 a son mode
- * (chorusStep) ; un son garde avant eux reste le meme son qu'apres sa migration.
+ * (chorusStep), SHAPE d'avant le 2026-10-18 sur ses cinq crans (lfoShapeStep) ; un son garde avant eux reste le
+ * meme son qu'apres sa migration.
  */
 export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
-  const out = withoutOscOn(raw);
+  let out = withoutOscOn(raw);
   const c = out.chorus;
-  if (typeof c !== 'number' || !Number.isFinite(c) || chorusStep(c) === c) return out;
-  return { ...out, chorus: chorusStep(c) };
+  if (typeof c === 'number' && Number.isFinite(c) && chorusStep(c) !== c) out = { ...out, chorus: chorusStep(c) };
+  // SHAPE sur quatre crans d'avant le 2026-10-18 : sur ses cinq (la meme forme)
+  const s = out.lfoShape;
+  if (typeof s === 'number' && Number.isFinite(s) && lfoShapeStep(s) !== s) out = { ...out, lfoShape: lfoShapeStep(s) };
+  return out;
 }
+
+/**
+ * SHAPE ramene sur ses cinq crans (2026-10-18) : un cran d'avant (0, 1/3, 2/3, 1 : TRI, SAW, SQR, S&H) tombe sur la
+ * meme forme (0, 0.25, 0.75, 1) ; un cran d'aujourd'hui reste tel quel.
+ */
+export const lfoShapeStep = (v: number): number => {
+  const n = LFO_SHAPES.length - 1;
+  return Math.max(0, Math.min(n, Math.round(v * n))) / n;
+};
 
 /**
  * Un reglage d'avant les rangees d'oscillateurs (TUNE 2, FINE) : sa
@@ -480,7 +512,7 @@ export interface EngineParams {
   aS: number;
   aR: number;
   drive: number;
-  /** MOD : un cycle du LFO en temps, sa forme et sa cible (index), sa profondeur (0 a 1) */
+  /** MOD : un cycle du LFO en temps, sa forme (0 TRI, 1 SAW, 2 SQR, 3 S&H, 4 RND : LFO_SHAPE_CODE) et sa cible (index), sa profondeur (0 a 1) */
   lfoBeats: number;
   lfoShape: number;
   lfoDest: number;
@@ -524,7 +556,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     aR: releaseS(v.aR),
     drive: v.dist,
     lfoBeats: LFO_BEATS[stepIndex('lfoRate', v.lfoRate)],
-    lfoShape: stepIndex('lfoShape', v.lfoShape),
+    lfoShape: LFO_SHAPE_CODE[stepIndex('lfoShape', v.lfoShape)],
     lfoDest: stepIndex('lfoDest', v.lfoDest),
     lfoAmt: v.lfoAmt,
     phase: phaseStart(v.phase),

@@ -5,7 +5,9 @@
  * (audio/moog.worklet.js : trois oscillateurs, filtre en echelle 24 dB,
  * enveloppes analogiques, DIST dans le filtre et a sa sortie), charge au
  * premier geste. Il joue les notes que l'arpegiateur lui envoie, chacune a
- * son instant (temps du contexte).
+ * son instant (temps du contexte). MOD (2026-10-18) : a chaque pas,
+ * l'arpegiateur lui dit aussi ou il en est (synthBeat : la place du pas en
+ * temps, son tempo) ; le LFO y lit sa phase, cale sur la mesure.
  *
  * Apres lui, dans le graphe :
  *   moteur -> CHORUS (celui du Juno-106 : OFF, I, II, chorus.ts) -> VOLUME -> analyseur
@@ -82,6 +84,42 @@ let failed = false;
 /** notes envoyees avant que le moteur soit pret : parties a son arrivee */
 const early: { midi: number; time: number; gate: number; accent: number; from: number | null }[] = [];
 let notes = 0;
+
+/**
+ * Une ancre du transport (2026-10-18, MOD cale sur la mesure) : a `time` (temps du contexte), l'arpege en est a
+ * `beat` temps depuis le debut de sa premiere mesure, au tempo `bpm` jusqu'au pas suivant ; run : le premier pas
+ * d'un RUN. Le moteur y lit la phase du LFO (audio/moog.worklet.js).
+ */
+export interface SynthBeat {
+  time: number;
+  beat: number;
+  bpm: number;
+  run: boolean;
+}
+/** les ancres envoyees avant que le moteur soit pret : parties a son arrivee */
+const earlyBeats: SynthBeat[] = [];
+/** les dernieres ancres envoyees (debug) */
+const beatLog: SynthBeat[] = [];
+const BEAT_LOG = 64;
+/** les lectures du LFO en attente de la reponse du moteur (debug) */
+const probes = new Map<number, (r: SynthLfoProbe) => void>();
+let probeId = 0;
+
+/** Le LFO lu dans le moteur (debug, synthDebug.lfo) : le meme calcul que le son. */
+export interface SynthLfoProbe {
+  /** l'echantillon du contexte de la lecture, la position du transport (en temps) et en cycles du LFO */
+  frame: number;
+  beat: number;
+  cycle: number;
+  /** la forme a cet instant (-1 a +1, avant DEPTH et le lissage de 2 ms), la sortie lissee */
+  raw: number;
+  out: number;
+  /** une ancre de l'arpege tient la position (sinon : libre, au tempo) ; le tempo de la droite ; les ancres a venir */
+  locked: boolean;
+  bpm: number;
+  shape: number;
+  pending: number;
+}
 
 const stepOf = (): number => 60 / pattern.get().bpm / 4;
 
@@ -244,12 +282,22 @@ export function prepareSynth(): void {
         outputChannelCount: [2],
         processorOptions: { params: engineMsg(voyParams.get()), os: engineOs() },
       });
+      node.port.onmessage = (e: MessageEvent) => {
+        const m = e.data as { type?: string; id?: number } & SynthLfoProbe;
+        if (m?.type !== 'probe' || typeof m.id !== 'number') return;
+        const done = probes.get(m.id);
+        probes.delete(m.id);
+        done?.(m);
+      };
       // La prise du MM-ARP (le canal 2 du mixer du MM-DECKS peut la prendre), sa REVERB a lui
       sg = build(c, port.arp, port.reverb, node);
       // Les notes arrivees avant le moteur : celles encore a venir partent
       const now = c.currentTime;
       for (const n of early) if (n.time > now - 0.05) node.port.postMessage({ type: 'note', ...n, time: Math.max(n.time, now) });
       early.length = 0;
+      // Les ancres du transport aussi, toutes (une passee compte : le moteur prolonge sa droite jusqu'a maintenant)
+      for (const b of earlyBeats) node.port.postMessage({ type: 'beat', ...b });
+      earlyBeats.length = 0;
     })
     .catch(() => {
       failed = true;
@@ -282,13 +330,32 @@ export function noteOn(midi: number, time: number, gate: number, from: number | 
  */
 export function synthCancel(from: number): void {
   for (let i = early.length - 1; i >= 0; i -= 1) if (early[i].time >= from) early.splice(i, 1);
+  for (let i = earlyBeats.length - 1; i >= 0; i -= 1) if (earlyBeats[i].time >= from) earlyBeats.splice(i, 1);
   if (sg) sg.node.port.postMessage({ type: 'cancel', time: from });
 }
 
-/** STOP de l'arpegiateur : plus rien d'attendu, ce qui sonne s'eteint en 12 ms. */
+/** STOP de l'arpegiateur : plus rien d'attendu, ce qui sonne s'eteint en 12 ms ; le LFO de MOD tourne librement au tempo. */
 export function synthStop(): void {
   early.length = 0;
+  earlyBeats.length = 0;
   if (sg) sg.node.port.postMessage({ type: 'stop', time: sg.ctx.currentTime });
+}
+
+/**
+ * MOD cale sur la mesure (2026-10-18) : chaque pas de l'arpegiateur dit au moteur ou il en est (voyager/arp.ts) ;
+ * `time` le pas sur la grille (sans le retard du swing), `beat` sa place en temps, `stepDur` la duree du pas.
+ * Un pas re-programme renvoie la meme ancre (synthCancel oublie l'ancienne).
+ */
+export function synthBeat(time: number, beat: number, stepDur: number, run = false): void {
+  if (!Number.isFinite(time) || !Number.isFinite(beat) || !(stepDur > 0)) return;
+  const b: SynthBeat = { time, beat, bpm: 60 / (4 * stepDur), run };
+  beatLog.push(b);
+  if (beatLog.length > BEAT_LOG) beatLog.shift();
+  if (sg) sg.node.port.postMessage({ type: 'beat', ...b });
+  else if (!failed && synthPort()) {
+    earlyBeats.push(b);
+    if (earlyBeats.length > BEAT_LOG) earlyBeats.shift();
+  }
 }
 
 /* ---------------- rendu hors ligne (tests : rien ne sort des enceintes) ---------------- */
@@ -306,6 +373,12 @@ export interface SynthOfflineOpts {
   os?: 1 | 2 | 4;
   /** tempo du LFO de MOD (celui du motif par defaut) */
   bpm?: number;
+  /** MOD (2026-10-18) : les ancres du transport (synthBeat), connues au depart */
+  beats?: { time: number; beat: number; bpm: number; run?: boolean }[];
+  /** des messages au moteur a leur instant (s) : { type: 'beat' | 'stop' | 'cancel' | 'params', ... }, comme ceux du port */
+  timeline?: { at: number; msg: Record<string, unknown> }[];
+  /** true : la sortie dit le LFO au lieu du son (gauche : sa forme, -1 a +1 ; droite : la position en temps), sans la chaine d'effets */
+  probe?: boolean;
 }
 
 /** Rendu stereo hors ligne de la chaine complete ; renvoie [gauche, droite]. */
@@ -319,6 +392,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
   out.connect(oc.destination);
   const reverb = buildReverbBus(oc, out);
   const p = { ...voyParams.get(), ...(o.params ?? {}) };
+  const extra = { beats: o.beats ?? [], timeline: o.timeline ?? [], probe: o.probe === true };
   let prev: number | null = null;
   const list = o.notes.map(([m, t, gate]) => {
     const n = { midi: m, time: t, gate, accent: 1, from: prev };
@@ -329,8 +403,14 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { params: engineMsg(p, o.bpm), notes: list, os: o.os ?? 4 },
+    processorOptions: { params: engineMsg(p, o.bpm), notes: list, os: o.os ?? 4, ...extra },
   });
+  if (extra.probe) {
+    // Le LFO tel quel : droit a la sortie, sans chorus ni filtres de BASS MONO
+    node.connect(oc.destination);
+    const buf = await oc.startRendering();
+    return [buf.getChannelData(0).slice(), buf.getChannelData(1).slice()];
+  }
   const noSend = { attach: () => ({ set: () => undefined, info: () => ({ value: 0, linked: false }) }) };
   const g = build(oc, out, o.sends === false ? noSend : reverb, node);
   applyFx(g, o.sends === false ? { ...p, delay: 0, reverb: 0 } : p, true);
@@ -355,6 +435,32 @@ export const synthDebug = {
   },
   get chorus() {
     return sg?.chorus.info() ?? null;
+  },
+  /** MOD (2026-10-18) : les dernieres ancres du transport envoyees au moteur, de la plus ancienne a la plus recente */
+  get beats(): SynthBeat[] {
+    return beatLog.map((b) => ({ ...b }));
+  },
+  /** MOD : le LFO lu dans le moteur maintenant (null sans moteur, ou sans reponse en 1 s) */
+  lfo(): Promise<SynthLfoProbe | null> {
+    const g = sg;
+    if (!g) return Promise.resolve(null);
+    probeId += 1;
+    const id = probeId;
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(() => {
+        probes.delete(id);
+        resolve(null);
+      }, 1000);
+      probes.set(id, (r) => {
+        window.clearTimeout(timer);
+        resolve(r);
+      });
+      g.node.port.postMessage({ type: 'probe', id });
+    });
+  },
+  /** la frequence d'echantillonnage du contexte de la page (une ancre, en secondes, contre lfo().frame) */
+  get sampleRate(): number | undefined {
+    return sg?.ctx.sampleRate;
   },
   renderOffline: renderSynthOffline,
 };
