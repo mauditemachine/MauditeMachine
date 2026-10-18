@@ -612,6 +612,63 @@
   margin-left: auto;
 }
 
+/* FILES, desktop seulement (2026-10-18, Rekordbox) : les dossiers relies, leur etat, RECONNECT, REMOVE */
+.dj-scr-roots {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35em;
+  margin-top: 0.4em;
+  overflow-x: auto;
+  scrollbar-width: none;
+  font-size: 0.74em;
+}
+
+.dj-scr-roots::-webkit-scrollbar {
+  display: none;
+}
+
+.dj-scr-roots-title {
+  flex: 0 0 auto;
+  color: var(--dim);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.dj-scr-root {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.1em 0.2em 0.1em 0.1em;
+  border: 1px solid var(--faint);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* L'acces s'est perdu : le dossier le dit en orange, RECONNECT a cote */
+.dj-scr-root[data-granted='0'] {
+  border-color: var(--orange);
+}
+
+.dj-scr-root .dj-scr-crumb {
+  color: var(--bone);
+  font-size: 1em;
+}
+
+.dj-scr-root-state {
+  color: var(--dim);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.dj-scr-root .dj-scr-forget {
+  min-height: 1.8em;
+  padding: 0 0.6em;
+  font-size: 0.95em;
+}
+
 /* Un sous-dossier : il s'ouvre au toucher */
 .dj-scr-dir .dj-scr-name {
   font-weight: 600;
