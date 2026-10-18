@@ -23,6 +23,8 @@ import {
   isPageKnob,
   HEX,
   KEYS,
+  KEY_LABEL,
+  KEY_LABELS,
   OLED,
   ORBIT,
   PAD,
@@ -276,6 +278,29 @@ function box(key: string, x: number, z: number, hx: number, hz: number, h: numbe
   };
 }
 
+/**
+ * Le nom imprime sur une touche (2026-10-18, theme.ts KEY_LABELS) : pose sur
+ * son dessus, a la hauteur h, apres la touche (meme profondeur de tri) ; le
+ * corps reduit pour tenir, comme la texture (scene/keyLabels.ts).
+ */
+function keyLabel(s: Solid, id: string, h: number): Solid {
+  const l = KEY_LABELS.find((k) => k.id === id);
+  if (!l) return s;
+  const room = l.w - 2 * KEY_LABEL.margin;
+  const probe: SilkText = { text: l.text, x: 0, z: 0, cap: KEY_LABEL.cap };
+  const cap = KEY_LABEL.cap * Math.min(1, room / textW(probe, KEY_LABEL.cap));
+  const size = cap / SILK.capRatio;
+  const ls = SILK.tracking * size;
+  s.nodes.push(
+    <g key={`klabel-${id}`} transform={planeAt(h + 0.003)}>
+      <text x={l.x + ls / 2} y={l.z + KEY_LABEL.dz + cap / 2} fontSize={size} fontWeight={KEY_LABEL.weight} textAnchor="middle" fill={C.bone85} className="v4-silk">
+        {l.text}
+      </text>
+    </g>
+  );
+  return s;
+}
+
 /** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone ; MASTER et TEMPO en aluminium, leur trait noir (2026-10-09). */
 function encoder(i: number, angleDeg: number): Solid {
   const { id, x, z, s } = FACE_KNOBS[i];
@@ -328,22 +353,23 @@ const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.ma
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];
   FACE_KNOBS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
-  // Les touches de page (2026-10-08), juste sous l'ecran depuis le 2026-10-09
+  // Les touches de page (2026-10-08), juste sous l'ecran depuis le 2026-10-09 ; leur nom dessus depuis le 2026-10-18
   RYTM_PAGE_KEYS.forEach((p, i) =>
-    items.push(box(`pkey-${p.id}`, pageKeyX(i), PAGE_KEYS.z, PAGE_KEYS.w / 2, PAGE_KEYS.d / 2, PAGE_KEYS.h, HEX.graphiteHi, C.clearSide, C.clearSide))
+    items.push(keyLabel(box(`pkey-${p.id}`, pageKeyX(i), PAGE_KEYS.z, PAGE_KEYS.w / 2, PAGE_KEYS.d / 2, PAGE_KEYS.h, HEX.graphiteHi, C.clearSide, C.clearSide), p.id, PAGE_KEYS.h))
   );
   const ph = PAD.height + PAD.dome;
   for (const p of PADS) {
     const page = p.kind !== 'voice';
     items.push(box(`pad-${p.id}`, p.x, p.z, PAD.size / 2, PAD.size / 2, ph, page ? C.pageTop : HEX.pad, page ? C.pageSide : C.padSide, page ? C.pageSide : C.padSide));
   }
+  // Le transport : la forme des touches de page et son nom dessus (2026-10-18)
   const t = TRANSPORT;
-  const h = t.size / 2;
-  items.push(box('run', t.run.x, t.z, h, h, t.h, HEX.red, C.runSide, C.runSide));
-  items.push(box('clear', t.clear.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
-  items.push(box('random', t.random.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
-  items.push(box('mute', t.mute.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
-  items.push(box('solo', t.solo.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
+  const hx = t.w / 2;
+  const hz = t.d / 2;
+  for (const id of ['run', 'clear', 'random', 'mute', 'solo'] as const) {
+    const red = id === 'run';
+    items.push(keyLabel(box(id, t[id].x, t.z, hx, hz, t.h, red ? HEX.red : HEX.graphiteHi, red ? C.runSide : C.clearSide, red ? C.runSide : C.clearSide), id, t.h));
+  }
   for (let i = 0; i < KEYS.count; i += 1) items.push(box(`key-${i}`, keyX(i), KEYS.z + keyDz(i), KEYS.w / 2, KEYS.d / 2, KEYS.h, HEX.key, C.keySide, C.keySide));
   return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
 }

@@ -27,6 +27,16 @@
  * verrous (la voix choisie) garde une lueur orange pale sur sa touche ; le
  * pas en LOCK clignote, sa touche plus claire et ses traits en jaune (comme
  * le trig tenu d'une Elektron). Rien en EDIT (les pas y sont les patterns).
+ *
+ * Le transport depuis le 2026-10-18 (Mika : "je veux la meme forme de boutons
+ * pour les boutons RUN/STOP CLEAR etc. ; ecrit directement sur le bouton ; et
+ * quand c'est selectionne que ce soit plus voyant") : des touches plates de la
+ * forme des touches de page (theme.ts TRANSPORT : 1.0 x 0.38, leur temoin),
+ * leur nom imprime dessus (scene/keyLabels.ts, cinq quads qui s'enfoncent avec
+ * elles) ; une touche active s'allume en entier (theme.ts KEY_LIT) : RUN/STOP
+ * pendant la lecture (son rouge, plus chaud), MUTE (rouge) et SOLO (bleu) tant
+ * que leur mode est arme, CLEAR et RANDOM (orange) le temps de leur eclair ;
+ * son nom passe au noir, son temoin reste l'accent, plus clair.
  */
 
 import {
@@ -47,8 +57,9 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, INK, KEYS, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst } from '../theme';
+import { BTN_LED, COLOR, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
 import type { HotspotDef } from './hit';
+import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
 
 /** Teinte d'un trait ; 'none' : trait cache (au-dessus de la LED du bas, pas assez fort). */
@@ -79,8 +90,14 @@ export type TransportButton = 'run' | 'clear' | 'mute' | 'solo' | 'random';
 export const BUTTON_INDEX: Readonly<Record<TransportButton, number>> = { run: RUN, clear: CLEAR, mute: MUTE, solo: SOLO, random: RANDOM };
 /** x de chaque bouton, dans l'ordre des index (RUN, CLEAR, MUTE, SOLO, RANDOM). */
 const BUTTON_X = [TRANSPORT.run.x, TRANSPORT.clear.x, TRANSPORT.mute.x, TRANSPORT.solo.x, TRANSPORT.random.x] as const;
-/** z du temoin : sur le dessus, pres du bord arriere. */
-const BTN_LED_Z = TRANSPORT.z - TRANSPORT.size / 2 + BTN_LED.back;
+/** Les ids des boutons, dans l'ordre des index (leurs noms, KEY_LABELS). */
+const BUTTON_IDS = ['run', 'clear', 'mute', 'solo', 'random'] as const;
+/** La couleur de chaque bouton allume en entier (2026-10-18, theme.ts KEY_LIT), dans l'ordre des index. */
+const BUTTON_TONE: readonly KeyLitTone[] = ['run', 'orange', 'red', 'blue', 'orange'];
+/** z du temoin : sur le dessus, pres du bord arriere (celui des touches de page depuis le 2026-10-18). */
+const BTN_LED_Z = TRANSPORT.z - TRANSPORT.d / 2 + TRANSPORT.led.back;
+/** Le blanc vers lequel tire le temoin d'une touche allumee (il ne se perd pas dans sa couleur). */
+const WHITE = new Color(1, 1, 1);
 
 const BARS = KEYS.velBars;
 
@@ -104,10 +121,10 @@ function keyGeometry(mobile: boolean): BufferGeometry {
   return g;
 }
 
-/** Bouton carre du transport (2026-10-01), memes arrondis que les touches, base a y 0. */
+/** Bouton du transport : la touche plate des touches de page depuis le 2026-10-18 (un carre de 0.8 avant), base a y 0. */
 function buttonGeometry(mobile: boolean): BufferGeometry {
   const T = TRANSPORT;
-  const g = new RoundedBoxGeometry(T.size, T.h, T.size, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, T.radius);
+  const g = new RoundedBoxGeometry(T.w, T.h, T.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, T.radius);
   g.translate(0, T.h / 2, 0);
   g.deleteAttribute('uv');
   return g;
@@ -166,6 +183,10 @@ export interface SequencerInfo {
   run: boolean;
   /** eclat du temoin de chaque bouton (0 a 1) : RUN, CLEAR, MUTE, SOLO, RANDOM */
   buttonLeds: number[];
+  /** chaque bouton allume en entier (0 a 1, 2026-10-18), meme ordre */
+  buttonLit: number[];
+  /** son nom en noir (sur une touche allumee), meme ordre */
+  buttonDark: boolean[];
   playhead: number;
   hover: number;
   /** les verrous (2026-10-08) : les pas qui en ont (masque), le pas en LOCK, sa phase */
@@ -196,6 +217,10 @@ export class Sequencer3D {
   /** L'eclat tenu de chaque temoin, 0 a 1 (2026-10-09 : MUTE et SOLO a peine allumes quand des voix restent coupees) */
   private btnLatch = new Float32Array(BUTTON_COUNT);
   private btnFlash = new Float32Array(BUTTON_COUNT);
+  /** MUTE et SOLO allumes en entier tant que leur mode est arme (2026-10-18), leur temoin clignote a part */
+  private btnMode = new Float32Array(BUTTON_COUNT);
+  /** les noms sur les boutons (2026-10-18), dans l'ordre des index */
+  readonly labels: KeyLabels;
   private btnLedOff = new Color();
   private btnLedOn = new Color();
   /** RUN est rouge : son temoin passe au jaune (l'orange s'y perdait) */
@@ -223,7 +248,7 @@ export class Sequencer3D {
   /** l'appui en cours de chaque pas (0 a 1), pour composer sa lueur avec celle des verrous */
   private keyPress = new Float32Array(STEP_COUNT);
 
-  constructor(opts: { mobile: boolean } = { mobile: false }) {
+  constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas }) {
     LED_HEX = { line: COLOR.line, ledSet: COLOR.ledSet, ledHover: COLOR.ledHover, yellowHi: COLOR.yellowHi };
     const kGeo = keyGeometry(opts.mobile);
     this.emissive = new InstancedBufferAttribute(new Float32Array(STEP_COUNT * 3), 3);
@@ -272,7 +297,7 @@ export class Sequencer3D {
     this.btnLedOff.setHex(COLOR.line);
     this.btnLedOn.setHex(COLOR.ledSet);
     this.runLedOn.setHex(COLOR.yellowHi);
-    this.btnLeds = new InstancedMesh(ledGeometry(BTN_LED.w, BTN_LED.d), this.ledMat, BUTTON_COUNT);
+    this.btnLeds = new InstancedMesh(ledGeometry(TRANSPORT.led.w, TRANSPORT.led.d), this.ledMat, BUTTON_COUNT);
     this.btnLeds.name = 'btnLeds';
     for (let j = 0; j < BUTTON_COUNT; j += 1) {
       this.btnLeds.setMatrixAt(j, m4.makeTranslation(BUTTON_X[j], TRANSPORT.h + BTN_LED.y, BTN_LED_Z));
@@ -280,6 +305,9 @@ export class Sequencer3D {
     }
     this.btnLeds.instanceMatrix.needsUpdate = true;
     this.btnLeds.instanceColor?.setUsage(DynamicDrawUsage);
+    // Les noms des boutons, dans l'ordre des index
+    const specs = BUTTON_IDS.map((id) => KEY_LABELS.find((l) => l.id === id)).filter((l) => l !== undefined);
+    this.labels = new KeyLabels(opts.atlas, specs, TRANSPORT.h, 'transport');
 
     this.ledMat.name = 'led';
     this.leds = new InstancedMesh(ledGeometry(), this.ledMat, STEP_COUNT * BARS);
@@ -301,8 +329,17 @@ export class Sequencer3D {
   private paintButton(k: number, c: readonly number[]): void {
     const i = k - STEP_COUNT;
     this.btnColor.set([c[0], c[1], c[2]], i * 3);
-    this.buttons.setColorAt(i, this.pressedColor(c, this.btnPress[i]));
+    this.writeButtonColor(i);
     this.writeButtonGlow(i);
+  }
+
+  /** La teinte affichee du bouton j : la sienne, l'appui (machine claire), la touche allumee (machine claire, KEY_LIT_LIGHT). */
+  private writeButtonColor(j: number): void {
+    const c = this.pressedColor(this.btnColor.subarray(j * 3, j * 3 + 3), this.btnPress[j]);
+    const lt = KEY_LIT_LIGHT.tint?.[BUTTON_TONE[j]];
+    const f = this.litLevel(j);
+    if (lt && f > 0) c.setRGB(c.r + (lt[0] - c.r) * f, c.g + (lt[1] - c.g) * f, c.b + (lt[2] - c.b) * f);
+    this.buttons.setColorAt(j, c);
     if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
   }
 
@@ -311,10 +348,33 @@ export class Sequencer3D {
     return Math.max(this.btnLatch[j], this.btnFlash[j]);
   }
 
+  /**
+   * Le bouton j allume en entier (2026-10-18), 0 a 1 : RUN/STOP tant que la
+   * lecture tient, MUTE et SOLO tant que leur mode est arme (leur temoin
+   * clignote a part), CLEAR et RANDOM le temps de leur eclair.
+   */
+  private litLevel(j: number): number {
+    const k = j + STEP_COUNT;
+    if (k === RUN) return this.btnLatch[j];
+    if (k === MUTE || k === SOLO) return this.btnMode[j];
+    return this.btnFlash[j];
+  }
+
+  /** Le dessus, le temoin et le nom du bouton j suivent son allumage. */
+  private paintLit(j: number): void {
+    this.writeButtonGlow(j);
+    if (KEY_LIT_LIGHT.tint) this.writeButtonColor(j);
+    this.labels.setLit(j, this.litLevel(j) > KEY_LIT.dark);
+  }
+
   private paintButtonLed(j: number): void {
     const k = j + STEP_COUNT;
     const on = k === RUN ? this.runLedOn : k === MUTE ? this.muteLedOn : k === SOLO ? this.soloLedOn : this.btnLedOn;
-    this.btnLeds.setColorAt(j, col.copy(this.btnLedOff).lerp(on, this.ledLevel(j)));
+    col.copy(this.btnLedOff).lerp(on, this.ledLevel(j));
+    // Sur une touche allumee, le temoin tire vers le blanc : il reste l'accent
+    const f = this.labels ? this.litLevel(j) : 0;
+    if (f > 0) col.lerp(WHITE, KEY_LIT.ledWhite * f);
+    this.btnLeds.setColorAt(j, col);
     if (this.btnLeds.instanceColor) this.btnLeds.instanceColor.needsUpdate = true;
   }
 
@@ -325,14 +385,27 @@ export class Sequencer3D {
     if (Math.abs(this.btnLatch[j] - v) < 1e-3) return false;
     this.btnLatch[j] = v;
     this.paintButtonLed(j);
+    if (k === RUN) this.paintLit(j);
     return true;
   }
 
-  /** Eclair d'appui du temoin d'un bouton, v de 1 (appui) a 0 (le Stage l'anime). */
+  /** MUTE ou SOLO allume en entier (2026-10-18) : son mode arme ; true s'il a change. */
+  private mode(k: number, on: number): boolean {
+    const j = k - STEP_COUNT;
+    const v = Math.max(0, Math.min(1, on));
+    if (Math.abs(this.btnMode[j] - v) < 1e-3) return false;
+    this.btnMode[j] = v;
+    this.paintButtonLed(j);
+    this.paintLit(j);
+    return true;
+  }
+
+  /** Eclair d'appui du temoin d'un bouton, v de 1 (appui) a 0 (le Stage l'anime) ; CLEAR et RANDOM s'allument avec. */
   setButtonFlash(b: TransportButton, v: number): void {
     const j = BUTTON_INDEX[b] - STEP_COUNT;
     this.btnFlash[j] = v;
     this.paintButtonLed(j);
+    if (b === 'clear' || b === 'random') this.paintLit(j);
   }
 
   /** Teinte affichee : la sienne, tiree vers l'orange de l'appui en mode clair. */
@@ -342,20 +415,26 @@ export class Sequencer3D {
     return col.setRGB(c[0] + (t[0] - c[0]) * v, c[1] + (t[1] - c[1]) * v, c[2] + (t[2] - c[2]) * v);
   }
 
-  /** Eclat d'un bouton : celui de l'appui. */
+  /** Eclat d'un bouton : celui de l'appui, ou celui de la touche allumee s'il est plus fort (2026-10-18). */
   private writeButtonGlow(i: number): void {
     const e = this.btnEmissive.array as Float32Array;
     const v = this.btnPress[i];
-    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = STEP_PRESS.glow[c] * v;
+    // Avant la construction des noms (la teinte de depart), aucun bouton n'est allume
+    const f = this.labels ? this.litLevel(i) : 0;
+    const g = KEY_LIT.glow[BUTTON_TONE[i]];
+    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * v, g[c] * KEY_LIT_LIGHT.glow * f);
     this.btnEmissive.needsUpdate = true;
   }
 
   /** Temoins de MUTE (voix coupee) et SOLO (solo en cours) ; true s'il faut une frame. */
   /** MUTE et SOLO : leur eclat, 0 a 1 (2026-10-09 : clignotant en attente d'une voix, fixe en MULTI, a peine sinon). */
-  setVoiceKeys(muteOn: boolean | number, soloOn: boolean | number): boolean {
+  /** Et la touche allumee en entier tant que leur mode est arme (muteMode, soloMode : 0 ou 1, 2026-10-18). */
+  setVoiceKeys(muteOn: boolean | number, soloOn: boolean | number, muteMode = 0, soloMode = 0): boolean {
     const a = this.latch(MUTE, muteOn);
     const b = this.latch(SOLO, soloOn);
-    return a || b;
+    const c = this.mode(MUTE, muteMode);
+    const d = this.mode(SOLO, soloMode);
+    return a || b || c || d;
   }
 
   /** Velocite du pas i (0 vide a 9 fort, 2026-10-04) ; sans selection, la plus forte des voix. */
@@ -392,15 +471,13 @@ export class Sequencer3D {
       this.frames.instanceMatrix.needsUpdate = true;
     }
     if (btn) {
-      // Le temoin descend avec son bouton
+      // Le temoin et le nom (2026-10-18) descendent avec leur bouton
       this.btnLeds.instanceMatrix.array[j * 16 + 13] = TRANSPORT.h + BTN_LED.y + dy;
       this.btnLeds.instanceMatrix.needsUpdate = true;
+      this.labels.setDy(j, dy);
       this.btnPress[j] = v;
       this.writeButtonGlow(j);
-      if (PRESS_TINT.rgb) {
-        this.buttons.setColorAt(j, this.pressedColor(this.btnColor.subarray(j * 3, j * 3 + 3), v));
-        if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
-      }
+      if (PRESS_TINT.rgb) this.writeButtonColor(j);
       return;
     }
     if (PRESS_TINT.rgb) {
@@ -550,16 +627,19 @@ export class Sequencer3D {
         index: i,
       });
     }
-    const h = TRANSPORT.size / 2;
+    // Les touches du transport (2026-10-18 : la forme des touches de page) ; au telephone leur zone deborde devant et
+    // derriere elles (TRANSPORT.hitD, environ 40 px au doigt)
+    const hx = TRANSPORT.w / 2;
+    const hz = TRANSPORT.hitD / 2;
     for (const [id, x] of [
       ['run', TRANSPORT.run.x],
       ['clear', TRANSPORT.clear.x],
       ['mute', TRANSPORT.mute.x],
       ['solo', TRANSPORT.solo.x],
     ] as const) {
-      defs.push({ id, kind: id, layer, shape: 'box', x, z: TRANSPORT.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
+      defs.push({ id, kind: id, layer, shape: 'box', x, z: TRANSPORT.z, hx, hz, y0: 0, y1: TRANSPORT.h, enabled: true });
     }
-    defs.push({ id: 'random', kind: 'random', layer, shape: 'box', x: TRANSPORT.random.x, z: TRANSPORT.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
+    defs.push({ id: 'random', kind: 'random', layer, shape: 'box', x: TRANSPORT.random.x, z: TRANSPORT.z, hx, hz, y0: 0, y1: TRANSPORT.h, enabled: true });
     return defs;
   }
 
@@ -578,6 +658,8 @@ export class Sequencer3D {
       barTones,
       run: this.running,
       buttonLeds: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100),
+      buttonLit: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.litLevel(j) * 100) / 100),
+      buttonDark: this.labels.litState(),
       playhead: this.playhead,
       hover: this.hover,
       lockMask: this.lockMask,
@@ -602,5 +684,6 @@ export class Sequencer3D {
     this.frames.geometry.dispose();
     this.frameMat.dispose();
     this.frames.dispose();
+    this.labels.dispose();
   }
 }

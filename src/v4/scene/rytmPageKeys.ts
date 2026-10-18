@@ -10,12 +10,21 @@
  * la page), eteint ailleurs. Un appui l'enfonce et l'eclaire comme un pas.
  * UN InstancedMesh pour les touches, un pour les temoins (non eclaires) ;
  * le Stage ne rend une frame que si quelque chose a change.
+ *
+ * Depuis le 2026-10-18 (Mika : "je veux juste que ce soit ecrit dessus et
+ * quand c'est selectionne que ce soit plus voyant") : le nom est imprime sur
+ * la touche (scene/keyLabels.ts, un maillage de quatre quads qui s'enfoncent
+ * avec elles) et la touche de la page montree s'allume en entier, son dessus a
+ * l'orange de son temoin (theme.ts KEY_LIT), son nom en noir ; le temoin reste
+ * l'accent, plus clair. En vue HOME aucune n'est allumee : le temoin a peine,
+ * comme avant.
  */
 
 import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type BufferGeometry, type Object3D } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { COLOR, KEYS, LIT, MATERIAL, PAGE_KEYS, PRESS_TINT, RYTM_PAGE_KEYS, STEP_PRESS, pageKeyX } from '../theme';
+import { COLOR, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PAGE_KEYS, PRESS_TINT, RYTM_PAGE_KEYS, STEP_PRESS, pageKeyX } from '../theme';
 import type { HotspotDef } from './hit';
+import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
 
 const N = RYTM_PAGE_KEYS.length;
@@ -47,9 +56,16 @@ const LED_Y = PAGE_KEYS.h + 0.002;
 export interface PageKeysInfo {
   /** l'eclat de chaque temoin (0 a 1), dans l'ordre des pages */
   leds: number[];
+  /** la touche allumee en entier (2026-10-18) : 1 la page montree, 0 ailleurs et en vue HOME */
+  lit: number[];
+  /** le nom de chaque touche en noir (sur une touche allumee) */
+  dark: boolean[];
   page: string;
   home: boolean;
 }
+
+/** Le blanc vers lequel tire le temoin d'une touche allumee (il ne se perd pas dans l'orange du dessus). */
+const WHITE = new Color(1, 1, 1);
 
 export class RytmPageKeys {
   readonly keys: InstancedMesh;
@@ -59,12 +75,16 @@ export class RytmPageKeys {
   private emissive: InstancedBufferAttribute;
   private level = new Float32Array(N);
   private press = new Float32Array(N);
+  /** la touche allumee en entier, 0 a 1 (2026-10-18) */
+  private fill = new Float32Array(N);
+  /** les noms sur les touches (2026-10-18) */
+  readonly labels: KeyLabels;
   private off = new Color();
   private on = new Color();
   private page = '';
   private home = false;
 
-  constructor(opts: { mobile: boolean }) {
+  constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas }) {
     const g = keyGeometry(opts.mobile);
     this.emissive = new InstancedBufferAttribute(new Float32Array(N * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
@@ -95,11 +115,44 @@ export class RytmPageKeys {
     this.leds.instanceMatrix.setUsage(DynamicDrawUsage);
     this.leds.instanceMatrix.needsUpdate = true;
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
+    // Les noms, dans l'ordre des touches
+    const specs = RYTM_PAGE_KEYS.map((p) => KEY_LABELS.find((l) => l.id === p.id)).filter((l) => l !== undefined);
+    this.labels = new KeyLabels(opts.atlas, specs, PAGE_KEYS.h, 'pageKey');
   }
 
   /** Les meshes a poser sur le plateau. */
   objects(): Object3D[] {
-    return [this.keys, this.leds];
+    return [this.keys, this.leds, this.labels.mesh];
+  }
+
+  /** Le temoin i : eteint, a peine, allume ; sur une touche allumee, tire vers le blanc. */
+  private paintLed(i: number): void {
+    col.copy(this.off).lerp(this.on, this.level[i]);
+    if (this.fill[i] > 0) col.lerp(WHITE, KEY_LIT.ledWhite * this.fill[i]);
+    this.leds.setColorAt(i, col);
+    if (this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
+  }
+
+  /** L'eclat de la touche i : celui de l'appui, ou celui de la touche allumee s'il est plus fort (2026-10-18). */
+  private writeGlow(i: number): void {
+    const e = this.emissive.array as Float32Array;
+    const g = KEY_LIT.glow.orange;
+    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * this.press[i], g[c] * KEY_LIT_LIGHT.glow * this.fill[i]);
+    this.emissive.needsUpdate = true;
+  }
+
+  /** La teinte de la touche i : la sienne ; sur la machine claire, tiree vers l'orange de l'appui et de la touche allumee. */
+  private writeColor(i: number): void {
+    const b = LIT.clear;
+    col.setRGB(b[0], b[1], b[2]);
+    const t = PRESS_TINT.rgb;
+    const v = this.press[i];
+    if (t && v > 0) col.setRGB(b[0] + (t[0] - b[0]) * v, b[1] + (t[1] - b[1]) * v, b[2] + (t[2] - b[2]) * v);
+    const lt = KEY_LIT_LIGHT.tint?.orange;
+    const f = this.fill[i];
+    if (lt && f > 0) col.setRGB(col.r + (lt[0] - col.r) * f, col.g + (lt[1] - col.g) * f, col.b + (lt[2] - col.b) * f);
+    this.keys.setColorAt(i, col);
+    if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
   }
 
   /** La page affichee et la vue : les temoins suivent ; true s'il faut une frame. */
@@ -110,12 +163,17 @@ export class RytmPageKeys {
     let changed = false;
     RYTM_PAGE_KEYS.forEach((p, i) => {
       const v = p.id === page ? (home ? HOME_LEVEL : 1) : 0;
-      if (this.level[i] === v) return;
+      // La page montree s'allume en entier (2026-10-18) ; en vue HOME, aucune
+      const f = p.id === page && !home ? 1 : 0;
+      if (this.level[i] === v && this.fill[i] === f) return;
       this.level[i] = v;
-      this.leds.setColorAt(i, col.copy(this.off).lerp(this.on, v));
+      this.fill[i] = f;
+      this.paintLed(i);
+      this.writeGlow(i);
+      this.writeColor(i);
+      this.labels.setLit(i, f > KEY_LIT.dark);
       changed = true;
     });
-    if (changed && this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
     return changed;
   }
 
@@ -128,15 +186,10 @@ export class RytmPageKeys {
     this.keys.instanceMatrix.needsUpdate = true;
     this.leds.instanceMatrix.array[i * 16 + 13] = LED_Y + dy;
     this.leds.instanceMatrix.needsUpdate = true;
-    const e = this.emissive.array as Float32Array;
-    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = STEP_PRESS.glow[c] * v;
-    this.emissive.needsUpdate = true;
-    const t = PRESS_TINT.rgb;
-    if (t) {
-      const b = LIT.clear;
-      this.keys.setColorAt(i, col.setRGB(b[0] + (t[0] - b[0]) * v, b[1] + (t[1] - b[1]) * v, b[2] + (t[2] - b[2]) * v));
-      if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
-    }
+    // Son nom descend avec elle (2026-10-18)
+    this.labels.setDy(i, dy);
+    this.writeGlow(i);
+    if (PRESS_TINT.rgb) this.writeColor(i);
   }
 
   /**
@@ -163,7 +216,7 @@ export class RytmPageKeys {
   }
 
   info(): PageKeysInfo {
-    return { leds: Array.from(this.level, (v) => +v.toFixed(2)), page: this.page, home: this.home };
+    return { leds: Array.from(this.level, (v) => +v.toFixed(2)), lit: Array.from(this.fill), dark: this.labels.litState(), page: this.page, home: this.home };
   }
 
   dispose(): void {
@@ -173,5 +226,6 @@ export class RytmPageKeys {
     this.leds.geometry.dispose();
     this.ledMat.dispose();
     this.leds.dispose();
+    this.labels.dispose();
   }
 }

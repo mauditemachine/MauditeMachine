@@ -27,16 +27,18 @@
  * son pied.
  */
 
-import { OLED_UH, type Inst } from '../theme';
+import { OLED_UH, PORTRAIT, type Inst } from '../theme';
 
 /** Sans geste pendant ce temps, la liste se ferme. */
 export const BROWSER_IDLE_MS = 12000;
 /**
  * Les lignes montrees : 6 au desktop (12,5 unites chacune, 18 px a l'ecran) ;
  * 4 sur l'ecran haut du telephone (27 unites, 22 px : assez pour un doigt,
- * le reste defile en glissant).
+ * le reste defile en glissant). Le desktop a l'ecran haut aussi depuis le
+ * 2026-10-18 (theme.ts OLED_UH, Mika : "un ecran plus grand") : 7 lignes de
+ * 15,4 unites (24 px a 1440 x 900), une de plus qu'avant et plus hautes.
  */
-export const BROWSER_ROWS = OLED_UH > 120 ? 4 : 6;
+export const BROWSER_ROWS = PORTRAIT ? 4 : OLED_UH > 120 ? 7 : 6;
 /** Une ligne armee pour partir (REMOVE? TAP AGAIN) le reste ce temps. */
 export const BROWSER_ARM_MS = 4000;
 /** Le fichier glisse au-dessus de la machine : son annonce tient ce temps apres le dernier dragover. */

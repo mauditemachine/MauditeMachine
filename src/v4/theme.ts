@@ -463,14 +463,34 @@ export const BACKDROP: { transparent: boolean; readonly page: string } = { trans
  * MASTER / TEMPO (PAGE_KEYS, MASTER_POTS : 44 px au doigt chacune). La vue
  * PAGE s'y etale (scene/screen.ts, la mise en page haute) ; HOME, EDIT et
  * les presets gardent leur dessin de 120, centre (OLED_DY).
+ *
+ * Au desktop, plus grand aussi depuis le 2026-10-18 (Mika : "RYTM je
+ * voudrais un ecran plus grand") : le dessin haut du telephone (OLED_UH 158,
+ * la mise en page TALL de scene/screen.ts) sur un verre de 5.3 x 2.617
+ * (5.0 x 1.875 avant), une texture de 640 x 316. Son bord gauche reste sur
+ * la ligne du logo (-5.75), son haut sous l'en-tete (-2.8175, comme avant) ;
+ * 5.3 et pas 5.4 : a 5.4 le cadre arrivait a 0.1 du bord des pads BD et CP
+ * (leur halo le mordait), a 5.3 il en reste 0.2. Dessous, tout est remonte
+ * en consequence (PAGE_KEYS, PAGE_KNOBS en une rangee, GLOBAL_FX_RULE).
  */
-/** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 120 au desktop, 158 au telephone (2026-10-09). */
-export const OLED_UH = PORTRAIT ? 158 : 120;
+/** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 158 partout depuis le 2026-10-18 (120 au desktop avant). */
+export const OLED_UH = 158;
 /** Le decalage vertical (unites) du dessin de 120 de haut (HOME, EDIT, les presets) dans un ecran plus haut : centre. */
 export const OLED_DY = (OLED_UH - 120) / 2;
+/** Le verre du desktop (2026-10-18) : sa largeur, son bord gauche et son haut (ceux d'avant), sa profondeur au dessin haut. */
+const OLED_DESK = { w: 5.3, left: -5.75, top: -2.8175 } as const;
+const OLED_DESK_D = (OLED_DESK.w * OLED_UH) / 320;
 export const OLED = PORTRAIT
   ? ({ x: 0, z: -6.3 + (7.28 * OLED_UH) / 640, w: 7.28, d: (7.28 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 7.5, d: (7.28 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
-  : ({ x: -3.25, z: -1.88, w: 5.0, d: 1.875, y: 0.025, tex: [640, 240], bezel: { w: 5.26, d: 2.135, h: 0.02 } } as const);
+  : ({
+      x: OLED_DESK.left + OLED_DESK.w / 2,
+      z: OLED_DESK.top + OLED_DESK_D / 2,
+      w: OLED_DESK.w,
+      d: OLED_DESK_D,
+      y: 0.025,
+      tex: [640, OLED_UH * 2],
+      bezel: { w: OLED_DESK.w + 0.26, d: OLED_DESK_D + 0.26, h: 0.02 },
+    } as const);
 
 /**
  * Dessin de l'ecran (spec 20.3.8) : texte bone sur noir profond,
@@ -756,12 +776,27 @@ export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)
 /*
  * Desktop : 0.25 plus bas le 2026-10-09 avec les pads (MASTER et TEMPO au-dessus des voix, MASTER_POTS).
  */
+/*
+ * La forme des touches de page depuis le 2026-10-18 (Mika : "j'aime le format
+ * des boutons VOICE et FLTR etc. ; je veux la meme forme de boutons pour les
+ * boutons RUN/STOP CLEAR etc.") : plus des carres de 0.8, des touches plates a
+ * coins arrondis comme PAGE_KEYS (meme matiere, meme hauteur, meme arrondi, le
+ * meme temoin pres du bord arriere), w x d : 1.0 x 0.38 au desktop (le pas de
+ * 1.25 des colonnes de pads reste), 1.14 x 0.44 au telephone (cinq touches sur
+ * sa largeur, au pas de 1.3). Leur nom est imprime dessus (KEY_LABELS), plus
+ * dessous ; RUN/STOP garde son rouge. Leur centre ne bouge pas. hitD : la
+ * profondeur de leur zone (au telephone 0.9, environ 40 px au doigt ; la
+ * touche seule au desktop, la souris).
+ */
 export const TRANSPORT = {
-  size: PORTRAIT ? 0.74 : 0.8,
+  w: PORTRAIT ? 1.14 : 1.0,
+  d: PORTRAIT ? 0.44 : 0.38,
   h: 0.1,
-  radius: 0.04,
+  radius: PORTRAIT ? 0.05 : 0.04,
   z: PORTRAIT ? 2.62 : 0.83,
-  labelZ: PORTRAIT ? 3.12 : 1.41,
+  hitD: PORTRAIT ? 0.9 : 0.38,
+  /** le temoin, celui des touches de page (a la largeur de la touche) */
+  led: PORTRAIT ? { w: 0.62, d: 0.05, back: 0.11 } : { w: 0.54, d: 0.042, back: 0.09 },
   run: { x: PORTRAIT ? -2.6 : 0.37 },
   clear: { x: PORTRAIT ? -1.3 : 1.62 },
   random: { x: PORTRAIT ? 0 : 2.87 },
@@ -1088,6 +1123,20 @@ export interface EncPlace {
   s: number;
 }
 
+/** Le centre des touches de page du desktop (2026-10-18) : 0.09 sous le cadre du verre plus haut, la moitie de leur profondeur. */
+const DESK_PKEY_Z = OLED.z + OLED.bezel.d / 2 + 0.09 + 0.19;
+
+/**
+ * Le filet du desktop entre les touches de page et les encodeurs (revue du
+ * 2026-10-09) : sa profondeur, et l'ouverture en son milieu ou se lit GLOBAL
+ * FX (le titre des huit encodeurs, sur le filet : sous VOICE il se lisait
+ * VOICE GLOBAL FX). Les noms des encodeurs 0.46 au-dessus de leur centre (0.37
+ * : la collerette, vue d'en haut, mangeait le bas de DIST et de REVERB).
+ * Depuis le 2026-10-18 les noms des touches sont sur elles : le filet passe
+ * dz sous le bord avant des touches (z, son z sur le panneau).
+ */
+export const GLOBAL_FX_RULE = { dz: 0.16, gap: 0.36, z: DESK_PKEY_Z + 0.19 + 0.16 } as const;
+
 /**
  * Les deux rangees des potards de page (z de leur centre), leur echelle, la
  * lettre en haut a gauche de la collerette. Desktop : sous les touches de
@@ -1096,22 +1145,24 @@ export interface EncPlace {
  * noms des touches, a 20 px de A B C D, se lisaient comme ceux des potards ;
  * un filet les separe, SILK_LINES). Le telephone n'en a plus
  * (PAGE_KNOBS_ON_FACE) : ses valeurs ne servent qu'au type.
+ *
+ * Desktop, une seule rangee de huit depuis le 2026-10-18 (Mika : "RYTM je
+ * voudrais un ecran plus grand") : le verre plus haut descend jusqu'a -0.07,
+ * deux rangees n'avaient plus leur place au-dessus des pas (leurs LED a
+ * 2.05) ; huit encodeurs a l'echelle 0.85 (s), au pas de 0.66 (pitch), centres
+ * sous le verre (pageKnobX), leur nom 0.39 au-dessus de leur centre (nameDz,
+ * a leur echelle). Les deux rangees du type ont le meme z.
  */
 export const PAGE_KNOBS = PORTRAIT
-  ? ({ rowZ: [-3.08, -1.96], s: 1.15, letterDx: -0.5, letterDz: -0.26, cap: 0.085, nameDz: -0.38, titleDz: -0.62 } as const)
-  : ({ rowZ: [0.56, 1.42], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.07, nameDz: -0.46, titleDz: -0.6 } as const);
+  ? ({ rowZ: [-3.08, -1.96], s: 1.15, pitch: 0, letterDx: -0.5, letterDz: -0.26, cap: 0.085, nameDz: -0.38, titleDz: -0.62 } as const)
+  : ({ rowZ: [GLOBAL_FX_RULE.z + 0.6, GLOBAL_FX_RULE.z + 0.6], s: 0.85, pitch: 0.66, letterDx: -0.29, letterDz: -0.28, cap: 0.065, nameDz: -0.39, titleDz: -0.51 } as const);
 
 /**
- * Le filet du desktop entre les touches de page et les encodeurs (revue du
- * 2026-10-09) : sa profondeur, et l'ouverture en son milieu ou se lit GLOBAL
- * FX (le titre des huit encodeurs, sur le filet : sous VOICE il se lisait
- * VOICE GLOBAL FX). Les noms des encodeurs 0.46 au-dessus de leur centre (0.37
- * : la collerette, vue d'en haut, mangeait le bas de DIST et de REVERB).
+ * x du potard de page k (0 a 7) : une rangee de huit centree sous le verre au
+ * pas PAGE_KNOBS.pitch (2026-10-18 ; jusque-la la colonne k % 4 de blocs de
+ * l'ecran, 2 x 4).
  */
-export const GLOBAL_FX_RULE = { dz: 0.17, gap: 0.36 } as const;
-
-/** x de la colonne c (0 a 3) des potards de page : sous le centre de la colonne de blocs de l'ecran. */
-export const pageKnobX = (c: number): number => OLED.x + ((44 + 76 * c - 160) * OLED.w) / 320;
+export const pageKnobX = (k: number): number => OLED.x + (k - 3.5) * PAGE_KNOBS.pitch;
 
 /**
  * Les huit encodeurs du desktop, a poste fixe depuis le 2026-10-09 (l'etape
@@ -1206,7 +1257,7 @@ function potPlace(id: 'level' | 'tempo'): EncPlace {
 
 /** Les potards de page sur la face (desktop), dans l'ordre A a H ; aucun au telephone (2026-10-09). */
 const PAGE_FACE_KNOBS: readonly ({ id: PageKnobId } & EncPlace)[] = PAGE_KNOBS_ON_FACE
-  ? PAGE_KNOB_IDS.map((id, k) => ({ id, x: pageKnobX(k % 4), z: PAGE_KNOBS.rowZ[k >> 2], labelZ: PAGE_KNOBS.rowZ[k >> 2], s: PAGE_KNOBS.s }))
+  ? PAGE_KNOB_IDS.map((id, k) => ({ id, x: pageKnobX(k), z: PAGE_KNOBS.rowZ[k >> 2], labelZ: PAGE_KNOBS.rowZ[k >> 2], s: PAGE_KNOBS.s }))
   : [];
 
 /** Les potards de la face, dans l'ordre des jumeaux : MASTER, TEMPO, puis les potards de page (desktop). */
@@ -1246,6 +1297,14 @@ export const RYTM_PAGE_KEYS = [
  * touche (-0.18 ; -0.09 avant, il touchait presque A B C D) et la zone reste la
  * touche (la souris).
  */
+/*
+ * Le 2026-10-18 (Mika : "au lieu d'ecrire les choses en dessous des boutons je
+ * voudrais que ce soit ecrit directement sur le bouton ; et quand c'est
+ * selectionne que ce soit plus voyant") : le nom est imprime sur la touche
+ * (KEY_LABELS), plus dessous ; la touche de la page montree s'allume en entier
+ * (KEY_LIT). Au desktop, sous le verre plus haut (DESK_PKEY_Z), un peu plus
+ * larges (1.15, le verre fait 5.3).
+ */
 const PAGE_KEYS_PHONE_Z = -2.275;
 export const PAGE_KEYS = PORTRAIT
   ? ({
@@ -1255,19 +1314,84 @@ export const PAGE_KEYS = PORTRAIT
       h: 0.1,
       radius: 0.05,
       z: PAGE_KEYS_PHONE_Z,
-      labelZ: PAGE_KEYS_PHONE_Z + 0.41,
-      cap: 0.095,
       led: { w: 0.86, d: 0.05, back: 0.11 },
       hitZ0: OLED.z + OLED.d / 2 + 0.002,
       hitZ1: MASTER_POTS.z - MASTER_POTS.hitR,
     } as const)
-  : ({ w: 1.1, d: 0.38, h: 0.1, radius: 0.04, z: -0.53, labelZ: -0.18, cap: 0.075, led: { w: 0.6, d: 0.042, back: 0.09 }, hitZ0: -0.53 - 0.19, hitZ1: -0.53 + 0.19 } as const);
+  : ({ w: 1.15, d: 0.38, h: 0.1, radius: 0.04, z: DESK_PKEY_Z, led: { w: 0.6, d: 0.042, back: 0.09 }, hitZ0: DESK_PKEY_Z - 0.19, hitZ1: DESK_PKEY_Z + 0.19 } as const);
 /** x de la touche de page k (0 a 3) : quatre touches egales sur la largeur du verre de l'ecran (2026-10-09). */
 export const pageKeyX = (k: number): number => {
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS.w / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS.w / 2;
   return x0 + ((x1 - x0) * k) / (RYTM_PAGE_KEYS.length - 1);
 };
+
+/**
+ * Les noms imprimes sur les touches (2026-10-18, Mika : "au lieu d'ecrire les
+ * choses en dessous des boutons je voudrais que ce soit ecrit directement sur
+ * le bouton") : VOICE FLTR ENV FX et RUN/STOP CLEAR RANDOM MUTE SOLO, au
+ * centre de leur dessus, dans la police et l'interlettrage de la serigraphie
+ * (SILK), en capitales. scene/keyLabels.ts les peint dans une seule texture
+ * (deux variantes par nom : l'encre sur une touche eteinte, le noir sur une
+ * touche allumee) et pose un petit plan sur chaque touche, qui s'enfonce avec
+ * elle. cap : la hauteur de capitale ; dz : le centre du nom, un rien en avant
+ * du centre (le temoin est pres du bord arriere) ; margin : l'air a chaque
+ * bout (le corps reduit pour tenir, le plus petit de son groupe pour tous,
+ * comme la serigraphie) ; au telephone (des touches plus larges, le doigt) un
+ * corps plus gros.
+ */
+export const KEY_LABEL = PORTRAIT ? ({ cap: 0.12, dz: 0.045, margin: 0.1, weight: 600 } as const) : ({ cap: 0.085, dz: 0.035, margin: 0.08, weight: 600 } as const);
+
+export interface KeyLabelSpec {
+  /** la touche : l'id d'une page (RYTM_PAGE_KEYS) ou d'un bouton du transport */
+  id: string;
+  text: string;
+  x: number;
+  z: number;
+  /** la largeur et la profondeur de la touche */
+  w: number;
+  d: number;
+  group: 'pkey' | 'tr';
+  /** l'encre au repos : celle de la serigraphie, ou l'os (RUN/STOP, sur son rouge, dans les deux apparences) */
+  rest: 'ink' | 'bone';
+}
+
+export const KEY_LABELS: readonly KeyLabelSpec[] = [
+  ...RYTM_PAGE_KEYS.map((pk, k): KeyLabelSpec => ({ id: pk.id, text: pk.label, x: pageKeyX(k), z: PAGE_KEYS.z, w: PAGE_KEYS.w, d: PAGE_KEYS.d, group: 'pkey', rest: 'ink' })),
+  ...(
+    [
+      ['run', 'RUN/STOP'],
+      ['clear', 'CLEAR'],
+      ['random', 'RANDOM'],
+      ['mute', 'MUTE'],
+      ['solo', 'SOLO'],
+    ] as const
+  ).map(([id, text]): KeyLabelSpec => ({ id, text, x: TRANSPORT[id].x, z: TRANSPORT.z, w: TRANSPORT.w, d: TRANSPORT.d, group: 'tr', rest: id === 'run' ? 'bone' : 'ink' })),
+];
+
+/**
+ * Une touche selectionnee s'allume en entier (2026-10-18, Mika : "quand c'est
+ * selectionne que ce soit plus voyant") : la page montree (pas en vue HOME :
+ * son temoin a peine, comme avant), RUN/STOP pendant la lecture, MUTE et SOLO
+ * tant que leur mode est arme, CLEAR et RANDOM le temps de leur eclair. Le
+ * dessus prend la couleur de son temoin, lumineux comme une touche Elektron
+ * allumee (glow : l'emissif lineaire, par couleur ; RUN plus chaud que le
+ * rouge de MUTE, sur son rouge), le nom passe au noir au-dela de dark ; le
+ * temoin reste l'accent, sa couleur tiree vers le blanc de ledWhite (sinon il
+ * disparait dans la touche). La machine claire (KEY_LIT_LIGHT, applyAppearance) :
+ * le dessus prend aussi la teinte (tint, albedo lineaire), l'emissif seul
+ * palissait en peche, comme l'appui (PRESS_TINT).
+ */
+export type KeyLitTone = 'orange' | 'run' | 'red' | 'blue';
+export const KEY_LIT = {
+  // Cales par lecture de pixels a 1440 x 900 (2026-10-18) : orange 244,110,56 (l'orange d'OPEN : 235,111,38), RUN 243,97,62
+  // (au repos 192,70,52), MUTE 239,59,57, SOLO 97,133,230 ; plus fort, l'ACES les palissait en peche (252,160,75)
+  glow: { orange: [0.95, 0.08, 0], run: [0.5, 0.015, 0], red: [0.8, 0, 0], blue: [0.03, 0.15, 1.05] } as Readonly<Record<KeyLitTone, readonly number[]>>,
+  dark: 0.4,
+  ledWhite: 0.55,
+} as const;
+/** La machine claire : la teinte du dessus allume (null : l'emissif seul, la machine noire) et l'echelle de l'emissif. */
+export const KEY_LIT_LIGHT: { tint: Readonly<Record<KeyLitTone, readonly number[]>> | null; glow: number } = { tint: null, glow: 1 };
 
 /** Appui long sur un pas (revision 4) : il se vide au lieu de changer, en ms. */
 export const STEP_HOLD_MS = 400;
@@ -1591,23 +1715,19 @@ export const SILK_TEXTS: readonly SilkText[] = [
   ...FACE_KNOBS.filter((k) => !isPageKnob(k.id)).flatMap((k) => potTexts(k.id === 'level' ? 'level' : 'tempo', k)),
   // Les encodeurs du desktop (2026-10-09) : leur FX global a leur place, au-dessus d'eux (la lettre d'avant), et le titre
   // GLOBAL FX au-dessus du bloc, comme VOICES au-dessus des pads
+  // Une rangee de huit depuis le 2026-10-18 : un nom plus court de place (le pas de 0.66), le meme corps pour tous (group)
   ...FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((k, i) => ({
     text: GLOBAL_ENC_LABELS[i],
     x: k.x,
     z: k.z + PAGE_KNOBS.nameDz,
     cap: PAGE_KNOBS.cap,
-    maxW: 1.05,
+    maxW: PAGE_KNOBS.pitch - 0.05,
+    group: 'genc',
     weight: 700,
     alpha: 0.8,
   })),
-  ...(PAGE_KNOBS_ON_FACE ? [{ text: 'GLOBAL FX', x: OLED.x, z: PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz, cap: 0.06, weight: 700, alpha: 0.7 }] : []),
-  // Les noms des touches de page, sous elles
-  ...RYTM_PAGE_KEYS.map((pk, k) => ({ text: pk.label, x: pageKeyX(k), z: PAGE_KEYS.labelZ, cap: PAGE_KEYS.cap, maxW: PAGE_KEYS.w + 0.1, group: 'pkey', weight: 600 })),
-  { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
-  { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
-  { text: 'RANDOM', x: TRANSPORT.random.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
-  { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
-  { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
+  ...(PAGE_KNOBS_ON_FACE ? [{ text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.06, weight: 700, alpha: 0.7 }] : []),
+  // Les noms des touches de page et du transport sont sur elles depuis le 2026-10-18 (KEY_LABELS, scene/keyLabels.ts)
   ...PADS.map(padLabel),
   ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.075 })),
   // Le geste des verrous sous les pas, comme le MM-BASS (revue de R2, Mika : "je ne comprends toujours pas comment
@@ -1629,11 +1749,12 @@ export const SILK_LINES: readonly (readonly number[])[] = [
   // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
   [PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72],
   // Desktop (revue du 2026-10-09) : un filet sous les noms des touches de page, de la largeur du verre ; les touches
-  // et l'ecran d'un cote, les huit potards de l'autre (les noms se lisaient comme ceux des potards)
+  // et l'ecran d'un cote, les huit potards de l'autre (les noms se lisaient comme ceux des potards) ; sous les touches
+  // elles-memes depuis le 2026-10-18 (leurs noms sont dessus)
   ...(PAGE_KNOBS_ON_FACE
     ? [
-        [OLED.x - OLED.w / 2, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz, OLED.x - GLOBAL_FX_RULE.gap, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz],
-        [OLED.x + GLOBAL_FX_RULE.gap, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz, OLED.x + OLED.w / 2, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz],
+        [OLED.x - OLED.w / 2, GLOBAL_FX_RULE.z, OLED.x - GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z],
+        [OLED.x + GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z, OLED.x + OLED.w / 2, GLOBAL_FX_RULE.z],
       ]
     : []),
   ...[0, 1, 2, 3].map((g) => {
@@ -2318,6 +2439,9 @@ const LIGHT = {
   openTint: [1.32, 0.19, 0.012],
   /** pads de voix coupes (rouge LED) et en solo (bleu) */
   voiceTint: { mute: '#C8372C', solo: '#8DB2E4' },
+  /** une touche allumee (2026-10-18, KEY_LIT) : le dessus a la couleur de son temoin, un emissif plus doux */
+  keyLit: { orange: [1.0, 0.24, 0.035], run: [1.0, 0.13, 0.05], red: [0.85, 0.035, 0.025], blue: [0.09, 0.26, 1.0] } as Record<KeyLitTone, number[]>,
+  keyLitGlow: 0.3,
 };
 
 /** Multiplicateur de couleur du pad OPEN (blanc : la teinte du caoutchouc). */
@@ -2381,6 +2505,9 @@ export function applyAppearance(a: Appearance): void {
   EXPOSURE.value = L ? LIGHT.exposure : 1;
   OPEN_TINT.splice(0, 3, ...(L ? LIGHT.openTint : [1, 1, 1]));
   PRESS_TINT.rgb = L ? [1.0, 0.24, 0.035] : null;
+  // Une touche allumee sur la machine claire (2026-10-18) : sa teinte, l'emissif plus doux
+  KEY_LIT_LIGHT.tint = L ? LIGHT.keyLit : null;
+  KEY_LIT_LIGHT.glow = L ? LIGHT.keyLitGlow : 1;
   BACKDROP.transparent = !L;
   Object.assign(VOICE_TINT, L ? LIGHT.voiceTint : DARK.voiceTint);
   APPEARANCE.current = a;

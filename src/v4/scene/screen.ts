@@ -152,7 +152,7 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, type EncId, type Inst } from '../theme';
+import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
 import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
@@ -518,9 +518,13 @@ const SB: {
   label: number;
   tag: number;
   hint: [number, number];
-} = TALL
+} = PORTRAIT
   ? { rows: [24, 132], x0: 8, x1: 305, bar: 312, del: 0, arrows: [[226, 257], [260, 291]], arrow: 5.6, head: 14.5, rank: 10.5, num: 9, label: 13, tag: 9, hint: [10, 10] }
-  : { rows: [24, 99], x0: 8, x1: 306, bar: 312.5, del: 17, arrows: [[255, 277], [280, 302]], arrow: 4.2, head: 11.5, rank: 8, num: 6, label: 8.8, tag: 5.6, hint: [6.8, 5.8] };
+  : TALL
+    ? // L'ecran haut du desktop (2026-10-18) : la place des lignes du telephone, sept lignes de 15,4 (BROWSER_ROWS), le x des
+      // samples perso garde (la souris), l'en-tete du dessin haut
+      { rows: [24, 132], x0: 8, x1: 305, bar: 312, del: 18, arrows: [[226, 257], [260, 291]], arrow: 5.6, head: 14.5, rank: 10.5, num: 7.5, label: 10.5, tag: 7, hint: [9, 8] }
+    : { rows: [24, 99], x0: 8, x1: 306, bar: 312.5, del: 17, arrows: [[255, 277], [280, 302]], arrow: 4.2, head: 11.5, rank: 8, num: 6, label: 8.8, tag: 5.6, hint: [6.8, 5.8] };
 /** Une ligne du navigateur. */
 const SB_PITCH = (SB.rows[1] - SB.rows[0]) / BROWSER_ROWS;
 /** Une ligne du navigateur sous la souris : un fond un peu plus franc que celui d'un bloc (une ligne est plus mince). */
@@ -2599,12 +2603,15 @@ export class Screen {
       const pick = (...l: string[]): string => l.find((s) => fits(s, fs - 0.5, 0.6)) ?? l[l.length - 1];
       // La page d'un FX a deux onglets (2026-10-10) : GLOBAL ou la voix en haut, FX revient a l'onglet du mode
       const vt = fxVoiceTabLabel(inst);
+      // L'ecran haut du desktop (2026-10-18) : le clic et Echap, comme le pied d'une ligne d'avant
+      const tap = this.mobile ? 'TAP' : 'CLICK';
+      const back = this.mobile ? 'FX: BACK' : 'FX OR ESC: BACK';
       const bText = fxScopeTabs(screen)
-        ? pick(`TAP GLOBAL OR ${vt} · FX: BACK`, `GLOBAL OR ${vt} · FX: BACK`, 'FX: BACK')
+        ? pick(`${tap} GLOBAL OR ${vt} · ${back}`, `GLOBAL OR ${vt} · ${back}`, back)
         : isFxDetail(screen)
-        ? pick('TAP GLOBAL OR FX: BACK TO GLOBAL FX', 'TAP GLOBAL OR FX: BACK')
+        ? pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`)
         : screen === 'fxg'
-          ? pick('TAP A FX: ITS SETTINGS · NEVER P-LOCKED', 'TAP A FX: ITS SETTINGS')
+          ? pick(`${tap} A FX: ITS SETTINGS · NEVER P-LOCKED`, `${tap} A FX: ITS SETTINGS`)
           : `${pageLabel(page)} AGAIN: ${next}`;
       const b = this.fitText(bText, x1 - x0, fs - 0.5, 0.6, 700);
       this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);

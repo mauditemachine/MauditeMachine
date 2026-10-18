@@ -85,6 +85,7 @@ import {
   DPR_MAX,
   DPR_MIN_DESKTOP,
   FACE_KNOBS,
+  KEY_LABELS,
   EXPLODE,
   OPEN_VIEW,
   EXPOSURE,
@@ -129,6 +130,7 @@ import {
   type SectionId,
 } from '../theme';
 import { Encoders } from './encoders';
+import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { anyDialValue, dialRange, type DialId } from '../actions';
 import { FX_DETAILS, FX_VOICE_DETAILS, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
@@ -395,6 +397,8 @@ export class Stage {
   readonly encoders: Encoders;
   /** les touches de page du MM-RYTM et leurs temoins (2026-10-08 ; quatre depuis le 2026-10-09) */
   readonly pageKeys: RytmPageKeys;
+  /** les noms des touches de page et du transport, une texture (2026-10-18) */
+  readonly keyAtlas: KeyLabelAtlas;
   /** l'ecran OLED, texte de state/lcd.ts */
   readonly screen: Screen;
   /** le PCB de la vue eclatee : carte texturee et composants */
@@ -712,13 +716,26 @@ export class Stage {
       castShadow: true,
       mobile,
     });
+    // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture
+    this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
-    this.seq = new Sequencer3D({ mobile });
+    this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
     // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09
-    this.pageKeys = new RytmPageKeys({ mobile });
+    this.pageKeys = new RytmPageKeys({ mobile, atlas: this.keyAtlas });
     // MASTER et TEMPO en aluminium au-dessus des voix (2026-10-09) ; au telephone, plus de potards de page (encoders.objects)
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, ...this.encoders.objects(), ...this.pageKeys.objects());
+    plateau.add(
+      this.pads.mesh,
+      this.pads.halos,
+      this.seq.keys,
+      this.seq.frames,
+      this.seq.buttons,
+      this.seq.leds,
+      this.seq.btnLeds,
+      this.seq.labels.mesh,
+      ...this.encoders.objects(),
+      ...this.pageKeys.objects()
+    );
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(
@@ -2148,6 +2165,7 @@ export class Stage {
     void whenFonts().then(() => {
       if (this.disposed) return;
       this.silk.draw();
+      this.keyAtlas.draw();
       this.backPlate.draw();
       this.pcb.redraw();
       this.rytmTweaks.draw();
@@ -2942,7 +2960,9 @@ export class Stage {
       const led = voices.led(k);
       return led === 'on' ? 1 : led === 'blink' ? (blink ? 1 : 0.12) : led === 'dim' ? Stage.MODE_DIM : 0;
     };
-    return this.seq.setVoiceKeys(lv('mute'), lv('solo'));
+    // La touche allumee en entier tant que son mode est arme (2026-10-18) ; son temoin clignote a part
+    const on = (k: 'mute' | 'solo'): number => (voices.mode(k) === 'off' ? 0 : 1);
+    return this.seq.setVoiceKeys(lv('mute'), lv('solo'), on('mute'), on('solo'));
   };
 
   /** Le clignotement de MUTE et SOLO en attente d'une voix (2026-10-09) : 320 ms allume, 320 ms eteint ; a peine : 0.45. */
@@ -3146,6 +3166,7 @@ export class Stage {
     this.seq.dispose();
     this.encoders.dispose();
     this.pageKeys.dispose();
+    this.keyAtlas.dispose();
     this.screen.dispose();
     this.pcb.dispose();
     this.rytmTweaks.dispose();
