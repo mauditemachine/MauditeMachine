@@ -612,6 +612,18 @@
   margin-left: auto;
 }
 
+/* + FOLDER (LINK, NO COPY) en desktop (2026-10-18) : la precision en petit, la recherche garde de quoi s'ecrire */
+.dj-scr-add-sub {
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.dj-scr-tools:has(.dj-scr-add-sub) .dj-scr-search {
+  min-width: 5.5em;
+}
+
 /* FILES, desktop seulement (2026-10-18, Rekordbox) : les dossiers relies, leur etat, RECONNECT, REMOVE */
 .dj-scr-roots {
   display: flex;

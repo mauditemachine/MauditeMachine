@@ -132,34 +132,44 @@ export interface LinkedFile {
   size: number;
 }
 
+const fold = (s: string): string => s.normalize('NFC').toLowerCase();
+const baseOf = (p: string): string => p.slice(p.lastIndexOf('/') + 1);
+
 /**
  * Retrouve nos morceaux relies dans la collection : pour chaque TrackID
  * retrouve, l'id de la caisse. D'abord par le chemin sous le nom du
- * dossier relie (la fin de Location), sinon par nom de fichier et taille
- * (un dossier relie en dessous de la collection, ou deplace). Insensible a
- * la casse et a la forme des accents (macOS, iCloud).
+ * dossier relie (la fin de Location ; chaque endroit ou ce nom parait, un
+ * sous-dossier peut porter le meme), sinon par nom de fichier et taille
+ * (un dossier relie en dessous de la collection, ou deplace) ; sans
+ * taille dans l'export, par le nom seul quand il n'existe qu'une fois des
+ * deux cotes. Insensible a la casse et a la forme des accents (macOS,
+ * iCloud).
  */
-export function matchRekordbox(col: RbCollection, linked: readonly LinkedFile[]): Map<string, string> {
+export function matchRekordbox(col: RbCollection, linked: readonly LinkedFile[], root: string): Map<string, string> {
   const byPath = new Map<string, string>();
   const bySize = new Map<string, string>();
+  /** un nom de fichier relie, null s'il y en a plusieurs */
+  const byName = new Map<string, string | null>();
   for (const f of linked) {
-    byPath.set(f.path.normalize('NFC').toLowerCase(), f.id);
-    bySize.set(`${f.name.normalize('NFC').toLowerCase()}|${f.size}`, f.id);
+    const base = fold(f.name);
+    byPath.set(fold(f.path), f.id);
+    bySize.set(`${base}|${f.size}`, f.id);
+    byName.set(base, byName.has(base) ? null : f.id);
   }
-  const rootName = (linked[0]?.path ?? '').split('/')[0]?.normalize('NFC').toLowerCase() ?? '';
-  const needle = `/${rootName}/`;
+  const rbNames = new Map<string, number>();
+  for (const t of col.tracks) {
+    const base = baseOf(fold(t.path));
+    rbNames.set(base, (rbNames.get(base) ?? 0) + 1);
+  }
+  const needle = `/${fold(root)}/`;
   const out = new Map<string, string>();
   for (const t of col.tracks) {
-    const p = t.path.toLowerCase();
+    const p = fold(t.path);
     let id: string | undefined;
-    if (rootName) {
-      const i = p.lastIndexOf(needle);
-      if (i >= 0) id = byPath.get(p.slice(i + 1));
-    }
-    if (!id && t.size !== null) {
-      const base = p.split('/').pop() ?? '';
-      id = bySize.get(`${base}|${t.size}`);
-    }
+    if (root) for (let i = p.indexOf(needle); i >= 0 && !id; i = p.indexOf(needle, i + 1)) id = byPath.get(p.slice(i + 1));
+    const base = baseOf(p);
+    if (!id && t.size !== null) id = bySize.get(`${base}|${t.size}`);
+    if (!id && t.size === null && rbNames.get(base) === 1) id = byName.get(base) ?? undefined;
     if (id) out.set(t.id, id);
   }
   return out;
