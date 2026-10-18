@@ -8,6 +8,27 @@ messages, `localhost:5173/mm-admin` pour events, merch, news et releases.
 En ligne, ces deux URL existent mais affichent un écran "Édition désactivée".
 Voir la section plus bas pour le pourquoi et pour le circuit de mise à jour.
 
+## Samples du MM-RYTM : `/mm-admin/samples`
+
+Les samples de chaque voix du MM-RYTM : ceux du site, et ceux de tes projets
+Ableton (ton dossier `shots`), à écouter, choisir et publier.
+
+1. Dans le Terminal, dans le dossier du site : `git pull --ff-only && npm run admin`
+   (si `npm run admin` tournait déjà avant la mise à jour : Ctrl+C, puis relance).
+2. Dans le menu de gauche de l'admin : **Samples**
+   (ou directement `http://localhost:5173/mm-admin/samples`).
+3. L'analyse de tes projets démarre toute seule (lecture seule, sur ton Mac).
+   Les samples choisis automatiquement sont cochés d'avance ; le bouton rond
+   fait écouter (un seul son à la fois, rien ne joue tout seul).
+4. **Publier la sélection (N)**, puis « Publier » dans la fenêtre : ajout dans
+   `public/samples/rytm` (jamais de remplacement), commit, push ; le site se met
+   à jour en 1 à 2 minutes. La page donne la ligne pour annuler.
+
+Depuis le téléphone ou l'iPad : `npm run admin -- --lan` (avec `ADMIN_PASSWORD`),
+puis `http://<IP du Mac>:5173/mm-admin/samples`. En ligne, la page montre
+seulement les samples du site. Tout le détail (refus, `--reset-samples`, la
+commande équivalente `npm run samples:mika`) : `docs/samples-mika.md`.
+
 ## Fonctionnalités
 
 ### Gestion des Messages

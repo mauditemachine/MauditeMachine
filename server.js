@@ -426,6 +426,7 @@ app.post('/api/upload-image', authMiddleware, upload.single('image'), async (req
 
 import { spawn } from 'child_process';
 import { parseDitto, parseBandcamp, parseTikTok } from './scripts/csv-parsers.mjs';
+import { registerSamplesRoutes } from './scripts/admin-samples-api.mjs';
 
 const STATS_PUBLIC = path.join(PUBLIC_DIR, 'data', 'stats-public.json');
 const STATS_PRIVATE = path.join(__dirname, 'data', 'stats-private.json');
@@ -1013,10 +1014,16 @@ app.get('/api/admin/git/status', authMiddleware, async (req, res) => {
   }
 });
 
+// Les samples du MM-RYTM (/mm-admin/samples) : l'analyse des projets Ableton,
+// l'ecoute et la publication des samples choisis. Les routes vivent dans
+// scripts/admin-samples-api.mjs, toutes derriere authMiddleware.
+registerSamplesRoutes(app, authMiddleware);
+
 const HOST = LAN_MODE ? '0.0.0.0' : '127.0.0.1';
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}${LAN_MODE ? ' (mode LAN : accessible sur le réseau local, mot de passe exigé)' : ''}`);
   console.log('📁 Fichiers JSON mis à jour automatiquement dans public/');
   console.log('📸 Upload d\'images disponible sur /api/upload-image');
   console.log('📊 Stats : /api/stats/refresh, /api/stats/upload-csv, /api/stats/private');
+  console.log('🥁 Samples MM-RYTM : /api/admin/samples/scan, /preview, /publish (page /mm-admin/samples)');
 });

@@ -19,6 +19,8 @@ import DashboardPage from './pages/DashboardPage';
 const DiscographyPage = React.lazy(() => import('./pages/DiscographyPage'));
 const MixtapesPage = React.lazy(() => import('./pages/MixtapesPage'));
 const SeoPage = React.lazy(() => import('./pages/SeoPage'));
+// 2026-10-18 : les samples du MM-RYTM (ceux du site, ceux des projets Ableton de Mika), a ecouter et publier
+const SamplesPage = React.lazy(() => import('./pages/SamplesPage'));
 
 const AdminEvents = React.lazy(() => import('../components/AdminEvents'));
 
@@ -27,6 +29,7 @@ const EDIT_LINKS = [
   { to: '/mm-admin/contenu', label: 'Événements & boutique' },
   { to: '/mm-admin/discographie', label: 'Discographie' },
   { to: '/mm-admin/mixtapes', label: 'Mixtapes' },
+  { to: '/mm-admin/samples', label: 'Samples' },
   { to: '/mm-admin/medias', label: 'Médias', soon: 'bientôt' },
   { to: '/mm-admin/textes', label: 'Textes', soon: 'bientôt' },
 ];
@@ -160,6 +163,8 @@ const AdminApp: React.FC = () => {
           <Route path="discographie" element={<Protected>{isReadOnly() ? <LocalOnly what="Discographie" /> : <Suspense fallback={null}><DiscographyPage /></Suspense>}</Protected>} />
           <Route path="mixtapes" element={<Protected>{isReadOnly() ? <LocalOnly what="Mixtapes" /> : <Suspense fallback={null}><MixtapesPage /></Suspense>}</Protected>} />
           <Route path="seo" element={<Protected><Suspense fallback={null}><SeoPage /></Suspense></Protected>} />
+          {/* En ligne : les samples du site seulement (la page le gere) ; sur le Mac : l'analyse et la publication */}
+          <Route path="samples" element={<Protected><Suspense fallback={null}><SamplesPage /></Suspense></Protected>} />
           <Route path="medias" element={<Protected><ComingSoon step="prochaine étape" /></Protected>} />
           <Route path="textes" element={<Protected><ComingSoon step="prochaine étape" /></Protected>} />
           <Route path="publier" element={<Protected><ComingSoon step="prochaine étape" /></Protected>} />

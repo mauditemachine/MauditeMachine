@@ -29,7 +29,11 @@
 
 import FOUND from 'virtual:rytm-samples';
 import type { SamplePcm } from './sampledsp';
+import { sampleLabel } from './samplelabel';
 import { decodeAudio, userSamples } from './usersamples';
+
+/** Le nom court d'un fichier (audio/samplelabel.ts, partage avec l'admin) : sans extension, numero, "AT", ni le nom de la famille. */
+export { sampleLabel };
 
 /** Les familles de voix qui peuvent jouer un echantillon (celles de audio/kit.ts, une par voix), les dossiers du site. */
 const FAMILY_DIRS = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'] as const;
@@ -52,18 +56,6 @@ export interface KitSample {
 
 /** Une cle de sample de Mika garde dans ce navigateur ('<famille>/u:<id>'), connue ou non. */
 export const isUserKey = (key: string): boolean => /^[a-z]+\/u:/.test(key);
-
-/** Le nom court d'un fichier : sans extension, numero, "AT", ni le nom de la famille. */
-export function sampleLabel(file: string): string {
-  let t = file.replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' ');
-  t = t.replace(/^\s*\d+\s*[-.]?\s+/, '');
-  t = t.replace(/^AT\s+/i, '');
-  t = t.replace(/\b(master\s+)?(kicks?|snares?|claps?|hats?|hihats?|toms?|rims?|cymbals?|cyms?)\b/gi, ' ');
-  t = t.replace(/(master\s+)?(kicks?|snares?)(?=\d)/gi, ' ');
-  t = t.replace(/^\s*(BD|SD|CP|HH|CH|OH|HT|CY|RS)\s+/i, '');
-  t = t.replace(/\s+-\s+/g, ' ').replace(/\s-\s*$/, '').replace(/\s+/g, ' ').trim();
-  return (t || file).toUpperCase().slice(0, 18);
-}
 
 /** Les echantillons du site (le dossier public/samples/rytm), dans l'ordre des crans. */
 export const SAMPLES: readonly KitSample[] = FOUND.filter((x) => (FAMILY_DIRS as readonly string[]).includes(x.family))

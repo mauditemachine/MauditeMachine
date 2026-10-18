@@ -60,6 +60,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * Une requete brute vers server.js, avec le mot de passe (la page Samples :
+ * l'ecoute d'un candidat est un fichier audio, lu en blob car un <audio> ne
+ * sait pas envoyer d'en-tete ; et les refus de la publication se lisent
+ * meme quand le code n'est pas 200). Un 401 reverrouille l'admin.
+ */
+export async function adminRaw(path: string, init?: RequestInit): Promise<Response> {
+  const base = getApiUrl();
+  if (!base) throw new Error("Lance « npm run admin » sur ton ordinateur pour cette action.");
+  const res = await fetch(`${base}${path}`, { ...init, headers: { ...headers(), ...((init?.headers as Record<string, string> | undefined) ?? {}) } });
+  if (res.status === 401 || res.status === 429) {
+    window.dispatchEvent(new CustomEvent(ADMIN_UNAUTHORIZED_EVENT));
+    throw new Error('Accès refusé');
+  }
+  return res;
+}
+
 export const adminGet = <T>(path: string) => request<T>(path);
 
 export const adminPut = <T>(path: string, body: unknown) =>

@@ -90,6 +90,7 @@ function detectViteUrl(line) {
       `${C.bold}${C.green}  Panneau admin pret${C.reset}`,
       '',
       `  ${C.bold}${C.cyan}${base}/mm-admin${C.reset}   ${C.dim}events, merch, news, releases${C.reset}`,
+      `  ${C.cyan}${base}/mm-admin/samples${C.reset}   ${C.dim}samples du MM-RYTM : ceux de tes projets Ableton, a ecouter et publier${C.reset}`,
       `  ${C.cyan}${base}/ms-admin${C.reset}   ${C.dim}messages${C.reset}`,
       '',
       `  ${C.dim}Pas de mot de passe en local. Les modifications ecrivent`,

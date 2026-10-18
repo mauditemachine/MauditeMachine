@@ -113,15 +113,30 @@
  * est verifie octet pour octet (sinon pas de commit) ; --publish n'ajoute a
  * git que les nouveaux fichiers et verifie qu'il n'y a rien d'autre dans le
  * commit.
+ *
+ * L'admin (2026-10-18, Mika : "c'est vraiment une bonne idee, je veux voir
+ * les samples dans l'app") : la meme analyse et la meme publication, en
+ * fonctions (scan, publish, siteView), pour la page /mm-admin/samples de
+ * npm run admin (server.js, scripts/admin-samples-api.mjs). scan rend, voix
+ * par voix, les samples du site et TOUS les candidats de shots dans l'ordre
+ * du classement, chacun avec son identifiant (une empreinte de son chemin
+ * dans shots : le navigateur ne donne jamais de chemin), le nom qu'il aurait
+ * sur le site, et le choix automatique de la commande coche d'avance ;
+ * publish ajoute les seuls samples choisis (des identifiants), avec les
+ * memes refus et les memes garanties que --publish, et un commit qui dit
+ * "choisis dans l'admin". Le CLI ne change pas : meme sortie, memes codes de
+ * sortie (main ne tourne que lance comme script).
  */
 
-import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFile, lstat, mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import { copyFile, lstat, mkdir, open, readdir, readFile, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { AFCONVERT, AUDIO, FAMILIES, HOME_DIR, MAX_BYTES, SITE_DIR, UNDO, aiffToWav, audioKind, git, gitIgnored, gitStatus, natural, sha1, siteFiles, suffixed } from './rytm-samples-lib.mjs';
+import { assignNames, candidates as nameCandidates, leadNumber, sampleLabel } from './import-rytm-samples.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IMPORT_SCRIPT = path.join(ROOT, 'scripts/import-rytm-samples.mjs');
@@ -208,35 +223,53 @@ const USAGE = `Usage : npm run samples:mika                 (tout : analyse, ajo
 
 Sans --dry, --import ni --publish : le plan, le dossier de transit (${path.join(os.tmpdir(), 'mm-rytm-top-<date>')}) et le rapport.`;
 
-/** Un arret voulu (refus, rien a faire, usage) : main le rend en code de sortie, la sortie a le temps de s'ecrire. */
-class Stop extends Error {
-  constructor(code) {
-    super(`arret (${code})`);
+/**
+ * Un arret voulu (refus, rien a faire, usage) : main le rend en code de
+ * sortie, la sortie a le temps de s'ecrire. lines : ce qui a ete dit (le
+ * texte du refus, pour l'admin) ; kind : le genre d'arret (shots, staged,
+ * dirty, upstream, pull, ahead, missing, picks...), pour que l'admin propose
+ * la bonne suite.
+ */
+export class Stop extends Error {
+  constructor(code, lines = [], kind = null) {
+    super(lines.length > 0 ? lines.join('\n') : `arret (${code})`);
     this.code = code;
+    this.lines = lines;
+    this.kind = kind;
   }
 }
 
-function fail(msg, code = 1) {
-  console.error(`${msg}\n\n${USAGE}`);
-  throw new Stop(code);
+/**
+ * La sortie : la console pour le CLI (git et l'import y ecrivent tout droit,
+ * inherit) ; l'admin passe la sienne (log, error, progress), et git et
+ * l'import lui sont alors racontes au lieu d'ecrire dans le terminal.
+ */
+const CONSOLE = { log: (...a) => console.log(...a), error: (...a) => console.error(...a), inherit: true };
+
+function fail(msg, code = 1, io = CONSOLE, kind = 'usage') {
+  io.error(`${msg}\n\n${USAGE}`);
+  throw new Stop(code, [msg], kind);
 }
 
 /**
- * Apres --reset-samples : le dossier de sauvegarde ('' s'il n'y avait rien a
- * garder : seulement des fichiers retires, revenus). null : pas de reset.
+ * Un lancement : sa sortie, et apres --reset-samples le dossier de
+ * sauvegarde (resetBackup : '' s'il n'y avait rien a garder, seulement des
+ * fichiers retires, revenus ; null : pas de reset). origin : 'cli' ou
+ * 'admin' (le message du commit).
  */
-let resetBackup = null;
+const newRun = (io = CONSOLE, origin = 'cli') => ({ io, inherit: Boolean(io.inherit), origin, resetBackup: null });
 
 /** Ce qu'un refus dit de l'etat du depot : rien n'a change, ou seulement le --reset-samples demande. */
-const unchanged = () =>
-  resetBackup === null
+const unchanged = (run) =>
+  run.resetBackup === null
     ? "Rien n'a change."
-    : `Seul public/samples/rytm a ete remis comme en ligne (${resetBackup ? `sauvegarde : ${resetBackup}` : 'rien a sauvegarder : des fichiers retires, revenus'}).`;
+    : `Seul public/samples/rytm a ete remis comme en ligne (${run.resetBackup ? `sauvegarde : ${run.resetBackup}` : 'rien a sauvegarder : des fichiers retires, revenus'}).`;
 
 /** Un refus de --publish : ce qui bloque, quoi faire ; rien n'a change (ou seulement le reset demande : unchanged). */
-function refuse(lines, code = 2) {
-  console.error(`\n${[].concat(lines).join('\n')}`);
-  throw new Stop(code);
+function refuse(run, lines, code = 2, kind = null) {
+  const list = [].concat(lines);
+  run.io.error(`\n${list.join('\n')}`);
+  throw new Stop(code, list, kind);
 }
 
 const expand = (p) => path.resolve(p.trim().replace(/^~(?=$|\/)/, HOME));
@@ -740,7 +773,7 @@ function cleanName(file) {
 /* ---------------- ce que ce script a deja ajoute ---------------- */
 
 /** public/samples/rytm/ableton-picks.json : { files: { "bd/13 Nom.wav": { sha1, added, projects, refs } } }. */
-async function readManifest() {
+async function readManifest(io = CONSOLE) {
   let text;
   try {
     text = await readFile(MANIFEST, 'utf8');
@@ -752,7 +785,7 @@ async function readManifest() {
     const j = JSON.parse(text);
     return { ...j, files: j && typeof j.files === 'object' && j.files ? j.files : {} };
   } catch {
-    return fail(`${MANIFEST_REL} est illisible (JSON) : remets-le comme en ligne (git restore ${MANIFEST_REL}) puis relance.`, 2);
+    return fail(`${MANIFEST_REL} est illisible (JSON) : remets-le comme en ligne (git restore ${MANIFEST_REL}) puis relance.`, 2, io, 'manifest');
   }
 }
 
@@ -800,29 +833,29 @@ function backupDir(stamp) {
  * Puis git pull --ff-only. Rend la branche, la branche suivie, le depot
  * distant.
  */
-async function preflight(opts, stamp) {
-  console.log(`Depot : ${ROOT}`);
+async function preflight(opts, stamp, run) {
+  run.io.log(`Depot : ${ROOT}`);
   const top = git(ROOT, ['rev-parse', '--show-toplevel']);
-  if (top.status !== 0) refuse([`REFUS : ${ROOT} n'est pas un depot git (${(top.err || '').trim() || 'git rev-parse'}).`, 'Lance la commande depuis le dossier du site (celui de npm run admin). Rien n\'a change.']);
+  if (top.status !== 0) refuse(run, [`REFUS : ${ROOT} n'est pas un depot git (${(top.err || '').trim() || 'git rev-parse'}).`, 'Lance la commande depuis le dossier du site (celui de npm run admin). Rien n\'a change.'], 2, 'repo');
   const rootReal = (await realpath(ROOT)).normalize('NFC');
   const topReal = (await realpath(top.out.trim()).catch(() => top.out.trim())).normalize('NFC');
-  if (topReal !== rootReal) refuse([`REFUS : le depot git commence a ${topReal}, pas au dossier du site (${rootReal}). Rien n'a change.`]);
+  if (topReal !== rootReal) refuse(run, [`REFUS : le depot git commence a ${topReal}, pas au dossier du site (${rootReal}). Rien n'a change.`], 2, 'repo');
   const br = git(ROOT, ['symbolic-ref', '--quiet', '--short', 'HEAD']);
-  if (br.status !== 0) refuse(["REFUS : git n'est sur aucune branche (HEAD detachee). Reviens sur main : git switch main, puis relance. Rien n'a change."]);
+  if (br.status !== 0) refuse(run, ["REFUS : git n'est sur aucune branche (HEAD detachee). Reviens sur main : git switch main, puis relance. Rien n'a change."], 2, 'repo');
   const branch = br.out.trim();
 
   // (a) des fichiers deja prepares pour un commit : ils partiraient avec les samples
   const staged = git(ROOT, ['diff', '--cached', '--name-only', '-z']);
-  if (staged.status !== 0) refuse([`REFUS : git diff --cached a echoue (${staged.err.trim()}). Rien n'a change.`]);
+  if (staged.status !== 0) refuse(run, [`REFUS : git diff --cached a echoue (${staged.err.trim()}). Rien n'a change.`], 2, 'repo');
   const stagedList = staged.out.split('\0').filter(Boolean);
   if (stagedList.length > 0) {
-    refuse([
+    refuse(run, [
       `REFUS : ${plural(stagedList.length, 'fichier')} deja prepare(s) pour un commit (git add) :`,
       ...listOf(stagedList),
       "Ce script ne committe que les samples. Committe-les d'abord (git commit), ou retire-les du commit sans les perdre :",
       '    git restore --staged .',
       "puis relance. Rien n'a change.",
-    ]);
+    ], 2, 'staged');
   }
 
   // La branche suivie d'abord (rien que de la lecture) : un refus ici ne vient jamais apres un --reset-samples
@@ -830,26 +863,26 @@ async function preflight(opts, stamp) {
   const remote = git(ROOT, ['config', `branch.${branch}.remote`]).out.trim();
   const merge = git(ROOT, ['config', `branch.${branch}.merge`]).out.trim();
   if (up.status !== 0 || !remote || remote === '.' || !merge.startsWith('refs/heads/')) {
-    refuse([`REFUS : la branche ${branch} ne suit aucune branche d'un depot distant (git pull ne saurait pas d'ou tirer).`, `Branche-la sur GitHub : git branch --set-upstream-to=origin/${branch}, puis relance. Rien n'a change.`]);
+    refuse(run, [`REFUS : la branche ${branch} ne suit aucune branche d'un depot distant (git pull ne saurait pas d'ou tirer).`, `Branche-la sur GitHub : git branch --set-upstream-to=origin/${branch}, puis relance. Rien n'a change.`], 2, 'upstream');
   }
   const upstream = up.out.trim();
 
   // Le dossier des samples doit etre celui du dernier commit (un ancien import pas committe fausserait les numeros)
   let st = gitStatus(ROOT, SITE_DIR);
-  if (st === null) refuse([`REFUS : git status a echoue. Rien n'a change.`]);
+  if (st === null) refuse(run, [`REFUS : git status a echoue. Rien n'a change.`], 2, 'repo');
   if (st.length > 0) {
     const shown = st.map((e) => `${e.xy === '??' ? 'en trop ' : e.xy.includes('D') ? 'retire  ' : 'modifie '} ${e.rel}`);
     if (!opts.resetSamples) {
-      refuse([
+      refuse(run, [
         `REFUS : public/samples/rytm n'est pas comme dans le dernier commit (${plural(st.length, 'changement')}, un ancien import ?) :`,
         ...listOf(shown),
         'Pour le remettre comme en ligne puis tout refaire, colle :',
         '    npm run samples:mika -- --reset-samples',
         "(les fichiers modifies ici et ceux en trop sont d'abord sauvegardes dans .admin-backups/ du dossier du site, rien n'est perdu.) Rien n'a change.",
-      ]);
+      ], 2, 'dirty');
     }
-    console.log(`--reset-samples : public/samples/rytm remis comme dans le dernier commit (${plural(st.length, 'changement')}) :`);
-    for (const l of listOf(shown)) console.log(l);
+    run.io.log(`--reset-samples : public/samples/rytm remis comme dans le dernier commit (${plural(st.length, 'changement')}) :`);
+    for (const l of listOf(shown)) run.io.log(l);
     // D'abord la sauvegarde : un fichier modifie ici (git restore l'ecraserait) est copie, un fichier en trop sera deplace
     const kept = [];
     for (const e of st) {
@@ -865,58 +898,169 @@ async function preflight(opts, stamp) {
     }
     if (st.some((e) => e.xy !== '??')) {
       const r = git(ROOT, ['--literal-pathspecs', 'restore', '--worktree', '--', SITE_DIR]);
-      if (r.status !== 0) refuse([`REFUS : git restore a echoue (${r.err.trim()}).${modified.length > 0 ? ` Les fichiers modifies sont copies dans ${path.join(backup, SITE_DIR)}.` : ''}`]);
+      if (r.status !== 0) refuse(run, [`REFUS : git restore a echoue (${r.err.trim()}).${modified.length > 0 ? ` Les fichiers modifies sont copies dans ${path.join(backup, SITE_DIR)}.` : ''}`], 2, 'reset');
     }
     for (const e of extra) await move(path.join(ROOT, e.rel), path.join(backup, e.rel));
-    resetBackup = backup ? path.join(backup, SITE_DIR) : '';
-    if (backup) console.log(`  sauvegarde (${modified.length} modifie(s) ici, copie(s) avant le reset ; ${extra.length} en trop, deplace(s)) : ${resetBackup}`);
+    run.resetBackup = backup ? path.join(backup, SITE_DIR) : '';
+    if (backup) run.io.log(`  sauvegarde (${modified.length} modifie(s) ici, copie(s) avant le reset ; ${extra.length} en trop, deplace(s)) : ${run.resetBackup}`);
     st = gitStatus(ROOT, SITE_DIR);
-    if (!st || st.length > 0) refuse([`REFUS : public/samples/rytm reste modifie apres --reset-samples (${(st ?? []).map((e) => `${e.xy} ${e.rel}`).join(', ')}).${backup ? ` Sauvegarde : ${resetBackup}` : ''}`]);
-    console.log('');
+    if (!st || st.length > 0) refuse(run, [`REFUS : public/samples/rytm reste modifie apres --reset-samples (${(st ?? []).map((e) => `${e.xy} ${e.rel}`).join(', ')}).${backup ? ` Sauvegarde : ${run.resetBackup}` : ''}`], 2, 'reset');
+    run.io.log('');
   }
 
   // (b) git pull --ff-only : seulement une avance rapide, jamais de fusion ni de rebase
-  console.log(`git pull --ff-only (${branch} <- ${upstream})`);
-  const pull = git(ROOT, ['pull', '--ff-only', '--no-rebase'], { inherit: true });
+  run.io.log(`git pull --ff-only (${branch} <- ${upstream})`);
+  const pull = git(ROOT, ['pull', '--ff-only', '--no-rebase'], { inherit: run.inherit });
+  // L'admin n'a pas de terminal : ce que git a dit passe par sa sortie, et dans le refus
+  const said = run.inherit ? '' : `${pull.out}${pull.err}`.trim();
+  if (said) run.io.log(said);
   if (pull.status !== 0) {
-    refuse([
-      `REFUS : git pull --ff-only n'a pas pu mettre ${branch} a jour depuis ${upstream} (code ${pull.status}). ${unchanged()}`,
-      'Ce qu\'il faut faire, selon le message de git juste au-dessus :',
+    refuse(run, [
+      `REFUS : git pull --ff-only n'a pas pu mettre ${branch} a jour depuis ${upstream} (code ${pull.status}). ${unchanged(run)}`,
+      ...(said ? ['git a dit :', ...said.split('\n').slice(0, 8).map((l) => `    ${l}`)] : []),
+      `Ce qu'il faut faire, selon le message de git juste ${said ? 'ci-dessus' : 'au-dessus'} :`,
       "  - \"Not possible to fast-forward\" / \"divergent\" : tu as des commits ici que GitHub n'a pas, et l'inverse :",
       '      git pull --rebase   puis relance npm run samples:mika',
       '  - "Your local changes ... would be overwritten" : des fichiers modifies ici bloquent la mise a jour :',
       "      git status   (committe-les ou mets-les de cote : git stash), puis relance",
       '  - pas de reseau, mot de passe refuse : regle la connexion a GitHub, puis relance',
-    ]);
+    ], 2, 'pull');
   }
   const ahead = Number(git(ROOT, ['rev-list', '--count', '@{u}..HEAD']).out.trim() || 0);
   if (ahead > 0) {
-    refuse([
+    refuse(run, [
       `REFUS : ${plural(ahead, 'commit')} ici pas encore pousse(s) sur ${upstream} : ils partiraient avec les samples.`,
-      `Regarde-les (git log @{u}..), pousse-les d'abord (git push), puis relance. ${unchanged()}`,
-    ]);
+      `Regarde-les (git log @{u}..), pousse-les d'abord (git push), puis relance. ${unchanged(run)}`,
+    ], 2, 'ahead');
   }
-  console.log('');
+  run.io.log('');
   return { branch, upstream, remote, merge, onMain: merge === 'refs/heads/main' };
 }
 
-/* ---------------- le tout ---------------- */
+/* ---------------- l'analyse : shots, les sets, le site, le plan ---------------- */
 
-async function main() {
-  const opts = parseArgs(process.argv.slice(2));
-  const started = Date.now();
-  const stamp = new Date(started).toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-');
-  const staging = path.join(os.tmpdir(), `mm-rytm-top-${stamp}`);
+/** Une sortie muette (l'admin qui ne veut que le resultat). */
+const QUIET = { log() {}, error() {}, inherit: false };
 
-  if (!(await isDir(opts.shots))) fail(`Dossier shots introuvable : ${opts.shots}\nDonne-le : npm run samples:ableton -- --shots "/chemin/vers/shots"`);
+/**
+ * L'identifiant d'un fichier de shots pour l'admin : une empreinte de son
+ * chemin relatif a shots (stable d'une analyse a l'autre). Le navigateur ne
+ * donne que lui, jamais un chemin.
+ */
+export const sampleId = (rel) => sha1(rel.normalize('NFC').split(path.sep).join('/')).slice(0, 16);
+
+/** Un chemin relatif ecrit avec des / (l'affichage de l'admin). */
+const slash = (rel) => rel.split(path.sep).join('/');
+
+/** Les options sans argument (celles de parseArgs), pour l'admin. */
+export function defaults() {
+  return {
+    shots: DEFAULT_SHOTS,
+    projects: [],
+    per: PER,
+    bdNew: BD_NEW,
+    minProjects: 1,
+    families: null,
+    map: new Map(),
+    report: null,
+    reportGiven: false,
+    dry: false,
+    import: false,
+    publish: false,
+    resetSamples: false,
+  };
+}
+
+/** Le dossier shots : la, hors du depot, et le depot hors de lui. Rend leurs chemins reels. */
+async function locate(opts, run) {
+  if (!(await isDir(opts.shots))) fail(`Dossier shots introuvable : ${opts.shots}\nDonne-le : npm run samples:ableton -- --shots "/chemin/vers/shots"`, 1, run.io, 'shots');
   const shotsReal = await realpath(opts.shots);
   const rootReal = await realpath(ROOT);
-  if (inside(shotsReal, rootReal)) fail(`Refuse : ${opts.shots} est dans le depot. Donne le dossier de tes samples sur le Mac.`);
-  if (inside(rootReal, shotsReal)) fail(`Refuse : ${opts.shots} contient le depot lui-meme.`);
+  if (inside(shotsReal, rootReal)) fail(`Refuse : ${opts.shots} est dans le depot. Donne le dossier de tes samples sur le Mac.`, 1, run.io, 'shots');
+  if (inside(rootReal, shotsReal)) fail(`Refuse : ${opts.shots} contient le depot lui-meme.`, 1, run.io, 'shots');
+  return { shotsReal, rootReal };
+}
 
-  /* ----- --publish : le depot pret, a jour ----- */
-  const pub = opts.publish ? await preflight(opts, stamp) : null;
+/**
+ * Un candidat peut-il aller sur le site ? null : oui (f.hash, f.src, f.from
+ * sont remplis, son empreinte notee dans cx.seen) ; sinon le saut et pourquoi
+ * (relecture S2 : ce que le site ne saurait pas lire ne prend pas de place,
+ * le suivant la prend) : vide, trop gros, illisible, pas de l'audio, un AIFF
+ * que rien ne convertit, deja sur le site (twin : son nom la-bas), meme
+ * contenu qu'un candidat deja retenu (dup). f.kind : son format d'apres son
+ * contenu ; f.raw : l'empreinte du fichier tel quel.
+ */
+async function examine(f, fam, cx) {
+  const { known, present, manifestAiff, seen } = cx;
+  if (f.size === 0) return { f, why: 'vide (0 octet)' };
+  if (f.size > MAX_BYTES) return { f, why: `trop gros (${kb(f.size)}, ${kb(MAX_BYTES)} au plus)` };
+  let data;
+  try {
+    data = await readFile(f.full);
+  } catch (e) {
+    return { f, why: `illisible (${e.code ?? e.message})` };
+  }
+  // Le contenu decide, pas l'extension : un texte nomme .wav ou un fichier coupe serait un cran muet
+  const kind = audioKind(data);
+  f.kind = kind;
+  if (!kind) return { f, why: data.length === 0 ? 'vide (0 octet)' : "pas un fichier audio lisible (son debut n'est ni WAV, AIFF, MP3, FLAC ni M4A)" };
+  let src = f.full;
+  let from = null;
+  if (kind === 'aiff') {
+    // Safari lit l'AIFF, Chrome et Firefox non : converti en WAV pour le site (afconvert, macOS), sinon ecarte
+    from = sha1(data);
+    f.raw = from;
+    const already = known.get(from) ?? present.find((x) => manifestAiff.get(from) === `${fam}/${x.name}`);
+    if (already) return { f, why: `deja sur le site : ${fam}/${already.name}`, twin: already.name };
+    if (!AFCONVERT) return { f, why: "AIFF : Chrome et Firefox ne le lisent pas, et afconvert (macOS) n'est pas la pour le convertir en WAV", aiff: true };
+    try {
+      src = aiffToWav(f.full);
+      data = await readFile(src);
+    } catch (e) {
+      return { f, why: `AIFF, la conversion en WAV a echoue (${e.message})`, aiff: true };
+    }
+    if (audioKind(data) !== 'wav') return { f, why: "AIFF, la conversion n'a pas donne de WAV", aiff: true };
+    if (data.length > MAX_BYTES) return { f, why: `trop gros une fois en WAV (${kb(data.length)}, ${kb(MAX_BYTES)} au plus)` };
+  }
+  const h = sha1(data);
+  if (!from) f.raw = h;
+  const twin = known.get(h);
+  if (twin) return { f, why: `deja sur le site : ${fam}/${twin.name}`, twin: twin.name };
+  const dup = seen.get(h);
+  if (dup) return { f, why: `meme contenu que ${dup.rel}`, dup };
+  seen.set(h, f);
+  f.hash = h;
+  // Le fichier a copier en transit (le WAV converti pour un AIFF) et l'empreinte de l'AIFF d'origine
+  f.src = src;
+  f.from = from;
+  return null;
+}
 
+/** Les noms de transit (01 Nom.wav : l'ordre), uniques dans la famille (un doublon : Nom2) ; un AIFF converti finit en .wav. */
+function nameStaged(items) {
+  const taken = new Set();
+  let n = 0;
+  for (const x of items) {
+    if (x.status === 'missing') continue;
+    const { stem, ext: own } = cleanName(x.f);
+    const ext = x.f.from ? '.wav' : own;
+    let s = stem;
+    for (let k = 2; taken.has(norm(s + ext)); k += 1) s = suffixed(stem.slice(0, MAX_STAGED_NAME - String(k).length - 1).trim(), k);
+    taken.add(norm(s + ext));
+    n += 1;
+    x.staged = `${String(n).padStart(2, '0')} ${s}${ext}`;
+  }
+}
+
+/**
+ * L'analyse : shots, les sets, ce qui est deja sur le site, et le plan de
+ * chaque famille (ce que la commande ajouterait). Ecrit ce que le CLI a
+ * toujours ecrit, par run.io ; run.io.progress (l'admin) suit les etapes.
+ * Avec candidates, en plus, voix par voix, tous les candidats de shots pour
+ * l'admin (listCandidates).
+ */
+async function analyze(opts, run, { shotsReal, rootReal }, { candidates = false } = {}) {
+  const { io } = run;
   const shotsBases = [...new Set([shotsReal, opts.shots].map((p) => norm(p)))];
   // Un chemin relatif a la User Library (Samples/shots/Kicks/x.wav) se resout depuis les dossiers au-dessus de shots
   const shotsAncestors = [];
@@ -926,7 +1070,7 @@ async function main() {
   const projectRoots = [];
   for (const d of given ? opts.projects : DEFAULT_PROJECTS) {
     if (!(await isDir(d))) {
-      if (given) console.log(`Note : dossier de projets introuvable, saute : ${d}`);
+      if (given) io.log(`Note : dossier de projets introuvable, saute : ${d}`);
       continue;
     }
     const r = await realpath(d);
@@ -934,7 +1078,7 @@ async function main() {
   }
   // Un dossier contenu dans un autre de la liste (Music/Ableton dans Music) se lit une fois
   const roots = projectRoots.filter((d) => !projectRoots.some((o) => o !== d && inside(d, o)));
-  if (roots.length === 0) fail(`Aucun dossier de projets lisible (${(given ? opts.projects : DEFAULT_PROJECTS).join(', ')}). Donne-en un : --projects "/chemin"`);
+  if (roots.length === 0) fail(`Aucun dossier de projets lisible (${(given ? opts.projects : DEFAULT_PROJECTS).join(', ')}). Donne-en un : --projects "/chemin"`, 1, io, 'projects');
 
   const mode = opts.dry
     ? "APERCU (--dry, rien n'est ecrit)"
@@ -943,15 +1087,16 @@ async function main() {
       : opts.import
         ? 'plan, dossier de transit puis AJOUT (sans git)'
         : "plan et dossier de transit (sans ajout)";
-  console.log(`Samples joues dans Ableton -> MM-RYTM`);
-  console.log(`  shots    : ${opts.shots}`);
-  console.log(`  projets  : ${roots.join('\n             ')}`);
-  console.log(
+  io.log(`Samples joues dans Ableton -> MM-RYTM`);
+  io.log(`  shots    : ${opts.shots}`);
+  io.log(`  projets  : ${roots.join('\n             ')}`);
+  io.log(
     `  mode     : ${mode} ; ${opts.per} par famille en tout${opts.bdNew > 0 ? `, bd : au moins ${opts.bdNew} kicks de plus` : ''}, des ${plural(opts.minProjects, 'projet')}${opts.families ? ` ; familles : ${opts.families.join(' ')}` : ''}${opts.map.size > 0 ? ` ; map : ${[...opts.map].map(([k, v]) => `${k}=${v}`).join(', ')}` : ''}`
   );
-  console.log("  regle    : ajout apres les numeros deja la, rien n'est retire ni renumerote\n");
+  io.log("  regle    : ajout apres les numeros deja la, rien n'est retire ni renumerote\n");
 
   /* ----- shots ----- */
+  io.progress?.({ phase: 'shots' });
   const shots = await walkShots(opts.shots, '', 0, { audio: [], unreadable: [], tooDeep: [] });
   for (const f of shots.audio) {
     Object.assign(f, classify(f, opts.map), { projects: new Set(), refs: 0 });
@@ -959,15 +1104,16 @@ async function main() {
   shots.audio.sort((a, b) => natural(a.rel, b.rel));
   const index = indexShots(shots.audio);
   const placeholders = shots.audio.filter((f) => f.placeholder);
-  console.log(`Shots : ${shots.audio.length} fichiers audio${placeholders.length > 0 ? `, ${placeholders.length} pas telecharge(s) d'iCloud` : ''}, ${FAMILIES.map((f) => `${shots.audio.filter((x) => x.fam === f).length} ${f}`).join(', ')}, ${shots.audio.filter((x) => !x.fam && !x.skip).length} inconnu(s)${shots.audio.filter((x) => x.skip).length > 0 ? `, ${shots.audio.filter((x) => x.skip).length} ecarte(s) (--map skip)` : ''}`);
-  if (shots.audio.length === 0) fail(`Aucun fichier audio (wav aif aiff mp3 flac m4a) dans ${opts.shots}`);
+  io.log(`Shots : ${shots.audio.length} fichiers audio${placeholders.length > 0 ? `, ${placeholders.length} pas telecharge(s) d'iCloud` : ''}, ${FAMILIES.map((f) => `${shots.audio.filter((x) => x.fam === f).length} ${f}`).join(', ')}, ${shots.audio.filter((x) => !x.fam && !x.skip).length} inconnu(s)${shots.audio.filter((x) => x.skip).length > 0 ? `, ${shots.audio.filter((x) => x.skip).length} ecarte(s) (--map skip)` : ''}`);
+  if (shots.audio.length === 0) fail(`Aucun fichier audio (wav aif aiff mp3 flac m4a) dans ${opts.shots}`, 1, io, 'shots');
 
   /* ----- les sets ----- */
+  io.progress?.({ phase: 'find', files: shots.audio.length });
   const sets = { sets: [], seen: new Set(), icloud: [], backups: 0, unreadable: [], tooDeep: [], skip: new Set([norm(rootReal), norm(shotsReal)]) };
   for (const r of roots) await walkSets(r, 0, sets);
   sets.sets.sort(natural);
-  console.log(`Sets : ${plural(sets.sets.length, 'Live set')} (*.als)${sets.backups > 0 ? `, ${plural(sets.backups, 'dossier')} Backup ignore(s)` : ''}${sets.icloud.length > 0 ? `, ${sets.icloud.length} pas telecharge(s) d'iCloud (ignores)` : ''}`);
-  if (sets.sets.length === 0) console.log('  Aucun set : les familles seront remplies avec les fichiers du dossier, dans leur ordre.');
+  io.log(`Sets : ${plural(sets.sets.length, 'Live set')} (*.als)${sets.backups > 0 ? `, ${plural(sets.backups, 'dossier')} Backup ignore(s)` : ''}${sets.icloud.length > 0 ? `, ${sets.icloud.length} pas telecharge(s) d'iCloud (ignores)` : ''}`);
+  if (sets.sets.length === 0) io.log('  Aucun set : les familles seront remplies avec les fichiers du dossier, dans leur ordre.');
 
   const totals = { refs: 0, matched: 0, unmatched: 0, ambiguous: 0, sizeMismatch: 0, empty: 0, byHow: {} };
   const unmatchedNames = new Map();
@@ -977,6 +1123,7 @@ async function main() {
   for (let i = 0; i < sets.sets.length; i += 1) {
     const set = sets.sets[i];
     const project = path.dirname(set);
+    io.progress?.({ phase: 'sets', done: i, total: sets.sets.length, files: shots.audio.length });
     let parsed;
     try {
       parsed = await readSet(set, shotsAncestors);
@@ -1004,13 +1151,13 @@ async function main() {
       r.file.projects.add(project);
       r.file.refs += 1;
     }
-    if ((i + 1) % PROGRESS_EVERY === 0 || i + 1 === sets.sets.length) console.log(`  ${i + 1}/${sets.sets.length} sets lus, ${totals.refs} references, ${totals.matched} dans shots`);
+    if ((i + 1) % PROGRESS_EVERY === 0 || i + 1 === sets.sets.length) io.log(`  ${i + 1}/${sets.sets.length} sets lus, ${totals.refs} references, ${totals.matched} dans shots`);
   }
-  console.log(`Projets : ${projects.size} distinct(s). References : ${totals.refs}, dont ${totals.matched} vers shots (${Object.entries(totals.byHow).map(([k, v]) => `${v} par ${k}`).join(', ') || 'aucune'}) et ${totals.unmatched} hors de shots${totals.ambiguous > 0 ? ` ; ${totals.ambiguous} homonyme(s) tranche(s) au premier venu` : ''}${totals.sizeMismatch > 0 ? ` ; ${totals.sizeMismatch} meme nom mais autre taille (autre version ?)` : ''}.\n`);
+  io.log(`Projets : ${projects.size} distinct(s). References : ${totals.refs}, dont ${totals.matched} vers shots (${Object.entries(totals.byHow).map(([k, v]) => `${v} par ${k}`).join(', ') || 'aucune'}) et ${totals.unmatched} hors de shots${totals.ambiguous > 0 ? ` ; ${totals.ambiguous} homonyme(s) tranche(s) au premier venu` : ''}${totals.sizeMismatch > 0 ? ` ; ${totals.sizeMismatch} meme nom mais autre taille (autre version ?)` : ''}.\n`);
 
   /* ----- ce qui est deja sur le site ----- */
   const site = await siteFiles(ROOT);
-  const manifest = await readManifest();
+  const manifest = await readManifest(io);
   const manifestHashes = new Set(Object.values(manifest.files).map((x) => x?.sha1).filter(Boolean));
   // Un AIFF deja ajoute (converti en WAV) : son empreinte d'origine -> le fichier du site
   const manifestAiff = new Map(Object.entries(manifest.files).filter(([, x]) => x?.aiffSha1).map(([k, x]) => [x.aiffSha1, k]));
@@ -1020,6 +1167,7 @@ async function main() {
   const rank = (list) => list.slice().sort((a, b) => b.projects.size - a.projects.size || b.refs - a.refs || natural(a.rel, b.rel));
   const plan = [];
   for (const fam of fams) {
+    io.progress?.({ phase: 'plan', fam, files: shots.audio.length, total: sets.sets.length, done: sets.sets.length });
     const all = shots.audio.filter((f) => f.fam === fam);
     const isUsed = (f) => f.projects.size > 0 && f.projects.size >= opts.minProjects;
     const used = rank(all.filter(isUsed));
@@ -1032,8 +1180,7 @@ async function main() {
     const base = present.length - ours.length;
     const target = fam === 'bd' && opts.bdNew > 0 ? Math.max(opts.per, base + opts.bdNew) : opts.per;
     const need = Math.max(0, target - present.length);
-    const known = new Map(present.map((x) => [x.hash, x]));
-    const seen = new Map();
+    const cx = { known: new Map(present.map((x) => [x.hash, x])), present, manifestAiff, seen: new Map() };
     const items = [];
     const skipped = [];
     for (const f of [...used, ...rest]) {
@@ -1044,91 +1191,604 @@ async function main() {
         items.push({ f, status });
         continue;
       }
-      // Ce que le site ne saurait pas lire ne prend pas de place : le suivant la prend (relecture S2)
-      if (f.size === 0) {
-        skipped.push({ f, why: 'vide (0 octet)' });
+      const skip = await examine(f, fam, cx);
+      if (skip) {
+        skipped.push(skip);
         continue;
       }
-      if (f.size > MAX_BYTES) {
-        skipped.push({ f, why: `trop gros (${kb(f.size)}, ${kb(MAX_BYTES)} au plus)` });
-        continue;
-      }
-      let data;
-      try {
-        data = await readFile(f.full);
-      } catch (e) {
-        skipped.push({ f, why: `illisible (${e.code ?? e.message})` });
-        continue;
-      }
-      // Le contenu decide, pas l'extension : un texte nomme .wav ou un fichier coupe serait un cran muet
-      const kind = audioKind(data);
-      if (!kind) {
-        skipped.push({ f, why: data.length === 0 ? 'vide (0 octet)' : "pas un fichier audio lisible (son debut n'est ni WAV, AIFF, MP3, FLAC ni M4A)" });
-        continue;
-      }
-      let src = f.full;
-      let from = null;
-      if (kind === 'aiff') {
-        // Safari lit l'AIFF, Chrome et Firefox non : converti en WAV pour le site (afconvert, macOS), sinon ecarte
-        from = sha1(data);
-        const already = known.get(from) ?? present.find((x) => manifestAiff.get(from) === `${fam}/${x.name}`);
-        if (already) {
-          skipped.push({ f, why: `deja sur le site : ${fam}/${already.name}` });
-          continue;
-        }
-        if (!AFCONVERT) {
-          skipped.push({ f, why: "AIFF : Chrome et Firefox ne le lisent pas, et afconvert (macOS) n'est pas la pour le convertir en WAV", aiff: true });
-          continue;
-        }
-        try {
-          src = aiffToWav(f.full);
-          data = await readFile(src);
-        } catch (e) {
-          skipped.push({ f, why: `AIFF, la conversion en WAV a echoue (${e.message})`, aiff: true });
-          continue;
-        }
-        if (audioKind(data) !== 'wav') {
-          skipped.push({ f, why: "AIFF, la conversion n'a pas donne de WAV", aiff: true });
-          continue;
-        }
-        if (data.length > MAX_BYTES) {
-          skipped.push({ f, why: `trop gros une fois en WAV (${kb(data.length)}, ${kb(MAX_BYTES)} au plus)` });
-          continue;
-        }
-      }
-      const h = sha1(data);
-      const twin = known.get(h);
-      if (twin) {
-        skipped.push({ f, why: `deja sur le site : ${fam}/${twin.name}` });
-        continue;
-      }
-      const dup = seen.get(h);
-      if (dup) {
-        skipped.push({ f, why: `meme contenu que ${dup.rel}` });
-        continue;
-      }
-      seen.set(h, f);
-      f.hash = h;
-      // Le fichier a copier en transit (le WAV converti pour un AIFF) et l'empreinte de l'AIFF d'origine
-      f.src = src;
-      f.from = from;
       items.push({ f, status });
     }
-    // Les noms de transit (01 Nom.wav : l'ordre), uniques dans la famille (un doublon : Nom2) ; un AIFF converti finit en .wav
-    const taken = new Set();
-    let n = 0;
-    for (const x of items) {
-      if (x.status === 'missing') continue;
-      const { stem, ext: own } = cleanName(x.f);
-      const ext = x.f.from ? '.wav' : own;
-      let s = stem;
-      for (let k = 2; taken.has(norm(s + ext)); k += 1) s = suffixed(stem.slice(0, MAX_STAGED_NAME - String(k).length - 1).trim(), k);
-      taken.add(norm(s + ext));
-      n += 1;
-      x.staged = `${String(n).padStart(2, '0')} ${s}${ext}`;
-    }
-    plan.push({ fam, all, used, present, hidden, ours, base, target, need, items, skipped, staged: items.filter((x) => x.staged), missing: items.filter((x) => x.status === 'missing') });
+    nameStaged(items);
+    plan.push({ fam, all, used, rest, present, hidden, ours, base, target, need, items, skipped, staged: items.filter((x) => x.staged), missing: items.filter((x) => x.status === 'missing'), cx });
   }
+
+  const A = { opts, roots, shots, index, placeholders, sets, totals, unmatchedNames, ambiguities, failed, projects, site, manifest, manifestHashes, manifestAiff, fams, plan };
+  if (candidates) {
+    io.progress?.({ phase: 'candidates', files: shots.audio.length, total: sets.sets.length, done: sets.sets.length });
+    A.families = await listCandidates(A);
+  }
+  return A;
+}
+
+/* ---------------- l'admin : tous les candidats, voix par voix ---------------- */
+
+/**
+ * Les noms que des fichiers de transit prendraient sur le site, comme
+ * scripts/import-rytm-samples.mjs les donnerait (ses propres fonctions) :
+ * le numero apres ceux deja la, le nom propre unique dans la famille.
+ */
+function siteNames(fam, staged, taken, start) {
+  if (staged.length === 0) return [];
+  const items = staged.map((name) => {
+    const file = { name, rel: path.join(fam, name) };
+    return { f: file, cands: nameCandidates(file, fam) };
+  });
+  const names = assignNames(items, taken, fam);
+  const width = Math.max(2, String(start + items.length - 1).length);
+  return items.map((it, i) => `${String(start + i).padStart(width, '0')} ${names[i]}${path.extname(it.f.name).toLowerCase()}`);
+}
+
+/** Les 12 premiers octets d'un fichier (son format, sans tout lire). */
+async function head(full) {
+  const fh = await open(full, 'r');
+  try {
+    const buf = Buffer.alloc(12);
+    const { bytesRead } = await fh.read(buf, 0, 12, 0);
+    return buf.subarray(0, bytesRead);
+  } finally {
+    await fh.close();
+  }
+}
+
+/** L'empreinte d'un fichier tel quel (une fois). */
+async function rawHash(f) {
+  if (!f.raw) f.raw = sha1(await readFile(f.full));
+  return f.raw;
+}
+
+/** Ce que l'admin montre des samples du site d'une famille (ceux que git ignore compris, marques). */
+function siteList(fam, files, manifest, manifestHashes) {
+  return files.map((x) => ({
+    n: leadNumber(x.name),
+    file: x.name,
+    label: sampleLabel(x.name),
+    size: x.size,
+    ignored: x.ignored || null,
+    ours: Boolean(manifest.files[`${fam}/${x.name}`] || manifestHashes.has(x.hash)),
+  }));
+}
+
+/**
+ * Voix par voix, pour l'admin : les samples du site, puis TOUS les fichiers
+ * de shots de la famille dans l'ordre du classement (les plus joues, puis les
+ * jamais joues), chacun avec ce qu'il faut pour choisir : projets et
+ * utilisations, format, lisible ou pourquoi pas, deja sur le site, iCloud, le
+ * nom qu'il aurait sur le site, et default (le choix automatique de la
+ * commande, coche d'avance). Ceux que le plan a deja examines gardent son
+ * verdict ; les autres sont juges sans tout lire (12 octets pour le format,
+ * l'empreinte seulement quand une taille egale celle d'un sample du site ou
+ * d'un autre candidat).
+ */
+async function listCandidates(A) {
+  const out = {};
+  for (const p of A.plan) {
+    const ranked = [...p.used, ...p.rest];
+    const inPlan = new Map(p.items.map((x) => [x.f, x]));
+    const skipped = new Map(p.skipped.map((s) => [s.f, s]));
+    const taken = new Set(p.present.map((x) => sampleLabel(x.name)));
+    const start = Math.max(0, ...p.present.map((x) => leadNumber(x.name)), p.present.length) + 1;
+    const groupFiles = siteNames(p.fam, p.staged.map((x) => x.staged), taken, start);
+    const group = new Map(p.staged.map((x, i) => [x.f, groupFiles[i]]));
+    const siteSizes = new Set(p.present.map((x) => x.size));
+    const sameSize = new Map();
+    for (const f of ranked) if (!f.placeholder && f.size > 0) sameSize.set(f.size, (sameSize.get(f.size) ?? 0) + 1);
+    const firstByRaw = new Map();
+    const list = [];
+    for (let i = 0; i < ranked.length; i += 1) {
+      const f = ranked[i];
+      const folder = slash(path.dirname(f.rel));
+      const c = {
+        id: sampleId(f.rel),
+        rank: i + 1,
+        path: slash(f.rel),
+        label: '',
+        siteFile: '',
+        folder: folder === '.' ? '' : folder,
+        projects: f.projects.size,
+        refs: f.refs,
+        unused: f.projects.size === 0,
+        bytes: f.size,
+        kind: null,
+        playable: false,
+        alreadyOnSite: false,
+        twin: null,
+        icloud: Boolean(f.placeholder),
+        default: false,
+        autoMissing: false,
+        aiff: false,
+        reason: null,
+        dupOf: null,
+        via: f.via ?? null,
+      };
+      const x = inPlan.get(f);
+      const s = skipped.get(f);
+      if (f.placeholder) {
+        c.reason = "pas encore telecharge d'iCloud";
+        c.autoMissing = Boolean(x);
+      } else if (x) {
+        c.default = true;
+        c.playable = true;
+        c.kind = f.kind ?? null;
+        c.aiff = Boolean(f.from);
+      } else if (s) {
+        c.reason = s.why;
+        c.kind = f.kind ?? null;
+        c.aiff = Boolean(s.aiff) || f.kind === 'aiff';
+        if (s.twin) {
+          c.alreadyOnSite = true;
+          c.twin = s.twin;
+        }
+        if (s.dup) c.dupOf = sampleId(s.dup.rel);
+      } else if (f.size === 0) {
+        c.reason = 'vide (0 octet)';
+      } else if (f.size > MAX_BYTES) {
+        c.reason = `trop gros (${kb(f.size)}, ${kb(MAX_BYTES)} au plus)`;
+      } else {
+        let kind = null;
+        try {
+          kind = audioKind(await head(f.full));
+        } catch (e) {
+          c.reason = `illisible (${e.code ?? e.message})`;
+        }
+        c.kind = kind;
+        if (!c.reason && !kind) c.reason = "pas un fichier audio lisible (son debut n'est ni WAV, AIFF, MP3, FLAC ni M4A)";
+        if (kind === 'aiff') {
+          c.aiff = true;
+          // Deja sur le site : le meme AIFF, ou un AIFF deja converti par cette commande (son empreinte d'origine)
+          const raw = await rawHash(f);
+          const already = p.cx.known.get(raw) ?? p.present.find((y) => A.manifestAiff.get(raw) === `${p.fam}/${y.name}`);
+          if (already) {
+            c.alreadyOnSite = true;
+            c.twin = already.name;
+            c.reason = `deja sur le site : ${p.fam}/${already.name}`;
+          } else if (!AFCONVERT) c.reason = "AIFF : Chrome et Firefox ne le lisent pas, et afconvert (macOS) n'est pas la pour le convertir en WAV";
+          else c.playable = true;
+        } else if (kind) {
+          const twin = siteSizes.has(f.size) ? p.cx.known.get(await rawHash(f)) : null;
+          if (twin) {
+            c.alreadyOnSite = true;
+            c.twin = twin.name;
+            c.reason = `deja sur le site : ${p.fam}/${twin.name}`;
+          } else c.playable = true;
+        }
+      }
+      // Le meme son sous un autre nom : le premier du classement le garde, les suivants le disent
+      if (!f.placeholder && !c.dupOf && f.size > 0 && (sameSize.get(f.size) ?? 0) > 1 && f.size <= MAX_BYTES) {
+        const raw = await rawHash(f).catch(() => null);
+        if (raw) {
+          const first = firstByRaw.get(raw);
+          if (first) c.dupOf = sampleId(first.rel);
+          else firstByRaw.set(raw, f);
+        }
+      }
+      // Le nom sur le site : celui du groupe pour le choix automatique, celui de son jumeau s'il y est deja,
+      // sinon comme s'il arrivait seul
+      let file = group.get(f) ?? (c.alreadyOnSite ? c.twin : null);
+      if (!file) {
+        const { stem, ext } = cleanName(f);
+        file = siteNames(p.fam, [`01 ${stem}${c.aiff || f.from ? '.wav' : ext}`], taken, start)[0];
+      }
+      c.siteFile = file;
+      c.label = sampleLabel(file);
+      list.push(c);
+    }
+    out[p.fam] = {
+      title: TITLE[p.fam],
+      target: p.target,
+      need: p.need,
+      present: p.present.length,
+      base: p.base,
+      ours: p.ours.length,
+      files: p.all.length,
+      used: p.used.length,
+      site: siteList(p.fam, [...p.present, ...p.hidden].sort((a, b) => natural(a.name, b.name)), A.manifest, A.manifestHashes),
+      candidates: list,
+    };
+  }
+  return out;
+}
+
+/**
+ * L'analyse pour l'admin (/mm-admin/samples) : rien n'est ecrit (un AIFF du
+ * choix automatique est converti le temps de l'analyse, dans le dossier
+ * temporaire). Rend { shots, projects, icloud, families: { bd: { site,
+ * candidates, target, ... } } } et, a part (files, a ne pas envoyer au
+ * navigateur), l'identifiant de chaque fichier de shots -> son chemin, pour
+ * l'ecoute. hooks.io : log, error, progress. Un dossier shots introuvable :
+ * une erreur Stop (kind 'shots').
+ */
+export async function scan(options = {}, hooks = {}) {
+  const opts = { ...defaults(), ...options, dry: true, import: false, publish: false };
+  const run = newRun(hooks.io ?? QUIET, 'admin');
+  const started = Date.now();
+  const loc = await locate(opts, run);
+  const A = await analyze(opts, run, loc, { candidates: true });
+  const unknown = A.shots.audio.filter((f) => !f.fam && !f.skip).sort((a, b) => b.projects.size - a.projects.size || natural(a.rel, b.rel));
+  const files = new Map(A.shots.audio.map((f) => [sampleId(f.rel), { full: f.full, rel: f.rel, fam: f.fam ?? null, size: f.size, placeholder: f.placeholder ?? null }]));
+  return {
+    date: new Date(started).toISOString(),
+    ms: Date.now() - started,
+    root: ROOT,
+    shots: {
+      path: opts.shots,
+      found: true,
+      files: A.shots.audio.length,
+      placeholders: A.placeholders.length,
+      unknown: unknown.length,
+      unknownTop: unknown.slice(0, 12).map((f) => ({ path: slash(f.rel), projects: f.projects.size, why: f.why ?? null })),
+      unreadable: A.shots.unreadable.length,
+    },
+    projects: {
+      roots: A.roots,
+      sets: A.sets.sets.length,
+      parsed: A.sets.sets.length - A.failed.length,
+      failed: A.failed.length,
+      projects: A.projects.size,
+      refs: A.totals.refs,
+      matched: A.totals.matched,
+      unmatched: A.totals.unmatched,
+      backups: A.sets.backups,
+    },
+    icloud: { sets: A.sets.icloud.length, samples: A.placeholders.length },
+    afconvert: Boolean(AFCONVERT),
+    git: A.site.git,
+    options: { per: opts.per, bdNew: opts.bdNew, maxPerVoice: MAX_PER_VOICE },
+    families: A.families,
+    files,
+  };
+}
+
+/** Les samples du site seulement (sans shots ni projets) : ce que l'admin montre quand l'analyse ne peut pas se faire. */
+export async function siteView() {
+  const site = await siteFiles(ROOT);
+  const manifest = await readManifest(QUIET);
+  const manifestHashes = new Set(Object.values(manifest.files).map((x) => x?.sha1).filter(Boolean));
+  const families = {};
+  for (const fam of FAMILIES) families[fam] = { title: TITLE[fam], site: siteList(fam, site.byFam.get(fam) ?? [], manifest, manifestHashes) };
+  return { root: ROOT, git: site.git, families };
+}
+
+/* ---------------- l'ajout, puis git ---------------- */
+
+/** Au plus, par voix, apres une publication de l'admin (au-dela, la liste du potard n'en finit plus). */
+export const MAX_PER_VOICE = 40;
+
+/** Un arret apres ecriture : chaque message passe par la sortie (comme avant), le refus les garde. */
+function halt(run, code, kind, ...msgs) {
+  for (const m of msgs) run.io.error(m);
+  throw new Stop(code, msgs.map((m) => m.replace(/^\n+/, '')), kind);
+}
+
+/** L'import (scripts/import-rytm-samples.mjs --staged) : dans le terminal pour le CLI, raconte a l'admin. */
+async function runImport(args, run) {
+  if (run.inherit) return spawnSync(process.execPath, args, { stdio: 'inherit', cwd: ROOT });
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+    let buf = '';
+    const take = (d) => {
+      buf += d;
+      const parts = buf.split('\n');
+      buf = parts.pop() ?? '';
+      for (const l of parts) run.io.log(l);
+    };
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', take);
+    child.stderr.on('data', take);
+    child.on('error', (error) => resolve({ error, status: null }));
+    child.on('close', (status) => {
+      if (buf) run.io.log(buf);
+      resolve({ error: null, status });
+    });
+  });
+}
+
+/** Le dossier de transit : <famille>/01 Nom.wav, le numero donne l'ordre. */
+async function stage(plan, run, staging) {
+  const importable = plan.filter((p) => p.staged.length > 0);
+  await mkdir(staging, { recursive: true });
+  for (const p of importable) {
+    const dir = path.join(staging, p.fam);
+    await mkdir(dir, { recursive: true });
+    for (const x of p.staged) await copyFile(x.f.src ?? x.f.full, path.join(dir, x.staged));
+  }
+  run.io.log(`Dossier de transit : ${staging} (${importable.map((p) => `${p.fam}/ ${p.staged.length}`).join(', ')})`);
+}
+
+/**
+ * L'ajout (l'import du dossier de transit), la verification (les anciens
+ * intacts octet pour octet, les nouveaux la et vus par git), la liste
+ * ableton-picks.json, puis avec --publish (pub) git add des seuls nouveaux,
+ * le commit et le push. Rend, par famille, avant -> apres et les noms ajoutes,
+ * le commit et si le push est passe. Un arret : Stop (avec la ligne pour
+ * revenir en arriere).
+ */
+async function importAndCommit(A, plan, opts, run, pub, { started, staging }) {
+  const { io } = run;
+  const { site, manifest } = A;
+  const importable = plan.filter((p) => p.staged.length > 0);
+  const importArgs = [IMPORT_SCRIPT, staging, '--staged', '--families', importable.map((p) => p.fam).join(',')];
+  const importCmd = `node scripts/import-rytm-samples.mjs "${staging}" --staged --families ${importable.map((p) => p.fam).join(',')}`;
+
+  /* ----- l'ajout ----- */
+  io.log(`Ajout : ${importCmd}\n`);
+  const r = await runImport(importArgs, run);
+  if (r.error) throw r.error;
+  if (r.status !== 0) {
+    halt(
+      run,
+      r.status || 1,
+      'import',
+      `\nL'ajout s'est arrete (code ${r.status}) : pas de commit. Le dossier de transit reste la : ${staging}`,
+      `Pour revenir a l'etat d'avant (si des fichiers ont ete ecrits) : ${UNDO}`,
+      ...(run.resetBackup ? [`La sauvegarde de --reset-samples reste la : ${run.resetBackup}`] : [])
+    );
+  }
+
+  /* ----- verifier : les anciens intacts, les nouveaux la ----- */
+  const after = await siteFiles(ROOT);
+  const changed = [];
+  const added = new Map();
+  for (const p of plan) {
+    const now = after.byFam.get(p.fam) ?? [];
+    const byName = new Map(now.map((x) => [x.name, x]));
+    for (const x of site.byFam.get(p.fam) ?? []) {
+      const y = byName.get(x.name);
+      if (!y || y.hash !== x.hash) changed.push(`${p.fam}/${x.name}`);
+    }
+    const before = new Set((site.byFam.get(p.fam) ?? []).map((x) => x.name));
+    const byHash = new Map(p.staged.map((x) => [x.f.hash, x]));
+    added.set(
+      p.fam,
+      now.filter((y) => !before.has(y.name)).map((y) => ({ ...y, pick: byHash.get(y.hash) ?? null }))
+    );
+  }
+  if (changed.length > 0) {
+    halt(run, 1, 'verify', `\nARRETE : ${plural(changed.length, 'fichier')} deja la a change (${changed.join(', ')}) : ca ne devait pas arriver. Pas de commit.`, `Pour revenir a l'etat d'avant : ${UNDO}`);
+  }
+  const newFiles = [...added.values()].flat();
+  const hiddenNew = newFiles.filter((y) => y.ignored);
+  if (hiddenNew.length > 0) {
+    halt(run, 1, 'verify', `\nARRETE : git ignore ${hiddenNew.map((y) => y.rel).join(', ')}. Pas de commit. Pour revenir a l'etat d'avant : ${UNDO}`);
+  }
+
+  /* ----- noter ce qui vient d'ici (la relance n'en rajoute pas) ----- */
+  const day = new Date(started).toISOString().slice(0, 10);
+  for (const [fam, list] of added) {
+    for (const y of list) {
+      manifest.files[`${fam}/${y.name}`] = {
+        sha1: y.hash,
+        added: day,
+        projects: y.pick?.f.projects.size ?? 0,
+        refs: y.pick?.f.refs ?? 0,
+        ...(y.pick?.f.from ? { aiffSha1: y.pick.f.from } : {}),
+        ...(run.origin === 'admin' ? { via: 'admin' } : {}),
+      };
+    }
+  }
+  if (newFiles.length > 0) await writeManifest(manifest);
+
+  const lines = plan.map((p) => {
+    const list = added.get(p.fam) ?? [];
+    const before = p.present.length;
+    return { fam: p.fam, before, after: before + list.length, names: list.map((y) => stemOf(y.name)), files: list.map((y) => y.name) };
+  });
+
+  /* ----- git : seulement les nouveaux samples ----- */
+  let commit = null;
+  let pushed = false;
+  let subject = null;
+  let pushError = null;
+  if (pub && newFiles.length > 0) {
+    const paths = [...newFiles.map((y) => y.rel), MANIFEST_REL];
+    const add = git(ROOT, ['--literal-pathspecs', 'add', '--', ...paths]);
+    if (add.status !== 0) {
+      halt(run, 1, 'git', `\nARRETE : git add a echoue (${add.err.trim()}). Pas de commit. Pour revenir a l'etat d'avant : git restore --staged ${SITE_DIR} && ${UNDO}`);
+    }
+    const cached = git(ROOT, ['diff', '--cached', '--name-only', '-z']).out.split('\0').filter(Boolean).map((x) => x.normalize('NFC'));
+    const want = new Set(paths.map((x) => x.normalize('NFC')));
+    const extra = cached.filter((x) => !want.has(x));
+    const lacking = [...want].filter((x) => !cached.includes(x));
+    if (extra.length > 0 || lacking.length > 0) {
+      git(ROOT, ['--literal-pathspecs', 'restore', '--staged', '--', ...paths]);
+      halt(
+        run,
+        1,
+        'git',
+        `\nARRETE : le commit ne contiendrait pas exactement les nouveaux samples${extra.length > 0 ? ` (en trop : ${extra.join(', ')})` : ''}${lacking.length > 0 ? ` (manquent : ${lacking.join(', ')})` : ''}. Pas de commit.`,
+        `Pour revenir a l'etat d'avant : ${UNDO}`
+      );
+    }
+    const grown = lines.filter((l) => l.after > l.before);
+    const counts = grown.map((l) => `${l.fam} +${l.after - l.before}`).join(', ');
+    subject = run.origin === 'admin' ? `MM-RYTM : samples de Mika choisis dans l'admin (${counts})` : `MM-RYTM : samples de Mika tires de ses projets Ableton (${counts})`;
+    const body = [
+      ...grown.map((l) => `${l.fam} : ${l.before} -> ${l.after} (${l.names.join(', ')})`),
+      '',
+      ...(run.origin === 'admin'
+        ? [
+            "Choisis par Mika dans l'admin local (npm run admin, /mm-admin/samples) parmi les samples de",
+            'ses projets Ableton (scripts/ableton-samples.mjs, publish) ; ajoutes apres les numeros deja',
+            `la, rien de retire ni renumerote. Liste : ${MANIFEST_REL}.`,
+          ]
+        : [
+            'npm run samples:mika (scripts/ableton-samples.mjs --publish) : les plus joues dans ses projets',
+            'Ableton (projets distincts, puis references), ajoutes apres les numeros deja la ; rien de retire',
+            `ni renumerote. Liste : ${MANIFEST_REL}.`,
+          ]),
+    ].join('\n');
+    const c = git(ROOT, ['commit', '-m', subject, '-m', body]);
+    if (c.status !== 0) {
+      halt(
+        run,
+        1,
+        'git',
+        `\nARRETE : git commit a echoue :\n${(c.err || c.out).trim()}`,
+        `Les samples sont prets et ajoutes (git add). Regle git (ex. git config user.name "Mika" ; git config user.email ...) puis : git commit -m "Samples MM-RYTM" && git push`,
+        `Ou annule tout : git restore --staged ${SITE_DIR} && ${UNDO}`
+      );
+    }
+    commit = git(ROOT, ['rev-parse', '--short', 'HEAD']).out.trim();
+    io.log(`\nCommit ${commit} : ${subject}`);
+    io.log(`git push ${pub.remote} HEAD:${pub.merge}`);
+    const push = git(ROOT, ['push', pub.remote, `HEAD:${pub.merge}`], { inherit: run.inherit });
+    if (!run.inherit && `${push.out}${push.err}`.trim()) io.log(`${push.out}${push.err}`.trim());
+    pushed = push.status === 0;
+    if (!pushed) {
+      pushError = [
+        `Le commit ${commit} est fait ici mais git push a refuse (code ${push.status}) : le site ne change pas encore.`,
+        '  Pour reessayer : git pull --rebase --autostash && git push',
+        '  Pour annuler le commit (les nouveaux samples repartent, le reste ne bouge pas) : git reset --keep HEAD~1',
+      ];
+      io.error(`\n${pushError[0]}`);
+      io.error(pushError[1]);
+      io.error(pushError[2]);
+    }
+  }
+  return { lines, commit, pushed, subject, pushError, newFiles, importable };
+}
+
+/**
+ * La publication de l'admin : les samples choisis (picks : { bd: [id...],
+ * sd: [...] }, des identifiants de scan, jamais un chemin), ajoutes apres les
+ * numeros deja la, commit et push. Les memes refus que --publish d'abord
+ * (preflight : fichiers prepares, public/samples/rytm modifie, commits pas
+ * pousses, git pull --ff-only qui echoue ; options.resetSamples : comme
+ * --reset-samples), puis une nouvelle analyse (apres le pull) et chaque
+ * choix revu : encore dans shots et dans sa voix, telecharge d'iCloud,
+ * lisible, pas deja sur le site, pas deux fois le meme son, MAX_PER_VOICE au
+ * plus. Le moindre souci : rien n'est ecrit. Rend { ok, lines (par voix :
+ * avant, apres, noms), commit, pushed, undo } ou { ok: false, refusal: {
+ * kind, text } }.
+ */
+export async function publish(picks, options = {}, hooks = {}) {
+  const opts = { ...defaults(), dry: false, import: true, publish: true, resetSamples: Boolean(options.resetSamples) };
+  const run = newRun(hooks.io ?? QUIET, 'admin');
+  const started = Date.now();
+  const stamp = new Date(started).toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-');
+  const staging = path.join(os.tmpdir(), `mm-rytm-top-${stamp}`);
+  try {
+    const loc = await locate(opts, run);
+    hooks.io?.progress?.({ phase: 'preflight' });
+    const pub = await preflight(opts, stamp, run);
+    const A = await analyze(opts, run, loc);
+    hooks.io?.progress?.({ phase: 'import' });
+    const plan = await pickPlan(A, picks, run);
+    await stage(plan, run, staging);
+    const done = await importAndCommit(A, plan, opts, run, pub, { started, staging });
+    if (done.newFiles.length === 0) {
+      return { ok: false, refusal: { code: 1, kind: 'nothing', text: `L'ajout n'a rien ecrit de nouveau : pas de commit. ${unchanged(run)}` }, reset: run.resetBackup !== null, resetBackup: run.resetBackup || null };
+    }
+    // Tout est sur le site (et dans le commit) : le dossier de transit ne sert plus (le CLI le garde, a relire)
+    await rm(staging, { recursive: true, force: true });
+    return {
+      ok: done.pushed,
+      lines: done.lines,
+      commit: done.commit,
+      subject: done.subject,
+      pushed: done.pushed,
+      pushError: done.pushError,
+      branch: pub.branch,
+      target: pub.merge.replace('refs/heads/', ''),
+      onMain: pub.onMain,
+      undo: done.pushed ? `git revert --no-edit ${done.commit} && git push` : 'git reset --keep HEAD~1',
+      reset: run.resetBackup !== null,
+      resetBackup: run.resetBackup || null,
+      manifest: MANIFEST_REL,
+    };
+  } catch (e) {
+    if (e instanceof Stop) return { ok: false, refusal: { code: e.code, kind: e.kind, text: e.lines.join('\n') || e.message }, reset: run.resetBackup !== null, resetBackup: run.resetBackup || null };
+    throw e;
+  }
+}
+
+/** Le plan d'une publication de l'admin : les choix, revus un par un (publish). */
+async function pickPlan(A, picks, run) {
+  const byId = new Map(A.shots.audio.map((f) => [sampleId(f.rel), f]));
+  const bad = [];
+  const missing = [];
+  const plan = [];
+  const done = new Set();
+  const asked = picks && typeof picks === 'object' ? picks : {};
+  for (const k of Object.keys(asked)) if (!FAMILIES.includes(k)) bad.push(`  ${k} : pas une voix du MM-RYTM (${FAMILIES.join(' ')})`);
+  for (const p of A.plan) {
+    const ids = Array.isArray(asked[p.fam]) ? asked[p.fam] : [];
+    const order = new Map([...p.used, ...p.rest].map((f, i) => [f, i]));
+    const chosen = [];
+    for (const id of ids) {
+      if (done.has(id)) continue;
+      done.add(id);
+      const f = byId.get(id);
+      if (!f) {
+        bad.push(`  ${p.fam} : un sample choisi n'est plus dans shots (deplace, renomme ou retire depuis l'analyse ?)`);
+        continue;
+      }
+      if (f.fam !== p.fam) {
+        bad.push(`  ${p.fam} : ${slash(f.rel)} est range dans ${f.fam ?? 'aucune voix'}, pas dans ${p.fam}`);
+        continue;
+      }
+      chosen.push(f);
+    }
+    chosen.sort((a, b) => order.get(a) - order.get(b));
+    // Comme le plan : le site d'abord (deja la : saute), puis le meme son deux fois
+    const cx = { known: new Map(p.present.map((x) => [x.hash, x])), present: p.present, manifestAiff: A.manifestAiff, seen: new Map() };
+    const items = [];
+    for (const f of chosen) {
+      if (f.placeholder) {
+        missing.push(f);
+        continue;
+      }
+      const skip = await examine(f, p.fam, cx);
+      if (skip) {
+        bad.push(`  ${p.fam} : ${slash(f.rel)} : ${skip.why}`);
+        continue;
+      }
+      items.push({ f, status: f.projects.size > 0 ? 'used' : 'unused' });
+    }
+    if (p.present.length + items.length > MAX_PER_VOICE) bad.push(`  ${p.fam} : ${p.present.length} sur le site + ${items.length} choisi(s), ${MAX_PER_VOICE} au plus par voix`);
+    nameStaged(items);
+    plan.push({ ...p, items, skipped: [], staged: items, missing: [] });
+  }
+  if (missing.length > 0) {
+    refuse(run, [
+      `RIEN N'EST ECRIT : ${plural(missing.length, 'sample')} choisi(s) pas encore telecharge(s) d'iCloud sur ce Mac :`,
+      ...missing.map((f) => `  ! ${slash(f.rel)}`),
+      `Telecharge-les d'abord (Finder : clic droit sur le dossier shots, Telecharger maintenant), puis Re-analyser et publie. ${unchanged(run)}`,
+    ], 2, 'missing');
+  }
+  if (bad.length > 0) {
+    refuse(run, [`REFUS : la selection ne peut pas aller sur le site telle quelle (${plural(bad.length, 'souci')}) :`, ...bad, `Re-analyser, choisis de nouveau, puis publie. ${unchanged(run)}`], 2, 'picks');
+  }
+  if (plan.every((p) => p.staged.length === 0)) refuse(run, [`RIEN A PUBLIER : aucun sample choisi. ${unchanged(run)}`], 2, 'nothing');
+  return plan;
+}
+
+/* ---------------- le tout (le CLI) ---------------- */
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2));
+  const run = newRun(CONSOLE);
+  const started = Date.now();
+  const stamp = new Date(started).toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-');
+  const staging = path.join(os.tmpdir(), `mm-rytm-top-${stamp}`);
+
+  const loc = await locate(opts, run);
+
+  /* ----- --publish : le depot pret, a jour ----- */
+  const pub = opts.publish ? await preflight(opts, stamp, run) : null;
+
+  const A = await analyze(opts, run, loc);
+  const { roots, shots, placeholders, sets, totals, unmatchedNames, ambiguities, failed, projects, site, fams, plan } = A;
 
   /* ----- le plan ----- */
   const w = (xs, min) => Math.max(min, ...xs);
@@ -1215,7 +1875,6 @@ async function main() {
 
   const importable = plan.filter((p) => p.staged.length > 0);
   const total = plan.reduce((n, p) => n + p.staged.length, 0);
-  const importArgs = [IMPORT_SCRIPT, staging, '--staged', '--families', importable.map((p) => p.fam).join(',')];
   const importCmd = importable.length > 0 ? `node scripts/import-rytm-samples.mjs "${staging}" --staged --families ${importable.map((p) => p.fam).join(',')}` : null;
 
   /* ----- le rapport ----- */
@@ -1283,24 +1942,18 @@ async function main() {
   }
   // Un sample retenu pas telecharge : rien n'est ecrit (ni transit, ni site)
   if (missing.length > 0 && opts.import) {
-    console.error(`RIEN N'EST ECRIT : ${missing.length} sample(s) retenu(s) pas telecharge(s) d'iCloud (liste ci-dessus). Telecharge-les dans le Finder, puis relance la meme commande.${resetBackup !== null ? ` ${unchanged()}` : ''}`);
+    console.error(`RIEN N'EST ECRIT : ${missing.length} sample(s) retenu(s) pas telecharge(s) d'iCloud (liste ci-dessus). Telecharge-les dans le Finder, puis relance la meme commande.${run.resetBackup !== null ? ` ${unchanged(run)}` : ''}`);
     throw new Stop(2);
   }
   if (total === 0) {
     if (opts.reportGiven) await saveReport();
     console.log(`RIEN A AJOUTER : ${summary}. Chaque famille est a sa cible (${plan.map((p) => `${p.fam} ${p.present.length}/${p.target}`).join(', ')}) ou n'a plus rien de nouveau dans shots.`);
-    if (opts.publish) console.log(`Pas de commit. ${unchanged()}`);
+    if (opts.publish) console.log(`Pas de commit. ${unchanged(run)}`);
     throw new Stop(0);
   }
 
   /* ----- le dossier de transit ----- */
-  await mkdir(staging, { recursive: true });
-  for (const p of importable) {
-    const dir = path.join(staging, p.fam);
-    await mkdir(dir, { recursive: true });
-    for (const x of p.staged) await copyFile(x.f.src ?? x.f.full, path.join(dir, x.staged));
-  }
-  console.log(`Dossier de transit : ${staging} (${importable.map((p) => `${p.fam}/ ${p.staged.length}`).join(', ')})`);
+  await stage(plan, run, staging);
   await saveReport();
   console.log(`PLAN : ${summary}.\n`);
 
@@ -1311,118 +1964,17 @@ async function main() {
     throw new Stop(missing.length > 0 ? 2 : 0);
   }
 
-  /* ----- l'ajout ----- */
-  console.log(`Ajout : ${importCmd}\n`);
-  const r = spawnSync(process.execPath, importArgs, { stdio: 'inherit', cwd: ROOT });
-  if (r.error) throw r.error;
-  if (r.status !== 0) {
-    console.error(`\nL'ajout s'est arrete (code ${r.status}) : pas de commit. Le dossier de transit reste la : ${staging}`);
-    console.error(`Pour revenir a l'etat d'avant (si des fichiers ont ete ecrits) : ${UNDO}`);
-    if (resetBackup) console.error(`La sauvegarde de --reset-samples reste la : ${resetBackup}`);
-    throw new Stop(r.status || 1);
-  }
-
-  /* ----- verifier : les anciens intacts, les nouveaux la ----- */
-  const after = await siteFiles(ROOT);
-  const changed = [];
-  const added = new Map();
-  for (const p of plan) {
-    const now = after.byFam.get(p.fam) ?? [];
-    const byName = new Map(now.map((x) => [x.name, x]));
-    for (const x of site.byFam.get(p.fam) ?? []) {
-      const y = byName.get(x.name);
-      if (!y || y.hash !== x.hash) changed.push(`${p.fam}/${x.name}`);
-    }
-    const before = new Set((site.byFam.get(p.fam) ?? []).map((x) => x.name));
-    const byHash = new Map(p.staged.map((x) => [x.f.hash, x]));
-    added.set(
-      p.fam,
-      now.filter((y) => !before.has(y.name)).map((y) => ({ ...y, pick: byHash.get(y.hash) ?? null }))
-    );
-  }
-  if (changed.length > 0) {
-    console.error(`\nARRETE : ${plural(changed.length, 'fichier')} deja la a change (${changed.join(', ')}) : ca ne devait pas arriver. Pas de commit.`);
-    console.error(`Pour revenir a l'etat d'avant : ${UNDO}`);
-    throw new Stop(1);
-  }
-  const newFiles = [...added.values()].flat();
-  const hiddenNew = newFiles.filter((y) => y.ignored);
-  if (hiddenNew.length > 0) {
-    console.error(`\nARRETE : git ignore ${hiddenNew.map((y) => y.rel).join(', ')}. Pas de commit. Pour revenir a l'etat d'avant : ${UNDO}`);
-    throw new Stop(1);
-  }
-
-  /* ----- noter ce qui vient d'ici (la relance n'en rajoute pas) ----- */
-  const day = new Date(started).toISOString().slice(0, 10);
-  for (const [fam, list] of added) {
-    for (const y of list) {
-      manifest.files[`${fam}/${y.name}`] = { sha1: y.hash, added: day, projects: y.pick?.f.projects.size ?? 0, refs: y.pick?.f.refs ?? 0, ...(y.pick?.f.from ? { aiffSha1: y.pick.f.from } : {}) };
-    }
-  }
-  if (newFiles.length > 0) await writeManifest(manifest);
-
-  const lines = plan.map((p) => {
-    const list = added.get(p.fam) ?? [];
-    const before = p.present.length;
-    return { fam: p.fam, before, after: before + list.length, names: list.map((y) => stemOf(y.name)) };
-  });
-
-  /* ----- git : seulement les nouveaux samples ----- */
-  let commit = null;
-  let pushed = false;
-  if (pub && newFiles.length > 0) {
-    const paths = [...newFiles.map((y) => y.rel), MANIFEST_REL];
-    const add = git(ROOT, ['--literal-pathspecs', 'add', '--', ...paths]);
-    if (add.status !== 0) {
-      console.error(`\nARRETE : git add a echoue (${add.err.trim()}). Pas de commit. Pour revenir a l'etat d'avant : git restore --staged ${SITE_DIR} && ${UNDO}`);
-      throw new Stop(1);
-    }
-    const cached = git(ROOT, ['diff', '--cached', '--name-only', '-z']).out.split('\0').filter(Boolean).map((x) => x.normalize('NFC'));
-    const want = new Set(paths.map((x) => x.normalize('NFC')));
-    const extra = cached.filter((x) => !want.has(x));
-    const lacking = [...want].filter((x) => !cached.includes(x));
-    if (extra.length > 0 || lacking.length > 0) {
-      git(ROOT, ['--literal-pathspecs', 'restore', '--staged', '--', ...paths]);
-      console.error(`\nARRETE : le commit ne contiendrait pas exactement les nouveaux samples${extra.length > 0 ? ` (en trop : ${extra.join(', ')})` : ''}${lacking.length > 0 ? ` (manquent : ${lacking.join(', ')})` : ''}. Pas de commit.`);
-      console.error(`Pour revenir a l'etat d'avant : ${UNDO}`);
-      throw new Stop(1);
-    }
-    const grown = lines.filter((l) => l.after > l.before);
-    const subject = `MM-RYTM : samples de Mika tires de ses projets Ableton (${grown.map((l) => `${l.fam} +${l.after - l.before}`).join(', ')})`;
-    const body = [
-      ...grown.map((l) => `${l.fam} : ${l.before} -> ${l.after} (${l.names.join(', ')})`),
-      '',
-      'npm run samples:mika (scripts/ableton-samples.mjs --publish) : les plus joues dans ses projets',
-      'Ableton (projets distincts, puis references), ajoutes apres les numeros deja la ; rien de retire',
-      `ni renumerote. Liste : ${MANIFEST_REL}.`,
-    ].join('\n');
-    const c = git(ROOT, ['commit', '-m', subject, '-m', body]);
-    if (c.status !== 0) {
-      console.error(`\nARRETE : git commit a echoue :\n${(c.err || c.out).trim()}`);
-      console.error(`Les samples sont prets et ajoutes (git add). Regle git (ex. git config user.name "Mika" ; git config user.email ...) puis : git commit -m "Samples MM-RYTM" && git push`);
-      console.error(`Ou annule tout : git restore --staged ${SITE_DIR} && ${UNDO}`);
-      throw new Stop(1);
-    }
-    commit = git(ROOT, ['rev-parse', '--short', 'HEAD']).out.trim();
-    console.log(`\nCommit ${commit} : ${subject}`);
-    console.log(`git push ${pub.remote} HEAD:${pub.merge}`);
-    const push = git(ROOT, ['push', pub.remote, `HEAD:${pub.merge}`], { inherit: true });
-    pushed = push.status === 0;
-    if (!pushed) {
-      console.error(`\nLe commit ${commit} est fait ici mais git push a refuse (code ${push.status}) : le site ne change pas encore.`);
-      console.error('  Pour reessayer : git pull --rebase --autostash && git push');
-      console.error('  Pour annuler le commit (les nouveaux samples repartent, le reste ne bouge pas) : git reset --keep HEAD~1');
-    }
-  }
+  /* ----- l'ajout, la verification, git ----- */
+  const { lines, commit, pushed, newFiles } = await importAndCommit(A, plan, opts, run, pub, { started, staging });
 
   /* ----- le resume ----- */
   console.log('\nRESUME (avant -> apres, les noms ajoutes) :');
   for (const l of lines) console.log(`  ${l.fam.padEnd(3)} ${String(l.before).padStart(3)} -> ${String(l.after).padEnd(3)}${l.names.length > 0 ? ` +${l.names.length} : ${l.names.join(', ')}` : ' (rien de nouveau)'}`);
   console.log(`  Liste de ce que ce script a ajoute : ${MANIFEST_REL}`);
   // Le chemin de la sauvegarde, encore une fois a la fin (il ne s'affichait qu'au debut)
-  if (resetBackup) console.log(`  Sauvegarde de --reset-samples (ce qui etait modifie ou en trop ici) : ${resetBackup}`);
+  if (run.resetBackup) console.log(`  Sauvegarde de --reset-samples (ce qui etait modifie ou en trop ici) : ${run.resetBackup}`);
   if (pub && newFiles.length === 0) {
-    console.log(`\nL'ajout n'a rien ecrit de nouveau : pas de commit. ${unchanged()}`);
+    console.log(`\nL'ajout n'a rien ecrit de nouveau : pas de commit. ${unchanged(run)}`);
     return;
   }
   if (pub) {
@@ -1457,11 +2009,26 @@ function rerunArgs(opts) {
   return a.length === 0 ? '' : ` -- ${a.join(' ')}`;
 }
 
-main().catch((e) => {
-  if (e instanceof Stop) {
-    process.exitCode = e.code;
-    return;
+/*
+ * Lance comme script (npm run samples:mika, npm run samples:ableton), main
+ * tourne ; importe (l'admin : scripts/admin-samples-api.mjs), rien ne tourne.
+ * Les chemins reels se comparent (un dossier du site atteint par un lien).
+ */
+const isMain = (() => {
+  try {
+    return realpathSync(process.argv[1] ?? '') === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
   }
-  console.error(e);
-  process.exitCode = 1;
-});
+})();
+
+if (isMain) {
+  main().catch((e) => {
+    if (e instanceof Stop) {
+      process.exitCode = e.code;
+      return;
+    }
+    console.error(e);
+    process.exitCode = 1;
+  });
+}

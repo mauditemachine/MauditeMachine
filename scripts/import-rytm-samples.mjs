@@ -90,6 +90,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { mkdir, readdir, readFile, realpath, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -183,10 +184,10 @@ const STRIP = {
 };
 
 /**
- * Copie conforme de sampleLabel (src/v4/audio/samples.ts) : le nom que la
+ * Copie conforme de sampleLabel (src/v4/audio/samplelabel.ts) : le nom que la
  * plaque ecrira pour un fichier du site. A garder identique.
  */
-function sampleLabel(file) {
+export function sampleLabel(file) {
   let t = file.replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' ');
   t = t.replace(/^\s*\d+\s*[-.]?\s+/, '');
   t = t.replace(/^AT\s+/i, '');
@@ -441,7 +442,7 @@ function cut(s, n) {
  * l'artiste seul, puis avec la tonalite, puis le nom complet (et sa
  * tonalite). Le premier qui ne fait pas doublon dans la famille gagne.
  */
-function candidates(file, fam) {
+export function candidates(file, fam) {
   const s = STRIP[fam];
   const base = file.name.replace(/\.[^.]+$/, '').normalize('NFC').replace(/_/g, ' ');
   // Le numero d'ordre en tete (1, 01, 12) ; 707, 808, 909 sont des noms (909 Long garde 909)
@@ -495,7 +496,7 @@ function gitSafe(stem, fam) {
 }
 
 /** Le numero en tete d'un nom de fichier (03 Engelhardt.wav : 3), ou 0. */
-const leadNumber = (f) => Number(f.match(/^\s*(\d+)/)?.[1] ?? 0);
+export const leadNumber = (f) => Number(f.match(/^\s*(\d+)/)?.[1] ?? 0);
 const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} Mo` : `${n > 0 ? Math.max(1, Math.round(n / 1024)) : 0} Ko`);
 
 /**
@@ -504,7 +505,7 @@ const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} Mo` : `${
  * meme plaque, ceux-la passent au nom suivant ; au bout, un numero colle
  * (Stein2, OT3-2 : jamais " 2" ni " 3", que .gitignore cacherait).
  */
-function assignNames(items, taken, fam) {
+export function assignNames(items, taken, fam) {
   const level = items.map(() => 0);
   const label = (i) => sampleLabel(`01 ${items[i].cands[level[i]]}.wav`);
   for (let guard = 0; guard < 16; guard += 1) {
@@ -846,9 +847,28 @@ Prochaines etapes :
   Pour annuler avant le commit : ${UNDO}`);
 }
 
-main().catch((e) => {
-  console.error(e);
-  // Une erreur en pleine copie : git rend les anciens fichiers et retire les nouveaux
-  if (writing) console.error(`\nL'import s'est arrete en route. Pour revenir a l'etat d'avant : ${UNDO}`);
-  process.exit(1);
-});
+/*
+ * Lance comme script (node scripts/import-rytm-samples.mjs, npm run
+ * samples:import, ou par scripts/ableton-samples.mjs), main tourne ; importe
+ * (scripts/ableton-samples.mjs y prend sampleLabel, candidates et
+ * assignNames : le nom qu'un sample aura sur le site, montre par l'admin
+ * /mm-admin/samples avant la publication), rien ne tourne. Les chemins reels
+ * se comparent : un dossier du site atteint par un lien (iCloud Drive) reste
+ * le meme fichier.
+ */
+const isMain = (() => {
+  try {
+    return realpathSync(process.argv[1] ?? '') === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+})();
+
+if (isMain) {
+  main().catch((e) => {
+    console.error(e);
+    // Une erreur en pleine copie : git rend les anciens fichiers et retire les nouveaux
+    if (writing) console.error(`\nL'import s'est arrete en route. Pour revenir a l'etat d'avant : ${UNDO}`);
+    process.exit(1);
+  });
+}

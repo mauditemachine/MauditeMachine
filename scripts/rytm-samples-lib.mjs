@@ -24,7 +24,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -185,18 +185,22 @@ let wavCount = 0;
 /**
  * Un AIFF converti en WAV 16 bits (afconvert -f WAVE -d LEI16 : la meme
  * frequence, les memes canaux) : rend le chemin du WAV, dans un dossier
- * temporaire efface a la sortie du script. Une erreur si la conversion
- * echoue (son message : la premiere ligne de ce qu'afconvert a dit).
+ * temporaire efface a la sortie du script (ou dans out, s'il est donne :
+ * l'ecoute de l'admin garde ses WAV dans son propre dossier). Une erreur si
+ * la conversion echoue (son message : la premiere ligne de ce qu'afconvert
+ * a dit). Sans shell : les chemins passent tels quels.
  */
-export function aiffToWav(src) {
+export function aiffToWav(src, out = null) {
   if (!AFCONVERT) throw new Error('afconvert introuvable');
-  if (!wavDir) {
-    wavDir = mkdtempSync(path.join(os.tmpdir(), 'mm-rytm-wav-'));
-    const dir = wavDir;
-    process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
+  if (!out) {
+    if (!wavDir) {
+      wavDir = mkdtempSync(path.join(os.tmpdir(), 'mm-rytm-wav-'));
+      const dir = wavDir;
+      process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
+    }
+    wavCount += 1;
+    out = path.join(wavDir, `${String(wavCount).padStart(4, '0')}.wav`);
   }
-  wavCount += 1;
-  const out = path.join(wavDir, `${String(wavCount).padStart(4, '0')}.wav`);
   try {
     execFileSync(AFCONVERT, ['-f', 'WAVE', '-d', 'LEI16', src, out], { stdio: ['ignore', 'ignore', 'pipe'], timeout: 120000 });
   } catch (e) {
@@ -204,4 +208,15 @@ export function aiffToWav(src) {
     throw new Error(said || (e.status != null ? `code ${e.status}` : e.message));
   }
   return out;
+}
+
+/**
+ * Vide le dossier des WAV convertis (le serveur de l'admin vit longtemps :
+ * chaque analyse ou publication repart d'un dossier vide au lieu de les
+ * accumuler jusqu'a sa sortie). Le dossier reste, son nettoyage de sortie
+ * aussi.
+ */
+export function clearConverted() {
+  if (!wavDir) return;
+  for (const f of readdirSync(wavDir)) rmSync(path.join(wavDir, f), { force: true });
 }
