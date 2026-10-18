@@ -1340,7 +1340,9 @@ export const pageKeyX = (k: number): number => {
  * comme la serigraphie) ; au telephone (des touches plus larges, le doigt) un
  * corps plus gros.
  */
-export const KEY_LABEL = PORTRAIT ? ({ cap: 0.12, dz: 0.045, margin: 0.1, weight: 600 } as const) : ({ cap: 0.085, dz: 0.035, margin: 0.08, weight: 600 } as const);
+// Plus petits le 2026-10-18 (Mika : "les ecritures sur les boutons sont vraiment trop grosses") : un peu moins que le
+// nom des encodeurs GLOBAL FX au desktop (0.085 et 0.12 avant)
+export const KEY_LABEL = PORTRAIT ? ({ cap: 0.08, dz: 0.03, margin: 0.1, weight: 600 } as const) : ({ cap: 0.056, dz: 0.024, margin: 0.08, weight: 600 } as const);
 
 export interface KeyLabelSpec {
   /** la touche : l'id d'une page (RYTM_PAGE_KEYS) ou d'un bouton du transport */

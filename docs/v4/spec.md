@@ -2690,3 +2690,8 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - VOICE FLTR ENV FX and RUN/STOP CLEAR RANDOM MUTE SOLO carry their name on their top face (scene/keyLabels.ts: one canvas atlas, light and dark variants, one quad per key following its press); the names under them left the silk. Transport keys take the page-key shape (1.0 x 0.38 desktop, 1.14 x 0.44 phone, same centres), RUN/STOP keeps its red.
 - Lit = the whole key: the shown page (orange), RUN while running, MUTE while voices are muted (red), SOLO armed or soloing (blue), CLEAR / RANDOM during their flash; the name turns black, the LED strip goes toward white. HOME: no page key lit. Light appearance tinted (KEY_LIT_LIGHT). No-WebGL fallback prints the names too. 127 muted checks plus the browser's 55.
 
+### R14-275 MM-RYTM: smaller names on the keys; the global DIST and the kick (2026-10-18)
+
+- Mika: "les ecritures sur les boutons sont vraiment trop grosses". KEY_LABEL cap 0.085 -> 0.056 desktop (a touch under the GLOBAL FX encoder names), 0.12 -> 0.08 phone.
+- Mika: "Le global dist ne fonctionne plus". Measured on the production build: the encoder moves pattern.fx.drive, the live bus drive engages (driveOn), offline renders change SD +2.4 dB, CH +9.8, CP +10.5, TOM +6.7 of difference; BD unchanged, as designed since R14-215 (the kick bypasses the global FX, NO BD on the screen). Left as is pending Mika's choice.
+

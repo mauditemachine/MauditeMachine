@@ -195,3 +195,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-18 : telephone, MM-MIXER : la table seule, sans platines. Spec R14-272.
 - 2026-10-18 : le site arrive sur la derniere machine utilisee. Spec R14-273.
 - 2026-10-18 : MM-RYTM, ecran plus grand au desktop, noms ecrits sur les touches VOICE FLTR ENV FX et RUN/STOP CLEAR RANDOM MUTE SOLO, transport a la forme des touches de page, touche choisie allumee en entier. Spec R14-274.
+- 2026-10-18 : MM-RYTM, noms des touches plus petits ; DIST global verifie (marche sur toutes les voix sauf le kick, voulu depuis le 8). Spec R14-275.
