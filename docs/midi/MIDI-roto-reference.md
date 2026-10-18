@@ -217,8 +217,8 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 27 | 4.4 | 1 | 109 | KICK TUNE | or | rytm:kit:tune | TWEAK TUNE | bipolaire, cran au milieu (64) |
 | 28 | 4.5 | 1 | 111 | KICK DECAY | or | rytm:kit:decay | TWEAK DECAY | continu |
 | 29 | 4.6 | 1 | 112 | KICK DRIVE | or | rytm:kit:drive | TWEAK DRIVE | continu |
-| 30 | 4.7 | 1 | 113 | SNARE SOUND | or | rytm:kit:sd | TWEAK SNARE | potard a 7 crans : 909 / 808 / MM / PSY 02 / PSY 12 / PSY 26 / 707 |
-| 31 | 4.8 | 1 | 115 | CL HAT SOUND | or | rytm:kit:ch | TWEAK CL HAT | potard a 3 crans : 909 / 808 / MM |
+| 30 | 4.7 | 1 | 113 | SNARE SOUND | or | rytm:kit:sd | TWEAK SNARE | potard a 14 crans : 909 / 808 / MM / PSY 02 / PSY 12 / PSY 26 / 707 / RID SUBTLE / RID MINDS / OT6 / OT5 / DNB1 / DNB2 / SD2510 |
+| 31 | 4.8 | 1 | 115 | CL HAT SOUND | or | rytm:kit:ch | TWEAK CL HAT | potard a 6 crans : 909 / 808 / MM / DNB / 8O8 SMALL / FAIRLY SMALL |
 
 **Boutons**
 
@@ -844,15 +844,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:kit:attack` | TWEAK ATTACK | valeur 0 a 127 |  |  |
 | `rytm:kit:decay` | TWEAK DECAY | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:kit:drive` | TWEAK DRIVE | valeur 0 a 127 |  | RYTM, LIVE |
-| `rytm:kit:sd` | TWEAK SNARE | valeur 0 a 127 | 7 | RYTM |
+| `rytm:kit:sd` | TWEAK SNARE | valeur 0 a 127 | 14 | RYTM |
 | `rytm:kit:snappy` | TWEAK SNAPPY | valeur 0 a 127 |  |  |
-| `rytm:kit:cp` | TWEAK CLAP | valeur 0 a 127 | 3 |  |
+| `rytm:kit:cp` | TWEAK CLAP | valeur 0 a 127 | 4 |  |
 | `rytm:kit:gate` | TWEAK GATE | valeur 0 a 127 | 2 |  |
-| `rytm:kit:ch` | TWEAK CL HAT | valeur 0 a 127 | 3 | RYTM |
-| `rytm:kit:tom` | TWEAK TOM | valeur 0 a 127 | 3 |  |
+| `rytm:kit:ch` | TWEAK CL HAT | valeur 0 a 127 | 6 | RYTM |
+| `rytm:kit:tom` | TWEAK TOM | valeur 0 a 127 | 4 |  |
 | `rytm:kit:oh` | TWEAK OP HAT | valeur 0 a 127 | 4 |  |
-| `rytm:kit:ht` | TWEAK HI TOM | valeur 0 a 127 | 3 |  |
-| `rytm:kit:cy` | TWEAK CYMBAL | valeur 0 a 127 | 3 |  |
+| `rytm:kit:ht` | TWEAK HI TOM | valeur 0 a 127 | 5 |  |
+| `rytm:kit:cy` | TWEAK CYMBAL | valeur 0 a 127 | 6 |  |
 | `rytm:kit:sweep` | TWEAK KICK SWEEP | valeur 0 a 127 |  |  |
 | `rytm:kit:sdtune` | TWEAK SNARE TUNE | valeur 0 a 127 |  |  |
 | `rytm:kit:sddecay` | TWEAK SNARE DECAY | valeur 0 a 127 |  |  |
@@ -868,7 +868,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:bd:rev` | KICK SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:layer:sd:mach` | SNARE SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:sd:syn` | SNARE SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:sd:sample` | SNARE SAMPLE | valeur 0 a 127 | 5 |  |
+| `rytm:layer:sd:sample` | SNARE SAMPLE | valeur 0 a 127 | 12 |  |
 | `rytm:layer:sd:lev` | SNARE SMP LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:sd:tune` | SNARE SMP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:layer:sd:fine` | SNARE SMP FINE | valeur 0 a 127 | 129 |  |
@@ -877,7 +877,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:sd:rev` | SNARE SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:layer:ch:mach` | CL HAT SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:ch:syn` | CL HAT SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:ch:sample` | CL HAT SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:ch:sample` | CL HAT SAMPLE | valeur 0 a 127 | 4 |  |
 | `rytm:layer:ch:lev` | CL HAT SMP LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:ch:tune` | CL HAT SMP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:layer:ch:fine` | CL HAT SMP FINE | valeur 0 a 127 | 129 |  |
@@ -895,7 +895,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:oh:rev` | OP HAT SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:layer:cp:mach` | CLAP SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:cp:syn` | CLAP SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:cp:sample` | CLAP SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:cp:sample` | CLAP SAMPLE | valeur 0 a 127 | 2 |  |
 | `rytm:layer:cp:lev` | CLAP SMP LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:cp:tune` | CLAP SMP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:layer:cp:fine` | CLAP SMP FINE | valeur 0 a 127 | 129 |  |
@@ -904,7 +904,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:cp:rev` | CLAP SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:layer:tom:mach` | TOM SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:tom:syn` | TOM SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:tom:sample` | TOM SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:tom:sample` | TOM SAMPLE | valeur 0 a 127 | 2 |  |
 | `rytm:layer:tom:lev` | TOM SMP LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:tom:tune` | TOM SMP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:layer:tom:fine` | TOM SMP FINE | valeur 0 a 127 | 129 |  |
@@ -913,7 +913,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:tom:rev` | TOM SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:layer:ht:mach` | HI TOM SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:ht:syn` | HI TOM SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:ht:sample` | HI TOM SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:ht:sample` | HI TOM SAMPLE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:ht:lev` | HI TOM SMP LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:ht:tune` | HI TOM SMP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:layer:ht:fine` | HI TOM SMP FINE | valeur 0 a 127 | 129 |  |
@@ -922,7 +922,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:ht:rev` | HI TOM SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:layer:cy:mach` | CYMBAL SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:cy:syn` | CYMBAL SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:cy:sample` | CYMBAL SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:cy:sample` | CYMBAL SAMPLE | valeur 0 a 127 | 4 |  |
 | `rytm:layer:cy:lev` | CYMBAL SMP LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:cy:tune` | CYMBAL SMP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:layer:cy:fine` | CYMBAL SMP FINE | valeur 0 a 127 | 129 |  |
