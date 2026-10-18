@@ -12,7 +12,7 @@
  */
 
 import { PORTRAIT } from '../theme';
-import { DECK, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_MAX, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DECK, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_MAX, DJ_MIXER_ONLY, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /**
  * fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a
@@ -242,10 +242,11 @@ function buildKeys(): DjKeySpec[] {
   // PLAY/STOP des machines, sous le VU du master
   const P = MIX.play;
   keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
-  // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place
+  // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place ;
+  // jamais sur la table seule du telephone tenu droit (2026-10-18, Mika : "En mobile je veux juste Mixer et pas de deck")
   const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_SHOWN.length) / 2 - dx);
   const A = MIX.add;
-  if (DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
+  if (!DJ_MIXER_ONLY && DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;
 }

@@ -20,7 +20,7 @@ import { synthPort } from '../audio/drums';
 import { reserve } from '../audio/sched';
 import { decodeAudio } from './decode';
 import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, gainDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
-import { DJ_CHANNELS_MAX, DJ_FX, deckChannel, type DjDeck, type DjFxId } from './theme';
+import { DJ_CHANNELS_MAX, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
 const BUTTERWORTH_DB = 20 * Math.log10(Math.SQRT1_2);
@@ -861,6 +861,10 @@ export interface DjEngine {
 }
 
 let engine: DjEngine | null = null;
+/** Les lecteurs crees, platine par platine (2026-10-18 : aucun au telephone tenu droit). */
+const made: Partial<Record<DjDeck, DjPlayer>> = {};
+/** Les platines dont le lecteur existe (le debug et les tests : la table seule n'en cree aucun). */
+export const djPlayersMade = (): DjDeck[] => DJ_DECKS_ALL.filter((d) => made[d] !== undefined);
 
 /** Le moteur, cree au premier appel apres le premier geste (le port du site existe) ; null avant. */
 export function djEngine(): DjEngine | null {
@@ -871,11 +875,16 @@ export function djEngine(): DjEngine | null {
   // La sortie du limiteur du site, si le port la donne (audio/drums.ts synthPort().out)
   const post = (port as { out?: AudioNode }).out;
   if (post) mixer.meterAfter(post);
-  // Les platines sur les voies 3 a 6 ; 1 et 2 recoivent le MM-RYTM et le MM-ARP (dj/actions.ts).
-  // Les quatre existent toujours : poser C ou D ne touche pas au son en cours
-  const p = (d: DjDeck): DjPlayer => new DjPlayer(port.ctx, mixer.ch[deckChannel(d)]);
+  // Les platines sur les voies 4 a 7 ; 1 a 3 recoivent le MM-RYTM, le MM-BASS et le MM-ARP (dj/actions.ts).
+  // Les quatre existent toujours sur desktop : poser C ou D ne touche pas au son en cours. Au telephone tenu
+  // droit (2026-10-18, la table seule, theme.ts DJ_PLAYERS) aucune n'est creee ; un acces egare en cree une
+  // a la demande (muette tant qu'on ne la charge pas), il ne casse rien
+  const p = (d: DjDeck): DjPlayer => (made[d] ??= new DjPlayer(port.ctx, mixer.ch[deckChannel(d)]));
+  for (const d of DJ_PLAYERS) p(d);
+  const decks = {} as Record<DjDeck, DjPlayer>;
+  for (const d of DJ_DECKS_ALL) Object.defineProperty(decks, d, { get: () => p(d), enumerable: true });
   const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });
-  engine = { ctx: port.ctx, mixer, decks: { a: p('a'), b: p('b'), c: p('c'), d: p('d') }, sync: { errMs: each<number | null>(null), keepMs: each(0), nudge: each(0), lastPlay: null } };
+  engine = { ctx: port.ctx, mixer, decks, sync: { errMs: each<number | null>(null), keepMs: each(0), nudge: each(0), lastPlay: null } };
   return engine;
 }
 

@@ -20,6 +20,10 @@
  *   Espace : PLAY de la derniere platine touchee
  *   - et = : zoom des formes d'onde
  *   V : l'affichage des formes d'onde (WARM, 3BAND, RGB, MONO)
+ *
+ * La table seule (2026-10-18, telephone tenu droit, dj/theme.ts
+ * DJ_MIXER_ONLY) : aucune platine, seules les touches dont la commande est
+ * sur la table repondent (G) ; les autres sont laissees au navigateur.
  */
 
 import type { Stage } from '../scene/renderer';
@@ -28,6 +32,7 @@ import { djBrowser } from './browser';
 import { djBrowse, keyDown, keyUp } from './gestures';
 import { DJ_KEYS, type DjKeySpec } from './layout';
 import { djState } from './state';
+import { DJ_DECKS } from './theme';
 
 const key = (id: string): DjKeySpec | undefined => DJ_KEYS.find((k) => k.id === id);
 
@@ -107,6 +112,8 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     const own = e.target instanceof HTMLElement && e.target.closest('.v4-twin, [role="slider"], [role="spinbutton"]') !== null;
     if (own && /^(Arrow|Page|Home|End|Space|Enter|Delete|Backspace)/.test(e.code)) return;
     if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && ownsPress(e.target)) return;
+    // Sans platine posee : ni liste, ni zoom, ni PLAY de platine ; seulement les touches de la table (G)
+    if (DJ_DECKS.length === 0 && !(MAP[e.code] && key(MAP[e.code]))) return;
     const s = djState.get();
     // Le zoom : la repetition du clavier est permise
     if (e.code === 'Minus' || e.code === 'Equal') {

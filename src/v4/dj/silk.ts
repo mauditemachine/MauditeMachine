@@ -17,7 +17,7 @@ import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 't
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { DJ_FADERS, DJ_KNOBS, DJ_KEYS, knobLabelZ, type DjKeySpec } from './layout';
-import { DECK, DJ_CHANNELS, DJ_CH_NAMES, DJ_SHOWN, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
+import { DECK, DJ_CHANNELS, DJ_CH_NAMES, DJ_MIXER_ONLY, DJ_SHOWN, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -42,7 +42,8 @@ const COPY: Readonly<Record<DjUnit, { name: string; sub: string }>> = {
   b: { name: 'DECK B', sub: 'DIGITAL DECK' },
   c: { name: 'DECK C', sub: 'DIGITAL DECK' },
   d: { name: 'DECK D', sub: 'DIGITAL DECK' },
-  mix: { name: 'MIXER', sub: 'DJ MIXER' },
+  // La table seule du telephone tenu droit (2026-10-18) ne recoit que les machines : plus de DJ dans son nom
+  mix: { name: 'MIXER', sub: DJ_MIXER_ONLY ? 'MIXER' : 'DJ MIXER' },
   mix1: { name: 'MIXER', sub: '' },
   mix2: { name: 'MIXER', sub: '' },
   mix3: { name: 'MIXER', sub: '' },

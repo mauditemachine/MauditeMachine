@@ -17,6 +17,13 @@
  * fois, plus tard). Les couleurs ne passent pas par la palette partagee
  * (theme.ts) : DJ_TONE donne chaque teinte AFFICHEE visee et son gain,
  * pour la machine noire et la claire.
+ *
+ * Au telephone tenu droit, la table seule (2026-10-18, Mika : "En mobile je
+ * veux juste Mixer et pas de deck ; en desktop oui") : DJ_MIXER_ONLY, aucune
+ * platine posee (ni corps, ni ecran, ni lecteur), la table avec les voies
+ * des machines (MM-RYTM, MM-ARP ; le MM-BASS quand il revient), MASTER, les
+ * effets et PLAY/STOP des machines ; la machine s'appelle MM-MIXER. Le
+ * desktop (et le telephone couche) ne change pas.
  */
 
 import { APPEARANCE, PORTRAIT } from '../theme';
@@ -67,6 +74,14 @@ export type DjUnit = DjDeck | 'mix' | 'mix1' | 'mix2' | 'mix3' | 'add';
 export const DJ_DECKS_MIN = 2;
 export const DJ_DECKS_MAX = 4;
 /**
+ * La table seule, sans platine (2026-10-18, Mika : "En mobile je veux juste
+ * Mixer et pas de deck ; en desktop oui") : le telephone tenu droit, decide
+ * au chargement (theme.ts PORTRAIT). Le nombre de platines retenu
+ * (mm.v4.dj.decks) y est ignore sans etre reecrit : il revient tel quel sur
+ * desktop.
+ */
+export const DJ_MIXER_ONLY = PORTRAIT;
+/**
  * Les machines du site sur la table (2026-10-07, Mika : "avec MM-BASS, ca
  * fait trois machines, on devrait avoir trois tranches pour les machines et
  * deux pour les DECKS, donc 5") : dans l'ordre de la table, 1 MM-RYTM, 2
@@ -75,10 +90,17 @@ export const DJ_DECKS_MAX = 4;
 export const DJ_MACHINE_CHANNELS = 3;
 /** La voie de la table d'une platine : A 4, B 5, C 6, D 7 (index 3 a 6). */
 export const deckChannel = (d: DjDeck): DjChannel => (DJ_MACHINE_CHANNELS + DJ_DECKS_ALL.indexOf(d)) as DjChannel;
+/**
+ * Les platines qui ont un lecteur au moteur (dj/engine.ts) : les quatre sur
+ * desktop (poser C ou D ne touche pas au son en cours), aucune au telephone
+ * tenu droit (2026-10-18) ; les boucles du moteur (dj/actions.ts) ne passent
+ * que par elles, aucun DjPlayer n'y est cree.
+ */
+export const DJ_PLAYERS: readonly DjDeck[] = DJ_MIXER_ONLY ? [] : DJ_DECKS_ALL;
 
-/** Les platines posees, de gauche a droite (A, B, puis C et D si ajoutees). */
+/** Les platines posees, de gauche a droite (A, B, puis C et D si ajoutees) ; aucune au telephone tenu droit (DJ_MIXER_ONLY). */
 export let DJ_DECKS: readonly DjDeck[] = ['a', 'b'];
-/** Les blocs poses (avec un corps), de gauche a droite. */
+/** Les blocs poses (avec un corps), de gauche a droite ; la table seule au telephone tenu droit. */
 export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b'];
 /**
  * Les blocs qu'on fait defiler au telephone : les blocs poses (la table en
@@ -105,7 +127,13 @@ export const djShownOf = (n: number): DjChannel[] => Array.from({ length: n }, (
  */
 export const MIX_COL = PORTRAIT ? 1.08 : 1.45;
 const MIX_W4 = PORTRAIT ? DJ_UNIT.deckW : DJ_UNIT.mixW;
-export const mixWidth = (channels: number): number => MIX_W4 + (channels - 4) * MIX_COL;
+/**
+ * Tenu droit, la table ne descend pas sous la largeur d'une platine
+ * (2026-10-18 : sans platine, deux voies seulement, RYTM et ARP) : l'ecran
+ * des effets, TIME et les deux rangees d'effets gardent leur place, les
+ * voies se centrent (placeMix).
+ */
+export const mixWidth = (channels: number): number => MIX_W4 + (PORTRAIT ? Math.max(0, channels - 4) : channels - 4) * MIX_COL;
 
 /** Centre de chaque bloc pose (repere du rig : 0 au milieu de l'ensemble). */
 export const UNIT_X: Record<DjUnit, number> = { a: 0, b: 0, c: 0, d: 0, mix: 0, mix1: 0, mix2: 0, mix3: 0, add: 0 };
@@ -137,7 +165,9 @@ export const DJ_FRAME = { fill: 0.92, h: 11.2, targetY: 1.3, radius: { closed: 0
 /* ---------- combien de platines ---------- */
 
 const DECKS_KEY = 'mm.v4.dj.decks';
+/** Le nombre retenu ; au telephone tenu droit, aucune platine (la cle reste telle quelle pour le desktop). */
 const readDecks = (): number => {
+  if (DJ_MIXER_ONLY) return 0;
   try {
     const n = Number(window.localStorage.getItem(DECKS_KEY));
     return Number.isInteger(n) && n >= DJ_DECKS_MIN && n <= DJ_DECKS_MAX ? n : DJ_DECKS_MIN;
@@ -146,12 +176,13 @@ const readDecks = (): number => {
   }
 };
 
-/** Les places (blocs, table, cadrage) pour n platines. */
+/** Les places (blocs, table, cadrage) pour n platines (0 : la table seule, au telephone tenu droit). */
 function place(n: number): void {
   DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
   DJ_CHANNELS = DJ_MACHINE_CHANNELS + n;
   DJ_SHOWN = djShownOf(DJ_CHANNELS);
-  DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1)];
+  // Sans platine (2026-10-18), la table seule : un bloc, une vue, les voies des machines
+  DJ_UNITS_ON = DJ_DECKS.length ? ['a', 'mix', ...DJ_DECKS.slice(1)] : ['mix'];
   // Au telephone couche, la table se voit en deux ou trois vues, de gauche a droite ; tenu droit, en une
   mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_SHOWN.length) / MIX_VIEW)));
   const views: DjUnit[] = PORTRAIT ? ['mix'] : [...MIX_VIEWS.slice(0, mixViews)];
@@ -174,9 +205,11 @@ function place(n: number): void {
     UNIT_X[u] = UNIT_X.mix + (mixViews > 1 ? c0 + ((c1 - c0) * Math.min(i, mixViews - 1)) / (mixViews - 1) : 0);
   });
   DJ_X = DJ_LEFT + DJ_W / 2;
-  DJ_FRAME.radius.closed = DJ_W / 2 + 0.6;
-  DJ_FRAME.radius.open = DJ_W / 2 + 0.6;
-  DJ_FRAME.extent = DJ_W / 2 + 2;
+  // La table seule (2026-10-18) est plus profonde que large : le rayon et l'ombre prennent la plus grande des deux
+  const half = Math.max(DJ_W, DJ_UNIT.d) / 2;
+  DJ_FRAME.radius.closed = half + 0.6;
+  DJ_FRAME.radius.open = half + 0.6;
+  DJ_FRAME.extent = half + 2;
   placeMix(DJ_SHOWN.length);
 }
 
@@ -188,11 +221,13 @@ const deckListeners = new Set<() => void>();
 /**
  * Le nombre de platines posees (2 a 4), retenu dans le navigateur. Le
  * changer recalcule les places, puis previent : index.tsx reconstruit le
- * Stage.
+ * Stage. Au telephone tenu droit (DJ_MIXER_ONLY, 2026-10-18), 0 et rien ne
+ * le change : ni ADD DECK, ni REMOVE, ni la cle retenue.
  */
 export const djDecks = {
   get: (): number => decks,
   set(n: number): void {
+    if (DJ_MIXER_ONLY) return;
     const next = Math.max(DJ_DECKS_MIN, Math.min(DJ_DECKS_MAX, Math.round(n)));
     if (next === decks) return;
     decks = next;
@@ -385,15 +420,20 @@ export const MIX = {
   /** faders de voie : fente de z0 a z1 (plus longue depuis que le crossfader est parti) ; VU a cote */
   fader: { z0: 2.62, z1: 5.0 },
   vu: PORTRAIT ? { dx: 0.42, z0: 0.25, z1: 3.65, n: 15, w: 0.14, d: 0.16 } : { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
-  /** VU du master (deux colonnes) ; raccourci pour PLAY dessous */
-  masterVu: PORTRAIT ? { z0: 1.15, z1: 2.5, dx: 0.17 } : { z0: -0.6, z1: 3.55, dx: 0.17 },
+  /**
+   * VU du master (deux colonnes) ; raccourci pour PLAY dessous. Tenu droit,
+   * ADD DECK parti (2026-10-18, la table seule) : il descend jusqu'au bas des
+   * VU des voies (z1 de vu), la colonne du MASTER se remplit
+   */
+  masterVu: PORTRAIT ? { z0: 1.15, z1: 3.65, dx: 0.17 } : { z0: -0.6, z1: 3.55, dx: 0.17 },
   /**
    * PLAY/STOP des machines (2026-10-04, Mika : "un bouton playstop dans le
    * mixer, bien place, pas trop imposant") : sous le VU du master, plus
    * petit que le PLAY d'une platine, son nom (MACHINES : les trois depuis le
-   * 2026-10-07) au-dessus
+   * 2026-10-07) au-dessus ; tenu droit (2026-10-18), sur la rangee des
+   * VOLUME, son nom a la hauteur des leurs
    */
-  play: PORTRAIT ? { z: 3.25, r: 0.34, labelZ: 2.8 } : { z: 4.62, r: 0.36, labelZ: 3.98 },
+  play: PORTRAIT ? { z: 4.85, r: 0.34, labelZ: 4.32 } : { z: 4.62, r: 0.36, labelZ: 3.98 },
   /** l'en-tete (MIXER), a la hauteur de celui des platines */
   head: { z: -5.19 },
   /**
@@ -417,9 +457,14 @@ function placeMix(n: number): void {
   const w = mixWidth(n);
   const L = -w / 2;
   if (PORTRAIT) {
-    // Tenu droit : les voies a gauche, le MASTER a droite ; les effets en deux rangees de quatre sur toute la largeur
-    MIX.cols = Array.from({ length: n }, (_, i) => L + 0.55 + i * MIX_COL);
-    MIX.masterX = MIX.cols[n - 1] + 1.41;
+    // Tenu droit : les voies a gauche, le MASTER a droite ; les effets en deux rangees de quatre sur toute la largeur.
+    // Moins de quatre voies (2026-10-18, la table seule : RYTM et ARP) : la place en trop se partage egalement entre
+    // les marges et les ecarts (voies, MASTER), l'ensemble reste centre ; a quatre voies et plus, rien ne change
+    const gaps = n + 2;
+    const spare = Math.max(0, w - (0.55 + (n - 1) * MIX_COL + 1.41 + 0.8));
+    const g = spare / gaps;
+    MIX.cols = Array.from({ length: n }, (_, i) => L + 0.55 + g + i * (MIX_COL + g));
+    MIX.masterX = MIX.cols[n - 1] + 1.41 + g;
     MIX.fxPitch = w / 4;
     MIX.fxX0 = L + w / 8;
     MIX.screen.x = 0;

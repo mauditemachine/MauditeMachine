@@ -6,12 +6,14 @@
  * - Potards et faders : role slider ; fleches 2 %, Maj ou Page 10 %, Debut
  *   et Fin aux butees, Suppr : la valeur neutre.
  * - Touches : Entree ou Espace ; CUE et BEND agissent tant qu'on les tient.
- * Inertes tant qu'on n'utilise pas le MM-DECKS.
+ * Inertes tant qu'on n'utilise pas le MM-DECKS. Au telephone tenu droit
+ * (2026-10-18, la table seule) : ceux de la table seulement, les listes de
+ * dj/layout.ts n'ont aucune commande de platine.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
-import { focus } from '../state/focus';
+import { DJ_NAME, focus } from '../state/focus';
 import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobSteps, knobText, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjKeySpec } from './layout';
 import { faderName, keyName, knobName } from './names';
@@ -137,7 +139,7 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const held = (k: DjKeySpec): boolean => k.target.kind === 'cue' || k.target.kind === 'bend' || k.target.kind === 'tempo';
 
   return (
-    <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-DECKS DJ decks and mixer" aria-hidden={off || undefined}>
+    <div ref={groupRef} className="v4-twins" role="group" aria-label={DJ_NAME.aria} aria-hidden={off || undefined}>
       {DJ_KEYS.map((k) => {
         const t = k.target;
         const pressed =

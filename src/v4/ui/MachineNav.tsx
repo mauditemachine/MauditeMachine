@@ -13,7 +13,9 @@
  *   toujours voir des fleches en mobile, gauche droite" ; "une fois sur
  *   deux, pour voir le deck B, on accroche un bouton") : deux fleches,
  *   toujours ; sur le MM-DECKS elles passent d'abord d'un bloc a l'autre
- *   (DECK A, MIXER, DECK B...), puis a la machine voisine.
+ *   (DECK A, MIXER, DECK B...), puis a la machine voisine. Tenu droit, depuis
+ *   le 2026-10-18 (Mika : "En mobile je veux juste Mixer et pas de deck"), la
+ *   machine est le MM-MIXER, un seul bloc : elles vont droit aux voisines.
  * - desktop, vue tournee (2026-10-04, Mika : "meme quand on bouge en 3D une
  *   machine, on devrait pouvoir aller sur les autres a gauche ou a droite") :
  *   les voisines ne depassent plus du bord (elles passeraient devant) ; une
@@ -28,7 +30,7 @@ import { focusMachine, hoodOf } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { djView } from '../dj/view';
 import { DJ_VIEW_UNITS, type DjUnit } from '../dj/theme';
-import { MACHINES, focus, type MachineId } from '../state/focus';
+import { DJ_NAME, MACHINES, focus, type MachineId } from '../state/focus';
 import { bassExplode, explode, voyExplode } from '../state/explode';
 import { intro } from '../state/intro';
 import { view } from '../state/view';
@@ -38,7 +40,8 @@ const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
   mm808: { title: 'MM-RYTM', sub: 'DRUM MACHINE', aria: 'Play the MM-RYTM drum machine' },
   voy: { title: 'MM-ARP', sub: 'SYNTHESIZER', aria: 'Play the MM-ARP synthesizer' },
   bass: { title: 'MM-BASS', sub: 'BASSLINE GENERATOR', aria: 'Play the MM-BASS bassline generator' },
-  dj: { title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER', aria: 'Play the MM-DECKS DJ decks and mixer' },
+  // Au telephone tenu droit, la table seule : MM-MIXER (2026-10-18, state/focus.ts DJ_NAME)
+  dj: { title: DJ_NAME.title, sub: DJ_NAME.sub, aria: `Play the ${DJ_NAME.aria}` },
 };
 
 /** Le nom d'un bloc du MM-DECKS (les fleches le disent). */

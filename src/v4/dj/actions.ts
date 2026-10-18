@@ -22,7 +22,7 @@ import { analyseGrid, gridAnalyseMs } from './grid';
 import { phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
-import { DJ_CHANNELS, DJ_CH_NAMES, DJ_SHOWN, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DJ_CHANNELS, DJ_CH_NAMES, DJ_SHOWN, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
 
@@ -43,7 +43,8 @@ function apply(e: DjEngine): void {
   e.mixer.setMaster(s.master);
   e.mixer.setFxTo(fxTarget(s));
   for (const f of DJ_FX) e.mixer.fx.dose(f, s.fx[f]);
-  for (const d of DJ_DECKS_ALL) e.decks[d].setPitch(s.deck[d].pitch * s.deck[d].range);
+  // Les lecteurs qui existent (theme.ts DJ_PLAYERS : aucun au telephone tenu droit, 2026-10-18)
+  for (const d of DJ_PLAYERS) e.decks[d].setPitch(s.deck[d].pitch * s.deck[d].range);
   e.mixer.fx.tempo({ bpm: heardBpm(s), beats: s.time });
 }
 
@@ -81,13 +82,13 @@ function engine(): DjEngine | null {
   synced = e;
   apply(e);
   djState.subscribe(() => apply(e));
-  for (const d of DJ_DECKS_ALL) {
+  for (const d of DJ_PLAYERS) {
     e.decks[d].onEnd = () => djState.setDeck(d, { playing: false });
   }
   // Les analyses de la caisse attendent que plus rien ne joue (2026-10-05 : le MM-RYTM, le MM-ARP et les
   // samplers aussi, plus seulement les platines ; decoder et chercher le BPM d'un morceau gelait la page
   // une fraction de seconde, la musique se coupait)
-  setCrateBusy(() => DJ_DECKS_ALL.some((d) => e.decks[d].playing) || anyPlaying());
+  setCrateBusy(() => DJ_PLAYERS.some((d) => e.decks[d].playing) || anyPlaying());
   /*
    * Les machines du site entrent sur la table (2026-10-04, Mika : "1 et 2
    * doivent etre RYTM et ARP") : effets compris ; on mixe donc les platines
@@ -132,7 +133,7 @@ function silenceOthers(): void {
 export function djPauseAll(): void {
   const e = djEngineIfAny();
   if (!e) return;
-  for (const d of DJ_DECKS_ALL) {
+  for (const d of DJ_PLAYERS) {
     if (!e.decks[d].playing) continue;
     e.decks[d].pause();
     djState.setDeck(d, { playing: false });
@@ -872,7 +873,7 @@ const handOn = (d: DjDeck, e: DjEngine): boolean => touching[d] || e.decks[d].be
 
 function phaseLock(e: DjEngine): void {
   const s = djState.get();
-  for (const d of DJ_DECKS_ALL) {
+  for (const d of DJ_PLAYERS) {
     const p = e.decks[d];
     const ds = s.deck[d];
     const t = e.ctx.currentTime;
@@ -1022,7 +1023,7 @@ export function mixBeat(): { last: number; period: number; index: number | null 
   const now = e.ctx.currentTime;
   let best: DjDeck | null = null;
   let w = 0;
-  for (const d of DJ_DECKS_ALL) {
+  for (const d of DJ_PLAYERS) {
     const k = heardWeight(s, d);
     if (k > w) {
       w = k;
