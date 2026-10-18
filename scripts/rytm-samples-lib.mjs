@@ -140,10 +140,12 @@ export async function siteFiles(root, fams = FAMILIES) {
 /**
  * Un nom de fichier que .gitignore ne cache pas : un chiffre seul en fin de
  * nom, apres un espace, se colle au mot d'avant (OT 3 : OT3 ; Deep 2 :
- * Deep2). "Psy 02" ou "Kick 12" restent : ' 02.' et ' 12.' ne ressemblent
- * pas a un double du Finder.
+ * Deep2). Apres un nombre, un tiret (909 3 : 909-3, pas 9093 ; X 3 3 :
+ * X 3-3) : colle, il ferait un autre nombre a la plaque. "Psy 02" ou
+ * "Kick 12" restent : ' 02.' et ' 12.' ne ressemblent pas a un double du
+ * Finder.
  */
-export const safeStem = (stem) => stem.replace(/(\S)\s+(\d)$/u, '$1$2');
+export const safeStem = (stem) => stem.replace(/(\S)\s+(\d)$/u, (_, a, d) => (/\d/.test(a) ? `${a}-${d}` : `${a}${d}`));
 
 /** Le k-ieme doublon d'un nom, sans espace : Stein2 ; apres un chiffre, un tiret (OT3-2). */
 export const suffixed = (stem, k) => (/\p{L}$/u.test(stem) ? `${stem}${k}` : `${stem}-${k}`);

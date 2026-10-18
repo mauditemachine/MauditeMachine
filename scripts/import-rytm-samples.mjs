@@ -41,7 +41,8 @@
  * - un nom que git voit (2026-10-18, chantier S2) : .gitignore ecarte
  *   '* 2.*' et '* 3.*' (les doubles du Finder), et "OT_Kick3" etait devenu
  *   "09 OT 3.wav", present sur le disque, jamais en ligne. Un chiffre seul en
- *   fin de nom se colle au mot d'avant (OT3, Deep2) ; deux noms qui restent
+ *   fin de nom se colle au mot d'avant (OT3, Deep2 ; apres un nombre, un
+ *   tiret : 909 Kick 3 donne 909-3, pas 9093) ; deux noms qui restent
  *   pareils prennent un numero colle (Stein2 ; OT3-2 apres un chiffre) ; et
  *   avant d'ecrire, git check-ignore juge chaque nouveau fichier : un seul
  *   ignore, rien n'est ecrit. Apres l'ecriture, git status doit les voir
@@ -484,10 +485,11 @@ function candidates(file, fam) {
 /**
  * Un nom que git voit (2026-10-18) : "13 OT 3.wav" tomberait sous la regle
  * '* 3.*' de .gitignore. Un chiffre seul en fin de nom se colle au mot
- * d'avant (OT3) ; un nom fait d'un numero d'un ou deux chiffres prend le
- * sigle de la famille, comme BD88 (Kick 3 : BD3 ; Closed Hat 01 : CH01 ;
- * "13 3.wav" serait ignore, "13 01.wav" ne dirait rien). Un nombre de trois
- * chiffres et plus est un nom (707), et Psy 02 reste Psy 02.
+ * d'avant (OT3 ; apres un nombre, un tiret : 909-3) ; un nom fait d'un
+ * numero d'un ou deux chiffres prend le sigle de la famille, comme BD88
+ * (Kick 3 : BD3 ; Closed Hat 01 : CH01 ; "13 3.wav" serait ignore,
+ * "13 01.wav" ne dirait rien). Un nombre de trois chiffres et plus est un
+ * nom (707), et Psy 02 reste Psy 02.
  */
 function gitSafe(stem, fam) {
   const s = safeStem(stem);
