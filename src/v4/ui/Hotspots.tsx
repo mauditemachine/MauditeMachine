@@ -133,7 +133,7 @@ import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { clock } from '../audio/clock';
 import { learnPick, midi } from '../midi/midi';
 import { targetIdOfHotspot } from '../midi/targets';
-import { KIT_ARIA, KIT_IDS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
+import { KIT_ARIA, KIT_PLATE_IDS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
 import { mix } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, FX_SETTING_IDS, STEP_COUNT, isOn, pattern } from '../audio/pattern';
@@ -1947,8 +1947,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       />
       {chips}
       {showChips &&
-        KIT_IDS.map((k) => {
-          // Les TWEAKS du kit (2026-10-04) : juste apres OPEN qui les decouvre, au clavier comme a la souris
+        KIT_PLATE_IDS.map((k) => {
+          // Les TWEAKS du kit (2026-10-04) : juste apres OPEN qui les decouvre, au clavier comme a la souris ; sans les choix de sons (2026-10-18)
           const id = `rk-${k}`;
           const sw = isFamily(k);
           const v = sw ? kit.value(k) : kitNow.knob[k];

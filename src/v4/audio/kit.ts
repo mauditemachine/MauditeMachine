@@ -99,14 +99,19 @@ export type KitId = KitFamily | KitKnob;
 export const KIT_FAMILIES: readonly KitFamily[] = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
 export const KIT_KNOBS: readonly KitKnob[] = ['tune', 'attack', 'decay', 'drive', 'snappy', 'gate', 'sweep', 'sdtune', 'sddecay', 'sdtone'];
 /**
- * La plaque TWEAKS (OPEN) et ses jumeaux, dans leur ordre : ses onze cases
- * (R3 n'en ajoute pas). Une famille par voix depuis le 2026-10-18, mais la
- * carte garde ses onze pieces (trois selecteurs de plus ne tiennent pas dans
- * le cadre VOICES, scene/rytmTweaks.ts) : le selecteur des charleys regle
- * ch (CL HAT), celui des toms tom (TOM) ; oh, ht et cy se choisissent a
- * l'ecran (SOUND) et au MIDI (rytm:kit:oh, ht, cy).
+ * Les reglages du kit gardes par un preset (state/presets.ts) et cibles MIDI
+ * (rytm:kit:<id>), dans leur ordre : les onze cases de l'ancienne plaque
+ * TWEAKS (R3 n'en ajoute pas) ; oh, ht et cy (une famille par voix depuis le
+ * 2026-10-18) suivent a part (midi/targets.ts).
  */
 export const KIT_IDS: readonly KitId[] = ['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'ch', 'tom'];
+/**
+ * La plaque TWEAKS (OPEN) et ses jumeaux, dans leur ordre : les reglages de la
+ * machine seulement depuis le 2026-10-18 (Mika : "je veux avoir la selection
+ * dans les Sounds ! et d'ailleurs pas dans OPEN") ; le son de chaque voix se
+ * choisit a l'ecran (SOUND, page VOICE) et au MIDI (rytm:kit:<famille>).
+ */
+export const KIT_PLATE_IDS: readonly KitId[] = ['tune', 'attack', 'decay', 'drive', 'snappy', 'gate'];
 /** Les potards de la machine ajoutes par R3 (2026-10-08) : sur la page SRC et en MIDI (rytm:kit:<id>), pas sur la plaque. */
 export const KIT_MORE: readonly KitKnob[] = ['sweep', 'sdtune', 'sddecay', 'sdtone'];
 

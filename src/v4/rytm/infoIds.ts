@@ -110,15 +110,14 @@ export type RytmParamId = (typeof RYTM_PARAM_IDS)[number];
 
 /**
  * Les choix de son des familles (r:<famille>, audio/kit.ts) : une par voix
- * depuis le 2026-10-18. Sur la plaque TWEAKS (OPEN) : KICK, SNARE, CLAP, le
- * charley ferme (CL HAT) et le tom grave (TOM) ; OH, HT et CY n'ont leur choix
- * qu'a l'ecran et au MIDI (rytm:kit:oh, ht, cy), leur carte est la meme.
+ * depuis le 2026-10-18, a l'ecran (SOUND, page VOICE) et au MIDI
+ * (rytm:kit:<famille>) ; plus sur la plaque TWEAKS (OPEN) depuis le meme jour.
  */
 export const RYTM_PLATE_SOUND_IDS = ['r:bd', 'r:sd', 'r:cp', 'r:ch', 'r:oh', 'r:tom', 'r:ht', 'r:cy'] as const;
 export type RytmPlateSoundId = (typeof RYTM_PLATE_SOUND_IDS)[number];
 
-/** Les potards de la plaque TWEAKS, dans l'ordre de scene/rytmTweaks.ts (KIT_IDS). */
-export const RYTM_PLATE_IDS = ['r:bd', 'r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:sd', 'r:snappy', 'r:cp', 'r:gate', 'r:ch', 'r:tom'] as const;
+/** Les potards de la plaque TWEAKS, dans l'ordre de scene/rytmTweaks.ts (KIT_PLATE_IDS, sans les choix de sons depuis le 2026-10-18). */
+export const RYTM_PLATE_IDS = ['r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:snappy', 'r:gate'] as const;
 
 /**
  * Les reglages a venir de l'etude (inv/rytm-synthesis.md 2.2), sur aucun
@@ -351,8 +350,8 @@ export interface RytmInfoHit {
   encoder?: number;
 }
 
-// Les onze pieces de la carte (audio/kit.ts KIT_IDS) : le selecteur des charleys regle ch depuis le 2026-10-18
-const KIT_HOT = new Set(['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'ch', 'tom']);
+// Les six pieces de la carte (audio/kit.ts KIT_PLATE_IDS) : les choix de sons sont a l'ecran depuis le 2026-10-18
+const KIT_HOT: ReadonlySet<string> = new Set(['tune', 'attack', 'decay', 'drive', 'snappy', 'gate']);
 const TRANSPORT = new Set(['run', 'clear', 'random', 'mute', 'solo']);
 const PAGE_IDS: ReadonlySet<string> = new Set(RYTM_PAGES.map((p) => p.id));
 const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);

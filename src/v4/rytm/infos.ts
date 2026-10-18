@@ -655,51 +655,51 @@ const RAW: Record<RytmInfoId, Raw> = {
 
   /* ---------- la plaque TWEAKS (OPEN) : les choix de son ---------- */
   'r:bd': {
-    section: 'TWEAKS / KICK',
+    section: 'VOICE',
     title: 'KICK',
-    text: "Le son du kick en un geste, sous le capot : 909, 808 ou MM (la synthèse seule, remise à fond, le sample coupé), puis les samples de Mika, chacun à son cran et à son nom (le sample seul, la synthèse à 0). Pour un sample et une machine ensemble, l'écran : SOUND (VOICE) et MIX (VOICE SYNTH). Tous sortent à la même crête : changer de kick ne change pas le niveau.",
+    text: "Le son du kick : 909, 808 ou MM (la synthèse seule, remise à fond, le sample coupé), puis les samples de Mika, chacun à son nom (le sample seul, la synthèse à 0). Il se choisit à l'écran : touche le nom du son (SOUND, sur VOICE quand BD est choisi), toute la liste s'ouvre ; au MIDI, rytm:kit:bd. Pour un sample et une machine ensemble : MIX (VOICE SYNTH). Tous sortent à la même crête : changer de kick ne change pas le niveau.",
     tip: '909 pour une techno qui claque, 808 pour un minimal rond et long, un sample de Mika pour l’indie dance.',
   },
   'r:sd': {
-    section: 'TWEAKS / SNARE',
+    section: 'VOICE',
     title: 'SNARE',
-    text: "Le son de la caisse claire en un geste : 909, 808 ou MM (la synthèse seule, à fond), puis les samples de Mika (le sample seul). SNAPPY, à côté, règle son timbre, synthèse et sample ; pour les deux couches ensemble, MIX (VOICE SYNTH) sur l'écran.",
+    text: "Le son de la caisse claire : 909, 808 ou MM (la synthèse seule, à fond), puis les samples de Mika (le sample seul). À l'écran (SOUND, sur VOICE quand SD est choisi) et au MIDI (rytm:kit:sd). SNAPPY, sous le capot (OPEN), règle son timbre, synthèse et sample ; pour les deux couches ensemble, MIX (VOICE SYNTH).",
     tip: 'MM avec GATE sur ON pour la dark disco des années 80.',
   },
   'r:cp': {
-    section: 'TWEAKS / CLAP',
+    section: 'VOICE',
     title: 'CLAP',
-    text: "Le son du clap : 909, 808 ou MM, sa machine (SOUND, sur VOICE quand CP est choisi), remise à fond. GATE lui donne sa petite pièce en MM et en 909.",
+    text: "Le son du clap : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). À l'écran (SOUND, sur VOICE quand CP est choisi) et au MIDI (rytm:kit:cp). GATE (OPEN) lui donne sa petite pièce en MM et en 909.",
     tip: '909 avec GATE sur ON : le clap large de la dark disco ; 808, sec et court, pour un minimal.',
   },
   'r:ch': {
-    section: 'TWEAKS / CL HAT',
+    section: 'VOICE',
     title: 'CL HAT',
-    text: "Le son du charley fermé, CH, en un geste : 909, 808 ou MM, sa machine (SOUND, sur VOICE quand CH est choisi), remise à fond, puis ses samples (le sample seul). Depuis le 2026-10-18, OH a son propre choix : à l'écran (SOUND) et au MIDI (rytm:kit:oh), pas sur la carte.",
+    text: "Le son du charley fermé, CH : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). À l'écran (SOUND, sur VOICE quand CH est choisi) et au MIDI (rytm:kit:ch) ; OH a son propre choix.",
     tip: '808 pour un minimal métallique, 909 pour une house qui respire.',
   },
   'r:oh': {
     section: 'VOICE',
     title: 'OP HAT',
-    text: "Le son du charley ouvert, OH, en un geste : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). À l'écran (SOUND, sur VOICE quand OH est choisi) et au MIDI (rytm:kit:oh) ; la carte n'a pas de sélecteur à lui.",
+    text: "Le son du charley ouvert, OH : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). À l'écran (SOUND, sur VOICE quand OH est choisi) et au MIDI (rytm:kit:oh).",
     tip: 'Un 909 ouvert sur les contretemps au-dessus d’un CH 808 : la house qui respire.',
   },
   'r:tom': {
-    section: 'TWEAKS / TOM',
+    section: 'VOICE',
     title: 'TOM',
-    text: "Le son du tom grave, TOM, en un geste : 909, 808 ou MM, sa machine (SOUND, sur VOICE quand TOM est choisi), remise à fond, puis ses samples (le sample seul). Depuis le 2026-10-18, HT a son propre choix : à l'écran (SOUND) et au MIDI (rytm:kit:ht), pas sur la carte.",
+    text: "Le son du tom grave, TOM : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). À l'écran (SOUND, sur VOICE quand TOM est choisi) et au MIDI (rytm:kit:tom) ; HT a son propre choix.",
     tip: '808 pour des toms ronds de dark disco ; MM, plus courts, pour une ligne de percussions minimal accordée en P-LOCK.',
   },
   'r:ht': {
     section: 'VOICE',
     title: 'HI TOM',
-    text: "Le son du tom aigu, HT, en un geste : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (toms aigus, percussions, congas, rims ; le sample seul). À l'écran (SOUND, sur VOICE quand HT est choisi) et au MIDI (rytm:kit:ht) ; la carte n'a pas de sélecteur à lui.",
+    text: "Le son du tom aigu, HT : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (toms aigus, percussions, congas, rims ; le sample seul). À l'écran (SOUND, sur VOICE quand HT est choisi) et au MIDI (rytm:kit:ht).",
     tip: 'HT en 909 au-dessus d’un TOM 808 : deux timbres pour une relance de toms.',
   },
   'r:cy': {
     section: 'VOICE',
     title: 'CYMBAL',
-    text: "Le son de la cymbale, CY, en un geste : sa synthèse (909, 808 et MM donnent aujourd'hui le même son calculé), puis ses samples (cymbales, crashs, rides ; le sample seul). À l'écran (SOUND, sur VOICE quand CY est choisi) et au MIDI (rytm:kit:cy) ; la carte n'a pas de sélecteur à lui.",
+    text: "Le son de la cymbale, CY : sa synthèse (909, 808 et MM donnent aujourd'hui le même son calculé), puis ses samples (cymbales, crashs, rides ; le sample seul). À l'écran (SOUND, sur VOICE quand CY est choisi) et au MIDI (rytm:kit:cy).",
     tip: 'Un crash de Mika sur le premier pas, verrouillé plus doux en P-LOCK sur le neuvième : la mesure respire.',
   },
 
@@ -942,7 +942,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   random: {
     section: 'TRANSPORT',
     title: 'RANDOM',
-    text: "Compose un motif 4x4 neuf pour toutes les voix dans un style (HOUSE, DEEP HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, DARK DISCO, ITALO, PROG ou ELECTRO), jamais deux fois le même style de suite : le kick reste sur les quatre temps, le reste change à chaque appui (backbeat, charleys en croches, doubles croches, galop ou euclidiens, percussions euclidiennes, roulements, ride ou crash, vélocités sur neuf niveaux) et le motif s'éloigne toujours du précédent. Le SWING suit le style ; TONE, VOL, DECAY et PAN sont tirés pour chaque voix sauf le kick, qui garde son son. Le tempo, les autres effets, les autres réglages des voix et les verrous restent. Les sons ne changent pas : pour en choisir un, touche le nom du son (SOUND, page VOICE), toute la liste de la voix s'ouvre ; au desktop, un WAV glissé sur un pad y entre aussi.",
+    text: "Compose un motif 4x4 neuf pour toutes les voix dans un style (HOUSE, DEEP HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, DARK DISCO, ITALO, PROG ou ELECTRO), jamais deux fois le même style de suite : le kick reste sur les quatre temps, le reste change à chaque appui (backbeat, charleys en croches, doubles croches, galop ou euclidiens, percussions euclidiennes, roulements, ride ou crash, vélocités sur neuf niveaux) et le motif s'éloigne toujours du précédent. Le SWING suit le style ; chaque voix, le kick compris, prend aussi un autre son de sa liste SOUND (le plus souvent un sample, sinon 909, 808 ou MM) ; TONE, VOL, DECAY et PAN sont tirés pour chaque voix sauf le kick. Le tempo, les autres effets, les autres réglages des voix et les verrous restent ; UNDO revient au motif et aux sons d'avant. Pour choisir un son toi-même, touche le nom du son (SOUND, page VOICE), toute la liste de la voix s'ouvre ; au desktop, un WAV glissé sur un pad y entre aussi.",
     tip: 'Appuie jusqu’à ce qu’un groove t’accroche, puis garde-le dans un pattern avec EDIT.',
   },
   mute: {

@@ -32,8 +32,9 @@
  * - le SWING du style (HOUSE et DEEP balancent, TECHNO et ELECTRO droits) ;
  * - le motif tire s'eloigne du motif courant d'au moins 14 cases (sur 128).
  * Et la couleur de chaque voix (randomColors) : TONE, VOLUME, DECAY et PAN
- * tires dans des plages sures, par voix ; la grosse caisse garde son son
- * (c'est elle que Mika choisit et regle).
+ * tires dans des plages sures, par voix ; la grosse caisse garde sa couleur
+ * (c'est elle que Mika regle). Le son de chaque voix, kick compris, est tire
+ * a part (actions.ts randomVoiceSounds, 2026-10-18).
  *
  * Velocites du motif : 0 vide, 1 a 9 (audio/pattern.ts).
  */
@@ -465,7 +466,7 @@ export function randomBeat(current: Steps, last: BeatStyle | null = null, r: Ran
 
 /**
  * La couleur de chaque voix (VOICE FX tone, level, decay, pan) : des plages
- * sures, par voix. La grosse caisse n'y est pas : elle garde son son. Les
+ * sures, par voix. La grosse caisse n'y est pas : elle garde sa couleur. Les
  * charleys ne s'assombrissent presque pas, les toms et la cymbale chantent
  * plus librement ; le PAN ecarte les charleys et les percussions, jamais la
  * caisse claire ni le clap. VOLUME 0.8 = le niveau d'origine ; DECAY 1 = la

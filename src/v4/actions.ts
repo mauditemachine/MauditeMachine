@@ -472,7 +472,8 @@ let lastStyle: BeatStyle | null = null;
  * un style et son motif, pour toutes les voix, plus le TONE et le VOLUME de
  * chaque voix (Mika : "le tone, le volume") ; depuis le 2026-10-14 (Mika : "le
  * random ne fais pas assez de random") aussi leur DECAY et leur PAN, et le
- * SWING du style ; la grosse caisse garde son son. La lecture continue, le
+ * SWING du style ; depuis le 2026-10-18 aussi le SON de chaque voix, le kick
+ * compris (randomVoiceSounds). La lecture continue, le
  * tempo, les autres GLOBAL FX et VOICE FX restent ceux de l'utilisateur. Le
  * bouton s'enfonce, l'ecran dit le style.
  */
@@ -487,8 +488,37 @@ export function randomPattern(stage: Stage | null = null): void {
   pattern.fx.set({ swing });
   const colors = randomColors();
   for (const inst of COLOR_VOICES) for (const p of ['tone', 'level', 'decay', 'pan'] as const) voiceFx.set(inst, p, colors[inst][p]);
+  randomVoiceSounds();
   stage?.pressButton('random');
   lcdMessage.show(`RANDOM ${style}`);
+}
+
+/** La part des samples dans le tirage d'une voix qui en a (le kick plus encore : ses samples sont ceux de Mika). */
+const RANDOM_SAMPLE_ODDS: Readonly<Partial<Record<KitFamily, number>>> = { bd: 0.85 };
+
+/**
+ * RANDOM tire aussi le son de chaque voix (2026-10-18, Mika : "au Random les sons sont replaces dans le sequenceur mais
+ * je n'ai pas l'impression que les voices et les samples changent") : dans sa liste de SOUND, jamais OFF ni le son
+ * qu'elle jouait ; une voix qui a des samples en prend un le plus souvent (75 %, le kick 85 %), seul a son niveau ;
+ * sinon une machine (909, 808, MM). Le kick compris. Meme etape UNDO que le motif (le kit est suivi par UNDO).
+ */
+function randomVoiceSounds(): void {
+  const k = kit.get();
+  for (const inst of INSTRUMENTS) {
+    const f = familyOf(inst as ShotId);
+    if (!f) continue;
+    const l = k.layer[f];
+    const now = k.sample[f] && l.lev > 0 ? k.sample[f] : l.syn > 0 ? k.model[f] : null;
+    const list = voiceSounds(inst).filter((s) => (s.kind === 'smp' || s.kind === 'mach') && s.key !== now);
+    const smps = list.filter((s) => s.kind === 'smp');
+    const machs = list.filter((s) => s.kind === 'mach');
+    const pool = smps.length > 0 && (machs.length === 0 || Math.random() < (RANDOM_SAMPLE_ODDS[f] ?? 0.75)) ? smps : machs;
+    const s = pool[Math.floor(Math.random() * pool.length)];
+    if (!s) continue;
+    const top = layerTop(l.syn, l.lev);
+    if (s.kind === 'smp') kit.setVoice(f, { sample: s.key, syn: 0, lev: top });
+    else kit.setVoice(f, { model: s.key as KitModel, syn: top, lev: 0 });
+  }
 }
 
 /** TEMPO : borne et arrondi a 100..150 ; l'horloge le prend au prochain pas. */
