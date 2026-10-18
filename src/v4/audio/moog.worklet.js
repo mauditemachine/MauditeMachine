@@ -197,12 +197,37 @@ const FM_MAX = 6;
  * OSC 1 et OSC 2 (2026-10-04, a la place de MIX) : le gain de chaque
  * oscillateur, lisse.
  * MOD (2026-10-04) : un LFO commun aux notes, cale sur le tempo (un cycle
- * = lfoBeats temps a bpm), repart a zero a la premiere note apres un STOP ;
- * triangle, dent de scie, carre ou echantillonne-bloque (un tirage par
- * cycle), adouci en 2 ms (pas de clic) ; il pousse les formes d'onde (+/-2
- * crans), la coupure (+/-3 octaves), la FM (+/-0.6), la hauteur (+/-1
- * demi-ton) ou formes et coupure a moitie chacune, selon DEPTH.
+ * = lfoBeats temps), adouci en 2 ms (pas de clic) ; il pousse les formes
+ * d'onde (+/-2 crans), la coupure (+/-3 octaves), la FM (+/-0.6), la
+ * hauteur (+/-1 demi-ton) ou formes et coupure a moitie chacune, selon DEPTH.
+ * Cale sur la mesure (2026-10-18, Mika : "dans les MOD je veux un random
+ * aussi et qui se cale au beat") : sa phase ne tourne plus d'elle-meme
+ * (avant, elle repartait a la premiere note apres un STOP, s'arretait a
+ * chaque silence du moteur et gardait son avance a un changement de
+ * tempo : elle quittait la grille). Elle se lit sur la position du
+ * transport, en temps : a chaque pas, l'arpegiateur dit ou il en est
+ * ('beat' : a tel instant, tel temps depuis le debut de sa premiere
+ * mesure, a tel tempo), et entre deux pas la position suit la droite de la
+ * derniere ancre. Un cycle part donc toujours pile sur la grille de sa
+ * division (1/16 sur chaque double croche, 1 BAR sur chaque mesure, 4 BAR
+ * sur les mesures 1, 5, 9... de l'arpege), apres un RUN, un tempo change ou
+ * un silence. Arrete (STOP), il tourne librement au tempo (bpm) ; sans
+ * ancre depuis une seconde (un onglet gele), un tempo qui change s'y
+ * applique aussi tout de suite. Les formes (lfoShape) : 0 triangle, 1 dent de
+ * scie, 2 carre, 3 S&H (une valeur par cycle, tiree pile a son debut,
+ * tenue), 4 RND (le hasard lisse : de la valeur du cycle a la suivante, en
+ * S, arrivee pile au debut du cycle suivant) ; deux valeurs de suite du
+ * hasard s'ecartent d'au moins LFO_MIN_JUMP (un quart de la course, -1 a
+ * +1) : il s'entend toujours, jamais un tirage presque pareil au precedent.
  */
+const LFO_MIN_JUMP = 0.5;
+/** Le tirage suivant du hasard de MOD : partout entre -1 et +1, sauf a moins de LFO_MIN_JUMP du precedent. */
+function nextRandom(a) {
+  const lo = Math.max(0, a - LFO_MIN_JUMP + 1);
+  const hi = Math.max(0, 1 - a - LFO_MIN_JUMP);
+  const r = Math.random() * (lo + hi);
+  return r < lo ? -1 + r : a + LFO_MIN_JUMP + (r - lo);
+}
 const NOISE_MAX = 1;
 const SLOPE12_RES = 0.12;
 /**
@@ -363,11 +388,8 @@ class MMVoyager extends AudioWorkletProcessor {
     this.flip = false;
     // MODE du filtre : le poids de chaque sortie (LP 24, LP 12, BP, HP), en fondu
     this.wm = [1, 0, 0, 0];
-    // MOD : la phase du LFO, sa valeur tenue (S&H), sa sortie adoucie ; il repart a la premiere note
-    this.lfoPh = 0;
-    this.lfoHold = 0;
+    // MOD : la sortie adoucie du LFO (sa phase vient du transport, plus bas)
     this.lfoOut = 0;
-    this.lfoRestart = true;
     this.lfoK = coef(0.002, this.sr2);
     this.p = {
       wave1: 2,
@@ -416,8 +438,89 @@ class MMVoyager extends AudioWorkletProcessor {
     if (o.params) Object.assign(this.p, o.params);
     Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
     this.coefs();
+    // MOD cale sur la mesure (2026-10-18) : la position du transport en temps, la droite de la derniere ancre
+    // (temps = b + (echantillon - f) x k, k : temps par echantillon du contexte) ; libre au depart, au tempo
+    this.tp = { f: currentFrame, b: 0, k: this.p.bpm / 60 / sampleRate, run: false };
+    this.tpLocked = false;
+    // Les ancres a venir (l'arpegiateur les envoie avec leur instant), dans l'ordre
+    this.beats = [];
+    // Le hasard (S&H, RND) : le cycle en cours, sa valeur et celle du cycle suivant
+    this.rIdx = NaN;
+    this.rA = Math.random() * 2 - 1;
+    this.rB = nextRandom(this.rA);
+    // Tests sans son (audio/synth.ts renderSynthOffline) : probe, la sortie dit le LFO (gauche : sa forme, droite :
+    // la position en temps) ; timeline, des messages a leur instant, comme ceux du port
+    this.probe = o.probe === true;
+    this.pL = new Float32Array(128);
+    this.pR = new Float32Array(128);
+    this.timeline = Array.isArray(o.timeline) ? o.timeline.filter((x) => x && x.msg && Number.isFinite(x.at)).sort((a, b) => a.at - b.at) : [];
     if (o.notes) for (const n of o.notes) this.add(n);
+    if (o.beats) for (const b of o.beats) this.addBeat(b);
     this.port.onmessage = (e) => this.onMsg(e.data);
+  }
+
+  /** Une ancre du transport ('beat') : a time (temps du contexte), la position beat (en temps), au tempo bpm jusqu'a la suivante ; run : le premier pas d'un RUN. */
+  addBeat(m) {
+    if (!m || !Number.isFinite(m.time) || !Number.isFinite(m.beat)) return;
+    const bpm = Number.isFinite(m.bpm) && m.bpm > 0 ? m.bpm : this.p.bpm;
+    // Son instant pose sur la grille surechantillonnee (comme une note sur son echantillon) : la frontiere d'un cycle
+    // tombe sur un echantillon calcule, jamais a un bruit de flottant pres (un pas pile sur un echantillon)
+    const OS = this.os;
+    const a = { f: Math.round(m.time * sampleRate * OS) / OS, b: m.beat, k: bpm / 60 / sampleRate, run: m.run === true };
+    const q = this.beats;
+    let i = q.length;
+    while (i > 0 && q[i - 1].f > a.f) i -= 1;
+    q.splice(i, 0, a);
+  }
+
+  /** Les ancres arrivees a l'echantillon x (fractionnaire au surechantillonnage) : la derniere tient la position. */
+  dueBeats(x) {
+    const q = this.beats;
+    while (q.length > 0 && q[0].f <= x) {
+      const a = q.shift();
+      this.tp = a;
+      this.tpLocked = true;
+      // Un RUN : le hasard repart d'un nouveau tirage
+      if (a.run) this.rIdx = NaN;
+    }
+  }
+
+  /** La position du transport (en temps) a l'echantillon x. */
+  beatAt(x) {
+    const tp = this.tp;
+    return tp.b + (x - tp.f) * tp.k;
+  }
+
+  /** Le transport libre (STOP, tempo change a l'arret) : il continue d'ou il est, au tempo du moment. */
+  freeRun(x) {
+    this.tp = { f: x, b: this.beatAt(x), k: this.p.bpm / 60 / sampleRate, run: false };
+    this.tpLocked = false;
+  }
+
+  /**
+   * MOD : la forme du LFO a la position cyc (en cycles depuis le debut du transport) ; le hasard avance pile au debut
+   * de chaque cycle (la valeur du cycle : celle qu'il visait, puis un nouveau tirage pour le suivant).
+   */
+  lfoRaw(cyc, shape) {
+    const c = Math.floor(cyc);
+    if (c !== this.rIdx) {
+      this.rIdx = c;
+      this.rA = this.rB;
+      this.rB = nextRandom(this.rA);
+    }
+    const ph = cyc - c;
+    switch (shape) {
+      case 1:
+        return 1 - 2 * ph;
+      case 2:
+        return ph < 0.5 ? 1 : -1;
+      case 3:
+        return this.rA;
+      case 4:
+        return this.rA + (this.rB - this.rA) * ph * ph * (3 - 2 * ph);
+      default:
+        return 1 - 4 * Math.abs(ph - 0.5);
+    }
   }
 
   coefs() {
@@ -446,18 +549,36 @@ class MMVoyager extends AudioWorkletProcessor {
 
   onMsg(m) {
     if (m.type === 'note') this.add(m);
+    else if (m.type === 'beat') this.addBeat(m);
     else if (m.type === 'params') {
       Object.assign(this.p, m.params);
       this.coefs();
+      // Un tempo, transport libre (ou plus d'ancre depuis une seconde) : la position continue au nouveau tempo ;
+      // en lecture, ce sont les ancres qui portent le tempo, a la frontiere de pas ou il change
+      const stale = this.beats.length === 0 && currentFrame - this.tp.f > sampleRate;
+      if (m.params && m.params.bpm > 0 && (!this.tpLocked || stale)) this.freeRun(currentFrame);
+    } else if (m.type === 'probe') {
+      // Debug (window.__v4.voyager.synth.lfo) : le LFO maintenant, lu par le meme calcul que le son
+      const x = currentFrame;
+      this.dueBeats(x);
+      const beat = this.beatAt(x);
+      const cycle = beat / Math.max(0.0625, this.p.lfoBeats);
+      const raw = this.lfoRaw(cycle, this.p.lfoShape);
+      this.port.postMessage({ type: 'probe', id: m.id, frame: x, beat, cycle, raw, out: this.lfoOut, locked: this.tpLocked, bpm: this.tp.k * 60 * sampleRate, shape: this.p.lfoShape, pending: this.beats.length });
     } else if (m.type === 'cancel') {
-      // Re-programmation (2026-10-05) : les notes attendues a partir de time sont oubliees, ce qui sonne continue
+      // Re-programmation (2026-10-05) : les notes attendues a partir de time sont oubliees, ce qui sonne continue ;
+      // les ancres du transport aussi (2026-10-18 : l'arpegiateur renvoie les memes)
       const f = Math.round((m.time || 0) * sampleRate);
       this.queue = this.queue.filter((n) => n.frame < f);
+      this.beats = this.beats.filter((a) => a.f < f - 0.5);
     } else if (m.type === 'stop') {
-      // STOP : plus rien d'attendu, ce qui sonne s'eteint en 12 ms ; le LFO repartira avec la musique
-      this.lfoRestart = true;
+      // STOP : plus rien d'attendu, ce qui sonne s'eteint en 12 ms ; le LFO tourne librement au tempo
       const f = Math.round((m.time || 0) * sampleRate);
       this.queue = this.queue.filter((n) => n.frame < f);
+      // Le transport s'arrete : les ancres passees comptent, celles a venir n'ont plus de sens
+      this.dueBeats(currentFrame);
+      this.beats.length = 0;
+      this.freeRun(currentFrame);
       for (const v of this.voices) {
         if (!v.on) continue;
         v.aStage = 3;
@@ -510,11 +631,6 @@ class MMVoyager extends AudioWorkletProcessor {
     const pan = (this.flip ? 1 : -1) * p.width * (0.7 + 0.3 * Math.random());
     v.gL = Math.cos(((pan + 1) * Math.PI) / 4) * Math.SQRT2;
     v.gR = Math.sin(((pan + 1) * Math.PI) / 4) * Math.SQRT2;
-    if (this.lfoRestart) {
-      this.lfoRestart = false;
-      this.lfoPh = 0;
-      this.lfoHold = Math.random() * 2 - 1;
-    }
     this.age += 1;
     v.age = this.age;
   }
@@ -526,10 +642,14 @@ class MMVoyager extends AudioWorkletProcessor {
     const N = L.length;
     const sr = this.sr2;
     const t0 = currentFrame;
+    // Tests (processorOptions.timeline) : les messages dont l'instant est venu, entre deux blocs comme ceux du port
+    const tl = this.timeline;
+    while (tl.length > 0 && tl[0].at * sampleRate <= t0) this.onMsg(tl.shift().msg);
     const q = this.queue;
+    const lfoBeats = Math.max(0.0625, this.p.lfoBeats);
     let active = false;
     for (const v of this.voices) if (v.on) active = true;
-    if (!active && (q.length === 0 || q[0].frame >= t0 + N)) {
+    if (!this.probe && !active && (q.length === 0 || q[0].frame >= t0 + N)) {
       L.fill(0);
       if (R) R.fill(0);
       // Silence : l'historique des demi-bandes repart a zero
@@ -537,6 +657,11 @@ class MMVoyager extends AudioWorkletProcessor {
       if (this.d2) this.d2.clear();
       if (this.d4R) this.d4R.clear();
       if (this.d2R) this.d2R.clear();
+      // MOD : le transport avance quand meme (ses ancres, le hasard tire au debut de chaque cycle) ; la sortie du
+      // LFO y est deja quand une note revient
+      const x = t0 + N - 1;
+      this.dueBeats(x);
+      this.lfoOut = this.lfoRaw(this.beatAt(x) / lfoBeats, this.p.lfoShape);
       return true;
     }
     // Derive lente des oscillateurs : une marche au hasard bornee, une fois par bloc
@@ -566,18 +691,27 @@ class MMVoyager extends AudioWorkletProcessor {
     }
     const raw = this.raw;
     const rawR = this.rawR;
+    const beats = this.beats;
+    const probe = this.probe;
+    if (probe && this.pL.length < N) {
+      this.pL = new Float32Array(N);
+      this.pR = new Float32Array(N);
+    }
     for (let i2 = 0; i2 < OS * N; i2 += 1) {
       const i = (i2 / OS) | 0;
       const fr = t0 + i;
       if (i2 % OS === 0) while (q.length > 0 && q[0].frame <= fr) this.noteOn(q.shift(), fr);
-      // MOD : le LFO avance (cycle cale sur le tempo), sa forme, adoucie
-      this.lfoPh += p.bpm / 60 / Math.max(0.0625, p.lfoBeats) / sr;
-      if (this.lfoPh >= 1) {
-        this.lfoPh -= Math.floor(this.lfoPh);
-        this.lfoHold = Math.random() * 2 - 1;
+      // MOD : la position du transport a cet echantillon (une ancre de l'arpege prend effet a son instant exact,
+      // au surechantillonnage pres), en cycles du LFO, puis sa forme, adoucie
+      const x = fr + (i2 - i * OS) / OS;
+      if (beats.length > 0 && beats[0].f <= x) this.dueBeats(x);
+      const tp = this.tp;
+      const pos = tp.b + (x - tp.f) * tp.k;
+      const lraw = this.lfoRaw(pos / lfoBeats, p.lfoShape);
+      if (probe && i2 - i * OS === 0) {
+        this.pL[i] = lraw;
+        this.pR[i] = pos;
       }
-      const lp = this.lfoPh;
-      const lraw = p.lfoShape === 1 ? 1 - 2 * lp : p.lfoShape === 2 ? (lp < 0.5 ? 1 : -1) : p.lfoShape === 3 ? this.lfoHold : 1 - 4 * Math.abs(lp - 0.5);
       this.lfoOut += (lraw - this.lfoOut) * this.lfoK;
       sm.lfoAmt += (p.lfoAmt - sm.lfoAmt) * K;
       const lfo = this.lfoOut * sm.lfoAmt;
@@ -807,6 +941,11 @@ class MMVoyager extends AudioWorkletProcessor {
     } else {
       L.set(raw.subarray(0, N));
       if (R) R.set(rawR.subarray(0, N));
+    }
+    // Tests : la sortie dit le LFO, a chaque echantillon du contexte (sa forme, la position en temps)
+    if (probe) {
+      L.set(this.pL.subarray(0, N));
+      if (R) R.set(this.pR.subarray(0, N));
     }
     return true;
   }

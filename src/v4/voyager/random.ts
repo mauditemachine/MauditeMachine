@@ -17,7 +17,7 @@
  * II.
  */
 
-import { NOTES, PHASE_FREE, RATIOS, type VoyKnobId } from './params';
+import { LFO_SHAPES, NOTES, PHASE_FREE, RATIOS, type VoyKnobId } from './params';
 
 type Rnd = () => number;
 
@@ -104,9 +104,9 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     aD: between(rnd, 0.2, 0.7),
     aS: between(rnd, 0.3, 0.9),
     aR: between(rnd, 0.15, 0.55),
-    // MOD : 1/16 1/8 1/4 1/2 1 BAR 2 BAR 4 BAR ; TRI SAW SQR S&H ; WAVE CUTOFF FM PITCH W+CUT
+    // MOD : 1/16 1/8 1/4 1/2 1 BAR 2 BAR 4 BAR ; TRI SAW RND SQR S&H (RND, le hasard lisse, 2026-10-18) ; WAVE CUTOFF FM PITCH W+CUT
     lfoRate: weighted(rnd, [0.12, 0.18, 0.2, 0.18, 0.16, 0.1, 0.06]),
-    lfoShape: weighted(rnd, [0.35, 0.2, 0.2, 0.25]),
+    lfoShape: weighted(rnd, [0.3, 0.17, 0.2, 0.15, 0.18]),
     lfoDest: weighted(rnd, [0.3, 0.3, 0.12, 0.08, 0.2]),
     lfoAmt,
     // Effets (doses d'avant)
@@ -204,10 +204,11 @@ export interface VoyRandom {
 function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
   // La base : un patch complet (aucun reglage ne reste du precedent), puis le caractere du style
   const base = randomVoyPatch(rnd);
-  const mod = (dest: number, rate: number, shape: number, lo: number, hi: number): Partial<Record<VoyKnobId, number>> => ({
+  // La forme par son nom (2026-10-18 : cinq crans, RND au milieu)
+  const mod = (dest: number, rate: number, shape: (typeof LFO_SHAPES)[number], lo: number, hi: number): Partial<Record<VoyKnobId, number>> => ({
     lfoDest: at(dest, 5),
     lfoRate: at(rate, 7),
-    lfoShape: at(shape, 4),
+    lfoShape: at(LFO_SHAPES.indexOf(shape), LFO_SHAPES.length),
     lfoAmt: between(rnd, lo, hi),
   });
   if (style === 'BASSLINE') {
@@ -248,7 +249,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aD: between(rnd, 0.25, 0.45),
         aS: between(rnd, 0.45, 0.8),
         aR: between(rnd, 0.08, 0.2),
-        ...(chance(rnd, 0.4) ? mod(1, chance(rnd, 0.5) ? 5 : 6, 0, 0.1, 0.3) : { lfoAmt: 0 }),
+        ...(chance(rnd, 0.4) ? mod(1, chance(rnd, 0.5) ? 5 : 6, 'TRI', 0.1, 0.3) : { lfoAmt: 0 }),
         dist: sometimes(rnd, 0.5, 0.08, 0.3),
         chorus: weighted(rnd, [0.75, 0.25, 0]),
         delay: sometimes(rnd, 0.85, 0.1, 0.2),
@@ -297,7 +298,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aD: between(rnd, 0.3, 0.5),
         aS: between(rnd, 0.5, 0.8),
         aR: between(rnd, 0.1, 0.2),
-        ...(chance(rnd, 0.6) ? mod(1, chance(rnd, 0.5) ? 3 : 4, 0, 0.15, 0.4) : { lfoAmt: 0 }),
+        ...(chance(rnd, 0.6) ? mod(1, chance(rnd, 0.5) ? 3 : 4, 'TRI', 0.15, 0.4) : { lfoAmt: 0 }),
         dist: between(rnd, 0.2, 0.5),
         chorus: weighted(rnd, [0.65, 0.3, 0.05]),
         delay: sometimes(rnd, 0.5, 0.15, 0.35),
@@ -346,7 +347,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aR: between(rnd, 0.2, 0.4),
         osc1: between(rnd, 0.85, 0.95),
         osc2: between(rnd, 0.6, 0.9),
-        ...(chance(rnd, 0.5) ? mod(0, 4, 0, 0.15, 0.45) : { lfoAmt: 0 }),
+        ...(chance(rnd, 0.5) ? mod(0, 4, 'TRI', 0.15, 0.45) : { lfoAmt: 0 }),
         dist: between(rnd, 0, 0.1),
         chorus: weighted(rnd, [0.05, 0.5, 0.45]),
         delay: between(rnd, 0.25, 0.5),
@@ -391,7 +392,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aD: between(rnd, 0.3, 0.5),
         aS: between(rnd, 0.6, 0.9),
         aR: between(rnd, 0.25, 0.45),
-        ...(chance(rnd, 0.5) ? mod(3, chance(rnd, 0.5) ? 0 : 1, 0, 0.1, 0.25) : { lfoAmt: 0 }),
+        ...(chance(rnd, 0.5) ? mod(3, chance(rnd, 0.5) ? 0 : 1, 'TRI', 0.1, 0.25) : { lfoAmt: 0 }),
         dist: between(rnd, 0, 0.15),
         chorus: weighted(rnd, [0.15, 0.55, 0.3]),
         delay: between(rnd, 0.3, 0.55),
@@ -431,7 +432,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         aA: 0,
         aD: between(rnd, 0.25, 0.4),
         aS: between(rnd, 0.4, 0.7),
-        ...mod(1, chance(rnd, 0.5) ? 0 : 1, 3, 0.25, 0.5),
+        ...mod(1, chance(rnd, 0.5) ? 0 : 1, 'S&H', 0.25, 0.5),
         dist: between(rnd, 0.1, 0.35),
         chorus: weighted(rnd, [0.55, 0.35, 0.1]),
         delay: between(rnd, 0.25, 0.45),

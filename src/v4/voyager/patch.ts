@@ -21,7 +21,7 @@
 
 import { presetMode } from '../state/presetMode';
 import { presets } from '../state/presets';
-import { RETIRED_ON, VOY_KNOB_IDS, chorusStep, foldLegacyKnobs, voyParams, type VoyKnobId } from './params';
+import { RETIRED_ON, VOY_KNOB_IDS, chorusStep, foldLegacyKnobs, lfoShapeStep, voyParams, type VoyKnobId } from './params';
 import { seq } from './seq';
 
 const KEY = 'mm.v4.voyager.preset';
@@ -68,9 +68,11 @@ function sigOf(raw: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len:
 /**
  * Une empreinte gardee avant le 2026-10-11 (ses ON a leur place) : un oscillateur coupe (ON a 0) y devient ON et son
  * niveau 0, comme ses potards a la lecture ; le meme son, la meme empreinte (pas d'etoile pour rien). Le CHORUS
- * continu d'avant le 2026-10-12 : son mode (params.ts chorusStep), comme a la lecture des potards.
+ * continu d'avant le 2026-10-12 : son mode (params.ts chorusStep), comme a la lecture des potards. SHAPE sur quatre
+ * crans d'avant le 2026-10-18 : sur ses cinq (params.ts lfoShapeStep).
  */
 const CHORUS_AT = SOUND_IDS.indexOf('chorus');
+const SHAPE_AT = SOUND_IDS.indexOf('lfoShape');
 function migrateSig(sig: string): string {
   try {
     const a = JSON.parse(sig) as unknown[];
@@ -88,6 +90,12 @@ function migrateSig(sig: string): string {
     const c = knobs[CHORUS_AT];
     if (CHORUS_AT >= 0 && typeof c === 'number' && chorusStep(c) !== c) {
       knobs[CHORUS_AT] = chorusStep(c);
+      moved = true;
+    }
+    // SHAPE sur quatre crans d'avant le 2026-10-18 (RND au milieu) : la meme forme sur ses cinq
+    const s = knobs[SHAPE_AT];
+    if (SHAPE_AT >= 0 && typeof s === 'number' && lfoShapeStep(s) !== s) {
+      knobs[SHAPE_AT] = lfoShapeStep(s);
       moved = true;
     }
     return moved ? JSON.stringify(a) : sig;

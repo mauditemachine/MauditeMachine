@@ -24,7 +24,9 @@ import { CHORDS, chordNotes, voicedDegrees, degreeMidi } from './chords';
 import {
   CHORD_TYPES,
   FMODES,
+  LFO_BEATS,
   LFO_DESTS,
+  LFO_SHAPES,
   OCTAVES,
   OSC_RANGES,
   SEMIS,
@@ -493,12 +495,39 @@ function adsrDiagram(id: VoyKnobId, values: Readonly<VoyValues>): VoyDiagram {
   return p.done();
 }
 
-/* ---------------- MOD (le LFO cale sur le tempo) ---------------- */
+/* ---------------- MOD (le LFO cale sur la mesure) ---------------- */
 
+/**
+ * Les tirages du hasard dessines (S&H, RND) : une suite fixe qui suit la regle du moteur (audio/moog.worklet.js
+ * nextRandom : partout entre -1 et +1, deux de suite a au moins un quart de la course l'un de l'autre) et montre
+ * toute la course ; quelques tirages au hasard pouvaient tous tomber pres du centre et mentir sur le son.
+ */
+const LFO_HOLDS = [-0.6, 0.85, -0.15, 0.7, -0.95, 0.3, -0.45, 1, -0.2, 0.55, -0.85, 0.15] as const;
+
+/** Une forme du LFO a la phase ph d'un cycle (-1 a +1) ; a et b : le tirage du cycle et du suivant (S&H, RND). */
+function lfoShapeAt(shape: (typeof LFO_SHAPES)[number], ph: number, a: number, b: number): number {
+  switch (shape) {
+    case 'SAW':
+      return 1 - 2 * ph;
+    case 'SQR':
+      return ph < 0.5 ? 1 : -1;
+    case 'S&H':
+      return a;
+    case 'RND':
+      return a + (b - a) * ph * ph * (3 - 2 * ph);
+    default:
+      return 1 - 4 * Math.abs(ph - 0.5);
+  }
+}
+
+/**
+ * MOD (2026-10-18, cale sur la mesure) : chaque cycle part sur un trait de la grille (les temps, les mesures plus
+ * marquees) ; RND glisse en S d'un tirage au suivant, S&H tient le sien jusqu'au cycle suivant.
+ */
 function lfoDiagram(id: VoyKnobId, values: Readonly<VoyValues>): VoyDiagram {
   const p = new Pic();
-  const beats = [0.25, 0.5, 1, 2, 4, 8, 16][stepIndex('lfoRate', values.lfoRate)];
-  const shape = stepIndex('lfoShape', values.lfoShape);
+  const beats = LFO_BEATS[stepIndex('lfoRate', values.lfoRate)];
+  const shape = LFO_SHAPES[stepIndex('lfoShape', values.lfoShape)];
   // La fenetre : une mesure, deux pour les cycles lents (au moins un cycle et demi visible)
   const window = beats > 4 ? Math.min(32, beats * 1.5) : 4;
   const cycles = window / beats;
@@ -508,13 +537,12 @@ function lfoDiagram(id: VoyKnobId, values: Readonly<VoyValues>): VoyDiagram {
     p.p(seg(x, Y0, x, Y1), b % 4 === 0 ? 'ghost' : 'grid');
   }
   p.p(axis(), 'grid');
-  const rnd = mulberry(11);
-  const holds = Array.from({ length: Math.ceil(cycles) + 1 }, () => rnd() * 2 - 1);
+  const hold = (k: number): number => LFO_HOLDS[k % LFO_HOLDS.length];
   const f = (t: number): number => {
     const c = t * cycles;
-    const ph = c - Math.floor(c);
-    const raw = shape === 1 ? 1 - 2 * ph : shape === 2 ? (ph < 0.5 ? 1 : -1) : shape === 3 ? holds[Math.floor(c)] : 1 - 4 * Math.abs(ph - 0.5);
-    return MID - amp * raw;
+    const k = Math.floor(c);
+    const ph = c - k;
+    return MID - amp * lfoShapeAt(shape, ph, hold(k), hold(k + 1));
   };
   if (id === 'lfoAmt') p.p(curve((t) => MID - 34 * (f(t) - MID) / -amp * -1, X0, X1, 300), 'ghost');
   p.p(curve(f, X0, X1, 400), 'hot');

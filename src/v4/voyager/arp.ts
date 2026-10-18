@@ -26,6 +26,15 @@
  * doubles croches de l'arpege. Accents legers, facon basse de Mika (le
  * "a" de chaque temps plus fort).
  *
+ * MOD cale sur la mesure (2026-10-18, Mika : "dans les MOD je veux un random
+ * aussi et qui se cale au beat") : chaque pas programme (joue, silence de la
+ * suite ou hors de RATE) dit au moteur sa place en temps depuis le debut de
+ * la premiere mesure (mesure x 16 + pas, en doubles croches), a l'instant
+ * de sa grille et a son tempo (audio/synth.ts synthBeat) ; le LFO y lit sa
+ * phase. Un pas re-programme renvoie la meme place : rien ne bouge ; un pas
+ * saute (en retard) n'en dit rien, le moteur prolonge la droite du
+ * precedent, sur la meme grille.
+ *
  * Les notes (2026-10-04) : la suite de voyager/seq.ts, en degres de la
  * gamme au-dessus de la racine de l'accord : AUTO (MODE, RANGE, NOTES, les
  * memes notes qu'avant) ou EDIT (la suite modifiee a la main, silences
@@ -41,7 +50,7 @@ import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
-import { noteOn, synthCancel, synthStop } from '../audio/synth';
+import { noteOn, synthBeat, synthCancel, synthStop } from '../audio/synth';
 import { SWING } from '../theme';
 import { CHORDS, degreeMidi } from './chords';
 import { gateFrac, octaveShift, stepsPerNote, voyParams } from './params';
@@ -145,6 +154,7 @@ function slotFor(b: number): number {
 /** Programme les notes du pas courant (une, deux en 1/32, ou aucune) ; silent : un pas saute, la suite avance sans rien jouer. */
 function scheduleStep(now: number, silent = false): void {
   const p = voyParams.get();
+  const opening = first;
   // Nouvelle mesure : l'accord suivant, l'arpege repart de sa premiere note
   if (first || stepIdx === 0) {
     bar += 1;
@@ -157,6 +167,10 @@ function scheduleStep(now: number, silent = false): void {
     chord = chordFor(bar);
     noteIdx = 0;
   }
+  // MOD cale sur la mesure (2026-10-18) : la place de ce pas, en temps depuis le debut de la premiere mesure (une
+  // premiere mesure prise en route, sur la grille de la boite, compte depuis son debut) ; chaque pas a l'heure, qu'il
+  // joue une note ou non
+  if (!silent) synthBeat(nextTime, (bar * 16 + stepIdx) / 4, stepDur, opening);
   if (chord < 0) return;
   const spn = stepsPerNote(p.rate);
   if (spn > 1 && stepIdx % spn !== 0) return;
