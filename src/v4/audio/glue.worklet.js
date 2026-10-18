@@ -302,6 +302,8 @@ class MMGlue extends AudioWorkletProcessor {
           g = this.gr;
         } else {
           this.gr = t > this.gr ? atk * this.gr + (1 - atk) * t : rel * this.gr + (1 - rel) * t;
+          // L'etage lent suit la reduction en manuel (la relecture) : revenu en AUTO, il repart d'ici, sans saut de niveau
+          this.slow = this.gr;
           g = this.gr;
         }
         if (g > blockMax) blockMax = g;

@@ -159,13 +159,13 @@ const RAW: Record<RytmInfoId, Raw> = {
   voice: {
     section: 'PAGES',
     title: 'VOICE',
-    text: "Tout ce que joue la voix choisie, sur un seul écran (TRIG, SRC et SMPL réunis) : SOUND en grand (OFF, 909, 808, MM, puis les samples de sa famille, une seule liste), VOL en grand (son niveau ; en P-LOCK, celui du pas : vélocité et volume ne font qu'un), PITCH et FINE (la hauteur de toute la voix) ; pour BD et SD, LEN et REV règlent le sample. Sur BD et SD, la touche VOICE allumée passe à l'onglet SYNTH (la machine sous le sample, MIX), puis revient ; sur les autres voix, elle montre HOME. C'est la page de départ.",
+    text: "Tout ce que joue la voix choisie, sur un seul écran (TRIG, SRC et SMPL réunis) : SOUND en grand (OFF, 909, 808, MM, puis les samples de sa famille, une seule liste), VOL en grand (son niveau ; en P-LOCK, celui du pas : vélocité et volume ne font qu'un), PITCH et FINE (la hauteur de toute la voix) ; sur une voix qui a des samples (BD, SD et OH au départ, et toute voix où tu as déposé les tiens), LEN et REV règlent le sample, et la touche VOICE allumée passe à l'onglet SYNTH (la machine sous le sample, MIX), puis revient ; sur les autres, elle montre HOME.",
     tip: 'Choisis le son (SOUND), puis son niveau (VOL) : la voix est posée. En P-LOCK, SOUND change le son d’un seul pas : un sample lock, comme sur l’Analog Rytm.',
   },
   synth: {
     section: 'PAGES',
     title: 'VOICE SYNTH',
-    text: "L'onglet SYNTH de VOICE (BD et SD) : la couche de synthèse, comme une machine de l'Analog Rytm. MACHINE (909, 808 ou MM, le son calculé), MIX (la synthèse et le sample comme un crossfader, de -64 la synthèse seule à +63 le sample seul, 0 les deux à fond), puis ses réglages : TUNE, ATTACK, SWEEP, DECAY et DRIVE pour le kick ; TUNE, SNAPPY, TONE, DECAY et GATE pour la caisse claire. Chaque réglage dit la couche qu'il touche : MACHINE, la synthèse seule (au téléphone, l'onglet SYNTH le dit pour tous) ; BOTH, les deux. Les deux couches passent ensuite par la même voix (FLTR, ENV, FX). La touche VOICE encore, ou MAIN dans l'en-tête, ramène l'onglet principal.",
+    text: "L'onglet SYNTH de VOICE (les voix qui ont des samples : BD, SD, OH...) : la couche de synthèse, comme une machine de l'Analog Rytm. MACHINE (909, 808 ou MM, le son calculé), MIX (la synthèse et le sample comme un crossfader, de -64 la synthèse seule à +63 le sample seul, 0 les deux à fond), puis ses réglages : TUNE, ATTACK, SWEEP, DECAY et DRIVE pour le kick ; TUNE, SNAPPY, TONE, DECAY et GATE pour la caisse claire ; sur les autres voix, MACHINE et MIX seuls (le clap garde GATE). Chaque réglage dit la couche qu'il touche : MACHINE, la synthèse seule (au téléphone, l'onglet SYNTH le dit pour tous) ; BOTH, les deux. Les deux couches passent ensuite par la même voix (FLTR, ENV, FX). La touche VOICE encore, ou MAIN dans l'en-tête, ramène l'onglet principal.",
     tip: 'MIX vers 0 sur un kick de Mika : le grave d’un 909 accordé sous l’attaque du sample.',
   },
   fltr: {
@@ -1005,7 +1005,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   open: {
     section: 'KEYS',
     title: 'OPEN',
-    text: "Soulève le capot : la plaque TWEAKS règle le kit (le son du KICK, sa synthèse SYN TUNE et SYN DECAY, ATTACK et DRIVE ; la caisse claire et son SNAPPY ; le clap ; GATE ; les charleys ; les toms). Un choix de son y prend une couche à fond : 909, 808 ou MM, la synthèse seule ; un sample de Mika, le sample seul. La musique continue. Capot ouvert, l'écran part avec le panneau : la pastille INFOS, en haut à gauche, allume l'aide pour lire la plaque.",
+    text: "Soulève le capot : la plaque TWEAKS règle la machine (le KICK : SYN TUNE, ATTACK, SYN DECAY et DRIVE ; la caisse claire : SNAPPY et GATE). Le son de chaque voix se choisit à l'écran (SOUND, sous HOME ou page VOICE) ou au MIDI (rytm:kit:<voix>). La musique continue. Capot ouvert, l'écran part avec le panneau : la pastille INFOS, en haut à gauche, allume l'aide pour lire la plaque.",
     key: 'O',
   },
   close: {
@@ -1033,9 +1033,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La vue PAGE, toujours là, et l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs, à la place des anciens encodeurs (SOUND en grand, l'enveloppe dessinée sur trois cases) : chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas, ou sa molette, pour le régler ; deux clics le remettent à son départ ; il se cerne au survol. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Les encodeurs règlent les FX globaux. L'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME (H).",
+    text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs, à la place des anciens encodeurs (SOUND en grand, l'enveloppe dessinée sur trois cases) : chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas, ou sa molette, pour le régler ; deux clics le remettent à son départ ; il se cerne au survol. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Les encodeurs règlent les FX globaux. L'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME (H).",
     phone: {
-      text: "La vue PAGE, toujours là, et l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs (SOUND en grand, l'enveloppe dessinée sur trois cases), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas pour le régler (environ 150 px pour toute la course, il se cerne tant que tu le tiens), deux tapes le remettent à son départ. Dessous, les 16 pas de la voix et la tête de lecture. L'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME.",
+      text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs (SOUND en grand, l'enveloppe dessinée sur trois cases), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas pour le régler (environ 150 px pour toute la course, il se cerne tant que tu le tiens), deux tapes le remettent à son départ. Dessous, les 16 pas de la voix et la tête de lecture. L'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME.",
     },
   },
   presets: {
@@ -1059,9 +1059,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   home: {
     section: 'SCREEN',
     title: 'HOME',
-    text: "L'écran d'avant, l'anneau des pas et ses cartes : la touche allumée d'une page sans onglet (ou H) y mène, une touche de page ramène la vue PAGE ; sa LED reste à peine allumée.",
+    text: "L'écran de départ : l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page en vue PAGE. La touche allumée d'une page sans onglet (ou H) y revient, une touche de page ramène la vue PAGE ; sa LED reste à peine allumée.",
     phone: {
-      text: "L'écran d'avant, l'anneau des pas et ses cartes : la touche allumée d'une page sans onglet y mène, une touche de page ramène la vue PAGE et ses valeurs à glisser ; sa LED reste à peine allumée.",
+      text: "L'écran de départ : l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page et ses valeurs à glisser. La touche allumée d'une page sans onglet y revient ; sa LED reste à peine allumée.",
     },
   },
   enc: {

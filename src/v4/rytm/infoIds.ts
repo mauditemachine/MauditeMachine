@@ -389,9 +389,9 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   // Un bloc de l'ecran (l'editeur, au desktop comme au telephone)
   const bk = /^lcd-blk-([0-7])$/.exec(hotspot);
   if (bk) return { id: `p:${bk[1]}` };
-  // Le menu de la voix sous HOME (2026-10-18) : une page, la carte de sa page (SOUND n'a pas la sienne)
+  // Le menu de la voix sous HOME (2026-10-18) : une page, la carte de sa page ; SOUND, la carte voice:sound (celle de la liste des sons)
   const mn = /^lcd-menu-([a-z]+)$/.exec(hotspot);
-  if (mn) return PAGE_IDS.has(mn[1]) ? { id: mn[1] } : null;
+  if (mn) return mn[1] === 'sound' ? { id: 'voice:sound' } : PAGE_IDS.has(mn[1]) ? { id: mn[1] } : null;
   const pk = /^pkey-([a-z]+)$/.exec(hotspot);
   if (pk) return PAGE_IDS.has(pk[1]) ? { id: pk[1] } : null;
   const tb = /^lcd-tab-([a-z]+)$/.exec(hotspot);

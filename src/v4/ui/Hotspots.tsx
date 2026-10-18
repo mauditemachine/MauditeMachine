@@ -682,15 +682,16 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         sbTap(d);
         return d.id;
       }
-      // Le menu de la voix sous HOME (2026-10-18) : SOUND ouvre la liste des sons, VOICE FLTR ENV FX leur page
-      if (d.kind === 'rmenu' && d.id) {
-        rytmMenu(d.id.slice('lcd-menu-'.length), stage);
-        return d.id;
-      }
       // Un pas tenu qui a recu un verrou (deux doigts, INFOS allume aussi) : ni change ni tape, la carte reste celle de l'encodeur
       if (d.kind === 'step' && d.lockHold) return d.id;
       // La carte, et la navigation sans un son (une touche de page tourne la page, un pad choisit sa voix : actions.ts)
       if (!d.mouse && d.id && rytmInfoTouch(d.id) && rytmInfoTap(d.id)) return d.id;
+      // Le menu de la voix sous HOME (2026-10-18) : SOUND ouvre la liste des sons, VOICE FLTR ENV FX leur page ; apres la
+      // carte (la relecture : INFOS allume, au doigt, une tape montre la carte et la commande n'agit pas)
+      if (d.kind === 'rmenu' && d.id) {
+        rytmMenu(d.id.slice('lcd-menu-'.length), stage);
+        return d.id;
+      }
       if (d.kind === 'pad' && d.inst) {
         // Double tape au doigt sur le meme pad (2026-10-10) : la voix se coupe ou revient (la premiere tape l'a choisie)
         const t = performance.now();
@@ -1736,6 +1737,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     return fn;
   };
 
+  // La pose de tous les jumeaux (l'effet ci-dessous) : un jumeau qui revient (le menu de HOME, la liste des sons) s'y pose tout de suite
+  const placeRef = useRef<((force: boolean) => void) | null>(null);
   useLayoutEffect(() => {
     if (!stage) return undefined;
     const ids = stage.hit.ids();
@@ -1770,13 +1773,21 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     // La boucle s'arrete (ou un redimensionnement hors boucle) : recalage
     const onIdle = (): void => place(false);
     place(true);
+    placeRef.current = place;
     const offView = stage.onView(onView);
     const offIdle = stage.onIdle(onIdle);
     return () => {
+      placeRef.current = null;
       offView();
       offIdle();
     };
   }, [stage, showChips]);
+
+  // Les jumeaux qui ne vivent que sur une vue (le menu de HOME, la liste des sons ; la relecture du 2026-10-18) : remontes,
+  // leur rectangle n'a pas change et la pose ordinaire les laissait a 0 x 0 en haut a gauche ; on les pose tout de suite
+  useLayoutEffect(() => {
+    placeRef.current?.(true);
+  }, [rp.view, rytmEdit, pm808, !!sbView]);
 
   // Le navigateur des sons (2026-10-18) : Entree sur le bloc SOUND, le clavier passe a la liste ; la liste fermee alors
   // qu'elle avait le focus (Echap, la tape d'un autre geste, le repos), il revient au bloc SOUND
@@ -2208,7 +2219,15 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={`lcd-menu-${id}`}
             aria-label={id === 'sound' ? (inst ? `Sound of ${INST_NAMES[inst]}: open the list of sounds` : 'Sound: tap a pad first') : `${HOME_MENU_LABEL[id]} page${inst ? ` of ${INST_NAMES[inst]}` : ''}`}
             onKeyDown={noRepeat}
-            onClick={() => rytmMenu(id, stageRef.current)}
+            onClick={() => {
+              // Au clavier (la relecture) : SOUND donne le focus a la liste ; une page, a sa touche (le menu part avec HOME)
+              if (id === 'sound') {
+                soundBrowserOpen(true);
+                return;
+              }
+              rytmMenu(id, stageRef.current);
+              els.current.get(`pkey-${id}`)?.focus({ preventScroll: true });
+            }}
           />
         ))}
       {RYTM_PAGE_KEYS.map((pk) => (
