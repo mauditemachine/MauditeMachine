@@ -2993,13 +2993,27 @@ export function soundFilesPick(inst: Inst | null = pattern.get().instrument, fro
     fileInput = el;
   }
   const input = el;
+  // La liste ne se ferme pas d'elle-meme pendant le choix (le repos repart a son retour : un fichier, Annuler, la fenetre
+  // qui reprend la main ; une minute au plus si rien ne le dit)
+  const release = lcdSamples.hold();
+  const stop = window.setTimeout(() => done(), 60000);
+  const onFocus = (): void => {
+    window.setTimeout(() => done(), 1500);
+  };
+  const done = (): void => {
+    window.clearTimeout(stop);
+    window.removeEventListener('focus', onFocus);
+    release();
+  };
+  window.addEventListener('focus', onFocus);
+  input.oncancel = done;
   input.onchange = () => {
     const files = input.files ? Array.from(input.files) : [];
     input.value = '';
-    if (files.length > 0) void soundFilesAdd(files, inst, fromList);
+    if (files.length > 0) void soundFilesAdd(files, inst, fromList).finally(done);
+    else done();
   };
   input.value = '';
-  lcdSamples.touch();
   input.click();
 }
 
@@ -3015,12 +3029,18 @@ export async function soundFilesAdd(files: readonly File[], inst: Inst, fromList
   lcdMessage.show(`${inst} ADDING ${files.length > 1 ? `${files.length} FILES` : sampleLabel(files[0].name)}...`, 8000);
   const added: KitSample[] = [];
   const refused: string[] = [];
-  for (const file of files) {
-    try {
-      added.push(await userSamples.add(f, file));
-    } catch (e) {
-      refused.push(e instanceof UserSampleError ? e.text : 'NOT AUDIO');
+  // Le navigateur ouvert ne se ferme pas pendant que les fichiers entrent (un gros fichier se decode)
+  const release = lcdSamples.hold();
+  try {
+    for (const file of files) {
+      try {
+        added.push(await userSamples.add(f, file));
+      } catch (e) {
+        refused.push(e instanceof UserSampleError ? e.text : 'NOT AUDIO');
+      }
     }
+  } finally {
+    release();
   }
   const why = refused.length === 0 ? '' : files.length === 1 ? refused[0] : `${refused.length} REFUSED: ${refused[0]}`;
   if (added.length === 0) {

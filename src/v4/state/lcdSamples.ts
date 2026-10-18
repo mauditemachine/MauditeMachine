@@ -62,6 +62,8 @@ const listeners = new Set<() => void>();
 let idleTimer = 0;
 let armTimer = 0;
 let dropTimer = 0;
+/** Les attentes en cours (le choix des fichiers du systeme ouvert, un fichier qui entre) : le repos ne compte pas pendant elles. */
+let holds = 0;
 
 function emit(): void {
   listeners.forEach((fn) => fn());
@@ -77,6 +79,8 @@ function set(next: Partial<SoundBrowserState>): void {
 function armIdle(): void {
   if (typeof window === 'undefined') return;
   window.clearTimeout(idleTimer);
+  idleTimer = 0;
+  if (holds > 0) return;
   idleTimer = window.setTimeout(() => {
     idleTimer = 0;
     lcdSamples.close();
@@ -99,6 +103,23 @@ export const lcdSamples = {
   /** Un geste dans la liste (une ligne, la molette, PREV et NEXT, un cran de SOUND) : son repos repart. */
   touch(): void {
     if (state.open) armIdle();
+  },
+  /**
+   * Le repos suspendu (revue du 2026-10-18 : le choix des fichiers du systeme reste ouvert plus de douze secondes, le
+   * fichier choisi revenait sur une liste fermee) : tant qu'une attente tient, la liste ne se ferme pas d'elle-meme ;
+   * rend de quoi la lever, une fois (le repos repart alors de zero).
+   */
+  hold(): () => void {
+    holds += 1;
+    if (typeof window !== 'undefined') window.clearTimeout(idleTimer);
+    idleTimer = 0;
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      holds = Math.max(0, holds - 1);
+      if (holds === 0 && state.open) armIdle();
+    };
   },
   /** Le defilement, le curseur, la ligne armee (bornes posees par actions.ts) ; un geste aussi. */
   update(patch: Partial<Pick<SoundBrowserState, 'top' | 'cursor' | 'arm'>>): void {
