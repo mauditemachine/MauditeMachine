@@ -21,11 +21,29 @@
  * le tag n'en dit rien, se calculent ensuite en fond, un morceau a la fois,
  * et jamais pendant qu'une platine joue. Le meme fichier glisse deux fois
  * est le meme morceau (son empreinte : nom, taille, date), avec ses cues.
+ *
+ * Le dossier Rekordbox (2026-10-18, Mika : "en desktop seulement je
+ * voudrais que ce soit possible de rajouter les dossiers de iCloud Drive >
+ * Rekordbox ; ne rien copier dans le site, juste faire un mapping
+ * automatique sur le dossier de mon systeme") : c'est le mode RELIE, rendu
+ * solide pour un dossier iCloud de quelques milliers de fichiers. Les
+ * entrees cachees (.DS_Store, .Track.mp3.icloud) sont sautees, comme les
+ * analyses USBANLZ de Rekordbox, la descente s'arrete a 12 niveaux, la
+ * base s'ecrit par paquets de 100 (une seule transaction chacun : relier
+ * 3 000 fichiers ne prend plus des minutes ; relu tel quel, rien ne se
+ * reecrit), et un fichier iCloud non telecharge (getFile echoue, ou 0
+ * octet avec son .icloud a cote) se compte a part : "NOT DOWNLOADED", a
+ * telecharger dans le Finder. Un sous-dossier qui ne se lit pas jusqu'au
+ * bout ne fait rien effacer ; une liaison a la fois. Un export XML de la
+ * collection Rekordbox trouve dans le dossier (dj/rekordbox.ts) donne les
+ * BPM, les tonalites et les playlists "RB ..." ; rien n'est copie, tout
+ * est optionnel. En desktop seulement (canLink).
  */
 
 import { decodeAudio } from './decode';
 import { analyseGrid } from './grid';
 import { camelot } from './math';
+import { isRekordboxXml, matchRekordbox, parseRekordbox, type LinkedFile, type RbCollection } from './rekordbox';
 import type { DjTrack } from './state';
 import { tagsOfFile, titleFromName } from './tags';
 
@@ -93,6 +111,35 @@ function req<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest,
       })
   );
 }
+
+/** Une ecriture par entree, c'est une transaction par entree : 3 000 fichiers relies prenaient des minutes. Par paquets de BATCH. */
+const BATCH = 100;
+
+/** Plusieurs ecritures (ou effacements, avec del) dans une seule transaction. */
+function many(items: readonly unknown[], store: string, del = false): Promise<void> {
+  if (items.length === 0) return Promise.resolve();
+  return open().then(
+    (d) =>
+      new Promise<void>((ok, ko) => {
+        const tx = d.transaction(store, 'readwrite');
+        const fail = (): void => ko(tx.error ?? new Error('IndexedDB'));
+        tx.oncomplete = () => ok();
+        tx.onerror = fail;
+        tx.onabort = fail;
+        try {
+          const s = tx.objectStore(store);
+          for (const it of items) {
+            if (del) s.delete(it as IDBValidKey);
+            else s.put(it);
+          }
+        } catch (e) {
+          ko(e instanceof Error ? e : new Error('IndexedDB'));
+        }
+      })
+  );
+}
+const putMany = (items: readonly unknown[], store = TRACKS): Promise<void> => many(items, store);
+const deleteMany = (keys: readonly IDBValidKey[], store = TRACKS): Promise<void> => many(keys, store, true);
 
 /* ---------------- ecoute ---------------- */
 
@@ -250,32 +297,124 @@ export async function addFiles(list: readonly PlacedFile[], mode: ImportMode, pr
 /* ---------------- relier un dossier (Chrome, Edge) ---------------- */
 
 interface Picker {
-  showDirectoryPicker?: (o?: { id?: string; mode?: 'read' }) => Promise<FileSystemDirectoryHandle>;
+  showDirectoryPicker?: (o?: { id?: string; mode?: 'read'; startIn?: string }) => Promise<FileSystemDirectoryHandle>;
 }
-export const canLink = (): boolean => typeof window !== 'undefined' && typeof (window as unknown as Picker).showDirectoryPicker === 'function';
+/**
+ * Un telephone ne relie pas (2026-10-18, Mika : "en desktop seulement") :
+ * Chrome sur Android connait aussi le selecteur de dossiers, mais le
+ * telephone garde la copie et le selecteur de fichiers, sans la ligne
+ * LINKED FOLDERS.
+ */
+function phone(): boolean {
+  const n = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+  return n.userAgentData?.mobile === true || /Android|iPhone|iPad|iPod|Mobile/i.test(n.userAgent);
+}
+export const canLink = (): boolean => typeof window !== 'undefined' && typeof (window as unknown as Picker).showDirectoryPicker === 'function' && !phone();
 
 type Children = AsyncIterable<FileSystemHandle>;
-/** Les sons d'un dossier relie et de ses sous-dossiers, chacun avec le chemin de son dossier ("Musique/Techno"). */
-async function soundsIn(d: FileSystemDirectoryHandle, path: string): Promise<{ h: FileSystemFileHandle; folder: string }[]> {
-  const out: { h: FileSystemFileHandle; folder: string }[] = [];
-  for await (const h of (d as unknown as { values(): Children }).values()) {
-    if (h.kind === 'directory') out.push(...(await soundsIn(h as FileSystemDirectoryHandle, `${path}/${h.name}`)));
-    else if (SOUND.test(h.name)) out.push({ h: h as FileSystemFileHandle, folder: path });
-  }
-  return out;
+/** Au-dela, on ne descend plus : un dossier de Rekordbox ou d'iCloud peut cacher des milliers de fichiers qui ne sont pas de la musique. */
+const MAX_DEPTH = 12;
+/** Les analyses de Rekordbox (PIONEER/USBANLZ d'une cle exportee) : des milliers de .DAT et .EXT, jamais un son. */
+const NOT_MUSIC = /^usbanlz$/i;
+/** Un fichier iCloud pas encore telecharge : ".Track.mp3.icloud" a la place de, ou a cote de, "Track.mp3". */
+const ICLOUD = /^\.(.+)\.icloud$/i;
+/** Un export XML de Rekordbox se cherche dans le dossier relie et ses deux premiers niveaux. */
+const XML_DEPTH = 2;
+const MAX_XML = 64 * 1024 * 1024;
+
+/** Un dossier relie, tel que la base le garde. */
+interface RootRow {
+  name: string;
+  handle: FileSystemDirectoryHandle;
 }
 
-/** Ouvre le selecteur de dossier et relie ce qu'on choisit ; null si l'on renonce. */
-export async function pickAndLink(progress: (done: number, total: number) => void): Promise<{ name: string; n: number } | null> {
+/** Ce qu'un parcours du dossier relie a trouve. */
+interface Scan {
+  sounds: { h: FileSystemFileHandle; folder: string }[];
+  xmls: FileSystemFileHandle[];
+  /** "Dossier/Track.mp3" des sons qui ont un .icloud a cote : a 0 octet, ils ne sont pas telecharges */
+  placeholders: Set<string>;
+  /** les .icloud sans fichier a cote : des sons pas telecharges du tout */
+  missing: number;
+  /** les sous-dossiers qui n'ont pas pu se lire jusqu'au bout (iCloud, acces) : leurs morceaux deja connus restent */
+  failed: string[];
+}
+
+/**
+ * Les sons d'un dossier relie et de ses sous-dossiers, chacun avec le
+ * chemin de son dossier ("Musique/Techno") ; les entrees cachees sont
+ * sautees (en notant les .icloud), les .xml des premiers niveaux gardes
+ * pour Rekordbox, la descente bornee a MAX_DEPTH. Un sous-dossier illisible
+ * est note et saute ; le dossier du haut illisible, la liaison echoue (et
+ * rien ne s'efface).
+ */
+async function scanDir(d: FileSystemDirectoryHandle, path: string, depth: number, out: Scan, found: () => void): Promise<void> {
+  if (depth > MAX_DEPTH) return;
+  const here = new Set<string>();
+  const ghosts: string[] = [];
+  try {
+    for await (const h of (d as unknown as { values(): Children }).values()) {
+      if (h.name.startsWith('.')) {
+        const m = ICLOUD.exec(h.name);
+        if (m && h.kind === 'file' && SOUND.test(m[1] ?? '')) ghosts.push(m[1] ?? '');
+        continue;
+      }
+      if (h.kind === 'directory') {
+        if (!NOT_MUSIC.test(h.name)) await scanDir(h as FileSystemDirectoryHandle, `${path}/${h.name}`, depth + 1, out, found);
+      } else if (SOUND.test(h.name)) {
+        here.add(h.name);
+        out.sounds.push({ h: h as FileSystemFileHandle, folder: path });
+        found();
+      } else if (depth <= XML_DEPTH && /\.xml$/i.test(h.name)) out.xmls.push(h as FileSystemFileHandle);
+    }
+  } catch (e) {
+    if (depth === 0) throw e;
+    out.failed.push(path);
+    console.warn('[crate] folder not fully read', path, e);
+  }
+  for (const g of ghosts) {
+    if (here.has(g)) out.placeholders.add(`${path}/${g}`);
+    else out.missing += 1;
+  }
+}
+
+/** Ce qu'une liaison a fait : morceaux relies, fichiers iCloud pas telecharges, morceaux et playlists venus de Rekordbox. */
+export interface LinkResult {
+  name: string;
+  n: number;
+  missing: number;
+  /** morceaux retrouves dans l'export Rekordbox (BPM, tonalite) */
+  rb: number;
+  /** playlists "RB ..." creees */
+  lists: number;
+}
+
+/** Ouvre le selecteur de dossier (dans Musique) et relie ce qu'on choisit ; null si l'on renonce. */
+export async function pickAndLink(progress: (done: number, total: number) => void): Promise<LinkResult | null> {
   const pick = (window as unknown as Picker).showDirectoryPicker;
   if (!pick) return null;
   let dir: FileSystemDirectoryHandle;
   try {
-    dir = await pick({ id: 'mm-dj-crate', mode: 'read' });
+    dir = await pick({ id: 'mm-dj-crate', mode: 'read', startIn: 'music' });
   } catch {
     return null;
   }
   return linkFolder(dir, progress);
+}
+
+/** La derniere lecture de chaque dossier relie pendant cette visite (la ligne LINKED FOLDERS : UP TO DATE, NOT DOWNLOADED). */
+const lastScan = new Map<string, { missing: number }>();
+
+/**
+ * Une liaison a la fois (la relecture de la visite, + FOLDER, RECONNECT,
+ * REMOVE) : deux parcours du meme dossier en meme temps se marcheraient
+ * dessus dans la base.
+ */
+let linkQueue: Promise<unknown> = Promise.resolve();
+function queued<T>(fn: () => Promise<T>): Promise<T> {
+  const run = linkQueue.then(fn);
+  linkQueue = run.catch(() => undefined);
+  return run;
 }
 
 /**
@@ -284,50 +423,209 @@ export async function pickAndLink(progress: (done: number, total: number) => voi
  * Relu a chaque visite (rescanRoots) : les morceaux ajoutes sur le disque
  * entrent, ceux qui en sont partis sortent ; une seule fois relie, le
  * dossier reste a jour (Mika : "ca me saoule de refaire le mapping a
- * chaque fois").
+ * chaque fois"). L'avancement : progress(trouves, 0) pendant le parcours
+ * du dossier, puis (fait, total) tous les dix fichiers.
  */
-export async function linkFolder(dir: FileSystemDirectoryHandle, progress: (done: number, total: number) => void): Promise<{ name: string; n: number }> {
-  await req('readwrite', (s) => s.put({ name: dir.name, handle: dir }), ROOTS);
-  const sounds = await soundsIn(dir, dir.name);
-  const seen = new Set<string>();
-  let n = 0;
-  for (let i = 0; i < sounds.length; i += 1) {
-    const { h, folder } = sounds[i];
-    progress(i + 1, sounds.length);
-    try {
-      const f = await h.getFile();
-      if (f.size > MAX_BYTES) continue;
-      const id = fingerprint(f);
-      seen.add(id);
-      const old = await req<Entry | undefined>('readonly', (s) => s.get(id));
-      if (old && old.handle && old.root === dir.name && old.folder === folder && !old.visit) {
-        // Deja connu a la meme place : la poignee seulement (elle peut avoir change)
-        await req('readwrite', (s) => s.put({ ...old, handle: h }));
-      } else {
-        const e: Entry = old ? { ...old, folder, handle: h, root: dir.name, visit: undefined } : await entryOf(f, id, folder, { handle: h, root: dir.name });
-        await req('readwrite', (s) => s.put(e));
-      }
-      n += 1;
-      if (n % 50 === 0) changed();
-    } catch {
-      /* un fichier illisible ou disparu : le suivant */
-    }
-  }
-  // Ce qui etait relie a ce dossier et n'y est plus s'en va (ses cues restent retenues)
-  const all = await req<Entry[]>('readonly', (s) => s.getAll());
-  for (const e of all) {
-    if (e.root === dir.name && e.handle && !seen.has(e.id)) await req('readwrite', (s) => s.delete(e.id));
-  }
-  changed();
-  void analyzeAll();
-  return { name: dir.name, n };
+export function linkFolder(dir: FileSystemDirectoryHandle, progress: (done: number, total: number) => void): Promise<LinkResult> {
+  return queued(() => linkNow(dir, progress));
 }
 
-/** Les dossiers relies (Chrome, Edge) et leur acces : accorde, ou a redemander d'un clic. */
-export async function crateRoots(): Promise<{ name: string; granted: boolean }[]> {
+async function linkNow(dir: FileSystemDirectoryHandle, progress: (done: number, total: number) => void): Promise<LinkResult> {
+  // Le meme dossier qu'a la derniere fois (la relecture de la visite) : un morceau deja a sa place ne se reecrit pas
+  let same = false;
   try {
-    const roots = await req<{ name: string; handle: FileSystemDirectoryHandle }[]>('readonly', (s) => s.getAll(), ROOTS);
-    return Promise.all(roots.map(async (r) => ({ name: r.name, granted: await granted(r.handle, false).catch(() => false) })));
+    const before = await req<RootRow | undefined>('readonly', (s) => s.get(dir.name), ROOTS);
+    const h = before?.handle as (FileSystemDirectoryHandle & { isSameEntry?: (o: FileSystemHandle) => Promise<boolean> }) | undefined;
+    same = typeof h?.isSameEntry === 'function' && (await h.isSameEntry(dir));
+  } catch {
+    same = false;
+  }
+  if (!same) {
+    try {
+      await req('readwrite', (s) => s.put({ name: dir.name, handle: dir }), ROOTS);
+    } catch (e) {
+      console.warn('[crate] linked folder not kept for next visit', e);
+    }
+  }
+  progress(0, 0);
+  const scan: Scan = { sounds: [], xmls: [], placeholders: new Set(), missing: 0, failed: [] };
+  let found = 0;
+  await scanDir(dir, dir.name, 0, scan, () => {
+    found += 1;
+    if (found % 50 === 0) progress(found, 0);
+  });
+  // La caisse lue une fois, et tenue a jour en memoire : pas une lecture par fichier
+  const known = new Map<string, Entry>();
+  for (const e of await req<Entry[]>('readonly', (s) => s.getAll())) known.set(e.id, e);
+  const seen = new Set<string>();
+  const linked: LinkedFile[] = [];
+  const total = scan.sounds.length;
+  let batch: Entry[] = [];
+  let n = 0;
+  let missing = scan.missing;
+  let shown = performance.now();
+  const flush = async (): Promise<void> => {
+    if (batch.length === 0) return;
+    const b = batch;
+    batch = [];
+    await putMany(b);
+    // Les listes se relisent au plus une fois par seconde pendant une grosse liaison
+    if (performance.now() - shown > 1000) {
+      shown = performance.now();
+      changed();
+    }
+  };
+  for (let i = 0; i < total; i += 1) {
+    const { h, folder } = scan.sounds[i];
+    if (i % 10 === 0 || i === total - 1) progress(i + 1, total);
+    let f: File;
+    try {
+      f = await h.getFile();
+    } catch {
+      // getFile echoue : un fichier iCloud pas telecharge (ou parti pendant le parcours)
+      missing += 1;
+      continue;
+    }
+    // Un fichier iCloud pas telecharge : 0 octet et son .icloud a cote
+    if (f.size === 0 && scan.placeholders.has(`${folder}/${h.name}`)) {
+      missing += 1;
+      continue;
+    }
+    if (f.size > MAX_BYTES) continue;
+    const id = fingerprint(f);
+    seen.add(id);
+    linked.push({ id, path: `${folder}/${h.name}`, name: h.name, size: f.size });
+    n += 1;
+    const old = known.get(id);
+    let e: Entry;
+    if (old && old.handle && old.root === dir.name && old.folder === folder && !old.visit) {
+      // Deja connu a la meme place : rien a ecrire si le dossier est le meme ; sinon la poignee (le dossier a pu etre rechoisi ailleurs)
+      if (same) continue;
+      e = { ...old, handle: h };
+    } else e = old ? { ...old, folder, handle: h, root: dir.name, visit: undefined } : await entryOf(f, id, folder, { handle: h, root: dir.name });
+    known.set(id, e);
+    batch.push(e);
+    if (batch.length >= BATCH) await flush();
+  }
+  await flush();
+  // Ce qui etait relie a ce dossier et n'y est plus s'en va (ses cues restent retenues) ; rien sous un dossier mal lu
+  const unread = (folder: string): boolean => scan.failed.some((p) => folder === p || folder.startsWith(`${p}/`));
+  const gone: string[] = [];
+  for (const e of known.values()) {
+    if (e.root !== dir.name || !e.handle || seen.has(e.id)) continue;
+    if (!unread(e.folder)) gone.push(e.id);
+    // Garde sous un dossier mal lu : il reste dans ses playlists Rekordbox (par son chemin, sa taille n'est pas gardee)
+    else linked.push({ id: e.id, path: `${e.folder}/${e.name}`, name: e.name, size: -1 });
+  }
+  for (const id of gone) known.delete(id);
+  for (let i = 0; i < gone.length; i += BATCH) await deleteMany(gone.slice(i, i + BATCH));
+  const rb = scan.xmls.length > 0 ? await importRekordbox(dir.name, scan.xmls, linked, known) : { tracks: 0, lists: 0 };
+  lastScan.set(dir.name, { missing });
+  changed();
+  void analyzeAll();
+  return { name: dir.name, n, missing, rb: rb.tracks, lists: rb.lists };
+}
+
+/**
+ * L'export XML de la collection Rekordbox trouve dans le dossier relie
+ * (dj/rekordbox.ts ; le plus recent s'il y en a plusieurs) : le BPM et la
+ * tonalite de chaque morceau retrouve (comme un tag : l'analyse ne les
+ * remplace jamais ; la duree aussi quand le BPM est connu, alors l'analyse
+ * de fond n'a plus rien a chercher), et ses playlists, "RB ..." (les
+ * anciennes de ce dossier s'effacent d'abord ; seulement quand un export
+ * se lit : un XML abime ou absent laisse celles d'avant). Tout est
+ * optionnel : un XML abime est ignore (console.warn).
+ */
+async function importRekordbox(root: string, xmls: readonly FileSystemFileHandle[], linked: readonly LinkedFile[], known: Map<string, Entry>): Promise<{ tracks: number; lists: number }> {
+  const none = { tracks: 0, lists: 0 };
+  const exports: File[] = [];
+  for (const h of xmls) {
+    try {
+      const f = await h.getFile();
+      if (f.size > 0 && f.size <= MAX_XML && isRekordboxXml(await f.slice(0, 2048).text())) exports.push(f);
+    } catch (e) {
+      console.warn('[crate] rekordbox xml not read', h.name, e);
+    }
+  }
+  exports.sort((a, b) => b.lastModified - a.lastModified);
+  let col: RbCollection | null = null;
+  for (const f of exports) {
+    try {
+      col = parseRekordbox(await f.text());
+    } catch {
+      col = null;
+    }
+    if (col) break;
+    console.warn('[crate] rekordbox xml ignored (malformed)', f.name);
+  }
+  if (!col) return none;
+  try {
+    const found = matchRekordbox(col, linked, root);
+    const byRb = new Map(col.tracks.map((t) => [t.id, t]));
+    const updates: Entry[] = [];
+    for (const [rbId, id] of found) {
+      const t = byRb.get(rbId);
+      const e = known.get(id);
+      if (!t || !e) continue;
+      const bpm = t.bpm !== null && t.bpm > 40 && t.bpm < 260 ? Math.round(t.bpm * 100) / 100 : null;
+      const key = t.key ? (camelot(t.key) ?? t.key) : null;
+      const next: Entry = {
+        ...e,
+        ...(bpm !== null ? { bpm, bpmFrom: 'tag' as const } : {}),
+        ...(key ? { key } : {}),
+        ...((bpm ?? e.bpm) !== null && e.duration === 0 && t.seconds > 0 ? { duration: t.seconds } : {}),
+      };
+      if (next.bpm !== e.bpm || next.key !== e.key || next.duration !== e.duration || next.bpmFrom !== e.bpmFrom) {
+        known.set(id, next);
+        updates.push(next);
+      }
+    }
+    for (let i = 0; i < updates.length; i += BATCH) await putMany(updates.slice(i, i + BATCH));
+    const lists = col.playlists
+      .map((p) => ({
+        name: `RB ${p.name}`,
+        items: p.trackIds
+          .map((k) => found.get(k))
+          .filter((id): id is string => id !== undefined)
+          .map((id) => known.get(id))
+          .filter((e): e is Entry => e !== undefined)
+          .map(toTrack),
+      }))
+      .filter((l) => l.items.length > 0);
+    await replaceRbLists(root, lists);
+    return { tracks: found.size, lists: lists.length };
+  } catch (e) {
+    console.warn('[crate] rekordbox collection not applied', e);
+    return none;
+  }
+}
+
+/** Un dossier relie (Chrome, Edge) : son acces (accorde, ou a redemander d'un clic), ses morceaux, sa derniere lecture. */
+export interface CrateRoot {
+  name: string;
+  granted: boolean;
+  n: number;
+  /** relu pendant cette visite : UP TO DATE */
+  fresh: boolean;
+  /** fichiers iCloud pas telecharges a cette lecture */
+  missing: number;
+}
+
+export async function crateRoots(): Promise<CrateRoot[]> {
+  try {
+    const roots = await req<RootRow[]>('readonly', (s) => s.getAll(), ROOTS);
+    if (roots.length === 0) return [];
+    const count = new Map<string, number>();
+    for (const e of await req<Entry[]>('readonly', (s) => s.getAll())) if (e.root && e.handle) count.set(e.root, (count.get(e.root) ?? 0) + 1);
+    return Promise.all(
+      roots.map(async (r) => ({
+        name: r.name,
+        granted: await granted(r.handle, false).catch(() => false),
+        n: count.get(r.name) ?? 0,
+        fresh: lastScan.has(r.name),
+        missing: lastScan.get(r.name)?.missing ?? 0,
+      }))
+    );
   } catch {
     return [];
   }
@@ -336,33 +634,58 @@ export async function crateRoots(): Promise<{ name: string; granted: boolean }[]
 /**
  * Redonne l'acces a un dossier relie, pendant un clic (le navigateur le
  * demande ; "Autoriser a chaque visite" sur Chrome : plus jamais), puis le
- * relit. false si l'acces est refuse.
+ * relit. null si l'acces est refuse.
  */
-export async function reconnectRoot(name: string, progress: (done: number, total: number) => void): Promise<boolean> {
-  const r = await req<{ name: string; handle: FileSystemDirectoryHandle } | undefined>('readonly', (s) => s.get(name), ROOTS);
-  if (!r || !(await granted(r.handle, true).catch(() => false))) return false;
+export async function reconnectRoot(name: string, progress: (done: number, total: number) => void): Promise<LinkResult | null> {
+  const r = await req<RootRow | undefined>('readonly', (s) => s.get(name), ROOTS);
+  if (!r || !(await granted(r.handle, true).catch(() => false))) return null;
   waiting.clear();
-  await linkFolder(r.handle, progress);
-  return true;
+  return linkFolder(r.handle, progress);
+}
+
+/**
+ * REMOVE sur un dossier relie (2026-10-18, la ligne LINKED FOLDERS) : la
+ * caisse oublie le dossier, ses morceaux relies et ses playlists "RB ...".
+ * Leurs cues restent retenues (le dossier relie de nouveau, chaque morceau
+ * retrouve les siennes) ; rien ne change sur le disque. Les copies rangees
+ * sous un dossier du meme nom restent.
+ */
+export function forgetRoot(name: string): Promise<void> {
+  return queued(async () => {
+    const all = await req<Entry[]>('readonly', (s) => s.getAll());
+    const gone = all.filter((e) => e.root === name && e.handle).map((e) => e.id);
+    for (const id of gone) waiting.delete(id);
+    for (let i = 0; i < gone.length; i += BATCH) await deleteMany(gone.slice(i, i + BATCH));
+    await req('readwrite', (s) => s.delete(name), ROOTS).catch(() => undefined);
+    await replaceRbLists(name, []).catch(() => undefined);
+    lastScan.delete(name);
+    changed();
+  });
 }
 
 /**
  * Une fois par visite : relit les dossiers relies dont l'acces est deja
  * accorde (ajouts et departs sur le disque). Un second appel attend la
- * meme relecture ; chacun recoit l'avancement.
+ * meme relecture ; chacun recoit l'avancement. Un dossier qui ne se relit
+ * pas (deplace, iCloud) n'empeche pas les suivants.
  */
 let rescan: Promise<void> | null = null;
 const rescanWatchers = new Set<(done: number, total: number) => void>();
 export function rescanRoots(progress: (done: number, total: number) => void): Promise<void> {
   rescanWatchers.add(progress);
   rescan ??= (async () => {
+    let roots: RootRow[] = [];
     try {
-      const roots = await req<{ name: string; handle: FileSystemDirectoryHandle }[]>('readonly', (s) => s.getAll(), ROOTS);
-      for (const r of roots) {
-        if (await granted(r.handle, false).catch(() => false)) await linkFolder(r.handle, (d, n) => rescanWatchers.forEach((fn) => fn(d, n)));
-      }
+      roots = await req<RootRow[]>('readonly', (s) => s.getAll(), ROOTS);
     } catch {
-      /* base ou disque indisponible : la caisse telle quelle */
+      /* base indisponible : la caisse telle quelle */
+    }
+    for (const r of roots) {
+      try {
+        if (await granted(r.handle, false).catch(() => false)) await linkFolder(r.handle, (d, n) => rescanWatchers.forEach((fn) => fn(d, n)));
+      } catch (e) {
+        console.warn('[crate] linked folder not re-read', r.name, e);
+      }
     }
   })();
   return rescan.finally(() => rescanWatchers.delete(progress));
@@ -398,16 +721,28 @@ export async function removeTrack(id: string): Promise<void> {
   changed();
 }
 
-/** Retire tous les morceaux d'un dossier et de ses sous-dossiers (et l'acces relie, pour un dossier du haut). */
-export async function removeFolder(folder: string): Promise<void> {
-  const all = await req<Entry[]>('readonly', (s) => s.getAll());
-  for (const e of all) {
-    if (e.folder !== folder && !(folder && e.folder.startsWith(`${folder}/`))) continue;
-    await req('readwrite', (s) => s.delete(e.id));
-    inMemory.delete(e.id);
-  }
-  if (folder) await req('readwrite', (s) => s.delete(folder), ROOTS).catch(() => undefined);
-  changed();
+/**
+ * Retire tous les morceaux d'un dossier et de ses sous-dossiers (et, pour un
+ * dossier du haut, l'acces relie et ses playlists Rekordbox). Leurs cues
+ * restent retenues. Apres la liaison en cours, s'il y en a une.
+ */
+export function removeFolder(folder: string): Promise<void> {
+  return queued(async () => {
+    const all = await req<Entry[]>('readonly', (s) => s.getAll());
+    const gone: string[] = [];
+    for (const e of all) {
+      if (e.folder !== folder && !(folder && e.folder.startsWith(`${folder}/`))) continue;
+      gone.push(e.id);
+      inMemory.delete(e.id);
+    }
+    for (let i = 0; i < gone.length; i += BATCH) await deleteMany(gone.slice(i, i + BATCH));
+    if (folder) {
+      await req('readwrite', (s) => s.delete(folder), ROOTS).catch(() => undefined);
+      await replaceRbLists(folder, []).catch(() => undefined);
+      lastScan.delete(folder);
+    }
+    changed();
+  });
 }
 
 /* ---------------- analyse en fond ---------------- */
@@ -547,6 +882,8 @@ export interface DjList {
   name: string;
   items: DjTrack[];
   created: number;
+  /** venue de l'export Rekordbox de ce dossier relie ("RB ...") : remplacee a chaque relecture du dossier */
+  rb?: string;
 }
 
 const listListeners = new Set<() => void>();
@@ -597,21 +934,41 @@ export async function deleteList(id: string): Promise<void> {
   listsChanged();
 }
 
-/** Un morceau entre dans une playlist (une seule fois) : ce qui le retrouve, sans fichier. */
+/** Ce qu'une playlist garde d'un morceau : ce qui le retrouve et l'affiche, sans fichier. */
+const listItem = (t: DjTrack): DjTrack => ({
+  id: t.id,
+  source: t.source,
+  title: t.title,
+  artist: t.artist,
+  bpm: t.bpm,
+  key: t.key,
+  duration: t.duration,
+  ...(t.link ? { link: t.link } : {}),
+  ...(t.license ? { license: t.license } : {}),
+  ...(t.folder ? { folder: t.folder } : {}),
+});
+
+/** Un morceau entre dans une playlist (une seule fois). */
 export function addToList(id: string, t: DjTrack): Promise<void> {
-  const item: DjTrack = {
-    id: t.id,
-    source: t.source,
-    title: t.title,
-    artist: t.artist,
-    bpm: t.bpm,
-    key: t.key,
-    duration: t.duration,
-    ...(t.link ? { link: t.link } : {}),
-    ...(t.license ? { license: t.license } : {}),
-    ...(t.folder ? { folder: t.folder } : {}),
-  };
+  const item = listItem(t);
   return editList(id, (l) => (l.items.some((x) => x.id === t.id) ? l : { ...l, items: [...l.items, item] }));
+}
+
+/**
+ * Les playlists Rekordbox d'un dossier relie (2026-10-18) : celles de la
+ * relecture precedente s'effacent, les nouvelles entrent d'un coup (une
+ * transaction, pas une par morceau), dans l'ordre de l'export.
+ */
+async function replaceRbLists(root: string, lists: readonly { name: string; items: DjTrack[] }[]): Promise<void> {
+  const all = await req<DjList[]>('readonly', (s) => s.getAll(), LISTS);
+  const old = all.filter((l) => l.rb === root).map((l) => l.id);
+  if (old.length === 0 && lists.length === 0) return;
+  await deleteMany(old, LISTS);
+  const now = Date.now();
+  const stamp = now.toString(36);
+  const fresh: DjList[] = lists.map((l, i) => ({ id: `rb${stamp}${i.toString(36)}`, name: l.name, items: l.items.map(listItem), created: now - i, rb: root }));
+  for (let i = 0; i < fresh.length; i += BATCH) await putMany(fresh.slice(i, i + BATCH), LISTS);
+  listsChanged();
 }
 
 export const removeFromList = (id: string, trackId: string): Promise<void> => editList(id, (l) => ({ ...l, items: l.items.filter((x) => x.id !== trackId) }));

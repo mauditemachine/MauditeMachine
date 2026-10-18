@@ -24,7 +24,12 @@
  *   une track d'un dossier que j'avais rajoute avant, ca ne fait rien") se
  *   touche : on choisit son dossier de nouveau, il part sur la platine, et
  *   le dossier est garde sur l'appareil (relie sur Chrome et Edge, copie
- *   ailleurs s'il y a la place) : on ne le redemande plus.
+ *   ailleurs s'il y a la place) : on ne le redemande plus. En desktop
+ *   (canLink), le dossier Rekordbox de Mika se relie une fois (2026-10-18 :
+ *   "ne rien copier dans le site, juste faire un mapping automatique sur le
+ *   dossier de mon systeme") ; la ligne LINKED FOLDERS dit l'etat de chaque
+ *   dossier relie (a jour, a reconnecter, a retirer). Rien de tout cela au
+ *   telephone.
  * Le nom DjBrowser et ses props ne changent pas (index.tsx, state/djload.ts).
  */
 
@@ -49,6 +54,7 @@ import {
   crateFile,
   fingerprint,
   folderOfPath,
+  forgetRoot,
   isSound,
   linkFolder,
   listEvents,
@@ -61,8 +67,10 @@ import {
   renameList,
   rescanRoots,
   storageLeft,
+  type CrateRoot,
   type DjList,
   type ImportMode,
+  type LinkResult,
   type PlacedFile,
 } from './crate';
 import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
@@ -185,6 +193,8 @@ interface Plan {
 }
 
 const human = (b: number): string => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1e6))} MB`);
+/** 1812 : "1 812" (les milliers d'un dossier Rekordbox, lisibles). */
+const group = (n: number): string => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 /** Au-dela, on demande avant de copier. */
 const ASK = { files: 1, bytes: 300 * 1e6 } as const;
 
@@ -334,7 +344,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const [adding, setAdding] = useState<DjTrack | null>(null);
   /** le nom d'une playlist en cours d'ecriture (nouvelle, ou renommee) */
   const [naming, setNaming] = useState<{ id: string | null; name: string } | null>(null);
-  const [roots, setRoots] = useState<{ name: string; granted: boolean }[]>([]);
+  const [roots, setRoots] = useState<CrateRoot[]>([]);
   const pick = useRef<HTMLInputElement>(null);
   /*
    * Le clic fantome du telephone (2026-10-08) : la liste s'ouvre sous le
@@ -389,31 +399,35 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     saveKey(LIST_KEY, id);
     setSure(null);
   };
-  const flash = (t: string): void => {
+  const flash = (t: string, ms = 1800): void => {
     setNote(t);
-    window.setTimeout(() => setNote((n) => (n === t ? null : n)), 1800);
+    window.setTimeout(() => setNote((n) => (n === t ? null : n)), ms);
   };
 
-  // Les analyses de la caisse reprennent ; les dossiers relies se relisent (une fois par visite) ; leur acces
+  // Les analyses de la caisse reprennent ; les dossiers relies se relisent (une fois par visite)
   useEffect(() => {
     void analyzeAll();
     let live = true;
-    const refresh = (): void => {
-      void crateRoots().then((r) => {
-        if (live) setRoots(r);
-      });
-    };
-    refresh();
     void rescanRoots((d, n) => {
-      if (live) setWork(`UPDATING FOLDERS ${d} / ${n}`);
+      if (live) setWork(n === 0 ? `UPDATING FOLDERS...${d > 0 ? ` ${group(d)}` : ''}` : `UPDATING FOLDERS ${group(d)} / ${group(n)}`);
     }).finally(() => {
       if (live) setWork(null);
-      refresh();
     });
     return () => {
       live = false;
     };
   }, []);
+  // Les dossiers relies et leur acces, relus a chaque changement de la caisse (une liaison faite depuis l'autre platine aussi)
+  const crateV = useSyncExternalStore(crateEvents.subscribe, crateEvents.version, crateEvents.version);
+  useEffect(() => {
+    let live = true;
+    void crateRoots().then((r) => {
+      if (live) setRoots(r);
+    });
+    return () => {
+      live = false;
+    };
+  }, [crateV]);
 
   // SoundCloud branche ? Une recherche vide le dit (gardee au Worker) ; sinon ses onglets s'effacent
   useEffect(() => {
@@ -522,6 +536,14 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   };
 
   const progress = (done: number, total: number): void => setWork(`ADDING ${done} / ${total}`);
+  /** Relier un dossier (2026-10-18) : le parcours d'abord (les sons trouves, total 0), puis chaque fichier. */
+  const linking = (done: number, total: number): void => setWork(total === 0 ? `SCANNING FOLDER...${done > 0 ? ` ${group(done)}` : ''}` : `LINKING ${group(done)} / ${group(total)}`);
+  /** Ce qu'une liaison a fait, pour la ligne du dessous : "LINKED 1 812, 40 NOT DOWNLOADED (download them in Finder)", puis Rekordbox. */
+  const linked = (r: LinkResult): void =>
+    flash(
+      `LINKED ${group(r.n)}${r.missing > 0 ? `, ${group(r.missing)} NOT DOWNLOADED (download them in Finder)` : ''}${r.rb > 0 ? `, ${group(r.rb)} WITH REKORDBOX BPM/KEY` : ''}${r.lists > 0 ? `, ${r.lists} RB ${r.lists === 1 ? 'PLAYLIST' : 'PLAYLISTS'}` : ''}`,
+      9000
+    );
 
   /** Le morceau d'une visite passee qu'on a touche : il part des que son dossier revient. */
   const waitingFor = useRef<DjTrack | null>(null);
@@ -535,7 +557,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       pickDir.current?.click();
       return;
     }
-    void pickAndLink(progress)
+    void pickAndLink(linking)
       .then(async (r) => {
         const p = waitingFor.current;
         waitingFor.current = null;
@@ -603,17 +625,18 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     void offer(Array.from(fl).map((file) => ({ file, folder: folderOfPath(file) })));
   };
 
-  /** + FOLDER : relie sur Chrome et Edge (une fois pour toutes), le selecteur de dossiers ailleurs. */
+  /** + FOLDER : relie sur Chrome et Edge (une fois pour toutes, le dossier Rekordbox par exemple), le selecteur de dossiers ailleurs. */
   const addFolder = (): void => {
     if (!canLink()) {
       pickDir.current?.click();
       return;
     }
-    void pickAndLink(progress)
+    void pickAndLink(linking)
       .then((r) => {
         if (r) {
           setTab('files');
           setPath(r.name);
+          linked(r);
         }
       })
       .finally(() => {
@@ -624,9 +647,10 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
 
   /** Un dossier relie dont l'acces s'est perdu : un clic le redonne (et il se relit). */
   const reconnect = (name: string): void => {
-    void reconnectRoot(name, (d, n) => setWork(`UPDATING ${d} / ${n}`))
-      .then((ok) => {
-        if (!ok) flash('ACCESS REFUSED');
+    void reconnectRoot(name, (d, n) => setWork(n === 0 ? 'UPDATING...' : `UPDATING ${d} / ${n}`))
+      .then((r) => {
+        if (r) linked(r);
+        else flash('ACCESS REFUSED');
       })
       .finally(() => {
         setWork(null);
@@ -634,14 +658,28 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       });
   };
 
+  /** REMOVE sur un dossier relie : la caisse l'oublie, avec ses morceaux relies et ses playlists RB (leurs cues restent) ; rien ne change sur le disque. */
+  const forget = (name: string): void => {
+    void forgetRoot(name).then(() => {
+      if (here === name || here.startsWith(`${name}/`)) setPath('');
+      flash(`${name.toUpperCase()} REMOVED (NOTHING CHANGED ON YOUR DISK)`);
+      void crateRoots().then(setRoots);
+    });
+  };
+
   const onDrop = (items: DataTransferItemList): void => {
     const { dirs, files } = readDrop(items, here);
     void (async () => {
       const ds = await dirs;
-      for (const d of ds) {
-        const r = await linkFolder(d, progress);
-        setTab('files');
-        setPath(r.name);
+      try {
+        for (const d of ds) {
+          const r = await linkFolder(d, linking);
+          setTab('files');
+          setPath(r.name);
+          linked(r);
+        }
+      } catch {
+        flash('THIS FOLDER CANNOT BE READ');
       }
       // Le dossier d'un morceau touche, lache et relie (Chrome) : le morceau part
       const p = waitingFor.current;
@@ -694,6 +732,8 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   /** MY SC sans connexion : le bouton prend la place de la liste */
   const gate = tab === 'mysc' && !me;
   const locked = roots.filter((r) => !r.granted);
+  /** desktop (2026-10-18) : la ligne LINKED FOLDERS, avec RECONNECT ; elle remplace alors le bandeau d'acces */
+  const rootsLine = tab === 'files' && !query.trim() && canLink() && roots.length > 0;
   const inList = tab === 'lists' && current !== null;
 
   return (
@@ -788,8 +828,14 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
                 <button type="button" className="dj-scr-add" onClick={() => pick.current?.click()}>
                   + FILES
                 </button>
-                <button type="button" className="dj-scr-add" onClick={addFolder}>
-                  + FOLDER
+                <button type="button" className="dj-scr-add" onClick={addFolder} title={canLink() ? 'Link a folder (your Rekordbox folder, for example): nothing is copied, it is re-read at each visit' : undefined}>
+                  {canLink() ? (
+                    <>
+                      + FOLDER <span className="dj-scr-add-sub">(LINK, NO COPY)</span>
+                    </>
+                  ) : (
+                    '+ FOLDER'
+                  )}
                 </button>
               </>
             )}
@@ -826,7 +872,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
         />
       </div>
       {/* FILES : un dossier relie dont l'acces s'est perdu (Chrome redemande a chaque visite, sauf "Autoriser a chaque visite") */}
-      {tab === 'files' && locked.length > 0 && (
+      {tab === 'files' && locked.length > 0 && !rootsLine && (
         <div className="dj-scr-locked">
           <span>
             {locked.length === 1 ? `"${locked[0].name}" needs access again.` : `${locked.length} linked folders need access again.`} Pick "Allow on every visit" and it will stay.
@@ -834,6 +880,40 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
           <button type="button" className="dj-scr-add" onClick={() => reconnect(locked[0].name)}>
             RECONNECT{locked.length > 1 ? ` ${locked[0].name.toUpperCase()}` : ''}
           </button>
+        </div>
+      )}
+      {/* FILES, desktop seulement (2026-10-18, Rekordbox) : les dossiers relies et leur etat ; RECONNECT, REMOVE (deux clics) */}
+      {rootsLine && (
+        <div className="dj-scr-roots" role="group" aria-label="Linked folders">
+          <span className="dj-scr-roots-title">LINKED FOLDERS</span>
+          {roots.map((r) => (
+            <span key={r.name} className="dj-scr-root" data-granted={r.granted ? '1' : '0'}>
+              <button type="button" className="dj-scr-crumb" aria-current={here.split('/')[0] === r.name ? 'true' : undefined} onClick={() => setPath(r.name)}>
+                {r.name}
+              </button>
+              {/* L'acces perdu se dit par le contour orange et RECONNECT : la ligne tient sur l'ecran */}
+              {r.granted && (
+                <span className="dj-scr-root-state" title={r.missing > 0 ? 'Download them in Finder (iCloud Drive): they come in at the next visit' : undefined}>
+                  {`${r.fresh ? 'UP TO DATE, ' : ''}${group(r.n)} ${r.n === 1 ? 'TRACK' : 'TRACKS'}${r.missing > 0 ? `, ${group(r.missing)} NOT DOWNLOADED` : ''}`}
+                </span>
+              )}
+              {!r.granted && (
+                <button type="button" className="dj-scr-forget" title='Pick "Allow on every visit" and it will stay' onClick={() => reconnect(r.name)}>
+                  RECONNECT
+                </button>
+              )}
+              <button
+                type="button"
+                className="dj-scr-forget"
+                data-sure={sure === `r:${r.name}` ? '1' : '0'}
+                title="Forget this folder and its tracks here (cues are kept); nothing changes on your disk"
+                onClick={() => twice(`r:${r.name}`, () => forget(r.name))}
+                onBlur={() => setSure(null)}
+              >
+                {sure === `r:${r.name}` ? 'REMOVE? YES' : 'REMOVE'}
+              </button>
+            </span>
+          ))}
         </div>
       )}
       {/* FILES : ou l'on est, et le chemin pour remonter */}
@@ -897,7 +977,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
         <div className="dj-scr-plan" role="dialog" aria-label="Add files">
           <p>
             {plan.files.length} tracks, {human(plan.bytes)}.{' '}
-            {canLink() ? 'Tip: + FOLDER links a folder once, without copying it, and keeps it up to date.' : 'KEEP ON THIS DEVICE copies them once: they stay, nothing is uploaded.'}
+            {canLink()
+              ? 'Tip: + FOLDER (LINK, NO COPY) links your Rekordbox folder once (iCloud Drive > Rekordbox): it stays mapped and is re-read at each visit; files stay on your disk.'
+              : 'KEEP ON THIS DEVICE copies them once: they stay, nothing is uploaded.'}
           </p>
           <label className="dj-scr-plan-folder">
             <span>FOLDER</span>
@@ -976,7 +1058,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
             {tab === 'files'
               ? query.trim()
                 ? 'No track found.'
-                : 'Drop audio files or a folder here, or add them. Linked folders stay up to date; copies stay on this device. Nothing is uploaded.'
+                : canLink()
+                  ? 'Link your Rekordbox folder once with + FOLDER (LINK, NO COPY), or drop it here (iCloud Drive > Rekordbox): it stays mapped and is re-read at each visit; files stay on your disk. Nothing is uploaded.'
+                  : 'Drop audio files or a folder here, or add them. Linked folders stay up to date; copies stay on this device. Nothing is uploaded.'
               : tab === 'lists'
                 ? current
                   ? query.trim()
