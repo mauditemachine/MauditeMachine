@@ -1110,9 +1110,9 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
   return s;
 }
 
-/** Le son principal d'une famille (un echantillon d'une autre famille se cale comme lui, un sample lock). */
-const FAMILY_SHOT: Readonly<Record<string, ShotId>> = { bd: 'BD', sd: 'SD', cp: 'CP', hh: 'CH', tom: 'TOM' };
-const familyOfShot = (id: ShotId): string => (id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh');
+/** Le son principal d'une famille (un echantillon d'une autre famille se cale comme lui, un sample lock) ; une famille par voix (2026-10-18). */
+const FAMILY_SHOT: Readonly<Record<string, ShotId>> = { bd: 'BD', sd: 'SD', ch: 'CH', oh: 'OH', cp: 'CP', tom: 'TOM', ht: 'HT', cy: 'CY' };
+const familyOfShot = (id: ShotId): string => (id === 'CHopen' ? 'ch' : id.toLowerCase());
 
 /**
  * Un coup joue par un echantillon de Mika (2026-10-05, audio/sampledsp.ts) :

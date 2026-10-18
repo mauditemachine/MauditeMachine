@@ -108,8 +108,22 @@ export const LOCKS_V = 3;
 /** Les voix (l'ordre des pads) : une copie locale, pas d'import circulaire avec audio/pattern.ts. */
 const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 const STEPS = 16;
-/** Le son verrouille : famille, deux-points, son (la cle d'un echantillon, ou off ; 909, 808, mm avant R3). */
-const SND_RE = /^(bd|sd|hh|cp|tom|rs):[^\s:][^:]{0,120}$/;
+/**
+ * Le son verrouille : famille, deux-points, son (la cle d'un echantillon, ou
+ * off ; 909, 808, mm avant R3). Une famille par voix depuis le 2026-10-18
+ * (audio/kit.ts) : hh (les deux charleys d'avant) et rs (d'avant les huit
+ * voix) ne se lisent plus qu'a la lecture (SND_READ_RE, sndNow : hh devient
+ * ch, rs s'en va) ; un verrou ecrit porte une famille d'aujourd'hui.
+ */
+const SND_RE = /^(bd|sd|ch|oh|cp|tom|ht|cy):[^\s:][^:]{0,120}$/;
+const SND_READ_RE = /^(bd|sd|ch|oh|cp|tom|ht|cy|hh|rs):[^\s:][^:]{0,120}$/;
+/** Un son verrouille lu, dans les familles d'aujourd'hui ; null s'il n'en a plus (rs) ou n'a pas la forme. */
+function sndNow(v: unknown): string | null {
+  if (typeof v !== 'string' || !SND_READ_RE.test(v)) return null;
+  if (v.startsWith('hh:')) return `ch:${v.slice(3)}`;
+  if (v.startsWith('rs:')) return null;
+  return v;
+}
 /** Les MACHINES de la couche SYNTH. */
 const MACHS: readonly string[] = ['909', '808', 'mm'];
 /** Un snd de R2 qui verrouillait un modele : plus lu depuis R3. */
@@ -141,8 +155,8 @@ export function clampLock(id: LockId, v: number, exact = false): number {
   return r3(Math.max(0, Math.min(1, v)));
 }
 
-/** La famille du kit de chaque voix (une copie de audio/kit.ts familyOf : ce module reste pur) ; CY n'en a pas. */
-const FAMILY: Readonly<Record<Inst, string | null>> = { BD: 'bd', SD: 'sd', CH: 'hh', OH: 'hh', CP: 'cp', TOM: 'tom', HT: 'tom', CY: null };
+/** La famille du kit de chaque voix (une copie de audio/kit.ts familyOf : ce module reste pur) ; une par voix depuis le 2026-10-18. */
+const FAMILY: Readonly<Record<Inst, string | null>> = { BD: 'bd', SD: 'sd', CH: 'ch', OH: 'oh', CP: 'cp', TOM: 'tom', HT: 'ht', CY: 'cy' };
 
 /** TUNE d'un sample de R2 (le K.TUNE du kick : -12 a +12 demi-tons), en TUNE de couche (-1 a 1 pour +/-24). */
 const r2SampleTune = (v: number): number => Math.round((Math.min(1, Math.max(0, v)) - 0.5) * 24) / 24;
@@ -156,7 +170,7 @@ const r2SampleLen = (v: number): number => (v >= 0.45 ? 1 : Math.max(0, v) / 0.4
 function fromR2(inst: Inst, x: Record<string, unknown>, out: StepLock): number {
   let n = 0;
   const fam = FAMILY[inst];
-  const snd = typeof x.snd === 'string' && SND_RE.test(x.snd) ? x.snd : '';
+  const snd = sndNow(x.snd) ?? '';
   const m = snd ? /^([a-z]+):(909|808|mm)$/.exec(snd) : null;
   if (m && fam && m[1] === fam && out.mach === undefined) {
     // SOUND sur un modele de sa famille (bd:808) : cette MACHINE seule sur ce pas
@@ -199,8 +213,10 @@ function cleanStep(o: unknown, inst: Inst, r2: boolean): StepLock | null {
       n += 1;
     }
   }
-  if (typeof x.snd === 'string' && SND_RE.test(x.snd) && !oldModelSnd(x.snd)) {
-    out.snd = x.snd;
+  // Un son d'avant le 2026-10-18 (hh:...) se lit dans sa famille d'aujourd'hui (ch:...) ; rs: ne se lit plus
+  const snd = sndNow(x.snd);
+  if (snd && !oldModelSnd(snd)) {
+    out.snd = snd;
     n += 1;
   }
   if (typeof x.mach === 'string' && MACHS.includes(x.mach)) {

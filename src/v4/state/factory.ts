@@ -136,7 +136,7 @@ interface RytmGenre {
   /** les samples de Mika (kick, snare) et, s'ils manquent, le son calcule qui les remplace */
   kick: { key: string; or: KitModel };
   snare: { key: string; or: KitModel };
-  /** les autres familles : charleys, clap, toms */
+  /** les autres familles : les charleys (CH et OH, la meme machine), le clap, les toms (TOM et HT, la meme) ; CY reste MM */
   hh: KitModel;
   cp: KitModel;
   tom: KitModel;

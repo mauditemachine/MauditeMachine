@@ -11,9 +11,9 @@ import { clock } from './audio/clock';
 import { ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { TAP_VEL_DEFAULT } from './state/rytmPage';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { KIT_DEFAULT, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
+import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
 import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './audio/locks';
-import { sampleByKey, samplesOf } from './audio/samples';
+import { sampleByKey, samplesChanged, samplesOf, samplesVersion } from './audio/samples';
 import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, DELAY_DIVS, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, isFxSetting, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -1143,8 +1143,8 @@ function layerReadout(p: LayerDial, inst: Inst | string, f: KitFamily): string {
   return `${inst} ${LAYER_NAME[p]} ${layerText(p, layerValueOf(f, p))}  ${layerUnitNow(p, f)}${why}`;
 }
 
-/** Les familles dont les couches ont des cibles MIDI (rytm:layer:<famille>:<reglage>) ; celles qui ont des samples, toutes. */
-export const LAYER_TARGET_FAMS: readonly KitFamily[] = ['bd', 'sd', 'hh', 'cp', 'tom'];
+/** Les familles dont les couches ont des cibles MIDI (rytm:layer:<famille>:<reglage>) : toutes, une par voix (2026-10-18). */
+export const LAYER_TARGET_FAMS: readonly KitFamily[] = KIT_FAMILIES;
 /** Ce qu'une cible de couche regle : un reglage de couche, ou l'echantillon de la couche SAMPLE. */
 export type LayerTarget = LayerDial | 'sample';
 
@@ -1326,7 +1326,8 @@ const voiceSoundCache = new Map<string, readonly VoiceSound[]>();
  * samples de toutes.
  */
 export function voiceSounds(inst: Inst, lock = false): readonly VoiceSound[] {
-  const sig = `${inst}|${lock ? 1 : 0}|${LOCK_FAMS.map((f) => samplesOf(f).length).join(',')}`;
+  // La liste des samples bouge (un sample de Mika ajoute ou retire de ce navigateur, audio/samples.ts) : la liste se refait
+  const sig = `${inst}|${lock ? 1 : 0}|${samplesVersion()}`;
   let out = voiceSoundCache.get(sig);
   if (out) return out;
   const own = familyOf(inst as ShotId);
@@ -2013,10 +2014,17 @@ export interface LockSound {
   label: string;
 }
 
-/** Les familles dans l'ordre de la liste (celle de la voix d'abord), et leur nom court. */
-const LOCK_FAMS: readonly KitFamily[] = ['bd', 'sd', 'cp', 'hh', 'tom'];
-const FAM_TAG: Readonly<Record<KitFamily, string>> = { bd: 'BD', sd: 'SD', cp: 'CP', hh: 'HH', tom: 'TOM', rs: 'RS' };
+/** Les familles dans l'ordre de la liste (celle de la voix d'abord) : une par voix, dans l'ordre des pads (2026-10-18) ; et leur nom court. */
+const LOCK_FAMS: readonly KitFamily[] = KIT_FAMILIES;
+const FAM_TAG: Readonly<Record<KitFamily, string>> = { bd: 'BD', sd: 'SD', ch: 'CH', oh: 'OH', cp: 'CP', tom: 'TOM', ht: 'HT', cy: 'CY' };
 const lockSoundCache = new Map<string, readonly LockSound[]>();
+const lockSampleCache = new Map<string, readonly LockSound[]>();
+// Un sample de Mika ajoute ou retire de ce navigateur (audio/usersamples.ts) : les listes gardees ici se refont
+samplesChanged.subscribe(() => {
+  voiceSoundCache.clear();
+  lockSoundCache.clear();
+  lockSampleCache.clear();
+});
 
 /**
  * SOUND en LOCK (le "sample lock" d'une Digitakt, R2) : les sons de la famille
@@ -2042,8 +2050,6 @@ const lockSoundsOf = (): readonly LockSound[] => {
   const inst = pattern.get().instrument;
   return inst ? lockSounds(inst) : [];
 };
-
-const lockSampleCache = new Map<string, readonly LockSound[]>();
 
 /**
  * SMPL SAMPLE en LOCK (R3, le sample lock de l'Analog Rytm) : OFF (la couche
