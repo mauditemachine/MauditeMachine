@@ -347,7 +347,14 @@ function softClipCurve(): Float32Array {
  * MM-RYTM cretait a -2.7 dBFS, l'ARP a -13.4. Le MM-RYTM descend de 2.5 dB (0.71 avant), le kick de 1.5 dB de
  * plus (shotsdsp.ts SHOT_BELOW.BD), l'ARP monte de 5 dB (synth.ts VOLUME_K) : les deux se lisent pareil, loin du rouge.
  */
-const RYTM_TRIM = 0.53;
+/*
+ * 2026-10-18 (Mika, le VU du MIXER : "le RYTM est vraiment pas fort par rapport [a l'ARP]") : mesure hors ligne (motif et
+ * kit de depart, sans son), le MM-RYTM cretait a -6.2 dBFS (-18.7 LUFS), un kick seul a -13.4 dBFS, l'ARP de depart a
+ * -8.7 dBFS (-20.1 LUFS) ; le VU est un crete-metre, un kick seul n'y allumait que six segments face a un ARP tenu vers
+ * -4 dBFS. Le MM-RYTM remonte de 4 dB (0.53 avant) : le kick vers -9.4 dBFS, les coups qui se superposent vers -2.2
+ * dBFS (l'orange, jamais le rouge avec le motif de depart), environ 5 LU au-dessus de l'ARP de depart.
+ */
+const RYTM_TRIM = 0.84;
 
 function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bus = c.createGain();
