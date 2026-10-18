@@ -202,3 +202,5 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-18 : MM-RYTM, CLEAR remet chaque voix a un son de base (ENV, FLTR, VOICE au neutre, couches et OPEN a leur depart, le son choisi reste). Spec R14-279.
 - 2026-10-18 : MM-RYTM, sortie remontee de 4 dB (kick vers -9.4 dBFS, motif de depart -14.7 LUFS, 5 LU au-dessus de l'ARP de depart). Spec R14-280.
 - 2026-10-18 : MM-RYTM, le OH par defaut devient un vrai open hat de Mika (RID 014 NARROW, tire de ses projets sur Drive, kit migre) et l'open hat MM est refait (sans repliement, corps 4 a 8 kHz, queue naturelle). Un seul vrai open hat sur le Drive : d'autres viendront avec npm run samples:ableton sur le Mac. Spec R14-281.
+- 2026-10-18 : MM-RYTM, COMP refait en vrai compresseur de bus (THRESH, RATIO, ATTACK, RELEASE AUTO, MAKEUP AUTO, HPF, COMP = MIX, aiguille GR) ; le son etouffe venait d'une attaque reelle de 3 ms au lieu des 30 affichees. Spec R14-282.
+- 2026-10-18 : MM-RYTM, 6 kicks de Mika de plus dans SOUND (bd 07 a 12, tires de ses projets sur Drive ; il n'y en a pas d'autres, le bd.zip de 10 Mo ne passe pas par le connecteur). Spec R14-283.
