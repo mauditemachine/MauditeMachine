@@ -67,6 +67,7 @@
 import type { DialId } from '../actions';
 import type { LockKey } from '../audio/locks';
 import { familyOf, type KitFamily } from '../audio/kit';
+import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
 import { RYTM_PAGE_KEYS, type Inst } from '../theme';
 

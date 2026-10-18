@@ -390,8 +390,10 @@ export function rytmFactory(): { name: string; data: RytmFactory }[] {
     // Avant R3, TUNE et DECAY reglaient le sample du kick : ils passent a sa couche SAMPLE, la synthese est accordee sur F#1
     const kitKnobs: Record<KitKnob, number> = { ...KIT_BASE, ...g.kit, tune: kickOnF(g.kick.or), decay: g.kit.decay ?? KIT_BASE.decay };
     const sampleTune = Math.round(((g.kit.tune ?? 0.5) - 0.5) * 24) / LAYER_TUNE_ST;
-    const families: Record<KitFamily, string> = { bd: bd ?? g.kick.or, sd: sd ?? g.snare.or, hh: g.hh, cp: g.cp, tom: g.tom, rs: 'mm' };
-    const machines: Record<KitFamily, KitModel> = { bd: g.kick.or, sd: g.snare.or, hh: g.hh, cp: g.cp, tom: g.tom, rs: 'mm' };
+    // Une famille par voix (2026-10-18) : les deux charleys gardent la machine des charleys, les deux toms celle des
+    // toms, la cymbale sa MM (chaque preset sonne comme avant)
+    const families: Record<KitFamily, string> = { bd: bd ?? g.kick.or, sd: sd ?? g.snare.or, ch: g.hh, oh: g.hh, cp: g.cp, tom: g.tom, ht: g.tom, cy: 'mm' };
+    const machines: Record<KitFamily, KitModel> = { bd: g.kick.or, sd: g.snare.or, ch: g.hh, oh: g.hh, cp: g.cp, tom: g.tom, ht: g.tom, cy: 'mm' };
     const layers = Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT }])) as Record<KitFamily, Layer>;
     if (bd) layers.bd = { ...LAYER_DEFAULT, syn: 0, tune: sampleTune, len: lenOfDecay(g.kit.decay ?? KIT_BASE.decay) };
     if (sd) layers.sd = { ...LAYER_DEFAULT, syn: 0 };
@@ -404,7 +406,7 @@ export function rytmFactory(): { name: string; data: RytmFactory }[] {
         stretch: 0,
         voices: Object.fromEntries(INSTRUMENTS.map((k) => [k, { ...VOICE_FX_DEFAULT, ...(g.voices?.[k] ?? {}) }])) as Record<Inst, VoiceFx>,
         kit: kitKnobs,
-        sounds: Object.fromEntries(KIT_FAMILIES.filter((f) => f !== 'rs').map((f) => [f, families[f]])) as Partial<Record<KitFamily, string>>,
+        sounds: Object.fromEntries(KIT_FAMILIES.map((f) => [f, families[f]])) as Partial<Record<KitFamily, string>>,
         machines,
         samples: { ...(bd ? { bd } : {}), ...(sd ? { sd } : {}) },
         layers,

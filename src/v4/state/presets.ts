@@ -63,7 +63,7 @@ import { INSTRUMENTS, NEUTRAL_FX, pattern, type Fx, type Steps } from '../audio/
 import { mix, setStretch } from '../audio/drums';
 import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
 import { VOICE_FX_DEFAULT, voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
-import { KIT_FAMILIES, KIT_IDS, KIT_KNOBS, LAYER_DEFAULT, LAYER_TUNE_ST, cleanKnob, cleanLayer, kit, kitDefaultCopy, modelAt, resolveSample, type KitFamily, type KitId, type KitModel, type Layer } from '../audio/kit';
+import { KIT_FAMILIES, KIT_IDS, KIT_KNOBS, LAYER_DEFAULT, LAYER_TUNE_ST, cleanKnob, cleanLayer, foldFamilies, kit, kitDefaultCopy, modelAt, resolveSample, type KitFamily, type KitId, type KitModel, type Layer } from '../audio/kit';
 import { lenOfDecay, sampleTuneSt } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
@@ -498,12 +498,19 @@ function applyKit(r: RytmData): void {
     const v = knobs[n];
     next.knob[n] = typeof v === 'number' && Number.isFinite(v) ? cleanKnob(n, v) : next.knob[n];
   }
+  // Un preset d'avant le 2026-10-18 (hh pour les deux charleys, tom pour les deux toms, rs) : ce qu'une ancienne
+  // famille avait va a ses voix d'aujourd'hui (audio/kit.ts foldFamilies), le meme son
+  const machines = foldFamilies<string>(r.machines);
+  const samples = foldFamilies<string>(r.samples);
+  const layers = foldFamilies<Partial<Layer>>(r.layers);
+  const sounds = foldFamilies<string>(r.sounds);
+  const kitFam = foldFamilies<number>(r.kit);
   for (const f of KIT_FAMILIES) {
     if (r.layers) {
-      const m = r.machines?.[f];
+      const m = machines[f];
       if (m === '909' || m === '808' || m === 'mm') next.model[f] = m as KitModel;
-      const l = cleanLayer(r.layers[f]);
-      const want = r.samples?.[f];
+      const l = cleanLayer(layers[f]);
+      const want = samples[f];
       const key = resolveSample(f, want);
       if (key) next.sample[f] = key;
       else delete next.sample[f];
@@ -512,8 +519,8 @@ function applyKit(r: RytmData): void {
       continue;
     }
     // Un preset d'avant R3 : le son de la famille, par son nom ou sur trois crans ; rien : celui du moment
-    const snd = r.sounds?.[f];
-    const v = r.kit?.[f];
+    const snd = sounds[f];
+    const v = kitFam[f];
     if (typeof snd !== 'string' && typeof v !== 'number') {
       next.model[f] = cur.model[f];
       if (cur.sample[f]) next.sample[f] = cur.sample[f];
@@ -584,8 +591,47 @@ function canon(v: unknown): unknown {
  * empreinte garde avant eux est le meme son qu'apres sa migration.
  */
 function voyNow(m: PresetMachine, o: Record<string, unknown>): Record<string, unknown> {
+  if (m === 'mm808') return rytmNow(o);
   if (m !== 'voy' || !o.knobs || typeof o.knobs !== 'object') return o;
   return { ...o, knobs: foldLegacyKnobs(o.knobs as Record<string, unknown>) };
+}
+
+/** Les enregistrements par famille d'un etat du MM-RYTM, et ce qu'une famille absente vaut dans une capture d'aujourd'hui. */
+const RYTM_FAMILY_RECORDS: readonly (readonly [string, unknown])[] = [
+  ['sounds', 'mm'],
+  ['machines', 'mm'],
+  ['samples', ''],
+  ['layers', LAYER_DEFAULT],
+];
+
+/**
+ * Un etat du MM-RYTM d'avant le 2026-10-18 (hh pour les deux charleys, tom pour les deux toms, rs) ramene a
+ * aujourd'hui (audio/kit.ts foldFamilies ; une famille que l'ancien etat n'avait pas, cy, a son depart) : un preset,
+ * un son mis de cote, une empreinte garde avant est le meme son qu'apres sa traduction (sinon le premier chargement
+ * mettait de cote un "nouveau" son qui n'etait que l'ancien). kit (les crans de la plaque) ne garde que ses onze
+ * cases : hh y devient ch.
+ */
+function rytmNow(o: Record<string, unknown>): Record<string, unknown> {
+  let out = o;
+  for (const [k, def] of RYTM_FAMILY_RECORDS) {
+    const rec = o[k];
+    if (!rec || typeof rec !== 'object') continue;
+    const folded: Record<string, unknown> = foldFamilies<unknown>(rec);
+    for (const f of KIT_FAMILIES) if (folded[f] === undefined) folded[f] = def;
+    out = { ...out, [k]: folded };
+  }
+  const kitRec = o.kit;
+  if (kitRec && typeof kitRec === 'object') {
+    const x = kitRec as Record<string, unknown>;
+    const fam = foldFamilies<unknown>(x);
+    const next: Record<string, unknown> = {};
+    for (const id of KIT_IDS) {
+      const v = (KIT_FAMILIES as readonly string[]).includes(id) ? fam[id as KitFamily] : x[id];
+      if (v !== undefined) next[id] = v;
+    }
+    out = { ...out, kit: next };
+  }
+  return out;
 }
 
 /**
@@ -600,7 +646,7 @@ function sig(m: PresetMachine, d: Preset['data'], skip: readonly string[] = []):
 
 /** Une empreinte gardee (une marque, avant le 2026-10-11 : ses ON) ramenee a celle d'aujourd'hui ; illisible : telle quelle. */
 function sigNow(m: PresetMachine, kept: string): string {
-  if (m !== 'voy') return kept;
+  if (m !== 'voy' && m !== 'mm808') return kept;
   try {
     const o = JSON.parse(kept) as unknown;
     if (!o || typeof o !== 'object' || Array.isArray(o)) return kept;
