@@ -917,6 +917,13 @@ export function kitOverride(lock: Readonly<StepLock>): KitOverride | null {
     // Un echantillon parti du dossier : le pas joue celui de la voix (le verrou reste, il reviendra avec lui)
     if (p && p.sound === 'off') ov = { ...(ov ?? {}), sample: null };
     else if (p && sampleByKey(p.sound)) ov = { ...(ov ?? {}), sample: p.sound };
+    else if (p && ov?.layer) {
+      // ... et ses niveaux de couches aussi (revue du 2026-10-18) : un sample de ce navigateur retire, ou un sample du
+      // site renomme, laissait SYNTH a 0 sur le pas, muet ; le pas joue la voix telle qu'elle est
+      const { syn: _syn, lev: _lev, ...rest } = ov.layer;
+      ov = { ...ov, layer: rest };
+      if (Object.keys(rest).length === 0) delete ov.layer;
+    }
   }
   return ov;
 }

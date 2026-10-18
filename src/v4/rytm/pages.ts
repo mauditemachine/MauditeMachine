@@ -383,6 +383,10 @@ function voiceSynth(f: KitFamily | null): readonly PageSlot[] {
       synth('DECAY', 'r:sddecay', 'decay', 'sddecay'),
       synth('GATE', 'r:gate', 'notch', 'gate', true),
     ];
+  // Les autres familles (une par voix depuis le 2026-10-18) : la machine et MIX, pour poser la synthese sous un sample
+  // (revue du 2026-10-18 : l'onglet SYNTH s'ouvrait vide) ; le clap y garde GATE, que VOICE ne montre plus
+  if (f === 'cp') return [MACHINE, MIX, synth('GATE', 'r:gate', 'notch', 'gate', true)];
+  if (f) return [MACHINE, MIX];
   return [];
 }
 

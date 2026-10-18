@@ -622,14 +622,22 @@ function rytmNow(o: Record<string, unknown>): Record<string, unknown> {
   }
   const kitRec = o.kit;
   if (kitRec && typeof kitRec === 'object') {
+    // Seulement les potards (revue du 2026-10-18) : le cran du son d'une famille (soundIndex / nombre de crans) bouge
+    // des qu'un sample est ajoute ou retire, a son egal ; le son lui-meme est deja dans sounds, machines, samples, layers
     const x = kitRec as Record<string, unknown>;
-    const fam = foldFamilies<unknown>(x);
     const next: Record<string, unknown> = {};
     for (const id of KIT_IDS) {
-      const v = (KIT_FAMILIES as readonly string[]).includes(id) ? fam[id as KitFamily] : x[id];
-      if (v !== undefined) next[id] = v;
+      if ((KIT_FAMILIES as readonly string[]).includes(id)) continue;
+      if (x[id] !== undefined) next[id] = x[id];
     }
     out = { ...out, kit: next };
+  }
+  // Les verrous lus comme aujourd'hui (hh:off devient ch:off, comme les relit le motif) : sinon un preset d'avant
+  // differait de sa propre capture au premier chargement
+  if (o.locks !== undefined) {
+    const l = cleanLocks(o.locks);
+    const { locks: _old, ...rest } = out;
+    out = l ? { ...rest, locks: l } : rest;
   }
   return out;
 }

@@ -115,12 +115,22 @@ const STEPS = 16;
  * voix) ne se lisent plus qu'a la lecture (SND_READ_RE, sndNow : hh devient
  * ch, rs s'en va) ; un verrou ecrit porte une famille d'aujourd'hui.
  */
-const SND_RE = /^(bd|sd|ch|oh|cp|tom|ht|cy):[^\s:][^:]{0,120}$/;
-const SND_READ_RE = /^(bd|sd|ch|oh|cp|tom|ht|cy|hh|rs):[^\s:][^:]{0,120}$/;
-/** Un son verrouille lu, dans les familles d'aujourd'hui ; null s'il n'en a plus (rs) ou n'a pas la forme. */
-function sndNow(v: unknown): string | null {
+/*
+ * Le son : la cle d'un sample du site (pas de deux-points), ou celle d'un sample de ce navigateur
+ * ('<famille>/u:<id>', audio/usersamples.ts, 2026-10-18 : son deux-points est permis la seulement).
+ */
+const SND_SOUND = String.raw`(?:[a-z]+\/u:[a-z0-9]+|[^\s:][^:]{0,120})`;
+const SND_RE = new RegExp(`^(bd|sd|ch|oh|cp|tom|ht|cy):${SND_SOUND}$`);
+const SND_READ_RE = new RegExp(`^(bd|sd|ch|oh|cp|tom|ht|cy|hh|rs):${SND_SOUND}$`);
+/**
+ * Un son verrouille lu, dans les familles d'aujourd'hui ; null s'il n'en a plus (rs) ou n'a pas la forme.
+ * inst : la voix du pas ; un hh: d'avant prend la famille de SA voix (OH : oh, sinon ch) et un tom: sur HT
+ * devient ht: (revue du 2026-10-18 : un verrou de R2 'hh:808' sur OH restait sa MACHINE).
+ */
+function sndNow(v: unknown, inst?: Inst): string | null {
   if (typeof v !== 'string' || !SND_READ_RE.test(v)) return null;
-  if (v.startsWith('hh:')) return `ch:${v.slice(3)}`;
+  if (v.startsWith('hh:')) return `${inst === 'OH' ? 'oh' : 'ch'}:${v.slice(3)}`;
+  if (v.startsWith('tom:') && inst === 'HT' && /^tom:(909|808|mm)$/.test(v)) return `ht:${v.slice(4)}`;
   if (v.startsWith('rs:')) return null;
   return v;
 }
@@ -170,7 +180,7 @@ const r2SampleLen = (v: number): number => (v >= 0.45 ? 1 : Math.max(0, v) / 0.4
 function fromR2(inst: Inst, x: Record<string, unknown>, out: StepLock): number {
   let n = 0;
   const fam = FAMILY[inst];
-  const snd = sndNow(x.snd) ?? '';
+  const snd = sndNow(x.snd, inst) ?? '';
   const m = snd ? /^([a-z]+):(909|808|mm)$/.exec(snd) : null;
   if (m && fam && m[1] === fam && out.mach === undefined) {
     // SOUND sur un modele de sa famille (bd:808) : cette MACHINE seule sur ce pas
@@ -214,7 +224,7 @@ function cleanStep(o: unknown, inst: Inst, r2: boolean): StepLock | null {
     }
   }
   // Un son d'avant le 2026-10-18 (hh:...) se lit dans sa famille d'aujourd'hui (ch:...) ; rs: ne se lit plus
-  const snd = sndNow(x.snd);
+  const snd = sndNow(x.snd, inst);
   if (snd && !oldModelSnd(snd)) {
     out.snd = snd;
     n += 1;

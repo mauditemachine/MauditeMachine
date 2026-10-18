@@ -39,6 +39,11 @@ const INDEX_KEY = 'mm.v4.rytm.user.1';
 export const USER_SAMPLE_MAX_BYTES = 10 * 1024 * 1024;
 /** Par famille : la liste de SOUND reste lisible (le potard ecrit les numeros au-dela de 8). */
 export const USER_SAMPLES_PER_FAMILY = 60;
+/**
+ * Un coup de batterie, pas un morceau (revue du 2026-10-18) : au-dela, refuse. Un mp3 de 10 Mo (dix minutes) se
+ * decodait en ~250 Mo de PCM, garde en memoire, copie au worker et rendu entier dans chaque coup.
+ */
+export const USER_SAMPLE_MAX_SECONDS = 12;
 /** Les familles (une copie de audio/kit.ts KIT_FAMILIES : ce module ne lit aucun store du site). */
 const FAMILIES: readonly string[] = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
 const AUDIO_EXT = /\.(wav|aiff?|mp3|flac|m4a)$/i;
@@ -48,9 +53,10 @@ const KEY_RE = /^([a-z]+)\/u:([a-z0-9]+)$/;
 const DECODE_SR = 48000;
 
 /** Pourquoi un fichier n'entre pas. */
-export type UserSampleReason = 'too-big' | 'not-audio' | 'too-many' | 'storage';
+export type UserSampleReason = 'too-big' | 'too-long' | 'not-audio' | 'too-many' | 'storage';
 const REASON_TEXT: Readonly<Record<UserSampleReason, string>> = {
   'too-big': 'TOO BIG: 10 MB MAX',
+  'too-long': `TOO LONG: ${USER_SAMPLE_MAX_SECONDS} S MAX`,
   'not-audio': 'NOT AUDIO',
   'too-many': `TOO MANY: ${USER_SAMPLES_PER_FAMILY} MAX`,
   storage: 'STORAGE OFF',
@@ -238,6 +244,13 @@ function emit(): void {
  * sans index entre dans la liste (un index perdu) ; une ligne de l'index sans
  * fichier en sort (un fichier parti). Les fichiers lus restent en memoire.
  */
+/** Les cles retirees pendant cette visite : reconcile ne les remet pas, la suppression ratee est retentee. */
+const removed = new Set<string>();
+/** Les ajouts en cours par famille (un glisser-deposer de plusieurs fichiers) : comptes contre la limite. */
+const adding = new Map<string, number>();
+/** Le dernier instant d'ajout donne : chaque ajout un cran plus tard, l'ordre du depot reste celui des crans. */
+let lastAdded = 0;
+
 async function reconcile(): Promise<void> {
   const d = await open();
   if (!d) return;
@@ -248,7 +261,8 @@ async function reconcile(): Promise<void> {
     return;
   }
   const have = new Map<string, Row>();
-  for (const r of rows) if (FAMILIES.includes(r.family) && typeof r.family === 'string') have.set(keyOf(r.family, r.id), r);
+  // Une ligne lue avant son retrait (remove pendant la lecture) ne revient pas (revue du 2026-10-18)
+  for (const r of rows) if (FAMILIES.includes(r.family) && typeof r.family === 'string' && !removed.has(keyOf(r.family, r.id))) have.set(keyOf(r.family, r.id), r);
   let changed = false;
   const next = list.filter((e) => {
     if (have.has(e.key)) return true;
@@ -283,6 +297,37 @@ export async function decodeAudio(data: ArrayBuffer): Promise<SamplePcm> {
 /** Un fichier qui a l'air d'etre de l'audio : son extension, ou son type MIME. */
 export const looksAudio = (file: { name: string; type?: string }): boolean => AUDIO_EXT.test(file.name) || /^audio\//i.test(file.type ?? '');
 
+/** L'ajout lui-meme (userSamples.add a deja verifie la place, la taille et le type, et retenu sa place). */
+async function addNow(family: string, file: File, added: number): Promise<KitSample> {
+  const data = await file.arrayBuffer();
+  let pcm: SamplePcm;
+  try {
+    // decodeAudioData prend le tampon (il le vide) : une copie part au decodage, le fichier reste entier
+    pcm = await decodeAudio(data.slice(0));
+  } catch {
+    throw new UserSampleError('not-audio');
+  }
+  if (pcm.L.length === 0) throw new UserSampleError('not-audio');
+  if (pcm.L.length / pcm.sr > USER_SAMPLE_MAX_SECONDS) throw new UserSampleError('too-long');
+  const id = `${added.toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+  const key = keyOf(family, id);
+  const blob = new Blob([data], { type: file.type || 'application/octet-stream' });
+  const entry: Entry = { key, family, file: file.name.slice(0, 200), label: sampleLabel(file.name), added };
+  const d = await open();
+  if (!d) throw new UserSampleError('storage');
+  try {
+    await putRow(d, { id, ...entry, blob });
+  } catch {
+    throw new UserSampleError('storage');
+  }
+  blobs.set(key, blob);
+  decoded.set(key, pcm);
+  list = [...list.filter((e) => e.key !== key), entry].sort(byAdded);
+  writeIndex();
+  emit();
+  return toSample(entry);
+}
+
 export const userSamples = {
   /** Les samples de Mika d'une famille, dans l'ordre d'arrivee (les crans apres ceux du site). */
   list(family: string): readonly KitSample[] {
@@ -307,39 +352,22 @@ export const userSamples = {
    */
   async add(family: string, file: File): Promise<KitSample> {
     if (!FAMILIES.includes(family)) throw new Error(`unknown family ${family}`);
-    if (userSamples.count(family) >= USER_SAMPLES_PER_FAMILY) throw new UserSampleError('too-many');
+    if (userSamples.count(family) + (adding.get(family) ?? 0) >= USER_SAMPLES_PER_FAMILY) throw new UserSampleError('too-many');
     if (file.size > USER_SAMPLE_MAX_BYTES) throw new UserSampleError('too-big');
     if (!looksAudio(file)) throw new UserSampleError('not-audio');
-    const data = await file.arrayBuffer();
-    let pcm: SamplePcm;
+    // La place est retenue des maintenant : plusieurs fichiers deposes d'un coup ne depassent pas la limite
+    adding.set(family, (adding.get(family) ?? 0) + 1);
+    const added = (lastAdded = Math.max(Date.now(), lastAdded + 1));
     try {
-      // decodeAudioData prend le tampon (il le vide) : une copie part au decodage, le fichier reste entier
-      pcm = await decodeAudio(data.slice(0));
-    } catch {
-      throw new UserSampleError('not-audio');
+      return await addNow(family, file, added);
+    } finally {
+      adding.set(family, Math.max(0, (adding.get(family) ?? 1) - 1));
     }
-    if (pcm.L.length === 0) throw new UserSampleError('not-audio');
-    const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-    const key = keyOf(family, id);
-    const blob = new Blob([data], { type: file.type || 'application/octet-stream' });
-    const entry: Entry = { key, family, file: file.name.slice(0, 200), label: sampleLabel(file.name), added: Date.now() };
-    const d = await open();
-    if (!d) throw new UserSampleError('storage');
-    try {
-      await putRow(d, { id, ...entry, blob });
-    } catch {
-      throw new UserSampleError('storage');
-    }
-    blobs.set(key, blob);
-    decoded.set(key, pcm);
-    list = [...list.filter((e) => e.key !== key), entry].sort(byAdded);
-    writeIndex();
-    emit();
-    return toSample(entry);
   },
   /** Retire un sample de Mika (la liste tout de suite, IndexedDB ensuite) ; false s'il n'y etait pas. */
   async remove(key: string): Promise<boolean> {
     if (!list.some((e) => e.key === key)) return false;
+    removed.add(key);
     list = list.filter((e) => e.key !== key);
     blobs.delete(key);
     decoded.delete(key);

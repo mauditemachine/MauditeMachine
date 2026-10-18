@@ -57,8 +57,7 @@ import { voices as voiceState } from '../state/voices';
 import { arp } from '../voyager/arp';
 import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
-import { KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob } from '../audio/kit';
-import { samplesOf } from '../audio/samples';
+import { KIT_FAMILIES, KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob } from '../audio/kit';
 import { setVoiceFx } from '../audio/drums';
 import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
@@ -193,7 +192,9 @@ function coreTargets(): MidiTarget[] {
     },
   });
   // Les potards de la machine ajoutes par R3 (2026-10-08 : SWEEP du kick, TUNE DECAY TONE de la caisse claire) suivent la plaque
-  for (const k of [...KIT_IDS, ...KIT_MORE]) {
+  // Une famille par voix (2026-10-18) : OP HAT, HI TOM et CYMBAL n'ont pas de place sur la plaque mais ont leur cible
+  // (revue du 2026-10-18 : rytm:kit:oh, ht et cy, promises par la plaque et les INFOS, n'existaient pas)
+  for (const k of [...KIT_IDS, ...KIT_FAMILIES.filter((f) => !KIT_IDS.includes(f)), ...KIT_MORE]) {
     // Ses crans suivent les echantillons du site (audio/samples.ts) : lus a chaque fois
     out.push({
       id: `rytm:kit:${k}`,
@@ -223,7 +224,9 @@ function coreTargets(): MidiTarget[] {
     rev: 'SMP REV',
   };
   for (const f of LAYER_TARGET_FAMS) {
-    const params = samplesOf(f).length > 0 ? (['mach', 'syn', 'sample', 'lev', 'tune', 'fine', 'start', 'len', 'rev'] as const) : (['mach', 'syn'] as const);
+    // Toujours toute la couche (revue du 2026-10-18) : la liste est construite une fois, un sample depose ensuite dans
+    // une famille vide n'aurait pas eu ses cibles avant un rechargement ; sans sample, leurs crans valent 0
+    const params = ['mach', 'syn', 'sample', 'lev', 'tune', 'fine', 'start', 'len', 'rev'] as const;
     for (const lp of params) {
       out.push({
         id: `rytm:layer:${f}:${lp}`,

@@ -51,6 +51,7 @@ import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { familyOf, kit } from '../audio/kit';
+import { samplesChanged } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
 import { machinePlaying, onPlayStart } from '../state/playLock';
 import { reserve } from '../audio/sched';
@@ -999,11 +1000,19 @@ export class Stage {
     this.syncPattern();
     this.unsubPattern = pattern.subscribe(this.syncPattern);
     // Les TWEAKS suivent le kit (un glisser, la molette, un preset) : sous le capot, pas d'ombre a refaire
-    this.unsubKit = kit.subscribe(() => {
+    const onKit = (): void => {
       if (this.rytmTweaks.sync()) this.repaint();
       // Le potard SAMPLE (la rangee VOICE) suit le son de la voix selectionnee
       this.syncMix();
-    });
+    };
+    const offKit = kit.subscribe(onKit);
+    // ... et la liste des samples (revue du 2026-10-18) : un sample depose ou retire change les crans et les noms de
+    // la plaque sans que le kit bouge
+    const offSamples = samplesChanged.subscribe(onKit);
+    this.unsubKit = () => {
+      offKit();
+      offSamples();
+    };
     this.syncVoices();
     this.unsubVoices = voices.subscribe(this.syncVoices);
     this.syncMix();

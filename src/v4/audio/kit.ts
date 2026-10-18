@@ -197,7 +197,9 @@ export function resolveSample(f: KitFamily, key: unknown): string | undefined {
   if (hit) return hit.family === f ? key : undefined;
   if (isUserKey(key)) return undefined;
   if (!key.startsWith(`${f}/`)) return undefined;
-  const list = samplesOf(f);
+  // Seulement les samples du site (revue du 2026-10-18) : un sample du site renomme ne prend pas la place d'un sample
+  // depose dans ce navigateur
+  const list = samplesOf(f).filter((s) => !s.user);
   if (list.length === 0) return undefined;
   const m = /^[a-z]+\/0*(\d+)/i.exec(key);
   const n = m ? Number(m[1]) : 0;
