@@ -15,6 +15,7 @@
     "stats": "node scripts/fetch-stats.mjs",
     "samples:import": "node scripts/import-rytm-samples.mjs",
     "samples:ableton": "node scripts/ableton-samples.mjs",
+    "samples:mika": "node scripts/ableton-samples.mjs --publish",
     "docs:midi": "node scripts/midi-reference.mjs"
   },
   "dependencies": {
