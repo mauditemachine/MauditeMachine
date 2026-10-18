@@ -133,7 +133,7 @@ import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { anyDialValue, dialRange, type DialId } from '../actions';
-import { FX_DETAILS, FX_VOICE_DETAILS, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
+import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -506,6 +506,8 @@ export class Stage {
   private sbDefs: HotspotDef[] = [];
   /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
   private tabDefs: HotspotDef[] = [];
+  /** Le menu de la voix sous HOME (2026-10-18, scene/screen.ts menuRects) : SOUND VOICE FLTR ENV FX */
+  private menuDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
   private unsubSeek: () => void = () => undefined;
   private raycaster = new Raycaster();
@@ -910,6 +912,22 @@ export class Stage {
         ...Array.from({ length: BROWSER_ROWS }, (_, k) => sb(`lcd-sb-del-${k}`, 0.24, k)),
       ];
       this.hit.add(this.sbDefs);
+      // Le menu de la voix sous HOME (2026-10-18) : ses touches, posees et allumees la ou l'ecran les dessine
+      // (syncScreenTabs), devant lcd-open (qui ouvre les presets d'une tape ailleurs sur l'ecran), comme les onglets
+      this.menuDefs = HOME_MENU.map((id) => ({
+        id: `lcd-menu-${id}`,
+        kind: 'rmenu' as const,
+        layer: plateau,
+        shape: 'box' as const,
+        x: OLED.x,
+        z: OLED.z,
+        hx: 0.1,
+        hz: 0.1,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + 0.1,
+        enabled: false,
+      }));
+      this.hit.add(this.menuDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
@@ -1337,6 +1355,9 @@ export class Stage {
     // vue n'est plus 'page')
     const sbOn = this.screen.info.view === 'browser';
     for (const d of this.sbDefs) place(d, sbOn ? (this.screen.browserRects.find((r) => r.id === d.id) ?? null) : null);
+    // Le menu de la voix (2026-10-18) : sous HOME seulement (la vue PAGE, EDIT, les presets et la liste des sons l'eteignent)
+    const home = this.screen.info.view === 'home' && !presetMode.on('mm808');
+    for (const d of this.menuDefs) place(d, home ? (this.screen.menuRects.find((r) => r.id === d.id) ?? null) : null);
     // La touche i : au telephone, quand les blocs (ou les fleches du navigateur) ont leur zone, dans le coin du verre (revue de R4)
     const blk = (page && this.screen.blockRects.length > 0) || sbOn;
     const ik = blk ? this.infoAt.blocks : this.infoAt.off;

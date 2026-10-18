@@ -77,6 +77,7 @@ import {
   pageSlotOf,
   pageFxDetail,
   rytmFxOpen,
+  rytmMenu,
   rytmPageKey,
   rytmScreenTab,
   globalDial,
@@ -148,7 +149,7 @@ import { patterns, slotName } from '../state/patterns';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
 import { lockCount } from '../audio/locks';
-import { SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
+import { HOME_MENU, HOME_MENU_LABEL, SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
 import { v127 } from '../rytm/values';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
@@ -679,6 +680,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Le navigateur des sons (2026-10-18) : une ligne, son x, PREV, NEXT ; l'en-tete et le corps gardent la liste ouverte
       if (d.kind === 'sbrowse') {
         sbTap(d);
+        return d.id;
+      }
+      // Le menu de la voix sous HOME (2026-10-18) : SOUND ouvre la liste des sons, VOICE FLTR ENV FX leur page
+      if (d.kind === 'rmenu' && d.id) {
+        rytmMenu(d.id.slice('lcd-menu-'.length), stage);
         return d.id;
       }
       // Un pas tenu qui a recu un verrou (deux doigts, INFOS allume aussi) : ni change ni tape, la carte reste celle de l'encodeur
@@ -2187,6 +2193,24 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           </div>
         </>
       )}
+      {rp.view === 'home' &&
+        !rytmEdit &&
+        !pm808 &&
+        !sbView &&
+        HOME_MENU.map((id) => (
+          // Le menu de la voix sous HOME (2026-10-18) : ses touches, posees la ou l'ecran les dessine (lcd-menu-<id>)
+          <button
+            key={`lcd-menu-${id}`}
+            ref={refFor(`lcd-menu-${id}`)}
+            type="button"
+            className="v4-twin"
+            data-twin="rmenu"
+            data-hotspot={`lcd-menu-${id}`}
+            aria-label={id === 'sound' ? (inst ? `Sound of ${INST_NAMES[inst]}: open the list of sounds` : 'Sound: tap a pad first') : `${HOME_MENU_LABEL[id]} page${inst ? ` of ${INST_NAMES[inst]}` : ''}`}
+            onKeyDown={noRepeat}
+            onClick={() => rytmMenu(id, stageRef.current)}
+          />
+        ))}
       {RYTM_PAGE_KEYS.map((pk) => (
         <button
           key={`pkey-${pk.id}`}

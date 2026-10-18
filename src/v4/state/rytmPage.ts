@@ -107,7 +107,7 @@ const fullVel = (): Record<Inst, number> => Object.fromEntries(INSTS.map((i) => 
 
 /** Relire la velocite des nouveaux pas gardee (false depuis le 2026-10-10 : plus de bloc VEL pour la changer). */
 const VEL_FROM_STORE = false;
-const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, tabs: zeroTabs(), view: 'page', echo: null, sel: -1, held: -1, hover: -1, popup: null, vel: fullVel(), detail: null };
+const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, tabs: zeroTabs(), view: 'home', echo: null, sel: -1, held: -1, hover: -1, popup: null, vel: fullVel(), detail: null };
 
 /**
  * L'ecran d'un etat de page pour cette voix : la page et son onglet (un onglet

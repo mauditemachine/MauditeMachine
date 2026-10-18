@@ -78,6 +78,8 @@ export type HotspotKind =
   // MM-RYTM (2026-10-18) : le navigateur des sons de l'ecran (lcd-sb-head, -prev, -next, -body, -row-<k>, -del-<k> : son
   // id dit la zone, index la ligne montree)
   | 'sbrowse'
+  // MM-RYTM (2026-10-18) : le menu de la voix sous HOME (lcd-menu-<id> : SOUND, VOICE, FLTR, ENV, FX ; son id dit la touche)
+  | 'rmenu'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
   | 'djknob'
   | 'djfader'

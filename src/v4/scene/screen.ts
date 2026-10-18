@@ -128,6 +128,13 @@
  * defilement, le pied des seize pas et du message ; ses zones (browserRects :
  * lcd-sb-*) remplacent celles des blocs. Un fichier glisse au-dessus de la
  * machine pose DROP ON A PAD par-dessus tout (paintDrop).
+ *
+ * Le menu de la voix (2026-10-18, Mika : "j'aime bien cet affichage par defaut
+ * quand je selectionne un Voice .. et je veux voir le menu dans l'ecran pour
+ * modifier le voice") : HOME redevient l'ecran de depart (state/rytmPage.ts) et
+ * porte, dans la bande sous son dessin de 120, cinq touches : SOUND (la liste des
+ * sons de la voix) puis VOICE FLTR ENV FX, les pages de la voix (paintHomeMenu,
+ * menuRects : les zones lcd-menu-<id>).
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -153,7 +160,7 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
-import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { HOME_MENU, HOME_MENU_LABEL, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
 import { makeCanvasTexture } from './silk';
@@ -221,7 +228,10 @@ export interface ScreenInfo {
   browser: { title: string; rank: string; top: number; cur: number; cursor: number; rows: string[] } | null;
   /** l'annonce d'un fichier glisse au-dessus de la machine (DROP ON A PAD, DROP ON BD) ; '' aucune */
   drop: string;
+  /** le menu de la voix dessine sous HOME (2026-10-18) : SOUND VOICE FLTR ENV FX, -SOUND a peine (sans voix) ; [] ailleurs */
+  menu: string[];
 }
+
 
 /** Au plus un redessin tous les 60 ms (un potard tourne a la cadence du pointeur). */
 const MIN_GAP_MS = 60;
@@ -663,6 +673,7 @@ export class Screen {
       tags: [],
       browser: null,
       drop: '',
+      menu: [],
     };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -801,6 +812,8 @@ export class Screen {
    * pose les zones lcd-blk-<k> (l'ecran est l'editeur, au desktop aussi).
    */
   blockRects: { k: number; u0: number; u1: number; v0: number; v1: number }[] = [];
+  /** Le menu de la voix sous HOME (2026-10-18) : ses touches et leur rectangle, les zones lcd-menu-<id> ; [] ailleurs. */
+  menuRects: { id: string; u0: number; u1: number; v0: number; v1: number }[] = [];
   /** Les onglets de l'en-tete (VOICE : MAIN SYNTH ; FX : BD FX, GLOBAL) et leur rectangle : les zones lcd-tab-<ecran>. */
   tabSpots: { screen: RytmScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
 
@@ -947,6 +960,8 @@ export class Screen {
     this.bar = null;
     this.tabsShown = false;
     this.browserRects = [];
+    this.menuRects = [];
+    this.info.menu = [];
     this.info.browser = null;
     this.info.drop = '';
     this.info.view = view;
@@ -986,6 +1001,7 @@ export class Screen {
       this.paintLine(s, rytmEdit);
     }
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    if (view === 'home') this.paintHomeMenu(p.instrument);
     // Un fichier glisse au-dessus de la machine (2026-10-18) : DROP ON A PAD par-dessus tout, sauf les presets
     const drop = lcdSamples.get().drop;
     if (drop && !s.keys) this.paintDrop(drop);
@@ -1561,6 +1577,30 @@ export class Screen {
     if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT, 700, 'left', 0.6);
     else if (this.paintMode(x0, x1)) return;
     else if (s.tag) this.text('TOUCH: PRESETS', x1, LINE.y, 6.5, FAINT, 700, 'right', 0.8);
+  }
+
+  /**
+   * Le menu de la voix sous HOME (2026-10-18, HOME_MENU) : dans la bande que le dessin de 120 laisse en bas de l'ecran
+   * haut (DY), cinq touches en contour, de bord a bord ; sans voix choisie, SOUND a peine. Leurs zones : menuRects.
+   */
+  private paintHomeMenu(inst: Inst | null): void {
+    if (DY < 12) return;
+    const n = HOME_MENU.length;
+    const x0 = 10;
+    const x1 = UW - 10;
+    const gap = 6;
+    const h = Math.min(14, DY - 4);
+    const y = UH - h - 2.5;
+    const w = (x1 - x0 - gap * (n - 1)) / n;
+    const size = this.mobile ? 7.5 : 7;
+    HOME_MENU.forEach((id, i) => {
+      const x = x0 + i * (w + gap);
+      const off = id === 'sound' && !inst;
+      this.roundRect(x, y, w, h, 3.5, null, off ? FRAME_DIM : HALF, 1.1);
+      this.text(HOME_MENU_LABEL[id], x + w / 2, y + h / 2 + size * 0.36, size, off ? FAINT : INK, 700, 'center', 0.8);
+      this.menuRects.push({ id: `lcd-menu-${id}`, ...this.spot({ x, y, w, h }) });
+      this.info.menu.push(off ? `-${HOME_MENU_LABEL[id]}` : HOME_MENU_LABEL[id]);
+    });
   }
 
   /**

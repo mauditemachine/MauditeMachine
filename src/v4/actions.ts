@@ -457,11 +457,17 @@ export function clearPattern(stage: Stage | null = null): void {
   }
   clock.clear();
   // Tout a 0 (2026-10-10, Mika : "quand j'appuie sur CLEAR je veux tout a 0, la je vois des FX qui restent") : les
-  // GLOBAL FX (SWING droit, STRETCH au centre, BIT et COMP OFF) et les FX de chaque voix ; le son des voix reste
+  // GLOBAL FX (SWING droit, STRETCH au centre, BIT et COMP OFF) et les FX de chaque voix
   pattern.fx.set({ drive: 0, chorus: 0, delay: 0, reverb: 0, swing: 0, bits: 0, comp: 0 });
   setStretch(0);
-  for (const inst of INSTRUMENTS) for (const fp of ['dist', 'chorus', 'delay', 'reverb'] as const) voiceFx.set(inst, fp, 0);
-  lcdMessage.show('CLEARED · FX OFF');
+  // Chaque voix repart d'un son de base (2026-10-18, Mika : "quand on clear, le ADSR de chaque VOICE doit etre correct .. la
+  // je me suis retrouve avec un decay 0 sur un SD clear ; ca doit etre un son de base avec une bonne enveloppe") : ses
+  // reglages VOICE, FLTR, ENV et FX au neutre (audio/voicefx.ts VOICE_FX_DEFAULT : la queue entiere, l'attaque nette, le
+  // filtre ouvert), les reglages de ses couches et de la machine (OPEN) a leur depart ; le son choisi (SOUND, MIX) reste
+  for (const inst of INSTRUMENTS) voiceFx.reset(inst);
+  const k = kit.get();
+  kit.replace({ ...k, knob: { ...KIT_DEFAULT.knob }, layer: Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT, syn: k.layer[f].syn, lev: k.layer[f].lev }])) as typeof k.layer });
+  lcdMessage.show('CLEARED · VOICES RESET · FX OFF');
 }
 
 /** Le dernier style tire par RANDOM : le suivant en change. */
@@ -2012,6 +2018,22 @@ export function rytmShowPage(id: RytmPageId | string): void {
   const same = page === rytmPage.get().page && rytmPage.get().view === 'page' && !rytmPage.get().detail;
   rytmPage.setPage(page);
   if (left || !same) lcdMessage.show(`${SCREEN_TITLE[curScreen()]} PAGE`);
+}
+
+/**
+ * Le menu de la voix sous HOME (2026-10-18, Mika : "je veux voir le menu dans l'ecran pour modifier le voice" ; scene/screen.ts
+ * HOME_MENU) : SOUND ouvre la liste des sons de la voix ; VOICE FLTR ENV FX passent a leur page, en vue PAGE (la touche de la
+ * page s'enfonce, comme sous le doigt ; la touche allumee pressee encore ramene HOME).
+ */
+export function rytmMenu(id: string, stage: Stage | null = null): void {
+  resume();
+  if (id === 'sound') {
+    soundBrowserOpen();
+    return;
+  }
+  if (!isRytmPage(id)) return;
+  stage?.pressPageKey(id);
+  rytmShowPage(id);
 }
 
 /** rytm:home en MIDI (H au clavier, hors EDIT) : HOME, ou la vue PAGE ; sous EDIT ou les presets, les referme sur HOME. */

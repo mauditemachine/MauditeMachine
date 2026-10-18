@@ -937,7 +937,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   clear: {
     section: 'TRANSPORT',
     title: 'CLEAR',
-    text: "Vide les 16 pas de toutes les voix, et leurs verrous ; la lecture continue. En P-LOCK, n'efface que les verrous du pas, ses coups restent.",
+    text: "Vide les 16 pas de toutes les voix, et leurs verrous ; la lecture continue. Tous les effets passent à zéro (GLOBAL FX et ceux de chaque voix) et chaque voix repart d'un son de base : VOICE, FLTR et ENV au neutre (attaque nette, toute la queue, filtre ouvert), les réglages de la machine (OPEN) à leur départ ; le son choisi (SOUND) reste. UNDO revient à avant. En P-LOCK, n'efface que les verrous du pas, ses coups restent.",
   },
   random: {
     section: 'TRANSPORT',

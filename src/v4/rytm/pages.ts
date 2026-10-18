@@ -121,6 +121,15 @@ export const isRytmScreen = (v: unknown): v is RytmScreenId => typeof v === 'str
 /** L'ordre des pages (les touches de page, [ et ] en font le tour). */
 export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = RYTM_PAGE_KEYS;
 
+/**
+ * Le menu de la voix sous HOME (2026-10-18, Mika : "j'aime bien cet affichage par defaut quand je selectionne un Voice ..
+ * et je veux voir le menu dans l'ecran pour modifier le voice") : SOUND (la liste des sons de la voix) puis les quatre
+ * pages ; une tape y va (scene/screen.ts paintHomeMenu, scene/renderer.ts lcd-menu-<id>, actions.ts rytmMenu).
+ */
+export const HOME_MENU = ['sound', 'voice', 'fltr', 'env', 'fx'] as const;
+export type HomeMenuId = (typeof HOME_MENU)[number];
+export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = { sound: 'SOUND', voice: 'VOICE', fltr: 'FLTR', env: 'ENV', fx: 'FX' };
+
 /** Les onglets de chaque page, dans l'ordre (la touche de la page allumee pressee encore passe au suivant). */
 export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = { voice: ['voice', 'synth'], fltr: ['fltr'], env: ['env'], fx: ['fxv', 'fxg'] };
 /** La page d'un ecran (les pages des FX globaux, 2026-10-10 : FX). */
