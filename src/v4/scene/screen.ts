@@ -240,7 +240,10 @@ const WAVE_MS = 7000;
  * donne-moi un ecran plus grand") : la vue PAGE y a sa mise en page haute
  * (TALL : des blocs de 52.5 au lieu de 37, de plus gros corps, un pied de 26),
  * les autres vues (HOME, EDIT, les presets) gardent leur dessin de 120,
- * centre (OLED_DY).
+ * centre (OLED_DY). Le desktop aussi depuis le 2026-10-18 (Mika : "RYTM je
+ * voudrais un ecran plus grand") : le meme dessin haut sur un verre plus grand
+ * (theme.ts OLED, 5.3 x 2.617) ; ce qui tient au doigt reste au telephone
+ * (PORTRAIT : les lignes du navigateur, SB), le reste suit TALL.
  */
 const UW = 320;
 const UH = OLED_UH;
@@ -626,7 +629,8 @@ export class Screen {
     const W = mobile ? 1024 : 1280;
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
-    // L'ecran haut du telephone (2026-10-09) a ses corps a lui ; une tablette (mobile, l'ecran du desktop) garde ceux du telephone
+    // L'ecran haut du telephone (2026-10-09) a ses corps a lui ; une tablette (mobile, l'ecran du desktop) garde ceux du telephone ;
+    // depuis le 2026-10-18 l'ecran du desktop est haut aussi : les corps du dessin haut (1.56 px l'unite a 1440 x 900)
     this.bt = TALL ? BLOCK_TYPE.tall : mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
     this.info = {
       draws: 0,

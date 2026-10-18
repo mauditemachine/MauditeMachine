@@ -2960,8 +2960,9 @@ export class Stage {
       const led = voices.led(k);
       return led === 'on' ? 1 : led === 'blink' ? (blink ? 1 : 0.12) : led === 'dim' ? Stage.MODE_DIM : 0;
     };
-    // La touche allumee en entier tant que son mode est arme (2026-10-18) ; son temoin clignote a part
-    const on = (k: 'mute' | 'solo'): number => (voices.mode(k) === 'off' ? 0 : 1);
+    // La touche allumee en entier tant qu'elle agit (2026-10-18, voices.lit) : MUTE tant que des voix sont coupees (une tape
+    // les rend toutes, depuis le 2026-10-10), SOLO arme ou des voix en solo ; son temoin dit le detail (clignote, fixe, a peine)
+    const on = (k: 'mute' | 'solo'): number => (voices.lit(k) ? 1 : 0);
     return this.seq.setVoiceKeys(lv('mute'), lv('solo'), on('mute'), on('solo'));
   };
 

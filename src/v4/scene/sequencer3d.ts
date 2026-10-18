@@ -34,8 +34,9 @@
  * forme des touches de page (theme.ts TRANSPORT : 1.0 x 0.38, leur temoin),
  * leur nom imprime dessus (scene/keyLabels.ts, cinq quads qui s'enfoncent avec
  * elles) ; une touche active s'allume en entier (theme.ts KEY_LIT) : RUN/STOP
- * pendant la lecture (son rouge, plus chaud), MUTE (rouge) et SOLO (bleu) tant
- * que leur mode est arme, CLEAR et RANDOM (orange) le temps de leur eclair ;
+ * pendant la lecture (son rouge, plus chaud), MUTE (rouge) tant que des voix
+ * sont coupees, SOLO (bleu) arme ou tant que des voix sont en solo
+ * (state/voices.ts lit), CLEAR et RANDOM (orange) le temps de leur eclair ;
  * son nom passe au noir, son temoin reste l'accent, plus clair.
  */
 
@@ -217,7 +218,7 @@ export class Sequencer3D {
   /** L'eclat tenu de chaque temoin, 0 a 1 (2026-10-09 : MUTE et SOLO a peine allumes quand des voix restent coupees) */
   private btnLatch = new Float32Array(BUTTON_COUNT);
   private btnFlash = new Float32Array(BUTTON_COUNT);
-  /** MUTE et SOLO allumes en entier tant que leur mode est arme (2026-10-18), leur temoin clignote a part */
+  /** MUTE et SOLO allumes en entier tant qu'ils agissent (2026-10-18, voices.lit), leur temoin clignote a part */
   private btnMode = new Float32Array(BUTTON_COUNT);
   /** les noms sur les boutons (2026-10-18), dans l'ordre des index */
   readonly labels: KeyLabels;
@@ -350,8 +351,9 @@ export class Sequencer3D {
 
   /**
    * Le bouton j allume en entier (2026-10-18), 0 a 1 : RUN/STOP tant que la
-   * lecture tient, MUTE et SOLO tant que leur mode est arme (leur temoin
-   * clignote a part), CLEAR et RANDOM le temps de leur eclair.
+   * lecture tient, MUTE et SOLO tant qu'ils agissent (des voix coupees, le solo
+   * arme ou des voix en solo ; leur temoin dit le detail), CLEAR et RANDOM le
+   * temps de leur eclair.
    */
   private litLevel(j: number): number {
     const k = j + STEP_COUNT;
@@ -389,7 +391,7 @@ export class Sequencer3D {
     return true;
   }
 
-  /** MUTE ou SOLO allume en entier (2026-10-18) : son mode arme ; true s'il a change. */
+  /** MUTE ou SOLO allume en entier (2026-10-18) : il agit ; true s'il a change. */
   private mode(k: number, on: number): boolean {
     const j = k - STEP_COUNT;
     const v = Math.max(0, Math.min(1, on));
@@ -428,7 +430,7 @@ export class Sequencer3D {
 
   /** Temoins de MUTE (voix coupee) et SOLO (solo en cours) ; true s'il faut une frame. */
   /** MUTE et SOLO : leur eclat, 0 a 1 (2026-10-09 : clignotant en attente d'une voix, fixe en MULTI, a peine sinon). */
-  /** Et la touche allumee en entier tant que leur mode est arme (muteMode, soloMode : 0 ou 1, 2026-10-18). */
+  /** Et la touche allumee en entier tant qu'elle agit (muteMode, soloMode : 0 ou 1, voices.lit, 2026-10-18). */
   setVoiceKeys(muteOn: boolean | number, soloOn: boolean | number, muteMode = 0, soloMode = 0): boolean {
     const a = this.latch(MUTE, muteOn);
     const b = this.latch(SOLO, soloOn);

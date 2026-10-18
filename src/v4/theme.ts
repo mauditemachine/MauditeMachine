@@ -1372,8 +1372,10 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = [
 /**
  * Une touche selectionnee s'allume en entier (2026-10-18, Mika : "quand c'est
  * selectionne que ce soit plus voyant") : la page montree (pas en vue HOME :
- * son temoin a peine, comme avant), RUN/STOP pendant la lecture, MUTE et SOLO
- * tant que leur mode est arme, CLEAR et RANDOM le temps de leur eclair. Le
+ * son temoin a peine, comme avant), RUN/STOP pendant la lecture, MUTE tant que
+ * des voix sont coupees (une tape les rend toutes) et SOLO arme ou tant que des
+ * voix sont en solo (state/voices.ts lit), CLEAR et RANDOM le temps de leur
+ * eclair. Le
  * dessus prend la couleur de son temoin, lumineux comme une touche Elektron
  * allumee (glow : l'emissif lineaire, par couleur ; RUN plus chaud que le
  * rouge de MUTE, sur son rouge), le nom passe au noir au-dela de dark ; le
