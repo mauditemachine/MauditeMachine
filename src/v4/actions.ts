@@ -13,7 +13,8 @@ import { TAP_VEL_DEFAULT } from './state/rytmPage';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
 import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './audio/locks';
-import { sampleByKey, samplesChanged, samplesOf, samplesVersion } from './audio/samples';
+import { loadSample, sampleByKey, sampleLabel, samplePcm, samplesChanged, samplesOf, samplesVersion, type KitSample } from './audio/samples';
+import { UserSampleError, userSamples } from './audio/usersamples';
 import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, DELAY_DIVS, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, isFxSetting, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -28,7 +29,7 @@ import { voyPatch } from './voyager/patch';
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
-import { lcdSamples } from './state/lcdSamples';
+import { BROWSER_ARM_MS, BROWSER_ROWS, lcdSamples } from './state/lcdSamples';
 import type { ShotId } from './audio/shotsdsp';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { editor, type EditorId } from './state/editor';
@@ -136,9 +137,9 @@ export function voiceMute(inst: Inst, on: boolean): void {
 function selectVoice(inst: Inst | null): void {
   if (pattern.get().instrument === inst) return;
   pattern.select(inst);
-  // La liste des sons est ouverte : elle passe a la voix touchee (et reste un peu), la meme liste (revue de R3 : SAMPLE de
-  // SMPL redevenait la liste SOUND d'avant)
-  if (lcdSamples.get()) lcdSamples.show(undefined, lcdSamples.kind());
+  // Le navigateur des sons ouvert (2026-10-18) : il passe a la voix touchee (watchBrowser), son repos repart ; l'ecran ne
+  // dit pas KNOBS > (la liste montre deja la voix)
+  if (lcdSamples.isOpen()) lcdSamples.touch();
   else lcdMessage.show(`KNOBS > ${inst ?? 'PATTERN'}`);
 }
 
@@ -532,7 +533,7 @@ export function soundFamily(): KitFamily | null {
   return inst ? familyOf(inst as ShotId) : null;
 }
 
-/** SAMPLE : le son de la voix selectionnee ; l'ecran montre la liste de ses sons (state/lcdSamples.ts). */
+/** SAMPLE : le son de la voix selectionnee ; l'ecran montre la liste de ses sons (le navigateur, state/lcdSamples.ts). */
 function soundDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {
@@ -545,7 +546,7 @@ function soundDial(v: number): void {
     return;
   }
   kit.set(f, v);
-  lcdSamples.show();
+  soundBrowserFollow();
   touchPage('vsound', inst);
 }
 
@@ -787,6 +788,11 @@ export function escape(): boolean {
   // Le mode presets d'abord, puis un editeur ouvert (EDIT)
   if (presetMode.get().machine) {
     presetMode.close();
+    return true;
+  }
+  // Le navigateur des sons (2026-10-18) : par-dessus l'ecran (le P-LOCK compris), Echap le ferme d'abord
+  if (lcdSamples.isOpen()) {
+    lcdSamples.close();
     return true;
   }
   // Le LOCK du MM-RYTM (2026-10-08) : Echap en sort, avant de fermer EDIT
@@ -1270,7 +1276,8 @@ function sampleDial(v: number): void {
   }
   const j = Math.max(0, Math.min(n, Math.round(v)));
   kit.setSample(f, j === 0 ? null : samplesOf(f)[j - 1].key);
-  lcdSamples.show(undefined, 'sample');
+  // La liste de SOUND de la voix (le navigateur, 2026-10-18 : une seule liste, l'ancienne couche SAMPLE y est)
+  soundBrowserFollow();
   if (j === 0) lcdMessage.show(kit.layerOf(f).syn > 0 ? `${inst} SAMPLE OFF: SYNTH ONLY` : `${inst} SILENT: SOUND UP`, POT_UI.readoutMs, true);
   touchPage('smpl:sample', inst);
 }
@@ -1386,7 +1393,23 @@ export function voiceSoundUnit(inst: Inst, p: Readonly<Plays>): string {
 /** Le niveau des couches a garder quand le son change : le plus fort des deux (1 si la voix se taisait). */
 const layerTop = (syn: number, lev: number): number => (Math.max(syn, lev) > 0 ? Math.max(syn, lev) : 1);
 
-/** SOUND tourne (hors P-LOCK) : la voix joue ce son (audio/kit.ts setVoice), la liste s'ouvre. */
+/**
+ * La voix joue ce son de sa liste de SOUND (hors P-LOCK ; audio/kit.ts setVoice) : OFF la fait taire ; une machine
+ * joue seule a son niveau (le sample reste en memoire, MIX le ramene) ; un sample garde la synthese posee dessous s'il
+ * y en avait un (MIX), sinon il joue seul a son niveau. Le potard, le navigateur des sons et un fichier depose (2026-10-18)
+ * passent tous par ici.
+ */
+function setVoiceSound(f: KitFamily, s: Readonly<Pick<VoiceSound, 'kind' | 'key'>>): void {
+  const k = kit.get();
+  const l = k.layer[f];
+  const top = layerTop(l.syn, l.lev);
+  const smpOn = !!k.sample[f] && l.lev > 0;
+  if (s.kind === 'off') kit.setVoice(f, { syn: 0, lev: 0 });
+  else if (s.kind === 'mach') kit.setVoice(f, { model: s.key as KitModel, syn: top, lev: 0 });
+  else if (s.kind === 'smp') kit.setVoice(f, smpOn ? { sample: s.key } : { sample: s.key, syn: 0, lev: top });
+}
+
+/** SOUND tourne (hors P-LOCK) : la voix joue ce son, le navigateur des sons s'ouvre sur lui (2026-10-18). */
 function voiceSoundDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {
@@ -1399,16 +1422,8 @@ function voiceSoundDial(v: number): void {
     return;
   }
   const list = voiceSounds(inst);
-  const s = list[Math.max(0, Math.min(list.length - 1, Math.round(v)))];
-  const k = kit.get();
-  const l = k.layer[f];
-  const top = layerTop(l.syn, l.lev);
-  const smpOn = !!k.sample[f] && l.lev > 0;
-  if (s.kind === 'off') kit.setVoice(f, { syn: 0, lev: 0 });
-  else if (s.kind === 'mach') kit.setVoice(f, { model: s.key as KitModel, syn: top, lev: 0 });
-  // Un sample : il garde la synthese posee dessous s'il y en avait un (MIX) ; apres une machine, il joue seul a son niveau
-  else if (s.kind === 'smp') kit.setVoice(f, smpOn ? { sample: s.key } : { sample: s.key, syn: 0, lev: top });
-  lcdSamples.show(undefined, 'voice');
+  setVoiceSound(f, list[Math.max(0, Math.min(list.length - 1, Math.round(v)))]);
+  soundBrowserFollow();
   touchPage('voice:sound', inst);
 }
 
@@ -2605,3 +2620,443 @@ export function playItem(track: V2Track, queue: V2Track[]): void {
   sc.play(track, queue);
 }
 
+
+/* ---------------- le navigateur des sons du MM-RYTM (2026-10-18) ---------------- */
+
+/*
+ * Mika (2026-10-18) : "Je trouve ca difficile la selection des samples dans
+ * RYTM, y aurait-il une autre facon ?". Une tape sur le nom du son (le bloc
+ * SOUND de VOICE) ou un cran de SOUND ouvre toute la liste de la voix sur le
+ * grand ecran (state/lcdSamples.ts, scene/screen.ts paintBrowser) ; une ligne
+ * touchee la fait jouer (les regles du potard : setVoiceSound), la liste reste
+ * ouverte et, a l'arret, le coup s'entend une fois (le chemin d'un pad :
+ * trigger) ; en lecture, le motif le joue. PREV et NEXT (les fleches de
+ * l'en-tete ; haut et bas sur le bloc SOUND au clavier) passent d'un son au
+ * suivant de la meme facon. Un fichier glisse sur un pad, ou + LOAD A FILE...,
+ * devient un sample de la voix (audio/usersamples.ts) et joue tout de suite ; un
+ * sample de ce navigateur se retire en deux gestes (REMOVE? TAP AGAIN). En
+ * P-LOCK, la liste est celle du sample lock (les samples des autres voix
+ * aussi) et une ligne verrouille le pas, comme le bloc qu'on glisse.
+ */
+
+/** Une ligne du navigateur : un son de la liste de SOUND, ou la derniere, + LOAD A FILE... */
+export interface BrowserRow {
+  kind: VoiceSound['kind'] | 'load';
+  /** la machine (909, 808, mm) ou la cle du sample ; '' pour + LOAD A FILE... */
+  key: string;
+  fam: KitFamily | null;
+  label: string;
+  /** un sample de ce navigateur : il se retire */
+  user: boolean;
+  /** ce que la ligne dit a sa droite : SYNTH (une machine), USER (un sample de ce navigateur), '' */
+  tag: string;
+}
+
+/** Ce que l'ecran, ses zones et ses jumeaux montrent du navigateur ouvert. */
+export interface SoundBrowserView {
+  inst: Inst;
+  /** BD SOUND */
+  title: string;
+  /** le pas en P-LOCK (la liste du sample lock : une ligne le verrouille), -1 hors P-LOCK */
+  lock: number;
+  /** les sons de la voix, puis + LOAD A FILE... */
+  rows: readonly BrowserRow[];
+  /** les sons seuls */
+  n: number;
+  /** le son du moment (en P-LOCK : ce que le pas joue) */
+  cur: number;
+  /** la ligne du clavier : celle du son du moment tant qu'il n'en a pas choisi une autre */
+  cursor: number;
+  /** la premiere ligne montree ; combien en tiennent */
+  top: number;
+  visible: number;
+  /** la ligne qui attend sa confirmation pour partir, -1 aucune */
+  arm: number;
+  /** 7 / 24 */
+  rank: string;
+}
+
+/** La derniere ligne : un fichier du disque ou du telephone devient un sample de la voix. */
+export const BROWSER_LOAD_LABEL = '+ LOAD A FILE...';
+
+const browserRowsCache = new WeakMap<readonly VoiceSound[], readonly BrowserRow[]>();
+/** Les lignes d'une liste de SOUND (gardees tant qu'elle ne change pas : voiceSounds la garde aussi). */
+function browserRows(list: readonly VoiceSound[]): readonly BrowserRow[] {
+  const hit = browserRowsCache.get(list);
+  if (hit) return hit;
+  const rows: BrowserRow[] = list.map((s) => {
+    const user = s.kind === 'smp' && !!sampleByKey(s.key)?.user;
+    return { ...s, user, tag: s.kind === 'mach' ? 'SYNTH' : user ? 'USER' : '' };
+  });
+  rows.push({ kind: 'load', key: '', fam: null, label: BROWSER_LOAD_LABEL, user: false, tag: '' });
+  browserRowsCache.set(list, rows);
+  return rows;
+}
+
+/** Le pas que la liste verrouille (le P-LOCK ; des pas tenus : le premier), -1 hors P-LOCK. */
+function browserLockStep(): number {
+  if (!lockMode()) return -1;
+  const s = rytmLock.get().step;
+  return s >= 0 ? s : (rytmLock.targets()[0] ?? -1);
+}
+
+/** Le rang de ce que joue la voix (en P-LOCK : le pas) dans sa liste. */
+function browserCur(inst: Inst, list: readonly VoiceSound[], lock: number): number {
+  return voiceSoundAt(list, lock >= 0 ? stepPlays(inst, lockOf(pattern.get().locks, inst, lock)) : kit.playsWith(inst as ShotId, null));
+}
+
+/** La premiere ligne montree, bornee (la derniere page reste pleine). */
+const browserClampTop = (top: number, len: number): number => Math.max(0, Math.min(Math.max(0, len - BROWSER_ROWS), Math.round(top)));
+/** La premiere ligne pour montrer i vers le haut de la liste (la troisieme ligne au desktop, la deuxieme au telephone). */
+const browserCenterTop = (i: number, len: number): number => browserClampTop(i - Math.floor((BROWSER_ROWS - 1) / 2), len);
+
+/** Le navigateur ouvert, tel que l'ecran le dessine ; null ferme (ou EDIT, les presets, pas de voix : ils ont l'ecran). */
+export function soundBrowserView(): SoundBrowserView | null {
+  const st = lcdSamples.get();
+  if (!st.open) return null;
+  const inst = pattern.get().instrument;
+  if (!inst || editor.get() === 'mm808' || presetMode.on('mm808')) return null;
+  const lock = browserLockStep();
+  const list = voiceSounds(inst, lock >= 0);
+  const rows = browserRows(list);
+  const cur = browserCur(inst, list, lock);
+  const cursor = st.cursor >= 0 && st.cursor < rows.length ? st.cursor : cur;
+  return {
+    inst,
+    title: `${inst} SOUND`,
+    lock,
+    rows,
+    n: list.length,
+    cur,
+    cursor,
+    top: browserClampTop(st.top, rows.length),
+    visible: BROWSER_ROWS,
+    arm: st.arm >= 0 && st.arm < rows.length && rows[st.arm].user ? st.arm : -1,
+    rank: `${cur + 1} / ${list.length}`,
+  };
+}
+
+/** Ce qui ferme la liste quand il change : la page et son onglet (une touche de page, [ ], H), le P-LOCK, la machine qu'on utilise. */
+const browserCloseKey = (): string => {
+  const s = rytmPage.get();
+  return `${s.page}|${s.tabs[s.page] ?? 0}|${s.view}|${s.detail ?? ''}|${rytmLock.get().step}|${focus.get()}`;
+};
+let browserWatched = false;
+let browserKeyAt = '';
+let browserInst: Inst | null = null;
+
+/**
+ * Les regles de fermeture, posees au premier navigateur ouvert (pas au chargement du module : ses stores sont alors
+ * tous la) : une touche de page, le P-LOCK qui change, une autre machine, EDIT, les presets, plus de voix choisie la
+ * ferment ; une autre voix (un pad, le Dock, le MIDI) : la liste la suit, sur son son du moment.
+ */
+function watchBrowser(): void {
+  browserKeyAt = browserCloseKey();
+  browserInst = pattern.get().instrument;
+  if (browserWatched) return;
+  browserWatched = true;
+  const check = (): void => {
+    if (!lcdSamples.isOpen()) return;
+    const inst = pattern.get().instrument;
+    if (browserCloseKey() !== browserKeyAt || !inst || editor.get() === 'mm808' || presetMode.on('mm808')) {
+      lcdSamples.close();
+      return;
+    }
+    if (inst === browserInst) return;
+    browserInst = inst;
+    const v = soundBrowserView();
+    if (v) lcdSamples.update({ top: browserCenterTop(v.cur, v.rows.length), cursor: -1, arm: -1 });
+  };
+  rytmPage.subscribe(check);
+  rytmLock.subscribe(check);
+  focus.subscribe(check);
+  editor.subscribe(check);
+  presetMode.subscribe(check);
+  pattern.subscribe(check);
+}
+
+/**
+ * Le navigateur s'ouvre sur la voix choisie (une tape sur SOUND, un cran de SOUND, PREV et NEXT) ; deja ouvert, son
+ * repos repart. focusList : le clavier le prend (Entree sur le bloc SOUND). false : pas de voix, EDIT ou les presets.
+ */
+export function soundBrowserOpen(focusList = false): boolean {
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return false;
+  }
+  if (editor.get() === 'mm808' || presetMode.on('mm808')) return false;
+  watchBrowser();
+  if (lcdSamples.isOpen()) {
+    lcdSamples.open(0, focusList);
+    return true;
+  }
+  const lock = browserLockStep();
+  const list = voiceSounds(inst, lock >= 0);
+  lcdSamples.open(browserCenterTop(browserCur(inst, list, lock), list.length + 1), focusList);
+  return true;
+}
+
+/** Fermee (Echap, une tape hors d'elle : ui/Hotspots.tsx). */
+export function soundBrowserClose(): void {
+  lcdSamples.close();
+}
+
+/** La ligne i en vue (le defilement le plus court). */
+function browserReveal(i: number): void {
+  const v = soundBrowserView();
+  if (!v || i < 0) return;
+  const top = i < v.top ? i : i >= v.top + v.visible ? i - v.visible + 1 : v.top;
+  if (top !== v.top) lcdSamples.update({ top: browserClampTop(top, v.rows.length) });
+}
+
+/** Le son a change par un potard (SOUND, l'ancien SAMPLE, le raccourci vsound) : la liste s'ouvre et le suit. */
+function soundBrowserFollow(): void {
+  if (!soundBrowserOpen()) return;
+  const v = soundBrowserView();
+  if (!v) return;
+  lcdSamples.update({ cursor: -1, arm: -1 });
+  browserReveal(v.cur);
+}
+
+/** Les tests (window.__v4 n'en a pas besoin : ils importent ce module) : combien d'ecoutes, la derniere ; silent les fait taire. */
+export const soundPreview = { count: 0, last: '', silent: false };
+let previewSeq = 0;
+
+/**
+ * L'ecoute d'un son choisi (2026-10-18) : a l'arret seulement (en lecture, le motif le joue), une fois, par le chemin
+ * d'un pad (trigger, a la velocite des nouveaux pas de la voix) ; une voix coupee (MUTE) ne sonne pas. Un sample pas
+ * encore decode s'attend (sinon la synthese jouerait a sa place) ; un autre choix entre-temps l'emporte.
+ * lockStep : en P-LOCK, le pas tel qu'il joue (ses verrous).
+ */
+function previewSound(inst: Inst, lockStep = -1): void {
+  if (clock.running || voices.isMuted(inst)) return;
+  const n = (previewSeq += 1);
+  const lock = lockStep >= 0 ? lockOf(pattern.get().locks, inst, lockStep) : null;
+  const p = lock ? stepPlays(inst, lock) : kit.playsWith(inst as ShotId, null);
+  const key = p.smp ? p.sample : undefined;
+  // Le contexte audio dans le geste lui-meme (iOS), meme si le coup attend son fichier
+  if (!soundPreview.silent) gesture();
+  const go = (): void => {
+    if (n !== previewSeq || clock.running || voices.isMuted(inst)) return;
+    soundPreview.count += 1;
+    soundPreview.last = key ? `${inst} ${key}` : inst;
+    if (soundPreview.silent) return;
+    trigger(inst, undefined, false, undefined, VEL_GAIN[rytmPage.tapVel(inst)] ?? 1, lock);
+  };
+  if (key && !samplePcm(key)) void loadSample(key).then(go);
+  else go();
+}
+
+/**
+ * Le son i du navigateur pour ce qu'il regarde : la voix (les regles du potard), ou en P-LOCK le pas (le sample lock,
+ * comme le bloc glisse : un pas vide recoit un coup) ; l'ecran le dit (msg : un autre mot), la ligne reste en vue, et
+ * a l'arret il s'entend.
+ */
+function browserChoose(v: SoundBrowserView, i: number, msg?: string): void {
+  const row = v.rows[i];
+  if (!row || row.kind === 'load') return;
+  const inst = v.inst;
+  if (v.lock >= 0) {
+    const steps = rytmLock.targets();
+    if (steps.length === 0) return;
+    for (const s of steps) if (velocity(pattern.get().steps, inst, s) === 0) pattern.set(inst, s, rytmPage.tapVel(inst));
+    soundLockWrite(inst, steps, v.lock, i);
+    rytmLock.wrote();
+    const who = steps.length > 1 ? `${steps.length} STEPS` : `STEP ${two(v.lock + 1)}`;
+    lcdMessage.show(msg ?? `${who} SOUND ${row.label}`, POT_UI.readoutMs, true);
+  } else {
+    const f = familyOf(inst as ShotId);
+    if (!f || row.kind === 'own') return;
+    setVoiceSound(f, row as VoiceSound);
+    lcdMessage.show(msg ?? `${inst} SOUND ${row.label}  ${i + 1} OF ${v.n}`, POT_UI.readoutMs, true);
+    touchPage('voice:sound', inst);
+  }
+  lcdSamples.update({ cursor: -1, arm: -1 });
+  browserReveal(i);
+  previewSound(inst, v.lock);
+}
+
+/**
+ * Une ligne touchee (une tape, Entree) : son son ; + LOAD A FILE... : le choix des fichiers ; la ligne armee (REMOVE?) :
+ * elle part.
+ */
+export function soundBrowserPick(i: number): void {
+  const v = soundBrowserView();
+  if (!v) return;
+  const row = v.rows[i];
+  if (!row) return;
+  if (v.arm === i) {
+    soundBrowserRemove(i);
+    return;
+  }
+  if (row.kind === 'load') {
+    lcdSamples.update({ cursor: i, arm: -1 });
+    soundFilesPick(v.inst, true);
+    return;
+  }
+  browserChoose(v, i);
+}
+
+/** PREV et NEXT (les fleches de l'en-tete ; haut et bas sur le bloc SOUND au clavier) : le son d'avant ou d'apres, la liste ouverte. */
+export function soundBrowserStep(dir: -1 | 1): void {
+  resume();
+  if (!soundBrowserOpen()) return;
+  const v = soundBrowserView();
+  if (!v) return;
+  const i = Math.max(0, Math.min(v.n - 1, v.cur + dir));
+  if (i === v.cur) {
+    lcdMessage.show(`${v.inst} SOUND: ${dir < 0 ? 'FIRST' : 'LAST'} OF ${v.n}`);
+    return;
+  }
+  browserChoose(v, i);
+}
+
+/** La molette, un glisser, Page haut et bas : n lignes plus loin (vers le bas : n > 0). */
+export function soundBrowserScroll(n: number): void {
+  const v = soundBrowserView();
+  if (!v || n === 0) return;
+  soundBrowserScrollTo(v.top + n);
+}
+
+/** La premiere ligne montree (un doigt qui glisse la liste part de celle du toucher). */
+export function soundBrowserScrollTo(top: number): void {
+  const v = soundBrowserView();
+  if (!v) return;
+  const t = browserClampTop(top, v.rows.length);
+  if (t !== v.top) lcdSamples.update({ top: t });
+  else lcdSamples.touch();
+}
+
+/** Le curseur du clavier (haut, bas, Page, Debut, Fin) : n lignes plus loin, ou au bout ; la liste le suit. */
+export function soundBrowserCursor(n: number, to?: 'home' | 'end'): void {
+  const v = soundBrowserView();
+  if (!v) return;
+  const last = v.rows.length - 1;
+  const i = to === 'home' ? 0 : to === 'end' ? last : Math.max(0, Math.min(last, v.cursor + n));
+  lcdSamples.update({ cursor: i, arm: v.arm === i ? i : -1 });
+  browserReveal(i);
+}
+
+/**
+ * Un sample de ce navigateur retire (le x de sa ligne au desktop, Suppr sur elle au clavier, un appui long au
+ * telephone) : le premier geste l'arme (REMOVE? TAP AGAIN, BROWSER_ARM_MS), le second le retire de la liste et de ce
+ * navigateur ; la voix qui le jouait revient a sa synthese (audio/kit.ts). Un son du site ne part pas. how : le mot du
+ * second geste.
+ */
+export function soundBrowserRemove(i: number, how: 'TAP' | 'CLICK' | 'DELETE' = coarsePointer() ? 'TAP' : 'CLICK'): void {
+  const v = soundBrowserView();
+  if (!v) return;
+  const row = v.rows[i];
+  if (!row || row.kind === 'load') return;
+  if (!row.user) {
+    lcdMessage.show(`${row.label}: BUILT IN, STAYS`);
+    lcdSamples.touch();
+    return;
+  }
+  if (v.arm !== i) {
+    lcdSamples.update({ arm: i });
+    browserReveal(i);
+    lcdMessage.show(`REMOVE ${row.label}? ${how} AGAIN`, BROWSER_ARM_MS);
+    return;
+  }
+  lcdSamples.update({ arm: -1 });
+  const label = row.label;
+  void userSamples.remove(row.key).then((ok) => lcdMessage.show(ok ? `${label} REMOVED` : 'STORAGE OFF', 1600));
+}
+
+/** Le champ de fichiers cache (cree au premier + LOAD A FILE...). */
+let fileInput: HTMLInputElement | null = null;
+
+/**
+ * + LOAD A FILE... (2026-10-18) : le choix de fichiers du systeme (au telephone et dans Safari aussi : un vrai champ,
+ * hors de la vue mais pas display none, clique dans le geste), plusieurs a la fois ; ils entrent dans la famille de la
+ * voix. fromList : choisi depuis le navigateur (en P-LOCK, le premier verrouille le pas).
+ */
+export function soundFilesPick(inst: Inst | null = pattern.get().instrument, fromList = false): void {
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return;
+  }
+  if (typeof document === 'undefined') return;
+  let el = fileInput;
+  if (!el) {
+    el = document.createElement('input');
+    el.type = 'file';
+    el.accept = 'audio/*,.wav,.aif,.aiff,.mp3,.flac,.m4a';
+    el.multiple = true;
+    el.tabIndex = -1;
+    el.setAttribute('aria-hidden', 'true');
+    el.dataset.v4 = 'sample-file';
+    el.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(el);
+    fileInput = el;
+  }
+  const input = el;
+  input.onchange = () => {
+    const files = input.files ? Array.from(input.files) : [];
+    input.value = '';
+    if (files.length > 0) void soundFilesAdd(files, inst, fromList);
+  };
+  input.value = '';
+  lcdSamples.touch();
+  input.click();
+}
+
+/**
+ * Des fichiers pour une voix (glisses sur un pad, choisis par + LOAD A FILE...) : tous entrent dans sa famille
+ * (audio/usersamples.ts : 10 Mo, 12 s, 60 par famille au plus), le premier joue tout de suite (les regles du potard ;
+ * depuis la liste ouverte en P-LOCK, il verrouille le pas), l'ecran dit BD SAMPLE <NOM> et ce qui a ete refuse
+ * (TOO BIG: 10 MB MAX...), a l'arret il s'entend. Rend le nombre de samples ajoutes.
+ */
+export async function soundFilesAdd(files: readonly File[], inst: Inst, fromList = false): Promise<number> {
+  const f = familyOf(inst as ShotId);
+  if (!f || files.length === 0) return 0;
+  lcdMessage.show(`${inst} ADDING ${files.length > 1 ? `${files.length} FILES` : sampleLabel(files[0].name)}...`, 8000);
+  const added: KitSample[] = [];
+  const refused: string[] = [];
+  for (const file of files) {
+    try {
+      added.push(await userSamples.add(f, file));
+    } catch (e) {
+      refused.push(e instanceof UserSampleError ? e.text : 'NOT AUDIO');
+    }
+  }
+  const why = refused.length === 0 ? '' : files.length === 1 ? refused[0] : `${refused.length} REFUSED: ${refused[0]}`;
+  if (added.length === 0) {
+    lcdMessage.show(why || 'NOT AUDIO', 2400);
+    return 0;
+  }
+  const s = added[0];
+  const msg = `${inst} SAMPLE ${s.label}${added.length > 1 ? `  +${added.length - 1}` : ''}${why ? `  ${why}` : ''}`;
+  const v = soundBrowserView();
+  const i = v && v.inst === inst ? v.rows.findIndex((r) => r.kind === 'smp' && r.key === s.key) : -1;
+  if (v && i >= 0 && (fromList || v.lock < 0)) {
+    browserChoose(v, i, msg);
+    return added.length;
+  }
+  setVoiceSound(f, { kind: 'smp', key: s.key });
+  touchPage('voice:sound', inst);
+  lcdMessage.show(msg, 2400);
+  previewSound(inst);
+  return added.length;
+}
+
+/**
+ * Un fichier lache sur le MM-RYTM (2026-10-18, desktop ; ui/Hotspots.tsx) : sur un pad, sa voix (choisie, sans un
+ * son) ; ailleurs sur la machine, la voix choisie ; sans voix, l'ecran demande un pad.
+ */
+export function soundDrop(files: readonly File[], inst: Inst | null): void {
+  lcdSamples.dragOver(null);
+  const target = inst ?? pattern.get().instrument;
+  if (!target) {
+    lcdMessage.show('DROP ON A PAD');
+    return;
+  }
+  if (files.length === 0) {
+    lcdMessage.show('NOT AUDIO');
+    return;
+  }
+  if (pattern.get().instrument !== target) selectVoice(target);
+  void soundFilesAdd(files, target);
+}

@@ -117,16 +117,27 @@
  * lcd-blk, ui/Hotspots.tsx : glisser, deux tapes, le LOCK a deux doigts) ; le
  * bloc tenu au doigt reste cerne (state/rytmPage.ts held) ; les aides disent
  * DRAG A VALUE. HOME, EDIT et les presets gardent leur dessin de 120, centre.
+ *
+ * Le navigateur des sons (2026-10-18, Mika : "Je trouve ca difficile la
+ * selection des samples dans RYTM, y aurait-il une autre facon ?") : la liste
+ * de trois lignes d'avant (SAMPLES, 2,4 s) devient toute la liste de SOUND de
+ * la voix, sur tout l'ecran, en vue PAGE comme a HOME (paintBrowser, actions.ts
+ * soundBrowserView) : l'en-tete (la voix, le rang 7 / 24, PREV et NEXT), autant
+ * de lignes que l'ecran en tient (le son du moment en pastille pleine, la ligne
+ * du clavier cernee, une ligne qui va partir en contour), une fine barre de
+ * defilement, le pied des seize pas et du message ; ses zones (browserRects :
+ * lcd-sb-*) remplacent celles des blocs. Un fichier glisse au-dessus de la
+ * machine pose DROP ON A PAD par-dessus tout (paintDrop).
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
 import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../audio/kit';
-import { sampleByKey } from '../audio/samples';
+import { sampleByKey, samplesChanged } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
-import { anyDialValue, dialRange, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, stepPlays, voiceSoundText, type DialId, type LockLine } from '../actions';
+import { anyDialValue, dialRange, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
 import { rytmLock } from '../state/rytmLock';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
@@ -134,14 +145,15 @@ import { FENV_OCT, atkS, cutHz, decayTau, holdS, voiceFx } from '../audio/voicef
 import { editor } from '../state/editor';
 import { focus } from '../state/focus';
 import { lcd, type LcdState } from '../state/lcd';
-import { lcdSamples } from '../state/lcdSamples';
+import { lcdMessage } from '../state/lcdMessage';
+import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, type EncId, type Inst } from '../theme';
-import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, slotCells, slotOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
 import { makeCanvasTexture } from './silk';
@@ -157,8 +169,8 @@ export interface ScreenInfo {
   minGapMs: number;
   font: string;
   size: [number, number];
-  /** ce que montre l'ecran (2026-10-08) : HOME, la vue PAGE, EDIT, les presets */
-  view: RytmView | 'edit' | 'presets';
+  /** ce que montre l'ecran (2026-10-08) : HOME, la vue PAGE, EDIT, les presets ; le navigateur des sons (2026-10-18) */
+  view: RytmView | 'edit' | 'presets' | 'browser';
   /** la page du MM-RYTM (dessinee en vue PAGE) */
   page: RytmPageId;
   /** les blocs dessines en vue PAGE, NOM=VALEUR:etat ; [] ailleurs */
@@ -201,6 +213,14 @@ export interface ScreenInfo {
   tags: string[];
   /** le dessin d'un ecran (ENV : AHD ..., FLTR : FILTER ...) ; '' aucun */
   graph: string;
+  /**
+   * le navigateur des sons dessine (2026-10-18) : son titre, son rang, la premiere ligne, le son du moment, la ligne du
+   * clavier ; ses lignes NOM, * le son du moment, > la ligne du clavier, ! armee (REMOVE?), u un sample de ce navigateur ;
+   * null : ferme
+   */
+  browser: { title: string; rank: string; top: number; cur: number; cursor: number; rows: string[] } | null;
+  /** l'annonce d'un fichier glisse au-dessus de la machine (DROP ON A PAD, DROP ON BD) ; '' aucune */
+  drop: string;
 }
 
 /** Au plus un redessin tous les 60 ms (un potard tourne a la cadence du pointeur). */
@@ -304,11 +324,6 @@ interface Rect {
   y0: number;
   x1: number;
   y1: number;
-}
-/** Une colonne de texte (x0 a x1). */
-interface Col {
-  x0: number;
-  x1: number;
 }
 
 /** La place du panneau des verrous dans la matrice : sa premiere colonne, combien, sa premiere rangee, combien. */
@@ -479,31 +494,35 @@ const TIP_MS = 2400;
  * au desktop aussi depuis l'etape 2, ses encodeurs sont les FX globaux).
  */
 const TURN = 'DRAG A VALUE';
-/** La liste des sons (SAMPLES) sur toute la largeur. */
-const PAGE_COL: Col = { x0: 10, x1: 310 };
 /**
- * La liste des sons, en unites : la ligne du son du moment (y, sa pastille),
- * l'ecart des lignes, les corps, le rang a droite, le titre dessous. Sur
- * l'ecran haut du telephone (2026-10-09, revue : elle gardait le haut du
- * dessin de 120, le bas de l'ecran restait vide) : au milieu de la place des
- * blocs (24 a 132), en plus gros.
+ * Le navigateur des sons (2026-10-18), en unites : rows, le haut et le bas de
+ * ses lignes (la place des blocs ; BROWSER_ROWS lignes : 12,5 de haut au
+ * desktop, 27 au telephone, assez pour un doigt) ; x0 et x1, leur largeur ;
+ * bar, la barre de defilement ; del, le x d'un sample de ce navigateur au
+ * bout de sa ligne (desktop ; 0 au telephone : l'appui long) ; arrows, PREV et
+ * NEXT dans l'en-tete, a gauche de la touche i (au telephone, sa zone est alors
+ * dans le coin du verre) ; les corps : le titre, le rang, le numero, le nom,
+ * l'etiquette, l'aide du pied.
  */
-interface ListLayout {
-  y: number;
-  row: number;
-  pillDy: number;
-  pillH: number;
-  cur: number;
-  other: number;
+const SB: {
+  rows: readonly [number, number];
+  x0: number;
+  x1: number;
+  bar: number;
+  del: number;
+  arrows: readonly [readonly [number, number], readonly [number, number]];
+  arrow: number;
+  head: number;
   rank: number;
-  /** le rang : sa ligne de base sous celle du son du moment (l'ecran haut : centre sur la pastille) */
-  rankDy: number;
-  rankW: number;
-  title: number;
-  titleY: number;
-}
-const LIST: ListLayout = { y: 58, row: 18, pillDy: 10.5, pillH: 14, cur: 10, other: 9, rank: 8, rankDy: 4, rankW: 24, title: 7, titleY: 96 };
-const LIST_TALL: ListLayout = { y: 70, row: 23, pillDy: 13, pillH: 17.5, cur: 12.5, other: 11, rank: 10, rankDy: -0.8, rankW: 30, title: 9, titleY: 118 };
+  num: number;
+  label: number;
+  tag: number;
+  hint: [number, number];
+} = TALL
+  ? { rows: [24, 132], x0: 8, x1: 305, bar: 312, del: 0, arrows: [[226, 257], [260, 291]], arrow: 5.6, head: 14.5, rank: 10.5, num: 9, label: 13, tag: 9, hint: [10, 10] }
+  : { rows: [24, 99], x0: 8, x1: 306, bar: 312.5, del: 17, arrows: [[255, 277], [280, 302]], arrow: 4.2, head: 11.5, rank: 8, num: 6, label: 8.8, tag: 5.6, hint: [6.8, 5.8] };
+/** Une ligne du navigateur. */
+const SB_PITCH = (SB.rows[1] - SB.rows[0]) / BROWSER_ROWS;
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 
@@ -632,6 +651,8 @@ export class Screen {
       badge: '',
       graph: '',
       tags: [],
+      browser: null,
+      drop: '',
     };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -692,6 +713,10 @@ export class Screen {
       // La tete de lecture : l'anneau de HOME, les seize pas du pied de la vue PAGE
       playhead.subscribe(() => this.request()),
       focus.subscribe(() => this.request()),
+      // Le navigateur des sons (2026-10-18) : son defilement, son curseur, sa fermeture ; la liste des samples (un ajout, un
+      // retrait) ; un fichier glisse au-dessus de la machine
+      lcdSamples.subscribe(active),
+      samplesChanged.subscribe(active),
     ];
     // La police arrivee apres la premiere image : on redessine
     void document.fonts?.ready.then(() => this.request());
@@ -751,13 +776,15 @@ export class Screen {
    */
   tabsShown = false;
   /**
-   * La liste des sons a la place des blocs de la vue PAGE (2026-10-09, revue :
-   * les huit zones des blocs restaient vivantes sous elle, une tape sur un nom
-   * tombait sur un bloc cache) : null quand les blocs sont la ; sinon le bloc
-   * qui l'a ouverte (SAMPLE, MACHINE ; -1 : aucun sur cette page), le seul
-   * que le Stage garde (on le reprend au doigt pour continuer).
+   * Les zones du navigateur des sons dessine (2026-10-18) : l'en-tete (head),
+   * PREV et NEXT, le corps de la liste (body, sous les lignes), chaque ligne
+   * montree (row-<k>, k depuis la premiere montree) et le x d'un sample de ce
+   * navigateur (del-<k>, desktop), sur le verre (u, v de 0 a 1) ; le Stage y
+   * pose les zones lcd-sb-* (scene/renderer.ts), a la place de celles des blocs
+   * (revue du 2026-10-09 : les zones des blocs restaient vivantes sous la liste
+   * de trois lignes, une tape sur un nom tombait sur un bloc cache). [] : ferme.
    */
-  listBlock: number | null = null;
+  browserRects: { id: string; u0: number; u1: number; v0: number; v1: number }[] = [];
   /**
    * Les blocs dessines (2026-10-09) : leur rang et leur rectangle sur le verre
    * (u, v de 0 a 1), ceux qui se reglent (ni case vide ni dessin) ; le Stage y
@@ -887,7 +914,9 @@ export class Screen {
     const rp = rytmPage.get();
     // Le LOCK (2026-10-08) se montre toujours sur la vue PAGE (HOME n'a pas les blocs)
     const lockStep = rytmEdit ? -1 : rytmLock.get().step;
-    const view: ScreenInfo['view'] = s.keys ? 'presets' : rytmEdit ? 'edit' : lockStep >= 0 ? 'page' : rp.view;
+    // Le navigateur des sons (2026-10-18) : par-dessus HOME et la vue PAGE (EDIT et les presets le ferment)
+    const sb = s.keys || rytmEdit ? null : soundBrowserView();
+    const view: ScreenInfo['view'] = s.keys ? 'presets' : rytmEdit ? 'edit' : sb ? 'browser' : lockStep >= 0 ? 'page' : rp.view;
     const paged = view === 'page';
     let next = 0;
     if (ptn.cur !== this.lastCur) {
@@ -896,7 +925,7 @@ export class Screen {
     }
     this.stepHits(now);
     // La vague du repos (desktop, la machine regardee, rien ne joue ni ne s'affiche ; jamais sur la page)
-    const quiet = !clock.running && sc.get().status !== 'playing' && !s.l3 && !s.mix && !s.samples && !s.keys;
+    const quiet = !clock.running && sc.get().status !== 'playing' && !s.l3 && !s.mix && !sb && !s.keys;
     if (!paged && !this.mobile && quiet && focus.get() === 'mm808' && now - this.activeAt > IDLE_MS) {
       if (this.waveFrom === 0) this.waveFrom = now;
       if (now - this.waveFrom > WAVE_MS) {
@@ -907,12 +936,14 @@ export class Screen {
 
     this.bar = null;
     this.tabsShown = false;
-    this.listBlock = null;
+    this.browserRects = [];
+    this.info.browser = null;
+    this.info.drop = '';
     this.info.view = view;
     this.info.page = rp.page;
     this.info.blocks = [];
     this.info.echo = -1;
-    this.info.lock = paged ? lockStep : -1;
+    this.info.lock = paged || sb ? lockStep : -1;
     this.info.flash = [];
     this.info.strip = '';
     this.info.foot = [];
@@ -929,23 +960,27 @@ export class Screen {
       this.info.head = '';
       this.info.popup = '';
     }
-    // L'ecran haut du telephone (2026-10-09) : le dessin de 120 de HOME, EDIT et des presets, centre (la vue PAGE a le sien)
-    if (!paged && DY > 0) c.setTransform(this.scale, 0, 0, this.scale, 0, this.scale * DY);
+    // L'ecran haut du telephone (2026-10-09) : le dessin de 120 de HOME, EDIT et des presets, centre (la vue PAGE et le
+    // navigateur des sons ont le leur, sur toute la hauteur)
+    if (!paged && !sb && DY > 0) c.setTransform(this.scale, 0, 0, this.scale, 0, this.scale * DY);
     if (s.keys) this.paintPresets(s);
+    else if (sb) this.paintBrowser(sb, rp, lockStep, now);
     else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now, lockStep));
     else {
       if (rytmEdit) this.paintPatternRing(now);
       else next = Math.max(next, this.paintStepRing(p.instrument, p.steps, now));
       this.paintHead(ptn.cur, now);
       if (s.mix) this.paintMix(s.mix);
-      else if (s.samples) this.paintSamples(s.samples);
       else if (rytmEdit) this.paintChain();
       else this.paintCards(p.instrument);
       this.paintLine(s, rytmEdit);
     }
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    // Un fichier glisse au-dessus de la machine (2026-10-18) : DROP ON A PAD par-dessus tout, sauf les presets
+    const drop = lcdSamples.get().drop;
+    if (drop && !s.keys) this.paintDrop(drop);
     // La touche i (R4) : par-dessus tout, sur toutes les vues ; sur l'en-tete negatif du P-LOCK, en negatif aussi
-    this.paintInfoKey(rytmInfos.isOn(), paged && lockStep >= 0);
+    this.paintInfoKey(rytmInfos.isOn(), (paged || !!sb) && lockStep >= 0 && !drop);
     if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || this.waveFrom > 0) next = ANIM_MS;
     // Les coups qui pulsent : sur l'anneau seulement (la page n'en montre rien)
     if (!paged && this.hitAt.some((t) => now - t < PULSE_MS)) next = next || ANIM_MS;
@@ -1298,24 +1333,160 @@ export class Screen {
     });
   }
 
-  /** Page SAMPLES : le son precedent, le son du moment en pastille, le suivant ; leur rang. */
-  private paintSamples(m: NonNullable<LcdState['samples']>, col: Col = COL, L: ListLayout = LIST): void {
-    const n = m.names.length;
-    const x = col.x0;
-    for (let k = -1; k <= 1; k += 1) {
-      const i = m.cur + k;
-      if (i < 0 || i >= n) continue;
-      const y = L.y + k * L.row;
-      const name = fit(m.names[i], 18);
-      if (k === 0) {
-        const w = col.x1 - x - L.rankW;
-        this.pill(x, y - L.pillDy, w, L.pillH, INK);
-        this.text(name, x + 7, y, L.cur, BLACK, 600);
-      } else this.text(name, x + 7, y, L.other, HALF, 500);
+  /* ---------------- le navigateur des sons (2026-10-18) ---------------- */
+
+  /**
+   * Le navigateur des sons, sur tout l'ecran : l'en-tete (la voix et SOUND ; en
+   * P-LOCK, l'en-tete en negatif et le pas que la liste verrouille), le rang
+   * (7 / 24), PREV et NEXT en deux fleches ; les lignes montrees (un numero, le
+   * nom ; a droite SYNTH pour une machine, USER pour un sample de ce
+   * navigateur et, au desktop, son x) : le son du moment en pastille pleine,
+   * la ligne du clavier cernee, une ligne armee (REMOVE ?) en contour ; la
+   * barre de defilement ; le pied (les seize pas, le message ou l'aide). Les
+   * zones (browserRects) suivent ce qui est dessine.
+   */
+  private paintBrowser(v: SoundBrowserView, rp: RytmPageState, lockStep: number, now: number): void {
+    const H = PAGE_HEAD;
+    const neg = v.lock >= 0;
+    const ink = neg ? BLACK : INK;
+    const half = neg ? 'rgba(0, 0, 0, 0.62)' : HALF;
+    const faint = neg ? 'rgba(0, 0, 0, 0.32)' : FAINT;
+    const rects = this.browserRects;
+    const push = (id: string, x: number, y: number, w: number, h: number): void => {
+      rects.push({ id, ...this.spot({ x, y, w, h }) });
+    };
+    // L'en-tete : le titre a gauche (en P-LOCK, le cadenas et le pas devant), le rang, PREV et NEXT a gauche de la touche i
+    if (neg) {
+      this.ctx.fillStyle = INK;
+      this.ctx.fillRect(0, 0, UW, H.rule + 0.6);
     }
-    this.text(m.rank, col.x1, L.y + L.rankDy, L.rank, HALF, 600, 'right');
-    // Le titre : KICK SOUND (le choix de son d'avant), KICK SAMPLE ou KICK SYNTH (les couches de R3, 2026-10-08)
-    this.text(/ (SAMPLE|SYNTH)$/.test(m.title) ? m.title : `${m.title} SOUND`, x, L.titleY, L.title, HALF, 700, 'left', 0.9);
+    let x = 10;
+    if (neg) {
+      const gs = SB.head * 0.62;
+      this.padlock(x - 1, H.y, gs, BLACK);
+      x += gs + 3;
+      x += this.text(`STEP ${two(v.lock + 1)}`, x, H.y, SB.head * 0.78, BLACK, 800, 'left', 0.7) + 7;
+    }
+    const [prev, next] = SB.arrows;
+    const rankW = this.text(v.rank, prev[0] - 6, H.y, SB.rank, ink, 600, 'right', 0.4);
+    const title = this.fitText(v.title, Math.max(20, prev[0] - 6 - rankW - 8 - x), SB.head, 0.6, 700);
+    this.text(title, x, H.y, SB.head, ink, 700, 'left', 0.6);
+    push('lcd-sb-head', 0, 0, prev[0] - 1, H.rule);
+    const arrow = (box: readonly [number, number], up: boolean, on: boolean): void => {
+      const w = box[1] - box[0];
+      const cx = box[0] + w / 2;
+      const cy = H.rule / 2 + 0.5;
+      this.roundRect(box[0] + 0.5, 2.5, w - 1, H.rule - 4.5, 3, null, on ? half : faint, 0.9);
+      const a = SB.arrow;
+      const c = this.ctx;
+      c.beginPath();
+      c.moveTo(cx - a, up ? cy + a * 0.55 : cy - a * 0.55);
+      c.lineTo(cx + a, up ? cy + a * 0.55 : cy - a * 0.55);
+      c.lineTo(cx, up ? cy - a * 0.65 : cy + a * 0.65);
+      c.closePath();
+      c.fillStyle = on ? ink : faint;
+      c.fill();
+    };
+    arrow(prev, true, v.cur > 0);
+    arrow(next, false, v.cur < v.n - 1);
+    push('lcd-sb-prev', prev[0], 0, prev[1] - prev[0], H.rule);
+    push('lcd-sb-next', next[0], 0, next[1] - next[0], H.rule);
+    if (!neg) this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
+    // Les lignes
+    const [y0, y1] = SB.rows;
+    push('lcd-sb-body', 0, y0, UW, y1 - y0);
+    const scroll = v.rows.length > v.visible;
+    const x0 = SB.x0;
+    const x1 = SB.x1 - (scroll ? 3 : 0);
+    const pad = TALL ? 2.2 : 0.9;
+    const rr = TALL ? 4 : 2.6;
+    const numW = this.textWidth('88', SB.num, 600, 0.3);
+    const keyed = lcdSamples.get().cursor >= 0;
+    const drawn: string[] = [];
+    for (let k = 0; k < v.visible; k += 1) {
+      const i = v.top + k;
+      const r = v.rows[i];
+      if (!r) break;
+      const y = y0 + k * SB_PITCH;
+      const cy = y + SB_PITCH / 2;
+      const cur = i === v.cur && r.kind !== 'load';
+      const armed = i === v.arm;
+      const cursor = keyed && i === v.cursor;
+      const full = cur && !armed;
+      if (full) this.roundRect(x0, y + pad, x1 - x0, SB_PITCH - 2 * pad, rr, INK);
+      if (armed) this.roundRect(x0 + 0.5, y + pad + 0.5, x1 - x0 - 1, SB_PITCH - 2 * pad - 1, rr, null, INK, TALL ? 1.6 : 1.2);
+      // La ligne du clavier : un cadre (sur la pastille du son du moment, en noir dedans)
+      if (cursor && !armed) this.roundRect(x0 + 1.6, y + pad + 1.6, x1 - x0 - 3.2, SB_PITCH - 2 * pad - 3.2, Math.max(1, rr - 1.4), null, full ? BLACK : INK, TALL ? 1.4 : 1);
+      const fg = full ? BLACK : r.kind === 'load' ? HALF : INK;
+      const sub = full ? 'rgba(0, 0, 0, 0.55)' : HALF;
+      const by = (size: number): number => cy + size * 0.36;
+      let lx = x0 + 5;
+      if (r.kind !== 'load') this.text(two(i + 1), lx, by(SB.num), SB.num, full ? sub : FAINT, 600, 'left', 0.3);
+      lx += numW + (TALL ? 7 : 5);
+      let rx = x1 - (TALL ? 7 : 4);
+      if (armed) {
+        // REMOVE ? : la ligne attend son second geste (une tape, un clic, Suppr)
+        const again = this.mobile ? 'TAP AGAIN' : 'AGAIN';
+        rx -= this.text(again, rx, by(SB.tag), SB.tag, INK, 700, 'right', 0.6) + 6;
+        this.text(this.fitText(`REMOVE ${r.label}?`, rx - lx, SB.label, 0.4, 700), lx, by(SB.label), SB.label, INK, 700, 'left', 0.4);
+      } else {
+        // Le x d'un sample de ce navigateur (desktop) : sa zone, au bout de la ligne
+        if (r.user && SB.del > 0) {
+          const dx = x1 - SB.del / 2;
+          const a = SB.label * 0.26;
+          const col = full ? BLACK : HALF;
+          this.line([dx - a, cy - a, dx + a, cy + a], col, 1.1);
+          this.line([dx - a, cy + a, dx + a, cy - a], col, 1.1);
+          push(`lcd-sb-del-${k}`, x1 - SB.del, y, SB.del, SB_PITCH);
+          rx = x1 - SB.del - 2;
+        }
+        if (r.tag) rx -= this.text(r.tag, rx, by(SB.tag), SB.tag, sub, 700, 'right', 0.7) + 6;
+        const name = this.fitText(r.label, Math.max(10, rx - lx), SB.label, 0.4, full ? 700 : 500);
+        this.text(name, lx, by(SB.label), SB.label, fg, full ? 700 : 500, 'left', 0.4);
+      }
+      push(`lcd-sb-row-${k}`, 2, y, (r.user && SB.del > 0 && !armed ? x1 - SB.del : SB.x1 + 2) - 2, SB_PITCH);
+      drawn.push(`${r.label}${cur ? '*' : ''}${cursor ? '>' : ''}${armed ? '!' : ''}${r.user ? 'u' : ''}`);
+    }
+    // La barre de defilement : la part montree de la liste, a sa place
+    if (scroll) {
+      const h = y1 - y0 - 2;
+      const len = v.rows.length;
+      const t0 = y0 + 1 + (h * v.top) / len;
+      const t1 = t0 + Math.max(4, (h * v.visible) / len);
+      this.line([SB.bar, y0 + 1, SB.bar, y1 - 1], FAINT, 1);
+      this.line([SB.bar, t0, SB.bar, Math.min(y1 - 1, t1)], INK, TALL ? 2.6 : 1.8);
+    }
+    // Le pied : les seize pas (le pas du P-LOCK cerne), le message du moment ou l'aide
+    this.paintStrip(v.inst, rp.sel, lockStep);
+    const F = PAGE_FOOT;
+    const msg = lcdMessage.get(now);
+    const help = this.mobile ? ['TAP: CHOOSE · DRAG: SCROLL', neg ? 'TAP: P-LOCK THIS STEP' : 'HOLD YOURS: REMOVE'] : ['CLICK: CHOOSE · WHEEL: SCROLL', neg ? 'CLICK: P-LOCK THIS STEP · ESC' : 'DROP A FILE ON A PAD · ESC'];
+    const l1 = msg ? msg.text : help[0];
+    const l2 = msg ? help[0] : help[1];
+    const t1 = this.fitText(l1, F.x1 - F.x0, SB.hint[0], 0.5, 600);
+    const t2 = this.fitText(l2, F.x1 - F.x0, SB.hint[1], 0.6, 700);
+    this.text(t1, F.x0, F.y1, SB.hint[0], msg ? INK : HALF, 600, 'left', 0.5);
+    this.text(t2, F.x0, F.y2, SB.hint[1], HALF, 700, 'left', 0.6);
+    this.info.footText = `${t1} / ${t2}`;
+    this.info.browser = { title: v.title, rank: v.rank, top: v.top, cur: v.cur, cursor: v.cursor, rows: drawn };
+  }
+
+  /** Un fichier glisse au-dessus de la machine (2026-10-18) : ou il ira, en grand, dans un cadre en pointilles. */
+  private paintDrop(target: Inst | 'pad'): void {
+    const c = this.ctx;
+    c.fillStyle = BLACK;
+    c.fillRect(0, 0, UW, UH);
+    c.save();
+    c.setLineDash([5, 3.5]);
+    this.roundRect(6, 6, UW - 12, UH - 12, 6, null, INK, TALL ? 1.6 : 1.3);
+    c.restore();
+    const big = target === 'pad' ? 'DROP ON A PAD' : `DROP ON ${target}`;
+    const inst = pattern.get().instrument;
+    const sub = target === 'pad' ? (inst ? `OR HERE: ${inst} SOUND` : 'ITS VOICE TAKES THE FILE') : 'WAV AIFF MP3 FLAC M4A · 10 MB';
+    const mid = UH / 2;
+    this.text(big, UW / 2, mid + (TALL ? 2 : 1), TALL ? 27 : 21, INK, 300, 'center', 0.5);
+    this.text(sub, UW / 2, mid + (TALL ? 24 : 17), TALL ? 10 : 7, HALF, 700, 'center', 0.8);
+    this.info.drop = big;
   }
 
   /** Mode presets : le titre, le nom en grand entre ses fleches, les quatre touches en pastilles. */
@@ -1347,7 +1518,7 @@ export class Screen {
   private paintLine(s: LcdState, rytmEdit: boolean): void {
     const x0 = COL.x0;
     const x1 = COL.x1;
-    if (s.mix || s.samples) return;
+    if (s.mix) return;
     if (s.bar !== null) {
       // La piste : son titre, la position et la duree, une barre fine et son point
       const title = s.l2.trim();
@@ -1398,8 +1569,8 @@ export class Screen {
 
   /**
    * La vue PAGE : l'en-tete (la page, ses onglets, la voix ; en P-LOCK tout en
-   * negatif), les blocs de l'ecran dans leurs cases (ou la liste des sons sur
-   * toute la largeur), le pied (les seize pas et la tete de lecture, le
+   * negatif), les blocs de l'ecran dans leurs cases (le navigateur des sons,
+   * 2026-10-18, a son propre dessin : paintBrowser), le pied (les seize pas et la tete de lecture, le
    * message, la piste, MUTE et SOLO, l'aide) ; le popup d'un encodeur du
    * desktop par-dessus. Rend dans combien de ms il faut un autre dessin (la fin
    * de l'echo, du popup ; 0 : aucun ; paint() en arme le minuteur).
@@ -1413,18 +1584,7 @@ export class Screen {
     const shownLock = !inst || !mode ? null : mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock;
     this.paintPageHead(rp, screen, inst, cur, now, lockStep, shownLock, mode);
     this.blockRects = [];
-    if (s.samples && lockStep < 0) {
-      // Le bloc qui a ouvert la liste : celui du reglage qu'elle montre, sur cet ecran
-      const kind = lcdSamples.kind();
-      const at = slotOf(kind === 'sample' ? 'smpl:sample' : kind === 'machine' ? 'l:mach' : 'voice:sound', inst, screen);
-      this.listBlock = at && at.page === screen ? at.k : -1;
-      this.paintSamples(s.samples, PAGE_COL, TALL ? LIST_TALL : LIST);
-      if (this.listBlock >= 0) {
-        const slots = pageSlots(screen, inst);
-        const cell = slotCells(slots)[this.listBlock];
-        if (cell) this.blockRects.push({ k: this.listBlock, ...this.spot(cellRect(cell)) });
-      }
-    } else {
+    {
       const blocks = pageBlocks(rp, inst, now, mode);
       this.paintMatrix(blocks, inst, mode);
       for (const b of blocks) if (b.state !== 'empty' && !b.graph) this.blockRects.push({ k: b.k, ...this.spot(cellRect(b.cell)) });
@@ -2383,7 +2543,6 @@ export class Screen {
       this.info.foot = [t1, t2];
       return this.mobile && !held ? TIP_MS - (now % TIP_MS) + 1 : 0;
     }
-    if (s.samples) return 0;
     if (s.bar !== null) {
       const ts = fs - 1.5;
       const tw = this.text(fit(s.l2.trim(), this.mobile ? 10 : 14), x0, y, ts, HALF, 600, 'left', 0.5);

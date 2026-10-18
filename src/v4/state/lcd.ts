@@ -19,6 +19,10 @@
  * tourne affiche un instant les cinq volumes en potards dessines ; les
  * trois lignes de texte (le jumeau) les donnent en clair : VOLUME BD, puis
  * BD80 SD80 TOM80 et CH80 OH80.
+ * Le navigateur des sons (2026-10-18, state/lcdSamples.ts, actions.ts
+ * soundBrowserView) : l'ecran le dessine lui-meme, a jour a chaque geste ;
+ * ici, le texte du jumeau : SOUND et la voix, le son du moment, son rang (BD
+ * SOUND 7 OF 24) ou le message du moment.
  * RUN passe avant une piste en pause (section 19) : la machine qui joue
  * est l'information du moment. Le minuteur ne tourne que pendant la
  * lecture d'une piste (timecode) ou un message passager ; au repos, rien.
@@ -27,9 +31,8 @@
 import { clock } from '../audio/clock';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { voiceFx } from '../audio/voicefx';
-import { KIT_MODELS, familyOf, kit, kitMachineNames, kitSampleNames, kitSoundIndex, kitSoundNames, voiceSoundNames, KIT_LABEL, type KitFamily } from '../audio/kit';
-import { samplesOf } from '../audio/samples';
-import type { ShotId } from '../audio/shotsdsp';
+import { kit } from '../audio/kit';
+import { soundBrowserView, type SoundBrowserView } from '../actions';
 import { sc } from '../audio/soundcloud';
 import { fmtTime } from '../data';
 import { LCD_TEXT, SECTION_TITLES, type Inst } from '../theme';
@@ -57,9 +60,8 @@ export interface LcdState {
   param: boolean;
   /** page MIX : la voix reglee et les cinq volumes (0 a 1, ordre BD SD TOM CH OH) ; null : le texte */
   mix: { sel: Inst; insts: Inst[]; levels: number[] } | null;
-  /** page SAMPLES (2026-10-05) : la voix choisie, sa famille de sons, leurs noms et le cran du moment ; null : le texte */
-  /** rank : son rang a l'ecran (4/6 ; OFF n'est pas un sample : OFF), le meme compte que le bloc SAMPLE (revue de R3) */
-  samples: { inst: Inst; fam: KitFamily; title: string; names: string[]; cur: number; rank: string } | null;
+  /** le navigateur des sons ouvert (2026-10-18) : ce qu'il montre (actions.ts soundBrowserView) ; null : le texte */
+  samples: SoundBrowserView | null;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
   text: [string, string, string];
   /** mode presets (2026-10-04) : les quatre touches de la ligne 3, dessinees en negatif ; null : le texte */
@@ -127,32 +129,16 @@ function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
 }
 
 /**
- * Page SAMPLES : les sons de la famille de la voix choisie (909, 808, MM,
- * puis ses echantillons), le son du moment en surbrillance ; le texte pour le
- * jumeau : la voix, le son, son rang. null : la voix n'a qu'un son (CY, PC).
- * Depuis R3 (2026-10-08, les deux couches) : MACHINE ouvre les machines de la
- * couche SYNTH, SAMPLE la couche SAMPLE (OFF puis les samples).
+ * Le navigateur des sons (2026-10-18) : le texte du jumeau (l'ecran dessine
+ * la liste lui-meme) : SOUND et la voix (en P-LOCK, le pas), le son du
+ * moment, puis le message du moment ou son rang (BD SOUND 7 OF 24).
  */
-function composeSamples(inst: Inst): Omit<LcdState, 'updates'> | null {
-  const fam = familyOf(inst as ShotId);
-  if (!fam) return null;
-  const k = lcdSamples.kind();
-  const g = kit.get();
-  const smp = g.sample[fam];
-  // voice (2026-10-09) : la liste unique de SOUND de VOICE (OFF, les machines, les samples)
-  const names = k === 'machine' ? kitMachineNames() : k === 'sample' ? kitSampleNames(fam) : k === 'voice' ? voiceSoundNames(fam) : kitSoundNames(fam);
-  const at = k === 'machine' ? KIT_MODELS.indexOf(g.model[fam]) : k === 'sample' ? (smp ? samplesOf(fam).findIndex((x) => x.key === smp) + 1 : 0) : k === 'voice' ? kit.voiceIndex(fam) : kitSoundIndex(fam);
-  const cur = Math.max(0, Math.min(names.length - 1, at));
-  const title = k === 'machine' ? `${KIT_LABEL[fam]} SYNTH` : k === 'sample' ? `${KIT_LABEL[fam]} SAMPLE` : k === 'voice' ? `${inst} SOUND` : KIT_LABEL[fam];
-  const line1 = row(k === 'machine' ? 'MACHINE' : k === 'voice' ? 'SOUND' : 'SAMPLE', inst);
-  const l2 = fit(names[cur], COLS);
-  // La couche SAMPLE et la liste de SOUND : OFF a part, les autres comptes seuls (4 OF 6, comme le bloc SAMPLE de SMPL)
-  const off = (k === 'sample' || k === 'voice') && cur === 0;
-  const of = k === 'sample' || k === 'voice' ? names.length - 1 : names.length;
-  const nth = k === 'sample' || k === 'voice' ? cur : cur + 1;
-  const l3 = fit(off ? `${title} OFF` : `${title} ${nth} OF ${of}`, COLS);
-  const rank = off ? 'OFF' : `${nth}/${of}`;
-  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: { inst, fam, title, names, cur, rank }, text: [line1.t, l2, l3], keys: null, tag: false };
+function composeSamples(v: SoundBrowserView, now: number): Omit<LcdState, 'updates'> {
+  const line1 = row('SOUND', v.lock >= 0 ? `${v.inst} STEP ${v.lock + 1 < 10 ? '0' : ''}${v.lock + 1}` : v.inst);
+  const l2 = fit(v.rows[v.cur]?.label ?? '', COLS);
+  const msg = lcdMessage.get(now);
+  const l3 = fit(msg ? msg.text : `${v.title} ${v.cur + 1} OF ${v.n}`, MSG_COLS);
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: v, text: [line1.t, l2, l3], keys: null, tag: false };
 }
 
 /** Centre s sur n colonnes. */
@@ -179,11 +165,8 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   if (pv) return composePresets(pv);
   const mixPage = lcdMix.get(now);
   if (mixPage) return composeMix(mixPage.sel);
-  const inst0 = pattern.get().instrument;
-  if (inst0 && lcdSamples.get(now)) {
-    const page = composeSamples(inst0);
-    if (page) return page;
-  }
+  const browser = soundBrowserView();
+  if (browser) return composeSamples(browser, now);
   const s = section.get();
   const p = pattern.get();
   const line1 = row(s ? SECTION_TITLES[s] : LCD_TEXT.idle, `${p.bpm} BPM`);
@@ -246,7 +229,7 @@ let running = false;
 let unsubs: (() => void)[] = [];
 
 /** Encore quelque chose qui bouge sans evenement : un timecode, un message a eteindre. */
-const live = (now: number): boolean => sc.get().status === 'playing' || lcdMessage.get(now) !== null || lcdMix.get(now) !== null || lcdSamples.get(now);
+const live = (now: number): boolean => sc.get().status === 'playing' || lcdMessage.get(now) !== null || lcdMix.get(now) !== null;
 
 function run(): void {
   timer = 0;

@@ -6,10 +6,13 @@
  * (scene/screen.ts) et son jumeau (ui/Lcd.tsx) les montrent, le debug les
  * lit (window.__v4.state.lcdMessage). param : une valeur d'encodeur, que
  * le jumeau n'annonce pas (le curseur du jumeau annonce deja la sienne).
+ * Le navigateur des sons (2026-10-18, state/lcdSamples.ts) n'est plus ferme
+ * par un message : il reste ouvert douze secondes, ses lignes sont touchees
+ * et chaque choix ecrit son message a son pied (la liste de trois lignes
+ * d'avant, 2,4 s, cedait la place au premier message venu).
  */
 
 import { lcdMix } from './lcdMix';
-import { lcdSamples } from './lcdSamples';
 
 export interface LcdMessage {
   text: string;
@@ -31,9 +34,8 @@ export const lcdMessage = {
     return current && now < current.until ? current : null;
   },
   show(text: string, ms: number = LCD_MESSAGE_MS, param = false): void {
-    // Un message ferme la page MIX et la liste des sons : le dernier geste a l'ecran
+    // Un message ferme la page MIX (le dernier geste a l'ecran) ; le navigateur des sons, non : il l'ecrit a son pied
     lcdMix.hide();
-    lcdSamples.hide();
     current = { text, until: performance.now() + ms, param };
     listeners.forEach((fn) => fn());
   },

@@ -75,6 +75,9 @@ export type HotspotKind =
   // MM-RYTM (2026-10-08, facon Digitakt) : les huit potards de page (index 0 a 7), les six touches de page (rpage)
   | 'penc'
   | 'pkey'
+  // MM-RYTM (2026-10-18) : le navigateur des sons de l'ecran (lcd-sb-head, -prev, -next, -body, -row-<k>, -del-<k> : son
+  // id dit la zone, index la ligne montree)
+  | 'sbrowse'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
   | 'djknob'
   | 'djfader'

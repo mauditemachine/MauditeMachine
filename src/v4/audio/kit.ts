@@ -123,16 +123,14 @@ export const kitStepLabels = (f: KitFamily): string[] => {
 };
 export const GATE_LABELS = ['OFF', 'ON'] as const;
 
-/** Les sons d'une famille, un par cran (909, 808, MM, puis ses echantillons) : la liste de l'ecran (state/lcdSamples.ts). */
+/** Les sons d'une famille, un par cran (909, 808, MM, puis ses echantillons) : les cartes INFOS, le SOUND en P-LOCK d'avant. */
 export const kitSoundNames = (f: KitFamily): string[] => [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...samplesOf(f).map((s) => s.label)];
 /** Les machines de la couche SYNTH (MACHINE de SRC). */
 export const kitMachineNames = (): string[] => KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]);
-/**
- * La liste unique de SOUND (VOICE, 2026-10-09, Mika : "on doit voir c'est quoi
- * le sample ; je veux merge SRC SMPL et TRIG") : OFF, 909, 808, MM, puis les
- * samples de la famille.
+/*
+ * La liste unique de SOUND (VOICE, 2026-10-09) : actions.ts voiceSounds (OFF, 909, 808, MM, puis les samples de la
+ * famille) ; le navigateur des sons (2026-10-18, state/lcdSamples.ts) la montre entiere.
  */
-export const voiceSoundNames = (f: KitFamily): string[] => ['OFF', ...kitSoundNames(f)];
 /** La couche SAMPLE d'une famille : OFF, puis ses echantillons (SAMPLE de SMPL). */
 export const kitSampleNames = (f: KitFamily): string[] => ['OFF', ...samplesOf(f).map((s) => s.label)];
 
@@ -513,7 +511,7 @@ export interface Plays {
 const playsOf = (v: View): Plays => ({ model: v.model, syn: v.layer.syn, lev: v.layer.lev, sample: v.sample, from: v.from, synth: v.layer.syn > 0, smp: !!v.sample && v.layer.lev > 0 });
 
 /**
- * Le rang de ce que joue une famille dans la liste de SOUND (voiceSoundNames,
+ * Le rang de ce que joue une famille dans la liste de SOUND (actions.ts voiceSounds,
  * 2026-10-09) : son sample s'il s'entend (avec ou sans la synthese dessous),
  * sinon sa machine si la synthese s'entend, sinon OFF (0).
  */
@@ -746,7 +744,7 @@ export const kit = {
   playsWith(id: ShotId, ov: KitOverride | null): Plays {
     return playsOf(viewOf(familyOf(id), ov));
   },
-  /** Le rang du son de la famille dans la liste de SOUND de VOICE (2026-10-09, voiceSoundNames). */
+  /** Le rang du son de la famille dans la liste de SOUND de VOICE (2026-10-09, actions.ts voiceSounds). */
   voiceIndex(f: KitFamily): number {
     return voiceSoundIndexOf(playsOf(viewOf(f)), f);
   },

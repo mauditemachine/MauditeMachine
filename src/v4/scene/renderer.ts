@@ -66,6 +66,7 @@ import { view } from '../state/view';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
+import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
@@ -497,6 +498,8 @@ export class Stage {
   private infoAt = { off: { x: 0, z: 0 }, blocks: { x: 0, z: 0 } };
   /** Les huit blocs de la vue PAGE (R4) : vivants seulement INFOS allume, leur carte au survol ou au toucher */
   private blockDefs: HotspotDef[] = [];
+  /** Les zones du navigateur des sons (2026-10-18, scene/screen.ts browserRects) : l'en-tete, PREV, NEXT, le corps, ses lignes et leurs x */
+  private sbDefs: HotspotDef[] = [];
   /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
   private tabDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
@@ -863,6 +866,33 @@ export class Stage {
         enabled: false,
       }));
       this.hit.add(this.blockDefs);
+      // Le navigateur des sons (2026-10-18) : ses zones, posees et allumees la ou l'ecran le dessine (syncScreenTabs). Plus
+      // haut que tout le reste de l'ecran (lcd-open, les blocs et les onglets sont dessous ou eteints) : les lignes et les
+      // fleches a +0.17, le corps sous elles a +0.1 (une tape entre deux lignes reste dans la liste), le x d'une ligne
+      // au-dessus d'elle a +0.24 ; chaque marche depasse l'egalite du picking (hit.ts TIE 0.05)
+      const sb = (id: string, lift: number, index?: number): HotspotDef => ({
+        id,
+        kind: 'sbrowse' as const,
+        ...(index !== undefined ? { index } : {}),
+        layer: plateau,
+        shape: 'box' as const,
+        x: OLED.x,
+        z: OLED.z,
+        hx: 0.1,
+        hz: 0.1,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + lift,
+        enabled: false,
+      });
+      this.sbDefs = [
+        sb('lcd-sb-body', 0.1),
+        sb('lcd-sb-head', 0.17),
+        sb('lcd-sb-prev', 0.17),
+        sb('lcd-sb-next', 0.17),
+        ...Array.from({ length: BROWSER_ROWS }, (_, k) => sb(`lcd-sb-row-${k}`, 0.17, k)),
+        ...Array.from({ length: BROWSER_ROWS }, (_, k) => sb(`lcd-sb-del-${k}`, 0.24, k)),
+      ];
+      this.hit.add(this.sbDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
@@ -877,7 +907,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs, ...this.sbDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -1025,6 +1055,7 @@ export class Stage {
       // les potards de page suivent la page (2026-10-08)
       const offs = [
         lcd.subscribe(this.syncSeek),
+        lcdSamples.subscribe(this.syncSeek),
         rytmPage.subscribe(this.syncSeek),
         editor.subscribe(this.syncSeek),
         rytmLock.subscribe(this.syncSeek),
@@ -1206,7 +1237,8 @@ export class Stage {
    * (OLED_BAR_PAGE), EDIT garde l'ecran d'avant et sa bande.
    */
   private syncSeek = (): void => {
-    const on = lcd.get().bar !== null;
+    // Le navigateur des sons (2026-10-18) ne dessine pas la barre de la piste : sa bande ne prend pas une tape sur ses lignes
+    const on = lcd.get().bar !== null && !lcdSamples.isOpen();
     // La vue que l'ecran dessine (scene/screen.ts paint) : le LOCK se montre toujours sur la vue PAGE, meme entre par un
     // chemin qui ne passe pas par rytmLockEnter (un potard tourne un pas tenu, le MIDI ; revue du 2026-10-09 : la zone
     // de HOME couvrait alors le haut des blocs B et C au telephone)
@@ -1284,8 +1316,12 @@ export class Stage {
       if (d.enabled && !r) gone = true;
       place(d, r);
     }
-    // La touche i : au telephone, quand les blocs ont leur zone, dans le coin du verre (revue de R4)
-    const blk = page && this.screen.blockRects.length > 0;
+    // Le navigateur des sons (2026-10-18) : ses zones la ou il est dessine, a la place des blocs et des onglets (eteints : la
+    // vue n'est plus 'page')
+    const sbOn = this.screen.info.view === 'browser';
+    for (const d of this.sbDefs) place(d, sbOn ? (this.screen.browserRects.find((r) => r.id === d.id) ?? null) : null);
+    // La touche i : au telephone, quand les blocs (ou les fleches du navigateur) ont leur zone, dans le coin du verre (revue de R4)
+    const blk = (page && this.screen.blockRects.length > 0) || sbOn;
     const ik = blk ? this.infoAt.blocks : this.infoAt.off;
     if (this.infoDef && (this.infoDef.x !== ik.x || this.infoDef.z !== ik.z)) {
       this.infoDef.x = ik.x;

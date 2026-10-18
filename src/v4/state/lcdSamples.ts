@@ -1,50 +1,147 @@
 /**
- * Page SAMPLES de l'ecran (2026-10-05, Mika : "quand on commence a tourner le
- * knob on voit sur l'ecran la liste des echantillons ; on a appuye sur un
- * voice et la on choisit le sample") : tourner le potard SAMPLE de la rangee
- * VOICE (la voix selectionnee) ouvre un instant la liste des sons de sa
- * famille (909, 808, MM, puis ses echantillons), le son du moment en
- * surbrillance. Appuyer sur une autre voix pendant ce temps la change : la
- * liste suit. Les actions l'ouvrent ; le compositeur (state/lcd.ts) la place
- * au-dessus des trois lignes de texte tant qu'elle dure (comme la page MIX,
- * state/lcdMix.ts).
+ * Le navigateur des sons du MM-RYTM (2026-10-18, Mika : "Je trouve ca
+ * difficile la selection des samples dans RYTM, y aurait-il une autre
+ * facon ?") : la liste ENTIERE de SOUND de la voix choisie sur le grand
+ * ecran (OFF, 909, 808, MM, les samples du site, puis ceux de ce navigateur,
+ * enfin + LOAD A FILE... ; en P-LOCK, les samples des autres voix aussi : le
+ * sample lock), autant de lignes que l'ecran en tient, le son du moment en
+ * surbrillance, son rang (7 / 24) et une fine barre de defilement. Il
+ * remplace la liste de trois lignes du 2026-10-05 (2,4 s apres un cran du
+ * potard, trop courte pour choisir parmi vingt samples).
+ *
+ * Ce store ne garde que ce que l'ecran ne peut pas deviner : ouverte ou non,
+ * la premiere ligne montree (le defilement), la ligne du clavier (le
+ * curseur ; -1 : il suit le son), la ligne qui attend sa confirmation pour
+ * partir (REMOVE? TAP AGAIN), une demande de focus du clavier (Entree sur le
+ * bloc SOUND) et le fichier qu'on glisse au-dessus de la machine (DROP ON A
+ * PAD). La liste elle-meme et ses regles viennent d'actions.ts
+ * (soundBrowserView, voiceSounds) ; l'ecran (scene/screen.ts paintBrowser) la
+ * dessine, ses zones (scene/renderer.ts) et ses jumeaux (ui/Hotspots.tsx) la
+ * suivent.
+ *
+ * Ouverte par une tape sur le bloc SOUND de VOICE, un cran de SOUND, PREV et
+ * NEXT ; elle reste jusqu'a Echap, une tape hors d'elle, une touche de page,
+ * EDIT, les presets, le P-LOCK qui change, une autre machine, ou
+ * BROWSER_IDLE_MS sans geste (actions.ts) ; une autre voix touchee : la liste
+ * la suit. Un message de l'ecran (lcdMessage) ne la ferme plus : il s'ecrit a
+ * son pied.
  */
 
-/** Duree d'affichage apres le dernier reglage (ou le dernier pad). */
-export const LCD_SAMPLES_MS = 2400;
+import { OLED_UH, type Inst } from '../theme';
 
+/** Sans geste pendant ce temps, la liste se ferme. */
+export const BROWSER_IDLE_MS = 12000;
 /**
- * La liste montree (2026-10-08, l'etape R3, les deux couches) : sound, le
- * choix de son d'avant (909, 808, MM, les samples : SOUND, la plaque) ;
- * machine, les machines de la couche SYNTH (MACHINE de SRC) ; sample, la
- * couche SAMPLE (OFF puis les samples : SAMPLE de SMPL).
+ * Les lignes montrees : 6 au desktop (12,5 unites chacune, 18 px a l'ecran) ;
+ * 4 sur l'ecran haut du telephone (27 unites, 22 px : assez pour un doigt,
+ * le reste defile en glissant).
  */
-export type LcdSamplesKind = 'sound' | 'machine' | 'sample' | 'voice';
-/* voice (2026-10-09) : la liste unique de SOUND de VOICE (OFF, 909, 808, MM, les samples ; audio/kit.ts voiceSoundNames). */
+export const BROWSER_ROWS = OLED_UH > 120 ? 4 : 6;
+/** Une ligne armee pour partir (REMOVE? TAP AGAIN) le reste ce temps. */
+export const BROWSER_ARM_MS = 4000;
+/** Le fichier glisse au-dessus de la machine : son annonce tient ce temps apres le dernier dragover. */
+export const DROP_HINT_MS = 400;
 
-let until = 0;
-let kind: LcdSamplesKind = 'sound';
+export interface SoundBrowserState {
+  readonly open: boolean;
+  /** la premiere ligne montree */
+  readonly top: number;
+  /** la ligne du clavier (fleches) ; -1 : celle du son du moment */
+  readonly cursor: number;
+  /** la ligne qui attend sa confirmation pour partir (un sample de ce navigateur), -1 aucune */
+  readonly arm: number;
+  /** compte les demandes de focus du clavier (Entree sur le bloc SOUND) : le jumeau de la liste le prend */
+  readonly focus: number;
+  /** un fichier glisse au-dessus du MM-RYTM : la voix sous le pointeur, 'pad' ailleurs sur la machine ; null rien */
+  readonly drop: Inst | 'pad' | null;
+}
+
+const CLOSED: SoundBrowserState = { open: false, top: 0, cursor: -1, arm: -1, focus: 0, drop: null };
+let state: SoundBrowserState = CLOSED;
 const listeners = new Set<() => void>();
+let idleTimer = 0;
+let armTimer = 0;
+let dropTimer = 0;
+
+function emit(): void {
+  listeners.forEach((fn) => fn());
+}
+
+function set(next: Partial<SoundBrowserState>): void {
+  const prev = state;
+  state = { ...state, ...next };
+  if (state.top !== prev.top || state.cursor !== prev.cursor || state.arm !== prev.arm || state.open !== prev.open || state.focus !== prev.focus || state.drop !== prev.drop) emit();
+}
+
+/** Le minuteur du repos : BROWSER_IDLE_MS apres le dernier geste, la liste se ferme. */
+function armIdle(): void {
+  if (typeof window === 'undefined') return;
+  window.clearTimeout(idleTimer);
+  idleTimer = window.setTimeout(() => {
+    idleTimer = 0;
+    lcdSamples.close();
+  }, BROWSER_IDLE_MS);
+}
 
 export const lcdSamples = {
-  /** La page est-elle ouverte ? */
-  get(now: number = performance.now()): boolean {
-    return now < until;
+  get: (): SoundBrowserState => state,
+  /** La liste est-elle ouverte ? */
+  isOpen: (): boolean => state.open,
+  /** Ouverte (ou deja ouverte : son repos repart), sa premiere ligne a top ; focus : le clavier la prend (Entree sur SOUND). */
+  open(top: number, focus = false): void {
+    armIdle();
+    if (state.open) {
+      if (focus) set({ focus: state.focus + 1 });
+      return;
+    }
+    set({ open: true, top: Math.max(0, Math.round(top)), cursor: -1, arm: -1, focus: state.focus + (focus ? 1 : 0) });
   },
-  /** Ce que montre la liste ouverte. */
-  kind(): LcdSamplesKind {
-    return kind;
+  /** Un geste dans la liste (une ligne, la molette, PREV et NEXT, un cran de SOUND) : son repos repart. */
+  touch(): void {
+    if (state.open) armIdle();
   },
-  show(ms: number = LCD_SAMPLES_MS, k: LcdSamplesKind = 'sound'): void {
-    until = performance.now() + ms;
-    kind = k;
-    listeners.forEach((fn) => fn());
+  /** Le defilement, le curseur, la ligne armee (bornes posees par actions.ts) ; un geste aussi. */
+  update(patch: Partial<Pick<SoundBrowserState, 'top' | 'cursor' | 'arm'>>): void {
+    if (!state.open) return;
+    armIdle();
+    if (patch.arm !== undefined && typeof window !== 'undefined') {
+      window.clearTimeout(armTimer);
+      armTimer = 0;
+      if (patch.arm >= 0)
+        armTimer = window.setTimeout(() => {
+          armTimer = 0;
+          set({ arm: -1 });
+        }, BROWSER_ARM_MS);
+    }
+    set(patch);
   },
-  /** Fermee tout de suite (un autre message prend l'ecran). */
-  hide(): void {
-    if (until === 0) return;
-    until = 0;
-    listeners.forEach((fn) => fn());
+  /** Fermee (Echap, une tape dehors, une touche de page, le repos...). */
+  close(): void {
+    if (typeof window !== 'undefined') {
+      window.clearTimeout(idleTimer);
+      window.clearTimeout(armTimer);
+    }
+    idleTimer = 0;
+    armTimer = 0;
+    if (!state.open) return;
+    set({ open: false, cursor: -1, arm: -1 });
+  },
+  /**
+   * Un fichier glisse au-dessus de la machine (2026-10-18) : la voix sous le
+   * pointeur ('pad' : ailleurs sur le MM-RYTM ; null : plus rien). Chaque
+   * dragover le repose ; sans lui pendant DROP_HINT_MS, l'annonce s'en va.
+   */
+  dragOver(target: Inst | 'pad' | null): void {
+    if (typeof window !== 'undefined') {
+      window.clearTimeout(dropTimer);
+      dropTimer = 0;
+      if (target)
+        dropTimer = window.setTimeout(() => {
+          dropTimer = 0;
+          set({ drop: null });
+        }, DROP_HINT_MS);
+    }
+    set({ drop: target });
   },
   subscribe(fn: () => void): () => void {
     listeners.add(fn);
