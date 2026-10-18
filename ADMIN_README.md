@@ -25,7 +25,10 @@ Ableton (ton dossier `shots`), à écouter, choisir et publier.
    à jour en 1 à 2 minutes. La page donne la ligne pour annuler.
 
 Depuis le téléphone ou l'iPad : `npm run admin -- --lan` (avec `ADMIN_PASSWORD`),
-puis `http://<IP du Mac>:5173/mm-admin/samples`. En ligne, la page montre
+puis `http://<IP du Mac>:5173/mm-admin/samples`. Le mot de passe protège
+l'écriture (server.js) ; le site lui-même (vite) reste lisible par tout le
+réseau, sauf `data/` (revenus Ditto, CSV), `.admin-backups/`, `.env` et `.git/`,
+qu'il refuse : à faire sur ton wifi, pas sur un réseau public. En ligne, la page montre
 seulement les samples du site. Tout le détail (refus, `--reset-samples`, la
 commande équivalente `npm run samples:mika`) : `docs/samples-mika.md`.
 

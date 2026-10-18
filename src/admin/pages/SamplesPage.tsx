@@ -81,6 +81,8 @@ interface Family {
   files: number;
   used: number;
   site: SiteSample[];
+  /** le numero du premier ajout (apres ceux deja sur le site) */
+  start: number;
   candidates: Candidate[];
 }
 
@@ -354,6 +356,8 @@ const SiteList: React.FC<{ fam: string; list: SiteSample[]; player: Player }> = 
 interface RowProps {
   c: Candidate;
   checked: boolean;
+  /** coche : son nom sur le site apres la publication (numero compris) */
+  siteName: string;
   blockedWhy: string | null;
   twinRank: number | null;
   afconvert: boolean;
@@ -361,7 +365,7 @@ interface RowProps {
   onToggle: () => void;
 }
 
-const CandidateRow: React.FC<RowProps> = ({ c, checked, blockedWhy, twinRank, afconvert, player, onToggle }) => {
+const CandidateRow: React.FC<RowProps> = ({ c, checked, siteName, blockedWhy, twinRank, afconvert, player, onToggle }) => {
   const id = `c:${c.id}`;
   const listenWhy = c.icloud
     ? "Pas encore téléchargé d'iCloud"
@@ -398,7 +402,7 @@ const CandidateRow: React.FC<RowProps> = ({ c, checked, blockedWhy, twinRank, af
               </span>
             )}
             {c.dupOf && <span className="admx-smp-badge warn">même son que le n° {twinRank ?? '?'}</span>}
-            {checked && c.siteFile && <span className="admx-smp-badge">sur le site : {c.siteFile}</span>}
+            {checked && siteName && <span className="admx-smp-badge">sur le site : {siteName}</span>}
           </span>
           {why && <span className="admx-smp-why">{why}</span>}
           {player.errors[id] && <span className="admx-smp-err">{player.errors[id]}</span>}
@@ -443,10 +447,22 @@ const VoiceCard: React.FC<VoiceProps> = ({ voice, family, checked, maxPerVoice, 
     return m;
   }, [checked, byId]);
 
+  // Le nom sur le site d'un sample coche : la publication numerote les choisis a la suite du site, dans l'ordre
+  // du classement (le serveur a calcule les noms pour le choix auto : un decoche ou un ajout decale les numeros).
+  // Le nom apres le numero reste celui du serveur ; cas rare non couvert : deux choisis hors choix auto au meme
+  // nom nettoye, la publication en allonge un (assignNames).
+  const picked = useMemo(() => family.candidates.filter((c) => set.has(c.id)).sort((a, b) => a.rank - b.rank), [family.candidates, set]);
+  const start = family.start ?? family.present + 1;
+  const width = Math.max(2, String(start + picked.length - 1).length);
+  const siteName = (c: Candidate): string => {
+    const i = picked.indexOf(c);
+    return i < 0 || !c.siteFile ? '' : `${String(start + i).padStart(width, '0')} ${c.siteFile.replace(/^\s*\d+\s+/, '')}`;
+  };
+
   const blockedWhy = (c: Candidate): string | null => {
     if (c.icloud) return "Pas encore téléchargé d'iCloud : télécharge-le dans le Finder, puis Re-analyser";
     if (c.alreadyOnSite) return 'Déjà sur le site';
-    if (!c.playable) return reasonText(c) ?? 'Illisible';
+    if (!c.playable) return reasonText(c) ?? (c.dupOf ? "Même son qu'un autre sample" : 'Illisible');
     const twin = chosenOfGroup.get(c.dupOf ?? c.id);
     if (twin && twin !== c.id) return 'Le même son est déjà choisi';
     if (full) return `La voix est pleine (${maxPerVoice} au plus) : décoche un sample pour en choisir un autre`;
@@ -498,6 +514,7 @@ const VoiceCard: React.FC<VoiceProps> = ({ voice, family, checked, maxPerVoice, 
               key={c.id}
               c={c}
               checked={set.has(c.id)}
+              siteName={siteName(c)}
               blockedWhy={blockedWhy(c)}
               twinRank={c.dupOf ? byId.get(c.dupOf)?.rank ?? null : null}
               afconvert={afconvert}

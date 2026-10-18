@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, normalizePath } from 'vite'
 import react from '@vitejs/plugin-react'
 import { copyFileSync, existsSync, readdirSync } from 'fs'
 import { resolve } from 'path'
@@ -25,6 +25,19 @@ function listSamples(): { family: string; file: string }[] {
         .map((file) => ({ family: d.name, file }))
     )
 }
+
+// Ce que le serveur de dev ne sert jamais (relecture du 2026-10-18). En
+// mode LAN (npm run admin -- --lan lance vite --host), vite sert a tout le
+// reseau, sans mot de passe, chaque fichier de la racine du depot : data/
+// (revenus Ditto, CSV sources, jamais publies) et .admin-backups/ (les
+// sauvegardes de --reset-samples) y passaient. Les motifs sont ancres a la
+// racine du depot (un motif data a n'importe quelle profondeur bloquerait
+// aussi les dossiers data de src) ; le chemin est echappe pour picomatch
+// (sur le Mac : espaces, ~ et parentheses de iCloud Drive). Les trois
+// premiers sont ceux de vite par defaut (une liste fs.deny les remplace),
+// .git comme dans les versions suivantes de vite.
+const ROOT_GLOB = normalizePath(__dirname).replace(/[\\*?[\](){}!+@|]/g, '\\$&')
+const FS_DENY = ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', `${ROOT_GLOB}/data/**`, `${ROOT_GLOB}/.admin-backups/**`]
 
 export default defineConfig(({ command }) => ({
   plugins: [
@@ -90,7 +103,11 @@ export default defineConfig(({ command }) => ({
   build: {
     assetsInlineLimit: (filePath: string) => (filePath.endsWith('.worklet.js') ? false : undefined),
   },
-  server: { port: Number(process.env.PORT) || 5173, open: !process.env.PORT },
+  server: {
+    port: Number(process.env.PORT) || 5173,
+    open: !process.env.PORT,
+    fs: { deny: FS_DENY },
+  },
   publicDir: 'public'
 }))
 

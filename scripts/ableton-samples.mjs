@@ -1328,7 +1328,12 @@ async function listCandidates(A) {
           c.alreadyOnSite = true;
           c.twin = s.twin;
         }
-        if (s.dup) c.dupOf = sampleId(s.dup.rel);
+        if (s.dup) {
+          // Le meme son qu'un candidat d'avant : lisible (et converti si AIFF), donc choisissable a sa place ; la
+          // regle du groupe de la page (un seul du meme son) et pickPlan (deux copies refusees) n'en laissent qu'un
+          c.dupOf = sampleId(s.dup.rel);
+          c.playable = Boolean(f.kind);
+        }
       } else if (f.size === 0) {
         c.reason = 'vide (0 octet)';
       } else if (f.size > MAX_BYTES) {
@@ -1392,6 +1397,8 @@ async function listCandidates(A) {
       files: p.all.length,
       used: p.used.length,
       site: siteList(p.fam, [...p.present, ...p.hidden].sort((a, b) => natural(a.name, b.name)), A.manifest, A.manifestHashes),
+      // Le premier numero d'un ajout : la page renumerote les samples coches dans l'ordre du classement, comme la publication
+      start,
       candidates: list,
     };
   }

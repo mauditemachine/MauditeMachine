@@ -41,14 +41,60 @@ const isPrivateLanOrigin = (origin) =>
   /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|\[?fd[0-9a-f:]+\]?|[a-z0-9-]+\.local)(:\d+)?$/i.test(
     origin || ''
   );
+
+// Garde de chaque requete (relecture du 2026-10-18), AVANT cors et
+// express.json. cors() ne fait que retirer ses en-tetes pour une origine
+// etrangere : la requete etait quand meme traitee. Et sans ADMIN_PASSWORD,
+// authMiddleware laisse tout passer : par DNS rebinding (un domaine qui
+// pointe vers 127.0.0.1), une page web atteignait les routes, jusqu'a
+// POST /api/admin/samples/publish (commit + push vers main, le site en prod).
+//   - Host : localhost, 127.0.0.1 ou [::1] (en mode LAN, aussi une IP privee
+//     ou un nom .local). Un domaine de rebinding garde son propre Host : refuse.
+//   - Origin, quand le navigateur l'envoie : locale (ou du LAN en mode LAN).
+//     Un POST d'un autre site est refuse, plus seulement prive d'en-tetes CORS.
+//   - Sec-Fetch-Site: cross-site sans Origin ni Referer locaux : un <audio src>
+//     ou un <img src> pose par un site tiers (ces GET n'ont pas d'Origin).
+//     L'admin ouverte sur 127.0.0.1:5173 (API sur localhost:3001) est
+//     cross-site elle aussi, mais son Origin est locale : elle passe.
+// curl et les scripts locaux (ni Origin ni Sec-Fetch-Site) passent.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+const isAllowedOrigin = (origin) => LOCAL_ORIGIN.test(origin || '') || (LAN_MODE && isPrivateLanOrigin(origin));
+const originOfUrl = (url) => {
+  try {
+    return new URL(String(url)).origin;
+  } catch {
+    return '';
+  }
+};
+let guardRefusals = 0;
+app.use((req, res, next) => {
+  const rawHost = String(req.headers.host || '');
+  const host = rawHost.toLowerCase().replace(/:\d+$/, '');
+  const okHost = LOCAL_HOSTS.has(host) || (LAN_MODE && isPrivateLanOrigin(`http://${rawHost}`));
+  const origin = req.headers.origin;
+  const okOrigin = !origin || isAllowedOrigin(origin);
+  const okSite =
+    req.headers['sec-fetch-site'] !== 'cross-site' ||
+    (Boolean(origin) && isAllowedOrigin(origin)) ||
+    (Boolean(req.headers.referer) && isAllowedOrigin(originOfUrl(req.headers.referer)));
+  if (okHost && okOrigin && okSite) return next();
+  // Quelques lignes dans le terminal pour comprendre un refus, sans le noyer si une page insiste
+  if (guardRefusals < 10) {
+    guardRefusals += 1;
+    const show = (v) => String(v ?? '-').slice(0, 80);
+    console.warn(`[garde] refus ${req.method} ${show(req.path)} : host=${show(rawHost)} origin=${show(origin)} sec-fetch-site=${show(req.headers['sec-fetch-site'])}`);
+  }
+  res.status(403).json({ success: false, message: "Refusé : cette requête ne vient pas de l'admin local." });
+});
+
 app.use(
   cors({
     origin: (origin, cb) => {
       // localhost sur N'IMPORTE quel port : vite choisit un port libre
       // (autoPort) et une whitelist de ports figes casserait l'admin.
       // Une page web externe ne peut pas avoir une origin localhost.
-      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
-      if (!origin || isLocalhost || (LAN_MODE && isPrivateLanOrigin(origin))) {
+      if (!origin || isAllowedOrigin(origin)) {
         return cb(null, true);
       }
       cb(null, false);
@@ -76,7 +122,8 @@ function extractSecret(req) {
 
 /**
  * Auth locale. Si ADMIN_SECRET est defini on l'exige ; sinon on laisse passer
- * (confort de dev) mais l'acces reste limite a localhost par le CORS ci-dessus.
+ * (confort de dev) mais l'acces reste limite a l'admin locale par le garde
+ * (Host, Origin, Sec-Fetch-Site) et le CORS ci-dessus.
  */
 function authMiddleware(req, res, next) {
   if (!ADMIN_SECRET) return next();
@@ -87,7 +134,7 @@ function authMiddleware(req, res, next) {
 }
 
 if (!ADMIN_SECRET) {
-  console.warn('[dev] ADMIN_PASSWORD non defini : ecriture locale ouverte (CORS limite a localhost).');
+  console.warn('[dev] ADMIN_PASSWORD non defini : ecriture locale ouverte (requetes limitees a l\'admin locale : Host, Origin, CORS).');
 }
 
 // Verification du secret pour l'ecran de login admin
