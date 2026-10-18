@@ -37,18 +37,42 @@
  *   famille deviendraient pareils (alors BluePrint F et BluePrint G) ;
  * - un artiste "Prenom Nom - Kick X" garde son nom (AT Tim Engelhardt -
  *   Kick G : Engelhardt), comme les noms choisis par Mika le 2026-10-05 ;
- * - 18 caracteres au plus (la plaque), un " 2" si deux noms restent pareils.
- * L'extension d'origine reste. L'ordre : le chemin dans le dossier, en ordre
+ * - 18 caracteres au plus (la plaque) ;
+ * - un nom que git voit (2026-10-18, chantier S2) : .gitignore ecarte
+ *   '* 2.*' et '* 3.*' (les doubles du Finder), et "OT_Kick3" etait devenu
+ *   "09 OT 3.wav", present sur le disque, jamais en ligne. Un chiffre seul en
+ *   fin de nom se colle au mot d'avant (OT3, Deep2) ; deux noms qui restent
+ *   pareils prennent un numero colle (Stein2 ; OT3-2 apres un chiffre) ; et
+ *   avant d'ecrire, git check-ignore juge chaque nouveau fichier : un seul
+ *   ignore, rien n'est ecrit. Apres l'ecriture, git status doit les voir
+ *   tous (sinon les nouveaux sont retires et l'import s'arrete).
+ * L'extension d'origine reste, sauf un AIFF (relecture S2) : Safari le lit,
+ * Chrome et Firefox non, il est donc converti en WAV (afconvert, livre avec
+ * macOS) et prend un nom en .wav ; sans afconvert il est laisse de cote. Un
+ * fichier vide, ou dont le debut n'est ni WAV, AIFF, MP3, FLAC ni M4A
+ * (audioKind : un texte nomme .wav), est saute : il ferait un cran muet.
+ * L'ordre : le chemin dans le dossier, en ordre
  * naturel (01 avant 02, 2 avant 10), stable d'un lancement a l'autre.
+ *
+ * Le vocabulaire (2026-10-18) comprend aussi les noms francais et ceux des
+ * packs : Grosse caisse ; Caisse claire, SNR ; Charley, Charleston ; Ouvert
+ * (Charley ouvert : oh) ; Percu, Percus, Tom aigu, Tambourin, Clave,
+ * Sidestick, Woodblock ; Cymbale, Splash.
  *
  * Options :
  *   --replace         retire d'abord les fichiers audio des familles qui
  *                     recoivent des nouveaux (et seulement celles-la) ; sans
- *                     lui, les nouveaux s'ajoutent apres les numeros deja la
- *                     (un fichier deja present, meme contenu, est saute)
+ *                     lui (le defaut, et ce que fait npm run samples:mika),
+ *                     les nouveaux s'ajoutent apres les numeros deja la, rien
+ *                     n'est retire ni renumerote (un fichier deja present,
+ *                     meme contenu, est saute)
  *   --dry             montre le plan sans rien ecrire
  *   --families bd,sd  seulement ces familles (par defaut : toutes celles
  *                     trouvees)
+ *   --staged          le dossier de transit de scripts/ableton-samples.mjs :
+ *                     la famille est le dossier de premier niveau (bd/ sd/
+ *                     ...), le nom ne la change pas, et l'appelant donne les
+ *                     etapes suivantes
  *
  * Garde-fous : rien n'est retire hors de public/samples/rytm/<famille>/ (et
  * seulement des fichiers audio) ; un dossier source dans le depot (ou qui le
@@ -57,42 +81,40 @@
  * et rien n'est ecrit tant qu'il manque dans les familles importees (sinon
  * les numeros changeraient au prochain import) ; tout est lu avant de
  * retirer quoi que ce soit ; les cles des presets d'usine (src/v4) qui ne
- * trouveraient plus leur fichier sont listees (--help : l'usage).
+ * trouveraient plus leur fichier sont listees ; un sample du dossier que git
+ * ignore deja (donc pas en ligne) ne compte pas comme present (--help :
+ * l'usage).
  *
  * Sans argument : ~/Library/Mobile Documents/com~apple~CloudDocs/User
  * Library/Samples/shots (l'ancien dossier de Mika).
  */
 
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { lstat, mkdir, readdir, readFile, realpath, stat, unlink, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { mkdir, readdir, readFile, realpath, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AFCONVERT, AUDIO, FAMILIES, HOME_DIR, MAX_BYTES, SITE_DIR, UNDO, aiffToWav, audioKind, gitIgnored, gitStatus, natural, safeStem, sha1, siteFiles, suffixed } from './rytm-samples-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DEFAULT_SRC = path.join(os.homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/User Library/Samples/shots');
+const DEFAULT_SRC = path.join(HOME_DIR, 'Library/Mobile Documents/com~apple~CloudDocs/User Library/Samples/shots');
 const OUT = path.join(ROOT, 'public/samples/rytm');
-const AUDIO = /\.(wav|aiff?|mp3|flac|m4a)$/i;
 /** Les sous-dossiers explores au plus (un dossier de samples, pas un disque entier). */
 const MAX_DEPTH = 8;
-/** Au-dela, ce n'est plus un coup de batterie (et chaque visiteur le telechargerait). */
-const MAX_BYTES = 10 * 1024 * 1024;
-/** Revenir a l'etat d'avant l'import (avant le commit) : git rend les anciens, retire les nouveaux. */
-const UNDO = 'git restore public/samples/rytm && git clean -f public/samples/rytm';
 /** Vrai des que l'import retire ou ecrit (une erreur ensuite donne UNDO). */
 let writing = false;
 /** La plaque coupe a 18 caracteres (sampleLabel). */
 const MAX_NAME = 18;
 
-/**
- * Les familles qui jouent un echantillon (src/v4/audio/samples.ts,
- * FAMILY_DIRS) : une par voix depuis le 2026-10-18 (Mika : "un selecteur de
- * sample environ 20 samples dans chacun des voices qui sont en rapport avec
- * les dossiers"), dans l'ordre des pads. hh (les deux charleys) et rs (les
- * rims) n'existent plus : les rims vont dans ht (percussions).
+/*
+ * Les familles qui jouent un echantillon (rytm-samples-lib.mjs, FAMILIES,
+ * comme src/v4/audio/samples.ts FAMILY_DIRS) : une par voix depuis le
+ * 2026-10-18 (Mika : "un selecteur de sample environ 20 samples dans chacun
+ * des voices qui sont en rapport avec les dossiers"), dans l'ordre des pads.
+ * hh (les deux charleys) et rs (les rims) n'existent plus : les rims vont
+ * dans ht (percussions).
  */
-const FAMILIES = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
+/** Le prefixe d'un nom sans lettre (Kick 3 : BD3, comme BD88 ou BD2550). */
+const FAM_TAG = { bd: 'BD', sd: 'SD', ch: 'CH', oh: 'OH', cp: 'CP', tom: 'TOM', ht: 'HT', cy: 'CY' };
 const TITLE = {
   bd: 'BD (kicks)',
   sd: 'SD (snares)',
@@ -112,35 +134,52 @@ const TITLE = {
  * "hihat" seul est un charley ferme ; "open" seul, un ouvert.
  */
 const WORDS = {
-  bd: { strong: ['kick', 'kicks', 'kickdrum', 'kickdrums', 'bassdrum', 'bassdrums'], weak: ['bd'] },
-  sd: { strong: ['snare', 'snares', 'snaredrum', 'snaredrums'], weak: ['sd'] },
-  ch: { strong: ['hat', 'hats', 'hihat', 'hihats', 'closedhat', 'closedhats', 'closedhihat', 'closedhihats', 'closed', 'chh'], weak: ['hh', 'ch'] },
-  oh: { strong: ['openhat', 'openhats', 'openhihat', 'openhihats', 'open', 'ohh'], weak: ['oh'], over: ['ch'] },
+  bd: { strong: ['kick', 'kicks', 'kickdrum', 'kickdrums', 'bassdrum', 'bassdrums', 'grossecaisse', 'grossescaisses'], weak: ['bd'] },
+  sd: { strong: ['snare', 'snares', 'snaredrum', 'snaredrums', 'caisseclaire', 'caissesclaires'], weak: ['sd', 'snr'] },
+  ch: {
+    strong: ['hat', 'hats', 'hihat', 'hihats', 'closedhat', 'closedhats', 'closedhihat', 'closedhihats', 'closed', 'chh', 'charley', 'charleys', 'charleston', 'charlestons'],
+    weak: ['hh', 'ch'],
+  },
+  oh: { strong: ['openhat', 'openhats', 'openhihat', 'openhihats', 'open', 'ohh', 'ouvert', 'ouverts', 'ouverte', 'ouvertes'], weak: ['oh'], over: ['ch'] },
   cp: { strong: ['clap', 'claps', 'handclap', 'handclaps'], weak: ['cp'] },
   tom: { strong: ['tom', 'toms', 'lowtom', 'lowtoms', 'lotom', 'lotoms', 'floortom', 'floortoms'], weak: ['lt'] },
   ht: {
-    strong: ['hitom', 'hitoms', 'hightom', 'hightoms', 'perc', 'percs', 'percussion', 'percussions', 'conga', 'congas', 'bongo', 'bongos', 'shaker', 'shakers', 'rim', 'rims', 'rimshot', 'rimshots', 'cowbell', 'cowbells'],
+    strong: [
+      'hitom', 'hitoms', 'hightom', 'hightoms', 'tomaigu', 'tomaigus', 'tomsaigus', 'perc', 'percs', 'percu', 'percus', 'percussion', 'percussions',
+      'conga', 'congas', 'bongo', 'bongos', 'shaker', 'shakers', 'rim', 'rims', 'rimshot', 'rimshots', 'sidestick', 'sidesticks', 'cowbell', 'cowbells',
+      'tambourine', 'tambourines', 'tambourin', 'tambourins', 'clave', 'claves', 'woodblock', 'woodblocks',
+    ],
     weak: ['ht', 'rs'],
     over: ['tom'],
   },
-  cy: { strong: ['cymbal', 'cymbals', 'cym', 'cyms', 'crash', 'crashes', 'ride', 'rides'], weak: ['cy'] },
+  cy: { strong: ['cymbal', 'cymbals', 'cymbale', 'cymbales', 'cym', 'cyms', 'crash', 'crashes', 'ride', 'rides', 'splash', 'splashes'], weak: ['cy'] },
 };
 
 /** Ce qu'on retire du nom propre, par famille (seulement les mots de sa famille : AT Tom Trago - Kick F garde Tom). */
 const STRIP = {
-  bd: { words: 'kick\\s?drums?|bass\\s?drums?|kicks?', glued: 'kicks?', camel: 'Kicks?|Kickdrums?|Bassdrums?', abbr: 'BD' },
-  sd: { words: 'snare\\s?drums?|snares?', glued: 'snares?', camel: 'Snares?', abbr: 'SD' },
-  ch: { words: 'closed\\s?hi[\\s-]?hats?|closed\\s?hats?|hi[\\s-]?hats?|hats?|closed', glued: 'hats?', camel: 'Hats?|Hihats?|Closed', abbr: 'CH|HH|CHH' },
-  oh: { words: 'open\\s?hi[\\s-]?hats?|open\\s?hats?|hi[\\s-]?hats?|hats?|open', glued: 'hats?', camel: 'Hats?|Hihats?|Open', abbr: 'OH|OHH' },
+  bd: { words: 'grosses?\\s?caisses?|kick\\s?drums?|bass\\s?drums?|kicks?', glued: 'kicks?', camel: 'Kicks?|Kickdrums?|Bassdrums?', abbr: 'BD' },
+  sd: { words: 'caisses?\\s?claires?|snare\\s?drums?|snares?', glued: 'snares?', camel: 'Snares?', abbr: 'SD|SNR' },
+  ch: {
+    words: 'closed\\s?hi[\\s-]?hats?|closed\\s?hats?|hi[\\s-]?hats?|hats?|closed|charleys?|charlestons?',
+    glued: 'hats?',
+    camel: 'Hats?|Hihats?|Closed|Charleys?',
+    abbr: 'CH|HH|CHH',
+  },
+  oh: {
+    words: 'open\\s?hi[\\s-]?hats?|open\\s?hats?|hi[\\s-]?hats?|hats?|open|charleys?|charlestons?|ouverte?s?',
+    glued: 'hats?',
+    camel: 'Hats?|Hihats?|Open|Charleys?',
+    abbr: 'OH|OHH',
+  },
   cp: { words: 'hand\\s?claps?|claps?', glued: 'claps?', camel: 'Claps?', abbr: 'CP' },
   tom: { words: 'low\\s?toms?|lo\\s?toms?|floor\\s?toms?|toms?', glued: 'toms?', camel: 'Toms?', abbr: 'TOM|LT' },
   ht: {
-    words: 'hi(?:gh)?\\s?toms?|toms?|percussions?|percs?|congas?|bongos?|shakers?|rim\\s?shots?|rims?|cowbells?',
+    words: 'hi(?:gh)?\\s?toms?|toms?|percussions?|percus?|percs?|congas?|bongos?|shakers?|rim\\s?shots?|rims?|cowbells?|tambourin(?:e)?s?',
     glued: 'toms?|percs?',
     camel: 'Toms?|Percs?|Percussions?|Congas?|Bongos?|Shakers?|Rims?|Rimshots?|Cowbells?',
     abbr: 'HT|RS|PERC',
   },
-  cy: { words: 'cymbals?|cyms?|crash(?:es)?|rides?', glued: 'cymbals?|crash', camel: 'Cymbals?|Crash(?:es)?|Rides?', abbr: 'CY|CYM' },
+  cy: { words: 'cymbales?|cymbals?|cyms?|crash(?:es)?|rides?|splash(?:es)?', glued: 'cymbals?|crash', camel: 'Cymbals?|Crash(?:es)?|Rides?', abbr: 'CY|CYM' },
 };
 
 /**
@@ -160,13 +199,17 @@ function sampleLabel(file) {
 
 /* ---------------- arguments ---------------- */
 
-const USAGE = `Usage : npm run samples:import -- "/chemin/vers/Samples" [--replace] [--dry] [--families bd,sd]
+const USAGE = `Usage : npm run samples:import -- "/chemin/vers/Samples" [--dry] [--families bd,sd] [--replace]
 
-  --replace         retire d'abord les anciens fichiers des familles qui en recoivent des nouveaux
+  (par defaut)      les nouveaux s'ajoutent apres les numeros deja la ; rien n'est retire ni renumerote
   --dry             montre le plan sans rien ecrire
   --families bd,sd  seulement ces familles (bd sd ch oh cp tom ht cy, une par voix ; par defaut : toutes celles trouvees)
+  --staged          dossier de transit de scripts/ableton-samples.mjs (la famille est le dossier bd/ sd/ ...)
+  --replace         ATTENTION : retire d'abord les anciens fichiers des familles qui en recoivent des nouveaux
+                    (les presets d'usine visent bd/01 a 06 et sd/01 a 04 par leur numero)
 
-Sans dossier : ${DEFAULT_SRC}`;
+Sans dossier : ${DEFAULT_SRC}
+Tout en une commande, depuis les projets Ableton : npm run samples:mika`;
 
 function fail(msg, code = 1) {
   console.error(`${msg}\n\n${USAGE}`);
@@ -182,10 +225,11 @@ function familyCode(word) {
 }
 
 function parseArgs(argv) {
-  const o = { replace: false, dry: false, families: null, pos: [] };
+  const o = { replace: false, dry: false, staged: false, families: null, pos: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--replace') o.replace = true;
+    else if (a === '--staged') o.staged = true;
     else if (a === '--dry' || a === '--dry-run' || a === '-n') o.dry = true;
     else if (a === '--help' || a === '-h') {
       console.log(USAGE);
@@ -207,7 +251,7 @@ function parseArgs(argv) {
   return o;
 }
 
-const expand = (p) => path.resolve(p.trim().replace(/^~(?=$|\/)/, os.homedir()));
+const expand = (p) => path.resolve(p.trim().replace(/^~(?=$|\/)/, HOME_DIR));
 
 async function isDir(p) {
   try {
@@ -352,8 +396,12 @@ function familyOfName(file) {
  * dossier de charleys ou de toms, le nom choisit la jumelle (Hats/Open Hat
  * 01.wav : oh ; Toms/Hi Tom.wav : ht), sinon le dossier fait foi.
  */
-function classify(file, srcBase) {
+function classify(file, srcBase, staged = false) {
   const dirs = file.rel.split(path.sep).slice(0, -1);
+  // Le dossier de transit de scripts/ableton-samples.mjs : la famille est decidee, le dossier la dit
+  if (staged) {
+    return dirs.length === 1 && FAMILIES.includes(dirs[0]) ? { fam: dirs[0], via: `transit ${dirs[0]}/` } : { fam: null, why: 'hors des dossiers de transit (bd/ sd/ ch/ ...)' };
+  }
   const byName = familyOfName(file);
   const refine = (fam, via) => (byName.fam && SIBLING[fam] === byName.fam ? { fam: byName.fam, via: `${via}, ${byName.via}` } : { fam, via });
   for (const d of [...dirs].reverse()) {
@@ -396,9 +444,10 @@ function cut(s, n) {
 function candidates(file, fam) {
   const s = STRIP[fam];
   const base = file.name.replace(/\.[^.]+$/, '').normalize('NFC').replace(/_/g, ' ');
+  // Le numero d'ordre en tete (1, 01, 12) ; 707, 808, 909 sont des noms (909 Long garde 909)
   const strip = (t0, dropNumber) => {
     let t = t0;
-    if (dropNumber) t = t.replace(/^\s*\d+\s*[-.]?\s+/, '');
+    if (dropNumber) t = t.replace(/^\s*\d{1,2}\s*[-.]?\s+/, '');
     t = t.replace(/^AT\s+/i, '');
     t = t.replace(new RegExp(`\\b(master\\s+)?(${s.words})\\b`, 'gi'), ' ');
     t = t.replace(new RegExp(`(master\\s+)?(${s.glued})(?=\\d)`, 'gi'), ' ');
@@ -411,7 +460,7 @@ function candidates(file, fam) {
   if (!full) full = strip(base, false);
   // Plus rien du tout (Low Tom, Rimshot, Ride Cymbal : que des mots de la famille) : le nom du fichier tel quel,
   // plutot que SAMPLE (2026-10-18, les familles ht et cy strippent beaucoup de mots)
-  if (!full) full = tidy(base.replace(/^\s*\d+\s*[-.]?\s+/, '').replace(/^AT\s+/i, ''));
+  if (!full) full = tidy(base.replace(/^\s*\d{1,2}\s*[-.]?\s+/, '').replace(/^AT\s+/i, ''));
   // Rien que des chiffres : le dossier qui les range, s'il dit quelque chose (Techno/Kick 01 : Techno 01)
   if (!hasLetter(full)) {
     const ctx = file.rel
@@ -428,22 +477,34 @@ function candidates(file, fam) {
   let short = noKey;
   const dash = base.split(/\s+-\s+/);
   if (dash.length > 1 && strip(dash[0], true) === noKey && /^\p{Lu}\p{Ll}+ \p{Lu}[\p{Ll}'-]+$/u.test(noKey)) short = noKey.split(' ')[1];
-  const list = [short, key ? `${short} ${key}` : short, noKey, key ? `${noKey} ${key}` : noKey].map((x) => cut(x, MAX_NAME));
+  const list = [short, key ? `${short} ${key}` : short, noKey, key ? `${noKey} ${key}` : noKey].map((x) => gitSafe(cut(x, MAX_NAME), fam));
   return [...new Set(list)];
+}
+
+/**
+ * Un nom que git voit (2026-10-18) : "13 OT 3.wav" tomberait sous la regle
+ * '* 3.*' de .gitignore. Un chiffre seul en fin de nom se colle au mot
+ * d'avant (OT3) ; un nom fait d'un numero d'un ou deux chiffres prend le
+ * sigle de la famille, comme BD88 (Kick 3 : BD3 ; Closed Hat 01 : CH01 ;
+ * "13 3.wav" serait ignore, "13 01.wav" ne dirait rien). Un nombre de trois
+ * chiffres et plus est un nom (707), et Psy 02 reste Psy 02.
+ */
+function gitSafe(stem, fam) {
+  const s = safeStem(stem);
+  return /^\d{0,2}$/.test(s) ? `${FAM_TAG[fam]}${s}` : s;
 }
 
 /** Le numero en tete d'un nom de fichier (03 Engelhardt.wav : 3), ou 0. */
 const leadNumber = (f) => Number(f.match(/^\s*(\d+)/)?.[1] ?? 0);
-const natural = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }) || (a < b ? -1 : a > b ? 1 : 0);
-const sha1 = (buf) => createHash('sha1').update(buf).digest('hex');
 const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} Mo` : `${n > 0 ? Math.max(1, Math.round(n / 1024)) : 0} Ko`);
 
 /**
  * Donne a chaque nouveau fichier son nom : chacun commence par son nom le
  * plus court ; tant que deux noms (ou un nom deja dans la famille) donnent la
- * meme plaque, ceux-la passent au nom suivant ; au bout, " 2", " 3".
+ * meme plaque, ceux-la passent au nom suivant ; au bout, un numero colle
+ * (Stein2, OT3-2 : jamais " 2" ni " 3", que .gitignore cacherait).
  */
-function assignNames(items, taken) {
+function assignNames(items, taken, fam) {
   const level = items.map(() => 0);
   const label = (i) => sampleLabel(`01 ${items[i].cands[level[i]]}.wav`);
   for (let guard = 0; guard < 16; guard += 1) {
@@ -467,7 +528,7 @@ function assignNames(items, taken) {
   const used = new Set(taken);
   return items.map((it, i) => {
     let name = it.cands[level[i]];
-    for (let k = 2; used.has(sampleLabel(`01 ${name}.wav`)); k += 1) name = `${cut(it.cands[level[i]], MAX_NAME - String(k).length - 1)} ${k}`;
+    for (let k = 2; used.has(sampleLabel(`01 ${name}.wav`)); k += 1) name = suffixed(gitSafe(cut(it.cands[level[i]], MAX_NAME - String(k).length - 1), fam), k);
     used.add(sampleLabel(`01 ${name}.wav`));
     return name;
   });
@@ -511,12 +572,14 @@ async function main() {
   if (inside(realRoot, realSrc)) fail(`Refuse : ${SRC} contient le depot lui-meme. Donne seulement le dossier de tes samples.`);
 
   console.log(`Samples MM-RYTM : ${SRC} ${note}`.trim());
-  console.log(`Mode : ${opts.dry ? "APERCU (--dry, rien n'est ecrit)" : 'copie'}${opts.replace ? ', --replace (les anciens des familles concernees sont retires)' : ', ajout apres les numeros deja la'}${opts.families ? `, familles : ${opts.families.join(' ')}` : ''}\n`);
+  console.log(`Mode : ${opts.dry ? "APERCU (--dry, rien n'est ecrit)" : 'copie'}${opts.replace ? ', --replace (les anciens des familles concernees sont retires)' : ', ajout apres les numeros deja la (rien n\'est retire ni renumerote)'}${opts.staged ? ', dossier de transit' : ''}${opts.families ? `, familles : ${opts.families.join(' ')}` : ''}\n`);
 
   const acc = await walk(SRC, '', 0, { audio: [], other: new Map(), unreadable: [], tooDeep: [] });
   const srcBase = path.basename(SRC);
-  for (const f of acc.audio) Object.assign(f, classify(f, srcBase));
+  for (const f of acc.audio) Object.assign(f, classify(f, srcBase, opts.staged));
   acc.audio.sort((a, b) => natural(a.rel, b.rel));
+  // Ce qui est deja sur le site, et ce que git ignore (sur ce disque, jamais en ligne)
+  const site = await siteFiles(ROOT);
 
   const unknown = acc.audio.filter((f) => !f.fam);
   const filtered = acc.audio.filter((f) => f.fam && opts.families && !opts.families.includes(f.fam));
@@ -529,16 +592,56 @@ async function main() {
   // Tout le contenu en memoire avant de retirer quoi que ce soit
   for (const f of chosen) {
     if (f.placeholder) continue;
+    // Ce que le site ne saurait pas lire est saute (relecture S2) : un cran du potard qui ne jouerait rien
+    if (f.size === 0) {
+      f.skip = 'vide (0 octet)';
+      continue;
+    }
     if (f.size > MAX_BYTES) {
       f.skip = `trop gros (${kb(f.size)}, ${kb(MAX_BYTES)} au plus)`;
       continue;
     }
+    let data;
     try {
-      f.data = await readFile(f.full);
-      f.hash = sha1(f.data);
+      data = await readFile(f.full);
     } catch (e) {
       problems.push(`illisible : ${f.rel} (${e.code ?? e.message})`);
+      continue;
     }
+    // Le contenu decide, pas l'extension (rytm-samples-lib.mjs, audioKind)
+    const kind = audioKind(data);
+    if (!kind) {
+      f.skip = data.length === 0 ? 'vide (0 octet)' : "pas un fichier audio lisible (son debut n'est ni WAV, AIFF, MP3, FLAC ni M4A)";
+      continue;
+    }
+    if (kind === 'aiff') {
+      // Safari lit l'AIFF, Chrome et Firefox non : converti en WAV (afconvert, macOS), sinon laisse de cote
+      f.from = sha1(data);
+      if (!AFCONVERT) {
+        f.skip = "AIFF : Chrome et Firefox ne le lisent pas, et afconvert (macOS) n'est pas la pour le convertir en WAV";
+        f.aiff = true;
+        continue;
+      }
+      try {
+        data = await readFile(aiffToWav(f.full));
+      } catch (e) {
+        f.skip = `AIFF, la conversion en WAV a echoue (${e.message})`;
+        f.aiff = true;
+        continue;
+      }
+      if (audioKind(data) !== 'wav') {
+        f.skip = "AIFF, la conversion n'a pas donne de WAV";
+        f.aiff = true;
+        continue;
+      }
+      if (data.length > MAX_BYTES) {
+        f.skip = `trop gros une fois en WAV (${kb(data.length)}, ${kb(MAX_BYTES)} au plus)`;
+        continue;
+      }
+      f.ext = '.wav';
+    }
+    f.data = data;
+    f.hash = sha1(data);
   }
 
   const plan = [];
@@ -549,13 +652,11 @@ async function main() {
       continue;
     }
     const dir = path.join(OUT, fam);
-    const existing = [];
-    for (const name of (await readdir(dir).catch(() => [])).sort(natural)) {
-      if (name.startsWith('.') || !AUDIO.test(name)) continue;
-      const full = path.join(dir, name);
-      const st = await lstat(full).catch(() => null);
-      if (!st?.isFile()) continue;
-      existing.push({ name, full, hash: sha1(await readFile(full)), label: sampleLabel(name) });
+    const here = site.byFam.get(fam) ?? [];
+    const existing = here.filter((x) => !x.ignored).map((x) => ({ name: x.name, full: x.full, hash: x.hash, label: sampleLabel(x.name) }));
+    const hidden = here.filter((x) => x.ignored);
+    if (hidden.length > 0) {
+      notes.push(`${fam} : ${hidden.length} fichier(s) que git ignore, donc jamais en ligne, pas comptes : ${hidden.map((x) => `${x.name} (${x.ignored})`).join(', ')} ; renomme-les sans " 2" ni " 3" a la fin, ou retire-les`);
     }
     const seen = new Map();
     const items = [];
@@ -567,19 +668,20 @@ async function main() {
         continue;
       }
       seen.set(f.hash, f);
-      const here = !opts.replace && existing.find((x) => x.hash === f.hash);
-      if (here) {
-        f.skip = `deja la : ${fam}/${here.name}`;
+      // Un AIFF converti : son WAV, ou l'AIFF lui-meme d'un ancien import, deja la
+      const twinHere = !opts.replace && existing.find((x) => x.hash === f.hash || (f.from && x.hash === f.from));
+      if (twinHere) {
+        f.skip = `deja la : ${fam}/${twinHere.name}`;
         continue;
       }
       items.push({ f, cands: candidates(f, fam) });
     }
     const keep = opts.replace ? [] : existing;
     const start = opts.replace ? 1 : Math.max(0, ...keep.map((x) => leadNumber(x.name)), keep.length) + 1;
-    const names = assignNames(items, new Set(keep.map((x) => x.label)));
+    const names = assignNames(items, new Set(keep.map((x) => x.label)), fam);
     const width = Math.max(2, String(start + items.length - 1).length);
     const adds = items.map((it, i) => {
-      const file = `${String(start + i).padStart(width, '0')} ${names[i]}${path.extname(it.f.name).toLowerCase()}`;
+      const file = `${String(start + i).padStart(width, '0')} ${names[i]}${it.f.ext ?? path.extname(it.f.name).toLowerCase()}`;
       return { ...it, file, label: sampleLabel(file) };
     });
     const removes = opts.replace && adds.length > 0 ? existing : [];
@@ -593,7 +695,7 @@ async function main() {
     if (!opts.replace) for (const x of p.keep) console.log(`  = garde    ${x.name}`);
     const w = Math.max(10, ...p.adds.map((a) => a.file.length));
     const wl = Math.max(8, ...p.adds.map((a) => a.label.length));
-    for (const a of p.adds) console.log(`  + ${a.file.padEnd(w)}  ${a.label.padEnd(wl)}  <-  ${a.f.rel}  [${a.f.via}]`);
+    for (const a of p.adds) console.log(`  + ${a.file.padEnd(w)}  ${a.label.padEnd(wl)}  <-  ${a.f.rel}  [${a.f.via}${a.f.ext ? ', AIFF -> WAV' : ''}]`);
     for (const f of p.incoming.filter((x) => x.skip)) console.log(`  . saute    ${f.rel} : ${f.skip}`);
     for (const f of p.incoming.filter((x) => x.placeholder)) console.log(`  ! iCloud   ${f.rel} : pas encore telecharge`);
     if (p.adds.length === 0) console.log('  (rien de nouveau : la famille reste comme elle est)');
@@ -615,17 +717,17 @@ async function main() {
     console.log(`Pas de l'audio pris en charge (wav aif aiff mp3 flac m4a), ignores : ${list}\n`);
   }
   if (acc.tooDeep.length > 0) notes.push(`dossiers trop profonds (plus de ${MAX_DEPTH} niveaux), pas lus : ${acc.tooDeep.join(', ')}`);
-  const aiff = plan.flatMap((p) => p.adds).filter((a) => /\.aiff?$/i.test(a.file));
-  if (aiff.length > 0) {
+  const converted = plan.flatMap((p) => p.adds).filter((a) => a.f.ext);
+  if (converted.length > 0) notes.push(`${converted.length} AIFF converti(s) en WAV (afconvert) : Chrome et Firefox ne lisent pas l'AIFF`);
+  const aiffOut = chosen.filter((f) => f.aiff);
+  if (aiffOut.length > 0) {
     notes.push(
-      `${aiff.length} fichier(s) AIFF : Safari les lit, Chrome et Firefox non (la voix y garde son son calcule). ` +
-        'Pour tous les navigateurs, convertis-les en WAV avant (afconvert -f WAVE -d LEI16 "in.aif" "out.wav") et relance.'
+      `${aiffOut.length} AIFF laisse(s) de cote : Chrome et Firefox ne les lisent pas, et rien ne les convertit ici. ` +
+        'Lance l\'import sur le Mac (afconvert les convertit tout seul), ou convertis-les avant (afconvert -f WAVE -d LEI16 "in.aif" "out.wav").'
     );
   }
-  for (const p of plan) {
-    const n = p.keep.length + p.adds.length;
-    if (n > 8) notes.push(`${p.fam} : ${n} samples, au-dela de 8 la plaque du potard ecrit leur numero au lieu du nom (l'ecran garde les noms)`);
-  }
+  const crowded = plan.filter((p) => p.keep.length + p.adds.length > 8).map((p) => `${p.fam} ${p.keep.length + p.adds.length}`);
+  if (crowded.length > 0) notes.push(`plus de 8 samples (${crowded.join(', ')}) : la plaque du potard ecrit leur numero au lieu du nom (l'ecran garde les noms)`);
 
   // Les presets d'usine visent des cles : celles qui disparaitraient
   const after = new Set(plan.flatMap((p) => [...p.keep, ...p.adds].map((x) => `${p.fam}/${x.name ?? x.file}`)));
@@ -644,6 +746,18 @@ async function main() {
     console.log('  Dis-le a Claude avec cette liste : il remet les presets sur les nouveaux noms.\n');
   }
 
+  /* ----- git verra-t-il les nouveaux ? ----- */
+  // .gitignore ecarte '* 2.*' et '* 3.*' : un nouveau fichier ignore jouerait ici et manquerait en ligne
+  const newRels = plan.flatMap((p) => p.adds.map((a) => `${SITE_DIR}/${p.fam}/${a.file}`.normalize('NFC')));
+  const ig = gitIgnored(ROOT, newRels);
+  const hiddenNew = newRels.filter((r) => ig.ignored.has(r));
+  if (!ig.ok && newRels.length > 0) notes.push(`pas de verification git (${ig.why}) : verifie a la main que git status voit les nouveaux fichiers`);
+  if (hiddenNew.length > 0) {
+    console.error(`GIT LES IGNORERAIT (${hiddenNew.length}) : ces nouveaux fichiers resteraient sur ce disque et n'iraient jamais en ligne :`);
+    for (const r of hiddenNew) console.error(`  x ${r}  (${ig.ignored.get(r)})`);
+    console.error('');
+  }
+
   /* ----- les blocages ----- */
   if (placeholders.length > 0) {
     console.log(`iCloud : ${placeholders.length} fichier(s) pas encore telecharge(s) sur ce Mac :`);
@@ -658,16 +772,22 @@ async function main() {
   const adds = plan.reduce((n, p) => n + p.adds.length, 0);
   const removes = plan.reduce((n, p) => n + p.removes.length, 0);
   const bytes = plan.reduce((n, p) => n + p.adds.reduce((m, a) => m + a.f.data.length, 0), 0);
-  const blocked = blocking.length > 0 || problems.length > 0;
+  const blocked = blocking.length > 0 || problems.length > 0 || hiddenNew.length > 0;
   const summary = `${adds} a copier (${kb(bytes)}), ${removes} a retirer, ${unknown.length} inconnu(s), ${placeholders.length} pas telecharge(s)`;
 
   if (opts.dry) {
     console.log(`APERCU : ${summary}. Rien n'est ecrit.${blocked ? " (Tel quel, l'import s'arreterait : voir plus haut.)" : ''}`);
-    console.log(`Pour le faire : npm run samples:import -- "${SRC}"${opts.replace ? ' --replace' : ''}${opts.families ? ` --families ${opts.families.join(',')}` : ''}`);
+    console.log(`Pour le faire : npm run samples:import -- "${SRC}"${opts.replace ? ' --replace' : ''}${opts.staged ? ' --staged' : ''}${opts.families ? ` --families ${opts.families.join(',')}` : ''}`);
     process.exit(blocked ? 2 : 0);
   }
   if (blocked) {
-    console.error(`RIEN N'EST ECRIT : ${blocking.length > 0 ? `${blocking.length} fichier(s) iCloud pas telecharge(s)` : 'des fichiers illisibles'} (sinon les numeros changeraient au prochain import). Regle-le et relance.`);
+    const why =
+      blocking.length > 0
+        ? `${blocking.length} fichier(s) iCloud pas telecharge(s) (sinon les numeros changeraient au prochain import)`
+        : problems.length > 0
+          ? 'des fichiers illisibles'
+          : `${hiddenNew.length} nouveau(x) nom(s) que git ignorerait (dis-le a Claude avec la liste ci-dessus)`;
+    console.error(`RIEN N'EST ECRIT : ${why}. Regle-le et relance.`);
     process.exit(2);
   }
   if (adds === 0) {
@@ -677,6 +797,7 @@ async function main() {
 
   /* ----- l'ecriture ----- */
   writing = true;
+  const written = [];
   const realOut = path.join(realRoot, 'public', 'samples', 'rytm');
   for (const p of plan) {
     if (p.adds.length === 0) continue;
@@ -688,7 +809,23 @@ async function main() {
       if (path.dirname(x.full) !== p.dir || !AUDIO.test(x.name) || x.name.includes(path.sep)) throw new Error(`refuse de retirer ${x.full}`);
       await unlink(x.full);
     }
-    for (const a of p.adds) await writeFile(path.join(p.dir, a.file), a.f.data, { flag: 'wx' });
+    for (const a of p.adds) {
+      await writeFile(path.join(p.dir, a.file), a.f.data, { flag: 'wx' });
+      written.push(path.join(p.dir, a.file));
+    }
+  }
+
+  // Git doit voir chaque nouveau fichier (non suivi, pas ignore) : sinon ils repartent tous et l'import s'arrete
+  const st = ig.ok ? gitStatus(ROOT, SITE_DIR) : null;
+  if (st) {
+    const visible = new Set(st.filter((e) => e.xy === '??').map((e) => e.rel));
+    const unseen = newRels.filter((r) => !visible.has(r));
+    if (unseen.length > 0) {
+      for (const f of written) await unlink(f).catch(() => {});
+      console.error(`ARRETE : git ne voit pas ${unseen.length} nouveau(x) fichier(s) (${unseen.join(', ')}) : les ${written.length} nouveaux sont retires.`);
+      if (removes > 0) console.error(`Les anciens retires par --replace reviennent avec : ${UNDO}`);
+      process.exit(2);
+    }
   }
 
   const fams = plan.filter((p) => p.adds.length > 0).map((p) => p.fam);
@@ -697,6 +834,9 @@ async function main() {
     const first = p.keep[0]?.name ?? p.adds[0].file;
     console.log(`  ${p.fam} : ${p.keep.length + p.adds.length} sample(s), le premier (le son par defaut) : ${first}`);
   }
+  if (st) console.log(`  git voit les ${newRels.length} nouveaux fichiers (git status public/samples/rytm).`);
+  // Appele par scripts/ableton-samples.mjs : c'est lui qui verifie, committe et pousse
+  if (opts.staged) return;
   console.log(`
 Prochaines etapes :
   1. Ecoute-les : npm run dev, MM-RYTM, choix de son de ${fams.map((f) => f.toUpperCase()).join(' / ')}
