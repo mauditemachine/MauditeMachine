@@ -2633,6 +2633,10 @@ export class Stage {
     rytmInfos.hover(id);
     // Un bloc de l'ecran sous la souris (2026-10-09, l'ecran est l'editeur) : son cadre de survol
     rytmPage.hover(id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : -1);
+    // Une ligne du navigateur des sons sous la souris (2026-10-18) : son rang a l'ecran (elle reste sous la souris quand la
+    // liste defile), un fond a peine plus clair
+    const sbRow = id !== null ? /^lcd-sb-(?:row|del)-([0-9]+)$/.exec(id) : null;
+    lcdSamples.hover(sbRow ? Number(sbRow[1]) : -1);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
     // Puce du PCB (vue ouverte)

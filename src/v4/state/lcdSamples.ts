@@ -54,9 +54,11 @@ export interface SoundBrowserState {
   readonly focus: number;
   /** un fichier glisse au-dessus du MM-RYTM : la voix sous le pointeur, 'pad' ailleurs sur la machine ; null rien */
   readonly drop: Inst | 'pad' | null;
+  /** la ligne montree sous la souris (son rang a l'ecran, 0 la premiere montree ; desktop), -1 aucune */
+  readonly hover: number;
 }
 
-const CLOSED: SoundBrowserState = { open: false, top: 0, cursor: -1, arm: -1, focus: 0, drop: null };
+const CLOSED: SoundBrowserState = { open: false, top: 0, cursor: -1, arm: -1, focus: 0, drop: null, hover: -1 };
 let state: SoundBrowserState = CLOSED;
 const listeners = new Set<() => void>();
 let idleTimer = 0;
@@ -72,7 +74,7 @@ function emit(): void {
 function set(next: Partial<SoundBrowserState>): void {
   const prev = state;
   state = { ...state, ...next };
-  if (state.top !== prev.top || state.cursor !== prev.cursor || state.arm !== prev.arm || state.open !== prev.open || state.focus !== prev.focus || state.drop !== prev.drop) emit();
+  if (state.top !== prev.top || state.cursor !== prev.cursor || state.arm !== prev.arm || state.open !== prev.open || state.focus !== prev.focus || state.drop !== prev.drop || state.hover !== prev.hover) emit();
 }
 
 /** Le minuteur du repos : BROWSER_IDLE_MS apres le dernier geste, la liste se ferme. */
@@ -98,7 +100,7 @@ export const lcdSamples = {
       if (focus) set({ focus: state.focus + 1 });
       return;
     }
-    set({ open: true, top: Math.max(0, Math.round(top)), cursor: -1, arm: -1, focus: state.focus + (focus ? 1 : 0) });
+    set({ open: true, top: Math.max(0, Math.round(top)), cursor: -1, arm: -1, hover: -1, focus: state.focus + (focus ? 1 : 0) });
   },
   /** Un geste dans la liste (une ligne, la molette, PREV et NEXT, un cran de SOUND) : son repos repart. */
   touch(): void {
@@ -145,7 +147,12 @@ export const lcdSamples = {
     idleTimer = 0;
     armTimer = 0;
     if (!state.open) return;
-    set({ open: false, cursor: -1, arm: -1 });
+    set({ open: false, cursor: -1, arm: -1, hover: -1 });
+  },
+  /** La ligne montree sous la souris (desktop, scene/renderer.ts setHover), -1 aucune. */
+  hover(k: number): void {
+    const h = Math.max(-1, Math.round(k));
+    if (h !== state.hover) set({ hover: h });
   },
   /**
    * Un fichier glisse au-dessus de la machine (2026-10-18) : la voix sous le

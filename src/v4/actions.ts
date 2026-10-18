@@ -606,7 +606,8 @@ export function dial(id: EncId, v: number, popup = false): void {
     setVoiceFx(inst, p, v);
     // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron), sur l'ecran d'aujourd'hui
     // seulement (HOME, EDIT) ; en vue PAGE (2026-10-08) le bloc VOL de AMP montre la valeur, la ligne du bas la dit
-    if (id === 'vol' && screenHome()) lcdMix.show(inst);
+    // Le navigateur des sons ouvert (2026-10-18) : il garde l'ecran, la valeur s'ecrit a son pied
+    if (id === 'vol' && screenHome() && !lcdSamples.isOpen()) lcdMix.show(inst);
     else {
       lcdMessage.show(readout(id as ContEnc, dialValue(id), inst), POT_UI.readoutMs, true);
       touchPage(id, inst);

@@ -163,10 +163,11 @@ function composePresets(v: PresetView): Omit<LcdState, 'updates'> {
 function compose(now: number): Omit<LcdState, 'updates'> {
   const pv = presetMode.view('mm808');
   if (pv) return composePresets(pv);
-  const mixPage = lcdMix.get(now);
-  if (mixPage) return composeMix(mixPage.sel);
+  // Le navigateur des sons (2026-10-18) passe avant la page MIX : l'ecran le montre, par-dessus HOME
   const browser = soundBrowserView();
   if (browser) return composeSamples(browser, now);
+  const mixPage = lcdMix.get(now);
+  if (mixPage) return composeMix(mixPage.sel);
   const s = section.get();
   const p = pattern.get();
   const line1 = row(s ? SECTION_TITLES[s] : LCD_TEXT.idle, `${p.bpm} BPM`);

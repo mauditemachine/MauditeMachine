@@ -523,6 +523,8 @@ const SB: {
   : { rows: [24, 99], x0: 8, x1: 306, bar: 312.5, del: 17, arrows: [[255, 277], [280, 302]], arrow: 4.2, head: 11.5, rank: 8, num: 6, label: 8.8, tag: 5.6, hint: [6.8, 5.8] };
 /** Une ligne du navigateur. */
 const SB_PITCH = (SB.rows[1] - SB.rows[0]) / BROWSER_ROWS;
+/** Une ligne du navigateur sous la souris : un fond un peu plus franc que celui d'un bloc (une ligne est plus mince). */
+const SB_HOVER = 'rgba(246, 241, 231, 0.09)';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 
@@ -1402,6 +1404,7 @@ export class Screen {
     const rr = TALL ? 4 : 2.6;
     const numW = this.textWidth('88', SB.num, 600, 0.3);
     const keyed = lcdSamples.get().cursor >= 0;
+    const hover = lcdSamples.get().hover;
     const drawn: string[] = [];
     for (let k = 0; k < v.visible; k += 1) {
       const i = v.top + k;
@@ -1413,10 +1416,15 @@ export class Screen {
       const armed = i === v.arm;
       const cursor = keyed && i === v.cursor;
       const full = cur && !armed;
+      // Sous la souris (desktop) : un fond a peine plus clair, comme un bloc survole
+      if (k === hover && !full && !armed) this.roundRect(x0, y + pad, x1 - x0, SB_PITCH - 2 * pad, rr, SB_HOVER);
       if (full) this.roundRect(x0, y + pad, x1 - x0, SB_PITCH - 2 * pad, rr, INK);
       if (armed) this.roundRect(x0 + 0.5, y + pad + 0.5, x1 - x0 - 1, SB_PITCH - 2 * pad - 1, rr, null, INK, TALL ? 1.6 : 1.2);
-      // La ligne du clavier : un cadre (sur la pastille du son du moment, en noir dedans)
-      if (cursor && !armed) this.roundRect(x0 + 1.6, y + pad + 1.6, x1 - x0 - 3.2, SB_PITCH - 2 * pad - 3.2, Math.max(1, rr - 1.4), null, full ? BLACK : INK, TALL ? 1.4 : 1);
+      // La ligne du clavier : un cadre a la place de la pastille (sur la pastille du son du moment, en noir, juste dedans)
+      if (cursor && !armed) {
+        const ins = full ? (TALL ? 2.2 : 1.3) : 0.5;
+        this.roundRect(x0 + ins, y + pad + ins, x1 - x0 - 2 * ins, SB_PITCH - 2 * pad - 2 * ins, Math.max(1, rr - ins), null, full ? BLACK : INK, TALL ? 1.4 : 0.9);
+      }
       const fg = full ? BLACK : r.kind === 'load' ? HALF : INK;
       const sub = full ? 'rgba(0, 0, 0, 0.55)' : HALF;
       const by = (size: number): number => cy + size * 0.36;
