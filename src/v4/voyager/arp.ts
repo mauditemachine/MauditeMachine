@@ -170,7 +170,13 @@ function scheduleStep(now: number, silent = false): void {
   // MOD cale sur la mesure (2026-10-18) : la place de ce pas, en temps depuis le debut de la premiere mesure (une
   // premiere mesure prise en route, sur la grille de la boite, compte depuis son debut) ; chaque pas a l'heure, qu'il
   // joue une note ou non
-  if (!silent) synthBeat(nextTime, (bar * 16 + stepIdx) / 4, stepDur, opening);
+  // La duree que ce pas durera vraiment (la relecture du 2026-10-18) : sur la grille de la boite, l'ecart au pas suivant
+  // tel que advance() le prendra (un tempo qui change en jeu y compte des ce pas ; stepDur garde encore l'ancien)
+  if (!silent) {
+    const g = clock.gridAfter(nextTime + stepDur * 0.5);
+    const dur = g && g.time - nextTime > 0 ? g.time - nextTime : stepDur;
+    synthBeat(nextTime, (bar * 16 + stepIdx) / 4, dur, opening);
+  }
   if (chord < 0) return;
   const spn = stepsPerNote(p.rate);
   if (spn > 1 && stepIdx % spn !== 0) return;
