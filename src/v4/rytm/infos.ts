@@ -681,8 +681,8 @@ const RAW: Record<RytmInfoId, Raw> = {
   'r:oh': {
     section: 'VOICE',
     title: 'OP HAT',
-    text: "Le son du charley ouvert, OH : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). À l'écran (SOUND, sur VOICE quand OH est choisi) et au MIDI (rytm:kit:oh).",
-    tip: 'Un 909 ouvert sur les contretemps au-dessus d’un CH 808 : la house qui respire.',
+    text: "Le son du charley ouvert, OH : 909, 808 ou MM, sa machine, remise à fond, puis ses samples (le sample seul). Au départ, OH joue le premier sample de Mika, un vrai open hat de ses projets, la synthèse à 0 ; il sort un peu au-dessus du charley fermé et bien sous le kick. Le MM, refait le 2026-10-18, souffle comme une vraie cymbale et s'éteint tout seul. À l'écran (SOUND, sur VOICE quand OH est choisi) et au MIDI (rytm:kit:oh).",
+    tip: 'Un 909 ouvert sur les contretemps au-dessus d’un CH 808 : la house qui respire ; le sample de Mika, plus court, pour une techno serrée.',
   },
   'r:tom': {
     section: 'VOICE',
@@ -763,7 +763,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'LEVEL',
     lock: 'yes',
     tip: "Le kick de Mika à 127 et le 909 vers 50 : le grave de la machine sous l'attaque du sample.",
-    text: "Le niveau de la couche SYNTH, de 0 (OFF, seul le sample joue) à 127 (la synthèse calée à son niveau). Les deux couches à fond peuvent dépasser la crête de la voix : elles sont alors ramenées dessous, jamais remontées ; le kick reste la référence du mix. Au départ, BD et SD sont à 0 : leur sample joue seul. Sur l'écran, MIX (VOICE SYNTH) règle les deux niveaux d'un geste.",
+    text: "Le niveau de la couche SYNTH, de 0 (OFF, seul le sample joue) à 127 (la synthèse calée à son niveau). Les deux couches à fond peuvent dépasser la crête de la voix : elles sont alors ramenées dessous, jamais remontées ; le kick reste la référence du mix. Au départ, BD, SD et OH sont à 0 : leur sample joue seul. Sur l'écran, MIX (VOICE SYNTH) règle les deux niveaux d'un geste.",
   },
   'r3:sweep': {
     section: 'VOICE SYNTH',

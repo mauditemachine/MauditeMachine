@@ -42,7 +42,11 @@
  * la synthese seule ; un echantillon : lui seul, la synthese a 0).
  * Par defaut (2026-10-08, Mika : "change les tout de suite pour BD et SD ...
  * c'est ceux la que je veux") : BD et SD jouent le premier echantillon de leur
- * famille, la synthese a 0 ; les autres familles leur synthese. Un kit
+ * famille, la synthese a 0 ; les autres familles leur synthese. OH aussi
+ * depuis le 2026-10-18 (Mika : "Le OH par defaut sonne super mal !") : le
+ * premier open hat de Mika (public/samples/rytm/oh), la synthese a 0 ; un kit
+ * retenu dont l'OH est encore celui d'avant (MM seul, jamais regle) le prend
+ * aussi (load, KIT_V 4). Un kit
  * retenu d'avant R3 se traduit au meme son (load) : un echantillon choisi
  * devient la couche SAMPLE (TUNE et DECAY du kick d'alors : son TUNE et son
  * LEN), un modele la couche SYNTH seule ; le son par defaut d'alors (BD 909,
@@ -221,8 +225,12 @@ export interface Kit {
 
 const KNOB_DEFAULT: Readonly<Record<KitKnob, number>> = { tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5, gate: 0, sweep: 0.5, sdtune: 0.5, sddecay: 0.5, sdtone: 0.5 };
 const MODEL_DEFAULT: Readonly<Record<KitFamily, KitModel>> = { bd: '909', sd: 'mm', ch: 'mm', oh: 'mm', cp: 'mm', tom: 'mm', ht: 'mm', cy: 'mm' };
-/** Les familles que le kit de depart joue en echantillon (2026-10-08, Mika : "change les tout de suite pour BD et SD"). */
-const SAMPLE_FIRST: readonly KitFamily[] = ['bd', 'sd'];
+/**
+ * Les familles que le kit de depart joue en echantillon (2026-10-08, Mika : "change les tout de suite pour BD et SD") ;
+ * OH depuis le 2026-10-18 (Mika : "Le OH par defaut sonne super mal !") : un vrai open hat de ses projets plutot que la
+ * synthese. Sans sample dans le dossier, la famille garde sa synthese (MODEL_DEFAULT).
+ */
+const SAMPLE_FIRST: readonly KitFamily[] = ['bd', 'sd', 'oh'];
 
 function defaultKit(): Kit {
   const layer = Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT }])) as Record<KitFamily, Layer>;
@@ -356,8 +364,23 @@ const SHAPING: Partial<Record<KitFamily, readonly KitKnob[]>> = { bd: ['tune', '
 const untouchedKnobs = (kn: Readonly<Record<KitKnob, number>>, f: KitFamily): boolean => (SHAPING[f] ?? []).every((n) => Math.abs(kn[n] - KNOB_DEFAULT[n]) < 1e-6);
 
 const KEY = 'mm.v4.kit.1';
-/** La forme retenue : 2 depuis R3 (les couches), 3 depuis le 2026-10-18 (une famille par voix) ; une forme 2 se traduit (foldFamilies). */
-const KIT_V = 3;
+/**
+ * La forme retenue : 2 depuis R3 (les couches), 3 depuis le 2026-10-18 (une famille par voix) ; une forme 2 se traduit
+ * (foldFamilies). 4 depuis le 2026-10-18 aussi (l'OH par defaut devient un sample) : une forme 2 ou 3 dont l'OH est
+ * encore le defaut d'alors (oldOh) prend celui d'aujourd'hui.
+ */
+const KIT_V = 4;
+
+/**
+ * L'OH d'un kit retenu avant le 2026-10-18 est-il encore son defaut d'alors (MM, aucun sample, ses reglages de couche a
+ * leur depart) ? Rien ne le distingue d'un MM choisi a la main : comme pour BD et SD le 2026-10-08, le defaut gagne
+ * (un MM voulu se rechoisit d'un geste, et c'est le nouveau, audio/shotsdsp.ts openHat).
+ */
+const oldOh = (model: unknown, sample: unknown, layer: unknown): boolean => {
+  if (model !== 'mm' || sample !== undefined) return false;
+  const l = cleanLayer(layer);
+  return LAYER_PARAMS.every((p) => l[p] === LAYER_DEFAULT[p]);
+};
 
 function load(): Kit {
   const k = defaultKit();
@@ -377,8 +400,10 @@ function load(): Kit {
       const v = o.knob?.[n];
       if (typeof v === 'number' && Number.isFinite(v)) k.knob[n] = q(v, n, true);
     }
-    if ((o.v === KIT_V || o.v === 2) && o.layer && typeof o.layer === 'object') {
+    if ((o.v === KIT_V || o.v === 3 || o.v === 2) && o.layer && typeof o.layer === 'object') {
       for (const f of KIT_FAMILIES) {
+        // L'OH d'avant le 2026-10-18 encore a son defaut (MM seul) : celui d'aujourd'hui, le sample (defaultKit)
+        if (f === 'oh' && o.v !== KIT_V && k.sample.oh && oldOh(model.oh, sample.oh, layer.oh)) continue;
         const l = cleanLayer(layer[f]);
         const key = resolveSample(f, sample[f]);
         if (key) k.sample[f] = key;
@@ -705,7 +730,7 @@ export const kit = {
   layerOf(f: KitFamily): Readonly<Layer> {
     return state.layer[f];
   },
-  /** Leur depart (le kit de depart : BD et SD a SYNTH 0). */
+  /** Leur depart (le kit de depart : BD, SD et OH a SYNTH 0). */
   layerDef(f: KitFamily, p: LayerParam): number {
     return KIT_DEFAULT.layer[f][p];
   },
@@ -810,7 +835,7 @@ export const kit = {
     const label = id === 'snappy' ? 'SNARE SNAPPY' : `KICK ${KIT_LABEL[id]}`;
     return `${label} ${Math.round(v * 100)}`;
   },
-  /** Le kit de depart (tests ; un CLEAR du kit) : tout revient, les echantillons de Mika sur BD et SD. */
+  /** Le kit de depart (tests ; un CLEAR du kit) : tout revient, les echantillons de Mika sur BD, SD et OH. */
   reset(): void {
     state = defaultKit();
     emit(KIT_FAMILIES);
