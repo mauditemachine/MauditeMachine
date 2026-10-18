@@ -2695,3 +2695,9 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Mika: "les ecritures sur les boutons sont vraiment trop grosses". KEY_LABEL cap 0.085 -> 0.056 desktop (a touch under the GLOBAL FX encoder names), 0.12 -> 0.08 phone.
 - Mika: "Le global dist ne fonctionne plus". Measured on the production build: the encoder moves pattern.fx.drive, the live bus drive engages (driveOn), offline renders change SD +2.4 dB, CH +9.8, CP +10.5, TOM +6.7 of difference; BD unchanged, as designed since R14-215 (the kick bypasses the global FX, NO BD on the screen). Left as is pending Mika's choice.
 
+### R14-276 MM-RYTM: the global DIST reaches the kick (2026-10-18)
+
+- Mika: "LE dist globale doit fonctionner aussi pour le kick !"
+- A second parallel DIST stage (buildFx, same law, same DIST TONE) on the kick's own path (kickBus -> DIST -> kick TONE), driven by the same pattern.fx.drive; graph.kickFx, FxDebug.kickDriveOn. CHORUS, DELAY and REVERB stay off the kick (the doubled kick of R14-215). The DIST blocks lose their NO BD tag; INFOS say "kick compris".
+- Measured offline (muted): DIST 0, kick identical to the previous build (rms 0.0694 both); DIST 0.8, kick rms 0.0694 -> 0.1608 (it was unchanged before). Factory presets with DIST above 0 now saturate their kick a little too.
+

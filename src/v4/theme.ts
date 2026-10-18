@@ -1168,8 +1168,8 @@ export const pageKnobX = (k: number): number => OLED.x + (k - 3.5) * PAGE_KNOBS.
  * Les huit encodeurs du desktop, a poste fixe depuis le 2026-10-09 (l'etape
  * 2, Mika : "en desktop tu les laisses mais par contre ils ne servent qu'a
  * faire les modifs des FX globaux de la machine ; les FX des parameters lock
- * se font dans l'ecran") : A DIST, B CHORUS, C DELAY, D REVERB (le bus des
- * voix, sans le kick : NO BD), E STRETCH, F SWING (toute la machine), G DLY
+ * se font dans l'ecran") : A DIST (kick compris depuis le 2026-10-18), B CHORUS,
+ * C DELAY, D REVERB (le bus des voix, sans le kick : NO BD), E STRETCH, F SWING (toute la machine), G DLY
  * TIME et H DLY FB (le DELAY : sa division, sa reinjection). Jamais un verrou,
  * meme en P-LOCK ; tournes, l'ecran montre leur valeur un instant (le
  * popup), sans changer de page. Leur nom est serigraphie a leur place (la

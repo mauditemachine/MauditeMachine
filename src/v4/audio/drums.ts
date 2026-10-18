@@ -122,6 +122,8 @@ interface Graph {
   post: GainNode;
   /** DIST du bus */
   fx: FxChain;
+  /** DIST du kick (2026-10-18, Mika : "le dist global doit fonctionner aussi pour le kick") : le meme reglage, sur sa voie */
+  kickFx: FxChain | null;
   /** REVERB et DELAY partages, et les envois de tout le pattern (apres LEVEL) */
   reverb: ReverbBus;
   delay: DelayBus;
@@ -305,6 +307,7 @@ function applyFxSettings(g: Graph, f: Readonly<Fx>): void {
   g.delay.setTone(fxValue(f, 'dtone'));
   g.reverb.setShape(irShapeOf(f));
   g.fx.setTone(fxValue(f, 'xtone'));
+  g.kickFx?.setTone(fxValue(f, 'xtone'));
   // Le chorus du bus seul (ceux des voix et du MM-ARP gardent leurs vitesses)
   g.chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
   if (g.glue) setGlue(g.glue, f);
@@ -433,9 +436,12 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
     toneSt = buildTone(c, chorusSt.input, o.tone ?? tone);
     pads.connect(lvl);
     kickTone = buildTone(c, lvl, o.tone ?? tone);
-    kickBus.connect(kickTone.input);
   }
   const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive, fxValue(fs, 'xtone'));
+  // Le DIST global passe aussi sur le kick depuis le 2026-10-18 (Mika : "le dist global doit fonctionner aussi pour le
+  // kick") : le meme etage parallele sur sa voie, avant son TONE ; CHORUS, DELAY et REVERB globaux restent hors du kick
+  // (le kick double du 2026-10-08). A DIST 0 l'etage est en bypass reel : le chemin et le niveau d'avant.
+  const kickFx = kickTone ? buildFx(c, { bus: kickBus, tone: kickTone.input }, o.drive ?? f.drive, fxValue(fs, 'xtone')) : null;
 
   // REVERB et DELAY de la boite ; les envois du pattern partent des pads (LEVEL applique : le gain level², comme les
   // envois des voix), plus du kick depuis le 2026-10-08. Le MM-ARP a sa REVERB a lui (sa forme d'avant, toujours)
@@ -485,7 +491,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
 
   const duck = new Ducker(c, arpOut.gain);
   const bassDuck = new Ducker(c, bassIn.gain);
-  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, glueIn, glue: null, arpOut, bassOut, bassIn, arpReverb, taps, duck, bassDuck };
+  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, kickFx, reverb, delay, reverbSend, delaySend, ch, rytmOut, glueIn, glue: null, arpOut, bassOut, bassIn, arpReverb, taps, duck, bassDuck };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -1380,6 +1386,7 @@ pattern.fx.subscribe(() => {
   if (graph) {
     const f = pattern.fx.get();
     graph.fx.setDrive(f.drive);
+    graph.kickFx?.setDrive(f.drive);
     graph.reverbSend.set(f.reverb);
     graph.delaySend.set(f.delay);
     graph.chorus.set(f.chorus);
@@ -1768,6 +1775,8 @@ export interface AudioDebug {
 export interface FxDebug {
   drive: number;
   driveOn: boolean;
+  /** le DIST global sur la voie du kick (2026-10-18) */
+  kickDriveOn: boolean;
   /** DIST TONE applique (Hz ; Nyquist : ouvert) ; DELAY TONE, la forme de la REVERB : delayBus, reverbBus (2026-10-10) */
   distToneHz: number;
   reverb: SendInfo;
@@ -1839,6 +1848,7 @@ export const audioDebug: AudioDebug = {
     return {
       drive: d.drive,
       driveOn: d.driveOn,
+      kickDriveOn: graph.kickFx ? graph.kickFx.info().driveOn : false,
       distToneHz: d.toneHz,
       reverb: graph.reverbSend.info(),
       delay: graph.delaySend.info(),

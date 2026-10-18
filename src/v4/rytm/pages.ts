@@ -419,7 +419,8 @@ const FXV: readonly PageSlot[] = [voiceFx('DIST', 'vdist', 'dist'), voiceFx('CHO
 
 /** GLOBAL FX : les huit encodeurs du desktop, dans le meme ordre (theme.ts GLOBAL_ENCODERS) ; jamais verrouilles. */
 const FXG: readonly PageSlot[] = [
-  live('DIST', 'dist', 'bar', 'all', true),
+  // DIST touche aussi le kick depuis le 2026-10-18 (Mika : "le dist global doit fonctionner aussi pour le kick") : sans NO BD
+  live('DIST', 'dist', 'bar', 'all'),
   live('CHORUS', 'chorus', 'bar', 'all', true),
   live('DELAY', 'delay', 'bar', 'all', true),
   live('REVERB', 'reverb', 'bar', 'all', true),
@@ -441,7 +442,7 @@ const fxAmount = (label: string, target: SlotTarget, noBd: boolean): PageSlot =>
 const fxSet = (label: string, target: SlotTarget, draw: SlotDraw, w: number, h: number): PageSlot => ({ ...live(label, target, draw, 'all'), w, h });
 const FX_DETAIL_SLOTS: Readonly<Record<FxDetailId, readonly PageSlot[]>> = {
   // DIST : la saturation, puis son passe-bas (TONE, 16 kHz : ouvert)
-  fxdist: [fxAmount('DIST', 'dist', true), fxSet('TONE', 'xtone', 'cut', 2, 2)],
+  fxdist: [fxAmount('DIST', 'dist', false), fxSet('TONE', 'xtone', 'cut', 2, 2)],
   // CHORUS : la vitesse et la profondeur de ses LFO
   fxchorus: [fxAmount('CHORUS', 'chorus', true), fxSet('RATE', 'crate', 'bar', 1, 2), fxSet('DEPTH', 'cdepth', 'bar', 1, 2)],
   // DELAY : son temps en divisions (large : ses six crans), ses repetitions, le passe-bas des echos
