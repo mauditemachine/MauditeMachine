@@ -181,6 +181,17 @@ export const SHOT_BELOW: Readonly<Record<ShotId, number>> = {
   CP: 1.5,
   CY: 3.5,
 };
+/*
+ * L'open hat MM et les samples d'open hat (2026-10-18, Mika : "Le OH par defaut sonne super mal !") : une sonie cible a
+ * eux, -14. A SHOT_LOUD.OH (-11, cale pour les open hats 909 et 808, que les presets d'usine jouent avec leurs
+ * charleys), le vrai open hat de Mika sortait du calcul 8.4 dB au-dessus du charley MM (le charley du kit de depart,
+ * -19.4 a sa crete) et a 1.9 dB du kick de depart. A -14, mesure a la sortie (renderOffline, sans limiteur) : un coup
+ * 5 dB sous le kick et 2.5 dB au-dessus du charley ; dans le motif de depart, 15 dB sous le kick et 3.3 dB au-dessus
+ * du charley (l'open hat MM d'avant, bute sur sa crete : 14.5 et 4.0).
+ */
+export const OH_SOFT_LOUD = -14;
+/** La sonie cible d'une voix : celle de SHOT_LOUD, sauf l'open hat MM et les samples d'open hat (OH_SOFT_LOUD). */
+const loudOf = (id: ShotId, synth: KitModel | null): number => (id === 'OH' && synth !== '909' && synth !== '808' ? OH_SOFT_LOUD : SHOT_LOUD[id]);
 const LOUD_WIN_S = 0.1;
 
 /** Un biquad applique en place (forme directe I). */
@@ -231,11 +242,11 @@ export function shotLoudness(s: Shot, sr: number): number {
   return 10 * Math.log10(best + 1e-12) + 2.32;
 }
 
-/** Le gain qui met un coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond (SHOT_BELOW). */
-function loudGain(id: ShotId, s: Shot, sr: number): number {
+/** Le gain qui met un coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie (loud) sous leur plafond (SHOT_BELOW). */
+function loudGain(id: ShotId, s: Shot, sr: number, loud = SHOT_LOUD[id]): number {
   const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
   const cap = Math.pow(10, (SHOT_KICK_PEAK - SHOT_BELOW[id]) / 20) / p;
-  return id === 'BD' ? cap : Math.min(cap, Math.pow(10, (SHOT_LOUD[id] - shotLoudness(s, sr)) / 20));
+  return id === 'BD' ? cap : Math.min(cap, Math.pow(10, (loud - shotLoudness(s, sr)) / 20));
 }
 
 /** Un gain applique en place (rien s'il n'est pas un nombre positif). */
@@ -246,8 +257,8 @@ function applyGain(s: Shot, k: number): void {
 }
 
 /** Le coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond (SHOT_BELOW). */
-function setLoudness(id: ShotId, s: Shot, sr: number): void {
-  applyGain(s, loudGain(id, s, sr));
+function setLoudness(id: ShotId, s: Shot, sr: number, loud = SHOT_LOUD[id]): void {
+  applyGain(s, loudGain(id, s, sr, loud));
 }
 
 /** Variantes jouees en alternance (sons bruites). */
@@ -695,11 +706,11 @@ function cp(sr: number, ts: number, r: () => number, gate = false): Shot {
 const METAL_HZ = [205.3, 304.4, 369.6, 522.7, 540, 800] as const;
 
 /**
- * Charleys : les six carres metalliques (phases au hasard par variante),
- * filtres en bande vers 9.5 kHz et passe-haut 7 kHz, un voile de bruit
- * au-dessus de 8 kHz, un peu d'air a 12 kHz (le cristal), adoucis
- * au-dessus de 16 kHz. decay : la tenue
- * principale (s), tail : la queue (part, s).
+ * Charleys fermes (CH, CHopen) : les six carres metalliques (phases au hasard
+ * par variante), filtres en bande vers 9.5 kHz et passe-haut 7 kHz, un voile
+ * de bruit au-dessus de 8 kHz, un peu d'air a 12 kHz (le cristal), adoucis
+ * au-dessus de 16 kHz. decay : la tenue principale (s), tail : la queue
+ * (part, s). L'open hat MM a sa propre voix depuis le 2026-10-18 (openHat).
  */
 function hat(sr: number, ts: number, r: () => number, decay: number, tail: [number, number], lenS: number, bpHz: number): Shot {
   const fs = sr * OS;
@@ -725,6 +736,85 @@ function hat(sr: number, ts: number, r: () => number, decay: number, tail: [numb
     x[i] = top.run(air.run(1.6 * metal + 0.3 * noise)) * env;
   }
   fadeOut(x, fs, Math.min(0.03, len / fs / 3));
+  const y = decimate(x);
+  return { L: y, R: y };
+}
+
+/** La correction PolyBLEP d'un front (t : la phase dans [0, 1), dt : son pas par echantillon). */
+function blep(t: number, dt: number): number {
+  if (t < dt) {
+    const u = t / dt;
+    return u + u - u * u - 1;
+  }
+  if (t > 1 - dt) {
+    const u = (t - 1) / dt;
+    return u * u + u + u + 1;
+  }
+  return 0;
+}
+
+/** Carre a bande limitee (PolyBLEP) de phase ph : sans les repliements du carre naif (sq). */
+function sqBl(ph: number, dt: number): number {
+  const p = ph - Math.floor(ph);
+  const h = p + 0.5 - Math.floor(p + 0.5);
+  return (p < 0.5 ? 1 : -1) + blep(p, dt) - blep(h, dt);
+}
+
+/**
+ * OH, l'open hat MM (2026-10-18, Mika : "Le OH par defaut sonne super mal !").
+ * Mesure hors ligne de celui d'avant (hat, 0.09 s puis une queue de 0.28 s,
+ * coupe a 0.6 s) contre un vrai open hat de Mika : un buzz de carres trop
+ * aigu (centre de gravite du spectre 11.8 kHz contre 8.3 ; au-dessus de 16
+ * kHz -8 dB du total contre -22 ; 2 a 6 kHz -14 dB contre -8.5 : tout le
+ * corps coupe par deux passe-haut a 7 kHz), des carres naifs qui replient
+ * (-21 dB sous le metal, -16 dB au-dessus de 16 kHz), une queue tranchee
+ * encore a -26 dB a 0.5 s, et 6 dB au-dessus du charley MM. Desormais :
+ * - les six carres de la 808 a bande limitee (PolyBLEP : le repliement
+ *   tombe de -21 a -38 dB sous le metal) ;
+ * - le metal en deux bandes larges (7.8 et 10.5 kHz) sur un passe-haut doux
+ *   a 5.2 kHz : le corps du cuivre revient entre 4 et 8 kHz ;
+ * - du bruit en bande vers 8.5 kHz, presque autant que de metal : un vrai
+ *   charley est plus souffle que sonnant ;
+ * - le dessus qui s'eteint plus vite que le corps (une coupure qui glisse de
+ *   16 vers 7 kHz pendant la queue, comme une cymbale), adouci au-dessus de
+ *   15 kHz ;
+ * - une decroissance naturelle : -20 dB vers 0.35 s, -40 vers 0.9 s, fondue
+ *   jusqu'a 1.1 s sous -40 dB (plus de coupure qui s'entend).
+ * Mesure : centre 8.4 kHz, au-dessus de 16 kHz -18 dB, 2 a 6 kHz -6 dB (le
+ * vrai : 8.3, -22, -8.5). Sa sonie : OH_SOFT_LOUD. Les charleys fermes MM (CH,
+ * CHopen) gardent le leur (hat) : un charley ferme est clair (un vrai mesure
+ * 13.4 kHz de centre), seul le repliement leur est commun.
+ */
+function openHat(sr: number, ts: number, r: () => number): Shot {
+  const fs = sr * OS;
+  const lenS = Math.max(0.3, 1.1 * ts);
+  const len = Math.round(fs * lenS);
+  const x = new Float64Array(len);
+  const ph = METAL_HZ.map(() => r());
+  const dts = METAL_HZ.map((f) => f / fs);
+  const bpLo = new Bq('bp', 7800, 0.8, fs);
+  const bpHi = new Bq('bp', 10500, 1, fs);
+  const mhp = new Bq('hp', 5200, 0.7, fs);
+  const nbp = new Bq('bp', 8500, 0.6, fs);
+  const nhp = new Bq('hp', 6000, 0.7, fs);
+  const top1 = new Bq('lp', 15000, 0.7, fs);
+  const top2 = new Bq('lp', 15000, 0.7, fs);
+  const d = (0.95 + 0.1 * r()) * ts;
+  let dark = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    let m = 0;
+    for (let k = 0; k < 6; k += 1) m += sqBl(ph[k] + METAL_HZ[k] * t, dts[k]);
+    m /= 6;
+    const metal = mhp.run(0.7 * bpLo.run(m) + 0.6 * bpHi.run(m));
+    const noise = nhp.run(nbp.run(r() * 2 - 1));
+    const env = (1 - Math.exp(-t / 0.00025)) * (0.55 * Math.exp(-t / (0.045 * d)) + 0.45 * Math.exp(-t / (0.24 * d)));
+    // Le dessus s'eteint avant le corps : un pole dont la coupure glisse de 16 kHz vers 7 kHz
+    const a = Math.exp((-TAU * (7000 + 9000 * Math.exp(-t / (0.2 * ts)))) / fs);
+    dark = (1 - a) * (metal + 0.55 * noise) + a * dark;
+    x[i] = top2.run(top1.run(dark)) * env;
+  }
+  fadeOut(x, fs, Math.min(0.15, lenS / 4));
   const y = decimate(x);
   return { L: y, R: y };
 }
@@ -1090,7 +1180,7 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
       s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.06, [0.25, 0.16], 0.32, 9200);
       break;
     case 'OH':
-      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.09, [0.3, 0.28], 0.6, 8500);
+      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : openHat(sr, ts, r);
       break;
     case 'CP':
       s = m === 'mm' ? cp(sr, ts, r, !!tw.gate) : cpModel(sr, ts, r, m, !!tw.gate);
@@ -1106,7 +1196,7 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
   // Le niveau de la voix (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond
-  setLoudness(id, s, sr);
+  setLoudness(id, s, sr, loudOf(id, m));
   return s;
 }
 
@@ -1131,7 +1221,7 @@ export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: S
   const s = sampleBody(pcm, sr, stretch, family, cal, tw, l);
   // Les reglages de depart (le fichier entier, a l'endroit, a sa hauteur) : cale sur lui-meme, le calcul d'avant
   if (atRest(l)) {
-    setLoudness(cal, s, sr);
+    setLoudness(cal, s, sr, loudOf(cal, null));
     return s;
   }
   // Sinon le gain du fichier entier (revue de R3, 2026-10-08) : caler la part gardee sur elle-meme remontait la queue
@@ -1187,7 +1277,7 @@ function refGain(pcm: SamplePcm, sr: number, stretch: number, family: string, ca
   const key = `${sr}|${stretch}|${family}|${cal}|${tw.attack}|${tw.drive}|${tw.snappy}|${family === 'sd' && tw.gate ? 1 : 0}`;
   let k = m.get(key);
   if (k === undefined) {
-    k = loudGain(cal, sampleBody(pcm, sr, stretch, family, cal, tw, SAMPLE_LAYER_DEFAULT), sr);
+    k = loudGain(cal, sampleBody(pcm, sr, stretch, family, cal, tw, SAMPLE_LAYER_DEFAULT), sr, loudOf(cal, null));
     if (m.size > 64) m.clear();
     m.set(key, k);
   }

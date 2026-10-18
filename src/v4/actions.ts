@@ -1113,7 +1113,7 @@ function layerValueOf(f: KitFamily | null, p: LayerDial): number {
 const layerValue = (p: LayerDial): number => layerValueOf(soundFamily(), p);
 const layerSpan = (p: LayerDial): [number, number] => (p === 'mach' ? [0, KIT_MODELS.length - 1] : layerRange(p));
 const layerNotches = (p: LayerDial): number => (p === 'mach' ? KIT_MODELS.length : layerSteps(p));
-/** Son depart : celui du kit de depart (BD et SD : SYNTH 0, leurs samples). */
+/** Son depart : celui du kit de depart (BD, SD et OH : SYNTH 0, leurs samples). */
 function layerReset(p: LayerDial): number {
   const f = soundFamily();
   if (!f) return layerValue(p);
@@ -1606,13 +1606,13 @@ export function anyDialReset(id: DialId): number {
   if (t === null) return 0;
   // VEL : HIGH, la velocite d'un appui (celle d'avant)
   if (t === 'step:vel') return TAP_VEL_DEFAULT;
-  // SMPL SAMPLE : celui du kit de depart (BD, SD : le premier sample de Mika ; les autres OFF)
+  // SMPL SAMPLE : celui du kit de depart (BD, SD, OH : le premier sample de Mika ; les autres OFF)
   if (t === 'smpl:sample') {
     const f = soundFamily();
     const key = f ? KIT_DEFAULT.sample[f] : undefined;
     return f && key ? samplesOf(f).findIndex((x) => x.key === key) + 1 : 0;
   }
-  // SOUND : celui du kit de depart (BD, SD : le premier sample de Mika ; les autres leur machine MM)
+  // SOUND : celui du kit de depart (BD, SD, OH : le premier sample de Mika ; les autres leur machine MM)
   if (t === 'voice:sound') {
     const f = soundFamily();
     const inst = pattern.get().instrument;
@@ -1622,7 +1622,7 @@ export function anyDialReset(id: DialId): number {
     const i = key ? list.findIndex((x) => x.kind === 'smp' && x.key === key) : list.findIndex((x) => x.kind === 'mach' && x.key === KIT_DEFAULT.model[f]);
     return Math.max(0, i);
   }
-  // MIX : celui du kit de depart (le sample seul pour BD et SD)
+  // MIX : celui du kit de depart (le sample seul pour BD, SD et OH)
   if (t === 'voice:mix') {
     const f = soundFamily();
     return f ? mixOf(KIT_DEFAULT.layer[f].syn, KIT_DEFAULT.layer[f].lev) : 0;
