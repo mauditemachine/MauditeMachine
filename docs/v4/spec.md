@@ -2701,3 +2701,25 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - A second parallel DIST stage (buildFx, same law, same DIST TONE) on the kick's own path (kickBus -> DIST -> kick TONE), driven by the same pattern.fx.drive; graph.kickFx, FxDebug.kickDriveOn. CHORUS, DELAY and REVERB stay off the kick (the doubled kick of R14-215). The DIST blocks lose their NO BD tag; INFOS say "kick compris".
 - Measured offline (muted): DIST 0, kick identical to the previous build (rms 0.0694 both); DIST 0.8, kick rms 0.0694 -> 0.1608 (it was unchanged before). Factory presets with DIST above 0 now saturate their kick a little too.
 
+
+### R14-277 MM-RYTM: RANDOM also draws each voice's sound; no sound selectors in OPEN (2026-10-18)
+
+- Mika: "au Random les sons sont replaces dans le sequenceur mais je n'ai pas l'impression que les voices et les samples changent !" and "je veux avoir la selection dans les Sounds ! et d'ailleurs pas dans OPEN !"
+- RANDOM (actions.ts randomVoiceSounds): each of the eight voices, the kick included, takes another sound from its SOUND list, never OFF nor the one it was playing; a voice with samples takes one most of the time (75 %, the kick 85 %), alone at its level (syn 0); otherwise a machine (909, 808, MM). Same UNDO step as the pattern. Muted check: four RANDOMs changed every voice's sound, UNDO came back to the previous sounds.
+- The TWEAKS plate (OPEN) keeps the machine settings only (audio/kit.ts KIT_PLATE_IDS: KICK TUNE ATTACK DECAY DRIVE, SNARE SNAPPY GATE); the KICK, SNARE, CLAP, CL HAT and TOM sound selectors and the VOICES frame left (scene/rytmTweaks.ts, its twins, rytm/infoIds.ts). Sounds are chosen on the screen (SOUND) and over MIDI (rytm:kit:<family>), unchanged. KIT_IDS stays the preset / MIDI list.
+
+### R14-278 MM-RYTM: the voice menu on the HOME screen (2026-10-18)
+
+- Mika, with a screenshot of HOME: "j'aime bien cet affichage par defaut quand je selectionne un Voice.. et je veux voir le menu dans l'ecran pour modifier le voice".
+- HOME is the starting view again (state/rytmPage.ts DEFAULT view 'home'; a stored choice is kept). In the band the 120-unit HOME drawing leaves at the bottom of the tall screen, five outlined keys edge to edge: SOUND (opens the voice's sound list), VOICE, FLTR, ENV, FX (open that page in PAGE view, the physical page key presses). SOUND is faint without a voice (TAP A PAD FIRST). rytm/pages.ts HOME_MENU, scene/screen.ts paintHomeMenu + menuRects, renderer lcd-menu-<id> hotspots (kind rmenu, in front of lcd-open), twins data-twin="rmenu", actions.ts rytmMenu; INFOS on a page key shows that page's card.
+- Muted check, desktop 1440x900 and phone 390x844: the five keys drawn, their twins and picks land on them, FLTR opens FLTR in PAGE view, SOUND opens SD SOUND.
+
+### R14-279 MM-RYTM: CLEAR brings every voice back to a base sound (2026-10-18)
+
+- Mika: "Attention quand on clear.. le ADSR de chaque VOICE doit etre correct.. la je me suis retrouve avec un decay 0 sur un sd clear.. ca le fait pas.. ca doit etre un son de base avec une bonne enveloppe".
+- CLEAR now also resets each voice's VOICE / FLTR / ENV / FX settings to VOICE_FX_DEFAULT (full tail, sharp attack, open filter, level 0.8), the layer settings (sample tune, fine, start, len, reverse) and the machine knobs (OPEN) to their start; the chosen sound (sample or machine, MIX) stays. One UNDO step. INFOS updated.
+
+### R14-280 MM-RYTM: output 4 dB louder (2026-10-18)
+
+- Mika, with the MIXER VUs: "le RYTM est vraiment pas fort par rapport" (the ARP).
+- Measured offline (start pattern and kit, muted): RYTM peak -6.2 dBFS, -18.7 LUFS, a lone kick -13.4 dBFS (six VU segments, the VU is a peak meter); the start ARP -8.7 dBFS, -20.1 LUFS. RYTM_TRIM 0.53 -> 0.84: kick -9.4 dBFS, start pattern -2.2 dBFS peak (orange, not red), -14.7 LUFS, about 5 LU above the start ARP.

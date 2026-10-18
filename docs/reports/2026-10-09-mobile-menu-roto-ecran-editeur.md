@@ -197,3 +197,7 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-18 : MM-RYTM, ecran plus grand au desktop, noms ecrits sur les touches VOICE FLTR ENV FX et RUN/STOP CLEAR RANDOM MUTE SOLO, transport a la forme des touches de page, touche choisie allumee en entier. Spec R14-274.
 - 2026-10-18 : MM-RYTM, noms des touches plus petits ; DIST global verifie (marche sur toutes les voix sauf le kick, voulu depuis le 8). Spec R14-275.
 - 2026-10-18 : MM-RYTM, le DIST global passe aussi sur le kick (CHORUS, DELAY, REVERB globaux restent hors du kick). Spec R14-276.
+- 2026-10-18 : MM-RYTM, RANDOM tire aussi le son de chaque voix (kick compris, samples le plus souvent) ; plus de selecteurs de sons dans OPEN (le son se choisit a l'ecran, SOUND). Spec R14-277.
+- 2026-10-18 : MM-RYTM, menu de la voix dans l'ecran sous HOME (SOUND VOICE FLTR ENV FX), HOME redevient l'ecran de depart. Spec R14-278.
+- 2026-10-18 : MM-RYTM, CLEAR remet chaque voix a un son de base (ENV, FLTR, VOICE au neutre, couches et OPEN a leur depart, le son choisi reste). Spec R14-279.
+- 2026-10-18 : MM-RYTM, sortie remontee de 4 dB (kick vers -9.4 dBFS, motif de depart -14.7 LUFS, 5 LU au-dessus de l'ARP de depart). Spec R14-280.
