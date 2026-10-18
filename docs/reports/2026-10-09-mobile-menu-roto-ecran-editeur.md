@@ -128,6 +128,7 @@ Méthode : un cahier des charges commun par étape, puis une lane par sujet dans
 - Panneau MIDI : « DOWNLOAD THE 8 SETUPS » et l'option « Step keys in TOGGLE mode ».
 - Clavier MM-RYTM : M (MUTE), Shift+M (SOLO), tenir = tout rallumer, Esc = sortir du mode.
 - Scripts de test muets (scratchpad de la session, non versionnés) : faux port Web MIDI pour le Roto, rendus hors ligne du worklet BASS, CDP multi-touch.
+- 2026-10-18 : `npm run samples:ableton -- --dry` (le plan), sans --dry (plan + dossier de transit + rapport JSON), `-- --import` (import des ~20 samples par voix dans public/samples/rytm, puis git add et commit). Options --shots, --projects, --per, --map "Dossier=famille", --families.
 
 ## Suite du 2026-10-09 (soir) : DRIVE, son Monark, presets, générateur simple
 
@@ -187,3 +188,9 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-12 : MM-ARP, chorus Juno-106 (OFF / I / II sur un bouton poussoir, schema du 106) ; MM-RYTM, samples de BD fideles au fichier, 808 et 909 refaits d'apres les circuits, toutes les voix calees sur leur sonie (samples compris). Setup Roto ARP 1012 a reimporter. Spec R14-264 et R14-265.
 - 2026-10-13 : MM-RYTM, retour au son des voix et de la BD d'avant le 12 (kick par defaut juge abime par Mika ; mesures en navigateur neuf sans defaut, piste : reglages de voix gardes dans le navigateur). Le chorus Juno du MM-ARP reste. Spec R14-266.
 - 2026-10-14 : MM-RYTM, RANDOM refait : dix styles, energie, charleys, percussions euclidiennes, roulements, neuf velocites, motif toujours loin du precedent, SWING du style, TONE VOL DECAY PAN des voix tires (le kick garde son son). Spec R14-267.
+- 2026-10-18 : MM-RYTM, une famille de samples par voix (BD SD CH OH CP TOM HT CY) et les samples deposes gardes dans ce navigateur, sans rien changer au son de personne ; corrections de la relecture (verrous sur un sample perso, cibles MIDI, onglet SYNTH, plaque TWEAKS, empreinte des presets, 12 s max). Setup Roto 1018 a reimporter (RYTM). Spec R14-268.
+- 2026-10-18 : MM-RYTM, navigateur des sons a l'ecran : une tape sur le nom du son ouvre la liste complete, une ligne charge et fait entendre a l'arret, PREV/NEXT, glisser-deposer d'un fichier sur un pad, + LOAD A FILE. Spec R14-269.
+- 2026-10-18 : scripts/ableton-samples.mjs (npm run samples:ableton) : les samples les plus joues dans les projets Ableton de Mika, ~20 par voix, importes dans le site. A lancer sur le Mac. Spec R14-270.
+- 2026-10-18 : MM-DECKS, dossier Rekordbox relie sans copie (desktop, Chrome/Edge), relu a chaque visite, BPM, tonalite et playlists de l'export XML de Rekordbox. Spec R14-271.
+- 2026-10-18 : telephone, MM-MIXER : la table seule, sans platines. Spec R14-272.
+- 2026-10-18 : le site arrive sur la derniere machine utilisee. Spec R14-273.

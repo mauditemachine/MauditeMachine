@@ -2647,3 +2647,39 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Each draw sits at least 14 cells away from the current pattern (12 tries, the farthest kept). 3000 chained draws: median distance 27, minimum 14, 3000 distinct patterns, HT present 56 % (16 %).
 - RANDOM also sets the style's SWING (HOUSE 0.25-0.55, DEEP HOUSE 0.4-0.65, TECHNO, PROG, ELECTRO, ITALO nearly straight) and draws TONE, VOL, DECAY and PAN for every voice except BD, which keeps its sound (hats panned one side, percussion the other; SD and CP centred). One UNDO step as before. audio/house.ts removed (no longer used).
 
+### R14-268 MM-RYTM: one sample family per voice, samples kept in this browser (2026-10-18)
+
+- Mika: "un selecteur de sample environ 20 samples dans chacun des voices qui sont en rapport avec les dossiers".
+- KitFamily is now one per voice: bd sd ch oh cp tom ht cy (before: hh shared by CH and OH, tom shared by TOM and HT, an orphan rs). familyOf: CH and CHopen -> ch, OH -> oh, TOM -> tom, HT -> ht, CY -> cy. Sample dirs public/samples/rytm/<family>/ for the eight.
+- Migration with no sound change for anyone: stored kit KIT_V 2 -> 3 (foldFamilies: hh to ch and oh, tom to tom and ht, rs dropped, cy at its default), user and factory presets, preset fingerprints (rytmNow: knobs only, locks re-read), step locks (snd hh: -> the voice's family, tom: on HT -> ht:, rs: dropped), learned MIDI targets (rytm:kit:hh -> ch). Fresh visitor: BD 909 playing its first sample with SYNTH 0, SD its first sample, the rest synth MM.
+- User samples (audio/usersamples.ts): a dropped or picked file (wav aif aiff mp3 flac m4a, 10 MB and 12 s at most, 60 per family) lives in IndexedDB 'mm-v4-rytm-user' with a synchronous localStorage index 'mm.v4.rytm.user.1'; key '<family>/u:<id>'; nothing leaves the browser. samplesOf lists site samples then the user's, by drop order; samplesChanged refreshes every list, cache, the TWEAKS plate and the MIDI ranges. A removed sample a voice plays falls back to the synth; a step locked on it plays the voice.
+- TWEAKS plate keeps eleven pieces (CL HAT and TOM sound selectors); OP HAT, HI TOM and CYMBAL are chosen on the screen and through MIDI (rytm:kit:oh|ht|cy, rytm:layer:<family>:*). VOICE SYNTH tab: MACHINE and MIX for every family (clap: GATE). CY lists OFF / 909 / 808 / MM like the others (the three machines render the same CY today).
+- Roto setup 1018: HATS SOUND becomes CL HAT SOUND (RYTM page 4, same address). Re-import RYTM.
+
+### R14-269 MM-RYTM: the sound browser on the screen (2026-10-18)
+
+- Mika: "Je trouve ca difficile la selection des samples dans RYTM" (go given for the list browser and drag and drop).
+- A tap on the SOUND block (or a notch of the SOUND dial) opens the voice's full list on the screen: OFF, 909, 808, MM, the site samples, then this browser's (marked USER), the current one highlighted, rank n / total, scrollbar; desktop 6 rows, phone 4. A row loads the sound (the SOUND dial's rules: setVoiceSound) and, sequencer stopped, plays it once through the pad path; PREV / NEXT arrows, ArrowUp / ArrowDown, wheel, vertical drag on the phone. The list follows another voice; closes on Esc, a tap outside, a page key, EDIT, presets, 12 s idle. Twins: listbox and options with aria-activedescendant; Enter on the SOUND block opens it with the keyboard focus.
+- Drag and drop (desktop): a file over the MM-RYTM shows DROP ON A PAD; dropped on a pad it joins that voice's family and is chosen (several files: all added, the first chosen); refusals say why (TOO BIG, TOO LONG, NOT AUDIO, TOO MANY). Last row + LOAD A FILE... opens the system file picker (phone and Safari). A user sample is removed in two gestures (x then x, Delete twice, or a 600 ms press then a tap on the phone).
+- In P-LOCK a tap opens the lock list (every family's samples), the sound dial keeps its behaviour. 55 muted checks (desktop and phone).
+
+### R14-270 scripts/ableton-samples.mjs: the samples Mika really plays, per voice (2026-10-18)
+
+- Runs on Mika's Mac (npm run samples:ableton -- [--dry | --import]): reads every Live set (*.als, gzip XML, Backup folders skipped) under ~/Music, ~/Documents, ~/Desktop and iCloud Drive; resolves every SampleRef (Live 11/12 Path and RelativePath; Live 9/10 RelativePathElement, Name, hex Data in UTF-8 or UTF-16, PathHint) to a file of User Library/Samples/shots; ranks per family by distinct projects, then references; tops each family up to --per (20) with unused files of its folders; stages 'NN Name.ext' per family in a temp dir and, with --import, runs scripts/import-rytm-samples.mjs --replace on the families with a plan. Family of a shots file: nearest folder words, then filename words (kick, snare, closed / open hat, clap, tom, hi tom or perc, cymbal), --map to force. Read-only on shots and projects; iCloud placeholders listed as MISSING.
+
+### R14-271 MM-DECKS: the Rekordbox folder linked with no copy, desktop only (2026-10-18)
+
+- Mika: "rajouter les dossiers de iCloud Drive > Rekordbox ... ne rien copier dans le site, juste faire un mapping automatique".
+- + FOLDER (LINK, NO COPY) links a folder once (showDirectoryPicker, startIn music); it is re-read at each visit; hidden entries and Rekordbox USBANLZ folders skipped, depth 12, batched IndexedDB writes, one link at a time; not-downloaded iCloud files counted ("LINKED 1 812, 40 NOT DOWNLOADED"). LINKED FOLDERS line: UP TO DATE n TRACKS / RECONNECT / REMOVE (two clicks, cues kept).
+- A Rekordbox XML export in the folder (dj/rekordbox.ts) gives BPM (bpmFrom tag), key and the playlists (prefixed RB, replaced on each successful parse); a bad XML is ignored. canLink() is false on phones (Android Chrome included).
+
+### R14-272 Phone: MM-MIXER, the mixer alone (2026-10-18)
+
+- Mika: "En mobile je veux juste Mixer et pas de deck, en desktop oui".
+- PORTRAIT: no deck, no waveform, no sampler, no DjPlayer (players lazy, DJ_PLAYERS empty); DJ_UNITS_ON ['mix'], the RYTM and ARP channels, MASTER, the FX and the machines PLAY/STOP (moved to the VOLUME row, longer master VU); named MM-MIXER; arrows go straight to the neighbouring machines; the stored deck count is ignored, not rewritten. Desktop unchanged.
+
+### R14-273 The site arrives on the machine used last (2026-10-18)
+
+- Mika: "Je voudrais que le site arrive sur la machine la plus recemment utilisee".
+- focus.set remembers the framed machine (mm.v4.machine.last, never the overview). Next visit without ?m=: the intro plays on it when it has a hood (MM-RYTM, MM-ARP), else on one of those and the camera joins it at the end (introLand; deferred to the next Stage if the intro is torn down, StrictMode or a rebuild). ?m= still wins. Checked on a production build: DECKS, ARP and RYTM restored.
+
