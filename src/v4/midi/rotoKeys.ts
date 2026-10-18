@@ -62,7 +62,9 @@ export const ROTO_KEYS: readonly RotoKey[] = [
   ['RYTM', 1, 112, 'rytm:kit:drive'],
   ['RYTM', 1, 113, 'rytm:kit:sd'],
   ['RYTM', 1, 114, 'rytm:kit:snappy'],
-  ['RYTM', 1, 115, 'rytm:kit:hh'],
+  // 2026-10-18 : la cible rytm:kit:hh (les deux charleys) s'appelle rytm:kit:ch (une famille par voix) ; la meme
+  // adresse, le meme potard (HATS SOUND devient CL HAT SOUND), pas une nouvelle ligne
+  ['RYTM', 1, 115, 'rytm:kit:ch'],
   // RYTM (setup 11), boutons canal 9, page 1
   ['RYTM', 9, 14, 'rytm:running'],
   ['RYTM', 9, 15, 'rytm:random'],

@@ -212,20 +212,28 @@ const RAW: Record<RytmInfoId, Raw> = {
     voice: {
       bd: { tip: '909 pour une techno qui claque, 808 pour un minimal rond et long, un sample de Mika pour l’indie dance.' },
       sd: { tip: 'Un sample sec pour l’indie dance ; MM avec GATE sur ON (VOICE SYNTH) pour la dark disco des années 80.' },
-      hh: {
-        text: "Ce que jouent les charleys : OFF, 909, 808 ou MM, leur machine de synthèse (CH et OH partagent la même). 808 : six carrés métalliques ; 909 : plus de souffle que de métal. Ils n'ont pas encore de sample à eux. En P-LOCK, la liste continue avec les samples du kick et de la caisse claire : un sample lock, joué seul sur ce pas.",
+      ch: {
+        text: "Ce que joue le charley fermé : OFF, 909, 808 ou MM, sa machine de synthèse (la sienne : OH a la sienne depuis le 2026-10-18). 808 : six carrés métalliques ; 909 : plus de souffle que de métal. Puis ses samples, ceux du dossier ch du site et ceux que tu déposes dans ce navigateur. En P-LOCK, la liste continue avec les samples des autres voix : un sample lock, joué seul sur ce pas.",
         tip: '808 pour un minimal métallique, 909 pour une house qui respire.',
       },
+      oh: {
+        text: "Ce que joue le charley ouvert : OFF, 909, 808 ou MM, sa machine de synthèse (la sienne, plus celle de CH). Puis ses samples, ceux du dossier oh du site et ceux que tu déposes dans ce navigateur. En P-LOCK, la liste continue avec les samples des autres voix : un sample lock, joué seul sur ce pas.",
+        tip: 'Un 909 ouvert sur les contretemps au-dessus d’un CH 808 : la house qui respire.',
+      },
       cp: {
-        text: "Ce que joue le clap : OFF, 909, 808 ou MM, sa machine de synthèse ; GATE, à côté, lui ajoute sa petite pièce en MM et en 909. Il n'a pas encore de sample à lui. En P-LOCK, la liste continue avec les samples du kick et de la caisse claire : un sample lock, joué seul sur ce pas.",
+        text: "Ce que joue le clap : OFF, 909, 808 ou MM, sa machine de synthèse ; GATE, à côté, lui ajoute sa petite pièce en MM et en 909. Puis ses samples, ceux du dossier cp du site et ceux que tu déposes dans ce navigateur. En P-LOCK, la liste continue avec les samples des autres voix : un sample lock, joué seul sur ce pas.",
         tip: 'Un clap 808 un pas après la caisse claire : le flam de la dark disco.',
       },
       tom: {
-        text: "Ce que jouent les toms : OFF, 909, 808 ou MM, leur machine de synthèse (TOM, le grave, et HT, l'aigu, partagent la même). Ils n'ont pas encore de sample à eux. En P-LOCK, la liste continue avec les samples du kick et de la caisse claire : un sample lock, joué seul sur ce pas.",
-        tip: 'Toms 808 et PITCH verrouillé pas par pas : une ligne de percussions pour le minimal.',
+        text: "Ce que joue le tom grave : OFF, 909, 808 ou MM, sa machine de synthèse (la sienne : HT a la sienne depuis le 2026-10-18). Puis ses samples, ceux du dossier tom du site et ceux que tu déposes dans ce navigateur. En P-LOCK, la liste continue avec les samples des autres voix : un sample lock, joué seul sur ce pas.",
+        tip: 'Tom 808 et PITCH verrouillé pas par pas : une ligne de percussions pour le minimal.',
+      },
+      ht: {
+        text: "Ce que joue le tom aigu : OFF, 909, 808 ou MM, sa machine de synthèse (la sienne, plus celle de TOM). Puis ses samples, ceux du dossier ht du site (toms aigus, percussions, congas, rims) et ceux que tu déposes dans ce navigateur. En P-LOCK, la liste continue avec les samples des autres voix : un sample lock, joué seul sur ce pas.",
+        tip: 'HT en 909 au-dessus d’un TOM 808 : deux timbres pour une relance de toms.',
       },
       cy: {
-        text: "CY n'a qu'un son à elle, calculé par la machine, sans choix : le bloc dit son nom. En P-LOCK, un pas de CY peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas.",
+        text: "Ce que joue la cymbale : OFF, sa synthèse (909, 808 et MM donnent aujourd'hui le même son calculé), puis ses samples, ceux du dossier cy du site (cymbales, crashs, rides) et ceux que tu déposes dans ce navigateur. En P-LOCK, la liste continue avec les samples des autres voix : un sample lock, joué seul sur ce pas.",
         tip: 'Un kick de Mika verrouillé sur le dernier pas de CY : un coup sourd à la place du crash.',
       },
       none: { text: "Le son de la voix choisie : OFF, 909, 808, MM ou un sample de sa famille. Touche d'abord un pad." },
@@ -286,11 +294,11 @@ const RAW: Record<RytmInfoId, Raw> = {
   vsound: {
     section: 'VOICE',
     title: 'SOUND',
-    text: "Le raccourci vers UNE couche, en un geste : 909, 808 ou MM (la couche SYNTH seule, remise à fond, le sample coupé), puis les samples de la famille (le sample seul, à fond, la synthèse à 0). C'est le sélecteur de son de la plaque TWEAKS (OPEN) et du MIDI ; sur l'écran, SOUND (VOICE) fait la même liste, et MIX (VOICE SYNTH) fait jouer les deux couches ensemble. CH et OH partagent le même choix, TOM et HT aussi ; CY n'a qu'un son. Chaque son est recalé à son niveau : en changer ne fait pas sauter le volume.",
+    text: "Le raccourci vers UNE couche, en un geste : 909, 808 ou MM (la couche SYNTH seule, remise à fond, le sample coupé), puis les samples de la famille (le sample seul, à fond, la synthèse à 0). C'est le sélecteur de son de la plaque TWEAKS (OPEN) et du MIDI ; sur l'écran, SOUND (VOICE) fait la même liste, et MIX (VOICE SYNTH) fait jouer les deux couches ensemble. Chaque voix a sa famille de sons depuis le 2026-10-18 (CH et OH, TOM et HT ne partagent plus rien ; CY a la sienne, sa synthèse puis ses samples). Chaque son est recalé à son niveau : en changer ne fait pas sauter le volume.",
     voice: {
       bd: { tip: '909 pour une techno qui claque, 808 pour un minimal rond et long, un sample de Mika pour l’indie dance.' },
       sd: { tip: 'MM avec GATE sur ON pour la dark disco des années 80 ; un sample sec pour l’indie dance.' },
-      cy: { text: "CY n'a qu'un son à elle, calculé par la machine, sans choix." },
+      cy: { text: "Le son de la cymbale : sa synthèse (909, 808 et MM donnent aujourd'hui le même son calculé), puis ses samples (le dossier cy du site, ceux que tu déposes dans ce navigateur)." },
       none: { text: "Le son de la voix choisie : 909, 808, MM ou un sample de sa famille. Touche d'abord un pad." },
     },
   },
@@ -350,10 +358,12 @@ const RAW: Record<RytmInfoId, Raw> = {
     tip: 'Deux kicks de Mika qui alternent : le premier sur 1 et 9, le second verrouillé sur 5 et 13, la boucle respire.',
     voice: {
       sd: { tip: 'Deux caisses claires de Mika qui alternent : verrouille la seconde sur le pas 13, la mesure respire.' },
-      hh: { text: "La couche SAMPLE des charleys. Ils n'ont pas encore de sample à eux : le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
-      cp: { text: "La couche SAMPLE du clap. Il n'a pas encore de sample à lui : le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
-      tom: { text: "La couche SAMPLE des toms. Ils n'ont pas encore de sample à eux : le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
-      cy: { text: "CY n'a qu'un son, calculé par la machine, et pas de sample à elle. En P-LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas : la cymbale s'y tait." },
+      ch: { text: "La couche SAMPLE du charley fermé : OFF, puis ses samples (le dossier ch du site, ceux que tu déposes dans ce navigateur). Sans sample dans sa famille, le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
+      oh: { text: "La couche SAMPLE du charley ouvert : OFF, puis ses samples (le dossier oh du site, ceux que tu déposes dans ce navigateur). Sans sample dans sa famille, le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
+      cp: { text: "La couche SAMPLE du clap : OFF, puis ses samples (le dossier cp du site, ceux que tu déposes dans ce navigateur). Sans sample dans sa famille, le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
+      tom: { text: "La couche SAMPLE du tom grave : OFF, puis ses samples (le dossier tom du site, ceux que tu déposes dans ce navigateur). Sans sample dans sa famille, le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
+      ht: { text: "La couche SAMPLE du tom aigu : OFF, puis ses samples (le dossier ht du site : toms aigus, percussions, congas, rims ; ceux que tu déposes dans ce navigateur). Sans sample dans sa famille, le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas." },
+      cy: { text: "La couche SAMPLE de la cymbale : OFF, puis ses samples (le dossier cy du site : cymbales, crashs, rides ; ceux que tu déposes dans ce navigateur). Sans sample dans sa famille, le bloc affiche -- et NO SAMPLES. En P-LOCK, un pas peut prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas : la cymbale s'y tait." },
     },
   },
 
@@ -709,11 +719,10 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'MACHINE',
     lock: 'yes',
     voice: {
-      hh: { tip: 'CH et OH partagent leur MACHINE : un 808 pour les deux, ou un 909 verrouillé sur les seuls contretemps.' },
+      ch: { tip: 'CH et OH ont chacun leur MACHINE depuis le 2026-10-18 : un 808 fermé sous un 909 ouvert, ou un 909 verrouillé sur les seuls contretemps.' },
       cy: {
-        text: "CY n'a qu'une synthèse à elle, sans choix : le bloc dit ONE SOUND. En P-LOCK, un pas de CY peut prendre le sample d'une autre voix (SOUND, sur VOICE).",
+        text: "La MACHINE de la cymbale : 909, 808 et MM donnent aujourd'hui le même son calculé (sa synthèse à elle). MIX, à côté, la dose sous un sample de cy. En P-LOCK, un pas de CY peut prendre le sample d'une autre voix (SOUND, sur VOICE).",
         tip: 'Un kick de Mika verrouillé sur le dernier pas de CY : un coup sourd à la place du crash.',
-        lock: null,
       },
     },
     tip: 'Un 808 sur les pas 4 et 12 seulement (P-LOCK) : un kick long qui répond au 909 du reste de la mesure.',

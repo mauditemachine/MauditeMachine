@@ -111,7 +111,7 @@ export interface Model {
 function plateFamily(k: string, voice: Inst | null): KitFamily | null {
   if (k === 'bd' || k === 'tune' || k === 'attack' || k === 'decay' || k === 'drive') return 'bd';
   if (k === 'sd' || k === 'snappy') return 'sd';
-  if (k === 'cp' || k === 'hh' || k === 'tom') return k;
+  if (k === 'cp' || k === 'ch' || k === 'tom') return k;
   if (k === 'gate') return voice === 'CP' ? 'cp' : 'sd';
   return null;
 }

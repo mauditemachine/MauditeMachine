@@ -52,7 +52,8 @@ import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStag
 import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
 import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
-import { sampleByKey } from './samples';
+import { loadSample, sampleByKey, samplePcm, samplesOf, samplesVersion } from './samples';
+import { userSamples } from './usersamples';
 import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
 import { DELAY_TONE_HZ, buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type ReverbBus, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
@@ -1707,6 +1708,10 @@ export interface AudioDebug {
   readonly comp: typeof COMP;
   /** les one-shots : rendus, temps de calcul, cache */
   shots(): ReturnType<typeof shots.info>;
+  /** les samples de Mika gardes dans ce navigateur (2026-10-18, audio/usersamples.ts : add, remove, list, subscribe) */
+  readonly userSamples: typeof userSamples;
+  /** les listes de samples (le site puis ce navigateur, audio/samples.ts) : samplesOf, sampleByKey, loadSample, samplePcm, version */
+  readonly samples: { samplesOf: typeof samplesOf; sampleByKey: typeof sampleByKey; loadSample: typeof loadSample; samplePcm: typeof samplePcm; version: () => number };
   /** le SIDECHAIN du MM-ARP (2026-10-04) */
   duck(): ReturnType<typeof duckInfo>;
   /** le SIDECHAIN du MM-BASS (2026-10-10) */
@@ -1781,6 +1786,8 @@ export const audioDebug: AudioDebug = {
   },
   comp: COMP,
   shots: () => shots.info(),
+  userSamples,
+  samples: { samplesOf, sampleByKey, loadSample, samplePcm, version: samplesVersion },
   duck: () => duckInfo(),
   bassDuck: () => bassDuckInfo(),
   get ctx() {

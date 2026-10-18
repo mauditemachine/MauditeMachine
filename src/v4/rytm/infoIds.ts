@@ -212,14 +212,16 @@ export const rytmInfoIdOf = (s: unknown): RytmInfoId | null => (isRytmInfoId(s) 
 export type RytmInfoAvail = 'live' | 'soon';
 export const rytmAvail = (id: RytmInfoId): RytmInfoAvail => (id.startsWith('soon:') ? 'soon' : 'live');
 
-/** Les familles de sons (audio/kit.ts familyOf) ; cy : la cymbale, un seul son. */
-export type RytmVoiceGroup = 'bd' | 'sd' | 'hh' | 'cp' | 'tom' | 'cy';
+/** Les familles de sons (audio/kit.ts familyOf) : une par voix depuis le 2026-10-18. */
+export type RytmVoiceGroup = 'bd' | 'sd' | 'ch' | 'oh' | 'cp' | 'tom' | 'ht' | 'cy';
 export function voiceGroup(v: Inst): RytmVoiceGroup {
   if (v === 'BD') return 'bd';
   if (v === 'SD') return 'sd';
-  if (v === 'CH' || v === 'OH') return 'hh';
+  if (v === 'CH') return 'ch';
+  if (v === 'OH') return 'oh';
   if (v === 'CP') return 'cp';
-  if (v === 'TOM' || v === 'HT') return 'tom';
+  if (v === 'TOM') return 'tom';
+  if (v === 'HT') return 'ht';
   return 'cy';
 }
 
@@ -344,7 +346,8 @@ export interface RytmInfoHit {
   encoder?: number;
 }
 
-const KIT_HOT = new Set(['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'hh', 'tom']);
+// Les onze pieces de la carte (audio/kit.ts KIT_IDS) : le selecteur des charleys regle ch depuis le 2026-10-18
+const KIT_HOT = new Set(['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'ch', 'tom']);
 const TRANSPORT = new Set(['run', 'clear', 'random', 'mute', 'solo']);
 const PAGE_IDS: ReadonlySet<string> = new Set(RYTM_PAGES.map((p) => p.id));
 const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);

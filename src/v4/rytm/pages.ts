@@ -346,12 +346,16 @@ const MIX: PageSlot = { ...lockable('MIX', 'voice:mix', 'mix', 'syn', { locks: [
 // Sans l'etiquette MACHINE : le bloc est la machine elle-meme (la revue du 2026-10-09 : MACHINE et ses crans se chevauchaient)
 const MACHINE: PageSlot = { ...lockable('MACHINE', 'l:mach', 'notch', 'mach'), layer: 'synth' };
 
-/** Les familles qui ont des samples (audio/samples.ts : BD et SD) : LEN, REV et l'onglet SYNTH. */
-const SAMPLE_FAMS: ReadonlySet<KitFamily> = new Set(['bd', 'sd']);
+/**
+ * Une famille qui a des samples (le dossier du site, ou ceux de Mika dans ce
+ * navigateur, audio/samples.ts ; BD et SD d'origine) : LEN, REV et l'onglet
+ * SYNTH. Lu a chaque fois : la liste bouge avec les samples de Mika.
+ */
+const hasSamples = (f: KitFamily | null): boolean => !!f && samplesOf(f).length > 0;
 
-/** VOICE, l'onglet principal, selon la famille de la voix. */
-function voiceMain(f: KitFamily | null): readonly PageSlot[] {
-  if (f && SAMPLE_FAMS.has(f)) return [SOUND, VOL, PITCH, FINE, LEN, REV];
+/** VOICE, l'onglet principal, selon la famille de la voix (smp : elle a des samples). */
+function voiceMain(f: KitFamily | null, smp: boolean): readonly PageSlot[] {
+  if (f && smp) return [SOUND, VOL, PITCH, FINE, LEN, REV];
   // Le clap garde GATE (la piece de son 909 et de son MM), sa seule touche de machine
   if (f === 'cp') return [SOUND, VOL, PITCH, FINE, synth('GATE', 'r:gate', 'notch', 'gate')];
   return [SOUND, VOL, PITCH, FINE];
@@ -482,12 +486,13 @@ const CACHE = new Map<string, readonly PageSlot[]>();
 /** Les blocs d'un ecran pour la voix choisie (null : aucune), tels que l'ecran, le Dock et le MIDI les voient. */
 export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly PageSlot[] {
   const f = inst ? familyOf(inst as ShotId) : null;
-  const key = `${screen}|${f ?? (inst ? 'own' : 'none')}`;
+  const smp = hasSamples(f);
+  const key = `${screen}|${f ?? (inst ? 'own' : 'none')}|${smp ? 1 : 0}`;
   let out = CACHE.get(key);
   if (out) return out;
   switch (screen) {
     case 'voice':
-      out = voiceMain(f);
+      out = voiceMain(f, smp);
       break;
     case 'synth':
       out = voiceSynth(f);
@@ -511,11 +516,11 @@ export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly Pag
   return out;
 }
 
-/** Les onglets d'une page pour cette voix (VOICE SYNTH : BD et SD seulement). */
+/** Les onglets d'une page pour cette voix (VOICE SYNTH : les familles qui ont des samples, BD et SD d'origine). */
 export function screensOf(page: RytmPageId, inst: Inst | null): readonly RytmScreenId[] {
   if (page !== 'voice') return PAGE_TABS[page];
   const f = inst ? familyOf(inst as ShotId) : null;
-  return f && SAMPLE_FAMS.has(f) ? PAGE_TABS.voice : ['voice'];
+  return hasSamples(f) ? PAGE_TABS.voice : ['voice'];
 }
 
 /** L'ecran d'une page a l'onglet tab (un onglet qui n'existe pas pour cette voix : le premier). */

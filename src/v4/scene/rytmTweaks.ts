@@ -9,6 +9,11 @@
  * - SNARE (son son), son SNAPPY, GATE (2026-10-04 : la reverbe a porte de
  *   la caisse claire et du clap, OFF ou ON) ;
  * - le son du clap, des charleys (HATS) et des toms (909, 808, MM).
+ * Une famille par voix depuis le 2026-10-18 (audio/kit.ts) : la carte garde
+ * ses onze pieces (trois selecteurs de plus ne tiennent pas dans le cadre
+ * VOICES sans refaire la carte), le selecteur des charleys regle le charley
+ * ferme (ch, CL HAT), celui des toms le tom grave (tom, TOM) ; OH, HT et CY
+ * se choisissent a l'ecran (SOUND) et au MIDI (rytm:kit:oh, ht, cy).
  *
  * 2026-10-08 (Mika : "c'est moche des grosses cases par dessus un PCB..
  * avoir de la finesse design ici") : plus de plaque, les reglages sont
@@ -83,7 +88,7 @@ export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
           { id: 'snappy', x: 1.0, z: R[2], ends: ['TONE', 'SNAP'] },
           { id: 'gate', x: 2.45, z: R[2] },
           { id: 'cp', x: C[0], z: R[3] },
-          { id: 'hh', x: C[1], z: R[3] },
+          { id: 'ch', x: C[1], z: R[3] },
           { id: 'tom', x: C[2], z: R[3] },
         ],
         groups: [
@@ -112,7 +117,7 @@ export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
           { id: 'snappy', x: -2.05, z: B, ends: ['TONE', 'SNAP'] },
           { id: 'gate', x: -0.85, z: B },
           { id: 'cp', x: 1.15, z: B },
-          { id: 'hh', x: 2.6, z: B },
+          { id: 'ch', x: 2.6, z: B },
           { id: 'tom', x: 4.05, z: B },
         ],
         groups: [

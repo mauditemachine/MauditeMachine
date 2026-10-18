@@ -236,6 +236,17 @@ function readSaved(): Saved {
  */
 const RETIRED_TARGETS: ReadonlySet<string> = new Set(['voy:knob:on1', 'voy:knob:on2']);
 
+/**
+ * Des cibles renommees (2026-10-18, une famille par voix dans le MM-RYTM, audio/kit.ts) : la famille hh des deux
+ * charleys est devenue ch ; une assignation apprise la suit (rytm:kit:hh, rytm:layer:hh:*) ; rs n'a plus de cible.
+ */
+function targetNow(t: string): string | null {
+  if (t === 'rytm:kit:hh') return 'rytm:kit:ch';
+  if (t.startsWith('rytm:layer:hh:')) return `rytm:layer:ch:${t.slice('rytm:layer:hh:'.length)}`;
+  if (t === 'rytm:kit:rs' || t.startsWith('rytm:layer:rs:')) return null;
+  return t;
+}
+
 /** Des assignations lues (stockage, fichier importe) : seulement des chaines bien formees, vers une cible qui existe encore. */
 function cleanMaps(raw: unknown): MidiMaps {
   const out: MidiMaps = {};
@@ -243,7 +254,10 @@ function cleanMaps(raw: unknown): MidiMaps {
   for (const [scope, m] of Object.entries(raw as Record<string, unknown>)) {
     if (!['mm808', 'voy', 'bass', 'dj', 'global'].includes(scope) || !m || typeof m !== 'object') continue;
     const clean: Record<string, string> = {};
-    for (const [k, t] of Object.entries(m as Record<string, unknown>)) if (KEY_RE.test(k) && typeof t === 'string' && t.length < 80 && !RETIRED_TARGETS.has(t)) clean[k] = t;
+    for (const [k, t0] of Object.entries(m as Record<string, unknown>)) {
+      const t = typeof t0 === 'string' ? targetNow(t0) : null;
+      if (t && KEY_RE.test(k) && t.length < 80 && !RETIRED_TARGETS.has(t)) clean[k] = t;
+    }
     out[scope as TargetScope] = clean;
   }
   return out;

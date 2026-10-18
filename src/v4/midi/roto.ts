@@ -217,7 +217,8 @@ function buildSetups(): RotoSetup[] {
       k('rytm:kit:decay', 'KICK DECAY', C.gold),
       k('rytm:kit:drive', 'KICK DRIVE', C.gold),
       kitSound('sd', 'SNARE SOUND'),
-      kitSound('hh', 'HATS SOUND'),
+      // Une famille par voix (2026-10-18) : le potard des charleys regle le charley ferme (OH a sa cible rytm:kit:oh)
+      kitSound('ch', 'CL HAT SOUND'),
     ],
     buttons: [
       // 1 : jouer

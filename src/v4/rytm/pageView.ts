@@ -108,8 +108,6 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, echo = f
     if (slot.both) b.quiet = layerQuiet('synth', inst, mode) && layerQuiet('sample', inst, mode);
     else if (slot.layer && !slot.level) b.quiet = layerQuiet(slot.layer, inst, mode);
   }
-  // Le reglage partage par la famille (CH+OH) ne vaut, en P-LOCK, que pour le pas de cette voix
-  if (mode?.kind === 'lock' && b.tag && b.tag === SHARED_TAG[inst ? (familyOf(inst as ShotId) ?? '') : '']) b.tag = '';
   if (!mode || b.state === 'empty' || b.state === 'soon' || b.graph) return b;
   // SOUND d'une voix sans choix de son a elle (CY) : un sample d'une autre famille se verrouille (le sample lock)
   if (b.state === 'off' && inst && slot.target === 'voice:sound' && (mode.kind === 'lock' || !!mode.lock?.snd)) {
@@ -177,9 +175,6 @@ function layerQuiet(layer: 'synth' | 'sample', inst: Inst, mode: BlockMode | nul
   return layer === 'synth' ? !p.synth : !p.smp;
 }
 
-/** L'etiquette des reglages de couche partages par deux voix (les couches sont celles de la famille, audio/kit.ts). */
-const SHARED_TAG: Readonly<Record<string, string>> = { hh: 'CH+OH', tom: 'TOM+HT' };
-
 /** Le bloc d'un emplacement, valeurs de la voix (hors verrous). */
 function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, cell: SlotCell, hover: boolean): Block {
   const b: Block = {
@@ -217,9 +212,9 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     return b;
   }
   const fam: KitFamily | null = inst ? familyOf(inst as ShotId) : null;
-  // BOTH : les deux couches ; CH+OH, TOM+HT : la couche de deux voix ; MACHINE : un potard de la machine de synthese
-  const shared = slot.layer && fam ? (SHARED_TAG[fam] ?? '') : '';
-  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : slot.both && fam ? 'BOTH' : shared;
+  // BOTH : les deux couches ; MACHINE : un potard de la machine de synthese (plus de CH+OH ni TOM+HT depuis le
+  // 2026-10-18 : chaque voix a ses couches a elle, audio/kit.ts)
+  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : slot.both && fam ? 'BOTH' : '';
   // ALL des reglages de la machine sur la page d'un FX sous la voix (2026-10-10) : l'onglet allume est la voix, le bloc le dit
   b.tagHeader = !slot.tagAlways && !b.noBd && (b.all || (!!slot.voiceTag && !!inst));
   const t = slot.target;
