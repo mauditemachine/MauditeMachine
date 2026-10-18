@@ -194,3 +194,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-18 : MM-DECKS, dossier Rekordbox relie sans copie (desktop, Chrome/Edge), relu a chaque visite, BPM, tonalite et playlists de l'export XML de Rekordbox. Spec R14-271.
 - 2026-10-18 : telephone, MM-MIXER : la table seule, sans platines. Spec R14-272.
 - 2026-10-18 : le site arrive sur la derniere machine utilisee. Spec R14-273.
+- 2026-10-18 : MM-RYTM, ecran plus grand au desktop, noms ecrits sur les touches VOICE FLTR ENV FX et RUN/STOP CLEAR RANDOM MUTE SOLO, transport a la forme des touches de page, touche choisie allumee en entier. Spec R14-274.

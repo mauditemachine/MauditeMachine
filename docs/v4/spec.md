@@ -2683,3 +2683,10 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Mika: "Je voudrais que le site arrive sur la machine la plus recemment utilisee".
 - focus.set remembers the framed machine (mm.v4.machine.last, never the overview). Next visit without ?m=: the intro plays on it when it has a hood (MM-RYTM, MM-ARP), else on one of those and the camera joins it at the end (introLand; deferred to the next Stage if the intro is torn down, StrictMode or a rebuild). ?m= still wins. Checked on a production build: DECKS, ARP and RYTM restored.
 
+### R14-274 MM-RYTM: bigger desktop screen, names printed on the keys, the chosen key fully lit (2026-10-18)
+
+- Mika: "RYTM je voudrais un ecran plus grand ; au lieu d'ecrire les choses en dessous des boutons je voudrais que ce soit ecrit directement sur le bouton ... quand c'est selectionne que ce soit plus voyant ; la meme forme de boutons pour RUN/STOP CLEAR etc."
+- Desktop glass 5.0 x 1.875 -> 5.3 x 2.617 with the tall drawing (OLED_UH 158 everywhere, texture 640 x 316, the larger type of the phone); left edge and top unchanged; 5.3 rather than 5.4 so the bezel keeps 0.2 from the BD / CP pads. Under it: the four page keys, then the eight GLOBAL FX encoders in one row (scale 0.85, pitch 0.66); nothing collides with the step LEDs. Sound browser: 7 rows on desktop.
+- VOICE FLTR ENV FX and RUN/STOP CLEAR RANDOM MUTE SOLO carry their name on their top face (scene/keyLabels.ts: one canvas atlas, light and dark variants, one quad per key following its press); the names under them left the silk. Transport keys take the page-key shape (1.0 x 0.38 desktop, 1.14 x 0.44 phone, same centres), RUN/STOP keeps its red.
+- Lit = the whole key: the shown page (orange), RUN while running, MUTE while voices are muted (red), SOLO armed or soloing (blue), CLEAR / RANDOM during their flash; the name turns black, the LED strip goes toward white. HOME: no page key lit. Light appearance tinted (KEY_LIT_LIGHT). No-WebGL fallback prints the names too. 127 muted checks plus the browser's 55.
+
