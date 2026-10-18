@@ -22,7 +22,8 @@
  *   rendent sous leur nouveau nom (OLD_IDS) ;
  * - les reglages des ecrans : leur DialId (actions.ts : vdecay, vol, tone,
  *   vfcut, dtime... ; les pages des FX globaux depuis le 2026-10-10 : xtone,
- *   crate, cdepth, dtone, rsize, rtone, rpre, brate, catk, crel), step:vel, voice:sound (SOUND), voice:mix (MIX) et
+ *   crate, cdepth, dtone, rsize, rtone, rpre, brate, catk, crel ; le COMP du 2026-10-18 : cthr, cratio, cknee,
+ *   cmake, chpf), step:vel, voice:sound (SOUND), voice:mix (MIX) et
  *   smpl:sample (l'ancien SAMPLE, le MIDI le connait encore) ; vsound, le
  *   raccourci SOUND du kit (le MIDI rytm:enc:vsound) ;
  * - les choix de son de la plaque TWEAKS : r:bd r:sd r:cp r:hh r:tom ;
@@ -105,6 +106,12 @@ export const RYTM_PARAM_IDS = [
   'brate',
   'catk',
   'crel',
+  // Le COMP refait le 2026-10-18 : THRESH, RATIO, KNEE (sans case, au MIDI), MAKEUP, HPF
+  'cthr',
+  'cratio',
+  'cknee',
+  'cmake',
+  'chpf',
 ] as const;
 export type RytmParamId = (typeof RYTM_PARAM_IDS)[number];
 

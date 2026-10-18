@@ -59,7 +59,7 @@
  *   remplacee.
  */
 
-import { INSTRUMENTS, NEUTRAL_FX, pattern, type Fx, type Steps } from '../audio/pattern';
+import { INSTRUMENTS, NEUTRAL_FX, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
 import { VOICE_FX_DEFAULT, voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
@@ -420,6 +420,16 @@ export function capture(m: PresetMachine): VoyData | RytmData | BassData {
   };
 }
 
+/**
+ * Les effets d'un etat du MM-RYTM, tels que la machine les prend : chaque reglage absent a sa valeur de depart (le son
+ * d'alors), un COMP d'avant le 2026-10-18 traduit (pattern.ts compLegacy : son seuil, son rapport, MIX 100 %).
+ */
+function rytmFx(raw: unknown): Fx {
+  const fx: Partial<Fx> = {};
+  if (raw && typeof raw === 'object') for (const [k, v] of Object.entries(raw)) if (k in NEUTRAL_FX && typeof v === 'number' && Number.isFinite(v)) fx[k as keyof Fx] = v;
+  return { ...NEUTRAL_FX, ...fx, ...compLegacy(raw) };
+}
+
 /** Un etat capture (un preset, ou un instantane de UNDO) remis sur la machine. */
 export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
   if (m === 'bass') {
@@ -462,9 +472,8 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
   // Un reglage d'effet absent du preset (DLY TIME et FB du 2026-10-09, BIT, COMP et les reglages de chaque FX du
   // 2026-10-10) : sa valeur de depart, le son d'alors (2026-10-11 ; avant, il gardait celle du moment : un preset
   // garde avant eux sonnait selon ce qui jouait avant lui, comme les voix avant le 2026-10-08)
-  const fx: Partial<Fx> = {};
-  for (const [k, v] of Object.entries(r.fx ?? {})) if (typeof v === 'number' && Number.isFinite(v)) fx[k as keyof Fx] = v;
-  pattern.fx.set({ ...NEUTRAL_FX, ...fx });
+  // Un COMP d'avant le 2026-10-18 (un seul potard) : ses reglages d'aujourd'hui, le meme caractere (pattern.ts compLegacy)
+  pattern.fx.set(rytmFx(r.fx));
   setStretch(typeof r.stretch === 'number' ? r.stretch : 0);
   for (const [inst, fx] of Object.entries(r.voices ?? {}) as [Inst, VoiceFx][]) {
     // Un preset d'avant les huit voix (2026-10-05) : RS et PC n'existent plus
@@ -613,6 +622,9 @@ const RYTM_FAMILY_RECORDS: readonly (readonly [string, unknown])[] = [
  */
 function rytmNow(o: Record<string, unknown>): Record<string, unknown> {
   let out = o;
+  // Les effets lus comme apply() les pose (2026-10-18) : les absents a leur depart, un COMP d'avant traduit ; sinon un
+  // preset garde avant le COMP refait differait de sa propre capture au premier chargement
+  if (o.fx && typeof o.fx === 'object') out = { ...out, fx: rytmFx(o.fx) };
   for (const [k, def] of RYTM_FAMILY_RECORDS) {
     const rec = o[k];
     if (!rec || typeof rec !== 'object') continue;

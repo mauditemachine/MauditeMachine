@@ -195,9 +195,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   fxg: {
     section: 'PAGES',
     title: 'GLOBAL FX',
-    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ou Échap ramènent GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ou Échap ramènent GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     phone: {
-      text: "Les huit effets de tout le MM-RYTM : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ramène GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+      text: "Les huit effets de tout le MM-RYTM : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ramène GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     },
     tip: 'Sur la page DELAY, TIME sur 1/8D et FEEDBACK vers 70 % : le rebond de l’indie dance ; un peu de DELAY global suffit.',
   },
@@ -577,8 +577,8 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'COMP',
     lock: 'global',
-    text: "Le compresseur de bus de tout le MM-RYTM, kick compris, façon SSL : à 0 (OFF) rien ne bouge ; en montant, le seuil descend de -6 à -24 dB et le rapport monte de 1,5:1 à 4:1 (affiché sous la valeur), avec un genou doux. Son détecteur n'écoute pas le sub (au-dessus de 60 Hz) : le kick ne fait plus baisser le snare ni le reste. Le niveau perdu est rattrapé tout seul (la réduction moyenne) : quand tu montes COMP, le volume reste le même et le groove se serre. Sa page règle ATTACK (30 ms au départ : la frappe passe, le corps et les queues se serrent) et RELEASE (150 ms). Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP.",
-    tip: 'Vers 30 à 40 % pour coller le kit ; à fond pour un pompage marqué sur les charlestons et la reverb.',
+    text: "Le compresseur de bus de tout le MM-RYTM, kick, REVERB et DELAY compris, façon SSL G et API 2500. COMP est son MIX : à 0 (OFF) le son passe tel quel, au bit près ; en montant, le son compressé se mêle au son sec (la compression parallèle, façon New York) ; à fond, il est seul. Sa page (une tape sur son bloc) règle le reste : THRESH et RATIO en haut, à côté de COMP, puis ATTACK, RELEASE, MAKEUP et le HPF de sa chaîne latérale ; l'aiguille GR sous COMP montre la réduction, en dB. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP.",
+    tip: "Pour coller un kit dark disco : RATIO 4:1, ATTACK 10 à 30 ms, RELEASE AUTO, THRESH descendu jusqu'à 3 à 6 dB sur l'aiguille, puis COMP vers 60 % : le corps se serre, la frappe reste devant.",
   },
 
   /* ---------- les pages des FX globaux (2026-10-10) : leurs reglages ---------- */
@@ -638,19 +638,55 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "L'échantillonnage du BIT divisé, de /1 (OFF, rien ne change) à /16 : chaque échantillon est tenu plusieurs fois, les aigus se replient en sons métalliques, le grain des vieux samplers. Le diviseur s'affiche sous la valeur. Il n'agit que BIT engagé : BIT à 0, le son passe tel quel.",
     tip: '/2 à /4 avec BIT vers 12 bits : le grain des samplers des années 80 ; /16 pour une casse franche le temps d’une pause.',
   },
+  // Le COMP refait le 2026-10-18 : ses reglages, dans l'ordre de sa page (KNEE n'a pas de case : MIDI et Roto)
+  cthr: {
+    section: 'GLOBAL FX · COMP',
+    title: 'THRESH',
+    lock: 'global',
+    text: "Le seuil du COMP : le niveau au-dessus duquel il commence à serrer, de 0 dB (presque rien ne le dépasse) à -40 dB (tout est compressé) ; -18 dB au départ, en dB à l'écran. Plus il descend, plus la réduction est forte : l'aiguille GR, sous COMP, la montre. Le seuil, le rapport et le genou dessinent la courbe de la carte.",
+    tip: "Descends-le en regardant l'aiguille : 2 à 4 dB sur les kicks pour un bus qui colle, 6 dB et plus pour un kit qui pompe.",
+  },
+  cratio: {
+    section: 'GLOBAL FX · COMP',
+    title: 'RATIO',
+    lock: 'global',
+    text: "De combien le COMP serre ce qui dépasse le seuil, en huit crans : 1:1 (rien), 1,5, 2, 3, 4 (le départ), 6, 10 et 20:1 (presque un limiteur). À 4:1, 4 dB au-dessus du seuil n'en font plus qu'un. Le mot sous la valeur dit son caractère : SOFT, GENTLE, GLUE, PUNCH, SMASH, LIMIT.",
+    tip: "2:1 ou 4:1 pour coller le kit comme un SSL ; 10:1 avec COMP vers 40 % : une compression parallèle qui écrase le corps et garde la frappe sèche.",
+  },
   catk: {
     section: 'GLOBAL FX · COMP',
     title: 'ATTACK',
     lock: 'global',
-    text: "Le temps que met le COMP à serrer après un coup, de 0,1 ms (il écrase la frappe) à 50 ms (la frappe passe, le corps est compressé) ; 30 ms au départ, en ms sous la valeur.",
-    tip: '10 à 30 ms : le kick et la caisse claire gardent leur claque, le reste se serre.',
+    text: "Le temps que met le COMP à serrer quand un coup dépasse le seuil, de 0,1 ms (il écrase la frappe) à 50 ms (la frappe passe entière, le corps est compressé) ; 10 ms au départ, en ms sous la valeur. La carte dessine la réduction sur un coup : elle se creuse après la frappe.",
+    tip: "10 à 30 ms : le kick et la caisse claire gardent leur claque, le reste se serre ; 1 ms et moins pour aplatir des charleys trop pointus.",
   },
   crel: {
     section: 'GLOBAL FX · COMP',
     title: 'RELEASE',
     lock: 'global',
-    text: "Le temps que met le COMP à relâcher, de 20 à 800 ms ; 150 ms au départ, en ms sous la valeur. Court, le niveau remonte entre les coups et les queues gonflent (le pompage) ; long, le kit reste serré et égal.",
-    tip: 'Calé sur une double croche (vers 120 ms à 128 BPM) : le pompage respire avec le groove.',
+    text: "Le temps que met le COMP à relâcher, de 20 ms à 0,78 s, en ms sous la valeur ; tout en haut, AUTO (le départ) : le retour suit la musique, rapide après un coup bref (60 ms), lent quand la compression dure (jusqu'à 1,2 s), comme l'AUTO d'un SSL. Court, le niveau remonte entre les coups et les queues gonflent (le pompage) ; long, le kit reste serré et égal.",
+    tip: "AUTO pour coller sans y penser ; calé sur une double croche (vers 120 ms à 125 BPM) pour un pompage qui respire avec le groove.",
+  },
+  cmake: {
+    section: 'GLOBAL FX · COMP',
+    title: 'MAKEUP',
+    lock: 'global',
+    text: "Le gain rendu après la compression. Tout en bas, AUTO (le départ) : un gain fixe, calculé du seuil et du rapport (il s'affiche sous AUTO), qui garde le motif au même volume ; il ne bouge jamais tout seul, rien ne respire. Au-dessus, à la main, de -6 à +18 dB.",
+    tip: "Laisse AUTO pour comparer honnêtement (COMP à 0, puis remonté) ; à la main, quelques dB de plus pour qu'un kit écrasé passe devant.",
+  },
+  chpf: {
+    section: 'GLOBAL FX · COMP',
+    title: 'HPF',
+    lock: 'global',
+    text: "Le passe-haut de la chaîne latérale du COMP : ce que son détecteur écoute, pas ce que tu entends. OFF : tout, le kick entier fait compresser le reste ; 60 Hz (le départ) : le sub du kick ne tire plus le bus vers le bas ; 120 Hz : le kick le fait à peine réagir, la caisse claire et les charleys le guident.",
+    tip: "OFF avec un RELEASE court : le pompage disco marqué à chaque kick ; 120 Hz pour une colle discrète qui laisse le kick rond.",
+  },
+  cknee: {
+    section: 'GLOBAL FX · COMP',
+    title: 'KNEE',
+    lock: 'global',
+    text: "Le genou du COMP : la largeur autour du seuil où la compression arrive en douceur, de 0 (HARD : d'un coup, au seuil) à 12 dB ; 6 dB au départ. Il n'a pas de case sur la page (COMP en prend deux, les six autres réglages le reste) : il se règle au MIDI (rytm:enc:cknee) et au Roto-Control.",
+    tip: "Doux (6 à 12 dB) pour un bus qui colle sans qu'on l'entende ; dur (0 à 2 dB) pour un compresseur qui mord, façon API.",
   },
 
   /* ---------- la plaque TWEAKS (OPEN) : les choix de son ---------- */

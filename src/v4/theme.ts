@@ -610,7 +610,13 @@ export type EncId =
   | 'cdepth'
   | 'brate'
   | 'catk'
-  | 'crel';
+  | 'crel'
+  // Le COMP refait le 2026-10-18 (audio/pattern.ts FX_SETTINGS) : seuil, rapport, genou, rattrapage, HPF de sa chaine laterale
+  | 'cthr'
+  | 'cratio'
+  | 'cknee'
+  | 'cmake'
+  | 'chpf';
 
 /**
  * Les potards de la rangee VOICE et le parametre de voix qu'ils reglent
@@ -750,7 +756,12 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'cdepth', label: 'CHO DEPTH', aria: 'Chorus depth' },
   { id: 'brate', label: 'BIT RATE', aria: 'Bit reduction sample rate divider' },
   { id: 'catk', label: 'COMP ATK', aria: 'Compressor attack' },
-  { id: 'crel', label: 'COMP REL', aria: 'Compressor release' },
+  { id: 'crel', label: 'COMP REL', aria: 'Compressor release, AUTO at the top' },
+  { id: 'cthr', label: 'COMP THR', aria: 'Compressor threshold' },
+  { id: 'cratio', label: 'COMP RATIO', aria: 'Compressor ratio' },
+  { id: 'cknee', label: 'COMP KNEE', aria: 'Compressor knee' },
+  { id: 'cmake', label: 'COMP MAKEUP', aria: 'Compressor makeup gain, AUTO at the bottom' },
+  { id: 'chpf', label: 'COMP HPF', aria: 'Compressor sidechain high pass' },
 ];
 
 /** Libelle serigraphie d'un encodeur (l'ecran l'affiche aussi : VOLUME 80%). */
@@ -1513,8 +1524,14 @@ export const POT_UI = {
     crate: 0.624,
     cdepth: 0.5,
     brate: 0,
-    catk: 0.547,
-    crel: 0.486,
+    // Le COMP (2026-10-18) : ses departs (audio/pattern.ts FX_SETTINGS), -18 dB, 4:1, 10 ms, AUTO, 6 dB, AUTO, 60 Hz
+    catk: 0.742,
+    crel: 1,
+    cthr: 0.45,
+    cratio: 0.571,
+    cknee: 0.5,
+    cmake: 0,
+    chpf: 0.5,
   },
 } as const;
 

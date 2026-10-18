@@ -26,7 +26,7 @@
  */
 
 import type { BassDiagram } from '../bass/diagrams';
-import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, compRatio, compThreshold, delayDiv, delayFb, fxLaw } from '../audio/pattern';
+import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, compMakeAuto, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, type Fx } from '../audio/pattern';
 import { SAMPLE_LEN_FADE, sampleLenPart } from '../audio/sampledsp';
 import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
@@ -100,6 +100,8 @@ export interface RytmDiagramCtx extends RytmResolveCtx {
   /** BIT et son RATE (pattern.fx, 2026-10-10) : le dessin de l'un lit l'autre */
   bits?: number;
   brate?: number;
+  /** le COMP (pattern.fx, 2026-10-18) : son MIX et ses reglages, le dessin d'un reglage lit les autres */
+  comp?: Partial<Pick<Fx, 'comp' | 'cthr' | 'cratio' | 'cknee' | 'cmake' | 'catk' | 'crel' | 'chpf'>>;
   /** MIX de la voix (VOICE SYNTH) : ses deux niveaux, 0 a 1 ; sample : la voix a un sample a poser sous la machine */
   mixLv?: { syn: number; lev: number; sample: boolean };
 }
@@ -1008,41 +1010,142 @@ const bitsPic = (hot: 'bits' | 'rate'): Draw => (c, v) => {
 };
 const drawBits = bitsPic('bits');
 
-/**
- * COMP (2026-10-10, refait le 2026-10-11 : audio/glue.worklet.js) : le niveau qui entre (en bas) et celui qui sort (a
- * gauche), de -48 a 0 dB, a genou doux ; le seuil marque. Le dessin rattrape la reduction d'un niveau typique (-14 dB),
- * comme le moteur au depart (il suit ensuite la reduction moyenne).
- */
-const drawComp: Draw = (_c, v) => {
-  const p = new Pic();
-  const cp = clamp(v, 0, 1);
-  const thr = compThreshold(cp);
-  const ratio = compRatio(cp);
-  const slope = 1 - 1 / ratio;
-  const knee = 8;
-  const gr = (db: number): number => {
-    const o = db - thr;
-    if (2 * o <= -knee) return 0;
-    if (2 * o < knee) return (-slope * (o + knee / 2) ** 2) / (2 * knee);
-    return -slope * o;
+/** Les reglages du COMP d'un dessin : ceux du motif (c.comp), la commande de la carte a sa valeur v (hot). */
+type CompKey = 'comp' | 'cthr' | 'cratio' | 'cknee' | 'cmake' | 'catk' | 'crel' | 'chpf';
+function compOf(c: RytmDiagramCtx, hot: CompKey, v: number): Record<CompKey, number> {
+  const k = c.comp ?? {};
+  const out: Record<CompKey, number> = {
+    comp: k.comp ?? 0,
+    cthr: k.cthr ?? FX_SETTINGS.cthr,
+    cratio: k.cratio ?? FX_SETTINGS.cratio,
+    cknee: k.cknee ?? FX_SETTINGS.cknee,
+    cmake: k.cmake ?? FX_SETTINGS.cmake,
+    catk: k.catk ?? FX_SETTINGS.catk,
+    crel: k.crel ?? FX_SETTINGS.crel,
+    chpf: k.chpf ?? FX_SETTINGS.chpf,
   };
-  const makeup = cp > 0 ? Math.min(15, -gr(-14)) : 0;
-  const lo = -48;
-  const tx = (db: number): number => X0 + ((db - lo) / -lo) * (X1 - X0);
-  const ty = (db: number): number => Y1 - ((Math.max(lo, Math.min(0, db)) - lo) / -lo) * (Y1 - Y0);
-  const out = (db: number): number => db + gr(db) + makeup;
-  p.p(seg(X0, Y1, X1, Y1), 'grid');
-  p.p(seg(tx(lo), ty(lo), tx(0), ty(0)), 'ghost');
-  if (cp > 0) p.p(seg(tx(thr), Y0, tx(thr), Y1), 'grid');
-  const n = 48;
-  for (let i = 0; i < n; i += 1) {
-    const a = lo + (-lo * i) / n;
-    const b = lo + (-lo * (i + 1)) / n;
-    p.p(seg(tx(a), ty(out(a)), tx(b), ty(out(b))), cp > 0 ? 'hot' : 'main');
+  out[hot] = v;
+  return out;
+}
+/** La reduction (dB, >= 0) de la courbe du worklet (audio/glue.worklet.js) : seuil t, pente 1 - 1/rapport, genou w. */
+function compGrDb(x: number, t: number, slope: number, w: number): number {
+  const o = x - t;
+  if (w > 0.01 && 2 * o > -w && 2 * o < w) return (slope * (o + w / 2) ** 2) / (2 * w);
+  return o > 0 ? slope * o : 0;
+}
+const ratioWord = (r: number): string => `${Number.isInteger(r) ? r : r.toFixed(1)}:1`;
+const signedDb = (d: number): string => `${d > 0 ? '+' : ''}${(Math.round(d * 10) / 10).toFixed(1)} DB`;
+const msWord = (s: number): string => `${s < 0.01 ? (s * 1000).toFixed(1) : Math.round(s * 1000)} MS`;
+
+/**
+ * COMP (refait le 2026-10-18, audio/glue.worklet.js) : sa courbe, le niveau qui entre (en bas) et celui qui sort (a
+ * gauche), de -48 a 0 dB ; le seuil marque, le genou en trait sous la courbe, le rattrapage (MAKEUP) et le MIX (la part
+ * compressee, melee au sec) compris, comme le worklet les applique. hot : la commande de la carte (le MIX, THRESH,
+ * RATIO, KNEE, MAKEUP), les autres lus du motif.
+ */
+const compCurvePic =
+  (hot: 'comp' | 'cthr' | 'cratio' | 'cknee' | 'cmake'): Draw =>
+  (c, v) => {
+    const p = new Pic();
+    const k = compOf(c, hot, v);
+    const thr = fxLaw.cthr(k.cthr);
+    const ratio = fxLaw.cratio(k.cratio);
+    const knee = fxLaw.cknee(k.cknee);
+    const make = compMakeup(k);
+    // Le dessin d'un reglage montre la courbe entiere (MIX 100 %) quand COMP est a 0 ; celui du MIX, le MIX du moment
+    const mixv = hot === 'comp' ? k.comp : k.comp > 0 ? k.comp : 1;
+    const slope = 1 - 1 / ratio;
+    const lo = -48;
+    const tx = (db: number): number => X0 + ((db - lo) / -lo) * (X1 - X0);
+    const ty = (db: number): number => Y1 - ((Math.max(lo, Math.min(0, db)) - lo) / -lo) * (Y1 - Y0);
+    const out = (db: number): number => db + 20 * Math.log10(1 - mixv + mixv * Math.pow(10, (make - compGrDb(db, thr, slope, knee)) / 20));
+    p.p(seg(X0, Y1, X1, Y1), 'grid');
+    p.p(seg(tx(lo), ty(lo), tx(0), ty(0)), 'ghost');
+    p.p(seg(tx(thr), Y0, tx(thr), Y1), hot === 'cthr' ? 'dash' : 'grid');
+    if (knee > 0.01) p.p(seg(tx(thr - knee / 2), Y1 - 3, tx(Math.min(0, thr + knee / 2)), Y1 - 3), hot === 'cknee' ? 'hot' : 'grid');
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 96; i += 1) {
+      const a = lo + (-lo * i) / 96;
+      pts.push([tx(a), ty(out(a))]);
+    }
+    const on = hot !== 'comp' || k.comp > 0;
+    p.p(poly(pts), on ? 'hot' : 'main');
+    const mk = compMakeAuto(k.cmake) ? `MAKEUP AUTO ${signedDb(make)}` : `MAKEUP ${signedDb(make)}`;
+    if (hot === 'comp') {
+      p.label(k.comp > 0 ? `THRESH ${Math.round(thr)} DB  RATIO ${ratioWord(ratio)}  ${mk}` : 'COMP AT 0: THE SOUND PASSES AS IS', X0, TOP);
+      p.label(k.comp > 0 ? `MIX ${Math.round(k.comp * 100)} %: COMPRESSED UNDER THE DRY` : 'IN, LOW TO LOUD', X0, BOT);
+      return p.value(k.comp > 0 ? `${Math.round(k.comp * 100)}%` : 'OFF').done();
+    }
+    p.label(`THRESH ${Math.round(thr)} DB  RATIO ${ratioWord(ratio)}  KNEE ${Math.round(knee)} DB`, X0, TOP);
+    p.label(hot === 'cmake' || k.comp > 0 ? `${mk}${hot !== 'cmake' ? `  MIX ${Math.round(k.comp * 100)} %` : ''}` : `${mk}  (COMP AT 0: OFF)`, X0, BOT);
+    if (hot === 'cthr') return p.value(`${Math.round(thr)} DB`).done();
+    if (hot === 'cratio') return p.value(ratioWord(ratio)).done();
+    if (hot === 'cknee') return p.value(knee < 0.5 ? 'HARD' : `${Math.round(knee)} DB`).done();
+    return p.value(compMakeAuto(k.cmake) ? 'AUTO' : signedDb(make)).done();
+  };
+const drawComp = compCurvePic('comp');
+
+/**
+ * ATTACK et RELEASE du COMP (2026-10-18) : un coup (le niveau du detecteur, en gris, 60 ms au-dessus du seuil) et la
+ * reduction qui le suit (en couleur, vers le bas) : elle se creuse en ATTACK (la frappe passe d'abord), retombe en
+ * RELEASE ; AUTO : vite apres un coup bref (60 ms), lentement apres une compression qui dure (jusqu'a 1.2 s).
+ */
+const compTimePic =
+  (hot: 'catk' | 'crel'): Draw =>
+  (c, v) => {
+    const p = new Pic();
+    const k = compOf(c, hot, v);
+    const atk = fxLaw.catk(k.catk);
+    const auto = compRelAuto(k.crel);
+    const rel = auto ? 0.06 : fxLaw.crel(k.crel);
+    const span = hot === 'catk' ? 0.16 : 1.2;
+    const hit = 0.06;
+    const t0 = span * 0.08;
+    const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+    const base = Y0 + 8;
+    const depth = Y1 - base - 6;
+    p.p(seg(X0, base, X1, base), 'grid');
+    p.p(rbox(tx(t0), base - 6, tx(t0 + hit) - tx(t0), 6), 'ghost', true);
+    const pts: Pt[] = [];
+    let g = 0;
+    const n = 160;
+    const dt = span / n;
+    for (let i = 0; i <= n; i += 1) {
+      const t = i * dt;
+      const on = t >= t0 && t < t0 + hit;
+      g += ((on ? 1 : 0) - g) * (1 - Math.exp(-dt / (on ? atk : rel)));
+      pts.push([tx(t), base + g * depth]);
+    }
+    p.p(poly(pts), 'hot');
+    p.label(hot === 'catk' ? `ATTACK ${msWord(atk)}: THE HIT PASSES, THEN IT SQUEEZES` : auto ? 'RELEASE AUTO: FAST AFTER A HIT, SLOW WHEN IT LASTS' : `RELEASE ${msWord(rel)}`, X0, TOP);
+    p.label(hot === 'catk' ? 'GAIN REDUCTION OVER 160 MS' : 'GAIN REDUCTION OVER 1.2 S', X0, BOT);
+    if (hot === 'catk') return p.value(msWord(atk)).done();
+    return p.value(auto ? 'AUTO' : msWord(rel)).done();
+  };
+
+/**
+ * HPF du COMP (2026-10-18) : ce que sa chaine laterale entend, de 20 Hz a 2 kHz (le passe-haut 2 poles du worklet ;
+ * OFF : tout), le kick marque a 50 Hz : plus le filtre monte, moins le kick fait compresser le reste.
+ */
+const drawCompHpf: Draw = (_c, v) => {
+  const p = new Pic();
+  const hz = fxLaw.chpf(v);
+  const f0 = 20;
+  const f1 = 2000;
+  const tx = (f: number): number => X0 + ((X1 - X0) * Math.log(f / f0)) / Math.log(f1 / f0);
+  const ty = (db: number): number => Y0 + 4 + (Math.min(0, Math.max(-36, db)) / -36) * (Y1 - Y0 - 4);
+  p.p(seg(X0, ty(0), X1, ty(0)), 'grid');
+  p.p(seg(tx(50), Y0, tx(50), Y1), 'dash');
+  const pts: Pt[] = [];
+  for (let i = 0; i <= 80; i += 1) {
+    const f = f0 * Math.pow(f1 / f0, i / 80);
+    const r = hz > 0 ? (f / hz) ** 2 : 1;
+    pts.push([tx(f), ty(hz > 0 ? 20 * Math.log10(r / Math.sqrt(1 + r * r)) : 0)]);
   }
-  p.label(cp > 0 ? `THRESHOLD ${Math.round(thr)} DB  RATIO ${ratio.toFixed(1)}:1` : 'OFF: NOTHING MOVES', X0, TOP);
-  p.label('IN, LOW TO LOUD', X0, BOT);
-  return p.value(cp > 0 ? `${ratio.toFixed(1)}:1` : 'OFF').done();
+  p.p(poly(pts), 'hot');
+  p.label(hz > 0 ? `SIDECHAIN HIGH PASS ${hz} HZ` : 'SIDECHAIN FULL RANGE: THE KICK DRIVES IT', X0, TOP);
+  p.label('KICK AT 50 HZ, 20 HZ TO 2 KHZ', X0, BOT);
+  return p.value(hz > 0 ? `${hz} HZ` : 'OFF').done();
 };
 
 /* ---------------- l'etape 2 (2026-10-09) : ENV, le filtre, MIX ---------------- */
@@ -1393,6 +1496,14 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   bits: drawBits,
   brate: bitsPic('rate'),
   comp: drawComp,
+  // Le COMP refait le 2026-10-18 : sa courbe (THRESH, RATIO, KNEE, MAKEUP), ses temps (ATTACK, RELEASE), son HPF
+  cthr: compCurvePic('cthr'),
+  cratio: compCurvePic('cratio'),
+  cknee: compCurvePic('cknee'),
+  cmake: compCurvePic('cmake'),
+  catk: compTimePic('catk'),
+  crel: compTimePic('crel'),
+  chpf: drawCompHpf,
   'smpl:sample': drawSounds,
   'r:bd': drawSounds,
   'r:sd': drawSounds,
