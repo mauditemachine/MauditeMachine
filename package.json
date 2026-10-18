@@ -14,6 +14,7 @@
     "preview": "vite preview --open",
     "stats": "node scripts/fetch-stats.mjs",
     "samples:import": "node scripts/import-rytm-samples.mjs",
+    "samples:ableton": "node scripts/ableton-samples.mjs",
     "docs:midi": "node scripts/midi-reference.mjs"
   },
   "dependencies": {
