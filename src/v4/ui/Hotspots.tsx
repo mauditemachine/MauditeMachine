@@ -114,8 +114,22 @@ import {
   voyRun,
   kitDial,
   kitIdOf,
+  lockMode,
+  pageTarget,
+  soundBrowserClose,
+  soundBrowserCursor,
+  soundBrowserOpen,
+  soundBrowserPick,
+  soundBrowserRemove,
+  soundBrowserScroll,
+  soundBrowserScrollTo,
+  soundBrowserStep,
+  soundBrowserView,
+  soundDrop,
   type DialId,
 } from '../actions';
+import { samplesChanged, samplesVersion } from '../audio/samples';
+import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { clock } from '../audio/clock';
 import { learnPick, midi } from '../midi/midi';
 import { targetIdOfHotspot } from '../midi/targets';
@@ -261,8 +275,14 @@ interface Down {
    * qu'il va de cote dans le temps d'un glisser (la garde de l'orbite)
    */
   swipe: boolean;
-  /** MUTE ou SOLO tenu MODE_HOLD_MS (2026-10-09) : toutes les voix sont revenues, le lacher ne fait rien de plus */
+  /** MUTE ou SOLO tenu MODE_HOLD_MS (2026-10-09) : toutes les voix sont revenues, le lacher ne fait rien de plus ; une ligne du navigateur tenue (2026-10-18) : elle est armee pour partir */
   holdFired?: boolean;
+  /**
+   * le navigateur des sons (2026-10-18) : sa premiere ligne montree au pointerdown et la hauteur d'une ligne a l'ecran
+   * (px CSS) ; un glisser la fait defiler d'autant
+   */
+  sbTop?: number;
+  rowPx?: number;
 }
 
 /** Un bloc de l'ecran glisse a l'horizontale (1.4 fois plus qu'a la verticale, comme SWIPE) : le glisser de machine. */
@@ -297,6 +317,9 @@ function wheelGain(dt: number, fine: boolean): number {
 
 /** Une tape sur un bloc ou un encodeur ne compte que si l'appui a dure moins que ca (69-common2 point 1 : un glisser rapide n'en est pas une). */
 const TAP_MAX_MS = 320;
+
+/** Au doigt, une ligne du navigateur des sons tenue ce temps (un sample de ce navigateur) : REMOVE? TAP AGAIN (2026-10-18). */
+const SB_HOLD_MS = 600;
 
 /** INFOS du MM-RYTM allume (R4) et une de ses commandes, sur lui : au doigt, elle montre sa carte. */
 const rytmInfoTouch = (id: string): boolean => rytmInfos.isOn() && focus.get() === 'mm808' && isRytmInfoHotspot(id);
@@ -435,6 +458,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     let lastBg: { t: number; x: number; y: number } | null = null;
     let wheelAcc = 0;
     let wheelKind: DialId | null = null;
+    /** la molette au-dessus du navigateur des sons (2026-10-18) : ses petits deltas s'accumulent */
+    let sbWheel = 0;
     /** l'instant du dernier cran de molette (l'acceleration, 2026-10-09) */
     let wheelAt = -Infinity;
     /** vue d'ensemble, ou le bout de la voisine : une machine sous la souris (curseur doigt, un clic zoome) */
@@ -602,6 +627,36 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
             lastTap.delete(k);
             rytmFxOpen(fd);
           }, TEMPO_UI.tapMs + 10);
+        // Le nom du son (le bloc SOUND de VOICE, 2026-10-18, Mika : "difficile la selection des samples") : une tape seule
+        // ouvre le navigateur des sons, passe le temps d'une deuxieme tape (deux tapes : SOUND revient a son depart)
+        else if (pk >= 0 && pageTarget(pk) === 'voice:sound')
+          fxOpenTimer = window.setTimeout(() => {
+            fxOpenTimer = 0;
+            if (disposed || knobHeld() || pageTarget(pk) !== 'voice:sound') return;
+            lastTap.delete(k);
+            soundBrowserOpen();
+          }, TEMPO_UI.tapMs + 10);
+      }
+    };
+
+    /**
+     * Une tape dans le navigateur des sons (2026-10-18) : une ligne joue son son (la ligne armee, REMOVE?, part ; + LOAD
+     * A FILE... ouvre le choix des fichiers), le x d'un sample de ce navigateur l'arme puis le retire, PREV et NEXT
+     * passent au son voisin ; une ligne tenue au doigt (deja armee) ne fait rien de plus a son lacher.
+     */
+    const sbTap = (d: Down): void => {
+      const id = d.id ?? '';
+      if (d.holdFired) return;
+      if (id === 'lcd-sb-prev') soundBrowserStep(-1);
+      else if (id === 'lcd-sb-next') soundBrowserStep(1);
+      else {
+        const m = /^lcd-sb-(row|del)-([0-9]+)$/.exec(id);
+        const v = soundBrowserView();
+        if (m && v) {
+          const i = v.top + Number(m[2]);
+          if (m[1] === 'del') soundBrowserRemove(i, d.mouse ? 'CLICK' : 'TAP');
+          else soundBrowserPick(i);
+        } else lcdSamples.touch();
       }
     };
 
@@ -619,6 +674,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // MM-RYTM (R4, 2026-10-08) : la touche i de son ecran ; INFOS allume, au doigt, une tape montre la carte
       if (d.kind === 'rinfo') {
         rytmInfos.toggle();
+        return d.id;
+      }
+      // Le navigateur des sons (2026-10-18) : une ligne, son x, PREV, NEXT ; l'en-tete et le corps gardent la liste ouverte
+      if (d.kind === 'sbrowse') {
+        sbTap(d);
         return d.id;
       }
       // Un pas tenu qui a recu un verrou (deux doigts, INFOS allume aussi) : ni change ni tape, la carte reste celle de l'encodeur
@@ -672,6 +732,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       return d.id;
     };
 
+    /** La liste glissee (2026-10-18) : elle suit le doigt, une ligne par hauteur de ligne (vers le bas : les lignes d'avant). */
+    const sbDrag = (d: Down, dy: number): void => {
+      if (!d.rowPx || d.rowPx <= 0) return;
+      soundBrowserScrollTo((d.sbTop ?? 0) - Math.round(dy / d.rowPx));
+    };
+
     /** Un pas glisse : sa velocite suit le doigt (vers le haut, plus fort). */
     const dragVelocity = (d: Down, dy: number): void => {
       if (d.index === undefined) return;
@@ -709,6 +775,19 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         }
         d.velDrag = true;
         dragVelocity(d, dy);
+        return false;
+      }
+      // Le navigateur des sons (2026-10-18) : un glisser parti de lui le fait defiler (au doigt comme a la souris, jamais
+      // l'orbite) ; au doigt, parti a l'horizontale et vite, c'est le glisser d'une machine a l'autre (comme un bloc)
+      if (d && d.kind === 'sbrowse') {
+        if (!d.mouse && !d.multi && Math.abs(dx) > BLOCK_SWIPE_RATIO * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) return true;
+        d.turning = true;
+        sbDrag(d, dy);
+        if (d.mouse) {
+          turnAxis = 'y';
+          turnBlock = true;
+          setCursor();
+        }
         return false;
       }
       if (!d || !d.dial) return true;
@@ -850,6 +929,31 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (h && (h.kind === 'step' || h.kind === 'penc' || blockKnob)) stage.orbit.claim(e.pointerId);
       // Le bloc pris au doigt reste cerne tant qu'on le tient (2026-10-09), meme immobile : on voit ce qu'on regle
       if (blockKnob && h && h.index !== undefined) rytmPage.hold(h.index);
+      // Le navigateur des sons (2026-10-18) : ni pincement ni orbite ; sa premiere ligne et la hauteur d'une ligne a l'ecran
+      // (le corps de la liste, en BROWSER_ROWS lignes), pour un glisser ; au doigt, un de ses samples tenu SB_HOLD_MS : arme
+      // pour partir (REMOVE? TAP AGAIN)
+      if (h && h.kind === 'sbrowse') {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        const body = stage.hit.list().find((x) => x.id === 'lcd-sb-body');
+        if (d0) {
+          d0.sbTop = soundBrowserView()?.top ?? 0;
+          d0.rowPx = (body && body.enabled ? body.bh : h.bh * BROWSER_ROWS) / BROWSER_ROWS;
+        }
+        const row = /^lcd-sb-row-([0-9]+)$/.exec(h.id);
+        if (row && e.pointerType !== 'mouse') {
+          const pid = e.pointerId;
+          window.setTimeout(() => {
+            const d = downs.get(pid);
+            if (!d || d !== d0 || disposed || d.turning) return;
+            const v = soundBrowserView();
+            const i = (v?.top ?? 0) + Number(row[1]);
+            if (!v || !v.rows[i]?.user) return;
+            d.holdFired = true;
+            soundBrowserRemove(i, 'TAP');
+          }, SB_HOLD_MS);
+        }
+      }
       // MUTE ou SOLO tenu (2026-10-09) : MODE_HOLD_MS sans lacher, toutes les voix reviennent (le lacher ne fait rien de plus) ;
       // INFOS allume, au doigt, la tenue lit la carte et ne rend aucune voix (revue : comme la touche du Dock)
       if (h && (h.kind === 'mute' || h.kind === 'solo') && !downs.get(e.pointerId)?.info) {
@@ -1026,7 +1130,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Souris sans bouton mais encore tenue ici : son pointerup s'est perdu
       if (d && d.mouse && (e.buttons & 1) === 0) forget(e.pointerId);
       else if (d && d.turning) {
-        turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey);
+        if (d.kind === 'sbrowse') sbDrag(d, e.clientY - d.y);
+        else turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey);
         return;
       } else if (d && d.velDrag) {
         dragVelocity(d, e.clientY - d.y);
@@ -1087,6 +1192,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         let bg = false;
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
+        // Le navigateur des sons ouvert (2026-10-18) : une tape hors de lui le ferme, et agit (un pad de voix, non : la liste
+        // suit sa voix)
+        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad') soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
         if (tap && d.id !== null) {
@@ -1141,6 +1249,19 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Ctrl + molette (pincement d'un pave tactile) : le zoom de la vue
       if (e.ctrlKey) return;
       const h = pickAt(e, false);
+      // Au-dessus du navigateur des sons (2026-10-18) : la molette le fait defiler, une ligne par cran (vers soi : la suite)
+      if (h && h.kind === 'sbrowse') {
+        e.preventDefault();
+        const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
+        sbWheel += delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+        const n = Math.trunc(sbWheel / POT_UI.wheelPx);
+        if (n !== 0) {
+          sbWheel -= n * POT_UI.wheelPx;
+          soundBrowserScroll(n);
+        } else lcdSamples.touch();
+        return;
+      }
+      sbWheel = 0;
       // Au-dessus d'une commande du MM-DECKS : elle prend la molette si elle en veut (sinon la vue zoome)
       const g = gesturesOf(h);
       if (h && g) {
@@ -1206,6 +1327,44 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     // Appui long : ni menu contextuel ni loupe
     const onMenu = (e: Event): void => e.preventDefault();
 
+    /*
+     * Un fichier glisse depuis le disque (2026-10-18, Mika : "glisser-deposer WAV") : au-dessus du MM-RYTM, l'ecran dit
+     * DROP ON A PAD (DROP ON BD au-dessus d'un pad) ; lache sur un pad, il devient un sample de sa voix ; ailleurs sur la
+     * machine, de la voix choisie (actions.ts soundDrop). Hors du MM-RYTM, refuse (pas de copie) ; jamais la page qui part
+     * vers le fichier lache a cote.
+     */
+    const isFiles = (e: DragEvent): boolean => !!e.dataTransfer && Array.from(e.dataTransfer.types ?? []).includes('Files');
+    /** Sous le fichier : la voix d'un pad du MM-RYTM, 'pad' ailleurs sur lui, null hors de lui. */
+    const dropAt = (e: DragEvent): Inst | 'pad' | null => {
+      rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const h = stage.hit.pick(x, y, false);
+      if (h && h.kind === 'pad' && h.inst && (!h.machine || h.machine === 'mm808')) return h.inst;
+      if (h?.machine === 'mm808') return 'pad';
+      return stage.hit.machineAt(x, y) === 'mm808' ? 'pad' : null;
+    };
+    const onDragOver = (e: DragEvent): void => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      const t = dropAt(e);
+      if (e.dataTransfer) e.dataTransfer.dropEffect = t ? 'copy' : 'none';
+      lcdSamples.dragOver(t);
+    };
+    const onDragLeave = (e: DragEvent): void => {
+      if (!isFiles(e)) return;
+      const to = e.relatedTarget;
+      if (!(to instanceof Node) || !el.contains(to)) lcdSamples.dragOver(null);
+    };
+    const onDrop = (e: DragEvent): void => {
+      if (!isFiles(e)) return;
+      e.preventDefault();
+      const t = dropAt(e);
+      lcdSamples.dragOver(null);
+      if (!t) return;
+      soundDrop(Array.from(e.dataTransfer?.files ?? []), t === 'pad' ? null : t);
+    };
+
     el.addEventListener('pointerdown', onDown);
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
@@ -1214,6 +1373,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     el.addEventListener('pointerleave', onLeave);
     el.addEventListener('contextmenu', onMenu);
     el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('dragenter', onDragOver);
+    el.addEventListener('dragover', onDragOver);
+    el.addEventListener('dragleave', onDragLeave);
+    el.addEventListener('drop', onDrop);
     return () => {
       disposed = true;
       fxOpenCancel();
@@ -1234,6 +1397,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       el.removeEventListener('pointerleave', onLeave);
       el.removeEventListener('contextmenu', onMenu);
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('dragenter', onDragOver);
+      el.removeEventListener('dragover', onDragOver);
+      el.removeEventListener('dragleave', onDragLeave);
+      el.removeEventListener('drop', onDrop);
+      lcdSamples.dragOver(null);
       el.style.cursor = '';
       getStage()?.setHover(null);
     };
@@ -1493,6 +1661,14 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const showChips = s !== 'closed';
   const live = chipsLive(s);
   const kitNow = useSyncExternalStore(kit.subscribe, kit.get, kit.get);
+  // Le navigateur des sons (2026-10-18) : sa liste (role listbox, une option par son) et ses fleches, tant qu'il est
+  // ouvert ; la liste des samples bouge (un ajout, un retrait), ses options aussi
+  const sbState = useSyncExternalStore(lcdSamples.subscribe, lcdSamples.get, lcdSamples.get);
+  useSyncExternalStore(samplesChanged.subscribe, samplesVersion, samplesVersion);
+  const sbView = sbState.open ? soundBrowserView() : null;
+  /** la derniere demande de focus vue (Entree sur le bloc SOUND), et si la liste avait le focus (Echap le rend au bloc SOUND) */
+  const sbFocusSeen = useRef(sbState.focus);
+  const sbHadFocus = useRef(false);
   const pressed = s === 'opening' || s === 'open';
   const inst = p.instrument;
   const sel = p.instrument ? vfx[p.instrument] : VOICE_FX_DEFAULT;
@@ -1595,6 +1771,26 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       offIdle();
     };
   }, [stage, showChips]);
+
+  // Le navigateur des sons (2026-10-18) : Entree sur le bloc SOUND, le clavier passe a la liste ; la liste fermee alors
+  // qu'elle avait le focus (Echap, la tape d'un autre geste, le repos), il revient au bloc SOUND
+  useEffect(() => {
+    if (!sbView) {
+      if (!sbHadFocus.current) return;
+      sbHadFocus.current = false;
+      for (const pid of PAGE_KNOB_IDS) {
+        const k = pageKnobIndex(pid);
+        if (pageTarget(k) === 'voice:sound') {
+          els.current.get(`lcd-blk-${k}`)?.focus({ preventScroll: true });
+          break;
+        }
+      }
+      return;
+    }
+    if (sbState.focus === sbFocusSeen.current) return;
+    sbFocusSeen.current = sbState.focus;
+    els.current.get('lcd-sb-body')?.focus({ preventScroll: true });
+  });
 
   // La vue se referme : un focus clavier sur une puce revient au pad OPEN
   useEffect(() => {
@@ -1855,7 +2051,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={`Screen value ${PAGE_KNOB_LETTERS[k]}, ${SCREEN_TITLE[rytmPage.screen(inst)]}: ${what}${slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : ''}${pageFxDetail(k) ? ', enter opens its settings' : ''}`}
+            aria-label={`Screen value ${PAGE_KNOB_LETTERS[k]}, ${SCREEN_TITLE[rytmPage.screen(inst)]}: ${what}${slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : ''}${pageFxDetail(k) ? ', enter opens its settings' : ''}${slot.target === 'voice:sound' ? ', enter opens the list of sounds' : ''}`}
             aria-orientation="vertical"
             aria-valuemin={bipolar ? -64 : 0}
             aria-valuemax={bipolar ? 63 : 127}
@@ -1867,6 +2063,20 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
                 e.preventDefault();
                 pageKnobReset(k);
                 return;
+              }
+              // Le nom du son (2026-10-18) : Entree ouvre le navigateur des sons, le clavier y passe ; hors P-LOCK, haut et
+              // bas (droite et gauche) sont PREV et NEXT, la liste ouverte, a l'arret le son s'entend
+              if (slot.target === 'voice:sound' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (!e.repeat) soundBrowserOpen(true);
+                  return;
+                }
+                if (!lockMode() && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+                  e.preventDefault();
+                  soundBrowserStep(e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : -1);
+                  return;
+                }
               }
               // Entree sur un FX de GLOBAL FX (2026-10-10) : sa page, ses reglages (Echap y revient) ; sur VOICE FX, sa page sous la voix
               const fd = e.key === 'Enter' ? pageFxDetail(k) : null;
@@ -1880,6 +2090,103 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           />
         );
       })}
+      {sbView && (
+        <>
+          {/* Le navigateur des sons (2026-10-18) : PREV et NEXT, puis la liste (les fleches deplacent, Entree choisit, Suppr retire un de tes samples, Echap ferme) */}
+          <button
+            ref={refFor('lcd-sb-prev')}
+            type="button"
+            className="v4-twin"
+            data-twin="sbprev"
+            data-hotspot="lcd-sb-prev"
+            aria-label={`Previous sound, ${INST_NAMES[sbView.inst]}${sbView.cur <= 0 ? ', this is the first' : ''}`}
+            onKeyDown={noRepeat}
+            onClick={() => soundBrowserStep(-1)}
+          />
+          <button
+            ref={refFor('lcd-sb-next')}
+            type="button"
+            className="v4-twin"
+            data-twin="sbnext"
+            data-hotspot="lcd-sb-next"
+            aria-label={`Next sound, ${INST_NAMES[sbView.inst]}${sbView.cur >= sbView.n - 1 ? ', this is the last' : ''}`}
+            onKeyDown={noRepeat}
+            onClick={() => soundBrowserStep(1)}
+          />
+          <div
+            ref={refFor('lcd-sb-body')}
+            className="v4-twin"
+            data-twin="sblist"
+            data-hotspot="lcd-sb-body"
+            role="listbox"
+            tabIndex={0}
+            aria-label={`${INST_NAMES[sbView.inst]} sounds, ${sbView.n}${sbView.lock >= 0 ? `, P-lock on step ${sbView.lock + 1}` : ''}. Arrows move, Enter chooses, Delete removes one of yours, Escape closes`}
+            aria-activedescendant={`v4-sb-opt-${sbView.cursor}`}
+            onFocus={() => {
+              sbHadFocus.current = true;
+            }}
+            onBlur={() => {
+              sbHadFocus.current = false;
+            }}
+            onKeyDown={(e) => {
+              if (e.altKey || e.ctrlKey || e.metaKey) return;
+              const v = soundBrowserView();
+              if (!v) return;
+              switch (e.key) {
+                case 'ArrowDown':
+                case 'ArrowRight':
+                  soundBrowserCursor(1);
+                  break;
+                case 'ArrowUp':
+                case 'ArrowLeft':
+                  soundBrowserCursor(-1);
+                  break;
+                case 'PageDown':
+                  soundBrowserCursor(v.visible);
+                  break;
+                case 'PageUp':
+                  soundBrowserCursor(-v.visible);
+                  break;
+                case 'Home':
+                  soundBrowserCursor(0, 'home');
+                  break;
+                case 'End':
+                  soundBrowserCursor(0, 'end');
+                  break;
+                case 'Enter':
+                case ' ':
+                  if (!e.repeat) soundBrowserPick(v.cursor);
+                  break;
+                case 'Delete':
+                case 'Backspace':
+                  if (!e.repeat) soundBrowserRemove(v.cursor, 'DELETE');
+                  break;
+                case 'Escape':
+                  soundBrowserClose();
+                  break;
+                default:
+                  return;
+              }
+              e.preventDefault();
+            }}
+          >
+            {sbView.rows.map((r, i) => (
+              <div
+                key={`${i}|${r.kind}|${r.key}`}
+                id={`v4-sb-opt-${i}`}
+                className="v4-sr"
+                role="option"
+                aria-selected={i === sbView.cur}
+                onClick={() => soundBrowserPick(i)}
+              >
+                {r.kind === 'load'
+                  ? 'Load a file from this device'
+                  : `${r.label}${r.kind === 'mach' ? ', synth' : r.user ? ', yours, Delete removes it' : ''}${i === sbView.cur ? ', playing' : ''}${i === sbView.arm ? ', press Delete again to remove it' : ''}`}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       {RYTM_PAGE_KEYS.map((pk) => (
         <button
           key={`pkey-${pk.id}`}

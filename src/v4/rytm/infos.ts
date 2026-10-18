@@ -207,6 +207,19 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE',
     title: 'SOUND',
     lock: 'yes',
+    // Le navigateur des sons (2026-10-18, Mika : "difficile la selection des samples dans RYTM, y aurait-il une autre facon ?")
+    steps: [
+      "Clique le nom du son : toute la liste de la voix s'ouvre sur l'écran (son rang, 7 / 24), le son du moment en surbrillance ; la molette la fait défiler.",
+      "Clique une ligne : la voix la joue et la liste reste ouverte ; à l'arrêt, tu l'entends une fois (en lecture, le motif la joue). Les flèches de l'en-tête (ou ↑ ↓ sur SOUND) passent au son d'avant ou d'après ; Échap, une touche de page ou un clic ailleurs la ferment.",
+      "Glisse un WAV (ou AIFF, MP3, FLAC) sur un pad : il entre dans la liste de sa voix et joue tout de suite ; ou + LOAD A FILE..., la dernière ligne. Le × d'un de tes samples (deux clics) le retire de ce navigateur.",
+    ],
+    phone: {
+      steps: [
+        "Touche le nom du son : toute la liste de la voix s'ouvre sur l'écran (son rang, 7 / 24), le son du moment en surbrillance ; glisse de haut en bas pour la faire défiler.",
+        "Touche une ligne : la voix la joue et la liste reste ouverte ; à l'arrêt, tu l'entends une fois (en lecture, le motif la joue). Les flèches de l'en-tête passent au son d'avant ou d'après ; une touche de page ou une tape ailleurs la ferment.",
+        "+ LOAD A FILE..., la dernière ligne : un fichier du téléphone (WAV, AIFF, MP3, FLAC) devient un sample de la voix et joue tout de suite. Tiens un de tes samples, puis touche-le encore : il part.",
+      ],
+    },
     text: "Ce que joue la voix, en une seule liste : OFF (elle se tait), 909, 808 ou MM (sa machine de synthèse), puis les samples de sa famille, chacun à son nom. Le nom en grand dit ce qui joue : BLUEPRINT + 909 quand le sample et la machine jouent ensemble (MIX, dans l'onglet SYNTH). Choisir une machine la remet à fond et coupe le sample ; choisir un sample le fait jouer seul, sauf si les deux couches jouaient déjà (le nouveau sample prend la place de l'ancien, la machine reste dessous). Chaque son est recalé à son niveau : en changer ne fait pas sauter le volume. En P-LOCK, la liste continue avec les samples des autres voix : un sample lock, joué seul sur ce pas.",
     tip: 'Deux kicks de Mika qui alternent : le premier sur 1 et 9, le second verrouillé (P-LOCK) sur 5 et 13, la boucle respire.',
     voice: {
@@ -930,7 +943,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   random: {
     section: 'TRANSPORT',
     title: 'RANDOM',
-    text: "Compose un motif 4x4 neuf pour toutes les voix dans un style (HOUSE, DEEP HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, DARK DISCO, ITALO, PROG ou ELECTRO), jamais deux fois le même style de suite : le kick reste sur les quatre temps, le reste change à chaque appui (backbeat, charleys en croches, doubles croches, galop ou euclidiens, percussions euclidiennes, roulements, ride ou crash, vélocités sur neuf niveaux) et le motif s'éloigne toujours du précédent. Le SWING suit le style ; TONE, VOL, DECAY et PAN sont tirés pour chaque voix sauf le kick, qui garde son son. Le tempo, les autres effets, les autres réglages des voix et les verrous restent.",
+    text: "Compose un motif 4x4 neuf pour toutes les voix dans un style (HOUSE, DEEP HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, DARK DISCO, ITALO, PROG ou ELECTRO), jamais deux fois le même style de suite : le kick reste sur les quatre temps, le reste change à chaque appui (backbeat, charleys en croches, doubles croches, galop ou euclidiens, percussions euclidiennes, roulements, ride ou crash, vélocités sur neuf niveaux) et le motif s'éloigne toujours du précédent. Le SWING suit le style ; TONE, VOL, DECAY et PAN sont tirés pour chaque voix sauf le kick, qui garde son son. Le tempo, les autres effets, les autres réglages des voix et les verrous restent. Les sons ne changent pas : pour en choisir un, touche le nom du son (SOUND, page VOICE), toute la liste de la voix s'ouvre ; au desktop, un WAV glissé sur un pad y entre aussi.",
     tip: 'Appuie jusqu’à ce qu’un groove t’accroche, puis garde-le dans un pattern avec EDIT.',
   },
   mute: {
