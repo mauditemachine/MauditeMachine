@@ -13,11 +13,18 @@
  * - gitIgnored demande a git lui-meme (git check-ignore) : l'import refuse
  *   d'ecrire un fichier que git ignorerait, quelle que soit la regle.
  *
- * Sans dependance, Node 18 ou plus. Rien n'est ecrit ici.
+ * Et ce que le site sait lire (relecture S2) : audioKind juge un fichier
+ * par ses premiers octets (un WAV vide ou un texte nomme .wav n'est pas de
+ * l'audio), aiffToWav convertit un AIFF (Safari le lit, Chrome et Firefox
+ * non) en WAV avec afconvert, livre avec macOS.
+ *
+ * Sans dependance, Node 18 ou plus. Rien n'est ecrit ici, sauf les WAV
+ * convertis, dans un dossier temporaire efface a la sortie du script.
  */
 
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -140,3 +147,61 @@ export const safeStem = (stem) => stem.replace(/(\S)\s+(\d)$/u, '$1$2');
 
 /** Le k-ieme doublon d'un nom, sans espace : Stein2 ; apres un chiffre, un tiret (OT3-2). */
 export const suffixed = (stem, k) => (/\p{L}$/u.test(stem) ? `${stem}${k}` : `${stem}-${k}`);
+
+/* ---------------- ce que le site sait lire ---------------- */
+
+/**
+ * Le format d'un fichier d'apres ses premiers octets, pas son extension :
+ * wav (RIFF....WAVE), aiff (FORM....AIFF ou AIFC), flac (fLaC), m4a
+ * (....ftyp), mp3 (ID3, ou une trame 0xFFEx), sinon null (vide, coupe, ou
+ * pas de l'audio : le navigateur n'en tirerait rien, le cran du potard
+ * resterait muet). Chrome, Firefox et Safari decodent wav, mp3, flac et m4a ;
+ * l'aiff, Safari seulement.
+ */
+export function audioKind(buf) {
+  if (!buf || buf.length < 12) return null;
+  const at = (i, s) => buf.toString('latin1', i, i + s.length) === s;
+  if (at(0, 'RIFF') && at(8, 'WAVE')) return 'wav';
+  if (at(0, 'FORM') && (at(8, 'AIFF') || at(8, 'AIFC'))) return 'aiff';
+  if (at(0, 'fLaC')) return 'flac';
+  if (at(4, 'ftyp')) return 'm4a';
+  if (at(0, 'ID3') || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return 'mp3';
+  return null;
+}
+
+/**
+ * Le convertisseur AIFF -> WAV : afconvert, livre avec macOS ; MM_AFCONVERT
+ * (un programme qui prend les memes arguments) pour un faux Mac. null : pas
+ * de conversion possible ici, un AIFF est laisse de cote.
+ */
+export const AFCONVERT = (() => {
+  const p = process.env.MM_AFCONVERT ? path.resolve(process.env.MM_AFCONVERT) : process.platform === 'darwin' ? '/usr/bin/afconvert' : null;
+  return p && existsSync(p) ? p : null;
+})();
+
+let wavDir = null;
+let wavCount = 0;
+
+/**
+ * Un AIFF converti en WAV 16 bits (afconvert -f WAVE -d LEI16 : la meme
+ * frequence, les memes canaux) : rend le chemin du WAV, dans un dossier
+ * temporaire efface a la sortie du script. Une erreur si la conversion
+ * echoue (son message : la premiere ligne de ce qu'afconvert a dit).
+ */
+export function aiffToWav(src) {
+  if (!AFCONVERT) throw new Error('afconvert introuvable');
+  if (!wavDir) {
+    wavDir = mkdtempSync(path.join(os.tmpdir(), 'mm-rytm-wav-'));
+    const dir = wavDir;
+    process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
+  }
+  wavCount += 1;
+  const out = path.join(wavDir, `${String(wavCount).padStart(4, '0')}.wav`);
+  try {
+    execFileSync(AFCONVERT, ['-f', 'WAVE', '-d', 'LEI16', src, out], { stdio: ['ignore', 'ignore', 'pipe'], timeout: 120000 });
+  } catch (e) {
+    const said = String(e.stderr ?? '').trim().split('\n')[0];
+    throw new Error(said || (e.status != null ? `code ${e.status}` : e.message));
+  }
+  return out;
+}

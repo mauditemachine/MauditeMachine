@@ -41,7 +41,11 @@
  *      versions comptent une fois), puis le plus de references, puis l'ordre
  *      naturel des noms ; puis, seulement s'il en manque, les jamais joues des
  *      dossiers de la famille. Un candidat deja sur le site (meme contenu,
- *      quel que soit son nom) est saute et ne prend pas de place ;
+ *      quel que soit son nom) est saute et ne prend pas de place ; de meme ce
+ *      que le site ne saurait pas lire (relecture S2) : un fichier vide, ou
+ *      dont le debut n'est ni WAV, AIFF, MP3, FLAC ni M4A (audioKind), et un
+ *      AIFF que rien ne convertit (Safari le lit, Chrome et Firefox non : sur
+ *      le Mac, afconvert en fait un WAV, qui part sous un nom en .wav) ;
  *   5. les copie dans un dossier de transit (os.tmpdir()/mm-rytm-top-<date>/
  *      <famille>/01 Nom.wav : le numero donne l'ordre) et, avec --import ou
  *      --publish, lance scripts/import-rytm-samples.mjs --staged dessus : ils
@@ -54,7 +58,10 @@
  *   7. --publish (npm run samples:mika) : avant tout, refuse s'il y a des
  *      fichiers prepares pour un commit (git add), des changements dans
  *      public/samples/rytm, des commits pas pousses, ou si git pull --ff-only
- *      echoue (rien ne change, il dit quoi faire) ; puis git pull --ff-only,
+ *      echoue (rien ne change, il dit quoi faire ; avec --reset-samples, les
+ *      fichiers modifies et en trop de public/samples/rytm sont d'abord
+ *      sauvegardes dans .admin-backups/rytm-<date>, et un refus qui suit le
+ *      dit au lieu de "rien n'a change") ; puis git pull --ff-only,
  *      l'analyse, le plan ; un sample retenu pas telecharge d'iCloud : il le
  *      dit et n'ecrit rien ; puis l'import, et git add des SEULS nouveaux
  *      fichiers de public/samples/rytm (et ableton-picks.json), un commit en
@@ -64,7 +71,8 @@
  * Rien n'est ecrit dans shots ni dans les projets. Sans --import ni
  * --publish, le plan, le dossier de transit et le rapport JSON suffisent a
  * relire avant de se decider ; --dry n'ecrit rien du tout (le rapport
- * seulement si --report).
+ * seulement si --report ; un AIFF est converti le temps du plan dans un
+ * dossier temporaire, efface a la fin).
  *
  *   npm run samples:mika                    tout : analyse, ajout, commit, push
  *   npm run samples:ableton -- --dry        le plan, rien d'ecrit
@@ -96,22 +104,24 @@
  *
  * Garde-fous : lecture seule sur shots et les projets ; le dossier de transit
  * est hors du depot ; le plan s'affiche avant tout import ; une famille deja
- * a sa cible n'est pas touchee ; un fichier iCloud pas telecharge (.x.icloud
- * ou sans bloc sur le disque) est MISSING : a telecharger dans le Finder
- * avant (l'import le verifie aussi) ; --import et --publish s'arretent tant
- * qu'il en manque, sans rien ecrire ; apres l'import, chaque fichier deja la
+ * a sa cible n'est pas touchee ; un sample de shots iCloud pas telecharge
+ * (.x.icloud ou sans bloc sur le disque) est MISSING : a telecharger dans le
+ * Finder avant (l'import le verifie aussi) ; un .als iCloud pas telecharge
+ * n'est jamais lu (le lire le telechargerait) ; --import et --publish
+ * s'arretent tant qu'il en manque, sans rien ecrire ; apres l'import, chaque
+ * fichier deja la
  * est verifie octet pour octet (sinon pas de commit) ; --publish n'ajoute a
  * git que les nouveaux fichiers et verifie qu'il n'y a rien d'autre dans le
  * commit.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFile, mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
-import { AUDIO, FAMILIES, HOME_DIR, MAX_BYTES, SITE_DIR, UNDO, git, gitStatus, natural, sha1, siteFiles, suffixed } from './rytm-samples-lib.mjs';
+import { AFCONVERT, AUDIO, FAMILIES, HOME_DIR, MAX_BYTES, SITE_DIR, UNDO, aiffToWav, audioKind, git, gitIgnored, gitStatus, natural, sha1, siteFiles, suffixed } from './rytm-samples-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IMPORT_SCRIPT = path.join(ROOT, 'scripts/import-rytm-samples.mjs');
@@ -192,7 +202,8 @@ const USAGE = `Usage : npm run samples:mika                 (tout : analyse, ajo
   --publish                ce que fait npm run samples:mika : git pull --ff-only, le plan, l'ajout, puis
                            git add (les seuls nouveaux samples), git commit, git push
   --reset-samples          avec --publish : remet d'abord public/samples/rytm comme dans le dernier commit
-                           (git restore ; les fichiers en trop vont dans un dossier de sauvegarde, rien n'est efface)
+                           (git restore ; avant, les fichiers modifies ici et ceux en trop sont sauvegardes dans
+                           .admin-backups/rytm-<date> du dossier du site, que git ignore : rien n'est perdu)
   --help                   cette aide
 
 Sans --dry, --import ni --publish : le plan, le dossier de transit (${path.join(os.tmpdir(), 'mm-rytm-top-<date>')}) et le rapport.`;
@@ -210,7 +221,19 @@ function fail(msg, code = 1) {
   throw new Stop(code);
 }
 
-/** Un refus de --publish : ce qui bloque, quoi faire ; rien n'a change. */
+/**
+ * Apres --reset-samples : le dossier de sauvegarde ('' s'il n'y avait rien a
+ * garder : seulement des fichiers retires, revenus). null : pas de reset.
+ */
+let resetBackup = null;
+
+/** Ce qu'un refus dit de l'etat du depot : rien n'a change, ou seulement le --reset-samples demande. */
+const unchanged = () =>
+  resetBackup === null
+    ? "Rien n'a change."
+    : `Seul public/samples/rytm a ete remis comme en ligne (${resetBackup ? `sauvegarde : ${resetBackup}` : 'rien a sauvegarder : des fichiers retires, revenus'}).`;
+
+/** Un refus de --publish : ce qui bloque, quoi faire ; rien n'a change (ou seulement le reset demande : unchanged). */
 function refuse(lines, code = 2) {
   console.error(`\n${[].concat(lines).join('\n')}`);
   throw new Stop(code);
@@ -521,7 +544,11 @@ function indexShots(files) {
 /**
  * Tous les .als sous un dossier de projets, hors Backup et dossiers ecartes
  * (le depot et shots compris : acc.skip, leurs chemins reels) ; les .als
- * iCloud pas telecharges comptes a part.
+ * iCloud pas telecharges comptes a part, jamais lus : l'ancien placeholder
+ * .Nom.als.icloud, et depuis macOS Sonoma le fichier "dataless" sous son vrai
+ * nom (une taille, aucun bloc sur le disque, drapeau SF_DATALESS). Le lire
+ * forcerait son telechargement : avec "Optimiser le stockage", des annees de
+ * sets et de versions dans iCloud Drive, ~/Desktop et ~/Documents.
  */
 async function walkSets(dir, depth, acc) {
   let entries = [];
@@ -553,6 +580,12 @@ async function walkSets(dir, depth, acc) {
       await walkSets(full, depth + 1, acc);
     } else if (e.isFile() && /\.als$/i.test(name) && !acc.seen.has(full)) {
       acc.seen.add(full);
+      // iCloud, nouveau style : la taille est la mais aucun bloc sur le disque (comme walkShots pour l'audio)
+      const st = await stat(full).catch(() => null);
+      if (st && st.size > 0 && st.blocks === 0 && dataless(full)) {
+        acc.icloud.push(full);
+        continue;
+      }
       acc.sets.push(full);
     }
   }
@@ -750,9 +783,22 @@ async function move(from, to) {
 const listOf = (xs, n = 12) => [...xs.slice(0, n).map((x) => `    ${x}`), ...(xs.length > n ? [`    ... et ${xs.length - n} autre(s)`] : [])];
 
 /**
+ * Le dossier de sauvegarde de --reset-samples : .admin-backups/rytm-<date>
+ * dans le dossier du site (git l'ignore, et macOS ne le vide pas comme le
+ * dossier temporaire) ; si git ne l'ignore plus, le Bureau.
+ */
+function backupDir(stamp) {
+  const rel = `.admin-backups/rytm-${stamp}`;
+  const ig = gitIgnored(ROOT, [`${rel}/${SITE_DIR}/x.wav`]);
+  return ig.ok && ig.ignored.size > 0 ? path.join(ROOT, rel) : path.join(HOME, 'Desktop', `mm-rytm-backup-${stamp}`);
+}
+
+/**
  * --publish, avant tout : le depot est-il pret ? Rien n'est change tant que
- * tout n'est pas bon (sauf --reset-samples, demande expres). Puis git pull
- * --ff-only. Rend la branche, la branche suivie, le depot distant.
+ * tout n'est pas bon (sauf --reset-samples, demande expres : il sauvegarde
+ * d'abord ce qu'il ecrase ou deplace, et les refus qui suivent le disent).
+ * Puis git pull --ff-only. Rend la branche, la branche suivie, le depot
+ * distant.
  */
 async function preflight(opts, stamp) {
   console.log(`Depot : ${ROOT}`);
@@ -779,9 +825,17 @@ async function preflight(opts, stamp) {
     ]);
   }
 
+  // La branche suivie d'abord (rien que de la lecture) : un refus ici ne vient jamais apres un --reset-samples
+  const up = git(ROOT, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
+  const remote = git(ROOT, ['config', `branch.${branch}.remote`]).out.trim();
+  const merge = git(ROOT, ['config', `branch.${branch}.merge`]).out.trim();
+  if (up.status !== 0 || !remote || remote === '.' || !merge.startsWith('refs/heads/')) {
+    refuse([`REFUS : la branche ${branch} ne suit aucune branche d'un depot distant (git pull ne saurait pas d'ou tirer).`, `Branche-la sur GitHub : git branch --set-upstream-to=origin/${branch}, puis relance. Rien n'a change.`]);
+  }
+  const upstream = up.out.trim();
+
   // Le dossier des samples doit etre celui du dernier commit (un ancien import pas committe fausserait les numeros)
   let st = gitStatus(ROOT, SITE_DIR);
-  const reset = st !== null && st.length > 0;
   if (st === null) refuse([`REFUS : git status a echoue. Rien n'a change.`]);
   if (st.length > 0) {
     const shown = st.map((e) => `${e.xy === '??' ? 'en trop ' : e.xy.includes('D') ? 'retire  ' : 'modifie '} ${e.rel}`);
@@ -791,40 +845,42 @@ async function preflight(opts, stamp) {
         ...listOf(shown),
         'Pour le remettre comme en ligne puis tout refaire, colle :',
         '    npm run samples:mika -- --reset-samples',
-        "(les fichiers en trop vont dans un dossier de sauvegarde, rien n'est efface.) Rien n'a change.",
+        "(les fichiers modifies ici et ceux en trop sont d'abord sauvegardes dans .admin-backups/ du dossier du site, rien n'est perdu.) Rien n'a change.",
       ]);
     }
     console.log(`--reset-samples : public/samples/rytm remis comme dans le dernier commit (${plural(st.length, 'changement')}) :`);
     for (const l of listOf(shown)) console.log(l);
+    // D'abord la sauvegarde : un fichier modifie ici (git restore l'ecraserait) est copie, un fichier en trop sera deplace
+    const kept = [];
+    for (const e of st) {
+      if (e.xy === '??' || (await lstat(path.join(ROOT, e.rel)).catch(() => null))?.isFile()) kept.push(e);
+    }
+    const backup = kept.length > 0 ? backupDir(stamp) : '';
+    const modified = kept.filter((e) => e.xy !== '??');
+    const extra = kept.filter((e) => e.xy === '??');
+    for (const e of modified) {
+      const to = path.join(backup, e.rel);
+      await mkdir(path.dirname(to), { recursive: true });
+      await copyFile(path.join(ROOT, e.rel), to);
+    }
     if (st.some((e) => e.xy !== '??')) {
       const r = git(ROOT, ['--literal-pathspecs', 'restore', '--worktree', '--', SITE_DIR]);
-      if (r.status !== 0) refuse([`REFUS : git restore a echoue (${r.err.trim()}).`]);
+      if (r.status !== 0) refuse([`REFUS : git restore a echoue (${r.err.trim()}).${modified.length > 0 ? ` Les fichiers modifies sont copies dans ${path.join(backup, SITE_DIR)}.` : ''}`]);
     }
-    const extra = st.filter((e) => e.xy === '??');
-    if (extra.length > 0) {
-      const backup = path.join(os.tmpdir(), `mm-rytm-backup-${stamp}`);
-      for (const e of extra) await move(path.join(ROOT, e.rel), path.join(backup, e.rel));
-      console.log(`  ${plural(extra.length, 'fichier')} en trop deplace(s) dans ${path.join(backup, SITE_DIR)}`);
-    }
+    for (const e of extra) await move(path.join(ROOT, e.rel), path.join(backup, e.rel));
+    resetBackup = backup ? path.join(backup, SITE_DIR) : '';
+    if (backup) console.log(`  sauvegarde (${modified.length} modifie(s) ici, copie(s) avant le reset ; ${extra.length} en trop, deplace(s)) : ${resetBackup}`);
     st = gitStatus(ROOT, SITE_DIR);
-    if (!st || st.length > 0) refuse([`REFUS : public/samples/rytm reste modifie apres --reset-samples (${(st ?? []).map((e) => `${e.xy} ${e.rel}`).join(', ')}).`]);
+    if (!st || st.length > 0) refuse([`REFUS : public/samples/rytm reste modifie apres --reset-samples (${(st ?? []).map((e) => `${e.xy} ${e.rel}`).join(', ')}).${backup ? ` Sauvegarde : ${resetBackup}` : ''}`]);
     console.log('');
   }
-
-  const up = git(ROOT, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
-  const remote = git(ROOT, ['config', `branch.${branch}.remote`]).out.trim();
-  const merge = git(ROOT, ['config', `branch.${branch}.merge`]).out.trim();
-  if (up.status !== 0 || !remote || remote === '.' || !merge.startsWith('refs/heads/')) {
-    refuse([`REFUS : la branche ${branch} ne suit aucune branche d'un depot distant (git pull ne saurait pas d'ou tirer).`, `Branche-la sur GitHub : git branch --set-upstream-to=origin/${branch}, puis relance. Rien n'a change.`]);
-  }
-  const upstream = up.out.trim();
 
   // (b) git pull --ff-only : seulement une avance rapide, jamais de fusion ni de rebase
   console.log(`git pull --ff-only (${branch} <- ${upstream})`);
   const pull = git(ROOT, ['pull', '--ff-only', '--no-rebase'], { inherit: true });
   if (pull.status !== 0) {
     refuse([
-      `REFUS : git pull --ff-only n'a pas pu mettre ${branch} a jour depuis ${upstream} (code ${pull.status}). Rien n'a change.`,
+      `REFUS : git pull --ff-only n'a pas pu mettre ${branch} a jour depuis ${upstream} (code ${pull.status}). ${unchanged()}`,
       'Ce qu\'il faut faire, selon le message de git juste au-dessus :',
       "  - \"Not possible to fast-forward\" / \"divergent\" : tu as des commits ici que GitHub n'a pas, et l'inverse :",
       '      git pull --rebase   puis relance npm run samples:mika',
@@ -837,11 +893,11 @@ async function preflight(opts, stamp) {
   if (ahead > 0) {
     refuse([
       `REFUS : ${plural(ahead, 'commit')} ici pas encore pousse(s) sur ${upstream} : ils partiraient avec les samples.`,
-      "Regarde-les (git log @{u}..), pousse-les d'abord (git push), puis relance. Rien n'a change.",
+      `Regarde-les (git log @{u}..), pousse-les d'abord (git push), puis relance. ${unchanged()}`,
     ]);
   }
   console.log('');
-  return { branch, upstream, remote, merge, onMain: merge === 'refs/heads/main', reset };
+  return { branch, upstream, remote, merge, onMain: merge === 'refs/heads/main' };
 }
 
 /* ---------------- le tout ---------------- */
@@ -956,6 +1012,8 @@ async function main() {
   const site = await siteFiles(ROOT);
   const manifest = await readManifest();
   const manifestHashes = new Set(Object.values(manifest.files).map((x) => x?.sha1).filter(Boolean));
+  // Un AIFF deja ajoute (converti en WAV) : son empreinte d'origine -> le fichier du site
+  const manifestAiff = new Map(Object.entries(manifest.files).filter(([, x]) => x?.aiffSha1).map(([k, x]) => [x.aiffSha1, k]));
 
   /* ----- le plan, famille par famille : completer jusqu'a la cible ----- */
   const fams = opts.families ?? FAMILIES;
@@ -986,6 +1044,11 @@ async function main() {
         items.push({ f, status });
         continue;
       }
+      // Ce que le site ne saurait pas lire ne prend pas de place : le suivant la prend (relecture S2)
+      if (f.size === 0) {
+        skipped.push({ f, why: 'vide (0 octet)' });
+        continue;
+      }
       if (f.size > MAX_BYTES) {
         skipped.push({ f, why: `trop gros (${kb(f.size)}, ${kb(MAX_BYTES)} au plus)` });
         continue;
@@ -996,6 +1059,42 @@ async function main() {
       } catch (e) {
         skipped.push({ f, why: `illisible (${e.code ?? e.message})` });
         continue;
+      }
+      // Le contenu decide, pas l'extension : un texte nomme .wav ou un fichier coupe serait un cran muet
+      const kind = audioKind(data);
+      if (!kind) {
+        skipped.push({ f, why: data.length === 0 ? 'vide (0 octet)' : "pas un fichier audio lisible (son debut n'est ni WAV, AIFF, MP3, FLAC ni M4A)" });
+        continue;
+      }
+      let src = f.full;
+      let from = null;
+      if (kind === 'aiff') {
+        // Safari lit l'AIFF, Chrome et Firefox non : converti en WAV pour le site (afconvert, macOS), sinon ecarte
+        from = sha1(data);
+        const already = known.get(from) ?? present.find((x) => manifestAiff.get(from) === `${fam}/${x.name}`);
+        if (already) {
+          skipped.push({ f, why: `deja sur le site : ${fam}/${already.name}` });
+          continue;
+        }
+        if (!AFCONVERT) {
+          skipped.push({ f, why: "AIFF : Chrome et Firefox ne le lisent pas, et afconvert (macOS) n'est pas la pour le convertir en WAV", aiff: true });
+          continue;
+        }
+        try {
+          src = aiffToWav(f.full);
+          data = await readFile(src);
+        } catch (e) {
+          skipped.push({ f, why: `AIFF, la conversion en WAV a echoue (${e.message})`, aiff: true });
+          continue;
+        }
+        if (audioKind(data) !== 'wav') {
+          skipped.push({ f, why: "AIFF, la conversion n'a pas donne de WAV", aiff: true });
+          continue;
+        }
+        if (data.length > MAX_BYTES) {
+          skipped.push({ f, why: `trop gros une fois en WAV (${kb(data.length)}, ${kb(MAX_BYTES)} au plus)` });
+          continue;
+        }
       }
       const h = sha1(data);
       const twin = known.get(h);
@@ -1010,14 +1109,18 @@ async function main() {
       }
       seen.set(h, f);
       f.hash = h;
+      // Le fichier a copier en transit (le WAV converti pour un AIFF) et l'empreinte de l'AIFF d'origine
+      f.src = src;
+      f.from = from;
       items.push({ f, status });
     }
-    // Les noms de transit (01 Nom.wav : l'ordre), uniques dans la famille (un doublon : Nom2)
+    // Les noms de transit (01 Nom.wav : l'ordre), uniques dans la famille (un doublon : Nom2) ; un AIFF converti finit en .wav
     const taken = new Set();
     let n = 0;
     for (const x of items) {
       if (x.status === 'missing') continue;
-      const { stem, ext } = cleanName(x.f);
+      const { stem, ext: own } = cleanName(x.f);
+      const ext = x.f.from ? '.wav' : own;
       let s = stem;
       for (let k = 2; taken.has(norm(s + ext)); k += 1) s = suffixed(stem.slice(0, MAX_STAGED_NAME - String(k).length - 1).trim(), k);
       taken.add(norm(s + ext));
@@ -1051,7 +1154,10 @@ async function main() {
     console.log(`  ${'#'.padStart(3)} ${'proj'.padStart(4)} ${'refs'.padStart(4)}  ${'source (shots/...)'.padEnd(ws)}  ${'transit'.padEnd(wn)}  via`);
     p.items.forEach((x, i) => {
       const flag = x.status === 'missing' ? '!' : x.status === 'used' ? '+' : '.';
-      const tail = x.status === 'missing' ? 'MISSING (iCloud, pas telecharge)' : x.status === 'unused' ? 'jamais joue' : x.status === 'under-min' ? `sous ${opts.minProjects} projets` : '';
+      const tail = [
+        x.status === 'missing' ? 'MISSING (iCloud, pas telecharge)' : x.status === 'unused' ? 'jamais joue' : x.status === 'under-min' ? `sous ${opts.minProjects} projets` : '',
+        x.f.from ? 'AIFF -> WAV' : '',
+      ].filter(Boolean).join(', ');
       console.log(`  ${flag}${String(i + 1).padStart(2)} ${String(x.f.projects.size).padStart(4)} ${String(x.f.refs).padStart(4)}  ${x.f.rel.padEnd(ws)}  ${(x.staged ?? 'MISSING').padEnd(wn)}  ${x.f.via}${tail ? `  [${tail}]` : ''}`);
     });
     for (const s of p.skipped) console.log(`  = ${s.f.rel} : ${s.why}`);
@@ -1082,13 +1188,21 @@ async function main() {
   }
   const notes = [];
   if (failed.length > 0) notes.push(`${plural(failed.length, 'set')} illisible(s) : ${failed.slice(0, 5).join(' ; ')}${failed.length > 5 ? ' ...' : ''}`);
-  if (sets.icloud.length > 0) notes.push(`${sets.icloud.length} set(s) iCloud pas telecharge(s), pas lus (Finder : Telecharger maintenant, puis relance)`);
+  if (sets.icloud.length > 0) notes.push(`${sets.icloud.length} set(s) iCloud pas telecharge(s), pas lus (les lire les telechargerait ; pour qu'ils comptent : Finder, Telecharger maintenant, puis relance)`);
   if (sets.tooDeep.length > 0) notes.push(`dossiers trop profonds (plus de ${MAX_DEPTH} niveaux), pas lus : ${sets.tooDeep.slice(0, 3).join(', ')}${sets.tooDeep.length > 3 ? ' ...' : ''}`);
   if (shots.tooDeep.length > 0) notes.push(`shots : dossiers trop profonds, pas lus : ${shots.tooDeep.join(', ')}`);
   for (const u of [...shots.unreadable, ...sets.unreadable]) notes.push(`illisible : ${u}`);
   if (!site.git) notes.push(`git ne repond pas ici (${site.gitWhy}) : les fichiers que git ignorerait ne sont pas reperes`);
-  const aiff = plan.flatMap((p) => p.staged).filter((x) => /\.aiff?$/i.test(x.staged));
-  if (aiff.length > 0) notes.push(`${aiff.length} fichier(s) AIFF retenu(s) : Safari les lit, Chrome et Firefox non ; convertis-les en WAV (afconvert -f WAVE -d LEI16 "in.aif" "out.wav") puis relance`);
+  const converted = plan.flatMap((p) => p.staged).filter((x) => x.f.from);
+  if (converted.length > 0) notes.push(`${converted.length} AIFF converti(s) en WAV (afconvert) : Chrome et Firefox ne lisent pas l'AIFF`);
+  const aiffOut = plan.flatMap((p) => p.skipped).filter((s) => s.aiff);
+  if (aiffOut.length > 0) {
+    notes.push(
+      `${aiffOut.length} AIFF laisse(s) de cote (Chrome et Firefox ne les lisent pas, et ${AFCONVERT ? 'la conversion en WAV a echoue : voir plus haut' : 'rien ne les convertit ici'}) : le suivant a pris leur place${AFCONVERT ? '' : ' ; sur le Mac, afconvert les convertit tout seul'}`
+    );
+  }
+  const dead = plan.flatMap((p) => p.skipped).filter((s) => /^vide|^pas un fichier audio/.test(s.why));
+  if (dead.length > 0) notes.push(`${dead.length} fichier(s) vide(s) ou qui ne sont pas de l'audio, laisse(s) de cote : ${dead.slice(0, 5).map((s) => s.f.rel).join(', ')}${dead.length > 5 ? ' ...' : ''}`);
   for (const nt of notes) console.log(`Note : ${nt}`);
   if (notes.length > 0) console.log('');
 
@@ -1141,7 +1255,7 @@ async function main() {
           addedByThisScript: p.ours.map((x) => x.name),
           target: p.target,
           need: p.need,
-          plan: p.items.map((x, i) => ({ rank: i + 1, rel: x.f.rel, projects: x.f.projects.size, refs: x.f.refs, via: x.f.via, status: x.status, staged: x.staged ?? null })),
+          plan: p.items.map((x, i) => ({ rank: i + 1, rel: x.f.rel, projects: x.f.projects.size, refs: x.f.refs, via: x.f.via, status: x.status, staged: x.staged ?? null, aiffToWav: Boolean(x.f.from) })),
           skipped: p.skipped.map((s) => ({ rel: s.f.rel, why: s.why })),
           ranked: p.used.map((f) => ({ rel: f.rel, projects: f.projects.size, refs: f.refs, projectDirs: [...f.projects].sort(natural) })),
         },
@@ -1169,13 +1283,13 @@ async function main() {
   }
   // Un sample retenu pas telecharge : rien n'est ecrit (ni transit, ni site)
   if (missing.length > 0 && opts.import) {
-    console.error(`RIEN N'EST ECRIT : ${missing.length} sample(s) retenu(s) pas telecharge(s) d'iCloud (liste ci-dessus). Telecharge-les dans le Finder, puis relance la meme commande.`);
+    console.error(`RIEN N'EST ECRIT : ${missing.length} sample(s) retenu(s) pas telecharge(s) d'iCloud (liste ci-dessus). Telecharge-les dans le Finder, puis relance la meme commande.${resetBackup !== null ? ` ${unchanged()}` : ''}`);
     throw new Stop(2);
   }
   if (total === 0) {
     if (opts.reportGiven) await saveReport();
     console.log(`RIEN A AJOUTER : ${summary}. Chaque famille est a sa cible (${plan.map((p) => `${p.fam} ${p.present.length}/${p.target}`).join(', ')}) ou n'a plus rien de nouveau dans shots.`);
-    if (opts.publish) console.log(pub?.reset ? 'Pas de commit (public/samples/rytm a seulement ete remis comme en ligne).' : "Pas de commit, rien n'a change.");
+    if (opts.publish) console.log(`Pas de commit. ${unchanged()}`);
     throw new Stop(0);
   }
 
@@ -1184,7 +1298,7 @@ async function main() {
   for (const p of importable) {
     const dir = path.join(staging, p.fam);
     await mkdir(dir, { recursive: true });
-    for (const x of p.staged) await copyFile(x.f.full, path.join(dir, x.staged));
+    for (const x of p.staged) await copyFile(x.f.src ?? x.f.full, path.join(dir, x.staged));
   }
   console.log(`Dossier de transit : ${staging} (${importable.map((p) => `${p.fam}/ ${p.staged.length}`).join(', ')})`);
   await saveReport();
@@ -1204,6 +1318,7 @@ async function main() {
   if (r.status !== 0) {
     console.error(`\nL'ajout s'est arrete (code ${r.status}) : pas de commit. Le dossier de transit reste la : ${staging}`);
     console.error(`Pour revenir a l'etat d'avant (si des fichiers ont ete ecrits) : ${UNDO}`);
+    if (resetBackup) console.error(`La sauvegarde de --reset-samples reste la : ${resetBackup}`);
     throw new Stop(r.status || 1);
   }
 
@@ -1240,7 +1355,9 @@ async function main() {
   /* ----- noter ce qui vient d'ici (la relance n'en rajoute pas) ----- */
   const day = new Date(started).toISOString().slice(0, 10);
   for (const [fam, list] of added) {
-    for (const y of list) manifest.files[`${fam}/${y.name}`] = { sha1: y.hash, added: day, projects: y.pick?.f.projects.size ?? 0, refs: y.pick?.f.refs ?? 0 };
+    for (const y of list) {
+      manifest.files[`${fam}/${y.name}`] = { sha1: y.hash, added: day, projects: y.pick?.f.projects.size ?? 0, refs: y.pick?.f.refs ?? 0, ...(y.pick?.f.from ? { aiffSha1: y.pick.f.from } : {}) };
+    }
   }
   if (newFiles.length > 0) await writeManifest(manifest);
 
@@ -1302,8 +1419,10 @@ async function main() {
   console.log('\nRESUME (avant -> apres, les noms ajoutes) :');
   for (const l of lines) console.log(`  ${l.fam.padEnd(3)} ${String(l.before).padStart(3)} -> ${String(l.after).padEnd(3)}${l.names.length > 0 ? ` +${l.names.length} : ${l.names.join(', ')}` : ' (rien de nouveau)'}`);
   console.log(`  Liste de ce que ce script a ajoute : ${MANIFEST_REL}`);
+  // Le chemin de la sauvegarde, encore une fois a la fin (il ne s'affichait qu'au debut)
+  if (resetBackup) console.log(`  Sauvegarde de --reset-samples (ce qui etait modifie ou en trop ici) : ${resetBackup}`);
   if (pub && newFiles.length === 0) {
-    console.log("\nL'ajout n'a rien ecrit de nouveau : pas de commit, rien n'a change.");
+    console.log(`\nL'ajout n'a rien ecrit de nouveau : pas de commit. ${unchanged()}`);
     return;
   }
   if (pub) {

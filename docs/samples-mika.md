@@ -21,10 +21,12 @@ Le `git pull` du début récupère la commande elle-même. Il n'y a rien à inst
    - si `public/samples/rytm` a des changements pas commités (un ancien import) ;
    - si tu as des commits pas encore poussés ;
    - si `git pull --ff-only` échoue.
-2. **Elle lit tous tes projets** (`.als`) dans `~/Music/Ableton`, `~/Music`, `~/Documents`, `~/Desktop` et iCloud Drive. Les dossiers Backup sont ignorés, le dossier du site aussi.
+2. **Elle lit tous tes projets** (`.als`) dans `~/Music/Ableton`, `~/Music`, `~/Documents`, `~/Desktop` et iCloud Drive. Les dossiers Backup sont ignorés, le dossier du site aussi. Un projet resté dans iCloud (pas téléchargé sur ce Mac) n'est pas lu, pour ne pas tout télécharger : elle te dit combien.
 3. **Elle classe les samples de `shots` par voix** d'après leurs dossiers : Kicks, BD, Grosse caisse ; Snares, Caisse claire ; Hats, Charley ; Open Hats, Charley ouvert ; Claps ; Toms ; Percs, Percus, Rim, Shaker ; Cymbales, Crash, Ride. Elle les trie ensuite du plus joué au moins joué : d'abord le nombre de projets différents, puis le nombre d'utilisations.
 4. **Elle affiche le plan**, voix par voix.
 5. **Elle ajoute, elle ne remplace jamais.** Ce qui est déjà en ligne reste avec son numéro : BluePrint reste le kit par défaut et les presets d'usine gardent leurs sons. Chaque voix est complétée jusqu'à 20 samples en tout. Pour BD, c'est 10 kicks de plus que les 12 d'avant, donc 22. Un sample déjà sur le site (même contenu, même sous un autre nom) est sauté. Si une voix n'a pas assez de samples joués, les jamais joués de ses dossiers complètent.
+   - **Les AIFF** (`.aif`, `.aiff`) : Safari les lit, Chrome et Firefox non. Elle les convertit en WAV (avec `afconvert`, déjà sur ton Mac) : ils arrivent sur le site en `.wav`.
+   - **Un fichier vide, ou qui n'est pas vraiment de l'audio** (juste l'extension) : il est sauté et le suivant prend sa place. Pas de cran muet sur le potard.
 6. **Un sample retenu pas encore téléchargé d'iCloud ?** Elle le dit et n'écrit rien. Télécharge-le dans le Finder (clic droit sur le dossier `shots`, « Télécharger maintenant »), puis relance la même ligne.
 7. **Elle met en ligne.** Elle fait `git add` des seuls nouveaux samples (et de la liste `public/samples/rytm/ableton-picks.json`), un commit qui donne le compte par voix, puis `git push`. GitHub met le site à jour en 1 à 2 minutes.
 8. **Elle finit par un résumé** : pour chaque voix, avant et après, les noms ajoutés, et la ligne pour annuler.
@@ -46,7 +48,7 @@ Relancer la commande ne rajoute rien tant que les voix sont à leur cible : la l
   ```
   npm run samples:mika -- --reset-samples
   ```
-  Le dossier revient comme en ligne. Les fichiers en trop vont dans un dossier de sauvegarde, rien n'est effacé.
+  Le dossier revient comme en ligne. Avant, les fichiers modifiés ici et ceux en trop sont sauvegardés dans `.admin-backups/rytm-<date>` du dossier du site (git l'ignore, rien ne part en ligne, et macOS ne le vide pas) : rien n'est perdu. La commande te redonne ce chemin à la fin. Si elle s'arrête ensuite (par exemple un `git pull` qui refuse), elle te dit que seul `public/samples/rytm` a été remis comme en ligne.
 
 ## Options (rarement utiles)
 

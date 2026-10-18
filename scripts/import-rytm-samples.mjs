@@ -46,7 +46,12 @@
  *   avant d'ecrire, git check-ignore juge chaque nouveau fichier : un seul
  *   ignore, rien n'est ecrit. Apres l'ecriture, git status doit les voir
  *   tous (sinon les nouveaux sont retires et l'import s'arrete).
- * L'extension d'origine reste. L'ordre : le chemin dans le dossier, en ordre
+ * L'extension d'origine reste, sauf un AIFF (relecture S2) : Safari le lit,
+ * Chrome et Firefox non, il est donc converti en WAV (afconvert, livre avec
+ * macOS) et prend un nom en .wav ; sans afconvert il est laisse de cote. Un
+ * fichier vide, ou dont le debut n'est ni WAV, AIFF, MP3, FLAC ni M4A
+ * (audioKind : un texte nomme .wav), est saute : il ferait un cran muet.
+ * L'ordre : le chemin dans le dossier, en ordre
  * naturel (01 avant 02, 2 avant 10), stable d'un lancement a l'autre.
  *
  * Le vocabulaire (2026-10-18) comprend aussi les noms francais et ceux des
@@ -88,7 +93,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readdir, readFile, realpath, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AUDIO, FAMILIES, HOME_DIR, MAX_BYTES, SITE_DIR, UNDO, gitIgnored, gitStatus, natural, safeStem, sha1, siteFiles, suffixed } from './rytm-samples-lib.mjs';
+import { AFCONVERT, AUDIO, FAMILIES, HOME_DIR, MAX_BYTES, SITE_DIR, UNDO, aiffToWav, audioKind, gitIgnored, gitStatus, natural, safeStem, sha1, siteFiles, suffixed } from './rytm-samples-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_SRC = path.join(HOME_DIR, 'Library/Mobile Documents/com~apple~CloudDocs/User Library/Samples/shots');
@@ -587,16 +592,56 @@ async function main() {
   // Tout le contenu en memoire avant de retirer quoi que ce soit
   for (const f of chosen) {
     if (f.placeholder) continue;
+    // Ce que le site ne saurait pas lire est saute (relecture S2) : un cran du potard qui ne jouerait rien
+    if (f.size === 0) {
+      f.skip = 'vide (0 octet)';
+      continue;
+    }
     if (f.size > MAX_BYTES) {
       f.skip = `trop gros (${kb(f.size)}, ${kb(MAX_BYTES)} au plus)`;
       continue;
     }
+    let data;
     try {
-      f.data = await readFile(f.full);
-      f.hash = sha1(f.data);
+      data = await readFile(f.full);
     } catch (e) {
       problems.push(`illisible : ${f.rel} (${e.code ?? e.message})`);
+      continue;
     }
+    // Le contenu decide, pas l'extension (rytm-samples-lib.mjs, audioKind)
+    const kind = audioKind(data);
+    if (!kind) {
+      f.skip = data.length === 0 ? 'vide (0 octet)' : "pas un fichier audio lisible (son debut n'est ni WAV, AIFF, MP3, FLAC ni M4A)";
+      continue;
+    }
+    if (kind === 'aiff') {
+      // Safari lit l'AIFF, Chrome et Firefox non : converti en WAV (afconvert, macOS), sinon laisse de cote
+      f.from = sha1(data);
+      if (!AFCONVERT) {
+        f.skip = "AIFF : Chrome et Firefox ne le lisent pas, et afconvert (macOS) n'est pas la pour le convertir en WAV";
+        f.aiff = true;
+        continue;
+      }
+      try {
+        data = await readFile(aiffToWav(f.full));
+      } catch (e) {
+        f.skip = `AIFF, la conversion en WAV a echoue (${e.message})`;
+        f.aiff = true;
+        continue;
+      }
+      if (audioKind(data) !== 'wav') {
+        f.skip = "AIFF, la conversion n'a pas donne de WAV";
+        f.aiff = true;
+        continue;
+      }
+      if (data.length > MAX_BYTES) {
+        f.skip = `trop gros une fois en WAV (${kb(data.length)}, ${kb(MAX_BYTES)} au plus)`;
+        continue;
+      }
+      f.ext = '.wav';
+    }
+    f.data = data;
+    f.hash = sha1(data);
   }
 
   const plan = [];
@@ -623,7 +668,8 @@ async function main() {
         continue;
       }
       seen.set(f.hash, f);
-      const twinHere = !opts.replace && existing.find((x) => x.hash === f.hash);
+      // Un AIFF converti : son WAV, ou l'AIFF lui-meme d'un ancien import, deja la
+      const twinHere = !opts.replace && existing.find((x) => x.hash === f.hash || (f.from && x.hash === f.from));
       if (twinHere) {
         f.skip = `deja la : ${fam}/${twinHere.name}`;
         continue;
@@ -635,7 +681,7 @@ async function main() {
     const names = assignNames(items, new Set(keep.map((x) => x.label)), fam);
     const width = Math.max(2, String(start + items.length - 1).length);
     const adds = items.map((it, i) => {
-      const file = `${String(start + i).padStart(width, '0')} ${names[i]}${path.extname(it.f.name).toLowerCase()}`;
+      const file = `${String(start + i).padStart(width, '0')} ${names[i]}${it.f.ext ?? path.extname(it.f.name).toLowerCase()}`;
       return { ...it, file, label: sampleLabel(file) };
     });
     const removes = opts.replace && adds.length > 0 ? existing : [];
@@ -649,7 +695,7 @@ async function main() {
     if (!opts.replace) for (const x of p.keep) console.log(`  = garde    ${x.name}`);
     const w = Math.max(10, ...p.adds.map((a) => a.file.length));
     const wl = Math.max(8, ...p.adds.map((a) => a.label.length));
-    for (const a of p.adds) console.log(`  + ${a.file.padEnd(w)}  ${a.label.padEnd(wl)}  <-  ${a.f.rel}  [${a.f.via}]`);
+    for (const a of p.adds) console.log(`  + ${a.file.padEnd(w)}  ${a.label.padEnd(wl)}  <-  ${a.f.rel}  [${a.f.via}${a.f.ext ? ', AIFF -> WAV' : ''}]`);
     for (const f of p.incoming.filter((x) => x.skip)) console.log(`  . saute    ${f.rel} : ${f.skip}`);
     for (const f of p.incoming.filter((x) => x.placeholder)) console.log(`  ! iCloud   ${f.rel} : pas encore telecharge`);
     if (p.adds.length === 0) console.log('  (rien de nouveau : la famille reste comme elle est)');
@@ -671,11 +717,13 @@ async function main() {
     console.log(`Pas de l'audio pris en charge (wav aif aiff mp3 flac m4a), ignores : ${list}\n`);
   }
   if (acc.tooDeep.length > 0) notes.push(`dossiers trop profonds (plus de ${MAX_DEPTH} niveaux), pas lus : ${acc.tooDeep.join(', ')}`);
-  const aiff = plan.flatMap((p) => p.adds).filter((a) => /\.aiff?$/i.test(a.file));
-  if (aiff.length > 0) {
+  const converted = plan.flatMap((p) => p.adds).filter((a) => a.f.ext);
+  if (converted.length > 0) notes.push(`${converted.length} AIFF converti(s) en WAV (afconvert) : Chrome et Firefox ne lisent pas l'AIFF`);
+  const aiffOut = chosen.filter((f) => f.aiff);
+  if (aiffOut.length > 0) {
     notes.push(
-      `${aiff.length} fichier(s) AIFF : Safari les lit, Chrome et Firefox non (la voix y garde son son calcule). ` +
-        'Pour tous les navigateurs, convertis-les en WAV avant (afconvert -f WAVE -d LEI16 "in.aif" "out.wav") et relance.'
+      `${aiffOut.length} AIFF laisse(s) de cote : Chrome et Firefox ne les lisent pas, et rien ne les convertit ici. ` +
+        'Lance l\'import sur le Mac (afconvert les convertit tout seul), ou convertis-les avant (afconvert -f WAVE -d LEI16 "in.aif" "out.wav").'
     );
   }
   const crowded = plan.filter((p) => p.keep.length + p.adds.length > 8).map((p) => `${p.fam} ${p.keep.length + p.adds.length}`);
