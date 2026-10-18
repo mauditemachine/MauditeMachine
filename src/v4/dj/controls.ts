@@ -280,8 +280,12 @@ function wheelGeometry(mobile: boolean): BufferGeometry {
   return merge([ring, partDj(side, 'cap'), partDj(plate, 'platter'), partDj(bezel, 'skirt'), partDj(mark, 'mark')], 'jog wheels');
 }
 
-/** Le socle fixe sous chaque roue : une jupe d'aluminium sombre, fine, comme celle des potards. */
+/**
+ * Le socle fixe sous chaque roue : une jupe d'aluminium sombre, fine, comme celle des potards. Sans platine (la
+ * table seule du telephone tenu droit, 2026-10-18) : une geometrie vide, le mesh est cache.
+ */
 function ringGeometry(mobile: boolean): BufferGeometry {
+  if (DJ_DECKS.length === 0) return new BufferGeometry();
   const J = DECK.jog;
   const seg = mobile ? 48 : 72;
   const lathe = new LatheGeometry(
@@ -491,6 +495,12 @@ export class DjControls {
     this.platters.castShadow = false;
     this.rings.castShadow = opts.castShadow;
     this.rings.receiveShadow = true;
+    // La table seule (2026-10-18, telephone tenu droit) : ni jog, ni CUE, ni fader ; ce qui n'a aucune instance
+    // n'est pas dessine (ni draw call, ni shader a compiler)
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters, this.leds]) {
+      if (m.count === 0) m.visible = false;
+    }
+    if (DJ_DECKS.length === 0) this.rings.visible = false;
 
     DJ_KNOBS.forEach((k, i) => {
       this.knobAngle[i] = potAngle(k.bipolar ? 0.5 : 0);

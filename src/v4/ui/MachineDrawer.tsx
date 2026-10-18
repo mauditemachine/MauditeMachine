@@ -17,7 +17,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { BASS, DJ, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
+import { BASS, DJ, DJ_NAME, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { bassExplode, explode, voyExplode, type ExplodeState } from '../state/explode';
 import { intro } from '../state/intro';
 
@@ -27,7 +27,8 @@ const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   ...(BASS ? [{ id: 'bass' as const, title: 'MM-BASS', sub: 'BASSLINE GENERATOR' }] : []),
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
-  ...(DJ ? [{ id: 'dj' as const, title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER' }] : []),
+  // MM-MIXER au telephone tenu droit (2026-10-18, la table seule : state/focus.ts DJ_NAME)
+  ...(DJ ? [{ id: 'dj' as const, title: DJ_NAME.title, sub: DJ_NAME.sub }] : []),
 ];
 
 /** Fermeture apres que la souris est sortie (ms) : un aller-retour rapide ne le ferme pas. */

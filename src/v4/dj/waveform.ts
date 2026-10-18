@@ -346,7 +346,8 @@ export class DjWaves {
       const i = DJ_DECKS_ALL.indexOf(d);
       parts.push(band(d, DECK_SCREEN.detail, i * 2), band(d, DECK_SCREEN.overview, i * 2 + 1));
     }
-    const g = mergeGeometries(parts, false);
+    // Sans platine (la table seule du telephone tenu droit, 2026-10-18) : aucune bande, le mesh est cache plus bas
+    const g = parts.length ? mergeGeometries(parts, false) : new BufferGeometry();
     for (const p of parts) p.dispose();
     if (!g) throw new Error('dj: waves merge failed');
     this.material = new ShaderMaterial({
@@ -376,6 +377,8 @@ export class DjWaves {
     this.mesh = new Mesh(g, this.material);
     this.mesh.name = 'djWaves';
     this.mesh.frustumCulled = false;
+    // Rien a dessiner : ni draw call, ni shader a compiler
+    this.mesh.visible = parts.length > 0;
   }
 
   /**

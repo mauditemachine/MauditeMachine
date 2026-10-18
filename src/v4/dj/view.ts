@@ -5,11 +5,17 @@
  * puis les platines ajoutees et le + (dj/theme.ts DJ_VIEW_UNITS). Sur
  * desktop l'ensemble est cadre et ce store ne sert pas. Le Stage
  * (scene/renderer.ts) anime le cadrage vers le bloc.
+ *
+ * Tenu droit (2026-10-18, Mika : "En mobile je veux juste Mixer et pas de
+ * deck ; en desktop oui") : un seul bloc, la table ('mix') ; next() rend null
+ * des deux cotes, les fleches et le glisser passent droit aux machines
+ * voisines.
  */
 
 import { DJ_VIEW_UNITS, djDecks, type DjUnit } from './theme';
 
-let unit: DjUnit = 'a';
+/** Le premier bloc : DECK A, ou la table quand elle est seule (telephone tenu droit). */
+let unit: DjUnit = DJ_VIEW_UNITS.includes('a') ? 'a' : (DJ_VIEW_UNITS[0] ?? 'mix');
 const listeners = new Set<() => void>();
 const emit = (): void => listeners.forEach((fn) => fn());
 
