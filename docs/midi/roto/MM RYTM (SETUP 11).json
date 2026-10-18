@@ -1,7 +1,7 @@
 {
   "version": 1,
   "type": "MIDI",
-  "name": "RYTM 1010.2",
+  "name": "RYTM 1018.2",
   "index": 10,
   "knobs": [
     {
@@ -875,7 +875,7 @@
       "hapticMode": 1,
       "hapticIndent1": 255,
       "hapticIndent2": 255,
-      "hapticSteps": 9,
+      "hapticSteps": 15,
       "stepNames": [
         "909",
         "808",
@@ -886,12 +886,12 @@
         "CARASSI",
         "STEIN",
         "AFFKT",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
+        "MANTZUR",
+        "BD2550",
+        "OT3",
+        "BD88",
+        "DNB",
+        "8O8 NICE",
         ""
       ]
     },
@@ -1035,7 +1035,7 @@
       "nrpnAddress": 0,
       "minValue": 0,
       "maxValue": 127,
-      "controlName": "HATS SOUND",
+      "controlName": "CL HAT SOUND",
       "colorScheme": 1,
       "hapticMode": 1,
       "hapticIndent1": 255,

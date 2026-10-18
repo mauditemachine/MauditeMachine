@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 10 octobre 2026 depuis le code du site (`npm run docs:midi`) : 582 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 18 octobre 2026 depuis le code du site (`npm run docs:midi`) : 640 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -18,7 +18,7 @@ Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MI
 
 - Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.
 - Les adresses sont gelees (2026-10-08, `src/v4/midi/rotoKeys.ts`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115 ; les colonnes Canal et CC ci-dessous font foi.
-- **Version des setups : 2026-10-10.2.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1010.2, ARP 1010.2, DECK 1010.2, MIXER 1010.2, LIVE 1010.2, RSEQ 1010.2) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
+- **Version des setups : 2026-10-18.2.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1018.2, ARP 1018.2, DECK 1018.2, MIXER 1018.2, LIVE 1018.2, RSEQ 1018.2) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
 - Ces CC n'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).
 - Ce que dit le fichier JSON, c'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).
 
@@ -57,7 +57,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 {
   "version": 1,
   "type": "MIDI",
-  "name": "ARP 1010.2",
+  "name": "ARP 1018.2",
   "index": 11,
   "knobs": [
     {
@@ -135,7 +135,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 | Champ | Sens |
 | --- | --- |
 | version, type | 1 et "MIDI" (toujours) |
-| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1010.2) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
+| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1018.2) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
 | controlIndex | le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1) |
 | controlMode | 0 : CC |
 | controlChannel | canal MIDI 1 a 16 (potards N, boutons N + 8) |
@@ -213,12 +213,12 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 23 | 3.8 | 1 | 107 | CY VOL | creme | rytm:voice:CY:level | CY VOLUME | continu |
 | 24 | 4.1 | 1 | 14 | MASTER | blanc | rytm:enc:level | MASTER | continu |
 | 25 | 4.2 | 1 | 15 | TEMPO | blanc | rytm:enc:tempo | TEMPO | continu |
-| 26 | 4.3 | 1 | 108 | KICK SOUND | or | rytm:kit:bd | TWEAK KICK | potard a 9 crans : 909 / 808 / MM / BLUEPRINT / VNTM / ENGELHARDT / CARASSI / STEIN / AFFKT |
+| 26 | 4.3 | 1 | 108 | KICK SOUND | or | rytm:kit:bd | TWEAK KICK | potard a 15 crans : 909 / 808 / MM / BLUEPRINT / VNTM / ENGELHARDT / CARASSI / STEIN / AFFKT / MANTZUR / BD2550 / OT3 / BD88 / DNB / 8O8 NICE |
 | 27 | 4.4 | 1 | 109 | KICK TUNE | or | rytm:kit:tune | TWEAK TUNE | bipolaire, cran au milieu (64) |
 | 28 | 4.5 | 1 | 111 | KICK DECAY | or | rytm:kit:decay | TWEAK DECAY | continu |
 | 29 | 4.6 | 1 | 112 | KICK DRIVE | or | rytm:kit:drive | TWEAK DRIVE | continu |
 | 30 | 4.7 | 1 | 113 | SNARE SOUND | or | rytm:kit:sd | TWEAK SNARE | potard a 7 crans : 909 / 808 / MM / PSY 02 / PSY 12 / PSY 26 / 707 |
-| 31 | 4.8 | 1 | 115 | HATS SOUND | or | rytm:kit:hh | TWEAK HATS | potard a 3 crans : 909 / 808 / MM |
+| 31 | 4.8 | 1 | 115 | CL HAT SOUND | or | rytm:kit:ch | TWEAK CL HAT | potard a 3 crans : 909 / 808 / MM |
 
 **Boutons**
 
@@ -288,11 +288,11 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 22 | 3.7 | 2 | 106 | AMP SUSTAIN | citron | voy:knob:aS | SUSTAIN | continu |
 | 23 | 3.8 | 2 | 107 | AMP RELEASE | citron | voy:knob:aR | RELEASE | continu |
 | 24 | 4.1 | 2 | 108 | MOD SPEED | cyan | voy:knob:lfoRate | SPEED | potard a 7 crans : 1/16 / 1/8 / 1/4 / 1/2 / 1 BAR / 2 BAR / 4 BAR |
-| 25 | 4.2 | 2 | 109 | MOD SHAPE | cyan | voy:knob:lfoShape | SHAPE | potard a 4 crans : TRI / SAW / SQR / S&H |
+| 25 | 4.2 | 2 | 109 | MOD SHAPE | cyan | voy:knob:lfoShape | SHAPE | potard a 5 crans : TRI / SAW / RND / SQR / S&H |
 | 26 | 4.3 | 2 | 110 | MOD TARGET | cyan | voy:knob:lfoDest | TARGET | potard a 5 crans : WAVE / CUTOFF / FM / PITCH / W+CUT |
 | 27 | 4.4 | 2 | 111 | MOD DEPTH | cyan | voy:knob:lfoAmt | DEPTH | continu |
 | 28 | 4.5 | 2 | 112 | OVERDRIVE | violet | voy:knob:dist | OVERDRIVE | continu |
-| 29 | 4.6 | 2 | 113 | CHORUS | violet | voy:knob:chorus | CHORUS | continu |
+| 29 | 4.6 | 2 | 113 | CHORUS | violet | voy:knob:chorus | CHORUS | potard a 3 crans : OFF / I / II |
 | 30 | 4.7 | 2 | 114 | DELAY | violet | voy:knob:delay | DELAY | continu |
 | 31 | 4.8 | 2 | 115 | REVERB | violet | voy:knob:reverb | REVERB | continu |
 
@@ -316,12 +316,10 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 13 | 2.6 | 10 | 27 | A | bleu | voy:pad:5 | CHORD A | appui |
 | 14 | 2.7 | 10 | 28 | F#m7 | bleu | voy:pad:6 | CHORD F#m7 | appui |
 | 15 | 2.8 | 10 | 29 | Dmaj7 | bleu | voy:pad:7 | CHORD Dmaj7 | appui |
-| 16 | 3.1 | 10 | 30 | OSC 1 ON | vert | voy:knob:on1 | OSC 1 | bascule (la LED suit le site) |
-| 17 | 3.2 | 10 | 31 | OSC 2 ON | vert | voy:knob:on2 | OSC 2 | bascule (la LED suit le site) |
-| 18 | 3.3 | 10 | 102 | SUB -2 OCT | or | voy:knob:subOct | SUB OCT | bascule (la LED suit le site) |
-| 19 | 3.4 | 10 | 103 | SUB SINE | or | voy:subwave:0 | SUB WAVE SINE | appui |
-| 20 | 3.5 | 10 | 104 | SUB TRI | or | voy:subwave:1 | SUB WAVE TRI | appui |
-| 21 | 3.6 | 10 | 105 | SUB SQUARE | or | voy:subwave:2 | SUB WAVE SQUARE | appui |
+| 16 | 3.1 | 10 | 102 | SUB -2 OCT | or | voy:knob:subOct | SUB OCT | bascule (la LED suit le site) |
+| 17 | 3.2 | 10 | 103 | SUB SINE | or | voy:subwave:0 | SUB WAVE SINE | appui |
+| 18 | 3.3 | 10 | 104 | SUB TRI | or | voy:subwave:1 | SUB WAVE TRI | appui |
+| 19 | 3.4 | 10 | 105 | SUB SQUARE | or | voy:subwave:2 | SUB WAVE SQUARE | appui |
 
 ### DECK (SETUP 13, potards canal 3, boutons canal 11)
 
@@ -629,7 +627,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 355 cibles)
+### MM-RYTM (scope `mm808`, 415 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -642,7 +640,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:enc:delay` | DELAY | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
 | `rytm:enc:reverb` | REVERB | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
 | `rytm:enc:vol` | VOLUME (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
-| `rytm:enc:vsound` | SAMPLE (SELECTED VOICE) | valeur 0 a 127 | 9 | RYTM |
+| `rytm:enc:vsound` | SAMPLE (SELECTED VOICE) | valeur 0 a 127 | 15 | RYTM |
 | `rytm:enc:tone` | TONE (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vdecay` | DECAY (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vdist` | DIST (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
@@ -675,6 +673,11 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:enc:brate` | BIT RATE | valeur 0 a 127 |  |  |
 | `rytm:enc:catk` | COMP ATK | valeur 0 a 127 |  |  |
 | `rytm:enc:crel` | COMP REL | valeur 0 a 127 |  |  |
+| `rytm:enc:cthr` | COMP THR | valeur 0 a 127 |  |  |
+| `rytm:enc:cratio` | COMP RATIO | valeur 0 a 127 | 8 |  |
+| `rytm:enc:cknee` | COMP KNEE | valeur 0 a 127 |  |  |
+| `rytm:enc:cmake` | COMP MAKEUP | valeur 0 a 127 |  |  |
+| `rytm:enc:chpf` | COMP HPF | valeur 0 a 127 | 3 |  |
 | `rytm:voice:BD:tone` | BD TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:decay` | BD DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:level` | BD VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -836,7 +839,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:HT:mute` | MUTE HT | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CY:mute` | MUTE CY | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE, RSEQ |
-| `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 | RYTM |
+| `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 15 | RYTM |
 | `rytm:kit:tune` | TWEAK TUNE | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:kit:attack` | TWEAK ATTACK | valeur 0 a 127 |  |  |
 | `rytm:kit:decay` | TWEAK DECAY | valeur 0 a 127 |  | RYTM, LIVE |
@@ -845,15 +848,18 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:kit:snappy` | TWEAK SNAPPY | valeur 0 a 127 |  |  |
 | `rytm:kit:cp` | TWEAK CLAP | valeur 0 a 127 | 3 |  |
 | `rytm:kit:gate` | TWEAK GATE | valeur 0 a 127 | 2 |  |
-| `rytm:kit:hh` | TWEAK HATS | valeur 0 a 127 | 3 | RYTM |
-| `rytm:kit:tom` | TWEAK TOMS | valeur 0 a 127 | 3 |  |
+| `rytm:kit:ch` | TWEAK CL HAT | valeur 0 a 127 | 3 | RYTM |
+| `rytm:kit:tom` | TWEAK TOM | valeur 0 a 127 | 3 |  |
+| `rytm:kit:oh` | TWEAK OP HAT | valeur 0 a 127 | 4 |  |
+| `rytm:kit:ht` | TWEAK HI TOM | valeur 0 a 127 | 3 |  |
+| `rytm:kit:cy` | TWEAK CYMBAL | valeur 0 a 127 | 3 |  |
 | `rytm:kit:sweep` | TWEAK KICK SWEEP | valeur 0 a 127 |  |  |
 | `rytm:kit:sdtune` | TWEAK SNARE TUNE | valeur 0 a 127 |  |  |
 | `rytm:kit:sddecay` | TWEAK SNARE DECAY | valeur 0 a 127 |  |  |
 | `rytm:kit:sdtone` | TWEAK SNARE TONE | valeur 0 a 127 |  |  |
 | `rytm:layer:bd:mach` | KICK SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:bd:syn` | KICK SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:bd:sample` | KICK SAMPLE | valeur 0 a 127 | 7 |  |
+| `rytm:layer:bd:sample` | KICK SAMPLE | valeur 0 a 127 | 13 |  |
 | `rytm:layer:bd:lev` | KICK SMP LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:bd:tune` | KICK SMP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:layer:bd:fine` | KICK SMP FINE | valeur 0 a 127 | 129 |  |
@@ -869,12 +875,60 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:sd:start` | SNARE SMP START | valeur 0 a 127 |  |  |
 | `rytm:layer:sd:len` | SNARE SMP LEN | valeur 0 a 127 |  |  |
 | `rytm:layer:sd:rev` | SNARE SMP REV | valeur 0 a 127 | 2 |  |
-| `rytm:layer:hh:mach` | HATS SYN MACHINE | valeur 0 a 127 | 3 |  |
-| `rytm:layer:hh:syn` | HATS SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:ch:mach` | CL HAT SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:ch:syn` | CL HAT SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:ch:sample` | CL HAT SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:ch:lev` | CL HAT SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:ch:tune` | CL HAT SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:ch:fine` | CL HAT SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:ch:start` | CL HAT SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:ch:len` | CL HAT SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:ch:rev` | CL HAT SMP REV | valeur 0 a 127 | 2 |  |
+| `rytm:layer:oh:mach` | OP HAT SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:oh:syn` | OP HAT SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:oh:sample` | OP HAT SAMPLE | valeur 0 a 127 | 2 |  |
+| `rytm:layer:oh:lev` | OP HAT SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:oh:tune` | OP HAT SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:oh:fine` | OP HAT SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:oh:start` | OP HAT SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:oh:len` | OP HAT SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:oh:rev` | OP HAT SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:layer:cp:mach` | CLAP SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:cp:syn` | CLAP SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:layer:tom:mach` | TOMS SYN MACHINE | valeur 0 a 127 | 3 |  |
-| `rytm:layer:tom:syn` | TOMS SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:cp:sample` | CLAP SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:cp:lev` | CLAP SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:cp:tune` | CLAP SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:cp:fine` | CLAP SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:cp:start` | CLAP SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:cp:len` | CLAP SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:cp:rev` | CLAP SMP REV | valeur 0 a 127 | 2 |  |
+| `rytm:layer:tom:mach` | TOM SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:tom:syn` | TOM SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:tom:sample` | TOM SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:tom:lev` | TOM SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:tom:tune` | TOM SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:tom:fine` | TOM SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:tom:start` | TOM SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:tom:len` | TOM SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:tom:rev` | TOM SMP REV | valeur 0 a 127 | 2 |  |
+| `rytm:layer:ht:mach` | HI TOM SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:ht:syn` | HI TOM SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:ht:sample` | HI TOM SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:ht:lev` | HI TOM SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:ht:tune` | HI TOM SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:ht:fine` | HI TOM SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:ht:start` | HI TOM SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:ht:len` | HI TOM SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:ht:rev` | HI TOM SMP REV | valeur 0 a 127 | 2 |  |
+| `rytm:layer:cy:mach` | CYMBAL SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:cy:syn` | CYMBAL SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:cy:sample` | CYMBAL SAMPLE | valeur 0 a 127 |  |  |
+| `rytm:layer:cy:lev` | CYMBAL SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:cy:tune` | CYMBAL SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:cy:fine` | CYMBAL SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:cy:start` | CYMBAL SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:cy:len` | CYMBAL SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:cy:rev` | CYMBAL SMP REV | valeur 0 a 127 | 2 |  |
 | `rytm:knob:1` | KNOB A (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
 | `rytm:knob:2` | KNOB B (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
 | `rytm:knob:3` | KNOB C (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
@@ -903,6 +957,10 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:screen:fxreverb` | SCREEN GLOBAL FX · REVERB | appui |  |  |
 | `rytm:screen:fxbit` | SCREEN GLOBAL FX · BIT | appui |  |  |
 | `rytm:screen:fxcomp` | SCREEN GLOBAL FX · COMP | appui |  |  |
+| `rytm:screen:fxvdist` | SCREEN VOICE FX · DIST | appui |  |  |
+| `rytm:screen:fxvchorus` | SCREEN VOICE FX · CHORUS | appui |  |  |
+| `rytm:screen:fxvdelay` | SCREEN VOICE FX · DELAY | appui |  |  |
+| `rytm:screen:fxvreverb` | SCREEN VOICE FX · REVERB | appui |  |  |
 | `rytm:page` | PAGE (VOICE TO FX) | valeur 0 a 127 | 4 |  |
 | `rytm:home` | HOME / PAGE SCREEN | appui |  |  |
 | `rytm:pad:BD` | PAD BD | appui |  | RYTM |
@@ -989,7 +1047,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:seq:voice:HT` | SEQ VOICE HT (SELECT, SILENT) | appui |  | RSEQ |
 | `rytm:seq:voice:CY` | SEQ VOICE CY (SELECT, SILENT) | appui |  | RSEQ |
 
-### MM-ARP (scope `voy`, 73 cibles)
+### MM-ARP (scope `voy`, 71 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1002,12 +1060,10 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:range1` | RANGE 1 | valeur 0 a 127 | 6 |  |
 | `voy:knob:semi1` | SEMI 1 | valeur 0 a 127 | 15 |  |
 | `voy:knob:fine1` | FINE 1 | valeur 0 a 127 |  |  |
-| `voy:knob:on1` | OSC 1 | valeur 0 a 127 | 2 | ARP |
 | `voy:knob:wave2` | WAVE 2 | valeur 0 a 127 |  |  |
 | `voy:knob:range2` | RANGE 2 | valeur 0 a 127 | 6 |  |
 | `voy:knob:semi2` | SEMI 2 | valeur 0 a 127 | 15 |  |
 | `voy:knob:fine2` | FINE 2 | valeur 0 a 127 |  |  |
-| `voy:knob:on2` | OSC 2 | valeur 0 a 127 | 2 | ARP |
 | `voy:knob:osc1` | OSC 1 | valeur 0 a 127 |  | ARP |
 | `voy:knob:osc2` | OSC 2 | valeur 0 a 127 |  | ARP |
 | `voy:knob:sub` | SUB | valeur 0 a 127 |  | ARP |
@@ -1031,11 +1087,11 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:aS` | SUSTAIN | valeur 0 a 127 |  | ARP |
 | `voy:knob:aR` | RELEASE | valeur 0 a 127 |  | ARP |
 | `voy:knob:lfoRate` | SPEED | valeur 0 a 127 | 7 | ARP |
-| `voy:knob:lfoShape` | SHAPE | valeur 0 a 127 | 4 | ARP |
+| `voy:knob:lfoShape` | SHAPE | valeur 0 a 127 | 5 | ARP |
 | `voy:knob:lfoDest` | TARGET | valeur 0 a 127 | 5 | ARP |
 | `voy:knob:lfoAmt` | DEPTH | valeur 0 a 127 |  | ARP |
 | `voy:knob:dist` | OVERDRIVE | valeur 0 a 127 |  | ARP |
-| `voy:knob:chorus` | CHORUS | valeur 0 a 127 |  | ARP |
+| `voy:knob:chorus` | CHORUS | valeur 0 a 127 | 3 | ARP |
 | `voy:knob:delay` | DELAY | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:reverb` | REVERB | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:volume` | VOLUME | valeur 0 a 127 |  | ARP |
