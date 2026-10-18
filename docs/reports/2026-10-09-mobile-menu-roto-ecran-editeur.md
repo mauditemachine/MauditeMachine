@@ -201,3 +201,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-18 : MM-RYTM, menu de la voix dans l'ecran sous HOME (SOUND VOICE FLTR ENV FX), HOME redevient l'ecran de depart. Spec R14-278.
 - 2026-10-18 : MM-RYTM, CLEAR remet chaque voix a un son de base (ENV, FLTR, VOICE au neutre, couches et OPEN a leur depart, le son choisi reste). Spec R14-279.
 - 2026-10-18 : MM-RYTM, sortie remontee de 4 dB (kick vers -9.4 dBFS, motif de depart -14.7 LUFS, 5 LU au-dessus de l'ARP de depart). Spec R14-280.
+- 2026-10-18 : MM-RYTM, le OH par defaut devient un vrai open hat de Mika (RID 014 NARROW, tire de ses projets sur Drive, kit migre) et l'open hat MM est refait (sans repliement, corps 4 a 8 kHz, queue naturelle). Un seul vrai open hat sur le Drive : d'autres viendront avec npm run samples:ableton sur le Mac. Spec R14-281.

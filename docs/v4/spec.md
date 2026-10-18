@@ -2723,3 +2723,12 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 
 - Mika, with the MIXER VUs: "le RYTM est vraiment pas fort par rapport" (the ARP).
 - Measured offline (start pattern and kit, muted): RYTM peak -6.2 dBFS, -18.7 LUFS, a lone kick -13.4 dBFS (six VU segments, the VU is a peak meter); the start ARP -8.7 dBFS, -20.1 LUFS. RYTM_TRIM 0.53 -> 0.84: kick -9.4 dBFS, start pattern -2.2 dBFS peak (orange, not red), -14.7 LUFS, about 5 LU above the start ARP.
+
+### R14-281 MM-RYTM: the default OH becomes a real open hat; the MM open hat rebuilt (2026-10-18)
+
+- Mika: "Le OH par defaut sonne super mal !"
+- Diagnosis (offline, default pattern at 130 BPM): the old MM OH had a 11.8 kHz centroid (8.3 for a real one), -8 dB of its energy above 16 kHz (-22), -14 dB between 2 and 6 kHz (-8.5), naive-square aliasing at -21 dB, a tail cut at 0.6 s around -30 dB, and sat 6.1 dB above the MM CH. The 909 OH applies its 6-bit rounding after the envelope (grain 0 dB under the signal past 1.2 s; left as is, the factory presets choke it after one 16th). 808 fine. No factory preset uses an MM OH.
+- Mika's Drive (Ableton project backups) holds one usable open hat: ATT_RID_Hihat_014_narrow.wav (0.51 s), imported as public/samples/rytm/oh/01 RID 014 Narrow.wav (label RID 014 NARROW). The others found were closed hats, a ride, a swelling crash, loops.
+- audio/kit.ts: SAMPLE_FIRST bd, sd, oh (the OH sample alone, synth 0); KIT_V 4: a stored kit whose OH is still the old default (MM alone, layer untouched) takes the sample, any other choice stays (8 cases checked).
+- audio/shotsdsp.ts openHat: band-limited squares (aliasing -38 dB), a body from 4 to 8 kHz, a top that darkens along a natural tail (-20 dB at 0.35 s, -40 dB at 0.9 s, faded by 1.1 s); OH_SOFT_LOUD -14 for the MM OH and the OH samples (5 dB under the kick, 2.5 above the CH per hit). CH, CHopen, 909 and 808 hats render bit-identical.
+- Merged check (muted): default OH = the sample, peak -14.5 dBFS (CH -10.4, kick -9.4); start pattern peak -1.2 dBFS with R14-280.
