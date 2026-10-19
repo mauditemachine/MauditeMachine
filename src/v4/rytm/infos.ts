@@ -148,10 +148,13 @@ const LOCK_LINE: Readonly<Record<RytmLockable, string>> = {
 const NO_BD = "BD est choisi : ce réglage ne touche pas le kick (NO BD à l'écran) ; pour lui, VOICE FX.";
 
 /**
- * Au desktop, un FX global a aussi son encodeur (2026-10-09) : la phrase ajoutee a sa carte ; seulement les huit des
- * encodeurs (2026-10-10 : les reglages de leurs pages, TIME et FEEDBACK compris, n'en ont pas).
+ * Un FX global a aussi son encodeur (2026-10-09 au desktop, au telephone aussi depuis le 2026-10-19) : la phrase ajoutee
+ * a sa carte ; seulement les huit des encodeurs (2026-10-10 : les reglages de leurs pages, TIME et FEEDBACK compris,
+ * n'en ont pas).
  */
-const ENC_LINE = "Au desktop, c'est aussi l'un des huit encodeurs, toujours le même : tourne-le, l'écran passe sur sa page (GLOBAL FX pour STRETCH et SWING), son bloc cerné.";
+const ENC_LINE = PHONE
+  ? "C'est aussi l'un des huit encodeurs sous l'écran, toujours le même : glisse-le de haut en bas, l'écran passe sur sa page (GLOBAL FX pour STRETCH et SWING), son bloc cerné."
+  : "C'est aussi l'un des huit encodeurs sous l'écran, toujours le même : tourne-le, l'écran passe sur sa page (GLOBAL FX pour STRETCH et SWING), son bloc cerné.";
 const ENC_IDS: ReadonlySet<string> = new Set(GLOBAL_ENCODERS);
 
 const RAW: Record<RytmInfoId, Raw> = {
@@ -195,9 +198,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   fxg: {
     section: 'PAGES',
     title: 'GLOBAL FX',
-    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ou Échap ramènent GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des huit encodeurs sous l'écran : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ou Échap ramènent GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     phone: {
-      text: "Les huit effets de tout le MM-RYTM : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ramène GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+      text: "Les huit effets de tout le MM-RYTM, dans l'ordre des huit encodeurs sous l'écran (deux rangées de quatre) : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou glisse son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ramène GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     },
     tip: 'Sur la page DELAY, TIME sur 1/8D et FEEDBACK vers 70 % : le rebond de l’indie dance ; un peu de DELAY global suffit.',
   },
@@ -505,7 +508,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     tip: 'Peu de REVERB, et seulement sur la caisse claire, le clap ou la cymbale : le kick reste sec et devant.',
   },
 
-  /* ---------- GLOBAL FX : tout le MM-RYTM (les encodeurs du desktop) ---------- */
+  /* ---------- GLOBAL FX : tout le MM-RYTM (les huit encodeurs sous l'ecran) ---------- */
   dist: {
     section: 'GLOBAL FX',
     title: 'DIST',
@@ -934,10 +937,10 @@ const RAW: Record<RytmInfoId, Raw> = {
   step: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Les 16 pas de la voix choisie. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
+    text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
     tip: 'Le kick sur 1, 5, 9 et 13 (les pas encadrés), le clap ou la caisse claire sur 5 et 13 : la base du four on the floor.',
     phone: {
-      text: "Les 16 pas de la voix choisie. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : P-LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
+      text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger : P-LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
     },
     voice: {
       none: { text: "Les 16 pas de la voix choisie : touche d'abord un pad (l'écran dit TAP A PAD FIRST). Ensuite, une touche sur un pas vide le pose à la vélocité des nouveaux pas (HIGH au départ) ; tenu 350 ms : P-LOCK." },
@@ -951,7 +954,7 @@ const RAW: Record<RytmInfoId, Raw> = {
       "Choisis la page, glisse une valeur de l'écran (ou sa molette) : ce réglage ne change que sur ce pas, son bloc passe en négatif, un P dans son coin.",
       'Retape le pas (ou Échap) pour sortir.',
     ],
-    text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue (la pastille P-LOCK clignote pendant la lecture). Chaque page compte ses verrous ; deux clics sur une valeur enlèvent son verrou, CLEAR tous ceux du pas. Les encodeurs du desktop restent les FX globaux : ils ne verrouillent jamais. Dans le Dock, un appui long sur le pas, puis KNOBS.",
+    text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue (la pastille P-LOCK clignote pendant la lecture). Chaque page compte ses verrous ; deux clics sur une valeur enlèvent son verrou, CLEAR tous ceux du pas. Les huit encodeurs sous l'écran restent les FX globaux : ils ne verrouillent jamais. Dans le Dock, un appui long sur le pas, puis KNOBS.",
     tip: 'Un sample lock : en P-LOCK sur le pas 16 de BD, glisse SOUND (VOICE) jusqu’à une caisse claire de Mika ; la mesure finit sur elle, calée à son niveau.',
     phone: {
       steps: [
@@ -959,7 +962,7 @@ const RAW: Record<RytmInfoId, Raw> = {
         "Choisis la page, glisse une valeur de l'écran de haut en bas : ce réglage ne change que sur ce pas, son bloc passe en négatif, un P dans son coin.",
         'Retape le pas pour sortir.',
       ],
-      text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue (la pastille P-LOCK clignote pendant la lecture). Chaque page compte ses verrous ; deux tapes sur une valeur enlèvent son verrou, CLEAR tous ceux du pas. À deux doigts, plus vite : un sur le pas, l'autre glisse la valeur ; dans le Dock, un appui long sur le pas, puis KNOBS.",
+      text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue (la pastille P-LOCK clignote pendant la lecture). Chaque page compte ses verrous ; deux tapes sur une valeur enlèvent son verrou, CLEAR tous ceux du pas. À deux doigts, plus vite : un sur le pas, l'autre glisse la valeur ; dans le Dock, un appui long sur le pas, puis KNOBS. Les huit encodeurs sous l'écran restent les FX globaux : ils ne verrouillent jamais.",
     },
   },
 
@@ -1019,13 +1022,19 @@ const RAW: Record<RytmInfoId, Raw> = {
   level: {
     section: 'MASTER',
     title: 'MASTER',
-    text: "Le volume de tout le MM-RYTM, voix et effets compris (les envois REVERB et DELAY suivent) : un gain au carré, -3,9 dB au réglage d'usine (102 à l'écran), 0 dB tout en haut. Il ne touche ni le MM-BASS, ni le MM-ARP, ni le volume du site.",
+    text: "Le volume de tout le MM-RYTM, voix et effets compris (les envois REVERB et DELAY suivent) : un gain au carré, -3,9 dB au réglage d'usine (102), 0 dB tout en haut. Il est dans l'écran, en haut à droite, à gauche du tempo (sur HOME et dans la vue PAGE) : sept barres qui montent avec lui, son niveau en dB à côté quand la place le permet. Glisse-le de haut en bas (Maj : plus fin), ou sa molette ; deux clics le remettent à -3,9 dB ; le pied de l'écran dit sa valeur. Il ne touche ni le MM-BASS, ni le MM-ARP, ni le volume du site.",
     tip: 'Règle MASTER une fois, puis équilibre les machines au MIXER du MM-DECKS (voie 1).',
+    phone: {
+      text: "Le volume de tout le MM-RYTM, voix et effets compris (les envois REVERB et DELAY suivent) : un gain au carré, -3,9 dB au réglage d'usine (102), 0 dB tout en haut. Il est dans l'écran, en haut à droite, à gauche du tempo (sur HOME et dans la vue PAGE) : sept barres qui montent avec lui, son niveau en dB à côté quand la place le permet. Glisse-le de haut en bas, il se cerne tant que tu le tiens ; deux tapes le remettent à -3,9 dB ; le pied de l'écran dit sa valeur. Il ne touche ni le MM-BASS, ni le MM-ARP, ni le volume du site.",
+    },
   },
   tempo: {
     section: 'TEMPO',
     title: 'TEMPO',
-    text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Glisse vers le haut pour accélérer (100 px = 50 BPM), la molette va de 1 BPM, deux tapes le remettent à 130. Le DELAY suit ce tempo (TIME, sur sa page de GLOBAL FX).",
+    text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Il est dans l'écran, en haut à droite, à côté du i (sur HOME et dans la vue PAGE) : son nombre et sa course dessous. Glisse-le vers le haut pour accélérer (100 px = 50 BPM ; Maj : plus fin), sa molette va de 1 BPM, deux clics le remettent à 130 ; le pied de l'écran dit TEMPO 128 BPM. Le DELAY suit ce tempo (TIME, sur sa page de GLOBAL FX).",
+    phone: {
+      text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Il est dans l'écran, en haut à droite, à côté du i (sur HOME et dans la vue PAGE) : son nombre et sa course dessous. Glisse-le vers le haut pour accélérer (100 px = 50 BPM), il se cerne tant que tu le tiens ; deux tapes le remettent à 130 ; le pied de l'écran dit TEMPO 128 BPM. Le DELAY suit ce tempo (TIME, sur sa page de GLOBAL FX).",
+    },
     tip: '118 à 124 BPM pour l’indie dance et la dark disco, 124 à 128 pour le minimal et la house, 130 et plus pour la techno.',
   },
 
@@ -1033,9 +1042,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs, à la place des anciens encodeurs (SOUND en grand, l'enveloppe dessinée sur trois cases) : chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas, ou sa molette, pour le régler ; deux clics le remettent à son départ ; il se cerne au survol. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Les encodeurs règlent les FX globaux. L'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME (H).",
+    text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern, MASTER et TEMPO (à glisser) et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs, à la place des anciens encodeurs (SOUND en grand, l'enveloppe dessinée sur trois cases) : chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas, ou sa molette, pour le régler ; deux clics le remettent à son départ ; il se cerne au survol. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Les huit encodeurs sous l'écran règlent les FX globaux. Le reste de l'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME (H).",
     phone: {
-      text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs (SOUND en grand, l'enveloppe dessinée sur trois cases), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas pour le régler (environ 150 px pour toute la course, il se cerne tant que tu le tiens), deux tapes le remettent à son départ. Dessous, les 16 pas de la voix et la tête de lecture. L'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME.",
+      text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern, MASTER et TEMPO (à glisser) et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs (SOUND en grand, l'enveloppe dessinée sur trois cases), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas pour le régler (environ 150 px pour toute la course, il se cerne tant que tu le tiens), deux tapes le remettent à son départ. Dessous, les 16 pas de la voix et la tête de lecture. Les huit encodeurs sous l'écran règlent les FX globaux. Le reste de l'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME.",
     },
   },
   presets: {
@@ -1059,9 +1068,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   home: {
     section: 'SCREEN',
     title: 'HOME',
-    text: "L'écran de départ : l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page en vue PAGE. La touche allumée d'une page sans onglet (ou H) y revient, une touche de page ramène la vue PAGE ; sa LED reste à peine allumée.",
+    text: "L'écran de départ : en haut, le pattern, MASTER et TEMPO (à glisser, comme dans la vue PAGE) ; l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page en vue PAGE. La touche allumée d'une page sans onglet (ou H) y revient, une touche de page ramène la vue PAGE ; sa LED reste à peine allumée.",
     phone: {
-      text: "L'écran de départ : l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page et ses valeurs à glisser. La touche allumée d'une page sans onglet y revient ; sa LED reste à peine allumée.",
+      text: "L'écran de départ : en haut, le pattern, MASTER et TEMPO (à glisser, comme dans la vue PAGE) ; l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page et ses valeurs à glisser. La touche allumée d'une page sans onglet y revient ; sa LED reste à peine allumée.",
     },
   },
   enc: {
@@ -1108,11 +1117,12 @@ export function infoOf(id: string, ctx: RytmInfoCtx = {}): RytmInfo | null {
     if (rid === 'step') title = `STEP ${two(ctx.step + 1)}`;
     else if (rid === 'lock') title = `P-LOCK ${two(ctx.step + 1)}`;
   }
-  // La phrase du verrou : pour un reglage des ecrans (la plaque TWEAKS n'a pas de pas) ; un FX global au desktop, son encodeur
+  // La phrase du verrou : pour un reglage des ecrans (la plaque TWEAKS n'a pas de pas) ; un FX global, son encodeur (au
+  // telephone aussi depuis le 2026-10-19)
   const ph = PHONE ? r.phone : undefined;
   const base = w.text ?? ph?.text ?? r.text;
   const withLock = lock && !ctx.plate ? `${base} ${LOCK_LINE[lock]}` : base;
-  const text = phoneWords(lock === 'global' && !PHONE && !ctx.plate && ENC_IDS.has(rid) ? `${withLock} ${ENC_LINE}` : withLock);
+  const text = phoneWords(lock === 'global' && !ctx.plate && ENC_IDS.has(rid) ? `${withLock} ${ENC_LINE}` : withLock);
   const tip = w.tip ?? r.tip;
   return {
     id: rid,

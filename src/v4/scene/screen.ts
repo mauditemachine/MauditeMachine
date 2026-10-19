@@ -135,6 +135,19 @@
  * porte, dans la bande sous son dessin de 120, cinq touches : SOUND (la liste des
  * sons de la voix) puis VOICE FLTR ENV FX, les pages de la voix (paintHomeMenu,
  * menuRects : les zones lcd-menu-<id>).
+ *
+ * MASTER et TEMPO (2026-10-19, Mika : "mets ces boutons dans l'ecran en mobile
+ * et en desktop, je voudrais qu'ils soient mieux faits") : les deux potards
+ * d'aluminium ont quitte la face, ils sont dessines en haut a droite de
+ * l'ecran, a gauche de la touche i, a la meme place sur HOME (la bande au-dessus
+ * de son dessin de 120) et dans l'en-tete de la vue PAGE (paintDials) : le
+ * pattern, MASTER (un vumetre de sept barres qui montent jusqu'au niveau, son
+ * niveau en dB quand la place le permet) et TEMPO (le nombre, BPM, sa course
+ * sur un fin trait dessous, de 100 a 150). Chacun se glisse de haut en bas,
+ * comme un bloc (ses zones : dialRects, lcd-master et lcd-tempo) ; cerne a
+ * peine sous la souris, plein tant qu'on le tient (state/screenDials.ts).
+ * Ni en P-LOCK (l'en-tete y est le bandeau du pas), ni dans EDIT, les presets
+ * ou la liste des sons.
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -162,7 +175,8 @@ import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
 import { HOME_MENU, HOME_MENU_LABEL, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
-import { v127Text } from '../rytm/values';
+import { encUnit, v127Text } from '../rytm/values';
+import { screenDials, type ScreenDialId } from '../state/screenDials';
 import { makeCanvasTexture } from './silk';
 
 export interface ScreenInfo {
@@ -230,6 +244,13 @@ export interface ScreenInfo {
   drop: string;
   /** le menu de la voix dessine sous HOME (2026-10-18) : SOUND VOICE FLTR ENV FX, -SOUND a peine (sans voix) ; [] ailleurs */
   menu: string[];
+  /**
+   * MASTER et TEMPO dessines (2026-10-19) : MASTER -3.9 DB (ou MASTER 6/7 sans la place du nombre : ses barres
+   * allumees) | TEMPO 130 BPM, et * sur celui qui est cerne (tenu), ~ survole ; '' quand ils ne sont pas a l'ecran
+   */
+  dials: string;
+  /** le pattern dessine a leur gauche (A01), '' s'il a cede sa place */
+  dialSlot: string;
 }
 
 
@@ -676,6 +697,8 @@ export class Screen {
       browser: null,
       drop: '',
       menu: [],
+      dials: '',
+      dialSlot: '',
     };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -726,7 +749,7 @@ export class Screen {
       // INFOS (R4) : la touche i pleine, le bloc de la carte montree ; seulement quand l'un des deux change (revue de R4 : le
       // survol d'un pad ou d'un pas redessinait tout l'ecran et le renvoyait a la carte graphique)
       rytmInfos.subscribe(() => {
-        const key = `${rytmInfos.isOn() ? 1 : 0}|${this.infoKnob()}`;
+        const key = `${rytmInfos.isOn() ? 1 : 0}|${this.infoKnob()}|${this.infoDial() ?? ''}`;
         if (key === this.infoKey) return;
         this.infoKey = key;
         this.request();
@@ -740,6 +763,8 @@ export class Screen {
       // retrait) ; un fichier glisse au-dessus de la machine
       lcdSamples.subscribe(active),
       samplesChanged.subscribe(active),
+      // MASTER et TEMPO (2026-10-19) : celui qu'on survole ou qu'on tient se cerne
+      screenDials.subscribe(() => this.request()),
     ];
     // La police arrivee apres la premiere image : on redessine
     void document.fonts?.ready.then(() => this.request());
@@ -818,6 +843,8 @@ export class Screen {
   blockRects: { k: number; u0: number; u1: number; v0: number; v1: number }[] = [];
   /** Le menu de la voix sous HOME (2026-10-18) : ses touches et leur rectangle, les zones lcd-menu-<id> ; [] ailleurs. */
   menuRects: { id: string; u0: number; u1: number; v0: number; v1: number }[] = [];
+  /** MASTER et TEMPO a l'ecran (2026-10-19) : leurs rectangles, les zones lcd-master et lcd-tempo ; [] quand ils n'y sont pas. */
+  dialRects: { id: string; u0: number; u1: number; v0: number; v1: number }[] = [];
   /** Les onglets de l'en-tete (VOICE : MAIN SYNTH ; FX : BD FX, GLOBAL) et leur rectangle : les zones lcd-tab-<ecran>. */
   tabSpots: { screen: RytmScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
 
@@ -965,6 +992,9 @@ export class Screen {
     this.tabsShown = false;
     this.browserRects = [];
     this.menuRects = [];
+    this.dialRects = [];
+    this.info.dials = '';
+    this.info.dialSlot = '';
     this.info.menu = [];
     this.info.browser = null;
     this.info.drop = '';
@@ -998,14 +1028,18 @@ export class Screen {
     else {
       if (rytmEdit) this.paintPatternRing(now);
       else next = Math.max(next, this.paintStepRing(p.instrument, p.steps, now));
-      this.paintHead(ptn.cur, now);
+      // HOME (2026-10-19) : la lecture, le pattern, MASTER et TEMPO passent dans la bande du haut (paintHomeHead) ; EDIT garde sa ligne
+      if (rytmEdit) this.paintHead(ptn.cur, now);
       if (s.mix) this.paintMix(s.mix);
       else if (rytmEdit) this.paintChain();
       else this.paintCards(p.instrument);
       this.paintLine(s, rytmEdit);
     }
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
-    if (view === 'home') this.paintHomeMenu(p.instrument);
+    if (view === 'home') {
+      this.paintHomeHead(ptn.cur, now);
+      this.paintHomeMenu(p.instrument);
+    }
     // Un fichier glisse au-dessus de la machine (2026-10-18) : DROP ON A PAD par-dessus tout, sauf les presets
     const drop = lcdSamples.get().drop;
     if (drop && !s.keys) this.paintDrop(drop);
@@ -1845,8 +1879,6 @@ export class Screen {
       this.ctx.fillRect(0, 0, UW, H.rule + 0.6);
     }
     const ink = neg ? BLACK : INK;
-    const half = neg ? 'rgba(0, 0, 0, 0.62)' : HALF;
-    const faint = neg ? 'rgba(0, 0, 0, 0.32)' : FAINT;
     const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
     // A droite d'abord : en P-LOCK le compte des verrous ; sinon le pattern et le tempo
     let rightX: number;
@@ -1857,12 +1889,10 @@ export class Screen {
       rightX = H.right - w - 6;
       this.info.lockCount = n;
     } else {
-      const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
-      const bpm = String(Math.round(pattern.get().bpm));
-      const bw = this.text('BPM', H.right, y, T.bpm, half, 600, 'right', 0.8);
-      const nw = this.text(bpm, H.right - bw - 3, y, T.num, ink, 400, 'right');
-      const sw = this.text(slotName(cur), H.right - bw - 3 - nw - H.gap, y, T.num, blinkOff ? faint : ink, 600, 'right', 0.6);
-      rightX = H.right - bw - 3 - nw - H.gap - sw - 6;
+      // Le pattern, MASTER et TEMPO (2026-10-19) : autant qu'en laisse la gauche de l'en-tete (la page, ses onglets, la voix)
+      const vm = voices.get();
+      const badgeRoom = vm.muteMode || vm.soloMode ? T.pillH + 5 : 0;
+      rightX = this.paintDials(y, this.headLeftNeed(rp, screen, inst) + badgeRoom, H.rule, now, cur) - 6;
       this.info.lockCount = -1;
     }
     // MUTE et SOLO armes (2026-10-09) : M ou S, plein en MULTI, en contour pour une voix (meme en P-LOCK)
@@ -1983,7 +2013,8 @@ export class Screen {
     } else x += 3;
     this.info.head = heads;
     if (inst) {
-      if (!scope) {
+      // La voix, si elle tient avant le pattern, MASTER et TEMPO (2026-10-19 ; le M ou le S d'un mode arme comptent)
+      if (!scope && x + this.textWidth(inst, T.voice, 600) <= rightX + 2) {
         const vw = this.text(inst, x, y, T.voice, INK, 600);
         x += vw + 5;
       }
@@ -2031,6 +2062,175 @@ export class Screen {
       this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
     }
     this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
+  }
+
+  /**
+   * La place que prend la gauche de l'en-tete de la vue PAGE avant la voix
+   * comprise (la lecture, la page, ses onglets) : ce que MASTER, TEMPO et le
+   * pattern doivent laisser (2026-10-19). Le meme calcul que paintPageHead, sans
+   * ce qui cede deja sa place (l'onglet de la voix sous un FX, ce que joue la
+   * voix, MUTE, SOLO, P-LOCK).
+   */
+  private headLeftNeed(rp: RytmPageState, screen: RytmScreenId, inst: Inst | null): number {
+    const H = PAGE_HEAD;
+    const T = this.bt.head;
+    let x = H.pillX + this.textWidth(pageLabel(rp.page), T.pill, 700, 0.9) + 12 + 5;
+    const ts = T.pill * 0.92;
+    const tabW = (name: string): number => this.textWidth(name, ts, 700, 0.7) + 9;
+    const chev = ts * 0.62;
+    const scope = fxScopeTabs(screen);
+    if (scope) x += tabW(SCREEN_LABEL[screen]) + chev + 4 + tabW(SCREEN_LABEL.fxg) + 3 + tabW(fxVoiceTabLabel(inst)) + 3 + 4;
+    else {
+      const tabs = screensOf(rp.page, inst);
+      const detail = isFxDetail(screen) ? screen : null;
+      if (tabs.length > 1) {
+        for (const t of tabs) {
+          if (detail && t === 'fxv') continue;
+          const name = t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : SCREEN_LABEL[t];
+          x += detail && t === 'fxg' ? tabW(name) + chev + 4 + tabW(SCREEN_LABEL[detail]) + 3 : tabW(name) + 3;
+        }
+        x += 4;
+      } else x += 3;
+      if (inst) x += this.textWidth(inst, T.voice, 600);
+    }
+    return x;
+  }
+
+  /**
+   * Le bord droit de MASTER et TEMPO (2026-10-19) : a gauche de la touche i ; au
+   * telephone, avant sa zone (26 unites autour d'elle, au coin du verre quand
+   * les blocs ont la leur, la vue PAGE) : rien de dessine n'y tombe.
+   */
+  private dialRight(paged: boolean): number {
+    if (!this.mobile) return PAGE_HEAD.right;
+    return (paged ? INFO_KEY.blocks.x : INFO_KEY.x) - INFO_KEY.hit.phone - 4;
+  }
+
+  /** Les sept barres du vumetre de MASTER (2026-10-19) : leur largeur, l'air entre elles, la plus basse et la plus haute. */
+  private static readonly METER = { n: 7, bw: 2.2, gap: 1.2, h0: 3, h1: 11.5 } as const;
+
+  /**
+   * MASTER et TEMPO dans l'ecran (2026-10-19), sur la ligne de base y, alignes
+   * a droite (dialRight), et le pattern a leur gauche : TEMPO, le nombre et BPM,
+   * sa course de 100 a 150 sur un fin trait dessous ; MASTER, un vumetre de
+   * sept barres (allumees jusqu'au niveau, la derniere a moitie) et son niveau
+   * en dB ; cernes a peine sous la souris, en plein tant qu'on les tient. Le
+   * groupe cede ce qu'il faut pour laisser need a sa gauche : d'abord le nombre
+   * de MASTER, puis le pattern. Leurs zones (dialRects) : de haut en bas jusqu'a
+   * zoneY1, chacune jusqu'au milieu de l'air qui les separe. Rend le bord gauche
+   * du groupe.
+   */
+  private paintDials(y: number, need: number, zoneY1: number, now: number, cur: number): number {
+    const T = this.bt.head;
+    const M = Screen.METER;
+    const paged = zoneY1 === PAGE_HEAD.rule;
+    const right = this.dialRight(paged);
+    const level = clamp01(mix.level);
+    const db = encUnit('level', level);
+    const sp = db.lastIndexOf(' ');
+    const mNum = sp > 0 ? db.slice(0, sp) : db;
+    const mUnit = sp > 0 ? db.slice(sp + 1) : '';
+    const bpmV = Math.round(pattern.get().bpm);
+    const bpm = String(bpmV);
+    const tnw = this.textWidth(bpm, T.num, 400);
+    const tuw = this.textWidth('BPM', T.bpm, 600, 0.8);
+    const tw = tnw + 3 + tuw;
+    const meterW = M.n * M.bw + (M.n - 1) * M.gap;
+    const mnw = this.textWidth(mNum, T.num, 400);
+    const muw = this.textWidth(mUnit, T.bpm, 600, 0.8);
+    const mFull = meterW + 4 + mnw + 3 + muw;
+    const slot = slotName(cur);
+    const aw = this.textWidth(slot, T.num, 600, 0.6);
+    const G = 6;
+    const GD = 9;
+    const tiers = [
+      { a01: true, full: true },
+      { a01: true, full: false },
+      { a01: false, full: false },
+    ];
+    const width = (t: { a01: boolean; full: boolean }): number => tw + GD + (t.full ? mFull : meterW) + (t.a01 ? G + aw : 0);
+    const tier = tiers.find((t) => right - width(t) >= need + 5) ?? tiers[tiers.length - 1];
+    const ds = screenDials.get();
+    const ring = (id: ScreenDialId, x0: number, x1: number): void => {
+      const held = ds.held === id;
+      if (!held && ds.hover !== id) return;
+      this.roundRect(x0 - 3.5, y - 13.8, x1 - x0 + 7, 19.6, 3, held ? 'rgba(246, 241, 231, 0.07)' : HOVER_FILL, held ? INK : HALF, held ? 1.3 : 0.9);
+    };
+    // TEMPO : le nombre, BPM, sa course dessous
+    const tx1 = right;
+    const tx0 = right - tw;
+    ring('tempo', tx0, tx1);
+    this.text('BPM', tx1, y, T.bpm, HALF, 600, 'right', 0.8);
+    this.text(bpm, tx1 - tuw - 3, y, T.num, INK, 400, 'right');
+    const gy = y + 3.4;
+    const course = clamp01((bpmV - 100) / 50);
+    this.line([tx0, gy, tx1, gy], FAINT, 1.1);
+    this.line([tx0, gy, tx0 + (tx1 - tx0) * course, gy], INK, 1.6);
+    this.circle(tx0 + (tx1 - tx0) * course, gy, 1.35, INK);
+    // MASTER : le vumetre, et son niveau quand la place le permet
+    const mx1 = tx0 - GD;
+    const mx0 = mx1 - (tier.full ? mFull : meterW);
+    ring('level', mx0, mx1);
+    const lit = level * M.n;
+    for (let k = 0; k < M.n; k += 1) {
+      const h = M.h0 + ((M.h1 - M.h0) * k) / (M.n - 1);
+      this.ctx.fillStyle = k + 1 <= lit + 1e-6 ? INK : k < lit ? HALF : FAINT;
+      this.ctx.fillRect(mx0 + k * (M.bw + M.gap), y - h, M.bw, h);
+    }
+    if (tier.full) {
+      this.text(mUnit, mx1, y, T.bpm, HALF, 600, 'right', 0.8);
+      this.text(mNum, mx1 - muw - 3, y, T.num, INK, 400, 'right');
+    }
+    // Le pattern (il clignote quand il change)
+    let left = mx0;
+    if (tier.a01) {
+      const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
+      this.text(slot, mx0 - G, y, T.num, blinkOff ? FAINT : INK, 600, 'right', 0.6);
+      left = mx0 - G - aw;
+    }
+    // Les zones : jusqu'au milieu de l'air qui les separe, toute la hauteur de l'en-tete
+    const mid = (mx1 + tx0) / 2;
+    const lim = this.mobile ? right + 3 : UW;
+    this.dialRects.push({ id: 'lcd-master', ...this.spot({ x: mx0 - 3, y: 0, w: mid - (mx0 - 3), h: zoneY1 }) });
+    this.dialRects.push({ id: 'lcd-tempo', ...this.spot({ x: mid, y: 0, w: Math.min(tx1 + 4, lim) - mid, h: zoneY1 }) });
+    // INFOS : la commande dont la carte est montree, ses quatre coins
+    const di = this.infoDial();
+    if (di) this.cornerMarks(di === 'level' ? mx0 - 3.5 : tx0 - 3.5, y - 15.5, di === 'level' ? mx1 + 3.5 : tx1 + 3.5, y + 7.4);
+    const mark = (id: ScreenDialId): string => (ds.held === id ? '*' : ds.hover === id ? '~' : '');
+    this.info.dials = `MASTER ${tier.full ? db : `${Math.min(M.n, Math.floor(lit + 1e-6))}/${M.n}`}${mark('level')} | TEMPO ${bpm} BPM${mark('tempo')}`;
+    this.info.dialSlot = tier.a01 ? slot : '';
+    return left;
+  }
+
+  /**
+   * La bande du haut de HOME (2026-10-19), au-dessus de son dessin de 120 : la
+   * lecture a gauche, comme l'en-tete de la vue PAGE ; a droite le pattern,
+   * MASTER et TEMPO, a la meme place que dans la vue PAGE. Au telephone, leurs
+   * zones descendent dans l'air libre jusqu'au-dessus des cartes (CARD.y0, a
+   * 4 pres) : 40 px de haut a 390 de large au lieu de 22, le doigt ne tombe pas
+   * sur lcd-open (les presets) juste sous elles.
+   */
+  private paintHomeHead(cur: number, now: number): void {
+    if (DY < 12) return;
+    this.runIcon(PAGE_HEAD.iconX, PAGE_HEAD.y);
+    this.paintDials(PAGE_HEAD.y, PAGE_HEAD.iconX + 14, this.mobile ? DY + CARD.y0 - 4 : DY + 6, now, cur);
+  }
+
+  /** La commande de l'ecran dont la carte INFOS est montree (lcd-master, lcd-tempo), null aucune. */
+  private infoDial(): ScreenDialId | null {
+    const s = rytmInfos.get();
+    if (!s.on || !s.id) return null;
+    return s.id === 'lcd-master' ? 'level' : s.id === 'lcd-tempo' ? 'tempo' : null;
+  }
+
+  /** Quatre coins autour d'un rectangle (INFOS) : la carte parle de ce qu'il entoure. */
+  private cornerMarks(x0: number, y0: number, x1: number, y1: number): void {
+    const a = 4;
+    const lw = this.mobile ? 1.4 : 1.1;
+    this.line([x0, y0 + a, x0, y0, x0 + a, y0], INK, lw);
+    this.line([x1 - a, y0, x1, y0, x1, y0 + a], INK, lw);
+    this.line([x1, y1 - a, x1, y1, x1 - a, y1], INK, lw);
+    this.line([x0 + a, y1, x0, y1, x0, y1 - a], INK, lw);
   }
 
   /**

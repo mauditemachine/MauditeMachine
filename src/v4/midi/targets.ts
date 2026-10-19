@@ -407,6 +407,8 @@ export function targetsOf(scope: TargetScope): MidiTarget[] {
 export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string; rknob?: string; rpage?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string }): string | null {
   switch (h.kind) {
     case 'encoder':
+    // MASTER et TEMPO dans l'ecran (2026-10-19) : les memes cibles que leurs potards d'avant
+    case 'rdial':
       return h.param ? `rytm:enc:${h.param}` : null;
     // Un encodeur du desktop (2026-10-09) : son FX global a poste fixe, jamais le bloc de la page
     case 'penc':

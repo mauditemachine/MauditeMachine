@@ -14,7 +14,13 @@
  * - pads de voix (le son), pads de page (la section), pad OPEN, touches
  *   trig, RUN/STOP, CLEAR, puces du PCB : la tape ; une puce active son
  *   jumeau (un vrai lien : onglet ou navigation natifs) ;
- * - encodeurs (TEMPO, TONE, LEVEL, SWING, DIST, REVERB) : un glisser parti
+ * - MASTER et TEMPO, dans l'ecran depuis le 2026-10-19 (lcd-master,
+ *   lcd-tempo, kind rdial) : comme un bloc de l'ecran, un glisser de haut en
+ *   bas (Maj : fin), la molette, deux tapes ou deux clics les remettent a leur
+ *   depart ; tenus, ils se cernent (state/screenDials.ts) ; TEMPO dit sa
+ *   valeur au pied de l'ecran (TEMPO 128 BPM), MASTER la sienne (MASTER 102
+ *   -3.9 DB) ;
+ * - encodeurs (les FX globaux) : un glisser parti
  *   d'eux les tourne et ne fait JAMAIS orbiter la vue (orbit.gate) ; l'axe
  *   dominant au seuil de 6 px decide (vers le haut ou vers la droite =
  *   plus ; TEMPO 100 px = 50 BPM, les autres 150 px = toute la course) ;
@@ -147,6 +153,9 @@ import { djView } from '../dj/view';
 import { editor } from '../state/editor';
 import { patterns, slotName } from '../state/patterns';
 import { rytmPage } from '../state/rytmPage';
+import { screenDials, type ScreenDialId } from '../state/screenDials';
+import { lcdMessage } from '../state/lcdMessage';
+import { encUnit } from '../rytm/values';
 import { rytmLock } from '../state/rytmLock';
 import { lockCount } from '../audio/locks';
 import { HOME_MENU, HOME_MENU_LABEL, SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
@@ -385,7 +394,7 @@ const voySteps = (k: DialId): number => {
 const dialOf = (h: HotspotView | null | undefined): DialId | null =>
   !h
     ? null
-    : h.kind === 'encoder' && h.param
+    : (h.kind === 'encoder' || h.kind === 'rdial') && h.param
       ? h.param
       : h.kind === 'penc' && h.index !== undefined
         ? ((GLOBAL_ENCODERS[h.index] ?? null) as DialId | null)
@@ -431,7 +440,20 @@ function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   const v = d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1);
   // Un encodeur du desktop (2026-10-09) : son FX global, et son popup a l'ecran
   if (d.kind === 'penc' && d.index !== undefined) globalDial(d.index, v);
+  // MASTER ou TEMPO dans l'ecran (2026-10-19) : la valeur, et TEMPO la dit au pied
+  else if (d.kind === 'rdial') screenDialSet(d.dial, v);
   else anyDial(d.dial, v);
+}
+
+/**
+ * MASTER ou TEMPO regle depuis l'ecran (2026-10-19) : la valeur (MASTER ecrit
+ * deja la sienne au pied : MASTER 102 -3.9 DB) ; TEMPO la sienne aussi, TEMPO
+ * 128 BPM (son potard d'avant ne disait rien : le nombre etait deja en haut de
+ * l'ecran, sous le doigt maintenant).
+ */
+function screenDialSet(k: DialId, v: number): void {
+  anyDial(k, v);
+  if (k === 'tempo') lcdMessage.show(`TEMPO ${pattern.get().bpm} BPM`, POT_UI.readoutMs, true);
 }
 
 interface Point {
@@ -560,7 +582,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
                 : overLocked
                   ? 'default'
                   : ''
-              : hover.startsWith('lcd-blk-')
+              : hover.startsWith('lcd-blk-') || hover === 'lcd-master' || hover === 'lcd-tempo'
                 ? 'ns-resize'
                 : own ?? 'pointer';
     };
@@ -593,7 +615,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart (penc : l'encodeur k du desktop, son FX global). */
-    const tapDial = (k: DialId, pressMs = 0, penc = -1): void => {
+    const tapDial = (k: DialId, pressMs = 0, penc = -1, screenDial = false): void => {
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
       if ((isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) || (isKit(k) && voySteps(k) > 1)) {
         const n = voySteps(k);
@@ -615,6 +637,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         if (pk >= 0) pageKnobReset(pk);
         // Un encodeur du desktop (revue du 2026-10-09) : remis comme il tourne, avec son popup GLOBAL a l'ecran
         else if (penc >= 0) globalDial(penc, anyDialReset(k));
+        else if (screenDial) screenDialSet(k, anyDialReset(k));
         else anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
@@ -734,7 +757,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
       else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
       else if (d.kind === 'pkey' && d.rpage && isRytmPage(d.rpage)) rytmPageKey(d.rpage, stage);
-      else if (d.dial) tapDial(d.dial, performance.now() - d.t, d.kind === 'penc' && d.index !== undefined ? d.index : -1);
+      else if (d.dial) tapDial(d.dial, performance.now() - d.t, d.kind === 'penc' && d.index !== undefined ? d.index : -1, d.kind === 'rdial');
       else return null;
       return d.id;
     };
@@ -803,7 +826,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // pas le bloquer). Revue du 2026-10-09 : la garde le laisse faire tant qu'il reste a l'horizontale et dans le temps
       // d'un glisser (SWIPE.ms) ; sinon il redevient le reglage, repris de la valeur du moment (rien ne saute, et le geste
       // ne se perd plus). A la souris (une fenetre etroite), le chemin des encodeurs plus bas : son axe, son curseur.
-      if (d.kind === 'rblock' && !d.mouse) {
+      // MASTER et TEMPO dans l'ecran (2026-10-19, rdial) : de meme, ils sont en haut de l'ecran
+      if ((d.kind === 'rblock' || d.kind === 'rdial') && !d.mouse) {
         if (!d.multi && Math.abs(dx) > BLOCK_SWIPE_RATIO * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
           d.swipe = true;
           return true;
@@ -820,11 +844,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       d.turning = true;
       // Un bloc de l'ecran a la souris (2026-10-09) : de haut en bas seulement (150 px la course), le curseur le dit
-      d.axis = d.kind === 'rblock' ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+      d.axis = d.kind === 'rblock' || d.kind === 'rdial' ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
       turnDial(d, dx, dy, shiftHeld);
       if (d.mouse) {
         turnAxis = d.axis;
-        turnBlock = d.kind === 'rblock';
+        turnBlock = d.kind === 'rblock' || d.kind === 'rdial';
         setCursor();
       }
       return false;
@@ -933,9 +957,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Les pas et les potards de page ne font jamais de pincement (2026-10-08) : tenir un pas d'un doigt et
       // tourner un potard d'un autre doit verrouiller, pas zoomer ; au telephone les blocs de l'ecran aussi (2026-10-09)
       const blockKnob = !!h && h.kind === 'rblock' && h.index !== undefined;
-      if (h && (h.kind === 'step' || h.kind === 'penc' || blockKnob)) stage.orbit.claim(e.pointerId);
-      // Le bloc pris au doigt reste cerne tant qu'on le tient (2026-10-09), meme immobile : on voit ce qu'on regle
+      const screenDial = !!h && h.kind === 'rdial' && !!h.param;
+      if (h && (h.kind === 'step' || h.kind === 'penc' || blockKnob || screenDial)) stage.orbit.claim(e.pointerId);
+      // Le bloc pris au doigt reste cerne tant qu'on le tient (2026-10-09), meme immobile : on voit ce qu'on regle ; MASTER et
+      // TEMPO dans l'ecran aussi (2026-10-19)
       if (blockKnob && h && h.index !== undefined) rytmPage.hold(h.index);
+      if (screenDial && h?.param) screenDials.hold(h.param as ScreenDialId);
       // Le navigateur des sons (2026-10-18) : ni pincement ni orbite ; sa premiere ligne et la hauteur d'une ligne a l'ecran
       // (le corps de la liste, en BROWSER_ROWS lignes), pour un glisser ; au doigt, un de ses samples tenu SB_HOLD_MS : arme
       // pour partir (REMOVE? TAP AGAIN)
@@ -1060,6 +1087,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
      * sauf si un autre doigt en tient un (il passe a celui-la).
      */
     const releaseBlock = (d: Down): void => {
+      // MASTER ou TEMPO dans l'ecran (2026-10-19) : cerne tant qu'un pointeur le tient
+      if (d.kind === 'rdial') {
+        let other: ScreenDialId | null = null;
+        for (const o of downs.values()) if (o.kind === 'rdial' && o.dial) other = o.dial as ScreenDialId;
+        if (other) screenDials.hold(other);
+        else screenDials.release();
+        return;
+      }
       if (d.kind !== 'rblock') return;
       let other = -1;
       for (const o of downs.values()) if (o.kind === 'rblock' && o.index !== undefined) other = o.index;
@@ -1316,7 +1351,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const n = voySteps(k);
         const step =
           k === 'tempo' ? 1 : n > 1 ? 1 / (n - 1) : e.shiftKey ? DIAL_FINE.wheelStep : !isVoy(k) && !isKit(k) && isBipolar(k as EncId) ? POT_UI.bipolarStep : POT_UI.wheelStep;
-        anyDial(k, Math.round((anyDialValue(k) + steps * step) * 1000) / 1000);
+        const nv = Math.round((anyDialValue(k) + steps * step) * 1000) / 1000;
+        // MASTER ou TEMPO dans l'ecran (2026-10-19) : TEMPO dit sa valeur au pied
+        if (h && h.kind === 'rdial') screenDialSet(k, nv);
+        else anyDial(k, nv);
       }
     };
 
@@ -1392,6 +1430,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       voyEcho.releaseAll();
       downs.clear();
       rytmPage.release();
+      screenDials.release();
       rytmLock.releaseAll();
       djg?.release();
       bsg?.release();
@@ -1673,6 +1712,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const sbState = useSyncExternalStore(lcdSamples.subscribe, lcdSamples.get, lcdSamples.get);
   useSyncExternalStore(samplesChanged.subscribe, samplesVersion, samplesVersion);
   const sbView = sbState.open ? soundBrowserView() : null;
+  // MASTER et TEMPO a l'ecran (2026-10-19) : sur HOME et la vue PAGE, hors P-LOCK, EDIT, les presets et la liste des sons
+  const dialsShown = (rp.view === 'home' || rp.view === 'page') && lockAt < 0 && !rytmEdit && !pm808 && !sbView;
   /** la derniere demande de focus vue (Entree sur le bloc SOUND), et si la liste avait le focus (Echap le rend au bloc SOUND) */
   const sbFocusSeen = useRef(sbState.focus);
   const sbHadFocus = useRef(false);
@@ -1787,7 +1828,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   // leur rectangle n'a pas change et la pose ordinaire les laissait a 0 x 0 en haut a gauche ; on les pose tout de suite
   useLayoutEffect(() => {
     placeRef.current?.(true);
-  }, [rp.view, rytmEdit, pm808, !!sbView]);
+  }, [rp.view, rytmEdit, pm808, !!sbView, lockAt >= 0]);
 
   // Le navigateur des sons (2026-10-18) : Entree sur le bloc SOUND, le clavier passe a la liste ; la liste fermee alors
   // qu'elle avait le focus (Echap, la tape d'un autre geste, le repos), il revient au bloc SOUND
@@ -1988,30 +2029,32 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             />
           );
         })}
-      {FACE_KNOBS.filter((k) => !isPageKnob(k.id)).map((fk) => {
-        const enc = ENCODERS.find((e) => e.id === fk.id) ?? ENCODERS[0];
-        const id = `enc-${enc.id}`;
-        const v = values[enc.id];
-        const tempo = enc.id === 'tempo';
-        return (
-          <div
-            key={id}
-            ref={refFor(id)}
-            className="v4-twin"
-            data-twin="encoder"
-            data-hotspot={id}
-            role="slider"
-            tabIndex={0}
-            aria-label={isVoiceEnc(enc.id) ? (p.instrument ? `${enc.aria}, ${INST_NAMES[p.instrument]}` : `${enc.aria}, tap a pad first`) : enc.aria}
-            aria-orientation="vertical"
-            aria-valuemin={tempo ? BPM.min : potMin(enc.id) * 100}
-            aria-valuemax={tempo ? BPM.max : 100}
-            aria-valuenow={tempo ? v : pct(v)}
-            aria-valuetext={dialText(enc.id, v)}
-            onKeyDown={onDialKey(enc.id)}
-          />
-        );
-      })}
+      {dialsShown &&
+        (['level', 'tempo'] as const).map((k) => {
+          // MASTER et TEMPO dans l'ecran (2026-10-19) : leurs jumeaux poses la ou l'ecran les dessine (lcd-master, lcd-tempo)
+          const enc = ENCODERS.find((e) => e.id === k) ?? ENCODERS[0];
+          const id = k === 'level' ? 'lcd-master' : 'lcd-tempo';
+          const v = values[k];
+          const tempo = k === 'tempo';
+          return (
+            <div
+              key={id}
+              ref={refFor(id)}
+              className="v4-twin"
+              data-twin="rdial"
+              data-hotspot={id}
+              role="slider"
+              tabIndex={0}
+              aria-label={`${enc.aria}, on the screen: drag up or down, double tap for ${tempo ? '130 BPM' : 'its default'}`}
+              aria-orientation="vertical"
+              aria-valuemin={tempo ? BPM.min : 0}
+              aria-valuemax={tempo ? BPM.max : 100}
+              aria-valuenow={tempo ? v : pct(v)}
+              aria-valuetext={tempo ? dialText(k, v) : `${dialText(k, v)}, ${encUnit('level', v).toLowerCase()}`}
+              onKeyDown={onDialKey(k)}
+            />
+          );
+        })}
       {FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
         // Les encodeurs du desktop (2026-10-09) : leur FX global a poste fixe (theme.ts GLOBAL_ENCODERS), jamais un verrou
         const k = pageKnobIndex(fk.id as (typeof PAGE_KNOB_IDS)[number]);

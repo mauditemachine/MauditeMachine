@@ -4,23 +4,20 @@
  * (orthographique, azimut 45, elevation 38), dessinee depuis les
  * constantes de theme.ts. Le chassis en coin (faces avant et droite, leurs
  * chanfreins), le panneau incline (tranche et dessus), la serigraphie,
- * l'ecran OLED (MM-808, le tempo, READY), les 16 LED (le motif par defaut),
- * puis les volumes du plus lointain au plus proche : MASTER et TEMPO en
- * aluminium au-dessus des voix, les six touches de page sous l'ecran et les
- * huit potards de page dessous (2026-10-09 ; au telephone, sans potards de
- * page), les pads, RUN, CLEAR, les 16 touches trig.
+ * l'ecran OLED (MM-808, le tempo, READY), puis les volumes du plus lointain au
+ * plus proche : les touches de page sous l'ecran et les huit encodeurs dessous
+ * (au telephone aussi depuis le 2026-10-19 ; MASTER et TEMPO sont dans l'ecran),
+ * les pads, RUN, CLEAR, les 16 touches trig, celles du motif par defaut
+ * allumees (2026-10-19 : plus de LED au-dessus, la touche s'allume).
  * Aucune animation ; calcule une fois au chargement du module.
  */
 
 import React from 'react';
-import { BPM, DEFAULT_STEPS, INSTRUMENTS, isOn } from '../audio/pattern';
+import { BPM, DEFAULT_STEPS, INSTRUMENTS, velocity } from '../audio/pattern';
 import {
   BODY,
   ENCODER,
   FACE_KNOBS,
-  POT,
-  SILK_MARKS,
-  isPageKnob,
   HEX,
   KEYS,
   KEY_LABEL,
@@ -37,6 +34,7 @@ import {
   SILK,
   SILK_LINES,
   SILK_TEXTS,
+  STEP_LIT,
   TEMPO_UI,
   TILT,
   TRANSPORT,
@@ -153,9 +151,6 @@ const C = {
   clearSide: '#121215',
   encSide: '#0b0b0c',
   /** MASTER et TEMPO (2026-10-09) : l'aluminium du flanc, du dessus, le trait grave */
-  potSide: '#8d9196',
-  potTop: '#b9bdc2',
-  potMark: '#141416',
   bone85: 'rgba(246, 241, 231, 0.85)',
 } as const;
 
@@ -175,7 +170,6 @@ const silkCaps = (() => {
 
 /** Le dessus du panneau : filets, LED, serigraphie, ecran. */
 function panelTop(): React.ReactNode {
-  const union = Array.from({ length: KEYS.count }, (_, i) => INSTRUMENTS.some((k) => isOn(DEFAULT_STEPS, k, i)));
   const O = OLED;
   const b = O.bezel;
   const lines = [
@@ -194,20 +188,6 @@ function panelTop(): React.ReactNode {
             fill="none"
             stroke={`rgba(246, 241, 231, ${SILK.lineAlpha})`}
             strokeWidth={SILK.lineWidth}
-          />
-        ))}
-        {/* L'echelle de MASTER et TEMPO (2026-10-09) */}
-        {SILK_MARKS.map((m, i) => (
-          <path key={`mark-${i}`} d={polyline(m.pts)} fill="none" stroke={`rgba(246, 241, 231, ${m.alpha})`} strokeWidth={m.w} strokeLinecap="round" />
-        ))}
-        {union.map((on, i) => (
-          <rect
-            key={`led-${i}`}
-            x={keyX(i) - KEYS.ledW / 2}
-            y={KEYS.ledZ + keyDz(i) - KEYS.ledD / 2}
-            width={KEYS.ledW}
-            height={KEYS.ledD}
-            fill={on ? HEX.ledSet : HEX.line}
           />
         ))}
         {SILK_TEXTS.map((t, i) => {
@@ -258,6 +238,13 @@ function panelTop(): React.ReactNode {
   );
 }
 
+/** Un melange de deux teintes #rrggbb (t de 0 a 1). */
+function mixHex(a: string, b: string, t: number): string {
+  const pa = [1, 3, 5].map((k) => parseInt(a.slice(k, k + 2), 16));
+  const pb = [1, 3, 5].map((k) => parseInt(b.slice(k, k + 2), 16));
+  return `#${pa.map((x, k) => Math.round(x + (pb[k] - x) * Math.max(0, Math.min(1, t))).toString(16).padStart(2, '0')).join('')}`;
+}
+
 /* ---------- volumes poses sur le panneau ---------- */
 
 interface Solid {
@@ -301,11 +288,10 @@ function keyLabel(s: Solid, id: string, h: number): Solid {
   return s;
 }
 
-/** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone ; MASTER et TEMPO en aluminium, leur trait noir (2026-10-09). */
+/** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone. */
 function encoder(i: number, angleDeg: number): Solid {
-  const { id, x, z, s } = FACE_KNOBS[i];
-  const pot = !isPageKnob(id);
-  const E = pot ? { r: POT.r, rTop: POT.topR, h: POT.base.h + POT.h + POT.chamferH, markD: POT.mark.r1, markW: POT.mark.w } : { r: ENCODER.r, rTop: ENCODER.rTop, h: ENCODER.h, markD: ENCODER.mark.d, markW: ENCODER.mark.w };
+  const { x, z, s } = FACE_KNOBS[i];
+  const E = { r: ENCODER.r, rTop: ENCODER.rTop, h: ENCODER.h, markD: ENCODER.mark.d, markW: ENCODER.mark.w };
   const ring = (r: number, y: number): V2[] =>
     Array.from({ length: 24 }, (_, k) => {
       const a = (k / 24) * Math.PI * 2;
@@ -334,21 +320,19 @@ function encoder(i: number, angleDeg: number): Solid {
   return {
     depth: dot(Z, panel(x, topY / 2, z)),
     nodes: [
-      <path key={`enc-${i}-s`} d={pathOf(hull)} fill={pot ? C.potSide : C.encSide} />,
-      <path key={`enc-${i}-t`} d={pathOf(top)} fill={pot ? C.potTop : HEX.encoder} />,
-      <line key={`enc-${i}-m`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={pot ? C.potMark : HEX.bone} strokeWidth={r1(E.markW * S)} strokeLinecap="round" />,
+      <path key={`enc-${i}-s`} d={pathOf(hull)} fill={C.encSide} />,
+      <path key={`enc-${i}-t`} d={pathOf(top)} fill={HEX.encoder} />,
+      <line key={`enc-${i}-m`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(E.markW * S)} strokeLinecap="round" />,
     ],
   };
 }
 
 const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
 /**
- * Les potards a l'arrivee : MASTER 80 %, TEMPO 130, les potards de page sur
- * SRC du KICK (909, K.TUNE, ATTACK, DECAY, DRIVE, STRETCH a midi) ; B (TUNE,
- * a venir) et G (vide) en bas, comme sur la machine (actions.ts
- * pageKnobCourse, 2026-10-08).
+ * Les encodeurs a l'arrivee : leurs FX globaux de depart (DIST, CHORUS, DELAY,
+ * REVERB, BIT et COMP a 0, STRETCH a midi, SWING a 55 %).
  */
-const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), level: 0.8, p2: 0.5, p3: 0.5, p4: 0.45, p5: 0.25, p7: 0.5 };
+const START: Record<string, number> = { p4: 0.5, p5: 0.3 };
 
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];
@@ -370,7 +354,12 @@ function solids(): React.ReactNode[] {
     const red = id === 'run';
     items.push(keyLabel(box(id, t[id].x, t.z, hx, hz, t.h, red ? HEX.red : HEX.graphiteHi, red ? C.runSide : C.clearSide, red ? C.runSide : C.clearSide), id, t.h));
   }
-  for (let i = 0; i < KEYS.count; i += 1) items.push(box(`key-${i}`, keyX(i), KEYS.z + keyDz(i), KEYS.w / 2, KEYS.d / 2, KEYS.h, HEX.key, C.keySide, C.keySide));
+  // Les pas du motif par defaut allumes (2026-10-19) : l'orange des touches allumees, plus ou moins selon leur velocite
+  for (let i = 0; i < KEYS.count; i += 1) {
+    const v = Math.max(...INSTRUMENTS.map((k) => velocity(DEFAULT_STEPS, k, i)));
+    const top = v > 0 ? mixHex(HEX.key, HEX.ledSet, STEP_LIT.ramp[v] ?? 0) : HEX.key;
+    items.push(box(`key-${i}`, keyX(i), KEYS.z + keyDz(i), KEYS.w / 2, KEYS.d / 2, KEYS.h, top, C.keySide, C.keySide));
+  }
   return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
 }
 

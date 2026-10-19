@@ -158,9 +158,9 @@ export interface V4Debug {
   /** le store du motif (select, toggle, clear, setBpm, flush), pour les tests */
   readonly pattern: typeof pattern;
   readonly pads: PadsInfo | null;
-  /** LED des pas (couleurs), RUN, tete de lecture, survol */
+  /** les pas allumes par leur velocite (2026-10-19), leurs verrous, RUN, tete de lecture, survol */
   readonly seq: SequencerInfo | null;
-  /** les six encodeurs : angles (deg), valeurs (0 a 1) */
+  /** les huit encodeurs (GLOBAL FX) : angles (deg), valeurs (0 a 1) */
   readonly encoders: EncodersInfo | null;
   /** pont SoundCloud : etat, compteurs, simulate() ; mock : ?v4mock actif (DEV) */
   readonly sc: ScDebug;

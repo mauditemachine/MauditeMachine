@@ -365,8 +365,10 @@ const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);
 
 /**
  * La carte d'une zone de saisie du MM-RYTM, telle que la face les nomme
- * (pads.ts pad-<voix|edit|open>, encoders.ts enc-level enc-tempo penc-<k>
- * (un FX global depuis le 2026-10-09), rytmPageKeys.ts pkey-<page>,
+ * (pads.ts pad-<voix|edit|open>, encoders.ts penc-<k> (un FX global depuis le
+ * 2026-10-09), renderer.ts lcd-master lcd-tempo (MASTER et TEMPO dans l'ecran
+ * depuis le 2026-10-19 ; enc-level et enc-tempo, leurs potards d'avant, restent
+ * des noms de leurs cartes : le Dock, KnobPanel), rytmPageKeys.ts pkey-<page>,
  * renderer.ts lcd-tab-<ecran> lcd-open lcd-prev... seek lcd-i lcd-blk-<k>
  * (un bloc de la vue PAGE), sequencer3d.ts step-<1-16> run clear random mute
  * solo, rytmTweaks.ts rk-<kit>). null : pas une commande du MM-RYTM.
@@ -377,8 +379,8 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
     if ((RYTM_INFO_VOICES as readonly string[]).includes(p)) return { id: `pad:${p}` };
     return p === 'edit' || p === 'open' ? { id: p } : null;
   }
-  if (hotspot === 'enc-level') return { id: 'level' };
-  if (hotspot === 'enc-tempo') return { id: 'tempo' };
+  if (hotspot === 'lcd-master' || hotspot === 'enc-level') return { id: 'level' };
+  if (hotspot === 'lcd-tempo' || hotspot === 'enc-tempo') return { id: 'tempo' };
   // Un encodeur du desktop : son FX global (theme.ts GLOBAL_ENCODERS), jamais la page
   const pe = /^penc-([0-7])$/.exec(hotspot);
   if (pe) {

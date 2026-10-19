@@ -80,6 +80,9 @@ export type HotspotKind =
   | 'sbrowse'
   // MM-RYTM (2026-10-18) : le menu de la voix sous HOME (lcd-menu-<id> : SOUND, VOICE, FLTR, ENV, FX ; son id dit la touche)
   | 'rmenu'
+  // MM-RYTM (2026-10-19) : MASTER et TEMPO dessines dans l'ecran (lcd-master, lcd-tempo ; param level ou tempo), glisses de
+  // haut en bas comme un bloc
+  | 'rdial'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
   | 'djknob'
   | 'djfader'

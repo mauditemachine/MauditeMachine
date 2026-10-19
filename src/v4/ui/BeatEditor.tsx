@@ -478,7 +478,7 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
       const names = ON_MACHINE.names + pad;
       const left = cr.left - host.left + x0 - names;
       const width = x1 - x0 + names + pad;
-      // Le haut : au-dessus des LED des pas (une hauteur de touche plus haut)
+      // Le haut : une hauteur de touche au-dessus des pas (la ou etaient leurs LED, parties le 2026-10-19)
       const top = Math.max(60, cr.top - host.top + y0 - h0 * 1.15);
       const room = host.bottom - host.top - top - 12;
       const row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / INSTRUMENTS.length) - 2));

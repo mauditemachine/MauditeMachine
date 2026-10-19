@@ -49,7 +49,7 @@ import {
 import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
-import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
+import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { familyOf, kit } from '../audio/kit';
 import { samplesChanged } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
@@ -68,6 +68,7 @@ import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
 import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { rytmPage } from '../state/rytmPage';
+import { screenDialOf, screenDials } from '../state/screenDials';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
 import { lockMask } from '../audio/locks';
@@ -114,7 +115,6 @@ import {
   PANEL_D,
   PCB,
   PAGE_KNOB_IDS,
-  PAGE_KNOBS_ON_FACE,
   GLOBAL_ENCODERS,
   RYTM_PAGE_KEYS,
   PORTRAIT,
@@ -355,7 +355,7 @@ export interface StageMeasure {
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const v3 = new Vector3();
-/** les 16 LED des pas (test de l'intro) */
+/** les 16 pas (le test de l'intro les allume un par un, 2026-10-19 : la touche, plus de LED) */
 const STEP_LEDS = 16;
 
 /**
@@ -508,6 +508,8 @@ export class Stage {
   private tabDefs: HotspotDef[] = [];
   /** Le menu de la voix sous HOME (2026-10-18, scene/screen.ts menuRects) : SOUND VOICE FLTR ENV FX */
   private menuDefs: HotspotDef[] = [];
+  /** MASTER et TEMPO dans l'ecran (2026-10-19, scene/screen.ts dialRects) : lcd-master, lcd-tempo */
+  private dialDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
   private unsubSeek: () => void = () => undefined;
   private raycaster = new Raycaster();
@@ -720,19 +722,19 @@ export class Stage {
     });
     // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture
     this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
-    // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
+    // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs
     this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
     // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09
     this.pageKeys = new RytmPageKeys({ mobile, atlas: this.keyAtlas });
-    // MASTER et TEMPO en aluminium au-dessus des voix (2026-10-09) ; au telephone, plus de potards de page (encoders.objects)
+    // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi
     plateau.add(
       this.pads.mesh,
       this.pads.halos,
       this.seq.keys,
       this.seq.frames,
+      this.seq.lockMarks,
       this.seq.buttons,
-      this.seq.leds,
       this.seq.btnLeds,
       this.seq.labels.mesh,
       ...this.encoders.objects(),
@@ -928,6 +930,24 @@ export class Stage {
         enabled: false,
       }));
       this.hit.add(this.menuDefs);
+      // MASTER et TEMPO (2026-10-19) : dessines en haut a droite de l'ecran, sur HOME et dans l'en-tete de la vue PAGE
+      // (scene/screen.ts dialRects) ; poses et allumes la ou l'ecran les dessine (syncScreenTabs), devant lcd-open (qui
+      // ouvre les presets d'une tape sur l'en-tete), comme le menu ; jamais sur la touche i, les onglets ni les blocs
+      this.dialDefs = (['level', 'tempo'] as const).map((param) => ({
+        id: param === 'level' ? 'lcd-master' : 'lcd-tempo',
+        kind: 'rdial' as const,
+        param,
+        layer: plateau,
+        shape: 'box' as const,
+        x: OLED.x,
+        z: OLED.z,
+        hx: 0.1,
+        hz: 0.1,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + 0.1,
+        enabled: false,
+      }));
+      this.hit.add(this.dialDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
@@ -942,7 +962,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs, ...this.sbDefs, ...this.menuDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs, ...this.sbDefs, ...this.menuDefs, ...this.dialDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -1358,6 +1378,9 @@ export class Stage {
     // Le menu de la voix (2026-10-18) : sous HOME seulement (la vue PAGE, EDIT, les presets et la liste des sons l'eteignent)
     const home = this.screen.info.view === 'home' && !presetMode.on('mm808');
     for (const d of this.menuDefs) place(d, home ? (this.screen.menuRects.find((r) => r.id === d.id) ?? null) : null);
+    // MASTER et TEMPO (2026-10-19) : la ou l'ecran les dessine (HOME, la vue PAGE hors P-LOCK), jamais sous les presets
+    const dials = (home || page) && !presetMode.on('mm808');
+    for (const d of this.dialDefs) place(d, dials ? (this.screen.dialRects.find((r) => r.id === d.id) ?? null) : null);
     // La touche i : au telephone, quand les blocs (ou les fleches du navigateur) ont leur zone, dans le coin du verre (revue de R4)
     const blk = (page && this.screen.blockRects.length > 0) || sbOn;
     const ik = blk ? this.infoAt.blocks : this.infoAt.off;
@@ -2672,6 +2695,8 @@ export class Stage {
     rytmInfos.hover(id);
     // Un bloc de l'ecran sous la souris (2026-10-09, l'ecran est l'editeur) : son cadre de survol
     rytmPage.hover(id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : -1);
+    // MASTER ou TEMPO dans l'ecran (2026-10-19) : le leur
+    screenDials.hover(screenDialOf(id));
     // Une ligne du navigateur des sons sous la souris (2026-10-18) : son rang a l'ecran (elle reste sous la souris quand la
     // liste defile), un fond a peine plus clair
     const sbRow = id !== null ? /^lcd-sb-(?:row|del)-([0-9]+)$/.exec(id) : null;
@@ -2882,24 +2907,21 @@ export class Stage {
   }
 
   /**
-   * Les potards suivent leur cible : MASTER, le volume principal ; les huit
-   * potards de page (2026-10-08), la course de ce que leur bloc regle sur la
-   * page affichee, pour la voix choisie (un bloc vide, ou rien a regler : en bas) ;
-   * ils tournent aussi quand la page ou la voix change. TONE et STRETCH vont
-   * de -1 a 1 : course centree (repere a midi a 0).
+   * Les encodeurs suivent leur cible : depuis le 2026-10-09, chaque encodeur
+   * montre son FX global (theme.ts GLOBAL_ENCODERS), jamais la page ; au
+   * telephone aussi depuis le 2026-10-19. TONE et STRETCH vont de -1 a 1 :
+   * course centree (repere a midi a 0). MASTER et TEMPO sont dessines dans
+   * l'ecran (scene/screen.ts), plus sur la face.
    */
   private syncMix = (): void => {
     const e = this.encoders;
-    let changed = e.setValue('level', mix.level);
-    // Au telephone (2026-10-09) plus de potards de page sur la face : rien a calculer (les blocs de l'ecran ont leur dessin).
-    // Au desktop, depuis le 2026-10-09, chaque encodeur montre son FX global (theme.ts GLOBAL_ENCODERS), jamais la page
-    if (PAGE_KNOBS_ON_FACE)
-      PAGE_KNOB_IDS.forEach((id, k) => {
-        const g = GLOBAL_ENCODERS[k] as DialId | undefined;
-        if (!g) return;
-        const [lo, hi] = dialRange(g);
-        if (e.setValue(id, hi > lo ? (anyDialValue(g) - lo) / (hi - lo) : 0)) changed = true;
-      });
+    let changed = false;
+    PAGE_KNOB_IDS.forEach((id, k) => {
+      const g = GLOBAL_ENCODERS[k] as DialId | undefined;
+      if (!g) return;
+      const [lo, hi] = dialRange(g);
+      if (e.setValue(id, hi > lo ? (anyDialValue(g) - lo) / (hi - lo) : 0)) changed = true;
+    });
     if (changed) this.encodersMoved();
   };
 
@@ -2953,7 +2975,7 @@ export class Stage {
 
   /**
    * Store du motif : le pad de l'instrument selectionne reste allume, les
-   * LED suivent les pas programmes, TEMPO tourne avec le tempo.
+   * pas s'allument a leur velocite (2026-10-19) ; le tempo est a l'ecran.
    */
   private syncPattern = (): void => {
     const p = pattern.get();
@@ -2962,8 +2984,7 @@ export class Stage {
     // Les verrous suivent le motif et la voix choisie (2026-10-08)
     if (this.lockLeds(performance.now())) lit = true;
     if (this.syncVoiceKeys()) lit = true;
-    if (this.encoders.setValue('tempo', (p.bpm - BPM.min) / (BPM.max - BPM.min))) this.encodersMoved();
-    else if (lit) this.repaint();
+    if (lit) this.repaint();
     // Selection changee : les potards d'effets montrent la nouvelle cible
     this.syncMix();
   };

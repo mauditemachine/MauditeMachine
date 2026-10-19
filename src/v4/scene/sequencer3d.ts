@@ -1,20 +1,18 @@
 /**
  * Le sequenceur (spec 7.5 et 20.3.6) : les 16 touches trig etroites du bas
  * du panneau, RUN/STOP, CLEAR, MUTE, SOLO et RANDOM (boutons carres) sont
- * UN InstancedMesh de boites a coins arrondis (echelle par instance) ; les
- * traits de velocite au-dessus des touches, UN InstancedMesh de petits
- * rectangles a couleur par instance, non eclaires (la teinte affichee est
- * le jeton exact).
+ * UN InstancedMesh de boites a coins arrondis (echelle par instance).
  *
- * Velocite (2026-10-01) : trois traits par pas, empiles vers l'arriere,
- * la LED du bas comprise. Fort : trois traits ledSet, moyen deux, doux un ;
- * un pas vide ne garde que la LED du bas, eteinte (line), les deux autres
- * disparaissent. Le compte se lit quel que soit l'etat : pendant la lecture
- * les traits du pas en cours passent en yellowHi (la LED du bas seule sur
- * un pas vide) ; le survol (pointeur fin) n'eclaire que la LED du bas d'un
- * pas vide, en ledHover. Avant, la LED unique changeait de teinte selon la
- * velocite et le survol la recouvrait : on ne voyait plus ce qu'on venait
- * de poser.
+ * Velocite (2026-10-19, Mika : "je veux que les boutons soient allumes au
+ * complet sur le step quand la velocite est a 127 ; les trois barres
+ * au-dessus, ca casse le design") : plus de traits au-dessus des touches ; un
+ * pas mis allume tout le dessus de sa touche, l'orange des touches allumees
+ * (theme.ts KEY_LIT, la teinte de KEY_LIT_LIGHT sur la machine claire), plein
+ * a la velocite la plus forte (127 a l'ecran) et de moins en moins jusqu'a la
+ * plus douce (STEP_LIT.ramp, neuf niveaux qui se distinguent) ; un pas vide
+ * reste eteint. La tete de lecture (et le test de l'intro) ajoute un blanc
+ * chaud a son pas (un pas vide s'eclaire a peine) ; la souris eclaire a peine
+ * le pas survole. Glisser un pas tenu change sa velocite : sa touche suit.
  * Programme = les coups de l'instrument selectionne ; sans selection, le
  * plus fort des cinq, pour que le motif par defaut se voie des l'arrivee.
  * RUN/STOP est le seul element rouge. Temoins du transport (2026-10-01,
@@ -23,10 +21,14 @@
  * (le seul signe de CLEAR et RANDOM). Le Stage ne rend une frame que si un
  * trait a change.
  *
- * Les verrous (2026-10-08, l'etape R2 des parameter locks) : un pas qui a des
- * verrous (la voix choisie) garde une lueur orange pale sur sa touche ; le
- * pas en LOCK clignote, sa touche plus claire et ses traits en jaune (comme
- * le trig tenu d'une Elektron). Rien en EDIT (les pas y sont les patterns).
+ * Les verrous (2026-10-08, l'etape R2 des parameter locks) : depuis le
+ * 2026-10-19 un pas qui a des verrous (la voix choisie) porte une marque sur
+ * le dessus, pres du bord arriere (KEYS.lockMark : claire sur une touche
+ * eteinte, sombre sur une touche allumee ; un pas vide verrouille garde aussi
+ * une lueur a peine) ; le pas en LOCK clignote en jaune clair (comme le trig
+ * tenu d'une Elektron). Rien en EDIT (les pas y sont les patterns : le courant
+ * plein, celui qui attend, la chaine, un pattern plein, de plus en plus
+ * faibles, STEP_LIT.edit).
  *
  * Le transport depuis le 2026-10-18 (Mika : "je veux la meme forme de boutons
  * pour les boutons RUN/STOP CLEAR etc. ; ecrit directement sur le bouton ; et
@@ -57,14 +59,11 @@ import {
   type Object3D,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
+import { BTN_LED, COLOR, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
-
-/** Teinte d'un trait ; 'none' : trait cache (au-dessus de la LED du bas, pas assez fort). */
-export type LedTone = 'line' | 'ledSet' | 'ledHover' | 'yellowHi' | 'none';
 
 /** EDIT du MM-RYTM : le pattern courant, celui qui attend, la chaine, les emplacements pleins. */
 export interface PatternView {
@@ -100,16 +99,12 @@ const BTN_LED_Z = TRANSPORT.z - TRANSPORT.d / 2 + TRANSPORT.led.back;
 /** Le blanc vers lequel tire le temoin d'une touche allumee (il ne se perd pas dans sa couleur). */
 const WHITE = new Color(1, 1, 1);
 
-const BARS = KEYS.velBars;
-
-/** Les lueurs des verrous (2026-10-08) : un pas verrouille, le pas en LOCK allume puis eteint (le clignotement). */
-const LOCK_GLOW = { locks: [0.075, 0.024, 0.003], step: [0.2, 0.135, 0.022], stepDim: [0.07, 0.045, 0.008] } as const;
-
-/** Teintes des traits, lues a la construction (l'apparence claire change line et ledHover). */
-let LED_HEX: Readonly<Record<Exclude<LedTone, 'none'>, number>> = { line: 0, ledSet: 0, ledHover: 0, yellowHi: 0 };
-
-/** z du trait b du pas i (0 : la LED du bas) ; portrait : sa rangee le decale (keyDz). */
-const barZ = (i: number, b: number): number => KEYS.ledZ + keyDz(i) - KEYS.velPitch * b;
+/** La hauteur de la marque des verrous, un soupcon au-dessus du dessus de la touche (et du cadre des temps). */
+const MARK_Y = KEYS.h + 0.004;
+/** z de la marque des verrous du pas i : pres du bord arriere de sa touche (portrait : sa rangee la decale). */
+const markZ = (i: number): number => KEYS.z + keyDz(i) - KEYS.d / 2 + KEYS.lockMark.back;
+/** Au-dela de cette part de l'orange, la marque des verrous passe au sombre (elle se lit sur la touche allumee). */
+const MARK_DARK_AT = 0.45;
 
 const m4 = new Matrix4();
 const col = new Color();
@@ -166,7 +161,7 @@ function frameGeometry(): BufferGeometry {
 /** Les touches qui portent le cadre des temps. */
 const FRAMED = [0, 4, 8, 12] as const;
 
-function ledGeometry(w: number = KEYS.ledW, d: number = KEYS.ledD): BufferGeometry {
+function ledGeometry(w: number, d: number): BufferGeometry {
   const g = new PlaneGeometry(w, d);
   // Rectangle couche, face vers le haut
   g.rotateX(-Math.PI / 2);
@@ -175,12 +170,12 @@ function ledGeometry(w: number = KEYS.ledW, d: number = KEYS.ledD): BufferGeomet
 }
 
 export interface SequencerInfo {
-  /** couleur de la LED du bas de chaque pas, pas 1 a 16 */
-  leds: LedTone[];
-  /** traits allumes de chaque pas (0 a 3), pas 1 a 16 */
-  bars: string;
-  /** teinte de chaque trait, pas par pas, du bas vers le haut */
-  barTones: LedTone[][];
+  /** la part de l'orange du dessus de chaque pas (0 eteint a 1 plein, 2026-10-19), pas 1 a 16 */
+  lit: number[];
+  /** l'emissif lineaire du dessus de chaque pas (r, g, b), la tete de lecture, le survol, le LOCK et l'appui compris */
+  glow: number[][];
+  /** la marque des verrous de chaque pas : 1 montree (claire), 2 montree sombre (sur une touche allumee), 0 cachee */
+  marks: string;
   run: boolean;
   /** eclat du temoin de chaque bouton (0 a 1) : RUN, CLEAR, MUTE, SOLO, RANDOM */
   buttonLeds: number[];
@@ -194,7 +189,7 @@ export interface SequencerInfo {
   lockMask: number;
   lockStep: number;
   lockBlink: boolean;
-  /** velocite de chaque pas selon la regle 7.5 (0 vide, 1 fort, 2 moyen, 3 doux) */
+  /** velocite de chaque pas (0 vide a 9 la plus forte, 127 a l'ecran) */
   programmed: string;
   instrument: Inst | null;
 }
@@ -202,7 +197,15 @@ export interface SequencerInfo {
 export class Sequencer3D {
   readonly keys: InstancedMesh;
   readonly buttons: InstancedMesh;
-  readonly leds: InstancedMesh;
+  /** la marque des verrous sur chaque pas (2026-10-19 ; cachee hors des pas verrouilles) */
+  readonly lockMarks: InstancedMesh;
+  private markMat: MeshBasicMaterial;
+  /** l'etat de la marque de chaque pas : 0 cachee, 1 claire, 2 sombre */
+  private markState = new Uint8Array(STEP_COUNT);
+  private markLight = new Color();
+  private markDark = new Color();
+  /** la part de l'orange de chaque pas au dernier calcul (refresh) */
+  private litPart = new Float32Array(STEP_COUNT);
   /** le cadre des temps sur les touches 1, 5, 9, 13 */
   readonly frames: InstancedMesh;
   private frameMat: MeshBasicMaterial;
@@ -231,8 +234,6 @@ export class Sequencer3D {
   private soloLedOn = new Color(0x5b9bff);
   /** teinte propre de chaque bouton (l'appui la tire vers PRESS_TINT en mode clair) */
   private btnColor = new Float32Array(BUTTON_COUNT * 3);
-  /** teinte de chaque trait, index pas x BARS + trait */
-  private ledTone: LedTone[] = [];
   private steps: Steps | null = null;
   private instrument: Inst | null = null;
   private hover = -1;
@@ -250,7 +251,6 @@ export class Sequencer3D {
   private keyPress = new Float32Array(STEP_COUNT);
 
   constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas }) {
-    LED_HEX = { line: COLOR.line, ledSet: COLOR.ledSet, ledHover: COLOR.ledHover, yellowHi: COLOR.yellowHi };
     const kGeo = keyGeometry(opts.mobile);
     this.emissive = new InstancedBufferAttribute(new Float32Array(STEP_COUNT * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
@@ -311,19 +311,24 @@ export class Sequencer3D {
     this.labels = new KeyLabels(opts.atlas, specs, TRANSPORT.h, 'transport');
 
     this.ledMat.name = 'led';
-    this.leds = new InstancedMesh(ledGeometry(), this.ledMat, STEP_COUNT * BARS);
-    this.leds.name = 'leds';
+
+    // La marque des verrous (2026-10-19) : un trait non eclaire sur le dessus de chaque pas, cache tant que le pas n'a pas
+    // de verrou ; clair (le jaune des LED, l'orange sur la machine claire) ou sombre sur une touche allumee
+    this.markLight.setHex(KEY_LIT_LIGHT.tint ? COLOR.ledSet : COLOR.yellowHi);
+    this.markDark.setRGB(0.012, 0.011, 0.01);
+    this.markMat = new MeshBasicMaterial({ toneMapped: false });
+    this.markMat.name = 'lockMark';
+    this.lockMarks = new InstancedMesh(ledGeometry(KEYS.lockMark.w, KEYS.lockMark.d), this.markMat, STEP_COUNT);
+    this.lockMarks.name = 'lockMarks';
     for (let i = 0; i < STEP_COUNT; i += 1) {
-      for (let b = 0; b < BARS; b += 1) {
-        const k = i * BARS + b;
-        // Au repos : la LED du bas eteinte, les traits du dessus caches
-        this.leds.setMatrixAt(k, b === 0 ? m4.makeTranslation(keyX(i), KEYS.ledY, barZ(i, b)) : m4.makeScale(0, 0, 0));
-        this.leds.setColorAt(k, col.setHex(LED_HEX.line));
-        this.ledTone.push(b === 0 ? 'line' : 'none');
-      }
+      this.lockMarks.setMatrixAt(i, m4.makeScale(0, 0, 0));
+      this.lockMarks.setColorAt(i, this.markLight);
     }
-    this.leds.instanceMatrix.needsUpdate = true;
-    this.leds.instanceColor?.setUsage(DynamicDrawUsage);
+    this.lockMarks.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.lockMarks.instanceMatrix.needsUpdate = true;
+    this.lockMarks.instanceColor?.setUsage(DynamicDrawUsage);
+    // Au depart : la teinte de chaque pas (la machine claire teinte les touches allumees)
+    for (let i = 0; i < STEP_COUNT; i += 1) this.writeKeyColor(i);
   }
 
   /** Teinte d'un bouton du transport (l'appui en cours s'y ajoute). */
@@ -482,22 +487,86 @@ export class Sequencer3D {
       if (PRESS_TINT.rgb) this.writeButtonColor(j);
       return;
     }
-    if (PRESS_TINT.rgb) {
-      this.keys.setColorAt(j, this.pressedColor(LIT.key, v));
-      if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
-    }
     this.keyPress[j] = v;
+    // La marque des verrous descend avec sa touche (2026-10-19)
+    this.keyDy[j] = dy;
+    if (this.markState[j] !== 0) this.placeMark(j);
+    if (PRESS_TINT.rgb) this.writeKeyColor(j);
     this.writeKeyGlow(j);
     this.emissive.needsUpdate = true;
   }
 
-  /** La lueur d'une touche : celle de l'appui, ou celle de ses verrous si elle est plus forte (2026-10-08). */
+  /** L'enfoncement de chaque pas (la marque des verrous le suit). */
+  private keyDy = new Float32Array(STEP_COUNT);
+
+  /**
+   * La part de l'orange du dessus du pas i (2026-10-19) : sa velocite
+   * (STEP_LIT.ramp, 0 vide) ; EDIT : le pattern courant plein, celui qui attend
+   * la mesure, ceux de la chaine, un pattern plein.
+   */
+  private litOf(i: number): number {
+    const v = this.patView;
+    if (v) {
+      const E = STEP_LIT.edit;
+      if (i === v.cur) return E.cur;
+      if (i === v.next) return E.next;
+      if (v.chain.length > 1 && v.chain.includes(i)) return E.chain;
+      return v.filled[i] ? E.filled : 0;
+    }
+    return STEP_LIT.ramp[this.programmed(i)] ?? 0;
+  }
+
+  /**
+   * L'emissif du dessus du pas j : l'orange de sa velocite (KEY_LIT.glow.orange
+   * a sa part, a l'echelle de KEY_LIT_LIGHT sur la machine claire), plus le
+   * blanc chaud de la tete de lecture ; au moins la lueur du survol, celle d'un
+   * pas vide verrouille, du pas en LOCK qui clignote, de l'appui.
+   */
+  /** Le pas j est-il sous la tete de lecture (ou le test de l'intro) ? Jamais dans EDIT. */
+  private isHead(j: number): boolean {
+    return !this.patView && (j === this.playhead || j === this.introLed);
+  }
+
   private writeKeyGlow(j: number): void {
     const e = this.emissive.array as Float32Array;
-    const v = this.keyPress[j];
-    const G = STEP_PRESS.glow;
-    const L = j === this.lockStep ? (this.lockBlink ? LOCK_GLOW.step : LOCK_GLOW.stepDim) : (this.lockMask >> j) & 1 ? LOCK_GLOW.locks : null;
-    for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(G[c] * v, L ? L[c] : 0);
+    const f = this.litPart[j];
+    const o = KEY_LIT.glow.orange;
+    const k = KEY_LIT_LIGHT.glow;
+    const head = this.isHead(j);
+    const add = head ? (f > 0 ? STEP_LIT.head : STEP_LIT.headEmpty) : null;
+    const locked = !this.patView && ((this.lockMask >> j) & 1) === 1;
+    const floor = !this.patView && j === this.lockStep ? (this.lockBlink ? STEP_LIT.lock : STEP_LIT.lockDim) : locked && f === 0 ? STEP_LIT.locks : j === this.hover && f === 0 ? STEP_LIT.hover : null;
+    for (let c = 0; c < 3; c += 1) {
+      const lit = o[c] * k * f + (add ? add[c] * k : 0);
+      e[j * 3 + c] = Math.max(lit, floor ? floor[c] * k : 0, STEP_PRESS.glow[c] * this.keyPress[j]);
+    }
+  }
+
+  /**
+   * La teinte du pas j : la sienne, l'appui (machine claire), l'orange de la
+   * touche allumee (machine claire, KEY_LIT_LIGHT ; le plus doux part de
+   * STEP_LIT.lightFloor), la tete de lecture en jaune chaud (machine claire).
+   */
+  private writeKeyColor(j: number): void {
+    const c = this.pressedColor(LIT.key, this.keyPress[j]);
+    const lt = KEY_LIT_LIGHT.tint?.orange;
+    const f = this.litPart[j];
+    const tf = f > 0 ? STEP_LIT.lightFloor + (1 - STEP_LIT.lightFloor) * f : 0;
+    if (lt && tf > 0) c.setRGB(c.r + (lt[0] - c.r) * tf, c.g + (lt[1] - c.g) * tf, c.b + (lt[2] - c.b) * tf);
+    if (lt && this.isHead(j)) {
+      const h = STEP_LIT.headLight;
+      const m = STEP_LIT.headLightMix;
+      c.setRGB(c.r + (h[0] - c.r) * m, c.g + (h[1] - c.g) * m, c.b + (h[2] - c.b) * m);
+    }
+    this.keys.setColorAt(j, c);
+    if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
+  }
+
+  /** La marque des verrous du pas j a sa place (son enfoncement compris), ou cachee. */
+  private placeMark(j: number): void {
+    if (this.markState[j] === 0) this.lockMarks.setMatrixAt(j, m4.makeScale(0, 0, 0));
+    else this.lockMarks.setMatrixAt(j, m4.makeTranslation(keyX(j), MARK_Y + this.keyDy[j], markZ(j)));
+    this.lockMarks.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -510,59 +579,45 @@ export class Sequencer3D {
     this.lockMask = mask;
     this.lockStep = step;
     this.lockBlink = blink;
-    for (let i = 0; i < STEP_COUNT; i += 1) this.writeKeyGlow(i);
-    this.emissive.needsUpdate = true;
-    this.refresh();
+    this.refresh(true);
     return true;
   }
 
   /**
-   * Teinte du trait b du pas i (regle de l'en-tete). EDIT : le pattern
-   * courant ses trois traits en jaune, celui qui attend la mesure en
-   * survol, ceux de la chaine deux traits, un pattern plein un trait.
+   * Rallume les seize pas (2026-10-19) : la part de l'orange, l'emissif, la
+   * teinte, la marque des verrous ; true si un pas a change (force : tous
+   * reecrits, la tete, le survol ou le LOCK ont bouge).
    */
-  private barTone(i: number, b: number): LedTone {
-    const v = this.patView;
-    if (v) {
-      if (i === v.cur) return 'yellowHi';
-      if (i === v.next) return 'ledHover';
-      const n = v.chain.includes(i) ? 2 : v.filled[i] ? 1 : 0;
-      if (b < n) return 'ledSet';
-      return b > 0 ? 'none' : i === this.hover ? 'ledHover' : 'line';
-    }
-    const n = VEL_BARS[this.programmed(i)];
-    const head = i === this.playhead || i === this.introLed;
-    // Le pas en LOCK (2026-10-08) : ses traits clignotent en jaune (un pas vide : sa LED du bas)
-    if (i === this.lockStep && this.lockBlink) return b < Math.max(1, n) ? 'yellowHi' : 'none';
-    if (b < n) return head ? 'yellowHi' : 'ledSet';
-    if (b > 0) return 'none';
-    return head ? 'yellowHi' : i === this.hover ? 'ledHover' : 'line';
-  }
-
-  /** Recolore les traits ; true si un trait a change. */
-  private refresh(): boolean {
-    let colors = false;
-    let shapes = false;
+  private refresh(force = false): boolean {
+    let changed = force;
+    let marks = false;
     for (let i = 0; i < STEP_COUNT; i += 1) {
-      for (let b = 0; b < BARS; b += 1) {
-        const k = i * BARS + b;
-        const tone = this.barTone(i, b);
-        const was = this.ledTone[k];
-        if (tone === was) continue;
-        this.ledTone[k] = tone;
-        if ((tone === 'none') !== (was === 'none')) {
-          this.leds.setMatrixAt(k, tone === 'none' ? m4.makeScale(0, 0, 0) : m4.makeTranslation(keyX(i), KEYS.ledY, barZ(i, b)));
-          shapes = true;
-        }
-        if (tone !== 'none') {
-          this.leds.setColorAt(k, col.setHex(LED_HEX[tone]));
-          colors = true;
-        }
+      const f = this.litOf(i);
+      const part = f !== this.litPart[i];
+      if (part) {
+        this.litPart[i] = f;
+        changed = true;
+      }
+      // La machine claire : la teinte suit aussi la tete de lecture (force)
+      if (KEY_LIT_LIGHT.tint && (part || force)) this.writeKeyColor(i);
+      const locked = !this.patView && ((this.lockMask >> i) & 1) === 1;
+      // Sombre sur une touche allumee, et sur le pas en LOCK quand il s'allume en jaune
+      const bright = f >= MARK_DARK_AT || (i === this.lockStep && this.lockBlink);
+      const m = locked ? (bright ? 2 : 1) : 0;
+      if (m !== this.markState[i]) {
+        const was = this.markState[i];
+        this.markState[i] = m;
+        if (m !== 0) this.lockMarks.setColorAt(i, m === 2 ? this.markDark : this.markLight);
+        if ((m === 0) !== (was === 0)) this.placeMark(i);
+        marks = true;
       }
     }
-    if (colors && this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
-    if (shapes) this.leds.instanceMatrix.needsUpdate = true;
-    return colors || shapes;
+    if (changed) {
+      for (let i = 0; i < STEP_COUNT; i += 1) this.writeKeyGlow(i);
+      this.emissive.needsUpdate = true;
+    }
+    if (marks && this.lockMarks.instanceColor) this.lockMarks.instanceColor.needsUpdate = true;
+    return changed || marks;
   }
 
   /** Motif et instrument selectionne (store pattern.ts) ; true s'il faut une frame. */
@@ -578,28 +633,28 @@ export class Sequencer3D {
     if (!a && !v) return false;
     if (a && v && a.cur === v.cur && a.next === v.next && a.chain.join() === v.chain.join() && a.filled.join() === v.filled.join()) return false;
     this.patView = v;
-    return this.refresh();
+    return this.refresh(true);
   }
 
   /** Pas survole (pointeur fin), -1 sinon. */
   setHover(i: number): boolean {
     if (i === this.hover) return false;
     this.hover = i;
-    return this.refresh();
+    return this.refresh(true);
   }
 
   /** Pas sous la tete de lecture, -1 a l'arret. */
   setPlayhead(i: number): boolean {
     if (i === this.playhead) return false;
     this.playhead = i;
-    return this.refresh();
+    return this.refresh(true);
   }
 
-  /** Test des LED pendant l'intro : une LED yellowHi, -1 a la fin. */
+  /** Test des LED pendant l'intro : un pas s'eclaire comme sous la tete de lecture, -1 a la fin. */
   setIntroLed(i: number): boolean {
     if (i === this.introLed) return false;
     this.introLed = i;
-    return this.refresh();
+    return this.refresh(true);
   }
 
   /** RUN/STOP : son temoin reste allume pendant la lecture ; true s'il faut une frame. */
@@ -647,17 +702,18 @@ export class Sequencer3D {
 
   info(): SequencerInfo {
     let programmed = '';
-    let bars = '';
-    const barTones: LedTone[][] = [];
+    let marks = '';
+    const e = this.emissive.array as Float32Array;
+    const glow: number[][] = [];
     for (let i = 0; i < STEP_COUNT; i += 1) {
       programmed += String(this.programmed(i));
-      bars += String(VEL_BARS[this.programmed(i)]);
-      barTones.push(this.ledTone.slice(i * BARS, i * BARS + BARS));
+      marks += String(this.markState[i]);
+      glow.push([e[i * 3], e[i * 3 + 1], e[i * 3 + 2]].map((x) => +x.toFixed(4)));
     }
     return {
-      leds: barTones.map((t) => t[0]),
-      bars,
-      barTones,
+      lit: Array.from(this.litPart, (v) => +v.toFixed(3)),
+      glow,
+      marks,
       run: this.running,
       buttonLeds: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100),
       buttonLit: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.litLevel(j) * 100) / 100),
@@ -678,11 +734,12 @@ export class Sequencer3D {
     this.keyMat.dispose();
     this.keys.dispose();
     this.buttons.dispose();
-    this.leds.geometry.dispose();
     this.btnLeds.geometry.dispose();
     this.ledMat.dispose();
-    this.leds.dispose();
     this.btnLeds.dispose();
+    this.lockMarks.geometry.dispose();
+    this.markMat.dispose();
+    this.lockMarks.dispose();
     this.frames.geometry.dispose();
     this.frameMat.dispose();
     this.frames.dispose();
