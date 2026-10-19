@@ -1892,7 +1892,10 @@ export class Screen {
       // Le pattern, MASTER et TEMPO (2026-10-19) : autant qu'en laisse la gauche de l'en-tete (la page, ses onglets, la voix)
       const vm = voices.get();
       const badgeRoom = vm.muteMode || vm.soloMode ? T.pillH + 5 : 0;
-      rightX = this.paintDials(y, this.headLeftNeed(rp, screen, inst) + badgeRoom, H.rule, now, cur) - 6;
+      // Sans voix, si meme le dernier palier ne laisse pas PICK A VOICE : la place de ALL seul (le pattern reste)
+      const need = this.headLeftNeed(rp, screen, inst) + badgeRoom;
+      const bare = inst ? need : this.headLeftNeed(rp, screen, inst, false) + badgeRoom;
+      rightX = this.paintDials(y, need, H.rule, now, cur, bare) - 6;
       this.info.lockCount = -1;
     }
     // MUTE et SOLO armes (2026-10-09) : M ou S, plein en MULTI, en contour pour une voix (meme en P-LOCK)
@@ -1947,7 +1950,8 @@ export class Screen {
     const tabW = (name: string): number => this.textWidth(name, ts, 700, 0.7) + 9;
     const chev = ts * 0.62;
     const crumbW = detail ? tabW(SCREEN_LABEL.fxg) + chev + 4 + tabW(SCREEN_LABEL[detail]) : 0;
-    const voiceRoom = inst ? this.textWidth(inst, T.voice, 600) + 12 : 0;
+    // Sans voix, la place de ALL (relecture du 2026-10-19 : VOICE FX revenu sur la page de BIT, ALL passait sous le vumetre)
+    const voiceRoom = this.textWidth(inst ?? 'ALL', T.voice, 600) + 12;
     // GLOBAL ou la voix (2026-10-10, Mika : "Quand je suis la page delay je veux avoir le choix entre GLOBAL ou VOICE") :
     // sur la page de DIST CHORUS DELAY REVERB, le FX en titre, un chevron, puis ses deux onglets, GLOBAL et la voix (BD ;
     // VOICE sans voix), celui du mode cerne, une tape sur l'autre y passe ; l'onglet de la voix la nomme (pas son nom apres)
@@ -2013,15 +2017,18 @@ export class Screen {
     } else x += 3;
     this.info.head = heads;
     if (inst) {
-      // La voix, si elle tient avant le pattern, MASTER et TEMPO (2026-10-19 ; le M ou le S d'un mode arme comptent)
-      if (!scope && x + this.textWidth(inst, T.voice, 600) <= rightX + 2) {
+      // La voix, si elle tient avant le pattern, MASTER et TEMPO (2026-10-19 ; le M ou le S d'un mode arme comptent) ;
+      // sous DIST CHORUS DELAY REVERB, son onglet la nomme. Pas nommee : ni sa pastille ni ce qu'elle joue (relecture du
+      // 2026-10-19 : MM ou MUTE flottaient seuls dans l'en-tete)
+      const named = !!scope || x + this.textWidth(inst, T.voice, 600) <= rightX + 2;
+      if (!scope && named) {
         const vw = this.text(inst, x, y, T.voice, INK, 600);
         x += vw + 5;
       }
       // Une voix vraiment coupee (en solo) : sa pastille ; une voix hors d'un solo n'en a pas (2026-10-09 : MUTE se lisait a tort)
       const solo = voices.isSolo(inst);
       const muted = voices.isMuted(inst) && v.solo.length === 0;
-      if (solo || muted) {
+      if (named && (solo || muted)) {
         // Le mot entier s'il tient avant le pattern et le tempo, sinon sa lettre (le telephone : MUTE couvrait A01)
         const full = solo ? 'SOLO' : 'MUTE';
         const fw = this.textWidth(full, T.sound, 700, 0.8) + 8;
@@ -2049,7 +2056,7 @@ export class Screen {
       // le sample seul s'il n'y a pas la place des deux, sinon rien
       const room = rightX - x;
       // La page d'un FX sous GLOBAL (2026-10-10) : la quantite de la machine, ce que joue la voix n'y a rien a faire
-      if (rp.page !== 'voice' && room > 18 && !(scope && screen === scope.global)) {
+      if (named && rp.page !== 'voice' && room > 18 && !(scope && screen === scope.global)) {
         const plays = voiceSoundText(inst, stepPlays(inst, lock));
         const shown = plays === inst ? '' : ([plays, plays.split(' + ')[0]].find((t) => this.textWidth(t, T.sound, 600, 0.6) <= room) ?? '');
         if (shown) this.text(shown, x, y, T.sound, HALF, 600, 'left', 0.6);
@@ -2058,8 +2065,9 @@ export class Screen {
       // Sans voix sur la page d'un FX (2026-10-10) : l'onglet dit VOICE, le reste PICK A VOICE s'il tient avant le pattern
       if (x + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
     } else {
+      // Sans voix : ALL, puis PICK A VOICE s'il tient avant le pattern, MASTER et TEMPO (headLeftNeed lui garde sa place)
       const aw = this.text('ALL', x, y, T.voice, HALF, 600);
-      this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
+      if (x + aw + 6 + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
     }
     this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
   }
@@ -2067,11 +2075,12 @@ export class Screen {
   /**
    * La place que prend la gauche de l'en-tete de la vue PAGE avant la voix
    * comprise (la lecture, la page, ses onglets) : ce que MASTER, TEMPO et le
-   * pattern doivent laisser (2026-10-19). Le meme calcul que paintPageHead, sans
-   * ce qui cede deja sa place (l'onglet de la voix sous un FX, ce que joue la
-   * voix, MUTE, SOLO, P-LOCK).
+   * pattern doivent laisser (2026-10-19). Le meme calcul que paintPageHead, la
+   * pastille MUTE ou SOLO d'une voix coupee (sa lettre) et, sans voix, ALL PICK
+   * A VOICE compris (hint false : ALL seul) ; sans ce qui cede deja sa place
+   * (l'onglet de la voix sous un FX, ce que joue la voix, P-LOCK).
    */
-  private headLeftNeed(rp: RytmPageState, screen: RytmScreenId, inst: Inst | null): number {
+  private headLeftNeed(rp: RytmPageState, screen: RytmScreenId, inst: Inst | null, hint = true): number {
     const H = PAGE_HEAD;
     const T = this.bt.head;
     let x = H.pillX + this.textWidth(pageLabel(rp.page), T.pill, 700, 0.9) + 12 + 5;
@@ -2092,6 +2101,12 @@ export class Screen {
         x += 4;
       } else x += 3;
       if (inst) x += this.textWidth(inst, T.voice, 600);
+      // Sans voix : ALL et PICK A VOICE (relecture du 2026-10-19 : ils passaient sous A01 et le vumetre), et l'unite que
+      // perd rightX (left - 6 contre need + 5)
+      else x += this.textWidth('ALL', T.voice, 600) + (hint ? 6 + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) : 0) + 1;
+      // La pastille MUTE / SOLO de la voix (sa lettre) : l'air apres la voix (5), 1 + w + 4, et l'unite que perd rightX
+      // (left - 6 contre need + 5) ; sans elle, A01 et le nombre de MASTER gardaient leur place et la pastille sautait
+      if (inst && (voices.isSolo(inst) || (voices.isMuted(inst) && voices.get().solo.length === 0))) x += this.textWidth('M', T.sound, 700, 0.8) + 8 + 11;
     }
     return x;
   }
@@ -2116,11 +2131,12 @@ export class Screen {
    * sept barres (allumees jusqu'au niveau, la derniere a moitie) et son niveau
    * en dB ; cernes a peine sous la souris, en plein tant qu'on les tient. Le
    * groupe cede ce qu'il faut pour laisser need a sa gauche : d'abord le nombre
-   * de MASTER, puis le pattern. Leurs zones (dialRects) : de haut en bas jusqu'a
-   * zoneY1, chacune jusqu'au milieu de l'air qui les separe. Rend le bord gauche
-   * du groupe.
+   * de MASTER, puis le pattern ; si meme le dernier palier ne le laisse pas,
+   * bare (le moins qu'il faut, sans voix ALL sans PICK A VOICE). Leurs zones
+   * (dialRects) : de haut en bas jusqu'a zoneY1, chacune jusqu'au milieu de
+   * l'air qui les separe. Rend le bord gauche du groupe.
    */
-  private paintDials(y: number, need: number, zoneY1: number, now: number, cur: number): number {
+  private paintDials(y: number, need: number, zoneY1: number, now: number, cur: number, bare = need): number {
     const T = this.bt.head;
     const M = Screen.METER;
     const paged = zoneY1 === PAGE_HEAD.rule;
@@ -2149,7 +2165,11 @@ export class Screen {
       { a01: false, full: false },
     ];
     const width = (t: { a01: boolean; full: boolean }): number => tw + GD + (t.full ? mFull : meterW) + (t.a01 ? G + aw : 0);
-    const tier = tiers.find((t) => right - width(t) >= need + 5) ?? tiers[tiers.length - 1];
+    const fit = (n: number): (typeof tiers)[number] | undefined => tiers.find((t) => right - width(t) >= n + 5);
+    // La place laissee a gauche : need, sinon bare (relecture du 2026-10-19 : sans voix sur la page d'un FX, A01 cedait
+    // pour un PICK A VOICE qui ne tenait de toute facon pas)
+    const room = fit(need) || bare >= need ? need : bare;
+    const tier = fit(room) ?? tiers[tiers.length - 1];
     const ds = screenDials.get();
     const ring = (id: ScreenDialId, x0: number, x1: number): void => {
       const held = ds.held === id;
@@ -2191,7 +2211,11 @@ export class Screen {
     // Les zones : jusqu'au milieu de l'air qui les separe, toute la hauteur de l'en-tete
     const mid = (mx1 + tx0) / 2;
     const lim = this.mobile ? right + 3 : UW;
-    this.dialRects.push({ id: 'lcd-master', ...this.spot({ x: mx0 - 3, y: 0, w: mid - (mx0 - 3), h: zoneY1 }) });
+    // Au telephone, dans la vue PAGE, sans A01 ni dB (VOICE, SYNTH, les pages d'un FX ; relecture du 2026-10-19 : 26 x 19 px
+    // a 375 de large) : la zone de MASTER prend l'air libre a sa gauche, jusqu'a room + 5 (lcd-open n'y ouvre plus les
+    // presets) ; Math.min garde l'ancien bord quand meme le dernier palier ne tient pas. HOME garde la sienne.
+    const mz0 = this.mobile && paged && !tier.a01 ? Math.min(mx0 - 3, room + 5) : mx0 - 3;
+    this.dialRects.push({ id: 'lcd-master', ...this.spot({ x: mz0, y: 0, w: mid - mz0, h: zoneY1 }) });
     this.dialRects.push({ id: 'lcd-tempo', ...this.spot({ x: mid, y: 0, w: Math.min(tx1 + 4, lim) - mid, h: zoneY1 }) });
     // INFOS : la commande dont la carte est montree, ses quatre coins
     const di = this.infoDial();

@@ -9,7 +9,8 @@
  * pas mis allume tout le dessus de sa touche, l'orange des touches allumees
  * (theme.ts KEY_LIT, la teinte de KEY_LIT_LIGHT sur la machine claire), plein
  * a la velocite la plus forte (127 a l'ecran) et de moins en moins jusqu'a la
- * plus douce (STEP_LIT.ramp, neuf niveaux qui se distinguent) ; un pas vide
+ * plus douce (STEP_LIT.ramp, neuf niveaux qui se distinguent ; la teinte de la
+ * machine claire suit STEP_LIT.lightRamp, reguliere) ; un pas vide
  * reste eteint. La tete de lecture (et le test de l'intro) ajoute un blanc
  * chaud a son pas (un pas vide s'eclaire a peine) ; la souris eclaire a peine
  * le pas survole. Glisser un pas tenu change sa velocite : sa touche suit.
@@ -544,14 +545,16 @@ export class Sequencer3D {
 
   /**
    * La teinte du pas j : la sienne, l'appui (machine claire), l'orange de la
-   * touche allumee (machine claire, KEY_LIT_LIGHT ; le plus doux part de
+   * touche allumee (machine claire, KEY_LIT_LIGHT ; un pas a la part de sa
+   * velocite dans STEP_LIT.lightRamp, un pattern d'EDIT part de
    * STEP_LIT.lightFloor), la tete de lecture en jaune chaud (machine claire).
    */
   private writeKeyColor(j: number): void {
     const c = this.pressedColor(LIT.key, this.keyPress[j]);
     const lt = KEY_LIT_LIGHT.tint?.orange;
     const f = this.litPart[j];
-    const tf = f > 0 ? STEP_LIT.lightFloor + (1 - STEP_LIT.lightFloor) * f : 0;
+    // Hors EDIT (relecture du 2026-10-19) : la rampe reguliere de la machine claire (STEP_LIT.lightRamp) ; EDIT : la part du pattern
+    const tf = f <= 0 ? 0 : this.patView ? STEP_LIT.lightFloor + (1 - STEP_LIT.lightFloor) * f : (STEP_LIT.lightRamp[this.programmed(j)] ?? 0);
     if (lt && tf > 0) c.setRGB(c.r + (lt[0] - c.r) * tf, c.g + (lt[1] - c.g) * tf, c.b + (lt[2] - c.b) * tf);
     if (lt && this.isHead(j)) {
       const h = STEP_LIT.headLight;

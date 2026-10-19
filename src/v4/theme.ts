@@ -1370,10 +1370,15 @@ export const KEY_LIT_LIGHT: { tint: Readonly<Record<KeyLitTone, readonly number[
  * marque des verrous (KEYS.lockMark) dit le reste. EDIT (les pas sont les
  * patterns) : le pattern courant plein, celui qui attend, ceux de la chaine, un
  * pattern plein (la part de l'orange). lightFloor : sur la machine claire, la
- * teinte d'un pas mis part de cette part (le plus doux s'y voit encore).
+ * teinte d'un pattern d'EDIT part de cette part (le plus doux s'y voit encore).
+ * lightRamp : sur la machine claire, la teinte d'un pas mis a chacun des neuf
+ * niveaux (0 : vide), reguliere (relecture du 2026-10-19 : ramp, calee pour la
+ * lueur de la machine noire, serrait les niveaux 1 a 5 en quelques pour cent de
+ * teinte, a peine distincts) ; ramp garde l'emissif.
  */
 export const STEP_LIT = {
   ramp: [0, 0.075, 0.115, 0.165, 0.225, 0.3, 0.39, 0.51, 0.69, 1] as readonly number[],
+  lightRamp: [0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] as readonly number[],
   head: [0.34, 0.24, 0.1],
   headEmpty: [0.11, 0.085, 0.05],
   headLight: [1.0, 0.72, 0.18],
