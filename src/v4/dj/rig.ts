@@ -14,6 +14,7 @@
 
 import { Group } from 'three';
 import { clock } from '../audio/clock';
+import { focus } from '../state/focus';
 import { arp } from '../voyager/arp';
 import { machinesRunning } from '../actions';
 import { bassLoad } from '../state/bassload';
@@ -317,8 +318,12 @@ export class DjRig {
   step = (now: number): 'paint' | false => {
     // Cache (une autre machine utilisee) : rien a dessiner, meme si la batterie passe par la table
     if (!this.root.visible) return false;
-    // En vue : le moteur se cree des que le son existe (les machines sur 1 et 2)
-    const e = djEngineIfAny() ?? djWake();
+    // En vue : le moteur se cree des que le son existe (les machines sur 1 et 2) ; seulement le MM-DECKS regarde
+    // (2026-10-19, Mika : "j'etais en train d'utiliser RYTM, je suis passe a ARP et le son a coupe alors que ca continue
+    // a jouer") : voisin qui depasse au bord de l'ARP, ou la vue d'ensemble, il se reveillait et les machines passaient
+    // par ses voies avec les reglages retenus de la table (un fader ou un filtre d'une seance MIXER d'avant : le
+    // silence). Un geste sur la table (souris, MIDI, Roto) le reveille toujours (actions.ts engine).
+    const e = djEngineIfAny() ?? (focus.get() === 'dj' ? djWake() : null);
     if (!e) return false;
     let busy = false;
     let changed = false;
