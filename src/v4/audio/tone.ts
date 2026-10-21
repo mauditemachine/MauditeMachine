@@ -29,6 +29,13 @@ export const TONE = {
   snap: 0.04,
 } as const;
 
+/**
+ * Le Q Butterworth de ses deux filtres, EN dB (2026-10-21, audit F13) : Web Audio lit le Q d'un passe-haut ou d'un
+ * passe-bas en dB ; 0.707 y faisait une bosse de +1.7 dB pres de chaque coupure (le passe-haut a 60 Hz bossait vers
+ * 79 Hz, sur le fondamental du kick). -3.01 dB : la courbe plate, sans bosse.
+ */
+export const TONE_Q_DB = 20 * Math.log10(Math.SQRT1_2);
+
 export const clampTone = (v: number): number => (Number.isFinite(v) ? (v < -1 ? -1 : v > 1 ? 1 : v) : 0);
 
 /** Valeur accrochee au centre : entre -4 et +4 (sur 100), elle colle a 0. */
@@ -72,11 +79,11 @@ export function buildTone(c: BaseAudioContext, out: AudioNode, v0: number): Tone
   const nyq = c.sampleRate / 2;
   const hp = c.createBiquadFilter();
   hp.type = 'highpass';
-  hp.Q.value = Math.SQRT1_2;
+  hp.Q.value = TONE_Q_DB;
   hp.frequency.value = toneHpHz(0);
   const lp = c.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.Q.value = Math.SQRT1_2;
+  lp.Q.value = TONE_Q_DB;
   lp.frequency.value = toneLpHz(0, nyq);
   hp.connect(lp);
   const insert = new Insert(c, input, out);

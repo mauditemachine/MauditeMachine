@@ -57,7 +57,7 @@ import { userSamples } from './usersamples';
 import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
 import { DELAY_TONE_HZ, buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type ReverbBus, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
-import { buildTone, pitchFactor, snapTone, toneHpHz, toneLpHz, type ToneInfo, type ToneStage } from './tone';
+import { TONE_Q_DB, buildTone, pitchFactor, snapTone, toneHpHz, toneLpHz, type ToneInfo, type ToneStage } from './tone';
 import { shots, type ShotId, type ShotOverride } from './shots';
 import { Ducker, duckCurve, kickEnvelope, type KickPlay } from './duck';
 import {
@@ -66,6 +66,7 @@ import {
   START_MAX,
   VOICE_FX_DEFAULT,
   atkS,
+  bandGain,
   cutHz,
   decayTau,
   fatkS,
@@ -634,11 +635,12 @@ function attachGlue(c: BaseAudioContext, g: Graph, fx: () => Readonly<Fx>, live:
     .addModule(glueUrl)
     .then(() => {
       const node = new AudioWorkletNode(c, 'mm-glue', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit', channelInterpretation: 'speakers' });
+      // Le noeud d'abord (2026-10-21, audit F15) : setGlue ne retient ses valeurs (debug glue.set) que pour le noeud du graphe
+      g.glue = node;
       setGlue(node, fx());
       node.connect(g.rytmOut);
       g.glueIn.connect(node);
       g.glueIn.disconnect(g.rytmOut);
-      g.glue = node;
       if (live) {
         node.port.onmessage = (e: MessageEvent<{ gr?: unknown }>) => {
           const gr = e.data?.gr;
@@ -1050,7 +1052,7 @@ export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | 
     filter: hitFilter(fx, lock),
     tone: lock?.tone !== undefined ? lock.tone : null,
   };
-  if (!lock) return withPanGain(hp);
+  if (!lock) return withPanGain(withBandGain(hp));
   // Ce que le pas change au kit (R2, R3) : le coup se calcule avec (la variante 0, prepare a l'avance)
   const ko = kitOverride(lock);
   if (ko) {
@@ -1068,8 +1070,14 @@ export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | 
     const was = voiceGain(fx.level);
     hp.gain = was > 1e-6 ? voiceGain(lock.level) / was : 1;
   }
-  return withPanGain(hp);
+  return withPanGain(withBandGain(hp));
 }
+
+/** Le passe-bande et sa RESO (2026-10-21, audit F12) : le gain qui garde la voix a son niveau (voicefx.ts bandGain). */
+const withBandGain = (hp: HitParams): HitParams => {
+  if (hp.filter?.type === 'bandpass') hp.gain *= bandGain(hp.filter.q);
+  return hp;
+};
 
 /** Le PAN hors du centre : le coup passe en mono a puissance constante, x racine de 2 (le niveau du centre). */
 const withPanGain = (hp: HitParams): HitParams => {
@@ -1326,13 +1334,14 @@ function hitEntry(g: Graph, inst: Inst, hp: HitParams, fx: Readonly<VoiceFx>, ga
     dest = ch.drive.input;
     gn *= voiceGain(fx.level);
     if (hp.tone !== 0) {
+      // Q en dB, comme le TONE de la tranche (2026-10-21, audit F13)
       const hpF = c.createBiquadFilter();
       hpF.type = 'highpass';
-      hpF.Q.value = Math.SQRT1_2;
+      hpF.Q.value = TONE_Q_DB;
       hpF.frequency.value = toneHpHz(hp.tone);
       const lpF = c.createBiquadFilter();
       lpF.type = 'lowpass';
-      lpF.Q.value = Math.SQRT1_2;
+      lpF.Q.value = TONE_Q_DB;
       lpF.frequency.value = toneLpHz(hp.tone, c.sampleRate / 2);
       hpF.connect(lpF);
       lpF.connect(dest);

@@ -116,6 +116,14 @@ export const filterType = (v: number): FilterType => FILTER_TYPES[filterIndex(v)
 export const cutHz = (v: number): number => 20 * Math.pow(1000, Math.max(0, Math.min(1, v)));
 /** RESO : le Q du filtre, 0.707 (aucune bosse) a environ 12. */
 export const resoQ = (v: number): number => Math.SQRT1_2 * (1 + 16 * Math.pow(Math.max(0, Math.min(1, v)), 1.5));
+/**
+ * Le gain du passe-bande (2026-10-21, audit F12) : celui de Web Audio a 0 dB au centre, et plus RESO serre la bande,
+ * plus la voix disparaissait (jusqu'a -24 dB). Mesure (un coup de chaque voix, RMS) : la bande posee sur le son perdait
+ * 6 a 13 dB a RESO a fond, posee a cote 24 dB. x (Q / 0.707)^0.35 (+8.6 dB a fond, exactement 1 a RESO 0) : posee sur
+ * le son, la voix reste a +/-3 dB de son niveau a RESO 0 ; posee a cote, elle s'eteint encore (16 dB), le filtre le dit.
+ */
+export const bandGain = (q: number): number => (q > Math.SQRT1_2 ? Math.pow(q / Math.SQRT1_2, 0.35) : 1);
+
 /** ENV : la profondeur de l'enveloppe du filtre, +/-5 octaves de coupure au sommet. */
 export const FENV_OCT = 5;
 /** F.ATK : comme ATK ; F.DEC : la constante de temps de la descente, 10 ms a 1.6 s (le milieu : 126 ms). */
