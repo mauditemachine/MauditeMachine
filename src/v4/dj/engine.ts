@@ -51,6 +51,11 @@ export const djWaveBands = {
 };
 /** Le temps de calcul des bandes avant de rendre la main (ms). */
 const BAND_SLICE_MS = 10;
+/** Un VU qu'on ne lit plus depuis ce temps se debranche (ms) ; rebranche, il rend 0 le temps de se remplir (ms, 2048 echantillons). */
+const METER_IDLE_MS = 1500;
+const METER_FILL_MS = 60;
+/** Un isolateur ou un filtre revenu au centre se debranche une fois son fondu fini (ms, comme un effet a zero). */
+const UNPLUG_MS = 80;
 
 function peakOf(a: AnalyserNode, buf: Float32Array): number {
   a.getFloatTimeDomainData(buf);
@@ -76,6 +81,16 @@ class StereoPeak {
   private a: [AnalyserNode, AnalyserNode];
   private buf: [Float32Array, Float32Array];
   private src: AudioNode | null = null;
+  /**
+   * Branche seulement quand on le lit (2026-10-21, audit) : seize analyseurs
+   * tournaient en permanence des que le moteur existait, la table cachee
+   * comprise. Un VU qu'on ne lit plus depuis IDLE_MS se debranche
+   * (DjMixer.sleepMeters) ; la premiere lecture le rebranche, et rend 0 le
+   * temps que l'analyseur se remplisse de neuf (FILL_MS).
+   */
+  private live = false;
+  private readAt = 0;
+  private liveAt = 0;
 
   constructor(
     private ctx: BaseAudioContext,
@@ -86,21 +101,50 @@ class StereoPeak {
     this.up.connect(this.split);
     this.a = [new AnalyserNode(ctx, { fftSize: 2048 }), new AnalyserNode(ctx, { fftSize: 2048 })];
     this.buf = [new Float32Array(2048), new Float32Array(2048)];
-    this.split.connect(this.a[0], 0);
-    this.split.connect(this.a[1], 1);
-    this.tap(src);
+    this.src = src;
+  }
+
+  /** Les analyseurs branches ou non (sans entree, le navigateur ne les calcule plus). */
+  private plug(on: boolean): void {
+    if (on) {
+      this.src?.connect(this.up);
+      this.split.connect(this.a[0], 0);
+      this.split.connect(this.a[1], 1);
+      return;
+    }
+    try {
+      this.src?.disconnect(this.up);
+    } catch {
+      /* deja debranche */
+    }
+    this.split.disconnect();
   }
 
   /** Mesurer ailleurs (le master du site apres son limiteur). */
   tap(src: AudioNode): void {
-    if (this.src) this.src.disconnect(this.up);
+    if (this.src && this.live) this.src.disconnect(this.up);
     this.src = src;
-    src.connect(this.up);
+    if (this.live) src.connect(this.up);
   }
 
   /** Cretes gauche et droite (lineaires, 1 = 0 dBFS). */
   peaks(): [number, number] {
+    const now = performance.now();
+    this.readAt = now;
+    if (!this.live) {
+      this.plug(true);
+      this.live = true;
+      this.liveAt = now;
+    }
+    if (now - this.liveAt < METER_FILL_MS) return [0, 0];
     return [peakOf(this.a[0], this.buf[0]), peakOf(this.a[1], this.buf[1])];
+  }
+
+  /** Personne ne le lit depuis IDLE_MS : il se debranche. */
+  sleep(now: number): void {
+    if (!this.live || now - this.readAt < METER_IDLE_MS) return;
+    this.plug(false);
+    this.live = false;
   }
 }
 
@@ -131,6 +175,20 @@ export class DjChannel {
   private eqDirect: GainNode;
   private filterPath: GainNode;
   private filterDirect: GainNode;
+  /**
+   * Les chemins de l'isolateur (neuf filtres) et du filtre (deux) ne sont
+   * branches que tournes (2026-10-21, audit) : a zero derriere leur gain, le
+   * navigateur les calculait quand meme. Ils sont debranches des deux cotes
+   * de leur gain d'entree (un filtre relie a un gain muet se calcule encore) :
+   * branches avant leur fondu de 20 ms, debranches UNPLUG_MS apres leur retour
+   * au centre, comme un effet a zero.
+   */
+  private eqOut: GainNode;
+  private eqHeads: [BiquadFilterNode, BiquadFilterNode];
+  private eqOn = false;
+  private eqOff = 0;
+  private filterOn = false;
+  private filterOff = 0;
   private bands = { hi: 0, mid: 0, low: 0 };
   private fader: GainNode;
   private meter: StereoPeak;
@@ -153,11 +211,15 @@ export class DjChannel {
     this.eqPath = new GainNode(ctx, { gain: 0 });
     this.eqDirect = new GainNode(ctx, { gain: 1 });
     const eqOut = new GainNode(ctx);
+    this.eqOut = eqOut;
     const sum = new GainNode(ctx);
-    this.input.connect(this.eqPath);
     this.input.connect(this.eqDirect).connect(eqOut);
-    this.eqPath.connect(f('lowpass', CROSSOVER.low)).connect(f('lowpass', CROSSOVER.low)).connect(f('allpass', CROSSOVER.high)).connect(this.low).connect(sum);
-    const above = this.eqPath.connect(f('highpass', CROSSOVER.low)).connect(f('highpass', CROSSOVER.low));
+    // Les tetes des deux branches : branchees sur eqPath seulement quand l'isolateur sert (plugEq)
+    this.eqHeads = [f('lowpass', CROSSOVER.low), f('highpass', CROSSOVER.low)];
+    this.eqHeads[0].connect(f('lowpass', CROSSOVER.low)).connect(f('allpass', CROSSOVER.high)).connect(this.low).connect(sum);
+    this.input.connect(this.eqPath);
+    for (const h of this.eqHeads) this.eqPath.connect(h);
+    const above = this.eqHeads[1].connect(f('highpass', CROSSOVER.low));
     above.connect(f('lowpass', CROSSOVER.high)).connect(f('lowpass', CROSSOVER.high)).connect(this.mid).connect(sum);
     above.connect(f('highpass', CROSSOVER.high)).connect(f('highpass', CROSSOVER.high)).connect(this.high).connect(sum);
     sum.connect(eqOut);
@@ -177,6 +239,12 @@ export class DjChannel {
     this.fader.connect(this.xf);
     this.xf.connect(this.toFx).connect(out);
     this.xf.connect(this.toDry).connect(dry);
+    // Au repos, l'isolateur et le filtre debranches tout de suite : un filtre debranche (disconnect) s'endort, un
+    // filtre jamais relie se calcule encore (mesure hors ligne, 2026-10-21)
+    this.eqOn = true;
+    this.filterOn = true;
+    this.unplugEq();
+    this.unplugFilter();
   }
 
   /** FX TO : par les effets (true) ou tout droit (false), en 20 ms. */
@@ -194,19 +262,77 @@ export class DjChannel {
     this.bands[band] = v;
     // Les trois au centre : tout droit ; une seule tournee : par l'isolateur
     const flat = Math.abs(this.bands.hi) < 0.005 && Math.abs(this.bands.mid) < 0.005 && Math.abs(this.bands.low) < 0.005;
+    if (!flat) this.plugEq(true);
     glide(this.eqPath.gain, flat ? 0 : 1, this.ctx);
     glide(this.eqDirect.gain, flat ? 1 : 0, this.ctx);
+    if (flat) this.plugEq(false);
+  }
+
+  /** Branche l'isolateur tout de suite, ou le debranche une fois son fondu fini. */
+  private plugEq(on: boolean): void {
+    window.clearTimeout(this.eqOff);
+    if (on) {
+      if (!this.eqOn) {
+        this.input.connect(this.eqPath);
+        for (const h of this.eqHeads) this.eqPath.connect(h);
+      }
+      this.eqOn = true;
+      return;
+    }
+    if (!this.eqOn) return;
+    this.eqOff = window.setTimeout(() => {
+      if (this.eqOn && this.eqPath.gain.value === 0) this.unplugEq();
+    }, UNPLUG_MS);
+  }
+
+  private unplugEq(): void {
+    try {
+      this.input.disconnect(this.eqPath);
+    } catch {
+      /* deja debranche */
+    }
+    this.eqPath.disconnect();
+    this.eqOn = false;
+  }
+
+  private unplugFilter(): void {
+    try {
+      this.eqOut.disconnect(this.filterPath);
+    } catch {
+      /* deja debranche */
+    }
+    this.filterPath.disconnect();
+    this.filterOn = false;
+  }
+
+  /** Branche le filtre tout de suite, ou le debranche une fois son fondu fini. */
+  private plugFilter(on: boolean): void {
+    window.clearTimeout(this.filterOff);
+    if (on) {
+      if (!this.filterOn) {
+        this.eqOut.connect(this.filterPath);
+        this.filterPath.connect(this.lp);
+      }
+      this.filterOn = true;
+      return;
+    }
+    if (!this.filterOn) return;
+    this.filterOff = window.setTimeout(() => {
+      if (this.filterOn && this.filterPath.gain.value === 0) this.unplugFilter();
+    }, UNPLUG_MS);
   }
 
   /** Plat au repos (et court-circuite) ; la resonance (4) seulement quand on le tourne. */
   setFilter(v: number): void {
     const f = filterOf(v);
+    if (f.type !== 'none') this.plugFilter(true);
     glide(this.lp.frequency, f.type === 'low' ? f.freq : 20000, this.ctx);
     glide(this.hp.frequency, f.type === 'high' ? f.freq : 10, this.ctx);
     glide(this.lp.Q, f.type === 'low' ? RESONANCE : BUTTERWORTH_DB, this.ctx);
     glide(this.hp.Q, f.type === 'high' ? RESONANCE : BUTTERWORTH_DB, this.ctx);
     glide(this.filterPath.gain, f.type === 'none' ? 0 : 1, this.ctx);
     glide(this.filterDirect.gain, f.type === 'none' ? 1 : 0, this.ctx);
+    if (f.type === 'none') this.plugFilter(false);
   }
 
   setFader(x: number): void {
@@ -217,6 +343,11 @@ export class DjChannel {
   level(): number {
     const [l, r] = this.meter.peaks();
     return Math.max(l, r);
+  }
+
+  /** Le VU se debranche s'il n'est plus lu (DjMixer.sleepMeters). */
+  sleepMeter(now: number): void {
+    this.meter.sleep(now);
   }
 }
 
@@ -229,6 +360,8 @@ interface Stage {
   wet: GainNode;
   /** l'entree du traitement : branchee seulement quand la dose est au-dessus de zero */
   proc: AudioNode;
+  /** sa sortie : branchee avec elle (2026-10-21, audit : un traitement debranche d'un seul cote se calculait encore) */
+  out: AudioNode;
   on: boolean;
   off: number;
 }
@@ -454,8 +587,8 @@ export class DjFx {
       const sum = new GainNode(ctx);
       pre.connect(dry).connect(sum);
       const { input, output } = this.build(id);
-      output.connect(wet).connect(sum);
-      this.stages.push({ id, pre, dry, wet, proc: input, on: false, off: 0 });
+      wet.connect(sum);
+      this.stages.push({ id, pre, dry, wet, proc: input, out: output, on: false, off: 0 });
       pre = sum;
     }
     pre.connect(this.output);
@@ -546,6 +679,7 @@ export class DjFx {
     const m = fxMix(id, v);
     if (m.wet > 0 && !s.on) {
       window.clearTimeout(s.off);
+      s.out.connect(s.wet);
       s.pre.connect(s.proc);
       s.on = true;
       this.laneOn(id);
@@ -560,6 +694,11 @@ export class DjFx {
         if (s.wet.gain.value > 0 || !s.on) return;
         try {
           s.pre.disconnect(s.proc);
+        } catch {
+          /* deja debranche */
+        }
+        try {
+          s.out.disconnect(s.wet);
         } catch {
           /* deja debranche */
         }
@@ -751,6 +890,14 @@ export class DjMixer {
     // Plus de crossfader (Mika, 2026-10-04) : chaque voie passe entiere, son fader seul compte
     this.ch = Array.from({ length: DJ_CHANNELS_MAX }, () => new DjChannel(ctx, sum, dry));
     for (const c of this.ch) c.xf.gain.value = 1;
+    // Les VU qu'on ne lit plus (la table cachee, une voie pas dessinee) se debranchent
+    window.setInterval(() => this.sleepMeters(), 1000);
+  }
+
+  /** Les VU que personne ne lit depuis METER_IDLE_MS se debranchent (rebranches a la lecture suivante). */
+  sleepMeters(now = performance.now()): void {
+    for (const c of this.ch) c.sleepMeter(now);
+    this.meters.sleep(now);
   }
 
   /**
