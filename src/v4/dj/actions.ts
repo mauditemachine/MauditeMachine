@@ -100,18 +100,37 @@ function heardWeight(s: ReturnType<typeof djState.get>, d: DjDeck): number {
   return s.ch[deckChannel(d)].fader;
 }
 
-/** Le tempo de la platine qu'on entend le plus (crossfader, faders, lecture). */
-export function heardBpm(s = djState.get()): number {
-  let best: DjDeck = 'a';
-  let w = -1;
-  for (const d of DJ_DECKS_ALL) {
+/** La platine qu'on entend le plus parmi celles qui jouent (le fader de sa voie au-dessus de 0), ou null. */
+function heardDeck(s = djState.get()): DjDeck | null {
+  let best: DjDeck | null = null;
+  let w = 0;
+  for (const d of DJ_PLAYERS) {
     const k = heardWeight(s, d);
     if (k > w) {
       w = k;
       best = d;
     }
   }
-  return deckBpm(s, best) ?? 120;
+  return best;
+}
+
+/**
+ * Le tempo qu'on entend (2026-10-21, audit) : celui de la platine qu'on
+ * entend le plus ; sinon celui des machines du site (le MM-RYTM, que le
+ * MM-ARP et le MM-BASS suivent), qu'elles jouent ou non. Avant : 120 BPM, ou
+ * le tempo d'une platine arretee ; au telephone (aucune platine) toujours
+ * 120, le DELAY, le TRANS et le FLANGER du MIXER a cote du RYTM a 130.
+ */
+export function heardBpm(s = djState.get()): number {
+  const d = heardDeck(s);
+  const b = d ? deckBpm(s, d) : null;
+  return b ?? (clock.running ? clock.bpm : pattern.get().bpm);
+}
+
+/** La grille des effets du MIXER : celle de la platine entendue, sinon celle des machines qui jouent ; null : le tempo seul. */
+function fxGrid(t: number): { time: number; step: number; dur: number } | null {
+  const d = heardDeck();
+  return (d ? deckGridAfter(d, t) : null) ?? machinesGrid(t);
 }
 
 /**
@@ -126,8 +145,13 @@ function syncStore(e: DjEngine): void {
   applied = null;
   appliedTo = -2;
   appliedTempo = '';
+  e.mixer.fx.follow(fxGrid);
   apply(e);
   djState.subscribe(() => apply(e));
+  // Le tempo des effets suit aussi les machines (2026-10-21, audit) : leur depart, leur arret, le TEMPO du MM-RYTM
+  clock.subscribe(() => retempo(e));
+  arp.subscribe(() => retempo(e));
+  pattern.subscribe(() => retempo(e));
   for (const d of DJ_PLAYERS) {
     e.decks[d].onEnd = () => djState.setDeck(d, { playing: false });
   }

@@ -17,7 +17,7 @@
 
 import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
-import { reserve } from '../audio/sched';
+import { GUARD_S, TICK_MS, horizon, registerScheduler, reserve } from '../audio/sched';
 import { decodeAudio } from './decode';
 import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, gainDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
 import { DJ_CHANNELS_MAX, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, type DjDeck, type DjFxId } from './theme';
@@ -260,30 +260,163 @@ function room(ctx: AudioContext, seconds: number): AudioBuffer {
 }
 
 /**
+ * L'arete de la porte du TRANS (2026-10-21, audit) : 2 ms de rampe a chaque
+ * ouverture et fermeture. Avant, un oscillateur carre la menait : 0.1 a
+ * 0.2 ms de montee, un clic a chaque coupure sur une basse ou un kick.
+ */
+const EDGE_S = 0.002;
+
+/** Une grille en doubles croches : la premiere frontiere a t ou apres, son rang dans la mesure (0 a 15), sa duree (audio/clock.ts gridAfter). */
+export type FxGrid = (t: number) => { time: number; step: number; dur: number } | null;
+
+/**
+ * Une automation calee sur les temps (2026-10-21, audit) : la porte du
+ * TRANS et le balayage du FLANGER ne sont plus des oscillateurs libres, partis
+ * a la creation du moteur et qui coupaient entre les temps. Leurs points sont
+ * ecrits d'avance sur l'horloge audio, comme les notes des machines
+ * (audio/sched.ts), depuis l'origine d'une mesure de la reference, par
+ * demi-periodes : porte ouverte puis fermee, balayage en triangle (en bas sur
+ * le temps, en haut a mi-chemin). Une autre grille (un tempo, une platine qui
+ * part, les machines qui demarrent) garde ce qui est deja ecrit jusqu'au
+ * prochain point et repart de la : pas de saut, pas de clic.
+ */
+class GridLane {
+  /** les points ecrits (fin de rampe) : leur instant et leur valeur */
+  private pts: { t: number; v: number }[] = [];
+  /** l'instant du dernier point ecrit, et la valeur la */
+  private until = 0;
+  private v = 0;
+  on = false;
+
+  constructor(
+    private param: AudioParam,
+    private rest: number,
+    private kind: 'gate' | 'tri'
+  ) {}
+
+  /** La valeur au debut de la demi-periode h : porte ouverte (1) puis fermee (0) ; triangle en bas (-1) puis en haut (1). */
+  private at(h: number): number {
+    const even = ((h % 2) + 2) % 2 === 0;
+    return this.kind === 'gate' ? (even ? 1 : 0) : even ? -1 : 1;
+  }
+
+  /** La valeur voulue a t (origine o, demi-periode half). */
+  private want(t: number, o: number, half: number): number {
+    const x = (t - o) / half;
+    const h = Math.floor(x + 1e-9);
+    if (this.kind === 'gate') return this.at(h);
+    return this.at(h) + (this.at(h + 1) - this.at(h)) * Math.max(0, Math.min(1, x - h));
+  }
+
+  private push(t: number, v: number): void {
+    this.pts.push({ t, v });
+    if (this.pts.length > 512) this.pts.splice(0, this.pts.length - 512);
+    this.until = t;
+    this.v = v;
+  }
+
+  start(t: number, o: number, half: number): void {
+    this.on = true;
+    this.param.cancelScheduledValues(0);
+    const v = this.want(t, o, half);
+    this.param.setValueAtTime(v, t);
+    this.pts = [];
+    this.push(t, v);
+  }
+
+  stop(now: number): void {
+    if (!this.on) return;
+    this.on = false;
+    this.pts = [];
+    this.param.cancelScheduledValues(0);
+    this.param.setValueAtTime(this.rest, now);
+  }
+
+  /** Une autre grille : on garde jusqu'au premier point a venir (au-dela de GUARD_S), le reste s'efface. */
+  cut(now: number): void {
+    const i = this.pts.findIndex((p) => p.t >= now + GUARD_S);
+    if (i < 0) return;
+    const p = this.pts[i];
+    this.param.cancelScheduledValues(p.t + 1e-6);
+    this.pts.length = i + 1;
+    this.until = p.t;
+    this.v = p.v;
+  }
+
+  /** Ecrit les points jusqu'a to, plus un au-dela (la rampe en cours d'un balayage lent doit exister). */
+  write(now: number, to: number, o: number, half: number): void {
+    if (!this.on || !(half > 0)) return;
+    // Le fil principal a dormi : rien n'est ecrit devant ; on repart d'un point tenu, juste devant
+    if (this.until < now + GUARD_S) {
+      this.param.setValueAtTime(this.v, now + GUARD_S);
+      this.push(now + GUARD_S, this.v);
+    }
+    let h = Math.floor((this.until - o) / half + 1e-9);
+    if (this.kind === 'gate') {
+      // La nouvelle grille veut l'autre etat la ou on reprend : l'arete tout de suite, sauf si la suivante est toute
+      // proche (elle remettrait l'etat d'avant : un eclat de quelques millisecondes)
+      const w = this.at(h);
+      if (w !== this.v && o + (h + 1) * half - this.until > half / 4) this.edge(this.until, w);
+    }
+    for (let guard = 0; this.until <= to && guard < 1024; guard += 1) {
+      h += 1;
+      const t = o + h * half;
+      const v = this.at(h);
+      if (t <= this.until + 1e-6) continue;
+      if (this.kind === 'gate') {
+        if (v !== this.v) this.edge(t, v);
+      } else {
+        // Apres un recalage, un point trop proche est saute : la rampe va au suivant, jamais plus raide que deux fois la normale
+        if (Math.abs(v - this.v) > (4 / half) * (t - this.until)) continue;
+        this.param.linearRampToValueAtTime(v, t);
+        this.push(t, v);
+      }
+    }
+  }
+
+  private edge(t: number, v: number): void {
+    this.param.setValueAtTime(this.v, t);
+    this.param.linearRampToValueAtTime(v, t + EDGE_S);
+    this.push(t + EDGE_S, v);
+  }
+}
+
+/**
  * Sept effets en serie, globaux (Mika les voulait en potards) : chacun son
  * son sec et son son traite, la dose les melange (math.ts fxMix). Le delay,
- * le flanger et le trans suivent le tempo de la platine qu'on entend le
- * plus, au temps choisi (TIME).
+ * le flanger et le trans suivent le tempo de ce qu'on entend (la platine
+ * qu'on entend le plus, sinon les machines du site : dj/actions.ts
+ * heardBpm), au temps choisi (TIME) ; le trans et le flanger tombent sur
+ * ses temps (follow, 2026-10-21).
  */
 export class DjFx {
   readonly input: GainNode;
   readonly output: GainNode;
   private stages: Stage[] = [];
   private echo: DelayNode;
-  private sweep: OscillatorNode;
-  private chop: OscillatorNode;
   private bpm = 120;
   private beats = 1;
   /** l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose) */
   private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode } | null = null;
+  /** la porte du trans et le balayage du flanger, cales sur la grille (GridLane) */
+  private lanes: Partial<Record<'trans' | 'flanger', GridLane>> = {};
+  /** la source du balayage du flanger (-1 a 1) : les tests hors ligne l'ecoutent */
+  private sweepSrc: ConstantSourceNode | null = null;
+  /** la grille de la reference (dj/actions.ts), ou null : le tempo seul, depuis l'instant ou l'effet s'ouvre */
+  private ref: FxGrid | null = null;
+  /** l'origine d'une mesure et la duree d'un temps (s) sur lesquelles les points sont ecrits */
+  private o0 = 0;
+  private b0 = 0;
+  private free = true;
+  private dirty = false;
+  private timer = 0;
+  private unreg: (() => void) | null = null;
 
   constructor(private ctx: AudioContext) {
     this.input = new GainNode(ctx);
     this.output = new GainNode(ctx);
     const t = beatsToSeconds(this.bpm, this.beats);
     this.echo = new DelayNode(ctx, { maxDelayTime: 8, delayTime: t });
-    this.sweep = new OscillatorNode(ctx, { frequency: 1 / (t * 4) });
-    this.chop = new OscillatorNode(ctx, { type: 'square', frequency: 2 / t });
     let pre: AudioNode = this.input;
     for (const id of DJ_FX) {
       const dry = new GainNode(ctx, { gain: 1 });
@@ -296,8 +429,6 @@ export class DjFx {
       pre = sum;
     }
     pre.connect(this.output);
-    this.sweep.start();
-    this.chop.start();
   }
 
   private build(id: DjFxId): { input: AudioNode; output: AudioNode } {
@@ -338,13 +469,18 @@ export class DjFx {
         const d = new DelayNode(ctx, { maxDelayTime: 0.05, delayTime: 0.004 });
         const fb = new GainNode(ctx, { gain: 0.6 });
         d.connect(fb).connect(d);
-        this.sweep.connect(new GainNode(ctx, { gain: 0.0032 })).connect(d.delayTime);
+        // Le balayage : un triangle de -1 a 1 ecrit sur la grille (GridLane), 3.2 ms de part et d'autre de 4 ms
+        const sweep = new ConstantSourceNode(ctx, { offset: 0 });
+        sweep.connect(new GainNode(ctx, { gain: 0.0032 })).connect(d.delayTime);
+        sweep.start();
+        this.sweepSrc = sweep;
+        this.lanes.flanger = new GridLane(sweep.offset, 0, 'tri');
         return { input: d, output: d };
       }
       case 'trans': {
-        // Une porte qui coupe le son au rythme : le carre va de -1 a 1, la porte de 0 a 1
-        const gate = new GainNode(ctx, { gain: 0.5 });
-        this.chop.connect(new GainNode(ctx, { gain: 0.5 })).connect(gate.gain);
+        // Une porte qui coupe le son au rythme : ouverte (1) puis fermee (0), sur la grille (GridLane)
+        const gate = new GainNode(ctx, { gain: 1 });
+        this.lanes.trans = new GridLane(gate.gain, 1, 'gate');
         return { input: gate, output: gate };
       }
       case 'delay': {
@@ -378,6 +514,7 @@ export class DjFx {
       window.clearTimeout(s.off);
       s.pre.connect(s.proc);
       s.on = true;
+      this.laneOn(id);
     }
     glide(s.dry.gain, m.dry, this.ctx);
     glide(s.wet.gain, m.wet, this.ctx);
@@ -392,6 +529,7 @@ export class DjFx {
           /* deja debranche */
         }
         s.on = false;
+        this.laneOff(id);
       }, 80);
     }
   }
@@ -399,12 +537,102 @@ export class DjFx {
   /** Le tempo des effets rythmiques : le BPM entendu et le temps (TIME). */
   tempo(o: { bpm?: number; beats?: number }): void {
     if (o.bpm !== undefined && o.bpm > 0) this.bpm = o.bpm;
-    if (o.beats !== undefined) this.beats = o.beats;
+    if (o.beats !== undefined && o.beats > 0) this.beats = o.beats;
     const t = beatsToSeconds(this.bpm, this.beats);
-    const now = this.ctx.currentTime;
     glide(this.echo.delayTime, Math.min(8, t), this.ctx);
-    this.sweep.frequency.setValueAtTime(1 / Math.max(0.1, t * 4), now);
-    this.chop.frequency.setValueAtTime(2 / Math.max(0.05, t), now);
+    // Le trans et le flanger se recalent au prochain point (GridLane.cut)
+    this.dirty = true;
+    if (this.timer) this.tick();
+  }
+
+  /** La grille sur laquelle le trans et le flanger tombent (dj/actions.ts : la platine entendue, sinon les machines) ; null : le tempo seul. */
+  follow(ref: FxGrid | null): void {
+    this.ref = ref;
+    this.dirty = true;
+  }
+
+  /** Le tempo des effets (BPM), pour l'ecran et les tests. */
+  get tempoBpm(): number {
+    return this.bpm;
+  }
+
+  /**
+   * Ecrit d'avance la porte et le balayage jusqu'a until (temps du contexte) ;
+   * les tests hors ligne s'en servent (aucun minuteur n'avance dans un rendu).
+   */
+  schedule(until: number): void {
+    this.tick(until);
+  }
+
+  /** Demi-periode de la porte (le trans : TIME / 2 par cycle) et du balayage (le flanger : 4 TIME par cycle), en s. */
+  private half(id: 'trans' | 'flanger', beat: number): number {
+    return id === 'trans' ? (this.beats * beat) / 4 : 2 * this.beats * beat;
+  }
+
+  /** La grille du moment : l'origine d'une mesure et la duree d'un temps ; changed si elle n'est plus celle des points ecrits. */
+  private grid(now: number): { o: number; beat: number; changed: boolean } {
+    const g = this.ref?.(now) ?? null;
+    let o: number;
+    let beat: number;
+    if (g && g.dur > 0) {
+      beat = 4 * g.dur;
+      o = g.time - g.step * g.dur;
+    } else {
+      beat = 60 / (this.bpm > 0 ? this.bpm : 120);
+      // Sans reference : l'origine de la grille libre tient tant que le tempo tient
+      o = this.free && this.b0 > 0 ? this.o0 : now;
+    }
+    const bar = 4 * beat;
+    let d = (o - this.o0) % bar;
+    if (d > bar / 2) d -= bar;
+    if (d < -bar / 2) d += bar;
+    const same = !this.dirty && this.b0 > 0 && Math.abs(beat - this.b0) <= this.b0 * 1e-3 && Math.abs(d) < 0.002 && this.free === !g;
+    if (same) return { o: this.o0, beat: this.b0, changed: false };
+    this.o0 = o;
+    this.b0 = beat;
+    this.free = !g;
+    this.dirty = false;
+    return { o, beat, changed: true };
+  }
+
+  private tick = (until?: number): void => {
+    const now = this.ctx.currentTime;
+    const { o, beat, changed } = this.grid(now);
+    const to = until ?? horizon(now);
+    for (const id of ['trans', 'flanger'] as const) {
+      const lane = this.lanes[id];
+      if (!lane?.on) continue;
+      if (changed) lane.cut(now);
+      lane.write(now, to, o, this.half(id, beat));
+    }
+  };
+
+  private laneOn(id: DjFxId): void {
+    if (id !== 'trans' && id !== 'flanger') return;
+    const lane = this.lanes[id];
+    if (!lane || lane.on) return;
+    const now = this.ctx.currentTime;
+    const { o, beat } = this.grid(now);
+    // Tout de suite : le son traite part de zero (son fondu de 20 ms), le premier etat ne s'entend pas basculer
+    lane.start(now, o, this.half(id, beat));
+    // L'autre effet deja ouvert se recale avec lui si la grille vient de changer
+    this.dirty = true;
+    if (!this.timer) {
+      this.timer = window.setInterval(() => this.tick(), TICK_MS);
+      // reserve() (un gros travail du fil principal) les fait ecrire d'avance, comme les notes
+      this.unreg = registerScheduler({ tick: () => this.tick(), reschedule: () => this.tick(), order: 4 });
+    }
+    this.tick();
+  }
+
+  private laneOff(id: DjFxId): void {
+    if (id !== 'trans' && id !== 'flanger') return;
+    this.lanes[id]?.stop(this.ctx.currentTime);
+    if (this.lanes.trans?.on || this.lanes.flanger?.on) return;
+    window.clearInterval(this.timer);
+    this.timer = 0;
+    this.unreg?.();
+    this.unreg = null;
   }
 }
 
