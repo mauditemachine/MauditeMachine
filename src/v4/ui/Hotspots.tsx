@@ -1409,6 +1409,19 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (!t) return;
       soundDrop(Array.from(e.dataTransfer?.files ?? []), t === 'pad' ? null : t);
     };
+    // Un fichier lache a cote de la couche de toucher (l'en-tete, une marge ; 2026-10-21, audit RS-14) : refuse, le
+    // navigateur ne part pas vers lui ; ce qu'un autre element a deja pris (cette couche, le TrackBrowser du MM-DECKS)
+    // reste a lui
+    const onDocOver = (e: DragEvent): void => {
+      if (!isFiles(e) || e.defaultPrevented) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+    };
+    const onDocDrop = (e: DragEvent): void => {
+      if (!isFiles(e) || e.defaultPrevented) return;
+      e.preventDefault();
+      lcdSamples.dragOver(null);
+    };
 
     el.addEventListener('pointerdown', onDown);
     el.addEventListener('pointermove', onMove);
@@ -1422,6 +1435,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     el.addEventListener('dragover', onDragOver);
     el.addEventListener('dragleave', onDragLeave);
     el.addEventListener('drop', onDrop);
+    document.addEventListener('dragover', onDocOver);
+    document.addEventListener('drop', onDocDrop);
     return () => {
       disposed = true;
       fxOpenCancel();
@@ -1447,6 +1462,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       el.removeEventListener('dragover', onDragOver);
       el.removeEventListener('dragleave', onDragLeave);
       el.removeEventListener('drop', onDrop);
+      document.removeEventListener('dragover', onDocOver);
+      document.removeEventListener('drop', onDocDrop);
       lcdSamples.dragOver(null);
       el.style.cursor = '';
       getStage()?.setHover(null);
