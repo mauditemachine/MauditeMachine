@@ -84,9 +84,9 @@ class StereoPeak {
   /**
    * Branche seulement quand on le lit (2026-10-21, audit) : seize analyseurs
    * tournaient en permanence des que le moteur existait, la table cachee
-   * comprise. Un VU qu'on ne lit plus depuis IDLE_MS se debranche
+   * comprise. Un VU qu'on ne lit plus depuis METER_IDLE_MS se debranche
    * (DjMixer.sleepMeters) ; la premiere lecture le rebranche, et rend 0 le
-   * temps que l'analyseur se remplisse de neuf (FILL_MS).
+   * temps que l'analyseur se remplisse de neuf (METER_FILL_MS).
    */
   private live = false;
   private readAt = 0;
@@ -140,7 +140,7 @@ class StereoPeak {
     return [peakOf(this.a[0], this.buf[0]), peakOf(this.a[1], this.buf[1])];
   }
 
-  /** Personne ne le lit depuis IDLE_MS : il se debranche. */
+  /** Personne ne le lit depuis METER_IDLE_MS : il se debranche. */
   sleep(now: number): void {
     if (!this.live || now - this.readAt < METER_IDLE_MS) return;
     this.plug(false);
