@@ -49,7 +49,7 @@
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
-import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, extraGrid, horizon, registerScheduler, type Scheduler } from '../audio/sched';
 import { noteOn, synthBeat, synthCancel, synthStop } from '../audio/synth';
 import { SWING } from '../theme';
 import { CHORDS, degreeMidi } from './chords';
@@ -328,7 +328,8 @@ function start(): boolean {
   const c = context();
   if (!c || c.state === 'closed') return false;
   const now = c.currentTime;
-  const g = clock.gridAfter(now + 0.02);
+  // Le MM-RYTM qui joue, sinon la basse seule (audio/sched.ts extraGrid, 2026-10-21) : memes temps, memes mesures
+  const g = clock.gridAfter(now + 0.02) ?? extraGrid(now + 0.02);
   if (g) {
     nextTime = g.time;
     stepIdx = g.step;

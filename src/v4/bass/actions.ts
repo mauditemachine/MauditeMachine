@@ -114,11 +114,15 @@ export const bassEditing = (): boolean => editor.get() === 'bass';
 
 export function bassRun(): void {
   gesture();
-  if (bassSeq.running) {
+  if (bassSeq.running || bassSeq.waiting) {
     bassSeq.stop();
     return;
   }
-  void bassEngine.ensure().then(() => bassSeq.start());
+  // Le son du MM-BASS n'a pas pu se charger (2026-10-21, audit) : l'ecran le dit, un autre RUN reessaie
+  void bassEngine.ensure().then((g) => {
+    if (g) bassSeq.start();
+    else bassState.say('NO BASS SOUND YET: PRESS RUN AGAIN', 3000);
+  });
 }
 
 /**

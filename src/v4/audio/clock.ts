@@ -50,7 +50,7 @@ import { kit } from './kit';
 import { cancelVoice, context, mix, trigger, type Voice } from './drums';
 import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from './pattern';
 import { lockOf, type Locks } from './locks';
-import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from './sched';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, extraGrid, horizon, registerScheduler, type Scheduler } from './sched';
 
 export { LOOKAHEAD_S, TICK_MS } from './sched';
 /** Premier pas 50 ms apres RUN : le debut se programme proprement. */
@@ -432,7 +432,8 @@ function start(): boolean {
   bpm = pattern.get().bpm;
   stepDur = stepDuration(bpm);
   pendingDur = 0;
-  const g = follow ? follow(c.currentTime + START_DELAY_S) : null;
+  // L'arpege qui joue deja, sinon la basse seule (audio/sched.ts extraGrid, 2026-10-21)
+  const g = (follow ? follow(c.currentTime + START_DELAY_S) : null) ?? extraGrid(c.currentTime + START_DELAY_S);
   anchor = g ? g.time : c.currentTime + START_DELAY_S;
   nextTime = anchor;
   n = 0;

@@ -18,6 +18,7 @@ import { focus } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
 import { voyMsg } from '../voyager/msg';
 import { routeMachines } from '../audio/drums';
+import { extraGrid } from '../audio/sched';
 import { sc } from '../audio/soundcloud';
 import { startRing } from '../sampler/ring';
 import { MASTER_DEFAULT, NUDGE_MAX, djEngine, djEngineIfAny, whenDjEngine, type DjEngine } from './engine';
@@ -769,10 +770,10 @@ export function djTempoStep(d: DjDeck, dir: -1 | 1, step = TEMPO_STEP): void {
 
 /* ---------------- SYNC ---------------- */
 
-/** Les machines du site jouent (le MM-RYTM, ou l'arpege seul) : elles font la reference des platines. */
-export const machinesOn = (): boolean => clock.running || arp.get().running;
-/** Leur grille en doubles croches apres t (celle du MM-RYTM, sinon celle de l'arpege). */
-const machinesGrid = (t: number): { time: number; step: number; dur: number } | null => clock.gridAfter(t) ?? arp.grid(t);
+/** Les machines du site jouent (le MM-RYTM, l'arpege seul, ou la basse seule depuis le 2026-10-21) : elles font la reference des platines. */
+export const machinesOn = (): boolean => clock.running || arp.get().running || !!bassLoad.get()?.bassSeq.running;
+/** Leur grille en doubles croches apres t (celle du MM-RYTM, sinon celle de l'arpege, sinon celle de la basse : audio/sched.ts extraGrid). */
+const machinesGrid = (t: number): { time: number; step: number; dur: number } | null => clock.gridAfter(t) ?? arp.grid(t) ?? extraGrid(t);
 /** Leur tempo. */
 const machinesBpm = (): number => (clock.running ? clock.bpm : pattern.get().bpm);
 
@@ -1181,6 +1182,18 @@ function watchMachines(): void {
   };
   clock.subscribe(check);
   arp.subscribe(check);
+  // La basse aussi, une fois son code arrive (2026-10-21) : seule, elle fait la reference des platines
+  const onBass = (): boolean => {
+    const m = bassLoad.get();
+    if (!m) return false;
+    m.bassState.subscribe(check);
+    return true;
+  };
+  if (!onBass()) {
+    const off = bassLoad.subscribe(() => {
+      if (onBass()) off();
+    });
+  }
   pattern.subscribe(() => {
     const b = machinesBpm();
     if (Math.abs(b - bpm) < 1e-6) return;
@@ -1244,7 +1257,7 @@ export function mixBeat(): { last: number; period: number; index: number | null 
       return { last: now + b.in - b.period, period: b.period, index: ((idx % 4) + 4) % 4 };
     }
   }
-  const g = clock.gridAfter(now) ?? arp.grid(now);
+  const g = machinesGrid(now);
   if (!g) return null;
   const k = (4 - (g.step % 4)) % 4;
   const next = g.time + k * g.dur;

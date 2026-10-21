@@ -31,7 +31,7 @@
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
-import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerGrid, registerScheduler, type Scheduler } from '../audio/sched';
 import { SWING } from '../theme';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
@@ -110,6 +110,11 @@ let n = 0;
 let stepDur = 60 / pattern.get().bpm / 4;
 let nextTime = 0;
 let stepIdx = 0;
+/**
+ * le rang dans la mesure (0 a 15) du prochain pas, meme quand la ligne est plus courte (2026-10-21) : la grille qu'un
+ * RUN du MM-RYTM ou du MM-ARP rejoint quand la basse joue seule (bassGrid)
+ */
+let barStep = 0;
 /** la note tenue a la fin du dernier pas programme (SLIDE, TIE) */
 let holding = false;
 let ring: { when: number; step: number }[] = [];
@@ -117,11 +122,23 @@ let ring: { when: number; step: number }[] = [];
 let firstBar = true;
 /** un pattern se pose (EDIT) : sa ligne n'est pas une edition a re-programmer */
 let switching = false;
-const plan: { time: number; stepIdx: number; anchor: number; n: number; stepDur: number; holding: boolean }[] = [];
+const plan: { time: number; stepIdx: number; barStep: number; anchor: number; n: number; stepDur: number; holding: boolean }[] = [];
 
 function gridOf(t: number): { time: number; step: number; dur: number } | null {
   return clock.gridAfter(t) ?? arp.grid(t);
 }
+
+/**
+ * La grille de la basse qui joue seule (2026-10-21, audit) : la premiere frontiere de pas a t ou apres, son rang dans
+ * la mesure, sa duree ; null si le MM-RYTM ou le MM-ARP jouent (la basse suit alors leur grille). Inscrite dans
+ * audio/sched.ts : un RUN du MM-RYTM ou du MM-ARP part dessus, les platines et le sampler s'y calent.
+ */
+function bassGrid(t: number): { time: number; step: number; dur: number } | null {
+  if (!running || clock.running || arp.get().running || !(stepDur > 0)) return null;
+  const k = Math.ceil((t - nextTime) / stepDur - 1e-9);
+  return { time: nextTime + k * stepDur, step: (((barStep + k) % 16) + 16) % 16, dur: stepDur };
+}
+registerGrid(bassGrid);
 
 /** Le relachement d'une note a when + gate ; s'il atteint le pas suivant (a 1 ms pres), la note reste tenue : ce pas la relache a son heure. */
 function endNote(when: number, gate: number): void {
@@ -188,6 +205,7 @@ function advance(): void {
     // pas de plus par pas de la grille (polymetrique, comme les longueurs de piste d'une Elektron)
     const k = Math.max(1, Math.round((g.time - nextTime) / g.dur));
     stepIdx = L === BASS_STEPS ? g.step % BASS_STEPS : (stepIdx + k) % L;
+    barStep = g.step % 16;
     nextTime = g.time;
     stepDur = g.dur;
     anchor = nextTime;
@@ -205,6 +223,7 @@ function advance(): void {
     nextTime = anchor + n * stepDur;
   }
   stepIdx = (stepIdx + 1) % L;
+  barStep = (barStep + 1) % 16;
 }
 
 /** La longueur de la ligne (2026-10-10), 1 a 16 pas. */
@@ -224,7 +243,7 @@ function tick(): void {
   const until = horizon(now);
   for (let guard = 0; nextTime < until && guard < 96; guard += 1) {
     if (nextTime >= now - DROP_AFTER_S) {
-      plan.push({ time: nextTime, stepIdx, anchor, n, stepDur, holding });
+      plan.push({ time: nextTime, stepIdx, barStep, anchor, n, stepDur, holding });
       scheduleStep();
     }
     advance();
@@ -245,6 +264,7 @@ function reschedule(): void {
   ring = ring.filter((e) => e.when < s.time);
   nextTime = s.time;
   stepIdx = s.stepIdx;
+  barStep = s.barStep;
   anchor = s.anchor;
   n = s.n;
   stepDur = s.stepDur;
@@ -287,21 +307,59 @@ pattern.fx.subscribe(() => {
   ask();
 });
 
+/**
+ * RUN pendant que le contexte dort (2026-10-21, audit ; comme audio/clock.ts depuis le 2026-10-08) : un RUN du Roto
+ * juste apres le chargement, sans clic sur la page, trouvait le contexte 'suspended' ; la basse se disait en marche,
+ * le temps etait gele, rien ne sonnait. Desormais elle attend que le contexte tourne (le premier clic sur la page le
+ * reveille), dans les 20 s ; d'ici la running reste faux, et STOP annule l'attente.
+ */
+let waitCtx: AudioContext | null = null;
+let waitTimer = 0;
+const WAIT_MS = 20000;
+
+function cancelWait(): void {
+  if (!waitCtx) return;
+  waitCtx.removeEventListener('statechange', onCtxState);
+  waitCtx = null;
+  window.clearTimeout(waitTimer);
+}
+
+function onCtxState(): void {
+  const c = waitCtx;
+  if (!c) return;
+  if (c.state === 'closed') cancelWait();
+  if (c.state !== 'running') return;
+  cancelWait();
+  bassSeq.start();
+}
+
 export const bassSeq = {
   start(): boolean {
     if (running) return true;
     const c = context();
     if (!c || c.state === 'closed') return false;
+    if (c.state !== 'running') {
+      if (waitCtx !== c) {
+        cancelWait();
+        waitCtx = c;
+        c.addEventListener('statechange', onCtxState);
+        waitTimer = window.setTimeout(cancelWait, WAIT_MS);
+      }
+      return false;
+    }
+    cancelWait();
     const now = c.currentTime;
     const g = gridOf(now + 0.02);
     if (g) {
       nextTime = g.time;
       stepIdx = g.step % lineLen();
+      barStep = g.step % 16;
       stepDur = g.dur;
     } else {
       stepDur = 60 / pattern.get().bpm / 4;
       nextTime = now + START_DELAY_S;
       stepIdx = 0;
+      barStep = 0;
     }
     anchor = nextTime;
     n = 0;
@@ -316,6 +374,7 @@ export const bassSeq = {
     return true;
   },
   stop(): void {
+    cancelWait();
     if (!running) return;
     running = false;
     window.clearInterval(timer);
@@ -330,6 +389,12 @@ export const bassSeq = {
   get running(): boolean {
     return running;
   },
+  /** Un RUN attend que le son se reveille (le contexte dort encore). */
+  get waiting(): boolean {
+    return waitCtx !== null;
+  },
+  /** La grille de la basse qui joue seule (bassGrid), ou null. */
+  grid: bassGrid,
   /** Le pas sous la tete de lecture a t (temps du contexte), -1 a l'arret. */
   stepAt(t: number): number {
     if (!running) return -1;
