@@ -7,8 +7,11 @@
  *
  * Bypass reel : un envoi a 0 est debranche de sa source 60 ms apres sa
  * rampe ; l'unite se construit au premier envoi au-dessus de 0. Le delay,
- * boucle de reinjection, s'arrete tout a fait 8 s apres le dernier envoi
- * revenu a 0 (sa queue s'est eteinte) : au repos, rien ne tourne.
+ * boucle de reinjection, s'arrete tout a fait quand sa queue s'est eteinte
+ * apres le dernier envoi revenu a 0 (2026-10-21, audit F2 : 8 s fixes
+ * avant, une traine a 87 % coupee net encore a -8 dB ; desormais le temps
+ * qu'il faut a la boucle pour descendre de 100 dB, 8 s au moins, et sa
+ * sortie s'efface en 50 ms avant d'etre debranchee) : au repos, rien ne tourne.
  *
  * REVERB : la reponse de fx.ts (bruit stereo, 2.4 s), generee une fois,
  * gardee apres silence(). DELAY : croche pointee (3 pas) calee sur le
@@ -26,11 +29,29 @@
  */
 
 import { GLIDE_S, IR_DEFAULT, glide, makeImpulse, type IrShape } from './fx';
+import { POINT_S, pointAt } from './glide';
 import { UNLINK_MS } from './insert';
 
-/** Envoi a 1 : REVERB 1.0 (reponse d'energie unite), DELAY 0.9. */
+/**
+ * Envoi a 1 : REVERB 1.0 (reponse d'energie unite), DELAY 1.2 depuis le 2026-10-21 (0.9 avant) : les filtres de la
+ * boucle bossaient de +1.7 dB pres de leurs coupures (BUTTER_Q_DB), la ou les coups ont leur energie ; plats, le
+ * premier echo perdait 2.5 dB en moyenne sur les voix du kit (1 a 3.5 dB) ; l'envoi les rend, le premier echo sonne
+ * comme avant, les suivants decroissent de ce que dit FEEDBACK.
+ */
 const REVERB_SEND = 1.0;
-const DELAY = { send: 0.9, feedback: 0.58, lowpass: 4500, highpass: 180, steps: 3, maxS: 2, idleMs: 8000 } as const;
+/**
+ * xfadeS (2026-10-21, audit F6) : un nouveau TIME (ou un nouveau tempo) passe d'une lecture a l'autre en fondu
+ * lineaire de 60 ms (la somme des deux reste 1 : la boucle ne depasse jamais sa reinjection) ; fadeS : la sortie
+ * qui s'efface avant l'arret de l'unite ; idleDb : la queue est eteinte 100 dB sous son depart.
+ */
+const DELAY = { send: 1.2, feedback: 0.58, lowpass: 4500, highpass: 180, steps: 3, maxS: 2, idleMs: 8000, xfadeS: 0.06, fadeS: 0.05, idleDb: 100 } as const;
+/**
+ * Le Q Butterworth des filtres de la boucle, EN dB (2026-10-21, audit F1) : pour un passe-bas et un passe-haut, Web
+ * Audio lit Q en dB ; Math.SQRT1_2 (0.707) y valait +0.7 dB, une bosse de +1.7 dB pres de chaque coupure, et la
+ * boucle passait au-dessus de 1 des FEEDBACK 113/127 : le DELAY s'emballait (+5 dB/s a fond). A -3.01 dB, la cascade
+ * des deux filtres reste sous 0.999 a toutes les coupures de TONE : la boucle ne depasse jamais FEEDBACK (0.87 au plus).
+ */
+export const BUTTER_Q_DB = 20 * Math.log10(Math.SQRT1_2);
 /** DELAY TONE au depart (2026-10-10) : le passe-bas des echos d'avant. */
 export const DELAY_TONE_HZ = DELAY.lowpass;
 /**
@@ -104,7 +125,8 @@ export interface SendBus {
 
 interface Unit {
   input: AudioNode;
-  dispose(): void;
+  /** soft : la sortie s'efface d'abord (l'arret au repos) ; sinon tout part tout de suite (demontage) */
+  dispose(soft?: boolean): void;
 }
 
 /** Un point d'un coup sur un envoi (revue de R2) : a `when`, la valeur v (null : celle de l'envoi), pose par `tag`. */
@@ -127,13 +149,16 @@ interface SendState {
 /**
  * Le bus generique : `make` construit l'unite (entree, sortie deja reliee
  * a out), `scale` l'envoi a 1. idleMs : delai d'arret de l'unite quand
- * plus aucun envoi n'est branche (Infinity : jamais).
+ * plus aucun envoi n'est branche (Infinity : jamais) ; une fonction depuis
+ * le 2026-10-21 (le delay : le temps que sa queue s'eteigne), relue par
+ * rearmIdle quand ce temps change pendant l'attente.
  */
-function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: number, extra: () => Partial<BusInfo>): SendBus {
+function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: number | (() => number), extra: () => Partial<BusInfo>): SendBus & { rearmIdle(): void } {
   let unit: Unit | null = null;
   const sends: SendState[] = [];
   let unlinks = 0;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const idleOf = (): number => (typeof idleMs === 'function' ? idleMs() : idleMs);
 
   const ensureUnit = (): Unit => {
     clearTimeout(idleTimer);
@@ -143,14 +168,15 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
   };
 
   const maybeIdle = (): void => {
-    if (!Number.isFinite(idleMs) || !unit || sends.some((s) => s.linked)) return;
+    const ms = idleOf();
+    if (!Number.isFinite(ms) || !unit || sends.some((s) => s.linked)) return;
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
       idleTimer = undefined;
       if (!unit || sends.some((s) => s.linked)) return;
-      unit.dispose();
+      unit.dispose(true);
       unit = null;
-    }, idleMs);
+    }, ms);
   };
 
   const link = (s: SendState): void => {
@@ -200,10 +226,14 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
   };
   /** Un point au-dessus de 0 (en cours ou a venir) : l'envoi doit rester branche. */
   const hasLive = (s: SendState): boolean => s.pts.some((p) => effOf(s, p) > 0);
-  /** Les points a venir reposes sur le gain (apres une rampe ou une annulation qui les a effaces). */
+  /** La valeur juste avant le point k (celle du point d'avant, sinon celle de l'envoi). */
+  const before = (s: SendState, k: number): number => (k > 0 ? effOf(s, s.pts[k - 1]) : s.value);
+  /** Les points a venir reposes sur le gain (apres une rampe ou une annulation qui les a effaces), chacun en rampe de 3 ms. */
   const repost = (s: SendState, from: number): void => {
     if (!s.gain) return;
-    for (const p of s.pts) if (p.when > from) s.gain.gain.setValueAtTime(scale * effOf(s, p), p.when);
+    s.pts.forEach((p, k) => {
+      if (p.when > from && s.gain) pointAt(s.gain.gain, scale * before(s, k), scale * effOf(s, p), p.when, c);
+    });
   };
   /** Le debranchement d'un envoi revenu a 0 (ms : apres sa rampe, ou apres le dernier point). */
   const unlinkLater = (s: SendState, ms: number): void => {
@@ -255,10 +285,15 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
           if (eff === valueAt(s, when)) return false;
           if (eff > 0) link(s);
           if (!s.gain) return false;
-          s.gain.gain.setValueAtTime(scale * eff, when);
           let i = s.pts.length;
           while (i > 0 && s.pts[i - 1].when > when) i -= 1;
           s.pts.splice(i, 0, { when, v: lv, tag });
+          // Une rampe de 3 ms qui finit au coup (2026-10-21, audit F14) : la queue d'avant ne prend plus de marche ;
+          // les points d'apres (un coup glisse avant eux) repartent de celui-ci
+          const g = s.gain.gain;
+          s.pts.forEach((p, k) => {
+            if (k >= i) pointAt(g, scale * before(s, k), scale * effOf(s, p), p.when, c);
+          });
           // Revenu a 0 (la voix sans envoi, apres un coup verrouille) : debranche une fois ce point passe
           if (eff === 0 && s.value === 0) unlinkLater(s, Math.max(0, when - c.currentTime) * 1000 + UNLINK_MS);
           return true;
@@ -269,15 +304,18 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
           const t0 = s.pts[i].when;
           s.pts.splice(i, 1);
           if (!s.gain) return;
-          // Le gain repart de ce qui vaut sans ce point, puis les points qui restent apres lui
+          // Le gain repart de ce qui vaut sans ce point (sa rampe de 3 ms comprise), puis les points qui restent apres lui
           const from = Math.max(t0, c.currentTime);
           const g = s.gain.gain;
-          g.cancelScheduledValues(from);
+          g.cancelScheduledValues(Math.max(t0 - POINT_S, c.currentTime));
           g.setValueAtTime(scale * valueAt(s, from), from);
           repost(s, from);
         },
         info: () => ({ value: s.value, linked: s.linked, points: s.pts.length }),
       };
+    },
+    rearmIdle() {
+      if (idleTimer !== undefined) maybeIdle();
     },
     silence() {
       clearTimeout(idleTimer);
@@ -498,60 +536,148 @@ export interface DelayBus extends SendBus {
 const delayTone = (hz: number): number => (Number.isFinite(hz) ? Math.max(200, Math.min(20000, hz)) : DELAY.lowpass);
 
 /** DELAY : cale sur le tempo (la croche pointee au depart), reinjection filtree. */
+/*
+ * 2026-10-21 (audit F1, F2, F6) : la boucle reste sous 1 (BUTTER_Q_DB) ; deux lectures de la meme ligne, l'une
+ * entendue (gain 1), l'autre muette : un nouveau TIME ou un nouveau tempo se pose sur la muette, puis les deux se
+ * croisent en 60 ms (avant, une rampe de 20 ms du retard balayait la lecture jusqu'a 30 fois sa vitesse : un "zip"
+ * de +25 a +30 dB sur les echos, re-injecte par la boucle) ; la reinjection part apres le fondu, la somme des deux
+ * gains reste 1. Au repos, l'unite attend que sa queue soit 100 dB plus bas (idleMs), puis sa sortie s'efface.
+ *
+ *   entree -> somme -> lecture A (gain a) -+-> passe-bas -> passe-haut -+-> sortie (fondu d'arret) -> out
+ *                   -> lecture B (gain b) -+                            +-> reinjection -> somme
+ */
 export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number, div0: number = DELAY.steps, fb0: number = DELAY.feedback, tone0: number = DELAY.lowpass): DelayBus {
   let step = stepS;
   let div = div0;
   let feedback = Math.max(0, Math.min(0.9, fb0));
   let time = Math.min(DELAY.maxS, div * step);
   let lowpass = delayTone(tone0);
-  let node: DelayNode | null = null;
-  let fbNode: GainNode | null = null;
-  let lpNode: BiquadFilterNode | null = null;
+  /** l'unite construite : ses deux lectures, leurs gains, leurs retards, celle qu'on entend, la fin du fondu en cours */
+  let live: {
+    taps: DelayNode[];
+    gains: GainNode[];
+    times: number[];
+    active: number;
+    fadeEnd: number;
+    timer: ReturnType<typeof setTimeout> | undefined;
+    fb: GainNode;
+    lp: BiquadFilterNode;
+  } | null = null;
+  /** Le temps que la queue met a descendre de idleDb (ms), 8 s au moins : la boucle perd 1 - FEEDBACK par tour. */
+  const idleMs = (): number => {
+    const g = Math.max(1e-3, Math.min(0.999, feedback));
+    const rounds = (DELAY.idleDb / 20) * Math.log(10) / -Math.log(g);
+    return Math.max(DELAY.idleMs, Math.ceil(rounds * time * 1000) + 500);
+  };
   const bus = sendBus(
     c,
     () => {
       const input = c.createGain();
-      const d = c.createDelay(DELAY.maxS);
-      d.delayTime.value = time;
+      const sum = c.createGain();
+      input.connect(sum);
       const lp = c.createBiquadFilter();
       lp.type = 'lowpass';
       // Nyquist au plus : un 12 kHz a 22.05 kHz d'echantillonnage reste un filtre (le parametre se borne de lui-meme)
       lp.frequency.value = Math.min(lowpass, c.sampleRate / 2);
-      lp.Q.value = Math.SQRT1_2;
-      lpNode = lp;
+      lp.Q.value = BUTTER_Q_DB;
       const hp = c.createBiquadFilter();
       hp.type = 'highpass';
       hp.frequency.value = DELAY.highpass;
-      hp.Q.value = Math.SQRT1_2;
+      hp.Q.value = BUTTER_Q_DB;
+      const taps: DelayNode[] = [];
+      const gains: GainNode[] = [];
+      for (let k = 0; k < 2; k += 1) {
+        const d = c.createDelay(DELAY.maxS);
+        d.delayTime.value = time;
+        const g = c.createGain();
+        g.gain.value = k === 0 ? 1 : 0;
+        sum.connect(d);
+        d.connect(g);
+        g.connect(lp);
+        taps.push(d);
+        gains.push(g);
+      }
       const fb = c.createGain();
       fb.gain.value = feedback;
-      fbNode = fb;
-      input.connect(d);
-      d.connect(lp);
+      const o = c.createGain();
       lp.connect(hp);
       hp.connect(fb);
-      fb.connect(d);
-      hp.connect(out);
-      node = d;
+      fb.connect(sum);
+      hp.connect(o);
+      o.connect(out);
+      const u = { taps, gains, times: [time, time], active: 0, fadeEnd: 0, timer: undefined as ReturnType<typeof setTimeout> | undefined, fb, lp };
+      live = u;
+      const nodes: AudioNode[] = [input, sum, lp, hp, fb, o, ...taps, ...gains];
       return {
         input,
-        dispose() {
-          for (const n of [input, d, lp, hp, fb]) n.disconnect();
-          node = null;
-          fbNode = null;
-          lpNode = null;
+        dispose(soft = false) {
+          clearTimeout(u.timer);
+          if (live === u) live = null;
+          if (!soft) {
+            for (const n of nodes) n.disconnect();
+            return;
+          }
+          // La sortie et la boucle s'effacent en 50 ms (temps du contexte), puis tout part
+          const now = c.currentTime;
+          const end = now + DELAY.fadeS;
+          for (const p of [o.gain, fb.gain]) {
+            p.cancelScheduledValues(now);
+            p.setValueAtTime(p.value, now);
+            p.linearRampToValueAtTime(0, end);
+          }
+          input.disconnect();
+          const drop = (): void => {
+            if (c.currentTime < end && c.state !== 'closed') {
+              setTimeout(drop, 30);
+              return;
+            }
+            for (const n of nodes) n.disconnect();
+          };
+          setTimeout(drop, DELAY.fadeS * 1000 + 20);
         },
       };
     },
     DELAY.send,
-    DELAY.idleMs,
+    idleMs,
     () => ({ delayS: Math.round(time * 1000) / 1000, toneHz: Math.round(lowpass) })
   );
+  /** Le TIME voulu sur la lecture muette, puis le fondu ; un fondu deja en cours : le suivant part a sa fin. */
+  const crossfade = (): void => {
+    const u = live;
+    if (!u) return;
+    clearTimeout(u.timer);
+    u.timer = undefined;
+    const now = c.currentTime;
+    if (now < u.fadeEnd) {
+      u.timer = setTimeout(crossfade, Math.max(20, (u.fadeEnd - now) * 1000 + 5));
+      return;
+    }
+    if (u.times[u.active] === time) return;
+    const was = u.active;
+    const nxt = 1 - was;
+    const end = now + DELAY.xfadeS;
+    const d = u.taps[nxt].delayTime;
+    d.cancelScheduledValues(now);
+    d.setValueAtTime(time, now);
+    u.times[nxt] = time;
+    for (const [k, from, to] of [
+      [was, 1, 0],
+      [nxt, 0, 1],
+    ] as const) {
+      const g = u.gains[k].gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(from, now);
+      g.linearRampToValueAtTime(to, end);
+    }
+    u.active = nxt;
+    u.fadeEnd = end;
+  };
   const retime = (): void => {
     const t = Math.min(DELAY.maxS, div * step);
     if (t === time) return;
     time = t;
-    if (node) glide(node.delayTime, t, c);
+    crossfade();
+    bus.rearmIdle();
   };
   return {
     ...bus,
@@ -568,13 +694,14 @@ export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number
       const v = Math.max(0, Math.min(0.9, Number.isFinite(f) ? f : DELAY.feedback));
       if (v === feedback) return;
       feedback = v;
-      if (fbNode) glide(fbNode.gain, v, c);
+      if (live) glide(live.fb.gain, v, c);
+      bus.rearmIdle();
     },
     setTone(hz: number) {
       const v = delayTone(hz);
       if (v === lowpass) return;
       lowpass = v;
-      if (lpNode) glide(lpNode.frequency, Math.min(v, c.sampleRate / 2), c);
+      if (live) glide(live.lp.frequency, Math.min(v, c.sampleRate / 2), c);
     },
   };
 }
