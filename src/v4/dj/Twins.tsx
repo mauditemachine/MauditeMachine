@@ -79,12 +79,15 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     };
   }, [stage, ready]);
 
-  useEffect(() => {
+  // 2026-10-21 (audit) : le groupe n'existe qu'une fois le rig accroche (ready) ; avec [off] seul, l'effet passait
+  // avant lui et ne revenait jamais : les jumeaux caches restaient focusables, Tab y entrait et la page partait
+  // au noir. Pose avant l'image (layout), comme le MM-BASS ([off, ready]).
+  useLayoutEffect(() => {
     const el = groupRef.current;
     if (!el) return;
     if (off) el.setAttribute('inert', '');
     else el.removeAttribute('inert');
-  }, [off]);
+  }, [off, ready]);
 
   const refFor = (id: string): ((el: HTMLElement | null) => void) => {
     let fn = refs.current.get(id);

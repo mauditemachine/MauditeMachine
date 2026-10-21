@@ -100,7 +100,11 @@ html:has(body.v4-active) {
   height: 100vh;
   height: 100dvh;
   max-width: 100vw;
+  /* 2026-10-21 (audit) : hidden laisse defiler par le code (un focus sur un jumeau hors champ poussait toute
+     la page de 2420 px, ecran noir) ; clip n'est pas un conteneur de defilement. hidden reste pour Safari < 16,
+     ou un ecouteur de index.tsx ramene le defilement a 0. */
   overflow: hidden;
+  overflow: clip;
   background: var(--ink);
   color: var(--bone);
   font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;

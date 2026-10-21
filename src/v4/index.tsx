@@ -473,6 +473,22 @@ const V4Shell: React.FC = () => {
   const hostRef = useRef<HTMLDivElement>(null);
   const stageElRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /*
+   * La racine ne defile jamais (2026-10-21, audit) : overflow: clip (v4.css) l'interdit deja ; Safari < 16 ne le
+   * connait pas, un focus ou un scrollIntoView sur une commande hors champ y pousserait toute la page (en-tete,
+   * selecteur et ecran partis, page noire). Le moindre defilement revient a 0.
+   */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+    const pin = (): void => {
+      if (root.scrollTop !== 0) root.scrollTop = 0;
+      if (root.scrollLeft !== 0) root.scrollLeft = 0;
+    };
+    root.addEventListener('scroll', pin, { passive: true });
+    return () => root.removeEventListener('scroll', pin);
+  }, []);
   const [stage, setStage] = useState<Stage | null>(null);
   const [devErrors, setDevErrors] = useState<string[]>([]);
   /**
@@ -608,6 +624,7 @@ const V4Shell: React.FC = () => {
 
   return (
     <div
+      ref={rootRef}
       className="v4-root"
       style={{ position: 'fixed' }}
       data-v4-state={gl === 'fallback' ? 'nogl' : running ? 'running' : instrument ? 'selected' : 'idle'}
