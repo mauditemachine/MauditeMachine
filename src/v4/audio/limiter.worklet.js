@@ -21,6 +21,9 @@ const CEILING = Math.pow(10, -0.3 / 20);
 const LOOK_S = 0.003;
 const RELEASE_S = 0.12;
 
+/** Le plafond tenu a l'echantillon pres (2026-10-21) : la moyenne glissante le tient deja, ceci n'agit qu'en cas extreme. */
+const clampOut = (y) => (y > CEILING ? CEILING : y < -CEILING ? -CEILING : y === y ? y : 0);
+
 class MMLimiter extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -35,8 +38,10 @@ class MMLimiter extends AudioWorkletProcessor {
     this.qHead = 0;
     this.qLen = 0;
     this.n = 0;
-    // Moyenne glissante du gain
-    this.box = new Float32Array(L).fill(1);
+    // Moyenne glissante du gain. En double (2026-10-21, audit M1) : la somme glissante (un nombre JS, double) ajoutait
+    // chaque gain en double et retirait plus tard sa copie arrondie en float32 ; le residu s'accumulait et, sous un
+    // signal qui monte longtemps (un delay qui s'emballait), il depassait le gain voulu : la sortie passait +60 dBFS
+    this.box = new Float64Array(L).fill(1);
     this.bIdx = 0;
     this.bSum = L;
     this.g = 1;
@@ -105,9 +110,14 @@ class MMLimiter extends AudioWorkletProcessor {
       dlL[this.dIdx] = xl;
       dlR[this.dIdx] = xr;
       this.dIdx = r;
-      oL[i] = yl * gain;
-      if (oR) oR[i] = yr * gain;
+      // Le dernier filet (2026-10-21, audit M1) : rien ne sort au-dessus du plafond, quoi qu'il arrive (un NaN sort 0)
+      oL[i] = clampOut(yl * gain);
+      if (oR) oR[i] = clampOut(yr * gain);
     }
+    // La somme glissante refaite a chaque bloc depuis la fenetre (L additions) : aucune erreur ne dure plus d'un bloc
+    let s = 0;
+    for (let k = 0; k < L; k += 1) s += this.box[k];
+    this.bSum = s;
     return true;
   }
 }
