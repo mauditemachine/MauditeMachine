@@ -13,39 +13,78 @@ import { clock } from '../audio/clock';
 import { pattern } from '../audio/pattern';
 import { arp } from '../voyager/arp';
 import { anyPlaying } from '../state/playLock';
+import { bassLoad } from '../state/bassload';
+import { focus } from '../state/focus';
+import { lcdMessage } from '../state/lcdMessage';
+import { voyMsg } from '../voyager/msg';
 import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
 import { startRing } from '../sampler/ring';
-import { NUDGE_MAX, djEngine, djEngineIfAny, type DjEngine } from './engine';
+import { MASTER_DEFAULT, NUDGE_MAX, djEngine, djEngineIfAny, whenDjEngine, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { analyseGrid, gridAnalyseMs } from './grid';
-import { phaseShift } from './math';
+import { KILL, dbToGain, eqDb, faderGain, filterOf, gainDb, phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
-import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
-import { DJ_CHANNELS, DJ_CH_NAMES, DJ_SHOWN, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DJ_WAVES, DJ_ZOOMS, djState, type DjState, type DjTrack } from './state';
+import { DJ_CHANNELS, DJ_CH_NAMES, DJ_MACHINE_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
 
+/** Le moteur branche sur le store (dj/engine.ts whenDjEngine : des sa creation, qui que ce soit qui le cree). */
 let synced: DjEngine | null = null;
+/** Le moteur dont les voies 1 a 3 recoivent les machines (routeMachines) : la table en vue, ou un geste sur elle. */
+let routed: DjEngine | null = null;
+/**
+ * Le dernier etat pose sur le moteur (2026-10-21, audit) : chaque changement
+ * du store ne pose plus que ce qui a bouge. Avant, chaque emission (un
+ * fader tire a chaque image, la progression d'un telechargement
+ * SoundCloud) reposait les sept voies, les sept effets, les quatre pitchs
+ * et le tempo : environ 400 appels d'automation par emission.
+ */
+let applied: DjState | null = null;
+let appliedTo = -2;
+let appliedTempo = '';
 
-/** Pose tout le store sur le moteur (a sa creation), puis chaque changement. */
+/** Pose le store sur le moteur : tout a sa creation, ensuite seulement ce qui a change. */
 function apply(e: DjEngine): void {
   const s = djState.get();
+  const was = applied;
+  applied = s;
   s.ch.forEach((c, i) => {
+    const p = was?.ch[i];
+    if (p === c) return;
     const ch = e.mixer.ch[i];
-    ch.setGain(c.gain);
-    ch.setBand('hi', c.hi);
-    ch.setBand('mid', c.mid);
-    ch.setBand('low', c.low);
-    ch.setFilter(c.filter);
-    ch.setFader(c.fader);
+    if (!ch) return;
+    if (!p || p.gain !== c.gain) ch.setGain(c.gain);
+    if (!p || p.hi !== c.hi) ch.setBand('hi', c.hi);
+    if (!p || p.mid !== c.mid) ch.setBand('mid', c.mid);
+    if (!p || p.low !== c.low) ch.setBand('low', c.low);
+    if (!p || p.filter !== c.filter) ch.setFilter(c.filter);
+    if (!p || p.fader !== c.fader) ch.setFader(c.fader);
   });
-  e.mixer.setMaster(s.master);
-  e.mixer.setFxTo(fxTarget(s));
-  for (const f of DJ_FX) e.mixer.fx.dose(f, s.fx[f]);
+  if (!was || was.master !== s.master) e.mixer.setMaster(s.master);
+  const to = fxTarget(s);
+  if (to !== appliedTo) {
+    appliedTo = to;
+    e.mixer.setFxTo(to);
+  }
+  for (const f of DJ_FX) if (!was || was.fx[f] !== s.fx[f]) e.mixer.fx.dose(f, s.fx[f]);
   // Les lecteurs qui existent (theme.ts DJ_PLAYERS : aucun au telephone tenu droit, 2026-10-18)
-  for (const d of DJ_PLAYERS) e.decks[d].setPitch(s.deck[d].pitch * s.deck[d].range);
-  e.mixer.fx.tempo({ bpm: heardBpm(s), beats: s.time });
+  for (const d of DJ_PLAYERS) {
+    const a = s.deck[d];
+    const b = was?.deck[d];
+    if (!b || a.pitch !== b.pitch || a.range !== b.range) e.decks[d].setPitch(a.pitch * a.range);
+  }
+  retempo(e, s);
+}
+
+/** Le tempo des effets rythmiques, s'il a change (le BPM entendu, TIME). */
+function retempo(e: DjEngine, s = djState.get()): void {
+  const bpm = heardBpm(s);
+  const k = `${bpm}|${s.time}`;
+  if (k === appliedTempo) return;
+  appliedTempo = k;
+  e.mixer.fx.tempo({ bpm, beats: s.time });
 }
 
 /** Le BPM joue d'une platine (au pitch), ou null sans BPM connu. */
@@ -75,11 +114,18 @@ export function heardBpm(s = djState.get()): number {
   return deckBpm(s, best) ?? 120;
 }
 
-/** Le moteur (cree au besoin, apres le premier geste), branche sur le store une fois. */
-function engine(): DjEngine | null {
-  const e = djEngine();
-  if (!e || synced === e) return e;
+/**
+ * Le moteur branche sur le store, une fois, des sa creation (dj/engine.ts
+ * whenDjEngine) : ses reglages, ses abonnements, la memoire de REC MIX, le
+ * verrou de phase. Les machines n'y passent pas encore (engine) : seulement
+ * la table en vue ou un geste sur elle (R14-289).
+ */
+function syncStore(e: DjEngine): void {
+  if (synced === e) return;
   synced = e;
+  applied = null;
+  appliedTo = -2;
+  appliedTempo = '';
   apply(e);
   djState.subscribe(() => apply(e));
   for (const d of DJ_PLAYERS) {
@@ -89,18 +135,10 @@ function engine(): DjEngine | null {
   // samplers aussi, plus seulement les platines ; decoder et chercher le BPM d'un morceau gelait la page
   // une fraction de seconde, la musique se coupait)
   setCrateBusy(() => DJ_PLAYERS.some((d) => e.decks[d].playing) || anyPlaying());
-  /*
-   * Les machines du site entrent sur la table (2026-10-04, Mika : "1 et 2
-   * doivent etre RYTM et ARP") : effets compris ; on mixe donc les platines
-   * avec elles, elles ne se taisent plus l'une l'autre. Seule la piste
-   * SoundCloud du site, qui ne passe pas par la table, reste une source a
-   * part. Trois machines depuis le 2026-10-07, dans l'ordre de la table :
-   * 1 MM-RYTM, 2 MM-BASS, 3 MM-ARP.
-   */
-  routeMachines({ rytm: e.mixer.ch[0].input, bass: e.mixer.ch[1].input, arp: e.mixer.ch[2].input });
   // La memoire du MIXER (2026-10-07) : REC MIX d'une platine y prend les temps qui viennent de passer
   void startRing();
   watchMachines();
+  watchHints();
   // Le verrou de phase de SYNC (2026-10-08) : quatre mesures par seconde, un rattrapage invisible au besoin
   window.setInterval(() => phaseLock(e), LOCK.everyMs);
   // Seulement quand la piste du site PART (2026-10-08) : le pont emet aussi pendant qu'elle joue (la progression)
@@ -110,6 +148,24 @@ function engine(): DjEngine | null {
     if (now === 'playing' && scWas !== 'playing') djPauseAll();
     scWas = now;
   });
+}
+
+/** Le moteur (cree au besoin, apres le premier geste), branche sur le store, les machines sur ses voies. */
+function engine(): DjEngine | null {
+  const e = djEngine();
+  if (!e) return e;
+  syncStore(e);
+  if (routed === e) return e;
+  routed = e;
+  /*
+   * Les machines du site entrent sur la table (2026-10-04, Mika : "1 et 2
+   * doivent etre RYTM et ARP") : effets compris ; on mixe donc les platines
+   * avec elles, elles ne se taisent plus l'une l'autre. Seule la piste
+   * SoundCloud du site, qui ne passe pas par la table, reste une source a
+   * part. Trois machines depuis le 2026-10-07, dans l'ordre de la table :
+   * 1 MM-RYTM, 2 MM-BASS, 3 MM-ARP.
+   */
+  routeMachines({ rytm: e.mixer.ch[0].input, bass: e.mixer.ch[1].input, arp: e.mixer.ch[2].input });
   return e;
 }
 
@@ -122,6 +178,131 @@ function engine(): DjEngine | null {
  */
 export function djWake(): DjEngine | null {
   return engine();
+}
+
+/** Les machines passent-elles par la table (ses voies 1 a 3, son MASTER, ses effets) ? */
+export const djRoutesMachines = (): boolean => routed !== null && routed === djEngineIfAny();
+
+/* ---------------- ce que la table fait aux machines ---------------- */
+
+/**
+ * Ce que la voie d'une machine (0 MM-RYTM, 1 MM-BASS, 2 MM-ARP) fait a son
+ * son, en mots courts (2026-10-21, audit, apres R14-289) : '-INF' ou '-14 DB'
+ * (fader et GAIN a plus de 6 dB sous leur place), 'KILL' ou 'EQ' (une bande
+ * coupee, ou baissee de plus de 6 dB), 'LPF' ou 'HPF' (le FILTER tourne),
+ * 'FX' (un effet ouvert qui la prend) ; '' : la voie la laisse telle quelle.
+ */
+export function stripNote(ch: number, s = djState.get()): string {
+  const c = s.ch[ch];
+  if (!c) return '';
+  const parts: string[] = [];
+  const g = faderGain(c.fader) * dbToGain(gainDb(c.gain));
+  if (g <= 0) parts.push('-INF');
+  else if (20 * Math.log10(g) <= -6) parts.push(`${Math.round(20 * Math.log10(g))} DB`);
+  const bands = [c.hi, c.mid, c.low];
+  if (bands.some((v) => v <= KILL)) parts.push('KILL');
+  else if (bands.some((v) => eqDb(v) <= -6)) parts.push('EQ');
+  const f = filterOf(c.filter);
+  if (f.type !== 'none') parts.push(f.type === 'low' ? 'LPF' : 'HPF');
+  const to = fxTarget(s);
+  if ((to < 0 || to === ch) && DJ_FX.some((id) => s.fx[id] > 0)) parts.push('FX');
+  return parts.join(' ');
+}
+
+/** Le MASTER a plus de 6 dB sous sa place : '-INF' ou '-12 DB' ; '' sinon. */
+export function masterNote(s = djState.get()): string {
+  const g = faderGain(s.master) / faderGain(MASTER_DEFAULT);
+  if (g <= 0) return '-INF';
+  const db = 20 * Math.log10(g);
+  return db <= -6 ? `${Math.round(db)} DB` : '';
+}
+
+/**
+ * L'avis pour l'ecran d'une machine (MIXER -INF, MIXER LPF FX, MIXER MASTER
+ * -INF), ou null : seulement quand les machines passent par la table et que
+ * sa voie ou le MASTER changent son son.
+ */
+export function mixerHint(ch: number, s = djState.get()): string | null {
+  if (!djRoutesMachines()) return null;
+  const n = stripNote(ch, s);
+  const m = masterNote(s);
+  if (!n && !m) return null;
+  return `MIXER ${[n, m ? `MASTER ${m}` : ''].filter(Boolean).join(' ')}`;
+}
+
+/** L'avis de la table a l'ecran du MIXER (le MASTER, sinon la premiere machine dessinee que sa voie change), ou ''. */
+export function mixerWarn(s = djState.get()): string {
+  if (!djRoutesMachines()) return '';
+  const m = masterNote(s);
+  if (m) return `MASTER ${m}`;
+  for (const ch of DJ_SHOWN) {
+    if (ch >= DJ_MACHINE_CHANNELS) break;
+    const n = stripNote(ch, s);
+    if (n) return `${(DJ_SHOWN as readonly number[]).indexOf(ch) + 1} ${DJ_CH_NAMES[ch]} ${n}`;
+  }
+  return '';
+}
+
+/** Combien de temps l'avis reste a l'ecran d'une machine (ms). */
+const HINT_MS = 2600;
+let hinting = false;
+
+/**
+ * La raison visible (2026-10-21, audit) : une machine qui part (RUN, PLAY
+ * des machines, Roto) ou qu'on retrouve en train de jouer, alors que sa voie
+ * du MIXER ou le MASTER la baissent, la coupent, la filtrent ou l'envoient
+ * dans un effet, le dit sur son ecran (MIXER -INF...). Juste apres son
+ * propre message (RUN), pour ne pas etre efface par lui.
+ */
+function watchHints(): void {
+  if (hinting) return;
+  hinting = true;
+  const say = (ch: number): void => {
+    window.setTimeout(() => {
+      const t = mixerHint(ch);
+      if (!t) return;
+      if (ch === 0) lcdMessage.show(t, HINT_MS);
+      else if (ch === 2) voyMsg.show(t, HINT_MS);
+      else bassLoad.get()?.bassState.say(t, HINT_MS);
+    }, 150);
+  };
+  let rytm = clock.running;
+  let voy = arp.get().running;
+  let bass = !!bassLoad.get()?.bassSeq.running;
+  clock.subscribe(() => {
+    if (clock.running && !rytm) say(0);
+    rytm = clock.running;
+  });
+  arp.subscribe(() => {
+    const r = arp.get().running;
+    if (r && !voy) say(2);
+    voy = r;
+  });
+  const onBass = (): void => {
+    const m = bassLoad.get();
+    if (!m) return;
+    m.bassState.subscribe(() => {
+      const r = m.bassSeq.running;
+      if (r && !bass) say(1);
+      bass = r;
+    });
+  };
+  if (bassLoad.get()) onBass();
+  else {
+    const off = bassLoad.subscribe(() => {
+      off();
+      onBass();
+    });
+  }
+  let at = focus.get();
+  focus.subscribe(() => {
+    const f = focus.get();
+    if (f === at) return;
+    at = f;
+    if (f === 'mm808' && clock.running) say(0);
+    else if (f === 'voy' && arp.get().running) say(2);
+    else if (f === 'bass' && bassLoad.get()?.bassSeq.running) say(1);
+  });
 }
 
 /** Une platine part : la piste SoundCloud du site se tait (elle ne passe pas par la table). */
@@ -1170,3 +1351,6 @@ export function djZoomStep(d: DjDeck, dir: -1 | 1): void {
   const next = dir > 0 ? DJ_ZOOMS.find((v) => v > z + 1e-6) : [...DJ_ZOOMS].reverse().find((v) => v < z - 1e-6);
   if (next !== undefined) djZoom(d, next);
 }
+
+// En dernier : tout le module est pret quand le moteur se branche (un moteur deja cree se branche tout de suite)
+whenDjEngine(syncStore);

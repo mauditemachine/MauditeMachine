@@ -10,6 +10,7 @@
  * -1 a 1.
  */
 
+import { KILL } from './math';
 import { DJ_FX, DJ_TIMES, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 export interface DjChannelState {
@@ -137,12 +138,17 @@ const SLOT: Readonly<Record<(typeof OLD_KEYS)[number], (i: number) => number>> =
 const channel = (fader = 0.8): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader });
 const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, loadStep: null, armed: false, error: null, cue: 0, cues: [null, null, null, null], zoom: 8, beat: null, sync: false, loop: null, remove: false });
 
+/** Les voies des machines (1 MM-RYTM, 2 MM-BASS, 3 MM-ARP) : les trois premieres (theme.ts DJ_MACHINE_CHANNELS). */
+const MACHINE_CHANNELS = 3;
+/** Le MASTER a sa place (dj/engine.ts MASTER_DEFAULT) : le son du site ne change pas. */
+const MASTER_HOME = 0.88;
+
 function fresh(): DjState {
   return {
     ch: [channel(1), channel(1), channel(1), channel(), channel(), channel(), channel()],
     fx: Object.fromEntries(DJ_FX.map((f) => [f, 0])) as Record<DjFxId, number>,
     time: 1,
-    master: 0.88,
+    master: MASTER_HOME,
     fxTo: -1,
     wave: 'warm',
     deck: { a: deck(), b: deck(), c: deck(), d: deck() },
@@ -150,8 +156,31 @@ function fresh(): DjState {
 }
 
 const clamp = (v: number, lo: number, hi: number): number => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo);
+/**
+ * Une valeur retenue bornee, ou celle de depart si elle manque ou ne se lit
+ * pas (2026-10-21, audit) : avant, un champ absent ou corrompu prenait le bas
+ * de sa course, le reglage le plus destructeur (fader 0, EQ coupe, filtre
+ * ferme, GAIN -12 dB).
+ */
+const pick = (v: unknown, lo: number, hi: number, d: number): number => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 
-/** La table retenue (les platines non : rien n'y est charge au retour). */
+/**
+ * La table retenue (les platines non : rien n'y est charge au retour).
+ *
+ * Ce qui revient a chaque visite (2026-10-21, audit, apres R14-289 ; Mika :
+ * "le son a coupe alors que ca continue a jouer") : une nouvelle visite ne
+ * part jamais muette ni filtree sans raison visible. Le moteur de la table
+ * fait passer le MM-RYTM, le MM-BASS et le MM-ARP par ses voies 1 a 3 : un
+ * fader, un kill, un filtre, une dose d'effet ou un MASTER laisses la fois
+ * d'avant les coupaient sur leur propre page, sans rien a l'ecran, et un
+ * rechargement n'y changeait rien (MASTER a 0 : tout le site muet). Donc :
+ * - retenus : TIME, FX TO, l'affichage des formes d'onde, et l'EQ des
+ *   platines (hors kill : un bout de course a gauche revient au centre) ;
+ * - pour la visite seulement, a leur place de depart a chaque chargement :
+ *   les voies des machines en entier, tous les faders, GAIN, FILTER, les
+ *   doses des effets et MASTER.
+ * La forme du JSON retenu ne change pas (save) : seule la relecture trie.
+ */
 function load(): DjState {
   const s = fresh();
   try {
@@ -159,25 +188,26 @@ function load(): DjState {
     const old = raw ? undefined : OLD_KEYS.find((k) => window.localStorage.getItem(k) !== null);
     const text = raw ?? (old ? window.localStorage.getItem(old) : null);
     if (!text) return s;
-    const o = JSON.parse(text) as Partial<DjState>;
+    const o = JSON.parse(text) as Partial<DjState> | null;
+    if (!o || typeof o !== 'object') return s;
     // Une table d'avant : chaque voie a sa nouvelle place (le MM-BASS arrive en 2, ses reglages de depart)
     const slot = (i: number): number => (old ? SLOT[old](i) : i);
-    o.ch?.forEach((c, i) => {
-      if (slot(i) > 6 || !c) return;
-      const t = s.ch[slot(i)];
-      t.gain = clamp(c.gain, -1, 1);
-      t.hi = clamp(c.hi, -1, 1);
-      t.mid = clamp(c.mid, -1, 1);
-      t.low = clamp(c.low, -1, 1);
-      t.filter = clamp(c.filter, -1, 1);
-      t.fader = clamp(c.fader, 0, 1);
-    });
-    if (o.fx) for (const f of DJ_FX) s.fx[f] = clamp(o.fx[f] ?? 0, 0, 1);
-    // DISTO est devenu OVERDRIVE (2026-10-04) : sa dose retenue suit
-    const disto = (o.fx as Record<string, number> | undefined)?.disto;
-    if (typeof disto === 'number' && o.fx && o.fx.overdrive === undefined) s.fx.overdrive = clamp(disto, 0, 1);
+    const band = (v: unknown): number => {
+      const x = pick(v, -1, 1, 0);
+      return x <= KILL ? 0 : x;
+    };
+    if (Array.isArray(o.ch)) {
+      o.ch.forEach((c, i) => {
+        const k = slot(i);
+        // Les voies des machines repartent neuves ; une platine garde son EQ
+        if (k < MACHINE_CHANNELS || k > 6 || !c || typeof c !== 'object') return;
+        const t = s.ch[k];
+        t.hi = band(c.hi);
+        t.mid = band(c.mid);
+        t.low = band(c.low);
+      });
+    }
     if (typeof o.time === 'number' && (DJ_TIMES as readonly number[]).includes(o.time)) s.time = o.time;
-    if (typeof o.master === 'number') s.master = clamp(o.master, 0, 1);
     if (typeof o.fxTo === 'number' && Number.isInteger(o.fxTo)) s.fxTo = o.fxTo < 0 ? -1 : clamp(slot(o.fxTo), 0, 6);
     // WARM arrive (2026-10-05) : le 3BAND retenu etait l'affichage de depart, il passe a WARM ; RGB ou MONO choisis restent
     const w = (o as { waveMode?: unknown }).waveMode ?? (o.wave === 'rgb' || o.wave === 'mono' ? o.wave : undefined);
@@ -210,10 +240,15 @@ function emit(): void {
   listeners.forEach((fn) => fn());
 }
 
+/*
+ * Les reglages a la main ignorent une valeur qui ne se lit pas (NaN, l'infini : un calcul de geste ou de MIDI rate,
+ * 2026-10-21, audit) : avant, elle tombait au bas de la course (une voie coupee, le MASTER a 0, le pitch a -8 %).
+ */
 export const djState = {
   get: (): DjState => state,
   /** Un potard ou le fader d'une voie. */
   setChannel(i: DjChannel, id: DjEqId | 'fader', v: number): void {
+    if (!Number.isFinite(v) || !state.ch[i]) return;
     const lo = id === 'fader' ? 0 : -1;
     const next = clamp(v, lo, 1);
     if (state.ch[i][id] === next) return;
@@ -223,17 +258,19 @@ export const djState = {
     emit();
   },
   setFx(id: DjFxId, v: number): void {
+    if (!Number.isFinite(v)) return;
     const next = clamp(v, 0, 1);
     if (state.fx[id] === next) return;
     state = { ...state, fx: { ...state.fx, [id]: next } };
     emit();
   },
   setTime(d: number): void {
-    if (state.time === d) return;
+    if (state.time === d || !(DJ_TIMES as readonly number[]).includes(d)) return;
     state = { ...state, time: d };
     emit();
   },
   setMaster(v: number): void {
+    if (!Number.isFinite(v)) return;
     const next = clamp(v, 0, 1);
     if (state.master === next) return;
     state = { ...state, master: next };
@@ -241,6 +278,7 @@ export const djState = {
   },
   /** FX TO : -1 toutes les voies, sinon une voie (0 a 6). */
   setFxTo(t: number): void {
+    if (!Number.isFinite(t)) return;
     const next = Math.round(clamp(t, -1, 6));
     if (state.fxTo === next) return;
     state = { ...state, fxTo: next };
@@ -254,7 +292,7 @@ export const djState = {
   setDeck(d: DjDeck, patch: Partial<DjDeckState>): void {
     const cur = state.deck[d];
     const next = { ...cur, ...patch };
-    if (patch.pitch !== undefined) next.pitch = clamp(patch.pitch, -1, 1);
+    if (patch.pitch !== undefined) next.pitch = Number.isFinite(patch.pitch) ? clamp(patch.pitch, -1, 1) : cur.pitch;
     state = { ...state, deck: { ...state.deck, [d]: next } };
     emit();
   },

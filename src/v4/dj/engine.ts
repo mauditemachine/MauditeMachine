@@ -861,6 +861,18 @@ export interface DjEngine {
 }
 
 let engine: DjEngine | null = null;
+/**
+ * Qui cree le moteur le branche aussitot sur le store (2026-10-21, audit) :
+ * dj/actions.ts s'inscrit ici. Le sampler d'une platine (un pad, REC DECK,
+ * REC MIX, un fichier glisse) creait le moteur sans lui : ni les reglages de
+ * la table, ni ses abonnements, ni la memoire de REC MIX, jusqu'au premier
+ * geste sur la table.
+ */
+let created: ((e: DjEngine) => void) | null = null;
+export function whenDjEngine(fn: (e: DjEngine) => void): void {
+  created = fn;
+  if (engine) fn(engine);
+}
 /** Les lecteurs crees, platine par platine (2026-10-18 : aucun au telephone tenu droit). */
 const made: Partial<Record<DjDeck, DjPlayer>> = {};
 /** Les platines dont le lecteur existe (le debug et les tests : la table seule n'en cree aucun). */
@@ -884,8 +896,10 @@ export function djEngine(): DjEngine | null {
   const decks = {} as Record<DjDeck, DjPlayer>;
   for (const d of DJ_DECKS_ALL) Object.defineProperty(decks, d, { get: () => p(d), enumerable: true });
   const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });
-  engine = { ctx: port.ctx, mixer, decks, sync: { errMs: each<number | null>(null), keepMs: each(0), nudge: each(0), lastPlay: null } };
-  return engine;
+  const e: DjEngine = { ctx: port.ctx, mixer, decks, sync: { errMs: each<number | null>(null), keepMs: each(0), nudge: each(0), lastPlay: null } };
+  engine = e;
+  created?.(e);
+  return e;
 }
 
 /** Le moteur s'il existe deja, sans le creer (la scene le lit a chaque image). */

@@ -138,6 +138,8 @@ export interface DjFxScreen {
   label: string;
   time: string;
   bpm: number;
+  /** l'avis de la table (une machine baissee, coupee, filtree, le MASTER bas) : le texte en orange (2026-10-21) */
+  warn?: boolean;
 }
 
 const deckKey = (s: DjDeckScreen): string =>
@@ -369,7 +371,7 @@ export class DjScreens {
   /* ---------- table ---------- */
 
   setFx(s: DjFxScreen): boolean {
-    const k = `${s.label}|${s.time}|${s.bpm.toFixed(1)}`;
+    const k = `${s.label}|${s.time}|${s.bpm.toFixed(1)}|${s.warn === true}`;
     if (this.shown.fx === k) return false;
     this.shown.fx = k;
     const r = REGION.fx;
@@ -379,9 +381,9 @@ export class DjScreens {
     c.textBaseline = 'middle';
     const cy = r.y + r.h / 2;
     c.textAlign = 'left';
-    c.fillStyle = BONE;
+    c.fillStyle = s.warn ? DJ_LIGHT.orange : BONE;
     c.font = `600 34px ${FONT_DISPLAY}`;
-    c.fillText(s.label, r.x + 20, cy);
+    c.fillText(this.fit(s.label, r.w - 250), r.x + 20, cy);
     c.textAlign = 'right';
     c.fillStyle = DJ_LIGHT.orange;
     c.font = `500 28px ${FONT_MONO}`;
