@@ -154,7 +154,7 @@ import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'thre
 import { clock } from '../audio/clock';
 import { compGr, mix } from '../audio/drums';
 import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../audio/kit';
-import { sampleByKey, samplesChanged } from '../audio/samples';
+import { onSampleStatus, sampleByKey, samplesChanged } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
 import { anyDialValue, dialRange, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
@@ -763,6 +763,8 @@ export class Screen {
       // retrait) ; un fichier glisse au-dessus de la machine
       lcdSamples.subscribe(active),
       samplesChanged.subscribe(active),
+      // Un sample qui arrive ou qui manque (2026-10-21) : LOADING..., OFFLINE: 909 PLAYS dans SOUND et la liste
+      onSampleStatus(active),
       // MASTER et TEMPO (2026-10-19) : celui qu'on survole ou qu'on tient se cerne
       screenDials.subscribe(() => this.request()),
     ];

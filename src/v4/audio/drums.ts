@@ -52,7 +52,7 @@ import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStag
 import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
 import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
-import { loadSample, sampleByKey, samplePcm, samplesOf, samplesVersion } from './samples';
+import { loadSample, sampleByKey, samplePcm, sampleStats, sampleStatus, samplesOf, samplesVersion } from './samples';
 import { userSamples } from './usersamples';
 import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
 import { DELAY_TONE_HZ, buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type ReverbBus, type Send, type SendBus, type SendInfo } from './sends';
@@ -1200,6 +1200,18 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
 }
 
 /**
+ * Le coup exact d'une voix (un verrou de pas compris) est-il pret (2026-10-21, audit RS-2 : l'ecoute d'un son choisi a
+ * l'arret partait avant lui et faisait entendre le kick par defaut) ? Son calcul passe en tete de file ; true des qu'il
+ * est la, false au bout de ms (ou sans contexte audio). actions.ts previewSound l'attend avant de jouer.
+ */
+export function shotReady(inst: Inst, lock: Readonly<StepLock> | null, ms: number): Promise<boolean> {
+  const c = ctx;
+  if (!c) return Promise.resolve(false);
+  const hp = hitParams(inst, false, lock, tone, stretch, voiceFx.of(inst));
+  return shots.whenReady(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov, ms);
+}
+
+/**
  * Joue un coup a `when` (temps du contexte ; maintenant par defaut). Ne cree
  * jamais le contexte : sans geste prealable, rien ne sonne. `open` : charley
  * ouvert (pad CH tenu ; les coups du sequenceur sont toujours fermes).
@@ -1832,7 +1844,7 @@ export interface AudioDebug {
   /** les samples de Mika gardes dans ce navigateur (2026-10-18, audio/usersamples.ts : add, remove, list, subscribe) */
   readonly userSamples: typeof userSamples;
   /** les listes de samples (le site puis ce navigateur, audio/samples.ts) : samplesOf, sampleByKey, loadSample, samplePcm, version */
-  readonly samples: { samplesOf: typeof samplesOf; sampleByKey: typeof sampleByKey; loadSample: typeof loadSample; samplePcm: typeof samplePcm; version: () => number };
+  readonly samples: { samplesOf: typeof samplesOf; sampleByKey: typeof sampleByKey; loadSample: typeof loadSample; samplePcm: typeof samplePcm; version: () => number; status: typeof sampleStatus; stats: typeof sampleStats };
   /** le SIDECHAIN du MM-ARP (2026-10-04) */
   duck(): ReturnType<typeof duckInfo>;
   /** le SIDECHAIN du MM-BASS (2026-10-10) */
@@ -1914,7 +1926,7 @@ export const audioDebug: AudioDebug = {
   comp: COMP,
   shots: () => shots.info(),
   userSamples,
-  samples: { samplesOf, sampleByKey, loadSample, samplePcm, version: samplesVersion },
+  samples: { samplesOf, sampleByKey, loadSample, samplePcm, version: samplesVersion, status: sampleStatus, stats: sampleStats },
   duck: () => duckInfo(),
   bassDuck: () => bassDuckInfo(),
   get glue() {

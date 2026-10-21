@@ -447,6 +447,18 @@ let state: Kit = typeof window === 'undefined' ? defaultKit() : load();
 const listeners = new Set<(changed: readonly KitFamily[]) => void>();
 let saveTimer = 0;
 
+/**
+ * Le numero du choix de son de chaque famille (2026-10-21, audit RS-3 : un fichier qui finissait de s'ajouter ecrasait
+ * un choix fait apres lui). Il monte quand ce que joue la famille change de nature : son sample, sa MACHINE, une couche
+ * qui se tait ou revient (SOUND, le navigateur des sons, SAMPLE, MACHINE, un preset, RANDOM, CLEAR) ; pas quand un
+ * potard tourne (un niveau, TUNE, START...). En memoire seulement : rien a retenir ni a traduire. actions.ts
+ * soundFilesAdd ne choisit le fichier ajoute que si le numero n'a pas bouge pendant l'ajout ; audio/shots.ts calcule
+ * tout de suite (sans attendre la fin du geste) le son d'un nouveau choix.
+ */
+const choiceKey = (k: Kit, f: KitFamily): string => `${k.sample[f] ?? ''}|${k.model[f]}|${k.layer[f].syn > 0 ? 1 : 0}|${k.layer[f].lev > 0 ? 1 : 0}`;
+const choiceSeen = Object.fromEntries(KIT_FAMILIES.map((f) => [f, choiceKey(state, f)])) as Record<KitFamily, string>;
+const choiceGen = Object.fromEntries(KIT_FAMILIES.map((f) => [f, 0])) as Record<KitFamily, number>;
+
 // Un sample de Mika retire de ce navigateur (audio/usersamples.ts) pendant qu'une voix le joue : sa couche SAMPLE
 // passe sur OFF et la synthese reprend si elle etait a 0 (comme un fichier parti du dossier a la lecture du kit :
 // jamais une voix muette sans raison). Un sample ajoute ne change rien au kit : il attend d'etre choisi.
@@ -479,6 +491,12 @@ function save(): void {
 }
 
 function emit(changed: readonly KitFamily[]): void {
+  for (const f of changed) {
+    const c = choiceKey(state, f);
+    if (c === choiceSeen[f]) continue;
+    choiceSeen[f] = c;
+    choiceGen[f] += 1;
+  }
   save();
   listeners.forEach((fn) => fn(changed));
 }
@@ -619,6 +637,29 @@ function sigOf(f: KitFamily | null, v: View): string {
   }
   return s;
 }
+
+/**
+ * Le repli d'un son dont l'echantillon manque (2026-10-21, audit RS-1 et RS-10) : la couche SYNTH de sa voix seule, a
+ * son plein niveau, avec ses potards du moment (ou ceux d'un verrou : tw est celui du coup). La meme regle partout :
+ * audio/shots.ts en temps reel (un sample en echec, ou en chargement sans son precedent) et hors ligne (makeNow).
+ * Sa signature est celle d'une voix qui joue cette machine seule (sigOf) : un repli deja calcule sert aussi a
+ * choisir cette machine, et l'inverse.
+ */
+export function synthFallback(id: ShotId, tw: Readonly<ShotTweak>): { tw: ShotTweak; sig: string } {
+  const f = familyOf(id);
+  const out: ShotTweak = { ...tw };
+  delete out.sample;
+  delete out.smp;
+  delete out.syn;
+  let s: string = tw.model;
+  if (f === 'bd') s += `~${tw.tune}~${tw.attack}~${tw.decay}~${tw.drive}~${tw.sweep}`;
+  else if (f === 'sd') s += `~${tw.snappy}~${tw.gate ? 1 : 0}~${tw.sdTune}~${tw.sdDecay}~${tw.sdTone}`;
+  else if (f === 'cp') s += `~${tw.gate ? 1 : 0}`;
+  return { tw: out, sig: s };
+}
+
+/** Un coup qui ne fait aucun son (OFF, les deux couches a 0) : rien a calculer ni a jouer a sa place (2026-10-21). */
+export const silentTweak = (tw: Readonly<ShotTweak>): boolean => (tw.syn ?? 1) <= 0 && !(tw.sample && (tw.smp?.lev ?? 1) > 0);
 
 const stText = (st: number): string => (st === 0 ? '0 ST' : `${st > 0 ? '+' : ''}${st} ST`);
 /** Une frequence : 120 HZ, 2.1 KHZ, 18 KHZ. */
@@ -795,6 +836,10 @@ export const kit = {
     if (isModel(sound)) return KIT_MODEL_LABEL[sound];
     if (sound === 'off') return 'OFF';
     return sampleByKey(sound)?.label ?? String(sound).toUpperCase();
+  },
+  /** Le numero du choix de son d'une famille (2026-10-21) : il monte a chaque nouveau choix (choiceGen). */
+  choice(f: KitFamily): number {
+    return choiceGen[f];
   },
   /** Le nom de l'echantillon de la couche SAMPLE (OFF sans lui). */
   sampleLabel(f: KitFamily): string {

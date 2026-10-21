@@ -106,6 +106,9 @@ function ensure(): void {
   userSamples.subscribe(() => {
     index();
     version += 1;
+    // Un sample retire de ce navigateur : son PCM et son etat partent avec lui (2026-10-21, audit RS-5 : il restait en
+    // memoire pour la visite, et le worker en gardait une copie)
+    for (const key of [...slots.keys(), ...pcm.keys()]) if (!byKey.has(key)) forget(key);
     changeListeners.forEach((fn) => fn());
   });
 }
@@ -137,62 +140,338 @@ export const samplesChanged = {
 
 /* ---------------- chargement ---------------- */
 
-const pcm = new Map<string, SamplePcm>();
-const pending = new Map<string, Promise<SamplePcm | null>>();
-const failed = new Set<string>();
-const listeners = new Set<(key: string) => void>();
+/*
+ * Un etat par echantillon (2026-10-21, audit RS-1, RS-4 du rodage et RS-8, Mika : "controle les selections de samples
+ * dans RYTM ! je ne veux plus que ca plante"). Avant, un telechargement rate (404, reseau coupe, delai) mettait la cle
+ * dans un ensemble d'echecs pour toute la visite : la voix se taisait ou jouait un autre son, l'ecran affichait le nom
+ * du sample sans rien dire, et rien ne reessayait meme le reseau revenu. Maintenant :
+ * - idle (rien de demande), loading, ready (decode), failed et pourquoi : offline (reseau coupe, delai de
+ *   FETCH_TIMEOUT_MS depasse, serveur en panne), missing (le fichier n'est plus sur le site : 404), bad (illisible),
+ *   storage (la base de ce navigateur fermee un instant), gone (retire de ce navigateur) ;
+ * - un seul chargement par cle, un AbortController qui coupe au bout de FETCH_TIMEOUT_MS ;
+ * - offline et storage se retentent seuls (RETRY_MS : 1 s, 4 s, 15 s, puis toutes les 10 s tant que le kit joue ce
+ *   sample : un reseau qui revient sans le dire), et des que le reseau revient (window 'online', missing aussi ; un
+ *   telechargement parti avant, encore en attente, repart lui aussi) ;
+ *   missing une seule fois de plus (un deploiement qui renomme les fichiers pendant que la page est ouverte) ; bad et
+ *   gone jamais ;
+ * - un choix explicite (requestSample : le navigateur des sons, le potard SOUND, un preset) retente tout de suite ce
+ *   qui a echoue pour une raison passagere ;
+ * - onSampleLoaded, onSampleFailed, onSampleStatus (tout changement d'etat : l'ecran) ; onSampleDropped quand un PCM
+ *   est libere (un sample retire de ce navigateur, ou le budget de memoire) ;
+ * - un jeton par chargement : un resultat d'un chargement depasse (le sample retire entre-temps) ne compte pas ;
+ * - les PCM decodes tiennent dans un budget d'octets (PCM_BUDGET, le moins recemment servi part d'abord, jamais un
+ *   sample que le kit joue : keepSample) ; un PCM parti se recharge a la demande.
+ */
 
-/** L'echantillon decode, s'il est la. */
-export const samplePcm = (key: string): SamplePcm | undefined => pcm.get(key);
+/** L'etat d'un echantillon. */
+export type SampleState = 'idle' | 'loading' | 'ready' | 'failed';
+/** Pourquoi il manque. */
+export type SampleFail = 'offline' | 'missing' | 'bad' | 'storage' | 'gone';
+export interface SampleStatus {
+  state: SampleState;
+  why?: SampleFail;
+}
+
+/** Au-dela, un telechargement est coupe et compte comme le reseau coupe (il se retente). */
+export const FETCH_TIMEOUT_MS = 8000;
+/** Les attentes avant chaque nouvel essai d'un echec passager ; ensuite, toutes les RETRY_KEPT_MS tant que le kit le joue. */
+export const RETRY_MS: readonly number[] = [1000, 4000, 15000];
+const RETRY_KEPT_MS = 10000;
+/** Un choix explicite ne retente pas plus d'une fois par EXPLICIT_GAP_MS (un potard qui balaie la liste). */
+const EXPLICIT_GAP_MS = 1500;
+/** Un fichier manquant (404) ne se retente sur un choix explicite qu'apres MISSING_GAP_MS. */
+const MISSING_GAP_MS = 3000;
+const COARSE = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+/** Le budget des PCM decodes (octets) : un sample de 12 s en stereo fait 4,6 Mo a 48 kHz. */
+export const PCM_BUDGET = (COARSE ? 48 : 160) * 1024 * 1024;
+
+interface Slot {
+  state: SampleState;
+  why?: SampleFail;
+  /** les essais rates d'affilee (l'attente du prochain) */
+  tries: number;
+  /** performance.now() du dernier essai */
+  at: number;
+  /** le jeton du chargement en cours */
+  gen: number;
+  timer: number;
+  abort: AbortController | null;
+  promise: Promise<SamplePcm | null> | null;
+}
+
+const pcm = new Map<string, SamplePcm>();
+let pcmBytes = 0;
+const slots = new Map<string, Slot>();
+let genSeq = 0;
+const loadedFns = new Set<(key: string) => void>();
+const failedFns = new Set<(key: string, why: SampleFail) => void>();
+const statusFns = new Set<(key: string) => void>();
+const droppedFns = new Set<(key: string, gone: boolean) => void>();
+/** Les samples que le kit joue (audio/shots.ts le dit) : jamais liberes par le budget. */
+let keepFn: (key: string) => boolean = () => false;
+
+const pcmSize = (p: SamplePcm): number => (p.L.length + (p.R && p.R !== p.L ? p.R.length : 0)) * 4;
+const slotOf = (key: string): Slot => {
+  let s = slots.get(key);
+  if (!s) {
+    s = { state: 'idle', tries: 0, at: 0, gen: 0, timer: 0, abort: null, promise: null };
+    slots.set(key, s);
+  }
+  return s;
+};
+const emitStatus = (key: string): void => statusFns.forEach((fn) => fn(key));
+const emitDropped = (key: string, gone: boolean): void => droppedFns.forEach((fn) => fn(key, gone));
+
+/** L'echantillon decode, s'il est la (le plus recemment servi reste le plus longtemps). */
+export const samplePcm = (key: string): SamplePcm | undefined => {
+  const p = pcm.get(key);
+  if (p) {
+    pcm.delete(key);
+    pcm.set(key, p);
+  }
+  return p;
+};
+
+/** L'etat d'un echantillon ; une cle inconnue (un sample parti) : en echec, gone pour un sample de ce navigateur. */
+export function sampleStatus(key: string): SampleStatus {
+  if (pcm.has(key)) return { state: 'ready' };
+  if (!sampleByKey(key)) return { state: 'failed', why: isUserKey(key) ? 'gone' : 'missing' };
+  const s = slots.get(key);
+  if (!s) return { state: 'idle' };
+  return s.why ? { state: s.state, why: s.why } : { state: s.state };
+}
+
+/** Ce qui est gratuit a relacher : le PCM le moins recemment servi, ni celui qui arrive ni un que le kit joue. */
+function trim(keepKey: string): void {
+  if (pcmBytes <= PCM_BUDGET) return;
+  for (const [k, p] of [...pcm]) {
+    if (pcmBytes <= PCM_BUDGET) break;
+    if (k === keepKey || keepFn(k)) continue;
+    pcm.delete(k);
+    pcmBytes -= pcmSize(p);
+    const s = slots.get(k);
+    if (s) s.state = 'idle';
+    emitDropped(k, false);
+    emitStatus(k);
+  }
+}
+
+class HttpError extends Error {
+  readonly status: number;
+  constructor(status: number) {
+    super(`HTTP ${status}`);
+    this.status = status;
+  }
+}
+class BadFile extends Error {}
+
+/** Pourquoi un essai a echoue. */
+function failOf(e: unknown, user: boolean): SampleFail {
+  if (e instanceof BadFile) return 'bad';
+  if (e instanceof HttpError) return e.status === 404 || e.status === 410 || (e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429) ? 'missing' : 'offline';
+  if (user) return 'storage';
+  // TypeError de fetch (reseau coupe), AbortError (le delai) : passager
+  return 'offline';
+}
+
+/** Le prochain essai d'un echec passager, apres RETRY_MS[tries - 1] ; missing : un seul, apres RETRY_MS[1]. */
+function schedule(key: string, s: Slot): void {
+  window.clearTimeout(s.timer);
+  s.timer = 0;
+  const passing = s.why === 'offline' || s.why === 'storage';
+  const wait =
+    s.why === 'missing' ? (s.tries <= 1 ? RETRY_MS[1] : -1) : !passing ? -1 : s.tries <= RETRY_MS.length ? RETRY_MS[s.tries - 1] : keepFn(key) ? RETRY_KEPT_MS : -1;
+  if (!(wait >= 0)) return;
+  s.timer = window.setTimeout(() => {
+    s.timer = 0;
+    if (s.state === 'failed' && slots.get(key) === s && sampleByKey(key)) void start(key, s);
+  }, wait);
+}
+
+/** Un essai : le fichier (le site, ou IndexedDB pour un sample de ce navigateur), son decodage, l'annonce. */
+function start(key: string, s: Slot): Promise<SamplePcm | null> {
+  const smp = sampleByKey(key);
+  if (!smp) return Promise.resolve(null);
+  const gen = (genSeq += 1);
+  s.gen = gen;
+  s.state = 'loading';
+  s.why = undefined;
+  s.at = performance.now();
+  const ac = typeof AbortController !== 'undefined' && !smp.user ? new AbortController() : null;
+  s.abort = ac;
+  const job = (async (): Promise<SamplePcm | null> => {
+    const timer = ac ? window.setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS) : 0;
+    try {
+      let out: SamplePcm | undefined = smp.user ? userSamples.takePcm(key) : undefined;
+      if (!out) {
+        let data: ArrayBuffer | null;
+        if (smp.user) data = await userSamples.bytes(key);
+        else {
+          const res = await fetch(smp.url, ac ? { signal: ac.signal } : undefined);
+          if (!res.ok) throw new HttpError(res.status);
+          data = await res.arrayBuffer();
+        }
+        window.clearTimeout(timer);
+        if (!data) throw new Error('storage');
+        try {
+          const d = await decodeAudio(data);
+          out = { L: d.L, R: d.R, sr: d.sr };
+        } catch {
+          throw new BadFile('decode');
+        }
+      }
+      // Un chargement depasse (le sample retire, ou un autre essai parti) : son resultat ne compte pas
+      if (s.gen !== gen || slots.get(key) !== s) return pcm.get(key) ?? null;
+      pcm.set(key, out);
+      pcmBytes += pcmSize(out);
+      s.state = 'ready';
+      s.tries = 0;
+      s.why = undefined;
+      trim(key);
+      loadedFns.forEach((fn) => fn(key));
+      emitStatus(key);
+      return out;
+    } catch (e) {
+      if (s.gen !== gen || slots.get(key) !== s) return null;
+      // Un sample de ce navigateur retire pendant la lecture : parti pour de bon
+      const why: SampleFail = smp.user && !sampleByKey(key) ? 'gone' : failOf(e, !!smp.user);
+      s.state = 'failed';
+      s.why = why;
+      s.tries += 1;
+      schedule(key, s);
+      failedFns.forEach((fn) => fn(key, why));
+      emitStatus(key);
+      return null;
+    } finally {
+      window.clearTimeout(timer);
+      if (s.gen === gen) {
+        s.abort = null;
+        s.promise = null;
+      }
+    }
+  })();
+  s.promise = job;
+  emitStatus(key);
+  return job;
+}
 
 /**
- * Telecharge et decode un echantillon (une fois) ; ses abonnes l'apprennent.
- * Un sample de ce navigateur vient de IndexedDB (audio/usersamples.ts), deja
- * decode s'il vient d'etre ajoute.
+ * Telecharge et decode un echantillon (une fois) ; ses abonnes l'apprennent. Un echec ne se retente pas ici (les
+ * essais suivants partent seuls, ou d'un choix explicite : requestSample) : null tout de suite.
  */
 export function loadSample(key: string): Promise<SamplePcm | null> {
   const hit = pcm.get(key);
   if (hit) return Promise.resolve(hit);
-  const p = pending.get(key);
-  if (p) return p;
-  const s = sampleByKey(key);
-  if (!s || failed.has(key) || typeof window === 'undefined') return Promise.resolve(null);
-  const job = (async (): Promise<SamplePcm | null> => {
-    try {
-      let out: SamplePcm | undefined = s.user ? userSamples.takePcm(key) : undefined;
-      if (!out) {
-        let data: ArrayBuffer | null;
-        if (s.user) data = await userSamples.bytes(key);
-        else {
-          const res = await fetch(s.url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          data = await res.arrayBuffer();
-        }
-        if (!data) throw new Error('gone');
-        out = await decodeAudio(data);
-      }
-      pcm.set(key, out);
-      listeners.forEach((fn) => fn(key));
-      return out;
-    } catch {
-      // Un fichier illisible (ou parti de ce navigateur) : sa voix garde son son calcule
-      failed.add(key);
-      return null;
-    } finally {
-      pending.delete(key);
-    }
-  })();
-  pending.set(key, job);
-  return job;
+  if (typeof window === 'undefined' || !sampleByKey(key)) return Promise.resolve(null);
+  const s = slotOf(key);
+  if (s.promise) return s.promise;
+  if (s.state === 'failed') return Promise.resolve(null);
+  return start(key, s);
+}
+
+/**
+ * Un echantillon que Mika vient de choisir (le navigateur des sons, SOUND, un preset, un verrou pose) : comme
+ * loadSample, mais un echec passager (offline, storage ; missing apres MISSING_GAP_MS) se retente tout de suite, les
+ * attentes repartent de zero.
+ */
+export function requestSample(key: string): Promise<SamplePcm | null> {
+  const hit = pcm.get(key);
+  if (hit) return Promise.resolve(hit);
+  if (typeof window === 'undefined' || !sampleByKey(key)) return Promise.resolve(null);
+  const s = slotOf(key);
+  if (s.promise) return s.promise;
+  if (s.state === 'failed') {
+    const since = performance.now() - s.at;
+    const again = s.why === 'offline' || s.why === 'storage' ? since >= EXPLICIT_GAP_MS : s.why === 'missing' ? since >= MISSING_GAP_MS : false;
+    if (!again) return Promise.resolve(null);
+    window.clearTimeout(s.timer);
+    s.timer = 0;
+    s.tries = 0;
+  }
+  return start(key, s);
+}
+
+/** Le PCM d'un echantillon retire (un sample de ce navigateur) : libere, son chargement en cours oublie. */
+function forget(key: string): void {
+  const s = slots.get(key);
+  if (s) {
+    window.clearTimeout(s.timer);
+    s.abort?.abort();
+    slots.delete(key);
+  }
+  const p = pcm.get(key);
+  if (p) {
+    pcm.delete(key);
+    pcmBytes -= pcmSize(p);
+  }
+  if (s || p) {
+    emitDropped(key, true);
+    emitStatus(key);
+  }
+}
+
+/** Les samples que le kit joue ne sont jamais liberes par le budget (audio/shots.ts, qui connait le kit). */
+export function keepSample(fn: (key: string) => boolean): void {
+  keepFn = fn;
 }
 
 /** Un echantillon vient d'etre decode. */
 export function onSampleLoaded(fn: (key: string) => void): () => void {
-  listeners.add(fn);
+  loadedFns.add(fn);
   return () => {
-    listeners.delete(fn);
+    loadedFns.delete(fn);
   };
 }
+/** Un essai a echoue (et pourquoi). */
+export function onSampleFailed(fn: (key: string, why: SampleFail) => void): () => void {
+  failedFns.add(fn);
+  return () => {
+    failedFns.delete(fn);
+  };
+}
+/** L'etat d'un echantillon a change (loading, ready, failed, idle) : l'ecran se redessine. */
+export function onSampleStatus(fn: (key: string) => void): () => void {
+  statusFns.add(fn);
+  return () => {
+    statusFns.delete(fn);
+  };
+}
+/** Un PCM est libere (gone : le sample retire de ce navigateur ; sinon le budget, il se rechargera). */
+export function onSampleDropped(fn: (key: string, gone: boolean) => void): () => void {
+  droppedFns.add(fn);
+  return () => {
+    droppedFns.delete(fn);
+  };
+}
+
+if (typeof window !== 'undefined') {
+  // Le reseau revient : ce qui a echoue faute de reseau repart, de zero ; un telechargement parti avant et qui attend
+  // encore (une requete perdue pendant la coupure, qui n'aurait echoue qu'au bout de FETCH_TIMEOUT_MS) repart aussi
+  window.addEventListener('online', () => {
+    const now = performance.now();
+    for (const [key, s] of slots) {
+      if (s.state === 'loading' && s.abort && now - s.at > 1000 && sampleByKey(key)) {
+        s.abort.abort();
+        s.tries = 0;
+        void start(key, s);
+        continue;
+      }
+      if (s.state !== 'failed' || (s.why !== 'offline' && s.why !== 'missing') || !sampleByKey(key)) continue;
+      window.clearTimeout(s.timer);
+      s.timer = 0;
+      s.tries = 0;
+      void start(key, s);
+    }
+  });
+}
+
+/** Les tests (window.__v4.audio.samples) : les etats et la memoire. */
+export const sampleStats = (): { decoded: number; bytes: number; budget: number; slots: Record<string, string> } => ({
+  decoded: pcm.size,
+  bytes: pcmBytes,
+  budget: PCM_BUDGET,
+  slots: Object.fromEntries([...slots].filter(([, s]) => s.state !== 'ready').map(([k, s]) => [k, `${s.state}${s.why ? `:${s.why}` : ''}#${s.tries}`])),
+});
 
 // L'ancien panneau "samples de l'appareil" est retire (2026-10-05) : ce qu'il gardait dans ce navigateur part
 // (pas 'mm-v4-rytm-user', la base des samples de Mika depuis le 2026-10-18, audio/usersamples.ts)

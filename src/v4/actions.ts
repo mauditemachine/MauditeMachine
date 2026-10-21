@@ -8,12 +8,12 @@
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
+import { ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
 import { TAP_VEL_DEFAULT } from './state/rytmPage';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
 import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './audio/locks';
-import { loadSample, sampleByKey, sampleLabel, samplePcm, samplesChanged, samplesOf, samplesVersion, type KitSample } from './audio/samples';
+import { onSampleFailed, onSampleLoaded, requestSample, sampleByKey, sampleLabel, samplePcm, sampleStatus, samplesChanged, samplesOf, samplesVersion, type KitSample, type SampleFail } from './audio/samples';
 import { UserSampleError, userSamples } from './audio/usersamples';
 import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, DELAY_DIVS, FX_NOTCHES, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, fxSnap, isFxSetting, pattern, velocity } from './audio/pattern';
@@ -1227,7 +1227,10 @@ export function kitLayerDial(f: KitFamily, p: LayerTarget, v: number): void {
     }
     const j = Math.round(c * list.length);
     kit.setSample(f, j === 0 ? null : list[j - 1].key);
-    lcdMessage.show(`${who} SAMPLE ${j === 0 ? 'OFF' : kit.sampleLabel(f)}${j === 0 ? '' : `  ${j} OF ${list.length}`}`, POT_UI.readoutMs, true);
+    // La couche SAMPLE muette (2026-10-21, audit RS-13 : une machine choisie dans SOUND la met a 0) : l'ecran le dit, le
+    // sample choisi ne s'entend pas tant que SMP LEVEL reste a 0 (cette cible regle la couche, comme une Elektron)
+    const mute = j > 0 && kit.layerOf(f).lev <= 0 ? '  SMP LEVEL 0' : '';
+    lcdMessage.show(`${who} SAMPLE ${j === 0 ? 'OFF' : kit.sampleLabel(f)}${j === 0 ? '' : `  ${j} OF ${list.length}`}${mute}`, POT_UI.readoutMs, true);
   } else {
     const [lo, hi] = layerSpan(p);
     const x = lo + c * (hi - lo);
@@ -1413,11 +1416,31 @@ export function voiceSoundText(inst: Inst, p: Readonly<Plays>): string {
   return own ? KIT_MODEL_LABEL[p.model] : inst;
 }
 
-/** Sa ligne d'unite : SAMPLE 1 OF 6, SAMPLE + SYNTH, SYNTH, VOICE SILENT ; CY : ONE SOUND. */
+/** Le mot d'un sample en echec (2026-10-21) : l'ecran dit pourquoi la voix ne le joue pas. */
+const FAIL_WORD: Readonly<Record<SampleFail, string>> = { offline: 'OFFLINE', missing: 'FILE MISSING', bad: 'FILE ERROR', storage: 'STORAGE OFF', gone: 'REMOVED' };
+/** Le meme, court (la colonne de droite du navigateur des sons). */
+const FAIL_TAG: Readonly<Record<SampleFail, string>> = { offline: 'OFFLINE', missing: 'MISSING', bad: 'ERROR', storage: 'STORAGE', gone: 'GONE' };
+
+/**
+ * Ou en est le sample que joue p (2026-10-21, audit RS-1, Mika : "je ne veux plus que ca plante") : '' s'il est pret
+ * (ou pas encore demande) ; LOADING... tant qu'il arrive (la voix garde son son d'avant) ; OFFLINE: 909 PLAYS quand il
+ * n'a pas pu venir (le repli, la couche SYNTH de la voix seule, audio/shots.ts) : l'ecran et le son disent la meme chose.
+ */
+export function sampleStateText(p: Readonly<Plays>): string {
+  if (!p.smp || !p.sample) return '';
+  const st = sampleStatus(p.sample);
+  if (st.state === 'loading') return 'LOADING...';
+  if (st.state !== 'failed') return '';
+  return `${FAIL_WORD[st.why ?? 'bad']}: ${KIT_MODEL_LABEL[p.model]} PLAYS`;
+}
+
+/** Sa ligne d'unite : SAMPLE 1 OF 6, SAMPLE + SYNTH, SYNTH, VOICE SILENT ; CY : ONE SOUND ; un sample qui arrive ou manque : LOADING..., OFFLINE: 909 PLAYS. */
 export function voiceSoundUnit(inst: Inst, p: Readonly<Plays>): string {
   const own = familyOf(inst as ShotId);
   if (!own && !p.from) return 'ONE SOUND';
   if (!p.synth && !p.smp) return 'VOICE SILENT';
+  const state = sampleStateText(p);
+  if (state) return state;
   if (p.smp && p.synth) return 'SAMPLE + SYNTH';
   if (p.smp) {
     if (p.from) return `FROM ${FAM_TAG[p.from as KitFamily] ?? p.from.toUpperCase()}`;
@@ -2749,6 +2772,23 @@ function browserRows(list: readonly VoiceSound[]): readonly BrowserRow[] {
   return rows;
 }
 
+/**
+ * Les lignes d'un sample qui arrive ou qui manque (2026-10-21) : a droite LOADING, OFFLINE, MISSING, ERROR a la place
+ * de leur mot ; les autres telles quelles (la liste gardee, sans copie, quand tout est pret).
+ */
+function browserStateRows(rows: readonly BrowserRow[]): readonly BrowserRow[] {
+  let out: BrowserRow[] | null = null;
+  rows.forEach((r, i) => {
+    if (r.kind !== 'smp') return;
+    const st = sampleStatus(r.key);
+    const tag = st.state === 'loading' ? 'LOADING' : st.state === 'failed' ? FAIL_TAG[st.why ?? 'bad'] : '';
+    if (!tag) return;
+    out ??= rows.slice();
+    out[i] = { ...r, tag };
+  });
+  return out ?? rows;
+}
+
 /** Le pas que la liste verrouille (le P-LOCK ; des pas tenus : le premier), -1 hors P-LOCK. */
 function browserLockStep(): number {
   if (!lockMode()) return -1;
@@ -2774,7 +2814,7 @@ export function soundBrowserView(): SoundBrowserView | null {
   if (!inst || editor.get() === 'mm808' || presetMode.on('mm808')) return null;
   const lock = browserLockStep();
   const list = voiceSounds(inst, lock >= 0);
-  const rows = browserRows(list);
+  const rows = browserStateRows(browserRows(list));
   const cur = browserCur(inst, list, lock);
   const cursor = st.cursor >= 0 && st.cursor < rows.length ? st.cursor : cur;
   return {
@@ -2878,6 +2918,8 @@ function soundBrowserFollow(): void {
 /** Les tests (window.__v4 n'en a pas besoin : ils importent ce module) : combien d'ecoutes, la derniere ; silent les fait taire. */
 export const soundPreview = { count: 0, last: '', silent: false };
 let previewSeq = 0;
+/** L'ecoute attend son coup exact au plus PREVIEW_WAIT_MS une fois le fichier la (2026-10-21) : plus tard, elle se tait. */
+const PREVIEW_WAIT_MS = 1500;
 
 /**
  * L'ecoute d'un son choisi (2026-10-18) : a l'arret seulement (en lecture, le motif le joue), une fois, par le chemin
@@ -2893,16 +2935,48 @@ function previewSound(inst: Inst, lockStep = -1): void {
   const key = p.smp ? p.sample : undefined;
   // Le contexte audio dans le geste lui-meme (iOS), meme si le coup attend son fichier
   if (!soundPreview.silent) gesture();
+  const live = (): boolean => n === previewSeq && !clock.running && !voices.isMuted(inst);
   const go = (): void => {
-    if (n !== previewSeq || clock.running || voices.isMuted(inst)) return;
+    if (!live()) return;
     soundPreview.count += 1;
     soundPreview.last = key ? `${inst} ${key}` : inst;
     if (soundPreview.silent) return;
     trigger(inst, undefined, false, undefined, VEL_GAIN[rytmPage.tapVel(inst)] ?? 1, lock);
   };
-  if (key && !samplePcm(key)) void loadSample(key).then(go);
-  else go();
+  // Le coup exact d'abord (2026-10-21, audit RS-2 : l'ecoute partait avant lui et jouait le plus ancien coup de la
+  // voix, le kick par defaut, 14 fois sur 15) : son fichier (FETCH_TIMEOUT_MS au plus), puis son calcul en tete de file.
+  // Un fichier qui n'a pas pu venir : le repli que la voix joue (OFFLINE: 909 PLAYS), comme le dit l'ecran
+  const exact = (): void => {
+    if (!live()) return;
+    void shotReady(inst, lock, PREVIEW_WAIT_MS).then((ok) => {
+      if (ok || soundPreview.silent) go();
+    });
+  };
+  if (key && !samplePcm(key)) void requestSample(key).then(exact);
+  else exact();
 }
+
+/*
+ * Un sample du kit qui n'a pas pu venir (2026-10-21, audit RS-1) : l'ecran le dit une fois (BD ENGELHARDT: OFFLINE,
+ * 909 PLAYS), pas a chaque nouvel essai ; revenu, il le dit aussi (BD ENGELHARDT LOADED).
+ */
+const failShown = new Map<string, string>();
+const kitFamiliesOf = (key: string): KitFamily[] => KIT_FAMILIES.filter((f) => kit.get().sample[f] === key && kit.layerOf(f).lev > 0);
+onSampleFailed((key, why) => {
+  const fams = kitFamiliesOf(key);
+  if (fams.length === 0) return;
+  const f = fams[0];
+  // Une fois par choix : le meme echec d'un nouvel essai se tait, un nouveau choix du meme sample le redit
+  const seen = `${why}|${kit.choice(f)}`;
+  if (failShown.get(key) === seen) return;
+  failShown.set(key, seen);
+  lcdMessage.show(`${FAM_TAG[f]} ${sampleByKey(key)?.label ?? 'SAMPLE'}: ${FAIL_WORD[why]}, ${KIT_MODEL_LABEL[kit.get().model[f]]} PLAYS`, 2400);
+});
+onSampleLoaded((key) => {
+  if (!failShown.delete(key)) return;
+  const f = kitFamiliesOf(key)[0];
+  if (f) lcdMessage.show(`${FAM_TAG[f]} ${sampleByKey(key)?.label ?? 'SAMPLE'} LOADED`, 1600);
+});
 
 /**
  * Le son i du navigateur pour ce qu'il regarde : la voix (les regles du potard), ou en P-LOCK le pas (le sample lock,
@@ -3073,6 +3147,10 @@ export function soundFilesPick(inst: Inst | null = pattern.get().instrument, fro
   input.click();
 }
 
+/** Le dernier ajout de fichiers parti pour chaque famille (2026-10-21) : seul lui choisit son fichier a la fin. */
+let addSeq = 0;
+const addLast: Partial<Record<KitFamily, number>> = {};
+
 /**
  * Des fichiers pour une voix (glisses sur un pad, choisis par + LOAD A FILE...) : tous entrent dans sa famille
  * (audio/usersamples.ts : 10 Mo, 12 s, 60 par famille au plus), le premier joue tout de suite (les regles du potard ;
@@ -3082,6 +3160,11 @@ export function soundFilesPick(inst: Inst | null = pattern.get().instrument, fro
 export async function soundFilesAdd(files: readonly File[], inst: Inst, fromList = false): Promise<number> {
   const f = familyOf(inst as ShotId);
   if (!f || files.length === 0) return 0;
+  // Le dernier geste gagne (2026-10-21, audit RS-3) : ce qui est la au depart de l'ajout
+  const token = (addSeq += 1);
+  addLast[f] = token;
+  const gen0 = kit.choice(f);
+  const lock0 = browserLockStep();
   lcdMessage.show(`${inst} ADDING ${files.length > 1 ? `${files.length} FILES` : sampleLabel(files[0].name)}...`, 8000);
   const added: KitSample[] = [];
   const refused: string[] = [];
@@ -3104,6 +3187,12 @@ export async function soundFilesAdd(files: readonly File[], inst: Inst, fromList
     return 0;
   }
   const s = added[0];
+  // Un autre son choisi pendant l'ajout, une autre voix, un autre pas en P-LOCK, ou un ajout parti apres celui-ci : le
+  // fichier entre dans la liste, sans etre choisi ni joue (avant, il ecrasait le choix fait apres lui)
+  if (addLast[f] !== token || kit.choice(f) !== gen0 || pattern.get().instrument !== inst || browserLockStep() !== lock0) {
+    lcdMessage.show(`${inst}: ADDED ${s.label}${added.length > 1 ? `  +${added.length - 1}` : ''}${why ? `  ${why}` : ''}`, 2400);
+    return added.length;
+  }
   const msg = `${inst} SAMPLE ${s.label}${added.length > 1 ? `  +${added.length - 1}` : ''}${why ? `  ${why}` : ''}`;
   const v = soundBrowserView();
   const i = v && v.inst === inst ? v.rows.findIndex((r) => r.kind === 'smp' && r.key === s.key) : -1;

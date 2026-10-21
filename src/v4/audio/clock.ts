@@ -48,6 +48,7 @@ import { SWING } from '../theme';
 import { voiceFx } from './voicefx';
 import { kit } from './kit';
 import { cancelVoice, context, mix, trigger, type Voice } from './drums';
+import { shots } from './shots';
 import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from './pattern';
 import { lockOf, type Locks } from './locks';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from './sched';
@@ -376,6 +377,8 @@ pattern.fx.subscribe(ask);
 voices.subscribe(ask);
 voiceFx.subscribe(ask);
 kit.subscribe(ask);
+// Le coup d'un nouveau son arrive (2026-10-21, audit RS-2) : les pas deja programmes avec un remplacant sont refaits
+shots.onReady(ask);
 let mixKey = '';
 mix.subscribe(() => {
   const k = `${mix.tone}|${mix.stretch}`;
