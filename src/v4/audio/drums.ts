@@ -310,8 +310,15 @@ function applyFxSettings(g: Graph, f: Readonly<Fx>): void {
   g.reverb.setShape(irShapeOf(f));
   g.fx.setTone(fxValue(f, 'xtone'));
   g.kickFx?.setTone(fxValue(f, 'xtone'));
-  // Le chorus du bus seul (ceux des voix et du MM-ARP gardent leurs vitesses)
   g.chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
+  // Les chorus et les DIST des voix aussi (2026-10-21, audit F3 : RATE, DEPTH et TONE de leur page ne faisaient rien
+  // sur la voix) ; le CHORUS du MM-ARP garde les siens
+  if (g.ch) {
+    for (const inst of INSTRUMENTS) {
+      g.ch[inst].chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
+      g.ch[inst].drive.setTone(fxValue(f, 'xtone'));
+    }
+  }
   if (g.glue) setGlue(g.glue, f);
 }
 
@@ -473,7 +480,9 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
       const chOut = c.createGain();
       chOut.connect(inst === 'BD' ? kickBus : bus);
       const chChorus = buildChorus(c, chOut);
-      const chDrive = buildDrive(c, chChorus.input);
+      // RATE, DEPTH et DIST TONE de la machine (2026-10-21) : poses avant leur premiere branche
+      chChorus.setMod?.(fxValue(fs, 'crate'), fxValue(fs, 'cdepth'));
+      const chDrive = buildDrive(c, chChorus.input, fxValue(fs, 'xtone'));
       const chTone = buildTone(c, chDrive.input, 0);
       const chIn = c.createGain();
       chIn.gain.value = 1;

@@ -22,15 +22,34 @@
  * est generee ici (makeImpulse).
  * Chaque reglage rejoint sa valeur en 20 ms ; une branche revenue a 0 se
  * debranche apres sa rampe.
+ *
+ * 2026-10-21 (audit F3, F5) : TRIM, le sec et le mouille baissent ensemble
+ * avec DIST (le rapport entre eux ne change pas : a 100 %, une voix
+ * sortait 8 a 9 dB plus fort) ; la DIST d'une voix (buildDrive) a le meme
+ * passe-bas que celle du bus, regle par le meme DIST TONE.
  */
 
-import { glide } from './glide';
+import { glide, pointAt } from './glide';
 import { Insert, UNLINK_MS } from './insert';
 
 export { GLIDE_S, glide } from './glide';
 
 /** DIST : D = 1 + gain x d, melange m = mix x d, courbe tanh(k u) sur `points` valeurs (nombre impair : 0 exact au centre). */
 const DRIVE = { gain: 12, mix: 0.85, k: 8, points: 2049 } as const;
+/**
+ * TRIM de la DIST (2026-10-21, audit F5) : sec et mouille x 10^(-9 x d / 20), exactement 1 a DIST 0 (le rapport entre
+ * eux, le caractere, ne change pas). Mesure (un coup, RMS 40-500 ms, sans limiteur) : a 100 %, le kick et la caisse
+ * claire restent a 0.3 dB de leur niveau sans DIST (+8 a +9 dB avant) ; un son plus doux, que la saturation tient
+ * davantage (toms, charleys, clap, cymbale), sort 3 a 8 dB plus fort (+11 a +17 dB avant).
+ */
+const DIST_TRIM_DB = 9;
+const distTrim = (d: number): number => (d > 0 ? Math.pow(10, (-DIST_TRIM_DB * d) / 20) : 1);
+/** Le sec, l'entree de la saturation et le mouille d'un reglage d (0 a 1). */
+const driveMix = (d: number): { dry: number; pre: number; wet: number } => {
+  const m = DRIVE.mix * d;
+  const k = distTrim(d);
+  return { dry: k * (1 - m), pre: (1 + DRIVE.gain * d) / DRIVE.k, wet: k * m };
+};
 
 /** REVERB : longueur de la reponse (s), pre-delai, entree en fondu, passe-bas du bruit (Hz) du debut a la fin de la queue, graines. */
 const REVERB = { seconds: 2.4, preDelay: 0.02, fadeIn: 0.003, hiStart: 9000, hiEnd: 3000, seeds: [808, 909] } as const;
@@ -160,7 +179,7 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
    * rien ne change). Butterworth (Q en dB pour un passe-bas : -3 dB). Ouvert, il est pose a Nyquist : le filtre
    * biquad du navigateur y vaut exactement 1 (ses coefficients 1, 0, 0), le mouille d'avant au bit pres.
    */
-  const openHz = (hz: number): number => (!Number.isFinite(hz) || hz >= DIST_OPEN_HZ ? c.sampleRate / 2 : Math.max(20, Math.min(c.sampleRate / 2, hz)));
+  const openHz = (hz: number): number => distToneHz(c, hz);
   let toneHz = openHz(tone0);
   const lp = c.createBiquadFilter();
   lp.type = 'lowpass';
@@ -189,10 +208,10 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
         driveOn = true;
       }
     }
-    const m = DRIVE.mix * d;
-    glide(dry.gain, 1 - m, c);
-    glide(pre.gain, (1 + DRIVE.gain * d) / DRIVE.k, c);
-    glide(wet.gain, m, c);
+    const m = driveMix(d);
+    glide(dry.gain, m.dry, c);
+    glide(pre.gain, m.pre, c);
+    glide(wet.gain, m.wet, c);
     if (d > 0 || !driveOn) return;
     clearTimeout(driveTimer);
     driveTimer = setTimeout(() => {
@@ -216,6 +235,9 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
   return { setDrive, setTone, info: () => ({ drive, toneHz, driveOn, unlinks }) };
 }
 
+/** DIST TONE en Hz : 16 kHz et plus (ou NaN), le passe-bas pose a Nyquist (ouvert, exactement 1) ; sinon borne. */
+const distToneHz = (c: BaseAudioContext, hz: number): number => (!Number.isFinite(hz) || hz >= DIST_OPEN_HZ ? c.sampleRate / 2 : Math.max(20, Math.min(c.sampleRate / 2, hz)));
+
 /** Insert de saturation d'une voix (meme loi que DIST) : bypass reel a 0. */
 export interface DriveStage {
   input: AudioNode;
@@ -224,15 +246,18 @@ export interface DriveStage {
   /**
    * Les verrous DIST de la voix (2026-10-09, audio/lockfx.ts) : tenue (la
    * branche reste reliee, au repos le meme signal), et la valeur d'un coup a
-   * l'instant when.
+   * l'instant when (prev, 2026-10-21 : la valeur d'avant, une rampe de 3 ms).
    */
   lockHold(on: boolean): void;
-  lockAt(when: number, d: number): void;
+  lockAt(when: number, d: number, prev?: number): void;
+  lockClear(t: number): void;
+  /** DIST TONE (2026-10-21, audit F3) : le passe-bas du mouille de la voix, le meme reglage que celui du bus. */
+  setTone(hz: number): void;
   /** Appele apres une rampe de set() (elle efface ce qui etait programme) : audio/lockfx.ts repose ses points. */
   onRetime: (() => void) | null;
 }
 
-export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
+export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = DIST_OPEN_HZ): DriveStage {
   const input = c.createGain();
   input.gain.value = 1;
   const pre = c.createGain();
@@ -241,8 +266,15 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
   shaper.curve = driveCurve();
   shaper.oversample = 'none';
   pre.connect(shaper);
+  // DIST TONE (2026-10-21) : le passe-bas apres la saturation, comme buildFx ; ouvert (Nyquist) il vaut exactement 1
+  let toneHz = distToneHz(c, tone0);
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.Q.value = 20 * Math.log10(Math.SQRT1_2);
+  lp.frequency.value = toneHz;
+  shaper.connect(lp);
   const insert = new Insert(c, input, out);
-  insert.setBranch(pre, shaper);
+  insert.setBranch(pre, lp);
   let drive = 0;
   const stage: DriveStage = {
     input,
@@ -253,9 +285,9 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
       drive = t;
       if (t === 0) insert.release();
       else {
-        glide(pre.gain, (1 + DRIVE.gain * t) / DRIVE.k, c);
-        const m = DRIVE.mix * t;
-        insert.engage(1 - m, m);
+        const m = driveMix(t);
+        glide(pre.gain, m.pre, c);
+        insert.engage(m.dry, m.wet);
       }
       stage.onRetime?.();
     },
@@ -263,12 +295,26 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
     lockHold(on: boolean) {
       insert.hold(on);
       // Lache (le dernier verrou DIST retire, revue du 2026-10-09) : l'entree revient a celle de la voix, les points s'effacent
-      if (!on) glide(pre.gain, (1 + DRIVE.gain * drive) / DRIVE.k, c);
+      if (!on) glide(pre.gain, driveMix(drive).pre, c);
     },
-    lockAt(when: number, d: number) {
+    lockAt(when: number, d: number, prev?: number) {
       const t = Number.isFinite(d) ? Math.min(1, Math.max(0, d)) : 0;
-      const m = DRIVE.mix * t;
-      if (insert.at(when, 1 - m, m)) pre.gain.setValueAtTime((1 + DRIVE.gain * t) / DRIVE.k, Math.max(when, c.currentTime));
+      const m = driveMix(t);
+      const p = prev === undefined || !Number.isFinite(prev) ? null : driveMix(Math.min(1, Math.max(0, prev)));
+      if (!insert.at(when, m.dry, m.wet, p ?? undefined)) return;
+      const at = Math.max(when, c.currentTime);
+      if (p) pointAt(pre.gain, p.pre, m.pre, at, c);
+      else pre.gain.setValueAtTime(m.pre, at);
+    },
+    lockClear(t: number) {
+      insert.clearFrom(t);
+      pre.gain.cancelScheduledValues(Math.max(t, c.currentTime));
+    },
+    setTone(hz: number) {
+      const v = distToneHz(c, hz);
+      if (v === toneHz) return;
+      toneHz = v;
+      glide(lp.frequency, v, c);
     },
   };
   return stage;

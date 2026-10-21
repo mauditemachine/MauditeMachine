@@ -7,6 +7,22 @@
  * sortie ; la branche (retards, LFO, panoramiques) n'existe que tant que le
  * CHORUS est engage, et s'arrete au retour a 0 (LFO stoppes, noeuds
  * debranches). Melange : sec 1 - 0.5 v, chorus 1.0 v (0.35 et 0.7 avant).
+ *
+ * 2026-10-21 (audit F4, F5, M2, F10, RS-3) :
+ * - la ligne de gauche ne retarde que le canal gauche, celle de droite le
+ *   droit : avant, chacune passait par un panoramique stereo qui, sur les
+ *   coups du MM-RYTM (en double mono), doublait la ligne de son cote et
+ *   ramenait au milieu une voix placee par PAN ; LINE_W garde ce niveau de
+ *   ligne (une voix au centre sonne au bit pres comme avant, le caractere
+ *   que Mika a valide a 100 %), une voix a droite reste a droite (son pas
+ *   verrouille compris), et le worklet ne lit plus qu'une ligne par voix ;
+ * - TRIM : le sec et le mouille baissent ensemble avec le reglage (le
+ *   rapport entre eux ne change pas) : a 100 %, une voix sortait 7 a 8 dB
+ *   plus fort ;
+ * - une branche neuve se remplit 45 ms en silence avant que le sec et le
+ *   mouille glissent (ses retards partent vides : deux clics a 14 et 21 ms) ;
+ * - le passage des DelayNode au worklet ne casse plus rien (il levait une
+ *   erreur et laissait le CHORUS muet jusqu'au rechargement).
  */
 
 import chorusUrl from './chorus.worklet.js?url';
@@ -62,7 +78,7 @@ function chorusNode(c: BaseAudioContext, opts: Record<string, unknown>): AudioWo
       numberOfOutputs: 1,
       outputChannelCount: [2],
       channelCount: 2,
-      // 'max' : une entree mono reste mono (le panoramique mono du StereoPannerNode)
+      // 'max' : une entree mono reste mono (ses deux lignes lisent le meme canal)
       channelCountMode: 'max',
       processorOptions: opts,
     });
@@ -78,13 +94,36 @@ export interface ChorusVoice {
   pan: number;
 }
 
-/** Reglage d'un chorus : ses voix, la profondeur du LFO (s), le sec et le mouille a 1. */
+/** Reglage d'un chorus : ses voix, la profondeur du LFO (s), le sec et le mouille a 1, la puissance de ses lignes (TRIM). */
 export interface ChorusCfg {
   voices: readonly ChorusVoice[];
   depth: number;
   dry: number;
   wet: number;
+  wetPower?: number;
 }
+
+/**
+ * TRIM du CHORUS (2026-10-21, audit F5, Mika : "les FX a la perfection") : a 100 %, une voix sortait 7 a 8 dB plus
+ * fort (RMS) ; le sec et le mouille baissent ensemble (le rapport sec / mouille, le caractere, reste celui que Mika a
+ * voulu le 2026-10-02) de ce qu'ils ajoutent en puissance : 1 / racine((1 - sec x v)^2 + P x (mouille x v)^2), P la
+ * puissance de deux lignes contre celle du sec, mesuree sur les huit voix du kit de depart (1.16 : un peu correlees au
+ * sec dans le grave). Mesure (un coup, RMS 40-500 ms) : de 0 a 100 %, chaque voix reste a 1.7 dB de son niveau sans
+ * CHORUS (la plupart a 1 dB), contre +7.4 dB a 100 % avant.
+ */
+const CHORUS_WET_POWER = 1.16;
+/**
+ * La branche neuve se remplit avant que le sec et le mouille bougent (2026-10-21, audit F4) : le plus long retard lu
+ * (21 ms + 20 ms de profondeur au plus) et la demi-fenetre de l'interpolation.
+ */
+const PREROLL_S = 0.045;
+
+/**
+ * Le niveau d'une ligne (2026-10-21, audit F5) : avant, chaque ligne passait par un panoramique stereo sur un son en
+ * double mono, et sortait 2 cos(0.15 pi / 2) = 1.945 fois la loi mono a son cote ; chaque ligne part maintenant de son
+ * seul canal (loi mono), ce facteur reste dans le mouille : une voix au centre sonne comme avant (puis TRIM).
+ */
+const LINE_W = 2 * Math.cos((Math.PI * 0.15) / 2);
 
 const CHORUS: ChorusCfg = {
   voices: [
@@ -93,7 +132,8 @@ const CHORUS: ChorusCfg = {
   ],
   depth: 0.007,
   dry: 0.5,
-  wet: 1.0,
+  wet: 1.0 * LINE_W,
+  wetPower: CHORUS_WET_POWER,
 };
 
 /** CHORUS DEPTH au depart (2026-10-10) : la profondeur des LFO d'avant (s). */
@@ -112,6 +152,8 @@ export interface ChorusInfo {
   depth?: number;
   /** le chorus du MM-ARP (2026-10-12, facon Juno-106) : la vitesse de son triangle (Hz), 0 coupe */
   rate?: number;
+  /** la branche en worklet (2026-10-21 ; false : les DelayNode de secours) */
+  worklet?: boolean;
 }
 
 export interface ChorusStage {
@@ -126,14 +168,17 @@ export interface ChorusStage {
    * valeur d'un coup a l'instant when. Absent du chorus du MM-VOYAGER.
    */
   lockHold?(on: boolean): void;
-  lockAt?(when: number, v: number): void;
+  /** prev (2026-10-21) : la valeur d'avant ce point, le point devient une rampe de 3 ms qui finit au coup */
+  lockAt?(when: number, v: number, prev?: number): void;
+  lockClear?(t: number): void;
   /** Appele apres une rampe de set() ou de l'arrivee du worklet : audio/lockfx.ts repose ses points. */
   onRetime?: (() => void) | null;
   /**
    * CHORUS RATE et DEPTH (2026-10-10, la page CHORUS du MM-RYTM) : les
    * vitesses des LFO multipliees par mul, leur profondeur (s), rejointes en
-   * douceur. Seul le chorus du bus les recoit ; ceux des voix gardent les
-   * leurs, celui du MM-ARP n'en a pas.
+   * douceur. Tous les chorus du MM-RYTM les recoivent depuis le 2026-10-21
+   * (audit F3 : ceux des voix gardaient les leurs, RATE et DEPTH de leur
+   * page ne faisaient rien) ; celui du MM-ARP n'en a pas.
    */
   setMod?(mul: number, depth: number): void;
 }
@@ -149,6 +194,13 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
   let mul = 1;
   let modDepth = cfg.depth;
   let branch: { nodes: AudioNode[]; lfos: OscillatorNode[]; w?: AudioWorkletNode; depths?: GainNode[] } | null = null;
+  /** Le sec et le mouille d'un reglage t : le dosage de cfg, puis TRIM (le rapport entre eux ne change pas). */
+  const mixOf = (t: number): { dry: number; wet: number } => {
+    const d = 1 - cfg.dry * t;
+    const w = cfg.wet * t;
+    const k = cfg.wetPower && t > 0 ? 1 / Math.sqrt(d * d + cfg.wetPower * w * w) : 1;
+    return { dry: k * d, wet: k * w };
+  };
 
   const build = (): void => {
     const bIn = c.createGain();
@@ -163,60 +215,81 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       w.connect(bOut);
       nodes.push(w);
       branch = { nodes, lfos, w };
-      built += 1;
-      insert.setBranch(bIn, bOut);
-      return;
+    } else {
+      // Chaque ligne retarde son canal, comme le worklet (2026-10-21) : une entree mono passe des deux cotes
+      bIn.channelCount = 2;
+      bIn.channelCountMode = 'explicit';
+      bIn.channelInterpretation = 'speakers';
+      const split = c.createChannelSplitter(2);
+      bIn.connect(split);
+      nodes.push(split);
+      for (const v of cfg.voices) {
+        const d = c.createDelay(0.05);
+        d.delayTime.value = v.delay;
+        const lfo = c.createOscillator();
+        lfo.frequency.value = v.rate * mul;
+        const depth = c.createGain();
+        depth.gain.value = modDepth;
+        depths.push(depth);
+        lfo.connect(depth);
+        depth.connect(d.delayTime);
+        const pan = c.createStereoPanner();
+        pan.pan.value = v.pan;
+        split.connect(d, v.pan <= 0 ? 0 : 1);
+        d.connect(pan);
+        pan.connect(bOut);
+        lfo.start();
+        nodes.push(d, depth, pan, lfo);
+        lfos.push(lfo);
+      }
+      branch = { nodes, lfos, depths };
     }
-    for (const v of cfg.voices) {
-      const d = c.createDelay(0.05);
-      d.delayTime.value = v.delay;
-      const lfo = c.createOscillator();
-      lfo.frequency.value = v.rate * mul;
-      const depth = c.createGain();
-      depth.gain.value = modDepth;
-      depths.push(depth);
-      lfo.connect(depth);
-      depth.connect(d.delayTime);
-      const pan = c.createStereoPanner();
-      pan.pan.value = v.pan;
-      bIn.connect(d);
-      d.connect(pan);
-      pan.connect(bOut);
-      lfo.start();
-      nodes.push(d, depth, pan, lfo);
-      lfos.push(lfo);
-    }
-    branch = { nodes, lfos, depths };
     built += 1;
     insert.setBranch(bIn, bOut);
-    whenChorusReady(c, upgrade);
+    // Ses retards partent vides : le sec et le mouille attendent qu'ils soient pleins (2026-10-21, audit F4)
+    insert.holdRampsUntil(c.currentTime + PREROLL_S);
+    if (!w) whenChorusReady(c, upgrade);
   };
 
-  // Repos atteint : la branche s'arrete et sort du graphe
-  const teardown = (): void => {
-    if (!branch) return;
-    for (const l of branch.lfos) {
+  /** Une branche hors service : ses LFO s'arretent, ses noeuds sortent du graphe. */
+  const drop = (b: NonNullable<typeof branch>): void => {
+    for (const l of b.lfos) {
       try {
         l.stop();
       } catch {
         /* deja arrete */
       }
     }
-    for (const n of branch.nodes) n.disconnect();
+    for (const n of b.nodes) n.disconnect();
+  };
+  // Repos atteint : la branche s'arrete et sort du graphe
+  const teardown = (): void => {
+    if (!branch) return;
+    drop(branch);
     branch = null;
   };
   insert.onIdle = teardown;
 
-  const apply = (t: number): void => insert.engage(1 - cfg.dry * t, cfg.wet * t);
+  const apply = (t: number): void => {
+    const m = mixOf(t);
+    insert.engage(m.dry, m.wet);
+  };
 
-  // Le module arrive : la branche des DelayNode s'efface (mouille a 0 en 20 ms), le worklet la remplace
+  /*
+   * Le module arrive : la branche des DelayNode s'efface (mouille a 0 en 20 ms), le worklet la remplace. Revu le
+   * 2026-10-21 (audit RS-3) : l'ancienne branche etait demontee AVANT que l'insert la lache, et setBranch levait sur
+   * un lien deja parti (InvalidAccessError dans un setTimeout) : le CHORUS restait muet pour la visite. Desormais la
+   * neuve se branche d'abord (setBranch lache l'ancienne proprement), puis l'ancienne s'arrete.
+   */
   function upgrade(): void {
     if (!branch || value === 0 || branch.lfos.length === 0) return;
-    insert.engage(1 - cfg.dry * value, 0);
+    insert.engage(mixOf(value).dry, 0);
     setTimeout(() => {
-      if (value === 0 || !branch || branch.lfos.length === 0) return;
-      teardown();
+      const old = branch;
+      if (value === 0 || !old || old.lfos.length === 0) return;
+      branch = null;
       build();
+      drop(old);
       apply(value);
       stage.onRetime?.();
     }, UNLINK_MS);
@@ -241,15 +314,20 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       value = 0;
       insert.reset();
     },
-    info: () => ({ value, live: branch !== null, built, insert: insert.info(), mul, depth: modDepth }),
+    info: () => ({ value, live: branch !== null, built, insert: insert.info(), mul, depth: modDepth, worklet: !!branch?.w }),
     lockHold(on: boolean) {
       if (on && !branch) build();
       insert.hold(on);
     },
-    lockAt(when: number, v: number) {
+    lockAt(when: number, v: number, prev?: number) {
       const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
       if (!branch) return;
-      insert.at(when, 1 - cfg.dry * t, cfg.wet * t);
+      const m = mixOf(t);
+      const p = prev === undefined || !Number.isFinite(prev) ? undefined : mixOf(Math.min(1, Math.max(0, prev)));
+      insert.at(when, m.dry, m.wet, p);
+    },
+    lockClear(t: number) {
+      insert.clearFrom(t);
     },
     setMod(m: number, d: number) {
       const nm = Number.isFinite(m) ? Math.max(MOD.mulMin, Math.min(MOD.mulMax, m)) : 1;
@@ -320,6 +398,9 @@ export const JUNO = {
   trim: 0.633,
 } as const;
 
+/** La ligne du Juno se remplit avant le melange (2026-10-21) : son plus long retard (5.35 ms) et une marge. */
+const JUNO_PREROLL_S = 0.008;
+
 /** Les modes du chorus du MM-ARP : 0 OFF, 1 I, 2 II. */
 export type JunoMode = 0 | 1 | 2;
 
@@ -349,6 +430,8 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
       branch = { nodes: [wIn, w], lfos: [], node: w };
       built += 1;
       insert.setBranch(wIn, w);
+      // Sa ligne part vide (2026-10-21, audit F4) : le melange attend qu'elle soit pleine
+      insert.holdRampsUntil(c.currentTime + JUNO_PREROLL_S);
       return;
     }
     // Sans worklet : deux DelayNode, un triangle lineaire (le meme centre, la meme course), les deux Sallen-Key d'avant
@@ -390,19 +473,23 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
     branch = { nodes, lfos: [slow], slow };
     built += 1;
     insert.setBranch(bIn, merge);
+    insert.holdRampsUntil(c.currentTime + JUNO_PREROLL_S);
     whenChorusReady(c, upgrade);
   };
 
-  const teardown = (): void => {
-    if (!branch) return;
-    for (const l of branch.lfos) {
+  const drop = (b: NonNullable<typeof branch>): void => {
+    for (const l of b.lfos) {
       try {
         l.stop();
       } catch {
         /* deja arrete */
       }
     }
-    for (const n of branch.nodes) n.disconnect();
+    for (const n of b.nodes) n.disconnect();
+  };
+  const teardown = (): void => {
+    if (!branch) return;
+    drop(branch);
     branch = null;
   };
   insert.onIdle = teardown;
@@ -410,14 +497,17 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
   // Chaque sortie : le sec et sa ligne, au rapport du Juno ; TRIM pour le niveau d'ensemble
   const engage = (): void => insert.engage(JUNO.trim, JUNO.trim * JUNO.wet);
 
-  // Le module arrive : les DelayNode s'effacent en 20 ms, le worklet prend la suite
+  // Le module arrive : les DelayNode s'effacent en 20 ms, le worklet prend la suite. 2026-10-21 (audit RS-3) : la
+  // neuve se branche d'abord, l'ancienne s'arrete ensuite (demontee avant, setBranch levait et le CHORUS restait muet)
   function upgrade(): void {
     if (!branch || mode === 0 || branch.node) return;
     insert.engage(JUNO.trim, 0);
     setTimeout(() => {
-      if (mode === 0 || !branch || branch.node) return;
-      teardown();
+      const old = branch;
+      if (mode === 0 || !old || old.node) return;
+      branch = null;
       build();
+      drop(old);
       engage();
     }, UNLINK_MS);
   }

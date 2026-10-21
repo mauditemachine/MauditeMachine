@@ -11,7 +11,14 @@
  * (le sec et le dosage restent a l'insert, chorus.ts). Deux sortes :
  * - 'bus' (la boite a rythmes et ses voix) : deux voix, chacune un retard
  *   de base module par un sinus lent, chacune placee comme un
- *   StereoPannerNode le ferait (memes formules : le son ne change pas) ;
+ *   StereoPannerNode le ferait d'une entree mono (memes formules que les
+ *   DelayNode de secours). Depuis le 2026-10-21 (audit F5, F10, M2) la voix
+ *   de gauche ne lit que le canal gauche, celle de droite le droit : une
+ *   ligne lue par voix au lieu de deux (deux fois moins de calcul), un coup
+ *   en double mono sonne au bit pres comme avant (chorus.ts LINE_W), un
+ *   sample stereo garde son energie et un coup place par PAN (son pas
+ *   verrouille compris) le reste dans le CHORUS (le panoramique stereo
+ *   ramenait chaque ligne au milieu) ;
  * - 'juno' (le MM-ARP, refait le 2026-10-12 d'apres le Juno-106, chorus.ts
  *   JUNO) : l'entree en mono, les filtres des BBD (deux Butterworth de 4
  *   poles vers 10 kHz et un 7.2 kHz a l'entree du BBD), une seule ligne et
@@ -96,17 +103,14 @@ class MMChorus extends AudioWorkletProcessor {
     this.bufL = new Float32Array(n);
     this.bufR = new Float32Array(n);
     this.w = 0;
-    // Chaque voix : retard, vitesse, et ses gains de placement (StereoPannerNode, entree stereo)
+    // Chaque voix : retard, vitesse, son canal (gauche sous le centre) et ses gains de placement (StereoPannerNode,
+    // entree mono : sa loi d'egale puissance)
     this.voices = (Array.isArray(o.voices) ? o.voices : []).map((v) => {
-      const x = v.pan <= 0 ? v.pan + 1 : v.pan;
-      // Entree mono : le panoramique d'egale puissance du StereoPannerNode
       const xm = (v.pan + 1) / 2;
       return {
         delay: v.delay,
         rate: v.rate,
         left: v.pan <= 0,
-        gl: Math.cos((x * Math.PI) / 2),
-        gr: Math.sin((x * Math.PI) / 2),
         ml: Math.cos((xm * Math.PI) / 2),
         mr: Math.sin((xm * Math.PI) / 2),
       };
@@ -227,9 +231,8 @@ class MMChorus extends AudioWorkletProcessor {
       this.w = w;
       return true;
     }
-    // Bus : chaque voix retarde les deux canaux, puis les place (StereoPannerNode : formules mono ou stereo)
+    // Bus : chaque voix retarde son canal (une entree mono : le meme des deux cotes), puis le place (loi mono)
     const V = this.voices;
-    const mono = inp.length === 1;
     const kS = this.k;
     for (let i = 0; i < N; i += 1) {
       bL[this.w] = inL[i];
@@ -246,20 +249,9 @@ class MMChorus extends AudioWorkletProcessor {
         const d = d0 < HALF ? HALF : d0;
         this.vph[k] += (v.rate * this.smMul) / sr;
         if (this.vph[k] >= 1) this.vph[k] -= 1;
-        const dl = readFrac(bL, this.w, d);
-        if (mono) {
-          l += dl * v.ml;
-          r += dl * v.mr;
-          continue;
-        }
-        const dr = readFrac(bR, this.w, d);
-        if (v.left) {
-          l += dl + dr * v.gl;
-          r += dr * v.gr;
-        } else {
-          l += dl * v.gl;
-          r += dr + dl * v.gr;
-        }
+        const y = readFrac(v.left ? bL : bR, this.w, d);
+        l += y * v.ml;
+        r += y * v.mr;
       }
       oL[i] = l;
       oR[i] = r;

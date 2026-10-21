@@ -12,7 +12,7 @@
  *             in -> branche -> mouille (m) ----> out
  */
 
-import { glide } from './glide';
+import { GLIDE_S, glide, pointAt } from './glide';
 
 /** Debranchement apres la rampe de 20 ms, avec une marge. */
 export const UNLINK_MS = 60;
@@ -25,6 +25,19 @@ export interface InsertInfo {
   dry: number;
   wet: number;
   unlinks: number;
+}
+
+/**
+ * Un debranchement qui ne leve jamais (2026-10-21, audit RS-3) : le navigateur leve InvalidAccessError quand le lien
+ * n'existe plus (une branche deja demontee) ; un lien absent est deja ce qu'on veut.
+ */
+function cut(from: AudioNode | null, to: AudioNode): void {
+  if (!from) return;
+  try {
+    from.disconnect(to);
+  } catch {
+    /* deja debranche */
+  }
 }
 
 export class Insert {
@@ -45,6 +58,12 @@ export class Insert {
    * pour que le coup verrouille trouve ses gains a l'instant ou il joue.
    */
   private held = false;
+  /**
+   * Pas de rampe avant cet instant (2026-10-21, audit F4, temps du contexte) : une branche neuve dont les lignes se
+   * remplissent (le CHORUS : ses retards partent vides, le mouille arrivait d'un coup a 14 et 21 ms, deux clics) ;
+   * le sec et le mouille restent ou ils sont jusque-la, puis glissent en 20 ms. 0 : tout de suite, comme avant.
+   */
+  private notBefore = 0;
   /** appele quand la branche est debranchee (repos atteint) */
   onIdle: (() => void) | null = null;
 
@@ -56,15 +75,41 @@ export class Insert {
     inp.connect(out);
   }
 
-  /** La branche de traitement (TONE : passe-haut et passe-bas ; STRETCH : le worklet). */
+  /**
+   * La branche de traitement (TONE : passe-haut et passe-bas ; STRETCH : le worklet). Une branche remplacee
+   * engagee (le CHORUS qui passe au worklet) : la neuve est reliee a l'entree tout de suite, l'ancienne n'y est plus.
+   */
   setBranch(bIn: AudioNode, bOut: AudioNode): void {
     if (this.branchIn === bIn && this.branchOut === bOut) return;
-    if (this.linked && this.branchIn) this.inp.disconnect(this.branchIn);
+    const was = this.linked;
+    if (this.linked) cut(this.inp, this.branchIn as AudioNode);
     this.linked = false;
-    if (this.branchOut && this.wetGain) this.branchOut.disconnect(this.wetGain);
+    if (this.wetGain) cut(this.branchOut, this.wetGain);
     this.branchIn = bIn;
     this.branchOut = bOut;
     if (this.wetGain) bOut.connect(this.wetGain);
+    if (was && !this.direct) {
+      this.inp.connect(bIn);
+      this.linked = true;
+    }
+  }
+
+  /** Les rampes suivantes partent au plus tot a t (temps du contexte), audio/chorus.ts : une branche neuve qui se remplit. */
+  holdRampsUntil(t: number): void {
+    this.notBefore = t;
+  }
+
+  /** Une rampe de 20 ms vers v, partie maintenant ou a notBefore si la branche se remplit encore. */
+  private ramp(p: AudioParam, v: number): void {
+    const now = this.c.currentTime;
+    if (this.notBefore <= now) {
+      glide(p, v, this.c);
+      return;
+    }
+    p.cancelScheduledValues(now);
+    p.setValueAtTime(p.value, now);
+    p.setValueAtTime(p.value, this.notBefore);
+    p.linearRampToValueAtTime(v, this.notBefore + GLIDE_S);
   }
 
   get hasBranch(): boolean {
@@ -99,8 +144,8 @@ export class Insert {
     }
     this.dry = dry;
     this.wet = wet;
-    if (this.dryGain) glide(this.dryGain.gain, dry, this.c);
-    glide(this.wetGain.gain, wet, this.c);
+    if (this.dryGain) this.ramp(this.dryGain.gain, dry);
+    this.ramp(this.wetGain.gain, wet);
   }
 
   /**
@@ -129,14 +174,33 @@ export class Insert {
   /**
    * Le sec et le mouille a l'instant when (un coup verrouille, a l'avance) :
    * seulement engage (tenu) ; false sinon. Les rampes d'un reglage ulterieur
-   * (glide) les effacent : audio/lockfx.ts les repose.
+   * (glide) les effacent : audio/lockfx.ts les repose. prev (2026-10-21, audit
+   * F14) : le sec et le mouille d'avant ce point ; donnes, le point est une
+   * rampe de 3 ms qui finit au coup (la queue d'avant ne prend plus de marche).
    */
-  at(when: number, dry: number, wet: number): boolean {
+  at(when: number, dry: number, wet: number, prev?: { dry: number; wet: number }): boolean {
     if (this.direct || !this.dryGain || !this.wetGain) return false;
-    const t = Math.max(when, this.c.currentTime);
-    this.dryGain.gain.setValueAtTime(dry, t);
-    this.wetGain.gain.setValueAtTime(wet, t);
+    // Une branche neuve qui se remplit encore : le point attend qu'elle soit pleine
+    const t = Math.max(when, this.c.currentTime, this.notBefore);
+    if (prev) {
+      pointAt(this.dryGain.gain, prev.dry, dry, t, this.c);
+      pointAt(this.wetGain.gain, prev.wet, wet, t, this.c);
+    } else {
+      this.dryGain.gain.setValueAtTime(dry, t);
+      this.wetGain.gain.setValueAtTime(wet, t);
+    }
     return true;
+  }
+
+  /**
+   * Les points poses a partir de t s'en vont (2026-10-21 : un coup verrouille annule, sa rampe de 3 ms comprise) ;
+   * les gains gardent la valeur du point d'avant.
+   */
+  clearFrom(t: number): void {
+    if (!this.dryGain || !this.wetGain) return;
+    const at = Math.max(t, this.c.currentTime);
+    this.dryGain.gain.cancelScheduledValues(at);
+    this.wetGain.gain.cancelScheduledValues(at);
   }
 
   /** Retour au repos : fondu vers le sec, puis lien direct et branche debranchee (tenu : les gains restent). */
@@ -144,6 +208,8 @@ export class Insert {
     if (this.direct) return;
     this.dry = 1;
     this.wet = 0;
+    // Le retour au repos part tout de suite (une branche qui se remplissait n'a plus a attendre)
+    this.notBefore = 0;
     if (this.dryGain) glide(this.dryGain.gain, 1, this.c);
     if (this.wetGain) glide(this.wetGain.gain, 0, this.c);
     clearTimeout(this.timer);
@@ -165,25 +231,28 @@ export class Insert {
   }
 
   private toDirect(): void {
+    // Chaque debranchement tolere un lien deja parti (2026-10-21, audit RS-3 : apres un CHORUS passe au worklet en
+    // echec, celui-ci levait aussi, le mouille restait branche et la branche n'etait jamais rendue)
     if (this.linked && this.branchIn) {
-      this.inp.disconnect(this.branchIn);
+      cut(this.inp, this.branchIn);
       this.linked = false;
       this.unlinks += 1;
     }
     if (!this.direct) {
       this.inp.connect(this.out);
       if (this.dryGain) {
-        this.inp.disconnect(this.dryGain);
+        cut(this.inp, this.dryGain);
         this.dryGain.disconnect();
       }
       this.dryGain = null;
       this.direct = true;
     }
     if (this.wetGain) {
-      this.branchOut?.disconnect(this.wetGain);
+      cut(this.branchOut, this.wetGain);
       this.wetGain.disconnect();
       this.wetGain = null;
     }
+    this.notBefore = 0;
     this.onIdle?.();
   }
 

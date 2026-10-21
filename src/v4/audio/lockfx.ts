@@ -20,12 +20,15 @@
  * chorus.ts buildChorus).
  */
 
-import { GLIDE_S } from './glide';
+import { GLIDE_S, POINT_S } from './glide';
 
 /** Ce qu'il faut a l'insert : tenue, valeur a un instant, sa valeur a lui, et l'avis de ses rampes. */
 export interface LockableInsert {
   lockHold?(on: boolean): void;
-  lockAt?(when: number, v: number): void;
+  /** prev (2026-10-21, audit F14) : la valeur juste avant ce point ; l'insert y fait une rampe de 3 ms qui finit au coup */
+  lockAt?(when: number, v: number, prev?: number): void;
+  /** Les points poses a partir de t retires (un coup annule : sa rampe et ceux d'apres, reposes ensuite) */
+  lockClear?(t: number): void;
   value(): number;
   /** l'insert l'appelle apres chaque rampe qui efface ce qui etait programme (set, arrivee du worklet) */
   onRetime?: (() => void) | null;
@@ -70,6 +73,16 @@ export class InsertLocks {
     if (keep > 0) this.pts.splice(0, keep);
   }
 
+  /** La valeur d'un point (null : celle de la voix). */
+  private eff(p: Point): number {
+    return p.v ?? this.stage.value();
+  }
+
+  /** La valeur juste avant le point k : celle du point d'avant, sinon celle de la voix (2026-10-21, la rampe du point). */
+  private before(k: number): number {
+    return k > 0 ? this.eff(this.pts[k - 1]) : this.stage.value();
+  }
+
   /** La valeur a l'instant t : celle du dernier point avant lui, sinon celle de la voix. */
   private valueAt(t: number): number {
     let v: number | null = null;
@@ -95,12 +108,11 @@ export class InsertLocks {
     // Un coup libre qui ne change rien : pas de point. Un coup verrouille pose toujours le sien (revue du
     // 2026-10-09 : un modele en retard sur les gains sautait un verrou egal au precedent)
     if (v === null && eff === this.valueAt(when)) return false;
-    this.stage.lockAt?.(when, eff);
     let i = this.pts.length;
     while (i > 0 && this.pts[i - 1].when > when) i -= 1;
     this.pts.splice(i, 0, { when, v, tag });
-    // Les points d'apres celui-ci (des coups deja programmes plus loin) gardent leur valeur
-    for (let j = i + 1; j < this.pts.length; j += 1) this.stage.lockAt?.(this.pts[j].when, this.pts[j].v ?? this.stage.value());
+    // Ce point, puis ceux d'apres (des coups deja programmes plus loin) : leur valeur, depuis celle d'avant eux
+    for (let j = i; j < this.pts.length; j += 1) this.stage.lockAt?.(this.pts[j].when, this.eff(this.pts[j]), this.before(j));
     return true;
   }
 
@@ -110,9 +122,13 @@ export class InsertLocks {
     if (i < 0) return;
     const t0 = this.pts[i].when;
     this.pts.splice(i, 1);
+    // Sa rampe (3 ms avant lui) et tout ce qui suit s'en vont, puis les points d'apres reviennent
+    this.stage.lockClear?.(t0 - POINT_S);
     const from = Math.max(t0, this.c.currentTime);
     this.stage.lockAt?.(from, this.valueAt(from));
-    for (const p of this.pts) if (p.when > from) this.stage.lockAt?.(p.when, p.v ?? this.stage.value());
+    this.pts.forEach((p, k) => {
+      if (p.when > from) this.stage.lockAt?.(p.when, this.eff(p), this.before(k));
+    });
   }
 
   /**
@@ -127,7 +143,7 @@ export class InsertLocks {
     if (!this.held || this.pts.length === 0) return;
     const now = this.c.currentTime;
     this.pts = this.pts.filter((p) => p.when > now);
-    for (const p of this.pts) this.stage.lockAt?.(Math.max(p.when, now + GLIDE_S), p.v ?? this.stage.value());
+    this.pts.forEach((p, k) => this.stage.lockAt?.(Math.max(p.when, now + GLIDE_S + POINT_S), this.eff(p), this.before(k)));
   }
 
   info(): { held: boolean; points: number } {
