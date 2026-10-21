@@ -27,7 +27,7 @@
  */
 
 import type { Inst } from '../theme';
-import { playSample, type SamplePcm } from './sampledsp';
+import { SAMPLE_MAX_OUT_S, playSample, type SamplePcm } from './sampledsp';
 import { timeStretch } from './stretch';
 
 export type ShotId = Inst | 'CHopen';
@@ -518,7 +518,12 @@ function fdn(input: Float32Array, fs: number, len: number, rt60: number, dampHz:
 /** Crete absolue de plusieurs canaux. */
 function peakOf(chs: readonly Float32Array[]): number {
   let p = 0;
-  for (const c of chs) for (let i = 0; i < c.length; i += 1) p = Math.max(p, Math.abs(c[i]));
+  // Une valeur non finie ne compte pas (2026-10-21, audit RS-7 : Math.max avec NaN rendait NaN, le calage de niveau sautait)
+  for (const c of chs)
+    for (let i = 0; i < c.length; i += 1) {
+      const a = Math.abs(c[i]);
+      if (a > p && a < Infinity) p = a;
+    }
   return p;
 }
 
@@ -1248,7 +1253,9 @@ const atRest = (l: Readonly<SampleLayer>): boolean => l.st === 0 && l.start <= 0
  * de R3), le kick en mono, etire par STRETCH ; pas encore a son niveau.
  */
 function sampleBody(pcm: SamplePcm, sr: number, stretch: number, family: string, cal: ShotId, tw: ShotTweak, l: Readonly<SampleLayer>): Shot {
-  let s: Shot = playSample(pcm, sr, { family, attack: tw.attack, drive: tw.drive, snappy: tw.snappy, st: l.st, start: l.start, len: l.len, rev: l.rev });
+  // La sortie plafonnee a SAMPLE_MAX_OUT_S une fois etiree (2026-10-21, audit RS-5)
+  const maxS = SAMPLE_MAX_OUT_S / Math.max(1e-3, stretch);
+  let s: Shot = playSample(pcm, sr, { family, attack: tw.attack, drive: tw.drive, snappy: tw.snappy, st: l.st, start: l.start, len: l.len, rev: l.rev, maxS });
   if (family === 'sd' && tw.gate) s = gatedVerb(s.L, s.R, sr, 1);
   // Le kick en mono (2026-10-08, "un bon kick") : les fichiers ont un leger cote stereo (-28 a -44 dB, un decalage
   // L/R de quelques echantillons sur certains) ; le grave d'un kick se tient au centre

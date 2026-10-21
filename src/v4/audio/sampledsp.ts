@@ -51,7 +51,17 @@ export interface SampleTweak {
   len: number;
   /** REV : a l'envers */
   rev: boolean;
+  /** la sortie la plus longue, en secondes a srOut (SAMPLE_MAX_OUT_S divise par STRETCH) ; absente : sans limite */
+  maxS?: number;
 }
+
+/**
+ * Un coup ne dure jamais plus de SAMPLE_MAX_OUT_S (2026-10-21, audit RS-5) : un sample perso de 11,5 s a TUNE -24 et
+ * STRETCH au maximum faisait 260 s de son, 92 Mo par coup et 1,5 s de calcul ; au-dela, la fin se fond sur
+ * SAMPLE_CAP_FADE_S. Les samples du site (2 s au plus) n'y arrivent qu'aux reglages extremes.
+ */
+export const SAMPLE_MAX_OUT_S = 16;
+export const SAMPLE_CAP_FADE_S = 0.25;
 
 /** START au plus : 90 % du fichier (au-dela presque rien ne sonnerait). */
 export const SAMPLE_START_MAX = 0.9;
@@ -120,10 +130,21 @@ export function playSample(p: SamplePcm, srOut: number, tw: SampleTweak): { L: F
   let nOut = Math.max(1, Math.ceil((durIn / ratio) * srOut));
   // LEN : la part gardee, puis un fondu court (cosinus) juste avant la coupe (SAMPLE_LEN_FADE)
   const part = sampleLenPart(tw.len);
-  const end = Math.max(1, Math.round(nOut * part));
+  let end = Math.max(1, Math.round(nOut * part));
   nOut = Math.min(nOut, end + 1);
+  // La sortie plafonnee (maxS, 2026-10-21) : coupee la, sa fin fondue
+  const cap = tw.maxS !== undefined && tw.maxS > 0 ? Math.max(2, Math.round(tw.maxS * srOut)) : 0;
+  const capped = cap > 0 && nOut > cap;
+  if (capped) {
+    nOut = cap;
+    end = cap - 1;
+  }
   const outs = chans.map((x) => readChannel(x, p.sr, srOut, ratio, nOut, off));
-  const fade0 = part < 1 ? end - Math.max(1, Math.round(sampleLenFadeS(end / srOut) * srOut)) : nOut;
+  const fade0 = capped
+    ? end - Math.max(1, Math.round(Math.min(SAMPLE_CAP_FADE_S, (0.25 * end) / srOut) * srOut))
+    : part < 1
+      ? end - Math.max(1, Math.round(sampleLenFadeS(end / srOut) * srOut))
+      : nOut;
   // ATTACK : une frappe en plus (une bosse qui retombe en 4 ms) ou une montee douce
   const a = kick ? tw.attack - 0.5 : 0;
   const boost = a > 0 ? 2 * a : 0;
@@ -138,7 +159,12 @@ export function playSample(p: SamplePcm, srOut: number, tw: SampleTweak): { L: F
   const tilt = s > 0 ? 2 * s : 1.6 * s;
   const lpA = Math.exp((-2 * Math.PI * 2000) / srOut);
   let peak = 0;
-  for (const y of outs) for (let i = 0; i < y.length; i += 1) peak = Math.max(peak, Math.abs(y[i]));
+  // Une valeur non finie ne compte pas (2026-10-21 : Math.max avec NaN rendait NaN, et le calage sautait)
+  for (const y of outs)
+    for (let i = 0; i < y.length; i += 1) {
+      const a = Math.abs(y[i]);
+      if (a > peak && a < Infinity) peak = a;
+    }
   const inv = peak > 0 ? 1 / peak : 1;
   for (const y of outs) {
     let lp = 0;

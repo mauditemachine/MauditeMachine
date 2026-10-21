@@ -31,6 +31,7 @@
 import type { KitSample } from './samples';
 import { sampleLabel } from './samples';
 import type { SamplePcm } from './sampledsp';
+import { cleanPcm, decodeAiff, isAiff, probeAudio } from './audiofile';
 
 export const USER_SAMPLES_DB = 'mm-v4-rytm-user';
 const STORE = 'samples';
@@ -46,20 +47,28 @@ export const USER_SAMPLES_PER_FAMILY = 60;
 export const USER_SAMPLE_MAX_SECONDS = 12;
 /** Les familles (une copie de audio/kit.ts KIT_FAMILIES : ce module ne lit aucun store du site). */
 const FAMILIES: readonly string[] = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
-const AUDIO_EXT = /\.(wav|aiff?|mp3|flac|m4a)$/i;
+// .aifc aussi (2026-10-21) : audio/audiofile.ts lit l'AIFC non compresse
+const AUDIO_EXT = /\.(wav|aiff?|aifc|mp3|flac|m4a)$/i;
 /** La forme d'une cle de sample de Mika : famille, '/u:', un id. */
 const KEY_RE = /^([a-z]+)\/u:([a-z0-9]+)$/;
 /** La frequence de decodage (la meme que samples.ts : le calcul relit a celle du contexte). */
 const DECODE_SR = 48000;
 
+/**
+ * Un fichier muet (2026-10-21, audit RS-14) : sa crete sous -60 dBFS. Il entrait et la voix se taisait sans rien
+ * dire ; il est refuse (SILENT FILE).
+ */
+export const USER_SAMPLE_SILENT_PEAK = 0.001;
+
 /** Pourquoi un fichier n'entre pas. */
-export type UserSampleReason = 'too-big' | 'too-long' | 'not-audio' | 'too-many' | 'storage';
+export type UserSampleReason = 'too-big' | 'too-long' | 'not-audio' | 'too-many' | 'storage' | 'silent';
 const REASON_TEXT: Readonly<Record<UserSampleReason, string>> = {
   'too-big': 'TOO BIG: 10 MB MAX',
   'too-long': `TOO LONG: ${USER_SAMPLE_MAX_SECONDS} S MAX`,
   'not-audio': 'NOT AUDIO',
   'too-many': `TOO MANY: ${USER_SAMPLES_PER_FAMILY} MAX`,
   storage: 'STORAGE OFF',
+  silent: 'SILENT FILE',
 };
 
 /** Un refus : sa raison (reason) et ce que l'ecran dit (text, en capitales). */
@@ -285,13 +294,65 @@ async function reconcile(): Promise<void> {
 
 const settled: Promise<void> = typeof window === 'undefined' ? Promise.resolve() : reconcile().catch(() => undefined);
 
-/** Un fichier audio decode a 48 kHz (comme samples.ts loadSample) ; rejette ce qui n'est pas de l'audio lisible. */
-export async function decodeAudio(data: ArrayBuffer): Promise<SamplePcm> {
-  const ctx = new OfflineAudioContext(1, 1, DECODE_SR);
-  const buf = await ctx.decodeAudioData(data);
-  const L = Float32Array.from(buf.getChannelData(0));
-  const R = buf.numberOfChannels > 1 ? Float32Array.from(buf.getChannelData(1)) : null;
-  return { L, R, sr: buf.sampleRate };
+/**
+ * Un fichier audio decode (samples.ts loadSample, l'ajout d'un fichier ici) ; rejette ce qui n'est pas de l'audio
+ * lisible. Le decodage sur (2026-10-21, audit RS-4, RS-6, RS-7) :
+ * - un AIFF ou un AIFC non compresse est lu ici, a sa frequence (audio/audiofile.ts : Chrome et Firefox ne savent
+ *   pas le decoder) ; le reste par le navigateur, a 48 kHz (le calcul relit a celle du contexte) ;
+ * - maxSeconds : la duree testee des que le navigateur a decode, avant toute copie (UserSampleError too-long) ;
+ * - plus aucune copie : les canaux du decodage sont gardes tels quels (Float32Array.from passait par l'iterateur,
+ *   des secondes et des centaines de Mo sur un long fichier) ;
+ * - les valeurs non finies (un WAV flottant abime) a 0, le reste borne a +/-4 : peak, la crete qui reste.
+ */
+export async function decodeAudio(data: ArrayBuffer, maxSeconds = Infinity): Promise<SamplePcm & { peak: number }> {
+  let pcm: SamplePcm | null = isAiff(data) ? decodeAiff(data) : null;
+  if (pcm && pcm.L.length / pcm.sr > maxSeconds + 0.05) throw new UserSampleError('too-long');
+  if (!pcm) {
+    const ctx = new OfflineAudioContext(1, 1, DECODE_SR);
+    const buf = await ctx.decodeAudioData(data);
+    if (buf.duration > maxSeconds + 0.05) throw new UserSampleError('too-long');
+    pcm = { L: buf.getChannelData(0), R: buf.numberOfChannels > 1 ? buf.getChannelData(1) : null, sr: buf.sampleRate };
+  }
+  const peak = cleanPcm(pcm);
+  return { ...pcm, peak };
+}
+
+/**
+ * La duree d'un fichier dont l'en-tete ne dit rien (un format que audio/audiofile.ts ne lit pas) : un element audio
+ * qui ne lit que ses metadonnees (preload metadata, jamais play(), muet), 2,5 s au plus ; null si le navigateur ne la
+ * donne pas (le decodage tranchera, apres coup).
+ */
+function mediaSeconds(file: Blob): Promise<number | null> {
+  if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let url = '';
+    let el: HTMLAudioElement | null = null;
+    const done = (v: number | null): void => {
+      window.clearTimeout(timer);
+      if (el) {
+        el.onloadedmetadata = null;
+        el.onerror = null;
+        el.removeAttribute('src');
+        el = null;
+      }
+      if (url) URL.revokeObjectURL(url);
+      url = '';
+      resolve(v);
+    };
+    const timer = window.setTimeout(() => done(null), 2500);
+    try {
+      url = URL.createObjectURL(file);
+      el = document.createElement('audio');
+      el.muted = true;
+      el.setAttribute('muted', '');
+      el.preload = 'metadata';
+      el.onloadedmetadata = () => done(el && Number.isFinite(el.duration) ? el.duration : null);
+      el.onerror = () => done(null);
+      el.src = url;
+    } catch {
+      done(null);
+    }
+  });
 }
 
 /** Un fichier qui a l'air d'etre de l'audio : son extension, ou son type MIME. */
@@ -300,15 +361,24 @@ export const looksAudio = (file: { name: string; type?: string }): boolean => AU
 /** L'ajout lui-meme (userSamples.add a deja verifie la place, la taille et le type, et retenu sa place). */
 async function addNow(family: string, file: File, added: number): Promise<KitSample> {
   const data = await file.arrayBuffer();
-  let pcm: SamplePcm;
+  // La duree AVANT le decodage (2026-10-21, audit RS-4) : lue dans l'en-tete ; une estimation (un mp3 que l'on n'a pas
+  // pu compter jusqu'au bout) laisse de la marge, le decodage verifie ensuite au plus juste
+  const probe = probeAudio(data);
+  let secs = probe.seconds;
+  // Un format que l'en-tete ne dit pas, assez gros pour couter cher a decoder : le navigateur lit sa duree (un petit
+  // fichier se decode vite, le test d'apres suffit)
+  if (secs === null && probe.format === 'unknown' && file.size > 1024 * 1024) secs = await mediaSeconds(file);
+  if (secs !== null && secs > USER_SAMPLE_MAX_SECONDS * (probe.exact ? 1 : 3) + 0.05) throw new UserSampleError('too-long');
+  let pcm: SamplePcm & { peak: number };
   try {
     // decodeAudioData prend le tampon (il le vide) : une copie part au decodage, le fichier reste entier
-    pcm = await decodeAudio(data.slice(0));
-  } catch {
-    throw new UserSampleError('not-audio');
+    pcm = await decodeAudio(data.slice(0), USER_SAMPLE_MAX_SECONDS);
+  } catch (e) {
+    throw e instanceof UserSampleError ? e : new UserSampleError('not-audio');
   }
   if (pcm.L.length === 0) throw new UserSampleError('not-audio');
-  if (pcm.L.length / pcm.sr > USER_SAMPLE_MAX_SECONDS) throw new UserSampleError('too-long');
+  if (pcm.L.length / pcm.sr > USER_SAMPLE_MAX_SECONDS + 0.05) throw new UserSampleError('too-long');
+  if (pcm.peak < USER_SAMPLE_SILENT_PEAK) throw new UserSampleError('silent');
   const id = `${added.toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
   const key = keyOf(family, id);
   const blob = new Blob([data], { type: file.type || 'application/octet-stream' });
@@ -321,7 +391,7 @@ async function addNow(family: string, file: File, added: number): Promise<KitSam
     throw new UserSampleError('storage');
   }
   blobs.set(key, blob);
-  decoded.set(key, pcm);
+  decoded.set(key, { L: pcm.L, R: pcm.R, sr: pcm.sr });
   list = [...list.filter((e) => e.key !== key), entry].sort(byAdded);
   writeIndex();
   emit();
