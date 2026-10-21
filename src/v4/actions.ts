@@ -466,7 +466,26 @@ export function clearPattern(stage: Stage | null = null): void {
   // filtre ouvert), les reglages de ses couches et de la machine (OPEN) a leur depart ; le son choisi (SOUND, MIX) reste
   for (const inst of INSTRUMENTS) voiceFx.reset(inst);
   const k = kit.get();
-  kit.replace({ ...k, knob: { ...KIT_DEFAULT.knob }, layer: Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT, syn: k.layer[f].syn, lev: k.layer[f].lev }])) as typeof k.layer });
+  const sample = { ...k.sample };
+  /*
+   * ... sauf une voix qui ne s'entend plus (2026-10-21, audit F7 : SOUND OFF, ou son MIX a 0 des deux cotes, restait
+   * muette apres CLEAR, sans un mot) : son sample a elle revient seul, sinon le sample de depart de la famille, sinon la
+   * synthese de sa machine ; un sample choisi n'est jamais remplace.
+   */
+  const layer = Object.fromEntries(
+    KIT_FAMILIES.map((f) => {
+      const l = k.layer[f];
+      if (l.syn > 0 || (!!k.sample[f] && l.lev > 0)) return [f, { ...LAYER_DEFAULT, syn: l.syn, lev: l.lev }];
+      if (k.sample[f]) return [f, { ...LAYER_DEFAULT, syn: 0, lev: 1 }];
+      const def = KIT_DEFAULT.sample[f];
+      if (def) {
+        sample[f] = def;
+        return [f, { ...LAYER_DEFAULT, syn: 0, lev: 1 }];
+      }
+      return [f, { ...LAYER_DEFAULT, syn: 1 }];
+    })
+  ) as typeof k.layer;
+  kit.replace({ ...k, knob: { ...KIT_DEFAULT.knob }, sample, layer });
   lcdMessage.show('CLEARED · VOICES RESET · FX OFF');
 }
 
