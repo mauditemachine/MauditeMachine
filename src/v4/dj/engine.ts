@@ -248,6 +248,36 @@ const BIAS = 0.2;
 const warmPeak = Math.max(Math.tanh(2 + BIAS) - Math.tanh(BIAS), Math.tanh(BIAS) - Math.tanh(-2 + BIAS));
 const warm = (x: number): number => (Math.tanh(2 * x + BIAS) - Math.tanh(BIAS)) / warmPeak;
 
+/**
+ * Le niveau rattrape de l'overdrive (2026-10-21, audit) : avant, il etait regle
+ * pour un sinus a -6 dBFS ; les machines sonnent autour de -16 a -24 dBFS RMS,
+ * et l'OVERDRIVE les rendait de 5 a 16 dB plus fortes (le limiteur du site
+ * baissait alors tout). Deux etages :
+ * - OD_POST, le gain de sortie par dose (33 crans, interpole), mesure hors
+ *   ligne avec la chaine elle-meme : un bruit rose a -18 dBFS RMS garde son
+ *   niveau a chaque dose ;
+ * - un suiveur lent (OD_FOLLOW), sur le son en direct : le niveau qui sort de
+ *   la saturation est ramene a celui qui y entre (moyenne sur 300 ms, de -18
+ *   a +6 dB ; la premiere mesure est prise telle quelle, 50 ms apres
+ *   l'ouverture), un son discret ou un morceau fort gardent le leur. La dose
+ *   change la couleur, pas le volume.
+ */
+const OD_POST: readonly number[] = [0.74, 0.689, 0.638, 0.607, 0.556, 0.509, 0.485, 0.454, 0.441, 0.403, 0.381, 0.36, 0.338, 0.313, 0.302, 0.298, 0.282, 0.273, 0.27, 0.25, 0.247, 0.241, 0.241, 0.235, 0.232, 0.224, 0.224, 0.224, 0.219, 0.217, 0.217, 0.217, 0.215];
+const odPost = (d: number): number => {
+  const x = Math.max(0, Math.min(1, d)) * (OD_POST.length - 1);
+  const i = Math.min(OD_POST.length - 2, Math.floor(x));
+  return OD_POST[i] + (OD_POST[i + 1] - OD_POST[i]) * (x - i);
+};
+const OD_FOLLOW = { everyMs: 50, tauS: 0.3, minDb: -18, maxDb: 6, quiet: 1e-4 } as const;
+
+/** La moyenne quadratique de ce qu'un analyseur voit (2048 echantillons). */
+function rmsOf(a: AnalyserNode, buf: Float32Array<ArrayBuffer>): number {
+  a.getFloatTimeDomainData(buf);
+  let s = 0;
+  for (let i = 0; i < buf.length; i += 1) s += buf[i] * buf[i];
+  return Math.sqrt(s / buf.length);
+}
+
 /** Une salle synthetique : du bruit qui decroit. */
 function room(ctx: AudioContext, seconds: number): AudioBuffer {
   const n = Math.floor(ctx.sampleRate * seconds);
@@ -396,8 +426,8 @@ export class DjFx {
   private echo: DelayNode;
   private bpm = 120;
   private beats = 1;
-  /** l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose) */
-  private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode } | null = null;
+  /** l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose), et son suiveur de niveau (OD_FOLLOW) */
+  private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode; level: GainNode; inA: AnalyserNode; outA: AnalyserNode; buf: Float32Array<ArrayBuffer>; db: number; fresh: boolean; timer: number } | null = null;
   /** la porte du trans et le balayage du flanger, cales sur la grille (GridLane) */
   private lanes: Partial<Record<'trans' | 'flanger', GridLane>> = {};
   /** la source du balayage du flanger (-1 a 1) : les tests hors ligne l'ecoutent */
@@ -440,8 +470,8 @@ export class DjFx {
          * Overdrive") : on pousse le signal dans une saturation douce et
          * asymetrique (le biais donne des harmoniques paires, la chaleur d'un
          * tube), suivie d'une tonalite qui ferme le haut a mesure qu'on pousse
-         * (pas de gresillement), puis le niveau est rattrape. La dose regle
-         * la poussee : de +0 a +24 dB (drive.set).
+         * (pas de gresillement), puis le niveau est rattrape (OD_POST, le
+         * suiveur, 2026-10-21). La dose regle la poussee : de +0 a +24 dB.
          */
         const pre = new GainNode(ctx, { gain: 1 });
         const shape = new WaveShaperNode(ctx, { curve: curve(warm), oversample: '4x' });
@@ -449,9 +479,13 @@ export class DjFx {
         const dc = new BiquadFilterNode(ctx, { type: 'highpass', frequency: 15, Q: BUTTERWORTH_DB });
         const tone = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 12000, Q: BUTTERWORTH_DB });
         const post = new GainNode(ctx, { gain: 1 });
-        pre.connect(shape).connect(dc).connect(tone).connect(post);
-        this.drive = { pre, tone, post };
-        return { input: pre, output: post };
+        // Le suiveur : ce qui entre et ce qui sort de la saturation, mesures (branches seulement quand l'effet est ouvert)
+        const level = new GainNode(ctx, { gain: 1 });
+        pre.connect(shape).connect(dc).connect(tone).connect(post).connect(level);
+        const inA = new AnalyserNode(ctx, { fftSize: 2048 });
+        const outA = new AnalyserNode(ctx, { fftSize: 2048 });
+        this.drive = { pre, tone, post, level, inA, outA, buf: new Float32Array(2048), db: 0, fresh: true, timer: 0 };
+        return { input: pre, output: level };
       }
       case 'crush': {
         const steps = 2 ** 5;
@@ -506,8 +540,8 @@ export class DjFx {
       const push = 10 ** ((d * 24) / 20);
       glide(this.drive.pre.gain, push, this.ctx);
       glide(this.drive.tone.frequency, 12000 - d * 6500, this.ctx);
-      // Mesure hors ligne (sinus a -6 dBFS) : 0.77 garde le niveau a la plus petite poussee, 0.42 une fois sature
-      glide(this.drive.post.gain, 0.42 + 0.35 * Math.exp(-(push - 1) * 1.5), this.ctx);
+      // Le niveau a -18 dBFS RMS garde (OD_POST, mesure hors ligne), le suiveur fait le reste
+      glide(this.drive.post.gain, odPost(d), this.ctx);
     }
     const m = fxMix(id, v);
     if (m.wet > 0 && !s.on) {
@@ -515,6 +549,7 @@ export class DjFx {
       s.pre.connect(s.proc);
       s.on = true;
       this.laneOn(id);
+      if (id === 'overdrive') this.follow0(s.pre, true);
     }
     glide(s.dry.gain, m.dry, this.ctx);
     glide(s.wet.gain, m.wet, this.ctx);
@@ -530,8 +565,50 @@ export class DjFx {
         }
         s.on = false;
         this.laneOff(id);
+        if (id === 'overdrive') this.follow0(s.pre, false);
       }, 80);
     }
+  }
+
+  /**
+   * Le suiveur de niveau de l'overdrive (OD_FOLLOW), branche avec l'effet ;
+   * seulement sur le son en direct (un rendu hors ligne n'a pas de temps reel).
+   */
+  private follow0(pre: AudioNode, on: boolean): void {
+    const dr = this.drive;
+    if (!dr) return;
+    window.clearInterval(dr.timer);
+    dr.timer = 0;
+    if (on) {
+      if (typeof AudioContext === 'undefined' || !(this.ctx instanceof AudioContext)) return;
+      pre.connect(dr.inA);
+      dr.post.connect(dr.outA);
+      dr.fresh = true;
+      dr.timer = window.setInterval(() => this.followStep(), OD_FOLLOW.everyMs);
+      return;
+    }
+    try {
+      pre.disconnect(dr.inA);
+      dr.post.disconnect(dr.outA);
+    } catch {
+      /* deja debranches */
+    }
+    dr.db = 0;
+    dr.level.gain.cancelScheduledValues(0);
+    dr.level.gain.setValueAtTime(1, this.ctx.currentTime);
+  }
+
+  /** Un pas du suiveur : le niveau de sortie vers celui d'entree, lentement ; un silence ne change rien. */
+  private followStep(): void {
+    const dr = this.drive;
+    if (!dr) return;
+    const rin = rmsOf(dr.inA, dr.buf);
+    const rout = rmsOf(dr.outA, dr.buf);
+    if (rin < OD_FOLLOW.quiet || rout < OD_FOLLOW.quiet * 0.01) return;
+    const want = Math.max(OD_FOLLOW.minDb, Math.min(OD_FOLLOW.maxDb, 20 * Math.log10(rin / rout)));
+    dr.db = dr.fresh ? want : dr.db + (want - dr.db) * (1 - Math.exp(-OD_FOLLOW.everyMs / 1000 / OD_FOLLOW.tauS));
+    dr.fresh = false;
+    glide(dr.level.gain, dbToGain(dr.db), this.ctx);
   }
 
   /** Le tempo des effets rythmiques : le BPM entendu et le temps (TIME). */
