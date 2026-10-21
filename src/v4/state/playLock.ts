@@ -54,11 +54,30 @@ export function anyPlaying(): boolean {
  * de quoi se desabonner.
  */
 export function onPlayStart(fn: (m: MachineId) => void): () => void {
+  return onPlayChange((m, playing) => {
+    if (playing) fn(m);
+  });
+}
+
+/**
+ * Chaque machine qui s'arrete (2026-10-21, audit : l'onglet cache, la musique
+ * finie, le son s'endort ; index.tsx) ; rend de quoi se desabonner.
+ */
+export function onPlayStop(fn: (m: MachineId) => void): () => void {
+  return onPlayChange((m, playing) => {
+    if (!playing) fn(m);
+  });
+}
+
+/** Chaque machine qui se met a jouer ou s'arrete (une transition, pas un etat). */
+function onPlayChange(fn: (m: MachineId, playing: boolean) => void): () => void {
   const was: Record<MachineId, boolean> = { mm808: clock.running, voy: arp.get().running, bass: bassPlaying(), dj: djPlaying() };
   const check = (m: MachineId): void => {
     const now = machinePlaying(m);
-    if (now && !was[m]) fn(m);
-    was[m] = now;
+    if (now !== was[m]) {
+      was[m] = now;
+      fn(m, now);
+    }
   };
   const offs = [clock.subscribe(() => check('mm808')), arp.subscribe(() => check('voy'))];
   // Le MM-DECKS arrive apres : on s'abonne a ses platines des que son code est la

@@ -36,7 +36,7 @@ import { attachStage } from './midi/targets';
 import { gesture } from './actions';
 import { clock } from './audio/clock';
 import { reserve } from './audio/sched';
-import { anyPlaying } from './state/playLock';
+import { anyPlaying, onPlayStop } from './state/playLock';
 import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
 import { shots } from './audio/shots';
@@ -500,6 +500,21 @@ const V4Shell: React.FC = () => {
     const input = stageElRef.current;
     if (!host || !input) return undefined;
     let stage: Stage | null = null;
+    /*
+     * La musique s'arrete pendant que l'onglet est cache (2026-10-21, audit :
+     * une platine au bout de son morceau, un STOP du Roto) : le son s'endort
+     * aussi, deux secondes plus tard (un RUN qui revient tout de suite ne bute
+     * pas). Avant, il ne s'endormait qu'au moment ou l'onglet se cachait.
+     */
+    let hidden = false;
+    let sleepTimer = 0;
+    const offStop = onPlayStop(() => {
+      window.clearTimeout(sleepTimer);
+      if (!hidden) return;
+      sleepTimer = window.setTimeout(() => {
+        if (hidden && !anyPlaying()) suspend();
+      }, 2000);
+    });
     const build = (): void => {
       stage = Stage.create({
         // Une reconstruction (changement d'apparence) ne rejoue pas l'intro
@@ -523,8 +538,11 @@ const V4Shell: React.FC = () => {
         // Onglet cache ou canvas hors ecran : le rendu dort ; le son aussi, sauf si quelque chose joue
         // (2026-10-05 : une autre fenetre devant ou une autre app ne coupe plus la musique)
         onVisibility: (visible) => {
-          if (visible) resume();
-          else if (!anyPlaying()) suspend();
+          hidden = !visible;
+          if (visible) {
+            window.clearTimeout(sleepTimer);
+            resume();
+          } else if (!anyPlaying()) suspend();
         },
       });
       if (!stage) {
@@ -544,6 +562,8 @@ const V4Shell: React.FC = () => {
     else build();
     return () => {
       window.cancelAnimationFrame(raf);
+      window.clearTimeout(sleepTimer);
+      offStop();
       const built = stage;
       if (!built) return;
       // La scene se reconstruit (Dark / Light, ADD DECK, REMOVE DECK : plusieurs secondes de fil principal
