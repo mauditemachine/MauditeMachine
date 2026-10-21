@@ -156,29 +156,38 @@ const TAU = Math.PI * 2;
  * Le kick reste la reference (sa crete ne bouge pas) ; les autres montent de 2.5 a 4 dB, leurs plafonds se resserrent
  * (rien ne crete encore au niveau du kick : 0.5 dB dessous au plus pres).
  */
+/*
+ * 2026-10-21 (audit F8, la regle de Mika : "le kick est la reference, tout ce qu'il y a apres doit etre moins fort") :
+ * depuis que le kick a baisse de 1.5 dB (SHOT_BELOW.BD, 2026-10-10), les plafonds comptes depuis SHOT_KICK_PEAK
+ * laissaient la caisse claire 1 dB AU-DESSUS de la crete du kick, le clap a son niveau ; mesure (un coup de chaque voix
+ * du kit de depart, sonie K sur 100 ms, la sortie reelle) : kick -14.5, caisse claire -13.3 (+1.2), tom -13.9 (+0.6),
+ * high tom -14.4. Desormais aucune voix ne crete a moins de 0.5 dB sous le kick (SHOT_BELOW 2 au moins) et la sonie
+ * visee de la caisse claire, du clap et des toms (SHOT_LOUD -9.6) est 0.5 LU sous celle du kick (-9.1 sur cette
+ * echelle) : SD, TOM et HT a -15.0, juste sous lui, le reste comme avant.
+ */
 export const SHOT_KICK_PEAK = -2.5;
 export const SHOT_LOUD: Readonly<Record<ShotId, number>> = {
   BD: -7.5,
-  SD: -7,
-  TOM: -8.5,
-  HT: -9,
+  SD: -9.6,
+  TOM: -9.6,
+  HT: -9.6,
   CH: -10.5,
   CHopen: -10.5,
   OH: -11,
-  CP: -7.5,
+  CP: -9.6,
   CY: -12,
 };
 // BD 1.5 (2026-10-10, Mika : "le kick est un peu trop fort par rapport aux autres voix, reduis un peu") : le kick
-// passe 1.5 dB sous la reference, les autres voix gardent la leur (leur plafond reste compte depuis SHOT_KICK_PEAK)
+// passe 1.5 dB sous la reference ; SD, TOM et CP a 2 depuis le 2026-10-21 (0.5 dB sous le kick au plus pres)
 export const SHOT_BELOW: Readonly<Record<ShotId, number>> = {
   BD: 1.5,
-  SD: 0.5,
-  TOM: 1.5,
+  SD: 2,
+  TOM: 2,
   HT: 2,
   CH: 2.5,
   CHopen: 2.5,
   OH: 2.5,
-  CP: 1.5,
+  CP: 2,
   CY: 3.5,
 };
 /*
@@ -1302,10 +1311,14 @@ export const layerGain = (v: number): number => {
 
 /** La marge de crete d'un coup a deux couches (dB) : leurs attaques s'additionnent, la somme peut monter un peu au-dessus de la voix seule. */
 const LAYER_HEADROOM_DB = 2;
-/** Le plafond d'un coup a deux couches : 2 dB au-dessus de sa voix, jamais a moins de 0.5 dB sous la crete du kick (le kick seul la passe). */
+/**
+ * Le plafond d'un coup a deux couches : 2 dB au-dessus de sa voix, jamais a moins de 0.5 dB sous la crete du kick (le
+ * kick seul la passe ; la crete du kick, SHOT_KICK_PEAK moins SHOT_BELOW.BD depuis le 2026-10-21 : la reference seule
+ * laissait une voix a deux couches 1 dB au-dessus du kick).
+ */
 const layerCap = (id: ShotId): number => {
   const up = shotCeiling(id) * Math.pow(10, LAYER_HEADROOM_DB / 20);
-  return id === 'BD' ? up : Math.min(up, Math.pow(10, (SHOT_KICK_PEAK - 0.5) / 20));
+  return id === 'BD' ? up : Math.min(up, Math.pow(10, (SHOT_KICK_PEAK - SHOT_BELOW.BD - 0.5) / 20));
 };
 
 /**

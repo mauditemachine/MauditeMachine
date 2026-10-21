@@ -1448,7 +1448,8 @@ function padVoice(voice: Inst, c: RytmDiagramCtx): RytmDiagram {
   const layers = c.layers ?? [];
   layers.slice(0, 2).forEach((l, i) => p.label(l, X0, TOP + i * 13));
   strip(p, c, 40, 38, -1, false);
-  const b = SHOT_BELOW[voice];
+  // Sous la crete du kick lui-meme (2026-10-21 : SHOT_BELOW se compte depuis la reference, le kick est 1.5 dB dessous)
+  const b = Math.round((SHOT_BELOW[voice] - SHOT_BELOW.BD) * 10) / 10;
   p.label(voice === 'BD' ? 'THE MIX REFERENCE: THE LOUDEST PEAK' : `PEAK ${b} DB UNDER THE KICK`, X0, BOT);
   let hits = 0;
   for (let i = 0; i < 16; i += 1) if (c.steps && c.steps.charCodeAt(i) > 48) hits += 1;
