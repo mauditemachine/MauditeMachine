@@ -44,7 +44,7 @@
  */
 
 import { voices } from '../state/voices';
-import { SWING } from '../theme';
+import { SWING, type Inst } from '../theme';
 import { voiceFx } from './voicefx';
 import { kit } from './kit';
 import { cancelVoice, context, mix, trigger, type Voice } from './drums';
@@ -368,14 +368,48 @@ function setBpm(b: number): void {
   else stepDur = d;
 }
 
+/*
+ * Seulement ce qui change un coup (2026-10-21, audit F9 : chaque mouvement d'un potard d'effet, REVERB, DELAY, COMP,
+ * DIST ou CHORUS, global ou de voix, annulait et refaisait tous les coups des 300 ms a venir, 222 coups crees pour 17
+ * joues en 1.3 s de glisser, du calcul et du ramasse-miettes au telephone) : des FX globaux, le SWING seul (comme le
+ * MM-BASS et le MM-ARP) ; d'une voix, les reglages que lit le coup (hitParams : sa hauteur, son enveloppe, son filtre,
+ * son PAN, son START) et son VOL quand un verrou VOL de la voix s'y rapporte ou pour le kick (la velocite du
+ * SIDECHAIN). DIST, CHORUS, DELAY, REVERB et le VOL d'une voix sans verrou vont a sa tranche, sans re-programmer.
+ */
+const HIT_PARAMS = ['tone', 'decay', 'tune', 'pan', 'start', 'atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec'] as const;
+const levelLocked = (inst: Inst, locks: Readonly<Locks>): boolean => {
+  const row = locks[inst];
+  return !!row && Object.values(row).some((l) => l.level !== undefined);
+};
+function hitKey(): string {
+  const locks = pattern.get().locks;
+  return INSTRUMENTS.map((inst) => {
+    const v = voiceFx.of(inst);
+    const k = HIT_PARAMS.map((p) => v[p]).join(',');
+    return inst === 'BD' || levelLocked(inst, locks) ? `${k},${v.level}` : k;
+  }).join(';');
+}
+
 // Le tempo suit le store du motif (TEMPO, tests, rechargement) ; tout ce qui change un coup le re-programme
 pattern.subscribe(() => {
   setBpm(pattern.get().bpm);
   ask();
 });
-pattern.fx.subscribe(ask);
+let lastSwing = pattern.fx.get().swing;
+pattern.fx.subscribe(() => {
+  const sw = pattern.fx.get().swing;
+  if (sw === lastSwing) return;
+  lastSwing = sw;
+  ask();
+});
 voices.subscribe(ask);
-voiceFx.subscribe(ask);
+let lastHitKey = hitKey();
+voiceFx.subscribe(() => {
+  const k = hitKey();
+  if (k === lastHitKey) return;
+  lastHitKey = k;
+  ask();
+});
 kit.subscribe(ask);
 // Le coup d'un nouveau son arrive (2026-10-21, audit RS-2) : les pas deja programmes avec un remplacant sont refaits
 shots.onReady(ask);
