@@ -233,7 +233,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   wide: {
     title: 'WIDE',
-    text: "Un filtre pour la gauche, un pour la droite : les exemplaires de STACK (sans STACK, OSC 1 et OSC 2) se partagent les deux côtés avant le filtre, chaque note devient stéréo de l'intérieur, au même volume. WIDTH, lui, place la note entière. OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
+    text: "Un filtre pour la gauche, un pour la droite : les exemplaires de STACK se partagent les deux côtés avant le filtre, chaque note devient stéréo de l'intérieur, au même volume. Sans STACK, OSC 1 et OSC 2 se partagent les côtés selon leur niveau : au même niveau, OSC 1 à gauche et OSC 2 à droite ; le plus fort se rapproche du centre ; un oscillateur seul reste au milieu, monte STACK pour l'élargir. WIDTH, lui, place la note entière. OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
     tip: "Garde BASS MONO vers 100 Hz avec WIDE : la largeur en haut, le sub au centre.",
   },
   glue: {
