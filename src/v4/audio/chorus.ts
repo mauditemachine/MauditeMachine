@@ -40,9 +40,18 @@ const chorusReady = new WeakSet<BaseAudioContext>();
 const chorusLoading = new WeakMap<BaseAudioContext, Promise<void>>();
 /** Les branches construites avant le module, a passer au worklet des qu'il est la. */
 const upgrades = new WeakMap<BaseAudioContext, Set<() => void>>();
+/** Module la mais noeud impossible a creer (2026-10-22) : les DelayNode restent, sans nouvel essai a chaque reglage. */
+const chorusFailed = new WeakSet<BaseAudioContext>();
+/** Une branche des DelayNode peut-elle passer au worklet maintenant ? */
+const workletUsable = (c: BaseAudioContext): boolean => chorusReady.has(c) && !chorusFailed.has(c);
 
 function whenChorusReady(c: BaseAudioContext, fn: () => void): void {
-  if (chorusReady.has(c) || !chorusLoading.has(c)) return;
+  if (chorusReady.has(c)) return;
+  // Le chargement part d'ici s'il n'est pas lance (2026-10-22, revue R1) : une branche construite avant (drums.ensure
+  // batissait le graphe, le CHORUS du motif et les verrous deja la, avant loadChorus) n'etait jamais inscrite et
+  // gardait les DelayNode pour la visite
+  if (!chorusLoading.has(c)) void loadChorus(c);
+  if (!chorusLoading.has(c)) return;
   let set = upgrades.get(c);
   if (!set) {
     set = new Set();
@@ -92,7 +101,7 @@ export function tapeNode(c: BaseAudioContext, maxS: number, ready: (n: AudioWork
 
 /** Le noeud du chorus (mouille seul), ou null tant que son module n'est pas charge. */
 function chorusNode(c: BaseAudioContext, opts: Record<string, unknown>): AudioWorkletNode | null {
-  if (!chorusReady.has(c)) return null;
+  if (!workletUsable(c)) return null;
   try {
     return new AudioWorkletNode(c, 'mm-chorus', {
       numberOfInputs: 1,
@@ -104,6 +113,7 @@ function chorusNode(c: BaseAudioContext, opts: Record<string, unknown>): AudioWo
       processorOptions: opts,
     });
   } catch {
+    chorusFailed.add(c);
     return null;
   }
 }
@@ -215,6 +225,8 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
   let mul = 1;
   let modDepth = cfg.depth;
   let branch: { nodes: AudioNode[]; lfos: OscillatorNode[]; w?: AudioWorkletNode; depths?: GainNode[] } | null = null;
+  /** Le passage au worklet en cours (2026-10-22, revue R1) : le mouille reste a 0 jusqu'a l'echange des branches. */
+  let upgrading = false;
   /** Le sec et le mouille d'un reglage t : le dosage de cfg, puis TRIM (le rapport entre eux ne change pas). */
   const mixOf = (t: number): { dry: number; wet: number } => {
     const d = 1 - cfg.dry * t;
@@ -293,21 +305,29 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
 
   const apply = (t: number): void => {
     const m = mixOf(t);
-    insert.engage(m.dry, m.wet);
+    insert.engage(m.dry, upgrading ? 0 : m.wet);
   };
+  /** La branche des DelayNode a-t-elle a passer au worklet ? (son module la : le reglage ou la tenue qui suit la relance) */
+  const stale = (): boolean => !!branch && !branch.w && workletUsable(c);
 
   /*
    * Le module arrive : la branche des DelayNode s'efface (mouille a 0 en 20 ms), le worklet la remplace. Revu le
    * 2026-10-21 (audit RS-3) : l'ancienne branche etait demontee AVANT que l'insert la lache, et setBranch levait sur
    * un lien deja parti (InvalidAccessError dans un setTimeout) : le CHORUS restait muet pour la visite. Desormais la
    * neuve se branche d'abord (setBranch lache l'ancienne proprement), puis l'ancienne s'arrete.
+   * 2026-10-22 (revue R1) : une branche tenue par les verrous de la voix passe aussi au worklet, CHORUS de la voix a 0
+   * compris ; un OFF puis ON autour des 60 ms ne perd plus le passage (set et lockHold le relancent), et pendant ces
+   * 60 ms un reglage ou un coup verrouille garde le mouille a 0 (la branche change sous un mouille ouvert : un clic).
    */
   function upgrade(): void {
-    if (!branch || value === 0 || branch.lfos.length === 0) return;
+    const wanted = (): boolean => value > 0 || insert.isHeld;
+    if (upgrading || !branch || branch.w || !wanted()) return;
+    upgrading = true;
     insert.engage(mixOf(value).dry, 0);
     setTimeout(() => {
+      upgrading = false;
       const old = branch;
-      if (value === 0 || !old || old.lfos.length === 0) return;
+      if (!old || old.w || !wanted()) return;
       branch = null;
       build();
       drop(old);
@@ -326,6 +346,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       if (t === 0) insert.release();
       else {
         if (!branch) build();
+        if (stale()) upgrade();
         apply(t);
       }
       stage.onRetime?.();
@@ -339,13 +360,16 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
     lockHold(on: boolean) {
       if (on && !branch) build();
       insert.hold(on);
+      if (on && stale()) upgrade();
     },
     lockAt(when: number, v: number, prev?: number) {
       const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
       if (!branch) return;
       const m = mixOf(t);
       const p = prev === undefined || !Number.isFinite(prev) ? undefined : mixOf(Math.min(1, Math.max(0, prev)));
-      insert.at(when, m.dry, m.wet, p);
+      // Pendant le passage au worklet, le mouille reste a 0 (les points reviennent apres l'echange : onRetime)
+      if (upgrading) insert.at(when, m.dry, 0, p && { dry: p.dry, wet: 0 });
+      else insert.at(when, m.dry, m.wet, p);
     },
     lockClear(t: number) {
       insert.clearFrom(t);
@@ -439,6 +463,8 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
     /** le worklet (interpolation sinc) */
     node?: AudioWorkletNode;
   } | null = null;
+  /** Le passage au worklet en cours (2026-10-22, revue R1) : le mouille reste a 0 jusqu'a l'echange des branches. */
+  let upgrading = false;
   const lineMin = JUNO.delay.min - JUNO.filterDelay;
   const lineMax = JUNO.delay.max - JUNO.filterDelay;
   const rateOf = (m: JunoMode): number => JUNO.rates[m === 2 ? 1 : 0];
@@ -516,14 +542,18 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
   insert.onIdle = teardown;
 
   // Chaque sortie : le sec et sa ligne, au rapport du Juno ; TRIM pour le niveau d'ensemble
-  const engage = (): void => insert.engage(JUNO.trim, JUNO.trim * JUNO.wet);
+  const engage = (): void => insert.engage(JUNO.trim, upgrading ? 0 : JUNO.trim * JUNO.wet);
 
   // Le module arrive : les DelayNode s'effacent en 20 ms, le worklet prend la suite. 2026-10-21 (audit RS-3) : la
-  // neuve se branche d'abord, l'ancienne s'arrete ensuite (demontee avant, setBranch levait et le CHORUS restait muet)
+  // neuve se branche d'abord, l'ancienne s'arrete ensuite (demontee avant, setBranch levait et le CHORUS restait muet).
+  // 2026-10-22 (revue R1) : un OFF puis ON autour des 60 ms ne perd plus le passage (set le relance), le mouille reste
+  // a 0 jusqu'a l'echange
   function upgrade(): void {
-    if (!branch || mode === 0 || branch.node) return;
+    if (upgrading || !branch || mode === 0 || branch.node) return;
+    upgrading = true;
     insert.engage(JUNO.trim, 0);
     setTimeout(() => {
+      upgrading = false;
       const old = branch;
       if (mode === 0 || !old || old.node) return;
       branch = null;
@@ -549,6 +579,7 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
         if (branch.node) branch.node.port.postMessage({ rate: rateOf(m) });
         if (branch.slow) branch.slow.frequency.value = rateOf(m);
       } else build();
+      if (branch && !branch.node && workletUsable(c)) upgrade();
       if (was === 0) engage();
     },
     value: () => mode,
@@ -556,6 +587,6 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
       mode = 0;
       insert.reset();
     },
-    info: () => ({ value: mode, live: branch !== null, built, insert: insert.info(), rate: mode ? rateOf(mode) : 0 }),
+    info: () => ({ value: mode, live: branch !== null, built, insert: insert.info(), rate: mode ? rateOf(mode) : 0, worklet: !!branch?.node }),
   };
 }

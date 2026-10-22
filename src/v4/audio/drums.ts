@@ -591,6 +591,10 @@ export function ensure(): AudioContext | undefined {
     }
   }
   created += 1;
+  // Le chorus sans interpolation lineaire (audio/chorus.worklet.js) : son module part avant le graphe (2026-10-22,
+  // revue R1 : le CHORUS du motif et les verrous deja la batissent leurs branches tout de suite, en DelayNode, puis
+  // passent au worklet a son arrivee)
+  void loadChorus(ctx);
   graph = build(ctx);
   // Les verrous DIST et CHORUS du motif deja la (2026-10-09) : leurs inserts tenus engages des le premier coup
   holdInserts(graph, pattern.get().locks);
@@ -616,8 +620,6 @@ export function ensure(): AudioContext | undefined {
   // Les verrous deja la avant le contexte (revue de R2 : relus du stockage, d'un preset ou d'un pattern avant le
   // premier RUN) : prepares eux aussi, sinon leur premier passage jouait le son le plus proche (celui du kit)
   prepareLocks();
-  // Le chorus sans interpolation lineaire (audio/chorus.worklet.js) : pret pour la premiere branche
-  void loadChorus(ctx);
   attachLimiter(ctx, graph);
   void attachGlue(ctx, graph, () => pattern.fx.get(), true);
   return ctx;
