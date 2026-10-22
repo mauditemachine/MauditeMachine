@@ -531,7 +531,9 @@ const PAGE_HEAD: { y: number; iconX: number; pillX: number; pillY: number; right
  * L'en-tete de la vue PAGE a places fixes (2026-10-22, audit SB-13). Les paliers de serrage de ses onglets : le corps
  * (s, de celui des onglets), l'air dans un onglet (pad), entre deux (gap), apres un titre sans cadre (tpad, DELAY de
  * DELAY > GLOBAL) et apres le trait du chevron (chev). headPlan ne compte que jusqu'au palier HEAD_FIT_MAX (90 % du
- * corps) ; le dernier, 80 %, reste un secours (une police de repli plus large).
+ * corps), pour les huit voix ; le dernier, 80 %, sert sans voix choisie (revue RB3-4, 2026-10-22, mesure avec SF Pro :
+ * FX > VOICE FX > GLOBAL au desktop, 90 % au plus avec une voix ; le telephone reste a 100 %) et a une police de repli
+ * plus large. Compter la page sans voix dans headPlan ferait tomber A01 de toutes les pages du desktop (149.0 > 148.5).
  */
 const HEAD_FIT = [
   { s: 1, pad: 9, gap: 3, tpad: 9, chev: 5.8 },
@@ -2327,7 +2329,8 @@ export class Screen {
    * au palier HEAD_FIT_MAX, a gauche de la colonne de la voix ; la colonne a la
    * largeur de la plus large des voix (TOM), juste a gauche du pattern, la
    * lettre M ou S d'un mode arme entre les deux. Le meme sur toutes les pages
-   * et pour toutes les voix (sans voix, VOICE FX plus long se serre plus) ;
+   * et pour toutes les voix (sans voix, VOICE FX plus long se serre plus : au
+   * dernier palier de HEAD_FIT, 80 %, au desktop) ;
    * mesure : la voix a x 148.5 et A01 au desktop, 159 sans A01 au telephone
    * (172.3 colle aux cadrans, voir HEAD_FIT_PHONE). Garde jusqu'a l'arrivee des
    * polices (onFonts).
