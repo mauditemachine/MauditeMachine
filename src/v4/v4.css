@@ -7,14 +7,9 @@
 
 /* ---------- polices ---------- */
 
-@font-face {
-  font-family: 'Robot Radicals';
-  src: url('/fonts/RobotRadicals.otf') format('opentype'),
-    url('/fonts/RobotRadicals.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Robot Radicals : declaree une seule fois, dans src/styles.css (2026-10-21, audit SEO F18 : deux declarations du meme
+   fichier, deux telechargements de 33 Ko sur les pages de la machine ; styles.css est charge par l'entree, avant ce
+   fichier, sur toutes les pages) */
 
 @font-face {
   font-family: 'SF Pro Display';
