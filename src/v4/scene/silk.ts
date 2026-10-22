@@ -30,6 +30,7 @@ import {
   HEX,
   OPEN_SILK_INDEX,
   PAD,
+  PORTRAIT,
   SILK,
   SILK_LINES,
   SILK_LOGOS,
@@ -314,7 +315,9 @@ export class PanelSilk {
   private tinted = new Map<string, HTMLCanvasElement>();
 
   constructor(mobile: boolean, anisotropy: number) {
-    const [W, H] = mobile ? SILK_PLANE.tex.mobile : SILK_PLANE.tex.desktop;
+    // Le desktop d'un ecran Retina (2026-10-22) : la serigraphie plus fine (SILK_PLANE.retina) ; le choix tient a la construction
+    const retina = !mobile && !PORTRAIT && typeof window !== 'undefined' && (window.devicePixelRatio || 1) >= SILK_PLANE.retinaDpr;
+    const [W, H] = retina ? SILK_PLANE.retina : mobile ? SILK_PLANE.tex.mobile : SILK_PLANE.tex.desktop;
     this.W = W;
     this.H = H;
     this.ppu = W / SILK_PLANE.w;

@@ -403,6 +403,13 @@ export const SILK_PLANE = {
   y: 0.004,
   /** mobile en pleine definition depuis le 2026-10-01 : a 1024, la serigraphie bavait au DPR 3 */
   tex: PORTRAIT ? { desktop: [1166, 2048], mobile: [1166, 2048] } : { desktop: [2048, 1323], mobile: [2048, 1323] },
+  /**
+   * Un ecran Retina au desktop (2026-10-22, audit : a DPR 2 la machine couvre environ 2400 px pour 12.6 unites, les
+   * 2048 de la serigraphie etaient agrandis 1.16 fois, les petits noms un peu doux) : 2560 de large, 1.07 texel par pixel ;
+   * 17 Mo de plus sur la carte graphique, seulement a partir de retinaDpr (scene/silk.ts PanelSilk)
+   */
+  retina: [2560, 1654],
+  retinaDpr: 1.75,
 } as const;
 
 /**
