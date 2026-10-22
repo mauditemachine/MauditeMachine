@@ -252,12 +252,13 @@ html:has(body.v4-active) {
   color: var(--yellow);
 }
 
-/* Mobile : en haut a droite, sous l'en-tete (le Dock repliable occupe le bas) */
+/* Mobile : en haut a droite, sous l'en-tete (le Dock repliable occupe le bas) ; depuis le 2026-10-21 (audit : le
+   selecteur des machines, top 58 px, 36 px de haut, z-index 23, en couvrait 62 px sur 105) sous le selecteur, 8 px plus bas */
 @media (max-width: 767px) {
   .v4-root .v4-reset {
     right: 8px;
     bottom: auto;
-    top: calc(56px + env(safe-area-inset-top, 0px));
+    top: calc(102px + env(safe-area-inset-top, 0px));
   }
 }
 
