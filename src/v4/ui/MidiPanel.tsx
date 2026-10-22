@@ -35,6 +35,7 @@ import { ROTO_SETUPS, ROTO_VERSION, rotoFileName, rotoSetupJson, rotoSetupLabel,
 import { MACHINE_NAME, onTargetsRegistered, targetIdOfHotspot, targetOf, targetsOf, type TargetScope } from '../midi/targets';
 import type { Stage } from '../scene/renderer';
 import { focus, type Focus } from '../state/focus';
+import { FaIcon } from './uiIcons';
 
 const useMidi = (): MidiView => useSyncExternalStore(midi.subscribe, midi.get, midi.get);
 const useFocus = (): Focus => useSyncExternalStore(focus.subscribe, focus.get, focus.get);
@@ -213,7 +214,7 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="v4-midi-head">
         <span className="v4-midi-title">MIDI</span>
         <button type="button" className="v4-midi-x" aria-label="Close the MIDI panel" onClick={onClose}>
-          <i className="fa-solid fa-xmark v4-fa" aria-hidden="true" />
+          <FaIcon name="fa-solid fa-xmark" />
         </button>
       </div>
       <p className="v4-midi-status">{statusText(m)}</p>
@@ -315,7 +316,7 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <span className="v4-midi-k">{keyText(key)}</span>
                     <span className="v4-midi-t">{targetOf(id)?.label ?? id}</span>
                     <button type="button" className="v4-midi-del" aria-label={`Remove ${keyText(key)}`} onClick={() => unbind(s, key)}>
-                      <i className="fa-solid fa-xmark v4-fa" aria-hidden="true" />
+                      <FaIcon name="fa-solid fa-xmark" />
                     </button>
                   </li>
                 ))}

@@ -37,6 +37,7 @@ import { HOOD_LINKS, PAGE_LINKS, openHood } from './Header';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
 import { BandcampIcon, SOCIAL_ICONS } from './icons';
 import './menu.css';
+import { FaIcon } from './uiIcons';
 
 const ICONS: Readonly<Record<string, string>> = {
   goodies: 'fa-solid fa-gift',
@@ -77,7 +78,8 @@ function warmPhotos(srcs: readonly string[]): void {
   }
 }
 
-const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
+// SVG inline depuis le 2026-10-22 (audit SB-11, ui/uiIcons.tsx) : plus de touches vides sans le CDN de Font Awesome
+const Icon = FaIcon;
 
 interface Props {
   getStage: () => Stage | null;
@@ -154,7 +156,7 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
                 {String(i + 1).padStart(2, '0')}
               </span>
               <span className="v4-mm-label">{l.label}</span>
-              <i className="fa-solid fa-arrow-right v4-mm-go" aria-hidden="true" />
+              <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
             </button>
           </li>
         ))}

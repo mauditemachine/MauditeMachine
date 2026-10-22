@@ -55,6 +55,7 @@ import { playhead } from '../state/playhead';
 import { voices } from '../state/voices';
 import { INST_NAMES, STEP_HOLD_MS } from '../theme';
 import { DockPages, KnobPanel, useDockInset, useDockPage } from './KnobPanel';
+import { FaIcon } from './uiIcons';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
 
@@ -71,7 +72,8 @@ function readDockOpen(): boolean {
   }
 }
 
-const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
+// SVG inline depuis le 2026-10-22 (audit SB-11, ui/uiIcons.tsx) : plus de touches vides sans le CDN de Font Awesome
+const Icon = FaIcon;
 
 const Glyph: React.FC<{ plus: boolean }> = ({ plus }) => (
   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">

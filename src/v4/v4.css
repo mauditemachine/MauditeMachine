@@ -652,6 +652,44 @@ html:has(body.v4-active) {
   height: 18px;
 }
 
+/*
+ * 2026-10-22 (audit SB-14) : au telephone, des zones de 44 px au moins sans
+ * changer le dessin (un ::after transparent deborde du bouton) : UNDO 40 px,
+ * le selecteur des machines 30 px de haut, les fleches du bord 28 px de
+ * large, la languette du Dock 30 px, ses onglets 32 px.
+ */
+.v4-root .v4-mhead .v4-undo-btn[data-compact='1'],
+.v4-root .v4-mswitch-btn,
+.v4-root .v4-dock-page {
+  position: relative;
+}
+
+.v4-root .v4-mhead .v4-undo-btn[data-compact='1']::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+
+.v4-root .v4-mswitch-btn::after {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
+}
+
+/* comme le i a son bout (v4-dock-info) : 6 px en haut et en bas */
+.v4-root .v4-dock-page::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+/* Les icones en SVG inline (2026-10-22, ui/uiIcons.tsx) : 1em, sur la ligne de base comme la police d'icones d'avant */
+.v4-root .v4-svg-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.125em;
+}
+
 .v4-root .v4-midi-panel {
   z-index: 60;
   width: 360px;
@@ -1629,6 +1667,13 @@ html:has(body.v4-active) {
 
   .v4-root .v4-dock-tab .v4-fa {
     font-size: 13px;
+  }
+
+  /* 44 px de haut au doigt (2026-10-22, audit SB-14), le dessin garde ses 30 */
+  .v4-root .v4-dock-tab::after {
+    content: '';
+    position: absolute;
+    inset: -7px 0;
   }
 
   .v4-root .v4-dock-tab[data-open='1'] {
@@ -3719,6 +3764,23 @@ html:has(body.v4-active.v4-light) {
 .v4-root .v4-medge[data-side='right'] {
   right: 0;
   border-radius: 12px 0 0 12px;
+}
+
+/* 44 px de large au doigt (2026-10-22, audit SB-14) : la zone deborde vers l'interieur, sur le bord du chassis */
+.v4-root .v4-medge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+}
+
+.v4-root .v4-medge[data-side='right']::after {
+  right: 0;
+}
+
+.v4-root .v4-medge[data-side='left']::after {
+  left: 0;
 }
 
 .v4-root .v4-medge[data-side='left'] {
