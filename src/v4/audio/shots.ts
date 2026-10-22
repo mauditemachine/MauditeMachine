@@ -63,6 +63,9 @@
  * - un nouveau choix de son (kit.choice) se calcule tout de suite, en tete de
  *   file, a la hauteur et au STRETCH du dernier coup de la voix (lastReq),
  *   sans attendre la fin du geste (120 ms : ce delai reste pour un potard) ;
+ *   des choix en rafale (un potard qui balaie la liste, moins de 100 ms entre
+ *   deux crans, 2026-10-22) : seul le dernier se charge et se calcule, sauf un
+ *   cran dont l'echantillon est deja decode ;
  *   whenReady : l'ecoute a l'arret attend ce coup exact (actions.ts) ;
  * - un calcul dont l'echantillon n'est pas encore decode attend son arrivee
  *   (waitSample, tous et non plus seulement ceux des verrous) et repart en
@@ -489,6 +492,23 @@ let rewarmTimer = 0;
 const rewarmIds = new Set<ShotId>();
 /** Le dernier choix de son vu de chaque famille (kit.choice). */
 const choiceAt = new Map<KitFamily, number>();
+/**
+ * Un nouveau choix moins de CHOICE_GAP_MS apres le precedent (2026-10-22, revue RA1-2 : un potard SOUND qui balaie la
+ * liste telechargeait, decodait et calculait chaque cran, 11 kicks pour un geste) : une rafale, seul son dernier choix
+ * se charge, CHOICE_GAP_MS apres lui ; un choix isole (PREV/NEXT, la liste, un preset, RANDOM) reste immediat, comme
+ * un cran dont l'echantillon est deja decode.
+ */
+const CHOICE_GAP_MS = 100;
+const choiceTimer = new Map<KitFamily, number>();
+const choiceLast = new Map<KitFamily, number>();
+
+/** Le son choisi d'une famille, tout de suite : son echantillon demande explicitement, ses coups en tete de file. */
+function choose(f: KitFamily): void {
+  choiceTimer.delete(f);
+  const key = kit.get().sample[f];
+  if (key && kit.get().layer[f].lev > 0) void requestSample(key);
+  for (const id of shotsOf(f)) prime(id);
+}
 
 /**
  * Le son du moment d'une voix, tout de suite et en tete de file (2026-10-21) : a la hauteur, au STRETCH et a la
@@ -515,7 +535,7 @@ function prime(id: ShotId): void {
  * pose (120 ms) ; un coup qui arrive avant joue le meme son le plus proche, ou
  * le son precedent de la voix. Un nouveau choix de son (2026-10-21) : sans
  * attendre (prime), son echantillon demande explicitement (un echec passager
- * se retente).
+ * se retente) ; dans une rafale (2026-10-22), le dernier seulement.
  */
 kit.subscribe((changed) => {
   for (const f of changed) for (const id of shotsOf(f)) rewarmIds.add(id);
@@ -524,9 +544,13 @@ kit.subscribe((changed) => {
     const c = kit.choice(f);
     if (choiceAt.get(f) === c) continue;
     choiceAt.set(f, c);
+    const now = performance.now();
+    const burst = now - (choiceLast.get(f) ?? -Infinity) < CHOICE_GAP_MS;
+    choiceLast.set(f, now);
+    window.clearTimeout(choiceTimer.get(f) ?? 0);
     const key = kit.get().sample[f];
-    if (key && kit.get().layer[f].lev > 0) void requestSample(key);
-    for (const id of shotsOf(f)) prime(id);
+    if (!burst || (key && samplePcm(key))) choose(f);
+    else choiceTimer.set(f, window.setTimeout(() => choose(f), CHOICE_GAP_MS));
   }
   if (warmSr === 0) return;
   window.clearTimeout(rewarmTimer);
