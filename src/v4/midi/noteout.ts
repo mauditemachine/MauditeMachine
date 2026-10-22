@@ -60,7 +60,10 @@
  *   courte rafale), un pas que l'arpege saute envoie aussi les siennes, et
  *   avant un gros travail annonce (reserve, audio/sched.ts : l'OPEN, la scene
  *   qui se reconstruit) elles partent d'avance, avec leur heure, jusqu'a
- *   RESERVE_CLOCK_S devant.
+ *   RESERVE_CLOCK_S devant ;
+ * - l'echo du bus IAC se reconnait par la sortie ou le message est parti, plus
+ *   par la sortie choisie maintenant : changer de sortie (ou OFF) en MIDI LEARN
+ *   n'apprend plus le relachement, le CC 123 ou la derniere note de l'ancienne.
  */
 
 import { context } from '../audio/drums';
@@ -308,7 +311,7 @@ function send(o: MIDIOutput, data: number[], at: number, clk = false): void {
   if (clk) lastClockAt = Math.max(t, now);
   else {
     lastAt = Math.max(t, now);
-    keepEcho(data, Math.max(t, now));
+    keepEcho(data, Math.max(t, now), o.name ?? '');
   }
 }
 
@@ -319,35 +322,39 @@ function send(o: MIDIOutput, data: number[], at: number, clk = false): void {
  * part sur sa sortie, et le site ecoute toutes les entrees (midi/midi.ts) : les notes de l'arpege revenaient comme si
  * un clavier les jouait. En MIDI LEARN, la note suivante de l'arpege (ou le ALL NOTES OFF d'un STOP) s'apprenait pour
  * le potard choisi a la place du geste de Mika, et la ligne du dernier message ne montrait plus que ces notes. Chaque
- * message de canal parti est garde ECHO_MS autour de son heure : le meme, sur l'entree du meme nom, a cette heure-la,
- * est son echo, ignore (une seule fois). Un autre message de cette entree (un CC d'Ableton) passe.
+ * message de canal parti est garde ECHO_MS autour de son heure, avec le nom de sa sortie : le meme, sur l'entree du
+ * meme nom, a cette heure-la, est son echo, ignore (une seule fois). Un autre message de cette entree (un CC d'Ableton)
+ * passe. Le nom garde avec le message (2026-10-22) : un changement de sortie (ou OFF) relache tout sur l'ancienne, et
+ * l'echo de ces relachements (ou de la derniere note, partie un peu d'avance) revient apres le changement ; compare a
+ * la sortie choisie, il s'apprenait en MIDI LEARN.
  */
 const ECHO_MS = 1000;
 const ECHO_KEEP = 512;
-const echoes: { k: number; at: number }[] = [];
+const echoes: { k: number; at: number; port: string }[] = [];
 const echoKey = (d: ArrayLike<number>): number => ((d[0] & 0xff) << 16) | ((d[1] & 0x7f) << 8) | ((d.length > 2 ? d[2] : 0) & 0x7f);
 
-function keepEcho(data: number[], at: number): void {
+function keepEcho(data: number[], at: number, port: string): void {
   // Les plus vieux s'en vont (au-dela de leur fenetre, ou de la place)
   const old = at - 2 * ECHO_MS;
   let n = 0;
   while (n < echoes.length && (echoes[n].at < old || echoes.length - n >= ECHO_KEEP)) n += 1;
   if (n > 0) echoes.splice(0, n);
-  echoes.push({ k: echoKey(data), at });
+  echoes.push({ k: echoKey(data), at, port });
 }
 
 /**
- * midi/midi.ts, a chaque message recu : celui-ci est-il l'echo d'un message parti vers cette sortie (le meme nom), a
- * ECHO_MS pres de son heure (at : son arrivee, l'heure de la page) ? S'il l'est, il est oublie ici et ignore la-bas.
+ * midi/midi.ts, a chaque message recu : celui-ci est-il l'echo d'un message parti vers une sortie du meme nom (celle
+ * choisie, ou une ancienne), a ECHO_MS pres de son heure (at : son arrivee, l'heure de la page) ? S'il l'est, il est
+ * oublie ici et ignore la-bas.
  */
 export function noteOutEcho(device: string, d: ArrayLike<number>, at: number): boolean {
-  if (echoes.length === 0 || !device || device !== view.device || d.length < 2) return false;
+  if (echoes.length === 0 || !device || d.length < 2) return false;
   const hi = d[0] & 0xf0;
   if (hi !== 0x80 && hi !== 0x90 && hi !== 0xb0) return false;
   const k = echoKey(d);
   for (let i = 0; i < echoes.length; i += 1) {
     const e = echoes[i];
-    if (e.k === k && Math.abs(e.at - at) <= ECHO_MS) {
+    if (e.port === device && e.k === k && Math.abs(e.at - at) <= ECHO_MS) {
       echoes.splice(i, 1);
       return true;
     }
