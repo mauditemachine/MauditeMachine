@@ -319,6 +319,13 @@ export const infoKeySpot = (mobile: boolean, blocks = false): { u: number; v: nu
     r: (mobile ? INFO_KEY.hit.phone : INFO_KEY.hit.desk) / UW,
   };
 };
+/**
+ * 2026-10-22 (audit SB-02, RS-11) : au telephone, les zones de saisie de l'en-tete (les onglets, MASTER et TEMPO, PREV et
+ * NEXT du navigateur) montent de tant d'unites au-dessus du verre (22 px a 390 de large ; rien a toucher sur cette
+ * bordure) : 40 px de haut au lieu de 20. La zone n'a pas a egaler le dessin.
+ */
+const HEAD_HIT_UP = 24;
+
 /** Les coordonnees de texture du reste du site (theme OLED.tex, 640 x 240) : deux par unite. */
 const TEX_K = OLED.tex[0] / UW;
 
@@ -326,6 +333,11 @@ const TEX_K = OLED.tex[0] / UW;
 const INK: string = HEX.bone;
 const HALF: string = 'rgba(246, 241, 231, 0.5)';
 const FAINT: string = 'rgba(246, 241, 231, 0.2)';
+/**
+ * 2026-10-22 (audit SB-07) : le texte a peine (onglets inactifs, aides, PICK A VOICE), 0.4 soit plus de 3:1 sur le noir ;
+ * FAINT (0.2, 1.65:1) reste aux filets, cadres et decors : l'onglet SYNTH ou GLOBAL ne disparaissait plus en 3D.
+ */
+const FAINT_TEXT: string = 'rgba(246, 241, 231, 0.4)';
 const BLACK: string = HEX.oled;
 /** Le cadre d'un bloc de la vue PAGE : a peine (un reglage a venir, encore moins). */
 const FRAME: string = 'rgba(246, 241, 231, 0.14)';
@@ -339,10 +351,12 @@ interface Pal {
   ink: string;
   half: string;
   faint: string;
+  /** le texte a peine (2026-10-22, FAINT_TEXT) */
+  faintText: string;
   bg: string;
 }
-const PAL: Pal = { ink: INK, half: HALF, faint: FAINT, bg: BLACK };
-const PAL_NEG: Pal = { ink: BLACK, half: 'rgba(0, 0, 0, 0.58)', faint: 'rgba(0, 0, 0, 0.24)', bg: INK };
+const PAL: Pal = { ink: INK, half: HALF, faint: FAINT, faintText: FAINT_TEXT, bg: BLACK };
+const PAL_NEG: Pal = { ink: BLACK, half: 'rgba(0, 0, 0, 0.58)', faint: 'rgba(0, 0, 0, 0.24)', faintText: 'rgba(0, 0, 0, 0.42)', bg: INK };
 
 /** L'anneau des pas : son centre, son rayon ; la colonne de droite. */
 const RING = { cx: 60, cy: 60, r: 47 } as const;
@@ -351,6 +365,12 @@ const COL = { x0: 124, x1: 314 } as const;
 const CARD = { y0: 30, y1: 64, label: 74, value: 90, gap: 8 } as const;
 /** La ligne du bas (message, piste). */
 const LINE = { y: 110 } as const;
+/**
+ * Le menu de HOME au telephone (2026-10-22, audit SB-02) : ses zones montent jusque sous les valeurs des cartes (dans le
+ * dessin de 120 : le haut de l'ecran est a DY), 39 px de haut au lieu de 14 ; lcd-open (les presets) s'arrete plus haut,
+ * a la bande de la piste (theme.ts OLED_BAR), et la touche de page sous le verre ne prend plus une tape un peu basse.
+ */
+const MENU_HIT_TOP = CARD.value + 6;
 /** La largeur d'une carte de HOME ((190 - 2 x 8) / 3) : les images des blocs, plus petites, s'y rapportent. */
 const CARD_W = 58;
 
@@ -555,7 +575,9 @@ const SB: {
   tag: number;
   hint: [number, number];
 } = PORTRAIT
-  ? { rows: [24, 132], x0: 8, x1: 305, bar: 312, del: 0, arrows: [[226, 257], [260, 291]], arrow: 5.6, head: 14.5, rank: 10.5, num: 9, label: 13, tag: 9, hint: [10, 10] }
+  ? // PREV et NEXT plus larges (2026-10-22, audit RS-11 : 29 x 22 px, leurs zones de 48 px se chevauchaient de 17) : 46 unites,
+    // 42 px chacune ; les trois lignes de 36 unites (BROWSER_ROWS), le nom un peu plus gros
+    { rows: [24, 132], x0: 8, x1: 305, bar: 312, del: 0, arrows: [[196, 242], [246, 292]], arrow: 6, head: 14.5, rank: 10.5, num: 9.5, label: 14, tag: 9, hint: [10, 10] }
   : TALL
     ? // L'ecran haut du desktop (2026-10-18) : la place des lignes du telephone, sept lignes de 15,4 (BROWSER_ROWS), le x des
       // samples perso garde (la souris), l'en-tete du dessin haut
@@ -852,6 +874,10 @@ export class Screen {
   menuRects: { id: string; u0: number; u1: number; v0: number; v1: number }[] = [];
   /** MASTER et TEMPO a l'ecran (2026-10-19) : leurs rectangles, les zones lcd-master et lcd-tempo ; [] quand ils n'y sont pas. */
   dialRects: { id: string; u0: number; u1: number; v0: number; v1: number }[] = [];
+  /** au telephone, les zones de l'en-tete montent au-dessus du verre (HEAD_HIT_UP, 2026-10-22) */
+  private get headUp(): number {
+    return this.mobile ? HEAD_HIT_UP : 0;
+  }
   /** Les onglets de l'en-tete (VOICE : MAIN SYNTH ; FX : BD FX, GLOBAL) et leur rectangle : les zones lcd-tab-<ecran>. */
   tabSpots: { screen: RytmScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
 
@@ -1150,7 +1176,7 @@ export class Screen {
       } else this.text(fit(soundOf(inst), 10), RING.cx, RING.cy + 21, 8, HALF, 600, 'center', 0.6);
     } else {
       this.text('ALL', RING.cx, RING.cy + 6, 18, HALF, 300, 'center', 1);
-      this.text('PICK A VOICE', RING.cx, RING.cy + 19, 6, FAINT, 600, 'center', 0.5);
+      this.text('PICK A VOICE', RING.cx, RING.cy + 19, 6, FAINT_TEXT, 600, 'center', 0.5);
     }
     return 0;
   }
@@ -1400,7 +1426,7 @@ export class Screen {
       this.line([cx, y1, cx, y], sel ? INK : HALF, 2.4);
       this.circle(cx, y, sel ? 4.6 : 3.4, sel ? INK : HALF);
       this.text(inst, cx, 96, 8, sel ? INK : HALF, 700, 'center', 0.6);
-      this.text(String(Math.round(v * 100)), cx, 26, 7, sel ? INK : FAINT, 600, 'center');
+      this.text(String(Math.round(v * 100)), cx, 26, 7, sel ? INK : FAINT_TEXT, 600, 'center');
     });
   }
 
@@ -1460,8 +1486,11 @@ export class Screen {
     };
     arrow(prev, true, v.cur > 0);
     arrow(next, false, v.cur < v.n - 1);
-    push('lcd-sb-prev', prev[0], 0, prev[1] - prev[0], H.rule);
-    push('lcd-sb-next', next[0], 0, next[1] - next[0], H.rule);
+    // Au telephone, au-dessus du verre aussi (HEAD_HIT_UP, 2026-10-22, audit RS-11), et jusqu'au milieu de l'air entre elles
+    const up = this.headUp;
+    const gap = (next[0] - prev[1]) / 2;
+    push('lcd-sb-prev', prev[0], -up, prev[1] - prev[0] + gap, H.rule + up);
+    push('lcd-sb-next', next[0] - gap, -up, next[1] - next[0] + gap, H.rule + up);
     if (!neg) this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
     // Les lignes
     const [y0, y1] = SB.rows;
@@ -1498,7 +1527,7 @@ export class Screen {
       const sub = full ? 'rgba(0, 0, 0, 0.55)' : HALF;
       const by = (size: number): number => cy + size * 0.36;
       let lx = x0 + 5;
-      if (r.kind !== 'load') this.text(two(i + 1), lx, by(SB.num), SB.num, full ? sub : FAINT, 600, 'left', 0.3);
+      if (r.kind !== 'load') this.text(two(i + 1), lx, by(SB.num), SB.num, full ? sub : FAINT_TEXT, 600, 'left', 0.3);
       lx += numW + (TALL ? 7 : 5);
       let rx = x1 - (TALL ? 7 : 4);
       if (armed) {
@@ -1619,9 +1648,9 @@ export class Screen {
       this.text(this.fitText(s.l3, x1 - x0, 9, 0.6, 600), x0, LINE.y, 9, INK, 600, 'left', 0.6);
       return;
     }
-    if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT, 700, 'left', 0.6);
+    if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT_TEXT, 700, 'left', 0.6);
     else if (this.paintMode(x0, x1)) return;
-    else if (s.tag) this.text('TOUCH: PRESETS', x1, LINE.y, 6.5, FAINT, 700, 'right', 0.8);
+    else if (s.tag) this.text('TOUCH: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
   }
 
   /**
@@ -1643,7 +1672,9 @@ export class Screen {
       const off = id === 'sound' && !inst;
       this.roundRect(x, y, w, h, 3.5, null, off ? FRAME_DIM : HALF, 1.1);
       this.text(HOME_MENU_LABEL[id], x + w / 2, y + h / 2 + size * 0.36, size, off ? FAINT : INK, 700, 'center', 0.8);
-      this.menuRects.push({ id: `lcd-menu-${id}`, ...this.spot({ x, y, w, h }) });
+      // Au telephone, la zone monte au-dessus de la touche jusqu'au bas du verre (MENU_HIT_TOP, 2026-10-22)
+      const top = this.mobile ? DY + MENU_HIT_TOP : y;
+      this.menuRects.push({ id: `lcd-menu-${id}`, ...this.spot({ x, y: top, w, h: this.mobile ? UH - top : h }) });
       this.info.menu.push(off ? `-${HOME_MENU_LABEL[id]}` : HOME_MENU_LABEL[id]);
     });
   }
@@ -1804,7 +1835,7 @@ export class Screen {
     const bottom = y1 - 3;
     const out: string[] = [];
     if (lines.length === 0) {
-      this.text(this.fitText(`NONE YET: ${TURN}`, x1 - x0 - 2 * pad, size, 0.5, 600), x0 + pad, y, size, FAINT, 600, 'left', 0.5);
+      this.text(this.fitText(`NONE YET: ${TURN}`, x1 - x0 - 2 * pad, size, 0.5, 600), x0 + pad, y, size, FAINT_TEXT, 600, 'left', 0.5);
       this.info.panel = ['NONE'];
       return b;
     }
@@ -1817,7 +1848,7 @@ export class Screen {
         break;
       }
       const l = lines[i];
-      const pw = b.n > 1 ? this.text(l.page, x1 - pad, y, size * 0.82, FAINT, 700, 'right', 0.5) + 4 : 0;
+      const pw = b.n > 1 ? this.text(l.page, x1 - pad, y, size * 0.82, FAINT_TEXT, 700, 'right', 0.5) + 4 : 0;
       const nw = this.text(l.name, x0 + pad, y, size, HALF, 700, 'left', 0.5);
       const room = x1 - pad - pw - (x0 + pad + nw + 3);
       this.text(this.fitText(l.text, Math.max(6, room), size, 0.3, 600), x0 + pad + nw + 3, y, size, INK, 600, 'left', 0.3);
@@ -1981,8 +2012,8 @@ export class Screen {
         const on = t === screen;
         const tw = tabW(name);
         if (on) this.roundRect(x, H.pillY + 0.6, tw, T.pillH - 1.2, 2.2, null, INK, 1.1);
-        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT, 700, 'center', 0.7);
-        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: 0, w: tw + 1, h: H.rule }) });
+        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT_TEXT, 700, 'center', 0.7);
+        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: -this.headUp, w: tw + 1, h: H.rule + this.headUp }) });
         heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
         x += tw + 3;
       }
@@ -1995,7 +2026,7 @@ export class Screen {
           // GLOBAL en retrait (une tape y revient), le chevron, le FX de la page cerne
           const x0 = x;
           const gw = tabW(name);
-          this.text(name, x + gw / 2, ty, ts, FAINT, 700, 'center', 0.7);
+          this.text(name, x + gw / 2, ty, ts, FAINT_TEXT, 700, 'center', 0.7);
           x += gw;
           const cy = H.pillY + T.pillH / 2;
           const ch = chev * 0.55;
@@ -2005,7 +2036,7 @@ export class Screen {
           const dw = tabW(dn);
           this.roundRect(x, H.pillY + 0.6, dw, T.pillH - 1.2, 2.2, null, INK, 1.1);
           this.text(dn, x + dw / 2, ty, ts, INK, 700, 'center', 0.7);
-          this.tabSpots.push({ screen: 'fxg', ...this.spot({ x: x0 - 0.5, y: 0, w: x + dw - x0 + 1, h: H.rule }) });
+          this.tabSpots.push({ screen: 'fxg', ...this.spot({ x: x0 - 0.5, y: -this.headUp, w: x + dw - x0 + 1, h: H.rule + this.headUp }) });
           heads += `|${name}>[${dn}]`;
           x += dw + 3;
           continue;
@@ -2013,10 +2044,10 @@ export class Screen {
         const on = t === screen;
         const tw = tabW(name);
         if (on) this.roundRect(x, H.pillY + 0.6, tw, T.pillH - 1.2, 2.2, null, INK, 1.1);
-        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT, 700, 'center', 0.7);
+        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT_TEXT, 700, 'center', 0.7);
         // La zone de l'onglet : toute la hauteur de l'en-tete (la touche de la page la double, 44 px au doigt) ; deux unites
         // d'air avec la voisine, la perspective des zones 3D comprise (revue : 4 px communs a MAIN et SYNTH)
-        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: 0, w: tw + 1, h: H.rule }) });
+        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: -this.headUp, w: tw + 1, h: H.rule + this.headUp }) });
         heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
         x += tw + 3;
       }
@@ -2070,11 +2101,11 @@ export class Screen {
       }
     } else if (scope) {
       // Sans voix sur la page d'un FX (2026-10-10) : l'onglet dit VOICE, le reste PICK A VOICE s'il tient avant le pattern
-      if (x + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
+      if (x + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x, y, T.sound * 0.85, FAINT_TEXT, 600, 'left', 0.5);
     } else {
       // Sans voix : ALL, puis PICK A VOICE s'il tient avant le pattern, MASTER et TEMPO (headLeftNeed lui garde sa place)
       const aw = this.text('ALL', x, y, T.voice, HALF, 600);
-      if (x + aw + 6 + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
+      if (x + aw + 6 + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT_TEXT, 600, 'left', 0.5);
     }
     this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
   }
@@ -2222,8 +2253,9 @@ export class Screen {
     // a 375 de large) : la zone de MASTER prend l'air libre a sa gauche, jusqu'a room + 5 (lcd-open n'y ouvre plus les
     // presets) ; Math.min garde l'ancien bord quand meme le dernier palier ne tient pas. HOME garde la sienne.
     const mz0 = this.mobile && paged && !tier.a01 ? Math.min(mx0 - 3, room + 5) : mx0 - 3;
-    this.dialRects.push({ id: 'lcd-master', ...this.spot({ x: mz0, y: 0, w: mid - mz0, h: zoneY1 }) });
-    this.dialRects.push({ id: 'lcd-tempo', ...this.spot({ x: mid, y: 0, w: Math.min(tx1 + 4, lim) - mid, h: zoneY1 }) });
+    const up = this.headUp;
+    this.dialRects.push({ id: 'lcd-master', ...this.spot({ x: mz0, y: -up, w: mid - mz0, h: zoneY1 + up }) });
+    this.dialRects.push({ id: 'lcd-tempo', ...this.spot({ x: mid, y: -up, w: Math.min(tx1 + 4, lim) - mid, h: zoneY1 + up }) });
     // INFOS : la commande dont la carte est montree, ses quatre coins
     const di = this.infoDial();
     if (di) this.cornerMarks(di === 'level' ? mx0 - 3.5 : tx0 - 3.5, y - 15.5, di === 'level' ? mx1 + 3.5 : tx1 + 3.5, y + 7.4);
@@ -2371,7 +2403,7 @@ export class Screen {
     const muted = b.lock === 'global' || b.lock === 'nolock';
     const onName = T.tagAt === 'name';
     const tag = muted || !b.tag || (!onName && b.tagHeader) ? '' : b.tag;
-    const tagColor = b.noBd || b.all ? P.faint : P.half;
+    const tagColor = b.noBd || b.all ? P.faintText : P.half;
     const tagSp = onName ? 0.5 : 0.2;
     const tagW = (t: string): number => this.textWidth(t, T.tagSize, 700, tagSp);
     const cornerW = neg ? (TALL ? 12 : 10) : 0;
@@ -2654,7 +2686,7 @@ export class Screen {
     const title = `${b.label}${hot ? (mode?.kind === 'lock' ? ' · P-LOCK' : ' · STEP') : ''}`;
     this.text(this.fitText(title, R.w - 2 * pad, T.nameSize, 0.7, 700), R.x + pad, R.y + T.nameDy, T.nameSize, hot ? INK : HALF, 700, 'left', 0.7);
     if (!fx) {
-      this.text('PICK A VOICE', R.x + pad, R.y + T.valueDy, T.unitSize, FAINT, 600);
+      this.text('PICK A VOICE', R.x + pad, R.y + T.valueDy, T.unitSize, FAINT_TEXT, 600);
       return;
     }
     const area: Rect = { x0: R.x + pad, y0: R.y + T.nameDy + (TALL ? 5 : 3.5), x1: R.x + R.w - pad, y1: R.y + R.h - (TALL ? 12 : 9) };
@@ -2847,16 +2879,19 @@ export class Screen {
       const full = `STEP ${two(lockStep + 1)}: ${names.join(' ')}`;
       const list = this.textWidth(full, s1, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} P-LOCKS ON ${lockPages(lockStep).join(' ')}`;
       const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? list : `${TURN}: STEP ${two(lockStep + 1)} ONLY`;
-      const phase = this.mobile ? Math.floor(now / TIP_MS) % 2 : 0;
+      // 2026-10-22 (audit SB-08) : au desktop aussi, l'aide alterne si elle ne tient pas en entier (STEP: E. avant)
+      const both = '2X: UNLOCK  CLEAR: ALL  STEP: EXIT';
+      const alt = !held && (this.mobile || this.textWidth(both, s2, 700, 0.6) > x1 - x0);
+      const phase = alt ? Math.floor(now / TIP_MS) % 2 : 0;
       const tip = used
         ? 'RELEASE: P-LOCK DONE'
         : held
           ? 'RELEASE: STAY IN P-LOCK'
-          : !this.mobile
-            ? '2X: UNLOCK  CLEAR: ALL  STEP: EXIT'
+          : !alt
+            ? both
             : phase === 0
               ? '2X: UNLOCK  CLEAR: ALL'
-              : `TAP STEP ${two(lockStep + 1)} AGAIN: EXIT`;
+              : `${this.mobile ? 'TAP' : 'CLICK'} STEP ${two(lockStep + 1)} AGAIN: EXIT`;
       const y1 = TALL || !this.mobile ? F.y1 : 108.7;
       const y2 = TALL || !this.mobile ? F.y2 : 118;
       const t1 = this.fitText(top, x1 - x0, s1, 0.5, 600);
@@ -2864,7 +2899,7 @@ export class Screen {
       this.text(t1, x0, y1, s1, INK, 600, 'left', 0.5);
       this.text(t2, x0, y2, s2, HALF, 700, 'left', 0.6);
       this.info.foot = [t1, t2];
-      return this.mobile && !held ? TIP_MS - (now % TIP_MS) + 1 : 0;
+      return alt ? TIP_MS - (now % TIP_MS) + 1 : 0;
     }
     if (s.bar !== null) {
       const ts = fs - 1.5;
@@ -2920,7 +2955,8 @@ export class Screen {
       const bText = fxScopeTabs(screen)
         ? pick(`${tap} GLOBAL OR ${vt} · ${back}`, `GLOBAL OR ${vt} · ${back}`, back)
         : isFxDetail(screen)
-        ? pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`)
+        ? // Des formes plus courtes (2026-10-22, audit SB-08 : ESC: BA. au desktop)
+          pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`, `GLOBAL OR ${back}`, back)
         : screen === 'fxg'
           ? pick(`${tap} A FX: ITS SETTINGS · NEVER P-LOCKED`, `${tap} A FX: ITS SETTINGS`)
           : `${pageLabel(page)} AGAIN: ${next}`;
@@ -2982,6 +3018,9 @@ export class Screen {
     const h = M.h + (TALL ? 10 : 6);
     const x = (UW - w) / 2;
     const y = (M.rows[0] + M.rows[1] + M.h - h) / 2;
+    // Un vrai calque (2026-10-22, audit SB-12) : les blocs dessous s'assombrissent, plus de +63 ni de RIVE qui depassent
+    this.ctx.fillStyle = 'rgba(5, 5, 6, 0.84)';
+    this.ctx.fillRect(0, M.rows[0] - 2, UW, M.rows[1] + M.h + 4 - M.rows[0]);
     this.roundRect(x - 2, y - 2, w + 4, h + 4, M.r + 2, BLACK);
     this.roundRect(x, y, w, h, M.r + 1, BLACK, INK, 1.4);
     const T = this.bt;
