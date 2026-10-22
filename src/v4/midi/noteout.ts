@@ -40,6 +40,15 @@
  * - l'ecart entre l'heure du contexte et celle de la page suit d'abord ses
  *   mesures (sa premiere pouvait etre fausse de 10 a 30 ms, rattrapee a 5 ms
  *   par seconde : les premieres secondes en decalage, l'horloge qui derivait).
+ *
+ * La deuxieme relecture (2026-10-22, banc sans appareil : un esclave d'horloge
+ * modele compte les impulsions, comme Ableton) :
+ * - sans sortie branchee (CONNECT pas encore fait, acces refuse, MIDI OFF, port
+ *   debranche), rien n'entre plus dans la file : elle grossissait toute la
+ *   course, et au retour de la sortie START ou la position partaient perimes,
+ *   tout de suite (Ableton cale n'importe ou dans la mesure). La sortie
+ *   revenue, l'horloge repart au pas suivant, a sa position (SPP, CONTINUE) ;
+ *   un START, une position ou un CONTINUE en retard ne part plus.
  */
 
 import { context } from '../audio/drums';
@@ -145,6 +154,8 @@ export function noteOutPorts(): void {
   const live = !!view.device && names.includes(view.device);
   // La sortie partie : ce qui y jouait est perdu pour elle ; la file se vide (rien ne doit partir ailleurs)
   if (view.live && !live) drop();
+  // La sortie revenue (2026-10-22) : l'horloge repart de la position du pas suivant
+  else if (!view.live && live) resetClock();
   set({ outputs: names, live });
 }
 
@@ -244,7 +255,8 @@ let clockSent: Partial<Record<Kind, number>> = {};
 
 const isClock = (k: Kind): boolean => k === 'clock' || k === 'start' || k === 'spp' || k === 'continue';
 
-const enabled = (): boolean => view.device !== '' && midiLeader.leads();
+/** Rien n'entre dans la file sans sortie branchee (2026-10-22 : sans acces ni port, elle grossissait toute la course). */
+const enabled = (): boolean => view.device !== '' && midiLeader.leads() && port() !== null;
 
 function insert(e: Ev): void {
   let i = queue.length;
@@ -391,7 +403,11 @@ function flush(): void {
       // L'horloge : deja partie a cette heure (l'arpege s'est re-programme), ou une impulsion trop en retard : sautee
       const last = clockSent[e.kind];
       if (last !== undefined && e.t <= last + 1e-6) continue;
-      if (e.kind === 'clock' && e.t < late) continue;
+      if (e.t < late) {
+        // START, la position ou CONTINUE en retard (2026-10-22, le fil bloque) : perime, la position repart au pas suivant
+        if (e.kind !== 'clock') clockOn = false;
+        continue;
+      }
       clockSent[e.kind] = e.t;
       const data = e.kind === 'clock' ? [0xf8] : e.kind === 'start' ? [0xfa] : e.kind === 'continue' ? [0xfb] : [0xf2, e.pos & 0x7f, (e.pos >> 7) & 0x7f];
       send(o, data, at, true);
@@ -469,6 +485,16 @@ function drop(): void {
   clockOn = false;
   clockSent = {};
   stopTimer();
+}
+
+/**
+ * La sortie revenue (2026-10-22) : l'horloge repart au pas suivant, de sa position (SPP, CONTINUE). Les notes restent
+ * (une note partie entre l'arrivee du port et cet appel doit encore se relacher).
+ */
+function resetClock(): void {
+  queue = queue.filter((e) => !isClock(e.kind));
+  clockOn = false;
+  clockSent = {};
 }
 
 /**
