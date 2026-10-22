@@ -98,8 +98,15 @@ export function loadSocials() {
  * remplace leur bloc id="ld-artist" par celui d'ici au build.
  */
 
-/** Le titre de toutes les pages (sauf les pages de morceaux), FR, EN et ES. */
-export const SEO_TITLE = 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records';
+/**
+ * Le titre de l'accueil (2026-10-21, audit SEO F2 et F3, Mika : "je veux vraiment que tu travailles sur un
+ * referencement plus que complet ! je veux du monde dans mon site !") : chaque page a son titre et sa description,
+ * dans sa langue (src/data/seo-meta.json, la meme source que la machine) ; l'accueil, qui EST MM-STUDIO, parle de
+ * l'outil gratuit (boite a rythmes, synthe, platines) et de l'artiste. Avant : un seul titre pour tout le site
+ * (brief B2 du 2026-10-10), "Maudite Machine | DJ & Producer Dark Disco | VRSTL Records".
+ */
+export const SEO_META = readJson('src/data/seo-meta.json', {});
+export const SEO_TITLE = SEO_META.en?.['/']?.title ?? 'MM-STUDIO by Maudite Machine: Free Drum Machine & Synth';
 
 /** L'image d'apercu de partage : la photo booth-blue du press kit recadree en 1200 x 630. */
 export const OG_IMAGE = {
@@ -110,9 +117,40 @@ export const OG_IMAGE = {
   alt: 'Maudite Machine in the booth under a blue spotlight',
 };
 
-/** Locale Open Graph de toutes les pages, et ses deux alternatives. */
-export const OG_LOCALE = 'fr_FR';
-export const OG_LOCALE_ALTERNATES = ['en_GB', 'es_ES'];
+/**
+ * L'image d'apercu de l'accueil et des pages de MM-STUDIO (2026-10-21, audit SEO F3) : la carte MM-STUDIO, la
+ * machine en grand et son titre lisible (public/press/mm-studio/og-mm-studio-card.jpg, 1200 x 630) ; un partage de
+ * l'outil montre l'outil. Les pages de l'artiste gardent la photo (OG_IMAGE).
+ */
+export const OG_STUDIO_IMAGE = {
+  url: `${SITE}/press/mm-studio/og-mm-studio-card.jpg`,
+  width: 1200,
+  height: 630,
+  type: 'image/jpeg',
+  alt: 'MM-STUDIO by Maudite Machine: a free drum machine, synth and DJ decks you play in your browser',
+};
+
+/**
+ * La locale Open Graph de chaque langue (2026-10-21, audit SEO F9 : fr_FR etait pose sur les 58 pages anglaises et
+ * espagnoles) ; les deux autres en alternatives.
+ */
+export const OG_LOCALES = { en: 'en_GB', fr: 'fr_FR', es: 'es_ES' };
+export const OG_LOCALE = OG_LOCALES.en;
+export const OG_LOCALE_ALTERNATES = ['fr_FR', 'es_ES'];
+/** Les balises og:locale d'une page de cette langue (la sienne, puis les deux autres). */
+export const ogLocaleTags = (lang) => {
+  const own = OG_LOCALES[lang] ?? OG_LOCALES.en;
+  return [`<meta property="og:locale" content="${own}" />`, ...Object.values(OG_LOCALES).filter((l) => l !== own).map((l) => `<meta property="og:locale:alternate" content="${l}" />`)];
+};
+
+/**
+ * twitter:site (2026-10-21, audit SEO F19) : le compte X de src/v4/data/socials.ts (x.com/mauditemachine), s'il y
+ * est ; sinon rien (aucun compte invente).
+ */
+export function twitterSite() {
+  const x = loadSocials().find((s) => /^https:\/\/(www\.)?(x|twitter)\.com\/[A-Za-z0-9_]{1,15}\/?$/.test(s.href));
+  return x ? `@${x.href.replace(/\/+$/, '').split('/').pop()}` : null;
+}
 
 /** Le positionnement (brief A1), et sa version courte (tags, champs genre). */
 export const POSITIONING = {
@@ -204,11 +242,11 @@ export const ARTIST_ID = `${SITE}/#artist`;
 export const LABEL_ID = 'https://vrstlrecords.com/#organization';
 
 /**
- * Le MusicGroup (brief B1, valeurs strictes), le seul noeud complet de l'artiste sur chaque page.
- * recordLabel (2026-10-11, audit) : schema.org ne le definit que sur MusicRelease, le validateur
- * schema.org le signale ici ; garde tel quel parce qu'il fait partie des valeurs du brief de Mika.
- * Le lien vers VRSTL Records reste porte par Organization.founder et par MusicRelease.recordLabel.
- * A retirer (ici, dans index.html et dans public/press/index.html) si Mika le valide.
+ * Le MusicGroup (brief B1), le seul noeud complet de l'artiste sur chaque page.
+ * 2026-10-21 (audit SEO F16) : recordLabel retire (schema.org ne le definit que sur MusicRelease, les validateurs le
+ * signalaient) ; le lien vers VRSTL Records reste porte par Organization.founder et par MusicRelease.recordLabel. Les
+ * albums sans l'annee dans leur nom (elle est dans datePublished de leur page) : Limbos par son @id (le MusicAlbum
+ * complet de /tracks/), Voodoo, un single (sa page /tracks/voodoo/).
  */
 export function artistNode() {
   return {
@@ -217,11 +255,6 @@ export function artistNode() {
     '@id': ARTIST_ID,
     name: 'Maudite Machine',
     genre: ['Dark Disco', 'Indie Dance', 'Indie Electronic'],
-    recordLabel: {
-      '@type': 'Organization',
-      name: 'VRSTL Records',
-      url: 'https://vrstlrecords.com',
-    },
     location: {
       '@type': 'Place',
       name: 'Montpellier, France',
@@ -238,8 +271,8 @@ export function artistNode() {
     },
     areaServed: ['France', 'Spain', 'Europe', 'Canada'],
     album: [
-      { '@type': 'MusicAlbum', name: 'Limbos (2025)' },
-      { '@type': 'MusicAlbum', name: 'Voodoo (2026)' },
+      { '@type': 'MusicAlbum', '@id': `${SITE}/tracks/#limbos-album`, name: 'Limbos' },
+      { '@type': 'MusicAlbum', name: 'Voodoo', albumReleaseType: 'https://schema.org/SingleRelease', url: `${SITE}/tracks/voodoo/` },
     ],
     description: BIO_SHORT.en,
     url: 'https://mauditemachine.com',

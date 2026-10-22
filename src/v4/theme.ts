@@ -12,6 +12,8 @@
  * dessus du panneau.
  */
 
+import seoMeta from '../data/seo-meta.json';
+
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
 /**
@@ -1965,6 +1967,9 @@ export const INTRO = {
 
 /* ---------- textes ---------- */
 
+/** Les titres des pages statiques (src/data/seo-meta.json, la source du prerender), en anglais. */
+const SEO_TITLES: Readonly<Record<string, string | undefined>> = Object.fromEntries(Object.entries((seoMeta as Record<string, Record<string, { title: string }>>).en ?? {}).map(([k, v]) => [k, v.title]));
+
 /**
  * /presskit (2026-10-01) : la machine, et la visionneuse du press kit
  * par-dessus, 250 ms apres le montage ; la machine a 20 images par seconde
@@ -1975,12 +1980,13 @@ export const PRESSKIT_ROUTE = {
   delayMs: 250,
   frameCapMs: 50,
   hintMs: 5000,
-  // 2026-10-10 (brief de Mika, B2) : le titre de tout le site, le meme que src/data/seo-meta.json
-  title: 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records',
+  // 2026-10-21 (audit SEO F2) : le titre de sa page statique (src/data/seo-meta.json), un par page depuis ce jour
+  title: SEO_TITLES['/presskit'] ?? 'Press Kit 2027 | Maudite Machine',
 } as const;
 
 export const COPY = {
-  title: 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records',
+  // 2026-10-21 (audit SEO F3) : l'accueil est MM-STUDIO, son titre le dit (src/data/seo-meta.json, le meme que dist/index.html)
+  title: SEO_TITLES['/'] ?? 'MM-STUDIO by Maudite Machine: Free Drum Machine & Synth',
   wordmark: 'MAUDITE MACHINE',
   model: 'MM-RYTM',
 } as const;

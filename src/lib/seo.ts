@@ -35,9 +35,8 @@ type RouteKey = '/' | '/about' | '/shows' | '/radar' | '/merch' | '/goodies' | '
  */
 export const SEO_META = seoMeta as Record<Lang, Record<RouteKey, SeoEntry>>;
 
-/** Locale Open Graph de toutes les pages et ses alternatives (brief B4), quelle que soit la langue. */
-const OG_LOCALE = 'fr_FR';
-const OG_LOCALE_ALTERNATES = ['en_GB', 'es_ES'];
+/** La locale Open Graph de chaque langue (2026-10-21, audit SEO F9 : fr_FR etait pose sur toutes les langues). */
+const OG_LOCALES: Record<Lang, string> = { en: 'en_GB', fr: 'fr_FR', es: 'es_ES' };
 
 /** Le nom de chaque page dans son fil d'Ariane (le titre, le meme partout, ne le porte plus). */
 const PAGE_NAMES: Record<RouteKey, string> = {
@@ -135,10 +134,10 @@ export function useSEO() {
     // Canonical
     setLink('canonical', canonical);
 
-    // Open Graph (2026-10-10, brief B4 : le meme jeu sur chaque page,
-    // og:description en anglais quelle que soit la langue)
-    const ogDescription = SEO_META.en[route].description;
-    setMeta('property', 'og:type', 'music.musician');
+    // Open Graph (2026-10-10, brief B4 : le meme jeu sur chaque page) ; 2026-10-21 (audit SEO F9 a F11) :
+    // og:description dans la langue de la page, og:type website (music.musician n'est pas un type Open Graph)
+    const ogDescription = meta.description;
+    setMeta('property', 'og:type', 'website');
     setMeta('property', 'og:site_name', 'Maudite Machine');
     setMeta('property', 'og:title', meta.title);
     setMeta('property', 'og:description', ogDescription);
@@ -147,8 +146,8 @@ export function useSEO() {
     setMeta('property', 'og:image:width', '1200');
     setMeta('property', 'og:image:height', '630');
     setMeta('property', 'og:image:alt', OG_IMAGE_ALT);
-    setMeta('property', 'og:locale', OG_LOCALE);
-    setMetaList('og:locale:alternate', OG_LOCALE_ALTERNATES);
+    setMeta('property', 'og:locale', OG_LOCALES[lang] ?? OG_LOCALES.en);
+    setMetaList('og:locale:alternate', Object.values(OG_LOCALES).filter((l) => l !== (OG_LOCALES[lang] ?? OG_LOCALES.en)));
 
     // Twitter Card : les memes titre, description et image que l'Open Graph
     setMeta('name', 'twitter:card', 'summary_large_image');

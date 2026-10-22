@@ -6,12 +6,12 @@
     <!-- Title/description statiques en EN (langue de fallback du site + celle
          vue par les crawlers sociaux). useSEO() bascule en FR/ES au mount
          selon navigator.language. Source : src/data/seo-meta.json -->
-    <!-- 2026-10-10 (brief de Mika, mise a jour complete) : un seul titre pour tout le site,
-         FR, EN et ES (seules les pages de morceaux gardent le leur) ; description EN, la meme
-         que src/data/seo-meta.json ; titre, Open Graph et MusicGroup : scripts/seo-shared.mjs -->
-    <title>Maudite Machine | DJ &amp; Producer Dark Disco | VRSTL Records</title>
-    <meta name="description" content="Maudite Machine, Dark Disco DJ and producer based in the south of France, founder of VRSTL Records in Montréal. Sets, releases, press kit and booking." />
-    <meta name="keywords" content="Maudite Machine, DJ dark disco, DJ indie dance, dark disco, indie dance, producteur dark disco, DJ Montpellier, DJ Sud de la France, DJ France, DJ Espagne, DJ Europe, VRSTL Records, live hybride, DJ set, booking DJ" />
+    <!-- 2026-10-21 (audit SEO F2 et F3) : chaque page a son titre et sa description (src/data/seo-meta.json) ;
+         l'accueil, qui est MM-STUDIO, parle de l'outil gratuit et de l'artiste (avant, un seul titre pour
+         tout le site, brief B2 du 2026-10-10). Titre, Open Graph et MusicGroup : scripts/seo-shared.mjs -->
+    <title>MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth</title>
+    <meta name="description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
+    <meta name="keywords" content="MM-STUDIO, online drum machine, free drum machine, drum machine online, online synth, arpeggiator, online DJ mixer, boîte à rythmes en ligne, caja de ritmos online, Maudite Machine, DJ dark disco, DJ indie dance, VRSTL Records, DJ Montpellier" />
     <meta name="author" content="Maudite Machine" />
     <meta name="robots" content="index, follow" />
     <meta name="googlebot" content="index, follow" />
@@ -64,11 +64,6 @@
           "Indie Dance",
           "Indie Electronic"
         ],
-        "recordLabel": {
-          "@type": "Organization",
-          "name": "VRSTL Records",
-          "url": "https://vrstlrecords.com"
-        },
         "location": {
           "@type": "Place",
           "name": "Montpellier, France",
@@ -92,11 +87,14 @@
         "album": [
           {
             "@type": "MusicAlbum",
-            "name": "Limbos (2025)"
+            "@id": "https://mauditemachine.com/tracks/#limbos-album",
+            "name": "Limbos"
           },
           {
             "@type": "MusicAlbum",
-            "name": "Voodoo (2026)"
+            "name": "Voodoo",
+            "albumReleaseType": "https://schema.org/SingleRelease",
+            "url": "https://mauditemachine.com/tracks/voodoo/"
           }
         ],
         "description": "Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.",
@@ -413,37 +411,41 @@
     </script>
     
     <!-- Open Graph / Facebook
-         2026-10-10 (brief de Mika, B4) : le jeu complet sur chaque page, og:url = le canonical,
-         og:description = la description EN, image 1200 x 630 tiree de la photo booth-blue
-         (public/press/og-maudite-machine.jpg). scripts/prerender-seo.mjs les remplace page par page -->
-    <meta property="og:type" content="music.musician" />
+         2026-10-10 (brief de Mika, B4) : le jeu complet sur chaque page, og:url = le canonical.
+         2026-10-21 (audit SEO F3, F9, F10) : l'accueil montre MM-STUDIO (la carte 1200 x 630,
+         public/press/mm-studio/og-mm-studio-card.jpg ; les pages de l'artiste gardent la photo
+         booth-blue), og:type website (music.musician n'est pas un type Open Graph), og:locale de
+         la langue de la page (en_GB ici). scripts/prerender-seo.mjs les remplace page par page -->
+    <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Maudite Machine" />
-    <meta property="og:title" content="Maudite Machine | DJ &amp; Producer Dark Disco | VRSTL Records" />
-    <meta property="og:description" content="Maudite Machine, Dark Disco DJ and producer based in the south of France, founder of VRSTL Records in Montréal. Sets, releases, press kit and booking." />
+    <meta property="og:title" content="MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth" />
+    <meta property="og:description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
     <meta property="og:url" content="https://mauditemachine.com/" />
-    <meta property="og:image" content="https://mauditemachine.com/press/og-maudite-machine.jpg" />
+    <meta property="og:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:image:alt" content="Maudite Machine in the booth under a blue spotlight" />
-    <meta property="og:locale" content="fr_FR" />
-    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:image:alt" content="MM-STUDIO by Maudite Machine: a free drum machine, synth and DJ decks you play in your browser" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="fr_FR" />
     <meta property="og:locale:alternate" content="es_ES" />
 
     <!-- Twitter Card : en name= (2026-10-04, referencement), l'attribut que X documente ;
-         les memes titre, description et image que l'Open Graph -->
+         les memes titre, description et image que l'Open Graph ; twitter:site (2026-10-21,
+         audit SEO F19) : le compte x.com/mauditemachine de src/v4/data/socials.ts -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Maudite Machine | DJ &amp; Producer Dark Disco | VRSTL Records" />
-    <meta name="twitter:description" content="Maudite Machine, Dark Disco DJ and producer based in the south of France, founder of VRSTL Records in Montréal. Sets, releases, press kit and booking." />
-    <meta name="twitter:image" content="https://mauditemachine.com/press/og-maudite-machine.jpg" />
-    <meta name="twitter:image:alt" content="Maudite Machine in the booth under a blue spotlight" />
+    <meta name="twitter:site" content="@mauditemachine" />
+    <meta name="twitter:title" content="MM-STUDIO by Maudite Machine: Free Drum Machine &amp; Synth" />
+    <meta name="twitter:description" content="Play MM-STUDIO free in your browser: a drum machine with p-locks, a synth with arpeggiator, DJ decks and a mixer. By Maudite Machine, dark disco DJ." />
+    <meta name="twitter:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
+    <meta name="twitter:image:alt" content="MM-STUDIO by Maudite Machine: a free drum machine, synth and DJ decks you play in your browser" />
     <!-- Feuilles externes NON bloquantes (2026-10-03, referencement : 2 s de
          premier affichage perdues sur mobile) : chargees en media=print, puis
          appliquees ; la page s'affiche sans les attendre. Font Awesome (icones de
          src/v4/ui/MenuSheet.tsx, VoyDock.tsx, MidiPanel.tsx, Dock.tsx).
          2026-10-11 : plus de Google Fonts ni de fonts.cdnfonts.com sur toutes les pages.
          Space Grotesk et Lato ne servaient nulle part ; Robot Radicals est servie par le
-         site (/fonts/RobotRadicals.otf, declaree dans v4.css et styles.css) ; Inter ne sert
+         site (/fonts/RobotRadicals.woff2, declaree dans styles.css seulement depuis le 2026-10-21) ; Inter ne sert
          qu'aux admins (.admin-page, src/styles.css) : chargee seulement sur /mm-admin et
          /ms-admin. Le script lightwidget.js est injecte par src/components/InstagramFeed.tsx
          quand il sert. -->

@@ -67,10 +67,10 @@ import {
   loadGoodies,
   coverOf,
   loadSocials,
-  SEO_TITLE,
   OG_IMAGE as OG_DEFAULT,
-  OG_LOCALE,
-  OG_LOCALE_ALTERNATES,
+  OG_STUDIO_IMAGE,
+  ogLocaleTags,
+  twitterSite,
   POSITIONING,
   POSITIONING_SHORT,
   BIO_SHORT,
@@ -185,8 +185,9 @@ function setImage(html, img) {
 
 /**
  * Titre, description, canonical, Open Graph et Twitter d'une page.
- * og:site_name, og:locale (fr_FR, en_GB et es_ES en alternatives) et
- * twitter:card viennent d'index.html, les memes sur chaque page.
+ * og:site_name, og:locale (en_GB, fr_FR et es_ES en alternatives : ces pages
+ * sont en anglais, 2026-10-21), twitter:card et twitter:site viennent
+ * d'index.html, les memes sur chaque page.
  */
 function pageHead(html, { title, description, url, ogType, image = OG_DEFAULT, extra = [] }) {
   let out = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeAttr(title)}</title>`);
@@ -349,11 +350,29 @@ const exactDate = (t) => (t.releaseDate && !t.dateApprox && ISO_DAY.test(t.relea
 const released = (t) => (exactDate(t) ? fmtMonth(t.releaseDate) : String(t.year));
 const releasedFull = (t) => (exactDate(t) ? fmtDate(t.releaseDate) : String(t.year));
 
-/** Titre : le morceau, l'artiste, puis l'album ou le label quand ils tiennent sous 60 signes. */
+/**
+ * Titre : le morceau, l'artiste, puis l'album ou le label quand ils tiennent sous 60 signes. 2026-10-21 (audit SEO
+ * F19 : /tracks/alan-parsons-remix/ faisait 65 signes) : un titre de morceau trop long est coupe au dernier mot qui
+ * tient, avec des points de suspension, l'artiste reste.
+ */
+const TITLE_MAX = 60;
+/** Un texte coupe au dernier mot qui tient dans room signes, points de suspension compris. */
+const cutWords = (text, room) => {
+  if (text.length <= room) return text;
+  const cut = text.slice(0, room);
+  const sp = cut.lastIndexOf(' ');
+  return `${(sp > room / 2 ? cut.slice(0, sp) : cut.slice(0, room - 1)).replace(/[\s,(\-]+$/, '')}…`;
+};
 function trackTitle(t) {
-  const base = /maudite machine/i.test(t.title) ? t.title : `${t.title} | Maudite Machine`;
+  const tail = ' | Maudite Machine';
+  // Un titre qui nomme deja l'artiste et ne tient pas : sa parenthese "(Maudite Machine Remix)" cede la place au suffixe
+  const long = String(t.title).length > TITLE_MAX;
+  const own = /maudite machine/i.test(t.title) && !long;
+  const bare = long ? String(t.title).replace(/\s*\([^)]*maudite machine[^)]*\)\s*/i, ' ').trim() : String(t.title);
+  const name = cutWords(bare, own ? TITLE_MAX : TITLE_MAX - tail.length);
+  const base = own ? name : `${name}${tail}`;
   const extra = isLimbos(t) && norm(t.title) !== 'limbos' ? ' · Limbos LP' : onVrstl(t) ? ' · VRSTL Records' : '';
-  return `${base}${extra}`.length <= 60 ? `${base}${extra}` : base;
+  return `${base}${extra}`.length <= TITLE_MAX ? `${base}${extra}` : base;
 }
 
 const listenOn = (t) => {
@@ -434,6 +453,8 @@ function trackContent(t) {
       : '',
     `<h2>More tracks</h2>${ul(related(t, 6, Boolean(album)).map((o) => a(o.title, trackUrl(o))))}`,
     `${h2('About Maudite Machine')}<p>${esc(BIO_SHORT.en)} ${a('Biography and press kit', `${SITE}/presskit/`)}</p>`,
+    // 2026-10-21 (audit SEO IMP9) : le pont de l'artiste vers l'outil, la machine de cette page
+    `${h2('Make a beat in MM-STUDIO')}<p>${esc('Maudite Machine also built MM-STUDIO, the free drum machine, synth and DJ decks of this site.')} ${a('Play a dark disco drum pattern', `${SITE}/mm-studio/drum-patterns/dark-disco/`)} · ${a('All the drum patterns', `${SITE}/mm-studio/drum-patterns/`)}</p>`,
     `<p>${a('All tracks and releases', `${SITE}/tracks/`)}</p>`,
   ].join('');
 }
@@ -657,12 +678,22 @@ const MERCH = merchProducts();
 
 /*
  * 2026-10-10 (brief de Mika, B2 et B3) : le meme titre et la meme
- * description sur toutes les pages hors morceaux (src/data/seo-meta.json) ;
- * les titres et descriptions tires des donnees (/shows/ avec ses prochaines
- * dates, /merch/, /radar/, /goodies/) sont retires.
+ * description sur toutes les pages hors morceaux (src/data/seo-meta.json).
+ * 2026-10-21 (audit SEO F2, Mika : "je veux vraiment que tu travailles sur un
+ * referencement plus que complet !") : chaque page a son titre et sa
+ * description (src/data/seo-meta.json, que la machine lit aussi pour le titre
+ * de l'onglet, state/sectionRoute.ts) ; /shows/ dit sa prochaine date (les
+ * dates passees sortent au rebuild du matin).
  */
-const describe = (_route, meta) => meta.description;
-const titleOf = () => SEO_TITLE;
+const describe = (route, meta) => {
+  if (route === '/shows/' && UPCOMING.length) {
+    const e = UPCOMING[0];
+    const city = place(e.location).address?.addressLocality;
+    return fit(`Next Maudite Machine show: ${fmtDate(e.date)}, ${e.title}${city ? `, ${city}` : ''}. Indie dance and dark disco DJ sets and hybrid live, past shows and booking.`);
+  }
+  return meta.description;
+};
+const titleOf = (_route, meta) => meta.title;
 
 /** Le nom de chaque page dans son fil d'Ariane (le titre ne le porte plus). */
 const PAGE_NAMES = {
@@ -926,15 +957,34 @@ function place(location) {
  * inventes : venue, city, country (nom ou code a deux lettres), endDate,
  * startTime avec son fuseau ("22:00-04:00", "21:30+02:00", ou une date ISO
  * complete), ticketUrl (offers.url), organizer (texte ou { name, url }).
+ * 2026-10-21 (audit SEO F13, les resultats Evenements de Google) : street
+ * (streetAddress), postalCode, region (addressRegion), et pour la billetterie
+ * price (nombre ou texte "15"), currency (EUR, CAD...), availability
+ * (InStock, SoldOut, PreOrder, LimitedAvailability) : ecrits s'ils sont la,
+ * jamais inventes (events.json n'en a pas encore : c'est a Mika de les
+ * donner, avec l'heure et le fuseau).
  */
 const HAS_TZ = /^\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$/;
 const ISO_FULL = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2}))?$/;
 const httpUrl = (u) => typeof u === 'string' && /^https?:\/\/\S+$/i.test(u.trim());
+const textOf = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+/** La rue, le code postal et la region d'une date (2026-10-21), ajoutes a son adresse s'ils sont la. */
+const streetOf = (e) => ({
+  ...(textOf(e.street) ? { streetAddress: textOf(e.street) } : {}),
+  ...(textOf(e.postalCode) ? { postalCode: textOf(e.postalCode) } : {}),
+  ...(textOf(e.region) ? { addressRegion: textOf(e.region) } : {}),
+});
 function eventPlace(e) {
   const venue = typeof e.venue === 'string' && e.venue.trim() ? e.venue.trim() : null;
   const city = typeof e.city === 'string' && e.city.trim() ? e.city.trim() : null;
   const country = typeof e.country === 'string' && e.country.trim() ? e.country.trim() : null;
-  if (!venue && !city) return place(e.location);
+  if (!venue && !city) {
+    const p0 = place(e.location);
+    const more = streetOf(e);
+    if (!Object.keys(more).length) return p0;
+    const base = typeof p0.address === 'object' ? p0.address : {};
+    return { ...p0, address: { ...base, '@type': 'PostalAddress', ...more } };
+  }
   const code = country ? (/^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : placeTail(country)?.addressCountry ?? null) : null;
   const fromCity = city ? placeTail(city) : null;
   const address = {
@@ -942,8 +992,23 @@ function eventPlace(e) {
     ...(city ? { addressLocality: city } : {}),
     ...(fromCity?.addressRegion ? { addressRegion: fromCity.addressRegion } : {}),
     ...(code ?? fromCity?.addressCountry ? { addressCountry: code ?? fromCity.addressCountry } : {}),
+    ...streetOf(e),
   };
   return { '@type': 'Place', name: venue ?? city, address };
+}
+/** La billetterie d'une date (2026-10-21) : son adresse, et son prix, sa devise et sa disponibilite s'ils sont la. */
+const AVAILABILITY = new Set(['InStock', 'SoldOut', 'PreOrder', 'LimitedAvailability', 'OnlineOnly']);
+function offersOf(e) {
+  if (!httpUrl(e.ticketUrl)) return null;
+  const price = typeof e.price === 'number' && Number.isFinite(e.price) ? e.price : typeof e.price === 'string' && /^\d+([.,]\d{1,2})?$/.test(e.price.trim()) ? Number(e.price.trim().replace(',', '.')) : null;
+  const currency = typeof e.currency === 'string' && /^[A-Za-z]{3}$/.test(e.currency.trim()) ? e.currency.trim().toUpperCase() : null;
+  const avail = typeof e.availability === 'string' && AVAILABILITY.has(e.availability.trim()) ? `https://schema.org/${e.availability.trim()}` : null;
+  return {
+    '@type': 'Offer',
+    url: e.ticketUrl.trim(),
+    ...(price !== null && currency ? { price, priceCurrency: currency } : {}),
+    ...(avail ? { availability: avail } : {}),
+  };
 }
 function organizerOf(o) {
   if (typeof o === 'string' && o.trim()) return { '@type': 'Organization', name: o.trim() };
@@ -972,7 +1037,7 @@ function eventsJsonLd() {
       location: eventPlace(e),
       performer: PERFORMER,
       ...(organizer ? { organizer } : {}),
-      ...(httpUrl(e.ticketUrl) ? { offers: { '@type': 'Offer', url: e.ticketUrl.trim() } } : {}),
+      ...(offersOf(e) ? { offers: offersOf(e) } : {}),
       image: [inPublic(e.image) ? `${SITE}/${String(e.image).replace(/^\/+/, '')}` : OG_IMAGE],
       url: e.url || `${SITE}/shows/`,
       description: `Maudite Machine plays ${e.title} (${e.location}). Indie dance and dark disco DJ set.`,
@@ -1010,8 +1075,9 @@ function alternatesTags() {
  */
 const withAlternates = (html) => toHead(html, alternatesTags());
 
-/** og:description de toutes les pages hors morceaux : la description EN (brief B4). */
-const OG_DESCRIPTION = SEO_META.en['/'].description;
+/** twitter:site (2026-10-21, audit SEO F19) : le compte X de socials.ts, s'il y en a un. */
+const TWITTER_SITE = twitterSite();
+const twitterSiteTag = TWITTER_SITE ? `<meta name="twitter:site" content="${TWITTER_SITE}" />` : '';
 
 // Le nom avant le lieu ("Techno Parade, Paris, France" : "Techno Parade") ; la virgule d'un nombre (1,200) n'est pas un separateur
 const FESTIVAL_NAMES = C.festivals.map(([n, y]) => `${n.split(', ')[0]} · ${y}`);
@@ -1136,21 +1202,21 @@ function langPage(lang) {
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="${url}" />
     ${alternatesTags()}
-    <meta property="og:type" content="music.musician" />
+    <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Maudite Machine" />
     <meta property="og:title" content="${escapeAttr(L.title)}" />
-    <meta property="og:description" content="${escapeAttr(OG_DESCRIPTION)}" />
+    <meta property="og:description" content="${escapeAttr(L.description)}" />
     <meta property="og:url" content="${url}" />
     <meta property="og:image" content="${OG_IMAGE}" />
     <meta property="og:image:width" content="${OG_DEFAULT.width}" />
     <meta property="og:image:height" content="${OG_DEFAULT.height}" />
     <meta property="og:image:type" content="${OG_DEFAULT.type}" />
     <meta property="og:image:alt" content="${escapeAttr(OG_DEFAULT.alt)}" />
-    <meta property="og:locale" content="${OG_LOCALE}" />
-    ${OG_LOCALE_ALTERNATES.map((l) => `<meta property="og:locale:alternate" content="${l}" />`).join('\n    ')}
+    ${ogLocaleTags(lang).join('\n    ')}
     <meta name="twitter:card" content="summary_large_image" />
+    ${twitterSiteTag}
     <meta name="twitter:title" content="${escapeAttr(L.title)}" />
-    <meta name="twitter:description" content="${escapeAttr(OG_DESCRIPTION)}" />
+    <meta name="twitter:description" content="${escapeAttr(L.description)}" />
     <meta name="twitter:image" content="${OG_IMAGE}" />
     <meta name="twitter:image:alt" content="${escapeAttr(OG_DEFAULT.alt)}" />
     <meta name="theme-color" content="#F6F1E7" />
@@ -1244,9 +1310,19 @@ const studioShot = (key) => {
  * l'image du site.
  */
 function studioImage(page) {
+  // 2026-10-21 (audit SEO F3 et F17) : la carte MM-STUDIO (la machine en grand et son titre lisible) d'abord
+  if (STUDIO_CARD) return { ...STUDIO_CARD, alt: STUDIO_CARD_ALT[page.lang] ?? STUDIO_CARD.alt };
   const og = studioShot('og');
   return og ? { url: og.url, width: og.width, height: og.height, type: 'image/jpeg', alt: MM_STUDIO_OG_ALT[page.lang] ?? MM_STUDIO_OG_ALT.en } : OG_DEFAULT;
 }
+
+/** La carte de partage de MM-STUDIO (seo-shared.mjs OG_STUDIO_IMAGE), si son fichier est dans public/ ; sinon null. */
+const STUDIO_CARD = inPublic(new URL(OG_STUDIO_IMAGE.url).pathname) ? OG_STUDIO_IMAGE : null;
+const STUDIO_CARD_ALT = {
+  en: OG_STUDIO_IMAGE.alt,
+  fr: 'MM-STUDIO by Maudite Machine : une boîte à rythmes, un synthé et des platines DJ gratuits, à jouer dans le navigateur',
+  es: 'MM-STUDIO by Maudite Machine: una caja de ritmos, un sintetizador y platos DJ gratis, para tocar en el navegador',
+};
 
 /** Ce que les WebApplication ont en commun (gratuit, dans le navigateur). */
 const APP_COMMON = {
@@ -1355,9 +1431,9 @@ function studioPage(page) {
     <meta property="og:image:height" content="${image.height}" />
     <meta property="og:image:type" content="${image.type}" />
     <meta property="og:image:alt" content="${escapeAttr(image.alt)}" />
-    <meta property="og:locale" content="${OG_LOCALE}" />
-    ${OG_LOCALE_ALTERNATES.map((l) => `<meta property="og:locale:alternate" content="${l}" />`).join('\n    ')}
+    ${ogLocaleTags(page.lang).join('\n    ')}
     <meta name="twitter:card" content="summary_large_image" />
+    ${twitterSiteTag}
     <meta name="twitter:title" content="${escapeAttr(page.title)}" />
     <meta name="twitter:description" content="${escapeAttr(page.description)}" />
     <meta name="twitter:image" content="${escapeAttr(image.url)}" />
@@ -1421,7 +1497,8 @@ for (const route of ROUTES) {
   const title = titleOf(route, meta);
   const description = describe(route, meta);
 
-  let html = pageHead(baseHtml, { title, description, url, ogType: 'music.musician' });
+  // og:type website (2026-10-21, audit SEO F10 : music.musician n'est pas un type Open Graph) ; l'image : la photo de l'artiste
+  let html = pageHead(baseHtml, { title, description, url, ogType: 'website' });
   html = withContent(html, route);
   if (route === '/shows/') html = withEvents(html);
   html = toHead(html, ld(breadcrumb([['Maudite Machine', `${SITE}/`], [PAGE_NAMES[route] ?? 'Maudite Machine', url]])));
@@ -1454,8 +1531,10 @@ for (const lang of ['fr', 'es']) writePage(lang, langPage(lang));
 // Les pages de MM-STUDIO (2026-10-11) : le hub et ses trois machines, en EN, FR et ES
 for (const page of MM_STUDIO_PAGES) writePage(page.path.replace(/^\/|\/$/g, ''), studioPage(page));
 
-// L'accueil : son contenu, les dates a venir, ses versions FR / ES et MM-STUDIO, dans dist/index.html meme
-writeFileSync(indexPath, toHead(withAlternates(withEvents(withContent(baseHtml, '/'))), HOME_APP), 'utf8');
+// L'accueil : son contenu, les dates a venir, ses versions FR / ES et MM-STUDIO, dans dist/index.html meme ; son image
+// de partage est la carte MM-STUDIO (index.html), la photo de l'artiste si la carte manque (2026-10-21)
+const homeHtml = STUDIO_CARD ? baseHtml : setImage(baseHtml, OG_DEFAULT);
+writeFileSync(indexPath, toHead(withAlternates(withEvents(withContent(homeHtml, '/'))), HOME_APP), 'utf8');
 
 // 404.html (copie d'index.html, servie avec le statut 404 pour toute adresse
 // inconnue, et pour /v1, /v2, /v3, /mm-admin) : noindex, pas de canonical
@@ -1467,6 +1546,39 @@ if (existsSync(notFoundPath)) {
   nf = upsertMeta(nf, 'name', 'googlebot', 'noindex, follow');
   nf = nf.replace(/\n?\s*<link\s+rel=["']canonical["'][^>]*>/i, '');
   writeFileSync(notFoundPath, withArtist(nf), 'utf8');
+}
+
+/*
+ * Les anciennes adresses (2026-10-21, audit SEO F15) : /about, /archives, /v4 et /v2/radar repondaient 404 en
+ * production (la redirection n'etait faite que par le routeur, apres 404.html). Une petite page statique chacune :
+ * canonical de la cible, meta refresh immediat (que Google lit comme une redirection permanente) et
+ * location.replace qui garde ?m= et le reste ; un lien pour qui n'a ni l'un ni l'autre. Hors sitemap.
+ */
+const REDIRECTS = [
+  ['about', '/'],
+  ['archives', '/'],
+  ['v4', '/'],
+  ['v2/radar', '/radar/'],
+];
+for (const [from, to] of REDIRECTS) {
+  if (existsSync(join(DIST, from, 'index.html'))) continue;
+  writePage(
+    from,
+    `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Maudite Machine</title>
+    <link rel="canonical" href="${SITE}${to}" />
+    <meta http-equiv="refresh" content="0; url=${to}" />
+    <script>location.replace(${JSON.stringify(to)} + location.search + location.hash);</script>
+  </head>
+  <body>
+    <p><a href="${to}">Maudite Machine</a></p>
+  </body>
+</html>
+`,
+  );
 }
 
 // /press/ (public/press/index.html, servie telle quelle) : son bloc de
