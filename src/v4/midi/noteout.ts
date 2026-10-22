@@ -275,7 +275,53 @@ function send(o: MIDIOutput, data: number[], at: number, clk = false): void {
   const t = Math.max(at, clk ? lastClockAt : lastAt);
   sendRaw(o, data, t, now);
   if (clk) lastClockAt = Math.max(t, now);
-  else lastAt = Math.max(t, now);
+  else {
+    lastAt = Math.max(t, now);
+    keepEcho(data, Math.max(t, now));
+  }
+}
+
+/* ---------------- l'echo du bus IAC ---------------- */
+
+/**
+ * L'echo (2026-10-22, la relecture) : le bus IAC de macOS (comme loopMIDI sous Windows) rend sur son entree tout ce qui
+ * part sur sa sortie, et le site ecoute toutes les entrees (midi/midi.ts) : les notes de l'arpege revenaient comme si
+ * un clavier les jouait. En MIDI LEARN, la note suivante de l'arpege (ou le ALL NOTES OFF d'un STOP) s'apprenait pour
+ * le potard choisi a la place du geste de Mika, et la ligne du dernier message ne montrait plus que ces notes. Chaque
+ * message de canal parti est garde ECHO_MS autour de son heure : le meme, sur l'entree du meme nom, a cette heure-la,
+ * est son echo, ignore (une seule fois). Un autre message de cette entree (un CC d'Ableton) passe.
+ */
+const ECHO_MS = 1000;
+const ECHO_KEEP = 512;
+const echoes: { k: number; at: number }[] = [];
+const echoKey = (d: ArrayLike<number>): number => ((d[0] & 0xff) << 16) | ((d[1] & 0x7f) << 8) | ((d.length > 2 ? d[2] : 0) & 0x7f);
+
+function keepEcho(data: number[], at: number): void {
+  // Les plus vieux s'en vont (au-dela de leur fenetre, ou de la place)
+  const old = at - 2 * ECHO_MS;
+  let n = 0;
+  while (n < echoes.length && (echoes[n].at < old || echoes.length - n >= ECHO_KEEP)) n += 1;
+  if (n > 0) echoes.splice(0, n);
+  echoes.push({ k: echoKey(data), at });
+}
+
+/**
+ * midi/midi.ts, a chaque message recu : celui-ci est-il l'echo d'un message parti vers cette sortie (le meme nom), a
+ * ECHO_MS pres de son heure (at : son arrivee, l'heure de la page) ? S'il l'est, il est oublie ici et ignore la-bas.
+ */
+export function noteOutEcho(device: string, d: ArrayLike<number>, at: number): boolean {
+  if (echoes.length === 0 || !device || device !== view.device || d.length < 2) return false;
+  const hi = d[0] & 0xf0;
+  if (hi !== 0x80 && hi !== 0x90 && hi !== 0xb0) return false;
+  const k = echoKey(d);
+  for (let i = 0; i < echoes.length; i += 1) {
+    const e = echoes[i];
+    if (e.k === k && Math.abs(e.at - at) <= ECHO_MS) {
+      echoes.splice(i, 1);
+      return true;
+    }
+  }
+  return false;
 }
 
 /** STOP de l'horloge : tout de suite, ou juste apres un START (CONTINUE) deja programme ; les impulsions deja parties suivent, sans effet. */

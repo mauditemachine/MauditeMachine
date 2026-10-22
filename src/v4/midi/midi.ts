@@ -89,7 +89,7 @@ import { djLoad } from '../state/djload';
 import { MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
 import { midiLeader } from './leader';
-import { noteOutAttach, noteOutPorts, noteOutRelease } from './noteout';
+import { noteOutAttach, noteOutEcho, noteOutPorts, noteOutRelease } from './noteout';
 import { isSeqSetup, rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetup, rotoKnownCc, rotoTarget, type RotoKeyInfo, type RotoSetupName } from './roto';
 import { seqAttach, seqCancelAll, seqDrop, seqDropAll, seqInvalidate, seqIsStep, seqKnobGuard, seqKnobTurn, seqLed, seqMsgAt, seqOwns, seqResendAll, seqSeen, seqStepOf } from './seqlink';
 import { MACHINE_NAME, prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
@@ -337,6 +337,8 @@ function onMessage(this: MIDIInput, e: MIDIMessageEvent): void {
   const ch = (d[0] & 0x0f) + 1;
   const device = this.name ?? '';
   const at = Number.isFinite(e.timeStamp) && e.timeStamp > 0 ? e.timeStamp : undefined;
+  // MIDI OUT du MM-ARP (2026-10-22, la relecture) : l'echo de ses propres notes par le bus IAC n'est ni appris ni joue
+  if (noteOutEcho(device, d, at ?? performance.now())) return;
   if (st === 0xb0) handle({ kind: 'cc', ch, num: d[1], value: (d[2] ?? 0) / 127, device, at });
   else if (st === 0x90) handle({ kind: 'note', ch, num: d[1], value: (d[2] ?? 0) / 127, on: (d[2] ?? 0) > 0, device });
   else if (st === 0x80) handle({ kind: 'note', ch, num: d[1], value: 0, on: false, device });
