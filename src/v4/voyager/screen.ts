@@ -336,6 +336,12 @@ export class VoyScreen {
     return Math.max(0, Math.ceil(this.drawnAt + this.gap - now));
   }
 
+  /** Le prochain draw redessine, meme sans changement d'etat (les polices arrivees, 2026-10-22). */
+  invalidate(): void {
+    this.key = '';
+    this.drawnAt = -Infinity;
+  }
+
   /** La page que montre cet etat. */
   static pageOf(s: VoyScreenState): VoyScreenPage {
     if (s.presetView) return 'presets';

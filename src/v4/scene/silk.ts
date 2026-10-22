@@ -74,6 +74,35 @@ export function whenFonts(): Promise<void> {
   return fontsPromise;
 }
 
+/**
+ * 2026-10-22 (audit SB-01) : cb des que les polices sont la (whenFonts), puis
+ * une seconde fois si elles n'arrivent qu'apres le delai de 3 s (un reseau
+ * lent) : un ecran canvas peint en police de repli se redessine en SF Pro.
+ * Avant, l'ecran du MM-ARP restait en DejaVu, Segoe ou Roboto jusqu'au
+ * premier geste. Rend de quoi se desabonner (le dispose du rig).
+ */
+export function onFonts(cb: () => void): () => void {
+  let alive = true;
+  let off = (): void => {};
+  void whenFonts().then(() => {
+    if (!alive) return;
+    cb();
+    const f = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (!f || fontsReady()) return;
+    const late = (): void => {
+      if (!fontsReady()) return;
+      off();
+      if (alive) cb();
+    };
+    f.addEventListener('loadingdone', late);
+    off = () => f.removeEventListener('loadingdone', late);
+  });
+  return () => {
+    alive = false;
+    off();
+  };
+}
+
 /* ---------------- logos ---------------- */
 
 const logoImages = new Map<SilkLogoId, HTMLImageElement>();

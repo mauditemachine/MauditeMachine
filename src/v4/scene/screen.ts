@@ -177,7 +177,7 @@ import { HOME_MENU, HOME_MENU_LABEL, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, fr
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { encUnit, v127Text } from '../rytm/values';
 import { screenDials, type ScreenDialId } from '../state/screenDials';
-import { makeCanvasTexture } from './silk';
+import { makeCanvasTexture, onFonts } from './silk';
 
 export interface ScreenInfo {
   /** redessins de la texture (le premier compris) */
@@ -771,9 +771,10 @@ export class Screen {
       samplesChanged.subscribe(active),
       // MASTER et TEMPO (2026-10-19) : celui qu'on survole ou qu'on tient se cerne
       screenDials.subscribe(() => this.request()),
+      // La police arrivee apres la premiere image : on redessine. 2026-10-22 (audit SB-01) : onFonts attend les graisses
+      // 300 et 400 des valeurs (document.fonts.ready resolvait avant leur arrivee), et se rappelle si elles tardent
+      onFonts(() => this.request()),
     ];
-    // La police arrivee apres la premiere image : on redessine
-    void document.fonts?.ready.then(() => this.request());
     this.request();
   }
 

@@ -19,7 +19,7 @@ import { arp } from '../voyager/arp';
 import { machinesRunning } from '../actions';
 import { bassLoad } from '../state/bassload';
 import type { HotspotDef, Occluder } from '../scene/hit';
-import { whenFonts } from '../scene/silk';
+import { onFonts } from '../scene/silk';
 import { DjBody } from './body';
 import { DJ_GLOW, DjControls } from './controls';
 import { djBrowser } from './browser';
@@ -188,7 +188,8 @@ export class DjRig {
     }
     // Les trois bandes d'un morceau arrivent apres lui : l'animateur les pose
     this.unsubs.push(djWaveBands.subscribe(() => this.opts.repaint()));
-    void whenFonts().then(() => this.redrawText());
+    // Les polices arrivees (2026-10-22, audit SB-01) : la serigraphie et les ecrans, une seconde fois si elles tardent
+    this.unsubs.push(onFonts(() => this.redrawText()));
   }
 
   /* ---------- etats ---------- */
@@ -477,6 +478,9 @@ export class DjRig {
   /** Polices ou logos arrives : la serigraphie se redessine. */
   redrawText(): void {
     for (const s of this.silks) s.draw();
+    // Les ecrans aussi (2026-10-22, audit SB-01) : leurs cles ignorent la police
+    this.screens.invalidate();
+    this.syncScreens();
     this.opts.repaint();
   }
 

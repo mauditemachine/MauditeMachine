@@ -145,7 +145,7 @@ import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen, infoKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
-import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
+import { PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
 import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
@@ -511,6 +511,8 @@ export class Stage {
   /** MASTER et TEMPO dans l'ecran (2026-10-19, scene/screen.ts dialRects) : lcd-master, lcd-tempo */
   private dialDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
+  /** les polices attendues par gate() (2026-10-22) */
+  private unsubFonts: () => void = () => undefined;
   private unsubSeek: () => void = () => undefined;
   private raycaster = new Raycaster();
   /** les puces repondent (ouverture decouverte, vue ouverte) */
@@ -2206,7 +2208,9 @@ export class Stage {
       return;
     }
     this.timers.push(window.setTimeout(() => this.start(), FIRST_FRAME_WAIT_MS));
-    void whenFonts().then(() => {
+    // 2026-10-22 (audit SB-01) : onFonts, une seconde fois si les polices arrivent apres le delai de 3 s (la serigraphie
+    // restait sinon en police de repli) ; les ecrans des machines s'abonnent de leur cote (Screen.listen, rigs)
+    this.unsubFonts = onFonts(() => {
       if (this.disposed) return;
       this.silk.draw();
       this.keyAtlas.draw();
@@ -3179,6 +3183,7 @@ export class Stage {
     this.unsubEditor();
     this.unsubPatterns();
     this.unsubPresets();
+    this.unsubFonts();
     this.unsubPlay();
     this.orbit.lock = () => false;
     this.unsubVoyExplode();

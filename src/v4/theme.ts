@@ -162,9 +162,13 @@ export const FONT_MONO = 'ui-monospace, Menlo, Consolas, monospace';
 /**
  * Ce que les textures canvas attendent avant leur dessin definitif (spec
  * 4.5) : 500 et 600 pour la serigraphie du panneau (revision 2, legendes
- * fines), 700 pour celle du PCB.
+ * fines), 700 pour celle du PCB. 2026-10-22 (audit SB-01) : 300 et 400
+ * aussi, les grandes valeurs et le texte courant des ecrans (RYTM, ARP,
+ * BASS) ; sans eux check() restait faux et rien ne redessinait les ecrans.
  */
 export const FONT_LOADS = [
+  '300 40px "SF Pro Display"',
+  '400 40px "SF Pro Display"',
   '500 40px "SF Pro Display"',
   '600 40px "SF Pro Display"',
   '700 40px "SF Pro Display"',

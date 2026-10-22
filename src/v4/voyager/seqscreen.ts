@@ -233,6 +233,11 @@ export class VoySeqScreen {
     }
   }
 
+  /** Le prochain draw redessine (les polices arrivees, 2026-10-22, audit SB-01). */
+  invalidate(): void {
+    this.key = '';
+  }
+
   /** Redessine si quelque chose a change ; true si redessine. */
   draw(): boolean {
     const s = seq.get();

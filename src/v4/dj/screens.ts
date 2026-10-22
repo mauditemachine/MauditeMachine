@@ -196,6 +196,11 @@ export class DjScreens {
     this.mesh.name = 'djScreens';
   }
 
+  /** Toutes les zones se redessinent au prochain set (les polices arrivees, 2026-10-22, audit SB-01). */
+  invalidate(): void {
+    this.shown = {};
+  }
+
   /* ---------- platines ---------- */
 
   /** Redessine l'ecran d'une platine si son contenu a change ; true si redessine. */

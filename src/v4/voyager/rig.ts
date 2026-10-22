@@ -31,6 +31,7 @@ import { pattern } from '../audio/pattern';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { Explode, type ExplodeCfg } from '../scene/explode';
 import { Pcb } from '../scene/pcb';
+import { fontsReady, onFonts } from '../scene/silk';
 import type { Tweens } from '../scene/tween';
 import { voyExplode } from '../state/explode';
 import { EXPLODE, PCB, PCB_TURN, PORTRAIT, type SectionId } from '../theme';
@@ -303,6 +304,16 @@ export class VoyagerRig {
     this.unsubs.push(voyInfos.subscribe(this.syncLcd));
     this.unsubs.push(voyPatch.subscribe(this.syncLcd));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
+    // 2026-10-22 (audit SB-01) : les polices pas encore la, la serigraphie et les deux ecrans se redessinent a leur
+    // arrivee (avant, l'ecran restait dans la police de repli jusqu'au premier potard ou accord touche)
+    if (!fontsReady()) {
+      this.unsubs.push(
+        onFonts(() => {
+          this.redrawText();
+          this.opts.repaint();
+        })
+      );
+    }
     this.applyExplode(true);
     this.detach = voyExplode.attach();
   }
@@ -607,6 +618,10 @@ export class VoyagerRig {
     this.back.draw();
     this.pcb.redraw();
     this.tweaks.draw();
+    // Les ecrans aussi (2026-10-22, audit SB-01) : leur cle ignore la police, sans ceci ils ne changeaient pas
+    this.lcd.invalidate();
+    this.seqScreen?.invalidate();
+    this.syncLcd(false);
   }
 
   info() {
