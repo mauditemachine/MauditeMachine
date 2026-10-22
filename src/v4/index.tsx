@@ -36,7 +36,7 @@ import { attachStage } from './midi/targets';
 import { gesture } from './actions';
 import { clock } from './audio/clock';
 import { reserve } from './audio/sched';
-import { anyPlaying, onPlayStop } from './state/playLock';
+import { anyPlaying, onPlayStart, onPlayStop } from './state/playLock';
 import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
 import { shots } from './audio/shots';
@@ -553,6 +553,15 @@ const V4Shell: React.FC = () => {
         if (hidden && !anyPlaying()) suspend();
       }, 2000);
     });
+    /*
+     * Et il se reveille des qu'une machine repart, onglet cache compris (2026-10-22, revue) : un PLAY de platine au
+     * Roto, une touche ou une note MIDI ne passent pas par un geste sur la page (pas de resume()) ; la platine
+     * s'allumait, muette, jusqu'au retour de la page.
+     */
+    const offStart = onPlayStart(() => {
+      window.clearTimeout(sleepTimer);
+      if (hidden) resume();
+    });
     const build = (): void => {
       stage = Stage.create({
         // Une reconstruction (changement d'apparence) ne rejoue pas l'intro
@@ -602,6 +611,7 @@ const V4Shell: React.FC = () => {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(sleepTimer);
       offStop();
+      offStart();
       const built = stage;
       if (!built) return;
       // La scene se reconstruit (Dark / Light, ADD DECK, REMOVE DECK : plusieurs secondes de fil principal
