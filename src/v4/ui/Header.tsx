@@ -12,7 +12,7 @@
  * la refait ; au telephone, a cote du menu (ui/MobileHeader.tsx).
  */
 
-import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { closeSection, focusMachine, openSection, openToggle, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
@@ -20,7 +20,8 @@ import { bassExplode, explode, voyExplode } from '../state/explode';
 import { MACHINES, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { section } from '../state/section';
 import { UNDO_MACHINE_NAME, undo } from '../state/undo';
-import { MOBILE_QUERY, type PageId } from '../theme';
+import { shareBeat } from '../state/share';
+import { COARSE_QUERY, MOBILE_QUERY, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
 import { MidiButton } from './MidiPanel';
 
@@ -107,6 +108,46 @@ export const UndoButton: React.FC<{ compact?: boolean }> = ({ compact = false })
 };
 
 /**
+ * SHARE (2026-10-21, audit SEO IMP2, state/share.ts) : le beat du MM-RYTM en lien. Dans l'en-tete, a cote de UNDO, la
+ * meme pastille : une action de tout le studio (le beat joue quelle que soit la machine cadree), a portee de pouce au
+ * telephone (la fleche seule, comme UNDO). Au telephone, la feuille de partage du systeme ; ailleurs, le lien copie.
+ * L'ecran du MM-RYTM le dit (LINK COPIED) et le bouton aussi, un instant (COPIED, SHARED), pour qui regarde une autre
+ * machine.
+ */
+export const ShareButton: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+  const [done, setDone] = useState<'' | 'copied' | 'shared'>('');
+  const timer = useRef(0);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const word = done === 'copied' ? 'COPIED' : done === 'shared' ? 'SHARED' : 'SHARE';
+  return (
+    <button
+      type="button"
+      className="v4-undo-btn v4-share-btn"
+      data-compact={compact ? '1' : '0'}
+      data-can="1"
+      data-done={done || undefined}
+      aria-label={done === 'copied' ? 'Link of your beat copied' : done === 'shared' ? 'Beat shared' : 'Share your MM-RYTM beat as a link'}
+      title="Share your beat: a link that opens it on MM-RYTM"
+      onClick={(e) => {
+        if (e.detail > 0) e.currentTarget.blur();
+        void shareBeat(window.matchMedia(COARSE_QUERY).matches).then((r) => {
+          if (r !== 'copied' && r !== 'shared') return;
+          setDone(r);
+          window.clearTimeout(timer.current);
+          timer.current = window.setTimeout(() => setDone(''), 2200);
+        });
+      }}
+    >
+      <svg className="v4-undo-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+        <path d="M8 10.2V2.6M5 5.4L8 2.4l3 3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M5.2 7.6H4.1a1.3 1.3 0 0 0-1.3 1.3v4.2a1.3 1.3 0 0 0 1.3 1.3h7.8a1.3 1.3 0 0 0 1.3-1.3V8.9a1.3 1.3 0 0 0-1.3-1.3h-1.1" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+      {!compact && <span aria-hidden="true">{word}</span>}
+    </button>
+  );
+};
+
+/**
  * Les machines en haut a droite (2026-10-05, Mika : "voir les machines en
  * haut a droite pour les selectionner rapidement") : ALL (la vue d'ensemble)
  * puis chaque machine, dans l'ordre de la scene ; celle qu'on utilise est
@@ -157,6 +198,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
         </a>
         <div className="v4-header-end">
+        <ShareButton />
         <UndoButton />
         <MidiButton />
         {VOYAGER && <HeaderMachines />}

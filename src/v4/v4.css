@@ -648,6 +648,30 @@ html:has(body.v4-active) {
 }
 
 /*
+ * SHARE (2026-10-21, ui/Header.tsx ShareButton) : la pastille de UNDO ; sa largeur ne bouge pas quand le mot devient
+ * COPIED ou SHARED (rien ne saute dans l'en-tete), le mot passe au jaune le temps de le lire. Au telephone, l'icone
+ * seule, juste avant UNDO.
+ */
+.v4-root .v4-header .v4-share-btn[data-compact='0'] {
+  justify-content: center;
+  min-width: 104px;
+}
+
+.v4-root .v4-share-btn[data-done] {
+  color: var(--yellow);
+}
+
+.v4-root .v4-mhead .v4-share-btn[data-compact='1'] + .v4-undo-btn[data-compact='1'] {
+  margin-left: 2px;
+}
+
+@media (max-width: 1023px) {
+  .v4-root .v4-header .v4-share-btn[data-compact='0'] {
+    min-width: 0;
+  }
+}
+
+/*
  * 2026-10-22 (audit SB-14) : au telephone, des zones de 44 px au moins sans
  * changer le dessin (un ::after transparent deborde du bouton) : UNDO 40 px,
  * le selecteur des machines 30 px de haut, les fleches du bord 28 px de

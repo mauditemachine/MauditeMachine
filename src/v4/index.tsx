@@ -83,6 +83,8 @@ import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
 import { ResetView } from './ui/ResetView';
 import { Trace } from './ui/Trace';
+import { adoptSharedBeat } from './state/share';
+import { startUsage } from './state/usage';
 
 const IS_DEV = import.meta.env.DEV;
 
@@ -466,6 +468,12 @@ const V4Shell: React.FC = () => {
   // sa fin) : prets avant RUN, jamais calcules sur le fil principal pendant la lecture
   useEffect(() => {
     shots.prewarm();
+  }, []);
+  // Un beat partage dans l'adresse (?b=, 2026-10-21, state/share.ts) devient celui du MM-RYTM ; puis la mesure de
+  // l'usage (state/usage.ts : machine cadree, lecture, sample choisi)
+  useEffect(() => {
+    adoptSharedBeat();
+    return startUsage();
   }, []);
   const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
   // Deux machines (2026-10-03) : celle qu'on utilise

@@ -65,6 +65,9 @@ import type { Locks } from './audio/locks';
 import { section } from './state/section';
 import { undo } from './state/undo';
 import { view } from './state/view';
+import { analytics } from './state/analytics';
+import { beatNow, dataOfBeat } from './state/share';
+import { decodeBeat, encodeBeat, type Beat } from './audio/beatcode';
 import type { Inst, SectionId } from './theme';
 import { hitDebug } from './ui/Hotspots';
 import { traceDebug, type TraceDebug } from './ui/Trace';
@@ -247,6 +250,18 @@ export interface V4Debug {
    * sans leurs etats, les rafales ouvertes), peek(i) (l'etat d'une etape), reset(), save().
    */
   readonly undo: typeof undo;
+  /**
+   * Le partage d'un beat (2026-10-21, state/share.ts) : now (le beat du MM-RYTM et ce que le lien ne porte pas), code
+   * (son code ?b=), decode (un code lu, null s'il est refuse), data (l'etat que la machine prendrait d'un beat).
+   */
+  readonly share: {
+    now: typeof beatNow;
+    code: () => string;
+    decode: (code: unknown) => Beat | null;
+    data: typeof dataOfBeat;
+  };
+  /** Les evenements GA4 de la visite (state/analytics.ts : nom, parametres, envoye ou non). */
+  readonly analytics: ReturnType<typeof analytics.log>;
 }
 
 const NO_STATS: StageStats = {
@@ -438,6 +453,10 @@ export function installDebug(src: DebugSource): () => void {
       },
     },
     undo,
+    share: { now: beatNow, code: () => encodeBeat(beatNow().beat), decode: decodeBeat, data: dataOfBeat },
+    get analytics() {
+      return analytics.log();
+    },
   };
   window.__v4 = api;
   return () => {

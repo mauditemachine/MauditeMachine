@@ -117,9 +117,12 @@ const START_ALIASES: Readonly<Record<string, MachineId>> = {
 };
 let start: MachineId | null = (() => {
   if (typeof window === 'undefined') return null;
-  const q = new URLSearchParams(window.location.search).get('m');
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('m');
   const id = q ? START_ALIASES[q.trim().toLowerCase()] : undefined;
-  return id && MACHINES.includes(id) ? id : null;
+  if (id && MACHINES.includes(id)) return id;
+  // 2026-10-21 (state/share.ts) : un lien de beat partage (?b=) sans ?m= ouvre le MM-RYTM, qui le joue
+  return params.has('b') ? 'mm808' : null;
 })();
 /**
  * La derniere machine utilisee (2026-10-18, Mika : "je voudrais que le site
