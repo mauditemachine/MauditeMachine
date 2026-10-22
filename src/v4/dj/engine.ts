@@ -353,6 +353,9 @@ export class DjChannel {
 
 /* ---------------- les effets, sur le bus ---------------- */
 
+/** Les effets a boucle de retour : fermes, seule leur entree se debranche (DjFx.dose, 2026-10-22). */
+const LOOPED: ReadonlySet<DjFxId> = new Set<DjFxId>(['delay', 'flanger']);
+
 interface Stage {
   id: DjFxId;
   pre: AudioNode;
@@ -697,10 +700,17 @@ export class DjFx {
         } catch {
           /* deja debranche */
         }
-        try {
-          s.out.disconnect(s.wet);
-        } catch {
-          /* deja debranche */
+        /*
+         * Le DELAY et le FLANGER gardent leur sortie (2026-10-22, revue) : leur boucle de retour, debranchee aux deux
+         * bouts, n'etait plus calculee et gardait les dernieres secondes de musique d'avant la fermeture, rejouees a
+         * la reouverture (-7 dB sous le son, hors tempo). Reliee au wet a 0, elle s'eteint dans le silence (-150 dB).
+         */
+        if (!LOOPED.has(id)) {
+          try {
+            s.out.disconnect(s.wet);
+          } catch {
+            /* deja debranche */
+          }
         }
         s.on = false;
         this.laneOff(id);
