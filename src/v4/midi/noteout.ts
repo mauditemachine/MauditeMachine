@@ -48,7 +48,12 @@
  *   course, et au retour de la sortie START ou la position partaient perimes,
  *   tout de suite (Ableton cale n'importe ou dans la mesure). La sortie
  *   revenue, l'horloge repart au pas suivant, a sa position (SPP, CONTINUE) ;
- *   un START, une position ou un CONTINUE en retard ne part plus.
+ *   un START, une position ou un CONTINUE en retard ne part plus ;
+ * - chaque impulsion porte son numero (six par pas, depuis le debut de la
+ *   premiere mesure) : sur la grille du MM-RYTM, un tempo qui change refait le
+ *   pas en cours a sa nouvelle duree, et le dedoublonnage a l'heure gardait les
+ *   anciennes impulsions deja parties en plus des nouvelles (7 dans une double
+ *   croche ; un potard de tempo tourne : Ableton en avance de 3 a 7).
  */
 
 import { context } from '../audio/drums';
@@ -59,8 +64,9 @@ import { midiLeader } from './leader';
 export const SEND_AHEAD_S = 0.025;
 /**
  * L'horloge, START, la position et CONTINUE (2026-10-22, la relecture) : jusqu'a CLOCK_AHEAD_S avant leur heure. Ils
- * ne dependent pas des reglages : une re-programmation les refait aux memes heures (ceux deja partis sont sautes,
- * clockSent), un tempo qui change les refait apres le dernier parti.
+ * ne dependent pas des reglages : une re-programmation les refait, ceux deja partis sont sautes (une impulsion par son
+ * numero, lastPulseIdx, meme a une autre heure quand le tempo change ; START, la position et CONTINUE par leur heure,
+ * clockSent), les suivants partent apres le dernier parti.
  */
 export const CLOCK_AHEAD_S = 0.1;
 /** Le minuteur de la file (ms). */
@@ -234,6 +240,8 @@ interface Ev {
   id: number;
   /** SPP : la position en doubles croches */
   pos: number;
+  /** une impulsion d'horloge : son numero (2026-10-22), six par pas depuis le debut de la premiere mesure */
+  idx?: number;
 }
 
 /** Ce qui attend, dans l'ordre des heures (a egalite : dans l'ordre d'arrivee). */
@@ -250,8 +258,10 @@ let lastAt = 0;
 let lastClockAt = 0;
 /** l'heure (ms) du dernier START ou CONTINUE parti : STOP passe apres (jamais un STOP devant un START deja programme) */
 let startAt = 0;
-/** l'heure (temps du contexte) du dernier message parti de chaque sorte d'horloge : refait par l'arpege, il ne repart pas */
+/** l'heure (temps du contexte) du dernier START, de la derniere position, du dernier CONTINUE : refait par l'arpege, il ne repart pas */
 let clockSent: Partial<Record<Kind, number>> = {};
+/** le numero de la derniere impulsion partie (-1 : aucune depuis le STOP) : refaite par l'arpege, elle ne repart pas */
+let lastPulseIdx = -1;
 
 const isClock = (k: Kind): boolean => k === 'clock' || k === 'start' || k === 'spp' || k === 'continue';
 
@@ -400,15 +410,22 @@ function flush(): void {
       send(o, [status(0x80), e.note, 0], Math.max(at, s.onAt + AFTER_MS));
       sounding.delete(e.id);
     } else {
-      // L'horloge : deja partie a cette heure (l'arpege s'est re-programme), ou une impulsion trop en retard : sautee
-      const last = clockSent[e.kind];
-      if (last !== undefined && e.t <= last + 1e-6) continue;
+      // L'horloge deja partie (l'arpege s'est re-programme) : une impulsion par son numero (2026-10-22 : un tempo qui
+      // change refait le pas a une autre duree, a l'heure il en partait une de trop), le reste par son heure
+      if (e.kind === 'clock') {
+        if (e.idx !== undefined && e.idx <= lastPulseIdx) continue;
+      } else {
+        const last = clockSent[e.kind];
+        if (last !== undefined && e.t <= last + 1e-6) continue;
+      }
+      // Une impulsion trop en retard : sautee
       if (e.t < late) {
         // START, la position ou CONTINUE en retard (2026-10-22, le fil bloque) : perime, la position repart au pas suivant
         if (e.kind !== 'clock') clockOn = false;
         continue;
       }
-      clockSent[e.kind] = e.t;
+      if (e.kind !== 'clock') clockSent[e.kind] = e.t;
+      else if (e.idx !== undefined) lastPulseIdx = e.idx;
       const data = e.kind === 'clock' ? [0xf8] : e.kind === 'start' ? [0xfa] : e.kind === 'continue' ? [0xfb] : [0xf2, e.pos & 0x7f, (e.pos >> 7) & 0x7f];
       send(o, data, at, true);
       if (e.kind === 'start' || e.kind === 'continue') startAt = Math.max(startAt, at);
@@ -460,6 +477,7 @@ function panic(o: MIDIOutput | null, stopClock: boolean, keepNotes = false): voi
   if (stopClock) {
     clockOn = false;
     clockSent = {};
+    lastPulseIdx = -1;
   }
   if (queue.length === 0) stopTimer();
 }
@@ -484,6 +502,7 @@ function drop(): void {
   sounding.clear();
   clockOn = false;
   clockSent = {};
+  lastPulseIdx = -1;
   stopTimer();
 }
 
@@ -495,6 +514,7 @@ function resetClock(): void {
   queue = queue.filter((e) => !isClock(e.kind));
   clockOn = false;
   clockSent = {};
+  lastPulseIdx = -1;
 }
 
 /**
@@ -538,7 +558,9 @@ export const arpOut = {
       }
       clockOn = true;
     }
-    for (let k = 0; k < 6; k += 1) insert({ t: time + (k * dur) / 6, kind: 'clock', note: 0, vel: 0, id: 0, pos: 0 });
+    // Chaque impulsion porte son numero (2026-10-22) : le meme pas, re-programme, garde les memes
+    const idx = Math.max(0, Math.round(pos16)) * 6;
+    for (let k = 0; k < 6; k += 1) insert({ t: time + (k * dur) / 6, kind: 'clock', note: 0, vel: 0, id: 0, pos: 0, idx: idx + k });
   },
   /**
    * La re-programmation de l'arpege (synthCancel) : ce qui n'est pas encore parti a partir de `from` s'oublie (les
@@ -594,6 +616,7 @@ export function noteOutClock(on: boolean): void {
   if (!on) {
     clockOn = false;
     clockSent = {};
+    lastPulseIdx = -1;
     queue = queue.filter((e) => !isClock(e.kind));
   }
   set({ clock: on });
