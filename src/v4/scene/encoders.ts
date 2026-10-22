@@ -25,9 +25,9 @@
  * leur colonne, 44 px de haut (PAGE_KNOBS.hitW, hitD), le doigt.
  */
 
-import { BoxGeometry, CylinderGeometry, DynamicDrawUsage, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3, BufferGeometry, type Object3D } from 'three';
+import { BoxGeometry, CircleGeometry, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshStandardMaterial, Quaternion, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ENCODER, FACE_KNOBS, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, pageKnobIndex, type FaceKnobId } from '../theme';
+import { ENCODER, FACE_KNOBS, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, pageKnobIndex, type FaceKnobId } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -56,17 +56,43 @@ function flat(g: BufferGeometry): BufferGeometry {
   return out;
 }
 
+/**
+ * Le corps (2026-10-22) : le flanc cannele (un tour, ses creux en cos^2 comme le MM-ARP, voyager/knobs.ts), le chanfrein
+ * du haut et le dessus plat, trois tours a part : chacun ses normales, les aretes restent nettes.
+ */
+function bodyParts(seg: number): BufferGeometry[] {
+  const E = ENCODER;
+  const c = E.chamfer;
+  const wall = new LatheGeometry([new Vector2(E.r, 0), new Vector2(E.rTop, E.h - c)], seg);
+  const p = wall.getAttribute('position');
+  for (let i = 0; i < p.count; i += 1) {
+    const x = p.getX(i);
+    const z = p.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const k = 1 - (E.fluteDepth / r) * Math.max(0, Math.cos(Math.atan2(z, x) * E.flutes)) ** 2;
+    p.setX(i, x * k);
+    p.setZ(i, z * k);
+  }
+  wall.computeVertexNormals();
+  const chamfer = new LatheGeometry([new Vector2(E.rTop, E.h - c), new Vector2(E.rTop - c, E.h)], seg);
+  const top = new CircleGeometry(E.rTop - c, seg);
+  top.rotateX(-Math.PI / 2);
+  top.translate(0, E.h, 0);
+  return [wall, chamfer, top];
+}
+
 function buildGeometry(mobile: boolean): BufferGeometry {
   const E = ENCODER;
   const seg = mobile ? E.segments.mobile : E.segments.desktop;
-  const body = new CylinderGeometry(E.rTop, E.r, E.h, seg);
-  body.translate(0, E.h / 2, 0);
   const mark = new BoxGeometry(E.mark.w, E.mark.h, E.mark.d);
   // Du centre vers l'arriere (-z), pose sur le dessus
   mark.translate(0, E.h + E.mark.h / 2 - 0.002, -E.mark.d / 2);
-  const parts = [body, mark].map(flat);
+  const parts = [...bodyParts(seg), mark].map(flat);
   paintSolid(parts[0], 'encoder');
-  paintLinear(parts[1], LIT.mark);
+  paintSolid(parts[1], 'encoder', gainOf('encoder') * E.chamferGain);
+  paintSolid(parts[2], 'encoder');
+  paintLinear(parts[3], LIT.mark);
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('encoders: merge failed');

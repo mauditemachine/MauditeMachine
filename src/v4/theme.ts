@@ -705,7 +705,16 @@ export const ENCODER = {
   /** jupe d'aluminium (2026-10-03, celle des potards du MM-VOYAGER) : un filet fin, biseaute */
   skirt: { r: 0.298, rTop: 0.287, h: 0.04 },
   mark: { w: 0.036, h: 0.012, d: 0.18 },
-  segments: { desktop: 32, mobile: 20 },
+  /**
+   * 2026-10-22 (audit, les potards du RYTM etaient les plus pauvres de la table : un cylindre noir lisse) : un chanfrein
+   * en haut (chamfer, un peu plus clair : il accroche la lumiere) et des cannelures sur le flanc, comme le MM-ARP
+   * (flutes, leur creux fluteDepth) ; assez de segments pour elles (trois par cannelure au desktop)
+   */
+  chamfer: 0.026,
+  chamferGain: 3.4,
+  flutes: 20,
+  fluteDepth: 0.008,
+  segments: { desktop: 60, mobile: 40 },
   voiceScale: 0.85,
 } as const;
 
