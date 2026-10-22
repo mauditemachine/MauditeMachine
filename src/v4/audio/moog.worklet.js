@@ -101,7 +101,10 @@
  *
  * Plus gras, plus large, plus colle (2026-10-22, audit P8 et P9, Mika : "je
  * voudrais que tu ameliores le son drastiquement sur ARP") ; chacun a 0 rend
- * le son d'avant au bit pres (scripts/arp-bench.mjs le verifie) :
+ * le son d'avant au bit pres, celui du moteur du 2026-10-21
+ * (scripts/arp-bench.mjs --against le verifie ; pas celui de la prod d'avant,
+ * 2026-10-22, relecture : RES qui siffle des 0.9, la vraie PWM et l'OVERDRIVE
+ * moins fort changent deja un son garde) :
  * - STACK (stack, en cents) : chaque oscillateur en deux ou trois exemplaires
  *   desaccordes de part et d'autre de la note (l'unisson d'un Prophet ou la
  *   supersaw d'un JP-8000), chacun sa phase, au gain 1 / racine(n) : la meme
