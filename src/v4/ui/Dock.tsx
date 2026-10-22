@@ -113,7 +113,13 @@ const ModeKey: React.FC<{ kind: 'mute' | 'solo'; getStage: () => Stage | null }>
       className={`v4-dock-key v4-dock-mode v4-dock-${kind}`}
       data-led={led}
       aria-pressed={led !== 'off'}
-      aria-label={`${kind === 'mute' ? 'Mute' : 'Solo'}, ${LED_WORDS[led]}. Tap: one voice, tap again: several, again: done; hold: all voices back`}
+      aria-label={
+        // MUTE (2026-10-21, audit) : plus de mode a armer depuis le 2026-10-10 (actions.ts muteToggle), une voix se coupe
+        // d'une double tape sur son pad ; SOLO garde sa machine a etats
+        kind === 'mute'
+          ? `Mute, ${led === 'off' ? 'no voice muted' : 'voices muted'}. Double-tap a voice to mute or unmute it; tap or hold MUTE: all voices back`
+          : `Solo, ${LED_WORDS[led]}. Tap: one voice, tap again: several, again: done; hold: all voices back`
+      }
       onPointerDown={() => {
         fired.current = false;
         stop();

@@ -1962,6 +1962,12 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
               aria-pressed={inst === pad.id}
               onKeyDown={noRepeat}
               onClick={() => padHit(pad.id, stageRef.current)}
+              // La touche menu (ou Maj+F10) sur le jumeau d'une voix (2026-10-21, audit) : elle se coupe ou revient, comme le
+              // clic droit sur son pad (les jumeaux ne recoivent jamais la souris : pointer-events none)
+              onContextMenu={(e) => {
+                e.preventDefault();
+                padMute(pad.id, stageRef.current);
+              }}
             />
           );
         }

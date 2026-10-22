@@ -2234,7 +2234,8 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
 export const TWIN_ARIA = {
   run: 'Run, Space',
   clear: 'Clear pattern',
-  mute: 'Mute, then tap a voice to mute it; press twice to mute several voices; press again to bring them all back',
+  // 2026-10-21 (audit) : MUTE n'arme plus de mode depuis le 2026-10-10 (actions.ts muteToggle) ; une voix se coupe a son pad
+  mute: 'Mute: right-click a voice pad (double-tap it on a touch screen, or press the context menu key on it) to mute or unmute it; press MUTE to bring all voices back',
   solo: 'Solo, then tap a voice to solo it; press twice to solo several voices; press again to bring them all back',
   random: 'Random house pattern',
   group: 'MM-RYTM drum machine',
