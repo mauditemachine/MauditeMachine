@@ -32,12 +32,19 @@ import { setArpDuck, synthPort } from './drums';
 import { glide } from './glide';
 import { pattern } from './pattern';
 import type { Send } from './sends';
+import { voyMsg } from '../voyager/msg';
 
 /**
  * Surechantillonnage du moteur (2026-10-03, qualite) : 4 sur ordinateur,
  * 2 au telephone (pointeur grossier : le calcul compte plus).
  */
-const engineOs = (): number => (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 2 : 4);
+const coarse = (): boolean => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true;
+const engineOs = (): number => (coarse() ? 2 : 4);
+/**
+ * Les voix du moteur (2026-10-21, audit F3 : de longs RELEASE gardaient 12 voix calculees en x4, 70 a 135 % du temps
+ * reel) : 12 sur ordinateur, 8 au telephone ; la neuvieme note y vole la voix la plus discrete.
+ */
+const engineVoices = (): number => (coarse() ? 8 : 12);
 
 /**
  * VOLUME a 1 (gain au carre), et reprise de niveau : DELAY et REVERB
@@ -56,8 +63,13 @@ const VOLUME_K = 0.66;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 /** REVERB : envoi renforce vers la reverbe partagee. */
 const REVERB_BOOST = 1.25;
-/** DELAY ping-pong : croche pointee, reinjection 0.35 a 0.68, filtre dans la boucle. */
-const PINGPONG = { steps: 3, fbMin: 0.35, fbMax: 0.68, wet: 1.1, lowpass: 4800, highpass: 260, maxS: 2 } as const;
+/**
+ * DELAY ping-pong : croche pointee, reinjection 0.35 a 0.68, filtre dans la boucle. wet 0.8 (2026-10-21, audit F9 ;
+ * 1.1 avant : a 100 %, le premier echo sortait 4 dB au-dessus de la note seche, l'arpege semblait recule) : le
+ * premier echo au plus au niveau du son sec. retimeS : un changement de tempo regle le temps en glissant, comme une
+ * bande (2026-10-21, audit F12 : 20 ms avant, les echos piaillaient quand on tournait TEMPO).
+ */
+const PINGPONG = { steps: 3, fbMin: 0.35, fbMax: 0.68, wet: 0.8, lowpass: 4800, highpass: 260, maxS: 2, retimeS: 0.2 } as const;
 /** BASS MONO coupe : la separation descend ici (rien d'audible dessous). */
 const MONO_OFF_HZ = 10;
 /** Butterworth (Q en dB pour les passe-bas et passe-haut du Web Audio) : deux en cascade font un Linkwitz-Riley. */
@@ -80,10 +92,25 @@ interface SynthGraph {
 
 let sg: SynthGraph | null = null;
 let loading: Promise<void> | null = null;
-let failed = false;
-/** notes envoyees avant que le moteur soit pret : parties a son arrivee */
+/**
+ * Le moteur qui ne se charge pas (2026-10-21, audit F2 : un seul echec, un reseau qui hoquette ou un onglet ouvert
+ * avant une mise en ligne, laissait l'ARP muet toute la visite, l'ecran jouant quand meme) : chaque echec est compte,
+ * le moteur se recharge de lui-meme a la note suivante apres 1, 3 puis 10 s, ou tout de suite au prochain geste, et
+ * l'ecran le dit (NO SOUND, TAP TO RETRY ; une version plus recente en ligne : NEW VERSION, RELOAD).
+ */
+const RETRY_MS = [1000, 3000, 10000] as const;
+const RETRY_TAP_MS = 500;
+let failures = 0;
+let retryAt = 0;
+let lastTry = 0;
+/** les voix et le surechantillonnage du moteur charge (debug) */
+let built = { voices: 0, os: 0 };
+/** notes envoyees avant que le moteur soit pret : parties a son arrivee (EARLY_MAX au plus, les plus recentes) */
 const early: { midi: number; time: number; gate: number; accent: number; from: number | null }[] = [];
+const EARLY_MAX = 64;
 let notes = 0;
+/** La porte la plus courte d'une note (2026-10-21, audit F10 : 20 ms avant, le bas de GATE ne faisait rien ; le moteur garde 64 echantillons). */
+export const GATE_MIN_S = 0.005;
 
 /**
  * Une ancre du transport (2026-10-18, MOD cale sur la mesure) : a `time` (temps du contexte), l'arpege en est a
@@ -212,7 +239,7 @@ function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
   g.chorus.set(chorusMode(p.chorus));
   g.reverb.set(p.reverb);
   const fb = PINGPONG.fbMin + (PINGPONG.fbMax - PINGPONG.fbMin) * p.delay;
-  const v = (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);
+  const v = volGain(p);
   // Le bas : le meme VOLUME, au niveau du synthe sec (mesure hors ligne : le plus proche du son
   // d'avant ; le chorus creusait les graves vers 100 Hz, BASS MONO les rend)
   const hz = monoLowHz(p.monoLow) || MONO_OFF_HZ;
@@ -236,8 +263,14 @@ function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
   }
 }
 
-/** Les reglages du moteur, et le tempo (le LFO de MOD est cale dessus, 2026-10-04). */
-const engineMsg = (v: Readonly<VoyValues>, bpm: number = pattern.get().bpm): Record<string, number> => ({ ...engineParams(v), bpm });
+/** Le gain de VOLUME apres le moteur (le sec et le bas de BASS MONO), DELAY et REVERB repris. */
+const volGain = (p: Readonly<VoyValues>): number => (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);
+
+/**
+ * Les reglages du moteur, et le tempo (le LFO de MOD est cale dessus, 2026-10-04) ; outLevel (2026-10-21) : le gain de
+ * VOLUME, pour que l'ecreteur doux du moteur (audit F7) parte a -6 dBFS de la sortie, quel que soit VOLUME.
+ */
+const engineMsg = (v: Readonly<VoyValues>, bpm: number = pattern.get().bpm): Record<string, number> => ({ ...engineParams(v), bpm, outLevel: volGain(v) });
 
 voyParams.subscribe(() => {
   if (!sg) return;
@@ -250,13 +283,26 @@ const applyDuck = (): void => setArpDuck(duckDepthDb(voyParams.of('duck')) / 24)
 voyParams.subscribe(applyDuck);
 applyDuck();
 
-/* Tempo : le delay reste une croche pointee, le LFO suit. */
+/*
+ * Tempo : le delay reste une croche pointee, le LFO suit. Le temps du delay seulement quand il change (une edition du
+ * motif ne le refait plus), en glissant sur PINGPONG.retimeS depuis ou il en est (2026-10-21, audit F12).
+ */
 let lastBpm = pattern.get().bpm;
+let lastDelayS = Math.min(PINGPONG.maxS, PINGPONG.steps * stepOf());
+function retime(p: AudioParam, t: number, c: BaseAudioContext): void {
+  const now = c.currentTime;
+  p.cancelScheduledValues(now);
+  p.setValueAtTime(p.value, now);
+  p.linearRampToValueAtTime(t, now + PINGPONG.retimeS);
+}
 pattern.subscribe(() => {
   if (!sg) return;
   const t = Math.min(PINGPONG.maxS, PINGPONG.steps * stepOf());
-  glide(sg.delayL.delayTime, t, sg.ctx);
-  glide(sg.delayR.delayTime, t, sg.ctx);
+  if (t !== lastDelayS) {
+    lastDelayS = t;
+    retime(sg.delayL.delayTime, t, sg.ctx);
+    retime(sg.delayR.delayTime, t, sg.ctx);
+  }
   const bpm = pattern.get().bpm;
   if (bpm !== lastBpm) {
     lastBpm = bpm;
@@ -264,15 +310,32 @@ pattern.subscribe(() => {
   }
 });
 
+/** Le moteur n'a pas pu se charger : l'ecran le dit ; un fichier parti (une version plus recente en ligne) : recharger la page. */
+function engineTrouble(): void {
+  const show = (stale: boolean): void => voyMsg.show(stale ? 'NEW VERSION, RELOAD' : 'NO SOUND, TAP TO RETRY', 5000);
+  if (typeof fetch !== 'function') {
+    show(false);
+    return;
+  }
+  fetch(workletUrl, { method: 'HEAD', cache: 'no-store' })
+    .then((r) => show(r.status === 404))
+    .catch(() => show(false));
+}
+
 /**
  * Charge le moteur sur le contexte de la page (au premier geste, et des
  * qu'une note est demandee) ; sans contexte ou sans AudioWorklet, rien.
+ * Apres un echec (2026-10-21) : un geste (user) le retente tout de suite,
+ * une note apres RETRY_MS.
  */
-export function prepareSynth(): void {
-  if (sg || loading || failed) return;
+export function prepareSynth(user = true): void {
+  if (sg || loading) return;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (failures > 0 && (user ? now - lastTry < RETRY_TAP_MS : now < retryAt)) return;
   const port = synthPort();
   if (!port || !port.ctx.audioWorklet) return;
   const c = port.ctx;
+  lastTry = now;
   loading = c.audioWorklet
     .addModule(workletUrl)
     .then(() => {
@@ -280,8 +343,9 @@ export function prepareSynth(): void {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [2],
-        processorOptions: { params: engineMsg(voyParams.get()), os: engineOs() },
+        processorOptions: { params: engineMsg(voyParams.get()), os: engineOs(), maxVoices: engineVoices() },
       });
+      built = { voices: engineVoices(), os: engineOs() };
       node.port.onmessage = (e: MessageEvent) => {
         const m = e.data as { type?: string; id?: number } & SynthLfoProbe;
         if (m?.type !== 'probe' || typeof m.id !== 'number') return;
@@ -291,6 +355,7 @@ export function prepareSynth(): void {
       };
       // La prise du MM-ARP (le canal 2 du mixer du MM-DECKS peut la prendre), sa REVERB a lui
       sg = build(c, port.arp, port.reverb, node);
+      if (failures > 0) voyMsg.show('SOUND ENGINE READY');
       // Les notes arrivees avant le moteur : celles encore a venir partent
       const now = c.currentTime;
       for (const n of early) if (n.time > now - 0.05) node.port.postMessage({ type: 'note', ...n, time: Math.max(n.time, now) });
@@ -300,7 +365,11 @@ export function prepareSynth(): void {
       earlyBeats.length = 0;
     })
     .catch(() => {
-      failed = true;
+      failures += 1;
+      retryAt = (typeof performance !== 'undefined' ? performance.now() : Date.now()) + RETRY_MS[Math.min(failures, RETRY_MS.length) - 1];
+      // Les notes en attente ne partiront pas : elles seraient passees au prochain essai
+      early.length = 0;
+      engineTrouble();
     })
     .finally(() => {
       loading = null;
@@ -312,15 +381,19 @@ export function prepareSynth(): void {
  * note precedente (GLIDE). false sans contexte.
  */
 export function noteOn(midi: number, time: number, gate: number, from: number | null = null, accent = 1): boolean {
-  const msg = { midi, time, gate: Math.max(0.02, gate), accent, from };
+  const msg = { midi, time, gate: Math.max(GATE_MIN_S, gate), accent, from };
   notes += 1;
   if (sg) {
     sg.node.port.postMessage({ type: 'note', ...msg });
     return true;
   }
   if (!synthPort()) return false;
-  early.push(msg);
-  prepareSynth();
+  prepareSynth(false);
+  // En attente du moteur (il se charge) : la note partira a son arrivee ; un moteur en echec, entre deux essais : rien
+  if (loading) {
+    early.push(msg);
+    if (early.length > EARLY_MAX) early.shift();
+  }
   return true;
 }
 
@@ -352,7 +425,7 @@ export function synthBeat(time: number, beat: number, stepDur: number, run = fal
   beatLog.push(b);
   if (beatLog.length > BEAT_LOG) beatLog.shift();
   if (sg) sg.node.port.postMessage({ type: 'beat', ...b });
-  else if (!failed && synthPort()) {
+  else if (synthPort()) {
     earlyBeats.push(b);
     if (earlyBeats.length > BEAT_LOG) earlyBeats.shift();
   }
@@ -363,14 +436,16 @@ export function synthBeat(time: number, beat: number, stepDur: number, run = fal
 export interface SynthOfflineOpts {
   seconds: number;
   sampleRate?: number;
-  /** notes [midi, debut (s), porte (s)] ; accent 1 */
-  notes: [number, number, number][];
+  /** notes [midi, debut (s), porte (s), accent ?] ; accent 1 sans lui (2026-10-21 : l'accent de l'arpege, ACC FILTER) */
+  notes: ([number, number, number] | [number, number, number, number])[];
   /** reglages imposes (les autres : ceux du store) */
   params?: Partial<VoyValues>;
   /** envois REVERB et DELAY (true par defaut) */
   sends?: boolean;
   /** surechantillonnage du moteur (4 par defaut) */
   os?: 1 | 2 | 4;
+  /** les voix du moteur (12 par defaut ; 8 : celles du telephone, 2026-10-21) */
+  maxVoices?: number;
   /** tempo du LFO de MOD (celui du motif par defaut) */
   bpm?: number;
   /** MOD (2026-10-18) : les ancres du transport (synthBeat), connues au depart */
@@ -394,8 +469,8 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
   const p = { ...voyParams.get(), ...(o.params ?? {}) };
   const extra = { beats: o.beats ?? [], timeline: o.timeline ?? [], probe: o.probe === true };
   let prev: number | null = null;
-  const list = o.notes.map(([m, t, gate]) => {
-    const n = { midi: m, time: t, gate, accent: 1, from: prev };
+  const list = o.notes.map(([m, t, gate, accent]) => {
+    const n = { midi: m, time: t, gate, accent: accent ?? 1, from: prev };
     prev = m;
     return n;
   });
@@ -403,7 +478,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { params: engineMsg(p, o.bpm), notes: list, os: o.os ?? 4, ...extra },
+    processorOptions: { params: engineMsg(o.sends === false ? { ...p, delay: 0, reverb: 0 } : p, o.bpm), notes: list, os: o.os ?? 4, maxVoices: o.maxVoices ?? 12, ...extra },
   });
   if (extra.probe) {
     // Le LFO tel quel : droit a la sortie, sans chorus ni filtres de BASS MONO
@@ -424,8 +499,20 @@ export const synthDebug = {
   get built(): boolean {
     return sg !== null;
   },
+  /** le dernier chargement du moteur a rate (il sera retente, 2026-10-21) */
   get failed(): boolean {
-    return failed;
+    return sg === null && failures > 0;
+  },
+  /** les chargements rates depuis l'ouverture de la page */
+  get failures(): number {
+    return failures;
+  },
+  get loading(): boolean {
+    return loading !== null;
+  },
+  /** les voix et le surechantillonnage du moteur charge (0 avant lui ; 2026-10-21 : 8 voix et x2 au telephone) */
+  get engine(): { voices: number; os: number } {
+    return { ...built };
   },
   get notes(): number {
     return notes;

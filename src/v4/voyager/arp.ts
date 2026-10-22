@@ -50,7 +50,7 @@ import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
-import { noteOn, synthBeat, synthCancel, synthStop } from '../audio/synth';
+import { GATE_MIN_S, noteOn, synthBeat, synthCancel, synthStop } from '../audio/synth';
 import { SWING } from '../theme';
 import { CHORDS, degreeMidi } from './chords';
 import { gateFrac, octaveShift, stepsPerNote, voyParams } from './params';
@@ -212,7 +212,8 @@ function scheduleStep(now: number, silent = false): void {
     // DRIFT (2026-10-05) : chaque note un peu plus ou moins appuyee (+-4 % a 5), une main plutot qu'une machine
     const human = 1 + (Math.random() - 0.5) * 0.16 * p.drift;
     const accent = Math.max(0.3, (1 + (ACCENT[stepIdx % 4] * (k === 1 ? 0.85 : 1) - 1) * 2 * p.accent) * human);
-    const gate = Math.max(0.02, gateFrac(p.gate) * interval);
+    // Pas plus court que GATE_MIN_S (2026-10-21, audit F10 : 20 ms avant, le bas de GATE ne changeait rien en 1/16 et 1/32)
+    const gate = Math.max(GATE_MIN_S, gateFrac(p.gate) * interval);
     noteOn(midi, when, gate, lastMidi, accent);
     lastMidi = midi;
     push({ seq: serial, when, chord, midi });
