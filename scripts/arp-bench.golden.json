@@ -59,11 +59,11 @@
     "sideDb": -17.36
    },
    "HOUSE": {
-    "sha256": "b3714db976742622289e7796b4a5d108",
-    "peakDb": -3.17,
-    "rmsDb": -16.65,
-    "centroidHz": 462,
-    "sideDb": -10.19
+    "sha256": "14bdd1f5995773d3867e167cc71d2832",
+    "peakDb": -3.02,
+    "rmsDb": -16.58,
+    "centroidHz": 461,
+    "sideDb": -10.39
    },
    "ELECTRO": {
     "sha256": "8ebbac392bc77ce204d6e4516aa8bb1e",
@@ -309,11 +309,11 @@
     "sideDb": -17.14
    },
    "HOUSE": {
-    "sha256": "d59b98163c39483f5beb318bc745991f",
-    "peakDb": -2.97,
-    "rmsDb": -16.66,
-    "centroidHz": 461,
-    "sideDb": -10.22
+    "sha256": "b890d15d03c9e6ac9a6d297628ce7dcc",
+    "peakDb": -3.06,
+    "rmsDb": -16.59,
+    "centroidHz": 460,
+    "sideDb": -10.4
    },
    "ELECTRO": {
     "sha256": "8e5cf201783d580e0a86493bae396d67",

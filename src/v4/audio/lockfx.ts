@@ -111,8 +111,16 @@ export class InsertLocks {
     let i = this.pts.length;
     while (i > 0 && this.pts[i - 1].when > when) i -= 1;
     this.pts.splice(i, 0, { when, v, tag });
+    let from = i;
+    if (i < this.pts.length - 1) {
+      // Des points deja poses apres lui : leurs anciennes rampes s'en vont d'abord, comme dans cancel (2026-10-22, revue
+      // R5 : gardees, les gains retombaient a leur ancien depart 3 ms avant chacun)
+      const cut = Math.max(when - POINT_S, this.c.currentTime);
+      this.stage.lockClear?.(cut);
+      while (from > 0 && this.pts[from - 1].when >= cut) from -= 1;
+    }
     // Ce point, puis ceux d'apres (des coups deja programmes plus loin) : leur valeur, depuis celle d'avant eux
-    for (let j = i; j < this.pts.length; j += 1) this.stage.lockAt?.(this.pts[j].when, this.eff(this.pts[j]), this.before(j));
+    for (let j = from; j < this.pts.length; j += 1) this.stage.lockAt?.(this.pts[j].when, this.eff(this.pts[j]), this.before(j));
     return true;
   }
 

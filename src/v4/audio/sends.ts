@@ -291,8 +291,16 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
           // Une rampe de 3 ms qui finit au coup (2026-10-21, audit F14) : la queue d'avant ne prend plus de marche ;
           // les points d'apres (un coup glisse avant eux) repartent de celui-ci
           const g = s.gain.gain;
+          let j = i;
+          if (i < s.pts.length - 1) {
+            // Leurs anciennes rampes s'en vont d'abord (2026-10-22, revue R5 : gardees, le gain retombait a leur
+            // ancien depart 3 ms avant chacun, un creux jusqu'a 0 qui clique sur le DELAY)
+            const cut = Math.max(when - POINT_S, c.currentTime);
+            g.cancelScheduledValues(cut);
+            while (j > 0 && s.pts[j - 1].when >= cut) j -= 1;
+          }
           s.pts.forEach((p, k) => {
-            if (k >= i) pointAt(g, scale * before(s, k), scale * effOf(s, p), p.when, c);
+            if (k >= j) pointAt(g, scale * before(s, k), scale * effOf(s, p), p.when, c);
           });
           // Revenu a 0 (la voix sans envoi, apres un coup verrouille) : debranche une fois ce point passe
           if (eff === 0 && s.value === 0) unlinkLater(s, Math.max(0, when - c.currentTime) * 1000 + UNLINK_MS);

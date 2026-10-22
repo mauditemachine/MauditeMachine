@@ -466,6 +466,9 @@ const cents = (c: number): number => Math.round((0.5 + c / 100) * 1000) / 1000;
  * centre) et INDIE PULSE. VOLUME rattrape ce que GLUE et WIDE retirent en sonie (stereo, ponderee K, chaine complete :
  * DARK DISCO 0.73, HOUSE 0.75, INDIE DANCE 0.71, INDIE PULSE 0.65, ITALO 0.72, NIGHT DRIVE 0.65 et ROLLING 0.79
  * avant), la meme sonie a 0.3 dB pres, des cretes 1 a 2 dB plus basses.
+ * 2026-10-22 (relecture) : WIDE sans STACK partage les cotes selon la puissance d'OSC 1 et d'OSC 2 ; HOUSE (son carre
+ * a 0.4, sous le triangle) ne penche plus a gauche (+3 dB) et remonte son WIDE de 0.35 a 0.8 pour garder sa largeur
+ * (la meme part de cotes, a la meme sonie).
  */
 const ARP: readonly ArpGenre[] = [
   {
@@ -508,7 +511,7 @@ const ARP: readonly ArpGenre[] = [
   {
     // Des accords de septieme arpeges lentement, triangle et carre doux, chorus et reverbe
     name: 'HOUSE',
-    knobs: { volume: 0.78, rate: RATE['1/8'], mode: MODE.UPDN, range: RANGE[2], gate: 0.6, wave1: WAVE1.TRI, wave2: WAVE2.SQUARE, range2: FEET[4], osc2: 0.4, fmode: FMODE.LP12, cutoff: 0.5, res: 0.15, envAmt: 0.25, fD: 0.4, fS: 0.35, aA: 0.02, aD: 0.55, aS: 0.45, aR: 0.5, chorus: CHORUS.I, delay: 0.25, reverb: 0.4, duck: 0.25, chord: CHORD['7TH'], wide: 0.35 },
+    knobs: { volume: 0.78, rate: RATE['1/8'], mode: MODE.UPDN, range: RANGE[2], gate: 0.6, wave1: WAVE1.TRI, wave2: WAVE2.SQUARE, range2: FEET[4], osc2: 0.4, fmode: FMODE.LP12, cutoff: 0.5, res: 0.15, envAmt: 0.25, fD: 0.4, fS: 0.35, aA: 0.02, aD: 0.55, aS: 0.45, aR: 0.5, chorus: CHORUS.I, delay: 0.25, reverb: 0.4, duck: 0.25, chord: CHORD['7TH'], wide: 0.8 },
     prog: [6, 7, 4, 3],
   },
   {

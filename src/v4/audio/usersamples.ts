@@ -23,7 +23,8 @@
  * NOT AUDIO, TOO MANY, STORAGE OFF). Le fichier est decode une fois a l'ajout
  * (OfflineAudioContext, comme samples.ts loadSample) : ce qui ne se decode
  * pas n'entre pas, et le son decode est donne a samples.ts (takePcm) pour ne
- * pas le refaire. Le nom a l'ecran : sampleLabel du nom de fichier, comme
+ * pas le refaire (celui du fichier qui va jouer ; les autres le lachent,
+ * release, 2026-10-22). Le nom a l'ecran : sampleLabel du nom de fichier, comme
  * ceux du site. Pur de tout store du site : audio/samples.ts s'y abonne et
  * fond les deux listes.
  */
@@ -365,9 +366,10 @@ async function addNow(family: string, file: File, added: number): Promise<KitSam
   // pu compter jusqu'au bout) laisse de la marge, le decodage verifie ensuite au plus juste
   const probe = probeAudio(data);
   let secs = probe.seconds;
-  // Un format que l'en-tete ne dit pas, assez gros pour couter cher a decoder : le navigateur lit sa duree (un petit
-  // fichier se decode vite, le test d'apres suffit)
-  if (secs === null && probe.format === 'unknown' && file.size > 1024 * 1024) secs = await mediaSeconds(file);
+  // Une duree que l'en-tete ne dit pas, assez gros pour couter cher a decoder : le navigateur lit sa duree (un petit
+  // fichier se decode vite, le test d'apres suffit). Quel que soit le format (2026-10-22, revue RA1-6 : un WAV sans
+  // debit ni frequence lisible passait sans rien, seul un format inconnu y avait droit)
+  if (secs === null && file.size > 1024 * 1024) secs = await mediaSeconds(file);
   if (secs !== null && secs > USER_SAMPLE_MAX_SECONDS * (probe.exact ? 1 : 3) + 0.05) throw new UserSampleError('too-long');
   let pcm: SamplePcm & { peak: number };
   try {
@@ -471,6 +473,14 @@ export const userSamples = {
     const p = decoded.get(key);
     if (p) decoded.delete(key);
     return p;
+  },
+  /**
+   * Le son decode a l'ajout lache sans etre pris (2026-10-22, revue RA1-4) : un fichier ajoute mais pas choisi gardait
+   * son PCM pour la visite, hors du budget de samples.ts (25 Mo pour 7 fichiers de 10 s). Il se decode depuis son
+   * fichier, deja en memoire, a son premier choix.
+   */
+  release(key: string): void {
+    decoded.delete(key);
   },
   /** La liste a change (un ajout, un retrait, IndexedDB qui recale l'index). */
   subscribe(fn: () => void): () => void {

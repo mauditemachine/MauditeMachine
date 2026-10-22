@@ -12,7 +12,7 @@
  *             in -> branche -> mouille (m) ----> out
  */
 
-import { GLIDE_S, glide, pointAt } from './glide';
+import { GLIDE_S, POINT_S, glide, pointAt } from './glide';
 
 /** Debranchement apres la rampe de 20 ms, avec une marge. */
 export const UNLINK_MS = 60;
@@ -180,8 +180,12 @@ export class Insert {
    */
   at(when: number, dry: number, wet: number, prev?: { dry: number; wet: number }): boolean {
     if (this.direct || !this.dryGain || !this.wetGain) return false;
-    // Une branche neuve qui se remplit encore : le point attend qu'elle soit pleine
-    const t = Math.max(when, this.c.currentTime, this.notBefore);
+    // Une branche neuve qui se remplit encore : le point attend la fin de la rampe tenue (2026-10-22, revue R2 : borne
+    // a son depart, le point passait avant la fin de cette rampe, qui ramenait les gains a la valeur de la voix, et un
+    // coup verrouille des 65 premieres ms sortait sec) ; sa rampe de 3 ms part ou celle-ci finit. Un notBefore passe ne
+    // change rien (release et toDirect le remettent a 0)
+    const held = this.notBefore > 0 ? this.notBefore + GLIDE_S + POINT_S : 0;
+    const t = Math.max(when, this.c.currentTime, held);
     if (prev) {
       pointAt(this.dryGain.gain, prev.dry, dry, t, this.c);
       pointAt(this.wetGain.gain, prev.wet, wet, t, this.c);

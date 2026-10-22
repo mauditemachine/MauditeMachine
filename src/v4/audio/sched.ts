@@ -58,6 +58,18 @@ export function registerScheduler(s: Scheduler): () => void {
   };
 }
 
+const reserveHooks = new Set<(until: number) => void>();
+/**
+ * Apres une reserve (2026-10-22, le MIDI OUT du MM-ARP, midi/noteout.ts) : ce qui ne depend pas des reglages (l'horloge
+ * MIDI) part d'avance, jusqu'a `until` (temps du contexte). Un appel plutot qu'un import : noteout importe deja ce module.
+ */
+export function onReserve(fn: (until: number) => void): () => void {
+  reserveHooks.add(fn);
+  return () => {
+    reserveHooks.delete(fn);
+  };
+}
+
 /**
  * Avant un gros travail du fil principal : les s secondes a venir sont
  * programmees tout de suite (au plus 4 s). Sans contexte audio : rien.
@@ -67,6 +79,7 @@ export function reserve(seconds: number): void {
   if (!c || c.state !== 'running') return;
   reserveUntil = Math.max(reserveUntil, c.currentTime + Math.min(4, Math.max(0, seconds)));
   for (const s of all) s.tick();
+  for (const fn of reserveHooks) fn(reserveUntil);
 }
 
 /** Re-programmations demandees, groupees (un potard tourne : au plus une par image). */

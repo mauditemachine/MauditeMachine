@@ -119,10 +119,14 @@ export const resoQ = (v: number): number => Math.SQRT1_2 * (1 + 16 * Math.pow(Ma
 /**
  * Le gain du passe-bande (2026-10-21, audit F12) : celui de Web Audio a 0 dB au centre, et plus RESO serre la bande,
  * plus la voix disparaissait (jusqu'a -24 dB). Mesure (un coup de chaque voix, RMS) : la bande posee sur le son perdait
- * 6 a 13 dB a RESO a fond, posee a cote 24 dB. x (Q / 0.707)^0.35 (+8.6 dB a fond, exactement 1 a RESO 0) : posee sur
- * le son, la voix reste a +/-3 dB de son niveau a RESO 0 ; posee a cote, elle s'eteint encore (16 dB), le filtre le dit.
+ * 6 a 13 dB a RESO a fond, posee a cote 24 dB.
+ * 2026-10-22 (revue R4) : x (Q / 0.707)^0.2, +4.9 dB a fond, exactement 1 a RESO 0 (0.35 avant, +8.6 dB : regle sur
+ * le RMS, une bande qui sonne sur la fondamentale d'un tom crete bien plus haut, HT 2.9 dB au-dessus du kick). Mesure
+ * (un coup, SD, TOM et HT, FREQ balayee, RESO 0.25 a 1) : la meilleure bande posee sur le son reste a -1.7/+1.4 dB du
+ * niveau sans filtre, sa crete au plus 2.7 dB au-dessus, TOM et HT sous le kick, SD au plus 1.3 dB au-dessus (sa crete
+ * sans filtre est deja a 0.7 dB du kick) ; posee a cote, la voix s'eteint encore, le filtre le dit.
  */
-export const bandGain = (q: number): number => (q > Math.SQRT1_2 ? Math.pow(q / Math.SQRT1_2, 0.35) : 1);
+export const bandGain = (q: number): number => (q > Math.SQRT1_2 ? Math.pow(q / Math.SQRT1_2, 0.2) : 1);
 
 /** ENV : la profondeur de l'enveloppe du filtre, +/-5 octaves de coupure au sommet. */
 export const FENV_OCT = 5;

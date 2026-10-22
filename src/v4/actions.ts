@@ -3211,7 +3211,11 @@ export async function soundFilesAdd(files: readonly File[], inst: Inst, fromList
   const s = added[0];
   // Un autre son choisi pendant l'ajout, une autre voix, un autre pas en P-LOCK, ou un ajout parti apres celui-ci : le
   // fichier entre dans la liste, sans etre choisi ni joue (avant, il ecrasait le choix fait apres lui)
-  if (addLast[f] !== token || kit.choice(f) !== gen0 || pattern.get().instrument !== inst || browserLockStep() !== lock0) {
+  const chosen = !(addLast[f] !== token || kit.choice(f) !== gen0 || pattern.get().instrument !== inst || browserLockStep() !== lock0);
+  // Seul le fichier qui va jouer garde le son decode a l'ajout (2026-10-22, revue RA1-4) : les autres le gardaient pour
+  // la visite, hors du budget des samples ; ils se decodent a leur premier choix
+  for (const a of chosen ? added.slice(1) : added) userSamples.release(a.key);
+  if (!chosen) {
     lcdMessage.show(`${inst}: ADDED ${s.label}${added.length > 1 ? `  +${added.length - 1}` : ''}${why ? `  ${why}` : ''}`, 2400);
     return added.length;
   }

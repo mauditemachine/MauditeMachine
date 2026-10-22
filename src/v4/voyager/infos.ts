@@ -233,7 +233,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   wide: {
     title: 'WIDE',
-    text: "Un filtre pour la gauche, un pour la droite : les exemplaires de STACK (sans STACK, OSC 1 et OSC 2) se partagent les deux côtés avant le filtre, chaque note devient stéréo de l'intérieur, au même volume. WIDTH, lui, place la note entière. OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
+    text: "Un filtre pour la gauche, un pour la droite : les exemplaires de STACK se partagent les deux côtés avant le filtre, chaque note devient stéréo de l'intérieur, au même volume. Sans STACK, OSC 1 et OSC 2 se partagent les côtés selon leur niveau : au même niveau, OSC 1 à gauche et OSC 2 à droite ; le plus fort se rapproche du centre ; un oscillateur seul reste au milieu, monte STACK pour l'élargir. WIDTH, lui, place la note entière. OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
     tip: "Garde BASS MONO vers 100 Hz avec WIDE : la largeur en haut, le sub au centre.",
   },
   glue: {
@@ -243,7 +243,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   dlyTime: {
     title: 'DLY TIME',
-    text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos, comme une bande.",
+    text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos comme une bande qui ralentit ou accélère, jamais à l'envers : plus l'écart est grand, plus le glissement dure (jusqu'à 3 s de 1/8 à 1/2 à 120 BPM).",
     tip: "3/8 sur un arpège en 1/16 : des contre-chants qui tombent à côté des notes, façon dub.",
   },
   tape: {

@@ -40,18 +40,43 @@
  * - l'ecart entre l'heure du contexte et celle de la page suit d'abord ses
  *   mesures (sa premiere pouvait etre fausse de 10 a 30 ms, rattrapee a 5 ms
  *   par seconde : les premieres secondes en decalage, l'horloge qui derivait).
+ *
+ * La deuxieme relecture (2026-10-22, banc sans appareil : un esclave d'horloge
+ * modele compte les impulsions, comme Ableton) :
+ * - sans sortie branchee (CONNECT pas encore fait, acces refuse, MIDI OFF, port
+ *   debranche), rien n'entre plus dans la file : elle grossissait toute la
+ *   course, et au retour de la sortie START ou la position partaient perimes,
+ *   tout de suite (Ableton cale n'importe ou dans la mesure). La sortie
+ *   revenue, l'horloge repart au pas suivant, a sa position (SPP, CONTINUE) ;
+ *   un START, une position ou un CONTINUE en retard ne part plus ;
+ * - chaque impulsion porte son numero (six par pas, depuis le debut de la
+ *   premiere mesure) : sur la grille du MM-RYTM, un tempo qui change refait le
+ *   pas en cours a sa nouvelle duree, et le dedoublonnage a l'heure gardait les
+ *   anciennes impulsions deja parties en plus des nouvelles (7 dans une double
+ *   croche ; un potard de tempo tourne : Ableton en avance de 3 a 7) ;
+ * - une impulsion n'est plus jamais jetee : un fil principal bloque plus de
+ *   150 ms en perdait (14 pour 400 ms), et Ableton, qui les compte, restait
+ *   decale jusqu'au STOP. Une impulsion en retard part tout de suite (une
+ *   courte rafale), un pas que l'arpege saute envoie aussi les siennes, et
+ *   avant un gros travail annonce (reserve, audio/sched.ts : l'OPEN, la scene
+ *   qui se reconstruit) elles partent d'avance, avec leur heure, jusqu'a
+ *   RESERVE_CLOCK_S devant ;
+ * - l'echo du bus IAC se reconnait par la sortie ou le message est parti, plus
+ *   par la sortie choisie maintenant : changer de sortie (ou OFF) en MIDI LEARN
+ *   n'apprend plus le relachement, le CC 123 ou la derniere note de l'ancienne.
  */
 
 import { context } from '../audio/drums';
-import { DROP_AFTER_S } from '../audio/sched';
+import { DROP_AFTER_S, onReserve } from '../audio/sched';
 import { midiLeader } from './leader';
 
 /** Un message part au plus SEND_AHEAD_S avant son heure (moins que GUARD_S, 30 ms : rien d'envoye n'est annule). */
 export const SEND_AHEAD_S = 0.025;
 /**
  * L'horloge, START, la position et CONTINUE (2026-10-22, la relecture) : jusqu'a CLOCK_AHEAD_S avant leur heure. Ils
- * ne dependent pas des reglages : une re-programmation les refait aux memes heures (ceux deja partis sont sautes,
- * clockSent), un tempo qui change les refait apres le dernier parti.
+ * ne dependent pas des reglages : une re-programmation les refait, ceux deja partis sont sautes (une impulsion par son
+ * numero, lastPulseIdx, meme a une autre heure quand le tempo change ; START, la position et CONTINUE par leur heure,
+ * clockSent), les suivants partent apres le dernier parti.
  */
 export const CLOCK_AHEAD_S = 0.1;
 /** Le minuteur de la file (ms). */
@@ -145,6 +170,8 @@ export function noteOutPorts(): void {
   const live = !!view.device && names.includes(view.device);
   // La sortie partie : ce qui y jouait est perdu pour elle ; la file se vide (rien ne doit partir ailleurs)
   if (view.live && !live) drop();
+  // La sortie revenue (2026-10-22) : l'horloge repart de la position du pas suivant
+  else if (!view.live && live) resetClock();
   set({ outputs: names, live });
 }
 
@@ -223,6 +250,8 @@ interface Ev {
   id: number;
   /** SPP : la position en doubles croches */
   pos: number;
+  /** une impulsion d'horloge : son numero (2026-10-22), six par pas depuis le debut de la premiere mesure */
+  idx?: number;
 }
 
 /** Ce qui attend, dans l'ordre des heures (a egalite : dans l'ordre d'arrivee). */
@@ -239,18 +268,23 @@ let lastAt = 0;
 let lastClockAt = 0;
 /** l'heure (ms) du dernier START ou CONTINUE parti : STOP passe apres (jamais un STOP devant un START deja programme) */
 let startAt = 0;
-/** l'heure (temps du contexte) du dernier message parti de chaque sorte d'horloge : refait par l'arpege, il ne repart pas */
+/** l'heure (temps du contexte) du dernier START, de la derniere position, du dernier CONTINUE : refait par l'arpege, il ne repart pas */
 let clockSent: Partial<Record<Kind, number>> = {};
+/** le numero de la derniere impulsion partie (-1 : aucune depuis le STOP) : refaite par l'arpege, elle ne repart pas */
+let lastPulseIdx = -1;
+/** START ou CONTINUE parti, pas encore STOP (2026-10-22) : l'esclave (Ableton) compte les impulsions */
+let clockRuns = false;
 
 const isClock = (k: Kind): boolean => k === 'clock' || k === 'start' || k === 'spp' || k === 'continue';
 
-const enabled = (): boolean => view.device !== '' && midiLeader.leads();
+/** Rien n'entre dans la file sans sortie branchee (2026-10-22 : sans acces ni port, elle grossissait toute la course). */
+const enabled = (): boolean => view.device !== '' && midiLeader.leads() && port() !== null;
 
 function insert(e: Ev): void {
   let i = queue.length;
   while (i > 0 && queue[i - 1].t > e.t) i -= 1;
   queue.splice(i, 0, e);
-  if (!timer && typeof window !== 'undefined') timer = window.setInterval(flush, TICK_MS);
+  if (!timer && typeof window !== 'undefined') timer = window.setInterval(() => flush(), TICK_MS);
 }
 
 const status = (hi: number): number => hi | ((view.ch - 1) & 0x0f);
@@ -277,7 +311,7 @@ function send(o: MIDIOutput, data: number[], at: number, clk = false): void {
   if (clk) lastClockAt = Math.max(t, now);
   else {
     lastAt = Math.max(t, now);
-    keepEcho(data, Math.max(t, now));
+    keepEcho(data, Math.max(t, now), o.name ?? '');
   }
 }
 
@@ -288,35 +322,39 @@ function send(o: MIDIOutput, data: number[], at: number, clk = false): void {
  * part sur sa sortie, et le site ecoute toutes les entrees (midi/midi.ts) : les notes de l'arpege revenaient comme si
  * un clavier les jouait. En MIDI LEARN, la note suivante de l'arpege (ou le ALL NOTES OFF d'un STOP) s'apprenait pour
  * le potard choisi a la place du geste de Mika, et la ligne du dernier message ne montrait plus que ces notes. Chaque
- * message de canal parti est garde ECHO_MS autour de son heure : le meme, sur l'entree du meme nom, a cette heure-la,
- * est son echo, ignore (une seule fois). Un autre message de cette entree (un CC d'Ableton) passe.
+ * message de canal parti est garde ECHO_MS autour de son heure, avec le nom de sa sortie : le meme, sur l'entree du
+ * meme nom, a cette heure-la, est son echo, ignore (une seule fois). Un autre message de cette entree (un CC d'Ableton)
+ * passe. Le nom garde avec le message (2026-10-22) : un changement de sortie (ou OFF) relache tout sur l'ancienne, et
+ * l'echo de ces relachements (ou de la derniere note, partie un peu d'avance) revient apres le changement ; compare a
+ * la sortie choisie, il s'apprenait en MIDI LEARN.
  */
 const ECHO_MS = 1000;
 const ECHO_KEEP = 512;
-const echoes: { k: number; at: number }[] = [];
+const echoes: { k: number; at: number; port: string }[] = [];
 const echoKey = (d: ArrayLike<number>): number => ((d[0] & 0xff) << 16) | ((d[1] & 0x7f) << 8) | ((d.length > 2 ? d[2] : 0) & 0x7f);
 
-function keepEcho(data: number[], at: number): void {
+function keepEcho(data: number[], at: number, port: string): void {
   // Les plus vieux s'en vont (au-dela de leur fenetre, ou de la place)
   const old = at - 2 * ECHO_MS;
   let n = 0;
   while (n < echoes.length && (echoes[n].at < old || echoes.length - n >= ECHO_KEEP)) n += 1;
   if (n > 0) echoes.splice(0, n);
-  echoes.push({ k: echoKey(data), at });
+  echoes.push({ k: echoKey(data), at, port });
 }
 
 /**
- * midi/midi.ts, a chaque message recu : celui-ci est-il l'echo d'un message parti vers cette sortie (le meme nom), a
- * ECHO_MS pres de son heure (at : son arrivee, l'heure de la page) ? S'il l'est, il est oublie ici et ignore la-bas.
+ * midi/midi.ts, a chaque message recu : celui-ci est-il l'echo d'un message parti vers une sortie du meme nom (celle
+ * choisie, ou une ancienne), a ECHO_MS pres de son heure (at : son arrivee, l'heure de la page) ? S'il l'est, il est
+ * oublie ici et ignore la-bas.
  */
 export function noteOutEcho(device: string, d: ArrayLike<number>, at: number): boolean {
-  if (echoes.length === 0 || !device || device !== view.device || d.length < 2) return false;
+  if (echoes.length === 0 || !device || d.length < 2) return false;
   const hi = d[0] & 0xf0;
   if (hi !== 0x80 && hi !== 0x90 && hi !== 0xb0) return false;
   const k = echoKey(d);
   for (let i = 0; i < echoes.length; i += 1) {
     const e = echoes[i];
-    if (e.k === k && Math.abs(e.at - at) <= ECHO_MS) {
+    if (e.port === device && e.k === k && Math.abs(e.at - at) <= ECHO_MS) {
       echoes.splice(i, 1);
       return true;
     }
@@ -330,14 +368,16 @@ function sendStop(o: MIDIOutput): void {
   const at = Math.max(now, startAt) + AFTER_MS;
   sendRaw(o, [0xfc], at, now);
   lastClockAt = Math.max(lastClockAt, at);
+  clockRuns = false;
 }
 
 /**
- * Vide la file : les notes jusqu'a SEND_AHEAD_S devant, l'horloge jusqu'a CLOCK_AHEAD_S ; s'arrete quand il n'y a plus
- * rien a attendre. Un appui (ou une impulsion d'horloge) en retard de plus de DROP_AFTER_S (le fil principal bloque,
- * 2026-10-22) ne part plus, comme le pas que l'arpege saute : pas de rafale.
+ * Vide la file : les notes jusqu'a SEND_AHEAD_S devant, l'horloge jusqu'a CLOCK_AHEAD_S (une reserve : jusqu'a
+ * clockUntil, temps du contexte) ; s'arrete quand il n'y a plus rien a attendre. Un appui en retard de plus de
+ * DROP_AFTER_S (le fil principal bloque, 2026-10-22) ne part plus, comme le pas que l'arpege saute : pas de rafale. Une
+ * impulsion d'horloge en retard part quand meme, tout de suite (2026-10-22, la deuxieme relecture : Ableton les compte).
  */
-function flush(): void {
+function flush(clockUntil = 0): void {
   const c = context();
   const o = port();
   if (!c || !o || !enabled()) {
@@ -350,7 +390,7 @@ function flush(): void {
   }
   const ct = c.currentTime;
   const edge = ct + SEND_AHEAD_S;
-  const edgeClock = ct + CLOCK_AHEAD_S;
+  const edgeClock = Math.max(ct + CLOCK_AHEAD_S, clockUntil);
   if (queue[0].t > edgeClock) return;
   const due: Ev[] = [];
   const keep: Ev[] = [];
@@ -388,14 +428,32 @@ function flush(): void {
       send(o, [status(0x80), e.note, 0], Math.max(at, s.onAt + AFTER_MS));
       sounding.delete(e.id);
     } else {
-      // L'horloge : deja partie a cette heure (l'arpege s'est re-programme), ou une impulsion trop en retard : sautee
-      const last = clockSent[e.kind];
-      if (last !== undefined && e.t <= last + 1e-6) continue;
-      if (e.kind === 'clock' && e.t < late) continue;
-      clockSent[e.kind] = e.t;
+      // L'horloge deja partie (l'arpege s'est re-programme) : une impulsion par son numero (2026-10-22 : un tempo qui
+      // change refait le pas a une autre duree, a l'heure il en partait une de trop), le reste par son heure
+      if (e.kind === 'clock') {
+        if (e.idx !== undefined && e.idx <= lastPulseIdx) continue;
+        if (e.idx !== undefined) lastPulseIdx = e.idx;
+        // En retard, elle part quand meme (2026-10-22 : jetee, Ableton restait decale jusqu'au STOP). L'esclave a
+        // l'arret, celle qui passerait derriere les impulsions deja parties (envoyees d'avance, pour une course arretee
+        // depuis) ne compte pour rien : elle ne part pas en rafale
+        if (!clockRuns && at < lastClockAt - AFTER_MS) continue;
+      } else {
+        const last = clockSent[e.kind];
+        if (last !== undefined && e.t <= last + 1e-6) continue;
+        // START, la position ou CONTINUE en retard (2026-10-22, le fil bloque), ou loin derriere les impulsions deja
+        // parties (une reserve, puis STOP et RUN) : perime, la position repart au pas suivant
+        if (e.t < late || at < lastClockAt - CLOCK_AHEAD_S * 1000) {
+          clockOn = false;
+          continue;
+        }
+        clockSent[e.kind] = e.t;
+      }
       const data = e.kind === 'clock' ? [0xf8] : e.kind === 'start' ? [0xfa] : e.kind === 'continue' ? [0xfb] : [0xf2, e.pos & 0x7f, (e.pos >> 7) & 0x7f];
       send(o, data, at, true);
-      if (e.kind === 'start' || e.kind === 'continue') startAt = Math.max(startAt, at);
+      if (e.kind === 'start' || e.kind === 'continue') {
+        startAt = Math.max(startAt, at);
+        clockRuns = true;
+      }
     }
   }
 }
@@ -438,12 +496,14 @@ function panic(o: MIDIOutput | null, stopClock: boolean, keepNotes = false): voi
     }
     if (!cleared) end = Math.max(end, lastAt);
     send(o, [status(0xb0), 123, 0], end + AFTER_MS);
-    if (stopClock && wasClock) sendStop(o);
+    if (stopClock && (wasClock || clockRuns)) sendStop(o);
   }
   sounding.clear();
   if (stopClock) {
     clockOn = false;
     clockSent = {};
+    lastPulseIdx = -1;
+    clockRuns = false;
   }
   if (queue.length === 0) stopTimer();
 }
@@ -468,8 +528,34 @@ function drop(): void {
   sounding.clear();
   clockOn = false;
   clockSent = {};
+  lastPulseIdx = -1;
+  clockRuns = false;
   stopTimer();
 }
+
+/**
+ * La sortie revenue (2026-10-22) : l'horloge repart au pas suivant, de sa position (SPP, CONTINUE). Les notes restent
+ * (une note partie entre l'arrivee du port et cet appel doit encore se relacher).
+ */
+function resetClock(): void {
+  queue = queue.filter((e) => !isClock(e.kind));
+  clockOn = false;
+  clockSent = {};
+  lastPulseIdx = -1;
+  clockRuns = false;
+}
+
+/**
+ * Une reserve (audio/sched.ts, 2026-10-22) : le fil principal va bloquer, l'arpege a programme ses pas d'avance. Leur
+ * horloge part tout de suite, avec son heure, jusqu'a RESERVE_CLOCK_S devant (ce qui part ne se reprend plus : un STOP
+ * ou un tempo dans cette fenetre la laisse finir) ; les notes attendent leur heure, elles se reprennent a chaque reglage.
+ */
+const RESERVE_CLOCK_S = 1;
+onReserve((until) => {
+  const c = context();
+  if (!c || queue.length === 0 || !enabled()) return;
+  flush(Math.min(until, c.currentTime + RESERVE_CLOCK_S));
+});
 
 /**
  * L'acces MIDI qui s'en va (MIDI OFF, 2026-10-22, midi/midi.ts dropAccess) : avant lui, tout se relache sur la sortie
@@ -512,7 +598,9 @@ export const arpOut = {
       }
       clockOn = true;
     }
-    for (let k = 0; k < 6; k += 1) insert({ t: time + (k * dur) / 6, kind: 'clock', note: 0, vel: 0, id: 0, pos: 0 });
+    // Chaque impulsion porte son numero (2026-10-22) : le meme pas, re-programme, garde les memes
+    const idx = Math.max(0, Math.round(pos16)) * 6;
+    for (let k = 0; k < 6; k += 1) insert({ t: time + (k * dur) / 6, kind: 'clock', note: 0, vel: 0, id: 0, pos: 0, idx: idx + k });
   },
   /**
    * La re-programmation de l'arpege (synthCancel) : ce qui n'est pas encore parti a partir de `from` s'oublie (les
@@ -564,10 +652,12 @@ export function noteOutChannel(ch: number): void {
 export function noteOutClock(on: boolean): void {
   if (on === view.clock) return;
   const o = port();
-  if (!on && clockOn && o) sendStop(o);
+  if (!on && (clockOn || clockRuns) && o) sendStop(o);
   if (!on) {
     clockOn = false;
     clockSent = {};
+    lastPulseIdx = -1;
+    clockRuns = false;
     queue = queue.filter((e) => !isClock(e.kind));
   }
   set({ clock: on });
