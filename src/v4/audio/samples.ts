@@ -177,7 +177,7 @@ export interface SampleStatus {
 
 /**
  * Au-dela sans rien recevoir (ni les en-tetes, ni un morceau du fichier), un telechargement est coupe et compte comme
- * le reseau coupe (il se retente). Un delai d'inactivite, plus un delai pour tout le fichier (2026-10-22, revue
+ * le reseau coupe (il se retente). Un delai d'inactivite, et non plus pour tout le fichier (2026-10-22, revue
  * RA1-1 : a 50 Ko/s, un sample de 840 Ko ne venait jamais, coupe a 8 s six fois de suite, l'ecran disait OFFLINE).
  */
 export const FETCH_TIMEOUT_MS = 8000;
