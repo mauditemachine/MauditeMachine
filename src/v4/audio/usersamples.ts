@@ -23,7 +23,8 @@
  * NOT AUDIO, TOO MANY, STORAGE OFF). Le fichier est decode une fois a l'ajout
  * (OfflineAudioContext, comme samples.ts loadSample) : ce qui ne se decode
  * pas n'entre pas, et le son decode est donne a samples.ts (takePcm) pour ne
- * pas le refaire. Le nom a l'ecran : sampleLabel du nom de fichier, comme
+ * pas le refaire (celui du fichier qui va jouer ; les autres le lachent,
+ * release, 2026-10-22). Le nom a l'ecran : sampleLabel du nom de fichier, comme
  * ceux du site. Pur de tout store du site : audio/samples.ts s'y abonne et
  * fond les deux listes.
  */
@@ -471,6 +472,14 @@ export const userSamples = {
     const p = decoded.get(key);
     if (p) decoded.delete(key);
     return p;
+  },
+  /**
+   * Le son decode a l'ajout lache sans etre pris (2026-10-22, revue RA1-4) : un fichier ajoute mais pas choisi gardait
+   * son PCM pour la visite, hors du budget de samples.ts (25 Mo pour 7 fichiers de 10 s). Il se decode depuis son
+   * fichier, deja en memoire, a son premier choix.
+   */
+  release(key: string): void {
+    decoded.delete(key);
   },
   /** La liste a change (un ajout, un retrait, IndexedDB qui recale l'index). */
   subscribe(fn: () => void): () => void {
