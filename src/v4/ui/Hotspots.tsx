@@ -198,6 +198,7 @@ import {
   ORBIT,
   PADS,
   PAD_ARIA,
+  PAD_DOUBLE_TAP_MS,
   POT_UI,
   potMin,
   isBipolar,
@@ -554,8 +555,6 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       return quadToUnit(quad, x, y);
     };
 
-    /** Deux tapes au doigt sur le meme pad de voix en moins de ce temps : la voix se coupe ou revient (2026-10-10). */
-    const PAD_DOUBLE_TAP_MS = 400;
     /** La derniere tape au doigt sur un pad de voix (le double tape qui coupe la voix). */
     let lastPad: { inst: Inst; at: number } | null = null;
     const isCoarse = (e: PointerEvent): boolean =>

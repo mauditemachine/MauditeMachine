@@ -1428,6 +1428,13 @@ export const STEP_LIT = {
 export const STEP_HOLD_MS = 400;
 
 /**
+ * Deux tapes sur la meme voix en moins de ce temps (2026-10-10) : la voix se coupe ou revient ; sur un pad de la machine
+ * au doigt (ui/Hotspots.tsx) et, depuis le 2026-10-22 (la revue : la touche MUTE du Dock le promettait), sur une voix du
+ * Dock (ui/Dock.tsx).
+ */
+export const PAD_DOUBLE_TAP_MS = 400;
+
+/**
  * Appui sur un pas (2026-10-01) : la touche s'enfonce de depth et s'eclaire
  * (emissif glow, lineaire) en downMs, remonte et s'eteint en upMs.
  */

@@ -26,8 +26,10 @@
  * MUTE et SOLO (2026-10-09, la machine a trois etats de la face) : une tape,
  * le mode suivant (ONE, MULTI, range) ; tenus MODE_HOLD_MS, toutes les voix
  * reviennent ; leur temoin (data-led) clignote en attendant une voix, fixe en
- * MULTI, a peine quand des voix restent coupees. Toutes les cibles du Dock
- * font 44 px de haut au moins (le doigt).
+ * MULTI, a peine quand des voix restent coupees. Une voix se coupe ou revient
+ * de deux tapes vite, sur son pad ou sur sa touche ici (2026-10-22, la revue :
+ * la touche MUTE le disait, le Dock ne le faisait pas). Toutes les cibles du
+ * Dock font 44 px de haut au moins (le doigt).
  *
  * INFOS (2026-10-08, l'etape R4, state/rytmInfos.ts) : la touche i a droite
  * des onglets SEQUENCER / KNOBS allume l'aide (le i de l'ecran aussi) ;
@@ -44,7 +46,7 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { MODE_HOLD_MS, clearPattern, modeHold, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, rytmInfoTap } from '../actions';
+import { MODE_HOLD_MS, clearPattern, modeHold, randomPattern, muteToggle, padMute, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, rytmInfoTap } from '../actions';
 import { lockMask } from '../audio/locks';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
@@ -53,7 +55,7 @@ import { BPM, INSTRUMENTS, STEP_COUNT, VEL_BARS, VEL_NAMES, pattern, velocity } 
 import type { Stage } from '../scene/renderer';
 import { playhead } from '../state/playhead';
 import { voices } from '../state/voices';
-import { INST_NAMES, STEP_HOLD_MS } from '../theme';
+import { INST_NAMES, PAD_DOUBLE_TAP_MS, STEP_HOLD_MS, type Inst } from '../theme';
 import { DockPages, KnobPanel, useDockInset, useDockPage } from './KnobPanel';
 import { FaIcon } from './uiIcons';
 
@@ -119,7 +121,7 @@ const ModeKey: React.FC<{ kind: 'mute' | 'solo'; getStage: () => Stage | null }>
         // MUTE (2026-10-21, audit) : plus de mode a armer depuis le 2026-10-10 (actions.ts muteToggle), une voix se coupe
         // d'une double tape sur son pad ; SOLO garde sa machine a etats
         kind === 'mute'
-          ? `Mute, ${led === 'off' ? 'no voice muted' : 'voices muted'}. Double-tap a voice to mute or unmute it; tap or hold MUTE: all voices back`
+          ? `Mute, ${led === 'off' ? 'no voice muted' : 'voices muted'}. Double-tap a voice (here or on the machine) to mute or unmute it; tap or hold MUTE: all voices back`
           : `Solo, ${LED_WORDS[led]}. Tap: one voice, tap again: several, again: done; hold: all voices back`
       }
       onPointerDown={() => {
@@ -208,6 +210,9 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   // Appui long sur un pas : le pas et l'instant du pointerdown ; le clic qui suit est ignore
   const hold = useRef<{ i: number; t: number } | null>(null);
   const skipClick = useRef(-1);
+  // La derniere tape sur une voix (2026-10-22) : la deuxieme, vite, la coupe ou la rend ; pick, la premiere la choisissait
+  // (hors des modes MUTE et SOLO)
+  const lastVoice = useRef<{ k: Inst; t: number; pick: boolean } | null>(null);
   const inst = p.instrument;
   const bpm = p.bpm;
   const locks = lockMask(p.locks, inst);
@@ -272,11 +277,28 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 data-muted={muted ? '1' : '0'}
                 data-solo={solo ? '1' : '0'}
                 aria-pressed={v.soloMode ? solo : v.muteMode ? muted : inst === k}
-                aria-label={v.soloMode ? `Solo ${INST_NAMES[k]}` : v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
-                onClick={() => {
+                aria-label={v.soloMode ? `Solo ${INST_NAMES[k]}` : v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}. Twice quickly: ${muted ? 'unmute' : 'mute'}`}
+                onClick={(e) => {
                   // INFOS (R4) : la carte de la voix, et la voix choisie quand meme (sans un son, sans MUTE ni SOLO, jamais
                   // deselectionnee : on lit ses reglages ; actions.ts rytmInfoTap)
-                  if (!rytmInfoTap(`pad-${k}`, true)) selectInstrument(k);
+                  if (rytmInfoTap(`pad-${k}`, true)) {
+                    lastVoice.current = null;
+                    return;
+                  }
+                  // Deux tapes sur la meme voix en moins de PAD_DOUBLE_TAP_MS (2026-10-22, la revue : la touche MUTE le
+                  // promettait, seuls les pads de la machine le faisaient ; un lecteur d'ecran n'avait aucun moyen de
+                  // couper une voix) : elle se coupe ou revient et reste choisie, comme sur son pad (la premiere tape
+                  // l'avait deselectionnee si elle l'etait deja)
+                  const last = lastVoice.current;
+                  if (last && last.k === k && e.timeStamp - last.t <= PAD_DOUBLE_TAP_MS) {
+                    lastVoice.current = null;
+                    padMute(k, getStage());
+                    if (last.pick && pattern.get().instrument !== k) pattern.select(k);
+                    return;
+                  }
+                  const vm = voices.get();
+                  lastVoice.current = { k, t: e.timeStamp, pick: !vm.soloMode && !vm.muteMode };
+                  selectInstrument(k);
                 }}
               >
                 {k}
