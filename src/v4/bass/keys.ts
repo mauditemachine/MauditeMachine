@@ -24,7 +24,7 @@ import { bassInfos } from '../state/bassInfos';
 import { presetMode } from '../state/presetMode';
 import { section } from '../state/section';
 import { PORTRAIT } from '../theme';
-import { bassGenBack, bassLockOff, bassLockToggle, bassPageStep, bassStepTap, bassTabStep } from './actions';
+import { bassGenBack, bassLockOff, bassLockTap, bassPageStep, bassStepTap, bassTabStep } from './actions';
 import { bassPage } from './pages';
 import { bassKeyAction } from './gestures';
 import { bassKeyId, bassLockId, bassTrigId } from './rig';
@@ -55,7 +55,7 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   // Au telephone (2026-10-09) les blocs de l'ecran tiennent lieu d'encodeurs
   { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight screen values follow it${PORTRAIT ? '' : ', the knobs stay on the global FX'}` },
   { keys: 'Shift + [  ]', what: 'Previous or next tab of the page (VOICE: MAIN, OSC, MIX; FILTER: MAIN, CONTOUR); a page key pressed again does the same' },
-  { keys: 'L  /  Esc', what: 'P-LOCK the chosen step: the screen values change only it  /  out of P-LOCK' },
+  { keys: 'L  /  Esc', what: 'P-LOCK the chosen step (or the step with the keyboard focus): the screen values change only it  /  out of P-LOCK' },
   // Les prises (2026-10-09) : Maj + G la prise d'avant
   { keys: 'G / Shift+G', what: 'Next take / previous take (same number of notes)' },
   // Les touches de l'ecran (2026-10-09, le soir) : ACCENT SLIDE NOTE - + OCT - +
@@ -119,10 +119,14 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
       e.preventDefault();
       e.stopPropagation();
       if (e.repeat) return;
-      const id = bassLockId(bassState.get().sel);
+      // Le jumeau d'un pas qui a le focus (2026-10-22, la revue : les jumeaux LOCK sont partis avec leurs touches) : L
+      // verrouille ce pas-la ; sinon le pas choisi
+      const trig = e.target instanceof HTMLElement ? /^bass-trig-([0-9]+)$/.exec(e.target.dataset.hotspot ?? '') : null;
+      const at = trig ? Number(trig[1]) - 1 : bassState.get().sel;
+      const id = bassLockId(at);
       held.set(e.code, id);
       press(id, true);
-      bassLockToggle();
+      bassLockTap(at);
       return;
     }
     const s0 = STEP_OF.get(e.code);
