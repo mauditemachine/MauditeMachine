@@ -7,7 +7,11 @@
  * echoue (code 1) sur :
  * - une erreur de page (exception non attrapee) ou une erreur de console ;
  * - une requete locale en echec ou en 4xx / 5xx (les coupures de video et
- *   d'audio en cours de lecture, ERR_ABORTED, ne comptent pas) ;
+ *   d'audio en cours de lecture, ERR_ABORTED, ne comptent pas) ; un fichier
+ *   absent aussi (2026-10-22, la revue) : vite (dev et preview, appType spa)
+ *   rend index.html et 200 a sa place, la ou GitHub Pages repond 404, donc
+ *   toute reponse locale en text/html qui n'est pas une page (ni .html ni /)
+ *   echoue ;
  * - pas de WebGL (le repli), ou la machine demandee qui n'est pas celle
  *   utilisee ;
  * - la racine .v4-root qui a defile (la page part au noir, l'audit RS-1).
@@ -153,7 +157,18 @@ async function check(browser, base, machine, phone) {
     problems.push(`request failed: ${why} ${u}`);
   });
   page.on('response', (r) => {
-    if (r.status() >= 400 && r.url().startsWith(base)) problems.push(`http ${r.status()} ${r.url()}`);
+    const u = r.url();
+    if (!u.startsWith(base)) return;
+    if (r.status() >= 400) {
+      problems.push(`http ${r.status()} ${u}`);
+      return;
+    }
+    // Un sample, un JSON, une image renommes (2026-10-22, la revue) : le repli SPA de vite rend index.html en 200, une
+    // reponse que le 4xx ne voit pas ; une page n'est que document (ou un chemin en .html ou /)
+    const where = new URL(u).pathname;
+    if (r.request().resourceType() !== 'document' && /text\/html/i.test(r.headers()['content-type'] || '') && !/(\.html|\/)$/.test(where)) {
+      problems.push(`missing (SPA fallback) ${u}`);
+    }
   });
   const url = `${base}/?mute=1&debug=1&m=${machine}${machine === 'bass' ? '&bass=1' : ''}${phone ? '&portrait=1' : ''}`;
   const t0 = Date.now();
