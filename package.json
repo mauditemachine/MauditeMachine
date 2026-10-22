@@ -16,7 +16,9 @@
     "samples:import": "node scripts/import-rytm-samples.mjs",
     "samples:ableton": "node scripts/ableton-samples.mjs",
     "samples:mika": "node scripts/ableton-samples.mjs --publish",
-    "docs:midi": "node scripts/midi-reference.mjs"
+    "docs:midi": "node scripts/midi-reference.mjs",
+    "arp:bench": "node scripts/arp-bench.mjs",
+    "arp:params": "node scripts/arp-params.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
