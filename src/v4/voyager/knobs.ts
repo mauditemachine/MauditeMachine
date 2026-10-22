@@ -41,7 +41,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
-import { LIT, TEMPO_UI } from '../theme';
+import { LIT, PORTRAIT, TEMPO_UI } from '../theme';
 import { VOY_FACE_KNOBS, type VoyKnobId } from './params';
 import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
 
@@ -54,6 +54,22 @@ const scl = new Vector3();
 const PANEL_M = new Matrix4().compose(new Vector3(0, VOY_PANEL.cy, VOY_PANEL.cz), new Quaternion().setFromEuler(new Euler(VOY_PANEL.angle, 0, 0)), new Vector3(1, 1, 1));
 /** Les potards de la face, sans les boutons poussoirs (SUB OCT, 2026-10-11). */
 const DIALS = VOY_FACE_KNOBS.filter((k) => !isPush(k.id));
+
+/**
+ * La moitie de l'ecart au plus proche voisin de la meme rangee (meme plan, z a 0.3 pres ; les poussoirs compris), en
+ * unites : la demi-colonne d'un potard (2026-10-22, ses zones au telephone).
+ */
+function rowHalfGap(id: VoyKnobId): number {
+  const me = voyKnobPlace(id);
+  let gap = Infinity;
+  for (const k of VOY_FACE_KNOBS) {
+    if (k.id === id) continue;
+    const o = voyKnobPlace(k.id);
+    if (o.where !== me.where || Math.abs(o.z - me.z) > 0.3) continue;
+    gap = Math.min(gap, Math.abs(o.x - me.x));
+  }
+  return Number.isFinite(gap) ? gap / 2 : 0;
+}
 
 export function buildKnobGeometry(mobile: boolean): BufferGeometry {
   const K = VOY_KNOB;
@@ -140,15 +156,21 @@ export class VoyKnobs {
       // Un commutateur se prend aussi par ses reperes (12, 24) : sa cible deborde
       // Au telephone, au moins la demi-colonne (2026-10-07) : un doigt l'attrape sans viser la jupe
       const r = Math.max(VOY_KNOB.touchR, VOY_KNOB.skirt.r * pl.s + (isSwitch(k.id) ? VOY_SWITCH.markR * 0.6 : 0));
+      // Au telephone (2026-10-22, audit SB-03 : 33 x 35 px au pas de 29) : la zone descend jusque sous son nom, une boite
+      // de la largeur du disque ; la voisine reste departagee par le centre le plus proche (hit.ts)
+      const bottom = PORTRAIT ? Math.max(pl.z + r, pl.labelZ + 0.1) : pl.z + r;
+      const box = bottom > pl.z + r + 1e-3;
+      // et en largeur jusqu'au milieu de l'air avec ses voisins de rangee (la colonne entiere ; 0.02 de jour)
+      const hx = box ? Math.max(r, rowHalfGap(k.id) - 0.02) : r;
       return {
         id: `vk-${k.id}`,
         kind: 'vknob' as const,
         layer: pl.where === 'panel' ? panel : deck,
-        shape: 'disc' as const,
+        shape: box ? ('box' as const) : ('disc' as const),
         x: pl.x,
-        z: pl.z,
-        hx: r,
-        hz: r,
+        z: box ? (pl.z - r + bottom) / 2 : pl.z,
+        hx,
+        hz: box ? (bottom - (pl.z - r)) / 2 : r,
         y0: 0,
         y1: (VOY_KNOB.skirt.h + VOY_KNOB.h) * pl.s,
         enabled: true,
