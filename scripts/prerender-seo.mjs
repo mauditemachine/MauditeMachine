@@ -79,6 +79,7 @@ import {
   artistScript,
 } from './seo-shared.mjs';
 import { MM_STUDIO_PAGES, MM_STUDIO_APP_ID, MM_STUDIO_MACHINES, MM_STUDIO_SHOTS, MM_STUDIO_FEATURES, MM_STUDIO_OG_ALT, clusterOf, englishOf } from './mm-studio-content.mjs';
+import { PATTERNS, midiOf, midiPath, imagePath, patternSvg, patternCheck } from './mm-studio-patterns.mjs';
 
 const DIST = join(ROOT, 'dist');
 /** L'image d'apercu du site (1200 x 630, la photo booth-blue recadree, declaree dans index.html). */
@@ -273,6 +274,8 @@ const NAV_LINKS = [
   ['Home', '/'],
   // 2026-10-11 : les pages de MM-STUDIO (la machine de l'accueil)
   ['MM-STUDIO', '/mm-studio/'],
+  // 2026-10-21 : les motifs par style (scripts/mm-studio-patterns.mjs)
+  ['Drum patterns', '/mm-studio/drum-patterns/'],
   ['Tracks', '/tracks/'],
   ['Mixtapes', '/mixtapes/'],
   ['Shows', '/shows/'],
@@ -296,6 +299,8 @@ const STUDIO_LINKS = {
     ['MM-RYTM drum machine', '/mm-studio/drum-machine/'],
     ['MM-ARP synth and arpeggiator', '/mm-studio/synth/'],
     ['MM-DECKS DJ decks and mixer', '/mm-studio/dj-decks/'],
+    // 2026-10-21 (audit SEO IMP5) : les motifs par style
+    ['Drum patterns for 10 electronic styles, with MIDI files', '/mm-studio/drum-patterns/'],
   ],
 };
 
@@ -720,7 +725,7 @@ function contentFor(route) {
         // 2026-10-11 : la machine de cette page, ses pages et ses machines
         h2('MM-STUDIO'),
         p(
-          'This home page is MM-STUDIO by Maudite Machine, a 3D studio you play in the browser for free: the MM-RYTM drum machine, the MM-ARP synth and the MM-DECKS DJ decks, all in time. Mika designed and built every machine, and MIDI controllers and the Roto-Control work with all of them.',
+          'This home page is MM-STUDIO by Maudite Machine, a 3D studio you play in the browser for free: the MM-RYTM drum machine, the MM-ARP synth and the MM-DECKS DJ decks, all in time. Mika designed and built every machine, and MIDI controllers and the Roto-Control work with all of them. SHARE, in the header, turns your beat into a link that opens it for anyone.',
         ),
         ul(STUDIO_LINKS.en.map(([t, path]) => a(t, `${SITE}${path}`))),
         h2('Upcoming shows'),
@@ -1281,7 +1286,33 @@ const STUDIO_UI = {
 /** Le complement du CSS partage (listes numerotees, fil d'Ariane, capture). */
 const STUDIO_CSS = `ol{padding-left:22px;margin:0}
 .crumbs{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin:32px 0 0}.crumbs+h1{margin-top:12px}
-figure{margin:28px 0 0}figure img{display:block;width:100%;height:auto;border-radius:12px}`;
+figure{margin:28px 0 0}figure img{display:block;width:100%;height:auto;border-radius:12px}
+h3{font-size:17px;font-weight:600;margin:22px 0 4px}h3+p{margin-top:0}
+.grid-wrap{overflow-x:auto;margin:8px 0 6px;-webkit-overflow-scrolling:touch}
+.grid{border-collapse:separate;border-spacing:2px;font-size:12px;font-variant-numeric:tabular-nums;min-width:520px}
+.grid-note{font-size:14px;color:#6B655B;margin:0 0 6px}
+.grid th{font-weight:600;font-size:11px;padding:2px 4px;white-space:nowrap;text-align:left;color:#6B655B}
+.grid thead th{text-align:center}.grid td{width:24px;height:24px;text-align:center;border-radius:4px;background:#ECE5D8;color:#191919;font-weight:600}
+.grid .b{box-shadow:inset 2px 0 0 #DDD5C6}
+.grid td[data-v="1"],.grid td[data-v="2"],.grid td[data-v="3"]{background:#F3C9A9}
+.grid td[data-v="4"],.grid td[data-v="5"],.grid td[data-v="6"]{background:#F79A5E}
+.grid td[data-v="7"],.grid td[data-v="8"],.grid td[data-v="9"]{background:#FF6A13}`;
+
+/*
+ * 2026-10-21 (audit SEO IMP7) : la FAQ d'une page de machine, en HTML (h3 et reponse) et en FAQPage (JSON-LD) : le
+ * meme texte, ses liens [texte](/chemin/) rendus en vrais liens dans la page et en texte simple dans le JSON-LD.
+ */
+const plain = (text) => String(text).replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1');
+const faqLd = (page, faq) => ({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${SITE}${page.path}#faq`,
+  inLanguage: page.lang,
+  mainEntity: faq.map(([q, ans]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: plain(ans) } })),
+});
+
+/** Les images des pages de motifs ecrites au build (leur chemin), pour savoir lesquelles existent (2026-10-21). */
+const PATTERN_IMAGES = new Set();
 
 /** Un chemin du site (/press/) en adresse absolue ; une adresse complete reste telle quelle. */
 const siteHref = (href) => (href.startsWith('/') ? `${SITE}${href}` : href);
@@ -1379,15 +1410,42 @@ function studioAlternates(cluster) {
   ].join('\n    ');
 }
 
+/**
+ * Ce dont parle une page de motifs (2026-10-21) : le hub, la liste de ses styles ; une page de style, le motif (une
+ * CreativeWork de Maudite Machine, jouee sur MM-RYTM), son fichier MIDI et son lien jouable.
+ */
+function patternEntity(page) {
+  if (!page.pattern) {
+    const list = MM_STUDIO_PAGES.filter((p) => p.lang === page.lang && p.pattern);
+    return { '@type': 'ItemList', numberOfItems: list.length, itemListElement: list.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: `${SITE}${p.path}`, name: p.h1 })) };
+  }
+  const g = page.pattern;
+  return {
+    '@type': 'CreativeWork',
+    '@id': `${SITE}${page.path}#pattern`,
+    name: page.h1,
+    description: page.description,
+    inLanguage: page.lang,
+    author: ARTIST_REF,
+    about: { '@id': machineAppId('rytm') },
+    genre: g.name.en,
+    associatedMedia: { '@type': 'MediaObject', name: `${g.name.en} drum pattern, MIDI`, contentUrl: `${SITE}${midiPath(g)}`, encodingFormat: 'audio/midi' },
+    ...(page.cta?.href ? { url: page.cta.href } : {}),
+  };
+}
+
 /** Une page de MM-STUDIO, complete. */
 function studioPage(page) {
   const url = `${SITE}${page.path}`;
   const ui = STUDIO_UI[page.lang];
   const hub = clusterOf('hub').find((p) => p.lang === page.lang);
   const isHub = page.cluster === 'hub';
-  const image = studioImage(page);
+  const patternImage = page.image && PATTERN_IMAGES.has(page.image) ? { url: `${SITE}${page.image}`, width: 1200, height: 630, type: 'image/jpeg', alt: page.imageAlt } : null;
+  const image = patternImage ?? studioImage(page);
   const shot = studioShot(page.cluster);
-  const mainEntity = isHub ? (page.lang === 'en' ? studioApp(page) : { '@id': MM_STUDIO_APP_ID }) : machineApp(page);
+  // Les pages de motifs (2026-10-21) : elles parlent du MM-RYTM ; le hub de motifs est leur liste
+  const isMachine = !!MM_STUDIO_MACHINES[page.cluster] && !isHub;
+  const mainEntity = isHub ? (page.lang === 'en' ? studioApp(page) : { '@id': MM_STUDIO_APP_ID }) : isMachine ? machineApp(page) : patternEntity(page);
   const ldPage = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
@@ -1399,18 +1457,23 @@ function studioPage(page) {
     isPartOf: { '@id': `${SITE}/#website` },
     author: ARTIST_REF,
     mainEntity,
-    ...(shot ? { primaryImageOfPage: { '@type': 'ImageObject', url: shot.url } } : {}),
+    ...(shot ? { primaryImageOfPage: { '@type': 'ImageObject', url: shot.url } } : patternImage ? { primaryImageOfPage: { '@type': 'ImageObject', url: patternImage.url, width: 1200, height: 630 } } : {}),
   };
-  const crumbs = [['Maudite Machine', ui.home], ['MM-STUDIO', `${SITE}${hub.path}`], ...(isHub ? [] : [[page.h1, url]])];
+  const trail = page.crumbs ?? (isHub ? [] : [[page.h1, page.path]]);
+  const crumbs = [['Maudite Machine', ui.home], ['MM-STUDIO', `${SITE}${hub.path}`], ...trail.map(([n, path]) => [n, `${SITE}${path}`])];
   const langLinks = clusterOf(page.cluster)
     .map((p) => `<a href="${SITE}${p.path}" hreflang="${p.lang}"${p.lang === page.lang ? ' aria-current="page"' : ''}>${p.lang.toUpperCase()}</a>`)
     .join('');
   const sections = page.sections
-    .map((s) => {
+    .map((s, i) => {
+      // Le HTML pret d'une page de motifs (sa grille) : apres l'introduction, sa premiere section
+      const extra = i === 1 && page.html ? page.html : '';
       const list = s.items?.length ? `<${s.ordered ? 'ol' : 'ul'}>${s.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${s.ordered ? 'ol' : 'ul'}>` : '';
-      return [s.h2 ? `<h2>${esc(s.h2)}</h2>` : '', ...(s.paragraphs ?? []).map((x) => `<p>${inline(x)}</p>`), list].filter(Boolean).join('\n      ');
+      const faq = (s.faq ?? []).map(([q, ans]) => `<h3>${esc(q)}</h3><p>${inline(ans)}</p>`).join('\n      ');
+      return [extra, s.h2 ? `<h2>${esc(s.h2)}</h2>` : '', ...(s.paragraphs ?? []).map((x) => `<p>${inline(x)}</p>`), list, faq].filter(Boolean).join('\n      ');
     })
     .join('\n      ');
+  const faqs = page.sections.flatMap((s) => s.faq ?? []);
   return `<!DOCTYPE html>
 <html lang="${page.lang}">
   <head>
@@ -1446,12 +1509,13 @@ ${STUDIO_CSS}</style>
     ${artistScript()}
     ${ld(ldPage)}
     ${ld(breadcrumb(crumbs))}
+    ${faqs.length ? ld(faqLd(page, faqs)) : ''}
     ${GTAG_TAGS}
   </head>
   <body>
     <div class="top"><a href="${ui.home}"><img src="/logo/mauditemachine-logo-ink.svg" alt="Maudite Machine" width="140" height="24" /></a><nav class="langs" aria-label="${escapeAttr(ui.langs)}">${langLinks}</nav></div>
     <main>
-      ${isHub ? '' : `<nav class="crumbs" aria-label="${escapeAttr(ui.crumbs)}"><a href="${SITE}${hub.path}">MM-STUDIO</a> / ${esc(page.h1)}</nav>\n      `}<h1>${esc(page.h1)}</h1>
+      ${isHub ? '' : `<nav class="crumbs" aria-label="${escapeAttr(ui.crumbs)}"><a href="${SITE}${hub.path}">MM-STUDIO</a>${trail.map(([n, path], i) => (i < trail.length - 1 ? ` / <a href="${SITE}${path}">${esc(n)}</a>` : ` / ${esc(n)}`)).join('')}</nav>\n      `}<h1>${esc(page.h1)}</h1>
       <p class="lead">${esc(page.lead)}</p>
       ${sections}
       ${shot ? `<figure><img src="${shot.path}" alt="${escapeAttr(page.imageAlt)}" width="${shot.width}" height="${shot.height}" loading="lazy" /></figure>\n      ` : ''}<a class="cta" href="${escapeAttr(page.cta.href)}">${esc(page.cta.text)}</a>
@@ -1528,7 +1592,22 @@ for (const t of DISCO) {
 // Les pages en francais et en espagnol (des pages simples, sans la machine)
 for (const lang of ['fr', 'es']) writePage(lang, langPage(lang));
 
-// Les pages de MM-STUDIO (2026-10-11) : le hub et ses trois machines, en EN, FR et ES
+// Les motifs (2026-10-21) : un fichier MIDI par style, et son image de partage (sharp ; sans lui, la carte MM-STUDIO)
+for (const g of PATTERNS) {
+  try {
+    mkdirSync(join(DIST, midiPath(g), '..'), { recursive: true });
+    writeFileSync(join(DIST, midiPath(g)), midiOf(`${g.name.en} drum pattern, MM-RYTM by Maudite Machine`, g.bpm, g.swing, g.steps));
+    if (sharp) {
+      await sharp(Buffer.from(patternSvg(g))).jpeg({ quality: 84, progressive: true, mozjpeg: true }).toFile(join(DIST, imagePath(g)));
+      PATTERN_IMAGES.add(imagePath(g));
+    }
+  } catch (e) {
+    console.warn(`ATTENTION : motif ${g.slug} : ${e instanceof Error ? e.message : e}`);
+  }
+}
+for (const w of patternCheck()) console.warn(`ATTENTION : texte de motif a relire : ${w}`);
+
+// Les pages de MM-STUDIO (2026-10-11) : le hub et ses trois machines, en EN, FR et ES ; les motifs (2026-10-21)
 for (const page of MM_STUDIO_PAGES) writePage(page.path.replace(/^\/|\/$/g, ''), studioPage(page));
 
 // L'accueil : son contenu, les dates a venir, ses versions FR / ES et MM-STUDIO, dans dist/index.html meme ; son image

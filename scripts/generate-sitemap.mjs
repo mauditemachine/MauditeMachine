@@ -76,8 +76,10 @@ const ROUTES = [
 
 // MM-STUDIO (2026-10-11) : le hub et ses machines, apres les sections de la machine
 const studioShot = (key) => (MM_STUDIO_SHOTS[key] && inPublic(MM_STUDIO_SHOTS[key].path) ? [`${SITE}${MM_STUDIO_SHOTS[key].path}`] : []);
+// 2026-10-21 : les pages de motifs (scripts/mm-studio-patterns.mjs), avec l'image de leur grille ecrite par le prerender
+const builtImage = (path) => (path && existsSync(join(ROOT, 'dist', path.replace(/^\//, ''))) ? [`${SITE}${path}`] : []);
 for (const page of MM_STUDIO_PAGES) {
-  ROUTES.push({ path: page.path, changefreq: 'monthly', images: studioShot(page.cluster), cluster: page.cluster });
+  ROUTES.push({ path: page.path, changefreq: 'monthly', images: [...studioShot(page.cluster), ...builtImage(page.image)], cluster: page.cluster });
 }
 
 /**

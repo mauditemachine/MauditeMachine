@@ -19,6 +19,8 @@ MM-STUDIO by Maudite Machine is free in the browser, with no account and nothing
 - [MM-DECKS](https://mauditemachine.com/mm-studio/dj-decks/): two to four DJ decks and a mixer (GAIN -12 to +12 dB, three band EQ, VU meters) that also takes MM-RYTM and MM-ARP, with a sampler in each deck
 - MIDI: every parameter can be assigned with MIDI LEARN (Web MIDI: Chrome, Edge, Opera, Firefox); ready-made setups for a Melbourne Instruments Roto-Control, downloaded from the MIDI panel and imported in ROTO-SETUP, with no MIDI LEARN needed
 - UNDO and REDO, presets saved in the browser, Dark and Light appearances
+- SHARE: the MM-RYTM beat as a link (https://mauditemachine.com/?m=rytm&b=...) that opens it, steps, sounds and effects included
+- [Drum patterns](https://mauditemachine.com/mm-studio/drum-patterns/): ten styles (acid house, dark disco, indie dance, minimal, rolling techno, techno, house, electro, EBM, italo disco), each with its 16-step grid and velocities, a MIDI file and a link that plays it on MM-RYTM; also in [French](https://mauditemachine.com/fr/mm-studio/rythmes/) and [Spanish](https://mauditemachine.com/es/mm-studio/ritmos/)
 - Requires WebGL 2 and the Web Audio API; a plain HTML version opens without WebGL 2
 - Overview: [MM-STUDIO](https://mauditemachine.com/mm-studio/), also in [French](https://mauditemachine.com/fr/mm-studio/) and [Spanish](https://mauditemachine.com/es/mm-studio/)
 

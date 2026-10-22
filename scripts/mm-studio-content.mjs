@@ -41,6 +41,8 @@
  * https://mauditemachine.com devant).
  */
 
+import { PATTERN_PAGES } from './mm-studio-patterns.mjs';
+
 export const SITE = 'https://mauditemachine.com';
 
 /** Le @id de l'application MM-STUDIO (le hub anglais le decrit, les autres pages le citent). */
@@ -134,7 +136,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'hub',
     lang: 'en',
     path: '/mm-studio/',
-    title: 'MM-STUDIO | Drum Machine, Synth and DJ Decks in Your Browser',
+    title: 'MM-STUDIO | Free Drum Machine, Synth and DJ Decks Online',
     description:
       'Play a 3D studio in your browser: MM-RYTM drum machine with p-locks, MM-ARP synth with arpeggiator, MM-DECKS DJ decks and mixer. Free, works with MIDI.',
     h1: 'MM-STUDIO',
@@ -340,7 +342,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'rytm',
     lang: 'en',
     path: '/mm-studio/drum-machine/',
-    title: 'MM-RYTM | Online Drum Machine with P-Locks | MM-STUDIO',
+    title: 'Free Online Drum Machine with P-Locks | MM-RYTM',
     description:
       'MM-RYTM is a free drum machine in your browser: 8 voices, 16 steps, parameter locks, 16 patterns, a sample or synth layer per voice, effects and MIDI.',
     h1: 'MM-RYTM',
@@ -408,7 +410,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'rytm',
     lang: 'fr',
     path: '/fr/mm-studio/boite-a-rythmes/',
-    title: 'MM-RYTM | Boîte à rythmes en ligne avec P-locks | MM-STUDIO',
+    title: 'Boîte à rythmes en ligne gratuite avec P-locks | MM-RYTM',
     description:
       'MM-RYTM, boîte à rythmes gratuite dans le navigateur : 8 voix, 16 pas, P-locks, 16 patterns, une couche sample ou synthé par voix, des effets et le MIDI.',
     h1: 'MM-RYTM',
@@ -476,7 +478,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'rytm',
     lang: 'es',
     path: '/es/mm-studio/caja-de-ritmos/',
-    title: 'MM-RYTM | Caja de ritmos online con P-locks | MM-STUDIO',
+    title: 'Caja de ritmos online gratis con P-locks | MM-RYTM',
     description:
       'MM-RYTM, caja de ritmos gratis en el navegador: 8 voces, 16 pasos, P-locks, 16 patrones, una capa de sample o de síntesis por voz, efectos y MIDI.',
     h1: 'MM-RYTM',
@@ -546,7 +548,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'arp',
     lang: 'en',
     path: '/mm-studio/synth/',
-    title: 'MM-ARP | Browser Synth with Arpeggiator | MM-STUDIO',
+    title: 'Free Online Synth with Arpeggiator | MM-ARP',
     description:
       'MM-ARP is a free synth in your browser: two oscillators and a sub, a ladder filter, an arpeggiator, eight chord pads in F# minor, effects and MIDI.',
     h1: 'MM-ARP',
@@ -613,7 +615,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'arp',
     lang: 'fr',
     path: '/fr/mm-studio/synthe/',
-    title: 'MM-ARP | Synthé en ligne avec arpégiateur | MM-STUDIO',
+    title: 'Synthé en ligne gratuit avec arpégiateur | MM-ARP',
     description:
       "MM-ARP, synthé gratuit dans le navigateur : deux oscillateurs et un sub, filtre ladder, arpégiateur, huit pads d'accords en fa dièse mineur, effets et MIDI.",
     h1: 'MM-ARP',
@@ -680,7 +682,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'arp',
     lang: 'es',
     path: '/es/mm-studio/sintetizador/',
-    title: 'MM-ARP | Sintetizador online con arpegiador | MM-STUDIO',
+    title: 'Sintetizador online gratis con arpegiador | MM-ARP',
     description:
       'MM-ARP, sintetizador gratis en el navegador: dos osciladores y un sub, filtro ladder, arpegiador, ocho pads de acordes en fa sostenido menor, efectos y MIDI.',
     h1: 'MM-ARP',
@@ -749,7 +751,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'decks',
     lang: 'en',
     path: '/mm-studio/dj-decks/',
-    title: 'MM-DECKS | DJ Decks and Mixer in Your Browser | MM-STUDIO',
+    title: 'Free Online DJ Mixer, 2 to 4 Decks | MM-DECKS',
     description:
       'MM-DECKS: free DJ decks and mixer in your browser. Mix Maudite Machine tracks, SoundCloud or your own files, with sync, loops, EQ and a sampler in each deck.',
     h1: 'MM-DECKS',
@@ -816,7 +818,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'decks',
     lang: 'fr',
     path: '/fr/mm-studio/platines-dj/',
-    title: 'MM-DECKS | Platines DJ et table de mixage en ligne',
+    title: 'Platines DJ et table de mixage en ligne gratuites | MM-DECKS',
     description:
       'MM-DECKS, platines DJ et table de mixage gratuites dans le navigateur : mixez Maudite Machine, SoundCloud ou vos fichiers, avec sync, boucles, EQ et sampler.',
     h1: 'MM-DECKS',
@@ -883,7 +885,7 @@ export const MM_STUDIO_PAGES = [
     cluster: 'decks',
     lang: 'es',
     path: '/es/mm-studio/platos-dj/',
-    title: 'MM-DECKS | Platos DJ y mesa de mezclas online | MM-STUDIO',
+    title: 'Platos DJ y mesa de mezclas online gratis | MM-DECKS',
     description:
       'MM-DECKS, platos DJ y mesa de mezclas gratis en el navegador: mezcla temas de Maudite Machine, SoundCloud o tus archivos, con sync, loops, EQ y sampler.',
     h1: 'MM-DECKS',
@@ -947,6 +949,112 @@ export const MM_STUDIO_PAGES = [
     imageAlt: 'Los platos DJ y la mesa de mezclas MM-DECKS de MM-STUDIO by Maudite Machine, en 3D',
   },
 ];
+
+/*
+ * 2026-10-21 (audit SEO IMP7 et IMP9, Mika : "je veux vraiment que tu travailles sur un referencement plus que complet
+ * ! je veux du monde dans mon site !") :
+ * - une FAQ par page de machine, les vraies questions de quelqu'un qui arrive d'une recherche (gratuit, telephone,
+ *   MIDI, ses propres sons, ou tout est garde, partage, export), chaque reponse relue dans le code ce jour-la
+ *   (state/share.ts pour SHARE ; audio/usersamples.ts, les samples de ce navigateur jamais publies ; state/presets.ts,
+ *   99 presets ; dj/SamplerScreen.tsx, l'export WAV ; dj/TrackBrowser.tsx, les sources ; aucun service worker : le
+ *   site ne marche pas hors ligne, la FAQ ne le promet pas). Le prerender l'ecrit en HTML et en FAQPage (JSON-LD) ;
+ * - le maillage entre l'outil et l'artiste : chaque page de machine mene aux pages de motifs, et aux morceaux de
+ *   Maudite Machine ;
+ * - les pages de motifs par style (scripts/mm-studio-patterns.mjs), ajoutees a la liste : le prerender et le sitemap
+ *   les prennent comme les autres.
+ */
+const FAQ_TITLE = { en: 'Questions', fr: 'Questions fréquentes', es: 'Preguntas frecuentes' };
+
+const SHARE_A = {
+  en: 'Yes. Press SHARE in the header of MM-STUDIO: on a phone the share sheet opens, on a computer the link is copied. Whoever opens the link gets your beat on MM-RYTM, with its steps, velocities, tempo, sounds and effects. Parameter locks and the samples you loaded from your own files stay in your browser.',
+  fr: "Oui. Appuie sur SHARE dans l'en-tête de MM-STUDIO : au téléphone, la feuille de partage s'ouvre ; sur un ordinateur, le lien est copié. Qui ouvre le lien retrouve ton beat sur MM-RYTM, avec ses pas, ses vélocités, son tempo, ses sons et ses effets. Les P-locks et les samples chargés depuis tes fichiers restent dans ton navigateur.",
+  es: 'Sí. Pulsa SHARE en la cabecera de MM-STUDIO: en el móvil se abre el menú de compartir, en un ordenador se copia el enlace. Quien abra el enlace tendrá tu beat en MM-RYTM, con sus pasos, velocidades, tempo, sonidos y efectos. Los P-locks y los samples cargados desde tus archivos se quedan en tu navegador.',
+};
+
+const FAQ = {
+  '/mm-studio/drum-machine/': [
+    ['Is MM-RYTM free?', 'Yes. MM-RYTM is free, with no account, no download and no plug-in: it runs in your browser, on a computer or a phone.'],
+    ['Can I share my beat?', SHARE_A.en],
+    ['Does it work on an iPhone or an Android phone?', 'Yes. On a phone MM-RYTM has its own portrait layout, with the pads, the steps and the screen at finger size. MIDI controllers need Chrome, Edge, Opera or Firefox on a computer: Safari and iOS have no Web MIDI.'],
+    ['Can I use my own samples?', 'Yes. Drop a WAV file on the sound list of the screen, or pick a file: the sample joins the list of its voice. It stays in this browser and is never uploaded.'],
+    ['Where are my patterns saved?', 'In your browser. The pattern you are working on is kept between visits, SAVE keeps up to 99 presets per machine, and UNDO in the header steps back through your changes. Clearing the browser data erases them, so share a link to keep a copy.'],
+    ['Can I export a WAV or a MIDI file?', 'MM-RYTM does not export audio itself. On a computer, the sampler of each MM-DECKS deck can record the MIXER, where MM-RYTM plays, and save the loop as a WAV file. Each [drum pattern page](/mm-studio/drum-patterns/) has a MIDI file of its style.'],
+  ],
+  '/fr/mm-studio/boite-a-rythmes/': [
+    ['MM-RYTM est-il gratuit ?', "Oui. MM-RYTM est gratuit, sans compte, sans téléchargement ni plug-in : il tourne dans ton navigateur, sur un ordinateur ou un téléphone."],
+    ['Je peux partager mon beat ?', SHARE_A.fr],
+    ['Ça marche sur iPhone ou Android ?', "Oui. Au téléphone, MM-RYTM a sa propre disposition en hauteur, pads, pas et écran à la taille du doigt. Les contrôleurs MIDI demandent Chrome, Edge, Opera ou Firefox sur un ordinateur : Safari et iOS n'ont pas le Web MIDI."],
+    ['Je peux utiliser mes propres samples ?', "Oui. Dépose un fichier WAV sur la liste des sons de l'écran, ou choisis un fichier : le sample rejoint la liste de sa voix. Il reste dans ce navigateur et n'est jamais envoyé en ligne."],
+    ['Où sont gardés mes rythmes ?', "Dans ton navigateur. Le rythme en cours est gardé d'une visite à l'autre, SAVE garde jusqu'à 99 presets par machine et UNDO, dans l'en-tête, revient sur tes changements. Effacer les données du navigateur les efface : partage un lien pour en garder une copie."],
+    ['Je peux exporter en WAV ou en MIDI ?', "MM-RYTM n'exporte pas l'audio lui-même. Sur un ordinateur, le sampler de chaque platine de MM-DECKS enregistre le MIXER, où joue MM-RYTM, et garde la boucle en fichier WAV. Chaque [page de rythme](/fr/mm-studio/rythmes/) a le fichier MIDI de son style."],
+  ],
+  '/es/mm-studio/caja-de-ritmos/': [
+    ['¿MM-RYTM es gratis?', 'Sí. MM-RYTM es gratis, sin cuenta, sin descargas ni plug-ins: funciona en tu navegador, en un ordenador o en el móvil.'],
+    ['¿Puedo compartir mi beat?', SHARE_A.es],
+    ['¿Funciona en iPhone o Android?', 'Sí. En el móvil MM-RYTM tiene su propia disposición en vertical, con pads, pasos y pantalla al tamaño del dedo. Los controladores MIDI necesitan Chrome, Edge, Opera o Firefox en un ordenador: Safari e iOS no tienen Web MIDI.'],
+    ['¿Puedo usar mis propios samples?', 'Sí. Suelta un archivo WAV sobre la lista de sonidos de la pantalla o elige un archivo: el sample se suma a la lista de su voz. Se queda en este navegador y nunca se sube.'],
+    ['¿Dónde se guardan mis ritmos?', 'En tu navegador. El ritmo en curso se guarda entre visitas, SAVE guarda hasta 99 presets por máquina y UNDO, en la cabecera, deshace tus cambios. Borrar los datos del navegador los borra: comparte un enlace para guardar una copia.'],
+    ['¿Puedo exportar en WAV o MIDI?', 'MM-RYTM no exporta audio por sí mismo. En un ordenador, el sampler de cada plato de MM-DECKS graba el MIXER, donde suena MM-RYTM, y guarda el bucle como archivo WAV. Cada [página de ritmo](/es/mm-studio/ritmos/) tiene el archivo MIDI de su estilo.'],
+  ],
+  '/mm-studio/synth/': [
+    ['Is MM-ARP free?', 'Yes. MM-ARP is free, with no account and nothing to install: it runs in your browser, on a computer or a phone.'],
+    ['Do I need to know music theory?', 'No. The eight chord pads are already in F# minor and the arpeggiator plays them in time: touch a pad and it plays.'],
+    ['Does it follow the drum machine?', 'Yes. MM-ARP runs at the tempo of MM-STUDIO, and its SIDECHAIN ducks the synth on the kick of MM-RYTM.'],
+    ['Can I use a MIDI controller?', 'Yes. Every knob and pad can be assigned with MIDI LEARN (Chrome, Edge, Opera or Firefox on a computer), and the MIDI panel has a ready-made Roto-Control setup.'],
+    ['Where are my sounds saved?', 'In your browser. SAVE keeps the patch, the arpeggio and the chords as a preset (up to 99), and UNDO in the header steps back through your changes.'],
+  ],
+  '/fr/mm-studio/synthe/': [
+    ['MM-ARP est-il gratuit ?', 'Oui. MM-ARP est gratuit, sans compte et sans rien à installer : il tourne dans ton navigateur, sur un ordinateur ou un téléphone.'],
+    ['Il faut connaître le solfège ?', "Non. Les huit pads d'accords sont déjà en fa dièse mineur et l'arpégiateur les joue en rythme : tu touches un pad, il joue."],
+    ['Il suit la boîte à rythmes ?', 'Oui. MM-ARP tourne au tempo de MM-STUDIO, et son SIDECHAIN fait respirer le synthé sur le kick de MM-RYTM.'],
+    ['Je peux brancher un contrôleur MIDI ?', 'Oui. Chaque potard et chaque pad se règle avec MIDI LEARN (Chrome, Edge, Opera ou Firefox sur un ordinateur), et le panneau MIDI a un setup Roto-Control prêt.'],
+    ['Où sont gardés mes sons ?', "Dans ton navigateur. SAVE garde le patch, l'arpège et les accords en preset (jusqu'à 99), et UNDO, dans l'en-tête, revient sur tes changements."],
+  ],
+  '/es/mm-studio/sintetizador/': [
+    ['¿MM-ARP es gratis?', 'Sí. MM-ARP es gratis, sin cuenta y sin nada que instalar: funciona en tu navegador, en un ordenador o en el móvil.'],
+    ['¿Hace falta saber teoría musical?', 'No. Los ocho pads de acordes ya están en fa sostenido menor y el arpegiador los toca a tempo: tocas un pad y suena.'],
+    ['¿Sigue a la caja de ritmos?', 'Sí. MM-ARP va al tempo de MM-STUDIO y su SIDECHAIN hace respirar el sintetizador con el bombo de MM-RYTM.'],
+    ['¿Puedo usar un controlador MIDI?', 'Sí. Cada potenciómetro y cada pad se asigna con MIDI LEARN (Chrome, Edge, Opera o Firefox en un ordenador), y el panel MIDI tiene un setup de Roto-Control listo.'],
+    ['¿Dónde se guardan mis sonidos?', 'En tu navegador. SAVE guarda el patch, el arpegio y los acordes como preset (hasta 99), y UNDO, en la cabecera, deshace tus cambios.'],
+  ],
+  '/mm-studio/dj-decks/': [
+    ['Is MM-DECKS free?', 'Yes. MM-DECKS is free, with no account and nothing to install: it runs in your browser.'],
+    ['Which tracks can I play?', "Maudite Machine's own tracks (MAUDITE), SoundCloud tracks, your own SoundCloud (MY SC), your own audio files (FILES) and your playlists. Nothing you load from your computer is uploaded."],
+    ['Does it sync with the drum machine and the synth?', 'Yes. MM-RYTM and MM-ARP come into the mixer, and the decks follow the tempo of the machines that play.'],
+    ['Does it work on a phone?', 'On a phone held upright, MM-DECKS becomes MM-MIXER, the mixer of the machines, without the decks. The decks themselves are for a computer or a phone turned sideways.'],
+    ['Can I record my mix?', 'Each deck has a sampler that can record its deck or the MIXER, slice the loop and save it as a WAV file.'],
+  ],
+  '/fr/mm-studio/platines-dj/': [
+    ['MM-DECKS est-il gratuit ?', 'Oui. MM-DECKS est gratuit, sans compte et sans rien à installer : il tourne dans ton navigateur.'],
+    ['Quels morceaux je peux jouer ?', "Les morceaux de Maudite Machine (MAUDITE), des morceaux SoundCloud, ton propre SoundCloud (MY SC), tes fichiers audio (FILES) et tes playlists. Rien de ce que tu charges depuis ton ordinateur n'est envoyé en ligne."],
+    ['Il se cale sur la boîte à rythmes et le synthé ?', 'Oui. MM-RYTM et MM-ARP arrivent dans la table de mixage, et les platines suivent le tempo des machines qui jouent.'],
+    ['Ça marche au téléphone ?', "Au téléphone tenu droit, MM-DECKS devient MM-MIXER, la table des machines, sans les platines. Les platines sont pour un ordinateur ou un téléphone tourné en largeur."],
+    ['Je peux enregistrer mon mix ?', 'Chaque platine a un sampler qui enregistre sa platine ou le MIXER, découpe la boucle et la garde en fichier WAV.'],
+  ],
+  '/es/mm-studio/platos-dj/': [
+    ['¿MM-DECKS es gratis?', 'Sí. MM-DECKS es gratis, sin cuenta y sin nada que instalar: funciona en tu navegador.'],
+    ['¿Qué temas puedo pinchar?', 'Los temas de Maudite Machine (MAUDITE), temas de SoundCloud, tu propio SoundCloud (MY SC), tus archivos de audio (FILES) y tus playlists. Nada de lo que cargas desde tu ordenador se sube.'],
+    ['¿Se sincroniza con la caja de ritmos y el sintetizador?', 'Sí. MM-RYTM y MM-ARP entran en la mesa de mezclas y los platos siguen el tempo de las máquinas que suenan.'],
+    ['¿Funciona en el móvil?', 'Con el móvil en vertical, MM-DECKS se vuelve MM-MIXER, la mesa de las máquinas, sin los platos. Los platos son para un ordenador o un móvil en horizontal.'],
+    ['¿Puedo grabar mi mezcla?', 'Cada plato tiene un sampler que graba su plato o el MIXER, trocea el bucle y lo guarda como archivo WAV.'],
+  ],
+};
+
+/** Les liens de chaque page de MM-STUDIO vers les pages de motifs et vers l'artiste (2026-10-21, IMP9). */
+const BRIDGE = {
+  en: ['[Drum patterns for 10 styles, with MIDI files](/mm-studio/drum-patterns/)', "[Listen to Maudite Machine's tracks](/tracks/)"],
+  fr: ['[Rythmes de batterie pour 10 styles, avec fichiers MIDI](/fr/mm-studio/rythmes/)', '[Écouter les morceaux de Maudite Machine](/tracks/)'],
+  es: ['[Ritmos de batería para 10 estilos, con archivos MIDI](/es/mm-studio/ritmos/)', '[Escuchar los temas de Maudite Machine](/tracks/)'],
+};
+
+for (const page of MM_STUDIO_PAGES) {
+  const last = page.sections[page.sections.length - 1];
+  const who = page.sections.find((x) => x.items?.some((i) => /\]\(\/(press|contact)\/\)/.test(i))) ?? last;
+  who.items = [...(who.items ?? []), ...BRIDGE[page.lang]];
+  const faq = FAQ[page.path];
+  if (faq) page.sections.splice(page.sections.indexOf(who), 0, { h2: FAQ_TITLE[page.lang], faq });
+}
+MM_STUDIO_PAGES.push(...PATTERN_PAGES);
 
 /** Les pages d'une meme famille (hub, rytm, arp, decks) : leurs hreflang. */
 export const clusterOf = (cluster) => MM_STUDIO_PAGES.filter((p) => p.cluster === cluster);
