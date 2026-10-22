@@ -562,6 +562,9 @@ export class VoyScreen {
     // Le rang qui joue s'il s'agit de cet accord (F#m F#m D E : le second F#m dit 2/4), sinon sa premiere place
     const at = s.slot >= 0 && s.prog[s.slot] === chord ? s.slot : s.prog.indexOf(chord);
     const where = !has ? 'NO CHORD' : at >= 0 ? `CHORD ${at + 1}/${s.prog.length}` : 'VIEW ONLY';
+    // Les formes courtes (2026-10-22, audit SB-09 : NO CHO. au telephone, coupe par le nom de la racine) ; sans accord, la
+    // ligne du bas dit deja TAP A CHORD PAD : rien plutot qu'un mot coupe
+    const whereShort = !has ? '' : at >= 0 ? `${at + 1}/${s.prog.length}` : 'VIEW';
 
     // Au milieu : l'echelle des notes (avant la ligne du dessus : elle s'arrete devant les noms des racines)
     const pv = arpPreview(chord, s.values, s.steps);
@@ -571,7 +574,10 @@ export class VoyScreen {
       // Le bord gauche du nom de racine le plus proche sur cette hauteur (revue du 2026-10-08 : NO CHORD touchait F#3)
       let wx = LAD_X0 - 6;
       for (const t of this.rootTags) if (t.y0 < wy + 1.5 && t.y1 > wy - FS.tiny - 1.5) wx = Math.min(wx, t.x0 - 4);
-      this.txt(this.clip(where, FS.tiny, 700, wx - 10), 10, wy, FS.tiny, HALF, 700);
+      const room = wx - 10;
+      const size = [FS.tiny, FS.tiny * 0.9].find((z) => this.width(where, z, 700) <= room);
+      if (size) this.txt(where, 10, wy, size, HALF, 700);
+      else if (whereShort) this.txt(this.clip(whereShort, FS.tiny, 700, room), 10, wy, FS.tiny, HALF, 700);
     }
 
     // A droite (desktop) : les sept reglages de l'arpegiateur, deux colonnes de blocs (le nom, la valeur dessous)
