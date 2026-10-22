@@ -661,7 +661,9 @@ export const shots = {
     enqueue(id, k, v, sr, pk, !failed, ov);
     let fb: (ShotPlay & { pk: number; key: string }) | null = null;
     if (!have || broken.has(key)) {
-      if (!have && !failed) void loadSample(smp);
+      // En echec aussi (2026-10-22, revue RA1-3) : loadSample relance un echec passager que plus rien ne retente (un
+      // sample de verrou), toutes les 10 s au plus, et seulement tant qu'un coup le demande ; sinon rien
+      if (!have) void loadSample(smp);
       const f = addFallback(id, tw, k, pk, sr, !!ov, true);
       const fk = cacheKey(id, k, 0, sr, pk, f.sig);
       const exact = touch(fk);

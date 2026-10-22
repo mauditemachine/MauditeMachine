@@ -152,7 +152,8 @@ export const samplesChanged = {
  *   en-tetes, puis chaque morceau du fichier rearme le delai : 2026-10-22, revue RA1-1, un telechargement lent qui
  *   avance n'est plus coupe) ;
  * - offline et storage se retentent seuls (RETRY_MS : 1 s, 4 s, 15 s, puis toutes les 10 s tant que le kit joue ce
- *   sample : un reseau qui revient sans le dire), et des que le reseau revient (window 'online', missing aussi ; un
+ *   sample : un reseau qui revient sans le dire ; hors kit, un sample de verrou, toutes les 10 s au plus tant qu'un
+ *   coup le demande : loadSample, 2026-10-22), et des que le reseau revient (window 'online', missing aussi ; un
  *   telechargement parti avant, encore en attente, repart lui aussi) ;
  *   missing une seule fois de plus (un deploiement qui renomme les fichiers pendant que la page est ouverte) ; bad et
  *   gone jamais ;
@@ -419,7 +420,10 @@ function start(key: string, s: Slot): Promise<SamplePcm | null> {
 
 /**
  * Telecharge et decode un echantillon (une fois) ; ses abonnes l'apprennent. Un echec ne se retente pas ici (les
- * essais suivants partent seuls, ou d'un choix explicite : requestSample) : null tout de suite.
+ * essais suivants partent seuls, ou d'un choix explicite : requestSample) : null tout de suite. Sauf un echec passager
+ * que plus rien ne retente (2026-10-22, revue RA1-3 : un sample joue seulement par un verrou, hors kit, n'avait que
+ * les trois essais de RETRY_MS ; un serveur en panne plus de 20 s, et le pas jouait la synthese pour la visite) : un
+ * coup qui le demande encore le relance, toutes les RETRY_KEPT_MS au plus.
  */
 export function loadSample(key: string): Promise<SamplePcm | null> {
   const hit = pcm.get(key);
@@ -428,7 +432,10 @@ export function loadSample(key: string): Promise<SamplePcm | null> {
   const s = slotOf(key);
   // Seulement un chargement en cours (2026-10-22, revue RA1-5) : une promesse d'un autre etat est depassee
   if (s.promise && s.state === 'loading') return s.promise;
-  if (s.state === 'failed') return Promise.resolve(null);
+  if (s.state === 'failed') {
+    const passing = s.why === 'offline' || s.why === 'storage';
+    if (!passing || s.timer || performance.now() - s.at < RETRY_KEPT_MS) return Promise.resolve(null);
+  }
   return start(key, s);
 }
 
