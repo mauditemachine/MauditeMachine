@@ -176,7 +176,7 @@ const PAR_X0 = DESK ? 222 : 0;
 export const INFO_I = { x: UW - 11, y: 10.5, r: DESK ? 5.4 : 6.4 } as const;
 /** Les corps (unites) */
 const FS = DESK
-  ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.2, parRow: 8.4, rung: 6.2 }
+  ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.2, parRow: 9, rung: 6.2 }
   : { head: 10.5, small: 8, tiny: 6.6, chord: 21, strip: 8, line: 8, par: 0, parRow: 0, rung: 6.2 };
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
@@ -590,8 +590,10 @@ export class VoyScreen {
       const gap = 3;
       const dy = (MAIN1 - y0 - gap) / rows.length;
       const x1 = UWr - 10;
-      const pl = Math.min(FS.par, dy * 0.66);
-      const pv = Math.min(FS.parRow, dy * 0.92);
+      // 2026-10-22 (relecture des captures) : la valeur prend la hauteur de sa ligne (dy 7.3 : 7.6 au lieu de 6.7, 12 px a
+      // 1440 x 900), le nom un rien plus grand ; 1.8 unite d'air entre deux lignes de capitales
+      const pl = Math.min(FS.par, dy * 0.7);
+      const pv = Math.min(FS.parRow, dy * 1.04);
       rows.forEach(([k, val], i) => {
         const y = y0 + dy * (i + 0.5) + (i >= 4 ? gap : 0) + pv * 0.36;
         const nw = this.txt(k, PAR_X0, y, pl, HALF, 700);
