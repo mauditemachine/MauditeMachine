@@ -633,6 +633,12 @@ export class Screen {
   private ctx: CanvasRenderingContext2D;
   private timer = 0;
   private unsubs: (() => void)[] = [];
+  /**
+   * Libere (2026-10-21, audit RS-5) : plus aucun redessin. Avant, un appel tardif (la promesse des polices, resolue
+   * apres un demontage) relancait la boucle redessin -> vague au repos -> redessin pour toujours : ce minuteur retenait
+   * le Stage mort, et par lui tout l'ancien DOM de la page (environ 1900 noeuds et 270 ecouteurs a chaque remontage).
+   */
+  private disposed = false;
   /** les coups qui sonnent : l'instant du dernier, par voix */
   private hitAt = new Float64Array(INSTRUMENTS.length);
   private lastStep = -1;
@@ -773,7 +779,7 @@ export class Screen {
 
   /** Un redessin bientot (au plus tous les MIN_GAP_MS). */
   private request(delay = 0): void {
-    if (this.timer !== 0) return;
+    if (this.timer !== 0 || this.disposed) return;
     // Arrondi au-dessus : setTimeout tronque les fractions, l'ecart tombait a 59,5 ms au lieu de 60
     const wait = Math.ceil(Math.max(delay, this.info.lastDrawAt + MIN_GAP_MS - performance.now(), 0));
     this.timer = window.setTimeout(() => {
@@ -797,7 +803,7 @@ export class Screen {
   private armEcho(ms: number): void {
     window.clearTimeout(this.echoTimer);
     this.echoTimer = 0;
-    if (ms <= 0) return;
+    if (ms <= 0 || this.disposed) return;
     this.echoTimer = window.setTimeout(() => {
       this.echoTimer = 0;
       this.request();
@@ -808,7 +814,7 @@ export class Screen {
   private idleTimer = 0;
   private armIdle(now: number): void {
     window.clearTimeout(this.idleTimer);
-    if (this.mobile) return;
+    if (this.mobile || this.disposed) return;
     const left = this.activeAt + IDLE_MS - now;
     this.idleTimer = window.setTimeout(() => this.request(), Math.max(200, left));
   }
@@ -3034,6 +3040,7 @@ export class Screen {
   }
 
   dispose(): void {
+    this.disposed = true;
     for (const off of this.unsubs) off();
     this.unsubs = [];
     if (this.timer !== 0) window.clearTimeout(this.timer);

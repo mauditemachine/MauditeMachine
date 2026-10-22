@@ -3224,12 +3224,16 @@ export class Stage {
     this.back.dispose();
     for (const t of shared) t.dispose();
     this.scene.clear();
+    this.renderer.dispose();
     if (this.opts.dev) {
-      // Revue : doit lire 0 / 0 ici, avant la perte de contexte (spec 14.4)
+      // Revue : 0 geometrie ici, avant la perte de contexte (spec 14.4). Lu apres renderer.dispose() depuis le
+      // 2026-10-21 (audit RS-5 : il lisait 9 / 1 avant) : les cartes d'environnement des PCB (equirectangulaires) passent
+      // par le PMREM interne de three, ses 9 plans de niveaux appartiennent au renderer et partent avec lui. Reste 1
+      // texture au compteur : la cible de ping-pong de ce PMREM, que three libere apres avoir vide sa table des
+      // proprietes (le compteur ne la decompte pas) ; la perte de contexte juste dessous la rend au GPU.
       const m = this.renderer.info.memory;
       window.__v4LastDispose = { geometries: m.geometries, textures: m.textures };
     }
-    this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.canvas.remove();
   }
