@@ -164,19 +164,20 @@ const MAIN1 = STRIP_Y0 - (DESK ? 5.5 : 4.5);
  * (revue du 2026-10-08 : une colonne de sept rangees, 8 px de texte a
  * 1440 x 900) : RATE MODE RANGE NOTES puis GATE OCTAVE GLIDE, les deux
  * rangees de potards de l'arpegiateur sur le plateau. L'echelle cede 12
- * unites (224 et 234 avant).
+ * unites (224 et 234 avant). 2026-10-22 (audit SB-17) : une ligne par
+ * reglage, nom et valeur sur la meme ligne (la valeur a 8.4, 11.7 px a
+ * 1440 x 900, au lieu des 8 px d'avant la revue du 2026-10-08).
  */
 const CHORD_X1 = DESK ? 68 : 60;
 const LAD_X0 = DESK ? 78 : 66;
 const LAD_X1 = DESK ? 212 : UW - 10;
 const PAR_X0 = DESK ? 222 : 0;
-const PAR_GAP = 4;
 /** La touche i : son centre et son rayon (theme.ts VOY_INFO_KEY pose sa zone au meme endroit) */
 export const INFO_I = { x: UW - 11, y: 10.5, r: DESK ? 5.4 : 6.4 } as const;
 /** Les corps (unites) */
 const FS = DESK
-  ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.4, parV: 9.6, rung: 6.2 }
-  : { head: 10.5, small: 8, tiny: 6.6, chord: 21, strip: 8, line: 8, par: 0, parV: 0, rung: 6.2 };
+  ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.2, parRow: 8.4, rung: 6.2 }
+  : { head: 10.5, small: 8, tiny: 6.6, chord: 21, strip: 8, line: 8, par: 0, parRow: 0, rung: 6.2 };
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
 
@@ -580,23 +581,24 @@ export class VoyScreen {
       else if (whereShort) this.txt(this.clip(whereShort, FS.tiny, 700, room), 10, wy, FS.tiny, HALF, 700);
     }
 
-    // A droite (desktop) : les sept reglages de l'arpegiateur, deux colonnes de blocs (le nom, la valeur dessous)
+    // A droite (desktop) : les sept reglages de l'arpegiateur. 2026-10-22 (audit SB-17 : huit etiquettes empilees sans
+    // interligne, deux colonnes de blocs) : une ligne par reglage, le nom a gauche en HALF, la valeur alignee a droite en
+    // INK, comme une fiche ; un filet entre les deux rangees de potards du plateau (RATE a NOTES, GATE a GLIDE)
     if (DESK) {
       const rows = arpParams(s.values);
       const y0 = MAIN0 + 1;
-      const dy = (MAIN1 - y0) / 4;
-      const colW = (UWr - 10 - PAR_X0 - PAR_GAP) / 2;
-      // Les corps suivent la hauteur d'un bloc : jamais deux valeurs qui se touchent
-      const pl = Math.min(FS.par, dy * 0.42);
-      const pv2 = Math.min(FS.parV, dy * 0.64);
+      const gap = 3;
+      const dy = (MAIN1 - y0 - gap) / rows.length;
+      const x1 = UWr - 10;
+      const pl = Math.min(FS.par, dy * 0.66);
+      const pv = Math.min(FS.parRow, dy * 0.92);
       rows.forEach(([k, val], i) => {
-        const x = PAR_X0 + (i < 4 ? 0 : colW + PAR_GAP);
-        const top = y0 + dy * (i % 4);
-        const ly = top + pl * 0.8;
-        this.txt(k, x, ly, pl, HALF, 700);
-        this.txt(val, x, ly + 1.2 + pv2 * 0.74, this.fit(val, 600, pv2, colW), INK, 600);
+        const y = y0 + dy * (i + 0.5) + (i >= 4 ? gap : 0) + pv * 0.36;
+        const nw = this.txt(k, PAR_X0, y, pl, HALF, 700);
+        this.txt(val, x1, y, this.fit(val, 600, pv, x1 - PAR_X0 - nw - 4), INK, 600, 'right');
       });
       this.ctx.fillStyle = FAINT;
+      this.ctx.fillRect(PAR_X0, y0 + dy * 4 + gap / 2 - 0.3, x1 - PAR_X0, 0.6);
       this.ctx.fillRect(PAR_X0 - 5, MAIN0, 0.6, MAIN1 - MAIN0);
     }
 
