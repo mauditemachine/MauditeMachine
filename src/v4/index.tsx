@@ -62,7 +62,8 @@ import { djDecks } from './dj/theme';
 import { presskit } from './state/presskit';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
-import { HOOD_SECTIONS, SECTION_ROUTES, sectionFromPath, sectionTitle } from './state/sectionRoute';
+import { HOOD_SECTIONS, SECTION_ROUTES, missingTrack, sectionFromPath, sectionTitle, trackSlugOf } from './state/sectionRoute';
+import { TRACKS } from './data';
 import { view } from './state/view';
 import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, applyAppearance, type SectionId } from './theme';
 import { BeatPanel } from './ui/BeatEditor';
@@ -277,6 +278,16 @@ function useSectionRoute(getStage: () => Stage | null): void {
   useEffect(() => {
     const id = sectionFromPath(window.location.pathname);
     if (!id) return undefined;
+    // 2026-10-21 (audit) : l'adresse arrive en minuscules (/TRACKS/, /tracks/Voodoo/) ; un morceau inconnu (un lien faux ou
+    // perime) : /tracks/, et TRACKS le dit au-dessus de la liste (sur GitHub Pages, la page est deja servie en 404)
+    const path = window.location.pathname;
+    const slug = id === 'tracks' ? trackSlugOf(path) : null;
+    const unknown = slug !== null && !TRACKS.some((t) => t.id === slug);
+    // L'adresse propre : celle du morceau, sinon celle de la section ; un morceau inconnu : /tracks/
+    const canon = slug !== null && !unknown ? `/tracks/${slug}/` : (SECTION_ROUTES[id] ?? path);
+    const loose = path.toLowerCase().replace(/([^/])$/, '$1/');
+    if (unknown) missingTrack.set(slug);
+    if (canon !== path && (unknown || canon === loose)) window.history.replaceState(window.history.state, '', `${canon}${window.location.search}${window.location.hash}`);
     if (!HOOD_SECTIONS.includes(id)) {
       // Hors capot : aucune intro a attendre. La section s'ouvre des le montage, avant le Stage (construit
       // deux images plus tard, sans intro) : le panneau se peint avant la premiere frame de la scene, la plus
@@ -302,6 +313,8 @@ function useSectionRoute(getStage: () => Stage | null): void {
   useEffect(() => {
     const sync = (): void => {
       const s = section.get();
+      // TRACKS fermee : l'avis du morceau introuvable s'en va avec elle
+      if (s !== 'tracks') missingTrack.set(null);
       const route = s ? SECTION_ROUTES[s] : undefined;
       const path = window.location.pathname;
       const onSectionPath = sectionFromPath(path) !== null;
