@@ -148,7 +148,9 @@ export const samplesChanged = {
  * - idle (rien de demande), loading, ready (decode), failed et pourquoi : offline (reseau coupe, delai de
  *   FETCH_TIMEOUT_MS depasse, serveur en panne), missing (le fichier n'est plus sur le site : 404), bad (illisible),
  *   storage (la base de ce navigateur fermee un instant), gone (retire de ce navigateur) ;
- * - un seul chargement par cle, un AbortController qui coupe au bout de FETCH_TIMEOUT_MS ;
+ * - un seul chargement par cle, un AbortController qui coupe au bout de FETCH_TIMEOUT_MS sans rien recevoir (les
+ *   en-tetes, puis chaque morceau du fichier rearme le delai : 2026-10-22, revue RA1-1, un telechargement lent qui
+ *   avance n'est plus coupe) ;
  * - offline et storage se retentent seuls (RETRY_MS : 1 s, 4 s, 15 s, puis toutes les 10 s tant que le kit joue ce
  *   sample : un reseau qui revient sans le dire), et des que le reseau revient (window 'online', missing aussi ; un
  *   telechargement parti avant, encore en attente, repart lui aussi) ;
@@ -172,8 +174,14 @@ export interface SampleStatus {
   why?: SampleFail;
 }
 
-/** Au-dela, un telechargement est coupe et compte comme le reseau coupe (il se retente). */
+/**
+ * Au-dela sans rien recevoir (ni les en-tetes, ni un morceau du fichier), un telechargement est coupe et compte comme
+ * le reseau coupe (il se retente). Un delai d'inactivite, plus un delai pour tout le fichier (2026-10-22, revue
+ * RA1-1 : a 50 Ko/s, un sample de 840 Ko ne venait jamais, coupe a 8 s six fois de suite, l'ecran disait OFFLINE).
+ */
 export const FETCH_TIMEOUT_MS = 8000;
+/** Sans lecture par morceaux (un vieux navigateur) : un seul delai, FETCH_TIMEOUT_MS plus le fichier a ce debit. */
+const SLOW_BYTES_PER_S = 16 * 1024;
 /** Les attentes avant chaque nouvel essai d'un echec passager ; ensuite, toutes les RETRY_KEPT_MS tant que le kit le joue. */
 export const RETRY_MS: readonly number[] = [1000, 4000, 15000];
 const RETRY_KEPT_MS = 10000;
@@ -192,6 +200,8 @@ interface Slot {
   tries: number;
   /** performance.now() du dernier essai */
   at: number;
+  /** performance.now() des derniers octets recus de l'essai en cours (les en-tetes, un morceau) ; 0 : rien encore */
+  lastByte: number;
   /** le jeton du chargement en cours */
   gen: number;
   timer: number;
@@ -214,7 +224,7 @@ const pcmSize = (p: SamplePcm): number => (p.L.length + (p.R && p.R !== p.L ? p.
 const slotOf = (key: string): Slot => {
   let s = slots.get(key);
   if (!s) {
-    s = { state: 'idle', tries: 0, at: 0, gen: 0, timer: 0, abort: null, promise: null };
+    s = { state: 'idle', tries: 0, at: 0, lastByte: 0, gen: 0, timer: 0, abort: null, promise: null };
     slots.set(key, s);
   }
   return s;
@@ -292,6 +302,38 @@ function schedule(key: string, s: Slot): void {
   }, wait);
 }
 
+/**
+ * Le corps d'une reponse, morceau par morceau (2026-10-22, revue RA1-1) : chaque morceau recu rearme le delai (arm) et
+ * se note (s.lastByte). Le tampon prend la taille annoncee (Content-Length) et grandit s'il le faut (une reponse
+ * compressee en route). Sans lecture par morceaux : un seul delai, a la mesure du fichier annonce.
+ */
+async function readBody(res: Response, s: Slot, arm: (ms?: number) => void): Promise<ArrayBuffer> {
+  const len = Number(res.headers.get('content-length')) || 0;
+  const reader = res.body && typeof res.body.getReader === 'function' ? res.body.getReader() : null;
+  if (!reader) {
+    arm(FETCH_TIMEOUT_MS + (len / SLOW_BYTES_PER_S) * 1000);
+    return res.arrayBuffer();
+  }
+  let buf = new Uint8Array(len > 0 ? len : 256 * 1024);
+  let n = 0;
+  for (;;) {
+    const r = await reader.read();
+    if (r.done) break;
+    const part = r.value;
+    if (!part || part.byteLength === 0) continue;
+    s.lastByte = performance.now();
+    arm();
+    if (n + part.byteLength > buf.length) {
+      const big = new Uint8Array(Math.max(buf.length * 2, n + part.byteLength));
+      big.set(buf.subarray(0, n));
+      buf = big;
+    }
+    buf.set(part, n);
+    n += part.byteLength;
+  }
+  return n === buf.length ? buf.buffer : buf.slice(0, n).buffer;
+}
+
 /** Un essai : le fichier (le site, ou IndexedDB pour un sample de ce navigateur), son decodage, l'annonce. */
 function start(key: string, s: Slot): Promise<SamplePcm | null> {
   const smp = sampleByKey(key);
@@ -301,6 +343,7 @@ function start(key: string, s: Slot): Promise<SamplePcm | null> {
   s.state = 'loading';
   s.why = undefined;
   s.at = performance.now();
+  s.lastByte = 0;
   const ac = typeof AbortController !== 'undefined' && !smp.user ? new AbortController() : null;
   s.abort = ac;
   const job = (async (): Promise<SamplePcm | null> => {
@@ -309,7 +352,15 @@ function start(key: string, s: Slot): Promise<SamplePcm | null> {
     // restait gare pour rien), et le finally effacait s.promise avant qu'elle soit posee : une promesse deja tenue
     // restait la, rendue pour toujours une fois ce PCM libere par le budget (le sample ne revenait jamais)
     await Promise.resolve();
-    const timer = ac ? window.setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS) : 0;
+    // Le delai d'inactivite (2026-10-22, revue RA1-1) : il couvrait les en-tetes ET tout le corps, un fichier plus long
+    // a recevoir que FETCH_TIMEOUT_MS etait perdu quel que soit son progres ; il repart maintenant a chaque morceau
+    let timer = 0;
+    const arm = (ms = FETCH_TIMEOUT_MS): void => {
+      if (!ac) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => ac.abort(), ms);
+    };
+    arm();
     try {
       let out: SamplePcm | undefined = smp.user ? userSamples.takePcm(key) : undefined;
       if (!out) {
@@ -318,7 +369,9 @@ function start(key: string, s: Slot): Promise<SamplePcm | null> {
         else {
           const res = await fetch(smp.url, ac ? { signal: ac.signal } : undefined);
           if (!res.ok) throw new HttpError(res.status);
-          data = await res.arrayBuffer();
+          s.lastByte = performance.now();
+          arm();
+          data = await readBody(res, s, arm);
         }
         window.clearTimeout(timer);
         if (!data) throw new Error('storage');
@@ -456,11 +509,13 @@ export function onSampleDropped(fn: (key: string, gone: boolean) => void): () =>
 
 if (typeof window !== 'undefined') {
   // Le reseau revient : ce qui a echoue faute de reseau repart, de zero ; un telechargement parti avant et qui attend
-  // encore (une requete perdue pendant la coupure, qui n'aurait echoue qu'au bout de FETCH_TIMEOUT_MS) repart aussi
+  // encore (une requete perdue pendant la coupure, qui n'aurait echoue qu'au bout de FETCH_TIMEOUT_MS) repart aussi.
+  // Seulement s'il ne recoit plus rien depuis plus d'1 s (2026-10-22, revue RA1-1) : un telechargement lent qui avance
+  // continue, il ne repart pas de zero
   window.addEventListener('online', () => {
     const now = performance.now();
     for (const [key, s] of slots) {
-      if (s.state === 'loading' && s.abort && now - s.at > 1000 && sampleByKey(key)) {
+      if (s.state === 'loading' && s.abort && now - Math.max(s.at, s.lastByte) > 1000 && sampleByKey(key)) {
         s.abort.abort();
         s.tries = 0;
         void start(key, s);
