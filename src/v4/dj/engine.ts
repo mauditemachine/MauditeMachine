@@ -17,7 +17,7 @@
 
 import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
-import { reserve } from '../audio/sched';
+import { GUARD_S, TICK_MS, horizon, registerScheduler, reserve } from '../audio/sched';
 import { decodeAudio } from './decode';
 import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, gainDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
 import { DJ_CHANNELS_MAX, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, type DjDeck, type DjFxId } from './theme';
@@ -51,6 +51,11 @@ export const djWaveBands = {
 };
 /** Le temps de calcul des bandes avant de rendre la main (ms). */
 const BAND_SLICE_MS = 10;
+/** Un VU qu'on ne lit plus depuis ce temps se debranche (ms) ; rebranche, il rend 0 le temps de se remplir (ms, 2048 echantillons). */
+const METER_IDLE_MS = 1500;
+const METER_FILL_MS = 60;
+/** Un isolateur ou un filtre revenu au centre se debranche une fois son fondu fini (ms, comme un effet a zero). */
+const UNPLUG_MS = 80;
 
 function peakOf(a: AnalyserNode, buf: Float32Array): number {
   a.getFloatTimeDomainData(buf);
@@ -76,6 +81,16 @@ class StereoPeak {
   private a: [AnalyserNode, AnalyserNode];
   private buf: [Float32Array, Float32Array];
   private src: AudioNode | null = null;
+  /**
+   * Branche seulement quand on le lit (2026-10-21, audit) : seize analyseurs
+   * tournaient en permanence des que le moteur existait, la table cachee
+   * comprise. Un VU qu'on ne lit plus depuis METER_IDLE_MS se debranche
+   * (DjMixer.sleepMeters) ; la premiere lecture le rebranche, et rend 0 le
+   * temps que l'analyseur se remplisse de neuf (METER_FILL_MS).
+   */
+  private live = false;
+  private readAt = 0;
+  private liveAt = 0;
 
   constructor(
     private ctx: BaseAudioContext,
@@ -86,21 +101,50 @@ class StereoPeak {
     this.up.connect(this.split);
     this.a = [new AnalyserNode(ctx, { fftSize: 2048 }), new AnalyserNode(ctx, { fftSize: 2048 })];
     this.buf = [new Float32Array(2048), new Float32Array(2048)];
-    this.split.connect(this.a[0], 0);
-    this.split.connect(this.a[1], 1);
-    this.tap(src);
+    this.src = src;
+  }
+
+  /** Les analyseurs branches ou non (sans entree, le navigateur ne les calcule plus). */
+  private plug(on: boolean): void {
+    if (on) {
+      this.src?.connect(this.up);
+      this.split.connect(this.a[0], 0);
+      this.split.connect(this.a[1], 1);
+      return;
+    }
+    try {
+      this.src?.disconnect(this.up);
+    } catch {
+      /* deja debranche */
+    }
+    this.split.disconnect();
   }
 
   /** Mesurer ailleurs (le master du site apres son limiteur). */
   tap(src: AudioNode): void {
-    if (this.src) this.src.disconnect(this.up);
+    if (this.src && this.live) this.src.disconnect(this.up);
     this.src = src;
-    src.connect(this.up);
+    if (this.live) src.connect(this.up);
   }
 
   /** Cretes gauche et droite (lineaires, 1 = 0 dBFS). */
   peaks(): [number, number] {
+    const now = performance.now();
+    this.readAt = now;
+    if (!this.live) {
+      this.plug(true);
+      this.live = true;
+      this.liveAt = now;
+    }
+    if (now - this.liveAt < METER_FILL_MS) return [0, 0];
     return [peakOf(this.a[0], this.buf[0]), peakOf(this.a[1], this.buf[1])];
+  }
+
+  /** Personne ne le lit depuis METER_IDLE_MS : il se debranche. */
+  sleep(now: number): void {
+    if (!this.live || now - this.readAt < METER_IDLE_MS) return;
+    this.plug(false);
+    this.live = false;
   }
 }
 
@@ -131,6 +175,20 @@ export class DjChannel {
   private eqDirect: GainNode;
   private filterPath: GainNode;
   private filterDirect: GainNode;
+  /**
+   * Les chemins de l'isolateur (neuf filtres) et du filtre (deux) ne sont
+   * branches que tournes (2026-10-21, audit) : a zero derriere leur gain, le
+   * navigateur les calculait quand meme. Ils sont debranches des deux cotes
+   * de leur gain d'entree (un filtre relie a un gain muet se calcule encore) :
+   * branches avant leur fondu de 20 ms, debranches UNPLUG_MS apres leur retour
+   * au centre, comme un effet a zero.
+   */
+  private eqOut: GainNode;
+  private eqHeads: [BiquadFilterNode, BiquadFilterNode];
+  private eqOn = false;
+  private eqOff = 0;
+  private filterOn = false;
+  private filterOff = 0;
   private bands = { hi: 0, mid: 0, low: 0 };
   private fader: GainNode;
   private meter: StereoPeak;
@@ -153,11 +211,15 @@ export class DjChannel {
     this.eqPath = new GainNode(ctx, { gain: 0 });
     this.eqDirect = new GainNode(ctx, { gain: 1 });
     const eqOut = new GainNode(ctx);
+    this.eqOut = eqOut;
     const sum = new GainNode(ctx);
-    this.input.connect(this.eqPath);
     this.input.connect(this.eqDirect).connect(eqOut);
-    this.eqPath.connect(f('lowpass', CROSSOVER.low)).connect(f('lowpass', CROSSOVER.low)).connect(f('allpass', CROSSOVER.high)).connect(this.low).connect(sum);
-    const above = this.eqPath.connect(f('highpass', CROSSOVER.low)).connect(f('highpass', CROSSOVER.low));
+    // Les tetes des deux branches : branchees sur eqPath seulement quand l'isolateur sert (plugEq)
+    this.eqHeads = [f('lowpass', CROSSOVER.low), f('highpass', CROSSOVER.low)];
+    this.eqHeads[0].connect(f('lowpass', CROSSOVER.low)).connect(f('allpass', CROSSOVER.high)).connect(this.low).connect(sum);
+    this.input.connect(this.eqPath);
+    for (const h of this.eqHeads) this.eqPath.connect(h);
+    const above = this.eqHeads[1].connect(f('highpass', CROSSOVER.low));
     above.connect(f('lowpass', CROSSOVER.high)).connect(f('lowpass', CROSSOVER.high)).connect(this.mid).connect(sum);
     above.connect(f('highpass', CROSSOVER.high)).connect(f('highpass', CROSSOVER.high)).connect(this.high).connect(sum);
     sum.connect(eqOut);
@@ -177,6 +239,12 @@ export class DjChannel {
     this.fader.connect(this.xf);
     this.xf.connect(this.toFx).connect(out);
     this.xf.connect(this.toDry).connect(dry);
+    // Au repos, l'isolateur et le filtre debranches tout de suite : un filtre debranche (disconnect) s'endort, un
+    // filtre jamais relie se calcule encore (mesure hors ligne, 2026-10-21)
+    this.eqOn = true;
+    this.filterOn = true;
+    this.unplugEq();
+    this.unplugFilter();
   }
 
   /** FX TO : par les effets (true) ou tout droit (false), en 20 ms. */
@@ -194,19 +262,77 @@ export class DjChannel {
     this.bands[band] = v;
     // Les trois au centre : tout droit ; une seule tournee : par l'isolateur
     const flat = Math.abs(this.bands.hi) < 0.005 && Math.abs(this.bands.mid) < 0.005 && Math.abs(this.bands.low) < 0.005;
+    if (!flat) this.plugEq(true);
     glide(this.eqPath.gain, flat ? 0 : 1, this.ctx);
     glide(this.eqDirect.gain, flat ? 1 : 0, this.ctx);
+    if (flat) this.plugEq(false);
+  }
+
+  /** Branche l'isolateur tout de suite, ou le debranche une fois son fondu fini. */
+  private plugEq(on: boolean): void {
+    window.clearTimeout(this.eqOff);
+    if (on) {
+      if (!this.eqOn) {
+        this.input.connect(this.eqPath);
+        for (const h of this.eqHeads) this.eqPath.connect(h);
+      }
+      this.eqOn = true;
+      return;
+    }
+    if (!this.eqOn) return;
+    this.eqOff = window.setTimeout(() => {
+      if (this.eqOn && this.eqPath.gain.value === 0) this.unplugEq();
+    }, UNPLUG_MS);
+  }
+
+  private unplugEq(): void {
+    try {
+      this.input.disconnect(this.eqPath);
+    } catch {
+      /* deja debranche */
+    }
+    this.eqPath.disconnect();
+    this.eqOn = false;
+  }
+
+  private unplugFilter(): void {
+    try {
+      this.eqOut.disconnect(this.filterPath);
+    } catch {
+      /* deja debranche */
+    }
+    this.filterPath.disconnect();
+    this.filterOn = false;
+  }
+
+  /** Branche le filtre tout de suite, ou le debranche une fois son fondu fini. */
+  private plugFilter(on: boolean): void {
+    window.clearTimeout(this.filterOff);
+    if (on) {
+      if (!this.filterOn) {
+        this.eqOut.connect(this.filterPath);
+        this.filterPath.connect(this.lp);
+      }
+      this.filterOn = true;
+      return;
+    }
+    if (!this.filterOn) return;
+    this.filterOff = window.setTimeout(() => {
+      if (this.filterOn && this.filterPath.gain.value === 0) this.unplugFilter();
+    }, UNPLUG_MS);
   }
 
   /** Plat au repos (et court-circuite) ; la resonance (4) seulement quand on le tourne. */
   setFilter(v: number): void {
     const f = filterOf(v);
+    if (f.type !== 'none') this.plugFilter(true);
     glide(this.lp.frequency, f.type === 'low' ? f.freq : 20000, this.ctx);
     glide(this.hp.frequency, f.type === 'high' ? f.freq : 10, this.ctx);
     glide(this.lp.Q, f.type === 'low' ? RESONANCE : BUTTERWORTH_DB, this.ctx);
     glide(this.hp.Q, f.type === 'high' ? RESONANCE : BUTTERWORTH_DB, this.ctx);
     glide(this.filterPath.gain, f.type === 'none' ? 0 : 1, this.ctx);
     glide(this.filterDirect.gain, f.type === 'none' ? 1 : 0, this.ctx);
+    if (f.type === 'none') this.plugFilter(false);
   }
 
   setFader(x: number): void {
@@ -217,6 +343,11 @@ export class DjChannel {
   level(): number {
     const [l, r] = this.meter.peaks();
     return Math.max(l, r);
+  }
+
+  /** Le VU se debranche s'il n'est plus lu (DjMixer.sleepMeters). */
+  sleepMeter(now: number): void {
+    this.meter.sleep(now);
   }
 }
 
@@ -229,6 +360,8 @@ interface Stage {
   wet: GainNode;
   /** l'entree du traitement : branchee seulement quand la dose est au-dessus de zero */
   proc: AudioNode;
+  /** sa sortie : branchee avec elle (2026-10-21, audit : un traitement debranche d'un seul cote se calculait encore) */
+  out: AudioNode;
   on: boolean;
   off: number;
 }
@@ -248,6 +381,36 @@ const BIAS = 0.2;
 const warmPeak = Math.max(Math.tanh(2 + BIAS) - Math.tanh(BIAS), Math.tanh(BIAS) - Math.tanh(-2 + BIAS));
 const warm = (x: number): number => (Math.tanh(2 * x + BIAS) - Math.tanh(BIAS)) / warmPeak;
 
+/**
+ * Le niveau rattrape de l'overdrive (2026-10-21, audit) : avant, il etait regle
+ * pour un sinus a -6 dBFS ; les machines sonnent autour de -16 a -24 dBFS RMS,
+ * et l'OVERDRIVE les rendait de 5 a 16 dB plus fortes (le limiteur du site
+ * baissait alors tout). Deux etages :
+ * - OD_POST, le gain de sortie par dose (33 crans, interpole), mesure hors
+ *   ligne avec la chaine elle-meme : un bruit rose a -18 dBFS RMS garde son
+ *   niveau a chaque dose ;
+ * - un suiveur lent (OD_FOLLOW), sur le son en direct : le niveau qui sort de
+ *   la saturation est ramene a celui qui y entre (moyenne sur 300 ms, de -18
+ *   a +6 dB ; la premiere mesure est prise telle quelle, 50 ms apres
+ *   l'ouverture), un son discret ou un morceau fort gardent le leur. La dose
+ *   change la couleur, pas le volume.
+ */
+const OD_POST: readonly number[] = [0.74, 0.689, 0.638, 0.607, 0.556, 0.509, 0.485, 0.454, 0.441, 0.403, 0.381, 0.36, 0.338, 0.313, 0.302, 0.298, 0.282, 0.273, 0.27, 0.25, 0.247, 0.241, 0.241, 0.235, 0.232, 0.224, 0.224, 0.224, 0.219, 0.217, 0.217, 0.217, 0.215];
+const odPost = (d: number): number => {
+  const x = Math.max(0, Math.min(1, d)) * (OD_POST.length - 1);
+  const i = Math.min(OD_POST.length - 2, Math.floor(x));
+  return OD_POST[i] + (OD_POST[i + 1] - OD_POST[i]) * (x - i);
+};
+const OD_FOLLOW = { everyMs: 50, tauS: 0.3, minDb: -18, maxDb: 6, quiet: 1e-4 } as const;
+
+/** La moyenne quadratique de ce qu'un analyseur voit (2048 echantillons). */
+function rmsOf(a: AnalyserNode, buf: Float32Array<ArrayBuffer>): number {
+  a.getFloatTimeDomainData(buf);
+  let s = 0;
+  for (let i = 0; i < buf.length; i += 1) s += buf[i] * buf[i];
+  return Math.sqrt(s / buf.length);
+}
+
 /** Une salle synthetique : du bruit qui decroit. */
 function room(ctx: AudioContext, seconds: number): AudioBuffer {
   const n = Math.floor(ctx.sampleRate * seconds);
@@ -260,30 +423,163 @@ function room(ctx: AudioContext, seconds: number): AudioBuffer {
 }
 
 /**
+ * L'arete de la porte du TRANS (2026-10-21, audit) : 2 ms de rampe a chaque
+ * ouverture et fermeture. Avant, un oscillateur carre la menait : 0.1 a
+ * 0.2 ms de montee, un clic a chaque coupure sur une basse ou un kick.
+ */
+const EDGE_S = 0.002;
+
+/** Une grille en doubles croches : la premiere frontiere a t ou apres, son rang dans la mesure (0 a 15), sa duree (audio/clock.ts gridAfter). */
+export type FxGrid = (t: number) => { time: number; step: number; dur: number } | null;
+
+/**
+ * Une automation calee sur les temps (2026-10-21, audit) : la porte du
+ * TRANS et le balayage du FLANGER ne sont plus des oscillateurs libres, partis
+ * a la creation du moteur et qui coupaient entre les temps. Leurs points sont
+ * ecrits d'avance sur l'horloge audio, comme les notes des machines
+ * (audio/sched.ts), depuis l'origine d'une mesure de la reference, par
+ * demi-periodes : porte ouverte puis fermee, balayage en triangle (en bas sur
+ * le temps, en haut a mi-chemin). Une autre grille (un tempo, une platine qui
+ * part, les machines qui demarrent) garde ce qui est deja ecrit jusqu'au
+ * prochain point et repart de la : pas de saut, pas de clic.
+ */
+class GridLane {
+  /** les points ecrits (fin de rampe) : leur instant et leur valeur */
+  private pts: { t: number; v: number }[] = [];
+  /** l'instant du dernier point ecrit, et la valeur la */
+  private until = 0;
+  private v = 0;
+  on = false;
+
+  constructor(
+    private param: AudioParam,
+    private rest: number,
+    private kind: 'gate' | 'tri'
+  ) {}
+
+  /** La valeur au debut de la demi-periode h : porte ouverte (1) puis fermee (0) ; triangle en bas (-1) puis en haut (1). */
+  private at(h: number): number {
+    const even = ((h % 2) + 2) % 2 === 0;
+    return this.kind === 'gate' ? (even ? 1 : 0) : even ? -1 : 1;
+  }
+
+  /** La valeur voulue a t (origine o, demi-periode half). */
+  private want(t: number, o: number, half: number): number {
+    const x = (t - o) / half;
+    const h = Math.floor(x + 1e-9);
+    if (this.kind === 'gate') return this.at(h);
+    return this.at(h) + (this.at(h + 1) - this.at(h)) * Math.max(0, Math.min(1, x - h));
+  }
+
+  private push(t: number, v: number): void {
+    this.pts.push({ t, v });
+    if (this.pts.length > 512) this.pts.splice(0, this.pts.length - 512);
+    this.until = t;
+    this.v = v;
+  }
+
+  start(t: number, o: number, half: number): void {
+    this.on = true;
+    this.param.cancelScheduledValues(0);
+    const v = this.want(t, o, half);
+    this.param.setValueAtTime(v, t);
+    this.pts = [];
+    this.push(t, v);
+  }
+
+  stop(now: number): void {
+    if (!this.on) return;
+    this.on = false;
+    this.pts = [];
+    this.param.cancelScheduledValues(0);
+    this.param.setValueAtTime(this.rest, now);
+  }
+
+  /** Une autre grille : on garde jusqu'au premier point a venir (au-dela de GUARD_S), le reste s'efface. */
+  cut(now: number): void {
+    const i = this.pts.findIndex((p) => p.t >= now + GUARD_S);
+    if (i < 0) return;
+    const p = this.pts[i];
+    this.param.cancelScheduledValues(p.t + 1e-6);
+    this.pts.length = i + 1;
+    this.until = p.t;
+    this.v = p.v;
+  }
+
+  /** Ecrit les points jusqu'a to, plus un au-dela (la rampe en cours d'un balayage lent doit exister). */
+  write(now: number, to: number, o: number, half: number): void {
+    if (!this.on || !(half > 0)) return;
+    // Le fil principal a dormi : rien n'est ecrit devant ; on repart d'un point tenu, juste devant
+    if (this.until < now + GUARD_S) {
+      this.param.setValueAtTime(this.v, now + GUARD_S);
+      this.push(now + GUARD_S, this.v);
+    }
+    let h = Math.floor((this.until - o) / half + 1e-9);
+    if (this.kind === 'gate') {
+      // La nouvelle grille veut l'autre etat la ou on reprend : l'arete tout de suite, sauf si la suivante est toute
+      // proche (elle remettrait l'etat d'avant : un eclat de quelques millisecondes)
+      const w = this.at(h);
+      if (w !== this.v && o + (h + 1) * half - this.until > half / 4) this.edge(this.until, w);
+    }
+    for (let guard = 0; this.until <= to && guard < 1024; guard += 1) {
+      h += 1;
+      const t = o + h * half;
+      const v = this.at(h);
+      if (t <= this.until + 1e-6) continue;
+      if (this.kind === 'gate') {
+        if (v !== this.v) this.edge(t, v);
+      } else {
+        // Apres un recalage, un point trop proche est saute : la rampe va au suivant, jamais plus raide que deux fois la normale
+        if (Math.abs(v - this.v) > (4 / half) * (t - this.until)) continue;
+        this.param.linearRampToValueAtTime(v, t);
+        this.push(t, v);
+      }
+    }
+  }
+
+  private edge(t: number, v: number): void {
+    this.param.setValueAtTime(this.v, t);
+    this.param.linearRampToValueAtTime(v, t + EDGE_S);
+    this.push(t + EDGE_S, v);
+  }
+}
+
+/**
  * Sept effets en serie, globaux (Mika les voulait en potards) : chacun son
  * son sec et son son traite, la dose les melange (math.ts fxMix). Le delay,
- * le flanger et le trans suivent le tempo de la platine qu'on entend le
- * plus, au temps choisi (TIME).
+ * le flanger et le trans suivent le tempo de ce qu'on entend (la platine
+ * qu'on entend le plus, sinon les machines du site : dj/actions.ts
+ * heardBpm), au temps choisi (TIME) ; le trans et le flanger tombent sur
+ * ses temps (follow, 2026-10-21).
  */
 export class DjFx {
   readonly input: GainNode;
   readonly output: GainNode;
   private stages: Stage[] = [];
   private echo: DelayNode;
-  private sweep: OscillatorNode;
-  private chop: OscillatorNode;
   private bpm = 120;
   private beats = 1;
-  /** l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose) */
-  private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode } | null = null;
+  /** l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose), et son suiveur de niveau (OD_FOLLOW) */
+  private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode; level: GainNode; inA: AnalyserNode; outA: AnalyserNode; buf: Float32Array<ArrayBuffer>; db: number; fresh: boolean; timer: number } | null = null;
+  /** la porte du trans et le balayage du flanger, cales sur la grille (GridLane) */
+  private lanes: Partial<Record<'trans' | 'flanger', GridLane>> = {};
+  /** la source du balayage du flanger (-1 a 1) : les tests hors ligne l'ecoutent */
+  private sweepSrc: ConstantSourceNode | null = null;
+  /** la grille de la reference (dj/actions.ts), ou null : le tempo seul, depuis l'instant ou l'effet s'ouvre */
+  private ref: FxGrid | null = null;
+  /** l'origine d'une mesure et la duree d'un temps (s) sur lesquelles les points sont ecrits */
+  private o0 = 0;
+  private b0 = 0;
+  private free = true;
+  private dirty = false;
+  private timer = 0;
+  private unreg: (() => void) | null = null;
 
   constructor(private ctx: AudioContext) {
     this.input = new GainNode(ctx);
     this.output = new GainNode(ctx);
     const t = beatsToSeconds(this.bpm, this.beats);
     this.echo = new DelayNode(ctx, { maxDelayTime: 8, delayTime: t });
-    this.sweep = new OscillatorNode(ctx, { frequency: 1 / (t * 4) });
-    this.chop = new OscillatorNode(ctx, { type: 'square', frequency: 2 / t });
     let pre: AudioNode = this.input;
     for (const id of DJ_FX) {
       const dry = new GainNode(ctx, { gain: 1 });
@@ -291,13 +587,11 @@ export class DjFx {
       const sum = new GainNode(ctx);
       pre.connect(dry).connect(sum);
       const { input, output } = this.build(id);
-      output.connect(wet).connect(sum);
-      this.stages.push({ id, pre, dry, wet, proc: input, on: false, off: 0 });
+      wet.connect(sum);
+      this.stages.push({ id, pre, dry, wet, proc: input, out: output, on: false, off: 0 });
       pre = sum;
     }
     pre.connect(this.output);
-    this.sweep.start();
-    this.chop.start();
   }
 
   private build(id: DjFxId): { input: AudioNode; output: AudioNode } {
@@ -309,8 +603,8 @@ export class DjFx {
          * Overdrive") : on pousse le signal dans une saturation douce et
          * asymetrique (le biais donne des harmoniques paires, la chaleur d'un
          * tube), suivie d'une tonalite qui ferme le haut a mesure qu'on pousse
-         * (pas de gresillement), puis le niveau est rattrape. La dose regle
-         * la poussee : de +0 a +24 dB (drive.set).
+         * (pas de gresillement), puis le niveau est rattrape (OD_POST, le
+         * suiveur, 2026-10-21). La dose regle la poussee : de +0 a +24 dB.
          */
         const pre = new GainNode(ctx, { gain: 1 });
         const shape = new WaveShaperNode(ctx, { curve: curve(warm), oversample: '4x' });
@@ -318,9 +612,13 @@ export class DjFx {
         const dc = new BiquadFilterNode(ctx, { type: 'highpass', frequency: 15, Q: BUTTERWORTH_DB });
         const tone = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 12000, Q: BUTTERWORTH_DB });
         const post = new GainNode(ctx, { gain: 1 });
-        pre.connect(shape).connect(dc).connect(tone).connect(post);
-        this.drive = { pre, tone, post };
-        return { input: pre, output: post };
+        // Le suiveur : ce qui entre et ce qui sort de la saturation, mesures (branches seulement quand l'effet est ouvert)
+        const level = new GainNode(ctx, { gain: 1 });
+        pre.connect(shape).connect(dc).connect(tone).connect(post).connect(level);
+        const inA = new AnalyserNode(ctx, { fftSize: 2048 });
+        const outA = new AnalyserNode(ctx, { fftSize: 2048 });
+        this.drive = { pre, tone, post, level, inA, outA, buf: new Float32Array(2048), db: 0, fresh: true, timer: 0 };
+        return { input: pre, output: level };
       }
       case 'crush': {
         const steps = 2 ** 5;
@@ -338,13 +636,18 @@ export class DjFx {
         const d = new DelayNode(ctx, { maxDelayTime: 0.05, delayTime: 0.004 });
         const fb = new GainNode(ctx, { gain: 0.6 });
         d.connect(fb).connect(d);
-        this.sweep.connect(new GainNode(ctx, { gain: 0.0032 })).connect(d.delayTime);
+        // Le balayage : un triangle de -1 a 1 ecrit sur la grille (GridLane), 3.2 ms de part et d'autre de 4 ms
+        const sweep = new ConstantSourceNode(ctx, { offset: 0 });
+        sweep.connect(new GainNode(ctx, { gain: 0.0032 })).connect(d.delayTime);
+        sweep.start();
+        this.sweepSrc = sweep;
+        this.lanes.flanger = new GridLane(sweep.offset, 0, 'tri');
         return { input: d, output: d };
       }
       case 'trans': {
-        // Une porte qui coupe le son au rythme : le carre va de -1 a 1, la porte de 0 a 1
-        const gate = new GainNode(ctx, { gain: 0.5 });
-        this.chop.connect(new GainNode(ctx, { gain: 0.5 })).connect(gate.gain);
+        // Une porte qui coupe le son au rythme : ouverte (1) puis fermee (0), sur la grille (GridLane)
+        const gate = new GainNode(ctx, { gain: 1 });
+        this.lanes.trans = new GridLane(gate.gain, 1, 'gate');
         return { input: gate, output: gate };
       }
       case 'delay': {
@@ -370,14 +673,17 @@ export class DjFx {
       const push = 10 ** ((d * 24) / 20);
       glide(this.drive.pre.gain, push, this.ctx);
       glide(this.drive.tone.frequency, 12000 - d * 6500, this.ctx);
-      // Mesure hors ligne (sinus a -6 dBFS) : 0.77 garde le niveau a la plus petite poussee, 0.42 une fois sature
-      glide(this.drive.post.gain, 0.42 + 0.35 * Math.exp(-(push - 1) * 1.5), this.ctx);
+      // Le niveau a -18 dBFS RMS garde (OD_POST, mesure hors ligne), le suiveur fait le reste
+      glide(this.drive.post.gain, odPost(d), this.ctx);
     }
     const m = fxMix(id, v);
     if (m.wet > 0 && !s.on) {
       window.clearTimeout(s.off);
+      s.out.connect(s.wet);
       s.pre.connect(s.proc);
       s.on = true;
+      this.laneOn(id);
+      if (id === 'overdrive') this.follow0(s.pre, true);
     }
     glide(s.dry.gain, m.dry, this.ctx);
     glide(s.wet.gain, m.wet, this.ctx);
@@ -391,20 +697,158 @@ export class DjFx {
         } catch {
           /* deja debranche */
         }
+        try {
+          s.out.disconnect(s.wet);
+        } catch {
+          /* deja debranche */
+        }
         s.on = false;
+        this.laneOff(id);
+        if (id === 'overdrive') this.follow0(s.pre, false);
       }, 80);
     }
+  }
+
+  /**
+   * Le suiveur de niveau de l'overdrive (OD_FOLLOW), branche avec l'effet ;
+   * seulement sur le son en direct (un rendu hors ligne n'a pas de temps reel).
+   */
+  private follow0(pre: AudioNode, on: boolean): void {
+    const dr = this.drive;
+    if (!dr) return;
+    window.clearInterval(dr.timer);
+    dr.timer = 0;
+    if (on) {
+      if (typeof AudioContext === 'undefined' || !(this.ctx instanceof AudioContext)) return;
+      pre.connect(dr.inA);
+      dr.post.connect(dr.outA);
+      dr.fresh = true;
+      dr.timer = window.setInterval(() => this.followStep(), OD_FOLLOW.everyMs);
+      return;
+    }
+    try {
+      pre.disconnect(dr.inA);
+      dr.post.disconnect(dr.outA);
+    } catch {
+      /* deja debranches */
+    }
+    dr.db = 0;
+    dr.level.gain.cancelScheduledValues(0);
+    dr.level.gain.setValueAtTime(1, this.ctx.currentTime);
+  }
+
+  /** Un pas du suiveur : le niveau de sortie vers celui d'entree, lentement ; un silence ne change rien. */
+  private followStep(): void {
+    const dr = this.drive;
+    if (!dr) return;
+    const rin = rmsOf(dr.inA, dr.buf);
+    const rout = rmsOf(dr.outA, dr.buf);
+    if (rin < OD_FOLLOW.quiet || rout < OD_FOLLOW.quiet * 0.01) return;
+    const want = Math.max(OD_FOLLOW.minDb, Math.min(OD_FOLLOW.maxDb, 20 * Math.log10(rin / rout)));
+    dr.db = dr.fresh ? want : dr.db + (want - dr.db) * (1 - Math.exp(-OD_FOLLOW.everyMs / 1000 / OD_FOLLOW.tauS));
+    dr.fresh = false;
+    glide(dr.level.gain, dbToGain(dr.db), this.ctx);
   }
 
   /** Le tempo des effets rythmiques : le BPM entendu et le temps (TIME). */
   tempo(o: { bpm?: number; beats?: number }): void {
     if (o.bpm !== undefined && o.bpm > 0) this.bpm = o.bpm;
-    if (o.beats !== undefined) this.beats = o.beats;
+    if (o.beats !== undefined && o.beats > 0) this.beats = o.beats;
     const t = beatsToSeconds(this.bpm, this.beats);
-    const now = this.ctx.currentTime;
     glide(this.echo.delayTime, Math.min(8, t), this.ctx);
-    this.sweep.frequency.setValueAtTime(1 / Math.max(0.1, t * 4), now);
-    this.chop.frequency.setValueAtTime(2 / Math.max(0.05, t), now);
+    // Le trans et le flanger se recalent au prochain point (GridLane.cut)
+    this.dirty = true;
+    if (this.timer) this.tick();
+  }
+
+  /** La grille sur laquelle le trans et le flanger tombent (dj/actions.ts : la platine entendue, sinon les machines) ; null : le tempo seul. */
+  follow(ref: FxGrid | null): void {
+    this.ref = ref;
+    this.dirty = true;
+  }
+
+  /** Le tempo des effets (BPM), pour l'ecran et les tests. */
+  get tempoBpm(): number {
+    return this.bpm;
+  }
+
+  /**
+   * Ecrit d'avance la porte et le balayage jusqu'a until (temps du contexte) ;
+   * les tests hors ligne s'en servent (aucun minuteur n'avance dans un rendu).
+   */
+  schedule(until: number): void {
+    this.tick(until);
+  }
+
+  /** Demi-periode de la porte (le trans : TIME / 2 par cycle) et du balayage (le flanger : 4 TIME par cycle), en s. */
+  private half(id: 'trans' | 'flanger', beat: number): number {
+    return id === 'trans' ? (this.beats * beat) / 4 : 2 * this.beats * beat;
+  }
+
+  /** La grille du moment : l'origine d'une mesure et la duree d'un temps ; changed si elle n'est plus celle des points ecrits. */
+  private grid(now: number): { o: number; beat: number; changed: boolean } {
+    const g = this.ref?.(now) ?? null;
+    let o: number;
+    let beat: number;
+    if (g && g.dur > 0) {
+      beat = 4 * g.dur;
+      o = g.time - g.step * g.dur;
+    } else {
+      beat = 60 / (this.bpm > 0 ? this.bpm : 120);
+      // Sans reference : l'origine de la grille libre tient tant que le tempo tient
+      o = this.free && this.b0 > 0 ? this.o0 : now;
+    }
+    const bar = 4 * beat;
+    let d = (o - this.o0) % bar;
+    if (d > bar / 2) d -= bar;
+    if (d < -bar / 2) d += bar;
+    const same = !this.dirty && this.b0 > 0 && Math.abs(beat - this.b0) <= this.b0 * 1e-3 && Math.abs(d) < 0.002 && this.free === !g;
+    if (same) return { o: this.o0, beat: this.b0, changed: false };
+    this.o0 = o;
+    this.b0 = beat;
+    this.free = !g;
+    this.dirty = false;
+    return { o, beat, changed: true };
+  }
+
+  private tick = (until?: number): void => {
+    const now = this.ctx.currentTime;
+    const { o, beat, changed } = this.grid(now);
+    const to = until ?? horizon(now);
+    for (const id of ['trans', 'flanger'] as const) {
+      const lane = this.lanes[id];
+      if (!lane?.on) continue;
+      if (changed) lane.cut(now);
+      lane.write(now, to, o, this.half(id, beat));
+    }
+  };
+
+  private laneOn(id: DjFxId): void {
+    if (id !== 'trans' && id !== 'flanger') return;
+    const lane = this.lanes[id];
+    if (!lane || lane.on) return;
+    const now = this.ctx.currentTime;
+    const { o, beat } = this.grid(now);
+    // Tout de suite : le son traite part de zero (son fondu de 20 ms), le premier etat ne s'entend pas basculer
+    lane.start(now, o, this.half(id, beat));
+    // L'autre effet deja ouvert se recale avec lui si la grille vient de changer
+    this.dirty = true;
+    if (!this.timer) {
+      this.timer = window.setInterval(() => this.tick(), TICK_MS);
+      // reserve() (un gros travail du fil principal) les fait ecrire d'avance, comme les notes
+      this.unreg = registerScheduler({ tick: () => this.tick(), reschedule: () => this.tick(), order: 4 });
+    }
+    this.tick();
+  }
+
+  private laneOff(id: DjFxId): void {
+    if (id !== 'trans' && id !== 'flanger') return;
+    this.lanes[id]?.stop(this.ctx.currentTime);
+    if (this.lanes.trans?.on || this.lanes.flanger?.on) return;
+    window.clearInterval(this.timer);
+    this.timer = 0;
+    this.unreg?.();
+    this.unreg = null;
   }
 }
 
@@ -446,6 +890,14 @@ export class DjMixer {
     // Plus de crossfader (Mika, 2026-10-04) : chaque voie passe entiere, son fader seul compte
     this.ch = Array.from({ length: DJ_CHANNELS_MAX }, () => new DjChannel(ctx, sum, dry));
     for (const c of this.ch) c.xf.gain.value = 1;
+    // Les VU qu'on ne lit plus (la table cachee, une voie pas dessinee) se debranchent
+    window.setInterval(() => this.sleepMeters(), 1000);
+  }
+
+  /** Les VU que personne ne lit depuis METER_IDLE_MS se debranchent (rebranches a la lecture suivante). */
+  sleepMeters(now = performance.now()): void {
+    for (const c of this.ch) c.sleepMeter(now);
+    this.meters.sleep(now);
   }
 
   /**
@@ -861,6 +1313,18 @@ export interface DjEngine {
 }
 
 let engine: DjEngine | null = null;
+/**
+ * Qui cree le moteur le branche aussitot sur le store (2026-10-21, audit) :
+ * dj/actions.ts s'inscrit ici. Le sampler d'une platine (un pad, REC DECK,
+ * REC MIX, un fichier glisse) creait le moteur sans lui : ni les reglages de
+ * la table, ni ses abonnements, ni la memoire de REC MIX, jusqu'au premier
+ * geste sur la table.
+ */
+let created: ((e: DjEngine) => void) | null = null;
+export function whenDjEngine(fn: (e: DjEngine) => void): void {
+  created = fn;
+  if (engine) fn(engine);
+}
 /** Les lecteurs crees, platine par platine (2026-10-18 : aucun au telephone tenu droit). */
 const made: Partial<Record<DjDeck, DjPlayer>> = {};
 /** Les platines dont le lecteur existe (le debug et les tests : la table seule n'en cree aucun). */
@@ -884,8 +1348,10 @@ export function djEngine(): DjEngine | null {
   const decks = {} as Record<DjDeck, DjPlayer>;
   for (const d of DJ_DECKS_ALL) Object.defineProperty(decks, d, { get: () => p(d), enumerable: true });
   const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });
-  engine = { ctx: port.ctx, mixer, decks, sync: { errMs: each<number | null>(null), keepMs: each(0), nudge: each(0), lastPlay: null } };
-  return engine;
+  const e: DjEngine = { ctx: port.ctx, mixer, decks, sync: { errMs: each<number | null>(null), keepMs: each(0), nudge: each(0), lastPlay: null } };
+  engine = e;
+  created?.(e);
+  return e;
 }
 
 /** Le moteur s'il existe deja, sans le creer (la scene le lit a chaque image). */

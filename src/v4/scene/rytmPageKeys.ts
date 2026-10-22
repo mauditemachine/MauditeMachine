@@ -22,7 +22,7 @@
 
 import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type BufferGeometry, type Object3D } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { COLOR, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PAGE_KEYS, PRESS_TINT, RYTM_PAGE_KEYS, STEP_PRESS, pageKeyX } from '../theme';
+import { COLOR, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PAGE_KEYS, PRESS_TINT, RYTM_PAGE_KEYS, STEP_PRESS, pageKeyX } from '../theme';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
@@ -77,6 +77,8 @@ export class RytmPageKeys {
   private press = new Float32Array(N);
   /** la touche allumee en entier, 0 a 1 (2026-10-18) */
   private fill = new Float32Array(N);
+  /** la touche sous la souris (2026-10-22, HOVER_LIGHT), -1 aucune */
+  private hover = -1;
   /** les noms sur les touches (2026-10-18) */
   readonly labels: KeyLabels;
   private off = new Color();
@@ -137,8 +139,20 @@ export class RytmPageKeys {
   private writeGlow(i: number): void {
     const e = this.emissive.array as Float32Array;
     const g = KEY_LIT.glow.orange;
-    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * this.press[i], g[c] * KEY_LIT_LIGHT.glow * this.fill[i]);
+    const h = i === this.hover ? 1 : 0;
+    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * this.press[i], g[c] * KEY_LIT_LIGHT.glow * this.fill[i], HOVER_LIGHT.glow[c] * h);
     this.emissive.needsUpdate = true;
+  }
+
+  /** La touche de page sous la souris (son id, null aucune) : un rien de lumiere ; true s'il faut une frame. */
+  setHover(id: string | null): boolean {
+    const k = id === null ? -1 : RYTM_PAGE_KEYS.findIndex((p) => p.id === id);
+    if (k === this.hover) return false;
+    const was = this.hover;
+    this.hover = k;
+    if (was >= 0) this.writeGlow(was);
+    if (k >= 0) this.writeGlow(k);
+    return true;
   }
 
   /** La teinte de la touche i : la sienne ; sur la machine claire, tiree vers l'orange de l'appui et de la touche allumee. */

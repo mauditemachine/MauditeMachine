@@ -36,7 +36,7 @@ import { attachStage } from './midi/targets';
 import { gesture } from './actions';
 import { clock } from './audio/clock';
 import { reserve } from './audio/sched';
-import { anyPlaying } from './state/playLock';
+import { anyPlaying, onPlayStop } from './state/playLock';
 import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
 import { shots } from './audio/shots';
@@ -62,7 +62,8 @@ import { djDecks } from './dj/theme';
 import { presskit } from './state/presskit';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
-import { HOOD_SECTIONS, SECTION_ROUTES, sectionFromPath, sectionTitle } from './state/sectionRoute';
+import { HOOD_SECTIONS, SECTION_ROUTES, missingTrack, sectionFromPath, sectionTitle, trackSlugOf } from './state/sectionRoute';
+import { TRACKS } from './data';
 import { view } from './state/view';
 import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, applyAppearance, type SectionId } from './theme';
 import { BeatPanel } from './ui/BeatEditor';
@@ -82,6 +83,9 @@ import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
 import { ResetView } from './ui/ResetView';
 import { Trace } from './ui/Trace';
+import { adoptSharedBeat } from './state/share';
+import { startUsage } from './state/usage';
+import { boot } from './state/boot';
 
 const IS_DEV = import.meta.env.DEV;
 
@@ -277,6 +281,16 @@ function useSectionRoute(getStage: () => Stage | null): void {
   useEffect(() => {
     const id = sectionFromPath(window.location.pathname);
     if (!id) return undefined;
+    // 2026-10-21 (audit) : l'adresse arrive en minuscules (/TRACKS/, /tracks/Voodoo/) ; un morceau inconnu (un lien faux ou
+    // perime) : /tracks/, et TRACKS le dit au-dessus de la liste (sur GitHub Pages, la page est deja servie en 404)
+    const path = window.location.pathname;
+    const slug = id === 'tracks' ? trackSlugOf(path) : null;
+    const unknown = slug !== null && !TRACKS.some((t) => t.id === slug);
+    // L'adresse propre : celle du morceau, sinon celle de la section ; un morceau inconnu : /tracks/
+    const canon = slug !== null && !unknown ? `/tracks/${slug}/` : (SECTION_ROUTES[id] ?? path);
+    const loose = path.toLowerCase().replace(/([^/])$/, '$1/');
+    if (unknown) missingTrack.set(slug);
+    if (canon !== path && (unknown || canon === loose)) window.history.replaceState(window.history.state, '', `${canon}${window.location.search}${window.location.hash}`);
     if (!HOOD_SECTIONS.includes(id)) {
       // Hors capot : aucune intro a attendre. La section s'ouvre des le montage, avant le Stage (construit
       // deux images plus tard, sans intro) : le panneau se peint avant la premiere frame de la scene, la plus
@@ -302,6 +316,8 @@ function useSectionRoute(getStage: () => Stage | null): void {
   useEffect(() => {
     const sync = (): void => {
       const s = section.get();
+      // TRACKS fermee : l'avis du morceau introuvable s'en va avec elle
+      if (s !== 'tracks') missingTrack.set(null);
       const route = s ? SECTION_ROUTES[s] : undefined;
       const path = window.location.pathname;
       const onSectionPath = sectionFromPath(path) !== null;
@@ -451,8 +467,14 @@ const V4Shell: React.FC = () => {
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   // Les one-shots du MM-RYTM se calculent (worker) des le chargement, pendant l'intro (2026-10-05 : plus a
   // sa fin) : prets avant RUN, jamais calcules sur le fil principal pendant la lecture
+  // 2026-10-21 (audit SEO F1, state/boot.ts) : une fois la premiere image de la scene a l'ecran (avant, au montage) :
+  // les WAV ne prennent plus la bande passante du JavaScript de la machine ; l'intro leur laisse le temps d'arriver
+  useEffect(() => boot.onReady(() => shots.prewarm()), []);
+  // Un beat partage dans l'adresse (?b=, 2026-10-21, state/share.ts) devient celui du MM-RYTM ; puis la mesure de
+  // l'usage (state/usage.ts : machine cadree, lecture, sample choisi)
   useEffect(() => {
-    shots.prewarm();
+    adoptSharedBeat();
+    return startUsage();
   }, []);
   const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
   // Deux machines (2026-10-03) : celle qu'on utilise
@@ -473,6 +495,22 @@ const V4Shell: React.FC = () => {
   const hostRef = useRef<HTMLDivElement>(null);
   const stageElRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /*
+   * La racine ne defile jamais (2026-10-21, audit) : overflow: clip (v4.css) l'interdit deja ; Safari < 16 ne le
+   * connait pas, un focus ou un scrollIntoView sur une commande hors champ y pousserait toute la page (en-tete,
+   * selecteur et ecran partis, page noire). Le moindre defilement revient a 0.
+   */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+    const pin = (): void => {
+      if (root.scrollTop !== 0) root.scrollTop = 0;
+      if (root.scrollLeft !== 0) root.scrollLeft = 0;
+    };
+    root.addEventListener('scroll', pin, { passive: true });
+    return () => root.removeEventListener('scroll', pin);
+  }, []);
   const [stage, setStage] = useState<Stage | null>(null);
   const [devErrors, setDevErrors] = useState<string[]>([]);
   /**
@@ -500,6 +538,21 @@ const V4Shell: React.FC = () => {
     const input = stageElRef.current;
     if (!host || !input) return undefined;
     let stage: Stage | null = null;
+    /*
+     * La musique s'arrete pendant que l'onglet est cache (2026-10-21, audit :
+     * une platine au bout de son morceau, un STOP du Roto) : le son s'endort
+     * aussi, deux secondes plus tard (un RUN qui revient tout de suite ne bute
+     * pas). Avant, il ne s'endormait qu'au moment ou l'onglet se cachait.
+     */
+    let hidden = false;
+    let sleepTimer = 0;
+    const offStop = onPlayStop(() => {
+      window.clearTimeout(sleepTimer);
+      if (!hidden) return;
+      sleepTimer = window.setTimeout(() => {
+        if (hidden && !anyPlaying()) suspend();
+      }, 2000);
+    });
     const build = (): void => {
       stage = Stage.create({
         // Une reconstruction (changement d'apparence) ne rejoue pas l'intro
@@ -523,8 +576,11 @@ const V4Shell: React.FC = () => {
         // Onglet cache ou canvas hors ecran : le rendu dort ; le son aussi, sauf si quelque chose joue
         // (2026-10-05 : une autre fenetre devant ou une autre app ne coupe plus la musique)
         onVisibility: (visible) => {
-          if (visible) resume();
-          else if (!anyPlaying()) suspend();
+          hidden = !visible;
+          if (visible) {
+            window.clearTimeout(sleepTimer);
+            resume();
+          } else if (!anyPlaying()) suspend();
         },
       });
       if (!stage) {
@@ -544,6 +600,8 @@ const V4Shell: React.FC = () => {
     else build();
     return () => {
       window.cancelAnimationFrame(raf);
+      window.clearTimeout(sleepTimer);
+      offStop();
       const built = stage;
       if (!built) return;
       // La scene se reconstruit (Dark / Light, ADD DECK, REMOVE DECK : plusieurs secondes de fil principal
@@ -554,6 +612,19 @@ const V4Shell: React.FC = () => {
       built.dispose();
     };
   }, [onError, glFailed, look, djCount]);
+
+  /*
+   * La coquille du HTML (2026-10-21, state/boot.ts) s'efface aussi sans scene : le repli sans WebGL, ou une arrivee par
+   * une section hors capot (son panneau, ouvert au montage, se peint avant la scene).
+   */
+  useEffect(() => {
+    if (gl === 'fallback') boot.mark();
+  }, [gl]);
+  useEffect(() => {
+    if (arrival.current === null) return undefined;
+    const raf = window.requestAnimationFrame(() => boot.mark());
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
 
   /* Fond de la page et theme-color du navigateur selon l'apparence */
   useEffect(() => {
@@ -588,6 +659,7 @@ const V4Shell: React.FC = () => {
 
   return (
     <div
+      ref={rootRef}
       className="v4-root"
       style={{ position: 'fixed' }}
       data-v4-state={gl === 'fallback' ? 'nogl' : running ? 'running' : instrument ? 'selected' : 'idle'}

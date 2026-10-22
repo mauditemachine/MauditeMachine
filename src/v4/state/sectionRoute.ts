@@ -35,11 +35,40 @@ const META = (seoMeta as Record<string, Record<string, { title: string }>>).en;
  * des morceaux (/tracks/<morceau>/, 2026-10-03) ouvrent TRACKS.
  */
 export function sectionFromPath(path: string): SectionId | null {
-  const p = path.endsWith('/') ? path : `${path}/`;
+  // En minuscules (2026-10-21, audit : /tracks/UPPER/ restait sur l'accueil, l'adresse telle quelle ; le routeur, lui,
+  // ne fait pas la difference)
+  const p = (path.endsWith('/') ? path : `${path}/`).toLowerCase();
   for (const [id, route] of Object.entries(SECTION_ROUTES)) if (route === p) return id as SectionId;
   if (/^\/tracks\/[a-z0-9-]+\/$/.test(p)) return 'tracks';
   return null;
 }
+
+/** Le morceau d'une adresse /tracks/<morceau>/ (en minuscules, avec ou sans barre finale), ou null. */
+export function trackSlugOf(path: string): string | null {
+  const m = /^\/tracks\/([a-z0-9-]+)\/?$/.exec(path.toLowerCase());
+  return m ? m[1] : null;
+}
+
+/**
+ * Une adresse de morceau inconnue (2026-10-21, audit : un lien faux ou perime ouvrait TRACKS sans rien dire) : le
+ * morceau demande, que TRACKS dit introuvable au-dessus de la liste ; null sinon. L'adresse, elle, redevient /tracks/.
+ */
+let missing: string | null = null;
+const missingListeners = new Set<() => void>();
+export const missingTrack = {
+  get: (): string | null => missing,
+  set(slug: string | null): void {
+    if (slug === missing) return;
+    missing = slug;
+    missingListeners.forEach((fn) => fn());
+  },
+  subscribe(fn: () => void): () => void {
+    missingListeners.add(fn);
+    return () => {
+      missingListeners.delete(fn);
+    };
+  },
+};
 
 /**
  * La page statique d'arrivee (2026-10-04, referencement, Mika : "Je veux que

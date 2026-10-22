@@ -38,7 +38,8 @@ export const BROWSER_IDLE_MS = 12000;
  * 2026-10-18 (theme.ts OLED_UH, Mika : "un ecran plus grand") : 7 lignes de
  * 15,4 unites (24 px a 1440 x 900), une de plus qu'avant et plus hautes.
  */
-export const BROWSER_ROWS = PORTRAIT ? 4 : OLED_UH > 120 ? 7 : 6;
+// 3 au telephone depuis le 2026-10-22 (audit RS-11 : 4 lignes de 25 px, la voisine prise par erreur) : 36 unites, 33 px
+export const BROWSER_ROWS = PORTRAIT ? 3 : OLED_UH > 120 ? 7 : 6;
 /** Une ligne armee pour partir (REMOVE? TAP AGAIN) le reste ce temps. */
 export const BROWSER_ARM_MS = 4000;
 /** Le fichier glisse au-dessus de la machine : son annonce tient ce temps apres le dernier dragover. */

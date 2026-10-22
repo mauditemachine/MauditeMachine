@@ -12,6 +12,8 @@
  * dessus du panneau.
  */
 
+import seoMeta from '../data/seo-meta.json';
+
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
 /**
@@ -162,9 +164,13 @@ export const FONT_MONO = 'ui-monospace, Menlo, Consolas, monospace';
 /**
  * Ce que les textures canvas attendent avant leur dessin definitif (spec
  * 4.5) : 500 et 600 pour la serigraphie du panneau (revision 2, legendes
- * fines), 700 pour celle du PCB.
+ * fines), 700 pour celle du PCB. 2026-10-22 (audit SB-01) : 300 et 400
+ * aussi, les grandes valeurs et le texte courant des ecrans (RYTM, ARP,
+ * BASS) ; sans eux check() restait faux et rien ne redessinait les ecrans.
  */
 export const FONT_LOADS = [
+  '300 40px "SF Pro Display"',
+  '400 40px "SF Pro Display"',
   '500 40px "SF Pro Display"',
   '600 40px "SF Pro Display"',
   '700 40px "SF Pro Display"',
@@ -399,6 +405,13 @@ export const SILK_PLANE = {
   y: 0.004,
   /** mobile en pleine definition depuis le 2026-10-01 : a 1024, la serigraphie bavait au DPR 3 */
   tex: PORTRAIT ? { desktop: [1166, 2048], mobile: [1166, 2048] } : { desktop: [2048, 1323], mobile: [2048, 1323] },
+  /**
+   * Un ecran Retina au desktop (2026-10-22, audit : a DPR 2 la machine couvre environ 2400 px pour 12.6 unites, les
+   * 2048 de la serigraphie etaient agrandis 1.16 fois, les petits noms un peu doux) : 2560 de large, 1.07 texel par pixel ;
+   * 17 Mo de plus sur la carte graphique, seulement a partir de retinaDpr (scene/silk.ts PanelSilk)
+   */
+  retina: [2560, 1654],
+  retinaDpr: 1.75,
 } as const;
 
 /**
@@ -701,7 +714,16 @@ export const ENCODER = {
   /** jupe d'aluminium (2026-10-03, celle des potards du MM-VOYAGER) : un filet fin, biseaute */
   skirt: { r: 0.298, rTop: 0.287, h: 0.04 },
   mark: { w: 0.036, h: 0.012, d: 0.18 },
-  segments: { desktop: 32, mobile: 20 },
+  /**
+   * 2026-10-22 (audit, les potards du RYTM etaient les plus pauvres de la table : un cylindre noir lisse) : un chanfrein
+   * en haut (chamfer, un peu plus clair : il accroche la lumiere) et des cannelures sur le flanc, comme le MM-ARP
+   * (flutes, leur creux fluteDepth) ; assez de segments pour elles (trois par cannelure au desktop)
+   */
+  chamfer: 0.026,
+  chamferGain: 3.4,
+  flutes: 20,
+  fluteDepth: 0.008,
+  segments: { desktop: 60, mobile: 40 },
   voiceScale: 0.85,
 } as const;
 
@@ -982,8 +1004,12 @@ export const PAD_FX = {
 export const PAD_GLOW = {
   /** dessus 241,193,74 (#F2C230 : 242,194,48, le bleu hors gamut sous l'ACES) */
   flash: [1.2, 0.42, 0],
-  /** dessus 30,28,25 : le caoutchouc (18,17,16) plus 12 niveaux, blanc chaud */
-  selected: [0.011, 0.0105, 0.0085],
+  /**
+   * la voix choisie, blanc chaud. 2026-10-22 (audit SB-04) : dessus vers 78,74,66 (le caoutchouc 18,17,16 plus 60
+   * niveaux) ; avant [0.011, 0.0105, 0.0085], 29 contre 17 sur les autres pads : on ne voyait pas quelle voix l'ecran,
+   * les pas et les P-locks modifient
+   */
+  selected: [0.062, 0.057, 0.046],
   /** dessus 40,34,18 : environ 10 % de jaune sur le caoutchouc */
   faint: [0.022, 0.016, 0.001],
   /** dessus 86,71,24 : environ 30 % */
@@ -1003,7 +1029,8 @@ export const PAD_GLOW = {
  * blanc chaud pour la selection, lineaire x intensite) : +20 niveaux au
  * ras d'une page au repos, +75 autour de la page ouverte.
  */
-export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06, muted: 0.22 } as const;
+// selected 0.025 -> 0.08 (2026-10-22, audit SB-04) : la voix choisie a son halo, plus faible que celui de la page ouverte
+export const PAD_HALO = { selected: 0.08, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06, muted: 0.22 } as const;
 
 /**
  * Pads de voix coupes ou en solo (2026-10-01, demande de Mika) : le
@@ -1173,8 +1200,9 @@ export const GLOBAL_FX_RULE = PORTRAIT
  * l'autre, la hauteur de leur zone (hitD : 44 px de haut a 390 px de large,
  * toute la colonne en largeur), la premiere 0.72 sous le filet.
  */
+// cap au telephone 0.088 -> 0.1 (2026-10-22, audit SB-06 : 3.6 px de capitale, sous la moitie des 11 pt d'Apple)
 export const PAGE_KNOBS = PORTRAIT
-  ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.088, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78 } as const)
+  ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78 } as const)
   : ({ rowZ: [GLOBAL_FX_RULE.z + 0.6, GLOBAL_FX_RULE.z + 0.6], s: 0.85, pitch: 0.66, cap: 0.065, nameDz: -0.39, hitD: 0, hitUp: 0, hitW: 0 } as const);
 
 /**
@@ -1296,7 +1324,12 @@ export const pageKeyX = (k: number): number => {
  */
 // Plus petits le 2026-10-18 (Mika : "les ecritures sur les boutons sont vraiment trop grosses") : un peu moins que le
 // nom des encodeurs GLOBAL FX au desktop (0.085 et 0.12 avant)
-export const KEY_LABEL = PORTRAIT ? ({ cap: 0.08, dz: 0.03, margin: 0.1, weight: 600 } as const) : ({ cap: 0.056, dz: 0.024, margin: 0.08, weight: 600 } as const);
+// 2026-10-22 (audit SB-06) : lisibles sans revenir aux gros corps refuses par Mika ; un rien plus grands (toujours sous le
+// nom des encodeurs : 0.062 contre 0.065 au desktop, 0.094 contre 0.1 au telephone), en 700 au lieu de 600, l'encre au
+// repos pleine (inkRest : l'os a 0.96 sur la machine noire, un charbon sur la claire ; silkA(0.85) avant, 3 a 3.7:1)
+export const KEY_LABEL = PORTRAIT
+  ? ({ cap: 0.094, dz: 0.03, margin: 0.1, weight: 700, inkRest: { dark: 'rgba(246, 241, 231, 0.96)', light: 'rgba(38, 38, 41, 0.96)' } } as const)
+  : ({ cap: 0.062, dz: 0.024, margin: 0.08, weight: 700, inkRest: { dark: 'rgba(246, 241, 231, 0.96)', light: 'rgba(38, 38, 41, 0.96)' } } as const);
 
 export interface KeyLabelSpec {
   /** la touche : l'id d'une page (RYTM_PAGE_KEYS) ou d'un bouton du transport */
@@ -1399,6 +1432,14 @@ export const STEP_HOLD_MS = 400;
  * (emissif glow, lineaire) en downMs, remonte et s'eteint en upMs.
  */
 export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: [0.16, 0.04, 0.004] } as const;
+
+/**
+ * Le survol a la souris (2026-10-22, audit : seuls les pas, les pads et les blocs de l'ecran reagissaient, les encodeurs,
+ * les touches de page et le transport ne changeaient que de curseur) : un rien de lumiere chaude sur la touche (glow,
+ * emissif lineaire, sous celui d'une touche allumee), l'encodeur un peu plus clair (knob : multiplicateur de sa
+ * couleur, le chanfrein s'eclaire ; skirt : sa jupe).
+ */
+export const HOVER_LIGHT = { glow: [0.018, 0.017, 0.015], knob: 2.2, skirt: 1.25 } as const;
 
 /* ---------- picking (spec 6.2, 6.5 et 20.7) ---------- */
 
@@ -1685,12 +1726,14 @@ export const SILK_TEXTS: readonly SilkText[] = [
     maxW: PORTRAIT ? PAGE_KNOBS.hitW - 0.2 : PAGE_KNOBS.pitch - 0.05,
     group: 'genc',
     weight: 700,
-    alpha: 0.8,
+    // 0.8 -> 0.9 (2026-10-22, audit SB-06)
+    alpha: 0.9,
   })),
   { text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: PORTRAIT ? 0.075 : 0.06, weight: 700, alpha: 0.7 },
   // Les noms des touches de page et du transport sont sur elles depuis le 2026-10-18 (KEY_LABELS, scene/keyLabels.ts)
   ...PADS.map(padLabel),
-  ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.075 })),
+  // Les numeros des pas plus lisibles au telephone (2026-10-22, audit SB-06 : 3 px de capitale a 0.075)
+  ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: PORTRAIT ? 0.095 : 0.075, ...(PORTRAIT ? { weight: 600 } : {}) })),
   // Le geste des verrous sous les pas, comme le MM-BASS (revue de R2, Mika : "je ne comprends toujours pas comment
   // mettre des parameter locks") ; au telephone le pied de l'ecran le dit (scene/screen.ts), la face n'a plus de place.
   // Le geste d'une seule souris (revue du 2026-10-09) : tenir un pas met le P-LOCK, il reste au lacher, puis on glisse.
@@ -1924,6 +1967,9 @@ export const INTRO = {
 
 /* ---------- textes ---------- */
 
+/** Les titres des pages statiques (src/data/seo-meta.json, la source du prerender), en anglais. */
+const SEO_TITLES: Readonly<Record<string, string | undefined>> = Object.fromEntries(Object.entries((seoMeta as Record<string, Record<string, { title: string }>>).en ?? {}).map(([k, v]) => [k, v.title]));
+
 /**
  * /presskit (2026-10-01) : la machine, et la visionneuse du press kit
  * par-dessus, 250 ms apres le montage ; la machine a 20 images par seconde
@@ -1934,12 +1980,13 @@ export const PRESSKIT_ROUTE = {
   delayMs: 250,
   frameCapMs: 50,
   hintMs: 5000,
-  // 2026-10-10 (brief de Mika, B2) : le titre de tout le site, le meme que src/data/seo-meta.json
-  title: 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records',
+  // 2026-10-21 (audit SEO F2) : le titre de sa page statique (src/data/seo-meta.json), un par page depuis ce jour
+  title: SEO_TITLES['/presskit'] ?? 'Press Kit 2027 | Maudite Machine',
 } as const;
 
 export const COPY = {
-  title: 'Maudite Machine | DJ & Producer Dark Disco | VRSTL Records',
+  // 2026-10-21 (audit SEO F3) : l'accueil est MM-STUDIO, son titre le dit (src/data/seo-meta.json, le meme que dist/index.html)
+  title: SEO_TITLES['/'] ?? 'MM-STUDIO by Maudite Machine: Free Drum Machine & Synth',
   wordmark: 'MAUDITE MACHINE',
   model: 'MM-RYTM',
 } as const;
@@ -2234,7 +2281,8 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
 export const TWIN_ARIA = {
   run: 'Run, Space',
   clear: 'Clear pattern',
-  mute: 'Mute, then tap a voice to mute it; press twice to mute several voices; press again to bring them all back',
+  // 2026-10-21 (audit) : MUTE n'arme plus de mode depuis le 2026-10-10 (actions.ts muteToggle) ; une voix se coupe a son pad
+  mute: 'Mute: right-click a voice pad (double-tap it on a touch screen, or press the context menu key on it) to mute or unmute it; press MUTE to bring all voices back',
   solo: 'Solo, then tap a voice to solo it; press twice to solo several voices; press again to bring them all back',
   random: 'Random house pattern',
   group: 'MM-RYTM drum machine',
@@ -2323,7 +2371,8 @@ const LIGHT = {
   material: { panel: { roughness: 0.5, metalness: 0 }, chassis: { roughness: 0.7, metalness: 0 }, key: { roughness: 0.55, metalness: 0 }, pad: { roughness: 0.85, metalness: 0 } },
   /** lueurs des pads en orange (le jaune palit sur le caoutchouc clair) */
   glow: {
-    selected: [0.05, 0.016, 0.0],
+    // La voix choisie (2026-10-22, audit SB-04) : le caoutchouc clair vire a l'orange pale ([0.05, 0.016, 0] avant, a peine rose)
+    selected: [0.26, 0.075, 0.006],
     active: [0.42, 0.1, 0.0],
     flash: [0.3, 0.045, 0.0],
     orange: [0.32, 0.035, 0.0],

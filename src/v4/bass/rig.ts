@@ -95,7 +95,7 @@ import { potAngle } from '../scene/encoders';
 import { Explode, type ExplodeCfg, type ExplodeInfo } from '../scene/explode';
 import { withRubberLed } from '../scene/materials';
 import { Pcb } from '../scene/pcb';
-import { makeBrushTexture, whenFonts } from '../scene/silk';
+import { makeBrushTexture, onFonts } from '../scene/silk';
 import { bassExplode } from '../state/explode';
 import { APPEARANCE, PCB_TURN, PORTRAIT } from '../theme';
 import { pattern } from '../audio/pattern';
@@ -1405,7 +1405,8 @@ export class BassRig {
         if (this.drawScreen()) this.opts.repaint();
       })
     );
-    void whenFonts().then(() => this.redrawText());
+    // 2026-10-22 (audit SB-01) : onFonts se rappelle aussi si les polices arrivent apres le delai de 3 s
+    this.unsubs.push(onFonts(() => this.redrawText()));
   }
 
   redrawText(): void {

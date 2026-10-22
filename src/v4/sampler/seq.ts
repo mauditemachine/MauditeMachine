@@ -21,7 +21,7 @@
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
-import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, extraGrid, horizon, registerScheduler, type Scheduler } from '../audio/sched';
 import { SWING } from '../theme';
 import { arp } from '../voyager/arp';
 import { SMPL_PADS } from './slices';
@@ -149,7 +149,7 @@ export class SmplSeq {
 
   /** La grille d'une autre source qui joue : la platine d'abord, puis le MM-RYTM, puis le MM-ARP. */
   private gridOf(t: number): { time: number; step: number; dur: number } | null {
-    return this.host.deckGrid(t) ?? clock.gridAfter(t) ?? arp.grid(t);
+    return this.host.deckGrid(t) ?? clock.gridAfter(t) ?? arp.grid(t) ?? extraGrid(t);
   }
 
   private ownDur(): number {

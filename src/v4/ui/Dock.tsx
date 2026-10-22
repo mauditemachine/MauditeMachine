@@ -55,6 +55,7 @@ import { playhead } from '../state/playhead';
 import { voices } from '../state/voices';
 import { INST_NAMES, STEP_HOLD_MS } from '../theme';
 import { DockPages, KnobPanel, useDockInset, useDockPage } from './KnobPanel';
+import { FaIcon } from './uiIcons';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
 
@@ -71,7 +72,8 @@ function readDockOpen(): boolean {
   }
 }
 
-const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
+// SVG inline depuis le 2026-10-22 (audit SB-11, ui/uiIcons.tsx) : plus de touches vides sans le CDN de Font Awesome
+const Icon = FaIcon;
 
 const Glyph: React.FC<{ plus: boolean }> = ({ plus }) => (
   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
@@ -113,7 +115,13 @@ const ModeKey: React.FC<{ kind: 'mute' | 'solo'; getStage: () => Stage | null }>
       className={`v4-dock-key v4-dock-mode v4-dock-${kind}`}
       data-led={led}
       aria-pressed={led !== 'off'}
-      aria-label={`${kind === 'mute' ? 'Mute' : 'Solo'}, ${LED_WORDS[led]}. Tap: one voice, tap again: several, again: done; hold: all voices back`}
+      aria-label={
+        // MUTE (2026-10-21, audit) : plus de mode a armer depuis le 2026-10-10 (actions.ts muteToggle), une voix se coupe
+        // d'une double tape sur son pad ; SOLO garde sa machine a etats
+        kind === 'mute'
+          ? `Mute, ${led === 'off' ? 'no voice muted' : 'voices muted'}. Double-tap a voice to mute or unmute it; tap or hold MUTE: all voices back`
+          : `Solo, ${LED_WORDS[led]}. Tap: one voice, tap again: several, again: done; hold: all voices back`
+      }
       onPointerDown={() => {
         fired.current = false;
         stop();

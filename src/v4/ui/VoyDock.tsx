@@ -26,6 +26,7 @@ import { CHORDS } from '../voyager/chords';
 import { wavePoints } from '../voyager/glyphs';
 import { MODES, NOTES, OCTAVES, RANGES, RATES, RATIOS, WAVES1, WAVES2, morphText, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
 import { DockPages, KnobPanel, useDockInset, useDockPage } from './KnobPanel';
+import { FaIcon } from './uiIcons';
 
 const DOCK_KEY = 'mm.v4.vdock';
 /** La page du Dock (2026-10-04) : les accords et l'arpege, ou tous les potards en gros (ui/KnobPanel.tsx). */
@@ -39,7 +40,8 @@ function readOpen(): boolean {
   }
 }
 
-const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
+// SVG inline depuis le 2026-10-22 (audit SB-11, ui/uiIcons.tsx) : plus de touches vides sans le CDN de Font Awesome
+const Icon = FaIcon;
 
 /** Le dessin d'une forme d'onde (celui de la machine), ou FM ecrit. */
 const WaveGlyph: React.FC<{ name: string }> = ({ name }) => {

@@ -2,7 +2,7 @@
  * Clavier global (spec 7.2, 13 et 20.6.2), sur le modele de
  * src/v3/hooks/useKeys.ts. A S D F frappent BD SD CH OH, Z X C V frappent
  * CP TOM HT CY (les huit voix depuis le 2026-10-05, theme.ts PADS ; le son
- * part a la touche, en mode MUTE la voix se coupe). Sur le MM-RYTM
+ * part a la touche). Sur le MM-RYTM
  * (2026-10-08, state/rytmPage.ts), hors EDIT et du mode presets : H passe
  * de la vue PAGE de l'ecran (par defaut) a HOME et retour, [ et ] passent a
  * la page d'avant ou d'apres (comme les touches de page), L met le pas choisi
@@ -17,9 +17,12 @@
  * on l'utilise (l'etape R4, la touche i de son ecran). Gauche et droite passent
  * d'une machine a l'autre (2026-10-05), sauf sur un controle qui s'en sert
  * (encodeur, onglets).
- * M (2026-10-09) : MUTE du MM-RYTM, Maj + M : SOLO (la meme machine a etats
- * que la touche : une tape, le mode suivant, au lacher ; tenue MODE_HOLD_MS,
- * toutes les voix reviennent).
+ * M (2026-10-09) : MUTE du MM-RYTM, Maj + M : SOLO, au lacher, comme la
+ * touche ; tenue MODE_HOLD_MS, toutes les voix reviennent. MUTE n'arme plus
+ * de mode depuis le 2026-10-10 (actions.ts muteToggle) : il rend les voix
+ * coupees, une voix se coupe a son pad (clic droit, double tape, la touche
+ * menu sur son jumeau) ; SOLO garde sa machine a etats (une tape, le mode
+ * suivant).
  * UNDO et REDO (2026-10-11, state/undo.ts) : Cmd+Z (Ctrl+Z hors Mac) defait,
  * Maj+Cmd+Z (Maj+Ctrl+Z) ou Ctrl+Y refait, sur toutes les machines ; un champ
  * qu'on tape (le nom d'un preset) garde les siens.
@@ -104,6 +107,14 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       if (pm && pm === focus.get() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
         presetKey(pm, e.key === 'ArrowLeft' ? 'prev' : 'next');
+        return;
+      }
+      // Le mode presets vient de se fermer seul (2026-10-21, audit : 60 s sans geste, la fleche suivante changeait de
+      // machine en pleine ecoute) : la fleche le rouvre, sur le preset qui joue
+      const pmBack = !pm && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && section.get() === null ? presetMode.resumable(focus.get(), e.timeStamp > 0 ? e.timeStamp : performance.now()) : null;
+      if (pmBack && !ownsArrows(e.target)) {
+        e.preventDefault();
+        presetKey(pmBack, 'open');
         return;
       }
       // Gauche et droite (2026-10-05) : la machine d'a cote (pas avec une page ouverte par-dessus)

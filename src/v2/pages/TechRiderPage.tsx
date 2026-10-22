@@ -16,6 +16,7 @@ import '../v2.css';
 import Cursor from '../components/Cursor';
 import useV2Chrome from '../hooks/useV2Chrome';
 import { RIDER } from '../data/techrider';
+import seoMeta from '../../data/seo-meta.json';
 
 const RIDER_PDF = '/Tech_Rider_Maudite_Machine_2026-27.pdf';
 
@@ -119,8 +120,10 @@ const TechRiderPage: React.FC = () => {
   const [lang, setLang] = useState<'en' | 'fr'>('en');
   const t = RIDER[lang];
 
-  // 2026-10-10 (brief de Mika, B2) : le titre de tout le site, en FR comme en EN
-  useV2Chrome('Maudite Machine | DJ & Producer Dark Disco | VRSTL Records');
+  // 2026-10-10 (brief de Mika, B2) : le meme titre en FR comme en EN.
+  // 2026-10-21 (audit SEO F2) : ce titre est celui de la page (src/data/seo-meta.json, le meme que le HTML
+  // prerendu), plus celui de tout le site : Google lit le titre apres le montage, il etait le meme que l'accueil.
+  useV2Chrome(seoMeta.en['/techrider'].title);
 
   const plotLabel = (k: string) => {
     if (k === 'optional') return lang === 'fr' ? '(OPTIONNEL)' : '(OPTIONAL)';

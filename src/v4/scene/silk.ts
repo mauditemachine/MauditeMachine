@@ -30,6 +30,7 @@ import {
   HEX,
   OPEN_SILK_INDEX,
   PAD,
+  PORTRAIT,
   SILK,
   SILK_LINES,
   SILK_LOGOS,
@@ -72,6 +73,35 @@ export function whenFonts(): Promise<void> {
     new Promise<void>((resolve) => window.setTimeout(resolve, FONT_TIMEOUT_MS)),
   ]);
   return fontsPromise;
+}
+
+/**
+ * 2026-10-22 (audit SB-01) : cb des que les polices sont la (whenFonts), puis
+ * une seconde fois si elles n'arrivent qu'apres le delai de 3 s (un reseau
+ * lent) : un ecran canvas peint en police de repli se redessine en SF Pro.
+ * Avant, l'ecran du MM-ARP restait en DejaVu, Segoe ou Roboto jusqu'au
+ * premier geste. Rend de quoi se desabonner (le dispose du rig).
+ */
+export function onFonts(cb: () => void): () => void {
+  let alive = true;
+  let off = (): void => {};
+  void whenFonts().then(() => {
+    if (!alive) return;
+    cb();
+    const f = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (!f || fontsReady()) return;
+    const late = (): void => {
+      if (!fontsReady()) return;
+      off();
+      if (alive) cb();
+    };
+    f.addEventListener('loadingdone', late);
+    off = () => f.removeEventListener('loadingdone', late);
+  });
+  return () => {
+    alive = false;
+    off();
+  };
 }
 
 /* ---------------- logos ---------------- */
@@ -285,7 +315,9 @@ export class PanelSilk {
   private tinted = new Map<string, HTMLCanvasElement>();
 
   constructor(mobile: boolean, anisotropy: number) {
-    const [W, H] = mobile ? SILK_PLANE.tex.mobile : SILK_PLANE.tex.desktop;
+    // Le desktop d'un ecran Retina (2026-10-22) : la serigraphie plus fine (SILK_PLANE.retina) ; le choix tient a la construction
+    const retina = !mobile && !PORTRAIT && typeof window !== 'undefined' && (window.devicePixelRatio || 1) >= SILK_PLANE.retinaDpr;
+    const [W, H] = retina ? SILK_PLANE.retina : mobile ? SILK_PLANE.tex.mobile : SILK_PLANE.tex.desktop;
     this.W = W;
     this.H = H;
     this.ppu = W / SILK_PLANE.w;

@@ -145,7 +145,7 @@ import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen, infoKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
-import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
+import { PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
 import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
@@ -155,6 +155,7 @@ import { DJ_FRAME, DJ_MIXER_ONLY, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, unitW }
 import { djView } from '../dj/view';
 import type { BassRig } from '../bass/rig';
 import { bassLoad } from '../state/bassload';
+import { boot } from '../state/boot';
 import { BASS_D, BASS_FRAME, BASS_OPEN_FRAME, BASS_W, bassX } from '../bass/theme';
 
 const DEG = Math.PI / 180;
@@ -511,6 +512,8 @@ export class Stage {
   /** MASTER et TEMPO dans l'ecran (2026-10-19, scene/screen.ts dialRects) : lcd-master, lcd-tempo */
   private dialDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
+  /** les polices attendues par gate() (2026-10-22) */
+  private unsubFonts: () => void = () => undefined;
   private unsubSeek: () => void = () => undefined;
   private raycaster = new Raycaster();
   /** les puces repondent (ouverture decouverte, vue ouverte) */
@@ -2206,7 +2209,9 @@ export class Stage {
       return;
     }
     this.timers.push(window.setTimeout(() => this.start(), FIRST_FRAME_WAIT_MS));
-    void whenFonts().then(() => {
+    // 2026-10-22 (audit SB-01) : onFonts, une seconde fois si les polices arrivent apres le delai de 3 s (la serigraphie
+    // restait sinon en police de repli) ; les ecrans des machines s'abonnent de leur cote (Screen.listen, rigs)
+    this.unsubFonts = onFonts(() => {
       if (this.disposed) return;
       this.silk.draw();
       this.keyAtlas.draw();
@@ -2482,6 +2487,9 @@ export class Stage {
     if (r.calls > s.maxDrawCalls) s.maxDrawCalls = r.calls;
     if (r.triangles > s.maxTriangles) s.maxTriangles = r.triangles;
     if (shadow) s.shadowUpdates += 1;
+    // 2026-10-21 (audit SEO F1, state/boot.ts) : la premiere image est dessinee, elle sera a l'ecran a la prochaine
+    // image du navigateur : la coquille du HTML s'efface, ce qui attendait le demarrage part
+    if (s.frames === 1) requestAnimationFrame(() => boot.mark());
     // Meme passe que le rendu : les jumeaux et la trace suivent la vue
     // (orbite, cadrage, taille) ; une erreur chez un ecouteur ne coupe
     // jamais le WebGL. Boucle indexee : aucun iterateur
@@ -2703,6 +2711,10 @@ export class Stage {
     lcdSamples.hover(sbRow ? Number(sbRow[1]) : -1);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
+    // Les encodeurs, les touches de page et le transport (2026-10-22, audit : ils ne changeaient que de curseur)
+    if (this.encoders.setHover(id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1)) changed = true;
+    if (this.pageKeys.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
+    if (this.seq.setButtonHover(id)) changed = true;
     // Puce du PCB (vue ouverte)
     this.hoverChip = id !== null && id.startsWith('chip-') ? (id.slice(5) as ChipId) : null;
     if (this.syncChipHot()) changed = true;
@@ -3179,6 +3191,7 @@ export class Stage {
     this.unsubEditor();
     this.unsubPatterns();
     this.unsubPresets();
+    this.unsubFonts();
     this.unsubPlay();
     this.orbit.lock = () => false;
     this.unsubVoyExplode();
@@ -3224,12 +3237,16 @@ export class Stage {
     this.back.dispose();
     for (const t of shared) t.dispose();
     this.scene.clear();
+    this.renderer.dispose();
     if (this.opts.dev) {
-      // Revue : doit lire 0 / 0 ici, avant la perte de contexte (spec 14.4)
+      // Revue : 0 geometrie ici, avant la perte de contexte (spec 14.4). Lu apres renderer.dispose() depuis le
+      // 2026-10-21 (audit RS-5 : il lisait 9 / 1 avant) : les cartes d'environnement des PCB (equirectangulaires) passent
+      // par le PMREM interne de three, ses 9 plans de niveaux appartiennent au renderer et partent avec lui. Reste 1
+      // texture au compteur : la cible de ping-pong de ce PMREM, que three libere apres avoir vide sa table des
+      // proprietes (le compteur ne la decompte pas) ; la perte de contexte juste dessous la rend au GPU.
       const m = this.renderer.info.memory;
       window.__v4LastDispose = { geometries: m.geometries, textures: m.textures };
     }
-    this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.canvas.remove();
   }

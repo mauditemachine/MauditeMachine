@@ -46,7 +46,10 @@ function StaticContentGuard() {
   const { pathname } = useLocation();
   const landing = useRef(pathname);
   useEffect(() => {
-    if (pathname !== landing.current) document.getElementById('seo-static')?.remove();
+    if (pathname === landing.current) return;
+    document.getElementById('seo-static')?.remove();
+    // 2026-10-21 (src/v4/state/boot.ts) : la coquille de demarrage de la machine ne reste pas sur une autre page
+    document.getElementById('mm-boot')?.remove();
   }, [pathname]);
   return null;
 }

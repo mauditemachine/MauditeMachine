@@ -7,7 +7,12 @@
  *
  * - Potard : glisser vertical ou horizontal (l'axe dominant apres 4 px),
  *   toute la course en 150 px, Maj dix fois plus fin, double tape : sa
- *   valeur neutre ; molette.
+ *   valeur neutre ; molette. Au telephone (2026-10-21, audit : un glisser
+ *   parti de MASTER le mettait a 0, tout le site se taisait), un doigt seul
+ *   parti de cote et vite ne le tourne pas : il est peut-etre le glisser
+ *   d'une machine a l'autre, rendu au lacher a la couche de saisie
+ *   (ui/swipe.ts) ; le temps passe ou le doigt reparti a la verticale, le
+ *   potard le reprend depuis sa valeur du moment.
  * - Fader : le capuchon suit le pointeur le long de sa fente projetee a
  *   l'ecran (relatif : il ne saute pas sous le doigt) ; molette.
  * - Jog : l'angle du pointeur autour du centre projete du plateau.
@@ -32,6 +37,7 @@ import { KILL, eqDb, gainDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
 import { samplerOf } from '../sampler/sampler';
 import { djState } from './state';
+import { mayBeSwipe, type SwipeHandBack } from '../ui/swipe';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
 const KNOB_PX = 150;
@@ -261,6 +267,11 @@ interface Grip {
   zoom0: number;
   x: number;
   y: number;
+  /** potard (2026-10-21, ui/swipe.ts) : pose seul, au doigt, au telephone ; ce doigt peut etre le glisser d'une machine a l'autre (t0 : l'instant de l'appui, eventTime) */
+  canSwipe: boolean;
+  t0: number;
+  /** potard : parti de cote, pas encore tourne (rendu au lacher s'il l'est encore) */
+  deferred: boolean;
 }
 
 export class DjGestures {
@@ -276,8 +287,11 @@ export class DjGestures {
     return this.grips.has(pointerId);
   }
 
-  /** Pointerdown sur une commande (x, y : px du canvas). */
-  down(pointerId: number, h: HotspotView, x: number, y: number, _touch = false): void {
+  /**
+   * Pointerdown sur une commande (x, y : px du canvas) ; swipeAt : l'instant de l'appui (eventTime) quand le glisser d'une
+   * machine a l'autre est possible (ui/swipe.ts), -1 sinon.
+   */
+  down(pointerId: number, h: HotspotView, x: number, y: number, _touch = false, swipeAt = -1): void {
     const id = h.id;
     const g: Grip = {
       id,
@@ -304,7 +318,12 @@ export class DjGestures {
       zoom0: 0,
       x,
       y,
+      canSwipe: swipeAt >= 0 && this.grips.size === 0,
+      t0: swipeAt,
+      deferred: false,
     };
+    // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
+    for (const o of this.grips.values()) o.canSwipe = false;
     if (h.kind === 'djscreen') {
       if (!this.screenDown(g, x, y)) return;
     } else if (h.kind === 'djknob') {
@@ -337,7 +356,8 @@ export class DjGestures {
     this.grips.set(pointerId, g);
   }
 
-  move(pointerId: number, x: number, y: number, shift: boolean): void {
+  /** Un mouvement (x, y : px du canvas) ; at : son instant (eventTime), pour la garde du glisser d'une machine a l'autre. */
+  move(pointerId: number, x: number, y: number, shift: boolean, at = performance.now()): void {
     const g = this.grips.get(pointerId);
     if (!g) return;
     const dx = x - g.x0;
@@ -354,7 +374,18 @@ export class DjGestures {
       if (!k) return;
       if (!g.axis) {
         if (Math.hypot(dx, dy) < AXIS_PX) return;
+        // Au telephone, parti de cote et vite : peut-etre le glisser d'une machine a l'autre, le potard ne bouge pas
+        if (g.canSwipe && mayBeSwipe(dx, dy, at - g.t0)) {
+          g.deferred = true;
+          return;
+        }
         g.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+        // Il reprend le geste la ou il en est, depuis sa valeur du moment : rien ne saute
+        if (g.deferred) {
+          g.deferred = false;
+          g.v0 = knobValue(k);
+          g.a = g.axis === 'y' ? -dy : dx;
+        }
       }
       const travel = g.axis === 'y' ? -dy : dx;
       if (shift !== g.fine) {
@@ -416,11 +447,15 @@ export class DjGestures {
     }
   }
 
-  /** Relachement au-dessus de overId (tap : relache sur la meme commande, sans avoir glisse). */
-  up(pointerId: number, overId: string | null): void {
+  /**
+   * Relachement au-dessus de overId (tap : relache sur la meme commande, sans avoir glisse). Un potard lache encore de
+   * cote, sans avoir tourne : son appui, la couche de saisie juge si c'est le glisser d'une machine a l'autre.
+   */
+  up(pointerId: number, overId: string | null): SwipeHandBack | null {
     const g = this.grips.get(pointerId);
-    if (!g) return;
+    if (!g) return null;
     this.grips.delete(pointerId);
+    if (g.kind === 'knob' && g.deferred && g.canSwipe) return { x0: g.x0, y0: g.y0, t0: g.t0 };
     const tap = overId === g.id && !g.moved;
     if (g.kind === 'screen') {
       // En lecture, la forme d'onde glissee : la piste saute au lacher
@@ -433,11 +468,11 @@ export class DjGestures {
       // Toucher l'ecran (sans glisser) ouvre la playlist sur cette platine (Mika, 2026-10-04 : "pas besoin de bouton")
       if ((g.zone === 'text' || g.zone === 'detail') && tap && g.pinch === 0) djBrowse(g.deck);
       this.stage.repaint();
-      return;
+      return null;
     }
     if (g.kind === 'key') {
       const k = keyById.get(g.id);
-      if (!k) return;
+      if (!k) return null;
       keyUp(k, this.stage, tap);
     } else if (g.kind === 'jog') {
       djJogRelease(deckOf(g.id));
@@ -452,7 +487,9 @@ export class DjGestures {
         else if (f) setFader(f, faderNeutral(f));
       } else this.lastTap.set(g.id, t);
     }
+    return null;
   }
+
 
   /** Molette au-dessus d'un potard ou d'un fader ; true si elle est prise. */
   wheel(h: HotspotView, deltaY: number, shift: boolean): boolean {

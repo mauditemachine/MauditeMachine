@@ -19,11 +19,11 @@ import { arp } from '../voyager/arp';
 import { machinesRunning } from '../actions';
 import { bassLoad } from '../state/bassload';
 import type { HotspotDef, Occluder } from '../scene/hit';
-import { whenFonts } from '../scene/silk';
+import { onFonts } from '../scene/silk';
 import { DjBody } from './body';
 import { DJ_GLOW, DjControls } from './controls';
 import { djBrowser } from './browser';
-import { djSynced, djWake, fxTarget, fxToText, fxToValue, heardBpm, syncBpm } from './actions';
+import { djSynced, djWake, fxTarget, fxToText, fxToValue, heardBpm, mixerWarn, syncBpm } from './actions';
 import { djEngineIfAny, djWaveBands } from './engine';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, type DjKnobSpec } from './layout';
 import { knobText } from './gestures';
@@ -56,6 +56,9 @@ const loadText = (ds: DjDeckState): string => {
   return ds.armed ? `${step} / PLAY ARMED` : step;
 };
 
+/** L'avis de la table reprend l'ecran du MIXER ce temps apres le dernier reglage (ms). */
+const WARN_AFTER_MS = 3000;
+
 export class DjRig {
   readonly root = new Group();
   readonly socle = new Group();
@@ -70,10 +73,14 @@ export class DjRig {
   /** la basse est suivie (une fois son code arrive) */
   private bassWatched = false;
   private lastFx: DjFxId | 'fxto' | DjKnobSpec | null = null;
+  /** l'instant ou lastFx a change (performance.now) ; l'avis de la table reprend l'ecran WARN_AFTER_MS plus tard */
+  private lastFxAt = 0;
+  private warnTimer = 0;
   private prevCh: DjState['ch'] | null = null;
   /** FX TO au dernier etat lu : un changement redessine la serigraphie de la table (le numero vise en orange) */
   private prevFxTo: number | null = null;
   private prevFx: DjState['fx'] | null = null;
+  private prevMaster: number | null = null;
   /** touches tenues (pointeur, clavier) */
   private held = new Set<string>();
   /**
@@ -181,7 +188,8 @@ export class DjRig {
     }
     // Les trois bandes d'un morceau arrivent apres lui : l'animateur les pose
     this.unsubs.push(djWaveBands.subscribe(() => this.opts.repaint()));
-    void whenFonts().then(() => this.redrawText());
+    // Les polices arrivees (2026-10-22, audit SB-01) : la serigraphie et les ecrans, une seconde fois si elles tardent
+    this.unsubs.push(onFonts(() => this.redrawText()));
   }
 
   /* ---------- etats ---------- */
@@ -189,6 +197,9 @@ export class DjRig {
   private syncState(paint: boolean): void {
     const s = djState.get();
     let moved = false;
+    // Un potard ou un fader de la table a bouge : sa valeur a l'ecran, l'avis de la table attend (touched)
+    let turned = (this.prevFx !== null && this.prevFx !== s.fx) || (this.prevCh !== null && this.prevCh !== s.ch) || (this.prevMaster !== null && this.prevMaster !== s.master);
+    this.prevMaster = s.master;
     // L'effet qu'on vient de tourner s'affiche a l'ecran de la table
     if (this.prevFx) for (const f of DJ_FX) if (s.fx[f] !== this.prevFx[f]) this.lastFx = f;
     this.prevFx = s.fx;
@@ -205,11 +216,13 @@ export class DjRig {
     this.prevCh = s.ch;
     const to = fxTarget(s);
     if (this.prevFxTo !== null && to !== this.prevFxTo) {
+      turned = true;
       this.lastFx = 'fxto';
       setSilkFxTo(to);
       this.silks[DJ_UNITS_ON.indexOf('mix')]?.draw();
     }
     this.prevFxTo = to;
+    if (turned) this.touched();
     DJ_KNOBS.forEach((k, i) => {
       const t = k.target;
       const v = t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'vol' ? s.ch[t.ch].fader : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(to) : s.master;
@@ -226,6 +239,19 @@ export class DjRig {
     if (moved && this.controls.knobs.castShadow) this.opts.invalidate();
     // Le moteur la : une image, l'animateur y pose position, zoom et cues des formes d'onde
     else if (moved || screens || lights || djEngineIfAny()) this.opts.repaint();
+  }
+
+  /**
+   * Un reglage de la table vient de bouger : l'ecran du MIXER montre sa
+   * valeur ; WARN_AFTER_MS plus tard, l'avis de la table (une machine
+   * baissee, coupee, filtree, un MASTER bas) reprend l'ecran s'il y en a un.
+   */
+  private touched(): void {
+    this.lastFxAt = performance.now();
+    window.clearTimeout(this.warnTimer);
+    this.warnTimer = window.setTimeout(() => {
+      if (this.syncScreens()) this.opts.repaint();
+    }, WARN_AFTER_MS + 50);
   }
 
   /**
@@ -323,7 +349,9 @@ export class DjRig {
     // a jouer") : voisin qui depasse au bord de l'ARP, ou la vue d'ensemble, il se reveillait et les machines passaient
     // par ses voies avec les reglages retenus de la table (un fader ou un filtre d'une seance MIXER d'avant : le
     // silence). Un geste sur la table (souris, MIDI, Roto) le reveille toujours (actions.ts engine).
-    const e = djEngineIfAny() ?? (focus.get() === 'dj' ? djWake() : null);
+    // 2026-10-21 (audit) : un moteur deja cree ailleurs (le sampler d'une platine, un pad, REC MIX) prend aussi les
+    // machines des que la table est regardee ; djWake ne fait rien de plus s'il les a deja (dj/actions.ts engine)
+    const e = focus.get() === 'dj' ? djWake() : djEngineIfAny();
     if (!e) return false;
     let busy = false;
     let changed = false;
@@ -418,8 +446,16 @@ export class DjRig {
     const fx = this.lastFx;
     // FX TO tourne : la voie visee ; sinon l'effet tourne, et au repos la voie visee si ce n'est pas toutes
     const to = fxTarget(s);
-    const label =
-      fx === 'fxto'
+    /*
+     * L'avis de la table (2026-10-21, audit, apres R14-289) : le MASTER bas, ou
+     * une machine que sa voie baisse, coupe, filtre ou envoie dans un effet
+     * (MASTER -INF, 1 RYTM -INF, 2 ARP LPF FX), en orange, a la place du repos
+     * et WARN_AFTER_MS apres le dernier reglage (sa valeur d'abord).
+     */
+    const warn = !fx || performance.now() - this.lastFxAt >= WARN_AFTER_MS ? mixerWarn(s) : '';
+    const label = warn
+      ? warn
+      : fx === 'fxto'
         ? `FX TO ${fxToText(to)}`
         : typeof fx === 'object' && fx && (fx.target.kind === 'eq' || fx.target.kind === 'vol')
           ? `${fx.target.ch + 1} ${fx.label} ${knobText(fx)}`
@@ -428,7 +464,7 @@ export class DjRig {
             : to < 0
               ? 'EFFECTS'
               : `EFFECTS ${fxToText(to)}`;
-    if (this.screens.setFx({ label, time: timeLabel(s.time), bpm: heardBpm(s) })) changed = true;
+    if (this.screens.setFx({ label, time: timeLabel(s.time), bpm: heardBpm(s), warn: warn !== '' })) changed = true;
     return changed;
   }
 
@@ -442,6 +478,9 @@ export class DjRig {
   /** Polices ou logos arrives : la serigraphie se redessine. */
   redrawText(): void {
     for (const s of this.silks) s.draw();
+    // Les ecrans aussi (2026-10-22, audit SB-01) : leurs cles ignorent la police
+    this.screens.invalidate();
+    this.syncScreens();
     this.opts.repaint();
   }
 
@@ -457,6 +496,7 @@ export class DjRig {
   }
 
   dispose(): void {
+    window.clearTimeout(this.warnTimer);
     for (const u of this.unsubs) u();
     this.unsubs.length = 0;
     this.body.dispose();

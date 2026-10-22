@@ -26,7 +26,7 @@ import { voyInfos } from './state/voyInfos';
 import { rytmInfos } from './state/rytmInfos';
 import { voyEcho } from './voyager/echo';
 import { voyPatch } from './voyager/patch';
-import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
+import { BASS, focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
 import { BROWSER_ARM_MS, BROWSER_ROWS, lcdSamples } from './state/lcdSamples';
@@ -60,6 +60,9 @@ export function gesture(): void {
   ensure();
   resume();
   if (VOYAGER) prepareSynth();
+  // Le son du MM-BASS se prepare des le premier geste (2026-10-21, audit) : son premier RUN (MACHINES, Roto) ne
+  // l'attend plus ; avec la basse cachee, rien ne se charge
+  if (BASS) void bassLoad.load()?.then((m) => m.bassEngine.ensure());
 }
 
 /**

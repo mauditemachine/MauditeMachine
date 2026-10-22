@@ -84,6 +84,33 @@ export function askReschedule(s: Scheduler): void {
   }, 12);
 }
 
+/** Une grille en doubles croches : la premiere frontiere a t ou apres, son rang dans la mesure (0 a 15), sa duree. */
+export type StepGrid = (t: number) => { time: number; step: number; dur: number } | null;
+
+/**
+ * Les grilles des sequenceurs charges a part (2026-10-21, audit) : le MM-BASS
+ * qui joue seul s'inscrit ici a son chargement (aucun import croise). Un RUN
+ * du MM-RYTM ou du MM-ARP part alors sur sa grille, avec son numero de pas ;
+ * avant, la basse sautait d'environ 41 ms et repartait au pas du nouveau
+ * venu. Les platines (SYNC, REC MIX), le sampler et l'oscilloscope la lisent
+ * aussi quand rien d'autre ne joue.
+ */
+const grids = new Set<StepGrid>();
+export function registerGrid(fn: StepGrid): () => void {
+  grids.add(fn);
+  return () => {
+    grids.delete(fn);
+  };
+}
+/** La grille d'un sequenceur inscrit qui joue (le MM-BASS seul), ou null. */
+export function extraGrid(t: number): { time: number; step: number; dur: number } | null {
+  for (const g of grids) {
+    const x = g(t);
+    if (x) return x;
+  }
+  return null;
+}
+
 /** Toutes (un changement de tempo ou de swing : chacun suit la grille du MM-RYTM). */
 export function askRescheduleAll(): void {
   for (const s of all) askReschedule(s);

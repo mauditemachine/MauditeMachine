@@ -314,9 +314,11 @@ function buildCheeks(): BufferGeometry {
   const b = 0.06;
   const shape = cheekShape(b);
   const half = B.w / 2;
+  // 2026-10-21 (audit) : ExtrudeGeometry sort deja non indexee (three 0.186) ; toNonIndexed() avertissait en console et
+  // rendait la meme geometrie, aussitot liberee. La garde de part()
   const parts = [extrudeX(shape, -half, -half + B.cheek, b, 4), extrudeX(shape, half - B.cheek, half, b, 4)].map((g) => {
-    const out = g.toNonIndexed();
-    g.dispose();
+    const out = g.index ? g.toNonIndexed() : g;
+    if (out !== g) g.dispose();
     return out;
   });
   const merged = mergeGeometries(parts, false);
@@ -334,8 +336,9 @@ function buildLid(): BufferGeometry {
   const b = 0.03;
   const shape = shapeOf(inset(lidProfile(), b));
   const g0 = extrudeX(shape, -VOY_LID_W / 2, VOY_LID_W / 2, b, 2);
-  const g = g0.toNonIndexed();
-  g0.dispose();
+  // La garde de part() (2026-10-21, audit : l'extrusion sort deja non indexee)
+  const g = g0.index ? g0.toNonIndexed() : g0;
+  if (g !== g0) g0.dispose();
   g.deleteAttribute('uv');
   const ny = Math.cos(VOY_PANEL.angle);
   const nz = Math.sin(VOY_PANEL.angle);

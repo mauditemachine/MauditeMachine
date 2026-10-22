@@ -120,11 +120,13 @@
   font-display: swap;
 }
 
-/* Robot Radicals - police custom brutaliste/blocs angulaires (Hero title) */
+/* Robot Radicals - police custom brutaliste/blocs angulaires (Hero title)
+   2026-10-21 (audit SEO F18) : la seule declaration du site (celle de src/v4/v4.css est retiree), en WOFF2 d'abord
+   (7 Ko au lieu de 33, le meme rendu au pixel pres dans Chromium), l'OTF ensuite pour un navigateur sans WOFF2 */
 @font-face {
   font-family: "Robot Radicals";
-  src: url("/fonts/RobotRadicals.otf") format("opentype"),
-       url("/fonts/RobotRadicals.ttf") format("truetype");
+  src: url("/fonts/RobotRadicals.woff2") format("woff2"),
+       url("/fonts/RobotRadicals.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;

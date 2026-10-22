@@ -570,6 +570,9 @@ export class VoyKeys {
 
   hotspots(layer: Object3D): HotspotDef[] {
     const out: HotspotDef[] = [];
+    // Au telephone (2026-10-22, audit SB-03 : 36 x 29 px, Mika les voulait plus petits le 2026-10-05) : le pad garde sa
+    // taille, sa zone descend jusque sous le nom de l'accord
+    const below = PORTRAIT ? VOY_PAD.labelDz + 0.12 : VOY_PAD.depth / 2;
     for (let i = 0; i < PADS; i += 1) {
       const p = voyPadAt(i);
       out.push({
@@ -578,9 +581,9 @@ export class VoyKeys {
         layer,
         shape: 'box',
         x: p.x,
-        z: p.z,
+        z: p.z + (below - VOY_PAD.depth / 2) / 2,
         hx: VOY_PAD.size / 2,
-        hz: VOY_PAD.depth / 2,
+        hz: (below + VOY_PAD.depth / 2) / 2,
         y0: 0,
         y1: VOY_PAD.height + VOY_PAD.dome,
         enabled: true,

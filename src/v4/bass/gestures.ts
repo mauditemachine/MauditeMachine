@@ -95,6 +95,7 @@ import { quadToUnit } from '../scene/quad';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { PORTRAIT } from '../theme';
+import { mayBeSwipe, type SwipeHandBack } from '../ui/swipe';
 import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenBack, bassGenerate, bassKnobValue, bassLenSet, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassNotesTo, bassOct, bassPagePress, bassPatternHold, bassPatternTap, bassPitchAt, bassPresetKey, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
 import { bassLine } from './line';
 import { bassPage, isBassGlobal, isBassScreen, type BassScreenId } from './pages';
@@ -209,6 +210,14 @@ interface Grip {
   /** NOTES (2026-10-09) : le compte au debut du glisser, et la ligne d'alors (bassLine.version : un pattern qui change) */
   notes0: number;
   ver: number;
+  /**
+   * un potard pose seul, au doigt, au telephone (2026-10-21, audit, ui/swipe.ts) : peut-etre le glisser d'une machine a
+   * l'autre, depuis swipeT0 (l'instant de l'appui, eventTime) ; deferred : parti de cote, pas encore tourne (rendu au
+   * lacher a la couche de saisie s'il l'est encore)
+   */
+  canSwipe: boolean;
+  swipeT0: number;
+  deferred: boolean;
 }
 
 export class BassGestures {
@@ -239,11 +248,16 @@ export class BassGestures {
   }
 
   private grip(h: HotspotView, x: number, y: number, touch: boolean): Grip {
-    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.screen(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, len: false, slot: -1, touch, pot: false, notes0: 0, ver: 0 };
+    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.screen(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, len: false, slot: -1, touch, pot: false, notes0: 0, ver: 0, canSwipe: false, swipeT0: -1, deferred: false };
   }
 
-  down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
+  /** swipeAt : l'instant de l'appui (eventTime) si le glisser d'une machine a l'autre est possible (ui/swipe.ts), -1 sinon ; un potard seul le garde. */
+  down(pointerId: number, h: HotspotView, x: number, y: number, touch = false, swipeAt = -1): void {
     const g = this.grip(h, x, y, touch);
+    g.canSwipe = swipeAt >= 0 && this.grips.size === 0 && h.kind === 'bassknob';
+    g.swipeT0 = swipeAt;
+    // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
+    for (const o of this.grips.values()) o.canSwipe = false;
     // La touche "i" de l'ecran : INFOS, toujours (au doigt en INFOS aussi : c'est elle qui l'eteint)
     if (h.id === 'bass-key-i') {
       bassInfos.toggle();
@@ -364,7 +378,8 @@ export class BassGestures {
     this.grips.set(pointerId, g);
   }
 
-  move(pointerId: number, x: number, y: number, shift: boolean): void {
+  /** Un mouvement ; at : son instant (eventTime), pour la garde du glisser d'une machine a l'autre. */
+  move(pointerId: number, x: number, y: number, shift: boolean, at = performance.now()): void {
     const g = this.grips.get(pointerId);
     if (!g || g.infoOnly) return;
     const dx = x - g.x0;
@@ -388,7 +403,21 @@ export class BassGestures {
     if (g.kind === 'knob' && g.knob) {
       if (!g.axis) {
         if (Math.hypot(dx, dy) < AXIS_PX) return;
+        // Au telephone (2026-10-21, ui/swipe.ts), parti de cote et vite : peut-etre le glisser d'une machine a l'autre
+        if (g.canSwipe && mayBeSwipe(dx, dy, at - g.swipeT0)) {
+          g.deferred = true;
+          return;
+        }
         g.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+        // Il reprend le geste la ou il en est, depuis la valeur du moment : rien ne saute
+        if (g.deferred) {
+          g.deferred = false;
+          g.a = g.axis === 'y' ? -dy : dx;
+          g.v0 = g.fx ? bassParams.of(g.knob) : bassKnobValue(g.knob);
+          g.notes0 = bassLine.count();
+          g.ver = bassLine.version();
+          g.lock = bassState.get().lock;
+        }
       }
       const travel = g.axis === 'y' ? -dy : dx;
       if (g.fx) {
@@ -438,15 +467,16 @@ export class BassGestures {
     }
   }
 
-  up(pointerId: number, overId: string | null): void {
+  /** Le lacher ; un potard lache encore de cote, sans avoir tourne : son appui (la couche de saisie juge le glisser). */
+  up(pointerId: number, overId: string | null): SwipeHandBack | null {
     const g = this.grips.get(pointerId);
-    if (!g) return;
+    if (!g) return null;
     this.grips.delete(pointerId);
-    if (g.infoOnly) return;
+    if (g.infoOnly) return null;
     const quick = performance.now() - g.t0 < TAP_MS;
     if (g.kind === 'roll') {
       this.rollUp(g, quick);
-      return;
+      return null;
     }
     if (g.kind === 'trig') {
       this.press(g.id, false);
@@ -472,7 +502,9 @@ export class BassGestures {
       if (g.pot && g.knob) this.stage.bass?.holdPot(g.knob, false);
       if (g.taps) this.tapUp(g, quick);
       this.flushLockOff();
+      if (g.deferred && g.canSwipe) return { x0: g.x0, y0: g.y0, t0: g.swipeT0 };
     }
+    return null;
   }
 
   /**

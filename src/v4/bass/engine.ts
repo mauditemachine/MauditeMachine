@@ -63,8 +63,15 @@ function ensure(): Promise<Graph | null> {
   const port = synthPort();
   if (!port || !port.ctx.audioWorklet) return Promise.resolve(null);
   const ctx = port.ctx as AudioContext;
-  const add = moduleCtx === ctx ? Promise.resolve() : ctx.audioWorklet.addModule(workletUrl);
-  moduleCtx = ctx;
+  // Le module n'est note charge qu'une fois arrive (2026-10-21, audit) : avant, il l'etait des la demande ; un echec (le
+  // reseau, un onglet reste ouvert apres une mise en ligne) faisait creer ensuite un noeud sans processeur, rattrape en
+  // silence, et le MM-BASS restait muet toute la visite. Maintenant le prochain ensure() (le prochain RUN) reessaie.
+  const add =
+    moduleCtx === ctx
+      ? Promise.resolve()
+      : ctx.audioWorklet.addModule(workletUrl).then(() => {
+          moduleCtx = ctx;
+        });
   loading = add
     .then(() => {
       const node = new AudioWorkletNode(ctx, 'mm-bass', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });

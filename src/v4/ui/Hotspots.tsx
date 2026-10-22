@@ -177,11 +177,11 @@ import { rytmInfos } from '../state/rytmInfos';
 import { isRytmInfoHotspot } from '../rytm/infoIds';
 import { isSwitch } from '../voyager/theme';
 import { EXTERNAL_REL } from './ExternalLink';
+import { SWIPE, eventTime, isSwipe, mayBeSwipe, swipeable, type SwipeHandBack } from './swipe';
 import {
   BLOCKS_ARE_KNOBS,
   BOARD_CHIPS,
   COARSE_QUERY,
-  MOBILE_QUERY,
   DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
@@ -256,6 +256,8 @@ interface Down {
   t: number;
   /** l'horodatage de l'evenement pointerdown (e.timeStamp) : la tenue d'un pas se mesure d'un evenement a l'autre */
   ts: number;
+  /** celui du dernier pointermove (2026-10-21, ui/swipe.ts) : la garde du glisser d'une machine a l'autre le lit */
+  moveTs: number;
   /** un autre doigt etait pose (pincement, rotation) : jamais un glisser d'une machine a l'autre */
   multi: boolean;
   /** un pas : sa velocite au pointerdown (0 vide) ; le glisser la change (velDrag) */
@@ -282,7 +284,9 @@ interface Down {
    * un bloc de l'ecran du telephone (2026-10-09), au doigt, glisse a
    * l'horizontale : ce n'est pas encore un reglage (il se regle de haut en
    * bas), peut-etre le glisser d'une machine a l'autre ; il le reste tant
-   * qu'il va de cote dans le temps d'un glisser (la garde de l'orbite)
+   * qu'il va de cote dans le temps d'un glisser (la garde de l'orbite) ;
+   * depuis le 2026-10-21 (audit, ui/swipe.ts) tout potard et tout pas au
+   * telephone aussi
    */
   swipe: boolean;
   /** MUTE ou SOLO tenu MODE_HOLD_MS (2026-10-09) : toutes les voix sont revenues, le lacher ne fait rien de plus ; une ligne du navigateur tenue (2026-10-18) : elle est armee pour partir */
@@ -339,12 +343,10 @@ const VEL_PX = { mouse: 12, touch: 16 } as const;
 /** Un pas vide qu'on glisse part de MID. */
 const VEL_FROM_EMPTY = 6;
 
-/**
- * Glisser d'une machine a l'autre au telephone (2026-10-03) : un doigt,
- * horizontal (1.4 fois plus que vertical), plus de 56 px, en moins de
- * 700 ms, parti d'ailleurs que d'un potard (un potard tourne).
+/*
+ * Glisser d'une machine a l'autre au telephone (2026-10-03) : SWIPE et sa garde sur les commandes (2026-10-21, audit :
+ * un glisser parti d'un potard, d'un pas, d'une commande du MIXER le prend aussi) dans ui/swipe.ts.
  */
-const SWIPE = { px: 56, ratio: 1.4, ms: 700 } as const;
 
 /** Jumeaux montes, par id de hotspot : la couche de saisie active ceux des puces. */
 const twinEls = new Map<string, HTMLElement>();
@@ -776,6 +778,25 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       stepVelocity(d.index, base + Math.round(-dy / px));
     };
 
+    /**
+     * Le glisser d'une machine a l'autre (au telephone) : vers la gauche, la machine suivante ; vers la droite, la
+     * precedente. Le MM-DECKS passe d'abord d'un bloc a l'autre (A, MIXER, B). Rend ce qui est parti (hitDebug).
+     */
+    const machineSwipe = (dx: number): string => {
+      const dir = dx < 0 ? 1 : -1;
+      const unit = focus.machine() === 'dj' ? djView.next(dir) : null;
+      if (unit) {
+        djView.set(unit);
+        return `swipe-dj-${unit}`;
+      }
+      const cur = MACHINES.indexOf(focus.machine() ?? 'mm808');
+      const to = MACHINES[Math.max(0, Math.min(MACHINES.length - 1, cur + dir))];
+      // Vue tournee (2026-10-04) : le glisser l'a fait tourner aussi ; la machine suivante arrive de face
+      if (view.get()) stage.orbit.reset();
+      focusMachine(to);
+      return `swipe-${to}`;
+    };
+
     /** Tape sur le fond : la deuxieme en moins de 300 ms et 30 px ramene la vue par defaut. */
     const tapBackground = (e: PointerEvent): boolean => {
       const t = e.timeStamp || performance.now();
@@ -803,6 +824,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           if (d.id) rytmInfos.show(d.id);
           return false;
         }
+        // Au telephone (2026-10-21, audit) : parti de cote et vite, c'est peut-etre le glisser d'une machine a l'autre
+        // (ui/swipe.ts) ; avant, il changeait la velocite du pas, ou en posait un sur un pas vide
+        if (!d.velDrag && !d.multi && swipeable(!d.mouse) && mayBeSwipe(dx, dy, d.moveTs - d.ts)) {
+          d.swipe = true;
+          return true;
+        }
+        d.swipe = false;
         d.velDrag = true;
         dragVelocity(d, dy);
         return false;
@@ -842,9 +870,22 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         turnDial(d, dx, dy, shiftHeld);
         return false;
       }
+      // Tout autre potard au doigt, au telephone (2026-10-21, audit : un glisser parti d'un potard du MM-ARP le tournait,
+      // osc1, CUTOFF ou DELAY partaient a 0, et la machine ne changeait pas) : la meme garde que les blocs (ui/swipe.ts),
+      // puis l'axe dominant, depuis la valeur du moment
+      if (!d.multi && swipeable(!d.mouse) && mayBeSwipe(dx, dy, d.moveTs - d.ts)) {
+        d.swipe = true;
+        return true;
+      }
+      const fromSwipe = d.swipe;
+      d.swipe = false;
       d.turning = true;
       // Un bloc de l'ecran a la souris (2026-10-09) : de haut en bas seulement (150 px la course), le curseur le dit
       d.axis = d.kind === 'rblock' || d.kind === 'rdial' ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+      if (fromSwipe) {
+        d.v0 = anyDialValue(d.dial);
+        d.a = d.axis === 'y' ? -dy : dx;
+      }
       turnDial(d, dx, dy, shiftHeld);
       if (d.mouse) {
         turnAxis = d.axis;
@@ -901,7 +942,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Une commande du MM-DECKS : elle seule voit ce pointeur (ni orbite ni pincement)
       const g = gesturesOf(h);
       if (h && g) {
-        g.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top, isCoarse(e));
+        // Seul pointeur pose, au doigt, au telephone : ce potard peut encore etre le glisser d'une machine a l'autre (ui/swipe.ts)
+        g.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top, isCoarse(e), downs.size === 0 && swipeable(e.pointerType !== 'mouse') ? eventTime(e) : -1);
         e.stopPropagation();
         e.preventDefault();
         return;
@@ -944,6 +986,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         mouse: e.pointerType === 'mouse',
         t: performance.now(),
         ts: e.timeStamp || performance.now(),
+        moveTs: e.timeStamp || performance.now(),
         vel0: h?.kind === 'step' && h.index !== undefined ? stepVelocityOf(h.index) : 0,
         velDrag: false,
         held: false,
@@ -1019,7 +1062,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           rytmLock.hold(idx);
           window.setTimeout(() => {
             const d = downs.get(pid);
-            if (!d || d !== d0 || d.velDrag || d.info || d.index !== idx || disposed) return;
+            // Un doigt parti de cote (2026-10-21, ui/swipe.ts) : peut-etre le glisser d'une machine a l'autre, pas une tenue
+            if (!d || d !== d0 || d.velDrag || d.swipe || d.info || d.index !== idx || disposed) return;
             // Deja passe en LOCK par un potard tourne pendant la tenue : il y reste jusqu'au lacher
             if (rytmLock.get().writes > d.writes0) {
               d.lockHold = true;
@@ -1030,7 +1074,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         } else if (!info) {
           window.setTimeout(() => {
             const d = downs.get(pid);
-            if (d && d === d0 && !d.velDrag && d.index === idx && !disposed) stepHoldHint(idx);
+            if (d && d === d0 && !d.velDrag && !d.swipe && d.index === idx && !disposed) stepHoldHint(idx);
           }, STEP_HOLD_MS);
         }
       }
@@ -1053,7 +1097,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Une tenue dont la minuterie n'a pas encore parle (revue de R2 : le fil principal gele, le pointerup passe
       // avant elle) : mesuree d'un evenement a l'autre, 350 ms ou plus, c'est la tenue, le LOCK fixe
       // INFOS allume, au doigt : jamais (la tenue montre la carte du pas)
-      if (!d.lockHold && !turned && !d.velDrag && !d.info && upTs >= 0 && upTs - d.ts >= LOCK_HOLD_MS) {
+      if (!d.lockHold && !turned && !d.velDrag && !d.swipe && !d.info && upTs >= 0 && upTs - d.ts >= LOCK_HOLD_MS) {
         if (rytmLockEnter(d.index, true)) {
           d.lockHold = true;
           return true;
@@ -1164,11 +1208,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       const mg = holder(e.pointerId);
       if (mg) {
-        mg.move(e.pointerId, e.clientX - rect.left, e.clientY - rect.top, e.shiftKey);
+        mg.move(e.pointerId, e.clientX - rect.left, e.clientY - rect.top, e.shiftKey, eventTime(e));
         e.stopPropagation();
         return;
       }
       const d = downs.get(e.pointerId);
+      // L'instant de ce mouvement, avant la garde de l'orbite (elle ecoute le parent) : le glisser se mesure au geste
+      if (d) d.moveTs = e.timeStamp || performance.now();
       // Souris sans bouton mais encore tenue ici : son pointerup s'est perdu
       if (d && d.mouse && (e.buttons & 1) === 0) forget(e.pointerId);
       else if (d && d.turning) {
@@ -1210,7 +1256,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const mg = holder(e.pointerId);
       if (mg) {
         const over = e.type === 'pointerup' ? pickAt(e, isCoarse(e)) : null;
-        mg.up(e.pointerId, over ? over.id : null);
+        const back: SwipeHandBack | null = mg.up(e.pointerId, over ? over.id : null);
+        // Un potard du MIXER ou du MM-BASS lache sans avoir tourne, le doigt parti de cote (2026-10-21, ui/swipe.ts) : il
+        // rend le geste, peut-etre le glisser d'une machine a l'autre
+        if (back && e.type === 'pointerup' && swipeable(e.pointerType !== 'mouse')) {
+          const dx = e.clientX - rect.left - back.x0;
+          const fired = isSwipe(dx, e.clientY - rect.top - back.y0, eventTime(e) - back.t0) ? machineSwipe(dx) : null;
+          hitDebug.lastUp = { id: over ? over.id : null, tap: false, fired, bg: false };
+        }
         if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
         e.stopPropagation();
         return;
@@ -1248,27 +1301,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         } else if (tap && stage.orbit.lastTap.quick && !stage.hit.onMachine(mx, my)) {
           bg = true;
           tapBackground(e);
-        } else if (VOYAGER && !tap && !d.multi && e.pointerType !== 'mouse' && window.matchMedia(MOBILE_QUERY).matches) {
+        } else if (!tap && !d.multi && swipeable(e.pointerType !== 'mouse')) {
           // Au telephone : un glisser horizontal passe d'une machine a l'autre
-          const dx = e.clientX - d.x;
-          const dy = e.clientY - d.y;
-          if (Math.abs(dx) > SWIPE.px && Math.abs(dx) > SWIPE.ratio * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
-            // Vers la gauche : la machine suivante ; vers la droite : la precedente.
-            // Le MM-DECKS passe d'abord d'un bloc a l'autre (A, MIXER, B)
-            const dir = dx < 0 ? 1 : -1;
-            const unit = focus.machine() === 'dj' ? djView.next(dir) : null;
-            if (unit) {
-              fired = `swipe-dj-${unit}`;
-              djView.set(unit);
-            } else {
-              const cur = MACHINES.indexOf(focus.machine() ?? 'mm808');
-              const to = MACHINES[Math.max(0, Math.min(MACHINES.length - 1, cur + dir))];
-              fired = `swipe-${to}`;
-              // Vue tournee (2026-10-04) : le glisser l'a fait tourner aussi ; la machine suivante arrive de face
-              if (view.get()) stage.orbit.reset();
-              focusMachine(to);
-            }
-          }
+          if (isSwipe(e.clientX - d.x, e.clientY - d.y, eventTime(e) - d.ts)) fired = machineSwipe(e.clientX - d.x);
         }
         hitDebug.lastUp = { id: d.id, tap, fired, bg };
       }
@@ -1944,6 +1979,12 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
               aria-pressed={inst === pad.id}
               onKeyDown={noRepeat}
               onClick={() => padHit(pad.id, stageRef.current)}
+              // La touche menu (ou Maj+F10) sur le jumeau d'une voix (2026-10-21, audit) : elle se coupe ou revient, comme le
+              // clic droit sur son pad (les jumeaux ne recoivent jamais la souris : pointer-events none)
+              onContextMenu={(e) => {
+                e.preventDefault();
+                padMute(pad.id, stageRef.current);
+              }}
             />
           );
         }

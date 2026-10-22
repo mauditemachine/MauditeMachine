@@ -64,6 +64,7 @@
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
+import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { makeCanvasTexture } from '../scene/silk';
 import { DJ_BEZEL } from '../dj/theme';
 import { FONT_DISPLAY, HEX, PORTRAIT } from '../theme';
@@ -236,6 +237,8 @@ export type BassScreenView =
 
 export class BassScreen {
   readonly mesh: Mesh;
+  /** le reflet du verre, enfant de mesh (scene/glassSheen.ts) */
+  private readonly sheen: Mesh;
   readonly texture: CanvasTexture;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -275,6 +278,9 @@ export class BassScreen {
     this.mesh = new Mesh(g, mat);
     this.mesh.name = 'bassScreen';
     this.mesh.position.set(S.x, DJ_BEZEL.h + 0.003, S.z);
+    // Le reflet du verre (2026-10-22, audit, amelioration 20)
+    this.sheen = glassSheen(S.w, S.d);
+    this.mesh.add(this.sheen);
   }
 
   invalidate(): void {
@@ -2026,6 +2032,7 @@ export class BassScreen {
   }
 
   dispose(): void {
+    disposeSheen(this.sheen);
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshBasicMaterial).dispose();
     this.texture.dispose();

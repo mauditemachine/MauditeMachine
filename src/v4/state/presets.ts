@@ -76,6 +76,7 @@ import { bassLine } from '../bass/line';
 import { bassState, cleanLen, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
 import { arpFactory, bassFactory, rytmFactory } from './factory';
 import { patterns } from './patterns';
+import { analytics, track } from './analytics';
 
 export type PresetMachine = 'voy' | 'mm808' | 'bass';
 const MACHINES: readonly PresetMachine[] = ['voy', 'mm808', 'bass'];
@@ -432,6 +433,8 @@ function rytmFx(raw: unknown): Fx {
 
 /** Un etat capture (un preset, ou un instantane de UNDO) remis sur la machine. */
 export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
+  // 2026-10-21 (state/analytics.ts) : un son remis sur la machine n'est pas un sample choisi a la main
+  analytics.hush();
   if (m === 'bass') {
     const b = d as BassData;
     // Un reglage absent : sa valeur d'heritage (2026-10-09 ; avant, def : un preset d'avant le moteur MONARK revient en
@@ -830,6 +833,8 @@ export const presets = {
     apply(m, p.data);
     settle(m);
     keepDrafts();
+    // 2026-10-21 (audit SEO IMP4) : quel preset sert ; le nom des presets d'usine seulement (ceux de Mika ont un nom au hasard)
+    track('preset_load', { machine: m === 'mm808' ? 'rytm' : m === 'voy' ? 'arp' : 'bass', factory: !!p.factory, preset: p.factory ? p.name : 'user' });
     // Une ligne illisible ne s'est pas chargee : la ligne d'avant joue, ce n'est pas ce preset
     if (m === 'bass') {
       if (cleanSteps((p.data as BassData).steps)) markBass(p);

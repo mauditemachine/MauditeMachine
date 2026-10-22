@@ -25,13 +25,19 @@ Disallow: /v1
 Disallow: /mm-admin
 Allow: /
 
-# Crawlers SEO commerciaux agressifs : bloqués pour économiser la bande passante
+# 2026-10-21 (audit SEO F12) : AhrefsBot et SemrushBot ne sont plus bloques. Mika veut brancher Ahrefs ou Semrush
+# (audits, liens, mots-cles) : leurs robots doivent voir le site, avec les memes Disallow que le groupe *. La bande
+# passante n'est pas un sujet sur GitHub Pages pour un site de cette taille.
 User-agent: AhrefsBot
-Disallow: /
-
+User-agent: AhrefsSiteAudit
 User-agent: SemrushBot
-Disallow: /
+User-agent: SiteAuditBot
+Disallow: /ms-admin/
+Disallow: /v1
+Disallow: /mm-admin
+Allow: /
 
+# Robot de liens sans outil utile ici : toujours bloque
 User-agent: MJ12bot
 Disallow: /
 

@@ -20,6 +20,7 @@
 
 import scopeUrl from './scope.worklet.js?url';
 import { clock } from './clock';
+import { extraGrid } from './sched';
 import { scopeTaps } from './drums';
 import { arp } from '../voyager/arp';
 
@@ -252,7 +253,7 @@ export const scopeEngine = {
    * de l'arpege qui joue seul ; null si rien ne joue.
    */
   grid(t: number): { time: number; step: number; dur: number } | null {
-    return clock.gridAfter(t) ?? arp.grid(t);
+    return clock.gridAfter(t) ?? arp.grid(t) ?? extraGrid(t);
   },
   info: () => ({ ready: node !== null, active, end, first: Math.max(first, end - RING), rate, sink: sink !== null }),
 };

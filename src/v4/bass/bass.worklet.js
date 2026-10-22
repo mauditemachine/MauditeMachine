@@ -199,6 +199,20 @@ const COLD = 1e-3;
 const IDLE_LEVEL = 1e-5;
 /** La garde : au-dela, la voix repart de zero. */
 const GUARD = 16;
+/**
+ * La sortie ne passe jamais -1 dBFS (2026-10-21, audit) : tout a fond (RESO, DRIVE, FEEDBACK, les trois OSC, NOISE,
+ * VOLUME), le BP montait a +3.7 dBFS et le 303 a +1.5, le limiteur du site baissait alors tout le mix. Identique sous
+ * -3 dBFS (KNEE : le patch de depart et les presets cretent vers -11, ils ne changent pas d'un bit), arrondi au-dessus,
+ * borne a -1 dBFS (CEIL).
+ */
+const KNEE = 0.708;
+const CEIL = 0.891;
+const safe = (x) => {
+  const a = x < 0 ? -x : x;
+  if (a <= KNEE) return x;
+  const y = KNEE + (CEIL - KNEE) * Math.tanh((a - KNEE) / (CEIL - KNEE));
+  return x < 0 ? -y : y;
+};
 
 /**
  * Les valeurs d'heritage de chaque reglage du worklet (bass/params.ts legacy ?? def) : le son d'avant le 2026-10-09,
@@ -1790,8 +1804,9 @@ class MMBass extends AudioWorkletProcessor {
       const av = v < 0 ? -v : v;
       if (av > peak) peak = av;
       if (!fx) {
-        L[k] = v;
-        if (Rch !== L) Rch[k] = v;
+        const sv = safe(v);
+        L[k] = sv;
+        if (Rch !== L) Rch[k] = sv;
         continue;
       }
       // Les effets (2026-10-08) : le sec, plus les retours du DELAY et de la REVERB
@@ -1825,8 +1840,8 @@ class MMBass extends AudioWorkletProcessor {
         l = 0;
         r = 0;
       }
-      L[k] = l;
-      if (Rch !== L) Rch[k] = r;
+      L[k] = safe(l);
+      if (Rch !== L) Rch[k] = safe(r);
     }
     this.x303 = x303;
     // STOP fini : la voix repart de zero (rien ne traine a la reprise)

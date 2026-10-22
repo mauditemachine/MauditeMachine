@@ -26,6 +26,7 @@
 import workletUrl from './sampler.worklet.js?url';
 import { gesture } from '../actions';
 import { clock } from '../audio/clock';
+import { extraGrid } from '../audio/sched';
 import { pattern } from '../audio/pattern';
 import { arp } from '../voyager/arp';
 import { deckGridAfter, heardBpm, mixBeat } from '../dj/actions';
@@ -115,11 +116,17 @@ let moduleReady: Promise<boolean> | null = null;
 function addModule(ctx: AudioContext): Promise<boolean> {
   if (moduleCtx === ctx && moduleReady) return moduleReady;
   moduleCtx = ctx;
-  moduleReady = ctx.audioWorklet.addModule(workletUrl).then(
+  // Un echec n'est pas retenu (2026-10-21, audit) : le prochain geste sur le sampler reessaie, il ne reste plus muet
+  // toute la visite apres un chargement rate
+  const ready = ctx.audioWorklet.addModule(workletUrl).then(
     () => true,
-    () => false
+    () => {
+      if (moduleReady === ready) moduleReady = null;
+      return false;
+    }
   );
-  return moduleReady;
+  moduleReady = ready;
+  return ready;
 }
 
 /* ---------------- la memoire du navigateur ---------------- */
@@ -810,7 +817,7 @@ export class Sampler {
     const c = this.graph?.ctx ?? djEngineIfAny()?.ctx;
     if (!c) return 0;
     const t = c.currentTime + 0.03;
-    const g = deckGridAfter(this.deck, t) ?? clock.gridAfter(t) ?? arp.grid(t);
+    const g = deckGridAfter(this.deck, t) ?? clock.gridAfter(t) ?? arp.grid(t) ?? extraGrid(t);
     if (!g) return 0;
     return g.time + ((4 - (g.step % 4)) % 4) * g.dur;
   }

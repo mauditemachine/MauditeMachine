@@ -53,7 +53,7 @@
  * - favicon.svg et favicon.ico a la racine, sur les pages simples aussi.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { C, URL as KIT_URL } from '../docs/presskit-2027/content.mjs';
 import {
@@ -67,10 +67,10 @@ import {
   loadGoodies,
   coverOf,
   loadSocials,
-  SEO_TITLE,
   OG_IMAGE as OG_DEFAULT,
-  OG_LOCALE,
-  OG_LOCALE_ALTERNATES,
+  OG_STUDIO_IMAGE,
+  ogLocaleTags,
+  twitterSite,
   POSITIONING,
   POSITIONING_SHORT,
   BIO_SHORT,
@@ -79,6 +79,7 @@ import {
   artistScript,
 } from './seo-shared.mjs';
 import { MM_STUDIO_PAGES, MM_STUDIO_APP_ID, MM_STUDIO_MACHINES, MM_STUDIO_SHOTS, MM_STUDIO_FEATURES, MM_STUDIO_OG_ALT, clusterOf, englishOf } from './mm-studio-content.mjs';
+import { PATTERNS, midiOf, midiPath, imagePath, patternSvg, patternCheck } from './mm-studio-patterns.mjs';
 
 const DIST = join(ROOT, 'dist');
 /** L'image d'apercu du site (1200 x 630, la photo booth-blue recadree, declaree dans index.html). */
@@ -127,6 +128,78 @@ const LD_ARTIST = /<script\s+type=["']application\/ld\+json["']\s+id=["']ld-arti
 const withArtist = (html) => (LD_ARTIST.test(html) ? html.replace(LD_ARTIST, () => artistScript()) : html.replace('</head>', () => `    ${artistScript()}\n  </head>`));
 
 const baseHtml = withArtist(readFileSync(indexPath, 'utf8'));
+
+/* ---------- le demarrage de la machine (2026-10-21, audit SEO F1 et runtime RS-6) ---------- */
+
+/*
+ * L'accueil restait noir et vide environ 4,5 s au telephone en 4G lente : rien ne peignait avant 560 Ko de
+ * JavaScript, et le chunk de la machine (et three) n'etait demande qu'une fois l'entree executee. Deux choses dans le
+ * HTML des pages de la machine (l'accueil, ses sections, les morceaux ; jamais 404.html, qui sert les admins et les
+ * archives, ni /radar/ et /techrider/, des pages React de la v2) :
+ * - les modulepreload du chunk de la machine et de ses imports (three compris), lus dans le manifeste de vite
+ *   (vite.config.ts build.manifest) : ils partent avec l'entree, plus apres elle ;
+ * - une coquille (#mm-boot), en style en ligne (piege .page > * du depot) : le logo, le titre de la page, une ligne et
+ *   une barre qui avance, sur le fond de la machine (le creme si l'apparence retenue est Light). Peinte avec le HTML,
+ *   avant tout script ; la machine l'efface en fondu a sa premiere image (src/v4/state/boot.ts), l'intro et la scene
+ *   restent telles quelles. aria-hidden : le texte de la page reste celui de #seo-static (un seul h1). Sans
+ *   JavaScript, elle est cachee (index.html, noscript).
+ */
+const MANIFEST_PATH = join(DIST, '.vite', 'manifest.json');
+const MANIFEST = readJson('dist/.vite/manifest.json', null);
+/** Les fichiers du chunk de la machine et de ses imports (sans l'entree, deja chargee), et leurs feuilles de style. */
+function machineAssets() {
+  if (!MANIFEST || typeof MANIFEST !== 'object') return { js: [], css: [] };
+  const entryKey = Object.keys(MANIFEST).find((k) => MANIFEST[k]?.isEntry && /\.html$/.test(MANIFEST[k].src ?? k));
+  const entry = entryKey ? MANIFEST[entryKey] : null;
+  // Le chunk de src/v4/index.tsx : sous son nom, ou fondu par rollup dans un chunk "index" (une cle _index-xxx.js)
+  // qu'importe dynamiquement l'entree et qui tire three
+  const startKey = MANIFEST['src/v4/index.tsx']
+    ? 'src/v4/index.tsx'
+    : (entry?.dynamicImports ?? []).find((k) => MANIFEST[k]?.name === 'index' && (MANIFEST[k].imports ?? []).some((i) => /three\.module/.test(i)));
+  if (!startKey) return { js: [], css: [] };
+  const js = [];
+  const css = [];
+  const seen = new Set();
+  const walk = (key) => {
+    const c = MANIFEST[key];
+    // L'entree et ses imports sont deja dans le HTML (vite les y pose)
+    if (!c || seen.has(key) || key === entryKey) return;
+    seen.add(key);
+    if (c.file && c.file !== entry?.file && /\.js$/.test(c.file)) js.push(c.file);
+    for (const f of c.css ?? []) if (!(entry?.css ?? []).includes(f)) css.push(f);
+    for (const k of c.imports ?? []) walk(k);
+  };
+  walk(startKey);
+  return { js: [...new Set(js)], css: [...new Set(css)] };
+}
+const MACHINE_ASSETS = machineAssets();
+/*
+ * Seulement les scripts : un preload de la feuille du chunk (18 Ko) etait telecharge une seconde fois par le
+ * <link rel="stylesheet"> que pose vite (mesure en 4G lente), et elle arrive de toute facon bien avant le montage.
+ */
+const PRELOAD_TAGS = MACHINE_ASSETS.js.map((f) => `<link rel="modulepreload" crossorigin href="/${f}" />`).join('\n    ');
+
+/** Le style de la coquille qui ne tient pas en ligne : la barre qui avance, le mouvement reduit, l'apparence Light. */
+const BOOT_CSS = `<style id="mm-boot-css">@keyframes mmboot{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}#mm-boot[data-light]{background:#F1EDE5!important;color:#191919!important}#mm-boot[data-light] svg{color:#434343!important}#mm-boot[data-light] .mm-boot-sub{color:#6B655B!important}@media (prefers-reduced-motion:reduce){#mm-boot i{animation:none!important;width:100%!important;opacity:.5}}</style>`;
+/** Le logo (public/logo/mauditemachine-logo-gold.svg), en ligne : aucune requete avant la premiere peinture. */
+const BOOT_LOGO = (() => {
+  const svg = readText('public/logo/mauditemachine-logo-gold.svg').trim();
+  if (!/^<svg[\s>]/.test(svg)) return '';
+  return svg
+    .replace(/<svg\b([^>]*)>/, (_, attrs) => `<svg${attrs.replace(/\s(width|height)="[^"]*"/g, '')} width="150" height="33" role="presentation" focusable="false" style="display:block;color:#FFA600">`)
+    .replace(/fill="#FFA600"/gi, 'fill="currentColor"');
+})();
+/** La coquille d'une page : son titre et sa ligne (texte echappe). */
+function bootShell(title, sub) {
+  return `<div id="mm-boot" aria-hidden="true" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:0 max(24px,8vw);background:#0C0B09;color:#F1EDE5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;transition:opacity .35s ease;overflow:hidden">${BOOT_LOGO}<p style="margin:28px 0 14px;font-weight:800;font-size:clamp(36px,8.5vw,84px);line-height:.98;letter-spacing:-.01em;text-transform:uppercase;max-width:15ch;overflow-wrap:anywhere">${esc(title)}</p><p class="mm-boot-sub" style="margin:0;font-size:clamp(15px,2.1vw,20px);line-height:1.45;color:#C9C2B6;max-width:36ch">${esc(sub)}</p><span style="display:block;width:min(320px,70vw);height:2px;margin-top:34px;background:rgba(127,120,110,.28);overflow:hidden;border-radius:2px"><i style="display:block;height:100%;width:38%;background:#FF6A13;animation:mmboot 1.4s ease-in-out infinite"></i></span></div>
+    <script>try{if(localStorage.getItem('mm.v4.appearance')==='light')document.getElementById('mm-boot').setAttribute('data-light','1')}catch(e){}</script>`;
+}
+/** Une page de la machine : la coquille apres #root, le preload et son style dans la tete. */
+function withBoot(html, title, sub) {
+  let out = inject(html, '<div id="root"></div>', `<div id="root"></div>\n    ${bootShell(title, sub)}`);
+  out = toHead(out, BOOT_CSS);
+  return PRELOAD_TAGS ? toHead(out, PRELOAD_TAGS) : out;
+}
 
 /** Echappe les caracteres qui casseraient un attribut HTML. */
 function escapeAttr(s) {
@@ -185,8 +258,9 @@ function setImage(html, img) {
 
 /**
  * Titre, description, canonical, Open Graph et Twitter d'une page.
- * og:site_name, og:locale (fr_FR, en_GB et es_ES en alternatives) et
- * twitter:card viennent d'index.html, les memes sur chaque page.
+ * og:site_name, og:locale (en_GB, fr_FR et es_ES en alternatives : ces pages
+ * sont en anglais, 2026-10-21), twitter:card et twitter:site viennent
+ * d'index.html, les memes sur chaque page.
  */
 function pageHead(html, { title, description, url, ogType, image = OG_DEFAULT, extra = [] }) {
   let out = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeAttr(title)}</title>`);
@@ -272,6 +346,8 @@ const NAV_LINKS = [
   ['Home', '/'],
   // 2026-10-11 : les pages de MM-STUDIO (la machine de l'accueil)
   ['MM-STUDIO', '/mm-studio/'],
+  // 2026-10-21 : les motifs par style (scripts/mm-studio-patterns.mjs)
+  ['Drum patterns', '/mm-studio/drum-patterns/'],
   ['Tracks', '/tracks/'],
   ['Mixtapes', '/mixtapes/'],
   ['Shows', '/shows/'],
@@ -295,6 +371,8 @@ const STUDIO_LINKS = {
     ['MM-RYTM drum machine', '/mm-studio/drum-machine/'],
     ['MM-ARP synth and arpeggiator', '/mm-studio/synth/'],
     ['MM-DECKS DJ decks and mixer', '/mm-studio/dj-decks/'],
+    // 2026-10-21 (audit SEO IMP5) : les motifs par style
+    ['Drum patterns for 10 electronic styles, with MIDI files', '/mm-studio/drum-patterns/'],
   ],
 };
 
@@ -349,11 +427,29 @@ const exactDate = (t) => (t.releaseDate && !t.dateApprox && ISO_DAY.test(t.relea
 const released = (t) => (exactDate(t) ? fmtMonth(t.releaseDate) : String(t.year));
 const releasedFull = (t) => (exactDate(t) ? fmtDate(t.releaseDate) : String(t.year));
 
-/** Titre : le morceau, l'artiste, puis l'album ou le label quand ils tiennent sous 60 signes. */
+/**
+ * Titre : le morceau, l'artiste, puis l'album ou le label quand ils tiennent sous 60 signes. 2026-10-21 (audit SEO
+ * F19 : /tracks/alan-parsons-remix/ faisait 65 signes) : un titre de morceau trop long est coupe au dernier mot qui
+ * tient, avec des points de suspension, l'artiste reste.
+ */
+const TITLE_MAX = 60;
+/** Un texte coupe au dernier mot qui tient dans room signes, points de suspension compris. */
+const cutWords = (text, room) => {
+  if (text.length <= room) return text;
+  const cut = text.slice(0, room);
+  const sp = cut.lastIndexOf(' ');
+  return `${(sp > room / 2 ? cut.slice(0, sp) : cut.slice(0, room - 1)).replace(/[\s,(\-]+$/, '')}…`;
+};
 function trackTitle(t) {
-  const base = /maudite machine/i.test(t.title) ? t.title : `${t.title} | Maudite Machine`;
+  const tail = ' | Maudite Machine';
+  // Un titre qui nomme deja l'artiste et ne tient pas : sa parenthese "(Maudite Machine Remix)" cede la place au suffixe
+  const long = String(t.title).length > TITLE_MAX;
+  const own = /maudite machine/i.test(t.title) && !long;
+  const bare = long ? String(t.title).replace(/\s*\([^)]*maudite machine[^)]*\)\s*/i, ' ').trim() : String(t.title);
+  const name = cutWords(bare, own ? TITLE_MAX : TITLE_MAX - tail.length);
+  const base = own ? name : `${name}${tail}`;
   const extra = isLimbos(t) && norm(t.title) !== 'limbos' ? ' · Limbos LP' : onVrstl(t) ? ' · VRSTL Records' : '';
-  return `${base}${extra}`.length <= 60 ? `${base}${extra}` : base;
+  return `${base}${extra}`.length <= TITLE_MAX ? `${base}${extra}` : base;
 }
 
 const listenOn = (t) => {
@@ -434,6 +530,8 @@ function trackContent(t) {
       : '',
     `<h2>More tracks</h2>${ul(related(t, 6, Boolean(album)).map((o) => a(o.title, trackUrl(o))))}`,
     `${h2('About Maudite Machine')}<p>${esc(BIO_SHORT.en)} ${a('Biography and press kit', `${SITE}/presskit/`)}</p>`,
+    // 2026-10-21 (audit SEO IMP9) : le pont de l'artiste vers l'outil, la machine de cette page
+    `${h2('Make a beat in MM-STUDIO')}<p>${esc('Maudite Machine also built MM-STUDIO, the free drum machine, synth and DJ decks of this site.')} ${a('Play a dark disco drum pattern', `${SITE}/mm-studio/drum-patterns/dark-disco/`)} · ${a('All the drum patterns', `${SITE}/mm-studio/drum-patterns/`)}</p>`,
     `<p>${a('All tracks and releases', `${SITE}/tracks/`)}</p>`,
   ].join('');
 }
@@ -657,12 +755,22 @@ const MERCH = merchProducts();
 
 /*
  * 2026-10-10 (brief de Mika, B2 et B3) : le meme titre et la meme
- * description sur toutes les pages hors morceaux (src/data/seo-meta.json) ;
- * les titres et descriptions tires des donnees (/shows/ avec ses prochaines
- * dates, /merch/, /radar/, /goodies/) sont retires.
+ * description sur toutes les pages hors morceaux (src/data/seo-meta.json).
+ * 2026-10-21 (audit SEO F2, Mika : "je veux vraiment que tu travailles sur un
+ * referencement plus que complet !") : chaque page a son titre et sa
+ * description (src/data/seo-meta.json, que la machine lit aussi pour le titre
+ * de l'onglet, state/sectionRoute.ts) ; /shows/ dit sa prochaine date (les
+ * dates passees sortent au rebuild du matin).
  */
-const describe = (_route, meta) => meta.description;
-const titleOf = () => SEO_TITLE;
+const describe = (route, meta) => {
+  if (route === '/shows/' && UPCOMING.length) {
+    const e = UPCOMING[0];
+    const city = place(e.location).address?.addressLocality;
+    return fit(`Next Maudite Machine show: ${fmtDate(e.date)}, ${e.title}${city ? `, ${city}` : ''}. Indie dance and dark disco DJ sets and hybrid live, past shows and booking.`);
+  }
+  return meta.description;
+};
+const titleOf = (_route, meta) => meta.title;
 
 /** Le nom de chaque page dans son fil d'Ariane (le titre ne le porte plus). */
 const PAGE_NAMES = {
@@ -689,7 +797,7 @@ function contentFor(route) {
         // 2026-10-11 : la machine de cette page, ses pages et ses machines
         h2('MM-STUDIO'),
         p(
-          'This home page is MM-STUDIO by Maudite Machine, a 3D studio you play in the browser for free: the MM-RYTM drum machine, the MM-ARP synth and the MM-DECKS DJ decks, all in time. Mika designed and built every machine, and MIDI controllers and the Roto-Control work with all of them.',
+          'This home page is MM-STUDIO by Maudite Machine, a 3D studio you play in the browser for free: the MM-RYTM drum machine, the MM-ARP synth and the MM-DECKS DJ decks, all in time. Mika designed and built every machine, and MIDI controllers and the Roto-Control work with all of them. SHARE, in the header, turns your beat into a link that opens it for anyone.',
         ),
         ul(STUDIO_LINKS.en.map(([t, path]) => a(t, `${SITE}${path}`))),
         h2('Upcoming shows'),
@@ -926,15 +1034,34 @@ function place(location) {
  * inventes : venue, city, country (nom ou code a deux lettres), endDate,
  * startTime avec son fuseau ("22:00-04:00", "21:30+02:00", ou une date ISO
  * complete), ticketUrl (offers.url), organizer (texte ou { name, url }).
+ * 2026-10-21 (audit SEO F13, les resultats Evenements de Google) : street
+ * (streetAddress), postalCode, region (addressRegion), et pour la billetterie
+ * price (nombre ou texte "15"), currency (EUR, CAD...), availability
+ * (InStock, SoldOut, PreOrder, LimitedAvailability) : ecrits s'ils sont la,
+ * jamais inventes (events.json n'en a pas encore : c'est a Mika de les
+ * donner, avec l'heure et le fuseau).
  */
 const HAS_TZ = /^\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})$/;
 const ISO_FULL = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2}))?$/;
 const httpUrl = (u) => typeof u === 'string' && /^https?:\/\/\S+$/i.test(u.trim());
+const textOf = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+/** La rue, le code postal et la region d'une date (2026-10-21), ajoutes a son adresse s'ils sont la. */
+const streetOf = (e) => ({
+  ...(textOf(e.street) ? { streetAddress: textOf(e.street) } : {}),
+  ...(textOf(e.postalCode) ? { postalCode: textOf(e.postalCode) } : {}),
+  ...(textOf(e.region) ? { addressRegion: textOf(e.region) } : {}),
+});
 function eventPlace(e) {
   const venue = typeof e.venue === 'string' && e.venue.trim() ? e.venue.trim() : null;
   const city = typeof e.city === 'string' && e.city.trim() ? e.city.trim() : null;
   const country = typeof e.country === 'string' && e.country.trim() ? e.country.trim() : null;
-  if (!venue && !city) return place(e.location);
+  if (!venue && !city) {
+    const p0 = place(e.location);
+    const more = streetOf(e);
+    if (!Object.keys(more).length) return p0;
+    const base = typeof p0.address === 'object' ? p0.address : {};
+    return { ...p0, address: { ...base, '@type': 'PostalAddress', ...more } };
+  }
   const code = country ? (/^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : placeTail(country)?.addressCountry ?? null) : null;
   const fromCity = city ? placeTail(city) : null;
   const address = {
@@ -942,8 +1069,23 @@ function eventPlace(e) {
     ...(city ? { addressLocality: city } : {}),
     ...(fromCity?.addressRegion ? { addressRegion: fromCity.addressRegion } : {}),
     ...(code ?? fromCity?.addressCountry ? { addressCountry: code ?? fromCity.addressCountry } : {}),
+    ...streetOf(e),
   };
   return { '@type': 'Place', name: venue ?? city, address };
+}
+/** La billetterie d'une date (2026-10-21) : son adresse, et son prix, sa devise et sa disponibilite s'ils sont la. */
+const AVAILABILITY = new Set(['InStock', 'SoldOut', 'PreOrder', 'LimitedAvailability', 'OnlineOnly']);
+function offersOf(e) {
+  if (!httpUrl(e.ticketUrl)) return null;
+  const price = typeof e.price === 'number' && Number.isFinite(e.price) ? e.price : typeof e.price === 'string' && /^\d+([.,]\d{1,2})?$/.test(e.price.trim()) ? Number(e.price.trim().replace(',', '.')) : null;
+  const currency = typeof e.currency === 'string' && /^[A-Za-z]{3}$/.test(e.currency.trim()) ? e.currency.trim().toUpperCase() : null;
+  const avail = typeof e.availability === 'string' && AVAILABILITY.has(e.availability.trim()) ? `https://schema.org/${e.availability.trim()}` : null;
+  return {
+    '@type': 'Offer',
+    url: e.ticketUrl.trim(),
+    ...(price !== null && currency ? { price, priceCurrency: currency } : {}),
+    ...(avail ? { availability: avail } : {}),
+  };
 }
 function organizerOf(o) {
   if (typeof o === 'string' && o.trim()) return { '@type': 'Organization', name: o.trim() };
@@ -972,7 +1114,7 @@ function eventsJsonLd() {
       location: eventPlace(e),
       performer: PERFORMER,
       ...(organizer ? { organizer } : {}),
-      ...(httpUrl(e.ticketUrl) ? { offers: { '@type': 'Offer', url: e.ticketUrl.trim() } } : {}),
+      ...(offersOf(e) ? { offers: offersOf(e) } : {}),
       image: [inPublic(e.image) ? `${SITE}/${String(e.image).replace(/^\/+/, '')}` : OG_IMAGE],
       url: e.url || `${SITE}/shows/`,
       description: `Maudite Machine plays ${e.title} (${e.location}). Indie dance and dark disco DJ set.`,
@@ -1010,8 +1152,9 @@ function alternatesTags() {
  */
 const withAlternates = (html) => toHead(html, alternatesTags());
 
-/** og:description de toutes les pages hors morceaux : la description EN (brief B4). */
-const OG_DESCRIPTION = SEO_META.en['/'].description;
+/** twitter:site (2026-10-21, audit SEO F19) : le compte X de socials.ts, s'il y en a un. */
+const TWITTER_SITE = twitterSite();
+const twitterSiteTag = TWITTER_SITE ? `<meta name="twitter:site" content="${TWITTER_SITE}" />` : '';
 
 // Le nom avant le lieu ("Techno Parade, Paris, France" : "Techno Parade") ; la virgule d'un nombre (1,200) n'est pas un separateur
 const FESTIVAL_NAMES = C.festivals.map(([n, y]) => `${n.split(', ')[0]} · ${y}`);
@@ -1136,21 +1279,21 @@ function langPage(lang) {
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="${url}" />
     ${alternatesTags()}
-    <meta property="og:type" content="music.musician" />
+    <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Maudite Machine" />
     <meta property="og:title" content="${escapeAttr(L.title)}" />
-    <meta property="og:description" content="${escapeAttr(OG_DESCRIPTION)}" />
+    <meta property="og:description" content="${escapeAttr(L.description)}" />
     <meta property="og:url" content="${url}" />
     <meta property="og:image" content="${OG_IMAGE}" />
     <meta property="og:image:width" content="${OG_DEFAULT.width}" />
     <meta property="og:image:height" content="${OG_DEFAULT.height}" />
     <meta property="og:image:type" content="${OG_DEFAULT.type}" />
     <meta property="og:image:alt" content="${escapeAttr(OG_DEFAULT.alt)}" />
-    <meta property="og:locale" content="${OG_LOCALE}" />
-    ${OG_LOCALE_ALTERNATES.map((l) => `<meta property="og:locale:alternate" content="${l}" />`).join('\n    ')}
+    ${ogLocaleTags(lang).join('\n    ')}
     <meta name="twitter:card" content="summary_large_image" />
+    ${twitterSiteTag}
     <meta name="twitter:title" content="${escapeAttr(L.title)}" />
-    <meta name="twitter:description" content="${escapeAttr(OG_DESCRIPTION)}" />
+    <meta name="twitter:description" content="${escapeAttr(L.description)}" />
     <meta name="twitter:image" content="${OG_IMAGE}" />
     <meta name="twitter:image:alt" content="${escapeAttr(OG_DEFAULT.alt)}" />
     <meta name="theme-color" content="#F6F1E7" />
@@ -1215,7 +1358,33 @@ const STUDIO_UI = {
 /** Le complement du CSS partage (listes numerotees, fil d'Ariane, capture). */
 const STUDIO_CSS = `ol{padding-left:22px;margin:0}
 .crumbs{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin:32px 0 0}.crumbs+h1{margin-top:12px}
-figure{margin:28px 0 0}figure img{display:block;width:100%;height:auto;border-radius:12px}`;
+figure{margin:28px 0 0}figure img{display:block;width:100%;height:auto;border-radius:12px}
+h3{font-size:17px;font-weight:600;margin:22px 0 4px}h3+p{margin-top:0}
+.grid-wrap{overflow-x:auto;margin:8px 0 6px;-webkit-overflow-scrolling:touch}
+.grid{border-collapse:separate;border-spacing:2px;font-size:12px;font-variant-numeric:tabular-nums;min-width:520px}
+.grid-note{font-size:14px;color:#6B655B;margin:0 0 6px}
+.grid th{font-weight:600;font-size:11px;padding:2px 4px;white-space:nowrap;text-align:left;color:#6B655B}
+.grid thead th{text-align:center}.grid td{width:24px;height:24px;text-align:center;border-radius:4px;background:#ECE5D8;color:#191919;font-weight:600}
+.grid .b{box-shadow:inset 2px 0 0 #DDD5C6}
+.grid td[data-v="1"],.grid td[data-v="2"],.grid td[data-v="3"]{background:#F3C9A9}
+.grid td[data-v="4"],.grid td[data-v="5"],.grid td[data-v="6"]{background:#F79A5E}
+.grid td[data-v="7"],.grid td[data-v="8"],.grid td[data-v="9"]{background:#FF6A13}`;
+
+/*
+ * 2026-10-21 (audit SEO IMP7) : la FAQ d'une page de machine, en HTML (h3 et reponse) et en FAQPage (JSON-LD) : le
+ * meme texte, ses liens [texte](/chemin/) rendus en vrais liens dans la page et en texte simple dans le JSON-LD.
+ */
+const plain = (text) => String(text).replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1');
+const faqLd = (page, faq) => ({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${SITE}${page.path}#faq`,
+  inLanguage: page.lang,
+  mainEntity: faq.map(([q, ans]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: plain(ans) } })),
+});
+
+/** Les images des pages de motifs ecrites au build (leur chemin), pour savoir lesquelles existent (2026-10-21). */
+const PATTERN_IMAGES = new Set();
 
 /** Un chemin du site (/press/) en adresse absolue ; une adresse complete reste telle quelle. */
 const siteHref = (href) => (href.startsWith('/') ? `${SITE}${href}` : href);
@@ -1244,9 +1413,19 @@ const studioShot = (key) => {
  * l'image du site.
  */
 function studioImage(page) {
+  // 2026-10-21 (audit SEO F3 et F17) : la carte MM-STUDIO (la machine en grand et son titre lisible) d'abord
+  if (STUDIO_CARD) return { ...STUDIO_CARD, alt: STUDIO_CARD_ALT[page.lang] ?? STUDIO_CARD.alt };
   const og = studioShot('og');
   return og ? { url: og.url, width: og.width, height: og.height, type: 'image/jpeg', alt: MM_STUDIO_OG_ALT[page.lang] ?? MM_STUDIO_OG_ALT.en } : OG_DEFAULT;
 }
+
+/** La carte de partage de MM-STUDIO (seo-shared.mjs OG_STUDIO_IMAGE), si son fichier est dans public/ ; sinon null. */
+const STUDIO_CARD = inPublic(new URL(OG_STUDIO_IMAGE.url).pathname) ? OG_STUDIO_IMAGE : null;
+const STUDIO_CARD_ALT = {
+  en: OG_STUDIO_IMAGE.alt,
+  fr: 'MM-STUDIO by Maudite Machine : une boîte à rythmes, un synthé et des platines DJ gratuits, à jouer dans le navigateur',
+  es: 'MM-STUDIO by Maudite Machine: una caja de ritmos, un sintetizador y platos DJ gratis, para tocar en el navegador',
+};
 
 /** Ce que les WebApplication ont en commun (gratuit, dans le navigateur). */
 const APP_COMMON = {
@@ -1303,15 +1482,42 @@ function studioAlternates(cluster) {
   ].join('\n    ');
 }
 
+/**
+ * Ce dont parle une page de motifs (2026-10-21) : le hub, la liste de ses styles ; une page de style, le motif (une
+ * CreativeWork de Maudite Machine, jouee sur MM-RYTM), son fichier MIDI et son lien jouable.
+ */
+function patternEntity(page) {
+  if (!page.pattern) {
+    const list = MM_STUDIO_PAGES.filter((p) => p.lang === page.lang && p.pattern);
+    return { '@type': 'ItemList', numberOfItems: list.length, itemListElement: list.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: `${SITE}${p.path}`, name: p.h1 })) };
+  }
+  const g = page.pattern;
+  return {
+    '@type': 'CreativeWork',
+    '@id': `${SITE}${page.path}#pattern`,
+    name: page.h1,
+    description: page.description,
+    inLanguage: page.lang,
+    author: ARTIST_REF,
+    about: { '@id': machineAppId('rytm') },
+    genre: g.name.en,
+    associatedMedia: { '@type': 'MediaObject', name: `${g.name.en} drum pattern, MIDI`, contentUrl: `${SITE}${midiPath(g)}`, encodingFormat: 'audio/midi' },
+    ...(page.cta?.href ? { url: page.cta.href } : {}),
+  };
+}
+
 /** Une page de MM-STUDIO, complete. */
 function studioPage(page) {
   const url = `${SITE}${page.path}`;
   const ui = STUDIO_UI[page.lang];
   const hub = clusterOf('hub').find((p) => p.lang === page.lang);
   const isHub = page.cluster === 'hub';
-  const image = studioImage(page);
+  const patternImage = page.image && PATTERN_IMAGES.has(page.image) ? { url: `${SITE}${page.image}`, width: 1200, height: 630, type: 'image/jpeg', alt: page.imageAlt } : null;
+  const image = patternImage ?? studioImage(page);
   const shot = studioShot(page.cluster);
-  const mainEntity = isHub ? (page.lang === 'en' ? studioApp(page) : { '@id': MM_STUDIO_APP_ID }) : machineApp(page);
+  // Les pages de motifs (2026-10-21) : elles parlent du MM-RYTM ; le hub de motifs est leur liste
+  const isMachine = !!MM_STUDIO_MACHINES[page.cluster] && !isHub;
+  const mainEntity = isHub ? (page.lang === 'en' ? studioApp(page) : { '@id': MM_STUDIO_APP_ID }) : isMachine ? machineApp(page) : patternEntity(page);
   const ldPage = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
@@ -1323,18 +1529,23 @@ function studioPage(page) {
     isPartOf: { '@id': `${SITE}/#website` },
     author: ARTIST_REF,
     mainEntity,
-    ...(shot ? { primaryImageOfPage: { '@type': 'ImageObject', url: shot.url } } : {}),
+    ...(shot ? { primaryImageOfPage: { '@type': 'ImageObject', url: shot.url } } : patternImage ? { primaryImageOfPage: { '@type': 'ImageObject', url: patternImage.url, width: 1200, height: 630 } } : {}),
   };
-  const crumbs = [['Maudite Machine', ui.home], ['MM-STUDIO', `${SITE}${hub.path}`], ...(isHub ? [] : [[page.h1, url]])];
+  const trail = page.crumbs ?? (isHub ? [] : [[page.h1, page.path]]);
+  const crumbs = [['Maudite Machine', ui.home], ['MM-STUDIO', `${SITE}${hub.path}`], ...trail.map(([n, path]) => [n, `${SITE}${path}`])];
   const langLinks = clusterOf(page.cluster)
     .map((p) => `<a href="${SITE}${p.path}" hreflang="${p.lang}"${p.lang === page.lang ? ' aria-current="page"' : ''}>${p.lang.toUpperCase()}</a>`)
     .join('');
   const sections = page.sections
-    .map((s) => {
+    .map((s, i) => {
+      // Le HTML pret d'une page de motifs (sa grille) : apres l'introduction, sa premiere section
+      const extra = i === 1 && page.html ? page.html : '';
       const list = s.items?.length ? `<${s.ordered ? 'ol' : 'ul'}>${s.items.map((i) => `<li>${inline(i)}</li>`).join('')}</${s.ordered ? 'ol' : 'ul'}>` : '';
-      return [s.h2 ? `<h2>${esc(s.h2)}</h2>` : '', ...(s.paragraphs ?? []).map((x) => `<p>${inline(x)}</p>`), list].filter(Boolean).join('\n      ');
+      const faq = (s.faq ?? []).map(([q, ans]) => `<h3>${esc(q)}</h3><p>${inline(ans)}</p>`).join('\n      ');
+      return [extra, s.h2 ? `<h2>${esc(s.h2)}</h2>` : '', ...(s.paragraphs ?? []).map((x) => `<p>${inline(x)}</p>`), list, faq].filter(Boolean).join('\n      ');
     })
     .join('\n      ');
+  const faqs = page.sections.flatMap((s) => s.faq ?? []);
   return `<!DOCTYPE html>
 <html lang="${page.lang}">
   <head>
@@ -1355,9 +1566,9 @@ function studioPage(page) {
     <meta property="og:image:height" content="${image.height}" />
     <meta property="og:image:type" content="${image.type}" />
     <meta property="og:image:alt" content="${escapeAttr(image.alt)}" />
-    <meta property="og:locale" content="${OG_LOCALE}" />
-    ${OG_LOCALE_ALTERNATES.map((l) => `<meta property="og:locale:alternate" content="${l}" />`).join('\n    ')}
+    ${ogLocaleTags(page.lang).join('\n    ')}
     <meta name="twitter:card" content="summary_large_image" />
+    ${twitterSiteTag}
     <meta name="twitter:title" content="${escapeAttr(page.title)}" />
     <meta name="twitter:description" content="${escapeAttr(page.description)}" />
     <meta name="twitter:image" content="${escapeAttr(image.url)}" />
@@ -1370,12 +1581,13 @@ ${STUDIO_CSS}</style>
     ${artistScript()}
     ${ld(ldPage)}
     ${ld(breadcrumb(crumbs))}
+    ${faqs.length ? ld(faqLd(page, faqs)) : ''}
     ${GTAG_TAGS}
   </head>
   <body>
     <div class="top"><a href="${ui.home}"><img src="/logo/mauditemachine-logo-ink.svg" alt="Maudite Machine" width="140" height="24" /></a><nav class="langs" aria-label="${escapeAttr(ui.langs)}">${langLinks}</nav></div>
     <main>
-      ${isHub ? '' : `<nav class="crumbs" aria-label="${escapeAttr(ui.crumbs)}"><a href="${SITE}${hub.path}">MM-STUDIO</a> / ${esc(page.h1)}</nav>\n      `}<h1>${esc(page.h1)}</h1>
+      ${isHub ? '' : `<nav class="crumbs" aria-label="${escapeAttr(ui.crumbs)}"><a href="${SITE}${hub.path}">MM-STUDIO</a>${trail.map(([n, path], i) => (i < trail.length - 1 ? ` / <a href="${SITE}${path}">${esc(n)}</a>` : ` / ${esc(n)}`)).join('')}</nav>\n      `}<h1>${esc(page.h1)}</h1>
       <p class="lead">${esc(page.lead)}</p>
       ${sections}
       ${shot ? `<figure><img src="${shot.path}" alt="${escapeAttr(page.imageAlt)}" width="${shot.width}" height="${shot.height}" loading="lazy" /></figure>\n      ` : ''}<a class="cta" href="${escapeAttr(page.cta.href)}">${esc(page.cta.text)}</a>
@@ -1421,8 +1633,11 @@ for (const route of ROUTES) {
   const title = titleOf(route, meta);
   const description = describe(route, meta);
 
-  let html = pageHead(baseHtml, { title, description, url, ogType: 'music.musician' });
+  // og:type website (2026-10-21, audit SEO F10 : music.musician n'est pas un type Open Graph) ; l'image : la photo de l'artiste
+  let html = pageHead(baseHtml, { title, description, url, ogType: 'website' });
   html = withContent(html, route);
+  // La coquille de demarrage (2026-10-21) : les pages de la machine seulement (pas les pages React de la v2)
+  if (!REACT_PAGES.has(route)) html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
   if (route === '/shows/') html = withEvents(html);
   html = toHead(html, ld(breadcrumb([['Maudite Machine', `${SITE}/`], [PAGE_NAMES[route] ?? 'Maudite Machine', url]])));
   if (route === '/tracks/') html = toHead(html, tracksJsonLd());
@@ -1444,6 +1659,7 @@ for (const t of DISCO) {
   ];
   let html = pageHead(baseHtml, { title: trackTitle(t), description: trackDescription(t), url, ogType: isEp(t) ? 'music.album' : 'music.song', image, extra });
   html = withContent(html, `/tracks/${t.id}/`, trackContent(t));
+  html = withBoot(html, t.title, `Maudite Machine · ${trackKind(t)} · ${t.year}`);
   html = toHead(html, trackJsonLd(t));
   writePage(join('tracks', t.id), html);
 }
@@ -1451,11 +1667,29 @@ for (const t of DISCO) {
 // Les pages en francais et en espagnol (des pages simples, sans la machine)
 for (const lang of ['fr', 'es']) writePage(lang, langPage(lang));
 
-// Les pages de MM-STUDIO (2026-10-11) : le hub et ses trois machines, en EN, FR et ES
+// Les motifs (2026-10-21) : un fichier MIDI par style, et son image de partage (sharp ; sans lui, la carte MM-STUDIO)
+for (const g of PATTERNS) {
+  try {
+    mkdirSync(join(DIST, midiPath(g), '..'), { recursive: true });
+    writeFileSync(join(DIST, midiPath(g)), midiOf(`${g.name.en} drum pattern, MM-RYTM by Maudite Machine`, g.bpm, g.swing, g.steps));
+    if (sharp) {
+      await sharp(Buffer.from(patternSvg(g))).jpeg({ quality: 84, progressive: true, mozjpeg: true }).toFile(join(DIST, imagePath(g)));
+      PATTERN_IMAGES.add(imagePath(g));
+    }
+  } catch (e) {
+    console.warn(`ATTENTION : motif ${g.slug} : ${e instanceof Error ? e.message : e}`);
+  }
+}
+for (const w of patternCheck()) console.warn(`ATTENTION : texte de motif a relire : ${w}`);
+
+// Les pages de MM-STUDIO (2026-10-11) : le hub et ses trois machines, en EN, FR et ES ; les motifs (2026-10-21)
 for (const page of MM_STUDIO_PAGES) writePage(page.path.replace(/^\/|\/$/g, ''), studioPage(page));
 
-// L'accueil : son contenu, les dates a venir, ses versions FR / ES et MM-STUDIO, dans dist/index.html meme
-writeFileSync(indexPath, toHead(withAlternates(withEvents(withContent(baseHtml, '/'))), HOME_APP), 'utf8');
+// L'accueil : son contenu, les dates a venir, ses versions FR / ES et MM-STUDIO, dans dist/index.html meme ; son image
+// de partage est la carte MM-STUDIO (index.html), la photo de l'artiste si la carte manque (2026-10-21)
+const homeHtml = STUDIO_CARD ? baseHtml : setImage(baseHtml, OG_DEFAULT);
+const homeBoot = (html) => withBoot(html, 'MM-STUDIO', 'Free drum machine, synth and DJ decks in your browser. By Maudite Machine.');
+writeFileSync(indexPath, toHead(withAlternates(withEvents(homeBoot(withContent(homeHtml, '/')))), HOME_APP), 'utf8');
 
 // 404.html (copie d'index.html, servie avec le statut 404 pour toute adresse
 // inconnue, et pour /v1, /v2, /v3, /mm-admin) : noindex, pas de canonical
@@ -1469,12 +1703,52 @@ if (existsSync(notFoundPath)) {
   writeFileSync(notFoundPath, withArtist(nf), 'utf8');
 }
 
+/*
+ * Les anciennes adresses (2026-10-21, audit SEO F15) : /about, /archives, /v4 et /v2/radar repondaient 404 en
+ * production (la redirection n'etait faite que par le routeur, apres 404.html). Une petite page statique chacune :
+ * canonical de la cible, meta refresh immediat (que Google lit comme une redirection permanente) et
+ * location.replace qui garde ?m= et le reste ; un lien pour qui n'a ni l'un ni l'autre. Hors sitemap.
+ */
+const REDIRECTS = [
+  ['about', '/'],
+  ['archives', '/'],
+  ['v4', '/'],
+  ['v2/radar', '/radar/'],
+];
+for (const [from, to] of REDIRECTS) {
+  if (existsSync(join(DIST, from, 'index.html'))) continue;
+  writePage(
+    from,
+    `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Maudite Machine</title>
+    <link rel="canonical" href="${SITE}${to}" />
+    <meta http-equiv="refresh" content="0; url=${to}" />
+    <script>location.replace(${JSON.stringify(to)} + location.search + location.hash);</script>
+  </head>
+  <body>
+    <p><a href="${to}">Maudite Machine</a></p>
+  </body>
+</html>
+`,
+  );
+}
+
 // /press/ (public/press/index.html, servie telle quelle) : son bloc de
 // l'artiste remplace par celui de seo-shared.mjs, comme partout (2026-10-10)
 const pressPath = join(DIST, 'press', 'index.html');
 if (existsSync(pressPath)) writeFileSync(pressPath, withArtist(readFileSync(pressPath, 'utf8')), 'utf8');
 
+// Le manifeste de vite (2026-10-21) a servi au preload : il ne part pas en ligne
+try {
+  if (existsSync(MANIFEST_PATH)) rmSync(join(DIST, '.vite'), { recursive: true, force: true });
+} catch {
+  /* il reste, sans effet */
+}
+
 const covers = [...ogCache.values()].filter(Boolean).length;
 console.log(
-  `prerender SEO : ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES, ${MM_STUDIO_PAGES.length} MM-STUDIO) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'}${studioShot('og') ? ', captures MM-STUDIO' : ''} (meta ${STATIC_LANG})`,
+  `prerender SEO : ${MACHINE_ASSETS.js.length} modulepreload, ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES, ${MM_STUDIO_PAGES.length} MM-STUDIO) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'}${studioShot('og') ? ', captures MM-STUDIO' : ''} (meta ${STATIC_LANG})`,
 );

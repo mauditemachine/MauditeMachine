@@ -133,8 +133,10 @@ export function wedge(x0: number, x1: number, d: number = DJ_UNIT.d, drop = 0, t
   const g = new ExtrudeGeometry(s, { depth: x1 - x0 - 2 * b, steps: 1, curveSegments: 4, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 2 });
   g.rotateY(Math.PI / 2);
   g.translate(x0 + b, 0, 0);
-  const out = g.toNonIndexed();
-  g.dispose();
+  // 2026-10-21 (audit) : ExtrudeGeometry sort deja non indexee (three 0.186) ; toNonIndexed() avertissait en console et
+  // rendait la meme geometrie, aussitot liberee. La garde de partDj()
+  const out = g.index ? g.toNonIndexed() : g;
+  if (out !== g) g.dispose();
   out.deleteAttribute('uv');
   const ny = Math.cos(DJ_TILT);
   paintFaces(out, (nx, y) => {
@@ -178,8 +180,9 @@ export function roundSlab(w: number, d: number, t: number, r: number, bevel: num
   // (x, y, z) -> (x, z, -y) : l'extrusion devient la hauteur, le dessus a 0
   g.rotateX(-Math.PI / 2);
   g.translate(0, -(depth + bt), 0);
-  const out = g.toNonIndexed();
-  g.dispose();
+  // La garde de partDj() (2026-10-21, audit : l'extrusion sort deja non indexee)
+  const out = g.index ? g.toNonIndexed() : g;
+  if (out !== g) g.dispose();
   out.deleteAttribute('uv');
   paintFaces(out, (_nx, ny) => (ny > 0.995 ? 'panel' : ny > 0.15 ? 'edge' : 'body'));
   out.applyMatrix4(TOP_M);

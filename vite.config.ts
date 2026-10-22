@@ -102,6 +102,9 @@ export default defineConfig(({ command }) => ({
   // module serait inline en data: URL, que Safari peut refuser a addModule
   build: {
     assetsInlineLimit: (filePath: string) => (filePath.endsWith('.worklet.js') ? false : undefined),
+    // 2026-10-21 (audit SEO F1, runtime RS-6) : dist/.vite/manifest.json, lu par scripts/prerender-seo.mjs pour poser
+    // les modulepreload du chunk de la machine et de three dans le HTML de ses pages (puis retire de dist/)
+    manifest: true,
   },
   server: {
     port: Number(process.env.PORT) || 5173,

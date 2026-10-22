@@ -1,68 +1,17 @@
 /*
  * /v4 MM-808 : feuille scopee .v4-root (spec docs/v4/spec.md section 16.3).
- * Encre #0A0A0B, bone #F6F1E7, jaune #F2C230. Polices du site principal
- * (memes fichiers, deja en cache) declarees ici pour ne rien devoir a
- * styles.css ; les textures canvas les attendent via document.fonts.load.
+ * Encre #0A0A0B, bone #F6F1E7, jaune #F2C230. Polices du site principal :
+ * celles de styles.css (2026-10-21, plus de seconde declaration ici) ; les
+ * textures canvas les attendent via document.fonts.load.
  */
 
 /* ---------- polices ---------- */
 
-@font-face {
-  font-family: 'Robot Radicals';
-  src: url('/fonts/RobotRadicals.otf') format('opentype'),
-    url('/fonts/RobotRadicals.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Light.woff2') format('woff2');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Semibold.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Black.woff2') format('woff2');
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
+/* Robot Radicals et SF Pro Display : declarees une seule fois, dans src/styles.css (2026-10-21, audit SEO F18 et F1).
+   Le meme fichier declare deux fois se telechargeait deux fois : Robot Radicals sur les pages de la machine, et les SF
+   Pro Regular et Bold quand le chunk de la machine arrive tot (ses modulepreload, scripts/prerender-seo.mjs : 82 Ko de
+   trop mesures en 4G lente). styles.css est charge par l'entree (src/main.tsx), avant ce fichier, sur toutes les pages ;
+   les memes graisses (300 a 900) et les memes fichiers. */
 
 /* ---------- chrome de page ---------- */
 
@@ -100,7 +49,11 @@ html:has(body.v4-active) {
   height: 100vh;
   height: 100dvh;
   max-width: 100vw;
+  /* 2026-10-21 (audit) : hidden laisse defiler par le code (un focus sur un jumeau hors champ poussait toute
+     la page de 2420 px, ecran noir) ; clip n'est pas un conteneur de defilement. hidden reste pour Safari < 16,
+     ou un ecouteur de index.tsx ramene le defilement a 0. */
   overflow: hidden;
+  overflow: clip;
   background: var(--ink);
   color: var(--bone);
   font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
@@ -248,12 +201,13 @@ html:has(body.v4-active) {
   color: var(--yellow);
 }
 
-/* Mobile : en haut a droite, sous l'en-tete (le Dock repliable occupe le bas) */
+/* Mobile : en haut a droite, sous l'en-tete (le Dock repliable occupe le bas) ; depuis le 2026-10-21 (audit : le
+   selecteur des machines, top 58 px, 36 px de haut, z-index 23, en couvrait 62 px sur 105) sous le selecteur, 8 px plus bas */
 @media (max-width: 767px) {
   .v4-root .v4-reset {
     right: 8px;
     bottom: auto;
-    top: calc(56px + env(safe-area-inset-top, 0px));
+    top: calc(102px + env(safe-area-inset-top, 0px));
   }
 }
 
@@ -645,6 +599,68 @@ html:has(body.v4-active) {
 .v4-root .v4-mhead .v4-undo-btn[data-compact='1'] .v4-undo-icon {
   width: 18px;
   height: 18px;
+}
+
+/*
+ * SHARE (2026-10-21, ui/Header.tsx ShareButton) : la pastille de UNDO ; sa largeur ne bouge pas quand le mot devient
+ * COPIED ou SHARED (rien ne saute dans l'en-tete), le mot passe au jaune le temps de le lire. Au telephone, l'icone
+ * seule, juste avant UNDO.
+ */
+.v4-root .v4-header .v4-share-btn[data-compact='0'] {
+  justify-content: center;
+  min-width: 104px;
+}
+
+.v4-root .v4-share-btn[data-done] {
+  color: var(--yellow);
+}
+
+.v4-root .v4-mhead .v4-share-btn[data-compact='1'] + .v4-undo-btn[data-compact='1'] {
+  margin-left: 2px;
+}
+
+@media (max-width: 1023px) {
+  .v4-root .v4-header .v4-share-btn[data-compact='0'] {
+    min-width: 0;
+  }
+}
+
+/*
+ * 2026-10-22 (audit SB-14) : au telephone, des zones de 44 px au moins sans
+ * changer le dessin (un ::after transparent deborde du bouton) : UNDO 40 px,
+ * le selecteur des machines 30 px de haut, les fleches du bord 28 px de
+ * large, la languette du Dock 30 px, ses onglets 32 px.
+ */
+.v4-root .v4-mhead .v4-undo-btn[data-compact='1'],
+.v4-root .v4-mswitch-btn,
+.v4-root .v4-dock-page {
+  position: relative;
+}
+
+.v4-root .v4-mhead .v4-undo-btn[data-compact='1']::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+}
+
+.v4-root .v4-mswitch-btn::after {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
+}
+
+/* comme le i a son bout (v4-dock-info) : 6 px en haut et en bas */
+.v4-root .v4-dock-page::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+/* Les icones en SVG inline (2026-10-22, ui/uiIcons.tsx) : 1em, sur la ligne de base comme la police d'icones d'avant */
+.v4-root .v4-svg-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.125em;
 }
 
 .v4-root .v4-midi-panel {
@@ -1634,6 +1650,13 @@ html:has(body.v4-active) {
 
   .v4-root .v4-dock-tab .v4-fa {
     font-size: 13px;
+  }
+
+  /* 44 px de haut au doigt (2026-10-22, audit SB-14), le dessin garde ses 30 */
+  .v4-root .v4-dock-tab::after {
+    content: '';
+    position: absolute;
+    inset: -7px 0;
   }
 
   .v4-root .v4-dock-tab[data-open='1'] {
@@ -3724,6 +3747,23 @@ html:has(body.v4-active.v4-light) {
 .v4-root .v4-medge[data-side='right'] {
   right: 0;
   border-radius: 12px 0 0 12px;
+}
+
+/* 44 px de large au doigt (2026-10-22, audit SB-14) : la zone deborde vers l'interieur, sur le bord du chassis */
+.v4-root .v4-medge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+}
+
+.v4-root .v4-medge[data-side='right']::after {
+  right: 0;
+}
+
+.v4-root .v4-medge[data-side='left']::after {
+  left: 0;
 }
 
 .v4-root .v4-medge[data-side='left'] {
