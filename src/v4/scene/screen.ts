@@ -173,7 +173,7 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
+import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
 import { HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { encUnit, v127Text } from '../rytm/values';
@@ -1783,13 +1783,19 @@ export class Screen {
     const y = UH - h - 2.5;
     const w = (x1 - x0 - gap * (n - 1)) / n;
     const size = this.mobile ? 7.5 : 7;
+    // La barre de la piste, deja dessinee par paintLine (2026-10-22, revue RB3-1) : ses bords en unites, un peu d'air
+    const bx = this.mobile && this.bar ? [this.bar.x0 / TEX_K - 4, this.bar.x1 / TEX_K + 4] : null;
     HOME_MENU.forEach((id, i) => {
       const x = x0 + i * (w + gap);
       const off = id === 'sound' && !inst;
       this.roundRect(x, y, w, h, 3.5, null, off ? FRAME_DIM : HALF, 1.1);
       this.text(HOME_MENU_LABEL[id], x + w / 2, y + h / 2 + size * 0.36, size, off ? FAINT : INK, 700, 'center', 0.8);
-      // Au telephone, la zone monte au-dessus de la touche jusqu'au bas du verre (MENU_HIT_TOP, 2026-10-22)
-      const top = this.mobile ? DY + MENU_HIT_TOP : y;
+      // Au telephone, la zone monte au-dessus de la touche jusqu'au bas du verre (MENU_HIT_TOP, 2026-10-22). Revue RB3-1
+      // (2026-10-22) : sous la barre de la piste (FLTR ENV FX), elle s'arrete au bas de sa bande (OLED_BAR.bandY1), une
+      // tape ou un glisse sur la barre fait avancer la piste au lieu d'ouvrir la page ; SOUND et VOICE, loin de la barre,
+      // gardent toute leur hauteur (la bande ramenerait la piste au debut)
+      const overBar = bx !== null && x < bx[1] && x + w > bx[0];
+      const top = !this.mobile ? y : overBar ? Math.max(DY + MENU_HIT_TOP, OLED_BAR.bandY1 / TEX_K) : DY + MENU_HIT_TOP;
       this.menuRects.push({ id: `lcd-menu-${id}`, ...this.spot({ x, y: top, w, h: this.mobile ? UH - top : h }) });
       this.info.menu.push(off ? `-${HOME_MENU_LABEL[id]}` : HOME_MENU_LABEL[id]);
     });
