@@ -986,8 +986,12 @@ export const PAD_FX = {
 export const PAD_GLOW = {
   /** dessus 241,193,74 (#F2C230 : 242,194,48, le bleu hors gamut sous l'ACES) */
   flash: [1.2, 0.42, 0],
-  /** dessus 30,28,25 : le caoutchouc (18,17,16) plus 12 niveaux, blanc chaud */
-  selected: [0.011, 0.0105, 0.0085],
+  /**
+   * la voix choisie, blanc chaud. 2026-10-22 (audit SB-04) : dessus vers 78,74,66 (le caoutchouc 18,17,16 plus 60
+   * niveaux) ; avant [0.011, 0.0105, 0.0085], 29 contre 17 sur les autres pads : on ne voyait pas quelle voix l'ecran,
+   * les pas et les P-locks modifient
+   */
+  selected: [0.062, 0.057, 0.046],
   /** dessus 40,34,18 : environ 10 % de jaune sur le caoutchouc */
   faint: [0.022, 0.016, 0.001],
   /** dessus 86,71,24 : environ 30 % */
@@ -1007,7 +1011,8 @@ export const PAD_GLOW = {
  * blanc chaud pour la selection, lineaire x intensite) : +20 niveaux au
  * ras d'une page au repos, +75 autour de la page ouverte.
  */
-export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06, muted: 0.22 } as const;
+// selected 0.025 -> 0.08 (2026-10-22, audit SB-04) : la voix choisie a son halo, plus faible que celui de la page ouverte
+export const PAD_HALO = { selected: 0.08, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06, muted: 0.22 } as const;
 
 /**
  * Pads de voix coupes ou en solo (2026-10-01, demande de Mika) : le
@@ -1177,8 +1182,9 @@ export const GLOBAL_FX_RULE = PORTRAIT
  * l'autre, la hauteur de leur zone (hitD : 44 px de haut a 390 px de large,
  * toute la colonne en largeur), la premiere 0.72 sous le filet.
  */
+// cap au telephone 0.088 -> 0.1 (2026-10-22, audit SB-06 : 3.6 px de capitale, sous la moitie des 11 pt d'Apple)
 export const PAGE_KNOBS = PORTRAIT
-  ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.088, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78 } as const)
+  ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78 } as const)
   : ({ rowZ: [GLOBAL_FX_RULE.z + 0.6, GLOBAL_FX_RULE.z + 0.6], s: 0.85, pitch: 0.66, cap: 0.065, nameDz: -0.39, hitD: 0, hitUp: 0, hitW: 0 } as const);
 
 /**
@@ -1300,7 +1306,12 @@ export const pageKeyX = (k: number): number => {
  */
 // Plus petits le 2026-10-18 (Mika : "les ecritures sur les boutons sont vraiment trop grosses") : un peu moins que le
 // nom des encodeurs GLOBAL FX au desktop (0.085 et 0.12 avant)
-export const KEY_LABEL = PORTRAIT ? ({ cap: 0.08, dz: 0.03, margin: 0.1, weight: 600 } as const) : ({ cap: 0.056, dz: 0.024, margin: 0.08, weight: 600 } as const);
+// 2026-10-22 (audit SB-06) : lisibles sans revenir aux gros corps refuses par Mika ; un rien plus grands (toujours sous le
+// nom des encodeurs : 0.062 contre 0.065 au desktop, 0.094 contre 0.1 au telephone), en 700 au lieu de 600, l'encre au
+// repos pleine (inkRest : l'os a 0.96 sur la machine noire, un charbon sur la claire ; silkA(0.85) avant, 3 a 3.7:1)
+export const KEY_LABEL = PORTRAIT
+  ? ({ cap: 0.094, dz: 0.03, margin: 0.1, weight: 700, inkRest: { dark: 'rgba(246, 241, 231, 0.96)', light: 'rgba(38, 38, 41, 0.96)' } } as const)
+  : ({ cap: 0.062, dz: 0.024, margin: 0.08, weight: 700, inkRest: { dark: 'rgba(246, 241, 231, 0.96)', light: 'rgba(38, 38, 41, 0.96)' } } as const);
 
 export interface KeyLabelSpec {
   /** la touche : l'id d'une page (RYTM_PAGE_KEYS) ou d'un bouton du transport */
@@ -1689,12 +1700,14 @@ export const SILK_TEXTS: readonly SilkText[] = [
     maxW: PORTRAIT ? PAGE_KNOBS.hitW - 0.2 : PAGE_KNOBS.pitch - 0.05,
     group: 'genc',
     weight: 700,
-    alpha: 0.8,
+    // 0.8 -> 0.9 (2026-10-22, audit SB-06)
+    alpha: 0.9,
   })),
   { text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: PORTRAIT ? 0.075 : 0.06, weight: 700, alpha: 0.7 },
   // Les noms des touches de page et du transport sont sur elles depuis le 2026-10-18 (KEY_LABELS, scene/keyLabels.ts)
   ...PADS.map(padLabel),
-  ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.075 })),
+  // Les numeros des pas plus lisibles au telephone (2026-10-22, audit SB-06 : 3 px de capitale a 0.075)
+  ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: PORTRAIT ? 0.095 : 0.075, ...(PORTRAIT ? { weight: 600 } : {}) })),
   // Le geste des verrous sous les pas, comme le MM-BASS (revue de R2, Mika : "je ne comprends toujours pas comment
   // mettre des parameter locks") ; au telephone le pied de l'ecran le dit (scene/screen.ts), la face n'a plus de place.
   // Le geste d'une seule souris (revue du 2026-10-09) : tenir un pas met le P-LOCK, il reste au lacher, puis on glisse.
@@ -2328,7 +2341,8 @@ const LIGHT = {
   material: { panel: { roughness: 0.5, metalness: 0 }, chassis: { roughness: 0.7, metalness: 0 }, key: { roughness: 0.55, metalness: 0 }, pad: { roughness: 0.85, metalness: 0 } },
   /** lueurs des pads en orange (le jaune palit sur le caoutchouc clair) */
   glow: {
-    selected: [0.05, 0.016, 0.0],
+    // La voix choisie (2026-10-22, audit SB-04) : le caoutchouc clair vire a l'orange pale ([0.05, 0.016, 0] avant, a peine rose)
+    selected: [0.26, 0.075, 0.006],
     active: [0.42, 0.1, 0.0],
     flash: [0.3, 0.045, 0.0],
     orange: [0.32, 0.035, 0.0],

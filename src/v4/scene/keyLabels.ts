@@ -25,7 +25,7 @@
  */
 
 import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, type CanvasTexture } from 'three';
-import { FONT_DISPLAY, KEY_LABEL, SILK, silkA, type KeyLabelSpec } from '../theme';
+import { APPEARANCE, FONT_DISPLAY, KEY_LABEL, SILK, type KeyLabelSpec } from '../theme';
 import { drawTracked, makeCanvasTexture, trackedWidth } from './silk';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
@@ -111,7 +111,8 @@ export class KeyLabelAtlas {
       const top = c.row * CELL_H;
       const base = top + CELL_H / 2 + cap / 2;
       for (const lit of [false, true]) {
-        ctx.fillStyle = lit ? DARK_INK : s.rest === 'bone' ? BONE_INK : silkA(SILK.alpha);
+        // L'encre au repos (2026-10-22, audit SB-06) : pleine, plus celle de la serigraphie a 85 %
+        ctx.fillStyle = lit ? DARK_INK : s.rest === 'bone' ? BONE_INK : KEY_LABEL.inkRest[APPEARANCE.current === 'light' ? 'light' : 'dark'];
         drawTracked(ctx, s.text, (lit ? this.colW : 0) + (c.w - w) / 2, base, size, weight);
       }
     });
