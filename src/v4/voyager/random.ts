@@ -127,6 +127,8 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     sub: sometimes(rnd, 0.6, 0.2, 0.55),
     subOct: weighted(rnd, [0.8, 0.2]),
     subWave: weighted(rnd, [0.55, 0.15, 0.3]),
+    // ACC FILTER (2026-10-21, tire apres le SUB) : les accents ouvrent un peu le filtre
+    accFlt: between(rnd, 0.35, 0.65),
   };
 }
 
@@ -262,6 +264,8 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         keyTrack: between(rnd, 0.5, 0.7),
         accent: between(rnd, 0.5, 0.85),
         sync: 0,
+        // ACC FILTER (2026-10-21) : la basse claque sur ses accents
+        accFlt: between(rnd, 0.5, 0.8),
       },
       seq: [...pickOf(rnd, BASSLINES)],
       prog: pickOf(rnd, SHORT_PROGS),
@@ -311,6 +315,8 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         keyTrack: between(rnd, 0.6, 0.85),
         accent: between(rnd, 0.7, 1),
         sync: 0,
+        // ACC FILTER (2026-10-21) : l'accent de la 303, au filtre
+        accFlt: between(rnd, 0.8, 1),
       },
       seq: acidLine(rnd),
       prog: pickOf(rnd, SHORT_PROGS),

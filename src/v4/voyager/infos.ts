@@ -75,7 +75,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   /* ---------- OSCILLATORS (le panneau) ---------- */
   wave1: {
     title: 'WAVEFORM 1',
-    text: "La forme d'OSC 1, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE (14 %), puis FM (sa sinusoïde dont OSC 2 décale la phase). Entre deux crans, les deux formes se mélangent, sans creux ni saut de niveau. Pour couper OSC 1, baisse son niveau (OSC 1, dans le mélangeur) à 0.",
+    text: "La forme d'OSC 1, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE (14 %), puis FM (sa sinusoïde dont OSC 2 décale la phase). Entre deux crans, les deux formes se mélangent, sans creux ni saut de niveau ; entre SQUARE et PULSE, c'est une vraie PWM : la largeur de l'impulsion glisse. Pour couper OSC 1, baisse son niveau (OSC 1, dans le mélangeur) à 0.",
     tip: "Entre SAW et SQUARE pour une dark disco grasse ; MOD sur WAVE fait respirer le timbre sur une mesure.",
   },
   range1: {
@@ -95,8 +95,8 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   wave2: {
     title: 'WAVEFORM 2',
-    text: "La forme d'OSC 2, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE. C'est aussi lui qui module OSC 1 quand WAVEFORM 1 est sur FM, et lui qui crie avec SYNC (sous le capot). Pour couper OSC 2, baisse son niveau (OSC 2, dans le mélangeur) à 0.",
-    tip: "Un SQUARE une octave sous OSC 1 donne du corps sans voler les médiums.",
+    text: "La forme d'OSC 2, en morphing continu : SINE, TRI, SAW, SQUARE, PULSE (entre SQUARE et PULSE, une vraie PWM). C'est aussi lui qui module OSC 1 quand WAVEFORM 1 est sur FM, et lui qui crie avec SYNC (sous le capot). Pour couper OSC 2, baisse son niveau (OSC 2, dans le mélangeur) à 0.",
+    tip: "Un SQUARE une octave sous OSC 1 donne du corps sans voler les médiums ; entre SQUARE et PULSE avec MOD sur WAVE, la PWM des nappes du Juno.",
   },
   range2: {
     title: 'RANGE 2',
@@ -162,12 +162,12 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   res: {
     title: 'RES',
-    text: "La résonance : la rétroaction des quatre étages fait une bosse autour de la coupure. Haute, le filtre siffle sur chaque note de l'arpège ; les graves restent gardés en passe-bas.",
+    text: "La résonance : la rétroaction des quatre étages fait une bosse autour de la coupure. Haute, le filtre siffle sur chaque note de l'arpège ; vers 90 %, il chante seul (auto-oscillation), juste sur la coupure, comme un Minimoog ; les graves restent gardés en passe-bas.",
     tip: "60 à 75 % avec un DECAY court du FILTER EG : le pluck qui claque des années 80.",
   },
   envAmt: {
     title: 'ENV AMT',
-    text: "De combien l'enveloppe FILTER EG ouvre la coupure : de 0 à 6 octaves au-dessus de CUTOFF, à chaque note (un peu plus sur les accents).",
+    text: "De combien l'enveloppe FILTER EG ouvre la coupure : de 0 à 6 octaves au-dessus de CUTOFF, à chaque note (plus sur les accents, selon ACC FILTER sous le capot).",
     tip: "Coupure basse et ENV AMT haut : chaque note s'ouvre et se referme, l'arpège parle.",
   },
   fmode: {
@@ -184,7 +184,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   aA: { title: 'ATTACK', text: "Le temps de montée du volume de chaque note, de 1 ms à 2 s. À 0, l'attaque claque.", tip: "Un peu d'attaque (10 %) adoucit l'arpège derrière une voix." },
   aD: { title: 'DECAY', text: "Le temps de descente du volume vers SUSTAIN, de 5 ms à 2 s.", tip: "DECAY court et SUSTAIN bas : chaque note devient une percussion mélodique." },
   aS: { title: 'SUSTAIN', text: "Le volume tenu tant que la note dure (GATE).", tip: "Au maximum pour une nappe arpégée qui ne respire que par le filtre." },
-  aR: { title: 'RELEASE', text: "Le temps que la note met à s'éteindre après sa fin, de 5 ms à 3 s ; les queues de plusieurs notes se chevauchent (jusqu'à 12 voix).", tip: "Un RELEASE long sur 1/16 crée un tapis d'accords sans toucher aux pads." },
+  aR: { title: 'RELEASE', text: "Le temps que la note met à s'éteindre après sa fin, de 5 ms à 3 s ; les queues de plusieurs notes se chevauchent (jusqu'à 12 voix, 8 au téléphone).", tip: "Un RELEASE long sur 1/16 crée un tapis d'accords sans toucher aux pads." },
 
   /* ---------- MOD ---------- */
   // MOD cale sur la mesure, RND (2026-10-18)
@@ -215,11 +215,12 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
 
   /* ---------- TWEAKS (sous le capot, OPEN) ---------- */
   phase: { title: 'PHASE', text: "FREE : les oscillateurs tournent librement, chaque note part d'une phase au hasard. Au-delà, chaque note repart de la même phase (0 à 360°) : l'attaque est identique à chaque note.", tip: "Une phase fixe pour une basse qui frappe toujours pareil sous le kick." },
-  drift: { title: 'DRIFT', text: "La part d'analogique : dérive lente des oscillateurs et petits écarts par note (coupure, enveloppes, accord, force). 0 : stable et juste ; 5 : le réglage d'origine ; 10 : le double.", tip: "Un peu plus de DRIFT sur une dark disco lente : la machine respire." },
+  drift: { title: 'DRIFT', text: "La part d'analogique : chaque oscillateur dérive (une vague lente de quelques secondes, une plus vive, un frémissement), chaque voix a son propre petit écart d'accord et de coupure comme sur un vrai polyphonique, et chaque note ses petits écarts (coupure, enveloppes, accord, force). 0 : stable et juste ; 5 : le réglage d'origine ; 10 : le double.", tip: "Un peu plus de DRIFT sur une dark disco lente : la machine respire." },
   width: { title: 'WIDTH', text: "L'écart gauche droite des notes de l'arpège.", tip: "Large avec un DELAY ping-pong : l'arpège tourne autour de la tête." },
   monoLow: { title: 'BASS MONO', text: "Sous cette fréquence (40 à 300 Hz), le son reste au centre et ne passe ni par le chorus, ni par le délai, ni par la réverbe : plus de phase qui se balade dans les graves.", tip: "120 Hz quand l'arpège descend en -1 OCT : le sub reste solide en club." },
   keyTrack: { title: 'KEY TRACK', text: "De combien la coupure suit la note : les notes hautes s'ouvrent plus. À 5, la moitié (le réglage d'origine).", tip: "Plus haut sur 3 OCT : les notes du haut ne s'éteignent plus." },
-  accent: { title: 'ACCENT', text: "La force des accents de l'arpège : le « a » de chaque temps plus fort, le « e » plus doux. 0 : tout à plat ; 10 : le double.", tip: "Monte-le pour un groove qui pousse sans toucher au tempo." },
+  accent: { title: 'ACCENT', text: "La force des accents de l'arpège : le « a » de chaque temps plus fort, le « e » plus doux. 0 : tout à plat ; 10 : le double. ACC FILTER dit combien ils ouvrent aussi le filtre.", tip: "Monte-le pour un groove qui pousse sans toucher au tempo." },
+  accFlt: { title: 'ACC FILTER', text: "Ce que l'accent fait au filtre : une note appuyée ouvre plus l'enveloppe et la coupure, et son filtre retombe plus vite, comme l'accent d'une TB-303 ; une note douce s'assombrit. À 0, l'accent ne change que le volume (le son d'avant) ; 5 au départ ; 10 : tout l'accent passe au filtre.", tip: "ACC FILTER haut avec ACCENT haut et une RES vers 70 % : l'acid qui parle sur le « a » de chaque temps." },
   sync: { title: 'SYNC', text: "OSC 2 repart à chaque cycle d'OSC 1 (hard sync) : il ne bat plus contre lui, son accord devient un timbre qui crie quand RANGE 2 ou SEMI 2 monte.", tip: "SYNC avec MOD sur PITCH : le cri acide sans quitter la note." },
   duck: { title: 'SIDECHAIN', text: "La sortie du MM-ARP, effets compris, s'efface à chaque kick du MM-RYTM et revient avec lui, selon l'enveloppe mesurée du kick joué (son, TUNE, DECAY, vélocité) : jusqu'à -24 dB au coup.", tip: "-6 à -10 dB : le pompage de l'indie dance, sans compresseur." },
   chord: { title: 'CHORD', text: "Les notes de chaque accord : BASIC (la triade depuis sa racine, l'arpège d'origine), TRIAD, 7TH, 9TH ou 11TH : les accords posés dans la même octave, chacun au plus près du précédent, les extensions au-dessus.", tip: "7TH ou 9TH en UP/DN : les arpèges de la dark disco qui sonnent riches sans effort." },
@@ -230,7 +231,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   clear: { title: 'CLEAR', text: "Vide la progression, arrête l'arpège et met les effets à 0 (OVERDRIVE, CHORUS, DELAY, REVERB) : le son repart à sec, VOLUME et le son du synthé restent. Avec EDIT ouvert, il rend la suite des potards (tes notes restent en mémoire, les effets ne bougent pas).", tip: "CLEAR puis un seul pad : le drop sur un accord, à sec." },
   random: { title: 'RANDOM', text: "Un style au hasard (BASSLINE, ACID, PLUCK, LEAD, DARK, ARP ; jamais le même deux fois de suite) et tout le patch qui lui ressemble, VOLUME gardé ; une progression toute faite.", tip: "Appuie jusqu'à ce qu'un son t'accroche, puis garde-le en preset (touche l'écran, SAVE)." },
   edit: { title: 'EDIT', text: "Ouvre la suite de l'arpège : au desktop un écran monte à la place des pads, au téléphone un panneau s'ouvre en bas. Dessine tes notes, touche le nom d'une note pour un silence. Touche E.", tip: "Copie la suite des potards puis déplace deux ou trois notes : une mélodie à toi en dix secondes." },
-  open: { title: 'OPEN', text: "Soulève le capot : sous lui, la plaque des TWEAKS (PHASE, DRIFT, WIDTH, BASS MONO, KEY TRACK, ACCENT, SYNC, SIDECHAIN, CHORD) et la touche SCOPE. Touche O.", tip: "Les TWEAKS se règlent une fois pour toutes : SIDECHAIN et BASS MONO d'abord." },
+  open: { title: 'OPEN', text: "Soulève le capot : sous lui, la plaque des TWEAKS (PHASE, DRIFT, WIDTH, BASS MONO, KEY TRACK, ACCENT, ACC FILTER, SYNC, SIDECHAIN, CHORD) et la touche SCOPE. Touche O.", tip: "Les TWEAKS se règlent une fois pour toutes : SIDECHAIN et BASS MONO d'abord." },
   screen: { title: 'MM-ARP', text: "L'écran montre l'arpège : la lecture, l'accord qui joue et sa clé Camelot, le tempo, l'échelle des notes (la tête de lecture, la durée de chaque note), la progression des huit pads, et le dernier potard touché avec sa valeur de 0 à 127. Le toucher ouvre les presets.", tip: "Garde un œil sur la bande des accords : l'accord en négatif est celui qui sonne." },
   presets: { title: 'PRESETS', text: "Le mode presets sur l'écran : à gauche le précédent, à droite le suivant (rechargé aussitôt), en bas SAVE, NAME, DEL (deux fois) et EXIT. Les presets d'usine suivent les tiens.", tip: "SAVE avant d'expérimenter : tu reviens d'une tape." },
   seq: { title: 'SEQUENCE', text: "La suite de l'arpège, une colonne par pas (1 à 16) : glisse pour dessiner les notes (les pas traversés suivent la ligne), touche un nom pour un silence, STEPS - et + pour la longueur. Les filets marquent les notes de l'accord.", tip: "Garde les notes sur les filets : la suite suit chaque accord de la progression sans sonner faux." },

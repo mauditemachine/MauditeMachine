@@ -789,9 +789,11 @@ const VT = PORTRAIT
           width: [C[0], R[1]],
           monoLow: [C[1], R[1]],
           duck: [C[2], R[1]],
-          keyTrack: [C[0], R[2]],
-          accent: [C[1], R[2]],
-          chord: [C[2], R[2]],
+          // ACC FILTER (2026-10-21) : PERFORMANCE passe a quatre, CHORD reste au bout
+          keyTrack: [-2.45, R[2]],
+          accent: [-0.95, R[2]],
+          accFlt: [0.55, R[2]],
+          chord: [C[2] + 0.15, R[2]],
         } as Partial<Record<VoyKnobId, readonly [number, number]>>,
         groups: [
           { title: 'OSCILLATORS', x0: -3.15, z0: R[0] - 1.02, x1: 3.15, z1: R[0] + 0.66, accent: true },
@@ -818,15 +820,17 @@ const VT = PORTRAIT
           width: [0.75, A],
           monoLow: [2.0, A],
           duck: [3.3, A],
+          // ACC FILTER (2026-10-21) : un quatrieme reglage dans PERFORMANCE, les autres resserres, CHORD au bout
           keyTrack: [-3.4, B],
-          accent: [-2.15, B],
-          chord: [-0.45, B],
+          accent: [-2.35, B],
+          accFlt: [-1.3, B],
+          chord: [0.05, B],
         } as Partial<Record<VoyKnobId, readonly [number, number]>>,
         // PERFORMANCE s'arrete apres CHORD : le cartouche s'elargit, SCOPE, INFOS et CLOSE tiennent dessous (2026-10-08)
         groups: [
           { title: 'OSCILLATORS', x0: -4.0, z0: A - 0.62, x1: -0.12, z1: A + 0.52, accent: true },
           { title: 'OUTPUT', x0: 0.12, z0: A - 0.62, x1: 4.0, z1: A + 0.52 },
-          { title: 'PERFORMANCE', x0: -4.0, z0: B - 0.62, x1: 0.55, z1: B + 0.52 },
+          { title: 'PERFORMANCE', x0: -4.0, z0: B - 0.62, x1: 0.8, z1: B + 0.52 },
         ],
         title: { x0: 0.95, z0: B - 0.62, x1: 4.0, z1: B - 0.05, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV },
         scope: { x: 0.95 + 0.45, z: B + 0.2, w: 0.9, d: 0.25, y: 0.01 },
@@ -887,6 +891,7 @@ export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]
   monoLow: ['OFF', '300 HZ'],
   keyTrack: ['0', 'FULL'],
   accent: ['FLAT', 'HARD'],
+  accFlt: ['LEVEL', 'FILTER'],
 };
 
 /** La place d'un TWEAK sur la carte (null : pas un TWEAK) ; SYNC et CHORD : des commutateurs (leurs crans). */

@@ -62,6 +62,7 @@ export const VOY_INFO_SECTION: Readonly<Record<VoyInfoId, string>> = {
   monoLow: 'TWEAKS',
   keyTrack: 'TWEAKS',
   accent: 'TWEAKS',
+  accFlt: 'TWEAKS',
   sync: 'TWEAKS',
   duck: 'TWEAKS',
   chord: 'TWEAKS',

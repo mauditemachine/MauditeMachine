@@ -820,6 +820,26 @@ function accentDiagram(v: number): VoyDiagram {
   return p.done();
 }
 
+/** ACC FILTER (2026-10-21) : sous chaque pas, son niveau (en retrait) et l'ouverture de son filtre (allumee). */
+function accFltDiagram(v: number, values: Readonly<VoyValues>): VoyDiagram {
+  const p = new Pic();
+  const dx = (X1 - X0) / 16;
+  let lvl = '';
+  let flt = '';
+  for (let i = 0; i < 16; i += 1) {
+    const a = Math.max(0.3, 1 + (ACCENT_DEPTHS[i % 4] - 1) * 2 * values.accent) - 1;
+    const h = 40 * (1 + a);
+    lvl += rbox(X0 + i * dx + 2, Y1 - h, dx - 4, h, 2);
+    const hf = Math.max(3, Math.min(48, 22 * (1 + 2.5 * v * a)));
+    flt += rbox(X0 + i * dx + 4, Y1 - hf, dx - 8, hf, 1);
+  }
+  p.p(lvl, 'ghost', true);
+  p.p(flt, 'hot', true);
+  for (let b = 0; b <= 4; b += 1) p.p(seg(X0 + b * 4 * dx, Y0, X0 + b * 4 * dx, Y1), 'grid');
+  p.label('1  E  &  A', X0, TOP).label(v < 0.02 ? 'LEVEL ONLY' : 'FILTER', X1, TOP, 'end');
+  return p.done();
+}
+
 function syncDiagram(on: boolean, values: Readonly<VoyValues>): VoyDiagram {
   const p = new Pic();
   p.p(axis(), 'grid');
@@ -1119,6 +1139,8 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
       return keyTrackDiagram(c.v);
     case 'accent':
       return accentDiagram(c.v);
+    case 'accFlt':
+      return accFltDiagram(c.v, values);
     case 'sync':
       return syncDiagram(stepIndex('sync', c.v) === 1, values);
     case 'duck':

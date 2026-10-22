@@ -126,6 +126,7 @@ export type VoyKnobId =
   | 'monoLow'
   | 'keyTrack'
   | 'accent'
+  | 'accFlt'
   | 'sync'
   | 'duck'
   | 'chord';
@@ -147,6 +148,11 @@ export interface VoyKnob {
   steps?: readonly string[];
   /** morphing (WAVE 1 et 2, 2026-10-03, facon Typhon) : continu, ses crans ne sont que des reperes */
   morph?: boolean;
+  /**
+   * valeur d'heritage (2026-10-21, comme le MM-BASS) : celle d'un son garde avant ce potard (reglages du navigateur,
+   * presets, sons mis de cote, etapes d'UNDO), qui rend le son d'alors ; sans elle, def
+   */
+  legacy?: number;
 }
 
 export const RATES = ['1/4', '1/8', '1/16', '1/32'] as const;
@@ -266,6 +272,11 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
    *   qui se balade dans les graves ;
    * - KEY TRACK : la coupure suit la note (5 : la moitie, celle d'avant) ;
    * - ACCENT : la force des accents de l'arpege (le "a" de chaque temps) ;
+   * - ACC FILTER (2026-10-21, Mika : "je voudrais que tu ameliores le son
+   *   drastiquement sur ARP") : les accents ouvrent aussi le filtre (plus
+   *   d'enveloppe, une coupure plus haute, une retombee plus rapide, comme
+   *   l'accent d'une 303), les notes douces s'assombrissent ; 0 : le niveau
+   *   seul, comme avant. Le meme chemin servira a la velocite ;
    * - SYNC : OSC 2 synchronise sur OSC 1 (hard sync), le son acide qui crie
    *   quand OSC 2 monte (RANGE, SEMI) ;
    * - SIDECHAIN (2026-10-04, Mika : "un knob sidechain automatique, qui
@@ -288,6 +299,9 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'monoLow', label: 'BASS MONO', aria: 'Bass mono: below this frequency the sound stays centred and dry', section: 'tweak', def: 0 },
   { id: 'keyTrack', label: 'KEY TRACK', aria: 'Filter key tracking, the cutoff follows the note', section: 'tweak', def: 0.5 },
   { id: 'accent', label: 'ACCENT', aria: 'Arpeggio accent depth', section: 'tweak', def: 0.5 },
+  // ACC FILTER (2026-10-21, audit P4) : l'accent ouvre aussi le filtre ; a 0, le niveau seul (le son d'avant, celui
+  // d'un son garde avant lui) ; 5 au depart et dans les presets d'usine
+  { id: 'accFlt', label: 'ACC FILTER', aria: 'Accent to filter: accented notes open the filter, soft ones get darker', section: 'tweak', def: 0.5, legacy: 0 },
   { id: 'sync', label: 'SYNC', aria: 'Oscillator 2 hard synced to oscillator 1', section: 'tweak', def: 0, steps: ['OFF', 'ON'] },
   { id: 'duck', label: 'SIDECHAIN', aria: 'Sidechain: the synth ducks under every MM-RYTM kick, for as long as the kick lasts', section: 'tweak', def: 0 },
   {
@@ -419,13 +433,25 @@ export const chorusStep = (v: number): number => (v < 0.075 ? 0 : v < 0.6 ? 0.5 
 export const chorusMode = (v: number): 0 | 1 | 2 => stepIndex('chorus', v) as 0 | 1 | 2;
 
 /**
+ * Les potards a valeur d'heritage (legacy, 2026-10-21 : ACC FILTER) absents d'un son garde : cette valeur, le son
+ * d'alors.
+ */
+export function legacyFill(raw: Readonly<Record<string, unknown>>): Partial<Record<VoyKnobId, number>> {
+  const out: Partial<Record<VoyKnobId, number>> = {};
+  for (const k of VOY_KNOBS) if (k.legacy !== undefined && !(k.id in raw)) out[k.id] = k.legacy;
+  return out;
+}
+
+/**
  * Des potards gardes ramenes a aujourd'hui, pour les empreintes (state/presets.ts sig, voyager/patch.ts) : les ON
  * d'avant le 2026-10-11 plies dans leur niveau (withoutOscOn), le CHORUS d'avant le 2026-10-12 a son mode
- * (chorusStep), SHAPE d'avant le 2026-10-18 sur ses cinq crans (lfoShapeStep) ; un son garde avant eux reste le
- * meme son qu'apres sa migration.
+ * (chorusStep), SHAPE d'avant le 2026-10-18 sur ses cinq crans (lfoShapeStep), un potard ajoute depuis a sa valeur
+ * d'heritage (legacyFill, 2026-10-21) ; un son garde avant eux reste le meme son qu'apres sa migration.
  */
 export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
   let out = withoutOscOn(raw);
+  const fill = legacyFill(out);
+  if (Object.keys(fill).length > 0) out = { ...out, ...fill };
   const c = out.chorus;
   if (typeof c === 'number' && Number.isFinite(c) && chorusStep(c) !== c) out = { ...out, chorus: chorusStep(c) };
   // SHAPE sur quatre crans d'avant le 2026-10-18 : sur ses cinq (la meme forme)
@@ -452,7 +478,7 @@ export const lfoShapeStep = (v: number): number => {
  * son mode (chorusStep).
  */
 export function migrateKnobs(raw: Readonly<Record<string, unknown>>): Partial<Record<VoyKnobId, number>> {
-  const out: Partial<Record<VoyKnobId, number>> = {};
+  const out: Partial<Record<VoyKnobId, number>> = { ...legacyFill(raw) };
   for (const [on, osc] of RETIRED_ON) if (isOff(raw[on])) out[osc] = 0;
   // Le CHORUS continu d'avant le 2026-10-12 : son mode (OFF, I, II)
   const ch = raw.chorus;
@@ -523,6 +549,8 @@ export interface EngineParams {
   width: number;
   keyTrack: number;
   sync: number;
+  /** ACC FILTER (2026-10-21) : la part de l'accent qui passe au filtre, 0 a 1 (0 : le niveau seul) */
+  accFlt: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -564,6 +592,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     width: 0.44 * v.width,
     keyTrack: v.keyTrack,
     sync: stepIndex('sync', v.sync),
+    accFlt: v.accFlt,
   };
 }
 

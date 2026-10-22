@@ -21,7 +21,7 @@
 
 import { presetMode } from '../state/presetMode';
 import { presets } from '../state/presets';
-import { RETIRED_ON, VOY_KNOB_IDS, chorusStep, foldLegacyKnobs, lfoShapeStep, voyParams, type VoyKnobId } from './params';
+import { RETIRED_ON, VOY_KNOB_IDS, chorusStep, foldLegacyKnobs, lfoShapeStep, voyKnob, voyParams, type VoyKnobId } from './params';
 import { seq } from './seq';
 
 const KEY = 'mm.v4.voyager.preset';
@@ -32,6 +32,13 @@ const KEY = 'mm.v4.voyager.preset';
  */
 const ADDED_IDS: readonly VoyKnobId[] = ['sub', 'subOct', 'subWave'];
 /**
+ * Les potards ajoutes ensuite (ACC FILTER, 2026-10-21), une seconde rangee marquee 'v2' : elle ne s'ajoute que s'ils
+ * quittent leur valeur d'heritage (params.ts legacy : celle d'un son garde avant eux, qui la prend a la lecture) ; une
+ * empreinte gardee avant eux reste valable, la rangee des SUB aussi.
+ */
+const ADDED_V2: readonly VoyKnobId[] = ['accFlt'];
+const heir = (id: VoyKnobId): number => voyKnob(id).legacy ?? voyParams.def(id);
+/**
  * Les ON des oscillateurs (on1 apres FINE 1, on2 apres FINE 2), retires le 2026-10-11 (Mika : "si on veut pas les osc
  * on coupe les volumes") : l'empreinte garde leur place, a ON (1), la valeur qu'ils ont toujours une fois un son migre
  * (un OFF est devenu le niveau a 0, params.ts migrateKnobs) ; une empreinte gardee avant eux reste valable (read les
@@ -40,7 +47,7 @@ const ADDED_IDS: readonly VoyKnobId[] = ['sub', 'subOct', 'subWave'];
 type SigId = VoyKnobId | 'on1' | 'on2';
 const RETIRED_AFTER: Readonly<Partial<Record<VoyKnobId, SigId>>> = { fine1: 'on1', fine2: 'on2' };
 /** Le niveau de sortie n'est pas le son : VOLUME tourne ne marque pas le patch (RANDOM le garde aussi). */
-const SOUND_IDS: readonly SigId[] = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id)).flatMap((id): SigId[] => {
+const SOUND_IDS: readonly SigId[] = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id) && !ADDED_V2.includes(id)).flatMap((id): SigId[] => {
   const after = RETIRED_AFTER[id];
   return after ? [id, after] : [id];
 });
@@ -62,7 +69,8 @@ function sigOf(raw: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len:
   const at = (id: VoyKnobId): number => v[id] ?? voyParams.def(id);
   const sound = (id: SigId): number => (isRetired(id) ? 1 : at(id));
   const added = ADDED_IDS.some((id) => at(id) !== voyParams.def(id)) ? [ADDED_IDS.map(at)] : [];
-  return JSON.stringify([SOUND_IDS.map(sound), s.edit ? [s.len, s.buf] : 0, ...added]);
+  const added2 = ADDED_V2.some((id) => at(id) !== heir(id)) ? [['v2', ...ADDED_V2.map(at)]] : [];
+  return JSON.stringify([SOUND_IDS.map(sound), s.edit ? [s.len, s.buf] : 0, ...added, ...added2]);
 }
 
 /**
@@ -107,8 +115,13 @@ function migrateSig(sig: string): string {
 /** L'empreinte du son tel qu'il est. */
 const sigNow = (): string => sigOf(voyParams.get(), seq.get());
 
-/** L'empreinte du son de depart (INIT). */
-const INIT_SIG = JSON.stringify([SOUND_IDS.map((id) => (isRetired(id) ? 1 : voyParams.def(id))), 0]);
+/**
+ * L'empreinte du son de depart (INIT) ; celui d'un navigateur d'avant ACC FILTER (2026-10-21, son heritage) aussi.
+ */
+const INIT_KNOBS = Object.fromEntries(VOY_KNOB_IDS.map((id) => [id, voyParams.def(id)])) as Record<VoyKnobId, number>;
+const NO_EDIT = { edit: false, len: 0, buf: [] as readonly unknown[] };
+const INIT_SIGS: readonly string[] = [sigOf(INIT_KNOBS, NO_EDIT), sigOf({ ...INIT_KNOBS, ...Object.fromEntries(ADDED_V2.map((id) => [id, heir(id)])) }, NO_EDIT)];
+const isInit = (sig: string): boolean => INIT_SIGS.includes(sig);
 
 function read(): Origin | null {
   try {
@@ -161,11 +174,11 @@ function compute(): string {
       const p = presets.list('voy').find((x) => x.id === id);
       // Le preset efface : son nom part avec lui
       if (p) name = p.name.toUpperCase();
-      else return matchPreset(now) ?? (now === INIT_SIG ? 'INIT' : '');
+      else return matchPreset(now) ?? (isInit(now) ? 'INIT' : '');
     }
     return now === origin.sig ? name : (matchPreset(now) ?? `${name}*`);
   }
-  return matchPreset(now) ?? (now === INIT_SIG ? 'INIT' : '');
+  return matchPreset(now) ?? (isInit(now) ? 'INIT' : '');
 }
 
 // Ce qui change le nom : les potards, la suite, la liste des presets (NAME, DEL)
