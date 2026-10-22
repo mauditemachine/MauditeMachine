@@ -994,6 +994,26 @@ export class Screen {
     return w;
   }
 
+  /**
+   * Une grande valeur a barre (1/8D, 1/16), alignee a gauche (2026-10-22, audit
+   * : la barre de 1/8D descendait sur 346 MS dans le bloc TIME du DELAY) : la
+   * barre au corps 0.8, posee sur la ligne de base comme une barre de fraction ;
+   * jamais plus large que le texte entier (fitValue l'a mesure). Rend sa largeur.
+   */
+  private slashText(s: string, x: number, y: number, size: number, color: string, weight: number): number {
+    const c = this.ctx;
+    const parts = s.split('/');
+    const ss = size * 0.8;
+    c.font = font(weight, ss);
+    const lift = Math.max(0, c.measureText('/').actualBoundingBoxDescent || 0);
+    let cx = x;
+    parts.forEach((part, i) => {
+      if (i > 0) cx += this.text('/', cx, y - lift, ss, color, weight);
+      if (part) cx += this.text(part, cx, y, size, color, weight);
+    });
+    return cx - x;
+  }
+
   private textWidth(s: string, size: number, weight = 500, spacing = 0): number {
     this.ctx.font = font(weight, size);
     return this.ctx.measureText(s).width + spacing * Math.max(0, s.length - 1);
@@ -2649,7 +2669,8 @@ export class Screen {
     // Un bloc haut : la valeur plus grosse descend d'autant, l'unite la suit
     const drop = tall ? T.valueSizes[0] * (TALL_VALUE - 1) * 0.72 + 2 : 0;
     const valueY = by + T.valueDy + drop;
-    this.text(v.text, bx + B.padX, valueY, v.size, P.ink, neg ? 400 : 300);
+    if (v.text.includes('/')) this.slashText(v.text, bx + B.padX, valueY, v.size, P.ink, neg ? 400 : 300);
+    else this.text(v.text, bx + B.padX, valueY, v.size, P.ink, neg ? 400 : 300);
     const unitY = by + T.unitDy + drop;
     // Au desktop, les crans d'un reglage a crans tiennent le bout de la ligne d'unite
     const notchW = T.notchRow && stepped && !wide && !muted ? 24 : 0;
