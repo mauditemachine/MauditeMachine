@@ -155,6 +155,7 @@ import { DJ_FRAME, DJ_MIXER_ONLY, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, unitW }
 import { djView } from '../dj/view';
 import type { BassRig } from '../bass/rig';
 import { bassLoad } from '../state/bassload';
+import { boot } from '../state/boot';
 import { BASS_D, BASS_FRAME, BASS_OPEN_FRAME, BASS_W, bassX } from '../bass/theme';
 
 const DEG = Math.PI / 180;
@@ -2486,6 +2487,9 @@ export class Stage {
     if (r.calls > s.maxDrawCalls) s.maxDrawCalls = r.calls;
     if (r.triangles > s.maxTriangles) s.maxTriangles = r.triangles;
     if (shadow) s.shadowUpdates += 1;
+    // 2026-10-21 (audit SEO F1, state/boot.ts) : la premiere image est dessinee, elle sera a l'ecran a la prochaine
+    // image du navigateur : la coquille du HTML s'efface, ce qui attendait le demarrage part
+    if (s.frames === 1) requestAnimationFrame(() => boot.mark());
     // Meme passe que le rendu : les jumeaux et la trace suivent la vue
     // (orbite, cadrage, taille) ; une erreur chez un ecouteur ne coupe
     // jamais le WebGL. Boucle indexee : aucun iterateur

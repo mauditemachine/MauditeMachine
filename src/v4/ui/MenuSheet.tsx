@@ -35,6 +35,7 @@ import { AppearanceToggle } from './AppearanceToggle';
 import { ExternalLink } from './ExternalLink';
 import { HOOD_LINKS, PAGE_LINKS, openHood } from './Header';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
+import { boot } from '../state/boot';
 import { BandcampIcon, SOCIAL_ICONS } from './icons';
 import './menu.css';
 import { FaIcon } from './uiIcons';
@@ -107,10 +108,18 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
     if (!seen) warmPhotos(featured.views.map((v) => v.src));
   }, [featured, seen]);
 
+  // 2026-10-21 (audit SEO F1, state/boot.ts) : le temps calme se compte depuis la premiere image de la scene (avant,
+  // depuis le montage : au telephone, les photos arrivaient pendant le chargement de la machine)
   useEffect(() => {
     const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    const t = window.setTimeout(() => (ric ? ric(() => setLoad(true), { timeout: 4000 }) : setLoad(true)), PREFETCH_MS);
-    return () => window.clearTimeout(t);
+    let t = 0;
+    const off = boot.onReady(() => {
+      t = window.setTimeout(() => (ric ? ric(() => setLoad(true), { timeout: 4000 }) : setLoad(true)), PREFETCH_MS);
+    });
+    return () => {
+      off();
+      window.clearTimeout(t);
+    };
   }, []);
 
   // Ouvert : le focus sur la premiere page (l'interrupteur est juste avant, Maj+Tab), Echap le ferme

@@ -53,7 +53,7 @@
  * - favicon.svg et favicon.ico a la racine, sur les pages simples aussi.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { C, URL as KIT_URL } from '../docs/presskit-2027/content.mjs';
 import {
@@ -128,6 +128,78 @@ const LD_ARTIST = /<script\s+type=["']application\/ld\+json["']\s+id=["']ld-arti
 const withArtist = (html) => (LD_ARTIST.test(html) ? html.replace(LD_ARTIST, () => artistScript()) : html.replace('</head>', () => `    ${artistScript()}\n  </head>`));
 
 const baseHtml = withArtist(readFileSync(indexPath, 'utf8'));
+
+/* ---------- le demarrage de la machine (2026-10-21, audit SEO F1 et runtime RS-6) ---------- */
+
+/*
+ * L'accueil restait noir et vide environ 4,5 s au telephone en 4G lente : rien ne peignait avant 560 Ko de
+ * JavaScript, et le chunk de la machine (et three) n'etait demande qu'une fois l'entree executee. Deux choses dans le
+ * HTML des pages de la machine (l'accueil, ses sections, les morceaux ; jamais 404.html, qui sert les admins et les
+ * archives, ni /radar/ et /techrider/, des pages React de la v2) :
+ * - les modulepreload du chunk de la machine et de ses imports (three compris), lus dans le manifeste de vite
+ *   (vite.config.ts build.manifest) : ils partent avec l'entree, plus apres elle ;
+ * - une coquille (#mm-boot), en style en ligne (piege .page > * du depot) : le logo, le titre de la page, une ligne et
+ *   une barre qui avance, sur le fond de la machine (le creme si l'apparence retenue est Light). Peinte avec le HTML,
+ *   avant tout script ; la machine l'efface en fondu a sa premiere image (src/v4/state/boot.ts), l'intro et la scene
+ *   restent telles quelles. aria-hidden : le texte de la page reste celui de #seo-static (un seul h1). Sans
+ *   JavaScript, elle est cachee (index.html, noscript).
+ */
+const MANIFEST_PATH = join(DIST, '.vite', 'manifest.json');
+const MANIFEST = readJson('dist/.vite/manifest.json', null);
+/** Les fichiers du chunk de la machine et de ses imports (sans l'entree, deja chargee), et leurs feuilles de style. */
+function machineAssets() {
+  if (!MANIFEST || typeof MANIFEST !== 'object') return { js: [], css: [] };
+  const entryKey = Object.keys(MANIFEST).find((k) => MANIFEST[k]?.isEntry && /\.html$/.test(MANIFEST[k].src ?? k));
+  const entry = entryKey ? MANIFEST[entryKey] : null;
+  // Le chunk de src/v4/index.tsx : sous son nom, ou fondu par rollup dans un chunk "index" (une cle _index-xxx.js)
+  // qu'importe dynamiquement l'entree et qui tire three
+  const startKey = MANIFEST['src/v4/index.tsx']
+    ? 'src/v4/index.tsx'
+    : (entry?.dynamicImports ?? []).find((k) => MANIFEST[k]?.name === 'index' && (MANIFEST[k].imports ?? []).some((i) => /three\.module/.test(i)));
+  if (!startKey) return { js: [], css: [] };
+  const js = [];
+  const css = [];
+  const seen = new Set();
+  const walk = (key) => {
+    const c = MANIFEST[key];
+    // L'entree et ses imports sont deja dans le HTML (vite les y pose)
+    if (!c || seen.has(key) || key === entryKey) return;
+    seen.add(key);
+    if (c.file && c.file !== entry?.file && /\.js$/.test(c.file)) js.push(c.file);
+    for (const f of c.css ?? []) if (!(entry?.css ?? []).includes(f)) css.push(f);
+    for (const k of c.imports ?? []) walk(k);
+  };
+  walk(startKey);
+  return { js: [...new Set(js)], css: [...new Set(css)] };
+}
+const MACHINE_ASSETS = machineAssets();
+/*
+ * Seulement les scripts : un preload de la feuille du chunk (18 Ko) etait telecharge une seconde fois par le
+ * <link rel="stylesheet"> que pose vite (mesure en 4G lente), et elle arrive de toute facon bien avant le montage.
+ */
+const PRELOAD_TAGS = MACHINE_ASSETS.js.map((f) => `<link rel="modulepreload" crossorigin href="/${f}" />`).join('\n    ');
+
+/** Le style de la coquille qui ne tient pas en ligne : la barre qui avance, le mouvement reduit, l'apparence Light. */
+const BOOT_CSS = `<style id="mm-boot-css">@keyframes mmboot{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}#mm-boot[data-light]{background:#F1EDE5!important;color:#191919!important}#mm-boot[data-light] svg{color:#434343!important}#mm-boot[data-light] .mm-boot-sub{color:#6B655B!important}@media (prefers-reduced-motion:reduce){#mm-boot i{animation:none!important;width:100%!important;opacity:.5}}</style>`;
+/** Le logo (public/logo/mauditemachine-logo-gold.svg), en ligne : aucune requete avant la premiere peinture. */
+const BOOT_LOGO = (() => {
+  const svg = readText('public/logo/mauditemachine-logo-gold.svg').trim();
+  if (!/^<svg[\s>]/.test(svg)) return '';
+  return svg
+    .replace(/<svg\b([^>]*)>/, (_, attrs) => `<svg${attrs.replace(/\s(width|height)="[^"]*"/g, '')} width="150" height="33" role="presentation" focusable="false" style="display:block;color:#FFA600">`)
+    .replace(/fill="#FFA600"/gi, 'fill="currentColor"');
+})();
+/** La coquille d'une page : son titre et sa ligne (texte echappe). */
+function bootShell(title, sub) {
+  return `<div id="mm-boot" aria-hidden="true" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:0 max(24px,8vw);background:#0C0B09;color:#F1EDE5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;transition:opacity .35s ease;overflow:hidden">${BOOT_LOGO}<p style="margin:28px 0 14px;font-weight:800;font-size:clamp(36px,8.5vw,84px);line-height:.98;letter-spacing:-.01em;text-transform:uppercase;max-width:15ch;overflow-wrap:anywhere">${esc(title)}</p><p class="mm-boot-sub" style="margin:0;font-size:clamp(15px,2.1vw,20px);line-height:1.45;color:#C9C2B6;max-width:36ch">${esc(sub)}</p><span style="display:block;width:min(320px,70vw);height:2px;margin-top:34px;background:rgba(127,120,110,.28);overflow:hidden;border-radius:2px"><i style="display:block;height:100%;width:38%;background:#FF6A13;animation:mmboot 1.4s ease-in-out infinite"></i></span></div>
+    <script>try{if(localStorage.getItem('mm.v4.appearance')==='light')document.getElementById('mm-boot').setAttribute('data-light','1')}catch(e){}</script>`;
+}
+/** Une page de la machine : la coquille apres #root, le preload et son style dans la tete. */
+function withBoot(html, title, sub) {
+  let out = inject(html, '<div id="root"></div>', `<div id="root"></div>\n    ${bootShell(title, sub)}`);
+  out = toHead(out, BOOT_CSS);
+  return PRELOAD_TAGS ? toHead(out, PRELOAD_TAGS) : out;
+}
 
 /** Echappe les caracteres qui casseraient un attribut HTML. */
 function escapeAttr(s) {
@@ -1564,6 +1636,8 @@ for (const route of ROUTES) {
   // og:type website (2026-10-21, audit SEO F10 : music.musician n'est pas un type Open Graph) ; l'image : la photo de l'artiste
   let html = pageHead(baseHtml, { title, description, url, ogType: 'website' });
   html = withContent(html, route);
+  // La coquille de demarrage (2026-10-21) : les pages de la machine seulement (pas les pages React de la v2)
+  if (!REACT_PAGES.has(route)) html = withBoot(html, String(meta.title).split(' | ')[0], 'Maudite Machine · MM-STUDIO');
   if (route === '/shows/') html = withEvents(html);
   html = toHead(html, ld(breadcrumb([['Maudite Machine', `${SITE}/`], [PAGE_NAMES[route] ?? 'Maudite Machine', url]])));
   if (route === '/tracks/') html = toHead(html, tracksJsonLd());
@@ -1585,6 +1659,7 @@ for (const t of DISCO) {
   ];
   let html = pageHead(baseHtml, { title: trackTitle(t), description: trackDescription(t), url, ogType: isEp(t) ? 'music.album' : 'music.song', image, extra });
   html = withContent(html, `/tracks/${t.id}/`, trackContent(t));
+  html = withBoot(html, t.title, `Maudite Machine · ${trackKind(t)} · ${t.year}`);
   html = toHead(html, trackJsonLd(t));
   writePage(join('tracks', t.id), html);
 }
@@ -1613,7 +1688,8 @@ for (const page of MM_STUDIO_PAGES) writePage(page.path.replace(/^\/|\/$/g, ''),
 // L'accueil : son contenu, les dates a venir, ses versions FR / ES et MM-STUDIO, dans dist/index.html meme ; son image
 // de partage est la carte MM-STUDIO (index.html), la photo de l'artiste si la carte manque (2026-10-21)
 const homeHtml = STUDIO_CARD ? baseHtml : setImage(baseHtml, OG_DEFAULT);
-writeFileSync(indexPath, toHead(withAlternates(withEvents(withContent(homeHtml, '/'))), HOME_APP), 'utf8');
+const homeBoot = (html) => withBoot(html, 'MM-STUDIO', 'Free drum machine, synth and DJ decks in your browser. By Maudite Machine.');
+writeFileSync(indexPath, toHead(withAlternates(withEvents(homeBoot(withContent(homeHtml, '/')))), HOME_APP), 'utf8');
 
 // 404.html (copie d'index.html, servie avec le statut 404 pour toute adresse
 // inconnue, et pour /v1, /v2, /v3, /mm-admin) : noindex, pas de canonical
@@ -1665,7 +1741,14 @@ for (const [from, to] of REDIRECTS) {
 const pressPath = join(DIST, 'press', 'index.html');
 if (existsSync(pressPath)) writeFileSync(pressPath, withArtist(readFileSync(pressPath, 'utf8')), 'utf8');
 
+// Le manifeste de vite (2026-10-21) a servi au preload : il ne part pas en ligne
+try {
+  if (existsSync(MANIFEST_PATH)) rmSync(join(DIST, '.vite'), { recursive: true, force: true });
+} catch {
+  /* il reste, sans effet */
+}
+
 const covers = [...ogCache.values()].filter(Boolean).length;
 console.log(
-  `prerender SEO : ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES, ${MM_STUDIO_PAGES.length} MM-STUDIO) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'}${studioShot('og') ? ', captures MM-STUDIO' : ''} (meta ${STATIC_LANG})`,
+  `prerender SEO : ${MACHINE_ASSETS.js.length} modulepreload, ${count} pages statiques (dont ${DISCO.length} morceaux, FR, ES, ${MM_STUDIO_PAGES.length} MM-STUDIO) + accueil, ${UPCOMING.length} dates en MusicEvent, ${covers} pochettes en apercu${sharp ? '' : ' (sharp absent : image du site)'}${studioShot('og') ? ', captures MM-STUDIO' : ''} (meta ${STATIC_LANG})`,
 );

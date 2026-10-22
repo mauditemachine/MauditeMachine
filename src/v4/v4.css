@@ -1,63 +1,17 @@
 /*
  * /v4 MM-808 : feuille scopee .v4-root (spec docs/v4/spec.md section 16.3).
- * Encre #0A0A0B, bone #F6F1E7, jaune #F2C230. Polices du site principal
- * (memes fichiers, deja en cache) declarees ici pour ne rien devoir a
- * styles.css ; les textures canvas les attendent via document.fonts.load.
+ * Encre #0A0A0B, bone #F6F1E7, jaune #F2C230. Polices du site principal :
+ * celles de styles.css (2026-10-21, plus de seconde declaration ici) ; les
+ * textures canvas les attendent via document.fonts.load.
  */
 
 /* ---------- polices ---------- */
 
-/* Robot Radicals : declaree une seule fois, dans src/styles.css (2026-10-21, audit SEO F18 : deux declarations du meme
-   fichier, deux telechargements de 33 Ko sur les pages de la machine ; styles.css est charge par l'entree, avant ce
-   fichier, sur toutes les pages) */
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Light.woff2') format('woff2');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Semibold.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'SF Pro Display';
-  src: url('/fonts/SF-Pro-Display-Black.woff2') format('woff2');
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-}
+/* Robot Radicals et SF Pro Display : declarees une seule fois, dans src/styles.css (2026-10-21, audit SEO F18 et F1).
+   Le meme fichier declare deux fois se telechargeait deux fois : Robot Radicals sur les pages de la machine, et les SF
+   Pro Regular et Bold quand le chunk de la machine arrive tot (ses modulepreload, scripts/prerender-seo.mjs : 82 Ko de
+   trop mesures en 4G lente). styles.css est charge par l'entree (src/main.tsx), avant ce fichier, sur toutes les pages ;
+   les memes graisses (300 a 900) et les memes fichiers. */
 
 /* ---------- chrome de page ---------- */
 

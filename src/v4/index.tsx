@@ -85,6 +85,7 @@ import { ResetView } from './ui/ResetView';
 import { Trace } from './ui/Trace';
 import { adoptSharedBeat } from './state/share';
 import { startUsage } from './state/usage';
+import { boot } from './state/boot';
 
 const IS_DEV = import.meta.env.DEV;
 
@@ -466,9 +467,9 @@ const V4Shell: React.FC = () => {
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   // Les one-shots du MM-RYTM se calculent (worker) des le chargement, pendant l'intro (2026-10-05 : plus a
   // sa fin) : prets avant RUN, jamais calcules sur le fil principal pendant la lecture
-  useEffect(() => {
-    shots.prewarm();
-  }, []);
+  // 2026-10-21 (audit SEO F1, state/boot.ts) : une fois la premiere image de la scene a l'ecran (avant, au montage) :
+  // les WAV ne prennent plus la bande passante du JavaScript de la machine ; l'intro leur laisse le temps d'arriver
+  useEffect(() => boot.onReady(() => shots.prewarm()), []);
   // Un beat partage dans l'adresse (?b=, 2026-10-21, state/share.ts) devient celui du MM-RYTM ; puis la mesure de
   // l'usage (state/usage.ts : machine cadree, lecture, sample choisi)
   useEffect(() => {
@@ -611,6 +612,19 @@ const V4Shell: React.FC = () => {
       built.dispose();
     };
   }, [onError, glFailed, look, djCount]);
+
+  /*
+   * La coquille du HTML (2026-10-21, state/boot.ts) s'efface aussi sans scene : le repli sans WebGL, ou une arrivee par
+   * une section hors capot (son panneau, ouvert au montage, se peint avant la scene).
+   */
+  useEffect(() => {
+    if (gl === 'fallback') boot.mark();
+  }, [gl]);
+  useEffect(() => {
+    if (arrival.current === null) return undefined;
+    const raf = window.requestAnimationFrame(() => boot.mark());
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
 
   /* Fond de la page et theme-color du navigateur selon l'apparence */
   useEffect(() => {
