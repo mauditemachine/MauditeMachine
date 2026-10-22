@@ -377,16 +377,21 @@ function setBpm(b: number): void {
  * SIDECHAIN). DIST, CHORUS, DELAY, REVERB et le VOL d'une voix sans verrou vont a sa tranche, sans re-programmer.
  */
 const HIT_PARAMS = ['tone', 'decay', 'tune', 'pan', 'start', 'atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec'] as const;
-const levelLocked = (inst: Inst, locks: Readonly<Locks>): boolean => {
+/**
+ * Le VOL de la voix est-il fige dans ses coups ? Un verrou VOL s'y rapporte ; un verrou TONE aussi (2026-10-22, revue
+ * R3 : son coup passe apres le LEVEL de la tranche, drums.ts hitEntry, et porte le VOL de la voix dans son gain ;
+ * sans re-programmer, VOL a 0 laissait ces coups sonner plein pot jusqu'a 450 ms).
+ */
+const levelBaked = (inst: Inst, locks: Readonly<Locks>): boolean => {
   const row = locks[inst];
-  return !!row && Object.values(row).some((l) => l.level !== undefined);
+  return !!row && Object.values(row).some((l) => l.level !== undefined || l.tone !== undefined);
 };
 function hitKey(): string {
   const locks = pattern.get().locks;
   return INSTRUMENTS.map((inst) => {
     const v = voiceFx.of(inst);
     const k = HIT_PARAMS.map((p) => v[p]).join(',');
-    return inst === 'BD' || levelLocked(inst, locks) ? `${k},${v.level}` : k;
+    return inst === 'BD' || levelBaked(inst, locks) ? `${k},${v.level}` : k;
   }).join(';');
 }
 
