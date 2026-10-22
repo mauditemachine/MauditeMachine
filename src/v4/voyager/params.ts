@@ -646,7 +646,9 @@ export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
   // SUB OCT : "SUB -2 OCT" (pas "SUB OCT -2 OCT")
   if (id === 'subOct') return `SUB ${voyValueText(id, v)}`;
-  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack' || id === 'wide' || id === 'glue' || id === 'tape') return `${k.label} ${voyValueText(id, v)}`;
+  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack') return `${k.label} ${voyValueText(id, v)}`;
+  // WIDE, GLUE, TAPE (2026-10-22, la relecture) : OFF en bas, sinon "GLUE 35%" comme DRIFT 50% a cote (pas "35 %")
+  if (id === 'wide' || id === 'glue' || id === 'tape') return v < FX_OFF ? `${k.label} OFF` : `${k.label} ${Math.round(v * 100)}%`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
