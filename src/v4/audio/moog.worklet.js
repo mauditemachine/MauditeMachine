@@ -151,14 +151,23 @@ const OS_DEFAULT = 4;
  * STACK (2026-10-22) : les exemplaires de chaque oscillateur au plus (processorOptions.maxStack : 3 au bureau, 2 au
  * telephone, audio/synth.ts), la place de chacun dans l'ecart (en part de stack, en cents) et dans l'image de WIDE
  * (-1 gauche, +1 droite). Sans STACK, WIDE met OSC 1 a gauche et OSC 2 a droite (STACK_PAN1, pas tout a fait aux
- * bouts : le milieu garde de quoi sonner en mono). STACK_PAN2 : la part moyenne de la largeur (le carre moyen des
- * places), pour la puissance egale de WIDE.
+ * bouts : le milieu garde de quoi sonner en mono), au meme niveau ; a des niveaux differents, le plus fort se
+ * rapproche du centre (2026-10-22, relecture : la note reste au milieu, un oscillateur seul n'est pas elargi).
+ * STACK_PAN2 : la part moyenne de la largeur (le carre moyen des places), pour la puissance egale de WIDE.
  */
 const MAX_STACK = 3;
 const STACK_OFF = [[0], [-0.7, 0.7], [-1, 0, 1]];
 const STACK_PAN = [[0], [-1, 1], [-1, 0, 1]];
 const STACK_PAN1 = [-0.8, 0.8];
 const STACK_PAN2 = [0.64, 1, 2 / 3];
+/**
+ * WIDE sans STACK (2026-10-22, relecture) : la puissance de chaque forme (shape : sinus, triangle, dent de scie,
+ * carre, impulsion de 14 % (PULSE_W), puis le cran FM d'OSC 1, un sinus), pour l'equilibre d'OSC 1 et d'OSC 2 ; mesuree apres
+ * le filtre, a 10 % pres (le carre sonne trois fois la dent de scie : a niveau egal, il tirait la note de son cote,
+ * de 4 dB a WIDE 10). Entre deux formes, la droite ; la PWM, 4 d (1 - d).
+ */
+const WAVE_POW = [0.5, 1 / 3, 1 / 3, 1, 4 * 0.14 * 0.86, 0.5];
+const wavePow = (i, f, pwm, d) => (pwm ? 4 * d * (1 - d) : f > 1e-4 ? WAVE_POW[i] + (WAVE_POW[i + 1] - WAVE_POW[i]) * f : WAVE_POW[i]);
 /** Un exemplaire qui arrive (ou part) sur une voix qui sonne glisse en STACK_S ; l'ecart, d'un bloc a l'autre, en STACK_D_S. */
 const STACK_S = 0.005;
 const STACK_D_S = 0.03;
@@ -1289,6 +1298,23 @@ class MMVoyager extends AudioWorkletProcessor {
         if (p.wide === 0 && sm.wide < 1e-4) sm.wide = 0;
       }
       const wideOn = sm.wide > 0;
+      // WIDE sans STACK (2026-10-22, relecture : OSC 2 a 0, la note partait a gauche, +18 dB a WIDE 10) : OSC 1 et
+      // OSC 2 se partagent les cotes selon leur equilibre en puissance (gain^2 x WAVE_POW : la somme des puissances
+      // x place reste au centre) ; un oscillateur seul reste au milieu, deux a la meme puissance gardent STACK_PAN1
+      // (le calcul d'avant, au bit pres). pn2w : le carre moyen des deux places, pour la puissance egale
+      let pn1 = STACK_PAN1[0];
+      let pn2 = STACK_PAN1[1];
+      let pn2w = STACK_PAN2[0];
+      const a1 = wideOn ? g1 * g1 * wavePow(i1, f1m, pwm1, pwd1) : 0;
+      const a2 = wideOn ? g2 * g2 * wavePow(i2w, f2m, pwm2, pwd2) : 0;
+      if (a1 !== a2) {
+        const am = a1 > a2 ? a1 : a2;
+        if (am > 1e-12) {
+          pn1 = (STACK_PAN1[0] * a2) / am;
+          pn2 = (STACK_PAN1[1] * a1) / am;
+          pn2w = (a1 * pn1 * pn1 + a2 * pn2 * pn2) / (a1 + a2);
+        } else pn1 = pn2 = pn2w = 0;
+      }
       const k = resK(sm.res);
       const driveIn = 1 + 2.5 * sm.drive;
       const driveOut = 1 + 1.5 * sm.drive;
@@ -1366,7 +1392,9 @@ class MMVoyager extends AudioWorkletProcessor {
         // entree que la gauche, sans marche ; elle s'arrete a la prochaine note de la voix, muette (noteOn)
         const wideV = v.wideOK && (wideOn || v.wl);
         const wide = wideV ? sm.wide : 0;
-        const wn = wideV ? 1 / Math.sqrt(1 + wide * wide * STACK_PAN2[v.n - 1]) : 1;
+        // Sans STACK, les places d'OSC 1 et d'OSC 2 selon leur equilibre (pn1, pn2, plus haut)
+        const one = v.n === 1;
+        const wn = wideV ? 1 / Math.sqrt(1 + wide * wide * (one ? pn2w : STACK_PAN2[v.n - 1])) : 1;
         let o = 0;
         let oR = 0;
         for (let j = 0; j < nl; j += 1) {
@@ -1446,8 +1474,10 @@ class MMVoyager extends AudioWorkletProcessor {
           if (wideV) {
             const s1 = g1 * o1 * gj * wn;
             const s2 = g2 * o2 * gj * wn;
-            o += s1 * (1 - wide * P.pan1) + s2 * (1 - wide * P.pan2);
-            oR += s1 * (1 + wide * P.pan1) + s2 * (1 + wide * P.pan2);
+            const c1 = one && j === 0 ? pn1 : P.pan1;
+            const c2 = one && j === 0 ? pn2 : P.pan2;
+            o += s1 * (1 - wide * c1) + s2 * (1 - wide * c2);
+            oR += s1 * (1 + wide * c1) + s2 * (1 + wide * c2);
           } else if (j === 0) o = gj === 1 ? g1 * o1 + g2 * o2 : gj * (g1 * o1 + g2 * o2);
           else o += gj * (g1 * o1 + g2 * o2);
         }
