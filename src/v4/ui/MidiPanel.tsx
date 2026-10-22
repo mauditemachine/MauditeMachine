@@ -26,11 +26,15 @@
  *   sur la carte du Roto (REMOVE CONFLICTS WITH THE ROTO MAP), la version
  *   des setups ; le panneau se ferme a un clic ailleurs (il cachait la
  *   platine B), sauf pendant MIDI LEARN (on touche alors la machine).
+ * - MM-ARP NOTES OUT (2026-10-22, l'etude VST3 : l'ARP du site dans
+ *   Ableton) : la sortie (OFF au depart), le canal, l'horloge MIDI ; le
+ *   moteur : midi/noteout.ts.
  * Le moteur : midi/midi.ts ; les cibles : midi/targets.ts.
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { clearScope, exportMaps, feedbackToggle, followToggle, importMaps, keyOfTarget, keyText, learnPick, learnToggle, midi, midiClaim, midiDisable, midiEnable, midiRescan, removeRotoConflicts, rotoConflicts, rotoToggle, seqToggleSet, unbind, type MidiView } from '../midi/midi';
+import { noteOut, noteOutChannel, noteOutClock, noteOutSet, type NoteOutView } from '../midi/noteout';
 import { ROTO_SETUPS, ROTO_VERSION, rotoFileName, rotoSetupJson, rotoSetupLabel, rotoSetups, zipFiles, type RotoSetup } from '../midi/roto';
 import { MACHINE_NAME, onTargetsRegistered, targetIdOfHotspot, targetOf, targetsOf, type TargetScope } from '../midi/targets';
 import type { Stage } from '../scene/renderer';
@@ -167,6 +171,44 @@ const RotoSection: React.FC<{ on: boolean; follow: boolean; stepsToggle: boolean
     </ol>
   </section>
 );
+
+/**
+ * MM-ARP NOTES OUT (2026-10-22, midi/noteout.ts) : les notes de l'arpege (et son horloge) vers une sortie choisie, le
+ * bus IAC vers Ableton par exemple. OFF au depart ; une sortie gardee mais debranchee le dit.
+ */
+const NoteOutSection: React.FC<{ connected: boolean }> = ({ connected }) => {
+  const o: NoteOutView = useSyncExternalStore(noteOut.subscribe, noteOut.get, noteOut.get);
+  const names = o.device && !o.outputs.includes(o.device) ? [...o.outputs, o.device] : o.outputs;
+  return (
+    <section className="v4-midi-roto v4-midi-out" aria-label="MM-ARP notes out">
+      <p className="v4-midi-last">MM-ARP NOTES OUT: the notes the MM-ARP plays (their accent as velocity) go to this output too, for example the IAC bus of your Mac into a MIDI track in Ableton.</p>
+      <div className="v4-midi-row">
+        <select className="v4-midi-select" aria-label="MM-ARP notes out: the MIDI output" value={o.device} disabled={!connected && !o.device} onChange={(e) => noteOutSet(e.target.value)}>
+          <option value="">OFF (no notes out)</option>
+          {names.map((n) => (
+            <option key={n} value={n}>
+              {n}
+              {n === o.device && !o.live ? ' (not connected)' : ''}
+            </option>
+          ))}
+        </select>
+        <select className="v4-midi-select v4-midi-ch" aria-label="MM-ARP notes out: the MIDI channel" value={o.ch} onChange={(e) => noteOutChannel(Number(e.target.value))}>
+          {Array.from({ length: 16 }, (_, i) => (
+            <option key={i} value={i + 1}>
+              CH {i + 1}
+            </option>
+          ))}
+        </select>
+      </div>
+      <label className="v4-midi-check">
+        <input type="checkbox" checked={o.clock} onChange={(e) => noteOutClock(e.target.checked)} />
+        <span>Send MIDI clock, START and STOP with the arp (Ableton can follow its tempo: Sync on this input)</span>
+      </label>
+      {o.device && <p className="v4-midi-last">{o.live ? `Sending to ${o.device}, channel ${o.ch}${o.clock ? ', with the clock' : ''}: ${o.sent} note(s) so far.` : `${o.device} is not connected: no notes go out.`}</p>}
+      {!connected && <p className="v4-midi-last">CONNECT first to see the outputs.</p>}
+    </section>
+  );
+};
 
 const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const m = useMidi();
@@ -329,6 +371,7 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <input type="checkbox" checked={m.feedback} onChange={(e) => feedbackToggle(e.target.checked)} />
         <span>Send values back (motorised knobs follow the machine)</span>
       </label>
+      <NoteOutSection connected={m.status === 'on'} />
       <RotoSection on={m.roto} follow={m.follow} stepsToggle={m.seqToggle} />
       <div className="v4-midi-row">
         <button type="button" className="v4-midi-key" onClick={doExport}>

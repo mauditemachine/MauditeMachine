@@ -51,6 +51,7 @@ import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
 import { GATE_MIN_S, noteOn, synthBeat, synthCancel, synthStop } from '../audio/synth';
+import { arpOut } from '../midi/noteout';
 import { SWING } from '../theme';
 import { CHORDS, degreeMidi } from './chords';
 import { gateFrac, octaveShift, stepsPerNote, voyParams } from './params';
@@ -176,6 +177,8 @@ function scheduleStep(now: number, silent = false): void {
     const g = clock.gridAfter(nextTime + stepDur * 0.5);
     const dur = g && g.time - nextTime > 0 ? g.time - nextTime : stepDur;
     synthBeat(nextTime, (bar * 16 + stepIdx) / 4, dur, opening);
+    // MIDI OUT (2026-10-22, midi/noteout.ts) : l'horloge MIDI de ce pas, START au premier
+    arpOut.step(nextTime, dur, bar * 16 + stepIdx, opening);
   }
   if (chord < 0) return;
   const spn = stepsPerNote(p.rate);
@@ -215,6 +218,8 @@ function scheduleStep(now: number, silent = false): void {
     // Pas plus court que GATE_MIN_S (2026-10-21, audit F10 : 20 ms avant, le bas de GATE ne changeait rien en 1/16 et 1/32)
     const gate = Math.max(GATE_MIN_S, gateFrac(p.gate) * interval);
     noteOn(midi, when, gate, lastMidi, accent);
+    // MIDI OUT (2026-10-22) : la meme note vers la sortie choisie, sa force en velocite
+    arpOut.note(midi, when, gate, accent);
     lastMidi = midi;
     push({ seq: serial, when, chord, midi });
     serial += 1;
@@ -278,6 +283,7 @@ function reschedule(): void {
   const s = plan[i];
   plan.length = i;
   synthCancel(s.time);
+  arpOut.cancel(s.time);
   ring = ring.filter((e) => e.when < s.time);
   posRing = posRing.filter((e) => e.when < s.time);
   nextTime = s.time;
@@ -358,6 +364,7 @@ function stop(): void {
   window.clearInterval(timer);
   timer = 0;
   synthStop();
+  arpOut.stop();
   chord = -1;
   plan.length = 0;
   setState({ ...state, running: false });

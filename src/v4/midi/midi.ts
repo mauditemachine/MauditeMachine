@@ -89,6 +89,7 @@ import { djLoad } from '../state/djload';
 import { MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
 import { midiLeader } from './leader';
+import { noteOutAttach, noteOutPorts } from './noteout';
 import { isSeqSetup, rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetup, rotoKnownCc, rotoTarget, type RotoKeyInfo, type RotoSetupName } from './roto';
 import { seqAttach, seqCancelAll, seqDrop, seqDropAll, seqInvalidate, seqIsStep, seqKnobGuard, seqKnobTurn, seqLed, seqMsgAt, seqOwns, seqResendAll, seqSeen, seqStepOf } from './seqlink';
 import { MACHINE_NAME, prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
@@ -364,6 +365,8 @@ function wire(): void {
     if (input.name && input.state !== 'disconnected') names.push(input.name);
   });
   set({ inputs: names, outputs: outputNames() });
+  // MIDI OUT du MM-ARP (2026-10-22, midi/noteout.ts) : ses sorties a choisir
+  noteOutPorts();
 }
 
 /**
@@ -449,6 +452,7 @@ function dropAccess(): void {
   }
   access = null;
   releaseAll();
+  noteOutPorts();
 }
 
 /** OFF : plus d'ecoute ; les assignations restent. */
@@ -1332,6 +1336,8 @@ if (typeof window !== 'undefined') {
   });
   // Le Roto en sequenceur (2026-10-09) : ses LEDs passent par ici, vers les sorties Roto seulement
   seqAttach({ send: rotoSendAt, ready: () => !!access && view.feedback && view.roto && midiLeader.leads() && rotoOut(), refresh: refreshKnobs });
+  // MIDI OUT du MM-ARP (2026-10-22) : ses notes et son horloge vers la sortie choisie, par le meme acces
+  noteOutAttach(() => access);
   if (!supported()) view = { ...view, status: 'unsupported' };
   else {
     watchPermission();

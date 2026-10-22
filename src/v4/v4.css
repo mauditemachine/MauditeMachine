@@ -911,6 +911,16 @@ html:has(body.v4-active) {
   border-top: 1px solid var(--line);
 }
 
+/* MM-ARP NOTES OUT (2026-10-22) : la sortie prend la place, le canal reste court */
+.v4-root .v4-midi-out .v4-midi-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.v4-root .v4-midi-out .v4-midi-ch {
+  flex: 0 0 76px;
+}
+
 .v4-root .v4-midi-roto-files .v4-midi-key {
   flex: 1;
   min-width: 0;
