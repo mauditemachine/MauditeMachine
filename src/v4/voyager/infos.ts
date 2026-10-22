@@ -243,7 +243,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   dlyTime: {
     title: 'DLY TIME',
-    text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos, comme une bande.",
+    text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos comme une bande qui ralentit ou accélère, jamais à l'envers : plus l'écart est grand, plus le glissement dure (jusqu'à 3 s de 1/8 à 1/2 à 120 BPM).",
     tip: "3/8 sur un arpège en 1/16 : des contre-chants qui tombent à côté des notes, façon dub.",
   },
   tape: {

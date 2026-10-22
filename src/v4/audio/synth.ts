@@ -78,9 +78,12 @@ const REVERB_BOOST = 1.25;
  * DELAY ping-pong : croche pointee, reinjection 0.35 a 0.68, filtre dans la boucle. wet 0.8 (2026-10-21, audit F9 ;
  * 1.1 avant : a 100 %, le premier echo sortait 4 dB au-dessus de la note seche, l'arpege semblait recule) : le
  * premier echo au plus au niveau du son sec. retimeS : un changement de tempo regle le temps en glissant, comme une
- * bande (2026-10-21, audit F12 : 20 ms avant, les echos piaillaient quand on tournait TEMPO).
+ * bande (2026-10-21, audit F12 : 20 ms avant, les echos piaillaient quand on tournait TEMPO). retimeRate (2026-10-22,
+ * relecture : un cran de DLY TIME glissait aussi en 200 ms, la tete reculait des 1/4 vers 3/8, -2.75x de 1/8 a 1/2) :
+ * le temps glisse d'au plus 0.25 s par seconde, la tete lit entre 0.75x et 1.25x (une bande qui ralentit ou
+ * accelere, jamais a l'envers) ; un grand ecart glisse donc plus longtemps (3 s de 1/8 a 1/2 a 120 BPM).
  */
-const PINGPONG = { steps: 3, fbMin: 0.35, fbMax: 0.68, wet: 0.8, lowpass: 4800, highpass: 260, maxS: 2, retimeS: 0.2 } as const;
+const PINGPONG = { steps: 3, fbMin: 0.35, fbMax: 0.68, wet: 0.8, lowpass: 4800, highpass: 260, maxS: 2, retimeS: 0.2, retimeRate: 0.25 } as const;
 /**
  * DLY TIME et TAPE (2026-10-22, audit P10) : le temps du DELAY est celui de DLY TIME (en doubles croches ; 3/16, la
  * croche pointee de PINGPONG.steps, au depart et pour un son garde d'avant) ; TAPE au-dessus de 0 passe l'envoi du
@@ -323,7 +326,7 @@ function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
   } else if (t !== g.delayAt) retimeAll(g, t);
 }
 
-/** Le temps du DELAY qui change (DLY TIME, le tempo) : les deux chemins y glissent sur PINGPONG.retimeS. */
+/** Le temps du DELAY qui change (DLY TIME, le tempo) : les deux chemins y glissent (PINGPONG.retimeS, retimeRate). */
 function retimeAll(g: SynthGraph, t: number): void {
   g.delayAt = t;
   retime(g.delayL.delayTime, t, g.ctx);
@@ -353,14 +356,16 @@ applyDuck();
 
 /*
  * Tempo : le delay garde sa division (DLY TIME, 2026-10-22), le LFO suit. Le temps du delay seulement quand il change
- * (une edition du motif ne le refait plus), en glissant sur PINGPONG.retimeS depuis ou il en est (2026-10-21, audit F12).
+ * (une edition du motif ne le refait plus), en glissant depuis ou il en est (2026-10-21, audit F12) : en
+ * PINGPONG.retimeS au moins, plus longtemps pour un grand ecart (retimeRate, 2026-10-22 : la tete jamais a l'envers).
  */
 let lastBpm = pattern.get().bpm;
 function retime(p: AudioParam, t: number, c: BaseAudioContext): void {
   const now = c.currentTime;
+  const from = p.value;
   p.cancelScheduledValues(now);
-  p.setValueAtTime(p.value, now);
-  p.linearRampToValueAtTime(t, now + PINGPONG.retimeS);
+  p.setValueAtTime(from, now);
+  p.linearRampToValueAtTime(t, now + Math.max(PINGPONG.retimeS, Math.abs(t - from) / PINGPONG.retimeRate));
 }
 pattern.subscribe(() => {
   if (!sg) return;
@@ -601,6 +606,8 @@ export const synthDebug = {
     if (!sg) return null;
     return { time: sg.delayAt, tape: sg.tape !== null, send: sg.delaySend.gain.value, tapeSend: sg.tapeSend.gain.value, tapeAmt: (sg.tape?.parameters.get('tape') as AudioParam | undefined)?.value ?? 0 };
   },
+  /** DLY TIME et tempo (2026-10-22, relecture) : le glissement du temps du DELAY, sur un parametre au choix (tests hors ligne) */
+  retime,
   get notes(): number {
     return notes;
   },
