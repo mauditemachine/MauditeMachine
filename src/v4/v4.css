@@ -3749,20 +3749,24 @@ html:has(body.v4-active.v4-light) {
   border-radius: 12px 0 0 12px;
 }
 
-/* 44 px de large au doigt (2026-10-22, audit SB-14) : la zone deborde vers l'interieur, sur le bord du chassis */
-.v4-root .v4-medge::after {
+/*
+ * Plus large au doigt (2026-10-22, audit SB-14) : la zone deborde vers l'interieur, sur le bord du chassis. Revue RB3-2
+ * (2026-10-22) : 34 px et non 44, elle prenait le bord de STRETCH et COMP du MM-RYTM et des touches du MM-BASS (a 35 px
+ * du bord au plus pres, 360 de large) ; au telephone seulement, les fleches du desktop (data-desk) gardent leurs 28.
+ */
+.v4-root .v4-medge:not([data-desk])::after {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 44px;
+  width: 34px;
 }
 
-.v4-root .v4-medge[data-side='right']::after {
+.v4-root .v4-medge[data-side='right']:not([data-desk])::after {
   right: 0;
 }
 
-.v4-root .v4-medge[data-side='left']::after {
+.v4-root .v4-medge[data-side='left']:not([data-desk])::after {
   left: 0;
 }
 
