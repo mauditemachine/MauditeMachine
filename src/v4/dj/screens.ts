@@ -29,6 +29,7 @@
 
 import { BufferGeometry, CircleGeometry, Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, PORTRAIT } from '../theme';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_LIGHT, MIX, UNIT_X, type DjDeck } from './theme';
@@ -166,6 +167,8 @@ const clock = (s: number): string => {
 
 export class DjScreens {
   readonly mesh: Mesh;
+  /** le reflet des verres (platines et ecran des effets), enfant de mesh (scene/glassSheen.ts) */
+  private readonly sheen: Mesh;
   readonly texture: CanvasTexture;
   /** les jogs (2026-10-22) : leur texture et leur mesh, enfant de mesh (meme repere) */
   readonly jogMesh: Mesh;
@@ -199,10 +202,12 @@ export class DjScreens {
     const y = DJ_BEZEL.h + 0.003;
     const parts: BufferGeometry[] = [];
     const jogs: BufferGeometry[] = [];
+    const glasses: { w: number; d: number; x: number; y: number; z: number }[] = [];
     const S = DECK.screen;
     for (const d of DJ_DECKS) {
       const x0 = UNIT_X[d] + S.x - S.w / 2;
       const z0 = S.z - S.d / 2;
+      glasses.push({ w: S.w, d: S.d, x: x0 + S.w / 2, y, z: S.z });
       // Le verre noir, un peu plus bas que le reste : entre les bandes, l'ecran reste un ecran
       parts.push(flat(S.w, S.d, x0 + S.w / 2, DJ_BEZEL.h + 0.0015, S.z, GLASS));
       // La bande de texte en haut de l'ecran, les touches du zoom en bas a droite
@@ -216,6 +221,7 @@ export class DjScreens {
       jogs.push(disc(DECK.jog.center, UNIT_X[d] + DECK.jog.x, DECK.jog.platterH + 0.004, DECK.jog.z, JOG_REGION[d], mobile ? 40 : 64));
     }
     parts.push(flat(MIX.screen.w, MIX.screen.d, UNIT_X.mix + MIX.screen.x, y, MIX.screen.z, REGION.fx));
+    glasses.push({ w: MIX.screen.w, d: MIX.screen.d, x: UNIT_X.mix + MIX.screen.x, y, z: MIX.screen.z });
     const g = mergeGeometries(parts, false);
     for (const p of parts) p.dispose();
     if (!g) throw new Error('dj: screens merge failed');
@@ -233,6 +239,9 @@ export class DjScreens {
     this.jogMesh.name = 'djJogs';
     this.jogMesh.visible = jg.getAttribute('position') !== undefined;
     this.mesh.add(this.jogMesh);
+    // Le reflet des verres (2026-10-22, audit, amelioration 20) : un plan par platine et l'ecran des effets
+    this.sheen = glassSheen(0, 0, 0.0008, glasses);
+    this.mesh.add(this.sheen);
   }
 
   /** Toutes les zones se redessinent au prochain set (les polices arrivees, 2026-10-22, audit SB-01). */
@@ -605,6 +614,7 @@ export class DjScreens {
   }
 
   dispose(): void {
+    disposeSheen(this.sheen);
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshBasicMaterial).dispose();
     this.texture.dispose();

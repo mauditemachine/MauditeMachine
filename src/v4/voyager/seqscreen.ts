@@ -31,6 +31,7 @@
  */
 
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
+import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { gesture } from '../actions';
 import { context } from '../audio/drums';
 import type { HotspotDef } from '../scene/hit';
@@ -93,6 +94,8 @@ export class VoySeqScreen {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private glass: Mesh;
+  /** le reflet du verre, enfant de glass (scene/glassSheen.ts) */
+  private readonly sheen: Mesh;
   private bezel: Mesh;
   private bezelMat: MeshStandardMaterial;
   private W: number;
@@ -133,6 +136,9 @@ export class VoySeqScreen {
     this.glass = new Mesh(gg, gm);
     this.glass.name = 'voySeqScreen';
     this.glass.position.set(VOY_SEQ.x, VOY_SEQ.h + 0.003, VOY_SEQ.z);
+    // Le reflet du verre (2026-10-22, audit, amelioration 20)
+    this.sheen = glassSheen(VOY_SEQ.w - 2 * VOY_SEQ.bezel, VOY_SEQ.d - 2 * VOY_SEQ.bezel);
+    this.glass.add(this.sheen);
     const bg = new BoxGeometry(VOY_SEQ.w, VOY_SEQ.h, VOY_SEQ.d);
     bg.translate(VOY_SEQ.x, VOY_SEQ.h / 2, VOY_SEQ.z);
     this.bezelMat = new MeshStandardMaterial({ color: albedo('oled').clone().multiplyScalar(GAIN.parts), roughness: 0.4, metalness: 0 });
@@ -469,6 +475,7 @@ export class VoySeqScreen {
   }
 
   dispose(): void {
+    disposeSheen(this.sheen);
     this.glass.geometry.dispose();
     (this.glass.material as MeshBasicMaterial).dispose();
     this.bezel.geometry.dispose();

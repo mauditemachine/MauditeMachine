@@ -42,6 +42,7 @@
  */
 
 import { BoxGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
+import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { albedo } from '../scene/materials';
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, GAIN, HEX, PORTRAIT } from '../theme';
@@ -284,6 +285,8 @@ function arpParams(v: Readonly<VoyValues>): [string, string][] {
 
 export class VoyScreen {
   readonly glass: Mesh;
+  /** le reflet du verre, enfant de glass (scene/glassSheen.ts) */
+  private readonly sheen: Mesh;
   readonly bezel: Mesh;
   readonly texture: CanvasTexture;
   readonly info: VoyScreenInfo;
@@ -317,6 +320,9 @@ export class VoyScreen {
     this.glass = new Mesh(geo, mat);
     this.glass.name = 'voyLcd';
     this.glass.position.set(VOY_LCD.x, VOY_LCD.bezel.h + 0.004, VOY_LCD.z);
+    // Le reflet du verre (2026-10-22, audit, amelioration 20)
+    this.sheen = glassSheen(VOY_LCD.w, VOY_LCD.d);
+    this.glass.add(this.sheen);
     const b = VOY_LCD.bezel;
     const bg = new BoxGeometry(b.w, b.h, b.d);
     bg.translate(VOY_LCD.x, b.h / 2, VOY_LCD.z);
@@ -850,6 +856,7 @@ export class VoyScreen {
   }
 
   dispose(): void {
+    disposeSheen(this.sheen);
     this.glass.geometry.dispose();
     (this.glass.material as MeshBasicMaterial).dispose();
     this.bezel.geometry.dispose();

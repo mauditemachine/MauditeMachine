@@ -151,6 +151,7 @@
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
+import { disposeSheen, glassSheen } from './glassSheen';
 import { clock } from '../audio/clock';
 import { compGr, mix } from '../audio/drums';
 import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../audio/kit';
@@ -729,6 +730,8 @@ const font = (weight: number, size: number): string => `${weight} ${size}px ${FO
 
 export class Screen {
   readonly mesh: Mesh;
+  /** le reflet du verre, enfant de mesh (glassSheen) */
+  private readonly sheen: Mesh;
   readonly texture: CanvasTexture;
   readonly info: ScreenInfo;
   private canvas: HTMLCanvasElement;
@@ -826,6 +829,9 @@ export class Screen {
     this.mesh = new Mesh(geo, mat);
     this.mesh.name = 'oled';
     this.mesh.position.set(OLED.x, OLED.y, OLED.z);
+    // Le reflet du verre (2026-10-22, audit, amelioration 20) : il suit l'ecran, le raycast de l'ecran ne le voit pas
+    this.sheen = glassSheen(OLED.w, OLED.d);
+    this.mesh.add(this.sheen);
     this.lastCur = patterns.get().cur;
     this.paint(lcd.get(), performance.now());
   }
@@ -3325,6 +3331,7 @@ export class Screen {
     this.timer = 0;
     window.clearTimeout(this.idleTimer);
     window.clearTimeout(this.echoTimer);
+    disposeSheen(this.sheen);
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshBasicMaterial).dispose();
     this.texture.dispose();
