@@ -434,7 +434,9 @@ const WAVE2 = { SINE: 0, TRI: 0.25, SAW: 0.5, SQUARE: 0.75, PULSE: 1 } as const;
 const FEET = { 32: 0.2, 16: 0.4, 8: 0.6, 4: 0.8, 2: 1 } as const;
 const FMODE = { MOOG: 0, LP12: 1 / 3, BP: 2 / 3, HP: 1 } as const;
 const LFO_RATE = { '1 BAR': 4 / 6, '2 BAR': 5 / 6, '4 BAR': 1 } as const;
-const LFO_TO = { CUTOFF: 0.25 } as const;
+const LFO_TO = { WAVE: 0, CUTOFF: 0.25 } as const;
+const LFO_SHAPE = { TRI: 0, RND: 0.5 } as const;
+const SUB_WAVE = { SINE: 0, TRI: 0.5, SQUARE: 1 } as const;
 const CHORD = { BASIC: 0, TRIAD: 0.25, '7TH': 0.5, '9TH': 0.75 } as const;
 /**
  * CHORUS, les modes du Juno-106 (2026-10-12) : choisis pour chaque patch (le potard continu d'avant : ACID, ELECTRO
@@ -442,8 +444,11 @@ const CHORD = { BASIC: 0, TRIAD: 0.25, '7TH': 0.5, '9TH': 0.75 } as const;
  * DANCE 0.5, HOUSE 0.55, ROLLING et TECHNO 0.1 : I ; ITALO 0.65, "beaucoup de chorus" : II).
  */
 const CHORUS = { OFF: 0, I: 0.5, II: 1 } as const;
-/** FINE en cents (+/-50 sur la course). */
-const cents = (c: number): number => 0.5 + c / 100;
+/**
+ * FINE en cents (+/-50 sur la course) ; arrondi au millieme comme le store (2026-10-21 : 0.5 - 0.09 donnait
+ * 0.41000000000000003, le preset charge ne retrouvait plus son nom a l'ecran).
+ */
+const cents = (c: number): number => Math.round((0.5 + c / 100) * 1000) / 1000;
 
 /**
  * Les accords (voyager/chords.ts) : 0 F#m, 1 D, 2 E, 3 C#m, 4 Bm, 5 A, 6 F#m7, 7 Dmaj7.
@@ -451,18 +456,22 @@ const cents = (c: number): number => 0.5 + c / 100;
  * meme son.
  * VOLUME de chaque patch : sa crete vers -8.5 dBFS, 4 dB sous le kick (mesure
  * hors ligne) ; le bip de MINIMAL reste plus bas, comme dans le style.
+ * 2026-10-21 : OVERDRIVE ne monte plus le niveau (audio/moog.worklet.js OD_COMP) ; ACID, DARK DISCO, TECHNO et EBM,
+ * qui en ont, remontent leur VOLUME d'autant (0.7, 0.67, 0.75 et 0.75 avant ; la meme sonie en chaine, a 0.2 dB pres,
+ * EBM a 1 au bout de la course).
  */
 const ARP: readonly ArpGenre[] = [
   {
     // Un second motif de 303 : trois notes qui tournent contre la mesure, tres resonant
     name: 'ACID',
-    knobs: { volume: 0.7, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.35, wave1: WAVE1.SAW, osc2: 0, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.74, envAmt: 0.75, fA: 0, fD: 0.18, fS: 0, fR: 0.15, aA: 0, aD: 0.22, aS: 0.3, aR: 0.15, glide: 0.12, dist: 0.2, chorus: CHORUS.OFF, delay: 0.28, reverb: 0.12, duck: 0.2, chord: CHORD.BASIC },
+    // ACC FILTER a fond (2026-10-21) : l'accent de la 303 ouvre le filtre ; les autres presets ont celui de depart (5)
+    knobs: { volume: 0.83, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.35, wave1: WAVE1.SAW, osc2: 0, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.74, envAmt: 0.75, fA: 0, fD: 0.18, fS: 0, fR: 0.15, aA: 0, aD: 0.22, aS: 0.3, aR: 0.15, glide: 0.12, dist: 0.2, chorus: CHORUS.OFF, delay: 0.28, reverb: 0.12, duck: 0.2, chord: CHORD.BASIC, accFlt: 1 },
     prog: [0],
   },
   {
     // L'arpege qui monte et descend sur deux octaves, scie et carre a peine desaccordes, delai pointe, chorus
     name: 'DARK DISCO',
-    knobs: { volume: 0.67, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.45, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine1: cents(-6), fine2: cents(6), osc2: 0.6, fmode: FMODE.LP12, cutoff: 0.42, res: 0.35, envAmt: 0.45, fD: 0.3, fS: 0.25, aD: 0.4, aS: 0.5, aR: 0.3, dist: 0.1, chorus: CHORUS.I, delay: 0.35, reverb: 0.3, duck: 0.3, chord: CHORD.TRIAD },
+    knobs: { volume: 0.73, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.45, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine1: cents(-6), fine2: cents(6), osc2: 0.6, fmode: FMODE.LP12, cutoff: 0.42, res: 0.35, envAmt: 0.45, fD: 0.3, fS: 0.25, aD: 0.4, aS: 0.5, aR: 0.3, dist: 0.1, chorus: CHORUS.I, delay: 0.35, reverb: 0.3, duck: 0.3, chord: CHORD.TRIAD },
     prog: [0, 1, 2, 0],
   },
   {
@@ -486,7 +495,7 @@ const ARP: readonly ArpGenre[] = [
   {
     // Un motif de quatre notes qui descend, sature, une ouverture lente sur quatre mesures
     name: 'TECHNO',
-    knobs: { rate: RATE['1/16'], mode: MODE.DOWN, range: RANGE[1], notes: NOTES(4), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[16], fmode: FMODE.MOOG, cutoff: 0.32, res: 0.6, envAmt: 0.55, fD: 0.18, fS: 0.05, aD: 0.22, aS: 0.15, aR: 0.2, lfoRate: LFO_RATE['4 BAR'], lfoShape: 0, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.3, dist: 0.25, chorus: CHORUS.I, delay: 0.4, reverb: 0.4, duck: 0.35, chord: CHORD.BASIC },
+    knobs: { volume: 0.94, rate: RATE['1/16'], mode: MODE.DOWN, range: RANGE[1], notes: NOTES(4), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[16], fmode: FMODE.MOOG, cutoff: 0.32, res: 0.6, envAmt: 0.55, fD: 0.18, fS: 0.05, aD: 0.22, aS: 0.15, aR: 0.2, lfoRate: LFO_RATE['4 BAR'], lfoShape: 0, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.3, dist: 0.25, chorus: CHORUS.I, delay: 0.4, reverb: 0.4, duck: 0.35, chord: CHORD.BASIC },
     prog: [0],
   },
   {
@@ -504,7 +513,7 @@ const ARP: readonly ArpGenre[] = [
   {
     // Un coup court et agressif : deux scies desaccordees, saturees, enveloppe seche
     name: 'EBM',
-    knobs: { rate: RATE['1/8'], mode: MODE.UP, range: RANGE[1], notes: NOTES(2), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-12), fine2: cents(12), fmode: FMODE.MOOG, cutoff: 0.38, res: 0.3, envAmt: 0.6, fD: 0.15, fS: 0, fR: 0.12, aD: 0.2, aS: 0, aR: 0.12, dist: 0.45, chorus: CHORUS.OFF, delay: 0.15, reverb: 0.3, duck: 0, chord: CHORD.BASIC },
+    knobs: { volume: 1, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[1], notes: NOTES(2), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-12), fine2: cents(12), fmode: FMODE.MOOG, cutoff: 0.38, res: 0.3, envAmt: 0.6, fD: 0.15, fS: 0, fR: 0.12, aD: 0.2, aS: 0, aR: 0.12, dist: 0.45, chorus: CHORUS.OFF, delay: 0.15, reverb: 0.3, duck: 0, chord: CHORD.BASIC },
     prog: [0, 1],
   },
   {
@@ -512,6 +521,40 @@ const ARP: readonly ArpGenre[] = [
     name: 'ITALO',
     knobs: { volume: 0.72, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.45, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-14), fine2: cents(14), fmode: FMODE.LP12, cutoff: 0.62, res: 0.25, envAmt: 0.35, fD: 0.3, fS: 0.3, aD: 0.35, aS: 0.45, aR: 0.3, chorus: CHORUS.II, delay: 0.35, reverb: 0.35, duck: 0, chord: CHORD.TRIAD },
     prog: [0, 1, 5, 2],
+  },
+  /*
+   * Quatre presets de plus (2026-10-21, l'etude du son de l'audit, Mika : "je voudrais que tu ameliores le son
+   * drastiquement sur ARP" ; sa musique : dark disco, indie dance, minimale hypnotique ; ses synthes : Dreadbox Typhon,
+   * Artemis, Minilogue XD). A LA SUITE des dix d'avant : leurs ids (factory-arp-0 a 9, state/presets.ts) ne bougent
+   * pas, ceux-ci sont factory-arp-10 a 13. Plus pleins et plus longs que les dix premiers (des decroissances de filtre
+   * de 10 a 30 ms, sans SUB ni largeur) : le SUB, la largeur, la vraie PWM, la resonance qui chante, l'accent au filtre.
+   */
+  {
+    // Dark disco a 118 : scie et scie desaccordees, un SUB carre, OVERDRIVE chaud, la coupure qui respire sur 4 mesures
+    name: 'NIGHT DRIVE',
+    knobs: { volume: 0.65, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.5, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-9), fine2: cents(9), osc1: 0.84, osc2: 0.75, sub: 0.4, subWave: SUB_WAVE.SQUARE, fmode: FMODE.MOOG, cutoff: 0.443, res: 0.45, envAmt: 0.5, fD: 0.598, fS: 0.15, fR: 0.532, aA: 0.091, aD: 0.683, aS: 0.55, aR: 0.542, lfoRate: LFO_RATE['4 BAR'], lfoShape: LFO_SHAPE.TRI, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.15, dist: 0.3, chorus: CHORUS.I, delay: 0.3, reverb: 0.25, drift: 0.6, width: 0.7, monoLow: 0.45, keyTrack: 0.6, duck: 0.35, chord: CHORD.TRIAD },
+    prog: [0, 1, 2, 0],
+  },
+  {
+    // Minimale hypnotique : trois notes contre la mesure, entre triangle et scie, une pointe de FM, le hasard lisse
+    // sur la coupure (2 mesures), phase fixe, beaucoup de delai
+    name: 'HYPNO LOOP',
+    knobs: { volume: 0.93, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.4, wave1: 0.3, osc1: 0.9, osc2: 0, fm: 0.12, ratio: 3 / 8, fmode: FMODE.LP12, cutoff: 0.528, res: 0.5, envAmt: 0.45, fD: 0.482, fS: 0, fR: 0.468, aD: 0.53, aS: 0, aR: 0.497, lfoRate: LFO_RATE['2 BAR'], lfoShape: LFO_SHAPE.RND, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.25, chorus: CHORUS.OFF, delay: 0.45, reverb: 0.3, phase: 0.3, drift: 0.3, duck: 0.25, chord: CHORD.BASIC, accFlt: 0.6 },
+    prog: [0],
+  },
+  {
+    // Indie dance a 122 : en croches, une vraie PWM (entre SQUARE et PULSE, MOD sur WAVE) contre une scie, CHORUS II,
+    // des accords enchaines, large
+    name: 'INDIE PULSE',
+    knobs: { volume: 0.65, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[2], gate: 0.6, wave1: 0.7, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-7), fine2: cents(7), osc1: 0.8, osc2: 0.6, fmode: FMODE.LP12, cutoff: 0.607, res: 0.25, envAmt: 0.35, fD: 0.653, fS: 0.35, fR: 0.612, aA: 0.145, aD: 0.731, aS: 0.6, aR: 0.612, lfoRate: LFO_RATE['1 BAR'], lfoShape: LFO_SHAPE.TRI, lfoDest: LFO_TO.WAVE, lfoAmt: 0.2, chorus: CHORUS.II, delay: 0.35, reverb: 0.4, width: 0.8, drift: 0.6, duck: 0.3, chord: CHORD['7TH'], accFlt: 0.4 },
+    prog: [0, 5, 2, 1],
+  },
+  {
+    // Acid a 128 : une scie seule et un SUB, la resonance qui chante (juste sous l'auto-oscillation), l'accent au
+    // filtre a fond, un peu de GLIDE et d'OVERDRIVE
+    name: 'ACID NIGHT',
+    knobs: { volume: 0.68, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.4, wave1: WAVE1.SAW, osc2: 0, sub: 0.3, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.86, envAmt: 0.8, fD: 0.53, fS: 0, fR: 0.468, aD: 0.568, aS: 0.35, aR: 0.433, glide: 0.15, dist: 0.35, chorus: CHORUS.OFF, delay: 0.3, reverb: 0.15, monoLow: 0.45, phase: 0.3, accent: 0.8, duck: 0.3, chord: CHORD.BASIC, accFlt: 1 },
+    prog: [0],
   },
 ];
 
