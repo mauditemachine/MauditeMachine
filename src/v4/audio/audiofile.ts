@@ -5,8 +5,9 @@
  * audio/sampledsp.ts :
  * - probeAudio : le format et la duree lus dans l'en-tete, AVANT tout
  *   decodage. Un mp3 de 9 Mo et 2 h 30 se decodait en entier (59 s, 3,4 Go
- *   de memoire, l'onglet d'un telephone tue) avant d'etre refuse a 12 s. WAV
- *   et AIFF : la taille des donnees sur le debit ; FLAC : STREAMINFO ; MP3 :
+ *   de memoire, l'onglet d'un telephone tue) avant d'etre refuse a 12 s. WAV :
+ *   ses trames (canaux, bits, frequence ; le debit annonce seulement pour un
+ *   WAV compresse, 2026-10-22) ; AIFF : ses trames ; FLAC : STREAMINFO ; MP3 :
  *   la trame Xing, Info ou VBRI, sinon le debit de la premiere trame (une
  *   estimation, exact false) ; M4A : mvhd ; OGG : la position de la derniere
  *   page. seconds null : l'en-tete ne le dit pas.
@@ -60,19 +61,58 @@ function extended80(v: DataView, at: number): number {
   return sign * (hi * 2 ** 32 + lo) * 2 ** (exp - 16383 - 63);
 }
 
+/** Le bloc fmt d'un WAV : ce qui donne sa duree. */
+interface WavFmt {
+  /** 1 PCM, 3 flottant, 0xFFFE extensible ; un autre : compresse (ADPCM, GSM, mp3 dans un WAV...) */
+  tag: number;
+  channels: number;
+  rate: number;
+  byteRate: number;
+  align: number;
+  bits: number;
+}
+const WAV_PLAIN: ReadonlySet<number> = new Set([1, 3, 0xfffe]);
+
+/**
+ * La duree d'un WAV (2026-10-22, revue RA1-6) : en trames, plus au debit annonce. byteRate n'est qu'une indication
+ * que le decodeur ignore : un en-tete faux (byteRate 1e9, ou 0) passait le controle et 600 s se decodaient en entier
+ * (110 Mo de PCM) avant le refus. Non compresse : la taille d'une trame (canaux x octets par echantillon, ce que compte
+ * le decodeur) et la frequence ; blockAlign qui dit autre chose : le plus petit des deux (la duree la plus longue), une
+ * estimation. Compresse : le debit, une estimation (la marge de usersamples.ts s'applique) ; rien : null.
+ */
+function wavSeconds(f: WavFmt | null, n: number): { seconds: number | null; exact: boolean } {
+  if (!f) return { seconds: null, exact: false };
+  if (WAV_PLAIN.has(f.tag)) {
+    const frame = f.channels > 0 && f.bits > 0 ? f.channels * Math.ceil(f.bits / 8) : 0;
+    const align = frame > 0 && f.align > 0 ? Math.min(frame, f.align) : frame || f.align;
+    if (f.rate > 0 && align > 0) return { seconds: n / (f.rate * align), exact: frame > 0 && frame === f.align };
+    return { seconds: null, exact: false };
+  }
+  return f.byteRate > 0 ? { seconds: n / f.byteRate, exact: false } : { seconds: null, exact: false };
+}
+
 function probeWav(v: DataView): AudioProbe {
   let at = 12;
-  let byteRate = 0;
+  let fmt: WavFmt | null = null;
   while (at + 8 <= v.byteLength) {
     const id = ascii(v, at);
     const size = v.getUint32(at + 4, true);
     const body = at + 8;
-    if (id === 'fmt ' && body + 12 <= v.byteLength) byteRate = v.getUint32(body + 8, true);
+    if (id === 'fmt ' && size >= 14 && body + 14 <= v.byteLength) {
+      fmt = {
+        tag: v.getUint16(body, true),
+        channels: v.getUint16(body + 2, true),
+        rate: v.getUint32(body + 4, true),
+        byteRate: v.getUint32(body + 8, true),
+        align: v.getUint16(body + 12, true),
+        bits: size >= 16 && body + 16 <= v.byteLength ? v.getUint16(body + 14, true) : 0,
+      };
+    }
     if (id === 'data') {
       const left = v.byteLength - body;
       // Une taille absente (0, 0xFFFFFFFF : un enregistrement en continu) ou plus grande que le fichier : ce qui reste
       const n = size === 0 || size === 0xffffffff || size > left ? left : size;
-      return { format: 'wav', seconds: byteRate > 0 ? n / byteRate : null, exact: byteRate > 0 };
+      return { format: 'wav', ...wavSeconds(fmt, n) };
     }
     at = body + size + (size & 1);
   }

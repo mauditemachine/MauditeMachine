@@ -366,9 +366,10 @@ async function addNow(family: string, file: File, added: number): Promise<KitSam
   // pu compter jusqu'au bout) laisse de la marge, le decodage verifie ensuite au plus juste
   const probe = probeAudio(data);
   let secs = probe.seconds;
-  // Un format que l'en-tete ne dit pas, assez gros pour couter cher a decoder : le navigateur lit sa duree (un petit
-  // fichier se decode vite, le test d'apres suffit)
-  if (secs === null && probe.format === 'unknown' && file.size > 1024 * 1024) secs = await mediaSeconds(file);
+  // Une duree que l'en-tete ne dit pas, assez gros pour couter cher a decoder : le navigateur lit sa duree (un petit
+  // fichier se decode vite, le test d'apres suffit). Quel que soit le format (2026-10-22, revue RA1-6 : un WAV sans
+  // debit ni frequence lisible passait sans rien, seul un format inconnu y avait droit)
+  if (secs === null && file.size > 1024 * 1024) secs = await mediaSeconds(file);
   if (secs !== null && secs > USER_SAMPLE_MAX_SECONDS * (probe.exact ? 1 : 3) + 0.05) throw new UserSampleError('too-long');
   let pcm: SamplePcm & { peak: number };
   try {
