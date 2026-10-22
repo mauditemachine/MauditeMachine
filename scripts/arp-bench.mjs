@@ -9,8 +9,8 @@
  * (crete, valeur efficace, centroide, largeur, continu, empreinte SHA-256 des
  * echantillons, calcul par bloc), dans scripts/output/arp-bench/ (hors git).
  *
- *   node scripts/arp-bench.mjs                 tous les patchs, ordinateur (x4, 12 voix, STACK 3)
- *   node scripts/arp-bench.mjs --phone         le chemin du telephone (x2, 8 voix, STACK 2)
+ *   node scripts/arp-bench.mjs                 tous les patchs, ordinateur (x4, 12 voix, STACK 3, WIDE 8 voix)
+ *   node scripts/arp-bench.mjs --phone         le chemin du telephone (x2, 8 voix, STACK 2, WIDE 4 voix)
  *   node scripts/arp-bench.mjs --only ACID,INIT
  *   node scripts/arp-bench.mjs --check         compare a scripts/arp-bench.golden.json (non-regression)
  *   node scripts/arp-bench.mjs --update        reecrit scripts/arp-bench.golden.json
@@ -57,7 +57,7 @@ const PHONE = flag('--phone');
 const OS = Number(opt('--os', PHONE ? 2 : 4));
 const VOICES = Number(opt('--voices', PHONE ? 8 : 12));
 const STACK_MAX = Number(opt('--stack', PHONE ? 2 : 3));
-const WIDE_VOICES = Number(opt('--wide-voices', PHONE ? 4 : 12));
+const WIDE_VOICES = Number(opt('--wide-voices', PHONE ? 4 : 8));
 const SEED = Number(opt('--seed', 808));
 const BARS = Number(opt('--bars', 4));
 const ONLY = opt('--only', '')
@@ -249,6 +249,9 @@ function patches(M) {
   if (has('stack')) list.push({ name: 'X STACK FULL', knobs: { ...defaults, stack: 1, wide: 0, glue: 0 }, prog: [0, 1, 2, 0] });
   if (has('wide')) list.push({ name: 'X WIDE FULL', knobs: { ...defaults, stack: 0, wide: 1, glue: 0 }, prog: [0, 1, 2, 0] });
   if (has('stack') && has('wide') && has('glue')) list.push({ name: 'X ALL FULL', knobs: { ...defaults, stack: 1, wide: 1, glue: 1, sync: 1, fm: 0.4 }, prog: [0, 1, 2, 0] });
+  // Le vrai relachement (message noteOff, 2026-10-22) : un accord tenu sans fin, relache note a note (a une heure dite,
+  // tout de suite), et une note dont le relachement arrive avant son depart
+  if (has('stack')) list.push({ name: 'X HELD NOTE OFF', knobs: { ...defaults }, prog: [0], held: true });
   // Les memes patchs avec les reglages ajoutes a leur valeur d'heritage : le son d'avant (--against)
   const legacy = list.filter((p) => !p.name.startsWith('X ')).map((p) => ({ name: `LEGACY ${p.name}`, knobs: legacyOf(M, p.knobs), prog: p.prog, legacy: true }));
   return [...list, ...legacy];
@@ -378,15 +381,28 @@ async function writeWav(file, L, R) {
 const fileName = (name) => name.replace(/[^A-Z0-9]+/gi, '_').replace(/^_|_$/g, '');
 
 /** Les options du moteur pour un patch : ses reglages en unites physiques (voyager/params.ts engineParams), le tempo, les notes. */
+/** X HELD NOTE OFF : les notes sans fin et leurs relachements (des messages a leur instant, comme ceux du port). */
+function heldNotes() {
+  const n = (midi, time) => ({ midi, time, gate: Infinity, accent: 1, from: null });
+  const off = (at, midi, time) => ({ at, msg: time === undefined ? { type: 'noteOff', midi } : { type: 'noteOff', midi, time } });
+  return {
+    notes: [n(54, 0.05), n(57, 0.05), n(61, 0.05), n(66, 1.6)],
+    timeline: [off(0.6, 54, 0.62), off(0.9, 57), off(1.0, 66, 2.0), off(1.2, 61, 1.25)],
+    beats: [],
+    seconds: 3.5,
+  };
+}
+
 function engineOpts(M, p, extra = {}) {
   const [bpm, swing] = STYLE[p.name.replace(/^LEGACY /, '')] ?? STYLE.INIT;
-  const { notes, beats, seconds } = arpNotes(M, p.knobs, p.prog, BARS, bpm, swing, SEED);
+  const held = p.held ? heldNotes() : null;
+  const { notes, beats, seconds } = held ?? arpNotes(M, p.knobs, p.prog, BARS, bpm, swing, SEED);
   // outLevel : le gain de VOLUME apres le moteur, pour son ecreteur de sortie (audio/synth.ts volGain : VOLUME au carre x
   // 0.66, DELAY et REVERB repris)
   const k = p.knobs;
   const outLevel = (k.volume * k.volume * 0.66) / (1 + 0.35 * k.delay + 0.5 * k.reverb);
   const params = { ...M.params.engineParams(p.knobs), bpm, outLevel };
-  return { opts: { params, notes, beats, os: OS, maxVoices: VOICES, maxStack: STACK_MAX, wideVoices: WIDE_VOICES, seed: SEED, ...extra }, seconds };
+  return { opts: { params, notes, beats, ...(held ? { timeline: held.timeline } : {}), os: OS, maxVoices: VOICES, maxStack: STACK_MAX, wideVoices: WIDE_VOICES, seed: SEED, ...extra }, seconds };
 }
 
 /* ---------------- la parite avec le navigateur (--browser) ---------------- */

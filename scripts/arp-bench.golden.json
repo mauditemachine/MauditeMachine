@@ -6,7 +6,7 @@
    "os": 4,
    "voices": 12,
    "maxStack": 3,
-   "wideVoices": 12
+   "wideVoices": 8
   },
   "res": {
    "INIT": {
@@ -134,6 +134,13 @@
     "rmsDb": -17.15,
     "centroidHz": 694,
     "sideDb": -2.14
+   },
+   "X HELD NOTE OFF": {
+    "sha256": "bf8d308b8afbf1969ba9e91164dfa615",
+    "peakDb": -0.12,
+    "rmsDb": -14.18,
+    "centroidHz": 391,
+    "sideDb": -16.4
    },
    "LEGACY INIT": {
     "sha256": "ceb1a29967b5f18716a517b57f182acc",
@@ -377,6 +384,13 @@
     "rmsDb": -17.94,
     "centroidHz": 637,
     "sideDb": -0.55
+   },
+   "X HELD NOTE OFF": {
+    "sha256": "191677e6c0a9de678552c88be026fd46",
+    "peakDb": -0.75,
+    "rmsDb": -14.17,
+    "centroidHz": 390,
+    "sideDb": -16.21
    },
    "LEGACY INIT": {
     "sha256": "4b5a43729d2adbf71a8e1f1c8eab2274",

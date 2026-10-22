@@ -50,8 +50,12 @@ const engineVoices = (): number => (coarse() ? 8 : 12);
  * des oscillateurs double ou triple, celui du filtre non ; mesure : scripts/arp-bench.mjs --cpu).
  */
 const engineStack = (): number => (coarse() ? 2 : 3);
-/** WIDE (2026-10-22) : quatre notes au plus avec leur filtre de droite au telephone (la cinquieme joue au centre de sa place), toutes sur ordinateur. */
-const engineWide = (): number => (coarse() ? 4 : 12);
+/**
+ * WIDE (2026-10-22) : quatre notes au plus avec leur filtre de droite au telephone (la cinquieme joue au centre de sa
+ * place), huit sur ordinateur (la relecture, mesure scripts/arp-bench.mjs --cpu : 12 voix tenues avec STACK, WIDE et
+ * GLUE prenaient 104 % du temps reel en x4 sur la machine de test, 92 % a huit ; les presets jouent 1 a 3 notes).
+ */
+const engineWide = (): number => (coarse() ? 4 : 8);
 
 /**
  * VOLUME a 1 (gain au carre), et reprise de niveau : DELAY et REVERB
@@ -457,6 +461,19 @@ export function noteOn(midi: number, time: number, gate: number, from: number | 
 }
 
 /**
+ * Un vrai relachement (2026-10-22, audit VST3) : la note midi relachee a `time` (temps du contexte), pour une note jouee
+ * sans fin (noteOn avec gate Infinity : un clavier MIDI, le futur plugin) ; jamais avant ses 64 premiers echantillons.
+ * En attente du moteur : la note gardee prend la duree qui va jusque la.
+ */
+export function noteOff(midi: number, time: number): void {
+  if (sg) {
+    sg.node.port.postMessage({ type: 'noteOff', midi, time });
+    return;
+  }
+  for (const n of early) if (n.midi === midi && n.time <= time) n.gate = Math.min(n.gate, Math.max(GATE_MIN_S, time - n.time));
+}
+
+/**
  * Re-programmation de l'arpegiateur (2026-10-05) : les notes attendues a
  * partir de `from` (temps du contexte) sont oubliees, ce qui sonne continue.
  */
@@ -507,7 +524,7 @@ export interface SynthOfflineOpts {
   maxVoices?: number;
   /** les exemplaires de STACK au plus (3 par defaut ; 2 : ceux du telephone, 2026-10-22) */
   maxStack?: number;
-  /** les notes de WIDE au plus avec leur filtre de droite (12 par defaut ; 4 : le telephone, 2026-10-22) */
+  /** les notes de WIDE au plus avec leur filtre de droite (8 par defaut, celles de l'ordinateur ; 4 : le telephone, 2026-10-22) */
   wideVoices?: number;
   /** le hasard du moteur a graine (2026-10-22, audio/moog.worklet.js processorOptions.seed) */
   seed?: number;
@@ -543,7 +560,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { params: engineMsg(o.sends === false ? { ...p, delay: 0, reverb: 0 } : p, o.bpm), notes: list, os: o.os ?? 4, maxVoices: o.maxVoices ?? 12, maxStack: o.maxStack ?? 3, wideVoices: o.wideVoices ?? 12, ...(Number.isFinite(o.seed) ? { seed: o.seed } : {}), ...extra },
+    processorOptions: { params: engineMsg(o.sends === false ? { ...p, delay: 0, reverb: 0 } : p, o.bpm), notes: list, os: o.os ?? 4, maxVoices: o.maxVoices ?? 12, maxStack: o.maxStack ?? 3, wideVoices: o.wideVoices ?? 8, ...(Number.isFinite(o.seed) ? { seed: o.seed } : {}), ...extra },
   });
   if (extra.probe) {
     // Le LFO tel quel : droit a la sortie, sans chorus ni filtres de BASS MONO

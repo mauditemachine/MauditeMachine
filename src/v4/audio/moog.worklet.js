@@ -124,6 +124,9 @@
  *   0.6 dB pres ; a 10, crete jusqu'a -6 dB, sonie a 1 dB pres.
  * Le hasard du moteur peut suivre une graine (processorOptions.seed) : la
  * base des tests de non-regression et du futur plugin (VST3, AU).
+ * Un vrai relachement (message noteOff, 2026-10-22, audit VST3) : une note
+ * jouee sans fin (gate infini) s'arrete a l'heure dite, comme sous un clavier
+ * MIDI ou un clip d'Ableton ; l'arpegiateur n'en a pas besoin.
  */
 
 /** Voix au plus (processorOptions.maxVoices : 12 sur ordinateur, 8 au telephone, audio/synth.ts). */
@@ -578,6 +581,8 @@ class Voice {
     this.s3 = 0;
     this.s4 = 0;
     this.off = 0;
+    // La frame du depart de la note (2026-10-22, noteOff : jamais relachee avant ses 64 premiers echantillons)
+    this.start = 0;
     this.accent = 1;
     this.age = 0;
     this.quick = false;
@@ -933,6 +938,14 @@ class MMVoyager extends AudioWorkletProcessor {
       const f = Math.round((m.time || 0) * sampleRate);
       this.queue = this.queue.filter((n) => n.frame < f);
       this.beats = this.beats.filter((a) => a.f < f - 0.5);
+    } else if (m.type === 'noteOff') {
+      // Un vrai relachement (2026-10-22, audit VST3 : un clavier MIDI, un clip d'Ableton, le futur plugin) : la note
+      // midi relachee a time (temps du contexte ; tout de suite sans lui), jamais avant ses 64 premiers echantillons ;
+      // une note jouee sans fin (gate infini) ne s'arrete que la. Les voix qui la jouent, et ses departs attendus avant
+      // time. L'arpegiateur n'en envoie pas (ses notes ont leur duree) : rien ne change pour lui.
+      const f = Number.isFinite(m.time) ? Math.round(m.time * sampleRate) : currentFrame;
+      for (const v of this.voices) if (v.on && v.midi === m.midi && v.aStage < 3) v.off = Math.min(v.off, Math.max(f, v.start + 64));
+      for (const n of this.queue) if (n.midi === m.midi && n.frame <= f) n.gate = Math.min(n.gate, Math.max(64, f - n.frame) / sampleRate);
     } else if (m.type === 'stop') {
       // STOP : plus rien d'attendu, ce qui sonne s'eteint en 12 ms ; le LFO tourne librement au tempo
       const f = Math.round((m.time || 0) * sampleRate);
@@ -986,6 +999,7 @@ class MMVoyager extends AudioWorkletProcessor {
     v.aStage = 1;
     v.fStage = 1;
     v.off = frame + Math.max(64, Math.round(n.gate * sampleRate));
+    v.start = frame;
     v.accent = n.accent;
     // ACCENT vers le filtre (2026-10-21, accFlt ; 0 : le niveau seul, comme avant) : une note appuyee ouvre plus
     // l'enveloppe et la coupure, son filtre retombe plus vite (l'accent de la 303) ; une note douce s'assombrit ;
