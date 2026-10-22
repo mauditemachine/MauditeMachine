@@ -173,7 +173,7 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
-import { HOME_MENU, HOME_MENU_LABEL, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { encUnit, v127Text } from '../rytm/values';
 import { screenDials, type ScreenDialId } from '../state/screenDials';
@@ -251,6 +251,12 @@ export interface ScreenInfo {
   dials: string;
   /** le pattern dessine a leur gauche (A01), '' s'il a cede sa place */
   dialSlot: string;
+  /**
+   * les places fixes de l'en-tete de la vue PAGE (2026-10-22, audit SB-13) : le palier des cadrans (A01, A01+DB, -),
+   * la colonne de la voix (voice@148.8), le palier de serrage des onglets (fit0 a fit3, ! rien ne tient), |DB quand
+   * MASTER tenu dit son niveau ; '' hors de la vue PAGE et en P-LOCK
+   */
+  headFit: string;
 }
 
 
@@ -521,6 +527,77 @@ const PAGE_HEAD: { y: number; iconX: number; pillX: number; pillY: number; right
   ? { y: 16.5, iconX: 10, pillX: 23, pillY: 4, right: 299, rule: 22.5, gap: 7 }
   : { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 301, rule: 21.5, gap: 7 };
 /**
+ * L'en-tete de la vue PAGE a places fixes (2026-10-22, audit SB-13). Les paliers de serrage de ses onglets : le corps
+ * (s, de celui des onglets), l'air dans un onglet (pad), entre deux (gap), apres un titre sans cadre (tpad, DELAY de
+ * DELAY > GLOBAL) et apres le trait du chevron (chev). headPlan ne compte que jusqu'au palier HEAD_FIT_MAX (90 % du
+ * corps) ; le dernier, 80 %, reste un secours (une police de repli plus large).
+ */
+const HEAD_FIT = [
+  { s: 1, pad: 9, gap: 3, tpad: 9, chev: 5.8 },
+  { s: 1, pad: 7, gap: 2, tpad: 4, chev: 3.5 },
+  { s: 0.9, pad: 6, gap: 2, tpad: 2, chev: 3 },
+  { s: 0.8, pad: 5, gap: 1.5, tpad: 2, chev: 2 },
+] as const;
+type HeadFit = (typeof HEAD_FIT)[number];
+const HEAD_FIT_MAX = 2;
+/**
+ * La colonne de la voix : l'air entre elle et le pattern (gap), entre elle et la lettre d'un mode arme (badgeAir), et
+ * ce que les onglets lui laissent (air ; tabAir sous DIST CHORUS DELAY REVERB, ou la voix est cernee comme un onglet).
+ */
+const HEAD_COL = { gap: 6, badgeAir: 5, air: 5, tabAir: 6.5 } as const;
+/** Un trait de la gauche de l'en-tete (headLeft) : un chevron, un titre ou GLOBAL en retrait, un onglet et sa zone. */
+type HeadOp =
+  | { kind: 'chev'; x: number; w: number }
+  | { kind: 'text'; text: string; x: number; w: number; color: string; align: 'left' | 'center' }
+  | { kind: 'tab'; text: string; x: number; w: number; on: boolean; zone: { screen: RytmScreenId; x0: number; x1: number } };
+interface HeadLeft {
+  label: string;
+  pw: number;
+  ts: number;
+  chev: number;
+  ops: HeadOp[];
+  end: number;
+  heads: string;
+}
+/** Les paliers de MASTER, TEMPO et du pattern : A01 et le niveau en dB, A01 seul, ni l'un ni l'autre. */
+type DialTier = { a01: boolean; full: boolean };
+const DIAL_TIERS: readonly DialTier[] = [
+  { a01: true, full: true },
+  { a01: true, full: false },
+  { a01: false, full: false },
+];
+/** L'air entre le pattern et MASTER (g), entre MASTER et TEMPO (gd). */
+const DIAL_GAP = { g: 6, gd: 9 } as const;
+/**
+ * Les valeurs de reference de la vue PAGE (2026-10-22) : le tempo compte a son plus large (100 a 150) et le niveau en dB
+ * aussi, le groupe ne bouge pas quand ils changent ; le pattern a A01 (un pattern plus large, A08, prend 2.5 unites sur
+ * les 6 d'air avec la voix, son bord droit ne bouge pas).
+ */
+const DIAL_REF = { bpm: ['100', '108', '140', '148', '150'], db: '-48.8', slot: 'A01' } as const;
+interface HeadPlan {
+  tier: DialTier;
+  voiceX: number;
+  colW: number;
+  groupLeft: number;
+}
+interface DialGeom {
+  level: number;
+  db: string;
+  mNum: string;
+  mUnit: string;
+  bpmV: number;
+  bpm: string;
+  tw: number;
+  tuw: number;
+  meterW: number;
+  mnw: number;
+  muw: number;
+  mFull: number;
+  slot: string;
+  aw: number;
+  width: (t: DialTier) => number;
+}
+/**
  * Les seize pas du pied (a gauche) et le reste du pied (a droite) ; au
  * telephone (2026-10-09), en bas de l'ecran haut. Revue du meme jour (les
  * deux lignes de l'aide collaient au bas du verre, la seconde a peine
@@ -727,6 +804,7 @@ export class Screen {
       menu: [],
       dials: '',
       dialSlot: '',
+      headFit: '',
     };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -794,8 +872,12 @@ export class Screen {
       // MASTER et TEMPO (2026-10-19) : celui qu'on survole ou qu'on tient se cerne
       screenDials.subscribe(() => this.request()),
       // La police arrivee apres la premiere image : on redessine. 2026-10-22 (audit SB-01) : onFonts attend les graisses
-      // 300 et 400 des valeurs (document.fonts.ready resolvait avant leur arrivee), et se rappelle si elles tardent
-      onFonts(() => this.request()),
+      // 300 et 400 des valeurs (document.fonts.ready resolvait avant leur arrivee), et se rappelle si elles tardent ; les
+      // places fixes de l'en-tete (headPlan) se mesurent de nouveau
+      onFonts(() => {
+        this.headPlans.clear();
+        this.request();
+      }),
     ];
     this.request();
   }
@@ -880,6 +962,8 @@ export class Screen {
   }
   /** Les onglets de l'en-tete (VOICE : MAIN SYNTH ; FX : BD FX, GLOBAL) et leur rectangle : les zones lcd-tab-<ecran>. */
   tabSpots: { screen: RytmScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
+  /** Les places fixes de l'en-tete de la vue PAGE par voix et mode arme (headPlan, 2026-10-22), mesurees une fois par police. */
+  private headPlans = new Map<string, HeadPlan>();
 
   /* ---------------- le dessin ---------------- */
 
@@ -1028,6 +1112,7 @@ export class Screen {
     this.dialRects = [];
     this.info.dials = '';
     this.info.dialSlot = '';
+    this.info.headFit = '';
     this.info.menu = [];
     this.info.browser = null;
     this.info.drop = '';
@@ -1895,47 +1980,174 @@ export class Screen {
    * L'en-tete de la vue PAGE (refait le 2026-10-09) :
    * - a gauche la lecture, la page en pastille pleine (VOICE), ses onglets
    *   s'il en a (MAIN SYNTH ; BD FX, GLOBAL : celui de l'ecran plein, l'autre en
-   *   contour, une tape dessus y passe), la voix (et ce qu'elle joue quand la
-   *   place le permet), MUTE ou SOLO pour une voix vraiment coupee (en solo) ;
-   *   P-LOCK un instant quand le pas qui joue a des verrous (n'importe quelle
-   *   page) ; M ou S quand le mode est arme ;
-   * - a droite le pattern (il clignote quand il change) et le tempo ;
+   *   contour, une tape dessus y passe) ;
+   * - a droite la voix, le pattern (il clignote quand il change), MASTER et le
+   *   tempo ; M ou S quand le mode est arme, entre la voix et le pattern ;
+   * - entre les deux, ce que joue la voix quand la place le permet, MUTE ou
+   *   SOLO pour une voix vraiment coupee (en solo), P-LOCK un instant quand le
+   *   pas qui joue a des verrous (n'importe quelle page) ;
    * - la page d'un FX global (2026-10-10) : GLOBAL > DELAY a la place de
-   *   l'onglet GLOBAL, le FX cerne, une tape dessus ramene GLOBAL FX ;
+   *   l'onglet GLOBAL, le FX cerne, une tape dessus ramene GLOBAL FX ; sous
+   *   DIST CHORUS DELAY REVERB, l'onglet de la voix est la voix elle-meme ;
    * - en P-LOCK (69-common2, point 3 : "P-LOCK MUST BE OBVIOUS") : toute la
-   *   bande en negatif, P-LOCK STEP 05, la page et P-LOCKS (ENV · P-LOCKS), la
-   *   voix, le compte des verrous du pas (3 P-LOCKS) sur toutes les pages.
+   *   bande en negatif (paintLockHead).
+   * 2026-10-22 (audit SB-13 : la voix BD sautait de x 69 a 160 d'une page a
+   * l'autre, A01 et le niveau en dB allaient et venaient) : des places fixes.
+   * La voix a sa colonne juste a gauche du pattern, a la meme place sur toutes
+   * les pages, et les cadrans gardent le meme palier sur toutes les pages
+   * (headPlan) ; ce sont les onglets qui se serrent (HEAD_FIT), pas la voix qui
+   * bouge. MASTER tenu dit son niveau en dB.
    */
   private paintPageHead(rp: RytmPageState, screen: RytmScreenId, inst: Inst | null, cur: number, now: number, lockStep: number, lock: Readonly<StepLock> | null, mode: BlockMode | null): void {
     const H = PAGE_HEAD;
     const T = this.bt.head;
     const y = H.y;
-    const neg = lockStep >= 0;
     this.tabSpots = [];
-    if (neg) {
-      this.ctx.fillStyle = INK;
-      this.ctx.fillRect(0, 0, UW, H.rule + 0.6);
+    if (lockStep >= 0) {
+      this.paintLockHead(screen, inst, lockStep);
+      return;
     }
-    const ink = neg ? BLACK : INK;
     const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
-    // A droite d'abord : en P-LOCK le compte des verrous ; sinon le pattern et le tempo
-    let rightX: number;
-    if (neg) {
-      const n = lockCountOf(lockStep);
-      const word = n === 1 ? '1 P-LOCK' : `${n} P-LOCKS`;
-      const w = this.text(word, H.right, y, T.bpm * 1.12, ink, 700, 'right', 0.7);
-      rightX = H.right - w - 6;
-      this.info.lockCount = n;
-    } else {
-      // Le pattern, MASTER et TEMPO (2026-10-19) : autant qu'en laisse la gauche de l'en-tete (la page, ses onglets, la voix)
-      const vm = voices.get();
-      const badgeRoom = vm.muteMode || vm.soloMode ? T.pillH + 5 : 0;
-      // Sans voix, si meme le dernier palier ne laisse pas PICK A VOICE : la place de ALL seul (le pattern reste)
-      const need = this.headLeftNeed(rp, screen, inst) + badgeRoom;
-      const bare = inst ? need : this.headLeftNeed(rp, screen, inst, false) + badgeRoom;
-      rightX = this.paintDials(y, need, H.rule, now, cur, bare) - 6;
-      this.info.lockCount = -1;
+    const v = voices.get();
+    const badge = v.muteMode ? 'M' : v.soloMode ? 'S' : '';
+    const plan = this.headPlan(!!badge);
+    const scope = fxScopeTabs(screen);
+    const vx = plan.voiceX;
+    // La gauche : la page et ses onglets, au premier palier qui laisse la colonne de la voix (BD FX cede d'abord sa place)
+    const limit = vx - (scope ? HEAD_COL.tabAir : HEAD_COL.air);
+    let left: HeadLeft | null = null;
+    let fitAt = -1;
+    for (let l = 0; l < HEAD_FIT.length && !left; l += 1) {
+      for (const optional of [true, false]) {
+        const h = this.headLeft(rp.page, screen, inst, HEAD_FIT[l], optional);
+        if (h.end <= limit) {
+          left = h;
+          fitAt = l;
+          break;
+        }
+      }
     }
+    // Rien ne tient (une police de repli tres large) : les onglets au plus serre, la voix se tait plutot que d'etre ecrasee
+    const crowded = !left;
+    const shown: HeadLeft = left ?? this.headLeft(rp.page, screen, inst, HEAD_FIT[HEAD_FIT.length - 1], false);
+    // MASTER tenu : son niveau en dB a la place du pattern et de la voix, le temps du geste (paintDials)
+    const readout = !plan.tier.full && screenDials.get().held === 'level';
+    // La zone de MASTER au telephone, sans A01 : l'air libre a sa gauche, apres la voix (ou apres son onglet, une commande)
+    const vw = this.textWidth(inst ?? 'ALL', T.voice, 600);
+    const zoneLeft = (scope ? vx + plan.colW + 3.5 : vx + vw) + 3;
+    this.paintDials(y, 0, H.rule, now, cur, 0, { tier: plan.tier, zoneLeft, readout });
+    this.runIcon(H.iconX, y);
+    this.drawHeadLeft(shown, ty);
+    let heads = shown.heads;
+    // MUTE et SOLO armes (2026-10-09) : M ou S, plein en MULTI, en contour pour une voix, entre la voix et le pattern
+    if (badge) {
+      const multi = v.muteMode ? v.muteMulti : v.soloMulti;
+      if (!readout) {
+        const bw = T.pillH;
+        const bx = vx + plan.colW + HEAD_COL.badgeAir;
+        if (multi) this.roundRect(bx, H.pillY, bw, T.pillH, 2.5, INK);
+        else this.roundRect(bx + 0.5, H.pillY + 0.5, bw - 1, T.pillH - 1, 2.5, null, INK, 1);
+        this.text(badge, bx + bw / 2, ty, T.pill, multi ? BLACK : INK, 700, 'center');
+      }
+      this.info.badge = `${badge}${multi ? '+' : ''}`;
+    } else this.info.badge = '';
+    // La colonne de la voix ; sous DIST CHORUS DELAY REVERB (2026-10-10, Mika : "Quand je suis la page delay je veux avoir le
+    // choix entre GLOBAL ou VOICE"), elle est l'onglet de la voix : cernee sous la voix, a peine sous GLOBAL, une tape y passe
+    if (scope) {
+      const on = screen === scope.voice;
+      const name = fxVoiceTabLabel(inst);
+      if (!readout && !crowded) {
+        if (inst) {
+          if (on) this.roundRect(vx - 3.5, H.pillY + 0.6, vw + 7, T.pillH - 1.2, 2.2, null, INK, 1.1);
+          this.text(inst, vx, y, T.voice, on ? INK : FAINT_TEXT, 600);
+        } else {
+          // Sans voix : VOICE en onglet, du corps des onglets
+          const ts = T.pill * 0.92;
+          const nw = this.textWidth(name, ts, 700, 0.7);
+          if (on) this.roundRect(vx - 3.5, H.pillY + 0.6, nw + 7, T.pillH - 1.2, 2.2, null, INK, 1.1);
+          this.text(name, vx, ty, ts, on ? INK : FAINT_TEXT, 700, 'left', 0.7);
+        }
+      }
+      this.tabSpots.push({ screen: scope.voice, ...this.spot({ x: vx - 4, y: -this.headUp, w: plan.colW + 7.5, h: H.rule + this.headUp }) });
+      heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
+    } else if (!readout && !crowded) this.text(inst ?? 'ALL', vx, y, T.voice, inst ? INK : HALF, 600);
+    this.info.head = heads;
+    this.info.headFit = `${plan.tier.a01 ? 'A01' : '-'}${plan.tier.full ? '+DB' : ''}|voice@${vx.toFixed(1)}|fit${fitAt}${crowded ? '!' : ''}${readout ? '|DB' : ''}`;
+    if (readout || crowded) {
+      this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
+      return;
+    }
+    // Entre les onglets et la voix, de droite a gauche : MUTE ou SOLO de la voix, P-LOCK, ce que joue la voix
+    const mid0 = shown.end + 5;
+    let x1 = vx - (scope ? 3.5 + 4 : 5);
+    const fits = (w: number): boolean => x1 - w >= mid0;
+    if (inst) {
+      // Une voix vraiment coupee (en solo) : sa pastille ; une voix hors d'un solo n'en a pas (2026-10-09 : MUTE se lisait a tort)
+      const solo = voices.isSolo(inst);
+      const muted = voices.isMuted(inst) && v.solo.length === 0;
+      if (solo || muted) {
+        // Le mot entier s'il tient, sinon sa lettre (le telephone : MUTE couvrait A01)
+        const full = solo ? 'SOLO' : 'MUTE';
+        const fw = this.textWidth(full, T.sound, 700, 0.8) + 8;
+        const word = fits(fw) ? full : solo ? 'S' : 'M';
+        const w = word === full ? fw : this.textWidth(word, T.sound, 700, 0.8) + 8;
+        if (fits(w)) {
+          x1 -= w;
+          this.pill(x1, H.pillY, w, T.pillH, INK);
+          this.text(word, x1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 700, 'center', 0.8);
+          x1 -= 5;
+        }
+      }
+      // Le pas qui joue a des verrous (n'importe quelle page) : P-LOCK un instant, plein (69-common2, point 3)
+      if (mode && mode.kind === 'flash') {
+        const word = 'P-LOCK';
+        const w = this.textWidth(word, T.sound, 800, 0.6) + 8;
+        if (fits(w)) {
+          x1 -= w;
+          this.roundRect(x1, H.pillY, w, T.pillH, 2.2, INK);
+          this.text(word, x1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 800, 'center', 0.6);
+          this.info.head += '|P-LOCK!';
+          x1 -= 5;
+        }
+      }
+      // Ce que joue la voix, a la place qui reste (VOICE le montre en grand dans SOUND : rien ici) ; ecrit comme SOUND
+      // (revue du 2026-10-09 : 909+BLUEPRINT ici, BLUEPRINT + 909 dans SOUND), jamais coupe au milieu d'un nom (BLUEP.) :
+      // le sample seul s'il n'y a pas la place des deux, sinon rien. La page d'un FX sous GLOBAL (2026-10-10) : la quantite
+      // de la machine, ce que joue la voix n'y a rien a faire
+      const room = x1 - mid0;
+      if (rp.page !== 'voice' && room > 18 && !(scope && screen === scope.global)) {
+        const plays = voiceSoundText(inst, stepPlays(inst, lock));
+        const txt = plays === inst ? '' : ([plays, plays.split(' + ')[0]].find((t) => this.textWidth(t, T.sound, 600, 0.6) <= room) ?? '');
+        if (txt) this.text(txt, x1, y, T.sound, HALF, 600, 'right', 0.6);
+      }
+    } else if (fits(this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5))) {
+      // Sans voix : PICK A VOICE devant ALL (ou devant l'onglet VOICE d'une page de FX) s'il tient
+      this.text('PICK A VOICE', x1, y, T.sound * 0.85, FAINT_TEXT, 600, 'right', 0.5);
+    }
+    this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
+  }
+
+  /**
+   * L'en-tete en P-LOCK (69-common2, point 3 : "P-LOCK MUST BE OBVIOUS") : toute
+   * la bande en negatif, P-LOCK STEP 05, la page et P-LOCKS (ENV · P-LOCKS), la
+   * voix, le compte des verrous du pas (3 P-LOCKS) sur toutes les pages ; M ou
+   * S quand le mode est arme. Le dessin d'avant le 2026-10-22, sorti tel quel
+   * de paintPageHead.
+   */
+  private paintLockHead(screen: RytmScreenId, inst: Inst | null, lockStep: number): void {
+    const H = PAGE_HEAD;
+    const T = this.bt.head;
+    const y = H.y;
+    this.ctx.fillStyle = INK;
+    this.ctx.fillRect(0, 0, UW, H.rule + 0.6);
+    const ink = BLACK;
+    const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
+    // A droite d'abord : le compte des verrous
+    const n = lockCountOf(lockStep);
+    const word = n === 1 ? '1 P-LOCK' : `${n} P-LOCKS`;
+    const cw = this.text(word, H.right, y, T.bpm * 1.12, ink, 700, 'right', 0.7);
+    let rightX = H.right - cw - 6;
+    this.info.lockCount = n;
     // MUTE et SOLO armes (2026-10-09) : M ou S, plein en MULTI, en contour pour une voix (meme en P-LOCK)
     const v = voices.get();
     const badge = v.muteMode ? 'M' : v.soloMode ? 'S' : '';
@@ -1945,208 +2157,164 @@ export class Screen {
       const bx = rightX - bw;
       if (multi) this.roundRect(bx, H.pillY, bw, T.pillH, 2.5, ink);
       else this.roundRect(bx + 0.5, H.pillY + 0.5, bw - 1, T.pillH - 1, 2.5, null, ink, 1);
-      this.text(badge, bx + bw / 2, ty, T.pill, multi ? (neg ? INK : BLACK) : ink, 700, 'center');
+      this.text(badge, bx + bw / 2, ty, T.pill, multi ? INK : ink, 700, 'center');
       rightX = bx - 5;
       this.info.badge = `${badge}${multi ? '+' : ''}`;
     } else this.info.badge = '';
-    let x: number;
-    if (neg) {
-      // P-LOCK STEP 05 : le cadenas, le pas ; puis la page et P-LOCKS en contour
-      const gs = T.pill * 0.82;
-      this.padlock(H.iconX - 1, ty, gs, BLACK);
-      const lk = `P-LOCK STEP ${two(lockStep + 1)}`;
-      const lw = this.text(lk, H.iconX - 1 + gs + 3.5, ty, T.pill, BLACK, 800, 'left', 0.8);
-      x = H.iconX - 1 + gs + 3.5 + lw + 6;
-      const room = rightX - x - (inst ? this.textWidth(inst, T.voice, 700) + 8 : 0);
-      // ENV · P-LOCKS ; trop long (VOICE SYNTH au telephone) : le nom de l'ecran seul, la bande dit deja P-LOCK
-      const full = `${SCREEN_TITLE[screen]} · P-LOCKS`;
-      const max = Math.max(20, room - 10);
-      // La page d'un FX global (2026-10-10, le telephone : GLOBAL FX · . ) : GLOBAL REVERB, puis REVERB, avant de couper
-      const label = [full, SCREEN_TITLE[screen], tabWord(screen, inst), SCREEN_LABEL[screen]].find((t) => this.textWidth(t, T.pill, 700, 0.7) <= max) ?? SCREEN_TITLE[screen];
-      const fitted = this.fitText(label, max, T.pill, 0.7, 700);
-      const pw = this.textWidth(fitted, T.pill, 700, 0.7) + 10;
-      this.roundRect(x, H.pillY + 0.5, pw, T.pillH - 1, 2.5, null, BLACK, 0.9);
-      this.text(fitted, x + pw / 2, ty, T.pill, BLACK, 700, 'center', 0.7);
-      this.info.head = `${lk} | ${fitted}`;
-      x += pw + 7;
-      if (inst && x + 10 < rightX) this.text(inst, x, y, T.voice, BLACK, 700);
-      return;
-    }
-    this.runIcon(H.iconX, y);
-    const label = pageLabel(rp.page);
-    const pw = this.textWidth(label, T.pill, 700, 0.9) + 12;
-    this.roundRect(H.pillX, H.pillY, pw, T.pillH, 2.5, INK);
-    this.text(label, H.pillX + pw / 2, ty, T.pill, BLACK, 700, 'center', 0.9);
-    x = H.pillX + pw + 5;
-    // Les onglets de la page (VOICE : MAIN SYNTH ; FX : BD FX, GLOBAL) : celui de l'ecran plein, une tape sur l'autre y passe
-    const tabs = screensOf(rp.page, inst);
-    let heads = label;
-    // La page d'un FX global (2026-10-10) : GLOBAL, un chevron, le FX cerne (GLOBAL > DELAY) ; le tout est la zone de
-    // GLOBAL (une tape ramene GLOBAL FX) ; BD FX s'efface s'il ne laisse pas la place a la voix (le telephone)
-    const detail = isFxDetail(screen) ? screen : null;
-    const ts = T.pill * 0.92;
-    const tabW = (name: string): number => this.textWidth(name, ts, 700, 0.7) + 9;
-    const chev = ts * 0.62;
-    const crumbW = detail ? tabW(SCREEN_LABEL.fxg) + chev + 4 + tabW(SCREEN_LABEL[detail]) : 0;
-    // Sans voix, la place de ALL (relecture du 2026-10-19 : VOICE FX revenu sur la page de BIT, ALL passait sous le vumetre)
-    const voiceRoom = this.textWidth(inst ?? 'ALL', T.voice, 600) + 12;
-    // GLOBAL ou la voix (2026-10-10, Mika : "Quand je suis la page delay je veux avoir le choix entre GLOBAL ou VOICE") :
-    // sur la page de DIST CHORUS DELAY REVERB, le FX en titre, un chevron, puis ses deux onglets, GLOBAL et la voix (BD ;
-    // VOICE sans voix), celui du mode cerne, une tape sur l'autre y passe ; l'onglet de la voix la nomme (pas son nom apres)
-    const scope = fxScopeTabs(screen);
-    if (scope) {
-      const dn = SCREEN_LABEL[screen];
-      const dw = tabW(dn);
-      this.text(dn, x + dw / 2, ty, ts, INK, 700, 'center', 0.7);
-      x += dw;
-      const cy = H.pillY + T.pillH / 2;
-      const ch = chev * 0.55;
-      this.line([x + 1, cy - ch, x + 1 + chev * 0.5, cy, x + 1, cy + ch], HALF, 1);
-      x += chev + 4;
-      heads += `|${dn}>`;
-      const pair: readonly (readonly [RytmScreenId, string])[] = [
-        [scope.global, SCREEN_LABEL.fxg],
-        [scope.voice, fxVoiceTabLabel(inst)],
-      ];
-      for (const [t, name] of pair) {
-        const on = t === screen;
-        const tw = tabW(name);
-        if (on) this.roundRect(x, H.pillY + 0.6, tw, T.pillH - 1.2, 2.2, null, INK, 1.1);
-        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT_TEXT, 700, 'center', 0.7);
-        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: -this.headUp, w: tw + 1, h: H.rule + this.headUp }) });
-        heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
-        x += tw + 3;
-      }
-      x += 4;
-    } else if (tabs.length > 1) {
-      for (const t of tabs) {
-        const name = t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : SCREEN_LABEL[t];
-        if (detail && t === 'fxv' && x + tabW(name) + 3 + crumbW + 4 + voiceRoom > rightX) continue;
-        if (detail && t === 'fxg') {
-          // GLOBAL en retrait (une tape y revient), le chevron, le FX de la page cerne
-          const x0 = x;
-          const gw = tabW(name);
-          this.text(name, x + gw / 2, ty, ts, FAINT_TEXT, 700, 'center', 0.7);
-          x += gw;
-          const cy = H.pillY + T.pillH / 2;
-          const ch = chev * 0.55;
-          this.line([x + 1, cy - ch, x + 1 + chev * 0.5, cy, x + 1, cy + ch], HALF, 1);
-          x += chev + 4;
-          const dn = SCREEN_LABEL[detail];
-          const dw = tabW(dn);
-          this.roundRect(x, H.pillY + 0.6, dw, T.pillH - 1.2, 2.2, null, INK, 1.1);
-          this.text(dn, x + dw / 2, ty, ts, INK, 700, 'center', 0.7);
-          this.tabSpots.push({ screen: 'fxg', ...this.spot({ x: x0 - 0.5, y: -this.headUp, w: x + dw - x0 + 1, h: H.rule + this.headUp }) });
-          heads += `|${name}>[${dn}]`;
-          x += dw + 3;
-          continue;
-        }
-        const on = t === screen;
-        const tw = tabW(name);
-        if (on) this.roundRect(x, H.pillY + 0.6, tw, T.pillH - 1.2, 2.2, null, INK, 1.1);
-        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT_TEXT, 700, 'center', 0.7);
-        // La zone de l'onglet : toute la hauteur de l'en-tete (la touche de la page la double, 44 px au doigt) ; deux unites
-        // d'air avec la voisine, la perspective des zones 3D comprise (revue : 4 px communs a MAIN et SYNTH)
-        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: -this.headUp, w: tw + 1, h: H.rule + this.headUp }) });
-        heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
-        x += tw + 3;
-      }
-      x += 4;
-    } else x += 3;
-    this.info.head = heads;
-    if (inst) {
-      // La voix, si elle tient avant le pattern, MASTER et TEMPO (2026-10-19 ; le M ou le S d'un mode arme comptent) ;
-      // sous DIST CHORUS DELAY REVERB, son onglet la nomme. Pas nommee : ni sa pastille ni ce qu'elle joue (relecture du
-      // 2026-10-19 : MM ou MUTE flottaient seuls dans l'en-tete)
-      const named = !!scope || x + this.textWidth(inst, T.voice, 600) <= rightX + 2;
-      if (!scope && named) {
-        const vw = this.text(inst, x, y, T.voice, INK, 600);
-        x += vw + 5;
-      }
-      // Une voix vraiment coupee (en solo) : sa pastille ; une voix hors d'un solo n'en a pas (2026-10-09 : MUTE se lisait a tort)
-      const solo = voices.isSolo(inst);
-      const muted = voices.isMuted(inst) && v.solo.length === 0;
-      if (named && (solo || muted)) {
-        // Le mot entier s'il tient avant le pattern et le tempo, sinon sa lettre (le telephone : MUTE couvrait A01)
-        const full = solo ? 'SOLO' : 'MUTE';
-        const fw = this.textWidth(full, T.sound, 700, 0.8) + 8;
-        const word = x + 1 + fw + 4 <= rightX ? full : solo ? 'S' : 'M';
-        const w = word === full ? fw : this.textWidth(word, T.sound, 700, 0.8) + 8;
-        if (x + 1 + w + 4 <= rightX) {
-          this.pill(x + 1, H.pillY, w, T.pillH, INK);
-          this.text(word, x + 1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 700, 'center', 0.8);
-          x += w + 5;
-        }
-      }
-      // Le pas qui joue a des verrous (n'importe quelle page) : P-LOCK un instant, plein (69-common2, point 3)
-      if (mode && mode.kind === 'flash') {
-        const word = 'P-LOCK';
-        const w = this.textWidth(word, T.sound, 800, 0.6) + 8;
-        if (x + w < rightX) {
-          this.roundRect(x, H.pillY, w, T.pillH, 2.2, INK);
-          this.text(word, x + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 800, 'center', 0.6);
-          this.info.head += '|P-LOCK!';
-          x += w + 5;
-        }
-      }
-      // Ce que joue la voix, a la place qui reste (VOICE le montre en grand dans SOUND : rien ici) ; ecrit comme SOUND
-      // (revue du 2026-10-09 : 909+BLUEPRINT ici, BLUEPRINT + 909 dans SOUND), jamais coupe au milieu d'un nom (BLUEP.) :
-      // le sample seul s'il n'y a pas la place des deux, sinon rien
-      const room = rightX - x;
-      // La page d'un FX sous GLOBAL (2026-10-10) : la quantite de la machine, ce que joue la voix n'y a rien a faire
-      if (named && rp.page !== 'voice' && room > 18 && !(scope && screen === scope.global)) {
-        const plays = voiceSoundText(inst, stepPlays(inst, lock));
-        const shown = plays === inst ? '' : ([plays, plays.split(' + ')[0]].find((t) => this.textWidth(t, T.sound, 600, 0.6) <= room) ?? '');
-        if (shown) this.text(shown, x, y, T.sound, HALF, 600, 'left', 0.6);
-      }
-    } else if (scope) {
-      // Sans voix sur la page d'un FX (2026-10-10) : l'onglet dit VOICE, le reste PICK A VOICE s'il tient avant le pattern
-      if (x + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x, y, T.sound * 0.85, FAINT_TEXT, 600, 'left', 0.5);
-    } else {
-      // Sans voix : ALL, puis PICK A VOICE s'il tient avant le pattern, MASTER et TEMPO (headLeftNeed lui garde sa place)
-      const aw = this.text('ALL', x, y, T.voice, HALF, 600);
-      if (x + aw + 6 + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT_TEXT, 600, 'left', 0.5);
-    }
-    this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
+    this.info.headFit = '';
+    // P-LOCK STEP 05 : le cadenas, le pas ; puis la page et P-LOCKS en contour
+    const gs = T.pill * 0.82;
+    this.padlock(H.iconX - 1, ty, gs, BLACK);
+    const lk = `P-LOCK STEP ${two(lockStep + 1)}`;
+    const lw = this.text(lk, H.iconX - 1 + gs + 3.5, ty, T.pill, BLACK, 800, 'left', 0.8);
+    let x = H.iconX - 1 + gs + 3.5 + lw + 6;
+    const room = rightX - x - (inst ? this.textWidth(inst, T.voice, 700) + 8 : 0);
+    // ENV · P-LOCKS ; trop long (VOICE SYNTH au telephone) : le nom de l'ecran seul, la bande dit deja P-LOCK
+    const full = `${SCREEN_TITLE[screen]} · P-LOCKS`;
+    const max = Math.max(20, room - 10);
+    // La page d'un FX global (2026-10-10, le telephone : GLOBAL FX · . ) : GLOBAL REVERB, puis REVERB, avant de couper
+    const label = [full, SCREEN_TITLE[screen], tabWord(screen, inst), SCREEN_LABEL[screen]].find((t) => this.textWidth(t, T.pill, 700, 0.7) <= max) ?? SCREEN_TITLE[screen];
+    const fitted = this.fitText(label, max, T.pill, 0.7, 700);
+    const pw = this.textWidth(fitted, T.pill, 700, 0.7) + 10;
+    this.roundRect(x, H.pillY + 0.5, pw, T.pillH - 1, 2.5, null, BLACK, 0.9);
+    this.text(fitted, x + pw / 2, ty, T.pill, BLACK, 700, 'center', 0.7);
+    this.info.head = `${lk} | ${fitted}`;
+    x += pw + 7;
+    if (inst && x + 10 < rightX) this.text(inst, x, y, T.voice, BLACK, 700);
   }
 
   /**
-   * La place que prend la gauche de l'en-tete de la vue PAGE avant la voix
-   * comprise (la lecture, la page, ses onglets) : ce que MASTER, TEMPO et le
-   * pattern doivent laisser (2026-10-19). Le meme calcul que paintPageHead, la
-   * pastille MUTE ou SOLO d'une voix coupee (sa lettre) et, sans voix, ALL PICK
-   * A VOICE compris (hint false : ALL seul) ; sans ce qui cede deja sa place
-   * (l'onglet de la voix sous un FX, ce que joue la voix, P-LOCK).
+   * La gauche de l'en-tete de la vue PAGE au palier fit (2026-10-22, audit
+   * SB-13), sans rien dessiner : la pastille de la page, puis ses onglets
+   * (VOICE : MAIN SYNTH ; FX : BD FX GLOBAL ; la page d'un FX global : GLOBAL >
+   * BIT ; sous DIST CHORUS DELAY REVERB : DELAY > GLOBAL, l'onglet de la voix
+   * etant la colonne de la voix). optional false : sans BD FX sur la page d'un
+   * FX global (il cede sa place le premier). end : le bord droit du dernier
+   * onglet. paintPageHead la dessine (drawHeadLeft), headPlan la mesure.
    */
-  private headLeftNeed(rp: RytmPageState, screen: RytmScreenId, inst: Inst | null, hint = true): number {
+  private headLeft(page: RytmPageId, screen: RytmScreenId, inst: Inst | null, fit: HeadFit, optional: boolean): HeadLeft {
     const H = PAGE_HEAD;
     const T = this.bt.head;
-    let x = H.pillX + this.textWidth(pageLabel(rp.page), T.pill, 700, 0.9) + 12 + 5;
-    const ts = T.pill * 0.92;
-    const tabW = (name: string): number => this.textWidth(name, ts, 700, 0.7) + 9;
+    const label = pageLabel(page);
+    const pw = this.textWidth(label, T.pill, 700, 0.9) + 12;
+    const ts = T.pill * 0.92 * fit.s;
+    const tabW = (name: string): number => this.textWidth(name, ts, 700, 0.7) + fit.pad;
     const chev = ts * 0.62;
+    const chevStep = 1 + chev * 0.5 + fit.chev;
+    const out: HeadLeft = { label, pw, ts, chev, ops: [], end: H.pillX + pw, heads: label };
+    let x = H.pillX + pw + 5;
+    const add = (op: HeadOp): void => {
+      out.ops.push(op);
+      out.end = op.kind === 'chev' ? x + 1 + chev * 0.5 : op.x + op.w;
+    };
     const scope = fxScopeTabs(screen);
-    if (scope) x += tabW(SCREEN_LABEL[screen]) + chev + 4 + tabW(SCREEN_LABEL.fxg) + 3 + tabW(fxVoiceTabLabel(inst)) + 3 + 4;
-    else {
-      const tabs = screensOf(rp.page, inst);
-      const detail = isFxDetail(screen) ? screen : null;
-      if (tabs.length > 1) {
-        for (const t of tabs) {
-          if (detail && t === 'fxv') continue;
-          const name = t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : SCREEN_LABEL[t];
-          x += detail && t === 'fxg' ? tabW(name) + chev + 4 + tabW(SCREEN_LABEL[detail]) + 3 : tabW(name) + 3;
-        }
-        x += 4;
-      } else x += 3;
-      if (inst) x += this.textWidth(inst, T.voice, 600);
-      // Sans voix : ALL et PICK A VOICE (relecture du 2026-10-19 : ils passaient sous A01 et le vumetre), et l'unite que
-      // perd rightX (left - 6 contre need + 5)
-      else x += this.textWidth('ALL', T.voice, 600) + (hint ? 6 + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) : 0) + 1;
-      // La pastille MUTE / SOLO de la voix (sa lettre) : l'air apres la voix (5), 1 + w + 4, et l'unite que perd rightX
-      // (left - 6 contre need + 5) ; sans elle, A01 et le nombre de MASTER gardaient leur place et la pastille sautait
-      if (inst && (voices.isSolo(inst) || (voices.isMuted(inst) && voices.get().solo.length === 0))) x += this.textWidth('M', T.sound, 700, 0.8) + 8 + 11;
+    const detail = isFxDetail(screen) ? screen : null;
+    if (scope) {
+      // Le FX en titre, un chevron, GLOBAL (la voix : sa colonne)
+      const dn = SCREEN_LABEL[screen];
+      const dw = this.textWidth(dn, ts, 700, 0.7) + fit.tpad;
+      add({ kind: 'text', text: dn, x, w: dw, color: INK, align: 'left' });
+      x += dw;
+      add({ kind: 'chev', x, w: chev });
+      x += chevStep;
+      const gn = SCREEN_LABEL.fxg;
+      const gw = tabW(gn);
+      const on = screen === scope.global;
+      add({ kind: 'tab', text: gn, x, w: gw, on, zone: { screen: scope.global, x0: x - 0.5, x1: x + gw + 0.5 } });
+      out.heads += `|${dn}>|${on ? '[' : ''}${gn}${on ? ']' : ''}`;
+      return out;
     }
-    return x;
+    const tabs = screensOf(page, inst);
+    if (tabs.length < 2) return out;
+    for (const t of tabs) {
+      const name = t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : SCREEN_LABEL[t];
+      if (detail && t === 'fxv' && !optional) continue;
+      if (detail && t === 'fxg') {
+        // GLOBAL en retrait (une tape y revient), le chevron, le FX de la page cerne ; le tout est la zone de GLOBAL
+        const x0 = x;
+        const gw = tabW(name);
+        add({ kind: 'text', text: name, x, w: gw, color: FAINT_TEXT, align: 'center' });
+        x += gw;
+        add({ kind: 'chev', x, w: chev });
+        x += chevStep;
+        const dn = SCREEN_LABEL[detail];
+        const dw = tabW(dn);
+        add({ kind: 'tab', text: dn, x, w: dw, on: true, zone: { screen: 'fxg', x0: x0 - 0.5, x1: x + dw + 0.5 } });
+        out.heads += `|${name}>[${dn}]`;
+        x += dw + fit.gap;
+        continue;
+      }
+      const on = t === screen;
+      const tw = tabW(name);
+      // La zone de l'onglet : toute la hauteur de l'en-tete (la touche de la page la double, 44 px au doigt)
+      add({ kind: 'tab', text: name, x, w: tw, on, zone: { screen: t, x0: x - 0.5, x1: x + tw + 0.5 } });
+      out.heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
+      x += tw + fit.gap;
+    }
+    return out;
+  }
+
+  /** Dessine la gauche de l'en-tete (headLeft) et pose les zones de ses onglets (lcd-tab-<ecran>). */
+  private drawHeadLeft(h: HeadLeft, ty: number): void {
+    const H = PAGE_HEAD;
+    const T = this.bt.head;
+    this.roundRect(H.pillX, H.pillY, h.pw, T.pillH, 2.5, INK);
+    this.text(h.label, H.pillX + h.pw / 2, ty, T.pill, BLACK, 700, 'center', 0.9);
+    for (const op of h.ops) {
+      if (op.kind === 'chev') {
+        const cy = H.pillY + T.pillH / 2;
+        const ch = h.chev * 0.55;
+        this.line([op.x + 1, cy - ch, op.x + 1 + h.chev * 0.5, cy, op.x + 1, cy + ch], HALF, 1);
+        continue;
+      }
+      if (op.kind === 'text') {
+        if (op.align === 'center') this.text(op.text, op.x + op.w / 2, ty, h.ts, op.color, 700, 'center', 0.7);
+        else this.text(op.text, op.x, ty, h.ts, op.color, 700, 'left', 0.7);
+        continue;
+      }
+      if (op.on) this.roundRect(op.x, H.pillY + 0.6, op.w, T.pillH - 1.2, 2.2, null, INK, 1.1);
+      this.text(op.text, op.x + op.w / 2, ty, h.ts, op.on ? INK : FAINT_TEXT, 700, 'center', 0.7);
+      this.tabSpots.push({ screen: op.zone.screen, ...this.spot({ x: op.zone.x0, y: -this.headUp, w: op.zone.x1 - op.zone.x0, h: H.rule + this.headUp }) });
+    }
+  }
+
+  /**
+   * Les places fixes de l'en-tete de la vue PAGE (2026-10-22, audit SB-13) : le
+   * premier palier des cadrans (A01 et le dB, A01 seul, ni l'un ni l'autre) ou
+   * les 16 ecrans de chacune des 8 voix tiennent leurs onglets, serres au plus
+   * au palier HEAD_FIT_MAX, a gauche de la colonne de la voix ; la colonne a la
+   * largeur de la plus large des voix (TOM), juste a gauche du pattern, la
+   * lettre M ou S d'un mode arme entre les deux. Le meme sur toutes les pages
+   * et pour toutes les voix (sans voix, VOICE FX plus long se serre plus) ;
+   * mesure : la voix a x 148.5 et A01 au desktop, 172.4 sans A01 au telephone.
+   * Garde jusqu'a l'arrivee des polices (onFonts).
+   */
+  private headPlan(badge: boolean): HeadPlan {
+    const key = badge ? 'badge' : 'plain';
+    const hit = this.headPlans.get(key);
+    if (hit) return hit;
+    const T = this.bt.head;
+    const g = this.dialGeom(0, true);
+    const right = this.dialRight(true);
+    const colW = Math.max(...[...INSTRUMENTS, 'ALL'].map((n) => this.textWidth(n, T.voice, 600)));
+    const badgeW = badge ? T.pillH + HEAD_COL.badgeAir : 0;
+    let plan: HeadPlan | null = null;
+    for (const tier of DIAL_TIERS) {
+      const groupLeft = right - g.width(tier);
+      const voiceX = groupLeft - HEAD_COL.gap - badgeW - colW;
+      const ok = INSTRUMENTS.every((inst) =>
+        RYTM_SCREENS.every((s) => {
+          const lim = voiceX - (fxScopeTabs(s) ? HEAD_COL.tabAir : HEAD_COL.air);
+          for (let l = 0; l <= HEAD_FIT_MAX; l += 1) if (this.headLeft(SCREEN_PAGE[s], s, inst, HEAD_FIT[l], false).end <= lim) return true;
+          return false;
+        }),
+      );
+      plan = { tier, voiceX, colW, groupLeft };
+      if (ok) break;
+    }
+    const out = plan as HeadPlan;
+    this.headPlans.set(key, out);
+    return out;
   }
 
   /**
@@ -2163,6 +2331,35 @@ export class Screen {
   private static readonly METER = { n: 7, bw: 2.2, gap: 1.2, h0: 3, h1: 11.5 } as const;
 
   /**
+   * Les mesures de MASTER, TEMPO et du pattern (2026-10-19) ; fixed (la vue
+   * PAGE, 2026-10-22, audit SB-13) : le tempo, le pattern et le nombre de MASTER
+   * comptes a leur plus large (DIAL_REF), le groupe ne bouge plus quand le
+   * tempo ou le niveau changent. width : la largeur du groupe a un palier.
+   */
+  private dialGeom(cur: number, fixed: boolean): DialGeom {
+    const T = this.bt.head;
+    const M = Screen.METER;
+    const level = clamp01(mix.level);
+    const db = encUnit('level', level);
+    const sp = db.lastIndexOf(' ');
+    const mNum = sp > 0 ? db.slice(0, sp) : db;
+    const mUnit = sp > 0 ? db.slice(sp + 1) : '';
+    const bpmV = Math.round(pattern.get().bpm);
+    const bpm = String(bpmV);
+    const tnw = Math.max(this.textWidth(bpm, T.num, 400), ...(fixed ? DIAL_REF.bpm.map((t) => this.textWidth(t, T.num, 400)) : []));
+    const tuw = this.textWidth('BPM', T.bpm, 600, 0.8);
+    const tw = tnw + 3 + tuw;
+    const meterW = M.n * M.bw + (M.n - 1) * M.gap;
+    const mnw = this.textWidth(mNum, T.num, 400);
+    const muw = this.textWidth(mUnit, T.bpm, 600, 0.8);
+    const mFull = meterW + 4 + Math.max(mnw, fixed ? this.textWidth(DIAL_REF.db, T.num, 400) : 0) + 3 + muw;
+    const slot = slotName(cur);
+    const aw = Math.max(this.textWidth(slot, T.num, 600, 0.6), fixed ? this.textWidth(DIAL_REF.slot, T.num, 600, 0.6) : 0);
+    const width = (t: DialTier): number => tw + DIAL_GAP.gd + (t.full ? mFull : meterW) + (t.a01 ? DIAL_GAP.g + aw : 0);
+    return { level, db, mNum, mUnit, bpmV, bpm, tw, tuw, meterW, mnw, muw, mFull, slot, aw, width };
+  }
+
+  /**
    * MASTER et TEMPO dans l'ecran (2026-10-19), sur la ligne de base y, alignes
    * a droite (dialRight), et le pattern a leur gauche : TEMPO, le nombre et BPM,
    * sa course de 100 a 150 sur un fin trait dessous ; MASTER, un vumetre de
@@ -2172,42 +2369,25 @@ export class Screen {
    * de MASTER, puis le pattern ; si meme le dernier palier ne le laisse pas,
    * bare (le moins qu'il faut, sans voix ALL sans PICK A VOICE). Leurs zones
    * (dialRects) : de haut en bas jusqu'a zoneY1, chacune jusqu'au milieu de
-   * l'air qui les separe. Rend le bord gauche du groupe.
+   * l'air qui les separe. Rend le bord gauche du groupe. fixed (la vue PAGE,
+   * 2026-10-22, audit SB-13) : le palier de headPlan, le meme sur toutes les
+   * pages ; readout : MASTER tenu dit son niveau en dB a la place du pattern ;
+   * zoneLeft : au telephone sans A01, la zone de MASTER s'etend jusque-la.
    */
-  private paintDials(y: number, need: number, zoneY1: number, now: number, cur: number, bare = need): number {
+  private paintDials(y: number, need: number, zoneY1: number, now: number, cur: number, bare = need, fixed: { tier: DialTier; zoneLeft: number; readout: boolean } | null = null): number {
     const T = this.bt.head;
     const M = Screen.METER;
     const paged = zoneY1 === PAGE_HEAD.rule;
     const right = this.dialRight(paged);
-    const level = clamp01(mix.level);
-    const db = encUnit('level', level);
-    const sp = db.lastIndexOf(' ');
-    const mNum = sp > 0 ? db.slice(0, sp) : db;
-    const mUnit = sp > 0 ? db.slice(sp + 1) : '';
-    const bpmV = Math.round(pattern.get().bpm);
-    const bpm = String(bpmV);
-    const tnw = this.textWidth(bpm, T.num, 400);
-    const tuw = this.textWidth('BPM', T.bpm, 600, 0.8);
-    const tw = tnw + 3 + tuw;
-    const meterW = M.n * M.bw + (M.n - 1) * M.gap;
-    const mnw = this.textWidth(mNum, T.num, 400);
-    const muw = this.textWidth(mUnit, T.bpm, 600, 0.8);
-    const mFull = meterW + 4 + mnw + 3 + muw;
-    const slot = slotName(cur);
-    const aw = this.textWidth(slot, T.num, 600, 0.6);
-    const G = 6;
-    const GD = 9;
-    const tiers = [
-      { a01: true, full: true },
-      { a01: true, full: false },
-      { a01: false, full: false },
-    ];
-    const width = (t: { a01: boolean; full: boolean }): number => tw + GD + (t.full ? mFull : meterW) + (t.a01 ? G + aw : 0);
-    const fit = (n: number): (typeof tiers)[number] | undefined => tiers.find((t) => right - width(t) >= n + 5);
+    const g = this.dialGeom(cur, !!fixed);
+    const { level, db, mNum, mUnit, bpmV, bpm, tw, tuw, meterW, mnw, muw, mFull, slot, aw } = g;
+    const G = DIAL_GAP.g;
+    const GD = DIAL_GAP.gd;
+    const fit = (n: number): DialTier | undefined => DIAL_TIERS.find((t) => right - g.width(t) >= n + 5);
     // La place laissee a gauche : need, sinon bare (relecture du 2026-10-19 : sans voix sur la page d'un FX, A01 cedait
     // pour un PICK A VOICE qui ne tenait de toute facon pas)
     const room = fit(need) || bare >= need ? need : bare;
-    const tier = fit(room) ?? tiers[tiers.length - 1];
+    const tier = fixed ? fixed.tier : (fit(room) ?? DIAL_TIERS[DIAL_TIERS.length - 1]);
     const ds = screenDials.get();
     const ring = (id: ScreenDialId, x0: number, x1: number): void => {
       const held = ds.held === id;
@@ -2239,9 +2419,15 @@ export class Screen {
       this.text(mUnit, mx1, y, T.bpm, HALF, 600, 'right', 0.8);
       this.text(mNum, mx1 - muw - 3, y, T.num, INK, 400, 'right');
     }
-    // Le pattern (il clignote quand il change)
     let left = mx0;
-    if (tier.a01) {
+    const readout = !!fixed && fixed.readout && !tier.full;
+    if (readout) {
+      // MASTER tenu (2026-10-22) : son niveau en dB devant le vumetre, a la place du pattern et de la voix, le temps du geste
+      this.text(mUnit, mx0 - G, y, T.bpm, HALF, 600, 'right', 0.8);
+      this.text(mNum, mx0 - G - muw - 3, y, T.num, INK, 400, 'right');
+      left = mx0 - G - muw - 3 - mnw;
+    } else if (tier.a01) {
+      // Le pattern (il clignote quand il change)
       const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
       this.text(slot, mx0 - G, y, T.num, blinkOff ? FAINT : INK, 600, 'right', 0.6);
       left = mx0 - G - aw;
@@ -2251,8 +2437,9 @@ export class Screen {
     const lim = this.mobile ? right + 3 : UW;
     // Au telephone, dans la vue PAGE, sans A01 ni dB (VOICE, SYNTH, les pages d'un FX ; relecture du 2026-10-19 : 26 x 19 px
     // a 375 de large) : la zone de MASTER prend l'air libre a sa gauche, jusqu'a room + 5 (lcd-open n'y ouvre plus les
-    // presets) ; Math.min garde l'ancien bord quand meme le dernier palier ne tient pas. HOME garde la sienne.
-    const mz0 = this.mobile && paged && !tier.a01 ? Math.min(mx0 - 3, room + 5) : mx0 - 3;
+    // presets) ; Math.min garde l'ancien bord quand meme le dernier palier ne tient pas. HOME garde la sienne. Depuis le
+    // 2026-10-22 (places fixes) : jusqu'a zoneLeft, apres la voix.
+    const mz0 = this.mobile && paged && !tier.a01 ? Math.min(mx0 - 3, fixed ? fixed.zoneLeft : room + 5) : mx0 - 3;
     const up = this.headUp;
     this.dialRects.push({ id: 'lcd-master', ...this.spot({ x: mz0, y: -up, w: mid - mz0, h: zoneY1 + up }) });
     this.dialRects.push({ id: 'lcd-tempo', ...this.spot({ x: mid, y: -up, w: Math.min(tx1 + 4, lim) - mid, h: zoneY1 + up }) });
@@ -2260,8 +2447,8 @@ export class Screen {
     const di = this.infoDial();
     if (di) this.cornerMarks(di === 'level' ? mx0 - 3.5 : tx0 - 3.5, y - 15.5, di === 'level' ? mx1 + 3.5 : tx1 + 3.5, y + 7.4);
     const mark = (id: ScreenDialId): string => (ds.held === id ? '*' : ds.hover === id ? '~' : '');
-    this.info.dials = `MASTER ${tier.full ? db : `${Math.min(M.n, Math.floor(lit + 1e-6))}/${M.n}`}${mark('level')} | TEMPO ${bpm} BPM${mark('tempo')}`;
-    this.info.dialSlot = tier.a01 ? slot : '';
+    this.info.dials = `MASTER ${tier.full || readout ? db : `${Math.min(M.n, Math.floor(lit + 1e-6))}/${M.n}`}${mark('level')} | TEMPO ${bpm} BPM${mark('tempo')}`;
+    this.info.dialSlot = tier.a01 && !readout ? slot : '';
     return left;
   }
 
