@@ -408,7 +408,9 @@ export const MIX = {
    * quatre (FX TO la derniere), plus gros (Mika, 2026-10-05 : "les knobs FX
    * sont trop petits") ; fxRowDz : l'ecart des deux rangees
    */
-  fxZ: PORTRAIT ? -2.55 : -3.0,
+  // Tenu droit -2.55 -> -2.38 (2026-10-22, audit SB-05) : les valeurs de TIME (1/4 ... 4) se collaient aux noms des
+  // effets dessous (1/4 OVERDRIVE se lisait d'un bloc) ; 0.29 entre les deux lignes au lieu de 0.12
+  fxZ: PORTRAIT ? -2.38 : -3.0,
   fxRowDz: 1.1,
   fxX0: 0,
   fxPitch: 1.1,

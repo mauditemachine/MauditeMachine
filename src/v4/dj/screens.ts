@@ -16,17 +16,26 @@
  * voir la waveform") : seules sa bande de texte et ses touches de zoom
  * passent par l'atlas, le reste est le verre noir du cadre et les formes
  * d'onde ; la texture ne grandit donc pas avec lui.
+ *
+ * 2026-10-22 (audit SB-10) : l'atlas a ses mipmaps (le texte des platines
+ * crenelait, 2 texels par pixel sans eux) et 8 px entre les zones (ce que
+ * les mipmaps melangent) ; les jogs, redessines a chaque image en lecture,
+ * ont leur petite texture a eux (JOG_W x JOG) dans un second mesh enfant :
+ * une image n'envoie plus tout l'atlas (6 Mo) a la carte graphique, 650 Ko.
+ * Au telephone, l'ecran des effets a 1024 px de large (640 avant, agrandi
+ * 0.72 fois, flou). Les chiffres en SF Pro a chasse fixe (tab) : FONT_MONO
+ * (ui-monospace, Menlo, Consolas) changeait d'un systeme a l'autre.
  */
 
 import { BufferGeometry, CircleGeometry, Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeCanvasTexture } from '../scene/silk';
-import { FONT_DISPLAY, FONT_MONO } from '../theme';
+import { FONT_DISPLAY, PORTRAIT } from '../theme';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_LIGHT, MIX, UNIT_X, type DjDeck } from './theme';
 
 const W = 1024;
-/** Quatre bandes de texte de platine, leurs zooms, l'ecran des effets et quatre cadrans de jog. */
-const H = 1536;
+/** L'air entre deux zones de l'atlas (px) : ce que les mipmaps melangent sans deborder sur la voisine (4 avant, sans mipmaps). */
+const GAP = 8;
 const BONE = '#F6F1E7';
 const DIM = 'rgba(246, 241, 231, 0.45)';
 const FAINT = 'rgba(246, 241, 231, 0.16)';
@@ -46,53 +55,58 @@ const zoomW = Math.round((T.zoom.u1 - T.zoom.u0) * DECK.screen.w * PX);
 const zoomH = Math.round((T.zoom.v1 - T.zoom.v0) * DECK.screen.d * PX);
 const waveW = Math.round((T.wave.u1 - T.wave.u0) * DECK.screen.w * PX);
 const waveH = Math.round((T.wave.v1 - T.wave.v0) * DECK.screen.d * PX);
-const fxW = 640;
+// Au telephone 1024 (2026-10-22, audit SB-10) : l'ecran des effets y couvre 295 px CSS x 3, 640 texels l'agrandissaient
+const fxW = PORTRAIT ? 1024 : 640;
 const fxH = Math.round((fxW * MIX.screen.d) / MIX.screen.w);
 const JOG = 200;
-const zoomY = 4 * (textH + 4);
-const fxY = zoomY + zoomH + 4;
-const jogY = fxY + fxH + 4;
-const waveY = jogY + JOG + 4;
+const zoomY = 4 * (textH + GAP);
+const fxY = zoomY + zoomH + GAP;
+const waveY = fxY + fxH + GAP;
+/** Quatre bandes de texte de platine, leurs zooms, l'ecran des effets et les touches WAVE (les jogs ont leur texture). */
+const H = Math.ceil((waveY + waveH + GAP) / 8) * 8;
+/** La texture des quatre jogs (2026-10-22) : cote a cote. */
+const JOG_W = 4 * JOG + 3 * GAP;
 /** La bande de texte de chaque platine, et ses touches de zoom. */
 const REGION: Record<DjDeck | 'fx', Region> = {
   a: { x: 0, y: 0, w: W, h: textH },
-  b: { x: 0, y: textH + 4, w: W, h: textH },
-  c: { x: 0, y: 2 * (textH + 4), w: W, h: textH },
-  d: { x: 0, y: 3 * (textH + 4), w: W, h: textH },
+  b: { x: 0, y: textH + GAP, w: W, h: textH },
+  c: { x: 0, y: 2 * (textH + GAP), w: W, h: textH },
+  d: { x: 0, y: 3 * (textH + GAP), w: W, h: textH },
   fx: { x: 0, y: fxY, w: fxW, h: fxH },
 };
 const ZOOM_REGION: Record<DjDeck, Region> = {
   a: { x: 0, y: zoomY, w: zoomW, h: zoomH },
-  b: { x: zoomW + 4, y: zoomY, w: zoomW, h: zoomH },
-  c: { x: 2 * (zoomW + 4), y: zoomY, w: zoomW, h: zoomH },
-  d: { x: 3 * (zoomW + 4), y: zoomY, w: zoomW, h: zoomH },
+  b: { x: zoomW + GAP, y: zoomY, w: zoomW, h: zoomH },
+  c: { x: 2 * (zoomW + GAP), y: zoomY, w: zoomW, h: zoomH },
+  d: { x: 3 * (zoomW + GAP), y: zoomY, w: zoomW, h: zoomH },
 };
-/** La touche WAVE de chaque platine (l'affichage des formes d'onde), sous les cadrans des jogs. */
+/** La touche WAVE de chaque platine (l'affichage des formes d'onde), sous l'ecran des effets. */
 const WAVE_REGION: Record<DjDeck, Region> = {
   a: { x: 0, y: waveY, w: waveW, h: waveH },
-  b: { x: waveW + 4, y: waveY, w: waveW, h: waveH },
-  c: { x: 2 * (waveW + 4), y: waveY, w: waveW, h: waveH },
-  d: { x: 3 * (waveW + 4), y: waveY, w: waveW, h: waveH },
+  b: { x: waveW + GAP, y: waveY, w: waveW, h: waveH },
+  c: { x: 2 * (waveW + GAP), y: waveY, w: waveW, h: waveH },
+  d: { x: 3 * (waveW + GAP), y: waveY, w: waveW, h: waveH },
 };
 /** Un coin jamais dessine (le canvas part noir) : le verre de l'ecran, sous la bande de texte et les formes d'onde. */
-const GLASS: Region = { x: W - 12, y: H - 12, w: 8, h: 8 };
+const GLASS: Region = { x: W - 16, y: H - 16, w: 8, h: 8 };
+/** Les jogs, dans leur texture (JOG_W x JOG). */
 const JOG_REGION: Record<DjDeck, Region> = {
-  a: { x: 0, y: jogY, w: JOG, h: JOG },
-  b: { x: JOG + 4, y: jogY, w: JOG, h: JOG },
-  c: { x: 2 * (JOG + 4), y: jogY, w: JOG, h: JOG },
-  d: { x: 3 * (JOG + 4), y: jogY, w: JOG, h: JOG },
+  a: { x: 0, y: 0, w: JOG, h: JOG },
+  b: { x: JOG + GAP, y: 0, w: JOG, h: JOG },
+  c: { x: 2 * (JOG + GAP), y: 0, w: JOG, h: JOG },
+  d: { x: 3 * (JOG + GAP), y: 0, w: JOG, h: JOG },
 };
 
 /** L'ecran rond du jog, la touche SYNC : rien a suivre, calable, cale. */
 export type DjSyncLight = 'off' | 'ready' | 'on';
 
-/** Plaque la zone r de l'atlas sur une geometrie dont les UV vont de 0 a 1. */
-function mapUv(g: BufferGeometry, r: Region): BufferGeometry {
+/** Plaque la zone r d'une texture (tw x th : l'atlas par defaut) sur une geometrie dont les UV vont de 0 a 1. */
+function mapUv(g: BufferGeometry, r: Region, tw = W, th = H): BufferGeometry {
   const uv = g.getAttribute('uv');
-  const u0 = r.x / W;
-  const u1 = (r.x + r.w) / W;
-  const v0 = 1 - (r.y + r.h) / H;
-  const v1 = 1 - r.y / H;
+  const u0 = r.x / tw;
+  const u1 = (r.x + r.w) / tw;
+  const v0 = 1 - (r.y + r.h) / th;
+  const v1 = 1 - r.y / th;
   for (let i = 0; i < uv.count; i += 1) uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
   return g;
 }
@@ -107,7 +121,7 @@ function flat(w: number, d: number, x: number, y: number, z: number, r: Region):
 
 function disc(radius: number, x: number, y: number, z: number, r: Region, seg: number): BufferGeometry {
   const g = new CircleGeometry(radius, seg);
-  mapUv(g, r);
+  mapUv(g, r, JOG_W, JOG);
   g.rotateX(-Math.PI / 2);
   g.translate(x, y, z);
   return g;
@@ -153,8 +167,13 @@ const clock = (s: number): string => {
 export class DjScreens {
   readonly mesh: Mesh;
   readonly texture: CanvasTexture;
+  /** les jogs (2026-10-22) : leur texture et leur mesh, enfant de mesh (meme repere) */
+  readonly jogMesh: Mesh;
+  readonly jogTexture: CanvasTexture;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private jogCanvas: HTMLCanvasElement;
+  private jctx: CanvasRenderingContext2D;
   private shown: Record<string, string> = {};
   draws = 0;
 
@@ -167,9 +186,19 @@ export class DjScreens {
     this.ctx = ctx;
     this.ctx.fillStyle = '#000';
     this.ctx.fillRect(0, 0, W, H);
-    this.texture = makeCanvasTexture(this.canvas, anisotropy, false);
+    this.texture = makeCanvasTexture(this.canvas, anisotropy);
+    this.jogCanvas = document.createElement('canvas');
+    this.jogCanvas.width = JOG_W;
+    this.jogCanvas.height = JOG;
+    const jctx = this.jogCanvas.getContext('2d');
+    if (!jctx) throw new Error('dj: no 2d context');
+    this.jctx = jctx;
+    this.jctx.fillStyle = '#000';
+    this.jctx.fillRect(0, 0, JOG_W, JOG);
+    this.jogTexture = makeCanvasTexture(this.jogCanvas, anisotropy);
     const y = DJ_BEZEL.h + 0.003;
     const parts: BufferGeometry[] = [];
+    const jogs: BufferGeometry[] = [];
     const S = DECK.screen;
     for (const d of DJ_DECKS) {
       const x0 = UNIT_X[d] + S.x - S.w / 2;
@@ -184,7 +213,7 @@ export class DjScreens {
       const ww = (T.wave.u1 - T.wave.u0) * S.w;
       const wd = (T.wave.v1 - T.wave.v0) * S.d;
       parts.push(flat(ww, wd, x0 + T.wave.u0 * S.w + ww / 2, y, z0 + T.wave.v0 * S.d + wd / 2, WAVE_REGION[d]));
-      parts.push(disc(DECK.jog.center, UNIT_X[d] + DECK.jog.x, DECK.jog.platterH + 0.004, DECK.jog.z, JOG_REGION[d], mobile ? 40 : 64));
+      jogs.push(disc(DECK.jog.center, UNIT_X[d] + DECK.jog.x, DECK.jog.platterH + 0.004, DECK.jog.z, JOG_REGION[d], mobile ? 40 : 64));
     }
     parts.push(flat(MIX.screen.w, MIX.screen.d, UNIT_X.mix + MIX.screen.x, y, MIX.screen.z, REGION.fx));
     const g = mergeGeometries(parts, false);
@@ -194,6 +223,16 @@ export class DjScreens {
     mat.name = 'djScreens';
     this.mesh = new Mesh(g, mat);
     this.mesh.name = 'djScreens';
+    // Au telephone, la table seule (2026-10-10) : aucune platine, aucun jog ; un mesh vide garde la meme forme
+    const jg = jogs.length > 0 ? mergeGeometries(jogs, false) : new BufferGeometry();
+    for (const p of jogs) p.dispose();
+    if (!jg) throw new Error('dj: jogs merge failed');
+    const jmat = new MeshBasicMaterial({ map: this.jogTexture, toneMapped: false });
+    jmat.name = 'djJogs';
+    this.jogMesh = new Mesh(jg, jmat);
+    this.jogMesh.name = 'djJogs';
+    this.jogMesh.visible = jg.getAttribute('position') !== undefined;
+    this.mesh.add(this.jogMesh);
   }
 
   /** Toutes les zones se redessinent au prochain set (les polices arrivees, 2026-10-22, audit SB-01). */
@@ -254,19 +293,18 @@ export class DjScreens {
       c.font = `${s.note ? 700 : 500} 36px ${FONT_DISPLAY}`;
       c.fillText(this.fit(s.note || s.artist, colX - tx - 20), tx, l2);
       // BPM au centieme (2026-10-05 : caler un tempo exact), le pitch au centieme de pour cent, la tonalite, le temps restant
-      c.textAlign = 'right';
       c.fillStyle = BONE;
-      c.font = `600 64px ${FONT_MONO}`;
+      c.font = `600 64px ${FONT_DISPLAY}`;
       const bpm = s.bpm ? (s.bpm * (1 + s.pitch)).toFixed(2) : '--.--';
-      c.fillText(bpm, x1, l1);
+      this.tab(c, bpm, x1, l1, 'right');
       c.fillStyle = DIM;
-      c.font = `500 30px ${FONT_MONO}`;
+      c.font = `500 30px ${FONT_DISPLAY}`;
       const pct = s.pitch * 100;
       const pitch = Math.abs(pct) < 0.005 ? '0.00%' : `${pct > 0 ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`;
-      c.fillText(`${pitch}   ${s.key || '--'}`, x1, l2);
+      this.tab(c, `${pitch}   ${s.key || '--'}`, x1, l2, 'right');
       c.fillStyle = s.playing ? DJ_LIGHT.yellow : BONE;
-      c.font = `600 38px ${FONT_MONO}`;
-      c.fillText(`-${clock(s.duration - s.position)}`, x1 - 230, l2);
+      c.font = `600 38px ${FONT_DISPLAY}`;
+      this.tab(c, `-${clock(s.duration - s.position)}`, x1 - 230, l2, 'right');
     }
     c.restore();
     // Les touches du zoom : - , la fenetre, +
@@ -279,14 +317,24 @@ export class DjScreens {
     const zy = z.y + z.h / 2;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillStyle = s.loaded ? BONE : DIM;
-    c.font = `600 40px ${FONT_MONO}`;
-    c.fillText('-', z.x + z.w * 0.17, zy);
-    c.fillText('+', z.x + z.w * 0.83, zy);
+    // - et + traces (2026-10-22) : le trait d'union de SF Pro est court et haut ; un trait au milieu de sa case
+    c.strokeStyle = s.loaded ? BONE : DIM;
+    c.lineWidth = 4;
+    c.lineCap = 'round';
+    const a = 9;
+    c.beginPath();
+    c.moveTo(z.x + z.w * 0.17 - a, zy);
+    c.lineTo(z.x + z.w * 0.17 + a, zy);
+    c.moveTo(z.x + z.w * 0.83 - a, zy);
+    c.lineTo(z.x + z.w * 0.83 + a, zy);
+    c.moveTo(z.x + z.w * 0.83, zy - a);
+    c.lineTo(z.x + z.w * 0.83, zy + a);
+    c.stroke();
+    c.lineCap = 'butt';
     c.fillStyle = DIM;
-    c.font = `500 24px ${FONT_MONO}`;
+    c.font = `600 24px ${FONT_DISPLAY}`;
     // La fenetre : au dixieme sous 10 s (2.5S), en entier au-dela ; 2.49S debordait sur - et +
-    c.fillText(`${s.zoom >= 10 ? Math.round(s.zoom) : Math.round(s.zoom * 10) / 10}s`, z.x + z.w * 0.5, zy + 1);
+    this.tab(c, `${s.zoom >= 10 ? Math.round(s.zoom) : Math.round(s.zoom * 10) / 10}s`, z.x + z.w * 0.5, zy + 1, 'center');
     c.strokeStyle = FAINT;
     c.lineWidth = 2;
     c.strokeRect(z.x + 1, z.y + 1, z.w - 2, z.h - 2);
@@ -364,6 +412,28 @@ export class DjScreens {
     return right + 14;
   }
 
+  /**
+   * Un texte aux chiffres a chasse fixe (2026-10-22, audit SB-15) : chaque chiffre au milieu d'une case de la largeur de
+   * "0", le reste a sa largeur ; la valeur qui change ne fait plus danser ses voisines, en SF Pro (FONT_MONO n'est pas
+   * auto-hebergee : Menlo, Consolas ou une autre selon le systeme). Rend sa largeur.
+   */
+  private tab(c: CanvasRenderingContext2D, text: string, x: number, y: number, align: 'left' | 'right' | 'center'): number {
+    const cell = c.measureText('0').width;
+    const adv = (ch: string): number => (ch >= '0' && ch <= '9' ? cell : c.measureText(ch).width);
+    let w = 0;
+    for (const ch of text) w += adv(ch);
+    let cx = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+    const keep = c.textAlign;
+    c.textAlign = 'center';
+    for (const ch of text) {
+      const k = adv(ch);
+      if (ch !== ' ') c.fillText(ch, cx + k / 2, y);
+      cx += k;
+    }
+    c.textAlign = keep;
+    return w;
+  }
+
   /** Coupe un texte trop long d'un point de suspension (ASCII : trois points). */
   private fit(text: string, max: number): string {
     const c = this.ctx;
@@ -376,25 +446,41 @@ export class DjScreens {
   /* ---------- table ---------- */
 
   setFx(s: DjFxScreen): boolean {
-    const k = `${s.label}|${s.time}|${s.bpm.toFixed(1)}|${s.warn === true}`;
-    if (this.shown.fx === k) return false;
-    this.shown.fx = k;
+    const key = `${s.label}|${s.time}|${s.bpm.toFixed(1)}|${s.warn === true}`;
+    if (this.shown.fx === key) return false;
+    this.shown.fx = key;
     const r = REGION.fx;
     const c = this.ctx;
     c.fillStyle = '#000';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.textBaseline = 'middle';
     const cy = r.y + r.h / 2;
+    // Les valeurs nommees (2026-10-22, audit SB-15 : EFFECTS 1 120.0 ne disait pas ce qu'il montrait) : TIME 1/4 en orange,
+    // 130.0 BPM ; les corps a l'echelle de la zone (1024 px de large au telephone)
+    const k = r.w / 640;
+    const pad = 20 * k;
+    let x = r.x + r.w - pad;
+    c.textAlign = 'right';
+    c.fillStyle = DIM;
+    c.font = `600 ${Math.round(19 * k)}px ${FONT_DISPLAY}`;
+    x -= c.measureText('BPM').width;
+    c.fillText('BPM', x + c.measureText('BPM').width, cy + 1);
+    c.fillStyle = BONE;
+    c.font = `500 ${Math.round(30 * k)}px ${FONT_DISPLAY}`;
+    x -= 7 * k + this.tab(c, s.bpm.toFixed(1), x - 7 * k, cy, 'right');
+    x -= 24 * k;
+    c.fillStyle = DJ_LIGHT.orange;
+    c.font = `600 ${Math.round(30 * k)}px ${FONT_DISPLAY}`;
+    x -= this.tab(c, s.time, x, cy, 'right');
+    c.fillStyle = DIM;
+    c.font = `600 ${Math.round(19 * k)}px ${FONT_DISPLAY}`;
+    c.textAlign = 'right';
+    c.fillText('TIME', x - 7 * k, cy + 1);
+    x -= 7 * k + c.measureText('TIME').width;
     c.textAlign = 'left';
     c.fillStyle = s.warn ? DJ_LIGHT.orange : BONE;
-    c.font = `600 34px ${FONT_DISPLAY}`;
-    c.fillText(this.fit(s.label, r.w - 250), r.x + 20, cy);
-    c.textAlign = 'right';
-    c.fillStyle = DJ_LIGHT.orange;
-    c.font = `500 28px ${FONT_MONO}`;
-    c.fillText(s.time, r.x + r.w - 190, cy);
-    c.fillStyle = DIM;
-    c.fillText(`${s.bpm.toFixed(1)}`, r.x + r.w - 20, cy);
+    c.font = `600 ${Math.round(34 * k)}px ${FONT_DISPLAY}`;
+    c.fillText(this.fit(s.label, x - r.x - pad - 16 * k), r.x + pad, cy);
     c.textBaseline = 'alphabetic';
     this.done();
     return true;
@@ -419,7 +505,7 @@ export class DjScreens {
     if (this.shown[id] === k) return false;
     this.shown[id] = k;
     const r = JOG_REGION[d];
-    const c = this.ctx;
+    const c = this.jctx;
     const cx = r.x + r.w / 2;
     const cy = r.y + r.h / 2;
     const R = r.w / 2;
@@ -472,7 +558,8 @@ export class DjScreens {
     c.fillText('SYNC', cx, phaseMs === null ? cy + 1 : cy - 10);
     if (phaseMs !== null) this.drawPhase(cx, cy + 22, R * 0.34, phaseMs, sync === 'on');
     c.textBaseline = 'alphabetic';
-    this.done();
+    this.draws += 1;
+    this.jogTexture.needsUpdate = true;
     return true;
   }
 
@@ -485,7 +572,7 @@ export class DjScreens {
    * en lecture : rien de plus a envoyer.
    */
   private drawPhase(cx: number, y: number, half: number, ms: number, on: boolean): void {
-    const c = this.ctx;
+    const c = this.jctx;
     const ink = on ? '#000' : BONE;
     c.strokeStyle = on ? 'rgba(0, 0, 0, 0.55)' : DIM;
     c.lineWidth = 4;
@@ -523,5 +610,10 @@ export class DjScreens {
     this.texture.dispose();
     this.canvas.width = 0;
     this.canvas.height = 0;
+    this.jogMesh.geometry.dispose();
+    (this.jogMesh.material as MeshBasicMaterial).dispose();
+    this.jogTexture.dispose();
+    this.jogCanvas.width = 0;
+    this.jogCanvas.height = 0;
   }
 }

@@ -190,6 +190,36 @@
   mask-image: linear-gradient(to right, transparent, #000 2.2em, #000 calc(100% - 2.2em), transparent);
 }
 
+/*
+ * A la souris (2026-10-22, audit SB-16) : les cinq sources se voient toutes,
+ * sur deux lignes au besoin (MY SC, FILES et PLAYLISTS ne s'atteignaient qu'a
+ * la molette, cachees dans la bande) ; un corps un rien plus serre. Au
+ * doigt, la bande qui defile reste (le glisser y est naturel).
+ */
+@media (hover: hover) {
+  .dj-scr-head {
+    align-items: flex-start;
+  }
+
+  .dj-scr-tabs {
+    flex-wrap: wrap;
+    row-gap: 0.3em;
+    overflow-x: visible;
+  }
+
+  .dj-scr-tabs[data-more] {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .dj-scr-tab {
+    min-height: 2em;
+    padding: 0 0.5em;
+    font-size: 0.64em;
+    letter-spacing: 0.06em;
+  }
+}
+
 /* Un morceau touche sur une platine qui joue : le second appui le pose */
 .dj-scr-row[data-sure='1'] .dj-scr-load {
   box-shadow: inset 0 0 0 1px var(--orange);
