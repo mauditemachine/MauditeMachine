@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 18 octobre 2026 depuis le code du site (`npm run docs:midi`) : 640 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 22 octobre 2026 depuis le code du site (`npm run docs:midi`) : 641 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -264,7 +264,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 1.1 | 2 | 14 | RATE | orange | voy:knob:rate | RATE | potard a 4 crans : 1/4 / 1/8 / 1/16 / 1/32 |
-| 1 | 1.2 | 2 | 15 | MODE | orange | voy:knob:mode | MODE | potard a 4 crans : UP / DOWN / UP/DN / RAND |
+| 1 | 1.2 | 2 | 15 | MODE | orange | voy:knob:mode | ARP MODE | potard a 4 crans : UP / DOWN / UP/DN / RAND |
 | 2 | 1.3 | 2 | 16 | RANGE | orange | voy:knob:range | RANGE | potard a 3 crans : 1 OCT / 2 OCT / 3 OCT |
 | 3 | 1.4 | 2 | 17 | NOTES | orange | voy:knob:notes | NOTES | potard a 9 crans : ALL / 1 / 2 / 3 / 4 / 5 / 6 / 7 / 8 |
 | 4 | 1.5 | 2 | 18 | GATE | orange | voy:knob:gate | GATE | continu |
@@ -274,19 +274,19 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 8 | 2.1 | 2 | 22 | CUTOFF | jaune | voy:knob:cutoff | CUTOFF | continu |
 | 9 | 2.2 | 2 | 23 | RESONANCE | jaune | voy:knob:res | RES | continu |
 | 10 | 2.3 | 2 | 24 | ENV AMOUNT | jaune | voy:knob:envAmt | ENV AMT | continu |
-| 11 | 2.4 | 2 | 25 | FILTER MODE | jaune | voy:knob:fmode | MODE | potard a 4 crans : MOOG / LP12 / BP / HP |
+| 11 | 2.4 | 2 | 25 | FILTER MODE | jaune | voy:knob:fmode | FILTER MODE | potard a 4 crans : MOOG / LP12 / BP / HP |
 | 12 | 2.5 | 2 | 26 | OSC 1 LEVEL | or | voy:knob:osc1 | OSC 1 | continu |
 | 13 | 2.6 | 2 | 27 | OSC 2 LEVEL | or | voy:knob:osc2 | OSC 2 | continu |
 | 14 | 2.7 | 2 | 3 | SUB LEVEL | or | voy:knob:sub | SUB | continu |
 | 15 | 2.8 | 2 | 29 | FM | or | voy:knob:fm | FM | continu |
-| 16 | 3.1 | 2 | 30 | FLT ATTACK | vert | voy:knob:fA | ATTACK | continu |
-| 17 | 3.2 | 2 | 31 | FLT DECAY | vert | voy:knob:fD | DECAY | continu |
-| 18 | 3.3 | 2 | 102 | FLT SUSTAIN | vert | voy:knob:fS | SUSTAIN | continu |
-| 19 | 3.4 | 2 | 103 | FLT RELEASE | vert | voy:knob:fR | RELEASE | continu |
-| 20 | 3.5 | 2 | 104 | AMP ATTACK | citron | voy:knob:aA | ATTACK | continu |
-| 21 | 3.6 | 2 | 105 | AMP DECAY | citron | voy:knob:aD | DECAY | continu |
-| 22 | 3.7 | 2 | 106 | AMP SUSTAIN | citron | voy:knob:aS | SUSTAIN | continu |
-| 23 | 3.8 | 2 | 107 | AMP RELEASE | citron | voy:knob:aR | RELEASE | continu |
+| 16 | 3.1 | 2 | 30 | FLT ATTACK | vert | voy:knob:fA | FLT ATTACK | continu |
+| 17 | 3.2 | 2 | 31 | FLT DECAY | vert | voy:knob:fD | FLT DECAY | continu |
+| 18 | 3.3 | 2 | 102 | FLT SUSTAIN | vert | voy:knob:fS | FLT SUSTAIN | continu |
+| 19 | 3.4 | 2 | 103 | FLT RELEASE | vert | voy:knob:fR | FLT RELEASE | continu |
+| 20 | 3.5 | 2 | 104 | AMP ATTACK | citron | voy:knob:aA | AMP ATTACK | continu |
+| 21 | 3.6 | 2 | 105 | AMP DECAY | citron | voy:knob:aD | AMP DECAY | continu |
+| 22 | 3.7 | 2 | 106 | AMP SUSTAIN | citron | voy:knob:aS | AMP SUSTAIN | continu |
+| 23 | 3.8 | 2 | 107 | AMP RELEASE | citron | voy:knob:aR | AMP RELEASE | continu |
 | 24 | 4.1 | 2 | 108 | MOD SPEED | cyan | voy:knob:lfoRate | SPEED | potard a 7 crans : 1/16 / 1/8 / 1/4 / 1/2 / 1 BAR / 2 BAR / 4 BAR |
 | 25 | 4.2 | 2 | 109 | MOD SHAPE | cyan | voy:knob:lfoShape | SHAPE | potard a 5 crans : TRI / SAW / RND / SQR / S&H |
 | 26 | 4.3 | 2 | 110 | MOD TARGET | cyan | voy:knob:lfoDest | TARGET | potard a 5 crans : WAVE / CUTOFF / FM / PITCH / W+CUT |
@@ -496,7 +496,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 16 | 3.1 | 6 | 30 | CUTOFF | jaune | voy:knob:cutoff | CUTOFF | continu |
 | 17 | 3.2 | 6 | 31 | RESONANCE | jaune | voy:knob:res | RES | continu |
 | 18 | 3.3 | 6 | 102 | ENV AMOUNT | jaune | voy:knob:envAmt | ENV AMT | continu |
-| 19 | 3.4 | 6 | 103 | FLT DECAY | vert | voy:knob:fD | DECAY | continu |
+| 19 | 3.4 | 6 | 103 | FLT DECAY | vert | voy:knob:fD | FLT DECAY | continu |
 | 20 | 3.5 | 6 | 104 | ARP GATE | orange | voy:knob:gate | GATE | continu |
 | 21 | 3.6 | 6 | 105 | ARP RATE | orange | voy:knob:rate | RATE | potard a 4 crans : 1/4 / 1/8 / 1/16 / 1/32 |
 | 22 | 3.7 | 6 | 106 | ARP DELAY | violet | voy:knob:delay | DELAY | continu |
@@ -1047,12 +1047,12 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:seq:voice:HT` | SEQ VOICE HT (SELECT, SILENT) | appui |  | RSEQ |
 | `rytm:seq:voice:CY` | SEQ VOICE CY (SELECT, SILENT) | appui |  | RSEQ |
 
-### MM-ARP (scope `voy`, 71 cibles)
+### MM-ARP (scope `voy`, 72 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
 | `voy:knob:rate` | RATE | valeur 0 a 127 | 4 | ARP, LIVE |
-| `voy:knob:mode` | MODE | valeur 0 a 127 | 4 | ARP |
+| `voy:knob:mode` | ARP MODE | valeur 0 a 127 | 4 | ARP |
 | `voy:knob:range` | RANGE | valeur 0 a 127 | 3 | ARP |
 | `voy:knob:notes` | NOTES | valeur 0 a 127 | 9 | ARP |
 | `voy:knob:gate` | GATE | valeur 0 a 127 |  | ARP, LIVE |
@@ -1077,15 +1077,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:res` | RES | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:envAmt` | ENV AMT | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:noise` | NOISE | valeur 0 a 127 |  |  |
-| `voy:knob:fmode` | MODE | valeur 0 a 127 | 4 | ARP |
-| `voy:knob:fA` | ATTACK | valeur 0 a 127 |  | ARP |
-| `voy:knob:fD` | DECAY | valeur 0 a 127 |  | ARP, LIVE |
-| `voy:knob:fS` | SUSTAIN | valeur 0 a 127 |  | ARP |
-| `voy:knob:fR` | RELEASE | valeur 0 a 127 |  | ARP |
-| `voy:knob:aA` | ATTACK | valeur 0 a 127 |  | ARP |
-| `voy:knob:aD` | DECAY | valeur 0 a 127 |  | ARP |
-| `voy:knob:aS` | SUSTAIN | valeur 0 a 127 |  | ARP |
-| `voy:knob:aR` | RELEASE | valeur 0 a 127 |  | ARP |
+| `voy:knob:fmode` | FILTER MODE | valeur 0 a 127 | 4 | ARP |
+| `voy:knob:fA` | FLT ATTACK | valeur 0 a 127 |  | ARP |
+| `voy:knob:fD` | FLT DECAY | valeur 0 a 127 |  | ARP, LIVE |
+| `voy:knob:fS` | FLT SUSTAIN | valeur 0 a 127 |  | ARP |
+| `voy:knob:fR` | FLT RELEASE | valeur 0 a 127 |  | ARP |
+| `voy:knob:aA` | AMP ATTACK | valeur 0 a 127 |  | ARP |
+| `voy:knob:aD` | AMP DECAY | valeur 0 a 127 |  | ARP |
+| `voy:knob:aS` | AMP SUSTAIN | valeur 0 a 127 |  | ARP |
+| `voy:knob:aR` | AMP RELEASE | valeur 0 a 127 |  | ARP |
 | `voy:knob:lfoRate` | SPEED | valeur 0 a 127 | 7 | ARP |
 | `voy:knob:lfoShape` | SHAPE | valeur 0 a 127 | 5 | ARP |
 | `voy:knob:lfoDest` | TARGET | valeur 0 a 127 | 5 | ARP |
@@ -1101,6 +1101,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:monoLow` | TWEAK BASS MONO | valeur 0 a 127 |  |  |
 | `voy:knob:keyTrack` | TWEAK KEY TRACK | valeur 0 a 127 |  |  |
 | `voy:knob:accent` | TWEAK ACCENT | valeur 0 a 127 |  |  |
+| `voy:knob:accFlt` | TWEAK ACC FILTER | valeur 0 a 127 |  |  |
 | `voy:knob:sync` | TWEAK SYNC | valeur 0 a 127 | 2 |  |
 | `voy:knob:duck` | TWEAK SIDECHAIN | valeur 0 a 127 |  |  |
 | `voy:knob:chord` | TWEAK CHORD | valeur 0 a 127 | 5 |  |

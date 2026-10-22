@@ -415,7 +415,7 @@ rytm:seq:voice:TOM,mm808,MM-RYTM,"SEQ VOICE TOM (SELECT, SILENT)",press,,RSEQ
 rytm:seq:voice:HT,mm808,MM-RYTM,"SEQ VOICE HT (SELECT, SILENT)",press,,RSEQ
 rytm:seq:voice:CY,mm808,MM-RYTM,"SEQ VOICE CY (SELECT, SILENT)",press,,RSEQ
 voy:knob:rate,voy,MM-ARP,RATE,value,4,ARP LIVE
-voy:knob:mode,voy,MM-ARP,MODE,value,4,ARP
+voy:knob:mode,voy,MM-ARP,ARP MODE,value,4,ARP
 voy:knob:range,voy,MM-ARP,RANGE,value,3,ARP
 voy:knob:notes,voy,MM-ARP,NOTES,value,9,ARP
 voy:knob:gate,voy,MM-ARP,GATE,value,,ARP LIVE
@@ -440,15 +440,15 @@ voy:knob:cutoff,voy,MM-ARP,CUTOFF,value,,ARP LIVE
 voy:knob:res,voy,MM-ARP,RES,value,,ARP LIVE
 voy:knob:envAmt,voy,MM-ARP,ENV AMT,value,,ARP LIVE
 voy:knob:noise,voy,MM-ARP,NOISE,value,,
-voy:knob:fmode,voy,MM-ARP,MODE,value,4,ARP
-voy:knob:fA,voy,MM-ARP,ATTACK,value,,ARP
-voy:knob:fD,voy,MM-ARP,DECAY,value,,ARP LIVE
-voy:knob:fS,voy,MM-ARP,SUSTAIN,value,,ARP
-voy:knob:fR,voy,MM-ARP,RELEASE,value,,ARP
-voy:knob:aA,voy,MM-ARP,ATTACK,value,,ARP
-voy:knob:aD,voy,MM-ARP,DECAY,value,,ARP
-voy:knob:aS,voy,MM-ARP,SUSTAIN,value,,ARP
-voy:knob:aR,voy,MM-ARP,RELEASE,value,,ARP
+voy:knob:fmode,voy,MM-ARP,FILTER MODE,value,4,ARP
+voy:knob:fA,voy,MM-ARP,FLT ATTACK,value,,ARP
+voy:knob:fD,voy,MM-ARP,FLT DECAY,value,,ARP LIVE
+voy:knob:fS,voy,MM-ARP,FLT SUSTAIN,value,,ARP
+voy:knob:fR,voy,MM-ARP,FLT RELEASE,value,,ARP
+voy:knob:aA,voy,MM-ARP,AMP ATTACK,value,,ARP
+voy:knob:aD,voy,MM-ARP,AMP DECAY,value,,ARP
+voy:knob:aS,voy,MM-ARP,AMP SUSTAIN,value,,ARP
+voy:knob:aR,voy,MM-ARP,AMP RELEASE,value,,ARP
 voy:knob:lfoRate,voy,MM-ARP,SPEED,value,7,ARP
 voy:knob:lfoShape,voy,MM-ARP,SHAPE,value,5,ARP
 voy:knob:lfoDest,voy,MM-ARP,TARGET,value,5,ARP
@@ -464,6 +464,7 @@ voy:knob:width,voy,MM-ARP,TWEAK WIDTH,value,,
 voy:knob:monoLow,voy,MM-ARP,TWEAK BASS MONO,value,,
 voy:knob:keyTrack,voy,MM-ARP,TWEAK KEY TRACK,value,,
 voy:knob:accent,voy,MM-ARP,TWEAK ACCENT,value,,
+voy:knob:accFlt,voy,MM-ARP,TWEAK ACC FILTER,value,,
 voy:knob:sync,voy,MM-ARP,TWEAK SYNC,value,2,
 voy:knob:duck,voy,MM-ARP,TWEAK SIDECHAIN,value,,
 voy:knob:chord,voy,MM-ARP,TWEAK CHORD,value,5,

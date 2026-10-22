@@ -306,12 +306,16 @@ function coreTargets(): MidiTarget[] {
   for (const inst of voices) out.push(press(`rytm:seq:voice:${inst}`, 'mm808', `SEQ VOICE ${inst} (SELECT, SILENT)`, () => seqVoice(inst)));
   // MM-ARP
   if (VOYAGER) {
+    // Les noms dits par sa section (2026-10-21, audit F11 : MODE, ATTACK, DECAY, SUSTAIN et RELEASE sortaient deux fois
+    // dans la liste du MIDI LEARN et la reference) ; les ids ne changent pas, les mappings gardes restent
+    const voyTargetLabel = (k: (typeof VOY_KNOBS)[number]): string =>
+      k.section === 'tweak' ? `TWEAK ${k.label}` : k.id === 'mode' ? 'ARP MODE' : k.id === 'fmode' ? 'FILTER MODE' : k.section === 'feg' ? `FLT ${k.label}` : k.section === 'aeg' ? `AMP ${k.label}` : k.label;
     for (const k of VOY_KNOBS) {
       const n = k.steps && !k.morph ? k.steps.length : 0;
       out.push({
         id: `voy:knob:${k.id}`,
         scope: 'voy',
-        label: k.section === 'tweak' ? `TWEAK ${k.label}` : k.label,
+        label: voyTargetLabel(k),
         kind: 'value',
         steps: n,
         get: () => voyParams.of(k.id),
