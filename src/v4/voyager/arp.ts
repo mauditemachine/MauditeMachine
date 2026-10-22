@@ -173,13 +173,12 @@ function scheduleStep(now: number, silent = false): void {
   // joue une note ou non
   // La duree que ce pas durera vraiment (la relecture du 2026-10-18) : sur la grille de la boite, l'ecart au pas suivant
   // tel que advance() le prendra (un tempo qui change en jeu y compte des ce pas ; stepDur garde encore l'ancien)
-  if (!silent) {
-    const g = clock.gridAfter(nextTime + stepDur * 0.5);
-    const dur = g && g.time - nextTime > 0 ? g.time - nextTime : stepDur;
-    synthBeat(nextTime, (bar * 16 + stepIdx) / 4, dur, opening);
-    // MIDI OUT (2026-10-22, midi/noteout.ts) : l'horloge MIDI de ce pas, START au premier
-    arpOut.step(nextTime, dur, bar * 16 + stepIdx, opening);
-  }
+  const g = clock.gridAfter(nextTime + stepDur * 0.5);
+  const dur = g && g.time - nextTime > 0 ? g.time - nextTime : stepDur;
+  if (!silent) synthBeat(nextTime, (bar * 16 + stepIdx) / 4, dur, opening);
+  // MIDI OUT (2026-10-22, midi/noteout.ts) : l'horloge MIDI de ce pas, START au premier ; un pas saute aussi (ses six
+  // impulsions partent en retard : Ableton, qui les compte, ne se decale pas)
+  arpOut.step(nextTime, dur, bar * 16 + stepIdx, opening);
   if (chord < 0) return;
   const spn = stepsPerNote(p.rate);
   if (spn > 1 && stepIdx % spn !== 0) return;

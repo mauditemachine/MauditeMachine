@@ -53,11 +53,18 @@
  *   premiere mesure) : sur la grille du MM-RYTM, un tempo qui change refait le
  *   pas en cours a sa nouvelle duree, et le dedoublonnage a l'heure gardait les
  *   anciennes impulsions deja parties en plus des nouvelles (7 dans une double
- *   croche ; un potard de tempo tourne : Ableton en avance de 3 a 7).
+ *   croche ; un potard de tempo tourne : Ableton en avance de 3 a 7) ;
+ * - une impulsion n'est plus jamais jetee : un fil principal bloque plus de
+ *   150 ms en perdait (14 pour 400 ms), et Ableton, qui les compte, restait
+ *   decale jusqu'au STOP. Une impulsion en retard part tout de suite (une
+ *   courte rafale), un pas que l'arpege saute envoie aussi les siennes, et
+ *   avant un gros travail annonce (reserve, audio/sched.ts : l'OPEN, la scene
+ *   qui se reconstruit) elles partent d'avance, avec leur heure, jusqu'a
+ *   RESERVE_CLOCK_S devant.
  */
 
 import { context } from '../audio/drums';
-import { DROP_AFTER_S } from '../audio/sched';
+import { DROP_AFTER_S, onReserve } from '../audio/sched';
 import { midiLeader } from './leader';
 
 /** Un message part au plus SEND_AHEAD_S avant son heure (moins que GUARD_S, 30 ms : rien d'envoye n'est annule). */
@@ -262,6 +269,8 @@ let startAt = 0;
 let clockSent: Partial<Record<Kind, number>> = {};
 /** le numero de la derniere impulsion partie (-1 : aucune depuis le STOP) : refaite par l'arpege, elle ne repart pas */
 let lastPulseIdx = -1;
+/** START ou CONTINUE parti, pas encore STOP (2026-10-22) : l'esclave (Ableton) compte les impulsions */
+let clockRuns = false;
 
 const isClock = (k: Kind): boolean => k === 'clock' || k === 'start' || k === 'spp' || k === 'continue';
 
@@ -272,7 +281,7 @@ function insert(e: Ev): void {
   let i = queue.length;
   while (i > 0 && queue[i - 1].t > e.t) i -= 1;
   queue.splice(i, 0, e);
-  if (!timer && typeof window !== 'undefined') timer = window.setInterval(flush, TICK_MS);
+  if (!timer && typeof window !== 'undefined') timer = window.setInterval(() => flush(), TICK_MS);
 }
 
 const status = (hi: number): number => hi | ((view.ch - 1) & 0x0f);
@@ -352,14 +361,16 @@ function sendStop(o: MIDIOutput): void {
   const at = Math.max(now, startAt) + AFTER_MS;
   sendRaw(o, [0xfc], at, now);
   lastClockAt = Math.max(lastClockAt, at);
+  clockRuns = false;
 }
 
 /**
- * Vide la file : les notes jusqu'a SEND_AHEAD_S devant, l'horloge jusqu'a CLOCK_AHEAD_S ; s'arrete quand il n'y a plus
- * rien a attendre. Un appui (ou une impulsion d'horloge) en retard de plus de DROP_AFTER_S (le fil principal bloque,
- * 2026-10-22) ne part plus, comme le pas que l'arpege saute : pas de rafale.
+ * Vide la file : les notes jusqu'a SEND_AHEAD_S devant, l'horloge jusqu'a CLOCK_AHEAD_S (une reserve : jusqu'a
+ * clockUntil, temps du contexte) ; s'arrete quand il n'y a plus rien a attendre. Un appui en retard de plus de
+ * DROP_AFTER_S (le fil principal bloque, 2026-10-22) ne part plus, comme le pas que l'arpege saute : pas de rafale. Une
+ * impulsion d'horloge en retard part quand meme, tout de suite (2026-10-22, la deuxieme relecture : Ableton les compte).
  */
-function flush(): void {
+function flush(clockUntil = 0): void {
   const c = context();
   const o = port();
   if (!c || !o || !enabled()) {
@@ -372,7 +383,7 @@ function flush(): void {
   }
   const ct = c.currentTime;
   const edge = ct + SEND_AHEAD_S;
-  const edgeClock = ct + CLOCK_AHEAD_S;
+  const edgeClock = Math.max(ct + CLOCK_AHEAD_S, clockUntil);
   if (queue[0].t > edgeClock) return;
   const due: Ev[] = [];
   const keep: Ev[] = [];
@@ -414,21 +425,28 @@ function flush(): void {
       // change refait le pas a une autre duree, a l'heure il en partait une de trop), le reste par son heure
       if (e.kind === 'clock') {
         if (e.idx !== undefined && e.idx <= lastPulseIdx) continue;
+        if (e.idx !== undefined) lastPulseIdx = e.idx;
+        // En retard, elle part quand meme (2026-10-22 : jetee, Ableton restait decale jusqu'au STOP). L'esclave a
+        // l'arret, celle qui passerait derriere les impulsions deja parties (envoyees d'avance, pour une course arretee
+        // depuis) ne compte pour rien : elle ne part pas en rafale
+        if (!clockRuns && at < lastClockAt - AFTER_MS) continue;
       } else {
         const last = clockSent[e.kind];
         if (last !== undefined && e.t <= last + 1e-6) continue;
+        // START, la position ou CONTINUE en retard (2026-10-22, le fil bloque), ou loin derriere les impulsions deja
+        // parties (une reserve, puis STOP et RUN) : perime, la position repart au pas suivant
+        if (e.t < late || at < lastClockAt - CLOCK_AHEAD_S * 1000) {
+          clockOn = false;
+          continue;
+        }
+        clockSent[e.kind] = e.t;
       }
-      // Une impulsion trop en retard : sautee
-      if (e.t < late) {
-        // START, la position ou CONTINUE en retard (2026-10-22, le fil bloque) : perime, la position repart au pas suivant
-        if (e.kind !== 'clock') clockOn = false;
-        continue;
-      }
-      if (e.kind !== 'clock') clockSent[e.kind] = e.t;
-      else if (e.idx !== undefined) lastPulseIdx = e.idx;
       const data = e.kind === 'clock' ? [0xf8] : e.kind === 'start' ? [0xfa] : e.kind === 'continue' ? [0xfb] : [0xf2, e.pos & 0x7f, (e.pos >> 7) & 0x7f];
       send(o, data, at, true);
-      if (e.kind === 'start' || e.kind === 'continue') startAt = Math.max(startAt, at);
+      if (e.kind === 'start' || e.kind === 'continue') {
+        startAt = Math.max(startAt, at);
+        clockRuns = true;
+      }
     }
   }
 }
@@ -471,13 +489,14 @@ function panic(o: MIDIOutput | null, stopClock: boolean, keepNotes = false): voi
     }
     if (!cleared) end = Math.max(end, lastAt);
     send(o, [status(0xb0), 123, 0], end + AFTER_MS);
-    if (stopClock && wasClock) sendStop(o);
+    if (stopClock && (wasClock || clockRuns)) sendStop(o);
   }
   sounding.clear();
   if (stopClock) {
     clockOn = false;
     clockSent = {};
     lastPulseIdx = -1;
+    clockRuns = false;
   }
   if (queue.length === 0) stopTimer();
 }
@@ -503,6 +522,7 @@ function drop(): void {
   clockOn = false;
   clockSent = {};
   lastPulseIdx = -1;
+  clockRuns = false;
   stopTimer();
 }
 
@@ -515,7 +535,20 @@ function resetClock(): void {
   clockOn = false;
   clockSent = {};
   lastPulseIdx = -1;
+  clockRuns = false;
 }
+
+/**
+ * Une reserve (audio/sched.ts, 2026-10-22) : le fil principal va bloquer, l'arpege a programme ses pas d'avance. Leur
+ * horloge part tout de suite, avec son heure, jusqu'a RESERVE_CLOCK_S devant (ce qui part ne se reprend plus : un STOP
+ * ou un tempo dans cette fenetre la laisse finir) ; les notes attendent leur heure, elles se reprennent a chaque reglage.
+ */
+const RESERVE_CLOCK_S = 1;
+onReserve((until) => {
+  const c = context();
+  if (!c || queue.length === 0 || !enabled()) return;
+  flush(Math.min(until, c.currentTime + RESERVE_CLOCK_S));
+});
 
 /**
  * L'acces MIDI qui s'en va (MIDI OFF, 2026-10-22, midi/midi.ts dropAccess) : avant lui, tout se relache sur la sortie
@@ -612,11 +645,12 @@ export function noteOutChannel(ch: number): void {
 export function noteOutClock(on: boolean): void {
   if (on === view.clock) return;
   const o = port();
-  if (!on && clockOn && o) sendStop(o);
+  if (!on && (clockOn || clockRuns) && o) sendStop(o);
   if (!on) {
     clockOn = false;
     clockSent = {};
     lastPulseIdx = -1;
+    clockRuns = false;
     queue = queue.filter((e) => !isClock(e.kind));
   }
   set({ clock: on });
