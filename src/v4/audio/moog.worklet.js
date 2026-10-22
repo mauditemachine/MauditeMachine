@@ -1036,8 +1036,10 @@ class MMVoyager extends AudioWorkletProcessor {
       v.gR = v.tR;
     }
     this.stackOn(v, p.stack > 0 ? this.maxStack : 1, quiet, p.phase);
-    // WIDE : la note a son echelle de droite s'il en reste (une voix reprise en plein son garde la sienne : pas de saut)
+    // WIDE : la note a son echelle de droite s'il en reste (une voix reprise en plein son garde la sienne : pas de saut).
+    // WIDE revenu a OFF, une voix muette repart sans elle (2026-10-22, relecture : la voix la gardait jusqu'ici, process)
     if (quiet) {
+      if (this.sm.wide === 0) v.wl = false;
       let busy = 0;
       for (const x of this.voices) if (x.on && x !== v && x.wideOK) busy += 1;
       v.wideOK = busy < this.wideVoices;
@@ -1280,7 +1282,8 @@ class MMVoyager extends AudioWorkletProcessor {
       sm.res += (p.res - sm.res) * K;
       sm.envOct += (p.envOct - sm.envOct) * K;
       sm.drive += (p.drive - sm.drive) * K;
-      // WIDE (2026-10-22) : lisse ; revenu a 0, l'echelle de droite s'arrete (le calcul d'avant)
+      // WIDE (2026-10-22) : lisse ; revenu a 0, l'echelle de droite s'arrete (le calcul d'avant) a la note suivante
+      // de chaque voix (plus bas, wideV)
       if (sm.wide !== p.wide) {
         sm.wide += (p.wide - sm.wide) * K;
         if (p.wide === 0 && sm.wide < 1e-4) sm.wide = 0;
@@ -1358,7 +1361,10 @@ class MMVoyager extends AudioWorkletProcessor {
         // SUB et le bruit, au centre ; WIDE : la gauche et la droite de chaque exemplaire (oL, oR), a puissance egale
         const nl = v.nLoop;
         const pr = v.pr;
-        const wideV = wideOn && v.wideOK;
+        // Une voix qui a son echelle de droite la garde quand WIDE revient a OFF (2026-10-22, relecture : la droite
+        // sautait d'une echelle a l'autre, un clic sous une forte resonance) : a WIDE 0, la droite recoit la meme
+        // entree que la gauche, sans marche ; elle s'arrete a la prochaine note de la voix, muette (noteOn)
+        const wideV = v.wideOK && (wideOn || v.wl);
         const wide = wideV ? sm.wide : 0;
         const wn = wideV ? 1 / Math.sqrt(1 + wide * wide * STACK_PAN2[v.n - 1]) : 1;
         let o = 0;
