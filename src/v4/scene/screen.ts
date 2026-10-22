@@ -540,11 +540,14 @@ const HEAD_FIT = [
 ] as const;
 type HeadFit = (typeof HEAD_FIT)[number];
 const HEAD_FIT_MAX = 2;
+/** Au telephone, le palier jusqu'ou la colonne de la voix recule pour laisser de la place a la zone de MASTER (headPlan). */
+const HEAD_FIT_PHONE = 1;
 /**
  * La colonne de la voix : l'air entre elle et le pattern (gap), entre elle et la lettre d'un mode arme (badgeAir), et
- * ce que les onglets lui laissent (air ; tabAir sous DIST CHORUS DELAY REVERB, ou la voix est cernee comme un onglet).
+ * ce que les onglets lui laissent (air ; tabAir sous DIST CHORUS DELAY REVERB, ou la voix est cernee comme un onglet,
+ * tabPad l'air dans son cadre).
  */
-const HEAD_COL = { gap: 6, badgeAir: 5, air: 5, tabAir: 6.5 } as const;
+const HEAD_COL = { gap: 6, badgeAir: 5, air: 5, tabAir: 6.5, tabPad: 2.5 } as const;
 /** Un trait de la gauche de l'en-tete (headLeft) : un chevron, un titre ou GLOBAL en retrait, un onglet et sa zone. */
 type HeadOp =
   | { kind: 'chev'; x: number; w: number }
@@ -2057,18 +2060,23 @@ export class Screen {
       const on = screen === scope.voice;
       const name = fxVoiceTabLabel(inst);
       if (!readout && !crowded) {
+        // Le cadre de l'onglet : HEAD_COL.tabPad de part et d'autre (relecture : a 3.5, TOM cerne touchait presque A01)
+        const tp = HEAD_COL.tabPad;
         if (inst) {
-          if (on) this.roundRect(vx - 3.5, H.pillY + 0.6, vw + 7, T.pillH - 1.2, 2.2, null, INK, 1.1);
+          if (on) this.roundRect(vx - tp, H.pillY + 0.6, vw + 2 * tp, T.pillH - 1.2, 2.2, null, INK, 1.1);
           this.text(inst, vx, y, T.voice, on ? INK : FAINT_TEXT, 600);
         } else {
-          // Sans voix : VOICE en onglet, du corps des onglets
-          const ts = T.pill * 0.92;
+          // Sans voix : VOICE en onglet, du corps des onglets, dans la largeur de la colonne
+          const ts0 = T.pill * 0.92;
+          const ts = ts0 * Math.min(1, (plan.colW - 1) / Math.max(1, this.textWidth(name, ts0, 700, 0.7)));
           const nw = this.textWidth(name, ts, 700, 0.7);
-          if (on) this.roundRect(vx - 3.5, H.pillY + 0.6, nw + 7, T.pillH - 1.2, 2.2, null, INK, 1.1);
+          if (on) this.roundRect(vx - tp, H.pillY + 0.6, nw + 2 * tp, T.pillH - 1.2, 2.2, null, INK, 1.1);
           this.text(name, vx, ty, ts, on ? INK : FAINT_TEXT, 700, 'left', 0.7);
         }
       }
-      this.tabSpots.push({ screen: scope.voice, ...this.spot({ x: vx - 4, y: -this.headUp, w: plan.colW + 7.5, h: H.rule + this.headUp }) });
+      // Sa zone : la colonne et un peu d'air, jamais sur celle de MASTER (le telephone sans A01 : 0.3 unite communes)
+      const tx1 = Math.min(vx + plan.colW + 3.5, plan.groupLeft - 3.5);
+      this.tabSpots.push({ screen: scope.voice, ...this.spot({ x: vx - 4, y: -this.headUp, w: tx1 - vx + 4, h: H.rule + this.headUp }) });
       heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
     } else if (!readout && !crowded) this.text(inst ?? 'ALL', vx, y, T.voice, inst ? INK : HALF, 600);
     this.info.head = heads;
@@ -2079,7 +2087,7 @@ export class Screen {
     }
     // Entre les onglets et la voix, de droite a gauche : MUTE ou SOLO de la voix, P-LOCK, ce que joue la voix
     const mid0 = shown.end + 5;
-    let x1 = vx - (scope ? 3.5 + 4 : 5);
+    let x1 = vx - (scope ? HEAD_COL.tabPad + 4 : 5);
     const fits = (w: number): boolean => x1 - w >= mid0;
     if (inst) {
       // Une voix vraiment coupee (en solo) : sa pastille ; une voix hors d'un solo n'en a pas (2026-10-09 : MUTE se lisait a tort)
@@ -2286,8 +2294,9 @@ export class Screen {
    * largeur de la plus large des voix (TOM), juste a gauche du pattern, la
    * lettre M ou S d'un mode arme entre les deux. Le meme sur toutes les pages
    * et pour toutes les voix (sans voix, VOICE FX plus long se serre plus) ;
-   * mesure : la voix a x 148.5 et A01 au desktop, 172.4 sans A01 au telephone.
-   * Garde jusqu'a l'arrivee des polices (onFonts).
+   * mesure : la voix a x 148.5 et A01 au desktop, 159 sans A01 au telephone
+   * (172.3 colle aux cadrans, voir HEAD_FIT_PHONE). Garde jusqu'a l'arrivee des
+   * polices (onFonts).
    */
   private headPlan(badge: boolean): HeadPlan {
     const key = badge ? 'badge' : 'plain';
@@ -2299,18 +2308,39 @@ export class Screen {
     const colW = Math.max(...[...INSTRUMENTS, 'ALL'].map((n) => this.textWidth(n, T.voice, 600)));
     const badgeW = badge ? T.pillH + HEAD_COL.badgeAir : 0;
     let plan: HeadPlan | null = null;
+    // M ou S arme (2026-10-22, relecture) : la voix garde sa place de tous les jours si la lettre tient entre elle et les
+    // cadrans d'un palier plus court (le desktop : A01 cede le temps du mode) ; sinon (le telephone) la colonne recule
+    if (badge) {
+      const plain = this.headPlan(false);
+      for (const tier of DIAL_TIERS) {
+        const groupLeft = right - g.width(tier);
+        if (groupLeft - HEAD_COL.gap - badgeW - colW < plain.voiceX - 0.01) continue;
+        plan = { tier, voiceX: plain.voiceX, colW, groupLeft };
+        break;
+      }
+      if (plan) {
+        this.headPlans.set(key, plan);
+        return plan;
+      }
+    }
+    // Le bord gauche le plus a gauche ou la voix peut se poser, les onglets serres au palier fit (le plus large des 16
+    // ecrans des 8 voix ; sans voix, VOICE FX se serre plus)
+    const need = (fit: number): number =>
+      Math.max(...INSTRUMENTS.flatMap((inst) => RYTM_SCREENS.map((s) => this.headLeft(SCREEN_PAGE[s], s, inst, HEAD_FIT[fit], false).end + (fxScopeTabs(s) ? HEAD_COL.tabAir : HEAD_COL.air))));
+    const fitMax = need(HEAD_FIT_MAX);
     for (const tier of DIAL_TIERS) {
       const groupLeft = right - g.width(tier);
       const voiceX = groupLeft - HEAD_COL.gap - badgeW - colW;
-      const ok = INSTRUMENTS.every((inst) =>
-        RYTM_SCREENS.every((s) => {
-          const lim = voiceX - (fxScopeTabs(s) ? HEAD_COL.tabAir : HEAD_COL.air);
-          for (let l = 0; l <= HEAD_FIT_MAX; l += 1) if (this.headLeft(SCREEN_PAGE[s], s, inst, HEAD_FIT[l], false).end <= lim) return true;
-          return false;
-        }),
-      );
       plan = { tier, voiceX, colW, groupLeft };
-      if (ok) break;
+      if (fitMax <= voiceX) break;
+    }
+    // Au telephone, sans A01 (relecture du 2026-10-22 : la voix collee aux cadrans, a 172.3, laissait a la zone de MASTER
+    // 39 px sur VOICE et 28 sous DIST CHORUS DELAY REVERB, 48 avant les places fixes) : la colonne recule tant que les
+    // onglets gardent leur corps (HEAD_FIT_PHONE, 159), l'air gagne revient a la zone de MASTER (zoneLeft) : 50 px et 37
+    const p0 = plan as HeadPlan;
+    if (this.mobile && !badge && !p0.tier.a01) {
+      const left = Math.ceil(need(HEAD_FIT_PHONE) * 2) / 2;
+      if (left < p0.voiceX) plan = { ...p0, voiceX: left };
     }
     const out = plan as HeadPlan;
     this.headPlans.set(key, out);
