@@ -23,6 +23,7 @@ import { ACCENT_DEPTHS, arpPreview } from './preview';
 import { CHORDS, chordNotes, voicedDegrees, degreeMidi } from './chords';
 import {
   CHORD_TYPES,
+  DLY_TIMES,
   FMODES,
   LFO_BEATS,
   LFO_DESTS,
@@ -38,6 +39,7 @@ import {
   chordType,
   cutoffHz,
   decayS,
+  delaySixteenths,
   duckDepthDb,
   envOctaves,
   fineCents,
@@ -48,6 +50,7 @@ import {
   morphPos,
   phaseStart,
   releaseS,
+  stackCents,
   stepIndex,
   stepsPerNote,
   type VoyKnobId,
@@ -598,10 +601,15 @@ function chorusDiagram(v: number): VoyDiagram {
   return p.done();
 }
 
-/** DELAY : le ping-pong en croche pointee (trois doubles croches), gauche puis droite, la reinjection 0.35 a 0.68. */
-function delayDiagram(v: number, bpm: number): VoyDiagram {
+/**
+ * DELAY : le ping-pong au temps de DLY TIME (2026-10-22 ; la croche pointee avant lui, trois doubles croches), gauche
+ * puis droite, la reinjection 0.35 a 0.68 ; TAPE : les echos s'assombrissent (plus courts) et ondulent (decales).
+ */
+function delayDiagram(v: number, bpm: number, values?: Readonly<VoyValues>): VoyDiagram {
   const p = new Pic();
   const fb = 0.35 + 0.33 * v;
+  const six = values ? delaySixteenths(values.dlyTime) : 3;
+  const tape = values && values.tape >= 0.02 ? values.tape : 0;
   const steps = 16;
   const dx = (X1 - X0) / steps;
   p.p(axis(), 'grid');
@@ -609,13 +617,94 @@ function delayDiagram(v: number, bpm: number): VoyDiagram {
   p.p(seg(X0 + 2, MID, X0 + 2, MID - 38), 'main');
   // L'envoi (le potard) et la reinjection : la premiere repetition a 35 % de la note au moins, pour qu'on la voie
   let a = 0.35 + 0.65 * v;
-  for (let k = 1; X0 + 2 + k * 3 * dx <= X1; k += 1) {
-    const x = X0 + 2 + k * 3 * dx;
+  let d = '';
+  for (let k = 1; X0 + 2 + k * six * dx <= X1; k += 1) {
+    const wob = tape * 2.2 * Math.sin(k * 1.7);
+    const x = X0 + 2 + k * six * dx + wob;
     const h = 38 * a;
-    p.p(seg(x, MID, x, k % 2 ? MID - h : MID + h), 'hot');
-    a *= fb;
+    d += seg(x, MID, x, k % 2 ? MID - h : MID + h);
+    // La bande : chaque passage perd un peu plus (ses aigus, ses graves)
+    a *= fb * (1 - 0.18 * tape);
   }
-  p.label('L', X0, Y0 - 4).label('R', X0, Y1 + 10).label(`3/16 ${Math.round(60 / Math.max(40, bpm || 120) / 4 * 3 * 1000)} MS`, X1, BOT, 'end');
+  p.p(d, 'hot');
+  const ms = Math.round((60 / Math.max(40, bpm || 120) / 4) * six * 1000);
+  const name = values ? DLY_TIMES[stepIndex('dlyTime', values.dlyTime)] : '3/16';
+  p.label('L', X0, Y0 - 4).label('R', X0, Y1 + 10).label(`${name} ${ms} MS${tape > 0 ? '  TAPE' : ''}`, X1, BOT, 'end');
+  return p.done();
+}
+
+/**
+ * STACK (2026-10-22) : les exemplaires d'une scie (trois, deux au telephone), desaccordes, qui glissent l'un contre
+ * l'autre sur quelques cycles ; leur somme en trait plein.
+ */
+function stackDiagram(v: number): VoyDiagram {
+  const p = new Pic();
+  const ct = stackCents(v);
+  p.p(axis(), 'grid');
+  const cyc = 3;
+  // L'ecart grossi pour qu'on le voie sur trois cycles (30 cents : un tiers de cycle de glissement au bout)
+  const offs = ct > 0 ? [-1, 0, 1] : [0];
+  const drift = (ct / 30) * 0.35;
+  for (const o of offs) if (o !== 0) p.p(curve((t) => MID - 24 * shapeAt(2, (t * cyc * (1 + o * drift / cyc) + 0.21 * o + 1) % 1), X0, X1, 240), 'ghost');
+  p.p(curve((t) => {
+    let s = 0;
+    for (const o of offs) s += shapeAt(2, (t * cyc * (1 + o * drift / cyc) + 0.21 * o + 1) % 1);
+    return MID - (30 * s) / Math.sqrt(offs.length);
+  }, X0, X1, 360), 'hot');
+  p.label(ct > 0 ? `DETUNE +-${Math.round(ct)} CT` : 'ONE OSC PER OSC', X1, BOT, 'end');
+  return p.done();
+}
+
+/** WIDE (2026-10-22) : les deux filtres, la gauche et la droite, et les exemplaires qui s'y partagent. */
+function wideDiagram(v: number, values: Readonly<VoyValues>): VoyDiagram {
+  const p = new Pic();
+  const w = v >= 0.02 ? v : 0;
+  const n = stackCents(values.stack) > 0 ? 3 : 2;
+  const cx = (X0 + X1) / 2;
+  p.p(seg(cx, Y0, cx, Y1), 'grid');
+  let d = '';
+  for (let i = 0; i < n; i += 1) {
+    const pan = n === 2 ? (i === 0 ? -0.8 : 0.8) : i - 1;
+    const x = cx + pan * w * 84;
+    d += dot(x, Y0 + 14 + i * 12, 4);
+  }
+  p.p(d, 'hot', true);
+  // Les deux filtres : un seul au centre sans WIDE
+  if (w > 0) {
+    p.p(rbox(X0 + 8, Y1 - 26, 70, 18, 3) + rbox(X1 - 78, Y1 - 26, 70, 18, 3), 'main');
+    p.label('FILTER L', X0 + 43, Y1 - 13, 'middle').label('FILTER R', X1 - 43, Y1 - 13, 'middle');
+  } else {
+    p.p(rbox(cx - 40, Y1 - 26, 80, 18, 3), 'main');
+    p.label('ONE FILTER', cx, Y1 - 13, 'middle');
+  }
+  p.label('L', X0, BOT).label('R', X1, BOT, 'end');
+  return p.done();
+}
+
+/** GLUE (2026-10-22) : la courbe du compresseur (2:1, genou doux) contre le trait de 1:1, et l'arrondi des cretes. */
+function glueDiagram(v: number): VoyDiagram {
+  const p = new Pic();
+  const g = v >= 0.02 ? v : 0;
+  // L'entree de -30 a 0 dB (de gauche a droite), la sortie de -30 a 0 (de bas en haut)
+  const xOf = (db: number): number => X0 + ((db + 30) / 30) * (X1 - X0);
+  const yOf = (db: number): number => Y1 - ((db + 30) / 30) * (Y1 - Y0);
+  p.p(seg(xOf(-30), yOf(-30), xOf(0), yOf(0)), 'ghost');
+  const thr = -6 - 8 * g;
+  const gr = (over: number): number => (over <= -4 ? 0 : over >= 4 ? 0.5 * over : (0.5 * (over + 4) * (over + 4)) / 16);
+  const ceil = 20 * Math.log10(1 / (1 + 0.8 * g));
+  const curveDb = (x: number): number => {
+    if (g === 0) return x;
+    const y = x - gr(x - thr) + gr(-12 - thr);
+    // L'arrondi : vers son plafond, en douceur
+    return y > ceil - 6 ? ceil - 6 + 6 * Math.tanh((y - ceil + 6) / 6) : y;
+  };
+  const pts: Pt[] = [];
+  for (let i = 0; i <= 60; i += 1) {
+    const x = -30 + i / 2;
+    pts.push([xOf(x), yOf(Math.max(-30, Math.min(0, curveDb(x))))]);
+  }
+  p.p(poly(pts), 'hot');
+  p.label('IN', X1, BOT, 'end').label('OUT', X0 + 2, TOP).label(g > 0 ? '2:1  SOFT CLIP' : 'OFF', X1, TOP, 'end');
   return p.done();
 }
 
@@ -1110,7 +1199,18 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
     case 'chorus':
       return chorusDiagram(c.v);
     case 'delay':
-      return delayDiagram(c.v, c.bpm);
+      return delayDiagram(c.v, c.bpm, values);
+    // DLY TIME et TAPE (2026-10-22) : le delai de DELAY, son temps ou sa bande en avant
+    case 'dlyTime':
+      return delayDiagram(Math.max(0.4, values.delay), c.bpm, { ...values, dlyTime: c.v });
+    case 'tape':
+      return delayDiagram(Math.max(0.4, values.delay), c.bpm, { ...values, tape: c.v });
+    case 'stack':
+      return stackDiagram(c.v);
+    case 'wide':
+      return wideDiagram(c.v, values);
+    case 'glue':
+      return glueDiagram(c.v);
     case 'reverb':
       return reverbDiagram(c.v);
     case 'volume': {

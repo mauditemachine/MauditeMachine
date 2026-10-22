@@ -28,6 +28,18 @@
  *   saut (sa phase continue).
  * Sans entree branchee, le processeur rend la main (process -> false) : le
  * noeud d'une branche debranchee peut partir.
+ *
+ * 'mm-tape' (2026-10-22, audit P10, le TWEAK TAPE du MM-ARP, audio/synth.ts) :
+ * le DELAY ping-pong de l'ARP passe par une bande. Le meme trajet que celui
+ * des DelayNode (l'entree en mono, sans graves, dans la ligne de gauche ; la
+ * gauche repond a droite, la droite a gauche), lu en interpolation sinc comme
+ * les chorus, la tete qui pleure (0.55 Hz) et scintille (6.5 Hz), et dans la
+ * boucle ce que fait une bande a chaque passage : la saturation (tanh), les
+ * graves qui partent (passe-haut 100 Hz) et les aigus qui s'eteignent (passe-bas
+ * de 4.8 a 3.2 kHz selon TAPE). Reglages : time (s, a-rate : un DLY TIME ou un
+ * tempo qui change glisse comme une bande), fb (la reinjection, comme les
+ * DelayNode), tape (0 a 1, la part de bande). Silencieux depuis plus que sa
+ * memoire, il ne calcule plus rien jusqu'au son suivant.
  */
 
 const TAU = Math.PI * 2;
@@ -262,3 +274,146 @@ class MMChorus extends AudioWorkletProcessor {
 }
 
 registerProcessor('mm-chorus', MMChorus);
+
+/**
+ * TAPE : pleurage et scintillement (Hz, s de retard a fond), la saturation (son gain a 0 et a fond), les filtres (Hz) :
+ * l'entree et le passe-bas de la boucle comme les BiquadFilter du delai net (Q de 1 dB, celui du Web Audio par defaut :
+ * a TAPE presque nul, les echos ont le meme niveau), plus le passe-haut de la bande dans la boucle.
+ */
+const TAPE = { wowHz: 0.55, wowS: 0.0005, flutterHz: 6.5, flutterS: 0.00005, satMin: 0.3, satSpan: 1.6, hpIn: 260, hpLoop: 100, lp0: 4800, lpSpan: 1600, qWeb: Math.pow(10, 1 / 20) };
+
+/** Un biquad RBJ (passe-bas ou passe-haut, Q lineaire, 0.707 sans lui), forme transposee II ; ses coefficients et son etat. */
+function biquad(type, hz, sr, q = Math.SQRT1_2) {
+  const w0 = (TAU * Math.min(hz, sr * 0.45)) / sr;
+  const al = Math.sin(w0) / (2 * q);
+  const cw = Math.cos(w0);
+  const a0 = 1 + al;
+  const lp = type === 'lp';
+  const b0 = (lp ? (1 - cw) / 2 : (1 + cw) / 2) / a0;
+  return { b0, b1: (lp ? 1 - cw : -(1 + cw)) / a0, b2: b0, a1: (-2 * cw) / a0, a2: (1 - al) / a0, z1: 0, z2: 0 };
+}
+function bq(f, x) {
+  const y = f.b0 * x + f.z1;
+  f.z1 = f.b1 * x - f.a1 * y + f.z2;
+  f.z2 = f.b2 * x - f.a2 * y;
+  return y;
+}
+/** Le passe-bas d'un biquad deja la, a une autre frequence (l'etat reste). */
+function retune(f, hz, sr) {
+  const g = biquad('lp', hz, sr, TAPE.qWeb);
+  f.b0 = g.b0;
+  f.b1 = g.b1;
+  f.b2 = g.b2;
+  f.a1 = g.a1;
+  f.a2 = g.a2;
+}
+
+class MMTape extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      { name: 'time', defaultValue: 0.3, minValue: 0.001, maxValue: 4, automationRate: 'a-rate' },
+      { name: 'fb', defaultValue: 0.35, minValue: 0, maxValue: 0.95, automationRate: 'k-rate' },
+      { name: 'tape', defaultValue: 0.5, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+    ];
+  }
+
+  constructor(options) {
+    super();
+    const o = (options && options.processorOptions) || {};
+    const sr = sampleRate;
+    const maxS = Number.isFinite(o.maxS) && o.maxS > 0 ? Math.min(4, o.maxS) : 2;
+    const n = Math.ceil(maxS * sr) + 2 * TAPS + 8;
+    this.bL = new Float32Array(n);
+    this.bR = new Float32Array(n);
+    this.w = 0;
+    this.hpIn = biquad('hp', TAPE.hpIn, sr, TAPE.qWeb);
+    this.hpL = biquad('hp', TAPE.hpLoop, sr);
+    this.hpR = biquad('hp', TAPE.hpLoop, sr);
+    this.lpL = biquad('lp', TAPE.lp0, sr, TAPE.qWeb);
+    this.lpR = biquad('lp', TAPE.lp0, sr, TAPE.qWeb);
+    this.lpTape = -1;
+    this.phW = 0;
+    this.phF = 0.25;
+    // Le silence : les echantillons calmes de suite ; au-dela de la memoire, plus de calcul (les lignes remises a 0)
+    this.quiet = 0;
+    this.asleep = false;
+  }
+
+  process(inputs, outputs, params) {
+    const inp = inputs[0];
+    const out = outputs[0];
+    const oL = out[0];
+    const oR = out.length > 1 ? out[1] : out[0];
+    const N = oL.length;
+    const inL = inp && inp.length > 0 ? inp[0] : null;
+    const inR = inp && inp.length > 1 ? inp[1] : inL;
+    const bL = this.bL;
+    const bR = this.bR;
+    const n = bL.length;
+    let loud = 0;
+    if (inL) for (let i = 0; i < N; i += 1) loud = Math.max(loud, Math.abs(inL[i]), Math.abs(inR[i]));
+    if (this.asleep) {
+      if (loud < 1e-9) {
+        oL.fill(0);
+        if (oR !== oL) oR.fill(0);
+        return true;
+      }
+      this.asleep = false;
+      this.quiet = 0;
+    }
+    const sr = sampleRate;
+    const times = params.time;
+    const fb = params.fb[0];
+    const t = Math.max(0, Math.min(1, params.tape[0]));
+    if (t !== this.lpTape) {
+      this.lpTape = t;
+      retune(this.lpL, TAPE.lp0 - TAPE.lpSpan * t, sr);
+      retune(this.lpR, TAPE.lp0 - TAPE.lpSpan * t, sr);
+    }
+    const k = TAPE.satMin + TAPE.satSpan * t;
+    const wowA = TAPE.wowS * t * sr;
+    const fltA = TAPE.flutterS * t * sr;
+    const dW = TAPE.wowHz / sr;
+    const dF = TAPE.flutterHz / sr;
+    let w = this.w;
+    let peak = 0;
+    for (let i = 0; i < N; i += 1) {
+      const x = inL ? 0.5 * (inL[i] + inR[i]) : 0;
+      const xh = bq(this.hpIn, x);
+      // La tete : le temps du reglage, pleure et scintille
+      const base = (times.length > 1 ? times[i] : times[0]) * sr;
+      let d = base + wowA * Math.sin(TAU * this.phW) + fltA * Math.sin(TAU * this.phF);
+      this.phW += dW;
+      if (this.phW >= 1) this.phW -= 1;
+      this.phF += dF;
+      if (this.phF >= 1) this.phF -= 1;
+      if (d < HALF + 1) d = HALF + 1;
+      else if (d > n - TAPS - 2) d = n - TAPS - 2;
+      // Chaque passage sur la bande : sans graves, plus sombre, sature
+      const zL = Math.tanh(k * bq(this.lpL, bq(this.hpL, readFrac(bL, w, d)))) / k;
+      const zR = Math.tanh(k * bq(this.lpR, bq(this.hpR, readFrac(bR, w, d)))) / k;
+      oL[i] = zL;
+      oR[i] = zR;
+      bL[w] = xh + fb * zR;
+      bR[w] = fb * zL;
+      const a = Math.abs(zL) + Math.abs(zR);
+      if (a > peak) peak = a;
+      w += 1;
+      if (w === n) w = 0;
+    }
+    this.w = w;
+    // Plus rien depuis plus longtemps que la memoire : les lignes a 0, et le calcul s'arrete
+    if (loud < 1e-9 && peak < 1e-7) {
+      this.quiet += N;
+      if (this.quiet > n) {
+        bL.fill(0);
+        bR.fill(0);
+        for (const f of [this.hpIn, this.hpL, this.hpR, this.lpL, this.lpR]) f.z1 = f.z2 = 0;
+        this.asleep = true;
+      }
+    } else this.quiet = 0;
+    return true;
+  }
+}
+
+registerProcessor('mm-tape', MMTape);

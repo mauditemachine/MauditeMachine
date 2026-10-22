@@ -129,7 +129,13 @@ export type VoyKnobId =
   | 'accFlt'
   | 'sync'
   | 'duck'
-  | 'chord';
+  | 'chord'
+  // 2026-10-22 (audit P8, P9, P10) : STACK, WIDE, GLUE, DLY TIME, TAPE
+  | 'stack'
+  | 'wide'
+  | 'glue'
+  | 'dlyTime'
+  | 'tape';
 
 export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
@@ -201,6 +207,12 @@ export const NOTES = ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'] as const;
 export const CHORUS_MODES = ['OFF', 'I', 'II'] as const;
 /** CHORD : l'arpege d'avant (BASIC), puis les accords enchaines au plus pres, de la triade a la onzieme. */
 export const CHORD_TYPES = ['BASIC', 'TRIAD', '7TH', '9TH', '11TH'] as const;
+/**
+ * DLY TIME (2026-10-22, audit P10) : le temps du DELAY en doubles croches : croche, croche pointee (3/16, celui
+ * d'avant et de depart), noire, noire pointee (3/8), blanche.
+ */
+export const DLY_TIMES = ['1/8', '3/16', '1/4', '3/8', '1/2'] as const;
+const DLY_SIXTEENTHS = [2, 3, 4, 6, 8] as const;
 
 /** Dans l'ordre de lecture du panneau (et de tabulation des jumeaux). */
 export const VOY_KNOBS: readonly VoyKnob[] = [
@@ -312,6 +324,23 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
     def: 0.5,
     steps: CHORD_TYPES,
   },
+  /*
+   * 2026-10-22 (audit P8, P9, P10, Mika : "je voudrais que tu ameliores le son drastiquement sur ARP") ; chacun a sa
+   * valeur d'heritage rend le son d'avant (audio/moog.worklet.js, audio/synth.ts) :
+   * - STACK : chaque oscillateur en trois exemplaires desaccordes (deux au telephone), l'unisson d'un Prophet ou la
+   *   supersaw d'un JP-8000 ; OFF au depart, puis de 3 a 30 cents d'ecart ;
+   * - WIDE : un filtre pour la gauche, un pour la droite, les exemplaires (sans STACK : OSC 1 et OSC 2) partages
+   *   entre eux, une image stereo dans chaque note ; OFF au depart ;
+   * - GLUE : la colle du bus de l'ARP, un compresseur doux puis un arrondi des cretes ; la meme sonie, plus dense ;
+   * - DLY TIME : le temps du DELAY, de la croche a la blanche (3/16, la croche pointee d'avant, au depart) ;
+   * - TAPE : le DELAY passe par une bande : pleurage et scintillement, saturation et aigus qui s'eteignent a chaque
+   *   repetition ; OFF : le delai net d'avant.
+   */
+  { id: 'stack', label: 'STACK', aria: 'Stack: each oscillator doubled or tripled and detuned around the note, off or 3 to 30 cents', section: 'tweak', def: 0, legacy: 0 },
+  { id: 'wide', label: 'WIDE', aria: 'Wide: a left and a right filter, the stacked oscillators shared between them, a stereo image inside every note', section: 'tweak', def: 0, legacy: 0 },
+  { id: 'glue', label: 'GLUE', aria: 'Glue: a gentle bus compressor and soft clipper on the synth, denser at the same loudness', section: 'tweak', def: 0.35, legacy: 0 },
+  { id: 'dlyTime', label: 'DLY TIME', aria: 'Delay time: eighth, dotted eighth, quarter, dotted quarter or half note', section: 'tweak', def: 0.25, legacy: 0.25, steps: DLY_TIMES },
+  { id: 'tape', label: 'TAPE', aria: 'Tape: the delay runs through a tape, wow and flutter, saturation and darker repeats; off is the clean delay', section: 'tweak', def: 0.3, legacy: 0 },
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
@@ -324,6 +353,15 @@ export const phaseStart = (v: number): number => (v < PHASE_FREE ? -1 : (v - PHA
 /** SIDECHAIN : OFF sous 0.02, puis la baisse au coup du kick, jusqu'a 24 dB. */
 export const DUCK_OFF = 0.02;
 export const duckDepthDb = (v: number): number => (v < DUCK_OFF ? 0 : 24 * v);
+
+/** STACK (2026-10-22) : OFF sous 0.02, puis l'ecart des exemplaires, 3 a 30 cents. */
+export const STACK_MIN = 0.02;
+export const stackCents = (v: number): number => (v < STACK_MIN ? 0 : 3 + (27 * (v - STACK_MIN)) / (1 - STACK_MIN));
+/** WIDE, GLUE et TAPE (2026-10-22) : OFF sous 0.02 (le son d'avant), puis leur part, 0 a 1. */
+export const FX_OFF = 0.02;
+export const fxAmount = (v: number): number => (v < FX_OFF ? 0 : v);
+/** DLY TIME (2026-10-22) : le temps du DELAY en doubles croches (2, 3, 4, 6 ou 8). */
+export const delaySixteenths = (v: number): number => DLY_SIXTEENTHS[stepIndex('dlyTime', v)];
 
 /** BASS MONO : OFF sous 0.04, puis 40 a 300 Hz (exponentiel). */
 export const monoLowHz = (v: number): number => (v < 0.04 ? 0 : 40 * Math.pow(7.5, (v - 0.04) / 0.96));
@@ -551,6 +589,10 @@ export interface EngineParams {
   sync: number;
   /** ACC FILTER (2026-10-21) : la part de l'accent qui passe au filtre, 0 a 1 (0 : le niveau seul) */
   accFlt: number;
+  /** 2026-10-22 : STACK (l'ecart des exemplaires, en cents ; 0 : un seul), WIDE et GLUE (0 a 1 ; 0 : contourne) */
+  stack: number;
+  wide: number;
+  glue: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -593,6 +635,9 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     keyTrack: v.keyTrack,
     sync: stepIndex('sync', v.sync),
     accFlt: v.accFlt,
+    stack: stackCents(v.stack),
+    wide: fxAmount(v.wide),
+    glue: fxAmount(v.glue),
   };
 }
 
@@ -601,7 +646,7 @@ export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
   // SUB OCT : "SUB -2 OCT" (pas "SUB OCT -2 OCT")
   if (id === 'subOct') return `SUB ${voyValueText(id, v)}`;
-  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck') return `${k.label} ${voyValueText(id, v)}`;
+  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack' || id === 'wide' || id === 'glue' || id === 'tape') return `${k.label} ${voyValueText(id, v)}`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
@@ -614,6 +659,8 @@ export function voyValueText(id: VoyKnobId, v: number): string {
   if (id === 'phase') return v < PHASE_FREE ? 'FREE' : `${Math.round(phaseStart(v) * 360)} DEG`;
   if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
   if (id === 'duck') return v < DUCK_OFF ? 'OFF' : `-${Math.round(duckDepthDb(v))} DB`;
+  if (id === 'stack') return v < STACK_MIN ? 'OFF' : `${Math.round(stackCents(v))} CT`;
+  if (id === 'wide' || id === 'glue' || id === 'tape') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100)} %`;
   if (id === 'subOct') return `${SUB_OCTS[stepIndex('subOct', v)]} OCT`;
   if (id === 'fine1' || id === 'fine2') {
     const c = Math.round(fineCents(v));

@@ -16,6 +16,9 @@
  * carte, en trois groupes (voyager/theme.ts, la zone et les places). Les
  * cibles du picking (vk-<id>, comme ceux de la face) ne repondent que capot
  * ouvert (rig.ts, comme les puces avant elles).
+ * Depuis le 2026-10-22 (audit P8, P9, P10) : quinze reglages, STACK, WIDE,
+ * GLUE, DLY TIME et TAPE en plus, dans quatre groupes (OSCILLATORS, OUTPUT,
+ * PERFORMANCE, DELAY ; voyager/theme.ts).
  */
 
 import type { HotspotDef } from '../scene/hit';

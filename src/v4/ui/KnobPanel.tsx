@@ -103,9 +103,11 @@ const ARP_GROUPS: readonly Group[] = [
   { id: 'feg', label: 'FILTER EG', dials: [v('fA', 'ATTACK'), v('fD', 'DECAY'), v('fS', 'SUSTAIN'), v('fR', 'RELEASE')] },
   { id: 'aeg', label: 'AMP EG', dials: [v('aA', 'ATTACK'), v('aD', 'DECAY'), v('aS', 'SUSTAIN'), v('aR', 'RELEASE')] },
   { id: 'mod', label: 'MOD', dials: [v('lfoRate', 'SPEED'), v('lfoShape', 'SHAPE'), v('lfoDest', 'TARGET'), v('lfoAmt', 'DEPTH')] },
-  { id: 'fx', label: 'FX', dials: [v('dist', 'OVERDRIVE'), v('chorus', 'CHORUS'), v('delay', 'DELAY'), v('reverb', 'REVERB')] },
+  // DLY TIME et TAPE (2026-10-22, TWEAKS de la carte) a cote de DELAY : au telephone, ce qui regle le delai est ensemble
+  { id: 'fx', label: 'FX', dials: [v('dist', 'OVERDRIVE'), v('chorus', 'CHORUS'), v('delay', 'DELAY'), v('reverb', 'REVERB'), v('dlyTime', 'DLY TIME'), v('tape', 'TAPE')] },
   { id: 'arp', label: 'ARP', dials: [v('rate', 'RATE'), v('mode', 'MODE'), v('range', 'RANGE'), v('notes', 'NOTES'), v('gate', 'GATE'), v('octave', 'OCTAVE'), v('glide', 'GLIDE')] },
-  { id: 'tweaks', label: 'TWEAKS', dials: [v('phase', 'PHASE'), v('drift', 'DRIFT'), v('width', 'WIDTH'), v('monoLow', 'BASS MONO'), v('keyTrack', 'KEY TRACK'), v('accent', 'ACCENT'), v('accFlt', 'ACC FILTER'), v('sync', 'SYNC'), v('duck', 'SIDECHAIN'), v('chord', 'CHORD')] },
+  // STACK, WIDE et GLUE (2026-10-22) en tete : les trois qui changent le plus le son
+  { id: 'tweaks', label: 'TWEAKS', dials: [v('stack', 'STACK'), v('wide', 'WIDE'), v('glue', 'GLUE'), v('phase', 'PHASE'), v('drift', 'DRIFT'), v('width', 'WIDTH'), v('monoLow', 'BASS MONO'), v('keyTrack', 'KEY TRACK'), v('accent', 'ACCENT'), v('accFlt', 'ACC FILTER'), v('sync', 'SYNC'), v('duck', 'SIDECHAIN'), v('chord', 'CHORD')] },
 ];
 
 /** PAGES (id 'voice', celui de l'ancien VOICE FX : l'onglet retenu reste valable) et MASTER. */

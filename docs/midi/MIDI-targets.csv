@@ -468,6 +468,11 @@ voy:knob:accFlt,voy,MM-ARP,TWEAK ACC FILTER,value,,
 voy:knob:sync,voy,MM-ARP,TWEAK SYNC,value,2,
 voy:knob:duck,voy,MM-ARP,TWEAK SIDECHAIN,value,,
 voy:knob:chord,voy,MM-ARP,TWEAK CHORD,value,5,
+voy:knob:stack,voy,MM-ARP,TWEAK STACK,value,,
+voy:knob:wide,voy,MM-ARP,TWEAK WIDE,value,,
+voy:knob:glue,voy,MM-ARP,TWEAK GLUE,value,,
+voy:knob:dlyTime,voy,MM-ARP,TWEAK DLY TIME,value,5,
+voy:knob:tape,voy,MM-ARP,TWEAK TAPE,value,,
 voy:pad:0,voy,MM-ARP,CHORD F#m,press,,ARP LIVE
 voy:pad:1,voy,MM-ARP,CHORD D,press,,ARP LIVE
 voy:pad:2,voy,MM-ARP,CHORD E,press,,ARP LIVE

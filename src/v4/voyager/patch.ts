@@ -32,11 +32,12 @@ const KEY = 'mm.v4.voyager.preset';
  */
 const ADDED_IDS: readonly VoyKnobId[] = ['sub', 'subOct', 'subWave'];
 /**
- * Les potards ajoutes ensuite (ACC FILTER, 2026-10-21), une seconde rangee marquee 'v2' : elle ne s'ajoute que s'ils
- * quittent leur valeur d'heritage (params.ts legacy : celle d'un son garde avant eux, qui la prend a la lecture) ; une
- * empreinte gardee avant eux reste valable, la rangee des SUB aussi.
+ * Les potards ajoutes ensuite (ACC FILTER, 2026-10-21 ; STACK, WIDE, GLUE, DLY TIME et TAPE, 2026-10-22, avant toute
+ * mise en ligne de cette rangee), une seconde rangee marquee 'v2' : elle ne s'ajoute que s'ils quittent leur valeur
+ * d'heritage (params.ts legacy : celle d'un son garde avant eux, qui la prend a la lecture) ; une empreinte gardee
+ * avant eux reste valable, la rangee des SUB aussi.
  */
-const ADDED_V2: readonly VoyKnobId[] = ['accFlt'];
+const ADDED_V2: readonly VoyKnobId[] = ['accFlt', 'stack', 'wide', 'glue', 'dlyTime', 'tape'];
 const heir = (id: VoyKnobId): number => voyKnob(id).legacy ?? voyParams.def(id);
 /**
  * Les ON des oscillateurs (on1 apres FINE 1, on2 apres FINE 2), retires le 2026-10-11 (Mika : "si on veut pas les osc

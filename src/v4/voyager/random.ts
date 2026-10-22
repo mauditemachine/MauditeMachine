@@ -129,6 +129,13 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     subWave: weighted(rnd, [0.55, 0.15, 0.3]),
     // ACC FILTER (2026-10-21, tire apres le SUB) : les accents ouvrent un peu le filtre
     accFlt: between(rnd, 0.35, 0.65),
+    // 2026-10-22 (tires en dernier) : STACK et WIDE une fois sur trois, un peu de GLUE, DLY TIME surtout en croche
+    // pointee, TAPE six fois sur dix
+    stack: sometimes(rnd, 0.67, 0.15, 0.45),
+    wide: sometimes(rnd, 0.67, 0.25, 0.6),
+    glue: between(rnd, 0.25, 0.5),
+    dlyTime: weighted(rnd, [0.15, 0.5, 0.15, 0.15, 0.05]),
+    tape: sometimes(rnd, 0.4, 0.15, 0.55),
   };
 }
 
@@ -266,6 +273,10 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         sync: 0,
         // ACC FILTER (2026-10-21) : la basse claque sur ses accents
         accFlt: between(rnd, 0.5, 0.8),
+        // 2026-10-22 : une basse droite et au centre, collee
+        stack: 0,
+        wide: 0,
+        glue: between(rnd, 0.35, 0.6),
       },
       seq: [...pickOf(rnd, BASSLINES)],
       prog: pickOf(rnd, SHORT_PROGS),
@@ -317,6 +328,10 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         sync: 0,
         // ACC FILTER (2026-10-21) : l'accent de la 303, au filtre
         accFlt: between(rnd, 0.8, 1),
+        // 2026-10-22 : la 303 seule au centre, tassee
+        stack: 0,
+        wide: 0,
+        glue: between(rnd, 0.35, 0.6),
       },
       seq: acidLine(rnd),
       prog: pickOf(rnd, SHORT_PROGS),
@@ -362,6 +377,8 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         drift: between(rnd, 0.4, 0.7),
         width: between(rnd, 0.6, 0.9),
         accent: between(rnd, 0.4, 0.7),
+        // 2026-10-22 : WIDE une fois sur deux
+        wide: sometimes(rnd, 0.5, 0.3, 0.7),
       },
       seq: null,
       prog: null,
@@ -407,6 +424,9 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         drift: between(rnd, 0.4, 0.8),
         width: between(rnd, 0.4, 0.7),
         sync: chance(rnd, 0.35) ? 1 : 0,
+        // 2026-10-22 : le lead empile une fois sur deux (supersaw), large
+        stack: sometimes(rnd, 0.5, 0.2, 0.5),
+        wide: between(rnd, 0.2, 0.5),
       },
       seq: null,
       prog: null,
@@ -447,6 +467,9 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         drift: between(rnd, 0.5, 0.9),
         width: between(rnd, 0.5, 0.8),
         sync: chance(rnd, 0.25) ? 1 : 0,
+        // 2026-10-22 : une bande usee, souvent en noire pointee
+        tape: between(rnd, 0.35, 0.75),
+        dlyTime: weighted(rnd, [0.05, 0.4, 0.15, 0.35, 0.05]),
       },
       seq: null,
       prog: pickOf(rnd, SHORT_PROGS),

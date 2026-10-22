@@ -774,11 +774,20 @@ export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
 /** La revision de la carte : celle de son modele (rig.ts, MM-ARP R1.0), dans le cartouche des TWEAKS (2026-10-08). */
 const VOY_REV = 'REV 1.0 / 2026';
 
+/**
+ * 2026-10-22 (audit P8, P9, P10 : STACK, WIDE, GLUE, DLY TIME, TAPE) : quinze reglages. Desktop : la zone prend la
+ * largeur de celle du MM-BASS (les deux petites puces des cotes s'effacent, comme sur lui) ; en haut OSCILLATORS (PHASE,
+ * DRIFT, STACK, la glissiere SYNC) et OUTPUT (WIDTH, WIDE, BASS MONO, GLUE, SIDECHAIN), en bas PERFORMANCE, DELAY
+ * (DLY TIME, TAPE) et le cartouche. Portrait : cinq rangees, OSCILLATORS sur deux (STACK et WIDE dessous), puis OUTPUT
+ * (GLUE au bout), PERFORMANCE et DELAY ; le cartouche, SCOPE et INFOS montent en tete.
+ */
 const VT = PORTRAIT
   ? (() => {
       // Les rangees, et les cadres : 1.02 au-dessus d'une rangee (le titre du groupe, puis le nom), 0.66 dessous
-      const R = [-1.22, 0.78, 2.78];
+      // Serrees (2026-10-22) : cinq rangees tiennent entre le cartouche et le bas de la carte
+      const R = [-2.45, -0.93, 0.9, 2.73, 4.56];
       const C = [-2.15, 0, 2.15];
+      const Q = [-2.45, -0.95, 0.55, 2.3];
       return {
         dims: { cx: 0, cz: 0, w: 6.6, d: 10.6 },
         cellW: 2.05,
@@ -786,56 +795,68 @@ const VT = PORTRAIT
           phase: [C[0], R[0]],
           drift: [C[1], R[0]],
           sync: [C[2], R[0]],
-          width: [C[0], R[1]],
-          monoLow: [C[1], R[1]],
-          duck: [C[2], R[1]],
+          stack: [C[0], R[1]],
+          wide: [C[1], R[1]],
+          width: [Q[0], R[2]],
+          monoLow: [Q[1], R[2]],
+          glue: [Q[2], R[2]],
+          duck: [Q[3], R[2]],
           // ACC FILTER (2026-10-21) : PERFORMANCE passe a quatre, CHORD reste au bout
-          keyTrack: [-2.45, R[2]],
-          accent: [-0.95, R[2]],
-          accFlt: [0.55, R[2]],
-          chord: [C[2] + 0.15, R[2]],
+          keyTrack: [Q[0], R[3]],
+          accent: [Q[1], R[3]],
+          accFlt: [Q[2], R[3]],
+          chord: [C[2] + 0.15, R[3]],
+          dlyTime: [C[0], R[4]],
+          tape: [C[1], R[4]],
         } as Partial<Record<VoyKnobId, readonly [number, number]>>,
         groups: [
-          { title: 'OSCILLATORS', x0: -3.15, z0: R[0] - 1.02, x1: 3.15, z1: R[0] + 0.66, accent: true },
-          { title: 'OUTPUT', x0: -3.15, z0: R[1] - 1.02, x1: 3.15, z1: R[1] + 0.66 },
-          { title: 'PERFORMANCE', x0: -3.15, z0: R[2] - 1.02, x1: 3.15, z1: R[2] + 0.66 },
+          { title: 'OSCILLATORS', x0: -3.15, z0: R[0] - 1.02, x1: 3.15, z1: R[1] + 0.66, accent: true },
+          { title: 'OUTPUT', x0: -3.15, z0: R[2] - 1.02, x1: 3.15, z1: R[2] + 0.66 },
+          { title: 'PERFORMANCE', x0: -3.15, z0: R[3] - 1.02, x1: 3.15, z1: R[3] + 0.66 },
+          { title: 'DELAY', x0: -3.15, z0: R[4] - 1.02, x1: 3.15, z1: R[4] + 0.66 },
         ],
         // Le cartouche, puis SCOPE et INFOS a sa droite (2026-10-08, la revue : INFOS dans l'OPEN) ; CLOSE en bas de l'ecran (ui/PcbClose.tsx)
-        title: { x0: -3.15, z0: -3.44, x1: -0.45, z1: -2.59, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV },
-        scope: { x: 0.5, z: -3.01, w: 1.5, d: 0.5, y: 0.01 },
-        infos: { x: 2.4, z: -3.01, w: 1.5, d: 0.5, y: 0.01 },
-        close: { x: 2.4, z: -3.01, w: 1.5, d: 0.5, y: 0.01 },
+        title: { x0: -3.15, z0: -4.45, x1: -0.45, z1: -3.6, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV },
+        scope: { x: 0.5, z: -4.02, w: 1.5, d: 0.5, y: 0.01 },
+        infos: { x: 2.4, z: -4.02, w: 1.5, d: 0.5, y: 0.01 },
+        close: { x: 2.4, z: -4.02, w: 1.5, d: 0.5, y: 0.01 },
       };
     })()
   : (() => {
       const A = -0.66;
       const B = 0.92;
       return {
-        dims: { cx: 0, cz: 1.25, w: 8.4, d: 3.4 },
-        cellW: 1.2,
+        dims: { cx: 0, cz: 1.25, w: 10.2, d: 3.4 },
+        cellW: 1.05,
         at: {
-          phase: [-3.4, A],
-          drift: [-2.15, A],
-          sync: [-0.85, A],
-          width: [0.75, A],
-          monoLow: [2.0, A],
-          duck: [3.3, A],
-          // ACC FILTER (2026-10-21) : un quatrieme reglage dans PERFORMANCE, les autres resserres, CHORD au bout
-          keyTrack: [-3.4, B],
-          accent: [-2.35, B],
-          accFlt: [-1.3, B],
-          chord: [0.05, B],
+          phase: [-4.4, A],
+          drift: [-3.35, A],
+          stack: [-2.3, A],
+          sync: [-1.2, A],
+          width: [0.2, A],
+          wide: [1.25, A],
+          monoLow: [2.3, A],
+          glue: [3.35, A],
+          duck: [4.4, A],
+          // ACC FILTER (2026-10-21) : un quatrieme reglage dans PERFORMANCE, CHORD au bout
+          keyTrack: [-4.4, B],
+          accent: [-3.35, B],
+          accFlt: [-2.3, B],
+          chord: [-0.95, B],
+          dlyTime: [0.35, B],
+          tape: [1.4, B],
         } as Partial<Record<VoyKnobId, readonly [number, number]>>,
-        // PERFORMANCE s'arrete apres CHORD : le cartouche s'elargit, SCOPE, INFOS et CLOSE tiennent dessous (2026-10-08)
+        // PERFORMANCE et DELAY, puis le cartouche ; SCOPE, INFOS et CLOSE tiennent dessous (2026-10-08)
         groups: [
-          { title: 'OSCILLATORS', x0: -4.0, z0: A - 0.62, x1: -0.12, z1: A + 0.52, accent: true },
-          { title: 'OUTPUT', x0: 0.12, z0: A - 0.62, x1: 4.0, z1: A + 0.52 },
-          { title: 'PERFORMANCE', x0: -4.0, z0: B - 0.62, x1: 0.8, z1: B + 0.52 },
+          { title: 'OSCILLATORS', x0: -4.95, z0: A - 0.62, x1: -0.55, z1: A + 0.52, accent: true },
+          { title: 'OUTPUT', x0: -0.35, z0: A - 0.62, x1: 4.95, z1: A + 0.52 },
+          { title: 'PERFORMANCE', x0: -4.95, z0: B - 0.62, x1: -0.25, z1: B + 0.52 },
+          { title: 'DELAY', x0: -0.05, z0: B - 0.62, x1: 1.95, z1: B + 0.52 },
         ],
-        title: { x0: 0.95, z0: B - 0.62, x1: 4.0, z1: B - 0.05, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV },
-        scope: { x: 0.95 + 0.45, z: B + 0.2, w: 0.9, d: 0.25, y: 0.01 },
-        infos: { x: (0.95 + 4.0) / 2, z: B + 0.2, w: 0.9, d: 0.25, y: 0.01 },
-        close: { x: 4.0 - 0.45, z: B + 0.2, w: 0.9, d: 0.25, y: 0.01 },
+        title: { x0: 2.15, z0: B - 0.62, x1: 4.95, z1: B - 0.05, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV },
+        scope: { x: 2.15 + 0.42, z: B + 0.2, w: 0.84, d: 0.25, y: 0.01 },
+        infos: { x: (2.15 + 4.95) / 2, z: B + 0.2, w: 0.84, d: 0.25, y: 0.01 },
+        close: { x: 4.95 - 0.42, z: B + 0.2, w: 0.84, d: 0.25, y: 0.01 },
       };
     })();
 
@@ -892,6 +913,11 @@ export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]
   keyTrack: ['0', 'FULL'],
   accent: ['FLAT', 'HARD'],
   accFlt: ['LEVEL', 'FILTER'],
+  stack: ['OFF', '30 CT'],
+  wide: ['OFF', 'FULL'],
+  glue: ['OFF', 'TIGHT'],
+  dlyTime: ['1/8', '1/2'],
+  tape: ['CLEAN', 'WORN'],
 };
 
 /** La place d'un TWEAK sur la carte (null : pas un TWEAK) ; SYNC et CHORD : des commutateurs (leurs crans). */

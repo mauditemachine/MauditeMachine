@@ -209,7 +209,8 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     text: "Le chorus du Roland Juno-106, refait d'après son schéma, un bouton poussoir comme sur le Juno : chaque appui passe de OFF à I, puis II, puis revient à OFF ; la LED allumée dit le mode. Deux lignes à retard ondulent en sens contraire, une à gauche, une à droite, mêlées au son direct : le son s'ouvre en stéréo et chatoie. I : l'ondulation lente (environ une seconde par aller, deux par cycle), large et douce, le son des nappes du Juno. II : plus rapide (un peu plus d'une demi-seconde par aller) : sur la même course, la hauteur ondule davantage, le son tangue. OFF : le son direct, sans chorus.",
     tip: "I sur presque tout ; II sur des accords tenus ou un arpège italo ; OFF pour une basse qui tape droit. BASS MONO (sous le capot) garde les graves hors du chorus.",
   },
-  delay: { title: 'DELAY', text: "Un délai ping-pong en croche pointée calé sur le tempo (gauche, droite, gauche...) ; le potard monte l'envoi et la réinjection (0,35 à 0,68), filtrée dans la boucle.", tip: "La croche pointée contre des doubles croches : l'arpège se dédouble en contre-chant, signature de l'indie dance." },
+  // DLY TIME et TAPE (2026-10-22) : le temps et la bande, sous le capot
+  delay: { title: 'DELAY', text: "Un délai ping-pong calé sur le tempo (gauche, droite, gauche...), au temps de DLY TIME (la croche pointée au départ) ; le potard monte l'envoi et la réinjection (0,35 à 0,68), filtrée dans la boucle. Sous le capot, TAPE le fait passer par une bande.", tip: "La croche pointée contre des doubles croches : l'arpège se dédouble en contre-chant, signature de l'indie dance." },
   reverb: { title: 'REVERB', text: "L'envoi vers la réverbe partagée avec le MM-RYTM. Le volume est rattrapé quand elle monte.", tip: "Peu de réverbe sur un arpège rapide : il reste net ; plus sur 1/8 lent." },
   volume: { title: 'VOLUME', text: "Le volume du MM-ARP (au carré du potard), réglé 3 à 5 dB sous le kick du MM-RYTM au départ.", tip: "Le kick reste la référence : règle l'arpège à l'oreille contre lui, pas seul." },
 
@@ -224,6 +225,32 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   sync: { title: 'SYNC', text: "OSC 2 repart à chaque cycle d'OSC 1 (hard sync) : il ne bat plus contre lui, son accord devient un timbre qui crie quand RANGE 2 ou SEMI 2 monte.", tip: "SYNC avec MOD sur PITCH : le cri acide sans quitter la note." },
   duck: { title: 'SIDECHAIN', text: "La sortie du MM-ARP, effets compris, s'efface à chaque kick du MM-RYTM et revient avec lui, selon l'enveloppe mesurée du kick joué (son, TUNE, DECAY, vélocité) : jusqu'à -24 dB au coup.", tip: "-6 à -10 dB : le pompage de l'indie dance, sans compresseur." },
   chord: { title: 'CHORD', text: "Les notes de chaque accord : BASIC (la triade depuis sa racine, l'arpège d'origine), TRIAD, 7TH, 9TH ou 11TH : les accords posés dans la même octave, chacun au plus près du précédent, les extensions au-dessus.", tip: "7TH ou 9TH en UP/DN : les arpèges de la dark disco qui sonnent riches sans effort." },
+  // STACK, WIDE, GLUE, DLY TIME, TAPE (2026-10-22, audit P8, P9, P10)
+  stack: {
+    title: 'STACK',
+    text: "Chaque oscillateur en trois exemplaires (deux au téléphone), désaccordés de part et d'autre de la note, chacun avec sa phase : l'unisson d'un Prophet, la supersaw d'un JP-8000. Le volume ne bouge pas, le son s'épaissit. OFF : un seul exemplaire, le son d'origine ; puis de 3 cents d'écart (un léger chorus) à 30 cents (une nappe large). Le SUB et le bruit restent seuls, au centre.",
+    tip: "STACK vers 3 avec WIDE : un arpège d'accords qui remplit l'espace sans un seul effet de plus.",
+  },
+  wide: {
+    title: 'WIDE',
+    text: "Un filtre pour la gauche, un pour la droite : les exemplaires de STACK (sans STACK, OSC 1 et OSC 2) se partagent les deux côtés avant le filtre, chaque note devient stéréo de l'intérieur, au même volume. WIDTH, lui, place la note entière. OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
+    tip: "Garde BASS MONO vers 100 Hz avec WIDE : la largeur en haut, le sub au centre.",
+  },
+  glue: {
+    title: 'GLUE',
+    text: "La colle du MM-ARP : un compresseur de bus doux (2:1, lié en stéréo, rattrapage automatique) resserre les écarts d'une note et d'un accord à l'autre, puis un arrondi des crêtes (une saturation douce, sans repliement) les tasse. Le volume reste le même à 1 dB près, le son devient plus dense et plus collé. OFF : le son d'origine ; 3 à 5 : la colle d'une console ; 10 : bien tassé.",
+    tip: "Monte GLUE plutôt que VOLUME quand l'arpège manque de présence contre le kick.",
+  },
+  dlyTime: {
+    title: 'DLY TIME',
+    text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos, comme une bande.",
+    tip: "3/8 sur un arpège en 1/16 : des contre-chants qui tombent à côté des notes, façon dub.",
+  },
+  tape: {
+    title: 'TAPE',
+    text: "Le DELAY passe par une bande : la tête pleure et scintille (la hauteur des échos ondule un peu), chaque passage sature doucement et perd ses graves et ses aigus. Plus TAPE monte, plus la bande est usée. OFF : le délai net d'origine.",
+    tip: "TAPE haut avec un DELAY vers 50 % : l'écho d'un Space Echo qui s'éteint en se salissant.",
+  },
 
   /* ---------- les touches et l'ecran ---------- */
   pad: { title: 'CHORD PADS', text: "Huit accords de fa dièse mineur, la tonalité de Mika : un pad touché entre dans la progression (un accord par mesure, dans l'ordre des tapes, huit au plus), retouché il en sort. Le premier lance l'arpège. Toutes les notes sont dans la gamme. Touches A à K.", tip: "F#m, D, A, E : la progression qui marche à tous les coups en indie dance." },
@@ -231,7 +258,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   clear: { title: 'CLEAR', text: "Vide la progression, arrête l'arpège et met les effets à 0 (OVERDRIVE, CHORUS, DELAY, REVERB) : le son repart à sec, VOLUME et le son du synthé restent. Avec EDIT ouvert, il rend la suite des potards (tes notes restent en mémoire, les effets ne bougent pas).", tip: "CLEAR puis un seul pad : le drop sur un accord, à sec." },
   random: { title: 'RANDOM', text: "Un style au hasard (BASSLINE, ACID, PLUCK, LEAD, DARK, ARP ; jamais le même deux fois de suite) et tout le patch qui lui ressemble, VOLUME gardé ; une progression toute faite.", tip: "Appuie jusqu'à ce qu'un son t'accroche, puis garde-le en preset (touche l'écran, SAVE)." },
   edit: { title: 'EDIT', text: "Ouvre la suite de l'arpège : au desktop un écran monte à la place des pads, au téléphone un panneau s'ouvre en bas. Dessine tes notes, touche le nom d'une note pour un silence. Touche E.", tip: "Copie la suite des potards puis déplace deux ou trois notes : une mélodie à toi en dix secondes." },
-  open: { title: 'OPEN', text: "Soulève le capot : sous lui, la plaque des TWEAKS (PHASE, DRIFT, WIDTH, BASS MONO, KEY TRACK, ACCENT, ACC FILTER, SYNC, SIDECHAIN, CHORD) et la touche SCOPE. Touche O.", tip: "Les TWEAKS se règlent une fois pour toutes : SIDECHAIN et BASS MONO d'abord." },
+  open: { title: 'OPEN', text: "Soulève le capot : sous lui, les TWEAKS soudés sur la carte (PHASE, DRIFT, STACK, SYNC, WIDTH, WIDE, BASS MONO, GLUE, SIDECHAIN, KEY TRACK, ACCENT, ACC FILTER, CHORD, DLY TIME, TAPE) et la touche SCOPE. Touche O.", tip: "Les TWEAKS se règlent une fois pour toutes : SIDECHAIN et BASS MONO d'abord, puis GLUE." },
   screen: { title: 'MM-ARP', text: "L'écran montre l'arpège : la lecture, l'accord qui joue et sa clé Camelot, le tempo, l'échelle des notes (la tête de lecture, la durée de chaque note), la progression des huit pads, et le dernier potard touché avec sa valeur de 0 à 127. Le toucher ouvre les presets.", tip: "Garde un œil sur la bande des accords : l'accord en négatif est celui qui sonne." },
   presets: { title: 'PRESETS', text: "Le mode presets sur l'écran : à gauche le précédent, à droite le suivant (rechargé aussitôt), en bas SAVE, NAME, DEL (deux fois) et EXIT. Les presets d'usine suivent les tiens.", tip: "SAVE avant d'expérimenter : tu reviens d'une tape." },
   seq: { title: 'SEQUENCE', text: "La suite de l'arpège, une colonne par pas (1 à 16) : glisse pour dessiner les notes (les pas traversés suivent la ligne), touche un nom pour un silence, STEPS - et + pour la longueur. Les filets marquent les notes de l'accord.", tip: "Garde les notes sur les filets : la suite suit chaque accord de la progression sans sonner faux." },

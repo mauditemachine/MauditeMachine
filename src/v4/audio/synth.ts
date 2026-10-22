@@ -26,8 +26,8 @@
  */
 
 import workletUrl from './moog.worklet.js?url';
-import { chorusMode, duckDepthDb, engineParams, monoLowHz, voyParams, type VoyValues } from '../voyager/params';
-import { buildJunoChorus, loadChorus, type ChorusStage } from './chorus';
+import { chorusMode, delaySixteenths, duckDepthDb, engineParams, fxAmount, monoLowHz, voyParams, type VoyValues } from '../voyager/params';
+import { buildJunoChorus, loadChorus, tapeNode, type ChorusStage } from './chorus';
 import { setArpDuck, synthPort } from './drums';
 import { glide } from './glide';
 import { pattern } from './pattern';
@@ -45,6 +45,13 @@ const engineOs = (): number => (coarse() ? 2 : 4);
  * reel) : 12 sur ordinateur, 8 au telephone ; la neuvieme note y vole la voix la plus discrete.
  */
 const engineVoices = (): number => (coarse() ? 8 : 12);
+/**
+ * STACK (2026-10-22, audit P8) : trois exemplaires de chaque oscillateur sur ordinateur, deux au telephone (le calcul
+ * des oscillateurs double ou triple, celui du filtre non ; mesure : scripts/arp-bench.mjs --cpu).
+ */
+const engineStack = (): number => (coarse() ? 2 : 3);
+/** WIDE (2026-10-22) : quatre notes au plus avec leur filtre de droite au telephone (la cinquieme joue au centre de sa place), toutes sur ordinateur. */
+const engineWide = (): number => (coarse() ? 4 : 12);
 
 /**
  * VOLUME a 1 (gain au carre), et reprise de niveau : DELAY et REVERB
@@ -70,6 +77,13 @@ const REVERB_BOOST = 1.25;
  * bande (2026-10-21, audit F12 : 20 ms avant, les echos piaillaient quand on tournait TEMPO).
  */
 const PINGPONG = { steps: 3, fbMin: 0.35, fbMax: 0.68, wet: 0.8, lowpass: 4800, highpass: 260, maxS: 2, retimeS: 0.2 } as const;
+/**
+ * DLY TIME et TAPE (2026-10-22, audit P10) : le temps du DELAY est celui de DLY TIME (en doubles croches ; 3/16, la
+ * croche pointee de PINGPONG.steps, au depart et pour un son garde d'avant) ; TAPE au-dessus de 0 passe l'envoi du
+ * DELAY des DelayNode (le delai net) au delai a bande (audio/chorus.worklet.js 'mm-tape') : les echos deja partis
+ * finissent dans les DelayNode, les nouveaux vont sur la bande (l'envoi glisse en 20 ms d'un chemin a l'autre).
+ */
+const delayS = (p: Readonly<VoyValues>, bpm?: number): number => Math.min(PINGPONG.maxS, delaySixteenths(p.dlyTime) * (bpm ? 60 / bpm / 4 : stepOf()));
 /** BASS MONO coupe : la separation descend ici (rien d'audible dessous). */
 const MONO_OFF_HZ = 10;
 /** Butterworth (Q en dB pour les passe-bas et passe-haut du Web Audio) : deux en cascade font un Linkwitz-Riley. */
@@ -84,6 +98,14 @@ interface SynthGraph {
   delayFb: [GainNode, GainNode];
   delayL: DelayNode;
   delayR: DelayNode;
+  /** TAPE (2026-10-22) : l'envoi vers le delai a bande, le noeud (null tant que son module n'est pas la), sa sortie */
+  tapeSend: GainNode;
+  tape: AudioWorkletNode | null;
+  wet: GainNode;
+  /** le temps du DELAY pose (DLY TIME, tempo) */
+  delayAt: number;
+  /** un rendu hors ligne : son tempo (le delai s'y cale, 2026-10-22 ; avant, celui du motif de la page) */
+  bpm?: number;
   reverb: Send;
   /** BASS MONO : les quatre filtres de la separation, le gain du bas (le VOLUME) */
   split: BiquadFilterNode[];
@@ -104,7 +126,7 @@ let failures = 0;
 let retryAt = 0;
 let lastTry = 0;
 /** les voix et le surechantillonnage du moteur charge (debug) */
-let built = { voices: 0, os: 0 };
+let built = { voices: 0, os: 0, stack: 0 };
 /** notes envoyees avant que le moteur soit pret : parties a son arrivee (EARLY_MAX au plus, les plus recentes) */
 const early: { midi: number; time: number; gate: number; accent: number; from: number | null }[] = [];
 const EARLY_MAX = 64;
@@ -151,13 +173,12 @@ export interface SynthLfoProbe {
 const stepOf = (): number => 60 / pattern.get().bpm / 4;
 
 /** Le delay ping-pong du synthe : gauche, droite, gauche... en croche pointee. */
-function buildPingPong(c: BaseAudioContext, out: AudioNode): { send: GainNode; fb: [GainNode, GainNode]; l: DelayNode; r: DelayNode } {
+function buildPingPong(c: BaseAudioContext, out: AudioNode, t: number): { send: GainNode; fb: [GainNode, GainNode]; l: DelayNode; r: DelayNode; wet: GainNode } {
   const send = c.createGain();
   send.gain.value = 0;
   const hp = c.createBiquadFilter();
   hp.type = 'highpass';
   hp.frequency.value = PINGPONG.highpass;
-  const t = Math.min(PINGPONG.maxS, PINGPONG.steps * stepOf());
   const l = c.createDelay(PINGPONG.maxS);
   const r = c.createDelay(PINGPONG.maxS);
   l.delayTime.value = t;
@@ -188,7 +209,7 @@ function buildPingPong(c: BaseAudioContext, out: AudioNode): { send: GainNode; f
   wet.gain.value = PINGPONG.wet;
   merge.connect(wet);
   wet.connect(out);
-  return { send, fb: [fbL, fbR], l, r };
+  return { send, fb: [fbL, fbR], l, r, wet };
 }
 
 const butter = (c: BaseAudioContext, type: BiquadFilterType): BiquadFilterNode => {
@@ -199,7 +220,7 @@ const butter = (c: BaseAudioContext, type: BiquadFilterType): BiquadFilterNode =
   return f;
 };
 
-function build(c: BaseAudioContext, out: AudioNode, reverb: { attach(src: AudioNode): Send }, node: AudioWorkletNode): SynthGraph {
+function build(c: BaseAudioContext, out: AudioNode, reverb: { attach(src: AudioNode): Send }, node: AudioWorkletNode, bpm?: number): SynthGraph {
   const vol = c.createGain();
   vol.gain.value = 0;
   vol.connect(out);
@@ -223,15 +244,28 @@ function build(c: BaseAudioContext, out: AudioNode, reverb: { attach(src: AudioN
   lp1.connect(lp2);
   lp2.connect(low);
   low.connect(out);
-  const pp = buildPingPong(c, out);
+  const pp = buildPingPong(c, out, delayS(voyParams.get(), bpm));
   vol.connect(pp.send);
+  // TAPE (2026-10-22) : l'envoi vers la bande, a 0 tant qu'elle n'est pas la ou que TAPE est a 0
+  const tapeSend = c.createGain();
+  tapeSend.gain.value = 0;
+  vol.connect(tapeSend);
   const boost = c.createGain();
   boost.gain.value = REVERB_BOOST;
   vol.connect(boost);
-  const g: SynthGraph = { ctx: c, node, chorus, vol, delaySend: pp.send, delayFb: pp.fb, delayL: pp.l, delayR: pp.r, reverb: reverb.attach(boost), split: [hp1, hp2, lp1, lp2], low };
+  const g: SynthGraph = { ctx: c, node, chorus, vol, delaySend: pp.send, delayFb: pp.fb, delayL: pp.l, delayR: pp.r, tapeSend, tape: null, wet: pp.wet, delayAt: delayS(voyParams.get(), bpm), bpm, reverb: reverb.attach(boost), split: [hp1, hp2, lp1, lp2], low };
+  tapeNode(c, PINGPONG.maxS, (n) => {
+    g.tape = n;
+    tapeSend.connect(n);
+    n.connect(g.wet);
+    tapeTime(n).value = delayS(voyParams.get(), bpm);
+    applyFx(g, voyParams.get(), true);
+  });
   applyFx(g, voyParams.get(), true);
   return g;
 }
+
+const tapeTime = (n: AudioWorkletNode): AudioParam => n.parameters.get('time') as AudioParam;
 
 /** CHORUS, DELAY, REVERB, VOLUME et BASS MONO sur la chaine. */
 function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
@@ -239,6 +273,10 @@ function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
   g.chorus.set(chorusMode(p.chorus));
   g.reverb.set(p.reverb);
   const fb = PINGPONG.fbMin + (PINGPONG.fbMax - PINGPONG.fbMin) * p.delay;
+  // TAPE (2026-10-22) : l'envoi du DELAY va a la bande ou aux DelayNode, jamais aux deux
+  const tape = fxAmount(p.tape);
+  const onTape = tape > 0 && g.tape !== null;
+  const tp = g.tape?.parameters;
   const v = volGain(p);
   // Le bas : le meme VOLUME, au niveau du synthe sec (mesure hors ligne : le plus proche du son
   // d'avant ; le chorus creusait les graves vers 100 Hz, BASS MONO les rend)
@@ -251,16 +289,42 @@ function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
   if (now) {
     g.low.gain.value = low;
     g.vol.gain.value = v;
-    g.delaySend.gain.value = p.delay;
+    g.delaySend.gain.value = onTape ? 0 : p.delay;
+    g.tapeSend.gain.value = onTape ? p.delay : 0;
     g.delayFb[0].gain.value = fb;
     g.delayFb[1].gain.value = fb;
+    if (tp) {
+      (tp.get('fb') as AudioParam).value = fb;
+      (tp.get('tape') as AudioParam).value = tape;
+    }
   } else {
     glide(g.low.gain, low, g.ctx);
     glide(g.vol.gain, v, g.ctx);
-    glide(g.delaySend.gain, p.delay, g.ctx);
+    glide(g.delaySend.gain, onTape ? 0 : p.delay, g.ctx);
+    glide(g.tapeSend.gain, onTape ? p.delay : 0, g.ctx);
     glide(g.delayFb[0].gain, fb, g.ctx);
     glide(g.delayFb[1].gain, fb, g.ctx);
+    if (tp) {
+      glide(tp.get('fb') as AudioParam, fb, g.ctx);
+      glide(tp.get('tape') as AudioParam, tape, g.ctx);
+    }
   }
+  // DLY TIME (2026-10-22) : le temps des deux chemins, en glissant comme une bande (comme un changement de tempo)
+  const t = delayS(p, g.bpm);
+  if (now) {
+    g.delayL.delayTime.value = t;
+    g.delayR.delayTime.value = t;
+    if (g.tape) tapeTime(g.tape).value = t;
+    g.delayAt = t;
+  } else if (t !== g.delayAt) retimeAll(g, t);
+}
+
+/** Le temps du DELAY qui change (DLY TIME, le tempo) : les deux chemins y glissent sur PINGPONG.retimeS. */
+function retimeAll(g: SynthGraph, t: number): void {
+  g.delayAt = t;
+  retime(g.delayL.delayTime, t, g.ctx);
+  retime(g.delayR.delayTime, t, g.ctx);
+  if (g.tape) retime(tapeTime(g.tape), t, g.ctx);
 }
 
 /** Le gain de VOLUME apres le moteur (le sec et le bas de BASS MONO), DELAY et REVERB repris. */
@@ -284,11 +348,10 @@ voyParams.subscribe(applyDuck);
 applyDuck();
 
 /*
- * Tempo : le delay reste une croche pointee, le LFO suit. Le temps du delay seulement quand il change (une edition du
- * motif ne le refait plus), en glissant sur PINGPONG.retimeS depuis ou il en est (2026-10-21, audit F12).
+ * Tempo : le delay garde sa division (DLY TIME, 2026-10-22), le LFO suit. Le temps du delay seulement quand il change
+ * (une edition du motif ne le refait plus), en glissant sur PINGPONG.retimeS depuis ou il en est (2026-10-21, audit F12).
  */
 let lastBpm = pattern.get().bpm;
-let lastDelayS = Math.min(PINGPONG.maxS, PINGPONG.steps * stepOf());
 function retime(p: AudioParam, t: number, c: BaseAudioContext): void {
   const now = c.currentTime;
   p.cancelScheduledValues(now);
@@ -297,12 +360,8 @@ function retime(p: AudioParam, t: number, c: BaseAudioContext): void {
 }
 pattern.subscribe(() => {
   if (!sg) return;
-  const t = Math.min(PINGPONG.maxS, PINGPONG.steps * stepOf());
-  if (t !== lastDelayS) {
-    lastDelayS = t;
-    retime(sg.delayL.delayTime, t, sg.ctx);
-    retime(sg.delayR.delayTime, t, sg.ctx);
-  }
+  const t = delayS(voyParams.get());
+  if (t !== sg.delayAt) retimeAll(sg, t);
   const bpm = pattern.get().bpm;
   if (bpm !== lastBpm) {
     lastBpm = bpm;
@@ -343,9 +402,9 @@ export function prepareSynth(user = true): void {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [2],
-        processorOptions: { params: engineMsg(voyParams.get()), os: engineOs(), maxVoices: engineVoices() },
+        processorOptions: { params: engineMsg(voyParams.get()), os: engineOs(), maxVoices: engineVoices(), maxStack: engineStack(), wideVoices: engineWide() },
       });
-      built = { voices: engineVoices(), os: engineOs() };
+      built = { voices: engineVoices(), os: engineOs(), stack: engineStack() };
       node.port.onmessage = (e: MessageEvent) => {
         const m = e.data as { type?: string; id?: number } & SynthLfoProbe;
         if (m?.type !== 'probe' || typeof m.id !== 'number') return;
@@ -446,6 +505,12 @@ export interface SynthOfflineOpts {
   os?: 1 | 2 | 4;
   /** les voix du moteur (12 par defaut ; 8 : celles du telephone, 2026-10-21) */
   maxVoices?: number;
+  /** les exemplaires de STACK au plus (3 par defaut ; 2 : ceux du telephone, 2026-10-22) */
+  maxStack?: number;
+  /** les notes de WIDE au plus avec leur filtre de droite (12 par defaut ; 4 : le telephone, 2026-10-22) */
+  wideVoices?: number;
+  /** le hasard du moteur a graine (2026-10-22, audio/moog.worklet.js processorOptions.seed) */
+  seed?: number;
   /** tempo du LFO de MOD (celui du motif par defaut) */
   bpm?: number;
   /** MOD (2026-10-18) : les ancres du transport (synthBeat), connues au depart */
@@ -478,7 +543,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { params: engineMsg(o.sends === false ? { ...p, delay: 0, reverb: 0 } : p, o.bpm), notes: list, os: o.os ?? 4, maxVoices: o.maxVoices ?? 12, ...extra },
+    processorOptions: { params: engineMsg(o.sends === false ? { ...p, delay: 0, reverb: 0 } : p, o.bpm), notes: list, os: o.os ?? 4, maxVoices: o.maxVoices ?? 12, maxStack: o.maxStack ?? 3, wideVoices: o.wideVoices ?? 12, ...(Number.isFinite(o.seed) ? { seed: o.seed } : {}), ...extra },
   });
   if (extra.probe) {
     // Le LFO tel quel : droit a la sortie, sans chorus ni filtres de BASS MONO
@@ -487,7 +552,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
     return [buf.getChannelData(0).slice(), buf.getChannelData(1).slice()];
   }
   const noSend = { attach: () => ({ set: () => undefined, info: () => ({ value: 0, linked: false }) }) };
-  const g = build(oc, out, o.sends === false ? noSend : reverb, node);
+  const g = build(oc, out, o.sends === false ? noSend : reverb, node, o.bpm);
   applyFx(g, o.sends === false ? { ...p, delay: 0, reverb: 0 } : p, true);
   const buf = await oc.startRendering();
   return [buf.getChannelData(0).slice(), buf.getChannelData(1).slice()];
@@ -511,8 +576,13 @@ export const synthDebug = {
     return loading !== null;
   },
   /** les voix et le surechantillonnage du moteur charge (0 avant lui ; 2026-10-21 : 8 voix et x2 au telephone) */
-  get engine(): { voices: number; os: number } {
+  get engine(): { voices: number; os: number; stack: number } {
     return { ...built };
+  },
+  /** DLY TIME et TAPE (2026-10-22) : le temps pose, la bande chargee, les envois (net, bande) */
+  get delay(): { time: number; tape: boolean; send: number; tapeSend: number; tapeAmt: number } | null {
+    if (!sg) return null;
+    return { time: sg.delayAt, tape: sg.tape !== null, send: sg.delaySend.gain.value, tapeSend: sg.tapeSend.gain.value, tapeAmt: (sg.tape?.parameters.get('tape') as AudioParam | undefined)?.value ?? 0 };
   },
   get notes(): number {
     return notes;

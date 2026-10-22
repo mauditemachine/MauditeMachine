@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 22 octobre 2026 depuis le code du site (`npm run docs:midi`) : 641 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 22 octobre 2026 depuis le code du site (`npm run docs:midi`) : 646 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -1047,7 +1047,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:seq:voice:HT` | SEQ VOICE HT (SELECT, SILENT) | appui |  | RSEQ |
 | `rytm:seq:voice:CY` | SEQ VOICE CY (SELECT, SILENT) | appui |  | RSEQ |
 
-### MM-ARP (scope `voy`, 72 cibles)
+### MM-ARP (scope `voy`, 77 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1105,6 +1105,11 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:sync` | TWEAK SYNC | valeur 0 a 127 | 2 |  |
 | `voy:knob:duck` | TWEAK SIDECHAIN | valeur 0 a 127 |  |  |
 | `voy:knob:chord` | TWEAK CHORD | valeur 0 a 127 | 5 |  |
+| `voy:knob:stack` | TWEAK STACK | valeur 0 a 127 |  |  |
+| `voy:knob:wide` | TWEAK WIDE | valeur 0 a 127 |  |  |
+| `voy:knob:glue` | TWEAK GLUE | valeur 0 a 127 |  |  |
+| `voy:knob:dlyTime` | TWEAK DLY TIME | valeur 0 a 127 | 5 |  |
+| `voy:knob:tape` | TWEAK TAPE | valeur 0 a 127 |  |  |
 | `voy:pad:0` | CHORD F#m | appui |  | ARP, LIVE |
 | `voy:pad:1` | CHORD D | appui |  | ARP, LIVE |
 | `voy:pad:2` | CHORD E | appui |  | ARP, LIVE |

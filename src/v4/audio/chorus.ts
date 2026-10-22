@@ -69,6 +69,27 @@ export function loadChorus(c: BaseAudioContext): Promise<void> {
   return p;
 }
 
+/**
+ * TAPE du MM-ARP (2026-10-22, audit P10, audio/synth.ts) : le delai a bande du meme module ('mm-tape',
+ * audio/chorus.worklet.js), rendu a ready tout de suite si le module est la, sinon a son arrivee ; sans AudioWorklet,
+ * jamais (le delai net des DelayNode reste).
+ */
+export function tapeNode(c: BaseAudioContext, maxS: number, ready: (n: AudioWorkletNode) => void): void {
+  const make = (): void => {
+    try {
+      ready(new AudioWorkletNode(c, 'mm-tape', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'max', processorOptions: { maxS } }));
+    } catch {
+      /* pas de bande : le delai net reste */
+    }
+  };
+  if (chorusReady.has(c)) {
+    make();
+    return;
+  }
+  void loadChorus(c);
+  whenChorusReady(c, make);
+}
+
 /** Le noeud du chorus (mouille seul), ou null tant que son module n'est pas charge. */
 function chorusNode(c: BaseAudioContext, opts: Record<string, unknown>): AudioWorkletNode | null {
   if (!chorusReady.has(c)) return null;

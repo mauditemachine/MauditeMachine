@@ -459,67 +459,74 @@ const cents = (c: number): number => Math.round((0.5 + c / 100) * 1000) / 1000;
  * 2026-10-21 : OVERDRIVE ne monte plus le niveau (audio/moog.worklet.js OD_COMP) ; ACID, DARK DISCO, TECHNO et EBM,
  * qui en ont, remontent leur VOLUME d'autant (0.7, 0.67, 0.75 et 0.75 avant ; la meme sonie en chaine, a 0.2 dB pres,
  * EBM a 1 au bout de la course).
+ * 2026-10-22 (audit P8, P9, P10) : GLUE (3.5 au depart) et TAPE (3 au depart) sur tous, plus de GLUE sur ceux qui
+ * poussent (ACID, DARK DISCO, ROLLING, TECHNO, EBM, NIGHT DRIVE, ACID NIGHT), plus de bande sur ceux qui vivent de
+ * leur delai (DARK DISCO, MINIMAL, ROLLING, NIGHT DRIVE, HYPNO LOOP), un delai net pour ELECTRO et EBM ; WIDE sur les
+ * accords larges (INDIE DANCE, HOUSE, ITALO, INDIE PULSE), STACK sur INDIE DANCE (BASS MONO pour garder le bas au
+ * centre) et INDIE PULSE. VOLUME rattrape ce que GLUE et WIDE retirent en sonie (stereo, ponderee K, chaine complete :
+ * DARK DISCO 0.73, HOUSE 0.75, INDIE DANCE 0.71, INDIE PULSE 0.65, ITALO 0.72, NIGHT DRIVE 0.65 et ROLLING 0.79
+ * avant), la meme sonie a 0.3 dB pres, des cretes 1 a 2 dB plus basses.
  */
 const ARP: readonly ArpGenre[] = [
   {
     // Un second motif de 303 : trois notes qui tournent contre la mesure, tres resonant
     name: 'ACID',
     // ACC FILTER a fond (2026-10-21) : l'accent de la 303 ouvre le filtre ; les autres presets ont celui de depart (5)
-    knobs: { volume: 0.83, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.35, wave1: WAVE1.SAW, osc2: 0, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.74, envAmt: 0.75, fA: 0, fD: 0.18, fS: 0, fR: 0.15, aA: 0, aD: 0.22, aS: 0.3, aR: 0.15, glide: 0.12, dist: 0.2, chorus: CHORUS.OFF, delay: 0.28, reverb: 0.12, duck: 0.2, chord: CHORD.BASIC, accFlt: 1 },
+    knobs: { volume: 0.83, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.35, wave1: WAVE1.SAW, osc2: 0, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.74, envAmt: 0.75, fA: 0, fD: 0.18, fS: 0, fR: 0.15, aA: 0, aD: 0.22, aS: 0.3, aR: 0.15, glide: 0.12, dist: 0.2, chorus: CHORUS.OFF, delay: 0.28, reverb: 0.12, duck: 0.2, chord: CHORD.BASIC, accFlt: 1, glue: 0.45 },
     prog: [0],
   },
   {
     // L'arpege qui monte et descend sur deux octaves, scie et carre a peine desaccordes, delai pointe, chorus
     name: 'DARK DISCO',
-    knobs: { volume: 0.73, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.45, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine1: cents(-6), fine2: cents(6), osc2: 0.6, fmode: FMODE.LP12, cutoff: 0.42, res: 0.35, envAmt: 0.45, fD: 0.3, fS: 0.25, aD: 0.4, aS: 0.5, aR: 0.3, dist: 0.1, chorus: CHORUS.I, delay: 0.35, reverb: 0.3, duck: 0.3, chord: CHORD.TRIAD },
+    knobs: { volume: 0.75, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.45, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine1: cents(-6), fine2: cents(6), osc2: 0.6, fmode: FMODE.LP12, cutoff: 0.42, res: 0.35, envAmt: 0.45, fD: 0.3, fS: 0.25, aD: 0.4, aS: 0.5, aR: 0.3, dist: 0.1, chorus: CHORUS.I, delay: 0.35, reverb: 0.3, duck: 0.3, chord: CHORD.TRIAD, glue: 0.45, tape: 0.35 },
     prog: [0, 1, 2, 0],
   },
   {
     // En croches, large et chorusse, deux scies desaccordees, des accords enchaines au plus pres
     name: 'INDIE DANCE',
-    knobs: { volume: 0.71, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[2], gate: 0.55, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-10), fine2: cents(10), fmode: FMODE.LP12, cutoff: 0.55, res: 0.3, envAmt: 0.35, fD: 0.4, fS: 0.3, aA: 0.05, aD: 0.5, aS: 0.6, aR: 0.45, chorus: CHORUS.I, delay: 0.35, reverb: 0.4, duck: 0.35, chord: CHORD.TRIAD },
+    knobs: { volume: 0.74, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[2], gate: 0.55, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-10), fine2: cents(10), fmode: FMODE.LP12, cutoff: 0.55, res: 0.3, envAmt: 0.35, fD: 0.4, fS: 0.3, aA: 0.05, aD: 0.5, aS: 0.6, aR: 0.45, chorus: CHORUS.I, delay: 0.35, reverb: 0.4, duck: 0.35, chord: CHORD.TRIAD, stack: 0.25, wide: 0.45, monoLow: 0.35 },
     prog: [0, 5, 2, 1],
   },
   {
     // Un bip de trois notes contre la mesure (triangle, une pointe de FM), court, beaucoup de delai
     name: 'MINIMAL',
-    knobs: { volume: 1, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.25, wave1: WAVE1.TRI, osc2: 0, osc1: 1, fm: 0.22, ratio: 3 / 8, fmode: FMODE.LP12, cutoff: 0.58, res: 0.45, envAmt: 0.55, fD: 0.12, fS: 0, fR: 0.12, aD: 0.15, aS: 0, aR: 0.15, chorus: CHORUS.OFF, delay: 0.5, reverb: 0.3, duck: 0.2, chord: CHORD.BASIC },
+    knobs: { volume: 1, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.25, wave1: WAVE1.TRI, osc2: 0, osc1: 1, fm: 0.22, ratio: 3 / 8, fmode: FMODE.LP12, cutoff: 0.58, res: 0.45, envAmt: 0.55, fD: 0.12, fS: 0, fR: 0.12, aD: 0.15, aS: 0, aR: 0.15, chorus: CHORUS.OFF, delay: 0.5, reverb: 0.3, duck: 0.2, chord: CHORD.BASIC, tape: 0.45 },
     prog: [0],
   },
   {
     // Doubles croches resonantes ; le LFO ouvre le filtre sur deux mesures ; un long delai
     name: 'ROLLING',
-    knobs: { volume: 0.79, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[2], gate: 0.35, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine2: cents(5), fmode: FMODE.MOOG, cutoff: 0.35, res: 0.62, envAmt: 0.55, fD: 0.2, fS: 0.1, aD: 0.25, aS: 0.2, aR: 0.2, lfoRate: LFO_RATE['2 BAR'], lfoShape: 0, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.35, chorus: CHORUS.I, delay: 0.45, reverb: 0.25, duck: 0.4, chord: CHORD.BASIC },
+    knobs: { volume: 0.81, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[2], gate: 0.35, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine2: cents(5), fmode: FMODE.MOOG, cutoff: 0.35, res: 0.62, envAmt: 0.55, fD: 0.2, fS: 0.1, aD: 0.25, aS: 0.2, aR: 0.2, lfoRate: LFO_RATE['2 BAR'], lfoShape: 0, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.35, chorus: CHORUS.I, delay: 0.45, reverb: 0.25, duck: 0.4, chord: CHORD.BASIC, glue: 0.4, tape: 0.35 },
     prog: [0],
   },
   {
     // Un motif de quatre notes qui descend, sature, une ouverture lente sur quatre mesures
     name: 'TECHNO',
-    knobs: { volume: 0.94, rate: RATE['1/16'], mode: MODE.DOWN, range: RANGE[1], notes: NOTES(4), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[16], fmode: FMODE.MOOG, cutoff: 0.32, res: 0.6, envAmt: 0.55, fD: 0.18, fS: 0.05, aD: 0.22, aS: 0.15, aR: 0.2, lfoRate: LFO_RATE['4 BAR'], lfoShape: 0, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.3, dist: 0.25, chorus: CHORUS.I, delay: 0.4, reverb: 0.4, duck: 0.35, chord: CHORD.BASIC },
+    knobs: { volume: 0.94, rate: RATE['1/16'], mode: MODE.DOWN, range: RANGE[1], notes: NOTES(4), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[16], fmode: FMODE.MOOG, cutoff: 0.32, res: 0.6, envAmt: 0.55, fD: 0.18, fS: 0.05, aD: 0.22, aS: 0.15, aR: 0.2, lfoRate: LFO_RATE['4 BAR'], lfoShape: 0, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.3, dist: 0.25, chorus: CHORUS.I, delay: 0.4, reverb: 0.4, duck: 0.35, chord: CHORD.BASIC, glue: 0.5 },
     prog: [0],
   },
   {
     // Des accords de septieme arpeges lentement, triangle et carre doux, chorus et reverbe
     name: 'HOUSE',
-    knobs: { rate: RATE['1/8'], mode: MODE.UPDN, range: RANGE[2], gate: 0.6, wave1: WAVE1.TRI, wave2: WAVE2.SQUARE, range2: FEET[4], osc2: 0.4, fmode: FMODE.LP12, cutoff: 0.5, res: 0.15, envAmt: 0.25, fD: 0.4, fS: 0.35, aA: 0.02, aD: 0.55, aS: 0.45, aR: 0.5, chorus: CHORUS.I, delay: 0.25, reverb: 0.4, duck: 0.25, chord: CHORD['7TH'] },
+    knobs: { volume: 0.78, rate: RATE['1/8'], mode: MODE.UPDN, range: RANGE[2], gate: 0.6, wave1: WAVE1.TRI, wave2: WAVE2.SQUARE, range2: FEET[4], osc2: 0.4, fmode: FMODE.LP12, cutoff: 0.5, res: 0.15, envAmt: 0.25, fD: 0.4, fS: 0.35, aA: 0.02, aD: 0.55, aS: 0.45, aR: 0.5, chorus: CHORUS.I, delay: 0.25, reverb: 0.4, duck: 0.25, chord: CHORD['7TH'], wide: 0.35 },
     prog: [6, 7, 4, 3],
   },
   {
     // Carre et pulse sur trois octaves, sec et robotique (Kraftwerk, Drexciya)
     name: 'ELECTRO',
-    knobs: { rate: RATE['1/16'], mode: MODE.UP, range: RANGE[3], gate: 0.3, wave1: WAVE1.SQUARE, wave2: WAVE2.PULSE, range2: FEET[4], osc2: 0.5, fmode: FMODE.LP12, cutoff: 0.5, res: 0.3, envAmt: 0.4, fD: 0.22, fS: 0.15, aD: 0.25, aS: 0.3, aR: 0.18, chorus: CHORUS.OFF, delay: 0.35, reverb: 0.2, duck: 0, chord: CHORD.BASIC },
+    knobs: { rate: RATE['1/16'], mode: MODE.UP, range: RANGE[3], gate: 0.3, wave1: WAVE1.SQUARE, wave2: WAVE2.PULSE, range2: FEET[4], osc2: 0.5, fmode: FMODE.LP12, cutoff: 0.5, res: 0.3, envAmt: 0.4, fD: 0.22, fS: 0.15, aD: 0.25, aS: 0.3, aR: 0.18, chorus: CHORUS.OFF, delay: 0.35, reverb: 0.2, duck: 0, chord: CHORD.BASIC, tape: 0 },
     prog: [0, 3],
   },
   {
     // Un coup court et agressif : deux scies desaccordees, saturees, enveloppe seche
     name: 'EBM',
-    knobs: { volume: 1, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[1], notes: NOTES(2), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-12), fine2: cents(12), fmode: FMODE.MOOG, cutoff: 0.38, res: 0.3, envAmt: 0.6, fD: 0.15, fS: 0, fR: 0.12, aD: 0.2, aS: 0, aR: 0.12, dist: 0.45, chorus: CHORUS.OFF, delay: 0.15, reverb: 0.3, duck: 0, chord: CHORD.BASIC },
+    knobs: { volume: 1, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[1], notes: NOTES(2), gate: 0.3, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-12), fine2: cents(12), fmode: FMODE.MOOG, cutoff: 0.38, res: 0.3, envAmt: 0.6, fD: 0.15, fS: 0, fR: 0.12, aD: 0.2, aS: 0, aR: 0.12, dist: 0.45, chorus: CHORUS.OFF, delay: 0.15, reverb: 0.3, duck: 0, chord: CHORD.BASIC, glue: 0.45, tape: 0 },
     prog: [0, 1],
   },
   {
     // L'arpege brillant des annees 80 : deux scies desaccordees, beaucoup de chorus, delai
     name: 'ITALO',
-    knobs: { volume: 0.72, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.45, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-14), fine2: cents(14), fmode: FMODE.LP12, cutoff: 0.62, res: 0.25, envAmt: 0.35, fD: 0.3, fS: 0.3, aD: 0.35, aS: 0.45, aR: 0.3, chorus: CHORUS.II, delay: 0.35, reverb: 0.35, duck: 0, chord: CHORD.TRIAD },
+    knobs: { volume: 0.74, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.45, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-14), fine2: cents(14), fmode: FMODE.LP12, cutoff: 0.62, res: 0.25, envAmt: 0.35, fD: 0.3, fS: 0.3, aD: 0.35, aS: 0.45, aR: 0.3, chorus: CHORUS.II, delay: 0.35, reverb: 0.35, duck: 0, chord: CHORD.TRIAD, wide: 0.3 },
     prog: [0, 1, 5, 2],
   },
   /*
@@ -532,28 +539,28 @@ const ARP: readonly ArpGenre[] = [
   {
     // Dark disco a 118 : scie et scie desaccordees, un SUB carre, OVERDRIVE chaud, la coupure qui respire sur 4 mesures
     name: 'NIGHT DRIVE',
-    knobs: { volume: 0.65, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.5, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-9), fine2: cents(9), osc1: 0.84, osc2: 0.75, sub: 0.4, subWave: SUB_WAVE.SQUARE, fmode: FMODE.MOOG, cutoff: 0.443, res: 0.45, envAmt: 0.5, fD: 0.598, fS: 0.15, fR: 0.532, aA: 0.091, aD: 0.683, aS: 0.55, aR: 0.542, lfoRate: LFO_RATE['4 BAR'], lfoShape: LFO_SHAPE.TRI, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.15, dist: 0.3, chorus: CHORUS.I, delay: 0.3, reverb: 0.25, drift: 0.6, width: 0.7, monoLow: 0.45, keyTrack: 0.6, duck: 0.35, chord: CHORD.TRIAD },
+    knobs: { volume: 0.66, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.5, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-9), fine2: cents(9), osc1: 0.84, osc2: 0.75, sub: 0.4, subWave: SUB_WAVE.SQUARE, fmode: FMODE.MOOG, cutoff: 0.443, res: 0.45, envAmt: 0.5, fD: 0.598, fS: 0.15, fR: 0.532, aA: 0.091, aD: 0.683, aS: 0.55, aR: 0.542, lfoRate: LFO_RATE['4 BAR'], lfoShape: LFO_SHAPE.TRI, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.15, dist: 0.3, chorus: CHORUS.I, delay: 0.3, reverb: 0.25, drift: 0.6, width: 0.7, monoLow: 0.45, keyTrack: 0.6, duck: 0.35, chord: CHORD.TRIAD, glue: 0.45, tape: 0.4 },
     prog: [0, 1, 2, 0],
   },
   {
     // Minimale hypnotique : trois notes contre la mesure, entre triangle et scie, une pointe de FM, le hasard lisse
     // sur la coupure (2 mesures), phase fixe, beaucoup de delai
     name: 'HYPNO LOOP',
-    knobs: { volume: 0.93, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.4, wave1: 0.3, osc1: 0.9, osc2: 0, fm: 0.12, ratio: 3 / 8, fmode: FMODE.LP12, cutoff: 0.528, res: 0.5, envAmt: 0.45, fD: 0.482, fS: 0, fR: 0.468, aD: 0.53, aS: 0, aR: 0.497, lfoRate: LFO_RATE['2 BAR'], lfoShape: LFO_SHAPE.RND, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.25, chorus: CHORUS.OFF, delay: 0.45, reverb: 0.3, phase: 0.3, drift: 0.3, duck: 0.25, chord: CHORD.BASIC, accFlt: 0.6 },
+    knobs: { volume: 0.93, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.4, wave1: 0.3, osc1: 0.9, osc2: 0, fm: 0.12, ratio: 3 / 8, fmode: FMODE.LP12, cutoff: 0.528, res: 0.5, envAmt: 0.45, fD: 0.482, fS: 0, fR: 0.468, aD: 0.53, aS: 0, aR: 0.497, lfoRate: LFO_RATE['2 BAR'], lfoShape: LFO_SHAPE.RND, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.25, chorus: CHORUS.OFF, delay: 0.45, reverb: 0.3, phase: 0.3, drift: 0.3, duck: 0.25, chord: CHORD.BASIC, accFlt: 0.6, tape: 0.55 },
     prog: [0],
   },
   {
     // Indie dance a 122 : en croches, une vraie PWM (entre SQUARE et PULSE, MOD sur WAVE) contre une scie, CHORUS II,
     // des accords enchaines, large
     name: 'INDIE PULSE',
-    knobs: { volume: 0.65, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[2], gate: 0.6, wave1: 0.7, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-7), fine2: cents(7), osc1: 0.8, osc2: 0.6, fmode: FMODE.LP12, cutoff: 0.607, res: 0.25, envAmt: 0.35, fD: 0.653, fS: 0.35, fR: 0.612, aA: 0.145, aD: 0.731, aS: 0.6, aR: 0.612, lfoRate: LFO_RATE['1 BAR'], lfoShape: LFO_SHAPE.TRI, lfoDest: LFO_TO.WAVE, lfoAmt: 0.2, chorus: CHORUS.II, delay: 0.35, reverb: 0.4, width: 0.8, drift: 0.6, duck: 0.3, chord: CHORD['7TH'], accFlt: 0.4 },
+    knobs: { volume: 0.69, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[2], gate: 0.6, wave1: 0.7, wave2: WAVE2.SAW, range2: FEET[8], fine1: cents(-7), fine2: cents(7), osc1: 0.8, osc2: 0.6, fmode: FMODE.LP12, cutoff: 0.607, res: 0.25, envAmt: 0.35, fD: 0.653, fS: 0.35, fR: 0.612, aA: 0.145, aD: 0.731, aS: 0.6, aR: 0.612, lfoRate: LFO_RATE['1 BAR'], lfoShape: LFO_SHAPE.TRI, lfoDest: LFO_TO.WAVE, lfoAmt: 0.2, chorus: CHORUS.II, delay: 0.35, reverb: 0.4, width: 0.8, drift: 0.6, duck: 0.3, chord: CHORD['7TH'], accFlt: 0.4, stack: 0.2, wide: 0.55 },
     prog: [0, 5, 2, 1],
   },
   {
     // Acid a 128 : une scie seule et un SUB, la resonance qui chante (juste sous l'auto-oscillation), l'accent au
     // filtre a fond, un peu de GLIDE et d'OVERDRIVE
     name: 'ACID NIGHT',
-    knobs: { volume: 0.68, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.4, wave1: WAVE1.SAW, osc2: 0, sub: 0.3, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.86, envAmt: 0.8, fD: 0.53, fS: 0, fR: 0.468, aD: 0.568, aS: 0.35, aR: 0.433, glide: 0.15, dist: 0.35, chorus: CHORUS.OFF, delay: 0.3, reverb: 0.15, monoLow: 0.45, phase: 0.3, accent: 0.8, duck: 0.3, chord: CHORD.BASIC, accFlt: 1 },
+    knobs: { volume: 0.68, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.4, wave1: WAVE1.SAW, osc2: 0, sub: 0.3, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.86, envAmt: 0.8, fD: 0.53, fS: 0, fR: 0.468, aD: 0.568, aS: 0.35, aR: 0.433, glide: 0.15, dist: 0.35, chorus: CHORUS.OFF, delay: 0.3, reverb: 0.15, monoLow: 0.45, phase: 0.3, accent: 0.8, duck: 0.3, chord: CHORD.BASIC, accFlt: 1, glue: 0.45 },
     prog: [0],
   },
 ];
