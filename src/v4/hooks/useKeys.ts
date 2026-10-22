@@ -109,6 +109,14 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         presetKey(pm, e.key === 'ArrowLeft' ? 'prev' : 'next');
         return;
       }
+      // Le mode presets vient de se fermer seul (2026-10-21, audit : 60 s sans geste, la fleche suivante changeait de
+      // machine en pleine ecoute) : la fleche le rouvre, sur le preset qui joue
+      const pmBack = !pm && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && section.get() === null ? presetMode.resumable(focus.get(), e.timeStamp > 0 ? e.timeStamp : performance.now()) : null;
+      if (pmBack && !ownsArrows(e.target)) {
+        e.preventDefault();
+        presetKey(pmBack, 'open');
+        return;
+      }
       // Gauche et droite (2026-10-05) : la machine d'a cote (pas avec une page ouverte par-dessus)
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !ownsArrows(e.target) && section.get() === null) {
         e.preventDefault();

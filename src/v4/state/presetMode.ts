@@ -9,8 +9,12 @@
  *   SAVE NAME DEL  EXIT     la ligne du bas, quatre touches : garder l'etat
  *                           sous un nom au hasard, un autre nom, effacer
  *                           (touchee deux fois : DEL?), sortir
- * Echap, une autre machine ou 15 s sans rien toucher en sortent ; rouvert,
- * il repart du dernier preset charge ou garde (2026-10-09). Les
+ * Echap, une autre machine ou 60 s sans rien toucher en sortent (15 s
+ * jusqu'au 2026-10-21, l'audit : ecouter un preset dure plus longtemps, et la
+ * fleche suivante changeait de machine) ; dans les 10 s qui suivent une
+ * fermeture par l'attente, gauche et droite le rouvrent au lieu de changer de
+ * machine (resumable). Rouvert, il repart du dernier preset charge ou garde
+ * (2026-10-09). Les
  * presets eux-memes : state/presets.ts ; apres ceux de Mika, ceux d'usine
  * (2026-10-07, des styles electro : FACTORY en titre, ni NAME ni DEL). Le
  * MM-BASS aussi (2026-10-07) ; ses 35 presets d'usine (2026-10-09) montrent
@@ -106,7 +110,9 @@ interface ModeState {
   note: string;
 }
 
-const IDLE_MS = 15000;
+const IDLE_MS = 60000;
+/** Apres une fermeture par l'attente (2026-10-21, audit) : le temps ou les fleches rouvrent le mode au lieu de changer de machine. */
+const RESUME_MS = 10000;
 const NOTE_MS = 1600;
 /** Un echec (NOT SAVED, FULL) reste le temps d'etre lu. */
 const FAIL_MS = 4500;
@@ -162,7 +168,7 @@ const hhmm = (at: number): string => {
 /**
  * Le dernier preset charge ou garde de chaque machine, par son id (2026-10-09, la revue : avec 35 presets d'usine,
  * rouvrir le mode repartait de 1/35 et nommait un preset qui ne jouait pas ; NEXT rechargeait le deuxieme). Le mode
- * rouvre sur lui, PREV / NEXT repartent de lui ; EXIT et les 15 s sans geste ne l'oublient pas.
+ * rouvre sur lui, PREV / NEXT repartent de lui ; EXIT et les 60 s sans geste ne l'oublient pas.
  */
 const last: Partial<Record<PresetMachine, string>> = {};
 
@@ -179,6 +185,8 @@ function startIndex(m: PresetMachine): number {
 const listeners = new Set<() => void>();
 let idle = 0;
 let noteTimer = 0;
+/** Le mode ferme par l'attente : sa machine et quand (null : ferme autrement, ou rouvert). */
+let idleClosed: { m: PresetMachine; at: number } | null = null;
 
 function commit(next: ModeState): void {
   state = next;
@@ -187,7 +195,11 @@ function commit(next: ModeState): void {
 
 function touch(): void {
   window.clearTimeout(idle);
-  idle = window.setTimeout(() => presetMode.close(), IDLE_MS);
+  idle = window.setTimeout(() => {
+    const m = state.machine;
+    presetMode.close();
+    if (m) idleClosed = { m, at: performance.now() };
+  }, IDLE_MS);
 }
 
 function note(text: string, ms: number = NOTE_MS): void {
@@ -238,11 +250,22 @@ export const presetMode = {
   on: (m: PresetMachine): boolean => state.machine === m,
   close(): void {
     window.clearTimeout(idle);
+    idleClosed = null;
     if (state.machine) commit({ machine: null, index: 0, confirm: false, note: '' });
+  },
+  /**
+   * Le mode de cette machine vient de se fermer seul (60 s sans geste, moins de RESUME_MS avant at, l'instant de la
+   * touche : e.timeStamp, pas l'heure ou elle est traitee) : la machine, que les fleches rouvrent (hooks/useKeys.ts) ;
+   * null sinon.
+   */
+  resumable(m: string, at = performance.now()): PresetMachine | null {
+    const c = idleClosed;
+    return c && c.m === m && state.machine === null && at - c.at < RESUME_MS ? c.m : null;
   },
   /** Une touche de l'ecran. */
   key(m: PresetMachine, k: PresetKey): void {
     if (k === 'open') {
+      idleClosed = null;
       touch();
       if (state.machine === m) {
         commit({ ...state, index: clampIndex(m, state.index), confirm: false, note: '' });
