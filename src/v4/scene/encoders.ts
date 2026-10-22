@@ -25,9 +25,9 @@
  * leur colonne, 44 px de haut (PAGE_KNOBS.hitW, hitD), le doigt.
  */
 
-import { BoxGeometry, CircleGeometry, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshStandardMaterial, Quaternion, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
+import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshStandardMaterial, Quaternion, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ENCODER, FACE_KNOBS, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, pageKnobIndex, type FaceKnobId } from '../theme';
+import { ENCODER, FACE_KNOBS, HOVER_LIGHT, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, pageKnobIndex, type FaceKnobId } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -37,6 +37,7 @@ const m4 = new Matrix4();
 const pos = new Vector3();
 const quat = new Quaternion();
 const scl = new Vector3();
+const tint = new Color();
 
 /**
  * Angle d'un encodeur pour une course t de 0 a 1 : 270 deg centres sur le
@@ -126,6 +127,8 @@ export class Encoders {
   private skirtMat: MeshStandardMaterial;
   private angle = new Float32Array(FACE_KNOBS.length);
   private value = new Float32Array(FACE_KNOBS.length);
+  /** l'encodeur sous la souris (2026-10-22, HOVER_LIGHT), -1 aucun */
+  private hover = -1;
 
   constructor(opts: { mobile: boolean; castShadow: boolean }) {
     const n = FACE_KNOBS.length;
@@ -148,6 +151,28 @@ export class Encoders {
       this.place(i);
     }
     this.skirts.instanceMatrix.needsUpdate = true;
+    // Une couleur par instance (le survol, 2026-10-22) : blanche, la teinte des sommets
+    for (let i = 0; i < n; i += 1) {
+      this.mesh.setColorAt(i, tint.setScalar(1));
+      this.skirts.setColorAt(i, tint.setScalar(1));
+    }
+    this.mesh.instanceColor?.setUsage(DynamicDrawUsage);
+    this.skirts.instanceColor?.setUsage(DynamicDrawUsage);
+  }
+
+  /** L'encodeur k sous la souris (-1 aucun) : un peu plus clair, sa jupe aussi ; true s'il faut une frame. */
+  setHover(k: number): boolean {
+    if (k === this.hover) return false;
+    for (const i of [this.hover, k]) {
+      if (i < 0 || i >= FACE_KNOBS.length) continue;
+      const on = i === k;
+      this.mesh.setColorAt(i, tint.setScalar(on ? HOVER_LIGHT.knob : 1));
+      this.skirts.setColorAt(i, tint.setScalar(on ? HOVER_LIGHT.skirt : 1));
+    }
+    this.hover = k;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    if (this.skirts.instanceColor) this.skirts.instanceColor.needsUpdate = true;
+    return true;
   }
 
   /** Les maillages a poser sur le plateau. */

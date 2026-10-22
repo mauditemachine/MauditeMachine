@@ -2707,6 +2707,10 @@ export class Stage {
     lcdSamples.hover(sbRow ? Number(sbRow[1]) : -1);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
+    // Les encodeurs, les touches de page et le transport (2026-10-22, audit : ils ne changeaient que de curseur)
+    if (this.encoders.setHover(id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1)) changed = true;
+    if (this.pageKeys.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
+    if (this.seq.setButtonHover(id)) changed = true;
     // Puce du PCB (vue ouverte)
     this.hoverChip = id !== null && id.startsWith('chip-') ? (id.slice(5) as ChipId) : null;
     if (this.syncChipHot()) changed = true;

@@ -61,7 +61,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { BTN_LED, COLOR, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
@@ -238,6 +238,8 @@ export class Sequencer3D {
   private steps: Steps | null = null;
   private instrument: Inst | null = null;
   private hover = -1;
+  /** le bouton du transport sous la souris (son rang, 0 RUN), -1 aucun (2026-10-22) */
+  private btnHover = -1;
   private playhead = -1;
   /** LED du test de l'intro (spec 7.4), -1 hors intro */
   private introLed = -1;
@@ -430,8 +432,24 @@ export class Sequencer3D {
     // Avant la construction des noms (la teinte de depart), aucun bouton n'est allume
     const f = this.labels ? this.litLevel(i) : 0;
     const g = KEY_LIT.glow[BUTTON_TONE[i]];
-    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * v, g[c] * KEY_LIT_LIGHT.glow * f);
+    const h = i === this.btnHover ? 1 : 0;
+    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * v, g[c] * KEY_LIT_LIGHT.glow * f, HOVER_LIGHT.glow[c] * h);
     this.btnEmissive.needsUpdate = true;
+  }
+
+  /**
+   * Le bouton du transport sous la souris (2026-10-22, HOVER_LIGHT) : son id (run, clear, mute, solo, random), null
+   * aucun ; true s'il faut une frame.
+   */
+  setButtonHover(id: string | null): boolean {
+    const j = id === 'run' ? RUN : id === 'clear' ? CLEAR : id === 'mute' ? MUTE : id === 'solo' ? SOLO : id === 'random' ? RANDOM : -1;
+    const k = j < 0 ? -1 : j - STEP_COUNT;
+    if (k === this.btnHover) return false;
+    const was = this.btnHover;
+    this.btnHover = k;
+    if (was >= 0) this.writeButtonGlow(was);
+    if (k >= 0) this.writeButtonGlow(k);
+    return true;
   }
 
   /** Temoins de MUTE (voix coupee) et SOLO (solo en cours) ; true s'il faut une frame. */

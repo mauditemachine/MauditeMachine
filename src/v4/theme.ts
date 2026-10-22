@@ -1431,6 +1431,14 @@ export const STEP_HOLD_MS = 400;
  */
 export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: [0.16, 0.04, 0.004] } as const;
 
+/**
+ * Le survol a la souris (2026-10-22, audit : seuls les pas, les pads et les blocs de l'ecran reagissaient, les encodeurs,
+ * les touches de page et le transport ne changeaient que de curseur) : un rien de lumiere chaude sur la touche (glow,
+ * emissif lineaire, sous celui d'une touche allumee), l'encodeur un peu plus clair (knob : multiplicateur de sa
+ * couleur, le chanfrein s'eclaire ; skirt : sa jupe).
+ */
+export const HOVER_LIGHT = { glow: [0.018, 0.017, 0.015], knob: 2.2, skirt: 1.25 } as const;
+
 /* ---------- picking (spec 6.2, 6.5 et 20.7) ---------- */
 
 /** Picking, en px CSS. */
