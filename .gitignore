@@ -43,3 +43,6 @@ node_modules
 # Sorties regenerables des scripts (ex. footprints.csv de
 # scripts/seo-backlinks-footprints.js) : local uniquement.
 scripts/output/
+
+# IndexNow (2026-10-21) : la liste des adresses changees au dernier build (scripts/generate-sitemap.mjs)
+indexnow-urls.txt

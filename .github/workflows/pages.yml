@@ -3,7 +3,7 @@ on:
   push:
     branches: [ main ]
   # 2026-10-11 (referencement) : un rebuild chaque matin (05:17 UTC) : les dates passees sortent
-  # des MusicEvent, sitemap.xml et les pages statiques gardent la date du jour ; et a la main
+  # des MusicEvent ; et a la main. 2026-10-21 : lastmod ne bouge que pour les pages dont le contenu change
   schedule:
     - cron: '17 5 * * *'
   workflow_dispatch:
@@ -17,10 +17,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 2026-10-21 (audit SEO IMP6) : les adresses dont le contenu a change, pour IndexNow apres le deploiement
+    outputs:
+      indexnow: ${{ steps.changes.outputs.urls }}
     steps:
       # 2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement aussi, c'est important.") :
-      # tout l'historique des commits, sans le contenu des anciens fichiers (filter blob:none, leger),
-      # pour que sitemap.xml date chaque page de son dernier vrai changement (scripts/generate-sitemap.mjs)
+      # tout l'historique des commits, sans le contenu des anciens fichiers (filter blob:none, leger).
+      # 2026-10-21 : sitemap.xml ne lit plus l'historique ; il date chaque page par son contenu, compare a celui du
+      # site en ligne (scripts/generate-sitemap.mjs, seo-lastmod.json)
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -31,6 +35,14 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
+      # 2026-10-21 : scripts/generate-sitemap.mjs ecrit indexnow-urls.txt (hors de dist) ; vide si rien n'a change
+      - id: changes
+        run: |
+          {
+            echo 'urls<<INDEXNOW_EOF'
+            cat indexnow-urls.txt 2>/dev/null || true
+            echo 'INDEXNOW_EOF'
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -43,3 +55,25 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+  # 2026-10-21 (audit SEO F5 et IMP6) : apres un deploiement reussi, les adresses changees partent a IndexNow
+  # (Bing et les moteurs qui partagent ses envois les recrawlent en quelques minutes). Jamais bloquant : le site est
+  # deja en ligne, une erreur reste dans le journal (continue-on-error, et le script rend toujours 0).
+  indexnow:
+    runs-on: ubuntu-latest
+    needs: [build, deploy]
+    if: ${{ needs.build.outputs.indexnow != '' }}
+    continue-on-error: true
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # le temps que GitHub Pages serve la nouvelle version (le fichier de la cle compris)
+      - run: sleep 60
+      - name: IndexNow
+        env:
+          URLS: ${{ needs.build.outputs.indexnow }}
+        run: printf '%s\n' "$URLS" > indexnow-urls.txt && node scripts/indexnow.mjs

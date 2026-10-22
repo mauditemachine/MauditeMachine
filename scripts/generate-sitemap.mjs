@@ -1,7 +1,7 @@
 /**
- * generate-sitemap.mjs : genere public/sitemap.xml au build.
+ * generate-sitemap.mjs : genere sitemap.xml au build (dist/ et public/).
  *
- * Lance automatiquement via `npm run build` (prebuild). Garde le sitemap
+ * Lance automatiquement via `npm run build` (postbuild depuis le 2026-10-21, apres le prerender). Garde le sitemap
  * synchronise avec les routes reelles, sans le maintenir a la main.
  *
  * 2026-10-04 (referencement) : images (la pochette de chaque morceau, les
@@ -22,9 +22,26 @@
  * trois machines, en EN, FR et ES), lues dans scripts/mm-studio-content.mjs
  * (la meme liste que le prerender), priority 0.5 comme le reste (B5), chacune
  * avec les hreflang de sa famille ; leurs captures en image si elles existent.
+ *
+ * 2026-10-21 (audit SEO F5 et IMP6) : lastmod dit enfin quand une page a
+ * change. Le site est rebati chaque matin : la date du build sur les 63
+ * adresses faisait mentir lastmod (Google l'ignore alors). Le sitemap s'ecrit
+ * maintenant apres le prerender (postbuild, package.json) : chaque page de
+ * dist/ est lue, ses parties qui changent a chaque build sans changer son
+ * contenu (les noms haches de /assets/, les modulepreload) retirees, son
+ * empreinte (sha256) comparee a celle du build en ligne
+ * (https://mauditemachine.com/seo-lastmod.json, ecrit a cote du sitemap) :
+ * meme empreinte, la date en ligne reste ; autre ou nouvelle, la date du jour.
+ * Sans reponse du site (premier deploiement, reseau coupe : SEO_OFFLINE=1),
+ * la date du jour partout, comme avant. Les adresses changees vont dans
+ * indexnow-urls.txt (a la racine du depot, hors de dist) : le workflow
+ * pages.yml les envoie a IndexNow apres le deploiement.
+ * Lance seul (npm run sitemap, sans dist/) : public/sitemap.xml date du jour,
+ * pour l'admin local.
  */
 
-import { writeFileSync, readdirSync } from 'node:fs';
+import { writeFileSync, readdirSync, readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { ROOT, SITE, OG_IMAGE, loadDisco, loadGoodies, coverOf, inPublic } from './seo-shared.mjs';
 import { MM_STUDIO_PAGES, MM_STUDIO_SHOTS, clusterOf } from './mm-studio-content.mjs';
@@ -107,6 +124,53 @@ try {
 const tracksRoute = ROUTES.find((r) => r.path === '/tracks/');
 tracksRoute.images = [...new Set(ROUTES.flatMap((r) => (r.path.startsWith('/tracks/') && r !== tracksRoute ? r.images ?? [] : [])))];
 
+/* ---------- lastmod par contenu (2026-10-21) ---------- */
+
+const DIST = join(ROOT, 'dist');
+const BUILT = existsSync(join(DIST, 'index.html'));
+/** Le manifeste des empreintes, publie a cote du sitemap (dist/seo-lastmod.json). */
+const MANIFEST = 'seo-lastmod.json';
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** L'empreinte du contenu d'une page de dist/ (sans ce qui change a chaque build : noms haches, modulepreload) ; null sans page. */
+function contentHash(path) {
+  const file = join(DIST, path.replace(/^\//, ''), 'index.html');
+  if (!existsSync(file)) return null;
+  const html = readFileSync(file, 'utf8')
+    .replace(/<link[^>]+rel=["'](?:modulepreload|preload)["'][^>]*>\s*/gi, '')
+    .replace(/\/assets\/[A-Za-z0-9._-]+/g, '/assets/x');
+  return createHash('sha256').update(html).digest('hex').slice(0, 20);
+}
+
+/** Le manifeste du site en ligne (ou SEO_LASTMOD_URL), {} sans reponse en 8 s ou avec SEO_OFFLINE=1. */
+async function liveManifest() {
+  if (!BUILT || process.env.SEO_OFFLINE === '1') return {};
+  const url = process.env.SEO_LASTMOD_URL || `${SITE}/${MANIFEST}`;
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 8000);
+    const res = await fetch(url, { signal: ctl.signal, headers: { 'cache-control': 'no-cache' } });
+    clearTimeout(t);
+    if (!res.ok) return {};
+    const j = await res.json();
+    return j && typeof j === 'object' && j.pages && typeof j.pages === 'object' ? j.pages : {};
+  } catch {
+    return {};
+  }
+}
+
+const previous = await liveManifest();
+const pages = {};
+const changed = [];
+for (const r of ROUTES) {
+  const hash = BUILT ? contentHash(r.path) : null;
+  const old = previous[r.path];
+  const keep = hash && old && old.hash === hash && typeof old.lastmod === 'string' && ISO_DAY.test(old.lastmod) && old.lastmod <= TODAY;
+  r.lastmod = keep ? old.lastmod : TODAY;
+  if (hash) pages[r.path] = { hash, lastmod: r.lastmod };
+  if (!keep) changed.push(`${SITE}${r.path}`);
+}
+
 /* ---------- ecriture ---------- */
 
 const xmlEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -117,7 +181,7 @@ const urls = ROUTES.map((r) => {
   const imgs = (r.images ?? []).map((u) => `\n    <image:image>\n      <image:loc>${xmlEsc(u)}</image:loc>\n    </image:image>`).join('');
   return `  <url>
     <loc>${xmlEsc(loc)}</loc>
-    <lastmod>${TODAY}</lastmod>
+    <lastmod>${r.lastmod}</lastmod>
     <changefreq>${r.changefreq}</changefreq>
     <priority>${priorityOf(r.path)}</priority>${alt}${imgs}
   </url>`;
@@ -132,4 +196,13 @@ ${urls}
 `;
 
 writeFileSync(join(ROOT, 'public', 'sitemap.xml'), xml, 'utf8');
-console.log(`sitemap.xml généré (${ROUTES.length} URLs, lastmod ${TODAY})`);
+if (BUILT) {
+  writeFileSync(join(DIST, 'sitemap.xml'), xml, 'utf8');
+  writeFileSync(join(DIST, MANIFEST), `${JSON.stringify({ v: 1, built: TODAY, pages })}\n`, 'utf8');
+  // Les adresses changees (ou nouvelles) : IndexNow apres le deploiement (pages.yml) ; aucune si le site en ligne n'a pas repondu
+  // (tout serait "change" : on n'envoie pas 60 adresses inchangees)
+  const known = Object.keys(previous).length > 0;
+  writeFileSync(join(ROOT, 'indexnow-urls.txt'), known ? changed.map((u) => `${u}\n`).join('') : '', 'utf8');
+  const days = new Set(ROUTES.map((r) => r.lastmod));
+  console.log(`sitemap.xml généré (${ROUTES.length} URLs, ${days.size} dates de lastmod, ${known ? `${changed.length} changées depuis le build en ligne` : 'site en ligne sans manifeste : date du jour partout, rien pour IndexNow'})`);
+} else console.log(`sitemap.xml généré (${ROUTES.length} URLs, lastmod ${TODAY}, sans dist/)`);
