@@ -12,7 +12,8 @@
  *   parti de cote et vite ne le tourne pas : il est peut-etre le glisser
  *   d'une machine a l'autre, rendu au lacher a la couche de saisie
  *   (ui/swipe.ts) ; le temps passe ou le doigt reparti a la verticale, le
- *   potard le reprend depuis sa valeur du moment.
+ *   potard le reprend depuis sa valeur du moment (reparti a la verticale :
+ *   de haut en bas, 2026-10-22).
  * - Fader : le capuchon suit le pointeur le long de sa fente projetee a
  *   l'ecran (relatif : il ne saute pas sous le doigt) ; molette.
  * - Jog : l'angle du pointeur autour du centre projete du plateau.
@@ -37,7 +38,7 @@ import { KILL, eqDb, gainDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
 import { samplerOf } from '../sampler/sampler';
 import { djState } from './state';
-import { mayBeSwipe, type SwipeHandBack } from '../ui/swipe';
+import { SWIPE, mayBeSwipe, type SwipeHandBack } from '../ui/swipe';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
 const KNOB_PX = 150;
@@ -379,7 +380,9 @@ export class DjGestures {
           g.deferred = true;
           return;
         }
-        g.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+        // Sorti du glisser dans son temps (2026-10-22, la revue : reparti a la verticale) : de haut en bas, l'axe dominant
+        // de ce moment etait presque toujours x et le geste vertical ne tournait rien ; le temps passe, l'axe dominant
+        g.axis = g.deferred && at - g.t0 < SWIPE.ms ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
         // Il reprend le geste la ou il en est, depuis sa valeur du moment : rien ne saute
         if (g.deferred) {
           g.deferred = false;
