@@ -89,7 +89,7 @@ import { djLoad } from '../state/djload';
 import { MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
 import { midiLeader } from './leader';
-import { noteOutAttach, noteOutPorts } from './noteout';
+import { noteOutAttach, noteOutPorts, noteOutRelease } from './noteout';
 import { isSeqSetup, rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetup, rotoKnownCc, rotoTarget, type RotoKeyInfo, type RotoSetupName } from './roto';
 import { seqAttach, seqCancelAll, seqDrop, seqDropAll, seqInvalidate, seqIsStep, seqKnobGuard, seqKnobTurn, seqLed, seqMsgAt, seqOwns, seqResendAll, seqSeen, seqStepOf } from './seqlink';
 import { MACHINE_NAME, prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
@@ -444,6 +444,9 @@ export async function midiEnable(): Promise<void> {
 function dropAccess(): void {
   offGen += 1;
   window.clearTimeout(askTimer);
+  // MIDI OUT du MM-ARP (2026-10-22) : ce qui joue sur sa sortie se relache tant que l'acces est la (avant, la note en
+  // cours restait tenue dans Ableton)
+  noteOutRelease();
   if (access) {
     access.inputs.forEach((input) => {
       input.onmidimessage = null;
