@@ -250,7 +250,11 @@ function trim(keepKey: string): void {
     pcm.delete(k);
     pcmBytes -= pcmSize(p);
     const s = slots.get(k);
-    if (s) s.state = 'idle';
+    if (s) {
+      s.state = 'idle';
+      // Plus rien en cours pour lui (2026-10-22, revue RA1-5) : le prochain loadSample le recharge
+      s.promise = null;
+    }
     emitDropped(k, false);
     emitStatus(k);
   }
@@ -300,6 +304,11 @@ function start(key: string, s: Slot): Promise<SamplePcm | null> {
   const ac = typeof AbortController !== 'undefined' && !smp.user ? new AbortController() : null;
   s.abort = ac;
   const job = (async (): Promise<SamplePcm | null> => {
+    // Toujours asynchrone (2026-10-22, revue RA1-5) : le son decode a l'ajout (takePcm) ne passait par aucune attente,
+    // tout se faisait pendant l'appel. onSampleLoaded partait avant que shots.ts ait gare le calcul qui l'attend (il
+    // restait gare pour rien), et le finally effacait s.promise avant qu'elle soit posee : une promesse deja tenue
+    // restait la, rendue pour toujours une fois ce PCM libere par le budget (le sample ne revenait jamais)
+    await Promise.resolve();
     const timer = ac ? window.setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS) : 0;
     try {
       let out: SamplePcm | undefined = smp.user ? userSamples.takePcm(key) : undefined;
@@ -364,7 +373,8 @@ export function loadSample(key: string): Promise<SamplePcm | null> {
   if (hit) return Promise.resolve(hit);
   if (typeof window === 'undefined' || !sampleByKey(key)) return Promise.resolve(null);
   const s = slotOf(key);
-  if (s.promise) return s.promise;
+  // Seulement un chargement en cours (2026-10-22, revue RA1-5) : une promesse d'un autre etat est depassee
+  if (s.promise && s.state === 'loading') return s.promise;
   if (s.state === 'failed') return Promise.resolve(null);
   return start(key, s);
 }
@@ -379,7 +389,7 @@ export function requestSample(key: string): Promise<SamplePcm | null> {
   if (hit) return Promise.resolve(hit);
   if (typeof window === 'undefined' || !sampleByKey(key)) return Promise.resolve(null);
   const s = slotOf(key);
-  if (s.promise) return s.promise;
+  if (s.promise && s.state === 'loading') return s.promise;
   if (s.state === 'failed') {
     const since = performance.now() - s.at;
     const again = s.why === 'offline' || s.why === 'storage' ? since >= EXPLICIT_GAP_MS : s.why === 'missing' ? since >= MISSING_GAP_MS : false;

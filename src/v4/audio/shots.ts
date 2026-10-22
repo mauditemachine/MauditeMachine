@@ -406,11 +406,12 @@ function pump(): void {
   let j = queue.shift();
   while (j && cache.has(j.key)) j = queue.shift();
   if (!j) return;
-  // Un echantillon pas encore decode : le calcul l'attend (son arrivee le remet en tete de file)
+  // Un echantillon pas encore decode : le calcul l'attend (son arrivee le remet en tete de file). Gare d'abord, charge
+  // ensuite (2026-10-22, revue RA1-5) : une arrivee tout de suite retrouve le calcul dans waitSample
   const smp = smpOf(j.tw);
   if (smp && !samplePcm(smp)) {
-    void loadSample(smp);
     park(j);
+    void loadSample(smp);
     pump();
     return;
   }
