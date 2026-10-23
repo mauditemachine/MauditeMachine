@@ -938,9 +938,11 @@ class MMVoyager extends AudioWorkletProcessor {
     this.rawR = new Float32Array(os * 128);
     this.mid = new Float32Array(256);
     this.midR = new Float32Array(256);
-    this.d4 = os === 4 ? new Decimator(31, 7) : null;
+    // K1' (2026-10-23, Q2) : le premier etage du x4 (4x -> 2x) en Kaiser 9 (avant 7) : son pire repli de -79.9 a -94.3
+    // dB (77.9 kHz -> 18.1 kHz), les memes 31 coefficients, ondulation 0.0003 dB, aucun calcul en plus
+    this.d4 = os === 4 ? new Decimator(31, 9) : null;
     this.d2 = os >= 2 ? new Decimator(63, 8) : null;
-    this.d4R = os === 4 ? new Decimator(31, 7) : null;
+    this.d4R = os === 4 ? new Decimator(31, 9) : null;
     this.d2R = os >= 2 ? new Decimator(63, 8) : null;
     // OVERDRIVE : etats des filtres de la branche saturee (gauche, droite) et coefficients a la frequence du calcul
     // (dL, dxL, dR, dxR : son bloqueur de continu, 2026-10-21)
