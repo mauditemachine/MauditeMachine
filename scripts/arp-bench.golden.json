@@ -170,6 +170,13 @@
     "centroidHz": 3279,
     "sideDb": -21.19
    },
+   "X MS10": {
+    "sha256": "e9eb8152a2de5e3107ed4a837be63f12",
+    "peakDb": -2.72,
+    "rmsDb": -14.2,
+    "centroidHz": 437,
+    "sideDb": -16.75
+   },
    "LEGACY INIT": {
     "sha256": "af81683316606125c5b29b306a907ef4",
     "peakDb": 1.71,
@@ -447,6 +454,13 @@
     "rmsDb": -13.82,
     "centroidHz": 3073,
     "sideDb": -21.05
+   },
+   "X MS10": {
+    "sha256": "7129fff26db7f4b013a6efa4c55291f1",
+    "peakDb": -2.87,
+    "rmsDb": -14.2,
+    "centroidHz": 439,
+    "sideDb": -16.64
    },
    "LEGACY INIT": {
     "sha256": "57f44a8ab064102d320c9e188b28180b",

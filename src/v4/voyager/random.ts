@@ -61,10 +61,12 @@ function detune(rnd: Rnd, lo: number, hi: number): Partial<Record<VoyKnobId, num
 export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId, number>> {
   const fm = sometimes(rnd, 0.55, 0.1, 0.7);
   const notes = rnd() < 0.5 ? 0 : (3 + Math.floor(rnd() * 6)) / (NOTES.length - 1);
-  // MODE du filtre : le MOOG deux fois sur trois (Mika l'aime) ; BP et HP veulent leur propre plage de coupure (sinon tout disparait)
-  const fmode = weighted(rnd, [0.66, 0.12, 0.11, 0.11]);
-  const fIdx = Math.round(fmode * 3);
-  const cutoff = fIdx === 3 ? between(rnd, 0.15, 0.45) : fIdx === 2 ? between(rnd, 0.35, 0.7) : between(rnd, 0.25, 0.75);
+  // MODE du filtre : le MOOG deux fois sur trois (Mika l'aime) ; BP et HP veulent leur propre plage de coupure (sinon tout disparait).
+  // Cinq crans depuis le 2026-10-23 (MOOG, LP12, MS-10, BP, HP) : MS-10 jamais tire tant que Mika ne l'a pas ecoute
+  // (son poids 0), les memes tirages qu'avant pour les quatre autres
+  const fmode = weighted(rnd, [0.66, 0.12, 0, 0.11, 0.11]);
+  const fIdx = Math.round(fmode * 4);
+  const cutoff = fIdx === 4 ? between(rnd, 0.15, 0.45) : fIdx === 3 ? between(rnd, 0.35, 0.7) : between(rnd, 0.25, 0.75);
   // Melangeur : OSC 1 toujours la ; OSC 2 seul en renfort, parfois absent (OSC 1 seul, ou la FM d'OSC 2 sans l'entendre)
   const osc1 = between(rnd, 0.6, 0.95);
   const osc2 = rnd() < 0.15 ? 0 : between(rnd, 0.35, 0.95);
@@ -249,7 +251,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         res: between(rnd, 0.15, 0.55),
         envAmt: between(rnd, 0.35, 0.7),
         noise: 0,
-        fmode: chance(rnd, 0.85) ? 0 : at(1, 4),
+        fmode: chance(rnd, 0.85) ? 0 : at(1, 5),
         fA: 0,
         fD: between(rnd, 0.12, 0.32),
         fS: between(rnd, 0, 0.2),
@@ -304,7 +306,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         res: between(rnd, 0.6, 0.85),
         envAmt: between(rnd, 0.6, 0.9),
         noise: 0,
-        fmode: chance(rnd, 0.7) ? 0 : at(1, 4),
+        fmode: chance(rnd, 0.7) ? 0 : at(1, 5),
         fA: 0,
         fD: between(rnd, 0.15, 0.4),
         fS: between(rnd, 0, 0.15),
@@ -356,7 +358,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         cutoff: between(rnd, 0.45, 0.7),
         res: between(rnd, 0.2, 0.5),
         envAmt: between(rnd, 0.4, 0.75),
-        fmode: chance(rnd, 0.6) ? 0 : at(1, 4),
+        fmode: chance(rnd, 0.6) ? 0 : at(1, 5),
         fA: 0,
         fD: between(rnd, 0.08, 0.22),
         fS: between(rnd, 0, 0.1),
@@ -448,7 +450,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         wave1: pickOf(rnd, [at(3, 6), at(4, 6)]),
         wave2: pickOf(rnd, [at(3, 5), at(4, 5)]),
         ...oscTune(chance(rnd, 0.5) ? 1 : 0),
-        fmode: bp ? at(2, 4) : at(1, 4),
+        fmode: bp ? at(3, 5) : at(1, 5),
         cutoff: bp ? between(rnd, 0.35, 0.6) : between(rnd, 0.3, 0.5),
         res: between(rnd, 0.4, 0.7),
         envAmt: between(rnd, 0.3, 0.6),

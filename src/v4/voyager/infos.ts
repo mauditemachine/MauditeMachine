@@ -172,8 +172,8 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   fmode: {
     title: 'MODE',
-    text: "Le type de filtre : MOOG (passe-bas 24 dB, celui d'origine), 12 (passe-bas 12 dB, plus ouvert), BP (passe-bande) ou HP (passe-haut). Une tape passe au suivant ; le changement est fondu, sans clic.",
-    tip: "BP avec la résonance pour un arpège fin qui laisse la place à la basse ; HP pour une montée.",
+    text: "Le type de filtre : MOOG (passe-bas 24 dB, celui d'origine), 12 (passe-bas 12 dB, plus ouvert), MS-10 (le Korg35 12 dB du MS-10 : le grave ne baisse pas quand la résonance monte, elle passe au-dessus du son, crie et se casse quand on pousse ; les diodes écrêtent tout ce qui passe), BP (passe-bande) ou HP (passe-haut). Une tape passe au suivant ; le changement est fondu, sans clic.",
+    tip: "BP avec la résonance pour un arpège fin qui laisse la place à la basse ; HP pour une montée ; MS-10 et la résonance aux trois quarts pour un acide qui crie sans perdre son grave.",
   },
 
   /* ---------- FILTER EG / AMP EG ---------- */

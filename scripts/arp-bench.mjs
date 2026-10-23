@@ -274,6 +274,8 @@ function patches(M) {
     list.push({ name: 'X HIGH RES', knobs: { ...defaults, res: 1, cutoff: 1, envAmt: 0 }, prog: [0], heldChord: true });
     list.push({ name: 'X OD06 C7', knobs: { ...defaults, dist: 0.6, octave: 0.75, range1: 1, range2: 0.8, cutoff: 1, envAmt: 0 }, prog: [0, 1, 2, 0] });
   }
+  // MODE MS-10 (2026-10-23, S15 : au milieu des cinq crans) : l'arpege de depart, la resonance qui crie
+  if (P.FMODES.includes('MS-10')) list.push({ name: 'X MS10', knobs: { ...defaults, fmode: P.FMODES.indexOf('MS-10') / (P.FMODES.length - 1), cutoff: 0.3, res: 0.85, envAmt: 0.6 }, prog: [0, 1, 2, 0] });
   // Les memes patchs avec les reglages ajoutes a leur valeur d'heritage : le son d'avant (--against)
   const legacy = list.filter((p) => !p.name.startsWith('X ')).map((p) => ({ name: `LEGACY ${p.name}`, knobs: legacyOf(M, p.knobs), prog: p.prog, legacy: true }));
   return [...list, ...legacy];

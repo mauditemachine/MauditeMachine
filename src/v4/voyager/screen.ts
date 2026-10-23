@@ -237,7 +237,8 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
     }
     else if (id === 'semi1' || id === 'semi2') unit = 'SEMITONES';
     else if (id === 'ratio') unit = `OPERATOR x ${fmRatio(v)}`;
-    else if (id === 'fmode') unit = ['24 DB LOW PASS', '12 DB LOW PASS', 'BAND PASS', 'HIGH PASS'][stepIndex('fmode', v)];
+    // MS-10 au milieu des cinq crans (2026-10-23) : le Korg35 et ses diodes
+    else if (id === 'fmode') unit = ['24 DB LOW PASS', '12 DB LOW PASS', 'KORG35 12 DB, DIODES', 'BAND PASS', 'HIGH PASS'][stepIndex('fmode', v)];
     // MOD cale sur la mesure (2026-10-18) : chaque cycle part sur la grille ; RND, le hasard qui glisse
     else if (id === 'lfoRate') unit = 'ONE CYCLE ON THE GRID';
     else if (id === 'lfoShape') unit = ['TRIANGLE', 'RAMP DOWN', 'RANDOM GLIDES', 'SQUARE', 'RANDOM STEPS'][stepIndex('lfoShape', v)];

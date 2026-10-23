@@ -386,11 +386,34 @@ function glideDiagram(v: number, bpm: number): VoyDiagram {
 
 /* ---------------- le filtre (les sorties de l'echelle melangees, comme le worklet) ---------------- */
 
-/** |H| du mode m a la frequence f (coupure fc, resonance res) : l'echelle a quatre etages et sa retroaction k = 4.1 res. */
+/**
+ * MS-10 (2026-10-23) : RES -> kappa (K / (7/3)) du Korg35, la table du worklet (audio/moog.worklet.js MS_RES_AT,
+ * MS_KAPPA) ; l'auto-oscillation a kappa 1 (RES 0.9).
+ */
+const MS_RES_AT = [0, 0.3, 0.5, 0.7, 0.8, 0.85, 0.9, 1.0];
+const MS_KAPPA = [0, 0.5, 0.72, 0.86, 0.935, 0.965, 1.0, 1.15];
+function msKappa(res: number): number {
+  if (res >= 1) return MS_KAPPA[7];
+  if (res <= 0) return 0;
+  let i = 1;
+  while (i < 7 && res > MS_RES_AT[i]) i += 1;
+  return MS_KAPPA[i - 1] + ((MS_KAPPA[i] - MS_KAPPA[i - 1]) * (res - MS_RES_AT[i - 1])) / (MS_RES_AT[i] - MS_RES_AT[i - 1]);
+}
+
+/**
+ * |H| du cran m de MODE (0 MOOG, 1 LP12, 2 MS-10, 3 BP, 4 HP) a la frequence f (coupure fc, resonance res) : l'echelle
+ * a quatre etages et sa retroaction k = 4.1 res ; MS-10, le Sallen-Key du Korg35 (1 / (s^2 + (7/3 - K) s + 1), ses
+ * graves ne tombent pas, la bosse au-dessus ; les diodes, qui bornent la bosse, n'y sont pas : la courbe des petits
+ * signaux, son niveau cale sur MOOG comme le moteur).
+ */
 function filterMag(m: number, f: number, fc: number, res: number): number {
   const k = res * 4.1;
   // s = j w : (1 + s)^n en complexe
   const w = f / fc;
+  if (m === 2) {
+    const d = Math.max(0.05, Math.abs((7 / 3) * (1 - msKappa(res))));
+    return 1 / Math.hypot(1 - w * w, d * w);
+  }
   const mul = (a: [number, number], b: [number, number]): [number, number] => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
   const div = (a: [number, number], b: [number, number]): [number, number] => {
     const d = b[0] * b[0] + b[1] * b[1];
@@ -409,7 +432,7 @@ function filterMag(m: number, f: number, fc: number, res: number): number {
   // Les gains du worklet : la resonance de LP 12 ramenee, BP et HP au niveau du passe-bas
   if (m === 0) o = [y4[0] * (1 + k * 0.5), y4[1] * (1 + k * 0.5)];
   else if (m === 1) o = [y2[0] * (1 + k * 0.12), y2[1] * (1 + k * 0.12)];
-  else if (m === 2) o = [2 * (y1[0] - y2[0]) * 1.25, 2 * (y1[1] - y2[1]) * 1.25];
+  else if (m === 3) o = [2 * (y1[0] - y2[0]) * 1.25, 2 * (y1[1] - y2[1]) * 1.25];
   else o = [(u[0] - 2 * y1[0] + y2[0]) * 1.7 * 0.6, (u[1] - 2 * y1[1] + y2[1]) * 1.7 * 0.6];
   return Math.hypot(o[0], o[1]);
 }
@@ -447,7 +470,7 @@ function filterDiagram(id: VoyKnobId, values: Readonly<VoyValues>): VoyDiagram {
       if (k !== m) p.p(filterCurve(k, fc, values.res), 'ghost');
     });
     p.p(filterCurve(m, fc, values.res), 'hot');
-    p.label(['MOOG 24 DB', 'LOW PASS 12', 'BAND PASS', 'HIGH PASS'][m], X1, TOP + 4, 'end');
+    p.label(['MOOG 24 DB', 'LOW PASS 12', 'MS-10 KORG35', 'BAND PASS', 'HIGH PASS'][m], X1, TOP + 4, 'end');
   } else {
     if (id === 'res') p.p(filterCurve(m, fc, 0), 'ghost');
     else p.p(filterCurve(m, cutoffHz(0.5), values.res), 'ghost');

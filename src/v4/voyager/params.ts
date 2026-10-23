@@ -181,8 +181,20 @@ export const SEMIS = ['-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '+1', '+2',
  * MODE du filtre (2026-10-04) : le passe-bas 24 dB du Moog (le filtre
  * d'origine, la position de depart ; nomme MOOG depuis que Mika ne le
  * retrouvait plus), passe-bas 12 dB, passe-bande, passe-haut.
+ *
+ * MS-10 (2026-10-23, Mika : "entre Monark et un synth analog Moog Voyager
+ * et un Korg Ms10") : le passe-bas Korg35 du MS-10 et ses diodes, au milieu
+ * des cinq crans comme RND dans SHAPE : les crans d'avant (0, 1/3, 2/3, 1)
+ * tombent tout seuls sur MOOG, LP12, BP et HP (le cran le plus proche sur
+ * cinq), un Roto-Control a quatre crans (0, 42, 85, 127) aussi ; un son
+ * garde garde donc son filtre, sans migration ; les empreintes ramenent la
+ * valeur sur ses cinq crans (fmodeStep, foldLegacyKnobs). Le moteur garde
+ * ses codes (FMODE_CODE : MS-10 y est le code 4), les rendus d'avant restent
+ * les memes au bit pres.
  */
-export const FMODES = ['MOOG', 'LP12', 'BP', 'HP'] as const;
+export const FMODES = ['MOOG', 'LP12', 'MS-10', 'BP', 'HP'] as const;
+/** Le code du moteur (audio/moog.worklet.js P.fmode) de chaque cran de MODE : 0 MOOG, 1 LP12, 4 MS-10, 2 BP, 3 HP. */
+export const FMODE_CODE = [0, 1, 4, 2, 3] as const;
 /** MOD : la vitesse du LFO en duree d'un cycle, calee sur le tempo (en temps) ; chaque cycle part sur la grille. */
 export const LFO_RATES = ['1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR', '4 BAR'] as const;
 export const LFO_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16] as const;
@@ -246,7 +258,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'res', label: 'RES', aria: 'Filter resonance', section: 'filter', def: 0.35 },
   { id: 'envAmt', label: 'ENV AMT', aria: 'Filter envelope amount', section: 'filter', def: 0.5 },
   { id: 'noise', label: 'NOISE', aria: 'Noise level into the filter', section: 'filter', def: 0 },
-  { id: 'fmode', label: 'MODE', aria: 'Filter mode: Moog 24 dB low pass, 12 dB low pass, band pass, high pass; tap for the next', section: 'filter', def: 0, steps: FMODES },
+  { id: 'fmode', label: 'MODE', aria: 'Filter mode: Moog 24 dB low pass, 12 dB low pass, MS-10 Korg35 low pass, band pass, high pass; tap for the next', section: 'filter', def: 0, steps: FMODES },
   { id: 'fA', label: 'ATTACK', aria: 'Filter envelope attack', section: 'feg', def: 0 },
   { id: 'fD', label: 'DECAY', aria: 'Filter envelope decay', section: 'feg', def: 0.3 },
   { id: 'fS', label: 'SUSTAIN', aria: 'Filter envelope sustain', section: 'feg', def: 0.2 },
@@ -483,8 +495,9 @@ export function legacyFill(raw: Readonly<Record<string, unknown>>): Partial<Reco
 /**
  * Des potards gardes ramenes a aujourd'hui, pour les empreintes (state/presets.ts sig, voyager/patch.ts) : les ON
  * d'avant le 2026-10-11 plies dans leur niveau (withoutOscOn), le CHORUS d'avant le 2026-10-12 a son mode
- * (chorusStep), SHAPE d'avant le 2026-10-18 sur ses cinq crans (lfoShapeStep), un potard ajoute depuis a sa valeur
- * d'heritage (legacyFill, 2026-10-21) ; un son garde avant eux reste le meme son qu'apres sa migration.
+ * (chorusStep), SHAPE d'avant le 2026-10-18 sur ses cinq crans (lfoShapeStep), MODE d'avant le 2026-10-23 sur ses
+ * cinq crans (fmodeStep), un potard ajoute depuis a sa valeur d'heritage (legacyFill, 2026-10-21) ; un son garde avant
+ * eux reste le meme son qu'apres sa migration.
  */
 export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
   let out = withoutOscOn(raw);
@@ -495,6 +508,9 @@ export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<
   // SHAPE sur quatre crans d'avant le 2026-10-18 : sur ses cinq (la meme forme)
   const s = out.lfoShape;
   if (typeof s === 'number' && Number.isFinite(s) && lfoShapeStep(s) !== s) out = { ...out, lfoShape: lfoShapeStep(s) };
+  // MODE sur quatre crans d'avant le 2026-10-23 : sur ses cinq (le meme filtre)
+  const f = out.fmode;
+  if (typeof f === 'number' && Number.isFinite(f) && fmodeStep(f) !== f) out = { ...out, fmode: fmodeStep(f) };
   return out;
 }
 
@@ -504,6 +520,15 @@ export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<
  */
 export const lfoShapeStep = (v: number): number => {
   const n = LFO_SHAPES.length - 1;
+  return Math.max(0, Math.min(n, Math.round(v * n))) / n;
+};
+
+/**
+ * MODE ramene sur ses cinq crans (2026-10-23) : un cran d'avant (0, 1/3, 2/3, 1 : MOOG, LP12, BP, HP) tombe sur le
+ * meme filtre (0, 0.25, 0.75, 1) ; un cran d'aujourd'hui reste tel quel.
+ */
+export const fmodeStep = (v: number): number => {
+  const n = FMODES.length - 1;
   return Math.max(0, Math.min(n, Math.round(v * n))) / n;
 };
 
@@ -564,7 +589,7 @@ export interface EngineParams {
   cutoff: number;
   res: number;
   envOct: number;
-  /** NOISE : 0 a 1 ; MODE : 0 LP 24, 1 LP 12, 2 BP, 3 HP */
+  /** NOISE : 0 a 1 ; MODE : le code du moteur, 0 LP 24 (MOOG), 1 LP 12, 2 BP, 3 HP, 4 MS-10 (FMODE_CODE) */
   noise: number;
   fmode: number;
   fA: number;
@@ -615,7 +640,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     res: v.res,
     envOct: envOctaves(v.envAmt),
     noise: v.noise,
-    fmode: stepIndex('fmode', v.fmode),
+    fmode: FMODE_CODE[stepIndex('fmode', v.fmode)],
     fA: attackS(v.fA),
     fD: decayS(v.fD),
     fS: v.fS,

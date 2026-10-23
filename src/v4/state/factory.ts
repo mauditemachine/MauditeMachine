@@ -432,7 +432,9 @@ const NOTES = (n: number): number => n / 8;
 const WAVE1 = { SINE: 0, TRI: 0.2, SAW: 0.4, SQUARE: 0.6, PULSE: 0.8, FM: 1 } as const;
 const WAVE2 = { SINE: 0, TRI: 0.25, SAW: 0.5, SQUARE: 0.75, PULSE: 1 } as const;
 const FEET = { 32: 0.2, 16: 0.4, 8: 0.6, 4: 0.8, 2: 1 } as const;
-const FMODE = { MOOG: 0, LP12: 1 / 3, BP: 2 / 3, HP: 1 } as const;
+// MODE sur ses cinq crans (2026-10-23, voyager/params.ts FMODES : MS-10 au milieu ; un 1/3 ou 2/3 d'avant y tombe
+// sur LP12 ou BP)
+const FMODE = { MOOG: 0, LP12: 0.25, MS10: 0.5, BP: 0.75, HP: 1 } as const;
 const LFO_RATE = { '1 BAR': 4 / 6, '2 BAR': 5 / 6, '4 BAR': 1 } as const;
 const LFO_TO = { WAVE: 0, CUTOFF: 0.25 } as const;
 const LFO_SHAPE = { TRI: 0, RND: 0.5 } as const;
