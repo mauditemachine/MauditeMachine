@@ -1041,6 +1041,12 @@ const RAMP_KEYS = ['cutoff', 'res', 'envOct'];
 const RAMP_MIN = 0.002;
 const RAMP_MAX = 0.05;
 const RAMP_K = 1.1;
+/**
+ * Les fondamentaux tout en haut (2026-10-23, S21) : un oscillateur dont la note passe 18 kHz s'efface jusqu'a 22 kHz
+ * (avant : RANGE 2' et SEMI +7 sur les notes du haut montaient jusqu'a 75 kHz, repliees en raies a -31 dB).
+ */
+const FADE_HZ = 18000;
+const FADE_W = 4000;
 const VX_G35R = 37;
 const VX_SIZE = 40;
 /**
@@ -1987,6 +1993,9 @@ class MMVoyager extends AudioWorkletProcessor {
     const R = out.length > 1 ? out[1] : null;
     const N = L.length;
     const sr = this.sr2;
+    // S21 : le fondamental d'un oscillateur s'efface de 18 a 22 kHz (FADE_HZ, FADE_W), en pas de phase
+    const fadeA = FADE_HZ / sr;
+    const fadeK = sr / FADE_W;
     const t0 = currentFrame;
     // Tests (processorOptions.timeline) : les messages dont l'instant est venu, entre deux blocs comme ceux du port
     const tl = this.timeline;
@@ -2705,6 +2714,18 @@ class MMVoyager extends AudioWorkletProcessor {
           P.m += dm;
           P.m -= Math.floor(P.m);
           // Le gain de l'exemplaire (1 sans STACK : le calcul d'avant), qui glisse quand STACK change en plein son
+          // S21 : au-dessus de 18 kHz (RANGE 2', SEMI +7 sur les notes du haut : jusqu'a 75 kHz), le fondamental s'efface
+          // jusqu'a 22 kHz (une marche douce) : plus de raies repliees ; dessous, rien ne change (le meme calcul, au bit pres)
+          if (d1 > fadeA) {
+            let tf = (d1 - fadeA) * fadeK;
+            tf = tf >= 1 ? 1 : tf;
+            o1 *= 1 - tf * tf * (3 - 2 * tf);
+          }
+          if (d2 > fadeA) {
+            let tf = (d2 - fadeA) * fadeK;
+            tf = tf >= 1 ? 1 : tf;
+            o2 *= 1 - tf * tf * (3 - 2 * tf);
+          }
           let gj = 1;
           if (P.g !== P.gt) {
             P.g += (P.gt - P.g) * stK;

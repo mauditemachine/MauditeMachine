@@ -1443,6 +1443,38 @@ async function zip(ctx, file) {
 }
 
 /**
+ * Tout en haut (2026-10-23, S21) : RANGE 2' et SEMI +7 (+31 demi-tons) sur les notes du haut, une scie seule, filtre
+ * ouvert : la plus forte raie de 20 Hz a 20 kHz contre le fondamental d'une scie a 1 kHz (dB) ; et la note dont le
+ * fondamental passe 18 kHz (la marche doit etre douce : son niveau note par note).
+ */
+async function top(ctx, file) {
+  const out = {};
+  for (const os of PATHS) {
+    const base = { ...ctx.LAB, wave1: 2, osc1: 0.6, outLevel: 0.3 };
+    const ref = render({ file, os, params: base, notes: [held(hzMidi(1000), 2)], seconds: 1.6 });
+    const sr0 = spectrum(ref.L, 32768, Math.round(0.4 * SR));
+    let nominal = 0;
+    for (let k = 0; k < sr0.amp.length; k += 1) if (sr0.f[k] > 900 && sr0.f[k] < 1100) nominal = Math.max(nominal, sr0.amp[k]);
+    for (const m of [101, 103, 105, 110, 116, 120, 124, 127]) {
+      const r = render({ file, os, params: { ...base, tune1: 31 }, notes: [held(m, 2)], seconds: 1.6 });
+      const sp = spectrum(r.L, 32768, Math.round(0.4 * SR));
+      let worst = 0;
+      let at = 0;
+      for (let k = 0; k < sp.amp.length; k += 1) {
+        if (sp.f[k] < 20 || sp.f[k] > 20000) continue;
+        if (sp.amp[k] > worst) {
+          worst = sp.amp[k];
+          at = sp.f[k];
+        }
+      }
+      const f0 = midiHz(m + 31);
+      out[`x${os} note ${m} + 31 (f0 ${Math.round(f0)} Hz): strongest line dB re nominal (Hz)`] = `${r1(db(worst / nominal))} (${Math.round(at)})`;
+    }
+  }
+  return out;
+}
+
+/**
  * Q3 : l'escalier des potards. Chaque potard du moteur parcourt ses 128 valeurs MIDI en 2 s (un message toutes les
  * 15.6 ms, la traduction du site) sur une scie C3 tenue : l'energie au-dessus de 6 kHz par fenetre de 2 ms contre sa
  * mediane glissante de 50 ms (le pire exces, dB) ; et la raie du bloc (375 Hz) d'une note fixe.
@@ -1570,7 +1602,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, space, fpol, zip, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, space, fpol, zip, top, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }
