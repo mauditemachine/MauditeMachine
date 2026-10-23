@@ -1917,10 +1917,25 @@ class MMVoyager extends AudioWorkletProcessor {
     if (sm.lfoAmt < TINY && sm.lfoAmt > -TINY) sm.lfoAmt = 0;
     if (sm.drive < TINY && sm.drive > -TINY) sm.drive = 0;
     if (sm.wide < TINY && sm.wide > -TINY) sm.wide = 0;
+    // 2026-10-23 (controle qualite, QC-DSP-1) : les autres lissages qui peuvent viser 0 (WAVE, FINE, RES, ENV AMT), les
+    // poids de MODE et la sortie du LFO : un potard ramene a 0 y laissait un point fixe sous-normal (x K arrondi a 0)
+    // apres une dizaine de secondes, et le calcul d'une note tenue doublait (124 a 139 % du temps reel au pire)
+    if (sm.w1 < TINY && sm.w1 > -TINY) sm.w1 = 0;
+    if (sm.w2 < TINY && sm.w2 > -TINY) sm.w2 = 0;
+    if (sm.f1 < TINY && sm.f1 > -TINY) sm.f1 = 0;
+    if (sm.f2 < TINY && sm.f2 > -TINY) sm.f2 = 0;
+    if (sm.res < TINY && sm.res > -TINY) sm.res = 0;
+    if (sm.envOct < TINY && sm.envOct > -TINY) sm.envOct = 0;
+    const wm = this.wm;
+    for (let m = 0; m < 5; m += 1) if (wm[m] < TINY && wm[m] > -TINY) wm[m] = 0;
+    if (this.lfoOut < TINY && this.lfoOut > -TINY) this.lfoOut = 0;
     const vs = this.voices;
     for (let i = 0; i < vs.length; i += 1) {
       const v = vs[i];
       if (!v.on) continue;
+      // Les enveloppes qui tendent vers 0 (SUSTAIN a 0) : remises a 0 sous TINY
+      if (v.aV < TINY) v.aV = 0;
+      if (v.fV < TINY && v.fV > -TINY) v.fV = 0;
       if (v.s1 < TINY && v.s1 > -TINY) v.s1 = 0;
       if (v.s2 < TINY && v.s2 > -TINY) v.s2 = 0;
       if (v.s3 < TINY && v.s3 > -TINY) v.s3 = 0;
