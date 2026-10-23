@@ -136,8 +136,9 @@ export type VoyKnobId =
   | 'glue'
   | 'dlyTime'
   | 'tape'
-  // 2026-10-23 (Mika : "entre Monark et un synth analog Moog Voyager et un Korg Ms10") : LOAD
-  | 'load';
+  // 2026-10-23 (Mika : "entre Monark et un synth analog Moog Voyager et un Korg Ms10") : LOAD, SPACE
+  | 'load'
+  | 'space';
 
 export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
@@ -362,6 +363,11 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
    * pres ; 0 au depart et pour un son garde avant lui (le depart d'apres l'ecoute de Mika viendra plus tard).
    */
   { id: 'load', label: 'LOAD', aria: 'Load: the mixer drives the filter input, from clean to a hot Moog growl; the resonance gets squeezed by the notes', section: 'tweak', def: 0, legacy: 0 },
+  /*
+   * SPACE (2026-10-23) : les deux passe-bas du Voyager, celui de gauche plus sombre, celui de droite plus clair, jusqu'a
+   * une octave de chaque cote (audio/moog.worklet.js S17) ; OFF sous 0.02 : le son d'avant au bit pres.
+   */
+  { id: 'space', label: 'SPACE', aria: 'Space: the Voyager dual low pass, the left filter darker and the right one brighter, up to one octave each side', section: 'tweak', def: 0, legacy: 0 },
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
@@ -629,6 +635,8 @@ export interface EngineParams {
   glue: number;
   /** LOAD (2026-10-23) : 0 a 1 ; 0 : contourne (le calcul d'avant au bit pres) */
   load: number;
+  /** SPACE (2026-10-23) : 0 a 1 (l'ecart des deux filtres) ; 0 : un seul filtre par note (le calcul d'avant) */
+  space: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -675,6 +683,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     wide: fxAmount(v.wide),
     glue: fxAmount(v.glue),
     load: fxAmount(v.load),
+    space: fxAmount(v.space),
   };
 }
 
@@ -683,7 +692,7 @@ export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
   // SUB OCT : "SUB -2 OCT" (pas "SUB OCT -2 OCT")
   if (id === 'subOct') return `SUB ${voyValueText(id, v)}`;
-  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack') return `${k.label} ${voyValueText(id, v)}`;
+  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack' || id === 'space') return `${k.label} ${voyValueText(id, v)}`;
   // WIDE, GLUE, TAPE (2026-10-22, la relecture), LOAD (2026-10-23) : OFF en bas, sinon "GLUE 35%" comme DRIFT 50% a
   // cote (pas "35 %")
   if (id === 'wide' || id === 'glue' || id === 'tape' || id === 'load') return v < FX_OFF ? `${k.label} OFF` : `${k.label} ${Math.round(v * 100)}%`;
@@ -700,6 +709,8 @@ export function voyValueText(id: VoyKnobId, v: number): string {
   if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
   if (id === 'duck') return v < DUCK_OFF ? 'OFF' : `-${Math.round(duckDepthDb(v))} DB`;
   if (id === 'stack') return v < STACK_MIN ? 'OFF' : `${Math.round(stackCents(v))} CT`;
+  // SPACE (2026-10-23) : l'ecart de chaque cote, en octave (SPACE 0.5 OCT)
+  if (id === 'space') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100) / 100} OCT`;
   if (id === 'wide' || id === 'glue' || id === 'tape' || id === 'load') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100)} %`;
   if (id === 'subOct') return `${SUB_OCTS[stepIndex('subOct', v)]} OCT`;
   if (id === 'fine1' || id === 'fine2') {

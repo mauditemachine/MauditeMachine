@@ -783,6 +783,8 @@ class Voice {
     this.d2 = 0;
     this.d3 = 0;
     this.g = 0;
+    // SPACE (S17) : la coupure de l'echelle de droite (sa tangente ; 0 : pas encore calculee)
+    this.gS = 0;
     // La FM et la SYNC sans repliement (2026-10-21) : leurs etats sont ceux de chaque exemplaire (stackPair : q1, q2, sb)
   }
 }
@@ -960,6 +962,7 @@ const P_RANGE = {
   stack: [0, 45],
   wide: [0, 1.5],
   load: [0, 1],
+  space: [0, 1],
   glue: [0, 1.5],
 };
 /** Les codes (entiers) : MODE (0 MOOG, 1 LP12, 2 BP, 3 HP), forme et cible du LFO, SYNC, octave et forme du SUB. */
@@ -1025,6 +1028,15 @@ const VX_LFR = 33;
 const VX_LXR = 34;
 const VX_LHR = 35;
 const VX_LON = 36;
+/**
+ * SPACE (2026-10-23, S17, Mika : "entre Monark et un synth analog Moog Voyager") : les deux passe-bas du Voyager, celui
+ * de gauche 2^-s sous la coupure, celui de droite 2^s au-dessus (s de 0 a 1 : jusqu'a deux octaves entre eux), sur la
+ * meme entree quand WIDE est a 0 (l'ecart de chaque cote : s (1.25 - 0.25 s) octave) ; SP_XF de chaque cote passe dans l'autre (au-dela de SPACE 0.1, en fondu dessous) :
+ * sans lui la somme mono perdait 2.1 a 2.6 LU a SPACE 1 ou sous une resonance (les pics de chaque cote seuls), avec
+ * lui 0.9 a 1.1 (q.mjs space, Q11). Le g du MS-10 de droite : VX_G35R.
+ */
+const SP_XF = 0.2;
+const VX_G35R = 37;
 const VX_SIZE = 40;
 /**
  * La saturation de sortie des voix sans repliement (2026-10-23, S5, Mika : "que le son soit d'extreme bonne
@@ -1111,6 +1123,10 @@ class MMVoyager extends AudioWorkletProcessor {
     this.ldDc = Math.exp((-2 * Math.PI * LD_DC_HZ) / this.sr2);
     this.ldLast = -1;
     this.ldMk = 1;
+    // SPACE (S17) : l'ecart des deux filtres (2^s et son inverse), refait quand s bouge
+    this.spLast = -1;
+    this.spF = 1;
+    this.spI = 1;
     this.panK = coef(PAN_S, this.sr2);
     // Le passe-bas avant le filtre (2026-10-23) : pour chaque etage, g = tan(pi f / fs), 2R + g et 1 / (1 + 2Rg + g^2)
     const pg = Math.tan((Math.PI * PRE_HZ) / this.sr2);
@@ -1180,10 +1196,12 @@ class MMVoyager extends AudioWorkletProcessor {
       wide: 0,
       // LOAD (S12) : 0, le son d'avant
       load: 0,
+      // SPACE (S17) : 0, le son d'avant (un seul filtre par note, ou les deux de WIDE a la meme coupure)
+      space: 0,
       glue: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, sub: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0, wide: 0, load: 0 };
+    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, sub: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0, wide: 0, load: 0, space: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) this.setParams(o.params);
@@ -1191,7 +1209,7 @@ class MMVoyager extends AudioWorkletProcessor {
     for (let m = 0; m < 5; m += 1) this.wm[m] = m === this.p.fmode ? 1 : 0;
     // Les remises au repos de la garde (une voix, le bus) depuis la creation (tests)
     this.heals = 0;
-    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive, wide: this.p.wide, load: this.p.load });
+    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive, wide: this.p.wide, load: this.p.load, space: this.p.space });
     this.stD = this.p.stack;
     this.gl.g = this.p.glue;
     this.coefs();
@@ -1478,7 +1496,7 @@ class MMVoyager extends AudioWorkletProcessor {
     // WIDE : la note a son echelle de droite s'il en reste (une voix reprise en plein son garde la sienne : pas de saut).
     // WIDE revenu a OFF, une voix muette repart sans elle (2026-10-22, relecture : la voix la gardait jusqu'ici, process)
     if (quiet) {
-      if (this.sm.wide === 0) v.wl = false;
+      if (this.sm.wide === 0 && this.sm.space === 0) v.wl = false;
       let busy = 0;
       for (let i = 0; i < vs.length; i += 1) if (vs[i].on && vs[i] !== v && vs[i].wideOK) busy += 1;
       v.wideOK = busy < this.wideVoices;
@@ -2138,6 +2156,23 @@ class MMVoyager extends AudioWorkletProcessor {
         if (p.wide === 0 && sm.wide < 1e-4) sm.wide = 0;
       }
       const wideOn = sm.wide > 0;
+      // SPACE (2026-10-23, S17) : lisse, ramene a 0 net ; l'ecart des deux filtres (2^s : la droite au-dessus, la
+      // gauche au-dessous), refait quand il bouge
+      if (sm.space !== p.space) {
+        sm.space += (p.space - sm.space) * K;
+        if (p.space === 0 && sm.space < 1e-4) sm.space = 0;
+      }
+      const spOn = sm.space > 0;
+      if (spOn && sm.space !== this.spLast) {
+        this.spLast = sm.space;
+        // L'ecart de chaque filtre, en octaves : s (1.25 - 0.25 s), un peu plus que s au milieu (le melange croise
+        // rapproche les deux cotes) : l'ecart entendu suit 2^(2s) (q.mjs space : les coudes de chaque cote)
+        this.spF = Math.pow(2, sm.space * (1.25 - 0.25 * sm.space));
+        this.spI = 1 / this.spF;
+      }
+      const spF = this.spF;
+      const spI = this.spI;
+      const spXf = spOn ? SP_XF * (sm.space >= 0.1 ? 1 : sm.space / 0.1) : 0;
       // LOAD (S12) : lisse, ramene a 0 net ; ses nombres de l'echantillon
       if (sm.load !== p.load) {
         sm.load += (p.load - sm.load) * K;
@@ -2304,8 +2339,10 @@ class MMVoyager extends AudioWorkletProcessor {
         // Une voix qui a son echelle de droite la garde quand WIDE revient a OFF (2026-10-22, relecture : la droite
         // sautait d'une echelle a l'autre, un clic sous une forte resonance) : a WIDE 0, la droite recoit la meme
         // entree que la gauche, sans marche ; elle s'arrete a la prochaine note de la voix, muette (noteOn)
-        const wideV = v.wideOK && (wideOn || v.wl);
+        const wideV = v.wideOK && (wideOn || spOn || v.wl);
         const wide = wideV ? sm.wide : 0;
+        // SPACE : les deux filtres de la note a leurs coupures (une note sans filtre de droite garde la sienne, au centre)
+        const spW = spOn && wideV;
         // Sans STACK, les places d'OSC 1 et d'OSC 2 selon leur equilibre (pn1, pn2, plus haut)
         const one = v.n === 1;
         const wn = wideV ? 1 / Math.sqrt(1 + wide * wide * (one ? pn2w : STACK_PAN2[v.n - 1])) : 1;
@@ -2617,7 +2654,7 @@ class MMVoyager extends AudioWorkletProcessor {
             if (P.g - P.gt < 1e-5 && P.gt - P.g < 1e-5) P.g = P.gt;
           }
           if (nl !== 1 || P.g !== 1) gj = P.g;
-          if (wideV) {
+          if (wide !== 0) {
             const s1 = g1 * o1 * gj * wn;
             const s2 = g2 * o2 * gj * wn;
             const c1 = one && j === 0 ? pn1 : P.pan1;
@@ -2773,6 +2810,12 @@ class MMVoyager extends AudioWorkletProcessor {
           }
           for (let sd = 0; sd < 2; sd += 1) {
             if (sd === 1 && !wideV) break;
+            // Les deux entrees egales (WIDE a 0 : SPACE seul) et les deux etats egaux : la droite est la gauche, au bit
+            // pres, sans la calculer (des etats qui different, WIDE revenu a 0 en pleine note : la droite continue)
+            if (sd === 1 && wide === 0 && X[VX_LZR] === X[VX_LZL] && X[VX_LFR] === X[VX_LFL] && X[VX_LXR] === X[VX_LXL] && X[VX_LHR] === X[VX_LHL]) {
+              xdR = xd;
+              break;
+            }
             const zi = sd === 0 ? zl : xinR * ldG * v.accN + ldB;
             const iz = sd === 0 ? VX_LZL : VX_LZR;
             const z1 = X[iz];
@@ -2819,16 +2862,37 @@ class MMVoyager extends AudioWorkletProcessor {
         } else if (X[VX_LON] !== 0) X[VX_LON] = 0;
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         // La coupure (sa tangente) : une fois par echantillon du contexte, elle bouge lentement a cette echelle
-        if (newNoise || (ladOn ? v.g === 0 : X[VX_G35] === 0)) {
+        if (newNoise || (ladOn ? v.g === 0 || (spW && v.gS === 0) : X[VX_G35] === 0 || (spW && X[VX_G35R] === 0))) {
           const env = sm.envOct * v.fV * (0.8 + 0.2 * v.accent) * v.envAcc;
           if (ladOn) {
             let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + env + v.cutAcc + v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12 + kTune);
+            // SPACE (S17) : la droite 2^s au-dessus, la gauche 2^s au-dessous, chacune bornee comme la coupure
+            if (spW) {
+              let fr = fc * spF;
+              fc *= spI;
+              if (fr > nyq) fr = nyq;
+              else if (fr < 20) fr = 20;
+              // tan par son approximation de Pade [5/4] (2026-10-23 : 2e-5 au pire, 0.004 cent, sous la butee ;
+              // Math.tan une fois de plus par voix coutait 20 us au telephone)
+              const xr = (Math.PI * fr) / sr;
+              const x2r = xr * xr;
+              v.gS = (xr * (945 - 105 * x2r + x2r * x2r)) / (945 - 420 * x2r + 15 * x2r * x2r);
+            }
             if (fc > nyq) fc = nyq;
             else if (fc < 20) fc = 20;
             v.g = Math.tan((Math.PI * fc) / sr);
           }
           if (w4 !== 0) {
             let f35 = sm.cutoff * Math.pow(2, sB7 * v.vCutE + cutMod + env + v.cutAcc + sB7 * v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12 + c35o);
+            if (spW) {
+              let fr = f35 * spF;
+              f35 *= spI;
+              if (fr > fcMax35) fr = fcMax35;
+              else if (fr < 20) fr = 20;
+              const xr = (Math.PI * fr) / sr;
+              const x2r = xr * xr;
+              X[VX_G35R] = (xr * (945 - 105 * x2r + x2r * x2r)) / (945 - 420 * x2r + 15 * x2r * x2r);
+            }
             if (f35 > fcMax35) f35 = fcMax35;
             else if (f35 < 20) f35 = 20;
             v.x[VX_G35] = Math.tan((Math.PI * f35) / sr);
@@ -3032,8 +3096,8 @@ class MMVoyager extends AudioWorkletProcessor {
         X[VX_TZL] = zs;
         v.gL += (v.tL - v.gL) * panK;
         v.gR += (v.tR - v.gR) * panK;
-        sum += a * v.gL;
         if (!wideV) {
+          sum += a * v.gL;
           v.wl = false;
           sumR += a * v.gR;
           continue;
@@ -3052,7 +3116,7 @@ class MMVoyager extends AudioWorkletProcessor {
         let yoR = 0;
         if (ladOn) {
           fq.x = xdR * driveIn;
-          fq.g = g;
+          fq.g = spW && v.gS > 0 ? v.gS : g;
           fq.k = k;
           ladderR(fq);
           const yr = fq.y;
@@ -3070,7 +3134,7 @@ class MMVoyager extends AudioWorkletProcessor {
           const kp = X[VX_KPR];
           const kq = X[VX_KQR];
           const ky = X[VX_KYR];
-          const g35 = X[VX_G35];
+          const g35 = spW && X[VX_G35R] > 0 ? X[VX_G35R] : X[VX_G35];
           const xk = xdR * driveIn;
           const be = 2 * kp - kq;
           const xe = (be < 0 ? -be : be) * kIl;
@@ -3177,7 +3241,15 @@ class MMVoyager extends AudioWorkletProcessor {
           X[VX_TVR] = 0;
         }
         X[VX_TZR] = zsR;
-        sumR += aR * v.gR;
+        // SPACE (S17) : un peu de chaque cote dans l'autre (SP_XF) : la somme mono tient (la largeur a 60 %)
+        if (spXf !== 0) {
+          const t = spXf * (aR - a);
+          sum += (a + t) * v.gL;
+          sumR += (aR - t) * v.gR;
+        } else {
+          sum += a * v.gL;
+          sumR += aR * v.gR;
+        }
       }
       const acc = this.acc;
       acc[0] = sum;

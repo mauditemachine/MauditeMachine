@@ -170,6 +170,20 @@
     "centroidHz": 3279,
     "sideDb": -21.19
    },
+   "X SPACE": {
+    "sha256": "e2f94d9a2c3e3cdb68cc4fdd5a3fb274",
+    "peakDb": -1.98,
+    "rmsDb": -15.83,
+    "centroidHz": 662,
+    "sideDb": -8.61
+   },
+   "X SPACE MS10": {
+    "sha256": "89cf0c2a409302c6fdfc456da2640456",
+    "peakDb": -2.77,
+    "rmsDb": -15.99,
+    "centroidHz": 495,
+    "sideDb": -9.39
+   },
    "X MS10": {
     "sha256": "e9eb8152a2de5e3107ed4a837be63f12",
     "peakDb": -2.72,
@@ -454,6 +468,20 @@
     "rmsDb": -13.82,
     "centroidHz": 3073,
     "sideDb": -21.05
+   },
+   "X SPACE": {
+    "sha256": "38cb5e77eea89058f7fe21c8ef0a8c97",
+    "peakDb": -1.97,
+    "rmsDb": -15.78,
+    "centroidHz": 665,
+    "sideDb": -8.47
+   },
+   "X SPACE MS10": {
+    "sha256": "c2db07aca44dcb6d1874ebcf54bbb205",
+    "peakDb": -3.03,
+    "rmsDb": -15.96,
+    "centroidHz": 493,
+    "sideDb": -9.39
    },
    "X MS10": {
     "sha256": "7129fff26db7f4b013a6efa4c55291f1",

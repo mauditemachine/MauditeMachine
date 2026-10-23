@@ -72,6 +72,7 @@ export const VOY_INFO_SECTION: Readonly<Record<VoyInfoId, string>> = {
   dlyTime: 'TWEAKS',
   tape: 'TWEAKS',
   load: 'TWEAKS',
+  space: 'TWEAKS',
   pad: 'CHORDS',
   run: 'TRANSPORT',
   clear: 'TRANSPORT',

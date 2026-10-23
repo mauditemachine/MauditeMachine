@@ -246,6 +246,11 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     text: "Le mélangeur pousse le filtre, comme le LOAD de Monark. En bas le son reste propre (un Voyager), au milieu il chauffe et la résonance se tasse sous les notes, en haut il gronde. Il garde l'attaque : le punch reste. Une note appuyée (ACCENT, ACC FILTER) le pousse un peu plus. OVERDRIVE est la pédale par-dessus. OFF : le son d'origine.",
     tip: "LOAD vers 3 avec RES vers 6 : le gras d'un Moog sans perdre le grave ; garde OVERDRIVE pour la fin de la chaîne.",
   },
+  space: {
+    title: 'SPACE',
+    text: "Les deux filtres du Voyager : celui de gauche plus sombre, celui de droite plus clair, jusqu'à une octave de chaque côté. La coupure, l'enveloppe et le LFO les bougent ensemble ; la résonance chante à deux hauteurs. Large et sans chorus, il tient en mono (un peu de chaque côté passe dans l'autre). OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
+    tip: "SPACE vers 5 avec RES vers 6 et WIDE à OFF : un arpège qui s'ouvre en stéréo sans perdre son centre.",
+  },
   dlyTime: {
     title: 'DLY TIME',
     text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos comme une bande qui ralentit ou accélère, jamais à l'envers : plus l'écart est grand, plus le glissement dure (jusqu'à 3 s de 1/8 à 1/2 à 120 BPM).",

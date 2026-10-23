@@ -43,6 +43,8 @@ const ADDED_V2: readonly VoyKnobId[] = ['accFlt', 'stack', 'wide', 'glue', 'dlyT
  * d'heritage (0) ; toute empreinte gardee avant lui reste valable.
  */
 const ADDED_V3: readonly VoyKnobId[] = ['load'];
+/** SPACE (2026-10-23), une quatrieme rangee 'v4', de la meme facon (seulement s'il quitte 0). */
+const ADDED_V4: readonly VoyKnobId[] = ['space'];
 const heir = (id: VoyKnobId): number => voyKnob(id).legacy ?? voyParams.def(id);
 /**
  * Les ON des oscillateurs (on1 apres FINE 1, on2 apres FINE 2), retires le 2026-10-11 (Mika : "si on veut pas les osc
@@ -53,7 +55,7 @@ const heir = (id: VoyKnobId): number => voyKnob(id).legacy ?? voyParams.def(id);
 type SigId = VoyKnobId | 'on1' | 'on2';
 const RETIRED_AFTER: Readonly<Partial<Record<VoyKnobId, SigId>>> = { fine1: 'on1', fine2: 'on2' };
 /** Le niveau de sortie n'est pas le son : VOLUME tourne ne marque pas le patch (RANDOM le garde aussi). */
-const SOUND_IDS: readonly SigId[] = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id) && !ADDED_V2.includes(id) && !ADDED_V3.includes(id)).flatMap((id): SigId[] => {
+const SOUND_IDS: readonly SigId[] = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id) && !ADDED_V2.includes(id) && !ADDED_V3.includes(id) && !ADDED_V4.includes(id)).flatMap((id): SigId[] => {
   const after = RETIRED_AFTER[id];
   return after ? [id, after] : [id];
 });
@@ -77,7 +79,8 @@ function sigOf(raw: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len:
   const added = ADDED_IDS.some((id) => at(id) !== voyParams.def(id)) ? [ADDED_IDS.map(at)] : [];
   const added2 = ADDED_V2.some((id) => at(id) !== heir(id)) ? [['v2', ...ADDED_V2.map(at)]] : [];
   const added3 = ADDED_V3.some((id) => at(id) !== heir(id)) ? [['v3', ...ADDED_V3.map(at)]] : [];
-  return JSON.stringify([SOUND_IDS.map(sound), s.edit ? [s.len, s.buf] : 0, ...added, ...added2, ...added3]);
+  const added4 = ADDED_V4.some((id) => at(id) !== heir(id)) ? [['v4', ...ADDED_V4.map(at)]] : [];
+  return JSON.stringify([SOUND_IDS.map(sound), s.edit ? [s.len, s.buf] : 0, ...added, ...added2, ...added3, ...added4]);
 }
 
 /**

@@ -764,6 +764,31 @@ function loadDiagram(v: number): VoyDiagram {
   return p.done();
 }
 
+/**
+ * SPACE (2026-10-23) : les deux passe-bas, celui de gauche 2^-e sous la coupure, celui de droite 2^e au-dessus
+ * (audio/moog.worklet.js S17 : e = s (1.25 - 0.25 s) octave), au MODE et a la resonance du moment.
+ */
+function spaceDiagram(v: number, values: Readonly<VoyValues>): VoyDiagram {
+  const p = new Pic();
+  const s = v >= 0.02 ? v : 0;
+  const m = stepIndex('fmode', values.fmode);
+  const fc = cutoffHz(values.cutoff);
+  const e = Math.pow(2, s * (1.25 - 0.25 * s));
+  for (const f of [100, 1000, 10000]) {
+    p.p(seg(fx(f), Y0, fx(f), Y1), 'grid');
+    p.label(f >= 1000 ? `${f / 1000}K` : `${f}`, fx(f), BOT, 'middle');
+  }
+  p.p(seg(X0, dbY(0), X1, dbY(0)), 'grid');
+  if (s === 0) p.p(filterCurve(m, fc, values.res), 'hot');
+  else {
+    p.p(filterCurve(m, fc / e, values.res), 'main');
+    p.p(filterCurve(m, fc * e, values.res), 'hot');
+    p.label('L', clamp(fx(fc / e), X0 + 8, X1 - 8), TOP + 4, 'middle').label('R', clamp(fx(fc * e), X0 + 8, X1 - 8), TOP + 4, 'middle');
+  }
+  if (s === 0) p.label('ONE FILTER', X1, TOP + 4, 'end');
+  return p.done();
+}
+
 function reverbDiagram(v: number): VoyDiagram {
   const p = new Pic();
   const rnd = mulberry(5);
@@ -1269,6 +1294,8 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
       return glueDiagram(c.v);
     case 'load':
       return loadDiagram(c.v);
+    case 'space':
+      return spaceDiagram(c.v, values);
     case 'reverb':
       return reverbDiagram(c.v);
     case 'volume': {

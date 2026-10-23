@@ -808,6 +808,7 @@ const VT = PORTRAIT
           sync: [Q[3], R[0]],
           wide: [C[0], R[1]],
           load: [C[1], R[1]],
+          space: [C[2], R[1]],
           width: [Q[0], R[2]],
           monoLow: [Q[1], R[2]],
           glue: [Q[2], R[2]],
@@ -860,16 +861,17 @@ const VT = PORTRAIT
           accFlt: [-2.3, B],
           chord: [-0.95, B],
           load: [0.5, B],
-          dlyTime: [1.65, B],
-          tape: [2.7, B],
+          space: [1.55, B],
+          dlyTime: [2.7, B],
+          tape: [3.75, B],
         } as Partial<Record<VoyKnobId, readonly [number, number]>>,
         // PERFORMANCE, FILTER et DELAY ; le cartouche a part au-dessus de OUTPUT, SCOPE, INFOS et CLOSE dessous (2026-10-23)
         groups: [
           { title: 'OSCILLATORS', x0: -4.95, z0: A - 0.62, x1: -0.55, z1: A + 0.52, accent: true },
           { title: 'OUTPUT', x0: -0.35, z0: A - 0.62, x1: 4.95, z1: A + 0.52 },
           { title: 'PERFORMANCE', x0: -4.95, z0: B - 0.62, x1: -0.25, z1: B + 0.52 },
-          { title: 'FILTER', x0: -0.05, z0: B - 0.62, x1: 1.05, z1: B + 0.52 },
-          { title: 'DELAY', x0: 1.25, z0: B - 0.62, x1: 3.25, z1: B + 0.52 },
+          { title: 'FILTER', x0: -0.05, z0: B - 0.62, x1: 2.1, z1: B + 0.52 },
+          { title: 'DELAY', x0: 2.3, z0: B - 0.62, x1: 4.3, z1: B + 0.52 },
         ],
         title: { x0: 2.15, z0: KZ - 0.25 - 0.57, x1: 4.95, z1: KZ - 0.25, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV, apart: { z1: KZ + 0.125 } },
         scope: { x: 2.15 + 0.42, z: KZ, w: 0.84, d: 0.25, y: 0.01 },
@@ -937,6 +939,7 @@ export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]
   dlyTime: ['1/8', '1/2'],
   tape: ['CLEAN', 'WORN'],
   load: ['CLEAN', 'HOT'],
+  space: ['OFF', '1 OCT'],
 };
 
 /** La place d'un TWEAK sur la carte (null : pas un TWEAK) ; SYNC et CHORD : des commutateurs (leurs crans). */

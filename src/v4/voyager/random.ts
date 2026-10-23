@@ -140,6 +140,8 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     tape: sometimes(rnd, 0.4, 0.15, 0.55),
     // LOAD (2026-10-23) : a 0 (le son d'avant), sans tirage, tant que Mika n'a pas choisi son depart et ses tirages
     load: 0,
+    // SPACE (2026-10-23) : a 0, sans tirage, de meme
+    space: 0,
   };
 }
 

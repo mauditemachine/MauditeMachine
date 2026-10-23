@@ -108,7 +108,7 @@ const ARP_GROUPS: readonly Group[] = [
   { id: 'fx', label: 'FX', dials: [v('dist', 'OVERDRIVE'), v('chorus', 'CHORUS'), v('delay', 'DELAY'), v('reverb', 'REVERB'), v('dlyTime', 'DLY TIME'), v('tape', 'TAPE')] },
   { id: 'arp', label: 'ARP', dials: [v('rate', 'RATE'), v('mode', 'MODE'), v('range', 'RANGE'), v('notes', 'NOTES'), v('gate', 'GATE'), v('octave', 'OCTAVE'), v('glide', 'GLIDE')] },
   // STACK, WIDE et GLUE (2026-10-22) en tete : les trois qui changent le plus le son
-  { id: 'tweaks', label: 'TWEAKS', dials: [v('stack', 'STACK'), v('wide', 'WIDE'), v('glue', 'GLUE'), v('phase', 'PHASE'), v('drift', 'DRIFT'), v('width', 'WIDTH'), v('monoLow', 'BASS MONO'), v('keyTrack', 'KEY TRACK'), v('accent', 'ACCENT'), v('accFlt', 'ACC FILTER'), v('sync', 'SYNC'), v('duck', 'SIDECHAIN'), v('chord', 'CHORD')] },
+  { id: 'tweaks', label: 'TWEAKS', dials: [v('stack', 'STACK'), v('wide', 'WIDE'), v('space', 'SPACE'), v('glue', 'GLUE'), v('phase', 'PHASE'), v('drift', 'DRIFT'), v('width', 'WIDTH'), v('monoLow', 'BASS MONO'), v('keyTrack', 'KEY TRACK'), v('accent', 'ACCENT'), v('accFlt', 'ACC FILTER'), v('sync', 'SYNC'), v('duck', 'SIDECHAIN'), v('chord', 'CHORD')] },
 ];
 
 /** PAGES (id 'voice', celui de l'ancien VOICE FX : l'onglet retenu reste valable) et MASTER. */

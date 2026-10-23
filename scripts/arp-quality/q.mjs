@@ -1119,6 +1119,156 @@ async function q11(ctx, file) {
 }
 
 /**
+ * SPACE (2026-10-23, S17) : les deux passe-bas du Voyager (la gauche 2^-s, la droite 2^s). L'ecart des coupures (sur
+ * du bruit, RES 0 : la frequence ou chaque cote tombe de 12 dB sous son plateau) contre 2^(2s), et le rapport des
+ * centroides d'un arpege de scies (pour memoire : un centroide ne suit pas la coupure en proportion) ; la somme mono
+ * (Q11) a SPACE 0.5 et 1, RES 0 et 0.8 ; BASS MONO 120 Hz (la correlation sous 120 Hz) ; SPACE 0 -> 1 sous une note
+ * resonante (Q4 : le pire niveau sur 10 ms contre celui d'avant).
+ */
+async function space(ctx, file) {
+  const out = {};
+  const P = ctx.M.params;
+  const base = { ...ctx.DEF, width: 0, wide: 0, outLevel: 0.3 };
+  const step = 60 / 124 / 4;
+  const arp = Array.from({ length: 32 }, (_, k) => ({ midi: [54, 57, 61, 64][k % 4] + (k % 8 >= 4 ? 12 : 0), time: 0.05 + k * step, gate: 0.6 * step, accent: 1, from: null }));
+  const secs = 0.05 + 32 * step + 0.5;
+  const st = Math.round(0.05 * SR);
+  const avgSpec = (x, start) => {
+    const N = 16384;
+    const acc = new Float64Array(N / 2 + 1);
+    let segs = 0;
+    for (let s0 = start; s0 + N <= x.length; s0 += N / 2) {
+      const sp = spectrum(x, N, s0).pow;
+      for (let k = 0; k <= N / 2; k += 1) acc[k] += sp[k];
+      segs += 1;
+    }
+    for (let k = 0; k <= N / 2; k += 1) acc[k] /= Math.max(1, segs);
+    return { acc, N };
+  };
+  const centroid = (x) => {
+    const { acc, N } = avgSpec(x, st);
+    let a = 0;
+    let b = 0;
+    for (let k = Math.ceil((20 * N) / SR); k <= Math.floor((20000 * N) / SR); k += 1) {
+      a += ((k * SR) / N) * acc[k];
+      b += acc[k];
+    }
+    return a / b;
+  };
+  // La coupure d'un cote : lisse au tiers d'octave, le plateau (100 a 200 Hz), puis la premiere frequence 12 dB dessous
+  const knee = (x) => {
+    const { acc, N } = avgSpec(x, Math.round(0.3 * SR));
+    const band = (f) => {
+      const lo = Math.ceil(((f / Math.pow(2, 1 / 12)) * N) / SR);
+      const hi = Math.floor(((f * Math.pow(2, 1 / 12)) * N) / SR);
+      let e = 0;
+      for (let k = lo; k <= hi; k += 1) e += acc[k];
+      return e / Math.max(1, hi - lo + 1);
+    };
+    let plat = 0;
+    for (let f = 100; f <= 200; f *= Math.pow(2, 1 / 12)) plat += band(f);
+    plat /= 13;
+    for (let f = 200; f < 20000; f *= Math.pow(2, 1 / 48)) if (db10(band(f) / plat) < -12) return f;
+    return 20000;
+  };
+  for (const os of PATHS) {
+    for (const s of [0.25, 0.5, 1]) {
+      const noise = { ...base, osc1: 0, osc2: 0, sub: 0, noise: 0.8, res: 0, envOct: 0, cutoff: 800, keyTrack: 0, drift: 0, space: s };
+      const r = render({ file, os, params: noise, notes: [held(60, 4)], seconds: 2.5, seed: 3 });
+      const kl = knee(r.L);
+      const kr = knee(r.R);
+      out[`noise x${os} SPACE ${s} knee L / R Hz`] = `${Math.round(kl)} / ${Math.round(kr)}`;
+      out[`noise x${os} SPACE ${s} knee ratio (target ${r2(Math.pow(2, 2 * s))})`] = r2(kr / kl);
+      const a = render({ file, os, params: { ...base, cutoff: P.cutoffHz(0.4), space: s }, notes: arp, seconds: secs });
+      out[`saw arp CUTOFF 0.4 x${os} SPACE ${s} centroid ratio R/L`] = r2(centroid(a.R) / centroid(a.L));
+    }
+    for (const s of [0.5, 1]) {
+      for (const res of [0, 0.8]) {
+        const r = render({ file, os, params: { ...base, cutoff: P.cutoffHz(0.4), res, space: s, width: 0.22 }, notes: arp, seconds: secs });
+        const M = new Float32Array(r.L.length);
+        for (let i = 0; i < M.length; i += 1) M[i] = 0.5 * (r.L[i] + r.R[i]);
+        const lst = loudness(r.L, r.R, st);
+        const lm = loudness(M, M, st);
+        const bl = thirdBands(r.L, r.L, st);
+        const br = thirdBands(r.R, r.R, st);
+        const bm = thirdBands(r.L, r.R, st);
+        let notch = 0;
+        for (let i = 0; i < bm.length; i += 1) {
+          if (THIRDS[i] < 100 || THIRDS[i] > 5000) continue;
+          notch = Math.min(notch, bm[i] - db10(0.5 * (Math.pow(10, bl[i] / 10) + Math.pow(10, br[i] / 10))));
+        }
+        out[`Q11 x${os} SPACE ${s} RES ${res} mono re stereo LU`] = r2(lm - lst);
+        out[`Q11 x${os} SPACE ${s} RES ${res} deepest notch dB`] = r1(notch);
+      }
+    }
+    // BASS MONO 120 Hz : la chaine du site (audio/synth.ts build : le haut de chaque cote par deux passe-haut de
+    // Butterworth, le bas de la somme mono par deux passe-bas, a 120 Hz), puis la correlation sous 120 Hz
+    {
+      const r = render({ file, os, params: { ...base, cutoff: P.cutoffHz(0.4), res: 0.5, space: 1 }, notes: arp.map((n) => ({ ...n, midi: n.midi - 24 })), seconds: secs });
+      const bq = (x, f, hp) => {
+        // Un biquad de Butterworth (Q 0.7071, celui de BiquadFilterNode), bilineaire
+        const w0 = (2 * Math.PI * f) / SR;
+        const al = Math.sin(w0) / (2 * Math.SQRT1_2);
+        const cw = Math.cos(w0);
+        const b0 = hp ? (1 + cw) / 2 : (1 - cw) / 2;
+        const b1 = hp ? -(1 + cw) : 1 - cw;
+        const a0 = 1 + al;
+        const a1 = -2 * cw;
+        const a2 = 1 - al;
+        const y = new Float64Array(x.length);
+        let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        for (let i = 0; i < x.length; i += 1) {
+          const xi = x[i];
+          const yi = (b0 * xi + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2) / a0;
+          x2 = x1;
+          x1 = xi;
+          y2 = y1;
+          y1 = yi;
+          y[i] = yi;
+        }
+        return y;
+      };
+      const M = new Float64Array(r.L.length);
+      for (let i = 0; i < M.length; i += 1) M[i] = 0.5 * (r.L[i] + r.R[i]);
+      const lowM = bq(bq(M, 120, false), 120, false);
+      const hl = bq(bq(r.L, 120, true), 120, true);
+      const hr = bq(bq(r.R, 120, true), 120, true);
+      const oL = hl.map((v, i) => v + lowM[i]);
+      const oR = hr.map((v, i) => v + lowM[i]);
+      const corr = (a, b) => {
+        let sa = 0, sb = 0, sab = 0;
+        for (let i = st; i < a.length; i += 1) {
+          sa += a[i] * a[i];
+          sb += b[i] * b[i];
+          sab += a[i] * b[i];
+        }
+        return Math.round((1000 * sab) / Math.sqrt(sa * sb)) / 1000;
+      };
+      out[`BASS MONO 120 Hz x${os} SPACE 1 correlation < 120 Hz`] = corr(bq(bq(oL, 120, false), 120, false), bq(bq(oR, 120, false), 120, false));
+      out[`no BASS MONO x${os} SPACE 1 correlation < 120 Hz (for reference)`] = corr(bq(bq(r.L, 120, false), 120, false), bq(bq(r.R, 120, false), 120, false));
+    }
+    // Q4 : SPACE 0 -> 1 en plein son (une note tenue, RES 0.8, coupure 600 Hz) : le pire niveau sur 10 ms apres
+    {
+      const pp = { ...base, cutoff: 600, res: 0.8, envOct: 0, space: 0 };
+      const r = render({ file, os, params: pp, notes: [held(48, 4)], seconds: 2.5, seed: 7, onBlock: (f, proc) => {
+        if (f === Math.round(1.2 * SR / 128) * 128) proc.onMsg({ type: 'params', params: { ...pp, space: 1 } });
+      } });
+      const win = Math.round(0.01 * SR);
+      const lvl = (a, b) => {
+        let e = 0;
+        for (let i = a; i < b; i += 1) e += r.L[i] * r.L[i] + r.R[i] * r.R[i];
+        return db10(e / (b - a));
+      };
+      const before = lvl(Math.round(0.8 * SR), Math.round(1.2 * SR));
+      let worst = -Infinity;
+      for (let a = Math.round(1.2 * SR); a + win < Math.round(2.4 * SR); a += win / 2) worst = Math.max(worst, lvl(a, a + win));
+      out[`Q4 x${os} SPACE 0 -> 1, RES 0.8: worst 10 ms re before dB`] = r1(worst - before);
+    }
+  }
+  return out;
+}
+
+/**
  * Q3 : l'escalier des potards. Chaque potard du moteur parcourt ses 128 valeurs MIDI en 2 s (un message toutes les
  * 15.6 ms, la traduction du site) sur une scie C3 tenue : l'energie au-dessus de 6 kHz par fenetre de 2 ms contre sa
  * mediane glissante de 50 ms (le pire exces, dB) ; et la raie du bloc (375 Hz) d'une note fixe.
@@ -1240,7 +1390,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, space, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }
