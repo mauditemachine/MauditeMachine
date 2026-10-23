@@ -396,6 +396,8 @@ async function silence(ctx, file) {
     { name: 'X HELD SOURCE OFF', params: { ...ctx.DEF, aS: 1, fS: 1, outLevel: 0.25 }, notes: [held(54, 20, 0.05)], timeline: [{ at: 0.5, msg: { type: 'params', params: { osc1: 0, osc2: 0, sub: 0, noise: 0 } } }], seconds: 14 },
     // Le MS-10 (S11) : resonance a fond, WIDE
     { name: 'X MS10 RES1 WIDE', params: { ...ctx.DEF, fmode: 4, res: 1, wide: 1, outLevel: 0.25 } },
+    // LOAD a fond (S12), resonance haute, WIDE
+    { name: 'X LOAD1 RES0.9 WIDE', params: { ...ctx.DEF, load: 1, res: 0.9, wide: 1, outLevel: 0.25 } },
     ...(ctx.extraSilence ?? []),
   ];
   let subTot = 0;
@@ -855,6 +857,152 @@ async function ms10(ctx, file) {
   return out;
 }
 
+/**
+ * S12 (2026-10-23) : LOAD contre son plan : C12 (un sinus a 0.62), C13 / C14 (deux sinus a 0.88 : H3, H5, H2, la
+ * pente au-dessus du genou), C11 (la bosse comprimee par le niveau, la perte de graves a RES 0.95), C15 (filtre ferme :
+ * centroide et crete), C16 (sonie d'INIT et DARK DISCO de LOAD 0 a 1), le punch d'un accord pince, Q1, la reponse
+ * ouverte, Q5 (continu, sous 20 Hz).
+ */
+async function load(ctx, file) {
+  const out = {};
+  const LOADS = QUICK ? [0, 0.35, 1] : [0, 0.1, 0.2, 0.35, 0.6, 1];
+  const st = Math.round(0.3 * SR);
+  const N = Math.round(0.8 * SR);
+  const hk = (r, f, k) => db(harm(r.L, f * k, st, N)) - db(harm(r.L, f, st, N));
+  for (const os of PATHS) {
+    // C12 : un sinus a 0.62, ouvert
+    {
+      const r = render({ file, os, params: { ...ctx.LAB, wave1: 0, osc1: 0.62, load: 0.1, cutoff: 21600 }, notes: [held(45)], seconds: 1.2 });
+      out[`C12 L0.1 x${os} H3 dBc`] = r1(hk(r, 110, 3));
+      out[`C12 L0.1 x${os} H2 dBc`] = r1(hk(r, 110, 2));
+    }
+    // C13 / C14 : deux sinus a 0.88
+    for (const L of [0.1, 0.2, 0.35, 0.6, 1]) {
+      const r = render({ file, os, params: { ...ctx.LAB, wave1: 0, osc1: 0.88, osc2: 0.88, wave2: 0, tune2: 0, load: L, cutoff: 21600 }, notes: [held(45)], seconds: 1.2 });
+      out[`C13 2x0.88 L${L} x${os} H3 dBc`] = r1(hk(r, 110, 3));
+      out[`C13 2x0.88 L${L} x${os} H5 under H3 dB`] = r1(hk(r, 110, 3) - hk(r, 110, 5));
+      out[`C14 2x0.88 L${L} x${os} H2 under H3 dB`] = r1(hk(r, 110, 3) - hk(r, 110, 2));
+    }
+    {
+      // A LOAD 0.6, au-dessus du genou : +6 dB a l'entree (deux sinus de 0.2 a 0.4 : l'entree de la courbe de 0.98 a 1.95)
+      const lv = [0.2, 0.4].map((o) => {
+        const r = render({ file, os, params: { ...ctx.LAB, wave1: 0, osc1: o, osc2: o, wave2: 0, tune2: 0, load: 0.6, cutoff: 21600 }, notes: [held(45)], seconds: 1.2 });
+        return db(harm(r.L, 110, st, N));
+      });
+      out[`C13 L0.6 +6 dB in x${os} out dB`] = r2(lv[1] - lv[0]);
+    }
+    // C11 : la bosse a RES 0.8 (coupure 1 kHz) contre le niveau (+12 dB), a LOAD 0 / 0.35 / 0.6 / 1 ; la perte de
+    // graves a RES 0.95 (60 Hz re RES 0) a LOAD 0 et 1
+    for (const L of [0, 0.35, 0.6, 1]) {
+      const g = [0.05, 0.2].map((amp) => probeGains(ctx, file, os, { cutoff: 1000, res: 0.8, load: L, osc1: amp }, [60, 1000]));
+      out[`C11 RES0.8 L${L} x${os} prominence change dB`] = r1(db(g[1][1] / g[1][0]) - db(g[0][1] / g[0][0]));
+    }
+    for (const L of [0, 1]) {
+      const a = probeGains(ctx, file, os, { cutoff: 1000, res: 0.95, load: L, osc1: 0.2 }, [60])[0];
+      const b = probeGains(ctx, file, os, { cutoff: 1000, res: 0, load: L, osc1: 0.2 }, [60])[0];
+      out[`C11 RES0.95 L${L} x${os} bass loss dB`] = r2(db(a / b));
+    }
+    // C15 : filtre ferme (300 Hz, RES 0.3), deux scies C2 : centroide et crete contre LOAD 0
+    {
+      const cen = (r) => {
+        const S = spectrum(r.L, 65536, st);
+        let a = 0;
+        let b = 0;
+        for (let i = 1; i < S.pow.length; i += 1) {
+          if (S.f[i] > 20000) break;
+          a += S.f[i] * S.pow[i];
+          b += S.pow[i];
+        }
+        return a / b;
+      };
+      const ref = render({ file, os, params: { ...ctx.LAB, wave1: 2, osc1: 0.62, osc2: 0.62, wave2: 2, tune2: 0, fine2: 7, cutoff: 300, res: 0.3, load: 0 }, notes: [held(36)], seconds: 1.5 });
+      const c0 = cen(ref);
+      const s0 = stats(ref.L, st);
+      for (const L of LOADS.filter((x) => x > 0)) {
+        const r = render({ file, os, params: { ...ctx.LAB, wave1: 2, osc1: 0.62, osc2: 0.62, wave2: 2, tune2: 0, fine2: 7, cutoff: 300, res: 0.3, load: L }, notes: [held(36)], seconds: 1.5 });
+        const s1 = stats(r.L, st);
+        out[`C15 L${L} x${os} centroid ratio`] = r2(cen(r) / c0);
+        out[`C15 L${L} x${os} crest re L0 dB`] = r2(db(s1.peak / s1.rms) - db(s0.peak / s0.rms));
+      }
+    }
+    // C16 et Q5 : INIT et DARK DISCO en doubles croches, sonie contre LOAD 0 ; continu et sous 20 Hz a LOAD 1
+    {
+      const step = 60 / 124 / 4;
+      const notes = Array.from({ length: 32 }, (_, k) => ({ midi: 54 + ((k * 7) % 12), time: 0.05 + k * step, gate: 0.5 * step, accent: [1, 0.8, 0.92, 1.12][k % 4], from: null }));
+      const dd = ctx.presets.find((x) => x.name === 'DARK DISCO');
+      for (const [nm, base] of [['INIT', ctx.DEF], ['DARK DISCO', dd ? dd.engine : ctx.DEF]]) {
+        const l0 = render({ file, os, params: { ...base, load: 0, outLevel: 0.25 }, notes, seconds: 0.05 + 32 * step + 0.3 });
+        const ref = loudness(l0.L, l0.R);
+        for (const L of LOADS.filter((x) => x > 0)) {
+          const r = render({ file, os, params: { ...base, load: L, outLevel: 0.25 }, notes, seconds: 0.05 + 32 * step + 0.3 });
+          out[`C16 ${nm} L${L} x${os} LU re L0`] = r2(loudness(r.L, r.R) - ref);
+          if ((L === 1 || L === LOADS[1]) && nm === 'INIT') {
+            for (const [tag, rr] of [['L0', l0], [`L${L}`, r]]) {
+              if (tag === 'L0' && L !== 1) continue;
+              let mx = 0;
+              for (let s0 = 0; s0 + SR <= rr.L.length; s0 += SR / 4) mx = Math.max(mx, Math.abs(stats(rr.L, s0, s0 + SR).mean));
+              out[`Q5 INIT ${tag} x${os} worst 1 s mean`] = Number(mx.toExponential(2));
+              const S = spectrum(rr.L, 65536, 0);
+              let lo = 0;
+              let tot = 0;
+              for (let i = 1; i < S.pow.length; i += 1) {
+                tot += S.pow[i];
+                if (S.f[i] < 20) lo += S.pow[i];
+              }
+              out[`Q5 INIT ${tag} x${os} below 20 Hz dB re total`] = r1(db10(lo / tot));
+            }
+          }
+          if (false) {
+            let mx = 0;
+            for (let s0 = 0; s0 + SR <= r.L.length; s0 += SR / 4) mx = Math.max(mx, Math.abs(stats(r.L, s0, s0 + SR).mean));
+            out[`Q5 INIT L1 x${os} worst 1 s mean`] = Number(mx.toExponential(2));
+            const S = spectrum(r.L, 65536, 0);
+            let lo = 0;
+            let tot = 0;
+            for (let i = 1; i < S.pow.length; i += 1) {
+              tot += S.pow[i];
+              if (S.f[i] < 20) lo += S.pow[i];
+            }
+            out[`Q5 INIT L1 x${os} below 20 Hz dB re total`] = r1(db10(lo / tot));
+          }
+        }
+      }
+    }
+    // Le punch : un accord pince (3 notes, attaque 1 ms, decroissance 150 ms), RMS 0-10 ms sur 30-120 ms
+    {
+      const notes = [54, 58, 61].map((m) => held(m, 0.4, 0.05));
+      const pun = (L) => {
+        const r = render({ file, os, params: { ...ctx.DEF, load: L, aA: 0.001, aD: 0.15, aS: 0.2, fA: 0.001, fD: 0.15, fS: 0.3, drift: 0, outLevel: 0.25 }, notes, seconds: 0.6 });
+        const t0 = Math.round(0.05 * SR);
+        const a = stats(r.L, t0, t0 + Math.round(0.01 * SR)).rms;
+        const b = stats(r.L, t0 + Math.round(0.03 * SR), t0 + Math.round(0.12 * SR)).rms;
+        return db(a / b);
+      };
+      const p0 = pun(0);
+      out[`punch L0 x${os} dB`] = r2(p0);
+      for (const L of LOADS.filter((x) => x > 0)) out[`punch L${L} x${os} re L0 dB`] = r2(pun(L) - p0);
+    }
+    // Q1 : scie C7 / C8 ouverte a LOAD 0.35 et 1
+    for (const L of [0.35, 1]) {
+      for (const m of [96, 108]) {
+        const r = render({ file, os, params: { ...ctx.LAB, wave1: 2, osc1: 0.62, load: L, cutoff: 21600 }, notes: [held(m)], seconds: 1.6 });
+        out[`Q1 saw ${m} L${L} x${os} purity`] = r1(harmonicSplit(r.L, [midiHz(m)]).purity);
+      }
+    }
+    // La reponse ouverte (HP, presque brut) a LOAD 0.25 contre LOAD 0, la forme (re 1 kHz : le gain de LOAD retire)
+    {
+      const gg = [1000, 10000, 15000].map((f) => [0, 0.25].map((L) => {
+        const r = render({ file, os, params: { ...ctx.LAB, fmode: 3, cutoff: 20, wave1: 0, osc1: 0.02, load: L }, notes: [held(hzMidi(f))], seconds: 0.6 });
+        return db(harm(r.L, f, Math.round(0.25 * SR), Math.round(0.3 * SR)));
+      }));
+      out[`resp L0.25 gain at 1 kHz x${os} dB`] = r2(gg[0][1] - gg[0][0]);
+      out[`resp 10 kHz L0.25 re L0 re 1 kHz x${os} dB`] = r2(gg[1][1] - gg[1][0] - (gg[0][1] - gg[0][0]));
+      out[`resp 15 kHz L0.25 re L0 re 1 kHz x${os} dB`] = r2(gg[2][1] - gg[2][0] - (gg[0][1] - gg[0][0]));
+    }
+  }
+  return out;
+}
+
 /** C18 : le fondamental le long de WAVE 1 (sinus -> impulsion), A2, filtre ouvert, petit niveau. */
 async function c18(ctx, file) {
   const out = {};
@@ -1044,7 +1192,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }

@@ -581,6 +581,20 @@ const C35 = 630;
 const MS_GAIN = 0.75;
 const MS_FC_MAX4 = 16000;
 const MS_FC_MAX2 = 13000;
+/**
+ * LOAD (2026-10-23, S12, Mika : "entre Monark et un synth analog Moog Voyager") : le gras du Moog, une saturation dans
+ * le melangeur et le premier etage, AVANT le filtre : ses produits au-dessus de la coupure sont filtres, la resonance
+ * est comprimee par les notes (le grognement), l'attaque passe avant le VCA. Par voix, apres le passe-bas de S3 :
+ *   z = x gIn + b ; m = ADAA(clip, z) - clip(b), sans continu (LD_DC_HZ) ; l'entree du filtre x + wet (m - x)
+ * gIn = 1 + 4 L^2, b = LD_BIAS L (les paires), la courbe de GLUE (lineaire jusqu'a LD_K, arrondie sur 2 LD_W, plafond),
+ * le VCA rattrape gIn^-LD_MK, la saturation de sortie des voix soulagee (ldRel = 1 - 0.7 min(1, L / 0.1) : le grain
+ * passe avant le filtre), la FIR du bus compense la seconde ADAA ((1 + wet) / 8). A LOAD 0 : le calcul d'avant.
+ */
+const LD_K = 0.8;
+const LD_W = 0.8;
+const LD_BIAS = 0.16;
+const LD_DC_HZ = 7;
+const LD_MK = 0.5;
 /** Sous ce niveau d'enveloppe, une voix reprise peut repartir de la phase de PHASE sans clic. */
 const PHASE_QUIET = 0.02;
 /** Gain de sortie (1.5 avant le filtre a etages satures : recale au meme niveau, mesure hors ligne). */
@@ -891,7 +905,9 @@ const KS_ODMIX = 1;
 const KS_ODTRIM = 2;
 const KS_CLIPT = 3;
 const KS_CLIPW = 4;
-const KS_SIZE = 5;
+/** S12 : le coefficient de la FIR de compensation (1/8, plus avec LOAD). */
+const KS_VSC = 5;
+const KS_SIZE = 6;
 const KI_NEWNOISE = 0;
 const KI_GLUEON = 1;
 const KI_SIZE = 2;
@@ -939,6 +955,7 @@ const P_RANGE = {
   outLevel: [0, 1.5],
   stack: [0, 45],
   wide: [0, 1.5],
+  load: [0, 1],
   glue: [0, 1.5],
 };
 /** Les codes (entiers) : MODE (0 MOOG, 1 LP12, 2 BP, 3 HP), forme et cible du LFO, SYNC, octave et forme du SUB. */
@@ -994,7 +1011,17 @@ const VX_KQR = 24;
 const VX_KYR = 25;
 const VX_KON = 26;
 const VX_G35 = 27;
-const VX_SIZE = 32;
+/** LOAD (S12), gauche puis droite : l'entree d'avant de la courbe et sa primitive, le bloqueur de continu, en route (LON). */
+const VX_LZL = 28;
+const VX_LFL = 29;
+const VX_LXL = 30;
+const VX_LHL = 31;
+const VX_LZR = 32;
+const VX_LFR = 33;
+const VX_LXR = 34;
+const VX_LHR = 35;
+const VX_LON = 36;
+const VX_SIZE = 40;
 /**
  * La saturation de sortie des voix sans repliement (2026-10-23, S5, Mika : "que le son soit d'extreme bonne
  * qualite") : la meme tanh (le grain des sons gardes), par son integrale lncosh (ADAA du premier ordre, la table
@@ -1076,6 +1103,10 @@ class MMVoyager extends AudioWorkletProcessor {
     // La compensation de la saturation des voix (S5) : x[n-1] et x[n-2], gauche puis droite
     this.vsc = new Float64Array(4);
     this.dcK = Math.exp((-2 * Math.PI * OUT_DC_HZ) / this.sr2);
+    // LOAD (S12) : son bloqueur de continu par voix, le rattrapage du VCA (calcule quand LOAD bouge)
+    this.ldDc = Math.exp((-2 * Math.PI * LD_DC_HZ) / this.sr2);
+    this.ldLast = -1;
+    this.ldMk = 1;
     this.panK = coef(PAN_S, this.sr2);
     // Le passe-bas avant le filtre (2026-10-23) : pour chaque etage, g = tan(pi f / fs), 2R + g et 1 / (1 + 2Rg + g^2)
     const pg = Math.tan((Math.PI * PRE_HZ) / this.sr2);
@@ -1143,10 +1174,12 @@ class MMVoyager extends AudioWorkletProcessor {
       // 2026-10-22 : STACK (l'ecart en cents, 0 : un seul exemplaire), WIDE (0 a 1), GLUE (0 a 1) ; a 0, le son d'avant
       stack: 0,
       wide: 0,
+      // LOAD (S12) : 0, le son d'avant
+      load: 0,
       glue: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, sub: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0, wide: 0 };
+    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, sub: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0, wide: 0, load: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) this.setParams(o.params);
@@ -1154,7 +1187,7 @@ class MMVoyager extends AudioWorkletProcessor {
     for (let m = 0; m < 5; m += 1) this.wm[m] = m === this.p.fmode ? 1 : 0;
     // Les remises au repos de la garde (une voix, le bus) depuis la creation (tests)
     this.heals = 0;
-    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive, wide: this.p.wide });
+    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive, wide: this.p.wide, load: this.p.load });
     this.stD = this.p.stack;
     this.gl.g = this.p.glue;
     this.coefs();
@@ -1514,10 +1547,12 @@ class MMVoyager extends AudioWorkletProcessor {
     // La compensation de la moyenne de l'ADAA des voix (2026-10-23, S5) : sur le propre (cl, cr) ; la branche OVERDRIVE
     // part de la somme des voix telle quelle et rejoint le propre un echantillon plus tard (le retard de la FIR)
     const vsc = this.vsc;
-    const cl = (1 + 2 * VS_COMP) * vsc[0] - VS_COMP * (sum + vsc[1]);
+    // LOAD (S12) : sa seconde ADAA : c = (1 + wet) / 8
+    const vc = ks[KS_VSC];
+    const cl = (1 + 2 * vc) * vsc[0] - vc * (sum + vsc[1]);
     vsc[1] = vsc[0];
     vsc[0] = sum;
-    const cr = (1 + 2 * VS_COMP) * vsc[2] - VS_COMP * (sumR + vsc[3]);
+    const cr = (1 + 2 * vc) * vsc[2] - vc * (sumR + vsc[3]);
     vsc[3] = vsc[2];
     vsc[2] = sumR;
     // OVERDRIVE : le propre + la branche sans graves, amplifiee, arrondie, adoucie, sans continu (2026-10-21)
@@ -1939,6 +1974,7 @@ class MMVoyager extends AudioWorkletProcessor {
     const stK = this.stK;
     const dcK = this.dcK;
     const preG = this.preG;
+    const ldDc = this.ldDc;
     const preA1 = this.preA1;
     const preH1 = this.preH1;
     const preA2 = this.preA2;
@@ -2090,6 +2126,29 @@ class MMVoyager extends AudioWorkletProcessor {
         if (p.wide === 0 && sm.wide < 1e-4) sm.wide = 0;
       }
       const wideOn = sm.wide > 0;
+      // LOAD (S12) : lisse, ramene a 0 net ; ses nombres de l'echantillon
+      if (sm.load !== p.load) {
+        sm.load += (p.load - sm.load) * K;
+        if (p.load === 0 && sm.load < 1e-4) sm.load = 0;
+      }
+      const ldL = sm.load;
+      const ldOn = ldL > 0;
+      let ldG = 1;
+      let ldB = 0;
+      let ldWet = 0;
+      let ldMk = 1;
+      let ldRel = 1;
+      if (ldOn) {
+        ldG = 1 + 4 * ldL * ldL;
+        ldB = LD_BIAS * ldL;
+        ldWet = ldL >= 0.05 ? 1 : ldL / 0.05;
+        if (ldL !== this.ldLast) {
+          this.ldLast = ldL;
+          this.ldMk = Math.pow(ldG, -LD_MK);
+        }
+        ldMk = this.ldMk;
+        ldRel = 1 - 0.7 * (ldL >= 0.1 ? 1 : ldL / 0.1);
+      }
       // WIDE sans STACK (2026-10-22, relecture : OSC 2 a 0, la note partait a gauche, +18 dB a WIDE 10) : OSC 1 et
       // OSC 2 se partagent les cotes selon leur equilibre en puissance (gain^2 x WAVE_POW : la somme des puissances
       // x place reste au centre) ; un oscillateur seul reste au milieu, deux a la meme puissance gardent STACK_PAN1
@@ -2119,6 +2178,9 @@ class MMVoyager extends AudioWorkletProcessor {
         this.outNorm = 1 / Math.pow(driveOut, 0.82);
       }
       const outNorm = this.outNorm;
+      // LOAD (S12) : la saturation de sortie soulagee (a LOAD 0 : les nombres d'avant)
+      const dO = ldOn ? driveOut * ldRel : driveOut;
+      const oN = ldOn ? outNorm / ldRel : outNorm;
       // OVERDRIVE : le gain de la branche saturee (progressif : les premiers crans chauffent a peine), le niveau
       // compense (OD_TRIM, puis la mesure OD_COMP)
       const odGain = 1 + OD_GAIN * sm.drive * sm.drive;
@@ -2173,6 +2235,7 @@ class MMVoyager extends AudioWorkletProcessor {
       ks[KS_ODGAIN] = odGain;
       ks[KS_ODMIX] = odMix;
       ks[KS_ODTRIM] = odTrim;
+      ks[KS_VSC] = ldOn ? VS_COMP * (1 + ldWet) : VS_COMP;
       ki[KI_NEWNOISE] = newNoise ? 1 : 0;
       let sum = 0;
       let sumR = 0;
@@ -2670,6 +2733,78 @@ class MMVoyager extends AudioWorkletProcessor {
             X[VX_Q2B] = X[VX_P2B];
           }
         }
+        // LOAD (2026-10-23, S12) : la saturation avant le filtre (xd, xdR : les entrees du filtre)
+        let xd = xin;
+        let xdR = xinR;
+        if (ldOn) {
+          const zl = xin * ldG + ldB;
+          if (X[VX_LON] === 0) {
+            // Le depart : l'ADAA et le bloqueur partent de l'entree du moment
+            const a0 = zl < 0 ? -zl : zl;
+            let F0 = 0.5 * zl * zl;
+            if (a0 > LD_K) {
+              const u0 = a0 - LD_K;
+              F0 = u0 < 2 * LD_W ? 0.5 * LD_K * LD_K + LD_K * u0 + 0.5 * u0 * u0 - (u0 * u0 * u0) / (12 * LD_W) : 0.5 * LD_K * LD_K + 2 * LD_K * LD_W + (4 / 3) * LD_W * LD_W + (LD_K + LD_W) * (u0 - 2 * LD_W);
+            }
+            X[VX_LZL] = zl;
+            X[VX_LFL] = F0;
+            X[VX_LXL] = 0;
+            X[VX_LHL] = 0;
+            X[VX_LON] = 1;
+          }
+          // WIDE qui demarre : la droite part de la gauche
+          if (wideV && !v.wl) {
+            X[VX_LZR] = X[VX_LZL];
+            X[VX_LFR] = X[VX_LFL];
+            X[VX_LXR] = X[VX_LXL];
+            X[VX_LHR] = X[VX_LHL];
+          }
+          for (let sd = 0; sd < 2; sd += 1) {
+            if (sd === 1 && !wideV) break;
+            const zi = sd === 0 ? zl : xinR * ldG + ldB;
+            const iz = sd === 0 ? VX_LZL : VX_LZR;
+            const z1 = X[iz];
+            const az = zi < 0 ? -zi : zi;
+            const a1 = z1 < 0 ? -z1 : z1;
+            let yc;
+            let Fz;
+            if (az <= LD_K && a1 <= LD_K) {
+              yc = 0.5 * (zi + z1);
+              Fz = 0.5 * zi * zi;
+            } else {
+              if (az <= LD_K) Fz = 0.5 * zi * zi;
+              else {
+                const u = az - LD_K;
+                const Fa = 0.5 * LD_K * LD_K + LD_K * u + 0.5 * u * u - (u * u * u) / (12 * LD_W);
+                const Fb = 0.5 * LD_K * LD_K + 2 * LD_K * LD_W + (4 / 3) * LD_W * LD_W + (LD_K + LD_W) * (u - 2 * LD_W);
+                Fz = u < 2 * LD_W ? Fa : Fb;
+              }
+              const dz = zi - z1;
+              if (dz < 1e-7 && dz > -1e-7) {
+                const zm = 0.5 * (zi + z1);
+                const am = zm < 0 ? -zm : zm;
+                if (am <= LD_K) yc = zm;
+                else {
+                  const u = am - LD_K;
+                  const ya = LD_K + LD_W;
+                  const yb = LD_K + u - (u * u) / (4 * LD_W);
+                  const yy = u >= 2 * LD_W ? ya : yb;
+                  yc = zm < 0 ? -yy : yy;
+                }
+              } else yc = (Fz - X[iz + 1]) / dz;
+            }
+            X[iz] = zi;
+            X[iz + 1] = Fz;
+            // Sans le continu de la polarisation (sa valeur au repos retiree, puis un pole a LD_DC_HZ)
+            const mm = yc - ldB;
+            const hh = ldDc * (X[iz + 3] + mm - X[iz + 2]);
+            X[iz + 2] = mm;
+            X[iz + 3] = hh;
+            if (sd === 0) xd = xin + ldWet * (hh - xin);
+            else xdR = xinR + ldWet * (hh - xinR);
+          }
+          if (!wideV) xdR = xd;
+        } else if (X[VX_LON] !== 0) X[VX_LON] = 0;
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         // La coupure (sa tangente) : une fois par echantillon du contexte, elle bouge lentement a cette echelle
         if (newNoise || (ladOn ? v.g === 0 : X[VX_G35] === 0)) {
@@ -2706,7 +2841,7 @@ class MMVoyager extends AudioWorkletProcessor {
         let Gc = gc / (1 + gc);
         let Gd = gd / (1 + gd);
         let S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
-        let u = (xin * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+        let u = (xd * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
         // La passe de correction (2026-10-23, S6) : les pentes reprises au point de l'echantillon, sous porte
         if (k > LC_K0 && g > LC_G0) {
           let ta = (g - LC_G0) / LC_GW;
@@ -2727,7 +2862,7 @@ class MMVoyager extends AudioWorkletProcessor {
           Gc += om * (hc / (1 + hc) - Gc);
           Gd += om * (hd / (1 + hd) - Gd);
           S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
-          u = (xin * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+          u = (xd * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
         }
         v.pu = u;
         let w = (u - x1) * Ga;
@@ -2769,7 +2904,7 @@ class MMVoyager extends AudioWorkletProcessor {
             X[VX_KYR] = ky;
           }
           const g35 = X[VX_G35];
-          const xk = xin * driveIn;
+          const xk = xd * driveIn;
           // La secante des diodes, extrapolee de l'echantillon d'avant
           const be = 2 * kp - kq;
           const xe = (be < 0 ? -be : be) * K35_ILAM;
@@ -2836,8 +2971,9 @@ class MMVoyager extends AudioWorkletProcessor {
         // VCA (l'accent, ou sa part de niveau quand il ouvre aussi le filtre), saturation de sortie (OVERDRIVE la
         // pousse a peine), puis la place de la note dans l'image (lissee)
         let a = yo * v.aV * v.ampAcc;
+        if (ldOn) a *= ldMk;
         // La saturation sans repliement (2026-10-23, S5) : tanh par son integrale lncosh (la table LNC, ecrite ici)
-        const zs = a * driveOut;
+        const zs = a * dO;
         const zp = X[VX_TZL];
         const dzs = zs - zp;
         if (dzs > VS_EPS || dzs < -VS_EPS) {
@@ -2862,7 +2998,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const k0 = 4 * i0;
             F0 = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
           }
-          a = ((F0 - X[VX_TFL]) / dzs) * outNorm;
+          a = ((F0 - X[VX_TFL]) / dzs) * oN;
           X[VX_TFL] = F0;
           X[VX_TVL] = 1;
         } else {
@@ -2876,7 +3012,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const km = 4 * im;
             ym = (LNC[km + 1] + tm * (2 * LNC[km + 2] + 3 * tm * LNC[km + 3])) * LNC_INV;
           }
-          a = (ms < 0 ? -ym : ym) * outNorm;
+          a = (ms < 0 ? -ym : ym) * oN;
           X[VX_TVL] = 0;
         }
         X[VX_TZL] = zs;
@@ -2901,7 +3037,7 @@ class MMVoyager extends AudioWorkletProcessor {
         }
         let yoR = 0;
         if (ladOn) {
-          fq.x = xinR * driveIn;
+          fq.x = xdR * driveIn;
           fq.g = g;
           fq.k = k;
           ladderR(fq);
@@ -2921,7 +3057,7 @@ class MMVoyager extends AudioWorkletProcessor {
           const kq = X[VX_KQR];
           const ky = X[VX_KYR];
           const g35 = X[VX_G35];
-          const xk = xinR * driveIn;
+          const xk = xdR * driveIn;
           const be = 2 * kp - kq;
           const xe = (be < 0 ? -be : be) * K35_ILAM;
           let sig;
@@ -2978,7 +3114,8 @@ class MMVoyager extends AudioWorkletProcessor {
           yoR = 0;
         }
         let aR = yoR * v.aV * v.ampAcc;
-        const zsR = aR * driveOut;
+        if (ldOn) aR *= ldMk;
+        const zsR = aR * dO;
         // L'echelle de droite qui demarre (ce bloc) : sa saturation part de son entree du moment
         if (startR) {
           X[VX_TZR] = zsR;
@@ -3008,7 +3145,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const k0 = 4 * i0;
             F0 = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
           }
-          aR = ((F0 - X[VX_TFR]) / dzR) * outNorm;
+          aR = ((F0 - X[VX_TFR]) / dzR) * oN;
           X[VX_TFR] = F0;
           X[VX_TVR] = 1;
         } else {
@@ -3022,7 +3159,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const km = 4 * im;
             ym = (LNC[km + 1] + tm * (2 * LNC[km + 2] + 3 * tm * LNC[km + 3])) * LNC_INV;
           }
-          aR = (ms < 0 ? -ym : ym) * outNorm;
+          aR = (ms < 0 ? -ym : ym) * oN;
           X[VX_TVR] = 0;
         }
         X[VX_TZR] = zsR;
