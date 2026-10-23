@@ -2673,7 +2673,9 @@ export class Screen {
       // Une voix a un seul son (CY) : son nom quand meme, a peine
       const t = b.text && b.text !== '--' ? b.text : '--';
       this.text(this.fitText(t, bw - 2 * B.padX, T.valueSizes[1], 0, 300), bx + B.padX, by + T.valueDy, T.valueSizes[1], P.faint, 300);
-      if (b.unit) this.text(this.fitText(b.unit, bw - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
+      // Sa forme courte quand l'unite ne tient pas (2026-10-22, revue INT-4 : PICK A VOI. dans PITCH et FINE)
+      const offUnit = b.unit && b.unitShort && this.textWidth(b.unit, T.unitSize, 600, 0.4) > bw - 2 * B.padX ? b.unitShort : b.unit;
+      if (offUnit) this.text(this.fitText(offUnit, bw - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
       this.info.tags.push(`${b.label}:${b.unit}|${nameTag ? `${nameTag}@name` : ''}`);
       return;
     }
