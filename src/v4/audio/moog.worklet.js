@@ -201,14 +201,37 @@ const LN_DB = 4.342944819032518;
  * pres, dans Node comme dans le navigateur (scripts/arp-bench.mjs), et un portage C++ tirera la meme suite.
  */
 function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
+  // 2026-10-23 (zero allocation) : l'etat dans un tableau type, partage par le tirage a l'unite et par fill (les tirages
+  // de DRIFT d'un bloc, ecrits dans un tableau : un nombre rendu par une fonction est mis en boite) ; la meme suite
+  const st = new Uint32Array(1);
+  st[0] = seed >>> 0;
+  const next = () => {
+    const a = (st[0] + 0x6d2b79f5) >>> 0;
+    st[0] = a;
     let t = a;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+  next.fill = (buf, n) => {
+    for (let i = 0; i < n; i += 1) {
+      const a = (st[0] + 0x6d2b79f5) >>> 0;
+      st[0] = a;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      buf[i] = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+  };
+  return next;
+}
+/** Le hasard sans graine (Math.random), avec le meme fill. */
+function unseeded() {
+  const next = () => Math.random();
+  next.fill = (buf, n) => {
+    for (let i = 0; i < n; i += 1) buf[i] = Math.random();
+  };
+  return next;
 }
 
 /**
@@ -314,7 +337,8 @@ class Decimator {
       this.buf = grown;
     }
     const b = this.buf;
-    b.set(input.subarray(0, n2), T);
+    // 2026-10-23 (zero allocation, Mika : "d'extreme bonne qualite") : une copie a la main, pas de vue subarray par bloc
+    for (let i = 0; i < n2; i += 1) b[T + i] = input[i];
     const h = this.h;
     const idx = this.idx;
     const n = n2 >> 1;
@@ -335,6 +359,13 @@ class Decimator {
 }
 const TRACK_ROOT = 54;
 
+/*
+ * 2026-10-23 (zero allocation, Mika : "d'extreme bonne qualite") : polyblep, pulse, shape, shape1, rawShape, stepOf,
+ * wavePow, odComp, odCurve, glueAdaa, glueClip et glueGr sont ecrites sur place dans process et busTick (un appel qui
+ * prend ou rend un nombre le met en boite : 90 Ko par bloc avant, un ramasse-miettes toutes les 50 ms sur le fil
+ * audio) ; ces fonctions restent la reference de ces copies (au bit pres, scripts/arp-bench.mjs --check) et servent
+ * aux mesures (scripts/arp-quality/measure).
+ */
 function polyblep(t, dt) {
   if (t < dt) {
     const x = t / dt;
@@ -572,7 +603,7 @@ class Voice {
     this.n = 1;
     this.nLoop = 1;
     // WIDE : le filtre de droite (ses etages, l'entree du premier), s'il tourne, et si la note y a droit (wideVoices)
-    this.fr = { pu: 0, s1: 0, s2: 0, s3: 0, s4: 0, u: 0, y1: 0, y2: 0 };
+    this.fr = { pu: 0, s1: 0, s2: 0, s3: 0, s4: 0, u: 0, y1: 0, y2: 0, x: 0, g: 0, k: 0, y: 0 };
     this.wl = false;
     this.wideOK = true;
     // Bruit : xorshift 32 bits, une graine par voix (jamais 0)
@@ -626,9 +657,15 @@ class Voice {
 
 /**
  * WIDE (2026-10-22) : l'echelle de droite d'une voix (son etat st : pu, s1 a s4), le meme calcul que celle de gauche
- * (process) ; x l'entree deja poussee par OVERDRIVE ; rend la sortie du quatrieme etage, garde u, y1 et y2 (MODE).
+ * (process) ; st.x l'entree deja poussee par OVERDRIVE ; la sortie du quatrieme etage dans st.y, garde u, y1 et y2
+ * (MODE).
  */
-function ladderR(st, x, g, k) {
+function ladderR(st) {
+  // 2026-10-23 (zero allocation) : l'entree, la coupure et la retroaction arrivent dans l'etat (st.x, st.g, st.k) et la
+  // sortie y repart (st.y) : un appel avec des nombres les mettait en boite a chaque echantillon
+  const x = st.x;
+  const g = st.g;
+  const k = st.k;
   const x0 = st.pu;
   const x1 = st.s1;
   const x2 = st.s2;
@@ -660,7 +697,7 @@ function ladderR(st, x, g, k) {
   w = (y - x4) * Gd;
   y = w + x4;
   st.s4 = y + w;
-  return y;
+  st.y = y;
 }
 
 /** Le pas instantane d'une phase modulee (de prev a cur, repliee), borne pour PolyBLEP. */
@@ -697,12 +734,29 @@ const natStep = (w) => (w >= 2 ? 2 : 0);
 const PULSE_W = 0.14;
 const pwOf = (w, f) => (w === 3 ? 0.5 - (0.5 - PULSE_W) * f : w === 4 ? PULSE_W : 0.5);
 
+/**
+ * Les nombres d'un echantillon passes de process a busTick (2026-10-23, zero allocation, Mika : "d'extreme bonne
+ * qualite") : dans une seule grande fonction, le compilateur de V8 mettait des nombres en boite (90 Ko par bloc, un
+ * ramasse-miettes toutes les 50 ms sur le fil audio) ; le bus dans sa propre methode, les nombres dans des tableaux types.
+ */
+const KS_ODGAIN = 0;
+const KS_ODMIX = 1;
+const KS_ODTRIM = 2;
+const KS_CLIPT = 3;
+const KS_CLIPW = 4;
+const KS_SIZE = 5;
+const KI_NEWNOISE = 0;
+const KI_GLUEON = 1;
+const KI_SIZE = 2;
+
 class MMVoyager extends AudioWorkletProcessor {
   constructor(options) {
     super();
     const o = (options && options.processorOptions) || {};
     // Le hasard (2026-10-22) : a graine (processorOptions.seed, les tests et le futur plugin), sinon Math.random
-    this.rnd = Number.isFinite(o.seed) ? mulberry32(o.seed) : Math.random;
+    this.rnd = Number.isFinite(o.seed) ? mulberry32(o.seed) : unseeded();
+    // Les tirages de DRIFT d'un bloc (2026-10-23) : six par voix (trois marches, deux oscillateurs)
+    this.rndBuf = new Float64Array(6 * MAX_VOICES);
     const rnd = this.rnd;
     this.voices = [];
     // 8 voix au telephone (2026-10-21, audit : 12 voix en x4 jusqu'a -86 dB prenaient 70 a 135 % du temps reel)
@@ -718,6 +772,10 @@ class MMVoyager extends AudioWorkletProcessor {
     // GLUE (2026-10-22) : son reglage lisse, le detecteur (valeur efficace), le gain, la dose, l'arrondi et ses entrees
     // d'avant (gauche, droite), au rythme du contexte pour le detecteur, du surechantillonnage pour l'arrondi
     this.gl = { g: 0, env: 0, avg: 0, gain: 1, mix: 0, k: 1, w: 1, mi: 0, mo: 0, gc: 1, thr: GLUE_THR0, mk: 0 };
+    // 2026-10-23 : les nombres d'un echantillon entre process et busTick, la somme des voix (gauche, droite)
+    this.ks = new Float64Array(KS_SIZE);
+    this.ki = new Int32Array(KI_SIZE);
+    this.acc = new Float64Array(2);
     this.glL = { x: 0, F: 0 };
     this.glRt = { x: 0, F: 0 };
     this.glK = coef(GLUE_S, sampleRate);
@@ -977,13 +1035,17 @@ class MMVoyager extends AudioWorkletProcessor {
 
   noteOn(n, frame) {
     let v = null;
-    for (const x of this.voices) if (!x.on) v = v && v.age < x.age ? v : x;
+    const vs = this.voices;
+    for (let i = 0; i < vs.length; i += 1) {
+      const x = vs[i];
+      if (!x.on) v = v && v.age < x.age ? v : x;
+    }
     const fresh = v !== null;
     if (!v) {
       // Plus de voix libre : elle repart de son niveau (pas de clic). La plus discrete des voix deja relachees
       // (2026-10-21, audit ; avant, la plus ancienne, encore sonore parfois), sinon la plus ancienne
-      for (const x of this.voices) if (x.aStage === 3 && (!v || x.aV < v.aV)) v = x;
-      if (!v) for (const x of this.voices) if (!v || x.age < v.age) v = x;
+      for (let i = 0; i < vs.length; i += 1) if (vs[i].aStage === 3 && (!v || vs[i].aV < v.aV)) v = vs[i];
+      if (!v) for (let i = 0; i < vs.length; i += 1) if (!v || vs[i].age < v.age) v = vs[i];
     }
     if (fresh) {
       // Une voix neuve : filtre au repos (celui de droite de WIDE aussi), phases libres
@@ -993,12 +1055,12 @@ class MMVoyager extends AudioWorkletProcessor {
       v.fV = 0;
       const fr = v.fr;
       fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = 0;
-      for (const P of v.pr) P.sb = 0;
+      for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = 0;
     }
     v.g = 0;
-    for (const P of v.pr) {
-      P.q1 = NaN;
-      P.q2 = NaN;
+    for (let j = 0; j < v.pr.length; j += 1) {
+      v.pr[j].q1 = NaN;
+      v.pr[j].q2 = NaN;
     }
     const target = Math.log(midiHz(n.midi));
     v.logT = target;
@@ -1053,7 +1115,7 @@ class MMVoyager extends AudioWorkletProcessor {
     if (quiet) {
       if (this.sm.wide === 0) v.wl = false;
       let busy = 0;
-      for (const x of this.voices) if (x.on && x !== v && x.wideOK) busy += 1;
+      for (let i = 0; i < vs.length; i += 1) if (vs[i].on && vs[i] !== v && vs[i].wideOK) busy += 1;
       v.wideOK = busy < this.wideVoices;
     }
     this.age += 1;
@@ -1100,6 +1162,185 @@ class MMVoyager extends AudioWorkletProcessor {
     v.nLoop = loop;
   }
 
+  /**
+   * Les voix pour un echantillon surechantillonne (2026-10-23, sorties de process, au bit pres) : enveloppes,
+   * oscillateurs, filtre, VCA ; leur somme dans this.acc (gauche, droite). Les nombres de l'echantillon dans this.ks et
+   * this.ki (process).
+   */
+
+  /**
+   * Le bus d'un echantillon surechantillonne (2026-10-23, sorti de process, au bit pres) : OVERDRIVE, le bloqueur de
+   * continu de la sortie, GLUE, l'ecreteur doux ; la somme des voix dans this.acc, la sortie dans raw et rawR.
+   */
+  busTick(i2) {
+    const p = this.p;
+    const acc = this.acc;
+    const ks = this.ks;
+    const ki = this.ki;
+    const raw = this.raw;
+    const rawR = this.rawR;
+    const dc = this.dc;
+    const dcK = this.dcK;
+    const gl = this.gl;
+    let sum = acc[0];
+    let sumR = acc[1];
+    const odGain = ks[KS_ODGAIN];
+    const odMix = ks[KS_ODMIX];
+    const odTrim = ks[KS_ODTRIM];
+    const clipT = ks[KS_CLIPT];
+    const clipW = ks[KS_CLIPW];
+    const newNoise = ki[KI_NEWNOISE] === 1;
+    const glueOn = ki[KI_GLUEON] === 1;
+    // OVERDRIVE : le propre + la branche sans graves, amplifiee, arrondie, adoucie, sans continu (2026-10-21)
+    if (odMix > 1e-4) {
+      const od = this.od;
+      const hpA = this.odHp;
+      const lpA = this.odLp;
+      const dA = this.odDc;
+      od.hpL = hpA * (od.hpL + sum - od.xL);
+      od.xL = sum;
+      od.lpL += (Math.tanh(od.hpL * odGain + OD_BIAS) - OD_TANH_BIAS - od.lpL) * lpA;
+      od.dL = dA * (od.dL + od.lpL - od.dxL);
+      od.dxL = od.lpL;
+      sum = (sum + od.dL * odMix) * odTrim;
+      od.hpR = hpA * (od.hpR + sumR - od.xR);
+      od.xR = sumR;
+      od.lpR += (Math.tanh(od.hpR * odGain + OD_BIAS) - OD_TANH_BIAS - od.lpR) * lpA;
+      od.dR = dA * (od.dR + od.lpR - od.dxR);
+      od.dxR = od.lpR;
+      sumR = (sumR + od.dR * odMix) * odTrim;
+    }
+    // Sortie : sans continu (8 Hz, 2026-10-21 : la SYNC, la FM et les saturations en laissaient), puis l'ecreteur doux
+    let yl = sum * OUT_GAIN;
+    let yr = sumR * OUT_GAIN;
+    dc[0] = dcK * (dc[0] + yl - dc[1]);
+    dc[1] = yl;
+    yl = dc[0];
+    dc[2] = dcK * (dc[2] + yr - dc[3]);
+    dc[3] = yr;
+    yr = dc[2];
+    // GLUE (2026-10-22) : le compresseur (son detecteur et son gain au rythme du contexte), puis l'arrondi des cretes
+    // (ADAA, a chaque echantillon surechantillonne), dose en fondu sur le premier quart du potard
+    if (glueOn) {
+      if (newNoise) {
+        gl.g += (p.glue - gl.g) * this.glK;
+        if (p.glue === 0 && gl.g < 1e-5) gl.g = 0;
+        const ms = 0.5 * (yl * yl + yr * yr);
+        gl.env += (ms - gl.env) * (ms > gl.env ? this.glA : this.glR);
+        // Le niveau moyen (la valeur efficace sur GLUE_AVG_S) : il part du premier son entendu, puis le suit lentement
+        if (gl.env > 1e-9) gl.avg = gl.avg <= 0 ? gl.env : gl.avg + (gl.env - gl.avg) * this.glAvg;
+        // glueGr ecrite ici (2026-10-23, zero allocation)
+        const over = LN_DB * Math.log(gl.env + 1e-12) - gl.thr;
+        let gr = 0;
+        if (over <= -GLUE_KNEE / 2) gr = 0;
+        else if (over >= GLUE_KNEE / 2) gr = GLUE_SLOPE * over;
+        else {
+          const t = over + GLUE_KNEE / 2;
+          gr = (GLUE_SLOPE * t * t) / (2 * GLUE_KNEE);
+        }
+        gl.gain = Math.exp((gl.mk - gr) * DB_LN);
+        gl.mix = gl.g >= 0.25 ? 1 : 4 * gl.g;
+      }
+      const zl = yl * gl.gain;
+      const zr = yr * gl.gain;
+      // glueAdaa, glueClipF et glueClip ecrites ici (2026-10-23, zero allocation), la gauche puis la droite
+      let cl = 0;
+      let cr = 0;
+      const gk = gl.k;
+      const gw = gl.w;
+      for (let ch = 0; ch < 2; ch += 1) {
+        const st = ch === 0 ? this.glL : this.glRt;
+        const xg = ch === 0 ? zl : zr;
+        const x1 = st.x;
+        const ax = xg < 0 ? -xg : xg;
+        const a1 = x1 < 0 ? -x1 : x1;
+        let y;
+        let F;
+        if (ax <= gk && a1 <= gk) {
+          y = 0.5 * (xg + x1);
+          F = 0.5 * xg * xg;
+        } else {
+          if (ax <= gk) F = 0.5 * xg * xg;
+          else {
+            const u = ax - gk;
+            // Les deux morceaux toujours calcules (le plateau, rare, ne fait plus repartir le compilateur a son premier
+            // passage, 2026-10-23), le meme nombre choisi
+            const Fa = 0.5 * gk * gk + gk * u + 0.5 * u * u - (u * u * u) / (12 * gw);
+            const Fb = 0.5 * gk * gk + 2 * gk * gw + (4 / 3) * gw * gw + (gk + gw) * (u - 2 * gw);
+            F = u < 2 * gw ? Fa : Fb;
+          }
+          const d = xg - x1;
+          if (d < 1e-7 && d > -1e-7) {
+            const xm = 0.5 * (xg + x1);
+            const am = xm < 0 ? -xm : xm;
+            if (am <= gk) y = xm;
+            else {
+              const u = am - gk;
+              const ya = gk + gw;
+              const yb = gk + u - (u * u) / (4 * gw);
+              const yy = u >= 2 * gw ? ya : yb;
+              y = xm < 0 ? -yy : yy;
+            }
+          } else y = (F - st.F) / d;
+        }
+        st.x = xg;
+        st.F = F;
+        if (ch === 0) cl = y;
+        else cr = y;
+      }
+      // Ce que l'arrondi retire en valeur efficace, suivi sur GLUE_AVG_S (rendu par bloc, gl.gc) : la meme sonie
+      if (newNoise) {
+        gl.mi += (zl * zl + zr * zr - gl.mi) * this.glAvg;
+        gl.mo += (cl * cl + cr * cr - gl.mo) * this.glAvg;
+      }
+      cl *= gl.gc;
+      cr *= gl.gc;
+      yl += (cl - yl) * gl.mix;
+      yr += (cr - yr) * gl.mix;
+    }
+    if (yl > clipT) yl = clipT + clipW * Math.tanh((yl - clipT) / clipW);
+    else if (yl < -clipT) yl = -clipT - clipW * Math.tanh((-yl - clipT) / clipW);
+    if (yr > clipT) yr = clipT + clipW * Math.tanh((yr - clipT) / clipW);
+    else if (yr < -clipT) yr = -clipT - clipW * Math.tanh((-yr - clipT) / clipW);
+    raw[i2] = yl;
+    rawR[i2] = yr;
+  }
+
+  /** DRIFT (2026-10-21) : les trois marches au hasard de chaque oscillateur des voix qui sonnent, une fois par bloc de N. */
+  driftStep(N) {
+    const dtB = N / sampleRate;
+    if (this.walkDt !== dtB) {
+      this.walkDt = dtB;
+      // Par marche : son coefficient et l'amplitude de son tirage (ecart type tenu, tirage uniforme)
+      this.walkC = DRIFT_WALKS.map(([tau, sd]) => {
+        const a = Math.exp(-dtB / tau);
+        return [a, sd * Math.sqrt(1 - a * a) * 3.4641];
+      });
+    }
+    const wc = this.walkC;
+    const vs0 = this.voices;
+    // Les tirages du bloc d'un coup, dans l'ordre ou les marches les prennent (la meme suite qu'avant)
+    let need = 0;
+    for (let vi = 0; vi < vs0.length; vi += 1) if (vs0[vi].on) need += 2 * wc.length;
+    const rb = this.rndBuf;
+    this.rnd.fill(rb, need);
+    let ri = 0;
+    for (let vi = 0; vi < vs0.length; vi += 1) {
+      const v = vs0[vi];
+      if (!v.on) continue;
+      for (let k = 0; k < 2; k += 1) {
+        let d = 0;
+        for (let j = 0; j < wc.length; j += 1) {
+          const w = v.walk[j];
+          w[k] = w[k] * wc[j][0] + (rb[ri] - 0.5) * wc[j][1];
+          ri += 1;
+          d += w[k];
+        }
+        v.drift[k] = d > DRIFT_MAX ? DRIFT_MAX : d < -DRIFT_MAX ? -DRIFT_MAX : d;
+      }
+    }
+  }
+
   process(_inputs, outputs) {
     const out = outputs[0];
     const L = out[0];
@@ -1113,7 +1354,8 @@ class MMVoyager extends AudioWorkletProcessor {
     const q = this.queue;
     const lfoBeats = Math.max(0.0625, this.p.lfoBeats);
     let active = false;
-    for (const v of this.voices) if (v.on) active = true;
+    const vs0 = this.voices;
+    for (let i = 0; i < vs0.length; i += 1) if (vs0[i].on) active = true;
     // Le bloqueur de continu de la sortie finit sa queue avant le silence (2026-10-21 : sans elle, une marche)
     const dc = this.dc;
     const dcBusy = Math.abs(dc[0]) + Math.abs(dc[1]) + Math.abs(dc[2]) + Math.abs(dc[3]) > 1e-7;
@@ -1139,30 +1381,8 @@ class MMVoyager extends AudioWorkletProcessor {
       return true;
     }
     // DRIFT (2026-10-21) : la derive de chaque oscillateur, trois marches au hasard bornees (lente, moyenne, rapide),
-    // une fois par bloc
-    const dtB = N / sampleRate;
-    if (this.walkDt !== dtB) {
-      this.walkDt = dtB;
-      // Par marche : son coefficient et l'amplitude de son tirage (ecart type tenu, tirage uniforme)
-      this.walkC = DRIFT_WALKS.map(([tau, sd]) => {
-        const a = Math.exp(-dtB / tau);
-        return [a, sd * Math.sqrt(1 - a * a) * 3.4641];
-      });
-    }
-    const wc = this.walkC;
-    const rnd = this.rnd;
-    for (const v of this.voices) {
-      if (!v.on) continue;
-      for (let k = 0; k < 2; k += 1) {
-        let d = 0;
-        for (let j = 0; j < wc.length; j += 1) {
-          const w = v.walk[j];
-          w[k] = w[k] * wc[j][0] + (rnd() - 0.5) * wc[j][1];
-          d += w[k];
-        }
-        v.drift[k] = d > DRIFT_MAX ? DRIFT_MAX : d < -DRIFT_MAX ? -DRIFT_MAX : d;
-      }
-    }
+    // une fois par bloc (sa methode, 2026-10-23 : le hasard y rend ses nombres sans les mettre en boite)
+    this.driftStep(N);
     const p = this.p;
     const sm = this.sm;
     const c = this.c;
@@ -1211,7 +1431,18 @@ class MMVoyager extends AudioWorkletProcessor {
       // Une fois par bloc (ils bougent lentement) : le seuil, le rattrapage (la reduction au niveau moyen), ce que
       // l'arrondi retire en valeur efficace (au plus +6 dB), le genou et le plafond de l'arrondi
       gl.thr = GLUE_THR0 - GLUE_THR_SPAN * gl.g;
-      gl.mk = gl.avg > 0 ? glueGr(LN_DB * Math.log(gl.avg) - gl.thr) : 0;
+      // glueGr, ecrite ici (2026-10-23, zero allocation : un appel avec un nombre le met en boite a chaque fois)
+      let mk = 0;
+      if (gl.avg > 0) {
+        const over = LN_DB * Math.log(gl.avg) - gl.thr;
+        if (over <= -GLUE_KNEE / 2) mk = 0;
+        else if (over >= GLUE_KNEE / 2) mk = GLUE_SLOPE * over;
+        else {
+          const t = over + GLUE_KNEE / 2;
+          mk = (GLUE_SLOPE * t * t) / (2 * GLUE_KNEE);
+        }
+      }
+      gl.mk = mk;
       const r = gl.mo > 1e-12 ? Math.sqrt(gl.mi / gl.mo) : 1;
       gl.gc = r < 1 ? 1 : r > 2 ? 2 : r;
       const ceil = 1 / (1 + GLUE_DRIVE * gl.g);
@@ -1228,6 +1459,21 @@ class MMVoyager extends AudioWorkletProcessor {
     const lvl = p.outLevel > 1e-6 ? p.outLevel : 0;
     const clipT = lvl > 0 ? CLIP_KNEE / lvl : Infinity;
     const clipW = lvl > 0 ? (CLIP_CEIL - CLIP_KNEE) / lvl : 1;
+    // Les fonctions des seuls reglages (this.p ne change qu'entre deux blocs) : une fois par bloc, au bit pres (2026-10-23)
+    const dest = p.lfoDest;
+    const lfoShape = p.lfoShape;
+    const subDiv = p.subOct === 2 ? 0.25 : 0.5;
+    const subW = p.subWave === 1 ? 1 : p.subWave === 3 ? 3 : 0;
+    const ratio1 = Math.pow(2, p.tune1 / 12);
+    const ratio2 = Math.pow(2, p.tune2 / 12);
+    const drift = p.drift;
+    const sync = p.sync === 1;
+    // Les nombres du bloc pour busTick (2026-10-23), une fois
+    const ks = this.ks;
+    const ki = this.ki;
+    ks[KS_CLIPT] = clipT;
+    ks[KS_CLIPW] = clipW;
+    ki[KI_GLUEON] = glueOn ? 1 : 0;
     for (let i2 = 0; i2 < OS * N; i2 += 1) {
       const i = (i2 / OS) | 0;
       const fr = t0 + i;
@@ -1238,7 +1484,21 @@ class MMVoyager extends AudioWorkletProcessor {
       if (beats.length > 0 && beats[0].f <= x) this.dueBeats(x);
       const tp = this.tp;
       const pos = tp.b + (x - tp.f) * tp.k;
-      const lraw = this.lfoRaw(pos / lfoBeats, p.lfoShape);
+      // lfoRaw, ecrite ici (2026-10-23, zero allocation) : le hasard avance pile au debut de chaque cycle
+      const cyc = pos / lfoBeats;
+      const cI = Math.floor(cyc);
+      if (cI !== this.rIdx) {
+        this.rIdx = cI;
+        this.rA = this.rB;
+        this.rB = nextRandom(this.rA, this.rnd);
+      }
+      const lph = cyc - cI;
+      let lraw;
+      if (lfoShape === 1) lraw = 1 - 2 * lph;
+      else if (lfoShape === 2) lraw = lph < 0.5 ? 1 : -1;
+      else if (lfoShape === 3) lraw = this.rA;
+      else if (lfoShape === 4) lraw = this.rA + (this.rB - this.rA) * lph * lph * (3 - 2 * lph);
+      else lraw = 1 - 4 * Math.abs(lph - 0.5);
       if (probe && i2 - i * OS === 0) {
         this.pL[i] = lraw;
         this.pR[i] = pos;
@@ -1246,7 +1506,6 @@ class MMVoyager extends AudioWorkletProcessor {
       this.lfoOut += (lraw - this.lfoOut) * this.lfoK;
       sm.lfoAmt += (p.lfoAmt - sm.lfoAmt) * K;
       const lfo = this.lfoOut * sm.lfoAmt;
-      const dest = p.lfoDest;
       const waveMod = dest === 0 ? 2 * lfo : dest === 4 ? lfo : 0;
       const cutMod = dest === 1 ? 3 * lfo : dest === 4 ? 1.5 * lfo : 0;
       const pitchMod = dest === 3 ? 100 * lfo : 0;
@@ -1258,8 +1517,6 @@ class MMVoyager extends AudioWorkletProcessor {
       // SUB : son gain (deja au carre, params.ts), son octave sous la note, sa forme
       sm.sub += (p.sub - sm.sub) * K;
       const g3 = sm.sub;
-      const subDiv = p.subOct === 2 ? 0.25 : 0.5;
-      const subW = p.subWave === 1 ? 1 : p.subWave === 3 ? 3 : 0;
       const newNoise = i2 % OS === 0;
       // MODE du filtre : chaque sortie glisse vers son poids (1 pour le mode choisi)
       const wm = this.wm;
@@ -1283,9 +1540,7 @@ class MMVoyager extends AudioWorkletProcessor {
       sm.o2 += (p.osc2 - sm.o2) * K;
       const g1 = sm.o1;
       const g2 = sm.o2;
-      // RANGE et SEMI de chaque oscillateur ; FINE en cents, lisse
-      const ratio1 = Math.pow(2, p.tune1 / 12);
-      const ratio2 = Math.pow(2, p.tune2 / 12);
+      // RANGE et SEMI de chaque oscillateur (ratio1, ratio2 : en haut du bloc) ; FINE en cents, lisse
       sm.f1 += (p.fine1 - sm.f1) * K;
       sm.f2 += (p.fine2 - sm.f2) * K;
       const fine1 = sm.f1;
@@ -1308,8 +1563,9 @@ class MMVoyager extends AudioWorkletProcessor {
       let pn1 = STACK_PAN1[0];
       let pn2 = STACK_PAN1[1];
       let pn2w = STACK_PAN2[0];
-      const a1 = wideOn ? g1 * g1 * wavePow(i1, f1m, pwm1, pwd1) : 0;
-      const a2 = wideOn ? g2 * g2 * wavePow(i2w, f2m, pwm2, pwd2) : 0;
+      // wavePow ecrite ici (2026-10-23, zero allocation)
+      const a1 = wideOn ? g1 * g1 * (pwm1 ? 4 * pwd1 * (1 - pwd1) : f1m > 1e-4 ? WAVE_POW[i1] + (WAVE_POW[i1 + 1] - WAVE_POW[i1]) * f1m : WAVE_POW[i1]) : 0;
+      const a2 = wideOn ? g2 * g2 * (pwm2 ? 4 * pwd2 * (1 - pwd2) : f2m > 1e-4 ? WAVE_POW[i2w] + (WAVE_POW[i2w + 1] - WAVE_POW[i2w]) * f2m : WAVE_POW[i2w]) : 0;
       if (a1 !== a2) {
         const am = a1 > a2 ? a1 : a2;
         if (am > 1e-12) {
@@ -1331,15 +1587,34 @@ class MMVoyager extends AudioWorkletProcessor {
       // compense (OD_TRIM, puis la mesure OD_COMP)
       const odGain = 1 + OD_GAIN * sm.drive * sm.drive;
       const odMix = OD_MIX * Math.min(1, sm.drive * 4);
-      const odTrim = odMix > 1e-4 ? odComp(sm.drive) / (1 + OD_TRIM * sm.drive) : 1;
-      const drift = p.drift;
-      const sync = p.sync === 1;
+      // odComp ecrite ici (2026-10-23, zero allocation)
+      let odTrim = 1;
+      if (odMix > 1e-4) {
+        const dv = sm.drive;
+        let oc = 1;
+        if (dv > 0) {
+          oc = OD_COMP[OD_COMP.length - 1];
+          for (let ci = 1; ci < OD_COMP_AT.length; ci += 1) {
+            if (dv <= OD_COMP_AT[ci]) {
+              const t = (dv - OD_COMP_AT[ci - 1]) / (OD_COMP_AT[ci] - OD_COMP_AT[ci - 1]);
+              oc = OD_COMP[ci - 1] + (OD_COMP[ci] - OD_COMP[ci - 1]) * t;
+              break;
+            }
+          }
+        }
+        odTrim = oc / (1 + OD_TRIM * sm.drive);
+      }
       // Les graves gardes en passe-bas (BASS_KEEP), et les poids des sorties de l'echelle (Xpander), communs aux voix
       const keep = 1 + k * BASS_KEEP;
       const w0 = wm[0] > 1e-4 ? wm[0] * keep : 0;
       const w1 = wm[1] > 1e-4 ? (wm[1] * keep) / (1 + k * SLOPE12_RES) : 0;
       const w2 = wm[2] > 1e-4 ? (wm[2] * 2 * BP_GAIN) / (1 + k * BP_RES) : 0;
       const w3 = wm[3] > 1e-4 ? (wm[3] * HP_GAIN) / (1 + k * HP_RES) : 0;
+      // Le bus (2026-10-23, zero allocation : sa methode, les nombres de l'echantillon dans ks et ki), apres les voix
+      ks[KS_ODGAIN] = odGain;
+      ks[KS_ODMIX] = odMix;
+      ks[KS_ODTRIM] = odTrim;
+      ki[KI_NEWNOISE] = newNoise ? 1 : 0;
       let sum = 0;
       let sumR = 0;
       for (let vi = 0; vi < nv; vi += 1) {
@@ -1415,12 +1690,71 @@ class MMVoyager extends AudioWorkletProcessor {
           p1 -= Math.floor(p1);
           // FM sans repliement (2026-10-21) : PolyBLEP au pas instantane de la phase modulee (avant : le pas sans FM)
           const fmOn = pm !== 0 && P.q1 === P.q1;
-          const dt1 = fmOn ? stepOf(p1, P.q1) : d1;
-          const dt2 = fmOn && !sync ? stepOf(q2, P.q2) : d2;
+          // stepOf ecrite ici (2026-10-23, zero allocation)
+          let dt1 = d1;
+          let dt2 = d2;
+          if (fmOn) {
+            let dd = p1 - P.q1;
+            if (dd < -0.5) dd += 1;
+            else if (dd > 0.5) dd -= 1;
+            if (dd < 0) dd = -dd;
+            dt1 = dd < 1e-5 ? 1e-5 : dd > 0.5 ? 0.5 : dd;
+            if (!sync) {
+              dd = q2 - P.q2;
+              if (dd < -0.5) dd += 1;
+              else if (dd > 0.5) dd -= 1;
+              if (dd < 0) dd = -dd;
+              dt2 = dd < 1e-5 ? 1e-5 : dd > 0.5 ? 0.5 : dd;
+            }
+          }
           P.q1 = p1;
           P.q2 = q2;
-          let o2 = pwm2 ? pulse(q2, dt2, pwd2) : shape(q2, dt2, i2w);
-          if (f2m > 1e-4 && !pwm2) o2 += (shape(q2, dt2, i2w + 1) - o2) * f2m;
+          // shape, pulse et polyblep ecrites ici (2026-10-23, zero allocation : un appel qui rend un nombre l'alloue) ; la
+          // forme (s 0) puis celle vers qui WAVE la fait glisser (s 1)
+          let o2 = 0;
+          for (let s = 0; s < 2; s += 1) {
+            if (s === 1 && !(f2m > 1e-4 && !pwm2)) break;
+            const w = i2w + s;
+            let y;
+            if (!pwm2 && w === 0) y = Math.sin(TAU * q2);
+            else if (!pwm2 && w === 1) {
+              let q = q2 + 0.25;
+              if (q >= 1) q -= 1;
+              y = 1 - 4 * Math.abs(q - 0.5);
+            } else if (!pwm2 && w === 2) {
+              let pb = 0;
+              if (q2 < dt2) {
+                const xx = q2 / dt2;
+                pb = xx + xx - xx * xx - 1;
+              } else if (q2 > 1 - dt2) {
+                const xx = (q2 - 1) / dt2;
+                pb = xx * xx + xx + xx + 1;
+              }
+              y = 1 - 2 * q2 + pb;
+            } else {
+              const d = pwm2 ? pwd2 : w === 3 ? 0.5 : PULSE_W;
+              y = q2 < d ? 1 : -1;
+              if (q2 < dt2) {
+                const xx = q2 / dt2;
+                y += xx + xx - xx * xx - 1;
+              } else if (q2 > 1 - dt2) {
+                const xx = (q2 - 1) / dt2;
+                y += xx * xx + xx + xx + 1;
+              }
+              let t2 = q2 - d;
+              if (t2 < 0) t2 += 1;
+              if (t2 < dt2) {
+                const xx = t2 / dt2;
+                y -= xx + xx - xx * xx - 1;
+              } else if (t2 > 1 - dt2) {
+                const xx = (t2 - 1) / dt2;
+                y -= xx * xx + xx + xx + 1;
+              }
+              y -= 2 * d - 1;
+            }
+            if (s === 0) o2 = y;
+            else o2 += (y - o2) * f2m;
+          }
           // SYNC sans repliement (2026-10-21) : la remise de phase d'OSC 2 corrigee par PolyBLEP, sur cet echantillon
           // (avant la remise) et le suivant (apres) ; la marche que la forme corrige deja d'elle-meme a la phase 0 deduite
           if (P.sb !== 0) {
@@ -1434,20 +1768,40 @@ class MMVoyager extends AudioWorkletProcessor {
             const e0 = pm - Math.floor(pm);
             let e1 = e + pm;
             e1 -= Math.floor(e1);
-            let h;
-            let nat;
-            if (pwm2) {
-              h = rawShape(e0, 3, pwd2) - rawShape(e1, 3, pwd2);
-              nat = 2;
-            } else {
-              const da = pwOf(i2w, 0);
-              h = rawShape(e0, i2w, da) - rawShape(e1, i2w, da);
-              nat = natStep(i2w);
-              if (f2m > 1e-4) {
-                const wb = i2w + 1;
-                const db = pwOf(wb, 0);
-                h += (rawShape(e0, wb, db) - rawShape(e1, wb, db) - h) * f2m;
-                nat += (natStep(wb) - nat) * f2m;
+            // rawShape, pwOf et natStep ecrites ici (2026-10-23, zero allocation) : la marche de la forme (pass 0), puis
+            // celle vers qui WAVE la fait glisser (pass 1)
+            let h = 0;
+            let nat = 0;
+            const passes = pwm2 || !(f2m > 1e-4) ? 1 : 2;
+            for (let pass = 0; pass < passes; pass += 1) {
+              const w = pwm2 ? 3 : i2w + pass;
+              const d = pwm2 ? pwd2 : w === 4 ? PULSE_W : 0.5;
+              let r0;
+              let r1;
+              if (w === 0) {
+                r0 = Math.sin(TAU * e0);
+                r1 = Math.sin(TAU * e1);
+              } else if (w === 1) {
+                let qa = e0 + 0.25;
+                if (qa >= 1) qa -= 1;
+                r0 = 1 - 4 * Math.abs(qa - 0.5);
+                let qb = e1 + 0.25;
+                if (qb >= 1) qb -= 1;
+                r1 = 1 - 4 * Math.abs(qb - 0.5);
+              } else if (w === 2) {
+                r0 = 1 - 2 * e0;
+                r1 = 1 - 2 * e1;
+              } else {
+                r0 = e0 < d ? 1 : -1;
+                r1 = e1 < d ? 1 : -1;
+              }
+              const ns = pwm2 || w >= 2 ? 2 : 0;
+              if (pass === 0) {
+                h = r0 - r1;
+                nat = ns;
+              } else {
+                h += (r0 - r1 - h) * f2m;
+                nat += (ns - nat) * f2m;
               }
             }
             if (pm !== 0) nat = 0;
@@ -1455,8 +1809,52 @@ class MMVoyager extends AudioWorkletProcessor {
             const r = 1 - frac;
             P.sb = -0.5 * (h - nat) * r * r;
           }
-          let o1 = pwm1 ? pulse(p1, dt1, pwd1) : shape1(i1, p1, dt1, P.a, o2, pm);
-          if (f1m > 1e-4 && !pwm1) o1 += (shape1(i1 + 1, p1, dt1, P.a, o2, pm) - o1) * f1m;
+          // OSC 1 de meme (shape1 : le cran FM, la sinusoide modulee par OSC 2)
+          let o1 = 0;
+          for (let s = 0; s < 2; s += 1) {
+            if (s === 1 && !(f1m > 1e-4 && !pwm1)) break;
+            const w = i1 + s;
+            let y;
+            if (!pwm1 && w === 0) y = Math.sin(TAU * p1);
+            else if (!pwm1 && w === 1) {
+              let q = p1 + 0.25;
+              if (q >= 1) q -= 1;
+              y = 1 - 4 * Math.abs(q - 0.5);
+            } else if (!pwm1 && w === 2) {
+              let pb = 0;
+              if (p1 < dt1) {
+                const xx = p1 / dt1;
+                pb = xx + xx - xx * xx - 1;
+              } else if (p1 > 1 - dt1) {
+                const xx = (p1 - 1) / dt1;
+                pb = xx * xx + xx + xx + 1;
+              }
+              y = 1 - 2 * p1 + pb;
+            } else if (!pwm1 && w === 5) y = Math.sin(TAU * (P.a + FM_INDEX * o2 * 0.16 + pm));
+            else {
+              const d = pwm1 ? pwd1 : w === 3 ? 0.5 : PULSE_W;
+              y = p1 < d ? 1 : -1;
+              if (p1 < dt1) {
+                const xx = p1 / dt1;
+                y += xx + xx - xx * xx - 1;
+              } else if (p1 > 1 - dt1) {
+                const xx = (p1 - 1) / dt1;
+                y += xx * xx + xx + xx + 1;
+              }
+              let t2 = p1 - d;
+              if (t2 < 0) t2 += 1;
+              if (t2 < dt1) {
+                const xx = t2 / dt1;
+                y -= xx + xx - xx * xx - 1;
+              } else if (t2 > 1 - dt1) {
+                const xx = (t2 - 1) / dt1;
+                y -= xx * xx + xx + xx + 1;
+              }
+              y -= 2 * d - 1;
+            }
+            if (s === 0) o1 = y;
+            else o1 += (y - o1) * f1m;
+          }
           P.a += d1;
           P.b += d2;
           if (P.a >= 1) {
@@ -1489,7 +1887,46 @@ class MMVoyager extends AudioWorkletProcessor {
         // SUB coupe : sa phase s'arrete (il revient en fondu depuis 0, pas de clic) ; le SUB et le bruit au centre (les
         // deux cotes de WIDE), ajoutes dans l'ordre d'avant
         if (g3 > 1e-6) {
-          const sb = g3 * shape(v.subPh, v.d3, subW);
+          const sph = v.subPh;
+          const sdt = v.d3;
+          let sy;
+          if (!false && subW === 0) sy = Math.sin(TAU * sph);
+          else if (!false && subW === 1) {
+            let q = sph + 0.25;
+            if (q >= 1) q -= 1;
+            sy = 1 - 4 * Math.abs(q - 0.5);
+          } else if (!false && subW === 2) {
+            let pb = 0;
+            if (sph < sdt) {
+              const xx = sph / sdt;
+              pb = xx + xx - xx * xx - 1;
+            } else if (sph > 1 - sdt) {
+              const xx = (sph - 1) / sdt;
+              pb = xx * xx + xx + xx + 1;
+            }
+            sy = 1 - 2 * sph + pb;
+          } else {
+            const d = false ? 0 : subW === 3 ? 0.5 : PULSE_W;
+            sy = sph < d ? 1 : -1;
+            if (sph < sdt) {
+              const xx = sph / sdt;
+              sy += xx + xx - xx * xx - 1;
+            } else if (sph > 1 - sdt) {
+              const xx = (sph - 1) / sdt;
+              sy += xx * xx + xx + xx + 1;
+            }
+            let t2 = sph - d;
+            if (t2 < 0) t2 += 1;
+            if (t2 < sdt) {
+              const xx = t2 / sdt;
+              sy -= xx + xx - xx * xx - 1;
+            } else if (t2 > 1 - sdt) {
+              const xx = (t2 - 1) / sdt;
+              sy -= xx * xx + xx + xx + 1;
+            }
+            sy -= 2 * d - 1;
+          }
+          const sb = g3 * sy;
           o += sb;
           oR += sb;
           v.subPh += v.d3;
@@ -1577,7 +2014,11 @@ class MMVoyager extends AudioWorkletProcessor {
           fq.s3 = x3;
           fq.s4 = x4;
         }
-        const yr = ladderR(fq, oR * driveIn, g, k);
+        fq.x = oR * driveIn;
+        fq.g = g;
+        fq.k = k;
+        ladderR(fq);
+        const yr = fq.y;
         let yoR = 0;
         if (w0 !== 0) yoR += w0 * yr;
         if (w1 !== 0) yoR += w1 * fq.y2;
@@ -1587,67 +2028,10 @@ class MMVoyager extends AudioWorkletProcessor {
         aR = Math.tanh(aR * driveOut) * outNorm;
         sumR += aR * v.gR;
       }
-      // OVERDRIVE : le propre + la branche sans graves, amplifiee, arrondie, adoucie, sans continu (2026-10-21)
-      if (odMix > 1e-4) {
-        const od = this.od;
-        const hpA = this.odHp;
-        const lpA = this.odLp;
-        const dA = this.odDc;
-        od.hpL = hpA * (od.hpL + sum - od.xL);
-        od.xL = sum;
-        od.lpL += (odCurve(od.hpL * odGain) - od.lpL) * lpA;
-        od.dL = dA * (od.dL + od.lpL - od.dxL);
-        od.dxL = od.lpL;
-        sum = (sum + od.dL * odMix) * odTrim;
-        od.hpR = hpA * (od.hpR + sumR - od.xR);
-        od.xR = sumR;
-        od.lpR += (odCurve(od.hpR * odGain) - od.lpR) * lpA;
-        od.dR = dA * (od.dR + od.lpR - od.dxR);
-        od.dxR = od.lpR;
-        sumR = (sumR + od.dR * odMix) * odTrim;
-      }
-      // Sortie : sans continu (8 Hz, 2026-10-21 : la SYNC, la FM et les saturations en laissaient), puis l'ecreteur doux
-      let yl = sum * OUT_GAIN;
-      let yr = sumR * OUT_GAIN;
-      dc[0] = dcK * (dc[0] + yl - dc[1]);
-      dc[1] = yl;
-      yl = dc[0];
-      dc[2] = dcK * (dc[2] + yr - dc[3]);
-      dc[3] = yr;
-      yr = dc[2];
-      // GLUE (2026-10-22) : le compresseur (son detecteur et son gain au rythme du contexte), puis l'arrondi des cretes
-      // (ADAA, a chaque echantillon surechantillonne), dose en fondu sur le premier quart du potard
-      if (glueOn) {
-        if (newNoise) {
-          gl.g += (p.glue - gl.g) * this.glK;
-          if (p.glue === 0 && gl.g < 1e-5) gl.g = 0;
-          const ms = 0.5 * (yl * yl + yr * yr);
-          gl.env += (ms - gl.env) * (ms > gl.env ? this.glA : this.glR);
-          // Le niveau moyen (la valeur efficace sur GLUE_AVG_S) : il part du premier son entendu, puis le suit lentement
-          if (gl.env > 1e-9) gl.avg = gl.avg <= 0 ? gl.env : gl.avg + (gl.env - gl.avg) * this.glAvg;
-          gl.gain = Math.exp((gl.mk - glueGr(LN_DB * Math.log(gl.env + 1e-12) - gl.thr)) * DB_LN);
-          gl.mix = gl.g >= 0.25 ? 1 : 4 * gl.g;
-        }
-        const zl = yl * gl.gain;
-        const zr = yr * gl.gain;
-        let cl = glueAdaa(this.glL, zl, gl.k, gl.w);
-        let cr = glueAdaa(this.glRt, zr, gl.k, gl.w);
-        // Ce que l'arrondi retire en valeur efficace, suivi sur GLUE_AVG_S (rendu par bloc, gl.gc) : la meme sonie
-        if (newNoise) {
-          gl.mi += (zl * zl + zr * zr - gl.mi) * this.glAvg;
-          gl.mo += (cl * cl + cr * cr - gl.mo) * this.glAvg;
-        }
-        cl *= gl.gc;
-        cr *= gl.gc;
-        yl += (cl - yl) * gl.mix;
-        yr += (cr - yr) * gl.mix;
-      }
-      if (yl > clipT) yl = clipT + clipW * Math.tanh((yl - clipT) / clipW);
-      else if (yl < -clipT) yl = -clipT - clipW * Math.tanh((-yl - clipT) / clipW);
-      if (yr > clipT) yr = clipT + clipW * Math.tanh((yr - clipT) / clipW);
-      else if (yr < -clipT) yr = -clipT - clipW * Math.tanh((-yr - clipT) / clipW);
-      raw[i2] = yl;
-      rawR[i2] = yr;
+      const acc = this.acc;
+      acc[0] = sum;
+      acc[1] = sumR;
+      this.busTick(i2);
     }
     // Retour a la frequence du contexte : les demi-bandes en cascade, un canal chacune
     if (OS === 4) {
@@ -1661,13 +2045,13 @@ class MMVoyager extends AudioWorkletProcessor {
       this.d2.run(raw, 2 * N, L);
       if (R) this.d2R.run(rawR, 2 * N, R);
     } else {
-      L.set(raw.subarray(0, N));
-      if (R) R.set(rawR.subarray(0, N));
+      for (let i = 0; i < N; i += 1) L[i] = raw[i];
+      if (R) for (let i = 0; i < N; i += 1) R[i] = rawR[i];
     }
     // Tests : la sortie dit le LFO, a chaque echantillon du contexte (sa forme, la position en temps)
     if (probe) {
-      L.set(this.pL.subarray(0, N));
-      if (R) R.set(this.pR.subarray(0, N));
+      for (let i = 0; i < N; i += 1) L[i] = this.pL[i];
+      if (R) for (let i = 0; i < N; i += 1) R[i] = this.pR[i];
     }
     return true;
   }

@@ -656,28 +656,35 @@ async function q3(ctx, file) {
   return out;
 }
 
-/** Q8 : memoire et calcul : les octets alloues par bloc (echantillonnage du tas), les blocs lents. */
+/**
+ * Q8 : memoire et calcul. Les octets alloues par bloc par le moteur (echantillonnage du tas, objets ramasses compris),
+ * sur 20 s (60 s pour l'arpege) apres 10 s de chauffe, dans la meme instance du moteur (comme le fil audio) ; les
+ * ramasse-miettes (node --trace-gc) sur 30 s apres la chauffe ; les blocs lents (mediane, p99.9) d'un arpege.
+ */
 async function gc(ctx, file) {
   const out = {};
-  const { Session } = await import('node:inspector/promises');
-  const session = new Session();
-  session.connect();
+  const { Session } = await import('node:inspector');
+  const step = 60 / 130 / 4;
+  const arp = (secs) => Array.from({ length: Math.floor(secs / step) }, (_, k) => ({ midi: 54 + ((k * 5) % 12), time: 0.05 + k * step, gate: 0.5 * step, accent: 1, from: null }));
   const cases = [
-    ['held GLUE 0.35', { ...ctx.DEF, glue: 0.35, outLevel: 0.3 }, [held(54, 100, 0.05)]],
-    ['held GLUE 0', { ...ctx.DEF, glue: 0, outLevel: 0.3 }, [held(54, 100, 0.05)]],
+    ['held GLUE 0.35', { ...ctx.DEF, glue: 0.35, outLevel: 0.3 }, [held(54, 100, 0.05)], 20],
+    ['held GLUE 0', { ...ctx.DEF, glue: 0, outLevel: 0.3 }, [held(54, 100, 0.05)], 20],
+    ['arp INIT 60 s', { ...ctx.DEF, outLevel: 0.3 }, arp(72), 60],
     ...(ctx.extraGc ?? []),
   ];
-  const step = 60 / 130 / 4;
-  const arp = Array.from({ length: Math.floor(20 / step) }, (_, k) => ({ midi: 54 + ((k * 5) % 12), time: 0.05 + k * step, gate: 0.5 * step, accent: 1, from: null }));
-  cases.push(['arp INIT', { ...ctx.DEF, outLevel: 0.3 }, arp]);
+  const session = new Session();
+  session.connect();
+  session.post('HeapProfiler.enable', () => {});
   for (const os of PATHS) {
-    for (const [name, params, notes] of cases) {
-      render({ file, os, params, notes, seconds: 3 });
-      await session.post('HeapProfiler.enable');
-      await session.post('HeapProfiler.startSampling', { samplingInterval: 256, includeObjectsCollectedByMinorGC: true, includeObjectsCollectedByMajorGC: true });
-      const seconds = 8;
-      render({ file, os, params, notes, seconds });
-      const { profile } = await session.post('HeapProfiler.stopSampling');
+    for (const [name, params, notes, D] of cases) {
+      const W = 10;
+      const A = Math.round((W * SR) / 128) * 128;
+      const B = A + Math.round((D * SR) / 128) * 128;
+      let prof = null;
+      render({ file, os, params, notes, seconds: W + D + 0.1, onBlock: (f) => {
+        if (f === A) session.post('HeapProfiler.startSampling', { samplingInterval: 1024, includeObjectsCollectedByMinorGC: true, includeObjectsCollectedByMajorGC: true }, () => {});
+        if (f === B) session.post('HeapProfiler.stopSampling', (e, r) => { prof = r.profile; });
+      } });
       let tot = 0;
       const agg = {};
       (function walk(n) {
@@ -689,32 +696,33 @@ async function gc(ctx, file) {
           tot += n.selfSize;
         }
         for (const c of n.children || []) walk(c);
-      })(profile.head);
-      const blocks = (seconds * SR) / 128;
-      out[`${name} x${os} bytes per block`] = Math.round(tot / blocks);
-      const top = Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${Math.round(v / blocks)}`);
+      })(prof.head);
+      const blocks = (D * SR) / 128;
+      out[`${name} x${os} bytes per block`] = r1(tot / blocks);
+      const top = Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${r1(v / blocks)}`);
       if (top.length) out[`${name} x${os} top`] = top.join(' | ');
     }
-    // Les blocs d'un arpege de 20 s (temps mur) : mediane, p99.9, max
-    const t = render({ file, os, params: { ...ctx.DEF, outLevel: 0.3 }, notes: arp, seconds: 20, timing: true });
-    const a = [...t.blockUs.slice(400)].sort((p, q) => p - q);
-    out[`arp INIT x${os} block us median`] = r1(a[Math.floor(a.length / 2)]);
-    out[`arp INIT x${os} block us p99.9`] = r1(a[Math.floor(a.length * 0.999)]);
-    out[`arp INIT x${os} block us max`] = r1(a[a.length - 1]);
+    // Les blocs d'un arpege de 60 s apres 10 s de chauffe (temps mur) : mediane, p99.9, max
+    const t = render({ file, os, params: { ...ctx.DEF, outLevel: 0.3 }, notes: arp(72), seconds: 70, timing: true });
+    const a = [...t.blockUs.slice(Math.round((10 * SR) / 128))].sort((p, q) => p - q);
+    out[`arp INIT 60 s x${os} block us median`] = r1(a[Math.floor(a.length / 2)]);
+    out[`arp INIT 60 s x${os} block us p99.9`] = r1(a[Math.floor(a.length * 0.999)]);
+    out[`arp INIT 60 s x${os} block us max`] = r1(a[a.length - 1]);
   }
   session.disconnect();
-  // Les ramasse-miettes (node --trace-gc) sur 30 s d'une note tenue, apres 3 s de chauffe
+  // Les ramasse-miettes (node --trace-gc) sur 30 s d'une note tenue, apres 10 s de chauffe dans la meme instance ; sans
+  // Vite dans ce processus (un petit tas, comme le fil audio) : les reglages ecrits dans la sonde
   const probe = path.join(OUT, 'gc-probe.mjs');
   mkdirSync(OUT, { recursive: true });
-  // Sans Vite dans ce processus (un petit tas, comme le fil audio) : les reglages ecrits dans la sonde
   const P = JSON.stringify({ ...ctx.DEF, outLevel: 0.3 });
   const F = JSON.stringify(file);
-  const os1 = PATHS[PATHS.length - 1];
-  writeFileSync(probe, `import { render, held } from ${JSON.stringify(path.join(ROOT, 'scripts/arp-quality/lib.mjs'))};\nconst params = ${P};\nrender({ file: ${F}, os: ${os1}, params, notes: [held(54, 100, 0.05)], seconds: 3 });\nconsole.log('--- chauffe finie');\nrender({ file: ${F}, os: ${os1}, params, notes: [held(54, 100, 0.05)], seconds: 30 });\n`);
-  const res = spawnSync(process.execPath, ['--trace-gc', probe], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26 });
-  const after = (res.stdout || '').split('--- chauffe finie')[1] || '';
-  out[`held INIT x${PATHS[PATHS.length - 1]} scavenges in 30 s`] = (after.match(/Scavenge/g) || []).length;
-  out[`held INIT x${PATHS[PATHS.length - 1]} mark-compact in 30 s`] = (after.match(/Mark-Compact|Mark-sweep/gi) || []).length;
+  for (const os1 of PATHS) {
+    writeFileSync(probe, `import { render, held } from ${JSON.stringify(path.join(ROOT, 'scripts/arp-quality/lib.mjs'))};\nconst params = ${P};\nconst A = Math.round((10 * 48000) / 128) * 128;\nconst B = A + Math.round((30 * 48000) / 128) * 128;\nrender({ file: ${F}, os: ${os1}, params, notes: [held(54, 100, 0.05)], seconds: 40.1, onBlock: (f) => {\n  if (f === A) console.log('--- chauffe finie');\n  if (f === B) console.log('--- fin');\n} });\n`);
+    const res = spawnSync(process.execPath, ['--trace-gc', probe], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26 });
+    const win = ((res.stdout || '').split('--- chauffe finie')[1] || '').split('--- fin')[0];
+    out[`held INIT x${os1} scavenges in 30 s after warm-up`] = (win.match(/Scavenge/g) || []).length;
+    out[`held INIT x${os1} mark-compact in 30 s after warm-up`] = (win.match(/Mark-Compact|Mark-sweep/gi) || []).length;
+  }
   return out;
 }
 

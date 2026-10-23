@@ -88,6 +88,9 @@ export function render(o) {
     const R = new Float32Array(n);
     const bl = new Float32Array(BLOCK);
     const br = new Float32Array(BLOCK);
+    // Les tableaux d'entree et de sortie gardes d'un bloc a l'autre (comme le navigateur) : le harnais n'alloue rien
+    const ins = [];
+    const outs = [[bl, br]];
     const blockUs = o.timing ? new Float64Array(n / BLOCK) : null;
     const c0 = process.cpuUsage();
     for (let f = 0, b = 0; f < n; f += BLOCK, b += 1) {
@@ -96,9 +99,9 @@ export function render(o) {
       if (o.onBlock) o.onBlock(f, proc);
       if (blockUs) {
         const t0 = process.hrtime.bigint();
-        proc.process([], [[bl, br]]);
+        proc.process(ins, outs);
         blockUs[b] = Number(process.hrtime.bigint() - t0) / 1000;
-      } else proc.process([], [[bl, br]]);
+      } else proc.process(ins, outs);
       L.set(bl, f);
       R.set(br, f);
     }
