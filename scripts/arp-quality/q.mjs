@@ -197,6 +197,40 @@ async function resp(ctx, file) {
   return out;
 }
 
+/**
+ * Q4 sur un reglage (2026-10-23, S4) : un potard change pendant une note tenue (par defaut OVERDRIVE 0 -> 0.5 a 0.6 s,
+ * puis 0.5 -> 0 a 1.2 s) ; l'energie au-dessus de 8 kHz autour de chaque changement contre la plus forte des deux
+ * notes tenues sans changement (le reglage d'avant et celui d'apres) : dB, <= +3 (pas de clic ajoute).
+ *   --key drive --from 0 --to 0.5   un autre potard
+ */
+async function pclick(ctx, file) {
+  const out = {};
+  const key = opt('--key', 'drive');
+  const a = Number(opt('--from', 0));
+  const b = Number(opt('--to', 0.5));
+  const t1 = 0.6;
+  const t2 = 1.2;
+  for (const os of PATHS) {
+    for (const [lbl, base] of [['saw C3', { wave1: 2, osc1: 0.62 }], ['saw C5', { wave1: 2, osc1: 0.62, keyTrack: 0 }], ['2x0.88 C3', { wave1: 2, osc1: 0.88, osc2: 0.88, wave2: 2 }]]) {
+      const midi = lbl.includes('C5') ? 72 : 48;
+      const params = { ...ctx.DEF, ...base, cutoff: 6000, envOct: 0, aS: 1, fS: 1, drift: 0, glue: 0, outLevel: 0.3 };
+      const notes = [held(midi, 3, 0.05)];
+      const ev = render({ file, os, params: { ...params, [key]: a }, notes, seconds: 1.8, timeline: [
+        { at: t1, msg: { type: 'params', params: { [key]: b } } },
+        { at: t2, msg: { type: 'params', params: { [key]: a } } },
+      ] });
+      const ra = render({ file, os, params: { ...params, [key]: a }, notes, seconds: 1.8 });
+      const rb = render({ file, os, params: { ...params, [key]: b }, notes, seconds: 1.8 });
+      for (const [t, n] of [[t1, `${a}->${b}`], [t2, `${b}->${a}`]]) {
+        const tb = Math.round((t * SR) / 128) * 128 / SR;
+        const d = Math.min(clickDb(ev.L, ra.L, tb), clickDb(ev.L, rb.L, tb));
+        out[`${key} ${n} ${lbl} x${os} dB`] = r1(d);
+      }
+    }
+  }
+  return out;
+}
+
 /** Le niveau (valeur efficace, dB) d'un sinus et d'une scie a 0.62 selon OVERDRIVE. */
 async function level(ctx, file) {
   const out = {};
@@ -249,6 +283,10 @@ async function silence(ctx, file) {
     { name: 'X STACK WIDE GLUE', params: { ...ctx.DEF, stack: 30, wide: 1, glue: 1, outLevel: 0.25 } },
     { name: 'X RES1 LONG REL', params: { ...ctx.DEF, res: 1, aR: 3, fR: 3, outLevel: 0.25 } },
     { name: 'X OD1 SYNC FM', params: { ...ctx.DEF, drive: 1, sync: 1, tune2: 7, fm: 0.6, outLevel: 0.25 } },
+    // Une note tenue dont les sources (OSC 1, OSC 2, SUB, NOISE) passent a 0 apres 0.5 s : l'etat d'une voix allumee qui ne
+    // recoit plus que des zeros (le passe-bas d'avant le filtre, S3, et l'echelle) ne doit pas descendre dans les
+    // sous-normaux
+    { name: 'X HELD SOURCE OFF', params: { ...ctx.DEF, aS: 1, fS: 1, outLevel: 0.25 }, notes: [held(54, 20, 0.05)], timeline: [{ at: 0.5, msg: { type: 'params', params: { osc1: 0, osc2: 0, sub: 0, noise: 0 } } }], seconds: 14 },
     ...(ctx.extraSilence ?? []),
   ];
   let subTot = 0;
@@ -264,9 +302,10 @@ async function silence(ctx, file) {
       const tEnd = 0.05 + 16 * step;
       // Un premier passage pour le compilateur (la premiere queue fait repartir le code optimise : des blocs lents qui
       // ne reviennent plus), puis la mesure
-      render({ file, os, params: pt.params, notes: bar(), seconds: tEnd + 1 });
-      const r = render({ file, os, params: pt.params, notes: bar(), seconds: tEnd + 6, timing: true, onBlock: (f, proc) => {
-        if (f % 1280 === 0 || f / SR > tEnd + 5.9) scan(proc, acc);
+      render({ file, os, params: pt.params, notes: pt.notes ?? bar(), timeline: pt.timeline, seconds: tEnd + 1 });
+      const secs = pt.seconds ?? tEnd + 6;
+      const r = render({ file, os, params: pt.params, notes: pt.notes ?? bar(), timeline: pt.timeline, seconds: secs, timing: true, onBlock: (f, proc) => {
+        if (f % 1280 === 0 || f / SR > secs - 0.1) scan(proc, acc);
         if (proc.voices.some((v) => v.on)) lastActive = f;
       } });
       let outNF = 0;
@@ -752,7 +791,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, selfosc, sync, tri, timbre, resp, level, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
+const SUITES = { purity, p1a, selfosc, sync, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }

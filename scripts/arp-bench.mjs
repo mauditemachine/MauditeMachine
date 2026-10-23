@@ -22,6 +22,9 @@
  *   node scripts/arp-bench.mjs --browser       le meme rendu dans un OfflineAudioContext de Chromium (Playwright,
  *        PLAYWRIGHT_MODULE et CHROMIUM_PATH comme scripts/midi-reference.mjs) : la parite Node / navigateur
  *   node scripts/arp-bench.mjs --cpu           le calcul par bloc de 1 a 12 voix tenues (temps CPU, JIT chaud)
+ *   node scripts/arp-bench.mjs --worklet <f>   un autre moteur que celui du depot (2026-10-23)
+ *   node scripts/arp-bench.mjs --set '{"glue":0}'  des reglages du moteur imposes a tous les patchs (diagnostic,
+ *        jamais avec --update)
  *
  * Le hasard du moteur suit processorOptions.seed (mulberry32) ; un moteur qui ne
  * la connait pas (--against une version d'avant le 2026-10-22) recoit la meme
@@ -44,7 +47,9 @@ import { loudness, thirdBands, THIRDS } from './arp-quality/ana.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'scripts/output/arp-bench');
 const GOLDEN = path.join(ROOT, 'scripts/arp-bench.golden.json');
-const WORKLET = path.join(ROOT, 'src/v4/audio/moog.worklet.js');
+// 2026-10-23 : --worklet <fichier> rend un autre moteur (une version d'avant), WAV compris
+const WORKLET_ARG = process.argv.indexOf('--worklet');
+const WORKLET = WORKLET_ARG > 0 ? path.resolve(process.argv[WORKLET_ARG + 1]) : path.join(ROOT, 'src/v4/audio/moog.worklet.js');
 const SR = 48000;
 const BLOCK = 128;
 
@@ -69,6 +74,9 @@ const ONLY = opt('--only', '')
   .filter(Boolean);
 const AGAINST = opt('--against', '');
 const NO_WAV = flag('--no-wav');
+// 2026-10-23 : des reglages du moteur imposes (diagnostic : sans GLUE, sous l'ecreteur de sortie...)
+const SET = JSON.parse(opt('--set', '{}'));
+if (Object.keys(SET).length && flag('--update')) throw new Error('--set ne va pas avec --update');
 
 /* ---------------- le hasard ---------------- */
 
@@ -424,7 +432,7 @@ function engineOpts(M, p, extra = {}) {
   // 0.66, DELAY et REVERB repris)
   const k = p.knobs;
   const outLevel = (k.volume * k.volume * 0.66) / (1 + 0.35 * k.delay + 0.5 * k.reverb);
-  const params = { ...M.params.engineParams(p.knobs), bpm, outLevel };
+  const params = { ...M.params.engineParams(p.knobs), bpm, outLevel, ...SET };
   return { opts: { params, notes, beats, ...(held ? { timeline: held.timeline } : {}), os: OS, maxVoices: VOICES, maxStack: STACK_MAX, wideVoices: WIDE_VOICES, seed: SEED, ...extra }, seconds };
 }
 

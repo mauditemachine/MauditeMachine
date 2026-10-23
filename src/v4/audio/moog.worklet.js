@@ -606,6 +606,8 @@ class Voice {
     this.fr = { pu: 0, s1: 0, s2: 0, s3: 0, s4: 0, u: 0, y1: 0, y2: 0, x: 0, g: 0, k: 0, y: 0 };
     this.wl = false;
     this.wideOK = true;
+    // 2026-10-23 : l'etat en tableau type (VX_*), le passe-bas avant le filtre pour commencer
+    this.x = new Float64Array(VX_SIZE);
     // Bruit : xorshift 32 bits, une graine par voix (jamais 0)
     this.seed = ((rnd() * 0x7fffffff) | 0) | 1;
     this.nz = 0;
@@ -803,6 +805,28 @@ const P_INT = { fmode: [0, 3], lfoShape: [0, 4], lfoDest: [0, 4], sync: [0, 1], 
 const VOICE_GUARD = 64;
 /** Sous ce niveau, un etat recursif est remis a 0 en fin de bloc (pas de sous-normaux, 2026-10-23). */
 const TINY = 1e-20;
+/**
+ * Le passe-bas avant le filtre (2026-10-23, Mika : "que le son soit d'extreme bonne qualite") : un Butterworth a 4
+ * poles a PRE_HZ (deux etages TPT, Q 0.5412 et 1.3066), a chaque echantillon surechantillonne, sur l'entree de l'echelle
+ * (celle de droite aussi). Les etages satures de l'echelle melangeaient les restes de PolyBLEP et les images du bruit
+ * au-dessus de 20 kHz : repliement (une scie C7 de 65.4 a 82.0 dB de purete en x4, de 57.6 a 63.2 en x2). Le chemin
+ * ouvert : -0.02 dB a 10 kHz, -0.37 dB a 15 kHz (x2 : -0.01 et -0.24).
+ */
+const PRE_HZ = 20000;
+const PRE_Q = [0.5411961, 1.306563];
+/**
+ * L'etat d'une voix en tableau type (2026-10-23, zero allocation ; les etats ajoutes depuis y vivent) : le passe-bas
+ * avant le filtre (gauche P1A, P1B, P2A, P2B ; droite Q...), la place des suivants.
+ */
+const VX_P1A = 0;
+const VX_P1B = 1;
+const VX_P2A = 2;
+const VX_P2B = 3;
+const VX_Q1A = 4;
+const VX_Q1B = 5;
+const VX_Q2A = 6;
+const VX_Q2B = 7;
+const VX_SIZE = 32;
 
 class MMVoyager extends AudioWorkletProcessor {
   constructor(options) {
@@ -861,6 +885,13 @@ class MMVoyager extends AudioWorkletProcessor {
     this.dc = [0, 0, 0, 0];
     this.dcK = Math.exp((-2 * Math.PI * OUT_DC_HZ) / this.sr2);
     this.panK = coef(PAN_S, this.sr2);
+    // Le passe-bas avant le filtre (2026-10-23) : pour chaque etage, g = tan(pi f / fs), 2R + g et 1 / (1 + 2Rg + g^2)
+    const pg = Math.tan((Math.PI * PRE_HZ) / this.sr2);
+    this.preG = pg;
+    this.preA1 = 1 / PRE_Q[0] + pg;
+    this.preH1 = 1 / (1 + pg / PRE_Q[0] + pg * pg);
+    this.preA2 = 1 / PRE_Q[1] + pg;
+    this.preH2 = 1 / (1 + pg / PRE_Q[1] + pg * pg);
     // STACK : le glissement du gain d'un exemplaire (2026-10-22)
     this.stK = coef(STACK_S, this.sr2);
     // La sortie de la saturation des voix, normalisee (calculee quand OVERDRIVE bouge)
@@ -1148,6 +1179,7 @@ class MMVoyager extends AudioWorkletProcessor {
       const fr = v.fr;
       fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = 0;
       for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = 0;
+      v.x.fill(0);
     }
     v.g = 0;
     for (let j = 0; j < v.pr.length; j += 1) {
@@ -1411,6 +1443,7 @@ class MMVoyager extends AudioWorkletProcessor {
     const fr = v.fr;
     fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = fr.u = fr.y1 = fr.y2 = fr.y = 0;
     for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = 0;
+    v.x.fill(0);
   }
 
   /** Le bus au repos (2026-10-23) : OVERDRIVE, le bloqueur de continu de la sortie, GLUE. */
@@ -1427,9 +1460,41 @@ class MMVoyager extends AudioWorkletProcessor {
 
   /**
    * Les sous-normaux (2026-10-23, Q6 : jusqu'a 1.5e-323 dans la branche OVERDRIVE de six presets, figes pendant le
-   * silence) : en fin de bloc, chaque etat recursif du bus sous TINY repart de 0 (un ecart sous -400 dB).
+   * silence) : en fin de bloc, chaque etat recursif du bus sous TINY repart de 0 (un ecart sous -400 dB). Et les voix
+   * allumees (2026-10-23, S3) : une note tenue dont OSC 1, OSC 2, SUB et NOISE passent a 0 laissait les niveaux lisses,
+   * l'echelle puis le passe-bas d'avant le filtre descendre dans les sous-normaux apres une dizaine de secondes.
    */
   flushTiny() {
+    const sm = this.sm;
+    if (sm.o1 < TINY && sm.o1 > -TINY) sm.o1 = 0;
+    if (sm.o2 < TINY && sm.o2 > -TINY) sm.o2 = 0;
+    if (sm.fm < TINY && sm.fm > -TINY) sm.fm = 0;
+    if (sm.noise < TINY && sm.noise > -TINY) sm.noise = 0;
+    if (sm.sub < TINY && sm.sub > -TINY) sm.sub = 0;
+    if (sm.lfoAmt < TINY && sm.lfoAmt > -TINY) sm.lfoAmt = 0;
+    if (sm.drive < TINY && sm.drive > -TINY) sm.drive = 0;
+    if (sm.wide < TINY && sm.wide > -TINY) sm.wide = 0;
+    const vs = this.voices;
+    for (let i = 0; i < vs.length; i += 1) {
+      const v = vs[i];
+      if (!v.on) continue;
+      if (v.s1 < TINY && v.s1 > -TINY) v.s1 = 0;
+      if (v.s2 < TINY && v.s2 > -TINY) v.s2 = 0;
+      if (v.s3 < TINY && v.s3 > -TINY) v.s3 = 0;
+      if (v.s4 < TINY && v.s4 > -TINY) v.s4 = 0;
+      if (v.pu < TINY && v.pu > -TINY) v.pu = 0;
+      const fr = v.fr;
+      if (fr.s1 < TINY && fr.s1 > -TINY) fr.s1 = 0;
+      if (fr.s2 < TINY && fr.s2 > -TINY) fr.s2 = 0;
+      if (fr.s3 < TINY && fr.s3 > -TINY) fr.s3 = 0;
+      if (fr.s4 < TINY && fr.s4 > -TINY) fr.s4 = 0;
+      if (fr.pu < TINY && fr.pu > -TINY) fr.pu = 0;
+      if (fr.u < TINY && fr.u > -TINY) fr.u = 0;
+      if (fr.y1 < TINY && fr.y1 > -TINY) fr.y1 = 0;
+      if (fr.y2 < TINY && fr.y2 > -TINY) fr.y2 = 0;
+      const X = v.x;
+      for (let j = 0; j < VX_SIZE; j += 1) if (X[j] < TINY && X[j] > -TINY) X[j] = 0;
+    }
     const od = this.od;
     if (od.hpL < TINY && od.hpL > -TINY) od.hpL = 0;
     if (od.xL < TINY && od.xL > -TINY) od.xL = 0;
@@ -1561,6 +1626,11 @@ class MMVoyager extends AudioWorkletProcessor {
     const panK = this.panK;
     const stK = this.stK;
     const dcK = this.dcK;
+    const preG = this.preG;
+    const preA1 = this.preA1;
+    const preH1 = this.preH1;
+    const preA2 = this.preA2;
+    const preH2 = this.preH2;
     // STACK (2026-10-22) : l'ecart lisse d'un bloc a l'autre, le rapport de chaque exemplaire des voix qui sonnent
     if (this.stD !== p.stack) {
       const dd = p.stack - this.stD;
@@ -2096,6 +2166,45 @@ class MMVoyager extends AudioWorkletProcessor {
           o += nGain * v.nz;
           oR += nGain * v.nz;
         }
+        // Le passe-bas avant le filtre (2026-10-23) : deux etages TPT (Butterworth 4 poles, PRE_HZ), a gauche ; a droite
+        // (WIDE) sur l'entree de droite, ou la sortie de gauche quand les deux entrees sont egales (WIDE a 0) ; la droite
+        // part de l'etat de la gauche quand son echelle demarre
+        const X = v.x;
+        let hp = (o - preA1 * X[VX_P1A] - X[VX_P1B]) * preH1;
+        let bp = preG * hp + X[VX_P1A];
+        X[VX_P1A] = preG * hp + bp;
+        let lp = preG * bp + X[VX_P1B];
+        X[VX_P1B] = preG * bp + lp;
+        hp = (lp - preA2 * X[VX_P2A] - X[VX_P2B]) * preH2;
+        bp = preG * hp + X[VX_P2A];
+        X[VX_P2A] = preG * hp + bp;
+        const xin = preG * bp + X[VX_P2B];
+        X[VX_P2B] = preG * bp + xin;
+        let xinR = xin;
+        if (wideV) {
+          if (!v.wl) {
+            X[VX_Q1A] = X[VX_P1A];
+            X[VX_Q1B] = X[VX_P1B];
+            X[VX_Q2A] = X[VX_P2A];
+            X[VX_Q2B] = X[VX_P2B];
+          } else if (wide !== 0) {
+            hp = (oR - preA1 * X[VX_Q1A] - X[VX_Q1B]) * preH1;
+            bp = preG * hp + X[VX_Q1A];
+            X[VX_Q1A] = preG * hp + bp;
+            lp = preG * bp + X[VX_Q1B];
+            X[VX_Q1B] = preG * bp + lp;
+            hp = (lp - preA2 * X[VX_Q2A] - X[VX_Q2B]) * preH2;
+            bp = preG * hp + X[VX_Q2A];
+            X[VX_Q2A] = preG * hp + bp;
+            xinR = preG * bp + X[VX_Q2B];
+            X[VX_Q2B] = preG * bp + xinR;
+          } else {
+            X[VX_Q1A] = X[VX_P1A];
+            X[VX_Q1B] = X[VX_P1B];
+            X[VX_Q2A] = X[VX_P2A];
+            X[VX_Q2B] = X[VX_P2B];
+          }
+        }
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         // La coupure (sa tangente) : une fois par echantillon du contexte, elle bouge lentement a cette echelle
         if (newNoise || v.g === 0) {
@@ -2122,7 +2231,7 @@ class MMVoyager extends AudioWorkletProcessor {
         const Gc = gc / (1 + gc);
         const Gd = gd / (1 + gd);
         const S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
-        const u = (o * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+        const u = (xin * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
         v.pu = u;
         let w = (u - x1) * Ga;
         let y = w + x1;
@@ -2172,7 +2281,7 @@ class MMVoyager extends AudioWorkletProcessor {
           fq.s3 = x3;
           fq.s4 = x4;
         }
-        fq.x = oR * driveIn;
+        fq.x = xinR * driveIn;
         fq.g = g;
         fq.k = k;
         ladderR(fq);
