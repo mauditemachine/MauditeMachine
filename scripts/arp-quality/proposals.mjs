@@ -75,7 +75,7 @@ export const NEW_PRESETS = [
     bpm: 125,
     swing: 0.45,
     prog: [0],
-    knobs: { rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.3, wave1: WAVE1.SINE, osc1: 0.45, osc2: 0, fmode: FMODE.MOOG, cutoff: 0.282, res: 0.93, keyTrack: 1, envAmt: 0.08, fD: 0.14, fS: 0, fR: 0.14, aD: 0.22, aS: 0, aR: 0.2, drift: 0, phase: 0.3, load: 0.1, chorus: CHORUS.OFF, delay: 0.5, tape: 0.5, reverb: 0.3, duck: 0.25, chord: CHORD.BASIC },
+    knobs: { rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.3, wave1: WAVE1.SINE, osc1: 0.85, osc2: 0, fmode: FMODE.MOOG, cutoff: 0.282, res: 0.93, keyTrack: 1, envAmt: 0.08, fD: 0.14, fS: 0, fR: 0.14, aD: 0.22, aS: 0, aR: 0.2, drift: 0, phase: 0.3, load: 0.1, chorus: CHORUS.OFF, delay: 0.5, tape: 0.5, reverb: 0.3, duck: 0.25, chord: CHORD.BASIC },
   },
 ];
 
