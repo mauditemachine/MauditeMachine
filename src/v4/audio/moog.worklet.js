@@ -130,6 +130,25 @@
  * Un vrai relachement (message noteOff, 2026-10-22, audit VST3) : une note
  * jouee sans fin (gate infini) s'arrete a l'heure dite, comme sous un clavier
  * MIDI ou un clip d'Ableton ; l'arpegiateur n'en a pas besoin.
+ *
+ * Le controle qualite (2026-10-23, Mika : "Pourrais tu controler ARP pour que le son soit d'extreme bonne
+ * qualite ?! entre Monark et un synth analog Moog Voyager et un Korg Ms10"), mesure par scripts/arp-quality (q.mjs,
+ * cpu.mjs, chorus.mjs, ab.mjs) et scripts/arp-bench.mjs, rien n'y est joue :
+ * - le plancher : aucune allocation dans process (plus de ramasse-miettes), un reglage pourri ignore ou borne, une
+ *   garde qui remet au repos une voix ou le bus qui s'emballe, plus de sous-normaux, le filtre part sur son MODE ;
+ * - le repliement : un passe-bas a 4 poles (Butterworth, 20 kHz) devant le filtre de chaque voix, la courbe
+ *   d'OVERDRIVE et la saturation des voix par ADAA (lncosh en table de Hermite), le premier demi-bande du x4 en
+ *   Kaiser 9, la SYNC datee a chaque front, le triangle en polyBLAMP, l'indice FM borne au telephone, une
+ *   fondamentale au-dessus de 18 kHz effacee jusqu'a 22 kHz ;
+ * - la resonance : une passe de correction de l'echelle sous porte (RES 0.865 et coupure haute), l'auto-oscillation
+ *   juste (K_COMP) a 2 cents pres de 100 Hz a 16 kHz, au meme niveau sur les deux chemins ;
+ * - le caractere, chacun au bit pres a sa valeur d'avant : MODE MS-10 (le Korg35 du MS-10, ses deux diodes, code 4
+ *   du moteur, le cran du milieu), LOAD (le melangeur du Moog qui pousse le filtre), l'accent dans LOAD et dans les
+ *   diodes (ACC FILTER), SPACE (les deux passe-bas du Voyager, une octave de chaque cote au plus, 20 % croises pour
+ *   le mono), POLARITY (le contour du filtre retourne) ;
+ * - les rampes des messages sur CUTOFF, RES et ENV AMT (un potard MIDI qu'on tourne ne fait plus d'escalier).
+ * Le depart, les presets d'usine et RANDOM n'ont pas change : les propositions (LOAD au depart, presets revus,
+ * cinq nouveaux) attendent l'ecoute de Mika (scripts/arp-quality/proposals.mjs).
  */
 
 /** Voix au plus (processorOptions.maxVoices : 12 sur ordinateur, 8 au telephone, audio/synth.ts). */
