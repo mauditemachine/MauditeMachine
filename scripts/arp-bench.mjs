@@ -25,6 +25,8 @@
  *   node scripts/arp-bench.mjs --worklet <f>   un autre moteur que celui du depot (2026-10-23)
  *   node scripts/arp-bench.mjs --set '{"glue":0}'  des reglages du moteur imposes a tous les patchs (diagnostic,
  *        jamais avec --update)
+ *   node scripts/arp-bench.mjs --proposals     les propositions pour Mika (2026-10-23, S22 : presets avec LOAD, INIT a
+ *        LOAD 0 / 0.15 / 0.25 / 0.35, cinq presets nouveaux), calees en sonie, dans scripts/output/arp-bench/proposals/
  *
  * Le hasard du moteur suit processorOptions.seed (mulberry32) ; un moteur qui ne
  * la connait pas (--against une version d'avant le 2026-10-22) recoit la meme
@@ -566,11 +568,68 @@ function cpuTable(M, Proc) {
 
 /* ---------------- le banc ---------------- */
 
+/**
+ * --proposals (2026-10-23, S22) : ce que S23 changerait, a ecouter par Mika (rien n'est applique au site) ; le moteur
+ * seul, la meme graine et les memes notes que le banc : chaque preset d'usine aujourd'hui et propose (LOAD, ACID NIGHT et
+ * NIGHT DRIVE revus), INIT a LOAD 0 / 0.15 / 0.25 / 0.35, les cinq presets nouveaux (scripts/arp-quality/proposals.mjs).
+ * Chaque proposition calee en sonie sur sa reference (le gain, la retouche de VOLUME qu'il faudrait, est donne) ; WAV
+ * dans scripts/output/arp-bench/proposals/. La chaine complete (chorus, DELAY, REVERB) : scripts/arp-quality/ab.mjs.
+ */
+async function proposals(M, Proc) {
+  const { FACTORY_LOAD, FACTORY_UPDATES, INIT_LOADS, NEW_PRESETS, proposedKnobs } = await import('./arp-quality/proposals.mjs');
+  const dir = path.join(OUT, 'proposals');
+  await mkdir(dir, { recursive: true });
+  const defaults = Object.fromEntries(M.params.VOY_KNOBS.map((k) => [k.id, k.def]));
+  const one = (name, knobs, prog, bpmSwing) => {
+    const p = { name, knobs, prog };
+    const [bpm, swing] = bpmSwing ?? STYLE[name] ?? STYLE.INIT;
+    const { notes, beats, seconds } = arpNotes(M, knobs, prog, BARS, bpm, swing, SEED);
+    const k = knobs;
+    const outLevel = (k.volume * k.volume * 0.66) / (1 + 0.35 * k.delay + 0.5 * k.reverb);
+    const opts = { params: { ...M.params.engineParams(knobs), bpm, outLevel }, notes, beats, os: OS, maxVoices: VOICES, maxStack: STACK_MAX, wideVoices: WIDE_VOICES, seed: SEED };
+    void p;
+    return render(Proc, opts, seconds);
+  };
+  const rows = [];
+  const save = async (file, r, ref, what) => {
+    const lu = loudness(r.L, r.R);
+    let gain = 1;
+    if (ref) {
+      gain = Math.pow(10, (ref.lu - lu) / 20);
+      for (let i = 0; i < r.L.length; i += 1) {
+        r.L[i] *= gain;
+        r.R[i] *= gain;
+      }
+    }
+    await writeWav(path.join(dir, `${file}.wav`), r.L, r.R);
+    const m = metrics(r.L, r.R);
+    rows.push({ file, what, lufs: Math.round(loudness(r.L, r.R) * 100) / 100, peakDb: m.peakDb, centroidHz: m.centroidHz, gainDb: Math.round(20 * Math.log10(gain) * 100) / 100 });
+    return { lu };
+  };
+  const init = await save('P00-init-today', one('INIT', defaults, [0, 1, 2, 0]), null, 'INIT aujourd hui');
+  for (const l of INIT_LOADS) await save(`P00-init-load-${Math.round(l * 100)}`, one('INIT', { ...defaults, load: l }, [0, 1, 2, 0]), init, `INIT a LOAD ${l}`);
+  for (const f of M.factory.arpFactory(16)) {
+    const knobs = { ...defaults, ...f.data.knobs };
+    const slugN = f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const ref = await save(`P-${slugN}-today`, one(f.name, knobs, f.data.prog), null, `${f.name} aujourd hui`);
+    const ch = { load: FACTORY_LOAD[f.name] ?? 0.25, ...(FACTORY_UPDATES[f.name] ?? {}) };
+    await save(`P-${slugN}-proposed`, one(f.name, proposedKnobs(f.name, knobs), f.data.prog), ref, `${f.name} propose ${JSON.stringify(ch)}`);
+  }
+  for (const n of NEW_PRESETS) await save(`N-${n.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, one(n.name, { ...defaults, volume: 0.75, ...n.knobs }, n.prog, [n.bpm, n.swing]), init, `${n.name} (nouveau, ${n.style}, ${n.bpm} BPM ; cale sur INIT)`);
+  for (const r of rows) console.log(`  ${r.file.padEnd(34)} ${String(r.lufs).padStart(7)} LUFS  crete ${String(r.peakDb).padStart(6)} dBFS  centroide ${String(r.centroidHz).padStart(5)} Hz  gain ${String(r.gainDb).padStart(6)} dB  ${r.what}`);
+  await writeFile(path.join(dir, 'proposals.json'), `${JSON.stringify(rows, null, 1)}\n`);
+  console.log(`${rows.length} rendus dans ${path.relative(ROOT, dir)}/`);
+}
+
 async function main() {
   const M = await siteModules();
   const Proc = await engineOf(WORKLET);
   if (flag('--cpu')) {
     cpuTable(M, Proc);
+    return;
+  }
+  if (flag('--proposals')) {
+    await proposals(M, Proc);
     return;
   }
   const Other = AGAINST ? await engineOf(path.resolve(AGAINST)) : null;

@@ -24,6 +24,10 @@ reponse du chemin ouvert), `level` (le niveau selon OVERDRIVE), `silence` (Q6 : 
 reglages pourris), `q2` (la decimation), `q10` (le haut "numerique" contre la scie du Voyager), `c3c5` (la coupure et
 la bosse de resonance), `c18` (le fondamental le long de WAVE), `c22h` (KEY TRACK 1), `q11` (la somme mono), `q3`
 (l'escalier des potards MIDI), `gc` (Q8 : memoire allouee par bloc, ramasse-miettes, blocs lents).
+Ajoutees le 2026-10-23 avec les reglages nouveaux : `ms10` (le Korg35 du MS-10), `load` (LOAD), `space` (SPACE : les
+coudes des deux filtres, la somme mono, BASS MONO, le passage 0 -> 1), `fpol` (POLARITY : le miroir du contour), `zip`
+(la hauteur d'un filtre en auto-oscillation sous un potard MIDI : les rampes des messages), `top` (les fondamentaux
+au-dessus de 18 kHz).
 
 La purete est la metrique du 2026-10-21 (`measure/ana.py harmonic_split`) : energie harmonique sur non harmonique de
 20 Hz a 20 kHz, fenetre de Blackman-Harris de 65536 points depuis 0.2 s, 6 cases de tolerance ; `ana.mjs` la redonne a
@@ -47,3 +51,19 @@ node scripts/arp-quality/measure/t07_alias.mjs && .venv/bin/python scripts/arp-q
 `node scripts/arp-bench.mjs --check` (et `--phone`) compare au fichier `scripts/arp-bench.golden.json` ;
 `--against <moog.worklet.js d'avant>` donne pour chaque patch d'heritage la sonie ponderee K, les bandes de tiers
 d'octave et le contrat F (0.2 LU ; 0.3 dB de 40 Hz a 8 kHz ; 0.5 dB de 8 a 14 kHz).
+
+## Le chorus, les ecoutes, les propositions (2026-10-23)
+
+```
+node scripts/arp-quality/chorus.mjs [--against <chorus.worklet.js d'avant>]
+    le chorus Juno dans Node : l'erreur de la table de phases et contre un retard vrai, le niveau mouille, le calcul
+node scripts/arp-quality/cpu.mjs --phone --voices 8 --set '{"space":0.5}' --against <moog.worklet.js d'avant>
+node scripts/arp-bench.mjs --proposals
+    ce que S23 changerait (LOAD sur les presets, INIT a LOAD 0 / 0.15 / 0.25 / 0.35, cinq presets nouveaux :
+    proposals.mjs), le moteur seul, cale en sonie, dans scripts/output/arp-bench/proposals/
+PLAYWRIGHT_MODULE=... node scripts/arp-quality/ab.mjs --url http://127.0.0.1:<port> --tag after --out <dossier> \
+    --set factory,proposals,demos
+    la chaine complete du site (chorus, BASS MONO, DELAY, TAPE, REVERB) dans un OfflineAudioContext de Chromium
+    (--mute-audio, ?mute=1 : rien ne sort), 8 mesures, WAV 24 bits ; --tag before contre un serveur du site d'avant
+```
+

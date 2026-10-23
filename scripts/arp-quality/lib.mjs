@@ -133,7 +133,10 @@ export async function siteModules() {
   try {
     const params = await server.ssrLoadModule('/src/v4/voyager/params.ts');
     const factory = await server.ssrLoadModule('/src/v4/state/factory.ts');
-    site = { params, factory };
+    // L'arpegiateur (2026-10-23, ab.mjs : les notes des presets, le calcul de arp-bench)
+    const chords = await server.ssrLoadModule('/src/v4/voyager/chords.ts');
+    const seq = await server.ssrLoadModule('/src/v4/voyager/seq.ts');
+    site = { params, factory, chords, seq };
     return site;
   } finally {
     await server.close();
