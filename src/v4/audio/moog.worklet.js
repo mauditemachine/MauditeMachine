@@ -2920,12 +2920,19 @@ class MMVoyager extends AudioWorkletProcessor {
             X[VX_LXR] = X[VX_LXL];
             X[VX_LHR] = X[VX_LHL];
           }
+          // Les deux entrees egales (WIDE a 0 : SPACE seul) et les deux etats egaux : la droite est la gauche, au bit
+          // pres, sans la calculer (des etats qui different, WIDE revenu a 0 en pleine note : la droite continue). Compare
+          // AVANT le calcul de la gauche (2026-10-23, QC-DSP-8 : apres, la gauche avait deja avance d'un echantillon et le
+          // raccourci ne servait jamais)
+          const ldSame = wideV && wide === 0 && X[VX_LZR] === X[VX_LZL] && X[VX_LFR] === X[VX_LFL] && X[VX_LXR] === X[VX_LXL] && X[VX_LHR] === X[VX_LHL];
           for (let sd = 0; sd < 2; sd += 1) {
             if (sd === 1 && !wideV) break;
-            // Les deux entrees egales (WIDE a 0 : SPACE seul) et les deux etats egaux : la droite est la gauche, au bit
-            // pres, sans la calculer (des etats qui different, WIDE revenu a 0 en pleine note : la droite continue)
-            if (sd === 1 && wide === 0 && X[VX_LZR] === X[VX_LZL] && X[VX_LFR] === X[VX_LFL] && X[VX_LXR] === X[VX_LXL] && X[VX_LHR] === X[VX_LHL]) {
+            if (sd === 1 && ldSame) {
               xdR = xd;
+              X[VX_LZR] = X[VX_LZL];
+              X[VX_LFR] = X[VX_LFL];
+              X[VX_LXR] = X[VX_LXL];
+              X[VX_LHR] = X[VX_LHL];
               break;
             }
             const zi = sd === 0 ? zl : xinR * ldG * v.accN + ldB;
