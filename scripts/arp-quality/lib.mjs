@@ -127,6 +127,9 @@ export async function siteModules() {
     configFile: path.join(ROOT, 'vite.config.ts'),
     logLevel: 'error',
     appType: 'custom',
+    // Le cache de Vite dans scripts/output (hors git), pas dans node_modules/.vite : un worktree dont node_modules est
+    // un lien y ecrivait dans celui du depot principal (2026-10-23)
+    cacheDir: path.join(OUT, '.vite'),
     server: { middlewareMode: true, hmr: false, watch: null },
     optimizeDeps: { noDiscovery: true, include: [] },
   });
