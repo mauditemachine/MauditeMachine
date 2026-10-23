@@ -17,14 +17,14 @@
     "sideDb": -17.06
    },
    "ACID": {
-    "sha256": "114624e9cd7e2d4d638e275d79297b6b",
+    "sha256": "82db1a04638dbaa15ddeb61e177dfeb0",
     "peakDb": -3.17,
-    "rmsDb": -20.53,
-    "centroidHz": 323,
+    "rmsDb": -20.54,
+    "centroidHz": 324,
     "sideDb": -16.71
    },
    "DARK DISCO": {
-    "sha256": "c8c3c322ae018bbd683c854f89623022",
+    "sha256": "c0220dc7c7ca5d33073d9022331b10a2",
     "peakDb": -2.56,
     "rmsDb": -15.7,
     "centroidHz": 624,
@@ -52,9 +52,9 @@
     "sideDb": -17.11
    },
    "TECHNO": {
-    "sha256": "f2dfecca9b032091879c915a18bcba6e",
-    "peakDb": -3.06,
-    "rmsDb": -21.37,
+    "sha256": "6c9de8f12a08f5a0decffbb9b6e2b5f9",
+    "peakDb": -3.07,
+    "rmsDb": -21.38,
     "centroidHz": 339,
     "sideDb": -17.36
    },
@@ -73,9 +73,9 @@
     "sideDb": -16.83
    },
    "EBM": {
-    "sha256": "88a196e4abdf4b29e2b85088c82c5d61",
+    "sha256": "aa678537b33e388b3c575fd520555022",
     "peakDb": -4.88,
-    "rmsDb": -28.18,
+    "rmsDb": -28.2,
     "centroidHz": 520,
     "sideDb": -18.76
    },
@@ -87,10 +87,10 @@
     "sideDb": -10.77
    },
    "NIGHT DRIVE": {
-    "sha256": "8173aa4b51f07baf6015f712c7306f99",
+    "sha256": "e2b7d3ec9169be8883b415a47097bf25",
     "peakDb": -2.76,
-    "rmsDb": -12.21,
-    "centroidHz": 778,
+    "rmsDb": -12.22,
+    "centroidHz": 779,
     "sideDb": -15.5
    },
    "HYPNO LOOP": {
@@ -108,10 +108,10 @@
     "sideDb": -6.23
    },
    "ACID NIGHT": {
-    "sha256": "d7dc1c8a4f9f2d5422de9fb7530a3a39",
-    "peakDb": -3.18,
-    "rmsDb": -14.49,
-    "centroidHz": 708,
+    "sha256": "2c0b2d07f6b3abeec818714f06416c38",
+    "peakDb": -3.1,
+    "rmsDb": -14.5,
+    "centroidHz": 711,
     "sideDb": -18.68
    },
    "X STACK FULL": {
@@ -164,11 +164,11 @@
     "sideDb": -16.01
    },
    "X OD06 C7": {
-    "sha256": "ef2552b3c1d6babc7eb1c2b761898682",
-    "peakDb": -4.81,
-    "rmsDb": -13.82,
-    "centroidHz": 3279,
-    "sideDb": -21.19
+    "sha256": "3209e9931920070685e0f6feb6d2c90a",
+    "peakDb": -4.76,
+    "rmsDb": -13.76,
+    "centroidHz": 3331,
+    "sideDb": -21.25
    },
    "X SPACE": {
     "sha256": "e2f94d9a2c3e3cdb68cc4fdd5a3fb274",
@@ -206,16 +206,16 @@
     "sideDb": -16.56
    },
    "LEGACY ACID": {
-    "sha256": "320074b27fbad3979dd44449e5f363e4",
+    "sha256": "c273da09857ba1ce8eed47cfaba34d8d",
     "peakDb": -1.33,
     "rmsDb": -20.52,
-    "centroidHz": 347,
+    "centroidHz": 348,
     "sideDb": -16.62
    },
    "LEGACY DARK DISCO": {
-    "sha256": "cb043e52229c6785fe0119ec0fd9d34e",
+    "sha256": "db15c257c843a008e03cefd638e88e28",
     "peakDb": 0.28,
-    "rmsDb": -15.28,
+    "rmsDb": -15.29,
     "centroidHz": 633,
     "sideDb": -16.62
    },
@@ -241,7 +241,7 @@
     "sideDb": -16.41
    },
    "LEGACY TECHNO": {
-    "sha256": "f8ffccb76909876c3426febfcadaa442",
+    "sha256": "485d41f350d8cab7abfd5252f9644aa2",
     "peakDb": -1.01,
     "rmsDb": -21.21,
     "centroidHz": 354,
@@ -262,9 +262,9 @@
     "sideDb": -16.51
    },
    "LEGACY EBM": {
-    "sha256": "9e97839695278a08721b44988b37dddf",
-    "peakDb": -4.34,
-    "rmsDb": -28.19,
+    "sha256": "2df9eba31b309b680ee668151b579211",
+    "peakDb": -4.35,
+    "rmsDb": -28.2,
     "centroidHz": 528,
     "sideDb": -18.57
    },
@@ -276,9 +276,9 @@
     "sideDb": -16.61
    },
    "LEGACY NIGHT DRIVE": {
-    "sha256": "6f6362c353ded0a109e528844a68f38d",
+    "sha256": "2e287a05396854956dab47b749b1be70",
     "peakDb": -0.79,
-    "rmsDb": -11.74,
+    "rmsDb": -11.75,
     "centroidHz": 789,
     "sideDb": -14.98
    },
@@ -297,10 +297,10 @@
     "sideDb": -12.28
    },
    "LEGACY ACID NIGHT": {
-    "sha256": "affc561e61da8125cd36a63abc4bd9aa",
+    "sha256": "b80b6648bd919afca0f7b2a2df06d645",
     "peakDb": -2.76,
-    "rmsDb": -14.12,
-    "centroidHz": 899,
+    "rmsDb": -14.13,
+    "centroidHz": 903,
     "sideDb": -18.55
    }
   }
@@ -323,17 +323,17 @@
     "sideDb": -16.98
    },
    "ACID": {
-    "sha256": "370c621708ee3c4ab55bef0ed43b1d6e",
-    "peakDb": -3.16,
-    "rmsDb": -20.55,
-    "centroidHz": 335,
+    "sha256": "e940477342dc77d5c16d4cc82efa22cb",
+    "peakDb": -3.15,
+    "rmsDb": -20.57,
+    "centroidHz": 338,
     "sideDb": -16.7
    },
    "DARK DISCO": {
-    "sha256": "e1e3687abdb81200c4f03172edc68c1f",
+    "sha256": "81d91add3b46c927ed7debc9ab4f3d12",
     "peakDb": -2.53,
-    "rmsDb": -15.56,
-    "centroidHz": 606,
+    "rmsDb": -15.58,
+    "centroidHz": 607,
     "sideDb": -17.25
    },
    "INDIE DANCE": {
@@ -358,11 +358,11 @@
     "sideDb": -17.31
    },
    "TECHNO": {
-    "sha256": "1342befdbe99a20114c01da2b0871e7a",
+    "sha256": "451a9e52158f94e6bc8e4271ff27b496",
     "peakDb": -3,
-    "rmsDb": -21.4,
+    "rmsDb": -21.43,
     "centroidHz": 348,
-    "sideDb": -17.15
+    "sideDb": -17.14
    },
    "HOUSE": {
     "sha256": "0831f6bcf9b7fe9ad9b26d89e8ec07ff",
@@ -379,11 +379,11 @@
     "sideDb": -16.86
    },
    "EBM": {
-    "sha256": "2f69593ecd469c251405fb578c5f463e",
-    "peakDb": -4.95,
-    "rmsDb": -28.19,
+    "sha256": "185cc34c1fc7f23e3c37964816ea4b03",
+    "peakDb": -4.96,
+    "rmsDb": -28.24,
     "centroidHz": 520,
-    "sideDb": -18.82
+    "sideDb": -18.8
    },
    "ITALO": {
     "sha256": "40bf6ceb77b1921d6cf122320c35f552",
@@ -393,11 +393,11 @@
     "sideDb": -10.84
    },
    "NIGHT DRIVE": {
-    "sha256": "89b0693fc01b5e1e744cae6289b06900",
-    "peakDb": -2.86,
-    "rmsDb": -12.3,
-    "centroidHz": 791,
-    "sideDb": -15.34
+    "sha256": "727142df317ed0d16b6ce50f5b804395",
+    "peakDb": -2.85,
+    "rmsDb": -12.33,
+    "centroidHz": 796,
+    "sideDb": -15.33
    },
    "HYPNO LOOP": {
     "sha256": "e61bc2a60d086d2b04778e40d931f5af",
@@ -414,11 +414,11 @@
     "sideDb": -4.1
    },
    "ACID NIGHT": {
-    "sha256": "40ff71d67dbb3644d20a0bbc954a57fb",
-    "peakDb": -3.23,
-    "rmsDb": -14.48,
-    "centroidHz": 716,
-    "sideDb": -18.63
+    "sha256": "935b4fc974fe43571b658db0c655d54e",
+    "peakDb": -3.2,
+    "rmsDb": -14.51,
+    "centroidHz": 736,
+    "sideDb": -18.62
    },
    "X STACK FULL": {
     "sha256": "c57e845c8085af631ac9eae4b8c3717c",
@@ -470,11 +470,11 @@
     "sideDb": -16.33
    },
    "X OD06 C7": {
-    "sha256": "c5015bb85687ef53183e15b5c8ce619e",
-    "peakDb": -4.89,
-    "rmsDb": -13.82,
-    "centroidHz": 3073,
-    "sideDb": -21.05
+    "sha256": "b7d2e7e157e014e3da750f984691b732",
+    "peakDb": -4.83,
+    "rmsDb": -13.64,
+    "centroidHz": 3238,
+    "sideDb": -21.23
    },
    "X SPACE": {
     "sha256": "38cb5e77eea89058f7fe21c8ef0a8c97",
@@ -512,17 +512,17 @@
     "sideDb": -16.46
    },
    "LEGACY ACID": {
-    "sha256": "9a74db1e20c27e2d0bd154b31a9cdd87",
-    "peakDb": -1.29,
-    "rmsDb": -20.51,
-    "centroidHz": 359,
+    "sha256": "bd867e7a2076cf9c08aa375291d011a3",
+    "peakDb": -1.3,
+    "rmsDb": -20.53,
+    "centroidHz": 363,
     "sideDb": -16.6
    },
    "LEGACY DARK DISCO": {
-    "sha256": "2588b369a62530ade1e4cc8d35563d7f",
+    "sha256": "2cbec571af33063fd5c0fec7c5a8c2ae",
     "peakDb": 0.07,
-    "rmsDb": -15.15,
-    "centroidHz": 612,
+    "rmsDb": -15.17,
+    "centroidHz": 613,
     "sideDb": -16.76
    },
    "LEGACY INDIE DANCE": {
@@ -547,9 +547,9 @@
     "sideDb": -16.65
    },
    "LEGACY TECHNO": {
-    "sha256": "0773f798d144f677d5054af062ad84dc",
+    "sha256": "d85d777ad18ecc749405f5df1955180d",
     "peakDb": -0.78,
-    "rmsDb": -21.23,
+    "rmsDb": -21.26,
     "centroidHz": 368,
     "sideDb": -16.74
    },
@@ -568,11 +568,11 @@
     "sideDb": -16.55
    },
    "LEGACY EBM": {
-    "sha256": "be0b85be34e5462e636a96433c0eb930",
-    "peakDb": -4.46,
-    "rmsDb": -28.21,
-    "centroidHz": 527,
-    "sideDb": -18.58
+    "sha256": "2558317f73376fbabb9ee8cc7248115f",
+    "peakDb": -4.48,
+    "rmsDb": -28.25,
+    "centroidHz": 528,
+    "sideDb": -18.57
    },
    "LEGACY ITALO": {
     "sha256": "5d255bb65422413866fb67d05f01cc7f",
@@ -582,10 +582,10 @@
     "sideDb": -16.4
    },
    "LEGACY NIGHT DRIVE": {
-    "sha256": "e322ac83d3cf906466dc45b1dcbeaae5",
-    "peakDb": -0.92,
-    "rmsDb": -11.79,
-    "centroidHz": 813,
+    "sha256": "cf28f24971d14d9363a37260d4f09e63",
+    "peakDb": -0.91,
+    "rmsDb": -11.83,
+    "centroidHz": 819,
     "sideDb": -14.85
    },
    "LEGACY HYPNO LOOP": {
@@ -603,11 +603,11 @@
     "sideDb": -12.36
    },
    "LEGACY ACID NIGHT": {
-    "sha256": "301590bb132d40d2d80fe3a16d77fe30",
+    "sha256": "f362d3817c6f2107ba384910385494d9",
     "peakDb": -2.83,
-    "rmsDb": -14.08,
-    "centroidHz": 897,
-    "sideDb": -18.54
+    "rmsDb": -14.1,
+    "centroidHz": 919,
+    "sideDb": -18.55
    }
   }
  }

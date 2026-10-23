@@ -668,12 +668,14 @@ const OD_ADAA_EPS = 1e-6;
 const OD_LIN_U = 1e-5;
 const OD_SECH2 = 1 - OD_TANH_BIAS * OD_TANH_BIAS;
 const LN2 = Math.LN2;
-/**
- * K2 (2026-10-23, S5) : au telephone (x2), un pole a OD_PRE_HZ sur l'entree de la courbe d'OVERDRIVE (apres son
- * passe-haut) : ce qu'il reste au-dessus de 20 kHz ne s'y replie plus (OD06 C8 x2 49.8 -> 53.5 dB). 7 kHz (le plan)
- * changeait H7 de 4.7 dB ; a 16 kHz, 1.3 dB au plus (H7 a -51 dBc), niveaux a 0.1 dB.
+/*
+ * K2 (2026-10-23, S5, un pole a 16 kHz devant la courbe au telephone) retire le meme jour (controle qualite F1) : son
+ * retard (0.9 echantillon) et sa pente (-1.3 dB a 10 kHz) assombrissaient la branche des sons gardes (ACID NIGHT -2.2 dB
+ * a 8-14 kHz). A sa place, sur les deux chemins, la moyenne de deux echantillons devant la courbe (cos(w/2), en phase
+ * lineaire, un demi-echantillon) : avec le demi-echantillon de l'ADAA, la branche a le retard de la FIR du propre (1),
+ * sans od.wL ; et le haut repli devant la courbe y est plus bas (OD06 C7 / C8 x4 66.1 / 64.5 -> 70.3 / 70.7 dB, x2
+ * 55.3 / 53.7 -> 58.2 / 58.2).
  */
-const OD_PRE_HZ = 16000;
 /**
  * lncosh en table (2026-10-23, S5) : l'integrale de tanh, pour l'ADAA de la saturation des voix et d'OVERDRIVE, sans
  * exp ni log1p a chaque echantillon (deux fonctions transcendantes : +17 % de calcul en x4 a 12 voix). Hermite cubique
@@ -1080,8 +1082,9 @@ const VS_EPS = 1e-6;
  * L'ADAA moyenne deux echantillons dans sa partie lineaire : cos(pi f / fs), -0.47 dB a 10 kHz et -1.09 dB a 15 kHz au
  * telephone. Le bus la compense (S5) sur le son propre : y[n] = (1 + 2c) x[n-1] - c (x[n] + x[n-2]), c = VS_COMP, gain
  * 1 + 4c sin^2(w/2) (l'inverse au second ordre), un echantillon surechantillonne de retard ; la branche OVERDRIVE prend
- * la somme d'avant la FIR (devant sa courbe, la FIR poussait le haut : OD06 C8 x4 65.1 -> 63.2 dB) et rejoint le propre
- * un echantillon plus tard (alignee ; sans, les bandes hautes d'EBM et d'ACID au telephone bougeaient de 1 dB).
+ * la somme d'avant la FIR (devant sa courbe, la FIR poussait le haut : OD06 C8 x4 65.1 -> 63.2 dB) ; sa moyenne de deux
+ * echantillons et son ADAA lui donnent le retard de la FIR (1 echantillon : alignee, 2026-10-23, F1 ; avant, un
+ * echantillon de plus pour l'ADAA d'OVERDRIVE, un demi de trop : EBM +0.9 dB a 16 kHz, ACID NIGHT -2.2 au telephone).
  */
 const VS_COMP = 1 / 8;
 
@@ -1141,8 +1144,6 @@ class MMVoyager extends AudioWorkletProcessor {
     this.od = { hpL: 0, xL: 0, lpL: 0, hpR: 0, xR: 0, lpR: 0, dL: 0, dxL: 0, dR: 0, dxR: 0, uL: 0, FL: 0, uR: 0, FR: 0, fL: 0, fR: 0, on: 0, pL: 0, pR: 0, wL: 0, wR: 0 };
     this.odHp = Math.exp((-2 * Math.PI * OD_HP_HZ) / this.sr2);
     this.odLp = 1 - Math.exp((-2 * Math.PI * OD_TONE_HZ) / this.sr2);
-    // K2 (S5) : le pole sur l'entree de la courbe d'OVERDRIVE, au telephone seulement (1 : sans)
-    this.odPre = os === 2 ? 1 - Math.exp((-2 * Math.PI * OD_PRE_HZ) / this.sr2) : 1;
     this.odDc = Math.exp((-2 * Math.PI * OD_DC_HZ) / this.sr2);
     // Le bloqueur de continu de la sortie (sortie, entree d'avant : gauche, puis droite), a la frequence du calcul
     this.dc = [0, 0, 0, 0];
@@ -1651,7 +1652,7 @@ class MMVoyager extends AudioWorkletProcessor {
     const newNoise = ki[KI_NEWNOISE] === 1;
     const glueOn = ki[KI_GLUEON] === 1;
     // La compensation de la moyenne de l'ADAA des voix (2026-10-23, S5) : sur le propre (cl, cr) ; la branche OVERDRIVE
-    // part de la somme des voix telle quelle et rejoint le propre un echantillon plus tard (le retard de la FIR)
+    // part de la somme des voix telle quelle, au retard de la FIR par sa moyenne et son ADAA (F1)
     const vsc = this.vsc;
     // LOAD (S12) : sa seconde ADAA : c = (1 + wet) / 8
     const vc = ks[KS_VSC];
@@ -1667,13 +1668,13 @@ class MMVoyager extends AudioWorkletProcessor {
       const hpA = this.odHp;
       const lpA = this.odLp;
       const dA = this.odDc;
-      const odPre = this.odPre;
       od.hpL = hpA * (od.hpL + sum - od.xL);
       od.xL = sum;
-      // K2 (S5) : le pole d'avant la courbe, au telephone
-      od.pL += (od.hpL - od.pL) * odPre;
+      // La moyenne de deux echantillons devant la courbe (2026-10-23, F1 : le retard de la branche egal a celui du propre)
+      const hinL = 0.5 * (od.hpL + od.pL);
+      od.pL = od.hpL;
       // La courbe par son integrale (ADAA, 2026-10-23, S4) : au retour de la branche, elle repart de l'entree du moment
-      const uL = od.pL * odGain;
+      const uL = hinL * odGain;
       const fresh = od.on === 0;
       if (fresh) {
         od.uL = uL;
@@ -1719,12 +1720,12 @@ class MMVoyager extends AudioWorkletProcessor {
       od.lpL += (yL - od.lpL) * lpA;
       od.dL = dA * (od.dL + od.lpL - od.dxL);
       od.dxL = od.lpL;
-      sum = (cl + od.wL * odMix) * odTrim;
-      od.wL = od.dL;
+      sum = (cl + od.dL * odMix) * odTrim;
       od.hpR = hpA * (od.hpR + sumR - od.xR);
       od.xR = sumR;
-      od.pR += (od.hpR - od.pR) * odPre;
-      const uR = od.pR * odGain;
+      const hinR = 0.5 * (od.hpR + od.pR);
+      od.pR = od.hpR;
+      const uR = hinR * odGain;
       if (fresh) {
         od.uR = uR;
         od.fR = 0;
@@ -1768,8 +1769,7 @@ class MMVoyager extends AudioWorkletProcessor {
       od.lpR += (yR - od.lpR) * lpA;
       od.dR = dA * (od.dR + od.lpR - od.dxR);
       od.dxR = od.lpR;
-      sumR = (cr + od.wR * odMix) * odTrim;
-      od.wR = od.dR;
+      sumR = (cr + od.dR * odMix) * odTrim;
     } else {
       this.od.on = 0;
       sum = cl;
