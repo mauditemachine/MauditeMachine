@@ -1,0 +1,263 @@
+# 2026-10-23 - Audit complet de MM-STUDIO : samples et FX du MM-RYTM, son du MM-ARP, MIDI OUT, MIXER, écrans, référencement, SHARE
+
+Session du 2026-10-21 au 2026-10-23. Les demandes de Mika :
+- un audit complet de toutes les machines, desktop et téléphone, FX et routages compris ;
+- MM-RYTM : « controle les selections de samples dans RYTM ! je ne veux plus que ca plante », et des FX du RYTM et de l'ARP parfaits ;
+- MM-ARP : « je voudrais que tu ameliores le son drastiquement sur ARP » ;
+- la qualité des écrans et des boutons, desktop et téléphone ;
+- un README complet de l'architecture et un référencement complet ;
+- une étude du MM-ARP en plugin VST3, puis ce rapport.
+
+Méthode :
+- **Audit** : 9 domaines (samples du RYTM, FX et moteur du RYTM, son de l'ARP, moteur et FX de l'ARP, BASS DECKS et master, robustesse, écrans et boutons, référencement, VST3). Chaque domaine a été mesuré par un auditeur : 117 constats, avec des propositions d'amélioration. Cinq domaines (samples du RYTM, FX et moteur du RYTM, moteur et FX de l'ARP, BASS DECKS et master, robustesse) ont ensuite été contre-vérifiés par un second agent ; le son de l'ARP, les écrans, le référencement et le VST3 ne l'ont pas été.
+- **Corrections** en deux lanes, chacune dans son worktree :
+  - fix-lane-audio : A1 samples du RYTM, A2 FX du RYTM, A3 moteur de l'ARP, A4 réglages de l'ARP, MIDI OUT et banc ;
+  - fix-lane-ui : B1 MIXER et BASS, B2 robustesse, B3 écrans, B4 référencement, première peinture et SHARE.
+- **Relectures** : une relecture contradictoire par lane, puis une relecture de l'intégration sur le build fusionné. 43 constats : 41 confirmés, 1 incertain, 1 réfuté ; 39 corrigés dans le code.
+- **Fusion et mise en ligne** :
+  - fusions 2f7e300 (lane UI sur la lane audio), 9e33797 (relecture audio), 056d86d (relecture UI et intégration), e65f40f (origin/main) ;
+  - contrôles sur le premier build fusionné (2f7e300, relecture d'intégration) : tsc 13 erreurs (toutes anciennes), `npm run smoke:v4` 8/8 en dev et en prod, 104 adresses parcourues sans erreur ; avant la mise en ligne, `smoke:v4` sur le build de prod final : 6/6 sans erreur (mm808, voy, dj, desktop et téléphone ; MM-BASS non repassé) ;
+  - **production mise en ligne le 2026-10-23 depuis e65f40f**.
+- **Tests** : aucun son n'a été joué (Chromium `--mute-audio`, `?mute=1`, rendus hors ligne, faux accès MIDI).
+
+## Ce qui a été fait
+
+- **MM-RYTM, chargement des samples** (src/v4/audio/samples.ts, shots.ts, shots.worker.ts, kit.ts, drums.ts, clock.ts, actions.ts, scene/screen.ts ; spec R14-290, déployé)
+  - Un état par sample, retenté tout seul : à 1, 4 et 15 s, puis toutes les 10 s, et au retour du réseau. Le délai de 8 s compte l'inactivité, plus la durée du téléchargement.
+  - Un sample en échec joue la machine de la voix (909, 808 ou MM), jamais le silence, et l'écran le dit : LOADING..., OFFLINE: 909 PLAYS, FILE MISSING.
+  - Le son choisi est celui qu'on entend : écoute à l'arrêt 30/30 juste, contre 14/15 qui jouaient BLUEPRINT avant. Le dernier choix gagne, et un balayage du potard SOUND ne charge que le cran final.
+- **MM-RYTM, fichiers ajoutés** (src/v4/audio/audiofile.ts nouveau, usersamples.ts, shotsdsp.ts, sampledsp.ts, ui/Hotspots.tsx ; R14-291, déployé)
+  - La durée est lue avant le décodage : un mp3 de 2 h 30 est refusé en 47 ms, au lieu de 59 s de gel et 3,46 Go de mémoire.
+  - Les AIFF passent dans Chrome, les NaN sont nettoyés, un fichier muet est refusé (SILENT FILE), un coup est plafonné à 16 s.
+  - La mémoire est bornée : 96 Mo de coups, 160 Mo de PCM.
+  - Un fichier lâché à côté de la machine ne fait plus quitter le site.
+- **Limiteur de sortie et DELAY du MM-RYTM** (src/v4/audio/limiter.worklet.js, sends.ts, glide.ts ; R14-292, déployé)
+  - Le limiteur tient enfin son plafond : il laissait passer +60 dBFS sous un delay emballé.
+  - La boucle du DELAY ne s'emballe plus à fond (Q des filtres en dB), et la traîne va au bout au lieu d'être coupée à 8 s.
+  - TIME et le tempo passent en fondu de 60 ms, sans zip ; les verrous d'envoi passent en rampe de 3 ms.
+- **CHORUS, DIST, TONE, FLTR, CLEAR et niveaux du MM-RYTM** (src/v4/audio/chorus.ts, chorus.worklet.js, insert.ts, fx.ts, tone.ts, voicefx.ts, lockfx.ts, drums.ts, clock.ts, shotsdsp.ts, actions.ts, rytm/infos.ts, rytm/diagrams.ts ; R14-293, déployé)
+  - CHORUS et DIST gardent le niveau (le SD prenait +7,4 et +8 dB). Le CHORUS garde le PAN, ne claque plus quand il s'allume, et passe toujours au worklet sans erreur (RYTM et chorus Juno de l'ARP).
+  - RATE, DEPTH et TONE agissent sur la voix, TONE n'a plus de bosse, et le passe-bande garde son niveau quand RESO monte.
+  - Tourner un FX ne reprogramme plus tous les coups. CLEAR rend un son à une voix muette.
+  - Le kick redevient la référence : le SD est 1,7 dB plus bas qu'avant.
+- **Moteur du MM-ARP** (src/v4/audio/moog.worklet.js, synth.ts, voyager/arp.ts, params.ts, patch.ts, theme.ts, infos.ts, random.ts, ui/KnobPanel.tsx, state/factory.ts, midi/targets.ts ; R14-294, déployé)
+  - Le filtre replie beaucoup moins : de 13 à 29 dB de pureté en plus à x4 (de 6 à 11 dB au téléphone, en x2). RES chante dès 90 %, juste sur la note.
+  - Vraie PWM, SYNC et FM propres, plus de continu ; OVERDRIVE ne monte plus le volume.
+  - Le moteur est retenté s'il ne se charge pas, avec un message à l'écran.
+  - Nouveau TWEAK ACC FILTER, 4 presets d'usine de plus (NIGHT DRIVE, HYPNO LOOP, INDIE PULSE, ACID NIGHT), cibles MIDI nommées par section.
+- **STACK, WIDE, GLUE, DLY TIME et TAPE du MM-ARP** (src/v4/audio/moog.worklet.js, chorus.worklet.js, chorus.ts, synth.ts, voyager/params.ts, patch.ts, theme.ts, infos.ts, ui/KnobPanel.tsx, state/factory.ts ; R14-295, déployé)
+  - Cinq réglages sous le capot : unisson désaccordé, un filtre par côté, colle du bus, temps du delay au tempo, delay à bande.
+  - Les presets d'usine s'en servent à la même sonie (de -0,26 à +0,24 LU).
+- **MIDI OUT du MM-ARP** (src/v4/midi/noteout.ts nouveau, midi.ts, ui/MidiPanel.tsx, voyager/arp.ts, audio/sched.ts, index.tsx ; R14-296, déployé)
+  - Les notes de l'arpège (accent en vélocité) et l'horloge MIDI partent vers une sortie choisie, par exemple le bus IAC vers Ableton.
+  - Aucune note ne reste tenue, quel que soit l'arrêt. L'horloge ne perd plus d'impulsion. L'écho du bus IAC n'est plus appris en MIDI LEARN.
+- **Banc de référence et paramètres du MM-ARP** (scripts/arp-bench.mjs, arp-bench.golden.json, arp-params.mjs, package.json, moog.worklet.js noteOff et graine ; R14-297, déployé)
+  - Le moteur tourne tel quel dans Node, au bit près comme dans Chromium : c'est la base de tests du futur plugin.
+- **Étude VST3** (docs/vst3/2026-10-21-etude-mm-arp-vst3.md, mise à jour du 2026-10-22) : faisable avec JUCE (VST3 + AU), un prototype en 2 semaines, une v1 en 6 à 8 semaines.
+- **MIXER, état retenu** (src/v4/dj/state.ts, actions.ts, engine.ts, rig.ts, screens.ts ; R14-298, déployé)
+  - Une nouvelle visite ne part plus muette ni filtrée : les voies des machines, les faders, GAIN, FILTER, les FX et MASTER repartent à leur place.
+  - L'écran du MIXER dit en orange quand il baisse une machine (1 RYTM -INF, MASTER -19 DB), et l'écran de la machine aussi (MIXER -INF).
+- **MIXER, effets** (src/v4/dj/engine.ts, actions.ts ; R14-299, déployé)
+  - DELAY, TRANS et FLANGER suivent le tempo des machines, téléphone compris (il était bloqué à 120). TRANS et FLANGER sont calés sur les temps, sans clic.
+  - OVERDRIVE garde la sonie (il ajoutait de +5 à +16 dB).
+  - Le MIXER au repos coûte de 3,7 à 5,4 fois moins de calcul (table au repos 14 -> 52 fois le temps réel, trois voies de machines 12 -> 65, effets au repos 62 -> 261).
+- **Son endormi onglet caché** (src/v4/index.tsx, state/playLock.ts ; R14-300, déployé) : le son s'endort 2 s après l'arrêt de la musique et se réveille dès qu'une machine repart (Roto, clavier, MIDI).
+- **MM-BASS** (src/v4/bass/engine.ts, seq.ts, actions.ts, bass.worklet.js, sampler/sampler.ts, sampler/seq.ts, audio/sched.ts, audio/scope.ts ; R14-301, déployé)
+  - La basse seule fait la grille. Un RUN attend le son, et un chargement raté se retente.
+  - La sortie ne passe plus -1 dBFS.
+- **Robustesse et gestes** (src/v4/dj/Twins.tsx, v4.css, index.tsx, ui/swipe.ts nouveau, ui/Hotspots.tsx, dj/gestures.ts, bass/gestures.ts, scene/orbit.ts, scene/screen.ts, scene/renderer.ts, ui/Dock.tsx, theme.ts, state/presetMode.ts, hooks/useKeys.ts, state/sectionRoute.ts, ui/sections/Tracks.tsx, bass/Twins.tsx, bass/keys.ts, voyager/body.ts, dj/body.ts ; R14-302, déployé)
+  - Tab ne fait plus partir la page au noir.
+  - Au téléphone, glisser d'une machine à l'autre ne tourne plus le potard : MASTER ne tombe plus à 0.
+  - Un remontage de la page ne garde plus l'ancienne en mémoire. RESET VIEW est visible.
+  - Les libellés MUTE sont justes, et deux tapes sur une voix du Dock la coupent.
+  - Le mode presets reste ouvert 60 s. Une adresse de morceau en majuscules ou inconnue ouvre TRACKS et le dit.
+- **Écrans et boutons** (src/v4/theme.ts, scene/silk.ts, screen.ts, encoders.ts, keyLabels.ts, glassSheen.ts nouveau, rytmPageKeys.ts, sequencer3d.ts, voyager/screen.ts, seqscreen.ts, knobs.ts, pads.ts, dj/screens.ts, dj/theme.ts, dj/dj.css, ui/uiIcons.tsx nouveau, v4.css, rytm/pageView.ts ; R14-303, déployé)
+  - Les écrans se redessinent en SF Pro. La voix choisie se voit sur les pads, et les libellés sont plus lisibles.
+  - Les zones tactiles du RYTM et de l'ARP au téléphone sont plus grandes.
+  - L'en-tête PAGE a des places fixes. Les écrans DECKS sont nets, les icônes en SVG inline, et chaque écran a un reflet de verre.
+- **Première peinture** (scripts/prerender-seo.mjs, src/v4/state/boot.ts nouveau, scene/renderer.ts, index.tsx, ui/MenuSheet.tsx, audio/shots.ts, src/App.tsx, vite.config.ts, index.html, src/styles.css, public/fonts/RobotRadicals.woff2 ; R14-304, déployé)
+  - L'accueil se peint avec le HTML : 0,87 s au téléphone en 4G lente, au lieu de 3,9 s d'écran noir.
+  - Le chunk de la machine et three sont préchargés (modulepreload), et les WAV attendent la première image.
+- **Référencement** (src/data/seo-meta.json, scripts/seo-shared.mjs, prerender-seo.mjs, generate-sitemap.mjs, indexnow.mjs nouveau, public/robots.txt, public/sitemap.xml, public/llms.txt, public/press/mm-studio/og-mm-studio-card.jpg, .github/workflows/pages.yml, src/lib/seo.ts, src/v2/pages/TechRiderPage.tsx, server.js ; R14-305, déployé)
+  - Un titre et une description par page, en EN, FR et ES. L'accueil parle de MM-STUDIO.
+  - og:locale et og:type sont justes, twitter:site est posé.
+  - Le sitemap est daté par le contenu, et IndexNow part après chaque déploiement.
+  - robots.txt est ouvert à Ahrefs et Semrush, et des pages de redirection statiques remplacent les 404.
+- **SHARE** (src/v4/audio/beatcode.ts nouveau, state/share.ts nouveau, ui/Header.tsx, ui/MobileHeader.tsx, v4.css, state/focus.ts, index.tsx ; R14-306, déployé)
+  - Le bouton est dans l'en-tête, à gauche de UNDO. Le beat du MM-RYTM devient un lien `?b=` qui s'ouvre tel quel.
+  - Le beat du visiteur est mis de côté (YOUR SOUND) et UNDO le lui rend. Le message d'arrivée s'affiche après l'intro.
+- **Pages de motifs** (scripts/mm-studio-patterns.mjs nouveau, mm-studio-content.mjs, prerender-seo.mjs ; R14-307, déployé)
+  - 33 pages : un sommaire et 10 styles d'usine du MM-RYTM, en EN, FR et ES. Chacune donne la grille, un fichier MIDI et un lien qui joue le motif.
+  - Une FAQ sur les 9 pages de machines, et des liens entre l'outil et l'artiste.
+- **Événements GA4** (src/v4/state/analytics.ts nouveau, state/usage.ts nouveau, presets.ts, share.ts ; R14-308, déployé)
+  - machine_focus, play_start, preset_load, sample_choice, share_beat et open_shared_beat, par le gtag existant.
+  - Le nom d'un sample du visiteur ne part jamais.
+- **Test de fumée** (scripts/smoke-v4.mjs nouveau, package.json ; R14-309) : chaque machine, desktop et téléphone, en muet. Il échoue sur une erreur, une requête ratée ou un fichier absent.
+- **Corrections des relectures** (dans les fichiers ci-dessus, 39 constats ; R14-290 à R14-306 et R14-309) :
+  - samples du RYTM : délai d'inactivité, balayage SOUND, sample de verrou, chargement toujours asynchrone d'un sample perso déjà décodé, PCM libérés, en-têtes WAV menteurs ;
+  - CHORUS toujours au worklet, verrous, VOL et passe-bande ;
+  - WIDE sans pencher et sans clic, DLY TIME sans lecture à l'envers ;
+  - horloge MIDI exacte, écho IAC ;
+  - DELAY et FLANGER fantômes, réveil onglet caché, OVERDRIVE sans pompage, faux avis du MIXER ;
+  - deuxième doigt, axe, stylet, smoke qui voit les fichiers absents, double tape du Dock, reprise des presets, jumeaux LOCK du BASS ;
+  - barre de piste, flèches du bord, languette du Dock ;
+  - en-tête de 768 à 879 px, IndexNow, sitemap de public/ ;
+  - message SHARE, WAV d'un lien partagé, arpège arrêté en quittant la page, NO VOICE.
+- **Docs**
+  - README.md complet : architecture, graphe audio, machines, état, MIDI, référencement, build et déploiement, scripts.
+  - docs/seo/2026-10-21-plan-trafic.md : le plan de trafic et les actions de Mika.
+  - docs/midi régénéré (646 cibles), docs/v4/spec.md R14-290 à R14-310, et ce rapport.
+
+## Décisions prises et pourquoi
+
+- **Pas de bandeau de consentement** (SEO-F7) : laissé de côté exprès, la décision revient à Mika et n'est pas encore prise.
+  - GA4 et le pixel Meta partent toujours sans accord, y compris pour les visiteurs en France.
+  - Les nouveaux événements GA4 passent par le gtag existant, sans nouveau traceur ; rien n'a été changé au chargement.
+  - Les trois options sont décrites dans docs/seo/2026-10-21-plan-trafic.md (2.4) : bandeau et Consent Mode v2, mesure sans cookie exemptée, ou statu quo en connaissant le risque.
+- **robots.txt ouvert à Ahrefs et Semrush** (AhrefsBot, AhrefsSiteAudit, SemrushBot, SiteAuditBot)
+  - Ces robots ont les mêmes exclusions que les autres, pour que Mika puisse brancher l'un de ces outils et chiffrer les requêtes et les liens des concurrents.
+  - MJ12bot reste bloqué.
+- **P12, isoler le DSP du MM-ARP dans un module pur : pas fait, exprès.**
+  - Le worklet est un seul fichier chargé par `?url` et copié tel quel dans dist/assets. Le découper aurait changé son chargement.
+  - Le but est déjà atteint autrement : `npm run arp:bench` fait tourner le worklet inchangé dans Node, au bit près comme dans Chromium. C'est la référence d'un futur portage C++.
+- **MODE 303 du MM-BASS gardé au bit près** (BDM-08)
+  - C'est la voix d'avant, spécifiée en R14-239, et des presets de Mika sont sauvegardés en 303. Le décimateur demi-bande aurait changé chacun d'eux.
+  - Repliement mesuré : -61 dB à E6. Le MM-BASS reste masqué par défaut.
+- **En-tête PAGE du RYTM à places fixes (SB-13), un compromis que Mika doit confirmer (RB3-4)**
+  - Le gain : la voix ne saute plus d'une page à l'autre.
+  - En échange :
+    - au desktop, MASTER est en barres seulement, et son dB n'apparaît que pendant qu'on le tient (FLTR et ENV montraient -3,9 DB) ;
+    - au téléphone, A01 n'est plus dans la vue PAGE (il reste dans HOME) ;
+    - au desktop, les onglets VOICE sont à 90 % de leur taille, et à 80 % sans voix choisie (VOICE FX > GLOBAL).
+  - C'est en ligne. Mika garde ou demande l'inverse.
+- **SHARE v1, sans P-locks ni samples perso**
+  - Le lien reste court : 87 caractères pour un preset d'usine, 210 pour un beat chargé, 1200 au plus.
+  - Il ne transporte jamais un fichier du visiteur. L'écran le dit : (NO P-LOCKS), (YOUR SAMPLES STAY HERE).
+  - Les listes figées du codec ne seront jamais réordonnées : une v2 s'ajoutera à côté.
+  - Une image de partage par beat demanderait un worker en bordure (Cloudflare), donc une décision DNS de Mika.
+- **FEEDBACK du DELAY du RYTM : il veut maintenant dire ce qu'il affiche.**
+  - Le bug des filtres rallongeait la traîne. À 58 %, la traîne dure environ 4,4 s au lieu de 11 s.
+  - L'envoi passe de 0,9 à 1,2, pour que le premier écho garde son niveau. Pour retrouver l'ancienne longueur : 75 à 80 %.
+- **Le kick redevient la référence** (la règle de Mika) : SD, CP et toms crêtent au moins 0,5 dB sous lui (SD -10,1, CP -9,9, toms vers -12,5 dBFS, contre -9,4 pour le kick), avec une sonie visée 0,5 LU sous la sienne, ce qui baisse le snare d'environ 1,7 dB.
+- **COMP du RYTM documenté, pas changé** (F11) : MAKEUP AUTO reste calé sur la sonie. Un -1 dB rendrait le COMP plus faible que le bypass en A/B.
+- **Passe-bande du RYTM** : l'exposant est descendu à 0,2 après la relecture (+4,9 dB à fond). Le SD peut encore passer 1,3 dB au-dessus du kick à RESO 0,25 ; un exposant de 0,15 le tiendrait à 0,8 dB.
+- **CHORUS** : pendant les 60 ms du passage au worklet (une fois par visite), le mouillé est tenu à 0. Un coup qui tombe dedans sort sec, mais les branches ne s'échangent jamais sous un mouillé ouvert, donc sans clic.
+- **Sons gardés du MM-ARP**
+  - Leurs réglages ne bougent pas. Les nouveaux réglages prennent leur valeur d'héritage : ACC FILTER 0, STACK, WIDE, GLUE et TAPE OFF, DLY TIME 3/16.
+  - Ces sons sont identiques au bit près face au moteur de la première passe (874df50). Face à la prod d'avant, le moteur corrigé change déjà leur son : filtre plus propre, RES seule dès 90 %, vraie PWM, OVERDRIVE jusqu'à 5 dB moins fort.
+  - La phrase « au bit près comme avant » de la note remise avec les rendus A/B est donc fausse face à la prod. Ce rapport fait foi.
+- **OVERDRIVE du MM-ARP compensé** : les quatre presets d'usine d'avant qui en ont (ACID, DARK DISCO, TECHNO, EBM) ont leur VOLUME remonté pour garder leur sonie. Les sons de Mika ne sont jamais réécrits : il remonte leur VOLUME s'il le faut.
+- **WIDE sans STACK** : un oscillateur seul reste au centre (la note penchait jusqu'à 18 dB). C'est STACK qui l'élargit. HOUSE passe de WIDE 0,35 à 0,8 pour garder sa largeur.
+- **DLY TIME du MM-ARP glisse comme une bande** : la tête reste entre 0,75x et 1,25x, jamais à l'envers. Un grand saut glisse donc longtemps : 3 s de 1/8 à 1/2 à 120 BPM.
+- **MIDI OUT**
+  - Les notes partent 25 ms d'avance seulement, donc ne sont jamais reprogrammées. L'horloge peut partir jusqu'à 1 s d'avance avant une réserve (OPEN, scène reconstruite).
+  - Un blocage de la page de plus de 75 ms fait encore perdre des notes à Ableton, alors que le son du site continue.
+  - MIDIOUT-5 (le départ de l'horloge) n'a pas été retenu : non confirmé sur une machine normale, et le correctif proposé ramenait 30 à 46 ms d'erreur après une pause.
+- **MIXER**
+  - Seuls TIME, FX TO, l'affichage des formes d'onde et l'EQ des platines restent d'une visite à l'autre.
+  - Pas de plancher sur MASTER : un geste vertical voulu vers 0 reste possible, et l'écran le montre.
+  - BDM-15 (marge du limiteur) a été jugé sur mesure : c'est la sécurité voulue, pas un défaut.
+  - DELAY et FLANGER fermés gardent leur sortie branchée : leur boucle s'éteint en silence au lieu de rejouer l'ancienne musique (261x le temps réel au repos, contre 62x avant la passe).
+- **Presets du MM-BASS (BDM-13)** : leur sonie varie de 9,9 LU sur une même ligne, mais les VOLUME suivent la règle de crête du 2026-10-10. La décision revient à Mika : calage en crête ou en sonie.
+- **Gestes au téléphone** : seul le doigt est arbitré sur la face, les pas et les potards de l'écran (un stylet y tourne le potard tout de suite) ; les potards du MIXER et du MM-BASS arbitrent encore aussi le stylet. Seulement au format téléphone : souris, tablette et paysage sont inchangés.
+- **IndexNow**
+  - Toutes les pages datées du jour repartent : un run annulé par un push plus récent ne perd plus ses adresses, et IndexNow accepte les doublons.
+  - Seul reste le cas d'un run annulé juste avant minuit UTC.
+  - B4-R3 (le job ne vérifie pas la branche) a été réfuté : le job ne tourne qu'après le déploiement de son propre build.
+- **public/sitemap.xml gardé dans git et rafraîchi** (96 adresses), parce que l'admin local le lit. dist/ reste suivi par git sans être servi ; le sortir de git est une autre mission.
+- **Samples du site décodés comme avant** (48 kHz par le navigateur), au bit près : seuls les AIFF passent par le nouveau décodeur.
+- **La montée en qualité « analogique » du MM-ARP est un chantier à part**, sur une autre branche. Il n'est pas dans cette mise en ligne.
+
+## Ce qui reste à faire / points en suspens
+
+- **À faire par Mika** (l'ordre du plan de trafic)
+  - **Google Search Console** : une propriété de type Domaine (enregistrement TXT chez le registraire), soumettre https://mauditemachine.com/sitemap.xml, demander l'indexation des pages listées dans le plan.
+  - **Bing Webmaster Tools** : importer depuis la Search Console, puis vérifier dans la partie IndexNow que les envois arrivent. Le premier déploiement n'envoie rien, faute de manifeste en ligne : c'est au prochain push.
+  - **GA4**
+    - marquer share_beat, open_shared_beat et play_start comme événements clés ;
+    - créer les dimensions machine, method, preset, voice et source (portée Événement) ;
+    - relier la Search Console ;
+    - pour /mm-admin/stats, poser GA4_PROPERTY_ID et le jeton OAuth dans les secrets GitHub.
+  - **Consentement** : choisir a), b) ou c) (plan, 2.4).
+  - **Valider les titres** de src/data/seo-meta.json.
+  - **Semrush ou Ahrefs** branché à Claude (plan, 6) : robots.txt laisse déjà passer leurs robots.
+  - **Bios et profils** (plan, 7) : Montpellier comme base sur Bandcamp, RA et SoundCloud, et un lien vers /mm-studio/ partout.
+  - **Captures sur un vrai GPU** : refaire sur le Mac les captures de public/press/mm-studio/ et la carte og-mm-studio-card.jpg, aux mêmes noms et tailles. Elles ont été rendues sans GPU (swiftshader).
+  - **MIDI OUT vers Ableton**
+    - Configuration audio et MIDI > studio MIDI > Gestionnaire IAC : « Le gestionnaire est en ligne » ;
+    - sur le site, MIDI > CONNECT > MM-ARP NOTES OUT : IAC Driver Bus 1, canal 1 ;
+    - dans Ableton, Track ON sur l'entrée IAC ; pour l'horloge, cocher « Send MIDI clock » sur le site, puis Sync ON et EXT dans Ableton ;
+    - garder la fenêtre du site visible.
+  - **Samples** : `git pull --ff-only && npm run samples:mika` sur le Mac (tâche toujours ouverte).
+  - **Roto-Control** : rien à réimporter pour cette session (ROTO_VERSION reste 2026-10-18.2, setups identiques). Après `npm run samples:mika`, re-télécharger et réimporter les setups : les crans et les noms du choix de son sont figés à l'export (RS-12).
+  - **Écouter les rendus A/B du MM-ARP** : le dossier arp-ab remis avec son LISEZMOI.txt (AVANT, APRES, EXTRAS et démos).
+    - 07_HOUSE_EXTRAS.wav et la ligne « HOUSE WIDE 35 % » du LISEZMOI sont périmés, puisque HOUSE est passé à WIDE 0,8 ensuite.
+    - La phrase « au bit près comme avant » du LISEZMOI est à lire comme dans les décisions ci-dessus.
+  - **Confirmer l'en-tête PAGE du RYTM** (RB3-4), ou demander l'ancien.
+  - **Écouter et dire**
+    - le snare, 1,7 dB plus bas : le remonter ?
+    - la traîne du DELAY du RYTM à la même position du potard ;
+    - les presets du MM-BASS : calage en crête ou en sonie (BDM-13) ;
+    - le passe-bande à 0,15 si le SD dépasse encore.
+  - **Tester sur l'iPhone** : glisser d'une machine à l'autre en partant des potards du MM-ARP et du MIXER.
+  - **Contenus** : compléter events.json (adresse, heure avec fuseau, billetterie) et relire les textes des pages de motifs.
+- **Points ouverts dans le code** (listes « pas fait » des lanes et des relectures)
+  - **Samples du RYTM**
+    - message LCD d'un sample de verrou en échec ;
+    - reprise d'un téléchargement par Range ;
+    - buffers mono ;
+    - décodage au taux du contexte ;
+    - vérifications Safari et iOS : seul Chromium était disponible, et son Chromium de test ne décode pas l'AAC.
+  - **MM-ARP**
+    - compensation des graves de RES (P3, en option) ;
+    - un patch dense extrême à VOLUME 1 crête encore vers 0 dBFS par le delay et la reverb (le limiteur master s'en charge) ;
+    - cœur d'arpège sur un transport injectable (étape 4 de l'étude VST3).
+  - **MIDI OUT** : un onglet caché et muet ralentit l'arpège et ses notes (Chrome) ; MIDIOUT-5.
+  - **MIXER**
+    - affichage de la réduction de gain sur le VU MASTER ;
+    - un transitoire de 15 ms à la réouverture de l'OVERDRIVE avec une source mono (le bus est stéréo dans l'app, laissé).
+  - **Robustesse**
+    - RS-11 : pas d'intro en dev, intro de prod liée aux images ;
+    - RS-8 : horloge sur le fil principal, à mesurer sur un vrai iPhone ;
+    - un stylet sur la liste des sons tourne encore la vue ;
+    - la vélocité d'un pas peut bouger d'un cran en sortie d'arbitrage.
+  - **Poids du JS** : découper le chunk V4 (environ 360 Ko gzip) ; la machine elle-même arrive encore vers 5,6 s en 4G lente.
+  - **Écrans**
+    - 27 cibles de l'ARP au téléphone restent sous 44 px : il faudrait changer une mise en page validée ;
+    - carte d'environnement des matériaux (IMP-6), un seul langage de boutons (IMP-11), vides de la façade desktop (IMP-21) ;
+    - l'ajustement tactile d'Android peut encore tirer un tap vers les flèches du bord.
+  - **Référencement**
+    - pages de morceaux et dates plus riches : il manque les données de Mika ;
+    - Search Console et Web Vitals de terrain : il faut ses comptes ;
+    - lecteur intégrable ;
+    - image de partage par beat.
+- **En cours** : la montée en qualité « analogique » du MM-ARP, sur une autre branche.
+- **Toujours en attente** : le compteur de visiteurs du MENU (tâche 72).
+
+## Commandes utiles ajoutées
+
+- `npm run smoke:v4` : le test de fumée muet de MM-STUDIO (mm808, voy, dj, bass ; desktop 1440x900 et téléphone 390x844).
+  - Options : `-- --url http://127.0.0.1:4173` (un `vite preview` déjà lancé, donc la prod), `--machines mm808,voy`, `--only desktop|phone`, `--settle`, `--timeout`, `--cache`.
+  - Code 1 en cas d'erreur.
+- `npm run arp:bench` : le banc de référence du moteur du MM-ARP. Rendus et mesures dans scripts/output/arp-bench/ (hors git).
+  - `-- --check` (non-régression contre scripts/arp-bench.golden.json) et `--update` ;
+  - `--phone`, `--only ACID,INIT` ;
+  - `--against <moog.worklet.js d'une autre version>` ;
+  - `--browser` (parité avec Chromium, muet) et `--cpu`.
+- `npm run arp:params [-- --out <fichier>]` : l'export JSON des 59 paramètres, des presets d'usine et des accords du MM-ARP (scripts/output/arp-params.json).
+- `npm run indexnow` : envoie à IndexNow les adresses de indexnow-urls.txt, ou celles passées en arguments.
+  - `DRY_RUN=1 node scripts/indexnow.mjs` montre l'envoi sans rien envoyer ;
+  - `INDEXNOW_ENDPOINT` change l'adresse d'envoi ;
+  - le script rend toujours 0.
+- Job `indexnow` de .github/workflows/pages.yml : après build et deploy, seulement s'il y a des adresses changées. Il attend 60 s, a 5 min au plus et ne bloque jamais (continue-on-error).
+- `SEO_OFFLINE=1 npm run build` : build sans interroger le site en ligne (lastmod du jour partout, aucun envoi IndexNow). `SEO_LASTMOD_URL` change l'adresse du manifeste en ligne.
+- Débogage (avec `?debug=1&mute=1`)
+  - `window.__v4.audio.samples.status(key)` et `.stats()` : l'état des samples du RYTM ;
+  - `window.__v4.voyager.synth` : failures, loading, engine, retime ;
+  - `window.__v4.analytics` : les événements GA4 de la visite ;
+  - `window.__v4.screen.headFit` : le palier de l'en-tête PAGE du RYTM.
+- MIDI : panneau MIDI > CONNECT > MM-ARP NOTES OUT (sortie, canal, horloge). Les cibles `voy:knob:accFlt|stack|wide|glue|dlyTime|tape` s'apprennent en MIDI LEARN.
+- Clavier
+  - RYTM : touche menu (ou Shift+F10) sur un pad = couper ou rendre la voix ;
+  - BASS : L sur le pas qui a le focus = P-LOCK de ce pas ;
+  - presets : une flèche moins de 10 s après la fermeture automatique les rouvre.
