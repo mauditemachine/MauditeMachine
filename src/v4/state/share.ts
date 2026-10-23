@@ -24,6 +24,7 @@ import { isUserKey, samplesOf } from '../audio/samples';
 import { VOICE_FX_DEFAULT, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
 import type { Inst } from '../theme';
 import { track } from './analytics';
+import { boot } from './boot';
 import { rytmFactory } from './factory';
 import { intro } from './intro';
 import { lcdMessage } from './lcdMessage';
@@ -157,16 +158,23 @@ function dropParam(): void {
   }
 }
 
-/** Un message de l'ecran du MM-RYTM une fois l'intro finie (avant, elle l'aurait recouvert). */
+/**
+ * Un message de l'ecran du MM-RYTM une fois l'intro finie (avant, elle l'aurait recouvert). Pas avant la premiere image
+ * (2026-10-22, revue INT-1) : adopt tourne au montage, avant que le Stage ne pose l'intro a 'pending' (state/intro.ts
+ * part de 'done'), et le message passait pendant l'intro sans qu'on le voie. boot.onReady vient apres la premiere image
+ * (l'intro est alors 'pending', ou 'done' sous reduced motion), le repli sans WebGL et l'arrivee par un panneau.
+ */
 function sayAfterIntro(text: string, ms: number): void {
-  if (intro.get() === 'done') {
-    lcdMessage.show(text, ms);
-    return;
-  }
-  const off = intro.subscribe(() => {
-    if (intro.get() !== 'done') return;
-    off();
-    lcdMessage.show(text, ms);
+  boot.onReady(() => {
+    if (intro.get() === 'done') {
+      lcdMessage.show(text, ms);
+      return;
+    }
+    const off = intro.subscribe(() => {
+      if (intro.get() !== 'done') return;
+      off();
+      lcdMessage.show(text, ms);
+    });
   });
 }
 
