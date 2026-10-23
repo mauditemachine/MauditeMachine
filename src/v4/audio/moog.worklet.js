@@ -749,6 +749,61 @@ const KI_NEWNOISE = 0;
 const KI_GLUEON = 1;
 const KI_SIZE = 2;
 
+/**
+ * Les reglages acceptes (2026-10-23, Q7 du controle qualite, Mika : "d'extreme bonne qualite") : chaque cle du moteur,
+ * sa plage (la plus large que voyager/params.ts engineParams peut donner, une marge de 1.5) et si elle est entiere (un
+ * code : arrondi, borne). Une valeur qui n'est pas un nombre fini est ignoree (la precedente reste) : un NaN entre dans
+ * les lissages et y restait pour toujours (sm += (x - NaN) K), une cle inconnue est laissee de cote.
+ */
+const P_RANGE = {
+  wave1: [0, 5],
+  wave2: [0, 4],
+  tune1: [-64, 48],
+  tune2: [-64, 48],
+  fine1: [-75, 75],
+  fine2: [-75, 75],
+  osc1: [0, 1.32],
+  osc2: [0, 1.32],
+  fm: [0, 1.5],
+  ratio: [0.25, 10.5],
+  glide: [0, 0.93],
+  noise: [0, 1.5],
+  lfoBeats: [0.0625, 24],
+  lfoAmt: [0, 1.5],
+  bpm: [10, 600],
+  cutoff: [20, 28500],
+  res: [0, 1.5],
+  envOct: [0, 9],
+  fA: [0, 3],
+  fD: [0, 3],
+  fS: [0, 1.5],
+  fR: [0, 4.5],
+  aA: [0, 3],
+  aD: [0, 3],
+  aS: [0, 1.5],
+  aR: [0, 4.5],
+  drive: [0, 1.5],
+  phase: [-1, 1],
+  drift: [0, 3],
+  width: [0, 0.66],
+  keyTrack: [0, 1.5],
+  sub: [0, 1.32],
+  accFlt: [0, 1.5],
+  outLevel: [0, 1.5],
+  stack: [0, 45],
+  wide: [0, 1.5],
+  glue: [0, 1.5],
+};
+/** Les codes (entiers) : MODE (0 MOOG, 1 LP12, 2 BP, 3 HP), forme et cible du LFO, SYNC, octave et forme du SUB. */
+const P_INT = { fmode: [0, 3], lfoShape: [0, 4], lfoDest: [0, 4], sync: [0, 1], subOct: [1, 2], subWave: [0, 3] };
+/**
+ * La garde d'une voix (2026-10-23) : une sortie de filtre hors de +/-VOICE_GUARD (jamais atteint par un son legal : HP
+ * a fond d'OVERDRIVE, toutes les sources au maximum, reste sous 30) remet la voix au repos, sans bruit.
+ */
+const VOICE_GUARD = 64;
+/** Sous ce niveau, un etat recursif est remis a 0 en fin de bloc (pas de sous-normaux, 2026-10-23). */
+const TINY = 1e-20;
+
 class MMVoyager extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -870,7 +925,11 @@ class MMVoyager extends AudioWorkletProcessor {
     this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, sub: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0, wide: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
-    if (o.params) Object.assign(this.p, o.params);
+    if (o.params) this.setParams(o.params);
+    // Le filtre part sur le MODE demande (2026-10-23 : avant, du MOOG en fondu de 15 ms)
+    for (let m = 0; m < 4; m += 1) this.wm[m] = m === this.p.fmode ? 1 : 0;
+    // Les remises au repos de la garde (une voix, le bus) depuis la creation (tests)
+    this.heals = 0;
     Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive, wide: this.p.wide });
     this.stD = this.p.stack;
     this.gl.g = this.p.glue;
@@ -882,7 +941,8 @@ class MMVoyager extends AudioWorkletProcessor {
     // Les ancres a venir (l'arpegiateur les envoie avec leur instant), dans l'ordre
     this.beats = [];
     // Le hasard (S&H, RND) : le cycle en cours, sa valeur et celle du cycle suivant
-    this.rIdx = NaN;
+    // -1 (2026-10-23, NaN avant) : le premier cycle (jamais negatif) tire tout de suite, comme avant
+    this.rIdx = -1;
     this.rA = rnd() * 2 - 1;
     this.rB = nextRandom(this.rA, rnd);
     // Tests sans son (audio/synth.ts renderSynthOffline) : probe, la sortie dit le LFO (gauche : sa forme, droite :
@@ -918,7 +978,7 @@ class MMVoyager extends AudioWorkletProcessor {
       this.tp = a;
       this.tpLocked = true;
       // Un RUN : le hasard repart d'un nouveau tirage
-      if (a.run) this.rIdx = NaN;
+      if (a.run) this.rIdx = -1;
     }
   }
 
@@ -977,23 +1037,55 @@ class MMVoyager extends AudioWorkletProcessor {
   }
 
   add(n) {
+    // Une note sans hauteur, sans instant ou sans duree (2026-10-23, Q7) n'entre pas ; la porte peut etre sans fin
+    // (+Infinity : noteOff), l'accent borne a 0..2 (absent ou 0 : 1, comme avant)
+    if (!n || !Number.isFinite(n.midi) || !Number.isFinite(n.time) || typeof n.gate !== 'number' || !(n.gate > 0)) return;
+    const ac = n.accent || 1;
+    if (!Number.isFinite(ac)) return;
     const frame = Math.round(n.time * sampleRate);
     const q = this.queue;
     let i = q.length;
     while (i > 0 && q[i - 1].frame > frame) i -= 1;
-    q.splice(i, 0, { frame, midi: n.midi, gate: n.gate, accent: n.accent || 1, from: n.from == null ? null : n.from });
+    q.splice(i, 0, { frame, midi: n.midi, gate: n.gate, accent: ac < 0 ? 0 : ac > 2 ? 2 : ac, from: Number.isFinite(n.from) ? n.from : null });
+  }
+
+  /**
+   * Des reglages (2026-10-23, Q7) : chaque cle connue, un nombre fini, bornee a sa plage (P_RANGE), un code arrondi
+   * (P_INT) ; le reste ignore. Rend true si bpm a ete pris.
+   */
+  setParams(src) {
+    if (!src || typeof src !== 'object') return false;
+    const p = this.p;
+    let bpm = false;
+    for (const key in src) {
+      const v = src[key];
+      if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+      const r = P_RANGE[key];
+      if (r !== undefined) {
+        p[key] = v < r[0] ? r[0] : v > r[1] ? r[1] : v;
+        if (key === 'bpm') bpm = true;
+        continue;
+      }
+      const ri = P_INT[key];
+      if (ri !== undefined) {
+        const n = Math.round(v);
+        p[key] = n < ri[0] ? ri[0] : n > ri[1] ? ri[1] : n;
+      }
+    }
+    return bpm;
   }
 
   onMsg(m) {
+    if (!m || typeof m !== 'object') return;
     if (m.type === 'note') this.add(m);
     else if (m.type === 'beat') this.addBeat(m);
     else if (m.type === 'params') {
-      Object.assign(this.p, m.params);
+      const bpm = this.setParams(m.params);
       this.coefs();
       // Un tempo, transport libre (ou plus d'ancre depuis une seconde) : la position continue au nouveau tempo ;
       // en lecture, ce sont les ancres qui portent le tempo, a la frontiere de pas ou il change
       const stale = this.beats.length === 0 && currentFrame - this.tp.f > sampleRate;
-      if (m.params && m.params.bpm > 0 && (!this.tpLocked || stale)) this.freeRun(currentFrame);
+      if (bpm && (!this.tpLocked || stale)) this.freeRun(currentFrame);
     } else if (m.type === 'probe') {
       // Debug (window.__v4.voyager.synth.lfo) : le LFO maintenant, lu par le meme calcul que le son
       const x = currentFrame;
@@ -1302,8 +1394,65 @@ class MMVoyager extends AudioWorkletProcessor {
     else if (yl < -clipT) yl = -clipT - clipW * Math.tanh((-yl - clipT) / clipW);
     if (yr > clipT) yr = clipT + clipW * Math.tanh((yr - clipT) / clipW);
     else if (yr < -clipT) yr = -clipT - clipW * Math.tanh((-yr - clipT) / clipW);
+    // La garde du bus (2026-10-23, Q7) : une sortie non finie remet OVERDRIVE, le bloqueur et GLUE au repos
+    if (!(yl - yl === 0 && yr - yr === 0)) {
+      this.restBus();
+      this.heals += 1;
+      yl = 0;
+      yr = 0;
+    }
     raw[i2] = yl;
     rawR[i2] = yr;
+  }
+
+  /** Une voix au repos (2026-10-23) : son filtre, celui de droite (WIDE), les corrections de la SYNC. */
+  rest(v) {
+    v.pu = v.s1 = v.s2 = v.s3 = v.s4 = 0;
+    const fr = v.fr;
+    fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = fr.u = fr.y1 = fr.y2 = fr.y = 0;
+    for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = 0;
+  }
+
+  /** Le bus au repos (2026-10-23) : OVERDRIVE, le bloqueur de continu de la sortie, GLUE. */
+  restBus() {
+    const od = this.od;
+    od.hpL = od.xL = od.lpL = od.hpR = od.xR = od.lpR = od.dL = od.dxL = od.dR = od.dxR = 0;
+    const dc = this.dc;
+    dc[0] = dc[1] = dc[2] = dc[3] = 0;
+    const gl = this.gl;
+    gl.env = gl.mi = gl.mo = 0;
+    gl.gain = 1;
+    this.glL.x = this.glL.F = this.glRt.x = this.glRt.F = 0;
+  }
+
+  /**
+   * Les sous-normaux (2026-10-23, Q6 : jusqu'a 1.5e-323 dans la branche OVERDRIVE de six presets, figes pendant le
+   * silence) : en fin de bloc, chaque etat recursif du bus sous TINY repart de 0 (un ecart sous -400 dB).
+   */
+  flushTiny() {
+    const od = this.od;
+    if (od.hpL < TINY && od.hpL > -TINY) od.hpL = 0;
+    if (od.xL < TINY && od.xL > -TINY) od.xL = 0;
+    if (od.lpL < TINY && od.lpL > -TINY) od.lpL = 0;
+    if (od.dL < TINY && od.dL > -TINY) od.dL = 0;
+    if (od.dxL < TINY && od.dxL > -TINY) od.dxL = 0;
+    if (od.hpR < TINY && od.hpR > -TINY) od.hpR = 0;
+    if (od.xR < TINY && od.xR > -TINY) od.xR = 0;
+    if (od.lpR < TINY && od.lpR > -TINY) od.lpR = 0;
+    if (od.dR < TINY && od.dR > -TINY) od.dR = 0;
+    if (od.dxR < TINY && od.dxR > -TINY) od.dxR = 0;
+    const dc = this.dc;
+    for (let i = 0; i < 4; i += 1) if (dc[i] < TINY && dc[i] > -TINY) dc[i] = 0;
+    const gl = this.gl;
+    if (gl.env < TINY) gl.env = 0;
+    if (gl.mi < TINY) gl.mi = 0;
+    if (gl.mo < TINY) gl.mo = 0;
+    const a = this.glL;
+    const b = this.glRt;
+    if (a.x < TINY && a.x > -TINY) a.x = 0;
+    if (a.F < TINY && a.F > -TINY) a.F = 0;
+    if (b.x < TINY && b.x > -TINY) b.x = 0;
+    if (b.F < TINY && b.F > -TINY) b.F = 0;
   }
 
   /** DRIFT (2026-10-21) : les trois marches au hasard de chaque oscillateur des voix qui sonnent, une fois par bloc de N. */
@@ -1368,6 +1517,7 @@ class MMVoyager extends AudioWorkletProcessor {
       if (gl.env > 0) gl.env = gl.env < 1e-15 ? 0 : gl.env * Math.pow(1 - this.glR, N);
       this.glL.x = this.glL.F = 0;
       this.glRt.x = this.glRt.F = 0;
+      this.flushTiny();
       // Silence : l'historique des demi-bandes repart a zero
       if (this.d4) this.d4.clear();
       if (this.d2) this.d2.clear();
@@ -1638,6 +1788,8 @@ class MMVoyager extends AudioWorkletProcessor {
           // -66 dB (2026-10-21 ; -86 avant) : la queue a -76 dBFS apres VOLUME, inaudible, et 23 % de calcul en moins
           if (v.aV < VOICE_OFF) {
             v.on = false;
+            // Ses etats au repos (2026-10-23 : pas de sous-normaux qui restent dans une voix eteinte)
+            this.rest(v);
             continue;
           }
         }
@@ -1992,6 +2144,12 @@ class MMVoyager extends AudioWorkletProcessor {
         if (w1 !== 0) yo += w1 * y2;
         if (w2 !== 0) yo += w2 * (y1 - y2);
         if (w3 !== 0) yo += w3 * (u - 2 * y1 + y2);
+        // La garde (2026-10-23, Q7) : une sortie folle (NaN, infinie, emballee) remet la voix au repos, sans bruit
+        if (!(yo > -VOICE_GUARD && yo < VOICE_GUARD)) {
+          this.rest(v);
+          this.heals += 1;
+          yo = 0;
+        }
         // VCA (l'accent, ou sa part de niveau quand il ouvre aussi le filtre), saturation de sortie (OVERDRIVE la
         // pousse a peine), puis la place de la note dans l'image (lissee)
         let a = yo * v.aV * v.ampAcc;
@@ -2024,6 +2182,11 @@ class MMVoyager extends AudioWorkletProcessor {
         if (w1 !== 0) yoR += w1 * fq.y2;
         if (w2 !== 0) yoR += w2 * (fq.y1 - fq.y2);
         if (w3 !== 0) yoR += w3 * (fq.u - 2 * fq.y1 + fq.y2);
+        if (!(yoR > -VOICE_GUARD && yoR < VOICE_GUARD)) {
+          this.rest(v);
+          this.heals += 1;
+          yoR = 0;
+        }
         let aR = yoR * v.aV * v.ampAcc;
         aR = Math.tanh(aR * driveOut) * outNorm;
         sumR += aR * v.gR;
@@ -2033,6 +2196,7 @@ class MMVoyager extends AudioWorkletProcessor {
       acc[1] = sumR;
       this.busTick(i2);
     }
+    this.flushTiny();
     // Retour a la frequence du contexte : les demi-bandes en cascade, un canal chacune
     if (OS === 4) {
       this.d4.run(raw, 4 * N, this.mid);

@@ -262,6 +262,9 @@ async function silence(ctx, file) {
       let lastNonZero = 0;
       let lastActive = 0;
       const tEnd = 0.05 + 16 * step;
+      // Un premier passage pour le compilateur (la premiere queue fait repartir le code optimise : des blocs lents qui
+      // ne reviennent plus), puis la mesure
+      render({ file, os, params: pt.params, notes: bar(), seconds: tEnd + 1 });
       const r = render({ file, os, params: pt.params, notes: bar(), seconds: tEnd + 6, timing: true, onBlock: (f, proc) => {
         if (f % 1280 === 0 || f / SR > tEnd + 5.9) scan(proc, acc);
         if (proc.voices.some((v) => v.on)) lastActive = f;
@@ -280,7 +283,9 @@ async function silence(ctx, file) {
         if (f > lastActive + 128 && f <= lastNonZero) tail.push(r.blockUs[b]);
       }
       const med = (a) => (a.length ? [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)] : 0);
-      const ratio = med(sounding) > 0 ? Math.max(...(tail.length ? tail : [0])) / med(sounding) : 0;
+      // Le 90e centile de la queue (le temps mur d'un bloc seul suit aussi le bruit de la machine)
+      const p90 = (a) => (a.length ? [...a].sort((p, q) => p - q)[Math.floor(a.length * 0.9)] : 0);
+      const ratio = med(sounding) > 0 ? p90(tail) / med(sounding) : 0;
       const tz = Math.max(0, (lastNonZero - lastActive) / SR);
       out[`${pt.name} x${os} sub`] = acc.sub;
       out[`${pt.name} x${os} nonFinite`] = acc.nonFinite + outNF;
@@ -296,7 +301,7 @@ async function silence(ctx, file) {
   out['TOTAL nonFinite'] = nfTot;
   out['TOTAL subnormal fields'] = [...where].join(' ');
   out['WORST zero after s'] = r2(worstTail);
-  out['WORST tail block / sounding median'] = r2(worstRatio);
+  out['WORST tail block p90 / sounding median'] = r2(worstRatio);
   return out;
 }
 
@@ -315,6 +320,8 @@ async function garbage(ctx, file) {
   let worstRec = 0;
   let worstKey = '';
   let worstRecKey = '';
+  let worstRecX = 0;
+  let worstRecXKey = '';
   for (const k of keys) {
     for (const b of BAD) {
       const r = render({ file, os, params: base, notes, seconds: 1.0, seed: 7, onBlock: (f, proc) => {
@@ -323,8 +330,9 @@ async function garbage(ctx, file) {
       } });
       let nf = 0;
       let pk = 0;
+      // La crete apres VOLUME (outLevel), celle qui sort des enceintes
       for (let i = 128 * 112; i < 128 * 225; i += 1) {
-        const v = Math.max(Math.abs(r.L[i]), Math.abs(r.R[i]));
+        const v = Math.max(Math.abs(r.L[i]), Math.abs(r.R[i])) * base.outLevel;
         if (!Number.isFinite(r.L[i]) || !Number.isFinite(r.R[i])) nf += 1;
         else if (v > pk) pk = v;
       }
@@ -339,6 +347,15 @@ async function garbage(ctx, file) {
         }
       }
       if (nf > worstNF) worstNF = nf;
+      // +/-1e9 est borne a l'extreme legal (un vrai son, qui revient en lissant) : son retour compte a part
+      if (b === 1e9 || b === -1e9) {
+        if (rec > worstRecX) {
+          worstRecX = rec;
+          worstRecXKey = `${k}=${name(b)}`;
+        }
+        if (nf > 0) out[`${k}=${name(b)}`] = `nf ${nf}`;
+        continue;
+      }
       if (db(pk) > worstPk) {
         worstPk = db(pk);
         worstKey = `${k}=${name(b)}`;
@@ -350,18 +367,27 @@ async function garbage(ctx, file) {
       if (nf > 0 || db(pk) > -3 || rec > 0.003) out[`${k}=${name(b)}`] = `nf ${nf} pk ${r1(db(pk))} dBFS rec ${r1(rec * 1000)} ms`;
     }
   }
-  out['WORST peak dBFS during bad'] = `${r1(worstPk)} (${worstKey})`;
+  out['WORST peak dBFS during bad (after VOLUME)'] = `${r1(worstPk)} (${worstKey})`;
   out['WORST nonFinite'] = worstNF;
   out['WORST recovery ms'] = `${r1(worstRec * 1000)} (${worstRecKey})`;
+  out['WORST recovery ms, +/-1e9 (borne a l extreme legal)'] = `${r1(worstRecX * 1000)} (${worstRecXKey})`;
   // Le pire reglage legal : RES 1, OD 1, coupure max, FM 1, SYNC, STACK, WIDE, GLUE 1, 12 voix a C8
+  // Dans chaque MODE, et en HP coupure basse avec toutes les sources a fond (le plus fort que l'echelle laisse passer)
+  const modes = ctx.extremeModes ?? [0, 1, 2, 3];
   for (const os2 of PATHS) {
-    const ext = { ...ctx.DEF, res: 1, drive: 1, cutoff: 21600, fm: 1, sync: 1, stack: 30, wide: 1, glue: 1, outLevel: 0.3, aS: 1, ...(ctx.extremeExtra ?? {}) };
-    const r = render({ file, os: os2, params: ext, notes: Array.from({ length: 12 }, (_, i) => held(108 + (i % 4), 1.5, 0.01 * i)), seconds: 2 });
-    let nf = 0;
-    for (let i = 0; i < r.L.length; i += 1) if (!Number.isFinite(r.L[i]) || !Number.isFinite(r.R[i])) nf += 1;
-    out[`EXTREME x${os2} peak dBFS`] = r1(db(Math.max(stats(r.L).peak, stats(r.R).peak)));
-    out[`EXTREME x${os2} nonFinite`] = nf;
-    out[`EXTREME x${os2} heals`] = r.proc.heals ?? 0;
+    for (const fmode of modes) {
+      for (const [lbl, x] of [['cutmax', { cutoff: 21600 }], ['allmax', { cutoff: 200, osc1: 1.32, osc2: 1.32, sub: 1.32, noise: 1.5, wave1: 3, wave2: 3, sync: 0, fm: 0 }]]) {
+        const ext = { ...ctx.DEF, res: 1, drive: 1, fm: 1, sync: 1, stack: 30, wide: 1, glue: 1, outLevel: 0.3, aS: 1, fmode, ...x, ...(ctx.extremeExtra ?? {}) };
+        const notes = lbl === 'cutmax' ? Array.from({ length: 12 }, (_, i) => held(108 + (i % 4), 1.5, 0.01 * i)) : Array.from({ length: 12 }, (_, i) => held(36 + i * 5, 1.5, 0.01 * i));
+        const r = render({ file, os: os2, params: ext, notes, seconds: 2 });
+        let nf = 0;
+        for (let i = 0; i < r.L.length; i += 1) if (!Number.isFinite(r.L[i]) || !Number.isFinite(r.R[i])) nf += 1;
+        const k = `EXTREME ${lbl} mode ${fmode} x${os2}`;
+        out[`${k} peak dBFS`] = r1(db(Math.max(stats(r.L).peak, stats(r.R).peak)));
+        out[`${k} nonFinite`] = nf;
+        out[`${k} heals`] = r.proc.heals ?? 0;
+      }
+    }
   }
   return out;
 }

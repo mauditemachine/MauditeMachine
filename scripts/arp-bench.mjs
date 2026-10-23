@@ -502,11 +502,13 @@ function diff(a, b, spectral = false) {
   return { ...base, sameSha: false, lu: r2(lu), band40to8k: r2(low), band8to14k: r2(mid), band14to16k: r2(high), worstBandHz: worstF, worstBandDb: r2(worstD), contractF: okF };
 }
 
-/** L'ecart echantillon par echantillon. */
+/** L'ecart echantillon par echantillon (2026-10-23 : et apres les 20 premieres ms, le fondu de MODE au depart d'avant). */
 function diffSamples(a, b) {
   const n = Math.min(a.L.length, b.L.length);
+  const i20 = Math.round(0.02 * SR);
   let same = 0;
   let max = 0;
+  let after = 0;
   for (let i = 0; i < n; i += 1) {
     for (const [x, y] of [
       [a.L[i], b.L[i]],
@@ -515,9 +517,10 @@ function diffSamples(a, b) {
       const d = Math.abs(x - y);
       if (d === 0) same += 1;
       if (d > max) max = d;
+      if (i >= i20 && d > after) after = d;
     }
   }
-  return { identicalPct: Math.round((1e6 * same) / (2 * n)) / 1e4, maxAbsDiff: max, maxDiffDb: max > 0 ? r2(db(max)) : null };
+  return { identicalPct: Math.round((1e6 * same) / (2 * n)) / 1e4, maxAbsDiff: max, maxDiffDb: max > 0 ? r2(db(max)) : null, maxDiffDbAfter20ms: after > 0 ? r2(db(after)) : null };
 }
 
 /* ---------------- le calcul (--cpu) ---------------- */
@@ -594,7 +597,7 @@ async function main() {
       res[p.name] = m;
       if (!NO_WAV) await writeWav(path.join(dir, `${fileName(p.name)}.wav`), r.L, r.R);
       const ag = m.against;
-      const agTxt = !ag ? '' : ag.sameSha ? 'against identique au bit pres' : `against ${ag.identicalPct}% identiques, ecart max ${ag.maxDiffDb} dBFS, sonie ${ag.lu} LU, bandes ${ag.band40to8k} / ${ag.band8to14k} / ${ag.band14to16k} dB (pire ${ag.worstBandDb} a ${ag.worstBandHz} Hz), contrat F ${ag.contractF ? 'tenu' : 'NON TENU'}`;
+      const agTxt = !ag ? '' : ag.sameSha ? 'against identique au bit pres' : `against ${ag.identicalPct}% identiques, ecart max ${ag.maxDiffDb} dBFS (apres 20 ms ${ag.maxDiffDbAfter20ms}), sonie ${ag.lu} LU, bandes ${ag.band40to8k} / ${ag.band8to14k} / ${ag.band14to16k} dB (pire ${ag.worstBandDb} a ${ag.worstBandHz} Hz), contrat F ${ag.contractF ? 'tenu' : 'NON TENU'}`;
       const extra = [agTxt, m.browser ? `navigateur ${m.browser.identicalPct}% identiques, ecart max ${m.browser.maxAbsDiff}${m.browser.maxDiffDb !== null ? ` (${m.browser.maxDiffDb} dB)` : ''}` : ''].filter(Boolean).join(' ; ');
       console.log(`${p.name.padEnd(22)} crete ${String(m.peakDb).padStart(6)} dB  efficace ${String(m.rmsDb).padStart(6)} dB  centroide ${String(m.centroidHz).padStart(5)} Hz  cote ${String(m.sideDb).padStart(6)} dB  ${m.cpuUsPerBlock} us${extra ? '  ' + extra : ''}`);
     }
