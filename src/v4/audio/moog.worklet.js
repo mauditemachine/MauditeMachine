@@ -817,6 +817,11 @@ function rawShape(ph, w, d) {
 }
 const natStep = (w) => (w >= 2 ? 2 : 0);
 /** La largeur de l'impulsion d'un cran (3 carre, 4 impulsion) ; entre les deux, la PWM (2026-10-21). */
+/**
+ * La borne de l'indice FM au telephone (2026-10-23, S10) : la largeur de Carson de la FM sous 24 kHz au rythme x2 (sa
+ * queue de Bessel n'atteint plus 48 kHz) ; en x4 la borne d'avant (0.4). FM1R35 C7 x2 33 -> plus de 50 dB.
+ */
+const FM_B_PHONE = 0.25;
 const PULSE_W = 0.14;
 /*
  * Le triangle (2026-10-23, S9, Mika : "que le son soit d'extreme bonne qualite") : ses deux coins replient (TRI C8 x2 50
@@ -1926,6 +1931,8 @@ class MMVoyager extends AudioWorkletProcessor {
     const ratio2 = Math.pow(2, p.tune2 / 12);
     const drift = p.drift;
     const sync = p.sync === 1;
+    // S10 (2026-10-23) : la borne de l'indice FM (largeur de Carson) : 0.25 au telephone (sous 24 kHz), 0.4 en x4
+    const fmB = this.os === 2 ? FM_B_PHONE : 0.4;
     // Les nombres du bloc pour busTick (2026-10-23), une fois
     const ks = this.ks;
     const ki = this.ki;
@@ -2143,7 +2150,7 @@ class MMVoyager extends AudioWorkletProcessor {
           const d2 = d2v * P.r;
           // FM : l'operateur decale la phase des DEUX oscillateurs (indice en radians, suivi de l'enveloppe du filtre)
           const dm = d1 * p.ratio;
-          const idx = fmDepth > 0 ? Math.min(fmDepth * (0.35 + 0.65 * Math.min(1, v.fV)), Math.max(0, 0.4 / dm - 1)) : 0;
+          const idx = fmDepth > 0 ? Math.min(fmDepth * (0.35 + 0.65 * Math.min(1, v.fV)), Math.max(0, fmB / dm - 1)) : 0;
           const pm = idx > 0 ? (idx * Math.sin(TAU * P.m)) / TAU : 0;
           // OSC 2 d'abord : il module OSC 1 au cran FM ; chaque forme fondue dans la suivante
           let q2 = P.b + pm;
