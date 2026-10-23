@@ -554,6 +554,18 @@ function odComp(d) {
 /** La courbe de l'overdrive : douce, asymetrique, nulle a zero (son continu part au bloqueur de la branche). */
 const odCurve = (u) => Math.tanh(u + OD_BIAS) - OD_TANH_BIAS;
 /**
+ * La courbe de l'overdrive sans repliement (2026-10-23, S4, Mika : "que le son soit d'extreme bonne qualite") : la
+ * meme courbe (le grain des sons gardes), par son integrale (ADAA du premier ordre) : F(u) = lncosh(u + OD_BIAS) -
+ * u tanh(OD_BIAS), lncosh(x) = |x| + log1p(exp(-2|x|)) - ln 2 (sans debordement), la sortie (F(u) - F(u1)) / (u - u1),
+ * la courbe au milieu quand u bouge de moins de OD_ADAA_EPS (F n'y est pas calculee : elle le sera au besoin, pour
+ * l'echantillon d'avant), et sous OD_LIN_U la courbe y est sa tangente au second ordre (les queues, sans fonction
+ * transcendante). Ecrite dans busTick (zero allocation).
+ */
+const OD_ADAA_EPS = 1e-6;
+const OD_LIN_U = 1e-5;
+const OD_SECH2 = 1 - OD_TANH_BIAS * OD_TANH_BIAS;
+const LN2 = Math.LN2;
+/**
  * DRIFT (2026-10-21, P11 de l'audit, "plus vivant") : la derive de chaque oscillateur est la somme de trois marches
  * au hasard (lente, moyenne, rapide : constante de temps en s, ecart type en cents a DRIFT 5). Avant, une seule marche
  * de 0.53 s (1 cent) : un frisson, jamais la lente vague d'un VCO qui chauffe. La lente domine maintenant (le
@@ -877,7 +889,9 @@ class MMVoyager extends AudioWorkletProcessor {
     this.d2R = os >= 2 ? new Decimator(63, 8) : null;
     // OVERDRIVE : etats des filtres de la branche saturee (gauche, droite) et coefficients a la frequence du calcul
     // (dL, dxL, dR, dxR : son bloqueur de continu, 2026-10-21)
-    this.od = { hpL: 0, xL: 0, lpL: 0, hpR: 0, xR: 0, lpR: 0, dL: 0, dxL: 0, dR: 0, dxR: 0 };
+    // 2026-10-23 (S4) : l'entree et l'integrale de la courbe a l'echantillon d'avant (uL, FL, uR, FR ; fL, fR : FL et
+    // FR a jour), la branche allumee a l'echantillon d'avant (on : au retour, l'ADAA repart de l'entree du moment)
+    this.od = { hpL: 0, xL: 0, lpL: 0, hpR: 0, xR: 0, lpR: 0, dL: 0, dxL: 0, dR: 0, dxR: 0, uL: 0, FL: 0, uR: 0, FR: 0, fL: 0, fR: 0, on: 0 };
     this.odHp = Math.exp((-2 * Math.PI * OD_HP_HZ) / this.sr2);
     this.odLp = 1 - Math.exp((-2 * Math.PI * OD_TONE_HZ) / this.sr2);
     this.odDc = Math.exp((-2 * Math.PI * OD_DC_HZ) / this.sr2);
@@ -1323,17 +1337,70 @@ class MMVoyager extends AudioWorkletProcessor {
       const dA = this.odDc;
       od.hpL = hpA * (od.hpL + sum - od.xL);
       od.xL = sum;
-      od.lpL += (Math.tanh(od.hpL * odGain + OD_BIAS) - OD_TANH_BIAS - od.lpL) * lpA;
+      // La courbe par son integrale (ADAA, 2026-10-23, S4) : au retour de la branche, elle repart de l'entree du moment
+      const uL = od.hpL * odGain;
+      const fresh = od.on === 0;
+      if (fresh) {
+        od.uL = uL;
+        od.fL = 0;
+        od.on = 1;
+      }
+      const duL = uL - od.uL;
+      let yL;
+      if (duL > OD_ADAA_EPS || duL < -OD_ADAA_EPS) {
+        if (od.fL === 0) {
+          const z1 = od.uL + OD_BIAS;
+          const a1 = z1 < 0 ? -z1 : z1;
+          od.FL = a1 + Math.log1p(Math.exp(-2 * a1)) - LN2 - od.uL * OD_TANH_BIAS;
+        }
+        const zL = uL + OD_BIAS;
+        const aL = zL < 0 ? -zL : zL;
+        const FL = aL + Math.log1p(Math.exp(-2 * aL)) - LN2 - uL * OD_TANH_BIAS;
+        yL = (FL - od.FL) / duL;
+        od.FL = FL;
+        od.fL = 1;
+      } else {
+        const mL = 0.5 * (uL + od.uL);
+        yL = mL < OD_LIN_U && mL > -OD_LIN_U ? mL * OD_SECH2 * (1 - mL * OD_TANH_BIAS) : Math.tanh(mL + OD_BIAS) - OD_TANH_BIAS;
+        od.fL = 0;
+      }
+      od.uL = uL;
+      od.lpL += (yL - od.lpL) * lpA;
       od.dL = dA * (od.dL + od.lpL - od.dxL);
       od.dxL = od.lpL;
       sum = (sum + od.dL * odMix) * odTrim;
       od.hpR = hpA * (od.hpR + sumR - od.xR);
       od.xR = sumR;
-      od.lpR += (Math.tanh(od.hpR * odGain + OD_BIAS) - OD_TANH_BIAS - od.lpR) * lpA;
+      const uR = od.hpR * odGain;
+      if (fresh) {
+        od.uR = uR;
+        od.fR = 0;
+      }
+      const duR = uR - od.uR;
+      let yR;
+      if (duR > OD_ADAA_EPS || duR < -OD_ADAA_EPS) {
+        if (od.fR === 0) {
+          const z1 = od.uR + OD_BIAS;
+          const a1 = z1 < 0 ? -z1 : z1;
+          od.FR = a1 + Math.log1p(Math.exp(-2 * a1)) - LN2 - od.uR * OD_TANH_BIAS;
+        }
+        const zR = uR + OD_BIAS;
+        const aR = zR < 0 ? -zR : zR;
+        const FR = aR + Math.log1p(Math.exp(-2 * aR)) - LN2 - uR * OD_TANH_BIAS;
+        yR = (FR - od.FR) / duR;
+        od.FR = FR;
+        od.fR = 1;
+      } else {
+        const mR = 0.5 * (uR + od.uR);
+        yR = mR < OD_LIN_U && mR > -OD_LIN_U ? mR * OD_SECH2 * (1 - mR * OD_TANH_BIAS) : Math.tanh(mR + OD_BIAS) - OD_TANH_BIAS;
+        od.fR = 0;
+      }
+      od.uR = uR;
+      od.lpR += (yR - od.lpR) * lpA;
       od.dR = dA * (od.dR + od.lpR - od.dxR);
       od.dxR = od.lpR;
       sumR = (sumR + od.dR * odMix) * odTrim;
-    }
+    } else this.od.on = 0;
     // Sortie : sans continu (8 Hz, 2026-10-21 : la SYNC, la FM et les saturations en laissaient), puis l'ecreteur doux
     let yl = sum * OUT_GAIN;
     let yr = sumR * OUT_GAIN;
@@ -1450,6 +1517,7 @@ class MMVoyager extends AudioWorkletProcessor {
   restBus() {
     const od = this.od;
     od.hpL = od.xL = od.lpL = od.hpR = od.xR = od.lpR = od.dL = od.dxL = od.dR = od.dxR = 0;
+    od.uL = od.FL = od.uR = od.FR = od.fL = od.fR = od.on = 0;
     const dc = this.dc;
     dc[0] = dc[1] = dc[2] = dc[3] = 0;
     const gl = this.gl;
@@ -1506,6 +1574,8 @@ class MMVoyager extends AudioWorkletProcessor {
     if (od.lpR < TINY && od.lpR > -TINY) od.lpR = 0;
     if (od.dR < TINY && od.dR > -TINY) od.dR = 0;
     if (od.dxR < TINY && od.dxR > -TINY) od.dxR = 0;
+    if (od.uL < TINY && od.uL > -TINY) od.uL = 0;
+    if (od.uR < TINY && od.uR > -TINY) od.uR = 0;
     const dc = this.dc;
     for (let i = 0; i < 4; i += 1) if (dc[i] < TINY && dc[i] > -TINY) dc[i] = 0;
     const gl = this.gl;
