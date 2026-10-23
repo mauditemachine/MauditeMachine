@@ -818,6 +818,12 @@ function rawShape(ph, w, d) {
 const natStep = (w) => (w >= 2 ? 2 : 0);
 /** La largeur de l'impulsion d'un cran (3 carre, 4 impulsion) ; entre les deux, la PWM (2026-10-21). */
 const PULSE_W = 0.14;
+/*
+ * Le triangle (2026-10-23, S9, Mika : "que le son soit d'extreme bonne qualite") : ses deux coins replient (TRI C8 x2 50
+ * dB) ; un polyBLAMP a 2 points, residu (1 - |x|)^3 / 6 a x echantillons du coin, la pente changeant de 8 dt (creux) ou
+ * -8 dt (sommet) par echantillon, dt le pas instantane (FM compris) : OSC 1, OSC 2, SUB et chaque morphing qui passe par
+ * le triangle. Symetrique : pas de continu.
+ */
 const pwOf = (w, f) => (w === 3 ? 0.5 - (0.5 - PULSE_W) * f : w === 4 ? PULSE_W : 0.5);
 
 /**
@@ -2180,6 +2186,23 @@ class MMVoyager extends AudioWorkletProcessor {
               let q = q2 + 0.25;
               if (q >= 1) q -= 1;
               y = 1 - 4 * Math.abs(q - 0.5);
+              // polyBLAMP a 2 points (2026-10-23, S9) : la pente change de 8 dt par echantillon au creux, de -8 dt au sommet
+              const kb = (8 * dt2) / 6;
+              let xb = q / dt2;
+              if (xb < 1) {
+                const ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
+              xb = (1 - q) / dt2;
+              if (xb < 1) {
+                const ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
+              xb = (q - 0.5) / dt2;
+              if (xb > -1 && xb < 1) {
+                const ub = 1 - (xb < 0 ? -xb : xb);
+                y -= kb * ub * ub * ub;
+              }
             } else if (!pwm2 && w === 2) {
               let pb = 0;
               if (q2 < dt2) {
@@ -2351,6 +2374,23 @@ class MMVoyager extends AudioWorkletProcessor {
               let q = p1 + 0.25;
               if (q >= 1) q -= 1;
               y = 1 - 4 * Math.abs(q - 0.5);
+              // polyBLAMP a 2 points (2026-10-23, S9) : la pente change de 8 dt par echantillon au creux, de -8 dt au sommet
+              const kb = (8 * dt1) / 6;
+              let xb = q / dt1;
+              if (xb < 1) {
+                const ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
+              xb = (1 - q) / dt1;
+              if (xb < 1) {
+                const ub = 1 - xb;
+                y += kb * ub * ub * ub;
+              }
+              xb = (q - 0.5) / dt1;
+              if (xb > -1 && xb < 1) {
+                const ub = 1 - (xb < 0 ? -xb : xb);
+                y -= kb * ub * ub * ub;
+              }
             } else if (!pwm1 && w === 2) {
               let pb = 0;
               if (p1 < dt1) {
@@ -2426,6 +2466,23 @@ class MMVoyager extends AudioWorkletProcessor {
             let q = sph + 0.25;
             if (q >= 1) q -= 1;
             sy = 1 - 4 * Math.abs(q - 0.5);
+            // polyBLAMP a 2 points (2026-10-23, S9) : la pente change de 8 dt par echantillon au creux, de -8 dt au sommet
+            const kb = (8 * sdt) / 6;
+            let xb = q / sdt;
+            if (xb < 1) {
+              const ub = 1 - xb;
+              sy += kb * ub * ub * ub;
+            }
+            xb = (1 - q) / sdt;
+            if (xb < 1) {
+              const ub = 1 - xb;
+              sy += kb * ub * ub * ub;
+            }
+            xb = (q - 0.5) / sdt;
+            if (xb > -1 && xb < 1) {
+              const ub = 1 - (xb < 0 ? -xb : xb);
+              sy -= kb * ub * ub * ub;
+            }
           } else if (!false && subW === 2) {
             let pb = 0;
             if (sph < sdt) {
