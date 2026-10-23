@@ -197,6 +197,61 @@ async function sync(ctx, file) {
   return out;
 }
 
+/**
+ * S8 (2026-10-23) : la forme synchronisee contre la scie synchronisee ideale (maitre A2 110 Hz, esclave a +7 et +19
+ * demi-tons, scie, HP 20 Hz) : le plus grand ecart des harmoniques 1 a 30 a la serie de Fourier ideale (les deux a la
+ * meme energie ; les harmoniques a plus de 40 dB sous le plus fort).
+ */
+async function syncwave(ctx, file) {
+  const out = {};
+  for (const os of PATHS) {
+    for (const semi of [7, 19]) {
+      const r = render({ file, os, params: { ...ctx.LAB, fmode: 3, cutoff: 20, osc1: 0, osc2: 0.1, wave1: 2, wave2: 2, tune2: semi, sync: 1 }, notes: [held(45)], seconds: 1.6 });
+      const st = Math.round(0.3 * SR);
+      const N = Math.round(1.0 * SR);
+      const ratio = Math.pow(2, semi / 12);
+      // L'ideal : une periode du maitre echantillonnee finement, ses coefficients de Fourier
+      const M = 1 << 16;
+      const ideal = (k) => {
+        let re = 0;
+        let im = 0;
+        for (let i = 0; i < M; i += 1) {
+          const t = i / M;
+          let ph = ratio * t;
+          ph -= Math.floor(ph);
+          const y = 1 - 2 * ph;
+          re += y * Math.cos(2 * Math.PI * k * t);
+          im += y * Math.sin(2 * Math.PI * k * t);
+        }
+        return Math.hypot(re, im) / M;
+      };
+      // Les deux series ramenees a la meme energie (H1 a H30), puis l'ecart de chaque harmonique a plus de -40 dB
+      const A = [];
+      const B = [];
+      for (let k = 1; k <= 30; k += 1) {
+        A.push(harm(r.L, 110 * k, st, N));
+        B.push(ideal(k));
+      }
+      const ea = Math.sqrt(A.reduce((x, y) => x + y * y, 0));
+      const eb = Math.sqrt(B.reduce((x, y) => x + y * y, 0));
+      const top = Math.max(...B) / eb;
+      let worst = 0;
+      let wk = 0;
+      for (let k = 0; k < 30; k += 1) {
+        if (B[k] / eb < top * 0.01) continue;
+        const d = db(A[k] / ea) - db(B[k] / eb);
+        if (Math.abs(d) > Math.abs(worst)) {
+          worst = d;
+          wk = k + 1;
+        }
+      }
+      out[`s${semi} x${os} worst dB`] = r2(worst);
+      out[`s${semi} x${os} at H`] = wk;
+    }
+  }
+  return out;
+}
+
 /** Le triangle (P2-a) : purete C7 / C8, SUB TRI, morphings ; harmoniques 1 a 19 d'un triangle A2 (dB re H1). */
 async function tri(ctx, file) {
   const out = {};
@@ -846,7 +901,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }

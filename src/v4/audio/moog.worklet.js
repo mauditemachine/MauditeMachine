@@ -645,7 +645,7 @@ const coef = (seconds, sr) => 1 - Math.exp(-1 / Math.max(1, seconds * sr));
  * usage : sans STACK, le hasard du moteur suit la meme suite qu'avant).
  */
 function stackPair(a, b, m, live) {
-  return { a, b, m, q1: NaN, q2: NaN, sb: 0, g: live ? 1 : 0, gt: live ? 1 : 0, off: 0, r: 1, pan1: STACK_PAN1[0], pan2: STACK_PAN1[1], live };
+  return { a, b, m, q1: NaN, q2: NaN, sb: 0, sf: 0, g: live ? 1 : 0, gt: live ? 1 : 0, off: 0, r: 1, pan1: STACK_PAN1[0], pan2: STACK_PAN1[1], live };
 }
 
 class Voice {
@@ -1296,7 +1296,7 @@ class MMVoyager extends AudioWorkletProcessor {
       v.fV = 0;
       const fr = v.fr;
       fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = 0;
-      for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = 0;
+      for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = v.pr[j].sf = 0;
       v.x.fill(0);
     }
     v.g = 0;
@@ -1664,7 +1664,7 @@ class MMVoyager extends AudioWorkletProcessor {
     v.pu = v.s1 = v.s2 = v.s3 = v.s4 = 0;
     const fr = v.fr;
     fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = fr.u = fr.y1 = fr.y2 = fr.y = 0;
-    for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = 0;
+    for (let j = 0; j < v.pr.length; j += 1) v.pr[j].sb = v.pr[j].sf = 0;
     v.x.fill(0);
   }
 
@@ -2168,6 +2168,9 @@ class MMVoyager extends AudioWorkletProcessor {
           // shape, pulse et polyblep ecrites ici (2026-10-23, zero allocation : un appel qui rend un nombre l'alloue) ; la
           // forme (s 0) puis celle vers qui WAVE la fait glisser (s 1)
           let o2 = 0;
+          // S8 : juste apres une remise de SYNC, la correction de la phase 0 est celle de la remise (P.sb), pas la forme
+          const rs = P.sf === 1;
+          P.sf = 0;
           for (let s = 0; s < 2; s += 1) {
             if (s === 1 && !(f2m > 1e-4 && !pwm2)) break;
             const w = i2w + s;
@@ -2180,8 +2183,10 @@ class MMVoyager extends AudioWorkletProcessor {
             } else if (!pwm2 && w === 2) {
               let pb = 0;
               if (q2 < dt2) {
-                const xx = q2 / dt2;
-                pb = xx + xx - xx * xx - 1;
+                if (!rs) {
+                  const xx = q2 / dt2;
+                  pb = xx + xx - xx * xx - 1;
+                }
               } else if (q2 > 1 - dt2) {
                 const xx = (q2 - 1) / dt2;
                 pb = xx * xx + xx + xx + 1;
@@ -2191,8 +2196,10 @@ class MMVoyager extends AudioWorkletProcessor {
               const d = pwm2 ? pwd2 : w === 3 ? 0.5 : PULSE_W;
               y = q2 < d ? 1 : -1;
               if (q2 < dt2) {
-                const xx = q2 / dt2;
-                y += xx + xx - xx * xx - 1;
+                if (!rs) {
+                  const xx = q2 / dt2;
+                  y += xx + xx - xx * xx - 1;
+                }
               } else if (q2 > 1 - dt2) {
                 const xx = (q2 - 1) / dt2;
                 y += xx * xx + xx + xx + 1;
@@ -2217,7 +2224,75 @@ class MMVoyager extends AudioWorkletProcessor {
             o2 += P.sb;
             P.sb = 0;
           }
-          if (sync && P.a + d1 >= 1) {
+          if (sync && P.a + d1 >= 1 && pm === 0) {
+            // La SYNC aux fronts qui se croisent (2026-10-23, S8, Mika : "que le son soit d'extreme bonne qualite") :
+            // la remise a tm = 1 - frac apres cet echantillon ; chaque discontinuite d'OSC 2 dans l'intervalle est un
+            // evenement date : avant tm elle a lieu (sa demi-correction d'avant est deja dans la forme, celle d'apres va
+            // a l'echantillon suivant), apres tm elle n'a jamais lieu (la demi-correction d'avant retiree) ; la marche de
+            // la remise juste en valeur (la forme a la phase 0 moins la forme au moment de la remise, apres les fronts
+            // gardes) ; l'echantillon d'apres ne corrige pas sa phase 0 lui-meme (P.sf). Chaque discontinuite qui a
+            // lieu recoit un PolyBLEP a 2 points a son vrai moment, aucune autre.
+            const frac = (P.a + d1 - 1) / d1;
+            const tm = 1 - frac;
+            let e = q2 + d2 * tm;
+            e -= Math.floor(e);
+            let cNow = 0;
+            let cNext = 0;
+            const passes = pwm2 || !(f2m > 1e-4) ? 1 : 2;
+            for (let pass = 0; pass < passes; pass += 1) {
+              const w = pwm2 ? 3 : i2w + pass;
+              const d = pwm2 ? pwd2 : w === 4 ? PULSE_W : 0.5;
+              let r1;
+              let r0 = 0;
+              let cn = 0;
+              let cx = 0;
+              if (w === 0) r1 = Math.sin(TAU * e);
+              else if (w === 1) {
+                let qb = e + 0.25;
+                if (qb >= 1) qb -= 1;
+                r1 = 1 - 4 * Math.abs(qb - 0.5);
+              } else {
+                r0 = 1;
+                r1 = w === 2 ? 1 - 2 * e : e < d ? 1 : -1;
+                // Le retour de phase d'OSC 2 dans l'intervalle (marche +2)
+                if (q2 > 1 - d2) {
+                  const t = (1 - q2) / d2;
+                  if (t < tm) cx -= t * t;
+                  else {
+                    const u = 1 - t;
+                    cn -= u * u;
+                  }
+                }
+                // Le front de largeur (marche -2)
+                if (w >= 3) {
+                  let t2 = q2 - d;
+                  if (t2 < 0) t2 += 1;
+                  if (t2 > 1 - d2) {
+                    const t = (1 - t2) / d2;
+                    if (t < tm) cx += t * t;
+                    else {
+                      const u = 1 - t;
+                      cn += u * u;
+                    }
+                  }
+                }
+              }
+              const h = r0 - r1;
+              cn += 0.5 * h * frac * frac;
+              cx -= 0.5 * h * tm * tm;
+              if (pass === 0) {
+                cNow = cn;
+                cNext = cx;
+              } else {
+                cNow += (cn - cNow) * f2m;
+                cNext += (cx - cNext) * f2m;
+              }
+            }
+            o2 += cNow;
+            P.sb = cNext;
+            P.sf = 1;
+          } else if (sync && P.a + d1 >= 1) {
+            // Sous FM : le calcul d'avant (2026-10-21)
             const frac = (P.a + d1 - 1) / d1;
             let e = P.b + d2 * (1 - frac);
             e -= Math.floor(e);
