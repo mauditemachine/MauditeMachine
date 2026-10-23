@@ -142,6 +142,34 @@
     "centroidHz": 391,
     "sideDb": -16.4
    },
+   "X SYNC GRID": {
+    "sha256": "e2ebc61f3ce108f8e5c3709426fe7e55",
+    "peakDb": -1.57,
+    "rmsDb": -13.58,
+    "centroidHz": 907,
+    "sideDb": -17.45
+   },
+   "X TRI C8": {
+    "sha256": "f6fb41bc4c21eda60f127812e4ee5fea",
+    "peakDb": -1.48,
+    "rmsDb": -13.77,
+    "centroidHz": 5959,
+    "sideDb": -17.26
+   },
+   "X HIGH RES": {
+    "sha256": "d403c60aee426d7dc338e368be38d3ba",
+    "peakDb": 4.02,
+    "rmsDb": -4.84,
+    "centroidHz": 10804,
+    "sideDb": -15.2
+   },
+   "X OD06 C7": {
+    "sha256": "f8b4e24018b8ea1cc0b5cba9dd3ba18f",
+    "peakDb": -4.63,
+    "rmsDb": -13.78,
+    "centroidHz": 3340,
+    "sideDb": -21.23
+   },
    "LEGACY INIT": {
     "sha256": "ceb1a29967b5f18716a517b57f182acc",
     "peakDb": 1.7,
@@ -391,6 +419,34 @@
     "rmsDb": -14.17,
     "centroidHz": 390,
     "sideDb": -16.21
+   },
+   "X SYNC GRID": {
+    "sha256": "5d78043fc1f82096bf403536b77b424b",
+    "peakDb": -0.83,
+    "rmsDb": -13.54,
+    "centroidHz": 909,
+    "sideDb": -17.32
+   },
+   "X TRI C8": {
+    "sha256": "c8e4109562816b8892683bae41a7cefb",
+    "peakDb": -1.38,
+    "rmsDb": -13.43,
+    "centroidHz": 6000,
+    "sideDb": -17.21
+   },
+   "X HIGH RES": {
+    "sha256": "b4ce41086c7f0116d807ad5de8cb52c0",
+    "peakDb": 6.35,
+    "rmsDb": 0.68,
+    "centroidHz": 13238,
+    "sideDb": -15.45
+   },
+   "X OD06 C7": {
+    "sha256": "9627c4217b5402efe1853b03f0d67933",
+    "peakDb": -4.79,
+    "rmsDb": -13.7,
+    "centroidHz": 3303,
+    "sideDb": -21.17
    },
    "LEGACY INIT": {
     "sha256": "4b5a43729d2adbf71a8e1f1c8eab2274",

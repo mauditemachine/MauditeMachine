@@ -16,7 +16,9 @@
  *   node scripts/arp-bench.mjs --update        reecrit scripts/arp-bench.golden.json
  *   node scripts/arp-bench.mjs --against <moog.worklet.js d'une autre version>
  *        les patchs "legacy" (les reglages ajoutes depuis a leur valeur d'heritage) rendus par les deux moteurs, avec
- *        le meme hasard : identiques au bit pres, ou l'ecart le plus grand
+ *        le meme hasard : identiques au bit pres, ou l'ecart (2026-10-23 : la sonie ponderee K, les bandes de tiers
+ *        d'octave de 40 Hz a 16 kHz, l'ecart le plus grand en dBFS, et le contrat F du controle qualite : 0.2 LU,
+ *        0.3 dB de 40 Hz a 8 kHz, 0.5 dB de 8 a 14 kHz) ; --all-patches : tous les patchs, pas seulement les legacy
  *   node scripts/arp-bench.mjs --browser       le meme rendu dans un OfflineAudioContext de Chromium (Playwright,
  *        PLAYWRIGHT_MODULE et CHROMIUM_PATH comme scripts/midi-reference.mjs) : la parite Node / navigateur
  *   node scripts/arp-bench.mjs --cpu           le calcul par bloc de 1 a 12 voix tenues (temps CPU, JIT chaud)
@@ -37,6 +39,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loudness, thirdBands, THIRDS } from './arp-quality/ana.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'scripts/output/arp-bench');
@@ -252,6 +255,17 @@ function patches(M) {
   // Le vrai relachement (message noteOff, 2026-10-22) : un accord tenu sans fin, relache note a note (a une heure dite,
   // tout de suite), et une note dont le relachement arrive avant son depart
   if (has('stack')) list.push({ name: 'X HELD NOTE OFF', knobs: { ...defaults }, prog: [0], held: true });
+  // Les cas du controle qualite (2026-10-23, Mika : "Pourrais-tu controler ARP pour que le son soit d'extreme bonne
+  // qualite ?!") : la SYNC sur les rapports justes (OSC 2 a 0, +12, +19, +24, une mesure chacun, le FINE de depart), le
+  // triangle en C8, la resonance a fond coupure au maximum sur des notes tenues (le sifflement du telephone), OVERDRIVE
+  // 0.6 en C7
+  const sem = (range, semi) => ({ range2: range / 5, semi2: (semi + 7) / 14 });
+  if (has('stack')) {
+    list.push({ name: 'X SYNC GRID', knobs: { ...defaults, sync: 1, ...sem(3, 0) }, prog: [0, 1, 2, 0], knobTimeline: [[1, sem(4, 0)], [2, sem(4, 7)], [3, sem(5, 0)]] });
+    list.push({ name: 'X TRI C8', knobs: { ...defaults, wave1: 0.2, wave2: 0.25, octave: 1, range1: 1, range2: 1, cutoff: 1, envAmt: 0, res: 0 }, prog: [0, 1, 2, 0] });
+    list.push({ name: 'X HIGH RES', knobs: { ...defaults, res: 1, cutoff: 1, envAmt: 0 }, prog: [0], heldChord: true });
+    list.push({ name: 'X OD06 C7', knobs: { ...defaults, dist: 0.6, octave: 0.75, range1: 1, range2: 0.8, cutoff: 1, envAmt: 0 }, prog: [0, 1, 2, 0] });
+  }
   // Les memes patchs avec les reglages ajoutes a leur valeur d'heritage : le son d'avant (--against)
   const legacy = list.filter((p) => !p.name.startsWith('X ')).map((p) => ({ name: `LEGACY ${p.name}`, knobs: legacyOf(M, p.knobs), prog: p.prog, legacy: true }));
   return [...list, ...legacy];
@@ -393,10 +407,19 @@ function heldNotes() {
   };
 }
 
+/** X HIGH RES (2026-10-23) : un accord tenu 3 s (la resonance a fond, coupure au maximum). */
+function heldChord() {
+  const n = (midi) => ({ midi, time: 0.05, gate: 3, accent: 1, from: null });
+  return { notes: [n(54), n(61), n(66)], timeline: [], beats: [], seconds: 3.6 };
+}
+
 function engineOpts(M, p, extra = {}) {
   const [bpm, swing] = STYLE[p.name.replace(/^LEGACY /, '')] ?? STYLE.INIT;
-  const held = p.held ? heldNotes() : null;
+  const held = p.held ? heldNotes() : p.heldChord ? heldChord() : null;
   const { notes, beats, seconds } = held ?? arpNotes(M, p.knobs, p.prog, BARS, bpm, swing, SEED);
+  // Des potards changes en cours de rendu (X SYNC GRID) : [mesure, potards], au debut de la mesure
+  const kt = (p.knobTimeline ?? []).map(([bar, k]) => ({ at: 0.05 + (bar * 16 * 60) / bpm / 4 - 0.001, msg: { type: 'params', params: M.params.engineParams({ ...p.knobs, ...k }) } }));
+  if (kt.length) Object.assign(extra, { timeline: kt });
   // outLevel : le gain de VOLUME apres le moteur, pour son ecreteur de sortie (audio/synth.ts volGain : VOLUME au carre x
   // 0.66, DELAY et REVERB repris)
   const k = p.knobs;
@@ -445,8 +468,42 @@ async function browserRender(page, src, opts, seconds) {
   return { L: f.slice(0, n), R: f.slice(n) };
 }
 
-/** L'ecart entre deux rendus : la part d'echantillons identiques, le plus grand ecart (et en dB). */
-function diff(a, b) {
+/**
+ * L'ecart entre deux rendus : la part d'echantillons identiques, le plus grand ecart (et en dB) ; 2026-10-23 : la sonie
+ * ponderee K (sans porte) et les bandes de tiers d'octave (40 Hz a 16 kHz, celles a moins de 80 dB sous la plus forte),
+ * le contrat F du controle qualite (0.2 LU ; 0.3 dB de 40 Hz a 8 kHz ; 0.5 dB de 8 a 14 kHz).
+ */
+function diff(a, b, spectral = false) {
+  const base = diffSamples(a, b);
+  if (!spectral || base.maxAbsDiff === 0) return { ...base, sameSha: base.maxAbsDiff === 0 };
+  const st = Math.round(0.05 * SR);
+  const lu = loudness(a.L, a.R, st) - loudness(b.L, b.R, st);
+  const ba = thirdBands(a.L, a.R, st);
+  const bb = thirdBands(b.L, b.R, st);
+  const top = Math.max(...bb);
+  let low = 0;
+  let mid = 0;
+  let high = 0;
+  let worstF = 0;
+  let worstD = 0;
+  for (let i = 0; i < THIRDS.length; i += 1) {
+    if (bb[i] < top - 80) continue;
+    const d = ba[i] - bb[i];
+    const f = THIRDS[i];
+    if (f <= 8000 && Math.abs(d) > Math.abs(low)) low = d;
+    else if (f > 8000 && f <= 14000 && Math.abs(d) > Math.abs(mid)) mid = d;
+    else if (f > 14000 && Math.abs(d) > Math.abs(high)) high = d;
+    if (Math.abs(d) > Math.abs(worstD)) {
+      worstD = d;
+      worstF = f;
+    }
+  }
+  const okF = Math.abs(lu) <= 0.2 && Math.abs(low) <= 0.3 && Math.abs(mid) <= 0.5;
+  return { ...base, sameSha: false, lu: r2(lu), band40to8k: r2(low), band8to14k: r2(mid), band14to16k: r2(high), worstBandHz: worstF, worstBandDb: r2(worstD), contractF: okF };
+}
+
+/** L'ecart echantillon par echantillon. */
+function diffSamples(a, b) {
   const n = Math.min(a.L.length, b.L.length);
   let same = 0;
   let max = 0;
@@ -504,7 +561,7 @@ async function main() {
   await mkdir(dir, { recursive: true });
   let list = patches(M);
   if (ONLY.length) list = list.filter((p) => ONLY.includes(p.name) || ONLY.includes(p.name.replace(/^LEGACY /, '')));
-  if (Other) list = list.filter((p) => p.legacy);
+  if (Other && !flag('--all-patches')) list = list.filter((p) => p.legacy);
   const res = {};
   let pw = null;
   let browser = null;
@@ -532,11 +589,13 @@ async function main() {
       const { opts, seconds } = engineOpts(M, p);
       const r = render(Proc, opts, seconds);
       const m = { ...metrics(r.L, r.R), maxVoices: r.maxVoices, cpuUsPerBlock: Math.round(r.cpuUsPerBlock) };
-      if (Other) m.against = diff(r, render(Other, opts, seconds));
+      if (Other) m.against = diff(r, render(Other, opts, seconds), true);
       if (page) m.browser = diff(r, await browserRender(page, src, opts, seconds));
       res[p.name] = m;
       if (!NO_WAV) await writeWav(path.join(dir, `${fileName(p.name)}.wav`), r.L, r.R);
-      const extra = [m.against ? `against ${m.against.identicalPct}% identiques, ecart max ${m.against.maxAbsDiff}` : '', m.browser ? `navigateur ${m.browser.identicalPct}% identiques, ecart max ${m.browser.maxAbsDiff}${m.browser.maxDiffDb !== null ? ` (${m.browser.maxDiffDb} dB)` : ''}` : ''].filter(Boolean).join(' ; ');
+      const ag = m.against;
+      const agTxt = !ag ? '' : ag.sameSha ? 'against identique au bit pres' : `against ${ag.identicalPct}% identiques, ecart max ${ag.maxDiffDb} dBFS, sonie ${ag.lu} LU, bandes ${ag.band40to8k} / ${ag.band8to14k} / ${ag.band14to16k} dB (pire ${ag.worstBandDb} a ${ag.worstBandHz} Hz), contrat F ${ag.contractF ? 'tenu' : 'NON TENU'}`;
+      const extra = [agTxt, m.browser ? `navigateur ${m.browser.identicalPct}% identiques, ecart max ${m.browser.maxAbsDiff}${m.browser.maxDiffDb !== null ? ` (${m.browser.maxDiffDb} dB)` : ''}` : ''].filter(Boolean).join(' ; ');
       console.log(`${p.name.padEnd(22)} crete ${String(m.peakDb).padStart(6)} dB  efficace ${String(m.rmsDb).padStart(6)} dB  centroide ${String(m.centroidHz).padStart(5)} Hz  cote ${String(m.sideDb).padStart(6)} dB  ${m.cpuUsPerBlock} us${extra ? '  ' + extra : ''}`);
     }
   } finally {
@@ -579,7 +638,8 @@ async function main() {
   }
   if (Other) {
     const off = Object.entries(res).filter(([, m]) => m.against.maxAbsDiff !== 0);
-    console.log(off.length ? `\n${off.length} patch(s) different de ${AGAINST}` : `\nidentiques au bit pres a ${AGAINST}`);
+    const broke = off.filter(([, m]) => !m.against.contractF);
+    console.log(off.length ? `\n${off.length} patch(s) different de ${AGAINST} ; contrat F tenu par ${off.length - broke.length}${broke.length ? `, PAS par ${broke.map(([n]) => n).join(', ')}` : ''}` : `\nidentiques au bit pres a ${AGAINST}`);
     if (off.length) process.exitCode = 1;
   }
 }
