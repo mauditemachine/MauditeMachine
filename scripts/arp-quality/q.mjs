@@ -311,6 +311,8 @@ async function resp(ctx, file) {
 async function pclick(ctx, file) {
   const out = {};
   const key = opt('--key', 'drive');
+  // 2026-10-23 (S11) : des reglages de base en plus (--base '{"res":0.8}')
+  const extraBase = JSON.parse(opt('--base', '{}'));
   const a = Number(opt('--from', 0));
   const b = Number(opt('--to', 0.5));
   const t1 = 0.6;
@@ -318,7 +320,7 @@ async function pclick(ctx, file) {
   for (const os of PATHS) {
     for (const [lbl, base] of [['saw C3', { wave1: 2, osc1: 0.62 }], ['saw C5', { wave1: 2, osc1: 0.62, keyTrack: 0 }], ['2x0.88 C3', { wave1: 2, osc1: 0.88, osc2: 0.88, wave2: 2 }]]) {
       const midi = lbl.includes('C5') ? 72 : 48;
-      const params = { ...ctx.DEF, ...base, cutoff: 6000, envOct: 0, aS: 1, fS: 1, drift: 0, glue: 0, outLevel: 0.3 };
+      const params = { ...ctx.DEF, ...base, cutoff: 6000, envOct: 0, aS: 1, fS: 1, drift: 0, glue: 0, outLevel: 0.3, ...extraBase };
       const notes = [held(midi, 3, 0.05)];
       const ev = render({ file, os, params: { ...params, [key]: a }, notes, seconds: 1.8, timeline: [
         { at: t1, msg: { type: 'params', params: { [key]: b } } },
@@ -392,6 +394,8 @@ async function silence(ctx, file) {
     // recoit plus que des zeros (le passe-bas d'avant le filtre, S3, et l'echelle) ne doit pas descendre dans les
     // sous-normaux
     { name: 'X HELD SOURCE OFF', params: { ...ctx.DEF, aS: 1, fS: 1, outLevel: 0.25 }, notes: [held(54, 20, 0.05)], timeline: [{ at: 0.5, msg: { type: 'params', params: { osc1: 0, osc2: 0, sub: 0, noise: 0 } } }], seconds: 14 },
+    // Le MS-10 (S11) : resonance a fond, WIDE
+    { name: 'X MS10 RES1 WIDE', params: { ...ctx.DEF, fmode: 4, res: 1, wide: 1, outLevel: 0.25 } },
     ...(ctx.extraSilence ?? []),
   ];
   let subTot = 0;
@@ -712,6 +716,145 @@ async function c3c5(ctx, file) {
   return out;
 }
 
+/**
+ * S11 (2026-10-23) : le MODE MS-10 (fmode 4) contre son plan : bosses (C6, toucher contre MOOG), 60 Hz, pente, depart
+ * de l'auto-oscillation (C7), son niveau et sa hauteur (C8, C9), H2 / H3 / crete (C10), le grain par defaut (sinus de
+ * 200 Hz a 0.62, H3), la compression de la bosse (C11), l'ecart de hauteur des notes sous DRIFT 5 (B7), la sonie
+ * d'INIT contre MOOG, le continu (Q5). --quick : moins de points.
+ */
+async function ms10(ctx, file) {
+  const out = {};
+  // Le genou des diodes du moteur mesure (C11 : les niveaux en unites de genou)
+  const src = (await import('node:fs')).readFileSync(file, 'utf8');
+  const knee = Number((src.match(/const K35_KNEE = ([0-9.]+)/) ?? [0, 1.6])[1]);
+  const kapRes = (kap) => {
+    const A = [0, 0.3, 0.5, 0.7, 0.8, 0.85, 0.9, 1.0];
+    const K = [0, 0.5, 0.72, 0.86, 0.935, 0.965, 1.0, 1.15];
+    for (let i = 1; i < A.length; i += 1) if (kap <= K[i]) return A[i - 1] + ((A[i] - A[i - 1]) * (kap - K[i - 1])) / (K[i] - K[i - 1]);
+    return 1;
+  };
+  for (const os of PATHS) {
+    const fc = 1000;
+    const freqs = [60, ...Array.from({ length: 35 }, (_, i) => fc * Math.pow(2, (i - 24) / 24))];
+    const g0 = probeGains(ctx, file, os, { cutoff: fc, res: 0, fmode: 4 }, freqs);
+    const resL = QUICK ? [0.5, 0.7, 0.8] : [0.3, 0.5, 0.7, 0.8, 0.85];
+    const kaps = [0.75, 0.9, 0.95];
+    for (const [lbl, res] of [...resL.map((r) => [`RES ${r}`, r]), ...kaps.map((k) => [`kappa ${k}`, kapRes(k)])]) {
+      const g = probeGains(ctx, file, os, { cutoff: fc, res, fmode: 4 }, freqs);
+      let pk = 0;
+      for (let i = 1; i < g.length; i += 1) pk = Math.max(pk, g[i]);
+      out[`${lbl} x${os} peak over passband dB`] = r1(db(pk / g[0]));
+      out[`${lbl} x${os} 60Hz re RES0 dB`] = r2(db(g[0] / g0[0]));
+      if (lbl.startsWith('RES') && os === PATHS[0]) {
+        const gm = probeGains(ctx, file, os, { cutoff: fc, res, fmode: 0 }, freqs);
+        let pm = 0;
+        for (let i = 1; i < gm.length; i += 1) pm = Math.max(pm, gm[i]);
+        out[`${lbl} x${os} MOOG peak dB`] = r1(db(pm / gm[0]));
+      }
+    }
+    // La pente : de 4 fc a 8 fc, RES 0 (a RES 0 le second pole est a 2.3 fc)
+    const sl = probeGains(ctx, file, os, { cutoff: fc, res: 0, fmode: 4 }, [4 * fc, 8 * fc]);
+    out[`slope 4-8 fc x${os} dB/oct`] = r2(db(sl[1] / sl[0]));
+    // Le depart de l'auto-oscillation (graine NOISE, 1 kHz)
+    let onset = null;
+    for (let r = 0.86; r <= 0.95; r += 0.005) {
+      const a = render({ file, os, params: { ...ctx.LAB, noise: 0.003, res: r, cutoff: 1000, fmode: 4 }, notes: [held(54)], seconds: 3 });
+      const pk = peakFreq(a.L, { start: Math.round(2 * SR), n: 32768 });
+      if (db(pk.amp) > -40) {
+        onset = r;
+        break;
+      }
+    }
+    out[`self-osc onset x${os} RES`] = onset === null ? 'n/a' : r2(onset);
+    // L'auto-oscillation a RES 1 : niveau, hauteur, H2, H3, crete
+    for (const f of QUICK ? [250, 1000, 4000, 8000] : [100, 250, 1000, 4000, 8000, 12000]) {
+      const secs = f < 300 ? 9 : f < 1500 ? 5 : 3;
+      const a = render({ file, os, params: { ...ctx.LAB, noise: 0.003, res: 1, cutoff: f, fmode: 4 }, notes: [held(54, 20)], seconds: secs });
+      const st = Math.round((secs - 1.2) * SR);
+      const N = Math.round(1.1 * SR);
+      let fz = zcFreq(a.L, st, N);
+      const pk = peakFreq(a.L, { start: st, n: 32768 });
+      if (!(fz > 0) || Math.abs(cents(fz, pk.f)) > 30) fz = pk.f;
+      const h1 = harm(a.L, fz, st, N);
+      out[`r1 f${f} x${os} cents`] = r1(cents(fz, f));
+      out[`r1 f${f} x${os} dBFS`] = r1(db(h1));
+      if (f === 1000) {
+        out[`r1 f${f} x${os} H2 dBc`] = r1(db(harm(a.L, 2 * fz, st, N)) - db(h1));
+        out[`r1 f${f} x${os} H3 dBc`] = r1(db(harm(a.L, 3 * fz, st, N)) - db(h1));
+        const S = stats(a.L, st, st + N);
+        out[`r1 f${f} x${os} crest dB`] = r2(db(S.peak / S.rms));
+      }
+    }
+    // Le grain par defaut : un sinus de 200 Hz a 0.62, filtre ouvert, RES 0
+    {
+      const a = render({ file, os, params: { ...ctx.LAB, wave1: 0, osc1: 0.62, cutoff: 21600, res: 0, fmode: 4 }, notes: [held(hzMidi(200))], seconds: 1.2 });
+      const st = Math.round(0.3 * SR);
+      const N = Math.round(0.8 * SR);
+      const h1 = harm(a.L, 200, st, N);
+      out[`sine200 0.62 x${os} H3 dBc`] = r1(db(harm(a.L, 600, st, N)) - db(h1));
+      out[`sine200 0.62 x${os} H2 dBc`] = r1(db(harm(a.L, 400, st, N)) - db(h1));
+      const m = render({ file, os, params: { ...ctx.LAB, wave1: 0, osc1: 0.62, cutoff: 21600, res: 0, fmode: 0 }, notes: [held(hzMidi(200))], seconds: 1.2 });
+      out[`sine200 0.62 x${os} MOOG H3 dBc`] = r1(db(harm(m.L, 600, st, N)) - db(harm(m.L, 200, st, N)));
+    }
+    // C11 : la bosse a kappa 0.86 contre le niveau (0.3 genou puis +12 dB) ; 60 Hz a kappa 0.95 contre RES 0, au meme
+    // niveau, a chaque niveau
+    {
+      const lv = [];
+      for (const amp of [0.3 * knee, 1.2 * knee]) lv.push(probeGains(ctx, file, os, { cutoff: fc, res: kapRes(0.86), fmode: 4, osc1: amp }, [60, fc]));
+      out[`C11 kappa 0.86 x${os} prominence change dB (+12 dB in)`] = r1(db(lv[1][1] / lv[1][0]) - db(lv[0][1] / lv[0][0]));
+      let worst = 0;
+      for (const amp of [0.1 * knee, 0.3 * knee, 1.2 * knee, 4 * knee]) {
+        const a = probeGains(ctx, file, os, { cutoff: fc, res: kapRes(0.95), fmode: 4, osc1: amp }, [60])[0];
+        const b = probeGains(ctx, file, os, { cutoff: fc, res: 0, fmode: 4, osc1: amp }, [60])[0];
+        if (Math.abs(db(a / b)) > Math.abs(worst)) worst = db(a / b);
+      }
+      out[`C11 kappa 0.95 x${os} 60Hz re RES0 worst over levels dB`] = r2(worst);
+    }
+    // Q1 du MS-10 : scie C7 RES 0.8 (coupure 5 kHz), auto-oscillation (RES 1, graine NOISE) a 1, 4, 8 et 12 kHz
+    {
+      const a = render({ file, os, params: { ...ctx.LAB, wave1: 2, osc1: 0.62, res: 0.8, cutoff: 5000, fmode: 4 }, notes: [held(96)], seconds: 1.6 });
+      out[`Q1 saw C7 RES0.8 x${os} purity`] = r1(harmonicSplit(a.L, [midiHz(96)]).purity);
+      for (const f of [1000, 4000, 8000, 12000]) {
+        const b = render({ file, os, params: { ...ctx.LAB, noise: 0.003, res: 1, cutoff: f, fmode: 4 }, notes: [held(54, 20)], seconds: 3 });
+        const pk = peakFreq(b.L, { start: Math.round(1.5 * SR), n: 65536 });
+        out[`Q1 self-osc ${f} x${os} purity`] = r1(harmonicSplit(b.L, [pk.f], { start: Math.round(1.4 * SR) }).purity);
+      }
+    }
+    // INIT contre MOOG : une mesure de doubles croches (DEF), sonie ponderee K
+    {
+      const step = 60 / 130 / 4;
+      const notes = Array.from({ length: 32 }, (_, k) => ({ midi: 54 + ((k * 7) % 12), time: 0.05 + k * step, gate: 0.5 * step, accent: [1, 0.8, 0.92, 1.12][k % 4], from: null }));
+      const a = render({ file, os, params: { ...ctx.DEF, fmode: 4, outLevel: 0.25 }, notes, seconds: 0.05 + 32 * step + 0.3 });
+      const m = render({ file, os, params: { ...ctx.DEF, fmode: 0, outLevel: 0.25 }, notes, seconds: 0.05 + 32 * step + 0.3 });
+      out[`INIT x${os} MS-10 re MOOG LU`] = r2(loudness(a.L, a.R) - loudness(m.L, m.R));
+      let mx = 0;
+      for (let s0 = 0; s0 + SR <= a.L.length; s0 += SR / 4) mx = Math.max(mx, Math.abs(stats(a.L, s0, s0 + SR).mean));
+      out[`INIT x${os} MS-10 worst 1 s mean`] = Number(mx.toExponential(2));
+      let mm = 0;
+      for (let s0 = 0; s0 + SR <= m.L.length; s0 += SR / 4) mm = Math.max(mm, Math.abs(stats(m.L, s0, s0 + SR).mean));
+      out[`INIT x${os} MOOG worst 1 s mean`] = Number(mm.toExponential(2));
+    }
+    // B7 : DRIFT 5 a l'ecran (le defaut, drift 1 au moteur), RES 0.95, 32 notes de suite (keyTrack 0) : l'ecart type de
+    // la hauteur de l'oscillation
+    for (const fm of [4, 0]) {
+      const cs = [];
+      const n = QUICK ? 12 : 32;
+      const dur = 0.9;
+      const notes = Array.from({ length: n }, (_, k) => ({ midi: 60, time: 0.05 + k * dur, gate: dur - 0.05, accent: 1, from: null }));
+      const a = render({ file, os, params: { ...ctx.LAB, noise: 0.01, res: 0.95, cutoff: 1000, drift: 1, fmode: fm, keyTrack: 0 }, notes, seconds: 0.05 + n * dur + 0.1 });
+      for (let k = 0; k < n; k += 1) {
+        const st = Math.round((0.05 + k * dur + 0.45) * SR);
+        const f = zcFreq(a.L, st, Math.round(0.35 * SR));
+        if (f > 0) cs.push(cents(f, 1000));
+      }
+      const mean = cs.reduce((x, y) => x + y, 0) / cs.length;
+      const sd = Math.sqrt(cs.reduce((x, y) => x + (y - mean) * (y - mean), 0) / cs.length);
+      out[`B7 ${fm === 4 ? 'MS-10' : 'MOOG'} x${os} pitch spread cents rms`] = r1(sd);
+    }
+  }
+  return out;
+}
+
 /** C18 : le fondamental le long de WAVE 1 (sinus -> impulsion), A2, filtre ouvert, petit niveau. */
 async function c18(ctx, file) {
   const out = {};
@@ -901,7 +1044,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }

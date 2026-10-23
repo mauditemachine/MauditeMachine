@@ -532,6 +532,55 @@ const LC_G0 = 0.08;
 const LC_GW = 0.1;
 const LC_K0 = 3.8;
 const LC_KW = 0.15;
+/**
+ * MODE MS-10 (2026-10-23, S11, Mika : "entre Monark et un synth analog Moog Voyager et un Korg MS10") : le passe-bas
+ * Korg35 du MS-10, un Sallen-Key a 12 dB dont les graves ne tombent pas avec la resonance, dont la bosse passe au-dessus
+ * de la bande passante, et dont les deux diodes 1N4148 tete-beche du chemin direct (gain 58.4) compriment tout ce qui
+ * passe et ecretent la resonance en cri (Stinchcombe 2006). Valeurs du MS-10 : C1 = 3 C2, denominateur normalise
+ * s^2 + (7/3 - K) s + 1, auto-oscillation a K = 7/3, retroaction au bas de C1 (pas de retroaction au continu) :
+ *   VA = K d(b) - c ;  dc/dt = w ((4/3) VA - x - b / 3) ;  db/dt = w (VA - b) ;  y = d(b)
+ * Les diodes : Z + 0.030 sinh Z = X (k1 - 1) / k1, F(X) = X / k1 + Z, normalisee par F'(0) = 0.9714, en table
+ * (Newton, une fois : K35_N + 1 points sur [0, K35_XMAX], interpolation lineaire, symetrie impaire, queue lineaire) ;
+ * d(b) = lam F(b / lam), lam = K35_KNEE / 11.1 (le genou en unites du moteur). Integrateurs trapezoidaux (TPT), g
+ * prechauffe, la diode lineairisee par sa secante a l'origine (extrapolee de l'echantillon d'avant, puis reprise au
+ * point au-dessus de la porte comme S6) ; la coupure depend un peu du signe de la sortie (K35_ALPHA : l'asymetrie de
+ * Stinchcombe, les harmoniques paires).
+ */
+const K35_K1 = 58.4;
+const K35_N = 8192;
+const K35_XMAX = 256;
+const K35_INV = K35_N / K35_XMAX;
+const K35_T = new Float64Array(K35_N + 1);
+{
+  const f0 = (K35_K1 + 0.03) / (1.03 * K35_K1);
+  for (let i = 0; i <= K35_N; i += 1) {
+    const xx = i / K35_INV;
+    const r = (xx * (K35_K1 - 1)) / K35_K1;
+    let z = r < 1 ? r / 1.03 : Math.asinh(r / 0.03);
+    for (let it = 0; it < 60; it += 1) z -= (z + 0.03 * Math.sinh(z) - r) / (1 + 0.03 * Math.cosh(z));
+    K35_T[i] = (xx / K35_K1 + z) / f0;
+  }
+}
+const K35_TEND = K35_T[K35_N];
+const K35_SLOPE = (K35_T[K35_N] - K35_T[K35_N - 1]) * K35_INV;
+/** La secante d(x) / x en table (la meme grille ; 1 a l'origine) : une interpolation au lieu d'une division. */
+const K35_S = new Float64Array(K35_N + 1);
+K35_S[0] = 1;
+for (let i = 1; i <= K35_N; i += 1) K35_S[i] = (K35_T[i] * K35_INV) / i;
+/** Le genou des diodes en niveau du moteur : un sinus de 200 Hz a 0.62, filtre ouvert, RES 0, sort a H3 -30 dBc. */
+const K35_KNEE = 1.6;
+const K35_LAM = K35_KNEE / 11.1;
+const K35_ILAM = 1 / K35_LAM;
+const K35_ALPHA = 0.035;
+/** RES -> kappa (K / (7/3)) : les bosses de MOOG au meme RES, l'auto-oscillation a RES 0.9, jusqu'a 1.15 a RES 1. */
+const MS_RES_AT = [0, 0.3, 0.5, 0.7, 0.8, 0.85, 0.9, 1.0];
+const MS_KAPPA = [0, 0.5, 0.72, 0.86, 0.935, 0.965, 1.0, 1.15];
+/** La hauteur du depassement borne par les diodes : la coupure monte de C35 (kappa - 1)^2 cents au-dessus de 1. */
+const C35 = 630;
+/** Le niveau du MS-10 contre MOOG (INIT a 1 LU pres) ; la coupure bornee a 16 kHz (x4) et 13 kHz (x2) : le MS-10 finit vers 12 kHz. */
+const MS_GAIN = 0.75;
+const MS_FC_MAX4 = 16000;
+const MS_FC_MAX2 = 13000;
 /** Sous ce niveau d'enveloppe, une voix reprise peut repartir de la phase de PHASE sans clic. */
 const PHASE_QUIET = 0.02;
 /** Gain de sortie (1.5 avant le filtre a etages satures : recale au meme niveau, mesure hors ligne). */
@@ -695,6 +744,7 @@ class Voice {
     this.quick = false;
     // Les petits ecarts de la note (noteOn) : coupure, enveloppes, accord, place stereo
     this.vCut = 1;
+    this.vCutE = 0;
     this.vEnv = 1;
     this.vTune = 0;
     // La place stereo : ou elle va (tL, tR) et ou elle en est (gL, gR, lissee : une voix volee ne saute pas)
@@ -892,7 +942,7 @@ const P_RANGE = {
   glue: [0, 1.5],
 };
 /** Les codes (entiers) : MODE (0 MOOG, 1 LP12, 2 BP, 3 HP), forme et cible du LFO, SYNC, octave et forme du SUB. */
-const P_INT = { fmode: [0, 3], lfoShape: [0, 4], lfoDest: [0, 4], sync: [0, 1], subOct: [1, 2], subWave: [0, 3] };
+const P_INT = { fmode: [0, 4], lfoShape: [0, 4], lfoDest: [0, 4], sync: [0, 1], subOct: [1, 2], subWave: [0, 3] };
 /**
  * La garde d'une voix (2026-10-23) : une sortie de filtre hors de +/-VOICE_GUARD (jamais atteint par un son legal : HP
  * a fond d'OVERDRIVE, toutes les sources au maximum, reste sous 30) remet la voix au repos, sans bruit.
@@ -931,6 +981,19 @@ const VX_TVL = 10;
 const VX_TZR = 11;
 const VX_TFR = 12;
 const VX_TVR = 13;
+/** MS-10 (S11) : gauche KC, KB, KP, KQ, KY ; droite de meme ; K35 tourne (KON) ; son g (G35). */
+const VX_KCL = 16;
+const VX_KBL = 17;
+const VX_KPL = 18;
+const VX_KQL = 19;
+const VX_KYL = 20;
+const VX_KCR = 21;
+const VX_KBR = 22;
+const VX_KPR = 23;
+const VX_KQR = 24;
+const VX_KYR = 25;
+const VX_KON = 26;
+const VX_G35 = 27;
 const VX_SIZE = 32;
 /**
  * La saturation de sortie des voix sans repliement (2026-10-23, S5, Mika : "que le son soit d'extreme bonne
@@ -1029,7 +1092,8 @@ class MMVoyager extends AudioWorkletProcessor {
     // Une note a gauche, la suivante a droite
     this.flip = false;
     // MODE du filtre : le poids de chaque sortie (LP 24, LP 12, BP, HP), en fondu
-    this.wm = [1, 0, 0, 0];
+    // MODE : MOOG, LP12, BP, HP, MS-10 (code 4, S11 ; les codes 0 a 3 inchanges pour le banc et le plugin)
+    this.wm = [1, 0, 0, 0, 0];
     // MOD : la sortie adoucie du LFO (sa phase vient du transport, plus bas)
     this.lfoOut = 0;
     this.lfoK = coef(0.002, this.sr2);
@@ -1087,7 +1151,7 @@ class MMVoyager extends AudioWorkletProcessor {
     this.c = {};
     if (o.params) this.setParams(o.params);
     // Le filtre part sur le MODE demande (2026-10-23 : avant, du MOOG en fondu de 15 ms)
-    for (let m = 0; m < 4; m += 1) this.wm[m] = m === this.p.fmode ? 1 : 0;
+    for (let m = 0; m < 5; m += 1) this.wm[m] = m === this.p.fmode ? 1 : 0;
     // Les remises au repos de la garde (une voix, le bus) depuis la creation (tests)
     this.heals = 0;
     Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive, wide: this.p.wide });
@@ -1350,7 +1414,10 @@ class MMVoyager extends AudioWorkletProcessor {
     // Presque analogique (DRIFT) : chaque note a ses petits ecarts, et sa place dans l'image (WIDTH)
     const dr = p.drift;
     const rnd = this.rnd;
-    v.vCut = Math.pow(2, (rnd() - 0.5) * 0.08 * dr);
+    // L'exposant de l'ecart de coupure garde (S11, B7 : le MS-10 le reduit pres de l'auto-oscillation), le meme tirage
+    const vce = (rnd() - 0.5) * 0.08 * dr;
+    v.vCutE = vce;
+    v.vCut = Math.pow(2, vce);
     v.vEnv = 1 + (rnd() - 0.5) * 0.1 * dr;
     v.vTune = (rnd() - 0.5) * 3 * dr;
     this.flip = !this.flip;
@@ -1847,6 +1914,8 @@ class MMVoyager extends AudioWorkletProcessor {
     const K = this.smK;
     // La coupure du filtre reste sous la bande utile du contexte
     const nyq = sampleRate * 0.45;
+    // MS-10 (S11) : sa coupure la plus haute
+    const fcMax35 = Math.min(nyq, this.os === 4 ? MS_FC_MAX4 : MS_FC_MAX2);
     const OS = this.os;
     if (this.raw.length < OS * N) {
       this.raw = new Float32Array(OS * N);
@@ -1985,7 +2054,7 @@ class MMVoyager extends AudioWorkletProcessor {
       const newNoise = i2 % OS === 0;
       // MODE du filtre : chaque sortie glisse vers son poids (1 pour le mode choisi)
       const wm = this.wm;
-      for (let m = 0; m < 4; m += 1) wm[m] += ((m === p.fmode ? 1 : 0) - wm[m]) * K;
+      for (let m = 0; m < 5; m += 1) wm[m] += ((m === p.fmode ? 1 : 0) - wm[m]) * K;
       // WAVE : la position de chaque morphing (lissee, poussee par MOD), la forme de depart et la part de la suivante
       sm.w1 += (p.wave1 - sm.w1) * K;
       sm.w2 += (p.wave2 - sm.w2) * K;
@@ -2077,6 +2146,29 @@ class MMVoyager extends AudioWorkletProcessor {
       const w1 = wm[1] > 1e-4 ? (wm[1] * keep) / (1 + k * SLOPE12_RES) : 0;
       const w2 = wm[2] > 1e-4 ? (wm[2] * 2 * BP_GAIN) / (1 + k * BP_RES) : 0;
       const w3 = wm[3] > 1e-4 ? (wm[3] * HP_GAIN) / (1 + k * HP_RES) : 0;
+      // MS-10 (S11) : son poids, kappa (la table de RES), K, le depassement, la reduction des ecarts (B7) ; l'echelle
+      // ne tourne pas quand ses quatre poids sont nuls (ses etats remis a 0 une fois)
+      const w4 = wm[4] > 1e-4 ? wm[4] * MS_GAIN : 0;
+      const ladOn = w0 !== 0 || w1 !== 0 || w2 !== 0 || w3 !== 0;
+      let kap = 0;
+      let c35o = 0;
+      let sB7 = 1;
+      if (w4 !== 0) {
+        const rr = sm.res;
+        if (rr >= 1) kap = MS_KAPPA[7];
+        else if (rr > 0) {
+          let mi = 1;
+          while (mi < 7 && rr > MS_RES_AT[mi]) mi += 1;
+          kap = MS_KAPPA[mi - 1] + ((MS_KAPPA[mi] - MS_KAPPA[mi - 1]) * (rr - MS_RES_AT[mi - 1])) / (MS_RES_AT[mi] - MS_RES_AT[mi - 1]);
+        }
+        if (kap > 1) c35o = (C35 * (kap - 1) * (kap - 1)) / 1200;
+        let tb7 = (kap - 0.7) / 0.3;
+        tb7 = tb7 <= 0 ? 0 : tb7 >= 1 ? 1 : tb7 * tb7 * (3 - 2 * tb7);
+        sB7 = 1 - 0.75 * tb7;
+      }
+      const KK = (7 / 3) * kap;
+      let omK = (kap - 0.93) / 0.04;
+      omK = omK <= 0 ? 0 : omK >= 1 ? 1 : omK * omK * (3 - 2 * omK);
       // Le bus (2026-10-23, zero allocation : sa methode, les nombres de l'echantillon dans ks et ki), apres les voix
       ks[KS_ODGAIN] = odGain;
       ks[KS_ODMIX] = odMix;
@@ -2580,12 +2672,20 @@ class MMVoyager extends AudioWorkletProcessor {
         }
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         // La coupure (sa tangente) : une fois par echantillon du contexte, elle bouge lentement a cette echelle
-        if (newNoise || v.g === 0) {
+        if (newNoise || (ladOn ? v.g === 0 : X[VX_G35] === 0)) {
           const env = sm.envOct * v.fV * (0.8 + 0.2 * v.accent) * v.envAcc;
-          let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + env + v.cutAcc + v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12 + kTune);
-          if (fc > nyq) fc = nyq;
-          else if (fc < 20) fc = 20;
-          v.g = Math.tan((Math.PI * fc) / sr);
+          if (ladOn) {
+            let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + env + v.cutAcc + v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12 + kTune);
+            if (fc > nyq) fc = nyq;
+            else if (fc < 20) fc = 20;
+            v.g = Math.tan((Math.PI * fc) / sr);
+          }
+          if (w4 !== 0) {
+            let f35 = sm.cutoff * Math.pow(2, sB7 * v.vCutE + cutMod + env + v.cutAcc + sB7 * v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12 + c35o);
+            if (f35 > fcMax35) f35 = fcMax35;
+            else if (f35 < 20) f35 = 20;
+            v.x[VX_G35] = Math.tan((Math.PI * f35) / sr);
+          }
         }
         // Chaque etage sature : sa pente au point de son etat (Mystran), a CHAQUE echantillon surechantillonne
         // (2026-10-21), puis l'echelle lineaire
@@ -2595,6 +2695,8 @@ class MMVoyager extends AudioWorkletProcessor {
         const x2 = v.s2;
         const x3 = v.s3;
         const x4 = v.s4;
+        let yo = 0;
+        if (ladOn) {
         const ga = g / (1 + NL_K * (x0 * x0 + x0 * x1 + x1 * x1));
         const gb = g / (1 + NL_K * (x1 * x1 + x1 * x2 + x2 * x2));
         const gc = g / (1 + NL_K * (x2 * x2 + x2 * x3 + x3 * x3));
@@ -2643,11 +2745,88 @@ class MMVoyager extends AudioWorkletProcessor {
         y = w + x4;
         v.s4 = y + w;
         // MODE : les sorties de l'echelle melangees (Xpander) ; les graves gardes en passe-bas (BASS_KEEP)
-        let yo = 0;
         if (w0 !== 0) yo += w0 * y;
         if (w1 !== 0) yo += w1 * y2;
         if (w2 !== 0) yo += w2 * (y1 - y2);
         if (w3 !== 0) yo += w3 * (u - 2 * y1 + y2);
+        } else if (x0 !== 0 || x1 !== 0 || x2 !== 0 || x3 !== 0 || x4 !== 0) {
+          // MS-10 seul : l'echelle au repos (elle repartira de 0 sous le fondu de MODE)
+          v.pu = v.s1 = v.s2 = v.s3 = v.s4 = 0;
+        }
+        // MS-10 (S11) : le Korg35, sur la meme entree que l'echelle
+        if (w4 !== 0) {
+          const kc = X[VX_KCL];
+          const kb = X[VX_KBL];
+          const kp = X[VX_KPL];
+          const kq = X[VX_KQL];
+          const ky = X[VX_KYL];
+          // WIDE qui demarre : la droite part de l'etat de la gauche
+          if (wideV && !v.wl) {
+            X[VX_KCR] = kc;
+            X[VX_KBR] = kb;
+            X[VX_KPR] = kp;
+            X[VX_KQR] = kq;
+            X[VX_KYR] = ky;
+          }
+          const g35 = X[VX_G35];
+          const xk = xin * driveIn;
+          // La secante des diodes, extrapolee de l'echantillon d'avant
+          const be = 2 * kp - kq;
+          const xe = (be < 0 ? -be : be) * K35_ILAM;
+          let sig;
+          if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
+          else {
+            const qe = xe * K35_INV;
+            const ie = qe | 0;
+            sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
+          }
+          const aky = ky < 0 ? -ky : ky;
+          const gk = g35 * (1 - (K35_ALPHA * ky) / (K35_LAM + aky));
+          let Kd = KK * sig;
+          let iD1 = 1 / (1 + gk * (1 - Kd));
+          let mk = (gk * (4 * Kd - 1) * iD1) / 3;
+          let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+          let b = (kb - gk * c) * iD1;
+          // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation)
+          if (omK > 0 && g35 > LC_G0) {
+            let tg = (g35 - LC_G0) / LC_GW;
+            tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
+            const om = tg * omK;
+            const xb = (b < 0 ? -b : b) * K35_ILAM;
+            let s2;
+            if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
+            else {
+              const qb = xb * K35_INV;
+              const ib = qb | 0;
+              s2 = K35_S[ib] + (qb - ib) * (K35_S[ib + 1] - K35_S[ib]);
+            }
+            Kd = KK * (sig + om * (s2 - sig));
+            iD1 = 1 / (1 + gk * (1 - Kd));
+            mk = (gk * (4 * Kd - 1) * iD1) / 3;
+            c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+            b = (kb - gk * c) * iD1;
+          }
+          X[VX_KCL] = 2 * c - kc;
+          X[VX_KBL] = 2 * b - kb;
+          X[VX_KQL] = kp;
+          X[VX_KPL] = b;
+          // La sortie : les diodes
+          const xo = (b < 0 ? -b : b) * K35_ILAM;
+          let fo;
+          if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
+          else {
+            const qo = xo * K35_INV;
+            const io = qo | 0;
+            fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
+          }
+          const yk = b < 0 ? -K35_LAM * fo : K35_LAM * fo;
+          X[VX_KYL] = yk;
+          X[VX_KON] = 1;
+          yo += w4 * yk;
+        } else if (X[VX_KON] !== 0) {
+          for (let j = VX_KCL; j <= VX_KYR; j += 1) X[j] = 0;
+          X[VX_KON] = 0;
+        }
         // La garde (2026-10-23, Q7) : une sortie folle (NaN, infinie, emballee) remet la voix au repos, sans bruit
         if (!(yo > -VOICE_GUARD && yo < VOICE_GUARD)) {
           this.rest(v);
@@ -2720,16 +2899,79 @@ class MMVoyager extends AudioWorkletProcessor {
           fq.s3 = x3;
           fq.s4 = x4;
         }
-        fq.x = xinR * driveIn;
-        fq.g = g;
-        fq.k = k;
-        ladderR(fq);
-        const yr = fq.y;
         let yoR = 0;
-        if (w0 !== 0) yoR += w0 * yr;
-        if (w1 !== 0) yoR += w1 * fq.y2;
-        if (w2 !== 0) yoR += w2 * (fq.y1 - fq.y2);
-        if (w3 !== 0) yoR += w3 * (fq.u - 2 * fq.y1 + fq.y2);
+        if (ladOn) {
+          fq.x = xinR * driveIn;
+          fq.g = g;
+          fq.k = k;
+          ladderR(fq);
+          const yr = fq.y;
+          if (w0 !== 0) yoR += w0 * yr;
+          if (w1 !== 0) yoR += w1 * fq.y2;
+          if (w2 !== 0) yoR += w2 * (fq.y1 - fq.y2);
+          if (w3 !== 0) yoR += w3 * (fq.u - 2 * fq.y1 + fq.y2);
+        } else if (fq.pu !== 0 || fq.s1 !== 0 || fq.s2 !== 0 || fq.s3 !== 0 || fq.s4 !== 0) {
+          fq.pu = fq.s1 = fq.s2 = fq.s3 = fq.s4 = 0;
+        }
+        // MS-10 de droite (S11)
+        if (w4 !== 0) {
+          const kc = X[VX_KCR];
+          const kb = X[VX_KBR];
+          const kp = X[VX_KPR];
+          const kq = X[VX_KQR];
+          const ky = X[VX_KYR];
+          const g35 = X[VX_G35];
+          const xk = xinR * driveIn;
+          const be = 2 * kp - kq;
+          const xe = (be < 0 ? -be : be) * K35_ILAM;
+          let sig;
+          if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
+          else {
+            const qe = xe * K35_INV;
+            const ie = qe | 0;
+            sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
+          }
+          const aky = ky < 0 ? -ky : ky;
+          const gk = g35 * (1 - (K35_ALPHA * ky) / (K35_LAM + aky));
+          let Kd = KK * sig;
+          let iD1 = 1 / (1 + gk * (1 - Kd));
+          let mk = (gk * (4 * Kd - 1) * iD1) / 3;
+          let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+          let b = (kb - gk * c) * iD1;
+          if (omK > 0 && g35 > LC_G0) {
+            let tg = (g35 - LC_G0) / LC_GW;
+            tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
+            const om = tg * omK;
+            const xb = (b < 0 ? -b : b) * K35_ILAM;
+            let s2;
+            if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
+            else {
+              const qb = xb * K35_INV;
+              const ib = qb | 0;
+              s2 = K35_S[ib] + (qb - ib) * (K35_S[ib + 1] - K35_S[ib]);
+            }
+            Kd = KK * (sig + om * (s2 - sig));
+            iD1 = 1 / (1 + gk * (1 - Kd));
+            mk = (gk * (4 * Kd - 1) * iD1) / 3;
+            c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+            b = (kb - gk * c) * iD1;
+          }
+          X[VX_KCR] = 2 * c - kc;
+          X[VX_KBR] = 2 * b - kb;
+          X[VX_KQR] = kp;
+          X[VX_KPR] = b;
+          const xo = (b < 0 ? -b : b) * K35_ILAM;
+          let fo;
+          if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
+          else {
+            const qo = xo * K35_INV;
+            const io = qo | 0;
+            fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
+          }
+          const yk = b < 0 ? -K35_LAM * fo : K35_LAM * fo;
+          X[VX_KYR] = yk;
+          yoR += w4 * yk;
+        }
         if (!(yoR > -VOICE_GUARD && yoR < VOICE_GUARD)) {
           this.rest(v);
           this.heals += 1;
