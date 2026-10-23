@@ -511,6 +511,20 @@ const BASS_KEEP = 0.45;
 const RES_KNEE = 0.7;
 const RES_SING = 0.9;
 const resK = (r) => (r <= RES_KNEE ? 4.1 * r : r <= RES_SING ? 2.87 + (r - RES_KNEE) * 5.65 : 4 + (r - RES_SING) * 1);
+/**
+ * La passe de correction de l'echelle (2026-10-23, S6, Mika : "que le son soit d'extreme bonne qualite") : la methode
+ * "cheap" prend la pente de chaque etage a l'echantillon d'avant ; quand g est grand (coupure haute) et la retroaction
+ * forte, ce retard destabilise la boucle : au telephone, RES 0.9 et plus avec une coupure au-dessus de 12 kHz, un
+ * sifflement non harmonique jusqu'a +3.9 dBFS ; l'auto-oscillation y sonnait 149 a 432 cents trop bas. La passe reprend
+ * les pentes au point de l'echantillon (la sortie predite de chaque etage), puis la retroaction. Sous porte : elle
+ * s'ouvre de g LC_G0 (x4 4.9 kHz, x2 2.4 kHz) et k LC_K0 (RES 0.865) et l'est toute a g LC_G0 + LC_GW et k LC_K0 +
+ * LC_KW, en fondu (pas de marche entre les deux methodes) ; fermee, le calcul d'avant au bit pres (aucun preset ne
+ * l'ouvre : ACID NIGHT, RES 0.86, est a k 3.77).
+ */
+const LC_G0 = 0.08;
+const LC_GW = 0.1;
+const LC_K0 = 3.8;
+const LC_KW = 0.15;
 /** Sous ce niveau d'enveloppe, une voix reprise peut repartir de la phase de PHASE sans clic. */
 const PHASE_QUIET = 0.02;
 /** Gain de sortie (1.5 avant le filtre a etages satures : recale au meme niveau, mesure hors ligne). */
@@ -718,12 +732,34 @@ function ladderR(st) {
   const gb = g / (1 + NL_K * (x1 * x1 + x1 * x2 + x2 * x2));
   const gc = g / (1 + NL_K * (x2 * x2 + x2 * x3 + x3 * x3));
   const gd = g / (1 + NL_K * (x3 * x3 + x3 * x4 + x4 * x4));
-  const Ga = ga / (1 + ga);
-  const Gb = gb / (1 + gb);
-  const Gc = gc / (1 + gc);
-  const Gd = gd / (1 + gd);
-  const S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
-  const u = (x - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+  let Ga = ga / (1 + ga);
+  let Gb = gb / (1 + gb);
+  let Gc = gc / (1 + gc);
+  let Gd = gd / (1 + gd);
+  let S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
+  let u = (x - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+  // La passe de correction (2026-10-23, S6), sous porte
+  if (k > LC_K0 && g > LC_G0) {
+    let ta = (g - LC_G0) / LC_GW;
+    ta = ta >= 1 ? 1 : ta * ta * (3 - 2 * ta);
+    let tb = (k - LC_K0) / LC_KW;
+    tb = tb >= 1 ? 1 : tb * tb * (3 - 2 * tb);
+    const om = ta * tb;
+    const p1 = x1 + (u - x1) * Ga;
+    const p2 = x2 + (p1 - x2) * Gb;
+    const p3 = x3 + (p2 - x3) * Gc;
+    const p4 = x4 + (p3 - x4) * Gd;
+    const ha = g / (1 + NL_K * (u * u + u * p1 + p1 * p1));
+    const hb = g / (1 + NL_K * (p1 * p1 + p1 * p2 + p2 * p2));
+    const hc = g / (1 + NL_K * (p2 * p2 + p2 * p3 + p3 * p3));
+    const hd = g / (1 + NL_K * (p3 * p3 + p3 * p4 + p4 * p4));
+    Ga += om * (ha / (1 + ha) - Ga);
+    Gb += om * (hb / (1 + hb) - Gb);
+    Gc += om * (hc / (1 + hc) - Gc);
+    Gd += om * (hd / (1 + hd) - Gd);
+    S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
+    u = (x - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+  }
   st.pu = u;
   st.u = u;
   let w = (u - x1) * Ga;
@@ -2415,12 +2451,34 @@ class MMVoyager extends AudioWorkletProcessor {
         const gb = g / (1 + NL_K * (x1 * x1 + x1 * x2 + x2 * x2));
         const gc = g / (1 + NL_K * (x2 * x2 + x2 * x3 + x3 * x3));
         const gd = g / (1 + NL_K * (x3 * x3 + x3 * x4 + x4 * x4));
-        const Ga = ga / (1 + ga);
-        const Gb = gb / (1 + gb);
-        const Gc = gc / (1 + gc);
-        const Gd = gd / (1 + gd);
-        const S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
-        const u = (xin * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+        let Ga = ga / (1 + ga);
+        let Gb = gb / (1 + gb);
+        let Gc = gc / (1 + gc);
+        let Gd = gd / (1 + gd);
+        let S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
+        let u = (xin * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+        // La passe de correction (2026-10-23, S6) : les pentes reprises au point de l'echantillon, sous porte
+        if (k > LC_K0 && g > LC_G0) {
+          let ta = (g - LC_G0) / LC_GW;
+          ta = ta >= 1 ? 1 : ta * ta * (3 - 2 * ta);
+          let tb = (k - LC_K0) / LC_KW;
+          tb = tb >= 1 ? 1 : tb * tb * (3 - 2 * tb);
+          const om = ta * tb;
+          const p1 = x1 + (u - x1) * Ga;
+          const p2 = x2 + (p1 - x2) * Gb;
+          const p3 = x3 + (p2 - x3) * Gc;
+          const p4 = x4 + (p3 - x4) * Gd;
+          const ha = g / (1 + NL_K * (u * u + u * p1 + p1 * p1));
+          const hb = g / (1 + NL_K * (p1 * p1 + p1 * p2 + p2 * p2));
+          const hc = g / (1 + NL_K * (p2 * p2 + p2 * p3 + p3 * p3));
+          const hd = g / (1 + NL_K * (p3 * p3 + p3 * p4 + p4 * p4));
+          Ga += om * (ha / (1 + ha) - Ga);
+          Gb += om * (hb / (1 + hb) - Gb);
+          Gc += om * (hc / (1 + hc) - Gc);
+          Gd += om * (hd / (1 + hd) - Gd);
+          S = Gd * Gc * Gb * (1 - Ga) * x1 + Gd * Gc * (1 - Gb) * x2 + Gd * (1 - Gc) * x3 + (1 - Gd) * x4;
+          u = (xin * driveIn - k * S) / (1 + k * Ga * Gb * Gc * Gd);
+        }
         v.pu = u;
         let w = (u - x1) * Ga;
         let y = w + x1;
