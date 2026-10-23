@@ -17,7 +17,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { OUT, ROOT, WORKLET, engine, flag, held, hzMidi, midiHz, opt, patches, render, writeJson } from './lib.mjs';
-import { cents, clickDb, db, db10, harm, harmonicSplit, loudness, peakFreq, r1, r2, spectrum, stats, thirdBands, zcFreq, SR } from './ana.mjs';
+import { cents, clickDb, db, db10, harm, harmonicSplit, loudness, peakFreq, r1, r2, spectrum, stats, thirdBands, THIRDS, zcFreq, SR } from './ana.mjs';
 
 const AGAINST = opt('--against', '');
 const QUICK = flag('--quick');
@@ -1003,6 +1003,54 @@ async function load(ctx, file) {
   return out;
 }
 
+/**
+ * S13 (2026-10-23, essaye puis retire : le moteur n'a pas FEEDBACK) : arpege de scies (coupure 800 Hz, RES 0.6) a LOAD
+ * 1 contre 0.6 (bande 60-150 Hz, la bosse), pas de cycle limite (sortie 1 s apres la note, LOAD 1, OVERDRIVE 0 et 1,
+ * RES 0.6 et 0.85), la pire raie sous 40 Hz, Q1 a LOAD 1, le cas extreme (LOAD 1, RES 1, OVERDRIVE 1) borne.
+ */
+async function fb(ctx, file) {
+  const out = {};
+  const step = 60 / 124 / 4;
+  const notes = Array.from({ length: 32 }, (_, k) => ({ midi: 42 + ((k * 7) % 12), time: 0.05 + k * step, gate: 0.6 * step, accent: [1, 0.8, 0.92, 1.12][k % 4], from: null }));
+  const T = 0.05 + 32 * step + 0.3;
+  for (const os of PATHS) {
+    const base = { ...ctx.LAB, wave1: 2, osc1: 0.62, osc2: 0.62, wave2: 2, fine2: 7, cutoff: 800, res: 0.6, aA: 0.002, aD: 0.3, aS: 0.6, aR: 0.08, fA: 0.002, fD: 0.3, fS: 1, envOct: 0, outLevel: 0.25 };
+    const bands = {};
+    for (const L of [0.6, 1]) {
+      const r = render({ file, os, params: { ...base, load: L }, notes, seconds: T });
+      bands[L] = thirdBands(r.L, r.R, Math.round(0.05 * SR));
+      if (L === 1) {
+        const S = spectrum(r.L, 65536, 0);
+        let lo = 0;
+        let top = 0;
+        for (let i = 1; i < S.amp.length; i += 1) {
+          top = Math.max(top, S.amp[i]);
+          if (S.f[i] < 40 && S.f[i] > 2) lo = Math.max(lo, S.amp[i]);
+        }
+        out[`L1 x${os} worst line under 40 Hz dBc`] = r1(db(lo / top));
+      }
+    }
+    const e = (b, lo, hi) => db10(THIRDS.reduce((acc, f, i) => (f >= lo && f <= hi ? acc + Math.pow(10, b[i] / 10) : acc), 0));
+    out[`L1 re L0.6 x${os} 60-150 Hz dB`] = r2(e(bands[1], 60, 150) - e(bands[0.6], 60, 150));
+    const prom = (b) => e(b, 630, 1000) - e(b, 250, 400);
+    out[`L1 re L0.6 x${os} peak prominence dB`] = r2(prom(bands[1]) - prom(bands[0.6]));
+    let worst = -Infinity;
+    for (const od of [0, 1]) {
+      for (const res of [0.6, 0.85]) {
+        const r = render({ file, os, params: { ...base, load: 1, drive: od, res, aR: 0.05 }, notes: [held(42, 0.3, 0.05)], seconds: 1.6 });
+        worst = Math.max(worst, db(stats(r.L, Math.round(1.35 * SR), Math.round(1.6 * SR)).peak + 1e-30));
+      }
+    }
+    out[`L1 x${os} peak 1 s after the note dBFS`] = r1(worst);
+    const q = render({ file, os, params: { ...ctx.LAB, wave1: 2, osc1: 0.62, load: 1, cutoff: 21600 }, notes: [held(96)], seconds: 1.6 });
+    out[`Q1 saw C7 L1 x${os} purity`] = r1(harmonicSplit(q.L, [midiHz(96)]).purity);
+    const x = render({ file, os, params: { ...ctx.DEF, load: 1, res: 1, drive: 1, osc1: 1, osc2: 1, outLevel: 0.25 }, notes: [held(42, 2), held(49, 2)], seconds: 2.5 });
+    out[`Q7 extreme x${os} peak dBFS`] = r1(db(stats(x.L).peak));
+    out[`Q7 extreme x${os} heals`] = x.proc.heals;
+  }
+  return out;
+}
+
 /** C18 : le fondamental le long de WAVE 1 (sinus -> impulsion), A2, filtre ouvert, petit niveau. */
 async function c18(ctx, file) {
   const out = {};
@@ -1192,7 +1240,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }

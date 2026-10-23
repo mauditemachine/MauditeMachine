@@ -759,6 +759,10 @@ class Voice {
     // Les petits ecarts de la note (noteOn) : coupure, enveloppes, accord, place stereo
     this.vCut = 1;
     this.vCutE = 0;
+    // S14 : l'accent de la note dans LOAD et dans les diodes du MS-10
+    this.accN = 1;
+    this.kLam = K35_LAM;
+    this.kIlam = 1 / K35_LAM;
     this.vEnv = 1;
     this.vTune = 0;
     // La place stereo : ou elle va (tL, tR) et ou elle en est (gL, gR, lissee : une voix volee ne saute pas)
@@ -1434,6 +1438,14 @@ class MMVoyager extends AudioWorkletProcessor {
     v.cutAcc = ACC_CUT * af * acc;
     v.fdm = 1 / Math.max(0.5, 1 - (0.5 * af * Math.max(0, acc)) / 0.24);
     v.ampAcc = af > 0 ? Math.pow(Math.max(1e-3, n.accent), 1 - 0.4 * af) : n.accent;
+    // L'accent dans LOAD et dans les diodes du MS-10 (2026-10-23, S14) : une note appuyee pousse plus fort LOAD (accent
+    // ^ (0.6 accFlt) : -1.2 a +1.6 dB sur les 0.8 a 1.35 de l'arpegiateur) et ecrase plus les diodes (leur genou /
+    // accent ^ (0.3 accFlt)) : du mordant, la dynamique gardee. ACC FILTER 0 (ou LOAD 0 pour LOAD) : comme avant.
+    const an = Math.max(1e-3, n.accent);
+    v.accN = af > 0 && this.p.load > 0 ? Math.pow(an, 0.6 * af) : 1;
+    const lamN = af > 0 ? K35_LAM / Math.pow(an, 0.3 * af) : K35_LAM;
+    v.kLam = lamN;
+    v.kIlam = 1 / lamN;
     // PHASE : la note repart de la meme phase (voix muette ou presque : pas de clic)
     const p = this.p;
     const quiet = v.aV < PHASE_QUIET;
@@ -2737,7 +2749,7 @@ class MMVoyager extends AudioWorkletProcessor {
         let xd = xin;
         let xdR = xinR;
         if (ldOn) {
-          const zl = xin * ldG + ldB;
+          const zl = xin * ldG * v.accN + ldB;
           if (X[VX_LON] === 0) {
             // Le depart : l'ADAA et le bloqueur partent de l'entree du moment
             const a0 = zl < 0 ? -zl : zl;
@@ -2761,7 +2773,7 @@ class MMVoyager extends AudioWorkletProcessor {
           }
           for (let sd = 0; sd < 2; sd += 1) {
             if (sd === 1 && !wideV) break;
-            const zi = sd === 0 ? zl : xinR * ldG + ldB;
+            const zi = sd === 0 ? zl : xinR * ldG * v.accN + ldB;
             const iz = sd === 0 ? VX_LZL : VX_LZR;
             const z1 = X[iz];
             const az = zi < 0 ? -zi : zi;
@@ -2888,7 +2900,9 @@ class MMVoyager extends AudioWorkletProcessor {
           // MS-10 seul : l'echelle au repos (elle repartira de 0 sous le fondu de MODE)
           v.pu = v.s1 = v.s2 = v.s3 = v.s4 = 0;
         }
-        // MS-10 (S11) : le Korg35, sur la meme entree que l'echelle
+        // MS-10 (S11) : le Korg35, sur la meme entree que l'echelle ; le genou de ses diodes, celui de la note (S14)
+        const kL = v.kLam;
+        const kIl = v.kIlam;
         if (w4 !== 0) {
           const kc = X[VX_KCL];
           const kb = X[VX_KBL];
@@ -2907,7 +2921,7 @@ class MMVoyager extends AudioWorkletProcessor {
           const xk = xd * driveIn;
           // La secante des diodes, extrapolee de l'echantillon d'avant
           const be = 2 * kp - kq;
-          const xe = (be < 0 ? -be : be) * K35_ILAM;
+          const xe = (be < 0 ? -be : be) * kIl;
           let sig;
           if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
           else {
@@ -2916,7 +2930,7 @@ class MMVoyager extends AudioWorkletProcessor {
             sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
           }
           const aky = ky < 0 ? -ky : ky;
-          const gk = g35 * (1 - (K35_ALPHA * ky) / (K35_LAM + aky));
+          const gk = g35 * (1 - (K35_ALPHA * ky) / (kL + aky));
           let Kd = KK * sig;
           let iD1 = 1 / (1 + gk * (1 - Kd));
           let mk = (gk * (4 * Kd - 1) * iD1) / 3;
@@ -2927,7 +2941,7 @@ class MMVoyager extends AudioWorkletProcessor {
             let tg = (g35 - LC_G0) / LC_GW;
             tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
             const om = tg * omK;
-            const xb = (b < 0 ? -b : b) * K35_ILAM;
+            const xb = (b < 0 ? -b : b) * kIl;
             let s2;
             if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
             else {
@@ -2946,7 +2960,7 @@ class MMVoyager extends AudioWorkletProcessor {
           X[VX_KQL] = kp;
           X[VX_KPL] = b;
           // La sortie : les diodes
-          const xo = (b < 0 ? -b : b) * K35_ILAM;
+          const xo = (b < 0 ? -b : b) * kIl;
           let fo;
           if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
           else {
@@ -2954,7 +2968,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const io = qo | 0;
             fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
           }
-          const yk = b < 0 ? -K35_LAM * fo : K35_LAM * fo;
+          const yk = b < 0 ? -kL * fo : kL * fo;
           X[VX_KYL] = yk;
           X[VX_KON] = 1;
           yo += w4 * yk;
@@ -3059,7 +3073,7 @@ class MMVoyager extends AudioWorkletProcessor {
           const g35 = X[VX_G35];
           const xk = xdR * driveIn;
           const be = 2 * kp - kq;
-          const xe = (be < 0 ? -be : be) * K35_ILAM;
+          const xe = (be < 0 ? -be : be) * kIl;
           let sig;
           if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
           else {
@@ -3068,7 +3082,7 @@ class MMVoyager extends AudioWorkletProcessor {
             sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
           }
           const aky = ky < 0 ? -ky : ky;
-          const gk = g35 * (1 - (K35_ALPHA * ky) / (K35_LAM + aky));
+          const gk = g35 * (1 - (K35_ALPHA * ky) / (kL + aky));
           let Kd = KK * sig;
           let iD1 = 1 / (1 + gk * (1 - Kd));
           let mk = (gk * (4 * Kd - 1) * iD1) / 3;
@@ -3078,7 +3092,7 @@ class MMVoyager extends AudioWorkletProcessor {
             let tg = (g35 - LC_G0) / LC_GW;
             tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
             const om = tg * omK;
-            const xb = (b < 0 ? -b : b) * K35_ILAM;
+            const xb = (b < 0 ? -b : b) * kIl;
             let s2;
             if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
             else {
@@ -3096,7 +3110,7 @@ class MMVoyager extends AudioWorkletProcessor {
           X[VX_KBR] = 2 * b - kb;
           X[VX_KQR] = kp;
           X[VX_KPR] = b;
-          const xo = (b < 0 ? -b : b) * K35_ILAM;
+          const xo = (b < 0 ? -b : b) * kIl;
           let fo;
           if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
           else {
@@ -3104,7 +3118,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const io = qo | 0;
             fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
           }
-          const yk = b < 0 ? -K35_LAM * fo : K35_LAM * fo;
+          const yk = b < 0 ? -kL * fo : kL * fo;
           X[VX_KYR] = yk;
           yoR += w4 * yk;
         }
