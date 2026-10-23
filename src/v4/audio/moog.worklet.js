@@ -586,18 +586,36 @@ const K35_SLOPE = (K35_T[K35_N] - K35_T[K35_N - 1]) * K35_INV;
 const K35_S = new Float64Array(K35_N + 1);
 K35_S[0] = 1;
 for (let i = 1; i <= K35_N; i += 1) K35_S[i] = (K35_T[i] * K35_INV) / i;
-/** Le genou des diodes en niveau du moteur : un sinus de 200 Hz a 0.62, filtre ouvert, RES 0, sort a H3 -30 dBc. */
-const K35_KNEE = 1.6;
+/**
+ * Le genou des diodes en niveau du moteur. 1.6 au depart (un sinus de 200 Hz a 0.62, filtre ouvert, sortait a H3 -30
+ * dBc) : au niveau de jeu (INIT, deux scies a 0.62) les diodes ecrasaient la boucle, RES 0.3 a 0.9 ne bougeait la bosse
+ * que de 2.4 a 5.3 dB (MOOG 3 a 25.5), le cri n'arrivait qu'en auto-oscillation. 6 (2026-10-23, controle qualite
+ * QC-CH-1) : INIT presque lineaire, la bosse 4.6 / 7.7 / 12.1 / 15.0 / 20.6 dB a RES 0.3 / 0.5 / 0.7 / 0.8 / 0.9 ; le
+ * grognement quand la source pousse (LOAD 1 : 9.7 dB a RES 0.8, OVERDRIVE 1 : 7.9, les deux oscillateurs a fond : 12).
+ */
+const K35_KNEE = 6;
 const K35_LAM = K35_KNEE / 11.1;
 const K35_ILAM = 1 / K35_LAM;
 const K35_ALPHA = 0.035;
-/** RES -> kappa (K / (7/3)) : les bosses de MOOG au meme RES, l'auto-oscillation a RES 0.9, jusqu'a 1.15 a RES 1. */
+/**
+ * RES -> kappa (K / (7/3)) : l'auto-oscillation a RES 0.9 ; au niveau de jeu, une bosse a 5 dB de celle de MOOG a RES 0.8
+ * (2026-10-23, QC-CH-1 : la table d'avant, 0.5 / 0.72 / 0.86 / 0.935 / 0.965 / 1 / 1.15, calee en petit signal) ; en haut
+ * 1.06 (1.15 avant) : le cri reste un cri (H3 -26 dBc a RES 1) sans monter de 10 dB au-dessus des notes.
+ */
 const MS_RES_AT = [0, 0.3, 0.5, 0.7, 0.8, 0.85, 0.9, 1.0];
-const MS_KAPPA = [0, 0.5, 0.72, 0.86, 0.935, 0.965, 1.0, 1.15];
+const MS_KAPPA = [0, 0.6, 0.8, 0.92, 0.96, 0.98, 1.0, 1.06];
 /** La hauteur du depassement borne par les diodes : la coupure monte de C35 (kappa - 1)^2 cents au-dessus de 1. */
 const C35 = 630;
-/** Le niveau du MS-10 contre MOOG (INIT a 1 LU pres) ; la coupure bornee a 16 kHz (x4) et 13 kHz (x2) : le MS-10 finit vers 12 kHz. */
-const MS_GAIN = 0.75;
+/**
+ * Le niveau du MS-10 contre MOOG : l'arpege INIT a -0.1 LU a RES 0.3, +0.9 a RES 0.85 (QC-CH-6) ; la coupure bornee a 16
+ * kHz (x4) et 13 kHz (x2) : le MS-10 finit vers 12 kHz. Au-dessus de l'auto-oscillation (kappa > 1), le cri des diodes
+ * monterait de 10 dB (son amplitude suit le genou) : la sortie baisse de MS_SO_DB au plus, en 1 - exp(-(kappa - 1) /
+ * MS_SO_TAU) (l'arpege de RES 0.9 a 1 a 1.2 LU de MOOG, l'auto-oscillation seule -3.4 dBFS contre -6.7 : le MS-10 crie
+ * plus fort que le Moog, comme le vrai).
+ */
+const MS_GAIN = 0.7;
+const MS_SO = Math.pow(10, -9 / 20) - 1;
+const MS_SO_TAU = 0.03;
 const MS_FC_MAX4 = 16000;
 const MS_FC_MAX2 = 13000;
 /**
@@ -2357,7 +2375,7 @@ class MMVoyager extends AudioWorkletProcessor {
       const w3 = wm[3] > 1e-4 ? (wm[3] * HP_GAIN) / (1 + k * HP_RES) : 0;
       // MS-10 (S11) : son poids, kappa (la table de RES), K, le depassement, la reduction des ecarts (B7) ; l'echelle
       // ne tourne pas quand ses quatre poids sont nuls (ses etats remis a 0 une fois)
-      const w4 = wm[4] > 1e-4 ? wm[4] * MS_GAIN : 0;
+      let w4 = wm[4] > 1e-4 ? wm[4] * MS_GAIN : 0;
       const ladOn = w0 !== 0 || w1 !== 0 || w2 !== 0 || w3 !== 0;
       let kap = 0;
       let c35o = 0;
@@ -2374,6 +2392,8 @@ class MMVoyager extends AudioWorkletProcessor {
         let tb7 = (kap - 0.7) / 0.3;
         tb7 = tb7 <= 0 ? 0 : tb7 >= 1 ? 1 : tb7 * tb7 * (3 - 2 * tb7);
         sB7 = 1 - 0.75 * tb7;
+        // Le cri borne (QC-CH-6) : au-dessus du seuil, la sortie baisse doucement
+        if (kap > 1) w4 *= 1 + MS_SO * (1 - Math.exp((1 - kap) / MS_SO_TAU));
       }
       const KK = (7 / 3) * kap;
       let omK = (kap - 0.93) / 0.04;
