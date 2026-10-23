@@ -157,11 +157,11 @@
     "sideDb": -17.26
    },
    "X HIGH RES": {
-    "sha256": "025564f096f7bb27c5af018e5893704b",
-    "peakDb": 1.58,
+    "sha256": "2b35cb68c5e4ae64261cca86ef44549c",
+    "peakDb": 1.4,
     "rmsDb": -8.92,
-    "centroidHz": 5000,
-    "sideDb": -15.99
+    "centroidHz": 5014,
+    "sideDb": -16.01
    },
    "X OD06 C7": {
     "sha256": "ef2552b3c1d6babc7eb1c2b761898682",
@@ -435,11 +435,11 @@
     "sideDb": -17.2
    },
    "X HIGH RES": {
-    "sha256": "5d6a1ecc849bb2deae18a65d3b2b9fbc",
-    "peakDb": 2.44,
-    "rmsDb": -8.79,
-    "centroidHz": 3233,
-    "sideDb": -16.32
+    "sha256": "385716c3329ad8152adf815efcddc73e",
+    "peakDb": 2.09,
+    "rmsDb": -8.73,
+    "centroidHz": 3530,
+    "sideDb": -16.33
    },
    "X OD06 C7": {
     "sha256": "c5015bb85687ef53183e15b5c8ce619e",

@@ -147,7 +147,9 @@ async function selfosc(ctx, file) {
   for (const os of PATHS) {
     for (const res of resL) {
       for (const cutoff of cuts) {
-        const secs = cutoff < 300 ? 4 : 2.5;
+        // 2026-10-23 (S7) : en bas, l'oscillation met des secondes a s'installer (sa hauteur aux petites amplitudes est
+        // celle du filtre lineaire) : 9 s sous 300 Hz, 5 s sous 1.5 kHz
+        const secs = cutoff < 300 ? 9 : cutoff < 1500 ? 5 : 2.5;
         const a = render({ file, os, params: { ...ctx.LAB, noise: 0.003, res, cutoff, fmode: fm }, notes: [held(54)], seconds: secs });
         const st = Math.round((secs - 1.2) * SR);
         const N = Math.round(1.1 * SR);
@@ -680,8 +682,10 @@ async function c22h(ctx, file) {
   const out = {};
   for (const os of PATHS) {
     for (const midi of [36, 48, 60, 72, 84]) {
-      const r = render({ file, os, params: { ...ctx.LAB, noise: 0.003, res: 1, keyTrack: 1, cutoff: midiHz(54) }, notes: [held(midi)], seconds: 3.5 });
-      const st = Math.round(2.2 * SR);
+      // Les notes basses s'installent lentement (S7) : 9 s sous C3
+      const secs = midi < 48 ? 9 : 3.5;
+      const r = render({ file, os, params: { ...ctx.LAB, noise: 0.003, res: 1, keyTrack: 1, cutoff: midiHz(54) }, notes: [held(midi, 20)], seconds: secs });
+      const st = Math.round((secs - 1.3) * SR);
       const f = zcFreq(r.L, st, Math.round(1.2 * SR));
       out[`note ${midi} x${os} cents`] = r1(cents(f, midiHz(midi)));
     }

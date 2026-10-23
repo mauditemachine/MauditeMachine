@@ -521,6 +521,13 @@ const resK = (r) => (r <= RES_KNEE ? 4.1 * r : r <= RES_SING ? 2.87 + (r - RES_K
  * LC_KW, en fondu (pas de marche entre les deux methodes) ; fermee, le calcul d'avant au bit pres (aucun preset ne
  * l'ouvre : ACID NIGHT, RES 0.86, est a k 3.77).
  */
+/**
+ * L'auto-oscillation juste (2026-10-23, S7) : au-dessus du seuil (k > 4) l'oscillation descend avec son amplitude,
+ * uniformement en frequence depuis S6 (-10.5 cents a RES 1, k 4.1) : la coupure monte de K_COMP cents par unite de k
+ * au-dessus de 4 (modes de l'echelle : MOOG, LP12, BP, HP), sans pow de plus. Ajuste au banc (q.mjs selfosc, 1 kHz,
+ * k 4.02 / 4.05 / 4.1). Sous le seuil (RES 0.9 et moins), le calcul d'avant au bit pres.
+ */
+const K_COMP = 105;
 const LC_G0 = 0.08;
 const LC_GW = 0.1;
 const LC_K0 = 3.8;
@@ -2020,6 +2027,8 @@ class MMVoyager extends AudioWorkletProcessor {
         } else pn1 = pn2 = pn2w = 0;
       }
       const k = resK(sm.res);
+      // S7 : la coupure remontee au-dessus du seuil (octaves), 0 en dessous
+      const kTune = k > 4 ? (K_COMP * (k - 4)) / 1200 : 0;
       const driveIn = 1 + 2.5 * sm.drive;
       const driveOut = 1 + 1.5 * sm.drive;
       // La normalisation de la saturation des voix : une fois quand OVERDRIVE bouge (avant : pour chaque voix)
@@ -2434,7 +2443,7 @@ class MMVoyager extends AudioWorkletProcessor {
         // La coupure (sa tangente) : une fois par echantillon du contexte, elle bouge lentement a cette echelle
         if (newNoise || v.g === 0) {
           const env = sm.envOct * v.fV * (0.8 + 0.2 * v.accent) * v.envAcc;
-          let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + env + v.cutAcc + v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12);
+          let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + env + v.cutAcc + v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12 + kTune);
           if (fc > nyq) fc = nyq;
           else if (fc < 20) fc = 20;
           v.g = Math.tan((Math.PI * fc) / sr);
