@@ -1036,6 +1036,11 @@ const VX_LON = 36;
  * lui 0.9 a 1.1 (q.mjs space, Q11). Le g du MS-10 de droite : VX_G35R.
  */
 const SP_XF = 0.2;
+/** Les rampes des messages (S19) : les reglages qui en ont, et l'ecart entre deux changements qui en fait une (s). */
+const RAMP_KEYS = ['cutoff', 'res', 'envOct'];
+const RAMP_MIN = 0.002;
+const RAMP_MAX = 0.05;
+const RAMP_K = 1.1;
 const VX_G35R = 37;
 const VX_SIZE = 40;
 /**
@@ -1212,6 +1217,14 @@ class MMVoyager extends AudioWorkletProcessor {
     // Les remises au repos de la garde (une voix, le bus) depuis la creation (tests)
     this.heals = 0;
     Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, sub: this.p.sub, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive, wide: this.p.wide, load: this.p.load, space: this.p.space });
+    // Les rampes des messages (2026-10-23, S19) : CUTOFF, RES, ENV AMT (RAMP_KEYS) ; la cible du lissage (rT), son pas par
+    // echantillon surechantillonne (rS), ce qu'il en reste (rN), l'image du dernier changement (rF)
+    this.rT = new Float64Array([this.p.cutoff, this.p.res, this.p.envOct]);
+    this.rS = new Float64Array(3);
+    this.rN = new Int32Array(3);
+    this.rF = new Float64Array([-1e9, -1e9, -1e9]);
+    this.rI = new Float64Array(3);
+    this.rOld = new Float64Array(3);
     this.stD = this.p.stack;
     this.gl.g = this.p.glue;
     this.coefs();
@@ -1356,12 +1369,48 @@ class MMVoyager extends AudioWorkletProcessor {
     return bpm;
   }
 
+  /**
+   * Les rampes de CUTOFF, RES et ENV AMT (2026-10-23, S19 ; avant : la valeur sautait, le lissage de 15 ms laissait un
+   * escalier de +/-12 cents sur un potard MIDI rapide, 57 sur un lent) : un message qui change l'un d'eux 2 a 50 ms apres
+   * son changement d'avant (un potard qu'on tourne) y va en ligne droite sur le meme intervalle (la coupure en Hz : dans
+   * un pas de 88 cents, droite et courbe different de moins de 0.3 cent) ; sinon (un preset, un premier geste) il saute,
+   * comme avant. Un son immobile ne bouge jamais : au bit pres.
+   */
+  ramps(rOld) {
+    const p = this.p;
+    const fr = currentFrame;
+    for (let i = 0; i < 3; i += 1) {
+      const v = p[RAMP_KEYS[i]];
+      if (v === rOld[i]) continue;
+      const dt = fr - this.rF[i];
+      this.rF[i] = fr;
+      if (dt >= RAMP_MIN * sampleRate && dt <= RAMP_MAX * sampleRate) {
+        // L'intervalle moyen des derniers messages (les messages tombent sur les blocs de 2.7 ms : un potard MIDI a
+        // 15.6 ms arrive a 13.3 puis 16 ms ; la pente d'un message a l'autre en sautait de 20 %), un peu allonge (RAMP_K)
+        // : la rampe ne s'arrete jamais entre deux messages, sa pente est celle du potard
+        const ri = this.rI[i] > 0 ? this.rI[i] + 0.5 * (dt - this.rI[i]) : dt;
+        this.rI[i] = ri;
+        const n = Math.max(1, Math.round(ri * RAMP_K * this.os));
+        this.rS[i] = (v - this.rT[i]) / n;
+        this.rN[i] = n;
+      } else {
+        this.rT[i] = v;
+        this.rN[i] = 0;
+        this.rI[i] = 0;
+      }
+    }
+  }
+
   onMsg(m) {
     if (!m || typeof m !== 'object') return;
     if (m.type === 'note') this.add(m);
     else if (m.type === 'beat') this.addBeat(m);
     else if (m.type === 'params') {
+      const p = this.p;
+      const rOld = this.rOld;
+      for (let i = 0; i < 3; i += 1) rOld[i] = p[RAMP_KEYS[i]];
       const bpm = this.setParams(m.params);
+      this.ramps(rOld);
       this.coefs();
       // Un tempo, transport libre (ou plus d'ancre depuis une seconde) : la position continue au nouveau tempo ;
       // en lecture, ce sont les ancres qui portent le tempo, a la frontiere de pas ou il change
@@ -2147,9 +2196,15 @@ class MMVoyager extends AudioWorkletProcessor {
       sm.f2 += (p.fine2 - sm.f2) * K;
       const fine1 = sm.f1;
       const fine2 = sm.f2;
-      sm.cutoff += (p.cutoff - sm.cutoff) * K;
-      sm.res += (p.res - sm.res) * K;
-      sm.envOct += (p.envOct - sm.envOct) * K;
+      // Les rampes des messages (S19) : la cible avance d'un pas, et retombe pile sur la valeur demandee au bout
+      const rT = this.rT;
+      const rN = this.rN;
+      if (rN[0] > 0) rT[0] = --rN[0] === 0 ? p.cutoff : rT[0] + this.rS[0];
+      if (rN[1] > 0) rT[1] = --rN[1] === 0 ? p.res : rT[1] + this.rS[1];
+      if (rN[2] > 0) rT[2] = --rN[2] === 0 ? p.envOct : rT[2] + this.rS[2];
+      sm.cutoff += (rT[0] - sm.cutoff) * K;
+      sm.res += (rT[1] - sm.res) * K;
+      sm.envOct += (rT[2] - sm.envOct) * K;
       sm.drive += (p.drive - sm.drive) * K;
       // WIDE (2026-10-22) : lisse ; revenu a 0, l'echelle de droite s'arrete (le calcul d'avant) a la note suivante
       // de chaque voix (plus bas, wideV)

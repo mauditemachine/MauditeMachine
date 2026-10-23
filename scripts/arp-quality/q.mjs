@@ -1309,6 +1309,140 @@ async function fpol(ctx, file) {
 }
 
 /**
+ * L'escalier de la coupure (2026-10-23, S19 ; measure t13 A) : CUTOFF de 1 a 4 kHz en 1.2 s sur un filtre en
+ * auto-oscillation (RES 1), quatre facons de l'envoyer (smooth : une valeur par bloc ; ui60 : un glisser a 60 Hz ; cc7_fast
+ * / cc7_slow : des pas MIDI de 1/127 toutes les 13 / 40 ms). La hauteur de l'oscillation (passages par zero d'un
+ * passe-bande 700 Hz - 6 kHz, par fenetres de 2 ms) : son ecart au chemin de smooth, sans sa tendance (la moyenne
+ * glissante de 0.2 s : l'ondulation, au pire et efficace), et le retard sur le chemin du potard (ms).
+ */
+async function zip(ctx, file) {
+  const out = {};
+  const P = ctx.M.params;
+  const knobOfHz = (hz) => Math.log2(hz / 30) / 9.3;
+  const t0 = 0.8;
+  const t1 = 2.0;
+  const a = knobOfHz(1000);
+  const b = knobOfHz(4000);
+  const auto = (kind) => {
+    let last = null;
+    let lastSent = -1e9;
+    return (t) => {
+      if (t < t0) return null;
+      const u = Math.min(1, (t - t0) / (t1 - t0));
+      let v = a + (b - a) * u;
+      if (kind === 'smooth') return v;
+      if (kind === 'ui60') {
+        if (t - lastSent < 1 / 60 && u < 1) return null;
+        lastSent = t;
+        return v;
+      }
+      const per = kind === 'cc7_fast' ? 0.013 : 0.04;
+      v = Math.round(v * 127) / 127;
+      if (v === last || (t - lastSent < per && u < 1)) return null;
+      last = v;
+      lastSent = t;
+      return v;
+    };
+  };
+  const bq = (x, f, hp) => {
+    const w0 = (2 * Math.PI * f) / SR;
+    const al = Math.sin(w0) / (2 * Math.SQRT1_2);
+    const cw = Math.cos(w0);
+    const b0 = hp ? (1 + cw) / 2 : (1 - cw) / 2;
+    const b1 = hp ? -(1 + cw) : 1 - cw;
+    const a0 = 1 + al;
+    const a1 = -2 * cw;
+    const a2 = 1 - al;
+    const y = new Float64Array(x.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < x.length; i += 1) {
+      const xi = x[i];
+      const yi = (b0 * xi + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2) / a0;
+      x2 = x1;
+      x1 = xi;
+      y2 = y1;
+      y1 = yi;
+      y[i] = yi;
+    }
+    return y;
+  };
+  const FR = 96;
+  const pitch = (x) => {
+    const y = bq(bq(bq(bq(x, 700, true), 700, true), 6000, false), 6000, false);
+    const nF = Math.floor(y.length / FR);
+    const sum = new Float64Array(nF);
+    const cnt = new Float64Array(nF);
+    let prev = -1;
+    for (let i = 1; i < y.length; i += 1) {
+      if (y[i - 1] < 0 && y[i] >= 0) {
+        const tz = i - 1 + -y[i - 1] / (y[i] - y[i - 1]);
+        if (prev >= 0) {
+          const f = SR / (tz - prev);
+          const k = Math.floor((0.5 * (tz + prev)) / FR);
+          if (k < nF) {
+            sum[k] += f;
+            cnt[k] += 1;
+          }
+        }
+        prev = tz;
+      }
+    }
+    return Array.from(sum, (s0, k) => (cnt[k] ? 1200 * Math.log2(s0 / cnt[k] / 1000) : NaN));
+  };
+  for (const os of PATHS) {
+    const paths = {};
+    for (const kind of ['smooth', 'ui60', 'cc7_fast', 'cc7_slow']) {
+      const f = auto(kind);
+      const pp = { ...ctx.LAB, noise: 0.003, res: 1, cutoff: 1000, outLevel: 0.3 };
+      const r = render({ file, os, params: pp, notes: [held(54, 30)], seconds: 2.4, seed: 4, onBlock: (fr, proc) => {
+        const v = f(fr / SR);
+        if (v !== null) proc.onMsg({ type: 'params', params: { ...proc.p, cutoff: P.cutoffHz(v) } });
+      } });
+      paths[kind] = pitch(r.L);
+    }
+    const ref = paths.smooth;
+    const k0 = Math.ceil(((t0 + 0.05) * SR) / FR);
+    const k1 = Math.floor(((t1 - 0.05) * SR) / FR);
+    // Le chemin du potard (la coupure demandee), en cents re 1 kHz ; sa pente
+    const ideal = (k) => {
+      const t = ((k + 0.5) * FR) / SR;
+      const u = Math.min(1, Math.max(0, (t - t0) / (t1 - t0)));
+      return 1200 * Math.log2(P.cutoffHz(a + (b - a) * u) / 1000);
+    };
+    const slope = (ideal(k1) - ideal(k0)) / (((k1 - k0) * FR) / SR);
+    for (const [kind, c] of Object.entries(paths)) {
+      const dev = [];
+      for (let k = k0; k <= k1; k += 1) dev.push(c[k] - ref[k]);
+      const W = 100;
+      let worst = 0;
+      let e2 = 0;
+      let n = 0;
+      // cc7_slow : a partir de son second message (le premier pas d'un geste est un vrai pas)
+      const from = kind === 'cc7_slow' ? Math.ceil((0.08 * SR) / FR) : 0;
+      for (let i = Math.max(W / 2, from); i < dev.length - W / 2; i += 1) {
+        let m = 0;
+        for (let j = i - W / 2; j < i + W / 2; j += 1) m += dev[j];
+        const h = dev[i] - m / W;
+        if (!Number.isFinite(h)) continue;
+        worst = Math.max(worst, Math.abs(h));
+        e2 += h * h;
+        n += 1;
+      }
+      let lagC = 0;
+      let nl = 0;
+      for (let k = k0 + 25; k <= k1 - 25; k += 1) {
+        if (!Number.isFinite(c[k])) continue;
+        lagC += ideal(k) - c[k];
+        nl += 1;
+      }
+      out[`x${os} ${kind} ripple cents (peak / rms)`] = `+/-${r1(worst)} / ${r1(Math.sqrt(e2 / Math.max(1, n)))}`;
+      out[`x${os} ${kind} lag on the knob ms`] = r1((1000 * lagC) / nl / slope);
+    }
+  }
+  return out;
+}
+
+/**
  * Q3 : l'escalier des potards. Chaque potard du moteur parcourt ses 128 valeurs MIDI en 2 s (un message toutes les
  * 15.6 ms, la traduction du site) sur une scie C3 tenue : l'energie au-dessus de 6 kHz par fenetre de 2 ms contre sa
  * mediane glissante de 50 ms (le pire exces, dB) ; et la raie du bloc (375 Hz) d'une note fixe.
@@ -1347,6 +1481,12 @@ async function q3(ctx, file) {
     let worst = -Infinity;
     for (let i = 0; i < a.length; i += 1) worst = Math.max(worst, db10((a[i] + floor) / (b[i] + floor)));
     out[`${id} worst 2ms HF, MIDI steps re smooth dB`] = r1(worst);
+    // Le meme sur les fenetres a moins de 40 dB de la plus forte (2026-10-23, S19 : les pires ecarts ci-dessus tombent
+    // dans des fenetres 57 a 100 dB sous la plus forte, entre deux fronts de la scie, ou un rien fait un rapport)
+    const f40 = Math.max(...b) * 1e-4;
+    let w40 = -Infinity;
+    for (let i = 0; i < a.length; i += 1) w40 = Math.max(w40, db10((a[i] + f40) / (b[i] + f40)));
+    out[`${id} worst 2ms HF within 40 dB of the loudest, MIDI steps re smooth dB`] = r1(w40);
   }
   // La raie du bloc (128 / 48 kHz) d'une note fixe, son de depart
   const r = render({ file, os, params: { ...eng(knobs), glue: 0 }, notes: [held(48, 4)], seconds: 2.5 });
@@ -1430,7 +1570,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, space, fpol, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, space, fpol, zip, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }
