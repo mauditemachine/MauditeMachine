@@ -597,6 +597,15 @@ const K35_KNEE = 6;
 const K35_LAM = K35_KNEE / 11.1;
 const K35_ILAM = 1 / K35_LAM;
 const K35_ALPHA = 0.035;
+const K35_AF0 = 9000;
+const K35_AFW = 4000;
+/**
+ * Au telephone, le Korg35 fait deux pas par echantillon au-dessus de ce kappa (RES 0.83) : le cri replie ses harmoniques
+ * au rythme x2 et la boucle les reamplifiait pres de lui (8 kHz -27.6 dBc, 12 kHz -24 ; 16 % des coupures de 2 a 13 kHz
+ * au-dessus de -50 dBc) ; en deux pas, plus aucune raie au-dessus de -60 dBc sur 100 coupures de 1 a 13 kHz. En x4 un
+ * pas suffit (l'asymetrie analytique : -71 dBc au pire).
+ */
+const MS_X2_K = 0.97;
 /**
  * RES -> kappa (K / (7/3)) : l'auto-oscillation a RES 0.9 ; au niveau de jeu, une bosse a 5 dB de celle de MOOG a RES 0.8
  * (2026-10-23, QC-CH-1 : la table d'avant, 0.5 / 0.72 / 0.86 / 0.935 / 0.965 / 1 / 1.15, calee en petit signal) ; en haut
@@ -1087,7 +1096,17 @@ const RAMP_K = 1.1;
 const FADE_HZ = 18000;
 const FADE_W = 4000;
 const VX_G35R = 37;
-const VX_SIZE = 40;
+/**
+ * MS-10 (2026-10-23, QC-DSP-2) : l'entree du Korg35 a l'echantillon d'avant (gauche, droite : le milieu du premier des
+ * deux pas), l'asymetrie de la note (K35_ALPHA, effacee de K35_AF0 a K35_AF0 + K35_AFW), g au rythme des deux pas
+ * (gauche, droite de SPACE).
+ */
+const VX_KXL = 38;
+const VX_KXR = 39;
+const VX_KAL = 40;
+const VX_G35H = 41;
+const VX_G35RH = 42;
+const VX_SIZE = 44;
 /**
  * La saturation de sortie des voix sans repliement (2026-10-23, S5, Mika : "que le son soit d'extreme bonne
  * qualite") : la meme tanh (le grain des sons gardes), par son integrale lncosh (ADAA du premier ordre, la table
@@ -2398,6 +2417,8 @@ class MMVoyager extends AudioWorkletProcessor {
       const KK = (7 / 3) * kap;
       let omK = (kap - 0.93) / 0.04;
       omK = omK <= 0 ? 0 : omK >= 1 ? 1 : omK * omK * (3 - 2 * omK);
+      // QC-DSP-2 : deux pas au telephone pres de l'auto-oscillation
+      const k35x2 = OS === 2 && kap > MS_X2_K;
       // Le bus (2026-10-23, zero allocation : sa methode, les nombres de l'echantillon dans ks et ki), apres les voix
       ks[KS_ODGAIN] = odGain;
       ks[KS_ODMIX] = odMix;
@@ -3033,11 +3054,20 @@ class MMVoyager extends AudioWorkletProcessor {
               else if (fr < 20) fr = 20;
               const xr = (Math.PI * fr) / sr;
               const x2r = xr * xr;
-              X[VX_G35R] = (xr * (945 - 105 * x2r + x2r * x2r)) / (945 - 420 * x2r + 15 * x2r * x2r);
+              const gR = (xr * (945 - 105 * x2r + x2r * x2r)) / (945 - 420 * x2r + 15 * x2r * x2r);
+              X[VX_G35R] = gR;
+              // tan(x / 2) = tan(x) / (1 + racine(1 + tan(x)^2)) : g des deux pas
+              X[VX_G35RH] = gR / (1 + Math.sqrt(1 + gR * gR));
             }
             if (f35 > fcMax35) f35 = fcMax35;
             else if (f35 < 20) f35 = 20;
-            v.x[VX_G35] = Math.tan((Math.PI * f35) / sr);
+            const g35n = Math.tan((Math.PI * f35) / sr);
+            X[VX_G35] = g35n;
+            X[VX_G35H] = g35n / (1 + Math.sqrt(1 + g35n * g35n));
+            // L'asymetrie s'efface en haut (QC-DSP-2 : de 9 a 13 kHz) : ses harmoniques paires y revenaient pres du cri
+            let tAl = (f35 - K35_AF0) / K35_AFW;
+            tAl = tAl <= 0 ? 0 : tAl >= 1 ? 1 : tAl * tAl * (3 - 2 * tAl);
+            X[VX_KAL] = K35_ALPHA * (1 - tAl);
           }
         }
         // Chaque etage sature : sa pente au point de son etat (Mystran), a CHAQUE echantillon surechantillonne
@@ -3110,76 +3140,87 @@ class MMVoyager extends AudioWorkletProcessor {
         const kL = v.kLam;
         const kIl = v.kIlam;
         if (w4 !== 0) {
-          const kc = X[VX_KCL];
-          const kb = X[VX_KBL];
-          const kp = X[VX_KPL];
-          const kq = X[VX_KQL];
-          const ky = X[VX_KYL];
           // WIDE qui demarre : la droite part de l'etat de la gauche
           if (wideV && !v.wl) {
-            X[VX_KCR] = kc;
-            X[VX_KBR] = kb;
-            X[VX_KPR] = kp;
-            X[VX_KQR] = kq;
-            X[VX_KYR] = ky;
+            X[VX_KCR] = X[VX_KCL];
+            X[VX_KBR] = X[VX_KBL];
+            X[VX_KPR] = X[VX_KPL];
+            X[VX_KQR] = X[VX_KQL];
+            X[VX_KYR] = X[VX_KYL];
+            X[VX_KXR] = X[VX_KXL];
           }
-          const g35 = X[VX_G35];
-          const xk = xd * driveIn;
-          // La secante des diodes, extrapolee de l'echantillon d'avant
-          const be = 2 * kp - kq;
-          const xe = (be < 0 ? -be : be) * kIl;
-          let sig;
-          if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
-          else {
-            const qe = xe * K35_INV;
-            const ie = qe | 0;
-            sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
-          }
-          const aky = ky < 0 ? -ky : ky;
-          const gk = g35 * (1 - (K35_ALPHA * ky) / (kL + aky));
-          let Kd = KK * sig;
-          let iD1 = 1 / (1 + gk * (1 - Kd));
-          let mk = (gk * (4 * Kd - 1) * iD1) / 3;
-          let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
-          let b = (kb - gk * c) * iD1;
-          // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation)
-          if (omK > 0 && g35 > LC_G0) {
-            let tg = (g35 - LC_G0) / LC_GW;
-            tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
-            const om = tg * omK;
-            const xb = (b < 0 ? -b : b) * kIl;
-            let s2;
-            if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
+          // Au telephone pres de l'auto-oscillation, deux pas par echantillon (2026-10-23, QC-DSP-2 et QC-CH-2) : le
+          // premier a l'entree du milieu, la sortie du second (le meme retard qu'en un pas)
+          const g35 = k35x2 ? X[VX_G35H] : X[VX_G35];
+          const kAl = X[VX_KAL];
+          const xk1 = xd * driveIn;
+          const xk0 = X[VX_KXL];
+          X[VX_KXL] = xk1;
+          for (let ss = k35x2 ? 0 : 1; ss < 2; ss += 1) {
+            const xk = ss === 0 ? 0.5 * (xk0 + xk1) : xk1;
+            const kc = X[VX_KCL];
+            const kb = X[VX_KBL];
+            const kp = X[VX_KPL];
+            const kq = X[VX_KQL];
+            const ky = X[VX_KYL];
+            // La secante des diodes, extrapolee du pas d'avant
+            const be = 2 * kp - kq;
+            const xe = (be < 0 ? -be : be) * kIl;
+            let sig;
+            if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
             else {
-              const qb = xb * K35_INV;
-              const ib = qb | 0;
-              s2 = K35_S[ib] + (qb - ib) * (K35_S[ib + 1] - K35_S[ib]);
+              const qe = xe * K35_INV;
+              const ie = qe | 0;
+              sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
             }
-            Kd = KK * (sig + om * (s2 - sig));
-            iD1 = 1 / (1 + gk * (1 - Kd));
-            mk = (gk * (4 * Kd - 1) * iD1) / 3;
-            c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
-            b = (kb - gk * c) * iD1;
+            // L'asymetrie (la coupure suit le signe de la sortie) par une courbe analytique (QC-DSP-2 : y / (L + |y|) et son
+            // coude a 0 donnaient des harmoniques paires jusqu'en haut, repliees pres du cri)
+            const gk = g35 * (1 - (kAl * ky) / Math.sqrt(kL * kL + ky * ky));
+            let Kd = KK * sig;
+            let iD1 = 1 / (1 + gk * (1 - Kd));
+            let mk = (gk * (4 * Kd - 1) * iD1) / 3;
+            let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+            let b = (kb - gk * c) * iD1;
+            // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation)
+            if (omK > 0 && g35 > LC_G0) {
+              let tg = (g35 - LC_G0) / LC_GW;
+              tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
+              const om = tg * omK;
+              const xb = (b < 0 ? -b : b) * kIl;
+              let s2;
+              if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
+              else {
+                const qb = xb * K35_INV;
+                const ib = qb | 0;
+                s2 = K35_S[ib] + (qb - ib) * (K35_S[ib + 1] - K35_S[ib]);
+              }
+              Kd = KK * (sig + om * (s2 - sig));
+              iD1 = 1 / (1 + gk * (1 - Kd));
+              mk = (gk * (4 * Kd - 1) * iD1) / 3;
+              c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+              b = (kb - gk * c) * iD1;
+            }
+            X[VX_KCL] = 2 * c - kc;
+            X[VX_KBL] = 2 * b - kb;
+            X[VX_KQL] = kp;
+            X[VX_KPL] = b;
+            // La sortie : les diodes
+            const xo = (b < 0 ? -b : b) * kIl;
+            let fo;
+            if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
+            else {
+              const qo = xo * K35_INV;
+              const io = qo | 0;
+              fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
+            }
+            X[VX_KYL] = b < 0 ? -kL * fo : kL * fo;
           }
-          X[VX_KCL] = 2 * c - kc;
-          X[VX_KBL] = 2 * b - kb;
-          X[VX_KQL] = kp;
-          X[VX_KPL] = b;
-          // La sortie : les diodes
-          const xo = (b < 0 ? -b : b) * kIl;
-          let fo;
-          if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
-          else {
-            const qo = xo * K35_INV;
-            const io = qo | 0;
-            fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
-          }
-          const yk = b < 0 ? -kL * fo : kL * fo;
-          X[VX_KYL] = yk;
           X[VX_KON] = 1;
-          yo += w4 * yk;
+          yo += w4 * X[VX_KYL];
         } else if (X[VX_KON] !== 0) {
           for (let j = VX_KCL; j <= VX_KYR; j += 1) X[j] = 0;
+          X[VX_KXL] = 0;
+          X[VX_KXR] = 0;
           X[VX_KON] = 0;
         }
         // La garde (2026-10-23, Q7) : une sortie folle (NaN, infinie, emballee) remet la voix au repos, sans bruit
@@ -3271,62 +3312,75 @@ class MMVoyager extends AudioWorkletProcessor {
         }
         // MS-10 de droite (S11)
         if (w4 !== 0) {
-          const kc = X[VX_KCR];
-          const kb = X[VX_KBR];
-          const kp = X[VX_KPR];
-          const kq = X[VX_KQR];
-          const ky = X[VX_KYR];
-          const g35 = spW && X[VX_G35R] > 0 ? X[VX_G35R] : X[VX_G35];
-          const xk = xdR * driveIn;
-          const be = 2 * kp - kq;
-          const xe = (be < 0 ? -be : be) * kIl;
-          let sig;
-          if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
-          else {
-            const qe = xe * K35_INV;
-            const ie = qe | 0;
-            sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
-          }
-          const aky = ky < 0 ? -ky : ky;
-          const gk = g35 * (1 - (K35_ALPHA * ky) / (kL + aky));
-          let Kd = KK * sig;
-          let iD1 = 1 / (1 + gk * (1 - Kd));
-          let mk = (gk * (4 * Kd - 1) * iD1) / 3;
-          let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
-          let b = (kb - gk * c) * iD1;
-          if (omK > 0 && g35 > LC_G0) {
-            let tg = (g35 - LC_G0) / LC_GW;
-            tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
-            const om = tg * omK;
-            const xb = (b < 0 ? -b : b) * kIl;
-            let s2;
-            if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
+          const g35R1 = spW && X[VX_G35R] > 0 ? X[VX_G35R] : X[VX_G35];
+          const g35R2 = spW && X[VX_G35R] > 0 ? X[VX_G35RH] : X[VX_G35H];
+          // Au telephone pres de l'auto-oscillation, deux pas par echantillon (2026-10-23, QC-DSP-2 et QC-CH-2) : le
+          // premier a l'entree du milieu, la sortie du second (le meme retard qu'en un pas)
+          const g35 = k35x2 ? g35R2 : g35R1;
+          const kAl = X[VX_KAL];
+          const xk1 = xdR * driveIn;
+          const xk0 = X[VX_KXR];
+          X[VX_KXR] = xk1;
+          for (let ss = k35x2 ? 0 : 1; ss < 2; ss += 1) {
+            const xk = ss === 0 ? 0.5 * (xk0 + xk1) : xk1;
+            const kc = X[VX_KCR];
+            const kb = X[VX_KBR];
+            const kp = X[VX_KPR];
+            const kq = X[VX_KQR];
+            const ky = X[VX_KYR];
+            // La secante des diodes, extrapolee du pas d'avant
+            const be = 2 * kp - kq;
+            const xe = (be < 0 ? -be : be) * kIl;
+            let sig;
+            if (xe >= K35_XMAX) sig = (K35_TEND + (xe - K35_XMAX) * K35_SLOPE) / xe;
             else {
-              const qb = xb * K35_INV;
-              const ib = qb | 0;
-              s2 = K35_S[ib] + (qb - ib) * (K35_S[ib + 1] - K35_S[ib]);
+              const qe = xe * K35_INV;
+              const ie = qe | 0;
+              sig = K35_S[ie] + (qe - ie) * (K35_S[ie + 1] - K35_S[ie]);
             }
-            Kd = KK * (sig + om * (s2 - sig));
-            iD1 = 1 / (1 + gk * (1 - Kd));
-            mk = (gk * (4 * Kd - 1) * iD1) / 3;
-            c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
-            b = (kb - gk * c) * iD1;
+            // L'asymetrie (la coupure suit le signe de la sortie) par une courbe analytique (QC-DSP-2 : y / (L + |y|) et son
+            // coude a 0 donnaient des harmoniques paires jusqu'en haut, repliees pres du cri)
+            const gk = g35 * (1 - (kAl * ky) / Math.sqrt(kL * kL + ky * ky));
+            let Kd = KK * sig;
+            let iD1 = 1 / (1 + gk * (1 - Kd));
+            let mk = (gk * (4 * Kd - 1) * iD1) / 3;
+            let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+            let b = (kb - gk * c) * iD1;
+            // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation)
+            if (omK > 0 && g35 > LC_G0) {
+              let tg = (g35 - LC_G0) / LC_GW;
+              tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
+              const om = tg * omK;
+              const xb = (b < 0 ? -b : b) * kIl;
+              let s2;
+              if (xb >= K35_XMAX) s2 = (K35_TEND + (xb - K35_XMAX) * K35_SLOPE) / xb;
+              else {
+                const qb = xb * K35_INV;
+                const ib = qb | 0;
+                s2 = K35_S[ib] + (qb - ib) * (K35_S[ib + 1] - K35_S[ib]);
+              }
+              Kd = KK * (sig + om * (s2 - sig));
+              iD1 = 1 / (1 + gk * (1 - Kd));
+              mk = (gk * (4 * Kd - 1) * iD1) / 3;
+              c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
+              b = (kb - gk * c) * iD1;
+            }
+            X[VX_KCR] = 2 * c - kc;
+            X[VX_KBR] = 2 * b - kb;
+            X[VX_KQR] = kp;
+            X[VX_KPR] = b;
+            // La sortie : les diodes
+            const xo = (b < 0 ? -b : b) * kIl;
+            let fo;
+            if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
+            else {
+              const qo = xo * K35_INV;
+              const io = qo | 0;
+              fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
+            }
+            X[VX_KYR] = b < 0 ? -kL * fo : kL * fo;
           }
-          X[VX_KCR] = 2 * c - kc;
-          X[VX_KBR] = 2 * b - kb;
-          X[VX_KQR] = kp;
-          X[VX_KPR] = b;
-          const xo = (b < 0 ? -b : b) * kIl;
-          let fo;
-          if (xo >= K35_XMAX) fo = K35_TEND + (xo - K35_XMAX) * K35_SLOPE;
-          else {
-            const qo = xo * K35_INV;
-            const io = qo | 0;
-            fo = K35_T[io] + (qo - io) * (K35_T[io + 1] - K35_T[io]);
-          }
-          const yk = b < 0 ? -kL * fo : kL * fo;
-          X[VX_KYR] = yk;
-          yoR += w4 * yk;
+          yoR += w4 * X[VX_KYR];
         }
         if (!(yoR > -VOICE_GUARD && yoR < VOICE_GUARD)) {
           this.rest(v);

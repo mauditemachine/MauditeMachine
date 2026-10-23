@@ -178,11 +178,11 @@
     "sideDb": -8.61
    },
    "X SPACE MS10": {
-    "sha256": "b9585c9e412142812e9db3c6e90e4c3f",
-    "peakDb": -1.68,
-    "rmsDb": -14.35,
-    "centroidHz": 757,
-    "sideDb": -7.56
+    "sha256": "0760be93a7e3047057bb101e4fdee9d4",
+    "peakDb": -1.7,
+    "rmsDb": -14.34,
+    "centroidHz": 756,
+    "sideDb": -7.55
    },
    "X NEG": {
     "sha256": "0719daa734f78e96fc0b49ec9cca68b5",
@@ -192,9 +192,9 @@
     "sideDb": -17.1
    },
    "X MS10": {
-    "sha256": "99d0f5381a75dc71df073d3c8bdd0fc1",
+    "sha256": "6f4ee343a157780c1ebddfc2b9a2805a",
     "peakDb": -1.5,
-    "rmsDb": -10.48,
+    "rmsDb": -10.47,
     "centroidHz": 541,
     "sideDb": -18.33
    },
@@ -484,11 +484,11 @@
     "sideDb": -8.47
    },
    "X SPACE MS10": {
-    "sha256": "4a44ceb8584ec96cb4f1981d89a0daf7",
-    "peakDb": -1.69,
-    "rmsDb": -14.33,
-    "centroidHz": 748,
-    "sideDb": -7.56
+    "sha256": "337f59888c6697ea09705d605fd5419c",
+    "peakDb": -1.7,
+    "rmsDb": -14.32,
+    "centroidHz": 747,
+    "sideDb": -7.55
    },
    "X NEG": {
     "sha256": "c7a5a1b6633a550bebdc901b61c396c6",
@@ -498,11 +498,11 @@
     "sideDb": -17.04
    },
    "X MS10": {
-    "sha256": "62e00450c0d9689f5b9f054f07c01616",
-    "peakDb": -1.4,
-    "rmsDb": -10.45,
+    "sha256": "e92941ed129d2873cbc3f7edefcd9376",
+    "peakDb": -1.42,
+    "rmsDb": -10.44,
     "centroidHz": 543,
-    "sideDb": -18.23
+    "sideDb": -18.24
    },
    "LEGACY INIT": {
     "sha256": "57f44a8ab064102d320c9e188b28180b",
