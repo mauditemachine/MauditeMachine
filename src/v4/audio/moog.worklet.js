@@ -966,7 +966,7 @@ const P_RANGE = {
   glue: [0, 1.5],
 };
 /** Les codes (entiers) : MODE (0 MOOG, 1 LP12, 2 BP, 3 HP), forme et cible du LFO, SYNC, octave et forme du SUB. */
-const P_INT = { fmode: [0, 4], lfoShape: [0, 4], lfoDest: [0, 4], sync: [0, 1], subOct: [1, 2], subWave: [0, 3] };
+const P_INT = { fmode: [0, 4], lfoShape: [0, 4], lfoDest: [0, 4], sync: [0, 1], subOct: [1, 2], subWave: [0, 3], fpol: [0, 1] };
 /**
  * La garde d'une voix (2026-10-23) : une sortie de filtre hors de +/-VOICE_GUARD (jamais atteint par un son legal : HP
  * a fond d'OVERDRIVE, toutes les sources au maximum, reste sous 30) remet la voix au repos, sans bruit.
@@ -1198,6 +1198,8 @@ class MMVoyager extends AudioWorkletProcessor {
       load: 0,
       // SPACE (S17) : 0, le son d'avant (un seul filtre par note, ou les deux de WIDE a la meme coupure)
       space: 0,
+      // POLARITY (S18) : 0 POS (l'enveloppe ouvre le filtre, le son d'avant), 1 NEG (elle le ferme)
+      fpol: 0,
       glue: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
@@ -2863,7 +2865,10 @@ class MMVoyager extends AudioWorkletProcessor {
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         // La coupure (sa tangente) : une fois par echantillon du contexte, elle bouge lentement a cette echelle
         if (newNoise || (ladOn ? v.g === 0 || (spW && v.gS === 0) : X[VX_G35] === 0 || (spW && X[VX_G35R] === 0))) {
-          const env = sm.envOct * v.fV * (0.8 + 0.2 * v.accent) * v.envAcc;
+          let env = sm.envOct * v.fV * (0.8 + 0.2 * v.accent) * v.envAcc;
+          // POLARITY (2026-10-23, S18) : NEG retourne le contour (la coupure descend d'autant qu'elle montait) ; l'accent
+          // (cutAcc) ouvre toujours
+          if (p.fpol === 1) env = -env;
           if (ladOn) {
             let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + env + v.cutAcc + v.calC * drift + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12 + kTune);
             // SPACE (S17) : la droite 2^s au-dessus, la gauche 2^s au-dessous, chacune bornee comme la coupure

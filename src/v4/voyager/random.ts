@@ -142,6 +142,8 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     load: 0,
     // SPACE (2026-10-23) : a 0, sans tirage, de meme
     space: 0,
+    // POLARITY (2026-10-23) : POS, sans tirage, de meme
+    fpol: 0,
   };
 }
 

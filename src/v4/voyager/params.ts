@@ -138,7 +138,8 @@ export type VoyKnobId =
   | 'tape'
   // 2026-10-23 (Mika : "entre Monark et un synth analog Moog Voyager et un Korg Ms10") : LOAD, SPACE
   | 'load'
-  | 'space';
+  | 'space'
+  | 'fpol';
 
 export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
@@ -198,6 +199,8 @@ export const SEMIS = ['-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '+1', '+2',
 export const FMODES = ['MOOG', 'LP12', 'MS-10', 'BP', 'HP'] as const;
 /** Le code du moteur (audio/moog.worklet.js P.fmode) de chaque cran de MODE : 0 MOOG, 1 LP12, 4 MS-10, 2 BP, 3 HP. */
 export const FMODE_CODE = [0, 1, 4, 2, 3] as const;
+/** POLARITY (2026-10-23) : le sens du contour du filtre (les noms de celui du MM-BASS). */
+export const FPOLS = ['POS', 'NEG'] as const;
 /** MOD : la vitesse du LFO en duree d'un cycle, calee sur le tempo (en temps) ; chaque cycle part sur la grille. */
 export const LFO_RATES = ['1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR', '4 BAR'] as const;
 export const LFO_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16] as const;
@@ -368,6 +371,8 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
    * une octave de chaque cote (audio/moog.worklet.js S17) ; OFF sous 0.02 : le son d'avant au bit pres.
    */
   { id: 'space', label: 'SPACE', aria: 'Space: the Voyager dual low pass, the left filter darker and the right one brighter, up to one octave each side', section: 'tweak', def: 0, legacy: 0 },
+  // POLARITY (2026-10-23) : le sens du contour du filtre, comme celui du MM-BASS : POS l'ouvre (le son d'avant), NEG le ferme
+  { id: 'fpol', label: 'POLARITY', aria: 'Filter contour polarity: the envelope opens the filter, or closes it', section: 'tweak', def: 0, legacy: 0, steps: FPOLS },
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
@@ -637,6 +642,8 @@ export interface EngineParams {
   load: number;
   /** SPACE (2026-10-23) : 0 a 1 (l'ecart des deux filtres) ; 0 : un seul filtre par note (le calcul d'avant) */
   space: number;
+  /** POLARITY (2026-10-23) : 0 POS (le son d'avant), 1 NEG */
+  fpol: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -684,6 +691,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     glue: fxAmount(v.glue),
     load: fxAmount(v.load),
     space: fxAmount(v.space),
+    fpol: stepIndex('fpol', v.fpol),
   };
 }
 

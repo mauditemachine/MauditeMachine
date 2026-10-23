@@ -1269,6 +1269,46 @@ async function space(ctx, file) {
 }
 
 /**
+ * POLARITY (2026-10-23, S18, C22f) : NEG retourne le contour. La coupure de la note (la tangente de l'echelle, lue a
+ * chaque bloc) en POS et en NEG contre celle sans enveloppe : log2(POS / 0) + log2(NEG / 0) doit rester a 0.01 octave de
+ * 0, pour une enveloppe de 1 a 5 octaves (la coupure 657 Hz : +/-5 octaves tiennent entre 20 Hz et la butee) ; MS-10 de
+ * meme. Au-dela, la butee (20 Hz ou 0.45 du contexte) coupe le miroir : son ecart est donne.
+ */
+async function fpol(ctx, file) {
+  const out = {};
+  const sr0 = SR;
+  for (const os of PATHS) {
+    for (const fmode of [0, 4]) {
+      for (const oct of [1, 2, 3, 4, 5, 6]) {
+        const run = (pol, envOct) => {
+          const fcs = [];
+          const pp = { ...ctx.DEF, cutoff: 657, res: 0, envOct, fpol: pol, fmode, drift: 0, keyTrack: 0, fA: 0.05, fD: 0.6, fS: 0, accFlt: 0, outLevel: 0.3 };
+          render({ file, os, params: pp, notes: [held(60, 2)], seconds: 1.2, seed: 9, onBlock: (f, proc) => {
+            const v = proc.voices.find((x) => x.on);
+            if (!v) return;
+            const g = fmode === 4 ? v.x[27] : v.g;
+            if (g > 0) fcs.push((Math.atan(g) * sr0 * os) / Math.PI);
+          } });
+          return fcs;
+        };
+        const z = run(0, 0);
+        const a = run(0, oct);
+        const b = run(1, oct);
+        let worst = 0;
+        let peak = 0;
+        for (let i = 8; i < Math.min(z.length, a.length, b.length); i += 1) {
+          const e = Math.log2(a[i] / z[i]) + Math.log2(b[i] / z[i]);
+          if (Math.abs(e) > Math.abs(worst)) worst = e;
+          peak = Math.max(peak, Math.log2(a[i] / z[i]));
+        }
+        out[`x${os} ${fmode === 4 ? 'MS-10' : 'MOOG'} env ${oct} oct (peak +${r2(peak)}): POS + NEG oct`] = Math.round(worst * 10000) / 10000;
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Q3 : l'escalier des potards. Chaque potard du moteur parcourt ses 128 valeurs MIDI en 2 s (un message toutes les
  * 15.6 ms, la traduction du site) sur une scie C3 tenue : l'energie au-dessus de 6 kHz par fenetre de 2 ms contre sa
  * mediane glissante de 50 ms (le pire exces, dB) ; et la raie du bloc (375 Hz) d'une note fixe.
@@ -1390,7 +1430,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, space, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, syncwave, ms10, load, fb, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, space, fpol, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }

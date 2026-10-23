@@ -37,7 +37,8 @@ function items(): TweakItem[] {
       x: pl.x,
       z: pl.z,
       // SYNC : un commutateur, OFF et ON a ses reperes (ON en orange) ; CHORD : cinq crans, 7TH (celui de depart) en orange
-      ...(pl.sw ? { steps: k.steps ?? ['OFF', 'ON'], stepOrange: k.id === 'chord' ? 2 : 1 } : {}),
+      // POLARITY (2026-10-23) : POS (le reglage d'origine) en orange
+      ...(pl.sw ? { steps: k.steps ?? ['OFF', 'ON'], stepOrange: k.id === 'chord' ? 2 : k.id === 'fpol' ? 0 : 1 } : {}),
       // PHASE : FREE en orange (le reglage d'origine, la phase libre)
       ...(VOY_TWEAK_ENDS[k.id] ? { ends: VOY_TWEAK_ENDS[k.id], endOrange: k.id === 'phase' } : {}),
     };

@@ -278,6 +278,8 @@ function patches(M) {
   // SPACE (2026-10-23, S17) : les deux passe-bas du Voyager, une resonance qui chante a deux hauteurs ; et en MS-10
   if (has('space')) list.push({ name: 'X SPACE', knobs: { ...defaults, space: 0.6, res: 0.7 }, prog: [0, 1, 2, 0] });
   if (has('space')) list.push({ name: 'X SPACE MS10', knobs: { ...defaults, space: 1, res: 0.8, fmode: 0.5, wide: 0.4 }, prog: [0, 1, 2, 0] });
+  // POLARITY NEG (2026-10-23, S18) : le contour qui ferme le filtre
+  if (has('fpol')) list.push({ name: 'X NEG', knobs: { ...defaults, fpol: 1, cutoff: 0.62, envAmt: 0.7, res: 0.55 }, prog: [0, 1, 2, 0] });
   if (P.FMODES.includes('MS-10')) list.push({ name: 'X MS10', knobs: { ...defaults, fmode: P.FMODES.indexOf('MS-10') / (P.FMODES.length - 1), cutoff: 0.3, res: 0.85, envAmt: 0.6 }, prog: [0, 1, 2, 0] });
   // Les memes patchs avec les reglages ajoutes a leur valeur d'heritage : le son d'avant (--against)
   const legacy = list.filter((p) => !p.name.startsWith('X ')).map((p) => ({ name: `LEGACY ${p.name}`, knobs: legacyOf(M, p.knobs), prog: p.prog, legacy: true }));

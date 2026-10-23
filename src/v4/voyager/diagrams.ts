@@ -789,6 +789,25 @@ function spaceDiagram(v: number, values: Readonly<VoyValues>): VoyDiagram {
   return p.done();
 }
 
+/**
+ * POLARITY (2026-10-23) : la coupure dans le temps d'une note (le contour FILTER EG, de la hauteur d'ENV AMT), qui monte
+ * (POS) ou descend (NEG) ; l'autre sens en fantome.
+ */
+function polDiagram(v: number, values: Readonly<VoyValues>): VoyDiagram {
+  const p = new Pic();
+  const neg = stepIndex('fpol', v) === 1;
+  const mid = (Y0 + Y1) / 2;
+  const h = ((Y1 - Y0) / 2 - 6) * Math.min(1, 0.25 + envOctaves(values.envAmt) / 6);
+  const sus = Math.max(0, Math.min(1, values.fS));
+  // L'attaque sur le premier cinquieme, la retombee jusqu'au maintien
+  const shape = (t: number): number => (t < 0.2 ? t / 0.2 : sus + (1 - sus) * Math.exp(-(t - 0.2) * 6));
+  p.p(seg(X0, mid, X1, mid), 'grid');
+  p.p(curve((t) => mid + (neg ? -1 : 1) * h * shape(t), X0, X1, 80), 'ghost');
+  p.p(curve((t) => mid - (neg ? -1 : 1) * h * shape(t), X0, X1, 80), 'hot');
+  p.label('CUTOFF', X0 + 2, TOP).label(neg ? 'NEG: CLOSES' : 'POS: OPENS', X1, TOP, 'end').label('TIME', X1, BOT, 'end');
+  return p.done();
+}
+
 function reverbDiagram(v: number): VoyDiagram {
   const p = new Pic();
   const rnd = mulberry(5);
@@ -1296,6 +1315,8 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
       return loadDiagram(c.v);
     case 'space':
       return spaceDiagram(c.v, values);
+    case 'fpol':
+      return polDiagram(c.v, values);
     case 'reverb':
       return reverbDiagram(c.v);
     case 'volume': {

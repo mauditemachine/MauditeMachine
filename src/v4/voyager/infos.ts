@@ -251,6 +251,11 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     text: "Les deux filtres du Voyager : celui de gauche plus sombre, celui de droite plus clair, jusqu'à une octave de chaque côté. La coupure, l'enveloppe et le LFO les bougent ensemble ; la résonance chante à deux hauteurs. Large et sans chorus, il tient en mono (un peu de chaque côté passe dans l'autre). OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
     tip: "SPACE vers 5 avec RES vers 6 et WIDE à OFF : un arpège qui s'ouvre en stéréo sans perdre son centre.",
   },
+  fpol: {
+    title: 'POLARITY',
+    text: "Le sens de l'enveloppe du filtre : POS l'ouvre, NEG la ferme (des notes qui gonflent ou qui se creusent). ENV AMT dit de combien, dans un sens ou dans l'autre ; l'accent ouvre toujours. POS : le son d'origine.",
+    tip: "NEG avec une coupure haute et une attaque lente : chaque note part brillante puis s'enfonce, façon pompe.",
+  },
   dlyTime: {
     title: 'DLY TIME',
     text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos comme une bande qui ralentit ou accélère, jamais à l'envers : plus l'écart est grand, plus le glissement dure (jusqu'à 3 s de 1/8 à 1/2 à 120 BPM).",

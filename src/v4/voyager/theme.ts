@@ -806,9 +806,10 @@ const VT = PORTRAIT
           drift: [Q[1], R[0]],
           stack: [Q[2], R[0]],
           sync: [Q[3], R[0]],
-          wide: [C[0], R[1]],
-          load: [C[1], R[1]],
-          space: [C[2], R[1]],
+          wide: [Q[0], R[1]],
+          load: [Q[1], R[1]],
+          space: [Q[2], R[1]],
+          fpol: [Q[3], R[1]],
           width: [Q[0], R[2]],
           monoLow: [Q[1], R[2]],
           glue: [Q[2], R[2]],
@@ -843,7 +844,7 @@ const VT = PORTRAIT
       // Les touches sous le cartouche, a part : 0.25 au-dessus du cadre de OUTPUT
       const KZ = A - 0.62 - 0.25 - 0.125;
       return {
-        dims: { cx: 0, cz: 1.25 - DZ, w: 10.2, d: 3.4 + 2 * DZ },
+        dims: { cx: 0, cz: 1.25 - DZ, w: 10.6, d: 3.4 + 2 * DZ },
         cellW: 1.05,
         at: {
           phase: [-4.4, A],
@@ -855,28 +856,30 @@ const VT = PORTRAIT
           monoLow: [2.3, A],
           glue: [3.35, A],
           duck: [4.4, A],
-          // ACC FILTER (2026-10-21) : un quatrieme reglage dans PERFORMANCE, CHORD au bout
-          keyTrack: [-4.4, B],
-          accent: [-3.35, B],
-          accFlt: [-2.3, B],
-          chord: [-0.95, B],
-          load: [0.5, B],
-          space: [1.55, B],
-          dlyTime: [2.7, B],
-          tape: [3.75, B],
+          // ACC FILTER (2026-10-21) : un quatrieme reglage dans PERFORMANCE, CHORD au bout ; la rangee du bas passe de
+          // 0.2 plus a gauche (2026-10-23 : FILTER y prend LOAD, SPACE et POLARITY)
+          keyTrack: [-4.6, B],
+          accent: [-3.55, B],
+          accFlt: [-2.5, B],
+          chord: [-1.15, B],
+          load: [0.3, B],
+          space: [1.35, B],
+          fpol: [2.45, B],
+          dlyTime: [3.55, B],
+          tape: [4.6, B],
         } as Partial<Record<VoyKnobId, readonly [number, number]>>,
         // PERFORMANCE, FILTER et DELAY ; le cartouche a part au-dessus de OUTPUT, SCOPE, INFOS et CLOSE dessous (2026-10-23)
         groups: [
-          { title: 'OSCILLATORS', x0: -4.95, z0: A - 0.62, x1: -0.55, z1: A + 0.52, accent: true },
-          { title: 'OUTPUT', x0: -0.35, z0: A - 0.62, x1: 4.95, z1: A + 0.52 },
-          { title: 'PERFORMANCE', x0: -4.95, z0: B - 0.62, x1: -0.25, z1: B + 0.52 },
-          { title: 'FILTER', x0: -0.05, z0: B - 0.62, x1: 2.1, z1: B + 0.52 },
-          { title: 'DELAY', x0: 2.3, z0: B - 0.62, x1: 4.3, z1: B + 0.52 },
+          { title: 'OSCILLATORS', x0: -5.15, z0: A - 0.62, x1: -0.55, z1: A + 0.52, accent: true },
+          { title: 'OUTPUT', x0: -0.35, z0: A - 0.62, x1: 5.15, z1: A + 0.52 },
+          { title: 'PERFORMANCE', x0: -5.15, z0: B - 0.62, x1: -0.45, z1: B + 0.52 },
+          { title: 'FILTER', x0: -0.25, z0: B - 0.62, x1: 2.95, z1: B + 0.52 },
+          { title: 'DELAY', x0: 3.15, z0: B - 0.62, x1: 5.15, z1: B + 0.52 },
         ],
-        title: { x0: 2.15, z0: KZ - 0.25 - 0.57, x1: 4.95, z1: KZ - 0.25, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV, apart: { z1: KZ + 0.125 } },
-        scope: { x: 2.15 + 0.42, z: KZ, w: 0.84, d: 0.25, y: 0.01 },
-        infos: { x: (2.15 + 4.95) / 2, z: KZ, w: 0.84, d: 0.25, y: 0.01 },
-        close: { x: 4.95 - 0.42, z: KZ, w: 0.84, d: 0.25, y: 0.01 },
+        title: { x0: 2.35, z0: KZ - 0.25 - 0.57, x1: 5.15, z1: KZ - 0.25, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: VOY_REV, apart: { z1: KZ + 0.125 } },
+        scope: { x: 2.35 + 0.42, z: KZ, w: 0.84, d: 0.25, y: 0.01 },
+        infos: { x: (2.35 + 5.15) / 2, z: KZ, w: 0.84, d: 0.25, y: 0.01 },
+        close: { x: 5.15 - 0.42, z: KZ, w: 0.84, d: 0.25, y: 0.01 },
       };
     })();
 
@@ -946,7 +949,7 @@ export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]
 export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; sw: boolean } | null {
   const c = VT.at[id];
   if (!c) return null;
-  return { x: c[0], z: c[1], sw: id === 'sync' || id === 'chord' };
+  return { x: c[0], z: c[1], sw: id === 'sync' || id === 'chord' || id === 'fpol' };
 }
 
 
