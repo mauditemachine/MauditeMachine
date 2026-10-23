@@ -99,7 +99,8 @@ const ARP_GROUPS: readonly Group[] = [
   { id: 'osc2', label: 'OSC 2', dials: [v('wave2', 'WAVE'), v('range2', 'RANGE'), v('semi2', 'SEMI'), v('fine2', 'FINE'), v('osc2', 'LEVEL')] },
   { id: 'sub', label: 'SUB', dials: [v('sub', 'LEVEL'), v('subOct', 'OCT'), v('subWave', 'WAVE')] },
   { id: 'mix', label: 'MIX', dials: [v('noise', 'NOISE'), v('fm', 'FM'), v('ratio', 'RATIO'), v('volume', 'VOLUME')] },
-  { id: 'filter', label: 'FILTER', dials: [v('cutoff', 'CUTOFF'), v('res', 'RES'), v('envAmt', 'ENV AMT'), v('fmode', 'MODE')] },
+  // LOAD (2026-10-23, TWEAKS de la carte) au bout du filtre : au telephone, ce qui fait le filtre est ensemble
+  { id: 'filter', label: 'FILTER', dials: [v('cutoff', 'CUTOFF'), v('res', 'RES'), v('envAmt', 'ENV AMT'), v('fmode', 'MODE'), v('load', 'LOAD')] },
   { id: 'feg', label: 'FILTER EG', dials: [v('fA', 'ATTACK'), v('fD', 'DECAY'), v('fS', 'SUSTAIN'), v('fR', 'RELEASE')] },
   { id: 'aeg', label: 'AMP EG', dials: [v('aA', 'ATTACK'), v('aD', 'DECAY'), v('aS', 'SUSTAIN'), v('aR', 'RELEASE')] },
   { id: 'mod', label: 'MOD', dials: [v('lfoRate', 'SPEED'), v('lfoShape', 'SHAPE'), v('lfoDest', 'TARGET'), v('lfoAmt', 'DEPTH')] },

@@ -241,6 +241,11 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     text: "La colle du MM-ARP : un compresseur de bus doux (2:1, lié en stéréo, rattrapage automatique) resserre les écarts d'une note et d'un accord à l'autre, puis un arrondi des crêtes (une saturation douce, sans repliement) les tasse. Le volume reste le même à 1 dB près, le son devient plus dense et plus collé. OFF : le son d'origine ; 3 à 5 : la colle d'une console ; 10 : bien tassé.",
     tip: "Monte GLUE plutôt que VOLUME quand l'arpège manque de présence contre le kick.",
   },
+  load: {
+    title: 'LOAD',
+    text: "Le mélangeur pousse le filtre, comme le LOAD de Monark. En bas le son reste propre (un Voyager), au milieu il chauffe et la résonance se tasse sous les notes, en haut il gronde. Il garde l'attaque : le punch reste. Une note appuyée (ACCENT, ACC FILTER) le pousse un peu plus. OVERDRIVE est la pédale par-dessus. OFF : le son d'origine.",
+    tip: "LOAD vers 3 avec RES vers 6 : le gras d'un Moog sans perdre le grave ; garde OVERDRIVE pour la fin de la chaîne.",
+  },
   dlyTime: {
     title: 'DLY TIME',
     text: "Le temps du DELAY, calé sur le tempo : 1/8 (croche), 3/16 (croche pointée, le réglage d'origine), 1/4 (noire), 3/8 (noire pointée) ou 1/2 (blanche). Le changer en jeu fait glisser les échos comme une bande qui ralentit ou accélère, jamais à l'envers : plus l'écart est grand, plus le glissement dure (jusqu'à 3 s de 1/8 à 1/2 à 120 BPM).",

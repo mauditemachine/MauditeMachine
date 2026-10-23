@@ -63,6 +63,11 @@ export interface TweakTitle {
   name: string;
   sub: string;
   rev: string;
+  /**
+   * le cartouche a part, hors du cadre des groupes (2026-10-23, le MM-ARP : il monte au-dessus de ses reglages et la
+   * rangee du bas prend le groupe FILTER) : sa zone degagee a lui, jusqu'au bas de ses touches (z1)
+   */
+  apart?: { z1: number };
 }
 
 export interface TweakPlateSpec {
@@ -88,16 +93,22 @@ export interface TweakPlateSpec {
  * portrait, la zone tourne d'un quart de tour par rapport a la carte : ses
  * cotes s'echangent.
  */
-export function tweakClearOf(dims: TweakPlateDims, groups: readonly TweakGroup[], title: TweakTitle | null): { x0: number; x1: number; z0: number; z1: number } {
-  const boxes = [...groups, ...(title ? [title] : [])];
+type ClearRect = { x0: number; x1: number; z0: number; z1: number };
+export function tweakClearOf(dims: TweakPlateDims, groups: readonly TweakGroup[], title: TweakTitle | null): ClearRect & { more?: ClearRect[] } {
+  const own = title && title.apart ? title : null;
+  const boxes = [...groups, ...(title && !own ? [title] : [])];
   const m = 0.12;
-  const x0 = Math.min(...boxes.map((b) => b.x0)) - m;
-  const x1 = Math.max(...boxes.map((b) => b.x1)) + m;
-  const z0 = Math.min(...boxes.map((b) => b.z0)) - m - 0.06;
-  const z1 = Math.max(...boxes.map((b) => b.z1)) + m;
   // Repere droit -> carte : desktop tel quel ; portrait (la zone tourne de -90 deg) x carte = cx - z, z carte = cz + x
-  if (!PORTRAIT) return { x0: dims.cx + x0, x1: dims.cx + x1, z0: dims.cz + z0, z1: dims.cz + z1 };
-  return { x0: dims.cx - z1, x1: dims.cx - z0, z0: dims.cz + x0, z1: dims.cz + x1 };
+  const toPcb = (x0: number, x1: number, z0: number, z1: number): ClearRect =>
+    PORTRAIT ? { x0: dims.cx - z1, x1: dims.cx - z0, z0: dims.cz + x0, z1: dims.cz + x1 } : { x0: dims.cx + x0, x1: dims.cx + x1, z0: dims.cz + z0, z1: dims.cz + z1 };
+  const main = toPcb(
+    Math.min(...boxes.map((b) => b.x0)) - m,
+    Math.max(...boxes.map((b) => b.x1)) + m,
+    Math.min(...boxes.map((b) => b.z0)) - m - 0.06,
+    Math.max(...boxes.map((b) => b.z1)) + m
+  );
+  if (!own || !own.apart) return main;
+  return { ...main, more: [toPcb(own.x0 - m, own.x1 + m, own.z0 - m - 0.06, Math.max(own.z1, own.apart.z1) + m)] };
 }
 
 /** Le genre d'un reglage, d'apres ses crans. */

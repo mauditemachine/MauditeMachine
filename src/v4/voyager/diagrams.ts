@@ -731,6 +731,39 @@ function glueDiagram(v: number): VoyDiagram {
   return p.done();
 }
 
+/**
+ * LOAD (2026-10-23) : la courbe du melangeur qui pousse le filtre (audio/moog.worklet.js S12 : l'entree x (1 + 4 L^2)
+ * plus la polarisation 0.16 L, la courbe de GLUE, lineaire jusqu'a 0.8 puis arrondie jusqu'a son plafond, le VCA qui
+ * rattrape la racine du gain) contre le trait de 1:1 ; l'asymetrie de la polarisation : les harmoniques paires.
+ */
+function loadDiagram(v: number): VoyDiagram {
+  const p = new Pic();
+  const L = v >= 0.02 ? v : 0;
+  const g = 1 + 4 * L * L;
+  const b = 0.16 * L;
+  const clip = (x: number): number => {
+    const a = Math.abs(x);
+    if (a <= 0.8) return x;
+    const u = a - 0.8;
+    const y = u >= 1.6 ? 1.6 : 0.8 + u - (u * u) / 3.2;
+    return x < 0 ? -y : y;
+  };
+  // L'entree de -1 a 1 (de gauche a droite), la sortie de -1 a 1 (de bas en haut)
+  const xOf = (x: number): number => X0 + ((x + 1) / 2) * (X1 - X0);
+  const yOf = (y: number): number => Y1 - ((Math.max(-1, Math.min(1, y)) + 1) / 2) * (Y1 - Y0);
+  p.p(seg(X0, yOf(0), X1, yOf(0)), 'grid');
+  p.p(seg(xOf(0), Y0, xOf(0), Y1), 'grid');
+  p.p(seg(xOf(-1), yOf(-1), xOf(1), yOf(1)), 'ghost');
+  const pts: Pt[] = [];
+  for (let i = 0; i <= 80; i += 1) {
+    const x = -1 + i / 40;
+    pts.push([xOf(x), yOf(L === 0 ? x : (clip(g * x + b) - clip(b)) / Math.sqrt(g))]);
+  }
+  p.p(poly(pts), 'hot');
+  p.label('IN', X1, BOT, 'end').label('OUT', X0 + 2, TOP).label(L > 0 ? (L < 0.34 ? 'WARM' : L < 0.67 ? 'HOT' : 'GROWL') : 'CLEAN', X1, TOP, 'end');
+  return p.done();
+}
+
 function reverbDiagram(v: number): VoyDiagram {
   const p = new Pic();
   const rnd = mulberry(5);
@@ -1234,6 +1267,8 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
       return wideDiagram(c.v, values);
     case 'glue':
       return glueDiagram(c.v);
+    case 'load':
+      return loadDiagram(c.v);
     case 'reverb':
       return reverbDiagram(c.v);
     case 'volume': {

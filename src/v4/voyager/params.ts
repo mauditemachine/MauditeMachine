@@ -135,7 +135,9 @@ export type VoyKnobId =
   | 'wide'
   | 'glue'
   | 'dlyTime'
-  | 'tape';
+  | 'tape'
+  // 2026-10-23 (Mika : "entre Monark et un synth analog Moog Voyager et un Korg Ms10") : LOAD
+  | 'load';
 
 export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
@@ -353,6 +355,13 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'glue', label: 'GLUE', aria: 'Glue: a gentle bus compressor and soft clipper on the synth, denser at the same loudness', section: 'tweak', def: 0.35, legacy: 0 },
   { id: 'dlyTime', label: 'DLY TIME', aria: 'Delay time: eighth, dotted eighth, quarter, dotted quarter or half note', section: 'tweak', def: 0.25, legacy: 0.25, steps: DLY_TIMES },
   { id: 'tape', label: 'TAPE', aria: 'Tape: the delay runs through a tape, wow and flutter, saturation and darker repeats; off is the clean delay', section: 'tweak', def: 0.3, legacy: 0 },
+  /*
+   * LOAD (2026-10-23, Mika : "entre Monark et un synth analog Moog Voyager et un Korg Ms10") : le melangeur pousse le
+   * filtre, comme le LOAD de Monark ; une saturation avant le filtre (audio/moog.worklet.js, S12), ses produits au-dessus
+   * de la coupure filtres, la resonance tassee par les notes, l'attaque gardee. OFF sous 0.02 : le son d'avant au bit
+   * pres ; 0 au depart et pour un son garde avant lui (le depart d'apres l'ecoute de Mika viendra plus tard).
+   */
+  { id: 'load', label: 'LOAD', aria: 'Load: the mixer drives the filter input, from clean to a hot Moog growl; the resonance gets squeezed by the notes', section: 'tweak', def: 0, legacy: 0 },
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
@@ -369,7 +378,7 @@ export const duckDepthDb = (v: number): number => (v < DUCK_OFF ? 0 : 24 * v);
 /** STACK (2026-10-22) : OFF sous 0.02, puis l'ecart des exemplaires, 3 a 30 cents. */
 export const STACK_MIN = 0.02;
 export const stackCents = (v: number): number => (v < STACK_MIN ? 0 : 3 + (27 * (v - STACK_MIN)) / (1 - STACK_MIN));
-/** WIDE, GLUE et TAPE (2026-10-22) : OFF sous 0.02 (le son d'avant), puis leur part, 0 a 1. */
+/** WIDE, GLUE et TAPE (2026-10-22), LOAD (2026-10-23) : OFF sous 0.02 (le son d'avant), puis leur part, 0 a 1. */
 export const FX_OFF = 0.02;
 export const fxAmount = (v: number): number => (v < FX_OFF ? 0 : v);
 /** DLY TIME (2026-10-22) : le temps du DELAY en doubles croches (2, 3, 4, 6 ou 8). */
@@ -618,6 +627,8 @@ export interface EngineParams {
   stack: number;
   wide: number;
   glue: number;
+  /** LOAD (2026-10-23) : 0 a 1 ; 0 : contourne (le calcul d'avant au bit pres) */
+  load: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -663,6 +674,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     stack: stackCents(v.stack),
     wide: fxAmount(v.wide),
     glue: fxAmount(v.glue),
+    load: fxAmount(v.load),
   };
 }
 
@@ -672,8 +684,9 @@ export function voyReadout(id: VoyKnobId, v: number): string {
   // SUB OCT : "SUB -2 OCT" (pas "SUB OCT -2 OCT")
   if (id === 'subOct') return `SUB ${voyValueText(id, v)}`;
   if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack') return `${k.label} ${voyValueText(id, v)}`;
-  // WIDE, GLUE, TAPE (2026-10-22, la relecture) : OFF en bas, sinon "GLUE 35%" comme DRIFT 50% a cote (pas "35 %")
-  if (id === 'wide' || id === 'glue' || id === 'tape') return v < FX_OFF ? `${k.label} OFF` : `${k.label} ${Math.round(v * 100)}%`;
+  // WIDE, GLUE, TAPE (2026-10-22, la relecture), LOAD (2026-10-23) : OFF en bas, sinon "GLUE 35%" comme DRIFT 50% a
+  // cote (pas "35 %")
+  if (id === 'wide' || id === 'glue' || id === 'tape' || id === 'load') return v < FX_OFF ? `${k.label} OFF` : `${k.label} ${Math.round(v * 100)}%`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
@@ -687,7 +700,7 @@ export function voyValueText(id: VoyKnobId, v: number): string {
   if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
   if (id === 'duck') return v < DUCK_OFF ? 'OFF' : `-${Math.round(duckDepthDb(v))} DB`;
   if (id === 'stack') return v < STACK_MIN ? 'OFF' : `${Math.round(stackCents(v))} CT`;
-  if (id === 'wide' || id === 'glue' || id === 'tape') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100)} %`;
+  if (id === 'wide' || id === 'glue' || id === 'tape' || id === 'load') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100)} %`;
   if (id === 'subOct') return `${SUB_OCTS[stepIndex('subOct', v)]} OCT`;
   if (id === 'fine1' || id === 'fine2') {
     const c = Math.round(fineCents(v));
