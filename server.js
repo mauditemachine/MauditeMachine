@@ -911,6 +911,8 @@ app.get('/api/admin/seo', authMiddleware, async (req, res) => {
     } catch {}
     const musicGroup = Array.isArray(ld) ? ld.find((x) => x['@type'] === 'MusicGroup') : null;
 
+    // 2026-10-22 (relecture B4-R4) : public/sitemap.xml, pas dist/ : scripts/generate-sitemap.mjs ecrit les deux a
+    // l'identique a chaque build, et le dist/sitemap.xml du depot est fige depuis le 2026-10-03 (5 adresses)
     let sitemapUrls = [];
     try {
       const sm = await fs.readFile(path.join(__dirname, 'public', 'sitemap.xml'), 'utf8');
