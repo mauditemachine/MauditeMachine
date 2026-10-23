@@ -556,7 +556,7 @@ const odCurve = (u) => Math.tanh(u + OD_BIAS) - OD_TANH_BIAS;
 /**
  * La courbe de l'overdrive sans repliement (2026-10-23, S4, Mika : "que le son soit d'extreme bonne qualite") : la
  * meme courbe (le grain des sons gardes), par son integrale (ADAA du premier ordre) : F(u) = lncosh(u + OD_BIAS) -
- * u tanh(OD_BIAS), lncosh(x) = |x| + log1p(exp(-2|x|)) - ln 2 (sans debordement), la sortie (F(u) - F(u1)) / (u - u1),
+ * u tanh(OD_BIAS), lncosh(x) = |x| + log1p(exp(-2|x|)) - ln 2 (depuis S5 : la table LNC), la sortie (F(u) - F(u1)) / (u - u1),
  * la courbe au milieu quand u bouge de moins de OD_ADAA_EPS (F n'y est pas calculee : elle le sera au besoin, pour
  * l'echantillon d'avant), et sous OD_LIN_U la courbe y est sa tangente au second ordre (les queues, sans fonction
  * transcendante). Ecrite dans busTick (zero allocation).
@@ -565,6 +565,35 @@ const OD_ADAA_EPS = 1e-6;
 const OD_LIN_U = 1e-5;
 const OD_SECH2 = 1 - OD_TANH_BIAS * OD_TANH_BIAS;
 const LN2 = Math.LN2;
+/**
+ * K2 (2026-10-23, S5) : au telephone (x2), un pole a OD_PRE_HZ sur l'entree de la courbe d'OVERDRIVE (apres son
+ * passe-haut) : ce qu'il reste au-dessus de 20 kHz ne s'y replie plus (OD06 C8 x2 49.8 -> 53.5 dB). 7 kHz (le plan)
+ * changeait H7 de 4.7 dB ; a 16 kHz, 1.3 dB au plus (H7 a -51 dBc), niveaux a 0.1 dB.
+ */
+const OD_PRE_HZ = 16000;
+/**
+ * lncosh en table (2026-10-23, S5) : l'integrale de tanh, pour l'ADAA de la saturation des voix et d'OVERDRIVE, sans
+ * exp ni log1p a chaque echantillon (deux fonctions transcendantes : +17 % de calcul en x4 a 12 voix). Hermite cubique
+ * par pas de 1/LNC_INV sur [0, LNC_MAX], valeurs (lncosh) et pentes (tanh) exactes aux noeuds, quatre coefficients par
+ * pas ; au-dela, |x| - ln 2 (a l'arrondi pres). F a 2e-11 pres, sa pente a 1.5e-8 de tanh : la sortie de l'ADAA a
+ * moins de 1e-8 de celle avec lncosh exacte (-103 dB d'un sinus a -60 dBFS, -170 dB a 0 dBFS). Paire en x : |x|.
+ */
+const LNC_INV = 128;
+const LNC_MAX = 18;
+const LNC = new Float64Array(4 * LNC_MAX * LNC_INV);
+for (let i = 0; i < LNC_MAX * LNC_INV; i += 1) {
+  const h = 1 / LNC_INV;
+  const x0 = i * h;
+  const x1 = x0 + h;
+  const y0 = x0 + Math.log1p(Math.exp(-2 * x0)) - LN2;
+  const y1 = x1 + Math.log1p(Math.exp(-2 * x1)) - LN2;
+  const d0 = Math.tanh(x0);
+  const d1 = Math.tanh(x1);
+  LNC[4 * i] = y0;
+  LNC[4 * i + 1] = h * d0;
+  LNC[4 * i + 2] = 3 * (y1 - y0) - h * (2 * d0 + d1);
+  LNC[4 * i + 3] = 2 * (y0 - y1) + h * (d0 + d1);
+}
 /**
  * DRIFT (2026-10-21, P11 de l'audit, "plus vivant") : la derive de chaque oscillateur est la somme de trois marches
  * au hasard (lente, moyenne, rapide : constante de temps en s, ecart type en cents a DRIFT 5). Avant, une seule marche
@@ -838,7 +867,33 @@ const VX_Q1A = 4;
 const VX_Q1B = 5;
 const VX_Q2A = 6;
 const VX_Q2B = 7;
+/**
+ * La saturation de sortie de la voix (S5), gauche puis droite : l'entree d'avant (TZ), lncosh de celle-ci (TF) et si
+ * TF est a jour (TV).
+ */
+const VX_TZL = 8;
+const VX_TFL = 9;
+const VX_TVL = 10;
+const VX_TZR = 11;
+const VX_TFR = 12;
+const VX_TVR = 13;
 const VX_SIZE = 32;
+/**
+ * La saturation de sortie des voix sans repliement (2026-10-23, S5, Mika : "que le son soit d'extreme bonne
+ * qualite") : la meme tanh (le grain des sons gardes), par son integrale lncosh (ADAA du premier ordre, la table
+ * LNC) : (lncosh(z) - lncosh(z1)) / (z - z1) ; quand z bouge de moins de VS_EPS, la pente de la table au milieu (tanh),
+ * et lncosh(z1) n'est calculee qu'au besoin. La courbe algebrique z / sqrt(1 + 2/3 z^2) du plan changeait le timbre
+ * des sons gardes des qu'OVERDRIVE monte (H3 -2.8 dB, H5 -6.1 dB a OVERDRIVE 1) : non.
+ */
+const VS_EPS = 1e-6;
+/**
+ * L'ADAA moyenne deux echantillons dans sa partie lineaire : cos(pi f / fs), -0.47 dB a 10 kHz et -1.09 dB a 15 kHz au
+ * telephone. Le bus la compense (S5) sur le son propre : y[n] = (1 + 2c) x[n-1] - c (x[n] + x[n-2]), c = VS_COMP, gain
+ * 1 + 4c sin^2(w/2) (l'inverse au second ordre), un echantillon surechantillonne de retard ; la branche OVERDRIVE prend
+ * la somme d'avant la FIR (devant sa courbe, la FIR poussait le haut : OD06 C8 x4 65.1 -> 63.2 dB) et rejoint le propre
+ * un echantillon plus tard (alignee ; sans, les bandes hautes d'EBM et d'ACID au telephone bougeaient de 1 dB).
+ */
+const VS_COMP = 1 / 8;
 
 class MMVoyager extends AudioWorkletProcessor {
   constructor(options) {
@@ -891,12 +946,16 @@ class MMVoyager extends AudioWorkletProcessor {
     // (dL, dxL, dR, dxR : son bloqueur de continu, 2026-10-21)
     // 2026-10-23 (S4) : l'entree et l'integrale de la courbe a l'echantillon d'avant (uL, FL, uR, FR ; fL, fR : FL et
     // FR a jour), la branche allumee a l'echantillon d'avant (on : au retour, l'ADAA repart de l'entree du moment)
-    this.od = { hpL: 0, xL: 0, lpL: 0, hpR: 0, xR: 0, lpR: 0, dL: 0, dxL: 0, dR: 0, dxR: 0, uL: 0, FL: 0, uR: 0, FR: 0, fL: 0, fR: 0, on: 0 };
+    this.od = { hpL: 0, xL: 0, lpL: 0, hpR: 0, xR: 0, lpR: 0, dL: 0, dxL: 0, dR: 0, dxR: 0, uL: 0, FL: 0, uR: 0, FR: 0, fL: 0, fR: 0, on: 0, pL: 0, pR: 0, wL: 0, wR: 0 };
     this.odHp = Math.exp((-2 * Math.PI * OD_HP_HZ) / this.sr2);
     this.odLp = 1 - Math.exp((-2 * Math.PI * OD_TONE_HZ) / this.sr2);
+    // K2 (S5) : le pole sur l'entree de la courbe d'OVERDRIVE, au telephone seulement (1 : sans)
+    this.odPre = os === 2 ? 1 - Math.exp((-2 * Math.PI * OD_PRE_HZ) / this.sr2) : 1;
     this.odDc = Math.exp((-2 * Math.PI * OD_DC_HZ) / this.sr2);
     // Le bloqueur de continu de la sortie (sortie, entree d'avant : gauche, puis droite), a la frequence du calcul
     this.dc = [0, 0, 0, 0];
+    // La compensation de la saturation des voix (S5) : x[n-1] et x[n-2], gauche puis droite
+    this.vsc = new Float64Array(4);
     this.dcK = Math.exp((-2 * Math.PI * OUT_DC_HZ) / this.sr2);
     this.panK = coef(PAN_S, this.sr2);
     // Le passe-bas avant le filtre (2026-10-23) : pour chaque etage, g = tan(pi f / fs), 2R + g et 1 / (1 + 2Rg + g^2)
@@ -1329,16 +1388,28 @@ class MMVoyager extends AudioWorkletProcessor {
     const clipW = ks[KS_CLIPW];
     const newNoise = ki[KI_NEWNOISE] === 1;
     const glueOn = ki[KI_GLUEON] === 1;
+    // La compensation de la moyenne de l'ADAA des voix (2026-10-23, S5) : sur le propre (cl, cr) ; la branche OVERDRIVE
+    // part de la somme des voix telle quelle et rejoint le propre un echantillon plus tard (le retard de la FIR)
+    const vsc = this.vsc;
+    const cl = (1 + 2 * VS_COMP) * vsc[0] - VS_COMP * (sum + vsc[1]);
+    vsc[1] = vsc[0];
+    vsc[0] = sum;
+    const cr = (1 + 2 * VS_COMP) * vsc[2] - VS_COMP * (sumR + vsc[3]);
+    vsc[3] = vsc[2];
+    vsc[2] = sumR;
     // OVERDRIVE : le propre + la branche sans graves, amplifiee, arrondie, adoucie, sans continu (2026-10-21)
     if (odMix > 1e-4) {
       const od = this.od;
       const hpA = this.odHp;
       const lpA = this.odLp;
       const dA = this.odDc;
+      const odPre = this.odPre;
       od.hpL = hpA * (od.hpL + sum - od.xL);
       od.xL = sum;
+      // K2 (S5) : le pole d'avant la courbe, au telephone
+      od.pL += (od.hpL - od.pL) * odPre;
       // La courbe par son integrale (ADAA, 2026-10-23, S4) : au retour de la branche, elle repart de l'entree du moment
-      const uL = od.hpL * odGain;
+      const uL = od.pL * odGain;
       const fresh = od.on === 0;
       if (fresh) {
         od.uL = uL;
@@ -1351,11 +1422,27 @@ class MMVoyager extends AudioWorkletProcessor {
         if (od.fL === 0) {
           const z1 = od.uL + OD_BIAS;
           const a1 = z1 < 0 ? -z1 : z1;
-          od.FL = a1 + Math.log1p(Math.exp(-2 * a1)) - LN2 - od.uL * OD_TANH_BIAS;
+          let F1 = a1 - LN2;
+          if (a1 < LNC_MAX) {
+            const q1 = a1 * LNC_INV;
+            const i1 = q1 | 0;
+            const t1 = q1 - i1;
+            const k1 = 4 * i1;
+            F1 = LNC[k1] + t1 * (LNC[k1 + 1] + t1 * (LNC[k1 + 2] + t1 * LNC[k1 + 3]));
+          }
+          od.FL = F1 - od.uL * OD_TANH_BIAS;
         }
         const zL = uL + OD_BIAS;
         const aL = zL < 0 ? -zL : zL;
-        const FL = aL + Math.log1p(Math.exp(-2 * aL)) - LN2 - uL * OD_TANH_BIAS;
+        let GL = aL - LN2;
+        if (aL < LNC_MAX) {
+          const q0 = aL * LNC_INV;
+          const i0 = q0 | 0;
+          const t0 = q0 - i0;
+          const k0 = 4 * i0;
+          GL = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
+        }
+        const FL = GL - uL * OD_TANH_BIAS;
         yL = (FL - od.FL) / duL;
         od.FL = FL;
         od.fL = 1;
@@ -1368,10 +1455,12 @@ class MMVoyager extends AudioWorkletProcessor {
       od.lpL += (yL - od.lpL) * lpA;
       od.dL = dA * (od.dL + od.lpL - od.dxL);
       od.dxL = od.lpL;
-      sum = (sum + od.dL * odMix) * odTrim;
+      sum = (cl + od.wL * odMix) * odTrim;
+      od.wL = od.dL;
       od.hpR = hpA * (od.hpR + sumR - od.xR);
       od.xR = sumR;
-      const uR = od.hpR * odGain;
+      od.pR += (od.hpR - od.pR) * odPre;
+      const uR = od.pR * odGain;
       if (fresh) {
         od.uR = uR;
         od.fR = 0;
@@ -1382,11 +1471,27 @@ class MMVoyager extends AudioWorkletProcessor {
         if (od.fR === 0) {
           const z1 = od.uR + OD_BIAS;
           const a1 = z1 < 0 ? -z1 : z1;
-          od.FR = a1 + Math.log1p(Math.exp(-2 * a1)) - LN2 - od.uR * OD_TANH_BIAS;
+          let F1 = a1 - LN2;
+          if (a1 < LNC_MAX) {
+            const q1 = a1 * LNC_INV;
+            const i1 = q1 | 0;
+            const t1 = q1 - i1;
+            const k1 = 4 * i1;
+            F1 = LNC[k1] + t1 * (LNC[k1 + 1] + t1 * (LNC[k1 + 2] + t1 * LNC[k1 + 3]));
+          }
+          od.FR = F1 - od.uR * OD_TANH_BIAS;
         }
         const zR = uR + OD_BIAS;
         const aR = zR < 0 ? -zR : zR;
-        const FR = aR + Math.log1p(Math.exp(-2 * aR)) - LN2 - uR * OD_TANH_BIAS;
+        let GR = aR - LN2;
+        if (aR < LNC_MAX) {
+          const q0 = aR * LNC_INV;
+          const i0 = q0 | 0;
+          const t0 = q0 - i0;
+          const k0 = 4 * i0;
+          GR = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
+        }
+        const FR = GR - uR * OD_TANH_BIAS;
         yR = (FR - od.FR) / duR;
         od.FR = FR;
         od.fR = 1;
@@ -1399,8 +1504,13 @@ class MMVoyager extends AudioWorkletProcessor {
       od.lpR += (yR - od.lpR) * lpA;
       od.dR = dA * (od.dR + od.lpR - od.dxR);
       od.dxR = od.lpR;
-      sumR = (sumR + od.dR * odMix) * odTrim;
-    } else this.od.on = 0;
+      sumR = (cr + od.wR * odMix) * odTrim;
+      od.wR = od.dR;
+    } else {
+      this.od.on = 0;
+      sum = cl;
+      sumR = cr;
+    }
     // Sortie : sans continu (8 Hz, 2026-10-21 : la SYNC, la FM et les saturations en laissaient), puis l'ecreteur doux
     let yl = sum * OUT_GAIN;
     let yr = sumR * OUT_GAIN;
@@ -1517,9 +1627,10 @@ class MMVoyager extends AudioWorkletProcessor {
   restBus() {
     const od = this.od;
     od.hpL = od.xL = od.lpL = od.hpR = od.xR = od.lpR = od.dL = od.dxL = od.dR = od.dxR = 0;
-    od.uL = od.FL = od.uR = od.FR = od.fL = od.fR = od.on = 0;
+    od.uL = od.FL = od.uR = od.FR = od.fL = od.fR = od.on = od.pL = od.pR = od.wL = od.wR = 0;
     const dc = this.dc;
     dc[0] = dc[1] = dc[2] = dc[3] = 0;
+    this.vsc.fill(0);
     const gl = this.gl;
     gl.env = gl.mi = gl.mo = 0;
     gl.gain = 1;
@@ -1576,8 +1687,14 @@ class MMVoyager extends AudioWorkletProcessor {
     if (od.dxR < TINY && od.dxR > -TINY) od.dxR = 0;
     if (od.uL < TINY && od.uL > -TINY) od.uL = 0;
     if (od.uR < TINY && od.uR > -TINY) od.uR = 0;
+    if (od.pL < TINY && od.pL > -TINY) od.pL = 0;
+    if (od.pR < TINY && od.pR > -TINY) od.pR = 0;
+    if (od.wL < TINY && od.wL > -TINY) od.wL = 0;
+    if (od.wR < TINY && od.wR > -TINY) od.wR = 0;
     const dc = this.dc;
     for (let i = 0; i < 4; i += 1) if (dc[i] < TINY && dc[i] > -TINY) dc[i] = 0;
+    const vsc = this.vsc;
+    for (let i = 0; i < 4; i += 1) if (vsc[i] < TINY && vsc[i] > -TINY) vsc[i] = 0;
     const gl = this.gl;
     if (gl.env < TINY) gl.env = 0;
     if (gl.mi < TINY) gl.mi = 0;
@@ -2332,7 +2449,50 @@ class MMVoyager extends AudioWorkletProcessor {
         // VCA (l'accent, ou sa part de niveau quand il ouvre aussi le filtre), saturation de sortie (OVERDRIVE la
         // pousse a peine), puis la place de la note dans l'image (lissee)
         let a = yo * v.aV * v.ampAcc;
-        a = Math.tanh(a * driveOut) * outNorm;
+        // La saturation sans repliement (2026-10-23, S5) : tanh par son integrale lncosh (la table LNC, ecrite ici)
+        const zs = a * driveOut;
+        const zp = X[VX_TZL];
+        const dzs = zs - zp;
+        if (dzs > VS_EPS || dzs < -VS_EPS) {
+          if (X[VX_TVL] === 0) {
+            const a1 = zp < 0 ? -zp : zp;
+            if (a1 >= LNC_MAX) X[VX_TFL] = a1 - LN2;
+            else {
+              const q1 = a1 * LNC_INV;
+              const i1 = q1 | 0;
+              const t1 = q1 - i1;
+              const k1 = 4 * i1;
+              X[VX_TFL] = LNC[k1] + t1 * (LNC[k1 + 1] + t1 * (LNC[k1 + 2] + t1 * LNC[k1 + 3]));
+            }
+          }
+          const a0 = zs < 0 ? -zs : zs;
+          let F0;
+          if (a0 >= LNC_MAX) F0 = a0 - LN2;
+          else {
+            const q0 = a0 * LNC_INV;
+            const i0 = q0 | 0;
+            const t0 = q0 - i0;
+            const k0 = 4 * i0;
+            F0 = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
+          }
+          a = ((F0 - X[VX_TFL]) / dzs) * outNorm;
+          X[VX_TFL] = F0;
+          X[VX_TVL] = 1;
+        } else {
+          const ms = 0.5 * (zs + zp);
+          const am = ms < 0 ? -ms : ms;
+          let ym = 1;
+          if (am < LNC_MAX) {
+            const qm = am * LNC_INV;
+            const im = qm | 0;
+            const tm = qm - im;
+            const km = 4 * im;
+            ym = (LNC[km + 1] + tm * (2 * LNC[km + 2] + 3 * tm * LNC[km + 3])) * LNC_INV;
+          }
+          a = (ms < 0 ? -ym : ym) * outNorm;
+          X[VX_TVL] = 0;
+        }
+        X[VX_TZL] = zs;
         v.gL += (v.tL - v.gL) * panK;
         v.gR += (v.tR - v.gR) * panK;
         sum += a * v.gL;
@@ -2343,7 +2503,8 @@ class MMVoyager extends AudioWorkletProcessor {
         }
         // WIDE (2026-10-22) : l'echelle de droite, a la meme coupure ; elle part de l'etat de celle de gauche
         const fq = v.fr;
-        if (!v.wl) {
+        const startR = !v.wl;
+        if (startR) {
           v.wl = true;
           fq.pu = x0;
           fq.s1 = x1;
@@ -2367,7 +2528,54 @@ class MMVoyager extends AudioWorkletProcessor {
           yoR = 0;
         }
         let aR = yoR * v.aV * v.ampAcc;
-        aR = Math.tanh(aR * driveOut) * outNorm;
+        const zsR = aR * driveOut;
+        // L'echelle de droite qui demarre (ce bloc) : sa saturation part de son entree du moment
+        if (startR) {
+          X[VX_TZR] = zsR;
+          X[VX_TVR] = 0;
+        }
+        const zpR = X[VX_TZR];
+        const dzR = zsR - zpR;
+        if (dzR > VS_EPS || dzR < -VS_EPS) {
+          if (X[VX_TVR] === 0) {
+            const a1 = zpR < 0 ? -zpR : zpR;
+            if (a1 >= LNC_MAX) X[VX_TFR] = a1 - LN2;
+            else {
+              const q1 = a1 * LNC_INV;
+              const i1 = q1 | 0;
+              const t1 = q1 - i1;
+              const k1 = 4 * i1;
+              X[VX_TFR] = LNC[k1] + t1 * (LNC[k1 + 1] + t1 * (LNC[k1 + 2] + t1 * LNC[k1 + 3]));
+            }
+          }
+          const a0 = zsR < 0 ? -zsR : zsR;
+          let F0;
+          if (a0 >= LNC_MAX) F0 = a0 - LN2;
+          else {
+            const q0 = a0 * LNC_INV;
+            const i0 = q0 | 0;
+            const t0 = q0 - i0;
+            const k0 = 4 * i0;
+            F0 = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
+          }
+          aR = ((F0 - X[VX_TFR]) / dzR) * outNorm;
+          X[VX_TFR] = F0;
+          X[VX_TVR] = 1;
+        } else {
+          const ms = 0.5 * (zsR + zpR);
+          const am = ms < 0 ? -ms : ms;
+          let ym = 1;
+          if (am < LNC_MAX) {
+            const qm = am * LNC_INV;
+            const im = qm | 0;
+            const tm = qm - im;
+            const km = 4 * im;
+            ym = (LNC[km + 1] + tm * (2 * LNC[km + 2] + 3 * tm * LNC[km + 3])) * LNC_INV;
+          }
+          aR = (ms < 0 ? -ym : ym) * outNorm;
+          X[VX_TVR] = 0;
+        }
+        X[VX_TZR] = zsR;
         sumR += aR * v.gR;
       }
       const acc = this.acc;

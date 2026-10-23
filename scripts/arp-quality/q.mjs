@@ -90,6 +90,54 @@ async function p1a(ctx, file) {
   return out;
 }
 
+/**
+ * S6 (2026-10-23) : la coupure balayee de 2 a 16 kHz en 2 s (exponentielle, un message par bloc) a RES 0.95, graine
+ * NOISE : la plus grande marche de l'enveloppe de l'auto-oscillation (valeur efficace sur 4 ms, Hann, toutes les 1 ms ;
+ * dB d'une mesure a la suivante) et ou elle tombe ; Q4 (au-dessus de 8 kHz) n'a pas de sens ici (l'oscillation y passe).
+ */
+async function sweep(ctx, file) {
+  const out = {};
+  const res = Number(opt('--res', 0.95));
+  for (const os of PATHS) {
+    const t0 = 0.5;
+    const T = 2;
+    const tl = [];
+    for (let f = Math.ceil((t0 * SR) / 128) * 128; f <= (t0 + T) * SR; f += 128) {
+      const x = (f / SR - t0) / T;
+      tl.push({ at: f / SR - 1e-6, msg: { type: 'params', params: { cutoff: 2000 * Math.pow(8, x) } } });
+    }
+    const r = render({ file, os, params: { ...ctx.LAB, noise: 0.003, res, cutoff: 2000 }, notes: [held(54, 10)], seconds: t0 + T + 0.2, timeline: tl });
+    const W = Math.round(0.004 * SR);
+    const hop = Math.round(0.001 * SR);
+    const env = [];
+    for (let i = Math.round(t0 * SR); i + W < (t0 + T) * SR; i += hop) {
+      let s2 = 0;
+      let ws = 0;
+      for (let j = 0; j < W; j += 1) {
+        const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * j) / W);
+        s2 += w * r.L[i + j] * r.L[i + j];
+        ws += w;
+      }
+      env.push([i / SR, 10 * Math.log10(s2 / ws + 1e-30)]);
+    }
+    let worst = 0;
+    let at = 0;
+    for (let i = 1; i < env.length; i += 1) {
+      const d = Math.abs(env[i][1] - env[i - 1][1]);
+      if (d > worst) {
+        worst = d;
+        at = env[i][0];
+      }
+    }
+    const lv = env.map((e) => e[1]);
+    out[`r${res} x${os} max step dB`] = r2(worst);
+    out[`r${res} x${os} at cutoff Hz`] = Math.round(2000 * Math.pow(8, (at - t0) / T));
+    out[`r${res} x${os} level min dBFS`] = r1(Math.min(...lv) + 3.01);
+    out[`r${res} x${os} level max dBFS`] = r1(Math.max(...lv) + 3.01);
+  }
+  return out;
+}
+
 /** Auto-oscillation (C8, C9, C10) : hauteur (cents re coupure), niveau du fondamental, H3, MOOG, graine NOISE. */
 async function selfosc(ctx, file) {
   const out = {};
@@ -447,8 +495,11 @@ async function q2(ctx, file) {
     }
     return Math.hypot(re, im);
   };
-  const h31 = g.halfband(31, 7).h;
-  const h63 = g.halfband(63, 8).h;
+  // Les decimateurs tels que le moteur les construit (2026-10-23, K1' : le premier etage du x4 en Kaiser 9)
+  const b31 = Number((src.match(/new Decimator\(31, (\d+)\)/) ?? [0, 7])[1]);
+  const b63 = Number((src.match(/new Decimator\(63, (\d+)\)/) ?? [0, 8])[1]);
+  const h31 = g.halfband(31, b31).h;
+  const h63 = g.halfband(63, b63).h;
   for (const os of PATHS) {
     // Le gain total d'une frequence d'entree f (Hz, au rythme interne) et sa frequence de sortie apres les replis
     const total = (f) => {
@@ -791,7 +842,7 @@ async function gc(ctx, file) {
   return out;
 }
 
-const SUITES = { purity, p1a, selfosc, sync, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
+const SUITES = { purity, p1a, sweep, selfosc, sync, tri, timbre, resp, level, pclick, silence, garbage, q2, q10, c3c5, c18, c22h, q11, q3, gc };
 export async function extraSuites(more) {
   Object.assign(SUITES, more);
 }
