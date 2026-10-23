@@ -198,6 +198,7 @@ import {
   ORBIT,
   PADS,
   PAD_ARIA,
+  PAD_DOUBLE_TAP_MS,
   POT_UI,
   potMin,
   isBipolar,
@@ -252,6 +253,11 @@ interface Down {
   axis: 'x' | 'y';
   /** pointeur souris : le curseur suit l'axe pendant qu'il tourne */
   mouse: boolean;
+  /**
+   * un doigt (pointerType touch, 2026-10-22, la revue) : lui seul peut etre le glisser d'une machine a l'autre parti
+   * d'une commande ; un stylet orbite seul (scene/orbit.ts), une commande qui l'attendait laissait tourner la vue
+   */
+  touch: boolean;
   /** instant du pointerdown (performance.now) */
   t: number;
   /** l'horodatage de l'evenement pointerdown (e.timeStamp) : la tenue d'un pas se mesure d'un evenement a l'autre */
@@ -549,8 +555,6 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       return quadToUnit(quad, x, y);
     };
 
-    /** Deux tapes au doigt sur le meme pad de voix en moins de ce temps : la voix se coupe ou revient (2026-10-10). */
-    const PAD_DOUBLE_TAP_MS = 400;
     /** La derniere tape au doigt sur un pad de voix (le double tape qui coupe la voix). */
     let lastPad: { inst: Inst; at: number } | null = null;
     const isCoarse = (e: PointerEvent): boolean =>
@@ -825,8 +829,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           return false;
         }
         // Au telephone (2026-10-21, audit) : parti de cote et vite, c'est peut-etre le glisser d'une machine a l'autre
-        // (ui/swipe.ts) ; avant, il changeait la velocite du pas, ou en posait un sur un pas vide
-        if (!d.velDrag && !d.multi && swipeable(!d.mouse) && mayBeSwipe(dx, dy, d.moveTs - d.ts)) {
+        // (ui/swipe.ts) ; avant, il changeait la velocite du pas, ou en posait un sur un pas vide. Au doigt seulement
+        // (2026-10-22, la revue) : un stylet tient le pas, il ne se perd pas dans l'orbite
+        if (!d.velDrag && !d.multi && swipeable(d.touch) && mayBeSwipe(dx, dy, d.moveTs - d.ts)) {
           d.swipe = true;
           return true;
         }
@@ -855,8 +860,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // d'un glisser (SWIPE.ms) ; sinon il redevient le reglage, repris de la valeur du moment (rien ne saute, et le geste
       // ne se perd plus). A la souris (une fenetre etroite), le chemin des encodeurs plus bas : son axe, son curseur.
       // MASTER et TEMPO dans l'ecran (2026-10-19, rdial) : de meme, ils sont en haut de l'ecran
+      // Au doigt seulement, le glisser (2026-10-22, la revue) : au stylet, le bloc se regle tout de suite
       if ((d.kind === 'rblock' || d.kind === 'rdial') && !d.mouse) {
-        if (!d.multi && Math.abs(dx) > BLOCK_SWIPE_RATIO * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
+        if (d.touch && !d.multi && Math.abs(dx) > BLOCK_SWIPE_RATIO * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
           d.swipe = true;
           return true;
         }
@@ -872,16 +878,22 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // Tout autre potard au doigt, au telephone (2026-10-21, audit : un glisser parti d'un potard du MM-ARP le tournait,
       // osc1, CUTOFF ou DELAY partaient a 0, et la machine ne changeait pas) : la meme garde que les blocs (ui/swipe.ts),
-      // puis l'axe dominant, depuis la valeur du moment
-      if (!d.multi && swipeable(!d.mouse) && mayBeSwipe(dx, dy, d.moveTs - d.ts)) {
+      // puis l'axe dominant, depuis la valeur du moment ; au doigt seulement (2026-10-22, la revue : un stylet qui
+      // partait de cote faisait tourner la vue, le potard ne tournait jamais)
+      if (!d.multi && swipeable(d.touch) && mayBeSwipe(dx, dy, d.moveTs - d.ts)) {
         d.swipe = true;
         return true;
       }
       const fromSwipe = d.swipe;
       d.swipe = false;
       d.turning = true;
-      // Un bloc de l'ecran a la souris (2026-10-09) : de haut en bas seulement (150 px la course), le curseur le dit
-      d.axis = d.kind === 'rblock' || d.kind === 'rdial' ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+      // Un bloc de l'ecran a la souris (2026-10-09) : de haut en bas seulement (150 px la course), le curseur le dit.
+      // Le doigt qui n'est plus le glisser dans son temps (2026-10-22, la revue : reparti a la verticale, ou un deuxieme
+      // doigt pose) : de haut en bas aussi, comme les blocs ; l'axe dominant de ce moment etait presque toujours x
+      // (l'ecart y est encore de cote), et le geste vertical qui l'avait sorti ne tournait rien. Le temps passe : l'axe
+      // dominant, comme avant
+      d.axis =
+        d.kind === 'rblock' || d.kind === 'rdial' || (fromSwipe && d.moveTs - d.ts < SWIPE.ms) ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
       if (fromSwipe) {
         d.v0 = anyDialValue(d.dial);
         d.a = d.axis === 'y' ? -dy : dx;
@@ -959,9 +971,16 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // INFOS du MM-RYTM (R4), au doigt : la carte passe au potard qu'on prend (page, MASTER, TEMPO, TWEAKS), qu'on le
       // tape ou qu'on le tourne (la carte suit)
       if (encoder && h && e.pointerType !== 'mouse' && rytmInfoTouch(h.id)) rytmInfos.show(h.id);
-      // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
+      // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre. Un doigt deja pose qui allait de cote
+      // sur une commande (2026-10-22, la revue : il attendait de savoir s'il etait le glisser) sort de tout pincement :
+      // a son prochain mouvement, sa commande reprend le geste (la garde, d.multi) ; le nouveau doigt reste seul, il
+      // tourne sa commande, ou ne fait rien sur le fond, comme avant le 2026-10-21
       const multi = downs.size > 0;
-      if (multi) for (const o of downs.values()) o.multi = true;
+      if (multi)
+        for (const [pid, o] of downs) {
+          o.multi = true;
+          if (o.swipe) stage.orbit.own(pid);
+        }
       downs.set(e.pointerId, {
         id: h ? h.id : null,
         kind: h ? h.kind : null,
@@ -984,6 +1003,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         turning: false,
         axis: 'y',
         mouse: e.pointerType === 'mouse',
+        touch: e.pointerType === 'touch',
         t: performance.now(),
         ts: e.timeStamp || performance.now(),
         moveTs: e.timeStamp || performance.now(),

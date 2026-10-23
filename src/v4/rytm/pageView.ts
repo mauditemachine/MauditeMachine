@@ -226,6 +226,8 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   if (slot.scope === 'track' && !inst) {
     b.state = 'off';
     b.unit = 'PICK A VOICE';
+    // Un demi-bloc (PITCH, FINE) : la forme courte, plutot que PICK A VOI. (2026-10-22, revue INT-4)
+    b.unitShort = 'NO VOICE';
     return b;
   }
   if (t === 'step:vel') {
@@ -274,6 +276,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   if (text === '--') {
     b.state = 'off';
     b.unit = !inst ? 'PICK A VOICE' : layerIdOf(id) && layerIdOf(id) !== 'mach' ? '' : 'ONE SOUND';
+    if (!inst) b.unitShort = 'NO VOICE';
     return b;
   }
   // Un reglage de couche (R3) : son nombre et son unite tels que actions.ts les ecrit (909, +5, 216 MS)

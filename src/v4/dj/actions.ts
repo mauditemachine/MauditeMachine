@@ -12,9 +12,9 @@
 import { clock } from '../audio/clock';
 import { pattern } from '../audio/pattern';
 import { arp } from '../voyager/arp';
-import { anyPlaying } from '../state/playLock';
+import { anyPlaying, machinePlaying } from '../state/playLock';
 import { bassLoad } from '../state/bassload';
-import { focus } from '../state/focus';
+import { focus, type MachineId } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
 import { voyMsg } from '../voyager/msg';
 import { routeMachines } from '../audio/drums';
@@ -215,9 +215,10 @@ export const djRoutesMachines = (): boolean => routed !== null && routed === djE
  * son, en mots courts (2026-10-21, audit, apres R14-289) : '-INF' ou '-14 DB'
  * (fader et GAIN a plus de 6 dB sous leur place), 'KILL' ou 'EQ' (une bande
  * coupee, ou baissee de plus de 6 dB), 'LPF' ou 'HPF' (le FILTER tourne),
- * 'FX' (un effet ouvert qui la prend) ; '' : la voie la laisse telle quelle.
+ * 'FX' (un effet ouvert qui la prend ; avec own, seulement quand FX TO vise
+ * cette voie, pas toutes) ; '' : la voie la laisse telle quelle.
  */
-export function stripNote(ch: number, s = djState.get()): string {
+export function stripNote(ch: number, s = djState.get(), own = false): string {
   const c = s.ch[ch];
   if (!c) return '';
   const parts: string[] = [];
@@ -230,9 +231,12 @@ export function stripNote(ch: number, s = djState.get()): string {
   const f = filterOf(c.filter);
   if (f.type !== 'none') parts.push(f.type === 'low' ? 'LPF' : 'HPF');
   const to = fxTarget(s);
-  if ((to < 0 || to === ch) && DJ_FX.some((id) => s.fx[id] > 0)) parts.push('FX');
+  if ((own ? to === ch : to < 0 || to === ch) && DJ_FX.some((id) => s.fx[id] > 0)) parts.push('FX');
   return parts.join(' ');
 }
+
+/** La machine de chaque voie de machine (0 MM-RYTM, 1 MM-BASS, 2 MM-ARP). */
+const CH_MACHINE: readonly MachineId[] = ['mm808', 'bass', 'voy'];
 
 /** Le MASTER a plus de 6 dB sous sa place : '-INF' ou '-12 DB' ; '' sinon. */
 export function masterNote(s = djState.get()): string {
@@ -255,14 +259,20 @@ export function mixerHint(ch: number, s = djState.get()): string | null {
   return `MIXER ${[n, m ? `MASTER ${m}` : ''].filter(Boolean).join(' ')}`;
 }
 
-/** L'avis de la table a l'ecran du MIXER (le MASTER, sinon la premiere machine dessinee que sa voie change), ou ''. */
+/**
+ * L'avis de la table a l'ecran du MIXER (le MASTER, sinon la premiere machine dessinee que sa voie change), ou ''.
+ * Seulement une machine qui joue, et un effet envoye a elle seule (2026-10-22, revue) : un DELAY sur un mix de
+ * platines, machines arretees, affichait '1 RYTM FX' en orange a la place de EFFECTS tant qu'il restait ouvert
+ * (un envoi a toutes les voies se voit deja sur les potards d'effets).
+ */
 export function mixerWarn(s = djState.get()): string {
   if (!djRoutesMachines()) return '';
   const m = masterNote(s);
   if (m) return `MASTER ${m}`;
   for (const ch of DJ_SHOWN) {
     if (ch >= DJ_MACHINE_CHANNELS) break;
-    const n = stripNote(ch, s);
+    if (!machinePlaying(CH_MACHINE[ch])) continue;
+    const n = stripNote(ch, s, true);
     if (n) return `${(DJ_SHOWN as readonly number[]).indexOf(ch) + 1} ${DJ_CH_NAMES[ch]} ${n}`;
   }
   return '';

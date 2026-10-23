@@ -841,6 +841,9 @@ export function chipAction(id: ChipId, which: MachineId = 'mm808'): void {
  * change.
  */
 export function escape(): boolean {
+  // Echap annule toujours la reprise des presets fermes par l'attente (2026-10-22, la revue) : la fleche suivante
+  // change de machine, comme promis
+  presetMode.forget();
   if (section.get() !== null) {
     section.set(null);
     return true;

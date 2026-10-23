@@ -46,7 +46,7 @@ import { bassTweakId } from './tweaks';
 import { BASS_I_ID, bassBlockId, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassScrId, bassTrigId } from './rig';
 import { midiOf } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
-import { BASS_ENC_N, BASS_KEYS, BASS_PAGE_KEYS, BASS_SCREEN_KEYS, type BassKeyCopy } from './theme';
+import { BASS_ENC_N, BASS_KEYS, BASS_LOCK_KEYS, BASS_PAGE_KEYS, BASS_SCREEN_KEYS, type BassKeyCopy } from './theme';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 const pct = (v: number): number => Math.round(v * 100);
@@ -407,7 +407,10 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           bassInfos.toggle();
         }}
       />
-      {Array.from({ length: BASS_STEPS }, (_, i) => {
+      {/* Les touches LOCK (2026-10-07) : retirees de la face le 2026-10-09 (BASS_LOCK_KEYS), leurs jumeaux aussi depuis le
+          2026-10-22 (la revue : seize boutons sans zone, 0 x 0, prenaient Tab au telephone comme au desktop) ; L sur le
+          jumeau d'un pas le verrouille (bass/keys.ts) */}
+      {(BASS_LOCK_KEYS ? Array.from({ length: BASS_STEPS }, (_, i) => i) : []).map((i) => {
         const id = bassLockId(i);
         const n = Object.keys(s.steps[i].locks ?? {}).length;
         return (
@@ -461,7 +464,8 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             className="v4-twin"
             data-twin="basstrig"
             data-hotspot={id}
-            aria-label={`Step ${i + 1}: ${what}${s.sel === i ? ', chosen' : ''}`}
+            aria-label={`Step ${i + 1}: ${what}${s.sel === i ? ', chosen' : ''}${s.lock === i ? ', in P-LOCK' : ''}. L: P-LOCK this step`}
+            aria-keyshortcuts="L"
             onKeyDown={(e) => {
               if (e.key !== 'Enter' && e.key !== ' ') return;
               e.preventDefault();

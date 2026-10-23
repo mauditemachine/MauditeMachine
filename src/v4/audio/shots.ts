@@ -84,6 +84,7 @@
 import { KIT_FAMILIES, familyOf, kit, shotsOf, silentTweak, synthFallback, type KitFamily } from './kit';
 import { keepSample, loadSample, onSampleDropped, onSampleFailed, onSampleLoaded, requestSample, samplePcm, sampleStatus } from './samples';
 import { renderLayers, VARIANTS, type ShotId, type ShotTweak } from './shotsdsp';
+import { boot } from '../state/boot';
 
 export type { ShotId } from './shotsdsp';
 
@@ -506,7 +507,9 @@ const choiceLast = new Map<KitFamily, number>();
 function choose(f: KitFamily): void {
   choiceTimer.delete(f);
   const key = kit.get().sample[f];
-  if (key && kit.get().layer[f].lev > 0) void requestSample(key);
+  // Pas avant le demarrage (2026-10-22, revue INT-2) : un lien SHARE pose le kit au montage, ses WAV partaient avant
+  // la premiere image ; prewarm (apres boot.onReady) les charge de toute facon.
+  if (key && kit.get().layer[f].lev > 0 && (warmSr !== 0 || boot.ready())) void requestSample(key);
   for (const id of shotsOf(f)) prime(id);
 }
 

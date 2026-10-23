@@ -10,7 +10,13 @@
  * d'un glisser, la commande ne bouge pas, il est peut-etre ce glisser ; lache
  * ainsi (assez loin), la machine change. Sinon (le temps passe, le doigt
  * reparti a la verticale, un deuxieme doigt), la commande reprend le geste
- * depuis la valeur du moment : rien ne saute. La souris et la mise en page
+ * depuis la valeur du moment : rien ne saute ; de haut en bas, sauf le temps
+ * passe (2026-10-22, la revue : l'axe dominant de ce moment etait x, le geste
+ * vertical ne tournait rien), et le deuxieme doigt ne pince plus avec le
+ * premier (scene/orbit.ts own). Sur les potards, pas et blocs de la couche
+ * de saisie, au doigt seulement : un stylet y orbite seul (scene/orbit.ts),
+ * la commande le prend tout de suite ; le MIXER et le MM-BASS gardent leurs
+ * pointeurs, un stylet y attend comme un doigt. La souris et la mise en page
  * desktop (une tablette, le telephone en paysage) n'ont pas ce glisser : les
  * commandes y prennent l'axe dominant tout de suite, comme avant.
  */
@@ -20,7 +26,7 @@ import { MOBILE_QUERY } from '../theme';
 
 export const SWIPE = { px: 56, ratio: 1.4, ms: 700 } as const;
 
-/** Le glisser d'une machine a l'autre existe-t-il pour ce pointeur (un doigt ou un stylet, la mise en page du telephone) ? */
+/** Le glisser d'une machine a l'autre existe-t-il pour ce pointeur (touch : un doigt ou un stylet, la mise en page du telephone) ? */
 export function swipeable(touch: boolean): boolean {
   return touch && VOYAGER && typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 }

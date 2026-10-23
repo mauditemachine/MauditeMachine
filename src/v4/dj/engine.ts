@@ -353,6 +353,9 @@ export class DjChannel {
 
 /* ---------------- les effets, sur le bus ---------------- */
 
+/** Les effets a boucle de retour : fermes, seule leur entree se debranche (DjFx.dose, 2026-10-22). */
+const LOOPED: ReadonlySet<DjFxId> = new Set<DjFxId>(['delay', 'flanger']);
+
 interface Stage {
   id: DjFxId;
   pre: AudioNode;
@@ -390,10 +393,20 @@ const warm = (x: number): number => (Math.tanh(2 * x + BIAS) - Math.tanh(BIAS)) 
  *   ligne avec la chaine elle-meme : un bruit rose a -18 dBFS RMS garde son
  *   niveau a chaque dose ;
  * - un suiveur lent (OD_FOLLOW), sur le son en direct : le niveau qui sort de
- *   la saturation est ramene a celui qui y entre (moyenne sur 300 ms, de -18
- *   a +6 dB ; la premiere mesure est prise telle quelle, 50 ms apres
- *   l'ouverture), un son discret ou un morceau fort gardent le leur. La dose
- *   change la couleur, pas le volume.
+ *   la saturation est ramene a celui qui y entre, un son discret ou un morceau
+ *   fort gardent le leur. La dose change la couleur, pas le volume.
+ *
+ * Le suiveur aligne la sonie a long terme (2026-10-22, revue) : avant, il
+ * suivait un instantane de 2048 echantillons, moyenne en dB sur 300 ms (moins
+ * qu'un temps) ; sur de la batterie, les fenetres du kick et les creux le
+ * tiraient dans les deux sens, le gain pompait de 1 a 4 dB a chaque temps et
+ * finissait 2 a 4 dB sous le son sec. Maintenant : la puissance (pas les dB)
+ * de ce qui entre et de ce qui sort, en moyenne cumulee la premiere seconde
+ * puis sur 3 s ; une fenetre de silence ou de break (moins de 1 % de la
+ * moyenne) ne compte pas ; passee la premiere seconde, le gain ne bouge que
+ * pour un ecart d'au moins 0.5 dB, en 250 ms. Mesure sur une boucle de
+ * batterie a -14 et -22 dBFS et sur un sinus, doses 0.1 a 1 : -0.2 a +0.5 dB,
+ * 0.06 dB au plus de variation dans un temps.
  */
 const OD_POST: readonly number[] = [0.74, 0.689, 0.638, 0.607, 0.556, 0.509, 0.485, 0.454, 0.441, 0.403, 0.381, 0.36, 0.338, 0.313, 0.302, 0.298, 0.282, 0.273, 0.27, 0.25, 0.247, 0.241, 0.241, 0.235, 0.232, 0.224, 0.224, 0.224, 0.219, 0.217, 0.217, 0.217, 0.215];
 const odPost = (d: number): number => {
@@ -401,14 +414,14 @@ const odPost = (d: number): number => {
   const i = Math.min(OD_POST.length - 2, Math.floor(x));
   return OD_POST[i] + (OD_POST[i + 1] - OD_POST[i]) * (x - i);
 };
-const OD_FOLLOW = { everyMs: 50, tauS: 0.3, minDb: -18, maxDb: 6, quiet: 1e-4 } as const;
+const OD_FOLLOW = { everyMs: 50, warmSteps: 20, tauS: 3, minDb: -18, maxDb: 6, quiet: 1e-8, gap: 0.01, deadDb: 0.5, rampS: 0.25 } as const;
 
-/** La moyenne quadratique de ce qu'un analyseur voit (2048 echantillons). */
-function rmsOf(a: AnalyserNode, buf: Float32Array<ArrayBuffer>): number {
+/** La puissance moyenne (le carre moyen) de ce qu'un analyseur voit (2048 echantillons). */
+function powerOf(a: AnalyserNode, buf: Float32Array<ArrayBuffer>): number {
   a.getFloatTimeDomainData(buf);
   let s = 0;
   for (let i = 0; i < buf.length; i += 1) s += buf[i] * buf[i];
-  return Math.sqrt(s / buf.length);
+  return s / buf.length;
 }
 
 /** Une salle synthetique : du bruit qui decroit. */
@@ -559,8 +572,11 @@ export class DjFx {
   private echo: DelayNode;
   private bpm = 120;
   private beats = 1;
-  /** l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose), et son suiveur de niveau (OD_FOLLOW) */
-  private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode; level: GainNode; inA: AnalyserNode; outA: AnalyserNode; buf: Float32Array<ArrayBuffer>; db: number; fresh: boolean; timer: number } | null = null;
+  /**
+   * l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose), et son suiveur de niveau (OD_FOLLOW) :
+   * les puissances moyennes d'entree et de sortie, le nombre de fenetres comptees, le gain applique (dB)
+   */
+  private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode; level: GainNode; inA: AnalyserNode; outA: AnalyserNode; buf: Float32Array<ArrayBuffer>; pin: number; pout: number; n: number; db: number; timer: number } | null = null;
   /** la porte du trans et le balayage du flanger, cales sur la grille (GridLane) */
   private lanes: Partial<Record<'trans' | 'flanger', GridLane>> = {};
   /** la source du balayage du flanger (-1 a 1) : les tests hors ligne l'ecoutent */
@@ -617,7 +633,7 @@ export class DjFx {
         pre.connect(shape).connect(dc).connect(tone).connect(post).connect(level);
         const inA = new AnalyserNode(ctx, { fftSize: 2048 });
         const outA = new AnalyserNode(ctx, { fftSize: 2048 });
-        this.drive = { pre, tone, post, level, inA, outA, buf: new Float32Array(2048), db: 0, fresh: true, timer: 0 };
+        this.drive = { pre, tone, post, level, inA, outA, buf: new Float32Array(2048), pin: 0, pout: 0, n: 0, db: 0, timer: 0 };
         return { input: pre, output: level };
       }
       case 'crush': {
@@ -697,10 +713,17 @@ export class DjFx {
         } catch {
           /* deja debranche */
         }
-        try {
-          s.out.disconnect(s.wet);
-        } catch {
-          /* deja debranche */
+        /*
+         * Le DELAY et le FLANGER gardent leur sortie (2026-10-22, revue) : leur boucle de retour, debranchee aux deux
+         * bouts, n'etait plus calculee et gardait les dernieres secondes de musique d'avant la fermeture, rejouees a
+         * la reouverture (-7 dB sous le son, hors tempo). Reliee au wet a 0, elle s'eteint dans le silence (-150 dB).
+         */
+        if (!LOOPED.has(id)) {
+          try {
+            s.out.disconnect(s.wet);
+          } catch {
+            /* deja debranche */
+          }
         }
         s.on = false;
         this.laneOff(id);
@@ -722,7 +745,9 @@ export class DjFx {
       if (typeof AudioContext === 'undefined' || !(this.ctx instanceof AudioContext)) return;
       pre.connect(dr.inA);
       dr.post.connect(dr.outA);
-      dr.fresh = true;
+      dr.pin = 0;
+      dr.pout = 0;
+      dr.n = 0;
       dr.timer = window.setInterval(() => this.followStep(), OD_FOLLOW.everyMs);
       return;
     }
@@ -737,17 +762,27 @@ export class DjFx {
     dr.level.gain.setValueAtTime(1, this.ctx.currentTime);
   }
 
-  /** Un pas du suiveur : le niveau de sortie vers celui d'entree, lentement ; un silence ne change rien. */
+  /** Un pas du suiveur : la sonie de sortie vers celle d'entree, a long terme ; un silence ou un break ne changent rien. */
   private followStep(): void {
     const dr = this.drive;
     if (!dr) return;
-    const rin = rmsOf(dr.inA, dr.buf);
-    const rout = rmsOf(dr.outA, dr.buf);
-    if (rin < OD_FOLLOW.quiet || rout < OD_FOLLOW.quiet * 0.01) return;
-    const want = Math.max(OD_FOLLOW.minDb, Math.min(OD_FOLLOW.maxDb, 20 * Math.log10(rin / rout)));
-    dr.db = dr.fresh ? want : dr.db + (want - dr.db) * (1 - Math.exp(-OD_FOLLOW.everyMs / 1000 / OD_FOLLOW.tauS));
-    dr.fresh = false;
-    glide(dr.level.gain, dbToGain(dr.db), this.ctx);
+    const pin = powerOf(dr.inA, dr.buf);
+    const pout = powerOf(dr.outA, dr.buf);
+    if (pin < OD_FOLLOW.quiet || pout < OD_FOLLOW.quiet * 1e-4) return;
+    if (dr.n > 0 && pin < dr.pin * OD_FOLLOW.gap) return;
+    dr.n += 1;
+    // Moyenne cumulee la premiere seconde, puis glissante sur tauS
+    const a = dr.n <= OD_FOLLOW.warmSteps ? 1 / dr.n : 1 - Math.exp(-OD_FOLLOW.everyMs / 1000 / OD_FOLLOW.tauS);
+    dr.pin += a * (pin - dr.pin);
+    dr.pout += a * (pout - dr.pout);
+    const want = Math.max(OD_FOLLOW.minDb, Math.min(OD_FOLLOW.maxDb, 10 * Math.log10(dr.pin / dr.pout)));
+    if (dr.n > OD_FOLLOW.warmSteps && Math.abs(want - dr.db) < OD_FOLLOW.deadDb) return;
+    dr.db = want;
+    const g = dr.level.gain;
+    const now = this.ctx.currentTime;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(dbToGain(want), now + OD_FOLLOW.rampS);
   }
 
   /** Le tempo des effets rythmiques : le BPM entendu et le temps (TIME). */

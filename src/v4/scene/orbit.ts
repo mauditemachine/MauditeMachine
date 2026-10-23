@@ -117,6 +117,18 @@ export class Orbit {
   claim(pointerId: number): void {
     this.claims.add(pointerId);
   }
+  /**
+   * Ce pointeur, deja pose, n'entre plus dans aucun pincement (2026-10-22, la revue : un doigt parti de cote sur un
+   * potard au telephone, peut-etre le glisser d'une machine a l'autre, puis un deuxieme doigt pose : les deux se
+   * pincaient, la vue zoomait et le potard ne reprenait jamais le geste). claim() ne suffit pas : la prise d'un
+   * pointeur n'est lue qu'a son propre pointerdown. La couche de saisie l'appelle au pointerdown du deuxieme doigt,
+   * avant celui de l'orbite (elle ecoute l'enfant, l'orbite le parent).
+   */
+  own(pointerId: number): void {
+    const p = this.ptrs.get(pointerId);
+    if (p) p.claimed = true;
+    else this.claims.add(pointerId);
+  }
   /** pointeurs qui tournent ou pincent (compte tenu aux evenements) */
   private held = 0;
   /** restes a consommer : rotation (rad) et log du zoom */

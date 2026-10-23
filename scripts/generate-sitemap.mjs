@@ -35,7 +35,9 @@
  * Sans reponse du site (premier deploiement, reseau coupe : SEO_OFFLINE=1),
  * la date du jour partout, comme avant. Les adresses changees vont dans
  * indexnow-urls.txt (a la racine du depot, hors de dist) : le workflow
- * pages.yml les envoie a IndexNow apres le deploiement.
+ * pages.yml les envoie a IndexNow apres le deploiement. Depuis le 2026-10-22,
+ * toutes celles changees aujourd'hui (UTC), meme par un deploiement precedent
+ * dont l'envoi a pu etre annule.
  * Lance seul (npm run sitemap, sans dist/) : public/sitemap.xml date du jour,
  * pour l'admin local.
  */
@@ -170,7 +172,11 @@ for (const r of ROUTES) {
   const keep = hash && old && old.hash === hash && typeof old.lastmod === 'string' && ISO_DAY.test(old.lastmod) && old.lastmod <= TODAY;
   r.lastmod = keep ? old.lastmod : TODAY;
   if (hash) pages[r.path] = { hash, lastmod: r.lastmod };
-  if (!keep) changed.push(`${SITE}${r.path}`);
+  // 2026-10-22 (relecture B4-R2) : changee aujourd'hui, meme par un deploiement precedent. Le groupe de concurrence
+  // pages (cancel-in-progress) annule le job indexnow d'un run quand un autre push arrive dans sa minute d'attente ;
+  // le run suivant compare au manifeste deja en ligne et ne voyait plus ces pages changees. IndexNow accepte les
+  // doublons. Limite connue : un run annule juste avant minuit UTC, suivi d'un push apres minuit, perd encore les siennes.
+  if (r.lastmod === TODAY) changed.push(`${SITE}${r.path}`);
 }
 
 /* ---------- ecriture ---------- */
@@ -206,5 +212,5 @@ if (BUILT) {
   const known = Object.keys(previous).length > 0;
   writeFileSync(join(ROOT, 'indexnow-urls.txt'), known ? changed.map((u) => `${u}\n`).join('') : '', 'utf8');
   const days = new Set(ROUTES.map((r) => r.lastmod));
-  console.log(`sitemap.xml généré (${ROUTES.length} URLs, ${days.size} dates de lastmod, ${known ? `${changed.length} changées depuis le build en ligne` : 'site en ligne sans manifeste : date du jour partout, rien pour IndexNow'})`);
+  console.log(`sitemap.xml généré (${ROUTES.length} URLs, ${days.size} dates de lastmod, ${known ? `${changed.length} changées aujourd'hui` : 'site en ligne sans manifeste : date du jour partout, rien pour IndexNow'})`);
 } else console.log(`sitemap.xml généré (${ROUTES.length} URLs, lastmod ${TODAY}, sans dist/)`);

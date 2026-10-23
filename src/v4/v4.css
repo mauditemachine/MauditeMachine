@@ -626,6 +626,46 @@ html:has(body.v4-active) {
 }
 
 /*
+ * 2026-10-22 (relecture B4-R1) : de 768 a 879 px (desktop etroit, iPad en portrait), SHARE poussait MENU hors de
+ * l'ecran (29 px coupes a 768). L'en-tete se resserre sur cette seule plage : gaps plus courts, pastilles des
+ * machines moins larges, MENU garde son mot. Marge de 24 px a droite, rien ne change des 880 px.
+ * Avec le MM-BASS (?bass=1, cinq pastilles), le meme resserrement jusqu'a 899 px, et MENU en icone seule sous
+ * 820 px (son aria-label reste). Sans :has (vieux navigateurs), seul ce cas du MM-BASS deborde encore.
+ */
+@media (min-width: 768px) and (max-width: 879px) {
+  .v4-root .v4-header {
+    gap: 16px;
+  }
+  .v4-root .v4-header-end {
+    gap: 6px;
+  }
+  .v4-root .v4-hmachines-btn {
+    padding: 0 10px;
+  }
+}
+
+@media (min-width: 880px) and (max-width: 899px) {
+  .v4-root .v4-header:has(.v4-hmachines > :nth-child(5)) {
+    gap: 16px;
+  }
+  .v4-root .v4-header-end:has(.v4-hmachines > :nth-child(5)) {
+    gap: 6px;
+  }
+  .v4-root .v4-header-end:has(.v4-hmachines > :nth-child(5)) .v4-hmachines-btn {
+    padding: 0 10px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 819px) {
+  .v4-root .v4-header-end:has(.v4-hmachines > :nth-child(5)) .v4-menu-word {
+    display: none;
+  }
+  .v4-root .v4-header-end:has(.v4-hmachines > :nth-child(5)) .v4-menu-btn {
+    padding: 0 17px;
+  }
+}
+
+/*
  * 2026-10-22 (audit SB-14) : au telephone, des zones de 44 px au moins sans
  * changer le dessin (un ::after transparent deborde du bouton) : UNDO 40 px,
  * le selecteur des machines 30 px de haut, les fleches du bord 28 px de
@@ -1657,6 +1697,20 @@ html:has(body.v4-active) {
     content: '';
     position: absolute;
     inset: -7px 0;
+  }
+
+  /*
+   * Ouverte (revue RB3-3, 2026-10-22) : la bande ne monte plus au-dessus d'elle, sur le bas des pads TOM HT CY du MM-RYTM
+   * et des touches du MM-ARP (une tape sur HT fermait le Dock) ; elle descend seulement, sur la marge du Dock, au-dessus
+   * des onglets SEQUENCER et KNOBS dessines. 37 px de haut
+   */
+  .v4-root .v4-dock-tab[data-open='1']::after {
+    inset: 0 0 -7px;
+  }
+
+  /* Le Dock du MM-ARP sur PLAY : la languette est posee sur ses onglets, les accords D et E juste dessous, sa zone garde son dessin */
+  .v4-root .v4-dock-tab[data-open='1'][aria-controls='v4-vdock']:not([data-page='knobs'])::after {
+    inset: 0;
   }
 
   .v4-root .v4-dock-tab[data-open='1'] {
@@ -3749,20 +3803,24 @@ html:has(body.v4-active.v4-light) {
   border-radius: 12px 0 0 12px;
 }
 
-/* 44 px de large au doigt (2026-10-22, audit SB-14) : la zone deborde vers l'interieur, sur le bord du chassis */
-.v4-root .v4-medge::after {
+/*
+ * Plus large au doigt (2026-10-22, audit SB-14) : la zone deborde vers l'interieur, sur le bord du chassis. Revue RB3-2
+ * (2026-10-22) : 34 px et non 44, elle prenait le bord de STRETCH et COMP du MM-RYTM et des touches du MM-BASS (a 35 px
+ * du bord au plus pres, 360 de large) ; au telephone seulement, les fleches du desktop (data-desk) gardent leurs 28.
+ */
+.v4-root .v4-medge:not([data-desk])::after {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 44px;
+  width: 34px;
 }
 
-.v4-root .v4-medge[data-side='right']::after {
+.v4-root .v4-medge[data-side='right']:not([data-desk])::after {
   right: 0;
 }
 
-.v4-root .v4-medge[data-side='left']::after {
+.v4-root .v4-medge[data-side='left']:not([data-desk])::after {
   left: 0;
 }
 

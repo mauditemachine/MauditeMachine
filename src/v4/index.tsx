@@ -35,8 +35,9 @@ import './v4.css';
 import { attachStage } from './midi/targets';
 import { gesture } from './actions';
 import { clock } from './audio/clock';
+import { arp } from './voyager/arp';
 import { reserve } from './audio/sched';
-import { anyPlaying, onPlayStop } from './state/playLock';
+import { anyPlaying, onPlayStart, onPlayStop } from './state/playLock';
 import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
 import { shots } from './audio/shots';
@@ -176,7 +177,7 @@ class StageBoundary extends Component<BoundaryProps, { failed: boolean }> {
  * le premier coup (programme au pointerdown) part alors. Le premier geste
  * termine aussi l'intro (spec 7.4). Le motif d'arrivee est charge mais ne
  * joue pas tout seul (2026-10-01) : seul RUN le lance.
- * Demontage : la lecture s'arrete, la
+ * Demontage : la lecture s'arrete (l'arpege et sa sortie MIDI comprises), la
  * queue de reverbe est jetee (quiet), le contexte dort, le motif en
  * attente est ecrit.
  */
@@ -197,6 +198,9 @@ function useAudioGestures(getStage: () => Stage | null): void {
       window.removeEventListener('pointerup', resume, opts);
       window.removeEventListener('touchend', resume, opts);
       clock.stop();
+      // L'arpege aussi (2026-10-22, revue INT-3) : arpOut.stop envoie ses note off, CC 123 et STOP ; le contexte endormi,
+      // ils ne partaient plus (une note tenue et l'horloge MIDI figee dans Ableton apres un passage a /techrider/)
+      arp.stop();
       quiet();
       suspend();
       pattern.flush();
@@ -553,6 +557,15 @@ const V4Shell: React.FC = () => {
         if (hidden && !anyPlaying()) suspend();
       }, 2000);
     });
+    /*
+     * Et il se reveille des qu'une machine repart, onglet cache compris (2026-10-22, revue) : un PLAY de platine au
+     * Roto, une touche ou une note MIDI ne passent pas par un geste sur la page (pas de resume()) ; la platine
+     * s'allumait, muette, jusqu'au retour de la page.
+     */
+    const offStart = onPlayStart(() => {
+      window.clearTimeout(sleepTimer);
+      if (hidden) resume();
+    });
     const build = (): void => {
       stage = Stage.create({
         // Une reconstruction (changement d'apparence) ne rejoue pas l'intro
@@ -602,6 +615,7 @@ const V4Shell: React.FC = () => {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(sleepTimer);
       offStop();
+      offStart();
       const built = stage;
       if (!built) return;
       // La scene se reconstruit (Dark / Light, ADD DECK, REMOVE DECK : plusieurs secondes de fil principal

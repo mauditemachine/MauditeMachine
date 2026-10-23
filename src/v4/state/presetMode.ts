@@ -13,7 +13,8 @@
  * jusqu'au 2026-10-21, l'audit : ecouter un preset dure plus longtemps, et la
  * fleche suivante changeait de machine) ; dans les 10 s qui suivent une
  * fermeture par l'attente, gauche et droite le rouvrent au lieu de changer de
- * machine (resumable). Rouvert, il repart du dernier preset charge ou garde
+ * machine (resumable), sauf apres Echap ou une autre machine (2026-10-22, la
+ * revue). Rouvert, il repart du dernier preset charge ou garde
  * (2026-10-09). Les
  * presets eux-memes : state/presets.ts ; apres ceux de Mika, ceux d'usine
  * (2026-10-07, des styles electro : FACTORY en titre, ni NAME ni DEL). Le
@@ -185,8 +186,13 @@ function startIndex(m: PresetMachine): number {
 const listeners = new Set<() => void>();
 let idle = 0;
 let noteTimer = 0;
-/** Le mode ferme par l'attente : sa machine et quand (null : ferme autrement, ou rouvert). */
-let idleClosed: { m: PresetMachine; at: number } | null = null;
+/**
+ * Le mode ferme par l'attente : sa machine, quand, et le compte des changements de machine a ce moment (null : ferme
+ * autrement, ou rouvert). La revue du 2026-10-22 : une autre machine puis le retour, dans les 10 s, et la fleche
+ * rouvrait les presets au lieu de changer de machine (focus.changes : une machine changee, meme revenue, l'annule ;
+ * le cadrage arrive, focus.settle, ne compte pas).
+ */
+let idleClosed: { m: PresetMachine; at: number; changes: number } | null = null;
 
 function commit(next: ModeState): void {
   state = next;
@@ -198,7 +204,7 @@ function touch(): void {
   idle = window.setTimeout(() => {
     const m = state.machine;
     presetMode.close();
-    if (m) idleClosed = { m, at: performance.now() };
+    if (m) idleClosed = { m, at: performance.now(), changes: focus.changes };
   }, IDLE_MS);
 }
 
@@ -260,7 +266,11 @@ export const presetMode = {
    */
   resumable(m: string, at = performance.now()): PresetMachine | null {
     const c = idleClosed;
-    return c && c.m === m && state.machine === null && at - c.at < RESUME_MS ? c.m : null;
+    return c && c.m === m && state.machine === null && at - c.at < RESUME_MS && focus.changes === c.changes ? c.m : null;
+  },
+  /** Echap (2026-10-22, la revue : sans rien d'ouvert, la fleche suivante rouvrait quand meme les presets) : plus de reprise. */
+  forget(): void {
+    idleClosed = null;
   },
   /** Une touche de l'ecran. */
   key(m: PresetMachine, k: PresetKey): void {

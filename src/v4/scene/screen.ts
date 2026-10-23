@@ -173,7 +173,7 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
+import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
 import { HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { encUnit, v127Text } from '../rytm/values';
@@ -531,7 +531,9 @@ const PAGE_HEAD: { y: number; iconX: number; pillX: number; pillY: number; right
  * L'en-tete de la vue PAGE a places fixes (2026-10-22, audit SB-13). Les paliers de serrage de ses onglets : le corps
  * (s, de celui des onglets), l'air dans un onglet (pad), entre deux (gap), apres un titre sans cadre (tpad, DELAY de
  * DELAY > GLOBAL) et apres le trait du chevron (chev). headPlan ne compte que jusqu'au palier HEAD_FIT_MAX (90 % du
- * corps) ; le dernier, 80 %, reste un secours (une police de repli plus large).
+ * corps), pour les huit voix ; le dernier, 80 %, sert sans voix choisie (revue RB3-4, 2026-10-22, mesure avec SF Pro :
+ * FX > VOICE FX > GLOBAL au desktop, 90 % au plus avec une voix ; le telephone reste a 100 %) et a une police de repli
+ * plus large. Compter la page sans voix dans headPlan ferait tomber A01 de toutes les pages du desktop (149.0 > 148.5).
  */
 const HEAD_FIT = [
   { s: 1, pad: 9, gap: 3, tpad: 9, chev: 5.8 },
@@ -1783,13 +1785,19 @@ export class Screen {
     const y = UH - h - 2.5;
     const w = (x1 - x0 - gap * (n - 1)) / n;
     const size = this.mobile ? 7.5 : 7;
+    // La barre de la piste, deja dessinee par paintLine (2026-10-22, revue RB3-1) : ses bords en unites, un peu d'air
+    const bx = this.mobile && this.bar ? [this.bar.x0 / TEX_K - 4, this.bar.x1 / TEX_K + 4] : null;
     HOME_MENU.forEach((id, i) => {
       const x = x0 + i * (w + gap);
       const off = id === 'sound' && !inst;
       this.roundRect(x, y, w, h, 3.5, null, off ? FRAME_DIM : HALF, 1.1);
       this.text(HOME_MENU_LABEL[id], x + w / 2, y + h / 2 + size * 0.36, size, off ? FAINT : INK, 700, 'center', 0.8);
-      // Au telephone, la zone monte au-dessus de la touche jusqu'au bas du verre (MENU_HIT_TOP, 2026-10-22)
-      const top = this.mobile ? DY + MENU_HIT_TOP : y;
+      // Au telephone, la zone monte au-dessus de la touche jusqu'au bas du verre (MENU_HIT_TOP, 2026-10-22). Revue RB3-1
+      // (2026-10-22) : sous la barre de la piste (FLTR ENV FX), elle s'arrete au bas de sa bande (OLED_BAR.bandY1), une
+      // tape ou un glisse sur la barre fait avancer la piste au lieu d'ouvrir la page ; SOUND et VOICE, loin de la barre,
+      // gardent toute leur hauteur (la bande ramenerait la piste au debut)
+      const overBar = bx !== null && x < bx[1] && x + w > bx[0];
+      const top = !this.mobile ? y : overBar ? Math.max(DY + MENU_HIT_TOP, OLED_BAR.bandY1 / TEX_K) : DY + MENU_HIT_TOP;
       this.menuRects.push({ id: `lcd-menu-${id}`, ...this.spot({ x, y: top, w, h: this.mobile ? UH - top : h }) });
       this.info.menu.push(off ? `-${HOME_MENU_LABEL[id]}` : HOME_MENU_LABEL[id]);
     });
@@ -2321,7 +2329,8 @@ export class Screen {
    * au palier HEAD_FIT_MAX, a gauche de la colonne de la voix ; la colonne a la
    * largeur de la plus large des voix (TOM), juste a gauche du pattern, la
    * lettre M ou S d'un mode arme entre les deux. Le meme sur toutes les pages
-   * et pour toutes les voix (sans voix, VOICE FX plus long se serre plus) ;
+   * et pour toutes les voix (sans voix, VOICE FX plus long se serre plus : au
+   * dernier palier de HEAD_FIT, 80 %, au desktop) ;
    * mesure : la voix a x 148.5 et A01 au desktop, 159 sans A01 au telephone
    * (172.3 colle aux cadrans, voir HEAD_FIT_PHONE). Garde jusqu'a l'arrivee des
    * polices (onFonts).
@@ -2664,7 +2673,9 @@ export class Screen {
       // Une voix a un seul son (CY) : son nom quand meme, a peine
       const t = b.text && b.text !== '--' ? b.text : '--';
       this.text(this.fitText(t, bw - 2 * B.padX, T.valueSizes[1], 0, 300), bx + B.padX, by + T.valueDy, T.valueSizes[1], P.faint, 300);
-      if (b.unit) this.text(this.fitText(b.unit, bw - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
+      // Sa forme courte quand l'unite ne tient pas (2026-10-22, revue INT-4 : PICK A VOI. dans PITCH et FINE)
+      const offUnit = b.unit && b.unitShort && this.textWidth(b.unit, T.unitSize, 600, 0.4) > bw - 2 * B.padX ? b.unitShort : b.unit;
+      if (offUnit) this.text(this.fitText(offUnit, bw - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
       this.info.tags.push(`${b.label}:${b.unit}|${nameTag ? `${nameTag}@name` : ''}`);
       return;
     }

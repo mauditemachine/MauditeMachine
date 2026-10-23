@@ -6,7 +6,8 @@
  * Google lit le sitemap a son rythme ; IndexNow previent les autres moteurs en quelques minutes qu'une page a
  * change (une nouvelle date, un nouveau morceau). Lance par .github/workflows/pages.yml APRES le deploiement
  * (job indexnow), avec la liste ecrite par scripts/generate-sitemap.mjs (indexnow-urls.txt : seulement les
- * adresses dont le contenu a change depuis le build en ligne). Jamais bloquant : une erreur est ecrite dans le
+ * adresses dont le contenu a change depuis le build en ligne ; depuis le 2026-10-22, toutes celles changees le jour
+ * meme, l'envoi d'un run annule par un push plus recent compris). Jamais bloquant : une erreur est ecrite dans le
  * journal et le script rend 0 (le site est deja en ligne).
  *
  * La cle : le fichier public/<32 caracteres hexadecimaux>.txt (servi a la racine du site, il prouve que le domaine

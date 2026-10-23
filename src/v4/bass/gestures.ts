@@ -95,7 +95,7 @@ import { quadToUnit } from '../scene/quad';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { PORTRAIT } from '../theme';
-import { mayBeSwipe, type SwipeHandBack } from '../ui/swipe';
+import { SWIPE, mayBeSwipe, type SwipeHandBack } from '../ui/swipe';
 import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenBack, bassGenerate, bassKnobValue, bassLenSet, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassNotesTo, bassOct, bassPagePress, bassPatternHold, bassPatternTap, bassPitchAt, bassPresetKey, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
 import { bassLine } from './line';
 import { bassPage, isBassGlobal, isBassScreen, type BassScreenId } from './pages';
@@ -408,7 +408,9 @@ export class BassGestures {
           g.deferred = true;
           return;
         }
-        g.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+        // Sorti du glisser dans son temps (2026-10-22, la revue : reparti a la verticale) : de haut en bas, l'axe dominant
+        // de ce moment etait presque toujours x et le geste vertical ne tournait rien ; le temps passe, l'axe dominant
+        g.axis = g.deferred && at - g.swipeT0 < SWIPE.ms ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
         // Il reprend le geste la ou il en est, depuis la valeur du moment : rien ne saute
         if (g.deferred) {
           g.deferred = false;
