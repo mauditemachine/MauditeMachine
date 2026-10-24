@@ -7,7 +7,8 @@
  * sont calculees ici, une fois, et envoyees telles quelles au site d'avant comme a celui d'aujourd'hui.
  *
  *   node scripts/arp-quality/ab.mjs --url http://127.0.0.1:5961 --tag after --out <dossier> --set factory
- *   --set factory | proposals | demos (plusieurs : factory,demos) ; --only "ACID,MS SCREAM" ; --os 4 (2 : le telephone)
+ *   --set factory | proposals | demos (plusieurs : factory,demos) ; --only "ACID,MS SCREAM" ; --os 4 (2 : le telephone,
+ *   avec ses limites : 8 voix, STACK 2, WIDE 4 ; 2026-10-24)
  *
  * Chaque rendu : un WAV 24 bits 48 kHz stereo et ses mesures (sonie ponderee K, crete, centroide) dans
  * <dossier>/manifest-<tag>.json. Les propositions sont calees en sonie sur le preset d'aujourd'hui (l'ecoute juge le
@@ -123,11 +124,12 @@ if (SETS.includes('proposals')) {
 if (SETS.includes('demos')) {
   const base = { ...DEF, delay: 0.25, reverb: 0.15 };
   const bass = { ...base, rate: 2 / 3, range: 0, notes: 4 / 8, gate: 0.4, wave1: 0.4, osc2: 0, cutoff: 0.32, res: 0.55, envAmt: 0.6, fD: 0.3, fS: 0.1, aD: 0.35, aS: 0.3, octave: 0.25, accFlt: 1, accent: 0.7 };
-  // LE POIDS DU VOYAGER : une basse d'arpege MOOG, LOAD 0 puis 0.35 ; puis SPACE (les deux filtres)
+  // LE POIDS DU VOYAGER : une basse d'arpege MOOG, LOAD 0 puis 0.6 (2026-10-24 : a 0.35, l'ecart ne se mesurait pas a
+  // sonie egale, QC-CH-3) ; puis SPACE (les deux filtres)
   add({ file: 'D1a-voyager-weight-load-0', name: 'D1a', knobs: { ...bass, load: 0 }, prog: [0, 4], bpm: 122, swing: 0.08, kind: 'demo' });
-  add({ file: 'D1b-voyager-weight-load-35', name: 'D1b', knobs: { ...bass, load: 0.35 }, prog: [0, 4], bpm: 122, swing: 0.08, kind: 'demo', match: 'D1a-voyager-weight-load-0' });
+  add({ file: 'D1b-voyager-weight-load-60', name: 'D1b', knobs: { ...bass, load: 0.6 }, prog: [0, 4], bpm: 122, swing: 0.08, kind: 'demo', match: 'D1a-voyager-weight-load-0' });
   add({ file: 'D1c-voyager-space-50', name: 'D1c', knobs: { ...base, rate: 1 / 3, range: 0.5, gate: 0.55, wave1: 0.4, wave2: 0.75, osc2: 0.6, cutoff: 0.45, res: 0.55, envAmt: 0.35, aA: 0.05, aD: 0.55, aS: 0.6, aR: 0.45, space: 0.5, load: 0.15, chord: 0.5, chorus: 0 }, prog: [0, 5, 2, 1], bpm: 122, swing: 0.08, kind: 'demo' });
-  // LA BOUCLE MONARK : MONARK DRIVE, LOAD 0 puis LOAD 0.62
+  // LOAD COMME SUR MONARK (2026-10-24 : pas de boucle FEEDBACK, retiree en S13) : MONARK DRIVE, LOAD 0 puis LOAD 0.62
   const md = NEW_PRESETS.find((p) => p.name === 'MONARK DRIVE');
   add({ file: 'D2a-monark-drive-load-0', name: 'D2a', knobs: { ...DEF, volume: 0.75, ...md.knobs, load: 0 }, prog: md.prog, bpm: md.bpm, swing: md.swing, kind: 'demo' });
   add({ file: 'D2b-monark-drive-load-62', name: 'D2b', knobs: { ...DEF, volume: 0.75, ...md.knobs }, prog: md.prog, bpm: md.bpm, swing: md.swing, kind: 'demo', match: 'D2a-monark-drive-load-0' });
@@ -194,8 +196,10 @@ try {
     const { notes, beats, seconds } = arpNotes(M, knobs, it.prog, BARS, bpm, swing, SEED);
     const timeline = it.timeline ? it.timeline(seconds) : [];
     const b64 = await page.evaluate(
-      async ({ seconds, notes, beats, knobs, bpm, os, seed, timeline }) => {
-        const [L, R] = await window.__v4.voyager.synth.renderOffline({ seconds, notes, beats, params: knobs, bpm, os, seed, timeline });
+      async ({ seconds, notes, beats, knobs, bpm, os, seed, timeline, phone }) => {
+        // 2026-10-24 (controle qualite F4) : au telephone, ses limites aussi (8 voix, STACK 2, WIDE 4)
+        const lim = phone ? { maxVoices: 8, maxStack: 2, wideVoices: 4 } : {};
+        const [L, R] = await window.__v4.voyager.synth.renderOffline({ seconds, notes, beats, params: knobs, bpm, os, seed, timeline, ...lim });
         const f = new Float32Array(2 * L.length);
         f.set(L, 0);
         f.set(R, L.length);
@@ -204,7 +208,7 @@ try {
         for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
         return btoa(s);
       },
-      { seconds, notes, beats, knobs, bpm, os: OS, seed: SEED, timeline }
+      { seconds, notes, beats, knobs, bpm, os: OS, seed: SEED, timeline, phone: OS === 2 }
     );
     const buf = Buffer.from(b64, 'base64');
     const f = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
@@ -238,7 +242,7 @@ try {
       m = measure(r.L, r.R);
     }
     writeWav(path.join(OUTDIR, `${it.file}.wav`), r.L, r.R, { bits: 24 });
-    manifest[it.file] = { name: it.name, kind: it.kind, ...m, notes: r.notes, bpm: it.bpm, seconds: Math.round((r.L.length / SR) * 10) / 10, ...(it.match ? { matchedTo: it.match, gainDb: Math.round(20 * Math.log10(gain) * 100) / 100 } : {}), ...(it.kind === 'new' ? { volume: knobs.volume, style: it.style } : {}), ...(it.change ? { change: it.change } : {}) };
+    manifest[it.file] = { name: it.name, kind: it.kind, os: OS, ...m, notes: r.notes, bpm: it.bpm, seconds: Math.round((r.L.length / SR) * 10) / 10, ...(it.match ? { matchedTo: it.match, gainDb: Math.round(20 * Math.log10(gain) * 100) / 100 } : {}), ...(it.kind === 'new' ? { volume: knobs.volume, style: it.style } : {}), ...(it.change ? { change: it.change } : {}) };
     writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 1)}\n`);
     console.log(`  ${it.file.padEnd(36)} ${m.lufs} LUFS  crete ${m.peakDb} dBFS  centroide ${m.centroidHz} Hz  ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   }

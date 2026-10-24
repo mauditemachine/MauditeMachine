@@ -6,7 +6,7 @@
  *
  * - les presets d'usine d'aujourd'hui, et chacun avec LOAD (0.25 pour la plupart, 0.15 pour ELECTRO et HOUSE, 0.2 pour
  *   ITALO), ACID NIGHT et NIGHT DRIVE revus (LOAD 0.45, moins d'OVERDRIVE ; NIGHT DRIVE avec SPACE) ;
- * - INIT a LOAD 0, 0.15, 0.25 et 0.35 (le depart que Mika choisira) ;
+ * - INIT a LOAD 0, 0.4, 0.55 et 0.7 (le depart que Mika choisira ; 0.15 a 0.35 avant le 2026-10-24) ;
  * - cinq presets nouveaux : MS SCREAM, MONARK DRIVE, SPACE INDIE, MS HYPNO, RES PING.
  */
 
@@ -43,7 +43,7 @@ export const NEW_PRESETS = [
     bpm: 120,
     swing: 0.1,
     prog: [0, 1],
-    knobs: { rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(4), gate: 0.35, wave1: WAVE1.SAW, osc1: 0.9, osc2: 0, sub: 0.25, subWave: SUB_WAVE.SQUARE, subOct: 0, fmode: FMODE.MS10, cutoff: 0.26, res: 0.87, envAmt: 0.72, fA: 0, fD: 0.42, fS: 0.05, fR: 0.25, aA: 0, aD: 0.45, aS: 0.4, aR: 0.22, glide: 0.1, load: 0.55, dist: 0, accent: 0.75, accFlt: 1, drift: 0.2, phase: 0.3, monoLow: 0.4, chorus: CHORUS.OFF, delay: 0.25, dlyTime: DLY['3/16'], tape: 0.25, reverb: 0.15, glue: 0.45, duck: 0.3, chord: CHORD.BASIC },
+    knobs: { rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(4), gate: 0.35, wave1: WAVE1.SAW, osc1: 0.9, osc2: 0, sub: 0.25, subWave: SUB_WAVE.SQUARE, subOct: 0, fmode: FMODE.MS10, cutoff: 0.26, res: 0.87, envAmt: 0.72, fA: 0, fD: 0.42, fS: 0.05, fR: 0.25, aA: 0, aD: 0.45, aS: 0.4, aR: 0.22, glide: 0.1, load: 0.4, dist: 0, accent: 0.75, accFlt: 1, drift: 0.2, phase: 0.3, monoLow: 0.4, chorus: CHORUS.OFF, delay: 0.25, dlyTime: DLY['3/16'], tape: 0.25, reverb: 0.15, glue: 0.45, duck: 0.3, chord: CHORD.BASIC },
   },
   {
     name: 'MONARK DRIVE',
@@ -79,5 +79,9 @@ export const NEW_PRESETS = [
   },
 ];
 
-/** INIT aux LOAD proposes pour le depart. */
-export const INIT_LOADS = [0, 0.15, 0.25, 0.35];
+/**
+ * INIT aux LOAD proposes pour le depart (2026-10-24, controle qualite QC-CH-3 : a sonie egale, par la chaine complete,
+ * 0.25 reste a 0.25 dB pres partout ; 0.4 : l'aigu -0.5 dB, la crete -0.25 dB ; 0.55 : 63-250 Hz +0.7 dB contre
+ * 1-4 kHz, l'aigu -0.9 dB, la crete -0.4 dB ; 0.7 : +1.05 dB, l'aigu -1.3 a -1.8 dB, la crete -0.6 dB, VOLUME -1.25 dB).
+ */
+export const INIT_LOADS = [0, 0.4, 0.55, 0.7];
