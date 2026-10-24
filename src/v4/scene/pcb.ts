@@ -357,13 +357,25 @@ function extrasOf(variant: PcbVariant): Extra[] {
 /** L'etiquette a code-barres de la carte (MM-808) : centre, demi-etendues. */
 const STICKER = { x: 1.15, z: -0.88, hx: 0.6, hz: 0.24 } as const;
 
-/** Une zone de la carte sans composant de decor (repere de la carte). */
-export interface PcbClear {
+/** Un rectangle de la carte (repere de la carte). */
+export interface PcbRect {
   x0: number;
   x1: number;
   z0: number;
   z1: number;
 }
+
+/**
+ * Une zone de la carte sans composant de decor (repere de la carte) ; more : d'autres rectangles degages, a part
+ * (2026-10-23 : le cartouche des TWEAKS du MM-ARP monte au-dessus de ses reglages, la ou la rangee du bas n'avait plus
+ * de place pour le groupe FILTER).
+ */
+export interface PcbClear extends PcbRect {
+  more?: readonly PcbRect[];
+}
+
+/** Les rectangles d'une zone degagee (aucun sans zone). */
+const rectsOf = (clear: PcbClear | null): readonly PcbRect[] => (clear === null ? [] : clear.more ? [clear, ...clear.more] : [clear]);
 
 /**
  * Les demi-etendues de chaque famille de decor (unites de la carte),
@@ -384,7 +396,7 @@ const EXTENT = {
 
 /** L'emprise (centre, demi-etendues) touche-t-elle la zone degagee ? */
 const touches = (clear: PcbClear | null, x: number, z: number, hx: number, hz: number): boolean =>
-  clear !== null && x + hx > clear.x0 && x - hx < clear.x1 && z + hz > clear.z0 && z - hz < clear.z1;
+  rectsOf(clear).some((c) => x + hx > c.x0 && x - hx < c.x1 && z + hz > c.z0 && z - hz < c.z1);
 
 /** Une piece de decor dans la zone degagee (son genre, sa place). */
 function offOf(clear: PcbClear | null): (kind: keyof typeof EXTENT | ExtraKind, x: number, z: number) => boolean {
@@ -582,7 +594,7 @@ function placeRefs(prints: Footprint[], clear: PcbClear | null): void {
   for (const c of P.caps) if (!off('cap', c.x, c.z)) placed.push(rectAt('+', c.x - P.cap3.r - 0.1, c.z, 'center', 12));
   placed.push(rectAt('PWR', P.led.x + 0.2, P.led.z + 0.12, 'left', 10));
   placed.push(rectAt('MAUDITE MACHINE', pcbAt(-5.33, -0.86).x, pcbAt(-5.33, -0.86).z, 'left', 24));
-  const zone: R | null = clear ? { x0: clear.x0, x1: clear.x1, z0: clear.z0, z1: clear.z1 } : null;
+  const zones: readonly R[] = rectsOf(clear);
   const hx = PCB.w / 2 - 0.08;
   const hz = PCB.d / 2 - 0.08;
   const g = 0.08;
@@ -605,7 +617,7 @@ function placeRefs(prints: Footprint[], clear: PcbClear | null): void {
     const ok = (c: C): boolean => {
       const r = rectAt(f.ref, c.x, c.z, c.align);
       if (r.x0 < -hx || r.x1 > hx || r.z0 < -hz || r.z1 > hz) return false;
-      if (zone && hit(r, zone)) return false;
+      if (zones.some((z) => hit(r, z))) return false;
       if (bodies.some((b, j) => j !== i && hit(r, b))) return false;
       if (behind.some((b) => b !== null && hit(r, b))) return false;
       return !placed.some((p) => hit(r, p));
@@ -1365,11 +1377,11 @@ export class Pcb {
     const off = offOf(this.clear);
     for (const c of P.caps) if (!off('cap', c.x, c.z)) out.push({ text: '+', x: c.x - P.cap3.r - 0.1, z: c.z, px: 12, align: 'center', reserve: 0 });
     // La zone des TWEAKS : aucun texte de la carte n'y tombe (son cartouche porte le nom et la revision)
-    const C = this.clear;
-    if (!C) return out;
+    const Z = rectsOf(this.clear);
+    if (Z.length === 0) return out;
     return out.filter((t) => {
       const r = this.textRect(t);
-      return r.x1 < C.x0 || r.x0 > C.x1 || r.z1 < C.z0 || r.z0 > C.z1;
+      return Z.every((C) => r.x1 < C.x0 || r.x0 > C.x1 || r.z1 < C.z0 || r.z0 > C.z1);
     });
   }
 
@@ -1410,7 +1422,7 @@ export class Pcb {
     for (const f of this.prints) block({ x0: f.x - f.hx, z0: f.z - f.hz, x1: f.x + f.hx, z1: f.z + f.hz });
     for (const t of this.texts()) block(this.textRect(t));
     // La zone des TWEAKS (2026-10-08) : un vernis calme sous la serigraphie fine, les pistes la contournent
-    if (this.clear) block(this.clear, 0.02);
+    for (const c of rectsOf(this.clear)) block(c, 0.02);
     block({ x0: this.pour.x0, z0: this.pour.z0, x1: this.pour.x1, z1: this.pour.z1 }, 0.12);
 
     const starts: { i: number; j: number; d: number; main: boolean }[] = [];
@@ -1768,10 +1780,7 @@ export class Pcb {
     // La place du texte GND
     ctx.fillRect(R.x0 + 0.12, R.z1 - 0.34, 0.85, 0.26);
     // La zone des TWEAKS (2026-10-08) : le plan de masse s'arrete a 0.06 de son bord
-    if (this.clear) {
-      const C = this.clear;
-      ctx.fillRect(C.x0 - 0.06, C.z0 - 0.06, C.x1 - C.x0 + 0.12, C.z1 - C.z0 + 0.12);
-    }
+    for (const C of rectsOf(this.clear)) ctx.fillRect(C.x0 - 0.06, C.z0 - 0.06, C.x1 - C.x0 + 0.12, C.z1 - C.z0 + 0.12);
     for (const [x, z] of this.stitch) {
       ctx.beginPath();
       ctx.ellipse(x, z, PCB.viaR + 0.035, PCB.viaR + 0.035, 0, 0, Math.PI * 2);

@@ -1,0 +1,14 @@
+import { render, LAB, DEF, badCount, db, engine } from './lib.mjs';
+const r = render({ params: { ...LAB, osc1: 0.1 }, notes: [{ midi: 57, time: 0, gate: 1, accent: 1, from: null }], seconds: 1.2 });
+let pk = 0; for (const x of r.L) pk = Math.max(pk, Math.abs(x));
+console.log('sine A3 osc1 0.1 peak', db(pk).toFixed(2), 'dB', badCount(r.L), 'cpu us/block', r.cpuUsPerBlock.toFixed(1));
+let hit = 0;
+globalThis.__inj = (v, i2, o) => { hit++; return 0; };
+const r2 = render({ variant: 'inject', params: { ...LAB, osc1: 0.1 }, notes: [{ midi: 57, time: 0, gate: 1, accent: 1, from: null }], seconds: 0.2 });
+let pk2 = 0; for (const x of r2.L) pk2 = Math.max(pk2, Math.abs(x));
+console.log('inject zero -> peak', pk2, 'hits', hit);
+globalThis.__inj = null;
+const d = render({ params: DEF, notes: [{ midi: 54, time: 0, gate: 0.2, accent: 1, from: null }], seconds: 1 });
+let pk3 = 0; for (const x of d.L) pk3 = Math.max(pk3, Math.abs(x));
+console.log('DEF note peak', db(pk3).toFixed(2));
+engine('expose'); console.log(Object.keys(globalThis.__mmx).length, 'exposed');

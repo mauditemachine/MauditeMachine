@@ -213,7 +213,7 @@ function repeats(label: string, unit: string): boolean {
  * La valeur ecrite en grand (contrat Elektron : 0 a 127, round(v x 127) ;
  * FINE de -64 a +63 ; un potard a crans, le nom de son cran) et son unite.
  */
-export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: string; unit: string } {
+export function echoValue(id: VoyKnobId, v: number, bpm: number, values?: Readonly<VoyValues>): { value: string; unit: string } {
   const k = voyKnob(id);
   const n127 = Math.round(v * 127);
   const pct = (x: number): string => `${Math.round(x * 100)} %`;
@@ -237,13 +237,15 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
     }
     else if (id === 'semi1' || id === 'semi2') unit = 'SEMITONES';
     else if (id === 'ratio') unit = `OPERATOR x ${fmRatio(v)}`;
-    else if (id === 'fmode') unit = ['24 DB LOW PASS', '12 DB LOW PASS', 'BAND PASS', 'HIGH PASS'][stepIndex('fmode', v)];
+    // MS-10 au milieu des cinq crans (2026-10-23) : le Korg35 et ses diodes
+    else if (id === 'fmode') unit = ['24 DB LOW PASS', '12 DB LOW PASS', 'KORG35 12 DB, DIODES', 'BAND PASS', 'HIGH PASS'][stepIndex('fmode', v)];
     // MOD cale sur la mesure (2026-10-18) : chaque cycle part sur la grille ; RND, le hasard qui glisse
     else if (id === 'lfoRate') unit = 'ONE CYCLE ON THE GRID';
     else if (id === 'lfoShape') unit = ['TRIANGLE', 'RAMP DOWN', 'RANDOM GLIDES', 'SQUARE', 'RANDOM STEPS'][stepIndex('lfoShape', v)];
     else if (id === 'lfoDest') unit = 'MOD TARGET';
     else if (id === 'sync') unit = stepIndex('sync', v) === 1 ? 'OSC 2 HARD SYNCED' : 'OSC 2 RUNS FREE';
     else if (id === 'chord') unit = 'CHORD NOTES';
+    else if (id === 'fpol') unit = stepIndex('fpol', v) === 1 ? 'THE ENVELOPE CLOSES THE FILTER' : 'THE ENVELOPE OPENS THE FILTER';
     // CHORUS (2026-10-12) : les modes du Juno-106, la vitesse de leur triangle
     else if (id === 'chorus') unit = ['DRY, NO CHORUS', 'JUNO-106 SLOW, 0.51 HZ', 'JUNO-106 FAST, 0.86 HZ'][stepIndex('chorus', v)];
     return { value: name, unit };
@@ -254,7 +256,8 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
   else if (id === 'glide') unit = v <= 0 ? 'OFF' : `${Math.round(glideS(v) * 1000)} MS`;
   else if (id === 'cutoff') unit = hzText(cutoffHz(v));
   else if (id === 'res') unit = `${pct(v)} RESONANCE`;
-  else if (id === 'envAmt') unit = `+${envOctaves(v).toFixed(1)} OCTAVES`;
+  // POLARITY (2026-10-23) : en NEG, l'enveloppe ferme le filtre (-2.4 OCTAVES)
+  else if (id === 'envAmt') unit = `${values && stepIndex('fpol', values.fpol) === 1 ? '-' : '+'}${envOctaves(v).toFixed(1)} OCTAVES`;
   else if (id === 'fA' || id === 'aA') unit = timeText(attackS(v));
   else if (id === 'fD' || id === 'aD') unit = timeText(decayS(v));
   else if (id === 'fR' || id === 'aR') unit = timeText(releaseS(v));
@@ -786,7 +789,7 @@ export class VoyScreen {
     this.transport(s.running);
     this.txt(sectionOf(id), 24, HY, FS.small, HALF, 700);
     this.tempo(s.bpm);
-    const { value, unit } = echoValue(id, v, s.bpm);
+    const { value, unit } = echoValue(id, v, s.bpm, s.values);
     const colW = UW * 0.4 - 10;
     const top = MAIN0 - 2;
     const bot = UH - 10;

@@ -5,8 +5,8 @@
  * interpolation lineaire : un filtre passe-bas qui bouge avec la
  * modulation (jusqu'a -5 dB vers 15 kHz), des aigus ternis qui flottent.
  * Ici : une ligne circulaire par canal, lue en interpolation sinc fenetree
- * (16 points, fenetre de Kaiser, table de 512 phases : plate a 0.1 dB pres
- * jusque vers 19 kHz, quel que soit le retard), les LFO calcules a chaque
+ * (16 points, fenetre de Kaiser, table de 512 phases interpolees : plate a
+ * 0.1 dB pres jusque vers 19 kHz, quel que soit le retard), les LFO calcules a chaque
  * echantillon. Le mouille seul
  * (le sec et le dosage restent a l'insert, chorus.ts). Deux sortes :
  * - 'bus' (la boite a rythmes et ses voix) : deux voix, chacune un retard
@@ -81,22 +81,34 @@ const SINC = (() => {
   return t;
 })();
 
-/** Lecture a d echantillons (8 au moins) dans le passe de la ligne b, ecrite en w. */
+/**
+ * Lecture a d echantillons (8 au moins) dans le passe de la ligne b, ecrite en w. Les coefficients entre les deux
+ * phases voisines de la table, en ligne droite (2026-10-23, S20, Mika : "que le son soit d'extreme bonne qualite") :
+ * avant, la phase arrondie au 1/512 laissait une erreur de -62.6 dB du mouille a 10 kHz (-88.8 a 440 Hz) ; avec elle,
+ * celle du noyau lui-meme (scripts/arp-quality/chorus.mjs).
+ */
 function readFrac(b, w, d) {
   const n = b.length;
   let pos = w - d;
   while (pos < 0) pos += n;
   const i = Math.floor(pos);
-  const ph = Math.round((pos - i) * PHASES) * TAPS;
-  let y = 0;
+  const fp = (pos - i) * PHASES;
+  const p0 = Math.floor(fp);
+  const t = fp - p0;
+  const a = p0 * TAPS;
+  let y0 = 0;
+  let y1 = 0;
   let j = i - (HALF - 1);
   if (j < 0) j += n;
+  // Les deux lignes de la table lues ensemble (un seul passage sur la ligne), melangees a la fin
   for (let k = 0; k < TAPS; k += 1) {
-    y += SINC[ph + k] * b[j];
+    const x = b[j];
+    y0 += SINC[a + k] * x;
+    y1 += SINC[a + TAPS + k] * x;
     j += 1;
     if (j === n) j = 0;
   }
-  return y;
+  return y0 + t * (y1 - y0);
 }
 
 /** Triangle de phase p (0..1) : 0 -> 1 -> 0 -> -1 -> 0, comme l'OscillatorNode. */

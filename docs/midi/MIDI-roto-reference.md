@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 22 octobre 2026 depuis le code du site (`npm run docs:midi`) : 646 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 23 octobre 2026 depuis le code du site (`npm run docs:midi`) : 649 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -274,7 +274,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 8 | 2.1 | 2 | 22 | CUTOFF | jaune | voy:knob:cutoff | CUTOFF | continu |
 | 9 | 2.2 | 2 | 23 | RESONANCE | jaune | voy:knob:res | RES | continu |
 | 10 | 2.3 | 2 | 24 | ENV AMOUNT | jaune | voy:knob:envAmt | ENV AMT | continu |
-| 11 | 2.4 | 2 | 25 | FILTER MODE | jaune | voy:knob:fmode | FILTER MODE | potard a 4 crans : MOOG / LP12 / BP / HP |
+| 11 | 2.4 | 2 | 25 | FILTER MODE | jaune | voy:knob:fmode | FILTER MODE | potard a 5 crans : MOOG / LP12 / MS-10 / BP / HP |
 | 12 | 2.5 | 2 | 26 | OSC 1 LEVEL | or | voy:knob:osc1 | OSC 1 | continu |
 | 13 | 2.6 | 2 | 27 | OSC 2 LEVEL | or | voy:knob:osc2 | OSC 2 | continu |
 | 14 | 2.7 | 2 | 3 | SUB LEVEL | or | voy:knob:sub | SUB | continu |
@@ -1047,7 +1047,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:seq:voice:HT` | SEQ VOICE HT (SELECT, SILENT) | appui |  | RSEQ |
 | `rytm:seq:voice:CY` | SEQ VOICE CY (SELECT, SILENT) | appui |  | RSEQ |
 
-### MM-ARP (scope `voy`, 77 cibles)
+### MM-ARP (scope `voy`, 80 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1077,7 +1077,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:res` | RES | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:envAmt` | ENV AMT | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:noise` | NOISE | valeur 0 a 127 |  |  |
-| `voy:knob:fmode` | FILTER MODE | valeur 0 a 127 | 4 | ARP |
+| `voy:knob:fmode` | FILTER MODE | valeur 0 a 127 | 5 | ARP |
 | `voy:knob:fA` | FLT ATTACK | valeur 0 a 127 |  | ARP |
 | `voy:knob:fD` | FLT DECAY | valeur 0 a 127 |  | ARP, LIVE |
 | `voy:knob:fS` | FLT SUSTAIN | valeur 0 a 127 |  | ARP |
@@ -1110,6 +1110,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:knob:glue` | TWEAK GLUE | valeur 0 a 127 |  |  |
 | `voy:knob:dlyTime` | TWEAK DLY TIME | valeur 0 a 127 | 5 |  |
 | `voy:knob:tape` | TWEAK TAPE | valeur 0 a 127 |  |  |
+| `voy:knob:load` | TWEAK LOAD | valeur 0 a 127 |  |  |
+| `voy:knob:space` | TWEAK SPACE | valeur 0 a 127 |  |  |
+| `voy:knob:fpol` | TWEAK POLARITY | valeur 0 a 127 | 2 |  |
 | `voy:pad:0` | CHORD F#m | appui |  | ARP, LIVE |
 | `voy:pad:1` | CHORD D | appui |  | ARP, LIVE |
 | `voy:pad:2` | CHORD E | appui |  | ARP, LIVE |

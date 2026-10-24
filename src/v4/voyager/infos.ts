@@ -172,8 +172,8 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   fmode: {
     title: 'MODE',
-    text: "Le type de filtre : MOOG (passe-bas 24 dB, celui d'origine), 12 (passe-bas 12 dB, plus ouvert), BP (passe-bande) ou HP (passe-haut). Une tape passe au suivant ; le changement est fondu, sans clic.",
-    tip: "BP avec la résonance pour un arpège fin qui laisse la place à la basse ; HP pour une montée.",
+    text: "Le type de filtre : MOOG (passe-bas 24 dB, celui d'origine), 12 (passe-bas 12 dB, plus ouvert), MS-10 (le Korg35 12 dB du MS-10 : le grave ne baisse pas quand la résonance monte, elle passe au-dessus du son, crie et se casse quand on pousse ; ses diodes grognent quand la source pousse : LOAD, OVERDRIVE, les deux oscillateurs à fond), BP (passe-bande) ou HP (passe-haut). Une tape passe au suivant ; le changement est fondu, sans clic.",
+    tip: "BP avec la résonance pour un arpège fin qui laisse la place à la basse ; HP pour une montée ; MS-10 et la résonance aux trois quarts pour un acide qui crie sans perdre son grave.",
   },
 
   /* ---------- FILTER EG / AMP EG ---------- */
@@ -240,6 +240,21 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
     title: 'GLUE',
     text: "La colle du MM-ARP : un compresseur de bus doux (2:1, lié en stéréo, rattrapage automatique) resserre les écarts d'une note et d'un accord à l'autre, puis un arrondi des crêtes (une saturation douce, sans repliement) les tasse. Le volume reste le même à 1 dB près, le son devient plus dense et plus collé. OFF : le son d'origine ; 3 à 5 : la colle d'une console ; 10 : bien tassé.",
     tip: "Monte GLUE plutôt que VOLUME quand l'arpège manque de présence contre le kick.",
+  },
+  load: {
+    title: 'LOAD',
+    text: "Le mélangeur pousse le filtre, comme le LOAD de Monark. En bas le son reste propre (un Voyager), au milieu il chauffe et la résonance se tasse sous les notes, en haut il gronde. Il garde l'attaque : le punch reste. Une note appuyée (ACCENT, ACC FILTER) le pousse un peu plus. OVERDRIVE est la pédale par-dessus. OFF : le son d'origine.",
+    tip: "LOAD vers 3 avec RES vers 6 : le gras d'un Moog sans perdre le grave ; garde OVERDRIVE pour la fin de la chaîne.",
+  },
+  space: {
+    title: 'SPACE',
+    text: "Les deux filtres du Voyager : celui de gauche plus sombre, celui de droite plus clair, leurs coupures jusqu'à une octave de chaque côté. À l'oreille, un écart de clarté plus doux que ça : un peu de chaque côté passe dans l'autre pour que le mono tienne. La coupure, l'enveloppe et le LFO les bougent ensemble ; la résonance chante à deux hauteurs, c'est là que l'écart s'entend le plus. OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
+    tip: "SPACE vers 5 avec RES vers 6 et WIDE à OFF : un arpège qui s'ouvre en stéréo sans perdre son centre.",
+  },
+  fpol: {
+    title: 'POLARITY',
+    text: "Le sens de l'enveloppe du filtre : POS l'ouvre, NEG la ferme (des notes qui gonflent ou qui se creusent). ENV AMT dit de combien, dans un sens ou dans l'autre ; l'accent ouvre toujours. POS : le son d'origine.",
+    tip: "NEG avec une coupure haute et une attaque lente : chaque note part brillante puis s'enfonce, façon pompe.",
   },
   dlyTime: {
     title: 'DLY TIME',

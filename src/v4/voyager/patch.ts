@@ -21,7 +21,7 @@
 
 import { presetMode } from '../state/presetMode';
 import { presets } from '../state/presets';
-import { RETIRED_ON, VOY_KNOB_IDS, chorusStep, foldLegacyKnobs, lfoShapeStep, voyKnob, voyParams, type VoyKnobId } from './params';
+import { RETIRED_ON, VOY_KNOB_IDS, chorusStep, fmodeStep, foldLegacyKnobs, lfoShapeStep, voyKnob, voyParams, type VoyKnobId } from './params';
 import { seq } from './seq';
 
 const KEY = 'mm.v4.voyager.preset';
@@ -38,6 +38,15 @@ const ADDED_IDS: readonly VoyKnobId[] = ['sub', 'subOct', 'subWave'];
  * avant eux reste valable, la rangee des SUB aussi.
  */
 const ADDED_V2: readonly VoyKnobId[] = ['accFlt', 'stack', 'wide', 'glue', 'dlyTime', 'tape'];
+/**
+ * LOAD (2026-10-23), une troisieme rangee marquee 'v3', de la meme facon : elle ne s'ajoute que s'il quitte sa valeur
+ * d'heritage (0) ; toute empreinte gardee avant lui reste valable.
+ */
+const ADDED_V3: readonly VoyKnobId[] = ['load'];
+/** SPACE (2026-10-23), une quatrieme rangee 'v4', de la meme facon (seulement s'il quitte 0). */
+const ADDED_V4: readonly VoyKnobId[] = ['space'];
+/** POLARITY (2026-10-23), une cinquieme rangee 'v5', de la meme facon (seulement en NEG). */
+const ADDED_V5: readonly VoyKnobId[] = ['fpol'];
 const heir = (id: VoyKnobId): number => voyKnob(id).legacy ?? voyParams.def(id);
 /**
  * Les ON des oscillateurs (on1 apres FINE 1, on2 apres FINE 2), retires le 2026-10-11 (Mika : "si on veut pas les osc
@@ -48,7 +57,7 @@ const heir = (id: VoyKnobId): number => voyKnob(id).legacy ?? voyParams.def(id);
 type SigId = VoyKnobId | 'on1' | 'on2';
 const RETIRED_AFTER: Readonly<Partial<Record<VoyKnobId, SigId>>> = { fine1: 'on1', fine2: 'on2' };
 /** Le niveau de sortie n'est pas le son : VOLUME tourne ne marque pas le patch (RANDOM le garde aussi). */
-const SOUND_IDS: readonly SigId[] = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id) && !ADDED_V2.includes(id)).flatMap((id): SigId[] => {
+const SOUND_IDS: readonly SigId[] = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id) && !ADDED_V2.includes(id) && !ADDED_V3.includes(id) && !ADDED_V4.includes(id) && !ADDED_V5.includes(id)).flatMap((id): SigId[] => {
   const after = RETIRED_AFTER[id];
   return after ? [id, after] : [id];
 });
@@ -71,17 +80,22 @@ function sigOf(raw: Partial<Record<VoyKnobId, number>>, s: { edit: boolean; len:
   const sound = (id: SigId): number => (isRetired(id) ? 1 : at(id));
   const added = ADDED_IDS.some((id) => at(id) !== voyParams.def(id)) ? [ADDED_IDS.map(at)] : [];
   const added2 = ADDED_V2.some((id) => at(id) !== heir(id)) ? [['v2', ...ADDED_V2.map(at)]] : [];
-  return JSON.stringify([SOUND_IDS.map(sound), s.edit ? [s.len, s.buf] : 0, ...added, ...added2]);
+  const added3 = ADDED_V3.some((id) => at(id) !== heir(id)) ? [['v3', ...ADDED_V3.map(at)]] : [];
+  const added4 = ADDED_V4.some((id) => at(id) !== heir(id)) ? [['v4', ...ADDED_V4.map(at)]] : [];
+  const added5 = ADDED_V5.some((id) => at(id) !== heir(id)) ? [['v5', ...ADDED_V5.map(at)]] : [];
+  return JSON.stringify([SOUND_IDS.map(sound), s.edit ? [s.len, s.buf] : 0, ...added, ...added2, ...added3, ...added4, ...added5]);
 }
 
 /**
  * Une empreinte gardee avant le 2026-10-11 (ses ON a leur place) : un oscillateur coupe (ON a 0) y devient ON et son
  * niveau 0, comme ses potards a la lecture ; le meme son, la meme empreinte (pas d'etoile pour rien). Le CHORUS
  * continu d'avant le 2026-10-12 : son mode (params.ts chorusStep), comme a la lecture des potards. SHAPE sur quatre
- * crans d'avant le 2026-10-18 : sur ses cinq (params.ts lfoShapeStep).
+ * crans d'avant le 2026-10-18 : sur ses cinq (params.ts lfoShapeStep). MODE sur quatre crans d'avant le 2026-10-23
+ * (MS-10 au milieu) : sur ses cinq (params.ts fmodeStep).
  */
 const CHORUS_AT = SOUND_IDS.indexOf('chorus');
 const SHAPE_AT = SOUND_IDS.indexOf('lfoShape');
+const FMODE_AT = SOUND_IDS.indexOf('fmode');
 function migrateSig(sig: string): string {
   try {
     const a = JSON.parse(sig) as unknown[];
@@ -105,6 +119,12 @@ function migrateSig(sig: string): string {
     const s = knobs[SHAPE_AT];
     if (SHAPE_AT >= 0 && typeof s === 'number' && lfoShapeStep(s) !== s) {
       knobs[SHAPE_AT] = lfoShapeStep(s);
+      moved = true;
+    }
+    // MODE sur quatre crans d'avant le 2026-10-23 (MS-10 au milieu) : le meme filtre sur ses cinq
+    const f = knobs[FMODE_AT];
+    if (FMODE_AT >= 0 && typeof f === 'number' && fmodeStep(f) !== f) {
+      knobs[FMODE_AT] = fmodeStep(f);
       moved = true;
     }
     return moved ? JSON.stringify(a) : sig;

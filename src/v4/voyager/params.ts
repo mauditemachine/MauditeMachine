@@ -135,7 +135,11 @@ export type VoyKnobId =
   | 'wide'
   | 'glue'
   | 'dlyTime'
-  | 'tape';
+  | 'tape'
+  // 2026-10-23 (Mika : "entre Monark et un synth analog Moog Voyager et un Korg Ms10") : LOAD, SPACE
+  | 'load'
+  | 'space'
+  | 'fpol';
 
 export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
@@ -181,8 +185,22 @@ export const SEMIS = ['-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '+1', '+2',
  * MODE du filtre (2026-10-04) : le passe-bas 24 dB du Moog (le filtre
  * d'origine, la position de depart ; nomme MOOG depuis que Mika ne le
  * retrouvait plus), passe-bas 12 dB, passe-bande, passe-haut.
+ *
+ * MS-10 (2026-10-23, Mika : "entre Monark et un synth analog Moog Voyager
+ * et un Korg Ms10") : le passe-bas Korg35 du MS-10 et ses diodes, au milieu
+ * des cinq crans comme RND dans SHAPE : les crans d'avant (0, 1/3, 2/3, 1)
+ * tombent tout seuls sur MOOG, LP12, BP et HP (le cran le plus proche sur
+ * cinq), un Roto-Control a quatre crans (0, 42, 85, 127) aussi ; un son
+ * garde garde donc son filtre, sans migration ; les empreintes ramenent la
+ * valeur sur ses cinq crans (fmodeStep, foldLegacyKnobs). Le moteur garde
+ * ses codes (FMODE_CODE : MS-10 y est le code 4), les rendus d'avant restent
+ * les memes au bit pres.
  */
-export const FMODES = ['MOOG', 'LP12', 'BP', 'HP'] as const;
+export const FMODES = ['MOOG', 'LP12', 'MS-10', 'BP', 'HP'] as const;
+/** Le code du moteur (audio/moog.worklet.js P.fmode) de chaque cran de MODE : 0 MOOG, 1 LP12, 4 MS-10, 2 BP, 3 HP. */
+export const FMODE_CODE = [0, 1, 4, 2, 3] as const;
+/** POLARITY (2026-10-23) : le sens du contour du filtre (les noms de celui du MM-BASS). */
+export const FPOLS = ['POS', 'NEG'] as const;
 /** MOD : la vitesse du LFO en duree d'un cycle, calee sur le tempo (en temps) ; chaque cycle part sur la grille. */
 export const LFO_RATES = ['1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR', '4 BAR'] as const;
 export const LFO_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16] as const;
@@ -246,7 +264,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'res', label: 'RES', aria: 'Filter resonance', section: 'filter', def: 0.35 },
   { id: 'envAmt', label: 'ENV AMT', aria: 'Filter envelope amount', section: 'filter', def: 0.5 },
   { id: 'noise', label: 'NOISE', aria: 'Noise level into the filter', section: 'filter', def: 0 },
-  { id: 'fmode', label: 'MODE', aria: 'Filter mode: Moog 24 dB low pass, 12 dB low pass, band pass, high pass; tap for the next', section: 'filter', def: 0, steps: FMODES },
+  { id: 'fmode', label: 'MODE', aria: 'Filter mode: Moog 24 dB low pass, 12 dB low pass, MS-10 Korg35 low pass, band pass, high pass; tap for the next', section: 'filter', def: 0, steps: FMODES },
   { id: 'fA', label: 'ATTACK', aria: 'Filter envelope attack', section: 'feg', def: 0 },
   { id: 'fD', label: 'DECAY', aria: 'Filter envelope decay', section: 'feg', def: 0.3 },
   { id: 'fS', label: 'SUSTAIN', aria: 'Filter envelope sustain', section: 'feg', def: 0.2 },
@@ -341,6 +359,20 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'glue', label: 'GLUE', aria: 'Glue: a gentle bus compressor and soft clipper on the synth, denser at the same loudness', section: 'tweak', def: 0.35, legacy: 0 },
   { id: 'dlyTime', label: 'DLY TIME', aria: 'Delay time: eighth, dotted eighth, quarter, dotted quarter or half note', section: 'tweak', def: 0.25, legacy: 0.25, steps: DLY_TIMES },
   { id: 'tape', label: 'TAPE', aria: 'Tape: the delay runs through a tape, wow and flutter, saturation and darker repeats; off is the clean delay', section: 'tweak', def: 0.3, legacy: 0 },
+  /*
+   * LOAD (2026-10-23, Mika : "entre Monark et un synth analog Moog Voyager et un Korg Ms10") : le melangeur pousse le
+   * filtre, comme le LOAD de Monark ; une saturation avant le filtre (audio/moog.worklet.js, S12), ses produits au-dessus
+   * de la coupure filtres, la resonance tassee par les notes, l'attaque gardee. OFF sous 0.02 : le son d'avant au bit
+   * pres ; 0 au depart et pour un son garde avant lui (le depart d'apres l'ecoute de Mika viendra plus tard).
+   */
+  { id: 'load', label: 'LOAD', aria: 'Load: the mixer drives the filter input, from clean to a hot Moog growl; the resonance gets squeezed by the notes', section: 'tweak', def: 0, legacy: 0 },
+  /*
+   * SPACE (2026-10-23) : les deux passe-bas du Voyager, celui de gauche plus sombre, celui de droite plus clair, jusqu'a
+   * une octave de chaque cote (audio/moog.worklet.js S17) ; OFF sous 0.02 : le son d'avant au bit pres.
+   */
+  { id: 'space', label: 'SPACE', aria: 'Space: the Voyager dual low pass, the left filter darker and the right one brighter, cutoffs up to one octave each side, a gentler brightness split to the ear', section: 'tweak', def: 0, legacy: 0 },
+  // POLARITY (2026-10-23) : le sens du contour du filtre, comme celui du MM-BASS : POS l'ouvre (le son d'avant), NEG le ferme
+  { id: 'fpol', label: 'POLARITY', aria: 'Filter contour polarity: the envelope opens the filter, or closes it', section: 'tweak', def: 0, legacy: 0, steps: FPOLS },
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
@@ -357,7 +389,7 @@ export const duckDepthDb = (v: number): number => (v < DUCK_OFF ? 0 : 24 * v);
 /** STACK (2026-10-22) : OFF sous 0.02, puis l'ecart des exemplaires, 3 a 30 cents. */
 export const STACK_MIN = 0.02;
 export const stackCents = (v: number): number => (v < STACK_MIN ? 0 : 3 + (27 * (v - STACK_MIN)) / (1 - STACK_MIN));
-/** WIDE, GLUE et TAPE (2026-10-22) : OFF sous 0.02 (le son d'avant), puis leur part, 0 a 1. */
+/** WIDE, GLUE et TAPE (2026-10-22), LOAD (2026-10-23) : OFF sous 0.02 (le son d'avant), puis leur part, 0 a 1. */
 export const FX_OFF = 0.02;
 export const fxAmount = (v: number): number => (v < FX_OFF ? 0 : v);
 /** DLY TIME (2026-10-22) : le temps du DELAY en doubles croches (2, 3, 4, 6 ou 8). */
@@ -483,8 +515,9 @@ export function legacyFill(raw: Readonly<Record<string, unknown>>): Partial<Reco
 /**
  * Des potards gardes ramenes a aujourd'hui, pour les empreintes (state/presets.ts sig, voyager/patch.ts) : les ON
  * d'avant le 2026-10-11 plies dans leur niveau (withoutOscOn), le CHORUS d'avant le 2026-10-12 a son mode
- * (chorusStep), SHAPE d'avant le 2026-10-18 sur ses cinq crans (lfoShapeStep), un potard ajoute depuis a sa valeur
- * d'heritage (legacyFill, 2026-10-21) ; un son garde avant eux reste le meme son qu'apres sa migration.
+ * (chorusStep), SHAPE d'avant le 2026-10-18 sur ses cinq crans (lfoShapeStep), MODE d'avant le 2026-10-23 sur ses
+ * cinq crans (fmodeStep), un potard ajoute depuis a sa valeur d'heritage (legacyFill, 2026-10-21) ; un son garde avant
+ * eux reste le meme son qu'apres sa migration.
  */
 export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<string, unknown> {
   let out = withoutOscOn(raw);
@@ -495,6 +528,9 @@ export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<
   // SHAPE sur quatre crans d'avant le 2026-10-18 : sur ses cinq (la meme forme)
   const s = out.lfoShape;
   if (typeof s === 'number' && Number.isFinite(s) && lfoShapeStep(s) !== s) out = { ...out, lfoShape: lfoShapeStep(s) };
+  // MODE sur quatre crans d'avant le 2026-10-23 : sur ses cinq (le meme filtre)
+  const f = out.fmode;
+  if (typeof f === 'number' && Number.isFinite(f) && fmodeStep(f) !== f) out = { ...out, fmode: fmodeStep(f) };
   return out;
 }
 
@@ -504,6 +540,15 @@ export function foldLegacyKnobs(raw: Readonly<Record<string, unknown>>): Record<
  */
 export const lfoShapeStep = (v: number): number => {
   const n = LFO_SHAPES.length - 1;
+  return Math.max(0, Math.min(n, Math.round(v * n))) / n;
+};
+
+/**
+ * MODE ramene sur ses cinq crans (2026-10-23) : un cran d'avant (0, 1/3, 2/3, 1 : MOOG, LP12, BP, HP) tombe sur le
+ * meme filtre (0, 0.25, 0.75, 1) ; un cran d'aujourd'hui reste tel quel.
+ */
+export const fmodeStep = (v: number): number => {
+  const n = FMODES.length - 1;
   return Math.max(0, Math.min(n, Math.round(v * n))) / n;
 };
 
@@ -564,7 +609,7 @@ export interface EngineParams {
   cutoff: number;
   res: number;
   envOct: number;
-  /** NOISE : 0 a 1 ; MODE : 0 LP 24, 1 LP 12, 2 BP, 3 HP */
+  /** NOISE : 0 a 1 ; MODE : le code du moteur, 0 LP 24 (MOOG), 1 LP 12, 2 BP, 3 HP, 4 MS-10 (FMODE_CODE) */
   noise: number;
   fmode: number;
   fA: number;
@@ -593,6 +638,12 @@ export interface EngineParams {
   stack: number;
   wide: number;
   glue: number;
+  /** LOAD (2026-10-23) : 0 a 1 ; 0 : contourne (le calcul d'avant au bit pres) */
+  load: number;
+  /** SPACE (2026-10-23) : 0 a 1 (l'ecart des deux filtres) ; 0 : un seul filtre par note (le calcul d'avant) */
+  space: number;
+  /** POLARITY (2026-10-23) : 0 POS (le son d'avant), 1 NEG */
+  fpol: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -615,7 +666,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     res: v.res,
     envOct: envOctaves(v.envAmt),
     noise: v.noise,
-    fmode: stepIndex('fmode', v.fmode),
+    fmode: FMODE_CODE[stepIndex('fmode', v.fmode)],
     fA: attackS(v.fA),
     fD: decayS(v.fD),
     fS: v.fS,
@@ -638,6 +689,9 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     stack: stackCents(v.stack),
     wide: fxAmount(v.wide),
     glue: fxAmount(v.glue),
+    load: fxAmount(v.load),
+    space: fxAmount(v.space),
+    fpol: stepIndex('fpol', v.fpol),
   };
 }
 
@@ -646,9 +700,10 @@ export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
   // SUB OCT : "SUB -2 OCT" (pas "SUB OCT -2 OCT")
   if (id === 'subOct') return `SUB ${voyValueText(id, v)}`;
-  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack') return `${k.label} ${voyValueText(id, v)}`;
-  // WIDE, GLUE, TAPE (2026-10-22, la relecture) : OFF en bas, sinon "GLUE 35%" comme DRIFT 50% a cote (pas "35 %")
-  if (id === 'wide' || id === 'glue' || id === 'tape') return v < FX_OFF ? `${k.label} OFF` : `${k.label} ${Math.round(v * 100)}%`;
+  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck' || id === 'stack' || id === 'space') return `${k.label} ${voyValueText(id, v)}`;
+  // WIDE, GLUE, TAPE (2026-10-22, la relecture), LOAD (2026-10-23) : OFF en bas, sinon "GLUE 35%" comme DRIFT 50% a
+  // cote (pas "35 %")
+  if (id === 'wide' || id === 'glue' || id === 'tape' || id === 'load') return v < FX_OFF ? `${k.label} OFF` : `${k.label} ${Math.round(v * 100)}%`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
@@ -662,7 +717,9 @@ export function voyValueText(id: VoyKnobId, v: number): string {
   if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
   if (id === 'duck') return v < DUCK_OFF ? 'OFF' : `-${Math.round(duckDepthDb(v))} DB`;
   if (id === 'stack') return v < STACK_MIN ? 'OFF' : `${Math.round(stackCents(v))} CT`;
-  if (id === 'wide' || id === 'glue' || id === 'tape') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100)} %`;
+  // SPACE (2026-10-23) : l'ecart de chaque cote, en octave (SPACE 0.5 OCT)
+  if (id === 'space') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100) / 100} OCT`;
+  if (id === 'wide' || id === 'glue' || id === 'tape' || id === 'load') return v < FX_OFF ? 'OFF' : `${Math.round(v * 100)} %`;
   if (id === 'subOct') return `${SUB_OCTS[stepIndex('subOct', v)]} OCT`;
   if (id === 'fine1' || id === 'fine2') {
     const c = Math.round(fineCents(v));

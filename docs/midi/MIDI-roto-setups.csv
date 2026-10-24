@@ -74,7 +74,7 @@ ARP,12,potard,7,1,8,2,21,VOLUME,blanc,voy:knob:volume,VOLUME,continu,
 ARP,12,potard,8,2,1,2,22,CUTOFF,jaune,voy:knob:cutoff,CUTOFF,continu,
 ARP,12,potard,9,2,2,2,23,RESONANCE,jaune,voy:knob:res,RES,continu,
 ARP,12,potard,10,2,3,2,24,ENV AMOUNT,jaune,voy:knob:envAmt,ENV AMT,continu,
-ARP,12,potard,11,2,4,2,25,FILTER MODE,jaune,voy:knob:fmode,FILTER MODE,potard a 4 crans,MOOG / LP12 / BP / HP
+ARP,12,potard,11,2,4,2,25,FILTER MODE,jaune,voy:knob:fmode,FILTER MODE,potard a 5 crans,MOOG / LP12 / MS-10 / BP / HP
 ARP,12,potard,12,2,5,2,26,OSC 1 LEVEL,or,voy:knob:osc1,OSC 1,continu,
 ARP,12,potard,13,2,6,2,27,OSC 2 LEVEL,or,voy:knob:osc2,OSC 2,continu,
 ARP,12,potard,14,2,7,2,3,SUB LEVEL,or,voy:knob:sub,SUB,continu,

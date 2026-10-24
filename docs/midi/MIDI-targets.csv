@@ -440,7 +440,7 @@ voy:knob:cutoff,voy,MM-ARP,CUTOFF,value,,ARP LIVE
 voy:knob:res,voy,MM-ARP,RES,value,,ARP LIVE
 voy:knob:envAmt,voy,MM-ARP,ENV AMT,value,,ARP LIVE
 voy:knob:noise,voy,MM-ARP,NOISE,value,,
-voy:knob:fmode,voy,MM-ARP,FILTER MODE,value,4,ARP
+voy:knob:fmode,voy,MM-ARP,FILTER MODE,value,5,ARP
 voy:knob:fA,voy,MM-ARP,FLT ATTACK,value,,ARP
 voy:knob:fD,voy,MM-ARP,FLT DECAY,value,,ARP LIVE
 voy:knob:fS,voy,MM-ARP,FLT SUSTAIN,value,,ARP
@@ -473,6 +473,9 @@ voy:knob:wide,voy,MM-ARP,TWEAK WIDE,value,,
 voy:knob:glue,voy,MM-ARP,TWEAK GLUE,value,,
 voy:knob:dlyTime,voy,MM-ARP,TWEAK DLY TIME,value,5,
 voy:knob:tape,voy,MM-ARP,TWEAK TAPE,value,,
+voy:knob:load,voy,MM-ARP,TWEAK LOAD,value,,
+voy:knob:space,voy,MM-ARP,TWEAK SPACE,value,,
+voy:knob:fpol,voy,MM-ARP,TWEAK POLARITY,value,2,
 voy:pad:0,voy,MM-ARP,CHORD F#m,press,,ARP LIVE
 voy:pad:1,voy,MM-ARP,CHORD D,press,,ARP LIVE
 voy:pad:2,voy,MM-ARP,CHORD E,press,,ARP LIVE
