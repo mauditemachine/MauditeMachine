@@ -1546,6 +1546,8 @@ async function gc(ctx, file) {
     ['held GLUE 0.35', { ...ctx.DEF, glue: 0.35, outLevel: 0.3 }, [held(54, 100, 0.05)], 20],
     ['held GLUE 0', { ...ctx.DEF, glue: 0, outLevel: 0.3 }, [held(54, 100, 0.05)], 20],
     ['arp INIT 60 s', { ...ctx.DEF, outLevel: 0.3 }, arp(72), 60],
+    // 2026-10-23 (controle qualite F5) : un arpege avec les reglages du bus et des voix ajoutes (LOAD, SPACE, WIDE, OD)
+    ['arp LOAD SPACE WIDE OD 30 s', { ...ctx.DEF, load: 0.5, space: 0.6, wide: 0.5, drive: 0.4, outLevel: 0.3 }, arp(42), 30],
     ...(ctx.extraGc ?? []),
   ];
   const session = new Session();

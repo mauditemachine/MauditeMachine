@@ -976,7 +976,9 @@ const KS_CLIPT = 3;
 const KS_CLIPW = 4;
 /** S12 : le coefficient de la FIR de compensation (1/8, plus avec LOAD). */
 const KS_VSC = 5;
-const KS_SIZE = 6;
+/** F5 : le reglage GLUE du bloc (lu dans this.p, il faisait mettre des nombres en boite dans busTick). */
+const KS_GLUE = 6;
+const KS_SIZE = 7;
 const KI_NEWNOISE = 0;
 const KI_GLUEON = 1;
 const KI_SIZE = 2;
@@ -1161,6 +1163,45 @@ const VS_EPS = 1e-6;
  */
 const VS_COMP = 1 / 8;
 
+/**
+ * Les etats du bus en tableaux types (2026-10-23, controle qualite F5 : dans des objets, V8 mettait parfois leurs
+ * nombres en boite, jusqu'a 2.5 Ko par bloc et des ramasse-miettes selon l'etat du JIT) : OVERDRIVE (OD_*), GLUE (GL_*),
+ * l'arrondi de GLUE (gauche x, F puis droite).
+ */
+const OD_HPL = 0;
+const OD_XL = 1;
+const OD_LPL = 2;
+const OD_HPR = 3;
+const OD_XR = 4;
+const OD_LPR = 5;
+const OD_DL = 6;
+const OD_DXL = 7;
+const OD_DR = 8;
+const OD_DXR = 9;
+const OD_UL = 10;
+const OD_FIL = 11;
+const OD_UR = 12;
+const OD_FIR = 13;
+const OD_FVL = 14;
+const OD_FVR = 15;
+const OD_ON = 16;
+const OD_PL = 17;
+const OD_PR = 18;
+const OD_SIZE = 19;
+const GL_G = 0;
+const GL_ENV = 1;
+const GL_AVG = 2;
+const GL_GAIN = 3;
+const GL_MIX = 4;
+const GL_K = 5;
+const GL_W = 6;
+const GL_MI = 7;
+const GL_MO = 8;
+const GL_GC = 9;
+const GL_THR = 10;
+const GL_MK = 11;
+const GL_SIZE = 12;
+
 class MMVoyager extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -1183,17 +1224,25 @@ class MMVoyager extends AudioWorkletProcessor {
     this.stDK = 1 - Math.exp(-128 / (STACK_D_S * sampleRate));
     // GLUE (2026-10-22) : son reglage lisse, le detecteur (valeur efficace), le gain, la dose, l'arrondi et ses entrees
     // d'avant (gauche, droite), au rythme du contexte pour le detecteur, du surechantillonnage pour l'arrondi
-    this.gl = { g: 0, env: 0, avg: 0, gain: 1, mix: 0, k: 1, w: 1, mi: 0, mo: 0, gc: 1, thr: GLUE_THR0, mk: 0 };
+    this.gl = new Float64Array(GL_SIZE);
+    this.gl[GL_GAIN] = 1;
+    this.gl[GL_K] = 1;
+    this.gl[GL_W] = 1;
+    this.gl[GL_GC] = 1;
+    this.gl[GL_THR] = GLUE_THR0;
     // 2026-10-23 : les nombres d'un echantillon entre process et busTick, la somme des voix (gauche, droite)
     this.ks = new Float64Array(KS_SIZE);
     this.ki = new Int32Array(KI_SIZE);
     this.acc = new Float64Array(2);
-    this.glL = { x: 0, F: 0 };
-    this.glRt = { x: 0, F: 0 };
+    // L'arrondi de GLUE : l'entree d'avant et sa primitive, gauche puis droite
+    this.glX = new Float64Array(4);
     this.glK = coef(GLUE_S, sampleRate);
     this.glA = coef(GLUE_ATK_S, sampleRate);
     this.glR = coef(GLUE_REL_S, sampleRate);
     this.glAvg = coef(GLUE_AVG_S, sampleRate);
+    // Les memes en tableau type pour busTick (2026-10-23, F5 : lus sur l'objet, avec this.p.glue et les log et exp du
+    // detecteur, V8 mettait des nombres en boite, jusqu'a 1 Ko par bloc selon l'etat du JIT)
+    this.glc = new Float64Array([this.glK, this.glA, this.glR, this.glAvg]);
     this.queue = [];
     this.age = 0;
     const os = o.os === 1 || o.os === 2 || o.os === 4 ? o.os : OS_DEFAULT;
@@ -1214,7 +1263,7 @@ class MMVoyager extends AudioWorkletProcessor {
     // (dL, dxL, dR, dxR : son bloqueur de continu, 2026-10-21)
     // 2026-10-23 (S4) : l'entree et l'integrale de la courbe a l'echantillon d'avant (uL, FL, uR, FR ; fL, fR : FL et
     // FR a jour), la branche allumee a l'echantillon d'avant (on : au retour, l'ADAA repart de l'entree du moment)
-    this.od = { hpL: 0, xL: 0, lpL: 0, hpR: 0, xR: 0, lpR: 0, dL: 0, dxL: 0, dR: 0, dxR: 0, uL: 0, FL: 0, uR: 0, FR: 0, fL: 0, fR: 0, on: 0, pL: 0, pR: 0, wL: 0, wR: 0 };
+    this.od = new Float64Array(OD_SIZE);
     this.odHp = Math.exp((-2 * Math.PI * OD_HP_HZ) / this.sr2);
     this.odLp = 1 - Math.exp((-2 * Math.PI * OD_TONE_HZ) / this.sr2);
     this.odDc = Math.exp((-2 * Math.PI * OD_DC_HZ) / this.sr2);
@@ -1331,7 +1380,7 @@ class MMVoyager extends AudioWorkletProcessor {
     this.smKr = coef(RAMP_SM_S, this.sr2);
     this.rOld = new Float64Array(3);
     this.stD = this.p.stack;
-    this.gl.g = this.p.glue;
+    this.gl[GL_G] = this.p.glue;
     this.coefs();
     // MOD cale sur la mesure (2026-10-18) : la position du transport en temps, la droite de la derniere ancre
     // (temps = b + (echantillon - f) x k, k : temps par echantillon du contexte) ; libre au depart, au tempo
@@ -1751,24 +1800,24 @@ class MMVoyager extends AudioWorkletProcessor {
       const hpA = this.odHp;
       const lpA = this.odLp;
       const dA = this.odDc;
-      od.hpL = hpA * (od.hpL + sum - od.xL);
-      od.xL = sum;
+      od[OD_HPL] = hpA * (od[OD_HPL] + sum - od[OD_XL]);
+      od[OD_XL] = sum;
       // La moyenne de deux echantillons devant la courbe (2026-10-23, F1 : le retard de la branche egal a celui du propre)
-      const hinL = 0.5 * (od.hpL + od.pL);
-      od.pL = od.hpL;
+      const hinL = 0.5 * (od[OD_HPL] + od[OD_PL]);
+      od[OD_PL] = od[OD_HPL];
       // La courbe par son integrale (ADAA, 2026-10-23, S4) : au retour de la branche, elle repart de l'entree du moment
       const uL = hinL * odGain;
-      const fresh = od.on === 0;
+      const fresh = od[OD_ON] === 0;
       if (fresh) {
-        od.uL = uL;
-        od.fL = 0;
-        od.on = 1;
+        od[OD_UL] = uL;
+        od[OD_FVL] = 0;
+        od[OD_ON] = 1;
       }
-      const duL = uL - od.uL;
+      const duL = uL - od[OD_UL];
       let yL;
       if (duL > OD_ADAA_EPS || duL < -OD_ADAA_EPS) {
-        if (od.fL === 0) {
-          const z1 = od.uL + OD_BIAS;
+        if (od[OD_FVL] === 0) {
+          const z1 = od[OD_UL] + OD_BIAS;
           const a1 = z1 < 0 ? -z1 : z1;
           let F1 = a1 - LN2;
           if (a1 < LNC_MAX) {
@@ -1778,7 +1827,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const k1 = 4 * i1;
             F1 = LNC[k1] + t1 * (LNC[k1 + 1] + t1 * (LNC[k1 + 2] + t1 * LNC[k1 + 3]));
           }
-          od.FL = F1 - od.uL * OD_TANH_BIAS;
+          od[OD_FIL] = F1 - od[OD_UL] * OD_TANH_BIAS;
         }
         const zL = uL + OD_BIAS;
         const aL = zL < 0 ? -zL : zL;
@@ -1791,33 +1840,33 @@ class MMVoyager extends AudioWorkletProcessor {
           GL = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
         }
         const FL = GL - uL * OD_TANH_BIAS;
-        yL = (FL - od.FL) / duL;
-        od.FL = FL;
-        od.fL = 1;
+        yL = (FL - od[OD_FIL]) / duL;
+        od[OD_FIL] = FL;
+        od[OD_FVL] = 1;
       } else {
-        const mL = 0.5 * (uL + od.uL);
+        const mL = 0.5 * (uL + od[OD_UL]);
         yL = mL < OD_LIN_U && mL > -OD_LIN_U ? mL * OD_SECH2 * (1 - mL * OD_TANH_BIAS) : Math.tanh(mL + OD_BIAS) - OD_TANH_BIAS;
-        od.fL = 0;
+        od[OD_FVL] = 0;
       }
-      od.uL = uL;
-      od.lpL += (yL - od.lpL) * lpA;
-      od.dL = dA * (od.dL + od.lpL - od.dxL);
-      od.dxL = od.lpL;
-      sum = (cl + od.dL * odMix) * odTrim;
-      od.hpR = hpA * (od.hpR + sumR - od.xR);
-      od.xR = sumR;
-      const hinR = 0.5 * (od.hpR + od.pR);
-      od.pR = od.hpR;
+      od[OD_UL] = uL;
+      od[OD_LPL] += (yL - od[OD_LPL]) * lpA;
+      od[OD_DL] = dA * (od[OD_DL] + od[OD_LPL] - od[OD_DXL]);
+      od[OD_DXL] = od[OD_LPL];
+      sum = (cl + od[OD_DL] * odMix) * odTrim;
+      od[OD_HPR] = hpA * (od[OD_HPR] + sumR - od[OD_XR]);
+      od[OD_XR] = sumR;
+      const hinR = 0.5 * (od[OD_HPR] + od[OD_PR]);
+      od[OD_PR] = od[OD_HPR];
       const uR = hinR * odGain;
       if (fresh) {
-        od.uR = uR;
-        od.fR = 0;
+        od[OD_UR] = uR;
+        od[OD_FVR] = 0;
       }
-      const duR = uR - od.uR;
+      const duR = uR - od[OD_UR];
       let yR;
       if (duR > OD_ADAA_EPS || duR < -OD_ADAA_EPS) {
-        if (od.fR === 0) {
-          const z1 = od.uR + OD_BIAS;
+        if (od[OD_FVR] === 0) {
+          const z1 = od[OD_UR] + OD_BIAS;
           const a1 = z1 < 0 ? -z1 : z1;
           let F1 = a1 - LN2;
           if (a1 < LNC_MAX) {
@@ -1827,7 +1876,7 @@ class MMVoyager extends AudioWorkletProcessor {
             const k1 = 4 * i1;
             F1 = LNC[k1] + t1 * (LNC[k1 + 1] + t1 * (LNC[k1 + 2] + t1 * LNC[k1 + 3]));
           }
-          od.FR = F1 - od.uR * OD_TANH_BIAS;
+          od[OD_FIR] = F1 - od[OD_UR] * OD_TANH_BIAS;
         }
         const zR = uR + OD_BIAS;
         const aR = zR < 0 ? -zR : zR;
@@ -1840,21 +1889,21 @@ class MMVoyager extends AudioWorkletProcessor {
           GR = LNC[k0] + t0 * (LNC[k0 + 1] + t0 * (LNC[k0 + 2] + t0 * LNC[k0 + 3]));
         }
         const FR = GR - uR * OD_TANH_BIAS;
-        yR = (FR - od.FR) / duR;
-        od.FR = FR;
-        od.fR = 1;
+        yR = (FR - od[OD_FIR]) / duR;
+        od[OD_FIR] = FR;
+        od[OD_FVR] = 1;
       } else {
-        const mR = 0.5 * (uR + od.uR);
+        const mR = 0.5 * (uR + od[OD_UR]);
         yR = mR < OD_LIN_U && mR > -OD_LIN_U ? mR * OD_SECH2 * (1 - mR * OD_TANH_BIAS) : Math.tanh(mR + OD_BIAS) - OD_TANH_BIAS;
-        od.fR = 0;
+        od[OD_FVR] = 0;
       }
-      od.uR = uR;
-      od.lpR += (yR - od.lpR) * lpA;
-      od.dR = dA * (od.dR + od.lpR - od.dxR);
-      od.dxR = od.lpR;
-      sumR = (cr + od.dR * odMix) * odTrim;
+      od[OD_UR] = uR;
+      od[OD_LPR] += (yR - od[OD_LPR]) * lpA;
+      od[OD_DR] = dA * (od[OD_DR] + od[OD_LPR] - od[OD_DXR]);
+      od[OD_DXR] = od[OD_LPR];
+      sumR = (cr + od[OD_DR] * odMix) * odTrim;
     } else {
-      this.od.on = 0;
+      this.od[OD_ON] = 0;
       sum = cl;
       sumR = cr;
     }
@@ -1871,14 +1920,16 @@ class MMVoyager extends AudioWorkletProcessor {
     // (ADAA, a chaque echantillon surechantillonne), dose en fondu sur le premier quart du potard
     if (glueOn) {
       if (newNoise) {
-        gl.g += (p.glue - gl.g) * this.glK;
-        if (p.glue === 0 && gl.g < 1e-5) gl.g = 0;
+        const glc = this.glc;
+        const pg = ks[KS_GLUE];
+        gl[GL_G] += (pg - gl[GL_G]) * glc[0];
+        if (pg === 0 && gl[GL_G] < 1e-5) gl[GL_G] = 0;
         const ms = 0.5 * (yl * yl + yr * yr);
-        gl.env += (ms - gl.env) * (ms > gl.env ? this.glA : this.glR);
+        gl[GL_ENV] += (ms - gl[GL_ENV]) * (ms > gl[GL_ENV] ? glc[1] : glc[2]);
         // Le niveau moyen (la valeur efficace sur GLUE_AVG_S) : il part du premier son entendu, puis le suit lentement
-        if (gl.env > 1e-9) gl.avg = gl.avg <= 0 ? gl.env : gl.avg + (gl.env - gl.avg) * this.glAvg;
+        if (gl[GL_ENV] > 1e-9) gl[GL_AVG] = gl[GL_AVG] <= 0 ? gl[GL_ENV] : gl[GL_AVG] + (gl[GL_ENV] - gl[GL_AVG]) * glc[3];
         // glueGr ecrite ici (2026-10-23, zero allocation)
-        const over = LN_DB * Math.log(gl.env + 1e-12) - gl.thr;
+        const over = LN_DB * Math.log(gl[GL_ENV] + 1e-12) - gl[GL_THR];
         let gr = 0;
         if (over <= -GLUE_KNEE / 2) gr = 0;
         else if (over >= GLUE_KNEE / 2) gr = GLUE_SLOPE * over;
@@ -1886,20 +1937,21 @@ class MMVoyager extends AudioWorkletProcessor {
           const t = over + GLUE_KNEE / 2;
           gr = (GLUE_SLOPE * t * t) / (2 * GLUE_KNEE);
         }
-        gl.gain = Math.exp((gl.mk - gr) * DB_LN);
-        gl.mix = gl.g >= 0.25 ? 1 : 4 * gl.g;
+        gl[GL_GAIN] = Math.exp((gl[GL_MK] - gr) * DB_LN);
+        gl[GL_MIX] = gl[GL_G] >= 0.25 ? 1 : 4 * gl[GL_G];
       }
-      const zl = yl * gl.gain;
-      const zr = yr * gl.gain;
+      const zl = yl * gl[GL_GAIN];
+      const zr = yr * gl[GL_GAIN];
       // glueAdaa, glueClipF et glueClip ecrites ici (2026-10-23, zero allocation), la gauche puis la droite
       let cl = 0;
       let cr = 0;
-      const gk = gl.k;
-      const gw = gl.w;
+      const gk = gl[GL_K];
+      const gw = gl[GL_W];
       for (let ch = 0; ch < 2; ch += 1) {
-        const st = ch === 0 ? this.glL : this.glRt;
+        const gx = this.glX;
+        const io = ch === 0 ? 0 : 2;
         const xg = ch === 0 ? zl : zr;
-        const x1 = st.x;
+        const x1 = gx[io];
         const ax = xg < 0 ? -xg : xg;
         const a1 = x1 < 0 ? -x1 : x1;
         let y;
@@ -1929,22 +1981,23 @@ class MMVoyager extends AudioWorkletProcessor {
               const yy = u >= 2 * gw ? ya : yb;
               y = xm < 0 ? -yy : yy;
             }
-          } else y = (F - st.F) / d;
+          } else y = (F - gx[io + 1]) / d;
         }
-        st.x = xg;
-        st.F = F;
+        gx[io] = xg;
+        gx[io + 1] = F;
         if (ch === 0) cl = y;
         else cr = y;
       }
-      // Ce que l'arrondi retire en valeur efficace, suivi sur GLUE_AVG_S (rendu par bloc, gl.gc) : la meme sonie
+      // Ce que l'arrondi retire en valeur efficace, suivi sur GLUE_AVG_S (rendu par bloc, gl[GL_GC]) : la meme sonie
       if (newNoise) {
-        gl.mi += (zl * zl + zr * zr - gl.mi) * this.glAvg;
-        gl.mo += (cl * cl + cr * cr - gl.mo) * this.glAvg;
+        const ga = this.glc[3];
+        gl[GL_MI] += (zl * zl + zr * zr - gl[GL_MI]) * ga;
+        gl[GL_MO] += (cl * cl + cr * cr - gl[GL_MO]) * ga;
       }
-      cl *= gl.gc;
-      cr *= gl.gc;
-      yl += (cl - yl) * gl.mix;
-      yr += (cr - yr) * gl.mix;
+      cl *= gl[GL_GC];
+      cr *= gl[GL_GC];
+      yl += (cl - yl) * gl[GL_MIX];
+      yr += (cr - yr) * gl[GL_MIX];
     }
     if (yl > clipT) yl = clipT + clipW * Math.tanh((yl - clipT) / clipW);
     else if (yl < -clipT) yl = -clipT - clipW * Math.tanh((-yl - clipT) / clipW);
@@ -1973,15 +2026,15 @@ class MMVoyager extends AudioWorkletProcessor {
   /** Le bus au repos (2026-10-23) : OVERDRIVE, le bloqueur de continu de la sortie, GLUE. */
   restBus() {
     const od = this.od;
-    od.hpL = od.xL = od.lpL = od.hpR = od.xR = od.lpR = od.dL = od.dxL = od.dR = od.dxR = 0;
-    od.uL = od.FL = od.uR = od.FR = od.fL = od.fR = od.on = od.pL = od.pR = od.wL = od.wR = 0;
+    od[OD_HPL] = od[OD_XL] = od[OD_LPL] = od[OD_HPR] = od[OD_XR] = od[OD_LPR] = od[OD_DL] = od[OD_DXL] = od[OD_DR] = od[OD_DXR] = 0;
+    od[OD_UL] = od[OD_FIL] = od[OD_UR] = od[OD_FIR] = od[OD_FVL] = od[OD_FVR] = od[OD_ON] = od[OD_PL] = od[OD_PR] = 0;
     const dc = this.dc;
     dc[0] = dc[1] = dc[2] = dc[3] = 0;
     this.vsc.fill(0);
     const gl = this.gl;
-    gl.env = gl.mi = gl.mo = 0;
-    gl.gain = 1;
-    this.glL.x = this.glL.F = this.glRt.x = this.glRt.F = 0;
+    gl[GL_ENV] = gl[GL_MI] = gl[GL_MO] = 0;
+    gl[GL_GAIN] = 1;
+    this.glX.fill(0);
   }
 
   /**
@@ -2037,36 +2090,30 @@ class MMVoyager extends AudioWorkletProcessor {
       for (let j = 0; j < VX_SIZE; j += 1) if (X[j] < TINY && X[j] > -TINY) X[j] = 0;
     }
     const od = this.od;
-    if (od.hpL < TINY && od.hpL > -TINY) od.hpL = 0;
-    if (od.xL < TINY && od.xL > -TINY) od.xL = 0;
-    if (od.lpL < TINY && od.lpL > -TINY) od.lpL = 0;
-    if (od.dL < TINY && od.dL > -TINY) od.dL = 0;
-    if (od.dxL < TINY && od.dxL > -TINY) od.dxL = 0;
-    if (od.hpR < TINY && od.hpR > -TINY) od.hpR = 0;
-    if (od.xR < TINY && od.xR > -TINY) od.xR = 0;
-    if (od.lpR < TINY && od.lpR > -TINY) od.lpR = 0;
-    if (od.dR < TINY && od.dR > -TINY) od.dR = 0;
-    if (od.dxR < TINY && od.dxR > -TINY) od.dxR = 0;
-    if (od.uL < TINY && od.uL > -TINY) od.uL = 0;
-    if (od.uR < TINY && od.uR > -TINY) od.uR = 0;
-    if (od.pL < TINY && od.pL > -TINY) od.pL = 0;
-    if (od.pR < TINY && od.pR > -TINY) od.pR = 0;
-    if (od.wL < TINY && od.wL > -TINY) od.wL = 0;
-    if (od.wR < TINY && od.wR > -TINY) od.wR = 0;
+    if (od[OD_HPL] < TINY && od[OD_HPL] > -TINY) od[OD_HPL] = 0;
+    if (od[OD_XL] < TINY && od[OD_XL] > -TINY) od[OD_XL] = 0;
+    if (od[OD_LPL] < TINY && od[OD_LPL] > -TINY) od[OD_LPL] = 0;
+    if (od[OD_DL] < TINY && od[OD_DL] > -TINY) od[OD_DL] = 0;
+    if (od[OD_DXL] < TINY && od[OD_DXL] > -TINY) od[OD_DXL] = 0;
+    if (od[OD_HPR] < TINY && od[OD_HPR] > -TINY) od[OD_HPR] = 0;
+    if (od[OD_XR] < TINY && od[OD_XR] > -TINY) od[OD_XR] = 0;
+    if (od[OD_LPR] < TINY && od[OD_LPR] > -TINY) od[OD_LPR] = 0;
+    if (od[OD_DR] < TINY && od[OD_DR] > -TINY) od[OD_DR] = 0;
+    if (od[OD_DXR] < TINY && od[OD_DXR] > -TINY) od[OD_DXR] = 0;
+    if (od[OD_UL] < TINY && od[OD_UL] > -TINY) od[OD_UL] = 0;
+    if (od[OD_UR] < TINY && od[OD_UR] > -TINY) od[OD_UR] = 0;
+    if (od[OD_PL] < TINY && od[OD_PL] > -TINY) od[OD_PL] = 0;
+    if (od[OD_PR] < TINY && od[OD_PR] > -TINY) od[OD_PR] = 0;
     const dc = this.dc;
     for (let i = 0; i < 4; i += 1) if (dc[i] < TINY && dc[i] > -TINY) dc[i] = 0;
     const vsc = this.vsc;
     for (let i = 0; i < 4; i += 1) if (vsc[i] < TINY && vsc[i] > -TINY) vsc[i] = 0;
     const gl = this.gl;
-    if (gl.env < TINY) gl.env = 0;
-    if (gl.mi < TINY) gl.mi = 0;
-    if (gl.mo < TINY) gl.mo = 0;
-    const a = this.glL;
-    const b = this.glRt;
-    if (a.x < TINY && a.x > -TINY) a.x = 0;
-    if (a.F < TINY && a.F > -TINY) a.F = 0;
-    if (b.x < TINY && b.x > -TINY) b.x = 0;
-    if (b.F < TINY && b.F > -TINY) b.F = 0;
+    if (gl[GL_ENV] < TINY) gl[GL_ENV] = 0;
+    if (gl[GL_MI] < TINY) gl[GL_MI] = 0;
+    if (gl[GL_MO] < TINY) gl[GL_MO] = 0;
+    const gx = this.glX;
+    for (let i = 0; i < 4; i += 1) if (gx[i] < TINY && gx[i] > -TINY) gx[i] = 0;
   }
 
   /** DRIFT (2026-10-21) : les trois marches au hasard de chaque oscillateur des voix qui sonnent, une fois par bloc de N. */
@@ -2131,9 +2178,8 @@ class MMVoyager extends AudioWorkletProcessor {
       dc[0] = dc[1] = dc[2] = dc[3] = 0;
       // GLUE : son detecteur retombe pendant le silence (le retour), l'arrondi repart de 0
       const gl = this.gl;
-      if (gl.env > 0) gl.env = gl.env < 1e-15 ? 0 : gl.env * Math.pow(1 - this.glR, N);
-      this.glL.x = this.glL.F = 0;
-      this.glRt.x = this.glRt.F = 0;
+      if (gl[GL_ENV] > 0) gl[GL_ENV] = gl[GL_ENV] < 1e-15 ? 0 : gl[GL_ENV] * Math.pow(1 - this.glR, N);
+      this.glX.fill(0);
       this.flushTiny();
       // Silence : l'historique des demi-bandes repart a zero
       if (this.d4) this.d4.clear();
@@ -2217,15 +2263,15 @@ class MMVoyager extends AudioWorkletProcessor {
     }
     // GLUE (2026-10-22) : a 0 et revenu a 0, contourne (le son d'avant au bit pres)
     const gl = this.gl;
-    const glueOn = p.glue > 0 || gl.g > 0;
+    const glueOn = p.glue > 0 || gl[GL_G] > 0;
     if (glueOn) {
       // Une fois par bloc (ils bougent lentement) : le seuil, le rattrapage (la reduction au niveau moyen), ce que
       // l'arrondi retire en valeur efficace (au plus +6 dB), le genou et le plafond de l'arrondi
-      gl.thr = GLUE_THR0 - GLUE_THR_SPAN * gl.g;
+      gl[GL_THR] = GLUE_THR0 - GLUE_THR_SPAN * gl[GL_G];
       // glueGr, ecrite ici (2026-10-23, zero allocation : un appel avec un nombre le met en boite a chaque fois)
       let mk = 0;
-      if (gl.avg > 0) {
-        const over = LN_DB * Math.log(gl.avg) - gl.thr;
+      if (gl[GL_AVG] > 0) {
+        const over = LN_DB * Math.log(gl[GL_AVG]) - gl[GL_THR];
         if (over <= -GLUE_KNEE / 2) mk = 0;
         else if (over >= GLUE_KNEE / 2) mk = GLUE_SLOPE * over;
         else {
@@ -2233,17 +2279,17 @@ class MMVoyager extends AudioWorkletProcessor {
           mk = (GLUE_SLOPE * t * t) / (2 * GLUE_KNEE);
         }
       }
-      gl.mk = mk;
-      const r = gl.mo > 1e-12 ? Math.sqrt(gl.mi / gl.mo) : 1;
-      gl.gc = r < 1 ? 1 : r > 2 ? 2 : r;
-      const ceil = 1 / (1 + GLUE_DRIVE * gl.g);
+      gl[GL_MK] = mk;
+      const r = gl[GL_MO] > 1e-12 ? Math.sqrt(gl[GL_MI] / gl[GL_MO]) : 1;
+      gl[GL_GC] = r < 1 ? 1 : r > 2 ? 2 : r;
+      const ceil = 1 / (1 + GLUE_DRIVE * gl[GL_G]);
       const kk = GLUE_KNEE_AT * ceil;
-      if (kk !== gl.k) {
+      if (kk !== gl[GL_K]) {
         // Un autre genou : la primitive gardee de l'entree d'avant suit
-        gl.k = kk;
-        gl.w = ceil - kk;
-        this.glL.F = glueClipF(this.glL.x, gl.k, gl.w);
-        this.glRt.F = glueClipF(this.glRt.x, gl.k, gl.w);
+        gl[GL_K] = kk;
+        gl[GL_W] = ceil - kk;
+        this.glX[1] = glueClipF(this.glX[0], gl[GL_K], gl[GL_W]);
+        this.glX[3] = glueClipF(this.glX[2], gl[GL_K], gl[GL_W]);
       }
     }
     // L'ecreteur de sortie (2026-10-21) : ses seuils en niveau du moteur (outLevel : le gain de VOLUME apres lui)
@@ -2267,6 +2313,7 @@ class MMVoyager extends AudioWorkletProcessor {
     ks[KS_CLIPT] = clipT;
     ks[KS_CLIPW] = clipW;
     ki[KI_GLUEON] = glueOn ? 1 : 0;
+    ks[KS_GLUE] = p.glue;
     for (let i2 = 0; i2 < OS * N; i2 += 1) {
       const i = (i2 / OS) | 0;
       const fr = t0 + i;
