@@ -172,7 +172,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   fmode: {
     title: 'MODE',
-    text: "Le type de filtre : MOOG (passe-bas 24 dB, celui d'origine), 12 (passe-bas 12 dB, plus ouvert), MS-10 (le Korg35 12 dB du MS-10 : le grave ne baisse pas quand la résonance monte, elle passe au-dessus du son, crie et se casse quand on pousse ; les diodes écrêtent tout ce qui passe), BP (passe-bande) ou HP (passe-haut). Une tape passe au suivant ; le changement est fondu, sans clic.",
+    text: "Le type de filtre : MOOG (passe-bas 24 dB, celui d'origine), 12 (passe-bas 12 dB, plus ouvert), MS-10 (le Korg35 12 dB du MS-10 : le grave ne baisse pas quand la résonance monte, elle passe au-dessus du son, crie et se casse quand on pousse ; ses diodes grognent quand la source pousse : LOAD, OVERDRIVE, les deux oscillateurs à fond), BP (passe-bande) ou HP (passe-haut). Une tape passe au suivant ; le changement est fondu, sans clic.",
     tip: "BP avec la résonance pour un arpège fin qui laisse la place à la basse ; HP pour une montée ; MS-10 et la résonance aux trois quarts pour un acide qui crie sans perdre son grave.",
   },
 
@@ -248,7 +248,7 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   },
   space: {
     title: 'SPACE',
-    text: "Les deux filtres du Voyager : celui de gauche plus sombre, celui de droite plus clair, jusqu'à une octave de chaque côté. La coupure, l'enveloppe et le LFO les bougent ensemble ; la résonance chante à deux hauteurs. Large et sans chorus, il tient en mono (un peu de chaque côté passe dans l'autre). OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
+    text: "Les deux filtres du Voyager : celui de gauche plus sombre, celui de droite plus clair, leurs coupures jusqu'à une octave de chaque côté. À l'oreille, un écart de clarté plus doux que ça : un peu de chaque côté passe dans l'autre pour que le mono tienne. La coupure, l'enveloppe et le LFO les bougent ensemble ; la résonance chante à deux hauteurs, c'est là que l'écart s'entend le plus. OFF : un seul filtre, le son d'origine. Au téléphone, quatre notes au plus à la fois ont leur filtre de droite.",
     tip: "SPACE vers 5 avec RES vers 6 et WIDE à OFF : un arpège qui s'ouvre en stéréo sans perdre son centre.",
   },
   fpol: {

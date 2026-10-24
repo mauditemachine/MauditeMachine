@@ -370,7 +370,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
    * SPACE (2026-10-23) : les deux passe-bas du Voyager, celui de gauche plus sombre, celui de droite plus clair, jusqu'a
    * une octave de chaque cote (audio/moog.worklet.js S17) ; OFF sous 0.02 : le son d'avant au bit pres.
    */
-  { id: 'space', label: 'SPACE', aria: 'Space: the Voyager dual low pass, the left filter darker and the right one brighter, up to one octave each side', section: 'tweak', def: 0, legacy: 0 },
+  { id: 'space', label: 'SPACE', aria: 'Space: the Voyager dual low pass, the left filter darker and the right one brighter, cutoffs up to one octave each side, a gentler brightness split to the ear', section: 'tweak', def: 0, legacy: 0 },
   // POLARITY (2026-10-23) : le sens du contour du filtre, comme celui du MM-BASS : POS l'ouvre (le son d'avant), NEG le ferme
   { id: 'fpol', label: 'POLARITY', aria: 'Filter contour polarity: the envelope opens the filter, or closes it', section: 'tweak', def: 0, legacy: 0, steps: FPOLS },
 ];
