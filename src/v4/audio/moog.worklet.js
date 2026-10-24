@@ -165,6 +165,8 @@ const OUT_DC_HZ = 8;
  */
 const CLIP_KNEE = 0.5;
 const CLIP_CEIL = 0.71;
+/** Apres la decimation (QC-DSP-7) : au-dessus de -3.6 dBFS, arrondi vers CLIP_CEIL (les depassements de Gibbs). */
+const CLIP_POST = 0.66;
 /** La place stereo d'une voix volee glisse en PAN_S (pas de marche, audit 2026-10-21). */
 const PAN_S = 0.004;
 /** Surechantillonnage par defaut (sans processorOptions.os). */
@@ -631,13 +633,26 @@ const MS_FC_MAX2 = 13000;
  * LOAD (2026-10-23, S12, Mika : "entre Monark et un synth analog Moog Voyager") : le gras du Moog, une saturation dans
  * le melangeur et le premier etage, AVANT le filtre : ses produits au-dessus de la coupure sont filtres, la resonance
  * est comprimee par les notes (le grognement), l'attaque passe avant le VCA. Par voix, apres le passe-bas de S3 :
- *   z = x gIn + b ; m = ADAA(clip, z) - clip(b), sans continu (LD_DC_HZ) ; l'entree du filtre x + wet (m - x)
- * gIn = 1 + 4 L^2, b = LD_BIAS L (les paires), la courbe de GLUE (lineaire jusqu'a LD_K, arrondie sur 2 LD_W, plafond),
- * le VCA rattrape gIn^-LD_MK, la saturation de sortie des voix soulagee (ldRel = 1 - 0.7 min(1, L / 0.1) : le grain
- * passe avant le filtre), la FIR du bus compense la seconde ADAA ((1 + wet) / 8). A LOAD 0 : le calcul d'avant.
+ *   z = x gIn + b ; m = ADAA(courbe, z) - courbe(b), sans continu (LD_DC_HZ), filtre (le passe-bas de S3 une seconde
+ *   fois, QC-DSP-3) ; l'entree du filtre x + wet (m - x)
+ * gIn = 1 + 4 L^2, b = LD_BIAS L (les paires), le VCA rattrape gIn^-LD_MK, la saturation de sortie des voix soulagee de
+ * LD_REL0 a LD_REL1 (le grain passe avant le filtre), la FIR du bus compense la seconde ADAA ((1 + wet) / 8). A LOAD 0 :
+ * le calcul d'avant.
  */
-const LD_K = 0.8;
-const LD_W = 0.8;
+/**
+ * La courbe de LOAD (2026-10-23, controle qualite QC-CH-4 : celle de GLUE, lineaire jusqu'a 0.8 puis un arc et un
+ * plafond plat a 1.6, etait un ecreteur : harmoniques irregulieres, H9 a H31 12 a 57 dB au-dessus d'une tanh de meme
+ * H3) : LD_S tanh(z / LD_S), par son integrale LD_S^2 lncosh(z / LD_S) (ADAA, la table LNC) ; la meme limite, une
+ * approche douce, une serie d'harmoniques reguliere (deux sinus a 0.88, LOAD 0.25 : H3 -14.7, H5 -26.0, H7 -36.5 dBc).
+ * Et le passe-bas d'apres LOAD (QC-DSP-3) : son ecretage refaisait de l'ultrason devant l'echelle saturee (deux scies a
+ * 0.88, coupure 3 kHz, RES 0.8, LOAD 1 : C3 / C5 60.1 / 54.6 -> 84.9 / 80.6 dB en x4).
+ */
+const LD_S = 1.6;
+const LD_S2 = LD_S * LD_S;
+const LD_IS = 1 / LD_S;
+/** Le soulagement de la saturation des voix (QC-CH-3) : 0 jusqu'a LOAD LD_REL0, 0.7 a LD_REL1 (avant : 0.7 des 0.1). */
+const LD_REL0 = 0.3;
+const LD_REL1 = 0.6;
 const LD_BIAS = 0.16;
 const LD_DC_HZ = 7;
 const LD_MK = 0.5;
@@ -1106,7 +1121,10 @@ const VX_KXR = 39;
 const VX_KAL = 40;
 const VX_G35H = 41;
 const VX_G35RH = 42;
-const VX_SIZE = 44;
+/** LOAD (QC-DSP-3) : le passe-bas d'apres LOAD, gauche (4 etats) puis droite. */
+const VX_LPL = 44;
+const VX_LPR = 48;
+const VX_SIZE = 52;
 /**
  * La saturation de sortie des voix sans repliement (2026-10-23, S5, Mika : "que le son soit d'extreme bonne
  * qualite") : la meme tanh (le grain des sons gardes), par son integrale lncosh (ADAA du premier ordre, la table
@@ -1191,6 +1209,7 @@ class MMVoyager extends AudioWorkletProcessor {
     this.ldDc = Math.exp((-2 * Math.PI * LD_DC_HZ) / this.sr2);
     this.ldLast = -1;
     this.ldMk = 1;
+    this.ldYb = 0;
     // SPACE (S17) : l'ecart des deux filtres (2^s et son inverse), refait quand s bouge
     this.spLast = -1;
     this.spF = 1;
@@ -2321,6 +2340,7 @@ class MMVoyager extends AudioWorkletProcessor {
       let ldB = 0;
       let ldWet = 0;
       let ldMk = 1;
+      let ldYb = 0;
       let ldRel = 1;
       if (ldOn) {
         ldG = 1 + 4 * ldL * ldL;
@@ -2329,9 +2349,16 @@ class MMVoyager extends AudioWorkletProcessor {
         if (ldL !== this.ldLast) {
           this.ldLast = ldL;
           this.ldMk = Math.pow(ldG, -LD_MK);
+          // QC-CH-4 : la valeur de la courbe a la polarisation (retiree : sans continu)
+          this.ldYb = LD_S * Math.tanh(ldB * LD_IS);
         }
         ldMk = this.ldMk;
-        ldRel = 1 - 0.7 * (ldL >= 0.1 ? 1 : ldL / 0.1);
+        ldYb = this.ldYb;
+        // QC-CH-3 : le soulagement suit LOAD de LD_REL0 a LD_REL1 (avant : tout des 0.1, LOAD 0.1 a 0.35 sonnait plus
+        // propre qu'OFF)
+        let tRel = (ldL - LD_REL0) / (LD_REL1 - LD_REL0);
+        tRel = tRel <= 0 ? 0 : tRel >= 1 ? 1 : tRel * tRel * (3 - 2 * tRel);
+        ldRel = 1 - 0.7 * tRel;
       }
       // WIDE sans STACK (2026-10-22, relecture : OSC 2 a 0, la note partait a gauche, +18 dB a WIDE 10) : OSC 1 et
       // OSC 2 se partagent les cotes selon leur equilibre en puissance (gain^2 x WAVE_POW : la somme des puissances
@@ -2942,16 +2969,21 @@ class MMVoyager extends AudioWorkletProcessor {
           const zl = xin * ldG * v.accN + ldB;
           if (X[VX_LON] === 0) {
             // Le depart : l'ADAA et le bloqueur partent de l'entree du moment
-            const a0 = zl < 0 ? -zl : zl;
-            let F0 = 0.5 * zl * zl;
-            if (a0 > LD_K) {
-              const u0 = a0 - LD_K;
-              F0 = u0 < 2 * LD_W ? 0.5 * LD_K * LD_K + LD_K * u0 + 0.5 * u0 * u0 - (u0 * u0 * u0) / (12 * LD_W) : 0.5 * LD_K * LD_K + 2 * LD_K * LD_W + (4 / 3) * LD_W * LD_W + (LD_K + LD_W) * (u0 - 2 * LD_W);
+            const a0 = (zl < 0 ? -zl : zl) * LD_IS;
+            let F0;
+            if (a0 >= LNC_MAX) F0 = a0 - LN2;
+            else {
+              const qn = a0 * LNC_INV;
+              const jn = qn | 0;
+              const tn = qn - jn;
+              const kn = 4 * jn;
+              F0 = LNC[kn] + tn * (LNC[kn + 1] + tn * (LNC[kn + 2] + tn * LNC[kn + 3]));
             }
             X[VX_LZL] = zl;
-            X[VX_LFL] = F0;
+            X[VX_LFL] = LD_S2 * F0;
             X[VX_LXL] = 0;
             X[VX_LHL] = 0;
+            for (let j = VX_LPL; j < VX_LPL + 8; j += 1) X[j] = 0;
             X[VX_LON] = 1;
           }
           // WIDE qui demarre : la droite part de la gauche
@@ -2960,12 +2992,13 @@ class MMVoyager extends AudioWorkletProcessor {
             X[VX_LFR] = X[VX_LFL];
             X[VX_LXR] = X[VX_LXL];
             X[VX_LHR] = X[VX_LHL];
+            for (let j = 0; j < 4; j += 1) X[VX_LPR + j] = X[VX_LPL + j];
           }
           // Les deux entrees egales (WIDE a 0 : SPACE seul) et les deux etats egaux : la droite est la gauche, au bit
           // pres, sans la calculer (des etats qui different, WIDE revenu a 0 en pleine note : la droite continue). Compare
           // AVANT le calcul de la gauche (2026-10-23, QC-DSP-8 : apres, la gauche avait deja avance d'un echantillon et le
           // raccourci ne servait jamais)
-          const ldSame = wideV && wide === 0 && X[VX_LZR] === X[VX_LZL] && X[VX_LFR] === X[VX_LFL] && X[VX_LXR] === X[VX_LXL] && X[VX_LHR] === X[VX_LHL];
+          const ldSame = wideV && wide === 0 && X[VX_LZR] === X[VX_LZL] && X[VX_LFR] === X[VX_LFL] && X[VX_LXR] === X[VX_LXL] && X[VX_LHR] === X[VX_LHL] && X[VX_LPR] === X[VX_LPL] && X[VX_LPR + 1] === X[VX_LPL + 1] && X[VX_LPR + 2] === X[VX_LPL + 2] && X[VX_LPR + 3] === X[VX_LPL + 3];
           for (let sd = 0; sd < 2; sd += 1) {
             if (sd === 1 && !wideV) break;
             if (sd === 1 && ldSame) {
@@ -2974,49 +3007,62 @@ class MMVoyager extends AudioWorkletProcessor {
               X[VX_LFR] = X[VX_LFL];
               X[VX_LXR] = X[VX_LXL];
               X[VX_LHR] = X[VX_LHL];
+              for (let j = 0; j < 4; j += 1) X[VX_LPR + j] = X[VX_LPL + j];
               break;
             }
             const zi = sd === 0 ? zl : xinR * ldG * v.accN + ldB;
             const iz = sd === 0 ? VX_LZL : VX_LZR;
             const z1 = X[iz];
-            const az = zi < 0 ? -zi : zi;
-            const a1 = z1 < 0 ? -z1 : z1;
+            // QC-CH-4 : LD_S tanh(z / LD_S) par son integrale (ADAA), la courbe au milieu quand z bouge peu
+            const az = (zi < 0 ? -zi : zi) * LD_IS;
+            let Gz;
+            if (az >= LNC_MAX) Gz = az - LN2;
+            else {
+              const qn = az * LNC_INV;
+              const jn = qn | 0;
+              const tn = qn - jn;
+              const kn = 4 * jn;
+              Gz = LNC[kn] + tn * (LNC[kn + 1] + tn * (LNC[kn + 2] + tn * LNC[kn + 3]));
+            }
+            const Fz = LD_S2 * Gz;
+            const dz = zi - z1;
             let yc;
-            let Fz;
-            if (az <= LD_K && a1 <= LD_K) {
-              yc = 0.5 * (zi + z1);
-              Fz = 0.5 * zi * zi;
-            } else {
-              if (az <= LD_K) Fz = 0.5 * zi * zi;
-              else {
-                const u = az - LD_K;
-                const Fa = 0.5 * LD_K * LD_K + LD_K * u + 0.5 * u * u - (u * u * u) / (12 * LD_W);
-                const Fb = 0.5 * LD_K * LD_K + 2 * LD_K * LD_W + (4 / 3) * LD_W * LD_W + (LD_K + LD_W) * (u - 2 * LD_W);
-                Fz = u < 2 * LD_W ? Fa : Fb;
+            if (dz > 1e-7 || dz < -1e-7) yc = (Fz - X[iz + 1]) / dz;
+            else {
+              const zm = 0.5 * (zi + z1) * LD_IS;
+              const am = zm < 0 ? -zm : zm;
+              let ym = 1;
+              if (am < LNC_MAX) {
+                const qm = am * LNC_INV;
+                const im = qm | 0;
+                const tm = qm - im;
+                const km = 4 * im;
+                ym = (LNC[km + 1] + tm * (2 * LNC[km + 2] + 3 * tm * LNC[km + 3])) * LNC_INV;
               }
-              const dz = zi - z1;
-              if (dz < 1e-7 && dz > -1e-7) {
-                const zm = 0.5 * (zi + z1);
-                const am = zm < 0 ? -zm : zm;
-                if (am <= LD_K) yc = zm;
-                else {
-                  const u = am - LD_K;
-                  const ya = LD_K + LD_W;
-                  const yb = LD_K + u - (u * u) / (4 * LD_W);
-                  const yy = u >= 2 * LD_W ? ya : yb;
-                  yc = zm < 0 ? -yy : yy;
-                }
-              } else yc = (Fz - X[iz + 1]) / dz;
+              yc = zm < 0 ? -LD_S * ym : LD_S * ym;
             }
             X[iz] = zi;
             X[iz + 1] = Fz;
             // Sans le continu de la polarisation (sa valeur au repos retiree, puis un pole a LD_DC_HZ)
-            const mm = yc - ldB;
+            const mm = yc - ldYb;
             const hh = ldDc * (X[iz + 3] + mm - X[iz + 2]);
             X[iz + 2] = mm;
             X[iz + 3] = hh;
-            if (sd === 0) xd = xin + ldWet * (hh - xin);
-            else xdR = xinR + ldWet * (hh - xinR);
+            // QC-DSP-3 : le passe-bas de S3 une seconde fois sur ce qui sort de LOAD (son ecretage refaisait de l'ultrason
+            // devant l'echelle saturee : LOAD 1 C5 54.6 dB en x4)
+            const ip = sd === 0 ? VX_LPL : VX_LPR;
+            let hq = (hh - preA1 * X[ip] - X[ip + 1]) * preH1;
+            let bq = preG * hq + X[ip];
+            X[ip] = preG * hq + bq;
+            let lq = preG * bq + X[ip + 1];
+            X[ip + 1] = preG * bq + lq;
+            hq = (lq - preA2 * X[ip + 2] - X[ip + 3]) * preH2;
+            bq = preG * hq + X[ip + 2];
+            X[ip + 2] = preG * hq + bq;
+            const hf = preG * bq + X[ip + 3];
+            X[ip + 3] = preG * bq + hf;
+            if (sd === 0) xd = xin + ldWet * (hf - xin);
+            else xdR = xinR + ldWet * (hf - xinR);
           }
           if (!wideV) xdR = xd;
         } else if (X[VX_LON] !== 0) X[VX_LON] = 0;
@@ -3467,6 +3513,26 @@ class MMVoyager extends AudioWorkletProcessor {
     } else {
       for (let i = 0; i < N; i += 1) L[i] = raw[i];
       if (R) for (let i = 0; i < N; i += 1) R[i] = rawR[i];
+    }
+    // Le plafond tenu apres la decimation (2026-10-23, controle qualite QC-DSP-7) : l'ecreteur doux travaille au
+    // surechantillonnage, puis les demi-bandes depassent (Gibbs) sur un son ecrete brillant (LOAD 1 et OVERDRIVE 1 a
+    // -2.0 dBFS, HP, OVERDRIVE et NOISE a fond jusqu'a +1.6 dBFS, pour un plafond a -3) : au-dessus de CLIP_POST
+    // (-3.6 dBFS) le reste est arrondi vers CLIP_CEIL ; seuls ces depassements y passent (sous lui, au bit pres)
+    if (lvl > 0) {
+      const pt = CLIP_POST / lvl;
+      const pw = (CLIP_CEIL - CLIP_POST) / lvl;
+      for (let i = 0; i < N; i += 1) {
+        const y = L[i];
+        if (y > pt) L[i] = pt + pw * Math.tanh((y - pt) / pw);
+        else if (y < -pt) L[i] = -pt - pw * Math.tanh((-y - pt) / pw);
+      }
+      if (R) {
+        for (let i = 0; i < N; i += 1) {
+          const y = R[i];
+          if (y > pt) R[i] = pt + pw * Math.tanh((y - pt) / pw);
+          else if (y < -pt) R[i] = -pt - pw * Math.tanh((-y - pt) / pw);
+        }
+      }
     }
     // Tests : la sortie dit le LFO, a chaque echantillon du contexte (sa forme, la position en temps)
     if (probe) {
