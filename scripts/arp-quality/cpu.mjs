@@ -28,6 +28,12 @@ const CASES = {
   OD: { dist: 0.5 },
   'SYNC+FM': { sync: 1, fm: 0.5, semi2: 1 },
   RES95HI: { res: 0.95, cutoff: 0.95, envAmt: 0 },
+  // Les pires cas d'aujourd'hui (2026-10-23, controle qualite F2) : la passe de correction sur les deux echelles, LOAD
+  // et SPACE par-dessus, tout ensemble ; le MS-10 pres de l'auto-oscillation (deux pas par echantillon au telephone)
+  'S+W+G+RES95HI': { stack: 0.5, wide: 0.6, glue: 1, res: 0.95, cutoff: 0.95, envAmt: 0 },
+  'S+W+G+LOAD+SPACE+RES95HI': { stack: 0.5, wide: 0.6, glue: 1, load: 1, space: 1, res: 0.95, cutoff: 0.95, envAmt: 0 },
+  ALL: { stack: 0.5, wide: 0.6, glue: 1, load: 1, space: 1, res: 0.95, cutoff: 0.95, envAmt: 0, dist: 1, sync: 1, fm: 0.5, semi2: 1 },
+  'MS10+S+W+G+RES95HI': { stack: 0.5, wide: 0.6, glue: 1, res: 0.95, cutoff: 0.95, envAmt: 0, fmode: 0.5 },
 };
 const only = opt('--cases', '').split(',').filter(Boolean);
 const list = Object.entries(CASES).filter(([n]) => !only.length || only.includes(n));

@@ -3360,8 +3360,9 @@ class MMVoyager extends AudioWorkletProcessor {
             let mk = (gk * (4 * Kd - 1) * iD1) / 3;
             let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
             let b = (kb - gk * c) * iD1;
-            // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation)
-            if (omK > 0 && g35 > LC_G0) {
+            // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation) ; en deux pas, g est moitie et
+            // la secante extrapolee suffit (F2 : le calcul du telephone, 1306 -> 1040 us a 8 voix, la hauteur a 4 cents)
+            if (omK > 0 && g35 > LC_G0 && !k35x2) {
               let tg = (g35 - LC_G0) / LC_GW;
               tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
               const om = tg * omK;
@@ -3525,8 +3526,9 @@ class MMVoyager extends AudioWorkletProcessor {
             let mk = (gk * (4 * Kd - 1) * iD1) / 3;
             let c = (kc - gk * xk + mk * kb) / (1 + (4 * gk) / 3 + mk * gk);
             let b = (kb - gk * c) * iD1;
-            // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation)
-            if (omK > 0 && g35 > LC_G0) {
+            // La reprise au point, sous porte (coupure haute, pres de l'auto-oscillation) ; en deux pas, g est moitie et
+            // la secante extrapolee suffit (F2 : le calcul du telephone, 1306 -> 1040 us a 8 voix, la hauteur a 4 cents)
+            if (omK > 0 && g35 > LC_G0 && !k35x2) {
               let tg = (g35 - LC_G0) / LC_GW;
               tg = tg >= 1 ? 1 : tg * tg * (3 - 2 * tg);
               const om = tg * omK;
