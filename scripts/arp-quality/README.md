@@ -59,11 +59,23 @@ node scripts/arp-quality/chorus.mjs [--against <chorus.worklet.js d'avant>]
     le chorus Juno dans Node : l'erreur de la table de phases et contre un retard vrai, le niveau mouille, le calcul
 node scripts/arp-quality/cpu.mjs --phone --voices 8 --set '{"space":0.5}' --against <moog.worklet.js d'avant>
 node scripts/arp-bench.mjs --proposals
-    ce que S23 changerait (LOAD sur les presets, INIT a LOAD 0 / 0.15 / 0.25 / 0.35, cinq presets nouveaux :
+    ce que S23 changerait (LOAD sur les presets, INIT a LOAD 0 / 0.4 / 0.55 / 0.7 depuis le 2026-10-24, cinq presets nouveaux :
     proposals.mjs), le moteur seul, cale en sonie, dans scripts/output/arp-bench/proposals/
 PLAYWRIGHT_MODULE=... node scripts/arp-quality/ab.mjs --url http://127.0.0.1:<port> --tag after --out <dossier> \
     --set factory,proposals,demos
     la chaine complete du site (chorus, BASS MONO, DELAY, TAPE, REVERB) dans un OfflineAudioContext de Chromium
     (--mute-audio, ?mute=1 : rien ne sort), 8 mesures, WAV 24 bits ; --tag before contre un serveur du site d'avant
+    --os 2 --tag phone-after : le chemin du telephone, avec ses limites (8 voix, STACK 2, WIDE 4) ; le manifeste dit
+    le chemin de chaque rendu (os)
+```
+
+## Le controle qualite du 2026-10-24
+
+```
+node scripts/arp-quality/cpu.mjs --phone --voices 8 --against <moteur>   les pires cas aussi : S+W+G+RES95HI,
+    S+W+G+LOAD+SPACE+RES95HI, ALL (avec OVERDRIVE, SYNC, FM), MS10+S+W+G+RES95HI (--cases pour en choisir)
+node scripts/arp-quality/q.mjs gc                     un arpege avec LOAD, SPACE, WIDE et OVERDRIVE sur les deux
+    chemins, en plus de la note tenue
+node scripts/arp-quality/q.mjs zip                    le retard des potards MIDI (rampes vers le message suivant)
 ```
 

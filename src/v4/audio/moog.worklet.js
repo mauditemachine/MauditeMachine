@@ -149,6 +149,18 @@
  * - les rampes des messages sur CUTOFF, RES et ENV AMT (un potard MIDI qu'on tourne ne fait plus d'escalier).
  * Le depart, les presets d'usine et RANDOM n'ont pas change : les propositions (LOAD au depart, presets revus,
  * cinq nouveaux) attendent l'ecoute de Mika (scripts/arp-quality/proposals.mjs).
+ *
+ * Trois controleurs independants ensuite (2026-10-24, la meme demande de Mika), ce qu'ils ont trouve et qui est corrige :
+ * - les sous-normaux qui restaient dans les lissages et les enveloppes (un potard ramene a 0, 124 % du temps reel) ;
+ * - la branche OVERDRIVE alignee sur le son propre (un demi-echantillon d'ecart, plus K2 : le haut des sons gardes
+ *   bougeait de 1 a 2.6 dB), sa moyenne de deux echantillons devant la courbe (plus propre aussi) ;
+ * - le MS-10 au niveau de jeu (le genou des diodes 1.6 -> 6, RES -> kappa recale : la bosse suit le potard, le cri
+ *   borne), son asymetrie analytique et effacee en haut, deux pas par echantillon au telephone pres de l'auto-
+ *   oscillation : plus de raie repliee au-dessus de -60 dBc ;
+ * - LOAD : une tanh en ADAA au lieu d'un ecreteur, filtre apres lui, la saturation des voix soulagee de 0.3 a 0.6 ;
+ * - au telephone, le passe-bas d'avant le filtre descend avec OVERDRIVE au-dessus des presets d'usine ;
+ * - le plafond de sortie tenu apres la decimation ; les rampes MIDI qui visent le message suivant ; les etats du bus en
+ *   tableaux types ; le raccourci de LOAD pour la droite qui ne servait jamais.
  */
 
 /** Voix au plus (processorOptions.maxVoices : 12 sur ordinateur, 8 au telephone, audio/synth.ts). */
