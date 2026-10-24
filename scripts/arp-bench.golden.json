@@ -470,11 +470,11 @@
     "sideDb": -16.33
    },
    "X OD06 C7": {
-    "sha256": "b7d2e7e157e014e3da750f984691b732",
-    "peakDb": -4.83,
-    "rmsDb": -13.64,
-    "centroidHz": 3238,
-    "sideDb": -21.23
+    "sha256": "84c1f8f85171f5fb09e336ecd69f8b86",
+    "peakDb": -5.01,
+    "rmsDb": -13.65,
+    "centroidHz": 3129,
+    "sideDb": -21.29
    },
    "X SPACE": {
     "sha256": "38cb5e77eea89058f7fe21c8ef0a8c97",

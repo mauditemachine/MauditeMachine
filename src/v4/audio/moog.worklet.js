@@ -1047,6 +1047,15 @@ const TINY = 1e-20;
 const PRE_HZ = 20000;
 const PRE_Q = [0.5411961, 1.306563];
 /**
+ * Au telephone (QC-DSP-4) : OVERDRIVE pousse l'echelle (driveIn) et ses etages satures repliaient encore (deux scies
+ * 0.88, coupure 3 kHz, RES 0.8, OD 0.6, C3 a C6 : 58.2 / 53.2 / 44.7 / 50.4 dB) ; le passe-bas descend de 20 a 14 kHz
+ * entre OD 0.45 (le plus fort des presets d'usine : EBM) et 0.65 : 66.5 / 62.5 / 55.5 / 57.8 ; OD 1 ouvert 49.5 / 53.3 /
+ * 47.8 / 42.9 -> 54.4 / 58.4 / 48.5 / 45.1.
+ */
+const PRE_OD0 = 0.45;
+const PRE_OD1 = 0.65;
+const PRE_OD_HZ = 14000;
+/**
  * L'etat d'une voix en tableau type (2026-10-23, zero allocation ; les etats ajoutes depuis y vivent) : le passe-bas
  * avant le filtre (gauche P1A, P1B, P2A, P2B ; droite Q...), la place des suivants.
  */
@@ -1222,6 +1231,7 @@ class MMVoyager extends AudioWorkletProcessor {
     this.preH1 = 1 / (1 + pg / PRE_Q[0] + pg * pg);
     this.preA2 = 1 / PRE_Q[1] + pg;
     this.preH2 = 1 / (1 + pg / PRE_Q[1] + pg * pg);
+    this.preFc = PRE_HZ;
     // STACK : le glissement du gain d'un exemplaire (2026-10-22)
     this.stK = coef(STACK_S, this.sr2);
     // La sortie de la saturation des voix, normalisee (calculee quand OVERDRIVE bouge)
@@ -2153,6 +2163,22 @@ class MMVoyager extends AudioWorkletProcessor {
     const panK = this.panK;
     const stK = this.stK;
     const dcK = this.dcK;
+    // Au telephone, le passe-bas d'avant le filtre descend avec OVERDRIVE au-dessus des presets d'usine (2026-10-23,
+    // controle qualite QC-DSP-4) : de PRE_HZ a OD PRE_OD0 jusqu'a PRE_OD_HZ a PRE_OD1 ; dessous, au bit pres
+    if (this.os === 2) {
+      let td = (this.sm.drive - PRE_OD0) / (PRE_OD1 - PRE_OD0);
+      td = td <= 0 ? 0 : td >= 1 ? 1 : td * td * (3 - 2 * td);
+      const fcp = PRE_HZ - (PRE_HZ - PRE_OD_HZ) * td;
+      if (fcp !== this.preFc) {
+        this.preFc = fcp;
+        const pg = Math.tan((Math.PI * fcp) / this.sr2);
+        this.preG = pg;
+        this.preA1 = 1 / PRE_Q[0] + pg;
+        this.preH1 = 1 / (1 + pg / PRE_Q[0] + pg * pg);
+        this.preA2 = 1 / PRE_Q[1] + pg;
+        this.preH2 = 1 / (1 + pg / PRE_Q[1] + pg * pg);
+      }
+    }
     const preG = this.preG;
     const ldDc = this.ldDc;
     const preA1 = this.preA1;
