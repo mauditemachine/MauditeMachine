@@ -2,7 +2,7 @@
 
 Mika : « Pourrais tu controler ARP pour que le son soit d'extreme bonne qualité ?! entre Monark et un synth analog Moog Voyager et un Korg Ms10 »
 
-Suite du travail du 2026-10-23 (`docs/reports/2026-10-23-arp-qualite.md`). Trois contrôleurs indépendants (DSP, caractère, compatibilité) ont relu la branche `fix-lane-audio` (worktree `laneA`) et rendu 25 constats. Chacun a été vérifié avant d'être corrigé (certains étaient plus graves que dit, d'autres déjà couverts), avec les mêmes règles que le travail : un commit par sujet, `node scripts/arp-bench.mjs --check` (x4 et téléphone) à chaque fois, `--update` seulement pour un changement de son voulu et dit dans le commit, le calcul, tsc à 13, les patchs d'héritage au bit près, les ids MIDI inchangés. Rien n'a été joué : Node et un Chromium muet (`--mute-audio`, `?mute=1`). Rien n'est poussé.
+Suite du travail du 2026-10-23 (`docs/reports/2026-10-23-arp-qualite.md`). Trois contrôleurs indépendants (DSP, caractère, compatibilité) ont relu la branche `fix-lane-audio` (worktree `laneA`) et rendu 25 constats. Chacun a été vérifié avant d'être corrigé (certains étaient plus graves que dit, d'autres déjà couverts), avec les mêmes règles que le travail : un commit par sujet, `node scripts/arp-bench.mjs --check` (x4 et téléphone) à chaque fois, `--update` seulement pour un changement de son voulu et dit dans le commit, le calcul, tsc à 13, les patchs d'héritage au bit près, les ids MIDI inchangés. Rien n'a été joué : Node et un Chromium muet (`--mute-audio`, `?mute=1`). Mis en ligne le 2026-10-24 (commit aefdb43), après tsc, `arp-bench --check` et `npm run smoke:v4` sur un build de production.
 
 ## 1. Ce qui a été fait
 

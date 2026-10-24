@@ -166,7 +166,7 @@ Méthode :
   - B4-R3 (le job ne vérifie pas la branche) a été réfuté : le job ne tourne qu'après le déploiement de son propre build.
 - **public/sitemap.xml gardé dans git et rafraîchi** (96 adresses), parce que l'admin local le lit. dist/ reste suivi par git sans être servi ; le sortir de git est une autre mission.
 - **Samples du site décodés comme avant** (48 kHz par le navigateur), au bit près : seuls les AIFF passent par le nouveau décodeur.
-- **La montée en qualité « analogique » du MM-ARP est un chantier à part**, sur une autre branche. Il n'est pas dans cette mise en ligne.
+- **La montée en qualité « analogique » du MM-ARP est un chantier à part** (entre Monark, Moog Voyager et Korg MS-10). Mis en ligne le 2026-10-24 (aefdb43), spec R14-311, rapports `docs/reports/2026-10-23-arp-qualite.md` et `docs/reports/2026-10-24-arp-qualite-controle.md`.
 
 ## Ce qui reste à faire / points en suspens
 
@@ -231,7 +231,7 @@ Méthode :
     - Search Console et Web Vitals de terrain : il faut ses comptes ;
     - lecteur intégrable ;
     - image de partage par beat.
-- **En cours** : la montée en qualité « analogique » du MM-ARP, sur une autre branche.
+- **MM-ARP analogique** (en ligne depuis le 2026-10-24) : écouter les rendus et choisir la classe D (LOAD d'INIT et des presets, NIGHT DRIVE et ACID NIGHT revus, les cinq presets nouveaux), choisir quels potards du setup Roto ARP céder à LOAD, SPACE et POLARITY, renvoyer le setup 12 (MODE sur cinq crans), tester SPACE sur l'iPhone (calcul).
 - **Toujours en attente** : le compteur de visiteurs du MENU (tâche 72).
 
 ## Commandes utiles ajoutées
