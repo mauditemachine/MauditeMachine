@@ -196,6 +196,12 @@ const STYLE = {
   'HYPNO LOOP': [124, 0.3],
   'INDIE PULSE': [122, 0.08],
   'ACID NIGHT': [128, 0.12],
+  // Les cinq du 2026-10-26 (factory-arp-14 a 18) : le tempo et le swing de leur ecoute (scripts/arp-quality/proposals.mjs)
+  'MS SCREAM': [120, 0.1],
+  'MONARK DRIVE': [118, 0.18],
+  'SPACE INDIE': [122, 0.08],
+  'MS HYPNO': [125, 0.3],
+  'RES PING': [125, 0.45],
 };
 
 function arpNotes(M, knobs, prog, bars, bpm, swingV, seed) {
@@ -612,6 +618,8 @@ async function proposals(M, Proc) {
   const init = await save('P00-init-today', one('INIT', defaults, [0, 1, 2, 0]), null, 'INIT aujourd hui');
   for (const l of INIT_LOADS) await save(`P00-init-load-${Math.round(l * 100)}`, one('INIT', { ...defaults, load: l }, [0, 1, 2, 0]), init, `INIT a LOAD ${l}`);
   for (const f of M.factory.arpFactory(16)) {
+    // 2026-10-26 : les cinq nouveaux sont devenus des presets d'usine ; leur LOAD est le leur (les N- plus bas)
+    if (NEW_PRESETS.some((n) => n.name === f.name)) continue;
     const knobs = { ...defaults, ...f.data.knobs };
     const slugN = f.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const ref = await save(`P-${slugN}-today`, one(f.name, knobs, f.data.prog), null, `${f.name} aujourd hui`);

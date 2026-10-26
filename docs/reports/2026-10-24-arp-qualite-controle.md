@@ -69,6 +69,7 @@ Suite du travail du 2026-10-23 (`docs/reports/2026-10-23-arp-qualite.md`). Trois
 ## 3. Ce qui reste à faire / points en suspens
 
 - **Mika, à l'écoute** (le `LISEZMOI.txt` et les fichiers) : LOAD au départ (0, 0.4, 0.55 ou 0.7) ; LOAD sur les presets d'usine (déconseillé tel quel) ; ACID NIGHT et NIGHT DRIVE revus ; les cinq presets nouveaux ; le nom du cran MS-10 ; RANDOM ; resserrer les niveaux d'usine.
+  - **2026-10-26, Mika a choisi** (« garde l'en-tete a places fixes, ajoute les 5 presets ») : les cinq presets nouveaux sont ajoutés aux presets d'usine du MM-ARP (MS SCREAM, MONARK DRIVE, SPACE INDIE, MS HYPNO, RES PING, à la suite d'ACID NIGHT : `factory-arp-14` à `18`, VOLUME 0.601, 0.564, 0.663, 1 et 1, spec R14-312) et l'en-tête PAGE du MM-RYTM à places fixes (SB-13, RB3-4) reste tel qu'il est en ligne. Le reste de cette liste attend toujours son écoute.
 - **Mika, en main** :
   - sur l'iPhone : un accord tenu (8 notes) avec RES 0.9 ou plus, CUTOFF haut, WIDE ou SPACE, LOAD ; puis la même chose en MS-10 ; s'il craque, je relève la porte de la correction de l'échelle ou je limite SPACE à 3 notes au téléphone ;
   - le Roto-Control : importer `docs/midi/roto/MM ARP (SETUP 12).json` dans ROTO-SETUP (File > Import, setup 12 : MODE sur cinq crans) ; LOAD, SPACE et POLARITY n'y ont pas de potard, à choisir lesquels remplacer.

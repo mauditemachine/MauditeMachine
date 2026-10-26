@@ -104,7 +104,7 @@ Aucun son n'a été joué : le moteur tourne dans Node, la chaîne du site dans 
   - LOAD au départ : 0, 0.15, 0.25 ou 0.35 ? (2026-10-24 : 0, 0.4, 0.55 ou 0.7)
   - LOAD sur les presets d'usine : tous, certains ou aucun ?
   - ACID NIGHT et NIGHT DRIVE revus : oui ou non ?
-  - les cinq presets nouveaux : lesquels garder ?
+  - les cinq presets nouveaux : lesquels garder ? (2026-10-26 : les cinq, ajoutés aux presets d'usine, `factory-arp-14` à `18`, R14-312)
   - resserrer les niveaux des presets d'usine (de -20.6 à -31.6 LUFS) ?
   - le nom du cran : MS-10, MS ou K35 ?
   - RANDOM : tirer MS-10, LOAD, SPACE, POLARITY ?

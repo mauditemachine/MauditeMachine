@@ -130,6 +130,7 @@ Méthode :
     - au téléphone, A01 n'est plus dans la vue PAGE (il reste dans HOME) ;
     - au desktop, les onglets VOICE sont à 90 % de leur taille, et à 80 % sans voix choisie (VOICE FX > GLOBAL).
   - C'est en ligne. Mika garde ou demande l'inverse.
+  - **2026-10-26 : Mika le garde** (« garde l'en-tete a places fixes ») : RB3-4 est tranché, rien ne change dans le code.
 - **SHARE v1, sans P-locks ni samples perso**
   - Le lien reste court : 87 caractères pour un preset d'usine, 210 pour un beat chargé, 1200 au plus.
   - Il ne transporte jamais un fichier du visiteur. L'écran le dit : (NO P-LOCKS), (YOUR SAMPLES STAY HERE).
@@ -193,7 +194,7 @@ Méthode :
   - **Écouter les rendus A/B du MM-ARP** : le dossier arp-ab remis avec son LISEZMOI.txt (AVANT, APRES, EXTRAS et démos).
     - 07_HOUSE_EXTRAS.wav et la ligne « HOUSE WIDE 35 % » du LISEZMOI sont périmés, puisque HOUSE est passé à WIDE 0,8 ensuite.
     - La phrase « au bit près comme avant » du LISEZMOI est à lire comme dans les décisions ci-dessus.
-  - **Confirmer l'en-tête PAGE du RYTM** (RB3-4), ou demander l'ancien.
+  - **Confirmer l'en-tête PAGE du RYTM** (RB3-4), ou demander l'ancien : fait le 2026-10-26, Mika garde l'en-tête à places fixes.
   - **Écouter et dire**
     - le snare, 1,7 dB plus bas : le remonter ?
     - la traîne du DELAY du RYTM à la même position du potard ;
@@ -231,7 +232,7 @@ Méthode :
     - Search Console et Web Vitals de terrain : il faut ses comptes ;
     - lecteur intégrable ;
     - image de partage par beat.
-- **MM-ARP analogique** (en ligne depuis le 2026-10-24) : écouter les rendus et choisir la classe D (LOAD d'INIT et des presets, NIGHT DRIVE et ACID NIGHT revus, les cinq presets nouveaux), choisir quels potards du setup Roto ARP céder à LOAD, SPACE et POLARITY, renvoyer le setup 12 (MODE sur cinq crans), tester SPACE sur l'iPhone (calcul).
+- **MM-ARP analogique** (en ligne depuis le 2026-10-24) : écouter les rendus et choisir la classe D (LOAD d'INIT et des presets, NIGHT DRIVE et ACID NIGHT revus ; les cinq presets nouveaux sont choisis le 2026-10-26 et ajoutés, `factory-arp-14` à `18`, R14-312), choisir quels potards du setup Roto ARP céder à LOAD, SPACE et POLARITY, renvoyer le setup 12 (MODE sur cinq crans), tester SPACE sur l'iPhone (calcul).
 - **Toujours en attente** : le compteur de visiteurs du MENU (tâche 72).
 
 ## Commandes utiles ajoutées

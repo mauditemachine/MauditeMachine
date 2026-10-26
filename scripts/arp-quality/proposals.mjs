@@ -8,6 +8,10 @@
  *   ITALO), ACID NIGHT et NIGHT DRIVE revus (LOAD 0.45, moins d'OVERDRIVE ; NIGHT DRIVE avec SPACE) ;
  * - INIT a LOAD 0, 0.4, 0.55 et 0.7 (le depart que Mika choisira ; 0.15 a 0.35 avant le 2026-10-24) ;
  * - cinq presets nouveaux : MS SCREAM, MONARK DRIVE, SPACE INDIE, MS HYPNO, RES PING.
+ *
+ * 2026-10-26, Mika apres l'ecoute : "garde l'en-tete a places fixes, ajoute les 5 presets". Les cinq sont des presets
+ * d'usine (state/factory.ts, factory-arp-14 a 18, ces potards tels quels et le VOLUME mesure : 0.601, 0.564, 0.663, 1,
+ * 1) ; NEW_PRESETS reste la source des demos D2 et D3 et de leurs ecoutes N1 a N5. Le reste attend toujours Mika.
  */
 
 const RATE = { '1/8': 1 / 3, '1/16': 2 / 3 };
@@ -35,7 +39,10 @@ export const FACTORY_UPDATES = {
 };
 export const proposedKnobs = (name, knobs) => ({ ...knobs, load: FACTORY_LOAD[name] ?? 0.25, ...(FACTORY_UPDATES[name] ?? {}) });
 
-/** Les cinq presets nouveaux : leurs potards (sans VOLUME, cale a la mesure), leur suite d'accords, leur tempo. */
+/**
+ * Les cinq presets nouveaux : leurs potards (sans VOLUME, cale a la mesure), leur suite d'accords, leur tempo.
+ * 2026-10-26 : les memes dans state/factory.ts (un changement ici doit y etre reporte).
+ */
 export const NEW_PRESETS = [
   {
     name: 'MS SCREAM',

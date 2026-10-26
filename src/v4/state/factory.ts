@@ -436,7 +436,8 @@ const FEET = { 32: 0.2, 16: 0.4, 8: 0.6, 4: 0.8, 2: 1 } as const;
 // sur LP12 ou BP)
 const FMODE = { MOOG: 0, LP12: 0.25, MS10: 0.5, BP: 0.75, HP: 1 } as const;
 const LFO_RATE = { '1 BAR': 4 / 6, '2 BAR': 5 / 6, '4 BAR': 1 } as const;
-const LFO_TO = { WAVE: 0, CUTOFF: 0.25 } as const;
+// W+CUT (2026-10-26, SPACE INDIE) : le cinquieme cran de TARGET (voyager/params.ts LFO_DESTS)
+const LFO_TO = { WAVE: 0, CUTOFF: 0.25, 'W+CUT': 1 } as const;
 const LFO_SHAPE = { TRI: 0, RND: 0.5 } as const;
 const SUB_WAVE = { SINE: 0, TRI: 0.5, SQUARE: 1 } as const;
 const CHORD = { BASIC: 0, TRIAD: 0.25, '7TH': 0.5, '9TH': 0.75 } as const;
@@ -446,6 +447,8 @@ const CHORD = { BASIC: 0, TRIAD: 0.25, '7TH': 0.5, '9TH': 0.75 } as const;
  * DANCE 0.5, HOUSE 0.55, ROLLING et TECHNO 0.1 : I ; ITALO 0.65, "beaucoup de chorus" : II).
  */
 const CHORUS = { OFF: 0, I: 0.5, II: 1 } as const;
+/** DLY TIME (2026-10-26, MS SCREAM ; voyager/params.ts DLY_TIMES, 3/16 au depart) */
+const DLY = { '1/8': 0, '3/16': 0.25, '1/4': 0.5, '3/8': 0.75, '1/2': 1 } as const;
 /**
  * FINE en cents (+/-50 sur la course) ; arrondi au millieme comme le store (2026-10-21 : 0.5 - 0.09 donnait
  * 0.41000000000000003, le preset charge ne retrouvait plus son nom a l'ecran).
@@ -471,6 +474,11 @@ const cents = (c: number): number => Math.round((0.5 + c / 100) * 1000) / 1000;
  * 2026-10-22 (relecture) : WIDE sans STACK partage les cotes selon la puissance d'OSC 1 et d'OSC 2 ; HOUSE (son carre
  * a 0.4, sous le triangle) ne penche plus a gauche (+3 dB) et remonte son WIDE de 0.35 a 0.8 pour garder sa largeur
  * (la meme part de cotes, a la meme sonie).
+ * 2026-10-26 : la regle des 4 dB sous le kick date du 2026-10-07 ; depuis VOLUME_K 0.66 (2026-10-10, audio/synth.ts)
+ * et le MM-RYTM remonte de 4 dB (2026-10-18, audio/drums.ts RYTM_TRIM), au meme point (la prise du MM-ARP et celle du
+ * MM-RYTM, avant le MASTER), un kick seul du kit de depart crete a -9.4 dBFS et les presets d'usine de -7.3 (ROLLING)
+ * a -10.8 dBFS (MINIMAL), 8 mesures par la chaine complete (scripts/arp-quality/ab.mjs) : aucun n'est plus 4 dB sous
+ * lui en crete (leurs VOLUME ont suivi la sonie depuis, le 2026-10-21 et le 2026-10-22).
  */
 const ARP: readonly ArpGenre[] = [
   {
@@ -566,6 +574,54 @@ const ARP: readonly ArpGenre[] = [
     // filtre a fond, un peu de GLIDE et d'OVERDRIVE
     name: 'ACID NIGHT',
     knobs: { volume: 0.68, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.4, wave1: WAVE1.SAW, osc2: 0, sub: 0.3, fmode: FMODE.MOOG, cutoff: 0.3, res: 0.86, envAmt: 0.8, fD: 0.53, fS: 0, fR: 0.468, aD: 0.568, aS: 0.35, aR: 0.433, glide: 0.15, dist: 0.35, chorus: CHORUS.OFF, delay: 0.3, reverb: 0.15, monoLow: 0.45, phase: 0.3, accent: 0.8, duck: 0.3, chord: CHORD.BASIC, accFlt: 1, glue: 0.45 },
+    prog: [0],
+  },
+  /*
+   * Cinq presets de plus (2026-10-26, Mika, apres l'ecoute des propositions du controle qualite du 2026-10-23 et 24 :
+   * "garde l'en-tete a places fixes, ajoute les 5 presets") : ceux de scripts/arp-quality/proposals.mjs (NEW_PRESETS),
+   * leurs potards tels quels ; ils jouent les reglages du 2026-10-23 (MODE MS-10, LOAD, SPACE). A LA SUITE des quatorze
+   * d'avant : leurs ids (factory-arp-0 a 13, state/presets.ts) ne bougent pas, ceux-ci sont factory-arp-14 a 18.
+   * VOLUME cale a la mesure, comme a l'ecoute (scripts/arp-quality/ab.mjs : la chaine complete, 8 mesures, au tempo et
+   * au swing de leur style, x4) sur la sonie mediane des quinze presets d'usine d'avant (INIT compris : -23.71 LUFS) :
+   * MS SCREAM -23.72, MONARK DRIVE -23.73, SPACE INDIE -23.71 ; MS HYPNO (-24.03) et RES PING (-26.15) au bout de la
+   * course, plus bas, des sons minimaux comme MINIMAL. Cretes au meme point : MS HYPNO -7.28 dBFS (ROLLING, la plus
+   * haute d'avant, -7.30), MS SCREAM -8.83, RES PING -8.88, SPACE INDIE -10.71, MONARK DRIVE -12.50. Leur tempo et
+   * leur swing d'ecoute ne sont pas dans le preset (comme pour les autres, ceux du MM-RYTM : son tempo, son SWING) ; les
+   * bancs les gardent (scripts/arp-bench.mjs et scripts/arp-quality/ab.mjs, STYLE).
+   */
+  {
+    // Dark disco / EBM a 120 : une scie seule et un SUB carre dans le MS-10 qui crie (RES 0.87, LOAD 0.4 pousse ses
+    // diodes), l'accent au filtre a fond, quatre notes en doubles croches, un delai a la croche pointee
+    name: 'MS SCREAM',
+    knobs: { volume: 0.601, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(4), gate: 0.35, wave1: WAVE1.SAW, osc1: 0.9, osc2: 0, sub: 0.25, subWave: SUB_WAVE.SQUARE, subOct: 0, fmode: FMODE.MS10, cutoff: 0.26, res: 0.87, envAmt: 0.72, fA: 0, fD: 0.42, fS: 0.05, fR: 0.25, aA: 0, aD: 0.45, aS: 0.4, aR: 0.22, glide: 0.1, load: 0.4, dist: 0, accent: 0.75, accFlt: 1, drift: 0.2, phase: 0.3, monoLow: 0.4, chorus: CHORUS.OFF, delay: 0.25, dlyTime: DLY['3/16'], tape: 0.25, reverb: 0.15, glue: 0.45, duck: 0.3, chord: CHORD.BASIC },
+    prog: [0, 1],
+  },
+  {
+    // Lead dark disco a 118 : deux scies desaccordees (OSC 2 a 16'), le melangeur qui pousse le filtre MOOG (LOAD 0.62,
+    // comme sur Monark), du GLIDE et du DRIFT, sans chorus
+    name: 'MONARK DRIVE',
+    knobs: { volume: 0.564, rate: RATE['1/16'], mode: MODE.UPDN, range: RANGE[2], gate: 0.5, wave1: WAVE1.SAW, wave2: WAVE2.SAW, range2: FEET[16], fine1: cents(-7), fine2: cents(7), osc1: 0.84, osc2: 0.8, fmode: FMODE.MOOG, cutoff: 0.36, res: 0.55, envAmt: 0.55, fD: 0.45, fS: 0.15, fR: 0.4, aD: 0.6, aS: 0.55, aR: 0.4, glide: 0.18, load: 0.62, dist: 0.05, drift: 0.6, chorus: CHORUS.OFF, delay: 0.3, tape: 0.35, reverb: 0.25, glue: 0.45, duck: 0.35, chord: CHORD.TRIAD },
+    prog: [0, 1, 2, 0],
+  },
+  {
+    // Indie dance a 122 : en croches, scie et carre, les deux passe-bas du Voyager ecartes (SPACE 0.55 : la gauche plus
+    // sombre, la droite plus claire) a la place du chorus, le LFO sur WAVE et la coupure (2 mesures), des septiemes
+    name: 'SPACE INDIE',
+    knobs: { volume: 0.663, rate: RATE['1/8'], mode: MODE.UP, range: RANGE[2], gate: 0.55, wave1: WAVE1.SAW, wave2: WAVE2.SQUARE, range2: FEET[8], fine1: cents(-5), fine2: cents(5), osc2: 0.6, fmode: FMODE.MOOG, cutoff: 0.5, res: 0.35, envAmt: 0.35, fD: 0.45, fS: 0.3, aA: 0.05, aD: 0.55, aS: 0.6, aR: 0.45, lfoRate: LFO_RATE['2 BAR'], lfoShape: LFO_SHAPE.TRI, lfoDest: LFO_TO['W+CUT'], lfoAmt: 0.22, load: 0.15, space: 0.55, wide: 0, stack: 0, monoLow: 0.35, drift: 0.3, chorus: CHORUS.OFF, delay: 0.35, reverb: 0.4, duck: 0.35, chord: CHORD['7TH'] },
+    prog: [0, 5, 2, 1],
+  },
+  {
+    // Minimale hypnotique a 125 : trois notes contre la mesure, entre triangle et scie, une pointe de FM, dans le MS-10
+    // resonant ; le hasard lisse sur la coupure (2 mesures), beaucoup de delai a bande
+    name: 'MS HYPNO',
+    knobs: { volume: 1, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.3, wave1: 0.3, osc1: 0.9, osc2: 0, fm: 0.12, ratio: 2 / 8, fmode: FMODE.MS10, cutoff: 0.5, res: 0.68, envAmt: 0.5, fD: 0.38, fS: 0, fR: 0.4, aD: 0.45, aS: 0, aR: 0.42, lfoRate: LFO_RATE['2 BAR'], lfoShape: LFO_SHAPE.RND, lfoDest: LFO_TO.CUTOFF, lfoAmt: 0.2, load: 0.15, phase: 0.3, drift: 0.2, accFlt: 0.5, chorus: CHORUS.OFF, delay: 0.5, tape: 0.5, reverb: 0.3, duck: 0.25, chord: CHORD.BASIC },
+    prog: [0],
+  },
+  {
+    // Minimale a 125 : le filtre MOOG qui chante chaque note (RES 0.93, KEY TRACK 1 : sa hauteur suit l'arpege) sur un
+    // sinus, presque sans contour, des notes courtes, beaucoup de delai a bande
+    name: 'RES PING',
+    knobs: { volume: 1, rate: RATE['1/16'], mode: MODE.UP, range: RANGE[1], notes: NOTES(3), gate: 0.3, wave1: WAVE1.SINE, osc1: 0.85, osc2: 0, fmode: FMODE.MOOG, cutoff: 0.282, res: 0.93, keyTrack: 1, envAmt: 0.08, fD: 0.14, fS: 0, fR: 0.14, aD: 0.22, aS: 0, aR: 0.2, drift: 0, phase: 0.3, load: 0.1, chorus: CHORUS.OFF, delay: 0.5, tape: 0.5, reverb: 0.3, duck: 0.25, chord: CHORD.BASIC },
     prog: [0],
   },
 ];

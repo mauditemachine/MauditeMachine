@@ -51,7 +51,10 @@ const STYLE = {
   'HYPNO LOOP': [124, 0.3],
   'INDIE PULSE': [122, 0.08],
   'ACID NIGHT': [128, 0.12],
+  // Les cinq du 2026-10-26 (factory-arp-14 a 18) : le tempo et le swing de leur ecoute (proposals.mjs NEW_PRESETS)
+  ...Object.fromEntries(NEW_PRESETS.map((p) => [p.name, [p.bpm, p.swing]])),
 };
+const isNew = (name) => NEW_PRESETS.some((p) => p.name === name);
 function arpNotes(M, knobs, prog, bars, bpm, swingV, seed) {
   const { params: P, chords: C, seq: Q } = M;
   const rnd = mulberry32(seed ^ 0x5eed);
@@ -118,7 +121,8 @@ if (SETS.includes('factory')) {
 }
 if (SETS.includes('proposals')) {
   for (const l of INIT_LOADS) add({ file: `P00-init-load-${String(Math.round(l * 100)).padStart(2, '0')}`, name: `INIT LOAD ${l}`, knobs: { ...DEF, load: l }, prog: [0, 1, 2, 0], bpm: STYLE.INIT[0], swing: 0, kind: 'proposal', match: `00-init-after` });
-  factory.forEach((f, i) => add({ file: `P${String(i + 1).padStart(2, '0')}-${slug(f.name)}-proposed`, name: `${f.name} (proposed)`, knobs: proposedKnobs(f.name, f.knobs), prog: f.prog, bpm: style(f.name)[0], swing: style(f.name)[1], kind: 'proposal', match: `${String(i + 1).padStart(2, '0')}-${slug(f.name)}-after`, change: { load: FACTORY_LOAD[f.name] ?? 0.25, ...(FACTORY_UPDATES[f.name] ?? {}) } }));
+  // 2026-10-26 : les cinq nouveaux sont des presets d'usine, leur LOAD est le leur (les N plus bas restent leurs ecoutes)
+  factory.forEach((f, i) => !isNew(f.name) && add({ file: `P${String(i + 1).padStart(2, '0')}-${slug(f.name)}-proposed`, name: `${f.name} (proposed)`, knobs: proposedKnobs(f.name, f.knobs), prog: f.prog, bpm: style(f.name)[0], swing: style(f.name)[1], kind: 'proposal', match: `${String(i + 1).padStart(2, '0')}-${slug(f.name)}-after`, change: { load: FACTORY_LOAD[f.name] ?? 0.25, ...(FACTORY_UPDATES[f.name] ?? {}) } }));
   NEW_PRESETS.forEach((p, i) => add({ file: `N${i + 1}-${slug(p.name)}`, name: p.name, knobs: { ...DEF, volume: 0.75, ...p.knobs }, prog: p.prog, bpm: p.bpm, swing: p.swing, kind: 'new', style: p.style }));
 }
 if (SETS.includes('demos')) {
@@ -221,9 +225,10 @@ try {
     let r = await renderIt(it, knobs);
     let m = measure(r.L, r.R);
     let gain = 1;
-    // Un preset nouveau : son VOLUME cale sur la sonie mediane des presets d'usine (manifest-after), une reprise
+    // Un preset nouveau : son VOLUME cale sur la sonie mediane des presets d'usine (manifest-after), une reprise ;
+    // 2026-10-26 : celle des quinze d'avant (INIT compris), sans les cinq devenus presets d'usine
     if (it.kind === 'new') {
-      const fac = Object.values(manifest).filter((x) => x.kind === 'factory').map((x) => x.lufs).sort((p, q) => p - q);
+      const fac = Object.values(manifest).filter((x) => x.kind === 'factory' && !isNew(x.name)).map((x) => x.lufs).sort((p, q) => p - q);
       if (fac.length) {
         const target = fac[Math.floor(fac.length / 2)];
         const v = Math.min(1, knobs.volume * Math.pow(10, (target - m.lufs) / 40));

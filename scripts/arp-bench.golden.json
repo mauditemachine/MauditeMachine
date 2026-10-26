@@ -114,6 +114,41 @@
     "centroidHz": 711,
     "sideDb": -18.68
    },
+   "MS SCREAM": {
+    "sha256": "8d90c063622b2ce2e371f1cd069e356f",
+    "peakDb": -1.4,
+    "rmsDb": -13.07,
+    "centroidHz": 411,
+    "sideDb": -17.92
+   },
+   "MONARK DRIVE": {
+    "sha256": "c7053c6cc4ce328f450246d6fe63bb91",
+    "peakDb": -2.15,
+    "rmsDb": -12.06,
+    "centroidHz": 442,
+    "sideDb": -17.75
+   },
+   "SPACE INDIE": {
+    "sha256": "e950691e6282e9a4f4ca120daa7bd797",
+    "peakDb": -2.44,
+    "rmsDb": -15.74,
+    "centroidHz": 503,
+    "sideDb": -10.61
+   },
+   "MS HYPNO": {
+    "sha256": "87785a06ecc8a561178f2caad4f2e9e8",
+    "peakDb": -3.12,
+    "rmsDb": -21.91,
+    "centroidHz": 443,
+    "sideDb": -16.65
+   },
+   "RES PING": {
+    "sha256": "691fe6dc2ca18461b9dba4020ba1b000",
+    "peakDb": -3.4,
+    "rmsDb": -23.71,
+    "centroidHz": 224,
+    "sideDb": -16.88
+   },
    "X STACK FULL": {
     "sha256": "4815ed3d676c6ebdc706dd3a1a8b99d3",
     "peakDb": 1.57,
@@ -302,6 +337,41 @@
     "rmsDb": -14.13,
     "centroidHz": 903,
     "sideDb": -18.55
+   },
+   "LEGACY MS SCREAM": {
+    "sha256": "a1d9c42a6a7f16f8105825256beeb225",
+    "peakDb": 2.26,
+    "rmsDb": -12.42,
+    "centroidHz": 508,
+    "sideDb": -16.41
+   },
+   "LEGACY MONARK DRIVE": {
+    "sha256": "a9a44c606f7f464a0b429799b8c6b701",
+    "peakDb": 1.3,
+    "rmsDb": -12.99,
+    "centroidHz": 487,
+    "sideDb": -16.53
+   },
+   "LEGACY SPACE INDIE": {
+    "sha256": "3e26b7a322911886d51b2564e8f94f8b",
+    "peakDb": 0.23,
+    "rmsDb": -14.41,
+    "centroidHz": 616,
+    "sideDb": -16.4
+   },
+   "LEGACY MS HYPNO": {
+    "sha256": "e31305b40c3525a9464ea90fb854dafd",
+    "peakDb": -1.97,
+    "rmsDb": -21.98,
+    "centroidHz": 454,
+    "sideDb": -16.56
+   },
+   "LEGACY RES PING": {
+    "sha256": "786178e0625b0c07873797f872f4573c",
+    "peakDb": -2.49,
+    "rmsDb": -23.36,
+    "centroidHz": 225,
+    "sideDb": -16.56
    }
   }
  },
@@ -419,6 +489,41 @@
     "rmsDb": -14.51,
     "centroidHz": 736,
     "sideDb": -18.62
+   },
+   "MS SCREAM": {
+    "sha256": "9e6257c7c3ad0950dd8c65e267538098",
+    "peakDb": -1.6,
+    "rmsDb": -13.08,
+    "centroidHz": 410,
+    "sideDb": -18.14
+   },
+   "MONARK DRIVE": {
+    "sha256": "72279b1a16685ec059607d8295602df3",
+    "peakDb": -2.13,
+    "rmsDb": -12.08,
+    "centroidHz": 445,
+    "sideDb": -17.54
+   },
+   "SPACE INDIE": {
+    "sha256": "daa79da7f45e04e5f9fb695629835fa4",
+    "peakDb": -2.56,
+    "rmsDb": -15.94,
+    "centroidHz": 487,
+    "sideDb": -10.32
+   },
+   "MS HYPNO": {
+    "sha256": "8feadac58f72c343f8dc1c195893231d",
+    "peakDb": -3.17,
+    "rmsDb": -21.94,
+    "centroidHz": 442,
+    "sideDb": -16.59
+   },
+   "RES PING": {
+    "sha256": "1aa988b879a04c8a4dda2e0b835d9847",
+    "peakDb": -3.4,
+    "rmsDb": -23.69,
+    "centroidHz": 225,
+    "sideDb": -16.79
    },
    "X STACK FULL": {
     "sha256": "c57e845c8085af631ac9eae4b8c3717c",
@@ -608,6 +713,41 @@
     "rmsDb": -14.1,
     "centroidHz": 919,
     "sideDb": -18.55
+   },
+   "LEGACY MS SCREAM": {
+    "sha256": "2b76e7c014f780309aedea70e7fb84a5",
+    "peakDb": 2.14,
+    "rmsDb": -12.42,
+    "centroidHz": 508,
+    "sideDb": -16.66
+   },
+   "LEGACY MONARK DRIVE": {
+    "sha256": "681f316d635983615248044cbb287bd1",
+    "peakDb": 1.27,
+    "rmsDb": -13.06,
+    "centroidHz": 491,
+    "sideDb": -16.38
+   },
+   "LEGACY SPACE INDIE": {
+    "sha256": "f8e15ae39ca78deb61d762367785a66f",
+    "peakDb": 0.02,
+    "rmsDb": -14.56,
+    "centroidHz": 607,
+    "sideDb": -16.32
+   },
+   "LEGACY MS HYPNO": {
+    "sha256": "8cec32b2819e7d90d43b5a93feae3a0f",
+    "peakDb": -2.05,
+    "rmsDb": -22.01,
+    "centroidHz": 454,
+    "sideDb": -16.5
+   },
+   "LEGACY RES PING": {
+    "sha256": "ac76209ad4fab41994b045177109fb89",
+    "peakDb": -2.5,
+    "rmsDb": -23.33,
+    "centroidHz": 225,
+    "sideDb": -16.48
    }
   }
  }

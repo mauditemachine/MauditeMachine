@@ -309,7 +309,7 @@ Web Workers : `src/v4/audio/shots.worker.ts` (calcul des one-shots du MM-RYTM) e
 - Potards et leur traduction en son : `voyager/params.ts` (`VOY_KNOBS`, chaque réglage avec sa valeur de départ et sa valeur d'héritage `legacy` : un son gardé d'avant l'arrivée d'un réglage le reprend à la valeur qui ne change rien). Huit pads d'accords, tous en fa dièse mineur (`voyager/chords.ts`) ; un pad touché entre dans la progression, un accord par mesure.
 - Arpégiateur : `voyager/arp.ts` (RATE, MODE, RANGE, NOTES, GATE, OCTAVE). Suite AUTO ou EDIT, modifiable note par note : `voyager/seq.ts`, éditeur `ui/SeqLane.tsx`.
 - Grand écran : `voyager/screen.ts`. Quinze TWEAKS sous le capot (`voyager/tweaks.ts`), en quatre groupes OSCILLATORS, OUTPUT, PERFORMANCE et DELAY (`voyager/theme.ts`) : PHASE, DRIFT, STACK, SYNC, WIDTH, WIDE, BASS MONO, GLUE, SIDECHAIN, KEY TRACK, ACCENT, ACC FILTER, CHORD, DLY TIME, TAPE. Au téléphone : `ui/VoyDock.tsx` (potards et pads se prennent aussi par leur nom). Sur ordinateur, les réglages de l'arpégiateur sont en fiche (nom à gauche, valeur à droite).
-- Quatorze presets d'usine (`ARP` dans `state/factory.ts` : les dix styles, puis NIGHT DRIVE, HYPNO LOOP, INDIE PULSE et ACID NIGHT, ajoutés pendant l'audit), tous avec GLUE depuis le 2026-10-22, TAPE sur tous sauf ELECTRO et EBM (délai net, `tape: 0`), WIDE et STACK sur ceux qui en profitent, VOLUME recalé pour la même sonie.
+- Dix-neuf presets d'usine (`ARP` dans `state/factory.ts` : les dix styles, puis NIGHT DRIVE, HYPNO LOOP, INDIE PULSE et ACID NIGHT, ajoutés pendant l'audit, puis MS SCREAM, MONARK DRIVE, SPACE INDIE, MS HYPNO et RES PING, choisis par Mika le 2026-10-26 après l'écoute du contrôle qualité : le MS-10, LOAD et SPACE ; ids `factory-arp-0` à `18`, toujours ajoutés à la suite), tous avec GLUE depuis le 2026-10-22, TAPE sur tous sauf ELECTRO et EBM (délai net, `tape: 0`), WIDE et STACK sur ceux qui en profitent, VOLUME recalé pour la même sonie.
 - Sortie MIDI vers Ableton : voir [3.7](#37-midi-roto-control-et-midi-out-srcv4midi). Étude du portage en plugin VST3 / AU : `docs/vst3/2026-10-21-etude-mm-arp-vst3.md`.
 
 #### MM-BASS, le générateur de basslines (masqué par défaut)
@@ -456,7 +456,7 @@ Tout le contenu éditable est versionné dans le dépôt :
 | `public/data/stats-public.json` | snapshots des stats de diffusion | `/mm-admin/stats` |
 | `src/v2/data/discography.json`, `src/v2/data/mixtapes.json` | discographie (37 morceaux) et mixtapes | TRACKS, MIXTAPES, SEO |
 | `src/data/seo-meta.json` | titres et descriptions par route et par langue (EN, FR, ES) | `src/lib/seo.ts`, prerender |
-| `src/v4/state/factory.ts` | presets d'usine des machines (dix styles du MM-RYTM, quatorze sons du MM-ARP, les basslines) | la machine, `mm-studio-patterns.mjs`, `arp-bench.mjs`, `arp-params.mjs` |
+| `src/v4/state/factory.ts` | presets d'usine des machines (dix styles du MM-RYTM, dix-neuf sons du MM-ARP, les basslines) | la machine, `mm-studio-patterns.mjs`, `arp-bench.mjs`, `arp-params.mjs` |
 | `public/samples/rytm/<famille>/` | samples du MM-RYTM (bd, sd, ch, oh, cp, tom, ht, cy) | `virtual:rytm-samples` |
 
 ### L'admin local
