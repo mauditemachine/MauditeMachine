@@ -114,6 +114,11 @@
   opacity: 0.6;
 }
 
+.v4-root .v4-pn-was {
+  display: block;
+  margin-top: 4px;
+}
+
 .v4-root .v4-pn-problem {
   min-height: 14px;
   margin: 4px 0 0;
