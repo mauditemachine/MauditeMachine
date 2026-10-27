@@ -1676,8 +1676,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const my = e.clientY - rect.top;
         // Le navigateur des sons ouvert (2026-10-18) : une tape hors de lui le ferme, et agit (un pad de voix, non : la liste
         // suit sa voix)
-        // (V.4.2 : un potard de la face non plus quand l'ecran ne se touche pas : la tape du potard SOUND la tient ouverte, comme il la tourne)
-        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !(d.kind === 'penc' && !SCREEN_TOUCH)) soundBrowserClose();
+        // (V.4.2 : un potard de la face non plus quand l'ecran ne se touche pas : la tape du potard SOUND la tient ouverte, comme il la tourne ;
+        // ni un clic sur l'ecran lui-meme, inerte au desktop : 2026-10-27, la revue, une ligne cliquee fermait la liste)
+        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
         if (tap && d.id !== null) {

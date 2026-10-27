@@ -426,6 +426,17 @@ export class HitMap {
     return this.views[i].enabled && (this.screenTouch || !this.defs[i].screen);
   }
 
+  /**
+   * (x, y) tombe-t-il sur une zone allumee de l'ecran, qu'il se touche ou non (V.4.2, 2026-10-27, la revue : au desktop, un
+   * clic sur la liste des sons la fermait, comme un clic sur le corps de la machine) ? La place seule : ni le rayon ni
+   * les occulteurs.
+   */
+  onScreen(x: number, y: number): boolean {
+    this.refresh();
+    for (let i = 0; i < this.views.length; i += 1) if (this.views[i].enabled && this.defs[i].screen && inside(this.views[i].poly, x, y)) return true;
+    return false;
+  }
+
   /** Les objets de cette machine seulement repondent ; null : aucun ; 'any' : tous. */
   setActive(m: MachineId | null | 'any'): void {
     if (m === this.active) return;
