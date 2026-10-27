@@ -39,7 +39,7 @@ import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import { rytmPage, screenOfState, type RytmPageState } from '../state/rytmPage';
 import type { EncId, Inst } from '../theme';
-import { pageSlots, slotCells, type PageSlot, type RytmScreenId, type SlotCell, type SlotDraw, type SlotGraph } from './pages';
+import { cellsOf, pageSlots, type PageSlot, type RytmScreenId, type SlotCell, type SlotDraw, type SlotGraph } from './pages';
 import { encText, encUnit, kitUnit, v127Text, velTo127, velWord } from './values';
 
 export type BlockState = 'live' | 'soon' | 'off' | 'empty';
@@ -339,7 +339,8 @@ export function pageBlocks(s: RytmPageState, inst: Inst | null, now: number, mod
   const screen = screenIn(s, inst);
   const echoK = s.echo && s.echo.page === screen && now < s.echo.until ? s.echo.k : -1;
   const slots = pageSlots(screen, inst);
-  const cells = slotCells(slots);
+  // Les cases de la face au desktop (2026-10-27 : le bloc k au-dessus du potard k), le rangement d'avant au telephone
+  const cells = cellsOf(slots);
   // Un bloc tenu (le doigt, la souris, 2026-10-09) reste cerne tant qu'on le tient
   return slots.map((slot, k) => slotBlock(slot, k, inst, k === echoK || k === s.held, mode, cells[k], k === s.hover));
 }

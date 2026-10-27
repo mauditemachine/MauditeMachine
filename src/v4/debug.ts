@@ -65,6 +65,7 @@ import { lcdMessage } from './state/lcdMessage';
 import { playhead } from './state/playhead';
 import { rytmPage, type RytmPageState, type RytmView } from './state/rytmPage';
 import { rytmLock, type RytmLockState } from './state/rytmLock';
+import { FACE_LAW, faceBlockOf, faceCellsOf, pageSlots, type FaceLaw, type RytmScreenId, type SlotCell } from './rytm/pages';
 import type { Locks } from './audio/locks';
 import { section } from './state/section';
 import { undo } from './state/undo';
@@ -253,6 +254,11 @@ export interface V4Debug {
     lockStore: typeof rytmLock;
     /** les verrous du motif (audio/locks.ts), une copie */
     readonly locks: Locks;
+    /**
+     * La carte de la face (2026-10-27, rytm/pages.ts) : les cases des blocs d'un ecran pour une voix (la voix choisie par
+     * defaut) et une loi (celle du desktop par defaut), et le bloc que tourne chacun des huit potards.
+     */
+    faceCells(screen: RytmScreenId, inst?: Inst | null, law?: FaceLaw): { cells: SlotCell[]; labels: string[]; knobs: (number | null)[] };
   };
   /**
    * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
@@ -464,6 +470,14 @@ export function installDebug(src: DebugSource): () => void {
       lockStore: rytmLock,
       get locks() {
         return JSON.parse(JSON.stringify(pattern.get().locks)) as Locks;
+      },
+      faceCells(screen, inst, law = FACE_LAW) {
+        const slots = pageSlots(screen, inst === undefined ? pattern.get().instrument : inst);
+        return {
+          cells: faceCellsOf(slots, law).map((c) => ({ ...c })),
+          labels: slots.map((s) => s.label),
+          knobs: [0, 1, 2, 3, 4, 5, 6, 7].map((j) => faceBlockOf(slots, j, law)),
+        };
       },
     },
     undo,

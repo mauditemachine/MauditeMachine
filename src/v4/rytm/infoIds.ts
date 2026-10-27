@@ -37,7 +37,7 @@
  */
 
 import { GLOBAL_ENCODERS, type Inst } from '../theme';
-import { FX_DETAILS, RYTM_PAGES, SCREEN_TITLE, allScreens, isFxPage, pageSlots, slotCells, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
+import { FX_DETAILS, RYTM_PAGES, SCREEN_TITLE, allScreens, cellsOf, isFxPage, pageSlots, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
 
 /* ---------------- les ids ---------------- */
 
@@ -283,7 +283,8 @@ export function rytmSlots(screen: RytmScreenId, voice: Inst | null): readonly Ry
   const slots = pageSlots(screen, voice);
   let out = SLOT_CACHE.get(slots);
   if (out) return out;
-  const cells = slotCells(slots);
+  // Les mini cartes des cartes INFOS : les cases de la face au desktop (2026-10-27)
+  const cells = cellsOf(slots);
   out = slots.map((s, k) => ({
     id: s.graph || !s.target ? ('enc' as const) : infoIdOfTarget(s.target),
     label: s.label,
