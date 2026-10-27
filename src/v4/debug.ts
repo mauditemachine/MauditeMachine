@@ -327,7 +327,7 @@ export function installDebug(src: DebugSource): () => void {
     clock: clockDebug,
     pattern,
     get pads() {
-      return src.stage()?.pads.info() ?? null;
+      return src.stage()?.pads?.info() ?? null;
     },
     get seq() {
       return src.stage()?.seq.info() ?? null;

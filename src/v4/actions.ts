@@ -76,13 +76,13 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   // Mode SOLO : le pad passe en solo (ou en sort), sans jouer
   if (voices.get().soloMode) {
     soloVoice(inst);
-    stage?.pads.press(inst);
+    stage?.pressRytmPad(inst);
     return;
   }
   // Mode MUTE : le pad coupe sa voix (ou la rend), sans jouer
   if (voices.get().muteMode) {
     muteVoice(inst);
-    stage?.pads.press(inst);
+    stage?.pressRytmPad(inst);
     return;
   }
   // En lecture (2026-10-05, Mika : "quand RYTM est sur RUN, cliquer sur une voix ne doit pas la jouer, juste la
@@ -91,7 +91,7 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   // "quand je clique sur une voix mutee je ne la demute pas, je peux l'editer sans entendre") : choisie, sans un son
   if (!clock.running && !voices.isMuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[rytmPage.tapVel(inst)] ?? 1);
   selectVoice(inst);
-  stage?.pads.press(inst);
+  stage?.pressRytmPad(inst);
 }
 
 /** Mode SOLO : la voix passe en solo, ou en sort ; a une voix (ONE), le mode retombe ; l'ecran le dit. */
@@ -119,7 +119,7 @@ export function padMute(inst: Inst, stage: Stage | null): void {
   gesture();
   voices.toggleMute(inst);
   lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
-  stage?.pads.press(inst);
+  stage?.pressRytmPad(inst);
 }
 
 /**
@@ -168,7 +168,7 @@ export function page(id: PageId, stage: Stage | null): void {
 /** Le pad de page de la 808 s'enfonce (le MM-VOYAGER a ses pages sur la carte, pas de touche). */
 function pressPage(id: PageId, stage: Stage | null): void {
   if (focus.get() === 'voy' || focus.get() === 'dj' || focus.get() === 'bass') return;
-  stage?.pads.press(id);
+  stage?.pressRytmPad(id);
 }
 
 /** RESET VIEW, touche R, double tape du fond : retour a la vue par defaut (500 ms). */
@@ -802,7 +802,7 @@ export function openToggle(stage: Stage | null = null, which: MachineId = hoodMa
   const ok = hoodOf(which).toggle();
   if (ok) {
     if (which === 'voy') stage?.voy?.keys.pressButton('open');
-    else if (which === 'mm808') stage?.pads.press('open');
+    else if (which === 'mm808') stage?.pressRytmPad('open');
   }
   return ok;
 }
@@ -1017,7 +1017,7 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
     stage?.voy?.keys.pressButton('edit');
     voyMsg.show(on ? 'EDIT SEQUENCE' : 'EDIT CLOSED');
   } else {
-    stage?.pads.press('edit');
+    stage?.pressRytmPad('edit');
     const p = patterns.get();
     lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}` : 'EDIT CLOSED');
   }

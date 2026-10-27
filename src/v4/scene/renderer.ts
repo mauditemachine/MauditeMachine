@@ -390,8 +390,8 @@ export class Stage {
   readonly tweens = new Tweens();
   /** tweens sans ombre (soulevement des puces, cadrage de section) : frames sans passe d'ombre */
   private paintTweens = new Tweens();
-  /** les 12 pads (voix, pages, OPEN) et leurs halos */
-  readonly pads: Pads;
+  /** les 12 pads (voix, pages, OPEN) et leurs halos ; null quand la face n'en a pas (2026-10-27, la face V.4.0 du desktop) */
+  readonly pads: Pads | null;
   /** touches trig, RUN/STOP, CLEAR et les 16 LED */
   readonly seq: Sequencer3D;
   /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
@@ -732,8 +732,7 @@ export class Stage {
     this.pageKeys = new RytmPageKeys({ mobile, atlas: this.keyAtlas });
     // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi
     plateau.add(
-      this.pads.mesh,
-      this.pads.halos,
+      ...(this.pads ? [this.pads.mesh, this.pads.halos] : []),
       this.seq.keys,
       this.seq.frames,
       this.seq.lockMarks,
@@ -776,7 +775,7 @@ export class Stage {
     // Ordre de la liste = ordre de tabulation des jumeaux (spec 20.19) : les
     // 12 pads (4 voix, 7 pages, OPEN), les quatre puces (juste apres OPEN
     // qui les decouvre), les six encodeurs, RUN, CLEAR, les 16 pas
-    const padDefs = this.pads.hotspots(plateau);
+    const padDefs = this.pads?.hotspots(plateau) ?? [];
     this.hit.add(padDefs);
     this.chipDefs = this.pcb.hotspots(this.machine.pcb);
     this.hit.add(this.chipDefs);
@@ -1009,7 +1008,7 @@ export class Stage {
       (now) => this.tweens.update(now),
       (now) => (this.paintTweens.update(now) ? 'paint' : false),
       this.stepExplode,
-      (now) => this.pads.update(now),
+      (now) => this.pads?.update(now) ?? false,
       this.pollPlayhead,
       this.stepBreathe,
       this.stepLockBlink,
@@ -1153,7 +1152,7 @@ export class Stage {
       if (this.seq.setPatternView(view)) this.repaint();
     };
     const syncEditor = (): void => {
-      if (this.pads.setEditing(editor.get() === 'mm808')) this.invalidate();
+      if (this.pads?.setEditing(editor.get() === 'mm808')) this.invalidate();
       // Le MM-ARP au desktop : l'ecran de la suite monte a la place des pads
       if (this.voy?.setSeqOpen(editor.get() === 'voy')) this.hit.invalidate();
       syncPatView();
@@ -2444,16 +2443,17 @@ export class Stage {
    */
   private stepBreathe = (now: number): 'paint' | 'poll' | false => {
     const v = this.voy;
-    const on808 = this.pads.breathing && this.machine.root.visible;
+    const p808 = this.pads;
+    const on808 = !!p808 && p808.breathing && this.machine.root.visible;
     const onVoy = !!v && v.breathing && v.root.visible;
     if (this.opts.mobile || motion.reduced() || (!on808 && !onVoy)) {
-      const a = this.pads.stopBreath();
+      const a = p808 ? p808.stopBreath() : false;
       const b = v ? v.stopBreath() : false;
       return a || b ? 'paint' : false;
     }
     if (now - this.breatheAt < OPEN_BREATHE.frameMs) return 'poll';
     this.breatheAt = now;
-    let changed = on808 && this.pads.breathe(now);
+    let changed = on808 && !!p808 && p808.breathe(now);
     if (onVoy && v.breathe(now)) changed = true;
     return changed ? 'paint' : 'poll';
   };
@@ -2710,7 +2710,7 @@ export class Stage {
     const sbRow = id !== null ? /^lcd-sb-(?:row|del)-([0-9]+)$/.exec(id) : null;
     lcdSamples.hover(sbRow ? Number(sbRow[1]) : -1);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
-    if (this.pads.setHover(pad)) changed = true;
+    if (this.pads?.setHover(pad)) changed = true;
     // Les encodeurs, les touches de page et le transport (2026-10-22, audit : ils ne changeaient que de curseur)
     if (this.encoders.setHover(id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1)) changed = true;
     if (this.pageKeys.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
@@ -2864,7 +2864,7 @@ export class Stage {
       this.openView('mm808');
       changed = true;
     }
-    if (this.pads.setOpen(goal)) changed = true;
+    if (this.pads?.setOpen(goal)) changed = true;
     if (this.silk.setOpenLabel(goal ? 'CLOSE' : 'OPEN')) changed = true;
     if (this.syncChips()) changed = true;
     if (this.syncCasters()) changed = true;
@@ -2885,7 +2885,7 @@ export class Stage {
 
   private applySection(instant: boolean): void {
     const s = section.get();
-    let changed = this.pads.setActivePage(isPage(s) ? s : null);
+    let changed = this.pads?.setActivePage(isPage(s) ? s : null) ?? false;
     if (this.retargetFraming(instant)) changed = true;
     // Lumiere d'un pad et cadrage : rien qui projette une ombre ne bouge
     if (changed) this.repaint();
@@ -2956,6 +2956,14 @@ export class Stage {
     this.repaint();
   }
 
+  /**
+   * Un pad du MM-RYTM (une voix, une page, EDIT, OPEN) s'enfonce (actions.ts, 2026-10-27) : le pad 3D quand la face en a.
+   */
+  pressRytmPad(id: PadId): void {
+    if (this.disposed) return;
+    this.pads?.press(id);
+  }
+
   /** Le clignotement du pas en LOCK (2026-10-08) : 280 ms allume, 280 ms en retrait. */
   private static readonly LOCK_BLINK_MS = 280;
 
@@ -2991,7 +2999,7 @@ export class Stage {
    */
   private syncPattern = (): void => {
     const p = pattern.get();
-    let lit = this.pads.setSelected(p.instrument);
+    let lit = this.pads?.setSelected(p.instrument) ?? false;
     if (this.seq.setPattern(p.steps, p.instrument)) lit = true;
     // Les verrous suivent le motif et la voix choisie (2026-10-08)
     if (this.lockLeds(performance.now())) lit = true;
@@ -3034,7 +3042,7 @@ export class Stage {
     const v = voices.get();
     // Les pads aussi : rouge LED pour une voix coupee, bleu pour le solo
     // (revue du 2026-10-09 : le mode MUTE ferme, les voix gardees coupees ont leur LED a peine, comme la touche MUTE)
-    const pads = this.pads.setVoiceState(v.muted, v.solo, v.muteMode);
+    const pads = this.pads?.setVoiceState(v.muted, v.solo, v.muteMode) ?? false;
     if (this.syncVoiceKeys() || pads) this.repaint();
     // Le clignotement a besoin de la boucle tant qu'un mode attend une voix
     if (voices.led('mute') === 'blink' || voices.led('solo') === 'blink') this.kick();
@@ -3082,7 +3090,7 @@ export class Stage {
     playhead.set(step);
     if (e && e.mask !== 0) {
       for (let k = 0; k < INSTRUMENTS.length; k += 1) {
-        if (e.mask & (1 << k)) this.pads.flash(INSTRUMENTS[k], PAD_FX.seqFlashMs, now);
+        if (e.mask & (1 << k)) this.pads?.flash(INSTRUMENTS[k], PAD_FX.seqFlashMs, now);
       }
     }
     return 'paint';
@@ -3218,7 +3226,7 @@ export class Stage {
     this.brush.dispose();
     this.silk.dispose();
     this.backPlate.dispose();
-    this.pads.dispose();
+    this.pads?.dispose();
     this.seq.dispose();
     this.encoders.dispose();
     this.pageKeys.dispose();
