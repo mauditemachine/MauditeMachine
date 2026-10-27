@@ -51,6 +51,8 @@ import { cancelVoice, context, mix, trigger, type Voice } from './drums';
 import { shots } from './shots';
 import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from './pattern';
 import { lockOf, type Locks } from './locks';
+import { morph } from './morph';
+import type { SceneSet } from '../rytm/sceneData';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, extraGrid, horizon, registerScheduler, type Scheduler } from './sched';
 
 export { LOOKAHEAD_S, TICK_MS } from './sched';
@@ -127,6 +129,8 @@ const pending: Voice[] = [];
 interface Snap {
   steps: Steps;
   locks: Readonly<Locks>;
+  /** ses scenes A et B (2026-10-27) : un pas rejoue d'une mesure finie garde celles de son pattern, au x du moment */
+  scenes: SceneSet;
 }
 
 /** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
@@ -228,7 +232,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
-  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks };
+  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get() };
   const steps = snap.steps;
   const vs: Voice[] = [];
   let mask = 0;
@@ -240,7 +244,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     if (vel > 0 && voices.plays(inst)) {
       mask |= 1 << k;
       // Les verrous du pas (2026-10-08) : null sans verrou, le coup d'avant
-      trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s));
+      trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s), snap.scenes);
     }
   }
   for (const v of vs) pending.push(v);
@@ -304,7 +308,8 @@ function tick(): void {
       }
     } else {
       // SWING : un pas pair (index impair) part plus tard, jamais au-dela d'un tiers de pas
-      const off = (step & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0;
+      // Le SWING joue (2026-10-27) : celui des scenes au x du moment ; sans scene, celui du store
+      const off = (step & 1) === 1 ? morph.fx().swing * SWING.maxDelay * stepDur : 0;
       schedule(step, nextTime + off, anchor + n * stepDur + off, now, off, nextTime);
     }
     // Depuis l'ancre, pas par addition : aucune erreur qui s'accumule

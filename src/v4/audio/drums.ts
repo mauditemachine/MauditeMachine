@@ -83,6 +83,8 @@ import {
   type VoiceParam,
 } from './voicefx';
 import { InsertLocks } from './lockfx';
+import { morph } from './morph';
+import type { SceneSet } from '../rytm/sceneData';
 
 type Ctor = typeof AudioContext;
 
@@ -239,6 +241,8 @@ let stretch = ((): number => {
   }
 })();
 let stretchTimer = 0;
+// Le STRETCH de base pour le morphing des scenes (2026-10-27, audio/morph.ts n'importe pas drums.ts)
+morph.bindStretch(() => stretch);
 let level = 0.8;
 /**
  * Etat voulu du contexte : la derniere demande gagne, quel que soit l'ordre
@@ -422,7 +426,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   clipper.connect(post);
   post.connect(master);
   master.connect(c.destination);
-  const f = pattern.fx.get();
+  // Ce qui joue (2026-10-27) : un contexte cree apres le chargement d'une scene part morphe ; sans scene, le store lui-meme
+  const f = morph.fx();
   // Les reglages des FX (2026-10-10) : ceux du store, ou hors ligne ceux imposes (les autres a leur depart)
   const fs: Readonly<Fx> = o.fxs ? { ...f, ...FX_SETTINGS, ...o.fxs } : f;
   const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };
@@ -515,7 +520,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
     chorusSt.set(o.chorus ?? f.chorus);
-    for (const inst of INSTRUMENTS) applyVoice(g, inst, o.voice ? { ...VOICE_FX_DEFAULT, ...(o.voice[inst] ?? {}) } : voiceFx.of(inst));
+    for (const inst of INSTRUMENTS) applyVoice(g, inst, o.voice ? { ...VOICE_FX_DEFAULT, ...(o.voice[inst] ?? {}) } : morph.voice(inst));
   }
   return g;
 }
@@ -621,7 +626,7 @@ export function ensure(): AudioContext | undefined {
   // premier RUN) : prepares eux aussi, sinon leur premier passage jouait le son le plus proche (celui du kit)
   prepareLocks();
   attachLimiter(ctx, graph);
-  void attachGlue(ctx, graph, () => pattern.fx.get(), true);
+  void attachGlue(ctx, graph, () => morph.fx(), true);
   return ctx;
 }
 
@@ -945,6 +950,8 @@ export interface HitParams {
    * tranche, comme avant
    */
   tone: number | null;
+  /** une hauteur menee par le crossfader (2026-10-27) : le calcul le plus proche joue plutot que d'attendre (P2-18) */
+  lazy?: boolean;
 }
 
 /** Le filtre d'un coup : son type, sa coupure (Hz), son Q, son enveloppe (octaves au sommet, attaque, constante de descente). */
@@ -1020,7 +1027,20 @@ export function kitOverride(lock: Readonly<StepLock>): KitOverride | null {
   return ov;
 }
 
-export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | null, globalTone: number, globalStretch: number, fx: Readonly<VoiceFx>): HitParams {
+/**
+ * Deux changements du kit pour un coup, le second gagne (2026-10-27 : ko0, celui des scenes, P2-22 ; puis celui du verrou
+ * du pas) ; null sans aucun.
+ */
+export function mergeKitOv(a: KitOverride | null, b: KitOverride | null): KitOverride | null {
+  if (!a) return b;
+  if (!b) return a;
+  const out: KitOverride = { ...a, ...b };
+  if (a.knobs || b.knobs) out.knobs = { ...(a.knobs ?? {}), ...(b.knobs ?? {}) };
+  if (a.layer || b.layer) out.layer = { ...(a.layer ?? {}), ...(b.layer ?? {}) };
+  return out;
+}
+
+export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | null, globalTone: number, globalStretch: number, fx: Readonly<VoiceFx>, ko0: KitOverride | null = null, lazy = false): HitParams {
   const base: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
   const tune = lock?.tune ?? fx.tune;
   // TONE et FINE du pas (2026-10-09) : sa hauteur ; TONE verrouille passe aussi son filtre au coup (tone)
@@ -1041,18 +1061,21 @@ export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | 
     filter: hitFilter(fx, lock),
     tone: lock?.tone !== undefined ? lock.tone : null,
   };
-  if (!lock) return withPanGain(withBandGain(hp));
-  // Ce que le pas change au kit (R2, R3) : le coup se calcule avec (la variante 0, prepare a l'avance)
-  const ko = kitOverride(lock);
+  // Une hauteur menee par le crossfader (2026-10-27) : le coup le dit a shots.ts (P2-18)
+  if (lazy) hp.lazy = true;
+  if (!lock && !ko0) return withPanGain(withBandGain(hp));
+  // Ce que le pas change au kit (R2, R3) : le coup se calcule avec (la variante 0, prepare a l'avance) ; celui des scenes
+  // d'abord (2026-10-27, P2-22), les cles du verrou gagnent
+  const ko = mergeKitOv(ko0, lock ? kitOverride(lock) : null);
   if (ko) {
     hp.ov = { tw: kit.tweakWith(base, ko), sig: kit.sigWith(base, ko) };
     // Un echantillon d'une autre famille, seul, sur la voie du kick n'est pas un kick (2026-10-08, R2)
     if (inst === 'BD') hp.kick = kit.kickWith(ko);
-  } else if (lock.tune !== undefined || lock.fine !== undefined || lock.tone !== undefined) {
+  } else if (lock && (lock.tune !== undefined || lock.fine !== undefined || lock.tone !== undefined)) {
     // Une hauteur verrouillee (TUNE ; FINE et TONE depuis le 2026-10-09) : la variante 0 (le calcul prepare a l'avance est celui-la)
     hp.ov = { tw: kit.tweak(base), sig: kit.sig(base) };
   }
-  if (lock.level !== undefined) {
+  if (lock && lock.level !== undefined) {
     // Le gain du verrou rapporte a celui de la voix (sa tranche l'applique ensuite) : le niveau exact du VOL
     // verrouille (revue de R2 : le plafond de x4 jouait VOL 80 pour un verrou a 100 sur une voix a 40) ; une
     // voix a VOL 0 reste muette (sa tranche est a 0, le rapport n'y change rien)
@@ -1086,7 +1109,7 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   const c = g.ctx;
   const { decay, ts, pf } = hp;
   // Rien de pret pour ce son (le tout premier coup, avant le prechauffage) : il ne joue pas, aucun calcul ici
-  const shot = shots.get(hp.id, ts, pf, c.sampleRate, sync, hp.ov);
+  const shot = shots.get(hp.id, ts, pf, c.sampleRate, sync, hp.ov, hp.lazy === true);
   if (!shot) return null;
   let choked: { gate: GainNode; end: number } | undefined;
   if (inst === 'CH' || inst === 'OH') {
@@ -1213,7 +1236,9 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
 export function shotReady(inst: Inst, lock: Readonly<StepLock> | null, ms: number): Promise<boolean> {
   const c = ctx;
   if (!c) return Promise.resolve(false);
-  const hp = hitParams(inst, false, lock, tone, stretch, voiceFx.of(inst));
+  // Ce que le coup jouera, scenes comprises (2026-10-27 : sans scene, le verrou et la voix eux-memes)
+  const m = morph.hit(inst, lock, pattern.scenes.get());
+  const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
   return shots.whenReady(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov, ms);
 }
 
@@ -1224,14 +1249,17 @@ export function shotReady(inst: Inst, lock: Readonly<StepLock> | null, ms: numbe
  * `out` recoit la voix programmee (l'horloge, pour pouvoir l'annuler).
  * `vel` : la velocite du pas, en gain (1 fort, 0.6 moyen, 0.32 doux).
  */
-export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], vel = 1, lock: Readonly<StepLock> | null = null): boolean {
+export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], vel = 1, lock0: Readonly<StepLock> | null = null, scenes: SceneSet = pattern.scenes.get()): boolean {
   const g = graph;
   if (!g) return false;
   enforceMute(g);
   const now = g.ctx.currentTime;
   const t = when === undefined || when < now ? now : when;
-  const fx = voiceFx.of(inst);
-  const hp = hitParams(inst, open, lock, tone, stretch, fx);
+  // Les scenes au x du moment (2026-10-27, audio/morph.ts) : sans scene pour la voix, le verrou et la voix eux-memes
+  const m = morph.hit(inst, lock0, scenes);
+  const fx = m.fx;
+  const lock = m.lock;
+  const hp = hitParams(inst, open, lock, tone, morph.stretch(), fx, m.kit, m.lazy);
   // Velocite (2026-10-01) : un gain de plus entre la voix et sa tranche, sous 1 ; un VOL verrouille s'y ajoute (2026-10-08)
   const gain = Math.max(0, vel) * hp.gain;
   const entry = hitEntry(g, inst, hp, fx, gain);
@@ -1492,26 +1520,29 @@ const emitMix = (): void => mixListeners.forEach((fn) => fn());
  * (rampes de 20 ms), les encodeurs et leurs jumeaux se mettent a jour.
  * Sans contexte, les valeurs attendent le graphe (build() les lit).
  */
+/** Les FX globaux d'un etat sur le graphe (2026-10-27 : extrait du store ; le store, ou ce que les scenes en font jouer). */
+function applyFx(g: Graph, f: Readonly<Fx>): void {
+  g.fx.setDrive(f.drive);
+  g.kickFx?.setDrive(f.drive);
+  g.reverbSend.set(f.reverb);
+  g.delaySend.set(f.delay);
+  g.chorus.set(f.chorus);
+  // DLY TIME et DLY FB (2026-10-09, les encodeurs G et H)
+  g.delay.setDiv(delayDiv(f.dtime).steps);
+  g.delay.setFeedback(delayFb(f.dfb));
+  // Les reglages de chaque FX (2026-10-10) : DELAY TONE, REVERB SIZE TONE PRE, DIST TONE, CHORUS RATE DEPTH, puis BIT et COMP
+  applyFxSettings(g, f);
+}
+
 pattern.fx.subscribe(() => {
-  if (graph) {
-    const f = pattern.fx.get();
-    graph.fx.setDrive(f.drive);
-    graph.kickFx?.setDrive(f.drive);
-    graph.reverbSend.set(f.reverb);
-    graph.delaySend.set(f.delay);
-    graph.chorus.set(f.chorus);
-    // DLY TIME et DLY FB (2026-10-09, les encodeurs G et H)
-    graph.delay.setDiv(delayDiv(f.dtime).steps);
-    graph.delay.setFeedback(delayFb(f.dfb));
-    // Les reglages de chaque FX (2026-10-10) : DELAY TONE, REVERB SIZE TONE PRE, DIST TONE, CHORUS RATE DEPTH, puis BIT et COMP
-    applyFxSettings(graph, f);
-  }
+  // Ce qui joue : le store, ou ses reglages menes par les scenes (audio/morph.ts ; sans scene, le store lui-meme)
+  if (graph) applyFx(graph, morph.fx());
   emitMix();
 });
 
-/* Effets par piste : chaque changement du store rejoint les tranches. */
+/* Effets par piste : chaque changement du store rejoint les tranches (ce que les scenes en font jouer, 2026-10-27). */
 voiceFx.subscribe(() => {
-  if (graph) for (const inst of INSTRUMENTS) applyVoice(graph, inst, voiceFx.of(inst));
+  if (graph) for (const inst of INSTRUMENTS) applyVoice(graph, inst, morph.voice(inst));
   emitMix();
 });
 

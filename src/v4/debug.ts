@@ -40,6 +40,8 @@ import { knobBlock, openToggle } from './actions';
 import { faceKnobs } from './rytm/faceKnobs';
 import { trk, trkDebug } from './state/trk';
 import { allBindings, sceneRole, type SceneBinding, type SceneRole } from './rytm/sceneParams';
+import { morph } from './audio/morph';
+import { sceneCtl } from './state/sceneCtl';
 import { clock, clockDebug, type ClockDebug } from './audio/clock';
 import { audioDebug, type AudioDebug } from './audio/drums';
 import { pattern, type StoredPattern } from './audio/pattern';
@@ -274,6 +276,10 @@ export interface V4Debug {
     sceneRole(id: string): SceneRole;
     /** les scenes A et B du motif (2026-10-27, audio/pattern.ts pattern.scenes) : get, write, drop, clear, replace, subscribe */
     scenes: typeof pattern.scenes;
+    /** le morphing (2026-10-27, audio/morph.ts) : fx(), voice(i), stretch(), hit(), played01(id), has(), hitSig(), stats */
+    morph: typeof morph;
+    /** le crossfader et l'armement (2026-10-27, state/sceneCtl.ts) : x(), setX(x, src), gesture(on, src), get(), armDown... */
+    ctl: typeof sceneCtl;
   };
   /**
    * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
@@ -493,6 +499,8 @@ export function installDebug(src: DebugSource): () => void {
       bindings: () => allBindings().map((b) => ({ ...b })),
       sceneRole,
       scenes: pattern.scenes,
+      morph,
+      ctl: sceneCtl,
       faceCells(screen, inst, law = FACE_LAW) {
         const slots = pageSlots(screen, inst === undefined ? pattern.get().instrument : inst);
         return {
