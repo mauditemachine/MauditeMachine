@@ -303,9 +303,9 @@ export class DjRig {
         return;
       }
       // SYNC des machines (2026-10-27) : orange quand les machines suivent la MASTER, a moitie quand il attend une
-      // platine calee qui joue, pale eteint
+      // platine calee qui joue ; eteint, a peine (revue UI-6 : a 0.16 il se lisait allume, comme un CDJ il s'eteint)
       if (t.kind === 'machsync') {
-        const k = !s.machSync ? 0.16 : linkTempo(s) ? 1 : 0.42;
+        const k = !s.machSync ? 0.04 : linkTempo(s) ? 1 : 0.42;
         if (this.controls.setKeyGlow(i, [DJ_GLOW.orange[0] * k, DJ_GLOW.orange[1] * k, DJ_GLOW.orange[2] * k], true)) changed = true;
         return;
       }
