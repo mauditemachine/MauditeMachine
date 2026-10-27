@@ -235,6 +235,32 @@ test('le toucher : un lacher juste apres un envoi attend l intervalle de 30 Hz',
   );
 });
 
+// La couture de hw/index.ts pendant les presets du desktop (2026-10-27, la revue) : la main fait defiler la liste, la page
+// cachee garde sa valeur ; pot(k, v) puis change(k, v, true) : le moteur reste sous la main, rien ne repart en arriere ;
+// a la sortie, change(k, page) le remet a sa page
+test('les presets : pot puis change(main, fromPot), la fin de la garde ne ramene pas la page cachee ; la sortie la ramene', () => {
+  const { clock, feed, sent } = setup();
+  feed.change(0, 1);
+  sent.length = 0;
+  for (const v of [0.3, 0.35, 0.4, 0.45, 0.5]) {
+    feed.pot(0, v);
+    feed.change(0, v, true);
+    clock.advance(30);
+  }
+  clock.advance(500);
+  assert.deepEqual(sent, []);
+  feed.touch(0, true);
+  feed.pot(0, 0.55);
+  feed.change(0, 0.55, true);
+  feed.touch(0, false);
+  clock.advance(500);
+  assert.ok(sent.every((x) => x.v === 0.55));
+  sent.length = 0;
+  feed.change(0, 1);
+  clock.advance(100);
+  assert.deepEqual(sent.map((x) => x.v), [1]);
+});
+
 test('des valeurs hors course sont bornees, NaN et un potard inconnu ignores', () => {
   const { clock, feed, sent } = setup();
   feed.change(0, 2);

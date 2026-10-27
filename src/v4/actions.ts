@@ -1252,6 +1252,18 @@ function presetAbsTurn(k: number, v: number): void {
   if (n) presetTurn(k, n);
 }
 
+/**
+ * La derniere valeur absolue du potard k recue pendant les presets du desktop (0 a 1 ; null : aucune, ou les presets
+ * fermes) : le retour MIDI la rend au controleur (midi/targets.ts rytm:knob) au lieu de la valeur de la page cachee, son
+ * moteur reste sous la main ; a la sortie, la page revient (2026-10-27, la revue : le moteur repartait a la page cachee,
+ * le geste suivant faisait sauter la liste ; le boitier : hw/index.ts).
+ */
+export function presetKnobHeld(k: number): number | null {
+  if (!presetTurns()) return null;
+  const u = presetAbs.u[k];
+  return u === undefined || !Number.isFinite(u) ? null : Math.max(0, Math.min(1, u));
+}
+
 /** Le potard de page k tourne (rytm:knob, la face, phase 3 le potard motorise) : la page se montre, puis le bloc. */
 export function knobDial(k: number, v: number, src: CtlSrc = 'ui'): void {
   // Le mode presets du desktop (2026-10-27) : le potard tourne la liste ou le nom, la page ne bouge pas

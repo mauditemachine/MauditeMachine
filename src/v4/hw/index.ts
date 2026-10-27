@@ -10,13 +10,16 @@
  * - subscribe((k, value01) => ...) : le potard k doit aller a value01 (hw/motor.ts : toute cause sauf le potard lui-meme,
  *   30 Hz au plus par potard, la derniere valeur toujours, la garde d'echo de 150 ms, rien tant qu'il est touche) ;
  * - pot(k, value01) : le pont rapporte que la main a tourne le potard k (le site le prend comme rytm:knob:k, source hw) ;
+ *   pendant les presets du desktop (les potards font defiler la liste), les moteurs restent sous la main et repartent a
+ *   la valeur de leur page a la sortie ;
  * - touch(k, on) : le potard k touche ou lache (CC 30 a 37 du boitier).
  */
 
-import { dialRange, knobDial, knobDialOf } from '../actions';
+import { dialRange, knobDial, knobDialOf, presetTurns } from '../actions';
 import { targetOf, type MidiTarget } from '../midi/targets';
 import { faceKnobs, type KnobCause } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
+import { presetMode } from '../state/presetMode';
 import { motorFeed, type MotorFeed, type MotorKnobState, type MotorListener } from './motor';
 import { getSnapshot as snapshotOf, type HwSnapshot } from './snapshot';
 import { HW_PORT, isHwPort } from './port';
@@ -45,13 +48,30 @@ function start(): MotorFeed {
   faceKnobs.subscribe((c) => {
     const views = faceKnobs.get();
     const now = performance.now();
+    const held = presetTurns();
     for (const k of c.moved) {
       const v = views[k];
       if (!v) continue;
       causes[k] = c.cause;
+      // Les presets du desktop : les potards font defiler la liste, les moteurs restent sous la main jusqu'a la sortie
+      // (un LOAD ne les bouge pas encore)
+      if (held) continue;
       // Une case vide ou un dessin : le moteur reste ou il est (la regle des capuchons 3D)
       if (v.state === 'empty' || v.state === 'picture') continue;
       f.change(k, v.pos, faceTouch.lastSrc(k) === 'hw' && faceTouch.recent(k, POT_MS, now));
+    }
+  });
+  // La sortie des presets (EXIT, Echap, l'attente, une autre machine) : chaque moteur repart a la valeur de sa page
+  let wasHeld = presetTurns();
+  presetMode.subscribe(() => {
+    const held = presetTurns();
+    if (held === wasHeld) return;
+    wasHeld = held;
+    if (held) return;
+    const views = faceKnobs.get();
+    for (let k = 0; k < KNOBS; k += 1) {
+      const v = views[k];
+      if (v && v.state !== 'empty' && v.state !== 'picture') f.change(k, v.pos);
     }
   });
   return f;
@@ -69,7 +89,11 @@ export function subscribe(fn: MotorListener): () => void {
 export function pot(k: number, value01: number): void {
   if (!okKnob(k) || !Number.isFinite(value01)) return;
   const v = Math.max(0, Math.min(1, value01));
-  start().pot(k, v);
+  const f = start();
+  f.pot(k, v);
+  // Les presets du desktop (2026-10-27, la revue : la fin de la garde poussait la valeur de la page cachee, le moteur
+  // repartait en arriere et le geste suivant faisait sauter la liste) : la main est la valeur du moteur, rien ne repart
+  if (presetTurns()) f.change(k, v, true);
   const [lo, hi] = dialRange(knobDialOf(k));
   knobDial(k, lo + v * (hi - lo), 'hw');
 }
