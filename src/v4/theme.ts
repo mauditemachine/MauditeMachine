@@ -787,6 +787,21 @@ export const KNOB_RING = {
 } as const;
 
 /**
+ * La part allumee du segment j (0 a 26) pour une course t : de 0 a t ; a zero au centre, du milieu a t, le segment du
+ * milieu toujours a KNOB_RING.center au moins. Pure (2026-10-27) : les anneaux 3D (scene/encoders.ts) et ceux de la
+ * machine sans WebGL (fallback/StaticMachine.tsx) la lisent.
+ */
+export function ringLit(j: number, t: number, bipolar: boolean): number {
+  const n = KNOB_RING.segments;
+  const v = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) * n : 0;
+  const mid = n / 2;
+  const lo = bipolar ? Math.min(mid, v) : 0;
+  const hi = bipolar ? Math.max(mid, v) : v;
+  const f = Math.min(1, Math.max(0, Math.min(hi, j + 1) - Math.max(lo, j)));
+  return bipolar && j === Math.floor(mid) ? Math.max(f, KNOB_RING.center) : f;
+}
+
+/**
  * Dans l'ordre de lecture (2026-10-01) : MASTER au-dessus de TEMPO, a
  * droite de l'ecran ; la rangee GLOBAL a gauche (SWING, STRETCH, puis les
  * effets dans l'ordre du signal : DIST, CHORUS, DELAY, REVERB) ; la rangee

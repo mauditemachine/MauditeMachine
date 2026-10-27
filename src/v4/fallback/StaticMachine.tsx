@@ -10,18 +10,37 @@
  * les pads, RUN, CLEAR, les 16 touches trig, celles du motif par defaut
  * allumees (2026-10-19 : plus de LED au-dessus, la touche s'allume).
  * Aucune animation ; calcule une fois au chargement du module.
+ *
+ * La face V.4.0 du desktop (2026-10-27, Mika : "faceplate Octatrack x
+ * Digitakt") : dessinee depuis rytm/faceplate.ts par theme.ts (KEY_LABELS,
+ * FACE_KEY, XFADE, KNOB_RING) : l'ecran 4.3 pouces, les huit potards en 2 x 4
+ * et leur anneau de valeur (la meme loi que la scene, theme.ts ringLit), la
+ * rangee des douze touches a pictogramme (rytm/icons.ts, traces tels quels),
+ * SCENE A et B et la fente du crossfader avec son capuchon, les seize pas en
+ * deux rangees et leurs legendes (le numero, BD a CY sur 1 a 8), allumes comme
+ * a l'arrivee (BD choisi). Le telephone garde son dessin (phase 5).
  */
 
 import React from 'react';
 import { BPM, DEFAULT_STEPS, INSTRUMENTS, velocity } from '../audio/pattern';
+import { ICON_STROKE, ICON_VIEWBOX, RYTM_ICONS } from '../rytm/icons';
 import {
   BODY,
   ENCODER,
+  FACE_KEY,
   FACE_KNOBS,
+  GLOBAL_ENCODERS,
   HEX,
   KEYS,
+  KEY_ICON,
   KEY_LABEL,
   KEY_LABELS,
+  KEY_LIT,
+  KNOB_RING,
+  PORTRAIT,
+  XFADE,
+  isBipolar,
+  ringLit,
   OLED,
   ORBIT,
   PAD,
@@ -42,6 +61,7 @@ import {
   pageKeyX,
   keyDz,
   keyX,
+  type KeyLabelSpec,
   type SilkText,
 } from '../theme';
 
@@ -214,6 +234,7 @@ function panelTop(): React.ReactNode {
         })}
         <rect x={O.x - b.w / 2} y={O.z - b.d / 2} width={b.w} height={b.d} fill={HEX.oled} />
       </g>
+      {!PORTRAIT && faceFlat()}
       <g transform={planeAt(O.y)}>
         <rect x={O.x - O.w / 2} y={O.z - O.d / 2} width={O.w} height={O.d} fill={HEX.oled} />
         <g className="v4-lcd-text" fill={HEX.bone} fontSize={fz}>
@@ -328,6 +349,129 @@ function encoder(i: number, angleDeg: number): Solid {
 }
 
 const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
+
+/* ---------- la face V.4.0 du desktop (2026-10-27) ---------- */
+
+/** Les encres des touches (scene/keyLabels.ts) : au repos sur la machine noire, l'os de RUN, le noir sur un pas allume. */
+const INK_REST = KEY_LABEL.inkRest.dark;
+const INK_BONE = 'rgba(246, 241, 231, 0.92)';
+const INK_DARK = 'rgba(14, 14, 16, 0.92)';
+const r4 = (n: number): number => Math.round(n * 10000) / 10000;
+
+/** Un point de l'anneau : l'angle (deg, 0 a midi, positif vers la gauche comme potDeg) au rayon r autour de (x, z). */
+const ringPt = (x: number, z: number, a: number, r: number): string => `${r4(x - Math.sin(a * DEG) * r)} ${r4(z - Math.cos(a * DEG) * r)}`;
+
+/**
+ * A plat sur le panneau, sous les volumes : les anneaux de valeur des huit potards (27 segments sur les 270 deg de la
+ * course, l'orange des pas mis, le dernier en partie ; STRETCH du centre a sa valeur) et la fente du crossfader.
+ */
+function faceFlat(): React.ReactNode {
+  const R = KNOB_RING;
+  const half = (TEMPO_UI.sweepDeg / R.segments - R.airDeg) / 2;
+  const segs: React.ReactNode[] = [];
+  FACE_KNOBS.forEach((k, i) => {
+    const t = START[k.id] ?? 0;
+    const id = GLOBAL_ENCODERS[i];
+    const bip = id !== undefined && isBipolar(id);
+    for (let j = 0; j < R.segments; j += 1) {
+      const a = potDeg((j + 0.5) / R.segments);
+      const steps = [-half, -half / 2, 0, half / 2, half];
+      const outer = steps.map((d) => ringPt(k.x, k.z, a + d, R.r1));
+      const inner = steps.reverse().map((d) => ringPt(k.x, k.z, a + d, R.r0));
+      segs.push(<path key={`ring-${i}-${j}`} d={`M${[...outer, ...inner].join('L')}Z`} fill={mixHex(HEX.line, HEX.ledSet, ringLit(j, t, bip))} />);
+    }
+  });
+  const X = XFADE;
+  return (
+    <>
+      <g transform={planeAt(R.y)}>{segs}</g>
+      <g transform={planeAt(X.slot.h)}>
+        <rect x={r4(X.x - X.slot.w / 2)} y={r4(X.z - X.slot.d / 2)} width={r4(X.slot.w)} height={r4(X.slot.d)} rx={r4(X.slot.d / 2)} fill={HEX.oled} />
+      </g>
+    </>
+  );
+}
+
+/**
+ * Ce qui est imprime sur une touche de la face V.4.0 (theme.ts KEY_LABELS) : son pictogramme (rytm/icons.ts, les traces
+ * de Tabler a l'echelle de KEY_ICON.size, trait de ICON_STROKE), ou son texte (la lettre d'une scene, le numero et la voix
+ * d'un pas), a la hauteur h ; lit : un pas allume, l'encre passe au noir.
+ */
+function faceLabel(s: Solid, l: KeyLabelSpec, h: number, lit = false): Solid {
+  const ink = lit ? INK_DARK : l.rest === 'bone' ? INK_BONE : INK_REST;
+  if (l.icon) {
+    const icon = RYTM_ICONS[l.icon];
+    const q = KEY_ICON.size;
+    const cz = l.z + (l.dz ?? KEY_ICON.dz);
+    s.nodes.push(
+      <g
+        key={`kicon-${l.id}`}
+        transform={`${planeAt(h + 0.003)} translate(${r4(l.x - q / 2)} ${r4(cz - q / 2)}) scale(${r4(q / ICON_VIEWBOX)})`}
+        fill="none"
+        stroke={ink}
+        strokeWidth={ICON_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {icon.paths.map((d, i) => (
+          <path key={`p${i}`} d={d} />
+        ))}
+        {(icon.fills ?? []).map((d, i) => (
+          <path key={`f${i}`} d={d} fill={ink} />
+        ))}
+      </g>
+    );
+    return s;
+  }
+  const cap0 = l.cap ?? KEY_LABEL.cap;
+  const room = l.qw ?? l.w - 2 * KEY_LABEL.margin;
+  const cap = cap0 * Math.min(1, room / textW({ text: l.text, x: 0, z: 0, cap: cap0 }, cap0));
+  const size = cap / SILK.capRatio;
+  const ls = SILK.tracking * size;
+  const left = l.align === 'left';
+  s.nodes.push(
+    <g key={`klabel-${l.id}`} transform={planeAt(h + 0.003)}>
+      <text x={r4(left ? l.x - room / 2 : l.x + ls / 2)} y={r4(l.z + (l.dz ?? KEY_LABEL.dz) + cap / 2)} fontSize={r4(size)} fontWeight={KEY_LABEL.weight} textAnchor={left ? 'start' : 'middle'} fill={ink} className="v4-silk">
+        {l.text}
+      </text>
+    </g>
+  );
+  return s;
+}
+
+/** Les volumes de la face V.4.0 : les potards, la rangee des douze touches et les scenes, le capuchon du crossfader, les pas. */
+function faceSolids(items: Solid[]): void {
+  FACE_KNOBS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
+  // La rangee (TRK VOICE FLTR ENV FX EDIT OPEN RUN/STOP CLEAR RANDOM MUTE SOLO), SCENE A et B : la forme des touches de
+  // page, RUN sur son rouge ; leur pictogramme ou leur lettre dessus
+  for (const l of KEY_LABELS) {
+    if (l.group === 'stepn' || l.group === 'stepv') continue;
+    const red = l.id === 'run';
+    items.push(faceLabel(box(`fkey-${l.id}`, l.x, l.z, l.w / 2, l.d / 2, FACE_KEY.h, red ? HEX.red : HEX.graphiteHi, red ? C.runSide : C.clearSide, red ? C.runSide : C.clearSide), l, FACE_KEY.h));
+  }
+  // Le capuchon du crossfader, au milieu de sa course (phase 1), son trait d'os sur le dessus
+  const X = XFADE;
+  const cap = box('xfade', X.x, X.z, X.cap.w / 2, X.cap.d / 2, X.cap.h, HEX.encoder, C.encSide, C.encSide);
+  const m0 = P(panel(X.x, X.cap.h, X.z - X.cap.mark.d / 2));
+  const m1 = P(panel(X.x, X.cap.h, X.z + X.cap.mark.d / 2));
+  cap.nodes.push(<line key="xfade-m" x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(X.cap.mark.w * S)} strokeLinecap="round" />);
+  items.push(cap);
+  // Les seize pas en deux rangees : ceux de BD (la voix choisie a l'arrivee) allumes selon leur velocite, leurs legendes
+  // au noir sur un pas allume
+  const inst = INSTRUMENTS[0];
+  for (let i = 0; i < KEYS.count; i += 1) {
+    const v = velocity(DEFAULT_STEPS, inst, i);
+    const f = v > 0 ? (STEP_LIT.ramp[v] ?? 0) : 0;
+    const top = v > 0 ? mixHex(HEX.key, HEX.ledSet, f) : HEX.key;
+    const key = box(`key-${i}`, keyX(i), KEYS.z + keyDz(i), KEYS.w / 2, KEYS.d / 2, KEYS.h, top, C.keySide, C.keySide);
+    const ids = i < INSTRUMENTS.length ? [`stepn-${i + 1}`, `stepv-${INSTRUMENTS[i]}`] : [`stepn-${i + 1}`];
+    for (const id of ids) {
+      const l = KEY_LABELS.find((k) => k.id === id);
+      if (l) faceLabel(key, l, KEYS.h, f > KEY_LIT.dark);
+    }
+    items.push(key);
+  }
+}
 /**
  * Les encodeurs a l'arrivee : leurs FX globaux de depart (DIST, CHORUS, DELAY,
  * REVERB, BIT et COMP a 0, STRETCH a midi, SWING a 55 %).
@@ -336,6 +480,10 @@ const START: Record<string, number> = { p4: 0.5, p5: 0.3 };
 
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];
+  if (!PORTRAIT) {
+    faceSolids(items);
+    return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
+  }
   FACE_KNOBS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
   // Les touches de page (2026-10-08), juste sous l'ecran depuis le 2026-10-09 ; leur nom dessus depuis le 2026-10-18
   RYTM_PAGE_KEYS.forEach((p, i) =>
@@ -408,7 +556,11 @@ const DRAWING = (
 export const StaticMachine: React.FC = () => (
   <svg className="v4-fallback-machine" viewBox={`0 0 ${VB_W} ${VB_H}`} role="img" aria-labelledby="v4-machine-title v4-machine-desc">
     <title id="v4-machine-title">MM-RYTM drum machine</title>
-    <desc id="v4-machine-desc">A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.</desc>
+    <desc id="v4-machine-desc">
+      {PORTRAIT
+        ? 'A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.'
+        : 'A black drum machine: a 4.3 inch screen, eight global effect knobs with value rings, a row of twelve pictogram keys, scenes A and B with a crossfader, sixteen step keys in two rows.'}
+    </desc>
     {DRAWING}
   </svg>
 );

@@ -35,7 +35,7 @@
 
 import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, RingGeometry, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, type FaceKnobId } from '../theme';
+import { COLOR, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, ringLit, type FaceKnobId } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -130,19 +130,9 @@ function ringSegment(): BufferGeometry {
   return g;
 }
 
-/**
- * La part allumee du segment j (0 a 26) pour une course t : de 0 a t ; a zero au centre, du milieu a t, le segment du
- * milieu toujours a KNOB_RING.center au moins.
- */
-export function ringLit(j: number, t: number, bipolar: boolean): number {
-  const n = KNOB_RING.segments;
-  const v = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) * n : 0;
-  const mid = n / 2;
-  const lo = bipolar ? Math.min(mid, v) : 0;
-  const hi = bipolar ? Math.max(mid, v) : v;
-  const f = Math.min(1, Math.max(0, Math.min(hi, j + 1) - Math.max(lo, j)));
-  return bipolar && j === Math.floor(mid) ? Math.max(f, KNOB_RING.center) : f;
-}
+// La part allumee d'un segment (ringLit) vit dans theme.ts depuis le 2026-10-27 : la machine sans WebGL
+// (fallback/StaticMachine.tsx) dessine les memes anneaux sans three ; re-exportee ici pour les lecteurs d'avant
+export { ringLit };
 
 export interface EncodersInfo {
   ids: FaceKnobId[];
