@@ -289,6 +289,12 @@ const UW = 320;
 const UH = OLED_UH;
 const TALL = UH > 120;
 const DY = OLED_DY;
+/**
+ * La hauteur gagnee par l'ecran 5:3 du desktop V.4.0 (2026-10-27, Mika : "ecran 4.3 pouces 800 x 480") : 320 x 192
+ * unites au lieu de 320 x 158, 34 unites de plus ; 0 au telephone. Les blocs de la vue PAGE et les lignes du navigateur
+ * des sons la prennent ; le reste (l'en-tete, le pied, HOME centre par DY) suit deja UH.
+ */
+const GROW = UH - 158;
 
 /**
  * La touche i (R4, 2026-10-08), en unites : son centre, dans le coin en haut
@@ -411,12 +417,13 @@ interface PanelArea {
  * rangees a 3 l'une de l'autre (4 avant la revue du meme jour : le pied y
  * gagne sa place, 132 a 158).
  */
+// L'ecran 5:3 du desktop (2026-10-27) : les blocs prennent les 34 unites de plus, moitie chacun (72 x 69.5, la grille finit a UH - 26)
 const MATRIX: { x0: number; pitch: number; w: number; h: number; rows: readonly [number, number]; r: number } = TALL
-  ? { x0: 8, pitch: 76, w: 72, h: 52.5, rows: [24, 79.5], r: 4.5 }
+  ? { x0: 8, pitch: 76, w: 72, h: 52.5 + GROW / 2, rows: [24, 24 + 52.5 + GROW / 2 + 3], r: 4.5 }
   : { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 };
 // valueW au telephone 39 (revue du 2026-10-09 : 127 touchait le dessin a 42 ; a trois chiffres la valeur prend le corps d'en dessous)
 const BLOCK: { padX: number; valueW: number; draw: { dx0: number; dx1: number; dy0: number; dy1: number } } = TALL
-  ? { padX: 6, valueW: 39, draw: { dx0: 49, dx1: 67, dy0: 20, dy1: 37 } }
+  ? { padX: 6, valueW: 39, draw: { dx0: 49, dx1: 67, dy0: 20 + GROW * 0.2, dy1: 37 + GROW * 0.6 } }
   : {
       padX: 5,
       /** la largeur de la valeur avant l'image */
@@ -518,6 +525,33 @@ const BLOCK_TYPE = {
     selR: 1.4,
     panelSize: 10,
     panelLh: 12,
+    lockS: 7,
+    lockW: 8.5,
+    lockDx: 6.5,
+  },
+  /*
+   * L'ecran 5:3 du desktop V.4.0 (2026-10-27) : les blocs de 72 x 69.5 (52.5 avant) ; la valeur plus grande et plus bas,
+   * l'unite au bas du bloc, le panneau des verrous plus aere. Le reste, celui du dessin haut.
+   */
+  wide: {
+    nameSize: 11.5,
+    letterSize: 0,
+    unitSize: 10,
+    tagAt: 'unit' as 'name' | 'unit',
+    tagSize: 10,
+    valueSizes: [30, 26, 22, 17],
+    nameDy: 13.5,
+    valueDy: 44,
+    unitDy: 57.5,
+    letters: false,
+    notchRow: false,
+    tabs: false,
+    tabSize: 0,
+    foot: 10.5,
+    head: { pill: 10, pillH: 14.5, voice: 14.5, sound: 10, bpm: 9.8, num: 14.5 },
+    selR: 1.4,
+    panelSize: 10,
+    panelLh: 13,
     lockS: 7,
     lockW: 8.5,
     lockDx: 6.5,
@@ -663,8 +697,8 @@ const SB: {
     { rows: [24, 132], x0: 8, x1: 305, bar: 312, del: 0, arrows: [[196, 242], [246, 292]], arrow: 6, head: 14.5, rank: 10.5, num: 9.5, label: 14, tag: 9, hint: [10, 10] }
   : TALL
     ? // L'ecran haut du desktop (2026-10-18) : la place des lignes du telephone, sept lignes de 15,4 (BROWSER_ROWS), le x des
-      // samples perso garde (la souris), l'en-tete du dessin haut
-      { rows: [24, 132], x0: 8, x1: 305, bar: 312, del: 18, arrows: [[226, 257], [260, 291]], arrow: 5.6, head: 14.5, rank: 10.5, num: 7.5, label: 10.5, tag: 7, hint: [9, 8] }
+      // samples perso garde (la souris), l'en-tete du dessin haut ; l'ecran 5:3 (2026-10-27) : jusqu'a 166, neuf lignes de 15,8
+      { rows: [24, 132 + GROW], x0: 8, x1: 305, bar: 312, del: 18, arrows: [[226, 257], [260, 291]], arrow: 5.6, head: 14.5, rank: 10.5, num: 7.5, label: 10.5, tag: 7, hint: [9, 8] }
     : { rows: [24, 99], x0: 8, x1: 306, bar: 312.5, del: 17, arrows: [[255, 277], [280, 302]], arrow: 4.2, head: 11.5, rank: 8, num: 6, label: 8.8, tag: 5.6, hint: [6.8, 5.8] };
 /** Une ligne du navigateur. */
 const SB_PITCH = (SB.rows[1] - SB.rows[0]) / BROWSER_ROWS;
@@ -772,12 +806,14 @@ export class Screen {
     /** telephone : pas de vague au repos (aucune image pour rien) */
     private mobile = false
   ) {
-    const W = mobile ? 1024 : 1280;
+    // L'ecran 5:3 du desktop (2026-10-27) : 1600 x 960, deux fois les 800 x 480 de la dalle de la machine (5 px l'unite)
+    const W = mobile ? 1024 : GROW > 0 ? 1600 : 1280;
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
     // L'ecran haut du telephone (2026-10-09) a ses corps a lui ; une tablette (mobile, l'ecran du desktop) garde ceux du telephone ;
     // depuis le 2026-10-18 l'ecran du desktop est haut aussi : les corps du dessin haut (1.56 px l'unite a 1440 x 900)
-    this.bt = TALL ? BLOCK_TYPE.tall : mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
+    // L'ecran 5:3 du desktop (2026-10-27, GROW) : les corps de ses blocs plus hauts
+    this.bt = TALL && GROW > 0 ? BLOCK_TYPE.wide : TALL ? BLOCK_TYPE.tall : mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
     this.info = {
       draws: 0,
       text: ['', '', ''],

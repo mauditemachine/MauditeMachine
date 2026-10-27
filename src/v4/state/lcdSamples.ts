@@ -39,7 +39,8 @@ export const BROWSER_IDLE_MS = 12000;
  * 15,4 unites (24 px a 1440 x 900), une de plus qu'avant et plus hautes.
  */
 // 3 au telephone depuis le 2026-10-22 (audit RS-11 : 4 lignes de 25 px, la voisine prise par erreur) : 36 unites, 33 px
-export const BROWSER_ROWS = PORTRAIT ? 3 : OLED_UH > 120 ? 7 : 6;
+// 9 sur l'ecran 5:3 du desktop V.4.0 (2026-10-27, OLED_UH 192) : 15,8 unites chacune
+export const BROWSER_ROWS = PORTRAIT ? 3 : OLED_UH >= 192 ? 9 : OLED_UH > 120 ? 7 : 6;
 /** Une ligne armee pour partir (REMOVE? TAP AGAIN) le reste ce temps. */
 export const BROWSER_ARM_MS = 4000;
 /** Le fichier glisse au-dessus de la machine : son annonce tient ce temps apres le dernier dragover. */
