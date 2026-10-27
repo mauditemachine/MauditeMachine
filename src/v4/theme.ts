@@ -13,7 +13,7 @@
  */
 
 import seoMeta from '../data/seo-meta.json';
-import type { FpIconId } from './rytm/faceplate';
+import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, type FpIconId } from './rytm/faceplate';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -735,6 +735,23 @@ export const ENCODER = {
 } as const;
 
 /**
+ * L'anneau de valeur des potards de la face V.4.0 (2026-10-27, Mika : "chaque potard a un anneau de valeur, la machine
+ * aura des potards motorises qui suivent la valeur") : 27 segments a plat autour du capuchon, sur les 270 deg de la
+ * course (7 h 30 a 4 h 30, comme le repere), un rayon de r0 a r1 (rytm/faceplate.ts knobs.ring), airDeg d'air entre
+ * deux segments, y au-dessus du panneau (la serigraphie est a 0.004). Un segment s'allume a l'orange des pas mis, le
+ * dernier en partie (le mouvement reste doux) ; un potard a zero au centre (STRETCH) s'allume du centre a la valeur, son
+ * segment du milieu toujours a center (il dit ou est le zero).
+ */
+export const KNOB_RING = {
+  r0: fpU(RYTM_FACEPLATE.knobs.ring.inner / 2),
+  r1: fpU(RYTM_FACEPLATE.knobs.ring.outer / 2),
+  segments: RYTM_FACEPLATE.knobs.ring.segments,
+  airDeg: 3,
+  y: 0.006,
+  center: 0.35,
+} as const;
+
+/**
  * Dans l'ordre de lecture (2026-10-01) : MASTER au-dessus de TEMPO, a
  * droite de l'ecran ; la rangee GLOBAL a gauche (SWING, STRETCH, puis les
  * effets dans l'ordre du signal : DIST, CHORUS, DELAY, REVERB) ; la rangee
@@ -806,6 +823,38 @@ export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)
  * (audio/house.ts). MUTE coupe la voix selectionnee, SOLO ne laisse jouer
  * qu'elle (state/voices.ts).
  */
+/**
+ * La rangee des touches de la face V.4.0 (2026-10-27, Mika : "une rangee de 12 boutons pictogrammes 12 x 12 en y 84,
+ * x = 8 + 14 i ; SCENE A et B, le crossfader entre elles") : la forme des touches de page (meme matiere, meme hauteur),
+ * carrees de 12 mm, leur temoin pres du bord arriere ; faceKeyX(i), le centre de la touche i (0 TRK a 11 SOLO,
+ * rytm/faceplate.ts). FACE_KEYS : celles de scene/rytmFaceKeys.ts (TRK, EDIT, OPEN, SCENE A et B) ; XFADE : la fente
+ * (fusionnee au panneau, machine.ts) et le capuchon du crossfader, au milieu de sa course en phase 1. Le desktop
+ * seulement : le telephone garde sa face (phase 5).
+ */
+export const FACE_KEY = {
+  w: fpU(RYTM_FACEPLATE.buttons.size),
+  d: fpU(RYTM_FACEPLATE.buttons.size),
+  h: 0.1,
+  radius: 0.04,
+  z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.size / 2),
+  led: { w: 0.3, d: 0.04, back: 0.075 },
+} as const;
+export const faceKeyX = (i: number): number => rectCenter(buttonRect(i)).x;
+export type FaceKeyId = 'trk' | 'edit' | 'open' | 'scene-a' | 'scene-b';
+export const FACE_KEYS: readonly { id: FaceKeyId; x: number }[] = [
+  { id: 'trk', x: faceKeyX(0) },
+  { id: 'edit', x: faceKeyX(5) },
+  { id: 'open', x: faceKeyX(6) },
+  { id: 'scene-a', x: rectCenter(RYTM_FACEPLATE.scenes.a.rect).x },
+  { id: 'scene-b', x: rectCenter(RYTM_FACEPLATE.scenes.b.rect).x },
+];
+export const XFADE = {
+  x: fpX((RYTM_FACEPLATE.scenes.xfade.x0 + RYTM_FACEPLATE.scenes.xfade.x1) / 2),
+  z: fpZ(RYTM_FACEPLATE.scenes.xfade.y),
+  slot: { w: fpU(RYTM_FACEPLATE.scenes.xfade.x1 - RYTM_FACEPLATE.scenes.xfade.x0), d: fpU(RYTM_FACEPLATE.scenes.xfade.slot), h: 0.005 },
+  cap: { w: fpU(RYTM_FACEPLATE.scenes.xfade.cap.w), d: fpU(RYTM_FACEPLATE.scenes.xfade.cap.h), h: fpU(RYTM_FACEPLATE.scenes.xfade.cap.z), radius: 0.05, mark: { w: 0.03, d: 0.5 } },
+} as const;
+
 /*
  * Sous les pads depuis le 2026-10-08 (la refonte facon Digitakt : sous
  * l'ecran, les huit potards de page et les touches de page ; Mika : "RYTM :

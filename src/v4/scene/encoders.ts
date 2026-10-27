@@ -23,11 +23,19 @@
  * Il ne reste ici que les huit encodeurs, au telephone aussi depuis le meme
  * jour (deux rangees de quatre, theme.ts FACE_KNOBS) : leur zone y couvre toute
  * leur colonne, 44 px de haut (PAGE_KNOBS.hitW, hitD), le doigt.
+ *
+ * L'anneau de valeur (2026-10-27, la face V.4.0 du desktop, Mika : "la machine
+ * aura des potards motorises qui suivent la valeur") : 27 segments a plat autour
+ * de chaque capuchon (theme.ts KNOB_RING), un seul InstancedMesh de 216 segments
+ * non eclaires (un draw call), leur couleur par instance : la fente eteinte,
+ * l'orange des pas mis allume, le dernier en partie. setValue l'ecrit avec
+ * l'angle : l'anneau suit la valeur comme le potard motorise la suivra. Le
+ * telephone n'en a pas (opts.rings).
  */
 
-import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshStandardMaterial, Quaternion, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
+import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, RingGeometry, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ENCODER, FACE_KNOBS, HOVER_LIGHT, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, pageKnobIndex, type FaceKnobId } from '../theme';
+import { COLOR, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, type FaceKnobId } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -110,12 +118,40 @@ function skirtGeometry(mobile: boolean): BufferGeometry {
   return out;
 }
 
+/** Un segment de l'anneau (2026-10-27) : un secteur a plat, son milieu vers l'arriere (-z, midi : le repere a mi-course). */
+function ringSegment(): BufferGeometry {
+  const R = KNOB_RING;
+  const a = ((TEMPO_UI.sweepDeg / R.segments - R.airDeg) * Math.PI) / 180;
+  const g = new RingGeometry(R.r0, R.r1, 4, 1, Math.PI / 2 - a / 2, a);
+  // (cos t, sin t, 0) -> (cos t, 0, -sin t) : a plat, face vers le haut
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, R.y, 0);
+  g.deleteAttribute('uv');
+  return g;
+}
+
+/**
+ * La part allumee du segment j (0 a 26) pour une course t : de 0 a t ; a zero au centre, du milieu a t, le segment du
+ * milieu toujours a KNOB_RING.center au moins.
+ */
+export function ringLit(j: number, t: number, bipolar: boolean): number {
+  const n = KNOB_RING.segments;
+  const v = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) * n : 0;
+  const mid = n / 2;
+  const lo = bipolar ? Math.min(mid, v) : 0;
+  const hi = bipolar ? Math.max(mid, v) : v;
+  const f = Math.min(1, Math.max(0, Math.min(hi, j + 1) - Math.max(lo, j)));
+  return bipolar && j === Math.floor(mid) ? Math.max(f, KNOB_RING.center) : f;
+}
+
 export interface EncodersInfo {
   ids: FaceKnobId[];
   /** angles en degres */
   angleDeg: number[];
   /** course 0 a 1 */
   values: number[];
+  /** l'anneau de valeur (2026-10-27) : la somme des parts allumees de ses 27 segments, par potard ; [] sans anneaux */
+  ring: number[];
 }
 
 export class Encoders {
@@ -129,8 +165,16 @@ export class Encoders {
   private value = new Float32Array(FACE_KNOBS.length);
   /** l'encodeur sous la souris (2026-10-22, HOVER_LIGHT), -1 aucun */
   private hover = -1;
+  /** les anneaux de valeur (2026-10-27, la face V.4.0 du desktop) ; null au telephone */
+  readonly rings: InstancedMesh | null = null;
+  private ringMat: MeshBasicMaterial | null = null;
+  /** la course que montre chaque anneau (NaN : pas encore peint) et la part allumee de chaque segment */
+  private ringT = new Float32Array(FACE_KNOBS.length).fill(Number.NaN);
+  private ringPart = new Float32Array(FACE_KNOBS.length * KNOB_RING.segments);
+  private ringOff = new Color();
+  private ringOn = new Color();
 
-  constructor(opts: { mobile: boolean; castShadow: boolean }) {
+  constructor(opts: { mobile: boolean; castShadow: boolean; rings?: boolean }) {
     const n = FACE_KNOBS.length;
     this.material = new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.encoder });
     this.material.name = 'encoder';
@@ -158,6 +202,49 @@ export class Encoders {
     }
     this.mesh.instanceColor?.setUsage(DynamicDrawUsage);
     this.skirts.instanceColor?.setUsage(DynamicDrawUsage);
+    if (opts.rings) {
+      // Les anneaux (2026-10-27) : la fente eteinte (line), l'orange des pas mis (ledSet) ; non eclaires, comme les temoins
+      const S = KNOB_RING.segments;
+      this.ringOff.setHex(COLOR.line);
+      this.ringOn.setHex(COLOR.ledSet);
+      this.ringMat = new MeshBasicMaterial({ toneMapped: false });
+      this.ringMat.name = 'knobRing';
+      const rings = new InstancedMesh(ringSegment(), this.ringMat, n * S);
+      rings.name = 'knobRings';
+      rings.receiveShadow = false;
+      for (let i = 0; i < n; i += 1) {
+        const p = FACE_KNOBS[i];
+        for (let j = 0; j < S; j += 1) {
+          quat.setFromAxisAngle(AXIS_Y, potAngle((j + 0.5) / S));
+          rings.setMatrixAt(i * S + j, m4.compose(pos.set(p.x, 0, p.z), quat, scl.setScalar(1)));
+          rings.setColorAt(i * S + j, tint.copy(this.ringOff));
+        }
+      }
+      rings.instanceMatrix.needsUpdate = true;
+      rings.instanceColor?.setUsage(DynamicDrawUsage);
+      this.rings = rings;
+    }
+  }
+
+  /** L'anneau du potard i a la course t : ses 27 segments ; true s'il a change. */
+  private paintRing(i: number, t: number): boolean {
+    const r = this.rings;
+    if (!r || this.ringT[i] === Math.fround(t)) return false;
+    this.ringT[i] = t;
+    const S = KNOB_RING.segments;
+    const id = GLOBAL_ENCODERS[i];
+    const bip = id !== undefined && isBipolar(id);
+    let changed = false;
+    for (let j = 0; j < S; j += 1) {
+      const f = ringLit(j, t, bip);
+      const k = i * S + j;
+      if (Math.abs(this.ringPart[k] - f) < 1e-4) continue;
+      this.ringPart[k] = f;
+      r.setColorAt(k, tint.copy(this.ringOff).lerp(this.ringOn, f));
+      changed = true;
+    }
+    if (changed && r.instanceColor) r.instanceColor.needsUpdate = true;
+    return changed;
   }
 
   /** L'encodeur k sous la souris (-1 aucun) : un peu plus clair, sa jupe aussi ; true s'il faut une frame. */
@@ -177,7 +264,7 @@ export class Encoders {
 
   /** Les maillages a poser sur le plateau. */
   objects(): Object3D[] {
-    return [this.mesh, this.skirts];
+    return this.rings ? [this.mesh, this.skirts, this.rings] : [this.mesh, this.skirts];
   }
 
   private index(id: FaceKnobId): number {
@@ -199,7 +286,9 @@ export class Encoders {
     const a = potAngle(t);
     // La valeur d'abord : TONE et STRETCH au centre ont deja leur angle de depart
     this.value[i] = t;
-    if (this.angle[i] === Math.fround(a)) return false;
+    // L'anneau suit la valeur (2026-10-27), meme quand l'angle n'a pas bouge (le premier dessin)
+    const ring = this.paintRing(i, t);
+    if (this.angle[i] === Math.fround(a)) return ring;
     this.angle[i] = a;
     this.place(i);
     return true;
@@ -228,6 +317,13 @@ export class Encoders {
       ids: FACE_KNOBS.map((e) => e.id),
       angleDeg: Array.from(this.angle, (a) => +(a / DEG).toFixed(2)),
       values: Array.from(this.value, (v) => +v.toFixed(4)),
+      ring: this.rings
+        ? FACE_KNOBS.map((_, i) => {
+            let sum = 0;
+            for (let j = 0; j < KNOB_RING.segments; j += 1) sum += this.ringPart[i * KNOB_RING.segments + j];
+            return Math.round(sum * 100) / 100;
+          })
+        : [],
     };
   }
 
@@ -238,5 +334,10 @@ export class Encoders {
     this.skirts.geometry.dispose();
     this.skirtMat.dispose();
     this.skirts.dispose();
+    if (this.rings) {
+      this.rings.geometry.dispose();
+      this.rings.dispose();
+    }
+    this.ringMat?.dispose();
   }
 }

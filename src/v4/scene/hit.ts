@@ -83,6 +83,11 @@ export type HotspotKind =
   // MM-RYTM (2026-10-19) : MASTER et TEMPO dessines dans l'ecran (lcd-master, lcd-tempo ; param level ou tempo), glisses de
   // haut en bas comme un bloc
   | 'rdial'
+  // MM-RYTM V.4.0 (2026-10-27, la face du desktop) : TRK, SCENE A et B (scene), le crossfader ; visibles et inertes en
+  // phase 1 (leur infobulle seule), leurs gestes en phase 2
+  | 'trk'
+  | 'scene'
+  | 'xfade'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
   | 'djknob'
   | 'djfader'
@@ -138,6 +143,8 @@ export interface HotspotDef {
   dj?: string;
   /** MM-BASS : la commande (le potard, la touche, le rang du pas) */
   bass?: string;
+  /** MM-RYTM V.4.0 (2026-10-27) : la scene d'une touche SCENE */
+  scene?: 'a' | 'b';
 }
 
 /**
@@ -173,6 +180,8 @@ export interface HotspotView {
   /** MM-DECKS : l'id de la commande (le MIDI LEARN s'en sert, 2026-10-05) ; MM-BASS de meme */
   dj?: string;
   bass?: string;
+  /** MM-RYTM V.4.0 : la scene d'une touche SCENE */
+  scene?: 'a' | 'b';
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;
   y: number;
@@ -686,6 +695,7 @@ export class HitMap {
         ...(def.rpage ? { rpage: def.rpage } : {}),
         ...(def.dj ? { dj: def.dj } : {}),
         ...(def.bass ? { bass: def.bass } : {}),
+        ...(def.scene ? { scene: def.scene } : {}),
         x: r1(rect[0]),
         y: r1(rect[1]),
         w: r1(rect[2]),
