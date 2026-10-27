@@ -27,4 +27,9 @@ export const tempoSync = {
   text: (b: number): string => (bpm !== null ? b.toFixed(1) : String(Math.round(b))),
   /** L'unite a cote : BPM, ou SYNC quand il suit les platines. */
   unit: (): string => (bpm !== null ? 'SYNC' : 'BPM'),
+  /**
+   * Le TEMPO tel qu'il se lit partout ailleurs (2026-10-27, revue UI-5 : la lecture du potard, son jumeau, la ligne de
+   * l'ecran au telephone disaient 124.37 BPM pendant que l'en-tete disait 124.4 SYNC) : 124.4 SYNC, ou 124 BPM.
+   */
+  label: (b: number): string => `${tempoSync.text(b)} ${tempoSync.unit()}`,
 };

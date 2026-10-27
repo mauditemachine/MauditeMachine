@@ -42,6 +42,7 @@ import { lcdSamples } from './lcdSamples';
 import { presetMode, type PresetView } from './presetMode';
 import { presets } from './presets';
 import { section } from './section';
+import { tempoSync } from './tempoSync';
 
 export interface LcdState {
   /** ligne 1 : gauche, droite */
@@ -170,7 +171,7 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   if (mixPage) return composeMix(mixPage.sel);
   const s = section.get();
   const p = pattern.get();
-  const line1 = row(s ? SECTION_TITLES[s] : LCD_TEXT.idle, `${p.bpm} BPM`);
+  const line1 = row(s ? SECTION_TITLES[s] : LCD_TEXT.idle, tempoSync.label(p.bpm));
   const inst = p.instrument ? `  ${p.instrument}` : '';
   const st = sc.get();
   const msg = lcdMessage.get(now);
@@ -290,6 +291,8 @@ export const lcd = {
       voiceFx.subscribe(request),
       presetMode.subscribe(request),
       presets.subscribe(request),
+      // Le TEMPO qui suit les platines (2026-10-27, revue UI-5) : 124.4 SYNC, puis 124 BPM au SYNC eteint
+      tempoSync.subscribe(request),
     ];
     last = -Infinity;
     request();
