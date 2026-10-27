@@ -118,6 +118,9 @@ import {
   stepVelocity,
   stepVelocityOf,
   stepToggle,
+  trkDown,
+  trkStep,
+  trkUp,
   rytmInfoTap,
   voyClear,
   voyPad,
@@ -142,6 +145,8 @@ import {
 } from '../actions';
 import { samplesChanged, samplesVersion } from '../audio/samples';
 import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
+import { trk } from '../state/trk';
+import type { HoldLatch } from '../state/holdLatch';
 import { clock } from '../audio/clock';
 import { learnPick, midi } from '../midi/midi';
 import { targetIdOfHotspot } from '../midi/targets';
@@ -298,6 +303,10 @@ interface Down {
   lockKey: string;
   /** un potard : la course du dernier mouvement (2026-10-27, la fonction d'un potard de la face qui change sous la main) */
   lastTravel?: number;
+  /** un pas pris par TRK (2026-10-27) : sa voix choisie a l'appui, ni P-LOCK, ni velocite, ni tape au lacher */
+  trk?: boolean;
+  /** la touche TRK tenue par ce pointeur : sa source ('ptr:<pointerId>'), lachee au pointerup ou perdue */
+  trkSrc?: string;
   /**
    * un bloc de l'ecran du telephone (2026-10-09), au doigt, glisse a
    * l'horizontale : ce n'est pas encore un reglage (il se regle de haut en
@@ -491,6 +500,76 @@ function screenDialSet(k: DialId, v: number): void {
 interface Point {
   clientX: number;
   clientY: number;
+}
+
+/**
+ * Le jumeau d'une touche a tenir ou a taper (2026-10-27, la phase 2 : TRK ; SCENE A et B ensuite) : un bouton aria-pressed.
+ * Espace ou Entree l'enfonce (sans repetition) ; son lacher, lu sur la fenetre (le focus peut etre parti, un pas clique a
+ * la souris pendant la tenue), la lache, sans clic de synthese. Un clic sans clavier (detail 0 : un lecteur d'ecran, une aide
+ * technique) : une tape, la touche se garde. La fenetre qui perd le focus oublie la touche tenue (state/trk.ts la lache).
+ */
+interface HoldTwinProps {
+  id: string;
+  twin: string;
+  label: string;
+  latch: HoldLatch;
+  refFn: (el: HTMLElement | null) => void;
+  down: (src: string, t: number) => void;
+  up: (src: string, t: number) => void;
+}
+const HOLD_KEYS: ReadonlySet<string> = new Set([' ', 'Enter']);
+/** Un clic venu du clavier (Entree, Espace) dans ce delai apres une touche : pas une aide technique. */
+const HOLD_CLICK_MS = 500;
+function HoldTwin({ id, twin, label, latch, refFn, down, up }: HoldTwinProps): React.ReactElement {
+  const pressed = useSyncExternalStore(latch.subscribe, latch.engaged);
+  const held = useRef<(() => void) | null>(null);
+  const keyAt = useRef(-Infinity);
+  useEffect(() => () => held.current?.(), []);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>): void => {
+    if (!HOLD_KEYS.has(e.key)) return;
+    e.preventDefault();
+    keyAt.current = performance.now();
+    if (e.repeat || held.current) return;
+    const key = e.key;
+    const onUp = (ev: KeyboardEvent): void => {
+      if (ev.key !== key) return;
+      ev.preventDefault();
+      keyAt.current = performance.now();
+      off();
+      up('key', ev.timeStamp || performance.now());
+    };
+    const off = (): void => {
+      window.removeEventListener('keyup', onUp, true);
+      window.removeEventListener('blur', off);
+      held.current = null;
+    };
+    window.addEventListener('keyup', onUp, true);
+    window.addEventListener('blur', off);
+    held.current = off;
+    down('key', e.timeStamp || performance.now());
+  };
+  return (
+    <button
+      ref={refFn}
+      type="button"
+      className="v4-twin"
+      data-twin={twin}
+      data-hotspot={id}
+      aria-pressed={pressed}
+      aria-label={label}
+      title={label}
+      onKeyDown={onKeyDown}
+      onKeyUp={(e) => {
+        if (HOLD_KEYS.has(e.key)) e.preventDefault();
+      }}
+      onClick={(e) => {
+        if (e.detail !== 0 || performance.now() - keyAt.current < HOLD_CLICK_MS) return;
+        const t = performance.now();
+        down('at', t);
+        up('at', t);
+      }}
+    />
+  );
 }
 
 /** Revue : le dernier relachement juge par la couche de saisie. */
@@ -751,6 +830,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         sbTap(d);
         return d.id;
       }
+      // Un pas pris par TRK (2026-10-27) : sa voix est deja choisie, la tape ne part pas
+      if (d.kind === 'step' && d.trk) return d.id;
       // Un pas tenu qui a recu un verrou (deux doigts, INFOS allume aussi) : ni change ni tape, la carte reste celle de l'encodeur
       if (d.kind === 'step' && d.lockHold) return d.id;
       // La carte, et la navigation sans un son (une touche de page tourne la page, un pad choisit sa voix : actions.ts)
@@ -798,8 +879,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran suivant, la touche s'enfonce
       else if (d.kind === 'vpush' && d.vknob) voyPush(d.vknob, stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
-      // TRK, SCENE A et B, le crossfader (2026-10-27, la face V.4.0) : visibles et inertes en phase 1, la tape est prise (pas de
-      // double tape du fond) et rien ne part
+      // TRK (2026-10-27, la phase 2 : elle a agi a l'appui et au lacher), SCENE A et B, le crossfader (visibles et inertes) :
+      // la tape est prise (pas de double tape du fond) et rien d'autre ne part
       else if (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'xfade') return d.id;
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
@@ -866,6 +947,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const d = downs.get(pointerId);
       // Un glisser parti d'un pas : sa velocite (2026-10-05), jamais l'orbite
       if (d && d.kind === 'step' && d.index !== undefined) {
+        // Un pas pris par TRK (2026-10-27) : ni velocite, ni orbite, ni glisser d'une machine a l'autre
+        if (d.trk) return false;
         // INFOS du MM-RYTM, au doigt (revue de R4) : une tape un peu glissee montre la carte du pas, sans rien y changer
         if (d.info) {
           if (d.id) rytmInfos.show(d.id);
@@ -896,6 +979,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         }
         return false;
       }
+      // TRK tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
+      if (d && d.kind === 'trk') return false;
       if (!d || !d.dial) return true;
       // Un bloc de l'ecran du telephone (2026-10-09) : de haut en bas seulement, comme un potard ; parti a l'horizontale
       // au doigt, c'est peut-etre le glisser d'une machine a l'autre (le grand ecran couvre le haut de la face, il ne doit
@@ -1075,6 +1160,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         rytmPage.hold(knobBlock(h.index) ?? -1);
         faceTouch.down(h.index, 'ptr');
       }
+      // TRK (2026-10-27, la phase 2) : enfoncee, ce pointeur la tient ; ni orbite ni pincement. INFOS allume, au doigt : la
+      // carte seulement (la tape la montre)
+      if (h && h.kind === 'trk') {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        if (d0 && !d0.info) {
+          d0.trkSrc = `ptr:${e.pointerId}`;
+          trkDown(d0.trkSrc, e.timeStamp || performance.now());
+          stage.pressFaceKey('trk');
+        }
+      }
       if (screenDial && h?.param) screenDials.hold(h.param as ScreenDialId);
       // Le navigateur des sons (2026-10-18) : ni pincement ni orbite ; sa premiere ligne et la hauteur d'une ligne a l'ecran
       // (le corps de la liste, en BROWSER_ROWS lignes), pour un glisser ; au doigt, un de ses samples tenu SB_HOLD_MS : arme
@@ -1122,6 +1218,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (h?.kind === 'step' && h.index !== undefined) {
         const idx = h.index;
         const pid = e.pointerId;
+        // TRK engagee (2026-10-27) : le pas choisit sa voix a l'appui, avant EDIT et le P-LOCK ; aucune minuterie
+        const dt = downs.get(pid);
+        if (trk.engaged() && dt && !dt.info) {
+          dt.trk = true;
+          trkStep(idx, stage, e.timeStamp || performance.now());
+          e.preventDefault();
+          return;
+        }
         const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null;
         // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
         // clic d'avant ne doit pas prendre le clic suivant pour une tenue (trois clics a la seconde latchaient le LOCK)
@@ -1258,6 +1362,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       downs.delete(id);
       if (d.dial && isVoy(d.dial)) voyEcho.release(id);
       releaseBlock(d);
+      // TRK tenue par ce pointeur perdu : lachee sans garde
+      if (d.trkSrc) trkUp(d.trkSrc, -1);
       stepUp(d);
       flushRestore();
       try {
@@ -1347,6 +1453,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       downs.delete(e.pointerId);
       if (d?.dial && isVoy(d.dial)) voyEcho.release(e.pointerId);
       if (d) releaseBlock(d);
+      // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde
+      if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d && d.turning && d.mouse) {
         turnAxis = null;
         turnBlock = false;
@@ -1562,6 +1670,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       rytmPage.release();
       screenDials.release();
       rytmLock.releaseAll();
+      // TRK (2026-10-27) : la couche demontee, elle s'eteint
+      trk.cancel();
       djg?.release();
       bsg?.release();
       stage.orbit.gate = () => true;
@@ -2623,20 +2733,20 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   });
 
   /*
-   * TRK, SCENE A et B, le crossfader (2026-10-27, la face V.4.0 du desktop) : visibles et inertes en phase 1 (leurs gestes
-   * viennent en phase 2). Leurs jumeaux existent pour le clavier et les lecteurs d'ecran : TRK et les scenes en boutons
+   * SCENE A et B, le crossfader (2026-10-27, la face V.4.0 du desktop) : visibles et inertes (leurs gestes viennent avec la
+   * phase 2, apres TRK). Leurs jumeaux existent pour le clavier et les lecteurs d'ecran : les scenes en boutons
    * aria-disabled (le focus les trouve, contour en pointilles, rien ne part), le crossfader en curseur role slider
    * aria-disabled, au milieu de sa course : la revue du 2026-10-27, un input range disabled sortait de la tabulation et son
-   * nom ne se lisait plus au clavier ; il garde le focus comme TRK et les scenes, ses touches ne bougent rien et Espace
+   * nom ne se lisait plus au clavier ; il garde le focus comme les scenes, ses touches ne bougent rien et Espace
    * n'y lance pas RUN (comme sur un bouton inerte). Leur nom complet dit qu'ils viennent (FACE_TITLE).
    */
-  const inertTwin = (id: 'trk' | 'scene-a' | 'scene-b'): React.ReactElement => (
+  const inertTwin = (id: 'scene-a' | 'scene-b'): React.ReactElement => (
     <button
       key={id}
       ref={refFor(id)}
       type="button"
       className="v4-twin"
-      data-twin={id === 'trk' ? 'trk' : 'scene'}
+      data-twin="scene"
       data-hotspot={id}
       aria-disabled="true"
       aria-label={FACE_TITLE[id]}
@@ -2700,7 +2810,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {browserTwins}
           {menuTwins}
           {knobTwins}
-          {inertTwin('trk')}
+          {/* TRK (2026-10-27, la phase 2) : tenue ou gardee */}
+          <HoldTwin key="trk" id="trk" twin="trk" label={FACE_TITLE.trk} latch={trk} refFn={refFor('trk')} down={trkDown} up={trkUp} />
           {pkeyTwins}
           {editTwin}
           {openTwin}

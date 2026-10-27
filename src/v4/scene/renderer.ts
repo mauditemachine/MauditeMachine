@@ -139,6 +139,7 @@ import { RytmFaceKeys } from './rytmFaceKeys';
 import { anyDialValue, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
+import { trk } from '../state/trk';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
@@ -496,6 +497,7 @@ export class Stage {
   private unsubMix: () => void;
   /** les potards de la face qui suivent la page (2026-10-27, desktop) ; rien au telephone */
   private unsubFace: () => void = () => {};
+  private unsubTrk: () => void = () => {};
   /** les capuchons qui vont a leur valeur (2026-10-27, les moteurs) : leur nombre ; la passe d'ombre attendue apres un glisser */
   private motors = 0;
   private knobShadowTimer = 0;
@@ -1137,6 +1139,14 @@ export class Stage {
     if (FACE_FOLLOWS_PAGE) {
       this.unsubFace = faceKnobs.subscribe(this.syncFaceKnobs);
       this.syncFaceKnobs({ cause: 'page', moved: [0, 1, 2, 3, 4, 5, 6, 7] });
+    }
+    // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee
+    if (this.faceKeys) {
+      const syncTrkKey = (): void => {
+        if (this.faceKeys?.setTrk(trk.get().mode)) this.repaint();
+      };
+      this.unsubTrk = trk.subscribe(syncTrkKey);
+      syncTrkKey();
     }
     // Section deja ouverte (remontage) : etat pose sans animation
     this.applySection(true);
@@ -2749,7 +2759,7 @@ export class Stage {
     lcdSamples.hover(sbRow ? Number(sbRow[1]) : -1);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads?.setHover(pad)) changed = true;
-    // La face V.4.0 (2026-10-27) : EDIT et OPEN s'eclairent un rien ; TRK, les scenes et le crossfader restent eteints
+    // La face V.4.0 (2026-10-27) : EDIT, OPEN et TRK (la phase 2) s'eclairent un rien ; les scenes et le crossfader restent eteints
     if (this.faceKeys?.setHover(id)) changed = true;
     // Les encodeurs, les touches de page et le transport (2026-10-22, audit : ils ne changeaient que de curseur)
     // Au desktop (2026-10-27) : un bloc de l'ecran survole eclaire les potards qui le tournent (le sien et ceux qu'il couvre)
@@ -3106,8 +3116,8 @@ export class Stage {
     else if (id === 'edit' || id === 'open') this.pressFaceKey(id === 'edit' ? 'pad-edit' : 'pad-open');
   }
 
-  /** Une touche de la face V.4.0 (EDIT, OPEN) s'enfonce et s'eclaire, comme une touche de page (2026-10-27). */
-  private pressFaceKey(hotspot: string): void {
+  /** Une touche de la face V.4.0 (EDIT, OPEN, TRK depuis la phase 2) s'enfonce et s'eclaire, comme une touche de page (2026-10-27). */
+  pressFaceKey(hotspot: string): void {
     const fk = this.faceKeys;
     if (!fk) return;
     const i = fk.indexOf(hotspot);
@@ -3349,6 +3359,7 @@ export class Stage {
     this.unsubClock();
     this.unsubMix();
     this.unsubFace();
+    this.unsubTrk();
     window.clearTimeout(this.knobShadowTimer);
     this.unsubSection();
     this.unsubExplode();

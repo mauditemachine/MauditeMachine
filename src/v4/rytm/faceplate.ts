@@ -135,7 +135,7 @@ export const RYTM_FACEPLATE = {
     icon: { size: 6.8, dy: 0.7 },
     led: { w: 6, h: 0.8, dy: 1.5 },
     keys: [
-      { id: 'trk', icon: 'stack-2', name: 'TRK', title: 'Track', hotspot: 'trk', phase: 2 },
+      { id: 'trk', icon: 'stack-2', name: 'TRK', title: 'Track', hotspot: 'trk', phase: 1 },
       { id: 'voice', icon: 'wave-sine', name: 'VOICE', title: 'Voice page', hotspot: 'pkey-voice', phase: 1 },
       { id: 'fltr', icon: 'lowpass', name: 'FLTR', title: 'Filter page', hotspot: 'pkey-fltr', phase: 1 },
       { id: 'env', icon: 'adsr', name: 'ENV', title: 'Envelope page', hotspot: 'pkey-env', phase: 1 },

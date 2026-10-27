@@ -41,6 +41,7 @@ import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
 import { faceTouch, type CtlSrc } from './state/ctl';
+import { trk } from './state/trk';
 import { FACE_PAGES, RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { setKnobResolver } from './rytm/infoIds';
@@ -149,6 +150,81 @@ function selectVoice(inst: Inst | null): void {
 }
 
 /**
+ * TRK (2026-10-27, la phase 2, Mika : "comme la DIGITAKT") : l'aide a l'ecran tant que la touche est engagee (tenue,
+ * gardee ou en fermeture), eteinte avec elle.
+ */
+export const TRK_HINT = 'TRK: PICK A VOICE, STEPS 1-8';
+/** L'aide de TRK reste tant que la touche est engagee ; elle s'eteint avec elle (une minute au plus : rien ne l'oublie). */
+const TRK_HINT_MS = 60000;
+/** Le message de TRK a eteindre avec elle ('' : aucun) : l'aide, ou TRK SD tant qu'elle reste tenue. */
+let trkLcd = '';
+const trkSay = (text: string): void => {
+  trkLcd = text;
+  lcdMessage.show(text, TRK_HINT_MS);
+};
+
+/**
+ * TRK + un pas (la face, un jumeau, MIDI rytm:step:i, le RSEQ du Roto) : true quand TRK l'a pris. Les pas 1 a 8 choisissent
+ * leur voix (BD SD CH OH CP TOM HT CY, leur legende), les pas 9 a 16 sont reserves : pris, rien ne change, ni lumiere ni
+ * message. Ni P-LOCK, ni velocite, ni coup, EDIT ouvert aussi (il reste ouvert dessous).
+ */
+export function trkStep(i: number, stage: Stage | null = null, t = performance.now()): boolean {
+  if (!trk.engaged()) return false;
+  const inst = Number.isInteger(i) && i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
+  if (!inst) return true;
+  stage?.pressStep(i);
+  trkPick(inst, t);
+  return true;
+}
+
+/**
+ * Le choix de TRK, dans l'ordre de padHit : mode SOLO, la voix en solo ; mode MUTE, coupee ; sinon la voix choisie, sans
+ * un son (la Digitakt), jamais deselectionnee ; l'ecran dit TRK SD. TRK s'en est servi : gardee, elle se ferme.
+ */
+export function trkPick(inst: Inst, t: number): void {
+  resume();
+  const v = voices.get();
+  if (v.soloMode) soloVoice(inst);
+  else if (v.muteMode) muteVoice(inst);
+  else {
+    if (pattern.get().instrument !== inst) pattern.select(inst);
+  }
+  trk.use(t);
+  if (v.soloMode || v.muteMode) return;
+  // Le navigateur des sons ouvert : il passe a la voix choisie (watchBrowser), son repos repart. TRK tenue : TRK SD reste
+  // jusqu'au lacher ; gardee, elle se ferme : le message ordinaire
+  if (lcdSamples.isOpen()) lcdSamples.touch();
+  else if (trk.get().mode === 'held') trkSay(`TRK ${inst}`);
+  else lcdMessage.show(`TRK ${inst}`);
+}
+
+/** TRK enfonce (src : 'ptr:<pointerId>', 'key', 'at', 'midi', 'hw') ; l'ecran dit quoi faire tant qu'elle est engagee. */
+export const trkDown = (src: string, t = performance.now()): void => {
+  const was = trk.engaged();
+  trk.down(src, t);
+  if (!was && trk.engaged()) trkSay(TRK_HINT);
+};
+/** TRK lachee ; t < 0 : un pointeur perdu (lache sans garde). */
+export const trkUp = (src: string, t = performance.now()): void => {
+  trk.up(src, t);
+};
+// TRK eteinte (lachee, fermee, Echap, une autre machine) : son aide s'en va avec elle
+trk.subscribe(() => {
+  if (trk.engaged() || !trkLcd) return;
+  lcdMessage.hide(trkLcd);
+  trkLcd = '';
+});
+
+/** Phase 3 (rytm:voice:select:<V>, le materiel) : le meme choix muet, sans TRK. */
+export function voiceSelect(inst: Inst, src: CtlSrc = 'ui'): void {
+  void src;
+  resume();
+  if (pattern.get().instrument !== inst) pattern.select(inst);
+  if (lcdSamples.isOpen()) lcdSamples.touch();
+  else lcdMessage.show(`TRK ${inst}`);
+}
+
+/**
  * Pad de page (spec 20.6.2 PAGE) : tape, touches 1 a 7, jumeau, onglet.
  * Ouvre sa section, ou la ferme si elle l'est deja ; le pad s'enfonce.
  */
@@ -233,6 +309,8 @@ export function rytmInfoTap(hotspot: string, dock = false): boolean {
  * au desktop depuis la face V.4.0 sans pads, 2026-10-27 : theme.ts LCD_NO_VOICE).
  */
 export function stepToggle(i: number, stage: Stage | null = null): boolean {
+  // TRK engagee (2026-10-27) : le pas choisit sa voix, avant EDIT, le P-LOCK et la velocite
+  if (trkStep(i, stage)) return true;
   // EDIT (2026-10-05) : les steps sont les seize patterns
   if (editor.get() === 'mm808') {
     patternTap(i, stage);
@@ -927,6 +1005,12 @@ export function escape(): boolean {
   // Le navigateur des sons (2026-10-18) : par-dessus l'ecran (le P-LOCK compris), Echap le ferme d'abord
   if (lcdSamples.isOpen()) {
     lcdSamples.close();
+    return true;
+  }
+  // TRK gardee ou en fermeture (2026-10-27) : Echap l'eteint, avant le P-LOCK ; tenue, la main la lachera
+  const tk = trk.get().mode;
+  if (tk === 'latched' || tk === 'closing') {
+    trk.cancel();
     return true;
   }
   // Le LOCK du MM-RYTM (2026-10-08) : Echap en sort, avant de fermer EDIT

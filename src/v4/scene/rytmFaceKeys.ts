@@ -14,9 +14,10 @@
  * l'action qui transforme la page, allume a l'orange machine fermee, et il
  * respire (theme.ts OPEN_BREATHE, breathe() appele par le Stage) ; capot ouvert,
  * son temoin a peine. Un appui les enfonce et les eclaire comme une touche de
- * page. TRK, les scenes et le crossfader sont visibles et inertes en phase 1
- * (leurs gestes en phase 2) : ni lumiere, ni appui, ni survol ; leur zone ne
- * montre que leur infobulle (ui/Hotspots.tsx).
+ * page. TRK agit depuis la phase 2 (2026-10-27) : allumee tant qu'elle est
+ * engagee (state/trk.ts), elle s'enfonce et s'eclaire au survol comme EDIT.
+ * Les scenes et le crossfader restent visibles et inertes : ni lumiere, ni
+ * appui, ni survol ; leur zone ne montre que leur infobulle (ui/Hotspots.tsx).
  * UN InstancedMesh pour les cinq touches, un pour leurs temoins (non
  * eclaires), un maillage pour leurs noms, un pour le capuchon.
  */
@@ -25,6 +26,7 @@ import { BoxGeometry, Color, DynamicDrawUsage, InstancedBufferAttribute, Instanc
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { COLOR, FACE_KEY, FACE_KEYS, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, OPEN_BREATHE, PRESS_TINT, STEP_PRESS, XFADE, type FaceKeyId } from '../theme';
+import type { HoldMode } from '../state/holdLatch';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { paintLinear, paintSolid, withInstanceEmissive } from './materials';
@@ -32,6 +34,9 @@ import { paintLinear, paintSolid, withInstanceEmissive } from './materials';
 const N = FACE_KEYS.length;
 const EDIT = FACE_KEYS.findIndex((k) => k.id === 'edit');
 const OPEN = FACE_KEYS.findIndex((k) => k.id === 'open');
+const TRK = FACE_KEYS.findIndex((k) => k.id === 'trk');
+/** Les touches qui agissent (s'enfoncent, s'eclairent au survol) : EDIT, OPEN, TRK depuis la phase 2 (2026-10-27). */
+const LIVE = (i: number): boolean => i === EDIT || i === OPEN || i === TRK;
 /** L'id de la zone de saisie (et du jumeau) de chaque touche : EDIT et OPEN gardent ceux de leurs pads. */
 const HOTSPOT: Readonly<Record<FaceKeyId, string>> = { trk: 'trk', edit: 'pad-edit', open: 'pad-open', 'scene-a': 'scene-a', 'scene-b': 'scene-b' };
 /** Le temoin d'OPEN capot ouvert : a peine (l'orangeDim du pad d'avant). */
@@ -96,6 +101,8 @@ export interface RytmFaceKeysInfo {
   editing: boolean;
   breathing: boolean;
   hover: FaceKeyId | null;
+  /** TRK (2026-10-27) : off, held, latched, closing */
+  trk: HoldMode;
 }
 
 export class RytmFaceKeys {
@@ -115,6 +122,8 @@ export class RytmFaceKeys {
   private hover = -1;
   private editing = false;
   private open = false;
+  /** TRK (2026-10-27) : son etat (state/trk.ts) */
+  private trk: HoldMode = 'off';
   /** la respiration d'OPEN machine fermee (1 : pleine) */
   private breath = 1;
   private off = new Color();
@@ -178,6 +187,8 @@ export class RytmFaceKeys {
       const phase = (this.breath - B.min) / (1 - B.min);
       return { fill: 1, glow: B.faceMin + (1 - B.faceMin) * phase, led: this.breath };
     }
+    // TRK engagee (tenue, gardee, en fermeture) : allumee en entier, son temoin plein
+    if (i === TRK) return this.trk === 'off' ? { fill: 0, glow: 0, led: 0 } : { fill: 1, glow: 1, led: 1 };
     return { fill: 0, glow: 0, led: 0 };
   }
 
@@ -220,6 +231,16 @@ export class RytmFaceKeys {
     return true;
   }
 
+  /** TRK (2026-10-27) : allumee tant qu'elle est engagee ; true s'il faut une frame. */
+  setTrk(mode: HoldMode): boolean {
+    if (TRK < 0 || mode === this.trk) return false;
+    const was = this.trk !== 'off';
+    this.trk = mode;
+    if (was === (mode !== 'off')) return false;
+    this.refresh(TRK);
+    return true;
+  }
+
   /** Le capot ouvert (ou s'ouvrant) : OPEN a peine ; ferme, OPEN allume ; true s'il faut une frame. */
   setOpen(on: boolean): boolean {
     if (on === this.open) return false;
@@ -258,9 +279,9 @@ export class RytmFaceKeys {
     return FACE_KEYS.findIndex((k) => HOTSPOT[k.id] === hotspot);
   }
 
-  /** Appui sur la touche i, v de 0 (repos) a 1 (enfoncee) : elle descend et s'eclaire (le Stage l'anime) ; EDIT et OPEN seulement. */
+  /** Appui sur la touche i, v de 0 (repos) a 1 (enfoncee) : elle descend et s'eclaire (le Stage l'anime) ; EDIT, OPEN et TRK. */
   setPress(i: number, v: number, move: boolean): void {
-    if (i !== EDIT && i !== OPEN) return;
+    if (!LIVE(i)) return;
     this.press[i] = v;
     const dy = move ? -STEP_PRESS.depth * v : 0;
     this.keys.instanceMatrix.array[i * 16 + 13] = dy;
@@ -271,10 +292,10 @@ export class RytmFaceKeys {
     this.refresh(i);
   }
 
-  /** La touche sous la souris (l'id de sa zone, null aucune) : EDIT et OPEN s'eclairent un rien, les inertes non ; true s'il faut une frame. */
+  /** La touche sous la souris (l'id de sa zone, null aucune) : EDIT, OPEN et TRK s'eclairent un rien, les inertes non ; true s'il faut une frame. */
   setHover(id: string | null): boolean {
     const i = id === null ? -1 : this.indexOf(id);
-    const k = i === EDIT || i === OPEN ? i : -1;
+    const k = i >= 0 && LIVE(i) ? i : -1;
     if (k === this.hover) return false;
     const was = this.hover;
     this.hover = k;
@@ -319,6 +340,7 @@ export class RytmFaceKeys {
       editing: this.editing,
       breathing: this.breathing,
       hover: this.hover >= 0 ? FACE_KEYS[this.hover].id : null,
+      trk: this.trk,
     };
   }
 

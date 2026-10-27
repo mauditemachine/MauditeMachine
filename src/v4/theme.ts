@@ -1625,14 +1625,19 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
   ? {}
   : {
       ...Object.fromEntries(RYTM_FACEPLATE.buttons.keys.map((b) => [b.hotspot, b.phase === 2 ? `${b.title} (${b.name}), coming soon` : b.title])),
+      // TRK agit depuis la phase 2 (2026-10-27) : son geste dans l'infobulle et le jumeau
+      trk: 'Track (TRK): hold, then a step 1-8 picks its voice; tap to latch',
       [RYTM_FACEPLATE.scenes.a.hotspot]: `${RYTM_FACEPLATE.scenes.a.title}, coming soon`,
       [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}, coming soon`,
       [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}, coming soon`,
       // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent
       ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen`])),
     };
-/** Les commandes de la face visibles et inertes en phase 1 (TRK, SCENE A et B, le crossfader) : curseur par defaut, rien ne part. */
-export const FACE_INERT: ReadonlySet<string> = new Set(['trk', 'scene-a', 'scene-b', 'xfade']);
+/**
+ * Les commandes de la face visibles et inertes (SCENE A et B, le crossfader) : curseur par defaut, rien ne part ; TRK agit
+ * depuis la phase 2 (2026-10-27).
+ */
+export const FACE_INERT: ReadonlySet<string> = new Set(['scene-a', 'scene-b', 'xfade']);
 
 /**
  * Une touche selectionnee s'allume en entier (2026-10-18, Mika : "quand c'est
@@ -2070,9 +2075,10 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // mettre des parameter locks") ; au telephone le pied de l'ecran le dit (scene/screen.ts), la face n'a plus de place.
   // Le geste d'une seule souris (revue du 2026-10-09) : tenir un pas met le P-LOCK, il reste au lacher, puis on glisse.
   // 2026-10-19 : le glisser de la velocite (tenir un pas et monter ou descendre, la touche s'allume a sa velocite) s'y lit aussi
+  // 2026-10-27 (la phase 2) : TRK et un pas 1 a 8 choisissent la voix ; la ligne tient sous les deux rangees de pas
   ...(PORTRAIT
     ? []
-    : [{ text: 'TAP A STEP: ON, MID, LOW, OFF  /  HOLD AND DRAG: VELOCITY  /  HOLD STILL: P-LOCK, THEN TURN A KNOB', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8 }]),
+    : [{ text: 'TAP A STEP: ON, MID, LOW, OFF  /  HOLD AND DRAG: VELOCITY  /  HOLD STILL: P-LOCK, THEN TURN A KNOB  /  TRK + STEP 1-8: VOICE', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8 }]),
 ];
 /** Index du libelle du pad OPEN dans SILK_TEXTS (redessine en CLOSE pendant la vue eclatee). */
 export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');

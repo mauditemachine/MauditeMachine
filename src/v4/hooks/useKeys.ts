@@ -36,6 +36,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { trk } from '../state/trk';
 import { MODE_HOLD_MS, editToggle, escape, modeHold, muteToggle, openToggle, padHit, page, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, stepMachine, voyPad, voyRun } from '../actions';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
@@ -148,6 +149,9 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       if (inst) {
         e.preventDefault();
         padHit(inst, getStage());
+        // TRK gardee (2026-10-27) : une voix est choisie, la garde s'en va (tenue, la main la lachera)
+        const tk = trk.get().mode;
+        if (tk === 'latched' || tk === 'closing') trk.cancel();
         return;
       }
       // Les pages du MM-RYTM (2026-10-08, Mika : "8 encodeurs assignables a condition de presser les bonnes

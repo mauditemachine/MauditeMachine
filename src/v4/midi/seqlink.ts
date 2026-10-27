@@ -58,7 +58,7 @@
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { INSTRUMENTS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
-import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, tuneVoice } from '../actions';
+import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, trkStep, tuneVoice } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { lcdMessage } from '../state/lcdMessage';
@@ -111,6 +111,11 @@ export interface SeqMachine {
   patternHold(i: number): void;
   /** un encodeur tourne pendant que le pas i est tenu : true s'il le verrouille (le MM-BASS y met le LOCK avant) */
   knobHeld?(i: number, targetId: string): boolean;
+  /**
+   * TRK engagee (le MM-RYTM, 2026-10-27) : le bouton b (0 a 7, le bouton PHYSIQUE, quelle que soit la fenetre) choisit sa
+   * voix ; true : pris (ni pas, ni LOCK, ni lacher)
+   */
+  trk?(b: number): boolean;
   /** la LED d'une touche du setup qui n'est pas un pas (une page, LOCK, EDIT...) ; null : pas de LED */
   led(id: string): number | null;
   /** une ligne a l'ecran de la machine */
@@ -605,6 +610,11 @@ export function seqPress(id: SeqId, b: number): void {
   const l = lanes[id];
   const m = l.m;
   if (!m || b < 0 || b > 7 || l.downs.has(b)) return;
+  // TRK engagee (2026-10-27) : le bouton choisit sa voix, rien d'autre ; son lacher ne trouve aucun pas tenu
+  if (m.trk?.(b)) {
+    queue(l);
+    return;
+  }
   const now = eventNow();
   // Le pas de la fenetre a l'heure du message (la tete de lecture garde ses 250 dernieres ms) ; elle s'arrete tant que
   // le bouton est tenu (il garde son pas)
@@ -966,6 +976,8 @@ const rytm: SeqMachine = {
     lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? vel : 0]}  HOLD: LOCK`);
   },
   enter: (i, latched) => rytmLockEnter(i, latched),
+  // TRK (2026-10-27) : le bouton physique b, BD a CY
+  trk: (b) => trkStep(b, null),
   restore(prev) {
     const s = rytmLock.get();
     if (s.step < 0 || s.latched) return;

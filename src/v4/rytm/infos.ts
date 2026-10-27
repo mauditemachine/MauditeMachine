@@ -132,9 +132,9 @@ const phoneWords = (x: string): string => (!PHONE ? x : x.replace(/deux clics/g,
 
 /**
  * Une voix a choisir d'abord (2026-10-27) : au telephone, un pad ; la face V.4.0 du desktop n'a plus de pads, une voix se
- * choisit au clavier (A S D F, Z X C V) ou au MIDI, en attendant la touche TRK (phase 2).
+ * choisit avec TRK et un pas de 1 a 8 (la phase 2), au clavier (A S D F, Z X C V) ou au MIDI.
  */
-const PICK = PHONE ? "Touche d'abord un pad." : "Choisis d'abord une voix au clavier (A S D F, Z X C V).";
+const PICK = PHONE ? "Touche d'abord un pad." : "Choisis d'abord une voix : TRK et un pas de 1 à 8, ou le clavier (A S D F, Z X C V).";
 
 /** Les espaces insecables du francais (Quebec) et l'apostrophe typographique (comme bass/infos.ts). */
 const fr = (x: string): string =>
@@ -767,12 +767,15 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "Rien sur cette page sous ce potard. Chaque potard à droite de l'écran tourne la valeur posée à la même place sur l'écran (A en haut à gauche, E en bas à gauche) : une case vide à l'écran, un potard qui ne fait rien. Change de page (VOICE, FLTR, ENV, FX) : les huit potards suivent.",
   },
 
-  /* ---------- la face V.4.0 (2026-10-27) : TRK, les scenes et le crossfader, visibles et inertes en phase 1 ---------- */
-  'soon:trk': {
+  /* ---------- TRK, la touche des voix (2026-10-27, la phase 2, Mika : "comme la DIGITAKT") ---------- */
+  trk: {
     section: 'KEYS',
     title: 'TRK',
-    text: "Bientôt : la touche TRK, la première de la rangée (le pictogramme des couches). Pour l'instant, elle ne fait rien : une voix se choisit au clavier (A S D F, Z X C V) ou au MIDI.",
+    text: "La touche des voix, comme sur une Digitakt : la première de la rangée (le pictogramme des couches). Tiens TRK et touche un pas de 1 à 8 : il choisit sa voix, BD SD CH OH CP TOM HT CY (le nom imprimé sur le pas), sans un son, même à l'arrêt ; l'écran et les huit potards passent à elle. Une tape sur TRK la garde allumée jusqu'au choix d'une voix (une seule main suffit, à la souris) ; une autre tape, Échap ou une touche A à V l'éteint. Les pas 9 à 16 ne font rien avec TRK (réservés). TRK passe avant EDIT et le P-LOCK : EDIT ouvert, un pas choisit quand même sa voix et EDIT reste ouvert. En mode SOLO ou MUTE, le pas met sa voix en solo ou la coupe. Au clavier : Tab jusqu'à TRK, Espace ou Entrée la garde, puis Entrée sur un pas. Au Roto-Control (RSEQ), TRK allumée, les huit boutons choisissent les huit voix.",
+    tip: "Une tape sur TRK, puis le pas 2 : SD est choisie, les potards règlent la caisse claire ; une tape encore, puis le pas 3 : le charley, sans quitter la page.",
   },
+
+  /* ---------- la face V.4.0 (2026-10-27) : les scenes et le crossfader, visibles et inertes ---------- */
   'soon:scene': {
     section: 'SCENES',
     title: 'SCENE A / B',
@@ -979,7 +982,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   step: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns. Les noms BD à CY imprimés sur les pas 1 à 8 annoncent la touche TRK, bientôt.",
+    text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns. Les noms BD à CY imprimés sur les pas 1 à 8 : TRK tenue ou gardée, un pas choisit sa voix (9 à 16, rien).",
     tip: 'Le kick sur 1, 5, 9 et 13 (les pas encadrés), le clap ou la caisse claire sur 5 et 13 : la base du four on the floor.',
     phone: {
       text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger : P-LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
