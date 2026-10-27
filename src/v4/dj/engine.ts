@@ -572,7 +572,9 @@ class GridLane {
  *   le pitch d'une platine) fait glisser la ligne, sa hauteur ne bouge que de pitchMax au plus ;
  * - wobble : le pleurage d'une bande (en secondes de temps de ligne : un pleurage lent, une derive, un scintillement),
  *   un tampon de loopS secondes qui boucle (des nombres entiers de cycles : il se raccorde sans saut) ;
- * - silentDb : la boucle se debranche une fois sa queue a -90 dB (DubEcho.tailS).
+ * - silentDb : la boucle se debranche une fois sa queue a -90 dB (DubEcho.tailS) ;
+ * - passS : ce que les filtres de la boucle retardent a chaque tour (mesure hors ligne, centroide d'une impulsion,
+ *   2026-10-27) ; avec la latence de la boucle (dubLoopLag), les lignes la rendent : chaque repetition tombe a n x TIME.
  */
 export const DUB = {
   hp: 220,
@@ -588,7 +590,44 @@ export const DUB = {
   wobble: { loopS: 20, rate: 3000, parts: [{ cycles: 7, s: 0.00045, phase: 0 }, { cycles: 3, s: 0.0002, phase: 1.3 }, { cycles: 105, s: 0.00004, phase: 0.4 }] },
   maxS: 7.9,
   silentDb: 90,
+  passS: 0.00049,
 } as const;
+
+/**
+ * Ce qu'une boucle a DelayNode ajoute a chaque tour, en trames (2026-10-27, revue DUB-REPEAT-DRIFT) : Chromium (et
+ * WebKit, le meme moteur qui tire les noeuds) rend le retour d'une boucle un quantum plus tard (128 trames, 2.67 ms a
+ * 48 kHz), Firefox non. Mesure une fois par page, hors ligne (dubLoopLag) ; 128 en attendant.
+ */
+let loopLag = 128;
+let loopLagAsk: Promise<number> | null = null;
+
+/** La latence d'une boucle de ce navigateur (trames) : une impulsion dans une boucle de 256 trames, ou tombe son deuxieme tour. */
+export function dubLoopLag(): Promise<number> {
+  loopLagAsk ??= (async () => {
+    try {
+      const sr = 48000;
+      const c = new OfflineAudioContext(1, 2048, sr);
+      const one = new AudioBuffer({ length: 1, sampleRate: sr, numberOfChannels: 1 });
+      one.getChannelData(0)[0] = 1;
+      const s = new AudioBufferSourceNode(c, { buffer: one });
+      const d = new DelayNode(c, { maxDelayTime: 0.05, delayTime: 256 / sr });
+      s.connect(d);
+      d.connect(new GainNode(c, { gain: 1 })).connect(d);
+      d.connect(c.destination);
+      s.start(0);
+      const x = (await c.startRendering()).getChannelData(0);
+      for (let k = 384; k < x.length; k += 1)
+        if (Math.abs(x[k]) > 0.5) {
+          loopLag = Math.max(0, Math.min(1024, k - 512));
+          break;
+        }
+    } catch {
+      /* pas de rendu hors ligne : 128 */
+    }
+    return loopLag;
+  })();
+  return loopLagAsk;
+}
 
 /**
  * La saturation de la boucle : lineaire en dessous, bornee a DUB.ceil ; son entree arrive divisee par deux (DUB_HALF,
@@ -656,11 +695,22 @@ function rampTo(p: AudioParam, r: Ramp, to: number, t0: number, dur: number): vo
  * la queue perd 16 dB en 2 s puis s'eteint ; aucun clic au-dessus de 10 kHz aux mouvements de dose ni aux changements
  * de TIME (au niveau du fond, -80 dBFS) ; la hauteur ne bouge pas plus que le pleurage (0.3 %) ; 134 ms de calcul pour
  * 60 s ouvert (l'ancien delay : 63 ms, mais il tournait toujours, meme ferme ; celui-ci se debranche).
+ *
+ * Le calage (2026-10-27, revue DUB-REPEAT-DRIFT) : chaque tour de boucle arrivait 3.1 ms trop tard (la latence de la
+ * boucle, 2.67 ms dans Chromium, et 0.46 a 0.5 ms de filtres), la 15e repetition 45 ms apres la grille. Les lignes sont
+ * posees a TIME moins ce retard (lag), un pre-delai fixe de lag sur l'envoi seul (hors de la boucle, donc exact) le
+ * rend une fois : la n-ieme repetition tombe a n x TIME (impulsion sans pleurage, centroide de +0.27 a +0.53 ms
+ * jusqu'a la 20e, contre +60 ms ; l'attaque d'un coup arrive un peu plus tot a chaque tour, -0.19 ms, la diffusion du
+ * passe-tout ; le pleurage seul fait onduler la queue autour de la grille, sans la quitter).
  */
 export class DubEcho {
   readonly input: GainNode;
   readonly output: GainNode;
   private send: GainNode;
+  /** le pre-delai de l'envoi (lag), hors de la boucle */
+  private pre: DelayNode;
+  /** ce que la boucle retarde a chaque tour (s) : sa latence (dubLoopLag) et ses filtres (DUB.passS) */
+  private lag: number;
   private fb: GainNode;
   private fbRamp: Ramp;
   private lines: { d: DelayNode; g: GainNode; t: Ramp; gr: Ramp }[];
@@ -675,6 +725,7 @@ export class DubEcho {
     seconds: number
   ) {
     this.time = Math.max(0.01, Math.min(DUB.maxS, seconds));
+    this.lag = loopLag / ctx.sampleRate + DUB.passS;
     this.input = new GainNode(ctx, { gain: 1 });
     // L'envoi : la somme des deux canaux (une bande d'echo est mono ; la boucle entiere aussi)
     this.send = new GainNode(ctx, { gain: 0, channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers' });
@@ -686,16 +737,18 @@ export class DubEcho {
     this.fb = new GainNode(ctx, { gain: fb0 });
     this.fbRamp = { v0: fb0, t0: 0, v1: fb0, t1: 0 };
     this.output = new GainNode(ctx, { gain: DUB.ret });
-    this.input.connect(this.send);
+    this.pre = new DelayNode(ctx, { maxDelayTime: 0.05, delayTime: this.lag });
+    this.input.connect(this.send).connect(this.pre);
     // Les deux lignes recoivent l'envoi et la boucle ; leur gain (DUB_HALF a l'ecoute) divise par deux l'entree de la saturation
+    const L = this.lineOf(this.time);
     this.lines = [0, 1].map((i) => {
-      const d = new DelayNode(ctx, { maxDelayTime: 8, delayTime: this.time });
+      const d = new DelayNode(ctx, { maxDelayTime: 8, delayTime: L });
       const on = i === 0 ? DUB_HALF : 0;
       const g = new GainNode(ctx, { gain: on });
-      this.send.connect(d);
+      this.pre.connect(d);
       this.fb.connect(d);
       d.connect(g).connect(hp);
-      return { d, g, t: { v0: this.time, t0: 0, v1: this.time, t1: 0 }, gr: { v0: on, t0: 0, v1: on, t1: 0 } };
+      return { d, g, t: { v0: L, t0: 0, v1: L, t1: 0 }, gr: { v0: on, t0: 0, v1: on, t1: 0 } };
     });
     hp.connect(lp).connect(ap).connect(sat);
     sat.connect(this.output);
@@ -712,6 +765,24 @@ export class DubEcho {
     const src = new AudioBufferSourceNode(ctx, { buffer: wob, loop: true });
     for (const l of this.lines) src.connect(l.d.delayTime);
     src.start();
+    // La latence mesuree (une fois par page) : si elle n'est pas celle d'attente, le calage se repose
+    void dubLoopLag().then((f) => this.relag(f));
+  }
+
+  /** Le temps d'une ligne pour une repetition de T secondes : T moins le retard d'un tour (jamais sous un quantum). */
+  private lineOf(T: number): number {
+    return Math.max(128 / this.ctx.sampleRate, T - this.lag);
+  }
+
+  /** La latence de la boucle connue (dubLoopLag) : le pre-delai et la ligne qui sonne se recalent (au plus quelques ms apres l'ouverture). */
+  private relag(frames: number): void {
+    const lag = frames / this.ctx.sampleRate + DUB.passS;
+    if (Math.abs(lag - this.lag) < 1e-7) return;
+    this.lag = lag;
+    const now = this.ctx.currentTime;
+    this.pre.delayTime.setValueAtTime(lag, now);
+    const a = this.lines[this.active];
+    rampTo(a.d.delayTime, a.t, this.lineOf(this.time), now, 0);
   }
 
   /** La dose (0 a 1) : l'envoi en 20 ms ; la boucle vite en montant, lentement en descendant (la queue sonne). */
@@ -738,14 +809,15 @@ export class DubEcho {
     if (Math.abs(T - this.time) < 1e-5) return;
     const now = this.ctx.currentTime;
     const a = this.lines[this.active];
+    const L = this.lineOf(T);
     if (now >= this.xfEnd && Math.abs(T - this.time) <= this.time * DUB.glideMax) {
       const from = rampAt(a.t, now);
-      rampTo(a.d.delayTime, a.t, T, now, Math.max(0.05, Math.abs(T - from) / DUB.pitchMax));
+      rampTo(a.d.delayTime, a.t, L, now, Math.max(0.05, Math.abs(L - from) / DUB.pitchMax));
     } else {
       // Apres le fondu en cours : jamais deux a la fois, la ligne qu'on pose est muette
       const at = Math.max(now, this.xfEnd);
       const b = this.lines[1 - this.active];
-      rampTo(b.d.delayTime, b.t, T, at, 0);
+      rampTo(b.d.delayTime, b.t, L, at, 0);
       rampTo(b.g.gain, b.gr, DUB_HALF, at, DUB.xfadeS);
       rampTo(a.g.gain, a.gr, 0, at, DUB.xfadeS);
       this.active = 1 - this.active;
