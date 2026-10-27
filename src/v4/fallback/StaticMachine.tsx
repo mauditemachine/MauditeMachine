@@ -40,6 +40,7 @@ import {
   PORTRAIT,
   RING_TONE,
   XFADE,
+  xfadeCapX,
   ringLit,
   OLED,
   ORBIT,
@@ -457,11 +458,12 @@ function faceSolids(items: Solid[]): void {
     const red = l.id === 'run';
     items.push(faceLabel(box(`fkey-${l.id}`, l.x, l.z, l.w / 2, l.d / 2, FACE_KEY.h, red ? HEX.red : HEX.graphiteHi, red ? C.runSide : C.clearSide, red ? C.runSide : C.clearSide), l, FACE_KEY.h));
   }
-  // Le capuchon du crossfader, au milieu de sa course (phase 1), son trait d'os sur le dessus
+  // Le capuchon du crossfader, a x 0 a l'arrivee (2026-10-27, P2-20 : le bout de la scene A), son trait d'os sur le dessus
   const X = XFADE;
-  const cap = box('xfade', X.x, X.z, X.cap.w / 2, X.cap.d / 2, X.cap.h, HEX.encoder, C.encSide, C.encSide);
-  const m0 = P(panel(X.x, X.cap.h, X.z - X.cap.mark.d / 2));
-  const m1 = P(panel(X.x, X.cap.h, X.z + X.cap.mark.d / 2));
+  const cx = xfadeCapX(0);
+  const cap = box('xfade', cx, X.z, X.cap.w / 2, X.cap.d / 2, X.cap.h, HEX.encoder, C.encSide, C.encSide);
+  const m0 = P(panel(cx, X.cap.h, X.z - X.cap.mark.d / 2));
+  const m1 = P(panel(cx, X.cap.h, X.z + X.cap.mark.d / 2));
   cap.nodes.push(<line key="xfade-m" x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(X.cap.mark.w * S)} strokeLinecap="round" />);
   items.push(cap);
   // Les seize pas en deux rangees : ceux de BD (la voix choisie a l'arrivee) allumes selon leur velocite, leurs legendes

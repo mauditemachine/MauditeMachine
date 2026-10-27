@@ -161,7 +161,7 @@ import { lockMask, lockOf, type StepLock } from '../audio/locks';
 import { dialRange, dialShown, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
 import { rytmLock } from '../state/rytmLock';
 import { sceneCtl } from '../state/sceneCtl';
-import { sceneCount, type SceneId } from '../rytm/sceneData';
+import { anyScenes, sceneCount, type SceneId } from '../rytm/sceneData';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
 import { FENV_OCT, atkS, cutHz, decayTau, holdS, voiceFx } from '../audio/voicefx';
@@ -175,7 +175,7 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
+import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, XFADE_UI, type EncId, type Inst } from '../theme';
 import { rytmInfoHit } from '../rytm/infoIds';
 import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
@@ -230,6 +230,8 @@ export interface ScreenInfo {
   popup: string;
   /** l'en-tete : la page et ses onglets (VOICE|[MAIN]|SYNTH), ou en P-LOCK son texte (P-LOCK STEP 05 | ENV · P-LOCKS) */
   head: string;
+  /** la bande du crossfader au pied (2026-10-27, P2-20) : A 0.50 B (REC A, une scene armee) ; '' pas dessinee */
+  xfade: string;
   /** le compte des verrous du pas en P-LOCK dans l'en-tete (-1 hors P-LOCK) */
   lockCount: number;
   /** M ou S quand MUTE ou SOLO est arme (M+ : MULTI) ; '' sinon */
@@ -857,6 +859,7 @@ export class Screen {
       hover: -1,
       popup: '',
       head: '',
+      xfade: '',
       lockCount: -1,
       badge: '',
       graph: '',
@@ -922,6 +925,9 @@ export class Screen {
       // SCENE A et B (2026-10-27) : l'en-tete de la scene armee, ses cles sur les blocs, leurs valeurs
       sceneCtl.subscribe(active),
       pattern.scenes.subscribe(() => active()),
+      // Le crossfader (2026-10-27, P2-20) : un redessin doux (xTick) ; le debut et la fin d'un geste (la bande du pied)
+      sceneCtl.onX(() => this.xTick()),
+      sceneCtl.onGesture(() => this.request()),
       // INFOS (R4) : la touche i pleine, le bloc de la carte montree ; seulement quand l'un des deux change (revue de R4 : le
       // survol d'un pad ou d'un pas redessinait tout l'ecran et le renvoyait a la carte graphique)
       rytmInfos.subscribe(() => {
@@ -954,11 +960,24 @@ export class Screen {
     this.request();
   }
 
-  /** Un redessin bientot (au plus tous les MIN_GAP_MS). */
+  /**
+   * Le crossfader bouge (P2-20) : l'ecran se redessine, doucement, seulement s'il montre ce qui en depend (un bloc morphe,
+   * la bande du pied) ; l'activite repousse la vague du repos.
+   */
+  private xLive = false;
+  private xTick(): void {
+    const now = performance.now();
+    this.activeAt = now;
+    // Au plus tous les XFADE_UI.screenGapMs, geste ou pas (le MIDI, en phase 3, n'en a pas)
+    if (this.xLive) this.request(this.info.lastDrawAt + XFADE_UI.screenGapMs - now);
+  }
+
+  /** Un redessin bientot (au plus tous les MIN_GAP_MS ; pendant un geste du crossfader, tous les XFADE_UI.screenGapMs). */
   private request(delay = 0): void {
     if (this.timer !== 0 || this.disposed) return;
+    const gap = sceneCtl.moving() ? Math.max(MIN_GAP_MS, XFADE_UI.screenGapMs) : MIN_GAP_MS;
     // Arrondi au-dessus : setTimeout tronque les fractions, l'ecart tombait a 59,5 ms au lieu de 60
-    const wait = Math.ceil(Math.max(delay, this.info.lastDrawAt + MIN_GAP_MS - performance.now(), 0));
+    const wait = Math.ceil(Math.max(delay, this.info.lastDrawAt + gap - performance.now(), 0));
     this.timer = window.setTimeout(() => {
       this.timer = 0;
       const now = performance.now();
@@ -1224,6 +1243,8 @@ export class Screen {
     this.info.cells = [];
     this.info.graph = '';
     this.info.tags = [];
+    this.info.xfade = '';
+    this.xLive = false;
     if (!paged) {
       this.blockRects = [];
       this.tabSpots = [];
@@ -1924,7 +1945,9 @@ export class Screen {
       const panel = mode && mode.kind !== 'scene' ? this.paintLockPanel(slots, mode.step, mode.kind === 'flash' ? mode.lock : undefined) : null;
       // Les cases libres : un cadre en pointilles (au telephone les blocs sont les potards ; au desktop aussi depuis le 2026-10-09)
       this.paintGhosts(slots, panel);
-      this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
+      this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}${b.morph ? `@${b.morph}` : ''}`);
+      // Un bloc morphe a l'ecran (P2-20) : le crossfader qui bouge le redessine (xTick)
+      if (blocks.some((b) => b.morph)) this.xLive = true;
       this.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
       this.info.cells = blocks.map((b) => `${b.cell.c},${b.cell.r},${b.cell.w},${b.cell.h}`);
       const echo = blocks.find((b) => b.echo);
@@ -2773,6 +2796,11 @@ export class Screen {
       c.globalAlpha = b.echo || b.hover ? 1 : alpha;
       if (b.hover && !b.echo) this.roundRect(bx + 0.5, by + 0.5, bw - 1, bh - 1, M.r, HOVER_FILL, HALF, 0.8);
       else this.roundRect(bx + 0.5, by + 0.5, bw - 1, bh - 1, M.r, null, b.echo ? INK : alive ? FRAME : FRAME_DIM, b.echo ? 1.2 : 0.7);
+      // Un reglage qui se morphe (P2-20) : son coin A, B ou AB, en clair (la valeur est ce qui joue au crossfader)
+      if (b.morph && alive) {
+        const k = TALL ? 11 : 9;
+        this.text(b.morph, bx + bw - 1.6, by + k * 0.52, k * 0.55, HALF, 800, 'right');
+      }
     }
     this.pal = neg ? PAL_NEG : PAL;
     c.globalAlpha = neg ? 1 : alpha;
@@ -2791,7 +2819,7 @@ export class Screen {
     const tagColor = b.noBd || b.all ? P.faintText : P.half;
     const tagSp = onName ? 0.5 : 0.2;
     const tagW = (t: string): number => this.textWidth(t, T.tagSize, 700, tagSp);
-    const cornerW = neg ? (TALL ? 12 : 10) : 0;
+    const cornerW = neg || (b.morph && alive) ? (TALL ? 12 : 10) : 0;
     const nameRoom = bw - 2 * B.padX - cornerW;
     const nameW = this.textWidth(b.label, T.nameSize, 700, 0.7);
     const nameTag = tag && onName && nameW + tagW(tag) + 5 <= nameRoom ? tag : '';
@@ -3383,6 +3411,17 @@ export class Screen {
       return 0;
     }
     // L'aide (2026-10-09) : au telephone le geste des blocs et celui des verrous, sur deux lignes ; au desktop sur une
+    // Le crossfader (2026-10-27, P2-20) : au desktop, des scenes dans le motif (ou le crossfader qui bouge), la seconde ligne
+    // devient sa bande A [----|----] B
+    if (TALL && !this.mobile && (anyScenes(pattern.scenes.get()) || sceneCtl.moving())) {
+      const fitsA = (t: string): boolean => this.textWidth(t, fs - 1, 700, 0.5) <= x1 - x0;
+      const aText = [`${TURN}  ·  HOLD A STEP: P-LOCK`, `${TURN} · HOLD A STEP: P-LOCK`, `${TURN} · HOLD STEP: P-LOCK`].find(fitsA) ?? `${TURN} · HOLD STEP: P-LOCK`;
+      const a = this.fitText(aText, x1 - x0, fs - 1, 0.5, 700);
+      this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
+      const b = this.paintXStrip(x0, x1, F.y2, fs - 0.5);
+      this.info.footText = `${a} / ${b}`;
+      return 0;
+    }
     if (TALL) {
       // La premiere forme qui tient en entier (le telephone : la place d'une ligne)
       const fits = (s: string, size: number, sp: number): boolean => this.textWidth(s, size, 700, sp) <= x1 - x0;
@@ -3427,6 +3466,34 @@ export class Screen {
     this.text(t, x0, y, fs - 0.5, HALF, 700, 'left', 0.5);
     this.info.footText = t;
     return 0;
+  }
+
+  /**
+   * La bande du crossfader (2026-10-27, P2-20) : A a gauche, B a droite (REC A ou REC B, la scene armee, en plein), le
+   * milieu marque, le curseur a x ; rend sa forme texte (A [----|----] B).
+   */
+  private paintXStrip(x0: number, x1: number, y: number, size: number): string {
+    const w = sceneCtl.get().armed;
+    const x = sceneCtl.x();
+    const la = w === 'a' ? 'REC A' : 'A';
+    const lb = w === 'b' ? 'REC B' : 'B';
+    const wa = this.text(la, x0, y, size, w === 'a' ? INK : HALF, 700, 'left', 0.6);
+    const wb = this.text(lb, x1, y, size, w === 'b' ? INK : HALF, 700, 'right', 0.6);
+    const a = x0 + wa + 5;
+    const b = x1 - wb - 5;
+    if (b - a > 10) {
+      const yb = y - size * 0.36;
+      this.line([a, yb, b, yb], FAINT, 1.2);
+      const m = (a + b) / 2;
+      this.line([m, yb - 2.2, m, yb + 2.2], HALF, 1);
+      const px = a + (b - a) * x;
+      this.line([px, yb - 3.4, px, yb + 3.4], INK, 2.2);
+    }
+    this.xLive = true;
+    this.info.xfade = `${la} ${x.toFixed(2)} ${lb}`;
+    const n = 9;
+    const at = Math.round(x * (n - 1));
+    return `${la} [${Array.from({ length: n }, (_, i) => (i === at ? '|' : '-')).join('')}] ${lb}`;
   }
 
   /**

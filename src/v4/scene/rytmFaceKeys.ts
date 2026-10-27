@@ -25,7 +25,7 @@
 import { BoxGeometry, Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, type BufferGeometry, type Object3D } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, FACE_KEY, FACE_KEYS, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, OPEN_BREATHE, PRESS_TINT, RING_TONE, STEP_PRESS, XFADE, type FaceKeyId } from '../theme';
+import { COLOR, FACE_KEY, FACE_KEYS, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, OPEN_BREATHE, PRESS_TINT, RING_TONE, STEP_PRESS, XFADE, xfadeCapX, type FaceKeyId } from '../theme';
 import { fpU } from '../rytm/faceplate';
 import type { HoldMode } from '../state/holdLatch';
 import type { HotspotDef } from './hit';
@@ -146,13 +146,15 @@ export interface RytmFaceKeysInfo {
   /** le crossfader (0 cote A) et la position du capuchon (x) */
   x: number;
   capX: number;
+  /** le capuchon eclaire par le survol (2026-10-27, P2-20) */
+  capHover: boolean;
 }
 
 export class RytmFaceKeys {
   readonly keys: InstancedMesh;
   readonly leds: InstancedMesh;
   readonly labels: KeyLabels;
-  /** le capuchon du crossfader (inerte en phase 1, au milieu de sa course) */
+  /** le capuchon du crossfader (2026-10-27, P2-20 : il suit x, de A a gauche a B a droite) */
   readonly cap: Mesh;
   /** le cadre d'une scene armee (2026-10-27) : deux instances, A et B, a l'echelle 0 hors armement */
   readonly armRing: InstancedMesh;
@@ -180,6 +182,8 @@ export class RytmFaceKeys {
   /** l'eclat des temoins de SCENE A et B (0 : la scene est vide) */
   private sceneLed = { a: 0, b: 0 };
   private xNow = 0;
+  /** le capuchon sous la souris (P2-20) */
+  private capHot = false;
   private off = new Color();
   private on = new Color();
 
@@ -214,7 +218,8 @@ export class RytmFaceKeys {
     this.capMat.name = 'xfadeCap';
     this.cap = new Mesh(capGeometry(), this.capMat);
     this.cap.name = 'xfadeCap';
-    this.cap.position.set(XFADE.x, 0, XFADE.z);
+    // A l'arrivee, x 0 : le bout de la scene A (2026-10-27, P2-20 ; au milieu de sa course en phase 1)
+    this.cap.position.set(xfadeCapX(0), 0, XFADE.z);
     this.cap.castShadow = opts.castShadow;
     this.cap.receiveShadow = true;
 
@@ -353,6 +358,14 @@ export class RytmFaceKeys {
     return true;
   }
 
+  /** Le capuchon du crossfader a x (P2-20, 0 la scene A, 1 la scene B) ; true s'il faut une frame. */
+  setXfade(x: number): boolean {
+    const px = xfadeCapX(x);
+    if (this.cap.position.x === px) return false;
+    this.cap.position.x = px;
+    return true;
+  }
+
   /** Une scene gardee : son cadre clignote (periodMs allume, periodMs eteint) ; true si la phase a change. */
   blinkScene(now: number, periodMs: number): boolean {
     if (this.armHow !== 'latched') return false;
@@ -421,9 +434,17 @@ export class RytmFaceKeys {
 
   /** La touche sous la souris (l'id de sa zone, null aucune) : EDIT, OPEN et TRK s'eclairent un rien, les inertes non ; true s'il faut une frame. */
   setHover(id: string | null): boolean {
+    // Le capuchon du crossfader (P2-20) : un peu plus clair sous la souris, comme un potard
+    const cap = id === 'xfade';
+    let capChanged = false;
+    if (cap !== this.capHot) {
+      this.capHot = cap;
+      this.capMat.color.setScalar(cap ? HOVER_LIGHT.knob : 1);
+      capChanged = true;
+    }
     const i = id === null ? -1 : this.indexOf(id);
     const k = i >= 0 && LIVE(i) ? i : -1;
-    if (k === this.hover) return false;
+    if (k === this.hover) return capChanged;
     const was = this.hover;
     this.hover = k;
     if (was >= 0) this.refresh(was);
@@ -472,6 +493,7 @@ export class RytmFaceKeys {
       ringOn: this.ringOn,
       x: this.xNow,
       capX: +this.cap.position.x.toFixed(6),
+      capHover: this.capHot,
     };
   }
 

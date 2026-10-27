@@ -148,6 +148,8 @@ export interface EncodersInfo {
   ring: number[];
   /** la teinte de chaque anneau (2026-10-27, les potards suivent la page) */
   tones: (KnobTone | null)[];
+  /** la bande du crossfader de chaque anneau (lo, hi), null sans bande (2026-10-27, P2-20) */
+  bands: ([number, number] | null)[];
   /** les potards eclaires par le survol (un potard, ou ceux d'un bloc de l'ecran survole) */
   hover: number[];
 }
@@ -174,6 +176,9 @@ export class Encoders {
   /** la teinte et la loi (a zero au centre) que montre chaque anneau */
   private ringTone: (KnobTone | null)[] = new Array(FACE_KNOBS.length).fill(null);
   private ringBip = new Uint8Array(FACE_KNOBS.length);
+  /** la bande du crossfader de chaque anneau (2026-10-27, P2-20) : ses deux bouts tries, NaN sans bande */
+  private bandLo = new Float32Array(FACE_KNOBS.length).fill(Number.NaN);
+  private bandHi = new Float32Array(FACE_KNOBS.length).fill(Number.NaN);
   private toneColor = new Map<string, Color>();
 
   constructor(opts: { mobile: boolean; castShadow: boolean; rings?: boolean }) {
@@ -239,20 +244,31 @@ export class Encoders {
     return c;
   }
 
-  /** L'anneau du potard i a la course t, a zero au centre ou non, d'une teinte : ses 27 segments ; true s'il a change. */
-  private paintRing(i: number, t: number, bip: boolean, tone: KnobTone): boolean {
+  /**
+   * L'anneau du potard i a la course t, a zero au centre ou non, d'une teinte : ses 27 segments ; true s'il a change. La
+   * bande du crossfader (P2-20, lo a hi, NaN sans bande) : les segments eteints entre les courses de A et de B luisent a
+   * KNOB_RING.band de la teinte.
+   */
+  private paintRing(i: number, t: number, bip: boolean, tone: KnobTone, lo = Number.NaN, hi = Number.NaN): boolean {
     const r = this.rings;
-    if (!r || (this.ringT[i] === Math.fround(t) && this.ringBip[i] === (bip ? 1 : 0) && this.ringTone[i] === tone)) return false;
+    const same = (a: number, b: number): boolean => (Number.isNaN(a) ? Number.isNaN(b) : a === Math.fround(b));
+    if (!r || (this.ringT[i] === Math.fround(t) && this.ringBip[i] === (bip ? 1 : 0) && this.ringTone[i] === tone && same(this.bandLo[i], lo) && same(this.bandHi[i], hi))) return false;
     const toneChanged = this.ringTone[i] !== tone;
     this.ringT[i] = t;
     this.ringBip[i] = bip ? 1 : 0;
     this.ringTone[i] = tone;
+    this.bandLo[i] = lo;
+    this.bandHi[i] = hi;
     const S = KNOB_RING.segments;
     const on = tone === 'base' ? this.ringOn : this.onColor(tone);
     const level = RING_TONE[tone].k;
+    const glow = KNOB_RING.band * level;
+    const banded = !Number.isNaN(lo);
     let changed = false;
     for (let j = 0; j < S; j += 1) {
-      const f = ringLit(j, t, bip) * level;
+      const c = (j + 0.5) / S;
+      const lit = ringLit(j, t, bip) * level;
+      const f = banded && c >= lo - 0.5 / S && c <= hi + 0.5 / S ? Math.max(lit, glow) : lit;
       const k = i * S + j;
       if (!toneChanged && Math.abs(this.ringPart[k] - f) < 1e-4) continue;
       this.ringPart[k] = f;
@@ -263,10 +279,11 @@ export class Encoders {
     return changed;
   }
 
-  /** L'anneau du potard i (2026-10-27, la vue de rytm/faceKnobs.ts) : la course, a zero au centre, la teinte ; true s'il faut une frame. */
-  setRing(i: number, o: { t: number; bipolar: boolean; tone: KnobTone }): boolean {
+  /** L'anneau du potard i (2026-10-27, la vue de rytm/faceKnobs.ts) : la course, a zero au centre, la teinte, la bande du crossfader ; true s'il faut une frame. */
+  setRing(i: number, o: { t: number; bipolar: boolean; tone: KnobTone; band?: readonly [number, number] | null }): boolean {
     if (i < 0 || i >= FACE_KNOBS.length) return false;
-    return this.paintRing(i, o.t, o.bipolar, o.tone);
+    const b = o.band;
+    return b ? this.paintRing(i, o.t, o.bipolar, o.tone, Math.min(b[0], b[1]), Math.max(b[0], b[1])) : this.paintRing(i, o.t, o.bipolar, o.tone);
   }
 
   /** Le capuchon du potard i a la course t (2026-10-27 : le moteur du potard motorise) ; true s'il faut une frame. */
@@ -372,6 +389,7 @@ export class Encoders {
           })
         : [],
       tones: [...this.ringTone],
+      bands: FACE_KNOBS.map((_, i) => (Number.isNaN(this.bandLo[i]) ? null : [+this.bandLo[i].toFixed(4), +this.bandHi[i].toFixed(4)])),
       hover: FACE_KNOBS.map((_, i) => i).filter((i) => (this.hoverMask >> i) & 1),
     };
   }

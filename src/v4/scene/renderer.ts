@@ -135,13 +135,15 @@ import {
   KEY_LIT_LIGHT,
   TRK_LIT,
   TRK_LIT_LIGHT,
+  XFADE,
+  xfadeCapX,
 } from '../theme';
 import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
 import { anyDialValue, dialRange, knobBlock, type DialId } from '../actions';
-import { faceKnobs, type FaceKnobChange } from '../rytm/faceKnobs';
+import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { trk } from '../state/trk';
 import { sceneCtl } from '../state/sceneCtl';
@@ -368,6 +370,12 @@ export interface StageMeasure {
 }
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** Un objet a-t-il une cle (sans le tableau d'Object.keys : les temoins des scenes, a chaque pas du crossfader). */
+function hasKeys(o: object): boolean {
+  for (const k in o) if (Object.prototype.hasOwnProperty.call(o, k)) return true;
+  return false;
+}
 const v3 = new Vector3();
 /** les 16 pas (le test de l'intro les allume un par un, 2026-10-19 : la touche, plus de LED) */
 const STEP_LEDS = 16;
@@ -1153,7 +1161,15 @@ export class Stage {
       this.unsubTrk = trk.subscribe(this.syncTrk);
       this.syncTrk();
       // SCENE A et B (2026-10-27) : la touche armee allumee et son cadre, leurs temoins (des valeurs, ce qu'on en entend)
-      const offs = [sceneCtl.subscribe(this.syncScene), pattern.scenes.subscribe(this.syncScene), sceneCtl.onX(this.syncScene)];
+      // Le crossfader (P2-20) : son capuchon suit x sans passe d'ombre, une seule a la fin du geste
+      const offs = [
+        sceneCtl.subscribe(this.syncScene),
+        pattern.scenes.subscribe(this.syncScene),
+        sceneCtl.onX(this.syncScene),
+        sceneCtl.onGesture((on) => {
+          if (!on && !this.disposed) this.invalidate();
+        }),
+      ];
       this.unsubScene = () => offs.forEach((o) => o());
       this.syncScene();
     }
@@ -3025,13 +3041,21 @@ export class Stage {
     // Une page, une voix, le P-LOCK (2026-10-27) : les capuchons vont a leur valeur comme des potards motorises, sans passe
     // d'ombre en route (une seule a l'arrivee) ; un potard tenu ne bouge pas sous la main
     const motor = (c.cause === 'page' || c.cause === 'voice' || c.cause === 'lock' || c.cause === 'scene') && !motion.reduced();
+    // Le crossfader (P2-20) : les capuchons le suivent tout de suite, sans moteur ni ombre en route (une a la fin du geste)
+    const xfade = c.cause === 'xfade';
     const now = performance.now();
     let ring = false;
     let cap = false;
     for (const k of c.moved) {
       const v = views[k];
       if (!v) continue;
-      if (e.setRing(k, { t: v.state === 'live' ? v.pos : 0, bipolar: v.bipolar, tone: v.tone })) ring = true;
+      // Un seul objet d'arguments, rempli sur place (P2-20 : aucune allocation par pas du crossfader)
+      const ra = this.ringArg;
+      ra.t = v.state === 'live' ? v.pos : 0;
+      ra.bipolar = v.bipolar;
+      ra.tone = v.tone;
+      ra.band = v.state === 'live' ? v.band : null;
+      if (e.setRing(k, ra)) ring = true;
       // Une case vide ou un dessin : le capuchon reste ou il est (un moteur ne bouge pas pour rien)
       if (v.state === 'empty' || v.state === 'picture') continue;
       const key = `knob.${k}`;
@@ -3056,9 +3080,31 @@ export class Stage {
       }
     }
     if (!ring && !cap) return;
-    if (!motor) this.knobsMoved();
+    if (xfade && sceneCtl.moving()) this.repaint();
+    else if (!motor) this.knobsMoved();
     else this.repaint();
   };
+
+  private ringArg: { t: number; bipolar: boolean; tone: KnobTone; band: readonly [number, number] | null } = { t: 0, bipolar: false, tone: 'off', band: null };
+
+  /** Les capuchons des potards en route (le moteur d'une page, d'une voix, du P-LOCK ou d'une scene) : les tests. */
+  get knobMotors(): number {
+    return this.motors;
+  }
+
+  /**
+   * Le crossfader (2026-10-27, P2-20) : les deux bouts de la course du capuchon (A puis B), projetes en px CSS du canvas
+   * sur le dessus du capuchon : le glisser 3D suit cet axe, a tout angle de la vue (la recette du fader du MM-DECKS).
+   * null : pas de face V.4.0 (le telephone).
+   */
+  private xfA = { x: 0, y: 0 };
+  private xfB = { x: 0, y: 0 };
+  xfadeAxis(): { ax: number; ay: number; bx: number; by: number } | null {
+    if (!this.faceKeys) return null;
+    const a = this.projectPlateau(xfadeCapX(0), XFADE.cap.h, XFADE.z, this.xfA);
+    const b = this.projectPlateau(xfadeCapX(1), XFADE.cap.h, XFADE.z, this.xfB);
+    return { ax: a.x, ay: a.y, bx: b.x, by: b.y };
+  }
 
   /** Un capuchon est arrive (ou sa course est reprise) : la passe d'ombre quand le dernier s'arrete. */
   private motorDone(k: number): void {
@@ -3251,8 +3297,12 @@ export class Stage {
     const a = sceneCtl.get();
     const s = pattern.scenes.get();
     let changed = fk.setScene(a.armed, a.how);
-    if (fk.setSceneLeds(Object.keys(s.a).length > 0, Object.keys(s.b).length > 0, sceneCtl.x())) changed = true;
-    if (changed) this.repaint();
+    // Aucune allocation par pas du crossfader (P2-20) : un objet vide se lit sans Object.keys
+    if (fk.setSceneLeds(hasKeys(s.a), hasKeys(s.b), sceneCtl.x())) changed = true;
+    // Le capuchon du crossfader (P2-20) : a x ; il projette une ombre, refaite une fois a la fin du geste (onGesture)
+    const cap = fk.setXfade(sceneCtl.x());
+    if (cap && !sceneCtl.moving()) this.invalidate();
+    else if (changed || cap) this.repaint();
     if (a.how === 'latched') this.kick();
   };
 

@@ -33,7 +33,7 @@
  */
 
 import { dialRange, dialShown, dialSteps, dialUnit, dialValueText, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageLockView, sceneIdOfDial, stepPlays, voiceSoundText, voiceSoundUnit, voiceSounds, type DialId } from '../actions';
-import type { SceneId } from './sceneData';
+import { NO_SCENES, type SceneId } from './sceneData';
 import { sceneRole } from './sceneParams';
 import { lockOf, type StepLock } from '../audio/locks';
 import { familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily } from '../audio/kit';
@@ -103,6 +103,19 @@ export interface Block {
   graph: SlotGraph | null;
   /** la lettre du coin d'un bloc en negatif (P un verrou ; A ou B une cle de la scene armee, 2026-10-27) */
   corner?: string;
+  /** son reglage se morphe (2026-10-27, P2-20) : dans la scene A, B ou les deux ; le bloc montre ce qui joue */
+  morph?: 'A' | 'B' | 'AB';
+}
+
+/** Les scenes ou le reglage d'un bloc vivant se trouve (P2-20) ; undefined : aucune (ou le motif n'en a pas). */
+function morphMark(k: number): 'A' | 'B' | 'AB' | undefined {
+  const s = pattern.scenes.get();
+  if (s === NO_SCENES) return undefined;
+  const id = sceneIdOfDial(`p:${k}` as DialId);
+  if (!id) return undefined;
+  const a = s.a[id] !== undefined;
+  const b = s.b[id] !== undefined;
+  return a && b ? 'AB' : a ? 'A' : b ? 'B' : undefined;
 }
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
@@ -115,6 +128,8 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, echo = f
     if (slot.both) b.quiet = layerQuiet('synth', inst, mode) && layerQuiet('sample', inst, mode);
     else if (slot.layer && !slot.level) b.quiet = layerQuiet(slot.layer, inst, mode);
   }
+  // Ce qui joue (P2-20) : hors P-LOCK et hors scene armee, un reglage morphe porte son coin A, B ou AB
+  if ((!mode || mode.kind === 'flash') && b.state === 'live' && !b.graph) b.morph = morphMark(k);
   if (!mode || b.state === 'empty' || b.state === 'soon' || b.graph) return b;
   // Une scene armee (2026-10-27) : sa cle en negatif (le coin A ou B), un reglage qui se morphe en retrait, NO SCENE a peine
   if (mode.kind === 'scene') {
@@ -185,6 +200,7 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, echo = f
   const lv = pageLockView(k, mode.step, mode.lock);
   if (!lv) return b;
   b.flash = true;
+  b.morph = undefined;
   b.text = lv.text;
   b.unit = lv.unit;
   b.course = lv.course;

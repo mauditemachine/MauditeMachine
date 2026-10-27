@@ -170,6 +170,8 @@ let scenes: SceneSet = pattern.scenes.get();
 let x = sceneCtl.x();
 let live = entriesOf(scenes);
 let needs = needsOf(live.all);
+/** les entrees par id (2026-10-27, P2-20 : les anneaux lisent ce qui joue a chaque pas du crossfader, sans allocation) */
+let byId = new Map<string, Entry>(live.all.map((e) => [e.b.id, e]));
 const effFx: Fx = { ...pattern.fx.get() };
 let fxDirty = true;
 const effVoice: Partial<Record<Inst, VoiceFx>> = {};
@@ -184,11 +186,13 @@ const stats = { applies: 0, reschedAsks: 0, settles: 0, renders: 0, applyMs: [] 
 function rebuild(): void {
   live = entriesOf(scenes);
   needs = needsOf(live.all);
+  byId = new Map(live.all.map((e) => [e.b.id, e]));
   fxDirty = true;
   for (const i of VOICES) voiceDirty.add(i);
   stats.rebuilds += 1;
 }
 
+const X_CAUSE: MorphChange = Object.freeze({ cause: 'x' });
 function notify(c: MorphChange): void {
   stats.notifies += 1;
   listeners.forEach((fn) => fn(c));
@@ -270,13 +274,35 @@ export const morph = {
   },
   /** le 0 a 1 joue d'un id qui se morphe (les anneaux, les blocs, les moteurs) ; null : pas morphe */
   played01(id: string): number | null {
-    const e = live.all.find((x0) => x0.b.id === id);
+    const e = byId.get(id);
     if (!e) return null;
     const b = e.b;
     if (b.domain === 'fx') return to01(b, (fxNow() as unknown as Record<string, number>)[b.key]);
     if (b.domain === 'stretch') return to01(b, morph.stretch());
     if (b.domain === 'voice' && b.inst) return to01(b, voiceNow(b.inst)[b.key as VoiceParam]);
     return null;
+  },
+  /**
+   * Les deux bouts d'un id qui se morphe (2026-10-27, P2-20 : la bande A-B des anneaux), dans le 0 a 1 de sa cible : ce
+   * qu'il joue a x 0 et a x 1 (une scene sans lui : la base) ; false : pas morphe. out est rempli sur place (sans allocation).
+   */
+  ends01(id: string, out: [number, number]): boolean {
+    const e = byId.get(id);
+    if (!e) return false;
+    const b = e.b;
+    const base =
+      b.domain === 'fx'
+        ? (pattern.fx.get() as unknown as Record<string, number>)[b.key]
+        : b.domain === 'stretch'
+          ? stretchBase()
+          : b.domain === 'voice' && b.inst
+            ? voiceFx.of(b.inst)[b.key as VoiceParam]
+            : undefined;
+    if (typeof base !== 'number') return false;
+    const b01 = to01(b, base);
+    out[0] = morph01(e.a, e.v, b01, 0);
+    out[1] = morph01(e.a, e.v, b01, 1);
+    return true;
   },
   /** un reglage de fx est-il dans une scene du motif (drums.ts : ses changements de base passent par l'applicateur) */
   fxMorphed: (): boolean => live.fx.length > 0,
@@ -291,7 +317,7 @@ export const morph = {
     stats.applyMs.push(ms);
   },
   /** un id est-il dans une scene du motif (morphe) */
-  touches: (id: string): boolean => live.all.some((e) => e.b.id === id),
+  touches: (id: string): boolean => byId.has(id),
   /** les classes presentes dans les scenes du motif */
   has(): MorphHas {
     const h: MorphHas = { ramp: false, worklet: false, notch: false, settle: false, hit: false, pitch: false, heavy: false };
@@ -358,7 +384,8 @@ if (typeof window !== 'undefined') {
     if (live.all.length === 0) return;
     fxDirty = true;
     for (const i of VOICES) if (live.voice[i]?.length) voiceDirty.add(i);
-    notify({ cause: 'x' });
+    // Un seul objet pour tous les pas du crossfader (2026-10-27, P2-20 : aucune allocation par pas)
+    notify(X_CAUSE);
   });
   sceneCtl.onGesture((on) => {
     if (on || live.all.length === 0) return;
