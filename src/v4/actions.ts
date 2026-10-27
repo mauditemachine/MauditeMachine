@@ -174,6 +174,14 @@ const trkSay = (text: string): void => {
  */
 export function trkStep(i: number, stage: Stage | null = null, t = performance.now()): boolean {
   if (!trk.engaged()) return false;
+  // TRK gardee qui se ferme (closing, les 400 ms apres le choix d'une voix ; 2026-10-27, revue B2, deja en ligne depuis le
+  // groupe B) : seule la deuxieme tape sur le MEME pas reste a TRK (la double tape coupe la voix) ; tout autre pas ferme
+  // TRK et suit son chemin habituel (tape, P-LOCK, EDIT). Avant, chaque tape rapide sur un pas juste apres le choix
+  // rechoisissait une voix (et relancait la fenetre) au lieu de programmer la voix choisie. TRK tenue : inchange
+  if (trk.get().mode === 'closing' && !(trkLast && trkLast.i === i && t - trkLast.t <= PAD_DOUBLE_TAP_MS)) {
+    trk.cancel();
+    return false;
+  }
   const inst = Number.isInteger(i) && i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
   if (!inst) return true;
   stage?.pressStep(i);

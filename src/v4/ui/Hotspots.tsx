@@ -1375,11 +1375,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (h?.kind === 'step' && h.index !== undefined) {
         const idx = h.index;
         const pid = e.pointerId;
-        // TRK engagee (2026-10-27) : le pas choisit sa voix a l'appui, avant EDIT et le P-LOCK ; aucune minuterie
+        // TRK engagee (2026-10-27) : le pas choisit sa voix a l'appui, avant EDIT et le P-LOCK ; aucune minuterie. TRK qui
+        // se ferme et ne prend pas ce pas (revue B2 : un autre pas que la double tape) : le pas suit son chemin habituel
         const dt = downs.get(pid);
-        if (trk.engaged() && dt && !dt.info) {
+        if (trk.engaged() && dt && !dt.info && trkStep(idx, stage, e.timeStamp || performance.now())) {
           dt.trk = true;
-          trkStep(idx, stage, e.timeStamp || performance.now());
           e.preventDefault();
           return;
         }
