@@ -4492,7 +4492,13 @@ html:has(body.v4-active.v4-light) {
 }
 
 .v4-seq[data-place='machine'] .v4-seq-lane.v4-beat-lane {
-  height: 44px;
+  height: var(--beat-lane, 44px);
+}
+
+/* Deux rangees de pas (2026-10-27, la revue) : le panneau tient dans leur emprise (BeatEditor.tsx useOnMachine,
+   --beat-lane) ; sous 13 px, le nom des voix (9 px, interligne 1.45) fixait la hauteur des rangees, il prend la sienne. */
+.v4-root .v4-seq[data-place='machine'] .v4-beat-name {
+  line-height: 1;
 }
 
 .v4-root[data-v4-theme='light'] .v4-seq[data-place='machine'] {

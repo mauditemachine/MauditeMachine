@@ -471,6 +471,7 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
       let x1 = -Infinity;
       let y0 = Infinity;
       let y1 = -Infinity;
+      let yb = -Infinity;
       let h0 = 0;
       for (let i = 0; i < STEP_COUNT; i += 1) {
         const k = ids.indexOf(`step-${i + 1}`);
@@ -478,6 +479,7 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
         x0 = Math.min(x0, r[k * 4]);
         x1 = Math.max(x1, r[k * 4] + r[k * 4 + 2]);
         y1 = Math.max(y1, r[k * 4 + 1]);
+        yb = Math.max(yb, r[k * 4 + 1] + r[k * 4 + 3]);
         if (r[k * 4 + 1] < y0) {
           y0 = r[k * 4 + 1];
           h0 = r[k * 4 + 3];
@@ -490,17 +492,34 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
       const names = rows > 1 ? 0 : ON_MACHINE.names + pad;
       const left = cr.left - host.left + x0 - names;
       const width = x1 - x0 + names + (rows > 1 ? 0 : pad);
-      // Le haut : une hauteur de touche au-dessus des pas (la ou etaient leurs LED, parties le 2026-10-19) ; deux rangees
-      // (2026-10-27) : un rien au-dessus de la premiere
-      const top = Math.max(60, cr.top - host.top + y0 - h0 * (rows > 1 ? 0.15 : 1.15));
-      const room = host.bottom - host.top - top - 12;
-      const row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / INSTRUMENTS.length) - 2));
-      const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}`;
+      let top: number;
+      let row: number;
+      let lane: number = ON_MACHINE.two.lane;
+      if (rows > 1) {
+        // Deux rangees (la face V.4.0, la revue du 2026-10-27 : le panneau passait sous le pas 16, sur l'aide et le
+        // chanfrein, a 1440 x 900 et moins) : il tient dans l'emprise des pas. Le haut monte jusqu'a 0.3 d'un pas
+        // au-dessus de la premiere rangee (6 mm, la rangee des touches finit 8 mm plus haut), jamais sur la zone des
+        // touches (run) ; le bas, celui des pas 9 a 16. Les rangees prennent ce qui reste ; a rowMin, la bande VEL rapetisse.
+        const k = ids.indexOf('run');
+        const keys = k >= 0 ? cr.top - host.top + r[k * 4 + 1] + r[k * 4 + 3] + 2 : -Infinity;
+        top = Math.max(60, keys, cr.top - host.top + y0 - h0 * 0.3);
+        const room = cr.top - host.top + yb - top - ON_MACHINE.two.margin;
+        row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.two.fixed - lane) / INSTRUMENTS.length)));
+        lane = Math.max(ON_MACHINE.two.laneMin, Math.min(lane, Math.floor(room - ON_MACHINE.two.fixed - row * INSTRUMENTS.length)));
+      } else {
+        // Une rangee (avant) : une hauteur de touche au-dessus des pas (la ou etaient leurs LED, parties le 2026-10-19),
+        // les rangees a la hauteur qui tient jusqu'au bas de la fenetre
+        top = Math.max(60, cr.top - host.top + y0 - h0 * 1.15);
+        const room = host.bottom - host.top - top - 12;
+        row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / INSTRUMENTS.length) - 2));
+      }
+      const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}|${lane}`;
       if (key === last) return;
       last = key;
       el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
       el.style.width = `${Math.round(width)}px`;
       el.style.setProperty('--beat-row', `${row}px`);
+      el.style.setProperty('--beat-lane', `${lane}px`);
     };
     place();
     const a = stage.onView(place);
@@ -514,8 +533,13 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
   }, [stage, on, ref]);
 }
 
-/** Les mesures du panneau pose sur la machine (px) : la colonne des voix et son jour (38 + 6), ce qui n'est pas la grille, la hauteur d'une rangee. */
-const ON_MACHINE = { names: 44, fixed: 140, rowMin: 10, rowMax: 17 } as const;
+/**
+ * Les mesures du panneau pose sur la machine (px) : la colonne des voix et son jour (38 + 6), ce qui n'est pas la grille,
+ * la hauteur d'une rangee. two (deux rangees de pas, 2026-10-27) : le panneau fait fixed + lane + 8 rangees (mesure :
+ * les marges 6 + 8, la rangee des patterns 22, l'en-tete 28, les jours 12 + 14 ; 270 a 17 px), la bande VEL (lane)
+ * descend jusqu'a laneMin, margin sous le pas 16.
+ */
+const ON_MACHINE = { names: 44, fixed: 140, rowMin: 10, rowMax: 17, two: { fixed: 90, lane: 44, laneMin: 26, margin: 2 } } as const;
 
 /** Le panneau du MM-RYTM ouvert par son pad EDIT : sur la machine au desktop, sous elle au telephone. */
 export const BeatPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
