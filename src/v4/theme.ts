@@ -13,6 +13,7 @@
  */
 
 import seoMeta from '../data/seo-meta.json';
+import type { FpIconId } from './rytm/faceplate';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -1354,10 +1355,26 @@ export interface KeyLabelSpec {
   /** la largeur et la profondeur de la touche */
   w: number;
   d: number;
-  group: 'pkey' | 'tr';
+  /** face V.4.0 (2026-10-27) : face (TRK, EDIT, OPEN), scene (A, B), stepn et stepv (le numero et la voix sur un pas) */
+  group: 'pkey' | 'tr' | 'face' | 'scene' | 'stepn' | 'stepv';
   /** l'encre au repos : celle de la serigraphie, ou l'os (RUN/STOP, sur son rouge, dans les deux apparences) */
   rest: 'ink' | 'bone';
+  /**
+   * La face V.4.0 (2026-10-27, Mika : "pas de texte sur les boutons") : un pictogramme (rytm/icons.ts) au lieu du texte,
+   * et alt, celui de l'etat actif (RUN/STOP pendant la lecture) ; cap, la hauteur de capitale d'un texte (KEY_LABEL.cap
+   * sinon) ; qw, la largeur du quad (la touche moins ses marges sinon) ; dz, le decalage du centre (KEY_LABEL.dz ou
+   * KEY_ICON.dz sinon) ; align, le texte centre ou cale a gauche de son quad (le numero d'un pas)
+   */
+  icon?: FpIconId;
+  alt?: FpIconId;
+  cap?: number;
+  qw?: number;
+  dz?: number;
+  align?: 'center' | 'left';
 }
+
+/** Le pictogramme sur sa touche (2026-10-27) : son carre (6.8 mm), son centre un rien vers l'avant (le temoin est derriere). */
+export const KEY_ICON = { size: 0.34, dz: 0.035 } as const;
 
 export const KEY_LABELS: readonly KeyLabelSpec[] = [
   ...RYTM_PAGE_KEYS.map((pk, k): KeyLabelSpec => ({ id: pk.id, text: pk.label, x: pageKeyX(k), z: PAGE_KEYS.z, w: PAGE_KEYS.w, d: PAGE_KEYS.d, group: 'pkey', rest: 'ink' })),
