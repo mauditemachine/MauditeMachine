@@ -93,6 +93,7 @@ import { noteOutAttach, noteOutEcho, noteOutPorts, noteOutRelease } from './note
 import { isSeqSetup, rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetup, rotoKnownCc, rotoTarget, type RotoKeyInfo, type RotoSetupName } from './roto';
 import { seqAttach, seqCancelAll, seqDrop, seqDropAll, seqInvalidate, seqIsStep, seqKnobGuard, seqKnobTurn, seqLed, seqMsgAt, seqOwns, seqResendAll, seqSeen, seqStepOf } from './seqlink';
 import { MACHINE_NAME, prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
+import { isHwPort } from '../hw/port';
 
 export type MidiKind = 'cc' | 'note' | 'pb';
 export interface MidiMsg {
@@ -336,6 +337,8 @@ function onMessage(this: MIDIInput, e: MIDIMessageEvent): void {
   const st = d[0] & 0xf0;
   const ch = (d[0] & 0x0f) + 1;
   const device = this.name ?? '';
+  // Le boitier MM-RYTM (2026-10-27, hw/port.ts) : son port est au pont MMHW v2, jamais appris ni joue ici
+  if (isHwPort(device)) return;
   const at = Number.isFinite(e.timeStamp) && e.timeStamp > 0 ? e.timeStamp : undefined;
   // MIDI OUT du MM-ARP (2026-10-22, la relecture) : l'echo de ses propres notes par le bus IAC n'est ni appris ni joue
   if (noteOutEcho(device, d, at ?? performance.now())) return;
@@ -351,7 +354,7 @@ function outputNames(): string[] {
   const out: string[] = [];
   const learned = learnedDevices();
   access.outputs.forEach((o) => {
-    if (!o.name || o.state === 'disconnected') return;
+    if (!o.name || o.state === 'disconnected' || isHwPort(o.name)) return;
     const roto = ROTO_NAME.test(o.name);
     if (roto && view.roto) out.push(`${o.name} (Roto map)`);
     else if (learned.some((d) => sameDevice(d, o.name ?? ''))) out.push(`${o.name} (learned)`);
@@ -363,6 +366,11 @@ function wire(): void {
   if (!access) return;
   const names: string[] = [];
   access.inputs.forEach((input) => {
+    // Le port du boitier (2026-10-27, hw/port.ts) : ni ecoute (il n'est pas ouvert ici), ni liste
+    if (isHwPort(input.name)) {
+      input.onmidimessage = null;
+      return;
+    }
     input.onmidimessage = onMessage;
     if (input.name && input.state !== 'disconnected') names.push(input.name);
   });
@@ -384,6 +392,8 @@ function onState(e: MIDIConnectionEvent): void {
     resendAll();
     return;
   }
+  // Le boitier qui arrive ou part (2026-10-27) : rien a relacher ni a renvoyer, il n'est pas a cette couche
+  if (isHwPort(port.name)) return;
   if (port.type === 'input' && port.state === 'disconnected') releaseDevice(port.name ?? '');
   if (port.type === 'output' && port.state === 'connected') resendAll();
 }
@@ -1092,7 +1102,8 @@ function dests(): Dest[] {
   if (!access || !view.feedback) return [];
   const by = new Map<string, Dest>();
   access.outputs.forEach((o) => {
-    if (!o.name || o.state === 'disconnected') return;
+    // Le port du boitier (2026-10-27, hw/port.ts) : le retour n'y va jamais (ses moteurs suivent le pont MMHW v2)
+    if (!o.name || o.state === 'disconnected' || isHwPort(o.name)) return;
     const id = destOf(o.name);
     let d = by.get(id);
     if (!d) {
