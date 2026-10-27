@@ -39,6 +39,7 @@
 import { knobBlock, openToggle } from './actions';
 import { faceKnobs } from './rytm/faceKnobs';
 import { trk, trkDebug } from './state/trk';
+import { hw } from './hw';
 import { allBindings, sceneRole, type SceneBinding, type SceneRole } from './rytm/sceneParams';
 import { morph } from './audio/morph';
 import { sceneCtl } from './state/sceneCtl';
@@ -300,6 +301,11 @@ export interface V4Debug {
   };
   /** Les evenements GA4 de la visite (state/analytics.ts : nom, parametres, envoye ou non). */
   readonly analytics: ReturnType<typeof analytics.log>;
+  /**
+   * Les crochets du pont MMHW v2 du boitier (2026-10-27, la phase 3, hw/index.ts) : resolve(id), getSnapshot(),
+   * subscribe((k, value01) => ...), pot(k, value01), touch(k, on), motorState(k) ; rien d'autre dans le site ne les appelle
+   */
+  readonly hw: typeof hw;
 }
 
 const NO_STATS: StageStats = {
@@ -518,6 +524,7 @@ export function installDebug(src: DebugSource): () => void {
       },
     },
     undo,
+    hw,
     share: { now: beatNow, code: () => encodeBeat(beatNow().beat), decode: decodeBeat, data: dataOfBeat },
     get analytics() {
       return analytics.log();
