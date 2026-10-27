@@ -284,6 +284,11 @@ const WAVE_MS = 7000;
  * voudrais un ecran plus grand") : le meme dessin haut sur un verre plus grand
  * (theme.ts OLED, 5.3 x 2.617) ; ce qui tient au doigt reste au telephone
  * (PORTRAIT : les lignes du navigateur, SB), le reste suit TALL.
+ * La face V.4.0 du desktop (2026-10-27, Mika : "ecran 4.3 pouces 800 x 480") :
+ * 320 x 192 unites (5:3, la dalle de la machine), une toile de 1600 x 960 (deux
+ * fois la dalle) ; les 34 unites de plus (GROW) vont aux blocs de la vue PAGE
+ * (72 x 69.5), a leur dessin et aux neuf lignes du navigateur des sons ; HOME,
+ * EDIT et les presets restent centres (DY 36), le pied et l'en-tete suivent UH.
  */
 const UW = 320;
 const UH = OLED_UH;
@@ -539,7 +544,8 @@ const BLOCK_TYPE = {
     unitSize: 10,
     tagAt: 'unit' as 'name' | 'unit',
     tagSize: 10,
-    valueSizes: [30, 26, 22, 17],
+    // Un dernier cran a 15, celui du dessin haut : un nom qui y tenait (BLUEPRINT dans SOUND) tient encore
+    valueSizes: [30, 26, 22, 18, 15],
     nameDy: 13.5,
     valueDy: 44,
     unitDy: 57.5,
@@ -867,8 +873,9 @@ export class Screen {
     this.mesh = new Mesh(geo, mat);
     this.mesh.name = 'oled';
     this.mesh.position.set(OLED.x, OLED.y, OLED.z);
-    // Le reflet du verre (2026-10-22, audit, amelioration 20) : il suit l'ecran, le raycast de l'ecran ne le voit pas
-    this.sheen = glassSheen(OLED.w, OLED.d);
+    // Le reflet du verre (2026-10-22, audit, amelioration 20) : il suit l'ecran, le raycast de l'ecran ne le voit pas ;
+    // la face V.4.0 du desktop (2026-10-27) : sur tout le verre de 106 x 67, autour de la zone active (le meme centre)
+    this.sheen = PORTRAIT ? glassSheen(OLED.w, OLED.d) : glassSheen(OLED.bezel.w, OLED.bezel.d);
     this.mesh.add(this.sheen);
     this.lastCur = patterns.get().cur;
     this.paint(lcd.get(), performance.now());

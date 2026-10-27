@@ -503,23 +503,28 @@ export const BACKDROP: { transparent: boolean; readonly page: string } = { trans
  * (leur halo le mordait), a 5.3 il en reste 0.2. Dessous, tout est remonte
  * en consequence (PAGE_KEYS, PAGE_KNOBS en une rangee, GLOBAL_FX_RULE).
  */
-/** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 158 partout depuis le 2026-10-18 (120 au desktop avant). */
-export const OLED_UH = 158;
+/*
+ * La face V.4.0 du desktop (2026-10-27, Mika : "ecran 4.3 pouces 800 x 480 : x 8, y 8, 106 x 67 ; le contenu ne change
+ * pas : 8 blocs de 0 a 127, 4 pages, l'ecran d'aujourd'hui remis en page pour cette taille") : le verre (bezel) est
+ * l'ecran de 106 x 67 en 8, 8 (rytm/faceplate.ts screen.rect), noir ; le plan texture (w, d) est la zone active 5:3 de
+ * la dalle 800 x 480, 93.6 x 56.16, centree dans le verre. Le dessin passe a 320 x 192 unites (OLED_UH, 5:3), la toile a
+ * 1600 x 960 (scene/screen.ts) ; tex reste l'espace de reference, deux px par unite (640 x 384).
+ */
+/** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 158 partout depuis le 2026-10-18 (120 au desktop avant) ; 192 au desktop depuis le 2026-10-27 (5:3). */
+export const OLED_UH = PORTRAIT ? 158 : 192;
 /** Le decalage vertical (unites) du dessin de 120 de haut (HOME, EDIT, les presets) dans un ecran plus haut : centre. */
 export const OLED_DY = (OLED_UH - 120) / 2;
-/** Le verre du desktop (2026-10-18) : sa largeur, son bord gauche et son haut (ceux d'avant), sa profondeur au dessin haut. */
-const OLED_DESK = { w: 5.3, left: -5.75, top: -2.8175 } as const;
-const OLED_DESK_D = (OLED_DESK.w * OLED_UH) / 320;
+const FP_SCREEN = RYTM_FACEPLATE.screen;
 export const OLED = PORTRAIT
   ? ({ x: 0, z: -6.3 + (7.28 * OLED_UH) / 640, w: 7.28, d: (7.28 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 7.5, d: (7.28 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
   : ({
-      x: OLED_DESK.left + OLED_DESK.w / 2,
-      z: OLED_DESK.top + OLED_DESK_D / 2,
-      w: OLED_DESK.w,
-      d: OLED_DESK_D,
+      x: fpX(FP_SCREEN.rect.x + FP_SCREEN.rect.w / 2),
+      z: fpZ(FP_SCREEN.rect.y + FP_SCREEN.rect.h / 2),
+      w: fpU(FP_SCREEN.active.w),
+      d: fpU(FP_SCREEN.active.h),
       y: 0.025,
       tex: [640, OLED_UH * 2],
-      bezel: { w: OLED_DESK.w + 0.26, d: OLED_DESK_D + 0.26, h: 0.02 },
+      bezel: { w: fpU(FP_SCREEN.rect.w), d: fpU(FP_SCREEN.rect.h), h: 0.02 },
     } as const);
 
 /**
