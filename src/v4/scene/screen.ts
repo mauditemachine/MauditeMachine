@@ -175,7 +175,7 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, XFADE_UI, type EncId, type Inst } from '../theme';
+import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PAGE_KNOB_LETTERS, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../theme';
 import { rytmInfoHit } from '../rytm/infoIds';
 import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
@@ -686,9 +686,11 @@ const TIP_MS = 2400;
 /**
  * Le geste qui regle un bloc, dans les aides : DRAG A VALUE depuis le
  * 2026-10-09 (au telephone d'abord, les potards de page ont quitte la face ;
- * au desktop aussi depuis l'etape 2, ses encodeurs sont les FX globaux).
+ * au desktop aussi depuis l'etape 2, ses encodeurs sont les FX globaux). TURN
+ * A KNOB au desktop depuis V.4.2 (2026-10-27) : l'ecran ne se touche plus
+ * (theme.ts SCREEN_TOUCH), le potard sous le bloc le tourne.
  */
-const TURN = 'DRAG A VALUE';
+const TURN = SCREEN_TOUCH ? 'DRAG A VALUE' : 'TURN A KNOB';
 /**
  * Le navigateur des sons (2026-10-18), en unites : rows, le haut et le bas de
  * ses lignes (la place des blocs ; BROWSER_ROWS lignes : 12,5 de haut au
@@ -1767,7 +1769,12 @@ export class Screen {
     this.paintStrip(v.inst, rp.sel, lockStep);
     const F = PAGE_FOOT;
     const msg = lcdMessage.get(now);
-    const help = this.mobile ? ['TAP: CHOOSE · DRAG: SCROLL', neg ? 'TAP: P-LOCK THIS STEP' : 'HOLD YOURS: REMOVE'] : ['CLICK: CHOOSE · WHEEL: SCROLL', neg ? 'CLICK: P-LOCK THIS STEP · ESC' : PORTRAIT ? 'DROP A FILE ON A PAD · ESC' : 'DROP A FILE HERE · ESC'];
+    // L'ecran intouchable du desktop (V.4.2) : le potard de SOUND choisit (la liste le suit), Suppr retire un son a soi
+    const help = !SCREEN_TOUCH
+      ? [neg ? 'TURN SOUND: P-LOCK THIS STEP' : 'TURN SOUND: CHOOSE · DEL: REMOVE', 'DROP A FILE ON THE MACHINE · ESC']
+      : this.mobile
+        ? ['TAP: CHOOSE · DRAG: SCROLL', neg ? 'TAP: P-LOCK THIS STEP' : 'HOLD YOURS: REMOVE']
+        : ['CLICK: CHOOSE · WHEEL: SCROLL', neg ? 'CLICK: P-LOCK THIS STEP · ESC' : PORTRAIT ? 'DROP A FILE ON A PAD · ESC' : 'DROP A FILE HERE · ESC'];
     const l1 = msg ? msg.text : help[0];
     const l2 = msg ? help[0] : help[1];
     const t1 = this.fitText(l1, F.x1 - F.x0, SB.hint[0], 0.5, 600);
@@ -1825,7 +1832,15 @@ export class Screen {
       const cx = cw * (i + 0.5);
       this.pill(cx - w / 2, 92, w, 15, null, INK, 1.2);
       this.text(k, cx, 102.5, 8, INK, 700, 'center', 0.8);
+      // L'ecran intouchable du desktop (V.4.2, 2026-10-27) : la lettre du potard sous la touche (E F G H, la loi miroir de
+      // la face, actions.ts presetFaceKnob)
+      if (!SCREEN_TOUCH) this.text(PAGE_KNOB_LETTERS[4 + i], cx, 118, 6.5, HALF, 700, 'center', 0.8);
     });
+    // Et celles des fleches : A B a gauche (PREV), C D a droite (NEXT)
+    if (!SCREEN_TOUCH && s.l2.startsWith('<')) {
+      this.text(`${PAGE_KNOB_LETTERS[0]} ${PAGE_KNOB_LETTERS[1]}`, 14, 80, 6.5, HALF, 700, 'center', 0.8);
+      this.text(`${PAGE_KNOB_LETTERS[2]} ${PAGE_KNOB_LETTERS[3]}`, UW - 14, 80, 6.5, HALF, 700, 'center', 0.8);
+    }
   }
 
   /**
@@ -1862,7 +1877,8 @@ export class Screen {
     }
     if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT_TEXT, 700, 'left', 0.6);
     else if (this.paintMode(x0, x1)) return;
-    else if (s.tag) this.text('TOUCH: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
+    // Les presets (V.4.2 : au desktop l'ecran ne se touche plus, EDIT pressee deux fois les ouvre)
+    else if (s.tag) this.text(SCREEN_TOUCH ? 'TOUCH: PRESETS' : 'EDIT 2X: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
   }
 
   /**
@@ -3441,14 +3457,20 @@ export class Screen {
       // L'ecran haut du desktop (2026-10-18) : le clic et Echap, comme le pied d'une ligne d'avant
       const tap = this.mobile ? 'TAP' : 'CLICK';
       const back = this.mobile ? 'FX: BACK' : 'FX OR ESC: BACK';
-      const bText = fxScopeTabs(screen)
-        ? pick(`${tap} GLOBAL OR ${vt} · ${back}`, `GLOBAL OR ${vt} · ${back}`, back)
-        : isFxDetail(screen)
-        ? // Des formes plus courtes (2026-10-22, audit SB-08 : ESC: BA. au desktop)
-          pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`, `GLOBAL OR ${back}`, back)
-        : screen === 'fxg'
-          ? pick(`${tap} A FX: ITS SETTINGS · NEVER P-LOCKED`, `${tap} A FX: ITS SETTINGS`)
-          : `${pageLabel(page)} AGAIN: ${next}`;
+      // L'ecran intouchable du desktop (V.4.2) : ses onglets ne se cliquent plus (FX ramene GLOBAL FX, puis VOICE FX), la page
+      // d'un FX s'ouvre a la tape de son potard
+      const bText = !SCREEN_TOUCH && (fxScopeTabs(screen) || isFxDetail(screen))
+        ? pick(`FX: BACK TO ${screen.startsWith('fxv') ? 'VOICE' : 'GLOBAL'} FX · ESC`, back)
+        : !SCREEN_TOUCH && screen === 'fxg'
+          ? pick('CLICK A KNOB: ITS FX SETTINGS', 'CLICK A KNOB: SETTINGS')
+          : fxScopeTabs(screen)
+            ? pick(`${tap} GLOBAL OR ${vt} · ${back}`, `GLOBAL OR ${vt} · ${back}`, back)
+            : isFxDetail(screen)
+              ? // Des formes plus courtes (2026-10-22, audit SB-08 : ESC: BA. au desktop)
+                pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`, `GLOBAL OR ${back}`, back)
+              : screen === 'fxg'
+                ? pick(`${tap} A FX: ITS SETTINGS · NEVER P-LOCKED`, `${tap} A FX: ITS SETTINGS`)
+                : `${pageLabel(page)} AGAIN: ${next}`;
       const b = this.fitText(bText, x1 - x0, fs - 0.5, 0.6, 700);
       this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
       this.text(b, x0, F.y2, fs - 0.5, HALF, 700, 'left', 0.6);
@@ -3462,7 +3484,9 @@ export class Screen {
       : isFxDetail(screen)
         ? `${TURN}  /  GLOBAL, FX OR ESC: BACK`
         : screen === 'fxg'
-          ? `${TURN}  /  CLICK A FX: ITS SETTINGS`
+          ? SCREEN_TOUCH
+            ? `${TURN}  /  CLICK A FX: ITS SETTINGS`
+            : `${TURN}  /  CLICK IT: ITS SETTINGS`
           : `${TURN}  /  TURN A KNOB = GLOBAL FX`;
     const t = this.fitText(this.mobile ? `HOLD A STEP + ${TURN}: P-LOCK` : desk, x1 - x0, fs - 0.5, 0.5, 700);
     this.text(t, x0, y, fs - 0.5, HALF, 700, 'left', 0.5);

@@ -103,6 +103,7 @@ import {
   soundFamily,
   editToggle,
   presetKey,
+  presetFaceKnob,
   focusMachine,
   gesture,
   muteToggle,
@@ -206,6 +207,7 @@ import {
   ENCODERS,
   FACE_FOLLOWS_PAGE,
   FACE_INERT,
+  SCREEN_TOUCH,
   FACE_KNOBS,
   FACE_TITLE,
   GLOBAL_ENCODERS,
@@ -312,6 +314,8 @@ interface Down {
   lockKey: string;
   /** un potard : la course du dernier mouvement (2026-10-27, la fonction d'un potard de la face qui change sous la main) */
   lastTravel?: number;
+  /** V.4.2 (2026-10-27) : les presets ouverts, un potard de la face les fait defiler ; les crans deja partis de ce glisser */
+  pstep?: number;
   /** un pas pris par TRK (2026-10-27) : sa voix choisie a l'appui, ni P-LOCK, ni velocite, ni tape au lacher */
   trk?: boolean;
   /** la touche TRK tenue par ce pointeur : sa source ('ptr:<pointerId>'), lachee au pointerup ou perdue */
@@ -473,9 +477,22 @@ const perPx = (k: DialId): number => {
  * comme dans Ableton) ; prise ou lachee en cours de geste, la course repart
  * de la valeur du moment, sans saut.
  */
+/** Les presets ouverts au desktop (V.4.2) : un potard de la face tourne, un preset par PRESET_PX de glisser. */
+const PRESET_PX = 24;
+
 function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   if (!d.dial) return;
   const travel = d.axis === 'y' ? -dy : dx;
+  // L'ecran ne se touche plus (V.4.2, 2026-10-27) : les presets ouverts, un potard de la face les fait defiler (actions.ts
+  // presetFaceKnob), il ne regle pas sa page en cachette
+  if (d.kind === 'penc' && d.index !== undefined && !SCREEN_TOUCH && presetMode.on('mm808')) {
+    const n = Math.trunc(travel / PRESET_PX);
+    if (n !== (d.pstep ?? 0)) {
+      presetFaceKnob(d.index, n - (d.pstep ?? 0));
+      d.pstep = n;
+    }
+    return;
+  }
   // Le LOCK a change pendant que le potard de page tourne (2026-10-08 : le pas tenu lache avant lui, ou le
   // premier verrou qui met le LOCK) : il repart de la valeur qu'il regle maintenant, sans saut
   const lk = pageKnobOf(d.dial) >= 0 ? lockKeyNow() : d.lockKey;
@@ -880,8 +897,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       } else {
         lastTap.set(k, t);
         // Un FX de GLOBAL FX qui a sa page (2026-10-10 ; un FX de VOICE FX : sa page sous la voix) : elle s'ouvre si aucune deuxieme tape ne suit
-        // (un bloc de l'ecran seulement : une tape sur un potard de la face n'ouvre rien, 2026-10-27, il ne change jamais de page)
-        const fd = pk >= 0 && penc < 0 ? pageFxDetail(pk) : null;
+        // (un bloc de l'ecran ; un potard de la face quand l'ecran ne se touche pas, V.4.2 2026-10-27 : sa tape fait ce que
+        // faisait celle de son bloc, theme.ts SCREEN_TOUCH ; avant, une tape sur un potard n'ouvrait rien)
+        const blockTap = pk >= 0 && (penc < 0 || !SCREEN_TOUCH);
+        const fd = blockTap ? pageFxDetail(pk) : null;
         fxOpenCancel();
         if (fd)
           fxOpenTimer = window.setTimeout(() => {
@@ -892,7 +911,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           }, TEMPO_UI.tapMs + 10);
         // Le nom du son (le bloc SOUND de VOICE, 2026-10-18, Mika : "difficile la selection des samples") : une tape seule
         // ouvre le navigateur des sons, passe le temps d'une deuxieme tape (deux tapes : SOUND revient a son depart)
-        else if (pk >= 0 && penc < 0 && pageTarget(pk) === 'voice:sound')
+        else if (blockTap && pageTarget(pk) === 'voice:sound')
           fxOpenTimer = window.setTimeout(() => {
             fxOpenTimer = 0;
             if (disposed || knobHeld() || pageTarget(pk) !== 'voice:sound') return;
@@ -997,6 +1016,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // la tape est prise (pas de double tape du fond) et rien d'autre ne part
       else if (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'xfade') return d.id;
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      // Les presets ouverts au desktop (V.4.2, 2026-10-27, l'ecran ne se touche plus) : la tape d'un potard de la face fait ce
+      // qui est dessine au-dessus de lui (A B : PREV, C D : NEXT, E F G H : SAVE NAME DEL EXIT ; actions.ts presetFaceKnob)
+      else if (d.kind === 'penc' && d.index !== undefined && presetFaceKnob(d.index)) return d.id;
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
       else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
@@ -1653,7 +1675,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const my = e.clientY - rect.top;
         // Le navigateur des sons ouvert (2026-10-18) : une tape hors de lui le ferme, et agit (un pad de voix, non : la liste
         // suit sa voix)
-        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad') soundBrowserClose();
+        // (V.4.2 : un potard de la face non plus quand l'ecran ne se touche pas : la tape du potard SOUND la tient ouverte, comme il la tourne)
+        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !(d.kind === 'penc' && !SCREEN_TOUCH)) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
         if (tap && d.id !== null) {
@@ -1763,7 +1786,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const gain = wheelGain(now - wheelAt, e.shiftKey);
         wheelAt = now;
         // Un potard de la face : la page au desktop (2026-10-27 ; le premier cran montre la page sous HOME), son FX global
-        // et son popup au telephone
+        // et son popup au telephone ; les presets ouverts (V.4.2, l'ecran ne se touche plus) : un preset par cran
+        if (pencK >= 0 && presetFaceKnob(pencK, steps)) return;
         if (pencK >= 0) {
           if (FACE_FOLLOWS_PAGE) revealPage();
           dialNudge(k, steps * gain, (v) => faceKnob(pencK, v, 'wheel'));

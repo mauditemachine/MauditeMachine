@@ -52,7 +52,7 @@ import { setKnobResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, XFADE_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, SCREEN_TOUCH, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, XFADE_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -1560,6 +1560,21 @@ export function presetKey(m: PresetMachine, k: PresetKey): void {
  */
 export function editToggle(which: EditorId, stage: Stage | null = null): void {
   gesture();
+  // L'ecran ne se touche plus au desktop (V.4.2, 2026-10-27, theme.ts SCREEN_TOUCH) : les presets du MM-RYTM passent par
+  // EDIT, comme les onglets d'une touche de page (la touche allumee pressee encore passe au suivant) : PATTERNS, puis
+  // PRESETS, puis rien ; presetFaceKnob y met les potards
+  if (which === 'mm808' && !SCREEN_TOUCH && (editor.get() === 'mm808' || presetMode.on('mm808'))) {
+    stage?.pressRytmPad('edit');
+    if (presetMode.on('mm808')) {
+      presetKey('mm808', 'exit');
+      lcdMessage.show('PRESETS CLOSED');
+      return;
+    }
+    editor.toggle('mm808');
+    presetKey('mm808', 'open');
+    lcdMessage.show('PRESETS · EDIT AGAIN: CLOSE', 1600);
+    return;
+  }
   editor.toggle(which);
   const on = editor.get() === which;
   if (which === 'voy') {
@@ -1568,8 +1583,27 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
   } else {
     stage?.pressRytmPad('edit');
     const p = patterns.get();
-    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}` : 'EDIT CLOSED');
+    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}${SCREEN_TOUCH ? '' : ' · EDIT AGAIN: PRESETS'}` : 'EDIT CLOSED', on && !SCREEN_TOUCH ? 1600 : undefined);
   }
+}
+
+/**
+ * Les presets sur les potards de la face (V.4.2, 2026-10-27 : l'ecran ne se touche plus au desktop, theme.ts SCREEN_TOUCH),
+ * la loi miroir de la face (ce qui est dessine au-dessus d'un potard, il le fait) : l'ecran des presets montre le nom entre
+ * ses fleches en haut, ses quatre touches SAVE NAME DEL EXIT en bas, une par colonne. Une tape sur A ou B : PREV (la fleche
+ * de gauche), sur C ou D : NEXT ; sur E F G H : SAVE NAME DEL EXIT ; un potard tourne fait defiler les presets (turn : des
+ * crans, vers la droite NEXT). true si le mode presets du MM-RYTM etait la (le geste est pris).
+ */
+export function presetFaceKnob(k: number, turn = 0): boolean {
+  if (SCREEN_TOUCH || !presetMode.on('mm808')) return false;
+  if (turn !== 0) {
+    for (let i = 0; i < Math.min(8, Math.abs(turn)); i += 1) presetKey('mm808', turn > 0 ? 'next' : 'prev');
+    return true;
+  }
+  const keys: readonly PresetKey[] = ['prev', 'prev', 'next', 'next', 'save', 'name', 'del', 'exit'];
+  const key = keys[k];
+  if (key) presetKey('mm808', key);
+  return true;
 }
 
 /**

@@ -1667,9 +1667,19 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
       [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}: hold or tap, then turn a knob to record it`,
       // Le crossfader agit depuis P2-20 (2026-10-27)
       [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}: drag the cap or scroll over it`,
-      // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent
-      ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen`])),
+      // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent ; V.4.2 (l'ecran ne se touche plus) : leur
+      // clic ouvre ce qu'ouvrait le bloc (la page d'un FX, la liste des sons), presets ouverts ce qui est ecrit au-dessus
+      ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen; click: what it opens there`])),
     };
+/**
+ * L'ecran du MM-RYTM se touche-t-il (V.4.2, 2026-10-27, Mika : "Pourrais tu faire en sorte qu'on ne puisse pas toucher a
+ * l'ecran ? qu'on puisse toujours utiliser les knobs et boutons") : un seul interrupteur. Faux au desktop (la face a ses
+ * huit potards et ses touches : l'ecran ne fait que montrer, le pointeur le traverse comme le corps de la machine, ses
+ * jumeaux HTML restent pour le clavier et les lecteurs d'ecran) ; vrai au telephone (sans potards, il se touche) ; le
+ * futur kiosque ?hw=1 (l'ecran tactile du boitier) le voudra vrai. scene/hit.ts HitMap.screenTouch, ui/Hotspots.tsx.
+ */
+export const SCREEN_TOUCH: boolean = PORTRAIT;
+
 /**
  * Les commandes de la face visibles et inertes : curseur par defaut, rien ne part. Vide depuis P2-20 (2026-10-27) : TRK,
  * SCENE A et B, puis le crossfader agissent.

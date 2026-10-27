@@ -133,6 +133,7 @@ import {
   type PadId,
   type SectionId,
   KEY_LIT_LIGHT,
+  SCREEN_TOUCH,
   TRK_FLASH,
   TRK_LIT,
   TRK_LIT_LIGHT,
@@ -816,6 +817,9 @@ export class Stage {
       },
       () => this.coarseMql.matches
     );
+    // L'ecran du MM-RYTM se touche-t-il (V.4.2, 2026-10-27, theme.ts SCREEN_TOUCH) : au desktop, non (ses zones gardent leurs
+    // jumeaux, le pointeur les traverse) ; au telephone, oui
+    this.hit.screenTouch = SCREEN_TOUCH;
     // Ordre de la liste = ordre de tabulation des jumeaux (spec 20.19) : les
     // 12 pads (4 voix, 7 pages, OPEN), les quatre puces (juste apres OPEN
     // qui les decouvre), les six encodeurs, RUN, CLEAR, les 16 pas
@@ -850,6 +854,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled: false,
+        screen: true,
       };
       this.hit.add([this.seekDef]);
     }
@@ -873,6 +878,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled,
+        screen: true,
       });
       const band = OLED_BAR.bandY0;
       this.lcdDefs = [
@@ -887,7 +893,7 @@ export class Stage {
       {
         const ik = infoKeySpot(mobile);
         const r = ik.r * OLED.w;
-        this.infoDef = { id: 'lcd-i', kind: 'rinfo', layer: plateau, shape: 'disc', x: xAt(ik.u), z: zAt(ik.v * TH), hx: r, hz: r, y0: OLED.y - 0.005, y1: OLED.y + 0.045, enabled: true };
+        this.infoDef = { id: 'lcd-i', kind: 'rinfo', layer: plateau, shape: 'disc', x: xAt(ik.u), z: zAt(ik.v * TH), hx: r, hz: r, y0: OLED.y - 0.005, y1: OLED.y + 0.045, enabled: true, screen: true };
         this.hit.add([this.infoDef]);
         // Au telephone, INFOS allume, les blocs ont leur zone : le disque monte dans le coin du verre (revue de R4 : il mordait
         // le coin du bloc D, une tape la eteignait INFOS au lieu de montrer la carte du bloc) ; syncScreenTabs passe de l'un a l'autre
@@ -915,6 +921,7 @@ export class Stage {
         // les presets ; franchement devant lui, l'onglet gagne partout ou il est dessine
         y1: OLED.y + 0.1,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.tabDefs);
       this.tabAt = { xAt, zAt: (v: number) => OLED.z - OLED.d / 2 + v * OLED.d };
@@ -934,6 +941,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.blockDefs);
       // Le navigateur des sons (2026-10-18) : ses zones, posees et allumees la ou l'ecran le dessine (syncScreenTabs). Plus
@@ -953,6 +961,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + lift,
         enabled: false,
+        screen: true,
       });
       this.sbDefs = [
         sb('lcd-sb-body', 0.1),
@@ -977,6 +986,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.1,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.menuDefs);
       // MASTER et TEMPO (2026-10-19) : dessines en haut a droite de l'ecran, sur HOME et dans l'en-tete de la vue PAGE
@@ -995,6 +1005,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.1,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.dialDefs);
     }
@@ -1224,7 +1235,7 @@ export class Stage {
     };
     const syncEditor = (): void => {
       if (this.pads?.setEditing(editor.get() === 'mm808')) this.invalidate();
-      if (this.faceKeys?.setEditing(editor.get() === 'mm808')) this.repaint();
+      if (this.faceKeys?.setEditing(this.editLit())) this.repaint();
       // Le MM-ARP au desktop : l'ecran de la suite monte a la place des pads
       if (this.voy?.setSeqOpen(editor.get() === 'voy')) this.hit.invalidate();
       syncPatView();
@@ -1246,6 +1257,8 @@ export class Stage {
         }
       }
       if (changed) this.hit.invalidate();
+      // EDIT allume aussi sur les presets (V.4.2 : au desktop, EDIT pressee encore les ouvre et les ferme)
+      if (this.faceKeys?.setEditing(this.editLit())) this.repaint();
     };
     syncPresets();
     this.unsubPresets = presetMode.subscribe(syncPresets);
@@ -3263,6 +3276,11 @@ export class Stage {
     const on = (k: 'mute' | 'solo'): number => (voices.lit(k) ? 1 : 0);
     return this.seq.setVoiceKeys(lv('mute'), lv('solo'), on('mute'), on('solo'));
   };
+
+  /** EDIT allumee (la face du desktop) : l'editeur des patterns ouvert, ou les presets quand l'ecran ne se touche pas (V.4.2). */
+  private editLit(): boolean {
+    return editor.get() === 'mm808' || (!SCREEN_TOUCH && presetMode.on('mm808'));
+  }
 
   /** La vue TRK est-elle posee sur les pas (2026-10-27) ? */
   private trkShown = false;
