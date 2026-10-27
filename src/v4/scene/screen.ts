@@ -259,6 +259,8 @@ export interface ScreenInfo {
    * MASTER tenu dit son niveau ; '' hors de la vue PAGE et en P-LOCK
    */
   headFit: string;
+  /** les points de page sous la pastille (2026-10-27, desktop, une page a deux onglets) : 1/2, 2/2 ; '' aucun */
+  pageDots: string;
 }
 
 
@@ -565,6 +567,8 @@ const BLOCK_TYPE = {
   },
 } as const;
 /** right : le bord droit du pattern et du tempo, a gauche de la touche i (R4 ; 312 avant) ; gap : l'air entre le son, le pattern et le tempo (R4 : 8 et 10 avant, la place rendue au son). */
+/** Les points de page sous la pastille (2026-10-27, desktop) : leur rayon, l'ecart de leurs centres (unites). */
+const PAGE_DOTS = { r: 1.1, gap: 4.4 } as const;
 const PAGE_HEAD: { y: number; iconX: number; pillX: number; pillY: number; right: number; rule: number; gap: number } = TALL
   ? { y: 16.5, iconX: 10, pillX: 23, pillY: 4, right: 299, rule: 22.5, gap: 7 }
   : { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 301, rule: 21.5, gap: 7 };
@@ -861,6 +865,7 @@ export class Screen {
       dials: '',
       dialSlot: '',
       headFit: '',
+      pageDots: '',
     };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -1195,6 +1200,7 @@ export class Screen {
     this.info.dials = '';
     this.info.dialSlot = '';
     this.info.headFit = '';
+    this.info.pageDots = '';
     this.info.menu = [];
     this.info.browser = null;
     this.info.drop = '';
@@ -2137,6 +2143,7 @@ export class Screen {
     this.paintDials(y, 0, H.rule, now, cur, 0, { tier: plan.tier, zoneLeft, readout });
     this.runIcon(H.iconX, y);
     this.drawHeadLeft(shown, ty);
+    this.paintPageDots(rp, shown.pw, inst);
     let heads = shown.heads;
     // MUTE et SOLO armes (2026-10-09) : M ou S, plein en MULTI, en contour pour une voix, entre la voix et le pattern
     if (badge) {
@@ -2356,6 +2363,25 @@ export class Screen {
       x += tw + fit.gap;
     }
     return out;
+  }
+
+  /**
+   * Les points de page (2026-10-27, desktop : la deuxieme page des huit potards, comme une Digitakt) : sous la pastille de
+   * la page, deux points, celui de l'onglet montre plein ; seulement pour une page a deux onglets (VOICE avec SYNTH, FX).
+   * Sous la pastille, dans l'air de l'en-tete : rien d'autre ne bouge (FLTR et ENV restent identiques).
+   */
+  private paintPageDots(rp: RytmPageState, pw: number, inst: Inst | null): void {
+    if (!FACE_PAGES) return;
+    const tabs = screensOf(rp.page, inst);
+    if (tabs.length !== 2) return;
+    const H = PAGE_HEAD;
+    const T = this.bt.head;
+    const cur = Math.max(0, Math.min(1, rp.tabs[rp.page] ?? 0));
+    const r = PAGE_DOTS.r;
+    const cy = (H.pillY + T.pillH + H.rule) / 2;
+    const cx = H.pillX + pw / 2;
+    for (let i = 0; i < 2; i += 1) this.circle(cx + (i - 0.5) * PAGE_DOTS.gap, cy, r, i === cur ? INK : FAINT_TEXT);
+    this.info.pageDots = `${cur + 1}/2`;
   }
 
   /** Dessine la gauche de l'en-tete (headLeft) et pose les zones de ses onglets (lcd-tab-<ecran>). */
