@@ -166,6 +166,8 @@ const stats = {
   cancelled: 0,
   /** re-programmations (un changement pendant la lecture) depuis le chargement */
   rescheduled: 0,
+  /** demandes de re-programmation (2026-10-27), comptees avant le test de la lecture : un test a l'arret les mesure */
+  asks: 0,
 };
 
 const runListeners = new Set<() => void>();
@@ -354,6 +356,7 @@ function reschedule(): void {
 const me: Scheduler = { tick, reschedule, order: 0 };
 registerScheduler(me);
 const ask = (): void => {
+  stats.asks += 1;
   if (running && !inBar) askReschedule(me);
 };
 
@@ -395,9 +398,19 @@ function hitKey(): string {
   }).join(';');
 }
 
-// Le tempo suit le store du motif (TEMPO, tests, rechargement) ; tout ce qui change un coup le re-programme
+// Le tempo suit le store du motif (TEMPO, tests, rechargement) ; tout ce qui change un coup le re-programme. Choisir une
+// voix ne change aucun coup (2026-10-27, TRK et A S D F en lecture) : pas de re-programmation ; le tempo, les pas et les
+// verrous, si (PatternState : bpm, steps, instrument, locks ; setBpm ne fait que garder pendingDur, ask l'applique)
+let lastSteps = pattern.get().steps;
+let lastLocks = pattern.get().locks;
+let lastBpm = pattern.get().bpm;
 pattern.subscribe(() => {
-  setBpm(pattern.get().bpm);
+  const p = pattern.get();
+  setBpm(p.bpm);
+  if (p.steps === lastSteps && p.locks === lastLocks && p.bpm === lastBpm) return;
+  lastSteps = p.steps;
+  lastLocks = p.locks;
+  lastBpm = p.bpm;
   ask();
 });
 let lastSwing = pattern.fx.get().swing;
@@ -649,6 +662,8 @@ export interface ClockDebug {
   readonly pending: number;
   readonly cancelled: number;
   readonly rescheduled: number;
+  /** demandes de re-programmation depuis le chargement (2026-10-27), lecture ou arret */
+  readonly asks: number;
   /** RUN refuse (repli sans WebGL affiche) */
   readonly locked: boolean;
 }
@@ -677,6 +692,9 @@ export const clockDebug: ClockDebug = {
   },
   get cancelled() {
     return stats.cancelled;
+  },
+  get asks() {
+    return stats.asks;
   },
   get rescheduled() {
     return stats.rescheduled;

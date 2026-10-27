@@ -181,6 +181,13 @@ export const RYTM_FACEPLATE = {
     corner: 1.2,
     beatFrame: { inset: 1.6, line: 0.5 },
     lockMark: { w: 8, h: 0.9, dy: 2.6 },
+    /**
+     * TRK (2026-10-27, la phase 2) : TRK tenu, les pas 1 a 8 s'allument a la couleur de leur voix (sRGB d'affichage,
+     * provisoire, une seule table a changer ; les LED RGB des pas du boitier, la meme). BD garde l'orange de la machine ;
+     * SD #FFC833 plutot que #FFC233 (un rien plus jaune : 21.7 deg de teinte avec BD au lieu de 19.95).
+     */
+    voiceColorProvisional: true,
+    voiceColor: { BD: '#FF6A13', SD: '#FFC833', CH: '#B5E61D', OH: '#3DDC97', CP: '#29C5F6', TOM: '#6B5BFF', HT: '#B35CFF', CY: '#FF4FA3' } as Readonly<Record<FpVoice, string>>,
   },
   /** la serigraphie : imprimee, jamais decoupee ; places provisoires (x : le bord d'alignement, cy : le centre) */
   silk: {
