@@ -126,6 +126,8 @@ interface Raw {
 
 /** Le telephone : pas d'encodeurs sur la face, les blocs de l'ecran se glissent au doigt. */
 const PHONE = BLOCKS_ARE_KNOBS;
+/** La tape qui ouvre la page d'un FX (V.4.2, 2026-10-27) : au desktop l'ecran ne se touche plus, c'est celle de son potard. */
+const TAP_KNOB = PHONE ? '' : ' ; au desktop, sur son potard';
 
 /** Les mots d'une carte au telephone : un bloc se touche et se glisse, il ne se clique pas. */
 const phoneWords = (x: string): string => (!PHONE ? x : x.replace(/deux clics/g, 'deux tapes').replace(/ ou sa molette/g, ''));
@@ -531,14 +533,14 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'DIST',
     lock: 'global',
-    text: "La saturation parallèle de tout le MM-RYTM, kick compris : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des voix avant leur CHORUS commun, et sur la voie du kick. En montant, le sec et le saturé baissent ensemble : le kick et la caisse claire gardent leur niveau, les sons plus doux gagnent de la densité. Sa page (une tape sur son bloc de GLOBAL FX ; au desktop, sur son potard) ajoute TONE, le passe-bas après la saturation (celui de toutes les DIST, celles des voix comprises).",
+    text: `La saturation parallèle de tout le MM-RYTM, kick compris : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des voix avant leur CHORUS commun, et sur la voie du kick. En montant, le sec et le saturé baissent ensemble : le kick et la caisse claire gardent leur niveau, les sons plus doux gagnent de la densité. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) ajoute TONE, le passe-bas après la saturation (celui de toutes les DIST, celles des voix comprises).`,
     tip: "15 à 25 % pour souder le kick, les charleys, le clap et les toms en indie dance ; plus haut, le kick grogne.",
   },
   chorus: {
     section: 'GLOBAL FX',
     title: 'CHORUS',
     lock: 'global',
-    text: "Le CHORUS de tout le MM-RYTM sauf le kick : le même effet que celui d'une voix (deux retards de 14 et 21 ms qui ondulent), sur le bus des autres voix. Le kick en est sorti exprès : un chorus sur un kick le fait sonner doublé. Sa page (une tape sur son bloc de GLOBAL FX ; au desktop, sur son potard) règle RATE (la vitesse des ondulations) et DEPTH (leur profondeur), pour tous les CHORUS, ceux des voix compris.",
+    text: `Le CHORUS de tout le MM-RYTM sauf le kick : le même effet que celui d'une voix (deux retards de 14 et 21 ms qui ondulent), sur le bus des autres voix. Le kick en est sorti exprès : un chorus sur un kick le fait sonner doublé. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) règle RATE (la vitesse des ondulations) et DEPTH (leur profondeur), pour tous les CHORUS, ceux des voix compris.`,
     tip: 'Un soupçon (10 à 20 %) élargit charleys et clap en dark disco.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -546,7 +548,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'DELAY',
     lock: 'global',
-    text: "L'envoi de toutes les voix sauf le kick vers le DELAY ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX ; au desktop, sur son potard) règle l'écho lui-même, pour toutes les voix : TIME (sa division, calée sur le tempo), FEEDBACK (ses répétitions) et TONE (sa couleur).",
+    text: `L'envoi de toutes les voix sauf le kick vers le DELAY ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) règle l'écho lui-même, pour toutes les voix : TIME (sa division, calée sur le tempo), FEEDBACK (ses répétitions) et TONE (sa couleur).`,
     tip: 'Dosé bas sur tout le kit, il fait rouler un minimal ; pour une seule voix, VOICE FX.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -554,7 +556,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'REVERB',
     lock: 'global',
-    text: "L'envoi de toutes les voix sauf le kick vers la REVERB ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX ; au desktop, sur son potard) règle la salle elle-même, pour toutes les voix : SIZE (sa longueur, 2,4 s au départ), TONE (ses aigus) et PRE (son pré-delay).",
+    text: `L'envoi de toutes les voix sauf le kick vers la REVERB ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) règle la salle elle-même, pour toutes les voix : SIZE (sa longueur, 2,4 s au départ), TONE (ses aigus) et PRE (son pré-delay).`,
     tip: 'Moins de 15 % sur tout le kit : de l’air sans noyer le groove.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -591,14 +593,14 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'BIT',
     lock: 'global',
-    text: "La réduction de bits de tout le MM-RYTM, kick, REVERB et DELAY compris : à 0 (OFF) le son passe tel quel ; en montant, la profondeur tombe de 16 à 4 bits, le grain des vieilles boîtes à rythmes puis la casse franche. Le nombre de bits s'affiche sous la valeur. Sa page (une tape sur son bloc de GLOBAL FX ; au desktop, sur son potard) ajoute RATE, l'échantillonnage divisé.",
+    text: `La réduction de bits de tout le MM-RYTM, kick, REVERB et DELAY compris : à 0 (OFF) le son passe tel quel ; en montant, la profondeur tombe de 16 à 4 bits, le grain des vieilles boîtes à rythmes puis la casse franche. Le nombre de bits s'affiche sous la valeur. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) ajoute RATE, l'échantillonnage divisé.`,
     tip: 'Un peu (12 à 10 bits) pour salir les charlestons ; à fond pour une pause lo-fi, puis CLEAR remet tout à 0.',
   },
   comp: {
     section: 'GLOBAL FX',
     title: 'COMP',
     lock: 'global',
-    text: "Le compresseur de bus de tout le MM-RYTM, kick, REVERB et DELAY compris, façon SSL G et API 2500. COMP est son MIX : à 0 (OFF) le son passe tel quel, au bit près ; en montant, le son compressé se mêle au son sec (la compression parallèle, façon New York) ; à fond, il est seul. Sa page (une tape sur son bloc ; au desktop, sur son potard) règle le reste : THRESH et RATIO en haut, à côté de COMP, puis ATTACK, RELEASE, MAKEUP et le HPF de sa chaîne latérale ; l'aiguille GR sous COMP montre la réduction, en dB. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP. À fond avec MAKEUP AUTO, le niveau moyen reste celui du son sec, mais les attaques qui passent avant ATTACK sortent environ 1 dB plus haut : le limiteur de sortie les tient.",
+    text: `Le compresseur de bus de tout le MM-RYTM, kick, REVERB et DELAY compris, façon SSL G et API 2500. COMP est son MIX : à 0 (OFF) le son passe tel quel, au bit près ; en montant, le son compressé se mêle au son sec (la compression parallèle, façon New York) ; à fond, il est seul. Sa page (une tape sur son bloc${TAP_KNOB}) règle le reste : THRESH et RATIO en haut, à côté de COMP, puis ATTACK, RELEASE, MAKEUP et le HPF de sa chaîne latérale ; l'aiguille GR sous COMP montre la réduction, en dB. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP. À fond avec MAKEUP AUTO, le niveau moyen reste celui du son sec, mais les attaques qui passent avant ATTACK sortent environ 1 dB plus haut : le limiteur de sortie les tient.`,
     tip: "Pour coller un kit dark disco : RATIO 4:1, ATTACK 10 à 30 ms, RELEASE AUTO, THRESH descendu jusqu'à 3 à 6 dB sur l'aiguille, puis COMP vers 60 % : le corps se serre, la frappe reste devant.",
   },
 
