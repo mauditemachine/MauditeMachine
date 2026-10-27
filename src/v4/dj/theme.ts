@@ -417,6 +417,11 @@ export const MIX = {
    * deja : deux voies, des potards de volume a la place des faders)
    */
   sGain: PORTRAIT ? 1.0 : 1.15,
+  /**
+   * GAIN et FILTER plus larges, pas plus hauts (2026-10-27, revue UI-3 : a 1.15 de haut, leur capuchon cachait le bas
+   * de leur nom pose derriere eux) : knobTall
+   */
+  tallGain: 1.0,
   sEq: PORTRAIT ? 1.1 : 1.5,
   /**
    * effets : rangee sous l'ecran ; au telephone tenu droit, deux rangees de
@@ -443,10 +448,11 @@ export const MIX = {
   times: PORTRAIT ? { x0: 0, pitch: 0.9, z: -3.55, w: 0.7, d: 0.32 } : { x0: 0, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
   /**
    * faders de voie : fente de z0 a z1 (plus longue depuis que le crossfader est parti) ; VU a cote. 2026-10-27 : la
-   * course raccourcie de 2.38 a 2.0 (z0 2.62 -> 3.0, le bas ne bouge pas) pour des EQ plus gros ; les VU s'ecartent
-   * d'eux (dx 0.5 -> 0.62) et descendent avec les rangees (z1 1.95 -> 2.47)
+   * course raccourcie de 2.38 a 1.86 (z0 2.62 -> 3.14, le bas ne bouge pas) pour des EQ plus gros ; a fond (RYTM et
+   * ARP, au depart) le capuchon garde l'air d'avant sous FILTER (revue UI-4 : a 3.0 il touchait sa jupe) ; les VU
+   * s'ecartent d'eux (dx 0.5 -> 0.62) et descendent avec les rangees (z1 1.95 -> 2.47)
    */
-  fader: { z0: 3.0, z1: 5.0 },
+  fader: { z0: 3.14, z1: 5.0 },
   vu: PORTRAIT ? { dx: 0.42, z0: 0.25, z1: 3.65, n: 15, w: 0.14, d: 0.16 } : { dx: 0.62, z0: -1.5, z1: 2.47, n: 15, w: 0.14, d: 0.16 },
   /**
    * VU du master (deux colonnes) ; raccourci pour PLAY dessous. Tenu droit,

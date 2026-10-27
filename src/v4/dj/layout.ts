@@ -27,6 +27,8 @@ export interface DjKnobSpec {
   x: number;
   z: number;
   s: number;
+  /** la hauteur a l'echelle, si elle est plus basse que s et DJ_KNOB.tallMax (knobTall) */
+  tall?: number;
   /** zero au centre (GAIN, EQ, FILTER) */
   bipolar: boolean;
   target: DjKnobTarget;
@@ -118,8 +120,11 @@ export const djKey = (id: string): DjKeySpec | undefined => keyMap.get(id);
  * le cachait) ; un gros potard (les EQ du desktop, 2026-10-27) l'eloigne un peu plus, son capuchon est plus large.
  */
 export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - (PORTRAIT ? 0.2 : 0.12 + 0.06 * Math.max(0, k.s - 1.15));
-/** La hauteur d'un potard a l'echelle : jamais au-dela de DJ_KNOB.tallMax (un gros potard s'elargit, il ne monte plus). */
-export const knobTall = (k: DjKnobSpec): number => Math.min(k.s, DJ_KNOB.tallMax);
+/**
+ * La hauteur d'un potard a l'echelle : jamais au-dela de DJ_KNOB.tallMax (un gros potard s'elargit, il ne monte plus),
+ * ni de la sienne (tall : GAIN et FILTER, MIX.tallGain).
+ */
+export const knobTall = (k: DjKnobSpec): number => Math.min(k.s, k.tall ?? DJ_KNOB.tallMax);
 
 /** La place du i-eme potard de la rangee des effets (FX TO le dernier) : une rangee, ou deux de quatre tenu droit. */
 function fxAt(i: number): { x: number; z: number } {
@@ -141,6 +146,7 @@ function buildKnobs(): DjKnobSpec[] {
         x: UNIT_X.mix + cx,
         z: MIX.rows[r],
         s: big ? MIX.sEq : MIX.sGain,
+        ...(big ? {} : { tall: MIX.tallGain }),
         bipolar: true,
         target: { kind: 'eq', ch, eq: e.id },
         idle: false,
