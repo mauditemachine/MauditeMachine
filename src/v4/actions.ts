@@ -302,10 +302,12 @@ export function sceneDown(w: SceneId, src: string, t = performance.now()): void 
 export function sceneUp(w: SceneId, src: string, t = performance.now()): void {
   sceneCtl.armUp(w, src, t);
 }
-// Le P-LOCK garde (un pas tenu lache sans tourner, L, le MIDI) : une scene gardee se desarme
+// Le P-LOCK garde (un pas tenu lache sans tourner, L, le MIDI) : une scene armee se desarme, gardee ou tenue (2026-10-27,
+// revue B3 : une scene tenue restait armee a cote du P-LOCK garde, un cran de molette ecrivait 8 valeurs dans la scene ;
+// le lacher de la touche tenue est ensuite ignore, holdLatch eteinte)
 rytmLock.subscribe(() => {
   const lk = rytmLock.get();
-  if (lk.step >= 0 && lk.latched && sceneCtl.get().how === 'latched') sceneCtl.cancel();
+  if (lk.step >= 0 && lk.latched && sceneCtl.get().armed) sceneCtl.cancel();
 });
 
 /**
@@ -450,21 +452,70 @@ function writeScene(w: SceneId, id: string, v01: number): boolean {
 }
 
 /**
- * Tourne hors scene sur un reglage que les deux scenes ont (10.2, Feel) : la base change mais rien ne s'entend ; l'ecran
- * le dit, une fois toutes les 2 s au plus.
+ * La base d'un potard ne s'entend plus au x du moment (2026-10-27, revue B1) : son poids dans LA formule,
+ * (A absent ? 1 - x : 0) + (B absent ? x : 0), vaut 0. 'AB' : les deux scenes l'ont ; 'A' : A seule a x = 0 (la
+ * position d'arrivee) ; 'B' : B seule a x = 1 ; null : la base s'entend (en partie au moins), ou rien n'est morphe.
+ */
+function sceneHides(dial: DialId): 'A' | 'B' | 'AB' | null {
+  if (sceneCtl.get().armed) return null;
+  const s = pattern.scenes.get();
+  if (s === NO_SCENES) return null;
+  const id = sceneIdOfDial(dial);
+  if (!id) return null;
+  const inA = s.a[id] !== undefined;
+  const inB = s.b[id] !== undefined;
+  if (inA && inB) return 'AB';
+  const x = sceneCtl.x();
+  if (inA && x <= 0) return 'A';
+  if (inB && x >= 1) return 'B';
+  return null;
+}
+/** Le telephone n'a ni touche SCENE ni crossfader avant la phase 5 (revue BEH-2) : il dit seulement quelle scene joue. */
+const phoneFace = (): boolean => typeof window !== 'undefined' && !!window.matchMedia?.(MOBILE_QUERY).matches;
+const hideText = (dial: DialId, h: 'A' | 'B' | 'AB'): string =>
+  phoneFace()
+    ? `${dialName(dial)}: SCENE ${h === 'AB' ? 'A+B' : h} PLAYS`
+    : h === 'AB'
+      ? `${dialName(dial)}: IN SCENES A+B, HOLD A SCENE`
+      : `${dialName(dial)}: SCENE ${h} PLAYS, HOLD SCENE ${h}`;
+
+/**
+ * Tourne hors scene sur un reglage que la scene entendue tient entierement (10.2, Feel ; les deux scenes, ou depuis la
+ * revue B1 du 2026-10-27 A seule a x = 0 et B seule a x = 1) : la base change mais rien ne s'entend ; l'ecran le dit,
+ * une fois toutes les 2 s au plus.
  */
 let hintAt = -Infinity;
 const SCENE_HINT_MS = 2000;
 function sceneHint(dial: DialId): void {
-  if (sceneCtl.get().armed) return;
-  const s = pattern.scenes.get();
-  if (s === NO_SCENES) return;
-  const id = sceneIdOfDial(dial);
-  if (!id || s.a[id] === undefined || s.b[id] === undefined) return;
+  const h = sceneHides(dial);
+  if (!h) return;
   const now = performance.now();
   if (now - hintAt < SCENE_HINT_MS) return;
   hintAt = now;
-  lcdMessage.show(`${dialName(dial)}: IN SCENES A+B, HOLD A SCENE`);
+  lcdMessage.show(hideText(dial, h));
+}
+
+/**
+ * Le message d'un potard tourne hors scene (2026-10-27, revue B1) : sa base ne s'entend pas, l'ecran dit pourquoi a la
+ * place de la valeur de base (le bloc et l'anneau montrent ce qui joue, le message ne les contredit plus) ; true : dit.
+ */
+function sceneHideSay(dial: DialId): boolean {
+  const h = sceneHides(dial);
+  if (!h) return false;
+  hintAt = performance.now();
+  lcdMessage.show(hideText(dial, h));
+  return true;
+}
+
+/** Le coin d'un reglage morphe pour une lecture (les jumeaux, 2026-10-27, revue B1) : comme le coin du bloc. */
+function sceneMark(dial: DialId): string {
+  const s = pattern.scenes.get();
+  if (s === NO_SCENES) return '';
+  const id = sceneIdOfDial(dial);
+  if (!id) return '';
+  const inA = s.a[id] !== undefined;
+  const inB = s.b[id] !== undefined;
+  return inA && inB ? ', scenes A and B' : inA ? ', scene A' : inB ? ', scene B' : '';
 }
 
 /** Deux tapes ou Suppr sur un potard pendant qu'une scene est armee : sa cle s'en va (sa propre etape d'UNDO). */
@@ -1087,7 +1138,7 @@ export function dial(id: EncId, v: number, popup = false): void {
     // Le navigateur des sons ouvert (2026-10-18) : il garde l'ecran, la valeur s'ecrit a son pied
     if (id === 'vol' && screenHome() && !lcdSamples.isOpen()) lcdMix.show(inst);
     else {
-      lcdMessage.show(readout(id as ContEnc, dialValue(id), inst), POT_UI.readoutMs, true);
+      if (!sceneHideSay(id)) lcdMessage.show(readout(id as ContEnc, dialValue(id), inst), POT_UI.readoutMs, true);
       touchPage(id, inst);
     }
     return;
@@ -1120,7 +1171,9 @@ export function dial(id: EncId, v: number, popup = false): void {
     else if (t >= 0) rytmPage.setTab('fx', t, inst);
     else rytmPage.popup(id);
   }
-  else lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
+  else if (!sceneHideSay(id)) lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
+  // Un encodeur global dont la base ne s'entend pas (revue B1) : le popup ou la page de FX, puis l'ecran dit pourquoi
+  if (popup) sceneHideSay(id);
   touchPage(id, pattern.get().instrument);
 }
 
@@ -2377,7 +2430,10 @@ export function dialReadout(id: DialId): string {
     const f = soundFamily();
     return f ? kit.readout(f) : `${pattern.get().instrument} HAS ONE SOUND`;
   }
-  return readout(e, dialValue(e), dialTarget(e));
+  // Ce que montrent l'ecran et l'anneau (2026-10-27, revue B1, spec 10.3) : armee la scene, sinon ce qui joue, et le coin
+  // de la scene ; sans scene, la base comme avant
+  const sh = sceneNative(e, true);
+  return sh === null ? readout(e, dialValue(e), dialTarget(e)) : `${readout(e, sh, dialTarget(e))}${sceneMark(e)}`;
 }
 
 /**
