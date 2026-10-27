@@ -17,11 +17,11 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     name: 'MM-RYTM',
     kind: 'Drum machine',
     text: [
-      // La face V.4.0 du desktop (2026-10-27) : plus de pads (une voix se choisit au clavier), des touches a pictogrammes, les
-      // huit potards a droite de l'ecran ; le telephone garde ses mots
+      // La face V.4.0 du desktop (2026-10-27) : plus de pads (une voix se choisit au clavier), les huit potards a droite de
+      // l'ecran ; leurs noms sur les touches (V.4.2, facon Digitakt) ; le telephone garde ses mots
       PORTRAIT
         ? 'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.'
-        : 'Pick a voice with the keys A S D F and Z X C V (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP (the play key) plays, RANDOM (the dice) writes a groove.',
+        : 'Pick a voice with the keys A S D F and Z X C V (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.',
       PORTRAIT
         ? 'Like an Elektron: press a page key (VOICE FLTR ENV FX) and drag the blocks of the screen up or down to set them, values 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs under the screen are the global FX, always the same. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS.'
         : 'Like an Elektron: press a page key (VOICE FLTR ENV FX) and drag the blocks of the screen to set them, 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs right of the screen (A to H) turn the 8 values of the page, each in its place. EDIT turns the steps into 16 patterns; OPEN lifts the hood. TRK + a step picks a voice; hold SCENE A or B and turn a knob to record a scene, the crossfader blends A and B.',

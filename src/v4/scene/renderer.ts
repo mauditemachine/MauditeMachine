@@ -761,7 +761,7 @@ export class Stage {
         })
       : null;
     // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture ; les
-    // pictogrammes de la face V.4.0 du desktop (2026-10-27) aussi
+    // legendes de la face V.4.0 du desktop (2026-10-27 ; V.4.2 : un mot par touche, les signes de RUN/STOP) aussi
     this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le crossfader
     this.faceKeys = PORTRAIT ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });

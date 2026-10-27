@@ -752,9 +752,9 @@ export class Sequencer3D {
   setRunning(on: boolean): boolean {
     if (on === this.running) return false;
     this.running = on;
+    // V.4.2 (2026-10-27) : les signes de RUN/STOP sont imprimes (PLAY et STOP, une encre fixe) ; la lecture se lit au
+    // temoin et a la touche allumee
     this.latch(RUN, on);
-    // La face V.4.0 du desktop (2026-10-27) : le pictogramme de RUN/STOP devient STOP pendant la lecture (sans alt : rien)
-    this.labels.setAlt(RUN - STEP_COUNT, on);
     return true;
   }
 

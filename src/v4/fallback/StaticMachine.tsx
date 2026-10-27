@@ -15,7 +15,8 @@
  * Digitakt") : dessinee depuis rytm/faceplate.ts par theme.ts (KEY_LABELS,
  * FACE_KEY, XFADE, KNOB_RING) : l'ecran 4.3 pouces, les huit potards en 2 x 4
  * et leur anneau de valeur (la meme loi que la scene, theme.ts ringLit), la
- * rangee des douze touches a pictogramme (rytm/icons.ts, traces tels quels),
+ * rangee des douze touches et leurs legendes (V.4.2, 2026-10-27, facon
+ * Digitakt : un mot, les signes PLAY et STOP sur RUN/STOP, theme.ts KEY_MARK),
  * SCENE A et B et la fente du crossfader avec son capuchon, les seize pas en
  * deux rangees et leurs legendes (le numero, BD a CY sur 1 a 8), allumes comme
  * a l'arrivee (BD choisi). Le telephone garde son dessin (phase 5).
@@ -23,7 +24,6 @@
 
 import React from 'react';
 import { BPM, DEFAULT_STEPS, INSTRUMENTS, velocity } from '../audio/pattern';
-import { ICON_STROKE, ICON_VIEWBOX, RYTM_ICONS } from '../rytm/icons';
 import { faceKnobs } from '../rytm/faceKnobs';
 import {
   BODY,
@@ -32,8 +32,8 @@ import {
   FACE_KNOBS,
   HEX,
   KEYS,
-  KEY_ICON,
   KEY_LABEL,
+  KEY_MARK,
   KEY_LABELS,
   KEY_LIT,
   KNOB_RING,
@@ -62,6 +62,7 @@ import {
   pageKeyX,
   keyDz,
   keyX,
+  marksW,
   type KeyLabelSpec,
   type SilkText,
 } from '../theme';
@@ -397,45 +398,56 @@ function faceFlat(): React.ReactNode {
 }
 
 /**
- * Ce qui est imprime sur une touche de la face V.4.0 (theme.ts KEY_LABELS) : son pictogramme (rytm/icons.ts, les traces
- * de Tabler a l'echelle de KEY_ICON.size, trait de ICON_STROKE), ou son texte (la lettre d'une scene, le numero et la voix
- * d'un pas), a la hauteur h ; lit : un pas allume, l'encre passe au noir.
+ * Ce qui est imprime sur une touche de la face V.4.0 (theme.ts KEY_LABELS) : son texte (V.4.2, 2026-10-27 : le mot d'une
+ * touche de la rangee, a son interlettrage ; la lettre d'une scene, le numero et la voix d'un pas) ou ses signes (RUN/STOP :
+ * le triangle PLAY et le carre STOP, pleins, KEY_MARK), a la hauteur h ; lit : un pas allume, l'encre passe au noir.
  */
 function faceLabel(s: Solid, l: KeyLabelSpec, h: number, lit = false): Solid {
   const ink = lit ? INK_DARK : l.rest === 'bone' ? INK_BONE : INK_REST;
-  if (l.icon) {
-    const icon = RYTM_ICONS[l.icon];
-    const q = KEY_ICON.size;
-    const cz = l.z + (l.dz ?? KEY_ICON.dz);
+  if (l.marks) {
+    const M = KEY_MARK;
+    const cz = l.z + (l.dz ?? M.dz);
+    let x = l.x - marksW(l.marks) / 2;
+    const z0 = cz - M.h / 2;
+    const shapes = l.marks.map((m, i) => {
+      if (i > 0) x += M.gap;
+      const x0 = x;
+      if (m === 'play') {
+        const w = M.h * M.playW;
+        x += w;
+        return <path key={`m${i}`} d={`M${r4(x0)} ${r4(z0)}L${r4(x0 + w)} ${r4(cz)}L${r4(x0)} ${r4(z0 + M.h)}Z`} />;
+      }
+      x += M.h;
+      return <rect key={`m${i}`} x={r4(x0)} y={r4(z0)} width={r4(M.h)} height={r4(M.h)} />;
+    });
     s.nodes.push(
-      <g
-        key={`kicon-${l.id}`}
-        transform={`${planeAt(h + 0.003)} translate(${r4(l.x - q / 2)} ${r4(cz - q / 2)}) scale(${r4(q / ICON_VIEWBOX)})`}
-        fill="none"
-        stroke={ink}
-        strokeWidth={ICON_STROKE}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {icon.paths.map((d, i) => (
-          <path key={`p${i}`} d={d} />
-        ))}
-        {(icon.fills ?? []).map((d, i) => (
-          <path key={`f${i}`} d={d} fill={ink} />
-        ))}
+      <g key={`kmarks-${l.id}`} transform={planeAt(h + 0.003)} fill={ink}>
+        {shapes}
       </g>
     );
     return s;
   }
   const cap0 = l.cap ?? KEY_LABEL.cap;
   const room = l.qw ?? l.w - 2 * KEY_LABEL.margin;
-  const cap = cap0 * Math.min(1, room / textW({ text: l.text, x: 0, z: 0, cap: cap0 }, cap0));
+  const tr = l.tracking ?? SILK.tracking;
+  // La largeur a son interlettrage (textW compte celui de la serigraphie)
+  const tw = textW({ text: l.text, x: 0, z: 0, cap: cap0 }, cap0) - (cap0 / SILK.capRatio) * (SILK.tracking - tr) * Math.max(0, l.text.length - 1);
+  const cap = cap0 * Math.min(1, room / tw);
   const size = cap / SILK.capRatio;
-  const ls = SILK.tracking * size;
+  const ls = tr * size;
   const left = l.align === 'left';
   s.nodes.push(
     <g key={`klabel-${l.id}`} transform={planeAt(h + 0.003)}>
-      <text x={r4(left ? l.x - room / 2 : l.x + ls / 2)} y={r4(l.z + (l.dz ?? KEY_LABEL.dz) + cap / 2)} fontSize={r4(size)} fontWeight={KEY_LABEL.weight} textAnchor={left ? 'start' : 'middle'} fill={ink} className="v4-silk">
+      <text
+        x={r4(left ? l.x - room / 2 : l.x + ls / 2)}
+        y={r4(l.z + (l.dz ?? KEY_LABEL.dz) + cap / 2)}
+        fontSize={r4(size)}
+        fontWeight={KEY_LABEL.weight}
+        textAnchor={left ? 'start' : 'middle'}
+        fill={ink}
+        className="v4-silk"
+        {...(l.tracking !== undefined ? { style: { letterSpacing: `${l.tracking}em` } } : {})}
+      >
         {l.text}
       </text>
     </g>
@@ -452,7 +464,7 @@ function faceSolids(items: Solid[]): void {
     items.push(encoder(i, potDeg(v && (v.state === 'live' || v.state === 'off') ? v.pos : 0)));
   });
   // La rangee (TRK VOICE FLTR ENV FX EDIT OPEN RUN/STOP CLEAR RANDOM MUTE SOLO), SCENE A et B : la forme des touches de
-  // page, RUN sur son rouge ; leur pictogramme ou leur lettre dessus
+  // page, RUN sur son rouge ; leur legende (V.4.2 : le mot, les signes de RUN/STOP) ou leur lettre dessus
   for (const l of KEY_LABELS) {
     if (l.group === 'stepn' || l.group === 'stepv') continue;
     const red = l.id === 'run';
@@ -572,7 +584,7 @@ export const StaticMachine: React.FC = () => (
     <desc id="v4-machine-desc">
       {PORTRAIT
         ? 'A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.'
-        : 'A black drum machine: a 4.3 inch screen, eight knobs A to H with value rings mirroring the eight screen values, a row of twelve pictogram keys, scenes A and B with a crossfader, sixteen step keys in two rows.'}
+        : 'A black drum machine: a 4.3 inch screen, eight knobs A to H with value rings mirroring the eight screen values, a row of twelve keys with printed names (TRK VOICE FLTR ENV FX EDIT OPEN, play and stop, CLEAR RANDOM MUTE SOLO), scenes A and B with a crossfader, sixteen step keys in two rows.'}
     </desc>
     {DRAWING()}
   </svg>

@@ -4,8 +4,8 @@
  * grands pads disparaissent, EDIT et OPEN sont dans la rangee des
  * pictogrammes ; SCENE A, la fente du crossfader, SCENE B") : TRK, EDIT,
  * OPEN, SCENE A et SCENE B (theme.ts FACE_KEYS : la forme des touches de page,
- * 12 x 12 mm), leur pictogramme ou leur lettre imprime dessus
- * (scene/keyLabels.ts), et le capuchon du crossfader (theme.ts XFADE ; sa fente
+ * 12 x 12 mm), leur nom (V.4.2, 2026-10-27, facon Digitakt) ou leur lettre
+ * imprime dessus (scene/keyLabels.ts), et le capuchon du crossfader (theme.ts XFADE ; sa fente
  * est fusionnee au panneau, machine.ts). Le desktop seulement : le telephone
  * garde ses pads (phase 5).
  *

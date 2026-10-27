@@ -17,9 +17,9 @@
  * 800 x 480 en 8, 8, 106 x 67 ; huit potards de 28 en 2 x 4 au pas de 32,
  * centres x 134 166 198 230, y 24 et 56 (DIST CHORUS DELAY REVERB, STRETCH
  * SWING BIT COMP), chacun son anneau de valeur (la machine aura des potards
- * motorises qui suivent la valeur) ; douze touches a pictogramme de 12 x 12 en
- * y 84, x = 8 + 14 i (TRK VOICE FLTR ENV FX EDIT OPEN RUN/STOP CLEAR RANDOM
- * MUTE SOLO), sans texte ; SCENE A en 180, 84, la fente du crossfader de x 196
+ * motorises qui suivent la valeur) ; douze touches de 12 x 12 en y 84,
+ * x = 8 + 14 i (TRK VOICE FLTR ENV FX EDIT OPEN RUN/STOP CLEAR RANDOM MUTE
+ * SOLO) ; SCENE A en 180, 84, la fente du crossfader de x 196
  * a 232 sur y 90, SCENE B en 236, 84 ; seize pas de 27.6 x 20 en deux rangees
  * de huit au pas de 30.4 depuis x 8, en y 104 et 128, les pas 1 a 8 portent le
  * nom d'une voix (BD SD CH OH CP TOM HT CY). Les dix pads disparaissent.
@@ -28,6 +28,13 @@
  * proposition a valider : tout est ici, un seul endroit a changer (la revue du
  * 2026-10-27 : les details de la face qui restaient en unites dans theme.ts y
  * sont revenus en mm).
+ *
+ * Les legendes des douze touches (V.4.2, 2026-10-27, Mika apres les pictogrammes : "appuie-toi pour Rytm de la Digitakt
+ * pour les boutons parce que les icones des fois c'est difficile a deviner c'est quoi") : comme sur une Digitakt, le nom
+ * de la fonction imprime sur la touche, un mot court en capitales (buttons.keys legend), le meme corps pour les douze
+ * (buttons.legend, celui de RANDOM, le plus long, qui tient) ; RUN/STOP porte les signes du transport, le triangle PLAY
+ * et le carre STOP cote a cote (buttons.marks), une encre fixe comme les touches PLAY et STOP de la Digitakt. Les
+ * pictogrammes Tabler (le 2026-10-27, "pas de texte sur les boutons") sont partis. Proposition a valider.
  *
  * A valider avec Mika (la revue du 2026-10-27) : knobs.d (28) est lu comme
  * l'emprise du potard et de son anneau, le capuchon en fait 17 ; si 28 est le
@@ -56,26 +63,17 @@ export interface FpCircle {
 export type FpVoice = 'BD' | 'SD' | 'CH' | 'OH' | 'CP' | 'TOM' | 'HT' | 'CY';
 export type FpFx = 'dist' | 'chorus' | 'delay' | 'reverb' | 'stretch' | 'swing' | 'bits' | 'comp';
 export type FpButtonId = 'trk' | 'voice' | 'fltr' | 'env' | 'fx' | 'edit' | 'open' | 'run' | 'clear' | 'random' | 'mute' | 'solo';
-export type FpIconId =
-  | 'stack-2'
-  | 'wave-sine'
-  | 'lowpass'
-  | 'adsr'
-  | 'sparkles'
-  | 'layout-grid'
-  | 'folder-open'
-  | 'player-play'
-  | 'player-stop'
-  | 'eraser'
-  | 'dice-5'
-  | 'volume-off'
-  | 'headphones';
+/** Un signe imprime (V.4.2, 2026-10-27) : le triangle PLAY, le carre STOP (RUN/STOP, comme la Digitakt). */
+export type FpMark = 'play' | 'stop';
 
 export interface FpButton {
   readonly id: FpButtonId;
-  /** son pictogramme (rytm/icons.ts) ; alt : celui de l'etat actif (RUN/STOP pendant la lecture) */
-  readonly icon: FpIconId;
-  readonly alt?: FpIconId;
+  /**
+   * V.4.2 (2026-10-27, facon Digitakt) : la legende imprimee sur la touche, un mot court en capitales ; marks : des signes
+   * a la place du mot (RUN/STOP : le triangle PLAY et le carre STOP), legend reste alors son nom ecrit (les tests, l'export)
+   */
+  readonly legend: string;
+  readonly marks?: readonly FpMark[];
   /** le nom court (celui de Mika) ; title : le nom complet (l'infobulle et le nom du jumeau) */
   readonly name: string;
   readonly title: string;
@@ -136,26 +134,33 @@ export const RYTM_FACEPLATE = {
     pitch: 14,
     y: 84,
     /**
-     * proposition : la hauteur de la touche au-dessus de la face, ses coins ; le pictogramme imprime (son carre, son
-     * centre dy plus bas que celui de la touche, le temoin est derriere) ; le temoin (w x h, son centre a dy du bord du haut)
+     * proposition : la hauteur de la touche au-dessus de la face, ses coins ; le temoin (w x h, son centre a dy du bord du
+     * haut)
      */
     capHeight: 2,
     corner: 0.8,
-    icon: { size: 6.8, dy: 0.7 },
     led: { w: 6, h: 0.8, dy: 1.5 },
+    /**
+     * V.4.2 (2026-10-27, proposition a valider) : la legende imprimee, facon Digitakt ; cap, sa hauteur de capitale (le
+     * meme corps pour les douze : RANDOM, le plus long, y tient en 10.2 mm), tracking son interlettrage (en em, plus serre
+     * que la serigraphie de la face, 0.2), w la largeur qu'elle peut prendre, dy son centre sous celui de la touche (le
+     * temoin est derriere) ; marks, les signes de RUN/STOP : leur hauteur, l'air entre eux, leur centre
+     */
+    legend: { cap: 1.5, tracking: 0.06, w: 10.2, dy: 0.6 },
+    marks: { h: 2.6, gap: 1.7, dy: 0.6 },
     keys: [
-      { id: 'trk', icon: 'stack-2', name: 'TRK', title: 'Track', hotspot: 'trk', phase: 1 },
-      { id: 'voice', icon: 'wave-sine', name: 'VOICE', title: 'Voice page', hotspot: 'pkey-voice', phase: 1 },
-      { id: 'fltr', icon: 'lowpass', name: 'FLTR', title: 'Filter page', hotspot: 'pkey-fltr', phase: 1 },
-      { id: 'env', icon: 'adsr', name: 'ENV', title: 'Envelope page', hotspot: 'pkey-env', phase: 1 },
-      { id: 'fx', icon: 'sparkles', name: 'FX', title: 'Effects page', hotspot: 'pkey-fx', phase: 1 },
-      { id: 'edit', icon: 'layout-grid', name: 'EDIT', title: 'Edit: the 16 patterns', hotspot: 'pad-edit', phase: 1 },
-      { id: 'open', icon: 'folder-open', name: 'OPEN', title: 'Open the machine', hotspot: 'pad-open', phase: 1 },
-      { id: 'run', icon: 'player-play', alt: 'player-stop', name: 'RUN/STOP', title: 'Run / Stop', hotspot: 'run', phase: 1 },
-      { id: 'clear', icon: 'eraser', name: 'CLEAR', title: 'Clear', hotspot: 'clear', phase: 1 },
-      { id: 'random', icon: 'dice-5', name: 'RANDOM', title: 'Random', hotspot: 'random', phase: 1 },
-      { id: 'mute', icon: 'volume-off', name: 'MUTE', title: 'Mute', hotspot: 'mute', phase: 1 },
-      { id: 'solo', icon: 'headphones', name: 'SOLO', title: 'Solo', hotspot: 'solo', phase: 1 },
+      { id: 'trk', legend: 'TRK', name: 'TRK', title: 'Track', hotspot: 'trk', phase: 1 },
+      { id: 'voice', legend: 'VOICE', name: 'VOICE', title: 'Voice page', hotspot: 'pkey-voice', phase: 1 },
+      { id: 'fltr', legend: 'FLTR', name: 'FLTR', title: 'Filter page', hotspot: 'pkey-fltr', phase: 1 },
+      { id: 'env', legend: 'ENV', name: 'ENV', title: 'Envelope page', hotspot: 'pkey-env', phase: 1 },
+      { id: 'fx', legend: 'FX', name: 'FX', title: 'Effects page', hotspot: 'pkey-fx', phase: 1 },
+      { id: 'edit', legend: 'EDIT', name: 'EDIT', title: 'Edit: the 16 patterns', hotspot: 'pad-edit', phase: 1 },
+      { id: 'open', legend: 'OPEN', name: 'OPEN', title: 'Open the machine', hotspot: 'pad-open', phase: 1 },
+      { id: 'run', legend: 'RUN/STOP', marks: ['play', 'stop'], name: 'RUN/STOP', title: 'Run / Stop', hotspot: 'run', phase: 1 },
+      { id: 'clear', legend: 'CLEAR', name: 'CLEAR', title: 'Clear', hotspot: 'clear', phase: 1 },
+      { id: 'random', legend: 'RANDOM', name: 'RANDOM', title: 'Random', hotspot: 'random', phase: 1 },
+      { id: 'mute', legend: 'MUTE', name: 'MUTE', title: 'Mute', hotspot: 'mute', phase: 1 },
+      { id: 'solo', legend: 'SOLO', name: 'SOLO', title: 'Solo', hotspot: 'solo', phase: 1 },
     ] as readonly FpButton[],
   },
   scenes: {
@@ -221,7 +226,7 @@ export const fpZ = (yMm: number): number => (yMm - F.size.h / 2) / MM_PER_UNIT;
 /** Une longueur (mm) en unites. */
 export const fpU = (mm: number): number => mm / MM_PER_UNIT;
 
-/** La touche a pictogramme i (0 TRK a 11 SOLO). */
+/** La touche i de la rangee (0 TRK a 11 SOLO). */
 export const buttonRect = (i: number): FpRect => ({ x: F.buttons.x0 + F.buttons.pitch * i, y: F.buttons.y, w: F.buttons.size, h: F.buttons.size });
 /** Le pas i (0 a 15) : les huit premiers en haut. */
 export const stepRect = (i: number): FpRect => ({
@@ -232,7 +237,7 @@ export const stepRect = (i: number): FpRect => ({
 });
 /** Le potard k (0 a 7) : A B C D en haut, E F G H dessous (2026-10-27 ; la page GLOBAL FX y pose DIST CHORUS DELAY REVERB, STRETCH SWING BIT COMP). */
 export const knobCircle = (k: number): FpCircle => ({ cx: F.knobs.cx[k % 4], cy: F.knobs.cy[k >> 2] ?? F.knobs.cy[0], d: F.knobs.d });
-/** Le rang (0 a 11) d'une touche a pictogramme par son id. */
+/** Le rang (0 a 11) d'une touche de la rangee par son id. */
 export const buttonIndex = (id: FpButtonId): number => F.buttons.keys.findIndex((k) => k.id === id);
 /** Le centre d'un rectangle de la face, dans le repere du panneau (unites). */
 export const rectCenter = (r: FpRect): { x: number; z: number } => ({ x: fpX(r.x + r.w / 2), z: fpZ(r.y + r.h / 2) });

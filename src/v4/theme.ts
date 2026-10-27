@@ -14,7 +14,7 @@
 
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
-import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpIconId } from './rytm/faceplate';
+import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpMark } from './rytm/faceplate';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -972,8 +972,9 @@ export const xfadeCapX = (x: number): number => XFADE.x + (Math.max(0, Math.min(
  * touche seule au desktop, la souris).
  */
 /*
- * La face V.4.0 du desktop (2026-10-27) : RUN/STOP CLEAR RANDOM MUTE SOLO sont les touches 8 a 12 de la rangee des
- * pictogrammes (FACE_KEY, faceKeyX 7 a 11), 12 x 12 mm, leur pictogramme dessus (KEY_LABELS) ; RUN/STOP garde son rouge.
+ * La face V.4.0 du desktop (2026-10-27) : RUN/STOP CLEAR RANDOM MUTE SOLO sont les touches 8 a 12 de la rangee (FACE_KEY,
+ * faceKeyX 7 a 11), 12 x 12 mm, leur legende dessus (KEY_LABELS ; V.4.2 : leur nom, les signes PLAY et STOP sur
+ * RUN/STOP) ; RUN/STOP garde son rouge.
  */
 export const TRANSPORT = {
   w: PORTRAIT ? 1.14 : FACE_KEY.w,
@@ -1510,11 +1511,11 @@ export const PAGE_KEYS = PORTRAIT
       hitZ0: OLED.z + OLED.d / 2 + 0.002,
       hitZ1: PAGE_KNOBS.rowZ[0] - PAGE_KNOBS.hitUp,
     } as const)
-  : // La face V.4.0 du desktop (2026-10-27) : VOICE FLTR ENV FX sont les touches 2 a 5 de la rangee des pictogrammes
+  : // La face V.4.0 du desktop (2026-10-27) : VOICE FLTR ENV FX sont les touches 2 a 5 de la rangee de la face
     ({ w: FACE_KEY.w, d: FACE_KEY.d, h: FACE_KEY.h, radius: FACE_KEY.radius, z: FACE_KEY.z, led: FACE_KEY.led, hitZ0: FACE_KEY.z - FACE_KEY.d / 2, hitZ1: FACE_KEY.z + FACE_KEY.d / 2 } as const);
 /**
  * x de la touche de page k (0 a 3) : quatre touches egales sur la largeur du verre de l'ecran (2026-10-09) ; au desktop
- * depuis le 2026-10-27, les touches 2 a 5 de la rangee des pictogrammes (faceKeyX).
+ * depuis le 2026-10-27, les touches 2 a 5 de la rangee de la face (faceKeyX).
  */
 export const pageKeyX = (k: number): number => {
   if (!PORTRAIT) return faceKeyX(1 + k);
@@ -1555,34 +1556,38 @@ export interface KeyLabelSpec {
   /** la largeur et la profondeur de la touche */
   w: number;
   d: number;
-  /** face V.4.0 (2026-10-27) : face (TRK, EDIT, OPEN), scene (A, B), stepn et stepv (le numero et la voix sur un pas) */
+  /** face V.4.0 (2026-10-27) : face (les douze touches de la rangee depuis V.4.2), scene (A, B), stepn et stepv (le numero et la voix sur un pas) */
   group: 'pkey' | 'tr' | 'face' | 'scene' | 'stepn' | 'stepv';
   /** l'encre au repos : celle de la serigraphie, ou l'os (RUN/STOP, sur son rouge, dans les deux apparences) */
   rest: 'ink' | 'bone';
   /**
-   * La face V.4.0 (2026-10-27, Mika : "pas de texte sur les boutons") : un pictogramme (rytm/icons.ts) au lieu du texte,
-   * et alt, celui de l'etat actif (RUN/STOP pendant la lecture) ; cap, la hauteur de capitale d'un texte (KEY_LABEL.cap
-   * sinon) ; qw, la largeur du quad (la touche moins ses marges sinon) ; dz, le decalage du centre (KEY_LABEL.dz ou
-   * KEY_ICON.dz sinon) ; align, le texte centre ou cale a gauche de son quad (le numero d'un pas)
+   * La face V.4.0 (2026-10-27) : cap, la hauteur de capitale d'un texte (KEY_LABEL.cap sinon) ; qw, la largeur du quad
+   * (la touche moins ses marges sinon) ; dz, le decalage du centre (KEY_LABEL.dz, ou KEY_MARK.dz pour des signes, sinon) ;
+   * align, le texte centre ou cale a gauche de son quad (le numero d'un pas). V.4.2 (2026-10-27, facon Digitakt) :
+   * tracking, l'interlettrage du texte en em (SILK.tracking sinon) ; marks, des signes imprimes a la place du texte
+   * (RUN/STOP : le triangle PLAY et le carre STOP, KEY_MARK)
    */
-  icon?: FpIconId;
-  alt?: FpIconId;
   cap?: number;
   qw?: number;
   dz?: number;
   align?: 'center' | 'left';
+  tracking?: number;
+  marks?: readonly FpMark[];
 }
 
-/** Le pictogramme sur sa touche (2026-10-27) : son carre (6.8 mm), son centre un rien vers l'avant (le temoin est derriere) ; RYTM_FACEPLATE.buttons.icon. */
-export const KEY_ICON = { size: fpU(RYTM_FACEPLATE.buttons.icon.size), dz: fpU(RYTM_FACEPLATE.buttons.icon.dy) } as const;
-
-/** Le groupe d'une touche de la rangee des pictogrammes (2026-10-27) : page, transport ou face. */
-const FACE_GROUP: Readonly<Record<string, KeyLabelSpec['group']>> = { voice: 'pkey', fltr: 'pkey', env: 'pkey', fx: 'pkey', run: 'tr', clear: 'tr', random: 'tr', mute: 'tr', solo: 'tr' };
+/**
+ * Les signes de RUN/STOP sur leur touche (V.4.2, 2026-10-27, RYTM_FACEPLATE.buttons.marks) : leur hauteur, l'air entre
+ * eux, leur centre un rien vers l'avant (le temoin est derriere) ; le triangle PLAY un rien moins large que haut.
+ */
+export const KEY_MARK = { h: fpU(RYTM_FACEPLATE.buttons.marks.h), gap: fpU(RYTM_FACEPLATE.buttons.marks.gap), dz: fpU(RYTM_FACEPLATE.buttons.marks.dy), playW: 0.88 } as const;
+/** La largeur des signes d'une legende (en unites) : chacun sa largeur, l'air entre eux. */
+export const marksW = (m: readonly FpMark[]): number => m.reduce((w, k, i) => w + (k === 'play' ? KEY_MARK.h * KEY_MARK.playW : KEY_MARK.h) + (i > 0 ? KEY_MARK.gap : 0), 0);
 
 /*
- * La face V.4.0 du desktop (2026-10-27, Mika : "pas de texte sur les boutons") : les douze touches de la rangee portent
- * leur pictogramme (rytm/faceplate.ts buttons.keys, rytm/icons.ts ; RUN/STOP le sien et STOP pendant la lecture), SCENE
- * A et B leur lettre ; les ids des touches de page, du transport et de face (scene/rytmFaceKeys.ts) les retrouvent.
+ * La face V.4.0 du desktop (2026-10-27) : les douze touches de la rangee portent leur legende (V.4.2, facon Digitakt,
+ * rytm/faceplate.ts buttons.keys et buttons.legend : un mot, le meme corps pour les douze, un seul groupe ; RUN/STOP ses
+ * signes), SCENE A et B leur lettre ; les ids des touches de page, du transport et de face (scene/rytmFaceKeys.ts) les
+ * retrouvent.
  */
 export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
   ? [
@@ -1598,20 +1603,20 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
       ).map(([id, text]): KeyLabelSpec => ({ id, text, x: TRANSPORT[id].x, z: TRANSPORT.z, w: TRANSPORT.w, d: TRANSPORT.d, group: 'tr', rest: id === 'run' ? 'bone' : 'ink' })),
     ]
   : [
-      ...RYTM_FACEPLATE.buttons.keys.map(
-        (b, i): KeyLabelSpec => ({
+      ...RYTM_FACEPLATE.buttons.keys.map((b, i): KeyLabelSpec => {
+        const L = RYTM_FACEPLATE.buttons.legend;
+        return {
           id: b.id,
-          text: b.name,
+          text: b.legend,
           x: faceKeyX(i),
           z: FACE_KEY.z,
           w: FACE_KEY.w,
           d: FACE_KEY.d,
-          group: FACE_GROUP[b.id] ?? 'face',
+          group: 'face',
           rest: b.id === 'run' ? 'bone' : 'ink',
-          icon: b.icon,
-          ...(b.alt ? { alt: b.alt } : {}),
-        })
-      ),
+          ...(b.marks ? { marks: b.marks, dz: KEY_MARK.dz } : { cap: fpU(L.cap), qw: fpU(L.w), dz: fpU(L.dy), tracking: L.tracking }),
+        };
+      }),
       ...(['a', 'b'] as const).map(
         (k): KeyLabelSpec => ({
           id: `scene-${k}`,
