@@ -130,8 +130,10 @@ export const RYTM_PLATE_IDS = ['r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:sn
  * Les reglages a venir de l'etude (inv/rytm-synthesis.md 2.2), sur aucun
  * ecran pour l'instant ; le filtre et l'enveloppe complete sont arrives a
  * l'etape 2 (2026-10-09 : leurs anciens ids se rendent sous leur nom, OLD_IDS).
+ * La face V.4.0 du desktop (2026-10-27) : TRK, SCENE A et B et le crossfader,
+ * visibles et inertes en phase 1 (leur carte dit BIENTOT).
  */
-export const RYTM_SOON_IDS = ['soon:prob', 'soon:micro', 'soon:cond', 'soon:rtrg', 'soon:rtim', 'soon:br', 'soon:loop'] as const;
+export const RYTM_SOON_IDS = ['soon:prob', 'soon:micro', 'soon:cond', 'soon:rtrg', 'soon:rtim', 'soon:br', 'soon:loop', 'soon:trk', 'soon:scene', 'soon:xfade'] as const;
 export type RytmSoonId = (typeof RYTM_SOON_IDS)[number];
 
 /**
@@ -365,7 +367,9 @@ const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);
 
 /**
  * La carte d'une zone de saisie du MM-RYTM, telle que la face les nomme
- * (pads.ts pad-<voix|edit|open>, encoders.ts penc-<k> (un FX global depuis le
+ * (pads.ts pad-<voix|edit|open> ; au desktop depuis la face V.4.0 du 2026-10-27,
+ * plus de pads de voix, rytmFaceKeys.ts pad-edit pad-open, et trk scene-a
+ * scene-b xfade, leurs cartes BIENTOT ; encoders.ts penc-<k> (un FX global depuis le
  * 2026-10-09), renderer.ts lcd-master lcd-tempo (MASTER et TEMPO dans l'ecran
  * depuis le 2026-10-19 ; enc-level et enc-tempo, leurs potards d'avant, restent
  * des noms de leurs cartes : le Dock, KnobPanel), rytmPageKeys.ts pkey-<page>,
@@ -409,6 +413,10 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
     return i >= 0 && i < 16 ? { id: 'step', step: i } : null;
   }
   if (TRANSPORT.has(hotspot)) return { id: hotspot };
+  // La face V.4.0 du desktop (2026-10-27) : TRK, les scenes et le crossfader, inertes en phase 1, disent qu'ils viennent
+  if (hotspot === 'trk') return { id: 'soon:trk' };
+  if (hotspot === 'scene-a' || hotspot === 'scene-b') return { id: 'soon:scene' };
+  if (hotspot === 'xfade') return { id: 'soon:xfade' };
   if (hotspot === 'seek') return { id: 'seek' };
   if (hotspot === 'lcd-open') return { id: 'screen' };
   if (/^lcd-(prev|next|save|name|del|exit)$/.test(hotspot)) return { id: 'presets' };
