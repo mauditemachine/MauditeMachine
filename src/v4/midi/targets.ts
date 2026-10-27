@@ -34,7 +34,10 @@
  *   rytm:knob:<1-8> reste le bloc k de l'ecran affiche (en P-LOCK, son
  *   verrou) ; les encodeurs du desktop apprennent leur FX global
  *   (rytm:enc:dist... theme.ts GLOBAL_ENCODERS), avec rytm:enc:dtime et
- *   rytm:enc:dfb (DLY TIME, DLY FB) ;
+ *   rytm:enc:dfb (DLY TIME, DLY FB) ; la face V.4.0 (2026-10-27) n'a plus de
+ *   pads au desktop : rytm:pad:<voix> reste (les voix d'INSTRUMENTS), il
+ *   choisit la voix, la joue a l'arret, la coupe ou la met en solo en MUTE et
+ *   SOLO, sans pad 3D ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
  *   2026-10-08) ;
@@ -63,8 +66,8 @@ import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
 import { PATTERN_SLOTS, slotName } from '../state/patterns';
-import { ENCODERS, GLOBAL_ENCODERS, PADS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
-import { STEP_COUNT } from '../audio/pattern';
+import { ENCODERS, GLOBAL_ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
+import { INSTRUMENTS, STEP_COUNT } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
 import { SUB_WAVES, VOY_KNOBS, voyParams } from '../voyager/params';
 import { seqFollow, seqPress, seqRelease, seqSetFollow, seqVoice, seqWindow } from './seqlink';
@@ -150,7 +153,8 @@ function coreTargets(): MidiTarget[] {
   // MM-RYTM
   // La rangee VOICE regle la voix choisie (comme sur la machine) ; rytm:voice:... vise une voix sans la choisir
   for (const e of ENCODERS) out.push(dialTarget(`rytm:enc:${e.id}`, 'mm808', isVoiceEnc(e.id) ? `${e.label} (SELECTED VOICE)` : e.label, e.id));
-  const voices = PADS.filter((p) => p.kind === 'voice').map((p) => p.id as Inst);
+  // Les huit voix d'INSTRUMENTS (2026-10-27, la face V.4.0 n'a plus de pads au desktop) : le meme ordre, les memes ids
+  const voices: readonly Inst[] = INSTRUMENTS;
   for (const inst of voices) {
     for (const p of VOICE_PARAMS) {
       // A zero au centre : TONE, et TUNE et PAN (2026-10-08), FINE et l'ENV du filtre (2026-10-09) ; TUNE a ses 49 crans

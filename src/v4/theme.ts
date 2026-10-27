@@ -958,20 +958,28 @@ const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x
  * CONTACT) sont parties sur la carte (PAGE_CHIPS, Mika : "mets-les dans
  * OPEN") ; elles gardent les touches 1 a 5. OPEN : 6 (et O).
  */
+/**
+ * Les touches du clavier des huit voix, de OPEN et d'EDIT (2026-10-27) : elles ne dependent plus des pads (la face V.4.0
+ * du desktop n'en a plus) ; A S D F / Z X C V choisissent toujours BD SD CH OH / CP TOM HT CY (hooks/useKeys.ts).
+ */
+export const VOICE_KEYS: Readonly<Record<Inst, string>> = { BD: 'A', SD: 'S', CH: 'D', OH: 'F', CP: 'Z', TOM: 'X', HT: 'C', CY: 'V' };
+export const OPEN_KEY = '6';
+export const EDIT_KEY = 'E';
+
 export const PADS: readonly PadSpec[] = [
   // Huit voix (2026-10-05, Mika : "je veux finalement 8 VOICES dans RYTM, enleve RS et PC") :
   // le groove en haut (kick, caisse claire, les deux charleys), le reste dessous (clap, les deux toms, la cymbale)
-  { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0, 0) },
-  { id: 'SD', kind: 'voice', label: 'SD', key: 'S', ...padAt(1, 0) },
-  { id: 'CH', kind: 'voice', label: 'CH', key: 'D', ...padAt(2, 0) },
-  { id: 'OH', kind: 'voice', label: 'OH', key: 'F', ...padAt(3, 0) },
-  { id: 'CP', kind: 'voice', label: 'CP', key: 'Z', ...padAt(0, 1) },
-  { id: 'TOM', kind: 'voice', label: 'TOM', key: 'X', ...padAt(1, 1) },
-  { id: 'HT', kind: 'voice', label: 'HT', key: 'C', ...padAt(2, 1) },
-  { id: 'CY', kind: 'voice', label: 'CY', key: 'V', ...padAt(3, 1) },
+  { id: 'BD', kind: 'voice', label: 'BD', key: VOICE_KEYS.BD, ...padAt(0, 0) },
+  { id: 'SD', kind: 'voice', label: 'SD', key: VOICE_KEYS.SD, ...padAt(1, 0) },
+  { id: 'CH', kind: 'voice', label: 'CH', key: VOICE_KEYS.CH, ...padAt(2, 0) },
+  { id: 'OH', kind: 'voice', label: 'OH', key: VOICE_KEYS.OH, ...padAt(3, 0) },
+  { id: 'CP', kind: 'voice', label: 'CP', key: VOICE_KEYS.CP, ...padAt(0, 1) },
+  { id: 'TOM', kind: 'voice', label: 'TOM', key: VOICE_KEYS.TOM, ...padAt(1, 1) },
+  { id: 'HT', kind: 'voice', label: 'HT', key: VOICE_KEYS.HT, ...padAt(2, 1) },
+  { id: 'CY', kind: 'voice', label: 'CY', key: VOICE_KEYS.CY, ...padAt(3, 1) },
   // La colonne d'apres (2026-10-04) : EDIT en haut (l'editeur du motif), OPEN dessous
-  { id: 'edit', kind: 'edit', label: 'EDIT', key: 'E', ...padAt(VOICE_COLS, 0) },
-  { id: 'open', kind: 'open', label: 'OPEN', key: '6', ...padAt(VOICE_COLS, 1) },
+  { id: 'edit', kind: 'edit', label: 'EDIT', key: EDIT_KEY, ...padAt(VOICE_COLS, 0) },
+  { id: 'open', kind: 'open', label: 'OPEN', key: OPEN_KEY, ...padAt(VOICE_COLS, 1) },
 ];
 
 /** Les cinq pages, dans l'ordre du site (onglets de la feuille, touches 1 a 5). */

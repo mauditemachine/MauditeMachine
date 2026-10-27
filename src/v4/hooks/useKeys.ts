@@ -1,8 +1,9 @@
 /**
  * Clavier global (spec 7.2, 13 et 20.6.2), sur le modele de
  * src/v3/hooks/useKeys.ts. A S D F frappent BD SD CH OH, Z X C V frappent
- * CP TOM HT CY (les huit voix depuis le 2026-10-05, theme.ts PADS ; le son
- * part a la touche). Sur le MM-RYTM
+ * CP TOM HT CY (les huit voix depuis le 2026-10-05 ; depuis le 2026-10-27
+ * theme.ts VOICE_KEYS et audio/pattern.ts INSTRUMENTS, la face V.4.0 du
+ * desktop n'a plus de pads ; le son part a la touche). Sur le MM-RYTM
  * (2026-10-08, state/rytmPage.ts), hors EDIT et du mode presets : H passe
  * de la vue PAGE de l'ecran (par defaut) a HOME et retour, [ et ] passent a
  * la page d'avant ou d'apres (comme les touches de page), L met le pas choisi
@@ -44,7 +45,8 @@ import { section } from '../state/section';
 import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { undo } from '../state/undo';
-import { PADS, PAGES, type PageId } from '../theme';
+import { INSTRUMENTS } from '../audio/pattern';
+import { EDIT_KEY, OPEN_KEY, PAGES, VOICE_KEYS, type PageId } from '../theme';
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
 const CHORD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
@@ -68,11 +70,11 @@ const ownsArrows = (t: EventTarget | null): boolean => {
 };
 
 /** 'a' -> BD ... 'z' -> CP ... ; les majuscules (verrou) comptent aussi. */
-const PAD_KEYS = new Map(PADS.flatMap((p) => (p.kind === 'voice' ? [[p.key.toLowerCase(), p.id] as const] : [])));
+const PAD_KEYS = new Map(INSTRUMENTS.map((i) => [VOICE_KEYS[i].toLowerCase(), i] as const));
 /** Les pages (1 a 5, sur la carte depuis le 2026-10-03) et OPEN (6) : leur chiffre. */
 const DIGIT_KEYS: readonly { key: string; page: PageId | null }[] = [
   ...PAGES.map((p) => ({ key: p.key, page: p.id })),
-  ...PADS.filter((p) => p.kind === 'open').map((p) => ({ key: p.key, page: null })),
+  { key: OPEN_KEY, page: null },
 ];
 
 export function useKeys(getStage: () => Stage | null, machine: boolean): void {
@@ -208,7 +210,7 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         return;
       }
       // E (2026-10-04) : EDIT de la machine qu'on utilise (la suite du MM-ARP, le motif du MM-RYTM)
-      if ((e.key === 'e' || e.key === 'E') && (focus.get() === 'voy' || focus.get() === 'mm808')) {
+      if (e.key.toUpperCase() === EDIT_KEY && (focus.get() === 'voy' || focus.get() === 'mm808')) {
         e.preventDefault();
         editToggle(focus.get() === 'voy' ? 'voy' : 'mm808', getStage());
         return;
