@@ -895,20 +895,24 @@ export const XFADE = {
  * profondeur de leur zone (au telephone 0.9, environ 40 px au doigt ; la
  * touche seule au desktop, la souris).
  */
+/*
+ * La face V.4.0 du desktop (2026-10-27) : RUN/STOP CLEAR RANDOM MUTE SOLO sont les touches 8 a 12 de la rangee des
+ * pictogrammes (FACE_KEY, faceKeyX 7 a 11), 12 x 12 mm, leur pictogramme dessus (KEY_LABELS) ; RUN/STOP garde son rouge.
+ */
 export const TRANSPORT = {
-  w: PORTRAIT ? 1.14 : 1.0,
-  d: PORTRAIT ? 0.44 : 0.38,
+  w: PORTRAIT ? 1.14 : FACE_KEY.w,
+  d: PORTRAIT ? 0.44 : FACE_KEY.d,
   h: 0.1,
-  radius: PORTRAIT ? 0.05 : 0.04,
-  z: PORTRAIT ? 3.56 : 0.83,
-  hitD: PORTRAIT ? 0.84 : 0.38,
+  radius: PORTRAIT ? 0.05 : FACE_KEY.radius,
+  z: PORTRAIT ? 3.56 : FACE_KEY.z,
+  hitD: PORTRAIT ? 0.84 : FACE_KEY.d,
   /** le temoin, celui des touches de page (a la largeur de la touche) */
-  led: PORTRAIT ? { w: 0.62, d: 0.05, back: 0.11 } : { w: 0.54, d: 0.042, back: 0.09 },
-  run: { x: PORTRAIT ? -2.6 : 0.37 },
-  clear: { x: PORTRAIT ? -1.3 : 1.62 },
-  random: { x: PORTRAIT ? 0 : 2.87 },
-  mute: { x: PORTRAIT ? 1.3 : 4.12 },
-  solo: { x: PORTRAIT ? 2.6 : 5.37 },
+  led: PORTRAIT ? { w: 0.62, d: 0.05, back: 0.11 } : FACE_KEY.led,
+  run: { x: PORTRAIT ? -2.6 : faceKeyX(7) },
+  clear: { x: PORTRAIT ? -1.3 : faceKeyX(8) },
+  random: { x: PORTRAIT ? 0 : faceKeyX(9) },
+  mute: { x: PORTRAIT ? 1.3 : faceKeyX(10) },
+  solo: { x: PORTRAIT ? 2.6 : faceKeyX(11) },
 } as const;
 
 /**
@@ -1030,7 +1034,11 @@ export const VOICE_KEYS: Readonly<Record<Inst, string>> = { BD: 'A', SD: 'S', CH
 export const OPEN_KEY = '6';
 export const EDIT_KEY = 'E';
 
-export const PADS: readonly PadSpec[] = [
+/*
+ * La face V.4.0 du desktop (2026-10-27, Mika : "les 10 grands pads disparaissent ; EDIT et OPEN sont dans la rangee des
+ * pictogrammes") : plus de pads au desktop (EDIT et OPEN : scene/rytmFaceKeys.ts) ; le telephone garde les siens.
+ */
+export const PADS: readonly PadSpec[] = !PORTRAIT ? [] : [
   // Huit voix (2026-10-05, Mika : "je veux finalement 8 VOICES dans RYTM, enleve RS et PC") :
   // le groove en haut (kick, caisse claire, les deux charleys), le reste dessous (clap, les deux toms, la cymbale)
   { id: 'BD', kind: 'voice', label: 'BD', key: VOICE_KEYS.BD, ...padAt(0, 0) },
@@ -1378,9 +1386,14 @@ export const PAGE_KEYS = PORTRAIT
       hitZ0: OLED.z + OLED.d / 2 + 0.002,
       hitZ1: PAGE_KNOBS.rowZ[0] - PAGE_KNOBS.hitUp,
     } as const)
-  : ({ w: 1.15, d: 0.38, h: 0.1, radius: 0.04, z: DESK_PKEY_Z, led: { w: 0.6, d: 0.042, back: 0.09 }, hitZ0: DESK_PKEY_Z - 0.19, hitZ1: DESK_PKEY_Z + 0.19 } as const);
-/** x de la touche de page k (0 a 3) : quatre touches egales sur la largeur du verre de l'ecran (2026-10-09). */
+  : // La face V.4.0 du desktop (2026-10-27) : VOICE FLTR ENV FX sont les touches 2 a 5 de la rangee des pictogrammes
+    ({ w: FACE_KEY.w, d: FACE_KEY.d, h: FACE_KEY.h, radius: FACE_KEY.radius, z: FACE_KEY.z, led: FACE_KEY.led, hitZ0: FACE_KEY.z - FACE_KEY.d / 2, hitZ1: FACE_KEY.z + FACE_KEY.d / 2 } as const);
+/**
+ * x de la touche de page k (0 a 3) : quatre touches egales sur la largeur du verre de l'ecran (2026-10-09) ; au desktop
+ * depuis le 2026-10-27, les touches 2 a 5 de la rangee des pictogrammes (faceKeyX).
+ */
 export const pageKeyX = (k: number): number => {
+  if (!PORTRAIT) return faceKeyX(1 + k);
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS.w / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS.w / 2;
   return x0 + ((x1 - x0) * k) / (RYTM_PAGE_KEYS.length - 1);
@@ -1439,18 +1452,72 @@ export interface KeyLabelSpec {
 /** Le pictogramme sur sa touche (2026-10-27) : son carre (6.8 mm), son centre un rien vers l'avant (le temoin est derriere). */
 export const KEY_ICON = { size: 0.34, dz: 0.035 } as const;
 
-export const KEY_LABELS: readonly KeyLabelSpec[] = [
-  ...RYTM_PAGE_KEYS.map((pk, k): KeyLabelSpec => ({ id: pk.id, text: pk.label, x: pageKeyX(k), z: PAGE_KEYS.z, w: PAGE_KEYS.w, d: PAGE_KEYS.d, group: 'pkey', rest: 'ink' })),
-  ...(
-    [
-      ['run', 'RUN/STOP'],
-      ['clear', 'CLEAR'],
-      ['random', 'RANDOM'],
-      ['mute', 'MUTE'],
-      ['solo', 'SOLO'],
-    ] as const
-  ).map(([id, text]): KeyLabelSpec => ({ id, text, x: TRANSPORT[id].x, z: TRANSPORT.z, w: TRANSPORT.w, d: TRANSPORT.d, group: 'tr', rest: id === 'run' ? 'bone' : 'ink' })),
-];
+/** Le groupe d'une touche de la rangee des pictogrammes (2026-10-27) : page, transport ou face. */
+const FACE_GROUP: Readonly<Record<string, KeyLabelSpec['group']>> = { voice: 'pkey', fltr: 'pkey', env: 'pkey', fx: 'pkey', run: 'tr', clear: 'tr', random: 'tr', mute: 'tr', solo: 'tr' };
+
+/*
+ * La face V.4.0 du desktop (2026-10-27, Mika : "pas de texte sur les boutons") : les douze touches de la rangee portent
+ * leur pictogramme (rytm/faceplate.ts buttons.keys, rytm/icons.ts ; RUN/STOP le sien et STOP pendant la lecture), SCENE
+ * A et B leur lettre ; les ids des touches de page, du transport et de face (scene/rytmFaceKeys.ts) les retrouvent.
+ */
+export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
+  ? [
+      ...RYTM_PAGE_KEYS.map((pk, k): KeyLabelSpec => ({ id: pk.id, text: pk.label, x: pageKeyX(k), z: PAGE_KEYS.z, w: PAGE_KEYS.w, d: PAGE_KEYS.d, group: 'pkey', rest: 'ink' })),
+      ...(
+        [
+          ['run', 'RUN/STOP'],
+          ['clear', 'CLEAR'],
+          ['random', 'RANDOM'],
+          ['mute', 'MUTE'],
+          ['solo', 'SOLO'],
+        ] as const
+      ).map(([id, text]): KeyLabelSpec => ({ id, text, x: TRANSPORT[id].x, z: TRANSPORT.z, w: TRANSPORT.w, d: TRANSPORT.d, group: 'tr', rest: id === 'run' ? 'bone' : 'ink' })),
+    ]
+  : [
+      ...RYTM_FACEPLATE.buttons.keys.map(
+        (b, i): KeyLabelSpec => ({
+          id: b.id,
+          text: b.name,
+          x: faceKeyX(i),
+          z: FACE_KEY.z,
+          w: FACE_KEY.w,
+          d: FACE_KEY.d,
+          group: FACE_GROUP[b.id] ?? 'face',
+          rest: b.id === 'run' ? 'bone' : 'ink',
+          icon: b.icon,
+          ...(b.alt ? { alt: b.alt } : {}),
+        })
+      ),
+      ...(['a', 'b'] as const).map(
+        (k): KeyLabelSpec => ({
+          id: `scene-${k}`,
+          text: RYTM_FACEPLATE.scenes[k].letter,
+          x: rectCenter(RYTM_FACEPLATE.scenes[k].rect).x,
+          z: FACE_KEY.z,
+          w: FACE_KEY.w,
+          d: FACE_KEY.d,
+          group: 'scene',
+          rest: 'ink',
+          cap: 0.16,
+          qw: 0.3,
+        })
+      ),
+    ];
+
+/**
+ * L'infobulle de chaque commande de la face V.4.0 du desktop (2026-10-27, Mika : "le nom complet dans l'infobulle et
+ * dans l'aria-label du jumeau") : par id de zone ; TRK, les scenes et le crossfader disent qu'ils viennent (phase 2).
+ */
+export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
+  ? {}
+  : {
+      ...Object.fromEntries(RYTM_FACEPLATE.buttons.keys.map((b) => [b.hotspot, b.phase === 2 ? `${b.title} (${b.name}), coming soon` : b.title])),
+      [RYTM_FACEPLATE.scenes.a.hotspot]: `${RYTM_FACEPLATE.scenes.a.title}, coming soon`,
+      [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}, coming soon`,
+      [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}, coming soon`,
+    };
+/** Les commandes de la face visibles et inertes en phase 1 (TRK, SCENE A et B, le crossfader) : curseur par defaut, rien ne part. */
+export const FACE_INERT: ReadonlySet<string> = new Set(['trk', 'scene-a', 'scene-b', 'xfade']);
 
 /**
  * Une touche selectionnee s'allume en entier (2026-10-18, Mika : "quand c'est

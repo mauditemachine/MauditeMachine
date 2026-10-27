@@ -683,6 +683,8 @@ export class Sequencer3D {
     if (on === this.running) return false;
     this.running = on;
     this.latch(RUN, on);
+    // La face V.4.0 du desktop (2026-10-27) : le pictogramme de RUN/STOP devient STOP pendant la lecture (sans alt : rien)
+    this.labels.setAlt(RUN - STEP_COUNT, on);
     return true;
   }
 

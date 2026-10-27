@@ -185,7 +185,9 @@ import {
   DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
+  FACE_INERT,
   FACE_KNOBS,
+  FACE_TITLE,
   GLOBAL_ENCODERS,
   GLOBAL_ENC_LABELS,
   INST_NAMES,
@@ -199,6 +201,7 @@ import {
   PADS,
   PAD_ARIA,
   PAD_DOUBLE_TAP_MS,
+  PORTRAIT,
   POT_UI,
   potMin,
   isBipolar,
@@ -590,13 +593,21 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
                   : ''
               : hover.startsWith('lcd-blk-') || hover === 'lcd-master' || hover === 'lcd-tempo'
                 ? 'ns-resize'
-                : own ?? 'pointer';
+                : // TRK, les scenes et le crossfader de la face V.4.0 (2026-10-27) : inertes en phase 1, la fleche
+                  FACE_INERT.has(hover)
+                  ? 'default'
+                  : own ?? 'pointer';
     };
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
       if (id !== hover) {
         hover = id;
         stage.setHover(id);
+        // L'infobulle de la face V.4.0 du desktop (2026-10-27, Mika : "le nom complet dans l'infobulle") : sur la couche de
+        // saisie, le temps du survol (au telephone, FACE_TITLE est vide)
+        const tip = id !== null ? FACE_TITLE[id] : undefined;
+        if (tip) el.title = tip;
+        else if (el.title) el.removeAttribute('title');
       }
       setCursor();
     };
@@ -758,6 +769,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran suivant, la touche s'enfonce
       else if (d.kind === 'vpush' && d.vknob) voyPush(d.vknob, stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
+      // TRK, SCENE A et B, le crossfader (2026-10-27, la face V.4.0) : visibles et inertes en phase 1, la tape est prise (pas de
+      // double tape du fond) et rien ne part
+      else if (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'xfade') return d.id;
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
@@ -1982,8 +1996,41 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       );
     });
 
+  // Les jumeaux d'EDIT et d'OPEN : ceux de leurs pads au telephone, de leurs touches au desktop (2026-10-27), les memes ids
+  const editTwin = (
+    <button
+      key="pad-edit"
+      ref={refFor('pad-edit')}
+      type="button"
+      className="v4-twin"
+      data-twin="edit"
+      data-hotspot="pad-edit"
+      aria-label="Edit the pattern and its velocities, key E"
+      aria-pressed={edOpen === 'mm808'}
+      onKeyDown={noRepeat}
+      onClick={() => editToggle('mm808', stageRef.current)}
+    />
+  );
+  const openTwin = (
+    <button
+      key="pad-open"
+      ref={refFor('pad-open')}
+      type="button"
+      className="v4-twin"
+      data-twin="open"
+      data-hotspot="pad-open"
+      aria-pressed={pressed}
+      aria-label={OPEN_ARIA}
+      onKeyDown={noRepeat}
+      onClick={() => openToggle(stageRef.current, 'mm808')}
+    />
+  );
+
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label={TWIN_ARIA.group} aria-hidden={off || undefined}>
+      {/* La face V.4.0 du desktop (2026-10-27) : plus de pads, EDIT et OPEN sont des touches de la rangee des pictogrammes */}
+      {!PORTRAIT && editTwin}
+      {!PORTRAIT && openTwin}
       {PADS.map((pad) => {
         const id = `pad-${pad.id}`;
         if (pad.kind === 'voice') {
@@ -2025,36 +2072,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             />
           );
         }
-        if (pad.kind === 'edit') {
-          return (
-            <button
-              key={id}
-              ref={refFor(id)}
-              type="button"
-              className="v4-twin"
-              data-twin="edit"
-              data-hotspot={id}
-              aria-label="Edit the pattern and its velocities, key E"
-              aria-pressed={edOpen === 'mm808'}
-              onKeyDown={noRepeat}
-              onClick={() => editToggle('mm808', stageRef.current)}
-            />
-          );
-        }
-        return (
-          <button
-            key={id}
-            ref={refFor(id)}
-            type="button"
-            className="v4-twin"
-            data-twin="open"
-            data-hotspot={id}
-            aria-pressed={pressed}
-            aria-label={OPEN_ARIA}
-            onKeyDown={noRepeat}
-            onClick={() => openToggle(stageRef.current, 'mm808')}
-          />
-        );
+        if (pad.kind === 'edit') return editTwin;
+        return openTwin;
       })}
       {(pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
         <button

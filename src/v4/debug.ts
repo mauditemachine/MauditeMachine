@@ -17,6 +17,8 @@
  * reset(), set(), lastTap, lastUp, bgResets), stats.maxDrawCalls /
  * maxTriangles / shadowUpdates / reset(), state.view, trace.anchor /
  * visible / fades, measure().orbit / shadow ; plus de parallaxe.
+ * La face V.4.0 (2026-10-27) : pads null au desktop, face (TRK, EDIT, OPEN,
+ * SCENE A et B), encoders.ring (les anneaux de valeur).
  * Revision 2, etape 2 (le corps Rytm) : encoders (remplace knobs), pads
  * (12, page active, OPEN), seq sans knobLeds, state.lcd sur trois lignes,
  * hotspots (39), twins (36 fermee, 39 ouverte), measure().fit (emprise de
@@ -49,6 +51,7 @@ import type { ExplodeInfo } from './scene/explode';
 import type { HotspotView } from './scene/hit';
 import type { EncodersInfo } from './scene/encoders';
 import type { PadsInfo } from './scene/pads';
+import type { RytmFaceKeysInfo } from './scene/rytmFaceKeys';
 import type { PcbInfo } from './scene/pcb';
 import type { Stage, StageMeasure, StageStats } from './scene/renderer';
 import type { ScreenInfo } from './scene/screen';
@@ -161,6 +164,8 @@ export interface V4Debug {
   /** le store du motif (select, toggle, clear, setBpm, flush), pour les tests */
   readonly pattern: typeof pattern;
   readonly pads: PadsInfo | null;
+  /** la face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B ; null au telephone */
+  readonly face: RytmFaceKeysInfo | null;
   /** les pas allumes par leur velocite (2026-10-19), leurs verrous, RUN, tete de lecture, survol */
   readonly seq: SequencerInfo | null;
   /** les huit encodeurs (GLOBAL FX) : angles (deg), valeurs (0 a 1) */
@@ -328,6 +333,9 @@ export function installDebug(src: DebugSource): () => void {
     pattern,
     get pads() {
       return src.stage()?.pads?.info() ?? null;
+    },
+    get face() {
+      return src.stage()?.faceKeys?.info() ?? null;
     },
     get seq() {
       return src.stage()?.seq.info() ?? null;

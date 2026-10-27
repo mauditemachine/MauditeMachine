@@ -29,7 +29,7 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BACK, BODY, chassisTopY, FEET, GAIN, gainOf, LAYERS, OLED, PANEL, PANEL_TOP_Y, PCB_TURN, TILT, type Tone, TRAY } from '../theme';
+import { BACK, BODY, chassisTopY, FEET, GAIN, gainOf, LAYERS, OLED, PANEL, PANEL_TOP_Y, PCB_TURN, PORTRAIT, TILT, type Tone, TRAY, XFADE } from '../theme';
 import { albedo, makeChassisMaterial, makePanelMaterial, paintFaces, paintSolid } from './materials';
 
 /** Rectangle a coins arrondis centre, une suite d'arcs (three ajoute les cotes droits). */
@@ -338,6 +338,25 @@ function buildChassis(mobile: boolean): BufferGeometry {
 }
 
 /**
+ * La fente du crossfader (2026-10-27) : un pave et deux demi-disques (des cylindres) a plat sur le panneau, teinte oled ;
+ * leurs uv gardees, comme le verre : la dalle du panneau a les siennes (le brossage), la fusion veut les memes attributs.
+ */
+function slotParts(): BufferGeometry[] {
+  const S = XFADE.slot;
+  const r = S.d / 2;
+  const flatUv = (g: BufferGeometry, x: number): BufferGeometry => {
+    g.translate(x, S.h / 2, XFADE.z);
+    const out = g.index ? g.toNonIndexed() : g;
+    if (out !== g) g.dispose();
+    paintSolid(out, 'oled', GAIN.parts);
+    return out;
+  };
+  const out = [flatUv(new BoxGeometry(S.w - S.d, S.h, S.d), XFADE.x)];
+  for (const sd of [-1, 1]) out.push(flatUv(new CylinderGeometry(r, r, S.h, 16), XFADE.x + (sd * (S.w - S.d)) / 2));
+  return out;
+}
+
+/**
  * Panneau : dalle extrudee (dessus a y 0, dessous a -0.14) a chanfrein
  * tourne vers le haut (panelEdge), cadre de l'ecran fusionne (oled). UV
  * du dessus en unites (x, -z) : le brossage (roughnessMap) court le long
@@ -366,9 +385,12 @@ function buildPanel(): BufferGeometry {
   if (bezel !== bezelIndexed) bezelIndexed.dispose();
   bezel.translate(OLED.x, b.h / 2, OLED.z);
   paintSolid(bezel, 'oled', GAIN.parts);
-  const merged = mergeGeometries([slab, bezel], false);
+  // La fente du crossfader (2026-10-27, la face V.4.0 du desktop, theme.ts XFADE) : noire comme le verre, bouts ronds
+  const slot = PORTRAIT ? [] : slotParts();
+  const merged = mergeGeometries([slab, bezel, ...slot], false);
   slab.dispose();
   bezel.dispose();
+  for (const g of slot) g.dispose();
   if (!merged) throw new Error('machine: panel merge failed');
   return merged;
 }

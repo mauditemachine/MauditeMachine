@@ -132,6 +132,7 @@ import {
 import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
+import { RytmFaceKeys } from './rytmFaceKeys';
 import { anyDialValue, dialRange, type DialId } from '../actions';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
@@ -392,6 +393,8 @@ export class Stage {
   private paintTweens = new Tweens();
   /** les 12 pads (voix, pages, OPEN) et leurs halos ; null quand la face n'en a pas (2026-10-27, la face V.4.0 du desktop) */
   readonly pads: Pads | null;
+  /** la face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le capuchon du crossfader ; null au telephone */
+  readonly faceKeys: RytmFaceKeys | null;
   /** touches trig, RUN/STOP, CLEAR et les 16 LED */
   readonly seq: Sequencer3D;
   /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
@@ -488,6 +491,8 @@ export class Stage {
   private unsubMix: () => void;
   /** les quatre puces (allumees pendant l'ouverture et vue ouverte) */
   private chipDefs: HotspotDef[];
+  /** les touches de la face V.4.0 (2026-10-27) : trk, pad-edit, pad-open, scene-a, xfade, scene-b */
+  private faceDefs: HotspotDef[] = [];
   /** les TWEAKS du MM-RYTM sous le capot (2026-10-04, audio/kit.ts) */
   readonly rytmTweaks: RytmTweaks;
   private tweakDefs: HotspotDef[];
@@ -715,16 +720,21 @@ export class Stage {
     this.scene.add(this.machine.root);
 
     // Moitie droite : les 12 pads (ils projettent leur ombre sur mobile
-    // aussi ; leur lumiere seule ne refait pas la carte d'ombre)
-    this.pads = new Pads({
-      tweens: this.tweens,
-      reduced: motion.reduced,
-      repaint: () => this.repaint(),
-      castShadow: true,
-      mobile,
-    });
-    // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture
+    // aussi ; leur lumiere seule ne refait pas la carte d'ombre) ; plus de pads au desktop depuis la face V.4.0 (2026-10-27)
+    this.pads = PORTRAIT
+      ? new Pads({
+          tweens: this.tweens,
+          reduced: motion.reduced,
+          repaint: () => this.repaint(),
+          castShadow: true,
+          mobile,
+        })
+      : null;
+    // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture ; les
+    // pictogrammes de la face V.4.0 du desktop (2026-10-27) aussi
     this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
+    // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le crossfader
+    this.faceKeys = PORTRAIT ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
     // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs
     this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
@@ -740,7 +750,8 @@ export class Stage {
       this.seq.btnLeds,
       this.seq.labels.mesh,
       ...this.encoders.objects(),
-      ...this.pageKeys.objects()
+      ...this.pageKeys.objects(),
+      ...(this.faceKeys?.objects() ?? [])
     );
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
@@ -785,6 +796,9 @@ export class Stage {
     // MASTER, TEMPO, puis les potards de page A a H et les touches de page (2026-10-08)
     const encDefs = [...FACE_KNOBS.map((e) => this.encoders.hotspot(e.id, plateau)), ...this.pageKeys.hotspots(plateau)];
     this.hit.add(encDefs);
+    // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A, le crossfader, SCENE B
+    this.faceDefs = this.faceKeys?.hotspots(plateau) ?? [];
+    this.hit.add(this.faceDefs);
     const seqDefs = this.seq.hotspots(plateau);
     this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
     this.hit.add(seqDefs.filter((d) => d.kind !== 'step'));
@@ -964,7 +978,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs, ...this.sbDefs, ...this.menuDefs, ...this.dialDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...this.faceDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs, ...this.sbDefs, ...this.menuDefs, ...this.dialDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -1153,6 +1167,7 @@ export class Stage {
     };
     const syncEditor = (): void => {
       if (this.pads?.setEditing(editor.get() === 'mm808')) this.invalidate();
+      if (this.faceKeys?.setEditing(editor.get() === 'mm808')) this.repaint();
       // Le MM-ARP au desktop : l'ecran de la suite monte a la place des pads
       if (this.voy?.setSeqOpen(editor.get() === 'voy')) this.hit.invalidate();
       syncPatView();
@@ -2443,7 +2458,8 @@ export class Stage {
    */
   private stepBreathe = (now: number): 'paint' | 'poll' | false => {
     const v = this.voy;
-    const p808 = this.pads;
+    // OPEN respire : le pad au telephone, la touche de la face V.4.0 au desktop (2026-10-27)
+    const p808 = this.pads ?? this.faceKeys;
     const on808 = !!p808 && p808.breathing && this.machine.root.visible;
     const onVoy = !!v && v.breathing && v.root.visible;
     if (this.opts.mobile || motion.reduced() || (!on808 && !onVoy)) {
@@ -2711,6 +2727,8 @@ export class Stage {
     lcdSamples.hover(sbRow ? Number(sbRow[1]) : -1);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads?.setHover(pad)) changed = true;
+    // La face V.4.0 (2026-10-27) : EDIT et OPEN s'eclairent un rien ; TRK, les scenes et le crossfader restent eteints
+    if (this.faceKeys?.setHover(id)) changed = true;
     // Les encodeurs, les touches de page et le transport (2026-10-22, audit : ils ne changeaient que de curseur)
     if (this.encoders.setHover(id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1)) changed = true;
     if (this.pageKeys.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
@@ -2865,6 +2883,7 @@ export class Stage {
       changed = true;
     }
     if (this.pads?.setOpen(goal)) changed = true;
+    if (this.faceKeys?.setOpen(goal)) changed = true;
     if (this.silk.setOpenLabel(goal ? 'CLOSE' : 'OPEN')) changed = true;
     if (this.syncChips()) changed = true;
     if (this.syncCasters()) changed = true;
@@ -2961,7 +2980,24 @@ export class Stage {
    */
   pressRytmPad(id: PadId): void {
     if (this.disposed) return;
-    this.pads?.press(id);
+    if (this.pads) this.pads.press(id);
+    // La face V.4.0 du desktop (2026-10-27) : EDIT et OPEN sont des touches, elles s'enfoncent comme une touche de page ;
+    // une voix ou une page n'a pas de pad 3D a enfoncer
+    else if (id === 'edit' || id === 'open') this.pressFaceKey(id === 'edit' ? 'pad-edit' : 'pad-open');
+  }
+
+  /** Une touche de la face V.4.0 (EDIT, OPEN) s'enfonce et s'eclaire, comme une touche de page (2026-10-27). */
+  private pressFaceKey(hotspot: string): void {
+    const fk = this.faceKeys;
+    if (!fk) return;
+    const i = fk.indexOf(hotspot);
+    if (i < 0) return;
+    const move = !motion.reduced();
+    const set = (v: number): void => fk.setPress(i, v, move);
+    const tw = this.paintTweens;
+    const key = `face.press.${i}`;
+    tw.run(key, set, 0, 1, STEP_PRESS.downMs, linear, performance.now(), (end) => tw.run(key, set, 1, 0, STEP_PRESS.upMs, easeOutCubic, end));
+    this.repaint();
   }
 
   /** Le clignotement du pas en LOCK (2026-10-08) : 280 ms allume, 280 ms en retrait. */
@@ -3227,6 +3263,7 @@ export class Stage {
     this.silk.dispose();
     this.backPlate.dispose();
     this.pads?.dispose();
+    this.faceKeys?.dispose();
     this.seq.dispose();
     this.encoders.dispose();
     this.pageKeys.dispose();
