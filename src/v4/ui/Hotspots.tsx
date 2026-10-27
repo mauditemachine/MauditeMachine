@@ -1445,7 +1445,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
      * Un fichier glisse depuis le disque (2026-10-18, Mika : "glisser-deposer WAV") : au-dessus du MM-RYTM, l'ecran dit
      * DROP ON A PAD (DROP ON BD au-dessus d'un pad) ; lache sur un pad, il devient un sample de sa voix ; ailleurs sur la
      * machine, de la voix choisie (actions.ts soundDrop). Hors du MM-RYTM, refuse (pas de copie) ; jamais la page qui part
-     * vers le fichier lache a cote.
+     * vers le fichier lache a cote. La face V.4.0 du desktop (2026-10-27) n'a plus de pads : partout sur la machine, la voix
+     * choisie (l'ecran dit DROP FOR BD).
      */
     const isFiles = (e: DragEvent): boolean => !!e.dataTransfer && Array.from(e.dataTransfer.types ?? []).includes('Files');
     /** Sous le fichier : la voix d'un pad du MM-RYTM, 'pad' ailleurs sur lui, null hors de lui. */
@@ -1996,7 +1997,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       );
     });
 
-  // Les jumeaux d'EDIT et d'OPEN : ceux de leurs pads au telephone, de leurs touches au desktop (2026-10-27), les memes ids
+  // Les jumeaux d'EDIT et d'OPEN : ceux de leurs pads au telephone, de leurs touches au desktop (2026-10-27), les memes ids ;
+  // au desktop, leur nom complet en infobulle (title, vide au telephone)
   const editTwin = (
     <button
       key="pad-edit"
@@ -2007,6 +2009,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       data-hotspot="pad-edit"
       aria-label="Edit the pattern and its velocities, key E"
       aria-pressed={edOpen === 'mm808'}
+      title={FACE_TITLE['pad-edit']}
       onKeyDown={noRepeat}
       onClick={() => editToggle('mm808', stageRef.current)}
     />
@@ -2021,461 +2024,581 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       data-hotspot="pad-open"
       aria-pressed={pressed}
       aria-label={OPEN_ARIA}
+      title={FACE_TITLE['pad-open']}
       onKeyDown={noRepeat}
       onClick={() => openToggle(stageRef.current, 'mm808')}
     />
   );
 
+  const padTwins = PADS.map((pad) => {
+    const id = `pad-${pad.id}`;
+    if (pad.kind === 'voice') {
+      return (
+        <button
+          key={id}
+          ref={refFor(id)}
+          type="button"
+          className="v4-twin"
+          data-twin="pad"
+          data-hotspot={id}
+          aria-label={PAD_ARIA[pad.id]}
+          aria-pressed={inst === pad.id}
+          onKeyDown={noRepeat}
+          onClick={() => padHit(pad.id, stageRef.current)}
+          // La touche menu (ou Maj+F10) sur le jumeau d'une voix (2026-10-21, audit) : elle se coupe ou revient, comme le
+          // clic droit sur son pad (les jumeaux ne recoivent jamais la souris : pointer-events none)
+          onContextMenu={(e) => {
+            e.preventDefault();
+            padMute(pad.id, stageRef.current);
+          }}
+        />
+      );
+    }
+    if (pad.kind === 'page') {
+      return (
+        <button
+          key={id}
+          ref={refFor(id)}
+          type="button"
+          className="v4-twin"
+          data-twin="page"
+          data-hotspot={id}
+          aria-label={`${title(pad.label)}, key ${pad.key}`}
+          aria-expanded={open === pad.id}
+          aria-controls={`v4-section-${pad.id}`}
+          onKeyDown={noRepeat}
+          onClick={() => page(pad.id, stageRef.current)}
+        />
+      );
+    }
+    if (pad.kind === 'edit') return editTwin;
+    return openTwin;
+  });
+
+  const presetTwins = (pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
+    <button
+      key={`lcd-${k}`}
+      ref={refFor(`lcd-${k}`)}
+      type="button"
+      className="v4-twin"
+      data-twin="lcd"
+      data-hotspot={`lcd-${k}`}
+      aria-label={PRESET_KEY_ARIA[k]}
+      onKeyDown={noRepeat}
+      onClick={() => presetKey('mm808', k)}
+    />
+  ));
+
+  // La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol
+  const infoKeyTwin = (
+    <button
+      ref={refFor('lcd-i')}
+      type="button"
+      className="v4-twin"
+      data-twin="rinfo"
+      data-hotspot="lcd-i"
+      aria-label={rytmInfosOn ? 'INFOS on: hover a control of the MM-RYTM (tap on a phone) to read what it does. Press to turn off' : 'INFOS: hover a control of the MM-RYTM (tap on a phone) to read what it does'}
+      aria-pressed={rytmInfosOn}
+      onKeyDown={noRepeat}
+      onClick={() => rytmInfos.toggle()}
+    />
+  );
+
+  const tweakTwins =
+    showChips &&
+    KIT_PLATE_IDS.map((k) => {
+      // Les TWEAKS du kit (2026-10-04) : juste apres OPEN qui les decouvre, au clavier comme a la souris ; sans les choix de sons (2026-10-18)
+      const id = `rk-${k}`;
+      const sw = isFamily(k);
+      const v = sw ? kit.value(k) : kitNow.knob[k];
+      return (
+        <div
+          key={id}
+          ref={refFor(id)}
+          className="v4-twin"
+          data-twin="rknob"
+          data-hotspot={id}
+          role="slider"
+          tabIndex={live ? 0 : -1}
+          aria-label={KIT_ARIA[k]}
+          aria-orientation="vertical"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(v * 100)}
+          aria-valuetext={kit.readout(k)}
+          onKeyDown={onKitKey(k)}
+        />
+      );
+    });
+
+  const dialTwins =
+    dialsShown &&
+    (['level', 'tempo'] as const).map((k) => {
+      // MASTER et TEMPO dans l'ecran (2026-10-19) : leurs jumeaux poses la ou l'ecran les dessine (lcd-master, lcd-tempo)
+      const enc = ENCODERS.find((e) => e.id === k) ?? ENCODERS[0];
+      const id = k === 'level' ? 'lcd-master' : 'lcd-tempo';
+      const v = values[k];
+      const tempo = k === 'tempo';
+      return (
+        <div
+          key={id}
+          ref={refFor(id)}
+          className="v4-twin"
+          data-twin="rdial"
+          data-hotspot={id}
+          role="slider"
+          tabIndex={0}
+          aria-label={`${enc.aria}, on the screen: drag up or down, double tap for ${tempo ? '130 BPM' : 'its default'}`}
+          aria-orientation="vertical"
+          aria-valuemin={tempo ? BPM.min : 0}
+          aria-valuemax={tempo ? BPM.max : 100}
+          aria-valuenow={tempo ? v : pct(v)}
+          aria-valuetext={tempo ? dialText(k, v) : `${dialText(k, v)}, ${encUnit('level', v).toLowerCase()}`}
+          onKeyDown={onDialKey(k)}
+        />
+      );
+    });
+
+  const knobTwins = FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
+    // Les encodeurs du desktop (2026-10-09) : leur FX global a poste fixe (theme.ts GLOBAL_ENCODERS), jamais un verrou
+    const k = pageKnobIndex(fk.id as (typeof PAGE_KNOB_IDS)[number]);
+    const g = GLOBAL_ENCODERS[k];
+    const id = `penc-${k}`;
+    const d = g as DialId;
+    const [lo, hi] = dialRange(d);
+    const course = hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
+    const bipolar = lo < 0;
+    return (
+      <div
+        key={id}
+        ref={refFor(id)}
+        className="v4-twin"
+        data-twin="penc"
+        data-hotspot={id}
+        role="slider"
+        tabIndex={0}
+        aria-label={`Knob ${PAGE_KNOB_LETTERS[k]}, global ${GLOBAL_ENC_LABELS[k].toLowerCase()}, the whole machine, never locked`}
+        aria-orientation="vertical"
+        aria-valuemin={bipolar ? -64 : 0}
+        aria-valuemax={bipolar ? 63 : 127}
+        aria-valuenow={v127(course, bipolar)}
+        aria-valuetext={dialReadout(d)}
+        onKeyDown={(e) => {
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            globalDial(k, anyDialReset(d));
+            return;
+          }
+          onPageKnobKey(d, (v) => globalDial(k, v))(e);
+        }}
+      />
+    );
+  });
+
+  const blockTwins = PAGE_KNOB_IDS.map((pid) => {
+    // Les blocs de l'ecran (2026-10-08 ; l'editeur au desktop aussi depuis le 2026-10-09) : ce qu'ils reglent sur l'ecran
+    // affiche, de 0 a 127 ; le jumeau se pose sur le bloc (lcd-blk-<k>), present seulement quand l'ecran le dessine
+    const k = pageKnobIndex(pid);
+    const id = `lcd-blk-${k}`;
+    const d = `p:${k}` as DialId;
+    const slot = pageSlotOf(k);
+    if (!slot || !slot.label || slot.graph) return null;
+    // Le nombre de l'ecran : 0 a 127, -64 a +63 pour TONE et STRETCH (un bloc vide : en bas)
+    const bipolar = pageKnobLive(k) && dialRange(d)[0] < 0;
+    const course = pageKnobCourse(k);
+    const what = slot.label;
+    return (
+      <div
+        key={id}
+        ref={refFor(id)}
+        className="v4-twin"
+        data-twin="penc"
+        data-hotspot={id}
+        role="slider"
+        tabIndex={0}
+        aria-label={`Screen value ${PAGE_KNOB_LETTERS[k]}, ${SCREEN_TITLE[rytmPage.screen(inst)]}: ${what}${slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : ''}${pageFxDetail(k) ? ', enter opens its settings' : ''}${slot.target === 'voice:sound' ? ', enter opens the list of sounds' : ''}`}
+        aria-orientation="vertical"
+        aria-valuemin={bipolar ? -64 : 0}
+        aria-valuemax={bipolar ? 63 : 127}
+        aria-valuenow={v127(course, bipolar)}
+        aria-valuetext={dialReadout(d)}
+        onKeyDown={(e) => {
+          // Suppr : le verrou du pas en P-LOCK s'en va (deux tapes au pointeur), sinon la valeur de depart
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            pageKnobReset(k);
+            return;
+          }
+          // Le nom du son (2026-10-18) : Entree ouvre le navigateur des sons, le clavier y passe ; hors P-LOCK, haut et
+          // bas (droite et gauche) sont PREV et NEXT, la liste ouverte, a l'arret le son s'entend
+          if (slot.target === 'voice:sound' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (!e.repeat) soundBrowserOpen(true);
+              return;
+            }
+            if (!lockMode() && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+              e.preventDefault();
+              soundBrowserStep(e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : -1);
+              return;
+            }
+          }
+          // Entree sur un FX de GLOBAL FX (2026-10-10) : sa page, ses reglages (Echap y revient) ; sur VOICE FX, sa page sous la voix
+          const fd = e.key === 'Enter' ? pageFxDetail(k) : null;
+          if (fd) {
+            e.preventDefault();
+            rytmFxOpen(fd);
+            return;
+          }
+          onPageKnobKey(d)(e);
+        }}
+      />
+    );
+  });
+
+  const browserTwins = sbView && (
+    <>
+      {/* Le navigateur des sons (2026-10-18) : PREV et NEXT, puis la liste (les fleches deplacent, Entree choisit, Suppr retire un de tes samples, Echap ferme) */}
+      <button
+        ref={refFor('lcd-sb-prev')}
+        type="button"
+        className="v4-twin"
+        data-twin="sbprev"
+        data-hotspot="lcd-sb-prev"
+        aria-label={`Previous sound, ${INST_NAMES[sbView.inst]}${sbView.cur <= 0 ? ', this is the first' : ''}`}
+        onKeyDown={noRepeat}
+        onClick={() => soundBrowserStep(-1)}
+      />
+      <button
+        ref={refFor('lcd-sb-next')}
+        type="button"
+        className="v4-twin"
+        data-twin="sbnext"
+        data-hotspot="lcd-sb-next"
+        aria-label={`Next sound, ${INST_NAMES[sbView.inst]}${sbView.cur >= sbView.n - 1 ? ', this is the last' : ''}`}
+        onKeyDown={noRepeat}
+        onClick={() => soundBrowserStep(1)}
+      />
+      <div
+        ref={refFor('lcd-sb-body')}
+        className="v4-twin"
+        data-twin="sblist"
+        data-hotspot="lcd-sb-body"
+        role="listbox"
+        tabIndex={0}
+        aria-label={`${INST_NAMES[sbView.inst]} sounds, ${sbView.n}${sbView.lock >= 0 ? `, P-lock on step ${sbView.lock + 1}` : ''}. Arrows move, Enter chooses, Delete removes one of yours, Escape closes`}
+        aria-activedescendant={`v4-sb-opt-${sbView.cursor}`}
+        onFocus={() => {
+          sbHadFocus.current = true;
+        }}
+        onBlur={() => {
+          sbHadFocus.current = false;
+        }}
+        onKeyDown={(e) => {
+          if (e.altKey || e.ctrlKey || e.metaKey) return;
+          const v = soundBrowserView();
+          if (!v) return;
+          switch (e.key) {
+            case 'ArrowDown':
+            case 'ArrowRight':
+              soundBrowserCursor(1);
+              break;
+            case 'ArrowUp':
+            case 'ArrowLeft':
+              soundBrowserCursor(-1);
+              break;
+            case 'PageDown':
+              soundBrowserCursor(v.visible);
+              break;
+            case 'PageUp':
+              soundBrowserCursor(-v.visible);
+              break;
+            case 'Home':
+              soundBrowserCursor(0, 'home');
+              break;
+            case 'End':
+              soundBrowserCursor(0, 'end');
+              break;
+            case 'Enter':
+            case ' ':
+              if (!e.repeat) soundBrowserPick(v.cursor);
+              break;
+            case 'Delete':
+            case 'Backspace':
+              if (!e.repeat) soundBrowserRemove(v.cursor, 'DELETE');
+              break;
+            case 'Escape':
+              soundBrowserClose();
+              break;
+            default:
+              return;
+          }
+          e.preventDefault();
+        }}
+      >
+        {sbView.rows.map((r, i) => (
+          <div
+            key={`${i}|${r.kind}|${r.key}`}
+            id={`v4-sb-opt-${i}`}
+            className="v4-sr"
+            role="option"
+            aria-selected={i === sbView.cur}
+            onClick={() => soundBrowserPick(i)}
+          >
+            {r.kind === 'load'
+              ? 'Load a file from this device'
+              : `${r.label}${r.kind === 'mach' ? ', synth' : r.user ? ', yours, Delete removes it' : ''}${i === sbView.cur ? ', playing' : ''}${i === sbView.arm ? ', press Delete again to remove it' : ''}`}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  const menuTwins =
+    rp.view === 'home' &&
+    !rytmEdit &&
+    !pm808 &&
+    !sbView &&
+    HOME_MENU.map((id) => (
+      // Le menu de la voix sous HOME (2026-10-18) : ses touches, posees la ou l'ecran les dessine (lcd-menu-<id>)
+      <button
+        key={`lcd-menu-${id}`}
+        ref={refFor(`lcd-menu-${id}`)}
+        type="button"
+        className="v4-twin"
+        data-twin="rmenu"
+        data-hotspot={`lcd-menu-${id}`}
+        aria-label={id === 'sound' ? (inst ? `Sound of ${INST_NAMES[inst]}: open the list of sounds` : TWIN_ARIA.soundNoVoice) : `${HOME_MENU_LABEL[id]} page${inst ? ` of ${INST_NAMES[inst]}` : ''}`}
+        onKeyDown={noRepeat}
+        onClick={() => {
+          // Au clavier (la relecture) : SOUND donne le focus a la liste ; une page, a sa touche (le menu part avec HOME)
+          if (id === 'sound') {
+            soundBrowserOpen(true);
+            return;
+          }
+          rytmMenu(id, stageRef.current);
+          els.current.get(`pkey-${id}`)?.focus({ preventScroll: true });
+        }}
+      />
+    ));
+
+  // Les touches de page : au desktop (2026-10-27), sans nom ecrit sur la touche, leur nom complet d'abord (Filter page (FLTR))
+  const pkeyTwins = RYTM_PAGE_KEYS.map((pk) => (
+    <button
+      key={`pkey-${pk.id}`}
+      ref={refFor(`pkey-${pk.id}`)}
+      type="button"
+      className="v4-twin"
+      data-twin="pkey"
+      data-hotspot={`pkey-${pk.id}`}
+      aria-label={`${PORTRAIT ? `${pk.label} page` : `${FACE_TITLE[`pkey-${pk.id}`]} (${pk.label})`}${rp.page === pk.id ? (rp.view === 'page' ? ', shown, press again for its next view or HOME' : ', press for the page view') : ''}`}
+      aria-pressed={rp.page === pk.id && rp.view === 'page'}
+      title={FACE_TITLE[`pkey-${pk.id}`]}
+      onKeyDown={noRepeat}
+      onClick={() => rytmPageKey(pk.id, stageRef.current)}
+    />
+  ));
+  const runTwin = (
+    <button
+      ref={refFor('run')}
+      type="button"
+      className="v4-twin"
+      data-twin="run"
+      data-hotspot="run"
+      aria-label={TWIN_ARIA.run}
+      aria-pressed={running}
+      title={FACE_TITLE.run}
+      onKeyDown={noRepeat}
+      onClick={() => runToggle(stageRef.current)}
+    />
+  );
+  const clearTwin = (
+    <button
+      ref={refFor('clear')}
+      type="button"
+      className="v4-twin"
+      data-twin="clear"
+      data-hotspot="clear"
+      aria-label={TWIN_ARIA.clear}
+      title={FACE_TITLE.clear}
+      onKeyDown={noRepeat}
+      onClick={() => clearPattern(stageRef.current)}
+    />
+  );
+  const randomTwin = (
+    <button
+      ref={refFor('random')}
+      type="button"
+      className="v4-twin"
+      data-twin="random"
+      data-hotspot="random"
+      aria-label={TWIN_ARIA.random}
+      title={FACE_TITLE.random}
+      onKeyDown={noRepeat}
+      onClick={() => randomPattern(stageRef.current)}
+    />
+  );
+  const muteTwin = (
+    <button
+      ref={refFor('mute')}
+      type="button"
+      className="v4-twin"
+      data-twin="mute"
+      data-hotspot="mute"
+      aria-label={TWIN_ARIA.mute}
+      aria-pressed={muteOn}
+      title={FACE_TITLE.mute}
+      onKeyDown={noRepeat}
+      onClick={() => muteToggle(stageRef.current)}
+    />
+  );
+  const soloTwin = (
+    <button
+      ref={refFor('solo')}
+      type="button"
+      className="v4-twin"
+      data-twin="solo"
+      data-hotspot="solo"
+      aria-label={TWIN_ARIA.solo}
+      aria-pressed={v.soloMode || v.solo.length > 0}
+      title={FACE_TITLE.solo}
+      onKeyDown={noRepeat}
+      onClick={() => soloToggle(stageRef.current)}
+    />
+  );
+
+  const stepTwins = STEP_INDEXES.map((i) => {
+    const on = rytmEdit ? i === ptns.cur : inst ? isOn(p.steps, inst, i) : false;
+    // Ses verrous (2026-10-08) : combien, et s'il est en LOCK
+    const nl = inst && !rytmEdit ? lockCount(p.locks, inst, i) : 0;
+    const label = rytmEdit
+      ? `Pattern ${slotName(i)}${patterns.filled(i) ? '' : ', empty'}${i === ptns.cur ? ', playing' : ''}. Tap to play it, tap others within two seconds to chain them, hold an empty one to copy the current pattern`
+      : inst
+        ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}${nl > 0 ? `, ${nl} lock${nl > 1 ? 's' : ''}` : ''}${lockAt === i ? ', in lock mode' : ''}. L: lock mode`
+        : `Step ${i + 1}, no instrument selected`;
+    return (
+      <button
+        key={i}
+        ref={refFor(`step-${i + 1}`)}
+        type="button"
+        className="v4-twin"
+        data-twin="step"
+        data-hotspot={`step-${i + 1}`}
+        aria-label={label}
+        aria-pressed={on}
+        onKeyDown={(e) => {
+          // Suppr ou retour arriere : le pas se vide (l'appui long du clavier)
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            stepClear(i, stage);
+          } else if ((e.key === 'l' || e.key === 'L') && !e.repeat && !rytmEdit) {
+            // L (2026-10-08) : ce pas en LOCK, ou hors LOCK s'il y est
+            e.preventDefault();
+            rytmLockToggle(i);
+          } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            // Haut et bas : sa velocite (2026-10-05), un cran
+            e.preventDefault();
+            const v = stepVelocityOf(i);
+            stepVelocity(i, (v > 0 ? v : 6) + (e.key === 'ArrowUp' ? 1 : -1));
+          } else noRepeat(e);
+        }}
+        onClick={() => stepToggle(i, stage)}
+      />
+    );
+  });
+
+  /*
+   * TRK, SCENE A et B, le crossfader (2026-10-27, la face V.4.0 du desktop) : visibles et inertes en phase 1 (leurs gestes
+   * viennent en phase 2). Leurs jumeaux existent pour le clavier et les lecteurs d'ecran : TRK et les scenes en boutons
+   * aria-disabled (le focus les trouve, contour en pointilles, rien ne part), le crossfader en curseur natif desactive
+   * (input range disabled, au milieu de sa course, hors de la tabulation) ; leur nom complet dit qu'ils viennent (FACE_TITLE).
+   */
+  const inertTwin = (id: 'trk' | 'scene-a' | 'scene-b'): React.ReactElement => (
+    <button
+      key={id}
+      ref={refFor(id)}
+      type="button"
+      className="v4-twin"
+      data-twin={id === 'trk' ? 'trk' : 'scene'}
+      data-hotspot={id}
+      aria-disabled="true"
+      aria-label={FACE_TITLE[id]}
+      title={FACE_TITLE[id]}
+      onKeyDown={noRepeat}
+    />
+  );
+  const xfadeTwin = (
+    <input
+      key="xfade"
+      ref={refFor('xfade')}
+      type="range"
+      className="v4-twin"
+      data-twin="xfade"
+      data-hotspot="xfade"
+      min={0}
+      max={100}
+      step={1}
+      defaultValue={50}
+      disabled
+      aria-disabled="true"
+      aria-valuetext="Centre, between scene A and scene B"
+      aria-label={FACE_TITLE.xfade}
+      title={FACE_TITLE.xfade}
+    />
+  );
+
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label={TWIN_ARIA.group} aria-hidden={off || undefined}>
-      {/* La face V.4.0 du desktop (2026-10-27) : plus de pads, EDIT et OPEN sont des touches de la rangee des pictogrammes */}
-      {!PORTRAIT && editTwin}
-      {!PORTRAIT && openTwin}
-      {PADS.map((pad) => {
-        const id = `pad-${pad.id}`;
-        if (pad.kind === 'voice') {
-          return (
-            <button
-              key={id}
-              ref={refFor(id)}
-              type="button"
-              className="v4-twin"
-              data-twin="pad"
-              data-hotspot={id}
-              aria-label={PAD_ARIA[pad.id]}
-              aria-pressed={inst === pad.id}
-              onKeyDown={noRepeat}
-              onClick={() => padHit(pad.id, stageRef.current)}
-              // La touche menu (ou Maj+F10) sur le jumeau d'une voix (2026-10-21, audit) : elle se coupe ou revient, comme le
-              // clic droit sur son pad (les jumeaux ne recoivent jamais la souris : pointer-events none)
-              onContextMenu={(e) => {
-                e.preventDefault();
-                padMute(pad.id, stageRef.current);
-              }}
-            />
-          );
-        }
-        if (pad.kind === 'page') {
-          return (
-            <button
-              key={id}
-              ref={refFor(id)}
-              type="button"
-              className="v4-twin"
-              data-twin="page"
-              data-hotspot={id}
-              aria-label={`${title(pad.label)}, key ${pad.key}`}
-              aria-expanded={open === pad.id}
-              aria-controls={`v4-section-${pad.id}`}
-              onKeyDown={noRepeat}
-              onClick={() => page(pad.id, stageRef.current)}
-            />
-          );
-        }
-        if (pad.kind === 'edit') return editTwin;
-        return openTwin;
-      })}
-      {(pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
-        <button
-          key={`lcd-${k}`}
-          ref={refFor(`lcd-${k}`)}
-          type="button"
-          className="v4-twin"
-          data-twin="lcd"
-          data-hotspot={`lcd-${k}`}
-          aria-label={PRESET_KEY_ARIA[k]}
-          onKeyDown={noRepeat}
-          onClick={() => presetKey('mm808', k)}
-        />
-      ))}
-      {/* La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol */}
-      <button
-        ref={refFor('lcd-i')}
-        type="button"
-        className="v4-twin"
-        data-twin="rinfo"
-        data-hotspot="lcd-i"
-        aria-label={rytmInfosOn ? 'INFOS on: hover a control of the MM-RYTM (tap on a phone) to read what it does. Press to turn off' : 'INFOS: hover a control of the MM-RYTM (tap on a phone) to read what it does'}
-        aria-pressed={rytmInfosOn}
-        onKeyDown={noRepeat}
-        onClick={() => rytmInfos.toggle()}
-      />
-      {chips}
-      {showChips &&
-        KIT_PLATE_IDS.map((k) => {
-          // Les TWEAKS du kit (2026-10-04) : juste apres OPEN qui les decouvre, au clavier comme a la souris ; sans les choix de sons (2026-10-18)
-          const id = `rk-${k}`;
-          const sw = isFamily(k);
-          const v = sw ? kit.value(k) : kitNow.knob[k];
-          return (
-            <div
-              key={id}
-              ref={refFor(id)}
-              className="v4-twin"
-              data-twin="rknob"
-              data-hotspot={id}
-              role="slider"
-              tabIndex={live ? 0 : -1}
-              aria-label={KIT_ARIA[k]}
-              aria-orientation="vertical"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(v * 100)}
-              aria-valuetext={kit.readout(k)}
-              onKeyDown={onKitKey(k)}
-            />
-          );
-        })}
-      {dialsShown &&
-        (['level', 'tempo'] as const).map((k) => {
-          // MASTER et TEMPO dans l'ecran (2026-10-19) : leurs jumeaux poses la ou l'ecran les dessine (lcd-master, lcd-tempo)
-          const enc = ENCODERS.find((e) => e.id === k) ?? ENCODERS[0];
-          const id = k === 'level' ? 'lcd-master' : 'lcd-tempo';
-          const v = values[k];
-          const tempo = k === 'tempo';
-          return (
-            <div
-              key={id}
-              ref={refFor(id)}
-              className="v4-twin"
-              data-twin="rdial"
-              data-hotspot={id}
-              role="slider"
-              tabIndex={0}
-              aria-label={`${enc.aria}, on the screen: drag up or down, double tap for ${tempo ? '130 BPM' : 'its default'}`}
-              aria-orientation="vertical"
-              aria-valuemin={tempo ? BPM.min : 0}
-              aria-valuemax={tempo ? BPM.max : 100}
-              aria-valuenow={tempo ? v : pct(v)}
-              aria-valuetext={tempo ? dialText(k, v) : `${dialText(k, v)}, ${encUnit('level', v).toLowerCase()}`}
-              onKeyDown={onDialKey(k)}
-            />
-          );
-        })}
-      {FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
-        // Les encodeurs du desktop (2026-10-09) : leur FX global a poste fixe (theme.ts GLOBAL_ENCODERS), jamais un verrou
-        const k = pageKnobIndex(fk.id as (typeof PAGE_KNOB_IDS)[number]);
-        const g = GLOBAL_ENCODERS[k];
-        const id = `penc-${k}`;
-        const d = g as DialId;
-        const [lo, hi] = dialRange(d);
-        const course = hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
-        const bipolar = lo < 0;
-        return (
-          <div
-            key={id}
-            ref={refFor(id)}
-            className="v4-twin"
-            data-twin="penc"
-            data-hotspot={id}
-            role="slider"
-            tabIndex={0}
-            aria-label={`Knob ${PAGE_KNOB_LETTERS[k]}, global ${GLOBAL_ENC_LABELS[k].toLowerCase()}, the whole machine, never locked`}
-            aria-orientation="vertical"
-            aria-valuemin={bipolar ? -64 : 0}
-            aria-valuemax={bipolar ? 63 : 127}
-            aria-valuenow={v127(course, bipolar)}
-            aria-valuetext={dialReadout(d)}
-            onKeyDown={(e) => {
-              if (e.key === 'Delete' || e.key === 'Backspace') {
-                e.preventDefault();
-                globalDial(k, anyDialReset(d));
-                return;
-              }
-              onPageKnobKey(d, (v) => globalDial(k, v))(e);
-            }}
-          />
-        );
-      })}
-      {PAGE_KNOB_IDS.map((pid) => {
-        // Les blocs de l'ecran (2026-10-08 ; l'editeur au desktop aussi depuis le 2026-10-09) : ce qu'ils reglent sur l'ecran
-        // affiche, de 0 a 127 ; le jumeau se pose sur le bloc (lcd-blk-<k>), present seulement quand l'ecran le dessine
-        const k = pageKnobIndex(pid);
-        const id = `lcd-blk-${k}`;
-        const d = `p:${k}` as DialId;
-        const slot = pageSlotOf(k);
-        if (!slot || !slot.label || slot.graph) return null;
-        // Le nombre de l'ecran : 0 a 127, -64 a +63 pour TONE et STRETCH (un bloc vide : en bas)
-        const bipolar = pageKnobLive(k) && dialRange(d)[0] < 0;
-        const course = pageKnobCourse(k);
-        const what = slot.label;
-        return (
-          <div
-            key={id}
-            ref={refFor(id)}
-            className="v4-twin"
-            data-twin="penc"
-            data-hotspot={id}
-            role="slider"
-            tabIndex={0}
-            aria-label={`Screen value ${PAGE_KNOB_LETTERS[k]}, ${SCREEN_TITLE[rytmPage.screen(inst)]}: ${what}${slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : ''}${pageFxDetail(k) ? ', enter opens its settings' : ''}${slot.target === 'voice:sound' ? ', enter opens the list of sounds' : ''}`}
-            aria-orientation="vertical"
-            aria-valuemin={bipolar ? -64 : 0}
-            aria-valuemax={bipolar ? 63 : 127}
-            aria-valuenow={v127(course, bipolar)}
-            aria-valuetext={dialReadout(d)}
-            onKeyDown={(e) => {
-              // Suppr : le verrou du pas en P-LOCK s'en va (deux tapes au pointeur), sinon la valeur de depart
-              if (e.key === 'Delete' || e.key === 'Backspace') {
-                e.preventDefault();
-                pageKnobReset(k);
-                return;
-              }
-              // Le nom du son (2026-10-18) : Entree ouvre le navigateur des sons, le clavier y passe ; hors P-LOCK, haut et
-              // bas (droite et gauche) sont PREV et NEXT, la liste ouverte, a l'arret le son s'entend
-              if (slot.target === 'voice:sound' && !e.altKey && !e.ctrlKey && !e.metaKey) {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (!e.repeat) soundBrowserOpen(true);
-                  return;
-                }
-                if (!lockMode() && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-                  e.preventDefault();
-                  soundBrowserStep(e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : -1);
-                  return;
-                }
-              }
-              // Entree sur un FX de GLOBAL FX (2026-10-10) : sa page, ses reglages (Echap y revient) ; sur VOICE FX, sa page sous la voix
-              const fd = e.key === 'Enter' ? pageFxDetail(k) : null;
-              if (fd) {
-                e.preventDefault();
-                rytmFxOpen(fd);
-                return;
-              }
-              onPageKnobKey(d)(e);
-            }}
-          />
-        );
-      })}
-      {sbView && (
+      {PORTRAIT ? (
+        // Le telephone (inchange, phase 5) : les pads, l'ecran, les puces et les TWEAKS, les potards, les touches, les pas
         <>
-          {/* Le navigateur des sons (2026-10-18) : PREV et NEXT, puis la liste (les fleches deplacent, Entree choisit, Suppr retire un de tes samples, Echap ferme) */}
-          <button
-            ref={refFor('lcd-sb-prev')}
-            type="button"
-            className="v4-twin"
-            data-twin="sbprev"
-            data-hotspot="lcd-sb-prev"
-            aria-label={`Previous sound, ${INST_NAMES[sbView.inst]}${sbView.cur <= 0 ? ', this is the first' : ''}`}
-            onKeyDown={noRepeat}
-            onClick={() => soundBrowserStep(-1)}
-          />
-          <button
-            ref={refFor('lcd-sb-next')}
-            type="button"
-            className="v4-twin"
-            data-twin="sbnext"
-            data-hotspot="lcd-sb-next"
-            aria-label={`Next sound, ${INST_NAMES[sbView.inst]}${sbView.cur >= sbView.n - 1 ? ', this is the last' : ''}`}
-            onKeyDown={noRepeat}
-            onClick={() => soundBrowserStep(1)}
-          />
-          <div
-            ref={refFor('lcd-sb-body')}
-            className="v4-twin"
-            data-twin="sblist"
-            data-hotspot="lcd-sb-body"
-            role="listbox"
-            tabIndex={0}
-            aria-label={`${INST_NAMES[sbView.inst]} sounds, ${sbView.n}${sbView.lock >= 0 ? `, P-lock on step ${sbView.lock + 1}` : ''}. Arrows move, Enter chooses, Delete removes one of yours, Escape closes`}
-            aria-activedescendant={`v4-sb-opt-${sbView.cursor}`}
-            onFocus={() => {
-              sbHadFocus.current = true;
-            }}
-            onBlur={() => {
-              sbHadFocus.current = false;
-            }}
-            onKeyDown={(e) => {
-              if (e.altKey || e.ctrlKey || e.metaKey) return;
-              const v = soundBrowserView();
-              if (!v) return;
-              switch (e.key) {
-                case 'ArrowDown':
-                case 'ArrowRight':
-                  soundBrowserCursor(1);
-                  break;
-                case 'ArrowUp':
-                case 'ArrowLeft':
-                  soundBrowserCursor(-1);
-                  break;
-                case 'PageDown':
-                  soundBrowserCursor(v.visible);
-                  break;
-                case 'PageUp':
-                  soundBrowserCursor(-v.visible);
-                  break;
-                case 'Home':
-                  soundBrowserCursor(0, 'home');
-                  break;
-                case 'End':
-                  soundBrowserCursor(0, 'end');
-                  break;
-                case 'Enter':
-                case ' ':
-                  if (!e.repeat) soundBrowserPick(v.cursor);
-                  break;
-                case 'Delete':
-                case 'Backspace':
-                  if (!e.repeat) soundBrowserRemove(v.cursor, 'DELETE');
-                  break;
-                case 'Escape':
-                  soundBrowserClose();
-                  break;
-                default:
-                  return;
-              }
-              e.preventDefault();
-            }}
-          >
-            {sbView.rows.map((r, i) => (
-              <div
-                key={`${i}|${r.kind}|${r.key}`}
-                id={`v4-sb-opt-${i}`}
-                className="v4-sr"
-                role="option"
-                aria-selected={i === sbView.cur}
-                onClick={() => soundBrowserPick(i)}
-              >
-                {r.kind === 'load'
-                  ? 'Load a file from this device'
-                  : `${r.label}${r.kind === 'mach' ? ', synth' : r.user ? ', yours, Delete removes it' : ''}${i === sbView.cur ? ', playing' : ''}${i === sbView.arm ? ', press Delete again to remove it' : ''}`}
-              </div>
-            ))}
-          </div>
+          {padTwins}
+          {presetTwins}
+          {infoKeyTwin}
+          {chips}
+          {tweakTwins}
+          {dialTwins}
+          {knobTwins}
+          {blockTwins}
+          {browserTwins}
+          {menuTwins}
+          {pkeyTwins}
+          {runTwin}
+          {clearTwin}
+          {randomTwin}
+          {muteTwin}
+          {soloTwin}
+          {stepTwins}
+        </>
+      ) : (
+        // La face V.4.0 du desktop (2026-10-27) dans son ordre de lecture : l'ecran (en haut a gauche), les huit potards (a
+        // sa droite), la rangee des douze touches de gauche a droite (les puces et les TWEAKS juste apres OPEN qui les
+        // decouvre), SCENE A, le crossfader, SCENE B, puis les seize pas, rangee du haut puis du bas
+        <>
+          {presetTwins}
+          {infoKeyTwin}
+          {dialTwins}
+          {blockTwins}
+          {browserTwins}
+          {menuTwins}
+          {knobTwins}
+          {inertTwin('trk')}
+          {pkeyTwins}
+          {editTwin}
+          {openTwin}
+          {chips}
+          {tweakTwins}
+          {runTwin}
+          {clearTwin}
+          {randomTwin}
+          {muteTwin}
+          {soloTwin}
+          {inertTwin('scene-a')}
+          {xfadeTwin}
+          {inertTwin('scene-b')}
+          {stepTwins}
         </>
       )}
-      {rp.view === 'home' &&
-        !rytmEdit &&
-        !pm808 &&
-        !sbView &&
-        HOME_MENU.map((id) => (
-          // Le menu de la voix sous HOME (2026-10-18) : ses touches, posees la ou l'ecran les dessine (lcd-menu-<id>)
-          <button
-            key={`lcd-menu-${id}`}
-            ref={refFor(`lcd-menu-${id}`)}
-            type="button"
-            className="v4-twin"
-            data-twin="rmenu"
-            data-hotspot={`lcd-menu-${id}`}
-            aria-label={id === 'sound' ? (inst ? `Sound of ${INST_NAMES[inst]}: open the list of sounds` : 'Sound: tap a pad first') : `${HOME_MENU_LABEL[id]} page${inst ? ` of ${INST_NAMES[inst]}` : ''}`}
-            onKeyDown={noRepeat}
-            onClick={() => {
-              // Au clavier (la relecture) : SOUND donne le focus a la liste ; une page, a sa touche (le menu part avec HOME)
-              if (id === 'sound') {
-                soundBrowserOpen(true);
-                return;
-              }
-              rytmMenu(id, stageRef.current);
-              els.current.get(`pkey-${id}`)?.focus({ preventScroll: true });
-            }}
-          />
-        ))}
-      {RYTM_PAGE_KEYS.map((pk) => (
-        <button
-          key={`pkey-${pk.id}`}
-          ref={refFor(`pkey-${pk.id}`)}
-          type="button"
-          className="v4-twin"
-          data-twin="pkey"
-          data-hotspot={`pkey-${pk.id}`}
-          aria-label={`${pk.label} page${rp.page === pk.id ? (rp.view === 'page' ? ', shown, press again for its next view or HOME' : ', press for the page view') : ''}`}
-          aria-pressed={rp.page === pk.id && rp.view === 'page'}
-          onKeyDown={noRepeat}
-          onClick={() => rytmPageKey(pk.id, stageRef.current)}
-        />
-      ))}
-      <button
-        ref={refFor('run')}
-        type="button"
-        className="v4-twin"
-        data-twin="run"
-        data-hotspot="run"
-        aria-label={TWIN_ARIA.run}
-        aria-pressed={running}
-        onKeyDown={noRepeat}
-        onClick={() => runToggle(stageRef.current)}
-      />
-      <button
-        ref={refFor('clear')}
-        type="button"
-        className="v4-twin"
-        data-twin="clear"
-        data-hotspot="clear"
-        aria-label={TWIN_ARIA.clear}
-        onKeyDown={noRepeat}
-        onClick={() => clearPattern(stageRef.current)}
-      />
-      <button
-        ref={refFor('random')}
-        type="button"
-        className="v4-twin"
-        data-twin="random"
-        data-hotspot="random"
-        aria-label={TWIN_ARIA.random}
-        onKeyDown={noRepeat}
-        onClick={() => randomPattern(stageRef.current)}
-      />
-      <button
-        ref={refFor('mute')}
-        type="button"
-        className="v4-twin"
-        data-twin="mute"
-        data-hotspot="mute"
-        aria-label={TWIN_ARIA.mute}
-        aria-pressed={muteOn}
-        onKeyDown={noRepeat}
-        onClick={() => muteToggle(stageRef.current)}
-      />
-      <button
-        ref={refFor('solo')}
-        type="button"
-        className="v4-twin"
-        data-twin="solo"
-        data-hotspot="solo"
-        aria-label={TWIN_ARIA.solo}
-        aria-pressed={v.soloMode || v.solo.length > 0}
-        onKeyDown={noRepeat}
-        onClick={() => soloToggle(stageRef.current)}
-      />
-      {STEP_INDEXES.map((i) => {
-        const on = rytmEdit ? i === ptns.cur : inst ? isOn(p.steps, inst, i) : false;
-        // Ses verrous (2026-10-08) : combien, et s'il est en LOCK
-        const nl = inst && !rytmEdit ? lockCount(p.locks, inst, i) : 0;
-        const label = rytmEdit
-          ? `Pattern ${slotName(i)}${patterns.filled(i) ? '' : ', empty'}${i === ptns.cur ? ', playing' : ''}. Tap to play it, tap others within two seconds to chain them, hold an empty one to copy the current pattern`
-          : inst
-            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}${nl > 0 ? `, ${nl} lock${nl > 1 ? 's' : ''}` : ''}${lockAt === i ? ', in lock mode' : ''}. L: lock mode`
-            : `Step ${i + 1}, no instrument selected`;
-        return (
-          <button
-            key={i}
-            ref={refFor(`step-${i + 1}`)}
-            type="button"
-            className="v4-twin"
-            data-twin="step"
-            data-hotspot={`step-${i + 1}`}
-            aria-label={label}
-            aria-pressed={on}
-            onKeyDown={(e) => {
-              // Suppr ou retour arriere : le pas se vide (l'appui long du clavier)
-              if (e.key === 'Delete' || e.key === 'Backspace') {
-                e.preventDefault();
-                stepClear(i, stage);
-              } else if ((e.key === 'l' || e.key === 'L') && !e.repeat && !rytmEdit) {
-                // L (2026-10-08) : ce pas en LOCK, ou hors LOCK s'il y est
-                e.preventDefault();
-                rytmLockToggle(i);
-              } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                // Haut et bas : sa velocite (2026-10-05), un cran
-                e.preventDefault();
-                const v = stepVelocityOf(i);
-                stepVelocity(i, (v > 0 ? v : 6) + (e.key === 'ArrowUp' ? 1 : -1));
-              } else noRepeat(e);
-            }}
-            onClick={() => stepToggle(i, stage)}
-          />
-        );
-      })}
     </div>
   );
 };

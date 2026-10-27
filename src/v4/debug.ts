@@ -18,7 +18,8 @@
  * maxTriangles / shadowUpdates / reset(), state.view, trace.anchor /
  * visible / fades, measure().orbit / shadow ; plus de parallaxe.
  * La face V.4.0 (2026-10-27) : pads null au desktop, face (TRK, EDIT, OPEN,
- * SCENE A et B), encoders.ring (les anneaux de valeur).
+ * SCENE A et B), encoders.ring (les anneaux de valeur) ; twins[].disabled et
+ * twins[].title (les jumeaux inertes de TRK, des scenes et du crossfader).
  * Revision 2, etape 2 (le corps Rytm) : encoders (remplace knobs), pads
  * (12, page active, OPEN), seq sans knobLeds, state.lcd sur trois lignes,
  * hotspots (39), twins (36 fermee, 39 ouverte), measure().fit (emprise de
@@ -145,6 +146,9 @@ export interface TwinInfo {
   controls: string | null;
   valueNow: string | null;
   tabIndex: number;
+  /** aria-disabled (2026-10-27 : TRK, SCENE A et B, le crossfader de la face V.4.0, inertes en phase 1) et l'infobulle (title) */
+  disabled: string | null;
+  title: string | null;
   /** rectangle en px CSS de la fenetre */
   x: number;
   y: number;
@@ -377,6 +381,8 @@ export function installDebug(src: DebugSource): () => void {
           controls: el.getAttribute('aria-controls'),
           valueNow: el.getAttribute('aria-valuenow'),
           tabIndex: el.tabIndex,
+          disabled: el.getAttribute('aria-disabled'),
+          title: el.getAttribute('title'),
           x: +r.left.toFixed(1),
           y: +r.top.toFixed(1),
           w: +r.width.toFixed(1),

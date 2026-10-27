@@ -1727,7 +1727,7 @@ export class Screen {
     this.paintStrip(v.inst, rp.sel, lockStep);
     const F = PAGE_FOOT;
     const msg = lcdMessage.get(now);
-    const help = this.mobile ? ['TAP: CHOOSE · DRAG: SCROLL', neg ? 'TAP: P-LOCK THIS STEP' : 'HOLD YOURS: REMOVE'] : ['CLICK: CHOOSE · WHEEL: SCROLL', neg ? 'CLICK: P-LOCK THIS STEP · ESC' : 'DROP A FILE ON A PAD · ESC'];
+    const help = this.mobile ? ['TAP: CHOOSE · DRAG: SCROLL', neg ? 'TAP: P-LOCK THIS STEP' : 'HOLD YOURS: REMOVE'] : ['CLICK: CHOOSE · WHEEL: SCROLL', neg ? 'CLICK: P-LOCK THIS STEP · ESC' : PORTRAIT ? 'DROP A FILE ON A PAD · ESC' : 'DROP A FILE HERE · ESC'];
     const l1 = msg ? msg.text : help[0];
     const l2 = msg ? help[0] : help[1];
     const t1 = this.fitText(l1, F.x1 - F.x0, SB.hint[0], 0.5, 600);
@@ -1747,9 +1747,20 @@ export class Screen {
     c.setLineDash([5, 3.5]);
     this.roundRect(6, 6, UW - 12, UH - 12, 6, null, INK, TALL ? 1.6 : 1.3);
     c.restore();
-    const big = target === 'pad' ? 'DROP ON A PAD' : `DROP ON ${target}`;
     const inst = pattern.get().instrument;
-    const sub = target === 'pad' ? (inst ? `OR HERE: ${inst} SOUND` : 'ITS VOICE TAKES THE FILE') : 'WAV AIFF MP3 FLAC M4A · 10 MB';
+    // La face V.4.0 du desktop (2026-10-27) : plus de pads, le fichier lache n'importe ou sur la machine va a la voix
+    // choisie (DROP FOR BD), sans voix il attend qu'on en choisisse une (au clavier, A S D F et Z X C V)
+    const desk = !PORTRAIT && target === 'pad';
+    const big = desk ? (inst ? `DROP FOR ${inst}` : 'PICK A VOICE FIRST') : target === 'pad' ? 'DROP ON A PAD' : `DROP ON ${target}`;
+    const sub = desk
+      ? inst
+        ? 'WAV AIFF MP3 FLAC M4A · 10 MB'
+        : 'KEYS A S D F · Z X C V'
+      : target === 'pad'
+        ? inst
+          ? `OR HERE: ${inst} SOUND`
+          : 'ITS VOICE TAKES THE FILE'
+        : 'WAV AIFF MP3 FLAC M4A · 10 MB';
     const mid = UH / 2;
     this.text(big, UW / 2, mid + (TALL ? 2 : 1), TALL ? 27 : 21, INK, 300, 'center', 0.5);
     this.text(sub, UW / 2, mid + (TALL ? 24 : 17), TALL ? 10 : 7, HALF, 700, 'center', 0.8);

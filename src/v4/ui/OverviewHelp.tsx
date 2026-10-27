@@ -10,14 +10,21 @@ import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { BASS, focus, type MachineId } from '../state/focus';
 import { overviewHover } from '../state/overviewHover';
+import { PORTRAIT } from '../theme';
 
 export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: string; text: readonly string[] }>> = {
   mm808: {
     name: 'MM-RYTM',
     kind: 'Drum machine',
     text: [
-      'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.',
-      'Like an Elektron: press a page key (VOICE FLTR ENV FX) and drag the blocks of the screen up or down to set them, values 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs under the screen are the global FX, always the same. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS.',
+      // La face V.4.0 du desktop (2026-10-27) : plus de pads (une voix se choisit au clavier), des touches a pictogrammes, les
+      // huit potards a droite de l'ecran ; le telephone garde ses mots
+      PORTRAIT
+        ? 'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.'
+        : 'Pick a voice with the keys A S D F and Z X C V (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP (the play key) plays, RANDOM (the dice) writes a groove.',
+      PORTRAIT
+        ? 'Like an Elektron: press a page key (VOICE FLTR ENV FX) and drag the blocks of the screen up or down to set them, values 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs under the screen are the global FX, always the same. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS.'
+        : 'Like an Elektron: press a page key (VOICE FLTR ENV FX, the pictogram keys after the first) and drag the blocks of the screen up or down to set them, values 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs right of the screen are the global FX, always the same, their rings show the value. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS. TRK, the scenes and the crossfader come next.',
       'Parameter locks: hold a step until the screen header reads P-LOCK STEP 05, then drag a value of the screen, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.',
     ],
   },

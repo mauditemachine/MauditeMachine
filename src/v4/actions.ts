@@ -45,7 +45,7 @@ import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, v
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, GLOBAL_ENCODERS, MOBILE_QUERY, PAGE_KNOB_LETTERS, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAGE_KNOB_LETTERS, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -227,7 +227,8 @@ export function rytmInfoTap(hotspot: string, dock = false): boolean {
  * (spec 7.2 : il faut d'abord taper un pad). Chaque appui passe au cran
  * suivant : vide, fort, moyen, doux, vide (2026-10-01). Persiste par
  * pattern.ts ; la touche s'enfonce (stage.pressStep) ; l'ecran dira
- * STEP 07 BD HIGH / MID / LOW / OFF, ou TAP A PAD FIRST.
+ * STEP 07 BD HIGH / MID / LOW / OFF, ou TAP A PAD FIRST (PICK A VOICE FIRST
+ * au desktop depuis la face V.4.0 sans pads, 2026-10-27 : theme.ts LCD_NO_VOICE).
  */
 export function stepToggle(i: number, stage: Stage | null = null): boolean {
   // EDIT (2026-10-05) : les steps sont les seize patterns
@@ -239,7 +240,7 @@ export function stepToggle(i: number, stage: Stage | null = null): boolean {
   stage?.pressStep(i);
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
   // En LOCK (2026-10-08) : une tape sur le pas en LOCK en sort, sur un autre y deplace le LOCK (le pas ne change pas)
@@ -271,7 +272,7 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
   stage?.pressStep(i);
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
   pattern.clearStep(inst, i);
@@ -291,7 +292,7 @@ export function stepVelocity(i: number, v: number): boolean {
   resume();
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
   const n = Math.max(1, Math.min(VEL_MAX, Math.round(v)));
@@ -318,7 +319,7 @@ export function stepHoldHint(i: number): void {
   }
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   rytmPage.select(i);
@@ -400,7 +401,7 @@ export function muteToggle(stage: Stage | null = null): boolean {
   if (v.muted.length || v.muteMode) {
     voices.release('mute');
     lcdMessage.show('ALL VOICES ON', MODE_MSG_MS);
-  } else lcdMessage.show(coarsePointer() ? 'MUTE: DOUBLE TAP A VOICE' : 'MUTE: RIGHT CLICK A VOICE', MODE_MSG_MS);
+  } else lcdMessage.show(coarsePointer() ? LCD_MUTE_HINT.touch : LCD_MUTE_HINT.mouse, MODE_MSG_MS);
   return false;
 }
 
@@ -595,7 +596,7 @@ export function soundFamily(): KitFamily | null {
 function soundDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   const f = soundFamily();
@@ -658,7 +659,7 @@ export function dial(id: EncId, v: number, popup = false): void {
   if (p) {
     const inst = pattern.get().instrument;
     if (!inst) {
-      lcdMessage.show('TAP A PAD FIRST');
+      lcdMessage.show(LCD_NO_VOICE);
       return;
     }
     setVoiceFx(inst, p, v);
@@ -1272,7 +1273,7 @@ function layerDial(p: LayerDial, v: number): void {
   resume();
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   const f = soundFamily();
@@ -1331,7 +1332,7 @@ function sampleValue(): number {
 function sampleDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   const f = soundFamily();
@@ -1499,7 +1500,7 @@ function setVoiceSound(f: KitFamily, s: Readonly<Pick<VoiceSound, 'kind' | 'key'
 function voiceSoundDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   const f = soundFamily();
@@ -1548,7 +1549,7 @@ function firstSampleOf(f: KitFamily): string | undefined {
 function voiceMixDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   const f = soundFamily();
@@ -1574,7 +1575,7 @@ function voiceMixDial(v: number): void {
 function tapVelDial(v: number): void {
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   const n = Math.max(1, Math.min(VEL_MAX, Math.round(v)));
@@ -2529,7 +2530,7 @@ function lockWrite(k: number, slot: PageSlot, v: number): void {
   const inst = pattern.get().instrument;
   const steps = rytmLock.targets();
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   if (slot.scope === 'all') {
@@ -2631,7 +2632,7 @@ export function pageKnobReset(k: number): void {
   const inst = pattern.get().instrument;
   if (!slot || !slot.label || slot.target === null || slot.graph) return;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   if (slot.scope === 'all' || !slot.lock) {
@@ -2661,7 +2662,7 @@ export function rytmLockEnter(i: number, latched: boolean): boolean {
   }
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
   rytmLock.enter(i, latched);
@@ -2903,7 +2904,7 @@ function watchBrowser(): void {
 export function soundBrowserOpen(focusList = false): boolean {
   const inst = pattern.get().instrument;
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
   if (editor.get() === 'mm808' || presetMode.on('mm808')) return false;
@@ -3130,7 +3131,7 @@ let fileInput: HTMLInputElement | null = null;
  */
 export function soundFilesPick(inst: Inst | null = pattern.get().instrument, fromList = false): void {
   if (!inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+    lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   if (typeof document === 'undefined') return;
@@ -3238,13 +3239,14 @@ export async function soundFilesAdd(files: readonly File[], inst: Inst, fromList
 
 /**
  * Un fichier lache sur le MM-RYTM (2026-10-18, desktop ; ui/Hotspots.tsx) : sur un pad, sa voix (choisie, sans un
- * son) ; ailleurs sur la machine, la voix choisie ; sans voix, l'ecran demande un pad.
+ * son) ; ailleurs sur la machine, la voix choisie ; sans voix, l'ecran demande un pad (au desktop, sans pads depuis
+ * le 2026-10-27, une voix : theme.ts LCD_DROP_NO_VOICE).
  */
 export function soundDrop(files: readonly File[], inst: Inst | null): void {
   lcdSamples.dragOver(null);
   const target = inst ?? pattern.get().instrument;
   if (!target) {
-    lcdMessage.show('DROP ON A PAD');
+    lcdMessage.show(LCD_DROP_NO_VOICE);
     return;
   }
   if (files.length === 0) {
