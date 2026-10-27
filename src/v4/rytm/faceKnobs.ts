@@ -13,7 +13,7 @@
  * l'ecran glisse, une autre cible MIDI).
  */
 
-import { curScreen, dialRange, dialSteps, knobBlock, knobDialOf, pageKnobCourse, pageKnobLive, type DialId } from '../actions';
+import { curScreen, dialRange, dialSteps, knobBlock, knobDialOf, lockReadStep, pageKnobCourse, pageKnobLive, pageLockView, type DialId } from '../actions';
 import { mix } from '../audio/drums';
 import { kit } from '../audio/kit';
 import { pattern } from '../audio/pattern';
@@ -86,6 +86,8 @@ let sigScreen = '';
 let sigVoice = '';
 let sigLock = '';
 let sigRest = '';
+/** Les verrous du motif au dernier calcul de la partie fixe : en P-LOCK, un verrou pose change la teinte (unlocked, lock). */
+let sigLocks: unknown = null;
 /** les dernieres durees d'un calcul (ms), pour le debug (__v4.knobs.ms) */
 const ms: number[] = [];
 let lastCause: KnobCause = 'value';
@@ -101,7 +103,7 @@ function fixPart(v: Mut): boolean {
   const [lo] = state === 'live' ? dialRange(dial) : [0];
   const bipolar = lo < 0;
   const steps = state === 'live' ? dialSteps(dial) : 0;
-  const tone: KnobTone = state === 'live' ? 'base' : 'off';
+  const tone: KnobTone = state !== 'live' || !slot ? 'off' : lockTone(slot, block);
   const alias = block !== null && block !== v.k;
   const changed = v.block !== block || v.dial !== dial || v.state !== state || v.label !== label || v.bipolar !== bipolar || v.steps !== steps || v.tone !== tone || v.alias !== alias;
   v.block = block;
@@ -113,6 +115,18 @@ function fixPart(v: Mut): boolean {
   v.tone = tone;
   v.alias = alias;
   return changed;
+}
+
+/**
+ * La teinte d'un potard vivant (P2-13) : hors P-LOCK, base ; en P-LOCK, lock (son bloc verrouille sur ce pas, ou VEL : le
+ * pas lui-meme), unlocked (verrouillable, pas encore verrouille), global (un FX global, un reglage sans verrou).
+ */
+function lockTone(slot: { scope?: string; lock?: string | null }, block: number | null): KnobTone {
+  const step = lockReadStep();
+  if (step < 0 || block === null) return 'base';
+  if (slot.scope === 'all' || !slot.lock) return 'global';
+  if (slot.lock === 'vel') return 'lock';
+  return pageLockView(block, step) ? 'lock' : 'unlocked';
 }
 
 /** La partie vive (pos) ; un potard sans rien a regler garde sa place (un moteur ne bouge pas pour rien), off retombe a 0. */
@@ -133,7 +147,10 @@ function recompute(): FaceKnobChange | null {
   const voice = inst ?? '-';
   const lock = `${lk.step}|${lk.latched ? 1 : 0}|${lk.held.join(',')}`;
   const rest = `${editor.get() ?? '-'}|${samplesVersion()}`;
-  const fixed = screen !== sigScreen || voice !== sigVoice || lock !== sigLock || rest !== sigRest;
+  // En P-LOCK, un verrou pose ou retire change la teinte : les verrous comptent dans la signature
+  const locks = lk.step >= 0 ? pattern.get().locks : sigLocks;
+  const fixed = screen !== sigScreen || voice !== sigVoice || lock !== sigLock || rest !== sigRest || locks !== sigLocks;
+  sigLocks = locks;
   const cause: KnobCause | null = screen !== sigScreen ? 'page' : voice !== sigVoice ? 'voice' : lock !== sigLock ? 'lock' : null;
   sigScreen = screen;
   sigVoice = voice;

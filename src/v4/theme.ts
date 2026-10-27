@@ -804,9 +804,14 @@ export function ringLit(j: number, t: number, bipolar: boolean): number {
 /**
  * Les teintes de l'anneau d'un potard de la face (2026-10-27, les potards suivent la page) : la couleur de ses segments
  * allumes et leur part (k, 0 a 1 ; des LED mono du materiel, un niveau) ; base : l'orange des pas mis, l'anneau de la
- * phase 1 ; off : tout eteint (rien sous le potard, un dessin, un reglage de voix sans voix).
+ * phase 1 ; off : tout eteint (rien sous le potard, un dessin, un reglage de voix sans voix). En P-LOCK (P2-13) : lock, le
+ * jaune du P-LOCK (le bloc verrouille sur ce pas ; un ambre plus sombre sur la machine claire), unlocked, l'orange a 45 %
+ * (il lit la valeur de la voix, le tourner pose le verrou), global, l'orange a 30 % (un FX global ou un reglage sans
+ * verrou : il refuse le P-LOCK).
  */
-export type KnobTone = 'base' | 'off';
+export type KnobTone = 'base' | 'off' | 'lock' | 'unlocked' | 'global';
+/** L'ambre du P-LOCK sur la machine claire (le jaune vif s'y perd). */
+const RING_LOCK_LIGHT = '#E09A10';
 export interface RingTone {
   on: string;
   k: number;
@@ -814,6 +819,9 @@ export interface RingTone {
 export const RING_TONE: Record<KnobTone, RingTone> = {
   base: { on: HEX.ledSet, k: 1 },
   off: { on: HEX.ledSet, k: 0 },
+  lock: { on: HEX.yellowHi, k: 1 },
+  unlocked: { on: HEX.ledSet, k: 0.45 },
+  global: { on: HEX.ledSet, k: 0.3 },
 };
 
 /**
@@ -2833,5 +2841,8 @@ export function applyAppearance(a: Appearance): void {
   // Les teintes des anneaux de la face (2026-10-27) : relues apres la palette
   RING_TONE.base.on = HEX.ledSet;
   RING_TONE.off.on = HEX.ledSet;
+  RING_TONE.lock.on = L ? RING_LOCK_LIGHT : HEX.yellowHi;
+  RING_TONE.unlocked.on = HEX.ledSet;
+  RING_TONE.global.on = HEX.ledSet;
   APPEARANCE.current = a;
 }
