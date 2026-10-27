@@ -13,7 +13,7 @@
  */
 
 import seoMeta from '../data/seo-meta.json';
-import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, type FpIconId } from './rytm/faceplate';
+import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpIconId } from './rytm/faceplate';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -1185,10 +1185,17 @@ export const OPEN_BREATHE = { periodMs: 3200, min: 0.45, tintMin: 0.5, frameMs: 
  * barres au-dessus, ca casse le design") : la touche elle-meme s'allume, plus
  * ou moins selon la velocite (STEP_LIT).
  */
+/*
+ * La face V.4.0 du desktop (2026-10-27, Mika : "16 pas en 2 rangees de 8 sur toute la largeur : 27.6 x 20, pas
+ * horizontal de 30.4, depuis x 8, rangees en y 104 et 128") : rytm/faceplate.ts steps ; le cadre des temps et la marque
+ * des verrous a l'echelle des touches ; numberZ et bracketZ ne servent plus au desktop (le numero est sur la touche,
+ * KEY_LABELS ; plus de crochets), gardes pour le type.
+ */
+const FP_STEPS = RYTM_FACEPLATE.steps;
 export const KEYS = {
   count: 16,
-  x0: PORTRAIT ? -3.01 : -5.55,
-  pitch: PORTRAIT ? 0.86 : 0.74,
+  x0: PORTRAIT ? -3.01 : fpX(FP_STEPS.x0 + FP_STEPS.w / 2),
+  pitch: PORTRAIT ? 0.86 : fpU(FP_STEPS.pitch),
   /**
    * desktop : 0.11 plus bas le 2026-10-02 (8 px a 1440 x 900, Mika : les pas touchaient GLOBAL FX / VOICE FX) ;
    * encore 0.15 plus bas le 2026-10-08 (les touches de page et leurs noms au-dessus), 0.3 au telephone ;
@@ -1196,29 +1203,29 @@ export const KEYS = {
    * Telephone, 2026-10-19 : la premiere rangee un rien plus bas (4.36, 4.3 avant), la seconde remonte dans la place des LED
    * parties (rowDz)
    */
-  z: PORTRAIT ? 4.36 : 2.74,
-  /** portrait : deux rangees de 8, la seconde rowDz plus bas (1.95 avant le 2026-10-08, 1.85 avant le 2026-10-19 et ses LED) */
-  perRow: PORTRAIT ? 8 : 16,
-  rowDz: PORTRAIT ? 1.52 : 0,
+  z: PORTRAIT ? 4.36 : fpZ(FP_STEPS.rows[0] + FP_STEPS.h / 2),
+  /** portrait : deux rangees de 8, la seconde rowDz plus bas (1.95 avant le 2026-10-08, 1.85 avant le 2026-10-19 et ses LED) ; le desktop aussi depuis le 2026-10-27 */
+  perRow: PORTRAIT ? 8 : FP_STEPS.perRow,
+  rowDz: PORTRAIT ? 1.52 : fpU(FP_STEPS.rows[1] - FP_STEPS.rows[0]),
   /**
    * Carrees depuis le 2026-10-05 (Mika : "je voudrais que les steps soient
    * carres finalement") : 0.5 x 0.9 avant ; le centre remonte un peu, les
    * numeros et les crochets suivent
    */
-  w: PORTRAIT ? 0.7 : 0.6,
-  d: PORTRAIT ? 0.7 : 0.6,
+  w: PORTRAIT ? 0.7 : fpU(FP_STEPS.w),
+  d: PORTRAIT ? 0.7 : fpU(FP_STEPS.h),
   h: 0.1,
-  radius: 0.05,
+  radius: PORTRAIT ? 0.05 : 0.06,
   segments: { desktop: 3, mobile: 2 },
   /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
-  frame: { inset: 0.065, line: 0.022 },
+  frame: PORTRAIT ? { inset: 0.065, line: 0.022 } : { inset: 0.08, line: 0.025 },
   /**
    * La marque des verrous (2026-10-19, a la place de la lueur orange pale : le dessus allume dit la velocite) : un
    * trait clair sur le dessus, pres du bord arriere, dans le cadre des temps ; w x d, back : du bord a son centre
    */
-  lockMark: PORTRAIT ? { w: 0.3, d: 0.05, back: 0.135 } : { w: 0.26, d: 0.042, back: 0.12 },
-  numberZ: PORTRAIT ? 4.94 : 3.27,
-  bracketZ: PORTRAIT ? 5.11 : 3.44,
+  lockMark: PORTRAIT ? { w: 0.3, d: 0.05, back: 0.135 } : { w: 0.4, d: 0.045, back: 0.13 },
+  numberZ: PORTRAIT ? 4.94 : 3.7,
+  bracketZ: PORTRAIT ? 5.11 : 3.45,
   bracketTick: 0.06,
 } as const;
 /** x du pas i ; sa rangee le decale de keyDz en z (portrait : deux rangees de 8). */
@@ -1541,6 +1548,19 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
           qw: 0.3,
         })
       ),
+      // Les legendes des pas (2026-10-27, Mika : "les pas 1 a 8 portent le nom d'une voix") : le numero en haut a gauche
+      // de la touche, cale a gauche ; la voix des pas 1 a 8 en bas au centre (rytm/faceplate.ts steps.legend)
+      ...Array.from({ length: 16 }, (_, i): KeyLabelSpec => {
+        const r = stepRect(i);
+        const L = RYTM_FACEPLATE.steps.legend.num;
+        const qw = 0.16;
+        return { id: `stepn-${i + 1}`, text: String(i + 1), x: fpX(r.x + L.dx) + qw / 2, z: fpZ(r.y + L.dy + L.cap / 2), w: fpU(r.w), d: fpU(r.h), group: 'stepn', rest: 'ink', cap: fpU(L.cap), qw, dz: 0, align: 'left' };
+      }),
+      ...RYTM_FACEPLATE.steps.voices.map((v, i): KeyLabelSpec => {
+        const r = stepRect(i);
+        const L = RYTM_FACEPLATE.steps.legend.voice;
+        return { id: `stepv-${v}`, text: v, x: fpX(r.x + r.w / 2), z: fpZ(r.y + L.dy), w: fpU(r.w), d: fpU(r.h), group: 'stepv', rest: 'ink', cap: fpU(L.cap), qw: 0.5, dz: 0 };
+      }),
     ];
 
 /**
@@ -1941,7 +1961,8 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // Les noms des touches de page et du transport sont sur elles depuis le 2026-10-18 (KEY_LABELS, scene/keyLabels.ts)
   ...PADS.map(padLabel),
   // Les numeros des pas plus lisibles au telephone (2026-10-22, audit SB-06 : 3 px de capitale a 0.075)
-  ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: PORTRAIT ? 0.095 : 0.075, ...(PORTRAIT ? { weight: 600 } : {}) })),
+  // La face V.4.0 du desktop (2026-10-27) : le numero est sur la touche (KEY_LABELS stepn), plus sous elle
+  ...(PORTRAIT ? Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.095, weight: 600 })) : []),
   // Le geste des verrous sous les pas, comme le MM-BASS (revue de R2, Mika : "je ne comprends toujours pas comment
   // mettre des parameter locks") ; au telephone le pied de l'ecran le dit (scene/screen.ts), la face n'a plus de place.
   // Le geste d'une seule souris (revue du 2026-10-09) : tenir un pas met le P-LOCK, il reste au lacher, puis on glisse.
@@ -1966,13 +1987,16 @@ export const SILK_LINES: readonly (readonly number[])[] = [
   // depuis le 2026-10-18 (leurs noms sont dessus) ; au telephone aussi depuis le 2026-10-19 (les encodeurs y reviennent)
   [OLED.x - OLED.w / 2, GLOBAL_FX_RULE.z, OLED.x - GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z],
   [OLED.x + GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z, OLED.x + OLED.w / 2, GLOBAL_FX_RULE.z],
-  ...[0, 1, 2, 3].map((g) => {
-    const a = keyX(4 * g) - KEYS.w / 2;
-    const b = keyX(4 * g + 3) + KEYS.w / 2;
-    const z = KEYS.bracketZ + keyDz(4 * g);
-    const t = z - KEYS.bracketTick;
-    return [a, t, a, z, b, z, b, t];
-  }),
+  // Plus de crochets au desktop depuis la face V.4.0 (2026-10-27) : le cadre des temps 1 5 9 13 les marque
+  ...(PORTRAIT
+    ? [0, 1, 2, 3].map((g) => {
+        const a = keyX(4 * g) - KEYS.w / 2;
+        const b = keyX(4 * g + 3) + KEYS.w / 2;
+        const z = KEYS.bracketZ + keyDz(4 * g);
+        const t = z - KEYS.bracketTick;
+        return [a, t, a, z, b, z, b, t];
+      })
+    : []),
 ];
 
 /* ---------- camera, orbite et cadrage (spec 20.2) ---------- */

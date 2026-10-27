@@ -465,21 +465,34 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
     const place = (): void => {
       const ids = stage.hit.ids();
       const r = stage.hit.rects();
-      const i0 = ids.indexOf('step-1');
-      const i1 = ids.indexOf('step-16');
-      if (i0 < 0 || i1 < 0) return;
+      // L'emprise des seize pas (2026-10-27, la face V.4.0 du desktop : deux rangees de huit sur toute la largeur) : leur
+      // union ; une seule rangee (avant), la colonne des voix a gauche du pas 1, sinon dedans (rien ne sort de la face)
+      let x0 = Infinity;
+      let x1 = -Infinity;
+      let y0 = Infinity;
+      let y1 = -Infinity;
+      let h0 = 0;
+      for (let i = 0; i < STEP_COUNT; i += 1) {
+        const k = ids.indexOf(`step-${i + 1}`);
+        if (k < 0) return;
+        x0 = Math.min(x0, r[k * 4]);
+        x1 = Math.max(x1, r[k * 4] + r[k * 4 + 2]);
+        y1 = Math.max(y1, r[k * 4 + 1]);
+        if (r[k * 4 + 1] < y0) {
+          y0 = r[k * 4 + 1];
+          h0 = r[k * 4 + 3];
+        }
+      }
+      const rows = y1 - y0 > h0 / 2 ? 2 : 1;
       const cr = stage.renderer.domElement.getBoundingClientRect();
       const host = el.offsetParent instanceof HTMLElement ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0, bottom: window.innerHeight };
-      const x0 = r[i0 * 4];
-      const y0 = r[i0 * 4 + 1];
-      const h0 = r[i0 * 4 + 3];
-      const x1 = r[i1 * 4] + r[i1 * 4 + 2];
       const pad = 8;
-      const names = ON_MACHINE.names + pad;
+      const names = rows > 1 ? 0 : ON_MACHINE.names + pad;
       const left = cr.left - host.left + x0 - names;
-      const width = x1 - x0 + names + pad;
-      // Le haut : une hauteur de touche au-dessus des pas (la ou etaient leurs LED, parties le 2026-10-19)
-      const top = Math.max(60, cr.top - host.top + y0 - h0 * 1.15);
+      const width = x1 - x0 + names + (rows > 1 ? 0 : pad);
+      // Le haut : une hauteur de touche au-dessus des pas (la ou etaient leurs LED, parties le 2026-10-19) ; deux rangees
+      // (2026-10-27) : un rien au-dessus de la premiere
+      const top = Math.max(60, cr.top - host.top + y0 - h0 * (rows > 1 ? 0.15 : 1.15));
       const room = host.bottom - host.top - top - 12;
       const row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / INSTRUMENTS.length) - 2));
       const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}`;

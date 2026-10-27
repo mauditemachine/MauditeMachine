@@ -750,6 +750,7 @@ export class Stage {
       this.seq.buttons,
       this.seq.btnLeds,
       this.seq.labels.mesh,
+      ...(this.seq.stepLabels ? [this.seq.stepLabels.mesh] : []),
       ...this.encoders.objects(),
       ...this.pageKeys.objects(),
       ...(this.faceKeys?.objects() ?? [])
