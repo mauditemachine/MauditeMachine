@@ -36,7 +36,7 @@
  * (theme.ts GLOBAL_ENCODERS) : leur carte est celle de leur FX.
  */
 
-import { GLOBAL_ENCODERS, type Inst } from '../theme';
+import { FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, type Inst } from '../theme';
 import { FX_DETAILS, RYTM_PAGES, SCREEN_TITLE, allScreens, cellsOf, isFxPage, pageSlots, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
 
 /* ---------------- les ids ---------------- */
@@ -178,6 +178,8 @@ export const RYTM_CONTROL_IDS = [
   'ikey',
   'home',
   'enc',
+  // Un potard de la face sans bloc sur sa case (2026-10-27, les potards suivent la page)
+  'knob:empty',
 ] as const;
 export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
 
@@ -367,6 +369,15 @@ const PAGE_IDS: ReadonlySet<string> = new Set(RYTM_PAGES.map((p) => p.id));
 const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);
 
 /**
+ * Le bloc que tourne le potard k de la face (2026-10-27) : actions.ts y inscrit knobBlock (ce module reste pur, sans
+ * l'etat de l'ecran) ; par defaut le bloc k.
+ */
+let knobResolver: (k: number) => number | null = (k) => k;
+export function setKnobResolver(fn: (k: number) => number | null): void {
+  knobResolver = fn;
+}
+
+/**
  * La carte d'une zone de saisie du MM-RYTM, telle que la face les nomme
  * (pads.ts pad-<voix|edit|open> ; au desktop depuis la face V.4.0 du 2026-10-27,
  * plus de pads de voix, rytmFaceKeys.ts pad-edit pad-open, et trk scene-a
@@ -386,10 +397,15 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   }
   if (hotspot === 'lcd-master' || hotspot === 'enc-level') return { id: 'level' };
   if (hotspot === 'lcd-tempo' || hotspot === 'enc-tempo') return { id: 'tempo' };
-  // Un encodeur du desktop : son FX global (theme.ts GLOBAL_ENCODERS), jamais la page
+  // Un encodeur du telephone : son FX global (theme.ts GLOBAL_ENCODERS), jamais la page ; au desktop depuis le 2026-10-27
+  // (les potards suivent la page), la carte du bloc pose sur sa case (le resolveur d'actions.ts, knobBlock), ou knob:empty
   const pe = /^penc-([0-7])$/.exec(hotspot);
   if (pe) {
     const k = Number(pe[1]);
+    if (FACE_FOLLOWS_PAGE) {
+      const b = knobResolver(k);
+      return b === null ? { id: 'knob:empty' } : { id: `p:${b}` };
+    }
     const g = GLOBAL_ENCODERS[k];
     return g && isRytmInfoId(g) ? { id: g, encoder: k } : null;
   }

@@ -40,12 +40,14 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
+import { faceTouch, type CtlSrc } from './state/ctl';
+import { FACE_PAGES, RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
+import { setKnobResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAGE_KNOB_LETTERS, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAGE_KNOB_LETTERS, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -720,6 +722,69 @@ export function globalDial(k: number, v: number): void {
 
 /** La cible fixe de l'encodeur k du desktop (2026-10-09) : son FX global. */
 export const globalEncId = (k: number): EncId | null => GLOBAL_ENCODERS[k] ?? null;
+
+/* ---------------- les huit potards de la face suivent la page (2026-10-27) ---------------- */
+
+/*
+ * Mika (2026-10-27) : "les nouveaux knobs j'aime ca ! mais ils devraient etre assignes aux fonctions de la page qui est
+ * cliquee, comme la DIGITAKT : 8 fonctions sur une page et eventuellement une autre page, mais les knobs de droite doivent
+ * se refleter". Au desktop, le potard k de la face, le bloc pose dans la case k de l'ecran et rytm:knob:k+1 sont une seule
+ * fonction (rytm/pages.ts faceBlockOf) ; un potard tourne ne change jamais de page (plus de popup ni de page de FX ouverte
+ * depuis un potard) ; le telephone garde ses huit FX globaux (globalDial).
+ */
+
+/** Le bloc que tourne le potard de page k (MIDI rytm:knob, la face du desktop) : faceBlockOf sur l'ecran affiche ; k au telephone. */
+export function knobBlock(k: number): number | null {
+  return FACE_PAGES ? faceBlockOf(pageSlots(curScreen(), pattern.get().instrument), k) : k;
+}
+
+/** Son DialId : p:<bloc>, p:k pour une case vide (pageDial dit "G: EMPTY ON ENV"). */
+export const knobDialOf = (k: number): DialId => `p:${knobBlock(k) ?? k}` as DialId;
+
+/** Ce que tourne le potard k de la face : la page au desktop (2026-10-27), son FX global au telephone (inchange). */
+export const faceDialOf = (k: number): DialId => (FACE_FOLLOWS_PAGE ? knobDialOf(k) : ((GLOBAL_ENCODERS[k] ?? 'dist') as DialId));
+
+/**
+ * Le premier toucher d'un potard (le doigt, la molette, une touche, un message MIDI) : HOME montre la page qu'il tourne
+ * (jamais une autre page : l'ecran retenu). EDIT, les presets et le navigateur des sons gardent l'ecran (le potard regle
+ * quand meme la page retenue, comme une Digitakt en mode pattern). true si la page s'est montree.
+ */
+export function revealPage(): boolean {
+  if (!FACE_FOLLOWS_PAGE) return false;
+  if (rytmPage.get().view === 'home' && editor.get() !== 'mm808' && !presetMode.on('mm808') && !lcdSamples.isOpen()) {
+    rytmPage.setView('page');
+    return true;
+  }
+  return false;
+}
+
+// Les cartes INFOS d'un potard de la face (rytm/infoIds.ts, pur) : le bloc qu'il tourne sur l'ecran affiche
+setKnobResolver(knobBlock);
+
+/** Le potard de page k tourne (rytm:knob, la face, phase 3 le potard motorise) : la page se montre, puis le bloc. */
+export function knobDial(k: number, v: number, src: CtlSrc = 'ui'): void {
+  faceTouch.turn(k, src);
+  revealPage();
+  anyDial(knobDialOf(k), v);
+}
+
+/** Le potard k de la face tourne (glisser, molette, jumeau) : knobDial au desktop, globalDial au telephone. */
+export function faceKnob(k: number, v: number, src: CtlSrc = 'ui'): void {
+  if (FACE_FOLLOWS_PAGE) knobDial(k, v, src);
+  else globalDial(k, v);
+}
+
+/** Deux tapes, Suppr : le bloc revient a son depart, ou perd son verrou en P-LOCK ; au telephone, le FX global. */
+export function faceKnobReset(k: number): void {
+  if (FACE_FOLLOWS_PAGE) {
+    faceTouch.turn(k, 'ui');
+    revealPage();
+    pageKnobReset(knobBlock(k) ?? k);
+    return;
+  }
+  const g = GLOBAL_ENCODERS[k];
+  if (g) globalDial(k, anyDialReset(g as DialId));
+}
 
 /** Valeur courante d'un encodeur (rangee VOICE : la voix selectionnee, sinon son depart) : BPM, ou -1 a 1, ou 0 a 1. */
 export function dialValue(id: EncId): number {

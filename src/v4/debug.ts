@@ -36,7 +36,8 @@
  * console.log : index.html filtre la console.
  */
 
-import { openToggle } from './actions';
+import { knobBlock, openToggle } from './actions';
+import { faceKnobs } from './rytm/faceKnobs';
 import { clock, clockDebug, type ClockDebug } from './audio/clock';
 import { audioDebug, type AudioDebug } from './audio/drums';
 import { pattern, type StoredPattern } from './audio/pattern';
@@ -259,6 +260,10 @@ export interface V4Debug {
      * defaut) et une loi (celle du desktop par defaut), et le bloc que tourne chacun des huit potards.
      */
     faceCells(screen: RytmScreenId, inst?: Inst | null, law?: FaceLaw): { cells: SlotCell[]; labels: string[]; knobs: (number | null)[] };
+    /** les huit potards de la face (2026-10-27, rytm/faceKnobs.ts) : get() les vues, version(), subscribe(), ms() */
+    faceKnobs: typeof faceKnobs;
+    /** le bloc que tourne le potard k de la face sur l'ecran affiche (null : rien) */
+    knobBlock(k: number): number | null;
   };
   /**
    * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
@@ -471,6 +476,8 @@ export function installDebug(src: DebugSource): () => void {
       get locks() {
         return JSON.parse(JSON.stringify(pattern.get().locks)) as Locks;
       },
+      faceKnobs,
+      knobBlock,
       faceCells(screen, inst, law = FACE_LAW) {
         const slots = pageSlots(screen, inst === undefined ? pattern.get().instrument : inst);
         return {

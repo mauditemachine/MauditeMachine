@@ -31,11 +31,15 @@
  * l'orange des pas mis allume, le dernier en partie. setValue l'ecrit avec
  * l'angle : l'anneau suit la valeur comme le potard motorise la suivra. Le
  * telephone n'en a pas (opts.rings).
+ *
+ * Les potards suivent la page (2026-10-27, Mika : "les knobs de droite doivent se refleter") : au desktop le Stage pose
+ * l'anneau (setRing : la course, a zero au centre ou non, la teinte, theme.ts RING_TONE) et le capuchon (setCap) de
+ * chacun depuis rytm/faceKnobs.ts ; setValue reste celui du telephone (ses FX globaux).
  */
 
 import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, RingGeometry, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, ringLit, type FaceKnobId } from '../theme';
+import { COLOR, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, RING_TONE, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, ringLit, type FaceKnobId, type KnobTone } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -142,6 +146,10 @@ export interface EncodersInfo {
   values: number[];
   /** l'anneau de valeur (2026-10-27) : la somme des parts allumees de ses 27 segments, par potard ; [] sans anneaux */
   ring: number[];
+  /** la teinte de chaque anneau (2026-10-27, les potards suivent la page) */
+  tones: (KnobTone | null)[];
+  /** les potards eclaires par le survol (un potard, ou ceux d'un bloc de l'ecran survole) */
+  hover: number[];
 }
 
 export class Encoders {
@@ -153,8 +161,8 @@ export class Encoders {
   private skirtMat: MeshStandardMaterial;
   private angle = new Float32Array(FACE_KNOBS.length);
   private value = new Float32Array(FACE_KNOBS.length);
-  /** l'encodeur sous la souris (2026-10-22, HOVER_LIGHT), -1 aucun */
-  private hover = -1;
+  /** les encodeurs eclaires par le survol (2026-10-22, HOVER_LIGHT ; un masque depuis le 2026-10-27 : un bloc de l'ecran survole eclaire tous ses potards) */
+  private hoverMask = 0;
   /** les anneaux de valeur (2026-10-27, la face V.4.0 du desktop) ; null au telephone */
   readonly rings: InstancedMesh | null = null;
   private ringMat: MeshBasicMaterial | null = null;
@@ -163,6 +171,10 @@ export class Encoders {
   private ringPart = new Float32Array(FACE_KNOBS.length * KNOB_RING.segments);
   private ringOff = new Color();
   private ringOn = new Color();
+  /** la teinte et la loi (a zero au centre) que montre chaque anneau */
+  private ringTone: (KnobTone | null)[] = new Array(FACE_KNOBS.length).fill(null);
+  private ringBip = new Uint8Array(FACE_KNOBS.length);
+  private toneColor = new Map<string, Color>();
 
   constructor(opts: { mobile: boolean; castShadow: boolean; rings?: boolean }) {
     const n = FACE_KNOBS.length;
@@ -216,37 +228,79 @@ export class Encoders {
     }
   }
 
-  /** L'anneau du potard i a la course t : ses 27 segments ; true s'il a change. */
-  private paintRing(i: number, t: number): boolean {
+  /** La couleur allumee d'une teinte (theme.ts RING_TONE, relue a chaque fois : l'apparence peut changer). */
+  private onColor(tone: KnobTone): Color {
+    const hex = RING_TONE[tone].on;
+    let c = this.toneColor.get(hex);
+    if (!c) {
+      c = new Color(hex);
+      this.toneColor.set(hex, c);
+    }
+    return c;
+  }
+
+  /** L'anneau du potard i a la course t, a zero au centre ou non, d'une teinte : ses 27 segments ; true s'il a change. */
+  private paintRing(i: number, t: number, bip: boolean, tone: KnobTone): boolean {
     const r = this.rings;
-    if (!r || this.ringT[i] === Math.fround(t)) return false;
+    if (!r || (this.ringT[i] === Math.fround(t) && this.ringBip[i] === (bip ? 1 : 0) && this.ringTone[i] === tone)) return false;
+    const toneChanged = this.ringTone[i] !== tone;
     this.ringT[i] = t;
+    this.ringBip[i] = bip ? 1 : 0;
+    this.ringTone[i] = tone;
     const S = KNOB_RING.segments;
-    const id = GLOBAL_ENCODERS[i];
-    const bip = id !== undefined && isBipolar(id);
+    const on = tone === 'base' ? this.ringOn : this.onColor(tone);
+    const level = RING_TONE[tone].k;
     let changed = false;
     for (let j = 0; j < S; j += 1) {
-      const f = ringLit(j, t, bip);
+      const f = ringLit(j, t, bip) * level;
       const k = i * S + j;
-      if (Math.abs(this.ringPart[k] - f) < 1e-4) continue;
+      if (!toneChanged && Math.abs(this.ringPart[k] - f) < 1e-4) continue;
       this.ringPart[k] = f;
-      r.setColorAt(k, tint.copy(this.ringOff).lerp(this.ringOn, f));
+      r.setColorAt(k, tint.copy(this.ringOff).lerp(on, f));
       changed = true;
     }
     if (changed && r.instanceColor) r.instanceColor.needsUpdate = true;
     return changed;
   }
 
-  /** L'encodeur k sous la souris (-1 aucun) : un peu plus clair, sa jupe aussi ; true s'il faut une frame. */
-  setHover(k: number): boolean {
-    if (k === this.hover) return false;
-    for (const i of [this.hover, k]) {
-      if (i < 0 || i >= FACE_KNOBS.length) continue;
-      const on = i === k;
+  /** L'anneau du potard i (2026-10-27, la vue de rytm/faceKnobs.ts) : la course, a zero au centre, la teinte ; true s'il faut une frame. */
+  setRing(i: number, o: { t: number; bipolar: boolean; tone: KnobTone }): boolean {
+    if (i < 0 || i >= FACE_KNOBS.length) return false;
+    return this.paintRing(i, o.t, o.bipolar, o.tone);
+  }
+
+  /** Le capuchon du potard i a la course t (2026-10-27 : le moteur du potard motorise) ; true s'il faut une frame. */
+  setCap(i: number, t: number): boolean {
+    if (i < 0 || i >= FACE_KNOBS.length) return false;
+    const a = potAngle(t);
+    this.value[i] = Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0;
+    if (this.angle[i] === Math.fround(a)) return false;
+    this.angle[i] = a;
+    this.place(i);
+    return true;
+  }
+
+  /** La course que montre le capuchon i. */
+  capT(i: number): number {
+    return this.value[i] ?? 0;
+  }
+
+  /**
+   * L'encodeur k sous la souris (-1 aucun), ou depuis le 2026-10-27 plusieurs (le bloc de l'ecran survole eclaire ses
+   * potards) : un peu plus clair, sa jupe aussi ; true s'il faut une frame.
+   */
+  setHover(k: number | readonly number[]): boolean {
+    let mask = 0;
+    for (const i of typeof k === 'number' ? [k] : k) if (i >= 0 && i < FACE_KNOBS.length) mask |= 1 << i;
+    if (mask === this.hoverMask) return false;
+    for (let i = 0; i < FACE_KNOBS.length; i += 1) {
+      const was = (this.hoverMask >> i) & 1;
+      const on = (mask >> i) & 1;
+      if (was === on) continue;
       this.mesh.setColorAt(i, tint.setScalar(on ? HOVER_LIGHT.knob : 1));
       this.skirts.setColorAt(i, tint.setScalar(on ? HOVER_LIGHT.skirt : 1));
     }
-    this.hover = k;
+    this.hoverMask = mask;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
     if (this.skirts.instanceColor) this.skirts.instanceColor.needsUpdate = true;
     return true;
@@ -277,7 +331,8 @@ export class Encoders {
     // La valeur d'abord : TONE et STRETCH au centre ont deja leur angle de depart
     this.value[i] = t;
     // L'anneau suit la valeur (2026-10-27), meme quand l'angle n'a pas bouge (le premier dessin)
-    const ring = this.paintRing(i, t);
+    const id0 = GLOBAL_ENCODERS[i];
+    const ring = this.paintRing(i, t, id0 !== undefined && isBipolar(id0), 'base');
     if (this.angle[i] === Math.fround(a)) return ring;
     this.angle[i] = a;
     this.place(i);
@@ -316,6 +371,8 @@ export class Encoders {
             return Math.round(sum * 100) / 100;
           })
         : [],
+      tones: [...this.ringTone],
+      hover: FACE_KNOBS.map((_, i) => i).filter((i) => (this.hoverMask >> i) & 1),
     };
   }
 

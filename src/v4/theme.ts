@@ -802,6 +802,21 @@ export function ringLit(j: number, t: number, bipolar: boolean): number {
 }
 
 /**
+ * Les teintes de l'anneau d'un potard de la face (2026-10-27, les potards suivent la page) : la couleur de ses segments
+ * allumes et leur part (k, 0 a 1 ; des LED mono du materiel, un niveau) ; base : l'orange des pas mis, l'anneau de la
+ * phase 1 ; off : tout eteint (rien sous le potard, un dessin, un reglage de voix sans voix).
+ */
+export type KnobTone = 'base' | 'off';
+export interface RingTone {
+  on: string;
+  k: number;
+}
+export const RING_TONE: Record<KnobTone, RingTone> = {
+  base: { on: HEX.ledSet, k: 1 },
+  off: { on: HEX.ledSet, k: 0 },
+};
+
+/**
  * Dans l'ordre de lecture (2026-10-01) : MASTER au-dessus de TEMPO, a
  * droite de l'ecran ; la rangee GLOBAL a gauche (SWING, STRETCH, puis les
  * effets dans l'ordre du signal : DIST, CHORUS, DELAY, REVERB) ; la rangee
@@ -1280,6 +1295,12 @@ export const PAGE_KNOB_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as con
  * telephone de nouveau depuis le 2026-10-19 (les FX globaux, comme au desktop).
  */
 export const PAGE_KNOBS_ON_FACE = true;
+/**
+ * Les huit potards de la face suivent la page (2026-10-27, Mika : "ils devraient etre assignes aux fonctions de la page
+ * qui est cliquee, comme la DIGITAKT ; les knobs de droite doivent se refleter") : au desktop, le potard k tourne le bloc
+ * pose dans la case k de l'ecran (rytm/pages.ts faceBlockOf, rytm:knob:k+1) ; le telephone garde ses FX globaux (phase 5).
+ */
+export const FACE_FOLLOWS_PAGE: boolean = !PORTRAIT;
 /**
  * Le telephone (2026-10-09) : les huit blocs de l'ecran se glissent au doigt (un
  * glisser vertical, deux tapes, le LOCK a deux doigts) ; les cartes INFOS y
@@ -2764,5 +2785,8 @@ export function applyAppearance(a: Appearance): void {
   KEY_LIT_LIGHT.glow = L ? LIGHT.keyLitGlow : 1;
   BACKDROP.transparent = !L;
   Object.assign(VOICE_TINT, L ? LIGHT.voiceTint : DARK.voiceTint);
+  // Les teintes des anneaux de la face (2026-10-27) : relues apres la palette
+  RING_TONE.base.on = HEX.ledSet;
+  RING_TONE.off.on = HEX.ledSet;
   APPEARANCE.current = a;
 }

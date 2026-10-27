@@ -87,6 +87,11 @@ import {
   rytmPageKey,
   rytmScreenTab,
   globalDial,
+  faceDialOf,
+  faceKnob,
+  faceKnobReset,
+  knobBlock,
+  revealPage,
   modeHold,
   MODE_HOLD_MS,
   chipAction,
@@ -157,6 +162,7 @@ import { screenDials, type ScreenDialId } from '../state/screenDials';
 import { lcdMessage } from '../state/lcdMessage';
 import { encUnit } from '../rytm/values';
 import { rytmLock } from '../state/rytmLock';
+import { faceTouch } from '../state/ctl';
 import { lockCount } from '../audio/locks';
 import { HOME_MENU, HOME_MENU_LABEL, SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
 import { v127 } from '../rytm/values';
@@ -185,6 +191,7 @@ import {
   DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
+  FACE_FOLLOWS_PAGE,
   FACE_INERT,
   FACE_KNOBS,
   FACE_TITLE,
@@ -289,6 +296,8 @@ interface Down {
   prevLock: number;
   /** un potard : le LOCK au debut de son glisser (un changement le fait repartir de la valeur du moment) */
   lockKey: string;
+  /** un potard : la course du dernier mouvement (2026-10-27, la fonction d'un potard de la face qui change sous la main) */
+  lastTravel?: number;
   /**
    * un bloc de l'ecran du telephone (2026-10-09), au doigt, glisse a
    * l'horizontale : ce n'est pas encore un reglage (il se regle de haut en
@@ -408,7 +417,9 @@ const dialOf = (h: HotspotView | null | undefined): DialId | null =>
     : (h.kind === 'encoder' || h.kind === 'rdial') && h.param
       ? h.param
       : h.kind === 'penc' && h.index !== undefined
-        ? ((GLOBAL_ENCODERS[h.index] ?? null) as DialId | null)
+        ? // Les potards de la face (2026-10-27) : au desktop la fonction de la page posee sur leur case (actions.ts
+          // faceDialOf, p:<bloc>) ; au telephone leur FX global
+          faceDialOf(h.index)
         : h.kind === 'rblock' && h.index !== undefined
           ? (`p:${h.index}` as DialId)
         : h.kind === 'vknob' && h.vknob
@@ -442,15 +453,25 @@ function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   // Le LOCK a change pendant que le potard de page tourne (2026-10-08 : le pas tenu lache avant lui, ou le
   // premier verrou qui met le LOCK) : il repart de la valeur qu'il regle maintenant, sans saut
   const lk = pageKnobOf(d.dial) >= 0 ? lockKeyNow() : d.lockKey;
+  // Un potard de la face du desktop (2026-10-27) : la fonction de sa case peut changer sous la main (une touche de page,
+  // une voix, le MIDI) ; il repart alors de la valeur de la nouvelle, sans saut
+  const pencId = FACE_FOLLOWS_PAGE && d.kind === 'penc' && d.index !== undefined ? faceDialOf(d.index) : null;
+  if (pencId && pencId !== d.dial) {
+    d.dial = pencId;
+    d.lockKey = '';
+  }
   if (fine !== d.fine || lk !== d.lockKey) {
     d.v0 = anyDialValue(d.dial);
-    d.a = travel;
+    // Un potard de la face dont la fonction a change (2026-10-27) : la course repart du dernier mouvement vu, aucun pixel
+    // de la main ne se perd
+    d.a = pencId && fine === d.fine && d.lastTravel !== undefined ? d.lastTravel : travel;
     d.fine = fine;
     d.lockKey = lk;
   }
   const v = d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1);
-  // Un encodeur du desktop (2026-10-09) : son FX global, et son popup a l'ecran
-  if (d.kind === 'penc' && d.index !== undefined) globalDial(d.index, v);
+  d.lastTravel = travel;
+  // Un potard de la face : la page au desktop (2026-10-27), son FX global et son popup au telephone
+  if (d.kind === 'penc' && d.index !== undefined) faceKnob(d.index, v, 'ptr');
   // MASTER ou TEMPO dans l'ecran (2026-10-19) : la valeur, et TEMPO la dit au pied
   else if (d.kind === 'rdial') screenDialSet(d.dial, v);
   else anyDial(d.dial, v);
@@ -593,7 +614,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
                   : ''
               : hover.startsWith('lcd-blk-') || hover === 'lcd-master' || hover === 'lcd-tempo'
                 ? 'ns-resize'
-                : // TRK, les scenes et le crossfader de la face V.4.0 (2026-10-27) : inertes en phase 1, la fleche
+                : // Un potard de la face du desktop (2026-10-27) : la fleche de haut en bas, la fleche seule sur une case vide
+                  // ou un dessin (rien a tourner)
+                  FACE_FOLLOWS_PAGE && hover.startsWith('penc-')
+                  ? faceKnobTurns(Number(hover.slice(5)))
+                    ? 'ns-resize'
+                    : 'default'
+                  : // TRK, les scenes et le crossfader de la face V.4.0 (2026-10-27) : inertes en phase 1, la fleche
                   FACE_INERT.has(hover)
                   ? 'default'
                   : own ?? 'pointer';
@@ -650,16 +677,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
         lastTap.delete(k);
         fxOpenCancel();
+        // Un potard de la face (2026-10-27) : son bloc remis (en LOCK, son verrou s'en va) au desktop ; au telephone son FX
+        // global remis comme il tourne, avec son popup GLOBAL a l'ecran (revue du 2026-10-09)
+        if (penc >= 0) faceKnobReset(penc);
         // Un potard de page (2026-10-08) : en LOCK, son verrou s'en va ; sinon sa valeur de depart
-        if (pk >= 0) pageKnobReset(pk);
-        // Un encodeur du desktop (revue du 2026-10-09) : remis comme il tourne, avec son popup GLOBAL a l'ecran
-        else if (penc >= 0) globalDial(penc, anyDialReset(k));
+        else if (pk >= 0) pageKnobReset(pk);
         else if (screenDial) screenDialSet(k, anyDialReset(k));
         else anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
         // Un FX de GLOBAL FX qui a sa page (2026-10-10 ; un FX de VOICE FX : sa page sous la voix) : elle s'ouvre si aucune deuxieme tape ne suit
-        const fd = pk >= 0 ? pageFxDetail(pk) : null;
+        // (un bloc de l'ecran seulement : une tape sur un potard de la face n'ouvre rien, 2026-10-27, il ne change jamais de page)
+        const fd = pk >= 0 && penc < 0 ? pageFxDetail(pk) : null;
         fxOpenCancel();
         if (fd)
           fxOpenTimer = window.setTimeout(() => {
@@ -670,7 +699,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           }, TEMPO_UI.tapMs + 10);
         // Le nom du son (le bloc SOUND de VOICE, 2026-10-18, Mika : "difficile la selection des samples") : une tape seule
         // ouvre le navigateur des sons, passe le temps d'une deuxieme tape (deux tapes : SOUND revient a son depart)
-        else if (pk >= 0 && pageTarget(pk) === 'voice:sound')
+        else if (pk >= 0 && penc < 0 && pageTarget(pk) === 'voice:sound')
           fxOpenTimer = window.setTimeout(() => {
             fxOpenTimer = 0;
             if (disposed || knobHeld() || pageTarget(pk) !== 'voice:sound') return;
@@ -1039,6 +1068,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Le bloc pris au doigt reste cerne tant qu'on le tient (2026-10-09), meme immobile : on voit ce qu'on regle ; MASTER et
       // TEMPO dans l'ecran aussi (2026-10-19)
       if (blockKnob && h && h.index !== undefined) rytmPage.hold(h.index);
+      // Un potard de la face du desktop pris (2026-10-27) : HOME montre sa page, le bloc qu'il tourne reste cerne tant qu'on
+      // le tient (le miroir), le potard est tenu (le moteur ne le deplace pas)
+      if (FACE_FOLLOWS_PAGE && h && h.kind === 'penc' && h.index !== undefined && !downs.get(e.pointerId)?.info) {
+        revealPage();
+        rytmPage.hold(knobBlock(h.index) ?? -1);
+        faceTouch.down(h.index, 'ptr');
+      }
       if (screenDial && h?.param) screenDials.hold(h.param as ScreenDialId);
       // Le navigateur des sons (2026-10-18) : ni pincement ni orbite ; sa premiere ligne et la hauteur d'une ligne a l'ecran
       // (le corps de la liste, en BROWSER_ROWS lignes), pour un glisser ; au doigt, un de ses samples tenu SB_HOLD_MS : arme
@@ -1173,9 +1209,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         else screenDials.release();
         return;
       }
-      if (d.kind !== 'rblock') return;
+      const penc = FACE_FOLLOWS_PAGE && d.kind === 'penc' && d.index !== undefined;
+      if (d.kind !== 'rblock' && !penc) return;
+      if (penc && d.index !== undefined && !d.info) faceTouch.up(d.index);
       let other = -1;
-      for (const o of downs.values()) if (o.kind === 'rblock' && o.index !== undefined) other = o.index;
+      for (const o of downs.values()) {
+        if (o.kind === 'rblock' && o.index !== undefined) other = o.index;
+        else if (FACE_FOLLOWS_PAGE && o.kind === 'penc' && o.index !== undefined) other = knobBlock(o.index) ?? other;
+      }
       if (other >= 0) rytmPage.hold(other);
       else rytmPage.release();
     };
@@ -1410,8 +1451,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const now = e.timeStamp || performance.now();
         const gain = wheelGain(now - wheelAt, e.shiftKey);
         wheelAt = now;
-        // Un encodeur du desktop : son FX global, son popup seul le dit (globalDial)
-        if (pencK >= 0) dialNudge(k, steps * gain, (v) => globalDial(pencK, v));
+        // Un potard de la face : la page au desktop (2026-10-27 ; le premier cran montre la page sous HOME), son FX global
+        // et son popup au telephone
+        if (pencK >= 0) {
+          if (FACE_FOLLOWS_PAGE) revealPage();
+          dialNudge(k, steps * gain, (v) => faceKnob(pencK, v, 'wheel'));
+        }
         else dialNudge(k, steps * gain);
       } else if (steps !== 0) {
         wheelAcc -= steps * px;
@@ -1622,6 +1667,30 @@ const onDialKey =
  * ou Page : 10), un cran du reglage s'il en a ; Debut et Fin aux butees.
  * set : ce qui pose la valeur (un encodeur du desktop : son FX global et son popup).
  */
+/** Le potard k de la face a-t-il un reglage sur sa case (2026-10-27) : ni case vide ni dessin. */
+function faceKnobTurns(k: number): boolean {
+  const b = knobBlock(k);
+  const slot = b === null ? null : pageSlotOf(b);
+  return !!slot && !!slot.label && !slot.graph;
+}
+
+/**
+ * Le nom d'un potard de la face du desktop (2026-10-27, les potards suivent la page) : sa lettre, l'ecran et la fonction
+ * de sa case (Knob C, VOICE: PITCH, Bass drum), celle d'un bloc voisin (Knob E, VOICE FX: DIST (same as knob A)), rien
+ * (Knob G, nothing on VOICE) ; en P-LOCK, le pas et ce que fait Suppr.
+ */
+function faceKnobAria(k: number, b: number | null, inst: Inst | null, lockAt: number): string {
+  const letter = PAGE_KNOB_LETTERS[k] ?? '?';
+  const screen = SCREEN_TITLE[rytmPage.screen(inst)];
+  const slot = b === null ? null : pageSlotOf(b);
+  if (!slot || !slot.label) return `Knob ${letter}, nothing on ${screen}`;
+  const same = b !== null && b !== k ? ` (same as knob ${PAGE_KNOB_LETTERS[b] ?? '?'})` : '';
+  if (slot.graph) return `Knob ${letter}, ${screen}: ${slot.label}${same}, a picture, nothing to turn`;
+  const voice = slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : '';
+  const lock = lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : '';
+  return `Knob ${letter}, ${screen}: ${slot.label}${same}${voice}${lock}`;
+}
+
 const onPageKnobKey =
   (d: DialId, set: (v: number) => void = (v) => anyDial(d, v)) =>
   (e: React.KeyboardEvent<HTMLElement>): void => {
@@ -2160,10 +2229,44 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     });
 
   const knobTwins = FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
-    // Les encodeurs du desktop (2026-10-09) : leur FX global a poste fixe (theme.ts GLOBAL_ENCODERS), jamais un verrou
     const k = pageKnobIndex(fk.id as (typeof PAGE_KNOB_IDS)[number]);
-    const g = GLOBAL_ENCODERS[k];
     const id = `penc-${k}`;
+    if (FACE_FOLLOWS_PAGE) {
+      // Les potards de la face du desktop (2026-10-27) : la fonction posee sur leur case de l'ecran, comme son bloc
+      const b = knobBlock(k);
+      const d = faceDialOf(k);
+      const live = b !== null && pageKnobLive(b);
+      const bipolar = live && dialRange(d)[0] < 0;
+      const course = b === null ? 0 : pageKnobCourse(b);
+      return (
+        <div
+          key={id}
+          ref={refFor(id)}
+          className="v4-twin"
+          data-twin="penc"
+          data-hotspot={id}
+          role="slider"
+          tabIndex={0}
+          aria-label={faceKnobAria(k, b, inst, lockAt)}
+          aria-orientation="vertical"
+          aria-valuemin={bipolar ? -64 : 0}
+          aria-valuemax={bipolar ? 63 : 127}
+          aria-valuenow={v127(course, bipolar)}
+          aria-valuetext={dialReadout(d)}
+          onKeyDown={(e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+              e.preventDefault();
+              faceKnobReset(k);
+              return;
+            }
+            // Le premier cran montre la page sous HOME (knobDial) ; le reglage part de la fonction du moment
+            onPageKnobKey(faceDialOf(k), (v) => faceKnob(k, v, 'twin'))(e);
+          }}
+        />
+      );
+    }
+    // Les encodeurs du telephone (2026-10-09) : leur FX global a poste fixe (theme.ts GLOBAL_ENCODERS), jamais un verrou
+    const g = GLOBAL_ENCODERS[k];
     const d = g as DialId;
     const [lo, hi] = dialRange(d);
     const course = hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;

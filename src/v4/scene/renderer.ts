@@ -91,6 +91,7 @@ import {
   OPEN_VIEW,
   EXPOSURE,
   APPEARANCE,
+  FACE_FOLLOWS_PAGE,
   FIRST_FRAME_WAIT_MS,
   FIT_H,
   FRAME_DESKTOP,
@@ -133,7 +134,8 @@ import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
-import { anyDialValue, dialRange, type DialId } from '../actions';
+import { anyDialValue, dialRange, knobBlock, type DialId } from '../actions';
+import { faceKnobs, type FaceKnobChange } from '../rytm/faceKnobs';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
@@ -489,6 +491,8 @@ export class Stage {
   private dprMql: MediaQueryList | null = null;
   private unsubSection: () => void;
   private unsubMix: () => void;
+  /** les potards de la face qui suivent la page (2026-10-27, desktop) ; rien au telephone */
+  private unsubFace: () => void = () => {};
   /** les quatre puces (allumees pendant l'ouverture et vue ouverte) */
   private chipDefs: HotspotDef[];
   /** les touches de la face V.4.0 (2026-10-27) : trk, pad-edit, pad-open, scene-a, xfade, scene-b */
@@ -1120,6 +1124,11 @@ export class Stage {
     this.unsubVoices = voices.subscribe(this.syncVoices);
     this.syncMix();
     this.unsubMix = mix.subscribe(this.syncMix);
+    // Au desktop (2026-10-27, Mika : "les knobs de droite doivent se refleter") : les huit potards montrent la page
+    if (FACE_FOLLOWS_PAGE) {
+      this.unsubFace = faceKnobs.subscribe(this.syncFaceKnobs);
+      this.syncFaceKnobs({ cause: 'page', moved: [0, 1, 2, 3, 4, 5, 6, 7] });
+    }
     // Section deja ouverte (remontage) : etat pose sans animation
     this.applySection(true);
     this.unsubSection = section.subscribe(this.syncSection);
@@ -2719,8 +2728,10 @@ export class Stage {
     if (this.bass && this.bass.setHover(id !== null && id.startsWith('bass-') ? id : null)) changed = true;
     // INFOS du MM-RYTM (R4, 2026-10-08) : la carte de la commande survolee (le store ne garde que les siennes)
     rytmInfos.hover(id);
-    // Un bloc de l'ecran sous la souris (2026-10-09, l'ecran est l'editeur) : son cadre de survol
-    rytmPage.hover(id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : -1);
+    // Un bloc de l'ecran sous la souris (2026-10-09, l'ecran est l'editeur) : son cadre de survol ; au desktop depuis le
+    // 2026-10-27 un potard de la face survole cerne aussi le bloc qu'il tourne (le miroir)
+    const pencHover = FACE_FOLLOWS_PAGE && id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1;
+    rytmPage.hover(id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : pencHover >= 0 ? (knobBlock(pencHover) ?? -1) : -1);
     // MASTER ou TEMPO dans l'ecran (2026-10-19) : le leur
     screenDials.hover(screenDialOf(id));
     // Une ligne du navigateur des sons sous la souris (2026-10-18) : son rang a l'ecran (elle reste sous la souris quand la
@@ -2732,7 +2743,10 @@ export class Stage {
     // La face V.4.0 (2026-10-27) : EDIT et OPEN s'eclairent un rien ; TRK, les scenes et le crossfader restent eteints
     if (this.faceKeys?.setHover(id)) changed = true;
     // Les encodeurs, les touches de page et le transport (2026-10-22, audit : ils ne changeaient que de curseur)
-    if (this.encoders.setHover(id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1)) changed = true;
+    // Au desktop (2026-10-27) : un bloc de l'ecran survole eclaire les potards qui le tournent (le sien et ceux qu'il couvre)
+    const blkHover = FACE_FOLLOWS_PAGE && id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : -1;
+    const knobsLit = blkHover >= 0 ? faceKnobs.get().filter((v) => v.block === blkHover).map((v) => v.k) : id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1;
+    if (this.encoders.setHover(knobsLit)) changed = true;
     if (this.pageKeys.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
     if (this.seq.setButtonHover(id)) changed = true;
     // Puce du PCB (vue ouverte)
@@ -2947,6 +2961,8 @@ export class Stage {
    * l'ecran (scene/screen.ts), plus sur la face.
    */
   private syncMix = (): void => {
+    // Au desktop depuis le 2026-10-27 : les potards suivent la page (syncFaceKnobs)
+    if (FACE_FOLLOWS_PAGE) return;
     const e = this.encoders;
     let changed = false;
     PAGE_KNOB_IDS.forEach((id, k) => {
@@ -2955,6 +2971,25 @@ export class Stage {
       const [lo, hi] = dialRange(g);
       if (e.setValue(id, hi > lo ? (anyDialValue(g) - lo) / (hi - lo) : 0)) changed = true;
     });
+    if (changed) this.encodersMoved();
+  };
+
+  /**
+   * Les huit potards de la face du desktop (2026-10-27, rytm/faceKnobs.ts) : pour chaque potard dont la vue a change,
+   * l'anneau (sa course, sa teinte) et le capuchon ; une case vide ou un dessin : l'anneau eteint, le capuchon reste ou il
+   * est (un moteur ne bouge pas pour rien).
+   */
+  private syncFaceKnobs = (c: FaceKnobChange): void => {
+    if (this.disposed) return;
+    const views = faceKnobs.get();
+    const e = this.encoders;
+    let changed = false;
+    for (const k of c.moved) {
+      const v = views[k];
+      if (!v) continue;
+      if (e.setRing(k, { t: v.state === 'live' ? v.pos : 0, bipolar: v.bipolar, tone: v.tone })) changed = true;
+      if (v.state !== 'empty' && v.state !== 'picture' && e.setCap(k, v.pos)) changed = true;
+    }
     if (changed) this.encodersMoved();
   };
 
@@ -3230,6 +3265,7 @@ export class Stage {
     this.unsubSeek();
     this.unsubClock();
     this.unsubMix();
+    this.unsubFace();
     this.unsubSection();
     this.unsubExplode();
     this.detachExplode();

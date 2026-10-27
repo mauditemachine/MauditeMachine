@@ -174,6 +174,7 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
+import { rytmInfoHit } from '../rytm/infoIds';
 import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { encUnit, v127Text } from '../rytm/values';
@@ -2633,7 +2634,13 @@ export class Screen {
     const s = rytmInfos.get();
     if (!s.on || !s.id) return -1;
     const m = /^lcd-blk-([0-9]+)$/.exec(s.id);
-    return m ? Number(m[1]) : -1;
+    if (m) return Number(m[1]);
+    // Un potard de la face du desktop (2026-10-27) : le bloc qu'il tourne
+    if (FACE_PAGES && s.id.startsWith('penc-')) {
+      const p = /^p:([0-7])$/.exec(rytmInfoHit(s.id)?.id ?? '');
+      return p ? Number(p[1]) : -1;
+    }
+    return -1;
   }
 
   /** Quatre coins autour d'un bloc (INFOS, R4) : la carte parle de lui ; dehors, sans toucher au bloc ni a son echo. */
