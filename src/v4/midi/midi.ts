@@ -662,7 +662,8 @@ const lastAt = new Map<string, number>();
 let lastSetup: RotoSetupName | null = null;
 
 function apply(t: MidiTarget, m: MidiMsg, key: string, sk: string, toggle: boolean, tap = false): void {
-  const isOn = m.kind === 'note' ? m.on === true : m.value > 0.5;
+  // Les touches tenues de la phase 3 (2026-10-27, gate nonzero : rytm:trk, rytm:scene:a et b) : un CC enfonce des 1
+  const isOn = m.kind === 'note' ? m.on === true : t.gate === 'nonzero' ? m.value > 0 : m.value > 0.5;
   // Un pas de RSEQ ou BSEQ en TOGGLE (la case du panneau, 2026-10-09) : un message par appui, chacun est une tape
   if (tap) {
     t.down?.();
