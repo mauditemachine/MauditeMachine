@@ -59,6 +59,7 @@ L'état d'un coup, lu dans les stores à chaque appel. Un objet neuf, sérialisa
 - `voice` : la voix choisie (`null` : aucune) ;
 - `pattern` : `{ slot, name, next }` (0 à 15, A01 à A16, le pattern qui attend la fin de la mesure ou -1) ;
 - `tempo` (BPM) et `running` (RUN) ;
+- `sync` et `tempoLabel` : `sync` vaut `true` quand le SYNC du MIXER (MM-DECKS) fait suivre au MM-RYTM la platine MASTER ; `tempo` est alors le sien, au centième (124.37), et le potard B de la page MASTER y revient si on le tourne. `tempoLabel` est le TEMPO tel que l'écran le dit : `124 BPM`, ou `124.4 SYNC` en suivant. Le boîtier peut afficher `tempoLabel` tel quel : il dit la même chose que l'écran, SYNC compris ;
 - `knobs` : les 8 potards de la face, chacun avec `k`, `letter`, `label`, `value` (0 à 1, la position du moteur), `bipolar`, `steps`, `state` (`live`, `off`, `picture`, `empty`), `cause` (la dernière : `pot`, `page`, `voice`, `lock`, `scene`, `xfade`, `value`) et `by` (pour `pot`, la source du tour : `hw` pour le potard du boîtier) ;
 - `trk` : `{ mode, holders }` (`off`, `held`, `latched`, `closing`) ;
 - `scenes` : `{ armed, how, count: { a, b }, x, moving }` ;
