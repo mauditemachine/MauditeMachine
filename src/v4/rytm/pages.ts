@@ -134,7 +134,9 @@ export type HomeMenuId = (typeof HOME_MENU)[number];
 export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = { sound: 'SOUND', voice: 'VOICE', fltr: 'FLTR', env: 'ENV', fx: 'FX' };
 
 /** Les onglets de chaque page, dans l'ordre (la touche de la page allumee pressee encore passe au suivant). */
-export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = { voice: ['voice', 'synth'], fltr: ['fltr'], env: ['env'], fx: ['fxv', 'fxg'] };
+// FX au desktop (2026-10-27, decision P2-05, a revenir seule) : GLOBAL FX d'abord, le jeu des huit potards de la face
+// V.4.0 phase 1 (Mika : "the FX page keeps today's global FX set"), VOICE FX en page 2/2 ; le telephone garde VOICE FX d'abord
+export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = { voice: ['voice', 'synth'], fltr: ['fltr'], env: ['env'], fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxg', 'fxv'] };
 /** La page d'un ecran (les pages des FX globaux, 2026-10-10 : FX). */
 export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = {
   voice: 'voice',
@@ -468,7 +470,8 @@ const FX_DETAIL_SLOTS: Readonly<Record<FxDetailId, readonly PageSlot[]>> = {
   // COMP (refait le 2026-10-18, Mika : "donne-moi le choix avec du ratio et threshold !") : COMP, son MIX (0 : le son
   // tel quel), en haut a gauche sur deux rangees avec l'aiguille de sa reduction ; THRESH et RATIO juste a cote, en haut ;
   // ATTACK ; dessous RELEASE (AUTO tout en haut), MAKEUP (AUTO tout en bas) et le HPF de sa chaine laterale (OFF, 60,
-  // 120 Hz). KNEE (6 dB au depart) n'a pas de case : MIDI rytm:enc:cknee, sa carte INFOS
+  // 120 Hz). KNEE (6 dB au depart) : au desktop depuis le 2026-10-27 la case H, la seule libre une fois les blocs a la
+  // place de leurs potards (decision P2-05) ; au telephone pas de case (la grille est pleine) : MIDI rytm:enc:cknee
   fxcomp: [
     { ...fxAmount('COMP', 'comp', false), w: 1, h: 2, draw: 'gr' },
     fxSet('THRESH', 'cthr', 'bar', 1, 1),
@@ -477,6 +480,7 @@ const FX_DETAIL_SLOTS: Readonly<Record<FxDetailId, readonly PageSlot[]>> = {
     fxSet('RELEASE', 'crel', 'decay', 1, 1),
     fxSet('MAKEUP', 'cmake', 'bar', 1, 1),
     fxSet('HPF', 'chpf', 'notch', 1, 1),
+    ...(PORTRAIT ? [] : [fxSet('KNEE', 'cknee', 'bar', 1, 1)]),
   ],
 };
 
