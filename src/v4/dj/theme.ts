@@ -360,7 +360,11 @@ export const DJ_EQ: readonly { id: DjEqId; label: string }[] = [
   { id: 'low', label: 'LOW' },
   { id: 'filter', label: 'FILTER' },
 ];
-/** OVERDRIVE remplace DISTO le 2026-10-04 (Mika : "au lieu de disto je veux Overdrive"). */
+/**
+ * OVERDRIVE remplace DISTO le 2026-10-04 (Mika : "au lieu de disto je veux Overdrive") ; DUB ECHO remplace DELAY le
+ * 2026-10-27 (Mika : "j'aimerais a la place de Delay un DUB ECHO comme les CDJ le proposent"), au meme potard : l'id
+ * delay reste (MIDI dj:dj-fx-delay, Roto, l'etat retenu), seul son nom change.
+ */
 export const DJ_FX = ['overdrive', 'crush', 'chorus', 'flanger', 'trans', 'delay', 'reverb'] as const;
 export type DjFxId = (typeof DJ_FX)[number];
 export const DJ_FX_LABEL: Readonly<Record<DjFxId, string>> = {
@@ -369,7 +373,7 @@ export const DJ_FX_LABEL: Readonly<Record<DjFxId, string>> = {
   chorus: 'CHORUS',
   flanger: 'FLANGER',
   trans: 'TRANS',
-  delay: 'DELAY',
+  delay: 'DUB ECHO',
   reverb: 'REVERB',
 };
 /** Les temps des effets (fractions de temps), comme sur Sonaa. */

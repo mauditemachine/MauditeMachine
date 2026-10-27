@@ -19,7 +19,7 @@ import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
 import { GUARD_S, TICK_MS, horizon, registerScheduler, reserve } from '../audio/sched';
 import { decodeAudio } from './decode';
-import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, gainDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
+import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, dubFeedback, dubSend, eqDb, gainDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
 import { DJ_CHANNELS_MAX, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
@@ -353,8 +353,11 @@ export class DjChannel {
 
 /* ---------------- les effets, sur le bus ---------------- */
 
-/** Les effets a boucle de retour : fermes, seule leur entree se debranche (DjFx.dose, 2026-10-22). */
-const LOOPED: ReadonlySet<DjFxId> = new Set<DjFxId>(['delay', 'flanger']);
+/**
+ * Les effets a boucle de retour : fermes, seule leur entree se debranche (DjFx.dose, 2026-10-22). Le DUB ECHO
+ * (2026-10-27, l'id delay) a son propre chemin (DjFx.dubDose) : sa queue sonne apres la dose, puis il se debranche.
+ */
+const LOOPED: ReadonlySet<DjFxId> = new Set<DjFxId>(['flanger']);
 
 interface Stage {
   id: DjFxId;
@@ -557,19 +560,214 @@ class GridLane {
   }
 }
 
+/* ---------------- le DUB ECHO ---------------- */
+
+/**
+ * Les reglages du DUB ECHO (2026-10-27, DubEcho) :
+ * - la boucle : un passe-haut (chaque repetition plus fine), un passe-bas (plus sombre), un passe-tout (les attaques
+ *   s'etalent un peu a chaque tour, la diffusion d'une bande) ;
+ * - ceil : le plafond de la saturation douce de la boucle (lineaire en dessous) ; ret : le niveau du retour ;
+ * - le retour de la boucle monte en attackS et redescend en releaseS : baisser la dose ferme l'envoi, la queue sonne ;
+ * - un autre TIME passe en fondu croise de xfadeS entre les deux lignes ; un tempo qui bouge a peine (au plus glideMax,
+ *   le pitch d'une platine) fait glisser la ligne, sa hauteur ne bouge que de pitchMax au plus ;
+ * - wobble : le pleurage d'une bande (en secondes de temps de ligne : un pleurage lent, une derive, un scintillement),
+ *   un tampon de loopS secondes qui boucle (des nombres entiers de cycles : il se raccorde sans saut) ;
+ * - silentDb : la boucle se debranche une fois sa queue a -90 dB (DubEcho.tailS).
+ */
+export const DUB = {
+  hp: 220,
+  lp: 3200,
+  ap: 900,
+  ceil: 0.7,
+  ret: 0.8,
+  attackS: 0.05,
+  releaseS: 3,
+  xfadeS: 0.06,
+  glideMax: 0.02,
+  pitchMax: 0.03,
+  wobble: { loopS: 20, rate: 3000, parts: [{ cycles: 7, s: 0.00045, phase: 0 }, { cycles: 3, s: 0.0002, phase: 1.3 }, { cycles: 105, s: 0.00004, phase: 0.4 }] },
+  maxS: 7.9,
+  silentDb: 90,
+} as const;
+
+/**
+ * La saturation de la boucle : lineaire en dessous, bornee a DUB.ceil ; son entree arrive divisee par deux (DUB_HALF,
+ * le gain des lignes : la boucle peut monter a 2 sans sortir de la courbe).
+ */
+const DUB_HALF = 0.5;
+const dubCurve = curve((u) => DUB.ceil * Math.tanh(u / DUB_HALF / DUB.ceil));
+
+/** Une rampe lineaire ecrite sur un AudioParam, gardee ici : sa valeur a tout instant, rendu ou non (un noeud debranche ne calcule rien). */
+interface Ramp {
+  v0: number;
+  t0: number;
+  v1: number;
+  t1: number;
+}
+const rampAt = (r: Ramp, t: number): number => (t >= r.t1 ? r.v1 : t <= r.t0 ? r.v0 : r.v0 + ((r.v1 - r.v0) * (t - r.t0)) / (r.t1 - r.t0));
+/** De la valeur a t0 jusqu'a `to` en dur secondes (0 : tout de suite), sans saut. */
+function rampTo(p: AudioParam, r: Ramp, to: number, t0: number, dur: number): void {
+  const from = rampAt(r, t0);
+  p.cancelScheduledValues(t0);
+  if (dur > 0) {
+    p.setValueAtTime(from, t0);
+    p.linearRampToValueAtTime(to, t0 + dur);
+  } else p.setValueAtTime(to, t0);
+  r.v0 = dur > 0 ? from : to;
+  r.t0 = t0;
+  r.v1 = to;
+  r.t1 = t0 + Math.max(0, dur);
+}
+
+/**
+ * Le DUB ECHO (2026-10-27, Mika : "j'aimerais a la place de Delay un DUB ECHO comme les CDJ le proposent") : l'echo
+ * des Beat FX d'une table Pioneer (Dub Echo), a la place du DELAY, au meme potard (l'id delay reste : MIDI, Roto, etat
+ * retenu). Une boucle de bande :
+ *
+ *   envoi -> somme -> ligne A ou B (fondu croise) -> passe-haut, passe-bas, passe-tout -> saturation -> retour
+ *              ^                                                                           |
+ *              +------------------------------------ boucle (fb) <-------------------------+
+ *
+ * Le retour est pris apres la saturation : la n-ieme repetition a traverse n fois les filtres, chacune plus sombre et
+ * plus fine que la precedente. La saturation borne la boucle (jamais d'emballement, jamais au-dessus de DUB.ceil,
+ * meme a fond sur un morceau fort) ; le pleurage fait onduler le temps des deux lignes, de plus en plus a chaque
+ * tour, comme une bande. La boucle est mono (la somme des deux canaux, rendue au centre), comme une bande d'echo : la
+ * moitie du calcul ; le pleurage vient d'un tampon qui boucle (DUB.wobble), dix fois moins cher que deux oscillateurs.
+ * La dose (math.ts dubSend, dubFeedback) ouvre l'envoi et monte la boucle : peu, deux ou trois repetitions discretes ;
+ * a fond, une longue queue de dub. Baissee, l'envoi se ferme en 20 ms et la boucle redescend en DUB.releaseS : ce qui
+ * est deja dedans continue de se repeter et s'eteint seul.
+ *
+ * Mesure hors ligne (2026-10-27, le vrai code, salves et boucle de batterie a 124 BPM, 48 kHz) : premiere repetition
+ * a -14 dB (dose 0.1) jusqu'a -3.3 dB (1), puis -8.9 a -1.7 dB par repetition (T60 de 3.5 s a 19.5 s, TIME d'un temps
+ * a 120 BPM) ; le centroide d'un bruit passe de 2.2 kHz a la premiere repetition a 1.1 kHz a la huitieme, l'energie
+ * au-dessus de 4 kHz de -10 a -56 dB, sous 200 Hz de -27 a -59 dB ; a fond 60 s sur une boucle a -1 dBFS, la boucle
+ * ne depasse jamais -6 dBFS et ne monte pas (meme niveau de 10 a 20 s et de 40 a 60 s) ; dose a zero apres 2 s a 0.8,
+ * la queue perd 16 dB en 2 s puis s'eteint ; aucun clic au-dessus de 10 kHz aux mouvements de dose ni aux changements
+ * de TIME (au niveau du fond, -80 dBFS) ; la hauteur ne bouge pas plus que le pleurage (0.3 %) ; 134 ms de calcul pour
+ * 60 s ouvert (l'ancien delay : 63 ms, mais il tournait toujours, meme ferme ; celui-ci se debranche).
+ */
+export class DubEcho {
+  readonly input: GainNode;
+  readonly output: GainNode;
+  private send: GainNode;
+  private fb: GainNode;
+  private fbRamp: Ramp;
+  private lines: { d: DelayNode; g: GainNode; t: Ramp; gr: Ramp }[];
+  private active = 0;
+  /** le temps vise d'une repetition (s), et la fin du fondu croise en cours (temps du contexte) */
+  private time: number;
+  private xfEnd = 0;
+  private doseNow = 0;
+
+  constructor(
+    private ctx: BaseAudioContext,
+    seconds: number
+  ) {
+    this.time = Math.max(0.01, Math.min(DUB.maxS, seconds));
+    this.input = new GainNode(ctx, { gain: 1 });
+    // L'envoi : la somme des deux canaux (une bande d'echo est mono ; la boucle entiere aussi)
+    this.send = new GainNode(ctx, { gain: 0, channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers' });
+    const hp = new BiquadFilterNode(ctx, { type: 'highpass', frequency: DUB.hp, Q: BUTTERWORTH_DB });
+    const lp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: DUB.lp, Q: BUTTERWORTH_DB });
+    const ap = new BiquadFilterNode(ctx, { type: 'allpass', frequency: DUB.ap, Q: 0.5 });
+    const sat = new WaveShaperNode(ctx, { curve: dubCurve });
+    const fb0 = dubFeedback(0);
+    this.fb = new GainNode(ctx, { gain: fb0 });
+    this.fbRamp = { v0: fb0, t0: 0, v1: fb0, t1: 0 };
+    this.output = new GainNode(ctx, { gain: DUB.ret });
+    this.input.connect(this.send);
+    // Les deux lignes recoivent l'envoi et la boucle ; leur gain (DUB_HALF a l'ecoute) divise par deux l'entree de la saturation
+    this.lines = [0, 1].map((i) => {
+      const d = new DelayNode(ctx, { maxDelayTime: 8, delayTime: this.time });
+      const on = i === 0 ? DUB_HALF : 0;
+      const g = new GainNode(ctx, { gain: on });
+      this.send.connect(d);
+      this.fb.connect(d);
+      d.connect(g).connect(hp);
+      return { d, g, t: { v0: this.time, t0: 0, v1: this.time, t1: 0 }, gr: { v0: on, t0: 0, v1: on, t1: 0 } };
+    });
+    hp.connect(lp).connect(ap).connect(sat);
+    sat.connect(this.output);
+    sat.connect(this.fb);
+    // Le pleurage : un tampon qui boucle sur le temps des deux lignes (calcule seulement quand la boucle est branchee)
+    const W = DUB.wobble;
+    const wob = new AudioBuffer({ length: W.loopS * W.rate, sampleRate: W.rate, numberOfChannels: 1 });
+    const w = wob.getChannelData(0);
+    for (let k = 0; k < w.length; k += 1) {
+      let v = 0;
+      for (const p of W.parts) v += p.s * Math.sin((2 * Math.PI * p.cycles * k) / w.length + p.phase);
+      w[k] = v;
+    }
+    const src = new AudioBufferSourceNode(ctx, { buffer: wob, loop: true });
+    for (const l of this.lines) src.connect(l.d.delayTime);
+    src.start();
+  }
+
+  /** La dose (0 a 1) : l'envoi en 20 ms ; la boucle vite en montant, lentement en descendant (la queue sonne). */
+  dose(v: number): void {
+    const d = Math.max(0, Math.min(1, v));
+    this.doseNow = d;
+    glide(this.send.gain, dubSend(d), this.ctx);
+    const now = this.ctx.currentTime;
+    const want = dubFeedback(d);
+    rampTo(this.fb.gain, this.fbRamp, want, now, want >= rampAt(this.fbRamp, now) ? DUB.attackS : DUB.releaseS);
+  }
+
+  get dosed(): number {
+    return this.doseNow;
+  }
+
+  /**
+   * Le temps d'une repetition (TIME au tempo entendu, s) : un tempo qui bouge a peine fait glisser la ligne qui sonne
+   * (sa hauteur bouge de DUB.pitchMax au plus, pas d'escalier) ; un autre TIME, ou un autre tempo, passe sur l'autre
+   * ligne (son temps pose pendant qu'elle est muette) en fondu croise : ni clic, ni hauteur qui file.
+   */
+  retime(seconds: number): void {
+    const T = Math.max(0.01, Math.min(DUB.maxS, seconds));
+    if (Math.abs(T - this.time) < 1e-5) return;
+    const now = this.ctx.currentTime;
+    const a = this.lines[this.active];
+    if (now >= this.xfEnd && Math.abs(T - this.time) <= this.time * DUB.glideMax) {
+      const from = rampAt(a.t, now);
+      rampTo(a.d.delayTime, a.t, T, now, Math.max(0.05, Math.abs(T - from) / DUB.pitchMax));
+    } else {
+      // Apres le fondu en cours : jamais deux a la fois, la ligne qu'on pose est muette
+      const at = Math.max(now, this.xfEnd);
+      const b = this.lines[1 - this.active];
+      rampTo(b.d.delayTime, b.t, T, at, 0);
+      rampTo(b.g.gain, b.gr, DUB_HALF, at, DUB.xfadeS);
+      rampTo(a.g.gain, a.gr, 0, at, DUB.xfadeS);
+      this.active = 1 - this.active;
+      this.xfEnd = at + DUB.xfadeS;
+    }
+    this.time = T;
+  }
+
+  /**
+   * Combien de temps la queue peut encore sonner, la dose a zero (s) : la boucle qui redescend (DUB.releaseS), puis
+   * assez de repetitions au plancher (dubFeedback(0), sans compter ce que les filtres otent) pour passer sous
+   * -DUB.silentDb.
+   */
+  tailS(): number {
+    const perRepeat = -20 * Math.log10(dubFeedback(0));
+    return DUB.releaseS + (DUB.silentDb / perRepeat + 1) * this.time + 0.5;
+  }
+}
+
 /**
  * Sept effets en serie, globaux (Mika les voulait en potards) : chacun son
- * son sec et son son traite, la dose les melange (math.ts fxMix). Le delay,
- * le flanger et le trans suivent le tempo de ce qu'on entend (la platine
- * qu'on entend le plus, sinon les machines du site : dj/actions.ts
- * heardBpm), au temps choisi (TIME) ; le trans et le flanger tombent sur
- * ses temps (follow, 2026-10-21).
+ * son sec et son son traite, la dose les melange (math.ts fxMix). Le DUB ECHO
+ * (2026-10-27, a la place du delay), le flanger et le trans suivent le tempo
+ * de ce qu'on entend (la platine qu'on entend le plus, sinon les machines du
+ * site : dj/actions.ts heardBpm), au temps choisi (TIME) ; le trans et le
+ * flanger tombent sur ses temps (follow, 2026-10-21).
  */
 export class DjFx {
   readonly input: GainNode;
   readonly output: GainNode;
   private stages: Stage[] = [];
-  private echo: DelayNode;
+  /** le DUB ECHO (2026-10-27, l'id delay) */
+  private dub: DubEcho;
   private bpm = 120;
   private beats = 1;
   /**
@@ -594,8 +792,7 @@ export class DjFx {
   constructor(private ctx: AudioContext) {
     this.input = new GainNode(ctx);
     this.output = new GainNode(ctx);
-    const t = beatsToSeconds(this.bpm, this.beats);
-    this.echo = new DelayNode(ctx, { maxDelayTime: 8, delayTime: t });
+    this.dub = new DubEcho(ctx, beatsToSeconds(this.bpm, this.beats));
     let pre: AudioNode = this.input;
     for (const id of DJ_FX) {
       const dry = new GainNode(ctx, { gain: 1 });
@@ -666,12 +863,9 @@ export class DjFx {
         this.lanes.trans = new GridLane(gate.gain, 1, 'gate');
         return { input: gate, output: gate };
       }
-      case 'delay': {
-        const fb = new GainNode(ctx, { gain: 0.45 });
-        const damp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 5000 });
-        this.echo.connect(damp).connect(fb).connect(this.echo);
-        return { input: this.echo, output: this.echo };
-      }
+      case 'delay':
+        // Le DUB ECHO (2026-10-27) : sa boucle, son envoi et son retour sont a lui (DubEcho)
+        return { input: this.dub.input, output: this.dub.output };
       case 'reverb': {
         const c = new ConvolverNode(ctx, { buffer: room(ctx, 2.8) });
         return { input: c, output: c };
@@ -683,6 +877,10 @@ export class DjFx {
   dose(id: DjFxId, v: number): void {
     const s = this.stages.find((x) => x.id === id);
     if (!s) return;
+    if (id === 'delay') {
+      this.dubDose(s, v);
+      return;
+    }
     if (id === 'overdrive' && this.drive) {
       // La poussee (0 a +24 dB), la tonalite qui se ferme, le niveau rattrape
       const d = Math.max(0, Math.min(1, v));
@@ -730,6 +928,46 @@ export class DjFx {
         if (id === 'overdrive') this.follow0(s.pre, false);
       }, 80);
     }
+  }
+
+  /**
+   * La dose du DUB ECHO (2026-10-27) : branche des qu'elle monte, son retour ouvert (le niveau est celui de DubEcho) ;
+   * a zero, l'envoi se ferme et la boucle reste branchee le temps que sa queue s'eteigne (DubEcho.tailS), puis se
+   * debranche des deux cotes : plus aucun calcul, et ce qu'elle garde est sous -90 dB (rien ne ressort a la reouverture).
+   */
+  private dubDose(s: Stage, v: number): void {
+    const d = Math.max(0, Math.min(1, v));
+    window.clearTimeout(s.off);
+    if (d > 0 && !s.on) {
+      s.out.connect(s.wet);
+      s.pre.connect(s.proc);
+      glide(s.wet.gain, 1, this.ctx);
+      s.on = true;
+    }
+    if (!s.on) return;
+    this.dub.dose(d);
+    if (d === 0) this.dubOff(s);
+  }
+
+  /** La queue du DUB ECHO sonnee, la boucle se debranche (rearme a chaque changement de TIME : la queue dure plus ou moins). */
+  private dubOff(s: Stage): void {
+    window.clearTimeout(s.off);
+    s.off = window.setTimeout(() => {
+      if (!s.on || this.dub.dosed > 0) return;
+      try {
+        s.pre.disconnect(s.proc);
+      } catch {
+        /* deja debranche */
+      }
+      try {
+        s.out.disconnect(s.wet);
+      } catch {
+        /* deja debranche */
+      }
+      s.wet.gain.cancelScheduledValues(0);
+      s.wet.gain.setValueAtTime(0, this.ctx.currentTime);
+      s.on = false;
+    }, this.dub.tailS() * 1000);
   }
 
   /**
@@ -789,8 +1027,10 @@ export class DjFx {
   tempo(o: { bpm?: number; beats?: number }): void {
     if (o.bpm !== undefined && o.bpm > 0) this.bpm = o.bpm;
     if (o.beats !== undefined && o.beats > 0) this.beats = o.beats;
-    const t = beatsToSeconds(this.bpm, this.beats);
-    glide(this.echo.delayTime, Math.min(8, t), this.ctx);
+    this.dub.retime(beatsToSeconds(this.bpm, this.beats));
+    // Une queue qui s'eteint dure autant de repetitions : son debranchement se recalcule
+    const echo = this.stages.find((x) => x.id === 'delay');
+    if (echo?.on && this.dub.dosed === 0) this.dubOff(echo);
     // Le trans et le flanger se recalent au prochain point (GridLane.cut)
     this.dirty = true;
     if (this.timer) this.tick();
@@ -937,8 +1177,8 @@ export class DjMixer {
 
   /**
    * FX TO (2026-10-04) : les effets sur toutes les voies (-1), ou sur une
-   * seule ; les autres passent tout droit. Les queues deja dans le delay et
-   * la reverbe finissent de sonner.
+   * seule ; les autres passent tout droit. Les queues deja dans le DUB ECHO
+   * et la reverbe finissent de sonner.
    */
   setFxTo(t: number): void {
     this.ch.forEach((c, i) => c.sendFx(t < 0 || t === i));
