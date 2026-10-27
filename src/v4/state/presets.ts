@@ -57,6 +57,14 @@
  *   tient la liste a jour ;
  * - une liste illisible (JSON casse) est gardee a part (KEY.bad) avant d'etre
  *   remplacee.
+ *
+ * Les noms (2026-10-27, la V.4.2, Mika : "qu'on puisse nommer ses presets ! un nom d'utilisateur 4 lettres et le nom
+ * du preset jusqu'a 10 lettres") : un preset a toi s'ecrit USER/NAME (state/presetName.ts, les regles) ; SAVE prend le
+ * nom choisi (le dialogue ou les potards), OVERWRITE remplace le son d'un preset a toi sans changer sa place ni son
+ * nom, RENAME change son nom et son utilisateur. L'utilisateur de ce navigateur est retenu (USER_KEY). Les presets
+ * d'avant les noms gagnent un nom aux regles a la lecture (migrateNames : le leur s'il tient, coupe sinon, USER et un
+ * numero en dernier ; l'ancien dans was), ecrit une fois ; leurs donnees ne bougent pas. Le preset charge ou garde de
+ * chaque machine est retenu (cur, avec les sons mis de cote) : l'ecran le nomme, une etoile s'il a bouge (loaded).
  */
 
 import { INSTRUMENTS, NEUTRAL_FX, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
@@ -78,6 +86,7 @@ import { bassState, cleanLen, cleanSteps, type BassRecipe, type BassStep } from 
 import { arpFactory, bassFactory, rytmFactory } from './factory';
 import { patterns } from './patterns';
 import { analytics, track } from './analytics';
+import { cleanUser, migrateNames, presetLabel, userOk } from './presetName';
 
 export type PresetMachine = 'voy' | 'mm808' | 'bass';
 const MACHINES: readonly PresetMachine[] = ['voy', 'mm808', 'bass'];
@@ -129,7 +138,12 @@ interface RytmData {
 
 export interface Preset {
   id: string;
+  /** le nom : 1 a 10, aux regles de state/presetName.ts (2026-10-27) ; un preset d'usine : le sien, tel quel */
   name: string;
+  /** l'utilisateur, 4 caracteres (2026-10-27) ; absent : un preset d'avant les noms, il s'affiche sous celui du navigateur */
+  user?: string;
+  /** le nom d'avant la migration des noms (2026-10-27), s'il a change */
+  was?: string;
   /** Date.now() a l'enregistrement */
   at: number;
   data: VoyData | RytmData | BassData;
@@ -137,48 +151,24 @@ export interface Preset {
   factory?: boolean;
 }
 
+/** Le nom et l'utilisateur d'un SAVE ou d'un RENAME (aux regles : le mode presets les verifie, presetName.ts). */
+export interface PresetNaming {
+  user: string;
+  name: string;
+}
+
 const KEY = 'mm.v4.presets.1';
 /** Les sons mis de cote (YOUR SOUND) et l'empreinte du dernier preset charge ou garde, par machine (2026-10-11). */
 const DRAFT_KEY = 'mm.v4.presets.drafts.1';
 /** La copie de l'historique UNDO (state/undo.ts) : elle cede sa place a un SAVE quand le navigateur est plein. */
 const UNDO_KEY = 'mm.v4.undo.1';
+/** L'utilisateur de ce navigateur (2026-10-27) : 4 caracteres, demandes au premier SAVE, changes dans le dialogue. */
+const USER_KEY = 'mm.v4.presets.user.1';
 /** Les presets de Mika par machine (60 jusqu'au 2026-10-11 : le 61e effacait le plus ancien sans le dire). */
 export const PRESET_MAX = 99;
 const MAX = PRESET_MAX;
 /** Les sons mis de cote par machine (YOUR SOUND, YOUR SOUND 2, YOUR SOUND 3). */
 const DRAFTS = 3;
-
-/* ---------------- les noms ---------------- */
-
-const ADJ = [
-  'Sweaty', 'Grumpy', 'Velvet', 'Sneaky', 'Cosmic', 'Feral', 'Wobbly', 'Haunted', 'Greasy', 'Spicy',
-  'Lazy', 'Funky', 'Chunky', 'Sleepy', 'Rusty', 'Fuzzy', 'Moody', 'Cursed', 'Glitchy', 'Shiny',
-  'Rubber', 'Neon', 'Electric', 'Nervous', 'Polite', 'Angry', 'Frozen', 'Crispy', 'Soggy', 'Majestic',
-  'Suspicious', 'Tiny', 'Enormous', 'Dizzy', 'Sticky', 'Lunar', 'Toxic', 'Holy', 'Wonky', 'Buttery',
-  'Smug', 'Bouncy', 'Salty', 'Mystic', 'Analog', 'Dusty', 'Hungry', 'Rogue', 'Turbo', 'Gentle',
-  'Wild', 'Maudite', 'Disco', 'Acid', 'Lucky', 'Jazzy', 'Clumsy', 'Fancy', 'Midnight', 'Stoned',
-];
-const NOUN = [
-  'Goblin', 'Waffle', 'Pancake', 'Raccoon', 'Moose', 'Poutine', 'Lemur', 'Toaster', 'Wizard', 'Pickle',
-  'Noodle', 'Badger', 'Disco', 'Llama', 'Gremlin', 'Potato', 'Walrus', 'Banana', 'Penguin', 'Robot',
-  'Cactus', 'Dumpling', 'Hamster', 'Unicorn', 'Squid', 'Taco', 'Platypus', 'Ferret', 'Muffin', 'Beaver',
-  'Pigeon', 'Lobster', 'Sloth', 'Oyster', 'Bagel', 'Narwhal', 'Kebab', 'Yeti', 'Mango', 'Otter',
-  'Wombat', 'Croissant', 'Gecko', 'Tornado', 'Goose', 'Hippo', 'Meatball', 'Spaghetti', 'Weasel', 'Owl',
-  'Machine', 'Bassline', 'Kick', 'Snare', 'Groove', 'Wobble', 'Laser', 'Spaceship', 'Volcano', 'Jellyfish',
-];
-
-const pick = (xs: readonly string[]): string => xs[Math.floor(Math.random() * xs.length)];
-
-/** Un nom au hasard : deux mots le plus souvent, un seul une fois sur cinq ; jamais un nom deja pris. */
-export function funnyName(taken: ReadonlySet<string> = new Set()): string {
-  for (let i = 0; i < 40; i += 1) {
-    const one = Math.random() < 0.2;
-    // Un seul mot : deux noms soudes (Wafflegoblin, Moosetaco)
-    const name = one ? `${pick(NOUN)}${pick(NOUN).toLowerCase()}` : `${pick(ADJ)} ${pick(NOUN)}`;
-    if (!taken.has(name)) return name;
-  }
-  return `${pick(ADJ)} ${pick(NOUN)} ${Math.floor(Math.random() * 90 + 10)}`;
-}
 
 /* ---------------- le store ---------------- */
 
@@ -215,7 +205,10 @@ function put(key: string, value: string): 'ok' | StoreFail {
 /** Le texte illisible trouve sous KEY (JSON casse) : garde a part (KEY.bad) avant la premiere ecriture par-dessus. */
 let corrupt: string | null = null;
 
-/** Ce que le navigateur garde ; null s'il refuse de le lire. */
+/** La migration des noms a change la liste lue (2026-10-27) : elle s'ecrit une fois au chargement. */
+let renamedOnRead = false;
+
+/** Ce que le navigateur garde ; null s'il refuse de le lire. Les presets d'avant les noms en recoivent un (migrateNames). */
 function readStored(): All | null {
   let text: string | null;
   try {
@@ -226,8 +219,14 @@ function readStored(): All | null {
   if (text === null) return none();
   try {
     const raw = JSON.parse(text) as Partial<All> | null;
-    const ok = (xs: unknown): Preset[] =>
-      Array.isArray(xs) ? xs.filter((p) => p && typeof p.name === 'string' && typeof p.id === 'string' && p.data && typeof p.data === 'object').map((p) => ({ ...p, at: typeof p.at === 'number' ? p.at : 0 })).sort((a, b) => b.at - a.at) : [];
+    const ok = (xs: unknown): Preset[] => {
+      if (!Array.isArray(xs)) return [];
+      const list = xs.filter((p) => p && typeof p.name === 'string' && typeof p.id === 'string' && p.data && typeof p.data === 'object').map((p) => ({ ...p, at: typeof p.at === 'number' ? p.at : 0 })).sort((a, b) => b.at - a.at) as Preset[];
+      // Les noms (2026-10-27) : un preset d'avant en recoit un aux regles ; ses donnees ne bougent pas
+      const mig = migrateNames(list);
+      if (mig.changed) renamedOnRead = true;
+      return mig.list;
+    };
     return { voy: ok(raw?.voy), mm808: ok(raw?.mm808), bass: ok(raw?.bass) };
   } catch {
     corrupt = text;
@@ -236,8 +235,24 @@ function readStored(): All | null {
 }
 
 let all: All = typeof window === 'undefined' ? none() : (readStored() ?? none());
+// La migration des noms, ecrite une fois (2026-10-27) ; refusee (plein, bloque) : elle se refait a chaque lecture, la meme
+if (typeof window !== 'undefined' && renamedOnRead && corrupt === null) {
+  renamedOnRead = false;
+  put(KEY, JSON.stringify(all));
+}
 /** Les presets que le navigateur n'a pas pris (plein ou refuse) : ils vivent pour la visite, l'ecran le dit. */
 const unsaved = new Set<string>();
+
+/** L'utilisateur de ce navigateur (2026-10-27) ; null tant qu'il n'est pas choisi. */
+let userTag: string | null = null;
+if (typeof window !== 'undefined') {
+  try {
+    const u = window.localStorage.getItem(USER_KEY);
+    userTag = userOk(u) ? u : null;
+  } catch {
+    userTag = null;
+  }
+}
 /** Ceux effaces ici quand le navigateur n'a pas pris l'ecriture : une relecture ne les fait pas revenir. */
 const dropped = new Set<string>();
 
@@ -287,7 +302,12 @@ const listeners = new Set<() => void>();
 let bassMark: { id: string; name: string; steps: readonly BassStep[]; params: Record<string, number> } | null = null;
 
 function markBass(p: Preset): void {
-  bassMark = { id: p.id, name: p.name, steps: bassState.get().steps, params: { ...bassParams.get() } };
+  bassMark = { id: p.id, name: labelOf(p), steps: bassState.get().steps, params: { ...bassParams.get() } };
+}
+
+/** Le libelle d'un preset (2026-10-27) : MIKA/DEEP KICK, USER/HUNGRY PAN (d'avant les noms), ACID (d'usine). */
+function labelOf(p: Preset): string {
+  return presetLabel(p, userTag);
 }
 
 /* ---------------- le moteur MONARK : les sons d'avant (2026-10-09) ---------------- */
@@ -708,11 +728,18 @@ const okDraft = (m: PresetMachine, d: unknown): boolean => {
 
 let drafts: Record<PresetMachine, Draft[]> = { voy: [], mm808: [], bass: [] };
 let marks: Partial<Record<PresetMachine, Mark>> = {};
+/**
+ * Le preset charge ou garde de chaque machine, par son id (2026-10-27) : l'ecran le nomme (loaded), une etoile s'il a
+ * bouge ; SAVE propose de l'ecraser. Garde avec les sons mis de cote (une autre visite le retrouve) ; absent : aucun.
+ */
+let cur: Partial<Record<PresetMachine, string>> = {};
 
 if (typeof window !== 'undefined') {
   try {
-    const raw = JSON.parse(window.localStorage.getItem(DRAFT_KEY) ?? 'null') as { drafts?: Partial<Record<PresetMachine, unknown>>; marks?: Partial<Record<PresetMachine, unknown>> } | null;
+    const raw = JSON.parse(window.localStorage.getItem(DRAFT_KEY) ?? 'null') as { drafts?: Partial<Record<PresetMachine, unknown>>; marks?: Partial<Record<PresetMachine, unknown>>; cur?: Partial<Record<PresetMachine, unknown>> } | null;
     for (const m of MACHINES) {
+      const c = raw?.cur?.[m];
+      if (typeof c === 'string' && c) cur[m] = c;
       const xs = raw?.drafts?.[m];
       if (Array.isArray(xs)) drafts[m] = (xs as Partial<Draft>[]).filter((x): x is Draft => !!x && typeof x.id === 'string' && typeof x.at === 'number' && okDraft(m, x.data)).slice(0, DRAFTS);
       const k = raw?.marks?.[m] as Partial<Mark> | undefined;
@@ -722,13 +749,33 @@ if (typeof window !== 'undefined') {
   } catch {
     drafts = { voy: [], mm808: [], bass: [] };
     marks = {};
+    cur = {};
   }
 }
 
-/** Garde les sons mis de cote ; plein ou refuse : ils vivent pour la visite. */
+/** Garde les sons mis de cote (et le preset charge de chaque machine, 2026-10-27) ; plein ou refuse : ils vivent pour la visite. */
 function keepDrafts(): void {
-  put(DRAFT_KEY, JSON.stringify({ v: 1, drafts, marks }));
+  put(DRAFT_KEY, JSON.stringify({ v: 1, drafts, marks, cur }));
   listeners.forEach((fn) => fn());
+}
+
+/** Le preset charge ou garde de la machine devient id (null : aucun, un son qui n'est pas un preset). */
+function setCur(m: PresetMachine, id: string | null): void {
+  const next = { ...cur };
+  if (id) next[m] = id;
+  else delete next[m];
+  cur = next;
+}
+
+/** Un preset a toi ou d'usine, par son id. */
+const findPreset = (m: PresetMachine, id: string | undefined): Preset | null => (id ? (all[m].find((x) => x.id === id) ?? factoryOf(m).find((x) => x.id === id) ?? null) : null);
+
+/** Le preset charge et ce qu'on en voit : son id, son libelle (MIKA/DEEP KICK), a toi ou d'usine, retouche ou non. */
+export interface Loaded {
+  id: string;
+  label: string;
+  factory: boolean;
+  edited: boolean;
 }
 
 /** Le son de la machine n'est-il garde nulle part (ni le dernier preset charge ou garde, ni un son mis de cote) ? */
@@ -782,29 +829,52 @@ export const presets = {
     };
   },
   /**
-   * SAVE : l'etat de la machine sous un nom au hasard, en tete de la liste. kept false : le navigateur ne l'a pas
-   * pris (plein ou refuse : le preset vit pour la visite, l'ecran le dit) ; max : 99 presets deja, rien ne change
-   * (avant, le plus ancien partait sans rien dire).
+   * SAVE : l'etat de la machine, un nouveau preset sous ce nom (2026-10-27 : choisi, aux regles ; avant, un nom au
+   * hasard), en tete de la liste ; il devient le preset charge. kept false : le navigateur ne l'a pas pris (plein ou
+   * refuse : le preset vit pour la visite, l'ecran le dit) ; max : 99 presets deja, rien ne change (avant, le plus
+   * ancien partait sans rien dire).
    */
-  save(m: PresetMachine): SaveResult {
+  save(m: PresetMachine, named: PresetNaming): SaveResult {
     refresh();
     if (all[m].length >= MAX) return { preset: null, kept: false, why: 'max' };
-    const taken = new Set(all[m].map((p) => p.name));
     const data = capture(m);
     // Jamais deux fois le meme instant (deux SAVE dans la meme milliseconde : l'ordre reste celui des gestes)
     const at = Math.max(Date.now(), (all[m][0]?.at ?? 0) + 1);
-    const p: Preset = { id: `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, name: funnyName(taken), at, data };
+    const p: Preset = { id: `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, name: named.name, user: named.user, at, data };
     if (m === 'bass') markBass(p);
     const res = commit({ ...all, [m]: [p, ...all[m]] }, { id: p.id });
+    setCur(m, p.id);
     // Ce son est garde : il n'est plus un son mis de cote. Le navigateur ne l'a pas pris : il reste un son a mettre de
     // cote (le preset de la visite partira au rechargement)
     if (res === 'ok') {
       settle(m, data);
       const s = sig(m, data);
       drafts = { ...drafts, [m]: drafts[m].filter((x) => sig(m, x.data) !== s) };
-      keepDrafts();
     }
+    keepDrafts();
     return res === 'ok' ? { preset: p, kept: true } : { preset: p, kept: false, why: res };
+  },
+  /**
+   * OVERWRITE (2026-10-27) : le son du moment remplace celui d'un preset a toi ; il garde son id, sa place, son nom et
+   * son utilisateur, et devient le preset charge. null : il n'existe plus (un autre onglet l'a efface) ; sinon 'ok' ou
+   * pourquoi le navigateur ne l'a pas pris (il vaut pour la visite).
+   */
+  overwrite(m: PresetMachine, id: string): { preset: Preset; res: 'ok' | StoreFail } | null {
+    refresh();
+    const old = all[m].find((p) => p.id === id);
+    if (!old) return null;
+    const data = capture(m);
+    const p: Preset = { ...old, data };
+    if (m === 'bass') markBass(p);
+    const res = commit({ ...all, [m]: all[m].map((x) => (x.id === id ? p : x)) }, { id });
+    setCur(m, id);
+    if (res === 'ok') {
+      settle(m, data);
+      const s = sig(m, data);
+      drafts = { ...drafts, [m]: drafts[m].filter((x) => sig(m, x.data) !== s) };
+    }
+    keepDrafts();
+    return { preset: p, res };
   },
   /** Le preset vit-il seulement pour la visite (le navigateur ne l'a pas pris) ? */
   unsaved: (id: string): boolean => unsaved.has(id),
@@ -836,8 +906,17 @@ export const presets = {
       bassNote = null;
     }
     settle(m);
+    // Un son mis de cote n'est pas un preset : l'ecran ne nomme plus rien (2026-10-27)
+    setCur(m, null);
     keepDrafts();
     return d;
+  },
+  /** Oublie un son mis de cote (DEL sur sa ligne, 2026-10-27) ; false s'il n'y est plus. */
+  dropDraft(m: PresetMachine, id: string): boolean {
+    if (!drafts[m].some((x) => x.id === id)) return false;
+    drafts = { ...drafts, [m]: drafts[m].filter((x) => x.id !== id) };
+    keepDrafts();
+    return true;
   },
   /** Recharge un preset ; false s'il n'existe plus. Le son du moment, s'il n'est garde nulle part, est mis de cote. */
   load(m: PresetMachine, id: string): Preset | null {
@@ -846,6 +925,7 @@ export const presets = {
     setAside(m);
     apply(m, p.data);
     settle(m);
+    setCur(m, p.id);
     keepDrafts();
     // 2026-10-21 (audit SEO IMP4) : quel preset sert ; le nom des presets d'usine seulement (ceux de Mika ont un nom au hasard)
     track('preset_load', { machine: m === 'mm808' ? 'rytm' : m === 'voy' ? 'arp' : 'bass', factory: !!p.factory, preset: p.factory ? p.name : 'user' });
@@ -882,15 +962,62 @@ export const presets = {
       marks = next;
       keepDrafts();
     }
+    // Le preset charge s'en va : l'ecran ne le nomme plus (2026-10-27)
+    if (cur[m] === id) {
+      setCur(m, null);
+      keepDrafts();
+    }
     return commit({ ...all, [m]: all[m].filter((p) => p.id !== id) }, { id, gone: true });
   },
-  /** Un autre nom au hasard (le nom ne plait pas) ; 'ok', ou pourquoi le navigateur ne l'a pas pris. */
-  rename(m: PresetMachine, id: string): 'ok' | StoreFail {
+  /**
+   * RENAME (2026-10-27 : le nom et l'utilisateur choisis, aux regles ; avant, un autre nom au hasard) ; 'ok', ou
+   * pourquoi le navigateur ne l'a pas pris. Un preset d'usine ne se renomme pas (rien ne change).
+   */
+  rename(m: PresetMachine, id: string, named: PresetNaming): 'ok' | StoreFail {
     refresh();
-    const taken = new Set(all[m].map((p) => p.name));
-    const next = all[m].map((p) => (p.id === id ? { ...p, name: funnyName(taken) } : p));
-    if (m === 'bass' && bassMark?.id === id) bassMark = { ...bassMark, name: next.find((p) => p.id === id)?.name ?? bassMark.name };
+    const next = all[m].map((p) => (p.id === id ? { ...p, name: named.name, user: named.user } : p));
+    const p = next.find((x) => x.id === id);
+    if (m === 'bass' && p && bassMark?.id === id) bassMark = { ...bassMark, name: labelOf(p) };
     return commit({ ...all, [m]: next }, { id });
+  },
+  /** Le libelle d'un preset : MIKA/DEEP KICK, ACID (state/presetName.ts presetLabel). */
+  label: (p: Preset): string => labelOf(p),
+  /** L'utilisateur de ce navigateur (4 caracteres), null tant qu'il n'est pas choisi (2026-10-27). */
+  user: (): string | null => userTag,
+  /** Retient l'utilisateur de ce navigateur (le dialogue de SAVE et de RENAME) ; un utilisateur hors regles ne change rien. */
+  setUser(u: string): void {
+    const v = cleanUser(u);
+    if (!userOk(v) || v === userTag) return;
+    userTag = v;
+    try {
+      window.localStorage.setItem(USER_KEY, v);
+    } catch {
+      /* plein ou bloque : retenu pour la visite */
+    }
+    listeners.forEach((fn) => fn());
+  },
+  /** L'id du preset charge ou garde de la machine (2026-10-27), null : aucun (ou il n'existe plus). */
+  loadedId: (m: PresetMachine): string | null => (findPreset(m, cur[m]) ? (cur[m] ?? null) : null),
+  /**
+   * Le preset charge ou garde et ce qu'on en voit (2026-10-27, l'ecran de la machine le nomme) : son libelle, a toi ou
+   * d'usine, et edited si le son s'en est ecarte (un pas, un potard ; une chaine en lecture ne compte pas, ni ce qu'un
+   * rechargement ne garde pas) ; null : aucun preset charge.
+   */
+  loaded(m: PresetMachine): Loaded | null {
+    const p = findPreset(m, cur[m]);
+    if (!p) return null;
+    const skip = skipOf(m, true);
+    const now = sig(m, capture(m), skip);
+    const edited = now !== sig(m, p.data, skip);
+    // Le son est tel quel un son mis de cote (UNDO apres un LOAD l'a rendu) : ce n'est pas ce preset retouche
+    if (edited && drafts[m].some((d) => sig(m, d.data, skip) === now)) return null;
+    return { id: p.id, label: labelOf(p), factory: !!p.factory, edited };
+  },
+  /** Le son n'est plus celui d'un preset (un beat partage pose par-dessus, 2026-10-27) : l'ecran ne nomme plus rien. */
+  detach(m: PresetMachine): void {
+    if (!cur[m]) return;
+    setCur(m, null);
+    keepDrafts();
   },
   /**
    * Le nom du preset qui sonne tel quel : le dernier charge ou garde, rien n'a bouge depuis (ni un pas, ni un

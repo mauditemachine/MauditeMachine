@@ -102,7 +102,11 @@ import {
   dialValue,
   soundFamily,
   editToggle,
+  presetHold,
   presetKey,
+  presetTurn,
+  presetTurns,
+  PRESET_TURN_PX,
   focusMachine,
   gesture,
   muteToggle,
@@ -179,7 +183,8 @@ import { faceTouch } from '../state/ctl';
 import { lockCount } from '../audio/locks';
 import { HOME_MENU, HOME_MENU_LABEL, SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
 import { v127 } from '../rytm/values';
-import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_HOLD_MS } from '../rytm/presetKeys';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { MidiLearnLayer } from './MidiPanel';
@@ -312,6 +317,9 @@ interface Down {
   lockKey: string;
   /** un potard : la course du dernier mouvement (2026-10-27, la fonction d'un potard de la face qui change sous la main) */
   lastTravel?: number;
+  /** le mode presets du desktop (2026-10-27) : un potard tourne la liste ou le nom par crans ; d'ou part le glisser, crans deja donnes */
+  pmA?: number;
+  pmN?: number;
   /** un pas pris par TRK (2026-10-27) : sa voix choisie a l'appui, ni P-LOCK, ni velocite, ni tape au lacher */
   trk?: boolean;
   /** la touche TRK tenue par ce pointeur : sa source ('ptr:<pointerId>'), lachee au pointerup ou perdue */
@@ -476,6 +484,18 @@ const perPx = (k: DialId): number => {
 function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   if (!d.dial) return;
   const travel = d.axis === 'y' ? -dy : dx;
+  // Le mode presets du desktop (2026-10-27, rytm/presetKeys.ts) : le potard A fait defiler la liste, ou tourne la lettre
+  // (B : le curseur) ; un cran tous les PRESET_TURN_PX, rien d'autre ne bouge
+  if (d.kind === 'penc' && d.index !== undefined && presetTurns()) {
+    if (d.pmA === undefined) d.pmA = travel;
+    const n = Math.trunc((travel - d.pmA) / PRESET_TURN_PX);
+    const sent = d.pmN ?? 0;
+    if (n !== sent) {
+      d.pmN = n;
+      presetTurn(d.index, n - sent);
+    }
+    return;
+  }
   // Le LOCK a change pendant que le potard de page tourne (2026-10-08 : le pas tenu lache avant lui, ou le
   // premier verrou qui met le LOCK) : il repart de la valeur qu'il regle maintenant, sans saut
   const lk = pageKnobOf(d.dial) >= 0 ? lockKeyNow() : d.lockKey;
@@ -992,6 +1012,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
       // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran suivant, la touche s'enfonce
       else if (d.kind === 'vpush' && d.vknob) voyPush(d.vknob, stage);
+      // EDIT tenu (2026-10-27) : les presets sont deja ouverts, le lacher ne fait rien de plus
+      else if (d.kind === 'edit' && d.holdFired) return d.id;
       else if (d.kind === 'edit') editToggle('mm808', stage);
       // TRK (2026-10-27, la phase 2 : elle a agi a l'appui et au lacher), SCENE A et B, le crossfader (visibles et inertes) :
       // la tape est prise (pas de double tape du fond) et rien d'autre ne part
@@ -1353,6 +1375,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
             soundBrowserRemove(i, 'TAP');
           }, SB_HOLD_MS);
         }
+      }
+      // EDIT tenu (2026-10-27, rytm/presetKeys.ts) : les presets s'ouvrent (au desktop l'ecran ne se touche plus) ; le lacher
+      // ne fait rien de plus. Deja ouverts : la tape d'EDIT est leur EXIT (actions.ts editToggle)
+      if (h && h.kind === 'edit' && !downs.get(e.pointerId)?.info && !presetMode.on('mm808')) {
+        const pid = e.pointerId;
+        const d0 = downs.get(pid);
+        window.setTimeout(() => {
+          const d = downs.get(pid);
+          if (!d || d !== d0 || disposed || d.turning) return;
+          d.holdFired = true;
+          presetHold(stage);
+        }, PRESET_HOLD_MS);
       }
       // MUTE ou SOLO tenu (2026-10-09) : MODE_HOLD_MS sans lacher, toutes les voix reviennent (le lacher ne fait rien de plus) ;
       // INFOS allume, au doigt, la tenue lit la carte et ne rend aucune voix (revue : comme la touche du Dock)
@@ -1764,7 +1798,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         wheelAt = now;
         // Un potard de la face : la page au desktop (2026-10-27 ; le premier cran montre la page sous HOME), son FX global
         // et son popup au telephone
-        if (pencK >= 0) {
+        // Le mode presets du desktop (2026-10-27) : un cran de molette, un cran de la liste ou du nom
+        if (pencK >= 0 && presetTurns()) presetTurn(pencK, steps);
+        else if (pencK >= 0) {
           if (FACE_FOLLOWS_PAGE) revealPage();
           dialNudge(k, steps * gain, (v) => faceKnob(pencK, v, 'wheel'));
         }
@@ -2169,6 +2205,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const edOpen = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const pm808 = useSyncExternalStore(presetMode.subscribe, () => presetMode.on('mm808'), () => false);
+  // L'etape et le curseur des presets (2026-10-27) : le nom de leurs touches en suit
+  useSyncExternalStore(presetMode.subscribe, presetMode.get, presetMode.get);
   const off = VOYAGER && f !== 'mm808';
   const groupRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -2462,19 +2500,27 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     return openTwin;
   });
 
-  const presetTwins = (pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
-    <button
-      key={`lcd-${k}`}
-      ref={refFor(`lcd-${k}`)}
-      type="button"
-      className="v4-twin"
-      data-twin="lcd"
-      data-hotspot={`lcd-${k}`}
-      aria-label={PRESET_KEY_ARIA[k]}
-      onKeyDown={noRepeat}
-      onClick={() => presetKey('mm808', k)}
-    />
-  ));
+  // Les touches des presets (2026-10-27) : leur nom suit l'etape (LOAD, OVERWRITE, YES, OK...) ; une place vide reste
+  // dans la tabulation, inerte (le focus ne tombe pas quand elle se vide sous la main)
+  const presetTwins = (pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => {
+    const aria = presetMode.aria('mm808', k);
+    return (
+      <button
+        key={`lcd-${k}`}
+        ref={refFor(`lcd-${k}`)}
+        type="button"
+        className="v4-twin"
+        data-twin="lcd"
+        data-hotspot={`lcd-${k}`}
+        aria-label={aria || 'Empty key'}
+        aria-disabled={aria ? undefined : true}
+        onKeyDown={noRepeat}
+        onClick={() => {
+          if (aria) presetKey('mm808', k);
+        }}
+      />
+    );
+  });
 
   // La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol
   const infoKeyTwin = (

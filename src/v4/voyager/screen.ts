@@ -826,7 +826,8 @@ export class VoyScreen {
 
   /**
    * PRESETS, dans les bandes des zones de l'ecran (rig.ts : le haut, 72 %,
-   * gauche le precedent et droite le suivant ; le bas, quatre touches).
+   * gauche le precedent et droite le suivant ; le bas, cinq touches depuis le
+   * 2026-10-27, LOAD SAVE NAME DEL EXIT, OVERWRITE, YES, OK...).
    */
   private drawPresets(p: PresetView): void {
     const c = this.ctx;
@@ -850,7 +851,8 @@ export class VoyScreen {
     }
     const size = this.fit(p.name, 400, DESK ? 22 : 20, UW - 64, 9);
     this.txt(p.name, UW / 2, my + size * 0.35, size, INK, 400, 'center');
-    const kw = UW / 4;
+    // Cinq touches depuis le 2026-10-27 (rig.ts : leurs zones en cinquiemes)
+    const kw = UW / p.keys.length;
     const ky = band + (UH - band) / 2 + 3;
     p.keys.forEach((k, i) => {
       if (!k) return;

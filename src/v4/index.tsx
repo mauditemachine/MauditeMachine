@@ -81,6 +81,7 @@ import { SeqPanel } from './ui/SeqLane';
 import { VoyDock } from './ui/VoyDock';
 import { VoyTwins } from './ui/VoyTwins';
 import { Lcd } from './ui/Lcd';
+import { PresetNameDialog } from './ui/PresetNameDialog';
 import { Panel } from './ui/Panel';
 import { ResetView } from './ui/ResetView';
 import { Trace } from './ui/Trace';
@@ -734,6 +735,8 @@ const V4Shell: React.FC = () => {
           {/* Hors de .v4-stage : ses pointeurs n'atteignent jamais l'orbite */}
           <ResetView getStage={getStage} />
           <Lcd />
+          {/* Le nom d'un preset (2026-10-27) : le dialogue des trois machines, ouvert par SAVE, AS NEW et NAME */}
+          <PresetNameDialog mobile={mobile} />
           {/* MM-ARP ouvert : sa touche SCOPE et l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
           <Scope mobile={mobile} getStage={getStage} />
           {/* MM-BASS : la carte INFOS et sa pastille (2026-10-08), hors de .v4-stage : la pastille ne lance pas l'orbite */}

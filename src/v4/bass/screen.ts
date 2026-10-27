@@ -1990,8 +1990,8 @@ export class BassScreen {
     }
     this.text(p.name, UW / 2, my + size * 0.35, size, INK, 400, 'center');
     if (p.line) this.presetLine(p.line, P + 14, my + size * 0.35 + (PORTRAIT ? 6 : 9), UW - 2 * P - 28);
-    // Les quatre touches du bas
-    const kw = UW / 4;
+    // Les touches du bas (cinq depuis le 2026-10-27 : LOAD SAVE NAME DEL EXIT, leur nom suit l'etape)
+    const kw = UW / p.keys.length;
     p.keys.forEach((k, i) => {
       if (!k) return;
       // Au telephone (2026-10-09) : au milieu de la bande du bas, celle que le doigt touche (le quart du verre)

@@ -49,7 +49,7 @@ import { voyMsg } from './msg';
 import { PUSH_KNOB_IDS, VoyKeys } from './pads';
 import { VOY_FACE_KNOBS, VOY_TWEAKS, morphPos, stepIndex, voyParams } from './params';
 import { editor } from '../state/editor';
-import { presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_SLOTS, presetMode, type PresetKey } from '../state/presetMode';
 import { presets } from '../state/presets';
 import { voyInfos } from '../state/voyInfos';
 import { seq } from './seq';
@@ -229,7 +229,8 @@ export class VoyagerRig {
       lcdBox('open', 0, 1, 0, 1),
       lcdBox('prev', 0, 0.5, 0, band),
       lcdBox('next', 0.5, 1, 0, band),
-      ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => lcdBox(k, i / 4, (i + 1) / 4, band, 1)),
+      // Cinq touches depuis le 2026-10-27 (LOAD SAVE NAME DEL EXIT, leur nom suit l'etape) : des cinquiemes
+      ...PRESET_SLOTS.map((k, i) => lcdBox(k, i / 5, (i + 1) / 5, band, 1)),
     ];
     // La touche i du grand ecran (2026-10-08) : un disque sur son coin, un peu plus haut que l'ecran (il passe devant vlcd-open)
     const infoDef: HotspotDef = {

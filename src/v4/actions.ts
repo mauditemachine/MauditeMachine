@@ -35,6 +35,8 @@ import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { editor, type EditorId } from './state/editor';
 import { patterns, slotName } from './state/patterns';
 import { presetMode, type PresetKey } from './state/presetMode';
+import { softSlotOf } from './rytm/presetKeys';
+import type { FpButtonId } from './rytm/faceplate';
 import { undo } from './state/undo';
 import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
@@ -1232,8 +1234,31 @@ export function revealPage(): boolean {
 // Les cartes INFOS d'un potard de la face (rytm/infoIds.ts, pur) : le bloc qu'il tourne sur l'ecran affiche
 setKnobResolver(knobBlock);
 
+/**
+ * Le mode presets du desktop (2026-10-27) : une valeur absolue (MIDI, le potard motorise) devient des crans, un tous les
+ * 1/PRESET_MIDI_STEPS de la course depuis la valeur d'avant du meme potard (la premiere ne fait que se poser).
+ */
+const PRESET_MIDI_STEPS = 24;
+const presetAbs: { u: (number | undefined)[]; acc: number[] } = { u: [], acc: [] };
+function presetAbsTurn(k: number, v: number): void {
+  const [lo, hi] = dialRange(knobDialOf(k));
+  const u = (v - lo) / (hi - lo || 1);
+  const prev = presetAbs.u[k];
+  presetAbs.u[k] = u;
+  if (prev === undefined) return;
+  const acc = (presetAbs.acc[k] ?? 0) + (u - prev) * PRESET_MIDI_STEPS;
+  const n = Math.trunc(acc);
+  presetAbs.acc[k] = acc - n;
+  if (n) presetTurn(k, n);
+}
+
 /** Le potard de page k tourne (rytm:knob, la face, phase 3 le potard motorise) : la page se montre, puis le bloc. */
 export function knobDial(k: number, v: number, src: CtlSrc = 'ui'): void {
+  // Le mode presets du desktop (2026-10-27) : le potard tourne la liste ou le nom, la page ne bouge pas
+  if (presetTurns()) {
+    presetAbsTurn(k, v);
+    return;
+  }
   faceTouch.turn(k, src);
   revealPage();
   anyDial(knobDialOf(k), v);
@@ -1385,11 +1410,9 @@ export function escape(): boolean {
     section.set(null);
     return true;
   }
-  // Le mode presets d'abord, puis un editeur ouvert (EDIT)
-  if (presetMode.get().machine) {
-    presetMode.close();
-    return true;
-  }
+  // Le mode presets d'abord (2026-10-27 : un cran en arriere, le nom, OVERWRITE / AS NEW et DELETE? reviennent a la
+  // liste, la liste se ferme), puis un editeur ouvert (EDIT)
+  if (presetMode.get().machine) return presetMode.back();
   // Le navigateur des sons (2026-10-18) : par-dessus l'ecran (le P-LOCK compris), Echap le ferme d'abord
   if (lcdSamples.isOpen()) {
     lcdSamples.close();
@@ -1543,12 +1566,64 @@ export function voyRandom(stage: Stage | null = null): void {
   voyMsg.show(`RANDOM ${r.style}`);
 }
 
+/**
+ * Le mode presets du desktop du MM-RYTM (2026-10-27, la V.4.2, rytm/presetKeys.ts) : l'ecran ne se touche plus, la
+ * face fait tout. EDIT tenu les ouvre (presetHold) ; les cinq touches sous l'ecran apres TRK (VOICE FLTR ENV FX EDIT)
+ * sont les siennes (presetSoftKey) ; les potards A et B tournent la liste ou le nom (presetTurn). Le telephone garde son
+ * ecran a toucher et ses touches de page.
+ */
+export const presetTurns = (): boolean => !PORTRAIT && presetMode.on('mm808');
+/** Un cran d'un potard de la face en mode presets : tous les PRESET_TURN_PX de glisser. */
+export const PRESET_TURN_PX = 14;
+
+/** EDIT tenu (2026-10-27) : les presets du MM-RYTM s'ouvrent, la touche s'enfonce. */
+export function presetHold(stage: Stage | null = null): void {
+  stage?.pressRytmPad('edit');
+  presetKey('mm808', 'open');
+}
+
+/** Un potard de la face tourne de d crans pendant le mode presets du desktop ; true s'il a servi. */
+export function presetTurn(k: number, d: number): boolean {
+  if (!presetTurns()) return false;
+  gesture();
+  return presetMode.turn('mm808', k, d);
+}
+
+/**
+ * Une touche de la face sous l'ecran pendant le mode presets du desktop : la touche de l'ecran au-dessus d'elle (LOAD,
+ * SAVE, NAME, DEL, EXIT ; OVERWRITE, YES, OK...) ; true si elle l'a ete (sa page, son EDIT, ne partent pas).
+ */
+function presetSoftKey(id: FpButtonId, press: () => void): boolean {
+  if (!presetTurns()) return false;
+  const slot = softSlotOf(id);
+  if (!slot) return false;
+  press();
+  presetKey('mm808', slot);
+  return true;
+}
+
+/** Entree en mode presets (2026-10-27, le clavier) : LOAD sur la liste, OK sur le nom ; rien aux questions (OVERWRITE, DELETE?). */
+export function presetEnter(m: PresetMachine): void {
+  const st = presetMode.get().stage;
+  if (st === 'browse') presetKey(m, 'load');
+  else if (st === 'name') {
+    gesture();
+    presetMode.nameOk(m);
+  }
+}
+
 /** Une touche de l'ecran en mode presets (state/presetMode.ts), ou l'ecran touche au repos (open). */
 export function presetKey(m: PresetMachine, k: PresetKey): void {
   gesture();
+  // Les potards absolus (MIDI) repartent de leur prochaine valeur a chaque ouverture
+  if (k === 'open') {
+    presetAbs.u = [];
+    presetAbs.acc = [];
+  }
   // UNDO (2026-10-11, Mika : "j'ai du passer un preset nouveau.. je voulais revenir en arriere") : le geste d'avant se
-  // ferme ; PREV et NEXT chargent un preset, son etape a lui (des presets parcourus a la suite : une seule)
-  undo.boundary(m, k === 'prev' || k === 'next' ? 'preset' : undefined);
+  // ferme ; LOAD charge un preset (2026-10-27 : PREV et NEXT ne chargent plus, ils deplacent le curseur), son etape a
+  // lui (des presets charges a la suite : une seule)
+  undo.boundary(m, presetMode.loads(m, k) ? 'preset' : undefined);
   presetMode.key(m, k);
 }
 
@@ -1559,6 +1634,8 @@ export function presetKey(m: PresetMachine, k: PresetKey): void {
  * l'ecran le dit.
  */
 export function editToggle(which: EditorId, stage: Stage | null = null): void {
+  // Le mode presets du desktop (2026-10-27) : EDIT est sa touche EXIT (ou CANCEL, NO), l'editeur ne s'ouvre pas
+  if (which === 'mm808' && presetSoftKey('edit', () => stage?.pressRytmPad('edit'))) return;
   gesture();
   editor.toggle(which);
   const on = editor.get() === which;
@@ -2540,6 +2617,8 @@ function leaveRytmOverlay(): boolean {
  * jamais HOME (l'ecran reste aux blocs). La touche s'enfonce.
  */
 export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
+  // Le mode presets du desktop (2026-10-27) : VOICE FLTR ENV FX sont ses touches LOAD SAVE NAME DEL (selon l'etape)
+  if (presetSoftKey(id, () => stage?.pressPageKey(id))) return;
   resume();
   stage?.pressPageKey(id);
   const inst = pattern.get().instrument;

@@ -100,7 +100,7 @@ import { bassExplode } from '../state/explode';
 import { APPEARANCE, PCB_TURN, PORTRAIT } from '../theme';
 import { pattern } from '../audio/pattern';
 import { editor } from '../state/editor';
-import { presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_SLOTS, presetMode, type PresetKey } from '../state/presetMode';
 import { presets } from '../state/presets';
 import { TOP_M, bezel, dc, partDj, power, rca, roundSlab, usb, wedge } from '../dj/body';
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
@@ -722,7 +722,7 @@ export class BassRig {
     const hr = this.screen.headRect();
     // PRESETS sur la part des vues (2026-10-09, le soir : la bande des touches du pas reste dessous)
     const mv = this.screen.mainV();
-    const lcd = [box('open', hr.u0, hr.u1, hr.v0, hr.v1), box('prev', 0, 0.5, 0, band * mv), box('next', 0.5, 1, 0, band * mv), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band * mv, mv))];
+    const lcd = [box('open', hr.u0, hr.u1, hr.v0, hr.v1), box('prev', 0, 0.5, 0, band * mv), box('next', 0.5, 1, 0, band * mv), ...PRESET_SLOTS.map((k, i) => box(k, i / 5, (i + 1) / 5, band * mv, mv))];
     // Le reste du verre (la bande des pas, la ligne du bas ; en EDIT, le rouleau a la place des blocs) : des zones qui
     // ne font rien, sinon le geste passerait a la scene (l'orbite) ; elles ne chevauchent aucune zone allumee
     const lo = this.screen.lowRect();

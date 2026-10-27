@@ -36,7 +36,9 @@
  * console.log : index.html filtre la console.
  */
 
-import { knobBlock, openToggle } from './actions';
+import { knobBlock, openToggle, presetHold, presetKey, presetTurn } from './actions';
+import { presets, type PresetMachine } from './state/presets';
+import { presetMode, type PresetView } from './state/presetMode';
 import { faceKnobs } from './rytm/faceKnobs';
 import { trk, trkDebug } from './state/trk';
 import { allBindings, sceneRole, type SceneBinding, type SceneRole } from './rytm/sceneParams';
@@ -300,6 +302,18 @@ export interface V4Debug {
   };
   /** Les evenements GA4 de la visite (state/analytics.ts : nom, parametres, envoye ou non). */
   readonly analytics: ReturnType<typeof analytics.log>;
+  /**
+   * Les presets (2026-10-27, la V.4.2) : store (state/presets.ts), mode (state/presetMode.ts), key (la touche, comme son
+   * jumeau ou la face), turn (un potard de la face du desktop, en crans), view (ce que l'ecran montre), hold (EDIT tenu).
+   */
+  readonly presets: {
+    store: typeof presets;
+    mode: typeof presetMode;
+    key: typeof presetKey;
+    turn: typeof presetTurn;
+    hold: () => void;
+    view: (m: PresetMachine) => PresetView | null;
+  };
 }
 
 const NO_STATS: StageStats = {
@@ -519,6 +533,7 @@ export function installDebug(src: DebugSource): () => void {
     },
     undo,
     share: { now: beatNow, code: () => encodeBeat(beatNow().beat), decode: decodeBeat, data: dataOfBeat },
+    presets: { store: presets, mode: presetMode, key: presetKey, turn: presetTurn, hold: () => presetHold(src.stage()), view: (m) => presetMode.view(m) },
     get analytics() {
       return analytics.log();
     },

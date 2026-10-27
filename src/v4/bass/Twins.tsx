@@ -35,7 +35,7 @@ import { editor } from '../state/editor';
 import { bassExplode } from '../state/explode';
 import { bassInfos } from '../state/bassInfos';
 import { focus } from '../state/focus';
-import { PRESET_KEYS_OFF, PRESET_KEYS_ON, PRESET_KEY_ARIA, presetMode } from '../state/presetMode';
+import { PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode } from '../state/presetMode';
 import { presetKey } from '../actions';
 import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassGenBack, bassKnobValue, bassLockTap, bassScreenSet, bassStepTap, noteName } from './actions';
 import { GEN_HOLD_MS, bassKeyAction } from './gestures';
@@ -439,6 +439,8 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       })}
       {(pm.machine === 'bass' ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => {
         const id = bassLcdId(k);
+        // Le nom de la touche suit l'etape des presets (2026-10-27) ; une place vide reste, inerte
+        const aria = presetMode.aria('bass', k);
         return (
           <button
             key={id}
@@ -447,8 +449,11 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             className="v4-twin"
             data-twin="basslcd"
             data-hotspot={id}
-            aria-label={PRESET_KEY_ARIA[k]}
-            onClick={() => presetKey('bass', k)}
+            aria-label={aria || 'Empty key'}
+            aria-disabled={aria ? undefined : true}
+            onClick={() => {
+              if (aria) presetKey('bass', k);
+            }}
           />
         );
       })}
