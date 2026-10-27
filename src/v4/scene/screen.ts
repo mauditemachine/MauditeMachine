@@ -426,9 +426,11 @@ interface PanelArea {
 const MATRIX: { x0: number; pitch: number; w: number; h: number; rows: readonly [number, number]; r: number } = TALL
   ? { x0: 8, pitch: 76, w: 72, h: 52.5 + GROW / 2, rows: [24, 24 + 52.5 + GROW / 2 + 3], r: 4.5 }
   : { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 };
-// valueW au telephone 39 (revue du 2026-10-09 : 127 touchait le dessin a 42 ; a trois chiffres la valeur prend le corps d'en dessous)
+// valueW au telephone 39 (revue du 2026-10-09 : 127 touchait le dessin a 42 ; a trois chiffres la valeur prend le corps d'en dessous).
+// L'ecran 5:3 (la revue du 2026-10-27) : le bas du dessin a 37 + 0.3 GROW (47.2), l'air du telephone au-dessus de la
+// ligne d'unite (57.5) ; a 0.6 GROW il descendait jusqu'a elle, sur FROM TOP, BOTH et l'unite de MIX
 const BLOCK: { padX: number; valueW: number; draw: { dx0: number; dx1: number; dy0: number; dy1: number } } = TALL
-  ? { padX: 6, valueW: 39, draw: { dx0: 49, dx1: 67, dy0: 20 + GROW * 0.2, dy1: 37 + GROW * 0.6 } }
+  ? { padX: 6, valueW: 39, draw: { dx0: 49, dx1: 67, dy0: 20 + GROW * 0.2, dy1: 37 + GROW * 0.3 } }
   : {
       padX: 5,
       /** la largeur de la valeur avant l'image */
