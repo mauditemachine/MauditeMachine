@@ -309,7 +309,9 @@ export class Encoders {
       const K = PAGE_KNOBS;
       return { id: `penc-${k}`, kind: 'penc', layer, shape: 'box', x: p.x, z: p.z - K.hitUp + K.hitD / 2, hx: K.hitW / 2, hz: K.hitD / 2, y0: 0, y1: 0.02, enabled: true, index: k };
     }
-    return { id: `penc-${k}`, kind: 'penc', layer, shape: 'disc', x: p.x, z: p.z, hx: ENCODER.r * p.s, hz: ENCODER.r * p.s, y0: 0, y1: ENCODER.h * p.s, enabled: true, index: k };
+    // La face V.4.0 du desktop (2026-10-27) : le disque du potard et de son anneau (PAGE_KNOBS.hitR, 28 mm)
+    const r = PAGE_KNOBS.hitR > 0 ? PAGE_KNOBS.hitR : ENCODER.r * p.s;
+    return { id: `penc-${k}`, kind: 'penc', layer, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: ENCODER.h * p.s, enabled: true, index: k };
   }
 
   info(): EncodersInfo {

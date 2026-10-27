@@ -726,27 +726,48 @@ export const isBipolar = (id: EncId): boolean => BIPOLAR.includes(id);
  * voiceScale : l'echelle de l'ancienne rangee VOICE (partie de la face le
  * 2026-10-08), gardee pour le repli SVG d'avant.
  */
-export const ENCODER = {
-  r: 0.27,
-  rTop: 0.256,
-  h: 0.42,
-  /** rayon de mise en page a la base (libelles, crochets) */
-  collar: { r: 0.32, h: 0.025 },
-  /** jupe d'aluminium (2026-10-03, celle des potards du MM-VOYAGER) : un filet fin, biseaute */
-  skirt: { r: 0.298, rTop: 0.287, h: 0.04 },
-  mark: { w: 0.036, h: 0.012, d: 0.18 },
-  /**
-   * 2026-10-22 (audit, les potards du RYTM etaient les plus pauvres de la table : un cylindre noir lisse) : un chanfrein
-   * en haut (chamfer, un peu plus clair : il accroche la lumiere) et des cannelures sur le flanc, comme le MM-ARP
-   * (flutes, leur creux fluteDepth) ; assez de segments pour elles (trois par cannelure au desktop)
-   */
-  chamfer: 0.026,
-  chamferGain: 3.4,
-  flutes: 20,
-  fluteDepth: 0.008,
-  segments: { desktop: 60, mobile: 40 },
-  voiceScale: 0.85,
-} as const;
+/*
+ * La face V.4.0 du desktop (2026-10-27, Mika : "8 potards de 28 au pas de 32, chacun son anneau de valeur") : 28 mm est
+ * la place du potard et de son anneau (KNOB_RING de 23.2 a 27.2) ; le capuchon (proposition, rytm/faceplate.ts
+ * knobs.cap) fait 17 mm en bas, 16 en haut, 8 de haut : vu a l'arrivee (69 deg), sa silhouette ne cache jamais l'anneau
+ * (0.4 + 0.4 / tan 69 = 0.554 < 0.58). Le telephone garde les siens.
+ */
+export const ENCODER = PORTRAIT
+  ? ({
+      r: 0.27,
+      rTop: 0.256,
+      h: 0.42,
+      /** rayon de mise en page a la base (libelles, crochets) */
+      collar: { r: 0.32, h: 0.025 },
+      /** jupe d'aluminium (2026-10-03, celle des potards du MM-VOYAGER) : un filet fin, biseaute */
+      skirt: { r: 0.298, rTop: 0.287, h: 0.04 },
+      mark: { w: 0.036, h: 0.012, d: 0.18 },
+      /**
+       * 2026-10-22 (audit, les potards du RYTM etaient les plus pauvres de la table : un cylindre noir lisse) : un chanfrein
+       * en haut (chamfer, un peu plus clair : il accroche la lumiere) et des cannelures sur le flanc, comme le MM-ARP
+       * (flutes, leur creux fluteDepth) ; assez de segments pour elles (trois par cannelure au desktop)
+       */
+      chamfer: 0.026,
+      chamferGain: 3.4,
+      flutes: 20,
+      fluteDepth: 0.008,
+      segments: { desktop: 60, mobile: 40 },
+      voiceScale: 0.85,
+    } as const)
+  : ({
+      r: fpU(RYTM_FACEPLATE.knobs.cap.d / 2),
+      rTop: fpU(RYTM_FACEPLATE.knobs.cap.top / 2),
+      h: fpU(RYTM_FACEPLATE.knobs.cap.h),
+      collar: { r: fpU(RYTM_FACEPLATE.knobs.skirt.d / 2), h: 0.025 },
+      skirt: { r: fpU(RYTM_FACEPLATE.knobs.skirt.d / 2), rTop: 0.45, h: fpU(RYTM_FACEPLATE.knobs.skirt.h) },
+      mark: { w: 0.05, h: 0.012, d: 0.3 },
+      chamfer: 0.04,
+      chamferGain: 3.4,
+      flutes: 28,
+      fluteDepth: 0.012,
+      segments: { desktop: 84, mobile: 56 },
+      voiceScale: 0.85,
+    } as const);
 
 /**
  * L'anneau de valeur des potards de la face V.4.0 (2026-10-27, Mika : "chaque potard a un anneau de valeur, la machine
@@ -1287,9 +1308,26 @@ export const GLOBAL_FX_RULE = PORTRAIT
  * toute la colonne en largeur), la premiere 0.72 sous le filet.
  */
 // cap au telephone 0.088 -> 0.1 (2026-10-22, audit SB-06 : 3.6 px de capitale, sous la moitie des 11 pt d'Apple)
+/*
+ * La face V.4.0 du desktop (2026-10-27, Mika : "8 potards en 2 x 4, diametre 28, pas de 32, centres x 134 166 198 230,
+ * y 24 et 56") : deux rangees de quatre a droite de l'ecran (rytm/faceplate.ts knobs), l'echelle 1, le nom a 6 h dans
+ * la fente de l'anneau (nameDz 12.6 mm sous le centre, labelW la corde de la fente) ; hitR le rayon de la zone (le
+ * potard et son anneau). Le telephone garde les siens (hitR 0, labelW sa colonne moins 0.2, comme avant).
+ */
 export const PAGE_KNOBS = PORTRAIT
-  ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78 } as const)
-  : ({ rowZ: [GLOBAL_FX_RULE.z + 0.6, GLOBAL_FX_RULE.z + 0.6], s: 0.85, pitch: 0.66, cap: 0.065, nameDz: -0.39, hitD: 0, hitUp: 0, hitW: 0 } as const);
+  ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78, hitR: 0, labelW: 1.78 - 0.2 } as const)
+  : ({
+      rowZ: [fpZ(RYTM_FACEPLATE.knobs.cy[0]), fpZ(RYTM_FACEPLATE.knobs.cy[1])],
+      s: 1,
+      pitch: fpU(RYTM_FACEPLATE.knobs.pitch),
+      cap: fpU(RYTM_FACEPLATE.knobs.label.cap),
+      nameDz: fpU(RYTM_FACEPLATE.knobs.label.r),
+      hitD: 0,
+      hitUp: 0,
+      hitW: 0,
+      hitR: fpU(RYTM_FACEPLATE.knobs.d / 2) - 0.02,
+      labelW: 0.8,
+    } as const);
 
 /**
  * x de l'encodeur k (0 a 7). Desktop : une rangee de huit centree sous le verre
@@ -1297,13 +1335,14 @@ export const PAGE_KNOBS = PORTRAIT
  * k % 4, sous la touche de page du meme rang (pageKeyX).
  */
 export const pageKnobX = (k: number): number => {
-  if (!PORTRAIT) return OLED.x + (k - 3.5) * PAGE_KNOBS.pitch;
+  // La face V.4.0 du desktop (2026-10-27) : la colonne k % 4 de la grille de Mika
+  if (!PORTRAIT) return fpX(RYTM_FACEPLATE.knobs.cx[k % 4]);
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS_PHONE_W / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS_PHONE_W / 2;
   return x0 + ((x1 - x0) * (k % 4)) / 3;
 };
-/** La rangee de l'encodeur k : la seule au desktop, k / 4 au telephone. */
-const pageKnobRow = (k: number): number => (PORTRAIT ? k >> 2 : 0);
+/** La rangee de l'encodeur k : k / 4 (au desktop aussi depuis la face V.4.0, 2026-10-27 ; une seule avant). */
+const pageKnobRow = (k: number): number => k >> 2;
 
 /**
  * Les huit encodeurs de la face, a poste fixe depuis le 2026-10-09 (l'etape
@@ -1891,7 +1930,8 @@ export const SILK_TEXTS: readonly SilkText[] = [
     x: k.x,
     z: k.labelZ,
     cap: PAGE_KNOBS.cap,
-    maxW: PORTRAIT ? PAGE_KNOBS.hitW - 0.2 : PAGE_KNOBS.pitch - 0.05,
+    // La face V.4.0 du desktop (2026-10-27) : la corde de la fente de l'anneau (labelW) ; au telephone, sa colonne, comme avant
+    maxW: PAGE_KNOBS.labelW,
     group: 'genc',
     weight: 700,
     // 0.8 -> 0.9 (2026-10-22, audit SB-06)

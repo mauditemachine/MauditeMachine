@@ -737,7 +737,8 @@ export class Stage {
     this.faceKeys = PORTRAIT ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
     // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs
     this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas });
-    this.encoders = new Encoders({ mobile, castShadow: !mobile });
+    // L'anneau de valeur de chaque potard (2026-10-27, la face V.4.0 du desktop)
+    this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT });
     // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09
     this.pageKeys = new RytmPageKeys({ mobile, atlas: this.keyAtlas });
     // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi
