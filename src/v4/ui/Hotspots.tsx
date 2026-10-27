@@ -380,6 +380,15 @@ function wheelGain(dt: number, fine: boolean): number {
 /** Une tape sur un bloc ou un encodeur ne compte que si l'appui a dure moins que ca (69-common2 point 1 : un glisser rapide n'en est pas une). */
 const TAP_MAX_MS = 320;
 
+/**
+ * Le temps tenu depuis le pointerdown : l'horodatage de l'evenement en cours (le pointerup) moins celui de l'appui, sinon
+ * l'horloge des gestionnaires (2026-10-27, la revue).
+ */
+function pressSince(d: { t: number; ts: number }): number {
+  const up = typeof window !== 'undefined' ? (window as { event?: Event }).event?.timeStamp : undefined;
+  return typeof up === 'number' && up > 0 && up >= d.ts ? up - d.ts : performance.now() - d.t;
+}
+
 /** Au doigt, une ligne du navigateur des sons tenue ce temps (un sample de ce navigateur) : REMOVE? TAP AGAIN (2026-10-18). */
 const SB_HOLD_MS = 600;
 
@@ -1024,7 +1033,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
       else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
       else if (d.kind === 'pkey' && d.rpage && isRytmPage(d.rpage)) rytmPageKey(d.rpage, stage);
-      else if (d.dial) tapDial(d.dial, performance.now() - d.t, d.kind === 'penc' && d.index !== undefined ? d.index : -1, d.kind === 'rdial');
+      // La tenue d'un potard d'un evenement a l'autre (2026-10-27, la revue : performance.now() lu dans les gestionnaires
+      // comptait le fil pris par le premier geste, l'audio qui demarre, et la premiere tape passait pour un appui long)
+      else if (d.dial) tapDial(d.dial, pressSince(d), d.kind === 'penc' && d.index !== undefined ? d.index : -1, d.kind === 'rdial');
       else return null;
       return d.id;
     };
@@ -1203,8 +1214,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Chaque pointeur est capture : un glisser continue d'orbiter hors du canvas
       capture(e.pointerId);
       const h = pickAt(e, isCoarse(e));
-      // MIDI LEARN (2026-10-05) : la commande touchee attend le message du controleur ; elle ne joue pas
-      const learnId = h && midi.get().learn ? targetIdOfHotspot(h) : null;
+      // MIDI LEARN (2026-10-05) : la commande touchee attend le message du controleur ; elle ne joue pas. L'ecran intouchable
+      // du desktop s'apprend quand meme au clic (2026-10-27, la revue : MASTER, TEMPO, le i et les onglets n'avaient plus
+      // que la liste du panneau MIDI)
+      const learning = midi.get().learn;
+      const hl = learning && !SCREEN_TOUCH ? stage.hit.pick(e.clientX - rect.left, e.clientY - rect.top, isCoarse(e), true) : h;
+      const learnId = hl && learning ? targetIdOfHotspot(hl) : null;
       if (learnId) {
         learnPick(learnId);
         try {
@@ -2571,7 +2586,13 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           data-hotspot={id}
           role="slider"
           tabIndex={0}
-          aria-label={`${enc.aria}, on the screen: drag up or down, double tap for ${tempo ? '130 BPM' : 'its default'}`}
+          aria-label={
+            // Le desktop (V.4.2, 2026-10-27) : l'ecran ne se touche plus, MASTER et TEMPO sont les potards A et B de la page
+            // MASTER ; le telephone garde son texte
+            SCREEN_TOUCH
+              ? `${enc.aria}, on the screen: drag up or down, double tap for ${tempo ? '130 BPM' : 'its default'}`
+              : `${enc.aria}: knob ${tempo ? 'B' : 'A'} of the MASTER page (press FX three times), or the arrow keys here`
+          }
           aria-orientation="vertical"
           aria-valuemin={tempo ? BPM.min : 0}
           aria-valuemax={tempo ? BPM.max : 100}
