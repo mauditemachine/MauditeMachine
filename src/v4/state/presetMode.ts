@@ -39,7 +39,7 @@ import { BASS_SCALES, BASS_STYLES, SCALE_TONES, stepOf } from '../bass/params';
 import { cleanSteps } from '../bass/state';
 import { focus } from './focus';
 import { PRESET_MAX, presets, type Draft, type Preset, type PresetMachine, type StoreFail } from './presets';
-import { draftLine, draftResult, moveCursor, nameOk, nextName, suggestName, turnChar, typeChars, NAME_MAX, USER_LEN, type NameDraft } from './presetName';
+import { draftLine, draftResult, moveCursor, nameOk, nextName, suggestName, turnChar, typeChars, userOk, NAME_MAX, NAME_TAKEN, USER_LEN, type NameDraft } from './presetName';
 
 /**
  * Le style d'un preset d'usine du MM-BASS (2026-10-09 : 35 presets ranges par style, Mika : "une bonne grosse
@@ -112,6 +112,8 @@ export interface PresetNamingState {
   problem: string;
   /** l'utilisateur n'a jamais ete choisi dans ce navigateur : le dialogue le demande d'abord */
   askUser: boolean;
+  /** le nom d'avant la migration des noms du preset renomme (Gentle Jellyfish) ; '' sinon (le dialogue le montre) */
+  was: string;
 }
 
 interface ModeState {
@@ -229,6 +231,11 @@ function rowLabel(r: Row): string {
   return presets.label(r.preset);
 }
 const rowId = (r: Row): string | null => (r.kind === 'draft' ? r.draft.id : r.kind === 'none' ? null : r.preset.id);
+/** Le libelle lu d'une ligne : un preset migre dit aussi son nom d'avant (2026-10-27, la revue : was n'etait montre nulle part). */
+function rowAria(r: Row): string {
+  const lab = rowLabel(r);
+  return r.kind === 'user' && r.preset.was ? `${lab} (was ${r.preset.was})` : lab;
+}
 
 const listeners = new Set<() => void>();
 let idle = 0;
@@ -274,15 +281,15 @@ const browse = (over: Partial<ModeState> = {}): ModeState => ({ ...state, stage:
 /** Les noms deja pris par les presets a toi de la machine. */
 const takenNames = (m: PresetMachine): Set<string> => new Set(presets.of(m).map((p) => p.name));
 
-/** Le nom commence : un nouveau preset (base : le nom propose) ou celui qu'on renomme. */
-function startNaming(m: PresetMachine, kind: 'new' | 'rename', id: string | null, base: string, user: string | null): void {
+/** Le nom commence : un nouveau preset (base : le nom propose) ou celui qu'on renomme (was : son nom d'avant la migration). */
+function startNaming(m: PresetMachine, kind: 'new' | 'rename', id: string | null, base: string, user: string | null, was = ''): void {
   const known = presets.user();
   const u = typeChars(user ?? known ?? '', USER_LEN);
   const name = typeChars(base, NAME_MAX);
   const askUser = !known;
   // Le curseur du potard B : sur l'utilisateur s'il manque, sinon au bout du nom
   const cursor = u.length < USER_LEN ? u.length : Math.min(USER_LEN + NAME_MAX - 1, USER_LEN + name.length);
-  commit({ ...state, stage: 'name', naming: { kind, id, draft: { user: u, name, cursor }, problem: '', askUser }, note: '' });
+  commit({ ...state, stage: 'name', naming: { kind, id, draft: { user: u, name, cursor }, problem: '', askUser, was }, note: '' });
 }
 
 /** Le texte de l'ecran en mode presets (20 colonnes ou plus, selon l'ecran). */
@@ -332,7 +339,7 @@ interface Slot {
 }
 function slotsOf(m: PresetMachine): Partial<Record<PresetSlot, Slot>> {
   const r = rowAt(m, clampIndex(m, state.index));
-  const lab = rowLabel(r);
+  const lab = rowAria(r);
   if (state.stage === 'choice') {
     const l = presets.loaded(m);
     const what = l?.label ?? lab;
@@ -507,7 +514,7 @@ export const presetMode = {
       }
       case 'rename': {
         if (r.kind !== 'user') return;
-        startNaming(m, 'rename', r.preset.id, r.preset.name, r.preset.user ?? null);
+        startNaming(m, 'rename', r.preset.id, r.preset.name, r.preset.user ?? null, r.preset.was ?? '');
         return;
       }
       case 'delete':
@@ -577,8 +584,9 @@ export const presetMode = {
   setName(m: PresetMachine, user: string, name: string, cursor?: number): void {
     if (state.machine !== m || state.stage !== 'name' || !state.naming) return;
     touch();
-    const u = typeChars(user, USER_LEN);
-    const n = typeChars(name, NAME_MAX);
+    // Deux espaces de suite fondus a la frappe (2026-10-27, la revue : le champ, son compte et le nom garde concordent)
+    const u = typeChars(user, USER_LEN).replace(/ {2,}/g, ' ');
+    const n = typeChars(name, NAME_MAX).replace(/ {2,}/g, ' ');
     const c = cursor === undefined ? state.naming.draft.cursor : Math.max(0, Math.min(USER_LEN + NAME_MAX - 1, cursor));
     if (u === state.naming.draft.user && n === state.naming.draft.name && c === state.naming.draft.cursor) return;
     commit({ ...state, naming: { ...state.naming, draft: { user: u, name: n, cursor: c }, problem: '' } });
@@ -590,6 +598,13 @@ export const presetMode = {
     const r = draftResult(nm.draft);
     if (r.problem || !nameOk(r.name)) {
       commit({ ...state, naming: { ...nm, problem: r.problem || 'NAME: 1 TO 10 CHARACTERS' } });
+      return;
+    }
+    // Jamais deux presets au meme USER/NAME sur une machine (2026-10-27, la revue : deux MIKA/TWO, sans un mot) ; un preset
+    // d'avant les noms est sous l'utilisateur du navigateur, ou sous celui-ci s'il est le premier choisi (presets.setUser)
+    const who = presets.user() ?? r.user;
+    if (presets.of(m).some((p) => p.id !== nm.id && p.name === r.name && (userOk(p.user) ? p.user : who) === r.user)) {
+      commit({ ...state, naming: { ...nm, problem: NAME_TAKEN } });
       return;
     }
     // L'utilisateur est retenu par ce navigateur : celui d'un nouveau preset, ou le premier jamais choisi

@@ -617,7 +617,9 @@ export class Sequencer3D {
     if (this.trkView) {
       const fl = this.flashLv[j];
       const G = TRK_FLASH.glow;
-      for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(o[c] * k * f + G[c] * k * fl, STEP_PRESS.glow[c] * this.keyPress[j]);
+      // L'eclair de la machine claire : son echelle a lui (TRK_FLASH.lightGlow), la sienne sur la noire
+      const kf = KEY_LIT_LIGHT.tint ? TRK_FLASH.lightGlow : k;
+      for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(o[c] * k * f + G[c] * kf * fl, STEP_PRESS.glow[c] * this.keyPress[j]);
       return;
     }
     for (let c = 0; c < 3; c += 1) {
@@ -636,13 +638,14 @@ export class Sequencer3D {
     const c = this.pressedColor(LIT.key, this.keyPress[j]);
     const f = this.litPart[j];
     // TRK (2026-10-27), la machine claire : le dessus tire vers l'orange (V.4.2 : le meme pour les huit), a son intensite ;
-    // l'eclair d'un coup vers le jaune chaud de la tete de lecture
+    // l'eclair d'un coup fonce et sature vers l'orange profond de TRK_FLASH.lightTint (la revue : vers le jaune de la tete de
+    // lecture, il gardait la luminosite du pas)
     if (this.trkView) {
       const vt = KEY_LIT_LIGHT.tint?.orange;
       if (vt && f > 0) c.setRGB(c.r + (vt[0] - c.r) * f, c.g + (vt[1] - c.g) * f, c.b + (vt[2] - c.b) * f);
       const m = vt ? this.flashLv[j] * TRK_FLASH.light : 0;
       if (m > 0) {
-        const h = STEP_LIT.headLight;
+        const h = TRK_FLASH.lightTint;
         c.setRGB(c.r + (h[0] - c.r) * m, c.g + (h[1] - c.g) * m, c.b + (h[2] - c.b) * m);
       }
       this.keys.setColorAt(j, c);

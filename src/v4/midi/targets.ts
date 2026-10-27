@@ -55,7 +55,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
 import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
 import { sceneTag, type SceneTag } from '../rytm/sceneParams';
@@ -324,7 +324,10 @@ function coreTargets(): MidiTarget[] {
       },
       // Un bloc vide, ou rien a regler (pas de voix choisie, pas de pas choisi) : 0, comme son repere sur
       // la face (2026-10-08, revue de R1 : VOL sans voix renvoyait 102, une valeur que l'ecran ne montrait pas)
+      // Les presets du desktop ouverts (2026-10-27) : la position du controleur, pas la page cachee (le moteur ne repart pas)
       get: () => {
+        const held = presetKnobHeld(k);
+        if (held !== null) return held;
         const b = knobBlock(k);
         return b === null ? 0 : pageKnobCourse(b);
       },

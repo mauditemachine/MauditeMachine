@@ -421,9 +421,23 @@ export class HitMap {
    */
   screenTouch = true;
 
-  /** Une zone que le pointeur peut prendre (l'ecran intouchable : ses zones, non). */
-  private pickable(i: number): boolean {
-    return this.views[i].enabled && (this.screenTouch || !this.defs[i].screen);
+  /**
+   * Une zone que le pointeur peut prendre (l'ecran intouchable : ses zones, non ; withScreen, MIDI LEARN, si : apprendre une
+   * cible de l'ecran est une configuration, pas un jeu, 2026-10-27, la revue).
+   */
+  private pickable(i: number, withScreen = false): boolean {
+    return this.views[i].enabled && (this.screenTouch || withScreen || !this.defs[i].screen);
+  }
+
+  /**
+   * (x, y) tombe-t-il sur une zone allumee de l'ecran, qu'il se touche ou non (V.4.2, 2026-10-27, la revue : au desktop, un
+   * clic sur la liste des sons la fermait, comme un clic sur le corps de la machine) ? La place seule : ni le rayon ni
+   * les occulteurs.
+   */
+  onScreen(x: number, y: number): boolean {
+    this.refresh();
+    for (let i = 0; i < this.views.length; i += 1) if (this.views[i].enabled && this.defs[i].screen && inside(this.views[i].poly, x, y)) return true;
+    return false;
   }
 
   /** Les objets de cette machine seulement repondent ; null : aucun ; 'any' : tous. */
@@ -905,11 +919,11 @@ export class HitMap {
    * proche). Tactile (coarse) : sinon, parmi les objets a moins de 24 px de
    * leur bord et dont le dessus se voit, le centre le plus proche.
    */
-  pick(x: number, y: number, coarse: boolean): HotspotView | null {
+  pick(x: number, y: number, coarse: boolean, withScreen = false): HotspotView | null {
     this.refresh();
     const views = this.views;
     const cand: number[] = [];
-    for (let i = 0; i < views.length; i += 1) if (this.pickable(i) && inside(views[i].poly, x, y)) cand.push(i);
+    for (let i = 0; i < views.length; i += 1) if (this.pickable(i, withScreen) && inside(views[i].poly, x, y)) cand.push(i);
     if (cand.length > 0) {
       this.ray(x, y);
       const t: number[] = [];
@@ -945,7 +959,7 @@ export class HitMap {
     let bestD = Infinity;
     for (let i = 0; i < views.length; i += 1) {
       const hv = views[i];
-      if (!this.pickable(i) || edgeDistance(hv.poly, x, y) > HIT.touchSlop) continue;
+      if (!this.pickable(i, withScreen) || edgeDistance(hv.poly, x, y) > HIT.touchSlop) continue;
       const def = this.defs[i];
       if (!this.visible(def.layer, def.x, def.y1, def.z, def.id, true)) continue;
       const dd = (hv.cx - x) ** 2 + (hv.cy - y) ** 2;

@@ -62,8 +62,9 @@
  * du preset jusqu'a 10 lettres") : un preset a toi s'ecrit USER/NAME (state/presetName.ts, les regles) ; SAVE prend le
  * nom choisi (le dialogue ou les potards), OVERWRITE remplace le son d'un preset a toi sans changer sa place ni son
  * nom, RENAME change son nom et son utilisateur. L'utilisateur de ce navigateur est retenu (USER_KEY). Les presets
- * d'avant les noms gagnent un nom aux regles a la lecture (migrateNames : le leur s'il tient, coupe sinon, USER et un
- * numero en dernier ; l'ancien dans was), ecrit une fois ; leurs donnees ne bougent pas. Le preset charge ou garde de
+ * d'avant les noms gagnent un nom aux regles a la lecture (migrateNames : le leur s'il tient, abrege mot par mot sinon,
+ * numerote s'il est pris ; l'ancien dans was), ecrit une fois, et le premier utilisateur choisi (setUser, adoptLegacy) ;
+ * leurs donnees ne bougent pas. Le preset charge ou garde de
  * chaque machine est retenu (cur, avec les sons mis de cote) : l'ecran le nomme, une etoile s'il a bouge (loaded).
  */
 
@@ -307,9 +308,29 @@ function markBass(p: Preset): void {
   bassMark = { id: p.id, name: labelOf(p), steps: bassState.get().steps, params: { ...bassParams.get() } };
 }
 
-/** Le libelle d'un preset (2026-10-27) : MIKA/DEEP KICK, USER/HUNGRY PAN (d'avant les noms), ACID (d'usine). */
+/** Le libelle d'un preset (2026-10-27) : MIKA/DEEP KICK, USER/HNGRY PNCK (d'avant les noms, tant qu'aucun utilisateur n'est choisi), ACID (d'usine). */
 function labelOf(p: Preset): string {
   return presetLabel(p, userTag);
+}
+
+/**
+ * Les presets a toi sans utilisateur (d'avant les noms) prennent u (setUser) : leur libelle ne change plus avec celui du
+ * navigateur ; leurs donnees ne bougent pas. Le navigateur refuse l'ecriture : ils l'ont pour la visite.
+ */
+function adoptLegacy(u: string): void {
+  refresh();
+  let changed = false;
+  const next = none();
+  for (const m of MACHINES) {
+    next[m] = all[m].map((p) => {
+      if (p.factory || userOk(p.user)) return p;
+      changed = true;
+      return { ...p, user: u };
+    });
+  }
+  if (!changed) return;
+  all = next;
+  if (corrupt === null) put(KEY, JSON.stringify(all));
 }
 
 /* ---------------- le moteur MONARK : les sons d'avant (2026-10-09) ---------------- */
@@ -994,6 +1015,10 @@ export const presets = {
   setUser(u: string): void {
     const v = cleanUser(u);
     if (!userOk(v) || v === userTag) return;
+    // Les presets d'avant les noms recoivent un utilisateur, une fois (2026-10-27, la revue : sans lui, ils suivaient celui
+    // du navigateur et un SAVE sous un autre USER les renommait tous) : le premier choisi les adopte, un autre ensuite
+    // laisse les autres sous l'ancien
+    adoptLegacy(userTag ?? v);
     userTag = v;
     try {
       window.localStorage.setItem(USER_KEY, v);

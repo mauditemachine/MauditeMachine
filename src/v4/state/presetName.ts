@@ -9,10 +9,12 @@
  * Un preset d'usine garde son nom tel quel (jusqu'a 12 lettres, MONARK DRIVE) et n'a pas d'utilisateur.
  *
  * La migration (un preset garde avant les noms : un nom au hasard, "Hungry Pancake", 9 a 18 lettres en casse mixte) :
- * son nom nettoye s'il tient en 10 et n'est pas deja pris ; sinon coupe a 10 (HUNGRY PAN) s'il n'est pas pris ; sinon
- * USER et un numero (USER 1, USER 2...). L'ancien nom reste dans was ; ses donnees ne bougent pas (il se charge a
- * l'identique) ; son utilisateur reste absent : il s'affiche sous celui de ce navigateur (USER tant qu'il n'est pas
- * choisi). Un nom deja aux regles ne change jamais : la migration est idempotente.
+ * son nom nettoye s'il tient en 10 et n'est pas deja pris ; sinon abrege mot par mot (abbreviate : MOODY MNGO, LAZY
+ * PCKLE, MJSTC GBLN ; 2026-10-27, la revue : couper a 10 tranchait 92 % des noms en plein mot, GENTLE JEL) s'il n'est
+ * pas pris ; sinon l'abrege numerote (nextName : MJSTC GBL2 ; avant, USER 1). L'ancien nom reste dans was (le
+ * dialogue NAME le montre) ; ses donnees ne bougent pas (il se charge a l'identique) ; son utilisateur reste absent
+ * jusqu'au premier choisi dans ce navigateur, qui le lui donne une fois (state/presets.ts setUser ; USER d'ici la). Un
+ * nom deja aux regles ne change jamais : la migration est idempotente.
  *
  * Pur, sans import (scripts/presets-name.test.mjs le charge tel quel dans node) : les regles, le libelle, la migration,
  * le nom propose au premier SAVE, l'edition au potard (le repli materiel, facon Elektron : le potard A la lettre, le
@@ -72,6 +74,8 @@ export function userProblem(s: string): string {
 export function nameProblem(raw: string): string {
   return nameOk(cleanName(raw)) ? '' : 'NAME: 1 TO 10 CHARACTERS';
 }
+/** Le meme USER/NAME qu'un autre preset a toi de la machine (2026-10-27, la revue : deux MIKA/TWO dans la liste). */
+export const NAME_TAKEN = 'NAME TAKEN';
 
 /** Ce qu'un preset dit de lui pour son libelle. */
 export interface Named {
@@ -101,32 +105,68 @@ export interface Migratable {
   factory?: boolean;
 }
 
+/** Les voyelles qu'un mot abrege perd (Y reste : JLLY, WBBLY). */
+const VOWELS = new Set('AEIOU');
+const isNumber = (w: string): boolean => /^[0-9]+$/.test(w);
+
+/**
+ * Un nom abrege mot par mot pour tenir en max (2026-10-27, la revue : couper a 10 tranchait un mot, GENTLE JEL, MOODY
+ * MANG), facon ecran de machine, juste ce qu'il faut et en deux temps :
+ * 1. du dernier mot au premier, les voyelles du milieu (de la droite vers la gauche ; la premiere et la derniere lettre
+ *    restent, un mot de 3 lettres aussi), puis les lettres doublees (LL, SS) : MOODY MNGO, LAZY PCKLE, WOBBLY LMA ;
+ * 2. encore trop long : du dernier mot au premier, la fin des mots coupee (3 lettres au moins) : GNTLE JLYF.
+ * Un nombre ne s'abrege pas ; un reste trop long (plus de trois mots) se coupe a max. Le texte est d'abord aux regles
+ * (majuscules, accents retires, espaces fondus).
+ */
+export function abbreviate(raw: string, max: number = NAME_MAX): string {
+  const words = typeChars(String(raw ?? '').replace(/\s+/g, ' '), 64)
+    .replace(/ {2,}/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+  const len = (): number => words.join(' ').length;
+  // 1. les voyelles du milieu, puis les lettres doublees, du dernier mot au premier
+  for (let w = words.length - 1; w >= 0 && len() > max; w -= 1) {
+    if (isNumber(words[w]) || words[w].length < 4) continue;
+    let word = words[w];
+    for (let i = word.length - 2; i >= 1 && len() - words[w].length + word.length > max; i -= 1) {
+      if (VOWELS.has(word[i]) && word.length > 3) word = word.slice(0, i) + word.slice(i + 1);
+    }
+    for (let i = word.length - 1; i >= 1 && len() - words[w].length + word.length > max; i -= 1) {
+      if (word[i] === word[i - 1] && word.length > 3) word = word.slice(0, i) + word.slice(i + 1);
+    }
+    words[w] = word;
+  }
+  // 2. la fin des mots coupee, du dernier au premier, 3 lettres au moins
+  for (let w = words.length - 1; w >= 0 && len() > max; w -= 1) {
+    if (isNumber(words[w])) continue;
+    const cut = Math.max(3, words[w].length - (len() - max));
+    if (cut < words[w].length) words[w] = words[w].slice(0, cut);
+  }
+  return words.join(' ').slice(0, max).replace(/[ -]+$/, '');
+}
+
 /**
  * Le nom d'un preset d'avant les noms (voir plus haut) ; taken : les noms deja pris (ceux deja aux regles, puis ceux
  * donnes avant lui), il y ajoute le sien.
  */
 export function migratedName(old: string, taken: Set<string>): string {
-  const full = cleanName(String(old ?? '').replace(/\s+/g, ' ').slice(0, 64));
   const whole = typeChars(String(old ?? '').replace(/\s+/g, ' '), 64).replace(/ {2,}/g, ' ').trim();
   // Il tient en entier : lui
   if (whole.length >= 1 && whole.length <= NAME_MAX && !taken.has(whole)) {
     taken.add(whole);
     return whole;
   }
-  // Coupe a 10 (sans espace ni tiret au bout)
-  const cut = full.replace(/[ -]+$/, '');
-  if (cut.length >= 1 && !taken.has(cut)) {
-    taken.add(cut);
-    return cut;
+  // Abrege mot par mot (sans espace ni tiret au bout)
+  const short = abbreviate(whole);
+  if (short.length >= 1 && !taken.has(short)) {
+    taken.add(short);
+    return short;
   }
-  for (let n = 1; n < 1000; n += 1) {
-    const u = `USER ${n}`;
-    if (!taken.has(u)) {
-      taken.add(u);
-      return u;
-    }
-  }
-  return 'USER';
+  // Deja pris : l'abrege numerote (MJSTC GBL2) ; rien de lisible : USER, USER 2...
+  const n = nextName(whole || USER_DEFAULT, taken);
+  taken.add(n);
+  return n;
 }
 
 /**
@@ -179,16 +219,18 @@ export function suggestName(taken: ReadonlySet<string> = new Set(), rnd: () => n
 }
 
 /**
- * Le nom d'un preset garde AS NEW depuis base (DEEP KICK) : base s'il est libre, sinon base numerote (ACID 2,
- * DEEP KICK2, HUNGRY PA2), le premier libre.
+ * Le nom d'un preset garde AS NEW depuis base (DEEP KICK) : base s'il est libre (abrege s'il depasse 10), sinon base
+ * numerote, le premier libre : ACID 2 (l'espace s'il tient), DEEP KICK2 (sans l'espace), HNGRY PAN2 (base abregee mot par
+ * mot pour faire la place du numero : 2026-10-27, la revue, jamais un mot coupe au milieu, MOODY MAN2).
  */
 export function nextName(base: string, taken: ReadonlySet<string>): string {
-  const b = cleanName(base) || 'PRESET';
+  const full = typeChars(String(base ?? '').replace(/\s+/g, ' '), 64).replace(/ {2,}/g, ' ').trim() || 'PRESET';
+  const b = full.length <= NAME_MAX ? full : abbreviate(full);
   if (!taken.has(b)) return b;
-  const stem = b.replace(/ ?[0-9]+$/, '') || b;
+  const stem = full.replace(/ ?[0-9]+$/, '') || full;
   for (let n = 2; n < 1000; n += 1) {
     const sfx = String(n);
-    const s = stem.length + 1 + sfx.length <= NAME_MAX ? `${stem} ${sfx}` : `${stem.slice(0, NAME_MAX - sfx.length).trimEnd()}${sfx}`;
+    const s = stem.length + 1 + sfx.length <= NAME_MAX ? `${stem} ${sfx}` : stem.length + sfx.length <= NAME_MAX ? `${stem}${sfx}` : `${abbreviate(stem, NAME_MAX - sfx.length)}${sfx}`;
     if (!taken.has(s)) return s;
   }
   return b;
@@ -209,9 +251,15 @@ export interface NameDraft {
 
 export const CURSOR_MAX = USER_LEN + NAME_MAX - 1;
 
-/** Le curseur deplace de d cases (potard B), dans les 14 cases. */
+/**
+ * Le curseur deplace de d cases (potard B) : les 4 de l'utilisateur, puis le nom jusqu'a une case vide apres son texte
+ * (une seule : 2026-10-27, la revue, deux crans au-dela du nom donnaient ONE  X, deux espaces que le nom garde fondait),
+ * 14 cases au plus.
+ */
 export function moveCursor(n: NameDraft, d: number): NameDraft {
-  const cursor = Math.max(0, Math.min(CURSOR_MAX, n.cursor + Math.round(d)));
+  const name = n.name.replace(/ +$/, '');
+  const last = USER_LEN + Math.min(NAME_MAX - 1, name.length + (name.length > 0 ? 1 : 0));
+  const cursor = Math.max(0, Math.min(Math.max(last, Math.min(n.cursor, CURSOR_MAX)), n.cursor + Math.round(d)));
   return cursor === n.cursor ? n : { ...n, cursor };
 }
 

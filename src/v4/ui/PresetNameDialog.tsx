@@ -6,9 +6,10 @@
  * desktop du MM-RYTM ses potards A (la lettre) et B (le curseur) changent les memes champs (le repli materiel).
  * - Deux champs : USER (4 caracteres, demande au premier SAVE, retenu par ce navigateur, a changer ici) et NAME (1 a
  *   10) ; en majuscules a la frappe, accents retires, le reste refuse (state/presetName.ts) ; le compte des lettres.
- * - Entree garde (OK), Echap annule (retour a la liste) ; Tab tourne dans le dialogue (le focus y reste), il revient la
+ * - Entree dans USER passe a NAME, Entree dans NAME garde (OK), Echap annule (retour a la liste) ; Tab tourne dans le dialogue (le focus y reste), il revient la
  *   ou il etait a la fermeture ; une lettre tapee hors du dialogue (apres un clic sur la machine) y revient.
- * - role dialog, aria-modal, le titre et les regles lus par le lecteur d'ecran, aria-invalid sur le champ fautif.
+ * - role dialog, aria-modal, le titre et les regles lus par le lecteur d'ecran, aria-invalid sur le champ fautif (NAME
+ *   TAKEN : le meme USER/NAME qu'un autre de tes presets) ; un preset migre dit son nom d'avant (WAS: GENTLE JELLYFISH).
  * - Il ne couvre pas la face : au desktop en bas (sur les pas, qui ne servent pas pendant le nom), l'ecran et les
  *   potards restent visibles ; au telephone en haut (le clavier du systeme prend le bas).
  */
@@ -16,7 +17,7 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { presetEnter } from '../actions';
 import { presetMode } from '../state/presetMode';
-import { NAME_MAX, USER_LEN, cleanName, cleanUser, nameOk, userOk } from '../state/presetName';
+import { NAME_MAX, USER_LEN, cleanName, cleanUser, userOk } from '../state/presetName';
 import type { PresetMachine } from '../state/presets';
 import './presetName.css';
 
@@ -68,8 +69,9 @@ export function PresetNameDialog({ mobile }: { mobile: boolean }) {
   const { user, name } = nm.draft;
   const u = cleanUser(user);
   const n = cleanName(name);
-  const userBad = nm.problem.startsWith('USER') && !userOk(u);
-  const nameBad = nm.problem.startsWith('NAME') && !nameOk(n);
+  // Le champ fautif (le probleme s'efface a la premiere frappe : presetMode.setName) ; NAME TAKEN aussi
+  const userBad = nm.problem.startsWith('USER');
+  const nameBad = nm.problem.startsWith('NAME');
   const title = `${nm.kind === 'rename' ? 'RENAME' : 'SAVE'} PRESET · ${MACHINE_NAME[m]}`;
 
   const caret = (el: HTMLInputElement, base: number): number => base + Math.min(el.selectionStart ?? el.value.length, base === 0 ? USER_LEN - 1 : NAME_MAX - 1);
@@ -77,6 +79,13 @@ export function PresetNameDialog({ mobile }: { mobile: boolean }) {
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
+      // Entree dans USER passe a NAME, son texte choisi (le telephone dit Suivant) ; seule Entree dans NAME, ou OK, garde
+      // (2026-10-27, la revue : au premier SAVE, Entree apres l'utilisateur gardait le nom propose sans le montrer)
+      if (e.target === userRef.current && nameRef.current) {
+        nameRef.current.focus({ preventScroll: true });
+        nameRef.current.select();
+        return;
+      }
       presetEnter(m);
       return;
     }
@@ -151,7 +160,8 @@ export function PresetNameDialog({ mobile }: { mobile: boolean }) {
         </label>
       </div>
       <p id="v4-pn-rules" className="v4-pn-rules">
-        A-Z 0-9 SPACE -{mobile || m !== 'mm808' ? '' : '   ·   KNOBS A: LETTER  B: CURSOR'}
+        A-Z 0-9 SPACE HYPHEN{mobile || m !== 'mm808' ? '' : '   ·   KNOBS A: LETTER  B: CURSOR'}
+        {nm.was ? <span className="v4-pn-was">WAS: {nm.was.toUpperCase()}</span> : null}
       </p>
       <p className="v4-pn-problem" role="alert">
         {nm.problem}

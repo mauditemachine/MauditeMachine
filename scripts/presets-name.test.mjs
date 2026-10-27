@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import {
   CURSOR_MAX,
+  abbreviate,
   NAME_CHARS,
   cleanName,
   cleanUser,
@@ -79,19 +80,35 @@ test('le libelle : USER/NAME, le navigateur pour un preset d avant, USER sinon, 
   assert.equal(presetLabel({ name: 'acid', factory: true }), 'ACID');
 });
 
-test('la migration : le nom d avant s il tient, coupe sinon, USER et un numero en dernier', () => {
+test('la migration : le nom d avant s il tient, abrege mot par mot sinon, l abrege numerote en dernier', () => {
   const taken = new Set();
   assert.equal(migratedName('Lazy Moose', taken), 'LAZY MOOSE');
-  assert.equal(migratedName('Hungry Pancake', taken), 'HUNGRY PAN');
-  // Deja pris en entier, deja pris coupe : USER 1
-  assert.equal(migratedName('Hungry Pancakes', taken), 'USER 1');
-  assert.equal(migratedName('Lazy Moose', taken), 'USER 2');
-  // Rien de lisible : USER 3
-  assert.equal(migratedName('😀😀', taken), 'USER 3');
-  // Coupe sans espace au bout
-  assert.equal(migratedName('Wobbly Llama', new Set()), 'WOBBLY LLA');
-  assert.equal(migratedName('Electric Goblin', new Set()), 'ELECTRIC G');
-  assert.equal(migratedName('Suspicious Lemur', new Set()), 'SUSPICIOUS');
+  assert.equal(migratedName('Hungry Pancake', taken), 'HNGRY PNCK');
+  // Deja pris en entier, deja pris abrege : l'abrege numerote (2026-10-27, la revue : USER 1 avant)
+  assert.equal(migratedName('Hungry Pancake', taken), 'HNGRY PNC2');
+  assert.equal(migratedName('Lazy Moose', taken), 'LAZY MOSE2');
+  // Rien de lisible : USER, puis USER 2
+  assert.equal(migratedName('😀😀', taken), 'USER');
+  assert.equal(migratedName('😀', taken), 'USER 2');
+  // Abrege sans couper un mot au milieu quand les voyelles suffisent (2026-10-27, la revue : MOODY MANG, LAZY PICKL)
+  assert.equal(migratedName('Moody Mango', new Set()), 'MOODY MNGO');
+  assert.equal(migratedName('Lazy Pickle', new Set()), 'LAZY PCKLE');
+  assert.equal(migratedName('Majestic Goblin', new Set()), 'MJSTC GBLN');
+  assert.equal(migratedName('Wobbly Llama', new Set()), 'WOBBLY LMA');
+  assert.equal(migratedName('Cursed Banana', new Set()), 'CURSED BNA');
+});
+
+test('l abrege : voyelles du milieu puis lettres doublees du dernier mot au premier, puis la fin des mots, 3 lettres au moins', () => {
+  assert.equal(abbreviate('Gentle Jellyfish'), 'GNTLE JLYF');
+  assert.equal(abbreviate('Rubber Taco'), 'RUBBER TCO');
+  assert.equal(abbreviate('Suspicious Spaghetti 42'), 'SPC SPG 42');
+  assert.equal(abbreviate('DEEP KICK'), 'DEEP KICK');
+  assert.equal(abbreviate('DEEP KICK', 8), 'DEEP KCK');
+  assert.equal(abbreviate('ABCDEFGHIJKLMNOP'), 'ABCDFGHJKL');
+  for (const s of ['Lemurdumpling', 'Croissantplatypus', 'Midnight Spaceship', 'Enormous Croissant', 'Electric Goblin']) {
+    const a = abbreviate(s);
+    assert.equal(nameOk(a), true, `${s} -> ${a}`);
+  }
 });
 
 test('la migration d une liste : ids, donnees et ordre intacts, le plus ancien numerote d abord, was garde', () => {
@@ -107,9 +124,9 @@ test('la migration d une liste : ids, donnees et ordre intacts, le plus ancien n
   assert.equal(changed, true);
   assert.deepEqual(out.map((p) => p.id), ['c', 'b', 'a', 'f', 'd']);
   const by = Object.fromEntries(out.map((p) => [p.id, p]));
-  assert.equal(by.a.name, 'SWEATY GOB');
-  assert.equal(by.b.name, 'USER 1');
-  assert.equal(by.c.name, 'USER 2');
+  assert.equal(by.a.name, 'SWETY GBLN');
+  assert.equal(by.b.name, 'SWTY GBLN2');
+  assert.equal(by.c.name, 'SWT GBL 12');
   assert.equal(by.a.was, 'Sweaty Goblin');
   assert.equal(by.c.was, 'Sweaty Goblin 12');
   assert.equal(by.c.data, data);
@@ -133,7 +150,7 @@ test('la migration est idempotente et garde le premier was', () => {
   assert.equal(once[1].name, 'MOOSETACO');
   // Un nom remis hors regles (un ancien onglet qui renomme) : migre de nouveau, was reste le premier
   const again = migrateNames([{ ...once[0], name: 'Grumpy Waffle' }]).list[0];
-  assert.equal(again.name, 'GRUMPY WAF');
+  assert.equal(again.name, 'GRMPY WFLE');
   assert.equal(again.was, 'Hungry Pancake');
 });
 
@@ -144,7 +161,7 @@ test('un nom d avant deja aux regles reste le sien, et ne se fait pas prendre pa
   ];
   const out = migrateNames(list).list;
   assert.equal(out[1].name, 'LAZY MOOSE');
-  assert.equal(out[0].name, 'USER 1');
+  assert.equal(out[0].name, 'LAZY MOOSY');
 });
 
 test('le nom propose : court, aux regles, jamais pris', () => {
@@ -162,12 +179,13 @@ test('le nom propose : court, aux regles, jamais pris', () => {
   }
 });
 
-test('AS NEW : le nom libre, sinon numerote', () => {
+test('AS NEW : le nom libre, sinon numerote, jamais un mot coupe au milieu', () => {
   assert.equal(nextName('DEEP KICK', new Set()), 'DEEP KICK');
   assert.equal(nextName('ACID', new Set(['ACID'])), 'ACID 2');
   assert.equal(nextName('ACID', new Set(['ACID', 'ACID 2'])), 'ACID 3');
   assert.equal(nextName('DEEP KICK', new Set(['DEEP KICK'])), 'DEEP KICK2');
-  assert.equal(nextName('HUNGRY PAN', new Set(['HUNGRY PAN'])), 'HUNGRY PA2');
+  assert.equal(nextName('HUNGRY PAN', new Set(['HUNGRY PAN'])), 'HNGRY PAN2');
+  assert.equal(nextName('MOODY MNGO', new Set(['MOODY MNGO'])), 'MODY MNGO2');
   assert.equal(nextName('ACID 2', new Set(['ACID 2'])), 'ACID 3');
   assert.equal(nameOk(nextName('ABCDEFGHIJ', new Set(['ABCDEFGHIJ']))), true);
 });
@@ -182,9 +200,13 @@ test('le potard A tourne la lettre en boucle, le potard B deplace le curseur dan
   assert.equal(d.user, '');
   d = moveCursor(d, -5);
   assert.equal(d.cursor, 0);
+  // Le curseur va jusqu'a une case vide apres le nom, pas plus (jamais deux espaces de suite au potard)
   d = moveCursor(d, 99);
-  assert.equal(d.cursor, CURSOR_MAX);
+  assert.equal(d.cursor, 4);
+  assert.equal(moveCursor({ user: 'MIKA', name: 'ONE', cursor: 7 }, 2).cursor, 8);
+  assert.equal(moveCursor({ user: 'MIKA', name: 'ABCDEFGHI', cursor: 4 }, 99).cursor, CURSOR_MAX);
   assert.equal(CURSOR_MAX, 13);
+  d = { user: '', name: '', cursor: 0 };
   // Une case au-dela du texte : des espaces jusqu'a elle
   d = { user: 'MIKA', name: 'DEEP', cursor: 4 + 6 };
   d = turnChar(d, NAME_CHARS.indexOf('K'));
