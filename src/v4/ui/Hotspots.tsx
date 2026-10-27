@@ -1016,8 +1016,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // la tape est prise (pas de double tape du fond) et rien d'autre ne part
       else if (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'xfade') return d.id;
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
-      // Les presets ouverts au desktop (V.4.2, 2026-10-27, l'ecran ne se touche plus) : la tape d'un potard de la face fait ce
-      // qui est dessine au-dessus de lui (A B : PREV, C D : NEXT, E F G H : SAVE NAME DEL EXIT ; actions.ts presetFaceKnob)
+      // Les presets ouverts au desktop (V.4.2, 2026-10-27, l'ecran ne se touche plus) : la tape d'un potard de la face est
+      // prise et ne fait rien (ni la page d'un FX, ni la liste des sons, cachees sous les presets) ; les actions passent par
+      // les touches VOICE FLTR ENV FX EDIT (rytm/presetKeys.ts), tourner un potard fait defiler (actions.ts presetFaceKnob)
       else if (d.kind === 'penc' && d.index !== undefined && presetFaceKnob(d.index)) return d.id;
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
