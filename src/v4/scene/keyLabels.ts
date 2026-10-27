@@ -23,20 +23,22 @@
  * translation), setLit choisit sa variante (les uv de sa cellule). Matiere
  * eclairee comme la serigraphie (roughness 0.7) : le nom se lit comme elle.
  *
- * La face V.4.0 (2026-10-27, Mika : "pas de texte sur les boutons ; des
- * pictogrammes Tabler outline, trait de 1.75") : un nom peut etre un
- * pictogramme (rytm/icons.ts, peint par Path2D dans sa cellule carree), avec un
- * second pictogramme pour l'etat actif (alt : RUN/STOP devient STOP pendant la
- * lecture, setAlt) ; un texte peut avoir son corps (cap), la largeur de son quad
- * (qw), son decalage (dz) et se caler a gauche (le numero d'un pas). Tant
- * qu'aucun nom ne s'en sert (le telephone), l'atlas reste celui d'avant au
- * pixel pres (deux colonnes, une cellule de 128 par nom) ; sinon les cellules se
- * rangent en etageres sur 2048 de large, a SHELF_PPU px l'unite.
+ * La face V.4.0 (2026-10-27) : un texte peut avoir son corps (cap), la largeur
+ * de son quad (qw), son decalage (dz) et se caler a gauche (le numero d'un pas) ;
+ * V.4.2 (2026-10-27, Mika : "appuie-toi pour Rytm de la Digitakt pour les
+ * boutons parce que les icones des fois c'est difficile a deviner c'est quoi") :
+ * les pictogrammes partent, les douze touches portent un mot, avec son
+ * interlettrage (tracking), et RUN/STOP ses signes (marks : le triangle PLAY et
+ * le carre STOP, des formes pleines peintes dans leur cellule, theme.ts
+ * KEY_MARK) ; une encre fixe, comme une touche imprimee. Tant qu'aucun nom ne
+ * s'en sert (le telephone), l'atlas reste celui d'avant au pixel pres (deux
+ * colonnes, une cellule de 128 par nom) ; sinon les cellules se rangent en
+ * etageres sur 2048 de large, a SHELF_PPU px l'unite.
  */
 
 import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, type CanvasTexture } from 'three';
-import { ICON_STROKE, ICON_VIEWBOX, RYTM_ICONS, type RytmIcon } from '../rytm/icons';
-import { APPEARANCE, FONT_DISPLAY, KEY_ICON, KEY_LABEL, SILK, type KeyLabelSpec } from '../theme';
+import type { FpMark } from '../rytm/faceplate';
+import { APPEARANCE, FONT_DISPLAY, KEY_LABEL, KEY_MARK, SILK, marksW, type KeyLabelSpec } from '../theme';
 import { drawTracked, makeCanvasTexture, trackedWidth } from './silk';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
@@ -49,9 +51,14 @@ const QUAD_CAPS = 2.2;
 const DARK_INK = 'rgba(14, 14, 16, 0.92)';
 const BONE_INK = 'rgba(246, 241, 231, 0.92)';
 
-/** Le quad d'un nom sur sa touche, en unites : sa largeur (la touche moins l'air des deux bouts) et sa profondeur ; un pictogramme, son carre. */
+/** L'air autour des signes de RUN/STOP dans leur quad (V.4.2), en part de leur hauteur. */
+const MARK_AIR = 0.25;
+
+/** Le quad d'un nom sur sa touche, en unites : sa largeur (la touche moins l'air des deux bouts) et sa profondeur ; des signes, leur rangee et son air. */
 export const labelQuad = (s: KeyLabelSpec): { w: number; h: number } =>
-  s.icon ? { w: KEY_ICON.size, h: KEY_ICON.size } : { w: s.qw ?? Math.max(0.1, s.w - 2 * KEY_LABEL.margin), h: (s.cap ?? KEY_LABEL.cap) * QUAD_CAPS };
+  s.marks
+    ? { w: marksW(s.marks) + 2 * MARK_AIR * KEY_MARK.h, h: KEY_MARK.h * (1 + 2 * MARK_AIR) }
+    : { w: s.qw ?? Math.max(0.1, s.w - 2 * KEY_LABEL.margin), h: (s.cap ?? KEY_LABEL.cap) * QUAD_CAPS };
 
 /** Les etageres de la face V.4.0 (2026-10-27) : la largeur du canvas, l'air entre deux cellules, les px par unite. */
 const SHELF_W = 2048;
@@ -77,8 +84,8 @@ export interface KeyLabelAtlasInfo {
   cells: number;
 }
 
-/** La cle d'une cellule : le nom, sa variante (allumee), son second pictogramme (alt). */
-const cellKey = (id: string, lit: boolean, alt: boolean): string => `${id}|${lit ? 1 : 0}|${alt ? 1 : 0}`;
+/** La cle d'une cellule : le nom, sa variante (allumee). */
+const cellKey = (id: string, lit: boolean): string => `${id}|${lit ? 1 : 0}`;
 
 export class KeyLabelAtlas {
   readonly texture: CanvasTexture;
@@ -94,8 +101,8 @@ export class KeyLabelAtlas {
     private specs: readonly KeyLabelSpec[],
     anisotropy: number
   ) {
-    // L'ancien rangement tant qu'aucun nom n'a de pictogramme, de corps ni de quad a lui (le telephone : au pixel pres)
-    this.legacy = specs.every((s) => !s.icon && s.cap === undefined && s.qw === undefined && s.align === undefined);
+    // L'ancien rangement tant qu'aucun nom n'a de signes, de corps, de quad ni d'interlettrage a lui (le telephone : au pixel pres)
+    this.legacy = specs.every((s) => !s.marks && s.cap === undefined && s.qw === undefined && s.align === undefined && s.tracking === undefined);
     this.canvas = document.createElement('canvas');
     if (this.legacy) {
       this.ppu = CELL_H / (KEY_LABEL.cap * QUAD_CAPS);
@@ -103,8 +110,8 @@ export class KeyLabelAtlas {
       specs.forEach((s, i) => {
         const w = Math.ceil(labelQuad(s).w * this.ppu);
         // Deux colonnes : la variante eteinte a gauche, l'allumee a droite
-        this.cells.set(cellKey(s.id, false, false), { x: 0, y: i * CELL_H, w, h: CELL_H });
-        this.cells.set(cellKey(s.id, true, false), { x: colW, y: i * CELL_H, w, h: CELL_H });
+        this.cells.set(cellKey(s.id, false), { x: 0, y: i * CELL_H, w, h: CELL_H });
+        this.cells.set(cellKey(s.id, true), { x: colW, y: i * CELL_H, w, h: CELL_H });
       });
       this.canvas.width = 2 * colW;
       this.canvas.height = specs.length * CELL_H;
@@ -118,17 +125,15 @@ export class KeyLabelAtlas {
         const q = labelQuad(s);
         const w = Math.ceil(q.w * SHELF_PPU);
         const h = Math.ceil(q.h * SHELF_PPU);
-        for (const alt of s.alt ? [false, true] : [false]) {
-          for (const lit of [false, true]) {
-            if (x + w > SHELF_W) {
-              x = 0;
-              y += row + SHELF_GAP;
-              row = 0;
-            }
-            this.cells.set(cellKey(s.id, lit, alt), { x, y, w, h });
-            x += w + SHELF_GAP;
-            row = Math.max(row, h);
+        for (const lit of [false, true]) {
+          if (x + w > SHELF_W) {
+            x = 0;
+            y += row + SHELF_GAP;
+            row = 0;
           }
+          this.cells.set(cellKey(s.id, lit), { x, y, w, h });
+          x += w + SHELF_GAP;
+          row = Math.max(row, h);
         }
       }
       this.canvas.width = SHELF_W;
@@ -148,24 +153,30 @@ export class KeyLabelAtlas {
     return lit ? DARK_INK : s.rest === 'bone' ? BONE_INK : KEY_LABEL.inkRest[APPEARANCE.current === 'light' ? 'light' : 'dark'];
   }
 
-  /** Un pictogramme dans sa cellule (2026-10-27) : ses traces a ICON_STROKE, ses points pleins. */
-  private drawIcon(c: Cell, icon: RytmIcon, ink: string): void {
+  /** Les signes de RUN/STOP dans leur cellule (V.4.2, 2026-10-27) : le triangle PLAY, le carre STOP, des formes pleines, centres. */
+  private drawMarks(c: Cell, marks: readonly FpMark[], ink: string): void {
     const ctx = this.ctx;
-    ctx.save();
-    ctx.translate(c.x, c.y);
-    ctx.scale(c.w / ICON_VIEWBOX, c.h / ICON_VIEWBOX);
-    ctx.lineWidth = ICON_STROKE;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = ink;
+    const u = this.ppu;
+    const h = KEY_MARK.h * u;
+    let x = c.x + (c.w - marksW(marks) * u) / 2;
+    const y0 = c.y + (c.h - h) / 2;
     ctx.fillStyle = ink;
-    for (const d of icon.paths) ctx.stroke(new Path2D(d));
-    for (const d of icon.fills ?? []) {
-      const p = new Path2D(d);
-      ctx.fill(p);
-      ctx.stroke(p);
-    }
-    ctx.restore();
+    marks.forEach((m, i) => {
+      if (i > 0) x += KEY_MARK.gap * u;
+      ctx.beginPath();
+      if (m === 'play') {
+        const w = h * KEY_MARK.playW;
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x + w, y0 + h / 2);
+        ctx.lineTo(x, y0 + h);
+        x += w;
+      } else {
+        ctx.rect(x, y0, h, h);
+        x += h;
+      }
+      ctx.closePath();
+      ctx.fill();
+    });
   }
 
   /** Redessine tous les noms (les polices du site arrivees) et marque la texture. */
@@ -178,32 +189,29 @@ export class KeyLabelAtlas {
     // Le corps : le nom tient dans son quad, le plus petit de son groupe pour tous
     const pxOf = (s: KeyLabelSpec): number => ((s.cap ?? KEY_LABEL.cap) / SILK.capRatio) * u;
     const fit = this.specs.map((s) => {
-      if (s.icon) return 1;
-      const room = this.cells.get(cellKey(s.id, false, false))?.w ?? 0;
-      const w = trackedWidth(ctx, s.text, pxOf(s), weight);
+      if (s.marks) return 1;
+      const room = this.cells.get(cellKey(s.id, false))?.w ?? 0;
+      const w = trackedWidth(ctx, s.text, pxOf(s), weight, s.tracking);
       return w > room ? room / w : 1;
     });
     const group = new Map<string, number>();
     this.specs.forEach((s, i) => group.set(s.group, Math.min(group.get(s.group) ?? 1, fit[i])));
     this.specs.forEach((s) => {
-      for (const alt of s.alt ? [false, true] : [false]) {
-        for (const lit of [false, true]) {
-          const c = this.cells.get(cellKey(s.id, lit, alt));
-          if (!c) continue;
-          const ink = this.ink(s, lit);
-          const icon = s.icon ? RYTM_ICONS[alt && s.alt ? s.alt : s.icon] : null;
-          if (icon) {
-            this.drawIcon(c, icon, ink);
-            continue;
-          }
-          const k = group.get(s.group) ?? 1;
-          const size = pxOf(s) * k;
-          const cap = (s.cap ?? KEY_LABEL.cap) * u * k;
-          const w = trackedWidth(ctx, s.text, size, weight);
-          const base = c.y + c.h / 2 + cap / 2;
-          ctx.fillStyle = ink;
-          drawTracked(ctx, s.text, c.x + (s.align === 'left' ? 0 : (c.w - w) / 2), base, size, weight);
+      for (const lit of [false, true]) {
+        const c = this.cells.get(cellKey(s.id, lit));
+        if (!c) continue;
+        const ink = this.ink(s, lit);
+        if (s.marks) {
+          this.drawMarks(c, s.marks, ink);
+          continue;
         }
+        const k = group.get(s.group) ?? 1;
+        const size = pxOf(s) * k;
+        const cap = (s.cap ?? KEY_LABEL.cap) * u * k;
+        const w = trackedWidth(ctx, s.text, size, weight, s.tracking);
+        const base = c.y + c.h / 2 + cap / 2;
+        ctx.fillStyle = ink;
+        drawTracked(ctx, s.text, c.x + (s.align === 'left' ? 0 : (c.w - w) / 2), base, size, weight, s.tracking);
       }
     });
     this.info.draws += 1;
@@ -212,9 +220,9 @@ export class KeyLabelAtlas {
     this.texture.needsUpdate = true;
   }
 
-  /** Les uv de la cellule d'un nom (la texture est retournee : la rangee 0 du canvas est en haut, v = 1) ; alt : son second pictogramme. */
-  uv(id: string, lit: boolean, alt = false): { u0: number; u1: number; v0: number; v1: number } {
-    const c = this.cells.get(cellKey(id, lit, alt)) ?? this.cells.get(cellKey(id, lit, false));
+  /** Les uv de la cellule d'un nom (la texture est retournee : la rangee 0 du canvas est en haut, v = 1). */
+  uv(id: string, lit: boolean): { u0: number; u1: number; v0: number; v1: number } {
+    const c = this.cells.get(cellKey(id, lit));
     const W = this.canvas.width;
     const H = this.canvas.height;
     if (!c) return { u0: 0, u1: 0, v0: 0, v1: 0 };
@@ -237,8 +245,6 @@ export class KeyLabels {
   private pos: BufferAttribute;
   private uvs: BufferAttribute;
   private lit: boolean[];
-  /** le second pictogramme de chaque nom (2026-10-27 : RUN/STOP pendant la lecture) */
-  private alt: boolean[];
   /** le y du dessus des touches, au repos */
   private y: number;
 
@@ -251,7 +257,6 @@ export class KeyLabels {
     const n = specs.length;
     this.y = keyH + 0.003;
     this.lit = specs.map(() => false);
-    this.alt = specs.map(() => false);
     const p = new Float32Array(n * 12);
     const nrm = new Float32Array(n * 12);
     const idx: number[] = [];
@@ -259,7 +264,7 @@ export class KeyLabels {
       const q = labelQuad(s);
       const x0 = s.x - q.w / 2;
       const x1 = s.x + q.w / 2;
-      const zc = s.z + (s.dz ?? (s.icon ? KEY_ICON.dz : KEY_LABEL.dz));
+      const zc = s.z + (s.dz ?? (s.marks ? KEY_MARK.dz : KEY_LABEL.dz));
       const z0 = zc - q.h / 2;
       const z1 = zc + q.h / 2;
       // Arriere gauche, arriere droit, avant gauche, avant droit : le haut du nom vers l'arriere, il se lit le long de +x
@@ -297,7 +302,7 @@ export class KeyLabels {
   }
 
   private writeUv(i: number): void {
-    const r = this.atlas.uv(this.specs[i].id, this.lit[i], this.alt[i]);
+    const r = this.atlas.uv(this.specs[i].id, this.lit[i]);
     this.uvs.set([r.u0, r.v0, r.u1, r.v0, r.u0, r.v1, r.u1, r.v1], i * 8);
     this.uvs.needsUpdate = true;
   }
@@ -306,14 +311,6 @@ export class KeyLabels {
   setLit(i: number, on: boolean): boolean {
     if (i < 0 || i >= this.lit.length || this.lit[i] === on) return false;
     this.lit[i] = on;
-    this.writeUv(i);
-    return true;
-  }
-
-  /** Le second pictogramme du nom i (2026-10-27, RUN/STOP pendant la lecture) ; sans alt, rien ; true s'il a change. */
-  setAlt(i: number, on: boolean): boolean {
-    if (i < 0 || i >= this.alt.length || this.alt[i] === on || !this.specs[i].alt) return false;
-    this.alt[i] = on;
     this.writeUv(i);
     return true;
   }
@@ -329,11 +326,6 @@ export class KeyLabels {
   /** Les variantes, dans l'ordre (revue : window.__v4.stage). */
   litState(): boolean[] {
     return [...this.lit];
-  }
-
-  /** Le second pictogramme de chaque nom, dans l'ordre (revue : window.__v4.stage). */
-  altState(): boolean[] {
-    return [...this.alt];
   }
 
   dispose(): void {

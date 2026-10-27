@@ -1,14 +1,15 @@
 /**
- * Les seize pas quand TRK est tenu ou garde (2026-10-27, la phase 2, Mika : "TRK tenu, les pas 1 a 8 s'allument a la
- * couleur de leur voix, la voix choisie a pleine intensite") : pur, lu par scene/sequencer3d.ts aujourd'hui et par les
- * LED RGB des pas du boitier demain. Les pas 9 a 16 sont reserves : eteints.
+ * Les seize pas quand TRK est tenu ou garde (2026-10-27, la phase 2, Mika : "TRK tenu, les pas 1 a 8 s'allument, la voix
+ * choisie a pleine intensite") : pur, lu par scene/sequencer3d.ts aujourd'hui et par les LED RGB des pas du boitier
+ * demain (hw/snapshot.ts). Une seule couleur depuis V.4.2 (2026-10-27, Mika : "des boutons d'une meme couleur et pas arc
+ * en ciel") : RYTM_FACEPLATE.steps.trkColor, l'orange de la machine. Les pas 9 a 16 sont reserves : eteints.
  */
 
 import { RYTM_FACEPLATE } from './faceplate';
 import type { Inst } from '../theme';
 
 export interface TrkLed {
-  /** la couleur sRGB d'affichage de la voix (rytm/faceplate.ts steps.voiceColor) ; '' : eteint */
+  /** la couleur sRGB d'affichage du pas (rytm/faceplate.ts steps.trkColor, la meme pour les huit) ; '' : eteint */
   readonly color: string;
   /** l'intensite (0 eteint, 1 pleine) : la voix choisie, les autres, une voix coupee (theme.ts TRK_LIT) */
   readonly level: number;
@@ -37,7 +38,7 @@ export function trkLeds(cur: Inst | null, muted: readonly Inst[], solo: readonly
     }
     const m = muted.includes(inst);
     const level = inst === cur ? lv.cur : m ? lv.muted : lv.other;
-    out.push({ color: RYTM_FACEPLATE.steps.voiceColor[inst], level, bar: m ? 'mute' : solo.includes(inst) ? 'solo' : null, inst });
+    out.push({ color: RYTM_FACEPLATE.steps.trkColor, level, bar: m ? 'mute' : solo.includes(inst) ? 'solo' : null, inst });
   }
   return out;
 }

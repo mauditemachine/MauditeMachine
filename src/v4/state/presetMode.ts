@@ -156,6 +156,15 @@ function gestureAt(): number {
 }
 
 /**
+ * Le geste en cours est-il un pointeur (une tape, un clic) ? La garde du double clic ne vaut que pour lui (2026-10-27 : P
+ * puis une fleche tout de suite, au clavier, ne deplacait rien).
+ */
+function pointerGesture(): boolean {
+  const e = typeof window !== 'undefined' ? (window as { event?: Event }).event : undefined;
+  return !!e && /^(pointer|mouse|touch|click)/.test(e.type);
+}
+
+/**
  * Ce que dit l'ecran quand le navigateur n'a pas pris une ecriture (plein, ou refuse : navigation privee) ; 20 lettres au
  * plus, la ligne du titre du MM-RYTM (state/lcd.ts), le rang s'efface le temps de la lire (LONG_NOTE).
  */
@@ -427,7 +436,7 @@ export const presetMode = {
     if (k === 'prev' || k === 'next') {
       if (state.stage !== 'browse') return;
       // La deuxieme tape d'un double clic sur l'ecran (la premiere l'a ouvert) : rien ne bouge
-      if (gestureAt() - openedAt < DOUBLE_MS) return;
+      if (pointerGesture() && gestureAt() - openedAt < DOUBLE_MS) return;
       presetMode.step(m, k === 'next' ? 1 : -1, true);
       return;
     }

@@ -367,6 +367,10 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
       b.tag = 'MACHINE';
       b.tagHeader = true;
     }
+  } else if (id === 'tempo') {
+    // TEMPO sur la page MASTER (V.4.2, 2026-10-27) : en BPM, comme l'en-tete
+    b.text = String(Math.round(v));
+    b.unit = 'BPM';
   } else {
     const e = id as Exclude<EncId, 'tempo' | 'vsound'>;
     b.text = encText(e, v, b.course, b.bipolar);

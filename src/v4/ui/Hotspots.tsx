@@ -102,11 +102,8 @@ import {
   dialValue,
   soundFamily,
   editToggle,
-  presetHold,
   presetKey,
-  presetTurn,
-  presetTurns,
-  PRESET_TURN_PX,
+  presetFaceKnob,
   focusMachine,
   gesture,
   muteToggle,
@@ -184,7 +181,6 @@ import { lockCount } from '../audio/locks';
 import { HOME_MENU, HOME_MENU_LABEL, SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
 import { v127 } from '../rytm/values';
 import { PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
-import { PRESET_HOLD_MS } from '../rytm/presetKeys';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { MidiLearnLayer } from './MidiPanel';
@@ -211,6 +207,7 @@ import {
   ENCODERS,
   FACE_FOLLOWS_PAGE,
   FACE_INERT,
+  SCREEN_TOUCH,
   FACE_KNOBS,
   FACE_TITLE,
   GLOBAL_ENCODERS,
@@ -317,9 +314,8 @@ interface Down {
   lockKey: string;
   /** un potard : la course du dernier mouvement (2026-10-27, la fonction d'un potard de la face qui change sous la main) */
   lastTravel?: number;
-  /** le mode presets du desktop (2026-10-27) : un potard tourne la liste ou le nom par crans ; d'ou part le glisser, crans deja donnes */
-  pmA?: number;
-  pmN?: number;
+  /** V.4.2 (2026-10-27) : les presets ouverts, un potard de la face les fait defiler ; les crans deja partis de ce glisser */
+  pstep?: number;
   /** un pas pris par TRK (2026-10-27) : sa voix choisie a l'appui, ni P-LOCK, ni velocite, ni tape au lacher */
   trk?: boolean;
   /** la touche TRK tenue par ce pointeur : sa source ('ptr:<pointerId>'), lachee au pointerup ou perdue */
@@ -481,18 +477,19 @@ const perPx = (k: DialId): number => {
  * comme dans Ableton) ; prise ou lachee en cours de geste, la course repart
  * de la valeur du moment, sans saut.
  */
+/** Les presets ouverts au desktop (V.4.2) : un potard de la face tourne, un preset par PRESET_PX de glisser. */
+const PRESET_PX = 24;
+
 function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   if (!d.dial) return;
   const travel = d.axis === 'y' ? -dy : dx;
-  // Le mode presets du desktop (2026-10-27, rytm/presetKeys.ts) : le potard A fait defiler la liste, ou tourne la lettre
-  // (B : le curseur) ; un cran tous les PRESET_TURN_PX, rien d'autre ne bouge
-  if (d.kind === 'penc' && d.index !== undefined && presetTurns()) {
-    if (d.pmA === undefined) d.pmA = travel;
-    const n = Math.trunc((travel - d.pmA) / PRESET_TURN_PX);
-    const sent = d.pmN ?? 0;
-    if (n !== sent) {
-      d.pmN = n;
-      presetTurn(d.index, n - sent);
+  // L'ecran ne se touche plus (V.4.2, 2026-10-27) : les presets ouverts, un potard de la face les fait defiler (actions.ts
+  // presetFaceKnob), il ne regle pas sa page en cachette
+  if (d.kind === 'penc' && d.index !== undefined && !SCREEN_TOUCH && presetMode.on('mm808')) {
+    const n = Math.trunc(travel / PRESET_PX);
+    if (n !== (d.pstep ?? 0)) {
+      presetFaceKnob(d.index, n - (d.pstep ?? 0));
+      d.pstep = n;
     }
     return;
   }
@@ -900,8 +897,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       } else {
         lastTap.set(k, t);
         // Un FX de GLOBAL FX qui a sa page (2026-10-10 ; un FX de VOICE FX : sa page sous la voix) : elle s'ouvre si aucune deuxieme tape ne suit
-        // (un bloc de l'ecran seulement : une tape sur un potard de la face n'ouvre rien, 2026-10-27, il ne change jamais de page)
-        const fd = pk >= 0 && penc < 0 ? pageFxDetail(pk) : null;
+        // (un bloc de l'ecran ; un potard de la face quand l'ecran ne se touche pas, V.4.2 2026-10-27 : sa tape fait ce que
+        // faisait celle de son bloc, theme.ts SCREEN_TOUCH ; avant, une tape sur un potard n'ouvrait rien)
+        const blockTap = pk >= 0 && (penc < 0 || !SCREEN_TOUCH);
+        const fd = blockTap ? pageFxDetail(pk) : null;
         fxOpenCancel();
         if (fd)
           fxOpenTimer = window.setTimeout(() => {
@@ -912,7 +911,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           }, TEMPO_UI.tapMs + 10);
         // Le nom du son (le bloc SOUND de VOICE, 2026-10-18, Mika : "difficile la selection des samples") : une tape seule
         // ouvre le navigateur des sons, passe le temps d'une deuxieme tape (deux tapes : SOUND revient a son depart)
-        else if (pk >= 0 && penc < 0 && pageTarget(pk) === 'voice:sound')
+        else if (blockTap && pageTarget(pk) === 'voice:sound')
           fxOpenTimer = window.setTimeout(() => {
             fxOpenTimer = 0;
             if (disposed || knobHeld() || pageTarget(pk) !== 'voice:sound') return;
@@ -1012,13 +1011,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
       // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran suivant, la touche s'enfonce
       else if (d.kind === 'vpush' && d.vknob) voyPush(d.vknob, stage);
-      // EDIT tenu (2026-10-27) : les presets sont deja ouverts, le lacher ne fait rien de plus
-      else if (d.kind === 'edit' && d.holdFired) return d.id;
       else if (d.kind === 'edit') editToggle('mm808', stage);
       // TRK (2026-10-27, la phase 2 : elle a agi a l'appui et au lacher), SCENE A et B, le crossfader (visibles et inertes) :
       // la tape est prise (pas de double tape du fond) et rien d'autre ne part
       else if (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'xfade') return d.id;
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      // Les presets ouverts au desktop (V.4.2, 2026-10-27, l'ecran ne se touche plus) : la tape d'un potard de la face fait ce
+      // qui est dessine au-dessus de lui (A B : PREV, C D : NEXT, E F G H : SAVE NAME DEL EXIT ; actions.ts presetFaceKnob)
+      else if (d.kind === 'penc' && d.index !== undefined && presetFaceKnob(d.index)) return d.id;
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
       else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
@@ -1376,18 +1376,6 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           }, SB_HOLD_MS);
         }
       }
-      // EDIT tenu (2026-10-27, rytm/presetKeys.ts) : les presets s'ouvrent (au desktop l'ecran ne se touche plus) ; le lacher
-      // ne fait rien de plus. Deja ouverts : la tape d'EDIT est leur EXIT (actions.ts editToggle)
-      if (h && h.kind === 'edit' && !downs.get(e.pointerId)?.info && !presetMode.on('mm808')) {
-        const pid = e.pointerId;
-        const d0 = downs.get(pid);
-        window.setTimeout(() => {
-          const d = downs.get(pid);
-          if (!d || d !== d0 || disposed || d.turning) return;
-          d.holdFired = true;
-          presetHold(stage);
-        }, PRESET_HOLD_MS);
-      }
       // MUTE ou SOLO tenu (2026-10-09) : MODE_HOLD_MS sans lacher, toutes les voix reviennent (le lacher ne fait rien de plus) ;
       // INFOS allume, au doigt, la tenue lit la carte et ne rend aucune voix (revue : comme la touche du Dock)
       if (h && (h.kind === 'mute' || h.kind === 'solo') && !downs.get(e.pointerId)?.info) {
@@ -1687,7 +1675,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const my = e.clientY - rect.top;
         // Le navigateur des sons ouvert (2026-10-18) : une tape hors de lui le ferme, et agit (un pad de voix, non : la liste
         // suit sa voix)
-        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad') soundBrowserClose();
+        // (V.4.2 : un potard de la face non plus quand l'ecran ne se touche pas : la tape du potard SOUND la tient ouverte, comme il la tourne)
+        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !(d.kind === 'penc' && !SCREEN_TOUCH)) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
         if (tap && d.id !== null) {
@@ -1797,10 +1786,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const gain = wheelGain(now - wheelAt, e.shiftKey);
         wheelAt = now;
         // Un potard de la face : la page au desktop (2026-10-27 ; le premier cran montre la page sous HOME), son FX global
-        // et son popup au telephone
-        // Le mode presets du desktop (2026-10-27) : un cran de molette, un cran de la liste ou du nom
-        if (pencK >= 0 && presetTurns()) presetTurn(pencK, steps);
-        else if (pencK >= 0) {
+        // et son popup au telephone ; les presets ouverts (V.4.2, l'ecran ne se touche plus) : un preset par cran
+        if (pencK >= 0 && presetFaceKnob(pencK, steps)) return;
+        if (pencK >= 0) {
           if (FACE_FOLLOWS_PAGE) revealPage();
           dialNudge(k, steps * gain, (v) => faceKnob(pencK, v, 'wheel'));
         }

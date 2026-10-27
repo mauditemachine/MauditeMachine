@@ -2,20 +2,16 @@
  * Les presets sur la face du MM-RYTM (2026-10-27, la V.4.2, Mika : "la gestion doit etre plus simple" ; "appuie-toi
  * pour Rytm de la Digitakt pour les boutons") : au desktop l'ecran ne se touche pas (U3, SCREEN_TOUCH), les presets
  * passent par la face, comme sur la future machine :
- * - EDIT tenu (PRESET_HOLD_MS) ouvre les presets ; l'ecran de HOME le dit (HOLD EDIT: PRESETS) ;
+ * - EDIT pressee encore (la grille des patterns ouverte) ouvre les presets, comme une touche de page allumee passe a son
+ *   onglet suivant (actions.ts editToggle) ; l'ecran de HOME le dit (EDIT 2X: PRESETS) ;
  * - en mode presets, cinq touches de la rangee sont les touches de l'ecran (soft keys) : l'ecran dessine leur nom juste
  *   au-dessus d'elles (VOICE FLTR ENV FX EDIT : LOAD SAVE NAME DEL EXIT, puis OVERWRITE, YES, OK... selon l'etape) ;
  * - le potard A fait defiler la liste ; pour nommer, A tourne la lettre et B deplace le curseur.
- * Des donnees seules (une autre touche tenue, ou une touche PRESET sur la face, se change ici).
+ * Des donnees seules (les touches de l'ecran, ou une touche PRESET sur la face un jour, se changent ici).
  */
 
 import { RYTM_FACEPLATE, buttonIndex, type FpButtonId } from './faceplate';
 import type { PresetSlot } from '../state/presetMode';
-
-/** La touche de la face qui, tenue, ouvre les presets (proposition, a valider par Mika). */
-export const PRESET_HOLD_KEY: FpButtonId = 'edit';
-/** Sa tenue : celle de MUTE et SOLO tenus (actions.ts MODE_HOLD_MS). */
-export const PRESET_HOLD_MS = 600;
 
 /** Les cinq touches de l'ecran en mode presets, dans l'ordre de PRESET_SLOTS : les cinq touches sous l'ecran apres TRK. */
 export const PRESET_SOFT_KEYS: Readonly<Record<PresetSlot, FpButtonId>> = { load: 'voice', save: 'fltr', name: 'env', del: 'fx', exit: 'edit' };

@@ -4,8 +4,8 @@
  * grands pads disparaissent, EDIT et OPEN sont dans la rangee des
  * pictogrammes ; SCENE A, la fente du crossfader, SCENE B") : TRK, EDIT,
  * OPEN, SCENE A et SCENE B (theme.ts FACE_KEYS : la forme des touches de page,
- * 12 x 12 mm), leur pictogramme ou leur lettre imprime dessus
- * (scene/keyLabels.ts), et le capuchon du crossfader (theme.ts XFADE ; sa fente
+ * 12 x 12 mm), leur nom (V.4.2, 2026-10-27, facon Digitakt) ou leur lettre
+ * imprime dessus (scene/keyLabels.ts), et le capuchon du crossfader (theme.ts XFADE ; sa fente
  * est fusionnee au panneau, machine.ts). Le desktop seulement : le telephone
  * garde ses pads (phase 5).
  *
@@ -22,11 +22,12 @@
  * eclaires), un maillage pour leurs noms, un pour le capuchon.
  */
 
-import { BoxGeometry, Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, type BufferGeometry, type Object3D } from 'three';
+import { BoxGeometry, Color, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, type BufferGeometry, type Object3D } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, FACE_KEY, FACE_KEYS, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, OPEN_BREATHE, PRESS_TINT, RING_TONE, STEP_PRESS, XFADE, xfadeCapX, type FaceKeyId } from '../theme';
-import { fpU } from '../rytm/faceplate';
+import { APPEARANCE, COLOR, FACE_KEY, FACE_KEYS, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, OPEN_BREATHE, PRESS_TINT, RING_TONE, STEP_PRESS, XFADE, xfadeCapX, type FaceKeyId } from '../theme';
+import { faceplateParts, fpU, rectCenter, RYTM_FACEPLATE } from '../rytm/faceplate';
+import { keyCapGeometry, keySkirtGeometry } from './keyCap';
 import type { HoldMode } from '../state/holdLatch';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
@@ -55,12 +56,30 @@ const m4 = new Matrix4();
 const col = new Color();
 const WHITE = new Color(1, 1, 1);
 
+/** La touche de la face : en relief au desktop (V.4.2, scene/keyCap.ts : flancs, chanfrein, l'ombre du pied). */
 function keyGeometry(mobile: boolean): BufferGeometry {
   const K = FACE_KEY;
+  if (KEY_RELIEF.on) return keyCapGeometry(K.w, K.h, K.d, K.radius, K.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
   const g = new RoundedBoxGeometry(K.w, K.h, K.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, K.radius);
   g.translate(0, K.h / 2, 0);
   g.deleteAttribute('uv');
   return g;
+}
+
+/**
+ * La jupe de toutes les touches de la face (V.4.2, 2026-10-27) : les douze de la rangee, SCENE A et B, les seize pas
+ * (rytm/faceplate.ts faceplateParts) ; l'ombre douce a leur pied, un seul maillage, une seule fois.
+ */
+function skirtGeometry(): BufferGeometry {
+  const keys = faceplateParts()
+    .filter((p) => p.kind === 'button' || p.kind === 'scene' || p.kind === 'step')
+    .map((p) => {
+      const c = rectCenter(p.rect);
+      const corner = p.kind === 'step' ? RYTM_FACEPLATE.steps.corner : RYTM_FACEPLATE.buttons.corner;
+      return { x: c.x, z: c.z, w: fpU(p.rect.w), d: fpU(p.rect.h), radius: fpU(corner) };
+    });
+  const S = KEY_RELIEF.skirt;
+  return keySkirtGeometry(keys, S.w, S.alpha[APPEARANCE.current === 'light' ? 'light' : 'dark'], S.y, KEY_RELIEF.seg);
 }
 
 function ledGeometry(): BufferGeometry {
@@ -160,6 +179,9 @@ export class RytmFaceKeys {
   readonly cap: Mesh;
   /** le cadre d'une scene armee (2026-10-27) : deux instances, A et B, a l'echelle 0 hors armement */
   readonly armRing: InstancedMesh;
+  /** la jupe de toutes les touches de la face (V.4.2 : l'ombre a leur pied) */
+  readonly skirt: Mesh;
+  private skirtMat: MeshBasicMaterial;
   private ringMat: MeshBasicMaterial;
   private keyMat: MeshStandardMaterial;
   private ledMat: MeshBasicMaterial;
@@ -195,7 +217,7 @@ export class RytmFaceKeys {
     this.emissive = new InstancedBufferAttribute(new Float32Array(N * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
     g.setAttribute('instanceEmissive', this.emissive);
-    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key }), false);
+    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key, vertexColors: KEY_RELIEF.on }), KEY_RELIEF.on);
     this.keyMat.name = 'faceKey';
     this.keys = new InstancedMesh(g, this.keyMat, N);
     this.keys.name = 'faceKeys';
@@ -233,6 +255,13 @@ export class RytmFaceKeys {
     this.armRing.instanceMatrix.setUsage(DynamicDrawUsage);
     this.placeRings();
 
+    // La jupe (V.4.2) : noire et transparente, par-dessus la face et sous les touches (rien ne s'ecrit dans la profondeur)
+    this.skirtMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    this.skirtMat.name = 'keySkirt';
+    this.skirt = new Mesh(skirtGeometry(), this.skirtMat);
+    this.skirt.name = 'keySkirt';
+    this.skirt.renderOrder = -1;
+
     for (let i = 0; i < N; i += 1) this.refresh(i);
     this.keys.instanceColor?.setUsage(DynamicDrawUsage);
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
@@ -240,7 +269,7 @@ export class RytmFaceKeys {
 
   /** Les maillages a poser sur le plateau. */
   objects(): Object3D[] {
-    return [this.keys, this.leds, this.labels.mesh, this.cap, this.armRing];
+    return [this.skirt, this.keys, this.leds, this.labels.mesh, this.cap, this.armRing];
   }
 
   /** Les deux cadres a leur touche, a l'echelle 0 sauf celui de la scene armee (allume, ou dans sa phase allumee). */
@@ -436,7 +465,7 @@ export class RytmFaceKeys {
   setPress(i: number, v: number, move: boolean): void {
     if (!LIVE(i)) return;
     this.press[i] = v;
-    const dy = move ? -STEP_PRESS.depth * v : 0;
+    const dy = move ? -KEY_RELIEF.key * v : 0;
     this.keys.instanceMatrix.array[i * 16 + 13] = dy;
     this.keys.instanceMatrix.needsUpdate = true;
     this.leds.instanceMatrix.array[i * 16 + 13] = LED_Y + dy;
@@ -524,5 +553,7 @@ export class RytmFaceKeys {
     this.armRing.geometry.dispose();
     this.ringMat.dispose();
     this.armRing.dispose();
+    this.skirt.geometry.dispose();
+    this.skirtMat.dispose();
   }
 }

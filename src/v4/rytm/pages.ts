@@ -117,8 +117,9 @@ export function fxScopeTabs(s: RytmScreenId): { global: FxDetailId; voice: FxVoi
 }
 
 /** Les ecrans : une page, ou l'un de ses onglets (VOICE et SYNTH ; VOICE FX et GLOBAL FX), ou la page d'un FX (GLOBAL ou VOICE). */
-export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg' | FxDetailId | FxVoiceDetailId;
-export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg', ...FX_DETAILS, ...FX_VOICE_DETAILS];
+export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg' | FxDetailId | FxVoiceDetailId | 'fxm';
+// fxm a la fin (V.4.2, 2026-10-27) : les ids MIDI d'avant (rytm:screen:<ecran>) gardent leur ordre, le sien s'ajoute
+export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg', ...FX_DETAILS, ...FX_VOICE_DETAILS, 'fxm'];
 export const isRytmScreen = (v: unknown): v is RytmScreenId => typeof v === 'string' && (RYTM_SCREENS as readonly string[]).includes(v);
 
 /** L'ordre des pages (les touches de page, [ et ] en font le tour). */
@@ -136,7 +137,10 @@ export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = { sound: 'S
 /** Les onglets de chaque page, dans l'ordre (la touche de la page allumee pressee encore passe au suivant). */
 // FX au desktop (2026-10-27, decision P2-05, a revenir seule) : GLOBAL FX d'abord, le jeu des huit potards de la face
 // V.4.0 phase 1 (Mika : "the FX page keeps today's global FX set"), VOICE FX en page 2/2 ; le telephone garde VOICE FX d'abord
-export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = { voice: ['voice', 'synth'], fltr: ['fltr'], env: ['env'], fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxg', 'fxv'] };
+// MASTER (V.4.2, 2026-10-27, l'ecran ne se touche plus au desktop, theme.ts SCREEN_TOUCH) : la troisieme page de FX au desktop,
+// MASTER et TEMPO sur les potards A et B (ils n'avaient que leur cadran dans l'ecran, au doigt et a la souris) ; le
+// telephone, qui touche son ecran, ne l'a pas
+export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = { voice: ['voice', 'synth'], fltr: ['fltr'], env: ['env'], fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxg', 'fxv', 'fxm'] };
 /** La page d'un ecran (les pages des FX globaux, 2026-10-10 : FX). */
 export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = {
   voice: 'voice',
@@ -155,6 +159,7 @@ export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = {
   fxvchorus: 'fx',
   fxvdelay: 'fx',
   fxvreverb: 'fx',
+  fxm: 'fx',
 };
 /** Le nom d'un onglet (l'en-tete, ses pastilles) ; celui d'une page sans onglet est le sien ; la page d'un FX, son nom. */
 export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
@@ -174,6 +179,7 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
   fxvchorus: 'CHORUS',
   fxvdelay: 'DELAY',
   fxvreverb: 'REVERB',
+  fxm: 'MASTER',
 };
 /** Le titre d'un ecran, en toutes lettres (le pied, l'en-tete du P-LOCK, l'ecran du MIDI) : VOICE, VOICE SYNTH, GLOBAL FX, GLOBAL FX · DELAY, VOICE FX · DELAY. */
 export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
@@ -193,6 +199,7 @@ export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
   fxvchorus: 'VOICE FX · CHORUS',
   fxvdelay: 'VOICE FX · DELAY',
   fxvreverb: 'VOICE FX · REVERB',
+  fxm: 'MASTER',
 };
 
 /**
@@ -447,6 +454,13 @@ const FXG: readonly PageSlot[] = [
   live('COMP', 'comp', 'bar', 'all'),
 ];
 
+/**
+ * MASTER (V.4.2, 2026-10-27) : le volume de sortie et le tempo de la machine, sur les potards A et B (MASTER et TEMPO de
+ * l'en-tete de l'ecran, qui ne se touche plus au desktop) ; jamais verrouilles, ni dans une scene (rytm/sceneParams.ts :
+ * passthrough). Le reste de la page est vide.
+ */
+const FXM: readonly PageSlot[] = [live('MASTER', 'level', 'level', 'all'), live('TEMPO', 'tempo', 'bar', 'all')];
+
 /*
  * Les pages des FX globaux (2026-10-10) : toujours la meme grille, la quantite
  * du FX en grand carre a gauche (2 x 2, son bloc de GLOBAL FX), ses reglages
@@ -542,6 +556,9 @@ export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly Pag
       break;
     case 'fxg':
       out = FXG;
+      break;
+    case 'fxm':
+      out = FXM;
       break;
     default:
       out = isFxVoiceDetail(screen) ? FX_VOICE_SLOTS[screen] : FX_DETAIL_SLOTS[screen];

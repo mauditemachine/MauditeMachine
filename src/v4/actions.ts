@@ -54,7 +54,7 @@ import { setKnobResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, XFADE_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, SCREEN_TOUCH, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, XFADE_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -1567,20 +1567,13 @@ export function voyRandom(stage: Stage | null = null): void {
 }
 
 /**
- * Le mode presets du desktop du MM-RYTM (2026-10-27, la V.4.2, rytm/presetKeys.ts) : l'ecran ne se touche plus, la
- * face fait tout. EDIT tenu les ouvre (presetHold) ; les cinq touches sous l'ecran apres TRK (VOICE FLTR ENV FX EDIT)
- * sont les siennes (presetSoftKey) ; les potards A et B tournent la liste ou le nom (presetTurn). Le telephone garde son
- * ecran a toucher et ses touches de page.
+ * Le mode presets du desktop du MM-RYTM (2026-10-27, la V.4.2, rytm/presetKeys.ts) : l'ecran ne se touche plus
+ * (theme.ts SCREEN_TOUCH), la face fait tout. EDIT pressee encore les ouvre (editToggle : PATTERNS, puis PRESETS, comme
+ * une touche de page allumee passe a son onglet suivant) ; les cinq touches sous l'ecran apres TRK (VOICE FLTR ENV FX
+ * EDIT) sont les siennes (presetSoftKey) ; les potards A et B tournent la liste ou le nom (presetTurn, presetFaceKnob).
+ * Le telephone garde son ecran a toucher et ses touches de page.
  */
-export const presetTurns = (): boolean => !PORTRAIT && presetMode.on('mm808');
-/** Un cran d'un potard de la face en mode presets : tous les PRESET_TURN_PX de glisser. */
-export const PRESET_TURN_PX = 14;
-
-/** EDIT tenu (2026-10-27) : les presets du MM-RYTM s'ouvrent, la touche s'enfonce. */
-export function presetHold(stage: Stage | null = null): void {
-  stage?.pressRytmPad('edit');
-  presetKey('mm808', 'open');
-}
+export const presetTurns = (): boolean => !SCREEN_TOUCH && presetMode.on('mm808');
 
 /** Un potard de la face tourne de d crans pendant le mode presets du desktop ; true s'il a servi. */
 export function presetTurn(k: number, d: number): boolean {
@@ -1637,6 +1630,15 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
   // Le mode presets du desktop (2026-10-27) : EDIT est sa touche EXIT (ou CANCEL, NO), l'editeur ne s'ouvre pas
   if (which === 'mm808' && presetSoftKey('edit', () => stage?.pressRytmPad('edit'))) return;
   gesture();
+  // L'ecran ne se touche plus au desktop (V.4.2, 2026-10-27, theme.ts SCREEN_TOUCH) : les presets du MM-RYTM passent par
+  // EDIT, comme les onglets d'une touche de page (la touche allumee pressee encore passe au suivant) : PATTERNS, puis
+  // PRESETS ; ouverts, EDIT est leur touche EXIT (plus haut, presetSoftKey) ; presetFaceKnob y met les potards
+  if (which === 'mm808' && !SCREEN_TOUCH && editor.get() === 'mm808') {
+    stage?.pressRytmPad('edit');
+    editor.toggle('mm808');
+    presetKey('mm808', 'open');
+    return;
+  }
   editor.toggle(which);
   const on = editor.get() === which;
   if (which === 'voy') {
@@ -1645,8 +1647,22 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
   } else {
     stage?.pressRytmPad('edit');
     const p = patterns.get();
-    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}` : 'EDIT CLOSED');
+    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}${SCREEN_TOUCH ? '' : ' · EDIT AGAIN: PRESETS'}` : 'EDIT CLOSED', on && !SCREEN_TOUCH ? 1600 : undefined);
   }
+}
+
+/**
+ * Les presets sur les potards de la face (V.4.2, 2026-10-27 : l'ecran ne se touche plus au desktop, theme.ts SCREEN_TOUCH) :
+ * un potard tourne de turn crans (le glisser, la molette ; vers la droite, vers le bas de la liste), une tape (turn 0).
+ * true si le mode presets du MM-RYTM etait la (le geste est pris).
+ */
+export function presetFaceKnob(k: number, turn = 0): boolean {
+  if (!presetTurns()) return false;
+  // 2026-10-27 (la gestion des presets refaite, state/presetMode.ts) : tourner, la liste (potard A) ou le nom (A la
+  // lettre, B le curseur) ; les touches sous l'ecran font les actions (presetSoftKey), une tape de potard est prise et ne
+  // fait rien (ni la page d'un FX, ni la liste des sons, cachees sous les presets)
+  if (turn !== 0) presetTurn(k, turn);
+  return true;
 }
 
 /**
