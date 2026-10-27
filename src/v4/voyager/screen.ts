@@ -835,7 +835,8 @@ export class VoyScreen {
     if (p.count) this.txt(p.count, INFO_I.x - INFO_I.r - 6, HY, FS.small, HALF, 600, 'right');
     const band = UH * 0.72;
     const my = (HY + band) / 2 + 4;
-    if (!p.empty) {
+    // Les fleches : seulement sur la liste (2026-10-27 : pas pendant le nom, OVERWRITE / AS NEW ni DELETE?)
+    if (!p.empty && p.stage === 'browse') {
       c.fillStyle = INK;
       for (const [x, d] of [
         [14, -1],

@@ -1968,7 +1968,8 @@ export class BassScreen {
     const c = this.ctx;
     // Les fleches : un peu plus grandes au telephone (2026-10-09, l'ecran plus grand)
     const ak = PORTRAIT ? 1.35 : 1.2;
-    if (!p.empty) {
+    // Seulement sur la liste (2026-10-27 : pas pendant le nom, OVERWRITE / AS NEW ni DELETE?)
+    if (!p.empty && p.stage === 'browse') {
       c.fillStyle = INK;
       for (const [x, d] of [
         [P + 4 * ak, -1],

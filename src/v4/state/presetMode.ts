@@ -643,7 +643,8 @@ export const presetMode = {
         title: state.note || (nm.problem ? nm.problem : nm.kind === 'rename' ? 'RENAME' : 'SAVE AS'),
         count: '',
         group: '',
-        name: ln.text,
+        // Les cases vides de l'utilisateur soulignees (____/DEEP KICK), comme l'ecran du MM-RYTM les dessine
+        name: `${ln.text.slice(0, USER_LEN).replace(/ /g, '_')}${ln.text.slice(USER_LEN)}`.trimEnd(),
         empty: false,
         naming: { text: ln.text, at: ln.at, problem: nm.problem, kind: nm.kind },
       };
