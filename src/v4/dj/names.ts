@@ -52,8 +52,19 @@ export function keyName(k: DjKeySpec): string {
       return `Remove deck ${t.deck.toUpperCase()} (while it plays: press twice)`;
     case 'machines':
       return 'Play or stop the machines together (MM-RYTM, MM-BASS, MM-ARP), key G';
+    case 'machsync':
+      return 'Sync the machines to the decks: the MM-RYTM and MM-ARP follow the tempo and the beats of the master deck while the decks are synced';
     case 'adddeck':
       return 'Add a deck, with its channel on the mixer';
   }
+}
+
+/**
+ * Le nom d'une touche dans le panneau MIDI (MIDI LEARN, docs:midi) : celui des lecteurs d'ecran, sauf quand il est
+ * une phrase (2026-10-27, revue UI-7 : le SYNC des machines y faisait 127 lettres, le jumeau garde l'explication).
+ */
+export function keyMidiName(k: DjKeySpec): string {
+  if (k.target.kind === 'machsync') return 'Machines sync to the master deck';
+  return keyName(k);
 }
 

@@ -124,7 +124,7 @@ export function extraGrid(t: number): { time: number; step: number; dur: number 
   return null;
 }
 
-/** Toutes (un changement de tempo ou de swing : chacun suit la grille du MM-RYTM). */
-export function askRescheduleAll(): void {
-  for (const s of all) askReschedule(s);
+/** Toutes (un changement de tempo ou de swing : chacun suit la grille du MM-RYTM) ; except : sauf celle-la (le MM-RYTM recale, 2026-10-27). */
+export function askRescheduleAll(except?: Scheduler): void {
+  for (const s of all) if (s !== except) askReschedule(s);
 }

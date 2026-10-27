@@ -10,12 +10,13 @@
  */
 
 import { clock } from '../audio/clock';
-import { pattern } from '../audio/pattern';
+import { BPM, pattern } from '../audio/pattern';
 import { arp } from '../voyager/arp';
 import { anyPlaying, machinePlaying } from '../state/playLock';
 import { bassLoad } from '../state/bassload';
 import { focus, type MachineId } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
+import { tempoSync } from '../state/tempoSync';
 import { voyMsg } from '../voyager/msg';
 import { routeMachines } from '../audio/drums';
 import { extraGrid } from '../audio/sched';
@@ -164,6 +165,7 @@ function syncStore(e: DjEngine): void {
   void startRing();
   watchMachines();
   watchHints();
+  watchLink();
   // Le verrou de phase de SYNC (2026-10-08) : quatre mesures par seconde, un rattrapage invisible au besoin
   window.setInterval(() => phaseLock(e), LOCK.everyMs);
   // Seulement quand la piste du site PART (2026-10-08) : le pont emet aussi pendant qu'elle joue (la progression)
@@ -748,8 +750,11 @@ export const TEMPO_STEP = 0.05;
  */
 export function djSetPitch(d: DjDeck, v: number): void {
   engine();
-  if (machinesOn()) freed.add(d);
-  const ds = djState.get().deck[d];
+  const s0 = djState.get();
+  if (machinesLead(s0)) freed.add(d);
+  // La MASTER du SYNC des machines (2026-10-27) garde son SYNC : son tempo mene les machines et les platines calees
+  const keep = masterDeck(s0) === d;
+  const ds = s0.deck[d];
   const r = ds.range || 8;
   const bpm = ds.track?.bpm ?? null;
   let pitch = Math.round(v * r * 100) / (r * 100);
@@ -757,7 +762,7 @@ export function djSetPitch(d: DjDeck, v: number): void {
     const target = Math.round((bpm * (1 + (v * r) / 100)) / TEMPO_STEP) * TEMPO_STEP;
     pitch = Math.max(-1, Math.min(1, ((target / bpm - 1) * 100) / r));
   }
-  djState.setDeck(d, { pitch, sync: false });
+  djState.setDeck(d, { pitch, sync: keep });
 }
 
 /**
@@ -786,6 +791,11 @@ export const machinesOn = (): boolean => clock.running || arp.get().running || !
 const machinesGrid = (t: number): { time: number; step: number; dur: number } | null => clock.gridAfter(t) ?? arp.grid(t) ?? extraGrid(t);
 /** Leur tempo. */
 const machinesBpm = (): number => (clock.running ? clock.bpm : pattern.get().bpm);
+/**
+ * Les machines menent-elles les platines ? Quand elles jouent, sauf avec le SYNC du MIXER (2026-10-27) : alors les
+ * platines menent toujours, les machines les suivent (le SYNC des machines, plus bas).
+ */
+export const machinesLead = (s = djState.get()): boolean => machinesOn() && !s.machSync;
 
 /**
  * La platine qu'on entend le plus parmi les autres (celle sur laquelle on se
@@ -793,7 +803,7 @@ const machinesBpm = (): number => (clock.running ? clock.bpm : pattern.get().bpm
  * sont la reference de toutes les platines.
  */
 function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
-  if (machinesOn()) return null;
+  if (machinesLead(s)) return null;
   let best: DjDeck | null = null;
   let w = 0;
   for (const o of DJ_DECKS_ALL) {
@@ -813,7 +823,7 @@ function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
  * null s'il n'y a rien sur quoi se caler.
  */
 export function syncBpm(d: DjDeck, s = djState.get()): number | null {
-  if (machinesOn()) return machinesBpm();
+  if (machinesLead(s)) return machinesBpm();
   const r = syncDeck(d, s);
   return r ? deckBpm(s, r) : null;
 }
@@ -824,14 +834,15 @@ export function syncBpm(d: DjDeck, s = djState.get()): number | null {
  * platine posee la a l'instant t (un depart, un saut) ; sinon la ou elle est
  * a t. null sans grille. Toutes les mesures de SYNC prennent un seul instant
  * t (2026-10-08) : deux lectures de currentTime peuvent tomber de part et
- * d'autre d'un paquet de rendu, 2.9 ms d'ecart de phase.
+ * d'autre d'un paquet de rendu, 2.9 ms d'ecart de phase. speed : la vitesse
+ * a laquelle compter (2026-10-27, leadBeat : celle du pitch seul), sinon
+ * celle du moment.
  */
-function deckBeat(d: DjDeck, e: DjEngine, s = djState.get(), pos?: number, t = e.ctx.currentTime): { in: number; period: number } | null {
+function deckBeat(d: DjDeck, e: DjEngine, s = djState.get(), pos?: number, t = e.ctx.currentTime, speed = e.decks[d].speed): { in: number; period: number } | null {
   const ds = s.deck[d];
   const p = e.decks[d];
   if (ds.beat === null || !ds.track?.bpm || !p.loaded) return null;
   const spb = 60 / ds.track.bpm;
-  const speed = p.speed;
   const beats = ((pos ?? p.positionAt(t)) - ds.beat) / spb;
   return { in: ((1 - (beats - Math.floor(beats))) * spb) / speed, period: spb / speed };
 }
@@ -840,7 +851,7 @@ function deckBeat(d: DjDeck, e: DjEngine, s = djState.get(), pos?: number, t = e
 function refBeat(d: DjDeck, e: DjEngine, s = djState.get(), t = e.ctx.currentTime): { in: number; period: number } | null {
   const r = syncDeck(d, s);
   if (r) return deckBeat(r, e, s, undefined, t);
-  if (!machinesOn()) return null;
+  if (!machinesLead(s)) return null;
   // Les machines : seize pas par mesure, un temps tous les quatre
   const g = machinesGrid(t);
   if (!g) return null;
@@ -940,13 +951,26 @@ export function djSync(d: DjDeck): void {
     if (!syncArmed.delete(d)) syncArmed.add(d);
     return;
   }
-  if (!matchTempo(d)) return;
+  if (!matchTempo(d) && !soloMaster(d)) return;
   // Un SYNC a la main : la platine redevient suivie par les machines, ses temps exactement sur la reference
   freed.delete(d);
   const e = engine();
   if (!e) return;
   rearm(d, e);
   if (e.decks[d].playing) alignNow(d, e);
+}
+
+/**
+ * Le SYNC du MIXER (2026-10-27) : une platine sans reference (aucune autre ne joue) s'engage quand meme, sans changer
+ * de tempo : elle devient la MASTER, les machines la suivent. false sans SYNC du MIXER (comme avant : rien a suivre).
+ */
+function soloMaster(d: DjDeck): boolean {
+  const s = djState.get();
+  const ds = s.deck[d];
+  if (!s.machSync || syncBpm(d, s) !== null || !ds.track?.bpm || !ds.loaded) return false;
+  engine();
+  djState.setDeck(d, { sync: true });
+  return true;
 }
 
 /** Le tempo de la platine sur celui de la reference (SYNC, sans les temps) ; false s'il est trop loin ou inconnu. */
@@ -972,6 +996,8 @@ function matchTempo(d: DjDeck): boolean {
  * puis le rallume).
  */
 export function djSynced(d: DjDeck, s = djState.get()): boolean {
+  // La MASTER du SYNC des machines est la reference : calee par definition (2026-10-27)
+  if (masterDeck(s) === d) return true;
   const ref = syncBpm(d, s);
   const own = deckBpm(s, d);
   if (!ref || !own) return false;
@@ -1034,7 +1060,7 @@ function wrapPhase(x: number, period: number): number {
 }
 
 /** La reference d'une platine en un mot : 'machines', la lettre d'une platine, ou null. */
-const refId = (d: DjDeck, s = djState.get()): string | null => (machinesOn() ? 'machines' : syncDeck(d, s));
+const refId = (d: DjDeck, s = djState.get()): string | null => (machinesLead(s) ? 'machines' : syncDeck(d, s));
 
 /** L'ecart garde par la main, s'il a ete pris contre la reference du moment ; sinon il s'oublie. */
 function kept(d: DjDeck, s = djState.get()): number {
@@ -1161,7 +1187,7 @@ let watching = false;
 
 /** Une platine prend le tempo et les temps des machines (tempo : sans les temps), si elles jouent et qu'on ne l'a pas liberee. */
 function follow(d: DjDeck, tempo = false): void {
-  if (!machinesOn() || freed.has(d)) return;
+  if (!machinesLead() || freed.has(d)) return;
   const ds = djState.get().deck[d];
   if (!ds.track?.bpm || !ds.loaded || !matchTempo(d)) return;
   const e = djEngineIfAny();
@@ -1208,12 +1234,142 @@ function watchMachines(): void {
     const b = machinesBpm();
     if (Math.abs(b - bpm) < 1e-6) return;
     bpm = b;
-    if (!machinesOn()) return;
+    // Le SYNC du MIXER : ce tempo vient des platines, elles ne le suivent pas (machinesLead)
+    if (!machinesLead()) return;
     // Le tempo tout de suite ; les temps une fois le potard pose (un recalage par geste, pas un par pixel)
     followAll(true);
     window.clearTimeout(realign);
     realign = window.setTimeout(() => followAll(), 400);
   });
+}
+
+/* ---------------- le SYNC des machines (2026-10-27) ---------------- */
+
+/**
+ * Le SYNC du MIXER (2026-10-27, Mika : "je voudrais un bouton sync qui fait que c'est sync avec le bpm des cdj quand
+ * ces derniers sont sync aussi"), a cote de PLAY/STOP des machines. La regle, pour que les deux sens ne se battent
+ * jamais :
+ * - SYNC eteint (comme avant) : les machines qui jouent menent ; une platine qui part prend leur tempo et leurs temps
+ *   (follow), le SYNC d'une platine s'y cale.
+ * - SYNC allume : les platines menent, toujours (machinesLead faux). Le SYNC d'une platine se cale sur les autres
+ *   platines ; seule a jouer, elle s'engage sans changer de tempo (soloMaster). La platine MASTER (masterDeck) : parmi
+ *   les platines SYNC qui jouent, entendues (le fader de leur voie au-dessus de 0), avec un BPM et une grille, la
+ *   premiere calee (syncSeq : celle qui mene une paire, ledBy), a egalite la plus entendue. Les machines prennent son
+ *   tempo, au double ou a la moitie pour rester dans 100..150 (linkTempo), au centieme (pattern.followBpm : le TEMPO
+ *   du MM-RYTM, que le MM-ARP et la basse suivent) ; RUN part sur un de ses temps et chaque fin de mesure s'y recale
+ *   (audio/clock.ts leadRealign, au plus un demi-temps, jamais au milieu d'une mesure). Le pitch de la MASTER garde
+ *   son SYNC : les machines et les autres platines calees suivent son tempo ; ailleurs, il desarme comme avant.
+ * - Rien a suivre (aucune platine SYNC ne joue, ou hors de 100..150 meme au double) : les machines gardent leur
+ *   TEMPO ; un suivi qui s'arrete (SYNC eteint, la MASTER arretee ou baissee a 0) garde le tempo du moment, retenu au
+ *   BPM entier.
+ * L'ecran du MM-RYTM le dit (TEMPO 124.0 SYNC, state/tempoSync.ts).
+ */
+export function djMachSync(): void {
+  engine();
+  djState.setMachSync(!djState.get().machSync);
+}
+
+/** La platine MASTER du SYNC des machines, ou null (SYNC eteint, ou aucune platine calee qui joue et qu'on entend). */
+export function masterDeck(s = djState.get()): DjDeck | null {
+  if (!s.machSync) return null;
+  let best: DjDeck | null = null;
+  for (const d of DJ_PLAYERS) {
+    const ds = s.deck[d];
+    if (!ds.sync || !ds.loaded || ds.beat === null || heardWeight(s, d) <= 0) continue;
+    if (best === null || syncSeq[d] < syncSeq[best] || (syncSeq[d] === syncSeq[best] && heardWeight(s, d) > heardWeight(s, best))) best = d;
+  }
+  return best;
+}
+
+/** Le tempo que la MASTER donne aux machines : le sien, au double ou a la moitie pour tenir dans 100..150 ; null sinon. */
+export function linkTempo(s = djState.get()): { deck: DjDeck; bpm: number; ratio: number } | null {
+  const d = masterDeck(s);
+  const b = d ? deckBpm(s, d) : null;
+  if (!d || !b) return null;
+  for (const ratio of [1, 2, 0.5]) {
+    const m = b * ratio;
+    if (m >= BPM.min && m <= BPM.max) return { deck: d, bpm: m, ratio };
+  }
+  return null;
+}
+
+/**
+ * La grille que les machines suivent (audio/clock.ts lead) : le prochain temps des machines a t ou apres (temps du
+ * contexte), pris sur la position de la MASTER, et la duree d'un temps a son tempo (sans le BEND ni le rattrapage de
+ * phase du moment) ; null sans suivi.
+ */
+function leadBeat(t: number): { time: number; period: number } | null {
+  const e = djEngineIfAny();
+  const s = djState.get();
+  const L = linkTempo(s);
+  if (!e || !L) return null;
+  // Au tempo du pitch seul apres maintenant (2026-10-27, revue SYNC-BEND-EXTRAPOLATION) : un BEND, un jog ou un
+  // rattrapage de la MASTER en cours finit avant le temps vise, les machines ne suivent pas un nudge qui n'aura pas lieu
+  const p = e.decks[L.deck];
+  const ds = s.deck[L.deck];
+  const v = L.bpm / L.ratio / (ds.track?.bpm ?? L.bpm);
+  const now = e.ctx.currentTime;
+  const pos = p.positionAt(t) - (t - now) * (p.speed - v);
+  // A la moitie (une MASTER de 200 a 300 BPM, 2026-10-27, revue SYNC-HALF-RATIO) : un temps des machines tous les deux
+  // temps de la platine, toujours les temps pairs de sa grille (le recalage tombait au hasard des arrondis sur l'un ou
+  // l'autre, deux pas perdus) ; cherche a un temps pres, le prochain pair a t ou apres
+  if (L.ratio === 0.5) {
+    if (ds.beat === null || !ds.track?.bpm || !p.loaded) return null;
+    const spb = 60 / ds.track.bpm;
+    const beats = (pos - ds.beat) / spb;
+    let k = Math.ceil(beats - 1e-6);
+    if (((k % 2) + 2) % 2 === 1) k += 1;
+    return { time: t + ((k - beats) * spb) / v, period: 60 / L.bpm };
+  }
+  const b = deckBeat(L.deck, e, s, pos, t, v);
+  if (!b) return null;
+  let at = t + b.in;
+  // Au double tempo, un temps des machines sur deux tombe entre deux temps de la platine
+  if (L.ratio === 2 && at - b.period / 2 >= t) at -= b.period / 2;
+  return { time: at, period: 60 / L.bpm };
+}
+
+let linkOn = false;
+let linkWatching = false;
+
+/** Le suivi : le TEMPO des machines sur celui de la MASTER, les autres platines calees aussi ; arrete, le tempo reste. */
+function linkCheck(): void {
+  const s = djState.get();
+  const L = linkTempo(s);
+  if (!L) {
+    tempoSync.set(null);
+    if (linkOn) {
+      linkOn = false;
+      // Le tempo du moment reste, retenu (au BPM entier)
+      pattern.followBpm(pattern.get().bpm, true);
+    }
+    return;
+  }
+  const b = Math.round(L.bpm * 100) / 100;
+  if (Math.abs(pattern.get().bpm - b) >= 0.005) pattern.followBpm(b);
+  tempoSync.set(b);
+  if (!linkOn) {
+    linkOn = true;
+    lcdMessage.show(`TEMPO ${b.toFixed(1)} SYNC`, HINT_MS);
+  }
+  // Les autres platines calees qui jouent suivent le tempo de leur reference (le pitch de la MASTER a bouge)
+  for (const d of DJ_PLAYERS) {
+    if (d === L.deck) continue;
+    const ds = s.deck[d];
+    const own = deckBpm(s, d);
+    const ref = ds.sync && ds.playing ? syncBpm(d, s) : null;
+    if (own && ref && ![ref, ref * 2, ref / 2].some((r) => Math.abs(own - r) < 0.005)) matchTempo(d);
+  }
+}
+
+function watchLink(): void {
+  if (linkWatching) return;
+  linkWatching = true;
+  clock.lead(leadBeat);
+  djState.subscribe(linkCheck);
+  // Un TEMPO tourne pendant le suivi revient a celui de la MASTER (elle mene)
+  pattern.subscribe(linkCheck);
+  linkCheck();
 }
 
 /* ---------------- les grilles, pour le sampler des platines ---------------- */

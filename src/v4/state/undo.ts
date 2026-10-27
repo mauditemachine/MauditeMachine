@@ -42,6 +42,7 @@ import { lcdMessage } from './lcdMessage';
 import { patterns } from './patterns';
 import { presetMode } from './presetMode';
 import { apply, capture, type PresetMachine } from './presets';
+import { tempoSync } from './tempoSync';
 
 /** L'etat d'une machine, tel qu'un preset le garde. */
 type Snap = ReturnType<typeof capture>;
@@ -318,6 +319,19 @@ function examine(m: PresetMachine): void {
   const started = m === 'voy' && arp.get().running && !t.running;
   if (m === 'voy') t.running = arp.get().running;
   if (sameSig(sig, t.sig)) return;
+  // Le tempo suivi (2026-10-27, revue UI-1) : pendant que le SYNC du MIXER fait suivre les platines au MM-RYTM
+  // (state/tempoSync.ts), un BPM qui bouge seul n'est pas une etape (il effacait le REDO, et son UNDO, aussitot repris
+  // par le suivi, ne changeait rien) ; l'etat stable, et celui d'avant une rafale ouverte, prennent ce tempo
+  if (m === 'mm808' && tempoSync.get() !== null && sig.every((x, i) => i === 1 /* le BPM, sigOf */ || x === t.sig[i])) {
+    if (!t.burst) {
+      rebase(t, m);
+      return;
+    }
+    t.sig = sig;
+    const e = t.burst.entry;
+    e.data = { ...(e.data as unknown as Part), bpm: pattern.get().bpm } as unknown as Snap;
+    return;
+  }
   // RUN sur une progression vide part sur F#m (voyager/arp.ts toggleRun) : la lecture, pas un reglage
   if (started && sig[0] === t.sig[0] && sig[1] === t.sig[1] && (t.sig[2] as readonly number[]).length === 0) {
     if (t.burst) t.sig = sig;
@@ -387,10 +401,14 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
       }
     } else data = withPart(e.m, e.data, partOf(e.m, now));
   }
+  // Le tempo suivi reste (2026-10-27, revue UI-1) : pendant le SYNC du MIXER, UNDO et REDO rendent le reste, le
+  // MM-RYTM garde le tempo des platines au centieme (apply le pose au BPM entier, le suivi l'y ramenait)
+  const followed = e.m === 'mm808' && tempoSync.get() !== null ? pattern.get().bpm : null;
   let ok = true;
   applying = true;
   try {
     apply(e.m, clone(data));
+    if (followed !== null) pattern.followBpm(followed);
   } catch {
     ok = false;
     // Une etape qu'apply ne lit plus (une version d'avant) : ce qui jouait revient

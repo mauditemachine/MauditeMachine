@@ -10,6 +10,7 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
 import { TAP_VEL_DEFAULT } from './state/rytmPage';
+import { tempoSync } from './state/tempoSync';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
 import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './audio/locks';
@@ -2423,7 +2424,7 @@ export function dialReadout(id: DialId): string {
   }
   const k = voyId(id);
   if (k) return voyReadout(k, voyParams.of(k));
-  if (id === 'tempo') return `${pattern.get().bpm} BPM`;
+  if (id === 'tempo') return tempoSync.label(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return 'TAP A VOICE';
   if (e === 'vsound') {
@@ -2468,7 +2469,7 @@ export function dialValueText(id: DialId): string {
   if (lp) return pattern.get().instrument && soundFamily() ? layerText(lp, layerValue(lp)) : '--';
   const k = voyId(id);
   if (k) return voyValueText(k, voyParams.of(k));
-  if (id === 'tempo') return `${pattern.get().bpm}`;
+  if (id === 'tempo') return tempoSync.text(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return '--';
   if (e === 'vsound') {

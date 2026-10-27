@@ -27,6 +27,8 @@ export interface DjKnobSpec {
   x: number;
   z: number;
   s: number;
+  /** la hauteur a l'echelle, si elle est plus basse que s et DJ_KNOB.tallMax (knobTall) */
+  tall?: number;
   /** zero au centre (GAIN, EQ, FILTER) */
   bipolar: boolean;
   target: DjKnobTarget;
@@ -80,7 +82,9 @@ export type DjKeyTarget =
   /** ADD DECK, dans l'en-tete de la table : une platine de plus (tant qu'il reste une place) */
   | { kind: 'adddeck' }
   /** PLAY/STOP du mixer : les machines (MM-RYTM, MM-BASS, MM-ARP, voies 1 a 3) ensemble */
-  | { kind: 'machines' };
+  | { kind: 'machines' }
+  /** SYNC du mixer (2026-10-27) : les machines suivent le tempo et les temps de la platine MASTER */
+  | { kind: 'machsync' };
 
 export interface DjKeySpec {
   id: string;
@@ -111,8 +115,16 @@ export const djKnob = (id: string): DjKnobSpec | undefined => knobMap.get(id);
 export const djFader = (id: string): DjFaderSpec | undefined => faderMap.get(id);
 export const djKey = (id: string): DjKeySpec | undefined => keyMap.get(id);
 
-/** Le libelle d'un potard se pose au-dessus de sa jupe (tenu droit, un peu plus haut : la vue plonge moins, le capuchon le cachait). */
-export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - (PORTRAIT ? 0.2 : 0.12);
+/**
+ * Le libelle d'un potard se pose au-dessus de sa jupe (tenu droit, un peu plus haut : la vue plonge moins, le capuchon
+ * le cachait) ; un gros potard (les EQ du desktop, 2026-10-27) l'eloigne un peu plus, son capuchon est plus large.
+ */
+export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - (PORTRAIT ? 0.2 : 0.12 + 0.06 * Math.max(0, k.s - 1.15));
+/**
+ * La hauteur d'un potard a l'echelle : jamais au-dela de DJ_KNOB.tallMax (un gros potard s'elargit, il ne monte plus),
+ * ni de la sienne (tall : GAIN et FILTER, MIX.tallGain).
+ */
+export const knobTall = (k: DjKnobSpec): number => Math.min(k.s, k.tall ?? DJ_KNOB.tallMax);
 
 /** La place du i-eme potard de la rangee des effets (FX TO le dernier) : une rangee, ou deux de quatre tenu droit. */
 function fxAt(i: number): { x: number; z: number } {
@@ -134,6 +146,7 @@ function buildKnobs(): DjKnobSpec[] {
         x: UNIT_X.mix + cx,
         z: MIX.rows[r],
         s: big ? MIX.sEq : MIX.sGain,
+        ...(big ? {} : { tall: MIX.tallGain }),
         bipolar: true,
         target: { kind: 'eq', ch, eq: e.id },
         idle: false,
@@ -157,7 +170,8 @@ function buildKnobs(): DjKnobSpec[] {
   });
   // FX TO (2026-10-04, Mika : "un knob qui selectionne la piste de destination, ou alors toutes les pistes")
   const to = fxAt(DJ_FX.length);
-  knobs.push({ id: 'dj-fxto', label: 'FX TO', x: UNIT_X.mix + to.x, z: to.z, s: MIX.sFx, bipolar: false, target: { kind: 'fxto' }, idle: false });
+  // Plus gros que les effets (2026-10-27, Mika : "ce bouton doit etre plus gros que les autres") : sa zone et son jumeau suivent
+  knobs.push({ id: 'dj-fxto', label: 'FX TO', x: UNIT_X.mix + to.x, z: to.z + MIX.fxToDz, s: MIX.sFxTo, bipolar: false, target: { kind: 'fxto' }, idle: false });
   knobs.push({ id: 'dj-master', label: 'MASTER', x: UNIT_X.mix + MIX.masterX, z: MIX.master.z, s: MIX.master.s, bipolar: false, target: { kind: 'master' }, idle: false });
   return knobs;
 }
@@ -239,9 +253,11 @@ function buildKeys(): DjKeySpec[] {
       target: { kind: 'time', d: t },
     });
   });
-  // PLAY/STOP des machines, sous le VU du master
+  // PLAY/STOP des machines, sous le VU du master ; SYNC a sa droite (2026-10-27), sauf sur la table seule tenue droite
   const P = MIX.play;
-  keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
+  keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX + (DJ_MIXER_ONLY ? 0 : P.dx), z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
+  const S = MIX.machSync;
+  if (!DJ_MIXER_ONLY) keys.push({ id: 'dj-machsync', label: 'SYNC', x: UNIT_X.mix + MIX.masterX + S.dx, z: P.z, w: 2 * S.r, d: 2 * S.r, round: true, target: { kind: 'machsync' } });
   // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place ;
   // jamais sur la table seule du telephone tenu droit (2026-10-18, Mika : "En mobile je veux juste Mixer et pas de deck")
   const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_SHOWN.length) / 2 - dx);

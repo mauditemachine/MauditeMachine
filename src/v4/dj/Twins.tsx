@@ -146,7 +146,15 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       {DJ_KEYS.map((k) => {
         const t = k.target;
         const pressed =
-          t.kind === 'play' ? s.deck[t.deck].playing : t.kind === 'smpl' && t.fn === 'open' ? samplerOf(t.deck).get().open : t.kind === 'time' ? s.time === t.d : undefined;
+          t.kind === 'play'
+            ? s.deck[t.deck].playing
+            : t.kind === 'smpl' && t.fn === 'open'
+              ? samplerOf(t.deck).get().open
+              : t.kind === 'time'
+                ? s.time === t.d
+                : t.kind === 'machsync'
+                  ? s.machSync
+                  : undefined;
         return (
           <button
             key={k.id}

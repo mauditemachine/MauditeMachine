@@ -134,12 +134,27 @@ export const beatsToSeconds = (bpm: number, beats: number): number => (60 / (bpm
  */
 export function fxMix(id: string, dose: number): { dry: number; wet: number } {
   const d = Math.max(0, Math.min(1, dose));
-  if (id === 'delay') return { dry: 1, wet: d * 0.8 };
+  // Le DUB ECHO (2026-10-27, l'id delay) : son retour reste ouvert, la dose regle son envoi et sa boucle (dubSend, dubFeedback)
+  if (id === 'delay') return { dry: 1, wet: d > 0 ? 1 : 0 };
   if (id === 'reverb') return { dry: 1, wet: d * 0.9 };
   if (id === 'chorus' || id === 'flanger') return { dry: 1 - d * 0.5, wet: d * 0.8 };
   if (id === 'overdrive') return d > 0 ? { dry: 0, wet: 1 } : { dry: 1, wet: 0 };
   return { dry: 1 - d, wet: d };
 }
+
+/**
+ * Le DUB ECHO (2026-10-27, Mika : "j'aimerais a la place de Delay un DUB ECHO comme les CDJ le proposent") : ce que
+ * sa dose ouvre (dj/engine.ts DubEcho). L'envoi, la part du son qui entre dans l'echo, monte vite (en puissance 0.6) ;
+ * le retour de la boucle va de DUB_FB.min (deux ou trois repetitions discretes, puis plus rien) a DUB_FB.max (une
+ * longue queue de dub). A zero, l'envoi se ferme et le retour redescend lentement vers DUB_FB.min : la queue s'eteint
+ * seule, rien ne coupe net.
+ */
+export const DUB_FB = { min: 0.33, max: 0.85, curve: 1.2, send: 0.6 } as const;
+export const dubSend = (dose: number): number => {
+  const d = Math.max(0, Math.min(1, dose));
+  return d > 0 ? d ** DUB_FB.send : 0;
+};
+export const dubFeedback = (dose: number): number => DUB_FB.min + (DUB_FB.max - DUB_FB.min) * Math.max(0, Math.min(1, dose)) ** DUB_FB.curve;
 
 /* ---------- forme d'onde ---------- */
 

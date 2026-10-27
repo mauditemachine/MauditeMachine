@@ -118,6 +118,12 @@ export interface DjState {
   fxTo: number;
   /** l'affichage des formes d'onde, retenu */
   wave: DjWaveMode;
+  /**
+   * SYNC du MIXER (2026-10-27, Mika : "je voudrais un bouton sync qui fait que c'est sync avec le bpm des cdj quand
+   * ces derniers sont sync aussi") : les platines menent, les machines (le TEMPO du MM-RYTM, que le MM-ARP suit)
+   * prennent le tempo et les temps de la platine MASTER (dj/actions.ts). Retenu.
+   */
+  machSync: boolean;
   deck: Record<DjDeck, DjDeckState>;
 }
 
@@ -151,6 +157,7 @@ function fresh(): DjState {
     master: MASTER_HOME,
     fxTo: -1,
     wave: 'warm',
+    machSync: false,
     deck: { a: deck(), b: deck(), c: deck(), d: deck() },
   };
 }
@@ -174,8 +181,9 @@ const pick = (v: unknown, lo: number, hi: number, d: number): number => (typeof 
  * fader, un kill, un filtre, une dose d'effet ou un MASTER laisses la fois
  * d'avant les coupaient sur leur propre page, sans rien a l'ecran, et un
  * rechargement n'y changeait rien (MASTER a 0 : tout le site muet). Donc :
- * - retenus : TIME, FX TO, l'affichage des formes d'onde, et l'EQ des
- *   platines (hors kill : un bout de course a gauche revient au centre) ;
+ * - retenus : TIME, FX TO, l'affichage des formes d'onde, le SYNC du MIXER
+ *   (2026-10-27), et l'EQ des platines (hors kill : un bout de course a
+ *   gauche revient au centre) ;
  * - pour la visite seulement, a leur place de depart a chaque chargement :
  *   les voies des machines en entier, tous les faders, GAIN, FILTER, les
  *   doses des effets et MASTER.
@@ -212,6 +220,7 @@ function load(): DjState {
     // WARM arrive (2026-10-05) : le 3BAND retenu etait l'affichage de depart, il passe a WARM ; RGB ou MONO choisis restent
     const w = (o as { waveMode?: unknown }).waveMode ?? (o.wave === 'rgb' || o.wave === 'mono' ? o.wave : undefined);
     if (typeof w === 'string' && (DJ_WAVES as readonly string[]).includes(w)) s.wave = w as DjWaveMode;
+    if (typeof o.machSync === 'boolean') s.machSync = o.machSync;
   } catch {
     /* rien de retenu : l'etat neuf */
   }
@@ -227,8 +236,8 @@ function save(): void {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     try {
-      const { ch, fx, time, master, fxTo, wave } = state;
-      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master, fxTo, waveMode: wave }));
+      const { ch, fx, time, master, fxTo, wave, machSync } = state;
+      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master, fxTo, waveMode: wave, machSync }));
     } catch {
       /* stockage plein ou refuse : l'etat vit pour la visite */
     }
@@ -287,6 +296,12 @@ export const djState = {
   setWave(w: DjWaveMode): void {
     if (state.wave === w) return;
     state = { ...state, wave: w };
+    emit();
+  },
+  /** SYNC du MIXER (2026-10-27) : les machines suivent la platine MASTER. */
+  setMachSync(on: boolean): void {
+    if (state.machSync === on) return;
+    state = { ...state, machSync: on };
     emit();
   },
   setDeck(d: DjDeck, patch: Partial<DjDeckState>): void {

@@ -345,6 +345,11 @@ export const DJ_KNOB = {
   skirt: { r: 0.284, h: 0.04, rTop: 0.272 },
   mark: { w: 0.03, h: 0.01, d: 0.15 },
   segments: { desktop: 40, mobile: 28 },
+  /**
+   * Au-dela de cette echelle, un potard grandit en largeur, plus en hauteur (2026-10-27, les EQ et FX TO plus gros) :
+   * haut, son capuchon cachait son nom pose derriere lui (la vue plonge a 69 degres) ; une table DJ a des potards larges et bas
+   */
+  tallMax: 1.2,
 } as const;
 
 /** Les voies de la table : 1 le MM-RYTM, 2 le MM-BASS, 3 le MM-ARP, 4 a 7 les platines A a D. */
@@ -360,7 +365,11 @@ export const DJ_EQ: readonly { id: DjEqId; label: string }[] = [
   { id: 'low', label: 'LOW' },
   { id: 'filter', label: 'FILTER' },
 ];
-/** OVERDRIVE remplace DISTO le 2026-10-04 (Mika : "au lieu de disto je veux Overdrive"). */
+/**
+ * OVERDRIVE remplace DISTO le 2026-10-04 (Mika : "au lieu de disto je veux Overdrive") ; DUB ECHO remplace DELAY le
+ * 2026-10-27 (Mika : "j'aimerais a la place de Delay un DUB ECHO comme les CDJ le proposent"), au meme potard : l'id
+ * delay reste (MIDI dj:dj-fx-delay, Roto, l'etat retenu), seul son nom change.
+ */
 export const DJ_FX = ['overdrive', 'crush', 'chorus', 'flanger', 'trans', 'delay', 'reverb'] as const;
 export type DjFxId = (typeof DJ_FX)[number];
 export const DJ_FX_LABEL: Readonly<Record<DjFxId, string>> = {
@@ -369,7 +378,7 @@ export const DJ_FX_LABEL: Readonly<Record<DjFxId, string>> = {
   chorus: 'CHORUS',
   flanger: 'FLANGER',
   trans: 'TRANS',
-  delay: 'DELAY',
+  delay: 'DUB ECHO',
   reverb: 'REVERB',
 };
 /** Les temps des effets (fractions de temps), comme sur Sonaa. */
@@ -389,7 +398,11 @@ export const MIX = {
   cols: [] as number[],
   masterX: 0,
   numZ: PORTRAIT ? -0.42 : -2.2,
-  rows: (PORTRAIT ? [0.45, 1.33, 2.21, 3.09, 3.97] : [-1.5, -0.64, 0.24, 1.12, 1.98]) as readonly number[],
+  /**
+   * Desktop (2026-10-27, Mika : "je voudrais que les boutons EQ soient plus gros et reduire la course des faders de
+   * volume pour laisser de la place") : les rangees s'ecartent pour des EQ plus gros (sEq), le fader de voie raccourcit
+   */
+  rows: (PORTRAIT ? [0.45, 1.33, 2.21, 3.09, 3.97] : [-1.55, -0.59, 0.47, 1.53, 2.47]) as readonly number[],
   /**
    * Au telephone tenu droit, le volume de la voie est un potard sous FILTER
    * (Mika, 2026-10-05 : "au pire mets des rotary au lieu des faders, qui
@@ -399,10 +412,17 @@ export const MIX = {
   /**
    * echelle des potards : GAIN et FILTER, les trois EQ un peu plus gros
    * (Mika, 2026-10-03 : "pas trop non plus" ; 2026-10-04 : "les knobs je les
-   * veux plus gros")
+   * veux plus gros") ; desktop, 2026-10-27 : HI MID LOW de 1.15 a 1.5 (un tiers
+   * plus larges), GAIN et FILTER de 1.0 a 1.15 ; tenu droit inchange (il tient
+   * deja : deux voies, des potards de volume a la place des faders)
    */
-  sGain: 1.0,
-  sEq: PORTRAIT ? 1.1 : 1.15,
+  sGain: PORTRAIT ? 1.0 : 1.15,
+  /**
+   * GAIN et FILTER plus larges, pas plus hauts (2026-10-27, revue UI-3 : a 1.15 de haut, leur capuchon cachait le bas
+   * de leur nom pose derriere eux) : knobTall
+   */
+  tallGain: 1.0,
+  sEq: PORTRAIT ? 1.1 : 1.5,
   /**
    * effets : rangee sous l'ecran ; au telephone tenu droit, deux rangees de
    * quatre (FX TO la derniere), plus gros (Mika, 2026-10-05 : "les knobs FX
@@ -415,13 +435,25 @@ export const MIX = {
   fxX0: 0,
   fxPitch: 1.1,
   sFx: PORTRAIT ? 1.25 : 0.95,
+  /**
+   * FX TO plus gros que les effets (2026-10-27, Mika : "ce bouton doit etre plus gros que les autres") : 1.47 fois
+   * leur taille sur desktop, 1.36 tenu droit, ses crans nommes (ALL, puis le numero de chaque voie) et son nom dessous,
+   * dans l'ouverture de sa course ; fxToDz : tenu droit, un peu plus bas (son cran du haut garde l'air sous FLANGER)
+   */
+  sFxTo: PORTRAIT ? 1.7 : 1.4,
+  fxToDz: PORTRAIT ? 0.08 : 0,
   master: PORTRAIT ? { z: 0.6, s: 1.15 } : { z: -1.45, s: 1.25 },
   /** ecran des effets et touches de temps */
   screen: PORTRAIT ? { x: 0, z: -4.42, w: 5.5, d: 0.66 } : { x: 0, z: -4.25, w: 3.9, d: 0.95 },
   times: PORTRAIT ? { x0: 0, pitch: 0.9, z: -3.55, w: 0.7, d: 0.32 } : { x0: 0, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
-  /** faders de voie : fente de z0 a z1 (plus longue depuis que le crossfader est parti) ; VU a cote */
-  fader: { z0: 2.62, z1: 5.0 },
-  vu: PORTRAIT ? { dx: 0.42, z0: 0.25, z1: 3.65, n: 15, w: 0.14, d: 0.16 } : { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
+  /**
+   * faders de voie : fente de z0 a z1 (plus longue depuis que le crossfader est parti) ; VU a cote. 2026-10-27 : la
+   * course raccourcie de 2.38 a 1.86 (z0 2.62 -> 3.14, le bas ne bouge pas) pour des EQ plus gros ; a fond (RYTM et
+   * ARP, au depart) le capuchon garde l'air d'avant sous FILTER (revue UI-4 : a 3.0 il touchait sa jupe) ; les VU
+   * s'ecartent d'eux (dx 0.5 -> 0.62) et descendent avec les rangees (z1 1.95 -> 2.47)
+   */
+  fader: { z0: 3.14, z1: 5.0 },
+  vu: PORTRAIT ? { dx: 0.42, z0: 0.25, z1: 3.65, n: 15, w: 0.14, d: 0.16 } : { dx: 0.62, z0: -1.5, z1: 2.47, n: 15, w: 0.14, d: 0.16 },
   /**
    * VU du master (deux colonnes) ; raccourci pour PLAY dessous. Tenu droit,
    * ADD DECK parti (2026-10-18, la table seule) : il descend jusqu'au bas des
@@ -435,7 +467,14 @@ export const MIX = {
    * 2026-10-07) au-dessus ; tenu droit (2026-10-18), sur la rangee des
    * VOLUME, son nom a la hauteur des leurs
    */
-  play: PORTRAIT ? { z: 4.85, r: 0.34, labelZ: 4.32 } : { z: 4.62, r: 0.36, labelZ: 3.98 },
+  play: PORTRAIT ? { z: 4.85, r: 0.34, labelZ: 4.32, dx: 0 } : { z: 4.62, r: 0.36, labelZ: 3.98, dx: -0.44 },
+  /**
+   * SYNC des machines (2026-10-27, Mika : "je voudrais un bouton sync qui fait que c'est sync avec le bpm des cdj
+   * quand ces derniers sont sync aussi") : a droite de PLAY/STOP, de la meme famille (un bouton rond, son anneau
+   * allume), un peu plus petit, son nom au-dessus a la hauteur de MACHINES ; PLAY/STOP glisse a gauche (dx) pour lui
+   * faire la place. Pas sur la table seule du telephone tenu droit : aucune platine a suivre.
+   */
+  machSync: { dx: 0.44, r: 0.32 },
   /** l'en-tete (MIXER), a la hauteur de celui des platines */
   head: { z: -5.19 },
   /**

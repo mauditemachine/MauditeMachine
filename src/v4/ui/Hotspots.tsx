@@ -153,6 +153,7 @@ import {
 import { samplesChanged, samplesVersion } from '../audio/samples';
 import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { trk } from '../state/trk';
+import { tempoSync } from '../state/tempoSync';
 import { sceneCtl } from '../state/sceneCtl';
 import type { HoldLatch } from '../state/holdLatch';
 import { clock } from '../audio/clock';
@@ -512,7 +513,7 @@ function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
  */
 function screenDialSet(k: DialId, v: number): void {
   anyDial(k, v);
-  if (k === 'tempo') lcdMessage.show(`TEMPO ${pattern.get().bpm} BPM`, POT_UI.readoutMs, true);
+  if (k === 'tempo') lcdMessage.show(`TEMPO ${tempoSync.label(pattern.get().bpm)}`, POT_UI.readoutMs, true);
 }
 
 interface Point {
@@ -2077,7 +2078,7 @@ const title = (label: string): string => label.charAt(0) + label.slice(1).toLowe
 
 /** Texte lu d'un encodeur : "130 BPM", "80 %", "54 % swing", TONE "+35", STRETCH "-40 %, shorter". */
 function dialText(k: EncId, v: number): string {
-  if (k === 'tempo') return `${v} BPM`;
+  if (k === 'tempo') return tempoSync.label(v);
   if (k === 'vsound') {
     const f = soundFamily();
     return f ? kit.valueText(f) : 'one sound';
@@ -2161,6 +2162,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const lockAt = rytmLock.get().step;
   // Le kit : les potards de page de SRC (K.TUNE, ATTACK...) et SOUND suivent ses valeurs
   useSyncExternalStore(kit.subscribe, kit.get, kit.get);
+  // Le TEMPO qui suit les platines (2026-10-27, revue UI-5) : le jumeau dit 124.4 SYNC, puis 124 BPM au SYNC eteint
+  useSyncExternalStore(tempoSync.subscribe, tempoSync.get, tempoSync.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
