@@ -834,14 +834,15 @@ export function syncBpm(d: DjDeck, s = djState.get()): number | null {
  * platine posee la a l'instant t (un depart, un saut) ; sinon la ou elle est
  * a t. null sans grille. Toutes les mesures de SYNC prennent un seul instant
  * t (2026-10-08) : deux lectures de currentTime peuvent tomber de part et
- * d'autre d'un paquet de rendu, 2.9 ms d'ecart de phase.
+ * d'autre d'un paquet de rendu, 2.9 ms d'ecart de phase. speed : la vitesse
+ * a laquelle compter (2026-10-27, leadBeat : celle du pitch seul), sinon
+ * celle du moment.
  */
-function deckBeat(d: DjDeck, e: DjEngine, s = djState.get(), pos?: number, t = e.ctx.currentTime): { in: number; period: number } | null {
+function deckBeat(d: DjDeck, e: DjEngine, s = djState.get(), pos?: number, t = e.ctx.currentTime, speed = e.decks[d].speed): { in: number; period: number } | null {
   const ds = s.deck[d];
   const p = e.decks[d];
   if (ds.beat === null || !ds.track?.bpm || !p.loaded) return null;
   const spb = 60 / ds.track.bpm;
-  const speed = p.speed;
   const beats = ((pos ?? p.positionAt(t)) - ds.beat) / spb;
   return { in: ((1 - (beats - Math.floor(beats))) * spb) / speed, period: spb / speed };
 }
@@ -1299,9 +1300,15 @@ export function linkTempo(s = djState.get()): { deck: DjDeck; bpm: number; ratio
  */
 function leadBeat(t: number): { time: number; period: number } | null {
   const e = djEngineIfAny();
-  const L = linkTempo();
+  const s = djState.get();
+  const L = linkTempo(s);
   if (!e || !L) return null;
-  const b = deckBeat(L.deck, e, djState.get(), undefined, t);
+  // Au tempo du pitch seul apres maintenant (2026-10-27, revue SYNC-BEND-EXTRAPOLATION) : un BEND, un jog ou un
+  // rattrapage de la MASTER en cours finit avant le temps vise, les machines ne suivent pas un nudge qui n'aura pas lieu
+  const p = e.decks[L.deck];
+  const v = L.bpm / L.ratio / (s.deck[L.deck].track?.bpm ?? L.bpm);
+  const now = e.ctx.currentTime;
+  const b = deckBeat(L.deck, e, s, p.positionAt(t) - (t - now) * (p.speed - v), t, v);
   if (!b) return null;
   let at = t + b.in;
   // Au double tempo, un temps des machines sur deux tombe entre deux temps de la platine
