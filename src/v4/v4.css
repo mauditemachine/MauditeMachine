@@ -261,11 +261,41 @@ html:has(body.v4-active) {
   outline-offset: 2px;
 }
 
-/* La face V.4.0 du desktop (2026-10-27) : TRK, les scenes et le crossfader (role slider), inertes en phase 1, gardent
-   le focus clavier, en pointilles (rien ne part) ; le jumeau reste transparent, la scene dessine la fente et le
-   capuchon. */
+/* La face V.4.0 du desktop (2026-10-27) : un jumeau inerte (aria-disabled) garde le focus clavier, en pointilles (rien
+   ne part). */
 .v4-root .v4-twin[aria-disabled='true']:focus-visible {
   outline-style: dashed;
+}
+
+/* Le jumeau du crossfader (2026-10-27, revue de la fusion : la regle de d2fb9be perdue, le curseur bleu du navigateur
+   se dessinait sur le capuchon 3D) : un curseur natif de 0 a 127, sans piste ni pouce dessines ; la scene dessine la
+   fente et le capuchon, seul le focus clavier se voit, en jaune (pas d'opacity 0, qui l'effacait aussi). */
+.v4-root input.v4-twin {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  color: transparent;
+}
+
+.v4-root input.v4-twin::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+}
+
+.v4-root input.v4-twin::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  opacity: 0;
+}
+
+.v4-root input.v4-twin::-moz-range-track {
+  background: transparent;
+  border: 0;
+}
+
+.v4-root input.v4-twin::-moz-range-thumb {
+  opacity: 0;
+  border: 0;
 }
 
 .v4-root[data-v4-gl='fallback'] .v4-stage {
