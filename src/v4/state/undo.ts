@@ -41,7 +41,7 @@ import { BASS, VOYAGER, focus } from './focus';
 import { lcdMessage } from './lcdMessage';
 import { patterns } from './patterns';
 import { presetMode } from './presetMode';
-import { apply, capture, type PresetMachine } from './presets';
+import { apply, capture, presets, type PresetMachine } from './presets';
 import { tempoSync } from './tempoSync';
 
 /** L'etat d'une machine, tel qu'un preset le garde. */
@@ -59,6 +59,11 @@ export interface UndoEntry {
   /** l'emplacement d'EDIT d'alors (MM-RYTM, MM-BASS), null sans emplacement */
   slot: number | null;
   kind: UndoKind;
+  /**
+   * une etape de preset (2026-10-27, revue SEAM-1) : le preset charge avec data (presets.loadedId, null : aucun), rendu
+   * par UNDO et REDO ; absent : une etape d'avant, le preset charge ne change pas
+   */
+  cur?: string | null;
 }
 
 /** Ce que l'en-tete montre. */
@@ -207,6 +212,8 @@ let redoStack: UndoEntry[] = [];
 let mergeable: UndoEntry | null = null;
 /** Ce que la tache en cours fait d'un bloc (RANDOM, CLEAR, un preset) : une etape a elle, tout de suite fermee. */
 const seal: Partial<Record<PresetMachine, UndoKind>> = {};
+/** Le preset charge avant le preset que la tache charge (seal 'preset', 2026-10-27) : son etape le retient. */
+const sealCur: Partial<Record<PresetMachine, string | null>> = {};
 /** UNDO et REDO posent un etat : rien ne s'enregistre. */
 let applying = false;
 
@@ -271,7 +278,7 @@ function change(m: PresetMachine, t: Track): void {
     let entry: UndoEntry;
     if (merged && prev) entry = prev;
     else {
-      entry = { m, data: t.stable, at: Date.now(), slot: t.slot, kind: kind ?? 'edit' };
+      entry = { m, data: t.stable, at: Date.now(), slot: t.slot, kind: kind ?? 'edit', ...(kind === 'preset' ? { cur: sealCur[m] ?? null } : {}) };
       pushUndo(entry);
     }
     // La rafale fermee le redira (un preset qui reste)
@@ -404,6 +411,8 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
   // Le tempo suivi reste (2026-10-27, revue UI-1) : pendant le SYNC du MIXER, UNDO et REDO rendent le reste, le
   // MM-RYTM garde le tempo des platines au centieme (apply le pose au BPM entier, le suivi l'y ramenait)
   const followed = e.m === 'mm808' && tempoSync.get() !== null ? pattern.get().bpm : null;
+  // Le preset charge d'une etape de preset (2026-10-27, revue SEAM-1) : celui d'avant part avec l'etape inverse
+  const curNow = e.kind === 'preset' ? presets.loadedId(e.m) : undefined;
   let ok = true;
   applying = true;
   try {
@@ -422,7 +431,8 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
   }
   rebase(t, e.m);
   if (!ok) return false;
-  other.push({ m: e.m, data: now, at: Date.now(), slot: nowSlot, kind: e.kind });
+  if (e.cur !== undefined) presets.recall(e.m, e.cur);
+  other.push({ m: e.m, data: now, at: Date.now(), slot: nowSlot, kind: e.kind, ...(curNow !== undefined ? { cur: curNow } : {}) });
   if (other.length > DEPTH) other.splice(0, other.length - DEPTH);
   mergeable = null;
   return true;
@@ -510,7 +520,7 @@ function readEntries(xs: unknown): UndoEntry[] {
     const e = x as Partial<UndoEntry> | null;
     if (!e || !MS.includes(e.m as PresetMachine) || !okData(e.m as PresetMachine, e.data)) continue;
     const kind: UndoKind = e.kind === 'step' || e.kind === 'preset' ? e.kind : 'edit';
-    out.push({ m: e.m as PresetMachine, data: e.data as Snap, at: typeof e.at === 'number' ? e.at : 0, slot: typeof e.slot === 'number' ? e.slot : null, kind });
+    out.push({ m: e.m as PresetMachine, data: e.data as Snap, at: typeof e.at === 'number' ? e.at : 0, slot: typeof e.slot === 'number' ? e.slot : null, kind, ...(typeof e.cur === 'string' || e.cur === null ? { cur: e.cur } : {}) });
   }
   return out;
 }
@@ -598,8 +608,10 @@ export const undo = {
     flush(m ? [m] : MS);
     if (m && kind) {
       seal[m] = kind;
+      if (kind === 'preset') sealCur[m] = presets.loadedId(m);
       window.setTimeout(() => {
         delete seal[m];
+        delete sealCur[m];
       }, 0);
     }
   },

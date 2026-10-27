@@ -1015,14 +1015,25 @@ export const presets = {
     const skip = skipOf(m, true);
     const now = sig(m, capture(m), skip);
     const edited = now !== sig(m, p.data, skip);
-    // Le son est tel quel un son mis de cote (UNDO apres un LOAD l'a rendu) : ce n'est pas ce preset retouche
-    if (edited && drafts[m].some((d) => sig(m, d.data, skip) === now)) return null;
+    // UNDO d'un LOAD rend lui-meme le preset charge d'avant (recall, 2026-10-27, revue SEAM-1) : plus rien a deviner par
+    // egalite avec un son mis de cote (le tempo suivi qui bougeait laissait le nom du preset defait, OVERWRITE l'ecrasait)
     return { id: p.id, label: labelOf(p), factory: !!p.factory, edited };
   },
   /** Le son n'est plus celui d'un preset (un beat partage pose par-dessus, 2026-10-27) : l'ecran ne nomme plus rien. */
   detach(m: PresetMachine): void {
     if (!cur[m]) return;
     setCur(m, null);
+    keepDrafts();
+  },
+  /**
+   * UNDO et REDO d'un LOAD (2026-10-27, revue SEAM-1) : le preset charge redevient celui que l'etape a retenu (null :
+   * aucun), au lieu d'etre devine par egalite (le tempo suivi qui bouge entre-temps laissait le nom du preset defait, et
+   * OVERWRITE l'ecrasait) ; un preset qui n'existe plus : aucun.
+   */
+  recall(m: PresetMachine, id: string | null): void {
+    const next = id && findPreset(m, id) ? id : null;
+    if ((cur[m] ?? null) === next) return;
+    setCur(m, next);
     keepDrafts();
   },
   /**
