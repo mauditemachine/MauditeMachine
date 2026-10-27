@@ -69,7 +69,11 @@ export interface FpButton {
   readonly title: string;
   /** l'id de sa zone de saisie (scene/hit.ts) et de son jumeau */
   readonly hotspot: string;
-  /** 1 : agit des la phase 1 ; 2 : visible et inerte jusqu'a la phase 2 */
+  /**
+   * 1 : la touche agit ; 2 : visible et inerte (son infobulle dit coming soon, sa carte INFOS BIENTOT, son curseur la
+   * fleche). Depuis la phase 2 (2026-10-27) toutes les touches de la face agissent (TRK compris) : 2 reste pour une touche
+   * a venir, dessinee avant d'agir.
+   */
   readonly phase: 1 | 2;
 }
 

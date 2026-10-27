@@ -764,7 +764,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'knob:empty': {
     section: 'KEYS',
     title: 'KNOB',
-    text: "Rien sur cette page sous ce potard. Chaque potard à droite de l'écran tourne la valeur posée à la même place sur l'écran (A en haut à gauche, E en bas à gauche) : une case vide à l'écran, un potard qui ne fait rien. Change de page (VOICE, FLTR, ENV, FX) : les huit potards suivent.",
+    text: "Rien sur cette page sous ce potard. Chaque potard à droite de l'écran tourne la valeur posée à la même place sur l'écran (A en haut à gauche, E en bas à gauche) : une case vide à l'écran, un potard qui ne fait rien. Change de page (VOICE, FLTR, ENV, FX) : les huit potards suivent. Un pas tenu : ils posent son P-LOCK ; une scène armée (SCENE A ou B) : ils écrivent dans la scène ; le crossfader : leurs anneaux montrent ce qu'on entend, en lueur la bande entre A et B.",
   },
 
   /* ---------- TRK, la touche des voix (2026-10-27, la phase 2, Mika : "comme la DIGITAKT") ---------- */
@@ -984,7 +984,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   step: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns. Les noms BD à CY imprimés sur les pas 1 à 8 : TRK tenue ou gardée, un pas choisit sa voix (9 à 16, rien).",
+    text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger (ou L) : P-LOCK. Au doigt, tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns. Les noms BD à CY imprimés sur les pas 1 à 8 : TRK tenue ou gardée, un pas choisit sa voix (9 à 16, rien). Un pas tenu gagne sur une scène armée : les potards à droite de l'écran posent son P-LOCK, la scène ne change pas.",
     tip: 'Le kick sur 1, 5, 9 et 13 (les pas encadrés), le clap ou la caisse claire sur 5 et 13 : la base du four on the floor.',
     phone: {
       text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger : P-LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
@@ -1005,7 +1005,7 @@ const RAW: Record<RytmInfoId, Raw> = {
       "Choisis la page, glisse une valeur de l'écran (ou sa molette) : ce réglage ne change que sur ce pas, son bloc passe en négatif, un P dans son coin.",
       'Retape le pas (ou Échap) pour sortir.',
     ],
-    text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue (la pastille P-LOCK clignote pendant la lecture). Chaque page compte ses verrous ; deux clics sur une valeur enlèvent son verrou, CLEAR tous ceux du pas. Les huit encodeurs à droite de l'écran restent les FX globaux : ils ne verrouillent jamais. Dans le Dock, un appui long sur le pas, puis KNOBS.",
+    text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue (la pastille P-LOCK clignote pendant la lecture). Chaque page compte ses verrous ; deux clics sur une valeur enlèvent son verrou, CLEAR tous ceux du pas. Les huit potards à droite de l'écran tournent les valeurs de la page à leur place : un pas tenu (ou en P-LOCK), ils posent son verrou, sur la page montrée ; leurs anneaux passent au jaune du LOCK. Un pas tenu gagne sur une scène armée ; garder le P-LOCK (un pas lâché sans tourner) désarme une scène gardée, armer une scène quitte le P-LOCK. Dans le Dock, un appui long sur le pas, puis KNOBS.",
     tip: 'Un sample lock : en P-LOCK sur le pas 16 de BD, glisse SOUND (VOICE) jusqu’à une caisse claire de Mika ; la mesure finit sur elle, calée à son niveau.',
     phone: {
       steps: [
@@ -1041,7 +1041,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   mute: {
     section: 'TRANSPORT',
     title: 'MUTE',
-    text: "Une tape sur MUTE : toutes les voix coupées reviennent (l'écran dit MUTE: TRK + DOUBLE TAP A STEP s'il n'y en a pas). Pour couper une voix : TRK (tenue ou gardée d'une tape), puis deux tapes rapides sur son pas, de 1 à 8 ; ou TRK et un clic droit sur le pas ; au MIDI, rytm:voice:BD:mute (de même pour les autres) ; au téléphone, deux tapes rapides sur son pad. TRK montre une voix coupée à peine allumée, avec une barre rouge. Une voix coupée ne joue ni ses pas ni ses verrous ; choisie, elle se règle sans s'entendre, et tu entends le changement quand tu la rends.",
+    text: "Une tape sur MUTE : toutes les voix coupées reviennent (l'écran dit MUTE: TRK + DOUBLE TAP A STEP s'il n'y en a pas). Pour couper une voix : TRK (tenue ou gardée d'une tape), puis deux tapes rapides sur son pas, de 1 à 8 ; ou TRK et un clic droit sur le pas ; au MIDI, rytm:voice:BD:mute (de même pour les autres) ; au téléphone, deux tapes rapides sur son pad. TRK montre une voix coupée à peine allumée, avec une barre rouge. Une voix coupée ne joue ni ses pas ni ses verrous ; choisie, elle se règle sans s'entendre, et tu entends le changement quand tu la rends. Les mutes n'entrent jamais dans une scène : une scène armée, MUTE et le mute d'une voix restent ceux de toujours.",
     phone: {
       text: "Un clic droit sur un pad (au doigt : deux tapes rapides) coupe sa voix, ou la rend ; autant de voix que tu veux. Une tape sur MUTE : toutes les voix reviennent. Une voix coupée a son pad rouge, ses pas et ses verrous ne jouent pas ; une tape sur son pad la choisit sans la rendre ni la jouer : tu la règles sans l'entendre, et tu entends le changement quand tu la rends.",
     },
