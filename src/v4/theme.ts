@@ -2565,10 +2565,11 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
 export const TWIN_ARIA = {
   run: PORTRAIT ? 'Run, Space' : 'Run / Stop, Space',
   clear: 'Clear pattern',
-  // 2026-10-21 (audit) : MUTE n'arme plus de mode depuis le 2026-10-10 (actions.ts muteToggle) ; une voix se coupe a son pad
+  // 2026-10-21 (audit) : MUTE n'arme plus de mode depuis le 2026-10-10 (actions.ts muteToggle) ; une voix se coupe a son pad.
+  // La face V.4.0 du desktop (2026-10-27, sans pads) : MUTE arme de nouveau le mode, la voix vient au clavier
   mute: PORTRAIT
     ? 'Mute: right-click a voice pad (double-tap it on a touch screen, or press the context menu key on it) to mute or unmute it; press MUTE to bring all voices back'
-    : 'Mute: press to bring all muted voices back',
+    : 'Mute, then press a voice key (A S D F, Z X C V) to mute or unmute it; press twice to mute several voices; with voices muted, press to bring them all back',
   solo: PORTRAIT
     ? 'Solo, then tap a voice to solo it; press twice to solo several voices; press again to bring them all back'
     : 'Solo, then press a voice key (A S D F, Z X C V) to solo it; press twice to solo several voices; press again to bring them all back',
@@ -2584,8 +2585,11 @@ export const TWIN_ARIA = {
  */
 export const LCD_NO_VOICE = PORTRAIT ? 'TAP A PAD FIRST' : 'PICK A VOICE FIRST';
 export const LCD_DROP_NO_VOICE = PORTRAIT ? 'DROP ON A PAD' : LCD_NO_VOICE;
-/** MUTE sans voix coupee : au telephone, comment en couper une ; au desktop (pas de pad), rien a rendre. */
-export const LCD_MUTE_HINT = PORTRAIT ? { touch: 'MUTE: DOUBLE TAP A VOICE', mouse: 'MUTE: RIGHT CLICK A VOICE' } : { touch: 'NO VOICE MUTED', mouse: 'NO VOICE MUTED' };
+/**
+ * MUTE sans voix coupee : au telephone, comment en couper une. Au desktop (la face V.4.0, sans pads, 2026-10-27), MUTE
+ * arme le mode et l'ecran le dit lui-meme (actions.ts modeTap, MUTE: TAP A VOICE) : ce texte n'y sert pas.
+ */
+export const LCD_MUTE_HINT = PORTRAIT ? { touch: 'MUTE: DOUBLE TAP A VOICE', mouse: 'MUTE: RIGHT CLICK A VOICE' } : { touch: 'MUTE: TAP A VOICE', mouse: 'MUTE: TAP A VOICE' };
 
 /**
  * Encodeurs au clavier (jumeaux role slider) : fleches 1 BPM ou 2 %, avec

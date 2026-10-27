@@ -1024,7 +1024,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   mute: {
     section: 'TRANSPORT',
     title: 'MUTE',
-    text: "Une tape sur MUTE : toutes les voix coupées reviennent (l'écran dit NO VOICE MUTED s'il n'y en a pas). En attendant la touche TRK, une voix se coupe au MIDI (rytm:voice:BD:mute, de même pour les autres) ; au téléphone, deux tapes rapides sur son pad. Une voix coupée ne joue ni ses pas ni ses verrous ; choisie au clavier, elle se règle sans s'entendre, et tu entends le changement quand tu la rends.",
+    text: "Une tape sur MUTE, puis une voix au clavier (A S D F, Z X C V) : elle se coupe, ou revient ; deux tapes sur MUTE, plusieurs voix ; une tape de plus, le mode se range et les voix coupées le restent. Des voix coupées, le mode rangé : une tape sur MUTE les rend toutes ; tenu 600 ms, toutes les voix reviennent. Au MIDI, rytm:pad:BD fait comme la touche A, et rytm:voice:BD:mute coupe la voix d'un coup (de même pour les autres). Une voix coupée ne joue ni ses pas ni ses verrous ; choisie au clavier, elle se règle sans s'entendre, et tu entends le changement quand tu la rends.",
     phone: {
       text: "Un clic droit sur un pad (au doigt : deux tapes rapides) coupe sa voix, ou la rend ; autant de voix que tu veux. Une tape sur MUTE : toutes les voix reviennent. Une voix coupée a son pad rouge, ses pas et ses verrous ne jouent pas ; une tape sur son pad la choisit sans la rendre ni la jouer : tu la règles sans l'entendre, et tu entends le changement quand tu la rends.",
     },

@@ -23,7 +23,8 @@
  * de mode depuis le 2026-10-10 (actions.ts muteToggle) : il rend les voix
  * coupees, une voix se coupe a son pad (clic droit, double tape, la touche
  * menu sur son jumeau) ; SOLO garde sa machine a etats (une tape, le mode
- * suivant).
+ * suivant). La face V.4.0 du desktop (2026-10-27, sans pads) : MUTE y arme
+ * de nouveau la machine a etats, la voix vient a sa touche (A a V).
  * UNDO et REDO (2026-10-11, state/undo.ts) : Cmd+Z (Ctrl+Z hors Mac) defait,
  * Maj+Cmd+Z (Maj+Ctrl+Z) ou Ctrl+Y refait, sur toutes les machines ; un champ
  * qu'on tape (le nom d'un preset) garde les siens.

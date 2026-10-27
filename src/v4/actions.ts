@@ -45,7 +45,7 @@ import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, v
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAGE_KNOB_LETTERS, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -398,6 +398,11 @@ export function muteToggle(stage: Stage | null = null): boolean {
   // 2026-10-10 (Mika : "quand je clique sur MUTE ca release tous les mutes que j'ai cliques") : MUTE rend toutes les
   // voix ; on coupe une voix au pad (clic droit, double tape : padMute). Plus de mode a armer.
   const v = voices.get();
+  // La face V.4.0 du desktop (2026-10-27, la revue) n'a plus de pad a clic droit : MUTE y arme de nouveau la machine a
+  // trois etats (modeTap, comme SOLO) tant qu'aucune voix n'est coupee, ou quand le mode est deja arme (ONE puis MULTI,
+  // puis OFF, les voix coupees le restent) ; la voix vient au clavier (A S D F, Z X C V) ou au MIDI (rytm:pad:<voix>,
+  // padHit). Des voix coupees hors du mode : MUTE les rend toutes, comme le 2026-10-10. Le telephone ne change pas.
+  if (!PORTRAIT && (v.muteMode || !v.muted.length)) return modeTap('mute');
   if (v.muted.length || v.muteMode) {
     voices.release('mute');
     lcdMessage.show('ALL VOICES ON', MODE_MSG_MS);

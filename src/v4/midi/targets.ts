@@ -37,7 +37,7 @@
  *   rytm:enc:dfb (DLY TIME, DLY FB) ; la face V.4.0 (2026-10-27) n'a plus de
  *   pads au desktop : rytm:pad:<voix> reste (les voix d'INSTRUMENTS), il
  *   choisit la voix, la joue a l'arret, la coupe ou la met en solo en MUTE et
- *   SOLO, sans pad 3D ;
+ *   SOLO, sans pad 3D (MUTE arme son mode au desktop, actions.ts muteToggle) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
  *   2026-10-08) ;
