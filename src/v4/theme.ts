@@ -1642,7 +1642,8 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
 
 /**
  * L'infobulle de chaque commande de la face V.4.0 du desktop (2026-10-27, Mika : "le nom complet dans l'infobulle et
- * dans l'aria-label du jumeau") : par id de zone ; TRK, les scenes et le crossfader disent qu'ils viennent (phase 2).
+ * dans l'aria-label du jumeau") : par id de zone ; TRK, SCENE A et B et le crossfader disent leur geste depuis la phase 2
+ * (une touche phase 2 du gabarit dirait coming soon : aucune depuis le 2026-10-27).
  */
 export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
   ? {}

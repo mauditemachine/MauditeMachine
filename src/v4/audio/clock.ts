@@ -471,7 +471,11 @@ function stopResync(): void {
 }
 if (typeof window !== 'undefined') {
   morph.subscribe((c) => {
-    if (c.cause === 'scenes' || c.cause === 'switch') bakedSig = morph.hitSig();
+    // Une valeur de coup ou de hauteur ecrite dans la scene qu'on entend (2026-10-27, revue F5) : les coups deja
+    // programmes sont refaits, comme pour un potard de base (une demande par rafale, seulement si ce qui joue change) ;
+    // un changement de pattern a la mesure non : ses coups lisent deja les scenes de leur banque
+    if (c.cause === 'scenes') hitAsk();
+    else if (c.cause === 'switch') bakedSig = morph.hitSig();
     else if (c.cause === 'settle') {
       stopResync();
       hitAsk();
