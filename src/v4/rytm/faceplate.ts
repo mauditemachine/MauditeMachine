@@ -4,9 +4,10 @@
  * doit correspondre exactement a la future machine physique") : LA source de
  * verite de la face, des donnees seules. La scene 3D (theme.ts la ramene en
  * unites : 20 mm l'unite, MM_PER_UNIT), les jumeaux HTML et, plus tard,
- * l'export SVG de la decoupe la lisent. Ce module n'importe rien (ni three, ni
- * le theme : theme.ts l'importe, et un script node doit pouvoir le prendre
- * seul avec esbuild, comme scripts/mm-studio-patterns.mjs prend beatcode.ts).
+ * l'export SVG de la decoupe la lisent. Ce module n'importe que des donnees
+ * (ni three, ni le theme : theme.ts l'importe, et un script node doit pouvoir
+ * le prendre seul avec esbuild, comme scripts/mm-studio-patterns.mjs prend
+ * beatcode.ts) : la version du firmware vient de firmware.json (2026-10-27).
  *
  * Repere : le coin en haut a gauche de la face, x vers la droite, y vers le
  * bas (vers l'utilisateur sur la machine). Un rectangle par son coin en haut a
@@ -34,6 +35,8 @@
  * finissent en x 248.4 (8 + 7 x 30.4 + 27.6) : 7.6 mm de marge a droite pour 8
  * a gauche, 0.4 mm au-dela du bord droit de SCENE B (faceplateNotes).
  */
+
+import FW from '../firmware.json';
 
 /** Les millimetres d'une unite de la scene (Mika, 2026-10-27) : la face fait 12.8 x 7.8 unites. */
 export const MM_PER_UNIT = 20;
@@ -201,7 +204,7 @@ export const RYTM_FACEPLATE = {
     provisional: true,
     wordmark: { x: 8, cy: 79.5, w: 56 },
     model: { text: 'MM-RYTM', x: 114, cy: 79.5, cap: 2.4 },
-    firmware: { text: 'FIRMWARE V.3.0 / 2026', x: 235, cy: 79.5, cap: 1.3 },
+    firmware: { text: `FIRMWARE V.${FW.mm808.version} / 2026`, x: 235, cy: 79.5, cap: 1.3 },
     mark: { x: 248, cy: 77, h: 9 },
     hint: { cx: 128.2, cy: 152, cap: 1.36 },
   },

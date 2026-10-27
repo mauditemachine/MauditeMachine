@@ -13,6 +13,7 @@
  */
 
 import seoMeta from '../data/seo-meta.json';
+import { fwText } from './firmware';
 import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpIconId } from './rytm/faceplate';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
@@ -324,7 +325,7 @@ export const BACK = {
   tex: { desktop: 2048, mobile: 1024 },
   logo: PORTRAIT ? { u: -3.8, y: 0.5, w: 1.6 } : { u: -5.95, y: 1.66, w: 3.2 },
   model: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.55 : 1.3, text: 'MM-RYTM DRUM MACHINE', cap: PORTRAIT ? 0.06 : 0.08 },
-  firmware: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.38 : 1.08, text: 'FIRMWARE V.3.0 / 2026', cap: PORTRAIT ? 0.05 : 0.06, alpha: 0.55 },
+  firmware: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.38 : 1.08, text: fwText('mm808'), cap: PORTRAIT ? 0.05 : 0.06, alpha: 0.55 },
   sticker: PORTRAIT
     ? { u0: 2.3, u1: 3.8, y0: 0.26, y1: 0.58, serial: 'S/N MMRYTM-000808' }
     : { u0: -5.95, u1: -4.45, y0: 0.42, y1: 0.78, serial: 'S/N MMRYTM-000808' },
@@ -2068,7 +2069,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // Le repli du wordmark : au desktop V.4.0 (2026-10-27) dans sa largeur
   { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.word.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark', ...(PORTRAIT ? {} : { maxW: HEAD.word.w }) },
   { text: 'MM-RYTM', x: HEAD.model.x, z: HEAD.model.z, cap: HEAD.model.cap, align: HEAD.model.align },
-  { text: 'FIRMWARE V.3.0 / 2026', x: HEAD.firmware.x, z: HEAD.firmware.z, cap: HEAD.firmware.cap, align: 'right', alpha: 0.45 },
+  { text: fwText('mm808'), x: HEAD.firmware.x, z: HEAD.firmware.z, cap: HEAD.firmware.cap, align: 'right', alpha: 0.45 },
   // VOICES au-dessus des pads (2026-10-09, sur la ligne des noms de MASTER et TEMPO ; ils sont dans l'ecran depuis le
   // 2026-10-19, VOICES garde sa place au desktop, juste au-dessus des pads au telephone) ; plus de pads au desktop
   // depuis la face V.4.0 (2026-10-27), plus de VOICES
