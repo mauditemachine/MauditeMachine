@@ -13,8 +13,9 @@
  * l'ecran glisse, une autre cible MIDI).
  */
 
-import { curScreen, dialRange, dialSteps, knobBlock, knobDialOf, lockReadStep, pageKnobLive, pageKnobShown, pageLockView, sceneIdOfDial, type DialId } from '../actions';
+import { curScreen, dialRange, dialSteps, knobBlock, knobDialOf, lockReadStep, pageKnobBand, pageKnobLive, pageKnobShown, pageLockView, sceneIdOfDial, type DialId } from '../actions';
 import { mix } from '../audio/drums';
+import { morph } from '../audio/morph';
 import { kit } from '../audio/kit';
 import { pattern } from '../audio/pattern';
 import { samplesChanged, samplesVersion } from '../audio/samples';
@@ -27,7 +28,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { PAGE_KNOB_LETTERS, type KnobTone } from '../theme';
 import { pageSlots } from './pages';
 import type { SceneId } from './sceneData';
-import { sceneRole } from './sceneParams';
+import { bindingOf, from01, sceneRole, type SceneBinding } from './sceneParams';
 
 export type { KnobTone };
 
@@ -53,10 +54,18 @@ export interface FaceKnobView {
   readonly tone: KnobTone;
   /** son id absolu dans le registre (2026-10-27, sceneIdOfDial : la cle d'une scene, le pont du boitier) ; null : aucun */
   readonly target: string | null;
+  /**
+   * la bande du crossfader (2026-10-27, P2-20) : sa course a x 0 (A) puis a x 1 (B), la ou le crossfader peut le mener ;
+   * null : son reglage ne se morphe pas (ou le P-LOCK montre un verrou). Le meme tableau, mis a jour sur place.
+   */
+  readonly band: readonly [number, number] | null;
 }
 
-/** scene (2026-10-27, P2-19) : une scene armee ou desarmee, les teintes et les capuchons vont a la valeur de la scene */
-export type KnobCause = 'pot' | 'page' | 'voice' | 'lock' | 'scene' | 'value';
+/**
+ * scene (2026-10-27, P2-19) : une scene armee ou desarmee, les teintes et les capuchons vont a la valeur de la scene ;
+ * xfade (P2-20) : seul le crossfader a bouge, les capuchons le suivent tout de suite (aucun moteur, aucune ombre en route)
+ */
+export type KnobCause = 'pot' | 'page' | 'voice' | 'lock' | 'scene' | 'xfade' | 'value';
 export interface FaceKnobChange {
   readonly cause: KnobCause;
   /** les potards dont la vue a change */
@@ -82,7 +91,20 @@ const views: Mut[] = Array.from({ length: N }, (_, k) => ({
   steps: 0,
   tone: 'off',
   target: null,
+  band: null,
 }));
+/** les bandes, une par potard (aucune allocation par changement) */
+const bands: [number, number][] = Array.from({ length: N }, () => [0, 0]);
+/**
+ * Ce qu'un pas du crossfader relit (P2-20, sans allocation) : la liaison de la cible, la course du potard (lo, hi), et si
+ * la cible se morphe ; poses par la partie fixe et quand les scenes du motif changent.
+ */
+const fast: { b: SceneBinding | null; lo: number; hi: number; morphed: boolean }[] = Array.from({ length: N }, () => ({ b: null, lo: 0, hi: 0, morphed: false }));
+let sigMorph: unknown = null;
+const bandNow: [number, number] = [0, 0];
+/** des notifications depuis le dernier calcul : celles du crossfader seul, et les autres */
+let xPokes = 0;
+let otherPokes = 0;
 
 const listeners = new Set<(c: FaceKnobChange) => void>();
 let version = 0;
@@ -118,6 +140,9 @@ function fixPart(v: Mut): boolean {
   const target = block === null ? null : sceneIdOfDial(dial);
   const alias = block !== null && block !== v.k;
   const changed = v.block !== block || v.dial !== dial || v.state !== state || v.label !== label || v.bipolar !== bipolar || v.steps !== steps || v.tone !== tone || v.alias !== alias || v.target !== target;
+  const f = fast[v.k];
+  f.b = target ? bindingOf(target) : null;
+  [f.lo, f.hi] = state === 'live' ? dialRange(dial) : [0, 0];
   v.target = target;
   v.block = block;
   v.dial = dial;
@@ -163,15 +188,67 @@ function sceneTone(dial: DialId, w: SceneId): KnobTone {
  */
 function livePart(v: Mut): boolean {
   const pos = v.state === 'live' && v.block !== null ? pageKnobShown(v.block, true) : v.state === 'off' ? 0 : v.pos;
-  if (pos === v.pos) return false;
+  // La bande (P2-20) : les deux bouts du crossfader, lus seulement quand le motif a des scenes
+  const has = v.state === 'live' && v.block !== null && pageKnobBand(v.block, bandNow);
+  let changed = pos !== v.pos;
   v.pos = pos;
-  return true;
+  if (has) {
+    const b = bands[v.k];
+    if (v.band !== b || b[0] !== bandNow[0] || b[1] !== bandNow[1]) {
+      b[0] = bandNow[0];
+      b[1] = bandNow[1];
+      v.band = b;
+      changed = true;
+    }
+  } else if (v.band !== null) {
+    v.band = null;
+    changed = true;
+  }
+  return changed;
+}
+
+/** Le changement du chemin court (un seul objet, relu tout de suite par les ecouteurs ; jamais garde par eux). */
+const xMoved: number[] = [];
+const X_CHANGE: FaceKnobChange = { cause: 'xfade', moved: xMoved };
+
+/**
+ * Un pas du crossfader seul (P2-20) : seuls les potards dont la cible se morphe bougent, a ce qui joue (la course de
+ * morph.played01, la meme loi que pageKnobShown) ; aucune allocation, aucun texte.
+ */
+function xPart(moved: number[]): void {
+  for (const v of views) {
+    const f = fast[v.k];
+    if (!f.morphed || v.state !== 'live' || !f.b || !v.target) continue;
+    const p = morph.played01(v.target);
+    if (p === null) continue;
+    const pos = f.hi > f.lo ? Math.max(0, Math.min(1, (from01(f.b, p) - f.lo) / (f.hi - f.lo))) : 0;
+    if (pos === v.pos) continue;
+    v.pos = pos;
+    moved.push(v.k);
+  }
 }
 
 /** Recalcule les huit vues ; rend ce qui a bouge et pourquoi (null : rien). */
 function recompute(): FaceKnobChange | null {
   dirty = false;
   const t0 = performance.now();
+  // Seul le crossfader a bouge depuis le dernier calcul (P2-20) : la cause xfade
+  const xOnly = xPokes > 0 && otherPokes === 0;
+  xPokes = 0;
+  otherPokes = 0;
+  // Le chemin court d'un pas du crossfader : aucune autre source n'a prevenu (la partie fixe ne peut pas avoir change), ni
+  // scene armee (la scene se montre), ni P-LOCK ou pas tenu (le verrou), les scenes du motif deja lues : seuls les potards
+  // morphes relisent ce qui joue, sans allocation (une notification en attente : le chemin ordinaire)
+  if (xOnly && sigScreen !== '' && pending === null && !sceneCtl.get().armed && !rytmLock.active() && pattern.scenes.get() === sigMorph) {
+    xMoved.length = 0;
+    xPart(xMoved);
+    ms.push(performance.now() - t0);
+    if (ms.length > 120) ms.shift();
+    if (xMoved.length === 0) return null;
+    version += 1;
+    lastCause = 'xfade';
+    return X_CHANGE;
+  }
   const inst = pattern.get().instrument;
   const lk = rytmLock.get();
   const screen = curScreen();
@@ -201,19 +278,26 @@ function recompute(): FaceKnobChange | null {
     const l = livePart(v);
     if (f || l) moved.push(v.k);
   }
+  // Ce que le chemin court du crossfader relira : les cibles qui se morphent
+  const allScenes = pattern.scenes.get();
+  if (fixed || allScenes !== sigMorph) {
+    sigMorph = allScenes;
+    for (const v of views) fast[v.k].morphed = !!v.target && morph.touches(v.target);
+  }
   ms.push(performance.now() - t0);
   if (ms.length > 120) ms.shift();
   if (moved.length === 0) return null;
   version += 1;
   const now = performance.now();
-  const c: KnobCause = blocksMoved && cause !== 'lock' && cause !== 'scene' ? (cause === 'voice' ? 'voice' : 'page') : cause ?? (moved.some((k) => faceTouch.recent(k, POT_MS, now)) ? 'pot' : 'value');
+  const c: KnobCause =
+    blocksMoved && cause !== 'lock' && cause !== 'scene' ? (cause === 'voice' ? 'voice' : 'page') : cause ?? (moved.some((k) => faceTouch.recent(k, POT_MS, now)) ? 'pot' : xOnly ? 'xfade' : 'value');
   lastCause = c;
   return { cause: c, moved };
 }
 
 /** Un changement lu (get) avant la microtache : il part quand meme avec elle, fondu avec les suivants. */
 let pending: FaceKnobChange | null = null;
-const CAUSE_ORDER: readonly KnobCause[] = ['page', 'voice', 'lock', 'scene', 'pot', 'value'];
+const CAUSE_ORDER: readonly KnobCause[] = ['page', 'voice', 'lock', 'scene', 'pot', 'xfade', 'value'];
 
 function merge(a: FaceKnobChange | null, b: FaceKnobChange | null): FaceKnobChange | null {
   if (!a) return b;
@@ -238,6 +322,14 @@ function schedule(): void {
 }
 
 function poke(): void {
+  otherPokes += 1;
+  dirty = true;
+  schedule();
+}
+
+/** Le crossfader (P2-20) : ce qui joue change, rien d'autre */
+function pokeX(): void {
+  xPokes += 1;
   dirty = true;
   schedule();
 }
@@ -257,7 +349,7 @@ function start(): void {
   // Les scenes (2026-10-27) : l'armement, leurs valeurs, le crossfader (ce qui joue)
   pattern.scenes.subscribe(poke);
   sceneCtl.subscribe(poke);
-  sceneCtl.onX(poke);
+  sceneCtl.onX(pokeX);
 }
 
 export const faceKnobs = {

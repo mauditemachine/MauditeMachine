@@ -941,6 +941,8 @@ export const XFADE = {
   slot: { w: fpU(RYTM_FACEPLATE.scenes.xfade.x1 - RYTM_FACEPLATE.scenes.xfade.x0), d: fpU(RYTM_FACEPLATE.scenes.xfade.slot), h: 0.005 },
   cap: { w: fpU(RYTM_FACEPLATE.scenes.xfade.cap.w), d: fpU(RYTM_FACEPLATE.scenes.xfade.cap.h), h: fpU(RYTM_FACEPLATE.scenes.xfade.cap.z), radius: 0.05, mark: { w: 0.03, d: 0.5 } },
 } as const;
+/** Le centre du capuchon du crossfader a x (2026-10-27, P2-20 : 0 au bout de la scene A, 1 au bout de la scene B). */
+export const xfadeCapX = (x: number): number => XFADE.x + (Math.max(0, Math.min(1, x)) - 0.5) * (XFADE.slot.w - XFADE.cap.w);
 
 /*
  * Sous les pads depuis le 2026-10-08 (la refonte facon Digitakt : sous
@@ -1651,15 +1653,16 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
       // SCENE A et B agissent depuis le 2026-10-27 (P2-19) : tenir ou taper, puis tourner
       [RYTM_FACEPLATE.scenes.a.hotspot]: `${RYTM_FACEPLATE.scenes.a.title}: hold or tap, then turn a knob to record it`,
       [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}: hold or tap, then turn a knob to record it`,
-      [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}, coming soon`,
+      // Le crossfader agit depuis P2-20 (2026-10-27)
+      [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}: drag the cap or scroll over it`,
       // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent
       ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen`])),
     };
 /**
- * Les commandes de la face visibles et inertes (le crossfader) : curseur par defaut, rien ne part ; TRK, SCENE A et B
- * agissent depuis la phase 2 (2026-10-27).
+ * Les commandes de la face visibles et inertes : curseur par defaut, rien ne part. Vide depuis P2-20 (2026-10-27) : TRK,
+ * SCENE A et B, puis le crossfader agissent.
  */
-export const FACE_INERT: ReadonlySet<string> = new Set(['xfade']);
+export const FACE_INERT: ReadonlySet<string> = new Set<string>();
 
 /**
  * Une touche selectionnee s'allume en entier (2026-10-18, Mika : "quand c'est
@@ -2670,6 +2673,8 @@ export const TWIN_ARIA = {
   random: 'Random house pattern',
   group: 'MM-RYTM drum machine',
   soundNoVoice: PORTRAIT ? 'Sound: tap a pad first' : 'Sound: pick a voice first, keys A S D F and Z X C V',
+  // Le crossfader (2026-10-27, P2-20) : son jumeau, un curseur natif
+  xfade: 'Crossfader, scene A to scene B',
 } as const;
 
 /**

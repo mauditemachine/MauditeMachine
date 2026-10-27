@@ -52,7 +52,7 @@ import { setKnobResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, XFADE_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -469,6 +469,73 @@ function sceneDrop(dial: DialId): boolean {
   pattern.scenes.drop(w, id);
   sceneCtl.use(performance.now());
   lcdMessage.show(`${SCENE_SHORT[w]} ${dialName(dial)} REMOVED`);
+  return true;
+}
+
+/* ---------------- le crossfader (2026-10-27, P2-20, Mika : "SCENE A, la fente du crossfader, SCENE B") ---------------- */
+
+/*
+ * De la scene A (x 0) a la scene B (x 1), comme sur un Octatrack : le glisser 3D du capuchon (relatif, jamais un saut), la
+ * molette au-dessus de la fente, son jumeau (un curseur natif) et, en phase 3, le MIDI. Rien ne s'ecrit (ni store, ni
+ * UNDO, ni le navigateur) : x vit dans state/sceneCtl.ts, le morphing (audio/morph.ts) fait entendre ce qu'il faut.
+ * L'ecran dit XFADE A 70 · B 30 au plus toutes les 120 ms ; des scenes vides, une fois par visite, comment les remplir.
+ */
+let xfReadAt = -Infinity;
+let xfReadTimer = 0;
+let xfHinted = false;
+
+/** La ligne de l'ecran : ce qu'on entend de A et de B, en pour cent. */
+function xfadeReadout(): void {
+  const x = sceneCtl.x();
+  xfReadAt = performance.now();
+  lcdMessage.show(`XFADE A ${Math.round((1 - x) * 100)} · B ${Math.round(x * 100)}`, POT_UI.readoutMs, true);
+}
+
+/** Le crossfader, de 0 (A) a 1 (B). */
+export const xfadeValue = (): number => sceneCtl.x();
+
+/** Le crossfader a x (borne a 0..1) ; src : qui le pousse (ptr, wheel, twin, midi). */
+export function xfadeSet(x: number, src: CtlSrc): void {
+  resume();
+  const was = sceneCtl.x();
+  sceneCtl.setX(x, src);
+  if (sceneCtl.x() === was) return;
+  if (!anyScenes(pattern.scenes.get()) && !xfHinted) {
+    xfHinted = true;
+    lcdMessage.show('SCENES EMPTY: HOLD SCENE A OR B AND TURN A KNOB');
+    return;
+  }
+  const left = xfReadAt + XFADE_UI.readoutMs - performance.now();
+  if (left <= 0) {
+    window.clearTimeout(xfReadTimer);
+    xfReadTimer = 0;
+    xfadeReadout();
+  } else if (!xfReadTimer)
+    xfReadTimer = window.setTimeout(() => {
+      xfReadTimer = 0;
+      xfadeReadout();
+    }, left);
+}
+
+/** Le debut et la fin d'un geste du crossfader (la fin : x au repos, la forme de la REVERB et les coups s'y recalent). */
+export function xfadeGesture(phase: 'start' | 'end', src: CtlSrc): void {
+  sceneCtl.gesture(phase === 'start', src);
+}
+
+/**
+ * La bande du crossfader d'un potard de page (P2-20) : ses deux bouts, A puis B, sur la course du potard ; false : son
+ * reglage ne se morphe pas, ou le P-LOCK montre un verrou. out est rempli sur place.
+ */
+const bandEnds: [number, number] = [0, 0];
+export function pageKnobBand(k: number, out: [number, number]): boolean {
+  if (pattern.scenes.get() === NO_SCENES || lockMode()) return false;
+  const id = `p:${k}` as DialId;
+  const sid = sceneIdOfDial(id);
+  const b = sid ? bindingOf(sid) : null;
+  if (!sid || !b || !morph.ends01(sid, bandEnds)) return false;
+  const [lo, hi] = dialRange(id);
+  if (!(hi > lo)) return false;
+  for (let i = 0; i < 2; i += 1) out[i] = Math.max(0, Math.min(1, (from01(b, bandEnds[i]) - lo) / (hi - lo)));
   return true;
 }
 

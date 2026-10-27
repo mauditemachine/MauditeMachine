@@ -782,10 +782,11 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "Deux scènes de réglages par pattern, comme sur un Octatrack. Tiens SCENE A (ou B) et tourne un potard, un bloc de l'écran ou un potard MIDI : la valeur va dans la scène, jamais dans le son de base ; lâche, c'est fini. Une tape garde la scène armée (sa touche allumée, son cadre clignote) jusqu'à une autre tape, Échap ou CLEAR. Pendant ce temps les anneaux montrent la scène : clair, un réglage déjà dans la scène ; à moitié, un réglage qui s'y mettra au premier cran ; à peine, ce qui n'entre pas dans une scène (SOUND, les choix de son, les TWEAKS pour l'instant). TEMPO, MASTER, les mutes et RUN restent ceux de toujours. Un pas tenu gagne : le potard pose son P-LOCK. Deux tapes ou Suppr sur un potard retirent sa valeur de la scène ; SCENE + CLEAR vide la scène armée, l'autre reste ; CLEAR seul vide les deux avec le pattern. Une scène garde 64 réglages au plus ; elle vit avec son pattern (A01 a les siennes, A02 les siennes). Son témoin s'allume quand elle a des valeurs.",
     tip: "Page GLOBAL FX : tiens SCENE B, monte DELAY et REVERB, lâche. La scène B a deux réglages ; le crossfader les fera entendre.",
   },
-  'soon:xfade': {
+  xfade: {
     section: 'SCENES',
     title: 'CROSSFADER',
-    text: "Bientôt : le crossfader, de la scène A à la scène B, comme sur un Octatrack. Pour l'instant, il reste au milieu et ne fait rien.",
+    text: "De la scène A (à gauche) à la scène B (à droite), comme sur un Octatrack : glisse le capuchon (il part d'où il est, rien ne saute ; Maj, dix fois plus fin) ou tourne la molette au-dessus de la fente (un cran, 1 sur 127). Chaque réglage d'une scène va en douceur de sa valeur A à sa valeur B ; un réglage dans une seule scène part de sa valeur de base. Les anneaux montrent ce qu'on entend et, en lueur, la bande entre A et B ; les blocs de l'écran portent un coin A, B ou AB ; le pied dit A [---|---] B. Les témoins de SCENE A et B disent combien on entend de chacune. Rien ne s'enregistre : le crossfader revient à A à chaque visite, il ne touche ni le pattern, ni UNDO. Au clavier : Tab jusqu'au crossfader, puis les flèches, Page haut et bas, Début et Fin.",
+    tip: "Scène A vide, scène B avec DELAY et REVERB montés : pousse le crossfader pendant que ça joue, l'écho et l'espace arrivent ; reviens à gauche, le son sec revient.",
   },
 
   /* ---------- les reglages a venir (l'etude, sur aucun ecran) ---------- */

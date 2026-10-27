@@ -133,7 +133,7 @@ export const RYTM_PLATE_IDS = ['r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:sn
  * La face V.4.0 du desktop (2026-10-27) : TRK, SCENE A et B et le crossfader,
  * visibles et inertes en phase 1 (leur carte dit BIENTOT).
  */
-export const RYTM_SOON_IDS = ['soon:prob', 'soon:micro', 'soon:cond', 'soon:rtrg', 'soon:rtim', 'soon:br', 'soon:loop', 'soon:xfade'] as const;
+export const RYTM_SOON_IDS = ['soon:prob', 'soon:micro', 'soon:cond', 'soon:rtrg', 'soon:rtim', 'soon:br', 'soon:loop'] as const;
 export type RytmSoonId = (typeof RYTM_SOON_IDS)[number];
 
 /**
@@ -182,8 +182,9 @@ export const RYTM_CONTROL_IDS = [
   'knob:empty',
   // TRK, la touche des voix (2026-10-27, la phase 2)
   'trk',
-  // SCENE A et B (2026-10-27, la phase 2)
+  // SCENE A et B (2026-10-27, la phase 2) ; le crossfader (P2-20)
   'scene',
+  'xfade',
 ] as const;
 export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
 
@@ -222,6 +223,8 @@ const OLD_IDS: Readonly<Record<string, RytmInfoId>> = {
   // TRK agit depuis la phase 2 (2026-10-27), SCENE A et B aussi
   'soon:trk': 'trk',
   'soon:scene': 'scene',
+  // Le crossfader agit depuis P2-20 (2026-10-27)
+  'soon:xfade': 'xfade',
 };
 /** Un id de carte, d'aujourd'hui ou d'avant l'etape 2 ; null : inconnu. */
 export const rytmInfoIdOf = (s: unknown): RytmInfoId | null => (isRytmInfoId(s) ? s : typeof s === 'string' && Object.prototype.hasOwnProperty.call(OLD_IDS, s) ? OLD_IDS[s] : null);
@@ -388,7 +391,7 @@ export function setKnobResolver(fn: (k: number) => number | null): void {
  * La carte d'une zone de saisie du MM-RYTM, telle que la face les nomme
  * (pads.ts pad-<voix|edit|open> ; au desktop depuis la face V.4.0 du 2026-10-27,
  * plus de pads de voix, rytmFaceKeys.ts pad-edit pad-open, et trk scene-a
- * scene-b xfade, leurs cartes BIENTOT ; encoders.ts penc-<k> (un FX global depuis le
+ * scene-b xfade, leurs cartes depuis la phase 2 ; encoders.ts penc-<k> (un FX global depuis le
  * 2026-10-09), renderer.ts lcd-master lcd-tempo (MASTER et TEMPO dans l'ecran
  * depuis le 2026-10-19 ; enc-level et enc-tempo, leurs potards d'avant, restent
  * des noms de leurs cartes : le Dock, KnobPanel), rytmPageKeys.ts pkey-<page>,
@@ -437,11 +440,10 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
     return i >= 0 && i < 16 ? { id: 'step', step: i } : null;
   }
   if (TRANSPORT.has(hotspot)) return { id: hotspot };
-  // La face V.4.0 du desktop (2026-10-27) : TRK (sa carte depuis la phase 2) ; les scenes et le crossfader, inertes, disent
-  // qu'ils viennent
+  // La face V.4.0 du desktop (2026-10-27) : TRK, SCENE A et B, le crossfader (leurs cartes depuis la phase 2)
   if (hotspot === 'trk') return { id: 'trk' };
   if (hotspot === 'scene-a' || hotspot === 'scene-b') return { id: 'scene' };
-  if (hotspot === 'xfade') return { id: 'soon:xfade' };
+  if (hotspot === 'xfade') return { id: 'xfade' };
   if (hotspot === 'seek') return { id: 'seek' };
   if (hotspot === 'lcd-open') return { id: 'screen' };
   if (/^lcd-(prev|next|save|name|del|exit)$/.test(hotspot)) return { id: 'presets' };

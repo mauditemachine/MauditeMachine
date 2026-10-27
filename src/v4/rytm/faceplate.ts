@@ -158,7 +158,8 @@ export const RYTM_FACEPLATE = {
     legend: { cap: 3.2, w: 6 },
     /**
      * la fente (Mika : de x 196 a 232 sur y 90) ; proposition : 2.4 de large, bouts ronds ; le capuchon 8 x 12, 7 de haut,
-     * au milieu en phase 1 (sa course : son centre de x0 + cap.w / 2 a x1 - cap.w / 2)
+     * au milieu en phase 1, a x depuis P2-20 (2026-10-27, theme.ts xfadeCapX : son centre de x0 + cap.w / 2, la scene A,
+     * a x1 - cap.w / 2, la scene B)
      */
     xfade: { x0: 196, x1: 232, y: 90, slot: 2.4, cap: { w: 8, h: 12, z: 7 }, title: 'Crossfader, scene A to scene B', hotspot: 'xfade' },
   },

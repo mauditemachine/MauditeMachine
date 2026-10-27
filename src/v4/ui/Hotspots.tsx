@@ -145,6 +145,9 @@ import {
   soundBrowserStep,
   soundBrowserView,
   soundDrop,
+  xfadeGesture,
+  xfadeSet,
+  xfadeValue,
   type DialId,
 } from '../actions';
 import { samplesChanged, samplesVersion } from '../audio/samples';
@@ -226,6 +229,7 @@ import {
   STEP_HOLD_MS,
   TEMPO_UI,
   TWIN_ARIA,
+  XFADE_UI,
   isPage,
   swingRatio,
   type ChipId,
@@ -315,6 +319,11 @@ interface Down {
   /** SCENE A ou B tenue par ce pointeur (2026-10-27) : laquelle et sa source, lachee au pointerup ou perdue */
   scene?: 'a' | 'b';
   sceneSrc?: string;
+  /**
+   * le crossfader pris par ce pointeur (2026-10-27, P2-20) : x au debut, l'axe de sa course a l'ecran (unitaire, de A vers
+   * B) et sa longueur en px ; un glisser le long de l'axe le deplace d'autant (relatif : jamais de saut a la prise)
+   */
+  xf?: { v0: number; ux: number; uy: number; len: number };
   /**
    * un bloc de l'ecran du telephone (2026-10-09), au doigt, glisse a
    * l'horizontale : ce n'est pas encore un reglage (il se regle de haut en
@@ -581,6 +590,91 @@ function HoldTwin({ id, twin, label, latch, refFn, down, up }: HoldTwinProps): R
   );
 }
 
+/** Ce que dit le jumeau du crossfader (v de 0 a 127) : Scene A, Centre, Scene B, ou ce qu'on entend de chacune. */
+export function xfadeText(v: number): string {
+  if (v <= 0) return 'Scene A';
+  if (v >= 127) return 'Scene B';
+  const b = Math.round((v / 127) * 100);
+  return b === 50 ? 'Centre' : `A ${100 - b} %, B ${b} %`;
+}
+
+/**
+ * Le jumeau du crossfader (2026-10-27, P2-20) : un curseur natif de 0 a 127 NON CONTROLE (React ne le rend jamais pendant
+ * un geste), entre SCENE A et SCENE B dans l'ordre de tabulation ; ses fleches, Page haut et bas, Debut et Fin sont celles
+ * du navigateur. Un input le pose (le geste commence a la premiere valeur), change, keyup et blur le finissent. Les
+ * autres sources (le glisser 3D, la molette, le MIDI) le recalent une fois par image, a la main (value, aria-valuetext).
+ */
+function XfadeTwin({ refFn }: { refFn: (el: HTMLElement | null) => void }): React.ReactElement {
+  const ref = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    let raf = 0;
+    let on = false;
+    const show = (): void => {
+      const v = Math.round(sceneCtl.x() * 127);
+      if (Number(el.value) !== v) el.value = String(v);
+      el.setAttribute('aria-valuetext', xfadeText(v));
+    };
+    show();
+    const offX = sceneCtl.onX((_x, src) => {
+      if (src === 'twin') {
+        el.setAttribute('aria-valuetext', xfadeText(Number(el.value)));
+        return;
+      }
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        show();
+      });
+    });
+    const end = (): void => {
+      if (!on) return;
+      on = false;
+      xfadeGesture('end', 'twin');
+    };
+    const onInput = (): void => {
+      if (!on) {
+        on = true;
+        xfadeGesture('start', 'twin');
+      }
+      xfadeSet(Number(el.value) / 127, 'twin');
+    };
+    el.addEventListener('input', onInput);
+    el.addEventListener('change', end);
+    el.addEventListener('keyup', end);
+    el.addEventListener('blur', end);
+    return () => {
+      offX();
+      if (raf) cancelAnimationFrame(raf);
+      end();
+      el.removeEventListener('input', onInput);
+      el.removeEventListener('change', end);
+      el.removeEventListener('keyup', end);
+      el.removeEventListener('blur', end);
+    };
+  }, []);
+  return (
+    <input
+      ref={(el) => {
+        ref.current = el;
+        refFn(el);
+      }}
+      type="range"
+      className="v4-twin"
+      data-twin="xfade"
+      data-hotspot="xfade"
+      min={0}
+      max={127}
+      step={1}
+      defaultValue={Math.round(sceneCtl.x() * 127)}
+      aria-label={TWIN_ARIA.xfade}
+      aria-valuetext={xfadeText(Math.round(sceneCtl.x() * 127))}
+      title={FACE_TITLE.xfade}
+    />
+  );
+}
+
 /** Revue : le dernier relachement juge par la couche de saisie. */
 /** renders : les rendus React de la couche (2026-10-27, le budget des scenes : aucun par mouvement du crossfader) */
 export const hitDebug = { lastUp: { id: null as string | null, tap: false, fired: null as string | null, bg: false }, bgResets: 0, renders: 0 };
@@ -620,6 +714,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
     /** Maj tenue au dernier mouvement du pointeur (reglage fin des potards) */
     let shiftHeld = false;
+    /** la molette au-dessus du crossfader (P2-20) : ses petits deltas, et la fin du geste 120 ms apres le dernier cran */
+    let xfWheel = 0;
+    let xfWheelTimer = 0;
+    /** la souris glisse le crossfader : le curseur de gauche a droite */
+    let turnXf = false;
     // Le rectangle ne change qu'au redimensionnement : pas de lecture de
     // mise en page a la cadence du pointeur
     let rect = el.getBoundingClientRect();
@@ -693,7 +792,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         turnAxis !== null
           ? turnBlock
             ? 'ns-resize'
-            : 'pointer'
+            : turnXf
+              ? 'ew-resize'
+              : 'pointer'
           : stage.orbit.dragging
             ? 'grabbing'
             : hover === null
@@ -710,10 +811,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
                   ? faceKnobTurns(Number(hover.slice(5)))
                     ? 'ns-resize'
                     : 'default'
-                  : // TRK, les scenes et le crossfader de la face V.4.0 (2026-10-27) : inertes en phase 1, la fleche
-                  FACE_INERT.has(hover)
-                  ? 'default'
-                  : own ?? 'pointer';
+                  : // Le crossfader (P2-20) : la fleche de gauche a droite ; une commande inerte de la face, la fleche
+                  hover === 'xfade'
+                  ? 'ew-resize'
+                  : FACE_INERT.has(hover)
+                    ? 'default'
+                    : own ?? 'pointer';
     };
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
@@ -992,6 +1095,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // TRK, SCENE A ou B tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
       if (d && (d.kind === 'trk' || d.kind === 'scene')) return false;
+      // Le crossfader (P2-20) : le glisser le deplace, jamais l'orbite ; le premier mouvement compte deja (depuis la prise)
+      if (d && d.kind === 'xfade') {
+        if (!d.xf) return false;
+        d.turning = true;
+        xfMove(d, d.x + dx, d.y + dy, shiftHeld);
+        if (d.mouse) {
+          turnAxis = 'x';
+          turnXf = true;
+          setCursor();
+        }
+        return false;
+      }
       if (!d || !d.dial) return true;
       // Un bloc de l'ecran du telephone (2026-10-09) : de haut en bas seulement, comme un potard ; parti a l'horizontale
       // au doigt, c'est peut-etre le glisser d'une machine a l'autre (le grand ecran couvre le haut de la face, il ne doit
@@ -1196,6 +1311,23 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           stage.pressFaceKey(h.id);
         }
       }
+      // Le crossfader (2026-10-27, P2-20) : pris par ce pointeur, ni orbite ni pincement ; relatif (rien ne bouge a la prise,
+      // une tape sur la fente non plus) ; l'axe de sa course projete a l'ecran, a tout angle de la vue
+      if (h && h.kind === 'xfade') {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        const ax = stage.xfadeAxis();
+        if (d0 && !d0.info && ax) {
+          const dx = ax.bx - ax.ax;
+          const dy = ax.by - ax.ay;
+          const len = Math.hypot(dx, dy);
+          if (len > 1) {
+            d0.xf = { v0: xfadeValue(), ux: dx / len, uy: dy / len, len };
+            d0.fine = e.shiftKey;
+            xfadeGesture('start', 'ptr');
+          }
+        }
+      }
       if (screenDial && h?.param) screenDials.hold(h.param as ScreenDialId);
       // Le navigateur des sons (2026-10-18) : ni pincement ni orbite ; sa premiere ligne et la hauteur d'une ligne a l'ecran
       // (le corps de la liste, en BROWSER_ROWS lignes), pour un glisser ; au doigt, un de ses samples tenu SB_HOLD_MS : arme
@@ -1390,6 +1522,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK tenue par ce pointeur perdu : lachee sans garde ; une scene aussi
       if (d.trkSrc) trkUp(d.trkSrc, -1);
       if (d.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, -1);
+      if (d.xf) xfadeGesture('end', 'ptr');
       stepUp(d);
       flushRestore();
       try {
@@ -1400,8 +1533,26 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d.turning && d.mouse) {
         turnAxis = null;
         turnBlock = false;
+        turnXf = false;
         setCursor();
       }
+    };
+
+    /**
+     * Le crossfader glisse (P2-20) : x suit la projection du deplacement sur l'axe de sa course ; Maj, dix fois plus fin
+     * (DIAL_FINE.drag), repris du point du moment quand Maj change (rien ne saute).
+     */
+    const xfMove = (d: Down, cx: number, cy: number, shift: boolean): void => {
+      const f = d.xf;
+      if (!f) return;
+      if (shift !== d.fine) {
+        d.fine = shift;
+        f.v0 = xfadeValue();
+        d.x = cx;
+        d.y = cy;
+      }
+      const k = shift ? DIAL_FINE.drag : 1;
+      xfadeSet(f.v0 + (k * ((cx - d.x) * f.ux + (cy - d.y) * f.uy)) / f.len, 'ptr');
     };
 
     const onMove = (e: PointerEvent): void => {
@@ -1426,6 +1577,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d && d.mouse && (e.buttons & 1) === 0) forget(e.pointerId);
       else if (d && d.turning) {
         if (d.kind === 'sbrowse') sbDrag(d, e.clientY - d.y);
+        else if (d.xf) xfMove(d, e.clientX, e.clientY, e.shiftKey);
         else turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey);
         return;
       } else if (d && d.velDrag) {
@@ -1482,9 +1634,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde ; SCENE A et B
       if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      if (d?.xf) xfadeGesture('end', 'ptr');
       if (d && d.turning && d.mouse) {
         turnAxis = null;
         turnBlock = false;
+        turnXf = false;
         setCursor();
       }
       // Un pas tenu du MM-RYTM (2026-10-08) : son lacher decide du LOCK (et la tape ne part pas s'il l'a pris)
@@ -1558,6 +1712,28 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           return;
         }
       }
+      // Au-dessus du crossfader (P2-20) : 1/127 par cran (accelere quand les crans se suivent vite, Maj un a la fois), le
+      // geste finit 120 ms apres le dernier cran
+      if (h && h.kind === 'xfade') {
+        e.preventDefault();
+        const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
+        xfWheel -= delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+        const n = Math.trunc(xfWheel / POT_UI.wheelPx);
+        if (n === 0) return;
+        xfWheel -= n * POT_UI.wheelPx;
+        const now = e.timeStamp || performance.now();
+        const gain = wheelGain(now - wheelAt, e.shiftKey);
+        wheelAt = now;
+        if (!sceneCtl.moving()) xfadeGesture('start', 'wheel');
+        xfadeSet(xfadeValue() + (n * gain) / 127, 'wheel');
+        window.clearTimeout(xfWheelTimer);
+        xfWheelTimer = window.setTimeout(() => {
+          xfWheelTimer = 0;
+          xfadeGesture('end', 'wheel');
+        }, XFADE_UI.settleMs);
+        return;
+      }
+      xfWheel = 0;
       const k: DialId | null = dialOf(h);
       if (!k) {
         wheelAcc = 0;
@@ -1700,6 +1876,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK, SCENE A et B (2026-10-27) : la couche demontee, elles s'eteignent
       trk.cancel();
       sceneCtl.cancel();
+      // Le crossfader (P2-20) : un geste en cours se termine (x reste ou il est)
+      window.clearTimeout(xfWheelTimer);
+      if (sceneCtl.moving()) xfadeGesture('end', 'ui');
       djg?.release();
       bsg?.release();
       stage.orbit.gate = () => true;
@@ -1739,17 +1918,6 @@ interface TwinsProps {
 /** Enter tenu ne rejoue pas un jumeau : une frappe, une activation. */
 const noRepeat = (e: React.KeyboardEvent): void => {
   if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault();
-};
-
-/**
- * Le crossfader inerte de la face V.4.0 (2026-10-27, phase 1) : ses touches de curseur ne bougent rien, Espace et
- * Entree restent a lui (comme sur un bouton inerte : pas de RUN au clavier depuis lui) ; Tab et Echap passent.
- */
-const XFADE_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', ' ', 'Enter']);
-const xfadeKeys = (e: React.KeyboardEvent): void => {
-  if (!XFADE_KEYS.has(e.key)) return;
-  e.preventDefault();
-  e.stopPropagation();
 };
 
 /**
@@ -2762,35 +2930,13 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
 
   /*
    * SCENE A et B (2026-10-27, la phase 2) : des touches a tenir ou a taper, comme TRK (HoldTwin, aria-pressed). Le
-   * crossfader (2026-10-27, la face V.4.0 du desktop) : visible et inerte jusqu'a P2-20, son jumeau en curseur role slider
-   * aria-disabled, au milieu de sa course : la revue du 2026-10-27, un input range disabled sortait de la tabulation et son
-   * nom ne se lisait plus au clavier ; il garde le focus, ses touches ne bougent rien et Espace n'y lance pas RUN (comme
-   * sur un bouton inerte). Son nom complet dit qu'il vient (FACE_TITLE).
+   * crossfader (P2-20) : un curseur natif actif, non controle (XfadeTwin).
    */
   const sceneTwin = (w: 'a' | 'b'): React.ReactElement => {
     const id = w === 'a' ? 'scene-a' : 'scene-b';
     return <HoldTwin key={id} id={id} twin="scene" label={FACE_TITLE[id]} latch={sceneCtl.latch(w)} refFn={refFor(id)} down={(src, t) => sceneDown(w, src, t)} up={(src, t) => sceneUp(w, src, t)} />;
   };
-  const xfadeTwin = (
-    <div
-      key="xfade"
-      ref={refFor('xfade')}
-      role="slider"
-      tabIndex={0}
-      className="v4-twin"
-      data-twin="xfade"
-      data-hotspot="xfade"
-      aria-disabled="true"
-      aria-orientation="horizontal"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={50}
-      aria-valuetext="Centre, between scene A and scene B"
-      aria-label={FACE_TITLE.xfade}
-      title={FACE_TITLE.xfade}
-      onKeyDown={xfadeKeys}
-    />
-  );
+  const xfadeTwin = <XfadeTwin key="xfade" refFn={refFor('xfade')} />;
 
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label={TWIN_ARIA.group} aria-hidden={off || undefined}>
