@@ -654,19 +654,24 @@ export const shots = {
     const tw = ov ? ov.tw : kit.tweak(id);
     // Un son muet (OFF, les deux couches a 0) : rien, jamais un autre son a sa place (2026-10-21)
     if (silentTweak(tw)) return null;
-    // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien ; une hauteur menee par
-    // le crossfader en direct aussi (2026-10-27 : un balayage complet demande au plus 57 calculs, pas 57 par variante)
-    let v = 0;
-    if (!ov && !(lazy && !sync)) {
-      const n = variantsOf(id);
-      v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
-      if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;
-      v = Math.min(n - 1, v);
-      lastVar.set(id, v);
-    }
+    // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien. Une hauteur menee par
+    // le crossfader en direct (lazy, 2026-10-27 : un balayage complet demande au plus 57 calculs, pas 57 par variante) :
+    // la rotation tant que la variante tiree est deja calculee a cette hauteur (au repos, prepareScenes les calcule
+    // toutes), sinon la variante 0 (revue F3 : avant, la voix restait sur la variante 0 meme crossfader immobile)
     const k = shotKey(ts);
     const pk = pitchKey(pf);
     const sig = ov ? ov.sig : kit.sig(id);
+    let v = 0;
+    if (!ov) {
+      const n = variantsOf(id);
+      let r = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
+      if (n > 1 && r >= (lastVar.get(id) ?? -1)) r += 1;
+      r = Math.min(n - 1, r);
+      if (!(lazy && !sync) || r === 0 || cache.has(cacheKey(id, k, r, sr, pk, sig))) {
+        v = r;
+        lastVar.set(id, v);
+      }
+    }
     const key = cacheKey(id, k, v, sr, pk, sig);
     if (!ov && !sync) lastReq.set(id, { k, pk, sr });
     const hit = touch(key);
@@ -724,10 +729,12 @@ export const shots = {
    * calcule en fond s'il manque, la variante 0 ; rien s'il est deja la. Son
    * echantillon en echec : son repli (2026-10-21).
    */
-  prepare(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null): void {
+  prepare(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null, all = false): void {
     const k = shotKey(ts);
     const pk = pitchKey(pf);
     enqueue(id, k, 0, sr, pk, false, ov);
+    // all (2026-10-27, revue F3, les bouts et le repos d'un crossfader) : les autres variantes aussi, la rotation revient
+    if (all && !ov) for (let v = 1; v < variantsOf(id); v += 1) enqueue(id, k, v, sr, pk, false, null);
     const tw = ov ? ov.tw : kit.tweak(id);
     const smp = smpOf(tw);
     if (smp && !samplePcm(smp) && sampleStatus(smp).state === 'failed') addFallback(id, tw, k, pk, sr, !!ov, false);

@@ -1463,7 +1463,8 @@ function prepareScenes(): void {
       for (const xv of [0, 1, morph.x()]) {
         const m = morphHitPure(inst, voiceFx.of(inst), null, sc, xv);
         const hp = hitParams(inst, false, m.lock, tone, morph.stretchAt(xv), m.fx, m.kit, true);
-        shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
+        // Toutes les variantes (2026-10-27, revue F3) : au repos, la rotation des variantes revient
+        shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov, true);
         scenePrep.prepared += 1;
       }
     }
@@ -1699,6 +1700,8 @@ if (typeof window !== 'undefined') {
       quietTimer = 0;
       shapeWait = false;
       applier.request();
+      // Le crossfader pose : ses coups a ce x, toutes variantes (2026-10-27, revue F3)
+      prepareScenes();
     }
     // 'base' : les gestionnaires de pattern.fx et de voiceFx passent eux-memes par l'applicateur
   });
