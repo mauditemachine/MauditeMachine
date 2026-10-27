@@ -1,12 +1,13 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "4.1",
-    "fingerprint": "sha256:bf9653b7016cd1044359ba06bd4de3d8b2d3b4d03e570d57bc650c2be5f3699c",
+    "version": "4.2",
+    "fingerprint": "sha256:d2038b2c535ce678eb708627001c5199c636f71acf81e9e8c08f10f96e54145e",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
-      { "version": "4.1", "date": "2026-10-27", "note": "les potards suivent la page, TRK, P-LOCK aux potards, scenes A et B, crossfader" }
+      { "version": "4.1", "date": "2026-10-27", "note": "les potards suivent la page, TRK, P-LOCK aux potards, scenes A et B, crossfader" },
+      { "version": "4.2", "date": "2026-10-27", "note": "touches nommees facon Digitakt, presets nommes et plus simples, ecran non tactile au desktop, TRK d'une couleur et ses flashs, touches en relief, cibles MIDI de la phase 3", "sha": "1343982" }
     ]
   },
   "voy": { "name": "MM-ARP", "version": "2.3", "fingerprint": "sha256:c3f90443f2b288da0f1f0e7eb6b191f73539bdbfb37f15544ec5585c78cdea6e", "history": [] },
