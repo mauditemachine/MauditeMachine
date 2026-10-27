@@ -69,6 +69,7 @@
 import { context } from '../audio/drums';
 import { DROP_AFTER_S, onReserve } from '../audio/sched';
 import { midiLeader } from './leader';
+import { isHwPort } from '../hw/port';
 
 /** Un message part au plus SEND_AHEAD_S avant son heure (moins que GUARD_S, 30 ms : rien d'envoye n'est annule). */
 export const SEND_AHEAD_S = 0.025;
@@ -153,7 +154,8 @@ function outputs(): MIDIOutput[] {
   const a = accessOf();
   const out: MIDIOutput[] = [];
   a?.outputs.forEach((o) => {
-    if (o.name && o.state !== 'disconnected') out.push(o);
+    // Le port du boitier MM-RYTM (2026-10-27, hw/port.ts) : ni propose ni servi, les notes du MM-ARP n'y vont jamais
+    if (o.name && o.state !== 'disconnected' && !isHwPort(o.name)) out.push(o);
   });
   return out;
 }

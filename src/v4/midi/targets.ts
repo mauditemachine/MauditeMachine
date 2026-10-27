@@ -38,6 +38,9 @@
  *   pads au desktop : rytm:pad:<voix> reste (les voix d'INSTRUMENTS), il
  *   choisit la voix, la joue a l'arret, la coupe ou la met en solo en MUTE et
  *   SOLO, sans pad 3D (MUTE arme son mode au desktop, actions.ts muteToggle) ;
+ *   la phase 3 (2026-10-27, la spec de Mika, ajoutees sans rien renommer) : rytm:trk (tenue : une valeur > 0 enfonce
+ *   TRK, 0 la lache, le meme chemin que la touche de la face), rytm:scene:a et rytm:scene:b (de meme), rytm:xfade (le
+ *   crossfader, 0 a 127 de A a B) et rytm:voice:select:<voix> (la voix choisie comme TRK + un pas, sans un son) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
  *   2026-10-08) ;
@@ -52,7 +55,8 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
+import { sceneCtl } from '../state/sceneCtl';
 import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
 import { sceneTag, type SceneTag } from '../rytm/sceneParams';
 import { rytmPage } from '../state/rytmPage';
@@ -99,6 +103,11 @@ export interface MidiTarget {
    * notch, settle, hit, pitch, heavy), ou son role (passthrough, noscene, resolved) ; absent hors du MM-RYTM
    */
   scene?: SceneTag;
+  /**
+   * Une touche tenue de la phase 3 (2026-10-27, rytm:trk, rytm:scene:a et b ; la spec de Mika : "valeur > 0 enfonce, 0
+   * lache") : nonzero, un CC enfonce des 1 (sinon au-dessus de 63, comme avant) ; une note : enfoncee, lachee
+   */
+  gate?: 'nonzero';
   down?: () => void;
   up?: () => void;
 }
@@ -132,6 +141,43 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
 }
 
 const press = (id: string, scope: TargetScope, label: string, fn: () => void): MidiTarget => ({ id, scope, label, kind: 'press', down: fn });
+
+/* ---------------- la phase 3 (2026-10-27) : TRK, SCENE A et B, le crossfader ---------------- */
+
+/** Le crossfader en MIDI : le geste finit XFADE_MIDI_SETTLE_MS apres la derniere valeur (le reglage qui attend le repos s'applique). */
+const XFADE_MIDI_SETTLE_MS = 150;
+let xfMidiTimer = 0;
+/** le MIDI a ouvert le geste en cours (un glisser de la souris deja en route garde le sien : le MIDI ne le ferme pas) */
+let xfMidiOwns = false;
+
+/** rytm:xfade : le debut du geste a la premiere valeur, x (0 A, 1 B), la fin 150 ms apres la derniere. */
+function xfadeMidi(v: number): void {
+  if (xfMidiTimer) window.clearTimeout(xfMidiTimer);
+  else if (!sceneCtl.moving()) {
+    xfadeGesture('start', 'midi');
+    xfMidiOwns = true;
+  }
+  xfadeSet(v, 'midi');
+  xfMidiTimer = window.setTimeout(() => {
+    xfMidiTimer = 0;
+    if (xfMidiOwns) xfadeGesture('end', 'midi');
+    xfMidiOwns = false;
+  }, XFADE_MIDI_SETTLE_MS);
+}
+
+/** Une touche tenue de la face (TRK, SCENE A et B) : enfoncee par le MIDI, elle s'enfonce aussi a l'ecran. */
+const faceHold = (id: string, label: string, hotspot: string, down: () => void, up: () => void): MidiTarget => ({
+  id,
+  scope: 'mm808',
+  label,
+  kind: 'hold',
+  gate: 'nonzero',
+  down: () => {
+    down();
+    getStage()?.pressFaceKey(hotspot);
+  },
+  up,
+});
 
 // Les reglages de l'etape 2 (2026-10-09) : ENV ATK et HOLD, VOICE FINE, le filtre de FLTR ; leurs cibles rytm:voice:<voix>:<reglage> s'ajoutent
 const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = {
@@ -328,6 +374,14 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:seq:window', 'mm808', 'SEQ STEPS 1-8 / 9-16', () => seqWindow('rytm')));
   out.push({ id: 'rytm:seq:follow', scope: 'mm808', label: 'SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD)', kind: 'value', steps: 2, get: () => (seqFollow('rytm') ? 1 : 0), set: (v) => seqSetFollow('rytm', v >= 0.5) });
   for (const inst of voices) out.push(press(`rytm:seq:voice:${inst}`, 'mm808', `SEQ VOICE ${inst} (SELECT, SILENT)`, () => seqVoice(inst)));
+  // La phase 3 (2026-10-27, la spec de Mika ; le boitier MMHW v2 : TRK note 60, SCENE A 79, SCENE B 80, crossfader CC 28) :
+  // ajoutees a la fin, aucun id d'avant ne change. TRK et les scenes passent par la meme machine a tenir ou taper que leur
+  // touche (state/holdLatch.ts, la source 'midi') ; le crossfader par xfadeSet, son geste ouvert et ferme ici
+  out.push(faceHold('rytm:trk', 'TRK (HOLD + STEPS 1-8: PICK A VOICE)', 'trk', () => trkDown('midi'), () => trkUp('midi')));
+  out.push(faceHold('rytm:scene:a', 'SCENE A (HOLD OR TAP)', 'scene-a', () => sceneDown('a', 'midi'), () => sceneUp('a', 'midi')));
+  out.push(faceHold('rytm:scene:b', 'SCENE B (HOLD OR TAP)', 'scene-b', () => sceneDown('b', 'midi'), () => sceneUp('b', 'midi')));
+  out.push({ id: 'rytm:xfade', scope: 'mm808', label: 'CROSSFADER (SCENE A TO B)', kind: 'value', get: () => sceneCtl.x(), set: (v) => xfadeMidi(v) });
+  for (const inst of voices) out.push(press(`rytm:voice:select:${inst}`, 'mm808', `VOICE ${inst} (SELECT, SILENT)`, () => voiceSelect(inst, 'midi')));
   // Les scenes (2026-10-27) : chaque cible de valeur du MM-RYTM dit son role, ou sa classe si elle se morphe (rien d'autre
   // ne change : ni id, ni nom, ni ordre)
   for (const t of out) if (t.scope === 'mm808' && t.kind === 'value') t.scene = sceneTag(t.id);
@@ -435,7 +489,7 @@ export function targetsOf(scope: TargetScope): MidiTarget[] {
 }
 
 /** La cible d'une commande de la scene (ui/Hotspots.tsx, MIDI LEARN : on la touche, puis on bouge le controleur). */
-export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string; rknob?: string; rpage?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string }): string | null {
+export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string; rknob?: string; rpage?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string; scene?: string }): string | null {
   switch (h.kind) {
     case 'encoder':
     // MASTER et TEMPO dans l'ecran (2026-10-19) : les memes cibles que leurs potards d'avant
@@ -463,6 +517,13 @@ export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string
       return h.inst ? `rytm:pad:${h.inst}` : null;
     case 'step':
       return typeof h.index === 'number' ? `rytm:step:${h.index}` : null;
+    // TRK, SCENE A et B, le crossfader de la face V.4.0 (2026-10-27, la phase 3) : MIDI LEARN les apprend au toucher
+    case 'trk':
+      return 'rytm:trk';
+    case 'scene':
+      return h.scene === 'a' || h.scene === 'b' ? `rytm:scene:${h.scene}` : null;
+    case 'xfade':
+      return 'rytm:xfade';
     case 'run':
     case 'clear':
     case 'random':

@@ -116,6 +116,7 @@ import { BASS_SCREENS, BASS_SCREEN_SLOTS, ENC_LETTERS, bassPage, pageIds, type B
 import { bassEditModel, bassKeysModel, bassPageModel, type BassEditModel, type BassKeysModel, type BassPageModel } from './pageView';
 import { BassTweaks } from './tweaks';
 import { bassInfos } from '../state/bassInfos';
+import { fwText } from '../firmware';
 import { BassScreen, type BassScreenView } from './screen';
 import { bassSeq, midiOf } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
@@ -315,7 +316,8 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const texts: Text[] = headTexts('MM-BASS', 'MONO BASS SYNTH', BASS_W, BASS.head.z, 1.95);
   // Le firmware, a gauche du logotype (2026-10-07, Mika : "V1 sur BASS", comme V3 sur le MM-RYTM ; V2 la refonte du
   // 2026-10-08, V3 la machine Elektron du meme jour)
-  texts.push({ text: 'FIRMWARE V.3.0 / 2026', x: BASS_W / 2 - (PORTRAIT ? 1.0 : 1.05), z: BASS.head.z + 0.035, cap: PORTRAIT ? 0.058 : 0.065, align: 'right', alpha: 0.45 });
+  // La version du firmware (2026-10-27) : src/v4/firmware.json, la seule source (fwText)
+  texts.push({ text: fwText('bass'), x: BASS_W / 2 - (PORTRAIT ? 1.0 : 1.05), z: BASS.head.z + 0.035, cap: PORTRAIT ? 0.058 : 0.065, align: 'right', alpha: 0.45 });
   const lines: Line[] = [];
   const brackets: Bracket[] = [];
   const tick = (x: number, z: number, deg: number, r0: number, r1: number): void => {

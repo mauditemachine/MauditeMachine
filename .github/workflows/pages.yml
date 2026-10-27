@@ -34,6 +34,12 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
+      # 2026-10-27 (Mika : "il faut que ca change a chaque fois qu'il y a une mise a jour : mineure 0.1, grosse 1.0") :
+      # une machine dont les sources ont change sans que sa version de firmware bouge (scripts/firmware.mjs) ; un
+      # avertissement dans le resume du deploiement, jamais bloquant
+      - name: Firmware des machines
+        run: npm run firmware:check
+        continue-on-error: true
       - run: npm run build
       # 2026-10-21 : scripts/generate-sitemap.mjs ecrit indexnow-urls.txt (hors de dist) ; vide si rien n'a change
       - id: changes
