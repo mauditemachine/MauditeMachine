@@ -61,7 +61,8 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, TRK_FLASH, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { BTN_LED, COLOR, FACE_KEY, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, TRK_FLASH, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { keyCapGeometry } from './keyCap';
 import { RYTM_FACEPLATE } from '../rytm/faceplate';
 import type { TrkLed } from '../rytm/stepLeds';
 import type { HotspotDef } from './hit';
@@ -117,6 +118,8 @@ const col = new Color();
 
 /** Touche trig : boite a coins arrondis (trois segments : 588 triangles ; deux sur mobile : 300), base a y 0. */
 function keyGeometry(mobile: boolean): BufferGeometry {
+  // La face du desktop (V.4.2, 2026-10-27) : le pas en relief, flancs et chanfrein (scene/keyCap.ts)
+  if (KEY_RELIEF.on) return keyCapGeometry(KEYS.w, KEYS.h, KEYS.d, KEYS.radius, KEYS.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
   const g = new RoundedBoxGeometry(KEYS.w, KEYS.h, KEYS.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, KEYS.radius);
   g.translate(0, KEYS.h / 2, 0);
   g.deleteAttribute('uv');
@@ -126,6 +129,8 @@ function keyGeometry(mobile: boolean): BufferGeometry {
 /** Bouton du transport : la touche plate des touches de page depuis le 2026-10-18 (un carre de 0.8 avant), base a y 0. */
 function buttonGeometry(mobile: boolean): BufferGeometry {
   const T = TRANSPORT;
+  // La face du desktop (V.4.2) : la touche en relief de la rangee
+  if (KEY_RELIEF.on) return keyCapGeometry(T.w, T.h, T.d, T.radius, FACE_KEY.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
   const g = new RoundedBoxGeometry(T.w, T.h, T.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, T.radius);
   g.translate(0, T.h / 2, 0);
   g.deleteAttribute('uv');
@@ -295,7 +300,7 @@ export class Sequencer3D {
     this.emissive = new InstancedBufferAttribute(new Float32Array(STEP_COUNT * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
     kGeo.setAttribute('instanceEmissive', this.emissive);
-    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key }), false);
+    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key, vertexColors: KEY_RELIEF.on }), KEY_RELIEF.on);
     this.keyMat.name = 'key';
     this.keys = new InstancedMesh(kGeo, this.keyMat, STEP_COUNT);
     this.keys.name = 'keys';
@@ -521,7 +526,7 @@ export class Sequencer3D {
 
   /**
    * Appui sur le pas i (2026-10-01), v de 0 (repos) a 1 (enfonce) : la
-   * touche descend de STEP_PRESS.depth (pas en reduced motion) et
+   * touche descend de sa course (KEY_RELIEF ; pas en reduced motion) et
    * s'eclaire. Le Stage l'anime (pressStep).
    */
   setKeyPress(i: number, v: number, move: boolean): void {
@@ -530,7 +535,7 @@ export class Sequencer3D {
     const btn = i >= STEP_COUNT;
     const mesh = btn ? this.buttons : this.keys;
     const j = btn ? i - STEP_COUNT : i;
-    const dy = move ? -STEP_PRESS.depth * v : 0;
+    const dy = move ? -(btn ? KEY_RELIEF.key : KEY_RELIEF.step) * v : 0;
     mesh.instanceMatrix.array[j * 16 + 13] = dy;
     mesh.instanceMatrix.needsUpdate = true;
     // Le cadre des temps descend avec sa touche

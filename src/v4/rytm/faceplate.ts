@@ -135,10 +135,14 @@ export const RYTM_FACEPLATE = {
     y: 84,
     /**
      * proposition : la hauteur de la touche au-dessus de la face, ses coins ; le temoin (w x h, son centre a dy du bord du
-     * haut)
+     * haut). V.4.2 (2026-10-27, Mika : "plus avec un effet 3d, parce que je trouve ca plat"), proposition a valider : 3.2
+     * de haut (2 avant), un chanfrein de 0.6 autour du dessus (bevel, le dessus a plat fait 10.8), la course de l'appui
+     * (travel, 1.4 : 0.9 avant)
      */
-    capHeight: 2,
+    capHeight: 3.2,
     corner: 0.8,
+    bevel: 0.6,
+    travel: 1.4,
     led: { w: 6, h: 0.8, dy: 1.5 },
     /**
      * V.4.2 (2026-10-27, proposition a valider) : la legende imprimee, facon Digitakt ; cap, sa hauteur de capitale (le
@@ -192,8 +196,11 @@ export const RYTM_FACEPLATE = {
      * proposition : la hauteur de la touche, ses coins ; le cadre des temps imprime sur les pas 1, 5, 9 et 13 (sa marge, son
      * trait) ; la marque des verrous (w x h, son centre a dy du bord du haut)
      */
-    capHeight: 2,
+    capHeight: 3.2,
     corner: 1.2,
+    /** V.4.2 (2026-10-27, proposition a valider) : le chanfrein autour du dessus (le cadre des temps reste sur le plat), la course de l'appui */
+    bevel: 0.8,
+    travel: 1.4,
     beatFrame: { inset: 1.6, line: 0.5 },
     lockMark: { w: 8, h: 0.9, dy: 2.6 },
     /**

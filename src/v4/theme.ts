@@ -924,6 +924,9 @@ export const FACE_KEY = {
   d: fpU(RYTM_FACEPLATE.buttons.size),
   h: fpU(RYTM_FACEPLATE.buttons.capHeight),
   radius: fpU(RYTM_FACEPLATE.buttons.corner),
+  /** V.4.2 (2026-10-27) : le chanfrein du dessus et la course de l'appui (scene/keyCap.ts) */
+  bevel: fpU(RYTM_FACEPLATE.buttons.bevel),
+  travel: fpU(RYTM_FACEPLATE.buttons.travel),
   z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.size / 2),
   led: { w: fpU(RYTM_FACEPLATE.buttons.led.w), d: fpU(RYTM_FACEPLATE.buttons.led.h), back: fpU(RYTM_FACEPLATE.buttons.led.dy) },
 } as const;
@@ -1277,6 +1280,8 @@ export const KEYS = {
   // desktop : la hauteur, les coins, le cadre des temps et la marque des verrous depuis RYTM_FACEPLATE.steps (2026-10-27)
   h: PORTRAIT ? 0.1 : fpU(FP_STEPS.capHeight),
   radius: PORTRAIT ? 0.05 : fpU(FP_STEPS.corner),
+  /** V.4.2 (2026-10-27) : le chanfrein du dessus au desktop (scene/keyCap.ts ; le telephone garde ses touches arrondies) */
+  bevel: PORTRAIT ? 0 : fpU(FP_STEPS.bevel),
   segments: { desktop: 3, mobile: 2 },
   /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
   frame: PORTRAIT ? { inset: 0.065, line: 0.022 } : { inset: fpU(FP_STEPS.beatFrame.inset), line: fpU(FP_STEPS.beatFrame.line) },
@@ -1776,6 +1781,24 @@ export const PAD_DOUBLE_TAP_MS = 400;
  * (emissif glow, lineaire) en downMs, remonte et s'eteint en upMs.
  */
 export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: [0.16, 0.04, 0.004] } as const;
+
+/**
+ * Les touches en relief de la face du desktop (V.4.2, 2026-10-27, Mika : "plus avec un effet 3d, parce que je trouve ca
+ * plat", scene/keyCap.ts) : on, la face du desktop (le telephone garde ses touches) ; seg, les segments d'un coin ; shade,
+ * la teinte par sommet (le pied du flanc, son haut, le chanfrein un rien plus clair qui attrape la lumiere, le dessus :
+ * l'ombre de la touche sur elle-meme) et la part de l'eclat d'une touche allumee (glow : le dessus plein, le chanfrein
+ * presque, les flancs un peu) ; skirt, l'ombre a son pied sur la face, comme le jour sombre d'une touche dans sa decoupe
+ * (sa largeur, son noir a son bord, plus doux sur la machine claire) ; key et step, la course de l'appui
+ * (RYTM_FACEPLATE buttons.travel et steps.travel ; STEP_PRESS.depth au telephone).
+ */
+export const KEY_RELIEF = {
+  on: !PORTRAIT,
+  seg: 4,
+  shade: { foot: 0.42, wall: 0.74, bevel: 1.16, top: 1, glow: { foot: 0.18, wall: 0.4, bevel: 0.85 } },
+  skirt: { w: fpU(1.1), alpha: { dark: 0.62, light: 0.4 }, y: 0.0016 },
+  key: PORTRAIT ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.buttons.travel),
+  step: PORTRAIT ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.steps.travel),
+} as const;
 
 /**
  * Le survol a la souris (2026-10-22, audit : seuls les pas, les pads et les blocs de l'ecran reagissaient, les encodeurs,
