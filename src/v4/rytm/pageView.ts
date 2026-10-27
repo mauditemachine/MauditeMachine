@@ -40,6 +40,7 @@ import { familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily } from
 import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import { rytmPage, screenOfState, type RytmPageState } from '../state/rytmPage';
+import { tempoSync } from '../state/tempoSync';
 import type { EncId, Inst } from '../theme';
 import { cellsOf, pageSlots, type PageSlot, type RytmScreenId, type SlotCell, type SlotDraw, type SlotGraph } from './pages';
 import { encText, encUnit, kitUnit, v127Text, velTo127, velWord } from './values';
@@ -368,9 +369,10 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
       b.tagHeader = true;
     }
   } else if (id === 'tempo') {
-    // TEMPO sur la page MASTER (V.4.2, 2026-10-27) : en BPM, comme l'en-tete
-    b.text = String(Math.round(v));
-    b.unit = 'BPM';
+    // TEMPO sur la page MASTER (V.4.2, 2026-10-27) : comme l'en-tete, 124 BPM, ou 124.4 SYNC quand il suit les platines
+    // (2026-10-27, revue SEAM-5 : le bloc disait 124 BPM pendant que tout le reste disait 124.4 SYNC)
+    b.text = tempoSync.text(v);
+    b.unit = tempoSync.unit();
   } else {
     const e = id as Exclude<EncId, 'tempo' | 'vsound'>;
     b.text = encText(e, v, b.course, b.bipolar);
