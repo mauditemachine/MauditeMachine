@@ -67,7 +67,7 @@
  * chaque machine est retenu (cur, avec les sons mis de cote) : l'ecran le nomme, une etoile s'il a bouge (loaded).
  */
 
-import { INSTRUMENTS, NEUTRAL_FX, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
+import { INSTRUMENTS, NEUTRAL_FX, clampBpm, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
 import { NO_SCENES, anyScenes, cleanScenes, toStored, type StoredScenes } from '../rytm/sceneData';
@@ -87,6 +87,8 @@ import { arpFactory, bassFactory, rytmFactory } from './factory';
 import { patterns } from './patterns';
 import { analytics, track } from './analytics';
 import { cleanUser, migrateNames, presetLabel, userOk } from './presetName';
+import { bpmForSig, bpmToKeep } from './presetBpm';
+import { tempoSync } from './tempoSync';
 
 export type PresetMachine = 'voy' | 'mm808' | 'bass';
 const MACHINES: readonly PresetMachine[] = ['voy', 'mm808', 'bass'];
@@ -698,7 +700,8 @@ function rytmNow(o: Record<string, unknown>): Record<string, unknown> {
 function sig(m: PresetMachine, d: Preset['data'], skip: readonly string[] = []): string {
   const o: Record<string, unknown> = { ...(d as unknown as Record<string, unknown>) };
   for (const k of skip) delete o[k];
-  return JSON.stringify(canon(voyNow(m, o)));
+  // Le tempo (2026-10-27, revue SEAM-1 a SEAM-3) : aucun pendant le SYNC du MIXER, au BPM entier sinon (presetBpm.ts)
+  return JSON.stringify(canon(voyNow(m, m === 'mm808' ? bpmForSig(o, tempoSync.get() !== null, clampBpm) : o)));
 }
 
 /** Une empreinte gardee (une marque, avant le 2026-10-11 : ses ON) ramenee a celle d'aujourd'hui ; illisible : telle quelle. */
@@ -778,6 +781,9 @@ export interface Loaded {
   edited: boolean;
 }
 
+/** Ce que SAVE, OVERWRITE et un son mis de cote gardent (2026-10-27, revue SEAM-4) : l'etat au BPM entier (presetBpm.ts). */
+const captureKept = (m: PresetMachine): Preset['data'] => (m === 'mm808' ? bpmToKeep(capture(m) as RytmData, clampBpm) : capture(m));
+
 /** Le son de la machine n'est-il garde nulle part (ni le dernier preset charge ou garde, ni un son mis de cote) ? */
 function unsavedNow(m: PresetMachine, d: Preset['data'] = capture(m)): boolean {
   const k = marks[m];
@@ -794,7 +800,7 @@ function unsavedNow(m: PresetMachine, d: Preset['data'] = capture(m)): boolean {
  * les trois plus recents restent, jamais pin (celui qu'on va recharger). Rend true s'il a ete mis de cote.
  */
 function setAside(m: PresetMachine, pin: string | null = null): boolean {
-  const data = capture(m);
+  const data = captureKept(m);
   if (!unsavedNow(m, data)) return false;
   const s = sig(m, data);
   const same = drafts[m].find((x) => sig(m, x.data) === s);
@@ -837,7 +843,7 @@ export const presets = {
   save(m: PresetMachine, named: PresetNaming): SaveResult {
     refresh();
     if (all[m].length >= MAX) return { preset: null, kept: false, why: 'max' };
-    const data = capture(m);
+    const data = captureKept(m);
     // Jamais deux fois le meme instant (deux SAVE dans la meme milliseconde : l'ordre reste celui des gestes)
     const at = Math.max(Date.now(), (all[m][0]?.at ?? 0) + 1);
     const p: Preset = { id: `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, name: named.name, user: named.user, at, data };
@@ -863,7 +869,7 @@ export const presets = {
     refresh();
     const old = all[m].find((p) => p.id === id);
     if (!old) return null;
-    const data = capture(m);
+    const data = captureKept(m);
     const p: Preset = { ...old, data };
     if (m === 'bass') markBass(p);
     const res = commit({ ...all, [m]: all[m].map((x) => (x.id === id ? p : x)) }, { id });
@@ -1001,7 +1007,7 @@ export const presets = {
   /**
    * Le preset charge ou garde et ce qu'on en voit (2026-10-27, l'ecran de la machine le nomme) : son libelle, a toi ou
    * d'usine, et edited si le son s'en est ecarte (un pas, un potard ; une chaine en lecture ne compte pas, ni ce qu'un
-   * rechargement ne garde pas) ; null : aucun preset charge.
+   * rechargement ne garde pas, ni le tempo pendant le SYNC du MIXER) ; null : aucun preset charge.
    */
   loaded(m: PresetMachine): Loaded | null {
     const p = findPreset(m, cur[m]);
