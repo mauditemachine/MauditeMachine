@@ -44,7 +44,7 @@ import { makeCanvasTexture } from '../scene/silk';
 import { APPEARANCE, FONT_DISPLAY } from '../theme';
 import { partDj } from './body';
 import { VU_DB, vuZone } from './math';
-import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, faderPos, jogCenter, type DjFaderSpec, type DjKeySpec } from './layout';
+import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, faderPos, jogCenter, knobTall, type DjFaderSpec, type DjKeySpec } from './layout';
 import { DECK, DJ_DECKS, DJ_DECKS_ALL, DJ_FADER, DJ_KEY, DJ_KNOB, DJ_LIGHT, DJ_ROUND, MIX, UNIT_X, type DjDeck, type DjTone } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
@@ -531,7 +531,8 @@ export class DjControls {
 
   private placeKnob(i: number): void {
     const k = DJ_KNOBS[i];
-    m4.compose(v3.set(k.x, 0, k.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.setScalar(k.s));
+    // Un gros potard s'elargit sans monter (2026-10-27, knobTall)
+    m4.compose(v3.set(k.x, 0, k.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.set(k.s, knobTall(k), k.s));
     const slot = this.knobSlot[i];
     const mesh = slot.hot ? this.knobsHot : this.knobs;
     mesh.setMatrixAt(slot.j, m4);
@@ -655,7 +656,7 @@ export class DjControls {
     const out: HotspotDef[] = [];
     for (const k of DJ_KNOBS) {
       const r = DJ_KNOB.skirt.r * k.s + 0.04;
-      out.push({ id: k.id, kind: 'djknob', layer: top, shape: 'disc', x: k.x, z: k.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * k.s, enabled: true, dj: k.id });
+      out.push({ id: k.id, kind: 'djknob', layer: top, shape: 'disc', x: k.x, z: k.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * knobTall(k), enabled: true, dj: k.id });
     }
     for (const f of DJ_FADERS) out.push(faderHotspot(f, top));
     for (const k of [...DJ_RECT_KEYS, ...DJ_ROUND_KEYS]) out.push(keyHotspot(k, top));

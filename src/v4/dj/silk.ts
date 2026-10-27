@@ -147,27 +147,43 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const pale = k.idle ? 0.4 : SILK.alpha;
     // Tenu droit, des noms plus gros (ils se lisent au telephone) ; ceux des effets ont la place d'une colonne
     const isFx = k.target.kind === 'fx' || k.target.kind === 'fxto';
-    texts.push({ text: k.label, x: k.x - ux, z: knobLabelZ(k), cap: PORTRAIT ? 0.085 : 0.062, alpha: pale, maxW: PORTRAIT ? (isFx ? 1.3 : 0.95) : 0.9, group: isFx ? 'fx' : 'knob' });
-    // FX TO : un cran par position (ALL puis chaque voie), ALL ecrit au premier
+    const cap = PORTRAIT ? 0.085 : 0.062;
+    // FX TO (2026-10-27, plus gros) : son nom dessous, dans l'ouverture de sa course ; ses crans sont nommes tout autour
+    const nameZ = k.target.kind === 'fxto' ? k.z + DJ_KNOB.skirt.r * k.s + cap / 2 + 0.07 : knobLabelZ(k);
+    texts.push({ text: k.label, x: k.x - ux, z: nameZ, cap, alpha: pale, maxW: PORTRAIT ? (isFx ? 1.3 : 0.95) : 0.9, group: isFx ? 'fx' : 'knob' });
+    /*
+     * FX TO : un cran par position, ALL puis chaque voie posee, chacun nomme a son cran (2026-10-27, Mika : "ce bouton
+     * doit etre plus gros que les autres" ; avant, seul ALL etait ecrit, petit) : ALL, puis le numero de la voie comme
+     * sur la table (1 RYTM, 2 ARP, 3 A, 4 B) ; la position choisie en orange.
+     */
     if (k.target.kind === 'fxto') {
       const n = DJ_SHOWN.length;
       for (let j = 1; j < n; j += 1) {
         const a = ((225 - (270 * j) / n) * Math.PI) / 180;
         lines.push([kx + Math.cos(a) * r0, k.z - Math.sin(a) * r0, kx + Math.cos(a) * r1, k.z - Math.sin(a) * r1]);
       }
-      const a0 = (225 * Math.PI) / 180;
-      const rt = r1 + 0.1;
-      texts.push({ text: 'ALL', x: kx + Math.cos(a0) * rt - 0.02, z: k.z - Math.sin(a0) * rt + 0.04, cap: 0.05, weight: 600, align: 'right' });
+      const lc = PORTRAIT ? 0.088 : 0.068;
+      const rt = r1 + lc * 0.6 + 0.04;
+      for (let j = 0; j <= n; j += 1) {
+        const a = ((225 - (270 * j) / n) * Math.PI) / 180;
+        const on = j === 0 ? silkFxTo < 0 : DJ_SHOWN[j - 1] === silkFxTo;
+        const ink = on ? { ink: 'orange' as const, alpha: 1 } : { alpha: 0.9 };
+        // ALL a gauche de son cran (le premier, en bas a gauche), les numeros centres sur le leur
+        if (j === 0) texts.push({ text: 'ALL', x: kx + Math.cos(a) * rt + 0.04, z: k.z - Math.sin(a) * rt, cap: lc, weight: 700, align: 'right', ...ink });
+        else texts.push({ text: String(j), x: kx + Math.cos(a) * rt, z: k.z - Math.sin(a) * rt, cap: lc, weight: 700, ...ink });
+      }
     }
   }
   // FX TO vise une voie : son numero passe en orange
   const fxTo = silkFxTo;
   // Effets : crochet sous la rangee ; TIME au-dessus de ses touches, chaque valeur dessous
-  const fx = DJ_KNOBS.filter((k) => k.target.kind === 'fx' || (PORTRAIT && k.target.kind === 'fxto'));
+  const fx = DJ_KNOBS.filter((k) => k.target.kind === 'fx');
   const r = DJ_KNOB.skirt.r * MIX.sFx;
-  // Tenu droit : deux rangees de quatre, le crochet sous la seconde, d'un bord a l'autre
+  // Tenu droit : deux rangees de quatre, le crochet sous la seconde ; il s'arrete avant FX TO (2026-10-27 : plus gros,
+  // son nom et ses crans sont dessous), comme sur desktop
   const fxLow = Math.max(...fx.map((k) => k.z));
-  brackets.push({ text: 'EFFECTS', x0: Math.min(...fx.map((k) => k.x)) - ux - r, x1: Math.max(...fx.map((k) => k.x)) - ux + r, z: fxLow + r + 0.2 });
+  const low = fx.filter((k) => Math.abs(k.z - fxLow) < 1e-6);
+  brackets.push({ text: 'EFFECTS', x0: Math.min(...fx.map((k) => k.x)) - ux - r, x1: Math.max(...low.map((k) => k.x)) - ux + r, z: fxLow + r + 0.2 });
   const T = MIX.times;
   const times = DJ_KEYS.filter((k) => k.target.kind === 'time');
   for (const k of times) texts.push({ text: k.label, x: k.x - ux, z: k.z + k.d / 2 + 0.15, cap: PORTRAIT ? 0.075 : 0.058, weight: 600, group: 'time' });

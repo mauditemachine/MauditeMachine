@@ -111,8 +111,13 @@ export const djKnob = (id: string): DjKnobSpec | undefined => knobMap.get(id);
 export const djFader = (id: string): DjFaderSpec | undefined => faderMap.get(id);
 export const djKey = (id: string): DjKeySpec | undefined => keyMap.get(id);
 
-/** Le libelle d'un potard se pose au-dessus de sa jupe (tenu droit, un peu plus haut : la vue plonge moins, le capuchon le cachait). */
-export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - (PORTRAIT ? 0.2 : 0.12);
+/**
+ * Le libelle d'un potard se pose au-dessus de sa jupe (tenu droit, un peu plus haut : la vue plonge moins, le capuchon
+ * le cachait) ; un gros potard (les EQ du desktop, 2026-10-27) l'eloigne un peu plus, son capuchon est plus large.
+ */
+export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - (PORTRAIT ? 0.2 : 0.12 + 0.06 * Math.max(0, k.s - 1.15));
+/** La hauteur d'un potard a l'echelle : jamais au-dela de DJ_KNOB.tallMax (un gros potard s'elargit, il ne monte plus). */
+export const knobTall = (k: DjKnobSpec): number => Math.min(k.s, DJ_KNOB.tallMax);
 
 /** La place du i-eme potard de la rangee des effets (FX TO le dernier) : une rangee, ou deux de quatre tenu droit. */
 function fxAt(i: number): { x: number; z: number } {
@@ -157,7 +162,8 @@ function buildKnobs(): DjKnobSpec[] {
   });
   // FX TO (2026-10-04, Mika : "un knob qui selectionne la piste de destination, ou alors toutes les pistes")
   const to = fxAt(DJ_FX.length);
-  knobs.push({ id: 'dj-fxto', label: 'FX TO', x: UNIT_X.mix + to.x, z: to.z, s: MIX.sFx, bipolar: false, target: { kind: 'fxto' }, idle: false });
+  // Plus gros que les effets (2026-10-27, Mika : "ce bouton doit etre plus gros que les autres") : sa zone et son jumeau suivent
+  knobs.push({ id: 'dj-fxto', label: 'FX TO', x: UNIT_X.mix + to.x, z: to.z + MIX.fxToDz, s: MIX.sFxTo, bipolar: false, target: { kind: 'fxto' }, idle: false });
   knobs.push({ id: 'dj-master', label: 'MASTER', x: UNIT_X.mix + MIX.masterX, z: MIX.master.z, s: MIX.master.s, bipolar: false, target: { kind: 'master' }, idle: false });
   return knobs;
 }
