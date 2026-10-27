@@ -461,7 +461,14 @@ export const MIX = {
    * 2026-10-07) au-dessus ; tenu droit (2026-10-18), sur la rangee des
    * VOLUME, son nom a la hauteur des leurs
    */
-  play: PORTRAIT ? { z: 4.85, r: 0.34, labelZ: 4.32 } : { z: 4.62, r: 0.36, labelZ: 3.98 },
+  play: PORTRAIT ? { z: 4.85, r: 0.34, labelZ: 4.32, dx: 0 } : { z: 4.62, r: 0.36, labelZ: 3.98, dx: -0.44 },
+  /**
+   * SYNC des machines (2026-10-27, Mika : "je voudrais un bouton sync qui fait que c'est sync avec le bpm des cdj
+   * quand ces derniers sont sync aussi") : a droite de PLAY/STOP, de la meme famille (un bouton rond, son anneau
+   * allume), un peu plus petit, son nom au-dessus a la hauteur de MACHINES ; PLAY/STOP glisse a gauche (dx) pour lui
+   * faire la place. Pas sur la table seule du telephone tenu droit : aucune platine a suivre.
+   */
+  machSync: { dx: 0.44, r: 0.32 },
   /** l'en-tete (MIXER), a la hauteur de celui des platines */
   head: { z: -5.19 },
   /**

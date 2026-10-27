@@ -203,8 +203,11 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     }
   });
   texts.push({ text: 'M', x: MIX.masterX, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1 });
-  // PLAY/STOP des machines : ce qu'il lance (les trois), en orange comme les noms de leurs voies
-  texts.push({ text: 'MACHINES', x: MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 });
+  // PLAY/STOP des machines : ce qu'il lance (les trois), en orange comme les noms de leurs voies ; SYNC a sa droite (2026-10-27)
+  const sync = DJ_KEYS.find((k) => k.target.kind === 'machsync');
+  const play = DJ_KEYS.find((k) => k.target.kind === 'machines');
+  texts.push({ text: 'MACHINES', x: play ? play.x - ux : MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: sync ? 0.8 : 1.1 });
+  if (sync) texts.push({ text: 'SYNC', x: sync.x - ux, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1 });
   // Tenu droit, ADD DECK est dans la colonne du MASTER : son nom au-dessus ; sinon a gauche de sa touche, en orange comme REMOVE DECK
   const keyName = (k: DjKeySpec, text: string): Text =>
     MIX.keysInMaster

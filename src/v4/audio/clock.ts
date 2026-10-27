@@ -54,7 +54,7 @@ import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from
 import { lockOf, type Locks } from './locks';
 import { morph } from './morph';
 import type { SceneSet } from '../rytm/sceneData';
-import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, extraGrid, horizon, registerScheduler, type Scheduler } from './sched';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, askRescheduleAll, extraGrid, horizon, registerScheduler, type Scheduler } from './sched';
 
 export { LOOKAHEAD_S, TICK_MS } from './sched';
 /** Premier pas 50 ms apres RUN : le debut se programme proprement. */
@@ -157,6 +157,15 @@ let locked = false;
  * prochaine frontiere de pas, avec son numero : memes temps, memes mesures.
  */
 let follow: ((t: number) => { time: number; step: number } | null) | null = null;
+/**
+ * La platine qui mene (2026-10-27, le SYNC du MIXER, dj/actions.ts) : son prochain temps a t ou apres (temps du
+ * contexte) et la duree d'un temps des machines, ou null (rien ne mene : l'horloge a sa propre grille, comme avant).
+ */
+let lead: ((t: number) => { time: number; period: number } | null) | null = null;
+/** le pas (abs) dont la fin de mesure a ete recalee sur la platine qui mene : une fois chacun, meme re-programme */
+let leadAt = -1;
+/** l'ancre posee par ce recalage : avant elle, la grille n'est pas la meme (gridAfter lit alors les pas programmes) */
+let leadAnchor = -1;
 
 const stats = {
   count: 0,
@@ -175,6 +184,8 @@ const stats = {
   rescheduled: 0,
   /** demandes de re-programmation (2026-10-27), comptees avant le test de la lecture : un test a l'arret les mesure */
   asks: 0,
+  /** fins de mesure recalees sur la platine qui mene (2026-10-27, leadRealign) */
+  leadShifts: 0,
 };
 
 const runListeners = new Set<() => void>();
@@ -300,6 +311,8 @@ function tick(): void {
       anchor = nextTime;
       n = 0;
     }
+    // La fin de la mesure se recale sur la platine qui mene (le SYNC du MIXER) ; le pas d'apres repasse par la boucle
+    if (lead && step === STEP_COUNT - 2 && leadRealign(now)) continue;
     if (nextTime < now - DROP_AFTER_S) {
       stats.dropped += 1;
       // Saute, le debut de mesure compte quand meme : la chaine des patterns ne prend pas de retard
@@ -354,6 +367,8 @@ function reschedule(): void {
   while (journal.length > 0 && journal[journal.length - 1].seq >= first.seq) journal.pop();
   // La grille repart du premier pas annule (le tempo en attente aussi)
   abs = first.abs;
+  // Une fin de mesure recalee sur la platine qui mene (leadRealign) et rejouee : le recalage se refait
+  if (abs <= leadAt) leadAt = -1;
   step = first.step;
   anchor = first.grid;
   nextTime = first.grid;
@@ -365,6 +380,42 @@ function reschedule(): void {
   stats.rescheduled += 1;
   tick();
   replay.clear();
+}
+
+/**
+ * Le SYNC du MIXER (2026-10-27, Mika : "je voudrais un bouton sync qui fait que c'est sync avec le bpm des cdj quand
+ * ces derniers sont sync aussi" ; dj/actions.ts : la platine MASTER mene) : a la fin de chaque mesure, au moment de
+ * programmer son pas 14, la barre qui vient se pose sur le temps de la platine le plus proche (au plus un demi-temps
+ * plus tot ou plus tard), au tempo exact de la platine ; les pas 14 et 15 se posent sur sa grille, celui qui tomberait
+ * sur le precedent (a moins d'un demi-pas) ou deja dans le tampon saute. Jamais au milieu d'une mesure, aucun coup
+ * deja programme n'est deplace ; l'arpege et la basse suivent la grille (re-programmation des autres). Deja cale
+ * (moins d'une demi-milliseconde, le meme tempo) : rien ne bouge. Rend true si la grille a change.
+ */
+function leadRealign(now: number): boolean {
+  if (!lead || abs === leadAt) return false;
+  leadAt = abs;
+  const q = 4 * stepDur;
+  const barAt = nextTime + 2 * stepDur;
+  const b = lead(barAt - q / 2);
+  if (!b || !(b.period > 0)) return false;
+  const dur = b.period / 4;
+  if (Math.abs(b.time - barAt) < 0.0005 && Math.abs(dur - stepDur) < stepDur * 1e-4) return false;
+  const prev = nextTime - stepDur;
+  const edge = now + GUARD_S;
+  let k = 2;
+  while (k > 0 && (b.time - k * dur < prev + 0.5 * dur || b.time - k * dur < edge)) k -= 1;
+  // Les pas sautes comptent (la mesure, la chaine des patterns), comme un pas rate
+  abs += 2 - k;
+  step = (step + 2 - k) % STEP_COUNT;
+  stepDur = dur;
+  pendingDur = 0;
+  anchor = b.time - k * dur;
+  leadAnchor = anchor;
+  nextTime = anchor;
+  n = 0;
+  stats.leadShifts += 1;
+  askRescheduleAll(me);
+  return true;
 }
 
 const me: Scheduler = { tick, reschedule, order: 0 };
@@ -545,12 +596,16 @@ function start(): boolean {
   bpm = pattern.get().bpm;
   stepDur = stepDuration(bpm);
   pendingDur = 0;
-  // L'arpege qui joue deja, sinon la basse seule (audio/sched.ts extraGrid, 2026-10-21)
+  // L'arpege qui joue deja, sinon la basse seule (audio/sched.ts extraGrid, 2026-10-21) ; sinon, le SYNC du MIXER
+  // (2026-10-27) : le prochain temps de la platine qui mene, a son tempo, la mesure qui commence
   const g = (follow ? follow(c.currentTime + START_DELAY_S) : null) ?? extraGrid(c.currentTime + START_DELAY_S);
-  anchor = g ? g.time : c.currentTime + START_DELAY_S;
+  const lb = g || !lead ? null : lead(c.currentTime + START_DELAY_S);
+  if (lb && lb.period > 0) stepDur = lb.period / 4;
+  anchor = g ? g.time : lb ? lb.time : c.currentTime + START_DELAY_S;
   nextTime = anchor;
   n = 0;
   step = g ? g.step : 0;
+  leadAt = -1;
   abs = 0;
   barAbs = -1;
   plan.length = 0;
@@ -615,6 +670,12 @@ function gridAfter(t: number): { time: number; step: number; dur: number } | nul
     const k = Math.ceil((t - nextTime) / pendingDur - 1e-9);
     return { time: nextTime + k * pendingDur, step: (step + k) % STEP_COUNT, dur: pendingDur };
   }
+  // Avant une fin de mesure recalee sur la platine qui mene (2026-10-27, leadRealign) : la grille d'avant, telle que ses
+  // pas sont programmes (l'arpege qui s'y cale ne compte pas un pas fantome en arriere de la nouvelle ancre)
+  if (anchor === leadAnchor && t < anchor - 1e-9) {
+    const i = plan.findIndex((x) => x.grid >= t - 1e-9);
+    if (i >= 0 && plan[i].grid < anchor - 1e-9) return { time: plan[i].grid, step: plan[i].step, dur: (plan[i + 1]?.grid ?? anchor) - plan[i].grid };
+  }
   const k = Math.ceil((t - anchor) / stepDur - 1e-9);
   const idx = (((step + (k - n)) % STEP_COUNT) + STEP_COUNT) % STEP_COUNT;
   return { time: anchor + k * stepDur, step: idx, dur: stepDur };
@@ -656,6 +717,10 @@ export const clock = {
   /** La grille qu'un RUN rejoint si elle joue deja (l'arpegiateur du MM-VOYAGER). */
   follow(fn: (t: number) => { time: number; step: number } | null): void {
     follow = fn;
+  },
+  /** La platine qui mene (2026-10-27, le SYNC du MIXER) : RUN part sur son temps, chaque fin de mesure s'y recale (leadRealign). */
+  lead(fn: ((t: number) => { time: number; period: number } | null) | null): void {
+    lead = fn;
   },
   /** RUN/STOP ; renvoie le nouvel etat (un RUN qui attend le son : un deuxieme appui l'annule). */
   toggle(): boolean {
@@ -731,6 +796,8 @@ export interface ClockDebug {
   readonly resync: { on: boolean };
   /** RUN refuse (repli sans WebGL affiche) */
   readonly locked: boolean;
+  /** fins de mesure recalees sur la platine qui mene (2026-10-27, le SYNC du MIXER) */
+  readonly leadShifts: number;
 }
 
 export const clockDebug: ClockDebug = {
@@ -767,5 +834,8 @@ export const clockDebug: ClockDebug = {
   },
   get locked() {
     return locked;
+  },
+  get leadShifts() {
+    return stats.leadShifts;
   },
 };

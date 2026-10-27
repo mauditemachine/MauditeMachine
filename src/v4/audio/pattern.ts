@@ -400,7 +400,8 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES): StoredPattern {
   const out: StoredPattern = {
     v: 1,
-    bpm: p.bpm,
+    // Au BPM entier (2026-10-27) : un tempo suivi au centieme (followBpm) se retient arrondi, validate le relit
+    bpm: clampBpm(p.bpm),
     steps: { ...p.steps },
     fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0), ...(Object.fromEntries(FX_SETTING_IDS.map((k) => [k, r3(f[k] ?? FX_SETTINGS[k])])) as Record<FxSettingId, number>) },
   };
@@ -640,6 +641,17 @@ export const pattern = {
   setBpm(bpm: number): void {
     const b = clampBpm(bpm);
     if (b !== state.bpm) commit({ ...state, bpm: b }, true);
+  },
+  /**
+   * Le tempo suivi (2026-10-27, le SYNC du MIXER : le MM-RYTM suit la platine MASTER, dj/actions.ts) : au centieme de
+   * BPM, dans BPM.min..BPM.max, sans etre retenu a chaque changement ; keep (la fin du suivi) : retenu. Il se retient au
+   * BPM entier (serialize) : le TEMPO du potard et du stockage reste entier.
+   */
+  followBpm(bpm: number, keep = false): void {
+    if (!Number.isFinite(bpm)) return;
+    const b = Math.min(BPM.max, Math.max(BPM.min, Math.round(bpm * 100) / 100));
+    if (b !== state.bpm) commit({ ...state, bpm: b }, keep);
+    else if (keep) scheduleSave();
   },
   serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState),
   flush,

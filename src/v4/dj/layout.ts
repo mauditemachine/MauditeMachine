@@ -80,7 +80,9 @@ export type DjKeyTarget =
   /** ADD DECK, dans l'en-tete de la table : une platine de plus (tant qu'il reste une place) */
   | { kind: 'adddeck' }
   /** PLAY/STOP du mixer : les machines (MM-RYTM, MM-BASS, MM-ARP, voies 1 a 3) ensemble */
-  | { kind: 'machines' };
+  | { kind: 'machines' }
+  /** SYNC du mixer (2026-10-27) : les machines suivent le tempo et les temps de la platine MASTER */
+  | { kind: 'machsync' };
 
 export interface DjKeySpec {
   id: string;
@@ -245,9 +247,11 @@ function buildKeys(): DjKeySpec[] {
       target: { kind: 'time', d: t },
     });
   });
-  // PLAY/STOP des machines, sous le VU du master
+  // PLAY/STOP des machines, sous le VU du master ; SYNC a sa droite (2026-10-27), sauf sur la table seule tenue droite
   const P = MIX.play;
-  keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
+  keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX + (DJ_MIXER_ONLY ? 0 : P.dx), z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
+  const S = MIX.machSync;
+  if (!DJ_MIXER_ONLY) keys.push({ id: 'dj-machsync', label: 'SYNC', x: UNIT_X.mix + MIX.masterX + S.dx, z: P.z, w: 2 * S.r, d: 2 * S.r, round: true, target: { kind: 'machsync' } });
   // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place ;
   // jamais sur la table seule du telephone tenu droit (2026-10-18, Mika : "En mobile je veux juste Mixer et pas de deck")
   const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_SHOWN.length) / 2 - dx);

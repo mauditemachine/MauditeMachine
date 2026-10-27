@@ -23,7 +23,7 @@ import { onFonts } from '../scene/silk';
 import { DjBody } from './body';
 import { DJ_GLOW, DjControls } from './controls';
 import { djBrowser } from './browser';
-import { djSynced, djWake, fxTarget, fxToText, fxToValue, heardBpm, mixerWarn, syncBpm } from './actions';
+import { djSynced, djWake, fxTarget, fxToText, fxToValue, heardBpm, linkTempo, mixerWarn, syncBpm } from './actions';
 import { djEngineIfAny, djWaveBands } from './engine';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, type DjKnobSpec } from './layout';
 import { knobText } from './gestures';
@@ -72,7 +72,9 @@ export class DjRig {
   private unsubs: (() => void)[] = [];
   /** la basse est suivie (une fois son code arrive) */
   private bassWatched = false;
-  private lastFx: DjFxId | 'fxto' | DjKnobSpec | null = null;
+  /** ce que l'ecran de la table montre un instant : l'effet tourne, FX TO, un potard de voie, ou le SYNC des machines (2026-10-27) */
+  private lastFx: DjFxId | 'fxto' | 'machsync' | DjKnobSpec | null = null;
+  private prevMachSync: boolean | null = null;
   /** l'instant ou lastFx a change (performance.now) ; l'avis de la table reprend l'ecran WARN_AFTER_MS plus tard */
   private lastFxAt = 0;
   private warnTimer = 0;
@@ -222,6 +224,12 @@ export class DjRig {
       this.silks[DJ_UNITS_ON.indexOf('mix')]?.draw();
     }
     this.prevFxTo = to;
+    // Le SYNC des machines (2026-10-27) : l'ecran de la table dit ce qu'il fait, le temps d'un reglage
+    if (this.prevMachSync !== null && this.prevMachSync !== s.machSync) {
+      turned = true;
+      this.lastFx = 'machsync';
+    }
+    this.prevMachSync = s.machSync;
     if (turned) this.touched();
     DJ_KNOBS.forEach((k, i) => {
       const t = k.target;
@@ -292,6 +300,13 @@ export class DjRig {
       // PLAY/STOP des machines : jaune quand une machine joue (MM-RYTM, MM-BASS, MM-ARP), pale sinon (il est toujours pret)
       if (t.kind === 'machines') {
         if (this.controls.setKeyGlow(i, machinesRunning() ? DJ_GLOW.yellow : paleYellow, true)) changed = true;
+        return;
+      }
+      // SYNC des machines (2026-10-27) : orange quand les machines suivent la MASTER, a moitie quand il attend une
+      // platine calee qui joue, pale eteint
+      if (t.kind === 'machsync') {
+        const k = !s.machSync ? 0.16 : linkTempo(s) ? 1 : 0.42;
+        if (this.controls.setKeyGlow(i, [DJ_GLOW.orange[0] * k, DJ_GLOW.orange[1] * k, DJ_GLOW.orange[2] * k], true)) changed = true;
         return;
       }
       if (t.kind !== 'cue' && t.kind !== 'play') return;
@@ -438,7 +453,8 @@ export class DjRig {
       if (this.screens.setDeck(d, screen)) changed = true;
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       // SYNC : cale (orange), calable (os), ou rien a suivre (pale)
-      const sync: DjSyncLight = !ds.loaded || !t?.bpm || syncBpm(d, s) === null ? 'off' : djSynced(d, s) ? 'on' : 'ready';
+      // La MASTER du SYNC des machines (2026-10-27) est calee par definition, meme seule (djSynced)
+      const sync: DjSyncLight = !ds.loaded || !t?.bpm ? 'off' : djSynced(d, s) ? 'on' : syncBpm(d, s) === null ? 'off' : 'ready';
       // L'ecart de phase, sous SYNC, tant que le verrou le mesure (dj/actions.ts phaseLock)
       const phase = ds.playing && ds.sync ? (djEngineIfAny()?.sync.errMs[d] ?? null) : null;
       if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded, sync, phase)) changed = true;
@@ -453,17 +469,24 @@ export class DjRig {
      * et WARN_AFTER_MS apres le dernier reglage (sa valeur d'abord).
      */
     const warn = !fx || performance.now() - this.lastFxAt >= WARN_AFTER_MS ? mixerWarn(s) : '';
+    const link = linkTempo(s);
     const label = warn
       ? warn
-      : fx === 'fxto'
-        ? `FX TO ${fxToText(to)}`
-        : typeof fx === 'object' && fx && (fx.target.kind === 'eq' || fx.target.kind === 'vol')
-          ? `${fx.target.ch + 1} ${fx.label} ${knobText(fx)}`
-          : typeof fx === 'string'
-            ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%`
-            : to < 0
-              ? 'EFFECTS'
-              : `EFFECTS ${fxToText(to)}`;
+      : fx === 'machsync'
+        ? !s.machSync
+          ? 'MACHINES SYNC OFF'
+          : link
+            ? `MACHINES SYNC ${link.deck.toUpperCase()} ${(Math.round(link.bpm * 100) / 100).toFixed(1)}`
+            : 'MACHINES SYNC ON'
+        : fx === 'fxto'
+          ? `FX TO ${fxToText(to)}`
+          : typeof fx === 'object' && fx && (fx.target.kind === 'eq' || fx.target.kind === 'vol')
+            ? `${fx.target.ch + 1} ${fx.label} ${knobText(fx)}`
+            : typeof fx === 'string'
+              ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%`
+              : to < 0
+                ? 'EFFECTS'
+                : `EFFECTS ${fxToText(to)}`;
     if (this.screens.setFx({ label, time: timeLabel(s.time), bpm: heardBpm(s), warn: warn !== '' })) changed = true;
     return changed;
   }

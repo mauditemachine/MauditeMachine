@@ -157,6 +157,7 @@ import { compGr, mix } from '../audio/drums';
 import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../audio/kit';
 import { onSampleStatus, sampleByKey, samplesChanged } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
+import { tempoSync } from '../state/tempoSync';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
 import { dialRange, dialShown, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
 import { rytmLock } from '../state/rytmLock';
@@ -913,6 +914,8 @@ export class Screen {
     this.unsubs = [
       lcd.subscribe(active),
       pattern.subscribe(active),
+      // Le TEMPO qui suit les platines (2026-10-27, le SYNC du MIXER) : 124.0 SYNC a la place de 124 BPM
+      tempoSync.subscribe(active),
       patterns.subscribe(active),
       editor.subscribe(active),
       voices.subscribe(active),
@@ -1305,10 +1308,11 @@ export class Screen {
     this.runIcon(x, y);
     const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
     this.text(slotName(cur), x + 14, y, 12, blinkOff ? FAINT : INK, 600, 'left', 0.6);
-    // Le tempo : le nombre, BPM a cote en petit (la ligne 1 du texte porte autre chose sur les pages MIX et SAMPLES)
-    const bpm = String(Math.round(pattern.get().bpm));
+    // Le tempo : le nombre, BPM a cote en petit (la ligne 1 du texte porte autre chose sur les pages MIX et SAMPLES) ;
+    // il suit les platines (2026-10-27, le SYNC du MIXER) : au dixieme, SYNC a la place de BPM
+    const bpm = tempoSync.text(pattern.get().bpm);
     // A gauche de la touche i (R4)
-    const bw = this.text('BPM', PAGE_HEAD.right, y, 7, HALF, 600, 'right', 0.8);
+    const bw = this.text(tempoSync.unit(), PAGE_HEAD.right, y, 7, HALF, 600, 'right', 0.8);
     this.text(bpm, PAGE_HEAD.right - bw - 4, y, 12, INK, 400, 'right');
   }
 
@@ -2562,9 +2566,10 @@ export class Screen {
     const mNum = sp > 0 ? db.slice(0, sp) : db;
     const mUnit = sp > 0 ? db.slice(sp + 1) : '';
     const bpmV = Math.round(pattern.get().bpm);
-    const bpm = String(bpmV);
+    // Le TEMPO qui suit les platines (2026-10-27) : 124.0 SYNC
+    const bpm = tempoSync.text(pattern.get().bpm);
     const tnw = Math.max(this.textWidth(bpm, T.num, 400), ...(fixed ? DIAL_REF.bpm.map((t) => this.textWidth(t, T.num, 400)) : []));
-    const tuw = this.textWidth('BPM', T.bpm, 600, 0.8);
+    const tuw = this.textWidth(tempoSync.unit(), T.bpm, 600, 0.8);
     const tw = tnw + 3 + tuw;
     const meterW = M.n * M.bw + (M.n - 1) * M.gap;
     const mnw = this.textWidth(mNum, T.num, 400);
@@ -2615,7 +2620,7 @@ export class Screen {
     const tx1 = right;
     const tx0 = right - tw;
     ring('tempo', tx0, tx1);
-    this.text('BPM', tx1, y, T.bpm, HALF, 600, 'right', 0.8);
+    this.text(tempoSync.unit(), tx1, y, T.bpm, HALF, 600, 'right', 0.8);
     this.text(bpm, tx1 - tuw - 3, y, T.num, INK, 400, 'right');
     const gy = y + 3.4;
     const course = clamp01((bpmV - 100) / 50);

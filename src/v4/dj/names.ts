@@ -52,6 +52,8 @@ export function keyName(k: DjKeySpec): string {
       return `Remove deck ${t.deck.toUpperCase()} (while it plays: press twice)`;
     case 'machines':
       return 'Play or stop the machines together (MM-RYTM, MM-BASS, MM-ARP), key G';
+    case 'machsync':
+      return 'Sync the machines to the decks: the MM-RYTM and MM-ARP follow the tempo and the beats of the master deck while the decks are synced';
     case 'adddeck':
       return 'Add a deck, with its channel on the mixer';
   }

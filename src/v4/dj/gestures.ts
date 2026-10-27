@@ -32,7 +32,7 @@ import type { HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { TEMPO_STEP, djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djPreviewing, djTouchDeck, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
+import { TEMPO_STEP, djMachSync, djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djPreviewing, djTouchDeck, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
 import { MASTER_DEFAULT } from './engine';
 import { KILL, eqDb, gainDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
@@ -178,6 +178,7 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
   else if (t.kind === 'sync') djSync(t.deck);
   else if (t.kind === 'loop') djLoop(t.deck, t.beats);
   else if (t.kind === 'machines') machinesToggle();
+  else if (t.kind === 'machsync') djMachSync();
   else if (t.kind === 'adddeck') djAddDeck();
   else if (t.kind === 'tempo') {
     const step = coarse ? 1 : TEMPO_STEP;

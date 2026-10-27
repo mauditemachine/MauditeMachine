@@ -152,33 +152,40 @@ export function roundGeometry(mobile: boolean, capTone: DjTone = 'cap'): BufferG
   return merge([r, c], 'round keys');
 }
 
+/** Les trois noms des boutons ronds, chacun son tiers de la texture (labelTexture) : CUE, PLAY / PAUSE, SYNC (2026-10-27). */
+export type DjRoundFace = 0 | 1 | 2;
+const FACES = 3;
+
 /**
  * Les noms imprimes sur les boutons ronds : une texture, CUE a gauche (en
  * orange, petit et espace), le triangle et les deux barres de PLAY / PAUSE
- * a droite (en os) ; lisibles sur le caoutchouc sombre, en clair comme en
- * sombre.
+ * au milieu (en os), SYNC a droite (2026-10-27, le SYNC des machines : en os,
+ * espace) ; lisibles sur le caoutchouc sombre, en clair comme en sombre.
  */
 export function labelTexture(anisotropy: number): CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 512;
+  c.width = 256 * FACES;
   c.height = 256;
   const x = c.getContext('2d');
   if (x) {
-    x.clearRect(0, 0, 512, 256);
-    x.fillStyle = DJ_LIGHT.orange;
-    x.textAlign = 'center';
+    x.clearRect(0, 0, c.width, 256);
     x.textBaseline = 'middle';
-    x.font = `700 50px ${FONT_DISPLAY}`;
     // Espace entre les lettres (letterSpacing n'existe pas partout)
-    const word = 'CUE';
-    const track = 7;
-    const widths = [...word].map((ch) => x.measureText(ch).width);
-    let cx = 128 - (widths.reduce((a, w) => a + w, 0) + track * (word.length - 1)) / 2;
-    x.textAlign = 'left';
-    [...word].forEach((ch, i) => {
-      x.fillText(ch, cx, 131);
-      cx += widths[i] + track;
-    });
+    const spaced = (word: string, center: number, track: number): void => {
+      const widths = [...word].map((ch) => x.measureText(ch).width);
+      let cx = center - (widths.reduce((a, w) => a + w, 0) + track * (word.length - 1)) / 2;
+      x.textAlign = 'left';
+      [...word].forEach((ch, i) => {
+        x.fillText(ch, cx, 131);
+        cx += widths[i] + track;
+      });
+    };
+    x.fillStyle = DJ_LIGHT.orange;
+    x.font = `700 50px ${FONT_DISPLAY}`;
+    spaced('CUE', 128, 7);
+    x.fillStyle = '#ECE6DA';
+    x.font = `700 42px ${FONT_DISPLAY}`;
+    spaced('SYNC', 640, 5);
     // PLAY / PAUSE : le triangle, puis deux barres
     x.fillStyle = '#ECE6DA';
     const cy = 128;
@@ -194,11 +201,11 @@ export function labelTexture(anisotropy: number): CanvasTexture {
   return makeCanvasTexture(c, anisotropy);
 }
 
-/** Le disque d'un nom grave, pose sur le dessus plat du capuchon ; half : 0 CUE, 1 PLAY. */
-export function labelGeometry(mobile: boolean, half: 0 | 1): BufferGeometry {
+/** Le disque d'un nom grave, pose sur le dessus plat du capuchon ; face : 0 CUE, 1 PLAY, 2 SYNC. */
+export function labelGeometry(mobile: boolean, face: DjRoundFace): BufferGeometry {
   const g = new CircleGeometry(0.66, mobile ? 32 : 48);
   const uv = g.getAttribute('uv');
-  for (let i = 0; i < uv.count; i += 1) uv.setX(i, (uv.getX(i) + half) / 2);
+  for (let i = 0; i < uv.count; i += 1) uv.setX(i, (uv.getX(i) + face) / FACES);
   g.rotateX(-Math.PI / 2);
   g.translate(0, DJ_ROUND.h + 0.002, 0);
   return g;
@@ -379,14 +386,19 @@ export class DjControls {
   readonly knobsHot: InstancedMesh;
   readonly caps: InstancedMesh;
   readonly keys: InstancedMesh;
-  /** CUE (orange) et PLAY / PAUSE (aluminium), et leurs noms graves */
+  /** CUE (orange), PLAY / PAUSE et SYNC des machines (2026-10-27), et leurs noms graves : une famille par nom */
   readonly roundsCue: InstancedMesh;
   readonly roundsPlay: InstancedMesh;
+  readonly roundsSync: InstancedMesh;
   readonly labelsCue: InstancedMesh;
   readonly labelsPlay: InstancedMesh;
+  readonly labelsSync: InstancedMesh;
   private labelTex: CanvasTexture;
-  /** chaque bouton rond : son mesh (CUE ou PLAY) et sa place dedans */
-  private roundSlot: { play: boolean; j: number }[] = [];
+  /** chaque bouton rond : sa famille (0 CUE, 1 PLAY, 2 SYNC) et sa place dedans */
+  private roundSlot: { face: DjRoundFace; j: number }[] = [];
+  private rounds: InstancedMesh[] = [];
+  private labels: InstancedMesh[] = [];
+  private roundEm: InstancedBufferAttribute[] = [];
   readonly platters: InstancedMesh;
   readonly rings: Mesh;
   readonly leds: InstancedMesh;
@@ -398,8 +410,6 @@ export class DjControls {
   private jogAngle: Record<DjDeck, number> = { a: 0, b: 0, c: 0, d: 0 };
   private knobSlot = knobSlots();
   private keyEm: InstancedBufferAttribute;
-  private cueEm: InstancedBufferAttribute;
-  private playEm: InstancedBufferAttribute;
   private ledOn: Float32Array;
   private ledOff = new Color();
   /** la couleur eteinte de chaque LED */
@@ -432,23 +442,27 @@ export class DjControls {
     this.keys = new InstancedMesh(kg, std('djKey', { roughness: 0.9, metalness: 0 }, true), DJ_RECT_KEYS.length);
     this.keys.name = 'djKeys';
 
-    let nc = 0;
-    let np = 0;
-    // PLAY des platines et PLAY/STOP des machines (mixer) : l'aluminium et son triangle
-    this.roundSlot = DJ_ROUND_KEYS.map((k) => (k.target.kind === 'play' || k.target.kind === 'machines' ? { play: true, j: np++ } : { play: false, j: nc++ }));
-    // CUE et PLAY (2026-10-05) : le meme caoutchouc sombre, leur anneau dit ce qu'ils sont (orange, jaune)
-    const cg = roundGeometry(opts.mobile);
-    this.cueEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, nc) * 3), 3);
-    this.cueEm.setUsage(DynamicDrawUsage);
-    cg.setAttribute('instanceEmissive', this.cueEm);
-    this.roundsCue = new InstancedMesh(cg, std('djRoundCue', { roughness: 0.78, metalness: 0 }, true), nc);
-    this.roundsCue.name = 'djRoundsCue';
-    const pg = roundGeometry(opts.mobile);
-    this.playEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, np) * 3), 3);
-    this.playEm.setUsage(DynamicDrawUsage);
-    pg.setAttribute('instanceEmissive', this.playEm);
-    this.roundsPlay = new InstancedMesh(pg, std('djRoundPlay', { roughness: 0.78, metalness: 0 }, true), np);
-    this.roundsPlay.name = 'djRoundsPlay';
+    // PLAY des platines et PLAY/STOP des machines (mixer) : le triangle ; SYNC des machines (2026-10-27) : son nom
+    const counts = [0, 0, 0];
+    this.roundSlot = DJ_ROUND_KEYS.map((k) => {
+      const face: DjRoundFace = k.target.kind === 'play' || k.target.kind === 'machines' ? 1 : k.target.kind === 'machsync' ? 2 : 0;
+      return { face, j: counts[face]++ };
+    });
+    // CUE, PLAY et SYNC (2026-10-05) : le meme caoutchouc sombre, leur anneau dit ce qu'ils sont (orange, jaune)
+    const NAMES = ['Cue', 'Play', 'Sync'] as const;
+    for (let f = 0; f < FACES; f += 1) {
+      const g = roundGeometry(opts.mobile);
+      const em = new InstancedBufferAttribute(new Float32Array(Math.max(1, counts[f]) * 3), 3);
+      em.setUsage(DynamicDrawUsage);
+      g.setAttribute('instanceEmissive', em);
+      const mesh = new InstancedMesh(g, std(`djRound${NAMES[f]}`, { roughness: 0.78, metalness: 0 }, true), counts[f]);
+      mesh.name = `djRounds${NAMES[f]}`;
+      this.rounds.push(mesh);
+      this.roundEm.push(em);
+    }
+    this.roundsCue = this.rounds[0];
+    this.roundsPlay = this.rounds[1];
+    this.roundsSync = this.rounds[2];
     // Les noms graves : une encre mate posee sur le dessus plat
     this.labelTex = labelTexture(opts.anisotropy);
     const labelMat = new MeshStandardMaterial({
@@ -463,10 +477,14 @@ export class DjControls {
     });
     labelMat.name = 'djRoundLabels';
     this.materials.push(labelMat);
-    this.labelsCue = new InstancedMesh(labelGeometry(opts.mobile, 0), labelMat, nc);
-    this.labelsCue.name = 'djLabelsCue';
-    this.labelsPlay = new InstancedMesh(labelGeometry(opts.mobile, 1), labelMat, np);
-    this.labelsPlay.name = 'djLabelsPlay';
+    this.labels = ([0, 1, 2] as const).map((f) => {
+      const m = new InstancedMesh(labelGeometry(opts.mobile, f), labelMat, counts[f]);
+      m.name = `djLabels${NAMES[f]}`;
+      return m;
+    });
+    this.labelsCue = this.labels[0];
+    this.labelsPlay = this.labels[1];
+    this.labelsSync = this.labels[2];
 
     // Un peu de brillant : la lumiere coule dans les alveoles
     this.platters = new InstancedMesh(wheelGeometry(opts.mobile), std('djPlatter', { roughness: 0.5, metalness: 0.15 }), DJ_DECKS.length);
@@ -486,7 +504,7 @@ export class DjControls {
     this.ledOffs = this.ledMap.leds.map((l) => (l.off ? new Color(l.off) : this.ledOff));
     this.ledOn = new Float32Array(this.ledMap.leds.length);
 
-    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters]) {
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, ...this.rounds, ...this.labels, this.platters]) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = opts.castShadow;
       m.receiveShadow = true;
@@ -497,7 +515,7 @@ export class DjControls {
     this.rings.receiveShadow = true;
     // La table seule (2026-10-18, telephone tenu droit) : ni jog, ni CUE, ni fader ; ce qui n'a aucune instance
     // n'est pas dessine (ni draw call, ni shader a compiler)
-    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters, this.leds]) {
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, ...this.rounds, ...this.labels, this.platters, this.leds]) {
       if (m.count === 0) m.visible = false;
     }
     if (DJ_DECKS.length === 0) this.rings.visible = false;
@@ -524,7 +542,7 @@ export class DjControls {
 
   /** Les objets a poser dans le repere top. */
   get objects(): Object3D[] {
-    return [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters, this.rings, this.leds];
+    return [this.knobs, this.knobsHot, this.caps, this.keys, ...this.rounds, ...this.labels, this.platters, this.rings, this.leds];
   }
 
   /* ---------- placement ---------- */
@@ -558,8 +576,8 @@ export class DjControls {
     const k = DJ_ROUND_KEYS[i];
     const slot = this.roundSlot[i];
     m4.compose(v3.set(k.x, this.roundY[i], k.z), q0, s3.set(k.w / 2, 1, k.d / 2));
-    const mesh = slot.play ? this.roundsPlay : this.roundsCue;
-    const label = slot.play ? this.labelsPlay : this.labelsCue;
+    const mesh = this.rounds[slot.face];
+    const label = this.labels[slot.face];
     mesh.setMatrixAt(slot.j, m4);
     label.setMatrixAt(slot.j, m4);
     mesh.instanceMatrix.needsUpdate = true;
@@ -610,7 +628,7 @@ export class DjControls {
     const g = round ? DJ_ROUND.glow : 1;
     if (round) {
       const slot = this.roundSlot[i];
-      attr = slot.play ? this.playEm : this.cueEm;
+      attr = this.roundEm[slot.face];
       i = slot.j;
     }
     const a = attr.array as Float32Array;
@@ -682,7 +700,7 @@ export class DjControls {
   }
 
   dispose(): void {
-    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters, this.leds]) {
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, ...this.rounds, ...this.labels, this.platters, this.leds]) {
       m.geometry.dispose();
       m.dispose();
     }
