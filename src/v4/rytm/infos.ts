@@ -1114,9 +1114,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   presets: {
     section: 'SCREEN',
     title: 'PRESETS',
-    text: "Les presets du MM-RYTM, par EDIT : presse EDIT deux fois (les patterns, puis les presets ; une troisième fois les ferme), ou E deux fois au clavier. Les potards font ce qui est écrit au-dessus d'eux : A ou B le précédent, C ou D le suivant (tourner un potard les fait défiler, les flèches du clavier aussi) ; E SAVE, F NAME, G DEL (deux fois), H EXIT. L'écran ne se touche pas.",
+    text: "Les presets du MM-RYTM : EDIT deux fois (les patterns, puis les presets), ou P au clavier. Une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine : un potard la fait défiler (les flèches aussi), rien ne se charge avant LOAD. Les cinq touches sous l'écran font ce qui est écrit juste au-dessus d'elles : VOICE LOAD, FLTR SAVE (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), ENV NAME, FX DEL (puis YES), EDIT EXIT. Pour nommer, tape au clavier, ou le potard A choisit la lettre et B déplace le curseur. Une étoile : le preset chargé a bougé. L'écran ne se touche pas.",
     phone: {
-      text: "Les presets du MM-RYTM : touche la moitié gauche ou droite du haut de l'écran (ou les flèches) pour le précédent ou le suivant ; en bas, SAVE, NAME, DEL et EXIT.",
+      text: "Les presets du MM-RYTM : une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine. La moitié gauche ou droite du haut de l'écran passe au précédent ou au suivant, rien ne se charge avant LOAD. En bas : LOAD, SAVE (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), NAME, DEL (puis YES) et EXIT. Une étoile : le preset chargé a bougé.",
     },
   },
   seek: {

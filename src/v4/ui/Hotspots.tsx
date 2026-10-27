@@ -180,7 +180,7 @@ import { faceTouch } from '../state/ctl';
 import { lockCount } from '../audio/locks';
 import { HOME_MENU, HOME_MENU_LABEL, SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
 import { v127 } from '../rytm/values';
-import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { MidiLearnLayer } from './MidiPanel';
@@ -2193,6 +2193,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const edOpen = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const pm808 = useSyncExternalStore(presetMode.subscribe, () => presetMode.on('mm808'), () => false);
+  // L'etape et le curseur des presets (2026-10-27) : le nom de leurs touches en suit
+  useSyncExternalStore(presetMode.subscribe, presetMode.get, presetMode.get);
   const off = VOYAGER && f !== 'mm808';
   const groupRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -2486,19 +2488,27 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     return openTwin;
   });
 
-  const presetTwins = (pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
-    <button
-      key={`lcd-${k}`}
-      ref={refFor(`lcd-${k}`)}
-      type="button"
-      className="v4-twin"
-      data-twin="lcd"
-      data-hotspot={`lcd-${k}`}
-      aria-label={PRESET_KEY_ARIA[k]}
-      onKeyDown={noRepeat}
-      onClick={() => presetKey('mm808', k)}
-    />
-  ));
+  // Les touches des presets (2026-10-27) : leur nom suit l'etape (LOAD, OVERWRITE, YES, OK...) ; une place vide reste
+  // dans la tabulation, inerte (le focus ne tombe pas quand elle se vide sous la main)
+  const presetTwins = (pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => {
+    const aria = presetMode.aria('mm808', k);
+    return (
+      <button
+        key={`lcd-${k}`}
+        ref={refFor(`lcd-${k}`)}
+        type="button"
+        className="v4-twin"
+        data-twin="lcd"
+        data-hotspot={`lcd-${k}`}
+        aria-label={aria || 'Empty key'}
+        aria-disabled={aria ? undefined : true}
+        onKeyDown={noRepeat}
+        onClick={() => {
+          if (aria) presetKey('mm808', k);
+        }}
+      />
+    );
+  });
 
   // La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol
   const infoKeyTwin = (

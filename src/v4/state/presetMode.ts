@@ -1,53 +1,45 @@
 /**
  * Les presets sur l'ecran des machines (2026-10-04, Mika : "le bouton
  * preset doit etre dans les machines, et on voit avec l'ecran des
- * machines"). L'ecran du MM-RYTM et celui du MM-ARP portent une etiquette
- * PRESETS ; le toucher ouvre le mode presets de la machine, sur son ecran :
- *   PRESETS 3/7
- *   < HUNGRY PANCAKE >      le haut de l'ecran : gauche, le precedent ;
- *                           droite, le suivant (recharge aussitot)
- *   SAVE NAME DEL  EXIT     la ligne du bas, quatre touches : garder l'etat
- *                           sous un nom au hasard, un autre nom, effacer
- *                           (touchee deux fois : DEL?), sortir
- * Echap, une autre machine ou 60 s sans rien toucher en sortent (15 s
- * jusqu'au 2026-10-21, l'audit : ecouter un preset dure plus longtemps, et la
- * fleche suivante changeait de machine) ; dans les 10 s qui suivent une
- * fermeture par l'attente, gauche et droite le rouvrent au lieu de changer de
- * machine (resumable), sauf apres Echap ou une autre machine (2026-10-22, la
- * revue). Rouvert, il repart du dernier preset charge ou garde
- * (2026-10-09). Les
- * presets eux-memes : state/presets.ts ; apres ceux de Mika, ceux d'usine
- * (2026-10-07, des styles electro : FACTORY en titre, ni NAME ni DEL). Le
- * MM-BASS aussi (2026-10-07) ; ses 35 presets d'usine (2026-10-09) montrent
- * leur style devant leur rang, et chaque preset du MM-BASS sa ligne sous son
- * nom (ou tombent les notes).
+ * machines"). L'ecran du MM-RYTM et celui du MM-ARP s'ouvrent sur le mode
+ * presets ; le MM-BASS aussi (2026-10-07), sa touche PRESET ou son en-tete ;
+ * ses 35 presets d'usine (2026-10-09) montrent leur style devant leur rang,
+ * et chaque preset du MM-BASS sa ligne sous son nom (ou tombent les notes).
+ * Les presets eux-memes : state/presets.ts ; apres ceux de Mika, ceux
+ * d'usine (2026-10-07, des styles electro).
  *
- * Rien ne se perd (2026-10-11, Mika : "je voulais enregistrer un preset que
- * j'avais fait mais ca ne fonctionne pas bien.. du coup j'ai tout perdu..
- * parce que j'ai du passer un preset nouveau.. je voulais revenir en
- * arriere") :
- * - ouvrir le mode avec un son garde nulle part le met de cote et le montre
- *   d'abord : NOT SAVED, YOUR SOUND, SAVE et EXIT ; avant, l'ecran montrait
- *   un preset d'usine (ACID) comme si c'etait le son du moment, et chercher
- *   une place libre avec NEXT ecrasait le son sans retour ;
- * - les sons mis de cote (state/presets.ts drafts, trois au plus) sont avant
- *   les presets : PREV depuis le premier preset y revient et les recharge
- *   (YOUR SOUND, YOUR SOUND 2, leur heure a la place du rang) ; leur index
- *   est negatif (-1 le plus recent), celui des presets ne bouge pas
- *   (voyager/patch.ts le lit dans presets.list) ;
- * - la deuxieme tape d'un double clic (ou d'une double tape) sur l'ecran
- *   n'est plus un PREV ou un NEXT : la zone qui ouvre le mode est sous celles
- *   de PREV et NEXT, un double clic ouvrait le mode ET chargeait un preset ;
- * - SAVE dit quand le navigateur ne l'a pas pris (NOT SAVED: NO SPACE, puis
- *   le titre NOT SAVED tant que le preset ne vit que pour la visite) et quand
- *   les 99 places sont prises (LIST FULL: DEL ONE) ; avant, SAVED dans tous
- *   les cas.
+ * Plus simple (2026-10-27, la V.4.2, Mika : "je voudrais que la gestion des presets soit plus simple ! et aussi qu'on
+ * puisse nommer ses presets ! un nom d'utilisateur 4 lettres et le nom du preset jusqu'a 10 lettres, en mobile et en
+ * desktop" ; "appuie-toi pour Rytm de la Digitakt pour les boutons") : une liste, cinq touches toujours a la meme
+ * place, un nom choisi.
+ *   PRESETS            3/27     le titre (LOADED ou EDITED sur le preset charge, FACTORY, la note un instant) et le rang
+ *   < MIKA/DEEP KICK* >         le curseur ; PREV et NEXT le deplacent sans rien charger (comme une Digitakt : on
+ *                               regarde, puis on confirme) ; il s'ouvre sur le preset charge
+ *   LOAD SAVE NAME DEL EXIT     les cinq touches (des places : leur nom vient de la vue, l'etape les change)
+ * - LOAD charge le preset du curseur, en un geste ; le son du moment, s'il n'est garde nulle part, est mis de cote
+ *   d'abord (YOUR SOUND en tete de liste, NOT SAVED ; il revient par LOAD, DEL l'oublie) et UNDO le rend aussi.
+ * - SAVE : rien de charge (ou un preset d'usine, ou un son mis de cote) : le nom (stage name : le dialogue,
+ *   ui/PresetNameDialog.tsx, et l'ecran ; un nom drole et court propose) ; un preset a toi charge : OVERWRITE (le
+ *   meme, sa place, son nom) ou AS NEW (le nom, le sien numerote propose), ou CANCEL (stage choice).
+ * - NAME (sur un preset a toi) : le dialogue, prerempli.
+ * - DEL (sur un preset a toi ou un son mis de cote) : DELETE? YES (la meme place, ignoree DEL_GUARD_MS apres DEL :
+ *   un double clic n'efface rien) ou NO (stage confirm).
+ * - EXIT ferme ; Echap revient d'un cran (back) ; un preset d'usine ne se renomme ni ne s'efface (NAME et DEL vides).
+ * - Nommer : l'utilisateur (4) et le nom (1 a 10) aux regles de state/presetName.ts ; au desktop du MM-RYTM, le
+ *   potard A tourne la lettre et le potard B le curseur (le repli materiel, facon Elektron, turn) ; OK (la premiere
+ *   place) garde, CANCEL (la derniere) revient a la liste.
+ * Echap, une autre machine ou 60 s sans geste en sortent (jamais pendant le nom) ; dans les 10 s qui suivent une
+ * fermeture par l'attente, gauche et droite le rouvrent au lieu de changer de machine (resumable), sauf apres Echap ou
+ * une autre machine (2026-10-22, la revue). Les index des sons mis de cote sont negatifs (-1 le plus recent), ceux des
+ * presets ne bougent pas (voyager/patch.ts lit LOADED et SAVED dans presets.list). PREV et NEXT moins de 600 ms apres
+ * l'ouverture ne font rien (la deuxieme tape d'un double clic, 2026-10-11).
  */
 
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, stepOf } from '../bass/params';
 import { cleanSteps } from '../bass/state';
 import { focus } from './focus';
-import { presets, type Draft, type Preset, type PresetMachine, type StoreFail } from './presets';
+import { PRESET_MAX, presets, type Draft, type Preset, type PresetMachine, type StoreFail } from './presets';
+import { draftLine, draftResult, moveCursor, nameOk, nextName, suggestName, turnChar, typeChars, NAME_MAX, USER_LEN, type NameDraft } from './presetName';
 
 /**
  * Le style d'un preset d'usine du MM-BASS (2026-10-09 : 35 presets ranges par style, Mika : "une bonne grosse
@@ -99,16 +91,38 @@ function bassLine(p: Preset): PresetCell[] | null {
   });
 }
 
-export type PresetKey = 'open' | 'prev' | 'next' | 'save' | 'name' | 'del' | 'exit';
+/**
+ * Les touches du mode : open (l'ecran au repos), close (la touche qui l'a ouvert, encore : PRESET du MM-BASS, P au
+ * clavier ; ferme a toute etape), prev et next (le curseur), et les cinq places du bas (PRESET_SLOTS).
+ */
+export type PresetKey = 'open' | 'close' | 'prev' | 'next' | 'load' | 'save' | 'name' | 'del' | 'exit';
+/** Les cinq touches du bas, dans l'ordre (2026-10-27) : des places ; leur nom et leur action viennent de l'etape. */
+export const PRESET_SLOTS = ['load', 'save', 'name', 'del', 'exit'] as const;
+export type PresetSlot = (typeof PRESET_SLOTS)[number];
+/** L'etape : la liste, OVERWRITE ou AS NEW, DELETE?, le nom. */
+export type PresetStage = 'browse' | 'choice' | 'confirm' | 'name';
+
+/** Le nom en cours (stage name) : un nouveau preset ou celui qu'on renomme, l'edition, ce que les regles reprochent. */
+export interface PresetNamingState {
+  kind: 'new' | 'rename';
+  /** le preset renomme ; null : un nouveau */
+  id: string | null;
+  draft: NameDraft;
+  /** '' : rien a redire ; sinon ce que l'ecran et le dialogue disent (USER: 4 CHARACTERS...) */
+  problem: string;
+  /** l'utilisateur n'a jamais ete choisi dans ce navigateur : le dialogue le demande d'abord */
+  askUser: boolean;
+}
 
 interface ModeState {
   machine: PresetMachine | null;
-  /** le preset montre (0 : le plus recent de presets.list) ; -1, -2, -3 : un son mis de cote (presets.drafts, -1 le plus recent) */
+  /** le curseur (0 : le plus recent de presets.list) ; -1, -2, -3 : un son mis de cote (presets.drafts, -1 le plus recent) */
   index: number;
-  /** DEL touche une fois : SURE? */
-  confirm: boolean;
+  stage: PresetStage;
   /** ce qui vient de se passer (SAVED, LOADED...), le temps d'un coup d'oeil */
   note: string;
+  /** stage name : le nom en cours ; null sinon */
+  naming: PresetNamingState | null;
 }
 
 const IDLE_MS = 60000;
@@ -118,13 +132,16 @@ const NOTE_MS = 1600;
 /** Un echec (NOT SAVED, FULL) reste le temps d'etre lu. */
 const FAIL_MS = 4500;
 /**
- * PREV et NEXT si tot apres l'ouverture : la deuxieme tape d'un double clic, rien ne se charge (2026-10-11 ; le double
+ * PREV et NEXT si tot apres l'ouverture : la deuxieme tape d'un double clic, rien ne bouge (2026-10-11 ; le double
  * clic des systemes va jusqu'a 500 ms).
  */
 const DOUBLE_MS = 600;
+/** YES de DELETE? est a la place de DEL (2026-10-27) : un double clic sur DEL n'efface rien, il faut un second geste. */
+const DEL_GUARD_MS = 350;
 
-let state: ModeState = { machine: null, index: 0, confirm: false, note: '' };
+let state: ModeState = { machine: null, index: 0, stage: 'browse', note: '', naming: null };
 let openedAt = -Infinity;
+let confirmAt = -Infinity;
 
 /**
  * L'instant du geste : celui de l'evenement en cours (window.event : la tape, le clic, la touche), meme traite en
@@ -139,11 +156,20 @@ function gestureAt(): number {
 }
 
 /**
+ * Le geste en cours est-il un pointeur (une tape, un clic) ? La garde du double clic ne vaut que pour lui (2026-10-27 : P
+ * puis une fleche tout de suite, au clavier, ne deplacait rien).
+ */
+function pointerGesture(): boolean {
+  const e = typeof window !== 'undefined' ? (window as { event?: Event }).event : undefined;
+  return !!e && /^(pointer|mouse|touch|click)/.test(e.type);
+}
+
+/**
  * Ce que dit l'ecran quand le navigateur n'a pas pris une ecriture (plein, ou refuse : navigation privee) ; 20 lettres au
  * plus, la ligne du titre du MM-RYTM (state/lcd.ts), le rang s'efface le temps de la lire (LONG_NOTE).
  */
 const FAIL_NOTE: Readonly<Record<StoreFail, string>> = { full: 'NOT SAVED: NO SPACE', off: 'NOT SAVED: BLOCKED' };
-/** Les 99 presets : SAVE refuse. */
+/** Les 99 presets : SAVE refuse (OVERWRITE reste permis). */
 const MAX_NOTE = 'LIST FULL: DEL ONE';
 /** Une note plus longue : le rang ne s'affiche pas a cote d'elle (la ligne du titre du MM-RYTM tient 20 lettres). */
 const LONG_NOTE = 12;
@@ -167,22 +193,43 @@ const hhmm = (at: number): string => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 /**
- * Le dernier preset charge ou garde de chaque machine, par son id (2026-10-09, la revue : avec 35 presets d'usine,
- * rouvrir le mode repartait de 1/35 et nommait un preset qui ne jouait pas ; NEXT rechargeait le deuxieme). Le mode
- * rouvre sur lui, PREV / NEXT repartent de lui ; EXIT et les 60 s sans geste ne l'oublient pas.
+ * Ou etait le curseur de chaque machine (son id, 2026-10-09 ; depuis le 2026-10-27, le curseur seul : le preset charge
+ * est retenu par presets.loadedId). EXIT et les 60 s sans geste ne l'oublient pas.
  */
 const last: Partial<Record<PresetMachine, string>> = {};
 
-/**
- * Le rang ou rouvrir : le dernier preset (ou son mis de cote) charge ou garde s'il est encore la ; sinon (une autre
- * visite) celui qui joue tel quel ; sinon le premier preset.
- */
-function startIndex(m: PresetMachine): number {
-  const id = last[m] ?? presets.playing(m);
-  if (!id) return 0;
+/** Le rang d'un id (un preset de la liste, ou un son mis de cote) ; null s'il n'y est plus. */
+function indexOf(m: PresetMachine, id: string | null | undefined): number | null {
+  if (!id) return null;
   const i = presets.list(m).findIndex((p) => p.id === id);
-  return i >= 0 ? i : draftIndex(m, id);
+  if (i >= 0) return i;
+  const j = presets.drafts(m).findIndex((d) => d.id === id);
+  return j >= 0 ? -(j + 1) : null;
 }
+
+/** Le rang ou s'ouvrir : le preset charge, sinon la ou etait le curseur, sinon ce qui joue tel quel, sinon le premier. */
+function startIndex(m: PresetMachine): number {
+  return indexOf(m, presets.loadedId(m)) ?? indexOf(m, last[m]) ?? indexOf(m, presets.playing(m)) ?? 0;
+}
+
+/** Ce qu'il y a sous le curseur. */
+type Row = { kind: 'draft'; draft: Draft; at: number } | { kind: 'user' | 'factory'; preset: Preset; at: number } | { kind: 'none'; at: number };
+function rowAt(m: PresetMachine, i: number): Row {
+  if (i < 0) {
+    const d = presets.drafts(m)[-i - 1];
+    return d ? { kind: 'draft', draft: d, at: i } : { kind: 'none', at: i };
+  }
+  const p = presets.list(m)[i];
+  return p ? { kind: p.factory ? 'factory' : 'user', preset: p, at: i } : { kind: 'none', at: i };
+}
+/** Le libelle d'une ligne : MIKA/DEEP KICK, ACID, YOUR SOUND (YOUR SOUND 2...). */
+function rowLabel(r: Row): string {
+  if (r.kind === 'draft') return r.at === -1 ? 'YOUR SOUND' : `YOUR SOUND ${-r.at}`;
+  if (r.kind === 'none') return '';
+  return presets.label(r.preset);
+}
+const rowId = (r: Row): string | null => (r.kind === 'draft' ? r.draft.id : r.kind === 'none' ? null : r.preset.id);
+
 const listeners = new Set<() => void>();
 let idle = 0;
 let noteTimer = 0;
@@ -202,6 +249,11 @@ function commit(next: ModeState): void {
 function touch(): void {
   window.clearTimeout(idle);
   idle = window.setTimeout(() => {
+    // Un nom en cours ne se ferme jamais seul (le dialogue peut attendre une frappe lente)
+    if (state.stage === 'name') {
+      touch();
+      return;
+    }
     const m = state.machine;
     presetMode.close();
     if (m) idleClosed = { m, at: performance.now(), changes: focus.changes };
@@ -216,33 +268,102 @@ function note(text: string, ms: number = NOTE_MS): void {
   commit({ ...state, note: text });
 }
 
+/** Retour a la liste (une etape annulee ou finie). */
+const browse = (over: Partial<ModeState> = {}): ModeState => ({ ...state, stage: 'browse', naming: null, ...over });
+
+/** Les noms deja pris par les presets a toi de la machine. */
+const takenNames = (m: PresetMachine): Set<string> => new Set(presets.of(m).map((p) => p.name));
+
+/** Le nom commence : un nouveau preset (base : le nom propose) ou celui qu'on renomme. */
+function startNaming(m: PresetMachine, kind: 'new' | 'rename', id: string | null, base: string, user: string | null): void {
+  const known = presets.user();
+  const u = typeChars(user ?? known ?? '', USER_LEN);
+  const name = typeChars(base, NAME_MAX);
+  const askUser = !known;
+  // Le curseur du potard B : sur l'utilisateur s'il manque, sinon au bout du nom
+  const cursor = u.length < USER_LEN ? u.length : Math.min(USER_LEN + NAME_MAX - 1, USER_LEN + name.length);
+  commit({ ...state, stage: 'name', naming: { kind, id, draft: { user: u, name, cursor }, problem: '', askUser }, note: '' });
+}
+
 /** Le texte de l'ecran en mode presets (20 colonnes ou plus, selon l'ecran). */
 export interface PresetView {
+  stage: PresetStage;
   title: string;
-  /** le rang (4/35) */
+  /** le rang (4/35), l'heure d'un son mis de cote */
   count: string;
   /** le style d'un preset d'usine du MM-BASS (DARK DISCO), devant le rang ; '' sinon */
   group: string;
+  /** le curseur : MIKA/DEEP KICK (une etoile s'il est le preset charge et a bouge), ACID, YOUR SOUND ; le nom en cours (stage name) */
   name: string;
-  keys: readonly [string, string, string, string];
+  /** les cinq touches (PRESET_SLOTS), '' : vide */
+  keys: readonly [string, string, string, string, string];
+  /** ce que dit chaque touche aux lecteurs d'ecran ('' : vide) */
+  aria: readonly [string, string, string, string, string];
   empty: boolean;
   /** MM-BASS : la ligne du preset montre (seize pas) ; absente ailleurs */
   line?: PresetCell[];
+  /** les lignes d'avant et d'apres le curseur (le MM-RYTM les dessine pales) ; '' : aucune */
+  prev: string;
+  next: string;
+  /** le curseur est le preset charge : 'loaded', 'edited' s'il a bouge ; '' sinon */
+  mark: '' | 'loaded' | 'edited';
+  /** ce qui est sous le curseur */
+  kind: 'user' | 'factory' | 'draft' | 'none';
+  /** stage name : la ligne USER/NAME et la case du curseur (potard B), ce que les regles reprochent */
+  naming: { text: string; at: number; problem: string; kind: 'new' | 'rename' } | null;
 }
 
-/** Les jumeaux (lecteurs d'ecran, clavier) : le nom de chaque touche de l'ecran. */
-export const PRESET_KEY_ARIA: Readonly<Record<PresetKey, string>> = {
-  open: 'Presets, on the screen',
-  prev: 'Previous preset, or back to your sound',
-  next: 'Next preset',
-  save: 'Save the sound playing now as a new preset',
-  name: 'Another name for this preset',
-  del: 'Delete this preset, press twice',
-  exit: 'Close the presets',
+/** Les jumeaux (lecteurs d'ecran, clavier) : le nom des touches qui ne changent pas. */
+export const PRESET_KEY_ARIA: Readonly<Record<'open' | 'prev' | 'next', string>> = {
+  open: 'Presets: load, save, name and delete the sounds of this machine',
+  prev: 'Previous preset in the list (nothing loads)',
+  next: 'Next preset in the list (nothing loads)',
 };
 /** Les touches de l'ecran, mode ferme puis ouvert. */
 export const PRESET_KEYS_OFF: readonly PresetKey[] = ['open'];
-export const PRESET_KEYS_ON: readonly PresetKey[] = ['prev', 'next', 'save', 'name', 'del', 'exit'];
+export const PRESET_KEYS_ON: readonly PresetKey[] = ['prev', 'next', ...PRESET_SLOTS];
+
+/** Ce que fait une place a l'etape du moment, sur la ligne du curseur : son nom a l'ecran, son nom lu, son action. */
+type SlotAct = 'load' | 'save' | 'rename' | 'delete' | 'exit' | 'overwrite' | 'asnew' | 'cancel' | 'yes' | 'no' | 'ok';
+interface Slot {
+  act: SlotAct;
+  label: string;
+  aria: string;
+}
+function slotsOf(m: PresetMachine): Partial<Record<PresetSlot, Slot>> {
+  const r = rowAt(m, clampIndex(m, state.index));
+  const lab = rowLabel(r);
+  if (state.stage === 'choice') {
+    const l = presets.loaded(m);
+    const what = l?.label ?? lab;
+    // OVERWRITE et AS NEW a deux places d'ecart : leurs pastilles larges tiennent au-dessus des touches
+    return {
+      load: { act: 'overwrite', label: 'OVERWRITE', aria: `Overwrite ${what} with the sound playing now` },
+      name: { act: 'asnew', label: 'AS NEW', aria: 'Save the sound playing now as a new preset (you name it)' },
+      exit: { act: 'cancel', label: 'CANCEL', aria: 'Cancel, nothing is saved' },
+    };
+  }
+  if (state.stage === 'confirm') {
+    return {
+      del: { act: 'yes', label: 'YES', aria: `Yes, delete ${lab}` },
+      exit: { act: 'no', label: 'NO', aria: `No, keep ${lab}` },
+    };
+  }
+  if (state.stage === 'name') {
+    return {
+      load: { act: 'ok', label: 'OK', aria: state.naming?.kind === 'rename' ? 'OK, rename the preset' : 'OK, save the preset under this name' },
+      exit: { act: 'cancel', label: 'CANCEL', aria: 'Cancel, back to the list' },
+    };
+  }
+  const out: Partial<Record<PresetSlot, Slot>> = {
+    save: { act: 'save', label: 'SAVE', aria: 'Save the sound playing now: as a new preset, or over the loaded one' },
+    exit: { act: 'exit', label: 'EXIT', aria: 'Close the presets' },
+  };
+  if (r.kind !== 'none') out.load = { act: 'load', label: 'LOAD', aria: `Load ${lab}` };
+  if (r.kind === 'user') out.name = { act: 'rename', label: 'NAME', aria: `Rename ${lab}` };
+  if (r.kind === 'user' || r.kind === 'draft') out.del = { act: 'delete', label: 'DEL', aria: `Delete ${lab} (asks to confirm)` };
+  return out;
+}
 
 export const presetMode = {
   get: (): ModeState => state,
@@ -257,7 +378,7 @@ export const presetMode = {
   close(): void {
     window.clearTimeout(idle);
     idleClosed = null;
-    if (state.machine) commit({ machine: null, index: 0, confirm: false, note: '' });
+    if (state.machine) commit({ machine: null, index: 0, stage: 'browse', note: '', naming: null });
   },
   /**
    * Le mode de cette machine vient de se fermer seul (60 s sans geste, moins de RESUME_MS avant at, l'instant de la
@@ -272,124 +393,288 @@ export const presetMode = {
   forget(): void {
     idleClosed = null;
   },
-  /** Une touche de l'ecran. */
+  /** La touche k chargera-t-elle un preset (LOAD sur la liste) ? actions.ts en fait une etape d'UNDO a elle. */
+  loads(m: PresetMachine, k: PresetKey): boolean {
+    if (state.machine !== m || state.stage !== 'browse' || k !== 'load') return false;
+    return rowAt(m, clampIndex(m, state.index)).kind !== 'none';
+  },
+  /**
+   * Echap (2026-10-27) : un cran en arriere ; le nom, OVERWRITE / AS NEW et DELETE? reviennent a la liste, la liste se
+   * ferme. true si quelque chose a change.
+   */
+  back(): boolean {
+    if (!state.machine) return false;
+    if (state.stage !== 'browse') {
+      commit(browse({ note: '' }));
+      touch();
+      return true;
+    }
+    presetMode.close();
+    return true;
+  },
+  /** Une touche de l'ecran (ou son jumeau, une touche de la face, le clavier). */
   key(m: PresetMachine, k: PresetKey): void {
     if (k === 'open') {
       idleClosed = null;
       touch();
       if (state.machine === m) {
-        commit({ ...state, index: clampIndex(m, state.index), confirm: false, note: '' });
+        commit({ ...state, index: clampIndex(m, state.index), note: '' });
         return;
       }
       openedAt = gestureAt();
-      // Le son du moment, garde nulle part : mis de cote et montre d'abord (YOUR SOUND, NOT SAVED), SAVE dessous
-      const fresh = presets.setAside(m);
-      const index = fresh ? -1 : clampIndex(m, startIndex(m));
-      if (fresh) last[m] = presets.drafts(m)[0]?.id;
-      commit({ machine: m, index, confirm: false, note: '' });
+      // Rien n'est mis de cote a l'ouverture (2026-10-27 : avant, NOT SAVED et YOUR SOUND des qu'on avait tourne un
+      // potard) ; le curseur est sur le preset charge
+      commit({ machine: m, index: clampIndex(m, startIndex(m)), stage: 'browse', note: '', naming: null });
       return;
     }
     if (state.machine !== m) return;
-    if (k === 'exit') {
+    if (k === 'close') {
       presetMode.close();
       return;
     }
     touch();
-    const list = presets.list(m);
-    if (k === 'save') {
-      const r = presets.save(m);
-      if (!r.preset) {
-        // 99 presets : rien n'est garde, le son du moment ne bouge pas
-        commit({ ...state, confirm: false });
-        note(MAX_NOTE, FAIL_MS);
-        return;
-      }
-      last[m] = r.preset.id;
-      commit({ ...state, index: 0, confirm: false });
-      // Le nom est dessous : le titre le dit en un mot ; le navigateur ne l'a pas pris : l'ecran le dit, plus longtemps
-      if (r.kept) note('SAVED');
-      else note(FAIL_NOTE[r.why], FAIL_MS);
-      return;
-    }
     if (k === 'prev' || k === 'next') {
-      // La deuxieme tape d'un double clic sur l'ecran (la premiere l'a ouvert) : rien ne se charge
-      if (gestureAt() - openedAt < DOUBLE_MS) return;
-      const { lo, hi } = bounds(m);
-      const span = hi - lo + 1;
-      if (span <= 0) return;
-      const at = clampIndex(m, state.index);
-      const i = ((at + (k === 'next' ? 1 : -1) - lo + span) % span) + lo;
-      if (i < 0) {
-        // Un son mis de cote : il revient (celui du moment, s'il n'est garde nulle part, est mis de cote avant)
-        const d = presets.drafts(m)[-i - 1];
-        if (d && presets.restore(m, d.id)) last[m] = d.id;
-        commit({ ...state, index: d ? draftIndex(m, d.id) : 0, confirm: false });
-        note('RESTORED');
+      if (state.stage !== 'browse') return;
+      // La deuxieme tape d'un double clic sur l'ecran (la premiere l'a ouvert) : rien ne bouge
+      if (pointerGesture() && gestureAt() - openedAt < DOUBLE_MS) return;
+      presetMode.step(m, k === 'next' ? 1 : -1, true);
+      return;
+    }
+    const slot = slotsOf(m)[k];
+    if (!slot) return;
+    const r = rowAt(m, clampIndex(m, state.index));
+    switch (slot.act) {
+      case 'exit':
+        presetMode.close();
+        return;
+      case 'cancel':
+      case 'no':
+        commit(browse({ note: '' }));
+        return;
+      case 'load': {
+        if (r.kind === 'draft') {
+          // Un son mis de cote revient (celui du moment, s'il n'est garde nulle part, est mis de cote avant)
+          const d = presets.restore(m, r.draft.id);
+          if (d) last[m] = d.id;
+          commit(browse({ index: d ? draftIndex(m, d.id) : 0 }));
+          note('LOADED');
+          return;
+        }
+        if (r.kind === 'none') return;
+        if (presets.load(m, r.preset.id)) last[m] = r.preset.id;
+        commit(browse({ index: r.at }));
+        note('LOADED');
         return;
       }
-      if (presets.load(m, list[i].id)) last[m] = list[i].id;
-      commit({ ...state, index: i, confirm: false });
-      note('LOADED');
-      return;
-    }
-    // Un son mis de cote n'a ni nom ni place a effacer : SAVE en fait un preset
-    if (state.index < 0 || list.length === 0) return;
-    const cur = list[Math.min(state.index, list.length - 1)];
-    // Un preset d'usine ne se renomme ni ne s'efface (SAVE en fait un a soi)
-    if ((k === 'name' || k === 'del') && cur.factory) {
-      note('FACTORY');
-      return;
-    }
-    if (k === 'name') {
-      const res = presets.rename(m, cur.id);
-      commit({ ...state, confirm: false });
-      if (res !== 'ok') note(FAIL_NOTE[res], FAIL_MS);
-      return;
-    }
-    if (k === 'del') {
-      if (!state.confirm) {
-        commit({ ...state, confirm: true });
+      case 'save': {
+        const l = presets.loaded(m);
+        if (l && !l.factory) {
+          // Un preset a toi charge : OVERWRITE ou AS NEW, le curseur sur lui
+          const i = indexOf(m, l.id);
+          commit({ ...state, stage: 'choice', index: i ?? state.index, note: '' });
+          return;
+        }
+        if (presets.of(m).length >= PRESET_MAX) {
+          note(MAX_NOTE, FAIL_MS);
+          return;
+        }
+        startNaming(m, 'new', null, suggestName(takenNames(m)), null);
         return;
       }
-      const res = presets.remove(m, cur.id);
-      commit({ ...state, index: Math.max(0, Math.min(state.index, presets.list(m).length - 1)), confirm: false });
-      note(res === 'ok' ? 'DELETED' : FAIL_NOTE[res], res === 'ok' ? NOTE_MS : FAIL_MS);
+      case 'overwrite': {
+        const l = presets.loaded(m);
+        const res = l ? presets.overwrite(m, l.id) : null;
+        if (!res) {
+          commit(browse());
+          return;
+        }
+        last[m] = res.preset.id;
+        commit(browse({ index: indexOf(m, res.preset.id) ?? state.index }));
+        if (res.res === 'ok') note('SAVED');
+        else note(FAIL_NOTE[res.res], FAIL_MS);
+        return;
+      }
+      case 'asnew': {
+        if (presets.of(m).length >= PRESET_MAX) {
+          commit(browse());
+          note(MAX_NOTE, FAIL_MS);
+          return;
+        }
+        const l = presets.loaded(m);
+        const p = l ? presets.list(m).find((x) => x.id === l.id) : undefined;
+        startNaming(m, 'new', null, p ? nextName(p.name, takenNames(m)) : suggestName(takenNames(m)), p?.user ?? null);
+        return;
+      }
+      case 'rename': {
+        if (r.kind !== 'user') return;
+        startNaming(m, 'rename', r.preset.id, r.preset.name, r.preset.user ?? null);
+        return;
+      }
+      case 'delete':
+        confirmAt = gestureAt();
+        commit({ ...state, stage: 'confirm', note: '' });
+        return;
+      case 'yes': {
+        // YES est a la place de DEL : la deuxieme tape d'un double clic n'efface rien
+        if (gestureAt() - confirmAt < DEL_GUARD_MS) return;
+        if (r.kind === 'draft') {
+          presets.dropDraft(m, r.draft.id);
+          commit(browse({ index: clampIndex(m, r.at + 1 > -1 ? 0 : r.at + 1) }));
+          note('DELETED');
+          return;
+        }
+        if (r.kind !== 'user') {
+          commit(browse());
+          return;
+        }
+        const res = presets.remove(m, r.preset.id);
+        commit(browse({ index: clampIndex(m, state.index) }));
+        note(res === 'ok' ? 'DELETED' : FAIL_NOTE[res], res === 'ok' ? NOTE_MS : FAIL_MS);
+        return;
+      }
+      case 'ok':
+        presetMode.nameOk(m);
+        return;
     }
+  },
+  /**
+   * Le curseur deplace de d lignes : PREV et NEXT tournent en boucle (wrap), le potard s'arrete aux bouts (comme la
+   * liste d'une machine). Rien ne se charge.
+   */
+  step(m: PresetMachine, d: number, wrap = false): void {
+    if (state.machine !== m || state.stage !== 'browse' || d === 0) return;
+    const { lo, hi } = bounds(m);
+    const span = hi - lo + 1;
+    if (span <= 0) return;
+    const at = clampIndex(m, state.index);
+    const i = wrap ? ((((at + d - lo) % span) + span) % span) + lo : Math.max(lo, Math.min(hi, at + d));
+    if (i === at && !state.note) return;
+    const id = rowId(rowAt(m, i));
+    if (id) last[m] = id;
+    commit({ ...state, index: i, note: '' });
+  },
+  /**
+   * Un potard de la face du MM-RYTM tourne de d crans pendant le mode (2026-10-27, desktop : l'ecran ne se touche
+   * pas) : sur la liste, il deplace le curseur (le potard A d'abord, l'ecran le dit, mais tous) ; sur le nom, A tourne la
+   * lettre et B deplace le curseur (le repli materiel, facon Elektron), les autres ne font rien. true si le potard a servi.
+   */
+  turn(m: PresetMachine, k: number, d: number): boolean {
+    if (state.machine !== m || d === 0) return false;
+    touch();
+    // Sur la liste, tout potard la fait defiler (aucun ne reste mort sous la main) ; le nom : A et B seulement
+    if (state.stage === 'browse') {
+      presetMode.step(m, d);
+      return true;
+    }
+    if (state.stage === 'name' && state.naming && (k === 0 || k === 1)) {
+      const draft = k === 0 ? turnChar(state.naming.draft, d) : moveCursor(state.naming.draft, d);
+      commit({ ...state, naming: { ...state.naming, draft, problem: '' } });
+      return true;
+    }
+    return false;
+  },
+  /** Le dialogue (ui/PresetNameDialog.tsx) : ce qu'on tape, aux regles (majuscules, 4 et 10 au plus). */
+  setName(m: PresetMachine, user: string, name: string, cursor?: number): void {
+    if (state.machine !== m || state.stage !== 'name' || !state.naming) return;
+    touch();
+    const u = typeChars(user, USER_LEN);
+    const n = typeChars(name, NAME_MAX);
+    const c = cursor === undefined ? state.naming.draft.cursor : Math.max(0, Math.min(USER_LEN + NAME_MAX - 1, cursor));
+    if (u === state.naming.draft.user && n === state.naming.draft.name && c === state.naming.draft.cursor) return;
+    commit({ ...state, naming: { ...state.naming, draft: { user: u, name: n, cursor: c }, problem: '' } });
+  },
+  /** OK du nom (la touche, Entree) : garde ou renomme ; aux regles seulement (sinon l'ecran et le dialogue disent quoi). */
+  nameOk(m: PresetMachine): void {
+    if (state.machine !== m || state.stage !== 'name' || !state.naming) return;
+    const nm = state.naming;
+    const r = draftResult(nm.draft);
+    if (r.problem || !nameOk(r.name)) {
+      commit({ ...state, naming: { ...nm, problem: r.problem || 'NAME: 1 TO 10 CHARACTERS' } });
+      return;
+    }
+    // L'utilisateur est retenu par ce navigateur : celui d'un nouveau preset, ou le premier jamais choisi
+    if (nm.kind === 'new' || !presets.user()) presets.setUser(r.user);
+    if (nm.kind === 'rename' && nm.id) {
+      const res = presets.rename(m, nm.id, { user: r.user, name: r.name });
+      commit(browse({ index: indexOf(m, nm.id) ?? state.index }));
+      note(res === 'ok' ? 'RENAMED' : FAIL_NOTE[res], res === 'ok' ? NOTE_MS : FAIL_MS);
+      return;
+    }
+    const res = presets.save(m, { user: r.user, name: r.name });
+    if (!res.preset) {
+      commit(browse());
+      note(MAX_NOTE, FAIL_MS);
+      return;
+    }
+    last[m] = res.preset.id;
+    commit(browse({ index: indexOf(m, res.preset.id) ?? 0 }));
+    if (res.kept) note('SAVED');
+    else note(FAIL_NOTE[res.why], FAIL_MS);
+  },
+  /** Ce que dit la touche k aux lecteurs d'ecran, a l'etape du moment ('' : la place est vide). */
+  aria(m: PresetMachine, k: PresetKey): string {
+    if (k === 'open' || k === 'prev' || k === 'next') return PRESET_KEY_ARIA[k];
+    if (k === 'close') return 'Close the presets';
+    if (state.machine !== m) return '';
+    return slotsOf(m)[k]?.aria ?? '';
   },
   /** Ce que l'ecran montre (null : le mode est ferme pour cette machine). */
   view(m: PresetMachine): PresetView | null {
     if (state.machine !== m) return null;
     const list = presets.list(m);
     const i = clampIndex(m, state.index);
-    // Un son mis de cote (2026-10-11) : NOT SAVED, YOUR SOUND (YOUR SOUND 2...), son heure a la place du rang, SAVE et EXIT
-    const d: Draft | undefined = i < 0 ? presets.drafts(m)[-i - 1] : undefined;
-    if (d) {
-      const line = m === 'bass' ? bassLine({ id: d.id, name: '', at: d.at, data: d.data }) : null;
+    const r = rowAt(m, i);
+    const slots = slotsOf(m);
+    const keys = PRESET_SLOTS.map((k) => slots[k]?.label ?? '') as unknown as PresetView['keys'];
+    const aria = PRESET_SLOTS.map((k) => slots[k]?.aria ?? '') as unknown as PresetView['aria'];
+    const loaded = presets.loaded(m);
+    const isCur = !!loaded && rowId(r) === loaded.id;
+    const mark: PresetView['mark'] = isCur ? (loaded.edited ? 'edited' : 'loaded') : '';
+    const { lo, hi } = bounds(m);
+    const prev = state.stage === 'browse' && i - 1 >= lo ? rowLabel(rowAt(m, i - 1)) : '';
+    const next = state.stage === 'browse' && i + 1 <= hi ? rowLabel(rowAt(m, i + 1)) : '';
+    const line = m === 'bass' ? (r.kind === 'draft' ? bassLine({ id: r.draft.id, name: '', at: r.draft.at, data: r.draft.data }) : r.kind === 'none' ? null : bassLine(r.preset)) : null;
+    const base = { stage: state.stage, keys, aria, prev, next, mark, kind: r.kind, naming: null, ...(line && state.stage !== 'name' ? { line } : {}) } as const;
+    if (state.stage === 'name' && state.naming) {
+      const nm = state.naming;
+      const ln = draftLine(nm.draft);
       return {
-        title: state.note || 'NOT SAVED',
-        count: state.note.length > LONG_NOTE ? '' : hhmm(d.at),
+        ...base,
+        title: state.note || (nm.problem ? nm.problem : nm.kind === 'rename' ? 'RENAME' : 'SAVE AS'),
+        count: '',
         group: '',
-        name: i === -1 ? 'YOUR SOUND' : `YOUR SOUND ${-i}`,
-        keys: ['SAVE', '', '', 'EXIT'],
+        // Les cases vides de l'utilisateur soulignees (____/DEEP KICK), comme l'ecran du MM-RYTM les dessine
+        name: `${ln.text.slice(0, USER_LEN).replace(/ /g, '_')}${ln.text.slice(USER_LEN)}`.trimEnd(),
         empty: false,
-        ...(line ? { line } : {}),
+        naming: { text: ln.text, at: ln.at, problem: nm.problem, kind: nm.kind },
       };
     }
+    const label = rowLabel(r);
+    const starred = mark === 'edited' ? `${label}*` : label;
+    const long = state.note.length > LONG_NOTE;
+    if (state.stage === 'choice') {
+      return { ...base, title: state.note || 'SAVE', count: '', group: '', name: starred, empty: false };
+    }
+    if (state.stage === 'confirm') {
+      return { ...base, title: state.note || 'DELETE?', count: '', group: '', name: label, empty: false };
+    }
+    // Un son mis de cote : NOT SAVED, YOUR SOUND (YOUR SOUND 2...), son heure a la place du rang
+    if (r.kind === 'draft') {
+      return { ...base, title: state.note || 'NOT SAVED', count: long ? '' : hhmm(r.draft.at), group: '', name: label, empty: false };
+    }
     const empty = list.length === 0;
-    const j = Math.max(0, i);
-    const fac = !empty && !!list[j].factory;
-    const group = fac && m === 'bass' ? bassGroup(list[j]) : '';
-    const line = !empty && m === 'bass' ? bassLine(list[j]) : null;
+    const fac = r.kind === 'factory';
+    const group = fac && m === 'bass' && r.kind === 'factory' ? bassGroup(r.preset) : '';
     // Un preset que le navigateur n'a pas pris (plein ou refuse) : il partira au rechargement, le titre le dit
-    const visit = !empty && !fac && presets.unsaved(list[j].id);
+    const visit = r.kind === 'user' && presets.unsaved(r.preset.id);
+    const title = state.note || (visit ? 'NOT SAVED' : mark === 'edited' ? 'EDITED' : mark === 'loaded' ? 'LOADED' : fac ? 'FACTORY' : 'PRESETS');
     return {
-      title: state.note || (fac ? 'FACTORY' : visit ? 'NOT SAVED' : 'PRESETS'),
-      count: empty || state.note.length > LONG_NOTE ? '' : `${j + 1}/${list.length}`,
+      ...base,
+      title,
+      count: empty || long ? '' : `${i + 1}/${list.length}`,
       group,
-      name: empty ? 'NOTHING SAVED YET' : list[j].name.toUpperCase(),
-      keys: ['SAVE', empty || fac ? '' : 'NAME', empty || fac ? '' : state.confirm ? 'DEL?' : 'DEL', 'EXIT'],
+      name: empty ? 'NOTHING SAVED YET' : starred,
       empty,
-      ...(line ? { line } : {}),
     };
   },
 };

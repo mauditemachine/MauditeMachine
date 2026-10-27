@@ -18,7 +18,7 @@ import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 
 import { editToggle, openToggle, presetKey, voyClear, voyDial, voyPad, voyPush, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
-import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode } from '../state/presetMode';
+import { PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode } from '../state/presetMode';
 import { chipsLive, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
 import { voyInfos } from '../state/voyInfos';
@@ -78,6 +78,8 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const a = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
   const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const pmVoy = useSyncExternalStore(presetMode.subscribe, () => presetMode.on('voy'), () => false);
+  // L'etape et le curseur des presets (2026-10-27) : le nom de leurs touches en suit
+  useSyncExternalStore(presetMode.subscribe, presetMode.get, presetMode.get);
   const params = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
   const infos = useSyncExternalStore(voyInfos.subscribe, () => voyInfos.get().on, () => false);
   const els = useRef(new Map<string, HTMLElement>());
@@ -212,19 +214,26 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           />
         );
       })}
-      {(pmVoy ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
-        <button
-          key={`vlcd-${k}`}
-          ref={refFor(`vlcd-${k}`)}
-          type="button"
-          className="v4-twin"
-          data-twin="vlcd"
-          data-hotspot={`vlcd-${k}`}
-          aria-label={PRESET_KEY_ARIA[k]}
-          onKeyDown={noRepeat}
-          onClick={() => presetKey('voy', k)}
-        />
-      ))}
+      {(pmVoy ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => {
+        // Le nom de la touche suit l'etape des presets (2026-10-27) ; une place vide reste, inerte
+        const aria = presetMode.aria('voy', k);
+        return (
+          <button
+            key={`vlcd-${k}`}
+            ref={refFor(`vlcd-${k}`)}
+            type="button"
+            className="v4-twin"
+            data-twin="vlcd"
+            data-hotspot={`vlcd-${k}`}
+            aria-label={aria || 'Empty key'}
+            aria-disabled={aria ? undefined : true}
+            onKeyDown={noRepeat}
+            onClick={() => {
+              if (aria) presetKey('voy', k);
+            }}
+          />
+        );
+      })}
       {/* La touche i du grand ecran (2026-10-08) : INFOS, l'aide au survol */}
       <button
         ref={refFor('vinfo')}

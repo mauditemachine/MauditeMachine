@@ -60,7 +60,7 @@ import { FLAGS } from '../state/flags';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { PATTERN_SLOTS, patterns } from '../state/patterns';
-import { presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_SLOTS, presetMode, type PresetKey } from '../state/presetMode';
 import { bassExplode, explode as explodeState, voyExplode } from '../state/explode';
 import { BASS, DJ, MACHINES, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
@@ -159,7 +159,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
-import { Screen, infoKeySpot } from './screen';
+import { Screen, infoKeySpot, presetKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
@@ -860,7 +860,8 @@ export class Stage {
     }
     // Les presets sur l'ecran (2026-10-04, state/presetMode.ts) : le haut de l'ecran (lignes 1 et 2)
     // ouvre le mode presets ; en mode presets, le haut a gauche et a droite (precedent, suivant), la
-    // bande du bas en quatre touches (SAVE NAME DEL EXIT). La barre de la piste garde sa bande hors du mode
+    // bande du bas en cinq touches (2026-10-27 : LOAD SAVE NAME DEL EXIT, la ou l'ecran dessine leurs pastilles,
+    // scene/screen.ts presetKeySpot ; avant, quatre quarts). La barre de la piste garde sa bande hors du mode
     {
       const [, TH] = OLED.tex;
       const zAt = (y: number): number => OLED.z - OLED.d / 2 + (y / TH) * OLED.d;
@@ -885,7 +886,10 @@ export class Stage {
         box('open', 0, 1, 0, band, true),
         box('prev', 0, 0.5, 0, band, false),
         box('next', 0.5, 1, 0, band, false),
-        ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, TH, false)),
+        ...PRESET_SLOTS.map((k, i) => {
+          const sp = presetKeySpot(i, mobile);
+          return box(k, sp.u0, sp.u1, band, TH, false);
+        }),
       ];
       this.hit.add(this.lcdDefs);
       // La touche i de l'ecran (R4, 2026-10-08, state/rytmInfos.ts) : un disque sur son coin, un peu plus haut que

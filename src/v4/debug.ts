@@ -36,7 +36,9 @@
  * console.log : index.html filtre la console.
  */
 
-import { knobBlock, openToggle } from './actions';
+import { knobBlock, openToggle, presetKey, presetTurn } from './actions';
+import { presets, type PresetMachine } from './state/presets';
+import { presetMode, type PresetView } from './state/presetMode';
 import { faceKnobs } from './rytm/faceKnobs';
 import { trk, trkDebug } from './state/trk';
 import { hw } from './hw';
@@ -306,6 +308,17 @@ export interface V4Debug {
    * subscribe((k, value01) => ...), pot(k, value01), touch(k, on), motorState(k) ; rien d'autre dans le site ne les appelle
    */
   readonly hw: typeof hw;
+  /**
+   * Les presets (2026-10-27, la V.4.2) : store (state/presets.ts), mode (state/presetMode.ts), key (la touche, comme son
+   * jumeau ou la face), turn (un potard de la face du desktop, en crans), view (ce que l'ecran montre).
+   */
+  readonly presets: {
+    store: typeof presets;
+    mode: typeof presetMode;
+    key: typeof presetKey;
+    turn: typeof presetTurn;
+    view: (m: PresetMachine) => PresetView | null;
+  };
 }
 
 const NO_STATS: StageStats = {
@@ -526,6 +539,7 @@ export function installDebug(src: DebugSource): () => void {
     undo,
     hw,
     share: { now: beatNow, code: () => encodeBeat(beatNow().beat), decode: decodeBeat, data: dataOfBeat },
+    presets: { store: presets, mode: presetMode, key: presetKey, turn: presetTurn, view: (m) => presetMode.view(m) },
     get analytics() {
       return analytics.log();
     },

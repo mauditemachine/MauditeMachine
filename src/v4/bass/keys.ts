@@ -86,6 +86,10 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
     const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
     if (twin && /^(Arrow|Page|Home|End|Space|Enter)/.test(e.code)) return;
     if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && ownsPress(e.target)) return;
+    // Les presets ouverts (2026-10-27) : les fleches, Entree et P sont a eux (hooks/useKeys.ts), pas aux notes ; le nom
+    // d'un preset en cours : toutes les touches sont au dialogue (ui/PresetNameDialog.tsx)
+    if (presetMode.on('bass') && (presetMode.get().stage === 'name' || /^(Arrow|Enter|NumpadEnter|KeyP)/.test(e.code))) return;
+    if (presetMode.get().stage === 'name' && presetMode.get().machine) return;
     // Echap : d'abord le LOCK (le reste, EDIT compris, est a hooks/useKeys.ts) ; une page du site ou PRESETS ouverts
     // par-dessus passent avant (la revue du 2026-10-09 : une tape sur un pas met le P-LOCK, le premier Echap le
     // retirait derriere PRESETS sans que rien ne se voie ; actions.ts escape les ferme dans cet ordre)

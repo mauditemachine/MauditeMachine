@@ -127,10 +127,10 @@ export function bassRun(): void {
 
 /**
  * PRESET (2026-10-09, le soir, Mika : "rajoute un bouton PRESET") : les presets a l'ecran, comme une tape sur le
- * pattern de l'en-tete (A01) ; encore : fermes, comme EXIT.
+ * pattern de l'en-tete (A01) ; encore : fermes, comme EXIT (2026-10-27 : a toute etape, le nom en cours compris).
  */
 export function bassPresetKey(): void {
-  presetKey('bass', presetMode.on('bass') ? 'exit' : 'open');
+  presetKey('bass', presetMode.on('bass') ? 'close' : 'open');
 }
 
 /* ---------------- le generateur : STYLE, NOTES, GEN, MUTATE, CLEAR (2026-10-09) ---------------- */

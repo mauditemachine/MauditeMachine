@@ -68,6 +68,10 @@ export interface LcdState {
   keys: readonly string[] | null;
   /** l'etiquette PRESETS en negatif a droite de la ligne 2 (toucher l'ecran ouvre les presets) */
   tag: boolean;
+  /** mode presets (2026-10-27) : toute la vue (les lignes voisines, l'etape, le nom en cours) ; null : ferme */
+  presets: PresetView | null;
+  /** le preset charge (2026-10-27) : son libelle et s'il a bouge, HOME le nomme ; null : aucun */
+  preset: { label: string; edited: boolean } | null;
   /** compositions publiees (revue) */
   updates: number;
 }
@@ -125,7 +129,7 @@ function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
   const line1 = row('VOLUME', sel);
   const t2 = [0, 1].map(cell).join(' ');
   const t3 = [2, 3].map(cell).join(' ');
-  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, samples: null, text: [line1.t, t2, t3], keys: null, tag: false };
+  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, samples: null, text: [line1.t, t2, t3], keys: null, tag: false, presets: null, preset: null };
 }
 
 /**
@@ -138,7 +142,7 @@ function composeSamples(v: SoundBrowserView, now: number): Omit<LcdState, 'updat
   const l2 = fit(v.rows[v.cur]?.label ?? '', COLS);
   const msg = lcdMessage.get(now);
   const l3 = fit(msg ? msg.text : `${v.title} ${v.cur + 1} OF ${v.n}`, MSG_COLS);
-  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: v, text: [line1.t, l2, l3], keys: null, tag: false };
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: v, text: [line1.t, l2, l3], keys: null, tag: false, presets: null, preset: null };
 }
 
 /** Centre s sur n colonnes. */
@@ -151,13 +155,14 @@ function center(s: string, n: number): string {
 /**
  * Mode presets (2026-10-04, state/presetMode.ts) : le titre et le rang, le
  * nom entre ses fleches (le haut de l'ecran : precedent a gauche, suivant a
- * droite), les quatre touches en bas.
+ * droite), les touches en bas (cinq depuis le 2026-10-27 : LOAD SAVE NAME DEL
+ * EXIT, leur nom suit l'etape ; le texte les donne a la suite, sans les vides).
  */
 function composePresets(v: PresetView): Omit<LcdState, 'updates'> {
   const line1 = row(v.title, v.count);
-  const l2 = v.empty ? center(v.name, COLS) : `<${center(v.name, COLS - 2)}>`;
-  const l3 = v.keys.map((k) => k.padEnd(5)).join('').trimEnd();
-  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: false, mix: null, samples: null, text: [line1.t, l2, l3], keys: v.keys, tag: false };
+  const l2 = v.empty || v.stage === 'name' ? center(v.name, COLS) : `<${center(v.name, COLS - 2)}>`;
+  const l3 = v.keys.filter(Boolean).join('  ');
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: false, mix: null, samples: null, text: [line1.t, l2, l3], keys: v.keys, tag: false, presets: v, preset: null };
 }
 
 function compose(now: number): Omit<LcdState, 'updates'> {
@@ -204,7 +209,10 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   const t3 = bar !== null ? `${l3} ${r3}` : l3;
   // L'etiquette PRESETS : la ligne 2 a de la place (pas de titre qui defile, rien a droite)
   const tag = st.status !== 'playing' && !st.notice && !line2.r && line2.l.length <= COLS - 9;
-  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, mix: null, samples: null, text: [line1.t, line2.t, t3], keys: null, tag };
+  // Le preset charge (2026-10-27) : HOME le nomme en tete, une etoile s'il a bouge
+  const ld = presets.loaded('mm808');
+  const preset = ld ? { label: ld.label, edited: ld.edited } : null;
+  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, mix: null, samples: null, text: [line1.t, line2.t, t3], keys: null, tag, presets: null, preset };
 }
 
 let current: LcdState = {
@@ -221,6 +229,8 @@ let current: LcdState = {
   text: [LCD_TEXT.idle, LCD_TEXT.ready, ''],
   keys: null,
   tag: true,
+  presets: null,
+  preset: null,
   updates: 0,
 };
 const listeners = new Set<() => void>();
@@ -240,8 +250,11 @@ function run(): void {
   const next = compose(now);
   // La barre compte au 1/200 pres : elle avance meme quand le temps affiche ne change pas
   const barKey = (b: number | null): number => (b === null ? -1 : Math.round(b * 200));
+  // La vue des presets (2026-10-27) : le curseur, l'etape, le nom en cours, l'etoile du preset charge
+  const pvKey = (x: LcdState | Omit<LcdState, 'updates'>): string => (x.presets ? JSON.stringify(x.presets) : '') + (x.preset ? `${x.preset.label}${x.preset.edited ? '*' : ''}` : '');
   if (
     next.tag !== current.tag ||
+    pvKey(next) !== pvKey(current) ||
     (next.keys ?? []).join() !== (current.keys ?? []).join() ||
     next.text[0] !== current.text[0] ||
     next.text[1] !== current.text[1] ||

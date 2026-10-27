@@ -446,7 +446,7 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   if (hotspot === 'xfade') return { id: 'xfade' };
   if (hotspot === 'seek') return { id: 'seek' };
   if (hotspot === 'lcd-open') return { id: 'screen' };
-  if (/^lcd-(prev|next|save|name|del|exit)$/.test(hotspot)) return { id: 'presets' };
+  if (/^lcd-(prev|next|load|save|name|del|exit)$/.test(hotspot)) return { id: 'presets' };
   if (hotspot === 'lcd-i') return { id: 'ikey' };
   if (hotspot.startsWith('rk-')) {
     const k = hotspot.slice(3);
