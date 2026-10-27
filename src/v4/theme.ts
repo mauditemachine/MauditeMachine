@@ -784,7 +784,16 @@ export const KNOB_RING = {
   airDeg: 3,
   y: 0.006,
   center: 0.35,
+  /** les scenes (2026-10-27, la phase 2) : les segments eteints entre la course de A et celle de B luisent a cette part */
+  band: 0.18,
 } as const;
+
+/**
+ * Le crossfader (2026-10-27, la phase 2) : resyncMs, une re-programmation bornee pendant un glisser (pointeur fin) ;
+ * settleMs, la fin d'un geste MIDI (le silence) ; screenGapMs, l'ecran redessine au plus toutes les 100 ms pendant un
+ * glisser ; readoutMs, la ligne XFADE A 70 · B 30 au plus toutes les 120 ms.
+ */
+export const XFADE_UI = { resyncMs: 240, settleMs: 120, screenGapMs: 100, readoutMs: 120 } as const;
 
 /**
  * La part allumee du segment j (0 a 26) pour une course t : de 0 a t ; a zero au centre, du milieu a t, le segment du

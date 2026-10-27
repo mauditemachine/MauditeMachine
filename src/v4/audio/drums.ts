@@ -54,7 +54,7 @@ import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, compMakeup, compRelAuto, delay
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
 import { loadSample, sampleByKey, samplePcm, sampleStats, sampleStatus, samplesOf, samplesVersion } from './samples';
 import { userSamples } from './usersamples';
-import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
+import { KIT_LOCK_IDS, KNOB_OF, LAYER_LOCK_IDS, LAYER_OF, lockOf, parseSnd, type Locks, type StepLock } from './locks';
 import { DELAY_TONE_HZ, buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type ReverbBus, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
 import { TONE_Q_DB, buildTone, pitchFactor, snapTone, toneHpHz, toneLpHz, type ToneInfo, type ToneStage } from './tone';
@@ -975,21 +975,8 @@ function hitFilter(fx: Readonly<VoiceFx>, lock: Readonly<StepLock> | null): HitF
   };
 }
 
-/** Le potard du kit de chaque verrou de la machine (revue de R2 ; SWEEP et la caisse claire depuis R3). */
-const KNOB_OF: Readonly<Record<KitLockId, KitKnob>> = {
-  ktune: 'tune',
-  kattack: 'attack',
-  kdecay: 'decay',
-  kdrive: 'drive',
-  snappy: 'snappy',
-  gate: 'gate',
-  ksweep: 'sweep',
-  sdtune: 'sdtune',
-  sddecay: 'sddecay',
-  sdtone: 'sdtone',
-};
-/** Le reglage de couche de chaque verrou de couche (R3). */
-const LAYER_OF: Readonly<Record<LayerLockId, keyof Layer>> = { syn: 'syn', slev: 'lev', stune: 'tune', sfine: 'fine', sstart: 'start', slen: 'len', srev: 'rev' };
+/** Le potard du kit de chaque verrou, le reglage de couche de chaque verrou de couche : audio/locks.ts depuis le 2026-10-27. */
+export { KNOB_OF, LAYER_OF };
 const MACHINES: readonly string[] = ['909', '808', 'mm'];
 
 /**

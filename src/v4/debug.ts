@@ -39,6 +39,7 @@
 import { knobBlock, openToggle } from './actions';
 import { faceKnobs } from './rytm/faceKnobs';
 import { trk, trkDebug } from './state/trk';
+import { allBindings, sceneRole, type SceneBinding, type SceneRole } from './rytm/sceneParams';
 import { clock, clockDebug, type ClockDebug } from './audio/clock';
 import { audioDebug, type AudioDebug } from './audio/drums';
 import { pattern, type StoredPattern } from './audio/pattern';
@@ -268,6 +269,9 @@ export interface V4Debug {
     /** TRK (2026-10-27, state/trk.ts) : mode (off, held, latched, closing), holders, used, timers (les fermetures) */
     readonly trk: typeof trkDebug;
     trkStore: typeof trk;
+    /** les liaisons des cibles qui se morphent (2026-10-27, rytm/sceneParams.ts), et le role d'une cible */
+    bindings(): SceneBinding[];
+    sceneRole(id: string): SceneRole;
   };
   /**
    * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
@@ -484,6 +488,8 @@ export function installDebug(src: DebugSource): () => void {
       knobBlock,
       trk: trkDebug,
       trkStore: trk,
+      bindings: () => allBindings().map((b) => ({ ...b })),
+      sceneRole,
       faceCells(screen, inst, law = FACE_LAW) {
         const slots = pageSlots(screen, inst === undefined ? pattern.get().instrument : inst);
         return {

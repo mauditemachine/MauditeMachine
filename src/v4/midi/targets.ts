@@ -54,6 +54,7 @@
 
 import { LAYER_TARGET_FAMS, anyDial, anyDialValue, clearPattern, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
 import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
+import { sceneTag, type SceneTag } from '../rytm/sceneParams';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
@@ -93,6 +94,11 @@ export interface MidiTarget {
    * au lieu de figer les crans de la page de depart)
    */
   follows?: 'page';
+  /**
+   * Les scenes A et B (2026-10-27, la phase 2, rytm/sceneParams.ts) : la classe d'une cible qui se morphe (ramp, worklet,
+   * notch, settle, hit, pitch, heavy), ou son role (passthrough, noscene, resolved) ; absent hors du MM-RYTM
+   */
+  scene?: SceneTag;
   down?: () => void;
   up?: () => void;
 }
@@ -311,6 +317,9 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:seq:window', 'mm808', 'SEQ STEPS 1-8 / 9-16', () => seqWindow('rytm')));
   out.push({ id: 'rytm:seq:follow', scope: 'mm808', label: 'SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD)', kind: 'value', steps: 2, get: () => (seqFollow('rytm') ? 1 : 0), set: (v) => seqSetFollow('rytm', v >= 0.5) });
   for (const inst of voices) out.push(press(`rytm:seq:voice:${inst}`, 'mm808', `SEQ VOICE ${inst} (SELECT, SILENT)`, () => seqVoice(inst)));
+  // Les scenes (2026-10-27) : chaque cible de valeur du MM-RYTM dit son role, ou sa classe si elle se morphe (rien d'autre
+  // ne change : ni id, ni nom, ni ordre)
+  for (const t of out) if (t.scope === 'mm808' && t.kind === 'value') t.scene = sceneTag(t.id);
   // MM-ARP
   if (VOYAGER) {
     // Les noms dits par sa section (2026-10-21, audit F11 : MODE, ATTACK, DECAY, SUSTAIN et RELEASE sortaient deux fois
