@@ -6,7 +6,7 @@
  *   onglet suivant (actions.ts editToggle) ; l'ecran de HOME le dit (EDIT 2X: PRESETS) ;
  * - en mode presets, cinq touches de la rangee sont les touches de l'ecran (soft keys) : l'ecran dessine leur nom juste
  *   au-dessus d'elles (VOICE FLTR ENV FX EDIT : LOAD SAVE NAME DEL EXIT, puis OVERWRITE, YES, OK... selon l'etape) ;
- * - le potard A fait defiler la liste ; pour nommer, A tourne la lettre et B deplace le curseur.
+ * - un potard fait defiler la liste ; pour nommer, A tourne la lettre et B deplace le curseur.
  * Des donnees seules (les touches de l'ecran, ou une touche PRESET sur la face un jour, se changent ici).
  */
 

@@ -38,7 +38,7 @@
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, stepOf } from '../bass/params';
 import { cleanSteps } from '../bass/state';
 import { focus } from './focus';
-import { presets, type Draft, type Preset, type PresetMachine, type StoreFail } from './presets';
+import { PRESET_MAX, presets, type Draft, type Preset, type PresetMachine, type StoreFail } from './presets';
 import { draftLine, draftResult, moveCursor, nameOk, nextName, suggestName, turnChar, typeChars, NAME_MAX, USER_LEN, type NameDraft } from './presetName';
 
 /**
@@ -474,7 +474,7 @@ export const presetMode = {
           commit({ ...state, stage: 'choice', index: i ?? state.index, note: '' });
           return;
         }
-        if (presets.of(m).length >= 99) {
+        if (presets.of(m).length >= PRESET_MAX) {
           note(MAX_NOTE, FAIL_MS);
           return;
         }
@@ -495,7 +495,7 @@ export const presetMode = {
         return;
       }
       case 'asnew': {
-        if (presets.of(m).length >= 99) {
+        if (presets.of(m).length >= PRESET_MAX) {
           commit(browse());
           note(MAX_NOTE, FAIL_MS);
           return;
@@ -555,14 +555,14 @@ export const presetMode = {
   },
   /**
    * Un potard de la face du MM-RYTM tourne de d crans pendant le mode (2026-10-27, desktop : l'ecran ne se touche
-   * pas) : sur la liste, le potard A deplace le curseur ; sur le nom, A tourne la lettre et B deplace le curseur (le
-   * repli materiel, facon Elektron). Les autres ne font rien. true si le potard a servi.
+   * pas) : sur la liste, il deplace le curseur (le potard A d'abord, l'ecran le dit, mais tous) ; sur le nom, A tourne la
+   * lettre et B deplace le curseur (le repli materiel, facon Elektron), les autres ne font rien. true si le potard a servi.
    */
   turn(m: PresetMachine, k: number, d: number): boolean {
     if (state.machine !== m || d === 0) return false;
     touch();
+    // Sur la liste, tout potard la fait defiler (aucun ne reste mort sous la main) ; le nom : A et B seulement
     if (state.stage === 'browse') {
-      if (k !== 0) return false;
       presetMode.step(m, d);
       return true;
     }

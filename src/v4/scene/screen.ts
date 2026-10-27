@@ -1892,7 +1892,7 @@ export class Screen {
         this.line([18, mid - 7, 10, mid, 18, mid + 7], INK, 2);
         this.line([UW - 18, mid - 7, UW - 10, mid, UW - 18, mid + 7], INK, 2);
       }
-      const q = v.stage === 'choice' ? 'OVERWRITE IT, OR SAVE AS NEW?' : v.stage === 'confirm' ? 'DELETE FOR GOOD?' : desk && v.stage === 'browse' ? 'A: BROWSE' : '';
+      const q = v.stage === 'choice' ? 'OVERWRITE IT, OR SAVE AS NEW?' : v.stage === 'confirm' ? 'DELETE FOR GOOD?' : desk && v.stage === 'browse' ? 'TURN A KNOB: BROWSE' : '';
       if (q) this.text(q, UW / 2, v.stage === 'browse' ? L.hint : L.sub, v.stage === 'browse' ? 7 : 8, v.stage === 'browse' ? FAINT_TEXT : INK, 700, 'center', 0.8);
       this.info.presetList = `${v.prev}|${v.name}|${v.next}|${v.keys.join(',')}`;
     }

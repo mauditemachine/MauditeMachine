@@ -1570,7 +1570,7 @@ export function voyRandom(stage: Stage | null = null): void {
  * Le mode presets du desktop du MM-RYTM (2026-10-27, la V.4.2, rytm/presetKeys.ts) : l'ecran ne se touche plus
  * (theme.ts SCREEN_TOUCH), la face fait tout. EDIT pressee encore les ouvre (editToggle : PATTERNS, puis PRESETS, comme
  * une touche de page allumee passe a son onglet suivant) ; les cinq touches sous l'ecran apres TRK (VOICE FLTR ENV FX
- * EDIT) sont les siennes (presetSoftKey) ; les potards A et B tournent la liste ou le nom (presetTurn, presetFaceKnob).
+ * EDIT) sont les siennes (presetSoftKey) ; un potard tourne la liste, A et B le nom (presetTurn, presetFaceKnob).
  * Le telephone garde son ecran a toucher et ses touches de page.
  */
 export const presetTurns = (): boolean => !SCREEN_TOUCH && presetMode.on('mm808');
@@ -1658,7 +1658,7 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
  */
 export function presetFaceKnob(k: number, turn = 0): boolean {
   if (!presetTurns()) return false;
-  // 2026-10-27 (la gestion des presets refaite, state/presetMode.ts) : tourner, la liste (potard A) ou le nom (A la
+  // 2026-10-27 (la gestion des presets refaite, state/presetMode.ts) : tourner, la liste (tout potard) ou le nom (A la
   // lettre, B le curseur) ; les touches sous l'ecran font les actions (presetSoftKey), une tape de potard est prise et ne
   // fait rien (ni la page d'un FX, ni la liste des sons, cachees sous les presets)
   if (turn !== 0) presetTurn(k, turn);
