@@ -98,13 +98,18 @@ export const RYTM_FACEPLATE = {
     pitch: 32,
     cx: [134, 166, 198, 230],
     cy: [24, 56],
+    /** le jeu de la page GLOBAL FX, celui de la face V.4.0 phase 1 (les potards suivent la page depuis le 2026-10-27) */
     fx: ['dist', 'chorus', 'delay', 'reverb', 'stretch', 'swing', 'bits', 'comp'] as readonly FpFx[],
-    labels: ['DIST', 'CHORUS', 'DELAY', 'REVERB', 'STRETCH', 'SWING', 'BIT', 'COMP'],
+    /**
+     * la serigraphie de chaque potard (2026-10-27, les potards suivent la page) : une lettre, A a D en haut, E a H dessous ;
+     * l'impression ne change jamais, l'ecran dit la fonction (le bloc k au-dessus du potard k)
+     */
+    labels: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
     /** proposition (a valider) : le capuchon (diametre en bas, en haut, hauteur), sa jupe, l'anneau a plat autour, le nom a 6 h dans la fente de l'anneau */
     cap: { d: 17, top: 16, h: 8 },
     skirt: { d: 18.6, h: 0.8 },
     ring: { inner: 23.2, outer: 27.2, sweepDeg: 270, segments: 27 },
-    label: { r: 12.6, cap: 1.3 },
+    label: { r: 12.6, cap: 1.8 },
   },
   buttons: {
     size: 12,
@@ -153,7 +158,6 @@ export const RYTM_FACEPLATE = {
     model: { text: 'MM-RYTM', x: 114, cy: 79.5, cap: 2.4 },
     firmware: { text: 'FIRMWARE V.3.0 / 2026', x: 235, cy: 79.5, cap: 1.3 },
     mark: { x: 248, cy: 77, h: 9 },
-    globalFx: { text: 'GLOBAL FX', cx: 182, cy: 5, cap: 1.2 },
     hint: { cx: 128.2, cy: 152, cap: 1.36 },
   },
 } as const;
@@ -178,7 +182,7 @@ export const stepRect = (i: number): FpRect => ({
   w: F.steps.w,
   h: F.steps.h,
 });
-/** Le potard k (0 a 7) : DIST CHORUS DELAY REVERB en haut, STRETCH SWING BIT COMP dessous. */
+/** Le potard k (0 a 7) : A B C D en haut, E F G H dessous (2026-10-27 ; la page GLOBAL FX y pose DIST CHORUS DELAY REVERB, STRETCH SWING BIT COMP). */
 export const knobCircle = (k: number): FpCircle => ({ cx: F.knobs.cx[k % 4], cy: F.knobs.cy[k >> 2] ?? F.knobs.cy[0], d: F.knobs.d });
 /** Le rang (0 a 11) d'une touche a pictogramme par son id. */
 export const buttonIndex = (id: FpButtonId): number => F.buttons.keys.findIndex((k) => k.id === id);
@@ -193,7 +197,7 @@ export function faceplateParts(): { id: string; kind: 'screen' | 'knob' | 'butto
   out.push({ id: 'screen', kind: 'screen', rect: F.screen.rect });
   for (let k = 0; k < 8; k += 1) {
     const c = knobCircle(k);
-    out.push({ id: `knob-${F.knobs.fx[k]}`, kind: 'knob', rect: { x: c.cx - c.d / 2, y: c.cy - c.d / 2, w: c.d, h: c.d } });
+    out.push({ id: `knob-${F.knobs.labels[k].toLowerCase()}`, kind: 'knob', rect: { x: c.cx - c.d / 2, y: c.cy - c.d / 2, w: c.d, h: c.d } });
   }
   F.buttons.keys.forEach((b, i) => out.push({ id: `btn-${b.id}`, kind: 'button', rect: buttonRect(i) }));
   out.push({ id: 'scene-a', kind: 'scene', rect: F.scenes.a.rect });

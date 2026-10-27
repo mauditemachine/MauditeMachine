@@ -2057,9 +2057,11 @@ export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
   // HOME le dit (et comment revenir) ; un onglet dit le suivant
   if (r.view === 'home') lcdMessage.show(`HOME  ${pageLabel(id)} AGAIN: PAGE`, 1600);
   else if (r.tabs > 1) {
-    // SYNTH · VOICE AGAIN: MAIN (revue du 2026-10-09 : VOICE SYNTH  VOICE AGAIN: VOI. au telephone)
+    // SYNTH · VOICE AGAIN: MAIN (revue du 2026-10-09 : VOICE SYNTH  VOICE AGAIN: VOI. au telephone) ; au desktop depuis le
+    // 2026-10-27 l'onglet dit son rang (SYNTH 2/2 : la deuxieme page des huit potards, comme une Digitakt)
     const next = screensOf(id, inst)[(r.tab + 1) % r.tabs];
-    lcdMessage.show(`${tabWord(curScreen(), inst)} · ${pageLabel(id)} AGAIN: ${tabWord(next, inst)}`, 1600);
+    const rank = FACE_FOLLOWS_PAGE ? ` ${r.tab + 1}/${r.tabs}` : '';
+    lcdMessage.show(`${tabWord(curScreen(), inst)}${rank} · ${pageLabel(id)} AGAIN: ${tabWord(next, inst)}`, 1600);
   } else if (was === 'home') lcdMessage.show(`${pageLabel(id)} PAGE`);
 }
 
