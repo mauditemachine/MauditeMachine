@@ -400,7 +400,10 @@ function leadRealign(now: number): boolean {
   if (!b || !(b.period > 0)) return false;
   const dur = b.period / 4;
   if (Math.abs(b.time - barAt) < 0.0005 && Math.abs(dur - stepDur) < stepDur * 1e-4) return false;
-  const prev = nextTime - stepDur;
+  // Le pas 13 tel qu'il joue (2026-10-27, revue SYNC-REALIGN-SWING-FLAM : au SWING, un pas impair part plus tard, la
+  // garde lisait sa grille, les pas 13 et 14 tombaient a 31 ms) ; saute, sa grille
+  const last = plan[plan.length - 1];
+  const prev = last && last.abs === abs - 1 ? last.when : nextTime - stepDur;
   const edge = now + GUARD_S;
   let k = 2;
   while (k > 0 && (b.time - k * dur < prev + 0.5 * dur || b.time - k * dur < edge)) k -= 1;
