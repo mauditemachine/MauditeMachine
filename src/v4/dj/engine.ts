@@ -605,10 +605,21 @@ interface Ramp {
   t1: number;
 }
 const rampAt = (r: Ramp, t: number): number => (t >= r.t1 ? r.v1 : t <= r.t0 ? r.v0 : r.v0 + ((r.v1 - r.v0) * (t - r.t0)) / (r.t1 - r.t0));
-/** De la valeur a t0 jusqu'a `to` en dur secondes (0 : tout de suite), sans saut. */
+/** Juste apres un instant (s) : cancelScheduledValues efface aussi les points poses a son instant meme. */
+const AFTER = 1e-6;
+/**
+ * De la valeur a t0 jusqu'a `to` en dur secondes (0 : tout de suite), sans saut. t0 peut etre plus tard que maintenant
+ * (la fin d'un fondu croise en cours, DubEcho.retime) : la rampe ecrite garde sa ligne jusqu'a t0, rien d'elle ne
+ * s'efface avant (2026-10-27, revue DUB-RETIME-CLICK : effacer a t0 otait aussi le point qui finit le fondu a t0,
+ * deux TIME a moins de 60 ms et les deux lignes sautaient de 0.5, un clic).
+ */
 function rampTo(p: AudioParam, r: Ramp, to: number, t0: number, dur: number): void {
   const from = rampAt(r, t0);
-  p.cancelScheduledValues(t0);
+  if (t0 < r.t1) {
+    // Coupee en route : la meme ligne, finie a t0 a la valeur qu'elle y aurait eue
+    p.cancelScheduledValues(r.t0 + AFTER);
+    p.linearRampToValueAtTime(from, t0);
+  } else p.cancelScheduledValues(r.t1 + AFTER);
   if (dur > 0) {
     p.setValueAtTime(from, t0);
     p.linearRampToValueAtTime(to, t0 + dur);
