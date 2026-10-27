@@ -1280,7 +1280,11 @@ export interface EncPlace {
   s: number;
 }
 
-/** Le centre des touches de page du desktop (2026-10-18) : 0.09 sous le cadre du verre plus haut, la moitie de leur profondeur. */
+/**
+ * Le centre des touches de page du desktop (2026-10-18) : 0.09 sous le cadre du verre plus haut, la moitie de leur
+ * profondeur. Plus lu au desktop depuis la face V.4.0 (2026-10-27 : les touches et les potards ont leur place en mm, il
+ * n'y a plus de filet GLOBAL FX) ; GLOBAL_FX_RULE ne sert plus qu'au telephone.
+ */
 const DESK_PKEY_Z = OLED.z + OLED.bezel.d / 2 + 0.09 + 0.19;
 /** Le centre et la largeur des touches de page du telephone (PAGE_KEYS) : les colonnes des encodeurs s'y alignent (2026-10-19). */
 const PAGE_KEYS_PHONE_Z = -2.275;
@@ -1916,13 +1920,24 @@ export type SilkLogoId = 'wordmark' | 'mark';
  * x : bord d'alignement, z : centre ; w ou h fixe la taille (unites).
  */
 /** L'en-tete du panneau : wordmark, MM-808, firmware et logotype (portrait : plus serres, en haut). */
+/*
+ * La face V.4.0 du desktop (2026-10-27, rytm/faceplate.ts silk, places provisoires) : le wordmark sous l'ecran a gauche,
+ * MM-RYTM cale sur le bord droit du verre, FIRMWARE V.3.0 sous les potards, le logotype a droite au-dessus de SCENE B ;
+ * chacun son z (au telephone, l'en-tete d'une ligne).
+ */
+const FP_SILK = RYTM_FACEPLATE.silk;
 const HEAD = PORTRAIT
-  ? { z: -6.74, word: { x: -3.75, w: 3.0 }, model: -0.55, firmware: 3.05, mark: { x: 3.75, h: 0.5 } }
-  : { z: -3.5, word: { x: -5.8, w: 3.5 }, model: -1.95, firmware: 4.95, mark: { x: 5.8, h: 0.52 } };
+  ? { word: { x: -3.75, z: -6.74, w: 3.0 }, model: { x: -0.55, z: -6.74, cap: 0.13, align: 'left' as const }, firmware: { x: 3.05, z: -6.74, cap: 0.06 }, mark: { x: 3.75, z: -6.74, h: 0.5 } }
+  : {
+      word: { x: fpX(FP_SILK.wordmark.x), z: fpZ(FP_SILK.wordmark.cy), w: fpU(FP_SILK.wordmark.w) },
+      model: { x: fpX(FP_SILK.model.x), z: fpZ(FP_SILK.model.cy), cap: fpU(FP_SILK.model.cap), align: 'right' as const },
+      firmware: { x: fpX(FP_SILK.firmware.x), z: fpZ(FP_SILK.firmware.cy), cap: fpU(FP_SILK.firmware.cap) },
+      mark: { x: fpX(FP_SILK.mark.x), z: fpZ(FP_SILK.mark.cy), h: fpU(FP_SILK.mark.h) },
+    };
 
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [
-  { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.z, w: HEAD.word.w, align: 'left' },
-  { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: HEAD.mark.x, z: HEAD.z, h: HEAD.mark.h, align: 'right' },
+  { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.word.z, w: HEAD.word.w, align: 'left' },
+  { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: HEAD.mark.x, z: HEAD.mark.z, h: HEAD.mark.h, align: 'right' },
 ];
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
@@ -1935,12 +1950,14 @@ const padLabel = (p: PadSpec): SilkText =>
       : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
 export const SILK_TEXTS: readonly SilkText[] = [
-  { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },
-  { text: 'MM-RYTM', x: HEAD.model, z: HEAD.z, cap: 0.13, align: 'left' },
-  { text: 'FIRMWARE V.3.0 / 2026', x: HEAD.firmware, z: HEAD.z, cap: PORTRAIT ? 0.06 : 0.07, align: 'right', alpha: 0.45 },
+  // Le repli du wordmark : au desktop V.4.0 (2026-10-27) dans sa largeur
+  { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.word.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark', ...(PORTRAIT ? {} : { maxW: HEAD.word.w }) },
+  { text: 'MM-RYTM', x: HEAD.model.x, z: HEAD.model.z, cap: HEAD.model.cap, align: HEAD.model.align },
+  { text: 'FIRMWARE V.3.0 / 2026', x: HEAD.firmware.x, z: HEAD.firmware.z, cap: HEAD.firmware.cap, align: 'right', alpha: 0.45 },
   // VOICES au-dessus des pads (2026-10-09, sur la ligne des noms de MASTER et TEMPO ; ils sont dans l'ecran depuis le
-  // 2026-10-19, VOICES garde sa place au desktop, juste au-dessus des pads au telephone)
-  { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - PAD.size / 2 - (PORTRAIT ? 0.14 : 0.22), cap: PORTRAIT ? 0.075 : 0.06, align: 'left' as const },
+  // 2026-10-19, VOICES garde sa place au desktop, juste au-dessus des pads au telephone) ; plus de pads au desktop
+  // depuis la face V.4.0 (2026-10-27), plus de VOICES
+  ...(PORTRAIT ? [{ text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - PAD.size / 2 - 0.14, cap: 0.075, align: 'left' as const }] : []),
   // Les encodeurs (2026-10-09 ; au telephone aussi depuis le 2026-10-19) : leur FX global a leur place, au-dessus d'eux (la
   // lettre d'avant), et le titre GLOBAL FX au-dessus du bloc, comme VOICES au-dessus des pads
   // Une rangee de huit au desktop depuis le 2026-10-18 : un nom plus court de place (le pas de 0.66), le meme corps pour
@@ -1957,7 +1974,10 @@ export const SILK_TEXTS: readonly SilkText[] = [
     // 0.8 -> 0.9 (2026-10-22, audit SB-06)
     alpha: 0.9,
   })),
-  { text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: PORTRAIT ? 0.075 : 0.06, weight: 700, alpha: 0.7 },
+  // Au desktop V.4.0 (2026-10-27) : au-dessus des huit potards, au milieu de leurs quatre colonnes
+  PORTRAIT
+    ? { text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }
+    : { text: FP_SILK.globalFx.text, x: fpX(FP_SILK.globalFx.cx), z: fpZ(FP_SILK.globalFx.cy), cap: fpU(FP_SILK.globalFx.cap), weight: 700, alpha: 0.7 },
   // Les noms des touches de page et du transport sont sur elles depuis le 2026-10-18 (KEY_LABELS, scene/keyLabels.ts)
   ...PADS.map(padLabel),
   // Les numeros des pas plus lisibles au telephone (2026-10-22, audit SB-06 : 3 px de capitale a 0.075)
@@ -1979,14 +1999,19 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  * les voix des pages (a droite de CH, puis sous la rangee des voix) et un
  * crochet sous chaque groupe de quatre touches trig.
  */
+// La face V.4.0 du desktop (2026-10-27) : aucun filet (ni la colonne d'OPEN, ni le filet de GLOBAL FX, ni les crochets)
 export const SILK_LINES: readonly (readonly number[])[] = [
   // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
-  [PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72],
+  ...(PORTRAIT ? [[PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72]] : []),
   // Revue du 2026-10-09 : un filet sous les noms des touches de page, de la largeur du verre ; les touches et l'ecran
   // d'un cote, les huit encodeurs de l'autre (les noms se lisaient comme ceux des potards) ; sous les touches elles-memes
   // depuis le 2026-10-18 (leurs noms sont dessus) ; au telephone aussi depuis le 2026-10-19 (les encodeurs y reviennent)
-  [OLED.x - OLED.w / 2, GLOBAL_FX_RULE.z, OLED.x - GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z],
-  [OLED.x + GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z, OLED.x + OLED.w / 2, GLOBAL_FX_RULE.z],
+  ...(PORTRAIT
+    ? [
+        [OLED.x - OLED.w / 2, GLOBAL_FX_RULE.z, OLED.x - GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z],
+        [OLED.x + GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z, OLED.x + OLED.w / 2, GLOBAL_FX_RULE.z],
+      ]
+    : []),
   // Plus de crochets au desktop depuis la face V.4.0 (2026-10-27) : le cadre des temps 1 5 9 13 les marque
   ...(PORTRAIT
     ? [0, 1, 2, 3].map((g) => {
