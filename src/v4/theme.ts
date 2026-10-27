@@ -211,6 +211,12 @@ export const PCB_TYPE = { weight: 700, tracking: 0.18 } as const;
 export const BODY = PORTRAIT
   ? ({ w: 8.2, d: 14.4, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const)
   : ({ w: 12.6, d: 8, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const);
+/**
+ * La place du MM-RYTM d'avant V.4.0 sur la table (2026-10-27) : sa largeur et sa profondeur au sol de la V.3.0. Les
+ * cartes PCB (celle du MM-RYTM, du MM-ARP et du MM-BASS, theme PCB) et le MM-BASS (bass/theme.ts : sa taille et sa
+ * place) la gardent : les voisines ne bougent pas quand la face du MM-RYTM change de taille.
+ */
+export const RYTM_V3_BODY = PORTRAIT ? ({ w: 8.2, d: 14.4 } as const) : ({ w: 12.6, d: 8 } as const);
 /** Inclinaison du panneau (rad) : son avant descend. */
 export const TILT = Math.atan((BODY.back - BODY.front) / BODY.d);
 
@@ -344,9 +350,9 @@ export const MATERIAL = {
  * 2048 x 1280 (desktop) generees a la premiere apparition du PCB.
  */
 export const PCB = {
-  /** portrait : la carte d'origine (11.2 x 6.8), tournee d'un quart de tour (PCB_TURN) */
-  w: PORTRAIT ? BODY.d - 3.2 : BODY.w - 1.4,
-  d: PORTRAIT ? BODY.w - 1.4 : BODY.d - 1.2,
+  /** portrait : la carte d'origine (11.2 x 6.8), tournee d'un quart de tour (PCB_TURN) ; depuis le 2026-10-27 du corps de la V.3.0 (RYTM_V3_BODY : le MM-ARP et le MM-BASS ont la meme carte) */
+  w: PORTRAIT ? RYTM_V3_BODY.d - 3.2 : RYTM_V3_BODY.w - 1.4,
+  d: PORTRAIT ? RYTM_V3_BODY.w - 1.4 : RYTM_V3_BODY.d - 1.2,
   h: 0.1,
   chamfer: 0.03,
   tex: { desktop: [2048, 1280], mobile: [2048, 1280] },

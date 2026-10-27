@@ -66,23 +66,24 @@
  * cadrer) ; le reste du MM-BASS arrive a part (state/bassload.ts).
  */
 
-import { BODY, PCB, PORTRAIT } from '../theme';
+import { PCB, PORTRAIT, RYTM_V3_BODY } from '../theme';
 import { tweakClearOf } from '../scene/tweaklayout';
 import type { BassKnobId } from './params';
 
 /**
- * La taille du MM-RYTM ; au telephone (2026-10-08, la revue : les LOCK et les pas tenaient 22 a 27 px chacun sous
+ * La taille du MM-RYTM (celle de la V.3.0 depuis le 2026-10-27, RYTM_V3_BODY : la face V.4.0 du MM-RYTM est un peu plus
+ * grande, le MM-BASS et sa place ne changent pas) ; au telephone (2026-10-08, la revue : les LOCK et les pas tenaient 22 a 27 px chacun sous
  * le doigt) 2.8 de plus en profondeur : le bloc reste a la largeur de l'ecran (le cadrage tient encore la largeur,
  * il y avait 180 px de vide dessus et dessous), chaque rangee du bas et chaque bloc de l'ecran a ses 44 px.
  */
-export const BASS_W = BODY.w;
-export const BASS_D = PORTRAIT ? BODY.d + 2.8 : BODY.d;
+export const BASS_W = RYTM_V3_BODY.w;
+export const BASS_D = PORTRAIT ? RYTM_V3_BODY.d + 2.8 : RYTM_V3_BODY.d;
 /** Le jour avec la machine de gauche (le MM-RYTM) : le meme que partout. */
 const GAP = PORTRAIT ? 1.8 : 2.6;
 
 /** Le centre du MM-BASS : a droite du MM-RYTM (centre a 0), le MM-ARP apres lui. */
 export function bassX(): number {
-  return BODY.w / 2 + GAP + BASS_W / 2;
+  return RYTM_V3_BODY.w / 2 + GAP + BASS_W / 2;
 }
 
 /** Le cadrage : de face, sa hauteur projetee. */
