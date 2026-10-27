@@ -259,8 +259,17 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
       link(s);
       if (s.gain) {
         glide(s.gain.gain, scale * cur, c);
-        // La rampe efface ce qui suivait : les points a venir reviennent (ceux de la valeur de l'envoi, a la nouvelle)
-        if (s.pts.length > 0) repost(s, c.currentTime + GLIDE_S);
+        // La rampe efface ce qui suivait : les points a venir reviennent (ceux de la valeur de l'envoi, a la nouvelle) ;
+        // ceux qui tombaient pendant la rampe aussi, juste apres elle (2026-10-27, revue AP-1 : sous un crossfader qui
+        // balaie, l'applicateur repasse toutes les 25 ms et effacait presque chaque verrou d'envoi a moins de 20 ms ;
+        // la recette de lockfx.ts rebase)
+        if (s.pts.length > 0) {
+          const now = c.currentTime;
+          const floor = now + GLIDE_S + POINT_S;
+          s.pts.forEach((p, k) => {
+            if (p.when > now && s.gain) pointAt(s.gain.gain, scale * before(s, k), scale * effOf(s, p), Math.max(p.when, floor), c);
+          });
+        }
       }
       return;
     }

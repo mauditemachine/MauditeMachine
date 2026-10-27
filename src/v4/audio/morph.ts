@@ -105,8 +105,15 @@ function needsOf(all: readonly Entry[]): InsertNeeds {
 /** Les inserts menes par un jeu de scenes (pur ; le rendu hors ligne). */
 export const insertNeedsOf = (s: SceneSet): InsertNeeds => needsOf(entriesOf(s).all);
 
-/** La valeur native jouee d'une entree pour une base native et x. */
-const played = (e: Entry, baseNative: number, x: number): number => from01(e.b, morph01(e.a, e.v, to01(e.b, baseNative), x));
+/**
+ * La valeur native jouee d'une entree pour une base native et x. La base elle-meme, au bit pres, quand elle seule
+ * s'entend a ce x (2026-10-27, revue AP-1 : une cle dans B seule a x = 0, dans A seule a x = 1 ; l'aller-retour par le 0
+ * a 1 pouvait deplacer le dernier bit d'un verrou ou d'une base).
+ */
+const played = (e: Entry, baseNative: number, x: number): number => {
+  if ((e.a === undefined && (x <= 0 || e.v === undefined)) || (e.v === undefined && x >= 1)) return baseNative;
+  return from01(e.b, morph01(e.a, e.v, to01(e.b, baseNative), x));
+};
 
 /**
  * La hauteur d'un coup menee par le crossfader (2026-10-27, P2-18) : TONE sur une grille de 1/28 de sa course (57
@@ -116,6 +123,12 @@ const played = (e: Entry, baseNative: number, x: number): number => from01(e.b, 
  */
 export const TONE_PITCH_GRID = 28;
 export const hitTone = (v: number): number => snapTone(Math.round(v * TONE_PITCH_GRID) / TONE_PITCH_GRID);
+/**
+ * La hauteur TONE d'un coup a x (2026-10-27, revue F4) : sur la grille seulement strictement dans un balayage ; aux bouts
+ * (x 0 ou 1, ou le crossfader se pose le plus souvent) la valeur exacte, comme sans scene (avant : jusqu'a 12.5 cents
+ * de desaccord au repos).
+ */
+const toneAt = (v: number, x: number): number => (x > 0 && x < 1 ? hitTone(v) : v);
 const pitchy = (e: Entry): boolean => e.b.cls === 'pitch' || e.b.alsoPitch;
 
 /** fx morphes (pur, alloue) : le meme objet sans entree de fx. */
@@ -138,8 +151,13 @@ export function morphVoicePure(inst: Inst, base: Readonly<VoiceFx>, s: SceneSet,
 
 /**
  * Un coup morphe (pur) : pour chaque parametre de la voix dans une scene, la base est le verrou du pas s'il en a un,
- * sinon la voix ; la valeur jouee entre dans fx et sort du verrou (une valeur dans B seule laisse jouer le verrou a x = 0 ;
- * un verrou sur un parametre absent des deux scenes reste tel quel).
+ * sinon la voix (une valeur dans B seule laisse jouer le verrou a x = 0 ; un verrou sur un parametre absent des deux
+ * scenes reste tel quel). Un parametre de coup ou de hauteur (DECAY, PAN, le filtre, TUNE, FINE...) : la valeur jouee
+ * entre dans fx et sort du verrou (hitParams lit lock ?? fx). Un parametre de tranche (VOL, DIST, CHORUS, DELAY, REVERB,
+ * TONE) verrouille (2026-10-27, revue AP-1) : la valeur jouee, morphee depuis le verrou, RESTE dans le verrou, et fx garde
+ * la valeur jouee de la tranche ; le rapport du VOL (verrou sur tranche), les points des envois et des inserts
+ * (postSends, postInserts) et le filtre du TONE du coup (hitEntry) ne lisent que le verrou : sorti du verrou, il se
+ * perdait, le coup jouait la tranche (un VOL 0.2 a plein, +24 dB).
  */
 export function morphHitPure(inst: Inst, base: Readonly<VoiceFx>, lock: Readonly<StepLock> | null, s: SceneSet, x: number): { fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null; kit: KitOverride | null } {
   return hitWith(entriesOf(s).voice[inst], base, lock, x);
@@ -152,9 +170,16 @@ function hitWith(es: readonly Entry[] | undefined, base: Readonly<VoiceFx>, lock
   for (const e of es) {
     const p = e.b.key as VoiceParam;
     const lv = lock ? (lock as Record<string, unknown>)[p] : undefined;
-    const b0 = typeof lv === 'number' ? lv : base[p];
     fx ??= { ...base };
-    fx[p] = p === 'tone' ? hitTone(played(e, b0, x)) : played(e, b0, x);
+    if (typeof lv === 'number' && e.b.cls === 'ramp') {
+      // Un verrou de tranche : il reste verrou, a sa valeur jouee ; fx dit ce que joue la tranche
+      lk ??= { ...(lock as Record<string, unknown>) };
+      lk[p] = p === 'tone' ? toneAt(played(e, lv, x), x) : played(e, lv, x);
+      fx[p] = played(e, base[p], x);
+      continue;
+    }
+    const b0 = typeof lv === 'number' ? lv : base[p];
+    fx[p] = p === 'tone' ? toneAt(played(e, b0, x), x) : played(e, b0, x);
     if (lv !== undefined) {
       lk ??= { ...(lock as Record<string, unknown>) };
       delete lk[p];
@@ -244,8 +269,12 @@ export const morph = {
     const b = stretchBase();
     return e ? played(e, b, x0) : b;
   },
-  /** les voix dont une hauteur se morphe (TUNE, FINE, TONE) : leurs coups se preparent aux deux bouts */
+  /**
+   * les voix dont une hauteur se morphe (TUNE, FINE, TONE) : leurs coups se preparent aux deux bouts ; toutes quand le
+   * STRETCH est dans une scene (2026-10-27, revue F2 : il change la duree de chaque coup)
+   */
   pitchVoices(): Inst[] {
+    if (live.stretch) return [...VOICES];
     return VOICES.filter((i) => live.voice[i]?.some(pitchy));
   },
   /**
@@ -253,13 +282,17 @@ export const morph = {
    * en a). Sans scene pour la voix : le verrou lui-meme, fx de la voix, kit null.
    */
   hit(inst: Inst, lock: Readonly<StepLock> | null, s: SceneSet): MorphHit {
+    // Le STRETCH dans une scene (2026-10-27, revue F2) : chaque coup de chaque voix a une hauteur menee par le
+    // crossfader ; lazy, le plus proche joue et son calcul ne re-programme rien (sans lui, chaque arrivee demandait une
+    // re-programmation, la tempete du F9)
     if (s === scenes) {
       const es = live.voice[inst];
-      if (!es || es.length === 0) return { fx: voiceFx.of(inst), lock, kit: null, lazy: false };
-      const lazy = es.some(pitchy);
+      const st = live.stretch !== null;
+      if (!es || es.length === 0) return { fx: voiceFx.of(inst), lock, kit: null, lazy: st };
+      const lazy = st || es.some(pitchy);
       if (!lock) {
         const v = voiceNow(inst);
-        if (!es.some((e) => e.b.key === 'tone')) return { fx: v, lock: null, kit: null, lazy };
+        if (!(x > 0 && x < 1) || !es.some((e) => e.b.key === 'tone')) return { fx: v, lock: null, kit: null, lazy };
         const h = (effHit[inst] ??= { ...v });
         Object.assign(h, v);
         h.tone = hitTone(v.tone);
@@ -268,8 +301,9 @@ export const morph = {
       return { ...hitWith(es, voiceFx.of(inst), lock, x), lazy };
     }
     if (s === NO_SCENES) return { fx: voiceFx.of(inst), lock, kit: null, lazy: false };
-    const es = entriesOf(s).voice[inst];
-    const lazy = !!es && es.some(pitchy);
+    const ls = entriesOf(s);
+    const es = ls.voice[inst];
+    const lazy = ls.stretch !== null || (!!es && es.some(pitchy));
     return { ...hitWith(es, voiceFx.of(inst), lock, x), lazy };
   },
   /** le 0 a 1 joue d'un id qui se morphe (les anneaux, les blocs, les moteurs) ; null : pas morphe */
