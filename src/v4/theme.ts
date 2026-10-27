@@ -1828,7 +1828,9 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
  * Jamais plus grande qu'au repos.
  */
 /** portrait : les rayons de la machine en hauteur (measure().fit.radius : 8.29 fermee, 10.26 ouverte) */
-export const SECTION_FRAME = { ms: 400, gap: 16, radius: PORTRAIT ? { closed: 8.3, open: 10.3 } : { closed: 7.47, open: 8.33 } } as const;
+// La face V.4.0 du desktop (2026-10-27) : fermee 7.481 mesure (7.463 avant), arrondi au-dessus ; ouverte, la mesure baisse
+// de 0.04 (11.717 contre 11.759) : 8.33 couvre toujours, garde
+export const SECTION_FRAME = { ms: 400, gap: 16, radius: PORTRAIT ? { closed: 8.3, open: 10.3 } : { closed: 7.49, open: 8.33 } } as const;
 
 /**
  * Boite du panneau desktop, en phase avec v4.css (.v4-panel) : 460 px au
@@ -2045,7 +2047,8 @@ export const FRONT_W = BODY.w;
  * tient toujours dans 86 % du canvas a la vue par defaut ; le cadre ne suit
  * jamais l'orbite (echelle constante, spec 20.1 R2-5).
  */
-export const MACHINE_H = PORTRAIT ? 14.2 : 10.64;
+// La face V.4.0 du desktop (2026-10-27) : 10.614 mesure (10.637 avant, scratch measure.mjs, la meme regle)
+export const MACHINE_H = PORTRAIT ? 14.2 : 10.61;
 export const FIT_H = 0.86;
 
 /**
@@ -2112,6 +2115,7 @@ export const ORBIT = {
   near: 1,
   far: 160,
   /** centre projete de la machine fermee a la vue d'arrivee (measure().fit.targetY : 1.216, machine compacte ; 1.269 en portrait) */
+  // La face V.4.0 du desktop (2026-10-27) : la mesure ne bouge pas (1.269 avant et apres), la valeur non plus
   targetY: PORTRAIT ? 1.269 : 1.216,
 } as const;
 
@@ -2291,8 +2295,11 @@ export const EXPLODE = {
    * (100 % au lieu de 86 %) : la machine ouverte ne rapetisse que de 10 %.
    */
   fitHalfH: PORTRAIT ? 11.5 : 8.4,
-  /** son centre projete a la vue d'arrivee (measure().fit.targetY, ouverte) ; portrait : la carte au milieu, le couvercle en haut */
-  targetY: PORTRAIT ? 3.9 : 5.9,
+  /**
+   * son centre projete a la vue d'arrivee (measure().fit.targetY, ouverte) ; portrait : la carte au milieu, le couvercle en
+   * haut. La face V.4.0 du desktop (2026-10-27) : la mesure monte de 0.04 (10.684 contre 10.644), la valeur aussi
+   */
+  targetY: PORTRAIT ? 3.9 : 5.94,
   /** echelle verticale des composants replies (jamais 0 : matrice inversible) */
   partsMin: 0.001,
   /**
