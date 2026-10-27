@@ -804,9 +804,14 @@ export function ringLit(j: number, t: number, bipolar: boolean): number {
 /**
  * Les teintes de l'anneau d'un potard de la face (2026-10-27, les potards suivent la page) : la couleur de ses segments
  * allumes et leur part (k, 0 a 1 ; des LED mono du materiel, un niveau) ; base : l'orange des pas mis, l'anneau de la
- * phase 1 ; off : tout eteint (rien sous le potard, un dessin, un reglage de voix sans voix).
+ * phase 1 ; off : tout eteint (rien sous le potard, un dessin, un reglage de voix sans voix). En P-LOCK (P2-13) : lock, le
+ * jaune du P-LOCK (le bloc verrouille sur ce pas ; un ambre plus sombre sur la machine claire), unlocked, l'orange a 45 %
+ * (il lit la valeur de la voix, le tourner pose le verrou), global, l'orange a 30 % (un FX global ou un reglage sans
+ * verrou : il refuse le P-LOCK).
  */
-export type KnobTone = 'base' | 'off';
+export type KnobTone = 'base' | 'off' | 'lock' | 'unlocked' | 'global';
+/** L'ambre du P-LOCK sur la machine claire (le jaune vif s'y perd). */
+const RING_LOCK_LIGHT = '#E09A10';
 export interface RingTone {
   on: string;
   k: number;
@@ -814,6 +819,9 @@ export interface RingTone {
 export const RING_TONE: Record<KnobTone, RingTone> = {
   base: { on: HEX.ledSet, k: 1 },
   off: { on: HEX.ledSet, k: 0 },
+  lock: { on: HEX.yellowHi, k: 1 },
+  unlocked: { on: HEX.ledSet, k: 0.45 },
+  global: { on: HEX.ledSet, k: 0.3 },
 };
 
 /**
@@ -2631,7 +2639,7 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
 /**
  * RUN : nom fixe, l'etat de lecture passe par aria-pressed (revue). La face V.4.0 du desktop (2026-10-27) : plus de pads,
  * plus de nom ecrit sur les touches ; RUN dit son nom complet (Run / Stop), MUTE ne parle plus d'un pad (une voix se coupe
- * au MIDI, rytm:voice:<voix>:mute, jusqu'a TRK en phase 2), SOLO et SOUND nomment les touches A S D F et Z X C V. Le
+ * au MIDI, rytm:voice:<voix>:mute, ou TRK et deux tapes sur son pas depuis la phase 2), SOLO et SOUND nomment les touches A S D F et Z X C V. Le
  * telephone garde ses mots.
  */
 export const TWIN_ARIA = {
@@ -2641,7 +2649,7 @@ export const TWIN_ARIA = {
   // La face V.4.0 du desktop (2026-10-27, sans pads) : MUTE arme de nouveau le mode, la voix vient au clavier
   mute: PORTRAIT
     ? 'Mute: right-click a voice pad (double-tap it on a touch screen, or press the context menu key on it) to mute or unmute it; press MUTE to bring all voices back'
-    : 'Mute, then press a voice key (A S D F, Z X C V) to mute or unmute it; press twice to mute several voices; with voices muted, press to bring them all back',
+    : 'Mute, then press a voice key (A S D F, Z X C V) or hold TRK and press its step (1 to 8) to mute or unmute it; press twice to mute several voices; with voices muted, press to bring them all back; without arming MUTE, hold or tap TRK, then double-tap a step to mute its voice',
   solo: PORTRAIT
     ? 'Solo, then tap a voice to solo it; press twice to solo several voices; press again to bring them all back'
     : 'Solo, then press a voice key (A S D F, Z X C V) to solo it; press twice to solo several voices; press again to bring them all back',
@@ -2843,5 +2851,8 @@ export function applyAppearance(a: Appearance): void {
   // Les teintes des anneaux de la face (2026-10-27) : relues apres la palette
   RING_TONE.base.on = HEX.ledSet;
   RING_TONE.off.on = HEX.ledSet;
+  RING_TONE.lock.on = L ? RING_LOCK_LIGHT : HEX.yellowHi;
+  RING_TONE.unlocked.on = HEX.ledSet;
+  RING_TONE.global.on = HEX.ledSet;
   APPEARANCE.current = a;
 }

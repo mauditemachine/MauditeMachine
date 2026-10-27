@@ -48,7 +48,7 @@ import { setKnobResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -173,7 +173,39 @@ export function trkStep(i: number, stage: Stage | null = null, t = performance.n
   const inst = Number.isInteger(i) && i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
   if (!inst) return true;
   stage?.pressStep(i);
+  // Deux tapes sur le meme pas en moins de PAD_DOUBLE_TAP_MS (2026-10-27, la regle des pads du 2026-10-10 passee a TRK) :
+  // la voix se coupe ou revient ; hors des modes SOLO et MUTE (leur tape fait deja autre chose)
+  const v = voices.get();
+  if (!v.soloMode && !v.muteMode && trkLast && trkLast.i === i && t - trkLast.t <= PAD_DOUBLE_TAP_MS) {
+    trkLast = null;
+    trkMute(inst, t);
+    return true;
+  }
+  trkLast = { i, t };
   trkPick(inst, t);
+  return true;
+}
+
+/** Le dernier pas choisi par TRK et son heure : la deuxieme tape d'une double tape. */
+let trkLast: { i: number; t: number } | null = null;
+
+/**
+ * TRK + deux tapes sur un pas 1 a 8, ou TRK + un clic droit sur lui (2026-10-27) : sa voix se coupe ou revient, sans un son
+ * et sans la choisir (padMute) ; TRK s'en est servi.
+ */
+export function trkMute(inst: Inst, t = performance.now()): void {
+  padMute(inst, null);
+  trk.use(t);
+}
+
+/** Le clic droit sur un pas pendant TRK (ui/Hotspots.tsx) : 1 a 8 coupent leur voix ; true quand TRK l'a pris. */
+export function trkStepMute(i: number, stage: Stage | null = null, t = performance.now()): boolean {
+  if (!trk.engaged()) return false;
+  const inst = Number.isInteger(i) && i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
+  if (!inst) return true;
+  stage?.pressStep(i);
+  trkLast = null;
+  trkMute(inst, t);
   return true;
 }
 
@@ -210,7 +242,10 @@ export const trkUp = (src: string, t = performance.now()): void => {
 };
 // TRK eteinte (lachee, fermee, Echap, une autre machine) : son aide s'en va avec elle
 trk.subscribe(() => {
-  if (trk.engaged() || !trkLcd) return;
+  if (trk.engaged()) return;
+  // Eteinte : la double tape repart de zero a la prochaine
+  trkLast = null;
+  if (!trkLcd) return;
   lcdMessage.hide(trkLcd);
   trkLcd = '';
 });

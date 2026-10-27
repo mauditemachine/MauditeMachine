@@ -131,6 +131,9 @@ import {
   type ChipId,
   type PadId,
   type SectionId,
+  KEY_LIT_LIGHT,
+  TRK_LIT,
+  TRK_LIT_LIGHT,
 } from '../theme';
 import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
@@ -140,6 +143,7 @@ import { anyDialValue, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { trk } from '../state/trk';
+import { trkLeds } from '../rytm/stepLeds';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
@@ -1043,7 +1047,8 @@ export class Stage {
       this.pollPlayhead,
       this.stepBreathe,
       this.stepLockBlink,
-      this.modeBlink
+      this.modeBlink,
+      this.faceBlink
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -1140,13 +1145,10 @@ export class Stage {
       this.unsubFace = faceKnobs.subscribe(this.syncFaceKnobs);
       this.syncFaceKnobs({ cause: 'page', moved: [0, 1, 2, 3, 4, 5, 6, 7] });
     }
-    // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee
+    // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 a la couleur de leur voix
     if (this.faceKeys) {
-      const syncTrkKey = (): void => {
-        if (this.faceKeys?.setTrk(trk.get().mode)) this.repaint();
-      };
-      this.unsubTrk = trk.subscribe(syncTrkKey);
-      syncTrkKey();
+      this.unsubTrk = trk.subscribe(this.syncTrk);
+      this.syncTrk();
     }
     // Section deja ouverte (remontage) : etat pose sans animation
     this.applySection(true);
@@ -3171,6 +3173,8 @@ export class Stage {
     if (this.lockLeds(performance.now())) lit = true;
     if (this.syncVoiceKeys()) lit = true;
     if (lit) this.repaint();
+    // TRK : la voix choisie passe en pleine lumiere
+    this.syncTrk();
     // Selection changee : les potards d'effets montrent la nouvelle cible
     this.syncMix();
   };
@@ -3194,6 +3198,38 @@ export class Stage {
     return this.seq.setVoiceKeys(lv('mute'), lv('solo'), on('mute'), on('solo'));
   };
 
+  /** La vue TRK est-elle posee sur les pas (2026-10-27) ? */
+  private trkShown = false;
+
+  /**
+   * TRK (2026-10-27, la phase 2) : la touche allumee tant qu'elle est engagee (son temoin clignote gardee) ; les pas 1 a 8 a
+   * la couleur de leur voix (rytm/stepLeds.ts), la voix choisie pleine, une voix coupee a peine avec la barre de MUTE, une
+   * voix en solo avec celle de SOLO ; 9 a 16 eteints. Lue a chaque changement de TRK, de la voix choisie, des mutes et des
+   * solos ; rien quand TRK est eteinte et sa vue deja partie.
+   */
+  private syncTrk = (): void => {
+    const fk = this.faceKeys;
+    if (!fk || this.disposed) return;
+    const m = trk.get().mode;
+    let changed = fk.setTrk(m);
+    if (m !== 'off' || this.trkShown) {
+      const v = voices.get();
+      const view = m === 'off' ? null : trkLeds(pattern.get().instrument, v.muted, v.solo, KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT);
+      this.trkShown = view !== null;
+      if (this.seq.setTrkView(view)) changed = true;
+    }
+    if (changed) this.repaint();
+    // Gardee : le clignotement de son temoin a besoin de la boucle
+    if (m === 'latched') this.kick();
+  };
+
+  /** Animateur : TRK gardee, son temoin clignote (une image a chaque phase, rien sinon ; rien quand rien ne clignote). */
+  private faceBlink = (now: number): 'paint' | 'poll' | false => {
+    const fk = this.faceKeys;
+    if (!fk || !fk.trkBlinking) return false;
+    return fk.blinkTrk(now, Stage.MODE_BLINK_MS) ? 'paint' : 'poll';
+  };
+
   /** Le clignotement de MUTE et SOLO en attente d'une voix (2026-10-09) : 320 ms allume, 320 ms eteint ; a peine : 0.45. */
   private static readonly MODE_BLINK_MS = 320;
   private static readonly MODE_DIM = 0.45;
@@ -3210,6 +3246,8 @@ export class Stage {
     // (revue du 2026-10-09 : le mode MUTE ferme, les voix gardees coupees ont leur LED a peine, comme la touche MUTE)
     const pads = this.pads?.setVoiceState(v.muted, v.solo, v.muteMode) ?? false;
     if (this.syncVoiceKeys() || pads) this.repaint();
+    // TRK : les barres de MUTE et de SOLO sur les pas 1 a 8
+    this.syncTrk();
     // Le clignotement a besoin de la boucle tant qu'un mode attend une voix
     if (voices.led('mute') === 'blink' || voices.led('solo') === 'blink') this.kick();
   };
