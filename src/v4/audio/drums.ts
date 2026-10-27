@@ -1389,9 +1389,14 @@ function prepareLocks(): void {
   }, 120);
 }
 let prepKey = '';
+let prepLocks = pattern.get().locks;
 pattern.subscribe(() => {
-  // Seulement quand les verrous changent (pas a chaque pas pose)
-  const k = JSON.stringify(pattern.get().locks);
+  // Seulement quand les verrous changent (pas a chaque pas pose) ; leur objet d'abord (2026-10-27 : choisir une voix ne
+  // les touche pas, pas de JSON a chaque choix)
+  const lk = pattern.get().locks;
+  if (lk === prepLocks) return;
+  prepLocks = lk;
+  const k = JSON.stringify(lk);
   if (k === prepKey) return;
   prepKey = k;
   prepareLocks();
