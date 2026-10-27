@@ -10,7 +10,7 @@
 import { registerTargets, stageNow, type MidiTarget } from '../midi/targets';
 import { faderMin, faderValue, keyDown, keyUp, knobMin, knobSteps, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
-import { faderName, keyName, knobName } from './names';
+import { faderName, keyMidiName, knobName } from './names';
 import { DJ_DECKS, type DjDeck } from './theme';
 import { SMPL_KNOBS } from '../sampler/params';
 import { samplerOf, type Sampler } from '../sampler/sampler';
@@ -59,7 +59,7 @@ function keyTarget(k: DjKeySpec): MidiTarget {
   return {
     id: `dj:${k.id}`,
     scope: 'dj',
-    label: up(keyName(k)),
+    label: up(keyMidiName(k)),
     kind: 'hold',
     down: () => {
       const cur = djKey(k.id);

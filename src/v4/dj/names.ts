@@ -59,3 +59,12 @@ export function keyName(k: DjKeySpec): string {
   }
 }
 
+/**
+ * Le nom d'une touche dans le panneau MIDI (MIDI LEARN, docs:midi) : celui des lecteurs d'ecran, sauf quand il est
+ * une phrase (2026-10-27, revue UI-7 : le SYNC des machines y faisait 127 lettres, le jumeau garde l'explication).
+ */
+export function keyMidiName(k: DjKeySpec): string {
+  if (k.target.kind === 'machsync') return 'Machines sync to the master deck';
+  return keyName(k);
+}
+
