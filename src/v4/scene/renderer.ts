@@ -92,6 +92,8 @@ import {
   EXPOSURE,
   APPEARANCE,
   FACE_FOLLOWS_PAGE,
+  KNOB_MOTOR,
+  KNOB_SHADOW_MS,
   FIRST_FRAME_WAIT_MS,
   FIT_H,
   FRAME_DESKTOP,
@@ -136,6 +138,7 @@ import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
 import { anyDialValue, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange } from '../rytm/faceKnobs';
+import { faceTouch } from '../state/ctl';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
@@ -493,6 +496,12 @@ export class Stage {
   private unsubMix: () => void;
   /** les potards de la face qui suivent la page (2026-10-27, desktop) ; rien au telephone */
   private unsubFace: () => void = () => {};
+  /** les capuchons qui vont a leur valeur (2026-10-27, les moteurs) : leur nombre ; la passe d'ombre attendue apres un glisser */
+  private motors = 0;
+  private knobShadowTimer = 0;
+  /** le dernier trajet de chaque capuchon (debug : de, a, depuis, duree) */
+  private motorPlan: ({ from: number; to: number; t0: number; ms: number } | null)[] = new Array(8).fill(null);
+  private motorOn: boolean[] = new Array(8).fill(false);
   /** les quatre puces (allumees pendant l'ouverture et vue ouverte) */
   private chipDefs: HotspotDef[];
   /** les touches de la face V.4.0 (2026-10-27) : trk, pad-edit, pad-open, scene-a, xfade, scene-b */
@@ -2983,15 +2992,89 @@ export class Stage {
     if (this.disposed) return;
     const views = faceKnobs.get();
     const e = this.encoders;
-    let changed = false;
+    // Une page, une voix, le P-LOCK (2026-10-27) : les capuchons vont a leur valeur comme des potards motorises, sans passe
+    // d'ombre en route (une seule a l'arrivee) ; un potard tenu ne bouge pas sous la main
+    const motor = (c.cause === 'page' || c.cause === 'voice' || c.cause === 'lock') && !motion.reduced();
+    const now = performance.now();
+    let ring = false;
+    let cap = false;
     for (const k of c.moved) {
       const v = views[k];
       if (!v) continue;
-      if (e.setRing(k, { t: v.state === 'live' ? v.pos : 0, bipolar: v.bipolar, tone: v.tone })) changed = true;
-      if (v.state !== 'empty' && v.state !== 'picture' && e.setCap(k, v.pos)) changed = true;
+      if (e.setRing(k, { t: v.state === 'live' ? v.pos : 0, bipolar: v.bipolar, tone: v.tone })) ring = true;
+      // Une case vide ou un dessin : le capuchon reste ou il est (un moteur ne bouge pas pour rien)
+      if (v.state === 'empty' || v.state === 'picture') continue;
+      const key = `knob.${k}`;
+      const from = e.capT(k);
+      const d = Math.abs(v.pos - from);
+      if (motor && !faceTouch.held(k) && d > 1e-4) {
+        const ms = KNOB_MOTOR.ms(d);
+        this.paintTweens.cancel(key);
+        if (!this.motorOn[k]) {
+          this.motorOn[k] = true;
+          this.motors += 1;
+        }
+        this.motorPlan[k] = { from, to: v.pos, t0: now, ms };
+        this.paintTweens.run(key, (t) => this.encoders.setCap(k, t), from, v.pos, ms, easeInOutCubic, now, () => this.motorDone(k));
+        cap = true;
+      } else {
+        if (this.motorOn[k]) {
+          this.paintTweens.cancel(key);
+          this.motorDone(k);
+        }
+        if (e.setCap(k, v.pos)) cap = true;
+      }
     }
-    if (changed) this.encodersMoved();
+    if (!ring && !cap) return;
+    if (!motor) this.knobsMoved();
+    else this.repaint();
   };
+
+  /** Un capuchon est arrive (ou sa course est reprise) : la passe d'ombre quand le dernier s'arrete. */
+  private motorDone(k: number): void {
+    if (!this.motorOn[k]) return;
+    this.motorOn[k] = false;
+    this.motors = Math.max(0, this.motors - 1);
+    if (this.motors === 0) this.invalidate();
+  }
+
+  /**
+   * Un potard a tourne ou une valeur a change (2026-10-27) : l'image tout de suite sans ombre, la passe d'ombre une seule
+   * fois KNOB_SHADOW_MS apres le dernier changement (un glisser de 2 s en coutait 120) ; au telephone, comme avant.
+   */
+  private knobsMoved(): void {
+    if (!this.encoders.mesh.castShadow) {
+      this.repaint();
+      return;
+    }
+    this.repaint();
+    this.armKnobShadow();
+  }
+
+  /** La passe d'ombre attendue : KNOB_SHADOW_MS apres le dernier changement, et jamais tant qu'un potard est tenu (le glisser continue). */
+  private armKnobShadow(): void {
+    window.clearTimeout(this.knobShadowTimer);
+    this.knobShadowTimer = window.setTimeout(() => {
+      this.knobShadowTimer = 0;
+      if (this.disposed) return;
+      for (let k = 0; k < 8; k += 1)
+        if (faceTouch.held(k)) {
+          this.armKnobShadow();
+          return;
+        }
+      if (this.motors === 0) this.invalidate();
+    }, KNOB_SHADOW_MS);
+  }
+
+  /** Les trajets des capuchons (debug, P2-03) : les moteurs en route et le dernier trajet de chacun. */
+  motorInfo(): { motors: number; plans: ({ from: number; to: number; t0: number; ms: number } | null)[]; tweens: number } {
+    return { motors: this.motors, plans: this.motorPlan.map((p) => (p ? { ...p } : null)), tweens: this.paintTweens.alive };
+  }
+
+  /** Avance les tweens de peinture a un instant (tests muets du moteur : le milieu d'un trajet, sans attendre une image). */
+  stepPaintTweens(now: number): boolean {
+    return this.paintTweens.update(now);
+  }
 
   /** Les touches de page : le temoin de la page affichee (a peine en vue HOME). */
   private syncPageKeys = (): void => {
@@ -3266,6 +3349,7 @@ export class Stage {
     this.unsubClock();
     this.unsubMix();
     this.unsubFace();
+    window.clearTimeout(this.knobShadowTimer);
     this.unsubSection();
     this.unsubExplode();
     this.detachExplode();

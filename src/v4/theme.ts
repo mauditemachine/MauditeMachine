@@ -1302,6 +1302,14 @@ export const PAGE_KNOBS_ON_FACE = true;
  */
 export const FACE_FOLLOWS_PAGE: boolean = !PORTRAIT;
 /**
+ * Les capuchons des potards de la face vont a leur nouvelle valeur comme des potards motorises (2026-10-27) : une page,
+ * une voix, l'entree ou la sortie du P-LOCK ; 60 ms plus 160 ms pour toute la course (d de 0 a 1), easeInOutCubic ; les
+ * anneaux (des LED) sautent ; un potard tourne a la main, la reduction des animations, une autre valeur : tout de suite.
+ */
+export const KNOB_MOTOR = { baseMs: 60, fullMs: 160, ms: (d: number): number => 60 + 160 * Math.min(1, Math.abs(d)) } as const;
+/** Un potard glisse a la souris (2026-10-27) : la passe d'ombre une seule fois, ce temps apres le dernier mouvement. */
+export const KNOB_SHADOW_MS = 120;
+/**
  * Le telephone (2026-10-09) : les huit blocs de l'ecran se glissent au doigt (un
  * glisser vertical, deux tapes, le LOCK a deux doigts) ; les cartes INFOS y
  * parlent de tapes, pas de clics ni de molette (rytm/infos.ts).
