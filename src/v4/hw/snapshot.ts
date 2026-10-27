@@ -12,12 +12,13 @@ import { sceneCount, type SceneId } from '../rytm/sceneData';
 import { trkLeds } from '../rytm/stepLeds';
 import { faceTouch, type CtlSrc } from '../state/ctl';
 import type { HoldMode } from '../state/holdLatch';
+import { presetMode, type PresetStage } from '../state/presetMode';
 import { patterns, slotName } from '../state/patterns';
 import { rytmPage, type RytmView } from '../state/rytmPage';
 import { sceneCtl } from '../state/sceneCtl';
 import { trk } from '../state/trk';
 import { voices } from '../state/voices';
-import { TRK_LIT, type Inst } from '../theme';
+import { SCREEN_TOUCH, TRK_LIT, type Inst } from '../theme';
 
 export interface HwKnob {
   /** 0 a 7 (CC 20 a 27 du boitier) */
@@ -55,6 +56,20 @@ export interface HwStepLed {
   readonly bar: 'mute' | 'solo' | null;
 }
 
+/**
+ * Les presets du MM-RYTM ouverts (V.4.2, 2026-10-27, state/presetMode.ts). face : la face les mene (l'ecran ne se touche
+ * pas, theme.ts SCREEN_TOUCH faux) : un potard fait defiler la liste (pour nommer, A la lettre et B le curseur), les
+ * cinq touches VOICE FLTR ENV FX EDIT sont celles de l'ecran (keys, dans cet ordre : LOAD SAVE NAME DEL EXIT, puis
+ * OVERWRITE, YES, OK... selon l'etape ; '' une touche vide) ; faux : on les touche a l'ecran.
+ */
+export interface HwPresets {
+  readonly stage: PresetStage;
+  /** la ligne du curseur (MIKA/DEEP KICK, ACID), ou le nom en cours a l'etape name */
+  readonly name: string;
+  readonly keys: readonly string[];
+  readonly face: boolean;
+}
+
 export interface HwSnapshot {
   readonly page: { readonly page: RytmPageId; readonly tab: number; readonly screen: RytmScreenId; readonly view: RytmView };
   readonly voice: Inst | null;
@@ -78,6 +93,8 @@ export interface HwSnapshot {
     /** les pas 1 a 8 tant que TRK est engagee (tenue, gardee, en fermeture) ; null : TRK eteinte (les pas montrent le motif) */
     readonly steps: readonly HwStepLed[] | null;
   };
+  /** les presets ouverts : les potards ne reglent plus leur page (label et value restent ceux de la page cachee) ; null : fermes */
+  readonly presets: HwPresets | null;
 }
 
 /** Le temoin d'une scene qui a des valeurs : 0.15 + 0.85 x ce qu'on en entend (la regle de scene/rytmFaceKeys.ts SCENE_LED). */
@@ -100,6 +117,7 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   const na = sceneCount(sc, 'a');
   const nb = sceneCount(sc, 'b');
   const engaged = t.mode !== 'off';
+  const pv = presetMode.on('mm808') ? presetMode.view('mm808') : null;
   const knobs: HwKnob[] = faceKnobs.get().map((kv) => ({
     k: kv.k,
     letter: kv.letter,
@@ -131,5 +149,6 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
             .map((l) => ({ inst: l.inst, color: l.color, level: l.level, bar: l.bar }))
         : null,
     },
+    presets: pv ? { stage: pv.stage, name: pv.name, keys: [...pv.keys], face: !SCREEN_TOUCH } : null,
   };
 }
