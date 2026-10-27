@@ -1306,9 +1306,22 @@ function leadBeat(t: number): { time: number; period: number } | null {
   // Au tempo du pitch seul apres maintenant (2026-10-27, revue SYNC-BEND-EXTRAPOLATION) : un BEND, un jog ou un
   // rattrapage de la MASTER en cours finit avant le temps vise, les machines ne suivent pas un nudge qui n'aura pas lieu
   const p = e.decks[L.deck];
-  const v = L.bpm / L.ratio / (s.deck[L.deck].track?.bpm ?? L.bpm);
+  const ds = s.deck[L.deck];
+  const v = L.bpm / L.ratio / (ds.track?.bpm ?? L.bpm);
   const now = e.ctx.currentTime;
-  const b = deckBeat(L.deck, e, s, p.positionAt(t) - (t - now) * (p.speed - v), t, v);
+  const pos = p.positionAt(t) - (t - now) * (p.speed - v);
+  // A la moitie (une MASTER de 200 a 300 BPM, 2026-10-27, revue SYNC-HALF-RATIO) : un temps des machines tous les deux
+  // temps de la platine, toujours les temps pairs de sa grille (le recalage tombait au hasard des arrondis sur l'un ou
+  // l'autre, deux pas perdus) ; cherche a un temps pres, le prochain pair a t ou apres
+  if (L.ratio === 0.5) {
+    if (ds.beat === null || !ds.track?.bpm || !p.loaded) return null;
+    const spb = 60 / ds.track.bpm;
+    const beats = (pos - ds.beat) / spb;
+    let k = Math.ceil(beats - 1e-6);
+    if (((k % 2) + 2) % 2 === 1) k += 1;
+    return { time: t + ((k - beats) * spb) / v, period: 60 / L.bpm };
+  }
+  const b = deckBeat(L.deck, e, s, pos, t, v);
   if (!b) return null;
   let at = t + b.in;
   // Au double tempo, un temps des machines sur deux tombe entre deux temps de la platine
