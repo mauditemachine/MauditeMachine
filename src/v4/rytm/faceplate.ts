@@ -117,7 +117,7 @@ export const RYTM_FACEPLATE = {
     pitch: 14,
     y: 84,
     keys: [
-      { id: 'trk', icon: 'stack-2', name: 'TRK', title: 'Track', hotspot: 'trk', phase: 2 },
+      { id: 'trk', icon: 'stack-2', name: 'TRK', title: 'Track', hotspot: 'trk', phase: 1 },
       { id: 'voice', icon: 'wave-sine', name: 'VOICE', title: 'Voice page', hotspot: 'pkey-voice', phase: 1 },
       { id: 'fltr', icon: 'lowpass', name: 'FLTR', title: 'Filter page', hotspot: 'pkey-fltr', phase: 1 },
       { id: 'env', icon: 'adsr', name: 'ENV', title: 'Envelope page', hotspot: 'pkey-env', phase: 1 },

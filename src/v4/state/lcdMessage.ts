@@ -39,6 +39,12 @@ export const lcdMessage = {
     current = { text, until: performance.now() + ms, param };
     listeners.forEach((fn) => fn());
   },
+  /** Eteint le message s'il dit encore text (2026-10-27 : l'aide de TRK, tant que la touche est engagee). */
+  hide(text: string): void {
+    if (!current || current.text !== text) return;
+    current = null;
+    listeners.forEach((fn) => fn());
+  },
   subscribe(fn: () => void): () => void {
     listeners.add(fn);
     return () => {
