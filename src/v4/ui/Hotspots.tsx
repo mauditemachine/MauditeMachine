@@ -120,6 +120,7 @@ import {
   stepToggle,
   trkDown,
   trkStep,
+  trkStepMute,
   trkUp,
   rytmInfoTap,
   voyClear,
@@ -1041,6 +1042,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         rect = el.getBoundingClientRect();
         const hm = pickAt(e, false);
         if (hm && hm.kind === 'pad' && hm.inst && hm.enabled !== false) padMute(hm.inst, stage);
+        // TRK engagee (2026-10-27) : un clic droit sur un pas 1 a 8 coupe sa voix ou la rend, sans la choisir
+        else if (hm && hm.kind === 'step' && hm.index !== undefined) trkStepMute(hm.index, stage, e.timeStamp || performance.now());
         return;
       }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
