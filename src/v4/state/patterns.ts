@@ -24,6 +24,7 @@
 import { clock } from '../audio/clock';
 import { anyLocks, cleanLocks, sameLocks, type Locks } from '../audio/locks';
 import { INSTRUMENTS, STEP_COUNT, pattern, type Steps } from '../audio/pattern';
+import { NO_SCENES, anyScenes, cleanScenes, sameScenes, toStored, type SceneSet } from '../rytm/sceneData';
 
 export const PATTERN_SLOTS = 16;
 /** Taper un autre pattern dans ce delai l'ajoute a la chaine. */
@@ -37,6 +38,8 @@ export interface PatternsState {
   slots: readonly (Steps | null)[];
   /** les verrous de chaque emplacement (2026-10-08) ; null : aucun */
   locks: readonly (Readonly<Locks> | null)[];
+  /** les scenes A et B de chaque emplacement (2026-10-27, la phase 2) ; null : aucune */
+  scenes: readonly (SceneSet | null)[];
   /** l'emplacement qui joue (et qu'on edite) */
   cur: number;
   /** la chaine : au moins un pattern (le courant seul : pas de chaine) */
@@ -68,18 +71,24 @@ function validSteps(x: unknown): Steps | null {
 /** Les verrous a garder dans un emplacement : null sans verrou (le JSON reste court). */
 // Au moins un verrou (anyLocks : la forme v des verrous de R3 seule n'en est pas un)
 const keepLocks = (l: Readonly<Locks> | null | undefined): Readonly<Locks> | null => (l && anyLocks(l) ? l : null);
+/** Les scenes a garder dans un emplacement : null sans scene. */
+const keepScenes = (s: SceneSet | null | undefined): SceneSet | null => (s && anyScenes(s) ? s : null);
+const sameKept = (a: SceneSet | null, b: SceneSet | null): boolean => a === b || (!!a && !!b && sameScenes(a, b));
 
 function load(): PatternsState {
   const slots: (Steps | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   const locks: (Readonly<Locks> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+  const scenes: (SceneSet | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   let cur = 0;
   let chain: number[] = [0];
   try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; scenes?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
     if (raw && Array.isArray(raw.slots)) {
       for (let i = 0; i < PATTERN_SLOTS; i += 1) slots[i] = raw.slots[i] ? validSteps(raw.slots[i]) : null;
       // Une sauvegarde d'avant les verrous (2026-10-08) : aucun
       if (Array.isArray(raw.locks)) for (let i = 0; i < PATTERN_SLOTS; i += 1) locks[i] = cleanLocks(raw.locks[i]);
+      // Les scenes (2026-10-27) : une sauvegarde d'avant n'en a pas ; une illisible part, jamais une exception
+      if (Array.isArray(raw.scenes)) for (let i = 0; i < PATTERN_SLOTS; i += 1) scenes[i] = keepScenes(cleanScenes(raw.scenes[i]));
       if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < PATTERN_SLOTS) cur = raw.cur as number;
       if (Array.isArray(raw.chain)) {
         const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < PATTERN_SLOTS).slice(0, PATTERN_SLOTS);
@@ -92,11 +101,12 @@ function load(): PatternsState {
   // Le motif du moment (retenu par audio/pattern.ts) est celui de l'emplacement courant, ses verrous aussi
   slots[cur] = { ...pattern.get().steps };
   locks[cur] = keepLocks(pattern.get().locks);
+  scenes[cur] = keepScenes(pattern.scenes.get());
   if (!chain.includes(cur)) chain = [cur];
-  return { slots, locks, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
+  return { slots, locks, scenes, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
 }
 
-let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
+let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], scenes: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
 const listeners = new Set<() => void>();
 let saveTimer = 0;
 /** le motif pose par nous (un changement de pattern) : pas une edition a garder */
@@ -109,7 +119,9 @@ function save(): void {
     try {
       // Les verrous seulement s'il y en a (une sauvegarde sans verrou reste celle d'avant)
       const locks = state.locks.some((l) => l !== null) ? state.locks : undefined;
-      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), cur: state.cur, chain: state.chain }));
+      // Les scenes de meme (2026-10-27) : une sauvegarde sans scene reste octet pour octet celle d'avant
+      const scenes = state.scenes.some((s) => s !== null) ? state.scenes.map((s) => (s ? (toStored(s) ?? null) : null)) : undefined;
+      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), ...(scenes ? { scenes } : {}), cur: state.cur, chain: state.chain }));
     } catch {
       /* stockage indisponible : les patterns vivent pour la visite */
     }
@@ -127,6 +139,8 @@ function apply(i: number): void {
   const steps = state.slots[i] ?? emptySteps();
   loading = true;
   pattern.replace(steps, state.locks[i] ?? {});
+  // Ses scenes (2026-10-27), a l'heure de la mesure qui commence (le bus tombe sur le temps fort) ; a l'arret tout de suite
+  pattern.scenes.replace(state.scenes[i] ?? NO_SCENES, clock.barAt());
   loading = false;
 }
 
@@ -144,6 +158,15 @@ if (typeof window !== 'undefined') {
     const ls = state.locks.slice();
     ls[state.cur] = keepLocks(locks);
     setState({ ...state, slots, locks: ls });
+  });
+  // Ses scenes aussi (2026-10-27) : leurs propres ecouteurs, pas ceux du motif
+  pattern.scenes.subscribe(() => {
+    if (loading) return;
+    const s = keepScenes(pattern.scenes.get());
+    if (sameKept(state.scenes[state.cur] ?? null, s)) return;
+    const sc = state.scenes.slice();
+    sc[state.cur] = s;
+    setState({ ...state, scenes: sc });
   });
 }
 
@@ -204,7 +227,10 @@ export const patterns = {
     // Ses verrous aussi (2026-10-08)
     const locks = state.locks.slice();
     locks[i] = keepLocks(pattern.get().locks);
-    setState({ ...state, slots, locks });
+    // Ses scenes aussi (2026-10-27)
+    const scenes = state.scenes.slice();
+    scenes[i] = keepScenes(pattern.scenes.get());
+    setState({ ...state, slots, locks, scenes });
     return true;
   },
   /** La chaine redevient le pattern courant seul. */
@@ -241,7 +267,9 @@ export const patterns = {
     slots[0] = { ...pattern.get().steps };
     const locks: (Readonly<Locks> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
     locks[0] = keepLocks(pattern.get().locks);
-    setState({ slots, locks, cur: 0, chain: [0], pos: 0, next: -1 });
+    const scenes: (SceneSet | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+    scenes[0] = keepScenes(pattern.scenes.get());
+    setState({ slots, locks, scenes, cur: 0, chain: [0], pos: 0, next: -1 });
   },
 };
 

@@ -43,12 +43,14 @@ const siteSamples = (f: KitFamily) => samplesOf(f).filter((s) => !s.user);
 export interface Dropped {
   locks: boolean;
   mine: boolean;
+  /** les scenes A et B (2026-10-27) : le lien V1 ne les porte pas */
+  scenes: boolean;
 }
 
 /** Le beat du MM-RYTM tel qu'il joue, en Beat (audio/beatcode.ts). */
 export function beatNow(): { beat: Beat; dropped: Dropped } {
-  const r = capture('mm808') as RytmData & { locks?: unknown };
-  const dropped: Dropped = { locks: !!r.locks && Object.keys(r.locks as object).length > 0, mine: false };
+  const r = capture('mm808') as RytmData & { locks?: unknown; scenes?: unknown };
+  const dropped: Dropped = { locks: !!r.locks && Object.keys(r.locks as object).length > 0, mine: false, scenes: !!r.scenes };
   const kit = {} as Record<BeatFam, BeatFamily>;
   for (const f of FAMS_V1) {
     const m = MODELS_V1.indexOf((r.machines?.[f] ?? '909') as (typeof MODELS_V1)[number]);
@@ -240,7 +242,8 @@ async function copy(text: string): Promise<boolean> {
  */
 export async function shareBeat(coarse: boolean): Promise<ShareResult> {
   const { url, bpm, dropped } = shareUrl();
-  const note = dropped.locks ? ' (NO P-LOCKS)' : dropped.mine ? ' (YOUR SAMPLES STAY HERE)' : '';
+  // Les scenes (2026-10-27) : le lien V1 part sans elles, l'ecran le dit a cote des P-LOCKS
+  const note = (dropped.locks ? ' (NO P-LOCKS)' : dropped.mine ? ' (YOUR SAMPLES STAY HERE)' : '') + (dropped.scenes ? ' · SHARE: NO SCENES (V1)' : '');
   const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void>; canShare?: (d: ShareData) => boolean };
   const data: ShareData = { title: 'My beat on MM-RYTM', text: `A ${bpm} BPM beat I made on MM-RYTM, the free drum machine of MM-STUDIO by Maudite Machine`, url };
   if (coarse && typeof nav.share === 'function' && (!nav.canShare || nav.canShare(data))) {

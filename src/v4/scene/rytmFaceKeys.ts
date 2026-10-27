@@ -22,10 +22,11 @@
  * eclaires), un maillage pour leurs noms, un pour le capuchon.
  */
 
-import { BoxGeometry, Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type BufferGeometry, type Object3D } from 'three';
+import { BoxGeometry, Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, type BufferGeometry, type Object3D } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, FACE_KEY, FACE_KEYS, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, OPEN_BREATHE, PRESS_TINT, STEP_PRESS, XFADE, type FaceKeyId } from '../theme';
+import { COLOR, FACE_KEY, FACE_KEYS, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, OPEN_BREATHE, PRESS_TINT, RING_TONE, STEP_PRESS, XFADE, type FaceKeyId } from '../theme';
+import { fpU } from '../rytm/faceplate';
 import type { HoldMode } from '../state/holdLatch';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
@@ -35,8 +36,14 @@ const N = FACE_KEYS.length;
 const EDIT = FACE_KEYS.findIndex((k) => k.id === 'edit');
 const OPEN = FACE_KEYS.findIndex((k) => k.id === 'open');
 const TRK = FACE_KEYS.findIndex((k) => k.id === 'trk');
-/** Les touches qui agissent (s'enfoncent, s'eclairent au survol) : EDIT, OPEN, TRK depuis la phase 2 (2026-10-27). */
-const LIVE = (i: number): boolean => i === EDIT || i === OPEN || i === TRK;
+const SCN_A = FACE_KEYS.findIndex((k) => k.id === 'scene-a');
+const SCN_B = FACE_KEYS.findIndex((k) => k.id === 'scene-b');
+/** Les touches qui agissent (s'enfoncent, s'eclairent au survol) : EDIT, OPEN, TRK, SCENE A et B depuis la phase 2 (2026-10-27). */
+const LIVE = (i: number): boolean => i === EDIT || i === OPEN || i === TRK || i === SCN_A || i === SCN_B;
+/** Le cadre d'une scene armee (2026-10-27) : 0.6 mm hors de la touche, un trait de 0.5 mm. */
+const ARM_RING = { gap: fpU(0.6), line: fpU(0.5) } as const;
+/** L'eclat du temoin d'une scene qui a des valeurs : 0.15 + 0.85 x ce qu'on en entend (1 - x pour A, x pour B). */
+const SCENE_LED = { min: 0.15, span: 0.85 } as const;
 /** TRK gardee (2026-10-27) : son temoin clignote entre plein et ce reste (le 0.12 de MUTE et SOLO en attente). */
 const TRK_BLINK_LOW = 0.12;
 /** L'id de la zone de saisie (et du jumeau) de chaque touche : EDIT et OPEN gardent ceux de leurs pads. */
@@ -85,6 +92,34 @@ function capGeometry(): BufferGeometry {
   return g;
 }
 
+/** Le cadre d'une scene armee : un rectangle arrondi autour de la touche, a plat sur le panneau (la recette de sequencer3d.ts). */
+function armRingGeometry(): BufferGeometry {
+  const K = FACE_KEY;
+  const rr = (p: Shape | Path, hw: number, hd: number, r: number): void => {
+    p.moveTo(-hw + r, -hd);
+    p.lineTo(hw - r, -hd);
+    p.quadraticCurveTo(hw, -hd, hw, -hd + r);
+    p.lineTo(hw, hd - r);
+    p.quadraticCurveTo(hw, hd, hw - r, hd);
+    p.lineTo(-hw + r, hd);
+    p.quadraticCurveTo(-hw, hd, -hw, hd - r);
+    p.lineTo(-hw, -hd + r);
+    p.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+  };
+  const g0 = ARM_RING.gap;
+  const ln = ARM_RING.line;
+  const outer = new Shape();
+  rr(outer, K.w / 2 + g0 + ln, K.d / 2 + g0 + ln, K.radius + g0 + ln);
+  const hole = new Path();
+  rr(hole, K.w / 2 + g0, K.d / 2 + g0, K.radius + g0);
+  outer.holes.push(hole);
+  const g = new ShapeGeometry(outer, 6);
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, 0.004, 0);
+  g.deleteAttribute('uv');
+  return g;
+}
+
 /** z du temoin : sur le dessus, pres du bord arriere. */
 const LED_Z = FACE_KEY.z - FACE_KEY.d / 2 + FACE_KEY.led.back;
 const LED_Y = FACE_KEY.h + 0.002;
@@ -105,6 +140,14 @@ export interface RytmFaceKeysInfo {
   hover: FaceKeyId | null;
   /** TRK (2026-10-27) : off, held, latched, closing */
   trk: HoldMode;
+  /** la scene armee (2026-10-27) et comment (held, latched) */
+  armed: 'a' | 'b' | null;
+  armHow: 'held' | 'latched' | null;
+  /** le cadre de la scene armee allume (le clignotement d'une scene gardee compris) */
+  ringOn: boolean;
+  /** le crossfader (0 cote A) et la position du capuchon (x) */
+  x: number;
+  capX: number;
 }
 
 export class RytmFaceKeys {
@@ -113,6 +156,9 @@ export class RytmFaceKeys {
   readonly labels: KeyLabels;
   /** le capuchon du crossfader (inerte en phase 1, au milieu de sa course) */
   readonly cap: Mesh;
+  /** le cadre d'une scene armee (2026-10-27) : deux instances, A et B, a l'echelle 0 hors armement */
+  readonly armRing: InstancedMesh;
+  private ringMat: MeshBasicMaterial;
   private keyMat: MeshStandardMaterial;
   private ledMat: MeshBasicMaterial;
   private capMat: MeshStandardMaterial;
@@ -130,6 +176,13 @@ export class RytmFaceKeys {
   private trkBlink = 1;
   /** la respiration d'OPEN machine fermee (1 : pleine) */
   private breath = 1;
+  /** la scene armee (2026-10-27), comment, la phase du clignotement de son cadre (gardee) */
+  private armed: 'a' | 'b' | null = null;
+  private armHow: 'held' | 'latched' | null = null;
+  private armBlink = 1;
+  /** l'eclat des temoins de SCENE A et B (0 : la scene est vide) */
+  private sceneLed = { a: 0, b: 0 };
+  private xNow = 0;
   private off = new Color();
   private on = new Color();
 
@@ -168,6 +221,13 @@ export class RytmFaceKeys {
     this.cap.castShadow = opts.castShadow;
     this.cap.receiveShadow = true;
 
+    this.ringMat = new MeshBasicMaterial({ toneMapped: false, color: new Color(RING_TONE.scene.on) });
+    this.ringMat.name = 'sceneArmRing';
+    this.armRing = new InstancedMesh(armRingGeometry(), this.ringMat, 2);
+    this.armRing.name = 'sceneArmRing';
+    this.armRing.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.placeRings();
+
     for (let i = 0; i < N; i += 1) this.refresh(i);
     this.keys.instanceColor?.setUsage(DynamicDrawUsage);
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
@@ -175,7 +235,24 @@ export class RytmFaceKeys {
 
   /** Les maillages a poser sur le plateau. */
   objects(): Object3D[] {
-    return [this.keys, this.leds, this.labels.mesh, this.cap];
+    return [this.keys, this.leds, this.labels.mesh, this.cap, this.armRing];
+  }
+
+  /** Les deux cadres a leur touche, a l'echelle 0 sauf celui de la scene armee (allume, ou dans sa phase allumee). */
+  private placeRings(): void {
+    const on = this.ringOn;
+    [SCN_A, SCN_B].forEach((i, j) => {
+      const k = FACE_KEYS[i];
+      const show = on && this.armed === (j === 0 ? 'a' : 'b');
+      m4.makeScale(show ? 1 : 0, show ? 1 : 0, show ? 1 : 0);
+      m4.setPosition(k ? k.x : 0, 0, FACE_KEY.z);
+      this.armRing.setMatrixAt(j, m4);
+    });
+    this.armRing.instanceMatrix.needsUpdate = true;
+  }
+
+  private get ringOn(): boolean {
+    return this.armed !== null && (this.armHow !== 'latched' || this.armBlink === 1);
   }
 
   /**
@@ -194,6 +271,10 @@ export class RytmFaceKeys {
     // TRK engagee (tenue, gardee, en fermeture) : allumee en entier, son temoin plein
     // TRK engagee (tenue, gardee, en fermeture) : allumee en entier ; son temoin fixe, il clignote quand elle est gardee
     if (i === TRK) return this.trk === 'off' ? { fill: 0, glow: 0, led: 0 } : { fill: 1, glow: 1, led: this.trk === 'latched' ? this.trkBlink : 1 };
+    // SCENE A et B (2026-10-27) : allumees en entier tant qu'armees ; leur temoin dit qu'elles ont des valeurs et combien on
+    // en entend (eteint : la scene est vide)
+    if (i === SCN_A) return this.armed === 'a' ? { fill: 1, glow: 1, led: this.sceneLed.a } : { fill: 0, glow: 0, led: this.sceneLed.a };
+    if (i === SCN_B) return this.armed === 'b' ? { fill: 1, glow: 1, led: this.sceneLed.b } : { fill: 0, glow: 0, led: this.sceneLed.b };
     return { fill: 0, glow: 0, led: 0 };
   }
 
@@ -258,6 +339,46 @@ export class RytmFaceKeys {
   /** TRK gardee : son temoin a besoin de la boucle. */
   get trkBlinking(): boolean {
     return this.trk === 'latched';
+  }
+
+  /** La scene armee (2026-10-27) et comment : sa touche allumee, son cadre (fixe tenue, clignotant gardee) ; true s'il faut une frame. */
+  setScene(armed: 'a' | 'b' | null, how: 'held' | 'latched' | null): boolean {
+    if (armed === this.armed && how === this.armHow) return false;
+    this.armed = armed;
+    this.armHow = how;
+    this.armBlink = 1;
+    this.placeRings();
+    this.refresh(SCN_A);
+    this.refresh(SCN_B);
+    return true;
+  }
+
+  /** Les temoins des scenes : a, b ont-elles des valeurs, x le crossfader ; true s'il faut une frame. */
+  setSceneLeds(a: boolean, b: boolean, x: number): boolean {
+    this.xNow = x;
+    const la = a ? SCENE_LED.min + SCENE_LED.span * (1 - x) : 0;
+    const lb = b ? SCENE_LED.min + SCENE_LED.span * x : 0;
+    if (la === this.sceneLed.a && lb === this.sceneLed.b) return false;
+    this.sceneLed.a = la;
+    this.sceneLed.b = lb;
+    this.refresh(SCN_A);
+    this.refresh(SCN_B);
+    return true;
+  }
+
+  /** Une scene gardee : son cadre clignote (periodMs allume, periodMs eteint) ; true si la phase a change. */
+  blinkScene(now: number, periodMs: number): boolean {
+    if (this.armHow !== 'latched') return false;
+    const v = Math.floor(now / periodMs) % 2 === 0 ? 1 : 0;
+    if (v === this.armBlink) return false;
+    this.armBlink = v;
+    this.placeRings();
+    return true;
+  }
+
+  /** Une scene gardee : son cadre a besoin de la boucle. */
+  get sceneBlinking(): boolean {
+    return this.armHow === 'latched';
   }
 
   /** Le capot ouvert (ou s'ouvrant) : OPEN a peine ; ferme, OPEN allume ; true s'il faut une frame. */
@@ -360,6 +481,11 @@ export class RytmFaceKeys {
       breathing: this.breathing,
       hover: this.hover >= 0 ? FACE_KEYS[this.hover].id : null,
       trk: this.trk,
+      armed: this.armed,
+      armHow: this.armHow,
+      ringOn: this.ringOn,
+      x: this.xNow,
+      capX: +this.cap.position.x.toFixed(6),
     };
   }
 
@@ -373,5 +499,8 @@ export class RytmFaceKeys {
     this.labels.dispose();
     this.cap.geometry.dispose();
     this.capMat.dispose();
+    this.armRing.geometry.dispose();
+    this.ringMat.dispose();
+    this.armRing.dispose();
   }
 }

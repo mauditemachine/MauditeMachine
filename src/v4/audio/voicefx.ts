@@ -175,7 +175,9 @@ export const decayTau = (v: number): number | null => (v >= 0.995 ? null : 0.012
 /** LEVEL d'une voix : gain (v / 0.8)^2, donc exactement 1 au depart, +3.9 dB a fond. */
 export const voiceGain = (level: number): number => (level / VOICE_FX_DEFAULT.level) ** 2;
 
-const clamp = (p: VoiceParam, v: number): number => {
+/** Un reglage de voix pose sur ses crans et borne, comme voiceFx.set le pose (2026-10-27 : rytm/sceneParams.ts le lit). */
+export const voiceClamp = (p: VoiceParam, v: number): number => clamp(p, v);
+function clamp(p: VoiceParam, v: number): number {
   if (p === 'tone') return snapTone(v);
   if (p === 'tune') return snapTune(v);
   if (p === 'pan') return snapPan(v);
@@ -184,7 +186,7 @@ const clamp = (p: VoiceParam, v: number): number => {
   // ENV du filtre : -1 a 1, colle au centre comme PAN (un glisser y revient)
   if (p === 'fenv') return snapPan(v);
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : p === 'decay' || p === 'fcut' ? 1 : p === 'fdec' ? 0.5 : 0;
-};
+}
 
 const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 

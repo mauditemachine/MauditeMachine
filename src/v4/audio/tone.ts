@@ -100,7 +100,8 @@ export function buildTone(c: BaseAudioContext, out: AudioNode, v0: number): Tone
     }
     glide(hp.frequency, toneHpHz(t), c);
     glide(lp.frequency, toneLpHz(t, nyq), c);
-    insert.engage(0, 1);
+    // Deja engage tout mouille (2026-10-27, un TONE suivi au crossfader) : rien a reposer sur ses deux gains
+    if (!insert.engagedAt(0, 1)) insert.engage(0, 1);
   };
 
   set(v0);

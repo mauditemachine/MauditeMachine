@@ -44,13 +44,16 @@
  */
 
 import { voices } from '../state/voices';
-import { SWING, type Inst } from '../theme';
+import { sceneCtl } from '../state/sceneCtl';
+import { PORTRAIT, SWING, XFADE_UI, type Inst } from '../theme';
 import { voiceFx } from './voicefx';
 import { kit } from './kit';
 import { cancelVoice, context, mix, trigger, type Voice } from './drums';
 import { shots } from './shots';
 import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from './pattern';
 import { lockOf, type Locks } from './locks';
+import { morph } from './morph';
+import type { SceneSet } from '../rytm/sceneData';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, extraGrid, horizon, registerScheduler, type Scheduler } from './sched';
 
 export { LOOKAHEAD_S, TICK_MS } from './sched';
@@ -114,6 +117,8 @@ let abs = 0;
 let barAbs = -1;
 /** onBar en cours : le pattern qu'il pose ne re-programme rien (il vaut pour la mesure qui commence) */
 let inBar = false;
+/** l'heure audio de la mesure annoncee (2026-10-27, barAt : les scenes d'un pattern arrivent sur son temps fort) */
+let barTime = 0;
 /** premier seq de la lecture en cours */
 let runFirst = 0;
 /** le journal des pas programmes, du plus ancien au plus recent (RING au plus) */
@@ -125,6 +130,8 @@ const pending: Voice[] = [];
 interface Snap {
   steps: Steps;
   locks: Readonly<Locks>;
+  /** ses scenes A et B (2026-10-27) : un pas rejoue d'une mesure finie garde celles de son pattern, au x du moment */
+  scenes: SceneSet;
 }
 
 /** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
@@ -220,10 +227,13 @@ function bar(): void {
 
 /** Programme un pas : les voix a `when`, l'entree du journal, les ecouteurs. */
 function schedule(s: number, when: number, expected: number, now: number, off: number, grid: number): void {
-  if (s === 0) bar();
+  if (s === 0) {
+    barTime = grid;
+    bar();
+  }
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
-  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks };
+  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get() };
   const steps = snap.steps;
   const vs: Voice[] = [];
   let mask = 0;
@@ -235,7 +245,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     if (vel > 0 && voices.plays(inst)) {
       mask |= 1 << k;
       // Les verrous du pas (2026-10-08) : null sans verrou, le coup d'avant
-      trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s));
+      trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s), snap.scenes);
     }
   }
   for (const v of vs) pending.push(v);
@@ -293,10 +303,14 @@ function tick(): void {
     if (nextTime < now - DROP_AFTER_S) {
       stats.dropped += 1;
       // Saute, le debut de mesure compte quand meme : la chaine des patterns ne prend pas de retard
-      if (step === 0) bar();
+      if (step === 0) {
+        barTime = nextTime;
+        bar();
+      }
     } else {
       // SWING : un pas pair (index impair) part plus tard, jamais au-dela d'un tiers de pas
-      const off = (step & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0;
+      // Le SWING joue (2026-10-27) : celui des scenes au x du moment ; sans scene, celui du store
+      const off = (step & 1) === 1 ? morph.fx().swing * SWING.maxDelay * stepDur : 0;
       schedule(step, nextTime + off, anchor + n * stepDur + off, now, off, nextTime);
     }
     // Depuis l'ancre, pas par addition : aucune erreur qui s'accumule
@@ -431,6 +445,46 @@ voiceFx.subscribe(() => {
 kit.subscribe(ask);
 // Le coup d'un nouveau son arrive (2026-10-21, audit RS-2) : les pas deja programmes avec un remplacant sont refaits
 shots.onReady(ask);
+
+/*
+ * Les coups suivent le crossfader (2026-10-27, la phase 2) : aucune re-programmation par mouvement (le pic de calcul du
+ * 2026-10-21, F9, reviendrait) ; les coups programmes gardent les valeurs de leur programmation, en retard de l'avance
+ * (300 ms, 450 au telephone) pendant un balayage, exacts au repos. A la fin d'un geste, UNE re-programmation si les
+ * valeurs jouees des cles de coup et de hauteur (morph.hitSig, au 1/1024) ont change ; en option, pendant un geste a la
+ * souris (pointeur fin, pas au telephone), une au plus toutes les XFADE_UI.resyncMs si elles ont change. Les demandes
+ * se comptent avant la garde de RUN (morph.stats.reschedAsks : un test a l'arret les mesure).
+ */
+let bakedSig = morph.hitSig();
+const resync = { on: true };
+let resyncTimer = 0;
+const finePointer = (): boolean => !PORTRAIT && typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: fine)').matches;
+function hitAsk(): void {
+  const sig = morph.hitSig();
+  if (sig === bakedSig) return;
+  bakedSig = sig;
+  morph.stats.reschedAsks += 1;
+  ask();
+}
+function stopResync(): void {
+  if (resyncTimer) window.clearInterval(resyncTimer);
+  resyncTimer = 0;
+}
+if (typeof window !== 'undefined') {
+  morph.subscribe((c) => {
+    if (c.cause === 'scenes' || c.cause === 'switch') bakedSig = morph.hitSig();
+    else if (c.cause === 'settle') {
+      stopResync();
+      hitAsk();
+    }
+  });
+  sceneCtl.onGesture((on) => {
+    stopResync();
+    if (!on || !resync.on || !finePointer()) return;
+    const h = morph.has();
+    if (!h.hit && !h.pitch) return;
+    resyncTimer = window.setInterval(hitAsk, XFADE_UI.resyncMs);
+  });
+}
 let mixKey = '';
 mix.subscribe(() => {
   const k = `${mix.tone}|${mix.stretch}`;
@@ -627,6 +681,11 @@ export const clock = {
       runListeners.delete(fn);
     };
   },
+  /**
+   * L'heure audio de la mesure annoncee (2026-10-27) : valable pendant les ecouteurs de onBar (un pattern pose y arrive a
+   * cette heure), 0 ailleurs (tout de suite).
+   */
+  barAt: (): number => (inBar ? barTime : 0),
   /** Le debut de chaque mesure, avant que son premier pas soit programme ; rend de quoi se desabonner. */
   onBar(fn: (first: boolean) => void): () => void {
     barListeners.add(fn);
@@ -664,6 +723,8 @@ export interface ClockDebug {
   readonly rescheduled: number;
   /** demandes de re-programmation depuis le chargement (2026-10-27), lecture ou arret */
   readonly asks: number;
+  /** le resync borne des coups pendant un geste du crossfader (2026-10-27, pointeur fin) : on, a couper pour un test */
+  readonly resync: { on: boolean };
   /** RUN refuse (repli sans WebGL affiche) */
   readonly locked: boolean;
 }
@@ -696,6 +757,7 @@ export const clockDebug: ClockDebug = {
   get asks() {
     return stats.asks;
   },
+  resync,
   get rescheduled() {
     return stats.rescheduled;
   },

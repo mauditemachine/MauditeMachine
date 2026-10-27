@@ -37,6 +37,7 @@
 
 import type { Inst } from '../theme';
 import { anyLocks, cleanLocks, NO_LOCKS, withLock, withoutLock, type LockKey, type Locks } from './locks';
+import { NO_SCENES, cleanScenes, clearScene, sameScenes, toStored, withScene, withoutScene, type SceneId, type SceneSet, type StoredScenes } from '../rytm/sceneData';
 
 // Huit voix (2026-10-05), dans l'ordre des pads : BD SD CH OH en haut, CP TOM HT CY dessous
 export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
@@ -271,6 +272,8 @@ export interface StoredPattern {
   fx: Fx;
   /** les verrous des pas (2026-10-08, audio/locks.ts) ; absent sans verrou */
   locks?: Locks;
+  /** les scenes A et B du motif (2026-10-27, rytm/sceneData.ts) ; absentes sans scene (le JSON d'avant, octet pour octet) */
+  scenes?: StoredScenes;
 }
 
 export interface PatternState extends Pattern {
@@ -394,7 +397,7 @@ export function load(): Pattern {
 /** Au millieme : le JSON reste court, un glisser donne des valeurs continues. */
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
-export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS): StoredPattern {
+export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES): StoredPattern {
   const out: StoredPattern = {
     v: 1,
     bpm: p.bpm,
@@ -402,7 +405,15 @@ export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Reado
     fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0), ...(Object.fromEntries(FX_SETTING_IDS.map((k) => [k, r3(f[k] ?? FX_SETTINGS[k])])) as Record<FxSettingId, number>) },
   };
   if (anyLocks(locks)) out.locks = locks as Locks;
+  const sc = toStored(scenes);
+  if (sc) out.scenes = sc;
   return out;
+}
+
+/** Les scenes d'un motif stocke ; NO_SCENES sans elles, ou illisibles. */
+export function validateScenes(raw: unknown): SceneSet {
+  if (!raw || typeof raw !== 'object') return NO_SCENES;
+  return cleanScenes((raw as { scenes?: unknown }).scenes) ?? NO_SCENES;
 }
 
 /** Les verrous d'un motif stocke (la cle d'avant les neuf niveaux n'en a pas) ; {} sans verrou. */
@@ -412,9 +423,9 @@ export function validateLocks(raw: unknown): Readonly<Locks> {
 }
 
 /** true si l'ecriture a reussi. */
-export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS): boolean {
+export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES): boolean {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks, scenes)));
     return true;
   } catch {
     return false;
@@ -462,8 +473,10 @@ const stored = typeof window === 'undefined' ? { raw: null, legacy: false } : re
 // Depuis le 2026-10-05 (Mika : "par defaut je veux toujours que le BD soit selectionne pour les FX Voices") : la grosse caisse
 let state: PatternState = { ...validate(stored.raw, stored.legacy), instrument: 'BD', locks: stored.legacy ? NO_LOCKS : validateLocks(stored.raw) };
 let fxState: Readonly<Fx> = validateFx(stored.raw);
+let scenesState: SceneSet = stored.legacy ? NO_SCENES : validateScenes(stored.raw);
 const listeners = new Set<() => void>();
 const fxListeners = new Set<() => void>();
+const sceneListeners = new Set<(at?: number) => void>();
 let saveTimer = 0;
 
 const emit = (): void => listeners.forEach((l) => l());
@@ -472,7 +485,7 @@ function scheduleSave(): void {
   if (saveTimer !== 0) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
-    save(state, fxState, state.locks);
+    save(state, fxState, state.locks, scenesState);
   }, SAVE_DEBOUNCE_MS);
 }
 
@@ -481,7 +494,7 @@ function flush(): void {
   if (saveTimer === 0) return;
   window.clearTimeout(saveTimer);
   saveTimer = 0;
-  save(state, fxState, state.locks);
+  save(state, fxState, state.locks, scenesState);
 }
 
 function commit(next: PatternState, persist: boolean): void {
@@ -518,6 +531,56 @@ const fxStore = {
     fxListeners.add(fn);
     return () => {
       fxListeners.delete(fn);
+    };
+  },
+};
+
+/**
+ * Les scenes A et B du motif (2026-10-27, la phase 2) : un troisieme sous-store, a cote de fx, avec SES ecouteurs. Une
+ * valeur de scene ecrite ne previent jamais pattern.subscribe (ni l'horloge, ni le Dock, ni les pas, ni la couche de
+ * saisie) ; la sauvegarde est la meme (300 ms apres le dernier changement). at (replace) : l'heure audio de la mesure ou
+ * elles arrivent (un changement de pattern a la mesure), absente : tout de suite.
+ */
+const scenesStore = {
+  get: (): SceneSet => scenesState,
+  /** Une valeur de 0 a 1 dans une scene : 'same' rien ne change, 'full' la scene a deja ses 64 valeurs. */
+  write(w: SceneId, id: string, v01: number): 'ok' | 'same' | 'full' {
+    const next = withScene(scenesState, w, id, v01);
+    if (next === 'full') return 'full';
+    if (next === scenesState) return 'same';
+    scenesState = next;
+    scheduleSave();
+    sceneListeners.forEach((l) => l());
+    return 'ok';
+  },
+  /** Une valeur retiree (deux tapes sur un potard, scene armee). */
+  drop(w: SceneId, id: string): void {
+    const next = withoutScene(scenesState, w, id);
+    if (next === scenesState) return;
+    scenesState = next;
+    scheduleSave();
+    sceneListeners.forEach((l) => l());
+  },
+  /** SCENE + CLEAR : la scene videe. */
+  clear(w: SceneId): void {
+    const next = clearScene(scenesState, w);
+    if (next === scenesState) return;
+    scenesState = next;
+    scheduleSave();
+    sceneListeners.forEach((l) => l());
+  },
+  /** Les scenes d'un autre pattern, d'un preset, de l'UNDO ; at : l'heure audio de la mesure (le changement a la mesure). */
+  replace(next: SceneSet, at?: number): void {
+    const n = sameScenes(next, NO_SCENES) ? NO_SCENES : next;
+    if (n === scenesState || sameScenes(n, scenesState)) return;
+    scenesState = n;
+    scheduleSave();
+    sceneListeners.forEach((l) => l(at));
+  },
+  subscribe(fn: (at?: number) => void): () => void {
+    sceneListeners.add(fn);
+    return () => {
+      sceneListeners.delete(fn);
     };
   },
 };
@@ -578,10 +641,12 @@ export const pattern = {
     const b = clampBpm(bpm);
     if (b !== state.bpm) commit({ ...state, bpm: b }, true);
   },
-  serialize: (): StoredPattern => serialize(state, fxState, state.locks),
+  serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState),
   flush,
   /** SWING, DIST, REVERB, DELAY, CHORUS (0 a 1) : get, set(patch), subscribe. */
   fx: fxStore,
+  /** Les scenes A et B (2026-10-27) : get, write, drop, clear, replace(next, at), subscribe. */
+  scenes: scenesStore,
 };
 
 if (typeof window !== 'undefined') window.addEventListener('pagehide', flush);

@@ -87,6 +87,8 @@ export interface FpScene {
   readonly letter: 'A' | 'B';
   readonly title: string;
   readonly hotspot: string;
+  /** 1 : agit (SCENE A et B depuis la phase 2, le 2026-10-27, P2-19) ; 2 : visible et inerte */
+  readonly phase: 1 | 2;
 }
 
 export const RYTM_FACEPLATE = {
@@ -150,8 +152,8 @@ export const RYTM_FACEPLATE = {
     ] as readonly FpButton[],
   },
   scenes: {
-    a: { rect: { x: 180, y: 84, w: 12, h: 12 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a' } as FpScene,
-    b: { rect: { x: 236, y: 84, w: 12, h: 12 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b' } as FpScene,
+    a: { rect: { x: 180, y: 84, w: 12, h: 12 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a', phase: 1 } as FpScene,
+    b: { rect: { x: 236, y: 84, w: 12, h: 12 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b', phase: 1 } as FpScene,
     /** proposition : la lettre imprimee sur SCENE A et B (sa hauteur de capitale, la largeur de son impression) ; la touche, celle des boutons */
     legend: { cap: 3.2, w: 6 },
     /**

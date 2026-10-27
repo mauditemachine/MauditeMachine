@@ -39,6 +39,9 @@
 import { knobBlock, openToggle } from './actions';
 import { faceKnobs } from './rytm/faceKnobs';
 import { trk, trkDebug } from './state/trk';
+import { allBindings, sceneRole, type SceneBinding, type SceneRole } from './rytm/sceneParams';
+import { morph } from './audio/morph';
+import { sceneCtl } from './state/sceneCtl';
 import { clock, clockDebug, type ClockDebug } from './audio/clock';
 import { audioDebug, type AudioDebug } from './audio/drums';
 import { pattern, type StoredPattern } from './audio/pattern';
@@ -166,6 +169,8 @@ export interface V4Debug {
   /** l'orbite de la camera (null sans Stage) */
   readonly orbit: OrbitDebug | null;
   readonly audio: AudioDebug;
+  /** la couche de saisie (2026-10-27) : hitRenders, ses rendus React depuis le chargement */
+  readonly ui: { readonly hitRenders: number };
   /** horloge : scheduled (64 derniers pas), drift(), resetStats() */
   readonly clock: ClockDebug;
   /** le store du motif (select, toggle, clear, setBpm, flush), pour les tests */
@@ -268,6 +273,15 @@ export interface V4Debug {
     /** TRK (2026-10-27, state/trk.ts) : mode (off, held, latched, closing), holders, used, timers (les fermetures) */
     readonly trk: typeof trkDebug;
     trkStore: typeof trk;
+    /** les liaisons des cibles qui se morphent (2026-10-27, rytm/sceneParams.ts), et le role d'une cible */
+    bindings(): SceneBinding[];
+    sceneRole(id: string): SceneRole;
+    /** les scenes A et B du motif (2026-10-27, audio/pattern.ts pattern.scenes) : get, write, drop, clear, replace, subscribe */
+    scenes: typeof pattern.scenes;
+    /** le morphing (2026-10-27, audio/morph.ts) : fx(), voice(i), stretch(), hit(), played01(id), has(), hitSig(), stats */
+    morph: typeof morph;
+    /** le crossfader et l'armement (2026-10-27, state/sceneCtl.ts) : x(), setX(x, src), gesture(on, src), get(), armDown... */
+    ctl: typeof sceneCtl;
   };
   /**
    * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
@@ -348,6 +362,11 @@ export function installDebug(src: DebugSource): () => void {
       };
     },
     audio: audioDebug,
+    ui: {
+      get hitRenders() {
+        return hitDebug.renders;
+      },
+    },
     clock: clockDebug,
     pattern,
     get pads() {
@@ -484,6 +503,11 @@ export function installDebug(src: DebugSource): () => void {
       knobBlock,
       trk: trkDebug,
       trkStore: trk,
+      bindings: () => allBindings().map((b) => ({ ...b })),
+      sceneRole,
+      scenes: pattern.scenes,
+      morph,
+      ctl: sceneCtl,
       faceCells(screen, inst, law = FACE_LAW) {
         const slots = pageSlots(screen, inst === undefined ? pattern.get().instrument : inst);
         return {

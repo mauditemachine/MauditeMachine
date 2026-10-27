@@ -646,15 +646,18 @@ export const shots = {
    * L'echantillon d'un coup : sa variante (au hasard, jamais la derniere),
    * son STRETCH, sa hauteur (pf, TONE). sync : jamais d'approximation
    * (rendu hors ligne). null : un son muet, ou rien de pret pour ce son (le
-   * coup ne joue pas, son son passe en tete de file).
+   * coup ne joue pas, son son passe en tete de file). lazy (2026-10-27, une
+   * hauteur menee par le crossfader) : le plus proche joue et le calcul se
+   * met en file, sans substitute (son arrivee ne re-programme rien).
    */
-  get(id: ShotId, ts: number, pf: number, sr: number, sync = false, ov: ShotOverride | null = null): ShotPlay | null {
+  get(id: ShotId, ts: number, pf: number, sr: number, sync = false, ov: ShotOverride | null = null, lazy = false): ShotPlay | null {
     const tw = ov ? ov.tw : kit.tweak(id);
     // Un son muet (OFF, les deux couches a 0) : rien, jamais un autre son a sa place (2026-10-21)
     if (silentTweak(tw)) return null;
-    // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien
+    // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien ; une hauteur menee par
+    // le crossfader en direct aussi (2026-10-27 : un balayage complet demande au plus 57 calculs, pas 57 par variante)
     let v = 0;
-    if (!ov) {
+    if (!ov && !(lazy && !sync)) {
       const n = variantsOf(id);
       v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
       if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;
@@ -675,7 +678,7 @@ export const shots = {
     }
     // Le meme son deja calcule a une autre hauteur, un autre STRETCH, une autre variante ou frequence
     const near = nearest(id, sig, k, pk, v, sr);
-    substitute(id);
+    if (!lazy) substitute(id);
     if (near) {
       stats.nearest += 1;
       enqueue(id, k, v, sr, pk, false, ov);

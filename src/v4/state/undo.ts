@@ -29,6 +29,7 @@ import { mix } from '../audio/drums';
 import { kit } from '../audio/kit';
 import { INSTRUMENTS, STEP_COUNT, pattern } from '../audio/pattern';
 import { voiceFx } from '../audio/voicefx';
+import { toStored } from '../rytm/sceneData';
 import { bassParams } from '../bass/params';
 import { BASS_STEPS, bassState, emptyStep } from '../bass/state';
 import { arp } from '../voyager/arp';
@@ -102,7 +103,7 @@ function slotOf(m: PresetMachine): number | null {
 
 type Part = Record<string, unknown>;
 /** Les cles d'un etat qui appartiennent a l'emplacement (le motif et ses verrous ; la ligne, sa recette, sa longueur). */
-const PART_KEYS: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: ['steps', 'locks'], bass: ['steps', 'recipe', 'len'], voy: [] };
+const PART_KEYS: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: ['steps', 'locks', 'scenes'], bass: ['steps', 'recipe', 'len'], voy: [] };
 
 function partOf(m: PresetMachine, d: Snap): Part {
   const o = d as unknown as Part;
@@ -124,7 +125,10 @@ function storedPart(m: PresetMachine, slot: number): Part {
     const p = patterns.get();
     const steps = p.slots[slot] ?? (Object.fromEntries(INSTRUMENTS.map((k) => [k, '0'.repeat(STEP_COUNT)])) as Record<string, string>);
     const locks = p.locks[slot];
-    return { steps: { ...steps }, ...(locks ? { locks: JSON.parse(JSON.stringify(locks)) as unknown } : {}) };
+    // Ses scenes (2026-10-27) : elles appartiennent a l'emplacement comme ses verrous
+    const scenes = p.scenes[slot];
+    const sc = scenes ? toStored(scenes) : undefined;
+    return { steps: { ...steps }, ...(locks ? { locks: JSON.parse(JSON.stringify(locks)) as unknown } : {}), ...(sc ? { scenes: sc } : {}) };
   }
   const b = bassSlots?.get();
   const steps = b?.slots[slot];
@@ -142,7 +146,7 @@ function storedPart(m: PresetMachine, slot: number): Part {
 function sigOf(m: PresetMachine): readonly unknown[] {
   if (m === 'mm808') {
     const p = pattern.get();
-    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get()];
+    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get(), pattern.scenes.get()];
   }
   if (m === 'voy') return [voyParams.get(), seq.get(), arp.get().prog];
   const s = bassState.get();
@@ -523,7 +527,7 @@ function safeWatch(m: PresetMachine, stores: readonly { subscribe(fn: () => void
 
 if (typeof window !== 'undefined') {
   load();
-  safeWatch('mm808', [pattern, pattern.fx, mix, voiceFx, kit, patterns]);
+  safeWatch('mm808', [pattern, pattern.fx, mix, voiceFx, kit, patterns, pattern.scenes]);
   if (MS.includes('voy')) safeWatch('voy', [voyParams, seq, arp]);
   if (MS.includes('bass')) {
     safeWatch('bass', [bassParams, bassState]);

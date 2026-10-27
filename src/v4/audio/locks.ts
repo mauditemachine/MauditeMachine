@@ -65,6 +65,7 @@
  */
 
 import type { Inst } from '../theme';
+import type { KitKnob, Layer } from './kit';
 
 /**
  * Les reglages verrouillables (R2, R3) : tous coup par coup. L'etape 2 de la
@@ -90,6 +91,24 @@ export type LayerLockId = 'syn' | 'slev' | 'stune' | 'sfine' | 'sstart' | 'slen'
 export const LAYER_LOCK_IDS: readonly LayerLockId[] = ['syn', 'slev', 'stune', 'sfine', 'sstart', 'slen', 'srev'];
 export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, ...LAYER_LOCK_IDS, 'delay', 'reverb', ...VOICE_LOCK_IDS];
 export const isLockId = (v: unknown): v is LockId => typeof v === 'string' && (LOCK_IDS as readonly string[]).includes(v);
+/**
+ * Le potard du kit de chaque verrou de la machine (revue de R2 ; SWEEP et la caisse claire depuis R3) ; le reglage de
+ * couche de chaque verrou de couche (R3). Venus de audio/drums.ts le 2026-10-27 (les scenes les lisent aussi ; drums.ts
+ * les re-exporte, les memes valeurs).
+ */
+export const KNOB_OF: Readonly<Record<KitLockId, KitKnob>> = {
+  ktune: 'tune',
+  kattack: 'attack',
+  kdecay: 'decay',
+  kdrive: 'drive',
+  snappy: 'snappy',
+  gate: 'gate',
+  ksweep: 'sweep',
+  sdtune: 'sdtune',
+  sddecay: 'sddecay',
+  sdtone: 'sdtone',
+};
+export const LAYER_OF: Readonly<Record<LayerLockId, keyof Layer>> = { syn: 'syn', slev: 'lev', stune: 'tune', sfine: 'fine', sstart: 'start', slen: 'len', srev: 'rev' };
 export const isKitLock = (v: unknown): v is KitLockId => typeof v === 'string' && (KIT_LOCK_IDS as readonly string[]).includes(v);
 export const isLayerLock = (v: unknown): v is LayerLockId => typeof v === 'string' && (LAYER_LOCK_IDS as readonly string[]).includes(v);
 

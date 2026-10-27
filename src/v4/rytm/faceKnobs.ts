@@ -13,7 +13,7 @@
  * l'ecran glisse, une autre cible MIDI).
  */
 
-import { curScreen, dialRange, dialSteps, knobBlock, knobDialOf, lockReadStep, pageKnobCourse, pageKnobLive, pageLockView, type DialId } from '../actions';
+import { curScreen, dialRange, dialSteps, knobBlock, knobDialOf, lockReadStep, pageKnobLive, pageKnobShown, pageLockView, sceneIdOfDial, type DialId } from '../actions';
 import { mix } from '../audio/drums';
 import { kit } from '../audio/kit';
 import { pattern } from '../audio/pattern';
@@ -23,8 +23,11 @@ import { faceTouch } from '../state/ctl';
 import { editor } from '../state/editor';
 import { rytmLock } from '../state/rytmLock';
 import { rytmPage } from '../state/rytmPage';
+import { sceneCtl } from '../state/sceneCtl';
 import { PAGE_KNOB_LETTERS, type KnobTone } from '../theme';
 import { pageSlots } from './pages';
+import type { SceneId } from './sceneData';
+import { sceneRole } from './sceneParams';
 
 export type { KnobTone };
 
@@ -48,9 +51,12 @@ export interface FaceKnobView {
   /** ses crans (0 : continu) : les crans virtuels du potard motorise (phase 3) */
   readonly steps: number;
   readonly tone: KnobTone;
+  /** son id absolu dans le registre (2026-10-27, sceneIdOfDial : la cle d'une scene, le pont du boitier) ; null : aucun */
+  readonly target: string | null;
 }
 
-export type KnobCause = 'pot' | 'page' | 'voice' | 'lock' | 'value';
+/** scene (2026-10-27, P2-19) : une scene armee ou desarmee, les teintes et les capuchons vont a la valeur de la scene */
+export type KnobCause = 'pot' | 'page' | 'voice' | 'lock' | 'scene' | 'value';
 export interface FaceKnobChange {
   readonly cause: KnobCause;
   /** les potards dont la vue a change */
@@ -75,6 +81,7 @@ const views: Mut[] = Array.from({ length: N }, (_, k) => ({
   bipolar: false,
   steps: 0,
   tone: 'off',
+  target: null,
 }));
 
 const listeners = new Set<(c: FaceKnobChange) => void>();
@@ -86,6 +93,9 @@ let sigScreen = '';
 let sigVoice = '';
 let sigLock = '';
 let sigRest = '';
+let sigArm = '';
+/** Les scenes du motif au dernier calcul de la partie fixe : armee, une cle ecrite change la teinte (unlocked, scene). */
+let sigScenes: unknown = null;
 /** Les verrous du motif au dernier calcul de la partie fixe : en P-LOCK, un verrou pose change la teinte (unlocked, lock). */
 let sigLocks: unknown = null;
 /** les dernieres durees d'un calcul (ms), pour le debug (__v4.knobs.ms) */
@@ -103,9 +113,12 @@ function fixPart(v: Mut): boolean {
   const [lo] = state === 'live' ? dialRange(dial) : [0];
   const bipolar = lo < 0;
   const steps = state === 'live' ? dialSteps(dial) : 0;
-  const tone: KnobTone = state !== 'live' || !slot ? 'off' : lockTone(slot, block);
+  const w = sceneCtl.get().armed;
+  const tone: KnobTone = state !== 'live' || !slot ? (w && slot && slot.label && !slot.graph ? 'dim' : 'off') : w ? sceneTone(dial, w) : lockTone(slot, block);
+  const target = block === null ? null : sceneIdOfDial(dial);
   const alias = block !== null && block !== v.k;
-  const changed = v.block !== block || v.dial !== dial || v.state !== state || v.label !== label || v.bipolar !== bipolar || v.steps !== steps || v.tone !== tone || v.alias !== alias;
+  const changed = v.block !== block || v.dial !== dial || v.state !== state || v.label !== label || v.bipolar !== bipolar || v.steps !== steps || v.tone !== tone || v.alias !== alias || v.target !== target;
+  v.target = target;
   v.block = block;
   v.dial = dial;
   v.state = state;
@@ -129,9 +142,27 @@ function lockTone(slot: { scope?: string; lock?: string | null }, block: number 
   return pageLockView(block, step) ? 'lock' : 'unlocked';
 }
 
-/** La partie vive (pos) ; un potard sans rien a regler garde sa place (un moteur ne bouge pas pour rien), off retombe a 0. */
+/**
+ * La teinte d'un potard pendant qu'une scene est armee (2026-10-27, P2-19) : scene, une cle de la scene armee ; unlocked,
+ * un reglage qui se morphe pas encore dans la scene (le tourner la cree) ; dim, NO SCENE (un choix de son, un reglage
+ * lourd avant P2-22) ; base, ce qui passe a la base (TEMPO, MASTER).
+ */
+function sceneTone(dial: DialId, w: SceneId): KnobTone {
+  const id = sceneIdOfDial(dial);
+  if (!id) return 'dim';
+  const role = sceneRole(id);
+  if (role === 'passthrough') return 'base';
+  if (role !== 'sceneable') return 'dim';
+  return pattern.scenes.get()[w][id] !== undefined ? 'scene' : 'unlocked';
+}
+
+/**
+ * La partie vive (pos) ; un potard sans rien a regler garde sa place (un moteur ne bouge pas pour rien), off retombe a 0.
+ * Ce qui se montre (2026-10-27) : armee, la valeur de la scene ; en P-LOCK, le verrou ; sinon ce qui joue (les scenes au
+ * x du crossfader) ; aucun texte calcule ici (l'etat vivant vient de la partie fixe).
+ */
 function livePart(v: Mut): boolean {
-  const pos = v.state === 'live' && v.block !== null ? pageKnobCourse(v.block) : v.state === 'off' ? 0 : v.pos;
+  const pos = v.state === 'live' && v.block !== null ? pageKnobShown(v.block, true) : v.state === 'off' ? 0 : v.pos;
   if (pos === v.pos) return false;
   v.pos = pos;
   return true;
@@ -147,15 +178,20 @@ function recompute(): FaceKnobChange | null {
   const voice = inst ?? '-';
   const lock = `${lk.step}|${lk.latched ? 1 : 0}|${lk.held.join(',')}`;
   const rest = `${editor.get() ?? '-'}|${samplesVersion()}`;
-  // En P-LOCK, un verrou pose ou retire change la teinte : les verrous comptent dans la signature
+  const am = sceneCtl.get();
+  const arm = `${am.armed ?? '-'}|${am.how ?? '-'}`;
+  // En P-LOCK, un verrou pose ou retire change la teinte : les verrous comptent dans la signature ; une scene armee, ses cles
   const locks = lk.step >= 0 ? pattern.get().locks : sigLocks;
-  const fixed = screen !== sigScreen || voice !== sigVoice || lock !== sigLock || rest !== sigRest || locks !== sigLocks;
+  const scenes = am.armed ? pattern.scenes.get() : sigScenes;
+  const fixed = screen !== sigScreen || voice !== sigVoice || lock !== sigLock || rest !== sigRest || locks !== sigLocks || arm !== sigArm || scenes !== sigScenes;
   sigLocks = locks;
-  const cause: KnobCause | null = screen !== sigScreen ? 'page' : voice !== sigVoice ? 'voice' : lock !== sigLock ? 'lock' : null;
+  sigScenes = scenes;
+  const cause: KnobCause | null = screen !== sigScreen ? 'page' : voice !== sigVoice ? 'voice' : lock !== sigLock ? 'lock' : arm !== sigArm ? 'scene' : null;
   sigScreen = screen;
   sigVoice = voice;
   sigLock = lock;
   sigRest = rest;
+  sigArm = arm;
   const moved: number[] = [];
   let blocksMoved = false;
   for (const v of views) {
@@ -170,14 +206,14 @@ function recompute(): FaceKnobChange | null {
   if (moved.length === 0) return null;
   version += 1;
   const now = performance.now();
-  const c: KnobCause = blocksMoved && cause !== 'lock' ? (cause === 'voice' ? 'voice' : 'page') : cause ?? (moved.some((k) => faceTouch.recent(k, POT_MS, now)) ? 'pot' : 'value');
+  const c: KnobCause = blocksMoved && cause !== 'lock' && cause !== 'scene' ? (cause === 'voice' ? 'voice' : 'page') : cause ?? (moved.some((k) => faceTouch.recent(k, POT_MS, now)) ? 'pot' : 'value');
   lastCause = c;
   return { cause: c, moved };
 }
 
 /** Un changement lu (get) avant la microtache : il part quand meme avec elle, fondu avec les suivants. */
 let pending: FaceKnobChange | null = null;
-const CAUSE_ORDER: readonly KnobCause[] = ['page', 'voice', 'lock', 'pot', 'value'];
+const CAUSE_ORDER: readonly KnobCause[] = ['page', 'voice', 'lock', 'scene', 'pot', 'value'];
 
 function merge(a: FaceKnobChange | null, b: FaceKnobChange | null): FaceKnobChange | null {
   if (!a) return b;
@@ -218,6 +254,10 @@ function start(): void {
   mix.subscribe(poke);
   samplesChanged.subscribe(poke);
   editor.subscribe(poke);
+  // Les scenes (2026-10-27) : l'armement, leurs valeurs, le crossfader (ce qui joue)
+  pattern.scenes.subscribe(poke);
+  sceneCtl.subscribe(poke);
+  sceneCtl.onX(poke);
 }
 
 export const faceKnobs = {

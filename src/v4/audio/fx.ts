@@ -30,7 +30,7 @@
  */
 
 import { glide, pointAt } from './glide';
-import { Insert, UNLINK_MS } from './insert';
+import { Insert, UNLINK_MS, type InsertInfo } from './insert';
 
 export { GLIDE_S, glide } from './glide';
 
@@ -143,10 +143,17 @@ export interface DriveInfo {
   driveOn: boolean;
   /** branches debranchees depuis la creation */
   unlinks: number;
+  /** tenue par les scenes (2026-10-27) */
+  held?: boolean;
 }
 
 export interface FxChain {
   setDrive(d: number): void;
+  /**
+   * Tenue (2026-10-27, les scenes) : tant qu'une scene du motif mene DIST, la branche mouillee reste reliee meme a 0
+   * (le mouille a 0 : le meme signal), un crossfader qui passe par 0 ne la debranche ni ne la rebranche.
+   */
+  hold(on: boolean): void;
   /** DIST TONE (2026-10-10) : le passe-bas du mouille (Hz) ; DIST_OPEN_HZ et plus : ouvert, le son d'avant */
   setTone(hz: number): void;
   info(): DriveInfo;
@@ -196,12 +203,13 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
   let driveOn = false;
   let driveTimer: ReturnType<typeof setTimeout> | undefined;
   let unlinks = 0;
+  let held = false;
 
   const setDrive = (d: number): void => {
     if (d === drive) return;
     drive = d;
     if (d > 0) {
-      clearTimeout(driveTimer);
+      if (driveTimer !== undefined) clearTimeout(driveTimer);
       driveTimer = undefined;
       if (!driveOn) {
         io.bus.connect(pre);
@@ -212,15 +220,32 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
     glide(dry.gain, m.dry, c);
     glide(pre.gain, m.pre, c);
     glide(wet.gain, m.wet, c);
-    if (d > 0 || !driveOn) return;
+    if (d > 0 || !driveOn || held) return;
+    unlinkLater();
+  };
+
+  function unlinkLater(): void {
     clearTimeout(driveTimer);
     driveTimer = setTimeout(() => {
       driveTimer = undefined;
-      if (drive > 0 || !driveOn) return;
+      if (drive > 0 || !driveOn || held) return;
       io.bus.disconnect(pre);
       driveOn = false;
       unlinks += 1;
     }, UNLINK_MS);
+  }
+
+  const hold = (on: boolean): void => {
+    if (on === held) return;
+    held = on;
+    if (on) {
+      clearTimeout(driveTimer);
+      driveTimer = undefined;
+      if (!driveOn) {
+        io.bus.connect(pre);
+        driveOn = true;
+      }
+    } else if (drive === 0 && driveOn) unlinkLater();
   };
 
   setDrive(drive0);
@@ -232,7 +257,7 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
     glide(lp.frequency, t, c);
   };
 
-  return { setDrive, setTone, info: () => ({ drive, toneHz, driveOn, unlinks }) };
+  return { setDrive, hold, setTone, info: () => ({ drive, toneHz, driveOn, unlinks, held }) };
 }
 
 /** DIST TONE en Hz : 16 kHz et plus (ou NaN), le passe-bas pose a Nyquist (ouvert, exactement 1) ; sinon borne. */
@@ -255,6 +280,8 @@ export interface DriveStage {
   setTone(hz: number): void;
   /** Appele apres une rampe de set() (elle efface ce qui etait programme) : audio/lockfx.ts repose ses points. */
   onRetime: (() => void) | null;
+  /** l'insert (2026-10-27, debug : tenu par les scenes, ses debranchements) */
+  insert(): InsertInfo & { held: boolean };
 }
 
 export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = DIST_OPEN_HZ): DriveStage {
@@ -276,6 +303,14 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = 
   const insert = new Insert(c, input, out);
   insert.setBranch(pre, lp);
   let drive = 0;
+  /** DIST TONE change pendant le repos : pose sur le filtre avant que la branche se relie */
+  let toneLate = false;
+  const toneNow = (): void => {
+    if (!toneLate) return;
+    toneLate = false;
+    lp.frequency.cancelScheduledValues(0);
+    lp.frequency.value = toneHz;
+  };
   const stage: DriveStage = {
     input,
     onRetime: null,
@@ -287,12 +322,15 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = 
       else {
         const m = driveMix(t);
         glide(pre.gain, m.pre, c);
+        toneNow();
         insert.engage(m.dry, m.wet);
       }
       stage.onRetime?.();
     },
     value: () => drive,
+    insert: () => ({ ...insert.info(), held: insert.isHeld }),
     lockHold(on: boolean) {
+      if (on) toneNow();
       insert.hold(on);
       // Lache (le dernier verrou DIST retire, revue du 2026-10-09) : l'entree revient a celle de la voix, les points s'effacent
       if (!on) glide(pre.gain, driveMix(drive).pre, c);
@@ -314,6 +352,12 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = 
       const v = distToneHz(c, hz);
       if (v === toneHz) return;
       toneHz = v;
+      // Au repos (lien direct, la branche debranchee) rien ne passe par ce filtre : la valeur attend que la branche se
+      // relie (2026-10-27, les scenes : DIST TONE suivi au crossfader ne touche plus huit filtres muets a chaque pas)
+      if (insert.isDirect) {
+        toneLate = true;
+        return;
+      }
       glide(lp.frequency, v, c);
     },
   };

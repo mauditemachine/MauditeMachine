@@ -133,7 +133,7 @@ export const RYTM_PLATE_IDS = ['r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:sn
  * La face V.4.0 du desktop (2026-10-27) : TRK, SCENE A et B et le crossfader,
  * visibles et inertes en phase 1 (leur carte dit BIENTOT).
  */
-export const RYTM_SOON_IDS = ['soon:prob', 'soon:micro', 'soon:cond', 'soon:rtrg', 'soon:rtim', 'soon:br', 'soon:loop', 'soon:scene', 'soon:xfade'] as const;
+export const RYTM_SOON_IDS = ['soon:prob', 'soon:micro', 'soon:cond', 'soon:rtrg', 'soon:rtim', 'soon:br', 'soon:loop', 'soon:xfade'] as const;
 export type RytmSoonId = (typeof RYTM_SOON_IDS)[number];
 
 /**
@@ -182,6 +182,8 @@ export const RYTM_CONTROL_IDS = [
   'knob:empty',
   // TRK, la touche des voix (2026-10-27, la phase 2)
   'trk',
+  // SCENE A et B (2026-10-27, la phase 2)
+  'scene',
 ] as const;
 export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
 
@@ -217,8 +219,9 @@ const OLD_IDS: Readonly<Record<string, RytmInfoId>> = {
   'soon:fenv': 'vfenv',
   'soon:attack': 'vatk',
   'soon:hold': 'vhold',
-  // TRK agit depuis la phase 2 (2026-10-27)
+  // TRK agit depuis la phase 2 (2026-10-27), SCENE A et B aussi
   'soon:trk': 'trk',
+  'soon:scene': 'scene',
 };
 /** Un id de carte, d'aujourd'hui ou d'avant l'etape 2 ; null : inconnu. */
 export const rytmInfoIdOf = (s: unknown): RytmInfoId | null => (isRytmInfoId(s) ? s : typeof s === 'string' && Object.prototype.hasOwnProperty.call(OLD_IDS, s) ? OLD_IDS[s] : null);
@@ -437,7 +440,7 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   // La face V.4.0 du desktop (2026-10-27) : TRK (sa carte depuis la phase 2) ; les scenes et le crossfader, inertes, disent
   // qu'ils viennent
   if (hotspot === 'trk') return { id: 'trk' };
-  if (hotspot === 'scene-a' || hotspot === 'scene-b') return { id: 'soon:scene' };
+  if (hotspot === 'scene-a' || hotspot === 'scene-b') return { id: 'scene' };
   if (hotspot === 'xfade') return { id: 'soon:xfade' };
   if (hotspot === 'seek') return { id: 'seek' };
   if (hotspot === 'lcd-open') return { id: 'screen' };

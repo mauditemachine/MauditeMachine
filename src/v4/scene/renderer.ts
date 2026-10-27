@@ -56,6 +56,7 @@ import type { ShotId } from '../audio/shotsdsp';
 import { machinePlaying, onPlayStart } from '../state/playLock';
 import { reserve } from '../audio/sched';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
+import { FLAGS } from '../state/flags';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { PATTERN_SLOTS, patterns } from '../state/patterns';
@@ -143,6 +144,7 @@ import { anyDialValue, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { trk } from '../state/trk';
+import { sceneCtl } from '../state/sceneCtl';
 import { trkLeds } from '../rytm/stepLeds';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
@@ -502,6 +504,7 @@ export class Stage {
   /** les potards de la face qui suivent la page (2026-10-27, desktop) ; rien au telephone */
   private unsubFace: () => void = () => {};
   private unsubTrk: () => void = () => {};
+  private unsubScene: () => void = () => {};
   /** les capuchons qui vont a leur valeur (2026-10-27, les moteurs) : leur nombre ; la passe d'ombre attendue apres un glisser */
   private motors = 0;
   private knobShadowTimer = 0;
@@ -1149,6 +1152,10 @@ export class Stage {
     if (this.faceKeys) {
       this.unsubTrk = trk.subscribe(this.syncTrk);
       this.syncTrk();
+      // SCENE A et B (2026-10-27) : la touche armee allumee et son cadre, leurs temoins (des valeurs, ce qu'on en entend)
+      const offs = [sceneCtl.subscribe(this.syncScene), pattern.scenes.subscribe(this.syncScene), sceneCtl.onX(this.syncScene)];
+      this.unsubScene = () => offs.forEach((o) => o());
+      this.syncScene();
     }
     // Section deja ouverte (remontage) : etat pose sans animation
     this.applySection(true);
@@ -2518,13 +2525,24 @@ export class Stage {
     }
   }
 
+  /**
+   * Les controles de cadence et de charge (2026-10-27, la phase 2, ?debug=1 seulement) : la boucle tourne, ses animateurs,
+   * les anneaux, les temoins et l'ecran se peignent et chaque image se compte, sans l'appel de dessin WebGL lui-meme
+   * (sous swiftshader, le rendu logiciel des tests, une image coute 0.6 s du fil principal ; sur une vraie carte, quelques ms).
+   */
+  private skipDraw = false;
+  setSkipDraw(on: boolean): void {
+    if (!FLAGS.debug) throw new Error('setSkipDraw: ?debug=1 only');
+    this.skipDraw = on;
+  }
+
   private render(now: number): void {
     if (!this.started || this.paused || this.contextLost || this.disposed) return;
     // Passe d'ombre seulement si une ombre a pu changer (autoUpdate coupe)
     const shadow = this.shadowDirty;
     this.renderer.shadowMap.needsUpdate = shadow;
     this.shadowDirty = false;
-    this.renderer.render(this.scene, this.camera);
+    if (!this.skipDraw) this.renderer.render(this.scene, this.camera);
     this.dirty = false;
     const r = this.renderer.info.render;
     const s = this.stats;
@@ -3006,7 +3024,7 @@ export class Stage {
     const e = this.encoders;
     // Une page, une voix, le P-LOCK (2026-10-27) : les capuchons vont a leur valeur comme des potards motorises, sans passe
     // d'ombre en route (une seule a l'arrivee) ; un potard tenu ne bouge pas sous la main
-    const motor = (c.cause === 'page' || c.cause === 'voice' || c.cause === 'lock') && !motion.reduced();
+    const motor = (c.cause === 'page' || c.cause === 'voice' || c.cause === 'lock' || c.cause === 'scene') && !motion.reduced();
     const now = performance.now();
     let ring = false;
     let cap = false;
@@ -3223,11 +3241,29 @@ export class Stage {
     if (m === 'latched') this.kick();
   };
 
-  /** Animateur : TRK gardee, son temoin clignote (une image a chaque phase, rien sinon ; rien quand rien ne clignote). */
+  /**
+   * SCENE A et B (2026-10-27) : la touche de la scene armee allumee, son cadre fixe tenue, clignotant gardee ; leurs temoins
+   * eteints quand la scene est vide, sinon a 0.15 + 0.85 x ce qu'on en entend (1 - x pour A, x pour B).
+   */
+  private syncScene = (): void => {
+    const fk = this.faceKeys;
+    if (!fk || this.disposed) return;
+    const a = sceneCtl.get();
+    const s = pattern.scenes.get();
+    let changed = fk.setScene(a.armed, a.how);
+    if (fk.setSceneLeds(Object.keys(s.a).length > 0, Object.keys(s.b).length > 0, sceneCtl.x())) changed = true;
+    if (changed) this.repaint();
+    if (a.how === 'latched') this.kick();
+  };
+
+  /** Animateur : TRK ou une scene gardee, son temoin ou son cadre clignote (une image a chaque phase, rien sinon). */
   private faceBlink = (now: number): 'paint' | 'poll' | false => {
     const fk = this.faceKeys;
-    if (!fk || !fk.trkBlinking) return false;
-    return fk.blinkTrk(now, Stage.MODE_BLINK_MS) ? 'paint' : 'poll';
+    if (!fk || (!fk.trkBlinking && !fk.sceneBlinking)) return false;
+    let paint = false;
+    if (fk.trkBlinking && fk.blinkTrk(now, Stage.MODE_BLINK_MS)) paint = true;
+    if (fk.sceneBlinking && fk.blinkScene(now, Stage.MODE_BLINK_MS)) paint = true;
+    return paint ? 'paint' : 'poll';
   };
 
   /** Le clignotement de MUTE et SOLO en attente d'une voix (2026-10-09) : 320 ms allume, 320 ms eteint ; a peine : 0.45. */
@@ -3398,6 +3434,7 @@ export class Stage {
     this.unsubMix();
     this.unsubFace();
     this.unsubTrk();
+    this.unsubScene();
     window.clearTimeout(this.knobShadowTimer);
     this.unsubSection();
     this.unsubExplode();

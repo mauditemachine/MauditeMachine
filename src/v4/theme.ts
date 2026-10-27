@@ -784,7 +784,16 @@ export const KNOB_RING = {
   airDeg: RYTM_FACEPLATE.knobs.ring.airDeg,
   y: 0.006,
   center: 0.35,
+  /** les scenes (2026-10-27, la phase 2) : les segments eteints entre la course de A et celle de B luisent a cette part */
+  band: 0.18,
 } as const;
+
+/**
+ * Le crossfader (2026-10-27, la phase 2) : resyncMs, une re-programmation bornee pendant un glisser (pointeur fin) ;
+ * settleMs, la fin d'un geste MIDI (le silence) ; screenGapMs, l'ecran redessine au plus toutes les 100 ms pendant un
+ * glisser ; readoutMs, la ligne XFADE A 70 · B 30 au plus toutes les 120 ms.
+ */
+export const XFADE_UI = { resyncMs: 240, settleMs: 120, screenGapMs: 100, readoutMs: 120 } as const;
 
 /**
  * La part allumee du segment j (0 a 26) pour une course t : de 0 a t ; a zero au centre, du milieu a t, le segment du
@@ -809,7 +818,7 @@ export function ringLit(j: number, t: number, bipolar: boolean): number {
  * (il lit la valeur de la voix, le tourner pose le verrou), global, l'orange a 30 % (un FX global ou un reglage sans
  * verrou : il refuse le P-LOCK).
  */
-export type KnobTone = 'base' | 'off' | 'lock' | 'unlocked' | 'global';
+export type KnobTone = 'base' | 'off' | 'lock' | 'unlocked' | 'global' | 'scene' | 'dim';
 /** L'ambre du P-LOCK sur la machine claire (le jaune vif s'y perd). */
 const RING_LOCK_LIGHT = '#E09A10';
 export interface RingTone {
@@ -822,6 +831,10 @@ export const RING_TONE: Record<KnobTone, RingTone> = {
   lock: { on: HEX.yellowHi, k: 1 },
   unlocked: { on: HEX.ledSet, k: 0.45 },
   global: { on: HEX.ledSet, k: 0.3 },
+  // Une scene armee (2026-10-27, P2-19) : scene, l'os de la DA sur la machine noire, l'encre sur la claire (le reglage est
+  // une cle de la scene armee) ; dim, un bloc NO SCENE (un choix de son)
+  scene: { on: '#F6F1E7', k: 1 },
+  dim: { on: HEX.ledSet, k: 0.15 },
 };
 
 /**
@@ -1635,17 +1648,18 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
       ...Object.fromEntries(RYTM_FACEPLATE.buttons.keys.map((b) => [b.hotspot, b.phase === 2 ? `${b.title} (${b.name}), coming soon` : b.title])),
       // TRK agit depuis la phase 2 (2026-10-27) : son geste dans l'infobulle et le jumeau
       trk: 'Track (TRK): hold, then a step 1-8 picks its voice; tap to latch',
-      [RYTM_FACEPLATE.scenes.a.hotspot]: `${RYTM_FACEPLATE.scenes.a.title}, coming soon`,
-      [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}, coming soon`,
+      // SCENE A et B agissent depuis le 2026-10-27 (P2-19) : tenir ou taper, puis tourner
+      [RYTM_FACEPLATE.scenes.a.hotspot]: `${RYTM_FACEPLATE.scenes.a.title}: hold or tap, then turn a knob to record it`,
+      [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}: hold or tap, then turn a knob to record it`,
       [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}, coming soon`,
       // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent
       ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen`])),
     };
 /**
- * Les commandes de la face visibles et inertes (SCENE A et B, le crossfader) : curseur par defaut, rien ne part ; TRK agit
- * depuis la phase 2 (2026-10-27).
+ * Les commandes de la face visibles et inertes (le crossfader) : curseur par defaut, rien ne part ; TRK, SCENE A et B
+ * agissent depuis la phase 2 (2026-10-27).
  */
-export const FACE_INERT: ReadonlySet<string> = new Set(['scene-a', 'scene-b', 'xfade']);
+export const FACE_INERT: ReadonlySet<string> = new Set(['xfade']);
 
 /**
  * Une touche selectionnee s'allume en entier (2026-10-18, Mika : "quand c'est
@@ -2854,5 +2868,7 @@ export function applyAppearance(a: Appearance): void {
   RING_TONE.lock.on = L ? RING_LOCK_LIGHT : HEX.yellowHi;
   RING_TONE.unlocked.on = HEX.ledSet;
   RING_TONE.global.on = HEX.ledSet;
+  RING_TONE.scene.on = L ? '#191919' : '#F6F1E7';
+  RING_TONE.dim.on = HEX.ledSet;
   APPEARANCE.current = a;
 }
