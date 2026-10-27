@@ -16,6 +16,7 @@ import { presetMode, type PresetStage } from '../state/presetMode';
 import { patterns, slotName } from '../state/patterns';
 import { rytmPage, type RytmView } from '../state/rytmPage';
 import { sceneCtl } from '../state/sceneCtl';
+import { tempoSync } from '../state/tempoSync';
 import { trk } from '../state/trk';
 import { voices } from '../state/voices';
 import { SCREEN_TOUCH, TRK_LIT, type Inst } from '../theme';
@@ -75,6 +76,13 @@ export interface HwSnapshot {
   readonly voice: Inst | null;
   readonly pattern: { readonly slot: number; readonly name: string; readonly next: number };
   readonly tempo: number;
+  /**
+   * le TEMPO suit la platine MASTER (2026-10-27, revue SEAM-6 : le SYNC du MIXER, state/tempoSync.ts) : tempo est alors
+   * le sien, au centieme, et le potard B de la page MASTER y revient s'il est tourne
+   */
+  readonly sync: boolean;
+  /** le TEMPO tel que l'ecran le dit : 124 BPM, ou 124.4 SYNC en suivant (tempoSync.label) */
+  readonly tempoLabel: string;
   readonly running: boolean;
   readonly knobs: readonly HwKnob[];
   readonly trk: { readonly mode: HoldMode; readonly holders: readonly string[] };
@@ -134,6 +142,8 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
     voice: inst,
     pattern: { slot: ps.cur, name: slotName(ps.cur), next: ps.next },
     tempo: p.bpm,
+    sync: tempoSync.get() !== null,
+    tempoLabel: tempoSync.label(p.bpm),
     running: clock.running,
     knobs,
     trk: { mode: t.mode, holders: [...t.holders] },
