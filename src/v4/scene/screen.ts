@@ -176,7 +176,9 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, XFADE_UI, type EncId, type Inst } from '../theme';
+import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../theme';
+import { PRESET_SLOTS } from '../state/presetMode';
+import { softKeyPitchU, softKeyU } from '../rytm/presetKeys';
 import { rytmInfoHit } from '../rytm/infoIds';
 import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
@@ -197,6 +199,10 @@ export interface ScreenInfo {
   size: [number, number];
   /** ce que montre l'ecran (2026-10-08) : HOME, la vue PAGE, EDIT, les presets ; le navigateur des sons (2026-10-18) */
   view: RytmView | 'edit' | 'presets' | 'browser';
+  /** les presets dessines (2026-10-27) : la ligne d'avant | le curseur | la ligne d'apres | les touches ; '' ailleurs */
+  presetList: string;
+  /** le preset charge nomme en tete de HOME (2026-10-27, une etoile s'il a bouge) ; '' : rien */
+  presetHead: string;
   /** la page du MM-RYTM (dessinee en vue PAGE) */
   page: RytmPageId;
   /** les blocs dessines en vue PAGE, NOM=VALEUR:etat ; [] ailleurs */
@@ -319,6 +325,27 @@ const GROW = UH - 158;
  * de 236 a 308 sur 24 a 61), toujours aussi large et le i dedans.
  * scene/renderer.ts pose la zone lcd-i avec.
  */
+/**
+ * Le mode presets (2026-10-27, la V.4.2), en unites, sur toute la hauteur de l'ecran : la ligne du titre (head), les
+ * trois lignes de la liste (avant, le curseur, apres), le nom en cours et son aide (sub, hint), et la rangee des cinq
+ * touches (keyY, son centre ; keyH, la hauteur d'une pastille). Au desktop les pastilles sont au-dessus des touches de la
+ * face qu'elles nomment (rytm/presetKeys.ts) ; au telephone, en cinquiemes, assez grandes pour le doigt.
+ */
+export const PRESET_LAYOUT = PORTRAIT
+  ? { head: 17, rows: [44, 74, 99], sub: 99, hint: 112, keyY: 133, keyH: 20, keyFont: 9.5 }
+  : { head: 20, rows: [56, 92, 122], sub: 122, hint: 142, keyY: 172, keyH: 16, keyFont: 8 };
+
+/**
+ * Ou est la touche i (0 a 4, PRESET_SLOTS) du mode presets sur la largeur de l'ecran, de 0 a 1 : son centre et sa zone.
+ * Au desktop, au-dessus de la touche de la face qu'elle nomme ; au telephone, le cinquieme de la largeur.
+ */
+export function presetKeySpot(i: number, mobile: boolean = PORTRAIT): { u: number; u0: number; u1: number } {
+  if (mobile) return { u: (i + 0.5) / 5, u0: i / 5, u1: (i + 1) / 5 };
+  const u = softKeyU(PRESET_SLOTS[i]);
+  const half = softKeyPitchU() / 2;
+  return { u, u0: Math.max(0, u - half), u1: Math.min(1, u + half) };
+}
+
 export const INFO_KEY = { x: UW - 8, y: 10.5, r: { desk: 5.2, phone: 6.6 }, hit: { desk: 8, phone: 26 }, blocks: { x: UW, y: 0 } } as const;
 
 /**
@@ -687,9 +714,11 @@ const TIP_MS = 2400;
 /**
  * Le geste qui regle un bloc, dans les aides : DRAG A VALUE depuis le
  * 2026-10-09 (au telephone d'abord, les potards de page ont quitte la face ;
- * au desktop aussi depuis l'etape 2, ses encodeurs sont les FX globaux).
+ * au desktop aussi depuis l'etape 2, ses encodeurs sont les FX globaux). TURN
+ * A KNOB au desktop depuis V.4.2 (2026-10-27) : l'ecran ne se touche plus
+ * (theme.ts SCREEN_TOUCH), le potard sous le bloc le tourne.
  */
-const TURN = 'DRAG A VALUE';
+const TURN = SCREEN_TOUCH ? 'DRAG A VALUE' : 'TURN A KNOB';
 /**
  * Le navigateur des sons (2026-10-18), en unites : rows, le haut et le bas de
  * ses lignes (la place des blocs ; BROWSER_ROWS lignes : 12,5 de haut au
@@ -845,6 +874,8 @@ export class Screen {
       font: 'vector op-1',
       size: [W, H],
       view: 'home',
+      presetList: '',
+      presetHead: '',
       page: rytmPage.get().page,
       blocks: [],
       echo: -1,
@@ -1234,6 +1265,8 @@ export class Screen {
     this.info.browser = null;
     this.info.drop = '';
     this.info.view = view;
+    this.info.presetList = '';
+    this.info.presetHead = '';
     this.info.page = rp.page;
     this.info.blocks = [];
     this.info.echo = -1;
@@ -1274,7 +1307,7 @@ export class Screen {
     }
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     if (view === 'home') {
-      this.paintHomeHead(ptn.cur, now);
+      this.paintHomeHead(ptn.cur, now, s.preset);
       this.paintHomeMenu(p.instrument);
     }
     // Un fichier glisse au-dessus de la machine (2026-10-18) : DROP ON A PAD par-dessus tout, sauf les presets
@@ -1771,7 +1804,12 @@ export class Screen {
     this.paintStrip(v.inst, rp.sel, lockStep);
     const F = PAGE_FOOT;
     const msg = lcdMessage.get(now);
-    const help = this.mobile ? ['TAP: CHOOSE · DRAG: SCROLL', neg ? 'TAP: P-LOCK THIS STEP' : 'HOLD YOURS: REMOVE'] : ['CLICK: CHOOSE · WHEEL: SCROLL', neg ? 'CLICK: P-LOCK THIS STEP · ESC' : PORTRAIT ? 'DROP A FILE ON A PAD · ESC' : 'DROP A FILE HERE · ESC'];
+    // L'ecran intouchable du desktop (V.4.2) : le potard de SOUND choisit (la liste le suit), Suppr retire un son a soi
+    const help = !SCREEN_TOUCH
+      ? [neg ? 'TURN SOUND: P-LOCK THIS STEP' : 'TURN SOUND: CHOOSE · DEL: REMOVE', 'DROP A FILE ON THE MACHINE · ESC']
+      : this.mobile
+        ? ['TAP: CHOOSE · DRAG: SCROLL', neg ? 'TAP: P-LOCK THIS STEP' : 'HOLD YOURS: REMOVE']
+        : ['CLICK: CHOOSE · WHEEL: SCROLL', neg ? 'CLICK: P-LOCK THIS STEP · ESC' : PORTRAIT ? 'DROP A FILE ON A PAD · ESC' : 'DROP A FILE HERE · ESC'];
     const l1 = msg ? msg.text : help[0];
     const l2 = msg ? help[0] : help[1];
     const t1 = this.fitText(l1, F.x1 - F.x0, SB.hint[0], 0.5, 600);
@@ -1811,24 +1849,65 @@ export class Screen {
     this.info.drop = big;
   }
 
-  /** Mode presets : le titre, le nom en grand entre ses fleches, les quatre touches en pastilles. */
+  /**
+   * Le mode presets (2026-10-27, la V.4.2, Mika : "la gestion doit etre plus simple") sur toute la hauteur de l'ecran :
+   * le titre (LOADED, EDITED, FACTORY, la note) et le rang ; la liste autour du curseur, la ligne d'avant et d'apres a
+   * peine, le curseur en grand entre ses chevrons (une etoile : le preset charge a bouge) ; OVERWRITE / AS NEW et
+   * DELETE? disent leur question dessous ; le nom en cours (USER/NAME, les cases vides de l'utilisateur soulignees, le
+   * curseur du potard B sous sa lettre) ; les cinq touches en pastilles, au desktop juste au-dessus des touches de la
+   * face qui les font (rytm/presetKeys.ts). L'aide du desktop nomme les potards (A: BROWSE ; A: LETTER  B: CURSOR).
+   */
   private paintPresets(s: LcdState): void {
-    this.text(fit(s.l1, 24), 10, 18, 9, HALF, 700, 'left', 0.9);
-    this.text(s.r1, PAGE_HEAD.right, 18, 9, HALF, 600, 'right');
-    const name = s.l2.replace(/^<\s*|\s*>$/g, '').trim();
-    this.text(fit(name, 20), UW / 2, 66, 20, INK, 300, 'center');
-    if (s.l2.startsWith('<')) {
-      this.line([18, 52, 10, 59, 18, 66], INK, 2);
-      this.line([UW - 18, 52, UW - 10, 59, UW - 18, 66], INK, 2);
+    const v = s.presets;
+    if (!v) return;
+    const c = this.ctx;
+    c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    const L = PRESET_LAYOUT;
+    const desk = !this.mobile;
+    this.text(fit(v.title, 24), 10, L.head, 9, v.naming?.problem && !v.title.startsWith('SAVE') ? INK : HALF, 700, 'left', 0.9);
+    const right = PAGE_HEAD.right;
+    const rw = v.count ? this.text(v.count, right, L.head, 9, HALF, 600, 'right') : 0;
+    if (v.group) this.text(v.group, right - rw - (rw ? 6 : 0), L.head, 9, INK, 600, 'right', 0.4);
+    const mid = L.rows[1];
+    if (v.stage === 'name' && v.naming) {
+      // Le nom en cours : l'utilisateur sur ses quatre cases (une case vide : un trait), la barre, le nom ; le curseur
+      const t = v.naming.text;
+      const size = 21;
+      const shown = `${t.slice(0, 4).replace(/ /g, '_')}${t.slice(4)}`;
+      const w = this.textWidth(shown, size, 300, 1.2);
+      const x0 = UW / 2 - w / 2;
+      this.text(shown, x0, mid + 7, size, INK, 300, 'left', 1.2);
+      if (desk) {
+        const at = Math.min(v.naming.at, shown.length);
+        const cx = x0 + (at > 0 ? this.textWidth(shown.slice(0, at), size, 300, 1.2) + 1.2 : 0);
+        const cw = Math.max(9, this.textWidth(shown[at] && shown[at] !== ' ' ? shown[at] : 'M', size, 300));
+        this.line([cx - 0.5, mid + 11.5, cx + cw + 0.5, mid + 11.5], INK, 2.2);
+      }
+      const help = v.naming.problem || (desk ? 'A: LETTER   B: CURSOR' : 'TYPE THE NAME, THEN OK');
+      this.text(help, UW / 2, L.hint, 7.5, v.naming.problem ? INK : FAINT_TEXT, 700, 'center', 0.8);
+      this.info.presetList = `|${t}|@${v.naming.at}|${v.keys.join(',')}`;
+    } else {
+      // La ligne d'avant et d'apres : a peine, petites (le haut et le bas de la liste)
+      if (v.prev) this.text(fit(v.prev, 30), UW / 2, L.rows[0], 9, FAINT_TEXT, 600, 'center', 0.7);
+      if (v.next) this.text(fit(v.next, 30), UW / 2, L.rows[2], 9, FAINT_TEXT, 600, 'center', 0.7);
+      const name = this.fitText(v.name, UW - 64, 21, 0.3, 300);
+      this.text(name, UW / 2, mid + 7, 21, INK, 300, 'center', 0.3);
+      if (!v.empty && v.stage === 'browse') {
+        this.line([18, mid - 7, 10, mid, 18, mid + 7], INK, 2);
+        this.line([UW - 18, mid - 7, UW - 10, mid, UW - 18, mid + 7], INK, 2);
+      }
+      const q = v.stage === 'choice' ? 'OVERWRITE IT, OR SAVE AS NEW?' : v.stage === 'confirm' ? 'DELETE FOR GOOD?' : desk && v.stage === 'browse' ? 'TURN A KNOB: BROWSE' : '';
+      if (q) this.text(q, UW / 2, v.stage === 'browse' ? L.hint : L.sub, v.stage === 'browse' ? 7 : 8, v.stage === 'browse' ? FAINT_TEXT : INK, 700, 'center', 0.8);
+      this.info.presetList = `${v.prev}|${v.name}|${v.next}|${v.keys.join(',')}`;
     }
-    const keys = s.keys ?? [];
-    const cw = UW / 4;
-    keys.forEach((k, i) => {
+    // Les cinq touches : une pastille par place, vide si la place n'a rien a faire
+    v.keys.forEach((k, i) => {
       if (!k) return;
-      const w = this.textWidth(k, 8, 700, 0.8) + 14;
-      const cx = cw * (i + 0.5);
-      this.pill(cx - w / 2, 92, w, 15, null, INK, 1.2);
-      this.text(k, cx, 102.5, 8, INK, 700, 'center', 0.8);
+      const spot = presetKeySpot(i, this.mobile);
+      const cx = spot.u * UW;
+      const w = this.textWidth(k, L.keyFont, 700, 0.8) + (this.mobile ? 16 : 12);
+      this.pill(cx - w / 2, L.keyY - L.keyH / 2, w, L.keyH, null, INK, 1.2);
+      this.text(k, cx, L.keyY + L.keyFont * 0.36, L.keyFont, INK, 700, 'center', 0.8);
     });
   }
 
@@ -1866,7 +1945,8 @@ export class Screen {
     }
     if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT_TEXT, 700, 'left', 0.6);
     else if (this.paintMode(x0, x1)) return;
-    else if (s.tag) this.text('TOUCH: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
+    // Les presets (V.4.2 : au desktop l'ecran ne se touche plus, EDIT pressee deux fois les ouvre)
+    else if (s.tag) this.text(SCREEN_TOUCH ? 'TOUCH: PRESETS' : 'EDIT 2X: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
   }
 
   /**
@@ -2682,10 +2762,21 @@ export class Screen {
    * 4 pres) : 40 px de haut a 390 de large au lieu de 22, le doigt ne tombe pas
    * sur lcd-open (les presets) juste sous elles.
    */
-  private paintHomeHead(cur: number, now: number): void {
+  private paintHomeHead(cur: number, now: number, preset: LcdState['preset'] = null): void {
     if (DY < 12) return;
     this.runIcon(PAGE_HEAD.iconX, PAGE_HEAD.y);
-    this.paintDials(PAGE_HEAD.y, PAGE_HEAD.iconX + 14, this.mobile ? DY + CARD.y0 - 4 : DY + 6, now, cur);
+    const left = this.paintDials(PAGE_HEAD.y, PAGE_HEAD.iconX + 14, this.mobile ? DY + CARD.y0 - 4 : DY + 6, now, cur);
+    // Le preset charge (2026-10-27) : dans l'air entre la lecture et le pattern, une etoile s'il a bouge ; il cede sa
+    // place (coupe d'un point, ou rien sous 30 unites), jamais le pattern, MASTER ni TEMPO
+    if (preset) {
+      const x0 = PAGE_HEAD.iconX + 14;
+      const room = left - 8 - x0;
+      if (room >= 30) {
+        const label = this.fitText(`${preset.label}${preset.edited ? '*' : ''}`, room, 8.5, 0.6, 600);
+        this.text(label, x0, PAGE_HEAD.y - 0.5, 8.5, HALF, 600, 'left', 0.6);
+        this.info.presetHead = label;
+      }
+    }
   }
 
   /** La commande de l'ecran dont la carte INFOS est montree (lcd-master, lcd-tempo), null aucune. */
@@ -3446,14 +3537,20 @@ export class Screen {
       // L'ecran haut du desktop (2026-10-18) : le clic et Echap, comme le pied d'une ligne d'avant
       const tap = this.mobile ? 'TAP' : 'CLICK';
       const back = this.mobile ? 'FX: BACK' : 'FX OR ESC: BACK';
-      const bText = fxScopeTabs(screen)
-        ? pick(`${tap} GLOBAL OR ${vt} · ${back}`, `GLOBAL OR ${vt} · ${back}`, back)
-        : isFxDetail(screen)
-        ? // Des formes plus courtes (2026-10-22, audit SB-08 : ESC: BA. au desktop)
-          pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`, `GLOBAL OR ${back}`, back)
-        : screen === 'fxg'
-          ? pick(`${tap} A FX: ITS SETTINGS · NEVER P-LOCKED`, `${tap} A FX: ITS SETTINGS`)
-          : `${pageLabel(page)} AGAIN: ${next}`;
+      // L'ecran intouchable du desktop (V.4.2) : ses onglets ne se cliquent plus (FX ramene GLOBAL FX, puis VOICE FX), la page
+      // d'un FX s'ouvre a la tape de son potard
+      const bText = !SCREEN_TOUCH && (fxScopeTabs(screen) || isFxDetail(screen))
+        ? pick(`FX: BACK TO ${screen.startsWith('fxv') ? 'VOICE' : 'GLOBAL'} FX · ESC`, back)
+        : !SCREEN_TOUCH && screen === 'fxg'
+          ? pick('CLICK A KNOB: ITS FX SETTINGS', 'CLICK A KNOB: SETTINGS')
+          : fxScopeTabs(screen)
+            ? pick(`${tap} GLOBAL OR ${vt} · ${back}`, `GLOBAL OR ${vt} · ${back}`, back)
+            : isFxDetail(screen)
+              ? // Des formes plus courtes (2026-10-22, audit SB-08 : ESC: BA. au desktop)
+                pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`, `GLOBAL OR ${back}`, back)
+              : screen === 'fxg'
+                ? pick(`${tap} A FX: ITS SETTINGS · NEVER P-LOCKED`, `${tap} A FX: ITS SETTINGS`)
+                : `${pageLabel(page)} AGAIN: ${next}`;
       const b = this.fitText(bText, x1 - x0, fs - 0.5, 0.6, 700);
       this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
       this.text(b, x0, F.y2, fs - 0.5, HALF, 700, 'left', 0.6);
@@ -3467,7 +3564,9 @@ export class Screen {
       : isFxDetail(screen)
         ? `${TURN}  /  GLOBAL, FX OR ESC: BACK`
         : screen === 'fxg'
-          ? `${TURN}  /  CLICK A FX: ITS SETTINGS`
+          ? SCREEN_TOUCH
+            ? `${TURN}  /  CLICK A FX: ITS SETTINGS`
+            : `${TURN}  /  CLICK IT: ITS SETTINGS`
           : `${TURN}  /  TURN A KNOB = GLOBAL FX`;
     const t = this.fitText(this.mobile ? `HOLD A STEP + ${TURN}: P-LOCK` : desk, x1 - x0, fs - 0.5, 0.5, 700);
     this.text(t, x0, y, fs - 0.5, HALF, 700, 'left', 0.5);

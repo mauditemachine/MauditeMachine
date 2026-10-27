@@ -555,7 +555,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   preset: {
     section: 'KEYS',
     title: 'PRESET',
-    text: "Ouvre les presets sur l'écran, comme un clic sur le pattern (A01) de l'en-tête. Clique la moitié gauche de l'écran pour le preset d'avant, la droite pour le suivant : il joue tout de suite, le son et la ligne. SAVE garde ce que tu entends comme un preset à toi, NAME le renomme, DEL l'efface. Réappuie sur PRESET, ou EXIT, pour fermer ; sa LED reste allumée tant que les presets sont ouverts.",
+    text: "Ouvre les presets sur l'écran, comme un clic sur le pattern (A01) de l'en-tête : une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine. Clique la moitié gauche de l'écran pour le preset d'avant, la droite pour le suivant, puis LOAD : il joue, le son et la ligne. SAVE garde ce que tu entends (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), NAME le renomme, DEL l'efface (puis YES). Réappuie sur PRESET, ou EXIT, pour fermer ; sa LED reste allumée tant que les presets sont ouverts.",
     tip: "Pars d'un preset du style que tu veux, puis GEN, NOTES et STYLE pour la ligne, les pages de l'écran pour le son.",
   },
   edit: {
@@ -626,7 +626,7 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
   accents: { text: "La chance qu'une note de la machine soit accentuée. Ce n'est pas le bloc ACCENT (page FILTER, E), qui règle la force de l'accent." },
   accentkey: { text: "En bas de l'écran : met ou enlève l'accent sur le pas choisi, celui que la bande nomme au-dessus des touches (STEP 05 F#2). La touche passe en négatif quand le pas a l'accent ; le bloc ACCENT de l'écran (page FILTER, E) règle sa force." },
   preset: {
-    text: "Ouvre les presets sur l'écran, comme le pattern (A01) de l'en-tête. Touche la moitié gauche de l'écran pour le preset d'avant, la droite pour le suivant : il joue tout de suite, le son et la ligne. SAVE garde ce que tu entends comme un preset à toi. Touche encore PRESET, ou EXIT, pour fermer ; sa LED reste allumée tant que les presets sont ouverts.",
+    text: "Ouvre les presets sur l'écran, comme le pattern (A01) de l'en-tête : une liste, tes presets puis ceux d'usine. Touche la moitié gauche de l'écran pour le preset d'avant, la droite pour le suivant, puis LOAD : il joue, le son et la ligne. SAVE garde ce que tu entends (ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW). Touche encore PRESET, ou EXIT, pour fermer ; sa LED reste allumée tant que les presets sont ouverts.",
   },
   enc: {
     section: 'SCREEN',

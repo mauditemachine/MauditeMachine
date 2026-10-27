@@ -198,6 +198,8 @@ export function adoptSharedBeat(): 'none' | 'bad' | 'ok' {
   presets.setAside('mm808');
   undo.boundary('mm808', 'step');
   apply('mm808', dataOfBeat(beat));
+  // Le beat partage n'est pas un preset (2026-10-27) : l'ecran ne nomme plus le preset d'avant (une etoile l'aurait dit retouche)
+  presets.detach('mm808');
   sayAfterIntro(`SHARED BEAT ${beat.bpm} BPM: PRESS RUN`, 4500);
   track('open_shared_beat', { ok: true, bpm: beat.bpm, base: beat.base ?? 0 });
   return 'ok';

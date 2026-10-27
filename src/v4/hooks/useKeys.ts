@@ -28,6 +28,9 @@
  * UNDO et REDO (2026-10-11, state/undo.ts) : Cmd+Z (Ctrl+Z hors Mac) defait,
  * Maj+Cmd+Z (Maj+Ctrl+Z) ou Ctrl+Y refait, sur toutes les machines ; un champ
  * qu'on tape (le nom d'un preset) garde les siens.
+ * P (2026-10-27) : les presets de la machine qu'on utilise s'ouvrent ou se
+ * ferment ; ouverts, les quatre fleches deplacent le curseur de la liste et
+ * Entree charge le preset du curseur (ou garde le nom en cours).
  * Rien d'autre ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
  * repetition de touche. Espace est laisse au controle qui l'utilise deja
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
@@ -37,7 +40,8 @@
 
 import { useEffect, useRef } from 'react';
 import { trk } from '../state/trk';
-import { MODE_HOLD_MS, editToggle, escape, modeHold, muteToggle, openToggle, padHit, page, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, stepMachine, voyPad, voyRun } from '../actions';
+import { MODE_HOLD_MS, editToggle, escape, modeHold, muteToggle, openToggle, padHit, page, presetEnter, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, voyPad, voyRun } from '../actions';
+import { lcdSamples } from '../state/lcdSamples';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -48,7 +52,7 @@ import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { undo } from '../state/undo';
 import { INSTRUMENTS } from '../audio/pattern';
-import { EDIT_KEY, OPEN_KEY, PAGES, VOICE_KEYS, type PageId } from '../theme';
+import { EDIT_KEY, OPEN_KEY, PAGES, SCREEN_TOUCH, VOICE_KEYS, type PageId } from '../theme';
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
 const CHORD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
@@ -106,11 +110,34 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         }
       }
       if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || isEditable(e.target)) return;
-      // Mode presets (2026-10-04) : gauche et droite passent d'un preset a l'autre
-      const pm = presetMode.get().machine;
-      if (pm && pm === focus.get() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      // Le nom d'un preset en cours (2026-10-27) : les touches sont au dialogue (ui/PresetNameDialog.tsx, une lettre tapee
+      // hors de lui y revient) ; Entree garde le nom, Echap (plus haut) annule
+      const naming = presetMode.get().stage === 'name' ? presetMode.get().machine : null;
+      if (naming) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          presetEnter(naming);
+        }
+        return;
+      }
+      // P (2026-10-27) : les presets de la machine qu'on utilise (MM-RYTM, MM-ARP, MM-BASS) s'ouvrent, ou se ferment
+      const fm = focus.get();
+      if ((e.code === 'KeyP' || e.key.toLowerCase() === 'p') && (fm === 'mm808' || fm === 'voy' || fm === 'bass')) {
         e.preventDefault();
-        presetKey(pm, e.key === 'ArrowLeft' ? 'prev' : 'next');
+        presetKey(fm, presetMode.on(fm) ? 'close' : 'open');
+        return;
+      }
+      // Mode presets (2026-10-04) : gauche et droite (haut et bas aussi depuis le 2026-10-27) deplacent le curseur de la
+      // liste, Entree charge le preset du curseur (ou garde le nom en cours)
+      const pm = presetMode.get().machine;
+      if (pm && pm === focus.get() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        presetKey(pm, e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? 'prev' : 'next');
+        return;
+      }
+      if (pm && pm === focus.get() && e.key === 'Enter' && !ownsSpace(e.target)) {
+        e.preventDefault();
+        presetEnter(pm);
         return;
       }
       // Le mode presets vient de se fermer seul (2026-10-21, audit : 60 s sans geste, la fleche suivante changeait de
@@ -126,6 +153,22 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         e.preventDefault();
         stepMachine(e.key === 'ArrowLeft' ? -1 : 1);
         return;
+      }
+      // La liste des sons ouverte au desktop (V.4.2, 2026-10-27 : l'ecran ne se touche plus, theme.ts SCREEN_TOUCH) : haut et
+      // bas, le son d'avant ou d'apres (comme PREV et NEXT, ou le potard SOUND) ; Suppr ou Retour arriere, le son a soi
+      // montre part (deux fois : REMOVE? DELETE AGAIN) ; la liste elle-meme (son jumeau) garde ses touches
+      if (!SCREEN_TOUCH && focus.get() === 'mm808' && lcdSamples.isOpen() && !ownsArrows(e.target)) {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          soundBrowserStep(e.key === 'ArrowUp' ? -1 : 1);
+          return;
+        }
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          const v = soundBrowserView();
+          e.preventDefault();
+          if (v) soundBrowserRemove(v.arm >= 0 ? v.arm : v.cur, 'DELETE');
+          return;
+        }
       }
       // I (2026-10-08) : INFOS du MM-ARP, l'aide au survol (la touche i de son grand ecran)
       if (focus.get() === 'voy' && (e.code === 'KeyI' || e.key.toLowerCase() === 'i')) {

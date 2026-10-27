@@ -463,7 +463,7 @@ export class PanelSilk {
 
   /** OPEN <-> CLOSE sous le pad OPEN : deux televersements par cycle d'eclate. */
   setOpenLabel(label: OpenLabel): boolean {
-    // Sans le libelle OPEN (2026-10-27, la face V.4.0 du desktop : OPEN est une touche a pictogramme) : rien a redessiner
+    // Sans le libelle OPEN (2026-10-27, la face V.4.0 du desktop : OPEN est une touche de la rangee, son nom dessus) : rien a redessiner
     if (OPEN_SILK_INDEX < 0) return false;
     if (label === this.openLabel) return false;
     this.openLabel = label;

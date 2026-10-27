@@ -61,7 +61,9 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, VOICE_LED, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { BTN_LED, COLOR, FACE_KEY, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, TRK_FLASH, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { keyCapGeometry } from './keyCap';
+import { RYTM_FACEPLATE } from '../rytm/faceplate';
 import type { TrkLed } from '../rytm/stepLeds';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
@@ -101,6 +103,9 @@ const BTN_LED_Z = TRANSPORT.z - TRANSPORT.d / 2 + TRANSPORT.led.back;
 /** Le blanc vers lequel tire le temoin d'une touche allumee (il ne se perd pas dans sa couleur). */
 const WHITE = new Color(1, 1, 1);
 
+/** Le pas de chaque voix en vue TRK (V.4.2) : le rang de INSTRUMENTS[k] dans les pas 1 a 8 (RYTM_FACEPLATE.steps.voices). */
+const TRK_STEP_OF = INSTRUMENTS.map((v) => (RYTM_FACEPLATE.steps.voices as readonly string[]).indexOf(v));
+
 /** La hauteur de la marque des verrous, un soupcon au-dessus du dessus de la touche (et du cadre des temps). */
 const MARK_Y = KEYS.h + 0.004;
 /** z de la marque des verrous du pas i : pres du bord arriere de sa touche (portrait : sa rangee la decale). */
@@ -113,6 +118,8 @@ const col = new Color();
 
 /** Touche trig : boite a coins arrondis (trois segments : 588 triangles ; deux sur mobile : 300), base a y 0. */
 function keyGeometry(mobile: boolean): BufferGeometry {
+  // La face du desktop (V.4.2, 2026-10-27) : le pas en relief, flancs et chanfrein (scene/keyCap.ts)
+  if (KEY_RELIEF.on) return keyCapGeometry(KEYS.w, KEYS.h, KEYS.d, KEYS.radius, KEYS.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
   const g = new RoundedBoxGeometry(KEYS.w, KEYS.h, KEYS.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, KEYS.radius);
   g.translate(0, KEYS.h / 2, 0);
   g.deleteAttribute('uv');
@@ -122,6 +129,8 @@ function keyGeometry(mobile: boolean): BufferGeometry {
 /** Bouton du transport : la touche plate des touches de page depuis le 2026-10-18 (un carre de 0.8 avant), base a y 0. */
 function buttonGeometry(mobile: boolean): BufferGeometry {
   const T = TRANSPORT;
+  // La face du desktop (V.4.2) : la touche en relief de la rangee
+  if (KEY_RELIEF.on) return keyCapGeometry(T.w, T.h, T.d, T.radius, FACE_KEY.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
   const g = new RoundedBoxGeometry(T.w, T.h, T.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, T.radius);
   g.translate(0, T.h / 2, 0);
   g.deleteAttribute('uv');
@@ -181,8 +190,11 @@ export interface SequencerInfo {
    * TRK (2026-10-27) : 3 la barre de MUTE (rouge), 4 celle de SOLO (bleue)
    */
   marks: string;
-  /** la vue TRK (2026-10-27) : les pas 1 a 8 a la couleur de leur voix */
+  /** la vue TRK (2026-10-27) : les pas 1 a 8 allumes (d'une seule couleur depuis V.4.2) */
   trk: boolean;
+  /** V.4.2 : l'eclair de chaque pas 1 a 8 en vue TRK (0 a 1, au cran), et les coups recus depuis le debut */
+  trkFlash: number[];
+  trkHits: number;
   /** en vue TRK : la voix et l'intensite de chaque pas ('' et 0 : eteint), sa barre */
   trkLeds: { inst: Inst | null; level: number; bar: 'mute' | 'solo' | null }[] | null;
   run: boolean;
@@ -260,10 +272,19 @@ export class Sequencer3D {
   /** EDIT (2026-10-05) : les steps sont les seize patterns (state/patterns.ts) ; null : le motif */
   private patView: PatternView | null = null;
   /**
-   * TRK tenue ou gardee (2026-10-27, rytm/stepLeds.ts) : les pas 1 a 8 a la couleur de leur voix, 9 a 16 eteints ; avant
-   * EDIT ; ni tete de lecture, ni verrous, ni survol ; null : le motif (ou EDIT)
+   * TRK tenue ou gardee (2026-10-27, rytm/stepLeds.ts) : les pas 1 a 8 allumes (V.4.2 : l'orange de la machine pour les
+   * huit, et l'eclair de leurs coups), 9 a 16 eteints ; avant EDIT ; ni tete de lecture, ni verrous, ni survol ; null : le
+   * motif (ou EDIT)
    */
   private trkView: readonly TrkLed[] | null = null;
+  /**
+   * Les coups en vue TRK (V.4.2, 2026-10-27, theme.ts TRK_FLASH) : pour chaque voix, l'heure de son dernier coup (s, l'heure
+   * de l'horloge du Stage : l'audio ; -1 aucun), son eclat (sa velocite), l'eclair montre (au cran) ; rien n'est alloue par coup
+   */
+  private flashAt = new Float64Array(STEP_COUNT).fill(-1);
+  private flashAmp = new Float32Array(STEP_COUNT);
+  private flashLv = new Float32Array(STEP_COUNT);
+  private flashHits = 0;
   /** la barre de MUTE et celle de SOLO en vue TRK (les marques des verrous, sans geometrie de plus) */
   private markMute = new Color(0xff2a1f);
   private markSolo = new Color(0x5b9bff);
@@ -279,7 +300,7 @@ export class Sequencer3D {
     this.emissive = new InstancedBufferAttribute(new Float32Array(STEP_COUNT * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
     kGeo.setAttribute('instanceEmissive', this.emissive);
-    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key }), false);
+    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key, vertexColors: KEY_RELIEF.on }), KEY_RELIEF.on);
     this.keyMat.name = 'key';
     this.keys = new InstancedMesh(kGeo, this.keyMat, STEP_COUNT);
     this.keys.name = 'keys';
@@ -505,7 +526,7 @@ export class Sequencer3D {
 
   /**
    * Appui sur le pas i (2026-10-01), v de 0 (repos) a 1 (enfonce) : la
-   * touche descend de STEP_PRESS.depth (pas en reduced motion) et
+   * touche descend de sa course (KEY_RELIEF ; pas en reduced motion) et
    * s'eclaire. Le Stage l'anime (pressStep).
    */
   setKeyPress(i: number, v: number, move: boolean): void {
@@ -514,7 +535,7 @@ export class Sequencer3D {
     const btn = i >= STEP_COUNT;
     const mesh = btn ? this.buttons : this.keys;
     const j = btn ? i - STEP_COUNT : i;
-    const dy = move ? -STEP_PRESS.depth * v : 0;
+    const dy = move ? -(btn ? KEY_RELIEF.key : KEY_RELIEF.step) * v : 0;
     mesh.instanceMatrix.array[j * 16 + 13] = dy;
     mesh.instanceMatrix.needsUpdate = true;
     // Le cadre des temps descend avec sa touche
@@ -591,11 +612,12 @@ export class Sequencer3D {
     const add = head ? (f > 0 ? STEP_LIT.head : STEP_LIT.headEmpty) : null;
     const locked = this.lockShown && ((this.lockMask >> j) & 1) === 1;
     const floor = this.lockShown && j === this.lockStep ? (this.lockBlink ? STEP_LIT.lock : STEP_LIT.lockDim) : locked && f === 0 ? STEP_LIT.locks : !this.trkView && j === this.hover && f === 0 ? STEP_LIT.hover : null;
-    // TRK (2026-10-27) : la lueur de la voix du pas (VOICE_LED, a la luminance de l'orange) a son intensite
-    const tv = this.trkView?.[j];
-    const vg = tv && tv.inst ? VOICE_LED[tv.inst].glow : null;
+    // TRK (2026-10-27) : la lueur du pas a l'intensite de sa voix, l'orange de la machine pour les huit (V.4.2) ; l'eclair
+    // d'un coup s'y ajoute (TRK_FLASH)
     if (this.trkView) {
-      for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(vg ? vg[c] * k * f : 0, STEP_PRESS.glow[c] * this.keyPress[j]);
+      const fl = this.flashLv[j];
+      const G = TRK_FLASH.glow;
+      for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(o[c] * k * f + G[c] * k * fl, STEP_PRESS.glow[c] * this.keyPress[j]);
       return;
     }
     for (let c = 0; c < 3; c += 1) {
@@ -613,11 +635,16 @@ export class Sequencer3D {
   private writeKeyColor(j: number): void {
     const c = this.pressedColor(LIT.key, this.keyPress[j]);
     const f = this.litPart[j];
-    // TRK (2026-10-27), la machine claire : le dessus tire vers la teinte de la voix, a son intensite
-    const tv = this.trkView?.[j];
+    // TRK (2026-10-27), la machine claire : le dessus tire vers l'orange (V.4.2 : le meme pour les huit), a son intensite ;
+    // l'eclair d'un coup vers le jaune chaud de la tete de lecture
     if (this.trkView) {
-      const vt = tv && tv.inst && KEY_LIT_LIGHT.tint ? VOICE_LED[tv.inst].tint : null;
+      const vt = KEY_LIT_LIGHT.tint?.orange;
       if (vt && f > 0) c.setRGB(c.r + (vt[0] - c.r) * f, c.g + (vt[1] - c.g) * f, c.b + (vt[2] - c.b) * f);
+      const m = vt ? this.flashLv[j] * TRK_FLASH.light : 0;
+      if (m > 0) {
+        const h = STEP_LIT.headLight;
+        c.setRGB(c.r + (h[0] - c.r) * m, c.g + (h[1] - c.g) * m, c.b + (h[2] - c.b) * m);
+      }
       this.keys.setColorAt(j, c);
       if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
       return;
@@ -724,7 +751,72 @@ export class Sequencer3D {
     if (!a && !v) return false;
     if (a && v && a.length === v.length && a.every((x, i) => x.color === v[i].color && x.level === v[i].level && x.bar === v[i].bar && x.inst === v[i].inst)) return false;
     this.trkView = v;
+    // Hors de la vue TRK, aucun eclair ne reste
+    if (!v) this.clearFlashes();
     return this.refresh(true);
+  }
+
+  /**
+   * Un coup en vue TRK (V.4.2, 2026-10-27) : la voix k (le bit k du masque des pas, INSTRUMENTS[k]) frappe a l'heure at (s)
+   * a l'eclat amp (0 a 1, sa velocite) ; son carre s'eclaire a la prochaine image (stepFlash). Hors de la vue TRK, rien.
+   */
+  trkHit(k: number, at: number, amp: number): void {
+    const i = TRK_STEP_OF[k] ?? -1;
+    if (!this.trkView || i < 0) return;
+    this.flashAt[i] = at;
+    this.flashAmp[i] = Math.max(0, Math.min(1, amp));
+    this.flashHits += 1;
+  }
+
+  /** Un eclair attend-il son image (ou s'eteint-il encore) ? */
+  get flashing(): boolean {
+    for (let i = 0; i < STEP_COUNT; i += 1) if (this.flashAt[i] >= 0) return true;
+    return false;
+  }
+
+  /**
+   * Les eclairs a l'heure t (s, la meme horloge que trkHit) : chacun decroit au carre en TRK_FLASH.ms, au cran ; true si un
+   * carre a change (une image a rendre, des couleurs seules).
+   */
+  stepFlash(t: number): boolean {
+    const L = TRK_FLASH.levels;
+    const dur = TRK_FLASH.ms / 1000;
+    let changed = false;
+    for (let i = 0; i < STEP_COUNT; i += 1) {
+      const at = this.flashAt[i];
+      if (at < 0) continue;
+      const u = Math.max(0, (t - at) / dur);
+      const raw = u >= 1 ? 0 : this.flashAmp[i] * (1 - u) * (1 - u);
+      const lv = Math.round(raw * L) / L;
+      if (lv <= 0) this.flashAt[i] = -1;
+      if (lv !== this.flashLv[i]) {
+        this.flashLv[i] = lv;
+        this.writeFlash(i);
+        changed = true;
+      }
+    }
+    if (changed) this.emissive.needsUpdate = true;
+    return changed;
+  }
+
+  /** Le carre i suit son eclair : sa lueur, sa teinte (la machine claire). */
+  private writeFlash(i: number): void {
+    this.writeKeyGlow(i);
+    if (KEY_LIT_LIGHT.tint) this.writeKeyColor(i);
+  }
+
+  /** Plus aucun eclair (la vue TRK s'en va, la lecture s'arrete). */
+  clearFlashes(): boolean {
+    let changed = false;
+    for (let i = 0; i < STEP_COUNT; i += 1) {
+      this.flashAt[i] = -1;
+      if (this.flashLv[i] === 0) continue;
+      this.flashLv[i] = 0;
+      if (this.trkView) this.writeFlash(i);
+      changed = true;
+    }
+    if (changed) this.emissive.needsUpdate = true;
+    return changed;
   }
 
   /** Pas survole (pointeur fin), -1 sinon. */
@@ -752,9 +844,9 @@ export class Sequencer3D {
   setRunning(on: boolean): boolean {
     if (on === this.running) return false;
     this.running = on;
+    // V.4.2 (2026-10-27) : les signes de RUN/STOP sont imprimes (PLAY et STOP, une encre fixe) ; la lecture se lit au
+    // temoin et a la touche allumee
     this.latch(RUN, on);
-    // La face V.4.0 du desktop (2026-10-27) : le pictogramme de RUN/STOP devient STOP pendant la lecture (sans alt : rien)
-    this.labels.setAlt(RUN - STEP_COUNT, on);
     return true;
   }
 
@@ -808,6 +900,8 @@ export class Sequencer3D {
       glow,
       marks,
       trk: this.trkView !== null,
+      trkFlash: Array.from(this.flashLv.subarray(0, INSTRUMENTS.length), (x) => +x.toFixed(3)),
+      trkHits: this.flashHits,
       trkLeds: this.trkView ? this.trkView.map((x) => ({ inst: x.inst, level: x.level, bar: x.bar })) : null,
       run: this.running,
       buttonLeds: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100),

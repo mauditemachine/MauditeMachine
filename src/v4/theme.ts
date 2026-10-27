@@ -14,7 +14,7 @@
 
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
-import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpIconId } from './rytm/faceplate';
+import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpMark } from './rytm/faceplate';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -924,6 +924,9 @@ export const FACE_KEY = {
   d: fpU(RYTM_FACEPLATE.buttons.size),
   h: fpU(RYTM_FACEPLATE.buttons.capHeight),
   radius: fpU(RYTM_FACEPLATE.buttons.corner),
+  /** V.4.2 (2026-10-27) : le chanfrein du dessus et la course de l'appui (scene/keyCap.ts) */
+  bevel: fpU(RYTM_FACEPLATE.buttons.bevel),
+  travel: fpU(RYTM_FACEPLATE.buttons.travel),
   z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.size / 2),
   led: { w: fpU(RYTM_FACEPLATE.buttons.led.w), d: fpU(RYTM_FACEPLATE.buttons.led.h), back: fpU(RYTM_FACEPLATE.buttons.led.dy) },
 } as const;
@@ -972,8 +975,9 @@ export const xfadeCapX = (x: number): number => XFADE.x + (Math.max(0, Math.min(
  * touche seule au desktop, la souris).
  */
 /*
- * La face V.4.0 du desktop (2026-10-27) : RUN/STOP CLEAR RANDOM MUTE SOLO sont les touches 8 a 12 de la rangee des
- * pictogrammes (FACE_KEY, faceKeyX 7 a 11), 12 x 12 mm, leur pictogramme dessus (KEY_LABELS) ; RUN/STOP garde son rouge.
+ * La face V.4.0 du desktop (2026-10-27) : RUN/STOP CLEAR RANDOM MUTE SOLO sont les touches 8 a 12 de la rangee (FACE_KEY,
+ * faceKeyX 7 a 11), 12 x 12 mm, leur legende dessus (KEY_LABELS ; V.4.2 : leur nom, les signes PLAY et STOP sur
+ * RUN/STOP) ; RUN/STOP garde son rouge.
  */
 export const TRANSPORT = {
   w: PORTRAIT ? 1.14 : FACE_KEY.w,
@@ -1276,6 +1280,8 @@ export const KEYS = {
   // desktop : la hauteur, les coins, le cadre des temps et la marque des verrous depuis RYTM_FACEPLATE.steps (2026-10-27)
   h: PORTRAIT ? 0.1 : fpU(FP_STEPS.capHeight),
   radius: PORTRAIT ? 0.05 : fpU(FP_STEPS.corner),
+  /** V.4.2 (2026-10-27) : le chanfrein du dessus au desktop (scene/keyCap.ts ; le telephone garde ses touches arrondies) */
+  bevel: PORTRAIT ? 0 : fpU(FP_STEPS.bevel),
   segments: { desktop: 3, mobile: 2 },
   /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
   frame: PORTRAIT ? { inset: 0.065, line: 0.022 } : { inset: fpU(FP_STEPS.beatFrame.inset), line: fpU(FP_STEPS.beatFrame.line) },
@@ -1510,11 +1516,11 @@ export const PAGE_KEYS = PORTRAIT
       hitZ0: OLED.z + OLED.d / 2 + 0.002,
       hitZ1: PAGE_KNOBS.rowZ[0] - PAGE_KNOBS.hitUp,
     } as const)
-  : // La face V.4.0 du desktop (2026-10-27) : VOICE FLTR ENV FX sont les touches 2 a 5 de la rangee des pictogrammes
+  : // La face V.4.0 du desktop (2026-10-27) : VOICE FLTR ENV FX sont les touches 2 a 5 de la rangee de la face
     ({ w: FACE_KEY.w, d: FACE_KEY.d, h: FACE_KEY.h, radius: FACE_KEY.radius, z: FACE_KEY.z, led: FACE_KEY.led, hitZ0: FACE_KEY.z - FACE_KEY.d / 2, hitZ1: FACE_KEY.z + FACE_KEY.d / 2 } as const);
 /**
  * x de la touche de page k (0 a 3) : quatre touches egales sur la largeur du verre de l'ecran (2026-10-09) ; au desktop
- * depuis le 2026-10-27, les touches 2 a 5 de la rangee des pictogrammes (faceKeyX).
+ * depuis le 2026-10-27, les touches 2 a 5 de la rangee de la face (faceKeyX).
  */
 export const pageKeyX = (k: number): number => {
   if (!PORTRAIT) return faceKeyX(1 + k);
@@ -1555,34 +1561,38 @@ export interface KeyLabelSpec {
   /** la largeur et la profondeur de la touche */
   w: number;
   d: number;
-  /** face V.4.0 (2026-10-27) : face (TRK, EDIT, OPEN), scene (A, B), stepn et stepv (le numero et la voix sur un pas) */
+  /** face V.4.0 (2026-10-27) : face (les douze touches de la rangee depuis V.4.2), scene (A, B), stepn et stepv (le numero et la voix sur un pas) */
   group: 'pkey' | 'tr' | 'face' | 'scene' | 'stepn' | 'stepv';
   /** l'encre au repos : celle de la serigraphie, ou l'os (RUN/STOP, sur son rouge, dans les deux apparences) */
   rest: 'ink' | 'bone';
   /**
-   * La face V.4.0 (2026-10-27, Mika : "pas de texte sur les boutons") : un pictogramme (rytm/icons.ts) au lieu du texte,
-   * et alt, celui de l'etat actif (RUN/STOP pendant la lecture) ; cap, la hauteur de capitale d'un texte (KEY_LABEL.cap
-   * sinon) ; qw, la largeur du quad (la touche moins ses marges sinon) ; dz, le decalage du centre (KEY_LABEL.dz ou
-   * KEY_ICON.dz sinon) ; align, le texte centre ou cale a gauche de son quad (le numero d'un pas)
+   * La face V.4.0 (2026-10-27) : cap, la hauteur de capitale d'un texte (KEY_LABEL.cap sinon) ; qw, la largeur du quad
+   * (la touche moins ses marges sinon) ; dz, le decalage du centre (KEY_LABEL.dz, ou KEY_MARK.dz pour des signes, sinon) ;
+   * align, le texte centre ou cale a gauche de son quad (le numero d'un pas). V.4.2 (2026-10-27, facon Digitakt) :
+   * tracking, l'interlettrage du texte en em (SILK.tracking sinon) ; marks, des signes imprimes a la place du texte
+   * (RUN/STOP : le triangle PLAY et le carre STOP, KEY_MARK)
    */
-  icon?: FpIconId;
-  alt?: FpIconId;
   cap?: number;
   qw?: number;
   dz?: number;
   align?: 'center' | 'left';
+  tracking?: number;
+  marks?: readonly FpMark[];
 }
 
-/** Le pictogramme sur sa touche (2026-10-27) : son carre (6.8 mm), son centre un rien vers l'avant (le temoin est derriere) ; RYTM_FACEPLATE.buttons.icon. */
-export const KEY_ICON = { size: fpU(RYTM_FACEPLATE.buttons.icon.size), dz: fpU(RYTM_FACEPLATE.buttons.icon.dy) } as const;
-
-/** Le groupe d'une touche de la rangee des pictogrammes (2026-10-27) : page, transport ou face. */
-const FACE_GROUP: Readonly<Record<string, KeyLabelSpec['group']>> = { voice: 'pkey', fltr: 'pkey', env: 'pkey', fx: 'pkey', run: 'tr', clear: 'tr', random: 'tr', mute: 'tr', solo: 'tr' };
+/**
+ * Les signes de RUN/STOP sur leur touche (V.4.2, 2026-10-27, RYTM_FACEPLATE.buttons.marks) : leur hauteur, l'air entre
+ * eux, leur centre un rien vers l'avant (le temoin est derriere) ; le triangle PLAY un rien moins large que haut.
+ */
+export const KEY_MARK = { h: fpU(RYTM_FACEPLATE.buttons.marks.h), gap: fpU(RYTM_FACEPLATE.buttons.marks.gap), dz: fpU(RYTM_FACEPLATE.buttons.marks.dy), playW: 0.88 } as const;
+/** La largeur des signes d'une legende (en unites) : chacun sa largeur, l'air entre eux. */
+export const marksW = (m: readonly FpMark[]): number => m.reduce((w, k, i) => w + (k === 'play' ? KEY_MARK.h * KEY_MARK.playW : KEY_MARK.h) + (i > 0 ? KEY_MARK.gap : 0), 0);
 
 /*
- * La face V.4.0 du desktop (2026-10-27, Mika : "pas de texte sur les boutons") : les douze touches de la rangee portent
- * leur pictogramme (rytm/faceplate.ts buttons.keys, rytm/icons.ts ; RUN/STOP le sien et STOP pendant la lecture), SCENE
- * A et B leur lettre ; les ids des touches de page, du transport et de face (scene/rytmFaceKeys.ts) les retrouvent.
+ * La face V.4.0 du desktop (2026-10-27) : les douze touches de la rangee portent leur legende (V.4.2, facon Digitakt,
+ * rytm/faceplate.ts buttons.keys et buttons.legend : un mot, le meme corps pour les douze, un seul groupe ; RUN/STOP ses
+ * signes), SCENE A et B leur lettre ; les ids des touches de page, du transport et de face (scene/rytmFaceKeys.ts) les
+ * retrouvent.
  */
 export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
   ? [
@@ -1598,20 +1608,20 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
       ).map(([id, text]): KeyLabelSpec => ({ id, text, x: TRANSPORT[id].x, z: TRANSPORT.z, w: TRANSPORT.w, d: TRANSPORT.d, group: 'tr', rest: id === 'run' ? 'bone' : 'ink' })),
     ]
   : [
-      ...RYTM_FACEPLATE.buttons.keys.map(
-        (b, i): KeyLabelSpec => ({
+      ...RYTM_FACEPLATE.buttons.keys.map((b, i): KeyLabelSpec => {
+        const L = RYTM_FACEPLATE.buttons.legend;
+        return {
           id: b.id,
-          text: b.name,
+          text: b.legend,
           x: faceKeyX(i),
           z: FACE_KEY.z,
           w: FACE_KEY.w,
           d: FACE_KEY.d,
-          group: FACE_GROUP[b.id] ?? 'face',
+          group: 'face',
           rest: b.id === 'run' ? 'bone' : 'ink',
-          icon: b.icon,
-          ...(b.alt ? { alt: b.alt } : {}),
-        })
-      ),
+          ...(b.marks ? { marks: b.marks, dz: KEY_MARK.dz } : { cap: fpU(L.cap), qw: fpU(L.w), dz: fpU(L.dy), tracking: L.tracking }),
+        };
+      }),
       ...(['a', 'b'] as const).map(
         (k): KeyLabelSpec => ({
           id: `scene-${k}`,
@@ -1657,9 +1667,19 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
       [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}: hold or tap, then turn a knob to record it`,
       // Le crossfader agit depuis P2-20 (2026-10-27)
       [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}: drag the cap or scroll over it`,
-      // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent
-      ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen`])),
+      // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent ; V.4.2 (l'ecran ne se touche plus) : leur
+      // clic ouvre ce qu'ouvrait le bloc (la page d'un FX, la liste des sons), presets ouverts ce qui est ecrit au-dessus
+      ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen; click: what it opens there`])),
     };
+/**
+ * L'ecran du MM-RYTM se touche-t-il (V.4.2, 2026-10-27, Mika : "Pourrais tu faire en sorte qu'on ne puisse pas toucher a
+ * l'ecran ? qu'on puisse toujours utiliser les knobs et boutons") : un seul interrupteur. Faux au desktop (la face a ses
+ * huit potards et ses touches : l'ecran ne fait que montrer, le pointeur le traverse comme le corps de la machine, ses
+ * jumeaux HTML restent pour le clavier et les lecteurs d'ecran) ; vrai au telephone (sans potards, il se touche) ; le
+ * futur kiosque ?hw=1 (l'ecran tactile du boitier) le voudra vrai. scene/hit.ts HitMap.screenTouch, ui/Hotspots.tsx.
+ */
+export const SCREEN_TOUCH: boolean = PORTRAIT;
+
 /**
  * Les commandes de la face visibles et inertes : curseur par defaut, rien ne part. Vide depuis P2-20 (2026-10-27) : TRK,
  * SCENE A et B, puis le crossfader agissent.
@@ -1738,26 +1758,20 @@ export const STEP_LIT = {
  */
 export const FACE_HOLD_MS = 350;
 
-/** sRGB d'affichage (0 a 255 /255) vers lineaire. */
-const srgbLin = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-const hexLin = (hex: string): number[] => [1, 3, 5].map((i) => srgbLin(parseInt(hex.slice(i, i + 2), 16) / 255));
-const lumOf = (c: readonly number[]): number => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 /**
- * Les pas 1 a 8 a la couleur de leur voix, TRK tenu (2026-10-27, rytm/faceplate.ts steps.voiceColor) : glow, l'emissif
- * lineaire de la machine noire, a la luminance de l'orange des touches allumees (BD exactement KEY_LIT.glow.orange) ;
- * tint, la teinte du dessus sur la machine claire (le lineaire, son plus fort canal a 1, l'emissif a KEY_LIT_LIGHT.glow).
+ * TRK d'une seule couleur (V.4.2, 2026-10-27, Mika : "je veux des boutons d'une meme couleur et pas arc en ciel") : les
+ * pas 1 a 8 a l'orange d'un pas allume (KEY_LIT.glow.orange ; la teinte de KEY_LIT_LIGHT sur la machine claire), la voix
+ * choisie plus forte (TRK_LIT) ; les couleurs par voix (2026-10-27) sont parties.
+ *
+ * Et les coups qui flashent (Mika : "que les 8 voices puissent jouer en meme temps dans les carres, comme ca je repere
+ * plus facilement ce qui joue ; que ca flashe quand il y a un step qui passe par dessus") : pendant la lecture, le carre
+ * d'une voix s'eclaire a l'instant ou elle frappe (l'heure audio, comme la tete de lecture) puis s'eteint en ms (une
+ * decroissance au carre, rapide) ; glow, l'eclat ajoute au plus fort (un orange plus clair et plus chaud que celui du pas,
+ * il reste de la couleur de la machine), light la part du jaune chaud de la tete de lecture sur la machine claire (STEP_LIT.headLight) ; velFloor,
+ * l'eclat de la velocite la plus douce (la plus forte : 1) ; levels, les crans de la decroissance (une image par cran au
+ * plus, rien entre deux).
  */
-export const VOICE_LED: Readonly<Record<Inst, { readonly glow: readonly number[]; readonly tint: readonly number[] }>> = (() => {
-  const target = lumOf(KEY_LIT.glow.orange);
-  const out = {} as Record<Inst, { glow: number[]; tint: number[] }>;
-  for (const v of RYTM_FACEPLATE.steps.voices) {
-    const l = hexLin(RYTM_FACEPLATE.steps.voiceColor[v]);
-    const k = target / Math.max(1e-6, lumOf(l));
-    const mx = Math.max(...l);
-    out[v as Inst] = { glow: v === 'BD' ? [...KEY_LIT.glow.orange] : l.map((x) => x * k), tint: l.map((x) => x / mx) };
-  }
-  return out;
-})();
+export const TRK_FLASH = { ms: 160, glow: [0.7, 0.24, 0.05], light: 0.75, velFloor: 0.5, levels: 8 } as const;
 /** TRK tenu (2026-10-27) : la voix choisie pleine, les autres lisibles, une voix coupee a peine ; la machine claire plus fort. */
 export const TRK_LIT = { cur: 1, other: 0.22, muted: 0.07 } as const;
 export const TRK_LIT_LIGHT = { cur: 1, other: 0.35, muted: 0.12 } as const;
@@ -1777,6 +1791,24 @@ export const PAD_DOUBLE_TAP_MS = 400;
  * (emissif glow, lineaire) en downMs, remonte et s'eteint en upMs.
  */
 export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: [0.16, 0.04, 0.004] } as const;
+
+/**
+ * Les touches en relief de la face du desktop (V.4.2, 2026-10-27, Mika : "plus avec un effet 3d, parce que je trouve ca
+ * plat", scene/keyCap.ts) : on, la face du desktop (le telephone garde ses touches) ; seg, les segments d'un coin ; shade,
+ * la teinte par sommet (le pied du flanc, son haut, le chanfrein un rien plus clair qui attrape la lumiere, le dessus :
+ * l'ombre de la touche sur elle-meme) et la part de l'eclat d'une touche allumee (glow : le dessus plein, le chanfrein
+ * presque, les flancs un peu) ; skirt, l'ombre a son pied sur la face, comme le jour sombre d'une touche dans sa decoupe
+ * (sa largeur, son noir a son bord, plus doux sur la machine claire) ; key et step, la course de l'appui
+ * (RYTM_FACEPLATE buttons.travel et steps.travel ; STEP_PRESS.depth au telephone).
+ */
+export const KEY_RELIEF = {
+  on: !PORTRAIT,
+  seg: 4,
+  shade: { foot: 0.42, wall: 0.74, bevel: 1.16, top: 1, glow: { foot: 0.18, wall: 0.4, bevel: 0.85 } },
+  skirt: { w: fpU(1.1), alpha: { dark: 0.62, light: 0.4 }, y: 0.0016 },
+  key: PORTRAIT ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.buttons.travel),
+  step: PORTRAIT ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.steps.travel),
+} as const;
 
 /**
  * Le survol a la souris (2026-10-22, audit : seuls les pas, les pads et les blocs de l'ecran reagissaient, les encodeurs,

@@ -179,7 +179,8 @@ function matchPreset(now: string): string | null {
     return !!d.knobs && !!d.seq && sigOf(d.knobs, d.seq) === now;
   });
   if (!p) return null;
-  const name = p.name.toUpperCase();
+  // Le libelle du preset (2026-10-27) : MIKA/DEEP KICK, ACID
+  const name = presets.label(p);
   queueMicrotask(() => {
     if (sigNow() === now) remember({ id: p.id, name, sig: now });
   });
@@ -194,7 +195,7 @@ function compute(): string {
       const id = origin.id;
       const p = presets.list('voy').find((x) => x.id === id);
       // Le preset efface : son nom part avec lui
-      if (p) name = p.name.toUpperCase();
+      if (p) name = presets.label(p);
       else return matchPreset(now) ?? (isInit(now) ? 'INIT' : '');
     }
     return now === origin.sig ? name : (matchPreset(now) ?? `${name}*`);
@@ -223,7 +224,7 @@ presetMode.subscribe(() => {
   const list = presets.list('voy');
   const p = list[Math.min(st.index, list.length - 1)];
   if (!p) return;
-  if (fresh || !origin || origin.id !== p.id) remember({ id: p.id, name: p.name.toUpperCase(), sig: sigNow() });
+  if (fresh || !origin || origin.id !== p.id) remember({ id: p.id, name: presets.label(p), sig: sigNow() });
 });
 
 export const voyPatch = {

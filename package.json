@@ -19,7 +19,12 @@
     "docs:midi": "node scripts/midi-reference.mjs",
     "arp:bench": "node scripts/arp-bench.mjs",
     "arp:params": "node scripts/arp-params.mjs",
-    "smoke:v4": "node scripts/smoke-v4.mjs"
+    "smoke:v4": "node scripts/smoke-v4.mjs",
+    "hw:test": "node scripts/hw-motor.test.mjs",
+    "firmware:check": "node scripts/firmware.mjs check",
+    "firmware:bump": "node scripts/firmware.mjs bump",
+    "firmware:stamp": "node scripts/firmware.mjs stamp",
+    "presets:test": "node scripts/presets-name.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

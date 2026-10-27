@@ -1,13 +1,15 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "4.1",
+    "version": "4.2",
+    "fingerprint": "sha256:59203372f7971316726fcb7f716f3f7b6bab0ec838f813767c8e803917411bf1",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
-      { "version": "4.1", "date": "2026-10-27", "note": "les potards suivent la page, TRK, P-LOCK aux potards, scenes A et B, crossfader" }
+      { "version": "4.1", "date": "2026-10-27", "note": "les potards suivent la page, TRK, P-LOCK aux potards, scenes A et B, crossfader" },
+      { "version": "4.2", "date": "2026-10-27", "note": "touches nommees facon Digitakt, presets nommes et plus simples, ecran non tactile au desktop, TRK d'une couleur et ses flashs, touches en relief, cibles MIDI de la phase 3, le tempo suit les platines (SYNC du MIXER)", "sha": "1343982" }
     ]
   },
-  "voy": { "name": "MM-ARP", "version": "2.3", "history": [] },
-  "bass": { "name": "MM-BASS", "version": "3.0", "history": [] }
+  "voy": { "name": "MM-ARP", "version": "2.3", "fingerprint": "sha256:402d3079638809c404122b6a6b66423c5453788651ee4d84b5e255ddd6322b49", "history": [] },
+  "bass": { "name": "MM-BASS", "version": "3.0", "fingerprint": "sha256:4f3a80e5cde06693b4f8337b69ba811df385207e84d20ca93995295b1b97ea55", "history": [] }
 }

@@ -1,0 +1,164 @@
+/*
+ * Le dialogue du nom d'un preset (2026-10-27, ui/PresetNameDialog.tsx) : la langue des machines, un panneau sombre a
+ * coins ronds (le corps), les champs comme l'ecran (noir OLED, encre os, capitales espacees, la meme police mono), les
+ * touches en pastilles a contour comme celles de l'ecran. La machine claire garde ses champs noirs (l'ecran l'est).
+ */
+
+.v4-root .v4-pn {
+  z-index: 70;
+  box-sizing: border-box;
+  padding: 14px 16px 14px;
+  border-radius: 16px;
+  background: rgba(16, 16, 19, 0.97);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 18px 48px rgba(0, 0, 0, 0.5);
+  color: var(--bone);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.v4-root[data-v4-theme='light'] .v4-pn {
+  background: rgba(250, 247, 241, 0.98);
+  color: var(--bone);
+}
+
+.v4-root .v4-pn-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+.v4-root .v4-pn-lcd {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  border-radius: 10px;
+  background: #050505;
+  color: #f6f1e7;
+}
+
+.v4-root .v4-pn-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.v4-root .v4-pn-user {
+  flex: 0 0 auto;
+}
+
+.v4-root .v4-pn-name {
+  flex: 1 1 auto;
+}
+
+.v4-root .v4-pn-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(246, 241, 231, 0.55);
+}
+
+.v4-root .v4-pn-count {
+  margin-left: 4px;
+  color: rgba(246, 241, 231, 0.4);
+}
+
+.v4-root .v4-pn-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 2px solid rgba(246, 241, 231, 0.35);
+  border-radius: 0;
+  background: transparent;
+  color: #f6f1e7;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 22px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  caret-color: var(--orange);
+  outline: none;
+}
+
+.v4-root .v4-pn-user .v4-pn-input {
+  width: calc(4ch * 1.12 + 24px);
+}
+
+.v4-root .v4-pn-input:focus {
+  border-bottom-color: var(--orange);
+}
+
+.v4-root .v4-pn-input[aria-invalid='true'] {
+  border-bottom-color: #ff4f4f;
+}
+
+.v4-root .v4-pn-slash {
+  padding-bottom: 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 22px;
+  color: rgba(246, 241, 231, 0.5);
+}
+
+.v4-root .v4-pn-rules {
+  margin: 8px 0 0;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  opacity: 0.6;
+}
+
+.v4-root .v4-pn-problem {
+  min-height: 14px;
+  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--orange);
+}
+
+.v4-root .v4-pn-keys {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.v4-root .v4-pn-key {
+  min-width: 96px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+}
+
+.v4-root .v4-pn-key:hover {
+  background: rgba(127, 127, 127, 0.14);
+}
+
+.v4-root .v4-pn-key:focus-visible {
+  outline: 2px dashed var(--yellow);
+  outline-offset: 3px;
+}
+
+.v4-root .v4-pn-ok {
+  background: var(--bone);
+  color: var(--graphite);
+}
+
+.v4-root .v4-pn-ok:hover {
+  background: var(--bone);
+  opacity: 0.9;
+}

@@ -22,7 +22,8 @@
 
 import { Color, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type BufferGeometry, type Object3D } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { COLOR, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PAGE_KEYS, PRESS_TINT, RYTM_PAGE_KEYS, STEP_PRESS, pageKeyX } from '../theme';
+import { COLOR, FACE_KEY, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PAGE_KEYS, PRESS_TINT, RYTM_PAGE_KEYS, STEP_PRESS, pageKeyX } from '../theme';
+import { keyCapGeometry } from './keyCap';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
@@ -36,6 +37,8 @@ const HOME_LEVEL = 0.32;
 
 function keyGeometry(mobile: boolean): BufferGeometry {
   const P = PAGE_KEYS;
+  // La face du desktop (V.4.2, 2026-10-27) : la touche en relief de la rangee (scene/keyCap.ts)
+  if (KEY_RELIEF.on) return keyCapGeometry(P.w, P.h, P.d, P.radius, FACE_KEY.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
   const g = new RoundedBoxGeometry(P.w, P.h, P.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, P.radius);
   g.translate(0, P.h / 2, 0);
   g.deleteAttribute('uv');
@@ -91,7 +94,7 @@ export class RytmPageKeys {
     this.emissive = new InstancedBufferAttribute(new Float32Array(N * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
     g.setAttribute('instanceEmissive', this.emissive);
-    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key }), false);
+    this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key, vertexColors: KEY_RELIEF.on }), KEY_RELIEF.on);
     this.keyMat.name = 'pageKey';
     this.keys = new InstancedMesh(g, this.keyMat, N);
     this.keys.name = 'pageKeys';
@@ -195,7 +198,7 @@ export class RytmPageKeys {
   setPress(i: number, v: number, move: boolean): void {
     if (i < 0 || i >= N) return;
     this.press[i] = v;
-    const dy = move ? -STEP_PRESS.depth * v : 0;
+    const dy = move ? -KEY_RELIEF.key * v : 0;
     this.keys.instanceMatrix.array[i * 16 + 13] = dy;
     this.keys.instanceMatrix.needsUpdate = true;
     this.leds.instanceMatrix.array[i * 16 + 13] = LED_Y + dy;

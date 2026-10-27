@@ -100,7 +100,7 @@ import { bassExplode } from '../state/explode';
 import { APPEARANCE, PCB_TURN, PORTRAIT } from '../theme';
 import { pattern } from '../audio/pattern';
 import { editor } from '../state/editor';
-import { presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_SLOTS, presetMode, type PresetKey } from '../state/presetMode';
 import { presets } from '../state/presets';
 import { TOP_M, bezel, dc, partDj, power, rca, roundSlab, usb, wedge } from '../dj/body';
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
@@ -116,6 +116,7 @@ import { BASS_SCREENS, BASS_SCREEN_SLOTS, ENC_LETTERS, bassPage, pageIds, type B
 import { bassEditModel, bassKeysModel, bassPageModel, type BassEditModel, type BassKeysModel, type BassPageModel } from './pageView';
 import { BassTweaks } from './tweaks';
 import { bassInfos } from '../state/bassInfos';
+import { fwText } from '../firmware';
 import { BassScreen, type BassScreenView } from './screen';
 import { bassSeq, midiOf } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
@@ -315,7 +316,8 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const texts: Text[] = headTexts('MM-BASS', 'MONO BASS SYNTH', BASS_W, BASS.head.z, 1.95);
   // Le firmware, a gauche du logotype (2026-10-07, Mika : "V1 sur BASS", comme V3 sur le MM-RYTM ; V2 la refonte du
   // 2026-10-08, V3 la machine Elektron du meme jour)
-  texts.push({ text: 'FIRMWARE V.3.0 / 2026', x: BASS_W / 2 - (PORTRAIT ? 1.0 : 1.05), z: BASS.head.z + 0.035, cap: PORTRAIT ? 0.058 : 0.065, align: 'right', alpha: 0.45 });
+  // La version du firmware (2026-10-27) : src/v4/firmware.json, la seule source (fwText)
+  texts.push({ text: fwText('bass'), x: BASS_W / 2 - (PORTRAIT ? 1.0 : 1.05), z: BASS.head.z + 0.035, cap: PORTRAIT ? 0.058 : 0.065, align: 'right', alpha: 0.45 });
   const lines: Line[] = [];
   const brackets: Bracket[] = [];
   const tick = (x: number, z: number, deg: number, r0: number, r1: number): void => {
@@ -722,7 +724,7 @@ export class BassRig {
     const hr = this.screen.headRect();
     // PRESETS sur la part des vues (2026-10-09, le soir : la bande des touches du pas reste dessous)
     const mv = this.screen.mainV();
-    const lcd = [box('open', hr.u0, hr.u1, hr.v0, hr.v1), box('prev', 0, 0.5, 0, band * mv), box('next', 0.5, 1, 0, band * mv), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band * mv, mv))];
+    const lcd = [box('open', hr.u0, hr.u1, hr.v0, hr.v1), box('prev', 0, 0.5, 0, band * mv), box('next', 0.5, 1, 0, band * mv), ...PRESET_SLOTS.map((k, i) => box(k, i / 5, (i + 1) / 5, band * mv, mv))];
     // Le reste du verre (la bande des pas, la ligne du bas ; en EDIT, le rouleau a la place des blocs) : des zones qui
     // ne font rien, sinon le geste passerait a la scene (l'orbite) ; elles ne chevauchent aucune zone allumee
     const lo = this.screen.lowRect();

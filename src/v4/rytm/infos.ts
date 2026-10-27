@@ -126,6 +126,8 @@ interface Raw {
 
 /** Le telephone : pas d'encodeurs sur la face, les blocs de l'ecran se glissent au doigt. */
 const PHONE = BLOCKS_ARE_KNOBS;
+/** La tape qui ouvre la page d'un FX (V.4.2, 2026-10-27) : au desktop l'ecran ne se touche plus, c'est celle de son potard. */
+const TAP_KNOB = PHONE ? '' : ' ; au desktop, sur son potard';
 
 /** Les mots d'une carte au telephone : un bloc se touche et se glisse, il ne se clique pas. */
 const phoneWords = (x: string): string => (!PHONE ? x : x.replace(/deux clics/g, 'deux tapes').replace(/ ou sa molette/g, ''));
@@ -223,9 +225,9 @@ const RAW: Record<RytmInfoId, Raw> = {
     lock: 'yes',
     // Le navigateur des sons (2026-10-18, Mika : "difficile la selection des samples dans RYTM, y aurait-il une autre facon ?")
     steps: [
-      "Clique le nom du son : toute la liste de la voix s'ouvre sur l'écran (son rang, 7 / 24), le son du moment en surbrillance ; la molette la fait défiler.",
-      "Clique une ligne : la voix la joue et la liste reste ouverte ; à l'arrêt, tu l'entends une fois (en lecture, le motif la joue). Les flèches de l'en-tête (ou ↑ ↓ sur SOUND) passent au son d'avant ou d'après ; Échap, une touche de page ou un clic ailleurs la ferment.",
-      "Glisse un WAV (ou AIFF, MP3, FLAC) sur la machine : il entre dans la liste de la voix choisie et joue tout de suite ; ou + LOAD A FILE..., la dernière ligne. Le × d'un de tes samples (deux clics) le retire de ce navigateur.",
+      "Clique le potard A (SOUND, sur la page VOICE) : toute la liste de la voix s'ouvre sur l'écran (son rang, 7 / 24), le son du moment en surbrillance. L'écran ne se touche pas.",
+      "Tourne le potard A (ou sa molette) : la voix joue le son d'avant ou d'après et la liste le suit ; à l'arrêt, tu l'entends une fois (en lecture, le motif la joue). ↑ ↓ au clavier font de même ; Échap, une touche de page ou un clic ailleurs la ferment.",
+      "Glisse un WAV (ou AIFF, MP3, FLAC) sur la machine : il entre dans la liste de la voix choisie et joue tout de suite. Suppr (deux fois), liste ouverte, retire de ce navigateur le sample à toi qui joue.",
     ],
     phone: {
       steps: [
@@ -531,14 +533,14 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'DIST',
     lock: 'global',
-    text: "La saturation parallèle de tout le MM-RYTM, kick compris : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des voix avant leur CHORUS commun, et sur la voie du kick. En montant, le sec et le saturé baissent ensemble : le kick et la caisse claire gardent leur niveau, les sons plus doux gagnent de la densité. Sa page (une tape sur son bloc de GLOBAL FX) ajoute TONE, le passe-bas après la saturation (celui de toutes les DIST, celles des voix comprises).",
+    text: `La saturation parallèle de tout le MM-RYTM, kick compris : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des voix avant leur CHORUS commun, et sur la voie du kick. En montant, le sec et le saturé baissent ensemble : le kick et la caisse claire gardent leur niveau, les sons plus doux gagnent de la densité. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) ajoute TONE, le passe-bas après la saturation (celui de toutes les DIST, celles des voix comprises).`,
     tip: "15 à 25 % pour souder le kick, les charleys, le clap et les toms en indie dance ; plus haut, le kick grogne.",
   },
   chorus: {
     section: 'GLOBAL FX',
     title: 'CHORUS',
     lock: 'global',
-    text: "Le CHORUS de tout le MM-RYTM sauf le kick : le même effet que celui d'une voix (deux retards de 14 et 21 ms qui ondulent), sur le bus des autres voix. Le kick en est sorti exprès : un chorus sur un kick le fait sonner doublé. Sa page (une tape sur son bloc de GLOBAL FX) règle RATE (la vitesse des ondulations) et DEPTH (leur profondeur), pour tous les CHORUS, ceux des voix compris.",
+    text: `Le CHORUS de tout le MM-RYTM sauf le kick : le même effet que celui d'une voix (deux retards de 14 et 21 ms qui ondulent), sur le bus des autres voix. Le kick en est sorti exprès : un chorus sur un kick le fait sonner doublé. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) règle RATE (la vitesse des ondulations) et DEPTH (leur profondeur), pour tous les CHORUS, ceux des voix compris.`,
     tip: 'Un soupçon (10 à 20 %) élargit charleys et clap en dark disco.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -546,7 +548,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'DELAY',
     lock: 'global',
-    text: "L'envoi de toutes les voix sauf le kick vers le DELAY ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX) règle l'écho lui-même, pour toutes les voix : TIME (sa division, calée sur le tempo), FEEDBACK (ses répétitions) et TONE (sa couleur).",
+    text: `L'envoi de toutes les voix sauf le kick vers le DELAY ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) règle l'écho lui-même, pour toutes les voix : TIME (sa division, calée sur le tempo), FEEDBACK (ses répétitions) et TONE (sa couleur).`,
     tip: 'Dosé bas sur tout le kit, il fait rouler un minimal ; pour une seule voix, VOICE FX.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -554,7 +556,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'REVERB',
     lock: 'global',
-    text: "L'envoi de toutes les voix sauf le kick vers la REVERB ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX) règle la salle elle-même, pour toutes les voix : SIZE (sa longueur, 2,4 s au départ), TONE (ses aigus) et PRE (son pré-delay).",
+    text: `L'envoi de toutes les voix sauf le kick vers la REVERB ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) règle la salle elle-même, pour toutes les voix : SIZE (sa longueur, 2,4 s au départ), TONE (ses aigus) et PRE (son pré-delay).`,
     tip: 'Moins de 15 % sur tout le kit : de l’air sans noyer le groove.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -591,14 +593,14 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'BIT',
     lock: 'global',
-    text: "La réduction de bits de tout le MM-RYTM, kick, REVERB et DELAY compris : à 0 (OFF) le son passe tel quel ; en montant, la profondeur tombe de 16 à 4 bits, le grain des vieilles boîtes à rythmes puis la casse franche. Le nombre de bits s'affiche sous la valeur. Sa page (une tape sur son bloc de GLOBAL FX) ajoute RATE, l'échantillonnage divisé.",
+    text: `La réduction de bits de tout le MM-RYTM, kick, REVERB et DELAY compris : à 0 (OFF) le son passe tel quel ; en montant, la profondeur tombe de 16 à 4 bits, le grain des vieilles boîtes à rythmes puis la casse franche. Le nombre de bits s'affiche sous la valeur. Sa page (une tape sur son bloc de GLOBAL FX${TAP_KNOB}) ajoute RATE, l'échantillonnage divisé.`,
     tip: 'Un peu (12 à 10 bits) pour salir les charlestons ; à fond pour une pause lo-fi, puis CLEAR remet tout à 0.',
   },
   comp: {
     section: 'GLOBAL FX',
     title: 'COMP',
     lock: 'global',
-    text: "Le compresseur de bus de tout le MM-RYTM, kick, REVERB et DELAY compris, façon SSL G et API 2500. COMP est son MIX : à 0 (OFF) le son passe tel quel, au bit près ; en montant, le son compressé se mêle au son sec (la compression parallèle, façon New York) ; à fond, il est seul. Sa page (une tape sur son bloc) règle le reste : THRESH et RATIO en haut, à côté de COMP, puis ATTACK, RELEASE, MAKEUP et le HPF de sa chaîne latérale ; l'aiguille GR sous COMP montre la réduction, en dB. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP. À fond avec MAKEUP AUTO, le niveau moyen reste celui du son sec, mais les attaques qui passent avant ATTACK sortent environ 1 dB plus haut : le limiteur de sortie les tient.",
+    text: `Le compresseur de bus de tout le MM-RYTM, kick, REVERB et DELAY compris, façon SSL G et API 2500. COMP est son MIX : à 0 (OFF) le son passe tel quel, au bit près ; en montant, le son compressé se mêle au son sec (la compression parallèle, façon New York) ; à fond, il est seul. Sa page (une tape sur son bloc${TAP_KNOB}) règle le reste : THRESH et RATIO en haut, à côté de COMP, puis ATTACK, RELEASE, MAKEUP et le HPF de sa chaîne latérale ; l'aiguille GR sous COMP montre la réduction, en dB. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP. À fond avec MAKEUP AUTO, le niveau moyen reste celui du son sec, mais les attaques qui passent avant ATTACK sortent environ 1 dB plus haut : le limiteur de sortie les tient.`,
     tip: "Pour coller un kit dark disco : RATIO 4:1, ATTACK 10 à 30 ms, RELEASE AUTO, THRESH descendu jusqu'à 3 à 6 dB sur l'aiguille, puis COMP vers 60 % : le corps se serre, la frappe reste devant.",
   },
 
@@ -771,7 +773,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   trk: {
     section: 'KEYS',
     title: 'TRK',
-    text: "La touche des voix, comme sur une Digitakt : la première de la rangée (le pictogramme des couches). Tiens TRK et touche un pas de 1 à 8 : il choisit sa voix, BD SD CH OH CP TOM HT CY (le nom imprimé sur le pas), sans un son, même à l'arrêt ; l'écran et les huit potards passent à elle. Une tape sur TRK la garde allumée jusqu'au choix d'une voix (une seule main suffit, à la souris) ; une autre tape, Échap ou une touche A à V l'éteint. Les pas 9 à 16 ne font rien avec TRK (réservés). TRK passe avant EDIT et le P-LOCK : EDIT ouvert, un pas choisit quand même sa voix et EDIT reste ouvert. Deux tapes rapides sur le même pas (ou un clic droit) coupent sa voix ou la rendent, sans la choisir ; une voix coupée reste à peine allumée avec une barre rouge, une voix en solo a une barre bleue. En mode SOLO ou MUTE, le pas met sa voix en solo ou la coupe. Au clavier : Tab jusqu'à TRK, Espace ou Entrée la garde, puis Entrée sur un pas. Au Roto-Control (RSEQ), TRK allumée, les huit boutons choisissent les huit voix.",
+    text: "La touche des voix, comme sur une Digitakt : la première de la rangée, TRK écrit dessus. Tiens TRK et touche un pas de 1 à 8 : il choisit sa voix, BD SD CH OH CP TOM HT CY (le nom imprimé sur le pas), sans un son, même à l'arrêt ; l'écran et les huit potards passent à elle. Une tape sur TRK la garde allumée jusqu'au choix d'une voix (une seule main suffit, à la souris) ; une autre tape, Échap ou une touche A à V l'éteint. Les pas 9 à 16 ne font rien avec TRK (réservés). TRK passe avant EDIT et le P-LOCK : EDIT ouvert, un pas choisit quand même sa voix et EDIT reste ouvert. Deux tapes rapides sur le même pas (ou un clic droit) coupent sa voix ou la rendent, sans la choisir ; une voix coupée reste à peine allumée avec une barre rouge, une voix en solo a une barre bleue. Les huit carrés sont de la même couleur, la voix choisie plus forte ; pendant la lecture, chacun flashe à l'instant où sa voix frappe (une voix coupée ne flashe pas). En mode SOLO ou MUTE, le pas met sa voix en solo ou la coupe. Au clavier : Tab jusqu'à TRK, Espace ou Entrée la garde, puis Entrée sur un pas. Au Roto-Control (RSEQ), TRK allumée, les huit boutons choisissent les huit voix.",
     tip: "Une tape sur TRK, puis le pas 2 : SD est choisie, les potards règlent la caisse claire ; une tape encore, puis le pas 3 : le charley, sans quitter la page.",
   },
 
@@ -1002,7 +1004,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'P-LOCK',
     steps: [
       "Tiens un pas 350 ms (ou L) : il passe en P-LOCK, l'en-tête de l'écran devient P-LOCK STEP 05.",
-      "Choisis la page, glisse une valeur de l'écran (ou sa molette) : ce réglage ne change que sur ce pas, son bloc passe en négatif, un P dans son coin.",
+      "Choisis la page, tourne le potard d'une valeur (ou sa molette) : ce réglage ne change que sur ce pas, son bloc passe en négatif, un P dans son coin.",
       'Retape le pas (ou Échap) pour sortir.',
     ],
     text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue (la pastille P-LOCK clignote pendant la lecture). Chaque page compte ses verrous ; deux clics sur une valeur enlèvent son verrou, CLEAR tous ceux du pas. Les huit potards à droite de l'écran tournent les valeurs de la page à leur place : un pas tenu (ou en P-LOCK), ils posent son verrou, sur la page montrée ; leurs anneaux passent au jaune du LOCK. Un pas tenu gagne sur une scène armée ; garder le P-LOCK (un pas lâché sans tourner) désarme une scène gardée, armer une scène quitte le P-LOCK. Dans le Dock, un appui long sur le pas, puis KNOBS.",
@@ -1021,7 +1023,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   run: {
     section: 'TRANSPORT',
     title: 'RUN/STOP',
-    text: "Lance ou arrête le séquenceur du MM-RYTM ; une piste SoundCloud qui joue passe en pause. Le MM-BASS et le MM-ARP se calent sur sa grille quand ils jouent. En lecture, une voix choisie au clavier (A S D F, Z X C V) ne joue pas : elle est seulement choisie. Son pictogramme passe de lecture à stop pendant la lecture.",
+    text: "Lance ou arrête le séquenceur du MM-RYTM ; une piste SoundCloud qui joue passe en pause. Le MM-BASS et le MM-ARP se calent sur sa grille quand ils jouent. En lecture, une voix choisie au clavier (A S D F, Z X C V) ne joue pas : elle est seulement choisie. Sur la touche, les signes PLAY et STOP, comme sur une Digitakt ; elle s'allume pendant la lecture.",
     phone: {
       text: "Lance ou arrête le séquenceur du MM-RYTM ; une piste SoundCloud qui joue passe en pause. Le MM-BASS et le MM-ARP se calent sur sa grille quand ils jouent. En lecture, toucher un pad choisit sa voix sans la jouer.",
     },
@@ -1084,7 +1086,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   level: {
     section: 'MASTER',
     title: 'MASTER',
-    text: "Le volume de tout le MM-RYTM, voix et effets compris (les envois REVERB et DELAY suivent) : un gain au carré, -3,9 dB au réglage d'usine (102), 0 dB tout en haut. Il est dans l'écran, en haut à droite, à gauche du tempo (sur HOME et dans la vue PAGE) : sept barres qui montent avec lui, son niveau en dB à côté quand la place le permet. Glisse-le de haut en bas (Maj : plus fin), ou sa molette ; deux clics le remettent à -3,9 dB ; le pied de l'écran dit sa valeur. Il ne touche ni le MM-BASS, ni le MM-ARP, ni le volume du site.",
+    text: "Le volume de tout le MM-RYTM, voix et effets compris (les envois REVERB et DELAY suivent) : un gain au carré, -3,9 dB au réglage d'usine (102), 0 dB tout en haut. Il est dans l'écran, en haut à droite, à gauche du tempo (sur HOME et dans la vue PAGE) : sept barres qui montent avec lui, son niveau en dB à côté quand la place le permet. Il se règle au potard A de la page MASTER (FX pressée trois fois : GLOBAL FX, VOICE FX, MASTER) : glisse-le de haut en bas (Maj : plus fin), ou sa molette ; deux clics le remettent à -3,9 dB ; le pied de l'écran dit sa valeur. Il ne touche ni le MM-BASS, ni le MM-ARP, ni le volume du site.",
     tip: 'Règle MASTER une fois, puis équilibre les machines au MIXER du MM-DECKS (voie 1).',
     phone: {
       text: "Le volume de tout le MM-RYTM, voix et effets compris (les envois REVERB et DELAY suivent) : un gain au carré, -3,9 dB au réglage d'usine (102), 0 dB tout en haut. Il est dans l'écran, en haut à droite, à gauche du tempo (sur HOME et dans la vue PAGE) : sept barres qui montent avec lui, son niveau en dB à côté quand la place le permet. Glisse-le de haut en bas, il se cerne tant que tu le tiens ; deux tapes le remettent à -3,9 dB ; le pied de l'écran dit sa valeur. Il ne touche ni le MM-BASS, ni le MM-ARP, ni le volume du site.",
@@ -1093,7 +1095,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   tempo: {
     section: 'TEMPO',
     title: 'TEMPO',
-    text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Il est dans l'écran, en haut à droite, à côté du i (sur HOME et dans la vue PAGE) : son nombre et sa course dessous. Glisse-le vers le haut pour accélérer (100 px = 50 BPM ; Maj : plus fin), sa molette va de 1 BPM, deux clics le remettent à 130 ; le pied de l'écran dit TEMPO 128 BPM. Le DELAY suit ce tempo (TIME, sur sa page de GLOBAL FX).",
+    text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Il est dans l'écran, en haut à droite, à côté du i (sur HOME et dans la vue PAGE) : son nombre et sa course dessous. Il se règle au potard B de la page MASTER (FX pressée trois fois : GLOBAL FX, VOICE FX, MASTER) : glisse-le vers le haut pour accélérer (Maj : plus fin), sa molette va de 1 BPM, deux clics le remettent à 130 ; son bloc dit 128 BPM. Le DELAY suit ce tempo (TIME, sur sa page de GLOBAL FX).",
     phone: {
       text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Il est dans l'écran, en haut à droite, à côté du i (sur HOME et dans la vue PAGE) : son nombre et sa course dessous. Glisse-le vers le haut pour accélérer (100 px = 50 BPM), il se cerne tant que tu le tiens ; deux tapes le remettent à 130 ; le pied de l'écran dit TEMPO 128 BPM. Le DELAY suit ce tempo (TIME, sur sa page de GLOBAL FX).",
     },
@@ -1104,7 +1106,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern, MASTER et TEMPO (à glisser) et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs, à la place des anciens encodeurs (SOUND en grand, l'enveloppe dessinée sur trois cases) : chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas, ou sa molette, pour le régler ; deux clics le remettent à son départ ; il se cerne au survol. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Les huit encodeurs à droite de l'écran règlent les FX globaux. Le reste de l'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME (H).",
+    text: "La vue PAGE, l'éditeur ; il ne se touche pas, il montre ce que font les potards et les touches. En haut, la page en pastille et ses onglets, la voix, le pattern, MASTER et TEMPO (leurs potards A et B sur la page MASTER, FX pressée trois fois) et le i des INFOS (I au clavier) ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs, à la place des anciens encodeurs (SOUND en grand, l'enveloppe dessinée sur trois cases) : chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Le potard à la place d'un bloc le règle (glisse-le de haut en bas, ou sa molette) ; deux clics sur le potard le remettent à son départ, une tape ouvre ce qu'ouvrait le bloc (la page d'un FX de GLOBAL FX ou VOICE FX, la liste des sons sur SOUND) ; le bloc se cerne au survol du potard. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Les huit encodeurs à droite de l'écran règlent les FX globaux. Le reste de l'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME (H).",
     phone: {
       text: "La vue PAGE, l'éditeur. En haut, la page en pastille et ses onglets, la voix, le pattern, MASTER et TEMPO (à glisser) et le i des INFOS ; en P-LOCK, l'en-tête passe en négatif (P-LOCK STEP 05) et compte les verrous. Puis les blocs (SOUND en grand, l'enveloppe dessinée sur trois cases), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas pour le régler (environ 150 px pour toute la course, il se cerne tant que tu le tiens), deux tapes le remettent à son départ. Dessous, les 16 pas de la voix et la tête de lecture. Les huit encodeurs sous l'écran règlent les FX globaux. Le reste de l'en-tête ouvre les presets ; la touche de page allumée passe à son onglet suivant, ou montre HOME.",
     },
@@ -1112,7 +1114,10 @@ const RAW: Record<RytmInfoId, Raw> = {
   presets: {
     section: 'SCREEN',
     title: 'PRESETS',
-    text: "Les presets du MM-RYTM : touche la moitié gauche ou droite du haut de l'écran (ou les flèches) pour le précédent ou le suivant ; en bas, SAVE, NAME, DEL et EXIT.",
+    text: "Les presets du MM-RYTM : EDIT deux fois (les patterns, puis les presets), ou P au clavier. Une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine : un potard la fait défiler (les flèches aussi), rien ne se charge avant LOAD. Les cinq touches sous l'écran font ce qui est écrit juste au-dessus d'elles : VOICE LOAD, FLTR SAVE (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), ENV NAME, FX DEL (puis YES), EDIT EXIT. Pour nommer, tape au clavier, ou le potard A choisit la lettre et B déplace le curseur. Une étoile : le preset chargé a bougé. L'écran ne se touche pas.",
+    phone: {
+      text: "Les presets du MM-RYTM : une liste, tes presets (MIKA/DEEP KICK) puis ceux d'usine. La moitié gauche ou droite du haut de l'écran passe au précédent ou au suivant, rien ne se charge avant LOAD. En bas : LOAD, SAVE (la première fois ton nom de 4 lettres et celui du preset, jusqu'à 10 ; sur un preset à toi chargé, OVERWRITE ou AS NEW), NAME, DEL (puis YES) et EXIT. Une étoile : le preset chargé a bougé.",
+    },
   },
   seek: {
     section: 'SCREEN',
@@ -1122,7 +1127,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   ikey: {
     section: 'SCREEN',
     title: 'INFOS',
-    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au doigt, touche-la : sa carte s'affiche, la commande n'agit pas ; un glisser règle toujours une valeur de l'écran) pour lire ce qu'elle fait ; un bloc de l'écran montre le réglage qu'il tient, pour la voix choisie, un encodeur son FX global. Le i se remplit tant que c'est allumé ; touche-le encore, la croix de la pastille INFOS, I ou Échap pour l'éteindre. Au téléphone, le i du Dock fait de même.",
+    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au doigt, touche-la : sa carte s'affiche, la commande n'agit pas) pour lire ce qu'elle fait ; un potard montre le réglage qu'il tient sur la page, pour la voix choisie. I au clavier l'allume et l'éteint (l'écran ne se touche pas : son i dit seulement que c'est allumé, il se remplit), la croix de la pastille INFOS ou Échap l'éteignent. Au téléphone, le i du Dock fait de même.",
     phone: {
       text: "Allume l'aide : touche n'importe quelle commande du MM-RYTM, sa carte s'affiche et la commande n'agit pas ; un glisser règle toujours une valeur de l'écran. Un bloc de l'écran montre le réglage qu'il tient, pour la voix choisie. Le i se remplit tant que c'est allumé ; touche-le encore ou la croix de la pastille INFOS pour l'éteindre. Le i du Dock fait de même.",
     },
@@ -1130,7 +1135,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   home: {
     section: 'SCREEN',
     title: 'HOME',
-    text: "L'écran de départ : en haut, le pattern, MASTER et TEMPO (à glisser, comme dans la vue PAGE) ; l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page en vue PAGE. La touche allumée d'une page sans onglet (ou H) y revient, une touche de page ramène la vue PAGE ; sa LED reste à peine allumée.",
+    text: "L'écran de départ : en haut, le pattern, MASTER et TEMPO (sur la page MASTER, FX pressée trois fois) ; l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu, celui des touches : VOICE, FLTR, ENV et FX ouvrent leur page en vue PAGE, SOUND est le potard A de VOICE (une tape ouvre la liste des sons, une voix choisie d'abord). La touche allumée d'une page sans onglet (ou H) y revient, une touche de page ramène la vue PAGE ; sa LED reste à peine allumée.",
     phone: {
       text: "L'écran de départ : en haut, le pattern, MASTER et TEMPO (à glisser, comme dans la vue PAGE) ; l'anneau des pas de la voix et ses cartes (VOLUME, TONE, DECAY) ; en bas, son menu : SOUND ouvre la liste des sons de la voix (une voix choisie d'abord), VOICE, FLTR, ENV et FX ouvrent leur page et ses valeurs à glisser. La touche allumée d'une page sans onglet y revient ; sa LED reste à peine allumée.",
     },

@@ -14,6 +14,7 @@ import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 't
 import { FONT_DISPLAY, SILK, silkA } from '../theme';
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { VOY_BACK, VOY_BODY, VOY_COPY, VOY_INNER } from './theme';
+import { fwText } from '../firmware';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -96,7 +97,8 @@ export class VoyBackPlate {
       tmp.height = 0;
     } else this.text('MAUDITE MACHINE', K.logo.u, K.logo.y, 0.12, 'left', SILK.alpha, SILK.strongWeight);
     this.text(`${VOY_COPY.model} ARPEGGIATOR SYNTHESIZER`, K.model.u, K.model.y, K.model.cap, 'left');
-    this.text('FIRMWARE V.2.3 / 2026', K.firmware.u, K.firmware.y, K.firmware.cap, 'left', 0.55);
+    // La version du firmware (2026-10-27) : src/v4/firmware.json, la seule source (fwText)
+    this.text(fwText('voy'), K.firmware.u, K.firmware.y, K.firmware.cap, 'left', 0.55);
 
     // Etiquette du numero de serie : papier argente, code-barres, numero
     const S = K.sticker;

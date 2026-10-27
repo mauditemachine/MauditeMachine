@@ -49,7 +49,7 @@ import {
 import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
-import { INSTRUMENTS, pattern } from '../audio/pattern';
+import { INSTRUMENTS, VEL_MAX, pattern, velocity } from '../audio/pattern';
 import { familyOf, kit } from '../audio/kit';
 import { samplesChanged } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
@@ -60,7 +60,7 @@ import { FLAGS } from '../state/flags';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { PATTERN_SLOTS, patterns } from '../state/patterns';
-import { presetMode, type PresetKey } from '../state/presetMode';
+import { PRESET_SLOTS, presetMode, type PresetKey } from '../state/presetMode';
 import { bassExplode, explode as explodeState, voyExplode } from '../state/explode';
 import { BASS, DJ, MACHINES, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
@@ -133,6 +133,8 @@ import {
   type PadId,
   type SectionId,
   KEY_LIT_LIGHT,
+  SCREEN_TOUCH,
+  TRK_FLASH,
   TRK_LIT,
   TRK_LIT_LIGHT,
   XFADE,
@@ -157,7 +159,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
-import { Screen, infoKeySpot } from './screen';
+import { Screen, infoKeySpot, presetKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
@@ -761,7 +763,7 @@ export class Stage {
         })
       : null;
     // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture ; les
-    // pictogrammes de la face V.4.0 du desktop (2026-10-27) aussi
+    // legendes de la face V.4.0 du desktop (2026-10-27 ; V.4.2 : un mot par touche, les signes de RUN/STOP) aussi
     this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le crossfader
     this.faceKeys = PORTRAIT ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
@@ -815,6 +817,9 @@ export class Stage {
       },
       () => this.coarseMql.matches
     );
+    // L'ecran du MM-RYTM se touche-t-il (V.4.2, 2026-10-27, theme.ts SCREEN_TOUCH) : au desktop, non (ses zones gardent leurs
+    // jumeaux, le pointeur les traverse) ; au telephone, oui
+    this.hit.screenTouch = SCREEN_TOUCH;
     // Ordre de la liste = ordre de tabulation des jumeaux (spec 20.19) : les
     // 12 pads (4 voix, 7 pages, OPEN), les quatre puces (juste apres OPEN
     // qui les decouvre), les six encodeurs, RUN, CLEAR, les 16 pas
@@ -849,12 +854,14 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled: false,
+        screen: true,
       };
       this.hit.add([this.seekDef]);
     }
     // Les presets sur l'ecran (2026-10-04, state/presetMode.ts) : le haut de l'ecran (lignes 1 et 2)
     // ouvre le mode presets ; en mode presets, le haut a gauche et a droite (precedent, suivant), la
-    // bande du bas en quatre touches (SAVE NAME DEL EXIT). La barre de la piste garde sa bande hors du mode
+    // bande du bas en cinq touches (2026-10-27 : LOAD SAVE NAME DEL EXIT, la ou l'ecran dessine leurs pastilles,
+    // scene/screen.ts presetKeySpot ; avant, quatre quarts). La barre de la piste garde sa bande hors du mode
     {
       const [, TH] = OLED.tex;
       const zAt = (y: number): number => OLED.z - OLED.d / 2 + (y / TH) * OLED.d;
@@ -872,13 +879,17 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled,
+        screen: true,
       });
       const band = OLED_BAR.bandY0;
       this.lcdDefs = [
         box('open', 0, 1, 0, band, true),
         box('prev', 0, 0.5, 0, band, false),
         box('next', 0.5, 1, 0, band, false),
-        ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, TH, false)),
+        ...PRESET_SLOTS.map((k, i) => {
+          const sp = presetKeySpot(i, mobile);
+          return box(k, sp.u0, sp.u1, band, TH, false);
+        }),
       ];
       this.hit.add(this.lcdDefs);
       // La touche i de l'ecran (R4, 2026-10-08, state/rytmInfos.ts) : un disque sur son coin, un peu plus haut que
@@ -886,7 +897,7 @@ export class Stage {
       {
         const ik = infoKeySpot(mobile);
         const r = ik.r * OLED.w;
-        this.infoDef = { id: 'lcd-i', kind: 'rinfo', layer: plateau, shape: 'disc', x: xAt(ik.u), z: zAt(ik.v * TH), hx: r, hz: r, y0: OLED.y - 0.005, y1: OLED.y + 0.045, enabled: true };
+        this.infoDef = { id: 'lcd-i', kind: 'rinfo', layer: plateau, shape: 'disc', x: xAt(ik.u), z: zAt(ik.v * TH), hx: r, hz: r, y0: OLED.y - 0.005, y1: OLED.y + 0.045, enabled: true, screen: true };
         this.hit.add([this.infoDef]);
         // Au telephone, INFOS allume, les blocs ont leur zone : le disque monte dans le coin du verre (revue de R4 : il mordait
         // le coin du bloc D, une tape la eteignait INFOS au lieu de montrer la carte du bloc) ; syncScreenTabs passe de l'un a l'autre
@@ -914,6 +925,7 @@ export class Stage {
         // les presets ; franchement devant lui, l'onglet gagne partout ou il est dessine
         y1: OLED.y + 0.1,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.tabDefs);
       this.tabAt = { xAt, zAt: (v: number) => OLED.z - OLED.d / 2 + v * OLED.d };
@@ -933,6 +945,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.blockDefs);
       // Le navigateur des sons (2026-10-18) : ses zones, posees et allumees la ou l'ecran le dessine (syncScreenTabs). Plus
@@ -952,6 +965,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + lift,
         enabled: false,
+        screen: true,
       });
       this.sbDefs = [
         sb('lcd-sb-body', 0.1),
@@ -976,6 +990,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.1,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.menuDefs);
       // MASTER et TEMPO (2026-10-19) : dessines en haut a droite de l'ecran, sur HOME et dans l'en-tete de la vue PAGE
@@ -994,6 +1009,7 @@ export class Stage {
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.1,
         enabled: false,
+        screen: true,
       }));
       this.hit.add(this.dialDefs);
     }
@@ -1059,7 +1075,8 @@ export class Stage {
       this.stepBreathe,
       this.stepLockBlink,
       this.modeBlink,
-      this.faceBlink
+      this.faceBlink,
+      this.stepTrkFlash
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -1156,7 +1173,7 @@ export class Stage {
       this.unsubFace = faceKnobs.subscribe(this.syncFaceKnobs);
       this.syncFaceKnobs({ cause: 'page', moved: [0, 1, 2, 3, 4, 5, 6, 7] });
     }
-    // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 a la couleur de leur voix
+    // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 allumes (une seule couleur, V.4.2)
     if (this.faceKeys) {
       this.unsubTrk = trk.subscribe(this.syncTrk);
       this.syncTrk();
@@ -1222,7 +1239,7 @@ export class Stage {
     };
     const syncEditor = (): void => {
       if (this.pads?.setEditing(editor.get() === 'mm808')) this.invalidate();
-      if (this.faceKeys?.setEditing(editor.get() === 'mm808')) this.repaint();
+      if (this.faceKeys?.setEditing(this.editLit())) this.repaint();
       // Le MM-ARP au desktop : l'ecran de la suite monte a la place des pads
       if (this.voy?.setSeqOpen(editor.get() === 'voy')) this.hit.invalidate();
       syncPatView();
@@ -1244,6 +1261,8 @@ export class Stage {
         }
       }
       if (changed) this.hit.invalidate();
+      // EDIT allume aussi sur les presets (V.4.2 : au desktop, EDIT pressee encore les ouvre et les ferme)
+      if (this.faceKeys?.setEditing(this.editLit())) this.repaint();
     };
     syncPresets();
     this.unsubPresets = presetMode.subscribe(syncPresets);
@@ -3262,14 +3281,20 @@ export class Stage {
     return this.seq.setVoiceKeys(lv('mute'), lv('solo'), on('mute'), on('solo'));
   };
 
+  /** EDIT allumee (la face du desktop) : l'editeur des patterns ouvert, ou les presets quand l'ecran ne se touche pas (V.4.2). */
+  private editLit(): boolean {
+    return editor.get() === 'mm808' || (!SCREEN_TOUCH && presetMode.on('mm808'));
+  }
+
   /** La vue TRK est-elle posee sur les pas (2026-10-27) ? */
   private trkShown = false;
 
   /**
-   * TRK (2026-10-27, la phase 2) : la touche allumee tant qu'elle est engagee (son temoin clignote gardee) ; les pas 1 a 8 a
-   * la couleur de leur voix (rytm/stepLeds.ts), la voix choisie pleine, une voix coupee a peine avec la barre de MUTE, une
-   * voix en solo avec celle de SOLO ; 9 a 16 eteints. Lue a chaque changement de TRK, de la voix choisie, des mutes et des
-   * solos ; rien quand TRK est eteinte et sa vue deja partie.
+   * TRK (2026-10-27, la phase 2) : la touche allumee tant qu'elle est engagee (son temoin clignote gardee) ; les pas 1 a 8
+   * allumes (rytm/stepLeds.ts ; V.4.2 : l'orange de la machine pour les huit), la voix choisie pleine, une voix coupee a
+   * peine avec la barre de MUTE, une voix en solo avec celle de SOLO ; 9 a 16 eteints ; pendant la lecture, chaque coup
+   * flashe dans le carre de sa voix (pollPlayhead, stepTrkFlash). Lue a chaque changement de TRK, de la voix choisie, des
+   * mutes et des solos ; rien quand TRK est eteinte et sa vue deja partie.
    */
   private syncTrk = (): void => {
     const fk = this.faceKeys;
@@ -3382,9 +3407,45 @@ export class Stage {
       for (let k = 0; k < INSTRUMENTS.length; k += 1) {
         if (e.mask & (1 << k)) this.pads?.flash(INSTRUMENTS[k], PAD_FX.seqFlashMs, now);
       }
+      // La vue TRK (V.4.2, 2026-10-27) : le carre de chaque voix qui frappe s'eclaire, a l'heure audio du coup (e.when, la
+      // meme entree que la tete de lecture ; une voix coupee n'est pas dans le masque)
+      if (this.trkShown) this.trkHits(e.mask, e.step, e.when);
     }
     return 'paint';
   };
+
+  /** Les coups d'un pas en vue TRK : un eclair par voix du masque, a l'eclat de sa velocite (TRK_FLASH.velFloor a 1). */
+  private trkHits(mask: number, step: number, at: number): void {
+    const steps = pattern.get().steps;
+    const F = TRK_FLASH.velFloor;
+    for (let k = 0; k < INSTRUMENTS.length; k += 1) {
+      if ((mask & (1 << k)) === 0) continue;
+      const v = velocity(steps, INSTRUMENTS[k], step);
+      this.seq.trkHit(k, at, F + ((1 - F) * Math.max(1, v)) / VEL_MAX);
+    }
+    this.kick();
+  }
+
+  /** L'horloge des eclairs : l'heure audio (celle de la tete de lecture) ; sans contexte (le crochet de test), celle de la page. */
+  private flashClock(): number {
+    const c = context();
+    return c ? c.currentTime : performance.now() / 1000;
+  }
+
+  /** Animateur : les eclairs de la vue TRK s'eteignent, une image par cran ('paint' : des couleurs seules), rien sinon. */
+  private stepTrkFlash = (): 'paint' | 'poll' | false => {
+    if (!this.seq.flashing) return false;
+    return this.seq.stepFlash(this.flashClock()) ? 'paint' : 'poll';
+  };
+
+  /**
+   * Le crochet de test des eclairs (V.4.2, ?debug=1 seulement, jamais un son) : les voix du masque (bit k : INSTRUMENTS[k])
+   * frappent maintenant au pas step, par le meme chemin que la lecture (trkHits) ; rien hors de la vue TRK.
+   */
+  trkHitTest(mask: number, step = 0): void {
+    if (!FLAGS.debug) throw new Error('trkHitTest: ?debug=1 only');
+    if (this.trkShown) this.trkHits(mask, step, this.flashClock());
+  }
 
   /**
    * Reduced motion coupe l'intro. (Sous reduced motion l'orbite suit le

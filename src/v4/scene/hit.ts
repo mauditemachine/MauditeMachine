@@ -145,6 +145,11 @@ export interface HotspotDef {
   bass?: string;
   /** MM-RYTM V.4.0 (2026-10-27) : la scene d'une touche SCENE */
   scene?: 'a' | 'b';
+  /**
+   * MM-RYTM V.4.2 (2026-10-27) : une zone de l'ecran (ses blocs, ses onglets, son menu, MASTER et TEMPO, la liste des sons,
+   * les presets, le i) ; theme.ts SCREEN_TOUCH faux (le desktop), le pointeur la traverse (HitMap.screenTouch)
+   */
+  screen?: boolean;
 }
 
 /**
@@ -408,6 +413,18 @@ export class HitMap {
    * en cours : aucun objet, un clic choisit une machine).
    */
   private active: MachineId | null | 'any' = 'any';
+  /**
+   * L'ecran du MM-RYTM se touche-t-il (V.4.2, 2026-10-27, theme.ts SCREEN_TOUCH ; Mika : "Pourrais tu faire en sorte qu'on
+   * ne puisse pas toucher a l'ecran ? qu'on puisse toujours utiliser les knobs et boutons") : faux, pick() ignore ses
+   * zones (def.screen) : ni tape, ni glisser, ni molette, ni survol ; sous le pointeur l'ecran est le corps de la machine.
+   * Ses jumeaux (le clavier, les lecteurs d'ecran) restent : rects() les pose toujours.
+   */
+  screenTouch = true;
+
+  /** Une zone que le pointeur peut prendre (l'ecran intouchable : ses zones, non). */
+  private pickable(i: number): boolean {
+    return this.views[i].enabled && (this.screenTouch || !this.defs[i].screen);
+  }
 
   /** Les objets de cette machine seulement repondent ; null : aucun ; 'any' : tous. */
   setActive(m: MachineId | null | 'any'): void {
@@ -892,7 +909,7 @@ export class HitMap {
     this.refresh();
     const views = this.views;
     const cand: number[] = [];
-    for (let i = 0; i < views.length; i += 1) if (views[i].enabled && inside(views[i].poly, x, y)) cand.push(i);
+    for (let i = 0; i < views.length; i += 1) if (this.pickable(i) && inside(views[i].poly, x, y)) cand.push(i);
     if (cand.length > 0) {
       this.ray(x, y);
       const t: number[] = [];
@@ -928,7 +945,7 @@ export class HitMap {
     let bestD = Infinity;
     for (let i = 0; i < views.length; i += 1) {
       const hv = views[i];
-      if (!hv.enabled || edgeDistance(hv.poly, x, y) > HIT.touchSlop) continue;
+      if (!this.pickable(i) || edgeDistance(hv.poly, x, y) > HIT.touchSlop) continue;
       const def = this.defs[i];
       if (!this.visible(def.layer, def.x, def.y1, def.z, def.id, true)) continue;
       const dd = (hv.cx - x) ** 2 + (hv.cy - y) ** 2;
