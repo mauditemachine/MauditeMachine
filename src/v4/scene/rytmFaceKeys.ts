@@ -84,8 +84,10 @@ const LED_Y = FACE_KEY.h + 0.002;
 
 export interface RytmFaceKeysInfo {
   ids: FaceKeyId[];
-  /** chaque touche allumee en entier (0 a 1) : EDIT ouvert, OPEN machine fermee (sa respiration) */
+  /** chaque touche allumee en entier (0 a 1) : EDIT ouvert, OPEN machine fermee */
   lit: number[];
+  /** l'eclat du dessus d'une touche allumee (0 a 1) : OPEN machine fermee respire par lui (2026-10-27) */
+  glow: number[];
   /** l'eclat de chaque temoin (0 a 1) */
   leds: number[];
   /** le nom de chaque touche en noir (sur une touche allumee) */
@@ -108,6 +110,7 @@ export class RytmFaceKeys {
   private emissive: InstancedBufferAttribute;
   private press = new Float32Array(N);
   private fill = new Float32Array(N);
+  private glow = new Float32Array(N);
   private level = new Float32Array(N);
   private hover = -1;
   private editing = false;
@@ -162,17 +165,27 @@ export class RytmFaceKeys {
     return [this.keys, this.leds, this.labels.mesh, this.cap];
   }
 
-  /** La part allumee et le temoin de la touche i, selon son etat. */
-  private state(i: number): { fill: number; led: number } {
-    if (i === EDIT) return { fill: this.editing ? 1 : 0, led: this.editing ? 1 : 0 };
-    if (i === OPEN) return this.open ? { fill: 0, led: OPEN_DIM } : { fill: this.breath, led: this.breath };
-    return { fill: 0, led: 0 };
+  /**
+   * La part allumee, l'eclat du dessus et le temoin de la touche i, selon son etat. OPEN machine fermee (la revue du
+   * 2026-10-27) : le dessus reste a l'orange plein (fill 1 : la teinte de la machine claire ne palit plus en peche), seul
+   * son eclat respire, de OPEN_BREATHE.faceMin (0.8) a 1 (a fill 0.45, il tombait sur le rouge de RUN/STOP au repos, sa voisine).
+   */
+  private state(i: number): { fill: number; glow: number; led: number } {
+    if (i === EDIT) return this.editing ? { fill: 1, glow: 1, led: 1 } : { fill: 0, glow: 0, led: 0 };
+    if (i === OPEN) {
+      if (this.open) return { fill: 0, glow: 0, led: OPEN_DIM };
+      const B = OPEN_BREATHE;
+      const phase = (this.breath - B.min) / (1 - B.min);
+      return { fill: 1, glow: B.faceMin + (1 - B.faceMin) * phase, led: this.breath };
+    }
+    return { fill: 0, glow: 0, led: 0 };
   }
 
   /** Repeint la touche i : son dessus, son temoin, son nom. */
   private refresh(i: number): void {
     const s = this.state(i);
     this.fill[i] = s.fill;
+    this.glow[i] = s.glow;
     this.level[i] = s.led;
     // Le dessus : sa teinte (la machine claire la tire vers l'orange de l'appui et de la touche allumee)
     const b = LIT.clear;
@@ -189,7 +202,7 @@ export class RytmFaceKeys {
     const e = this.emissive.array as Float32Array;
     const g = KEY_LIT.glow.orange;
     const h = i === this.hover ? 1 : 0;
-    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * v, g[c] * KEY_LIT_LIGHT.glow * f, HOVER_LIGHT.glow[c] * h);
+    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * v, g[c] * KEY_LIT_LIGHT.glow * s.glow, HOVER_LIGHT.glow[c] * h);
     this.emissive.needsUpdate = true;
     // Le temoin : eteint, l'orange ; sur une touche allumee, tire vers le blanc (il reste l'accent)
     col.copy(this.off).lerp(this.on, s.led);
@@ -299,6 +312,7 @@ export class RytmFaceKeys {
     return {
       ids: FACE_KEYS.map((k) => k.id),
       lit: Array.from(this.fill, (v) => +v.toFixed(2)),
+      glow: Array.from(this.glow, (v) => +v.toFixed(2)),
       leds: Array.from(this.level, (v) => +v.toFixed(2)),
       dark: this.labels.litState(),
       open: this.open,

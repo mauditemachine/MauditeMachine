@@ -1187,7 +1187,11 @@ export const FLASH_TINT: { rgb: number[] | null } = { rgb: null };
  * toutes les frameMs (20 par seconde), sans passe d'ombre : la boucle ne
  * dort plus machine fermee, mais ne rend que la lumiere.
  */
-export const OPEN_BREATHE = { periodMs: 3200, min: 0.45, tintMin: 0.5, frameMs: 50 } as const;
+// faceMin (2026-10-27, la touche OPEN de la face V.4.0 du desktop) : le creux de l'eclat de son dessus, toujours a
+// l'orange plein (scene/rytmFaceKeys.ts state). Mesure a 1440 x 900 : machine noire, 233,97,54 au creux pour 244,112,58
+// au haut, RUN/STOP au repos 192,69,50 (CIE76 17 au creux ; 14 a 0.7, 4 a l'ancien 0.45) ; machine claire, 246,129,69
+// a 247,129,74 (l'orange plein, plus de peche)
+export const OPEN_BREATHE = { periodMs: 3200, min: 0.45, tintMin: 0.5, frameMs: 50, faceMin: 0.8 } as const;
 
 /* ---------- panneau : les 16 touches trig (spec 20.3.6) ---------- */
 
