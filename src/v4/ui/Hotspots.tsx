@@ -1559,6 +1559,17 @@ const noRepeat = (e: React.KeyboardEvent): void => {
 };
 
 /**
+ * Le crossfader inerte de la face V.4.0 (2026-10-27, phase 1) : ses touches de curseur ne bougent rien, Espace et
+ * Entree restent a lui (comme sur un bouton inerte : pas de RUN au clavier depuis lui) ; Tab et Echap passent.
+ */
+const XFADE_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', ' ', 'Enter']);
+const xfadeKeys = (e: React.KeyboardEvent): void => {
+  if (!XFADE_KEYS.has(e.key)) return;
+  e.preventDefault();
+  e.stopPropagation();
+};
+
+/**
  * Puce LABEL (un vrai lien) : un lien natif ne part qu'avec Entree ; Espace
  * l'active aussi (spec 8 : Entree et Espace activent tous les jumeaux).
  * keydown est une activation utilisateur : le nouvel onglet reste permis.
@@ -1998,7 +2009,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     });
 
   // Les jumeaux d'EDIT et d'OPEN : ceux de leurs pads au telephone, de leurs touches au desktop (2026-10-27), les memes ids ;
-  // au desktop, leur nom complet en infobulle (title, vide au telephone)
+  // au desktop, leur nom complet en infobulle (title, vide au telephone) et en tete de l'aria-label (la revue : EDIT ne
+  // le portait pas)
   const editTwin = (
     <button
       key="pad-edit"
@@ -2007,7 +2019,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       className="v4-twin"
       data-twin="edit"
       data-hotspot="pad-edit"
-      aria-label="Edit the pattern and its velocities, key E"
+      aria-label={PORTRAIT ? 'Edit the pattern and its velocities, key E' : `${FACE_TITLE['pad-edit']} and the pattern editor with its velocities, key E`}
       aria-pressed={edOpen === 'mm808'}
       title={FACE_TITLE['pad-edit']}
       onKeyDown={noRepeat}
@@ -2510,8 +2522,10 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   /*
    * TRK, SCENE A et B, le crossfader (2026-10-27, la face V.4.0 du desktop) : visibles et inertes en phase 1 (leurs gestes
    * viennent en phase 2). Leurs jumeaux existent pour le clavier et les lecteurs d'ecran : TRK et les scenes en boutons
-   * aria-disabled (le focus les trouve, contour en pointilles, rien ne part), le crossfader en curseur natif desactive
-   * (input range disabled, au milieu de sa course, hors de la tabulation) ; leur nom complet dit qu'ils viennent (FACE_TITLE).
+   * aria-disabled (le focus les trouve, contour en pointilles, rien ne part), le crossfader en curseur role slider
+   * aria-disabled, au milieu de sa course : la revue du 2026-10-27, un input range disabled sortait de la tabulation et son
+   * nom ne se lisait plus au clavier ; il garde le focus comme TRK et les scenes, ses touches ne bougent rien et Espace
+   * n'y lance pas RUN (comme sur un bouton inerte). Leur nom complet dit qu'ils viennent (FACE_TITLE).
    */
   const inertTwin = (id: 'trk' | 'scene-a' | 'scene-b'): React.ReactElement => (
     <button
@@ -2528,22 +2542,23 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     />
   );
   const xfadeTwin = (
-    <input
+    <div
       key="xfade"
       ref={refFor('xfade')}
-      type="range"
+      role="slider"
+      tabIndex={0}
       className="v4-twin"
       data-twin="xfade"
       data-hotspot="xfade"
-      min={0}
-      max={100}
-      step={1}
-      defaultValue={50}
-      disabled
       aria-disabled="true"
+      aria-orientation="horizontal"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={50}
       aria-valuetext="Centre, between scene A and scene B"
       aria-label={FACE_TITLE.xfade}
       title={FACE_TITLE.xfade}
+      onKeyDown={xfadeKeys}
     />
   );
 
