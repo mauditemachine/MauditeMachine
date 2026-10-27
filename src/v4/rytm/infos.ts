@@ -162,6 +162,11 @@ const ENC_LINE = PHONE
   ? "C'est aussi l'un des huit encodeurs sous l'écran, toujours le même : glisse-le de haut en bas, l'écran passe sur sa page (GLOBAL FX pour STRETCH et SWING), son bloc cerné."
   : "C'est aussi l'un des huit encodeurs à droite de l'écran, toujours le même : tourne-le, son anneau suit la valeur, l'écran passe sur sa page (GLOBAL FX pour STRETCH et SWING), son bloc cerné.";
 const ENC_IDS: ReadonlySet<string> = new Set(GLOBAL_ENCODERS);
+/**
+ * Au desktop depuis le 2026-10-27 (les potards suivent la page) : chaque bloc a son potard a droite de l'ecran, a sa
+ * place ; la phrase ajoutee a la carte d'un reglage des ecrans (le telephone garde ENC_LINE sur ses FX globaux).
+ */
+const FACE_LINE = "Il a aussi son potard à droite de l'écran, à la même place que son bloc (A en haut à gauche, E en bas à gauche) : tourne-le, son anneau suit la valeur.";
 
 const RAW: Record<RytmInfoId, Raw> = {
   /* ---------- les touches de page et les onglets (2026-10-09) ---------- */
@@ -192,7 +197,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   fx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST (kick compris), CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, BIT et COMP ; ceux-là ne se verrouillent jamais. Une tape sur DIST, CHORUS, DELAY, REVERB, BIT ou COMP ouvre sa page, avec ses réglages ; sur celles de DIST, CHORUS, DELAY et REVERB, deux onglets en haut : GLOBAL (la quantité de la machine) et la voix (BD : son envoi à elle, verrouillable), les réglages à côté restent ceux de la machine. Une tape sur un FX de VOICE FX ouvre sa page sur la voix ; la touche FX ramène GLOBAL FX, ou VOICE FX depuis la voix. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre : en tourner un ouvre sa page.",
+    text: `Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST (kick compris), CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, BIT et COMP ; ceux-là ne se verrouillent jamais. Une tape sur DIST, CHORUS, DELAY, REVERB, BIT ou COMP ouvre sa page, avec ses réglages ; sur celles de DIST, CHORUS, DELAY et REVERB, deux onglets en haut : GLOBAL (la quantité de la machine) et la voix (BD : son envoi à elle, verrouillable), les réglages à côté restent ceux de la machine. Une tape sur un FX de VOICE FX ouvre sa page sur la voix ; la touche FX ramène GLOBAL FX, ou VOICE FX depuis la voix. ${PHONE ? 'Au desktop, ce sont aussi les huit encodeurs, dans le même ordre : en tourner un ouvre sa page.' : "Les huit potards à droite de l'écran tournent les blocs de la page montrée, à la même place (A en haut à gauche) ; un potard n'ouvre jamais de page."}`,
     tip: 'En dark disco, un DELAY sur la seule caisse claire (VOICE FX, SD) : l’écho reste derrière le kick.',
   },
   fxv: {
@@ -204,7 +209,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   fxg: {
     section: 'PAGES',
     title: 'GLOBAL FX',
-    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des huit encodeurs à droite de l'écran (deux rangées de quatre) : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ou Échap ramènent GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+    text: "Les huit effets de tout le MM-RYTM, chacun à la place d'un des huit potards à droite de l'écran (deux rangées de quatre) : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ou Échap ramènent GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     phone: {
       text: "Les huit effets de tout le MM-RYTM, dans l'ordre des huit encodeurs sous l'écran (deux rangées de quatre) : DIST (tout, kick compris), CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou glisse son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : THRESH, RATIO, ATTACK, RELEASE...). Sur les pages de DIST, CHORUS, DELAY et REVERB, l'onglet de la voix en haut (BD) passe à son envoi à elle, GLOBAL revient à la machine ; la touche FX ramène GLOBAL FX (sur BIT et COMP, GLOBAL dans l'en-tête aussi) ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     },
@@ -1174,7 +1179,9 @@ export function infoOf(id: string, ctx: RytmInfoCtx = {}): RytmInfo | null {
   const ph = PHONE ? r.phone : undefined;
   const base = w.text ?? ph?.text ?? r.text;
   const withLock = lock && !ctx.plate ? `${base} ${LOCK_LINE[lock]}` : base;
-  const text = phoneWords(lock === 'global' && !ctx.plate && ENC_IDS.has(rid) ? `${withLock} ${ENC_LINE}` : withLock);
+  // Au desktop (2026-10-27) : tout reglage des ecrans a son potard a sa place ; au telephone, les FX globaux leur encodeur
+  const extra = PHONE ? (lock === 'global' && !ctx.plate && ENC_IDS.has(rid) ? ENC_LINE : '') : lock && !ctx.plate ? FACE_LINE : '';
+  const text = phoneWords(extra ? `${withLock} ${extra}` : withLock);
   const tip = w.tip ?? r.tip;
   return {
     id: rid,

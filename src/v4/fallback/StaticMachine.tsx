@@ -570,7 +570,7 @@ export const StaticMachine: React.FC = () => (
     <desc id="v4-machine-desc">
       {PORTRAIT
         ? 'A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.'
-        : 'A black drum machine: a 4.3 inch screen, eight global effect knobs with value rings, a row of twelve pictogram keys, scenes A and B with a crossfader, sixteen step keys in two rows.'}
+        : 'A black drum machine: a 4.3 inch screen, eight knobs A to H with value rings mirroring the eight screen values, a row of twelve pictogram keys, scenes A and B with a crossfader, sixteen step keys in two rows.'}
     </desc>
     {DRAWING()}
   </svg>

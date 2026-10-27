@@ -1308,6 +1308,14 @@ export const PAGE_KNOBS_ON_FACE = true;
  */
 export const FACE_FOLLOWS_PAGE: boolean = !PORTRAIT;
 /**
+ * Les capuchons des potards de la face vont a leur nouvelle valeur comme des potards motorises (2026-10-27) : une page,
+ * une voix, l'entree ou la sortie du P-LOCK ; 60 ms plus 160 ms pour toute la course (d de 0 a 1), easeInOutCubic ; les
+ * anneaux (des LED) sautent ; un potard tourne a la main, la reduction des animations, une autre valeur : tout de suite.
+ */
+export const KNOB_MOTOR = { baseMs: 60, fullMs: 160, ms: (d: number): number => 60 + 160 * Math.min(1, Math.abs(d)) } as const;
+/** Un potard glisse a la souris (2026-10-27) : la passe d'ombre une seule fois, ce temps apres le dernier mouvement. */
+export const KNOB_SHADOW_MS = 120;
+/**
  * Le telephone (2026-10-09) : les huit blocs de l'ecran se glissent au doigt (un
  * glisser vertical, deux tapes, le LOCK a deux doigts) ; les cartes INFOS y
  * parlent de tapes, pas de clics ni de molette (rytm/infos.ts).
@@ -1620,6 +1628,8 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
       [RYTM_FACEPLATE.scenes.a.hotspot]: `${RYTM_FACEPLATE.scenes.a.title}, coming soon`,
       [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}, coming soon`,
       [RYTM_FACEPLATE.scenes.xfade.hotspot]: `${RYTM_FACEPLATE.scenes.xfade.title}, coming soon`,
+      // Les potards suivent la page (2026-10-27) : la lettre, et ce qu'ils tournent
+      ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen`])),
     };
 /** Les commandes de la face visibles et inertes en phase 1 (TRK, SCENE A et B, le crossfader) : curseur par defaut, rien ne part. */
 export const FACE_INERT: ReadonlySet<string> = new Set(['trk', 'scene-a', 'scene-b', 'xfade']);
@@ -2007,7 +2017,8 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // Une rangee de huit au desktop depuis le 2026-10-18 : un nom plus court de place (le pas de 0.66), le meme corps pour
   // tous (group) ; au telephone, la largeur de leur colonne
   ...FACE_KNOBS.map((k, i) => ({
-    text: GLOBAL_ENC_LABELS[i],
+    // Au desktop depuis le 2026-10-27 (les potards suivent la page) : leur lettre, A a H, l'ecran dit leur fonction
+    text: PORTRAIT ? GLOBAL_ENC_LABELS[i] : (RYTM_FACEPLATE.knobs.labels[i] ?? PAGE_KNOB_LETTERS[i]),
     x: k.x,
     z: k.labelZ,
     cap: PAGE_KNOBS.cap,
@@ -2018,10 +2029,8 @@ export const SILK_TEXTS: readonly SilkText[] = [
     // 0.8 -> 0.9 (2026-10-22, audit SB-06)
     alpha: 0.9,
   })),
-  // Au desktop V.4.0 (2026-10-27) : au-dessus des huit potards, au milieu de leurs quatre colonnes
-  PORTRAIT
-    ? { text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }
-    : { text: FP_SILK.globalFx.text, x: fpX(FP_SILK.globalFx.cx), z: fpZ(FP_SILK.globalFx.cy), cap: fpU(FP_SILK.globalFx.cap), weight: 700, alpha: 0.7 },
+  // Au telephone : GLOBAL FX au-dessus des huit potards ; plus au desktop depuis le 2026-10-27 (les potards suivent la page)
+  ...(PORTRAIT ? [{ text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }] : []),
   // Les noms des touches de page et du transport sont sur elles depuis le 2026-10-18 (KEY_LABELS, scene/keyLabels.ts)
   ...PADS.map(padLabel),
   // Les numeros des pas plus lisibles au telephone (2026-10-22, audit SB-06 : 3 px de capitale a 0.075)
@@ -2033,7 +2042,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // 2026-10-19 : le glisser de la velocite (tenir un pas et monter ou descendre, la touche s'allume a sa velocite) s'y lit aussi
   ...(PORTRAIT
     ? []
-    : [{ text: 'TAP A STEP: ON, MID, LOW, OFF  /  HOLD AND DRAG: VELOCITY  /  HOLD STILL: P-LOCK, THEN DRAG A SCREEN VALUE', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8 }]),
+    : [{ text: 'TAP A STEP: ON, MID, LOW, OFF  /  HOLD AND DRAG: VELOCITY  /  HOLD STILL: P-LOCK, THEN TURN A KNOB', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8 }]),
 ];
 /** Index du libelle du pad OPEN dans SILK_TEXTS (redessine en CLOSE pendant la vue eclatee). */
 export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
