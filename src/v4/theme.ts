@@ -781,7 +781,7 @@ export const KNOB_RING = {
   r0: fpU(RYTM_FACEPLATE.knobs.ring.inner / 2),
   r1: fpU(RYTM_FACEPLATE.knobs.ring.outer / 2),
   segments: RYTM_FACEPLATE.knobs.ring.segments,
-  airDeg: 3,
+  airDeg: RYTM_FACEPLATE.knobs.ring.airDeg,
   y: 0.006,
   center: 0.35,
 } as const;
@@ -881,13 +881,14 @@ export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)
  * (fusionnee au panneau, machine.ts) et le capuchon du crossfader, au milieu de sa course en phase 1. Le desktop
  * seulement : le telephone garde sa face (phase 5).
  */
+// La hauteur, les coins et le temoin depuis RYTM_FACEPLATE.buttons (2026-10-27, la revue : en mm, comme le reste)
 export const FACE_KEY = {
   w: fpU(RYTM_FACEPLATE.buttons.size),
   d: fpU(RYTM_FACEPLATE.buttons.size),
-  h: 0.1,
-  radius: 0.04,
+  h: fpU(RYTM_FACEPLATE.buttons.capHeight),
+  radius: fpU(RYTM_FACEPLATE.buttons.corner),
   z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.size / 2),
-  led: { w: 0.3, d: 0.04, back: 0.075 },
+  led: { w: fpU(RYTM_FACEPLATE.buttons.led.w), d: fpU(RYTM_FACEPLATE.buttons.led.h), back: fpU(RYTM_FACEPLATE.buttons.led.dy) },
 } as const;
 export const faceKeyX = (i: number): number => rectCenter(buttonRect(i)).x;
 export type FaceKeyId = 'trk' | 'edit' | 'open' | 'scene-a' | 'scene-b';
@@ -938,7 +939,7 @@ export const XFADE = {
 export const TRANSPORT = {
   w: PORTRAIT ? 1.14 : FACE_KEY.w,
   d: PORTRAIT ? 0.44 : FACE_KEY.d,
-  h: 0.1,
+  h: PORTRAIT ? 0.1 : FACE_KEY.h,
   radius: PORTRAIT ? 0.05 : FACE_KEY.radius,
   z: PORTRAIT ? 3.56 : FACE_KEY.z,
   hitD: PORTRAIT ? 0.84 : FACE_KEY.d,
@@ -1229,16 +1230,17 @@ export const KEYS = {
    */
   w: PORTRAIT ? 0.7 : fpU(FP_STEPS.w),
   d: PORTRAIT ? 0.7 : fpU(FP_STEPS.h),
-  h: 0.1,
-  radius: PORTRAIT ? 0.05 : 0.06,
+  // desktop : la hauteur, les coins, le cadre des temps et la marque des verrous depuis RYTM_FACEPLATE.steps (2026-10-27)
+  h: PORTRAIT ? 0.1 : fpU(FP_STEPS.capHeight),
+  radius: PORTRAIT ? 0.05 : fpU(FP_STEPS.corner),
   segments: { desktop: 3, mobile: 2 },
   /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
-  frame: PORTRAIT ? { inset: 0.065, line: 0.022 } : { inset: 0.08, line: 0.025 },
+  frame: PORTRAIT ? { inset: 0.065, line: 0.022 } : { inset: fpU(FP_STEPS.beatFrame.inset), line: fpU(FP_STEPS.beatFrame.line) },
   /**
    * La marque des verrous (2026-10-19, a la place de la lueur orange pale : le dessus allume dit la velocite) : un
    * trait clair sur le dessus, pres du bord arriere, dans le cadre des temps ; w x d, back : du bord a son centre
    */
-  lockMark: PORTRAIT ? { w: 0.3, d: 0.05, back: 0.135 } : { w: 0.4, d: 0.045, back: 0.13 },
+  lockMark: PORTRAIT ? { w: 0.3, d: 0.05, back: 0.135 } : { w: fpU(FP_STEPS.lockMark.w), d: fpU(FP_STEPS.lockMark.h), back: fpU(FP_STEPS.lockMark.dy) },
   numberZ: PORTRAIT ? 4.94 : 3.7,
   bracketZ: PORTRAIT ? 5.11 : 3.45,
   bracketTick: 0.06,
@@ -1514,8 +1516,8 @@ export interface KeyLabelSpec {
   align?: 'center' | 'left';
 }
 
-/** Le pictogramme sur sa touche (2026-10-27) : son carre (6.8 mm), son centre un rien vers l'avant (le temoin est derriere). */
-export const KEY_ICON = { size: 0.34, dz: 0.035 } as const;
+/** Le pictogramme sur sa touche (2026-10-27) : son carre (6.8 mm), son centre un rien vers l'avant (le temoin est derriere) ; RYTM_FACEPLATE.buttons.icon. */
+export const KEY_ICON = { size: fpU(RYTM_FACEPLATE.buttons.icon.size), dz: fpU(RYTM_FACEPLATE.buttons.icon.dy) } as const;
 
 /** Le groupe d'une touche de la rangee des pictogrammes (2026-10-27) : page, transport ou face. */
 const FACE_GROUP: Readonly<Record<string, KeyLabelSpec['group']>> = { voice: 'pkey', fltr: 'pkey', env: 'pkey', fx: 'pkey', run: 'tr', clear: 'tr', random: 'tr', mute: 'tr', solo: 'tr' };
@@ -1563,8 +1565,8 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
           d: FACE_KEY.d,
           group: 'scene',
           rest: 'ink',
-          cap: 0.16,
-          qw: 0.3,
+          cap: fpU(RYTM_FACEPLATE.scenes.legend.cap),
+          qw: fpU(RYTM_FACEPLATE.scenes.legend.w),
         })
       ),
       // Les legendes des pas (2026-10-27, Mika : "les pas 1 a 8 portent le nom d'une voix") : le numero en haut a gauche
@@ -1572,13 +1574,13 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
       ...Array.from({ length: 16 }, (_, i): KeyLabelSpec => {
         const r = stepRect(i);
         const L = RYTM_FACEPLATE.steps.legend.num;
-        const qw = 0.16;
+        const qw = fpU(L.w);
         return { id: `stepn-${i + 1}`, text: String(i + 1), x: fpX(r.x + L.dx) + qw / 2, z: fpZ(r.y + L.dy + L.cap / 2), w: fpU(r.w), d: fpU(r.h), group: 'stepn', rest: 'ink', cap: fpU(L.cap), qw, dz: 0, align: 'left' };
       }),
       ...RYTM_FACEPLATE.steps.voices.map((v, i): KeyLabelSpec => {
         const r = stepRect(i);
         const L = RYTM_FACEPLATE.steps.legend.voice;
-        return { id: `stepv-${v}`, text: v, x: fpX(r.x + r.w / 2), z: fpZ(r.y + L.dy), w: fpU(r.w), d: fpU(r.h), group: 'stepv', rest: 'ink', cap: fpU(L.cap), qw: 0.5, dz: 0 };
+        return { id: `stepv-${v}`, text: v, x: fpX(r.x + r.w / 2), z: fpZ(r.y + L.dy), w: fpU(r.w), d: fpU(r.h), group: 'stepv', rest: 'ink', cap: fpU(L.cap), qw: fpU(L.w), dz: 0 };
       }),
     ];
 

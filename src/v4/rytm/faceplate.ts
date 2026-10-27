@@ -22,8 +22,17 @@
  * a 232 sur y 90, SCENE B en 236, 84 ; seize pas de 27.6 x 20 en deux rangees
  * de huit au pas de 30.4 depuis x 8, en y 104 et 128, les pas 1 a 8 portent le
  * nom d'une voix (BD SD CH OH CP TOM HT CY). Les dix pads disparaissent.
- * Le reste (le capuchon des potards, la fente, les legendes, la serigraphie)
- * est une proposition a valider : tout est ici, un seul endroit a changer.
+ * Le reste (le capuchon des potards, la fente, les legendes, la serigraphie,
+ * les hauteurs, les coins, les temoins et les impressions des touches) est une
+ * proposition a valider : tout est ici, un seul endroit a changer (la revue du
+ * 2026-10-27 : les details de la face qui restaient en unites dans theme.ts y
+ * sont revenus en mm).
+ *
+ * A valider avec Mika (la revue du 2026-10-27) : knobs.d (28) est lu comme
+ * l'emprise du potard et de son anneau, le capuchon en fait 17 ; si 28 est le
+ * capuchon, l'anneau passe sur le capuchon (au pas de 32, rien autour). Les pas
+ * finissent en x 248.4 (8 + 7 x 30.4 + 27.6) : 7.6 mm de marge a droite pour 8
+ * a gauche, 0.4 mm au-dela du bord droit de SCENE B (faceplateNotes).
  */
 
 /** Les millimetres d'une unite de la scene (Mika, 2026-10-27) : la face fait 12.8 x 7.8 unites. */
@@ -94,6 +103,7 @@ export const RYTM_FACEPLATE = {
     diagonalIn: 4.3,
   },
   knobs: {
+    /** 28 (Mika) : lu comme l'emprise du potard et de son anneau (interpretation a valider, voir plus haut) */
     d: 28,
     pitch: 32,
     cx: [134, 166, 198, 230],
@@ -103,7 +113,7 @@ export const RYTM_FACEPLATE = {
     /** proposition (a valider) : le capuchon (diametre en bas, en haut, hauteur), sa jupe, l'anneau a plat autour, le nom a 6 h dans la fente de l'anneau */
     cap: { d: 17, top: 16, h: 8 },
     skirt: { d: 18.6, h: 0.8 },
-    ring: { inner: 23.2, outer: 27.2, sweepDeg: 270, segments: 27 },
+    ring: { inner: 23.2, outer: 27.2, sweepDeg: 270, segments: 27, airDeg: 3 },
     label: { r: 12.6, cap: 1.3 },
   },
   buttons: {
@@ -111,6 +121,14 @@ export const RYTM_FACEPLATE = {
     x0: 8,
     pitch: 14,
     y: 84,
+    /**
+     * proposition : la hauteur de la touche au-dessus de la face, ses coins ; le pictogramme imprime (son carre, son
+     * centre dy plus bas que celui de la touche, le temoin est derriere) ; le temoin (w x h, son centre a dy du bord du haut)
+     */
+    capHeight: 2,
+    corner: 0.8,
+    icon: { size: 6.8, dy: 0.7 },
+    led: { w: 6, h: 0.8, dy: 1.5 },
     keys: [
       { id: 'trk', icon: 'stack-2', name: 'TRK', title: 'Track', hotspot: 'trk', phase: 2 },
       { id: 'voice', icon: 'wave-sine', name: 'VOICE', title: 'Voice page', hotspot: 'pkey-voice', phase: 1 },
@@ -129,6 +147,8 @@ export const RYTM_FACEPLATE = {
   scenes: {
     a: { rect: { x: 180, y: 84, w: 12, h: 12 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a' } as FpScene,
     b: { rect: { x: 236, y: 84, w: 12, h: 12 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b' } as FpScene,
+    /** proposition : la lettre imprimee sur SCENE A et B (sa hauteur de capitale, la largeur de son impression) ; la touche, celle des boutons */
+    legend: { cap: 3.2, w: 6 },
     /**
      * la fente (Mika : de x 196 a 232 sur y 90) ; proposition : 2.4 de large, bouts ronds ; le capuchon 8 x 12, 7 de haut,
      * au milieu en phase 1 (sa course : son centre de x0 + cap.w / 2 a x1 - cap.w / 2)
@@ -143,8 +163,19 @@ export const RYTM_FACEPLATE = {
     rows: [104, 128],
     perRow: 8,
     voices: ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as readonly FpVoice[],
-    /** les legendes sur la touche (proposition) : le numero en haut a gauche (dx, dy : son coin), la voix des pas 1 a 8 en bas au centre (dy : sa ligne) */
-    legend: { num: { dx: 3.2, dy: 3.2, cap: 1.2 }, voice: { dy: 15, cap: 1.5 } },
+    /**
+     * les legendes sur la touche (proposition) : le numero en haut a gauche (dx, dy : son coin), la voix des pas 1 a 8 en
+     * bas au centre (dy : sa ligne) ; w, la largeur de leur impression
+     */
+    legend: { num: { dx: 3.2, dy: 3.2, cap: 1.2, w: 3.2 }, voice: { dy: 15, cap: 1.5, w: 10 } },
+    /**
+     * proposition : la hauteur de la touche, ses coins ; le cadre des temps imprime sur les pas 1, 5, 9 et 13 (sa marge, son
+     * trait) ; la marque des verrous (w x h, son centre a dy du bord du haut)
+     */
+    capHeight: 2,
+    corner: 1.2,
+    beatFrame: { inset: 1.6, line: 0.5 },
+    lockMark: { w: 8, h: 0.9, dy: 2.6 },
   },
   /** la serigraphie : imprimee, jamais decoupee ; places provisoires (x : le bord d'alignement, cy : le centre) */
   silk: {
@@ -201,6 +232,25 @@ export function faceplateParts(): { id: string; kind: 'screen' | 'knob' | 'butto
   out.push({ id: 'scene-b', kind: 'scene', rect: F.scenes.b.rect });
   for (let i = 0; i < 16; i += 1) out.push({ id: `step-${i + 1}`, kind: 'step', rect: stepRect(i) });
   return out;
+}
+
+/**
+ * Les points de la face a faire valider (la revue du 2026-10-27), des chiffres de Mika : rien a corriger seul, d'ou une
+ * liste a part (faceplateCheck reste []). Les marges gauche et droite des pas, leur bord droit contre celui de SCENE B ;
+ * aujourd'hui : 8 et 7.6, 0.4 au-dela (un pas de 30.343, ou des pas de 27.2 au pas de 30.4, rendraient 8 et 8).
+ */
+export function faceplateNotes(): string[] {
+  const r2 = (v: number): number => Math.round(v * 100) / 100;
+  const notes: string[] = [];
+  const first = stepRect(0);
+  const last = stepRect(F.steps.perRow - 1);
+  const left = r2(first.x);
+  const right = r2(F.size.w - (last.x + last.w));
+  if (left !== right) notes.push(`steps: marge ${left} a gauche, ${right} a droite`);
+  const b = F.scenes.b.rect;
+  const over = r2(last.x + last.w - (b.x + b.w));
+  if (over !== 0) notes.push(`steps: le bord droit ${over > 0 ? 'depasse de' : 'rentre de'} ${Math.abs(over)} celui de SCENE B`);
+  return notes;
 }
 
 /** Les problemes de la face : une piece hors de la face, deux pieces qui se touchent ; [] attendu. */
