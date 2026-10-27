@@ -24,12 +24,12 @@
 import React from 'react';
 import { BPM, DEFAULT_STEPS, INSTRUMENTS, velocity } from '../audio/pattern';
 import { ICON_STROKE, ICON_VIEWBOX, RYTM_ICONS } from '../rytm/icons';
+import { faceKnobs } from '../rytm/faceKnobs';
 import {
   BODY,
   ENCODER,
   FACE_KEY,
   FACE_KNOBS,
-  GLOBAL_ENCODERS,
   HEX,
   KEYS,
   KEY_ICON,
@@ -38,8 +38,8 @@ import {
   KEY_LIT,
   KNOB_RING,
   PORTRAIT,
+  RING_TONE,
   XFADE,
-  isBipolar,
   ringLit,
   OLED,
   ORBIT,
@@ -369,16 +369,19 @@ function faceFlat(): React.ReactNode {
   const R = KNOB_RING;
   const half = (TEMPO_UI.sweepDeg / R.segments - R.airDeg) / 2;
   const segs: React.ReactNode[] = [];
+  // Les potards suivent la page (2026-10-27) : les anneaux de la page de l'arrivee, lus dans rytm/faceKnobs.ts (la meme loi)
+  const views = faceKnobs.get();
   FACE_KNOBS.forEach((k, i) => {
-    const t = START[k.id] ?? 0;
-    const id = GLOBAL_ENCODERS[i];
-    const bip = id !== undefined && isBipolar(id);
+    const v = views[i];
+    const t = v && v.state === 'live' ? v.pos : 0;
+    const bip = !!v && v.bipolar;
+    const tone = RING_TONE[v ? v.tone : 'off'];
     for (let j = 0; j < R.segments; j += 1) {
       const a = potDeg((j + 0.5) / R.segments);
       const steps = [-half, -half / 2, 0, half / 2, half];
       const outer = steps.map((d) => ringPt(k.x, k.z, a + d, R.r1));
       const inner = steps.reverse().map((d) => ringPt(k.x, k.z, a + d, R.r0));
-      segs.push(<path key={`ring-${i}-${j}`} d={`M${[...outer, ...inner].join('L')}Z`} fill={mixHex(HEX.line, HEX.ledSet, ringLit(j, t, bip))} />);
+      segs.push(<path key={`ring-${i}-${j}`} d={`M${[...outer, ...inner].join('L')}Z`} fill={mixHex(HEX.line, tone.on, ringLit(j, t, bip) * tone.k)} />);
     }
   });
   const X = XFADE;
@@ -441,7 +444,12 @@ function faceLabel(s: Solid, l: KeyLabelSpec, h: number, lit = false): Solid {
 
 /** Les volumes de la face V.4.0 : les potards, la rangee des douze touches et les scenes, le capuchon du crossfader, les pas. */
 function faceSolids(items: Solid[]): void {
-  FACE_KNOBS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
+  // Les capuchons a la course de leur fonction (2026-10-27) ; une case vide ou un dessin : en bas
+  const views = faceKnobs.get();
+  FACE_KNOBS.forEach((_, i) => {
+    const v = views[i];
+    items.push(encoder(i, potDeg(v && (v.state === 'live' || v.state === 'off') ? v.pos : 0)));
+  });
   // La rangee (TRK VOICE FLTR ENV FX EDIT OPEN RUN/STOP CLEAR RANDOM MUTE SOLO), SCENE A et B : la forme des touches de
   // page, RUN sur son rouge ; leur pictogramme ou leur lettre dessus
   for (const l of KEY_LABELS) {
@@ -545,13 +553,16 @@ function body(): React.ReactNode {
   );
 }
 
-const DRAWING = (
-  <>
-    {body()}
-    {panelTop()}
-    {solids()}
-  </>
-);
+/** Le dessin, fait une fois au premier rendu (2026-10-27 : les potards lisent les stores, prets a ce moment-la). */
+let drawing: React.ReactNode = null;
+const DRAWING = (): React.ReactNode =>
+  (drawing ??= (
+    <>
+      {body()}
+      {panelTop()}
+      {solids()}
+    </>
+  ));
 
 export const StaticMachine: React.FC = () => (
   <svg className="v4-fallback-machine" viewBox={`0 0 ${VB_W} ${VB_H}`} role="img" aria-labelledby="v4-machine-title v4-machine-desc">
@@ -561,7 +572,7 @@ export const StaticMachine: React.FC = () => (
         ? 'A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.'
         : 'A black drum machine: a 4.3 inch screen, eight global effect knobs with value rings, a row of twelve pictogram keys, scenes A and B with a crossfader, sixteen step keys in two rows.'}
     </desc>
-    {DRAWING}
+    {DRAWING()}
   </svg>
 );
 

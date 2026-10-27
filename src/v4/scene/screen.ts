@@ -174,7 +174,8 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, type EncId, type Inst } from '../theme';
-import { HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { rytmInfoHit } from '../rytm/infoIds';
+import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { encUnit, v127Text } from '../rytm/values';
 import { screenDials, type ScreenDialId } from '../state/screenDials';
@@ -663,6 +664,11 @@ const PAGE_FOOT: { x0: number; x1: number; y: number; y1: number; y2: number } =
 const FLASH = { min: 280, max: 900 } as const;
 /** La valeur d'un bloc haut (VOICE FX, deux rangees) : un corps plus gros (revue du 2026-10-09 : son milieu restait vide). */
 const TALL_VALUE = 1.45;
+/** SOUND, MIX et COMP sur une seule case au desktop (2026-10-27, la face) : des corps de plus pour la valeur, l'unite a 84 puis 72 %. */
+const FACE_TEXT_SIZES: readonly number[] = [13, 11.5, 10, 8.6];
+const FACE_UNIT_SHRINK: readonly number[] = [0.84, 0.72];
+/** Leur bande au pied du bloc (2026-10-27) : de bh - up a bh - down, sous la ligne d'unite. */
+const FACE_STRIP = { up: 9, down: 4 } as const;
 /** La largeur des deux plaques de BOTH (layersGlyph), en unites. */
 const LAYERS_GLYPH_W = 8.6;
 /** Le pied du LOCK au telephone : ses deux aides alternent (ms). */
@@ -2628,7 +2634,13 @@ export class Screen {
     const s = rytmInfos.get();
     if (!s.on || !s.id) return -1;
     const m = /^lcd-blk-([0-9]+)$/.exec(s.id);
-    return m ? Number(m[1]) : -1;
+    if (m) return Number(m[1]);
+    // Un potard de la face du desktop (2026-10-27) : le bloc qu'il tourne
+    if (FACE_PAGES && s.id.startsWith('penc-')) {
+      const p = /^p:([0-7])$/.exec(rytmInfoHit(s.id)?.id ?? '');
+      return p ? Number(p[1]) : -1;
+    }
+    return -1;
   }
 
   /** Quatre coins autour d'un bloc (INFOS, R4) : la carte parle de lui ; dehors, sans toucher au bloc ni a son echo. */
@@ -2735,10 +2747,17 @@ export class Screen {
     }
     // La place de l'image : a droite pour un bloc simple ; un grand bloc (SOUND) garde la largeur au nom du son ; un bloc
     // haut l'a sous l'unite, sa valeur prend la largeur
-    const drawW = tall ? 0 : wide ? Math.min(54, bw * 0.34) : bw - B.draw.dx0 + 1;
+    // Au desktop (2026-10-27, la face : le bloc k au-dessus du potard k) SOUND, MIX et COMP tiennent sur une seule case :
+    // leur dessin passe en bande au pied du bloc, sous la ligne d'unite (strip) ; SOUND et MIX y prennent toute la largeur
+    // pour leur valeur (faceText : le nom du son, le melange), COMP garde son potard a droite
+    const strip = FACE_PAGES && !tall && !wide && (b.draw === 'sound' || b.draw === 'mix' || b.draw === 'gr');
+    const faceText = strip && b.draw !== 'gr';
+    const under = tall || faceText;
+    const drawW = under ? 0 : wide ? Math.min(54, bw * 0.34) : bw - B.draw.dx0 + 1;
     const stepped = b.draw === 'notch' || b.draw === 'ftype' || b.draw === 'time';
-    const valueRoom = muted || stepped || tall ? bw - 2 * B.padX : wide ? bw - 2 * B.padX - drawW - 4 : B.valueW;
-    const v = this.fitValue(b.text, valueRoom, wide ? 1 : 0, tall ? TALL_VALUE : 1);
+    const valueRoom = muted || stepped || under ? bw - 2 * B.padX : wide ? bw - 2 * B.padX - drawW - 4 : B.valueW;
+    // Une seule case (la face, 2026-10-27) : le nom d'un son ou le melange se serre encore un peu avant d'etre coupe
+    const v = this.fitValue(b.text, valueRoom, wide ? 1 : 0, tall ? TALL_VALUE : 1, faceText ? FACE_TEXT_SIZES : []);
     // Un bloc haut : la valeur plus grosse descend d'autant, l'unite la suit
     const drop = tall ? T.valueSizes[0] * (TALL_VALUE - 1) * 0.72 + 2 : 0;
     const valueY = by + T.valueDy + drop;
@@ -2761,7 +2780,10 @@ export class Screen {
     let tail = onName ? '' : tag;
     const tailW = tail ? tagW(tail) + 3 : 0;
     let unit = b.unit;
-    if (unit && uw(unit) > room - tailW) {
+    // Une seule case (la face, 2026-10-27 : SAMPLE 3 / 13, SYN 0 SMP 127) : l'unite entiere un peu plus petite, avant sa forme courte
+    const uFit = faceText && unit && uw(unit) > room - tailW ? FACE_UNIT_SHRINK.map((f) => T.unitSize * f).find((z) => this.textWidth(unit, z, 600, 0.4) <= room - tailW) : undefined;
+    const unitSize = uFit ?? T.unitSize;
+    if (unit && unitSize === T.unitSize && uw(unit) > room - tailW) {
       // La forme courte de l'unite (NEW STEPS HIGH : NEW: HIGH) ; sinon l'unite entiere d'abord, l'etiquette s'efface
       if (b.unitShort && uw(b.unitShort) <= room - tailW) unit = b.unitShort;
       else {
@@ -2770,8 +2792,8 @@ export class Screen {
       }
     }
     if (tail) this.text(tail, unitRight, unitY, T.tagSize, tagColor, 700, 'right', tagSp);
-    const u = unit ? this.fitText(unit, room - (tail ? tailW : 0), T.unitSize) : '';
-    if (u) this.text(u, bx + B.padX, unitY, T.unitSize, P.half, 600, 'left', 0.4);
+    const u = unit ? this.fitText(unit, room - (tail ? tailW : 0), unitSize) : '';
+    if (u) this.text(u, bx + B.padX, unitY, unitSize, P.half, 600, 'left', 0.4);
     this.info.tags.push(`${b.label}:${u}|${nameTag ? `${nameTag}@name` : tail ? `${tail}@unit` : ''}`);
     // L'image : un grand bloc (deux de haut) sous l'unite, sur toute sa largeur ; sinon a droite de la valeur
     let r: Rect;
@@ -2780,6 +2802,17 @@ export class Screen {
       r = { x0: bx + B.padX + 2, y0: top, x1: bx + bw - B.padX - 2, y1: by + bh - (TALL ? 7 : 5) };
     } else if (wide) r = { x0: bx + bw - B.padX - drawW, y0: by + B.draw.dy0, x1: bx + bw - B.padX, y1: by + B.draw.dy1 };
     else r = { x0: bx + B.draw.dx0, y0: by + B.draw.dy0, x1: bx + B.draw.dx1, y1: by + B.draw.dy1 };
+    if (strip) {
+      // La bande du pied (2026-10-27) : de la ligne d'unite au bas du bloc, cinq unites
+      const sr: Rect = { x0: bx + B.padX, y0: by + bh - FACE_STRIP.up, x1: bx + bw - B.padX, y1: by + bh - FACE_STRIP.down };
+      if (b.draw === 'sound') this.drawSoundStrip(sr, b.notches, b.value);
+      else if (b.draw === 'mix') this.drawMixStrip(sr, b.course, !b.quiet);
+      else {
+        this.drawArc(r, b.course, b.bipolar);
+        this.drawGrStrip(sr, b.course);
+      }
+      return;
+    }
     if (stepped) {
       // Un reglage a crans : au desktop ses crans au bout de la ligne du nom de valeur ; au telephone rien (la valeur le dit)
       if (!T.notchRow && !wide) return;
@@ -2880,6 +2913,45 @@ export class Screen {
       else this.circle(x, y, i === 0 ? 0.7 : 1, i === 0 ? this.pal.faint : this.pal.half);
       if (i === 1 || i === 4) this.line([x - step / 2, y - 3.2, x - step / 2, y + 3.2], this.pal.faint, 0.6);
     }
+  }
+
+  /** SOUND sur une seule case du desktop (2026-10-27) : la rangee de points de la liste en bande, ou sa barre au-dela de 14 sons. */
+  private drawSoundStrip(r: Rect, n: number, cur: number): void {
+    if (n < 2) return;
+    if (n > 14) {
+      this.drawBar(r, cur / (n - 1), false);
+      return;
+    }
+    const y = (r.y0 + r.y1) / 2;
+    const step = (r.x1 - r.x0) / (n - 1);
+    for (let i = 0; i < n; i += 1) {
+      const x = r.x0 + i * step;
+      if (i === Math.round(cur)) this.circle(x, y, 2, this.pal.ink);
+      else this.circle(x, y, i === 0 ? 0.7 : 0.95, i === 0 ? this.pal.faint : this.pal.half);
+      if (i === 1 || i === 4) this.line([x - step / 2, y - 2.2, x - step / 2, y + 2.2], this.pal.faint, 0.6);
+    }
+  }
+
+  /** MIX sur une seule case du desktop (2026-10-27) : le rail en bande, son milieu, le curseur ; l'unite dit SYN et SMP. */
+  private drawMixStrip(r: Rect, m: number, cursor = true): void {
+    const y = (r.y0 + r.y1) / 2;
+    const x = r.x0 + (r.x1 - r.x0) * clamp01(m);
+    this.line([r.x0, y, r.x1, y], this.pal.faint, 1.4);
+    this.line([(r.x0 + r.x1) / 2, y - 2.2, (r.x0 + r.x1) / 2, y + 2.2], this.pal.half, 0.7);
+    if (cursor) this.roundRect(x - 1.6, r.y0, 3.2, r.y1 - r.y0, 0.8, this.pal.ink);
+  }
+
+  /** La reduction du COMP sur une seule case du desktop (2026-10-27) : la barre de drawGr en bande, de la droite (0 dB). */
+  private drawGrStrip(r: Rect, course: number): void {
+    const gr = course > 0 ? compGr() : 0;
+    const w = r.x1 - r.x0;
+    const at = (db: number): number => r.x1 - w * Math.sqrt(Math.min(1, Math.max(0, db) / 24));
+    const h = r.y1 - r.y0 - 1;
+    this.roundRect(r.x0, r.y0 + 0.5, w, h, 1, null, this.pal.faint, 0.7);
+    if (gr > 0.05) this.roundRect(at(gr), r.y0 + 0.5, r.x1 - at(gr), h, 1, this.pal.ink);
+    for (const t of [3, 6, 12]) this.line([at(t), r.y0 - 1, at(t), r.y0 + 0.5], this.pal.half, 0.6);
+    this.info.graph = `GR ${gr.toFixed(1)}`;
+    if ((course > 0 && clock.running) || gr > 0.05) this.meterLive = true;
   }
 
   /**
@@ -3371,8 +3443,8 @@ export class Screen {
   }
 
   /** La valeur d'un bloc dans sa largeur : 16, sinon 13, 11 puis 9 et coupee ; up : un cran plus gros (le grand bloc SOUND). */
-  private fitValue(s: string, maxW: number, up = 0, scale = 1): { text: string; size: number } {
-    const sizes = (up ? [this.bt.valueSizes[0] * 1.12, ...this.bt.valueSizes] : this.bt.valueSizes).map((x) => x * scale);
+  private fitValue(s: string, maxW: number, up = 0, scale = 1, more: readonly number[] = []): { text: string; size: number } {
+    const sizes = [...(up ? [this.bt.valueSizes[0] * 1.12, ...this.bt.valueSizes] : this.bt.valueSizes).map((x) => x * scale), ...more];
     for (const size of sizes) if (this.textWidth(s, size, 300) <= maxW) return { text: s, size };
     const size = sizes[sizes.length - 1];
     let n = s.length - 1;

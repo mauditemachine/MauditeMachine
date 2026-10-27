@@ -755,6 +755,13 @@ const RAW: Record<RytmInfoId, Raw> = {
     tip: 'Un crash de Mika sur le premier pas, verrouillé plus doux en P-LOCK sur le neuvième : la mesure respire.',
   },
 
+  /* ---------- un potard de la face sans bloc sur sa case (2026-10-27, les potards suivent la page) ---------- */
+  'knob:empty': {
+    section: 'KEYS',
+    title: 'KNOB',
+    text: "Rien sur cette page sous ce potard. Chaque potard à droite de l'écran tourne la valeur posée à la même place sur l'écran (A en haut à gauche, E en bas à gauche) : une case vide à l'écran, un potard qui ne fait rien. Change de page (VOICE, FLTR, ENV, FX) : les huit potards suivent.",
+  },
+
   /* ---------- la face V.4.0 (2026-10-27) : TRK, les scenes et le crossfader, visibles et inertes en phase 1 ---------- */
   'soon:trk': {
     section: 'KEYS',

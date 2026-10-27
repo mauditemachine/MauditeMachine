@@ -52,7 +52,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, anyDialValue, clearPattern, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
 import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
@@ -66,7 +66,7 @@ import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
 import { PATTERN_SLOTS, slotName } from '../state/patterns';
-import { ENCODERS, GLOBAL_ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
+import { ENCODERS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
 import { INSTRUMENTS, STEP_COUNT } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
 import { SUB_WAVES, VOY_KNOBS, voyParams } from '../voyager/params';
@@ -246,10 +246,10 @@ function coreTargets(): MidiTarget[] {
       });
     }
   }
-  // Les potards de page (2026-10-08) : relatifs a la page, leur course, leurs crans et leur nom suivent la page
+  // Les potards de page (2026-10-08) : relatifs a la page, leur course, leurs crans et leur nom suivent la page. Depuis le
+  // 2026-10-27 (les potards de la face suivent la page) : le potard k du desktop, ce que tournera le potard k du boitier ;
+  // sur une case couverte par un bloc haut ou un dessin large, ce bloc (comme le potard de la face), ailleurs inchange
   PAGE_KNOB_LETTERS.forEach((letter, k) => {
-    const dial = `p:${k}` as DialId;
-    const span = (): [number, number] => dialRange(dial);
     out.push({
       id: `rytm:knob:${k + 1}`,
       scope: 'mm808',
@@ -257,14 +257,17 @@ function coreTargets(): MidiTarget[] {
       kind: 'value',
       follows: 'page',
       get steps() {
-        return dialSteps(dial);
+        return dialSteps(knobDialOf(k));
       },
       // Un bloc vide, ou rien a regler (pas de voix choisie, pas de pas choisi) : 0, comme son repere sur
       // la face (2026-10-08, revue de R1 : VOL sans voix renvoyait 102, une valeur que l'ecran ne montrait pas)
-      get: () => pageKnobCourse(k),
+      get: () => {
+        const b = knobBlock(k);
+        return b === null ? 0 : pageKnobCourse(b);
+      },
       set: (v) => {
-        const [lo, hi] = span();
-        anyDial(dial, lo + v * (hi - lo));
+        const [lo, hi] = dialRange(knobDialOf(k));
+        knobDial(k, lo + v * (hi - lo), 'midi');
       },
     });
   });
@@ -418,9 +421,12 @@ export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string
     // MASTER et TEMPO dans l'ecran (2026-10-19) : les memes cibles que leurs potards d'avant
     case 'rdial':
       return h.param ? `rytm:enc:${h.param}` : null;
-    // Un encodeur du desktop (2026-10-09) : son FX global a poste fixe, jamais le bloc de la page
+    // Un encodeur du telephone (2026-10-09) : son FX global a poste fixe ; au desktop depuis le 2026-10-27 (les potards
+    // suivent la page) son potard de page, rytm:knob:k+1 (les assignations a rytm:enc:* restent valables)
     case 'penc':
-      return typeof h.index === 'number' && GLOBAL_ENCODERS[h.index] ? `rytm:enc:${GLOBAL_ENCODERS[h.index]}` : null;
+      if (typeof h.index !== 'number') return null;
+      if (FACE_FOLLOWS_PAGE) return h.index >= 0 && h.index < 8 ? `rytm:knob:${h.index + 1}` : null;
+      return GLOBAL_ENCODERS[h.index] ? `rytm:enc:${GLOBAL_ENCODERS[h.index]}` : null;
     // Une touche de page ; un onglet de l'en-tete (lcd-tab-<ecran>) : son ecran
     case 'pkey':
       if (!h.rpage) return null;

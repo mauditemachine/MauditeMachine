@@ -45,7 +45,10 @@
  * posent dans la grille de 4 x 2, dans l'ordre, chacun sur w colonnes et h
  * rangees (SOUND : 2 x 1, le dessin de ENV : 3 x 1, les FX de la voix : 1 x
  * 2). Le bloc k d'un ecran est le potard k (rytm:knob:k+1, le MIDI et le
- * Roto ; lcd-blk-k au doigt et a la souris).
+ * Roto ; lcd-blk-k au doigt et a la souris). Au desktop depuis le 2026-10-27
+ * (Mika : "les knobs de droite doivent se refleter", comme la Digitakt) le
+ * bloc k se pose aussi dans la case k (colonne k % 4, rangee k >> 2), au-dessus
+ * du potard k de la face : faceCellsOf, cellsOf, faceBlockOf (la loi de la face).
  * Une table pure : elle n'importe que des types, familyOf et la liste des
  * touches (theme.ts).
  *
@@ -69,7 +72,7 @@ import type { LockKey } from '../audio/locks';
 import { familyOf, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
-import { RYTM_PAGE_KEYS, type Inst } from '../theme';
+import { PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
 
 export type RytmPageId = (typeof RYTM_PAGE_KEYS)[number]['id'];
 
@@ -605,9 +608,90 @@ export function slotCells(slots: readonly PageSlot[]): readonly SlotCell[] {
   return out;
 }
 
-/** Les cases que l'ecran laisse libres (ni bloc ni dessin) : colonne, rangee. */
+/* ---------------- la loi de la face (2026-10-27) ---------------- */
+
+/**
+ * 2026-10-27 (Mika : "les knobs de droite doivent se refleter") : au desktop, la loi de la face. mirror : le bloc k pose
+ * dans la case k (colonne k % 4, rangee k >> 2), la place du potard k ; cell : l'ecran d'avant, le potard k tourne le bloc
+ * pose sur sa case (le repli, une ligne).
+ */
+export type FaceLaw = 'mirror' | 'cell';
+export const FACE_LAW: FaceLaw = 'mirror';
+/** Les ecrans de la face (le desktop) ; le telephone garde son rangement (phase 5). */
+export const FACE_PAGES: boolean = !PORTRAIT;
+
+const MIRROR_CELLS = new WeakMap<readonly PageSlot[], readonly SlotCell[]>();
+
+/**
+ * Les cases d'un ecran sous la loi mirror (2026-10-27) : chaque bloc k (les huit premiers) dans sa case k, une case de
+ * large ; un bloc de la premiere rangee que sa table veut haut garde ses deux rangees quand la case k + 4 n'a pas de bloc
+ * a elle ; un dessin (l'enveloppe, le filtre) garde sa largeur sur les cases suivantes de sa rangee qui n'ont pas de bloc
+ * a elles ; SOUND, VOL, MIX et les quantites des FX perdent leurs colonnes de plus.
+ */
+function mirrorCells(slots: readonly PageSlot[]): readonly SlotCell[] {
+  let out = MIRROR_CELLS.get(slots);
+  if (out) return out;
+  const n = Math.min(GRID_COLS * GRID_ROWS, slots.length);
+  const cells: SlotCell[] = slots.map((_, k) => (k < n ? { c: k % GRID_COLS, r: Math.floor(k / GRID_COLS), w: 1, h: 1 } : { c: 0, r: 0, w: 0, h: 0 }));
+  // une case prise par un bloc qui n'est pas le sien (une rangee de plus, une colonne de plus)
+  const taken: boolean[] = new Array(GRID_COLS * GRID_ROWS).fill(false);
+  const own = (j: number): boolean => j < n;
+  for (let k = 0; k < Math.min(n, GRID_COLS); k += 1) {
+    if ((slots[k].h ?? 1) > 1 && !own(k + GRID_COLS)) {
+      cells[k].h = 2;
+      taken[k + GRID_COLS] = true;
+    }
+  }
+  for (let k = 0; k < n; k += 1) {
+    const s = slots[k];
+    if (!s.graph) continue;
+    const want = s.w ?? 1;
+    const c0 = cells[k].c;
+    const r0 = cells[k].r;
+    let w = 1;
+    while (w < want && c0 + w < GRID_COLS) {
+      const j = r0 * GRID_COLS + c0 + w;
+      const below = cells[k].h > 1 ? j + GRID_COLS : -1;
+      if (own(j) || taken[j] || (below >= 0 && (own(below) || taken[below]))) break;
+      taken[j] = true;
+      if (below >= 0) taken[below] = true;
+      w += 1;
+    }
+    cells[k].w = w;
+  }
+  out = cells;
+  MIRROR_CELLS.set(slots, out);
+  return out;
+}
+
+/** Les cases d'un ecran selon une loi (pure, en cache par ecran) ; cell : slotCells. */
+export function faceCellsOf(slots: readonly PageSlot[], law: FaceLaw): readonly SlotCell[] {
+  return law === 'cell' ? slotCells(slots) : mirrorCells(slots);
+}
+
+/** Les cases d'un ecran : celles de la face au desktop, le rangement d'aujourd'hui au telephone. */
+export const cellsOf = (slots: readonly PageSlot[]): readonly SlotCell[] => (FACE_PAGES ? faceCellsOf(slots, FACE_LAW) : slotCells(slots));
+
+/**
+ * Le bloc que tourne le potard j (sa case) : mirror, j s'il existe, sinon le bloc dont la case couvre j (un bloc haut, un
+ * dessin) ; cell, le bloc pose sur la case j ; null : rien. Un dessin est rendu (pageDial dit IS A PICTURE).
+ */
+export function faceBlockOf(slots: readonly PageSlot[], j: number, law: FaceLaw = FACE_LAW): number | null {
+  if (j < 0 || j >= GRID_COLS * GRID_ROWS) return null;
+  if (law === 'mirror' && j < Math.min(GRID_COLS * GRID_ROWS, slots.length)) return j;
+  const cells = faceCellsOf(slots, law);
+  const c = j % GRID_COLS;
+  const r = Math.floor(j / GRID_COLS);
+  for (let k = 0; k < cells.length; k += 1) {
+    const x = cells[k];
+    if (x.w > 0 && c >= x.c && c < x.c + x.w && r >= x.r && r < x.r + x.h) return k;
+  }
+  return null;
+}
+
+/** Les cases que l'ecran laisse libres (ni bloc ni dessin) : colonne, rangee (celles de la face au desktop, 2026-10-27). */
 export function freeCells(slots: readonly PageSlot[]): { c: number; r: number }[] {
-  const cells = slotCells(slots);
+  const cells = cellsOf(slots);
   const out: { c: number; r: number }[] = [];
   for (let r = 0; r < GRID_ROWS; r += 1)
     for (let c = 0; c < GRID_COLS; c += 1) if (!cells.some((x, k) => slots[k].label && c >= x.c && c < x.c + x.w && r >= x.r && r < x.r + x.h)) out.push({ c, r });
