@@ -61,7 +61,8 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { BTN_LED, COLOR, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, VOICE_LED, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import type { TrkLed } from '../rytm/stepLeds';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
@@ -175,8 +176,15 @@ export interface SequencerInfo {
   lit: number[];
   /** l'emissif lineaire du dessus de chaque pas (r, g, b), la tete de lecture, le survol, le LOCK et l'appui compris */
   glow: number[][];
-  /** la marque des verrous de chaque pas : 1 montree (claire), 2 montree sombre (sur une touche allumee), 0 cachee */
+  /**
+   * la marque des verrous de chaque pas : 1 montree (claire), 2 montree sombre (sur une touche allumee), 0 cachee ; en vue
+   * TRK (2026-10-27) : 3 la barre de MUTE (rouge), 4 celle de SOLO (bleue)
+   */
   marks: string;
+  /** la vue TRK (2026-10-27) : les pas 1 a 8 a la couleur de leur voix */
+  trk: boolean;
+  /** en vue TRK : la voix et l'intensite de chaque pas ('' et 0 : eteint), sa barre */
+  trkLeds: { inst: Inst | null; level: number; bar: 'mute' | 'solo' | null }[] | null;
   run: boolean;
   /** eclat du temoin de chaque bouton (0 a 1) : RUN, CLEAR, MUTE, SOLO, RANDOM */
   buttonLeds: number[];
@@ -251,6 +259,14 @@ export class Sequencer3D {
   private running = false;
   /** EDIT (2026-10-05) : les steps sont les seize patterns (state/patterns.ts) ; null : le motif */
   private patView: PatternView | null = null;
+  /**
+   * TRK tenue ou gardee (2026-10-27, rytm/stepLeds.ts) : les pas 1 a 8 a la couleur de leur voix, 9 a 16 eteints ; avant
+   * EDIT ; ni tete de lecture, ni verrous, ni survol ; null : le motif (ou EDIT)
+   */
+  private trkView: readonly TrkLed[] | null = null;
+  /** la barre de MUTE et celle de SOLO en vue TRK (les marques des verrous, sans geometrie de plus) */
+  private markMute = new Color(0xff2a1f);
+  private markSolo = new Color(0x5b9bff);
   /** les verrous (2026-10-08) : les pas qui en ont (bit i), le pas en LOCK (-1), sa phase de clignotement */
   private lockMask = 0;
   private lockStep = -1;
@@ -537,6 +553,8 @@ export class Sequencer3D {
    * la mesure, ceux de la chaine, un pattern plein.
    */
   private litOf(i: number): number {
+    // TRK (2026-10-27) : l'intensite de la voix du pas
+    if (this.trkView) return this.trkView[i]?.level ?? 0;
     const v = this.patView;
     if (v) {
       const E = STEP_LIT.edit;
@@ -556,7 +574,12 @@ export class Sequencer3D {
    */
   /** Le pas j est-il sous la tete de lecture (ou le test de l'intro) ? Jamais dans EDIT. */
   private isHead(j: number): boolean {
-    return !this.patView && (j === this.playhead || j === this.introLed);
+    return !this.patView && !this.trkView && (j === this.playhead || j === this.introLed);
+  }
+
+  /** Les verrous se lisent sur les touches (hors EDIT et hors TRK). */
+  private get lockShown(): boolean {
+    return !this.patView && !this.trkView;
   }
 
   private writeKeyGlow(j: number): void {
@@ -566,8 +589,15 @@ export class Sequencer3D {
     const k = KEY_LIT_LIGHT.glow;
     const head = this.isHead(j);
     const add = head ? (f > 0 ? STEP_LIT.head : STEP_LIT.headEmpty) : null;
-    const locked = !this.patView && ((this.lockMask >> j) & 1) === 1;
-    const floor = !this.patView && j === this.lockStep ? (this.lockBlink ? STEP_LIT.lock : STEP_LIT.lockDim) : locked && f === 0 ? STEP_LIT.locks : j === this.hover && f === 0 ? STEP_LIT.hover : null;
+    const locked = this.lockShown && ((this.lockMask >> j) & 1) === 1;
+    const floor = this.lockShown && j === this.lockStep ? (this.lockBlink ? STEP_LIT.lock : STEP_LIT.lockDim) : locked && f === 0 ? STEP_LIT.locks : !this.trkView && j === this.hover && f === 0 ? STEP_LIT.hover : null;
+    // TRK (2026-10-27) : la lueur de la voix du pas (VOICE_LED, a la luminance de l'orange) a son intensite
+    const tv = this.trkView?.[j];
+    const vg = tv && tv.inst ? VOICE_LED[tv.inst].glow : null;
+    if (this.trkView) {
+      for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(vg ? vg[c] * k * f : 0, STEP_PRESS.glow[c] * this.keyPress[j]);
+      return;
+    }
     for (let c = 0; c < 3; c += 1) {
       const lit = o[c] * k * f + (add ? add[c] * k : 0);
       e[j * 3 + c] = Math.max(lit, floor ? floor[c] * k : 0, STEP_PRESS.glow[c] * this.keyPress[j]);
@@ -582,8 +612,17 @@ export class Sequencer3D {
    */
   private writeKeyColor(j: number): void {
     const c = this.pressedColor(LIT.key, this.keyPress[j]);
-    const lt = KEY_LIT_LIGHT.tint?.orange;
     const f = this.litPart[j];
+    // TRK (2026-10-27), la machine claire : le dessus tire vers la teinte de la voix, a son intensite
+    const tv = this.trkView?.[j];
+    if (this.trkView) {
+      const vt = tv && tv.inst && KEY_LIT_LIGHT.tint ? VOICE_LED[tv.inst].tint : null;
+      if (vt && f > 0) c.setRGB(c.r + (vt[0] - c.r) * f, c.g + (vt[1] - c.g) * f, c.b + (vt[2] - c.b) * f);
+      this.keys.setColorAt(j, c);
+      if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
+      return;
+    }
+    const lt = KEY_LIT_LIGHT.tint?.orange;
     // Hors EDIT (relecture du 2026-10-19) : la rampe reguliere de la machine claire (STEP_LIT.lightRamp) ; EDIT : la part du pattern
     const tf = f <= 0 ? 0 : this.patView ? STEP_LIT.lightFloor + (1 - STEP_LIT.lightFloor) * f : (STEP_LIT.lightRamp[this.programmed(j)] ?? 0);
     if (lt && tf > 0) c.setRGB(c.r + (lt[0] - c.r) * tf, c.g + (lt[1] - c.g) * tf, c.b + (lt[2] - c.b) * tf);
@@ -638,14 +677,16 @@ export class Sequencer3D {
       }
       // La machine claire : la teinte suit aussi la tete de lecture (force)
       if (KEY_LIT_LIGHT.tint && (part || force)) this.writeKeyColor(i);
-      const locked = !this.patView && ((this.lockMask >> i) & 1) === 1;
+      const locked = this.lockShown && ((this.lockMask >> i) & 1) === 1;
       // Sombre sur une touche allumee, et sur le pas en LOCK quand il s'allume en jaune
       const bright = f >= MARK_DARK_AT || (i === this.lockStep && this.lockBlink);
-      const m = locked ? (bright ? 2 : 1) : 0;
+      // TRK (2026-10-27) : la marque devient la barre de MUTE (3) ou de SOLO (4) de la voix du pas
+      const bar = this.trkView?.[i]?.bar ?? null;
+      const m = this.trkView ? (bar === 'mute' ? 3 : bar === 'solo' ? 4 : 0) : locked ? (bright ? 2 : 1) : 0;
       if (m !== this.markState[i]) {
         const was = this.markState[i];
         this.markState[i] = m;
-        if (m !== 0) this.lockMarks.setColorAt(i, m === 2 ? this.markDark : this.markLight);
+        if (m !== 0) this.lockMarks.setColorAt(i, m === 4 ? this.markSolo : m === 3 ? this.markMute : m === 2 ? this.markDark : this.markLight);
         if ((m === 0) !== (was === 0)) this.placeMark(i);
         marks = true;
       }
@@ -671,6 +712,18 @@ export class Sequencer3D {
     if (!a && !v) return false;
     if (a && v && a.cur === v.cur && a.next === v.next && a.chain.join() === v.chain.join() && a.filled.join() === v.filled.join()) return false;
     this.patView = v;
+    return this.refresh(true);
+  }
+
+  /**
+   * TRK (2026-10-27) : la vue des voix (rytm/stepLeds.ts trkLeds), null : le motif ; true s'il faut une frame. Le retour
+   * au motif rend les seize lueurs d'avant a l'identique (tout se recalcule de l'etat).
+   */
+  setTrkView(v: readonly TrkLed[] | null): boolean {
+    const a = this.trkView;
+    if (!a && !v) return false;
+    if (a && v && a.length === v.length && a.every((x, i) => x.color === v[i].color && x.level === v[i].level && x.bar === v[i].bar && x.inst === v[i].inst)) return false;
+    this.trkView = v;
     return this.refresh(true);
   }
 
@@ -754,6 +807,8 @@ export class Sequencer3D {
       lit: Array.from(this.litPart, (v) => +v.toFixed(3)),
       glow,
       marks,
+      trk: this.trkView !== null,
+      trkLeds: this.trkView ? this.trkView.map((x) => ({ inst: x.inst, level: x.level, bar: x.bar })) : null,
       run: this.running,
       buttonLeds: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100),
       buttonLit: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.litLevel(j) * 100) / 100),

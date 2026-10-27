@@ -37,6 +37,8 @@ const OPEN = FACE_KEYS.findIndex((k) => k.id === 'open');
 const TRK = FACE_KEYS.findIndex((k) => k.id === 'trk');
 /** Les touches qui agissent (s'enfoncent, s'eclairent au survol) : EDIT, OPEN, TRK depuis la phase 2 (2026-10-27). */
 const LIVE = (i: number): boolean => i === EDIT || i === OPEN || i === TRK;
+/** TRK gardee (2026-10-27) : son temoin clignote entre plein et ce reste (le 0.12 de MUTE et SOLO en attente). */
+const TRK_BLINK_LOW = 0.12;
 /** L'id de la zone de saisie (et du jumeau) de chaque touche : EDIT et OPEN gardent ceux de leurs pads. */
 const HOTSPOT: Readonly<Record<FaceKeyId, string>> = { trk: 'trk', edit: 'pad-edit', open: 'pad-open', 'scene-a': 'scene-a', 'scene-b': 'scene-b' };
 /** Le temoin d'OPEN capot ouvert : a peine (l'orangeDim du pad d'avant). */
@@ -121,6 +123,8 @@ export class RytmFaceKeys {
   private open = false;
   /** TRK (2026-10-27) : son etat (state/trk.ts) */
   private trk: HoldMode = 'off';
+  /** la phase du clignotement de TRK gardee (1 : plein) */
+  private trkBlink = 1;
   /** la respiration d'OPEN machine fermee (1 : pleine) */
   private breath = 1;
   private off = new Color();
@@ -176,7 +180,8 @@ export class RytmFaceKeys {
     if (i === EDIT) return { fill: this.editing ? 1 : 0, led: this.editing ? 1 : 0 };
     if (i === OPEN) return this.open ? { fill: 0, led: OPEN_DIM } : { fill: this.breath, led: this.breath };
     // TRK engagee (tenue, gardee, en fermeture) : allumee en entier, son temoin plein
-    if (i === TRK) return this.trk === 'off' ? { fill: 0, led: 0 } : { fill: 1, led: 1 };
+    // TRK engagee (tenue, gardee, en fermeture) : allumee en entier ; son temoin fixe, il clignote quand elle est gardee
+    if (i === TRK) return this.trk === 'off' ? { fill: 0, led: 0 } : { fill: 1, led: this.trk === 'latched' ? this.trkBlink : 1 };
     return { fill: 0, led: 0 };
   }
 
@@ -221,11 +226,25 @@ export class RytmFaceKeys {
   /** TRK (2026-10-27) : allumee tant qu'elle est engagee ; true s'il faut une frame. */
   setTrk(mode: HoldMode): boolean {
     if (TRK < 0 || mode === this.trk) return false;
-    const was = this.trk !== 'off';
     this.trk = mode;
-    if (was === (mode !== 'off')) return false;
+    this.trkBlink = 1;
     this.refresh(TRK);
     return true;
+  }
+
+  /** TRK gardee : son temoin clignote (periodMs allume, periodMs a peine) ; true si la phase a change. */
+  blinkTrk(now: number, periodMs: number): boolean {
+    if (this.trk !== 'latched') return false;
+    const v = Math.floor(now / periodMs) % 2 === 0 ? 1 : TRK_BLINK_LOW;
+    if (v === this.trkBlink) return false;
+    this.trkBlink = v;
+    this.refresh(TRK);
+    return true;
+  }
+
+  /** TRK gardee : son temoin a besoin de la boucle. */
+  get trkBlinking(): boolean {
+    return this.trk === 'latched';
   }
 
   /** Le capot ouvert (ou s'ouvrant) : OPEN a peine ; ferme, OPEN allume ; true s'il faut une frame. */
