@@ -47,10 +47,10 @@
 import limiterUrl from './limiter.worklet.js?url';
 import glueUrl from './glue.worklet.js?url';
 import { FLAGS } from '../state/flags';
-import type { Inst } from '../theme';
+import { XFADE_UI, type Inst } from '../theme';
 import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
-import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
+import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, FX_SETTING_IDS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
 import { loadSample, sampleByKey, samplePcm, sampleStats, sampleStatus, samplesOf, samplesVersion } from './samples';
 import { userSamples } from './usersamples';
@@ -83,8 +83,11 @@ import {
   type VoiceParam,
 } from './voicefx';
 import { InsertLocks } from './lockfx';
-import { morph } from './morph';
-import type { SceneSet } from '../rytm/sceneData';
+import { NO_NEEDS, insertNeedsOf, morph, morphFxPure, morphHitPure, morphVoicePure, type InsertNeeds } from './morph';
+import { glideMode } from './glide';
+import { makeApplier, morphGapOf, type Applier, type ApplierClock } from './morphApplier';
+import { NO_SCENES, cleanScenes, type SceneSet } from '../rytm/sceneData';
+import { sceneCtl } from '../state/sceneCtl';
 
 type Ctor = typeof AudioContext;
 
@@ -309,10 +312,14 @@ const fxValue = (f: Readonly<Partial<Fx>>, k: FxSettingId): number => {
 /** REVERB SIZE, TONE et PRE : la forme de la reponse (fx.ts makeImpulse). */
 const irShapeOf = (f: Readonly<Partial<Fx>>): IrShape => ({ seconds: fxValue(f, 'rsize'), hiEnd: fxValue(f, 'rtone'), preDelay: fxValue(f, 'rpre') });
 
-/** Les reglages des FX de f poses sur le graphe (chaque setter ne fait rien si rien ne change). */
-function applyFxSettings(g: Graph, f: Readonly<Fx>): void {
+/**
+ * Les reglages des FX de f poses sur le graphe (chaque setter ne fait rien si rien ne change). shape false (2026-10-27,
+ * les scenes) : la forme de la REVERB attend le repos du crossfader (une reponse recalculee a chaque mouvement gelerait
+ * la musique), elle part une fois au lacher.
+ */
+function applyFxSettings(g: Graph, f: Readonly<Fx>, shape = true): void {
   g.delay.setTone(fxValue(f, 'dtone'));
-  g.reverb.setShape(irShapeOf(f));
+  if (shape) g.reverb.setShape(irShapeOf(f));
   g.fx.setTone(fxValue(f, 'xtone'));
   g.kickFx?.setTone(fxValue(f, 'xtone'));
   g.chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
@@ -601,8 +608,10 @@ export function ensure(): AudioContext | undefined {
   // passent au worklet a son arrivee)
   void loadChorus(ctx);
   graph = build(ctx);
-  // Les verrous DIST et CHORUS du motif deja la (2026-10-09) : leurs inserts tenus engages des le premier coup
-  holdInserts(graph, pattern.get().locks);
+  // Les verrous DIST et CHORUS du motif deja la (2026-10-09) : leurs inserts tenus engages des le premier coup ; ceux
+  // que ses scenes menent aussi (2026-10-27)
+  holdScenes(graph, pattern.get().locks, morph.inserts());
+  applier = makeApplier(liveClock(ctx), morphGapOf(ctx.sampleRate), applyMorph);
   // iPhone (Safari 17+) : une session de lecture, la musique ne s'efface pas pour un son du systeme (2026-10-05)
   try {
     const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
@@ -698,10 +707,24 @@ export function glueValues(f: Readonly<Fx>): GlueSet {
   };
 }
 
+/**
+ * Ce que chaque worklet a recu (2026-10-27, les scenes) : une valeur inchangee n'est pas reposee, l'applicateur du
+ * crossfader ne pose que ce qui bouge (le meme son : la valeur d'avant tenait deja).
+ */
+const glueSent = new WeakMap<AudioWorkletNode, Map<string, number>>();
+
 function setGlue(node: AudioWorkletNode, f: Readonly<Fx>): void {
   const t = node.context.currentTime;
   const v = glueValues(f);
+  let sent = glueSent.get(node);
+  if (!sent) {
+    sent = new Map();
+    glueSent.set(node, sent);
+  }
+  const was = sent;
   const set = (name: string, x: number): void => {
+    if (was.get(name) === x) return;
+    was.set(name, x);
     node.parameters.get(name)?.setValueAtTime(x, t);
   };
   set('bits', v.bits);
@@ -1315,13 +1338,16 @@ function postInserts(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock
   if (d || c) v.inserts = [...(d ? [ch.distLocks] : []), ...(c ? [ch.chorusLocks] : [])];
 }
 
-/** Les inserts DIST et CHORUS tenus engages pour les voix qui en ont un verrou dans ces verrous (le motif, un rendu). */
-function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined): void {
+/**
+ * Les inserts DIST et CHORUS tenus engages pour les voix qui en ont un verrou dans ces verrous (le motif, un rendu), ou
+ * dont DIST ou CHORUS est dans une scene (2026-10-27, needs : un crossfader qui passe par 0 ne debranche rien).
+ */
+function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds = NO_NEEDS): void {
   if (!g.ch) return;
   for (const inst of INSTRUMENTS) {
     const row = locks?.[inst];
-    let dist = false;
-    let chorus = false;
+    let dist = needs.dist.has(inst);
+    let chorus = needs.chorus.has(inst);
     if (row) {
       for (const l of Object.values(row)) {
         if (l.dist !== undefined) dist = true;
@@ -1331,6 +1357,14 @@ function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined): void 
     g.ch[inst].distLocks.hold(dist);
     g.ch[inst].chorusLocks.hold(chorus);
   }
+}
+
+/** Les tenues que demandent les verrous du motif et ses scenes (2026-10-27) : les inserts des voix, DIST et CHORUS du bus. */
+function holdScenes(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds): void {
+  holdInserts(g, locks, needs);
+  g.fx.hold(needs.busDist);
+  g.kickFx?.hold(needs.busDist);
+  g.chorus.lockHold?.(needs.busChorus);
 }
 
 /**
@@ -1416,7 +1450,7 @@ pattern.subscribe(() => {
   prepKey = k;
   prepareLocks();
   // Les inserts DIST et CHORUS des voix qui en ont un verrou : tenus engages tout de suite (le prochain coup les trouve)
-  if (graph) holdInserts(graph, pattern.get().locks);
+  if (graph) holdInserts(graph, pattern.get().locks, morph.inserts());
 });
 kit.subscribe(() => prepareLocks());
 voiceFx.subscribe(() => prepareLocks());
@@ -1521,7 +1555,7 @@ const emitMix = (): void => mixListeners.forEach((fn) => fn());
  * Sans contexte, les valeurs attendent le graphe (build() les lit).
  */
 /** Les FX globaux d'un etat sur le graphe (2026-10-27 : extrait du store ; le store, ou ce que les scenes en font jouer). */
-function applyFx(g: Graph, f: Readonly<Fx>): void {
+function applyFx(g: Graph, f: Readonly<Fx>, shape = true): void {
   g.fx.setDrive(f.drive);
   g.kickFx?.setDrive(f.drive);
   g.reverbSend.set(f.reverb);
@@ -1531,20 +1565,111 @@ function applyFx(g: Graph, f: Readonly<Fx>): void {
   g.delay.setDiv(delayDiv(f.dtime).steps);
   g.delay.setFeedback(delayFb(f.dfb));
   // Les reglages de chaque FX (2026-10-10) : DELAY TONE, REVERB SIZE TONE PRE, DIST TONE, CHORUS RATE DEPTH, puis BIT et COMP
-  applyFxSettings(g, f);
+  applyFxSettings(g, f, shape);
 }
 
 pattern.fx.subscribe(() => {
-  // Ce qui joue : le store, ou ses reglages menes par les scenes (audio/morph.ts ; sans scene, le store lui-meme)
-  if (graph) applyFx(graph, morph.fx());
+  // Ce qui joue : le store, ou ses reglages menes par les scenes (audio/morph.ts ; sans scene, le store lui-meme). Les
+  // scenes menent des fx (2026-10-27) : le changement passe par l'applicateur, au pas des rampes du crossfader
+  if (graph) {
+    if (applier && morph.fxMorphed()) applier.request();
+    else applyFx(graph, morph.fx());
+  }
   emitMix();
 });
 
 /* Effets par piste : chaque changement du store rejoint les tranches (ce que les scenes en font jouer, 2026-10-27). */
 voiceFx.subscribe(() => {
-  if (graph) for (const inst of INSTRUMENTS) applyVoice(graph, inst, morph.voice(inst));
+  if (graph) {
+    let wait = false;
+    for (const inst of INSTRUMENTS) {
+      if (applier && morph.voiceMorphed(inst)) wait = true;
+      else applyVoice(graph, inst, morph.voice(inst));
+    }
+    if (wait) applier?.request();
+  }
   emitMix();
 });
+
+/* ---------------- les scenes : l'applicateur (2026-10-27, la phase 2) ---------------- */
+
+/**
+ * Le bus et les tranches suivent le crossfader par audio/morphApplier.ts : au plus une application par pas de 25 ms en
+ * temps du contexte, toujours la vue du moment, chaque rampe de 20 ms finie avant la suivante. Ni store ecrit, ni coup
+ * re-programme : les classes ramp, worklet et notch seulement (les coups lisent le morphing a leur programmation, P2-18).
+ * La forme de la REVERB (settle) attend le repos : la fin du geste, ou XFADE_UI.settleMs sans mouvement (le MIDI).
+ */
+let applier: Applier | null = null;
+/** au prochain passage, toutes les tranches et le bus (des scenes ont change : un domaine qui en sort retrouve sa base) */
+let applyAll = false;
+/** des mouvements du crossfader il y a moins de settleMs : la forme de la REVERB attend */
+let shapeWait = false;
+let quietTimer = 0;
+/** le dernier mouvement (performance.now) : une seule minuterie par attente, relancee au besoin, pas une par mouvement */
+let lastXAt = 0;
+function quietCheck(): void {
+  const left = XFADE_UI.settleMs - (performance.now() - lastXAt);
+  if (left > 1) {
+    quietTimer = window.setTimeout(quietCheck, left);
+    return;
+  }
+  quietTimer = 0;
+  shapeWait = false;
+  if (!sceneCtl.moving()) applier?.request();
+}
+/** le controle negatif des tests (debug morphStep) : les reglages sautent au lieu de glisser */
+let morphStepLive = false;
+
+const liveClock = (c: AudioContext): ApplierClock => ({
+  now: () => c.currentTime,
+  later(fn: () => void, ms: number): () => void {
+    const id = window.setTimeout(fn, ms);
+    return () => window.clearTimeout(id);
+  },
+  frozen: () => c.state !== 'running',
+});
+
+const shapeFree = (): boolean => !shapeWait && !sceneCtl.moving();
+
+function applyMorph(): void {
+  const g = graph;
+  if (!g) return;
+  const t0 = performance.now();
+  const all = applyAll;
+  applyAll = false;
+  glideMode.step = morphStepLive;
+  try {
+    if (all || morph.fxMorphed()) applyFx(g, morph.fx(), shapeFree());
+    for (const inst of INSTRUMENTS) if (all || morph.voiceMorphed(inst)) applyVoice(g, inst, morph.voice(inst));
+  } finally {
+    glideMode.step = false;
+  }
+  morph.noteApply(performance.now() - t0);
+}
+
+if (typeof window !== 'undefined') {
+  morph.subscribe((c) => {
+    const g = graph;
+    if (!g || !applier) return;
+    if (c.cause === 'x') {
+      shapeWait = true;
+      lastXAt = performance.now();
+      if (!quietTimer) quietTimer = window.setTimeout(quietCheck, XFADE_UI.settleMs);
+      applier.request();
+    } else if (c.cause === 'scenes' || c.cause === 'switch') {
+      // Les branches se batissent quand une scene arrive, jamais pendant un geste
+      applyAll = true;
+      holdScenes(g, pattern.get().locks, morph.inserts());
+      applier.request(c.at);
+    } else if (c.cause === 'settle') {
+      window.clearTimeout(quietTimer);
+      quietTimer = 0;
+      shapeWait = false;
+      applier.request();
+    }
+    // 'base' : les gestionnaires de pattern.fx et de voiceFx passent eux-memes par l'applicateur
+  });
+}
 
 /* Tempo : le DELAY reste une croche pointee. */
 pattern.subscribe(() => {
@@ -1714,7 +1839,30 @@ export interface OfflineOpts {
   channels?: 1 | 2;
   /** le canal rendu (0 : gauche, 1 : droite, avec channels 2) */
   channel?: 0 | 1;
+  /**
+   * Les scenes (2026-10-27, la phase 2, tests seulement) : un jeu de scenes ({ a, b } ou la forme stockee) morphe sur la
+   * base du rendu (ses reglages imposes, les autres neutres), au x du rendu (0 par defaut) ; les coups au x de leur
+   * instant.
+   */
+  scenes?: SceneSet | { a?: Record<string, number>; b?: Record<string, number> };
+  x?: number;
+  /** le crossfader pendant le rendu : [instant (s), x], par LE MEME applicateur qu'en direct sur l'horloge du rendu */
+  xAt?: [number, number][];
+  /** le controle negatif : chaque application saute (setValueAtTime) au lieu de glisser */
+  morphStep?: boolean;
+  /** une tension continue ou un sinus dans l'entree de la tranche d'une voix, au lieu de la batterie */
+  dcInto?: { inst: Inst; level: number };
+  sineInto?: { inst: Inst; hz: number; level: number };
+  /**
+   * La prise rendue (2026-10-27) : 'rytm', la sortie du MM-RYTM (celle de l'oscilloscope, scopeTaps().rytm), avant le
+   * limiteur et l'ecreteur de secours (surechantillonne x4, il ondule de quelques 1e-7 aux coins d'une rampe) ; absente :
+   * la sortie de toujours.
+   */
+  tap?: 'rytm';
 }
+
+/** Ce que l'applicateur du dernier rendu hors ligne a pose (tests) : [instant (s), x]. */
+let offlineMorphLog: [number, number][] = [];
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -1732,6 +1880,25 @@ function seeded(seed: number): () => number {
 async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const sr = o.sampleRate ?? 48000;
   const oc = new OfflineAudioContext(o.channels ?? 1, Math.round(o.seconds * sr), sr);
+  // Les scenes du rendu (2026-10-27) : sans elles, rien de ce qui suit ne change le rendu d'avant
+  const sc: SceneSet = o.scenes ? (cleanScenes(o.scenes) ?? NO_SCENES) : NO_SCENES;
+  const morphed = sc !== NO_SCENES;
+  const xs = (o.xAt ?? []).filter(([t, v]) => Number.isFinite(t) && Number.isFinite(v)).sort((a, b) => a[0] - b[0]);
+  let xNow = clamp01(o.x ?? 0);
+  /** le x d'un coup a son instant (les evenements du crossfader passes) */
+  const xOfHit = (t: number): number => {
+    let v = clamp01(o.x ?? 0);
+    for (const [te, xe] of xs) {
+      if (te > t) break;
+      v = clamp01(xe);
+    }
+    return v;
+  };
+  const baseFx: Fx = { ...pattern.fx.get(), ...FX_SETTINGS, ...(o.fxs ?? {}), drive: o.drive ?? 0, reverb: o.reverb ?? 0, delay: o.delay ?? 0, chorus: o.chorus ?? 0, dtime: o.dtime ?? DTIME_DEFAULT, dfb: o.dfb ?? DFB_DEFAULT, bits: o.bits ?? 0, comp: o.comp ?? 0 };
+  const voiceBase = (inst: Inst): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}) });
+  const f0 = morphed ? morphFxPure(baseFx, sc, xNow) : null;
+  const settingsOf = (f: Readonly<Fx>): Partial<Record<FxSettingId, number>> => Object.fromEntries(FX_SETTING_IDS.map((k) => [k, f[k] ?? FX_SETTINGS[k]]));
+  offlineMorphLog = [];
   // Le chorus a interpolation sinc, comme en direct
   await loadChorus(oc);
   const tone0 = snapTone(o.tone ?? 0);
@@ -1756,23 +1923,32 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   try {
     g = build(oc, {
       tone: tone0,
-      drive: o.drive ?? 0,
-      reverb: o.reverb ?? 0,
-      delay: o.delay ?? 0,
-      chorus: o.chorus ?? 0,
-      dtime: o.dtime ?? DTIME_DEFAULT,
-      dfb: o.dfb ?? DFB_DEFAULT,
-      fxs: o.fxs ?? {},
+      drive: f0 ? f0.drive : (o.drive ?? 0),
+      reverb: f0 ? f0.reverb : (o.reverb ?? 0),
+      delay: f0 ? f0.delay : (o.delay ?? 0),
+      chorus: f0 ? f0.chorus : (o.chorus ?? 0),
+      dtime: f0 ? f0.dtime : (o.dtime ?? DTIME_DEFAULT),
+      dfb: f0 ? f0.dfb : (o.dfb ?? DFB_DEFAULT),
+      fxs: f0 ? settingsOf(f0) : (o.fxs ?? {}),
       bpm: o.bpm,
-      voice: o.voice ?? {},
+      voice: morphed ? (Object.fromEntries(INSTRUMENTS.map((i) => [i, morphVoicePure(i, voiceBase(i), sc, xNow)])) as Record<Inst, VoiceFx>) : (o.voice ?? {}),
       master: 1,
       bare: o.bare,
     });
     // Les reglages de chaque voix hors ligne : neutres, sauf ceux imposes ; le meme calcul de coup qu'en direct
     const vfx = (inst: Inst): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}), tone: snapTone(o.voice?.[inst]?.tone ?? 0) });
-    const hpOf = (inst: Inst, lock: Readonly<StepLock> | null): HitParams => hitParams(inst, false, lock, tone0, stretch0, vfx(inst));
-    // Les inserts DIST et CHORUS des voix qui en ont un verrou dans le rendu (2026-10-09) : tenus engages, comme en direct
-    holdInserts(g, o.single ? (o.singleLock ? ({ [o.single]: { 0: o.singleLock } } as Locks) : null) : o.locks);
+    /** un coup : sans scene le calcul d'avant ; avec, le morphing du coup au x de son instant (morphHitPure, comme en direct) */
+    const hitOf = (inst: Inst, lock: Readonly<StepLock> | null, t: number): { hp: HitParams; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } => {
+      if (!morphed) return { hp: hitParams(inst, false, lock, tone0, stretch0, vfx(inst)), fx: vfx(inst), lock };
+      const m = morphHitPure(inst, vfx(inst), lock, sc, xOfHit(t));
+      return { hp: hitParams(inst, false, m.lock, tone0, stretch0, m.fx, m.kit), fx: m.fx, lock: m.lock };
+    };
+    // Les inserts DIST et CHORUS des voix qui en ont un verrou dans le rendu (2026-10-09) : tenus engages, comme en direct ;
+    // ceux que les scenes du rendu menent aussi, et DIST et CHORUS du bus (2026-10-27)
+    const rLocks = o.single ? (o.singleLock ? ({ [o.single]: { 0: o.singleLock } } as Locks) : null) : o.locks;
+    if (morphed) holdScenes(g, rLocks, insertNeedsOf(sc));
+    else holdInserts(g, rLocks);
+    const probeIn = o.dcInto ?? o.sineInto;
     if (o.sines) {
       for (const hz of o.sines) {
         const osc = oc.createOscillator();
@@ -1783,13 +1959,30 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         a.connect(g.bus);
         osc.start(0);
       }
+    } else if (probeIn) {
+      // Une source continue dans la tranche (2026-10-27) : ce que l'applicateur fait de son niveau et de ses envois
+      const a = oc.createGain();
+      a.gain.value = o.sineInto ? o.sineInto.level : 1;
+      a.connect(voiceIn(g, probeIn.inst));
+      if (o.sineInto) {
+        const osc = oc.createOscillator();
+        osc.frequency.value = o.sineInto.hz;
+        osc.connect(a);
+        osc.start(0);
+      } else {
+        const dc = oc.createConstantSource();
+        dc.offset.value = o.dcInto?.level ?? 0;
+        dc.connect(a);
+        dc.start(0);
+      }
     } else if (o.single) {
-      const hp = hpOf(o.single, o.singleLock ?? null);
-      const entry = hitEntry(g, o.single, hp, vfx(o.single), hp.gain);
+      const h = hitOf(o.single, o.singleLock ?? null, 0.05);
+      const hp = h.hp;
+      const entry = hitEntry(g, o.single, hp, h.fx, hp.gain);
       const v = voice(g, o.single, 0.05, entry.dest, hp, true);
       if (v) {
-        postSends(g, o.single, 0.05, o.singleLock ?? null, v);
-        postInserts(g, o.single, 0.05, o.singleLock ?? null, v);
+        postSends(g, o.single, 0.05, h.lock, v);
+        postInserts(g, o.single, 0.05, h.lock, v);
         voices.push(v);
       }
     } else {
@@ -1799,14 +1992,14 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         for (const inst of INSTRUMENTS) {
           const v = velocity(steps, inst, n % STEP_COUNT);
           if (v === 0) continue;
-          const lk = lockOf(o.locks, inst, n % STEP_COUNT);
-          const hp = hpOf(inst, lk);
+          const h = hitOf(inst, lockOf(o.locks, inst, n % STEP_COUNT), t);
+          const hp = h.hp;
           const gain = VEL_GAIN[v] * hp.gain;
-          const entry = hitEntry(g, inst, hp, vfx(inst), gain);
+          const entry = hitEntry(g, inst, hp, h.fx, gain);
           const vo = voice(g, inst, t, entry.dest, hp, true);
           if (vo) {
-            postSends(g, inst, t, lk, vo);
-            postInserts(g, inst, t, lk, vo);
+            postSends(g, inst, t, h.lock, vo);
+            postInserts(g, inst, t, h.lock, vo);
             voices.push(vo);
           }
         }
@@ -1821,10 +2014,14 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     bdEnd = bEnd;
   }
   // BIT et COMP (2026-10-18) : le worklet en place comme en direct, avec les reglages du rendu (ceux absents a leur depart)
-  let glueFx: Fx = { ...pattern.fx.get(), ...FX_SETTINGS, ...(o.fxs ?? {}), bits: o.bits ?? 0, comp: o.comp ?? 0 };
+  let glueFx: Fx = f0 ? { ...f0 } : { ...pattern.fx.get(), ...FX_SETTINGS, ...(o.fxs ?? {}), bits: o.bits ?? 0, comp: o.comp ?? 0 };
   if (!o.bare && o.glue !== false) await attachGlue(oc, g, () => glueFx, false);
   // La sortie comme en direct : le limiteur (rendu sans lui si l'AudioWorklet manque)
   if (!o.bare && o.limiter !== false) await attachLimiter(oc, g);
+  if (o.tap === 'rytm') {
+    g.master.disconnect();
+    g.rytmOut.connect(oc.destination);
+  }
   // Chaque reglage : pose a son instant, puis une pause de 80 ms (temps reel)
   // 30 ms plus loin, rampe finie : le debranchement differe (setTimeout) y tombe
   const q = 128 / sr;
@@ -1847,6 +2044,27 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       }))
     )
     .sort((a, b) => a.t - b.t);
+  /*
+   * Une seule suspension par quantum (2026-10-27 : les evenements du crossfader et l'applicateur s'y ajoutent ; deux
+   * suspensions au meme instant levaient) : chaque instant garde la liste de ce qui s'y fait, dans l'ordre.
+   */
+  const slots = new Map<number, (() => void | Promise<void>)[]>();
+  const endT = oc.length / sr;
+  const sched = (t: number, fn: () => void | Promise<void>): void => {
+    if (!(t < endT)) return;
+    const list = slots.get(t);
+    if (list) {
+      list.push(fn);
+      return;
+    }
+    const fns = [fn];
+    slots.set(t, fns);
+    void oc.suspend(t).then(async () => {
+      for (const f of fns) await f();
+      slots.delete(t);
+      void oc.resume();
+    });
+  };
   const used = new Set<number>();
   for (const e of events) {
     const t0 = at(e.t);
@@ -1854,13 +2072,53 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     if (used.has(t0) || used.has(t1)) continue;
     used.add(t0);
     used.add(t1);
-    void oc.suspend(t0).then(() => {
-      e.run();
-      void oc.resume();
-    });
-    void oc.suspend(t1).then(async () => {
-      await sleep(80);
-      void oc.resume();
+    sched(t0, () => e.run());
+    sched(t1, () => sleep(80));
+  }
+  // Le crossfader pendant le rendu : chaque evenement a son quantum, LE MEME applicateur qu'en direct, sur l'horloge du rendu
+  if (morphed && xs.length > 0) {
+    let settled = false;
+    const voicesMorphed = INSTRUMENTS.filter((i) => morphVoicePure(i, VOICE_FX_DEFAULT, sc, 0) !== VOICE_FX_DEFAULT);
+    const applyOff = (): void => {
+      const f = morphFxPure(baseFx, sc, xNow);
+      glideMode.step = o.morphStep === true;
+      try {
+        if (f !== baseFx) {
+          glueFx = { ...f };
+          applyFx(g, f, settled);
+        }
+        for (const inst of voicesMorphed) applyVoice(g, inst, morphVoicePure(inst, voiceBase(inst), sc, xNow));
+      } finally {
+        glideMode.step = false;
+      }
+      offlineMorphLog.push([oc.currentTime, xNow]);
+    };
+    const clock: ApplierClock = {
+      now: () => oc.currentTime,
+      later(fn: () => void, ms: number): () => void {
+        let on = true;
+        const now = oc.currentTime;
+        let t = Math.ceil((now + ms / 1000) / q - 1e-9) * q;
+        if (t <= now + q / 2) t = now + q;
+        sched(t, () => {
+          if (on) fn();
+        });
+        return () => {
+          on = false;
+        };
+      },
+    };
+    const ap = makeApplier(clock, morphGapOf(sr), applyOff);
+    for (const [t, v] of xs) {
+      sched(Math.max(q, at(t)), () => {
+        xNow = clamp01(v);
+        ap.request();
+      });
+    }
+    // La fin du geste : la forme de la REVERB une fois, comme au lacher en direct
+    sched(Math.max(q, at(xs[xs.length - 1][0] + XFADE_UI.settleMs / 1000)), () => {
+      settled = true;
+      ap.request();
     });
   }
   const buf = await oc.startRendering();
@@ -1868,6 +2126,43 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
 }
 
 /* ---------------- debug (window.__v4.audio) ---------------- */
+
+/** La source de test du graphe vivant (2026-10-27, probe) */
+let probeSrc: { src: AudioScheduledSourceNode; gain: GainNode } | null = null;
+function probe(inst: Inst | null, o?: { dc?: number; hz?: number; level: number } | null): void {
+  if (!FLAGS.mute || !FLAGS.debug) throw new Error('probe: ?mute=1&debug=1 only');
+  if (probeSrc) {
+    try {
+      probeSrc.src.stop();
+    } catch {
+      /* deja arretee */
+    }
+    probeSrc.src.disconnect();
+    probeSrc.gain.disconnect();
+    probeSrc = null;
+  }
+  const g = graph;
+  const c = ctx;
+  if (!inst || !o || !g || !c) return;
+  enforceMute(g);
+  if (g.master.gain.value !== 0) throw new Error('probe: MASTER is not 0');
+  const gain = c.createGain();
+  gain.gain.value = Number.isFinite(o.level) ? o.level : 0;
+  gain.connect(voiceIn(g, inst));
+  let src: AudioScheduledSourceNode;
+  if (o.hz !== undefined) {
+    const osc = c.createOscillator();
+    osc.frequency.value = o.hz;
+    src = osc;
+  } else {
+    const dc = c.createConstantSource();
+    dc.offset.value = o.dc ?? 1;
+    src = dc;
+  }
+  src.connect(gain);
+  src.start();
+  probeSrc = { src, gain };
+}
 
 
 const peakBuf = new Float32Array(1024);
@@ -1935,12 +2230,27 @@ export interface AudioDebug {
   setDelay(v: number): void;
   setChorus(v: number): void;
   setVoiceFx(inst: Inst, p: VoiceParam, v: number): void;
+  /** le gain MASTER au dernier bloc rendu (2026-10-27 : 0 sous ?mute=1 ; null avant le premier geste) */
+  readonly masterGain: number | null;
+  /**
+   * Une source de test dans l'entree de la tranche d'une voix du graphe vivant (2026-10-27, les tests des scenes) : une
+   * tension continue (dc) ou un sinus (hz), jamais un coup ni RUN ; seulement sous ?mute=1&debug=1 (sinon une exception),
+   * MASTER a 0. probe(null) l'enleve.
+   */
+  probe(inst: Inst | null, o?: { dc?: number; hz?: number; level: number } | null): void;
+  /** le controle negatif des tests (2026-10-27) : vrai, l'applicateur des scenes pose ses reglages en sauts */
+  morphStep: boolean;
+  /** ce que l'applicateur du dernier rendu hors ligne a pose : [instant (s), x] */
+  readonly offlineMorph: readonly [number, number][];
 }
 
 /** DIST, envois et unites REVERB et DELAY, CHORUS du bus (debug). */
 export interface FxDebug {
   drive: number;
   driveOn: boolean;
+  /** les debranchements de la branche DIST du bus, sa tenue par les scenes (2026-10-27) */
+  driveUnlinks: number;
+  driveHeld: boolean;
   /** le DIST global sur la voie du kick (2026-10-18) */
   kickDriveOn: boolean;
   /** DIST TONE applique (Hz ; Nyquist : ouvert) ; DELAY TONE, la forme de la REVERB : delayBus, reverbBus (2026-10-10) */
@@ -1957,6 +2267,8 @@ export interface VoiceDebug {
   gain: number;
   tone: ToneInfo;
   drive: number;
+  /** l'insert DIST de la tranche (2026-10-27 : tenu par un verrou ou une scene, ses debranchements) */
+  driveIns: ReturnType<DriveStage['insert']>;
   chorus: ChorusInfo;
   reverb: SendInfo;
   delay: SendInfo;
@@ -2018,6 +2330,8 @@ export const audioDebug: AudioDebug = {
     return {
       drive: d.drive,
       driveOn: d.driveOn,
+      driveUnlinks: d.unlinks,
+      driveHeld: d.held === true,
       kickDriveOn: graph.kickFx ? graph.kickFx.info().driveOn : false,
       distToneHz: d.toneHz,
       reverb: graph.reverbSend.info(),
@@ -2034,7 +2348,7 @@ export const audioDebug: AudioDebug = {
     return Object.fromEntries(
       INSTRUMENTS.map((i) => [
         i,
-        { gain: ch[i].input.gain.value, tone: ch[i].tone.info(), drive: ch[i].drive.value(), chorus: ch[i].chorus.info(), reverb: ch[i].reverb.info(), delay: ch[i].delay.info() },
+        { gain: ch[i].input.gain.value, tone: ch[i].tone.info(), drive: ch[i].drive.value(), driveIns: ch[i].drive.insert(), chorus: ch[i].chorus.info(), reverb: ch[i].reverb.info(), delay: ch[i].delay.info() },
       ])
     ) as Record<Inst, VoiceDebug>;
   },
@@ -2075,4 +2389,17 @@ export const audioDebug: AudioDebug = {
   setDelay,
   setChorus,
   setVoiceFx,
+  get masterGain() {
+    return graph ? graph.master.gain.value : null;
+  },
+  probe,
+  get morphStep() {
+    return morphStepLive;
+  },
+  set morphStep(on: boolean) {
+    morphStepLive = on === true;
+  },
+  get offlineMorph() {
+    return offlineMorphLog;
+  },
 };

@@ -16,9 +16,20 @@ export const GLIDE_S = 0.02;
 export function glide(p: AudioParam, target: number, c: BaseAudioContext): void {
   const now = c.currentTime;
   p.cancelScheduledValues(now);
+  if (glideMode.step) {
+    p.setValueAtTime(target, now);
+    return;
+  }
   p.setValueAtTime(p.value, now);
   p.linearRampToValueAtTime(target, now + GLIDE_S);
 }
+
+/**
+ * Le controle negatif des tests des scenes (2026-10-27, renderOffline morphStep, __v4.audio.morphStep) : vrai le temps
+ * d'une application de l'applicateur, chaque reglage saute au lieu de glisser (l'escalier que la rampe evite). Jamais
+ * vrai hors de ces tests.
+ */
+export const glideMode = { step: false };
 
 /**
  * Un point de verrou pose a l'avance (2026-10-21, audit F14 : les verrous DIST, CHORUS, DELAY et REVERB d'une voix

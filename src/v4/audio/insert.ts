@@ -171,6 +171,19 @@ export class Insert {
     return this.held;
   }
 
+  /** au repos : l'entree reliee directement a la sortie, la branche debranchee (rien ne passe par elle) */
+  get isDirect(): boolean {
+    return this.direct;
+  }
+
+  /**
+   * Deja engage vers ce sec et ce mouille (2026-10-27) : relie, aucun retour au repos en attente, aucune rampe retenue ;
+   * engage(dry, wet) n'y changerait rien (la rampe en cours finit sur la meme cible).
+   */
+  engagedAt(dry: number, wet: number): boolean {
+    return !this.direct && this.linked && this.dry === dry && this.wet === wet && this.timer === undefined && this.notBefore <= this.c.currentTime;
+  }
+
   /**
    * Le sec et le mouille a l'instant when (un coup verrouille, a l'avance) :
    * seulement engage (tenu) ; false sinon. Les rampes d'un reglage ulterieur

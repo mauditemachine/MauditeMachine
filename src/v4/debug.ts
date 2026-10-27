@@ -169,6 +169,8 @@ export interface V4Debug {
   /** l'orbite de la camera (null sans Stage) */
   readonly orbit: OrbitDebug | null;
   readonly audio: AudioDebug;
+  /** la couche de saisie (2026-10-27) : hitRenders, ses rendus React depuis le chargement */
+  readonly ui: { readonly hitRenders: number };
   /** horloge : scheduled (64 derniers pas), drift(), resetStats() */
   readonly clock: ClockDebug;
   /** le store du motif (select, toggle, clear, setBpm, flush), pour les tests */
@@ -360,6 +362,11 @@ export function installDebug(src: DebugSource): () => void {
       };
     },
     audio: audioDebug,
+    ui: {
+      get hitRenders() {
+        return hitDebug.renders;
+      },
+    },
     clock: clockDebug,
     pattern,
     get pads() {

@@ -574,10 +574,12 @@ function HoldTwin({ id, twin, label, latch, refFn, down, up }: HoldTwinProps): R
 }
 
 /** Revue : le dernier relachement juge par la couche de saisie. */
-export const hitDebug = { lastUp: { id: null as string | null, tap: false, fired: null as string | null, bg: false }, bgResets: 0 };
+/** renders : les rendus React de la couche (2026-10-27, le budget des scenes : aucun par mouvement du crossfader) */
+export const hitDebug = { lastUp: { id: null as string | null, tap: false, fired: null as string | null, bg: false }, bgResets: 0, renders: 0 };
 
 export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
   const ref = useRef<HTMLDivElement>(null);
+  hitDebug.renders += 1;
 
   useEffect(() => {
     const el = ref.current;

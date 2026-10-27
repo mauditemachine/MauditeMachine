@@ -69,6 +69,41 @@ function entriesOf(s: SceneSet): { fx: Entry[]; voice: Partial<Record<Inst, Entr
   return out;
 }
 
+/**
+ * Les inserts que les scenes menent (2026-10-27, drums.ts holdInserts et les tenues du bus) : une voix dont DIST ou
+ * CHORUS est dans une scene garde son insert engage, le DIST et le CHORUS du bus restent relies ; un crossfader qui passe
+ * par 0 ne branche ni ne debranche rien.
+ */
+export interface InsertNeeds {
+  readonly dist: ReadonlySet<Inst>;
+  readonly chorus: ReadonlySet<Inst>;
+  readonly busDist: boolean;
+  readonly busChorus: boolean;
+}
+export const NO_NEEDS: InsertNeeds = Object.freeze({ dist: new Set<Inst>(), chorus: new Set<Inst>(), busDist: false, busChorus: false });
+
+function needsOf(all: readonly Entry[]): InsertNeeds {
+  if (all.length === 0) return NO_NEEDS;
+  const dist = new Set<Inst>();
+  const chorus = new Set<Inst>();
+  let busDist = false;
+  let busChorus = false;
+  for (const e of all) {
+    const b = e.b;
+    if (b.domain === 'voice' && b.inst) {
+      if (b.key === 'dist') dist.add(b.inst);
+      else if (b.key === 'chorus') chorus.add(b.inst);
+    } else if (b.domain === 'fx') {
+      if (b.key === 'drive') busDist = true;
+      else if (b.key === 'chorus') busChorus = true;
+    }
+  }
+  return { dist, chorus, busDist, busChorus };
+}
+
+/** Les inserts menes par un jeu de scenes (pur ; le rendu hors ligne). */
+export const insertNeedsOf = (s: SceneSet): InsertNeeds => needsOf(entriesOf(s).all);
+
 /** La valeur native jouee d'une entree pour une base native et x. */
 const played = (e: Entry, baseNative: number, x: number): number => from01(e.b, morph01(e.a, e.v, to01(e.b, baseNative), x));
 
@@ -123,6 +158,7 @@ function hitWith(es: readonly Entry[] | undefined, base: Readonly<VoiceFx>, lock
 let scenes: SceneSet = pattern.scenes.get();
 let x = sceneCtl.x();
 let live = entriesOf(scenes);
+let needs = needsOf(live.all);
 const effFx: Fx = { ...pattern.fx.get() };
 let fxDirty = true;
 const effVoice: Partial<Record<Inst, VoiceFx>> = {};
@@ -134,6 +170,7 @@ const stats = { applies: 0, reschedAsks: 0, settles: 0, renders: 0, applyMs: [] 
 
 function rebuild(): void {
   live = entriesOf(scenes);
+  needs = needsOf(live.all);
   fxDirty = true;
   for (const i of VOICES) voiceDirty.add(i);
   stats.rebuilds += 1;
@@ -210,6 +247,18 @@ export const morph = {
     if (b.domain === 'stretch') return to01(b, morph.stretch());
     if (b.domain === 'voice' && b.inst) return to01(b, voiceNow(b.inst)[b.key as VoiceParam]);
     return null;
+  },
+  /** un reglage de fx est-il dans une scene du motif (drums.ts : ses changements de base passent par l'applicateur) */
+  fxMorphed: (): boolean => live.fx.length > 0,
+  /** un reglage de la voix est-il dans une scene du motif */
+  voiceMorphed: (inst: Inst): boolean => (live.voice[inst]?.length ?? 0) > 0,
+  /** les inserts que les scenes du motif menent (le meme objet tant qu'elles ne changent pas) */
+  inserts: (): InsertNeeds => needs,
+  /** une duree d'application (ms) gardee pour les tests, les 4096 dernieres au plus */
+  noteApply(ms: number): void {
+    stats.applies += 1;
+    if (stats.applyMs.length >= 4096) stats.applyMs.splice(0, 2048);
+    stats.applyMs.push(ms);
   },
   /** un id est-il dans une scene du motif (morphe) */
   touches: (id: string): boolean => live.all.some((e) => e.b.id === id),

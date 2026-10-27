@@ -171,6 +171,8 @@ const CHORUS: ChorusCfg = {
 export const CHORUS_DEPTH = CHORUS.depth;
 /** Les bornes de setMod : le facteur de vitesse, la profondeur (s ; le worklet garde 60 ms de memoire). */
 const MOD = { mulMin: 0.05, mulMax: 8, depthMax: 0.02 } as const;
+/** RATE et DEPTH vers le worklet : 50 ms au moins entre deux messages en direct (2026-10-27, postMod) */
+const MOD_POST_MS = 50;
 
 export interface ChorusInfo {
   value: number;
@@ -185,6 +187,8 @@ export interface ChorusInfo {
   rate?: number;
   /** la branche en worklet (2026-10-21 ; false : les DelayNode de secours) */
   worklet?: boolean;
+  /** tenu engage (2026-10-27 : les verrous de la voix, ou les scenes) */
+  held?: boolean;
 }
 
 export interface ChorusStage {
@@ -336,6 +340,31 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
     }, UNLINK_MS);
   }
 
+  /**
+   * RATE et DEPTH vers le worklet (2026-10-27, les scenes) : au plus un message toutes les MOD_POST_MS en direct, le
+   * dernier toujours envoye (une minuterie de queue) ; le worklet lisse sur 20 ms, un crossfader qui mene RATE ne poste
+   * plus a chaque pas de l'applicateur. Hors ligne : chaque changement, a son instant (le rendu reste deterministe).
+   */
+  let postedAt = -Infinity;
+  let postTimer: ReturnType<typeof setTimeout> | undefined;
+  const sendMod = (): void => {
+    postTimer = undefined;
+    const w = branch?.w;
+    if (!w) return;
+    postedAt = performance.now();
+    w.port.postMessage({ depth: modDepth, mul });
+  };
+  const postMod = (): void => {
+    if (typeof OfflineAudioContext !== 'undefined' && c instanceof OfflineAudioContext) {
+      branch?.w?.port.postMessage({ depth: modDepth, mul });
+      return;
+    }
+    if (postTimer !== undefined) return;
+    const wait = MOD_POST_MS - (performance.now() - postedAt);
+    if (wait <= 0) sendMod();
+    else postTimer = setTimeout(sendMod, wait);
+  };
+
   const stage: ChorusStage = {
     input,
     onRetime: null,
@@ -356,7 +385,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       value = 0;
       insert.reset();
     },
-    info: () => ({ value, live: branch !== null, built, insert: insert.info(), mul, depth: modDepth, worklet: !!branch?.w }),
+    info: () => ({ value, live: branch !== null, built, insert: insert.info(), mul, depth: modDepth, worklet: !!branch?.w, held: insert.isHeld }),
     lockHold(on: boolean) {
       if (on && !branch) build();
       insert.hold(on);
@@ -383,7 +412,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       const b = branch;
       if (!b) return;
       // Le worklet lisse lui-meme (20 ms) ; les DelayNode : la rampe de 20 ms des reglages
-      if (b.w) b.w.port.postMessage({ depth: nd, mul: nm });
+      if (b.w) postMod();
       b.lfos.forEach((l, i) => glide(l.frequency, cfg.voices[i].rate * nm, c));
       for (const g of b.depths ?? []) glide(g.gain, nd, c);
     },

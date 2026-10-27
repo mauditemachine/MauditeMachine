@@ -66,6 +66,8 @@ export interface SendInfo {
   linked: boolean;
   /** les points de coups verrouilles en attente (revue de R2) */
   points?: number;
+  /** le gain de l'envoi au dernier bloc rendu (2026-10-27, les tests des scenes) ; 0 debranche */
+  gain?: number;
 }
 
 /** Un envoi d'une source vers une unite : set(0 a 1). */
@@ -103,6 +105,8 @@ export interface BusInfo {
   /** REVERB (2026-10-10) : sa forme, les relais de convolueur faits, un relais en cours */
   irShape?: IrShape;
   swaps?: number;
+  /** REVERB (2026-10-27) : les formes acceptees par setShape */
+  shapes?: number;
   swapping?: boolean;
   /** DELAY (2026-10-10) : la coupure du passe-bas des echos (Hz) */
   toneHz?: number;
@@ -319,7 +323,7 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
           g.setValueAtTime(scale * valueAt(s, from), from);
           repost(s, from);
         },
-        info: () => ({ value: s.value, linked: s.linked, points: s.pts.length }),
+        info: () => ({ value: s.value, linked: s.linked, points: s.pts.length, gain: s.gain ? s.gain.gain.value : 0 }),
       };
     },
     rearmIdle() {
@@ -390,6 +394,8 @@ export function buildReverbBus(c: BaseAudioContext, out: AudioNode, shape0: Read
   let irSeconds = 0;
   let irMs = 0;
   let swaps = 0;
+  /** les formes acceptees depuis la creation (2026-10-27, les scenes : aucune pendant un geste du crossfader) */
+  let shapes = 0;
   /** l'unite construite : son entree, le convolueur qui sonne (et sa forme), celui qui s'efface pendant un relais */
   let live: { input: GainNode; cv: ConvolverNode; g: GainNode; shape: IrShape } | null = null;
   let fading: { cv: ConvolverNode; g: GainNode } | null = null;
@@ -514,7 +520,7 @@ export function buildReverbBus(c: BaseAudioContext, out: AudioNode, shape0: Read
     },
     REVERB_SEND,
     Infinity,
-    () => ({ irSeconds, irMs: Math.round(irMs * 100) / 100, irShape: { ...shape }, swaps, swapping: busy })
+    () => ({ irSeconds, irMs: Math.round(irMs * 100) / 100, irShape: { ...shape }, swaps, swapping: busy, shapes })
   );
   return {
     ...bus,
@@ -522,6 +528,7 @@ export function buildReverbBus(c: BaseAudioContext, out: AudioNode, shape0: Read
       const n = cleanShape(s);
       if (sameShape(n, shape)) return;
       shape = n;
+      shapes += 1;
       schedule();
     },
   };
