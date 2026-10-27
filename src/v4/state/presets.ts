@@ -62,6 +62,7 @@
 import { INSTRUMENTS, NEUTRAL_FX, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
+import { NO_SCENES, anyScenes, cleanScenes, toStored, type StoredScenes } from '../rytm/sceneData';
 import { VOICE_FX_DEFAULT, voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
 import { KIT_FAMILIES, KIT_IDS, KIT_KNOBS, LAYER_DEFAULT, LAYER_TUNE_ST, cleanKnob, cleanLayer, foldFamilies, kit, kitDefaultCopy, modelAt, resolveSample, type KitFamily, type KitId, type KitModel, type Layer } from '../audio/kit';
 import { lenOfDecay, sampleTuneSt } from '../audio/sampledsp';
@@ -122,6 +123,8 @@ interface RytmData {
   layers?: Partial<Record<KitFamily, Partial<Layer>>>;
   /** tous les potards de la machine (ceux de R3 compris : SWEEP, la caisse claire) */
   knobs?: Record<string, number>;
+  /** les scenes A et B du motif (2026-10-27, la phase 2) ; absentes sans scene (toutes les empreintes d'avant inchangees) */
+  scenes?: StoredScenes;
 }
 
 export interface Preset {
@@ -418,6 +421,8 @@ export function capture(m: PresetMachine): VoyData | RytmData | BassData {
     samples: Object.fromEntries(KIT_FAMILIES.map((f) => [f, kit.get().sample[f] ?? ''])) as Record<KitFamily, string>,
     layers: Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...kit.get().layer[f] }])) as Record<KitFamily, Layer>,
     knobs: { ...kit.get().knob },
+    // Les scenes (2026-10-27) seulement s'il y en a : un preset, un brouillon, une marque d'avant gardent leur empreinte
+    ...(anyScenes(pattern.scenes.get()) ? { scenes: toStored(pattern.scenes.get()) } : {}),
   };
 }
 
@@ -471,6 +476,8 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
   const r = d as RytmData;
   // Ses verrous, ou aucun (un preset d'avant le 2026-10-08)
   pattern.replace(r.steps, cleanLocks(r.locks) ?? {});
+  // Ses scenes, ou aucune (un preset de la V.3, un brouillon d'avant : vides, sans erreur)
+  pattern.scenes.replace(cleanScenes(r.scenes) ?? NO_SCENES);
   pattern.setBpm(r.bpm);
   // Un reglage d'effet absent du preset (DLY TIME et FB du 2026-10-09, BIT, COMP et les reglages de chaque FX du
   // 2026-10-10) : sa valeur de depart, le son d'alors (2026-10-11 ; avant, il gardait celle du moment : un preset
@@ -654,6 +661,13 @@ function rytmNow(o: Record<string, unknown>): Record<string, unknown> {
     const { locks: _old, ...rest } = out;
     out = l ? { ...rest, locks: l } : rest;
   }
+  // Les scenes lues comme le motif les relit (2026-10-27) : vides, elles partent
+  if (o.scenes !== undefined) {
+    const sc = cleanScenes(o.scenes);
+    const st = sc ? toStored(sc) : undefined;
+    const { scenes: _old, ...rest } = out;
+    out = st ? { ...rest, scenes: st } : rest;
+  }
   return out;
 }
 
@@ -681,7 +695,7 @@ function sigNow(m: PresetMachine, kept: string): string {
 
 /** Une chaine de patterns en lecture (MM-RYTM) : les pas changent a chaque mesure, ce n'est pas un son nouveau. */
 const chaining = (m: PresetMachine): boolean => m === 'mm808' && patterns.get().chain.length > 1;
-const skipOf = (m: PresetMachine, kept: boolean): string[] => [...(kept ? LOST_ON_RELOAD[m] : []), ...(chaining(m) ? ['steps', 'locks'] : [])];
+const skipOf = (m: PresetMachine, kept: boolean): string[] => [...(kept ? LOST_ON_RELOAD[m] : []), ...(chaining(m) ? ['steps', 'locks', 'scenes'] : [])];
 const markOf = (m: PresetMachine, d: Preset['data']): Mark => ({ full: sig(m, d, skipOf(m, false)), kept: sig(m, d, skipOf(m, true)), visit: VISIT });
 
 const okDraft = (m: PresetMachine, d: unknown): boolean => {

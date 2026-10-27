@@ -42,6 +42,7 @@ import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
 import { faceTouch, type CtlSrc } from './state/ctl';
 import { trk } from './state/trk';
+import { NO_SCENES, anyScenes } from './rytm/sceneData';
 import { FACE_PAGES, RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { setKnobResolver } from './rytm/infoIds';
@@ -575,6 +576,9 @@ export function clearPattern(stage: Stage | null = null): void {
     return;
   }
   clock.clear();
+  // Les scenes A et B du motif aussi (2026-10-27, la phase 2 ; Mika le 2026-10-10 : "je veux tout a 0"), dans la meme etape
+  const hadScenes = anyScenes(pattern.scenes.get());
+  if (hadScenes) pattern.scenes.replace(NO_SCENES);
   // Tout a 0 (2026-10-10, Mika : "quand j'appuie sur CLEAR je veux tout a 0, la je vois des FX qui restent") : les
   // GLOBAL FX (SWING droit, STRETCH au centre, BIT et COMP OFF) et les FX de chaque voix
   pattern.fx.set({ drive: 0, chorus: 0, delay: 0, reverb: 0, swing: 0, bits: 0, comp: 0 });
@@ -605,7 +609,7 @@ export function clearPattern(stage: Stage | null = null): void {
     })
   ) as typeof k.layer;
   kit.replace({ ...k, knob: { ...KIT_DEFAULT.knob }, sample, layer });
-  lcdMessage.show('CLEARED · VOICES RESET · FX OFF');
+  lcdMessage.show(hadScenes ? 'CLEARED · VOICES RESET · FX OFF · SCENES EMPTY' : 'CLEARED · VOICES RESET · FX OFF');
 }
 
 /** Le dernier style tire par RANDOM : le suivant en change. */

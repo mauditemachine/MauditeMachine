@@ -272,6 +272,8 @@ export interface V4Debug {
     /** les liaisons des cibles qui se morphent (2026-10-27, rytm/sceneParams.ts), et le role d'une cible */
     bindings(): SceneBinding[];
     sceneRole(id: string): SceneRole;
+    /** les scenes A et B du motif (2026-10-27, audio/pattern.ts pattern.scenes) : get, write, drop, clear, replace, subscribe */
+    scenes: typeof pattern.scenes;
   };
   /**
    * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
@@ -490,6 +492,7 @@ export function installDebug(src: DebugSource): () => void {
       trkStore: trk,
       bindings: () => allBindings().map((b) => ({ ...b })),
       sceneRole,
+      scenes: pattern.scenes,
       faceCells(screen, inst, law = FACE_LAW) {
         const slots = pageSlots(screen, inst === undefined ? pattern.get().instrument : inst);
         return {

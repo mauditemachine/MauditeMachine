@@ -114,6 +114,8 @@ let abs = 0;
 let barAbs = -1;
 /** onBar en cours : le pattern qu'il pose ne re-programme rien (il vaut pour la mesure qui commence) */
 let inBar = false;
+/** l'heure audio de la mesure annoncee (2026-10-27, barAt : les scenes d'un pattern arrivent sur son temps fort) */
+let barTime = 0;
 /** premier seq de la lecture en cours */
 let runFirst = 0;
 /** le journal des pas programmes, du plus ancien au plus recent (RING au plus) */
@@ -220,7 +222,10 @@ function bar(): void {
 
 /** Programme un pas : les voix a `when`, l'entree du journal, les ecouteurs. */
 function schedule(s: number, when: number, expected: number, now: number, off: number, grid: number): void {
-  if (s === 0) bar();
+  if (s === 0) {
+    barTime = grid;
+    bar();
+  }
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
   const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks };
@@ -293,7 +298,10 @@ function tick(): void {
     if (nextTime < now - DROP_AFTER_S) {
       stats.dropped += 1;
       // Saute, le debut de mesure compte quand meme : la chaine des patterns ne prend pas de retard
-      if (step === 0) bar();
+      if (step === 0) {
+        barTime = nextTime;
+        bar();
+      }
     } else {
       // SWING : un pas pair (index impair) part plus tard, jamais au-dela d'un tiers de pas
       const off = (step & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0;
@@ -627,6 +635,11 @@ export const clock = {
       runListeners.delete(fn);
     };
   },
+  /**
+   * L'heure audio de la mesure annoncee (2026-10-27) : valable pendant les ecouteurs de onBar (un pattern pose y arrive a
+   * cette heure), 0 ailleurs (tout de suite).
+   */
+  barAt: (): number => (inBar ? barTime : 0),
   /** Le debut de chaque mesure, avant que son premier pas soit programme ; rend de quoi se desabonner. */
   onBar(fn: (first: boolean) => void): () => void {
     barListeners.add(fn);
