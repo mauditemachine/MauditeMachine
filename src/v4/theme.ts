@@ -1767,11 +1767,13 @@ export const FACE_HOLD_MS = 350;
  * plus facilement ce qui joue ; que ca flashe quand il y a un step qui passe par dessus") : pendant la lecture, le carre
  * d'une voix s'eclaire a l'instant ou elle frappe (l'heure audio, comme la tete de lecture) puis s'eteint en ms (une
  * decroissance au carre, rapide) ; glow, l'eclat ajoute au plus fort (un orange plus clair et plus chaud que celui du pas,
- * il reste de la couleur de la machine), light la part du jaune chaud de la tete de lecture sur la machine claire (STEP_LIT.headLight) ; velFloor,
- * l'eclat de la velocite la plus douce (la plus forte : 1) ; levels, les crans de la decroissance (une image par cran au
- * plus, rien entre deux).
+ * il reste de la couleur de la machine) ; sur la machine claire, le dessus fonce et sature vers lightTint (un orange plus
+ * profond que celui d'une touche allumee) a la part light de l'eclat, et lightGlow remplace l'echelle de l'emissif
+ * (2026-10-27, la revue : tire vers le jaune de la tete de lecture, l'eclair gardait la luminosite du pas, un coup doux se
+ * voyait a peine et la voix choisie palissait) ; velFloor, l'eclat de la velocite la plus douce (la plus forte : 1) ;
+ * levels, les crans de la decroissance (une image par cran au plus, rien entre deux).
  */
-export const TRK_FLASH = { ms: 160, glow: [0.7, 0.24, 0.05], light: 0.75, velFloor: 0.5, levels: 8 } as const;
+export const TRK_FLASH = { ms: 160, glow: [0.7, 0.24, 0.05], light: 1, lightTint: [1.0, 0.08, 0.0], lightGlow: 0, velFloor: 0.5, levels: 8 } as const;
 /** TRK tenu (2026-10-27) : la voix choisie pleine, les autres lisibles, une voix coupee a peine ; la machine claire plus fort. */
 export const TRK_LIT = { cur: 1, other: 0.22, muted: 0.07 } as const;
 export const TRK_LIT_LIGHT = { cur: 1, other: 0.35, muted: 0.12 } as const;
