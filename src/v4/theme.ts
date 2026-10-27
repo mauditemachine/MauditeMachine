@@ -209,9 +209,16 @@ export const PCB_TYPE = { weight: 700, tracking: 0.18 } as const;
  * s'incline de atan(0.9 / 8) = 6.42 deg vers l'utilisateur (la signature
  * Elektron). Toutes les aretes sont chanfreinees (chamfer).
  */
+/*
+ * La face V.4.0 du desktop (2026-10-27, Mika : "faceplate 256 x 156 mm, 20 mm l'unite") : le panneau fait 12.8 x 7.8
+ * le long de la pente (rytm/faceplate.ts RYTM_FACEPLATE.size), le corps 12.8 de large et d au sol tel que d / cos(TILT)
+ * = 7.8 avec la meme hauteur a l'arriere et a l'avant (le profil du coin et la face arriere gardent leur reglage) :
+ * d = sqrt(7.8^2 - 0.9^2) = 7.748, TILT = 6.63 deg (6.42 avant). Les voisines gardent la place du corps d'avant
+ * (RYTM_V3_BODY). Le telephone garde le sien (phase 5).
+ */
 export const BODY = PORTRAIT
   ? ({ w: 8.2, d: 14.4, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const)
-  : ({ w: 12.6, d: 8, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const);
+  : ({ w: fpU(RYTM_FACEPLATE.size.w), d: Math.sqrt(fpU(RYTM_FACEPLATE.size.h) ** 2 - (2.2 - 1.3) ** 2), back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const);
 /**
  * La place du MM-RYTM d'avant V.4.0 sur la table (2026-10-27) : sa largeur et sa profondeur au sol de la V.3.0. Les
  * cartes PCB (celle du MM-RYTM, du MM-ARP et du MM-BASS, theme PCB) et le MM-BASS (bass/theme.ts : sa taille et sa
@@ -411,13 +418,15 @@ export const SILK_PLANE = {
   d: PANEL_D,
   y: 0.004,
   /** mobile en pleine definition depuis le 2026-10-01 : a 1024, la serigraphie bavait au DPR 3 */
-  tex: PORTRAIT ? { desktop: [1166, 2048], mobile: [1166, 2048] } : { desktop: [2048, 1323], mobile: [2048, 1323] },
+  // La face V.4.0 du desktop (2026-10-27) : 12.8 x 7.8, le meme texel carre (2048 x 1323 avant, pour 12.6 x 8.14)
+  tex: PORTRAIT ? { desktop: [1166, 2048], mobile: [1166, 2048] } : { desktop: [2048, 1248], mobile: [2048, 1248] },
   /**
    * Un ecran Retina au desktop (2026-10-22, audit : a DPR 2 la machine couvre environ 2400 px pour 12.6 unites, les
    * 2048 de la serigraphie etaient agrandis 1.16 fois, les petits noms un peu doux) : 2560 de large, 1.07 texel par pixel ;
    * 17 Mo de plus sur la carte graphique, seulement a partir de retinaDpr (scene/silk.ts PanelSilk)
    */
-  retina: [2560, 1654],
+  // 2560 x 1560 depuis la face V.4.0 (2026-10-27, 12.8 x 7.8 ; 2560 x 1654 avant) ; jamais au telephone
+  retina: [2560, 1560],
   retinaDpr: 1.75,
 } as const;
 
