@@ -2,8 +2,8 @@
  * Les presets sur la face du MM-RYTM (2026-10-27, la V.4.2, Mika : "la gestion doit etre plus simple" ; "appuie-toi
  * pour Rytm de la Digitakt pour les boutons") : au desktop l'ecran ne se touche pas (U3, SCREEN_TOUCH), les presets
  * passent par la face, comme sur la future machine :
- * - EDIT pressee encore (la grille des patterns ouverte) ouvre les presets, comme une touche de page allumee passe a son
- *   onglet suivant (actions.ts editToggle) ; l'ecran de HOME le dit (EDIT 2X: PRESETS) ;
+ * - EDIT pressee deux fois de suite (la grille des patterns, puis les presets, dans les 1600 ms ou l'ecran dit EDIT AGAIN:
+ *   PRESETS ; plus tard, EDIT ferme la grille : actions.ts editToggle) ; l'ecran de HOME le dit (EDIT 2X: PRESETS) ;
  * - en mode presets, cinq touches de la rangee sont les touches de l'ecran (soft keys) : l'ecran dessine leur nom juste
  *   au-dessus d'elles (VOICE FLTR ENV FX EDIT : LOAD SAVE NAME DEL EXIT, puis OVERWRITE, YES, OK... selon l'etape) ;
  * - un potard fait defiler la liste ; pour nommer, A tourne la lettre et B deplace le curseur.

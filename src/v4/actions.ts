@@ -1568,8 +1568,8 @@ export function voyRandom(stage: Stage | null = null): void {
 
 /**
  * Le mode presets du desktop du MM-RYTM (2026-10-27, la V.4.2, rytm/presetKeys.ts) : l'ecran ne se touche plus
- * (theme.ts SCREEN_TOUCH), la face fait tout. EDIT pressee encore les ouvre (editToggle : PATTERNS, puis PRESETS, comme
- * une touche de page allumee passe a son onglet suivant) ; les cinq touches sous l'ecran apres TRK (VOICE FLTR ENV FX
+ * (theme.ts SCREEN_TOUCH), la face fait tout. EDIT pressee deux fois de suite les ouvre (editToggle : PATTERNS, puis
+ * PRESETS dans EDIT_AGAIN_MS ; plus tard, EDIT ferme la grille) ; les cinq touches sous l'ecran apres TRK (VOICE FLTR ENV FX
  * EDIT) sont les siennes (presetSoftKey) ; un potard tourne la liste, A et B le nom (presetTurn, presetFaceKnob).
  * Le telephone garde son ecran a toucher et ses touches de page.
  */
@@ -1626,14 +1626,30 @@ export function presetKey(m: PresetMachine, k: PresetKey): void {
  * et ses velocites du MM-RYTM, state/editor.ts) ; le bouton s'enfonce,
  * l'ecran le dit.
  */
+/**
+ * EDIT pressee encore dans ce temps (la grille des patterns vient de s'ouvrir, l'ecran dit EDIT AGAIN: PRESETS) : les
+ * presets du desktop ; plus tard, EDIT ferme la grille, comme avant V.4.2 (2026-10-27, la revue P5 : EDIT ne fermait plus
+ * la grille, il ouvrait les presets, un geste de tous les jours change). L'instant du geste : l'horodatage de l'evenement
+ * (un fil principal pris ne le rallonge pas), sinon maintenant.
+ */
+const EDIT_AGAIN_MS = 1600;
+let editOpenedAt = -Infinity;
+function eventAt(): number {
+  const now = performance.now();
+  const t = typeof window !== 'undefined' ? (window as { event?: Event }).event?.timeStamp : undefined;
+  return typeof t === 'number' && t > 0 && t <= now && now - t < 5000 ? t : now;
+}
+
 export function editToggle(which: EditorId, stage: Stage | null = null): void {
   // Le mode presets du desktop (2026-10-27) : EDIT est sa touche EXIT (ou CANCEL, NO), l'editeur ne s'ouvre pas
   if (which === 'mm808' && presetSoftKey('edit', () => stage?.pressRytmPad('edit'))) return;
   gesture();
   // L'ecran ne se touche plus au desktop (V.4.2, 2026-10-27, theme.ts SCREEN_TOUCH) : les presets du MM-RYTM passent par
-  // EDIT, comme les onglets d'une touche de page (la touche allumee pressee encore passe au suivant) : PATTERNS, puis
-  // PRESETS ; ouverts, EDIT est leur touche EXIT (plus haut, presetSoftKey) ; presetFaceKnob y met les potards
-  if (which === 'mm808' && !SCREEN_TOUCH && editor.get() === 'mm808') {
+  // EDIT pressee deux fois de suite (EDIT 2X : la grille des patterns, puis les presets, dans EDIT_AGAIN_MS) ; ouverts, EDIT
+  // est leur touche EXIT (plus haut, presetSoftKey) ; presetFaceKnob y met les potards. EDIT plus tard ferme la grille.
+  const t = eventAt();
+  if (which === 'mm808' && !SCREEN_TOUCH && editor.get() === 'mm808' && t - editOpenedAt < EDIT_AGAIN_MS) {
+    editOpenedAt = -Infinity;
     stage?.pressRytmPad('edit');
     editor.toggle('mm808');
     presetKey('mm808', 'open');
@@ -1645,9 +1661,10 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
     stage?.voy?.keys.pressButton('edit');
     voyMsg.show(on ? 'EDIT SEQUENCE' : 'EDIT CLOSED');
   } else {
+    editOpenedAt = on ? t : -Infinity;
     stage?.pressRytmPad('edit');
     const p = patterns.get();
-    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}${SCREEN_TOUCH ? '' : ' · EDIT AGAIN: PRESETS'}` : 'EDIT CLOSED', on && !SCREEN_TOUCH ? 1600 : undefined);
+    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}${SCREEN_TOUCH ? '' : ' · EDIT AGAIN: PRESETS'}` : 'EDIT CLOSED', on && !SCREEN_TOUCH ? EDIT_AGAIN_MS : undefined);
   }
 }
 
