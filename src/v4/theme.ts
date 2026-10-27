@@ -1743,26 +1743,20 @@ export const STEP_LIT = {
  */
 export const FACE_HOLD_MS = 350;
 
-/** sRGB d'affichage (0 a 255 /255) vers lineaire. */
-const srgbLin = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-const hexLin = (hex: string): number[] => [1, 3, 5].map((i) => srgbLin(parseInt(hex.slice(i, i + 2), 16) / 255));
-const lumOf = (c: readonly number[]): number => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 /**
- * Les pas 1 a 8 a la couleur de leur voix, TRK tenu (2026-10-27, rytm/faceplate.ts steps.voiceColor) : glow, l'emissif
- * lineaire de la machine noire, a la luminance de l'orange des touches allumees (BD exactement KEY_LIT.glow.orange) ;
- * tint, la teinte du dessus sur la machine claire (le lineaire, son plus fort canal a 1, l'emissif a KEY_LIT_LIGHT.glow).
+ * TRK d'une seule couleur (V.4.2, 2026-10-27, Mika : "je veux des boutons d'une meme couleur et pas arc en ciel") : les
+ * pas 1 a 8 a l'orange d'un pas allume (KEY_LIT.glow.orange ; la teinte de KEY_LIT_LIGHT sur la machine claire), la voix
+ * choisie plus forte (TRK_LIT) ; les couleurs par voix (2026-10-27) sont parties.
+ *
+ * Et les coups qui flashent (Mika : "que les 8 voices puissent jouer en meme temps dans les carres, comme ca je repere
+ * plus facilement ce qui joue ; que ca flashe quand il y a un step qui passe par dessus") : pendant la lecture, le carre
+ * d'une voix s'eclaire a l'instant ou elle frappe (l'heure audio, comme la tete de lecture) puis s'eteint en ms (une
+ * decroissance au carre, rapide) ; glow, l'eclat ajoute au plus fort (un orange plus clair et plus chaud que celui du pas,
+ * il reste de la couleur de la machine), light la part du jaune chaud de la tete de lecture sur la machine claire (STEP_LIT.headLight) ; velFloor,
+ * l'eclat de la velocite la plus douce (la plus forte : 1) ; levels, les crans de la decroissance (une image par cran au
+ * plus, rien entre deux).
  */
-export const VOICE_LED: Readonly<Record<Inst, { readonly glow: readonly number[]; readonly tint: readonly number[] }>> = (() => {
-  const target = lumOf(KEY_LIT.glow.orange);
-  const out = {} as Record<Inst, { glow: number[]; tint: number[] }>;
-  for (const v of RYTM_FACEPLATE.steps.voices) {
-    const l = hexLin(RYTM_FACEPLATE.steps.voiceColor[v]);
-    const k = target / Math.max(1e-6, lumOf(l));
-    const mx = Math.max(...l);
-    out[v as Inst] = { glow: v === 'BD' ? [...KEY_LIT.glow.orange] : l.map((x) => x * k), tint: l.map((x) => x / mx) };
-  }
-  return out;
-})();
+export const TRK_FLASH = { ms: 160, glow: [0.7, 0.24, 0.05], light: 0.75, velFloor: 0.5, levels: 8 } as const;
 /** TRK tenu (2026-10-27) : la voix choisie pleine, les autres lisibles, une voix coupee a peine ; la machine claire plus fort. */
 export const TRK_LIT = { cur: 1, other: 0.22, muted: 0.07 } as const;
 export const TRK_LIT_LIGHT = { cur: 1, other: 0.35, muted: 0.12 } as const;

@@ -197,12 +197,11 @@ export const RYTM_FACEPLATE = {
     beatFrame: { inset: 1.6, line: 0.5 },
     lockMark: { w: 8, h: 0.9, dy: 2.6 },
     /**
-     * TRK (2026-10-27, la phase 2) : TRK tenu, les pas 1 a 8 s'allument a la couleur de leur voix (sRGB d'affichage,
-     * provisoire, une seule table a changer ; les LED RGB des pas du boitier, la meme). BD garde l'orange de la machine ;
-     * SD #FFC833 plutot que #FFC233 (un rien plus jaune : 21.7 deg de teinte avec BD au lieu de 19.95).
+     * TRK (2026-10-27, la phase 2) : TRK tenu, les pas 1 a 8 s'allument. D'une seule couleur depuis V.4.2 (2026-10-27,
+     * Mika : "je veux des boutons d'une meme couleur et pas arc en ciel") : l'orange de la machine, la voix choisie plus
+     * forte ; les LED RGB des pas du boitier, la meme (sRGB d'affichage). La table d'une couleur par voix est partie.
      */
-    voiceColorProvisional: true,
-    voiceColor: { BD: '#FF6A13', SD: '#FFC833', CH: '#B5E61D', OH: '#3DDC97', CP: '#29C5F6', TOM: '#6B5BFF', HT: '#B35CFF', CY: '#FF4FA3' } as Readonly<Record<FpVoice, string>>,
+    trkColor: '#FF6A13',
   },
   /** la serigraphie : imprimee, jamais decoupee ; places provisoires (x : le bord d'alignement, cy : le centre) */
   silk: {

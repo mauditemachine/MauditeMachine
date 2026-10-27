@@ -49,7 +49,7 @@ import {
 import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
-import { INSTRUMENTS, pattern } from '../audio/pattern';
+import { INSTRUMENTS, VEL_MAX, pattern, velocity } from '../audio/pattern';
 import { familyOf, kit } from '../audio/kit';
 import { samplesChanged } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
@@ -133,6 +133,7 @@ import {
   type PadId,
   type SectionId,
   KEY_LIT_LIGHT,
+  TRK_FLASH,
   TRK_LIT,
   TRK_LIT_LIGHT,
   XFADE,
@@ -1059,7 +1060,8 @@ export class Stage {
       this.stepBreathe,
       this.stepLockBlink,
       this.modeBlink,
-      this.faceBlink
+      this.faceBlink,
+      this.stepTrkFlash
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -1156,7 +1158,7 @@ export class Stage {
       this.unsubFace = faceKnobs.subscribe(this.syncFaceKnobs);
       this.syncFaceKnobs({ cause: 'page', moved: [0, 1, 2, 3, 4, 5, 6, 7] });
     }
-    // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 a la couleur de leur voix
+    // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 allumes (une seule couleur, V.4.2)
     if (this.faceKeys) {
       this.unsubTrk = trk.subscribe(this.syncTrk);
       this.syncTrk();
@@ -3266,10 +3268,11 @@ export class Stage {
   private trkShown = false;
 
   /**
-   * TRK (2026-10-27, la phase 2) : la touche allumee tant qu'elle est engagee (son temoin clignote gardee) ; les pas 1 a 8 a
-   * la couleur de leur voix (rytm/stepLeds.ts), la voix choisie pleine, une voix coupee a peine avec la barre de MUTE, une
-   * voix en solo avec celle de SOLO ; 9 a 16 eteints. Lue a chaque changement de TRK, de la voix choisie, des mutes et des
-   * solos ; rien quand TRK est eteinte et sa vue deja partie.
+   * TRK (2026-10-27, la phase 2) : la touche allumee tant qu'elle est engagee (son temoin clignote gardee) ; les pas 1 a 8
+   * allumes (rytm/stepLeds.ts ; V.4.2 : l'orange de la machine pour les huit), la voix choisie pleine, une voix coupee a
+   * peine avec la barre de MUTE, une voix en solo avec celle de SOLO ; 9 a 16 eteints ; pendant la lecture, chaque coup
+   * flashe dans le carre de sa voix (pollPlayhead, stepTrkFlash). Lue a chaque changement de TRK, de la voix choisie, des
+   * mutes et des solos ; rien quand TRK est eteinte et sa vue deja partie.
    */
   private syncTrk = (): void => {
     const fk = this.faceKeys;
@@ -3382,9 +3385,45 @@ export class Stage {
       for (let k = 0; k < INSTRUMENTS.length; k += 1) {
         if (e.mask & (1 << k)) this.pads?.flash(INSTRUMENTS[k], PAD_FX.seqFlashMs, now);
       }
+      // La vue TRK (V.4.2, 2026-10-27) : le carre de chaque voix qui frappe s'eclaire, a l'heure audio du coup (e.when, la
+      // meme entree que la tete de lecture ; une voix coupee n'est pas dans le masque)
+      if (this.trkShown) this.trkHits(e.mask, e.step, e.when);
     }
     return 'paint';
   };
+
+  /** Les coups d'un pas en vue TRK : un eclair par voix du masque, a l'eclat de sa velocite (TRK_FLASH.velFloor a 1). */
+  private trkHits(mask: number, step: number, at: number): void {
+    const steps = pattern.get().steps;
+    const F = TRK_FLASH.velFloor;
+    for (let k = 0; k < INSTRUMENTS.length; k += 1) {
+      if ((mask & (1 << k)) === 0) continue;
+      const v = velocity(steps, INSTRUMENTS[k], step);
+      this.seq.trkHit(k, at, F + ((1 - F) * Math.max(1, v)) / VEL_MAX);
+    }
+    this.kick();
+  }
+
+  /** L'horloge des eclairs : l'heure audio (celle de la tete de lecture) ; sans contexte (le crochet de test), celle de la page. */
+  private flashClock(): number {
+    const c = context();
+    return c ? c.currentTime : performance.now() / 1000;
+  }
+
+  /** Animateur : les eclairs de la vue TRK s'eteignent, une image par cran ('paint' : des couleurs seules), rien sinon. */
+  private stepTrkFlash = (): 'paint' | 'poll' | false => {
+    if (!this.seq.flashing) return false;
+    return this.seq.stepFlash(this.flashClock()) ? 'paint' : 'poll';
+  };
+
+  /**
+   * Le crochet de test des eclairs (V.4.2, ?debug=1 seulement, jamais un son) : les voix du masque (bit k : INSTRUMENTS[k])
+   * frappent maintenant au pas step, par le meme chemin que la lecture (trkHits) ; rien hors de la vue TRK.
+   */
+  trkHitTest(mask: number, step = 0): void {
+    if (!FLAGS.debug) throw new Error('trkHitTest: ?debug=1 only');
+    if (this.trkShown) this.trkHits(mask, step, this.flashClock());
+  }
 
   /**
    * Reduced motion coupe l'intro. (Sous reduced motion l'orbite suit le
