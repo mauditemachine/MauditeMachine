@@ -52,7 +52,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, anyDialValue, clearPattern, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
 import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
 import { sceneTag, type SceneTag } from '../rytm/sceneParams';
 import { rytmPage } from '../state/rytmPage';
@@ -124,7 +124,9 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
     get steps() {
       return dialSteps(dial);
     },
-    get: () => (span > 0 ? (anyDialValue(dial) - lo) / span : 0),
+    // Une scene armee (2026-10-27) : get lit la valeur de la scene (un Roto motorise reste ou on l'a tourne), set y ecrit
+    // (anyDial, sceneTake) ; sinon la base, comme avant
+    get: () => (span > 0 ? (dialEdit(dial) - lo) / span : 0),
     set: (v) => anyDial(dial, dial === 'tempo' ? Math.round(lo + v * span) : lo + v * span),
   };
 }
@@ -166,14 +168,18 @@ function coreTargets(): MidiTarget[] {
       // A zero au centre : TONE, et TUNE et PAN (2026-10-08), FINE et l'ENV du filtre (2026-10-09) ; TUNE a ses 49 crans
       // (le demi-ton), FINE ses 129 (le cent), le TYPE du filtre ses 3 (LP HP BP)
       const bip = p === 'tone' || p === 'tune' || p === 'pan' || p === 'fine' || p === 'fenv';
+      const id = `rytm:voice:${inst}:${p}`;
       out.push({
-        id: `rytm:voice:${inst}:${p}`,
+        id,
         scope: 'mm808',
         label: `${inst} ${VOICE_LABEL[p]}`,
         kind: 'value',
         ...(p === 'tune' ? { steps: 49 } : p === 'fine' ? { steps: 129 } : p === 'ftype' ? { steps: 3 } : {}),
-        get: () => (bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p]),
-        set: (v) => setVoiceFx(inst, p, bip ? v * 2 - 1 : v),
+        // Une scene armee (2026-10-27) : la valeur de la scene, l'ecriture dans la scene ; sinon la base
+        get: () => sceneEdit01(id) ?? (bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p]),
+        set: (v) => {
+          if (!sceneTakeId(id, v)) setVoiceFx(inst, p, bip ? v * 2 - 1 : v);
+        },
       });
     }
   }
@@ -215,7 +221,10 @@ function coreTargets(): MidiTarget[] {
         return kitSteps(k);
       },
       get: () => kit.value(k),
-      set: (v) => kitDial(k, v),
+      // Une scene armee (2026-10-27) : NO SCENE (un choix de son, ou un TWEAK avant P2-22), le kit ne change pas
+      set: (v) => {
+        if (!sceneTakeId(`rytm:kit:${k}`, v)) kitDial(k, v);
+      },
     });
   }
   // Les couches de R3 (revue de R3, 2026-10-08) : chaque reglage de couche d'une famille, sans choisir sa voix. Le
@@ -248,7 +257,9 @@ function coreTargets(): MidiTarget[] {
           return n > 1 ? n : 0;
         },
         get: () => layerTargetValue(f, lp),
-        set: (v) => kitLayerDial(f, lp, v),
+        set: (v) => {
+          if (!sceneTakeId(`rytm:layer:${f}:${lp}`, v)) kitLayerDial(f, lp, v);
+        },
       });
     }
   }

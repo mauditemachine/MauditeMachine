@@ -32,7 +32,9 @@
  * l'enveloppe de ENV, la courbe de FLTR) n'ont ni valeur ni zone.
  */
 
-import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageLockView, stepPlays, voiceSoundText, voiceSoundUnit, voiceSounds, type DialId } from '../actions';
+import { dialRange, dialShown, dialSteps, dialUnit, dialValueText, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageLockView, sceneIdOfDial, stepPlays, voiceSoundText, voiceSoundUnit, voiceSounds, type DialId } from '../actions';
+import type { SceneId } from './sceneData';
+import { sceneRole } from './sceneParams';
 import { lockOf, type StepLock } from '../audio/locks';
 import { familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily } from '../audio/kit';
 import { pattern } from '../audio/pattern';
@@ -50,8 +52,11 @@ export type BlockState = 'live' | 'soon' | 'off' | 'empty';
  */
 export type BlockLock = 'none' | 'locked' | 'base' | 'global' | 'nolock' | 'step';
 
-/** Les verrous a montrer : le pas en P-LOCK, ou le pas qui joue et ses verrous (flash). */
-export type BlockMode = { kind: 'lock'; step: number } | { kind: 'flash'; step: number; lock: Readonly<StepLock> | null };
+/**
+ * Les verrous a montrer : le pas en P-LOCK, ou le pas qui joue et ses verrous (flash) ; une scene armee (2026-10-27,
+ * P2-19) : ses cles en negatif avec le coin A ou B, un reglage qui s'y mettra en retrait, NO SCENE a peine.
+ */
+export type BlockMode = { kind: 'lock'; step: number } | { kind: 'flash'; step: number; lock: Readonly<StepLock> | null } | { kind: 'scene'; which: SceneId };
 
 export interface Block {
   k: number;
@@ -96,6 +101,8 @@ export interface Block {
   cell: SlotCell;
   /** un dessin, pas un reglage (2026-10-09) */
   graph: SlotGraph | null;
+  /** la lettre du coin d'un bloc en negatif (P un verrou ; A ou B une cle de la scene armee, 2026-10-27) */
+  corner?: string;
 }
 
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
@@ -109,6 +116,26 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, echo = f
     else if (slot.layer && !slot.level) b.quiet = layerQuiet(slot.layer, inst, mode);
   }
   if (!mode || b.state === 'empty' || b.state === 'soon' || b.graph) return b;
+  // Une scene armee (2026-10-27) : sa cle en negatif (le coin A ou B), un reglage qui se morphe en retrait, NO SCENE a peine
+  if (mode.kind === 'scene') {
+    if (b.state === 'off') return b;
+    const id = sceneIdOfDial(`p:${k}` as DialId);
+    const role = id ? sceneRole(id) : 'noscene';
+    if (role === 'passthrough') return b;
+    if (!id || role !== 'sceneable') {
+      b.lock = 'nolock';
+      b.tag = 'NO SCENE';
+      b.tagHeader = false;
+      return b;
+    }
+    if (pattern.scenes.get()[mode.which][id] === undefined) {
+      b.lock = 'base';
+      return b;
+    }
+    b.lock = 'locked';
+    b.corner = mode.which === 'a' ? 'A' : 'B';
+    return b;
+  }
   // SOUND d'une voix sans choix de son a elle (CY) : un sample d'une autre famille se verrouille (le sample lock)
   if (b.state === 'off' && inst && slot.target === 'voice:sound' && (mode.kind === 'lock' || !!mode.lock?.snd)) {
     b.state = 'live';
@@ -170,7 +197,7 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, echo = f
  * a 0 ; le pas montre (P-LOCK, flash) compte avec ses verrous.
  */
 function layerQuiet(layer: 'synth' | 'sample', inst: Inst, mode: BlockMode | null): boolean {
-  const lk = mode ? (mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock) : null;
+  const lk = mode ? (mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.kind === 'flash' ? mode.lock : null) : null;
   const p = stepPlays(inst, lk);
   return layer === 'synth' ? !p.synth : !p.smp;
 }
@@ -282,7 +309,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   // Un reglage de couche (R3) : son nombre et son unite tels que actions.ts les ecrit (909, +5, 216 MS)
   if (layerIdOf(id)) {
     const [lo, hi] = dialRange(id);
-    const v = anyDialValue(id);
+    const v = dialShown(id);
     b.state = 'live';
     b.text = text;
     b.unit = dialUnit(id);
@@ -297,7 +324,8 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     return b;
   }
   const [lo, hi] = dialRange(id);
-  const v = anyDialValue(id);
+  // Ce qui se montre (2026-10-27) : la scene armee, ou ce qui joue ; sans scene, la base (anyDialValue)
+  const v = dialShown(id);
   b.state = 'live';
   b.value = v;
   b.course = hi > lo ? clamp01((v - lo) / (hi - lo)) : 0;

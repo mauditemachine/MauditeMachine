@@ -775,11 +775,12 @@ const RAW: Record<RytmInfoId, Raw> = {
     tip: "Une tape sur TRK, puis le pas 2 : SD est choisie, les potards règlent la caisse claire ; une tape encore, puis le pas 3 : le charley, sans quitter la page.",
   },
 
-  /* ---------- la face V.4.0 (2026-10-27) : les scenes et le crossfader, visibles et inertes ---------- */
-  'soon:scene': {
+  /* ---------- SCENE A et B (2026-10-27, la phase 2) ; le crossfader, visible et inerte jusqu'a P2-20 ---------- */
+  scene: {
     section: 'SCENES',
     title: 'SCENE A / B',
-    text: "Bientôt : SCENE A et SCENE B, deux scènes de réglages comme sur un Octatrack, et le crossfader entre elles. Pour l'instant, elles ne font rien.",
+    text: "Deux scènes de réglages par pattern, comme sur un Octatrack. Tiens SCENE A (ou B) et tourne un potard, un bloc de l'écran ou un potard MIDI : la valeur va dans la scène, jamais dans le son de base ; lâche, c'est fini. Une tape garde la scène armée (sa touche allumée, son cadre clignote) jusqu'à une autre tape, Échap ou CLEAR. Pendant ce temps les anneaux montrent la scène : clair, un réglage déjà dans la scène ; à moitié, un réglage qui s'y mettra au premier cran ; à peine, ce qui n'entre pas dans une scène (SOUND, les choix de son, les TWEAKS pour l'instant). TEMPO, MASTER, les mutes et RUN restent ceux de toujours. Un pas tenu gagne : le potard pose son P-LOCK. Deux tapes ou Suppr sur un potard retirent sa valeur de la scène ; SCENE + CLEAR vide la scène armée, l'autre reste ; CLEAR seul vide les deux avec le pattern. Une scène garde 64 réglages au plus ; elle vit avec son pattern (A01 a les siennes, A02 les siennes). Son témoin s'allume quand elle a des valeurs.",
+    tip: "Page GLOBAL FX : tiens SCENE B, monte DELAY et REVERB, lâche. La scène B a deux réglages ; le crossfader les fera entendre.",
   },
   'soon:xfade': {
     section: 'SCENES',

@@ -122,6 +122,9 @@ import {
   trkStep,
   trkStepMute,
   trkUp,
+  dialEdit,
+  sceneDown,
+  sceneUp,
   rytmInfoTap,
   voyClear,
   voyPad,
@@ -147,6 +150,7 @@ import {
 import { samplesChanged, samplesVersion } from '../audio/samples';
 import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { trk } from '../state/trk';
+import { sceneCtl } from '../state/sceneCtl';
 import type { HoldLatch } from '../state/holdLatch';
 import { clock } from '../audio/clock';
 import { learnPick, midi } from '../midi/midi';
@@ -308,6 +312,9 @@ interface Down {
   trk?: boolean;
   /** la touche TRK tenue par ce pointeur : sa source ('ptr:<pointerId>'), lachee au pointerup ou perdue */
   trkSrc?: string;
+  /** SCENE A ou B tenue par ce pointeur (2026-10-27) : laquelle et sa source, lachee au pointerup ou perdue */
+  scene?: 'a' | 'b';
+  sceneSrc?: string;
   /**
    * un bloc de l'ecran du telephone (2026-10-09), au doigt, glisse a
    * l'horizontale : ce n'est pas encore un reglage (il se regle de haut en
@@ -471,7 +478,8 @@ function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
     d.lockKey = '';
   }
   if (fine !== d.fine || lk !== d.lockKey) {
-    d.v0 = anyDialValue(d.dial);
+    // D'ou repart le glisser : la valeur de la scene armee (2026-10-27), sinon la base (ou le verrou en P-LOCK)
+    d.v0 = dialEdit(d.dial);
     // Un potard de la face dont la fonction a change (2026-10-27) : la course repart du dernier mouvement vu, aucun pixel
     // de la main ne se perd
     d.a = pencId && fine === d.fine && d.lastTravel !== undefined ? d.lastTravel : travel;
@@ -982,8 +990,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         }
         return false;
       }
-      // TRK tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
-      if (d && d.kind === 'trk') return false;
+      // TRK, SCENE A ou B tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
+      if (d && (d.kind === 'trk' || d.kind === 'scene')) return false;
       if (!d || !d.dial) return true;
       // Un bloc de l'ecran du telephone (2026-10-09) : de haut en bas seulement, comme un potard ; parti a l'horizontale
       // au doigt, c'est peut-etre le glisser d'une machine a l'autre (le grand ecran couvre le haut de la face, il ne doit
@@ -999,7 +1007,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         }
         if (d.swipe) {
           d.swipe = false;
-          d.v0 = anyDialValue(d.dial);
+          d.v0 = dialEdit(d.dial);
           d.a = -dy;
         }
         d.turning = true;
@@ -1026,7 +1034,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       d.axis =
         d.kind === 'rblock' || d.kind === 'rdial' || (fromSwipe && d.moveTs - d.ts < SWIPE.ms) ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
       if (fromSwipe) {
-        d.v0 = anyDialValue(d.dial);
+        d.v0 = dialEdit(d.dial);
         d.a = d.axis === 'y' ? -dy : dx;
       }
       turnDial(d, dx, dy, shiftHeld);
@@ -1130,7 +1138,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         x: e.clientX,
         y: e.clientY,
         dial: encoder,
-        v0: encoder ? anyDialValue(encoder) : 0,
+        v0: encoder ? dialEdit(encoder) : 0,
         fine: false,
         a: 0,
         turning: false,
@@ -1174,6 +1182,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           d0.trkSrc = `ptr:${e.pointerId}`;
           trkDown(d0.trkSrc, e.timeStamp || performance.now());
           stage.pressFaceKey('trk');
+        }
+      }
+      // SCENE A et B (2026-10-27, la phase 2) : tenue par ce pointeur (enregistre tant qu'on la tient), une tape la garde ;
+      // ni orbite ni pincement ; INFOS allume au doigt : la carte seulement
+      if (h && h.kind === 'scene' && h.scene) {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        if (d0 && !d0.info) {
+          d0.scene = h.scene;
+          d0.sceneSrc = `ptr:${e.pointerId}`;
+          sceneDown(h.scene, d0.sceneSrc, e.timeStamp || performance.now());
+          stage.pressFaceKey(h.id);
         }
       }
       if (screenDial && h?.param) screenDials.hold(h.param as ScreenDialId);
@@ -1367,8 +1387,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       downs.delete(id);
       if (d.dial && isVoy(d.dial)) voyEcho.release(id);
       releaseBlock(d);
-      // TRK tenue par ce pointeur perdu : lachee sans garde
+      // TRK tenue par ce pointeur perdu : lachee sans garde ; une scene aussi
       if (d.trkSrc) trkUp(d.trkSrc, -1);
+      if (d.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, -1);
       stepUp(d);
       flushRestore();
       try {
@@ -1458,8 +1479,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       downs.delete(e.pointerId);
       if (d?.dial && isVoy(d.dial)) voyEcho.release(e.pointerId);
       if (d) releaseBlock(d);
-      // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde
+      // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde ; SCENE A et B
       if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d && d.turning && d.mouse) {
         turnAxis = null;
         turnBlock = false;
@@ -1578,7 +1600,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const n = voySteps(k);
         const step =
           k === 'tempo' ? 1 : n > 1 ? 1 / (n - 1) : e.shiftKey ? DIAL_FINE.wheelStep : !isVoy(k) && !isKit(k) && isBipolar(k as EncId) ? POT_UI.bipolarStep : POT_UI.wheelStep;
-        const nv = Math.round((anyDialValue(k) + steps * step) * 1000) / 1000;
+        const nv = Math.round((dialEdit(k) + steps * step) * 1000) / 1000;
         // MASTER ou TEMPO dans l'ecran (2026-10-19) : TEMPO dit sa valeur au pied
         if (h && h.kind === 'rdial') screenDialSet(k, nv);
         else anyDial(k, nv);
@@ -1675,8 +1697,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       rytmPage.release();
       screenDials.release();
       rytmLock.releaseAll();
-      // TRK (2026-10-27) : la couche demontee, elle s'eteint
+      // TRK, SCENE A et B (2026-10-27) : la couche demontee, elles s'eteignent
       trk.cancel();
+      sceneCtl.cancel();
       djg?.release();
       bsg?.release();
       stage.orbit.gate = () => true;
@@ -2726,25 +2749,14 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   });
 
   /*
-   * SCENE A et B, le crossfader (2026-10-27, la face V.4.0 du desktop) : visibles et inertes (leurs gestes viennent avec la
-   * phase 2, apres TRK). Leurs jumeaux existent pour le clavier et les lecteurs d'ecran : les scenes en boutons
-   * aria-disabled (le focus les trouve, contour en pointilles, rien ne part), le crossfader en curseur natif desactive
-   * (input range disabled, au milieu de sa course, hors de la tabulation) ; leur nom complet dit qu'ils viennent (FACE_TITLE).
+   * SCENE A et B (2026-10-27, la phase 2) : des touches a tenir ou a taper, comme TRK (HoldTwin, aria-pressed). Le
+   * crossfader (2026-10-27, la face V.4.0 du desktop) : visible et inerte jusqu'a P2-20, son jumeau en curseur natif
+   * desactive (input range disabled, au milieu de sa course, hors de la tabulation) ; son nom complet dit qu'il vient.
    */
-  const inertTwin = (id: 'scene-a' | 'scene-b'): React.ReactElement => (
-    <button
-      key={id}
-      ref={refFor(id)}
-      type="button"
-      className="v4-twin"
-      data-twin="scene"
-      data-hotspot={id}
-      aria-disabled="true"
-      aria-label={FACE_TITLE[id]}
-      title={FACE_TITLE[id]}
-      onKeyDown={noRepeat}
-    />
-  );
+  const sceneTwin = (w: 'a' | 'b'): React.ReactElement => {
+    const id = w === 'a' ? 'scene-a' : 'scene-b';
+    return <HoldTwin key={id} id={id} twin="scene" label={FACE_TITLE[id]} latch={sceneCtl.latch(w)} refFn={refFor(id)} down={(src, t) => sceneDown(w, src, t)} up={(src, t) => sceneUp(w, src, t)} />;
+  };
   const xfadeTwin = (
     <input
       key="xfade"
@@ -2812,9 +2824,9 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {randomTwin}
           {muteTwin}
           {soloTwin}
-          {inertTwin('scene-a')}
+          {sceneTwin('a')}
           {xfadeTwin}
-          {inertTwin('scene-b')}
+          {sceneTwin('b')}
           {stepTwins}
         </>
       )}

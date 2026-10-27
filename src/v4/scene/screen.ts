@@ -158,8 +158,10 @@ import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../a
 import { onSampleStatus, sampleByKey, samplesChanged } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
-import { anyDialValue, dialRange, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
+import { dialRange, dialShown, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
 import { rytmLock } from '../state/rytmLock';
+import { sceneCtl } from '../state/sceneCtl';
+import { sceneCount, type SceneId } from '../rytm/sceneData';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
 import { FENV_OCT, atkS, cutHz, decayTau, holdS, voiceFx } from '../audio/voicefx';
@@ -743,7 +745,7 @@ const hzShort = (f: number): string => (f < 1000 ? `${Math.round(f)}HZ` : `${(f 
 function globalValueOf(id: EncId): { text: string; unit: string; course: number } {
   const d = id as DialId;
   const [lo, hi] = dialRange(d);
-  return { text: dialValueText(d), unit: dialUnit(d), course: hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0 };
+  return { text: dialValueText(d), unit: dialUnit(d), course: hi > lo ? (dialShown(d) - lo) / (hi - lo) : 0 };
 }
 
 /**
@@ -917,6 +919,9 @@ export class Screen {
       rytmPage.subscribe(active),
       // Le LOCK (2026-10-08) : la pastille, les blocs en negatif, le pied
       rytmLock.subscribe(active),
+      // SCENE A et B (2026-10-27) : l'en-tete de la scene armee, ses cles sur les blocs, leurs valeurs
+      sceneCtl.subscribe(active),
+      pattern.scenes.subscribe(() => active()),
       // INFOS (R4) : la touche i pleine, le bloc de la carte montree ; seulement quand l'un des deux change (revue de R4 : le
       // survol d'un pad ou d'un pas redessinait tout l'ecran et le renvoyait a la carte graphique)
       rytmInfos.subscribe(() => {
@@ -1904,7 +1909,7 @@ export class Screen {
     const screen = screenIn(rp, inst);
     this.info.screen = screen;
     // L'en-tete dit ce que joue le pas montre (revue de R3)
-    const shownLock = !inst || !mode ? null : mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock;
+    const shownLock = !inst || !mode ? null : mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.kind === 'flash' ? mode.lock : null;
     this.paintPageHead(rp, screen, inst, cur, now, lockStep, shownLock, mode);
     this.blockRects = [];
     {
@@ -1916,7 +1921,7 @@ export class Screen {
       if (ik >= 0 && blocks[ik] && blocks[ik].state !== 'empty') this.infoMarks(blocks[ik].cell, ik);
       // Les verrous du pas, toutes pages, dans la place que l'ecran laisse vide (revue de R2)
       const slots = pageSlots(screen, inst);
-      const panel = mode ? this.paintLockPanel(slots, mode.step, mode.kind === 'flash' ? mode.lock : undefined) : null;
+      const panel = mode && mode.kind !== 'scene' ? this.paintLockPanel(slots, mode.step, mode.kind === 'flash' ? mode.lock : undefined) : null;
       // Les cases libres : un cadre en pointilles (au telephone les blocs sont les potards ; au desktop aussi depuis le 2026-10-09)
       this.paintGhosts(slots, panel);
       this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
@@ -1958,6 +1963,12 @@ export class Screen {
     if (lockStep >= 0) {
       this.flash = null;
       return { kind: 'lock', step: lockStep };
+    }
+    // Une scene armee (2026-10-27, P2-19) : ses cles sur les blocs, son en-tete ; jamais avec un P-LOCK garde
+    const arm = sceneCtl.get().armed;
+    if (arm) {
+      this.flash = null;
+      return { kind: 'scene', which: arm };
     }
     if (!inst || !clock.running) {
       this.flash = null;
@@ -2110,6 +2121,10 @@ export class Screen {
     this.tabSpots = [];
     if (lockStep >= 0) {
       this.paintLockHead(screen, inst, lockStep);
+      return;
+    }
+    if (mode && mode.kind === 'scene') {
+      this.paintSceneHead(screen, inst, mode.which);
       return;
     }
     const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
@@ -2292,6 +2307,30 @@ export class Screen {
     this.info.head = `${lk} | ${fitted}`;
     x += pw + 7;
     if (inst && x + 10 < rightX) this.text(inst, x, y, T.voice, BLACK, 700);
+  }
+
+  /**
+   * L'en-tete d'une scene armee (2026-10-27, P2-19) : toute la bande en negatif comme le P-LOCK, SCENE A · 3 PARAMS · A01
+   * (la scene, ce qu'elle garde, le pattern ou elle vit), la voix a droite.
+   */
+  private paintSceneHead(screen: RytmScreenId, inst: Inst | null, w: SceneId): void {
+    const H = PAGE_HEAD;
+    const T = this.bt.head;
+    const y = H.y;
+    this.ctx.fillStyle = INK;
+    this.ctx.fillRect(0, 0, UW, H.rule + 0.6);
+    const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
+    let rightX = H.right;
+    if (inst) rightX -= this.text(inst, H.right, y, T.voice, BLACK, 700, 'right') + 6;
+    const n = sceneCount(pattern.scenes.get(), w);
+    const head = `SCENE ${w === 'a' ? 'A' : 'B'} · ${n} PARAM${n === 1 ? '' : 'S'} · ${slotName(patterns.get().cur)}`;
+    const fitted = this.fitText(head, Math.max(20, rightX - H.iconX - 4), T.pill, 0.8, 800);
+    this.text(fitted, H.iconX - 1, ty, T.pill, BLACK, 800, 'left', 0.8);
+    this.info.head = head;
+    this.info.lockCount = 0;
+    this.info.badge = '';
+    this.info.headFit = '';
+    void screen;
   }
 
   /**
@@ -2729,7 +2768,7 @@ export class Screen {
       c.closePath();
       c.fillStyle = BLACK;
       c.fill();
-      this.text('P', bx + bw - 1.6, by + k * 0.52, k * 0.55, INK, 800, 'right');
+      this.text(b.corner ?? 'P', bx + bw - 1.6, by + k * 0.52, k * 0.55, INK, 800, 'right');
     } else {
       c.globalAlpha = b.echo || b.hover ? 1 : alpha;
       if (b.hover && !b.echo) this.roundRect(bx + 0.5, by + 0.5, bw - 1, bh - 1, M.r, HOVER_FILL, HALF, 0.8);
@@ -3084,7 +3123,7 @@ export class Screen {
     const R = cellRect(b.cell);
     const M = MATRIX;
     const T = this.bt;
-    const lk = inst && mode ? (mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock) : null;
+    const lk = inst && mode ? (mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.kind === 'flash' ? mode.lock : null) : null;
     const fx = inst ? voiceFx.of(inst) : null;
     const val = (k: 'atk' | 'hold' | 'decay' | 'ftype' | 'fcut' | 'freso' | 'fenv' | 'fatk' | 'fdec' | 'start'): number => (lk?.[k] ?? (fx ? fx[k] : 0)) as number;
     const locked = (keys: readonly string[]): boolean => !!lk && keys.some((k) => k in lk);

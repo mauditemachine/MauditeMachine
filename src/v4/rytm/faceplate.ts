@@ -78,6 +78,8 @@ export interface FpScene {
   readonly letter: 'A' | 'B';
   readonly title: string;
   readonly hotspot: string;
+  /** 1 : agit (SCENE A et B depuis la phase 2, le 2026-10-27, P2-19) ; 2 : visible et inerte */
+  readonly phase: 1 | 2;
 }
 
 export const RYTM_FACEPLATE = {
@@ -132,8 +134,8 @@ export const RYTM_FACEPLATE = {
     ] as readonly FpButton[],
   },
   scenes: {
-    a: { rect: { x: 180, y: 84, w: 12, h: 12 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a' } as FpScene,
-    b: { rect: { x: 236, y: 84, w: 12, h: 12 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b' } as FpScene,
+    a: { rect: { x: 180, y: 84, w: 12, h: 12 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a', phase: 1 } as FpScene,
+    b: { rect: { x: 236, y: 84, w: 12, h: 12 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b', phase: 1 } as FpScene,
     /**
      * la fente (Mika : de x 196 a 232 sur y 90) ; proposition : 2.4 de large, bouts ronds ; le capuchon 8 x 12, 7 de haut,
      * au milieu en phase 1 (sa course : son centre de x0 + cap.w / 2 a x1 - cap.w / 2)
