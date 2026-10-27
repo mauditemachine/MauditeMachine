@@ -44,7 +44,8 @@
  */
 
 import { voices } from '../state/voices';
-import { SWING, type Inst } from '../theme';
+import { sceneCtl } from '../state/sceneCtl';
+import { PORTRAIT, SWING, XFADE_UI, type Inst } from '../theme';
 import { voiceFx } from './voicefx';
 import { kit } from './kit';
 import { cancelVoice, context, mix, trigger, type Voice } from './drums';
@@ -444,6 +445,46 @@ voiceFx.subscribe(() => {
 kit.subscribe(ask);
 // Le coup d'un nouveau son arrive (2026-10-21, audit RS-2) : les pas deja programmes avec un remplacant sont refaits
 shots.onReady(ask);
+
+/*
+ * Les coups suivent le crossfader (2026-10-27, la phase 2) : aucune re-programmation par mouvement (le pic de calcul du
+ * 2026-10-21, F9, reviendrait) ; les coups programmes gardent les valeurs de leur programmation, en retard de l'avance
+ * (300 ms, 450 au telephone) pendant un balayage, exacts au repos. A la fin d'un geste, UNE re-programmation si les
+ * valeurs jouees des cles de coup et de hauteur (morph.hitSig, au 1/1024) ont change ; en option, pendant un geste a la
+ * souris (pointeur fin, pas au telephone), une au plus toutes les XFADE_UI.resyncMs si elles ont change. Les demandes
+ * se comptent avant la garde de RUN (morph.stats.reschedAsks : un test a l'arret les mesure).
+ */
+let bakedSig = morph.hitSig();
+const resync = { on: true };
+let resyncTimer = 0;
+const finePointer = (): boolean => !PORTRAIT && typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: fine)').matches;
+function hitAsk(): void {
+  const sig = morph.hitSig();
+  if (sig === bakedSig) return;
+  bakedSig = sig;
+  morph.stats.reschedAsks += 1;
+  ask();
+}
+function stopResync(): void {
+  if (resyncTimer) window.clearInterval(resyncTimer);
+  resyncTimer = 0;
+}
+if (typeof window !== 'undefined') {
+  morph.subscribe((c) => {
+    if (c.cause === 'scenes' || c.cause === 'switch') bakedSig = morph.hitSig();
+    else if (c.cause === 'settle') {
+      stopResync();
+      hitAsk();
+    }
+  });
+  sceneCtl.onGesture((on) => {
+    stopResync();
+    if (!on || !resync.on || !finePointer()) return;
+    const h = morph.has();
+    if (!h.hit && !h.pitch) return;
+    resyncTimer = window.setInterval(hitAsk, XFADE_UI.resyncMs);
+  });
+}
 let mixKey = '';
 mix.subscribe(() => {
   const k = `${mix.tone}|${mix.stretch}`;
@@ -682,6 +723,8 @@ export interface ClockDebug {
   readonly rescheduled: number;
   /** demandes de re-programmation depuis le chargement (2026-10-27), lecture ou arret */
   readonly asks: number;
+  /** le resync borne des coups pendant un geste du crossfader (2026-10-27, pointeur fin) : on, a couper pour un test */
+  readonly resync: { on: boolean };
   /** RUN refuse (repli sans WebGL affiche) */
   readonly locked: boolean;
 }
@@ -714,6 +757,7 @@ export const clockDebug: ClockDebug = {
   get asks() {
     return stats.asks;
   },
+  resync,
   get rescheduled() {
     return stats.rescheduled;
   },

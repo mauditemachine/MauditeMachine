@@ -47,7 +47,7 @@
 import limiterUrl from './limiter.worklet.js?url';
 import glueUrl from './glue.worklet.js?url';
 import { FLAGS } from '../state/flags';
-import { XFADE_UI, type Inst } from '../theme';
+import { SWING, XFADE_UI, type Inst } from '../theme';
 import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
 import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, FX_SETTING_IDS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
@@ -1425,14 +1425,46 @@ function prepareLocks(): void {
     const c = ctx;
     if (!c) return;
     const locks = pattern.get().locks;
+    const sc = pattern.scenes.get();
     for (const inst of INSTRUMENTS) {
       const row = locks[inst];
       if (!row) continue;
-      const fx = voiceFx.of(inst);
       for (const l of Object.values(row)) {
         if (l.tune === undefined && l.fine === undefined && l.tone === undefined && !kitOverride(l)) continue;
-        const hp = hitParams(inst, false, l, tone, stretch, fx);
+        // Ce que le coup jouera, scenes comprises (2026-10-27 : sans scene, le verrou et la voix eux-memes)
+        const m = morph.hit(inst, l, sc);
+        const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
         shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
+      }
+    }
+  }, 120);
+}
+
+/**
+ * Les deux bouts d'un balayage prets (2026-10-27, P2-18) : 120 ms apres un changement de scenes, les coups des voix dont
+ * une hauteur se morphe (TUNE, FINE, TONE ; le kit en P2-22) a x = 0, x = 1 et au x du moment ; le premier passage d'un
+ * balayage joue le calcul le plus proche (shots.ts lazy), ses deux bouts sont toujours exacts.
+ */
+let scenePrepTimer = 0;
+export const scenePrep = { runs: 0, prepared: 0, at: 0 };
+function prepareScenes(): void {
+  if (!ctx || !graph || typeof window === 'undefined') return;
+  window.clearTimeout(scenePrepTimer);
+  scenePrepTimer = window.setTimeout(() => {
+    scenePrepTimer = 0;
+    const c = ctx;
+    if (!c) return;
+    const sc = pattern.scenes.get();
+    const insts = morph.pitchVoices();
+    if (insts.length === 0) return;
+    scenePrep.runs += 1;
+    scenePrep.at = performance.now();
+    for (const inst of insts) {
+      for (const xv of [0, 1, morph.x()]) {
+        const m = morphHitPure(inst, voiceFx.of(inst), null, sc, xv);
+        const hp = hitParams(inst, false, m.lock, tone, morph.stretchAt(xv), m.fx, m.kit, true);
+        shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
+        scenePrep.prepared += 1;
       }
     }
   }, 120);
@@ -1661,6 +1693,7 @@ if (typeof window !== 'undefined') {
       applyAll = true;
       holdScenes(g, pattern.get().locks, morph.inserts());
       applier.request(c.at);
+      prepareScenes();
     } else if (c.cause === 'settle') {
       window.clearTimeout(quietTimer);
       quietTimer = 0;
@@ -1854,6 +1887,12 @@ export interface OfflineOpts {
   dcInto?: { inst: Inst; level: number };
   sineInto?: { inst: Inst; hz: number; level: number };
   /**
+   * Plusieurs mesures (2026-10-27, P2-18, tests) : chacune ses pas, ses verrous, ses scenes, l'une apres l'autre au tempo
+   * du rendu, le SWING du rendu (swing, 0 par defaut) morphe par les scenes de la mesure comme l'horloge le fait.
+   */
+  bars?: { steps: Record<Inst, string>; locks?: Locks; scenes?: SceneSet | { a?: Record<string, number>; b?: Record<string, number> } }[];
+  swing?: number;
+  /**
    * La prise rendue (2026-10-27) : 'rytm', la sortie du MM-RYTM (celle de l'oscilloscope, scopeTaps().rytm), avant le
    * limiteur et l'ecreteur de secours (surechantillonne x4, il ondule de quelques 1e-7 aux coins d'une rampe) ; absente :
    * la sortie de toujours.
@@ -1863,6 +1902,16 @@ export interface OfflineOpts {
 
 /** Ce que l'applicateur du dernier rendu hors ligne a pose (tests) : [instant (s), x]. */
 let offlineMorphLog: [number, number][] = [];
+/** Les coups du dernier rendu hors ligne (tests) : instant, voix, mesure, pas, hauteur, DECAY. */
+export interface OfflineHit {
+  t: number;
+  inst: Inst;
+  bar: number;
+  step: number;
+  pf: number;
+  decay: number;
+}
+let offlineHitsLog: OfflineHit[] = [];
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -1899,6 +1948,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const f0 = morphed ? morphFxPure(baseFx, sc, xNow) : null;
   const settingsOf = (f: Readonly<Fx>): Partial<Record<FxSettingId, number>> => Object.fromEntries(FX_SETTING_IDS.map((k) => [k, f[k] ?? FX_SETTINGS[k]]));
   offlineMorphLog = [];
+  offlineHitsLog = [];
   // Le chorus a interpolation sinc, comme en direct
   await loadChorus(oc);
   const tone0 = snapTone(o.tone ?? 0);
@@ -1938,9 +1988,9 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     // Les reglages de chaque voix hors ligne : neutres, sauf ceux imposes ; le meme calcul de coup qu'en direct
     const vfx = (inst: Inst): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}), tone: snapTone(o.voice?.[inst]?.tone ?? 0) });
     /** un coup : sans scene le calcul d'avant ; avec, le morphing du coup au x de son instant (morphHitPure, comme en direct) */
-    const hitOf = (inst: Inst, lock: Readonly<StepLock> | null, t: number): { hp: HitParams; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } => {
-      if (!morphed) return { hp: hitParams(inst, false, lock, tone0, stretch0, vfx(inst)), fx: vfx(inst), lock };
-      const m = morphHitPure(inst, vfx(inst), lock, sc, xOfHit(t));
+    const hitOf = (inst: Inst, lock: Readonly<StepLock> | null, t: number, s: SceneSet = sc): { hp: HitParams; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } => {
+      if (s === NO_SCENES) return { hp: hitParams(inst, false, lock, tone0, stretch0, vfx(inst)), fx: vfx(inst), lock };
+      const m = morphHitPure(inst, vfx(inst), lock, s, xOfHit(t));
       return { hp: hitParams(inst, false, m.lock, tone0, stretch0, m.fx, m.kit), fx: m.fx, lock: m.lock };
     };
     // Les inserts DIST et CHORUS des voix qui en ont un verrou dans le rendu (2026-10-09) : tenus engages, comme en direct ;
@@ -1975,6 +2025,34 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         dc.connect(a);
         dc.start(0);
       }
+    } else if (o.bars && o.bars.length > 0) {
+      // Les mesures l'une apres l'autre (2026-10-27) : chaque coup avec les scenes de sa mesure, au x de son instant ; le
+      // SWING du rendu morphe par elles, le retard de l'horloge (les pas pairs, SWING.maxDelay du pas)
+      const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
+      const swingBase: Fx = { ...baseFx, swing: o.swing ?? 0 };
+      o.bars.forEach((bar, b) => {
+        const bs = bar.scenes ? (cleanScenes(bar.scenes) ?? NO_SCENES) : NO_SCENES;
+        for (let s = 0; s < STEP_COUNT; s += 1) {
+          const t0 = 0.02 + (b * STEP_COUNT + s) * step;
+          const sw = (s & 1) === 1 ? morphFxPure(swingBase, bs, xOfHit(t0)).swing * SWING.maxDelay * step : 0;
+          const t = t0 + sw;
+          if (t >= o.seconds - 0.05) continue;
+          for (const inst of INSTRUMENTS) {
+            const v = velocity(bar.steps, inst, s);
+            if (v === 0) continue;
+            const h = hitOf(inst, lockOf(bar.locks, inst, s), t0, bs);
+            const hp = h.hp;
+            const entry = hitEntry(g, inst, hp, h.fx, VEL_GAIN[v] * hp.gain);
+            const vo = voice(g, inst, t, entry.dest, hp, true);
+            offlineHitsLog.push({ t, inst, bar: b, step: s, pf: hp.pf, decay: hp.decay });
+            if (vo) {
+              postSends(g, inst, t, h.lock, vo);
+              postInserts(g, inst, t, h.lock, vo);
+              voices.push(vo);
+            }
+          }
+        }
+      });
     } else if (o.single) {
       const h = hitOf(o.single, o.singleLock ?? null, 0.05);
       const hp = h.hp;
@@ -1997,6 +2075,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
           const gain = VEL_GAIN[v] * hp.gain;
           const entry = hitEntry(g, inst, hp, h.fx, gain);
           const vo = voice(g, inst, t, entry.dest, hp, true);
+          if (morphed) offlineHitsLog.push({ t, inst, bar: Math.floor(n / STEP_COUNT), step: n % STEP_COUNT, pf: hp.pf, decay: hp.decay });
           if (vo) {
             postSends(g, inst, t, h.lock, vo);
             postInserts(g, inst, t, h.lock, vo);
@@ -2242,6 +2321,15 @@ export interface AudioDebug {
   morphStep: boolean;
   /** ce que l'applicateur du dernier rendu hors ligne a pose : [instant (s), x] */
   readonly offlineMorph: readonly [number, number][];
+  /** les coups du dernier rendu hors ligne avec scenes ou mesures (2026-10-27) */
+  readonly offlineHits: readonly OfflineHit[];
+  /**
+   * Ce qu'un coup de inst demanderait au cache maintenant (2026-10-27, P2-18, tests) : le meme chemin que trigger
+   * (morph.hit, hitParams, shots.get paresseux), sans voix, sans son ; sa hauteur, son STRETCH, s'il etait pret.
+   */
+  hitProbe(inst: Inst, lock?: StepLock | null): { pf: number; ts: number; lazy: boolean; ready: boolean; got: boolean } | null;
+  /** les preparations des deux bouts d'un balayage (prepareScenes) */
+  readonly scenePrep: { runs: number; prepared: number; at: number };
 }
 
 /** DIST, envois et unites REVERB et DELAY, CHORUS du bus (debug). */
@@ -2402,4 +2490,17 @@ export const audioDebug: AudioDebug = {
   get offlineMorph() {
     return offlineMorphLog;
   },
+  get offlineHits() {
+    return offlineHitsLog;
+  },
+  hitProbe(inst: Inst, lock: StepLock | null = null) {
+    const c = ctx;
+    if (!c) return null;
+    const m = morph.hit(inst, lock, pattern.scenes.get());
+    const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
+    const ready = shots.ready(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
+    const got = shots.get(hp.id, hp.ts, hp.pf, c.sampleRate, false, hp.ov, hp.lazy === true) !== null;
+    return { pf: hp.pf, ts: hp.ts, lazy: hp.lazy === true, ready, got };
+  },
+  scenePrep,
 };

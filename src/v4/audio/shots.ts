@@ -654,9 +654,10 @@ export const shots = {
     const tw = ov ? ov.tw : kit.tweak(id);
     // Un son muet (OFF, les deux couches a 0) : rien, jamais un autre son a sa place (2026-10-21)
     if (silentTweak(tw)) return null;
-    // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien
+    // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien ; une hauteur menee par
+    // le crossfader en direct aussi (2026-10-27 : un balayage complet demande au plus 57 calculs, pas 57 par variante)
     let v = 0;
-    if (!ov) {
+    if (!ov && !(lazy && !sync)) {
       const n = variantsOf(id);
       v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
       if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;

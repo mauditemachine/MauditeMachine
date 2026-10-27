@@ -13,6 +13,7 @@
  */
 
 import { NO_SCENES, morph01, type SceneSet } from '../rytm/sceneData';
+import { snapTone } from './tone';
 import { bindingOf, from01, to01, type SceneBinding } from '../rytm/sceneParams';
 import { sceneCtl } from '../state/sceneCtl';
 import type { Inst } from '../theme';
@@ -107,6 +108,16 @@ export const insertNeedsOf = (s: SceneSet): InsertNeeds => needsOf(entriesOf(s).
 /** La valeur native jouee d'une entree pour une base native et x. */
 const played = (e: Entry, baseNative: number, x: number): number => from01(e.b, morph01(e.a, e.v, to01(e.b, baseNative), x));
 
+/**
+ * La hauteur d'un coup menee par le crossfader (2026-10-27, P2-18) : TONE sur une grille de 1/28 de sa course (57
+ * hauteurs de -1 a 1, un quart de demi-ton) ; TUNE (1 demi-ton) et FINE (1 cent) le sont deja par leur loi, STRETCH par
+ * la grille des one-shots (shots.ts shotKey). Un balayage complet demande au plus 57 calculs par son ; le filtre de la
+ * tranche (le TONE de applyVoice) reste continu.
+ */
+export const TONE_PITCH_GRID = 28;
+export const hitTone = (v: number): number => snapTone(Math.round(v * TONE_PITCH_GRID) / TONE_PITCH_GRID);
+const pitchy = (e: Entry): boolean => e.b.cls === 'pitch' || e.b.alsoPitch;
+
 /** fx morphes (pur, alloue) : le meme objet sans entree de fx. */
 export function morphFxPure(base: Readonly<Fx>, s: SceneSet, x: number): Readonly<Fx> {
   const es = entriesOf(s).fx;
@@ -143,7 +154,7 @@ function hitWith(es: readonly Entry[] | undefined, base: Readonly<VoiceFx>, lock
     const lv = lock ? (lock as Record<string, unknown>)[p] : undefined;
     const b0 = typeof lv === 'number' ? lv : base[p];
     fx ??= { ...base };
-    fx[p] = played(e, b0, x);
+    fx[p] = p === 'tone' ? hitTone(played(e, b0, x)) : played(e, b0, x);
     if (lv !== undefined) {
       lk ??= { ...(lock as Record<string, unknown>) };
       delete lk[p];
@@ -163,6 +174,8 @@ const effFx: Fx = { ...pattern.fx.get() };
 let fxDirty = true;
 const effVoice: Partial<Record<Inst, VoiceFx>> = {};
 const voiceDirty = new Set<Inst>(VOICES);
+/** ce que joue un coup sans verrou d'une voix dont TONE se morphe : la voix jouee, sa hauteur sur la grille (hitTone) */
+const effHit: Partial<Record<Inst, VoiceFx>> = {};
 let stretchBase: () => number = () => 0;
 const listeners = new Set<(c: MorphChange) => void>();
 
@@ -221,6 +234,16 @@ export const morph = {
     const b = stretchBase();
     return e ? played(e, b, x) : b;
   },
+  /** le STRETCH a un autre x (drums.ts prepareScenes : les deux bouts d'un balayage) */
+  stretchAt(x0: number): number {
+    const e = live.stretch;
+    const b = stretchBase();
+    return e ? played(e, b, x0) : b;
+  },
+  /** les voix dont une hauteur se morphe (TUNE, FINE, TONE) : leurs coups se preparent aux deux bouts */
+  pitchVoices(): Inst[] {
+    return VOICES.filter((i) => live.voice[i]?.some(pitchy));
+  },
   /**
    * Un coup, pour une banque de scenes (Snap.scenes) au x du moment : la valeur de base est celle du trig (son verrou s'il
    * en a). Sans scene pour la voix : le verrou lui-meme, fx de la voix, kit null.
@@ -229,13 +252,20 @@ export const morph = {
     if (s === scenes) {
       const es = live.voice[inst];
       if (!es || es.length === 0) return { fx: voiceFx.of(inst), lock, kit: null, lazy: false };
-      const lazy = es.some((e) => e.b.cls === 'pitch' || e.b.alsoPitch);
-      if (!lock) return { fx: voiceNow(inst), lock: null, kit: null, lazy };
+      const lazy = es.some(pitchy);
+      if (!lock) {
+        const v = voiceNow(inst);
+        if (!es.some((e) => e.b.key === 'tone')) return { fx: v, lock: null, kit: null, lazy };
+        const h = (effHit[inst] ??= { ...v });
+        Object.assign(h, v);
+        h.tone = hitTone(v.tone);
+        return { fx: h, lock: null, kit: null, lazy };
+      }
       return { ...hitWith(es, voiceFx.of(inst), lock, x), lazy };
     }
     if (s === NO_SCENES) return { fx: voiceFx.of(inst), lock, kit: null, lazy: false };
     const es = entriesOf(s).voice[inst];
-    const lazy = !!es && es.some((e) => e.b.cls === 'pitch' || e.b.alsoPitch);
+    const lazy = !!es && es.some(pitchy);
     return { ...hitWith(es, voiceFx.of(inst), lock, x), lazy };
   },
   /** le 0 a 1 joue d'un id qui se morphe (les anneaux, les blocs, les moteurs) ; null : pas morphe */
