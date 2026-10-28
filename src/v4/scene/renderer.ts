@@ -144,7 +144,7 @@ import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
-import { anyDialValue, dialRange, knobBlock, type DialId } from '../actions';
+import { dialEdit, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { trk } from '../state/trk';
@@ -1206,6 +1206,10 @@ export class Stage {
         rytmPage.subscribe(this.syncMix),
         // Le LOCK (2026-10-08) : les potards de page montrent les verrous du pas, les touches leurs lueurs
         rytmLock.subscribe(this.syncMix),
+        // Les scenes et le crossfader (2026-10-28) : les encodeurs du telephone montrent ce qu'on entend
+        pattern.scenes.subscribe(() => this.syncMix()),
+        sceneCtl.subscribe(this.syncMix),
+        sceneCtl.onX(() => this.syncMix()),
         rytmLock.subscribe(this.syncLocks),
         editor.subscribe(this.syncLocks),
       ];
@@ -3043,7 +3047,8 @@ export class Stage {
       const g = GLOBAL_ENCODERS[k] as DialId | undefined;
       if (!g) return;
       const [lo, hi] = dialRange(g);
-      if (e.setValue(id, hi > lo ? (anyDialValue(g) - lo) / (hi - lo) : 0)) changed = true;
+      // Ce qu'on entend (2026-10-28) : armee la scene, sinon la base ou ce qu'une scene en fait entendre (sceneFollow)
+      if (e.setValue(id, hi > lo ? (dialEdit(g) - lo) / (hi - lo) : 0)) changed = true;
     });
     if (changed) this.encodersMoved();
   };

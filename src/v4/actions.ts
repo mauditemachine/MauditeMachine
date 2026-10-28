@@ -435,15 +435,34 @@ function follow(h: Heard, t01: number, writeBase: (v01: number) => void, say: (s
   if (!useA && !useB) return false;
   const d = t01 - h.p;
   if (d !== 0) {
-    const c = (v: number): number => Math.max(0, Math.min(1, v));
-    if (useA) pattern.scenes.write('a', h.id, c((h.a as number) + d));
-    if (useB) pattern.scenes.write('b', h.id, c((h.bv as number) + d));
-    // Le poids de la base dans LA formule : (A absent ? 1 - x : 0) + (B absent ? x : 0)
+    // Les poids de LA formule : A 1 - x, B x, la base (A absent ? 1 - x : 0) + (B absent ? x : 0) ; leur somme vaut 1
     const wBase = (h.a === undefined ? 1 - h.x : 0) + (h.bv === undefined ? h.x : 0);
+    const v = [useA ? (h.a as number) : 0, useB ? (h.bv as number) : 0, h.base01];
+    const w = [useA ? 1 - h.x : 0, useB ? h.x : 0, wBase];
+    const free = [w[0] > 0, w[1] > 0, w[2] > 0];
+    // Le meme ecart pour chacune ; une valeur a sa butee laisse le reste aux autres (revue du 2026-10-28 : la main va au
+    // bout de sa course au milieu du crossfader aussi)
+    let rest = d;
+    for (let it = 0; it < 3 && Math.abs(rest) > 1e-9; it += 1) {
+      const wf = (free[0] ? w[0] : 0) + (free[1] ? w[1] : 0) + (free[2] ? w[2] : 0);
+      if (wf <= 0) break;
+      const step = rest / wf;
+      rest = 0;
+      for (let i = 0; i < 3; i += 1) {
+        if (!free[i]) continue;
+        const want = v[i] + step;
+        const got = Math.max(0, Math.min(1, want));
+        if (got !== want) free[i] = false;
+        rest += (want - got) * w[i];
+        v[i] = got;
+      }
+    }
+    if (useA) pattern.scenes.write('a', h.id, v[0]);
+    if (useB) pattern.scenes.write('b', h.id, v[1]);
     if (wBase > 0) {
       following = true;
       try {
-        writeBase(c(h.base01 + d));
+        writeBase(v[2]);
       } finally {
         following = false;
       }
@@ -1277,14 +1296,7 @@ export function dial(id: EncId, v: number, popup = false): void {
   // GLOBAL FX, le bloc tourne cerne (touchPage plus bas) ; un FX qui a sa page (DIST CHORUS DELAY REVERB BIT COMP, Mika :
   // "ca doit afficher les configurations que je peux avoir pour DELAY") : sa page, sa quantite cernee ; STRETCH et
   // SWING : GLOBAL FX
-  if (popup) {
-    const inst = pattern.get().instrument;
-    const fd = fxDetailOf(id);
-    const t = screensOf('fx', inst).indexOf('fxg');
-    if (fd) rytmPage.openFx(fd, inst);
-    else if (t >= 0) rytmPage.setTab('fx', t, inst);
-    else rytmPage.popup(id);
-  }
+  if (popup) fxPopup(id);
   else if (!sceneHideSay(id)) lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
   // Un encodeur global dont la base ne s'entend pas (revue B1) : le popup ou la page de FX, puis l'ecran dit pourquoi
   if (popup) sceneHideSay(id);
@@ -1301,8 +1313,25 @@ export function dial(id: EncId, v: number, popup = false): void {
 export function globalDial(k: number, v: number): void {
   const id = GLOBAL_ENCODERS[k];
   if (!id) return;
-  if (sceneTake(id, v)) return;
+  if (sceneTake(id, v)) {
+    // Hors scene armee (2026-10-28) : la scene entendue a suivi la main (sceneFollow) ; la page du FX s'ouvre comme avant
+    if (!sceneCtl.get().armed) {
+      fxPopup(id);
+      touchPage(id, pattern.get().instrument);
+    }
+    return;
+  }
   dial(id, v, true);
+}
+
+/** La page d'un FX global tourne au telephone : sa page (DIST, DELAY...), GLOBAL FX, sinon le popup de sa valeur. */
+function fxPopup(id: EncId): void {
+  const inst = pattern.get().instrument;
+  const fd = fxDetailOf(id);
+  const t = screensOf('fx', inst).indexOf('fxg');
+  if (fd) rytmPage.openFx(fd, inst);
+  else if (t >= 0) rytmPage.setTab('fx', t, inst);
+  else rytmPage.popup(id);
 }
 
 /** La cible fixe de l'encodeur k du desktop (2026-10-09) : son FX global. */
@@ -3524,7 +3553,8 @@ export function rytmLockClear(): void {
 
 /** Un seul abonnement pour toutes les valeurs des potards (les deux machines, le kit). */
 export function subscribeDials(fn: () => void): () => void {
-  const offs = [voyParams.subscribe(fn), mix.subscribe(fn), voiceFx.subscribe(fn), kit.subscribe(() => fn()), pattern.subscribe(fn), pattern.fx.subscribe(fn), rytmLock.subscribe(fn)];
+  // Les scenes, leur armement et le crossfader (2026-10-28) : un potard qu'une scene fait entendre bouge avec eux
+  const offs = [voyParams.subscribe(fn), mix.subscribe(fn), voiceFx.subscribe(fn), kit.subscribe(() => fn()), pattern.subscribe(fn), pattern.fx.subscribe(fn), rytmLock.subscribe(fn), pattern.scenes.subscribe(() => fn()), sceneCtl.subscribe(fn), sceneCtl.onX(() => fn())];
   return () => {
     for (const off of offs) off();
   };

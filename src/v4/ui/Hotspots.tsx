@@ -2647,7 +2647,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     const g = GLOBAL_ENCODERS[k];
     const d = g as DialId;
     const [lo, hi] = dialRange(d);
-    const course = hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
+    // Ce qu'on entend (2026-10-28), comme le capuchon
+    const course = hi > lo ? (dialEdit(d) - lo) / (hi - lo) : 0;
     const bipolar = lo < 0;
     return (
       <div

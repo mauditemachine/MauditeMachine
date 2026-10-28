@@ -44,7 +44,7 @@ import React, { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   anyDial,
   anyDialReset,
-  anyDialValue,
+  dialEdit,
   dialNudge,
   dialRange,
   dialReadout,
@@ -372,7 +372,9 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
   const spec: KnobSpec = {
     label: slot.label,
     letter,
-    get: () => anyDialValue(id),
+    // Ce qu'on entend (2026-10-28) : armee la scene, en P-LOCK le verrou, sinon la base ou ce qu'une scene en fait entendre ;
+    // le glisser en part (sceneFollow), rien ne saute
+    get: () => dialEdit(id),
     set: (v) => anyDial(id, v),
     reset: () => anyDialReset(id),
     range,
@@ -461,7 +463,7 @@ const BigKnob: React.FC<Dial & { machine?: 'mm808' | 'voy' }> = ({ id, label, ma
     const range = dialRange(id);
     return {
       label,
-      get: () => anyDialValue(id),
+      get: () => dialEdit(id),
       set: (v) => anyDial(id, v),
       reset: () => anyDialReset(id),
       range,
