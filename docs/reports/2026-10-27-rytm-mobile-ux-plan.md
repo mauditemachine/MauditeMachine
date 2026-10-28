@@ -20,6 +20,18 @@ Statut : plan seulement, aucune ligne de code. À itérer avec Mika avant la pha
 6. **Pas de retour haptique** repéré ; les gestes n'ont presque jamais été validés sur un vrai téléphone (événements simulés, CDP multi-touch).
 7. **Cibles serrées** par endroits : pas du BASS à 40,5 px, zone MASTER à 28 x 20 px corrigée en 48 px ; la machine entière doit tenir en 390 x 844 sans défiler.
 
+### Complément : cartographie du code (après rédaction)
+
+- **Le téléphone est décidé au chargement** (`theme.ts:33-45`, `PORTRAIT` = `max-width: 767px`, forçable par `?portrait=1`) : c'est une autre machine, pas une version responsive. `FACE_FOLLOWS_PAGE=!PORTRAIT`, `BLOCKS_ARE_KNOBS=PORTRAIT`, `SCREEN_TOUCH=PORTRAIT` (`theme.ts:1339,1353,1681`).
+- **Deux interfaces en parallèle au téléphone** : la machine 3D (pads, écran tactile, FX globaux) ET le Dock (`ui/Dock.tsx` : voix, pas, transport, page KNOBS de `ui/KnobPanel.tsx` avec A à H en 60 px). Même fonction à deux endroits : la principale source de confusion à traiter.
+- **Déjà là, contrairement à ce que j'écrivais plus haut** : les blocs de l'écran agissent déjà comme potards (glisser, double tap), et la grille A01 à A16 marche au doigt (pas en EDIT, plus le PatternStrip de `BeatEditor` variante mobile).
+- **Divergences de geste** : les presets s'ouvrent en tapant l'écran (`lcd-open`) et non par EDIT deux fois ; MUTE garde l'ancien comportement au téléphone ; vélocité à 16 px par niveau (12 au desktop), un départ horizontal rapide est lu comme un swipe de machine, et le Dock n'a pas de vélocité au glisser.
+- **MIDI inaccessible au téléphone** : le bouton MIDI n'existe que dans l'en-tête desktop.
+- **Cibles** : potards 3D du téléphone à environ 28 px (d'où KnobPanel) ; minimum 48 px au doigt dans `hit.ts`.
+- **Aucun `navigator.vibrate`** dans le code. Les commentaires « phase 5 » marquent les endroits à rouvrir : `theme.ts:218,919,1337`, `rytm/pages.ts:641`, `scene/rytmFaceKeys.ts:10`, `ui/Hotspots.tsx:3004`, `fallback/StaticMachine.tsx:22`.
+
+Conséquence sur le plan : la phase 1 n'invente pas « l'écran = potards », elle **unifie** : les blocs prennent la fonction `faceKnobs` du desktop (mêmes ids), et on choisit UN endroit pour les commandes (la machine), le Dock ne gardant que pas, voix et transport. EDIT deux fois et MUTE s'alignent sur le desktop.
+
 ## 3. Principes UX retenus
 
 - **Un seul modèle mental**, desktop et téléphone : *une voix choisie, une page qui dit ce que valent les huit valeurs, seize pas pour la séquence, EDIT pour aller au fond*. Le téléphone ne réinvente rien, il change seulement le geste.
