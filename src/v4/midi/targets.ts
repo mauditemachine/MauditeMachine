@@ -55,7 +55,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
 import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
 import { sceneTag, type SceneTag } from '../rytm/sceneParams';
@@ -134,7 +134,7 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
       return dialSteps(dial);
     },
     // Une scene armee (2026-10-27) : get lit la valeur de la scene (un Roto motorise reste ou on l'a tourne), set y ecrit
-    // (anyDial, sceneTake) ; sinon la base, comme avant
+    // (anyDial, sceneTake) ; sinon ce qu'on entend (2026-10-28 : la base, ou la scene entendue qui suit le potard)
     get: () => (span > 0 ? (dialEdit(dial) - lo) / span : 0),
     set: (v) => anyDial(dial, dial === 'tempo' ? Math.round(lo + v * span) : lo + v * span),
   };
@@ -221,10 +221,16 @@ function coreTargets(): MidiTarget[] {
         label: `${inst} ${VOICE_LABEL[p]}`,
         kind: 'value',
         ...(p === 'tune' ? { steps: 49 } : p === 'fine' ? { steps: 129 } : p === 'ftype' ? { steps: 3 } : {}),
-        // Une scene armee (2026-10-27) : la valeur de la scene, l'ecriture dans la scene ; sinon la base
-        get: () => sceneEdit01(id) ?? (bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p]),
+        // Une scene armee (2026-10-27) : la valeur de la scene, l'ecriture dans la scene ; sinon ce qu'on entend (2026-10-28 :
+        // la base, ou ce qu'une scene en fait entendre, qui suit le potard : sceneFollowId)
+        get: () => {
+          const base = bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p];
+          return sceneEdit01(id) ?? sceneHeard01(id, base) ?? base;
+        },
         set: (v) => {
-          if (!sceneTakeId(id, v)) setVoiceFx(inst, p, bip ? v * 2 - 1 : v);
+          if (sceneTakeId(id, v)) return;
+          const put = (w: number): void => setVoiceFx(inst, p, bip ? w * 2 - 1 : w);
+          if (!sceneFollowId(id, v, bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p], put)) put(v);
         },
       });
     }

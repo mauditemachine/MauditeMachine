@@ -47,8 +47,8 @@ import { faceTouch, type CtlSrc } from './state/ctl';
 import { trk } from './state/trk';
 import { sceneCtl } from './state/sceneCtl';
 import { morph } from './audio/morph';
-import { NO_SCENES, anyScenes, sceneCount, type SceneId } from './rytm/sceneData';
-import { bindingOf, from01, sceneRole, to01, voiceRowId } from './rytm/sceneParams';
+import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId } from './rytm/sceneData';
+import { bindingOf, from01, sceneRole, to01, voiceRowId, type SceneBinding } from './rytm/sceneParams';
 import { FACE_PAGES, RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { setKnobResolver } from './rytm/infoIds';
@@ -363,12 +363,120 @@ function sceneNative(dial: DialId, played: boolean): number | null {
 
 /**
  * D'ou part un glisser, une molette, un jumeau ou un get() MIDI : armee, la valeur de la scene (la base pour un reglage
- * pas encore dans la scene, le premier cran cree la cle) ; en P-LOCK, le verrou ; sinon la base (anyDialValue).
+ * pas encore dans la scene, le premier cran cree la cle) ; en P-LOCK, le verrou ; sinon ce qu'on entend (2026-10-28 :
+ * la base, ou ce qu'une scene en fait entendre, sceneFollow), la ou se tient le potard.
  */
 export function dialEdit(id: DialId): number {
   // Un pas tenu gagne (le P-LOCK, meme avant les 350 ms de la tenue) : le geste part de ce que le verrou ecrira
-  if (!sceneCtl.get().armed || (pageKnobOf(id) >= 0 && (lockMode() || rytmLock.get().held.length > 0))) return anyDialValue(id);
+  if (pageKnobOf(id) >= 0 && (lockMode() || rytmLock.get().held.length > 0)) return anyDialValue(id);
+  if (!sceneCtl.get().armed) {
+    const h = heardOf(id);
+    return h ? from01(h.b, h.p) : anyDialValue(id);
+  }
   return sceneNative(id, false) ?? anyDialValue(id);
+}
+
+/** Un reglage qu'une scene fait entendre hors scene armee : son id, sa loi, la base et ce qui joue en 0 a 1, et x. */
+interface Heard {
+  id: string;
+  b: SceneBinding;
+  base01: number;
+  a: number | undefined;
+  bv: number | undefined;
+  x: number;
+  p: number;
+}
+
+/**
+ * Ce qu'on entend d'un reglage hors scene armee (2026-10-28) : LA formule (morph01) depuis la base du potard ; null :
+ * aucune scene ne le tient (la base, le chemin de toujours), une scene armee, un pas tenu ou le LOCK (le P-LOCK gagne),
+ * le MM-ARP.
+ */
+function heardOf(dial: DialId): Heard | null {
+  if (sceneCtl.get().armed || voyId(dial)) return null;
+  if (pattern.scenes.get() === NO_SCENES) return null;
+  if (pageKnobOf(dial) >= 0 && (lockMode() || rytmLock.get().held.length > 0)) return null;
+  const id = sceneIdOfDial(dial);
+  if (!id) return null;
+  const b = bindingOf(id);
+  return b ? heardId(id, b, to01(b, anyDialValue(dial))) : null;
+}
+
+/** La meme chose pour un id absolu et sa base en 0 a 1 (les cibles MIDI des voix). */
+function heardId(id: string, b: SceneBinding, base01: number): Heard | null {
+  if (sceneCtl.get().armed || sceneRole(id) !== 'sceneable') return null;
+  const s = pattern.scenes.get();
+  const a = s.a[id];
+  const bv = s.b[id];
+  if (a === undefined && bv === undefined) return null;
+  const x = sceneCtl.x();
+  return { id, b, base01, a, bv, x, p: morph01(a, bv, base01, x) };
+}
+
+/** Ce qu'une cible MIDI fait entendre hors scene armee, en 0 a 1 ; null : sa base (aucune scene ne la tient). */
+export function sceneHeard01(id: string, base01: number): number | null {
+  const b = bindingOf(id);
+  const h = b ? heardId(id, b, base01) : null;
+  return h ? h.p : null;
+}
+
+let following = false;
+/**
+ * Un potard tourne hors scene armee sur un reglage qu'une scene fait entendre (2026-10-28, Mika : "je peux meme plus
+ * tourner les knobs" : la scene A au repos du crossfader tenait DIST, CHORUS, REVERB et COMP, la main ne changeait que
+ * leur base, muette, le potard restait fige) : ce qu'on entend suit la main, au x du moment. Chaque valeur qui y prend
+ * part se decale du meme ecart (la scene A si elle le tient et s'entend, x < 1 ; la B de meme, x > 0 ; la base si elle
+ * s'entend encore) : le morphing garde sa forme, le potard tourne sans saut. writeBase : la base, par le chemin de
+ * toujours, une seule fois (following). true : fait ; false : rien a suivre (la suite comme avant).
+ */
+function follow(h: Heard, t01: number, writeBase: (v01: number) => void, say: (scn: string) => void): boolean {
+  const useA = h.a !== undefined && h.x < 1;
+  const useB = h.bv !== undefined && h.x > 0;
+  if (!useA && !useB) return false;
+  const d = t01 - h.p;
+  if (d !== 0) {
+    const c = (v: number): number => Math.max(0, Math.min(1, v));
+    if (useA) pattern.scenes.write('a', h.id, c((h.a as number) + d));
+    if (useB) pattern.scenes.write('b', h.id, c((h.bv as number) + d));
+    // Le poids de la base dans LA formule : (A absent ? 1 - x : 0) + (B absent ? x : 0)
+    const wBase = (h.a === undefined ? 1 - h.x : 0) + (h.bv === undefined ? h.x : 0);
+    if (wBase > 0) {
+      following = true;
+      try {
+        writeBase(c(h.base01 + d));
+      } finally {
+        following = false;
+      }
+    }
+  }
+  say(useA && useB ? 'SCN A+B' : useA ? SCENE_SHORT.a : SCENE_SHORT.b);
+  return true;
+}
+
+/** Un potard d'interface (anyDial, le bloc d'une page, un encodeur global) : sceneFollow, vNative en unites du potard. */
+function sceneFollow(dial: DialId, vNative: number): boolean {
+  if (following) return false;
+  const h = heardOf(dial);
+  if (!h) return false;
+  return follow(
+    h,
+    to01(h.b, vNative),
+    (v01) => anyDial(dial, from01(h.b, v01)),
+    (scn) => {
+      lcdMessage.show(`${scn} ${dialName(dial)} ${dialValueText(dial)}`, POT_UI.readoutMs, true);
+      const pk = pageKnobOf(dial);
+      if (pk >= 0 && pageKnobLive(pk)) rytmPage.echo(pk, pattern.get().instrument);
+    },
+  );
+}
+
+/** Une cible MIDI d'une voix (rytm:voice:<inst>:<p>), v01 et sa base en 0 a 1 ; writeBase pose la base. */
+export function sceneFollowId(id: string, v01: number, base01: number, writeBase: (v01: number) => void): boolean {
+  if (following) return false;
+  const b = bindingOf(id);
+  const h = b ? heardId(id, b, base01) : null;
+  if (!h || !b) return false;
+  return follow(h, Math.max(0, Math.min(1, v01)), writeBase, (scn) => lcdMessage.show(`${scn} ${idName(id)} ${v127Text(morph.played01(id) ?? v01, b.lo < 0)}`, POT_UI.readoutMs, true));
 }
 
 /** Ce qui se montre (les blocs, les valeurs, les anneaux) : armee la scene ; en P-LOCK le verrou ; sinon ce qui joue. */
@@ -397,13 +505,16 @@ function idName(id: string): string {
 
 /**
  * LE point de passage des potards d'interface (2026-10-27, 10.2 de la spec) : true quand la scene armee a pris le geste
- * (la base n'est pas touchee), false : la suite comme avant. Ni armee, ni le MM-ARP, ni TEMPO et MASTER, ni un potard de
- * page sous un pas tenu (le P-LOCK gagne) : false. Un choix de son ou un reglage lourd (avant P2-22) : NO SCENE, rien
+ * (la base n'est pas touchee), false : la suite comme avant. Hors scene armee (2026-10-28) : sceneFollow, un reglage
+ * qu'une scene fait entendre suit la main ; sinon false. Ni le MM-ARP, ni TEMPO et MASTER, ni un potard de page sous un
+ * pas tenu (le P-LOCK gagne) : false. Un choix de son ou un reglage lourd (avant P2-22) : NO SCENE, rien
  * d'ecrit, true. vNative : en unites du potard.
  */
 export function sceneTake(dial: DialId, vNative: number): boolean {
   const w = sceneCtl.get().armed;
-  if (!w || voyId(dial)) return false;
+  // Hors scene armee (2026-10-28) : un reglage qu'une scene fait entendre suit la main (sceneFollow), le reste comme avant
+  if (!w) return sceneFollow(dial, vNative);
+  if (voyId(dial)) return false;
   const pk = pageKnobOf(dial);
   if (pk >= 0 && rytmLock.get().held.length > 0) return false;
   const t = pk >= 0 ? pageTarget(pk) : dial;
@@ -2313,7 +2424,8 @@ export function pageKnobCourse(k: number): number {
   if (!pageKnobLive(k)) return 0;
   const id = `p:${k}` as DialId;
   const [lo, hi] = dialRange(id);
-  // Une scene armee (2026-10-27) : la valeur de la scene (un Roto motorise reste ou on l'a tourne) ; sinon la base
+  // Une scene armee (2026-10-27) : la valeur de la scene (un Roto motorise reste ou on l'a tourne) ; sinon ce qu'on entend
+  // (2026-10-28 : la base, ou ce qu'une scene en fait entendre)
   return hi > lo ? Math.max(0, Math.min(1, (dialEdit(id) - lo) / (hi - lo))) : 0;
 }
 
