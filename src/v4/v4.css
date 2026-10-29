@@ -4598,6 +4598,67 @@ html:has(body.v4-active.v4-light) {
   color: #fff;
 }
 
+/* V.5.0 au desktop (2026-10-29, la revue de D1, R4) : l'editeur du MM-RYTM (la grille PTN, ui/BeatEditor.tsx data-dt) dans
+   la langue des couleurs de la Digitakt (theme.ts DT_HEX) : les coups, la voix choisie et son nom en rouge, la tete de
+   lecture blanche (l'encre sur la creme), le pattern qui joue rouge plein, le suivant et la chaine rouges clignotants
+   (STEP_LIT.dtEdit.blinkMs), un pattern plein en blanc faible, les verrous en jaune ; plus d'orange ni de jaune ailleurs.
+   Le telephone garde les siennes (data-dt='0'). */
+.v4-root .v4-seq[data-dt='1'] .v4-seq-body {
+  --seq-note: #ff2b2b;
+  --seq-on: #f4f1ea;
+  --dt-red: #ff2b2b;
+  --dt-red-soft: rgba(255, 43, 43, 0.24);
+  --dt-filled: rgba(244, 241, 234, 0.34);
+  --dt-cur-ink: #191919;
+  --dt-yellow: #ffd75e;
+}
+
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-seq-body {
+  --seq-note: #d81e1e;
+  --seq-on: #191919;
+  --dt-red: #d81e1e;
+  --dt-red-soft: rgba(216, 30, 30, 0.16);
+  --dt-filled: rgba(25, 25, 25, 0.34);
+  --dt-cur-ink: #fff;
+  --dt-yellow: #e09a10;
+}
+
+.v4-root .v4-seq[data-dt='1'] .v4-beat-ptn[data-full='1'] {
+  border-color: var(--dt-filled);
+  color: var(--seq-dim);
+}
+
+.v4-root .v4-seq[data-dt='1'] .v4-beat-ptn[data-chain='1'],
+.v4-root .v4-seq[data-dt='1'] .v4-beat-ptn[data-next='1'] {
+  border-color: var(--dt-red);
+  background: var(--dt-red-soft);
+  color: var(--dt-red);
+  animation: v4-dt-ptn-blink 520ms steps(1, end) infinite;
+}
+
+.v4-root .v4-seq[data-dt='1'] .v4-beat-ptn[data-cur='1'] {
+  border-color: var(--dt-red);
+  background: var(--dt-red);
+  color: var(--dt-cur-ink);
+  animation: none;
+}
+
+@keyframes v4-dt-ptn-blink {
+  50% {
+    border-color: var(--seq-guide);
+    background: var(--seq-cell);
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-seq[data-dt='1'] .v4-beat-ptn {
+  animation: none;
+}
+
+.v4-root .v4-seq[data-dt='1'] .v4-beat-lock {
+  background: var(--dt-yellow);
+  box-shadow: 0 0 0 1.5px #0b0b0b;
+}
+
 .v4-root[data-v4-theme='light'] .v4-seq-nudge,
 .v4-root[data-v4-theme='light'] .v4-seq-done {
   color: #2a2a2e;
