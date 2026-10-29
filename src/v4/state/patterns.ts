@@ -24,6 +24,7 @@
 import { clock } from '../audio/clock';
 import { anyLocks, cleanLocks, sameLocks, type Locks } from '../audio/locks';
 import { INSTRUMENTS, STEP_COUNT, cleanPmutes, pattern, type Steps } from '../audio/pattern';
+import { anyTrigs, cleanTrigs, sameTrigs, type TrigSet } from '../audio/trig';
 import type { Inst } from '../theme';
 import { NO_SCENES, anyScenes, cleanScenes, sameScenes, toStored, type SceneSet } from '../rytm/sceneData';
 
@@ -43,6 +44,8 @@ export interface PatternsState {
   scenes: readonly (SceneSet | null)[];
   /** le mute de chaque pattern (V.5.0, 2026-10-29, FUNC + TRK deux fois) ; null : aucune voix coupee */
   pmutes: readonly (readonly Inst[] | null)[];
+  /** les reglages de trig par defaut de chaque pattern (V.5.1, 2026-10-29, la page TRIG sans pas tenu) ; null : tous au depart */
+  trigs: readonly (Readonly<TrigSet> | null)[];
   /** l'emplacement qui joue (et qu'on edite) */
   cur: number;
   /** la chaine : au moins un pattern (le courant seul : pas de chaine) */
@@ -80,16 +83,19 @@ const sameKept = (a: SceneSet | null, b: SceneSet | null): boolean => a === b ||
 /** Le mute d'un pattern a garder : null sans voix coupee. */
 const keepPmutes = (m: readonly Inst[] | null | undefined): readonly Inst[] | null => (m && m.length > 0 ? [...m] : null);
 const samePm = (a: readonly Inst[] | null, b: readonly Inst[] | null): boolean => (a ?? []).join() === (b ?? []).join();
+/** Les reglages de trig d'un pattern a garder : null s'ils sont tous au depart. */
+const keepTrigs = (t: Readonly<TrigSet> | null | undefined): Readonly<TrigSet> | null => (t && anyTrigs(t) ? t : null);
 
 function load(): PatternsState {
   const slots: (Steps | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   const locks: (Readonly<Locks> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   const scenes: (SceneSet | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   const pmutes: (readonly Inst[] | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+  const trigs: (Readonly<TrigSet> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   let cur = 0;
   let chain: number[] = [0];
   try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; scenes?: unknown[]; pmutes?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; scenes?: unknown[]; pmutes?: unknown[]; trigs?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
     if (raw && Array.isArray(raw.slots)) {
       for (let i = 0; i < PATTERN_SLOTS; i += 1) slots[i] = raw.slots[i] ? validSteps(raw.slots[i]) : null;
       // Une sauvegarde d'avant les verrous (2026-10-08) : aucun
@@ -98,6 +104,8 @@ function load(): PatternsState {
       if (Array.isArray(raw.scenes)) for (let i = 0; i < PATTERN_SLOTS; i += 1) scenes[i] = keepScenes(cleanScenes(raw.scenes[i]));
       // Le mute de chaque pattern (V.5.0) : une sauvegarde d'avant n'en a pas
       if (Array.isArray(raw.pmutes)) for (let i = 0; i < PATTERN_SLOTS; i += 1) pmutes[i] = keepPmutes(cleanPmutes(raw.pmutes[i]));
+      // Les reglages de trig de chaque pattern (V.5.1) : une sauvegarde d'avant n'en a pas
+      if (Array.isArray(raw.trigs)) for (let i = 0; i < PATTERN_SLOTS; i += 1) trigs[i] = keepTrigs(cleanTrigs(raw.trigs[i]));
       if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < PATTERN_SLOTS) cur = raw.cur as number;
       if (Array.isArray(raw.chain)) {
         const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < PATTERN_SLOTS).slice(0, PATTERN_SLOTS);
@@ -112,11 +120,12 @@ function load(): PatternsState {
   locks[cur] = keepLocks(pattern.get().locks);
   scenes[cur] = keepScenes(pattern.scenes.get());
   pmutes[cur] = keepPmutes(pattern.get().pmutes);
+  trigs[cur] = keepTrigs(pattern.get().trigs);
   if (!chain.includes(cur)) chain = [cur];
-  return { slots, locks, scenes, pmutes, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
+  return { slots, locks, scenes, pmutes, trigs, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
 }
 
-let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], scenes: [], pmutes: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
+let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], scenes: [], pmutes: [], trigs: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
 const listeners = new Set<() => void>();
 let saveTimer = 0;
 /** le motif pose par nous (un changement de pattern) : pas une edition a garder */
@@ -133,7 +142,9 @@ function save(): void {
       const scenes = state.scenes.some((s) => s !== null) ? state.scenes.map((s) => (s ? (toStored(s) ?? null) : null)) : undefined;
       // Les mutes des patterns de meme (V.5.0)
       const pmutes = state.pmutes.some((m) => m !== null) ? state.pmutes : undefined;
-      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), ...(scenes ? { scenes } : {}), ...(pmutes ? { pmutes } : {}), cur: state.cur, chain: state.chain }));
+      // Les reglages de trig de meme (V.5.1)
+      const trigs = state.trigs.some((t) => t !== null) ? state.trigs : undefined;
+      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), ...(scenes ? { scenes } : {}), ...(pmutes ? { pmutes } : {}), ...(trigs ? { trigs } : {}), cur: state.cur, chain: state.chain }));
     } catch {
       /* stockage indisponible : les patterns vivent pour la visite */
     }
@@ -153,6 +164,8 @@ function apply(i: number): void {
   pattern.replace(steps, state.locks[i] ?? {});
   // Son mute (V.5.0, 2026-10-29) : celui du pattern pose
   pattern.setPmutes(state.pmutes[i] ?? []);
+  // Ses reglages de trig (V.5.1) : ceux du pattern pose
+  pattern.setTrigs(state.trigs[i]);
   // Ses scenes (2026-10-27), a l'heure de la mesure qui commence (le bus tombe sur le temps fort) ; a l'arret tout de suite
   pattern.scenes.replace(state.scenes[i] ?? NO_SCENES, clock.barAt());
   loading = false;
@@ -162,15 +175,22 @@ function apply(i: number): void {
 if (typeof window !== 'undefined') {
   pattern.subscribe(() => {
     if (loading) return;
-    const { steps, locks, pmutes } = pattern.get();
+    const { steps, locks, pmutes, trigs } = pattern.get();
     const had = state.slots[state.cur];
     const sameL = sameLocks(state.locks[state.cur], keepLocks(locks));
     // Le mute du pattern (V.5.0) : garde dans l'emplacement courant, comme ses verrous
-    const sameM = samePm(state.pmutes[state.cur] ?? null, keepPmutes(pmutes));
+    let sameM = samePm(state.pmutes[state.cur] ?? null, keepPmutes(pmutes));
     if (!sameM) {
       const pm = state.pmutes.slice();
       pm[state.cur] = keepPmutes(pmutes);
       state = { ...state, pmutes: pm };
+    }
+    // Ses reglages de trig (V.5.1) : de meme
+    if (!sameTrigs(state.trigs[state.cur] ?? null, keepTrigs(trigs))) {
+      const tr = state.trigs.slice();
+      tr[state.cur] = keepTrigs(trigs);
+      state = { ...state, trigs: tr };
+      sameM = false;
     }
     if (had && sameSteps(had, steps) && sameL) {
       if (!sameM) setState({ ...state });
@@ -205,7 +225,11 @@ let beforeBar: { cur: number; pos: number; next: number } | null = null;
 
 /** Passe au pattern i tout de suite (a l'arret, ou au debut d'une mesure). */
 function switchTo(i: number, pos: number): void {
-  if (i !== state.cur) apply(i);
+  if (i !== state.cur) {
+    apply(i);
+    // Le compteur de passages repart a 1 (V.5.1, les conditions A:B et 1ST : un changement de pattern est un lancement)
+    clock.resetPass();
+  }
   setState({ ...state, cur: i, pos, next: -1 });
 }
 
@@ -266,7 +290,10 @@ export const patterns = {
     // Son mute aussi (V.5.0)
     const pmutes = state.pmutes.slice();
     pmutes[i] = keepPmutes(pattern.get().pmutes);
-    setState({ ...state, slots, locks, scenes, pmutes });
+    // Ses reglages de trig aussi (V.5.1)
+    const trigs = state.trigs.slice();
+    trigs[i] = keepTrigs(pattern.get().trigs);
+    setState({ ...state, slots, locks, scenes, pmutes, trigs });
     return true;
   },
   /** La chaine redevient le pattern courant seul. */
@@ -316,10 +343,14 @@ export const patterns = {
     scenes[0] = keepScenes(pattern.scenes.get());
     const pmutes: (readonly Inst[] | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
     pmutes[0] = keepPmutes(pattern.get().pmutes);
-    setState({ slots, locks, scenes, pmutes, cur: 0, chain: [0], pos: 0, next: -1 });
+    const trigs: (Readonly<TrigSet> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+    trigs[0] = keepTrigs(pattern.get().trigs);
+    setState({ slots, locks, scenes, pmutes, trigs, cur: 0, chain: [0], pos: 0, next: -1 });
   },
 };
 
 // La chaine avance avec l'horloge du MM-RYTM
 clock.onBar((first) => patterns.bar(first));
 clock.onUnbar(() => patterns.unbar());
+// La condition LST (V.5.1) : un changement de pattern est prevu a la fin de cette mesure (un pattern qui attend, une chaine)
+clock.lastPass(() => (state.next >= 0 && state.next !== state.cur) || state.chain.length > 1);
