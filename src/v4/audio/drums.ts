@@ -215,7 +215,7 @@ export interface Voice {
   /** un lock trig (V.5.1) : ce qu'il a change du coup qui sonnait (une annulation le lui rend) */
   undo?: LiveUndo;
   /** une repetition d'un retrig (V.5.1) : la coupe du coup d'avant de la voix (une annulation la retire) */
-  rollCut?: { param: AudioParam; t: number; lv: LiveHit; end: number };
+  rollCut?: { param: AudioParam; t: number; lv: LiveHit; end: number; stop: number };
 }
 
 /**
@@ -1556,15 +1556,37 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   return true;
 }
 
-/** La coupe du coup de retrig d'avant (V.5.1) par la repetition v a t ; v la retient (une annulation la retire). */
+/** Un stop() qui ne leve jamais (un navigateur qui refuse un second appel : le coup finit seul). */
+function stopSrc(src: AudioScheduledSourceNode, t: number): void {
+  try {
+    src.stop(t);
+  } catch {
+    /* deja arretee */
+  }
+}
+
+/**
+ * La coupe du coup de retrig d'avant (V.5.1) par la repetition v a t ; v la retient (une annulation la retire). Sa source
+ * s'arrete juste apres la rampe et ses courbes de LFO s'y arretent (la revue de D2, E2 : chaque repetition tournait
+ * sinon a vide jusqu'au bout de son echantillon, des centaines de sources a la fois).
+ */
 function rollCut(prev: Voice, t: number, v: Voice): void {
   const lv = prev.live;
   if (!lv?.roll || lv.end <= t) return;
   const p = lv.roll.gain;
   p.setValueAtTime(1, t);
   p.linearRampToValueAtTime(0, t + CHOKE_S);
-  v.rollCut = { param: p, t, lv, end: lv.end };
+  const stop = t + CHOKE_S + 0.002;
+  v.rollCut = { param: p, t, lv, end: lv.end, stop };
   lv.end = t + CHOKE_S;
+  stopSrc(lv.src, stop);
+  if (lv.lfo) {
+    const held = lfoHeld(lv, stop);
+    for (const dst of liveDests(lv.lfo)) {
+      const param = lfoParam(lv, dst);
+      if (param) holdAt(param, stop, held.get(dst));
+    }
+  }
 }
 
 /**
@@ -1835,10 +1857,13 @@ export function cancelVoice(v: Voice): void {
     u.lv.anchor = u.anchor;
     if (u.lv.lfo) lfoCurves(u.lv, u.t);
   }
-  // Une repetition annulee : le coup d'avant n'est plus coupe
+  // Une repetition annulee : le coup d'avant n'est plus coupe (sa fin, sa source et ses LFO d'origine)
   if (v.rollCut) {
-    v.rollCut.param.cancelScheduledValues(v.rollCut.t);
-    v.rollCut.lv.end = v.rollCut.end;
+    const rc = v.rollCut;
+    rc.param.cancelScheduledValues(rc.t);
+    rc.lv.end = rc.end;
+    stopSrc(rc.lv.src, rc.end);
+    if (rc.lv.lfo) lfoCurves(rc.lv, rc.stop);
   }
   // Un charley annule (re-programmation, 2026-10-05) : le charley ouvert qu'il etouffait sonne de nouveau
   // (annulees du dernier au premier, les portes reviennent dans l'ordre)
