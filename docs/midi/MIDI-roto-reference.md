@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 29 octobre 2026 depuis le code du site (`npm run docs:midi`) : 679 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 29 octobre 2026 depuis le code du site (`npm run docs:midi`) : 883 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -627,7 +627,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 444 cibles)
+### MM-RYTM (scope `mm808`, 648 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -962,8 +962,8 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:screen:fxvdelay` | SCREEN VOICE FX · DELAY | appui |  |  |
 | `rytm:screen:fxvreverb` | SCREEN VOICE FX · REVERB | appui |  |  |
 | `rytm:screen:fxm` | SCREEN MIXER MASTER | appui |  |  |
-| `rytm:screen:trig` | SCREEN TRIG | appui |  |  |
-| `rytm:screen:mod` | SCREEN MOD | appui |  |  |
+| `rytm:screen:trig` | SCREEN TRIG 1/2 | appui |  |  |
+| `rytm:screen:mod` | SCREEN MOD 1/2 | appui |  |  |
 | `rytm:screen:tempo` | SCREEN TEMPO | appui |  |  |
 | `rytm:screen:mixer` | SCREEN MIXER LEVELS | appui |  |  |
 | `rytm:page` | PAGE (VOICE TO FX) | valeur 0 a 127 | 4 |  |
@@ -1075,6 +1075,210 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:reload` | RELOAD (BACK TO THE SAVE POINT) | appui |  |  |
 | `rytm:copy` | COPY (THE PATTERN, WITH REC THE VOICE ROW) | appui |  |  |
 | `rytm:paste` | PASTE | appui |  |  |
+| `rytm:voice:BD:len` | BD TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:BD:prob` | BD TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:BD:cond` | BD TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:BD:utime` | BD TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:BD:lfot` | BD TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:BD:rtrg` | BD RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:BD:rate` | BD RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:BD:vfad` | BD RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:rlen` | BD RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:BD:l1spd` | BD LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:l1mul` | BD LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:BD:l1fad` | BD LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:l1dst` | BD LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:BD:l1wav` | BD LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:BD:l1phs` | BD LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:l1mod` | BD LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:BD:l1dep` | BD LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:l2spd` | BD LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:l2mul` | BD LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:BD:l2fad` | BD LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:l2dst` | BD LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:BD:l2wav` | BD LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:BD:l2phs` | BD LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:BD:l2mod` | BD LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:BD:l2dep` | BD LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:len` | SD TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:SD:prob` | SD TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:SD:cond` | SD TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:SD:utime` | SD TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:SD:lfot` | SD TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:SD:rtrg` | SD RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:SD:rate` | SD RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:SD:vfad` | SD RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:rlen` | SD RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:SD:l1spd` | SD LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:l1mul` | SD LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:SD:l1fad` | SD LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:l1dst` | SD LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:SD:l1wav` | SD LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:SD:l1phs` | SD LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:l1mod` | SD LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:SD:l1dep` | SD LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:l2spd` | SD LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:l2mul` | SD LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:SD:l2fad` | SD LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:l2dst` | SD LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:SD:l2wav` | SD LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:SD:l2phs` | SD LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:SD:l2mod` | SD LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:SD:l2dep` | SD LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:len` | CH TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:CH:prob` | CH TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:CH:cond` | CH TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:CH:utime` | CH TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:CH:lfot` | CH TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:CH:rtrg` | CH RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:CH:rate` | CH RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:CH:vfad` | CH RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:rlen` | CH RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:CH:l1spd` | CH LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:l1mul` | CH LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:CH:l1fad` | CH LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:l1dst` | CH LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:CH:l1wav` | CH LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:CH:l1phs` | CH LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:l1mod` | CH LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:CH:l1dep` | CH LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:l2spd` | CH LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:l2mul` | CH LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:CH:l2fad` | CH LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:l2dst` | CH LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:CH:l2wav` | CH LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:CH:l2phs` | CH LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CH:l2mod` | CH LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:CH:l2dep` | CH LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:len` | OH TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:OH:prob` | OH TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:OH:cond` | OH TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:OH:utime` | OH TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:OH:lfot` | OH TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:OH:rtrg` | OH RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:OH:rate` | OH RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:OH:vfad` | OH RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:rlen` | OH RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:OH:l1spd` | OH LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:l1mul` | OH LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:OH:l1fad` | OH LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:l1dst` | OH LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:OH:l1wav` | OH LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:OH:l1phs` | OH LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:l1mod` | OH LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:OH:l1dep` | OH LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:l2spd` | OH LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:l2mul` | OH LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:OH:l2fad` | OH LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:l2dst` | OH LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:OH:l2wav` | OH LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:OH:l2phs` | OH LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:OH:l2mod` | OH LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:OH:l2dep` | OH LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:len` | CP TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:CP:prob` | CP TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:CP:cond` | CP TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:CP:utime` | CP TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:CP:lfot` | CP TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:CP:rtrg` | CP RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:CP:rate` | CP RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:CP:vfad` | CP RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:rlen` | CP RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:CP:l1spd` | CP LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:l1mul` | CP LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:CP:l1fad` | CP LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:l1dst` | CP LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:CP:l1wav` | CP LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:CP:l1phs` | CP LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:l1mod` | CP LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:CP:l1dep` | CP LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:l2spd` | CP LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:l2mul` | CP LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:CP:l2fad` | CP LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:l2dst` | CP LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:CP:l2wav` | CP LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:CP:l2phs` | CP LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CP:l2mod` | CP LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:CP:l2dep` | CP LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:len` | TOM TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:TOM:prob` | TOM TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:TOM:cond` | TOM TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:TOM:utime` | TOM TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:TOM:lfot` | TOM TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:TOM:rtrg` | TOM RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:TOM:rate` | TOM RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:TOM:vfad` | TOM RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:rlen` | TOM RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:TOM:l1spd` | TOM LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:l1mul` | TOM LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:TOM:l1fad` | TOM LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:l1dst` | TOM LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:TOM:l1wav` | TOM LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:TOM:l1phs` | TOM LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:l1mod` | TOM LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:TOM:l1dep` | TOM LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:l2spd` | TOM LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:l2mul` | TOM LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:TOM:l2fad` | TOM LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:l2dst` | TOM LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:TOM:l2wav` | TOM LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:TOM:l2phs` | TOM LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:TOM:l2mod` | TOM LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:TOM:l2dep` | TOM LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:len` | HT TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:HT:prob` | HT TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:HT:cond` | HT TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:HT:utime` | HT TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:HT:lfot` | HT TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:HT:rtrg` | HT RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:HT:rate` | HT RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:HT:vfad` | HT RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:rlen` | HT RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:HT:l1spd` | HT LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:l1mul` | HT LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:HT:l1fad` | HT LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:l1dst` | HT LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:HT:l1wav` | HT LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:HT:l1phs` | HT LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:l1mod` | HT LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:HT:l1dep` | HT LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:l2spd` | HT LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:l2mul` | HT LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:HT:l2fad` | HT LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:l2dst` | HT LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:HT:l2wav` | HT LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:HT:l2phs` | HT LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:HT:l2mod` | HT LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:HT:l2dep` | HT LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:len` | CY TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:CY:prob` | CY TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:CY:cond` | CY TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:CY:utime` | CY TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:CY:lfot` | CY TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:CY:rtrg` | CY RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:CY:rate` | CY RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:CY:vfad` | CY RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:rlen` | CY RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:CY:l1spd` | CY LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:l1mul` | CY LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:CY:l1fad` | CY LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:l1dst` | CY LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:CY:l1wav` | CY LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:CY:l1phs` | CY LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:l1mod` | CY LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:CY:l1dep` | CY LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:l2spd` | CY LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:l2mul` | CY LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:CY:l2fad` | CY LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:l2dst` | CY LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:CY:l2wav` | CY LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:CY:l2phs` | CY LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:CY:l2mod` | CY LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:CY:l2dep` | CY LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:fill` | FILL (HOLD: THE FILL CONDITIONS PLAY) | maintenu (appui puis relachement) |  |  |
+| `rytm:screen:trig2` | SCREEN TRIG 2/2 | appui |  |  |
+| `rytm:screen:mod1` | SCREEN MOD 1/2 (LFO 1) | appui |  |  |
+| `rytm:screen:mod2` | SCREEN MOD 2/2 (LFO 2) | appui |  |  |
 
 ### MM-ARP (scope `voy`, 80 cibles)
 
