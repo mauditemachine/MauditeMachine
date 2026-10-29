@@ -342,6 +342,22 @@ export const VEL_MAX = 9;
 /** Pas i joue par inst. */
 export const isOn = (steps: Steps, inst: Inst, i: number): boolean => velocity(steps, inst, i) > 0;
 
+/**
+ * Un lock trig devenu une note perd son ltrg (V.5.1, la revue de D2, U3) : une velocite (une tape, un glisser, la fleche,
+ * VEL au P-LOCK, RANDOM) en fait une note ; effacee ensuite, elle redevenait un lock trig jaune. Les memes verrous sinon.
+ */
+function noteLocks(locks: Readonly<Locks>, steps: Steps): Readonly<Locks> {
+  let out = locks;
+  for (const inst of INSTRUMENTS) {
+    const row = locks[inst];
+    if (!row) continue;
+    for (const [k, l] of Object.entries(row)) {
+      if (l.ltrg === 1 && velocity(steps, inst, Number(k)) > 0) out = withoutLock(out, inst, [Number(k)], 'ltrg');
+    }
+  }
+  return out;
+}
+
 /** Gain de chaque niveau (0 : rien) ; 9, 6 et 3 gardent ceux des crans d'avant (1, 0.6, 0.32). */
 // 2026-10-10 (Mika : "on entend trop le kick et rien pour le reste") : la courbe adoucie, LOW -8 dB (avant -10), MID -3.1 dB (avant -4.4)
 export const VEL_GAIN: readonly number[] = [0, 0.16, 0.26, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
@@ -643,12 +659,12 @@ export const pattern = {
   },
   toggle(inst: Inst, i: number): void {
     const next = toggleStep(state, inst, i);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes, trigs: state.trigs }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: noteLocks(state.locks, next.steps), pmutes: state.pmutes, trigs: state.trigs }, true);
   },
   /** L'editeur (ui/BeatEditor.tsx) : un pas a un niveau, 0 a 9. */
   set(inst: Inst, i: number, v: number): void {
     const next = setStep(state, inst, i, v);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes, trigs: state.trigs }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: noteLocks(state.locks, next.steps), pmutes: state.pmutes, trigs: state.trigs }, true);
   },
   /** Appui long : le pas vide. */
   clearStep(inst: Inst, i: number): void {
@@ -667,7 +683,7 @@ export const pattern = {
   replace(steps: Steps, locks: Readonly<Locks> | 'keep' = 'keep'): void {
     const next = { ...state.steps };
     for (const inst of INSTRUMENTS) if (STEPS_RE.test(steps[inst])) next[inst] = steps[inst];
-    commit({ ...state, steps: next, locks: locks === 'keep' ? state.locks : (cleanLocks(locks) ?? NO_LOCKS) }, true);
+    commit({ ...state, steps: next, locks: noteLocks(locks === 'keep' ? state.locks : (cleanLocks(locks) ?? NO_LOCKS), next) }, true);
   },
   /** Un verrou sur des pas d'une voix (2026-10-08, audio/locks.ts) : la valeur du domaine, ou le son (snd). */
   setLock(inst: Inst, steps: readonly number[], key: LockKey, v: number | string): void {

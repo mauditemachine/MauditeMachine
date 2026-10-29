@@ -926,6 +926,14 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
     lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
+  // Un lock trig (V.5.1, la revue de D2, U4) : Suppr l'enleve avec ses verrous, comme une tape (l'ecran disait OFF et le
+  // laissait)
+  if (velocity(pattern.get().steps, inst, i) === 0 && isLockTrig(pattern.get().locks, inst, i)) {
+    pattern.clearLock(inst, [i]);
+    rytmPage.select(i);
+    lcdMessage.show(`STEP ${two(i + 1)} ${inst} LOCK TRIG OFF`);
+    return true;
+  }
   pattern.clearStep(inst, i);
   rytmPage.select(i);
   lcdMessage.show(stepLine(inst, i));
@@ -1187,6 +1195,9 @@ export function randomPattern(stage: Stage | null = null): void {
   const { style, steps, swing } = randomBeat(pattern.get().steps, lastStyle);
   lastStyle = style;
   pattern.replace(steps);
+  // Les reglages de trig du pattern repartent au depart, comme CLEAR (V.5.1, la revue de D2, D1 : une PROB ou une COND
+  // gardee faisait taire des voix du nouveau beat) ; les verrous des pas restent, comme avant
+  pattern.setTrigs(null);
   // Le SWING du style (2026-10-14) ; les autres GLOBAL FX restent ceux de l'utilisateur
   pattern.fx.set({ swing });
   const colors = randomColors();
@@ -4670,7 +4681,7 @@ export function yesKey(stage: Stage | null = null, armed?: RytmPageId | null): v
  * suite, comme en D1. Le MIDI rytm:yes reste la tape de D1 ; rytm:fill tient FILL.
  */
 export const FILL_HOLD_MS = 250;
-const yesHolds = new Map<string, { timer: number; fill: boolean; done: boolean; pg: RytmPageId | null }>();
+const yesHolds = new Map<string, { timer: number; fill: boolean; done: boolean; now: boolean; pg: RytmPageId | null }>();
 
 /** YES ouvre-t-il quelque chose (KIT, TEMPO, PTN, la liste des sons) : il agit a l'appui, pas de FILL. */
 function yesActsNow(): boolean {
@@ -4678,16 +4689,20 @@ function yesActsNow(): boolean {
   return rytmPage.get().view === 'page' && curScreen() === 'tempo';
 }
 
-/** YES enfonce (src : qui le tient, 'ptr:<id>', 'key'). */
+/**
+ * YES enfonce (src : qui le tient, 'ptr:<id>', 'key'). Un menu ouvert ou FUNC : pas de FILL ; au clavier YES agit a
+ * l'appui, au pointeur au lacher sur la touche (la revue de D2, U1 : comme en D1, un glisser hors d'elle annule).
+ */
 export function yesDown(src: string, stage: Stage | null = null): void {
   if (!DT_FACE || yesHolds.has(src)) return;
   if (yesActsNow()) {
-    yesHolds.set(src, { timer: 0, fill: false, done: true, pg: null });
-    yesKey(stage);
+    const ptr = src.startsWith('ptr:');
+    yesHolds.set(src, { timer: 0, fill: false, done: !ptr, now: ptr, pg: null });
+    if (!ptr) yesKey(stage);
     return;
   }
   gesture();
-  const h = { timer: 0, fill: false, done: false, pg: armedPage() };
+  const h = { timer: 0, fill: false, done: false, now: false, pg: armedPage() };
   h.timer = window.setTimeout(() => {
     h.timer = 0;
     h.fill = true;
@@ -4706,6 +4721,10 @@ export function yesUp(src: string, stage: Stage | null = null, tap = true): void
   if (!h) return;
   yesHolds.delete(src);
   if (h.done) return;
+  if (h.now) {
+    if (tap) yesKey(stage);
+    return;
+  }
   if (h.timer) {
     window.clearTimeout(h.timer);
     if (tap) yesKey(stage, h.pg);
@@ -4987,7 +5006,7 @@ export function muteStepHold(i: number, stage: Stage | null = null): void {
 /** Le mode MUTE est-il ouvert (les pas sont les voix, la tenue d'un pas est le SOLO) ? */
 export const muteView = (): boolean => DT_FACE && dtFace.mute() !== 'off';
 
-/** FUNC + un pas (V.5.0) : 1 a 8, le mute rapide de leur voix (le jeu global), partout ; 13 a 16, les pages a venir. */
+/** FUNC + un pas (V.5.0) : 1 a 8, le mute rapide de leur voix (le jeu global) ; 13 a 16, les pages a venir. En REC (V.5.1) : le lock trig. */
 function funcStep(i: number, stage: Stage | null): void {
   resume();
   stage?.pressStep(i);

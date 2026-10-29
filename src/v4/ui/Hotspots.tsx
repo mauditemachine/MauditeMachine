@@ -1763,8 +1763,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde ; SCENE A et B
       if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.funcSrc) funcUp(d.funcSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
-      // YES lache (V.5.1) : une tape (YES de D1) avant 250 ms, sinon la fin de FILL ; un pointeur annule : rien ne part
-      if (d?.yesSrc) yesUp(d.yesSrc, stage, e.type === 'pointerup');
+      // YES lache (V.5.1) : une tape (YES de D1) avant 250 ms, sinon la fin de FILL ; un pointeur annule, ou lache hors de
+      // YES (la revue de D2, U1 : comme en D1, glisser hors de la touche annule le hasard) : rien ne part, FILL finit
+      if (d?.yesSrc) yesUp(d.yesSrc, stage, e.type === 'pointerup' && d.id !== null && pickAt(e, isCoarse(e))?.id === d.id);
       if (DT_FACE && d?.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.xf) xfadeGesture('end', 'ptr');
