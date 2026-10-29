@@ -76,12 +76,17 @@ import {
   fineFactor,
   holdS,
   resoQ,
+  snapPan,
   tuneFactor,
   voiceFx,
   voiceGain,
   type VoiceFx,
   type VoiceParam,
 } from './voicefx';
+import { seqLast, seqState, seqStep, soundingAt, type HitLfo } from './seq';
+import { LEN_REL_S, LFO_FREQ_CENTS, LFO_PITCH_CENTS, LFO_SPAN_S, lfoDistOf, lfoHitLock, lfoPoints, lfoSum, liveDests, liveNeeds, type LiveNeeds } from './seqhit';
+import { NO_TRIGS, type TrigSet } from './trig';
+import type { LfoDest } from './lfo';
 import { InsertLocks } from './lockfx';
 import { NO_NEEDS, insertNeedsOf, morph, morphFxPure, morphHitPure, morphVoicePure, type InsertNeeds } from './morph';
 import { glideMode } from './glide';
@@ -205,6 +210,47 @@ export interface Voice {
   sends?: LockSend[];
   /** les inserts de sa tranche ou ce coup a pose un point (les verrous DIST et CHORUS, 2026-10-09) */
   inserts?: InsertLocks[];
+  /** V.5.1 : ce qu'un lock trig ou un LFO peut changer de ce coup pendant qu'il sonne (absent : rien, le coup d'avant) */
+  live?: LiveHit;
+  /** un lock trig (V.5.1) : ce qu'il a change du coup qui sonnait (une annulation le lui rend) */
+  undo?: LiveUndo;
+  /** une repetition d'un retrig (V.5.1) : la coupe du coup d'avant de la voix (une annulation la retire) */
+  rollCut?: { param: AudioParam; t: number; lv: LiveHit; end: number; stop: number };
+}
+
+/**
+ * Le coup qui sonne, tel qu'un lock trig ou un LFO le touche (V.5.1) : ses noeuds en direct (le VOL des lock trigs, le
+ * VOL des LFO, la coupe des retrigs, le PAN, le filtre), ses valeurs de base, ses LFO continus.
+ */
+interface LiveHit {
+  when: number;
+  /** la fin du coup (sa source s'arrete, LEN compris) */
+  end: number;
+  src: AudioBufferSourceNode;
+  /** le VOL des lock trigs (1 au coup) */
+  lvl: GainNode | null;
+  /** le VOL des LFO */
+  lfoG: GainNode | null;
+  /** la coupe d'un coup de retrig par le suivant */
+  roll: GainNode | null;
+  pn: StereoPannerNode | null;
+  bq: BiquadFilterNode | null;
+  /** le VOL du coup (celui de la voix ou de son verrou) et celui que les LFO prennent pour base */
+  vol: number;
+  level: number;
+  pan: number;
+  reso: number;
+  lfo: HitLfo | null;
+  anchor: number;
+}
+interface LiveUndo {
+  lv: LiveHit;
+  t: number;
+  level: number;
+  pan: number;
+  reso: number;
+  anchor: number;
+  params: AudioParam[];
 }
 
 /**
@@ -229,6 +275,8 @@ let ctx: AudioContext | undefined;
 let graph: Graph | undefined;
 let created = 0;
 let triggers = 0;
+/** les lock trigs appliques (V.5.1, tests) */
+let lockTrigs = 0;
 let last: TriggerInfo | null = null;
 /** TONE : -1 a 1, 0 = bypass (revision 5) */
 let tone = 0;
@@ -984,6 +1032,149 @@ export interface HitParams {
   tone: number | null;
   /** une hauteur menee par le crossfader (2026-10-27) : le calcul le plus proche joue plutot que d'attendre (P2-18) */
   lazy?: boolean;
+  /** V.5.1 : le panoramique meme au centre (un lock trig PAN ou un LFO PAN le menent pendant le coup) */
+  forcePan?: boolean;
+}
+
+/** Ce que le sequenceur des trigs ajoute a un coup (V.5.1, audio/seq.ts) : absent, le coup d'avant. */
+export interface HitSeq {
+  /** LEN en secondes ; null : INF */
+  len: number | null;
+  lfo: HitLfo | null;
+  /** un coup de retrig : le suivant le coupe ; rep : une repetition (elle coupe le coup d'avant de la voix) */
+  roll: boolean;
+  rep: boolean;
+  prev: Voice | null;
+  /** les noeuds que demandent les lock trigs de la voix */
+  live: LiveNeeds | null;
+}
+
+/** Ce que voice() pose de plus (V.5.1). */
+interface HitExtra {
+  cut: number | null;
+  roll: boolean;
+  lfo: HitLfo | null;
+  dests: Set<LfoDest>;
+  gain: boolean;
+  vol: number;
+  pan: number;
+  reso: number;
+}
+
+/**
+ * Un coup du sequenceur des trigs (V.5.1) : le filtre et le panoramique qu'il faut en direct (un filtre ouvert reste
+ * ouvert, a sa coupure du depart ; un PAN au centre passe par la loi du panoramique, au meme niveau) ; null : rien de plus.
+ */
+function seqExtra(hp: HitParams, fx: Readonly<VoiceFx>, lock: Readonly<StepLock> | null, sq: HitSeq | undefined): HitExtra | null {
+  if (!sq) return null;
+  const dests = liveDests(sq.lfo);
+  const needPan = !!sq.live?.pan || dests.has('PAN');
+  const needFilter = !!sq.live?.filter || dests.has('FREQ') || dests.has('RESO');
+  const gain = !!sq.live?.gain;
+  if (sq.len === null && !sq.roll && dests.size === 0 && !sq.live) return null;
+  if (needPan && hp.pan === 0 && !hp.forcePan) {
+    hp.forcePan = true;
+    hp.gain *= Math.SQRT2;
+  }
+  if (needFilter && !hp.filter) {
+    const type = lock?.ftype ?? fx.ftype;
+    hp.filter = { type: FILTER_KIND[filterIndex(type)], hz: cutHz(lock?.fcut ?? fx.fcut), q: resoQ(lock?.freso ?? fx.freso), oct: 0, atk: 0, tau: fdecTau(lock?.fdec ?? fx.fdec) };
+  }
+  return { cut: sq.len, roll: sq.roll, lfo: dests.size > 0 ? sq.lfo : null, dests, gain, vol: lock?.level ?? fx.level, pan: hp.pan, reso: lock?.freso ?? fx.freso };
+}
+
+/** La loi d'une destination continue : la valeur de l'AudioParam pour une valeur v du LFO. */
+function lfoLaw(lv: LiveHit, d: LfoDest): ((v: number) => number) | null {
+  switch (d) {
+    case 'PITCH':
+      return (v) => v * LFO_PITCH_CENTS;
+    case 'FREQ':
+      return (v) => v * LFO_FREQ_CENTS;
+    case 'RESO': {
+      const bp = lv.bq?.type === 'bandpass';
+      return (v) => {
+        const q = resoQ(Math.max(0, Math.min(1, lv.reso + v)));
+        return bp ? q : 20 * Math.log10(q);
+      };
+    }
+    case 'VOL': {
+      const b = voiceGain(lv.level);
+      return (v) => (b > 1e-6 ? voiceGain(Math.max(0, Math.min(1, lv.level + v))) / b : 1);
+    }
+    case 'PAN':
+      return (v) => Math.max(-1, Math.min(1, lv.pan + v));
+    default:
+      return null;
+  }
+}
+function lfoParam(lv: LiveHit, d: LfoDest): AudioParam | null {
+  if (d === 'PITCH') return lv.src.detune;
+  if (d === 'FREQ') return lv.bq?.detune ?? null;
+  if (d === 'RESO') return lv.bq?.Q ?? null;
+  if (d === 'VOL') return lv.lfoG?.gain ?? null;
+  if (d === 'PAN') return lv.pn?.pan ?? null;
+  return null;
+}
+/** Le temps d'un glissement (la relance d'un LFO) : 3 ms, pas de marche ; celui d'un lock trig, la constante de temps (1 ms). */
+const LIVE_GLIDE_S = 0.003;
+const LIVE_TAU_S = 0.001;
+
+/**
+ * Tient un parametre a t (V.5.1, la revue de D2, E1) : cancelAndHoldAtTime la ou il existe ; sinon (Firefox ne l'a pas,
+ * dj/engine.ts le disait deja) l'annulation simple, puis la valeur v posee a t si on la connait (sans elle, un
+ * setTargetAtTime qui suit part de ce que valent les evenements d'avant t, ce qui revient au meme).
+ */
+function holdAt(p: AudioParam, t: number, v?: number): void {
+  if (typeof p.cancelAndHoldAtTime === 'function') p.cancelAndHoldAtTime(t);
+  else {
+    p.cancelScheduledValues(t);
+    if (v !== undefined) p.setValueAtTime(v, t);
+  }
+}
+
+/** La valeur des LFO continus d'un coup a t, par destination, telle que ses courbes la donnent maintenant (avant une relance). */
+function lfoHeld(lv: LiveHit, t: number): Map<LfoDest, number> {
+  const out = new Map<LfoDest, number>();
+  const L = lv.lfo;
+  if (!L) return out;
+  for (const d of liveDests(L)) {
+    const law = lfoLaw(lv, d);
+    if (law) out.set(d, law(lfoPoints(L, d, lv.when, t, t, lv.anchor)[0].v));
+  }
+  return out;
+}
+
+/**
+ * Les LFO continus d'un coup (V.5.1) : des rampes sur sa duree (au plus LFO_SPAN_S), depuis from ; un from apres le debut
+ * (un lock trig qui relance, une annulation) tient la valeur du moment (held : celle des courbes d'avant, a from) puis
+ * rejoint la nouvelle courbe en 3 ms.
+ */
+function lfoCurves(lv: LiveHit, from: number, held: Map<LfoDest, number> = lfoHeld(lv, from)): void {
+  const L = lv.lfo;
+  if (!L) return;
+  const t1 = Math.min(lv.end, lv.when + LFO_SPAN_S);
+  for (const d of liveDests(L)) {
+    const param = lfoParam(lv, d);
+    const law = lfoLaw(lv, d);
+    if (!param || !law) continue;
+    let t0 = Math.max(from, lv.when);
+    if (t0 >= t1) continue;
+    if (from > lv.when) {
+      // La valeur tenue posee a t0 : sans evenement apres lui, cancelAndHoldAtTime ne pose rien et la rampe partirait du
+      // debut du coup
+      const h = held.get(d);
+      holdAt(param, t0, h);
+      if (h !== undefined) param.setValueAtTime(h, t0);
+      t0 += LIVE_GLIDE_S;
+      if (t0 >= t1) continue;
+      const pts = lfoPoints(L, d, lv.when, t0, t1, lv.anchor);
+      for (const pt of pts) param.linearRampToValueAtTime(law(pt.v), pt.t);
+    } else {
+      const pts = lfoPoints(L, d, lv.when, t0, t1, lv.anchor);
+      param.setValueAtTime(law(pts[0].v), pts[0].t);
+      for (let i = 1; i < pts.length; i += 1) param.linearRampToValueAtTime(law(pts[i].v), pts[i].t);
+    }
+  }
 }
 
 /** Le filtre d'un coup : son type, sa coupure (Hz), son Q, son enveloppe (octaves au sommet, attaque, constante de descente). */
@@ -1137,7 +1328,7 @@ const withPanGain = (hp: HitParams): HitParams => {
  * qui sonne encore (choke) ; le charley ouvert passe par sa porte. `open` :
  * le pad CH tenu (CHopen).
  */
-function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParams, sync = false): Voice | null {
+function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParams, sync = false, ex: HitExtra | null = null): Voice | null {
   const c = g.ctx;
   const { decay, ts, pf } = hp;
   // Rien de pret pour ce son (le tout premier coup, avant le prechauffage) : il ne joue pas, aucun calcul ici
@@ -1158,12 +1349,29 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   // 1 : l'echantillon est deja a sa hauteur (aucune interpolation) ; sinon, en attendant, le plus proche relu
   src.playbackRate.value = shot.rate;
   const nodes: AudioNode[] = [src];
+  // V.5.1 (le sequenceur des trigs) : le VOL des lock trigs, le VOL des LFO, LEN, la coupe d'un retrig ; aucun au depart
+  const gainNode = (): GainNode => {
+    const n = c.createGain();
+    n.connect(dest);
+    nodes.push(n);
+    dest = n;
+    return n;
+  };
+  const lvl = ex?.gain ? gainNode() : null;
+  // Une valeur posee a l'heure du coup (pas seulement .value) : un lock trig la tient ensuite (cancelAndHoldAtTime) et glisse
+  // depuis elle ; sans evenement avant lui, sa rampe partait du debut du contexte
+  if (lvl) lvl.gain.setValueAtTime(1, when);
+  const lfoG = ex?.dests.has('VOL') ? gainNode() : null;
+  const cutG = ex && ex.cut !== null ? gainNode() : null;
+  const rollG = ex?.roll ? gainNode() : null;
+  let pnLive: StereoPannerNode | null = null;
   // PAN (2026-10-08) : un panoramique pour ce coup, seulement hors du centre (au centre, aucun noeud de plus).
   // Le coup y entre en mono (ses deux canaux sont le meme son) : loi a puissance constante, et x racine de 2
   // (hitParams) pour que pres du centre il sonne comme sans PAN ; tout a un bord, +3 dB de ce cote (le
   // StereoPannerNode en stereo doublait le canal du bord, +6 dB)
-  if (hp.pan !== 0) {
+  if (hp.pan !== 0 || hp.forcePan) {
     const pn = c.createStereoPanner();
+    pnLive = pn;
     // Un echantillon vraiment stereo (revue de R2) : le panoramique stereo (identite au centre, sa largeur
     // gardee, PAN 0.02 sonne comme PAN 0), sans le x racine de 2 de la loi mono ; un son mono : la loi mono
     const stereo = shots.isStereo(shot.buf);
@@ -1172,6 +1380,8 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
       pn.channelCountMode = 'explicit';
     }
     pn.pan.value = Math.max(-1, Math.min(1, hp.pan));
+    // Le panoramique en direct (V.5.1) : sa valeur posee a l'heure du coup, comme le VOL des lock trigs
+    if (ex) pn.pan.setValueAtTime(Math.max(-1, Math.min(1, hp.pan)), when);
     pn.connect(dest);
     nodes.push(pn);
     dest = pn;
@@ -1209,14 +1419,18 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   // Le filtre du coup (2026-10-09, la page FLTR) : passe-bas, passe-haut ou passe-bande, sa resonance, son enveloppe
   // (la coupure monte de oct octaves en atk, puis redescend avec la constante tau) ; aucun noeud au depart
   const fl = hp.filter;
+  let bqLive: BiquadFilterNode | null = null;
   if (fl) {
     const top = Math.min(20000, c.sampleRate * 0.45);
     const hz = (f: number): number => Math.max(20, Math.min(top, f));
     const bq = c.createBiquadFilter();
+    bqLive = bq;
     bq.type = fl.type;
     // Le Q de Web Audio est en dB pour le passe-bas et le passe-haut (lineaire pour le passe-bande) : RESO a 0 donne alors
     // le Butterworth (0.707, aucune bosse), a fond un Q de 12
     bq.Q.value = fl.type === 'bandpass' ? fl.q : 20 * Math.log10(fl.q);
+    // Le filtre en direct (V.5.1) : son Q pose a l'heure du coup (un lock trig RESO glisse depuis lui)
+    if (ex) bq.Q.setValueAtTime(bq.Q.value, when);
     const f0 = hz(fl.hz);
     if (fl.oct !== 0) {
       const peak = hz(fl.hz * Math.pow(2, fl.oct));
@@ -1225,7 +1439,11 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
         bq.frequency.exponentialRampToValueAtTime(peak, when + fl.atk);
       } else bq.frequency.setValueAtTime(peak, when);
       bq.frequency.setTargetAtTime(f0, when + fl.atk, fl.tau);
-    } else bq.frequency.value = f0;
+    } else {
+      bq.frequency.value = f0;
+      // De meme sa coupure (un lock trig FREQ glisse depuis elle)
+      if (ex) bq.frequency.setValueAtTime(f0, when);
+    }
     bq.connect(dest);
     nodes.push(bq);
     dest = bq;
@@ -1251,13 +1469,29 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   src.onended = () => {
     for (const n of nodes) n.disconnect();
   };
+  // LEN (V.5.1) : le coup relache en 8 ms a la fin de LEN, sa source s'arrete juste apres (les envois gardent leur queue)
+  if (cutG && ex && ex.cut !== null) {
+    const cutAt = when + Math.max(0, ex.cut);
+    if (cutAt < when + len && (stopAt === 0 || cutAt < stopAt)) {
+      cutG.gain.setValueAtTime(1, cutAt);
+      cutG.gain.linearRampToValueAtTime(0, cutAt + LEN_REL_S);
+      stopAt = cutAt + LEN_REL_S + 0.002;
+      if (ownGate) ohEnd = Math.min(ohEnd, stopAt);
+      if (ownBd) bdEnd = Math.min(bdEnd, stopAt);
+    }
+  }
   if (off > 0) src.start(when, off);
   else src.start(when);
   if (stopAt > 0) src.stop(stopAt);
+  let live: LiveHit | undefined;
+  if (ex) {
+    live = { when, end: stopAt > 0 ? stopAt : when + len, src, lvl, lfoG, roll: rollG, pn: pnLive, bq: bqLive, vol: ex.vol, level: ex.vol, pan: ex.pan, reso: ex.reso, lfo: ex.lfo, anchor: ex.lfo?.anchor ?? 0 };
+    lfoCurves(live, when);
+  }
   // Un kick : son enveloppe, a sa vitesse, avec son DECAY (le SIDECHAIN du MM-ARP) ; un son verrouille d'une
   // autre famille sur la voie du kick n'en est pas un (2026-10-08 : le SIDECHAIN suit les kicks, pas la voie)
   const kick = inst === 'BD' && hp.kick ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: Math.max(DECAY_HOLD_S, atk + hp.hold), tau, vel: 1, ...(off > 0 ? { off } : {}) } : undefined;
-  return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd };
+  return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd, ...(live ? { live } : {}) };
 }
 
 /**
@@ -1281,7 +1515,7 @@ export function shotReady(inst: Inst, lock: Readonly<StepLock> | null, ms: numbe
  * `out` recoit la voix programmee (l'horloge, pour pouvoir l'annuler).
  * `vel` : la velocite du pas, en gain (1 fort, 0.6 moyen, 0.32 doux).
  */
-export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], vel = 1, lock0: Readonly<StepLock> | null = null, scenes: SceneSet = pattern.scenes.get()): boolean {
+export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], vel = 1, lock0: Readonly<StepLock> | null = null, scenes: SceneSet = pattern.scenes.get(), sq?: HitSeq): boolean {
   const g = graph;
   if (!g) return false;
   enforceMute(g);
@@ -1290,16 +1524,21 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   // Les scenes au x du moment (2026-10-27, audio/morph.ts) : sans scene pour la voix, le verrou et la voix eux-memes
   const m = morph.hit(inst, lock0, scenes);
   const fx = m.fx;
-  const lock = m.lock;
-  const hp = hitParams(inst, open, lock, tone, morph.stretch(), fx, m.kit, m.lazy);
+  // Les LFO pris au moment du coup (V.5.1 : DIST, DELAY, REVERB, TONE, DECAY), sur les valeurs que le coup joue
+  const lh = lfoHitLock(sq?.lfo ?? null, fx, m.lock);
+  const lock = lh.lock;
+  const hp = hitParams(inst, open, lock, tone, morph.stretch(), fx, m.kit, m.lazy || lh.tone);
+  const ex = seqExtra(hp, fx, lock, sq);
   // Velocite (2026-10-01) : un gain de plus entre la voix et sa tranche, sous 1 ; un VOL verrouille s'y ajoute (2026-10-08)
   const gain = Math.max(0, vel) * hp.gain;
   const entry = hitEntry(g, inst, hp, fx, gain);
-  const v = voice(g, inst, t, entry.dest, hp, false);
+  const v = voice(g, inst, t, entry.dest, hp, false, ex);
   if (!v) {
     for (const n of entry.nodes) n.disconnect();
     return false;
   }
+  // Une repetition d'un retrig (V.5.1) : le coup d'avant de la voix s'efface en 8 ms (une voix, un coup a la fois)
+  if (sq?.rep && sq.prev) rollCut(sq.prev, t, v);
   // Le gain (et le TONE d'un pas verrouille) part avec la voix (meme liste de noeuds a debrancher)
   v.nodes.push(...entry.nodes);
   // Les envois verrouilles du pas (revue de R2) : sur sa tranche a l'instant du coup ; DIST et CHORUS aussi (2026-10-09)
@@ -1315,6 +1554,116 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   triggers += 1;
   last = { inst, open: inst === 'CH' && open, when: t, at: performance.now(), state: g.ctx.state as AudioContextState, lock, decay: hp.decay, gain, shot: hp.id, pf: hp.pf, pan: hp.pan, start: hp.start };
   return true;
+}
+
+/** Un stop() qui ne leve jamais (un navigateur qui refuse un second appel : le coup finit seul). */
+function stopSrc(src: AudioScheduledSourceNode, t: number): void {
+  try {
+    src.stop(t);
+  } catch {
+    /* deja arretee */
+  }
+}
+
+/**
+ * La coupe du coup de retrig d'avant (V.5.1) par la repetition v a t ; v la retient (une annulation la retire). Sa source
+ * s'arrete juste apres la rampe et ses courbes de LFO s'y arretent (la revue de D2, E2 : chaque repetition tournait
+ * sinon a vide jusqu'au bout de son echantillon, des centaines de sources a la fois).
+ */
+function rollCut(prev: Voice, t: number, v: Voice): void {
+  const lv = prev.live;
+  if (!lv?.roll || lv.end <= t) return;
+  const p = lv.roll.gain;
+  p.setValueAtTime(1, t);
+  p.linearRampToValueAtTime(0, t + CHOKE_S);
+  const stop = t + CHOKE_S + 0.002;
+  v.rollCut = { param: p, t, lv, end: lv.end, stop };
+  lv.end = t + CHOKE_S;
+  stopSrc(lv.src, stop);
+  if (lv.lfo) {
+    const held = lfoHeld(lv, stop);
+    for (const dst of liveDests(lv.lfo)) {
+      const param = lfoParam(lv, dst);
+      if (param) holdAt(param, stop, held.get(dst));
+    }
+  }
+}
+
+/**
+ * Un lock trig (V.5.1, en REC FUNC + pas) : il ne joue pas ; ses verrous vont au coup de la voix qui sonne encore a t, pour
+ * ce que le moteur change en direct : VOL, PAN, la frequence et la resonance du filtre (les coups de la voix ont ces noeuds
+ * en direct des que le motif a des lock trigs qui les verrouillent), les envois DELAY et REVERB et les inserts DIST et
+ * CHORUS de sa tranche (comme le verrou d'un coup, jusqu'au coup suivant de la voix). anchor : LFO.T ON, ses LFO
+ * repartent de la. Rend la voix vide qui le porte (l'horloge peut l'annuler, cancelVoice rend au coup ce qu'il avait).
+ */
+function lockTrigOn(g: Graph, inst: Inst, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null): Voice {
+  const pv: Voice = { when: t, srcs: [], nodes: [] };
+  postSends(g, inst, t, lock, pv);
+  postInserts(g, inst, t, lock, pv);
+  lockTrigs += 1;
+  const lv = last?.live;
+  if (!lv || t >= lv.end || t < lv.when) return pv;
+  const u: LiveUndo = { lv, t, level: lv.level, pan: lv.pan, reso: lv.reso, anchor: lv.anchor, params: [] };
+  const lfoOn = liveDests(lv.lfo);
+  // La valeur des LFO a t avant ce lock trig (ses courbes s'y tiennent, puis repartent)
+  const held = lfoHeld(lv, t);
+  // De la valeur du moment (quelle que soit la courbe d'avant : une enveloppe, une valeur fixe) vers celle du verrou, en
+  // quelques ms : setTargetAtTime part de ce que vaut le parametre a t (une rampe lineaire partait de l'evenement d'avant)
+  const glideTo = (p: AudioParam, v: number): void => {
+    holdAt(p, t);
+    p.setTargetAtTime(v, t, LIVE_TAU_S);
+    u.params.push(p);
+  };
+  if (lock?.level !== undefined && lv.lvl) {
+    const b = voiceGain(lv.vol);
+    glideTo(lv.lvl.gain, b > 1e-6 ? voiceGain(lock.level) / b : 1);
+    lv.level = lock.level;
+  }
+  if (lock?.pan !== undefined && lv.pn) {
+    lv.pan = snapPan(lock.pan);
+    if (!lfoOn.has('PAN')) glideTo(lv.pn.pan, lv.pan);
+  }
+  if (lock?.fcut !== undefined && lv.bq) {
+    const top = Math.min(20000, g.ctx.sampleRate * 0.45);
+    glideTo(lv.bq.frequency, Math.max(20, Math.min(top, cutHz(lock.fcut))));
+  }
+  if (lock?.freso !== undefined && lv.bq) {
+    lv.reso = lock.freso;
+    if (!lfoOn.has('RESO')) {
+      const q = resoQ(lv.reso);
+      glideTo(lv.bq.Q, lv.bq.type === 'bandpass' ? q : 20 * Math.log10(q));
+    }
+  }
+  if (anchor !== null) lv.anchor = anchor;
+  // Les LFO continus repartent de t (une base ou l'ancre a change)
+  if (lv.lfo) lfoCurves(lv, t, held);
+  if (u.params.length > 0 || lv.lfo) pv.undo = u;
+  return pv;
+}
+
+/**
+ * Les valeurs jouees des verrous d'un lock trig sous les scenes (la revue de D2, E7) : un verrou de tranche (VOL, les
+ * envois, les inserts) reste verrou a sa valeur morphee, un verrou de coup (PAN, le filtre) passe dans la voix jouee ;
+ * sans scene, le verrou lui-meme.
+ */
+function playedLock(lock: Readonly<StepLock> | null, m: { fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null }): Readonly<StepLock> | null {
+  if (!lock || m.lock === lock) return lock;
+  const out: Record<string, number> = {};
+  const ml = m.lock as Readonly<Record<string, unknown>> | null;
+  const fx = m.fx as Readonly<Record<string, unknown>>;
+  for (const [k, v0] of Object.entries(lock as Readonly<Record<string, number>>)) {
+    const a = ml?.[k];
+    const b = fx[k];
+    out[k] = typeof a === 'number' ? a : typeof b === 'number' ? b : v0;
+  }
+  return out as StepLock;
+}
+
+/** Un lock trig sur le graphe vivant (l'horloge), aux valeurs que jouent les scenes ; null sans contexte. */
+export function lockTrig(inst: Inst, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null, scenes: SceneSet = pattern.scenes.get()): Voice | null {
+  const g = graph;
+  if (!g) return null;
+  return lockTrigOn(g, inst, Math.max(t, g.ctx.currentTime), playedLock(lock, morph.hit(inst, lock, scenes)), last, anchor);
 }
 
 /**
@@ -1351,11 +1700,12 @@ function postInserts(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock
  * Les inserts DIST et CHORUS tenus engages pour les voix qui en ont un verrou dans ces verrous (le motif, un rendu), ou
  * dont DIST ou CHORUS est dans une scene (2026-10-27, needs : un crossfader qui passe par 0 ne debranche rien).
  */
-function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds = NO_NEEDS): void {
+function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds = NO_NEEDS, fxOf: (inst: Inst) => Readonly<Partial<Record<string, number>>> | null = (i) => voiceFx.of(i)): void {
   if (!g.ch) return;
   for (const inst of INSTRUMENTS) {
     const row = locks?.[inst];
-    let dist = needs.dist.has(inst);
+    // Un LFO de la voix sur DIST (V.5.1) : tenu engage comme pour un verrou
+    let dist = needs.dist.has(inst) || lfoDistOf(fxOf(inst), row);
     let chorus = needs.chorus.has(inst);
     if (row) {
       for (const l of Object.values(row)) {
@@ -1369,8 +1719,8 @@ function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined, needs:
 }
 
 /** Les tenues que demandent les verrous du motif et ses scenes (2026-10-27) : les inserts des voix, DIST et CHORUS du bus. */
-function holdScenes(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds): void {
-  holdInserts(g, locks, needs);
+function holdScenes(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds, fxOf?: (inst: Inst) => Readonly<Partial<Record<string, number>>> | null): void {
+  holdInserts(g, locks, needs, fxOf);
   g.fx.hold(needs.busDist);
   g.kickFx?.hold(needs.busDist);
   g.chorus.lockHold?.(needs.busChorus);
@@ -1495,7 +1845,11 @@ pattern.subscribe(() => {
   if (graph) holdInserts(graph, pattern.get().locks, morph.inserts());
 });
 kit.subscribe(() => prepareLocks());
-voiceFx.subscribe(() => prepareLocks());
+voiceFx.subscribe(() => {
+  prepareLocks();
+  // Un LFO de voix sur DIST (V.5.1) : l'insert de sa tranche tenu engage, comme pour un verrou
+  if (graph) holdInserts(graph, pattern.get().locks, morph.inserts());
+});
 
 /**
  * Annule une voix programmee qui n'a pas encore sonne (STOP de l'horloge).
@@ -1511,6 +1865,24 @@ export function cancelVoice(v: Voice): void {
   // Ses points d'envoi (revue de R2, les verrous DELAY et REVERB) : retires, les autres coups gardent les leurs ; DIST et CHORUS de meme (2026-10-09)
   if (v.sends) for (const snd of v.sends) snd.cancel(v);
   if (v.inserts) for (const ins of v.inserts) ins.cancel(v);
+  // Un lock trig annule (V.5.1) : le coup qui sonnait reprend ses valeurs et ses LFO d'avant lui
+  if (v.undo) {
+    const u = v.undo;
+    for (const p of u.params) p.cancelScheduledValues(u.t);
+    u.lv.level = u.level;
+    u.lv.pan = u.pan;
+    u.lv.reso = u.reso;
+    u.lv.anchor = u.anchor;
+    if (u.lv.lfo) lfoCurves(u.lv, u.t);
+  }
+  // Une repetition annulee : le coup d'avant n'est plus coupe (sa fin, sa source et ses LFO d'origine)
+  if (v.rollCut) {
+    const rc = v.rollCut;
+    rc.param.cancelScheduledValues(rc.t);
+    rc.lv.end = rc.end;
+    stopSrc(rc.lv.src, rc.end);
+    if (rc.lv.lfo) lfoCurves(rc.lv, rc.stop);
+  }
   // Un charley annule (re-programmation, 2026-10-05) : le charley ouvert qu'il etouffait sonne de nouveau
   // (annulees du dernier au premier, les portes reviennent dans l'ordre)
   if (v.choked) {
@@ -1910,6 +2282,17 @@ export interface OfflineOpts {
    * la sortie de toujours.
    */
   tap?: 'rytm';
+  /**
+   * Le sequenceur des trigs (V.5.1, audio/seq.ts, le motif simple seulement) : les reglages de trig par defaut du motif
+   * (aucun par defaut hors ligne) ; FILL tenu pendant tout le rendu (fill) ou par instants ([instant (s), tenu]) ; LST
+   * vrai a chaque passage (last) ; log : chaque coup et chaque lock trig dans offlineHits (sans log : seulement avec des
+   * scenes, comme avant). Le compteur de passages part de 1 a la premiere mesure du rendu, PROB tire avec la graine seed.
+   */
+  trigs?: TrigSet;
+  fill?: boolean;
+  fillAt?: [number, boolean][];
+  last?: boolean;
+  log?: boolean;
 }
 
 /** Ce que l'applicateur du dernier rendu hors ligne a pose (tests) : [instant (s), x]. */
@@ -1922,10 +2305,22 @@ export interface OfflineHit {
   step: number;
   pf: number;
   decay: number;
+  /** avec log (V.5.1) : le gain du coup (velocite et VOL), 'note', 'rep' (une repetition) ou 'lock' (un lock trig), LEN (s) */
+  gain?: number;
+  kind?: 'note' | 'rep' | 'lock';
+  len?: number | null;
+  /** avec log : la valeur de chaque LFO du coup a son debut, par destination (la somme des deux LFO, -1 a 1) */
+  lfo?: Partial<Record<LfoDest, number>>;
 }
 let offlineHitsLog: OfflineHit[] = [];
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+/** Les LFO d'un coup au journal (tests) : leur valeur a son debut, par destination. */
+const lfoLog = (l: HitLfo): Partial<Record<LfoDest, number>> => {
+  const out: Partial<Record<LfoDest, number>> = {};
+  for (const x of l.list) out[x.dest] = lfoSum(l.list, x.dest, l.pos, l.anchor);
+  return out;
+};
 
 function seeded(seed: number): () => number {
   let a = seed >>> 0;
@@ -2000,16 +2395,24 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     // Les reglages de chaque voix hors ligne : neutres, sauf ceux imposes ; le meme calcul de coup qu'en direct
     const vfx = (inst: Inst): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}), tone: snapTone(o.voice?.[inst]?.tone ?? 0) });
     /** un coup : sans scene le calcul d'avant ; avec, le morphing du coup au x de son instant (morphHitPure, comme en direct) */
-    const hitOf = (inst: Inst, lock: Readonly<StepLock> | null, t: number, s: SceneSet = sc): { hp: HitParams; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } => {
-      if (s === NO_SCENES) return { hp: hitParams(inst, false, lock, tone0, stretch0, vfx(inst)), fx: vfx(inst), lock };
+    const hitOf = (inst: Inst, lock: Readonly<StepLock> | null, t: number, s: SceneSet = sc, lfo: HitLfo | null = null): { hp: HitParams; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } => {
+      if (s === NO_SCENES) {
+        const fx = vfx(inst);
+        if (!lfo) return { hp: hitParams(inst, false, lock, tone0, stretch0, fx), fx, lock };
+        // Les LFO pris au moment du coup (V.5.1), comme en direct
+        const lh = lfoHitLock(lfo, fx, lock);
+        return { hp: hitParams(inst, false, lh.lock, tone0, stretch0, fx), fx, lock: lh.lock };
+      }
       const m = morphHitPure(inst, vfx(inst), lock, s, xOfHit(t));
-      return { hp: hitParams(inst, false, m.lock, tone0, stretch0, m.fx, m.kit), fx: m.fx, lock: m.lock };
+      const lh = lfoHitLock(lfo, m.fx, m.lock);
+      return { hp: hitParams(inst, false, lh.lock, tone0, stretch0, m.fx, m.kit), fx: m.fx, lock: lh.lock };
     };
     // Les inserts DIST et CHORUS des voix qui en ont un verrou dans le rendu (2026-10-09) : tenus engages, comme en direct ;
     // ceux que les scenes du rendu menent aussi, et DIST et CHORUS du bus (2026-10-27)
     const rLocks = o.single ? (o.singleLock ? ({ [o.single]: { 0: o.singleLock } } as Locks) : null) : o.locks;
-    if (morphed) holdScenes(g, rLocks, insertNeedsOf(sc));
-    else holdInserts(g, rLocks);
+    const fxOff = (i: Inst): Readonly<Partial<Record<string, number>>> | null => o.voice?.[i] ?? null;
+    if (morphed) holdScenes(g, rLocks, insertNeedsOf(sc), fxOff);
+    else holdInserts(g, rLocks, NO_NEEDS, fxOff);
     const probeIn = o.dcInto ?? o.sineInto;
     if (o.sines) {
       for (const hz of o.sines) {
@@ -2078,21 +2481,55 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     } else {
       const steps = o.steps ?? pattern.get().steps;
       const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
+      // Le sequenceur des trigs (V.5.1, audio/seq.ts), le meme qu'en direct : au depart, exactement la boucle d'avant (une
+      // voix apres l'autre, un coup par pas a velocite, a l'heure du pas, avec ses verrous)
+      const st = seqState(o.seed ?? 808);
+      const trigs = o.trigs ?? NO_TRIGS;
+      const fills = (o.fillAt ?? []).filter(([t]) => Number.isFinite(t)).sort((a, b) => a[0] - b[0]);
+      const fillOf = (t: number): boolean => {
+        let f = o.fill === true;
+        for (const [te, on] of fills) {
+          if (te > t) break;
+          f = on;
+        }
+        return f;
+      };
+      const log = morphed || o.log === true;
+      const fxSeq = (i: Inst): Readonly<Partial<Record<string, number>>> | null => o.voice?.[i] ?? null;
       for (let n = 0, t = 0.02; t < o.seconds - 0.5; n += 1, t += step) {
-        for (const inst of INSTRUMENTS) {
-          const v = velocity(steps, inst, n % STEP_COUNT);
-          if (v === 0) continue;
-          const h = hitOf(inst, lockOf(o.locks, inst, n % STEP_COUNT), t);
+        const s = n % STEP_COUNT;
+        const bar = Math.floor(n / STEP_COUNT);
+        const out = seqStep(st, { s, pos: n, when: t, grid: t, dur: step, steps, locks: o.locks, trigs, ctx: { pass: bar + 1, fill: fillOf(t), last: o.last === true }, plays: () => true, fxOf: fxSeq });
+        const made: { inst: Inst; v: Voice }[] = [];
+        for (const hit of out.hits) {
+          const inst = hit.inst;
+          // Un uTIME negatif au tout premier pas tombe avant le rendu : au debut
+          const th = Math.max(0, hit.t);
+          const live = liveNeeds(o.locks, inst);
+          const prev = st.v[inst].last as Voice | null;
+          const sq: HitSeq | undefined = hit.len !== null || hit.lfo || hit.roll || live ? { len: hit.len, lfo: hit.lfo, roll: hit.roll, rep: hit.rep, prev, live } : undefined;
+          const h = hitOf(inst, hit.lock, th, sc, hit.lfo);
           const hp = h.hp;
-          const gain = VEL_GAIN[v] * hp.gain;
+          const ex = seqExtra(hp, h.fx, h.lock, sq);
+          const gain = hit.vel * hp.gain;
           const entry = hitEntry(g, inst, hp, h.fx, gain);
-          const vo = voice(g, inst, t, entry.dest, hp, true);
-          if (morphed) offlineHitsLog.push({ t, inst, bar: Math.floor(n / STEP_COUNT), step: n % STEP_COUNT, pf: hp.pf, decay: hp.decay });
+          const vo = voice(g, inst, th, entry.dest, hp, true, ex);
+          if (log) offlineHitsLog.push({ t: th, inst, bar, step: s, pf: hp.pf, decay: hp.decay, ...(o.log ? { gain, kind: hit.rep ? ('rep' as const) : ('note' as const), len: hit.len, ...(hit.lfo ? { lfo: lfoLog(hit.lfo) } : {}) } : {}) });
           if (vo) {
-            postSends(g, inst, t, h.lock, vo);
-            postInserts(g, inst, t, h.lock, vo);
+            if (hit.rep && prev) rollCut(prev, th, vo);
+            postSends(g, inst, th, h.lock, vo);
+            postInserts(g, inst, th, h.lock, vo);
             voices.push(vo);
+            seqLast(st, inst, vo);
+            made.push({ inst, v: vo });
           }
+        }
+        for (const lt of out.locks) {
+          const tl = Math.max(0, lt.t);
+          // Comme en direct : le coup qui sonne a son heure (E5), les valeurs que jouent les scenes (E7)
+          const lk = sc === NO_SCENES ? lt.lock : playedLock(lt.lock, morphHitPure(lt.inst, vfx(lt.inst), lt.lock, sc, xOfHit(tl)));
+          voices.push(lockTrigOn(g, lt.inst, tl, lk, soundingAt(made, lt.inst, tl, lt.last as Voice | null), lt.anchor));
+          if (o.log) offlineHitsLog.push({ t: tl, inst: lt.inst, bar, step: s, pf: 0, decay: 0, gain: 0, kind: 'lock', len: null });
         }
       }
     }
@@ -2303,6 +2740,8 @@ export interface AudioDebug {
   /** contextes crees depuis le chargement de la page (0 avant le premier geste, 1 ensuite) */
   readonly created: number;
   readonly triggers: number;
+  /** les lock trigs appliques depuis le chargement (V.5.1 ; en direct et hors ligne) */
+  readonly lockTrigs: number;
   readonly last: TriggerInfo | null;
   /** crete absolue des 1024 derniers echantillons de l'analyseur */
   peak(): number;
@@ -2463,6 +2902,9 @@ export const audioDebug: AudioDebug = {
   },
   get triggers() {
     return triggers;
+  },
+  get lockTrigs() {
+    return lockTrigs;
   },
   get last() {
     return last;

@@ -17,6 +17,8 @@
 import { DELAY_DIVS, FX_NOTCHES, fxSnap, isFxSetting } from '../audio/pattern';
 import { snapTime } from '../audio/time';
 import { VOICE_PARAMS, voiceClamp, type VoiceParam } from '../audio/voicefx';
+import { isTrigParam } from '../audio/trig';
+import { isLfoParam } from '../audio/lfo';
 import type { KitFamily } from '../audio/kit';
 import { VOICE_PARAM, isVoiceEnc, type EncId, type Inst } from '../theme';
 
@@ -122,6 +124,8 @@ export const MORPH_EXCLUDED: Readonly<Record<string, string>> = {
   'rytm:layer:*:<param>': HEAVY_RECORDABLE ? 'heavy: applied at rest' : 'heavy: not yet (P2-22)',
   'rytm:knob:*': 'relative: resolved to its block when recorded',
   'rytm:enc:<voice row>': 'relative: resolved to the selected voice when recorded',
+  'rytm:voice:*:<trig setting>': 'V.5.1 trig settings (LEN, PROB, COND...): not in the scenes yet',
+  'rytm:voice:*:<lfo setting>': 'V.5.1 LFOs (l1spd ... l2dep): not in the scenes yet',
 };
 
 const bindings = new Map<string, SceneBinding | null>();
@@ -172,6 +176,8 @@ export function sceneRole(id: string): SceneRole {
     if (isVoiceEnc(e)) return 'resolved';
   }
   if (p[1] === 'voice' && p[3] === 'mute') return 'passthrough';
+  // Les reglages de trig et les LFO d'une voix (V.5.1) : hors des scenes en D2
+  if (p[1] === 'voice' && p.length === 4 && (isTrigParam(p[3]) || isLfoParam(p[3]))) return 'noscene';
   const b = bindingOf(id);
   if (b) return b.cls === 'heavy' && !HEAVY_RECORDABLE ? 'noscene' : 'sceneable';
   if (p[1] === 'kit' || p[1] === 'layer') return 'noscene';

@@ -130,7 +130,9 @@ import {
   recKey,
   stepWrites,
   stopKey,
+  yesDown,
   yesKey,
+  yesUp,
   trkDown,
   trkStep,
   trkStepMute,
@@ -341,6 +343,8 @@ interface Down {
   trkSrc?: string;
   /** FUNC tenue par ce pointeur (V.5.0, 2026-10-29) : sa source, lachee au pointerup ou perdue */
   funcSrc?: string;
+  /** YES tenue par ce pointeur (V.5.1, 2026-10-29) : sa source ; une tape au lacher, FILL tenue plus de 250 ms */
+  yesSrc?: string;
   /** SCENE A ou B tenue par ce pointeur (2026-10-27) : laquelle et sa source, lachee au pointerup ou perdue */
   scene?: 'a' | 'b';
   sceneSrc?: string;
@@ -1043,7 +1047,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'run') playKey(stage);
       else if (d.kind === 'rec') recKey(stage);
       else if (d.kind === 'stop') stopKey(stage);
-      else if (d.kind === 'yes') yesKey(stage);
+      // YES (V.5.1) : tenu par ce pointeur depuis l'appui (yesDown) ; son lacher fait la tape ou finit FILL (yesUp)
+      else if (d.kind === 'yes') {
+        if (!d.yesSrc) yesKey(stage);
+      }
       else if (d.kind === 'no') noKey(stage);
       else if (d.kind === 'func') return d.id;
       else if (d.kind === 'clear') clearPattern(stage);
@@ -1170,7 +1177,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return false;
       }
       // TRK, SCENE A ou B tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
-      if (d && (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'func')) return false;
+      // YES tenue pour FILL (V.5.1) de meme
+      if (d && (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'func' || (d.kind === 'yes' && !!d.yesSrc))) return false;
       // Le crossfader (P2-20) : le glisser le deplace, jamais l'orbite ; le premier mouvement compte deja (depuis la prise)
       if (d && d.kind === 'xfade') {
         if (!d.xf) return false;
@@ -1390,6 +1398,16 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           d0.funcSrc = `ptr:${e.pointerId}`;
           funcDown(d0.funcSrc, e.timeStamp || performance.now());
           stage.pressFaceKey('func');
+        }
+      }
+      // YES (V.5.1, 2026-10-29) : enfoncee, ce pointeur la tient ; une tape au lacher (D1), tenue plus de 250 ms FILL tant
+      // qu'on la tient (une seule souris suffit) ; ni orbite ni pincement. INFOS allume, au doigt : la carte seulement
+      if (DT_FACE && h && h.kind === 'yes') {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        if (d0 && !d0.info) {
+          d0.yesSrc = `ptr:${e.pointerId}`;
+          yesDown(d0.yesSrc, stage);
         }
       }
       // SCENE A et B (2026-10-27, la phase 2) : tenue par ce pointeur (enregistre tant qu'on la tient), une tape la garde ;
@@ -1629,6 +1647,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK tenue par ce pointeur perdu : lachee sans garde ; une scene aussi
       if (d.trkSrc) trkUp(d.trkSrc, -1);
       if (d.funcSrc) funcUp(d.funcSrc, -1);
+      // YES perdu (V.5.1) : FILL finit, aucune tape ne part
+      if (d.yesSrc) yesUp(d.yesSrc, null, false);
       if (DT_FACE && d.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, -1);
       if (d.xf) xfadeGesture('end', 'ptr');
@@ -1743,6 +1763,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde ; SCENE A et B
       if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.funcSrc) funcUp(d.funcSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      // YES lache (V.5.1) : une tape (YES de D1) avant 250 ms, sinon la fin de FILL ; un pointeur annule, ou lache hors de
+      // YES (la revue de D2, U1 : comme en D1, glisser hors de la touche annule le hasard) : rien ne part, FILL finit
+      if (d?.yesSrc) yesUp(d.yesSrc, stage, e.type === 'pointerup' && d.id !== null && pickAt(e, isCoarse(e))?.id === d.id);
       if (DT_FACE && d?.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.xf) xfadeGesture('end', 'ptr');

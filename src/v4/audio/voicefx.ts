@@ -24,6 +24,7 @@
 
 import type { Inst } from '../theme';
 import { snapTone } from './tone';
+import { LFO_PARAMS, clampLfo, lfoDefault, type LfoParam } from './lfo';
 
 /*
  * L'etape 2 de la refonte (2026-10-09, Mika : "on doit ensuite avoir un
@@ -62,7 +63,14 @@ export type VoiceParam =
   | 'fdec';
 export const VOICE_PARAMS: readonly VoiceParam[] = ['tone', 'decay', 'level', 'dist', 'reverb', 'delay', 'chorus', 'tune', 'pan', 'start', 'atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec'];
 
-export type VoiceFx = Record<VoiceParam, number>;
+/**
+ * Les reglages d'une voix ; depuis V.5.1 (2026-10-29, la page MOD) aussi ses deux LFO (audio/lfo.ts : l1spd... l2dep, des
+ * entiers), facultatifs : absents a leur depart (un preset, l'UNDO, le stockage d'avant se relisent tels quels, leur
+ * empreinte ne bouge pas).
+ */
+export type VoiceFx = Record<VoiceParam, number> & Partial<Record<LfoParam, number>>;
+/** Un LFO de la voix : sa valeur, le depart quand il est absent. */
+export const lfoOf = (v: Readonly<VoiceFx>, p: LfoParam): number => v[p] ?? lfoDefault(p);
 
 export const VOICE_FX_DEFAULT: Readonly<VoiceFx> = {
   tone: 0,
@@ -201,7 +209,7 @@ function load(): Record<Inst, VoiceFx> {
   const out = Object.fromEntries(INSTS.map((i) => [i, { ...VOICE_FX_DEFAULT }])) as Record<Inst, VoiceFx>;
   if (typeof window === 'undefined') return out;
   try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as Partial<Record<Inst, Partial<Record<VoiceParam, unknown>>>> | null;
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as Partial<Record<Inst, Partial<Record<VoiceParam | LfoParam, unknown>>>> | null;
     if (!raw || typeof raw !== 'object') return out;
     for (const i of INSTS) {
       const r = raw[i];
@@ -209,6 +217,11 @@ function load(): Record<Inst, VoiceFx> {
       for (const p of VOICE_PARAMS) {
         const v = r[p];
         if (typeof v === 'number' && Number.isFinite(v)) out[i][p] = clamp(p, v);
+      }
+      // Les LFO (V.5.1) : seulement ce qui quitte le depart
+      for (const p of LFO_PARAMS) {
+        const v = r[p];
+        if (typeof v === 'number' && Number.isFinite(v) && clampLfo(p, v) !== lfoDefault(p)) out[i][p] = clampLfo(p, v);
       }
     }
   } catch {
@@ -231,7 +244,8 @@ function changed(): void {
       const keep: Partial<Record<Inst, Partial<VoiceFx>>> = {};
       for (const i of INSTS) {
         const d = VOICE_PARAMS.filter((p) => state[i][p] !== VOICE_FX_DEFAULT[p]);
-        if (d.length) keep[i] = Object.fromEntries(d.map((p) => [p, state[i][p]]));
+        const lf = LFO_PARAMS.filter((p) => state[i][p] !== undefined && state[i][p] !== lfoDefault(p));
+        if (d.length || lf.length) keep[i] = Object.fromEntries([...d, ...lf].map((p) => [p, state[i][p]]));
       }
       if (Object.keys(keep).length) window.localStorage.setItem(KEY, JSON.stringify(keep));
       else window.localStorage.removeItem(KEY);
@@ -251,13 +265,23 @@ export const voiceFx = {
     state = { ...state, [inst]: { ...state[inst], [p]: t } };
     changed();
   },
+  /** Un reglage d'un LFO de la voix (V.5.1) : le depart le retire ; rien ne part si rien ne change. */
+  setLfo(inst: Inst, p: LfoParam, v: number): void {
+    const t = clampLfo(p, v);
+    if ((state[inst][p] ?? lfoDefault(p)) === t) return;
+    const next: VoiceFx = { ...state[inst] };
+    if (t === lfoDefault(p)) delete next[p];
+    else next[p] = t;
+    state = { ...state, [inst]: next };
+    changed();
+  },
   /** La voix revient au neutre. */
   reset(inst: Inst): void {
     state = { ...state, [inst]: { ...VOICE_FX_DEFAULT } };
     changed();
   },
   /** true si la voix a au moins un effet engage. */
-  active: (inst: Inst): boolean => VOICE_PARAMS.some((p) => state[inst][p] !== VOICE_FX_DEFAULT[p]),
+  active: (inst: Inst): boolean => VOICE_PARAMS.some((p) => state[inst][p] !== VOICE_FX_DEFAULT[p]) || LFO_PARAMS.some((p) => (state[inst][p] ?? lfoDefault(p)) !== lfoDefault(p)),
   subscribe(fn: () => void): () => void {
     listeners.add(fn);
     return () => {

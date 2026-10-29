@@ -44,7 +44,7 @@
 
 import { useEffect, useRef } from 'react';
 import { trk } from '../state/trk';
-import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, modeHold, muteToggle, noKey, openToggle, padHit, page, playKey, presetEnter, presetKey, recKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesKey } from '../actions';
+import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, modeHold, muteToggle, noKey, openToggle, padHit, page, playKey, presetEnter, presetKey, recKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
 import { lcdSamples } from '../state/lcdSamples';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
@@ -282,9 +282,10 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         recKey(getStage());
         return;
       }
+      // Entree tenue (V.5.1) : comme YES a la souris, une tape au lacher, FILL tenue plus de 250 ms
       if (dt && e.key === 'Enter' && !ownsSpace(e.target)) {
         e.preventDefault();
-        yesKey(getStage());
+        yesDown('key', getStage());
         return;
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
@@ -318,6 +319,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         funcUp('key', -1);
         if (DT_FACE) e.preventDefault();
       }
+      // Entree lachee (V.5.1) : la tape de YES, ou la fin de FILL
+      if (e.key === 'Enter') yesUp('key', getStage(), true);
       const held = mKey.current;
       if (!held || !(e.code === 'KeyM' || e.key.toLowerCase() === 'm')) return;
       mKey.current = null;
@@ -330,6 +333,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
     const onBlur = (): void => {
       if (mKey.current) window.clearTimeout(mKey.current.timer);
       mKey.current = null;
+      // Entree tenue quand la fenetre perd le clavier (V.5.1) : FILL finit, aucune tape ne part
+      yesUp('key', null, false);
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onUp);

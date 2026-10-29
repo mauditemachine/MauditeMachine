@@ -32,7 +32,7 @@
  * l'enveloppe de ENV, la courbe de FLTR) n'ont ni valeur ni zone.
  */
 
-import { dialRange, dialShown, dialSteps, dialUnit, dialValueText, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageLockView, sceneIdOfDial, stepPlays, voiceSoundText, voiceSoundUnit, voiceSounds, type DialId } from '../actions';
+import { dialRange, dialShown, dialSteps, dialUnit, dialValueText, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageLockView, sceneIdOfDial, seqDialOf, stepPlays, voiceSoundText, voiceSoundUnit, voiceSounds, type DialId } from '../actions';
 import { NO_SCENES, type SceneId } from './sceneData';
 import { sceneRole } from './sceneParams';
 import { lockOf, type StepLock } from '../audio/locks';
@@ -323,8 +323,9 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     if (!inst) b.unitShort = 'NO VOICE';
     return b;
   }
-  // Un reglage de couche (R3) : son nombre et son unite tels que actions.ts les ecrit (909, +5, 216 MS)
-  if (layerIdOf(id)) {
+  // Un reglage de couche (R3) : son nombre et son unite tels que actions.ts les ecrit (909, +5, 216 MS) ; un reglage de trig
+  // ou d'un LFO (V.5.1, TRIG et MOD) de meme (1/16, 50%, 1:2, -12/384, TRI)
+  if (layerIdOf(id) || seqDialOf(id)) {
     const [lo, hi] = dialRange(id);
     const v = dialShown(id);
     b.state = 'live';

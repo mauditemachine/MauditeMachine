@@ -55,9 +55,11 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, fillHold, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
-import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen, pageLabel } from '../rytm/pages';
+import { D2_SCREENS, RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen, pageLabel } from '../rytm/pages';
+import { TRIG_PARAMS, TRIG_RANGE, trigValue, type TrigParam } from '../audio/trig';
+import { LFO_PARAMS, lfoParts, lfoRange, type LfoParam } from '../audio/lfo';
 import { sceneTag, type SceneTag } from '../rytm/sceneParams';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
@@ -67,12 +69,12 @@ import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { KIT_FAMILIES, KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob } from '../audio/kit';
 import { setVoiceFx } from '../audio/drums';
-import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
+import { VOICE_PARAMS, lfoOf, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
 import { PATTERN_SLOTS, slotName } from '../state/patterns';
 import { DT_FACE, ENCODERS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
-import { INSTRUMENTS, STEP_COUNT } from '../audio/pattern';
+import { INSTRUMENTS, STEP_COUNT, pattern } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
 import { SUB_WAVES, VOY_KNOBS, voyParams } from '../voyager/params';
 import { seqFollow, seqPress, seqRelease, seqSetFollow, seqVoice, seqWindow } from './seqlink';
@@ -218,6 +220,46 @@ const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = {
   fatk: 'FILTER ATTACK',
   fdec: 'FILTER DECAY',
 };
+
+/** Les noms des reglages de trig et des LFO (V.5.1) dans la liste du MIDI. */
+const TRIG_LABEL: Readonly<Record<TrigParam, string>> = {
+  len: 'TRIG LENGTH',
+  prob: 'TRIG PROBABILITY',
+  cond: 'TRIG CONDITION',
+  utime: 'TRIG MICRO TIMING',
+  lfot: 'TRIG LFO RESTART',
+  rtrg: 'RETRIG ON',
+  rate: 'RETRIG RATE',
+  vfad: 'RETRIG VELOCITY FADE',
+  rlen: 'RETRIG LENGTH',
+};
+const LFO_LABEL: Readonly<Record<string, string>> = { spd: 'SPEED', mul: 'MULTIPLIER', fad: 'FADE', dst: 'DESTINATION', wav: 'WAVE', phs: 'PHASE', mod: 'MODE', dep: 'DEPTH' };
+
+/**
+ * Un reglage de trig ou d'un LFO d'une voix (V.5.1) : sa course 0 a 1 sur ses crans (des entiers) ; il regle la voix sans la
+ * choisir, comme rytm:voice:<voix>:<reglage> de toujours. Une scene armee : NO SCENE (sceneTakeId, le role noscene).
+ */
+function seqTarget(inst: Inst, p: TrigParam | LfoParam): MidiTarget {
+  const trig = (TRIG_PARAMS as readonly string[]).includes(p);
+  const [lo, hi] = trig ? TRIG_RANGE[p as TrigParam] : lfoRange(p as LfoParam);
+  const id = `rytm:voice:${inst}:${p}`;
+  const label = trig ? `${inst} ${TRIG_LABEL[p as TrigParam]}` : `${inst} LFO${lfoParts(p as LfoParam).n} ${LFO_LABEL[lfoParts(p as LfoParam).key]}`;
+  const now = (): number => (trig ? trigValue(pattern.get().trigs, inst, p as TrigParam) : lfoOf(voiceFx.of(inst), p as LfoParam));
+  return {
+    id,
+    scope: 'mm808',
+    label,
+    kind: 'value',
+    steps: hi - lo + 1,
+    get: () => (hi > lo ? (now() - lo) / (hi - lo) : 0),
+    set: (v) => {
+      if (sceneTakeId(id, v)) return;
+      const x = Math.round(lo + Math.max(0, Math.min(1, v)) * (hi - lo));
+      if (trig) pattern.setTrig(inst, p as TrigParam, x);
+      else voiceFx.setLfo(inst, p as LfoParam, x);
+    },
+  };
+}
 
 function coreTargets(): MidiTarget[] {
   const out: MidiTarget[] = [];
@@ -370,7 +412,8 @@ function coreTargets(): MidiTarget[] {
   // TRIG encore = HOME), comme les autres touches de page ; le telephone garde l'alias de VOICE
   for (const [old, now] of OLD_PAGES) out.push(press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()}${now ? ` (NOW ${now})` : ''}`, () => (DT_FACE && old === 'trig' ? rytmPageKey('trig', getStage()) : rytmShowPage(old))));
   // Un ecran precis (2026-10-09) : VOICE, VOICE SYNTH, FLTR, ENV, VOICE FX, GLOBAL FX (les onglets de l'en-tete)
-  for (const sc of RYTM_SCREENS) out.push(press(`rytm:screen:${sc}`, 'mm808', `SCREEN ${SCREEN_TITLE[sc]}`, () => rytmScreenTab(sc)));
+  // Ceux de V.5.1 (TRIG 2/2, MOD 2/2) viennent a la fin de la liste : aucun id d'avant ne bouge
+  for (const sc of RYTM_SCREENS) if (!D2_SCREENS.includes(sc)) out.push(press(`rytm:screen:${sc}`, 'mm808', `SCREEN ${SCREEN_TITLE[sc]}`, () => rytmScreenTab(sc)));
   out.push({
     id: 'rytm:page',
     scope: 'mm808',
@@ -428,6 +471,18 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:reload', 'mm808', 'RELOAD (BACK TO THE SAVE POINT)', () => reloadKey()));
   out.push(press('rytm:copy', 'mm808', 'COPY (THE PATTERN, WITH REC THE VOICE ROW)', () => copyKey()));
   out.push(press('rytm:paste', 'mm808', 'PASTE', () => pasteKey()));
+  // V.5.1 (2026-10-29, l'etape D2, docs/v4/digitakt-d2-spec.md section 4) : ajoutees a la fin, aucun id d'avant ne change.
+  // Les reglages de trig par defaut de chaque voix (ceux du pattern) et ses deux LFO (ses reglages de voix), sans la choisir ;
+  // hors des scenes en D2 (rytm/sceneParams.ts : noscene)
+  for (const inst of voices) {
+    for (const p of TRIG_PARAMS) out.push(seqTarget(inst, p));
+    for (const p of LFO_PARAMS) out.push(seqTarget(inst, p));
+  }
+  // FILL tenu (YES tenu sur la face, le boitier : une note tenue)
+  out.push(faceHold('rytm:fill', 'FILL (HOLD: THE FILL CONDITIONS PLAY)', 'yes', () => fillHold(true), () => fillHold(false)));
+  out.push(press('rytm:screen:trig2', 'mm808', `SCREEN ${SCREEN_TITLE.trig2}`, () => rytmScreenTab('trig2')));
+  out.push(press('rytm:screen:mod1', 'mm808', `SCREEN ${SCREEN_TITLE.mod} (LFO 1)`, () => rytmScreenTab('mod')));
+  out.push(press('rytm:screen:mod2', 'mm808', `SCREEN ${SCREEN_TITLE.mod2} (LFO 2)`, () => rytmScreenTab('mod2')));
   // Les scenes (2026-10-27) : chaque cible de valeur du MM-RYTM dit son role, ou sa classe si elle se morphe (rien d'autre
   // ne change : ni id, ni nom, ni ordre)
   for (const t of out) if (t.scope === 'mm808' && t.kind === 'value') t.scene = sceneTag(t.id);

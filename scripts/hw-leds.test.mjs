@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ROW_HOME_LEVEL, ROW_KEYS, ptnLeds, rowLeds } from '../src/v4/hw/rowLeds.ts';
+import { ROW_HOME_LEVEL, ROW_KEYS, ptnLeds, rowLeds, trigLeds } from '../src/v4/hw/rowLeds.ts';
 
 const PAL = { red: '#FF2B2B', green: '#3DDC5A', white: '#F4F1EA' };
 const REST = { func: 'off', trk: 'off', ptn: false, rec: false, play: 'stop', page: 'voice', home: false };
@@ -74,4 +74,11 @@ test('la vue PTN : qui joue rouge plein, le suivant et la chaine clignotent, un 
   assert.deepEqual(g[1], { i: 1, color: '#FF2B2B', level: 0.6, blink: true });
   assert.deepEqual(g[4], { i: 4, color: '#F4F1EA', level: 0.2, blink: false });
   assert.deepEqual(g[9], { i: 9, color: '', level: 0, blink: false });
+});
+
+test('V.5.1 : les lock trigs et les pas a condition de la voix choisie, en jaune', () => {
+  // Lock trigs sur 5 et 13 (bits 4 et 12), conditions sur 1, 5 et 16 (bits 0, 4, 15)
+  const t = trigLeds((1 << 4) | (1 << 12), 1 | (1 << 4) | (1 << 15), '#FFD75E');
+  assert.deepEqual(t, { lock: [4, 12], cond: [0, 4, 15], color: '#FFD75E' });
+  assert.deepEqual(trigLeds(0, 0, '#FFD75E'), { lock: [], cond: [], color: '#FFD75E' });
 });

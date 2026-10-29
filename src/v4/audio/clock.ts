@@ -41,6 +41,13 @@
  * un pas d'une mesure finie re-programme garde le motif ET les verrous
  * d'alors (Snap), comme ses pas. Poser un verrou pendant la lecture
  * re-programme (le store du motif change) : on l'entend au pas suivant.
+ *
+ * Le sequenceur des trigs (V.5.1, 2026-10-29, l'etape D2 facon Digitakt, audio/seq.ts) : chaque pas passe par seqStep
+ * (COND, PROB, uTIME, LEN, RTRG, les lock trigs, les LFO), le meme calcul que le rendu hors ligne ; son etat (le dernier
+ * resultat de chaque voix, ses retrigs, l'ancre de ses LFO, le tirage de PROB) est copie a chaque pas programme, une
+ * re-programmation repart de celui de son premier pas. Le compteur de passages (A:B, 1ST) vit ici : 1 a RUN et a chaque
+ * changement de pattern (resetPass, state/patterns.ts), +1 a chaque debut de mesure ; la pause le garde, STOP le remet a 1.
+ * Un uTIME negatif avance l'horizon d'autant : le coup du pas 1 tombe a la fin de la mesure d'avant, jamais en retard.
  */
 
 import { voices } from '../state/voices';
@@ -48,10 +55,15 @@ import { sceneCtl } from '../state/sceneCtl';
 import { DT_FACE, PORTRAIT, SWING, XFADE_UI, type Inst } from '../theme';
 import { voiceFx } from './voicefx';
 import { kit } from './kit';
-import { cancelVoice, context, mix, trigger, type Voice } from './drums';
+import { cancelVoice, context, lockTrig, mix, trigger, type HitSeq, type Voice } from './drums';
 import { shots } from './shots';
-import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from './pattern';
-import { lockOf, type Locks } from './locks';
+import { INSTRUMENTS, STEP_COUNT, pattern, type Steps } from './pattern';
+import type { Locks } from './locks';
+import { cloneSeq, earliestShift, seqLast, seqState, seqStep, soundingAt, type SeqState } from './seq';
+import { liveNeeds } from './seqhit';
+import type { TrigSet } from './trig';
+import { LFO_PARAMS } from './lfo';
+import { fill } from '../state/fill';
 import { morph } from './morph';
 import type { SceneSet } from '../rytm/sceneData';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, askRescheduleAll, extraGrid, horizon, registerScheduler, type Scheduler } from './sched';
@@ -132,6 +144,14 @@ interface Snap {
   locks: Readonly<Locks>;
   /** ses scenes A et B (2026-10-27) : un pas rejoue d'une mesure finie garde celles de son pattern, au x du moment */
   scenes: SceneSet;
+  /** ses reglages de trig (V.5.1) et le passage du pattern ou il joue (le compteur de passages) */
+  trigs: Readonly<TrigSet>;
+  pass: number;
+  /**
+   * la condition LST telle qu'a sa premiere programmation (la revue de D2, E3) : rejoue d'une mesure deja annoncee, il
+   * la garde (la chaine a deja avance, lastFn ne parle plus de sa mesure)
+   */
+  last: boolean;
 }
 
 /** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
@@ -145,6 +165,10 @@ interface Planned {
   /** le motif qui l'a joue, ses verrous compris (une mesure finie garde le sien) */
   snap: Snap;
   seq: number;
+  /** V.5.1 : l'etat du sequenceur des trigs juste avant ce pas ; le premier et le dernier instant de ses coups (uTIME, RTRG) */
+  seqBefore: SeqState;
+  first: number;
+  last: number;
 }
 const plan: Planned[] = [];
 /** re-programmation en cours : le motif (et ses verrous) des pas d'une mesure deja finie */
@@ -162,6 +186,19 @@ let resumeAt = -1;
 let pausedAt = -1;
 /** le RUN qui attend le son est une reprise de pause (onCtxState la garde) */
 let wantResume = false;
+/** Le sequenceur des trigs (V.5.1, audio/seq.ts) : son etat, et celui du pas ou une pause reprendra. */
+let seqSt: SeqState = seqState(1);
+let resumeSeq: SeqState | null = null;
+/**
+ * La position (abs) du pas de la reprise (la revue de D2, E6) : une reprise repart de la, l'etat du sequenceur des trigs
+ * (ses retrigs, ses ancres de LFO) est dans ces coordonnees ; un RUN frais repart de 0.
+ */
+let resumeAbs = 0;
+/** Le compteur de passages du pattern (V.5.1) : 1 au lancement ; celui d'avant le dernier debut de mesure (unbar). */
+let passN = 1;
+let passBefore = 1;
+/** La condition LST (V.5.1) : un changement de pattern est-il prevu a la fin de la mesure (state/patterns.ts) */
+let lastFn: (() => boolean) | null = null;
 /**
  * Une grille a rejoindre au depart (2026-10-03) : l'arpegiateur du
  * MM-VOYAGER qui joue deja (voyager/arp.ts). RUN part alors sur sa
@@ -197,6 +234,8 @@ const stats = {
   asks: 0,
   /** fins de mesure recalees sur la platine qui mene (2026-10-27, leadRealign) */
   leadShifts: 0,
+  /** coups ou lock trigs qui ont leve pendant la programmation (V.5.1, la revue de D2, E1), depuis le chargement */
+  seqErrors: 0,
 };
 
 const runListeners = new Set<() => void>();
@@ -245,6 +284,9 @@ function bar(): void {
   barAbs = abs;
   const first = firstBar;
   firstBar = false;
+  // Le passage suivant (V.5.1) ; un changement de pattern dans les ecouteurs le remet a 1 (resetPass)
+  passBefore = passN;
+  passN = first ? 1 : passN + 1;
   inBar = true;
   try {
     barListeners.forEach((fn) => fn(first));
@@ -261,25 +303,65 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
-  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get() };
-  const steps = snap.steps;
+  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get(), trigs: cur.trigs, pass: passN, last: lastFn ? lastFn() : false };
   const vs: Voice[] = [];
   let mask = 0;
-  for (let k = 0; k < INSTRUMENTS.length; k += 1) {
-    const inst = INSTRUMENTS[k];
-    // Velocite 1 a 3 (0 : rien) ; les coups du sequenceur sont toujours des
-    // charleys fermes ; MUTE et SOLO (state/voices.ts) retirent la voix
-    const vel = velocity(steps, inst, s);
-    // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant) ; au desktop
-    // seulement (la revue de D1, K5 : le telephone ne le montre ni ne le defait, il joue comme avant ; le mute reste garde)
-    if (vel > 0 && voices.plays(inst, DT_FACE ? cur.pmutes : NO_PM)) {
-      mask |= 1 << k;
-      // Les verrous du pas (2026-10-08) : null sans verrou, le coup d'avant
-      trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s), snap.scenes);
+  // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant) ; au desktop
+  // seulement (la revue de D1, K5 : le telephone ne le montre ni ne le defait, il joue comme avant ; le mute reste garde)
+  const pm = DT_FACE ? cur.pmutes : NO_PM;
+  const seqBefore = cloneSeq(seqSt);
+  // Les coups du pas (V.5.1, audio/seq.ts) : au depart, une voix apres l'autre, un coup par pas a velocite (1 a 3 ; les
+  // charleys du sequenceur toujours fermes), a l'heure du pas, avec ses verrous (null sans verrou, le coup d'avant) ;
+  // MUTE et SOLO (state/voices.ts) retirent la voix
+  const out = seqStep(seqSt, {
+    s,
+    pos: abs,
+    when,
+    grid,
+    dur: stepDur,
+    steps: snap.steps,
+    locks: snap.locks,
+    trigs: snap.trigs,
+    ctx: { pass: snap.pass, fill: fill.on, last: snap.last },
+    plays: (inst) => voices.plays(inst, pm),
+    fxOf: (inst) => voiceFx.of(inst),
+  });
+  const made: { inst: Inst; v: Voice }[] = [];
+  for (const h of out.hits) {
+    mask |= 1 << INSTRUMENTS.indexOf(h.inst);
+    const live = liveNeeds(snap.locks, h.inst);
+    const sq: HitSeq | undefined = h.len !== null || h.lfo || h.roll || live ? { len: h.len, lfo: h.lfo, roll: h.roll, rep: h.rep, prev: seqSt.v[h.inst].last as Voice | null, live } : undefined;
+    const n0 = vs.length;
+    // Une erreur d'automation (la revue de D2, E1 : un navigateur sans cancelAndHoldAtTime) ne bloque jamais l'horloge : le
+    // pas suivant part quand meme (sinon le meme pas se rejouait a chaque reveil)
+    try {
+      if (trigger(h.inst, h.t, false, vs, h.vel, h.lock, snap.scenes, sq) && vs.length > n0) {
+        const v = vs[vs.length - 1];
+        seqLast(seqSt, h.inst, v);
+        made.push({ inst: h.inst, v });
+      }
+    } catch (err) {
+      seqWarn(err);
     }
   }
+  for (const lt of out.locks) {
+    try {
+      // Le coup qui sonne a son heure (E5) : une repetition de ce pas, sinon celui d'avant ; les scenes du pas (E7)
+      const tgt = soundingAt(made, lt.inst, Math.max(lt.t, now), lt.last as Voice | null);
+      const pv = lockTrig(lt.inst, lt.t, lt.lock, tgt, lt.anchor, snap.scenes);
+      if (pv) vs.push(pv);
+    } catch (err) {
+      seqWarn(err);
+    }
+  }
+  let first = when;
+  let last = when;
+  for (const v of vs) {
+    if (v.when < first) first = v.when;
+    if (v.when > last) last = v.when;
+  }
   for (const v of vs) pending.push(v);
-  plan.push({ abs, step: s, grid, when, voices: vs, snap, seq });
+  plan.push({ abs, step: s, grid, when, voices: vs, snap, seq, seqBefore, first, last });
   const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off };
   seq += 1;
   push(e);
@@ -296,6 +378,15 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   stepListeners.forEach((fn) => fn(e));
 }
 
+/** Une erreur du moteur pendant la programmation d'un pas : dite une fois dans la console, l'horloge continue. */
+let seqWarned = false;
+function seqWarn(err: unknown): void {
+  stats.seqErrors += 1;
+  if (seqWarned) return;
+  seqWarned = true;
+  console.warn('[clock] un coup du pas n\'a pas pu etre programme', err);
+}
+
 /** Oublie les voix deja parties et les pas passes (compactage sur place, aucune allocation). */
 function prune(now: number): void {
   let k = 0;
@@ -304,10 +395,23 @@ function prune(now: number): void {
   }
   pending.length = k;
   k = 0;
+  // Un pas dont un coup n'a pas encore sonne (uTIME positif, une repetition de retrig) reste (V.5.1)
   for (let i = 0; i < plan.length; i += 1) {
-    if (plan[i].when >= now) plan[k++] = plan[i];
+    if (plan[i].last >= now) plan[k++] = plan[i];
   }
   plan.length = k;
+}
+
+/** L'avance d'un uTIME negatif (V.5.1), en secondes : l'horizon s'allonge d'autant (cache par motif). */
+let leadKey: { trigs: unknown; locks: unknown } = { trigs: null, locks: null };
+let leadSteps = 0;
+function seqLead(): number {
+  const p = pattern.get();
+  if (leadKey.trigs !== p.trigs || leadKey.locks !== p.locks) {
+    leadKey = { trigs: p.trigs, locks: p.locks };
+    leadSteps = -earliestShift(p.trigs, p.locks);
+  }
+  return leadSteps * stepDur;
 }
 
 function tick(): void {
@@ -321,7 +425,7 @@ function tick(): void {
   // Contexte suspendu (onglet cache) : currentTime est fige, rien ne part
   const now = c.currentTime;
   prune(now);
-  const until = horizon(now);
+  const until = horizon(now) + seqLead();
   for (let guard = 0; nextTime < until && guard < MAX_PER_TICK; guard += 1) {
     // Nouveau tempo : il part de cette frontiere de pas, la grille s'y reancre
     if (pendingDur > 0) {
@@ -367,9 +471,14 @@ function reschedule(): void {
   const now = c.currentTime;
   prune(now);
   const edge = now + GUARD_S;
-  const i = plan.findIndex((x) => x.when > edge);
-  if (i < 0) return;
+  // Le premier pas a refaire, cherche par la fin (la revue de D2, E4) : avec le SWING et un uTIME negatif, first ne croit
+  // plus forcement ; tout pas refait a ainsi TOUS ses coups au-dela de la garde (aucun coup parti n'est annule ni rejoue)
+  let i = plan.length;
+  while (i > 0 && plan[i - 1].first > edge) i -= 1;
+  if (i === plan.length) return;
   const first = plan[i];
+  // Le sequenceur des trigs repart de son etat d'avant ce pas (V.5.1)
+  seqSt = first.seqBefore;
   const dead = new Set<Voice>();
   for (let k = plan.length - 1; k >= i; k -= 1) {
     const x = plan[k];
@@ -480,11 +589,16 @@ function hitKey(): string {
   const locks = pattern.get().locks;
   return INSTRUMENTS.map((inst) => {
     const v = voiceFx.of(inst);
-    const k = HIT_PARAMS.map((p) => v[p]).join(',');
+    const k = `${HIT_PARAMS.map((p) => v[p]).join(',')}|${lfoKey(inst)}`;
     return inst === 'BD' || levelBaked(inst, locks) ? `${k},${v.level}` : k;
   }).join(';');
 }
 
+// Les LFO d'une voix (V.5.1) changent ses coups : ils comptent dans la cle
+const lfoKey = (inst: Inst): string => {
+  const v = voiceFx.of(inst);
+  return LFO_PARAMS.map((p) => v[p] ?? '').join(',');
+};
 // Le tempo suit le store du motif (TEMPO, tests, rechargement) ; tout ce qui change un coup le re-programme. Choisir une
 // voix ne change aucun coup (2026-10-27, TRK et A S D F en lecture) : pas de re-programmation ; le tempo, les pas et les
 // verrous, si (PatternState : bpm, steps, instrument, locks ; setBpm ne fait que garder pendingDur, ask l'applique)
@@ -492,16 +606,20 @@ let lastSteps = pattern.get().steps;
 let lastLocks = pattern.get().locks;
 let lastBpm = pattern.get().bpm;
 let lastPmutes = pattern.get().pmutes;
+let lastTrigs = pattern.get().trigs;
 pattern.subscribe(() => {
   const p = pattern.get();
   setBpm(p.bpm);
-  if (p.steps === lastSteps && p.locks === lastLocks && p.bpm === lastBpm && p.pmutes === lastPmutes) return;
+  if (p.steps === lastSteps && p.locks === lastLocks && p.bpm === lastBpm && p.pmutes === lastPmutes && p.trigs === lastTrigs) return;
   lastSteps = p.steps;
   lastLocks = p.locks;
   lastBpm = p.bpm;
   lastPmutes = p.pmutes;
+  lastTrigs = p.trigs;
   ask();
 });
+// FILL (V.5.1, tenir YES) : les pas a venir l'entendent tout de suite
+fill.subscribe(ask);
 let lastSwing = pattern.fx.get().swing;
 pattern.fx.subscribe(() => {
   const sw = pattern.fx.get().swing;
@@ -622,6 +740,15 @@ function start(fromPause = false): boolean {
   wantResume = false;
   const from = fromPause ? resumeAt : -1;
   resumeAt = -1;
+  // Le sequenceur des trigs (V.5.1) : une reprise repart de l'etat de son pas ; un RUN frais, de zero (le compteur de
+  // passages a 1, un nouveau tirage de PROB)
+  const resumed = from >= 0 && resumeSeq !== null;
+  seqSt = resumed && resumeSeq ? resumeSeq : seqState((Math.random() * 4294967296) >>> 0);
+  resumeSeq = null;
+  if (from < 0) {
+    passN = 1;
+    passBefore = 1;
+  }
   bpm = pattern.get().bpm;
   stepDur = stepDuration(bpm);
   pendingDur = 0;
@@ -638,7 +765,10 @@ function start(fromPause = false): boolean {
   n = 0;
   step = from >= 0 ? from : g ? g.step : 0;
   leadAt = -1;
-  abs = 0;
+  // Une reprise continue a sa position (E6) : ses retrigs et ses LFO reprennent ou ils en etaient ; barAbs a -1 laisse
+  // la mesure suivante s'annoncer
+  abs = resumed ? resumeAbs : 0;
+  resumeAbs = 0;
   barAbs = -1;
   plan.length = 0;
   runFirst = seq;
@@ -660,9 +790,12 @@ function start(fromPause = false): boolean {
 function stop(): void {
   cancelWait();
   wantResume = false;
-  // STOP oublie la pause (V.5.0) : la prochaine lecture repart du pas 1
+  // STOP oublie la pause (V.5.0) : la prochaine lecture repart du pas 1 ; le compteur de passages revient a 1 (V.5.1)
   const hadPause = resumeAt >= 0;
   resumeAt = -1;
+  resumeSeq = null;
+  passN = 1;
+  passBefore = 1;
   if (!running) {
     if (hadPause) emit();
     return;
@@ -698,8 +831,16 @@ function pause(): boolean {
   const at = e ? (e.step + 1) % STEP_COUNT : (plan[0]?.step ?? step);
   // Un pas 1 programme mais pas encore entendu : sa mesure est annoncee (bar), la chaine a avance pour rien
   const unheard = !!c && plan.some((p) => p.step === 0 && p.when > c.currentTime);
+  // Le sequenceur des trigs du pas de la reprise (V.5.1) et le compteur de passages : la pause les garde
+  const rp = c ? plan.find((p) => p.when > c.currentTime) : undefined;
+  const rs = rp?.seqBefore ?? null;
+  const ra = rp?.abs ?? abs;
+  const pass = unheard ? passBefore : passN;
   stop();
+  passN = pass;
   if (unheard) unbarListeners.forEach((fn) => fn());
+  resumeSeq = rs;
+  resumeAbs = ra;
   resumeAt = at;
   pausedAt = e ? e.step : -1;
   emit();
@@ -830,6 +971,22 @@ export const clock = {
    * cette heure), 0 ailleurs (tout de suite).
    */
   barAt: (): number => (inBar ? barTime : 0),
+  /** Le compteur de passages du pattern (V.5.1, les conditions A:B et 1ST) : 1 au premier passage. */
+  get pass(): number {
+    return passN;
+  },
+  /** Un changement de pattern (V.5.1, state/patterns.ts) : le compteur de passages repart a 1. */
+  resetPass(): void {
+    passN = 1;
+  },
+  /** La condition LST (V.5.1) : state/patterns.ts dit si un changement de pattern est prevu a la fin de la mesure. */
+  lastPass(fn: (() => boolean) | null): void {
+    lastFn = fn;
+  },
+  /** Re-programme les pas a venir (V.5.1 : la condition LST a change) ; rien a l'arret. */
+  refresh(): void {
+    ask();
+  },
   /** Le debut de chaque mesure, avant que son premier pas soit programme ; rend de quoi se desabonner. */
   /** La pause avant un debut de mesure deja annonce (V.5.0) : ce que onBar a avance revient. */
   onUnbar(fn: () => void): () => void {
@@ -880,6 +1037,10 @@ export interface ClockDebug {
   readonly locked: boolean;
   /** fins de mesure recalees sur la platine qui mene (2026-10-27, le SYNC du MIXER) */
   readonly leadShifts: number;
+  /** le compteur de passages du pattern (V.5.1, les conditions A:B et 1ST) */
+  readonly pass: number;
+  readonly seqErrors: number;
+  readonly abs: number;
 }
 
 export const clockDebug: ClockDebug = {
@@ -919,5 +1080,15 @@ export const clockDebug: ClockDebug = {
   },
   get leadShifts() {
     return stats.leadShifts;
+  },
+  get pass() {
+    return passN;
+  },
+  /** V.5.1, la revue de D2 : les erreurs de programmation rattrapees (E1) et la position du prochain pas (E6, la reprise) */
+  get seqErrors() {
+    return stats.seqErrors;
+  },
+  get abs() {
+    return abs;
   },
 };

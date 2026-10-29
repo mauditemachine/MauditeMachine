@@ -11,9 +11,11 @@ import { clock } from './audio/clock';
 import { cutTails, ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
 import { TAP_VEL_DEFAULT } from './state/rytmPage';
 import { tempoSync } from './state/tempoSync';
-import { VOICE_FX_DEFAULT, voiceFx, type VoiceFx, type VoiceParam } from './audio/voicefx';
+import { VOICE_FX_DEFAULT, lfoOf, voiceFx, type VoiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
-import { lockOf, parseSnd, type LockId, type LockKey, type Locks, type StepLock } from './audio/locks';
+import { isLockTrig, lockOf, parseSnd, type LockId, type LockKey, type Locks, type StepLock } from './audio/locks';
+import { TRIG_DEF, TRIG_PARAMS, TRIG_RANGE, isTrigParam, trigText, trigUnit, trigValue, type TrigParam, type TrigRow, type TrigSet } from './audio/trig';
+import { LFO_MULTS, LFO_PARAMS, isLfoParam, lfoDefault, lfoParts, lfoRange, lfoText, lfoUnit, type LfoParam } from './audio/lfo';
 import { onSampleFailed, onSampleLoaded, requestSample, sampleByKey, sampleLabel, samplePcm, sampleStatus, samplesChanged, samplesOf, samplesVersion, type KitSample, type SampleFail } from './audio/samples';
 import { UserSampleError, userSamples } from './audio/usersamples';
 import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
@@ -47,13 +49,14 @@ import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
 import { faceTouch, type CtlSrc } from './state/ctl';
 import { trk } from './state/trk';
+import { fill } from './state/fill';
 import { sceneCtl } from './state/sceneCtl';
 import { morph } from './audio/morph';
 import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId, type SceneSet } from './rytm/sceneData';
 import { bindingOf, from01, sceneRole, to01, voiceRowId, type SceneBinding } from './rytm/sceneParams';
-import { FACE_PAGES, RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
+import { FACE_PAGES, RYTM_PAGES, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
-import { setKnobResolver } from './rytm/infoIds';
+import { setKnobResolver, setStepResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
@@ -351,6 +354,12 @@ export function sceneIdOfDial(dial: DialId): string | null {
   if (voyId(t as DialId)) return null;
   const mi = mixerInst(t);
   if (mi) return `rytm:voice:${mi}:level`;
+  // Un reglage de trig ou d'un LFO (V.5.1) : sa cible de voix (hors des scenes en D2, rytm/sceneParams.ts : noscene)
+  const sd = seqDialOf(t);
+  if (sd) {
+    const inst = pattern.get().instrument;
+    return inst ? `rytm:voice:${inst}:${sd}` : null;
+  }
   const e = t as EncId;
   if (e === 'vsound') return 'rytm:enc:vsound';
   if (isVoiceEnc(e)) return voiceRowId(e, pattern.get().instrument);
@@ -535,6 +544,8 @@ function dialName(dial: DialId): string {
   if (lp) return lp.toUpperCase();
   const mi = mixerInst(dial);
   if (mi) return `${mi} VOL`;
+  const sd = seqDialOf(dial);
+  if (sd) return seqName(sd);
   return encLabel(dial as EncId);
 }
 /** Le nom d'une cible absolue (rytm:voice:CH:pan -> CH PAN). */
@@ -877,6 +888,13 @@ export function stepToggle(i: number, stage: Stage | null = null, dock = false):
   // Un pas vide recoit la velocite des nouveaux pas de la voix (2026-10-09 : HIGH au depart ; sans bloc depuis le 2026-10-10) ; un pas pose
   // passe au cran d'en dessous comme avant (MID, LOW, vide). REC au desktop (V.5.0, comme la Digitakt) : une tape pose ou
   // retire le pas, sans le cycle (la velocite des nouveaux pas : HIGH, ou celle de VEL sur TRIG)
+  // Un lock trig (V.5.1) : une tape l'enleve, avec ses verrous (comme la Digitakt), il ne devient pas un coup
+  if (DT_FACE && velocity(pattern.get().steps, inst, i) === 0 && isLockTrig(pattern.get().locks, inst, i)) {
+    pattern.clearLock(inst, [i]);
+    rytmPage.select(i);
+    lcdMessage.show(`STEP ${two(i + 1)} ${inst} LOCK TRIG OFF`);
+    return true;
+  }
   if (velocity(pattern.get().steps, inst, i) === 0) pattern.set(inst, i, rytmPage.tapVel(inst));
   else if (DT_FACE) pattern.clearStep(inst, i);
   else pattern.toggle(inst, i);
@@ -907,6 +925,14 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return false;
+  }
+  // Un lock trig (V.5.1, la revue de D2, U4) : Suppr l'enleve avec ses verrous, comme une tape (l'ecran disait OFF et le
+  // laissait)
+  if (velocity(pattern.get().steps, inst, i) === 0 && isLockTrig(pattern.get().locks, inst, i)) {
+    pattern.clearLock(inst, [i]);
+    rytmPage.select(i);
+    lcdMessage.show(`STEP ${two(i + 1)} ${inst} LOCK TRIG OFF`);
+    return true;
   }
   pattern.clearStep(inst, i);
   rytmPage.select(i);
@@ -1169,6 +1195,9 @@ export function randomPattern(stage: Stage | null = null): void {
   const { style, steps, swing } = randomBeat(pattern.get().steps, lastStyle);
   lastStyle = style;
   pattern.replace(steps);
+  // Les reglages de trig du pattern repartent au depart, comme CLEAR (V.5.1, la revue de D2, D1 : une PROB ou une COND
+  // gardee faisait taire des voix du nouveau beat) ; les verrous des pas restent, comme avant
+  pattern.setTrigs(null);
   // Le SWING du style (2026-10-14) ; les autres GLOBAL FX restent ceux de l'utilisateur
   pattern.fx.set({ swing });
   const colors = randomColors();
@@ -1427,6 +1456,12 @@ export function revealPage(): boolean {
 
 // Les cartes INFOS d'un potard de la face (rytm/infoIds.ts, pur) : le bloc qu'il tourne sur l'ecran affiche
 setKnobResolver(knobBlock);
+// La carte d'un pas (V.5.1) : un lock trig de la voix choisie a la sienne
+setStepResolver((i) => {
+  const p = pattern.get();
+  const inst = p.instrument;
+  return inst && velocity(p.steps, inst, i) === 0 && isLockTrig(p.locks, inst, i) ? 'locktrig' : null;
+});
 
 /**
  * Le mode presets du desktop (2026-10-27) : une valeur absolue (MIDI, le potard motorise) devient des crans, un tous les
@@ -2028,7 +2063,8 @@ export function kitDial(id: KitId, v: number): void {
  * bloc k de la page affichee, pour la voix choisie, rytm/pages.ts).
  */
 // m:<voix> (V.5.0, 2026-10-29) : le VOL d'une voix sur le MIXER (FUNC + MOD), rytm:voice:<voix>:level
-export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}` | `p:${number}` | `l:${LayerDial}` | `m:${Inst}`;
+// q:<reglage> (V.5.1, 2026-10-29) : un reglage de trig (TRIG) ou d'un LFO (MOD) de la voix choisie, rytm:voice:<voix>:<reglage>
+export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}` | `p:${number}` | `l:${LayerDial}` | `m:${Inst}` | `q:${SeqDial}`;
 
 const voyId = (id: DialId): VoyKnobId | null => (id.startsWith('v:') ? (id.slice(2) as VoyKnobId) : null);
 export const kitIdOf = (id: DialId): KitId | null => (id.startsWith('r:') ? (id.slice(2) as KitId) : null);
@@ -2567,6 +2603,8 @@ export function anyDial(id: DialId, v: number): void {
   if (lp) return layerDial(lp, v);
   const mi = mixerInst(id);
   if (mi) return mixerDial(mi, v);
+  const sd = seqDialOf(id);
+  if (sd) return seqDial(sd, v);
   const k = voyId(id);
   if (k) voyDial(k, v);
   else dial(id as EncId, v);
@@ -2597,6 +2635,8 @@ export function anyDialValue(id: DialId): number {
   if (lp) return layerValue(lp);
   const mi = mixerInst(t);
   if (mi) return voiceFx.of(mi).level;
+  const sd = seqDialOf(t);
+  if (sd) return seqValue(sd);
   const k = voyId(t);
   return k ? voyParams.of(k) : dialValue(t as EncId);
 }
@@ -2636,6 +2676,8 @@ export function anyDialReset(id: DialId): number {
     setVoiceFx(mi, 'level', VOICE_FX_DEFAULT.level);
     return VOICE_FX_DEFAULT.level;
   }
+  const sd = seqDialOf(t);
+  if (sd) return seqDefault(sd);
   const k = voyId(t);
   return k ? voyParams.def(k) : dialReset(t as EncId);
 }
@@ -2664,6 +2706,8 @@ export function dialRange(id: DialId): [number, number] {
   if (t === 'voice:mix') return [0, 1];
   const lp = layerIdOf(t);
   if (lp) return layerSpan(lp);
+  const sd = seqDialOf(t);
+  if (sd) return seqRange(sd);
   if (kitIdOf(t) || voyId(t)) return [0, 1];
   if (t === 'tempo') return [BPM.min, BPM.max];
   return [potMin(t as EncId), 1];
@@ -2696,6 +2740,12 @@ export function dialSteps(id: DialId): number {
   if (t === 'voice:mix') return 0;
   const lp = layerIdOf(t);
   if (lp) return layerNotches(lp);
+  // Les reglages de trig et des LFO (V.5.1) : des entiers, un cran chacun
+  const sd = seqDialOf(t);
+  if (sd) {
+    const [lo, hi] = seqRange(sd);
+    return hi - lo + 1;
+  }
   if (t === 'vsound') {
     const f = soundFamily();
     return f ? kitSteps(f) : 0;
@@ -2780,6 +2830,13 @@ export function dialReadout(id: DialId): string {
   if (k) return voyReadout(k, voyParams.of(k));
   const mi = mixerInst(id);
   if (mi) return `${mi} VOLUME ${dialValueText(id)}, ${dialUnit(id).toLowerCase()}`;
+  const sd = seqDialOf(id);
+  if (sd) {
+    const inst = pattern.get().instrument;
+    if (!inst) return 'TAP A VOICE';
+    const v = seqValue(sd);
+    return `${inst} ${seqName(sd)} ${seqText(sd, v)}, ${seqUnit(sd, v).toLowerCase()}`;
+  }
   if (id === 'tempo') return tempoSync.label(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return 'TAP A VOICE';
@@ -2829,6 +2886,8 @@ export function dialValueText(id: DialId): string {
     const v = dialShown(id);
     return encText('vol', v, v, false);
   }
+  const sd = seqDialOf(id);
+  if (sd) return pattern.get().instrument ? seqText(sd, seqValue(sd)) : '--';
   if (id === 'tempo') return tempoSync.text(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return '--';
@@ -2870,6 +2929,8 @@ export function dialUnit(id: DialId): string {
   if (voyId(t) || t === 'tempo') return '';
   const mi = mixerInst(t);
   if (mi) return encUnit('vol', dialShown(t));
+  const sd = seqDialOf(t);
+  if (sd) return inst ? seqUnit(sd, seqValue(sd)) : '';
   const e = t as ContEnc;
   if (isVoiceEnc(e) && !inst) return '';
   // DLY TIME : sa duree au tempo du moment ; ce qui se montre (2026-10-27 : la scene armee, ou ce qui joue)
@@ -2941,8 +3002,11 @@ function pageKeyBody(id: RytmPageId, stage: Stage | null): void {
     // SYNTH · VOICE AGAIN: MAIN (revue du 2026-10-09 : VOICE SYNTH  VOICE AGAIN: VOI. au telephone) ; au desktop depuis le
     // 2026-10-27 l'onglet dit son rang (SYNTH 2/2 : la deuxieme page des huit potards, comme une Digitakt)
     const next = screensOf(id, inst)[(r.tab + 1) % r.tabs];
-    const rank = FACE_FOLLOWS_PAGE ? ` ${r.tab + 1}/${r.tabs}` : '';
-    lcdMessage.show(`${tabWord(curScreen(), inst)}${rank} · ${pageLabel(id)} AGAIN: ${tabWord(next, inst)}`, 1600);
+    // Un onglet nomme par son rang (V.5.1, TRIG 1/2 et 2/2) : son titre, sans rang de plus (1/2 1/2 se lisait)
+    const word = (sc: RytmScreenId): string => (SCREEN_LABEL[sc].includes('/') ? SCREEN_TITLE[sc] : tabWord(sc, inst));
+    const cur = curScreen();
+    const rank = FACE_FOLLOWS_PAGE && !SCREEN_LABEL[cur].includes('/') ? ` ${r.tab + 1}/${r.tabs}` : '';
+    lcdMessage.show(`${word(cur)}${rank} · ${pageLabel(id)} AGAIN: ${word(next)}`, 1600);
   } else if (was === 'home') lcdMessage.show(`${pageLabel(id)} PAGE`);
 }
 
@@ -3275,6 +3339,12 @@ function slotLockView(slot: PageSlot, inst: Inst, step: number, lockArg?: Readon
     const f = familyOf(inst as ShotId);
     return { text: layerText(lp, v), unit: layerUnit(lp, v, f ? sampleCtx(f, l) : undefined), course: hi > lo ? (v - lo) / (hi - lo) : 0, value: v };
   }
+  // Un reglage de trig ou d'un LFO (V.5.1) : son texte et son unite a cette valeur
+  const sd = slot.target ? seqDialOf(slot.target) : null;
+  if (sd) {
+    const [lo, hi] = seqRange(sd);
+    return { text: seqText(sd, v), unit: seqUnit(sd, v, l), course: hi > lo ? (v - lo) / (hi - lo) : 0, value: v };
+  }
   // Un potard de la machine (revue de R2) : 0 a 127 et son unite a cette valeur (52 HZ, 216 MS) ; GATE ON ou OFF
   const r = slot.target && slot.target !== 'step:vel' && slot.target !== 'smpl:sample' ? kitIdOf(slot.target) : null;
   if (r && !isFamily(r)) {
@@ -3334,6 +3404,17 @@ const LEGACY_LAYER: Readonly<Record<string, LayerDial>> = { stune: 'tune', sfine
  * le 2026-10-09 : VOICE FLTR ENV FX) ; les reglages de l'ancien SMPL qui ne
  * sont plus sur un ecran (S.TUNE, S.FINE, S.START) gardent leur nom.
  */
+/** Les noms courts des reglages d'un LFO (V.5.1) : SPD MULT FADE DEST WAVE PHAS MODE DEP. */
+const LFO_KEY_NAMES: readonly (readonly [string, string])[] = [
+  ['spd', 'SPD'],
+  ['mul', 'MULT'],
+  ['fad', 'FADE'],
+  ['dst', 'DEST'],
+  ['wav', 'WAVE'],
+  ['phs', 'PHAS'],
+  ['mod', 'MODE'],
+  ['dep', 'DEP'],
+];
 const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
   { key: 'snd', name: 'SOUND', page: 'VOICE' },
   { key: 'level', name: 'VOL', page: 'VOICE' },
@@ -3373,6 +3454,17 @@ const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
   { key: 'chorus', name: 'CHORUS', page: 'FX' },
   { key: 'delay', name: 'DELAY', page: 'FX' },
   { key: 'reverb', name: 'REVERB', page: 'FX' },
+  // V.5.1 (2026-10-29) : la page TRIG et les deux LFO de MOD ; ltrg (le lock trig) n'est pas un reglage, il ne compte pas
+  { key: 'len', name: 'LEN', page: 'TRIG' },
+  { key: 'prob', name: 'PROB', page: 'TRIG' },
+  { key: 'cond', name: 'COND', page: 'TRIG' },
+  { key: 'utime', name: 'μTIME', page: 'TRIG' },
+  { key: 'lfot', name: 'LFO.T', page: 'TRIG' },
+  { key: 'rtrg', name: 'RTRG', page: 'TRIG' },
+  { key: 'rate', name: 'RATE', page: 'TRIG' },
+  { key: 'vfad', name: 'VFAD', page: 'TRIG' },
+  { key: 'rlen', name: 'RLEN', page: 'TRIG' },
+  ...([1, 2] as const).flatMap((n) => LFO_KEY_NAMES.map(([k, name]) => ({ key: `l${n}${k}`, name: `L${n} ${name}`, page: 'MOD' }))),
 ];
 
 /** Le nom court d'un verrou pour cette voix (le TONE de la caisse claire, le TUNE du kick : ceux de leur machine). */
@@ -3409,6 +3501,8 @@ function slotDomain(slot: PageSlot): [number, number] {
   if (!t || t === 'step:vel' || t === 'smpl:sample' || t === 'voice:sound' || t === 'voice:mix') return [0, 1];
   const lp = layerIdOf(t);
   if (lp) return layerSpan(lp);
+  const sd = seqDialOf(t);
+  if (sd) return seqRange(sd);
   if (kitIdOf(t)) return [0, 1];
   return [potMin(t as EncId), 1];
 }
@@ -3503,8 +3597,9 @@ function lockWrite(k: number, slot: PageSlot, v: number): void {
     const n = Math.max(0, Math.min(VEL_MAX, Math.round(v)));
     for (const i of steps) pattern.set(inst, i, n);
   } else {
-    // Un pas vide qu'on verrouille recoit un coup (la velocite des nouveaux pas) : un verrou sans coup ne s'entendrait pas
-    for (const i of steps) if (velocity(pattern.get().steps, inst, i) === 0) pattern.set(inst, i, rytmPage.tapVel(inst));
+    // Un pas vide qu'on verrouille recoit un coup (la velocite des nouveaux pas) : un verrou sans coup ne s'entendrait pas ;
+    // un lock trig (V.5.1) reste sans velocite, ses verrous vont au coup qui sonne
+    for (const i of steps) if (velocity(pattern.get().steps, inst, i) === 0 && !isLockTrig(pattern.get().locks, inst, i)) pattern.set(inst, i, rytmPage.tapVel(inst));
     if (slot.target === 'voice:sound') soundLockWrite(inst, steps, at0, v);
     else if (slot.target === 'voice:mix') {
       if (!mixLockWrite(inst, steps, at0, v)) {
@@ -4350,10 +4445,9 @@ export function pageKeyHold(id: string, down: boolean): void {
   else if (pageArm && pageArm.page === id && pageArm.until === Infinity) pageArm = { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
 }
 
-/** Apres le chemin de toujours (V.5.0) : la page reste armee pour YES et NO ; MOD dit ce qui vient. */
+/** Apres le chemin de toujours (V.5.0) : la page reste armee pour YES et NO. */
 function dtPageKeyAfter(id: RytmPageId): void {
   pageArm = presetTurns() ? null : { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
-  if (id === 'mod') lcdMessage.show('MOD: 2 LFO IN V.5.1', 1800);
 }
 
 /* ---------- REC, le mode ecriture ---------- */
@@ -4436,8 +4530,8 @@ export function stopKey(stage: Stage | null = null): void {
 
 /** Le presse-papiers (une seule chose) : un pattern entier, ou la ligne d'une voix. */
 type Clip =
-  | { kind: 'pattern'; from: number; steps: Steps; locks: Locks; scenes: SceneSet; pmutes: readonly Inst[] }
-  | { kind: 'row'; inst: Inst; row: string; locks: Locks[Inst] };
+  | { kind: 'pattern'; from: number; steps: Steps; locks: Locks; scenes: SceneSet; pmutes: readonly Inst[]; trigs: TrigSet }
+  | { kind: 'row'; inst: Inst; row: string; locks: Locks[Inst]; trigs: TrigRow | undefined };
 let clip: Clip | null = null;
 
 /** FUNC + REC : COPY ; hors REC le pattern (pas, verrous, scenes, mute du pattern), REC allume la ligne de la voix. */
@@ -4449,12 +4543,12 @@ export function copyKey(): void {
       lcdMessage.show(LCD_NO_VOICE);
       return;
     }
-    clip = { kind: 'row', inst, row: p.steps[inst], locks: p.locks[inst] ? (JSON.parse(JSON.stringify(p.locks[inst])) as Locks[Inst]) : undefined };
+    clip = { kind: 'row', inst, row: p.steps[inst], locks: p.locks[inst] ? (JSON.parse(JSON.stringify(p.locks[inst])) as Locks[Inst]) : undefined, trigs: p.trigs[inst] ? { ...p.trigs[inst] } : undefined };
     lcdMessage.show(`${inst} COPIED`);
     return;
   }
   const from = patterns.get().cur;
-  clip = { kind: 'pattern', from, steps: { ...p.steps }, locks: JSON.parse(JSON.stringify(p.locks)) as Locks, scenes: pattern.scenes.get(), pmutes: [...p.pmutes] };
+  clip = { kind: 'pattern', from, steps: { ...p.steps }, locks: JSON.parse(JSON.stringify(p.locks)) as Locks, scenes: pattern.scenes.get(), pmutes: [...p.pmutes], trigs: JSON.parse(JSON.stringify(p.trigs)) as TrigSet };
   lcdMessage.show(`PATTERN ${slotName(from)} COPIED`);
 }
 
@@ -4470,6 +4564,8 @@ export function pasteKey(): void {
     pattern.replace(clip.steps, clip.locks);
     pattern.scenes.replace(clip.scenes);
     pattern.setPmutes(clip.pmutes);
+    // Ses reglages de trig (V.5.1)
+    pattern.setTrigs(clip.trigs);
     lcdMessage.show(`PATTERN ${slotName(clip.from)} PASTED ON ${slotName(patterns.get().cur)}`);
     return;
   }
@@ -4479,6 +4575,11 @@ export function pasteKey(): void {
     return;
   }
   pattern.replace({ ...p.steps, [inst]: clip.row }, withRowLocks(p.locks, inst, clip.locks));
+  // Les reglages de trig de la voix copiee (V.5.1) vont avec sa ligne
+  const tr: TrigSet = { ...p.trigs };
+  if (clip.trigs) tr[inst] = { ...clip.trigs };
+  else delete tr[inst];
+  pattern.setTrigs(tr);
   lcdMessage.show(clip.inst === inst ? `${inst} PASTED` : `${clip.inst} PASTED ON ${inst}`);
 }
 
@@ -4508,6 +4609,8 @@ function dtClear(stage: Stage | null): void {
   }
   undo.boundary('mm808', 'step');
   pattern.replace({ ...p.steps, [inst]: '0'.repeat(STEP_COUNT) }, withRowLocks(p.locks, inst, undefined));
+  // Ses reglages de trig repartent au depart (V.5.1), comme ceux du pattern a CLEAR
+  pattern.clearTrigs(inst);
   lcdMessage.show(`${inst} CLEARED`);
 }
 
@@ -4543,7 +4646,7 @@ export function reloadKey(): void {
  * page TEMPO, un TAP ; apres une touche de page (DT_GESTURE.pageArmMs) la page au hasard, TRIG le RANDOM du beat ; sinon
  * l'ecran dit comment. FUNC + YES : SAVE.
  */
-export function yesKey(stage: Stage | null = null): void {
+export function yesKey(stage: Stage | null = null, armed?: RytmPageId | null): void {
   if (!DT_FACE) return;
   gesture();
   stage?.flashFaceKey('yes');
@@ -4555,7 +4658,8 @@ export function yesKey(stage: Stage | null = null): void {
     presetKey('mm808', presetMode.get().stage === 'confirm' ? 'del' : 'load');
     return;
   }
-  const pg = armedPage();
+  // armed (V.5.1) : la page armee a l'appui de YES (sa tape part au lacher, l'armement a pu finir entre les deux)
+  const pg = armed !== undefined ? armed : armedPage();
   if (pg) {
     pageArm = null;
     if (pg === 'trig') randomPattern(null);
@@ -4567,6 +4671,71 @@ export function yesKey(stage: Stage | null = null): void {
     return;
   }
   lcdMessage.show('YES: TAP A PAGE KEY FIRST TO RANDOMIZE IT', 2000);
+}
+
+/**
+ * FILL en tenant YES (V.5.1, 2026-10-29, docs/v4/digitakt-d2-spec.md section 3) : YES enfonce (la souris, le doigt, Entree)
+ * sans menu ouvert (ni KIT, ni la page TEMPO ou YES tape le tempo, ni PTN, ni la liste des sons) et sans FUNC : la touche
+ * attend. Lachee avant FILL_HOLD_MS, c'est une tape, YES de D1 (la page armee au hasard, ou l'aide) ; tenue plus longtemps,
+ * c'est FILL tant qu'on la tient, jamais le hasard (l'armement de la page s'en va). Avec un menu ou FUNC : YES agit tout de
+ * suite, comme en D1. Le MIDI rytm:yes reste la tape de D1 ; rytm:fill tient FILL.
+ */
+export const FILL_HOLD_MS = 250;
+const yesHolds = new Map<string, { timer: number; fill: boolean; done: boolean; now: boolean; pg: RytmPageId | null }>();
+
+/** YES ouvre-t-il quelque chose (KIT, TEMPO, PTN, la liste des sons) : il agit a l'appui, pas de FILL. */
+function yesActsNow(): boolean {
+  if (func.get().mode !== 'off' || presetMode.on('mm808') || editor.get() === 'mm808' || lcdSamples.isOpen()) return true;
+  return rytmPage.get().view === 'page' && curScreen() === 'tempo';
+}
+
+/**
+ * YES enfonce (src : qui le tient, 'ptr:<id>', 'key'). Un menu ouvert ou FUNC : pas de FILL ; au clavier YES agit a
+ * l'appui, au pointeur au lacher sur la touche (la revue de D2, U1 : comme en D1, un glisser hors d'elle annule).
+ */
+export function yesDown(src: string, stage: Stage | null = null): void {
+  if (!DT_FACE || yesHolds.has(src)) return;
+  if (yesActsNow()) {
+    const ptr = src.startsWith('ptr:');
+    yesHolds.set(src, { timer: 0, fill: false, done: !ptr, now: ptr, pg: null });
+    if (!ptr) yesKey(stage);
+    return;
+  }
+  gesture();
+  const h = { timer: 0, fill: false, done: false, now: false, pg: armedPage() };
+  h.timer = window.setTimeout(() => {
+    h.timer = 0;
+    h.fill = true;
+    // Jamais le hasard apres une tenue : l'armement de la page s'en va
+    pageArm = null;
+    fill.hold(`yes:${src}`, true);
+    lcdMessage.show('FILL: THE FILL TRIGS PLAY WHILE YOU HOLD YES', 1600, true);
+  }, FILL_HOLD_MS);
+  yesHolds.set(src, h);
+  stage?.pressFaceKey('yes');
+}
+
+/** YES lache ; tap : un vrai lacher (false : le pointeur perdu, la fenetre sans clavier : rien ne part). */
+export function yesUp(src: string, stage: Stage | null = null, tap = true): void {
+  const h = yesHolds.get(src);
+  if (!h) return;
+  yesHolds.delete(src);
+  if (h.done) return;
+  if (h.now) {
+    if (tap) yesKey(stage);
+    return;
+  }
+  if (h.timer) {
+    window.clearTimeout(h.timer);
+    if (tap) yesKey(stage, h.pg);
+    return;
+  }
+  if (h.fill) fill.hold(`yes:${src}`, false);
+}
+
+/** FILL au MIDI (rytm:fill, une cible tenue) : tenu tant que la note l'est. */
+export function fillHold(down: boolean, src = 'midi'): void {
+  fill.hold(src, down);
 }
 
 /**
@@ -4663,8 +4832,26 @@ const rand = (lo: number, hi: number): number => Math.round((lo + Math.random() 
  */
 function randomPage(pg: RytmPageId): void {
   const inst = pattern.get().instrument;
+  // MOD (V.5.1) : le LFO de l'onglet affiche (MOD 1/2 : LFO 1, 2/2 : LFO 2) de la voix choisie, une modulation qui s'entend
   if (pg === 'mod') {
-    lcdMessage.show('MOD: 2 LFO IN V.5.1', 1800);
+    if (!inst) {
+      lcdMessage.show(LCD_NO_VOICE);
+      return;
+    }
+    undo.boundary('mm808', 'step');
+    const n = curScreen() === 'mod2' ? 2 : 1;
+    const pick = (lo: number, hi: number): number => lo + Math.floor(Math.random() * (hi - lo + 1));
+    const sign = (): number => (Math.random() < 0.5 ? -1 : 1);
+    const set = (k: string, v: number): void => voiceFx.setLfo(inst, `l${n}${k}` as LfoParam, v);
+    set('spd', sign() * pick(4, 32));
+    set('mul', pick(0, 3));
+    set('fad', 0);
+    set('dst', pick(1, 5));
+    set('wav', pick(0, 6));
+    set('phs', 0);
+    set('mod', pick(0, 4));
+    set('dep', sign() * pick(12, 40));
+    lcdMessage.show(`${inst} LFO${n} RANDOM`);
     return;
   }
   undo.boundary('mm808', 'step');
@@ -4734,6 +4921,17 @@ function reloadPage(pg: RytmPageId): void {
     }
     const saved = d.voices?.[inst];
     for (const p of PAGE_VOICE_PARAMS[pg] ?? []) voiceFx.set(inst, p, typeof saved?.[p] === 'number' ? (saved[p] as number) : VOICE_FX_DEFAULT[p]);
+    // V.5.1 : MOD, les deux LFO de la voix ; TRIG, ses reglages de trig par defaut (ceux du pattern au point de sauvegarde)
+    if (pg === 'mod') {
+      for (const p of LFO_PARAMS) {
+        const v = (saved as Partial<Record<string, number>> | undefined)?.[p];
+        voiceFx.setLfo(inst, p, typeof v === 'number' ? v : lfoDefault(p));
+      }
+    }
+    if (pg === 'trig') {
+      const row = (savePoint.data as { trigs?: TrigSet }).trigs?.[inst];
+      for (const p of TRIG_PARAMS) pattern.setTrig(inst, p, typeof row?.[p] === 'number' ? (row[p] as number) : TRIG_DEF[p]);
+    }
   }
   lcdMessage.show(`${pageLabel(pg)} RELOADED FROM ${slotName(savePoint.slot)}`);
 }
@@ -4808,10 +5006,15 @@ export function muteStepHold(i: number, stage: Stage | null = null): void {
 /** Le mode MUTE est-il ouvert (les pas sont les voix, la tenue d'un pas est le SOLO) ? */
 export const muteView = (): boolean => DT_FACE && dtFace.mute() !== 'off';
 
-/** FUNC + un pas (V.5.0) : 1 a 8, le mute rapide de leur voix (le jeu global), partout ; 13 a 16, les pages a venir. */
+/** FUNC + un pas (V.5.0) : 1 a 8, le mute rapide de leur voix (le jeu global) ; 13 a 16, les pages a venir. En REC (V.5.1) : le lock trig. */
 function funcStep(i: number, stage: Stage | null): void {
   resume();
   stage?.pressStep(i);
+  // En REC (V.5.1) : le lock trig de la voix choisie ; hors REC, le mute rapide de D1
+  if (dtFace.rec() && editor.get() !== 'mm808' && !muteView()) {
+    lockTrigStep(i);
+    return;
+  }
   const inst = i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
   if (inst) {
     voices.toggleMute(inst);
@@ -4819,6 +5022,30 @@ function funcStep(i: number, stage: Stage | null): void {
     return;
   }
   if (i >= 12) lcdMessage.show('PAGES 1-4: V.5.2', 1600);
+}
+
+/**
+ * FUNC + un pas en REC (V.5.1, le lock trig de la Digitakt) : sur un pas vide, un lock trig (jaune, sans note : ses verrous
+ * vont au coup de la voix qui sonne encore) ; sur un lock trig, il s'en va avec ses verrous ; sur un pas qui joue, il devient
+ * un lock trig (ses verrous restent). Tenir le pas puis tourner un potard y pose ses verrous (le P-LOCK de toujours).
+ */
+function lockTrigStep(i: number): void {
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show(LCD_NO_VOICE);
+    return;
+  }
+  const p = pattern.get();
+  const vel = velocity(p.steps, inst, i);
+  if (vel === 0 && isLockTrig(p.locks, inst, i)) {
+    pattern.clearLock(inst, [i]);
+    lcdMessage.show(`STEP ${two(i + 1)} ${inst} LOCK TRIG OFF`);
+    return;
+  }
+  if (vel > 0) pattern.set(inst, i, 0);
+  pattern.setLock(inst, [i], 'ltrg', 1);
+  rytmPage.select(i);
+  lcdMessage.show(vel > 0 ? `STEP ${two(i + 1)} ${inst} NOW A LOCK TRIG` : `STEP ${two(i + 1)} ${inst} LOCK TRIG: HOLD + KNOB`, 1800);
 }
 
 /**
@@ -4874,4 +5101,65 @@ function mixerDial(inst: Inst, v: number): void {
   resume();
   setVoiceFx(inst, 'level', Math.max(0, Math.min(1, v)));
   lcdMessage.show(`${inst} VOL ${encText('vol', voiceFx.of(inst).level, voiceFx.of(inst).level, false)}  ${encUnit('vol', voiceFx.of(inst).level)}`, POT_UI.readoutMs, true);
+}
+
+/* ---------- TRIG et MOD (V.5.1, 2026-10-29, l'etape D2) : q:<reglage>, la voix choisie ---------- */
+
+/** Un reglage de trig (audio/trig.ts) ou d'un LFO (audio/lfo.ts) de la voix choisie. */
+export type SeqDial = TrigParam | LfoParam;
+export const seqDialOf = (id: DialId | SlotTarget | string | null): SeqDial | null => {
+  if (typeof id !== 'string' || !id.startsWith('q:')) return null;
+  const p = id.slice(2);
+  return isTrigParam(p) || isLfoParam(p) ? p : null;
+};
+const SEQ_NAME: Readonly<Record<TrigParam, string>> = { len: 'LEN', prob: 'PROB', cond: 'COND', utime: 'μTIME', lfot: 'LFO.T', rtrg: 'RTRG', rate: 'RATE', vfad: 'VFAD', rlen: 'RLEN' };
+/** Son nom a l'ecran : LEN, LFO1 DEP. */
+function seqName(p: SeqDial): string {
+  if (isTrigParam(p)) return SEQ_NAME[p];
+  const { n, key } = lfoParts(p);
+  return `LFO${n} ${LFO_KEY_NAMES.find(([k]) => k === key)?.[1] ?? key.toUpperCase()}`;
+}
+export const seqRange = (p: SeqDial): [number, number] => {
+  const r = isTrigParam(p) ? TRIG_RANGE[p] : lfoRange(p);
+  return [r[0], r[1]];
+};
+const seqDefault = (p: SeqDial): number => (isTrigParam(p) ? TRIG_DEF[p] : lfoDefault(p));
+/** Sa valeur pour la voix choisie : le defaut de la voix dans le pattern (TRIG), son reglage de voix (MOD). */
+function seqValue(p: SeqDial): number {
+  const inst = pattern.get().instrument;
+  if (!inst) return seqDefault(p);
+  return isTrigParam(p) ? trigValue(pattern.get().trigs, inst, p) : lfoOf(voiceFx.of(inst), p);
+}
+export function seqText(p: SeqDial, v: number): string {
+  return isTrigParam(p) ? trigText(p, v) : lfoText(p, v);
+}
+/** Sa ligne d'unite ; lock : les verrous du pas montre (la duree d'un cycle de LFO lit SPD et MULT du pas s'ils y sont). */
+export function seqUnit(p: SeqDial, v: number, lock?: Readonly<StepLock> | null): string {
+  const stepMs = (60 / pattern.get().bpm / 4) * 1000;
+  if (isTrigParam(p)) return trigUnit(p, v, stepMs);
+  const inst = pattern.get().instrument;
+  const { n } = lfoParts(p);
+  const fx = inst ? voiceFx.of(inst) : null;
+  const pick = (k: 'spd' | 'mul'): number => {
+    const id = `l${n}${k}` as LfoParam;
+    const lv = lock?.[id];
+    return typeof lv === 'number' ? lv : fx ? lfoOf(fx, id) : lfoDefault(id);
+  };
+  return lfoUnit(p, v, { spd: pick('spd'), mul: Math.max(0, Math.min(LFO_MULTS.length - 1, pick('mul'))) }, stepMs);
+}
+/** Le potard tourne (hors P-LOCK) : le defaut de la voix dans le pattern (TRIG), son LFO (MOD) ; l'ecran le dit. */
+function seqDial(p: SeqDial, v: number): void {
+  resume();
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show(LCD_NO_VOICE);
+    return;
+  }
+  const [lo, hi] = seqRange(p);
+  const x = Math.max(lo, Math.min(hi, Math.round(v)));
+  if (isTrigParam(p)) pattern.setTrig(inst, p, x);
+  else voiceFx.setLfo(inst, p, x);
+  const now = seqValue(p);
+  lcdMessage.show(`${inst} ${seqName(p)} ${seqText(p, now)}  ${seqUnit(p, now)}`, POT_UI.readoutMs, true);
+  touchPage(`q:${p}` as SlotTarget, inst);
 }
