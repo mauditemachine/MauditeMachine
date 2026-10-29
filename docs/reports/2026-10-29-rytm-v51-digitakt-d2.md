@@ -70,6 +70,34 @@
 - L'instantané du boîtier : `leds.trigs` (les lock trigs et les pas à condition de la voix choisie, en jaune) et `fill`. `hw/rowLeds.ts trigLeds` est testé dans `npm run hw:test`.
 - `docs/hardware/mmhw-v2-app-side.md` : la section V.5.1 (`rytm:fill`, une proposition pour la note de YES, les LED des lock trigs).
 
+### La revue de D2 (les corrections)
+
+La revue adverse (workflow wf_a3fc0c8b-648) a trouvé quinze points. Tous sont corrigés, sauf SHARE (reporté d'un commun accord) et une limite notée en section 3.
+
+- **Le moteur** :
+  - E1 (haute) : `cancelAndHoldAtTime` n'existe pas dans Firefox. Un lock trig levait une erreur au milieu de `schedule()`, l'horloge rejouait le même pas à chaque réveil (le kick en mitraillette). `holdAt()` se replie sur `cancelScheduledValues` puis `setValueAtTime`, et `schedule()` rattrape l'erreur d'un coup ou d'un lock trig (console une fois, `clockDebug.seqErrors`) : le pas suivant part toujours.
+  - E2 : la répétition d'un retrig arrête la source du coup qu'elle coupe, 2 ms après sa rampe de 8 ms, et y tient ses LFO. Une répétition annulée rend au coup d'avant sa fin, sa source et ses courbes.
+  - E3 : le pas programmé garde LST tel qu'à sa première programmation. Un pas rejoué d'une mesure déjà annoncée ne le relit plus.
+  - E4 : le premier pas à refaire est cherché par la fin. Avec le SWING et un μTIME négatif, aucun coup déjà parti ou dans la garde de 30 ms n'est annulé ni rejoué.
+  - E5 : un lock trig pendant un retrig touche la répétition qui sonne à son heure ; les répétitions d'après gardent ses verrous en direct (VOL, PAN, FREQ, RESO, DELAY, REVERB, DIST, CHORUS) et sa relance de LFO.
+  - E6 : PLAY après la pause repart à la position du pas de reprise. Le retrig continue, les LFO reprennent leur phase.
+  - E7 :
+    - les coups d'un pas sont joués dans l'ordre du temps (à égalité, l'ordre des pads) : la coupe du charley ouvert et le kick mono suivent μTIME ;
+    - un lock trig prend les valeurs que jouent les scènes (le VOL morphé, comme un coup) ;
+    - la courbe d'un LFO suit sa vitesse : 24 points par cycle, de 2 à 40 ms, 512 rampes au plus ;
+    - le retrig qui ne s'arrête pas au trig suivant à μTIME négatif reste une limite (section 3).
+- **La face** :
+  - U1 : la tape de YES ne part qu'au lâcher **sur** YES, comme en D1 : glisser hors de la touche annule le hasard. YES d'un menu ou avec FUNC agit aussi au lâcher, au pointeur ; au clavier, Entrée agit toujours à l'appui.
+  - U2 : le lock trig est jaune aussi sur la machine crème.
+  - U3 : un lock trig qui reçoit une vélocité (la tape, le glisser, la flèche, VEL au P-LOCK, RANDOM) perd `ltrg`, au même endroit pour tous les gestes (`pattern.ts`). Effacé ensuite, le pas est vide.
+  - U4 : Suppr sur un lock trig l'enlève avec ses verrous (l'écran disait OFF et le laissait).
+  - U5 : μTIME affiche le compte seul (`-12`) ; la ligne d'unité dit `/384` et les ms (`/384 58MS`). `-12/384` ne tenait pas dans son bloc (`-12/3.`).
+  - U6 : la pastille FILL est aussi dans les bandes P-LOCK et scène armée.
+  - U7 : les cartes STEPS et FUNC disent le lock trig en REC ; RND change à chaque cycle (et rejoue la même suite après une relance).
+- **Les données** :
+  - D1 : RANDOM remet les réglages de trig du pattern au départ, comme CLEAR. Les verrous des pas restent, comme avant.
+  - D2 (reporté) : SHARE ne porte toujours ni les réglages de trig ni les LFO.
+
 ### Les commits
 
 | Commit | Ce qu'il apporte |
@@ -83,7 +111,15 @@
 | b8e03d4 | relecture de l'écran en capture |
 | af184fa | FIRMWARE V.5.1 |
 | efea666 | la ligne d'aide et le message du lock trig, l'empreinte reposée |
-| ce rapport | |
+| c81741f | le rapport |
+| b3abcb4 | revue E1 : le repli sans `cancelAndHoldAtTime`, l'horloge jamais bloquée |
+| cc7df72 | revue E2 : la répétition arrête la source du coup qu'elle coupe |
+| 52de517 | revue E3, E4, E6 : LST figé, aucun coup parti rejoué, la reprise garde sa position |
+| b5a6cf7 | revue E5, E7 : le lock trig pendant un retrig, l'ordre du temps, les scènes, les LFO rapides |
+| 3cd8fa9 | revue U1, U3, U4, D1 : YES lâché hors de la touche, `ltrg` retiré, Suppr, RANDOM |
+| f5d36a4 | revue U2, U5, U6, U7 : le jaune crème, μTIME, FILL en P-LOCK, les INFOS |
+| bc80d69 | l'empreinte du firmware |
+| ce rapport mis à jour | |
 
 ## 2. Décisions prises et pourquoi
 
@@ -98,27 +134,30 @@
   - Le reste de ses verrous (hauteur, enveloppe, son) ne peut pas changer un coup déjà lancé.
   - Un réglage qu'il ne verrouille pas reste ce qu'il était, pour ne pas couper l'enveloppe du filtre d'un coup en cours.
   - Le glissement : `setTargetAtTime` de 1 ms depuis la valeur du moment. `cancelAndHoldAtTime` sans événement après lui ne pose rien : la rampe partait du début du coup, et la sonde l'a montré, d'où 668f426 et 763fdfe.
+  - Sans `cancelAndHoldAtTime` (Firefox) : l'annulation simple, puis la valeur tenue. Le glissement part de ce que valent les événements d'avant ; seul un lock trig FREQ tombé pendant l'attaque de l'enveloppe du filtre perd la fin de cette rampe.
 - **Les LFO, en continu ou au coup** (liste exacte) :
-  - en continu sur le coup qui sonne, en rampes d'AudioParam sur sa durée (au plus 8 s, au plus 256 segments de 4 à 40 ms) : PITCH (`detune` de la source, +/-12 demi-tons à DEP 64), FREQ (`detune` du filtre, +/-5 octaves), RESO (Q), VOL (un gain), PAN (le panoramique) ;
+  - en continu sur le coup qui sonne, en rampes d'AudioParam sur sa durée (au plus 8 s ; 24 points par cycle du plus rapide, de 2 à 40 ms, 512 segments au plus, la courbe s'arrête plus tôt plutôt que de s'espacer) : PITCH (`detune` de la source, +/-12 demi-tons à DEP 64), FREQ (`detune` du filtre, +/-5 octaves), RESO (Q), VOL (un gain), PAN (le panoramique) ;
   - pris au moment du coup : DIST, DELAY, REVERB, TONE (au 1/32, le calcul le plus proche joue en attendant, au plus 65 calculs) et DECAY ;
   - un LFO FREQ ou RESO pose le filtre de la voix s'il était ouvert ;
   - DEP 0 : aucun calcul ;
   - le temps est musical : la position en pas depuis PLAY ;
   - DEP va de -64 à +63 comme la Digitakt : à fond, 63/64.
 - **Les LFO hors des scènes** en D2 (rôle `noscene`, comme le cahier le demande). Ils sont gardés avec les presets et l'UNDO, et verrouillables.
-- **Le retrig mono.** Une répétition coupe la précédente en 8 ms, comme une piste de Digitakt. Sinon, un retrig rapide sur une cymbale empilait vingt queues.
-- **Les répétitions et les conditions.** Une répétition appartient à la fenêtre de pas où elle tombe. Le trig suivant qui *joue* arrête le retrig ; un trig dont la condition échoue, ou un lock trig, non.
+- **Le retrig mono.** Une répétition coupe la précédente en 8 ms, comme une piste de Digitakt, et arrête sa source juste après. Sinon, un retrig rapide sur une cymbale empilait vingt queues, et des centaines de sources tournaient à vide (la revue, E2).
+- **Les répétitions et les conditions.** Une répétition appartient à la fenêtre de pas où elle tombe. Le trig suivant qui *joue* arrête le retrig ; un trig dont la condition échoue, ou un lock trig, non. Un lock trig pendant le retrig : ses verrous en direct passent aux répétitions d'après lui (pas les autres, une hauteur ou un son verrouillé ne s'y ajoutent pas, comme sur un coup qui sonne).
+- **L'ordre des coups d'un pas** : celui du temps (μTIME, les répétitions), à égalité celui des pads. Au départ, rien ne change : tous les coups d'un pas ont la même heure.
 - **Le mute et les conditions.** Les conditions sont évaluées même sur une voix coupée, pour que PRE et NEI ne dépendent pas des mutes.
 - **μTIME négatif.** De 100 à 150 BPM, -23/384 vaut au plus 144 ms. L'avance de 300 ms (450 au téléphone) suffit ; l'horizon s'allonge quand même du plus grand μTIME négatif du motif, et rien n'est borné en lecture : le coup du pas 1 tombe à la fin de la mesure d'avant, à l'heure exacte (sonde en direct).
   - **Borné, à noter :** le tout premier pas 1 après PLAY n'a pas de mesure d'avant ; il part tout de suite. De même, hors ligne, un coup avant 0 s part à 0.
 - **Le conflit de YES** (le cahier le laissait à arbitrer) :
-  - la tape attend le lâcher, sous 250 ms ; la page armée est lue à l'appui, une tape rapide ne perd donc pas l'armement ;
-  - KIT, TEMPO (le TAP doit être immédiat), PTN, la liste des sons et FUNC gardent YES à l'appui ;
-  - Entrée tenue fait pareil ;
+  - la tape attend le lâcher, sous 250 ms, et sur la touche (la revue, U1 : comme le clic de D1, glisser hors d'elle annule) ; la page armée est lue à l'appui, une tape rapide ne perd donc pas l'armement ;
+  - KIT, TEMPO, PTN, la liste des sons et FUNC n'ont pas de FILL : YES y agit tout de suite au lâcher sur la touche (au pointeur, comme en D1), à l'appui au clavier ;
+  - Entrée tenue fait comme la souris pour FILL ;
   - `rytm:yes` reste la tape de D1, `rytm:fill` tient FILL.
-- **La tape sur un lock trig l'enlève**, comme une touche de trig de Digitakt. Sinon il devenait une note qui reviendrait lock trig une fois effacée.
-- **CLEAR remet les réglages de trig au départ** (le pattern, ou la ligne de la voix avec REC). Sinon une PROB à 0 restée après CLEAR rendrait les nouveaux pas muets.
-- **Le lien SHARE** (beatcode v1) ne porte ni les P-LOCKS ni les réglages de trig ni les LFO. C'était déjà le cas pour les verrous ; une v2 les ajoutera. Les liens d'avant se relisent tels quels.
+- **La tape sur un lock trig l'enlève**, comme une touche de trig de Digitakt ; Suppr aussi. Un lock trig qui reçoit une vélocité par un autre geste perd `ltrg` : effacé, il ne revient jamais lock trig.
+- **CLEAR remet les réglages de trig au départ** (le pattern, ou la ligne de la voix avec REC). Sinon une PROB à 0 restée après CLEAR rendrait les nouveaux pas muets. **RANDOM aussi** (la revue, D1) ; il garde les verrous des pas, comme avant.
+- **Le lien SHARE** (beatcode v1) ne porte ni les P-LOCKS ni les réglages de trig ni les LFO. C'était déjà le cas pour les verrous ; une v2 les ajoutera. Les liens d'avant se relisent tels quels. La revue l'a relevé (D2) et l'a laissé reporté.
+- **μTIME à l'écran** : le compte seul (`-12`), `/384` et les ms sur la ligne d'unité (le cahier écrivait `-23/384`, qui ne tient pas dans un bloc).
 - **Le rendu hors ligne** gagne `trigs`, `fill`, `fillAt`, `last` et `log` (le journal de chaque coup et de chaque lock trig : gain, `kind`, LEN, valeur des LFO). Le chemin `bars` (les tests des scènes) reste sans séquenceur.
 - **Debug** : `__v4.clock.pass`, `__v4.audio.lockTrigs`, `__v4.seq.ltrgMask` et `condDots`, `hw.getSnapshot().fill` et `leds.trigs`.
 
@@ -138,6 +177,12 @@
   - une longueur de pattern (le compteur de passages compte des mesures de 16 pas) ;
   - TRIG et MOD au téléphone, si Mika le veut.
 - Le premier pas 1 après PLAY avec un μTIME négatif part tout de suite (voir la section 2).
+- **Les limites laissées par la revue** :
+  - un retrig ne s'arrête pas au trig suivant de la voix quand celui-ci a un μTIME négatif : les répétitions déjà émises entre l'heure avancée du trig et son pas sonnent (sonde : `rep@3.50` après `note@3.25`). Le corriger demande de lire le pas suivant à l'avance (sa condition, sa PROB) ;
+  - un LFO rapide sur un son long se fige après 1 s au pire (512 rampes de 2 ms) ;
+  - hors ligne, le retrig extrême (1/80 sur les 8 voix) se rend encore en 2,6 s pour 4,5 s : le rendu garde ses nœuds branchés jusqu'au bout. En direct, les sources s'arrêtent (29 au plus en même temps) ;
+  - RANDOM garde les verrous des pas, donc une PROB ou une COND verrouillée sur un pas reste.
+- **D2 de la revue, reporté** : SHARE (beatcode v2) avec les réglages de trig et les LFO.
 
 ## 4. Commandes utiles ajoutées
 
@@ -148,64 +193,69 @@
   ```
   puis `__v4.audio.offlineHits`.
 - MIDI : `rytm:fill`, `rytm:screen:trig2`, `rytm:screen:mod1`, `rytm:screen:mod2`, `rytm:voice:<voix>:len` ... `rlen`, `rytm:voice:<voix>:l1spd` ... `l2dep`.
+- Debug : `__v4.clock.seqErrors` (les erreurs de programmation rattrapées) et `__v4.clock.abs` (la position du prochain pas).
 - Les sondes de la session, hors du dépôt (`scratchpad/d2/t/`) :
   - `ident.cjs` et `cmp.cjs` : l'identité ;
   - `seq.cjs` : le séquenceur hors ligne ;
   - `ui.cjs` : la face, une souris ;
   - `utime.cjs` : le μTIME en direct ;
-  - `shots.cjs` : les captures.
+  - `shots.cjs` : les captures ;
+  - `ffb.cjs` : le repli sans `cancelAndHoldAtTime` (nouvelle) ;
+  - `rtlive.cjs` : les sources qui jouent pendant un retrig, en direct muet (nouvelle) ;
+  - `uix.cjs` : U1 (TEMPO), U3, U4, U5, D1, E7 (nouvelle) ;
+  - `scratchpad/d2/rv/` : les sondes de la revue, rejouées.
 
-## Vérification (sur une copie propre de `efea666`, `git archive`)
+## Vérification (sur une copie propre de `bc80d69`, `git archive`, après la revue)
+
+Aucune lecture réelle : Chromium `--mute-audio`, `?mute=1` ; des compteurs, le journal de l'horloge, l'état des pas et des rendus hors ligne (des nombres).
 
 - `npx tsc --noEmit -p .` : 13 erreurs, les mêmes 13 qu'avant (Admin, EventsDisplay, MainApp, NewsMessages, AppContext, adminApi, sanityClient, RadarPage x2, drums, fx x2, dj/engine) ; aucune nouvelle.
-- `SEO_OFFLINE=1 npx vite build` : OK (built in 15,1 s).
+- `SEO_OFFLINE=1 npx vite build` : OK (built in 17,35 s).
 - `node scripts/smoke-v4.mjs --url http://127.0.0.1:8852 --machines mm808,voy,dj` : `6 pages, aucune erreur`.
 - `npm run hw:test` : 17 + 9 tests, tous bons. `npm run presets:test` : `12 tests, tous bons`, `5 tests, tous bons`.
 - `node scripts/firmware.mjs check` : OK, MM-RYTM V.5.1 (211 fichiers), MM-ARP V.2.3, MM-BASS V.3.0.
 
-**L'identité audio** (V.5.0 à fd92700 contre D2, mêmes rendus hors ligne, 15 cas) :
-- les cas : le pattern d'arrivée (une mesure et quatre), un pattern verrouillé (envois, inserts, TONE, PAN, VOL), le même avec tous les nouveaux réglages écrits à leur départ (verrous et défauts du pattern), un coup seul verrouillé, et les 10 presets d'usine ;
-- l'écart maximal est de **3,3e-7**, et 0 sur trois cas ;
-- le bruit de V.5.0 contre elle-même est de 3,6e-7.
+**L'identité audio** (V.5.0 à fd92700, reconstruite, contre bc80d69 ; mêmes rendus hors ligne, 15 cas) :
+- les cas : le pattern d'arrivée (une mesure et quatre), un pattern verrouillé (envois, inserts, TONE, PAN, VOL), le même avec tous les nouveaux réglages écrits à leur départ, un coup seul verrouillé, et les 10 presets d'usine ;
+- l'écart maximal est de **5,0e-7**, et 0 sur le coup seul ;
+- le bruit de V.5.0 contre elle-même est de 6,0e-7.
 
-**La sonde muette du séquenceur** (rendus hors ligne et compteurs de coups, jamais une écoute) : 16 sur 16.
-- PROB 0 : 0 coup (PROB 100 : 64 sur 64 pas ; le rendu est muet, crête 0) ; PROB 50 : 34 sur 64.
-- 1:2 : 4, 0, 4, 0 coups par mesure.
+**La sonde muette du séquenceur** : 16 sur 16, les mêmes nombres qu'avant la revue.
+- PROB 0 : 0 coup (PROB 100 : 64 sur 64 ; crête 0) ; PROB 50 : 34 sur 64 ; 1:2 : 4, 0, 4, 0.
 - FILL tenu sur la mesure 2 : SD (FILL) 0, 2, 0 ; CP (!FILL) 2, 0, 2.
-- μTIME +12/384 et -12/384 à 120 BPM : +62,500 et -62,500 ms au journal comme au début du coup dans le son.
-- RTRG 1/32 : 2 coups par pas, à 62,5 ms d'écart, sur les seize pas (un trig, RLEN INF ; et un trig par pas, RLEN 1).
-- LEN 1 pas sur un charley ouvert : RMS après LEN 0 (INF : 1,1e-3) ; avant LEN, identique.
-- Lock trig VOL 0,2 sur une cymbale :
-  - 1 coup, 1 lock trig, aucun coup de plus ;
-  - avant lui, le gain est identique (1,0000) ; après, 0,0625, soit -24,1 dB comme attendu.
-- Lock trig LFO.T sur un LFO VOL : écart 2,3e-10 avant lui, 2,8e-2 après (le LFO repart).
-- LFO PITCH SINE d'une mesure : la valeur de chaque coup suit 63/64 x sin(2 pi s / 16), soit 9 valeurs sur 16 coups, et le son change. LFO FREQ : 9 valeurs. LFO DECAY, pris au coup : 9 valeurs.
-- Les réglages au départ écrits : rendu identique, écart 0.
+- μTIME +12 et -12 à 120 BPM : +62,500 et -62,500 ms au journal comme dans le son.
+- RTRG 1/32 : 2 coups par pas, à 62,5 ms d'écart. LEN 1 pas : RMS après LEN 0.
+- Lock trig VOL 0,2 : 1 coup, 1 lock trig ; gain 1,0000 avant, 0,0625 après. LFO.T : 2,3e-10 avant, 2,8e-2 après.
+- LFO PITCH, FREQ, DECAY : 9 valeurs sur 16 coups. Les réglages au départ écrits : écart 0.
 
-**La face, une seule souris** (lecture muette, `--mute-audio`, `?mute=1`) : 22 sur 22, aucune erreur de page.
-- TRK puis le pas 1 choisit BD.
-- TRIG 1/2 (NOTE VEL LEN PROB COND μTIME LFO.T), TRIG rappuyé : 2/2 (RTRG RATE VFAD RLEN), puis 1/2.
-- Le potard C sans pas tenu règle LEN de BD dans le pattern.
-- REC, le pas 5 tenu, puis le potard D : le P-LOCK `prob: 60` sur le pas seul, avec son point jaune (et `leds.trigs.cond` du boîtier).
-- Lock trig :
-  - FUNC tapée puis un pas vide : un lock trig jaune (`dyellow`), sans note ;
-  - un verrou VOL posé dessus : il reste sans note ;
-  - FUNC + le lock trig : il s'en va ;
-  - FUNC + une note : elle devient un lock trig ;
-  - une tape l'enlève, la suivante pose une note.
-- REC éteint, FUNC + pas 2 : le mute rapide de SD.
-- MOD 1/2 et 2/2 ; MOD puis YES : LFO 2 au hasard, sans message V.5.1.
-- FILL :
-  - YES tenu à la souris : `fill` vrai, la pastille FILL dans l'en-tête ;
-  - la caisse claire à COND FILL : 0 coup avant, 9 pas sur 9 pendant la tenue, 0 après.
-- Le compteur de passages avance (3 puis 4) ; STOP le remet à 1.
-- TRIG puis YES tenu : FILL, le motif ne change pas ; TRIG puis YES tapé : le hasard de D1.
-- MIDI : `rytm:fill`, `rytm:screen:mod2`, `rytm:screen:mod1` et `rytm:screen:trig2`.
+**La face, une seule souris** : 22 sur 22, aucune erreur de page (TRIG 1/2 et 2/2, P-LOCK PROB et son point jaune, les lock trigs, le mute rapide hors REC, MOD, FILL tenu, le compteur de passages, TRIG puis YES tenu ou tapé, le MIDI).
 
-**μTIME en direct** (-23/384 sur le pas 1) :
-- 100 BPM : le coup tombe 143,75 ms avant la mesure ;
-- 150 BPM : 95,833 ms avant la mesure ;
-- les deux sont à l'heure exacte, programmés 274 à 777 ms en avance ;
-- le premier pas 1 après PLAY part tout de suite.
+**μTIME en direct** (-23 sur le pas 1) : 143,75 ms avant la mesure à 100 BPM, 95,833 ms à 150 BPM ; le premier pas 1 après PLAY part tout de suite.
 
-**Le téléphone** (`?portrait=1`, 390 x 844 DPR 3, au repos) : identique au pixel près à la V.5.0, sauf le texte FIRMWARE V.5.0 devenu V.5.1. Machine noire : 706 pixels ; crème : 804 pixels ; dans la même boîte, 102 x 9 pixels.
+**Le repli sans `cancelAndHoldAtTime`** (`ffb.cjs`, la fonction retirée avant le chargement) : 6 sur 6.
+- Hors ligne, 3 mesures : 3 coups, 3 lock trigs, crête 0,223, aucune erreur.
+- En direct 4,5 s (CY, un LFO VOL, un lock trig VOL au pas 9) : 0 erreur de page, 0 erreur rattrapée, 39 pas programmés tous distincts, un lock trig par passage (2 pour 2 pas 9 ; une re-programmation au départ).
+- La même sonde avec la fonction : 6 sur 6.
+- La sonde de la revue (`ff.cjs`) : 0 erreur de page, le compteur de lock trigs passe de 1 à 3 (avant : 31 erreurs en 2,4 s, de 1 à 32, le journal bloqué au pas 9).
+
+**Les sondes de la revue, rejouées** (avant : c81741f reconstruit ; après : bc80d69) :
+- E2, `rtlive.cjs` (RTRG 1/80 RLEN INF sur les 8 voix, 150 BPM, en direct muet) : les sources qui jouent en même temps, au plus 204 avant, **29** après (moyenne 189,6 puis 20,9) ; avec 2 LFO par voix, 223 puis 29 ; sans retrig, 13 et 13. Hors ligne (`cpu.cjs`) : 29 au plus (la revue : 203).
+- E3, `lst2.cjs` (SD en LST et CP en !LST au pas 16, A02 tapé) : avant, SD 0 et CP 1 au dernier passage dans deux modes sur trois ; après, SD 1 et CP 0 dans les trois (rien, une re-programmation, la tape tardive).
+- E4, `swing.cjs` (SWING à fond, kick à -23 au pas 3, 24 re-programmations autour du pas 2) : avant, 19 kicks recréés dans la garde de 30 ms, dont 9 à 0 ms ; après, **un seul départ sur 24**, 274 à 296 ms en avance.
+- E5, `rt.cjs` (CY en retrig 1/16, lock trig VOL 0,1 au pas 9) : le rapport du RMS des pas 10 à 13 vaut **0,0156** (avant 1,0000), comme le témoin sans retrig (0,0156).
+- E6, `pause.cjs` : après la reprise, le retrig de CY continue à chaque pas (avant : 17 pas sans lui).
+- E7, `choke.cjs` : les deux écritures équivalentes donnent les mêmes coups (OH@4.00, CH@4.50) et le même RMS (5,472e-4).
+- U1, `p1.cjs` : YES lâché sur la touche, RANDOM ; lâché hors d'elle, rien (avant : RANDOM).
+- U2, `lt.cjs` (machine crème) : le lock trig vaut [0.759, 0.379, 0.083] (avant [0.84, 0.82, 0.78], la couleur d'un pas vide) ; capture : le pas 2 jaune.
+- U3, `p2.cjs` : après la tape qui efface, le pas est vide, sans verrou (avant : `{ltrg: 1}`, jaune).
+- U6, `p10.cjs` : en-têtes `P-LOCK STEP 01 | SRC|FILL` et `SCENE A · 0 PARAMS · A01|FILL`.
+- `uix.cjs` : 6 sur 6 (0 sur 6 sur c81741f) :
+  - U4 : Suppr, `STEP 03 BD LOCK TRIG OFF`, le verrou parti ;
+  - U3 par le store : pas vide, `{level: 0.5}` gardé ;
+  - U5 : le bloc dit `-12`, l'unité `/384 58MS` à 130 BPM (capture vérifiée, rien de coupé) ;
+  - U1 sur la page TEMPO : rien à l'appui, rien lâché dehors, `TAP 1/4` lâché dessus (avant : `TAP 1/4` dès l'appui, puis `TAP 2/4` lâché dehors) ;
+  - D1 : `{"BD":{"utime":-12},"SD":{"prob":0},"CH":{"cond":11}}` devient `{}` après RANDOM ;
+  - E7 : le VOL d'un lock trig sous la scène B à fond (VOL 1) donne un RMS de 3,6e-3, contre 1,4e-4 sans scène (avant : identiques).
+- Limite, `rt.cjs` F : le retrig ne s'arrête pas au trig à μTIME négatif (`rep@3.50` après `note@3.25`), voir la section 3.
+
+**Le téléphone** (`?portrait=1`, 390 x 844 DPR 3, au repos) : identique au pixel près à la V.5.0, sauf le texte FIRMWARE V.5.0 devenu V.5.1. Machine noire : 706 pixels dans 102 x 9 ; crème : 804 pixels dans 103 x 10.
