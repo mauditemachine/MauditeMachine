@@ -368,6 +368,10 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
       b.tag = 'MACHINE';
       b.tagHeader = true;
     }
+  } else if (id.startsWith('m:')) {
+    // Le VOL d'une voix sur le MIXER (V.5.0, FUNC + MOD) : comme VOL de SRC
+    b.text = encText('vol', v, b.course, false);
+    b.unit = encUnit('vol', v);
   } else if (id === 'tempo') {
     // TEMPO sur la page MASTER (V.4.2, 2026-10-27) : comme l'en-tete, 124 BPM, ou 124.4 SYNC quand il suit les platines
     // (2026-10-27, revue SEAM-5 : le bloc disait 124 BPM pendant que tout le reste disait 124.4 SYNC)

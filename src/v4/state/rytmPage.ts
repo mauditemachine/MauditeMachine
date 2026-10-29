@@ -49,7 +49,7 @@
  */
 
 import { DEFAULT_PAGE, FOLLOW_TOUCH, PAGE_TABS, RYTM_PAGES, fxVoicePageOf, isRytmPage, pageOfAlias, pageStep, screenOf, screensOf, slotOf, type FxDetailId, type RytmPageId, type RytmScreenId, type SlotTarget } from '../rytm/pages';
-import { POT_UI, type EncId, type Inst } from '../theme';
+import { PORTRAIT, POT_UI, type EncId, type Inst } from '../theme';
 
 export type RytmView = 'home' | 'page';
 
@@ -117,7 +117,9 @@ const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, tabs: zeroTabs(), view: 'ho
  */
 export function screenOfState(s: RytmPageState, inst: Inst | null): RytmScreenId {
   const base = screenOf(s.page, s.tabs[s.page] ?? 0, inst);
-  if (!s.detail || s.page !== 'fx') return base;
+  // V.5.0 (2026-10-29) : au desktop GLOBAL FX est la page SEND FX, VOICE FX la page FX ; la page d'un FX se pose sur l'une ou
+  // l'autre (au telephone, les deux onglets de FX comme avant)
+  if (!s.detail || (s.page !== 'fx' && s.page !== 'sendfx')) return base;
   if (base === 'fxg') return s.detail;
   return base === 'fxv' ? (fxVoicePageOf(s.detail) ?? s.detail) : base;
 }
@@ -224,6 +226,13 @@ export const rytmPage = {
    * VOICE FX, sa page sous la voix ; BIT et COMP n'en ont pas : GLOBAL.
    */
   openFx(d: FxDetailId, inst: Inst | null, voice = false): void {
+    // V.5.0 (2026-10-29) : au desktop sous SEND FX (GLOBAL) ou sous FX (la voix), chacune sa page a un onglet
+    if (!PORTRAIT) {
+      const pg: RytmPageId = voice && fxVoicePageOf(d) !== null ? 'fx' : 'sendfx';
+      if (state.page === pg && state.view === 'page' && state.detail === d) return;
+      set({ page: pg, view: 'page', echo: null, detail: d });
+      return;
+    }
     const t = fxTab(voice && fxVoicePageOf(d) !== null, inst);
     if (state.page === 'fx' && state.view === 'page' && (state.tabs.fx ?? 0) === t && state.detail === d) return;
     set({ page: 'fx', view: 'page', echo: null, detail: d, tabs: { ...state.tabs, fx: t } });

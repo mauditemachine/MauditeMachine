@@ -72,9 +72,23 @@ import type { LockKey } from '../audio/locks';
 import { familyOf, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
-import { PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
+import { DT_PAGE_KEYS, PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
 
-export type RytmPageId = (typeof RYTM_PAGE_KEYS)[number]['id'];
+/**
+ * V.5.0 (2026-10-29, la face facon Digitakt du desktop) : les pages de FUNC + une touche de page, TEMPO (FUNC + TRIG),
+ * SEND FX (FUNC + FX, la page GLOBAL FX d'avant) et MIXER (FUNC + MOD). Le telephone ne les a pas.
+ */
+export const DT_FUNC_PAGES = [
+  { id: 'tempo', label: 'TEMPO' },
+  { id: 'sendfx', label: 'SEND FX' },
+  { id: 'mixer', label: 'MIXER' },
+] as const;
+
+/**
+ * Une page : les quatre du telephone (VOICE FLTR ENV FX), et au desktop depuis V.5.0 TRIG, MOD et les pages de FUNC. voice
+ * et env gardent leur id (le stockage, le MIDI rytm:page:voice) : leur touche dit SRC et AMP au desktop.
+ */
+export type RytmPageId = (typeof RYTM_PAGE_KEYS)[number]['id'] | (typeof DT_PAGE_KEYS)[number]['id'] | (typeof DT_FUNC_PAGES)[number]['id'];
 
 /**
  * La page d'un FX global (2026-10-10, Mika : "quand je touche a un FX, par
@@ -117,13 +131,25 @@ export function fxScopeTabs(s: RytmScreenId): { global: FxDetailId; voice: FxVoi
 }
 
 /** Les ecrans : une page, ou l'un de ses onglets (VOICE et SYNTH ; VOICE FX et GLOBAL FX), ou la page d'un FX (GLOBAL ou VOICE). */
-export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg' | FxDetailId | FxVoiceDetailId | 'fxm';
-// fxm a la fin (V.4.2, 2026-10-27) : les ids MIDI d'avant (rytm:screen:<ecran>) gardent leur ordre, le sien s'ajoute
-export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg', ...FX_DETAILS, ...FX_VOICE_DETAILS, 'fxm'];
+export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg' | FxDetailId | FxVoiceDetailId | 'fxm' | 'trig' | 'mod' | 'tempo' | 'mixer';
+// fxm a la fin (V.4.2, 2026-10-27) : les ids MIDI d'avant (rytm:screen:<ecran>) gardent leur ordre, le sien s'ajoute ; ceux de
+// V.5.0 (TRIG, MOD, TEMPO, MIXER LEVELS) apres lui, de meme
+export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg', ...FX_DETAILS, ...FX_VOICE_DETAILS, 'fxm', 'trig', 'mod', 'tempo', 'mixer'];
 export const isRytmScreen = (v: unknown): v is RytmScreenId => typeof v === 'string' && (RYTM_SCREENS as readonly string[]).includes(v);
 
-/** L'ordre des pages (les touches de page, [ et ] en font le tour). */
-export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = RYTM_PAGE_KEYS;
+/**
+ * Les pages (les touches de page ; les listes des verrous les parcourent dans cet ordre). Au desktop depuis V.5.0 : SRC FLTR
+ * AMP FX d'abord (les verrous se lisent comme avant), puis TRIG, MOD et les pages de FUNC.
+ */
+const DT_PAGES: readonly { id: RytmPageId; label: string }[] = [
+  ...DT_PAGE_KEYS.filter((p) => p.id !== 'trig' && p.id !== 'mod').map((p) => ({ id: p.id, label: p.label })),
+  { id: 'trig', label: 'TRIG' },
+  { id: 'mod', label: 'MOD' },
+  ...DT_FUNC_PAGES,
+];
+export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = PORTRAIT ? RYTM_PAGE_KEYS : DT_PAGES;
+/** Le tour de [ et ] : les quatre pages au telephone, les six touches de la rangee au desktop (TRIG SRC FLTR AMP FX MOD). */
+const PAGE_CYCLE: readonly { id: RytmPageId }[] = PORTRAIT ? RYTM_PAGE_KEYS : DT_PAGE_KEYS;
 
 /**
  * Le menu de la voix sous HOME (2026-10-18, Mika : "j'aime bien cet affichage par defaut quand je selectionne un Voice ..
@@ -132,7 +158,8 @@ export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = RYTM_PAG
  */
 export const HOME_MENU = ['sound', 'voice', 'fltr', 'env', 'fx'] as const;
 export type HomeMenuId = (typeof HOME_MENU)[number];
-export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = { sound: 'SOUND', voice: 'VOICE', fltr: 'FLTR', env: 'ENV', fx: 'FX' };
+// Les noms de la face V.5.0 au desktop (SRC, AMP) ; le telephone garde les siens
+export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = PORTRAIT ? { sound: 'SOUND', voice: 'VOICE', fltr: 'FLTR', env: 'ENV', fx: 'FX' } : { sound: 'SOUND', voice: 'SRC', fltr: 'FLTR', env: 'AMP', fx: 'FX' };
 
 /** Les onglets de chaque page, dans l'ordre (la touche de la page allumee pressee encore passe au suivant). */
 // FX au desktop (2026-10-27, decision P2-05, a revenir seule) : GLOBAL FX d'abord, le jeu des huit potards de la face
@@ -140,7 +167,22 @@ export const HOME_MENU_LABEL: Readonly<Record<HomeMenuId, string>> = { sound: 'S
 // MASTER (V.4.2, 2026-10-27, l'ecran ne se touche plus au desktop, theme.ts SCREEN_TOUCH) : la troisieme page de FX au desktop,
 // MASTER et TEMPO sur les potards A et B (ils n'avaient que leur cadran dans l'ecran, au doigt et a la souris) ; le
 // telephone, qui touche son ecran, ne l'a pas
-export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = { voice: ['voice', 'synth'], fltr: ['fltr'], env: ['env'], fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxg', 'fxv', 'fxm'] };
+// V.5.0 (2026-10-29, la face facon Digitakt) : au desktop FX ne garde que VOICE FX ; GLOBAL FX devient SEND FX (FUNC + FX),
+// MASTER la deuxieme page du MIXER (FUNC + MOD) ; TRIG, MOD et TEMPO ont la leur. Le telephone ne voit que ses quatre pages
+// (RYTM_PAGES) : les autres sont la pour les types, jamais montrees
+export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = {
+  voice: ['voice', 'synth'],
+  fltr: ['fltr'],
+  env: ['env'],
+  fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxv'],
+  trig: ['trig'],
+  mod: ['mod'],
+  tempo: ['tempo'],
+  sendfx: ['fxg'],
+  mixer: ['mixer', 'fxm'],
+};
+/** Au desktop (V.5.0), GLOBAL FX et ses pages sont sous SEND FX, MASTER sous le MIXER ; le telephone garde FX. */
+const SEND: RytmPageId = PORTRAIT ? 'fx' : 'sendfx';
 /** La page d'un ecran (les pages des FX globaux, 2026-10-10 : FX). */
 export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = {
   voice: 'voice',
@@ -148,18 +190,22 @@ export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = {
   fltr: 'fltr',
   env: 'env',
   fxv: 'fx',
-  fxg: 'fx',
-  fxdist: 'fx',
-  fxchorus: 'fx',
-  fxdelay: 'fx',
-  fxreverb: 'fx',
-  fxbit: 'fx',
-  fxcomp: 'fx',
+  fxg: SEND,
+  fxdist: SEND,
+  fxchorus: SEND,
+  fxdelay: SEND,
+  fxreverb: SEND,
+  fxbit: SEND,
+  fxcomp: SEND,
   fxvdist: 'fx',
   fxvchorus: 'fx',
   fxvdelay: 'fx',
   fxvreverb: 'fx',
-  fxm: 'fx',
+  fxm: PORTRAIT ? 'fx' : 'mixer',
+  trig: 'trig',
+  mod: 'mod',
+  tempo: 'tempo',
+  mixer: 'mixer',
 };
 /** Le nom d'un onglet (l'en-tete, ses pastilles) ; celui d'une page sans onglet est le sien ; la page d'un FX, son nom. */
 export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
@@ -180,26 +226,36 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
   fxvdelay: 'DELAY',
   fxvreverb: 'REVERB',
   fxm: 'MASTER',
+  trig: 'TRIG',
+  mod: 'MOD',
+  tempo: 'TEMPO',
+  mixer: 'LEVELS',
 };
 /** Le titre d'un ecran, en toutes lettres (le pied, l'en-tete du P-LOCK, l'ecran du MIDI) : VOICE, VOICE SYNTH, GLOBAL FX, GLOBAL FX · DELAY, VOICE FX · DELAY. */
+// V.5.0 (2026-10-29) : au desktop les noms de la face facon Digitakt (SRC, AMP, SEND FX, MIXER) ; le telephone garde les siens
+const GFX = PORTRAIT ? 'GLOBAL FX' : 'SEND FX';
 export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
-  voice: 'VOICE',
-  synth: 'VOICE SYNTH',
+  voice: PORTRAIT ? 'VOICE' : 'SRC',
+  synth: PORTRAIT ? 'VOICE SYNTH' : 'SRC SYNTH',
   fltr: 'FLTR',
-  env: 'ENV',
+  env: PORTRAIT ? 'ENV' : 'AMP',
   fxv: 'VOICE FX',
-  fxg: 'GLOBAL FX',
-  fxdist: 'GLOBAL FX · DIST',
-  fxchorus: 'GLOBAL FX · CHORUS',
-  fxdelay: 'GLOBAL FX · DELAY',
-  fxreverb: 'GLOBAL FX · REVERB',
-  fxbit: 'GLOBAL FX · BIT',
-  fxcomp: 'GLOBAL FX · COMP',
+  fxg: GFX,
+  fxdist: `${GFX} · DIST`,
+  fxchorus: `${GFX} · CHORUS`,
+  fxdelay: `${GFX} · DELAY`,
+  fxreverb: `${GFX} · REVERB`,
+  fxbit: `${GFX} · BIT`,
+  fxcomp: `${GFX} · COMP`,
   fxvdist: 'VOICE FX · DIST',
   fxvchorus: 'VOICE FX · CHORUS',
   fxvdelay: 'VOICE FX · DELAY',
   fxvreverb: 'VOICE FX · REVERB',
-  fxm: 'MASTER',
+  fxm: PORTRAIT ? 'MASTER' : 'MIXER MASTER',
+  trig: 'TRIG',
+  mod: 'MOD',
+  tempo: 'TEMPO',
+  mixer: 'MIXER LEVELS',
 };
 
 /**
@@ -214,9 +270,9 @@ export const tabWord = (t: RytmScreenId, inst: string | null): string =>
       ? `${inst} FX`
       : 'VOICE FX'
     : t === 'fxg'
-      ? 'GLOBAL FX'
+      ? GFX
       : isFxDetail(t)
-        ? `GLOBAL ${SCREEN_LABEL[t]}`
+        ? `${PORTRAIT ? 'GLOBAL' : 'SEND'} ${SCREEN_LABEL[t]}`
         : isFxVoiceDetail(t)
           ? `${inst ?? 'VOICE'} ${SCREEN_LABEL[t]}`
           : SCREEN_LABEL[t];
@@ -229,7 +285,11 @@ export const fxVoiceTabLabel = (inst: string | null): string => inst ?? 'VOICE';
  * une page retenue, le MIDI rytm:page:<ancien>, l'INFOS d'avant. TRIG, SRC et
  * SMPL ouvrent VOICE, AMP ouvre ENV.
  */
-export const PAGE_ALIAS: Readonly<Record<string, RytmPageId>> = { trig: 'voice', src: 'voice', smpl: 'voice', amp: 'env', voice: 'voice', fltr: 'fltr', env: 'env', fx: 'fx' };
+// V.5.0 (2026-10-29) : au desktop TRIG est de nouveau une page (rytm:page:trig ouvre la vraie page TRIG), MOD et les pages de
+// FUNC aussi ; le telephone garde TRIG sur VOICE
+export const PAGE_ALIAS: Readonly<Record<string, RytmPageId>> = PORTRAIT
+  ? { trig: 'voice', src: 'voice', smpl: 'voice', amp: 'env', voice: 'voice', fltr: 'fltr', env: 'env', fx: 'fx' }
+  : { trig: 'trig', src: 'voice', smpl: 'voice', amp: 'env', voice: 'voice', fltr: 'fltr', env: 'env', fx: 'fx', mod: 'mod', tempo: 'tempo', sendfx: 'sendfx', mixer: 'mixer' };
 /** Une page, d'un nom d'aujourd'hui ou d'avant ; null : aucune. */
 export const pageOfAlias = (v: unknown): RytmPageId | null => (typeof v === 'string' && Object.prototype.hasOwnProperty.call(PAGE_ALIAS, v) ? PAGE_ALIAS[v] : null);
 
@@ -461,6 +521,21 @@ const FXG: readonly PageSlot[] = [
  */
 const FXM: readonly PageSlot[] = [live('MASTER', 'level', 'level', 'all'), live('TEMPO', 'tempo', 'bar', 'all')];
 
+/* ---------------- TRIG, MOD, TEMPO, MIXER (V.5.0, 2026-10-29, la face facon Digitakt du desktop) ---------------- */
+
+/**
+ * TRIG : A NOTE (le TUNE de la voix, au demi-ton, verrouillable), B VEL (la velocite des nouveaux pas ; en P-LOCK celle du
+ * pas). C a H : LEN, PROB, COND, uTIME, RTRG et RATE arrivent en V.5.1 (des blocs vides).
+ */
+const TRIG: readonly PageSlot[] = [lockable('NOTE', 'vtune', 'barc', 'tune'), lockable('VEL', 'step:vel', 'level', 'vel')];
+/** MOD : vide en D1 (deux LFO en V.5.1). */
+const MOD: readonly PageSlot[] = [];
+/** TEMPO (FUNC + TRIG) : A BPM (le TEMPO de toujours, le SYNC du MIXER compris), B SWING ; jamais verrouilles. */
+const TEMPO: readonly PageSlot[] = [live('BPM', 'tempo', 'bar', 'all'), live('SWING', 'swing', 'swing', 'all')];
+/** MIXER 1/2 LEVELS (FUNC + MOD) : A a H, le VOL de BD SD CH OH CP TOM HT CY (m:<voix>, rytm:voice:<voix>:level). */
+const MIXER_VOICES: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
+const MIXER: readonly PageSlot[] = MIXER_VOICES.map((v) => live(v, `m:${v}` as SlotTarget, 'level', 'all'));
+
 /*
  * Les pages des FX globaux (2026-10-10) : toujours la meme grille, la quantite
  * du FX en grand carre a gauche (2 x 2, son bloc de GLOBAL FX), ses reglages
@@ -559,6 +634,18 @@ export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly Pag
       break;
     case 'fxm':
       out = FXM;
+      break;
+    case 'trig':
+      out = TRIG;
+      break;
+    case 'mod':
+      out = MOD;
+      break;
+    case 'tempo':
+      out = TEMPO;
+      break;
+    case 'mixer':
+      out = MIXER;
       break;
     default:
       out = isFxVoiceDetail(screen) ? FX_VOICE_SLOTS[screen] : FX_DETAIL_SLOTS[screen];
@@ -741,7 +828,7 @@ export function slotOf(t: SlotTarget, inst: Inst | null, screen?: RytmScreenId):
 
 /** La page d'a cote (dir -1 : la precedente), en boucle. */
 export function pageStep(p: RytmPageId, dir: -1 | 1): RytmPageId {
-  const n = RYTM_PAGES.length;
-  const i = RYTM_PAGES.findIndex((x) => x.id === p);
-  return RYTM_PAGES[(((i < 0 ? 0 : i) + dir) % n + n) % n].id;
+  const n = PAGE_CYCLE.length;
+  const i = PAGE_CYCLE.findIndex((x) => x.id === p);
+  return PAGE_CYCLE[(((i < 0 ? 0 : i) + dir) % n + n) % n].id;
 }

@@ -8,16 +8,16 @@
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
+import { cutTails, ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
 import { TAP_VEL_DEFAULT } from './state/rytmPage';
 import { tempoSync } from './state/tempoSync';
-import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
+import { VOICE_FX_DEFAULT, voiceFx, type VoiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
-import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './audio/locks';
+import { lockOf, parseSnd, type LockId, type LockKey, type Locks, type StepLock } from './audio/locks';
 import { onSampleFailed, onSampleLoaded, requestSample, sampleByKey, sampleLabel, samplePcm, sampleStatus, samplesChanged, samplesOf, samplesVersion, type KitSample, type SampleFail } from './audio/samples';
 import { UserSampleError, userSamples } from './audio/usersamples';
 import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
-import { BPM, DELAY_DIVS, FX_NOTCHES, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, fxSnap, isFxSetting, pattern, velocity } from './audio/pattern';
+import { BPM, DELAY_DIVS, FX_NOTCHES, INSTRUMENTS, STEP_COUNT, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, fxSnap, isFxSetting, pattern, velocity, type Steps } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
@@ -39,7 +39,9 @@ import { presetMode, type PresetKey } from './state/presetMode';
 import { softSlotOf } from './rytm/presetKeys';
 import type { FpButtonId } from './rytm/faceplate';
 import { undo } from './state/undo';
-import type { PresetMachine } from './state/presets';
+import { apply, capture, type PresetMachine } from './state/presets';
+import { func } from './state/func';
+import { dtFace, type MuteView } from './state/dtFace';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
@@ -47,7 +49,7 @@ import { faceTouch, type CtlSrc } from './state/ctl';
 import { trk } from './state/trk';
 import { sceneCtl } from './state/sceneCtl';
 import { morph } from './audio/morph';
-import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId } from './rytm/sceneData';
+import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId, type SceneSet } from './rytm/sceneData';
 import { bindingOf, from01, sceneRole, to01, voiceRowId, type SceneBinding } from './rytm/sceneParams';
 import { FACE_PAGES, RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
@@ -55,7 +57,7 @@ import { setKnobResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, SCREEN_TOUCH, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, XFADE_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, DT_FACE, DT_GESTURE, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, SCREEN_TOUCH, LCD_DROP_NO_VOICE, LCD_MUTE_HINT, LCD_NO_VOICE, MOBILE_QUERY, PAD_DOUBLE_TAP_MS, PAGE_KNOB_LETTERS, PORTRAIT, POT_UI, XFADE_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -245,14 +247,30 @@ export function trkPick(inst: Inst, t: number): void {
   else lcdMessage.show(`TRK ${inst}`);
 }
 
-/** TRK enfonce (src : 'ptr:<pointerId>', 'key', 'at', 'midi', 'hw') ; l'ecran dit quoi faire tant qu'elle est engagee. */
+/**
+ * TRK enfonce (src : 'ptr:<pointerId>', 'key', 'at', 'midi', 'hw') ; l'ecran dit quoi faire tant qu'elle est engagee. Au
+ * desktop depuis V.5.0 : FUNC + TRK, le mode MUTE (muteModeKey) ; les presets ouverts, sa touche de l'ecran (LOAD...) ;
+ * son lacher est alors avale.
+ */
 export const trkDown = (src: string, t = performance.now()): void => {
+  if (DT_FACE && presetSoftKey('trk', () => undefined)) {
+    trkTaken.add(src);
+    return;
+  }
+  if (DT_FACE && funcTake()) {
+    trkTaken.add(src);
+    muteModeKey();
+    return;
+  }
   const was = trk.engaged();
   trk.down(src, t);
   if (!was && trk.engaged()) trkSay(TRK_HINT);
 };
+/** Les appuis de TRK pris par FUNC ou les presets (V.5.0) : leur lacher ne fait rien. */
+const trkTaken = new Set<string>();
 /** TRK lachee ; t < 0 : un pointeur perdu (lache sans garde). */
 export const trkUp = (src: string, t = performance.now()): void => {
+  if (trkTaken.delete(src)) return;
   trk.up(src, t);
 };
 // TRK eteinte (lachee, fermee, Echap, une autre machine) : son aide s'en va avec elle
@@ -330,6 +348,8 @@ export function sceneIdOfDial(dial: DialId): string | null {
     return f ? `rytm:layer:${f}:${lp}` : null;
   }
   if (voyId(t as DialId)) return null;
+  const mi = mixerInst(t);
+  if (mi) return `rytm:voice:${mi}:level`;
   const e = t as EncId;
   if (e === 'vsound') return 'rytm:enc:vsound';
   if (isVoiceEnc(e)) return voiceRowId(e, pattern.get().instrument);
@@ -512,6 +532,8 @@ function dialName(dial: DialId): string {
   if (r) return KIT_LABEL[r] ?? r.toUpperCase();
   const lp = layerIdOf(dial);
   if (lp) return lp.toUpperCase();
+  const mi = mixerInst(dial);
+  if (mi) return `${mi} VOL`;
   return encLabel(dial as EncId);
 }
 /** Le nom d'une cible absolue (rytm:voice:CH:pan -> CH PAN). */
@@ -816,11 +838,26 @@ export function rytmInfoTap(hotspot: string, dock = false): boolean {
  * au desktop depuis la face V.4.0 sans pads, 2026-10-27 : theme.ts LCD_NO_VOICE).
  */
 export function stepToggle(i: number, stage: Stage | null = null): boolean {
+  // FUNC + un pas (V.5.0, le desktop) : le mute rapide de sa voix, avant tout le reste
+  if (DT_FACE && funcTake()) {
+    funcStep(i, stage);
+    return true;
+  }
   // TRK engagee (2026-10-27) : le pas choisit sa voix, avant EDIT, le P-LOCK et la velocite
   if (trkStep(i, stage)) return true;
   // EDIT (2026-10-05) : les steps sont les seize patterns
   if (editor.get() === 'mm808') {
     patternTap(i, stage);
+    return true;
+  }
+  // Le mode MUTE (V.5.0, FUNC + TRK) : les pas 1 a 8 sont les voix
+  if (muteView()) {
+    muteStep(i, stage);
+    return true;
+  }
+  // Hors REC au desktop (V.5.0) : le pas joue sa voix et la choisit, rien ne s'ecrit (le P-LOCK en cours garde sa tape)
+  if (DT_FACE && !dtFace.rec() && rytmLock.get().step < 0) {
+    stepPlay(i, stage);
     return true;
   }
   resume();
@@ -836,8 +873,10 @@ export function stepToggle(i: number, stage: Stage | null = null): boolean {
     return true;
   }
   // Un pas vide recoit la velocite des nouveaux pas de la voix (2026-10-09 : HIGH au depart ; sans bloc depuis le 2026-10-10) ; un pas pose
-  // passe au cran d'en dessous comme avant (MID, LOW, vide)
+  // passe au cran d'en dessous comme avant (MID, LOW, vide). REC au desktop (V.5.0, comme la Digitakt) : une tape pose ou
+  // retire le pas, sans le cycle (la velocite des nouveaux pas : HIGH, ou celle de VEL sur TRIG)
   if (velocity(pattern.get().steps, inst, i) === 0) pattern.set(inst, i, rytmPage.tapVel(inst));
+  else if (DT_FACE) pattern.clearStep(inst, i);
   else pattern.toggle(inst, i);
   rytmPage.select(i);
   // Le geste des verrous se dit a chaque pas pose (2026-10-08, Mika : "je ne comprends toujours pas comment mettre des parameter locks")
@@ -876,6 +915,8 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
  */
 export function stepVelocity(i: number, v: number): boolean {
   if (editor.get() === 'mm808') return false;
+  // V.5.0 : hors REC au desktop, et dans le mode MUTE, un pas glisse ne change rien
+  if (!stepWrites() || muteView()) return false;
   resume();
   const inst = pattern.get().instrument;
   if (!inst) {
@@ -902,6 +943,11 @@ export function stepVelocityOf(i: number): number {
 export function stepHoldHint(i: number): void {
   if (editor.get() === 'mm808') {
     patternHold(i);
+    return;
+  }
+  // V.5.0 : hors REC au desktop, la tenue ne met pas de P-LOCK ; l'ecran le dit une fois
+  if (!stepWrites()) {
+    recHoldHint();
     return;
   }
   const inst = pattern.get().instrument;
@@ -1134,9 +1180,9 @@ const RANDOM_SAMPLE_ODDS: Readonly<Partial<Record<KitFamily, number>>> = { bd: 0
  * qu'elle jouait ; une voix qui a des samples en prend un le plus souvent (75 %, le kick 85 %), seul a son niveau ;
  * sinon une machine (909, 808, MM). Le kick compris. Meme etape UNDO que le motif (le kit est suivi par UNDO).
  */
-function randomVoiceSounds(): void {
+function randomVoiceSounds(list: readonly Inst[] = INSTRUMENTS): void {
   const k = kit.get();
-  for (const inst of INSTRUMENTS) {
+  for (const inst of list) {
     const f = familyOf(inst as ShotId);
     if (!f) continue;
     const l = k.layer[f];
@@ -1555,10 +1601,15 @@ export function chipAction(id: ChipId, which: MachineId = 'mm808'): void {
  * eclatee, sinon deselectionne l'instrument ; true si quelque chose a
  * change.
  */
-export function escape(): boolean {
+export function escape(fromNo = false): boolean {
   // Echap annule toujours la reprise des presets fermes par l'attente (2026-10-22, la revue) : la fleche suivante
   // change de machine, comme promis
   presetMode.forget();
+  // FUNC gardee (V.5.0) : Echap la relache d'abord
+  if (DT_FACE && func.engaged()) {
+    func.cancel();
+    return true;
+  }
   if (section.get() !== null) {
     section.set(null);
     return true;
@@ -1575,6 +1626,12 @@ export function escape(): boolean {
   const tk = trk.get().mode;
   if (tk === 'latched' || tk === 'closing') {
     trk.cancel();
+    return true;
+  }
+  // Le mode MUTE (V.5.0, FUNC + TRK) : Echap en sort, les mutes restent
+  if (DT_FACE && dtFace.mute() !== 'off' && focus.get() === 'mm808') {
+    dtFace.setMute('off');
+    lcdMessage.show('MUTE MODE OFF');
     return true;
   }
   // Une scene gardee (2026-10-27) : Echap la desarme, avant le P-LOCK ; tenue, la main la lachera
@@ -1625,8 +1682,8 @@ export function escape(): boolean {
     selectVoice(null);
     return true;
   }
-  // Deux machines, desktop : Echap revient a la vue d'ensemble
-  if (VOYAGER && focus.get() !== 'all' && !window.matchMedia(MOBILE_QUERY).matches) {
+  // Deux machines, desktop : Echap revient a la vue d'ensemble (pas NO, la touche de la machine : V.5.0)
+  if (!fromNo && VOYAGER && focus.get() !== 'all' && !window.matchMedia(MOBILE_QUERY).matches) {
     focus.set('all');
     return true;
   }
@@ -1795,8 +1852,16 @@ function eventAt(): number {
 
 export function editToggle(which: EditorId, stage: Stage | null = null): void {
   // Le mode presets du desktop (2026-10-27) : EDIT est sa touche EXIT (ou CANCEL, NO), l'editeur ne s'ouvre pas
-  if (which === 'mm808' && presetSoftKey('edit', () => stage?.pressRytmPad('edit'))) return;
+  if (which === 'mm808' && presetSoftKey('ptn', () => stage?.pressRytmPad('edit'))) return;
   gesture();
+  // FUNC + PTN (V.5.0) : BANK, les banques A a H arrivent en V.5.2
+  if (which === 'mm808' && funcTake()) {
+    stage?.pressRytmPad('edit');
+    lcdMessage.show('BANKS A-H: V.5.2', 1800);
+    return;
+  }
+  // La grille des patterns gagne sur le mode MUTE (V.5.0) : il se ferme
+  if (which === 'mm808' && DT_FACE && dtFace.mute() !== 'off') dtFace.setMute('off');
   // L'ecran ne se touche plus au desktop (V.4.2, 2026-10-27, theme.ts SCREEN_TOUCH) : les presets du MM-RYTM passent par
   // EDIT pressee deux fois de suite (EDIT 2X : la grille des patterns, puis les presets, dans EDIT_AGAIN_MS) ; ouverts, EDIT
   // est leur touche EXIT (plus haut, presetSoftKey) ; presetFaceKnob y met les potards. EDIT plus tard ferme la grille.
@@ -1817,7 +1882,9 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
     editOpenedAt = on ? t : -Infinity;
     stage?.pressRytmPad('edit');
     const p = patterns.get();
-    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}${SCREEN_TOUCH ? '' : ' · EDIT AGAIN: PRESETS'}` : 'EDIT CLOSED', on && !SCREEN_TOUCH ? EDIT_AGAIN_MS : undefined);
+    // V.5.0 au desktop : PTN, et ses presets s'appellent KIT
+    const again = DT_FACE ? ' · PTN AGAIN: KIT' : ' · EDIT AGAIN: PRESETS';
+    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}${SCREEN_TOUCH ? '' : again}` : DT_FACE ? 'PTN CLOSED' : 'EDIT CLOSED', on && !SCREEN_TOUCH ? EDIT_AGAIN_MS : undefined);
   }
 }
 
@@ -1946,7 +2013,8 @@ export function kitDial(id: KitId, v: number): void {
  * du MM-RYTM (2026-10-08, la refonte facon Digitakt : le potard k regle le
  * bloc k de la page affichee, pour la voix choisie, rytm/pages.ts).
  */
-export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}` | `p:${number}` | `l:${LayerDial}`;
+// m:<voix> (V.5.0, 2026-10-29) : le VOL d'une voix sur le MIXER (FUNC + MOD), rytm:voice:<voix>:level
+export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}` | `p:${number}` | `l:${LayerDial}` | `m:${Inst}`;
 
 const voyId = (id: DialId): VoyKnobId | null => (id.startsWith('v:') ? (id.slice(2) as VoyKnobId) : null);
 export const kitIdOf = (id: DialId): KitId | null => (id.startsWith('r:') ? (id.slice(2) as KitId) : null);
@@ -2483,6 +2551,8 @@ export function anyDial(id: DialId, v: number): void {
   if (r) return kitDial(r, v);
   const lp = layerIdOf(id);
   if (lp) return layerDial(lp, v);
+  const mi = mixerInst(id);
+  if (mi) return mixerDial(mi, v);
   const k = voyId(id);
   if (k) voyDial(k, v);
   else dial(id as EncId, v);
@@ -2511,6 +2581,8 @@ export function anyDialValue(id: DialId): number {
   if (r) return kit.value(r);
   const lp = layerIdOf(t);
   if (lp) return layerValue(lp);
+  const mi = mixerInst(t);
+  if (mi) return voiceFx.of(mi).level;
   const k = voyId(t);
   return k ? voyParams.of(k) : dialValue(t as EncId);
 }
@@ -2545,6 +2617,11 @@ export function anyDialReset(id: DialId): number {
   if (r) return kit.def(r);
   const lp = layerIdOf(t);
   if (lp) return layerReset(lp);
+  const mi = mixerInst(t);
+  if (mi) {
+    setVoiceFx(mi, 'level', VOICE_FX_DEFAULT.level);
+    return VOICE_FX_DEFAULT.level;
+  }
   const k = voyId(t);
   return k ? voyParams.def(k) : dialReset(t as EncId);
 }
@@ -2687,6 +2764,8 @@ export function dialReadout(id: DialId): string {
   }
   const k = voyId(id);
   if (k) return voyReadout(k, voyParams.of(k));
+  const mi = mixerInst(id);
+  if (mi) return `${mi} VOLUME ${dialValueText(id)}, ${dialUnit(id).toLowerCase()}`;
   if (id === 'tempo') return tempoSync.label(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return 'TAP A VOICE';
@@ -2732,6 +2811,10 @@ export function dialValueText(id: DialId): string {
   if (lp) return pattern.get().instrument && soundFamily() ? layerText(lp, layerValue(lp)) : '--';
   const k = voyId(id);
   if (k) return voyValueText(k, voyParams.of(k));
+  if (mixerInst(id)) {
+    const v = dialShown(id);
+    return encText('vol', v, v, false);
+  }
   if (id === 'tempo') return tempoSync.text(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return '--';
@@ -2771,6 +2854,8 @@ export function dialUnit(id: DialId): string {
     return n > 0 ? `${i < 3 ? 'SYNTH' : 'SAMPLE'} ${i + 1}/${n}` : '';
   }
   if (voyId(t) || t === 'tempo') return '';
+  const mi = mixerInst(t);
+  if (mi) return encUnit('vol', dialShown(t));
   const e = t as ContEnc;
   if (isVoiceEnc(e) && !inst) return '';
   // DLY TIME : sa duree au tempo du moment ; ce qui se montre (2026-10-27 : la scene armee, ou ce qui joue)
@@ -2804,8 +2889,17 @@ function leaveRytmOverlay(): boolean {
  * jamais HOME (l'ecran reste aux blocs). La touche s'enfonce.
  */
 export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
-  // Le mode presets du desktop (2026-10-27) : VOICE FLTR ENV FX sont ses touches LOAD SAVE NAME DEL (selon l'etape)
-  if (presetSoftKey(id, () => stage?.pressPageKey(id))) return;
+  // Le mode presets du desktop (2026-10-27) : des touches de la rangee sont ses touches de l'ecran (V.5.0 : TRIG DEL, SRC EXIT)
+  const btn = PAGE_BTN[id];
+  if (btn && presetSoftKey(btn, () => stage?.pressPageKey(id))) return;
+  // V.5.0 au desktop : FUNC + la touche, sa fonction orange ; MOD sur le MIXER, l'onglet suivant
+  if (DT_FACE && dtPageKeyFirst(id, stage)) return;
+  pageKeyBody(id, stage);
+  if (DT_FACE && btn) dtPageKeyAfter(id);
+}
+
+/** Le chemin de toujours d'une touche de page (et des pages de FUNC au desktop). */
+function pageKeyBody(id: RytmPageId, stage: Stage | null): void {
   resume();
   stage?.pressPageKey(id);
   const inst = pattern.get().instrument;
@@ -2892,6 +2986,8 @@ export function rytmScreenTab(screen: RytmScreenId): void {
   }
   const inst = pattern.get().instrument;
   const page = SCREEN_PAGE[screen];
+  // V.5.0 : TRIG, MOD, TEMPO et le MIXER sont des pages du desktop (le telephone ne les a pas)
+  if (!isRytmPage(page)) return;
   const i = screensOf(page, inst).indexOf(screen);
   if (i < 0) return;
   rytmPage.setTab(page, i, inst);
@@ -4095,4 +4191,604 @@ export function soundDrop(files: readonly File[], inst: Inst | null): void {
   }
   if (pattern.get().instrument !== target) selectVoice(target);
   void soundFilesAdd(files, target);
+}
+
+/* ---------------- V.5.0 : la face facon Digitakt du desktop (2026-10-29, l'etape D1) ---------------- */
+
+/*
+ * docs/v4/digitakt-d1-spec.md, section 3 (Mika : "je veux une machine qui ressemble a la Digitakt dans ses fonctions mais
+ * je veux garder mon design de machine") : FUNC et sa fonction orange sous chaque touche, REC, PLAY (pause), STOP, YES et
+ * NO, les pages TRIG et MOD, et les pages de FUNC (TEMPO, SEND FX, MIXER). Le desktop seulement (DT_FACE) : le telephone
+ * garde sa face et ses gestes, au pixel pres. Les cibles MIDI d'avant gardent leur effet (rytm:run, rytm:clear...).
+ */
+
+/** Le message de FUNC tant qu'elle est engagee ('' : aucun). */
+let funcLcd = '';
+const FUNC_HINT = 'FUNC: + A KEY';
+const FUNC_LOCKED = 'FUNC LOCKED: + KEYS · NO: OFF';
+const funcSay = (text: string): void => {
+  funcLcd = text;
+  lcdMessage.show(text, TRK_HINT_MS);
+};
+
+/** FUNC enfoncee (src : 'ptr:<pointerId>', 'key' (Alt), 'at', 'midi', 'hw'). */
+export function funcDown(src: string, t = performance.now()): void {
+  if (!DT_FACE) return;
+  resume();
+  const was = func.engaged();
+  func.down(src, t);
+  if (!was && func.engaged()) funcSay(FUNC_HINT);
+}
+/** FUNC lachee ; t < 0 : un pointeur perdu ou Alt (lachee sans garde). */
+export function funcUp(src: string, t = performance.now()): void {
+  func.up(src, t);
+}
+// FUNC gardee (deux tapes) : l'ecran le dit ; eteinte, son aide s'en va avec elle
+func.subscribe(() => {
+  const m = func.get().mode;
+  if (m === 'locked' && funcLcd !== FUNC_LOCKED) {
+    funcSay(FUNC_LOCKED);
+    return;
+  }
+  if (m !== 'off' || !funcLcd) return;
+  lcdMessage.hide(funcLcd);
+  funcLcd = '';
+});
+
+/**
+ * La touche qui lit FUNC la consomme (V.5.0) : true quand FUNC etait engagee (tenue : elle reste ; gardee pour une touche :
+ * relachee ; verrouillee : elle reste). Le telephone n'a pas de FUNC.
+ */
+function funcTake(): boolean {
+  if (!DT_FACE || !func.engaged()) return false;
+  func.use();
+  return true;
+}
+
+/** Les pages de la rangee et leur touche (les touches de l'ecran du mode presets, rytm/presetKeys.ts). */
+const PAGE_BTN: Readonly<Partial<Record<RytmPageId, FpButtonId>>> = { trig: 'trig', voice: 'src', fltr: 'fltr', env: 'amp', fx: 'fx', mod: 'mod' };
+
+/**
+ * Une touche de page tapee reste "tenue" pour YES et NO pendant DT_GESTURE.pageArmMs (une souris ne tient pas deux touches) :
+ * TRIG puis YES = TRIG + YES (RANDOM), SRC puis YES = la page SRC au hasard, une page puis NO = la page rechargee du point
+ * de sauvegarde. PLAY n'y est jamais pris.
+ */
+let pageArm: { page: RytmPageId; until: number } | null = null;
+const armedPage = (t = performance.now()): RytmPageId | null => (pageArm && t <= pageArm.until ? pageArm.page : null);
+
+/**
+ * Une touche de page du desktop (la face, son jumeau, le MIDI rytm:page:<page>) avant le chemin de toujours : true quand
+ * elle est prise (FUNC + la touche : sa fonction orange ; MOD sur le MIXER : l'onglet suivant).
+ */
+function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
+  if (!funcTake()) {
+    // MOD rappuye sur le MIXER (FUNC + MOD) : l'onglet suivant, LEVELS puis MASTER
+    if (id === 'mod' && rytmPage.get().page === 'mixer' && rytmPage.get().view === 'page' && !presetMode.on('mm808') && editor.get() !== 'mm808') {
+      stage?.pressFaceKey('pkey-mod');
+      pageKeyBody('mixer', null);
+      return true;
+    }
+    return false;
+  }
+  resume();
+  const key = PAGE_BTN[id] ? `pkey-${id}` : null;
+  if (key) stage?.pressFaceKey(key);
+  switch (id) {
+    case 'trig':
+      funcPage('tempo');
+      return true;
+    case 'voice':
+      // SOUNDS : la liste des sons de la voix (le navigateur d'aujourd'hui)
+      if (!pattern.get().instrument) lcdMessage.show(LCD_NO_VOICE);
+      else soundBrowserOpen();
+      return true;
+    case 'fltr':
+      lcdMessage.show('SETUP (TRACK LENGTH): V.5.2', 1800);
+      return true;
+    case 'env':
+      lcdMessage.show('EUCLID: V.5.3', 1800);
+      return true;
+    case 'fx':
+      funcPage('sendfx');
+      return true;
+    case 'mod':
+      funcPage('mixer');
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** Une page de FUNC (TEMPO, SEND FX, MIXER) : comme une touche de page (sa page, et rappuyee l'onglet suivant ou HOME). */
+function funcPage(p: RytmPageId): void {
+  pageKeyBody(p, null);
+}
+
+/** Apres le chemin de toujours (V.5.0) : la page reste armee pour YES et NO ; MOD dit ce qui vient. */
+function dtPageKeyAfter(id: RytmPageId): void {
+  pageArm = { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
+  if (id === 'mod') lcdMessage.show('MOD: 2 LFO IN V.5.1', 1800);
+}
+
+/* ---------- REC, le mode ecriture ---------- */
+
+/** ● REC (la face, son jumeau, W au clavier, MIDI rytm:rec) : le mode ecriture des pas ; FUNC + REC : COPY. */
+export function recKey(stage: Stage | null = null): void {
+  if (!DT_FACE) return;
+  resume();
+  if (presetSoftKey('rec', () => stage?.pressFaceKey('rec'))) return;
+  stage?.pressFaceKey('rec');
+  if (funcTake()) {
+    copyKey();
+    return;
+  }
+  const on = !dtFace.rec();
+  dtFace.setRec(on);
+  recHinted = false;
+  lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
+}
+/** L'aide "le P-LOCK demande REC" dite une fois (jusqu'au prochain REC). */
+let recHinted = false;
+/** L'aide des pas 9 a 16 hors REC : au plus une fois toutes les DT_GESTURE.hintMs. */
+let recHintAt = -Infinity;
+
+/* ---------- PLAY, STOP ---------- */
+
+/**
+ * ▶ PLAY (la face, son jumeau, Espace, MIDI rytm:play) : a l'arret, la lecture du pas 1 ; en lecture, la pause (sa LED
+ * clignote) ; en pause, la reprise au pas de la pause. Une piste SoundCloud qui joue passe en pause, comme RUN. FUNC +
+ * PLAY : CLEAR. Le telephone : RUN/STOP, comme avant.
+ */
+export function playKey(stage: Stage | null = null): boolean {
+  if (!DT_FACE) return runToggle(stage);
+  gesture();
+  if (funcTake()) {
+    stage?.pressFaceKey('run');
+    dtClear(stage);
+    return clock.running;
+  }
+  stage?.pressButton('run');
+  if (clock.running) {
+    clock.pause();
+    lcdMessage.show('PAUSE · PLAY: RESUME · STOP: STEP 1', 1400);
+    return false;
+  }
+  sc.pauseForRun();
+  if (clock.paused) return clock.resume();
+  return clock.toggle();
+}
+
+let stopAt = -Infinity;
+/**
+ * ■ STOP (la face, son jumeau, Maj + Espace, MIDI rytm:stop) : l'arret, retour au pas 1 (la pause oubliee) ; deux fois en
+ * moins de DT_GESTURE.stopDoubleMs : l'arret et les queues de la REVERB et du DELAY coupees en fondu court. FUNC + STOP :
+ * PASTE.
+ */
+export function stopKey(stage: Stage | null = null): void {
+  if (!DT_FACE) {
+    if (clock.running) void runToggle(stage);
+    return;
+  }
+  resume();
+  stage?.flashFaceKey('stop');
+  if (funcTake()) {
+    pasteKey();
+    return;
+  }
+  const t = eventAt();
+  const dbl = t - stopAt < DT_GESTURE.stopDoubleMs;
+  stopAt = dbl ? -Infinity : t;
+  clock.stop();
+  if (dbl) {
+    cutTails();
+    lcdMessage.show('STOP · TAILS CUT');
+  } else lcdMessage.show('STOP · AGAIN: CUT THE TAILS', 900);
+}
+
+/* ---------- COPY, PASTE, CLEAR (FUNC + REC, STOP, PLAY) ---------- */
+
+/** Le presse-papiers (une seule chose) : un pattern entier, ou la ligne d'une voix. */
+type Clip =
+  | { kind: 'pattern'; from: number; steps: Steps; locks: Locks; scenes: SceneSet; pmutes: readonly Inst[] }
+  | { kind: 'row'; inst: Inst; row: string; locks: Locks[Inst] };
+let clip: Clip | null = null;
+
+/** FUNC + REC : COPY ; hors REC le pattern (pas, verrous, scenes, mute du pattern), REC allume la ligne de la voix. */
+export function copyKey(): void {
+  const p = pattern.get();
+  if (dtFace.rec()) {
+    const inst = p.instrument;
+    if (!inst) {
+      lcdMessage.show(LCD_NO_VOICE);
+      return;
+    }
+    clip = { kind: 'row', inst, row: p.steps[inst], locks: p.locks[inst] ? (JSON.parse(JSON.stringify(p.locks[inst])) as Locks[Inst]) : undefined };
+    lcdMessage.show(`${inst} COPIED`);
+    return;
+  }
+  const from = patterns.get().cur;
+  clip = { kind: 'pattern', from, steps: { ...p.steps }, locks: JSON.parse(JSON.stringify(p.locks)) as Locks, scenes: pattern.scenes.get(), pmutes: [...p.pmutes] };
+  lcdMessage.show(`PATTERN ${slotName(from)} COPIED`);
+}
+
+/** FUNC + STOP : PASTE ; un pattern copie remplace le pattern courant, une ligne celle de la voix choisie ; une etape d'UNDO. */
+export function pasteKey(): void {
+  if (!clip) {
+    lcdMessage.show('NOTHING TO PASTE');
+    return;
+  }
+  undo.boundary('mm808', 'step');
+  const p = pattern.get();
+  if (clip.kind === 'pattern') {
+    pattern.replace(clip.steps, clip.locks);
+    pattern.scenes.replace(clip.scenes);
+    pattern.setPmutes(clip.pmutes);
+    lcdMessage.show(`PATTERN ${slotName(clip.from)} PASTED ON ${slotName(patterns.get().cur)}`);
+    return;
+  }
+  const inst = p.instrument;
+  if (!inst) {
+    lcdMessage.show(LCD_NO_VOICE);
+    return;
+  }
+  pattern.replace({ ...p.steps, [inst]: clip.row }, withRowLocks(p.locks, inst, clip.locks));
+  lcdMessage.show(clip.inst === inst ? `${inst} PASTED` : `${clip.inst} PASTED ON ${inst}`);
+}
+
+/** Les verrous d'un pattern dont la ligne inst prend ceux-ci (absents : aucun). */
+function withRowLocks(all: Readonly<Locks>, inst: Inst, row: Locks[Inst]): Locks {
+  const out = JSON.parse(JSON.stringify(all)) as Locks;
+  if (row && Object.keys(row).length > 0) out[inst] = JSON.parse(JSON.stringify(row)) as Locks[Inst];
+  else delete out[inst];
+  return out;
+}
+
+/**
+ * FUNC + PLAY : CLEAR ; une scene armee se vide (la regle de SCENE + CLEAR) ; hors REC tout le pattern (clearPattern) ;
+ * REC allume, la ligne de la voix choisie (ses pas et ses verrous). Une etape d'UNDO.
+ */
+function dtClear(stage: Stage | null): void {
+  if (sceneCtl.get().armed || !dtFace.rec()) {
+    clearPattern(stage);
+    return;
+  }
+  const p = pattern.get();
+  const inst = p.instrument;
+  if (!inst) {
+    lcdMessage.show(LCD_NO_VOICE);
+    return;
+  }
+  undo.boundary('mm808', 'step');
+  pattern.replace({ ...p.steps, [inst]: '0'.repeat(STEP_COUNT) }, withRowLocks(p.locks, inst, undefined));
+  lcdMessage.show(`${inst} CLEARED`);
+}
+
+/* ---------- YES, NO, SAVE, RELOAD ---------- */
+
+/** Le point de sauvegarde (FUNC + YES) : l'etat du MM-RYTM tel que l'UNDO le capture, et son pattern. */
+let savePoint: { data: ReturnType<typeof capture>; slot: number } | null = null;
+
+/** FUNC + YES : SAVE, le point de sauvegarde en memoire (pas retenu d'une visite a l'autre). */
+export function saveKey(): void {
+  savePoint = { data: JSON.parse(JSON.stringify(capture('mm808'))) as ReturnType<typeof capture>, slot: patterns.get().cur };
+  lcdMessage.show(`SAVED ${slotName(savePoint.slot)}`);
+}
+
+/** FUNC + NO : RELOAD, retour au point de sauvegarde ; une etape d'UNDO. */
+export function reloadKey(): void {
+  if (!savePoint) {
+    lcdMessage.show('NOTHING SAVED: FUNC + YES FIRST', 1800);
+    return;
+  }
+  undo.boundary('mm808', 'step');
+  apply('mm808', JSON.parse(JSON.stringify(savePoint.data)) as ReturnType<typeof capture>);
+  lcdMessage.show(`RELOADED ${slotName(savePoint.slot)}`);
+}
+
+/**
+ * YES (la face, son jumeau, Entree, MIDI rytm:yes) : dans KIT (les presets), valider (LOAD, OVERWRITE, YES, OK) ; sur la
+ * page TEMPO, un TAP ; apres une touche de page (DT_GESTURE.pageArmMs) la page au hasard, TRIG le RANDOM du beat ; sinon
+ * l'ecran dit comment. FUNC + YES : SAVE.
+ */
+export function yesKey(stage: Stage | null = null): void {
+  if (!DT_FACE) return;
+  gesture();
+  stage?.flashFaceKey('yes');
+  if (funcTake()) {
+    saveKey();
+    return;
+  }
+  if (presetMode.on('mm808')) {
+    presetKey('mm808', presetMode.get().stage === 'confirm' ? 'del' : 'load');
+    return;
+  }
+  const pg = armedPage();
+  if (pg) {
+    pageArm = null;
+    if (pg === 'trig') randomPattern(null);
+    else randomPage(pg);
+    return;
+  }
+  if (rytmPage.get().view === 'page' && curScreen() === 'tempo' && editor.get() !== 'mm808') {
+    tapTempo();
+    return;
+  }
+  lcdMessage.show('YES: TAP A PAGE KEY FIRST TO RANDOMIZE IT', 2000);
+}
+
+/**
+ * NO (la face, son jumeau, Echap, MIDI rytm:no) : le retour, la chaine d'Echap ; une FUNC verrouillee se relache ; apres une
+ * touche de page, cette page rechargee du point de sauvegarde. FUNC + NO (tenue ou gardee pour une touche) : RELOAD.
+ */
+export function noKey(stage: Stage | null = null): boolean {
+  if (!DT_FACE) return escape();
+  resume();
+  stage?.flashFaceKey('no');
+  const fm = func.get().mode;
+  if (fm === 'locked') {
+    func.cancel();
+    lcdMessage.show('FUNC OFF', 700);
+    return true;
+  }
+  if (fm !== 'off') {
+    func.use();
+    reloadKey();
+    return true;
+  }
+  const pg = armedPage();
+  if (pg && !presetMode.on('mm808') && editor.get() !== 'mm808') {
+    pageArm = null;
+    reloadPage(pg);
+    return true;
+  }
+  return escape(true);
+}
+
+/* ---------- la page au hasard (une page puis YES), la page rechargee (une page puis NO) ---------- */
+
+/** Les reglages de la voix de chaque page (audio/voicefx.ts), et ce qu'en tire le hasard : [bas, haut]. */
+const PAGE_VOICE_PARAMS: Readonly<Partial<Record<RytmPageId, readonly VoiceParam[]>>> = {
+  trig: ['tune'],
+  voice: ['level', 'tune', 'fine'],
+  fltr: ['fcut', 'freso', 'ftype', 'tone', 'fatk', 'fdec', 'fenv'],
+  env: ['atk', 'hold', 'decay', 'start', 'pan'],
+  fx: ['dist', 'chorus', 'delay', 'reverb'],
+};
+const RANDOM_SPAN: Readonly<Partial<Record<VoiceParam, readonly [number, number]>>> = {
+  level: [0.55, 0.95],
+  tune: [-0.25, 0.25],
+  fine: [-0.2, 0.2],
+  fcut: [0.35, 1],
+  freso: [0, 0.6],
+  ftype: [0, 1],
+  tone: [-0.4, 0.4],
+  fatk: [0, 0.3],
+  fdec: [0.2, 0.8],
+  fenv: [-0.5, 0.5],
+  atk: [0, 0.25],
+  hold: [0, 0.5],
+  decay: [0.3, 1],
+  start: [0, 0.25],
+  pan: [-0.4, 0.4],
+  dist: [0, 0.4],
+  chorus: [0, 0.4],
+  delay: [0, 0.35],
+  reverb: [0, 0.45],
+};
+const rand = (lo: number, hi: number): number => Math.round((lo + Math.random() * (hi - lo)) * 1000) / 1000;
+
+/**
+ * Une page au hasard (V.5.0, la touche de la page puis YES) : ses reglages de la voix choisie dans des bornes musicales
+ * (RANDOM_SPAN), le son de la voix sur SRC ; SEND FX les FX de la machine, TEMPO le tempo et le SWING, le MIXER les
+ * niveaux des huit voix. Une etape d'UNDO ; une scene armee les prend (comme un potard).
+ */
+function randomPage(pg: RytmPageId): void {
+  const inst = pattern.get().instrument;
+  if (pg === 'mod') {
+    lcdMessage.show('MOD: 2 LFO IN V.5.1', 1800);
+    return;
+  }
+  undo.boundary('mm808', 'step');
+  if (pg === 'sendfx') {
+    pattern.fx.set({ drive: rand(0, 0.35), chorus: rand(0, 0.35), delay: rand(0, 0.35), reverb: rand(0, 0.45), bits: Math.random() < 0.3 ? rand(0, 0.3) : 0, comp: rand(0, 0.5) });
+    lcdMessage.show('SEND FX RANDOM');
+    return;
+  }
+  if (pg === 'tempo') {
+    anyDial('tempo', Math.round(rand(110, 140)));
+    pattern.fx.set({ swing: rand(0, 0.35) });
+    lcdMessage.show(`TEMPO RANDOM ${Math.round(pattern.get().bpm)} BPM`);
+    return;
+  }
+  if (pg === 'mixer') {
+    for (const v of INSTRUMENTS) mixerSet(v, rand(0.55, 0.95));
+    lcdMessage.show('MIXER RANDOM');
+    return;
+  }
+  if (!inst) {
+    lcdMessage.show(LCD_NO_VOICE);
+    return;
+  }
+  for (const p of PAGE_VOICE_PARAMS[pg] ?? []) {
+    const [lo, hi] = RANDOM_SPAN[p] ?? [0.2, 0.8];
+    const v = p === 'ftype' ? [0, 0.5, 1][Math.floor(Math.random() * 3)] : rand(lo, hi);
+    const id = `rytm:voice:${inst}:${p}`;
+    const bip = p === 'tone' || p === 'tune' || p === 'pan' || p === 'fine' || p === 'fenv';
+    if (!sceneTakeId(id, bip ? (v + 1) / 2 : v)) setVoiceFx(inst, p, v);
+  }
+  if (pg === 'voice') randomVoiceSounds([inst]);
+  lcdMessage.show(`${inst} ${pageLabel(pg)} RANDOM`);
+}
+
+/**
+ * Une page rechargee du point de sauvegarde (V.5.0, la touche de la page puis NO) : ses reglages de la voix choisie ; SEND
+ * FX les FX de la machine et STRETCH, TEMPO le tempo et le SWING, le MIXER les niveaux. Le son de SRC et les potards de
+ * machine de SRC SYNTH reviennent avec FUNC + NO (tout le point). Une etape d'UNDO.
+ */
+function reloadPage(pg: RytmPageId): void {
+  if (!savePoint) {
+    lcdMessage.show('NOTHING SAVED: FUNC + YES FIRST', 1800);
+    return;
+  }
+  const d = savePoint.data as { voices?: Partial<Record<Inst, Partial<VoiceFx>>>; fx?: Record<string, number>; stretch?: number; bpm?: number };
+  undo.boundary('mm808', 'step');
+  if (pg === 'sendfx') {
+    if (d.fx) pattern.fx.set({ ...d.fx });
+    setStretch(typeof d.stretch === 'number' ? d.stretch : 0);
+  } else if (pg === 'tempo') {
+    if (typeof d.bpm === 'number') pattern.setBpm(d.bpm);
+    if (d.fx && typeof d.fx.swing === 'number') pattern.fx.set({ swing: d.fx.swing });
+  } else if (pg === 'mixer') {
+    for (const v of INSTRUMENTS) {
+      const l = d.voices?.[v]?.level;
+      if (typeof l === 'number') voiceFx.set(v, 'level', l);
+    }
+  } else {
+    const inst = pattern.get().instrument;
+    if (!inst) {
+      lcdMessage.show(LCD_NO_VOICE);
+      return;
+    }
+    const saved = d.voices?.[inst];
+    for (const p of PAGE_VOICE_PARAMS[pg] ?? []) voiceFx.set(inst, p, typeof saved?.[p] === 'number' ? (saved[p] as number) : VOICE_FX_DEFAULT[p]);
+  }
+  lcdMessage.show(`${pageLabel(pg)} RELOADED FROM ${slotName(savePoint.slot)}`);
+}
+
+/* ---------- TAP TEMPO (YES sur la page TEMPO) ---------- */
+
+let taps: number[] = [];
+/** Un TAP : la moyenne des intervalles apres DT_GESTURE.tapTaps tapes, arrondie au BPM, bornee a BPM (100 a 150). */
+function tapTempo(): void {
+  const t = eventAt();
+  if (taps.length > 0 && t - taps[taps.length - 1] > DT_GESTURE.tapResetMs) taps = [];
+  taps.push(t);
+  if (taps.length > 8) taps.shift();
+  if (taps.length < DT_GESTURE.tapTaps) {
+    lcdMessage.show(`TAP ${taps.length}/${DT_GESTURE.tapTaps}`, 1200);
+    return;
+  }
+  const ms = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
+  const bpm = Math.max(BPM.min, Math.min(BPM.max, Math.round(60000 / ms)));
+  anyDial('tempo', bpm);
+  lcdMessage.show(`TAP TEMPO ${Math.round(pattern.get().bpm)} BPM`, 1400);
+}
+
+/* ---------- le mode MUTE (FUNC + TRK) ---------- */
+
+/**
+ * FUNC + TRK (V.5.0, la face, MIDI rytm:mutemode) : le mode MUTE global (les pas 1 a 8 sont les voix : vert joue, eteint
+ * coupee) ; encore, le mute du pattern (magenta, garde avec le pattern) ; encore, la sortie (les mutes restent).
+ */
+export function muteModeKey(): void {
+  if (!DT_FACE) return;
+  resume();
+  const m = dtFace.mute();
+  const next: MuteView = m === 'off' ? 'global' : m === 'global' ? 'pattern' : 'off';
+  if (next !== 'off') {
+    // Les vues gagnent sur les pas une a la fois : TRK et la grille PTN se ferment
+    trk.cancel();
+    if (editor.get() === 'mm808') editor.close();
+  }
+  dtFace.setMute(next);
+  lcdMessage.show(next === 'global' ? 'GLOBAL MUTE · FUNC + TRK: PATTERN MUTE' : next === 'pattern' ? 'PATTERN MUTE · FUNC + TRK: EXIT' : 'MUTE MODE OFF', 1600);
+}
+
+/** Un pas tape en mode MUTE : 1 a 8 coupent leur voix ou la rendent (le jeu global ou celui du pattern). */
+function muteStep(i: number, stage: Stage | null): void {
+  resume();
+  stage?.pressStep(i);
+  const inst = i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
+  if (!inst) {
+    lcdMessage.show('MUTE: STEPS 1-8 ARE THE VOICES');
+    return;
+  }
+  if (dtFace.mute() === 'pattern') {
+    undo.boundary('mm808', 'step');
+    pattern.togglePmute(inst);
+    lcdMessage.show(`${inst} ${pattern.pmuted(inst) ? 'MUTED IN THE PATTERN' : 'BACK IN THE PATTERN'}`);
+    return;
+  }
+  voices.toggleMute(inst);
+  lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'BACK'}`);
+}
+
+/** Un pas tenu en mode MUTE (DT_GESTURE.muteHoldMs) : le SOLO de sa voix (blanc), tenu encore la fin du SOLO. */
+export function muteStepHold(i: number, stage: Stage | null = null): void {
+  const inst = i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
+  if (!inst || !DT_FACE || dtFace.mute() === 'off') return;
+  stage?.pressStep(i);
+  voices.toggleSolo(inst);
+  lcdMessage.show(voices.get().solo.includes(inst) ? `SOLO ${inst}` : `${inst} SOLO OFF`);
+}
+
+/** Le mode MUTE est-il ouvert (les pas sont les voix, la tenue d'un pas est le SOLO) ? */
+export const muteView = (): boolean => DT_FACE && dtFace.mute() !== 'off';
+
+/** FUNC + un pas (V.5.0) : 1 a 8, le mute rapide de leur voix (le jeu global), partout ; 13 a 16, les pages a venir. */
+function funcStep(i: number, stage: Stage | null): void {
+  resume();
+  stage?.pressStep(i);
+  const inst = i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
+  if (inst) {
+    voices.toggleMute(inst);
+    lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'BACK'}`);
+    return;
+  }
+  if (i >= 12) lcdMessage.show('PAGES 1-4: V.5.2', 1600);
+}
+
+/**
+ * Un pas hors REC au desktop (V.5.0, TRK SELECT NORMAL de la Digitakt II) : 1 a 8, sa voix joue (le chemin d'un pad, a la
+ * velocite HIGH, meme en lecture) et devient la voix choisie ; rien ne s'ecrit. 9 a 16 : rien ne joue, l'ecran dit de
+ * passer en REC (au plus une fois toutes les DT_GESTURE.hintMs).
+ */
+function stepPlay(i: number, stage: Stage | null): void {
+  gesture();
+  stage?.pressStep(i);
+  const inst = i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
+  if (!inst) {
+    const now = performance.now();
+    if (now - recHintAt >= DT_GESTURE.hintMs) {
+      recHintAt = now;
+      lcdMessage.show('● REC TO WRITE STEPS', 1400);
+    }
+    return;
+  }
+  // Les modes MUTE et SOLO d'avant (M et Maj + M au clavier, MIDI rytm:mute) : la voix touchee y bascule, comme un pad
+  const v = voices.get();
+  if (v.soloMode || v.muteMode) {
+    padHit(inst, null);
+    return;
+  }
+  if (!voices.isMuted(inst) && !pattern.pmuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[TAP_VEL_DEFAULT] ?? 1);
+  if (pattern.get().instrument !== inst) selectVoice(inst);
+  else lcdMessage.show(`${inst} · ● REC TO WRITE STEPS`, 900);
+}
+
+/** La tenue d'un pas hors REC au desktop : pas de P-LOCK (il demande REC, comme la Digitakt) ; l'ecran le dit une fois. */
+function recHoldHint(): void {
+  if (recHinted) return;
+  recHinted = true;
+  lcdMessage.show('P-LOCK NEEDS ● REC: TURN REC ON, THEN HOLD A STEP', 2200);
+}
+
+/** Le P-LOCK et la velocite d'un pas sont-ils possibles (REC allume au desktop ; toujours au telephone) ? */
+export const stepWrites = (): boolean => !DT_FACE || dtFace.rec();
+
+/* ---------- le MIXER (FUNC + MOD) : le VOL de chaque voix ---------- */
+
+const mixerInst = (id: DialId | SlotTarget | string): Inst | null => (typeof id === 'string' && id.startsWith('m:') && (INSTRUMENTS as readonly string[]).includes(id.slice(2)) ? (id.slice(2) as Inst) : null);
+/** Le VOL d'une voix du MIXER (0 a 1) : une scene armee le prend, une scene qui le fait entendre suit la main. */
+function mixerSet(inst: Inst, v: number): void {
+  const id = `rytm:voice:${inst}:level`;
+  const x = Math.max(0, Math.min(1, v));
+  if (sceneTakeId(id, x)) return;
+  if (!sceneFollowId(id, x, voiceFx.of(inst).level, (w) => setVoiceFx(inst, 'level', w))) setVoiceFx(inst, 'level', x);
+}
+/** Le potard d'un bloc du MIXER, apres les scenes (anyDial les a deja servies) : le VOL de la voix, et l'ecran le dit. */
+function mixerDial(inst: Inst, v: number): void {
+  resume();
+  setVoiceFx(inst, 'level', Math.max(0, Math.min(1, v)));
+  lcdMessage.show(`${inst} VOL ${encText('vol', voiceFx.of(inst).level, voiceFx.of(inst).level, false)}  ${encUnit('vol', voiceFx.of(inst).level)}`, POT_UI.readoutMs, true);
 }
