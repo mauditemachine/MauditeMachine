@@ -40,6 +40,26 @@ interface Retrig {
   /** LEN en pas ; null : INF */
   len: number | null;
   lfos: Lfo[];
+  /**
+   * Un lock trig pendant le retrig (la revue de D2, E5) : les repetitions d'avant sa position (until) gardent ces verrous
+   * et cette ancre ; celles d'apres prennent lock (ceux du lock trig fusionnes) et l'ancre de la voix
+   */
+  pre?: { until: number; lock: Readonly<StepLock> | null; anchor: number };
+}
+
+/** Les verrous d'un lock trig qu'une repetition de retrig garde (ce que le lock trig change sur le coup qui sonne). */
+const LT_KEYS = ['level', 'pan', 'fcut', 'freso', 'delay', 'reverb', 'dist', 'chorus'] as const;
+
+/** Les verrous d'un retrig apres un lock trig : les siens, et ceux du lock trig qu'une repetition garde. */
+function rtLock(base: Readonly<StepLock> | null, lk: Readonly<StepLock>): Readonly<StepLock> | null {
+  let out: StepLock | null = null;
+  for (const k of LT_KEYS) {
+    const v = lk[k];
+    if (v === undefined) continue;
+    out ??= { ...(base ?? {}) };
+    out[k] = v;
+  }
+  return out ?? base;
 }
 
 /** Ce que le sequenceur garde d'une voix d'un pas a l'autre. */
@@ -144,13 +164,14 @@ function repeats(inst: Inst, rt: Retrig, inp: SeqIn, from: number, to: number, b
     const rp = rt.pos + k * rt.every;
     if (rp >= to - EPS || rp >= before - EPS) return true;
     if (rp >= rt.end - EPS) return false;
+    const old = rt.pre !== undefined && rp < rt.pre.until - EPS;
     out.push({
       inst,
       t: inp.grid + (rp - inp.pos) * inp.dur,
       vel: rtrgGain(rt.vel, rt.vfad, (rp - rt.pos) / rt.span),
-      lock: rt.lock,
+      lock: old && rt.pre ? rt.pre.lock : rt.lock,
       len: rt.len === null ? null : rt.len * inp.dur,
-      lfo: rt.lfos.length > 0 ? { list: rt.lfos, pos: rp, anchor, dur: inp.dur } : null,
+      lfo: rt.lfos.length > 0 ? { list: rt.lfos, pos: rp, anchor: old && rt.pre ? rt.pre.anchor : anchor, dur: inp.dur } : null,
       roll: true,
       step: inp.s,
       rep: true,
@@ -198,10 +219,13 @@ export function seqStep(st: SeqState, inp: SeqIn): SeqOut {
     const pos = inp.pos + swing + tn.shift;
     const t = tn.shift === 0 ? inp.when : inp.when + tn.shift * inp.dur;
     if (lockTrig) {
+      const lk = ok ? hitLock(raw) : null;
+      // Un retrig en cours (la revue de D2, E5) : les repetitions a partir du lock trig prennent ses verrous et sa relance
+      // de LFO (celles d'avant lui gardent les leurs) ; le lock trig touche la repetition qui sonne a son heure
+      if (sv.rt && (lk || (ok && tn.lfot))) sv.rt = { ...sv.rt, lock: lk ? rtLock(sv.rt.lock, lk) : sv.rt.lock, pre: { until: pos, lock: sv.rt.lock, anchor: sv.anchor } };
+      if (ok && tn.lfot) sv.anchor = pos;
       if (sv.rt && !repeats(inst, sv.rt, inp, inp.pos, end, Infinity, sv.anchor, hits)) sv.rt = null;
       if (!ok) continue;
-      if (tn.lfot) sv.anchor = pos;
-      const lk = hitLock(raw);
       if (lk || tn.lfot) locks.push({ inst, t, lock: lk, last: sv.last, anchor: tn.lfot ? pos : null, step: inp.s });
       continue;
     }
@@ -237,7 +261,22 @@ export function seqStep(st: SeqState, inp: SeqIn): SeqOut {
     }
   }
   if (drew) st.rng = rng.state;
+  // Dans l'ordre du temps (la revue de D2, E7 : un uTIME, une repetition), a egalite dans l'ordre des pads (tri stable) : la
+  // coupe du charley ouvert et le kick mono se decident a l'heure des coups ; au depart, l'ordre d'avant
+  if (hits.length > 1) hits.sort((a, b) => a.t - b.t);
   return { hits, locks };
+}
+
+/**
+ * Le coup qu'un lock trig touche (la revue de D2, E5) : le plus recent de la voix parmi ceux que le pas vient de jouer et
+ * qui ont commence a son heure (une repetition de retrig sur le pas), sinon celui d'avant le pas (last).
+ */
+export function soundingAt<V extends { when: number }>(made: readonly { inst: Inst; v: V }[], inst: Inst, t: number, last: V | null): V | null {
+  for (let i = made.length - 1; i >= 0; i -= 1) {
+    const m = made[i];
+    if (m.inst === inst && m.v.when <= t + EPS) return m.v;
+  }
+  return last;
 }
 
 /** Le dernier coup d'une voix (l'appelant le pose apres l'avoir joue) : un lock trig plus loin s'y applique. */

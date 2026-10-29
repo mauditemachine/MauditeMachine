@@ -59,7 +59,7 @@ import { cancelVoice, context, lockTrig, mix, trigger, type HitSeq, type Voice }
 import { shots } from './shots';
 import { INSTRUMENTS, STEP_COUNT, pattern, type Steps } from './pattern';
 import type { Locks } from './locks';
-import { cloneSeq, earliestShift, seqLast, seqState, seqStep, type SeqState } from './seq';
+import { cloneSeq, earliestShift, seqLast, seqState, seqStep, soundingAt, type SeqState } from './seq';
 import { liveNeeds } from './seqhit';
 import type { TrigSet } from './trig';
 import { LFO_PARAMS } from './lfo';
@@ -326,6 +326,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     plays: (inst) => voices.plays(inst, pm),
     fxOf: (inst) => voiceFx.of(inst),
   });
+  const made: { inst: Inst; v: Voice }[] = [];
   for (const h of out.hits) {
     mask |= 1 << INSTRUMENTS.indexOf(h.inst);
     const live = liveNeeds(snap.locks, h.inst);
@@ -334,14 +335,20 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     // Une erreur d'automation (la revue de D2, E1 : un navigateur sans cancelAndHoldAtTime) ne bloque jamais l'horloge : le
     // pas suivant part quand meme (sinon le meme pas se rejouait a chaque reveil)
     try {
-      if (trigger(h.inst, h.t, false, vs, h.vel, h.lock, snap.scenes, sq) && vs.length > n0) seqLast(seqSt, h.inst, vs[vs.length - 1]);
+      if (trigger(h.inst, h.t, false, vs, h.vel, h.lock, snap.scenes, sq) && vs.length > n0) {
+        const v = vs[vs.length - 1];
+        seqLast(seqSt, h.inst, v);
+        made.push({ inst: h.inst, v });
+      }
     } catch (err) {
       seqWarn(err);
     }
   }
   for (const lt of out.locks) {
     try {
-      const pv = lockTrig(lt.inst, lt.t, lt.lock, lt.last as Voice | null, lt.anchor);
+      // Le coup qui sonne a son heure (E5) : une repetition de ce pas, sinon celui d'avant ; les scenes du pas (E7)
+      const tgt = soundingAt(made, lt.inst, Math.max(lt.t, now), lt.last as Voice | null);
+      const pv = lockTrig(lt.inst, lt.t, lt.lock, tgt, lt.anchor, snap.scenes);
       if (pv) vs.push(pv);
     } catch (err) {
       seqWarn(err);

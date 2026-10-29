@@ -24,10 +24,14 @@ export const LFO_FREQ_CENTS = 6000;
 /** Les destinations prises au moment du coup ; celles appliquees en continu. */
 export const LFO_HIT_DESTS: readonly LfoDest[] = ['DIST', 'DELAY', 'REVERB', 'TONE', 'DECAY'];
 export const LFO_LIVE_DESTS: readonly LfoDest[] = ['PITCH', 'FREQ', 'RESO', 'VOL', 'PAN'];
-/** Les points d'une courbe de LFO sur un coup : au plus 256 rampes, de 4 a 40 ms, sur au plus 8 s. */
-const SEG_MIN_S = 0.004;
+/**
+ * Les points d'une courbe de LFO sur un coup : 24 par cycle du plus rapide, de 2 a 40 ms, sur au plus 8 s ; au plus 512
+ * rampes (la revue de D2, E7 : la resolution suit la vitesse ; au-dela, la courbe s'arrete plus tot plutot que de
+ * s'espacer : un LFO rapide sur un son long se fige apres 1 s au pire).
+ */
+const SEG_MIN_S = 0.002;
 const SEG_MAX_S = 0.04;
-const SEG_COUNT = 256;
+const SEG_COUNT = 512;
 export const LFO_SPAN_S = 8;
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -87,8 +91,9 @@ export function lfoPoints(l: HitLfo, dest: LfoDest, when: number, t0: number, t1
   let cyc = Infinity;
   for (const x of ls) cyc = Math.min(cyc, lfoCycle(x) * l.dur);
   let seg = Math.max(SEG_MIN_S, Math.min(SEG_MAX_S, Number.isFinite(cyc) ? cyc / 24 : SEG_MAX_S));
-  const n = Math.min(SEG_COUNT, Math.max(1, Math.ceil((t1 - t0) / seg)));
-  seg = (t1 - t0) / n;
+  let n = Math.max(1, Math.ceil((t1 - t0) / seg));
+  if (n > SEG_COUNT) n = SEG_COUNT;
+  else seg = (t1 - t0) / n;
   for (let i = 1; i <= n; i += 1) {
     const t = t0 + i * seg;
     pts.push({ t, v: at(t) });

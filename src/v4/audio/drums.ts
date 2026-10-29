@@ -83,7 +83,7 @@ import {
   type VoiceFx,
   type VoiceParam,
 } from './voicefx';
-import { seqLast, seqState, seqStep, type HitLfo } from './seq';
+import { seqLast, seqState, seqStep, soundingAt, type HitLfo } from './seq';
 import { LEN_REL_S, LFO_FREQ_CENTS, LFO_PITCH_CENTS, LFO_SPAN_S, lfoDistOf, lfoHitLock, lfoPoints, lfoSum, liveDests, liveNeeds, type LiveNeeds } from './seqhit';
 import { NO_TRIGS, type TrigSet } from './trig';
 import type { LfoDest } from './lfo';
@@ -1641,11 +1641,29 @@ function lockTrigOn(g: Graph, inst: Inst, t: number, lock: Readonly<StepLock> | 
   return pv;
 }
 
-/** Un lock trig sur le graphe vivant (l'horloge) ; null sans contexte. */
-export function lockTrig(inst: Inst, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null): Voice | null {
+/**
+ * Les valeurs jouees des verrous d'un lock trig sous les scenes (la revue de D2, E7) : un verrou de tranche (VOL, les
+ * envois, les inserts) reste verrou a sa valeur morphee, un verrou de coup (PAN, le filtre) passe dans la voix jouee ;
+ * sans scene, le verrou lui-meme.
+ */
+function playedLock(lock: Readonly<StepLock> | null, m: { fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null }): Readonly<StepLock> | null {
+  if (!lock || m.lock === lock) return lock;
+  const out: Record<string, number> = {};
+  const ml = m.lock as Readonly<Record<string, unknown>> | null;
+  const fx = m.fx as Readonly<Record<string, unknown>>;
+  for (const [k, v0] of Object.entries(lock as Readonly<Record<string, number>>)) {
+    const a = ml?.[k];
+    const b = fx[k];
+    out[k] = typeof a === 'number' ? a : typeof b === 'number' ? b : v0;
+  }
+  return out as StepLock;
+}
+
+/** Un lock trig sur le graphe vivant (l'horloge), aux valeurs que jouent les scenes ; null sans contexte. */
+export function lockTrig(inst: Inst, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null, scenes: SceneSet = pattern.scenes.get()): Voice | null {
   const g = graph;
   if (!g) return null;
-  return lockTrigOn(g, inst, Math.max(t, g.ctx.currentTime), lock, last, anchor);
+  return lockTrigOn(g, inst, Math.max(t, g.ctx.currentTime), playedLock(lock, morph.hit(inst, lock, scenes)), last, anchor);
 }
 
 /**
@@ -2482,6 +2500,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         const s = n % STEP_COUNT;
         const bar = Math.floor(n / STEP_COUNT);
         const out = seqStep(st, { s, pos: n, when: t, grid: t, dur: step, steps, locks: o.locks, trigs, ctx: { pass: bar + 1, fill: fillOf(t), last: o.last === true }, plays: () => true, fxOf: fxSeq });
+        const made: { inst: Inst; v: Voice }[] = [];
         for (const hit of out.hits) {
           const inst = hit.inst;
           // Un uTIME negatif au tout premier pas tombe avant le rendu : au debut
@@ -2502,11 +2521,14 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
             postInserts(g, inst, th, h.lock, vo);
             voices.push(vo);
             seqLast(st, inst, vo);
+            made.push({ inst, v: vo });
           }
         }
         for (const lt of out.locks) {
           const tl = Math.max(0, lt.t);
-          voices.push(lockTrigOn(g, lt.inst, tl, lt.lock, lt.last as Voice | null, lt.anchor));
+          // Comme en direct : le coup qui sonne a son heure (E5), les valeurs que jouent les scenes (E7)
+          const lk = sc === NO_SCENES ? lt.lock : playedLock(lt.lock, morphHitPure(lt.inst, vfx(lt.inst), lt.lock, sc, xOfHit(tl)));
+          voices.push(lockTrigOn(g, lt.inst, tl, lk, soundingAt(made, lt.inst, tl, lt.last as Voice | null), lt.anchor));
           if (o.log) offlineHitsLog.push({ t: tl, inst: lt.inst, bar, step: s, pf: 0, decay: 0, gain: 0, kind: 'lock', len: null });
         }
       }
