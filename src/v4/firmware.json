@@ -1,15 +1,16 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "5.0",
-    "fingerprint": "sha256:466a847f8f1f2869eff32304cf64609517479e2cd67b03eae999d3e1cc63c11e",
+    "version": "5.1",
+    "fingerprint": "sha256:c5af6768d7acb3002d1ee6c43f44c56f0f76d0558f99ffc8df8f1bd8ce7481b2",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
       { "version": "4.1", "date": "2026-10-27", "note": "les potards suivent la page, TRK, P-LOCK aux potards, scenes A et B, crossfader" },
       { "version": "4.2", "date": "2026-10-27", "note": "touches nommees facon Digitakt, presets nommes et plus simples, ecran non tactile au desktop, TRK d'une couleur et ses flashs, touches en relief, cibles MIDI de la phase 3, le tempo suit les platines (SYNC du MIXER)", "sha": "1343982" },
       { "version": "4.3", "date": "2026-10-28", "note": "les potards tournent toujours ce qu'on entend, meme quand une scene tient le reglage", "sha": "d66a715" },
-      { "version": "5.0", "date": "2026-10-29", "note": "face facon Digitakt (etape D1) : rangee de 14 touches FUNC TRK PTN REC PLAY STOP TRIG SRC FLTR AMP FX MOD YES NO et leurs fonctions orange, OPEN sur le logo M, couleurs de la Digitakt, REC (les pas hors REC jouent les voix), PLAY et sa pause, mode MUTE global et du pattern, pages TRIG MOD TEMPO SEND FX MIXER, SAVE et RELOAD, COPY et PASTE, cibles MIDI et LEDs du boitier", "sha": "00bd989" }
+      { "version": "5.0", "date": "2026-10-29", "note": "face facon Digitakt (etape D1) : rangee de 14 touches FUNC TRK PTN REC PLAY STOP TRIG SRC FLTR AMP FX MOD YES NO et leurs fonctions orange, OPEN sur le logo M, couleurs de la Digitakt, REC (les pas hors REC jouent les voix), PLAY et sa pause, mode MUTE global et du pattern, pages TRIG MOD TEMPO SEND FX MIXER, SAVE et RELOAD, COPY et PASTE, cibles MIDI et LEDs du boitier", "sha": "00bd989" },
+      { "version": "5.1", "date": "2026-10-29", "note": "le sequenceur facon Digitakt (etape D2) : page TRIG complete (LEN, PROB, COND, microtiming, LFO.T, retrig), lock trigs, FILL en tenant YES, deux LFO par voix sur MOD", "sha": "b8e03d4" }
     ]
   },
   "voy": { "name": "MM-ARP", "version": "2.3", "fingerprint": "sha256:402d3079638809c404122b6a6b66423c5453788651ee4d84b5e255ddd6322b49", "history": [] },
