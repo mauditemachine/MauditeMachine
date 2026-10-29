@@ -815,6 +815,13 @@ function modeLines(): { left: string; tip: string; short: string } | null {
   return null;
 }
 
+/**
+ * La touche qui ramene l'onglet suivant d'une page (V.5.0, le desktop) : celle de la page, ou pour une page de FUNC la
+ * touche qui l'ouvre (MOD sur le MIXER, FUNC + TRIG pour TEMPO, FUNC + FX pour SEND FX).
+ */
+const FUNC_PAGE_KEY: Readonly<Partial<Record<RytmPageId, string>>> = { mixer: 'MOD', tempo: 'FUNC + TRIG', sendfx: 'FUNC + FX' };
+const pageKeyWord = (page: RytmPageId): string => (DT_FACE ? (FUNC_PAGE_KEY[page] ?? pageLabel(page)) : pageLabel(page));
+
 /** Coupe a n lettres, un point final quand ca deborde. */
 const fit = (s: string, n: number): string => (s.length <= n ? s : `${s.slice(0, Math.max(0, n - 1))}.`);
 
@@ -3573,7 +3580,7 @@ export class Screen {
                 pick(`${tap} GLOBAL OR FX: BACK TO GLOBAL FX`, `${tap} GLOBAL OR ${back}`, `GLOBAL OR ${back}`, back)
               : screen === 'fxg'
                 ? pick(`${tap} A FX: ITS SETTINGS · NEVER P-LOCKED`, `${tap} A FX: ITS SETTINGS`)
-                : `${pageLabel(page)} AGAIN: ${next}`;
+                : `${pageKeyWord(page)} AGAIN: ${next}`;
       const b = this.fitText(bText, x1 - x0, fs - 0.5, 0.6, 700);
       this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
       this.text(b, x0, F.y2, fs - 0.5, HALF, 700, 'left', 0.6);
