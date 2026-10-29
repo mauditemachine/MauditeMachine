@@ -185,6 +185,16 @@ export const RYTM_CONTROL_IDS = [
   // SCENE A et B (2026-10-27, la phase 2) ; le crossfader (P2-20)
   'scene',
   'xfade',
+  // V.5.0 (2026-10-29, la face facon Digitakt du desktop) : FUNC, REC, STOP, YES, NO, les pages TRIG et MOD (leurs touches),
+  // le VOL d'une voix sur le MIXER (FUNC + MOD)
+  'func',
+  'rec',
+  'stop',
+  'yes',
+  'no',
+  'ptrig',
+  'pmod',
+  'mixvol',
 ] as const;
 export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
 
@@ -266,6 +276,15 @@ const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
   'l:len': 'r3:send',
   'l:lev': 'r3:smplevel',
   'l:rev': 'r3:reverse',
+  // Le MIXER (V.5.0) : le VOL de chaque voix
+  'm:BD': 'mixvol',
+  'm:SD': 'mixvol',
+  'm:CH': 'mixvol',
+  'm:OH': 'mixvol',
+  'm:CP': 'mixvol',
+  'm:TOM': 'mixvol',
+  'm:HT': 'mixvol',
+  'm:CY': 'mixvol',
 };
 
 /** La carte d'une cible de bloc (pages.ts SlotTarget), 'enc' si elle n'en a pas. */
@@ -375,6 +394,9 @@ export interface RytmInfoHit {
 // Les six pieces de la carte (audio/kit.ts KIT_PLATE_IDS) : les choix de sons sont a l'ecran depuis le 2026-10-18
 const KIT_HOT: ReadonlySet<string> = new Set(['tune', 'attack', 'decay', 'drive', 'snappy', 'gate']);
 const TRANSPORT = new Set(['run', 'clear', 'random', 'mute', 'solo']);
+/** Les touches de la rangee V.5.0 qui ont leur carte (2026-10-29) ; TRIG et MOD, leur page (ptrig, pmod). */
+const DT_KEYS = new Set(['func', 'rec', 'stop', 'yes', 'no']);
+const DT_PAGE_CARD: Readonly<Record<string, RytmInfoId>> = { trig: 'ptrig', mod: 'pmod' };
 const PAGE_IDS: ReadonlySet<string> = new Set(RYTM_PAGES.map((p) => p.id));
 const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);
 
@@ -426,7 +448,8 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   const mn = /^lcd-menu-([a-z]+)$/.exec(hotspot);
   if (mn) return mn[1] === 'sound' ? { id: 'voice:sound' } : PAGE_IDS.has(mn[1]) ? { id: mn[1] } : null;
   const pk = /^pkey-([a-z]+)$/.exec(hotspot);
-  if (pk) return PAGE_IDS.has(pk[1]) ? { id: pk[1] } : null;
+  if (pk) return PAGE_IDS.has(pk[1]) ? { id: DT_PAGE_CARD[pk[1]] ?? pk[1] } : null;
+  if (DT_KEYS.has(hotspot)) return { id: hotspot };
   const tb = /^lcd-tab-([a-z]+)$/.exec(hotspot);
   // Les onglets de la page d'un FX (2026-10-10) : GLOBAL, la carte du FX de la machine (delay) ; la voix, celle de son envoi (vdelay)
   if (tb && isFxPage(tb[1])) {

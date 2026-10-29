@@ -9,7 +9,11 @@ import { pattern } from '../audio/pattern';
 import { faceKnobs, type KnobCause } from '../rytm/faceKnobs';
 import type { RytmPageId, RytmScreenId } from '../rytm/pages';
 import { sceneCount, type SceneId } from '../rytm/sceneData';
-import { trkLeds } from '../rytm/stepLeds';
+import { muteLeds, trkLeds } from '../rytm/stepLeds';
+import { ptnLeds, rowLeds, type HwGridLed, type HwRowLed } from './rowLeds';
+import { dtFace } from '../state/dtFace';
+import { editor } from '../state/editor';
+import { func } from '../state/func';
 import { faceTouch, type CtlSrc } from '../state/ctl';
 import type { HoldMode } from '../state/holdLatch';
 import { presetMode, type PresetStage } from '../state/presetMode';
@@ -19,7 +23,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { tempoSync } from '../state/tempoSync';
 import { trk } from '../state/trk';
 import { voices } from '../state/voices';
-import { SCREEN_TOUCH, TRK_LIT, type Inst } from '../theme';
+import { DT_FACE, SCREEN_TOUCH, STEP_LIT, TRK_LIT, type Inst } from '../theme';
 
 export interface HwKnob {
   /** 0 a 7 (CC 20 a 27 du boitier) */
@@ -100,6 +104,15 @@ export interface HwSnapshot {
     readonly sceneB: HwLed;
     /** les pas 1 a 8 tant que TRK est engagee (tenue, gardee, en fermeture) ; null : TRK eteinte (les pas montrent le motif) */
     readonly steps: readonly HwStepLed[] | null;
+    /**
+     * V.5.0 (2026-10-29, la face facon Digitakt du desktop) : les quatorze touches de la rangee, leur couleur et leur eclat
+     * (hw/rowLeds.ts ; STOP, YES et NO : leur eclair n'est pas dans l'instantane) ; [] au telephone
+     */
+    readonly keys: readonly HwRowLed[];
+    /** ce que montrent les seize pas : le motif, la vue TRK, le mode MUTE (global, du pattern), la grille PTN */
+    readonly view: 'pattern' | 'trk' | 'mute' | 'pmute' | 'ptn';
+    /** les seize pas du mode MUTE (vert ou magenta, blanc en solo) et de la vue PTN (rouge, blanc faible) ; null sinon */
+    readonly grid: readonly HwGridLed[] | null;
   };
   /** les presets ouverts : les potards ne reglent plus leur page (label et value restent ceux de la page cachee) ; null : fermes */
   readonly presets: HwPresets | null;
@@ -111,6 +124,9 @@ const SCENE_LED_SPAN = 0.85;
 
 /** La derniere cause de chaque potard (hw/index.ts la tient a jour ; value tant que rien n'est venu). */
 export type KnobCauses = readonly KnobCause[];
+
+/** Les couleurs de la face facon Digitakt pour le boitier (V.5.0) : celles de la machine noire, le boitier n'a pas de creme. */
+const HW_PAL = { red: '#FF2B2B', green: '#3DDC5A', white: '#F4F1EA', magenta: '#E04DD8' } as const;
 
 export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   const p = pattern.get();
@@ -137,6 +153,19 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
     cause: causes?.[kv.k] ?? 'value',
     by: causes?.[kv.k] === 'pot' ? faceTouch.lastSrc(kv.k) : null,
   }));
+  // V.5.0 : la rangee, et ce que montrent les pas (le mode MUTE et la grille PTN gagnent sur le motif, TRK sur tout)
+  const dm = DT_FACE ? dtFace.mute() : 'off';
+  const ptnOpen = editor.get() === 'mm808';
+  const view: HwSnapshot['leds']['view'] = engaged ? 'trk' : dm === 'global' ? 'mute' : dm === 'pattern' ? 'pmute' : DT_FACE && ptnOpen ? 'ptn' : 'pattern';
+  const keys = DT_FACE
+    ? rowLeds({ func: func.get().mode, trk: t.mode, ptn: ptnOpen || presetMode.on('mm808'), rec: dtFace.rec(), play: clock.running ? 'run' : clock.paused ? 'pause' : 'stop', page: rp.page, home: rp.view === 'home' }, HW_PAL)
+    : [];
+  const grid =
+    view === 'mute' || view === 'pmute'
+      ? muteLeds(view === 'mute' ? 'global' : 'pattern', v.muted, p.pmutes, v.solo, HW_PAL).map((l, i) => ({ i, color: l.color, level: l.level, blink: false }))
+      : view === 'ptn'
+        ? ptnLeds(ps.cur, ps.next, ps.chain, Array.from({ length: 16 }, (_, i) => patterns.filled(i)), HW_PAL, STEP_LIT.dtEdit)
+        : null;
   return {
     page: { page: rp.page, tab: rp.tabs[rp.page] ?? 0, screen: rytmPage.screen(inst), view: rp.view },
     voice: inst,
@@ -153,11 +182,15 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
       sceneA: { on: arm.armed === 'a', blink: arm.armed === 'a' && arm.how === 'latched', level: na > 0 ? SCENE_LED_MIN + SCENE_LED_SPAN * (1 - x) : 0 },
       sceneB: { on: arm.armed === 'b', blink: arm.armed === 'b' && arm.how === 'latched', level: nb > 0 ? SCENE_LED_MIN + SCENE_LED_SPAN * x : 0 },
       steps: engaged
-        ? trkLeds(inst, v.muted, v.solo, TRK_LIT)
+        ? // V.5.0 au desktop : le rouge de la Digitakt, la barre verte des voix qui jouent (blanche en solo)
+          trkLeds(inst, v.muted, v.solo, TRK_LIT, DT_FACE ? HW_PAL : undefined, p.pmutes)
             .slice(0, 8)
             .filter((l): l is typeof l & { inst: Inst } => l.inst !== null)
             .map((l) => ({ inst: l.inst, color: l.color, level: l.level, bar: l.bar }))
         : null,
+      keys,
+      view,
+      grid,
     },
     presets: pv ? { stage: pv.stage, name: pv.name, keys: [...pv.keys], face: !SCREEN_TOUCH } : null,
   };

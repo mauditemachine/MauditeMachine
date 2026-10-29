@@ -8,8 +8,8 @@
  * une voix coupee 0.07), sa barre : verte sur une voix qui joue quand des voix sont coupees ou en solo (le vert du mode
  * MUTE de la Digitakt : la voix joue), blanche sur une voix en solo ; et la vue du mode MUTE (FUNC + TRK, muteLeds) :
  * global, vert = joue, eteint = coupee ; du pattern, magenta = joue ; une voix en solo en blanc. Le telephone garde
- * l'orange et sa barre rouge (MUTE) ou bleue (SOLO). Les couleurs viennent de l'appelant (theme.ts DT_HEX) : ce module
- * reste sans dependance (node le lit tel quel pour npm run hw:test).
+ * l'orange et sa barre rouge (MUTE) ou bleue (SOLO). Les couleurs viennent de l'appelant (theme.ts DT_HEX ; le boitier :
+ * hw/snapshot.ts) ; ce module ne lit que rytm/faceplate.ts.
  */
 
 import { RYTM_FACEPLATE } from './faceplate';

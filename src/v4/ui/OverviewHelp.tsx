@@ -21,14 +21,15 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
       // l'ecran ; leurs noms sur les touches (V.4.2, facon Digitakt) ; le telephone garde ses mots
       PORTRAIT
         ? 'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.'
-        : 'Pick a voice with the keys A S D F and Z X C V (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.',
+        : // V.5.0 (2026-10-29, la face facon Digitakt) : REC, PLAY, FUNC et leurs fonctions orange
+          'Like a Digitakt: without REC, steps 1 to 8 play the voices and pick one; press REC (W) and tap the 16 steps to write its part, hold a step and drag for its velocity. PLAY (Space) plays and pauses, STOP (Shift + Space) stops; TRIG then YES writes a random groove.',
       PORTRAIT
         ? 'Like an Elektron: press a page key (VOICE FLTR ENV FX) and drag the blocks of the screen up or down to set them, values 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs under the screen are the global FX, always the same. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS.'
-        : 'Like an Elektron: press a page key (VOICE FLTR ENV FX) and turn the 8 knobs right of the screen (A to H), each sets the value in its place on the screen, 0 to 127 (the screen is not touched); the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). EDIT turns the steps into 16 patterns, EDIT twice opens the presets; OPEN lifts the hood. TRK + a step picks a voice; hold SCENE A or B and turn a knob to record a scene, the crossfader blends A and B.',
+        : 'Press a page key (TRIG SRC FLTR AMP FX MOD) and turn the 8 knobs right of the screen (A to H), each sets the value in its place on the screen, 0 to 127. FUNC (Alt) + a key does its orange function: CLEAR, COPY, PASTE, TEMPO, SEND FX, MIXER, SAVE, RELOAD, MUTE. PTN turns the steps into 16 patterns, twice opens KIT, the presets; the M logo lifts the hood. TRK + a step picks a voice; hold SCENE A or B and turn a knob to record a scene, the crossfader blends A and B.',
       // Le desktop (V.4.2, 2026-10-27) : l'ecran ne se touche plus, un verrou se pose au potard ; le telephone garde son texte
       PORTRAIT
         ? 'Parameter locks: hold a step until the screen header reads P-LOCK STEP 05, then drag a value of the screen, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.'
-        : 'Parameter locks: hold a step until the screen header reads P-LOCK STEP 05, then turn a knob, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.',
+        : 'Parameter locks: with REC on, hold a step until the screen header reads P-LOCK STEP 05, then turn a knob, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.',
     ],
   },
   voy: {

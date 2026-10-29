@@ -20,7 +20,7 @@
     "arp:bench": "node scripts/arp-bench.mjs",
     "arp:params": "node scripts/arp-params.mjs",
     "smoke:v4": "node scripts/smoke-v4.mjs",
-    "hw:test": "node scripts/hw-motor.test.mjs",
+    "hw:test": "node scripts/hw-motor.test.mjs && node scripts/hw-leds.test.mjs",
     "firmware:check": "node scripts/firmware.mjs check",
     "firmware:bump": "node scripts/firmware.mjs bump",
     "firmware:stamp": "node scripts/firmware.mjs stamp",

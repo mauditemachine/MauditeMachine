@@ -14,10 +14,32 @@ Ce document décrit ce que le site offre au futur pont du boîtier MM-RYTM (MMHW
 | Crossfader | CC 28, 0 à 127 | cible `rytm:xfade` (0 = A, 127 = B) |
 | Potards motorisés A à H | CC 20 à 27 en sortie, à la position cible | `hw.subscribe` (le moteur), `hw.pot` (la main) |
 | Toucher des potards A à H | CC 30 à 37, 127 touché, 0 lâché | `hw.touch(k, on)` |
-| LED de TRK, des scènes, des pas 1 à 8 | l'orange de la machine tant que TRK est tenue (une seule couleur depuis V.4.2) | `hw.getSnapshot().leds` |
+| LED de TRK, des scènes, des pas 1 à 8 | l'orange de la machine tant que TRK est tenue (une seule couleur depuis V.4.2) ; le rouge de la Digitakt depuis V.5.0 au desktop | `hw.getSnapshot().leds` |
 | Pads | notes 60 à 67 **retirées** (la face V.4.0 n'a plus de pads) | la note 60 est désormais TRK |
 
 Le sens des CC 20 à 27 en entrée (la main qui tourne) reste à confirmer avec `protocol.js`. Le site n'en dépend pas : le pont appelle `hw.pot(k, valeur)`, quel que soit le message.
+
+### V.5.0 (2026-10-29) : les notes des nouvelles touches de la rangée
+
+La face façon Digitakt du desktop (`docs/v4/digitakt-d1-spec.md`) a quatorze touches. Les notes 61 à 67 sont libres depuis le retrait des pads ; voici les numéros **proposés, à confirmer avec protocol.js**. TRK 60, SCENE 79 et 80, CC 28, CC 20 à 27 et CC 30 à 37 ne changent pas.
+
+| Touche | Note proposée | Côté site |
+|---|---|---|
+| FUNC | 61 | `rytm:func` (tenue : enfoncée, lâchée) |
+| PTN | 62 | `rytm:edit` (la grille des patterns ; deux fois : KIT) |
+| ● REC | 63 | `rytm:rec` |
+| ▶ PLAY | 64 | `rytm:play` (la pause ; `rytm:run` reste RUN/STOP) |
+| ■ STOP | 65 | `rytm:stop` |
+| TRIG | 66 | `rytm:page:trig` (la page TRIG depuis V.5.0) |
+| SRC | 67 | `rytm:page:voice` |
+| FLTR | 68 | `rytm:page:fltr` |
+| AMP | 69 | `rytm:page:env` |
+| FX | 70 | `rytm:page:fx` |
+| MOD | 71 | `rytm:page:mod` |
+| YES | 72 | `rytm:yes` |
+| NO | 73 | `rytm:no` |
+
+FUNC tenue sur le boîtier, puis une autre touche : sa fonction orange (le site lit FUNC dans `state/func.ts`, la source `midi`). Les fonctions secondaires ont aussi leur cible directe : `rytm:mutemode`, `rytm:copy`, `rytm:paste`, `rytm:save`, `rytm:reload` (et `rytm:clear`, `rytm:random` d'avant).
 
 ## 2. Le port USB du boîtier
 
@@ -66,8 +88,11 @@ L'état d'un coup, lu dans les stores à chaque appel. Un objet neuf, sérialisa
 - `leds` :
   - `trk` : `{ on, blink, level }` (allumée tant que TRK est engagée, clignote gardée) ;
   - `sceneA`, `sceneB` : `{ on, blink, level }` (la touche allumée quand sa scène est armée, clignote gardée ; le témoin vaut 0 pour une scène vide, sinon 0.15 + 0.85 x ce qu'on en entend) ;
-  - `steps` : tant que TRK est engagée, les pas 1 à 8 avec `{ inst, color, level, bar }` (couleur `#RRGGBB`, la même pour les huit depuis V.4.2 : `rytm/faceplate.ts steps.trkColor`, l'orange de la machine ; niveaux de `theme.ts TRK_LIT` : 1 la voix choisie, 0.22 les autres, 0.07 une voix coupée ; barre `mute` ou `solo`) ; `null` quand TRK est éteinte (les pas montrent le motif).
-- `presets` : `{ stage, name, keys, face }` tant que les presets du MM-RYTM sont ouverts (V.4.2), `null` sinon. `stage` : `browse` (la liste), `choice` (OVERWRITE ou AS NEW), `confirm` (DELETE?), `name` (le nom) ; `name` : la ligne du curseur (`MIKA/DEEP KICK`) ou le nom en cours ; `keys` : le nom des cinq touches de l'écran sur VOICE, FLTR, ENV, FX et EDIT, dans cet ordre (`LOAD`, `SAVE`, `NAME`, `DEL`, `EXIT`, puis `OVERWRITE`, `YES`, `OK`... ; `''` une touche vide) ; `face` : vrai quand la face les mène (l'écran ne se touche pas) : un potard fait défiler la liste, A choisit la lettre et B déplace le curseur pour nommer, et `hw.pot` le fait aussi. Pendant ce temps, `knobs` garde le `label` et la `value` de la page cachée, mais les moteurs restent sous la main : ni parcourir la liste, ni la fin de la garde d'écho, ni LOAD ne les bougent (le site prend la position rapportée par `hw.pot` comme celle du moteur). À la sortie des presets (EXIT, Échap, l'attente, une autre machine), chaque moteur repart à la valeur de sa page, celle du preset chargé s'il y en a eu un. Un contrôleur MIDI appris sur `rytm:knob:k` avec retour fait de même : pendant les presets, son retour rend la dernière valeur reçue (2026-10-27, la revue : le moteur repartait à la page cachée et le geste suivant faisait sauter la liste).
+  - `steps` : tant que TRK est engagée, les pas 1 à 8 avec `{ inst, color, level, bar }` (couleur `#RRGGBB`, la même pour les huit depuis V.4.2 : `rytm/faceplate.ts steps.trkColor`, l'orange de la machine ; niveaux de `theme.ts TRK_LIT` : 1 la voix choisie, 0.22 les autres, 0.07 une voix coupée ; barre `mute` ou `solo`) ; `null` quand TRK est éteinte (les pas montrent le motif). Depuis V.5.0 au desktop : le rouge `#FF2B2B`, et la barre `mute` marque une voix qui joue quand des voix sont coupées (le vert du mode MUTE de la Digitakt), `solo` une voix en solo (blanc) ;
+  - `keys` (V.5.0, 2026-10-29) : les quatorze touches de la rangée, de gauche à droite (`func`, `trk`, `ptn`, `rec`, `play`, `stop`, `trig`, `src`, `fltr`, `amp`, `fx`, `mod`, `yes`, `no`), chacune `{ id, color, level, blink }` (`src/v4/hw/rowLeds.ts`, les mêmes règles que la face) : FUNC blanc, plein tenue, clignotant gardée ; TRK rouge, clignotante gardée ; PTN rouge, grille des patterns ou KIT ouverte ; REC rouge en écriture ; PLAY vert en lecture, vert clignotant en pause ; la touche de la page affichée rouge (0.32 en vue HOME ; TEMPO, SEND FX et MIXER n'allument aucune touche). L'éclair blanc de STOP, YES et NO à leur appui n'est pas dans l'instantané (le boîtier le fait lui-même). Les couleurs sont celles de la machine noire : `#FF2B2B` rouge, `#3DDC5A` vert, `#F4F1EA` blanc ; `[]` au téléphone ;
+  - `view` (V.5.0) : ce que montrent les seize pas, `pattern` (le motif), `trk`, `mute` (le mode MUTE global), `pmute` (le mute du pattern) ou `ptn` (la grille des patterns) ;
+  - `grid` (V.5.0) : les seize pas `{ i, color, level, blink }` dans les vues `mute` et `pmute` (une voix qui joue en vert `#3DDC5A` ou en magenta `#E04DD8`, coupée éteinte, en solo blanche) et `ptn` (le pattern qui joue rouge plein, le suivant et la chaîne rouges clignotants, un pattern plein blanc à 0.2, un vide éteint) ; `null` sinon.
+- `presets` : `{ stage, name, keys, face }` tant que les presets du MM-RYTM sont ouverts (V.4.2), `null` sinon. `stage` : `browse` (la liste), `choice` (OVERWRITE ou AS NEW), `confirm` (DELETE?), `name` (le nom) ; `name` : la ligne du curseur (`MIKA/DEEP KICK`) ou le nom en cours ; `keys` : le nom des cinq touches de l'écran sur VOICE, FLTR, ENV, FX et EDIT (depuis V.5.0 : TRK, PTN, ● REC, TRIG et SRC ; YES valide, NO revient), dans cet ordre (`LOAD`, `SAVE`, `NAME`, `DEL`, `EXIT`, puis `OVERWRITE`, `YES`, `OK`... ; `''` une touche vide) ; `face` : vrai quand la face les mène (l'écran ne se touche pas) : un potard fait défiler la liste, A choisit la lettre et B déplace le curseur pour nommer, et `hw.pot` le fait aussi. Pendant ce temps, `knobs` garde le `label` et la `value` de la page cachée, mais les moteurs restent sous la main : ni parcourir la liste, ni la fin de la garde d'écho, ni LOAD ne les bougent (le site prend la position rapportée par `hw.pot` comme celle du moteur). À la sortie des presets (EXIT, Échap, l'attente, une autre machine), chaque moteur repart à la valeur de sa page, celle du preset chargé s'il y en a eu un. Un contrôleur MIDI appris sur `rytm:knob:k` avec retour fait de même : pendant les presets, son retour rend la dernière valeur reçue (2026-10-27, la revue : le moteur repartait à la page cachée et le geste suivant faisait sauter la liste).
 
 Le pont lit le snapshot à la connexion, puis à son rythme pour les LEDs. Aucun événement de LED n'existe encore : il pourra s'ajouter quand le format de `protocol.js` sera connu.
 

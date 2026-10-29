@@ -1547,6 +1547,8 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   vreverb: drawReverb,
   reverb: drawReverb,
   tempo: drawTempo,
+  // Le VOL d'une voix sur le MIXER (V.5.0) : le dessin de VOL
+  mixvol: drawVol,
   step: drawStep,
   lock: drawLock,
   home: drawHome,
@@ -1568,6 +1570,8 @@ export function rytmDiagram(id: string, c: RytmDiagramCtx): RytmDiagram | null {
   try {
     if (rid.startsWith('pad:')) return padVoice(rid.slice(4) as Inst, c);
     if ((RYTM_INFO_PAGES as readonly string[]).includes(rid) || (RYTM_INFO_TABS as readonly string[]).includes(rid)) return pageGrid(screenOfInfo(rid as RytmInfoPage | RytmInfoTab), c.voice ?? null);
+    // Les pages TRIG et MOD (V.5.0) : leur ecran
+    if (rid === 'ptrig' || rid === 'pmod') return pageGrid(rid === 'ptrig' ? 'trig' : 'mod', c.voice ?? null);
     // Une case vide de l'ecran : l'ecran, sa case en couleur
     if (rid === 'enc') {
       const pk = /^p:([0-7])$/.exec(id);
