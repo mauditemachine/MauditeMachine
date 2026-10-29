@@ -129,8 +129,39 @@ const PHONE = BLOCKS_ARE_KNOBS;
 /** La tape qui ouvre la page d'un FX (V.4.2, 2026-10-27) : au desktop l'ecran ne se touche plus, c'est celle de son potard. */
 const TAP_KNOB = PHONE ? '' : ' ; au desktop, sur son potard';
 
-/** Les mots d'une carte au telephone : un bloc se touche et se glisse, il ne se clique pas. */
-const phoneWords = (x: string): string => (!PHONE ? x : x.replace(/deux clics/g, 'deux tapes').replace(/ ou sa molette/g, ''));
+/**
+ * Les mots d'une carte au desktop depuis V.5.0 (la revue de D1, T1) : les noms de la face facon Digitakt (SRC, SRC SYNTH,
+ * AMP, SEND FX, PTN, FUNC + le triangle de PLAY pour CLEAR, le potard A pour la liste des sons : l'ecran ne se touche pas) ;
+ * le telephone garde les mots d'avant. Ce que nomme l'ancien nom ("l'ancien GLOBAL FX", "l'ancienne page VOICE") reste ;
+ * VOICE FX aussi (l'onglet de la voix de la page FX). Dans l'ordre : la tape d'un FX avant GLOBAL FX. Sans lookbehind (Safari
+ * avant 16.4 refuse le module entier) : l'ancien nom se capture et se rend tel quel.
+ */
+const keepOld =
+  (to: string) =>
+  (m: string, old?: string): string =>
+    old ? m : to;
+const DESK_WORDS: readonly (readonly [RegExp, string | ((m: string, old?: string) => string)])[] = [
+  [/une tape sur son bloc de GLOBAL FX ; au desktop, sur son potard/g, 'une tape sur son potard, page SEND FX'],
+  [/une tape sur son bloc ; au desktop, sur son potard/g, 'une tape sur son potard'],
+  [/VOICE SYNTH/g, 'SRC SYNTH'],
+  [/\(VOICE\)/g, '(SRC)'],
+  // DEC et START de la page AMP (le ENV de FLTR, l'enveloppe du filtre, reste ENV)
+  [/\b(DEC|START) \(ENV\)/g, '$1 (AMP)'],
+  [/\(VOICE, FLTR, ENV, FX\)/g, '(TRIG, SRC, FLTR, AMP, FX)'],
+  [/\(FLTR, ENV, FX\)/g, '(FLTR, AMP, FX)'],
+  [/(ancienne )?page VOICE\b(?! FX)/g, keepOld('page SRC')],
+  [/(ancienne )?page ENV\b/g, keepOld('page AMP')],
+  [/\b(touche|sur|de) VOICE\b(?! FX)/g, '$1 SRC'],
+  [/(ancien )?GLOBAL FX/g, keepOld('SEND FX')],
+  [/touche le nom du son/g, 'clique le potard A'],
+  [/rangée VEL de EDIT/g, 'rangée VEL de PTN'],
+  [/CLEAR remet tout à 0/g, 'FUNC + ▶ (CLEAR, REC éteint) remet tout à 0'],
+  [/, CLEAR tous ceux du pas/g, ', FUNC + ▶ (CLEAR) tous ceux du pas'],
+];
+const deskWords = (x: string): string => DESK_WORDS.reduce((s, [re, to]) => (typeof to === 'string' ? s.replace(re, to) : s.replace(re, to)), x);
+
+/** Les mots d'une carte au telephone : un bloc se touche et se glisse, il ne se clique pas ; au desktop, ses noms (deskWords). */
+const phoneWords = (x: string): string => (!PHONE ? deskWords(x) : x.replace(/deux clics/g, 'deux tapes').replace(/ ou sa molette/g, ''));
 
 /**
  * Une voix a choisir d'abord (2026-10-27) : au telephone, un pad ; la face V.4.0 du desktop n'a plus de pads, une voix se
@@ -181,8 +212,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   },
   synth: {
     section: 'PAGES',
-    title: 'VOICE SYNTH',
-    text: "L'onglet SYNTH de VOICE (les voix qui ont des samples : BD, SD, OH...) : la couche de synthèse, comme une machine de l'Analog Rytm. MACHINE (909, 808 ou MM, le son calculé), MIX (la synthèse et le sample comme un crossfader, de -64 la synthèse seule à +63 le sample seul, 0 les deux à fond), puis ses réglages : TUNE, ATTACK, SWEEP, DECAY et DRIVE pour le kick ; TUNE, SNAPPY, TONE, DECAY et GATE pour la caisse claire ; sur les autres voix, MACHINE et MIX seuls (le clap garde GATE). Chaque réglage dit la couche qu'il touche : MACHINE, la synthèse seule (au téléphone, l'onglet SYNTH le dit pour tous) ; BOTH, les deux. Les deux couches passent ensuite par la même voix (FLTR, ENV, FX). La touche VOICE encore, ou MAIN dans l'en-tête, ramène l'onglet principal.",
+    title: PHONE ? 'VOICE SYNTH' : 'SRC SYNTH',
+    text: "L'onglet SYNTH de SRC (les voix qui ont des samples : BD, SD, OH...) : la couche de synthèse, comme une machine de l'Analog Rytm. MACHINE (909, 808 ou MM, le son calculé), MIX (la synthèse et le sample comme un crossfader, de -64 la synthèse seule à +63 le sample seul, 0 les deux à fond), puis ses réglages : TUNE, ATTACK, SWEEP, DECAY et DRIVE pour le kick ; TUNE, SNAPPY, TONE, DECAY et GATE pour la caisse claire ; sur les autres voix, MACHINE et MIX seuls (le clap garde GATE). Chaque réglage dit la couche qu'il touche : MACHINE, la synthèse seule ; BOTH, les deux. Les deux couches passent ensuite par la même voix (FLTR, AMP, FX). La touche SRC encore ramène l'onglet principal.",
+    phone: { text: "L'onglet SYNTH de VOICE (les voix qui ont des samples : BD, SD, OH...) : la couche de synthèse, comme une machine de l'Analog Rytm. MACHINE (909, 808 ou MM, le son calculé), MIX (la synthèse et le sample comme un crossfader, de -64 la synthèse seule à +63 le sample seul, 0 les deux à fond), puis ses réglages : TUNE, ATTACK, SWEEP, DECAY et DRIVE pour le kick ; TUNE, SNAPPY, TONE, DECAY et GATE pour la caisse claire ; sur les autres voix, MACHINE et MIX seuls (le clap garde GATE). Chaque réglage dit la couche qu'il touche : MACHINE, la synthèse seule (au téléphone, l'onglet SYNTH le dit pour tous) ; BOTH, les deux. Les deux couches passent ensuite par la même voix (FLTR, ENV, FX). La touche VOICE encore, ou MAIN dans l'en-tête, ramène l'onglet principal." },
     tip: 'MIX vers 0 sur un kick de Mika : le grave d’un 909 accordé sous l’attaque du sample.',
   },
   fltr: {
@@ -209,7 +241,8 @@ const RAW: Record<RytmInfoId, Raw> = {
   fxv: {
     section: 'PAGES',
     title: 'VOICE FX',
-    text: "Les effets de la voix choisie, son nom en étiquette (au téléphone, l'onglet BD FX de l'en-tête le dit) : DIST (la saturation parallèle), CHORUS (l'élargissement), DELAY et REVERB (leurs envois). Tous se verrouillent pas par pas : un pas garde sa DIST, l'effet tient jusqu'au coup suivant de la voix, comme sur une Elektron. Pour le kick, ce sont ses seuls effets : les FX globaux ne le touchent pas. Une tape sur l'un d'eux ouvre sa page sur la voix : son envoi en grand, les réglages de la machine à côté (DELAY : TIME, FEEDBACK, TONE), GLOBAL en haut pour passer à la quantité de la machine ; la touche FX revient ici (sous GLOBAL, à GLOBAL FX).",
+    text: "Les effets de la voix choisie, son nom en étiquette : DIST (la saturation parallèle), CHORUS (l'élargissement), DELAY et REVERB (leurs envois). Tous se verrouillent pas par pas : un pas garde sa DIST, l'effet tient jusqu'au coup suivant de la voix, comme sur une Elektron. Pour le kick, ce sont ses seuls effets : SEND FX ne le touche pas. Une tape sur le potard de l'un d'eux ouvre sa page sur la voix : son envoi en grand, les réglages de la machine à côté (DELAY : TIME, FEEDBACK, TONE) ; FX ou NO revient ici. FUNC + FX : SEND FX, la quantité de la machine.",
+    phone: { text: "Les effets de la voix choisie, son nom en étiquette (au téléphone, l'onglet BD FX de l'en-tête le dit) : DIST (la saturation parallèle), CHORUS (l'élargissement), DELAY et REVERB (leurs envois). Tous se verrouillent pas par pas : un pas garde sa DIST, l'effet tient jusqu'au coup suivant de la voix, comme sur une Elektron. Pour le kick, ce sont ses seuls effets : les FX globaux ne le touchent pas. Une tape sur l'un d'eux ouvre sa page sur la voix : son envoi en grand, les réglages de la machine à côté (DELAY : TIME, FEEDBACK, TONE), GLOBAL en haut pour passer à la quantité de la machine ; la touche FX revient ici (sous GLOBAL, à GLOBAL FX)." },
     tip: 'Une REVERB verrouillée sur le dernier clap de la mesure seulement : l’espace s’ouvre une fois, puis se referme.',
   },
   fxg: {
@@ -770,7 +803,8 @@ const RAW: Record<RytmInfoId, Raw> = {
   'knob:empty': {
     section: 'KEYS',
     title: 'KNOB',
-    text: "Rien sur cette page sous ce potard. Chaque potard à droite de l'écran tourne la valeur posée à la même place sur l'écran (A en haut à gauche, E en bas à gauche) : une case vide à l'écran, un potard qui ne fait rien. Change de page (VOICE, FLTR, ENV, FX) : les huit potards suivent. Un pas tenu : ils posent son P-LOCK ; une scène armée (SCENE A ou B) : ils écrivent dans la scène ; le crossfader : leurs anneaux montrent ce qu'on entend, en lueur la bande entre A et B.",
+    text: "Rien sur cette page sous ce potard. Chaque potard à droite de l'écran tourne la valeur posée à la même place sur l'écran (A en haut à gauche, E en bas à gauche) : une case vide à l'écran, un potard qui ne fait rien. Change de page (TRIG, SRC, FLTR, AMP, FX ; FUNC + TRIG, FX ou MOD pour TEMPO, SEND FX et le MIXER) : les huit potards suivent. ● REC allumé, un pas tenu : ils posent son P-LOCK ; une scène armée (SCENE A ou B) : ils écrivent dans la scène ; le crossfader : leurs anneaux montrent ce qu'on entend, en lueur la bande entre A et B.",
+    phone: { text: "Rien sur cette page sous ce potard. Chaque potard à droite de l'écran tourne la valeur posée à la même place sur l'écran (A en haut à gauche, E en bas à gauche) : une case vide à l'écran, un potard qui ne fait rien. Change de page (VOICE, FLTR, ENV, FX) : les huit potards suivent. Un pas tenu : ils posent son P-LOCK ; une scène armée (SCENE A ou B) : ils écrivent dans la scène ; le crossfader : leurs anneaux montrent ce qu'on entend, en lueur la bande entre A et B." },
   },
 
   /* ---------- TRK, la touche des voix (2026-10-27, la phase 2, Mika : "comme la DIGITAKT") ---------- */
@@ -786,8 +820,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   scene: {
     section: 'SCENES',
     title: 'SCENE A / B',
-    text: "Deux scènes de réglages par pattern, comme sur un Octatrack. Tiens SCENE A (ou B) et tourne un potard, un bloc de l'écran ou un potard MIDI : la valeur va dans la scène, jamais dans le son de base ; lâche, c'est fini. Une tape garde la scène armée (sa touche allumée, son cadre clignote) jusqu'à une autre tape, Échap ou CLEAR. Pendant ce temps les anneaux montrent la scène : clair, un réglage déjà dans la scène ; à moitié, un réglage qui s'y mettra au premier cran ; à peine, ce qui n'entre pas dans une scène (SOUND, les choix de son, les TWEAKS pour l'instant). TEMPO, MASTER, les mutes et RUN restent ceux de toujours. Un pas tenu gagne : le potard pose son P-LOCK. Deux tapes ou Suppr sur un potard retirent sa valeur de la scène ; SCENE + CLEAR vide la scène armée, l'autre reste ; CLEAR seul vide les deux avec le pattern. Une scène garde 64 réglages au plus ; elle vit avec son pattern (A01 a les siennes, A02 les siennes). Son témoin s'allume quand elle a des valeurs. Sans scène armée, un potard tourne toujours ce qu'on entend : sur un réglage que la scène qui joue a gardé (la scène A, crossfader au repos à gauche), il règle cette scène ; crossfader entre les deux, A, B et le son de base bougent ensemble.",
-    tip: "Page GLOBAL FX : tiens SCENE B, monte DELAY et REVERB, lâche. La scène B a deux réglages ; le crossfader les fera entendre.",
+    text: "Deux scènes de réglages par pattern, comme sur un Octatrack. Tiens SCENE A (ou B) et tourne un potard (ou un potard MIDI) : la valeur va dans la scène, jamais dans le son de base ; lâche, c'est fini. Une tape garde la scène armée (sa touche allumée en bleu, son cadre clignote) jusqu'à une autre tape, NO, Échap ou FUNC + ▶ (CLEAR). Pendant ce temps les anneaux montrent la scène : clair, un réglage déjà dans la scène ; à moitié, un réglage qui s'y mettra au premier cran ; à peine, ce qui n'entre pas dans une scène (SOUND, les choix de son, les TWEAKS pour l'instant). TEMPO, MASTER, les mutes et PLAY restent ceux de toujours. Un pas tenu (● REC allumé) gagne : le potard pose son P-LOCK. Deux clics ou Suppr sur un potard retirent sa valeur de la scène ; une scène armée, FUNC + ▶ (CLEAR) la vide, l'autre reste ; sans scène armée et REC éteint, FUNC + ▶ vide les deux avec le pattern. Une scène garde 64 réglages au plus ; elle vit avec son pattern (A01 a les siennes, A02 les siennes). Son témoin bleu s'allume quand elle a des valeurs. Sans scène armée, un potard tourne toujours ce qu'on entend : sur un réglage que la scène qui joue a gardé (la scène A, crossfader au repos à gauche), il règle cette scène ; crossfader entre les deux, A, B et le son de base bougent ensemble.",
+    phone: { text: "Deux scènes de réglages par pattern, comme sur un Octatrack. Tiens SCENE A (ou B) et tourne un potard, un bloc de l'écran ou un potard MIDI : la valeur va dans la scène, jamais dans le son de base ; lâche, c'est fini. Une tape garde la scène armée (sa touche allumée, son cadre clignote) jusqu'à une autre tape, Échap ou CLEAR. Pendant ce temps les anneaux montrent la scène : clair, un réglage déjà dans la scène ; à moitié, un réglage qui s'y mettra au premier cran ; à peine, ce qui n'entre pas dans une scène (SOUND, les choix de son, les TWEAKS pour l'instant). TEMPO, MASTER, les mutes et RUN restent ceux de toujours. Un pas tenu gagne : le potard pose son P-LOCK. Deux tapes ou Suppr sur un potard retirent sa valeur de la scène ; SCENE + CLEAR vide la scène armée, l'autre reste ; CLEAR seul vide les deux avec le pattern. Une scène garde 64 réglages au plus ; elle vit avec son pattern (A01 a les siennes, A02 les siennes). Son témoin s'allume quand elle a des valeurs. Sans scène armée, un potard tourne toujours ce qu'on entend : sur un réglage que la scène qui joue a gardé (la scène A, crossfader au repos à gauche), il règle cette scène ; crossfader entre les deux, A, B et le son de base bougent ensemble." },
+    tip: PHONE ? "Page GLOBAL FX : tiens SCENE B, monte DELAY et REVERB, lâche. La scène B a deux réglages ; le crossfader les fera entendre." : "Page SEND FX (FUNC + FX) : tiens SCENE B, monte DELAY et REVERB, lâche. La scène B a deux réglages ; le crossfader les fera entendre.",
   },
   xfade: {
     section: 'SCENES',
@@ -1221,6 +1256,8 @@ function sectionOf(id: RytmInfoId, r: Raw, c: RytmInfoCtx): string {
   if (c.encoder !== undefined) return `GLOBAL FX  ENCODER ${c.encoder + 1}`;
   const at = rytmSlotOf(id, c.voice ?? null, c.page);
   if (at) return `${RYTM_INFO_PAGE_LABEL[at.page]} ${RYTM_LETTERS[at.k]}`;
+  // Au desktop (V.5.0) : VOICE est SRC, VOICE SYNTH SRC SYNTH, GLOBAL FX SEND FX
+  if (!PHONE) return r.section === 'VOICE' ? 'SRC' : deskWords(r.section);
   return r.section;
 }
 
