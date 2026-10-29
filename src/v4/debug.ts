@@ -45,6 +45,8 @@ import { hw } from './hw';
 import { allBindings, sceneRole, type SceneBinding, type SceneRole } from './rytm/sceneParams';
 import { morph } from './audio/morph';
 import { sceneCtl } from './state/sceneCtl';
+import { func } from './state/func';
+import { dtFace } from './state/dtFace';
 import { clock, clockDebug, type ClockDebug } from './audio/clock';
 import { audioDebug, type AudioDebug } from './audio/drums';
 import { pattern, type StoredPattern } from './audio/pattern';
@@ -285,6 +287,12 @@ export interface V4Debug {
     morph: typeof morph;
     /** le crossfader et l'armement (2026-10-27, state/sceneCtl.ts) : x(), setX(x, src), gesture(on, src), get(), armDown... */
     ctl: typeof sceneCtl;
+    /** FUNC (V.5.0, 2026-10-29, state/func.ts) : get() (mode off, held, once, locked), down, up, use, cancel, changes */
+    func: typeof func;
+    /** la face facon Digitakt (V.5.0, state/dtFace.ts) : rec(), mute() (off, global, pattern), setRec, setMute */
+    dtFace: typeof dtFace;
+    /** les pas, leur teinte et leur niveau (V.5.0) : stage.seq.info() ; la pause de PLAY : clock.paused, resumeStep */
+    readonly transport: { running: boolean; paused: boolean; resumeStep: number };
   };
   /**
    * UNDO et REDO (2026-10-11, state/undo.ts) : get (les compteurs), undo(), redo(), boundary(), debug() (les piles
@@ -527,6 +535,11 @@ export function installDebug(src: DebugSource): () => void {
       scenes: pattern.scenes,
       morph,
       ctl: sceneCtl,
+      func,
+      dtFace,
+      get transport() {
+        return { running: clock.running, paused: clock.paused, resumeStep: clock.resumeStep };
+      },
       faceCells(screen, inst, law = FACE_LAW) {
         const slots = pageSlots(screen, inst === undefined ? pattern.get().instrument : inst);
         return {

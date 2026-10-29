@@ -36,11 +36,15 @@
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
  * encodeur (role slider) n'a rien a faire d'Espace : il reste RUN/STOP.
  * Sans WebGL (page de repli, pas de machine) seul Echap reste.
+ * V.5.0 (2026-10-29, la face facon Digitakt du desktop, docs/v4/digitakt-d1-spec.md) : sur le MM-RYTM, Espace = PLAY (la
+ * pause, la reprise), Maj + Espace = STOP, Alt (Option) tenu = FUNC (avec un clic sur une touche : sa fonction orange), W =
+ * REC (R reste RESET VIEW), Entree = YES, Echap = NO (la chaine d'Echap de toujours, une page tapee juste avant : rechargee).
+ * Les autres raccourcis ne changent pas. Le telephone non plus.
  */
 
 import { useEffect, useRef } from 'react';
 import { trk } from '../state/trk';
-import { MODE_HOLD_MS, editToggle, escape, modeHold, muteToggle, openToggle, padHit, page, presetEnter, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, voyPad, voyRun } from '../actions';
+import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, modeHold, muteToggle, noKey, openToggle, padHit, page, playKey, presetEnter, presetKey, recKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesKey } from '../actions';
 import { lcdSamples } from '../state/lcdSamples';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
@@ -52,7 +56,7 @@ import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { undo } from '../state/undo';
 import { INSTRUMENTS } from '../audio/pattern';
-import { EDIT_KEY, OPEN_KEY, PAGES, SCREEN_TOUCH, VOICE_KEYS, type PageId } from '../theme';
+import { DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VOICE_KEYS, type PageId } from '../theme';
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
 const CHORD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
@@ -93,11 +97,19 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.defaultPrevented) return;
+      // V.5.0 (le desktop, devant le MM-RYTM) : Echap est NO (la chaine d'Echap ; une page tapee juste avant : rechargee)
+      const dt = DT_FACE && on.current && focus.get() === 'mm808';
       if (e.key === 'Escape') {
-        if (escape()) e.preventDefault();
+        if (dt ? noKey(getStage(), true) : escape()) e.preventDefault();
         return;
       }
       if (!on.current) return;
+      // Alt (Option) tenu = FUNC (V.5.0) : un clic sur une touche pendant la tenue fait sa fonction orange
+      if (dt && e.key === 'Alt') {
+        e.preventDefault();
+        if (!e.repeat) funcDown('key', e.timeStamp || performance.now());
+        return;
+      }
       // UNDO et REDO (2026-10-11) : Cmd+Z, Maj+Cmd+Z, Ctrl+Y ; la touche tenue ne repete pas (chaque etape recalcule les sons)
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !isEditable(e.target)) {
         const k = e.key.toLowerCase();
@@ -238,9 +250,26 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         if (ownsSpace(e.target)) return;
         // Pas de defilement : la page ne defile jamais
         e.preventDefault();
+        // V.5.0 au desktop : Espace = PLAY (la pause, la reprise), Maj + Espace = STOP
+        if (dt) {
+          if (e.shiftKey) stopKey(getStage());
+          else playKey(getStage());
+          return;
+        }
         // Sur le MM-VOYAGER, son RUN/STOP (l'arpege) ; sur le MM-DECKS, rien encore
         if (focus.get() === 'voy') voyRun(getStage());
         else if (focus.get() !== 'dj' && focus.get() !== 'bass') runToggle(getStage());
+        return;
+      }
+      // V.5.0 au desktop : W = REC (le mode ecriture des pas), Entree = YES
+      if (dt && (e.code === `Key${REC_KEY}` || e.key.toUpperCase() === REC_KEY)) {
+        e.preventDefault();
+        recKey(getStage());
+        return;
+      }
+      if (dt && e.key === 'Enter' && !ownsSpace(e.target)) {
+        e.preventDefault();
+        yesKey(getStage());
         return;
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
@@ -269,6 +298,11 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       }
     };
     const onUp = (e: KeyboardEvent): void => {
+      // Alt lache (V.5.0) : FUNC lachee, sans garde (une tape d'Alt ne garde pas FUNC)
+      if (e.key === 'Alt') {
+        funcUp('key', -1);
+        if (DT_FACE) e.preventDefault();
+      }
       const held = mKey.current;
       if (!held || !(e.code === 'KeyM' || e.key.toLowerCase() === 'm')) return;
       mKey.current = null;

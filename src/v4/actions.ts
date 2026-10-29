@@ -2889,6 +2889,8 @@ function leaveRytmOverlay(): boolean {
  * jamais HOME (l'ecran reste aux blocs). La touche s'enfonce.
  */
 export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
+  // Une page que cet appareil n'a pas (V.5.0 : MOD, TRIG, TEMPO, le MIXER au telephone, par le MIDI) : rien
+  if (!isRytmPage(id)) return;
   // Le mode presets du desktop (2026-10-27) : des touches de la rangee sont ses touches de l'ecran (V.5.0 : TRIG DEL, SRC EXIT)
   const btn = PAGE_BTN[id];
   if (btn && presetSoftKey(btn, () => stage?.pressPageKey(id))) return;
@@ -4448,7 +4450,8 @@ function withRowLocks(all: Readonly<Locks>, inst: Inst, row: Locks[Inst]): Locks
  * REC allume, la ligne de la voix choisie (ses pas et ses verrous). Une etape d'UNDO.
  */
 function dtClear(stage: Stage | null): void {
-  if (sceneCtl.get().armed || !dtFace.rec()) {
+  // Une scene armee, hors REC, ou un pas en P-LOCK (ses verrous) : la regle de CLEAR de toujours
+  if (sceneCtl.get().armed || !dtFace.rec() || lockMode()) {
     clearPattern(stage);
     return;
   }
@@ -4520,11 +4523,13 @@ export function yesKey(stage: Stage | null = null): void {
  * NO (la face, son jumeau, Echap, MIDI rytm:no) : le retour, la chaine d'Echap ; une FUNC verrouillee se relache ; apres une
  * touche de page, cette page rechargee du point de sauvegarde. FUNC + NO (tenue ou gardee pour une touche) : RELOAD.
  */
-export function noKey(stage: Stage | null = null): boolean {
+export function noKey(stage: Stage | null = null, viaEsc = false): boolean {
   if (!DT_FACE) return escape();
   resume();
   stage?.flashFaceKey('no');
   const fm = func.get().mode;
+  // Echap au clavier relache FUNC (tenue ou gardee), et revient a la vue d'ensemble au bout de sa chaine, comme toujours
+  if (viaEsc && fm !== 'off') return escape();
   if (fm === 'locked') {
     func.cancel();
     lcdMessage.show('FUNC OFF', 700);
@@ -4541,7 +4546,7 @@ export function noKey(stage: Stage | null = null): boolean {
     reloadPage(pg);
     return true;
   }
-  return escape(true);
+  return escape(!viaEsc);
 }
 
 /* ---------- la page au hasard (une page puis YES), la page rechargee (une page puis NO) ---------- */

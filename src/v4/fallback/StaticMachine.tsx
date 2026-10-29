@@ -30,6 +30,7 @@ import {
   ENCODER,
   FACE_KEY,
   FACE_KNOBS,
+  DT_HEX,
   HEX,
   KEYS,
   KEY_LABEL,
@@ -227,7 +228,7 @@ function panelTop(): React.ReactNode {
               fontSize={size}
               fontWeight={t.weight ?? SILK.weight}
               textAnchor={anchor}
-              fill={t.ink === 'orange' ? HEX.orange : t.alpha ? `rgba(246, 241, 231, ${t.alpha})` : C.bone85}
+              fill={t.ink === 'orange' ? HEX.orange : t.ink === 'alt' ? DT_HEX.orange : t.alpha ? `rgba(246, 241, 231, ${t.alpha})` : C.bone85}
               className="v4-silk"
             >
               {t.text}
@@ -417,6 +418,11 @@ function faceLabel(s: Solid, l: KeyLabelSpec, h: number, lit = false): Solid {
         x += w;
         return <path key={`m${i}`} d={`M${r4(x0)} ${r4(z0)}L${r4(x0 + w)} ${r4(cz)}L${r4(x0)} ${r4(z0 + M.h)}Z`} />;
       }
+      // REC (V.5.0) : le rond plein
+      if (m === 'rec') {
+        x += M.h;
+        return <circle key={`m${i}`} cx={r4(x0 + M.h / 2)} cy={r4(cz)} r={r4(M.h / 2)} />;
+      }
       x += M.h;
       return <rect key={`m${i}`} x={r4(x0)} y={r4(z0)} width={r4(M.h)} height={r4(M.h)} />;
     });
@@ -465,10 +471,11 @@ function faceSolids(items: Solid[]): void {
   });
   // La rangee (TRK VOICE FLTR ENV FX EDIT OPEN RUN/STOP CLEAR RANDOM MUTE SOLO), SCENE A et B : la forme des touches de
   // page, RUN sur son rouge ; leur legende (V.4.2 : le mot, les signes de RUN/STOP) ou leur lettre dessus
+  // V.5.0 (2026-10-29, la face facon Digitakt) : FUNC sur son orange, sa legende noire ; les autres touches graphite
   for (const l of KEY_LABELS) {
     if (l.group === 'stepn' || l.group === 'stepv') continue;
-    const red = l.id === 'run';
-    items.push(faceLabel(box(`fkey-${l.id}`, l.x, l.z, l.w / 2, l.d / 2, FACE_KEY.h, red ? HEX.red : HEX.graphiteHi, red ? C.runSide : C.clearSide, red ? C.runSide : C.clearSide), l, FACE_KEY.h));
+    const fn = l.id === 'func';
+    items.push(faceLabel(box(`fkey-${l.id}`, l.x, l.z, l.w / 2, l.d / 2, FACE_KEY.h, fn ? DT_HEX.orange : HEX.graphiteHi, C.clearSide, C.clearSide), l, FACE_KEY.h, fn));
   }
   // Le capuchon du crossfader, a x 0 a l'arrivee (2026-10-27, P2-20 : le bout de la scene A), son trait d'os sur le dessus
   const X = XFADE;
@@ -484,7 +491,8 @@ function faceSolids(items: Solid[]): void {
   for (let i = 0; i < KEYS.count; i += 1) {
     const v = velocity(DEFAULT_STEPS, inst, i);
     const f = v > 0 ? (STEP_LIT.ramp[v] ?? 0) : 0;
-    const top = v > 0 ? mixHex(HEX.key, HEX.ledSet, f) : HEX.key;
+    // Le rouge des coups de la Digitakt (V.5.0)
+    const top = v > 0 ? mixHex(HEX.key, DT_HEX.red, f) : HEX.key;
     const key = box(`key-${i}`, keyX(i), KEYS.z + keyDz(i), KEYS.w / 2, KEYS.d / 2, KEYS.h, top, C.keySide, C.keySide);
     const ids = i < INSTRUMENTS.length ? [`stepn-${i + 1}`, `stepv-${INSTRUMENTS[i]}`] : [`stepn-${i + 1}`];
     for (const id of ids) {

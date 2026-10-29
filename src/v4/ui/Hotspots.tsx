@@ -119,6 +119,16 @@ import {
   stepVelocity,
   stepVelocityOf,
   stepToggle,
+  funcDown,
+  funcUp,
+  muteStepHold,
+  muteView,
+  noKey,
+  playKey,
+  recKey,
+  stepWrites,
+  stopKey,
+  yesKey,
   trkDown,
   trkStep,
   trkStepMute,
@@ -157,6 +167,8 @@ import { trk } from '../state/trk';
 import { tempoSync } from '../state/tempoSync';
 import { sceneCtl } from '../state/sceneCtl';
 import type { HoldLatch } from '../state/holdLatch';
+import { func } from '../state/func';
+import { dtFace } from '../state/dtFace';
 import { clock } from '../audio/clock';
 import { learnPick, midi } from '../midi/midi';
 import { targetIdOfHotspot } from '../midi/targets';
@@ -204,6 +216,10 @@ import {
   BOARD_CHIPS,
   COARSE_QUERY,
   DIAL_FINE,
+  DT_FACE,
+  DT_GESTURE,
+  DT_PAGE_KEYS,
+  REC_KEY,
   DIAL_KEYS,
   ENCODERS,
   FACE_FOLLOWS_PAGE,
@@ -321,6 +337,8 @@ interface Down {
   trk?: boolean;
   /** la touche TRK tenue par ce pointeur : sa source ('ptr:<pointerId>'), lachee au pointerup ou perdue */
   trkSrc?: string;
+  /** FUNC tenue par ce pointeur (V.5.0, 2026-10-29) : sa source, lachee au pointerup ou perdue */
+  funcSrc?: string;
   /** SCENE A ou B tenue par ce pointeur (2026-10-27) : laquelle et sa source, lachee au pointerup ou perdue */
   scene?: 'a' | 'b';
   sceneSrc?: string;
@@ -557,7 +575,7 @@ interface HoldTwinProps {
   id: string;
   twin: string;
   label: string;
-  latch: HoldLatch;
+  latch: Pick<HoldLatch, 'subscribe' | 'engaged'>;
   refFn: (el: HTMLElement | null) => void;
   down: (src: string, t: number) => void;
   up: (src: string, t: number) => void;
@@ -1002,9 +1020,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // Appui long : il montrait la velocite (2026-10-05 ; il vidait le pas avant) ; une tape change le pas
         // (en LOCK, elle deplace le LOCK, actions.ts stepToggle) ; une tenue du LOCK (2026-10-08) a deja tout fait
         if (d.lockHold) return d.id;
-        if (stage.orbit.lastTap.ms < STEP_HOLD_MS) stepToggle(d.index, stage);
+        // Le mode MUTE (V.5.0) : une tenue a deja mis le SOLO
+        if (d.holdFired) return d.id;
+        if (stage.orbit.lastTap.ms < STEP_HOLD_MS || (DT_FACE && muteView())) stepToggle(d.index, stage);
       }
-      else if (d.kind === 'run') runToggle(stage);
+      // V.5.0 au desktop : PLAY (la pause, la reprise ; FUNC + PLAY : CLEAR), REC, STOP, YES, NO ; FUNC a agi a l'appui
+      else if (d.kind === 'run') playKey(stage);
+      else if (d.kind === 'rec') recKey(stage);
+      else if (d.kind === 'stop') stopKey(stage);
+      else if (d.kind === 'yes') yesKey(stage);
+      else if (d.kind === 'no') noKey(stage);
+      else if (d.kind === 'func') return d.id;
       else if (d.kind === 'clear') clearPattern(stage);
       // MUTE et SOLO (2026-10-09) : tenus, toutes les voix sont deja revenues ; sinon l'appui suivant de la machine a etats
       else if ((d.kind === 'mute' || d.kind === 'solo') && d.holdFired) return d.id;
@@ -1129,7 +1155,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return false;
       }
       // TRK, SCENE A ou B tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
-      if (d && (d.kind === 'trk' || d.kind === 'scene')) return false;
+      if (d && (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'func')) return false;
       // Le crossfader (P2-20) : le glisser le deplace, jamais l'orbite ; le premier mouvement compte deja (depuis la prise)
       if (d && d.kind === 'xfade') {
         if (!d.xf) return false;
@@ -1338,6 +1364,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           stage.pressFaceKey('trk');
         }
       }
+      // FUNC (V.5.0, 2026-10-29) : enfoncee, ce pointeur la tient (une tape la garde pour la touche suivante, deux tapes la
+      // gardent) ; ni orbite ni pincement. INFOS allume, au doigt : la carte seulement
+      if (h && h.kind === 'func') {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        if (d0 && !d0.info) {
+          d0.funcSrc = `ptr:${e.pointerId}`;
+          funcDown(d0.funcSrc, e.timeStamp || performance.now());
+          stage.pressFaceKey('func');
+        }
+      }
       // SCENE A et B (2026-10-27, la phase 2) : tenue par ce pointeur (enregistre tant qu'on la tient), une tape la garde ;
       // ni orbite ni pincement ; INFOS allume au doigt : la carte seulement
       if (h && h.kind === 'scene' && h.scene) {
@@ -1422,7 +1459,21 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           e.preventDefault();
           return;
         }
-        const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null;
+        // V.5.0 au desktop : FUNC + un pas part a la tape (ni P-LOCK ni velocite) ; le mode MUTE, une tenue de
+        // DT_GESTURE.muteHoldMs met la voix en SOLO ; hors REC, la tenue ne met pas de P-LOCK (stepHoldHint le dit)
+        if (DT_FACE && dt && !dt.info && editor.get() !== 'mm808' && (func.engaged() || muteView())) {
+          if (!func.engaged()) {
+            window.setTimeout(() => {
+              const d = downs.get(pid);
+              if (!d || d !== dt || disposed || d.index !== idx || !muteView()) return;
+              d.holdFired = true;
+              muteStepHold(idx, stage);
+            }, DT_GESTURE.muteHoldMs);
+          }
+          e.preventDefault();
+          return;
+        }
+        const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null && stepWrites();
         // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
         // clic d'avant ne doit pas prendre le clic suivant pour une tenue (trois clics a la seconde latchaient le LOCK)
         const d0 = downs.get(pid);
@@ -1560,6 +1611,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       releaseBlock(d);
       // TRK tenue par ce pointeur perdu : lachee sans garde ; une scene aussi
       if (d.trkSrc) trkUp(d.trkSrc, -1);
+      if (d.funcSrc) funcUp(d.funcSrc, -1);
       if (d.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, -1);
       if (d.xf) xfadeGesture('end', 'ptr');
       stepUp(d);
@@ -1672,6 +1724,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d) releaseBlock(d);
       // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde ; SCENE A et B
       if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      if (d?.funcSrc) funcUp(d.funcSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.xf) xfadeGesture('end', 'ptr');
       if (d && d.turning && d.mouse) {
@@ -2179,6 +2232,9 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const ptns = useSyncExternalStore(patterns.subscribe, patterns.get, patterns.get);
   const rytmEdit = useSyncExternalStore(editor.subscribe, editor.get, editor.get) === 'mm808';
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
+  // V.5.0 : la pause de PLAY, REC
+  const paused = useSyncExternalStore(clock.subscribe, () => clock.paused, () => clock.paused);
+  const recOn = useSyncExternalStore(dtFace.subscribe, dtFace.rec, dtFace.rec);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
   // INFOS du MM-RYTM (R4) : la touche i de l'ecran
   const rytmInfosOn = useSyncExternalStore(rytmInfos.subscribe, rytmInfos.isOn, rytmInfos.isOn);
@@ -2440,7 +2496,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       className="v4-twin"
       data-twin="edit"
       data-hotspot="pad-edit"
-      aria-label={PORTRAIT ? 'Edit the pattern and its velocities, key E' : `${FACE_TITLE['pad-edit']} and the pattern editor with its velocities, key E`}
+      aria-label={PORTRAIT ? 'Edit the pattern and its velocities, key E' : TWIN_ARIA.ptn}
       aria-pressed={edOpen === 'mm808'}
       title={FACE_TITLE['pad-edit']}
       onKeyDown={noRepeat}
@@ -2887,13 +2943,43 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       className="v4-twin"
       data-twin="run"
       data-hotspot="run"
-      aria-label={TWIN_ARIA.run}
+      aria-label={DT_FACE && paused ? `${TWIN_ARIA.run}, paused` : TWIN_ARIA.run}
       aria-pressed={running}
       title={FACE_TITLE.run}
       onKeyDown={noRepeat}
-      onClick={() => runToggle(stageRef.current)}
+      onClick={() => (DT_FACE ? playKey(stageRef.current) : runToggle(stageRef.current))}
     />
   );
+  /*
+   * V.5.0 (2026-10-29, la face facon Digitakt du desktop) : FUNC (tenue ou tapee, HoldTwin), REC (aria-pressed : le mode
+   * ecriture), STOP, YES et NO, dans l'ordre de la rangee ; les touches de page TRIG SRC FLTR AMP FX MOD.
+   */
+  const funcTwin = <HoldTwin key="func" id="func" twin="func" label={TWIN_ARIA.func} latch={func} refFn={refFor('func')} down={funcDown} up={funcUp} />;
+  const keyTwin = (id: string, twin: string, label: string, act: () => void, pressedOn?: boolean): React.ReactElement => (
+    <button
+      key={id}
+      ref={refFor(id)}
+      type="button"
+      className="v4-twin"
+      data-twin={twin}
+      data-hotspot={id}
+      aria-label={label}
+      aria-pressed={pressedOn}
+      title={FACE_TITLE[id]}
+      onKeyDown={noRepeat}
+      onClick={act}
+    />
+  );
+  const recTwin = keyTwin('rec', 'rec', `${TWIN_ARIA.rec}, key ${REC_KEY}`, () => recKey(stageRef.current), recOn);
+  const stopTwin = keyTwin('stop', 'stop', TWIN_ARIA.stop, () => stopKey(stageRef.current));
+  const yesTwin = keyTwin('yes', 'yes', TWIN_ARIA.yes, () => yesKey(stageRef.current));
+  const noTwin = keyTwin('no', 'no', TWIN_ARIA.no, () => void noKey(stageRef.current));
+  const dtPkeyTwins = DT_PAGE_KEYS.map((pk) => {
+    const id = `pkey-${pk.id}`;
+    const shown = rp.page === pk.id && rp.view === 'page';
+    const extra = pk.id === 'trig' ? TWIN_ARIA.trig : pk.id === 'mod' ? TWIN_ARIA.mod : FACE_TITLE[id];
+    return keyTwin(id, 'pkey', `${extra}${shown ? ', shown, press again for its next view or HOME' : ''}`, () => rytmPageKey(pk.id, stageRef.current), shown);
+  });
   const clearTwin = (
     <button
       ref={refFor('clear')}
@@ -3034,21 +3120,24 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {browserTwins}
           {menuTwins}
           {knobTwins}
+          {/* V.5.0 : la rangee de gauche a droite, FUNC TRK PTN REC PLAY STOP, les six touches de page, YES NO */}
+          {funcTwin}
           {/* TRK (2026-10-27, la phase 2) : tenue ou gardee */}
           <HoldTwin key="trk" id="trk" twin="trk" label={FACE_TITLE.trk} latch={trk} refFn={refFor('trk')} down={trkDown} up={trkUp} />
-          {pkeyTwins}
           {editTwin}
-          {openTwin}
-          {chips}
-          {tweakTwins}
+          {recTwin}
           {runTwin}
-          {clearTwin}
-          {randomTwin}
-          {muteTwin}
-          {soloTwin}
+          {stopTwin}
+          {dtPkeyTwins}
+          {yesTwin}
+          {noTwin}
           {sceneTwin('a')}
           {xfadeTwin}
           {sceneTwin('b')}
+          {/* Le logo M (OPEN), puis les puces et les TWEAKS qu'il decouvre */}
+          {openTwin}
+          {chips}
+          {tweakTwins}
           {stepTwins}
         </>
       )}

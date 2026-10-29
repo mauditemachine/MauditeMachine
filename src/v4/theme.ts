@@ -1837,6 +1837,8 @@ export const FACE_HOLD_MS = 350;
  * stopDoubleMs coupe les queues ; un pas tenu muteHoldMs en mode MUTE passe sa voix en SOLO ; TEMPO : la moyenne apres
  * tapTaps tapes, une pause de tapResetMs recommence ; un rappel (REC TO WRITE STEPS) au plus toutes les hintMs.
  */
+/** REC au clavier (V.5.0) : W, R etant RESET VIEW depuis toujours. */
+export const REC_KEY = 'W';
 export const DT_GESTURE = { funcDoubleMs: 400, pageArmMs: 1500, stopDoubleMs: 600, muteHoldMs: 400, tapTaps: 4, tapResetMs: 2000, hintMs: 2000 } as const;
 
 /**

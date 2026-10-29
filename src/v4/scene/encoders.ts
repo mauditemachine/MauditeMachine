@@ -39,7 +39,7 @@
 
 import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, RingGeometry, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, RING_TONE, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, ringLit, type FaceKnobId, type KnobTone } from '../theme';
+import { COLOR, DT_FACE, DT_HEX, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, RING_BAND, RING_TONE, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, ringLit, type FaceKnobId, type KnobTone } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -179,6 +179,8 @@ export class Encoders {
   /** la bande du crossfader de chaque anneau (2026-10-27, P2-20) : ses deux bouts tries, NaN sans bande */
   private bandLo = new Float32Array(FACE_KNOBS.length).fill(Number.NaN);
   private bandHi = new Float32Array(FACE_KNOBS.length).fill(Number.NaN);
+  /** V.5.0 : le segment luit de la bande (le bleu des scenes), pas de la course */
+  private ringBand = new Uint8Array(FACE_KNOBS.length * KNOB_RING.segments);
   private toneColor = new Map<string, Color>();
 
   constructor(opts: { mobile: boolean; castShadow: boolean; rings?: boolean }) {
@@ -213,7 +215,9 @@ export class Encoders {
       // Les anneaux (2026-10-27) : la fente eteinte (line), l'orange des pas mis (ledSet) ; non eclaires, comme les temoins
       const S = KNOB_RING.segments;
       this.ringOff.setHex(COLOR.line);
-      this.ringOn.setHex(COLOR.ledSet);
+      // V.5.0 (la face facon Digitakt, le desktop) : la course en blanc (l'encre sombre sur la machine creme), plus l'orange
+      if (DT_FACE) this.ringOn.set(DT_HEX.white);
+      else this.ringOn.setHex(COLOR.ledSet);
       this.ringMat = new MeshBasicMaterial({ toneMapped: false });
       this.ringMat.name = 'knobRing';
       const rings = new InstancedMesh(ringSegment(), this.ringMat, n * S);
@@ -235,7 +239,9 @@ export class Encoders {
 
   /** La couleur allumee d'une teinte (theme.ts RING_TONE, relue a chaque fois : l'apparence peut changer). */
   private onColor(tone: KnobTone): Color {
-    const hex = RING_TONE[tone].on;
+    return this.hexColor(RING_TONE[tone].on);
+  }
+  private hexColor(hex: string): Color {
     let c = this.toneColor.get(hex);
     if (!c) {
       c = new Color(hex);
@@ -268,11 +274,15 @@ export class Encoders {
     for (let j = 0; j < S; j += 1) {
       const c = (j + 0.5) / S;
       const lit = ringLit(j, t, bip) * level;
-      const f = banded && c >= lo - 0.5 / S && c <= hi + 0.5 / S ? Math.max(lit, glow) : lit;
+      const inBand = banded && c >= lo - 0.5 / S && c <= hi + 0.5 / S;
+      const f = inBand ? Math.max(lit, glow) : lit;
+      // V.5.0 au desktop : la bande du crossfader luit en bleu (RING_BAND), la course garde sa teinte
+      const band = DT_FACE && inBand && glow > lit ? 1 : 0;
       const k = i * S + j;
-      if (!toneChanged && Math.abs(this.ringPart[k] - f) < 1e-4) continue;
+      if (!toneChanged && Math.abs(this.ringPart[k] - f) < 1e-4 && this.ringBand[k] === band) continue;
       this.ringPart[k] = f;
-      r.setColorAt(k, tint.copy(this.ringOff).lerp(on, f));
+      this.ringBand[k] = band;
+      r.setColorAt(k, tint.copy(this.ringOff).lerp(band ? this.hexColor(RING_BAND.on) : on, f));
       changed = true;
     }
     if (changed && r.instanceColor) r.instanceColor.needsUpdate = true;

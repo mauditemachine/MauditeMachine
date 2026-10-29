@@ -176,7 +176,8 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../theme';
+import { dtFace } from '../state/dtFace';
+import { DT_FACE, FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../theme';
 import { PRESET_SLOTS } from '../state/presetMode';
 import { softKeyPitchU, softKeyU } from '../rytm/presetKeys';
 import { rytmInfoHit } from '../rytm/infoIds';
@@ -789,6 +790,13 @@ function globalValueOf(id: EncId): { text: string; unit: string; course: number 
  */
 function modeLines(): { left: string; tip: string; short: string } | null {
   const v = voices.get();
+  // Le mode MUTE de FUNC + TRK (V.5.0, le desktop) : global ou du pattern, les voix coupees, comment en sortir
+  const dm = DT_FACE ? dtFace.mute() : 'off';
+  if (dm === 'global') return { left: `GLOBAL MUTE: ${v.muted.length ? v.muted.join(' ') : 'STEPS 1-8'}`, tip: 'HOLD: SOLO  NO: EXIT', short: 'NO: EXIT' };
+  if (dm === 'pattern') {
+    const pm = pattern.get().pmutes;
+    return { left: `PATTERN MUTE: ${pm.length ? pm.join(' ') : 'STEPS 1-8'}`, tip: 'FUNC + TRK OR NO: EXIT', short: 'NO: EXIT' };
+  }
   // short : l'aide quand la liste des voix prend la place (la revue du 2026-10-09 : MULTI MUTE: B. au desktop)
   if (v.soloMode)
     return v.soloMulti
@@ -799,8 +807,11 @@ function modeLines(): { left: string; tip: string; short: string } | null {
       ? { left: `MULTI MUTE: ${v.muted.length ? v.muted.join(' ') : 'TAP VOICES'}`, tip: 'MUTE: DONE  HOLD: ALL ON', short: 'HOLD: ALL ON' }
       : { left: 'MUTE: TAP A VOICE', tip: 'MUTE AGAIN: SEVERAL', short: 'AGAIN: SEVERAL' };
   if (v.solo.length) return { left: `SOLO: ${v.solo.join(' ')}`, tip: 'HOLD SOLO: ALL OFF', short: 'HOLD: ALL OFF' };
-  // MUTE rend toutes les voix d'une tape (2026-10-10)
-  if (v.muted.length) return { left: `MUTED: ${v.muted.join(' ')}`, tip: 'MUTE: ALL ON', short: 'MUTE: ALL ON' };
+  // MUTE rend toutes les voix d'une tape (2026-10-10) ; au desktop (V.5.0) le mode MUTE de FUNC + TRK les rend une a une
+  if (v.muted.length) return DT_FACE ? { left: `MUTED: ${v.muted.join(' ')}`, tip: 'FUNC + TRK: MUTE MODE', short: 'FUNC + TRK' } : { left: `MUTED: ${v.muted.join(' ')}`, tip: 'MUTE: ALL ON', short: 'MUTE: ALL ON' };
+  // Le mute du pattern (V.5.0)
+  const pm = DT_FACE ? pattern.get().pmutes : [];
+  if (pm.length) return { left: `PTN MUTED: ${pm.join(' ')}`, tip: 'FUNC + TRK 2X: PATTERN MUTE', short: 'FUNC + TRK' };
   return null;
 }
 
@@ -950,6 +961,8 @@ export class Screen {
       patterns.subscribe(active),
       editor.subscribe(active),
       voices.subscribe(active),
+      // V.5.0 : le mode MUTE de FUNC + TRK et REC se lisent au pied
+      dtFace.subscribe(active),
       voiceFx.subscribe(active),
       mix.subscribe(active),
       clock.subscribe(active),
@@ -1328,7 +1341,7 @@ export class Screen {
     if (st >= 0 && st !== this.lastStep) {
       const steps = pattern.get().steps;
       INSTRUMENTS.forEach((inst, i) => {
-        if (velocity(steps, inst, st) > 0 && voices.plays(inst)) this.hitAt[i] = now;
+        if (velocity(steps, inst, st) > 0 && voices.plays(inst, pattern.get().pmutes)) this.hitAt[i] = now;
       });
     }
     this.lastStep = st;
@@ -1405,7 +1418,7 @@ export class Screen {
     if (inst) {
       this.text(inst, RING.cx, RING.cy + 7, inst.length > 2 ? 21 : 25, INK, 300, 'center');
       const solo = voices.isSolo(inst);
-      const muted = !voices.plays(inst);
+      const muted = !voices.plays(inst, pattern.get().pmutes);
       if (solo || muted) {
         const word = solo ? 'SOLO' : 'MUTE';
         const w = this.textWidth(word, 7, 700, 0.8) + 8;
@@ -1462,9 +1475,11 @@ export class Screen {
       }
     }
     this.text(slotName(p.cur), RING.cx, RING.cy + 6, 19, INK, 300, 'center', 0.5);
-    const w = this.textWidth('EDIT', 7, 700, 0.8) + 8;
+    // V.5.0 au desktop : la touche s'appelle PTN
+    const word = DT_FACE ? 'PTN' : 'EDIT';
+    const w = this.textWidth(word, 7, 700, 0.8) + 8;
     this.pill(RING.cx - w / 2, RING.cy + 12, w, 10, INK);
-    this.text('EDIT', RING.cx, RING.cy + 19.5, 7, BLACK, 700, 'center', 0.8);
+    this.text(word, RING.cx, RING.cy + 19.5, 7, BLACK, 700, 'center', 0.8);
   }
 
   /** EDIT, la colonne de droite : la chaine en grand, ce qui attend, l'aide. */
@@ -1946,7 +1961,7 @@ export class Screen {
     if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT_TEXT, 700, 'left', 0.6);
     else if (this.paintMode(x0, x1)) return;
     // Les presets (V.4.2 : au desktop l'ecran ne se touche plus, EDIT pressee deux fois les ouvre)
-    else if (s.tag) this.text(SCREEN_TOUCH ? 'TOUCH: PRESETS' : 'EDIT 2X: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
+    else if (s.tag) this.text(SCREEN_TOUCH ? 'TOUCH: PRESETS' : DT_FACE ? 'PTN 2X: KIT' : 'EDIT 2X: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
   }
 
   /**
@@ -2087,7 +2102,7 @@ export class Screen {
     const head = playhead.get();
     if (head !== this.flashHead) {
       this.flashHead = head;
-      if (head >= 0 && velocity(pattern.get().steps, inst, head) > 0 && voices.plays(inst)) {
+      if (head >= 0 && velocity(pattern.get().steps, inst, head) > 0 && voices.plays(inst, pattern.get().pmutes)) {
         const lock = lockOf(pattern.get().locks, inst, head);
         const f = this.flash;
         if (lock) this.flash = { inst, step: head, lock, from: now, end: now + FLASH.max };
@@ -2484,7 +2499,8 @@ export class Screen {
       return out;
     }
     const tabs = screensOf(page, inst);
-    if (tabs.length < 2) return out;
+    // V.5.0 au desktop : SEND FX n'a qu'un onglet, la page de son FX garde GLOBAL > BIT
+    if (tabs.length < 2 && !detail) return out;
     for (const t of tabs) {
       const name = t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : SCREEN_LABEL[t];
       if (detail && t === 'fxv' && !optional) continue;
@@ -3454,7 +3470,8 @@ export class Screen {
       const list = this.textWidth(full, s1, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} P-LOCKS ON ${lockPages(lockStep).join(' ')}`;
       const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? list : `${TURN}: STEP ${two(lockStep + 1)} ONLY`;
       // 2026-10-22 (audit SB-08) : au desktop aussi, l'aide alterne si elle ne tient pas en entier (STEP: E. avant)
-      const both = '2X: UNLOCK  CLEAR: ALL  STEP: EXIT';
+      // V.5.0 au desktop : CLEAR est FUNC + PLAY
+      const both = DT_FACE ? '2X: UNLOCK  FUNC+PLAY: ALL  STEP: EXIT' : '2X: UNLOCK  CLEAR: ALL  STEP: EXIT';
       const alt = !held && (this.mobile || this.textWidth(both, s2, 700, 0.6) > x1 - x0);
       const phase = alt ? Math.floor(now / TIP_MS) % 2 : 0;
       const tip = used
@@ -3464,7 +3481,9 @@ export class Screen {
           : !alt
             ? both
             : phase === 0
-              ? '2X: UNLOCK  CLEAR: ALL'
+              ? DT_FACE
+                ? '2X: UNLOCK  FUNC+PLAY: ALL'
+                : '2X: UNLOCK  CLEAR: ALL'
               : `${this.mobile ? 'TAP' : 'CLICK'} STEP ${two(lockStep + 1)} AGAIN: EXIT`;
       const y1 = TALL || !this.mobile ? F.y1 : 108.7;
       const y2 = TALL || !this.mobile ? F.y2 : 118;
@@ -3540,7 +3559,9 @@ export class Screen {
       // L'ecran intouchable du desktop (V.4.2) : ses onglets ne se cliquent plus (FX ramene GLOBAL FX, puis VOICE FX), la page
       // d'un FX s'ouvre a la tape de son potard
       const bText = !SCREEN_TOUCH && (fxScopeTabs(screen) || isFxDetail(screen))
-        ? pick(`FX: BACK TO ${screen.startsWith('fxv') ? 'VOICE' : 'GLOBAL'} FX · ESC`, back)
+        ? DT_FACE
+          ? pick(screen.startsWith('fxv') ? 'FX OR NO: BACK TO VOICE FX' : 'NO: BACK TO SEND FX', 'NO: BACK')
+          : pick(`FX: BACK TO ${screen.startsWith('fxv') ? 'VOICE' : 'GLOBAL'} FX · ESC`, back)
         : !SCREEN_TOUCH && screen === 'fxg'
           ? pick('CLICK A KNOB: ITS FX SETTINGS', 'CLICK A KNOB: SETTINGS')
           : fxScopeTabs(screen)

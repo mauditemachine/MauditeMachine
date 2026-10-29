@@ -55,9 +55,9 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
-import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
+import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen, pageLabel } from '../rytm/pages';
 import { sceneTag, type SceneTag } from '../rytm/sceneParams';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
@@ -71,7 +71,7 @@ import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
 import { PATTERN_SLOTS, slotName } from '../state/patterns';
-import { ENCODERS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
+import { DT_FACE, ENCODERS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
 import { INSTRUMENTS, STEP_COUNT } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
 import { SUB_WAVES, VOY_KNOBS, voyParams } from '../voyager/params';
@@ -343,10 +343,13 @@ function coreTargets(): MidiTarget[] {
       },
     });
   });
-  // Les quatre touches de page (2026-10-09 : VOICE FLTR ENV FX) : la page, la touche allumee encore son onglet suivant ou HOME
-  for (const pk of RYTM_PAGE_KEYS) out.push(press(`rytm:page:${pk.id}`, 'mm808', `PAGE ${pk.label}`, () => rytmPageKey(pk.id, getStage())));
-  // Les anciennes pages (jusqu'au 2026-10-09) : leurs assignations retenues ouvrent la page d'aujourd'hui (TRIG SRC SMPL : VOICE ; AMP : ENV)
-  for (const [old, now] of [['trig', 'VOICE'], ['src', 'VOICE'], ['smpl', 'VOICE'], ['amp', 'ENV']] as const) out.push(press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()} (NOW ${now})`, () => rytmShowPage(old)));
+  // Les quatre touches de page (2026-10-09 : VOICE FLTR ENV FX) : la page, la touche allumee encore son onglet suivant ou HOME ;
+  // au desktop depuis V.5.0 leur nom de la face (SRC, AMP) et FUNC + la touche (MIDI rytm:func tenue)
+  for (const pk of RYTM_PAGE_KEYS) out.push(press(`rytm:page:${pk.id}`, 'mm808', `PAGE ${pageLabel(pk.id)}`, () => rytmPageKey(pk.id, getStage())));
+  // Les anciennes pages (jusqu'au 2026-10-09) : leurs assignations retenues ouvrent la page d'aujourd'hui (TRIG SRC SMPL : VOICE ; AMP : ENV) ;
+  // au desktop depuis V.5.0, rytm:page:trig ouvre la vraie page TRIG, SRC et AMP sont les noms de VOICE et ENV
+  const OLD_PAGES = DT_FACE ? ([['trig', ''], ['src', ''], ['smpl', 'SRC'], ['amp', '']] as const) : ([['trig', 'VOICE'], ['src', 'VOICE'], ['smpl', 'VOICE'], ['amp', 'ENV']] as const);
+  for (const [old, now] of OLD_PAGES) out.push(press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()}${now ? ` (NOW ${now})` : ''}`, () => rytmShowPage(old)));
   // Un ecran precis (2026-10-09) : VOICE, VOICE SYNTH, FLTR, ENV, VOICE FX, GLOBAL FX (les onglets de l'en-tete)
   for (const sc of RYTM_SCREENS) out.push(press(`rytm:screen:${sc}`, 'mm808', `SCREEN ${SCREEN_TITLE[sc]}`, () => rytmScreenTab(sc)));
   out.push({
@@ -391,6 +394,21 @@ function coreTargets(): MidiTarget[] {
   out.push(faceHold('rytm:scene:b', 'SCENE B (HOLD OR TAP)', 'scene-b', () => sceneDown('b', 'midi'), () => sceneUp('b', 'midi')));
   out.push({ id: 'rytm:xfade', scope: 'mm808', label: 'CROSSFADER (SCENE A TO B)', kind: 'value', get: () => sceneCtl.x(), set: (v) => xfadeMidi(v) });
   for (const inst of voices) out.push(press(`rytm:voice:select:${inst}`, 'mm808', `VOICE ${inst} (SELECT, SILENT)`, () => voiceSelect(inst, 'midi')));
+  // V.5.0 (2026-10-29, la face facon Digitakt du desktop, docs/v4/digitakt-d1-spec.md) : ajoutees a la fin, aucun id d'avant
+  // ne change ni ne bouge ; rytm:run, rytm:clear, rytm:random, rytm:mute, rytm:solo, rytm:edit et rytm:open gardent leur
+  // effet. FUNC passe par la meme machine que sa touche (state/func.ts, la source 'midi') : tenue, puis une autre cible
+  out.push(faceHold('rytm:func', 'FUNC (HOLD + A KEY: ITS ORANGE FUNCTION)', 'func', () => funcDown('midi'), () => funcUp('midi')));
+  out.push(press('rytm:rec', 'mm808', 'REC (WRITE THE STEPS, ON / OFF)', () => recKey(getStage())));
+  out.push(press('rytm:play', 'mm808', 'PLAY (PAUSE, RESUME)', () => void playKey(getStage())));
+  out.push(press('rytm:stop', 'mm808', 'STOP (TWICE: CUT THE TAILS)', () => stopKey(getStage())));
+  out.push(press('rytm:yes', 'mm808', 'YES (CONFIRM, A PAGE THEN YES: RANDOM)', () => yesKey(getStage())));
+  out.push(press('rytm:no', 'mm808', 'NO (BACK, A PAGE THEN NO: RELOAD IT)', () => void noKey(getStage())));
+  out.push(press('rytm:page:mod', 'mm808', 'PAGE MOD', () => rytmPageKey('mod', getStage())));
+  out.push(press('rytm:mutemode', 'mm808', 'MUTE MODE (GLOBAL, PATTERN, OFF)', () => muteModeKey()));
+  out.push(press('rytm:save', 'mm808', 'SAVE (THE SAVE POINT)', () => saveKey()));
+  out.push(press('rytm:reload', 'mm808', 'RELOAD (BACK TO THE SAVE POINT)', () => reloadKey()));
+  out.push(press('rytm:copy', 'mm808', 'COPY (THE PATTERN, WITH REC THE VOICE ROW)', () => copyKey()));
+  out.push(press('rytm:paste', 'mm808', 'PASTE', () => pasteKey()));
   // Les scenes (2026-10-27) : chaque cible de valeur du MM-RYTM dit son role, ou sa classe si elle se morphe (rien d'autre
   // ne change : ni id, ni nom, ni ordre)
   for (const t of out) if (t.scope === 'mm808' && t.kind === 'value') t.scene = sceneTag(t.id);
@@ -533,7 +551,15 @@ export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string
       return h.scene === 'a' || h.scene === 'b' ? `rytm:scene:${h.scene}` : null;
     case 'xfade':
       return 'rytm:xfade';
+    // V.5.0 au desktop : la touche PLAY apprend rytm:play (sa pause) ; FUNC, REC, STOP, YES et NO leurs cibles
     case 'run':
+      return DT_FACE ? 'rytm:play' : 'rytm:run';
+    case 'func':
+    case 'rec':
+    case 'stop':
+    case 'yes':
+    case 'no':
+      return `rytm:${h.kind}`;
     case 'clear':
     case 'random':
     case 'mute':
