@@ -170,6 +170,10 @@ export class KeyLabelAtlas {
         ctx.lineTo(x + w, y0 + h / 2);
         ctx.lineTo(x, y0 + h);
         x += w;
+      } else if (m === 'rec') {
+        // Le rond de REC (V.5.0, 2026-10-29), plein, du diametre du carre de STOP
+        ctx.arc(x + h / 2, y0 + h / 2, h / 2, 0, Math.PI * 2);
+        x += h;
       } else {
         ctx.rect(x, y0, h, h);
         x += h;

@@ -61,7 +61,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, FACE_KEY, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, TRANSPORT, TRK_FLASH, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { BTN_LED, COLOR, DT_FACE, DT_HEX, FACE_KEY, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, STEP_TONE, TRANSPORT, TRK_FLASH, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
 import { keyCapGeometry } from './keyCap';
 import { RYTM_FACEPLATE } from '../rytm/faceplate';
 import type { TrkLed } from '../rytm/stepLeds';
@@ -212,12 +212,15 @@ export interface SequencerInfo {
   lockBlink: boolean;
   /** velocite de chaque pas (0 vide a 9 la plus forte, 127 a l'ecran) */
   programmed: string;
+  /** V.5.0 : la teinte de chaque pas (KEY_LIT : dred les coups, dwhite un pattern plein, dgreen et dmagenta le mode MUTE) */
+  tones: KeyLitTone[];
   instrument: Inst | null;
 }
 
 export class Sequencer3D {
   readonly keys: InstancedMesh;
-  readonly buttons: InstancedMesh;
+  /** le transport (RUN CLEAR MUTE SOLO RANDOM) : au telephone ; null au desktop depuis V.5.0 (scene/rytmFaceKeys.ts) */
+  readonly buttons: InstancedMesh | null;
   /** la marque des verrous sur chaque pas (2026-10-19 ; cachee hors des pas verrouilles) */
   readonly lockMarks: InstancedMesh;
   private markMat: MeshBasicMaterial;
@@ -230,12 +233,12 @@ export class Sequencer3D {
   /** le cadre des temps sur les touches 1, 5, 9, 13 */
   readonly frames: InstancedMesh;
   private frameMat: MeshBasicMaterial;
-  /** les temoins du transport, un trait par bouton */
-  readonly btnLeds: InstancedMesh;
+  /** les temoins du transport, un trait par bouton (null sans transport) */
+  readonly btnLeds: InstancedMesh | null;
   private keyMat: MeshStandardMaterial;
   private ledMat: MeshBasicMaterial;
   private emissive: InstancedBufferAttribute;
-  private btnEmissive: InstancedBufferAttribute;
+  private btnEmissive: InstancedBufferAttribute | null;
   /** appui en cours de chaque bouton (0 a 1) */
   private btnPress = new Float32Array(BUTTON_COUNT);
   /** temoins : etat tenu (RUN qui joue, MUTE, SOLO) et eclair d'appui (0 a 1) */
@@ -244,8 +247,8 @@ export class Sequencer3D {
   private btnFlash = new Float32Array(BUTTON_COUNT);
   /** MUTE et SOLO allumes en entier tant qu'ils agissent (2026-10-18, voices.lit), leur temoin clignote a part */
   private btnMode = new Float32Array(BUTTON_COUNT);
-  /** les noms sur les boutons (2026-10-18), dans l'ordre des index */
-  readonly labels: KeyLabels;
+  /** les noms sur les boutons (2026-10-18), dans l'ordre des index (null sans transport) */
+  readonly labels: KeyLabels | null;
   /**
    * Les legendes des pas (2026-10-27, la face V.4.0 du desktop) : le numero de chaque pas (quads 0 a 15), la voix des pas
    * 1 a 8 (quads 16 a 23) ; null au telephone (ses numeros sont serigraphies sous les pas)
@@ -285,9 +288,14 @@ export class Sequencer3D {
   private flashAmp = new Float32Array(STEP_COUNT);
   private flashLv = new Float32Array(STEP_COUNT);
   private flashHits = 0;
-  /** la barre de MUTE et celle de SOLO en vue TRK (les marques des verrous, sans geometrie de plus) */
-  private markMute = new Color(0xff2a1f);
-  private markSolo = new Color(0x5b9bff);
+  /**
+   * la barre de MUTE et celle de SOLO en vue TRK (les marques des verrous, sans geometrie de plus) ; V.5.0 (2026-10-29, la
+   * Digitakt, au desktop) : verte sur une voix qui joue, blanche en solo
+   */
+  private markMute = new Color(DT_FACE ? DT_HEX.green : '#ff2a1f');
+  private markSolo = new Color(DT_FACE ? DT_HEX.white : '#5b9bff');
+  /** V.5.0 : la vue PTN, le pattern suivant et la chaine clignotent (la phase : allumee) */
+  private patBlink = true;
   /** les verrous (2026-10-08) : les pas qui en ont (bit i), le pas en LOCK (-1), sa phase de clignotement */
   private lockMask = 0;
   private lockStep = -1;
@@ -295,7 +303,8 @@ export class Sequencer3D {
   /** l'appui en cours de chaque pas (0 a 1), pour composer sa lueur avec celle des verrous */
   private keyPress = new Float32Array(STEP_COUNT);
 
-  constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas }) {
+  constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas; transport?: boolean }) {
+    const transport = opts.transport ?? true;
     const kGeo = keyGeometry(opts.mobile);
     this.emissive = new InstancedBufferAttribute(new Float32Array(STEP_COUNT * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
@@ -321,39 +330,46 @@ export class Sequencer3D {
     this.frames.instanceMatrix.setUsage(DynamicDrawUsage);
     this.frames.instanceMatrix.needsUpdate = true;
 
-    // Transport : RUN, CLEAR, MUTE, SOLO, RANDOM (meme materiau, sa geometrie)
-    const bGeo = buttonGeometry(opts.mobile);
-    this.btnEmissive = new InstancedBufferAttribute(new Float32Array(BUTTON_COUNT * 3), 3);
-    this.btnEmissive.setUsage(DynamicDrawUsage);
-    bGeo.setAttribute('instanceEmissive', this.btnEmissive);
-    this.buttons = new InstancedMesh(bGeo, this.keyMat, BUTTON_COUNT);
-    this.buttons.name = 'buttons';
-    this.buttons.receiveShadow = true;
-    for (let j = 0; j < BUTTON_COUNT; j += 1) {
-      this.buttons.setMatrixAt(j, m4.makeTranslation(BUTTON_X[j], 0, TRANSPORT.z));
-      // Chaque bouton passe par paintButton : sa teinte est gardee pour l'appui
-      this.paintButton(j + STEP_COUNT, j + STEP_COUNT === RUN ? LIT.run : LIT.clear);
-    }
-    this.buttons.instanceMatrix.needsUpdate = true;
-    this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
-
     this.ledMat = new MeshBasicMaterial({ toneMapped: false });
+    // Transport : RUN, CLEAR, MUTE, SOLO, RANDOM (meme materiau, sa geometrie) ; au telephone seulement depuis V.5.0
+    // (2026-10-29 : au desktop, la rangee facon Digitakt de scene/rytmFaceKeys.ts)
+    if (transport) {
+      const bGeo = buttonGeometry(opts.mobile);
+      this.btnEmissive = new InstancedBufferAttribute(new Float32Array(BUTTON_COUNT * 3), 3);
+      this.btnEmissive.setUsage(DynamicDrawUsage);
+      bGeo.setAttribute('instanceEmissive', this.btnEmissive);
+      this.buttons = new InstancedMesh(bGeo, this.keyMat, BUTTON_COUNT);
+      this.buttons.name = 'buttons';
+      this.buttons.receiveShadow = true;
+      for (let j = 0; j < BUTTON_COUNT; j += 1) {
+        this.buttons.setMatrixAt(j, m4.makeTranslation(BUTTON_X[j], 0, TRANSPORT.z));
+        // Chaque bouton passe par paintButton : sa teinte est gardee pour l'appui
+        this.paintButton(j + STEP_COUNT, j + STEP_COUNT === RUN ? LIT.run : LIT.clear);
+      }
+      this.buttons.instanceMatrix.needsUpdate = true;
+      this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
 
-    // Temoins : eteints, une fente (line) ; allumes, l'orange des pas mis (RUN : jaune)
-    this.btnLedOff.setHex(COLOR.line);
-    this.btnLedOn.setHex(COLOR.ledSet);
-    this.runLedOn.setHex(COLOR.yellowHi);
-    this.btnLeds = new InstancedMesh(ledGeometry(TRANSPORT.led.w, TRANSPORT.led.d), this.ledMat, BUTTON_COUNT);
-    this.btnLeds.name = 'btnLeds';
-    for (let j = 0; j < BUTTON_COUNT; j += 1) {
-      this.btnLeds.setMatrixAt(j, m4.makeTranslation(BUTTON_X[j], TRANSPORT.h + BTN_LED.y, BTN_LED_Z));
-      this.paintButtonLed(j);
+      // Temoins : eteints, une fente (line) ; allumes, l'orange des pas mis (RUN : jaune)
+      this.btnLedOff.setHex(COLOR.line);
+      this.btnLedOn.setHex(COLOR.ledSet);
+      this.runLedOn.setHex(COLOR.yellowHi);
+      this.btnLeds = new InstancedMesh(ledGeometry(TRANSPORT.led.w, TRANSPORT.led.d), this.ledMat, BUTTON_COUNT);
+      this.btnLeds.name = 'btnLeds';
+      for (let j = 0; j < BUTTON_COUNT; j += 1) {
+        this.btnLeds.setMatrixAt(j, m4.makeTranslation(BUTTON_X[j], TRANSPORT.h + BTN_LED.y, BTN_LED_Z));
+        this.paintButtonLed(j);
+      }
+      this.btnLeds.instanceMatrix.needsUpdate = true;
+      this.btnLeds.instanceColor?.setUsage(DynamicDrawUsage);
+      // Les noms des boutons, dans l'ordre des index
+      const specs = BUTTON_IDS.map((id) => KEY_LABELS.find((l) => l.id === id)).filter((l) => l !== undefined);
+      this.labels = new KeyLabels(opts.atlas, specs, TRANSPORT.h, 'transport');
+    } else {
+      this.btnEmissive = null;
+      this.buttons = null;
+      this.btnLeds = null;
+      this.labels = null;
     }
-    this.btnLeds.instanceMatrix.needsUpdate = true;
-    this.btnLeds.instanceColor?.setUsage(DynamicDrawUsage);
-    // Les noms des boutons, dans l'ordre des index
-    const specs = BUTTON_IDS.map((id) => KEY_LABELS.find((l) => l.id === id)).filter((l) => l !== undefined);
-    this.labels = new KeyLabels(opts.atlas, specs, TRANSPORT.h, 'transport');
     // Les legendes des pas (2026-10-27) : les numeros puis les voix, dans l'ordre des pas
     const stepSpecs = [
       ...Array.from({ length: STEP_COUNT }, (_, i) => KEY_LABELS.find((l) => l.id === `stepn-${i + 1}`)),
@@ -362,6 +378,7 @@ export class Sequencer3D {
     this.stepLabels = stepSpecs.length === STEP_COUNT + INSTRUMENTS.length ? new KeyLabels(opts.atlas, stepSpecs, KEYS.h, 'step') : null;
 
     this.ledMat.name = 'led';
+    void FACE_KEY;
 
     // La marque des verrous (2026-10-19) : un trait non eclaire sur le dessus de chaque pas, cache tant que le pas n'a pas
     // de verrou ; clair (le jaune des LED, l'orange sur la machine claire) ou sombre sur une touche allumee
@@ -382,6 +399,11 @@ export class Sequencer3D {
     for (let i = 0; i < STEP_COUNT; i += 1) this.writeKeyColor(i);
   }
 
+  /** Les maillages a poser sur le plateau (le transport seulement au telephone, V.5.0). */
+  objects(): Object3D[] {
+    return [this.keys, this.frames, this.lockMarks, ...(this.buttons ? [this.buttons] : []), ...(this.btnLeds ? [this.btnLeds] : []), ...(this.labels ? [this.labels.mesh] : []), ...(this.stepLabels ? [this.stepLabels.mesh] : [])];
+  }
+
   /** Teinte d'un bouton du transport (l'appui en cours s'y ajoute). */
   private paintButton(k: number, c: readonly number[]): void {
     const i = k - STEP_COUNT;
@@ -392,6 +414,7 @@ export class Sequencer3D {
 
   /** La teinte affichee du bouton j : la sienne, l'appui (machine claire), la touche allumee (machine claire, KEY_LIT_LIGHT). */
   private writeButtonColor(j: number): void {
+    if (!this.buttons) return;
     const c = this.pressedColor(this.btnColor.subarray(j * 3, j * 3 + 3), this.btnPress[j]);
     const lt = KEY_LIT_LIGHT.tint?.[BUTTON_TONE[j]];
     const f = this.litLevel(j);
@@ -422,10 +445,11 @@ export class Sequencer3D {
   private paintLit(j: number): void {
     this.writeButtonGlow(j);
     if (KEY_LIT_LIGHT.tint) this.writeButtonColor(j);
-    this.labels.setLit(j, this.litLevel(j) > KEY_LIT.dark);
+    this.labels?.setLit(j, this.litLevel(j) > KEY_LIT.dark);
   }
 
   private paintButtonLed(j: number): void {
+    if (!this.btnLeds) return;
     const k = j + STEP_COUNT;
     const on = k === RUN ? this.runLedOn : k === MUTE ? this.muteLedOn : k === SOLO ? this.soloLedOn : this.btnLedOn;
     col.copy(this.btnLedOff).lerp(on, this.ledLevel(j));
@@ -460,6 +484,7 @@ export class Sequencer3D {
 
   /** Eclair d'appui du temoin d'un bouton, v de 1 (appui) a 0 (le Stage l'anime) ; CLEAR et RANDOM s'allument avec. */
   setButtonFlash(b: TransportButton, v: number): void {
+    if (!this.buttons) return;
     const j = BUTTON_INDEX[b] - STEP_COUNT;
     this.btnFlash[j] = v;
     this.paintButtonLed(j);
@@ -475,6 +500,7 @@ export class Sequencer3D {
 
   /** Eclat d'un bouton : celui de l'appui, ou celui de la touche allumee s'il est plus fort (2026-10-18). */
   private writeButtonGlow(i: number): void {
+    if (!this.btnEmissive) return;
     const e = this.btnEmissive.array as Float32Array;
     const v = this.btnPress[i];
     // Avant la construction des noms (la teinte de depart), aucun bouton n'est allume
@@ -490,6 +516,7 @@ export class Sequencer3D {
    * aucun ; true s'il faut une frame.
    */
   setButtonHover(id: string | null): boolean {
+    if (!this.buttons) return false;
     const j = id === 'run' ? RUN : id === 'clear' ? CLEAR : id === 'mute' ? MUTE : id === 'solo' ? SOLO : id === 'random' ? RANDOM : -1;
     const k = j < 0 ? -1 : j - STEP_COUNT;
     if (k === this.btnHover) return false;
@@ -504,6 +531,7 @@ export class Sequencer3D {
   /** MUTE et SOLO : leur eclat, 0 a 1 (2026-10-09 : clignotant en attente d'une voix, fixe en MULTI, a peine sinon). */
   /** Et la touche allumee en entier tant qu'elle agit (muteMode, soloMode : 0 ou 1, voices.lit, 2026-10-18). */
   setVoiceKeys(muteOn: boolean | number, soloOn: boolean | number, muteMode = 0, soloMode = 0): boolean {
+    if (!this.buttons) return false;
     const a = this.latch(MUTE, muteOn);
     const b = this.latch(SOLO, soloOn);
     const c = this.mode(MUTE, muteMode);
@@ -533,7 +561,8 @@ export class Sequencer3D {
     // Les 16 pas et les 5 boutons du transport (2026-10-01 : tous s'enfoncent)
     if (i < 0 || i >= STEP_COUNT + BUTTON_COUNT) return;
     const btn = i >= STEP_COUNT;
-    const mesh = btn ? this.buttons : this.keys;
+    if (btn && !this.buttons) return;
+    const mesh = btn && this.buttons ? this.buttons : this.keys;
     const j = btn ? i - STEP_COUNT : i;
     const dy = move ? -(btn ? KEY_RELIEF.key : KEY_RELIEF.step) * v : 0;
     mesh.instanceMatrix.array[j * 16 + 13] = dy;
@@ -546,9 +575,11 @@ export class Sequencer3D {
     }
     if (btn) {
       // Le temoin et le nom (2026-10-18) descendent avec leur bouton
-      this.btnLeds.instanceMatrix.array[j * 16 + 13] = TRANSPORT.h + BTN_LED.y + dy;
-      this.btnLeds.instanceMatrix.needsUpdate = true;
-      this.labels.setDy(j, dy);
+      if (this.btnLeds) {
+        this.btnLeds.instanceMatrix.array[j * 16 + 13] = TRANSPORT.h + BTN_LED.y + dy;
+        this.btnLeds.instanceMatrix.needsUpdate = true;
+      }
+      this.labels?.setDy(j, dy);
       this.btnPress[j] = v;
       this.writeButtonGlow(j);
       if (PRESS_TINT.rgb) this.writeButtonColor(j);
@@ -577,6 +608,16 @@ export class Sequencer3D {
     // TRK (2026-10-27) : l'intensite de la voix du pas
     if (this.trkView) return this.trkView[i]?.level ?? 0;
     const v = this.patView;
+    // La vue PTN facon Digitakt (V.5.0, au desktop) : le pattern qui joue rouge plein, le suivant et la chaine rouges
+    // clignotants, un pattern plein blanc faible (toneOf), un vide eteint
+    if (v && DT_FACE) {
+      const E = STEP_LIT.dtEdit;
+      if (i === v.cur) return E.cur;
+      const b = this.patBlink ? 1 : 0;
+      if (i === v.next) return E.next * b;
+      if (v.chain.length > 1 && v.chain.includes(i)) return E.chain * b;
+      return v.filled[i] ? E.filled : 0;
+    }
     if (v) {
       const E = STEP_LIT.edit;
       if (i === v.cur) return E.cur;
@@ -593,6 +634,32 @@ export class Sequencer3D {
    * blanc chaud de la tete de lecture ; au moins la lueur du survol, celle d'un
    * pas vide verrouille, du pas en LOCK qui clignote, de l'appui.
    */
+  /**
+   * La teinte du pas i (V.5.0, 2026-10-29) : celle de la vue TRK ou du mode MUTE (vert, magenta, blanc, rouge) ; dans la vue
+   * PTN du desktop, un pattern plein (ni le courant, ni le suivant, ni la chaine) en blanc ; sinon celle des pas (STEP_TONE :
+   * le rouge de la Digitakt au desktop, l'orange au telephone).
+   */
+  private toneOf(i: number): KeyLitTone {
+    if (this.trkView) return this.trkView[i]?.tone ?? STEP_TONE;
+    const v = this.patView;
+    if (v && DT_FACE && i !== v.cur && i !== v.next && !(v.chain.length > 1 && v.chain.includes(i))) return 'dwhite';
+    return STEP_TONE;
+  }
+
+  /** La vue PTN (V.5.0) : le pattern suivant et la chaine clignotent ; la phase (on : allumes) ; true s'il faut une frame. */
+  setPatternBlink(on: boolean): boolean {
+    if (on === this.patBlink) return false;
+    this.patBlink = on;
+    if (!this.patView || !DT_FACE) return false;
+    return this.refresh(true);
+  }
+
+  /** La vue PTN clignote-t-elle (un pattern attend la mesure, ou une chaine) : elle a besoin de la boucle. */
+  get patternBlinking(): boolean {
+    const v = this.patView;
+    return DT_FACE && !!v && (v.next >= 0 || v.chain.length > 1);
+  }
+
   /** Le pas j est-il sous la tete de lecture (ou le test de l'intro) ? Jamais dans EDIT. */
   private isHead(j: number): boolean {
     return !this.patView && !this.trkView && (j === this.playhead || j === this.introLed);
@@ -606,7 +673,8 @@ export class Sequencer3D {
   private writeKeyGlow(j: number): void {
     const e = this.emissive.array as Float32Array;
     const f = this.litPart[j];
-    const o = KEY_LIT.glow.orange;
+    // V.5.0 : la teinte du pas (le rouge des coups au desktop, le blanc d'un pattern plein, le vert du mode MUTE...)
+    const o = KEY_LIT.glow[this.toneOf(j)];
     const k = KEY_LIT_LIGHT.glow;
     const head = this.isHead(j);
     const add = head ? (f > 0 ? STEP_LIT.head : STEP_LIT.headEmpty) : null;
@@ -641,7 +709,7 @@ export class Sequencer3D {
     // l'eclair d'un coup fonce et sature vers l'orange profond de TRK_FLASH.lightTint (la revue : vers le jaune de la tete de
     // lecture, il gardait la luminosite du pas)
     if (this.trkView) {
-      const vt = KEY_LIT_LIGHT.tint?.orange;
+      const vt = KEY_LIT_LIGHT.tint?.[this.toneOf(j)];
       if (vt && f > 0) c.setRGB(c.r + (vt[0] - c.r) * f, c.g + (vt[1] - c.g) * f, c.b + (vt[2] - c.b) * f);
       const m = vt ? this.flashLv[j] * TRK_FLASH.light : 0;
       if (m > 0) {
@@ -652,7 +720,7 @@ export class Sequencer3D {
       if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
       return;
     }
-    const lt = KEY_LIT_LIGHT.tint?.orange;
+    const lt = KEY_LIT_LIGHT.tint?.[this.toneOf(j)];
     // Hors EDIT (relecture du 2026-10-19) : la rampe reguliere de la machine claire (STEP_LIT.lightRamp) ; EDIT : la part du pattern
     const tf = f <= 0 ? 0 : this.patView ? STEP_LIT.lightFloor + (1 - STEP_LIT.lightFloor) * f : (STEP_LIT.lightRamp[this.programmed(j)] ?? 0);
     if (lt && tf > 0) c.setRGB(c.r + (lt[0] - c.r) * tf, c.g + (lt[1] - c.g) * tf, c.b + (lt[2] - c.b) * tf);
@@ -752,7 +820,7 @@ export class Sequencer3D {
   setTrkView(v: readonly TrkLed[] | null): boolean {
     const a = this.trkView;
     if (!a && !v) return false;
-    if (a && v && a.length === v.length && a.every((x, i) => x.color === v[i].color && x.level === v[i].level && x.bar === v[i].bar && x.inst === v[i].inst)) return false;
+    if (a && v && a.length === v.length && a.every((x, i) => x.color === v[i].color && x.level === v[i].level && x.bar === v[i].bar && x.inst === v[i].inst && x.tone === v[i].tone)) return false;
     this.trkView = v;
     // Hors de la vue TRK, aucun eclair ne reste
     if (!v) this.clearFlashes();
@@ -873,7 +941,8 @@ export class Sequencer3D {
       });
     }
     // Les touches du transport (2026-10-18 : la forme des touches de page) ; au telephone leur zone deborde devant et
-    // derriere elles (TRANSPORT.hitD, environ 40 px au doigt)
+    // derriere elles (TRANSPORT.hitD, environ 40 px au doigt) ; au telephone seulement depuis V.5.0
+    if (!this.buttons) return defs;
     const hx = TRANSPORT.w / 2;
     const hz = TRANSPORT.hitD / 2;
     for (const [id, x] of [
@@ -907,9 +976,10 @@ export class Sequencer3D {
       trkHits: this.flashHits,
       trkLeds: this.trkView ? this.trkView.map((x) => ({ inst: x.inst, level: x.level, bar: x.bar })) : null,
       run: this.running,
-      buttonLeds: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100),
-      buttonLit: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.litLevel(j) * 100) / 100),
-      buttonDark: this.labels.litState(),
+      buttonLeds: this.buttons ? Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100) : [],
+      buttonLit: this.buttons ? Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.litLevel(j) * 100) / 100) : [],
+      buttonDark: this.labels ? this.labels.litState() : [],
+      tones: Array.from({ length: STEP_COUNT }, (_, i) => this.toneOf(i)),
       playhead: this.playhead,
       hover: this.hover,
       lockMask: this.lockMask,
@@ -922,20 +992,20 @@ export class Sequencer3D {
 
   dispose(): void {
     this.keys.geometry.dispose();
-    this.buttons.geometry.dispose();
+    this.buttons?.geometry.dispose();
     this.keyMat.dispose();
     this.keys.dispose();
-    this.buttons.dispose();
-    this.btnLeds.geometry.dispose();
+    this.buttons?.dispose();
+    this.btnLeds?.geometry.dispose();
     this.ledMat.dispose();
-    this.btnLeds.dispose();
+    this.btnLeds?.dispose();
     this.lockMarks.geometry.dispose();
     this.markMat.dispose();
     this.lockMarks.dispose();
     this.frames.geometry.dispose();
     this.frameMat.dispose();
     this.frames.dispose();
-    this.labels.dispose();
+    this.labels?.dispose();
     this.stepLabels?.dispose();
   }
 }

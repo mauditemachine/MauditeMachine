@@ -106,6 +106,7 @@ import {
   OLED_BAR_PAGE,
   OLED_PAGE_ZONES,
   STEP_PRESS,
+  STEP_LIT,
   LIGHT_BACK,
   LIGHT_HEMI,
   LIGHT_KEY,
@@ -139,6 +140,8 @@ import {
   TRK_LIT_LIGHT,
   XFADE,
   xfadeCapX,
+  DT_FACE,
+  DT_HEX,
 } from '../theme';
 import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
@@ -148,8 +151,10 @@ import { dialEdit, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { trk } from '../state/trk';
+import { func } from '../state/func';
+import { dtFace } from '../state/dtFace';
 import { sceneCtl } from '../state/sceneCtl';
-import { trkLeds } from '../rytm/stepLeds';
+import { muteLeds, trkLeds, type TrkLed } from '../rytm/stepLeds';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
@@ -422,7 +427,8 @@ export class Stage {
   /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
   readonly encoders: Encoders;
   /** les touches de page du MM-RYTM et leurs temoins (2026-10-08 ; quatre depuis le 2026-10-09) */
-  readonly pageKeys: RytmPageKeys;
+  /** les touches de page du telephone (VOICE FLTR ENV FX) ; au desktop depuis V.5.0 (2026-10-29), dans la rangee de faceKeys */
+  readonly pageKeys: RytmPageKeys | null;
   /** les noms des touches de page et du transport, une texture (2026-10-18) */
   readonly keyAtlas: KeyLabelAtlas;
   /** l'ecran OLED, texte de state/lcd.ts */
@@ -767,24 +773,20 @@ export class Stage {
     this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le crossfader
     this.faceKeys = PORTRAIT ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
-    // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs
-    this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas });
+    // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs.
+    // Le transport au telephone seulement depuis V.5.0 (2026-10-29 : au desktop, PLAY et STOP sont dans la rangee de faceKeys)
+    this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas, transport: PORTRAIT });
     // L'anneau de valeur de chaque potard (2026-10-27, la face V.4.0 du desktop)
     this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT });
-    // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09
-    this.pageKeys = new RytmPageKeys({ mobile, atlas: this.keyAtlas });
+    // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09 ; au telephone
+    // seulement depuis V.5.0 (2026-10-29 : au desktop, TRIG SRC FLTR AMP FX MOD sont dans la rangee de faceKeys)
+    this.pageKeys = PORTRAIT ? new RytmPageKeys({ mobile, atlas: this.keyAtlas }) : null;
     // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi
     plateau.add(
       ...(this.pads ? [this.pads.mesh, this.pads.halos] : []),
-      this.seq.keys,
-      this.seq.frames,
-      this.seq.lockMarks,
-      this.seq.buttons,
-      this.seq.btnLeds,
-      this.seq.labels.mesh,
-      ...(this.seq.stepLabels ? [this.seq.stepLabels.mesh] : []),
+      ...this.seq.objects(),
       ...this.encoders.objects(),
-      ...this.pageKeys.objects(),
+      ...(this.pageKeys?.objects() ?? []),
       ...(this.faceKeys?.objects() ?? [])
     );
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
@@ -831,7 +833,7 @@ export class Stage {
     this.tweakDefs = this.rytmTweaks.hotspots();
     this.hit.add(this.tweakDefs);
     // MASTER, TEMPO, puis les potards de page A a H et les touches de page (2026-10-08)
-    const encDefs = [...FACE_KNOBS.map((e) => this.encoders.hotspot(e.id, plateau)), ...this.pageKeys.hotspots(plateau)];
+    const encDefs = [...FACE_KNOBS.map((e) => this.encoders.hotspot(e.id, plateau)), ...(this.pageKeys?.hotspots(plateau) ?? [])];
     this.hit.add(encDefs);
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A, le crossfader, SCENE B
     this.faceDefs = this.faceKeys?.hotspots(plateau) ?? [];
@@ -1076,7 +1078,8 @@ export class Stage {
       this.stepLockBlink,
       this.modeBlink,
       this.faceBlink,
-      this.stepTrkFlash
+      this.stepTrkFlash,
+      this.ptnBlink
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -1175,8 +1178,12 @@ export class Stage {
     }
     // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 allumes (une seule couleur, V.4.2)
     if (this.faceKeys) {
-      this.unsubTrk = trk.subscribe(this.syncTrk);
+      // V.5.0 (2026-10-29, la face facon Digitakt) : FUNC, REC et le mode MUTE (FUNC + TRK) suivent leurs stores
+      const offTrk = [trk.subscribe(this.syncTrk), func.subscribe(this.syncFunc), dtFace.subscribe(this.syncDt), pattern.subscribe(this.syncTrk)];
+      this.unsubTrk = () => offTrk.forEach((o) => o());
       this.syncTrk();
+      this.syncFunc();
+      this.syncDt();
       // SCENE A et B (2026-10-27) : la touche armee allumee et son cadre, leurs temoins (des valeurs, ce qu'on en entend)
       // Le crossfader (P2-20) : son capuchon suit x sans passe d'ombre, une seule a la fin du geste
       const offs = [
@@ -1364,6 +1371,12 @@ export class Stage {
    */
   pressButton(b: TransportButton): void {
     if (this.disposed) return;
+    // La face facon Digitakt du desktop (V.5.0, 2026-10-29) : PLAY (run) est la touche de la rangee ; CLEAR, RANDOM, MUTE et
+    // SOLO n'y sont plus (FUNC + PLAY, TRIG + YES, FUNC + TRK...) : la touche vraiment pressee s'enfonce deja
+    if (this.faceKeys) {
+      if (b === 'run') this.pressFaceKey('run');
+      return;
+    }
     const flash = (v: number): void => this.seq.setButtonFlash(b, v);
     this.paintTweens.run(`btn.flash.${b}`, flash, 1, 0, BTN_LED.flashMs, holdThenOut, performance.now());
     this.pressKey(BUTTON_INDEX[b]);
@@ -2825,7 +2838,7 @@ export class Stage {
     const blkHover = FACE_FOLLOWS_PAGE && id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : -1;
     const knobsLit = blkHover >= 0 ? faceKnobs.get().filter((v) => v.block === blkHover).map((v) => v.k) : id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1;
     if (this.encoders.setHover(knobsLit)) changed = true;
-    if (this.pageKeys.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
+    if (this.pageKeys?.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
     if (this.seq.setButtonHover(id)) changed = true;
     // Puce du PCB (vue ouverte)
     this.hoverChip = id !== null && id.startsWith('chip-') ? (id.slice(5) as ChipId) : null;
@@ -3179,16 +3192,25 @@ export class Stage {
   /** Les touches de page : le temoin de la page affichee (a peine en vue HOME). */
   private syncPageKeys = (): void => {
     const rp = rytmPage.get();
-    if (this.pageKeys.setPage(rp.page, rp.view === 'home')) this.repaint();
+    // Le desktop (V.5.0) : la touche de la page affichee s'allume en rouge dans la rangee (TEMPO, MIXER et SEND FX, des
+    // pages de FUNC, ne sont sur aucune touche)
+    if (this.faceKeys?.setPage(rp.page, rp.view === 'home')) this.repaint();
+    if (this.pageKeys?.setPage(rp.page, rp.view === 'home')) this.repaint();
   };
 
   /** Une touche de page s'enfonce et s'eclaire, comme un pas (2026-10-08). */
   pressPageKey(id: RytmPageId): void {
     if (this.disposed) return;
+    // Le desktop (V.5.0) : la touche de la rangee (pkey-trig ... pkey-mod)
+    if (this.faceKeys) {
+      this.pressFaceKey(`pkey-${id}`);
+      return;
+    }
     const i = PAGE_KEY_INDEX[id];
-    if (i === undefined) return;
+    const pk = this.pageKeys;
+    if (i === undefined || !pk) return;
     const move = !motion.reduced();
-    const set = (v: number): void => this.pageKeys.setPress(i, v, move);
+    const set = (v: number): void => pk.setPress(i, v, move);
     const tw = this.paintTweens;
     const key = `pkey.press.${i}`;
     tw.run(key, set, 0, 1, STEP_PRESS.downMs, linear, performance.now(), (end) => tw.run(key, set, 1, 0, STEP_PRESS.upMs, easeOutCubic, end));
@@ -3201,9 +3223,21 @@ export class Stage {
   pressRytmPad(id: PadId): void {
     if (this.disposed) return;
     if (this.pads) this.pads.press(id);
-    // La face V.4.0 du desktop (2026-10-27) : EDIT et OPEN sont des touches, elles s'enfoncent comme une touche de page ;
-    // une voix ou une page n'a pas de pad 3D a enfoncer
-    else if (id === 'edit' || id === 'open') this.pressFaceKey(id === 'edit' ? 'pad-edit' : 'pad-open');
+    // La face V.4.0 du desktop (2026-10-27) : EDIT (PTN depuis V.5.0) est une touche, elle s'enfonce comme une touche de
+    // page ; OPEN est le logo M depuis V.5.0 (rien ne s'enfonce) ; une voix ou une page n'a pas de pad 3D a enfoncer
+    else if (id === 'edit') this.pressFaceKey('pad-edit');
+  }
+
+  /**
+   * L'eclair blanc d'une touche de la rangee (V.5.0, 2026-10-29 : STOP, YES, NO) : plein, puis il s'eteint (BTN_LED, comme
+   * un temoin du transport d'avant), et la touche s'enfonce.
+   */
+  flashFaceKey(hotspot: string): void {
+    const fk = this.faceKeys;
+    if (this.disposed || !fk) return;
+    const flash = (v: number): void => fk.setFlash(hotspot, v);
+    this.paintTweens.run(`face.flash.${hotspot}`, flash, 1, 0, BTN_LED.flashMs, holdThenOut, performance.now());
+    this.pressFaceKey(hotspot);
   }
 
   /** Une touche de la face V.4.0 (EDIT, OPEN, TRK depuis la phase 2) s'enfonce et s'eclaire, comme une touche de page (2026-10-27). */
@@ -3306,9 +3340,14 @@ export class Stage {
     if (!fk || this.disposed) return;
     const m = trk.get().mode;
     let changed = fk.setTrk(m);
-    if (m !== 'off' || this.trkShown) {
+    // V.5.0 (2026-10-29) : le mode MUTE de FUNC + TRK passe avant TRK sur les pas 1 a 8 (vert le global, magenta le pattern)
+    const mv = dtFace.mute();
+    if (m !== 'off' || mv !== 'off' || this.trkShown) {
       const v = voices.get();
-      const view = m === 'off' ? null : trkLeds(pattern.get().instrument, v.muted, v.solo, KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT);
+      const pm = pattern.get().pmutes;
+      let view: TrkLed[] | null = null;
+      if (mv !== 'off') view = muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
+      else if (m !== 'off') view = trkLeds(pattern.get().instrument, v.muted, v.solo, KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT, DT_FACE ? DT_HEX : undefined, pm);
       this.trkShown = view !== null;
       if (this.seq.setTrkView(view)) changed = true;
     }
@@ -3336,14 +3375,14 @@ export class Stage {
     if (a.how === 'latched') this.kick();
   };
 
-  /** Animateur : TRK ou une scene gardee, son temoin ou son cadre clignote (une image a chaque phase, rien sinon). */
+  /**
+   * Animateur : TRK ou une scene gardee, FUNC gardee, PLAY en pause (V.5.0) : son temoin ou son cadre clignote (une image a
+   * chaque phase, rien sinon).
+   */
   private faceBlink = (now: number): 'paint' | 'poll' | false => {
     const fk = this.faceKeys;
-    if (!fk || (!fk.trkBlinking && !fk.sceneBlinking)) return false;
-    let paint = false;
-    if (fk.trkBlinking && fk.blinkTrk(now, Stage.MODE_BLINK_MS)) paint = true;
-    if (fk.sceneBlinking && fk.blinkScene(now, Stage.MODE_BLINK_MS)) paint = true;
-    return paint ? 'paint' : 'poll';
+    if (!fk || !fk.blinking) return false;
+    return fk.blink(now, Stage.MODE_BLINK_MS) ? 'paint' : 'poll';
   };
 
   /** Le clignotement de MUTE et SOLO en attente d'une voix (2026-10-09) : 320 ms allume, 320 ms eteint ; a peine : 0.45. */
@@ -3368,10 +3407,36 @@ export class Stage {
     if (voices.led('mute') === 'blink' || voices.led('solo') === 'blink') this.kick();
   };
 
-  /** RUN/STOP : couleur du bouton ; la boucle se met a lire l'horloge audio. */
+  /** RUN/STOP : couleur du bouton ; la boucle se met a lire l'horloge audio. PLAY (V.5.0) : vert, vert clignotant en pause. */
   private syncRun = (): void => {
     if (this.seq.setRunning(clock.running)) this.repaint();
+    if (this.faceKeys?.setPlay(clock.running ? 'run' : clock.paused ? 'pause' : 'stop')) this.repaint();
     this.kick();
+  };
+
+  /** FUNC (V.5.0) : son capuchon orange s'eclaire engagee, son temoin blanc tenu, clignotant gardee. */
+  private syncFunc = (): void => {
+    const fk = this.faceKeys;
+    if (!fk || this.disposed) return;
+    if (fk.setFunc(func.get().mode)) this.repaint();
+    if (fk.blinking) this.kick();
+  };
+
+  /** REC (V.5.0) : rouge en mode ecriture ; le mode MUTE (FUNC + TRK) passe sur les pas 1 a 8 (syncTrk). */
+  private syncDt = (): void => {
+    const fk = this.faceKeys;
+    if (!fk || this.disposed) return;
+    if (fk.setRec(dtFace.rec())) this.repaint();
+    this.syncTrk();
+  };
+
+  /** Animateur : la vue PTN, le pattern suivant et la chaine clignotent (V.5.0 ; une image a chaque phase, rien sinon). */
+  private ptnBlink = (now: number): 'paint' | 'poll' | false => {
+    if (!this.seq.patternBlinking) {
+      if (this.seq.setPatternBlink(true)) return 'paint';
+      return false;
+    }
+    return this.seq.setPatternBlink(Math.floor(now / STEP_LIT.dtEdit.blinkMs) % 2 === 0) ? 'paint' : 'poll';
   };
 
   /**
@@ -3590,7 +3655,7 @@ export class Stage {
     this.faceKeys?.dispose();
     this.seq.dispose();
     this.encoders.dispose();
-    this.pageKeys.dispose();
+    this.pageKeys?.dispose();
     this.keyAtlas.dispose();
     this.screen.dispose();
     this.pcb.dispose();

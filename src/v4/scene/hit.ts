@@ -88,6 +88,13 @@ export type HotspotKind =
   | 'trk'
   | 'scene'
   | 'xfade'
+  // MM-RYTM V.5.0 (2026-10-29, la face facon Digitakt) : FUNC (tenue ou gardee), REC, STOP, YES et NO ; PLAY garde run,
+  // PTN edit, les touches de page pkey (TRIG et MOD comprises), le logo M open
+  | 'func'
+  | 'rec'
+  | 'stop'
+  | 'yes'
+  | 'no'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
   | 'djknob'
   | 'djfader'

@@ -24,6 +24,7 @@ import {
 } from 'three';
 import {
   BRUSH,
+  DT_HEX,
   FONT_DISPLAY,
   FONT_LOADS,
   FONT_TIMEOUT_MS,
@@ -433,7 +434,8 @@ export class PanelSilk {
       const w = trackedWidth(ctx, it.text, fontPx, weight);
       const cx = this.px(it.x);
       const x0 = it.align === 'right' ? cx - w : it.align === 'left' ? cx : cx - w / 2;
-      ctx.fillStyle = it.ink === 'orange' ? HEX.orange : silkA(it.alpha ?? SILK.alpha);
+      // V.5.0 (2026-10-29) : les fonctions secondaires, l'orange de la Digitakt (DT_HEX, plus sombre sur la machine creme)
+      ctx.fillStyle = it.ink === 'orange' ? HEX.orange : it.ink === 'alt' ? DT_HEX.orange : silkA(it.alpha ?? SILK.alpha);
       drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * u) / 2, fontPx, weight);
     });
 

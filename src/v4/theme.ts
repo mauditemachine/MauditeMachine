@@ -14,7 +14,7 @@
 
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
-import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpMark } from './rytm/faceplate';
+import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpButtonId, type FpMark } from './rytm/faceplate';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -118,6 +118,22 @@ export type Tone = keyof typeof HEX;
 export const COLOR = Object.fromEntries(
   (Object.keys(HEX) as Tone[]).map((k) => [k, parseInt(HEX[k].slice(1), 16)])
 ) as Record<Tone, number>;
+
+/**
+ * La langue des couleurs de la Digitakt (V.5.0, 2026-10-29, l'etape D1, docs/v4/digitakt-d1-spec.md section 2 et
+ * docs/v4/digitakt-reference.md section 2) : au desktop seulement (DT_FACE), le telephone garde ses couleurs au pixel
+ * pres. Le rouge : les coups, REC, la page affichee, la voix choisie, le pattern qui joue ; le jaune : les verrous ; le
+ * blanc : la tete de lecture, les anneaux, les flashs ; le vert : PLAY et le mode MUTE global ; le magenta : le mute du
+ * pattern ; le bleu : les scenes ; l'orange : FUNC et les fonctions secondaires SEULEMENT. Des couleurs AFFICHEES (sRGB) :
+ * les temoins, la serigraphie, les LED du boitier ; sur la machine creme, les memes teintes plus sombres et lisibles, le
+ * blanc devient l'encre sombre (applyAppearance).
+ */
+export const DT_FACE: boolean = !PORTRAIT;
+export type DtTone = 'red' | 'yellow' | 'white' | 'green' | 'magenta' | 'blue' | 'orange';
+const DT_HEX_DARK: Readonly<Record<DtTone, string>> = { red: '#FF2B2B', yellow: '#FFD75E', white: '#F4F1EA', green: '#3DDC5A', magenta: '#E04DD8', blue: '#4DA3FF', orange: '#FF6A13' };
+const DT_HEX_LIGHT: Readonly<Record<DtTone, string>> = { red: '#D81E1E', yellow: '#E09A10', white: '#191919', green: '#1F9E3A', magenta: '#B23AAB', blue: '#2F78D6', orange: '#D9560A' };
+/** La palette de l'apparence posee (applyAppearance la change en place). */
+export const DT_HEX: Record<DtTone, string> = { ...DT_HEX_DARK };
 
 /**
  * Les teintes du brief sont des couleurs AFFICHEES (section 19 point 12) :
@@ -826,17 +842,24 @@ export interface RingTone {
   on: string;
   k: number;
 }
+/*
+ * V.5.0 (2026-10-29, la langue des couleurs de la Digitakt, DT_HEX) : base le blanc, lock le jaune, unlocked le blanc a 45 %,
+ * global le blanc a 30 %, scene le bleu, dim le blanc a 15 % ; les anneaux n'existent qu'au desktop (le telephone n'en a
+ * pas). applyAppearance les relit.
+ */
 export const RING_TONE: Record<KnobTone, RingTone> = {
-  base: { on: HEX.ledSet, k: 1 },
-  off: { on: HEX.ledSet, k: 0 },
-  lock: { on: HEX.yellowHi, k: 1 },
-  unlocked: { on: HEX.ledSet, k: 0.45 },
-  global: { on: HEX.ledSet, k: 0.3 },
-  // Une scene armee (2026-10-27, P2-19) : scene, l'os de la DA sur la machine noire, l'encre sur la claire (le reglage est
-  // une cle de la scene armee) ; dim, un bloc NO SCENE (un choix de son)
-  scene: { on: '#F6F1E7', k: 1 },
-  dim: { on: HEX.ledSet, k: 0.15 },
+  base: { on: DT_HEX.white, k: 1 },
+  off: { on: DT_HEX.white, k: 0 },
+  lock: { on: DT_HEX.yellow, k: 1 },
+  unlocked: { on: DT_HEX.white, k: 0.45 },
+  global: { on: DT_HEX.white, k: 0.3 },
+  // Une scene armee (2026-10-27, P2-19) : scene, le bleu des scenes depuis V.5.0 (l'os de la DA avant) ; dim, un bloc NO
+  // SCENE (un choix de son)
+  scene: { on: DT_HEX.blue, k: 1 },
+  dim: { on: DT_HEX.white, k: 0.15 },
 };
+/** La bande du crossfader des anneaux (V.5.0) : le bleu des scenes. */
+export const RING_BAND: { on: string } = { on: DT_HEX.blue };
 
 /**
  * Dans l'ordre de lecture (2026-10-01) : MASTER au-dessus de TEMPO, a
@@ -919,26 +942,43 @@ export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)
  * seulement : le telephone garde sa face (phase 5).
  */
 // La hauteur, les coins et le temoin depuis RYTM_FACEPLATE.buttons (2026-10-27, la revue : en mm, comme le reste)
+// V.5.0 (2026-10-29) : 10.4 x 12 (w, h), la largeur et la profondeur separees ; SCENE A et B gardent leurs 12 x 12
 export const FACE_KEY = {
-  w: fpU(RYTM_FACEPLATE.buttons.size),
-  d: fpU(RYTM_FACEPLATE.buttons.size),
+  w: fpU(RYTM_FACEPLATE.buttons.w),
+  d: fpU(RYTM_FACEPLATE.buttons.h),
   h: fpU(RYTM_FACEPLATE.buttons.capHeight),
   radius: fpU(RYTM_FACEPLATE.buttons.corner),
   /** V.4.2 (2026-10-27) : le chanfrein du dessus et la course de l'appui (scene/keyCap.ts) */
   bevel: fpU(RYTM_FACEPLATE.buttons.bevel),
   travel: fpU(RYTM_FACEPLATE.buttons.travel),
-  z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.size / 2),
+  z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.h / 2),
   led: { w: fpU(RYTM_FACEPLATE.buttons.led.w), d: fpU(RYTM_FACEPLATE.buttons.led.h), back: fpU(RYTM_FACEPLATE.buttons.led.dy) },
 } as const;
+/** SCENE A et B (2026-10-27) : 12 x 12, plus larges que les touches de la rangee depuis V.5.0. */
+export const SCENE_KEY = { w: fpU(RYTM_FACEPLATE.scenes.a.rect.w), d: fpU(RYTM_FACEPLATE.scenes.a.rect.h) } as const;
 export const faceKeyX = (i: number): number => rectCenter(buttonRect(i)).x;
-export type FaceKeyId = 'trk' | 'edit' | 'open' | 'scene-a' | 'scene-b';
-export const FACE_KEYS: readonly { id: FaceKeyId; x: number }[] = [
-  { id: 'trk', x: faceKeyX(0) },
-  { id: 'edit', x: faceKeyX(5) },
-  { id: 'open', x: faceKeyX(6) },
-  { id: 'scene-a', x: rectCenter(RYTM_FACEPLATE.scenes.a.rect).x },
-  { id: 'scene-b', x: rectCenter(RYTM_FACEPLATE.scenes.b.rect).x },
+/**
+ * Les touches de la face du desktop (scene/rytmFaceKeys.ts) : depuis V.5.0 (2026-10-29) les quatorze de la rangee (leurs
+ * ids, rytm/faceplate.ts FpButtonId), SCENE A et SCENE B.
+ */
+export type FaceKeyId = FpButtonId | 'scene-a' | 'scene-b';
+export const FACE_KEYS: readonly { id: FaceKeyId; x: number; hotspot: string }[] = [
+  ...RYTM_FACEPLATE.buttons.keys.map((b, i) => ({ id: b.id as FaceKeyId, x: faceKeyX(i), hotspot: b.hotspot })),
+  { id: 'scene-a', x: rectCenter(RYTM_FACEPLATE.scenes.a.rect).x, hotspot: RYTM_FACEPLATE.scenes.a.hotspot },
+  { id: 'scene-b', x: rectCenter(RYTM_FACEPLATE.scenes.b.rect).x, hotspot: RYTM_FACEPLATE.scenes.b.hotspot },
 ];
+/**
+ * Les six touches de page du desktop (V.5.0, 2026-10-29, l'ordre de la Digitakt) : la page de chacune (rytm/pages.ts
+ * RytmPageId ; SRC ouvre la page voice, AMP la page env, les ids d'avant) et sa touche de la rangee.
+ */
+export const DT_PAGE_KEYS = [
+  { id: 'trig', btn: 'trig', label: 'TRIG' },
+  { id: 'voice', btn: 'src', label: 'SRC' },
+  { id: 'fltr', btn: 'fltr', label: 'FLTR' },
+  { id: 'env', btn: 'amp', label: 'AMP' },
+  { id: 'fx', btn: 'fx', label: 'FX' },
+  { id: 'mod', btn: 'mod', label: 'MOD' },
+] as const;
 export const XFADE = {
   x: fpX((RYTM_FACEPLATE.scenes.xfade.x0 + RYTM_FACEPLATE.scenes.xfade.x1) / 2),
   z: fpZ(RYTM_FACEPLATE.scenes.xfade.y),
@@ -1523,7 +1563,8 @@ export const PAGE_KEYS = PORTRAIT
  * depuis le 2026-10-27, les touches 2 a 5 de la rangee de la face (faceKeyX).
  */
 export const pageKeyX = (k: number): number => {
-  if (!PORTRAIT) return faceKeyX(1 + k);
+  // V.5.0 (2026-10-29) : SRC FLTR AMP FX, les touches 8 a 11 de la rangee (scene/rytmFaceKeys.ts les porte au desktop)
+  if (!PORTRAIT) return faceKeyX(7 + k);
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS.w / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS.w / 2;
   return x0 + ((x1 - x0) * k) / (RYTM_PAGE_KEYS.length - 1);
@@ -1587,6 +1628,8 @@ export interface KeyLabelSpec {
 export const KEY_MARK = { h: fpU(RYTM_FACEPLATE.buttons.marks.h), gap: fpU(RYTM_FACEPLATE.buttons.marks.gap), dz: fpU(RYTM_FACEPLATE.buttons.marks.dy), playW: 0.88 } as const;
 /** La largeur des signes d'une legende (en unites) : chacun sa largeur, l'air entre eux. */
 export const marksW = (m: readonly FpMark[]): number => m.reduce((w, k, i) => w + (k === 'play' ? KEY_MARK.h * KEY_MARK.playW : KEY_MARK.h) + (i > 0 ? KEY_MARK.gap : 0), 0);
+/** Le rond de REC (V.5.0, 2026-10-29) : son diametre, en part de la hauteur des signes (le carre de STOP en fait 1). */
+export const REC_MARK_D = 1;
 
 /*
  * La face V.4.0 du desktop (2026-10-27) : les douze touches de la rangee portent leur legende (V.4.2, facon Digitakt,
@@ -1618,7 +1661,8 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
           w: FACE_KEY.w,
           d: FACE_KEY.d,
           group: 'face',
-          rest: b.id === 'run' ? 'bone' : 'ink',
+          // V.5.0 (2026-10-29) : plus de touche rouge (RUN/STOP) ; FUNC, orange, garde sa legende noire (rytmFaceKeys.ts)
+          rest: 'ink',
           ...(b.marks ? { marks: b.marks, dz: KEY_MARK.dz } : { cap: fpU(L.cap), qw: fpU(L.w), dz: fpU(L.dy), tracking: L.tracking }),
         };
       }),
@@ -1628,8 +1672,8 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
           text: RYTM_FACEPLATE.scenes[k].letter,
           x: rectCenter(RYTM_FACEPLATE.scenes[k].rect).x,
           z: FACE_KEY.z,
-          w: FACE_KEY.w,
-          d: FACE_KEY.d,
+          w: SCENE_KEY.w,
+          d: SCENE_KEY.d,
           group: 'scene',
           rest: 'ink',
           cap: fpU(RYTM_FACEPLATE.scenes.legend.cap),
@@ -1659,9 +1703,12 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
 export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
   ? {}
   : {
-      ...Object.fromEntries(RYTM_FACEPLATE.buttons.keys.map((b) => [b.hotspot, b.phase === 2 ? `${b.title} (${b.name}), coming soon` : b.title])),
+      ...Object.fromEntries(RYTM_FACEPLATE.buttons.keys.map((b) => [b.hotspot, b.phase === 2 ? `${b.title} (${b.name}), coming soon` : b.alt ? `${b.title} (${b.name}); FUNC + ${b.name}: ${b.alt}` : `${b.title} (${b.name})`])),
       // TRK agit depuis la phase 2 (2026-10-27) : son geste dans l'infobulle et le jumeau
-      trk: 'Track (TRK): hold, then a step 1-8 picks its voice; tap to latch',
+      trk: 'Track (TRK): hold, then a step 1-8 picks its voice; tap to latch; FUNC + TRK: MUTE mode',
+      // V.5.0 (2026-10-29, la face facon Digitakt) : FUNC et ses gestes, le logo M qui ouvre le capot
+      func: 'Function (FUNC): tap, then a key for its orange function; hold it for a moment; tap twice to keep it (Alt key)',
+      [RYTM_FACEPLATE.open.hotspot]: RYTM_FACEPLATE.open.title,
       // SCENE A et B agissent depuis le 2026-10-27 (P2-19) : tenir ou taper, puis tourner
       [RYTM_FACEPLATE.scenes.a.hotspot]: `${RYTM_FACEPLATE.scenes.a.title}: hold or tap, then turn a knob to record it`,
       [RYTM_FACEPLATE.scenes.b.hotspot]: `${RYTM_FACEPLATE.scenes.b.title}: hold or tap, then turn a knob to record it`,
@@ -1701,11 +1748,28 @@ export const FACE_INERT: ReadonlySet<string> = new Set<string>();
  * le dessus prend aussi la teinte (tint, albedo lineaire), l'emissif seul
  * palissait en peche, comme l'appui (PRESS_TINT).
  */
-export type KeyLitTone = 'orange' | 'run' | 'red' | 'blue';
+/*
+ * V.5.0 (2026-10-29, la langue des couleurs de la Digitakt, DT_HEX) : les teintes de la face du desktop, d* (dred : les
+ * coups, REC, la page, la voix choisie ; dgreen : PLAY, le mute global ; dwhite : la tete de lecture, les flashs ;
+ * dmagenta : le mute du pattern ; dblue : les scenes ; dorange : FUNC) ; le telephone garde orange, run, red et blue.
+ */
+export type KeyLitTone = 'orange' | 'run' | 'red' | 'blue' | 'dred' | 'dgreen' | 'dwhite' | 'dmagenta' | 'dblue' | 'dorange';
 export const KEY_LIT = {
   // Cales par lecture de pixels a 1440 x 900 (2026-10-18) : orange 244,110,56 (l'orange d'OPEN : 235,111,38), RUN 243,97,62
   // (au repos 192,70,52), MUTE 239,59,57, SOLO 97,133,230 ; plus fort, l'ACES les palissait en peche (252,160,75)
-  glow: { orange: [0.95, 0.08, 0], run: [0.5, 0.015, 0], red: [0.8, 0, 0], blue: [0.03, 0.15, 1.05] } as Readonly<Record<KeyLitTone, readonly number[]>>,
+  // V.5.0 : les teintes d* a 0.9 de leur couleur lineaire environ (le blanc plus bas, il eblouissait)
+  glow: {
+    orange: [0.95, 0.08, 0],
+    run: [0.5, 0.015, 0],
+    red: [0.8, 0, 0],
+    blue: [0.03, 0.15, 1.05],
+    dred: [0.9, 0.012, 0.012],
+    dgreen: [0.035, 0.62, 0.08],
+    dwhite: [0.6, 0.58, 0.54],
+    dmagenta: [0.66, 0.05, 0.6],
+    dblue: [0.05, 0.3, 0.95],
+    dorange: [0.95, 0.08, 0],
+  } as Readonly<Record<KeyLitTone, readonly number[]>>,
   dark: 0.4,
   ledWhite: 0.55,
 } as const;
@@ -1737,26 +1801,43 @@ export const KEY_LIT_LIGHT: { tint: Readonly<Record<KeyLitTone, readonly number[
  * lueur de la machine noire, serrait les niveaux 1 a 5 en quelques pour cent de
  * teinte, a peine distincts) ; ramp garde l'emissif.
  */
+/*
+ * V.5.0 (2026-10-29, la Digitakt, au desktop) : la tete de lecture en blanc pur (le blanc chaud avant ; l'encre sombre sur
+ * la machine creme), le pas en LOCK clignote en jaune ; la vue PTN : le pattern qui joue rouge plein, le suivant et la
+ * chaine rouges clignotants, un pattern plein blanc faible (dtEdit). Le telephone garde ses valeurs.
+ */
 export const STEP_LIT = {
   ramp: [0, 0.075, 0.115, 0.165, 0.225, 0.3, 0.39, 0.51, 0.69, 1] as readonly number[],
   lightRamp: [0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] as readonly number[],
-  head: [0.34, 0.24, 0.1],
-  headEmpty: [0.11, 0.085, 0.05],
-  headLight: [1.0, 0.72, 0.18],
+  head: PORTRAIT ? [0.34, 0.24, 0.1] : [0.3, 0.3, 0.29],
+  headEmpty: PORTRAIT ? [0.11, 0.085, 0.05] : [0.1, 0.1, 0.098],
+  headLight: PORTRAIT ? [1.0, 0.72, 0.18] : [0.012, 0.012, 0.012],
   headLightMix: 0.6,
   lightFloor: 0.12,
   hover: [0.018, 0.016, 0.012],
-  lock: [0.62, 0.42, 0.1],
-  lockDim: [0.07, 0.045, 0.008],
+  lock: PORTRAIT ? [0.62, 0.42, 0.1] : [0.72, 0.56, 0.05],
+  lockDim: PORTRAIT ? [0.07, 0.045, 0.008] : [0.08, 0.062, 0.005],
   locks: [0.03, 0.012, 0.002],
   edit: { cur: 1, next: 0.51, chain: 0.3, filled: 0.115 },
+  /** la vue PTN du desktop (V.5.0) : le courant, le suivant et la chaine (clignotants), un pattern plein (blanc) */
+  dtEdit: { cur: 1, next: 1, chain: 0.6, filled: 0.2, blinkMs: 260 },
 } as const;
+/** La teinte d'un pas mis (V.5.0) : le rouge de la Digitakt au desktop, l'orange de la machine au telephone. */
+export const STEP_TONE: KeyLitTone = PORTRAIT ? 'orange' : 'dred';
 
 /**
  * Tenir une touche (2026-10-27, la phase 2) : TRK, SCENE A et B ; plus court, c'est une tape (la touche se garde) ; la
  * valeur de LOCK_HOLD_MS (ui/Hotspots.tsx) et de HOLD_MS (midi/seqlink.ts), qui gardent leur constante.
  */
 export const FACE_HOLD_MS = 350;
+
+/**
+ * Les gestes de la face facon Digitakt (V.5.0, 2026-10-29, docs/v4/digitakt-d1-spec.md section 3), en ms : FUNC tapee deux
+ * fois dans funcDoubleMs se garde ; une touche de page tapee reste tenue pour YES et NO pageArmMs ; STOP deux fois dans
+ * stopDoubleMs coupe les queues ; un pas tenu muteHoldMs en mode MUTE passe sa voix en SOLO ; TEMPO : la moyenne apres
+ * tapTaps tapes, une pause de tapResetMs recommence ; un rappel (REC TO WRITE STEPS) au plus toutes les hintMs.
+ */
+export const DT_GESTURE = { funcDoubleMs: 400, pageArmMs: 1500, stopDoubleMs: 600, muteHoldMs: 400, tapTaps: 4, tapResetMs: 2000, hintMs: 2000 } as const;
 
 /**
  * TRK d'une seule couleur (V.4.2, 2026-10-27, Mika : "je veux des boutons d'une meme couleur et pas arc en ciel") : les
@@ -1773,7 +1854,8 @@ export const FACE_HOLD_MS = 350;
  * voyait a peine et la voix choisie palissait) ; velFloor, l'eclat de la velocite la plus douce (la plus forte : 1) ;
  * levels, les crans de la decroissance (une image par cran au plus, rien entre deux).
  */
-export const TRK_FLASH = { ms: 160, glow: [0.7, 0.24, 0.05], light: 1, lightTint: [1.0, 0.08, 0.0], lightGlow: 0, velFloor: 0.5, levels: 8 } as const;
+// V.5.0 (2026-10-29) : l'eclair en blanc au desktop (sur le rouge de la vue TRK), l'encre sombre sur la machine creme
+export const TRK_FLASH = { ms: 160, glow: PORTRAIT ? [0.7, 0.24, 0.05] : [0.55, 0.54, 0.5], light: 1, lightTint: PORTRAIT ? [1.0, 0.08, 0.0] : [0.02, 0.02, 0.02], lightGlow: 0, velFloor: 0.5, levels: 8 } as const;
 /** TRK tenu (2026-10-27) : la voix choisie pleine, les autres lisibles, une voix coupee a peine ; la machine claire plus fort. */
 export const TRK_LIT = { cur: 1, other: 0.22, muted: 0.07 } as const;
 export const TRK_LIT_LIGHT = { cur: 1, other: 0.35, muted: 0.12 } as const;
@@ -2053,8 +2135,11 @@ export interface SilkText {
   /** les textes d'un meme groupe partagent le plus petit corps */
   group?: string;
   weight?: number;
-  /** encre : bone (defaut) ou orange (noms des pages et OPEN, en gras) */
-  ink?: 'bone' | 'orange';
+  /**
+   * encre : bone (defaut) ou orange (noms des pages et OPEN, en gras) ; alt (V.5.0, 2026-10-29) : l'orange des fonctions
+   * secondaires de la Digitakt (DT_HEX.orange, plus sombre sur la machine creme)
+   */
+  ink?: 'bone' | 'orange' | 'alt';
   /** texte de repli d'un logo : dessine seulement si l'image du logo n'a pas pu se charger */
   fallbackFor?: SilkLogoId;
 }
@@ -2137,9 +2222,19 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // Le geste d'une seule souris (revue du 2026-10-09) : tenir un pas met le P-LOCK, il reste au lacher, puis on glisse.
   // 2026-10-19 : le glisser de la velocite (tenir un pas et monter ou descendre, la touche s'allume a sa velocite) s'y lit aussi
   // 2026-10-27 (la phase 2) : TRK et un pas 1 a 8 choisissent la voix ; la ligne tient sous les deux rangees de pas
+  // V.5.0 (2026-10-29, la face facon Digitakt) : REC ecrit les pas ; sans REC, les pas 1 a 8 jouent les voix ; le P-LOCK ;
+  // FUNC et un pas 1 a 8, le mute rapide
   ...(PORTRAIT
     ? []
-    : [{ text: 'TAP A STEP: ON, MID, LOW, OFF  /  HOLD AND DRAG: VELOCITY  /  HOLD STILL: P-LOCK, THEN TURN A KNOB  /  TRK + STEP 1-8: VOICE', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8 }]),
+    : [{ text: '\u25CF REC: WRITE STEPS \u00B7 WITHOUT REC: STEPS 1-8 PLAY THE VOICES \u00B7 HOLD A STEP + KNOB: P-LOCK \u00B7 FUNC + STEP 1-8: MUTE', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8, maxW: fpU(RYTM_FACEPLATE.size.w - 16) }]),
+  // Les fonctions secondaires (V.5.0, 2026-10-29) : FUNC + la touche, en orange sur la face sous chaque touche (rytm/faceplate.ts
+  // buttons.alt), comme la Digitakt ; le meme corps pour toutes (le plus petit de leur groupe)
+  ...(PORTRAIT
+    ? []
+    : RYTM_FACEPLATE.buttons.keys.flatMap((b, i) => {
+        const A = RYTM_FACEPLATE.buttons.alt;
+        return b.alt ? [{ text: b.alt, x: faceKeyX(i), z: fpZ(A.cy), cap: fpU(A.cap), maxW: fpU(A.w), group: 'alt', weight: 700, ink: 'alt' as const, alpha: 1 }] : [];
+      })),
 ];
 /** Index du libelle du pad OPEN dans SILK_TEXTS (redessine en CLOSE pendant la vue eclatee). */
 export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
@@ -2696,7 +2791,7 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
  * telephone garde ses mots.
  */
 export const TWIN_ARIA = {
-  run: PORTRAIT ? 'Run, Space' : 'Run / Stop, Space',
+  run: PORTRAIT ? 'Run, Space' : 'Play, pause and resume (PLAY), Space; FUNC + PLAY: clear',
   clear: 'Clear pattern',
   // 2026-10-21 (audit) : MUTE n'arme plus de mode depuis le 2026-10-10 (actions.ts muteToggle) ; une voix se coupe a son pad.
   // La face V.4.0 du desktop (2026-10-27, sans pads) : MUTE arme de nouveau le mode, la voix vient au clavier
@@ -2707,6 +2802,16 @@ export const TWIN_ARIA = {
     ? 'Solo, then tap a voice to solo it; press twice to solo several voices; press again to bring them all back'
     : 'Solo, then press a voice key (A S D F, Z X C V) to solo it; press twice to solo several voices; press again to bring them all back',
   random: 'Random house pattern',
+  // V.5.0 (2026-10-29, la face facon Digitakt) : les jumeaux des nouvelles touches et de celles qui changent (le desktop)
+  func: 'Function (FUNC): press, then a key for its orange function (FUNC + PLAY: clear, FUNC + REC: copy, FUNC + STOP: paste, FUNC + YES: save, FUNC + NO: reload); press twice to keep it; Alt key',
+  rec: 'Record (REC): steps write only while it is lit; FUNC + REC: copy',
+  play: 'Play, pause and resume (PLAY), Space; FUNC + PLAY: clear',
+  stop: 'Stop (STOP), back to step 1; twice: cuts the reverb and delay tails; Shift + Space; FUNC + STOP: paste',
+  yes: 'Yes (YES), Enter: confirm; after a page key, randomize that page (TRIG then YES: a random beat); on TEMPO: tap tempo; FUNC + YES: save point',
+  no: 'No (NO), Escape: back; after a page key, reload that page from the save point; FUNC + NO: reload everything',
+  ptn: 'Pattern (PTN), key E: the 16 patterns on the steps; press twice: KIT, the presets; FUNC + PTN: banks',
+  trig: 'Trig page (TRIG): note and velocity; then YES: a random beat; FUNC + TRIG: tempo',
+  mod: 'Modulation page (MOD), LFOs coming in V.5.1; FUNC + MOD: mixer',
   group: 'MM-RYTM drum machine',
   soundNoVoice: PORTRAIT ? 'Sound: tap a pad first' : 'Sound: pick a voice first, keys A S D F and Z X C V',
   // Le crossfader (2026-10-27, P2-20) : son jumeau, un curseur natif
@@ -2833,7 +2938,20 @@ const LIGHT = {
   /** pads de voix coupes (rouge LED) et en solo (bleu) */
   voiceTint: { mute: '#C8372C', solo: '#8DB2E4' },
   /** une touche allumee (2026-10-18, KEY_LIT) : le dessus a la couleur de son temoin, un emissif plus doux */
-  keyLit: { orange: [1.0, 0.24, 0.035], run: [1.0, 0.13, 0.05], red: [0.85, 0.035, 0.025], blue: [0.09, 0.26, 1.0] } as Record<KeyLitTone, number[]>,
+  // V.5.0 (2026-10-29) : les teintes de la Digitakt sur la machine creme, plus sombres et lisibles (DT_HEX_LIGHT) ; le blanc
+  // d'un flash, l'encre sombre
+  keyLit: {
+    orange: [1.0, 0.24, 0.035],
+    run: [1.0, 0.13, 0.05],
+    red: [0.85, 0.035, 0.025],
+    blue: [0.09, 0.26, 1.0],
+    dred: [0.85, 0.03, 0.025],
+    dgreen: [0.03, 0.42, 0.06],
+    dwhite: [0.03, 0.03, 0.03],
+    dmagenta: [0.55, 0.06, 0.5],
+    dblue: [0.05, 0.24, 0.8],
+    dorange: [0.85, 0.13, 0.01],
+  } as Record<KeyLitTone, number[]>,
   keyLitGlow: 0.3,
 };
 
@@ -2903,13 +3021,16 @@ export function applyAppearance(a: Appearance): void {
   KEY_LIT_LIGHT.glow = L ? LIGHT.keyLitGlow : 1;
   BACKDROP.transparent = !L;
   Object.assign(VOICE_TINT, L ? LIGHT.voiceTint : DARK.voiceTint);
-  // Les teintes des anneaux de la face (2026-10-27) : relues apres la palette
-  RING_TONE.base.on = HEX.ledSet;
-  RING_TONE.off.on = HEX.ledSet;
-  RING_TONE.lock.on = L ? RING_LOCK_LIGHT : HEX.yellowHi;
-  RING_TONE.unlocked.on = HEX.ledSet;
-  RING_TONE.global.on = HEX.ledSet;
-  RING_TONE.scene.on = L ? '#191919' : '#F6F1E7';
-  RING_TONE.dim.on = HEX.ledSet;
+  // La palette de la Digitakt (V.5.0, 2026-10-29) : plus sombre et lisible sur la machine creme
+  Object.assign(DT_HEX, L ? DT_HEX_LIGHT : DT_HEX_DARK);
+  // Les teintes des anneaux de la face (2026-10-27) : relues apres la palette ; V.5.0 : le blanc, le jaune, le bleu
+  RING_TONE.base.on = DT_HEX.white;
+  RING_TONE.off.on = DT_HEX.white;
+  RING_TONE.lock.on = L ? RING_LOCK_LIGHT : DT_HEX.yellow;
+  RING_TONE.unlocked.on = DT_HEX.white;
+  RING_TONE.global.on = DT_HEX.white;
+  RING_TONE.scene.on = DT_HEX.blue;
+  RING_TONE.dim.on = DT_HEX.white;
+  RING_BAND.on = DT_HEX.blue;
   APPEARANCE.current = a;
 }
