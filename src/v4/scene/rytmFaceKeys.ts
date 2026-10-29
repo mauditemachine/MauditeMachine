@@ -58,6 +58,12 @@ const BLINK_LOW = 0.12;
 const HOME_LEVEL = 0.32;
 /** Le capuchon orange de FUNC (V.5.0) : son eclat au repos, et engagee (tenue ou gardee). */
 const FUNC_GLOW = { rest: 0.55, on: 1 } as const;
+/**
+ * Le temoin d'une touche allumee sur la machine creme (la revue de D1, R1) : eteint, une lentille sombre (la fente claire du
+ * panneau semblait allumee sur le capuchon orange de FUNC) ; blanc, de la vraie lumiere blanche (l'encre sombre de la creme
+ * grisait FUNC tenue). Comme la machine noire : eteint sombre, allume clair.
+ */
+const LED_LIT_KEY_LIGHT = { off: 0x5e5248 } as const;
 /** La lueur du logo M au survol (V.5.0) : son opacite, sa marge autour du logo. */
 const LOGO_GLOW = { opacity: 0.16, pad: fpU(0.8) } as const;
 /** SCENE A et B : leur place dans le maillage de leurs touches (0, 1), -1 pour une touche de la rangee. */
@@ -269,6 +275,7 @@ export class RytmFaceKeys {
   /** le capuchon sous la souris (P2-20) */
   private capHot = false;
   private off = new Color();
+  private offLit = new Color(LED_LIT_KEY_LIGHT.off);
   private ledColors = new Map<DtTone, Color>();
 
   constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas; castShadow: boolean }) {
@@ -454,8 +461,10 @@ export class RytmFaceKeys {
     em.needsUpdate = true;
     // Le temoin : eteint, une fente, jamais tiree vers le blanc (la revue de D1, R1 : FUNC au repos semblait allumee) ; allume,
     // sa couleur, et sur une touche allumee tiree vers le blanc a la mesure de son eclat (il reste l'accent, la phase basse d'un
-    // clignotement reste basse) ; le blanc de la creme est l'encre sombre, il n'y est pas tire (FUNC tenue y grisait)
-    col.copy(this.off).lerp(this.ledColor(s.ledTone), s.led);
+    // clignotement reste basse) ; sur la creme, une touche allumee a une lentille sombre eteinte et du vrai blanc allume
+    // (LED_LIT_KEY_LIGHT : l'encre sombre du blanc de la creme grisait FUNC tenue), sans tirage vers le blanc
+    const light = APPEARANCE.current === 'light' && f > 0;
+    col.copy(light ? this.offLit : this.off).lerp(light && s.ledTone === 'white' ? WHITE : this.ledColor(s.ledTone), s.led);
     if (f > 0 && s.led > 0 && !(s.ledTone === 'white' && APPEARANCE.current === 'light')) col.lerp(WHITE, KEY_LIT.ledWhite * f * s.led);
     this.leds.setColorAt(i, col);
     if (this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
