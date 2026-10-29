@@ -18,7 +18,7 @@
  */
 
 import { BPM, INSTRUMENTS, NEUTRAL_FX, type Fx, type Steps } from '../audio/pattern';
-import { FAMS_V1, FX_V1, KNOBS_V1, LAYER_DEF_V1, LAYER_V1, MODELS_V1, VOICE_V1, decodeBeat, encodeBeat, sampleHash, type Beat, type BeatFam, type BeatFamily } from '../audio/beatcode';
+import { FAMS_V1, FX_V1, KNOBS_V1, LAYER_DEF_V1, LAYER_V1, MODELS_V1, VOICE_V1, decodeBeat, encodeBeat, sampleHash, type Beat, type BeatFam, type BeatFamily, type BeatInst } from '../audio/beatcode';
 import { KIT_KNOBS, LAYER_PARAMS, type KitFamily, type Layer } from '../audio/kit';
 import { isUserKey, samplesOf } from '../audio/samples';
 import { VOICE_FX_DEFAULT, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
@@ -49,7 +49,7 @@ export interface Dropped {
 
 /** Le beat du MM-RYTM tel qu'il joue, en Beat (audio/beatcode.ts). */
 export function beatNow(): { beat: Beat; dropped: Dropped } {
-  const r = capture('mm808') as RytmData & { locks?: unknown; scenes?: unknown };
+  const r = capture('mm808') as RytmData & { locks?: unknown; scenes?: unknown; pmutes?: Inst[] };
   const dropped: Dropped = { locks: !!r.locks && Object.keys(r.locks as object).length > 0, mine: false, scenes: !!r.scenes };
   const kit = {} as Record<BeatFam, BeatFamily>;
   for (const f of FAMS_V1) {
@@ -85,7 +85,8 @@ export function beatNow(): { beat: Beat; dropped: Dropped } {
   const knobs: Record<string, number> = {};
   for (const k of KNOBS_V1) if (typeof r.knobs?.[k] === 'number') knobs[k] = r.knobs[k];
   return {
-    beat: { bpm: r.bpm, steps: { ...r.steps }, fx, stretch: r.stretch, kit, knobs, voices },
+    // Le mute du pattern (V.5.0, la revue de D1, K4) : dans le lien s'il coupe une voix
+    beat: { bpm: r.bpm, steps: { ...r.steps }, fx, stretch: r.stretch, kit, knobs, voices, ...(r.pmutes && r.pmutes.length > 0 ? { pmutes: [...r.pmutes] as BeatInst[] } : {}) },
     dropped,
   };
 }
@@ -105,7 +106,7 @@ export function dataOfBeat(beat: Beat): RytmData {
   const factory = beat.base ? rytmFactory()[beat.base - 1]?.data : undefined;
   if (factory) {
     const d = JSON.parse(JSON.stringify(factory)) as RytmData;
-    return { ...d, steps, bpm, fx: { ...d.fx, ...(beat.fx ?? {}) } as Fx, ...(beat.stretch !== undefined ? { stretch: beat.stretch } : {}) };
+    return { ...d, steps, bpm, fx: { ...d.fx, ...(beat.fx ?? {}) } as Fx, ...(beat.stretch !== undefined ? { stretch: beat.stretch } : {}), ...(beat.pmutes?.length ? { pmutes: [...beat.pmutes] } : {}) };
   }
   const fx = { ...NEUTRAL_FX, ...(beat.fx ?? {}) } as Fx;
   const voices = Object.fromEntries(INSTRUMENTS.map((i) => [i, { ...VOICE_FX_DEFAULT, ...(beat.voices?.[i as keyof NonNullable<Beat['voices']>] ?? {}) }])) as Record<Inst, VoiceFx>;
@@ -124,7 +125,7 @@ export function dataOfBeat(beat: Beat): RytmData {
     if (fam?.sample && !key && layer.syn <= 0) layer.syn = 1;
     layers[f] = layer;
   }
-  return { steps, bpm, fx, stretch: beat.stretch ?? 0, voices, kit: knobs, sounds: {}, machines, samples, layers, knobs } as RytmData;
+  return { steps, bpm, fx, stretch: beat.stretch ?? 0, voices, kit: knobs, sounds: {}, machines, samples, layers, knobs, ...(beat.pmutes?.length ? { pmutes: [...beat.pmutes] } : {}) } as RytmData;
 }
 
 /** Les potards du kit au depart (audio/beatcode.ts KNOB_DEF_V1, les memes que audio/kit.ts). */

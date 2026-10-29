@@ -8,7 +8,8 @@
  * scripts/mm-studio-patterns.mjs, via esbuild). Le code : des octets en base64url (sans =), le premier dit la
  * version. Version 1 :
  *   0      version (1)
- *   1      drapeaux : 1 base (un preset d'usine), 2 kit, 4 potards du kit, 8 effets des voix, 16 STRETCH
+ *   1      drapeaux : 1 base (un preset d'usine), 2 kit, 4 potards du kit, 8 effets des voix, 16 STRETCH, 32 le mute du
+ *          pattern (V.5.0, 2026-10-29 : un lien sans mute de pattern est le meme qu'avant, octet pour octet)
  *   [1]    base : le rang du preset d'usine du MM-RYTM (1 a 255, state/factory.ts) ; le reste du son est le sien
  *   1      tempo - 100 (0 a 50)
  *   1      masque des voix qui ont des pas (BD SD CH OH CP TOM HT CY)
@@ -20,6 +21,7 @@
  *          (LAYER_V1) puis 2 octets par reglage]
  *   [pots] masque de 2 octets (KNOBS_V1), puis 2 octets par potard
  *   [voix] masque des voix, puis pour chacune un masque de 3 octets (VOICE_V1) et 2 octets par reglage
+ *   [mute] le masque des voix que le pattern coupe (au moins une)
  *   1      controle (CRC-8 de tout ce qui precede)
  * Une valeur : (v - min) x 10000 sur 16 bits (le dix-millieme : les reglages, gardes au millieme, reviennent
  * exacts). Les valeurs de depart de la version 1 sont figees ici : un lien garde son son meme si la machine change
@@ -96,6 +98,8 @@ export interface Beat {
   kit?: Record<BeatFam, BeatFamily>;
   knobs?: Partial<Record<(typeof KNOBS_V1)[number], number>>;
   voices?: Partial<Record<BeatInst, Partial<Record<(typeof VOICE_V1)[number], number>>>>;
+  /** le mute du pattern (V.5.0) : les voix qu'il coupe ; absent sans voix coupee */
+  pmutes?: BeatInst[];
 }
 
 /* ---------------- outils ---------------- */
@@ -183,7 +187,8 @@ export function encodeBeat(beat: Beat): string {
   const stretch = beat.stretch !== undefined && !same(beat.stretch, 0) ? beat.stretch : null;
   const knobKeys = KNOBS_V1.filter((k) => beat.knobs?.[k] !== undefined && !same(beat.knobs[k] as number, KNOB_DEF_V1[k]));
   const voiceInsts = INSTS_V1.filter((i) => VOICE_V1.some((p) => beat.voices?.[i]?.[p] !== undefined && !same(beat.voices[i]?.[p] as number, VOICE_DEF_V1[p])));
-  const flags = (base ? 1 : 0) | (beat.kit ? 2 : 0) | (knobKeys.length ? 4 : 0) | (voiceInsts.length ? 8 : 0) | (stretch !== null ? 16 : 0);
+  const pm = INSTS_V1.map((i) => !!beat.pmutes?.includes(i));
+  const flags = (base ? 1 : 0) | (beat.kit ? 2 : 0) | (knobKeys.length ? 4 : 0) | (voiceInsts.length ? 8 : 0) | (stretch !== null ? 16 : 0) | (pm.some(Boolean) ? 32 : 0);
   out.push(flags);
   if (base) out.push(base);
   const bpm = Math.round(Number.isFinite(beat.bpm) ? beat.bpm : 130);
@@ -224,6 +229,7 @@ export function encodeBeat(beat: Beat): string {
       for (const p of ps) putVal(out, beat.voices?.[i]?.[p] as number, SIGNED_VOICE.has(p));
     }
   }
+  if (pm.some(Boolean)) putMask(out, pm, 1);
   out.push(crc8(out, out.length));
   return toB64(out);
 }
@@ -273,7 +279,7 @@ function read(code: unknown): Beat | null {
   };
   if (u8() !== BEAT_VERSION) return null;
   const flags = u8();
-  if (flags & ~31) return null;
+  if (flags & ~63) return null;
   const beat: Beat = { bpm: 0, steps: {} as Record<BeatInst, string> };
   if (flags & 1) {
     const b = u8();
@@ -357,6 +363,11 @@ function read(code: unknown): Beat | null {
       });
       (beat.voices as Record<string, Record<string, number>>)[inst] = o;
     });
+  }
+  if (flags & 32) {
+    const mm = mask(1, INSTS_V1.length);
+    if (!mm.some(Boolean)) throw new Bad();
+    beat.pmutes = INSTS_V1.filter((_, i) => mm[i]);
   }
   // Tout doit avoir ete lu : ni octet de trop, ni de moins
   if (at !== end) return null;

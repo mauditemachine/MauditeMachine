@@ -183,7 +183,7 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
       sceneB: { on: arm.armed === 'b', blink: arm.armed === 'b' && arm.how === 'latched', level: nb > 0 ? SCENE_LED_MIN + SCENE_LED_SPAN * x : 0 },
       steps: engaged
         ? // V.5.0 au desktop : le rouge de la Digitakt, la barre verte des voix qui jouent (blanche en solo)
-          trkLeds(inst, v.muted, v.solo, TRK_LIT, DT_FACE ? HW_PAL : undefined, p.pmutes)
+          trkLeds(inst, v.muted, v.solo, TRK_LIT, DT_FACE ? HW_PAL : undefined, DT_FACE ? p.pmutes : [])
             .slice(0, 8)
             .filter((l): l is typeof l & { inst: Inst } => l.inst !== null)
             .map((l) => ({ inst: l.inst, color: l.color, level: l.level, bar: l.bar }))
