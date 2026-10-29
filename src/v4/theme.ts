@@ -2243,7 +2243,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // FUNC et un pas 1 a 8, le mute rapide
   ...(PORTRAIT
     ? []
-    : [{ text: '\u25CF REC: WRITE STEPS \u00B7 WITHOUT REC: STEPS 1-8 PLAY THE VOICES \u00B7 HOLD A STEP + KNOB: P-LOCK \u00B7 FUNC + STEP 1-8: MUTE', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8, maxW: fpU(RYTM_FACEPLATE.size.w - 16) }]),
+    : [{ text: '\u25CF REC: WRITE STEPS \u00B7 WITHOUT REC: STEPS 1-8 PLAY THE VOICES \u00B7 HOLD A STEP + KNOB: P-LOCK \u00B7 FUNC + STEP 1-8: MUTE (REC: LOCK TRIG)', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8, maxW: fpU(RYTM_FACEPLATE.size.w - 16) }]),
   // Les fonctions secondaires (V.5.0, 2026-10-29) : FUNC + la touche, en orange sur la face sous chaque touche (rytm/faceplate.ts
   // buttons.alt), comme la Digitakt ; le meme corps pour toutes (le plus petit de leur groupe)
   ...(PORTRAIT

@@ -5026,7 +5026,7 @@ function lockTrigStep(i: number): void {
   if (vel > 0) pattern.set(inst, i, 0);
   pattern.setLock(inst, [i], 'ltrg', 1);
   rytmPage.select(i);
-  lcdMessage.show(vel > 0 ? `STEP ${two(i + 1)} ${inst} NOW A LOCK TRIG (NO NOTE)` : `STEP ${two(i + 1)} ${inst} LOCK TRIG: HOLD IT, TURN A KNOB`, 1800);
+  lcdMessage.show(vel > 0 ? `STEP ${two(i + 1)} ${inst} NOW A LOCK TRIG` : `STEP ${two(i + 1)} ${inst} LOCK TRIG: HOLD + KNOB`, 1800);
 }
 
 /**
