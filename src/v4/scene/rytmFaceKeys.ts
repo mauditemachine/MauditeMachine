@@ -12,8 +12,10 @@
  * blanc a l'appui ; TRK rouge tenue ou gardee (clignote gardee) ; PTN rouge tant que la grille des patterns ou KIT est
  * ouverte ; SCENE A et B en bleu, armees (la touche et son cadre), leur temoin suit ce qu'on en entend. Une touche allumee
  * a son dessus a la couleur de son temoin (KEY_LIT), son nom au noir ; le temoin reste l'accent, tire vers le blanc.
- * UN InstancedMesh pour les seize touches (SCENE A et B a l'echelle de leurs 12 mm), un pour leurs temoins (non eclaires),
- * un maillage pour leurs noms, un pour le capuchon, un pour les cadres, un pour l'ombre, un pour la lueur du logo.
+ * UN InstancedMesh pour les quatorze touches de la rangee, un pour SCENE A et B (leur touche a elles, 12 x 12 : la revue de
+ * D1, R9, l'echelle de la touche de 10.4 etirait le chanfrein, les coins et le temoin), un pour les seize temoins (non
+ * eclaires, tous a la taille de la rangee), un maillage pour leurs noms, un pour le capuchon, un pour les cadres, un pour
+ * l'ombre, un pour la lueur du logo.
  */
 
 import { BoxGeometry, Color, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, type BufferGeometry, type Object3D } from 'three';
@@ -58,19 +60,18 @@ const HOME_LEVEL = 0.32;
 const FUNC_GLOW = { rest: 0.55, on: 1 } as const;
 /** La lueur du logo M au survol (V.5.0) : son opacite, sa marge autour du logo. */
 const LOGO_GLOW = { opacity: 0.16, pad: fpU(0.8) } as const;
-/** SCENE A et B : leur echelle en x et en z, de la touche de la rangee (10.4 x 12) a leurs 12 x 12. */
-const SCENE_SX = SCENE_KEY.w / FACE_KEY.w;
-const SCENE_SZ = SCENE_KEY.d / FACE_KEY.d;
+/** SCENE A et B : leur place dans le maillage de leurs touches (0, 1), -1 pour une touche de la rangee. */
+const sceneSlot = (i: number): number => (i === SCN_A ? 0 : i === SCN_B ? 1 : -1);
 
 const m4 = new Matrix4();
 const col = new Color();
 const WHITE = new Color(1, 1, 1);
 
-/** La touche de la face : en relief au desktop (V.4.2, scene/keyCap.ts : flancs, chanfrein, l'ombre du pied). */
-function keyGeometry(mobile: boolean): BufferGeometry {
+/** La touche de la face, w x d (la rangee ; SCENE A et B : SCENE_KEY) : en relief au desktop (V.4.2, scene/keyCap.ts : flancs, chanfrein, l'ombre du pied). */
+function keyGeometry(mobile: boolean, w: number = FACE_KEY.w, d: number = FACE_KEY.d): BufferGeometry {
   const K = FACE_KEY;
-  if (KEY_RELIEF.on) return keyCapGeometry(K.w, K.h, K.d, K.radius, K.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
-  const g = new RoundedBoxGeometry(K.w, K.h, K.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, K.radius);
+  if (KEY_RELIEF.on) return keyCapGeometry(w, K.h, d, K.radius, K.bevel, KEY_RELIEF.seg, KEY_RELIEF.shade);
+  const g = new RoundedBoxGeometry(w, K.h, d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, K.radius);
   g.translate(0, K.h / 2, 0);
   g.deleteAttribute('uv');
   return g;
@@ -219,6 +220,8 @@ export interface RytmFaceKeysInfo {
 
 export class RytmFaceKeys {
   readonly keys: InstancedMesh;
+  /** SCENE A et B (la revue de D1, R9) : leur touche de 12 x 12 ; leurs instances de keys restent a l'echelle 0 */
+  readonly sceneKeys: InstancedMesh;
   readonly leds: InstancedMesh;
   readonly labels: KeyLabels;
   /** le capuchon du crossfader (2026-10-27, P2-20 : il suit x, de A a gauche a B a droite) */
@@ -236,6 +239,7 @@ export class RytmFaceKeys {
   private capMat: MeshStandardMaterial;
   private logoMat: MeshBasicMaterial;
   private emissive: InstancedBufferAttribute;
+  private sceneEmissive: InstancedBufferAttribute;
   private press = new Float32Array(N);
   private flashV = new Float32Array(N);
   private fill = new Float32Array(N);
@@ -280,13 +284,23 @@ export class RytmFaceKeys {
     FACE_KEYS.forEach((k, i) => this.keys.setMatrixAt(i, this.keyMatrix(i, k.x, 0, FACE_KEY.z)));
     this.keys.instanceMatrix.setUsage(DynamicDrawUsage);
     this.keys.instanceMatrix.needsUpdate = true;
+    const sg = keyGeometry(opts.mobile, SCENE_KEY.w, SCENE_KEY.d);
+    this.sceneEmissive = new InstancedBufferAttribute(new Float32Array(2 * 3), 3);
+    this.sceneEmissive.setUsage(DynamicDrawUsage);
+    sg.setAttribute('instanceEmissive', this.sceneEmissive);
+    this.sceneKeys = new InstancedMesh(sg, this.keyMat, 2);
+    this.sceneKeys.name = 'sceneKeys';
+    this.sceneKeys.receiveShadow = true;
+    [SCN_A, SCN_B].forEach((i, j) => this.sceneKeys.setMatrixAt(j, m4.makeTranslation(FACE_KEYS[i]?.x ?? 0, 0, FACE_KEY.z)));
+    this.sceneKeys.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.sceneKeys.instanceMatrix.needsUpdate = true;
 
     this.off.setHex(COLOR.line);
     this.ledMat = new MeshBasicMaterial({ toneMapped: false });
     this.ledMat.name = 'faceKeyLed';
     this.leds = new InstancedMesh(ledGeometry(), this.ledMat, N);
     this.leds.name = 'faceKeyLeds';
-    FACE_KEYS.forEach((k, i) => this.leds.setMatrixAt(i, this.keyMatrix(i, k.x, LED_Y, LED_Z)));
+    FACE_KEYS.forEach((k, i) => this.leds.setMatrixAt(i, m4.makeTranslation(k.x, LED_Y, LED_Z)));
     this.leds.instanceMatrix.setUsage(DynamicDrawUsage);
     this.leds.instanceMatrix.needsUpdate = true;
 
@@ -316,8 +330,9 @@ export class RytmFaceKeys {
     this.skirt.name = 'keySkirt';
     this.skirt.renderOrder = -1;
 
-    // La lueur du logo M (V.5.0) : l'orange de FUNC, tres doux, seulement au survol
-    this.logoMat = new MeshBasicMaterial({ color: new Color(DT_HEX.orange), transparent: true, opacity: 0, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    // La lueur du logo M (V.5.0) : neutre (la revue de D1, R8 : l'orange n'est qu'a FUNC), le blanc de la machine noire, l'encre
+    // de la creme ; tres douce, seulement au survol
+    this.logoMat = new MeshBasicMaterial({ color: new Color(DT_HEX.white), transparent: true, opacity: 0, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.logoMat.name = 'logoGlow';
     this.logo = new Mesh(logoGlowGeometry(), this.logoMat);
     this.logo.name = 'logoGlow';
@@ -325,18 +340,19 @@ export class RytmFaceKeys {
 
     for (let i = 0; i < N; i += 1) this.refresh(i);
     this.keys.instanceColor?.setUsage(DynamicDrawUsage);
+    this.sceneKeys.instanceColor?.setUsage(DynamicDrawUsage);
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
   }
 
-  /** La matrice de l'instance i (SCENE A et B : a l'echelle de leurs 12 x 12) a x, y, z. */
+  /** La matrice de l'instance i de keys a x, y, z (SCENE A et B : a l'echelle 0, sceneKeys les dessine). */
   private keyMatrix(i: number, x: number, y: number, z: number): Matrix4 {
-    if (i === SCN_A || i === SCN_B) return m4.makeScale(SCENE_SX, 1, SCENE_SZ).setPosition(x, y, z);
+    if (sceneSlot(i) >= 0) return m4.makeScale(0, 0, 0).setPosition(x, y, z);
     return m4.makeTranslation(x, y, z);
   }
 
   /** Les maillages a poser sur le plateau. */
   objects(): Object3D[] {
-    return [this.skirt, this.keys, this.leds, this.labels.mesh, this.cap, this.armRing, this.logo];
+    return [this.skirt, this.keys, this.sceneKeys, this.leds, this.labels.mesh, this.cap, this.armRing, this.logo];
   }
 
   /** Les deux cadres a leur touche, a l'echelle 0 sauf celui de la scene armee (allume, ou dans sa phase allumee). */
@@ -423,17 +439,24 @@ export class RytmFaceKeys {
     const lt = KEY_LIT_LIGHT.tint?.[s.tone];
     const f = s.fill;
     if (lt && f > 0) col.setRGB(col.r + (lt[0] - col.r) * f, col.g + (lt[1] - col.g) * f, col.b + (lt[2] - col.b) * f);
-    this.keys.setColorAt(i, col);
-    if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
+    // SCENE A et B dans leur maillage (R9), les autres dans celui de la rangee
+    const sj = sceneSlot(i);
+    const mesh = sj >= 0 ? this.sceneKeys : this.keys;
+    const at = sj >= 0 ? sj : i;
+    mesh.setColorAt(at, col);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     // L'eclat : l'appui, la touche allumee, le survol
-    const e = this.emissive.array as Float32Array;
+    const em = sj >= 0 ? this.sceneEmissive : this.emissive;
+    const e = em.array as Float32Array;
     const g = KEY_LIT.glow[s.tone];
     const h = i === this.hover ? 1 : 0;
-    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = Math.max(STEP_PRESS.glow[c] * v, g[c] * KEY_LIT_LIGHT.glow * s.glow, HOVER_LIGHT.glow[c] * h);
-    this.emissive.needsUpdate = true;
-    // Le temoin : eteint, une fente ; allume, sa couleur ; sur une touche allumee, tire vers le blanc (il reste l'accent)
+    for (let c = 0; c < 3; c += 1) e[at * 3 + c] = Math.max(STEP_PRESS.glow[c] * v, g[c] * KEY_LIT_LIGHT.glow * s.glow, HOVER_LIGHT.glow[c] * h);
+    em.needsUpdate = true;
+    // Le temoin : eteint, une fente, jamais tiree vers le blanc (la revue de D1, R1 : FUNC au repos semblait allumee) ; allume,
+    // sa couleur, et sur une touche allumee tiree vers le blanc a la mesure de son eclat (il reste l'accent, la phase basse d'un
+    // clignotement reste basse) ; le blanc de la creme est l'encre sombre, il n'y est pas tire (FUNC tenue y grisait)
     col.copy(this.off).lerp(this.ledColor(s.ledTone), s.led);
-    if (f > 0) col.lerp(WHITE, KEY_LIT.ledWhite * f);
+    if (f > 0 && s.led > 0 && !(s.ledTone === 'white' && APPEARANCE.current === 'light')) col.lerp(WHITE, KEY_LIT.ledWhite * f * s.led);
     this.leds.setColorAt(i, col);
     if (this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
     this.labels.setLit(i, f > KEY_LIT.dark);
@@ -593,8 +616,10 @@ export class RytmFaceKeys {
     if (i < 0 || i >= N) return;
     this.press[i] = v;
     const dy = move ? -KEY_RELIEF.key * v : 0;
-    this.keys.instanceMatrix.array[i * 16 + 13] = dy;
-    this.keys.instanceMatrix.needsUpdate = true;
+    const sj = sceneSlot(i);
+    const mesh = sj >= 0 ? this.sceneKeys : this.keys;
+    mesh.instanceMatrix.array[(sj >= 0 ? sj : i) * 16 + 13] = dy;
+    mesh.instanceMatrix.needsUpdate = true;
     this.leds.instanceMatrix.array[i * 16 + 13] = LED_Y + dy;
     this.leds.instanceMatrix.needsUpdate = true;
     this.labels.setDy(i, dy);
@@ -688,8 +713,10 @@ export class RytmFaceKeys {
 
   dispose(): void {
     this.keys.geometry.dispose();
+    this.sceneKeys.geometry.dispose();
     this.keyMat.dispose();
     this.keys.dispose();
+    this.sceneKeys.dispose();
     this.leds.geometry.dispose();
     this.ledMat.dispose();
     this.leds.dispose();

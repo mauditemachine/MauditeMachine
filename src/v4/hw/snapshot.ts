@@ -23,7 +23,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { tempoSync } from '../state/tempoSync';
 import { trk } from '../state/trk';
 import { voices } from '../state/voices';
-import { DT_FACE, SCREEN_TOUCH, STEP_LIT, TRK_LIT, type Inst } from '../theme';
+import { DT_FACE, DT_HEX_DARK, SCREEN_TOUCH, STEP_LIT, TRK_LIT, type Inst } from '../theme';
 
 export interface HwKnob {
   /** 0 a 7 (CC 20 a 27 du boitier) */
@@ -125,8 +125,11 @@ const SCENE_LED_SPAN = 0.85;
 /** La derniere cause de chaque potard (hw/index.ts la tient a jour ; value tant que rien n'est venu). */
 export type KnobCauses = readonly KnobCause[];
 
-/** Les couleurs de la face facon Digitakt pour le boitier (V.5.0) : celles de la machine noire, le boitier n'a pas de creme. */
-const HW_PAL = { red: '#FF2B2B', green: '#3DDC5A', white: '#F4F1EA', magenta: '#E04DD8' } as const;
+/**
+ * Les couleurs de la face facon Digitakt pour le boitier (V.5.0) : celles de la machine noire (theme.ts DT_HEX_DARK, la revue
+ * de D1, R10 : une seule palette), le boitier n'a pas de creme.
+ */
+const HW_PAL = DT_HEX_DARK;
 
 export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   const p = pattern.get();

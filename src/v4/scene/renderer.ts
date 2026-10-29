@@ -3467,11 +3467,14 @@ export class Stage {
   private pollPlayhead = (now: number): 'paint' | 'poll' | false => {
     const c = context();
     const e = clock.running && c ? clock.entryAt(c.currentTime) : null;
-    const seqNo = e ? e.seq : -1;
+    // En pause au desktop (V.5.0, la revue de D1, R6) : la tete reste sur le dernier pas entendu (la face seulement, l'ecran et
+    // le Dock lisent playhead, a -1 hors lecture)
+    const ps = DT_FACE && !e ? clock.pausedStep : -1;
+    const seqNo = e ? e.seq : ps >= 0 ? -2 - ps : -1;
     if (seqNo === this.headSeq) return clock.running ? 'poll' : false;
     this.headSeq = seqNo;
     const step = e ? e.step : -1;
-    this.seq.setPlayhead(step);
+    this.seq.setPlayhead(e ? step : ps);
     playhead.set(step);
     if (e && e.mask !== 0) {
       for (let k = 0; k < INSTRUMENTS.length; k += 1) {

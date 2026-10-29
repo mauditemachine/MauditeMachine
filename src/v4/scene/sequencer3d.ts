@@ -381,8 +381,10 @@ export class Sequencer3D {
     void FACE_KEY;
 
     // La marque des verrous (2026-10-19) : un trait non eclaire sur le dessus de chaque pas, cache tant que le pas n'a pas
-    // de verrou ; clair (le jaune des LED, l'orange sur la machine claire) ou sombre sur une touche allumee
-    this.markLight.setHex(KEY_LIT_LIGHT.tint ? COLOR.ledSet : COLOR.yellowHi);
+    // de verrou ; clair (le jaune des LED, l'orange sur la machine claire) ou sombre sur une touche allumee. Au desktop (V.5.0,
+    // la revue de D1, R8) : le jaune des verrous de la Digitakt sur les deux machines (DT_HEX, plus sombre sur la creme)
+    if (DT_FACE) this.markLight.set(DT_HEX.yellow);
+    else this.markLight.setHex(KEY_LIT_LIGHT.tint ? COLOR.ledSet : COLOR.yellowHi);
     this.markDark.setRGB(0.012, 0.011, 0.01);
     this.markMat = new MeshBasicMaterial({ toneMapped: false });
     this.markMat.name = 'lockMark';
@@ -677,7 +679,10 @@ export class Sequencer3D {
     const o = KEY_LIT.glow[this.toneOf(j)];
     const k = KEY_LIT_LIGHT.glow;
     const head = this.isHead(j);
-    const add = head ? (f > 0 ? STEP_LIT.head : STEP_LIT.headEmpty) : null;
+    // La tete de lecture sur un pas allume, au desktop (la revue de D1, R6) : du blanc pur, elle remplace le rouge (ajoutee,
+    // elle rendait rose) ; sur la creme, l'encre (writeKeyColor) et l'eclat d'un pas vide
+    const over = head && f > 0 && DT_FACE;
+    const add = head ? (f > 0 && !over ? STEP_LIT.head : STEP_LIT.headEmpty) : null;
     const locked = this.lockShown && ((this.lockMask >> j) & 1) === 1;
     const floor = this.lockShown && j === this.lockStep ? (this.lockBlink ? STEP_LIT.lock : STEP_LIT.lockDim) : locked && f === 0 ? STEP_LIT.locks : !this.trkView && j === this.hover && f === 0 ? STEP_LIT.hover : null;
     // TRK (2026-10-27) : la lueur du pas a l'intensite de sa voix, l'orange de la machine pour les huit (V.4.2) ; l'eclair
@@ -690,8 +695,9 @@ export class Sequencer3D {
       for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(o[c] * k * f + G[c] * kf * fl, STEP_PRESS.glow[c] * this.keyPress[j]);
       return;
     }
+    const W = KEY_LIT_LIGHT.tint ? null : KEY_LIT.glow.dwhite;
     for (let c = 0; c < 3; c += 1) {
-      const lit = o[c] * k * f + (add ? add[c] * k : 0);
+      const lit = over ? (W ? W[c] : add ? add[c] * k : 0) : o[c] * k * f + (add ? add[c] * k : 0);
       e[j * 3 + c] = Math.max(lit, floor ? floor[c] * k : 0, STEP_PRESS.glow[c] * this.keyPress[j]);
     }
   }
@@ -726,7 +732,8 @@ export class Sequencer3D {
     if (lt && tf > 0) c.setRGB(c.r + (lt[0] - c.r) * tf, c.g + (lt[1] - c.g) * tf, c.b + (lt[2] - c.b) * tf);
     if (lt && this.isHead(j)) {
       const h = STEP_LIT.headLight;
-      const m = STEP_LIT.headLightMix;
+      // Au desktop, sur un pas allume (R6) : l'encre de la tete remplace la teinte du pas
+      const m = DT_FACE && f > 0 ? 1 : STEP_LIT.headLightMix;
       c.setRGB(c.r + (h[0] - c.r) * m, c.g + (h[1] - c.g) * m, c.b + (h[2] - c.b) * m);
     }
     this.keys.setColorAt(j, c);

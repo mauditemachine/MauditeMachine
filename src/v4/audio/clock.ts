@@ -158,6 +158,8 @@ let locked = false;
  * RUN/STOP et un RUN frais l'oublient ; PLAY en pause reprend a ce pas.
  */
 let resumeAt = -1;
+/** Le dernier pas entendu avant la pause (-1 : aucun) : la tete de lecture y reste (la revue de D1, R6). */
+let pausedAt = -1;
 /** le RUN qui attend le son est une reprise de pause (onCtxState la garde) */
 let wantResume = false;
 /**
@@ -699,6 +701,7 @@ function pause(): boolean {
   stop();
   if (unheard) unbarListeners.forEach((fn) => fn());
   resumeAt = at;
+  pausedAt = e ? e.step : -1;
   emit();
   return true;
 }
@@ -773,6 +776,10 @@ export const clock = {
   /** Le pas de la reprise (-1 : pas en pause). */
   get resumeStep(): number {
     return running ? -1 : resumeAt;
+  },
+  /** En pause, le dernier pas entendu (la tete de lecture y reste, V.5.0) ; -1 sinon. */
+  get pausedStep(): number {
+    return running || resumeAt < 0 ? -1 : pausedAt;
   },
   /**
    * Repli sans WebGL (perte de contexte, erreur) : STOP, et RUN refuse tant

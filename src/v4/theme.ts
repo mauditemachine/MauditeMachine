@@ -130,8 +130,11 @@ export const COLOR = Object.fromEntries(
  */
 export const DT_FACE: boolean = !PORTRAIT;
 export type DtTone = 'red' | 'yellow' | 'white' | 'green' | 'magenta' | 'blue' | 'orange';
-const DT_HEX_DARK: Readonly<Record<DtTone, string>> = { red: '#FF2B2B', yellow: '#FFD75E', white: '#F4F1EA', green: '#3DDC5A', magenta: '#E04DD8', blue: '#4DA3FF', orange: '#FF6A13' };
-const DT_HEX_LIGHT: Readonly<Record<DtTone, string>> = { red: '#D81E1E', yellow: '#E09A10', white: '#191919', green: '#1F9E3A', magenta: '#B23AAB', blue: '#2F78D6', orange: '#D9560A' };
+/** La palette de la machine noire : aussi celle du boitier (hw/snapshot.ts, la revue de D1, R10 : le boitier n'a pas de creme). */
+export const DT_HEX_DARK: Readonly<Record<DtTone, string>> = { red: '#FF2B2B', yellow: '#FFD75E', white: '#F4F1EA', green: '#3DDC5A', magenta: '#E04DD8', blue: '#4DA3FF', orange: '#FF6A13' };
+// L'orange de la creme (la revue de D1, R3) : #A84300, l'encre des fonctions secondaires sous l'eclairage (le #D9560A d'avant
+// lisait a 2,4:1 sur le panneau eclaire)
+const DT_HEX_LIGHT: Readonly<Record<DtTone, string>> = { red: '#D81E1E', yellow: '#E09A10', white: '#191919', green: '#1F9E3A', magenta: '#B23AAB', blue: '#2F78D6', orange: '#A84300' };
 /** La palette de l'apparence posee (applyAppearance la change en place). */
 export const DT_HEX: Record<DtTone, string> = { ...DT_HEX_DARK };
 
@@ -1768,7 +1771,8 @@ export const KEY_LIT = {
     dwhite: [0.6, 0.58, 0.54],
     dmagenta: [0.66, 0.05, 0.6],
     dblue: [0.05, 0.3, 0.95],
-    dorange: [0.95, 0.08, 0],
+    // La revue de D1 (R7) : 0.16 de vert (0.08 lisait a 11 degres de teinte, pres du rouge d'une touche allumee)
+    dorange: [0.95, 0.16, 0],
   } as Readonly<Record<KeyLitTone, readonly number[]>>,
   dark: 0.4,
   ledWhite: 0.55,
@@ -1876,7 +1880,13 @@ export const PAD_DOUBLE_TAP_MS = 400;
  * Appui sur un pas (2026-10-01) : la touche s'enfonce de depth et s'eclaire
  * (emissif glow, lineaire) en downMs, remonte et s'eteint en upMs.
  */
-export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: [0.16, 0.04, 0.004] } as const;
+/**
+ * L'appui au desktop (V.5.0, la revue de D1, R2) : neutre, comme la Digitakt (l'orange n'est qu'a FUNC) : sur la machine
+ * noire un eclat blanc faible (glow, emissif lineaire) ; sur la creme, sans eclat, le dessus fonce vers un gris (tint, albedo
+ * lineaire, PRESS_TINT). Le telephone garde son eclat orange.
+ */
+const DT_PRESS = { glow: [0.06, 0.06, 0.058], light: { glow: [0, 0, 0], tint: [0.32, 0.32, 0.31] } } as const;
+export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: (DT_FACE ? [...DT_PRESS.glow] : [0.16, 0.04, 0.004]) as readonly number[] } as const;
 
 /**
  * Les touches en relief de la face du desktop (V.4.2, 2026-10-27, Mika : "plus avec un effet 3d, parce que je trouve ca
@@ -2952,7 +2962,7 @@ const LIGHT = {
     dwhite: [0.03, 0.03, 0.03],
     dmagenta: [0.55, 0.06, 0.5],
     dblue: [0.05, 0.24, 0.8],
-    dorange: [0.85, 0.13, 0.01],
+    dorange: [0.85, 0.2, 0.01],
   } as Record<KeyLitTone, number[]>,
   keyLitGlow: 0.3,
 };
@@ -3003,7 +3013,7 @@ export function applyAppearance(a: Appearance): void {
   }
   for (const k of ['selected', 'active', 'flash', 'orange', 'orangeDim', 'muted'] as const) Object.assign(PAD_GLOW[k] as unknown as number[], L ? LIGHT.glow[k] : DARK.glow[k]);
   FLASH_TINT.rgb = L ? [...LIGHT.flashTint] : null;
-  Object.assign(STEP_PRESS.glow as unknown as number[], L ? LIGHT.press : DARK.press);
+  Object.assign(STEP_PRESS.glow as unknown as number[], L ? (DT_FACE ? DT_PRESS.light.glow : LIGHT.press) : DARK.press);
   const floor = FLOOR as unknown as { haloHex: string; shadow: number; contact: { opacity: number } };
   floor.haloHex = L ? LIGHT.floor.haloHex : DARK.floor.haloHex;
   floor.shadow = L ? LIGHT.floor.shadow : DARK.floor.shadow;
@@ -3017,7 +3027,7 @@ export function applyAppearance(a: Appearance): void {
   INK.silk.splice(0, 3, ...(L ? LIGHT.silk : DARK.silk));
   EXPOSURE.value = L ? LIGHT.exposure : 1;
   OPEN_TINT.splice(0, 3, ...(L ? LIGHT.openTint : [1, 1, 1]));
-  PRESS_TINT.rgb = L ? [1.0, 0.24, 0.035] : null;
+  PRESS_TINT.rgb = L ? (DT_FACE ? [...DT_PRESS.light.tint] : [1.0, 0.24, 0.035]) : null;
   // Une touche allumee sur la machine claire (2026-10-18) : sa teinte, l'emissif plus doux
   KEY_LIT_LIGHT.tint = L ? LIGHT.keyLit : null;
   KEY_LIT_LIGHT.glow = L ? LIGHT.keyLitGlow : 1;
