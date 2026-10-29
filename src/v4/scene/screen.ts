@@ -181,7 +181,7 @@ import { DT_FACE, FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, O
 import { PRESET_SLOTS } from '../state/presetMode';
 import { softKeyPitchU, softKeyU } from '../rytm/presetKeys';
 import { rytmInfoHit } from '../rytm/infoIds';
-import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, isRytmPage, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { encUnit, v127Text } from '../rytm/values';
 import { screenDials, type ScreenDialId } from '../state/screenDials';
@@ -2612,8 +2612,10 @@ export class Screen {
     }
     // Le bord gauche le plus a gauche ou la voix peut se poser, les onglets serres au palier fit (le plus large des 16
     // ecrans des 8 voix ; sans voix, VOICE FX se serre plus)
+    // Seulement les ecrans des pages de cet appareil (V.5.0 : TRIG, MOD, TEMPO et le MIXER sont au desktop ; le telephone
+    // garde sa mesure d'avant, au pixel pres)
     const need = (fit: number): number =>
-      Math.max(...INSTRUMENTS.flatMap((inst) => RYTM_SCREENS.map((s) => this.headLeft(SCREEN_PAGE[s], s, inst, HEAD_FIT[fit], false).end + (fxScopeTabs(s) ? HEAD_COL.tabAir : HEAD_COL.air))));
+      Math.max(...INSTRUMENTS.flatMap((inst) => RYTM_SCREENS.filter((s) => isRytmPage(SCREEN_PAGE[s])).map((s) => this.headLeft(SCREEN_PAGE[s], s, inst, HEAD_FIT[fit], false).end + (fxScopeTabs(s) ? HEAD_COL.tabAir : HEAD_COL.air))));
     const fitMax = need(HEAD_FIT_MAX);
     for (const tier of DIAL_TIERS) {
       const groupLeft = right - g.width(tier);
