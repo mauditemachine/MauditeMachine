@@ -147,6 +147,11 @@ interface Snap {
   /** ses reglages de trig (V.5.1) et le passage du pattern ou il joue (le compteur de passages) */
   trigs: Readonly<TrigSet>;
   pass: number;
+  /**
+   * la condition LST telle qu'a sa premiere programmation (la revue de D2, E3) : rejoue d'une mesure deja annoncee, il
+   * la garde (la chaine a deja avance, lastFn ne parle plus de sa mesure)
+   */
+  last: boolean;
 }
 
 /** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
@@ -184,6 +189,11 @@ let wantResume = false;
 /** Le sequenceur des trigs (V.5.1, audio/seq.ts) : son etat, et celui du pas ou une pause reprendra. */
 let seqSt: SeqState = seqState(1);
 let resumeSeq: SeqState | null = null;
+/**
+ * La position (abs) du pas de la reprise (la revue de D2, E6) : une reprise repart de la, l'etat du sequenceur des trigs
+ * (ses retrigs, ses ancres de LFO) est dans ces coordonnees ; un RUN frais repart de 0.
+ */
+let resumeAbs = 0;
 /** Le compteur de passages du pattern (V.5.1) : 1 au lancement ; celui d'avant le dernier debut de mesure (unbar). */
 let passN = 1;
 let passBefore = 1;
@@ -293,7 +303,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
-  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get(), trigs: cur.trigs, pass: passN };
+  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get(), trigs: cur.trigs, pass: passN, last: lastFn ? lastFn() : false };
   const vs: Voice[] = [];
   let mask = 0;
   // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant) ; au desktop
@@ -312,7 +322,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     steps: snap.steps,
     locks: snap.locks,
     trigs: snap.trigs,
-    ctx: { pass: snap.pass, fill: fill.on, last: lastFn ? lastFn() : false },
+    ctx: { pass: snap.pass, fill: fill.on, last: snap.last },
     plays: (inst) => voices.plays(inst, pm),
     fxOf: (inst) => voiceFx.of(inst),
   });
@@ -454,9 +464,11 @@ function reschedule(): void {
   const now = c.currentTime;
   prune(now);
   const edge = now + GUARD_S;
-  // Le premier pas dont aucun coup n'est parti (son plus en avance : un uTIME negatif)
-  const i = plan.findIndex((x) => x.first > edge);
-  if (i < 0) return;
+  // Le premier pas a refaire, cherche par la fin (la revue de D2, E4) : avec le SWING et un uTIME negatif, first ne croit
+  // plus forcement ; tout pas refait a ainsi TOUS ses coups au-dela de la garde (aucun coup parti n'est annule ni rejoue)
+  let i = plan.length;
+  while (i > 0 && plan[i - 1].first > edge) i -= 1;
+  if (i === plan.length) return;
   const first = plan[i];
   // Le sequenceur des trigs repart de son etat d'avant ce pas (V.5.1)
   seqSt = first.seqBefore;
@@ -723,7 +735,8 @@ function start(fromPause = false): boolean {
   resumeAt = -1;
   // Le sequenceur des trigs (V.5.1) : une reprise repart de l'etat de son pas ; un RUN frais, de zero (le compteur de
   // passages a 1, un nouveau tirage de PROB)
-  seqSt = from >= 0 && resumeSeq ? resumeSeq : seqState((Math.random() * 4294967296) >>> 0);
+  const resumed = from >= 0 && resumeSeq !== null;
+  seqSt = resumed && resumeSeq ? resumeSeq : seqState((Math.random() * 4294967296) >>> 0);
   resumeSeq = null;
   if (from < 0) {
     passN = 1;
@@ -745,7 +758,10 @@ function start(fromPause = false): boolean {
   n = 0;
   step = from >= 0 ? from : g ? g.step : 0;
   leadAt = -1;
-  abs = 0;
+  // Une reprise continue a sa position (E6) : ses retrigs et ses LFO reprennent ou ils en etaient ; barAbs a -1 laisse
+  // la mesure suivante s'annoncer
+  abs = resumed ? resumeAbs : 0;
+  resumeAbs = 0;
   barAbs = -1;
   plan.length = 0;
   runFirst = seq;
@@ -809,12 +825,15 @@ function pause(): boolean {
   // Un pas 1 programme mais pas encore entendu : sa mesure est annoncee (bar), la chaine a avance pour rien
   const unheard = !!c && plan.some((p) => p.step === 0 && p.when > c.currentTime);
   // Le sequenceur des trigs du pas de la reprise (V.5.1) et le compteur de passages : la pause les garde
-  const rs = c ? plan.find((p) => p.when > c.currentTime)?.seqBefore ?? null : null;
+  const rp = c ? plan.find((p) => p.when > c.currentTime) : undefined;
+  const rs = rp?.seqBefore ?? null;
+  const ra = rp?.abs ?? abs;
   const pass = unheard ? passBefore : passN;
   stop();
   passN = pass;
   if (unheard) unbarListeners.forEach((fn) => fn());
   resumeSeq = rs;
+  resumeAbs = ra;
   resumeAt = at;
   pausedAt = e ? e.step : -1;
   emit();
