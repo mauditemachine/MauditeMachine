@@ -1327,6 +1327,9 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
     return n;
   };
   const lvl = ex?.gain ? gainNode() : null;
+  // Une valeur posee a l'heure du coup (pas seulement .value) : un lock trig la tient ensuite (cancelAndHoldAtTime) et glisse
+  // depuis elle ; sans evenement avant lui, sa rampe partait du debut du contexte
+  if (lvl) lvl.gain.setValueAtTime(1, when);
   const lfoG = ex?.dests.has('VOL') ? gainNode() : null;
   const cutG = ex && ex.cut !== null ? gainNode() : null;
   const rollG = ex?.roll ? gainNode() : null;
@@ -1346,6 +1349,8 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
       pn.channelCountMode = 'explicit';
     }
     pn.pan.value = Math.max(-1, Math.min(1, hp.pan));
+    // Le panoramique en direct (V.5.1) : sa valeur posee a l'heure du coup, comme le VOL des lock trigs
+    if (ex) pn.pan.setValueAtTime(Math.max(-1, Math.min(1, hp.pan)), when);
     pn.connect(dest);
     nodes.push(pn);
     dest = pn;
@@ -1393,6 +1398,8 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
     // Le Q de Web Audio est en dB pour le passe-bas et le passe-haut (lineaire pour le passe-bande) : RESO a 0 donne alors
     // le Butterworth (0.707, aucune bosse), a fond un Q de 12
     bq.Q.value = fl.type === 'bandpass' ? fl.q : 20 * Math.log10(fl.q);
+    // Le filtre en direct (V.5.1) : son Q pose a l'heure du coup (un lock trig RESO glisse depuis lui)
+    if (ex) bq.Q.setValueAtTime(bq.Q.value, when);
     const f0 = hz(fl.hz);
     if (fl.oct !== 0) {
       const peak = hz(fl.hz * Math.pow(2, fl.oct));
@@ -1401,7 +1408,11 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
         bq.frequency.exponentialRampToValueAtTime(peak, when + fl.atk);
       } else bq.frequency.setValueAtTime(peak, when);
       bq.frequency.setTargetAtTime(f0, when + fl.atk, fl.tau);
-    } else bq.frequency.value = f0;
+    } else {
+      bq.frequency.value = f0;
+      // De meme sa coupure (un lock trig FREQ glisse depuis elle)
+      if (ex) bq.frequency.setValueAtTime(f0, when);
+    }
     bq.connect(dest);
     nodes.push(bq);
     dest = bq;
@@ -2647,7 +2658,7 @@ export interface AudioDebug {
   /** contextes crees depuis le chargement de la page (0 avant le premier geste, 1 ensuite) */
   readonly created: number;
   readonly triggers: number;
-  /** les lock trigs appliques en direct depuis le chargement (V.5.1) */
+  /** les lock trigs appliques depuis le chargement (V.5.1 ; en direct et hors ligne) */
   readonly lockTrigs: number;
   readonly last: TriggerInfo | null;
   /** crete absolue des 1024 derniers echantillons de l'analyseur */

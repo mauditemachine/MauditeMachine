@@ -210,6 +210,9 @@ export interface SequencerInfo {
   lockMask: number;
   lockStep: number;
   lockBlink: boolean;
+  /** V.5.1 : les lock trigs de la voix choisie (masque) et le point des conditions montre sur chaque pas ('1' : montre) */
+  ltrgMask: number;
+  condDots: string;
   /** velocite de chaque pas (0 vide a 9 la plus forte, 127 a l'ecran) */
   programmed: string;
   /** V.5.0 : la teinte de chaque pas (KEY_LIT : dred les coups, dwhite un pattern plein, dgreen et dmagenta le mode MUTE) */
@@ -1048,6 +1051,8 @@ export class Sequencer3D {
       lockMask: this.lockMask,
       lockStep: this.lockStep,
       lockBlink: this.lockBlink,
+      ltrgMask: this.ltrgMask,
+      condDots: Array.from(this.condShown, String).join(''),
       programmed,
       instrument: this.instrument,
     };

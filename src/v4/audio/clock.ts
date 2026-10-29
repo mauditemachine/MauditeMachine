@@ -990,6 +990,8 @@ export interface ClockDebug {
   readonly locked: boolean;
   /** fins de mesure recalees sur la platine qui mene (2026-10-27, le SYNC du MIXER) */
   readonly leadShifts: number;
+  /** le compteur de passages du pattern (V.5.1, les conditions A:B et 1ST) */
+  readonly pass: number;
 }
 
 export const clockDebug: ClockDebug = {
@@ -1029,5 +1031,8 @@ export const clockDebug: ClockDebug = {
   },
   get leadShifts() {
     return stats.leadShifts;
+  },
+  get pass() {
+    return passN;
   },
 };
