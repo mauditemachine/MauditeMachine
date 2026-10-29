@@ -66,6 +66,8 @@
 
 import type { Inst } from '../theme';
 import type { KitKnob, Layer } from './kit';
+import { TRIG_PARAMS, clampTrig, isTrigParam, type TrigParam } from './trig';
+import { LFO_PARAMS, clampLfo, isLfoParam, type LfoParam } from './lfo';
 
 /**
  * Les reglages verrouillables (R2, R3) : tous coup par coup. L'etape 2 de la
@@ -82,14 +84,22 @@ import type { KitKnob, Layer } from './kit';
  */
 export type VoiceLockId = 'atk' | 'hold' | 'fine' | 'ftype' | 'fcut' | 'freso' | 'fenv' | 'fatk' | 'fdec' | 'tone' | 'dist' | 'chorus';
 export const VOICE_LOCK_IDS: readonly VoiceLockId[] = ['atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec', 'tone', 'dist', 'chorus'];
-export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | LayerLockId | 'delay' | 'reverb' | VoiceLockId;
+/**
+ * V.5.1 (2026-10-29, l'etape D2) : les reglages de trig (audio/trig.ts : len prob cond utime lfot rtrg rate vfad rlen), les
+ * LFO de la voix (audio/lfo.ts : l1spd... l2dep), des entiers, et ltrg (1 : le pas est un lock trig, il ne joue pas, ses
+ * verrous s'appliquent au coup de la voix qui sonne encore). Une revision d'avant les ignore (cleanStep ne lit que ses cles).
+ */
+export type SeqLockId = TrigParam | LfoParam | 'ltrg';
+export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | LayerLockId | 'delay' | 'reverb' | VoiceLockId | SeqLockId;
 /** Les potards de la machine (SRC) : le coup se calcule avec eux (revue de R2 ; SWEEP et la caisse claire depuis R3). */
 export type KitLockId = 'ktune' | 'kattack' | 'kdecay' | 'kdrive' | 'snappy' | 'gate' | 'ksweep' | 'sdtune' | 'sddecay' | 'sdtone';
 export const KIT_LOCK_IDS: readonly KitLockId[] = ['ktune', 'kattack', 'kdecay', 'kdrive', 'snappy', 'gate', 'ksweep', 'sdtune', 'sddecay', 'sdtone'];
 /** Les reglages des couches (R3) : les deux niveaux, la couche SAMPLE. */
 export type LayerLockId = 'syn' | 'slev' | 'stune' | 'sfine' | 'sstart' | 'slen' | 'srev';
 export const LAYER_LOCK_IDS: readonly LayerLockId[] = ['syn', 'slev', 'stune', 'sfine', 'sstart', 'slen', 'srev'];
-export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, ...LAYER_LOCK_IDS, 'delay', 'reverb', ...VOICE_LOCK_IDS];
+export const SEQ_LOCK_IDS: readonly SeqLockId[] = [...TRIG_PARAMS, ...LFO_PARAMS, 'ltrg'];
+export const isSeqLock = (v: unknown): v is SeqLockId => typeof v === 'string' && (SEQ_LOCK_IDS as readonly string[]).includes(v);
+export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, ...LAYER_LOCK_IDS, 'delay', 'reverb', ...VOICE_LOCK_IDS, ...SEQ_LOCK_IDS];
 export const isLockId = (v: unknown): v is LockId => typeof v === 'string' && (LOCK_IDS as readonly string[]).includes(v);
 /**
  * Le potard du kit de chaque verrou de la machine (revue de R2 ; SWEEP et la caisse claire depuis R3) ; le reglage de
@@ -169,6 +179,10 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
  * cinquantieme ne bouge pas a la lecture).
  */
 export function clampLock(id: LockId, v: number, exact = false): number {
+  // Les reglages de trig et des LFO (V.5.1) : leurs crans entiers ; ltrg : 1
+  if (isTrigParam(id)) return clampTrig(id, v);
+  if (isLfoParam(id)) return clampLfo(id, v);
+  if (id === 'ltrg') return 1;
   if (!Number.isFinite(v)) return id === 'decay' ? 1 : id === 'level' ? 0.8 : 0;
   if (id === 'tune' || id === 'stune') return Math.max(-24, Math.min(24, Math.round(v * 24))) / 24;
   if (id === 'sfine' || id === 'fine') return Math.max(-64, Math.min(64, Math.round(v * 64))) / 64;
@@ -299,6 +313,26 @@ export function cleanLocks(o: unknown): Locks | null {
 /** Les verrous du pas `step` de `inst`, null sans verrou. */
 export function lockOf(l: Readonly<Locks> | null | undefined, inst: Inst, step: number): Readonly<StepLock> | null {
   return l?.[inst]?.[String(step)] ?? null;
+}
+
+/** Le pas est-il un lock trig (V.5.1) : il ne joue pas, ses verrous s'appliquent au coup de la voix qui sonne encore. */
+export const isLockTrig = (l: Readonly<Locks> | null | undefined, inst: Inst, step: number): boolean => lockOf(l, inst, step)?.ltrg === 1;
+
+/**
+ * Les verrous d'un pas tels que le coup les lit (V.5.1) : sans les reglages de trig, des LFO ni ltrg (le sequenceur et les
+ * LFO les lisent a part) ; null s'il n'en reste aucun : le coup est exactement celui d'un pas sans verrou.
+ */
+export function hitLock(l: Readonly<StepLock> | null): Readonly<StepLock> | null {
+  if (!l) return null;
+  let out: StepLock | null = null;
+  for (const k of Object.keys(l)) {
+    if (isSeqLock(k)) {
+      if (!out) out = { ...l };
+      delete out[k];
+    }
+  }
+  if (!out) return l;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /** Le pas porte-t-il au moins un verrou ? */

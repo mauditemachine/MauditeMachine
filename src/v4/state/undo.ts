@@ -110,7 +110,8 @@ function slotOf(m: PresetMachine): number | null {
 type Part = Record<string, unknown>;
 /** Les cles d'un etat qui appartiennent a l'emplacement (le motif et ses verrous ; la ligne, sa recette, sa longueur). */
 // Le mute du pattern (V.5.0, 2026-10-29) appartient a l'emplacement, comme ses verrous et ses scenes
-const PART_KEYS: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: ['steps', 'locks', 'scenes', 'pmutes'], bass: ['steps', 'recipe', 'len'], voy: [] };
+// Les reglages de trig (V.5.1) aussi : chaque pattern a les siens
+const PART_KEYS: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: ['steps', 'locks', 'scenes', 'pmutes', 'trigs'], bass: ['steps', 'recipe', 'len'], voy: [] };
 
 function partOf(m: PresetMachine, d: Snap): Part {
   const o = d as unknown as Part;
@@ -136,7 +137,8 @@ function storedPart(m: PresetMachine, slot: number): Part {
     const scenes = p.scenes[slot];
     const sc = scenes ? toStored(scenes) : undefined;
     const pm = p.pmutes[slot];
-    return { steps: { ...steps }, ...(locks ? { locks: JSON.parse(JSON.stringify(locks)) as unknown } : {}), ...(sc ? { scenes: sc } : {}), ...(pm && pm.length ? { pmutes: [...pm] } : {}) };
+    const tr = p.trigs[slot];
+    return { steps: { ...steps }, ...(locks ? { locks: JSON.parse(JSON.stringify(locks)) as unknown } : {}), ...(sc ? { scenes: sc } : {}), ...(pm && pm.length ? { pmutes: [...pm] } : {}), ...(tr ? { trigs: JSON.parse(JSON.stringify(tr)) as unknown } : {}) };
   }
   const b = bassSlots?.get();
   const steps = b?.slots[slot];
@@ -154,7 +156,7 @@ function storedPart(m: PresetMachine, slot: number): Part {
 function sigOf(m: PresetMachine): readonly unknown[] {
   if (m === 'mm808') {
     const p = pattern.get();
-    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get(), pattern.scenes.get(), p.pmutes];
+    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get(), pattern.scenes.get(), p.pmutes, p.trigs];
   }
   if (m === 'voy') return [voyParams.get(), seq.get(), arp.get().prog];
   const s = bassState.get();

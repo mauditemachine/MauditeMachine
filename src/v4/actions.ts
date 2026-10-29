@@ -14,6 +14,7 @@ import { tempoSync } from './state/tempoSync';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
 import { lockOf, parseSnd, type LockId, type LockKey, type Locks, type StepLock } from './audio/locks';
+import type { TrigRow, TrigSet } from './audio/trig';
 import { onSampleFailed, onSampleLoaded, requestSample, sampleByKey, sampleLabel, samplePcm, sampleStatus, samplesChanged, samplesOf, samplesVersion, type KitSample, type SampleFail } from './audio/samples';
 import { UserSampleError, userSamples } from './audio/usersamples';
 import { COLOR_VOICES, randomBeat, randomColors, type BeatStyle } from './audio/beats';
@@ -4436,8 +4437,8 @@ export function stopKey(stage: Stage | null = null): void {
 
 /** Le presse-papiers (une seule chose) : un pattern entier, ou la ligne d'une voix. */
 type Clip =
-  | { kind: 'pattern'; from: number; steps: Steps; locks: Locks; scenes: SceneSet; pmutes: readonly Inst[] }
-  | { kind: 'row'; inst: Inst; row: string; locks: Locks[Inst] };
+  | { kind: 'pattern'; from: number; steps: Steps; locks: Locks; scenes: SceneSet; pmutes: readonly Inst[]; trigs: TrigSet }
+  | { kind: 'row'; inst: Inst; row: string; locks: Locks[Inst]; trigs: TrigRow | undefined };
 let clip: Clip | null = null;
 
 /** FUNC + REC : COPY ; hors REC le pattern (pas, verrous, scenes, mute du pattern), REC allume la ligne de la voix. */
@@ -4449,12 +4450,12 @@ export function copyKey(): void {
       lcdMessage.show(LCD_NO_VOICE);
       return;
     }
-    clip = { kind: 'row', inst, row: p.steps[inst], locks: p.locks[inst] ? (JSON.parse(JSON.stringify(p.locks[inst])) as Locks[Inst]) : undefined };
+    clip = { kind: 'row', inst, row: p.steps[inst], locks: p.locks[inst] ? (JSON.parse(JSON.stringify(p.locks[inst])) as Locks[Inst]) : undefined, trigs: p.trigs[inst] ? { ...p.trigs[inst] } : undefined };
     lcdMessage.show(`${inst} COPIED`);
     return;
   }
   const from = patterns.get().cur;
-  clip = { kind: 'pattern', from, steps: { ...p.steps }, locks: JSON.parse(JSON.stringify(p.locks)) as Locks, scenes: pattern.scenes.get(), pmutes: [...p.pmutes] };
+  clip = { kind: 'pattern', from, steps: { ...p.steps }, locks: JSON.parse(JSON.stringify(p.locks)) as Locks, scenes: pattern.scenes.get(), pmutes: [...p.pmutes], trigs: JSON.parse(JSON.stringify(p.trigs)) as TrigSet };
   lcdMessage.show(`PATTERN ${slotName(from)} COPIED`);
 }
 
@@ -4470,6 +4471,8 @@ export function pasteKey(): void {
     pattern.replace(clip.steps, clip.locks);
     pattern.scenes.replace(clip.scenes);
     pattern.setPmutes(clip.pmutes);
+    // Ses reglages de trig (V.5.1)
+    pattern.setTrigs(clip.trigs);
     lcdMessage.show(`PATTERN ${slotName(clip.from)} PASTED ON ${slotName(patterns.get().cur)}`);
     return;
   }
@@ -4479,6 +4482,11 @@ export function pasteKey(): void {
     return;
   }
   pattern.replace({ ...p.steps, [inst]: clip.row }, withRowLocks(p.locks, inst, clip.locks));
+  // Les reglages de trig de la voix copiee (V.5.1) vont avec sa ligne
+  const tr: TrigSet = { ...p.trigs };
+  if (clip.trigs) tr[inst] = { ...clip.trigs };
+  else delete tr[inst];
+  pattern.setTrigs(tr);
   lcdMessage.show(clip.inst === inst ? `${inst} PASTED` : `${clip.inst} PASTED ON ${inst}`);
 }
 
@@ -4508,6 +4516,8 @@ function dtClear(stage: Stage | null): void {
   }
   undo.boundary('mm808', 'step');
   pattern.replace({ ...p.steps, [inst]: '0'.repeat(STEP_COUNT) }, withRowLocks(p.locks, inst, undefined));
+  // Ses reglages de trig repartent au depart (V.5.1), comme ceux du pattern a CLEAR
+  pattern.clearTrigs(inst);
   lcdMessage.show(`${inst} CLEARED`);
 }
 

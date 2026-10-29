@@ -38,6 +38,7 @@
 import type { Inst } from '../theme';
 import { anyLocks, cleanLocks, NO_LOCKS, withLock, withoutLock, type LockKey, type Locks } from './locks';
 import { NO_SCENES, cleanScenes, clearScene, sameScenes, toStored, withScene, withoutScene, type SceneId, type SceneSet, type StoredScenes } from '../rytm/sceneData';
+import { NO_TRIGS, anyTrigs, cleanTrigs, sameTrigs, withTrig, type TrigParam, type TrigSet } from './trig';
 
 // Huit voix (2026-10-05), dans l'ordre des pads : BD SD CH OH en haut, CP TOM HT CY dessous
 export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
@@ -279,6 +280,11 @@ export interface StoredPattern {
    * voix coupee (le JSON d'avant, octet pour octet)
    */
   pmutes?: Inst[];
+  /**
+   * les reglages de trig par defaut de chaque voix (V.5.1, 2026-10-29, la page TRIG, audio/trig.ts) : seulement ce qui
+   * quitte le depart ; absent sinon (le JSON d'avant, octet pour octet)
+   */
+  trigs?: TrigSet;
 }
 
 export interface PatternState extends Pattern {
@@ -290,6 +296,8 @@ export interface PatternState extends Pattern {
    * voix est coupee si les mutes de la machine (state/voices.ts) ou ceux du pattern la coupent.
    */
   pmutes: readonly Inst[];
+  /** les reglages de trig par defaut de chaque voix (V.5.1) : {} au depart */
+  trigs: Readonly<TrigSet>;
 }
 
 /** Le mute d'un pattern lu (un stockage, un preset, l'UNDO) : les voix connues, sans doublon, dans l'ordre ; [] sinon. */
@@ -415,7 +423,7 @@ export function load(): Pattern {
 /** Au millieme : le JSON reste court, un glisser donne des valeurs continues. */
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
-export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES): StoredPattern {
+export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES, trigs: Readonly<TrigSet> = NO_TRIGS): StoredPattern {
   const out: StoredPattern = {
     v: 1,
     // Au BPM entier (2026-10-27) : un tempo suivi au centieme (followBpm) se retient arrondi, validate le relit
@@ -427,7 +435,14 @@ export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Reado
   const sc = toStored(scenes);
   if (sc) out.scenes = sc;
   if (pmutes.length > 0) out.pmutes = [...pmutes];
+  if (anyTrigs(trigs)) out.trigs = JSON.parse(JSON.stringify(trigs)) as TrigSet;
   return out;
+}
+
+/** Les reglages de trig d'un motif stocke (V.5.1) ; {} sans eux. */
+export function validateTrigs(raw: unknown): Readonly<TrigSet> {
+  if (!raw || typeof raw !== 'object') return NO_TRIGS;
+  return cleanTrigs((raw as { trigs?: unknown }).trigs) ?? NO_TRIGS;
 }
 
 /** Les scenes d'un motif stocke ; NO_SCENES sans elles, ou illisibles. */
@@ -443,9 +458,9 @@ export function validateLocks(raw: unknown): Readonly<Locks> {
 }
 
 /** true si l'ecriture a reussi. */
-export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES): boolean {
+export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES, trigs: Readonly<TrigSet> = NO_TRIGS): boolean {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks, scenes, pmutes)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks, scenes, pmutes, trigs)));
     return true;
   } catch {
     return false;
@@ -497,6 +512,8 @@ let state: PatternState = {
   locks: stored.legacy ? NO_LOCKS : validateLocks(stored.raw),
   // Le mute du pattern (V.5.0) : un motif d'avant n'en a pas
   pmutes: stored.legacy || !stored.raw || typeof stored.raw !== 'object' ? NO_PMUTES : cleanPmutes((stored.raw as { pmutes?: unknown }).pmutes),
+  // Les reglages de trig (V.5.1) : un motif d'avant n'en a pas
+  trigs: stored.legacy ? NO_TRIGS : validateTrigs(stored.raw),
 };
 let fxState: Readonly<Fx> = validateFx(stored.raw);
 let scenesState: SceneSet = stored.legacy ? NO_SCENES : validateScenes(stored.raw);
@@ -511,7 +528,7 @@ function scheduleSave(): void {
   if (saveTimer !== 0) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
-    save(state, fxState, state.locks, scenesState, state.pmutes);
+    save(state, fxState, state.locks, scenesState, state.pmutes, state.trigs);
   }, SAVE_DEBOUNCE_MS);
 }
 
@@ -520,7 +537,7 @@ function flush(): void {
   if (saveTimer === 0) return;
   window.clearTimeout(saveTimer);
   saveTimer = 0;
-  save(state, fxState, state.locks, scenesState, state.pmutes);
+  save(state, fxState, state.locks, scenesState, state.pmutes, state.trigs);
 }
 
 function commit(next: PatternState, persist: boolean): void {
@@ -626,21 +643,21 @@ export const pattern = {
   },
   toggle(inst: Inst, i: number): void {
     const next = toggleStep(state, inst, i);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes, trigs: state.trigs }, true);
   },
   /** L'editeur (ui/BeatEditor.tsx) : un pas a un niveau, 0 a 9. */
   set(inst: Inst, i: number, v: number): void {
     const next = setStep(state, inst, i, v);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes, trigs: state.trigs }, true);
   },
   /** Appui long : le pas vide. */
   clearStep(inst: Inst, i: number): void {
     const next = clearStep(state, inst, i);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes, trigs: state.trigs }, true);
   },
-  /** CLEAR : les pas et leurs verrous, toutes les voix. */
+  /** CLEAR : les pas et leurs verrous, toutes les voix ; les reglages de trig repartent au depart (V.5.1). */
   clear(): void {
-    commit({ ...clearSteps(state), instrument: state.instrument, locks: NO_LOCKS, pmutes: state.pmutes }, true);
+    commit({ ...clearSteps(state), instrument: state.instrument, locks: NO_LOCKS, pmutes: state.pmutes, trigs: NO_TRIGS }, true);
   },
   /**
    * Un motif entier ; les rangees invalides gardent les leurs. locks : ceux
@@ -678,7 +695,26 @@ export const pattern = {
     if (b !== state.bpm) commit({ ...state, bpm: b }, keep);
     else if (keep) scheduleSave();
   },
-  serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState, state.pmutes),
+  serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState, state.pmutes, state.trigs),
+  /** Un reglage de trig par defaut d'une voix (V.5.1, la page TRIG sans pas tenu) ; rien ne part si rien ne change. */
+  setTrig(inst: Inst, p: TrigParam, v: number): void {
+    const next = withTrig(state.trigs, inst, p, v);
+    if (sameTrigs(next, state.trigs)) return;
+    commit({ ...state, trigs: anyTrigs(next) ? next : NO_TRIGS }, true);
+  },
+  /** Les reglages de trig d'un autre pattern, d'un preset, de l'UNDO (V.5.1). */
+  setTrigs(t: Readonly<TrigSet> | null | undefined): void {
+    const next = cleanTrigs(t) ?? NO_TRIGS;
+    if (sameTrigs(next, state.trigs)) return;
+    commit({ ...state, trigs: next }, true);
+  },
+  /** Les reglages de trig d'une voix repartent au depart (la ligne de la voix videe). */
+  clearTrigs(inst: Inst): void {
+    if (!state.trigs[inst]) return;
+    const next: TrigSet = { ...state.trigs };
+    delete next[inst];
+    commit({ ...state, trigs: anyTrigs(next) ? next : NO_TRIGS }, true);
+  },
   /** Le mute du pattern (V.5.0) : les voix qu'il coupe (un autre pattern, un preset, l'UNDO, FUNC + TRK deux fois). */
   setPmutes(list: readonly Inst[]): void {
     const next = cleanPmutes(list);
