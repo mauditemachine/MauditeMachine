@@ -159,7 +159,7 @@ import { onSampleStatus, sampleByKey, samplesChanged } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { tempoSync } from '../state/tempoSync';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
-import { dialRange, dialShown, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
+import { dialRange, dialShown, dialUnit, dialValueText, stepWrites, lockCountOf, lockList, lockPages, lockSummary, soundBrowserView, stepPlays, voiceSoundText, type DialId, type LockLine, type SoundBrowserView } from '../actions';
 import { rytmLock } from '../state/rytmLock';
 import { sceneCtl } from '../state/sceneCtl';
 import { anyScenes, sceneCount, type SceneId } from '../rytm/sceneData';
@@ -179,7 +179,7 @@ import { voices } from '../state/voices';
 import { dtFace } from '../state/dtFace';
 import { DT_FACE, FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_BAR, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../theme';
 import { PRESET_SLOTS } from '../state/presetMode';
-import { softKeyPitchU, softKeyU } from '../rytm/presetKeys';
+import { softKeyName, softKeyPitchU, softKeyU } from '../rytm/presetKeys';
 import { rytmInfoHit } from '../rytm/infoIds';
 import { FACE_PAGES, HOME_MENU, HOME_MENU_LABEL, RYTM_SCREENS, SCREEN_LABEL, isRytmPage, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
@@ -822,6 +822,18 @@ function modeLines(): { left: string; tip: string; short: string } | null {
 const FUNC_PAGE_KEY: Readonly<Partial<Record<RytmPageId, string>>> = { mixer: 'MOD', tempo: 'FUNC + TRIG', sendfx: 'FUNC + FX' };
 const pageKeyWord = (page: RytmPageId): string => (DT_FACE ? (FUNC_PAGE_KEY[page] ?? pageLabel(page)) : pageLabel(page));
 
+/**
+ * L'aide du P-LOCK au pied (la revue de D1, T2) : au desktop hors REC, le P-LOCK demande REC ; les formes, de la plus longue
+ * a la plus courte.
+ */
+function plockHints(): readonly string[] {
+  if (!stepWrites()) return [`${TURN}  ·  ● REC + HOLD STEP: P-LOCK`, `${TURN} · ● REC + HOLD STEP: P-LOCK`, '● REC + HOLD STEP: P-LOCK'];
+  return [`${TURN}  ·  HOLD A STEP: P-LOCK`, `${TURN} · HOLD A STEP: P-LOCK`, `${TURN} · HOLD STEP: P-LOCK`];
+}
+
+/** Le mute du pattern qui joue (V.5.0) : au desktop seulement, le telephone ne le montre pas (la revue de D1, K5). */
+const pmutesNow = (): readonly Inst[] => (DT_FACE ? pattern.get().pmutes : []);
+
 /** Coupe a n lettres, un point final quand ca deborde. */
 const fit = (s: string, n: number): string => (s.length <= n ? s : `${s.slice(0, Math.max(0, n - 1))}.`);
 
@@ -1348,7 +1360,7 @@ export class Screen {
     if (st >= 0 && st !== this.lastStep) {
       const steps = pattern.get().steps;
       INSTRUMENTS.forEach((inst, i) => {
-        if (velocity(steps, inst, st) > 0 && voices.plays(inst, pattern.get().pmutes)) this.hitAt[i] = now;
+        if (velocity(steps, inst, st) > 0 && voices.plays(inst, pmutesNow())) this.hitAt[i] = now;
       });
     }
     this.lastStep = st;
@@ -1425,7 +1437,7 @@ export class Screen {
     if (inst) {
       this.text(inst, RING.cx, RING.cy + 7, inst.length > 2 ? 21 : 25, INK, 300, 'center');
       const solo = voices.isSolo(inst);
-      const muted = !voices.plays(inst, pattern.get().pmutes);
+      const muted = !voices.plays(inst, pmutesNow());
       if (solo || muted) {
         const word = solo ? 'SOLO' : 'MUTE';
         const w = this.textWidth(word, 7, 700, 0.8) + 8;
@@ -1930,6 +1942,9 @@ export class Screen {
       const w = this.textWidth(k, L.keyFont, 700, 0.8) + (this.mobile ? 16 : 12);
       this.pill(cx - w / 2, L.keyY - L.keyH / 2, w, L.keyH, null, INK, 1.2);
       this.text(k, cx, L.keyY + L.keyFont * 0.36, L.keyFont, INK, 700, 'center', 0.8);
+      // Au desktop (la revue de D1, K1) : le nom de la touche de la face qui la fait (SRC LOAD, FLTR SAVE, AMP NAME, FX DEL, PTN
+      // EXIT) ; FLTR, AMP et FX sont sous les potards, leurs pastilles rangees a droite de l'ecran
+      if (!this.mobile) this.text(softKeyName(PRESET_SLOTS[i]), cx, L.keyY - L.keyH / 2 - 3.2, 6, FAINT_TEXT, 700, 'center', 0.8);
     });
   }
 
@@ -2109,7 +2124,7 @@ export class Screen {
     const head = playhead.get();
     if (head !== this.flashHead) {
       this.flashHead = head;
-      if (head >= 0 && velocity(pattern.get().steps, inst, head) > 0 && voices.plays(inst, pattern.get().pmutes)) {
+      if (head >= 0 && velocity(pattern.get().steps, inst, head) > 0 && voices.plays(inst, pmutesNow())) {
         const lock = lockOf(pattern.get().locks, inst, head);
         const f = this.flash;
         if (lock) this.flash = { inst, step: head, lock, from: now, end: now + FLASH.max };
@@ -3541,7 +3556,7 @@ export class Screen {
     // devient sa bande A [----|----] B
     if (TALL && !this.mobile && (anyScenes(pattern.scenes.get()) || sceneCtl.moving())) {
       const fitsA = (t: string): boolean => this.textWidth(t, fs - 1, 700, 0.5) <= x1 - x0;
-      const aText = [`${TURN}  ·  HOLD A STEP: P-LOCK`, `${TURN} · HOLD A STEP: P-LOCK`, `${TURN} · HOLD STEP: P-LOCK`].find(fitsA) ?? `${TURN} · HOLD STEP: P-LOCK`;
+      const aText = plockHints().find(fitsA) ?? plockHints()[2];
       const a = this.fitText(aText, x1 - x0, fs - 1, 0.5, 700);
       this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
       const b = this.paintXStrip(x0, x1, F.y2, fs - 0.5);
@@ -3551,7 +3566,7 @@ export class Screen {
     if (TALL) {
       // La premiere forme qui tient en entier (le telephone : la place d'une ligne)
       const fits = (s: string, size: number, sp: number): boolean => this.textWidth(s, size, 700, sp) <= x1 - x0;
-      const aText = [`${TURN}  ·  HOLD A STEP: P-LOCK`, `${TURN} · HOLD A STEP: P-LOCK`, `${TURN} · HOLD STEP: P-LOCK`].find((s) => fits(s, fs - 1, 0.5)) ?? `${TURN} · HOLD STEP: P-LOCK`;
+      const aText = plockHints().find((s) => fits(s, fs - 1, 0.5)) ?? plockHints()[2];
       const a = this.fitText(aText, x1 - x0, fs - 1, 0.5, 700);
       // La touche de la page allumee encore : l'onglet suivant, nomme ; une page sans onglet : HOME (revue du 2026-10-09)
       const inst = pattern.get().instrument;
