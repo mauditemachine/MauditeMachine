@@ -1115,14 +1115,28 @@ function lfoParam(lv: LiveHit, d: LfoDest): AudioParam | null {
   if (d === 'PAN') return lv.pn?.pan ?? null;
   return null;
 }
-/** Le temps d'un glissement (lock trig, relance d'un LFO) : 3 ms, pas de marche. */
+/** Le temps d'un glissement (la relance d'un LFO) : 3 ms, pas de marche ; celui d'un lock trig, la constante de temps (1 ms). */
 const LIVE_GLIDE_S = 0.003;
+const LIVE_TAU_S = 0.001;
+
+/** La valeur des LFO continus d'un coup a t, par destination, telle que ses courbes la donnent maintenant (avant une relance). */
+function lfoHeld(lv: LiveHit, t: number): Map<LfoDest, number> {
+  const out = new Map<LfoDest, number>();
+  const L = lv.lfo;
+  if (!L) return out;
+  for (const d of liveDests(L)) {
+    const law = lfoLaw(lv, d);
+    if (law) out.set(d, law(lfoPoints(L, d, lv.when, t, t, lv.anchor)[0].v));
+  }
+  return out;
+}
 
 /**
  * Les LFO continus d'un coup (V.5.1) : des rampes sur sa duree (au plus LFO_SPAN_S), depuis from ; un from apres le debut
- * (un lock trig qui relance, une annulation) repart de la valeur du moment en 3 ms.
+ * (un lock trig qui relance, une annulation) tient la valeur du moment (held : celle des courbes d'avant, a from) puis
+ * rejoint la nouvelle courbe en 3 ms.
  */
-function lfoCurves(lv: LiveHit, from: number): void {
+function lfoCurves(lv: LiveHit, from: number, held: Map<LfoDest, number> = lfoHeld(lv, from)): void {
   const L = lv.lfo;
   if (!L) return;
   const t1 = Math.min(lv.end, lv.when + LFO_SPAN_S);
@@ -1133,7 +1147,11 @@ function lfoCurves(lv: LiveHit, from: number): void {
     let t0 = Math.max(from, lv.when);
     if (t0 >= t1) continue;
     if (from > lv.when) {
+      // La valeur tenue posee a t0 : sans evenement apres lui, cancelAndHoldAtTime ne pose rien et la rampe partirait du
+      // debut du coup
       param.cancelAndHoldAtTime(t0);
+      const h = held.get(d);
+      if (h !== undefined) param.setValueAtTime(h, t0);
       t0 += LIVE_GLIDE_S;
       if (t0 >= t1) continue;
       const pts = lfoPoints(L, d, lv.when, t0, t1, lv.anchor);
@@ -1552,9 +1570,13 @@ function lockTrigOn(g: Graph, inst: Inst, t: number, lock: Readonly<StepLock> | 
   if (!lv || t >= lv.end || t < lv.when) return pv;
   const u: LiveUndo = { lv, t, level: lv.level, pan: lv.pan, reso: lv.reso, anchor: lv.anchor, params: [] };
   const lfoOn = liveDests(lv.lfo);
+  // La valeur des LFO a t avant ce lock trig (ses courbes s'y tiennent, puis repartent)
+  const held = lfoHeld(lv, t);
+  // De la valeur du moment (quelle que soit la courbe d'avant : une enveloppe, une valeur fixe) vers celle du verrou, en
+  // quelques ms : setTargetAtTime part de ce que vaut le parametre a t (une rampe lineaire partait de l'evenement d'avant)
   const glideTo = (p: AudioParam, v: number): void => {
     p.cancelAndHoldAtTime(t);
-    p.linearRampToValueAtTime(v, t + LIVE_GLIDE_S);
+    p.setTargetAtTime(v, t, LIVE_TAU_S);
     u.params.push(p);
   };
   if (lock?.level !== undefined && lv.lvl) {
@@ -1579,7 +1601,7 @@ function lockTrigOn(g: Graph, inst: Inst, t: number, lock: Readonly<StepLock> | 
   }
   if (anchor !== null) lv.anchor = anchor;
   // Les LFO continus repartent de t (une base ou l'ancre a change)
-  if (lv.lfo) lfoCurves(lv, t);
+  if (lv.lfo) lfoCurves(lv, t, held);
   if (u.params.length > 0 || lv.lfo) pv.undo = u;
   return pv;
 }
