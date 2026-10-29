@@ -101,9 +101,11 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   // selectionner") : la voix est choisie, sans coup ; a l'arret, elle sonne comme avant, a la velocite des nouveaux
   // pas de la voix (VEL de VOICE, 2026-10-09 : HIGH au depart, le coup d'avant). Une voix coupee (2026-10-10, Mika :
   // "quand je clique sur une voix mutee je ne la demute pas, je peux l'editer sans entendre") : choisie, sans un son
-  if (!clock.running && !voices.isMuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[rytmPage.tapVel(inst)] ?? 1);
+  // Le mute du pattern (V.5.0, au desktop seulement : le telephone ne le montre pas) coupe aussi la voix du clavier et du MIDI
+  if (!clock.running && !voices.isMuted(inst) && !(DT_FACE && pattern.pmuted(inst))) trigger(inst, undefined, false, undefined, VEL_GAIN[rytmPage.tapVel(inst)] ?? 1);
   selectVoice(inst);
   stage?.pressRytmPad(inst);
+  funcDrop();
 }
 
 /** Mode SOLO : la voix passe en solo, ou en sort ; a une voix (ONE), le mode retombe ; l'ecran le dit. */
@@ -249,24 +251,21 @@ export function trkPick(inst: Inst, t: number): void {
 
 /**
  * TRK enfonce (src : 'ptr:<pointerId>', 'key', 'at', 'midi', 'hw') ; l'ecran dit quoi faire tant qu'elle est engagee. Au
- * desktop depuis V.5.0 : FUNC + TRK, le mode MUTE (muteModeKey) ; les presets ouverts, sa touche de l'ecran (LOAD...) ;
- * son lacher est alors avale.
+ * desktop depuis V.5.0 : FUNC + TRK, le mode MUTE (muteModeKey), son lacher est alors avale ; TRK seule ferme le mode MUTE.
  */
 export const trkDown = (src: string, t = performance.now()): void => {
-  if (DT_FACE && presetSoftKey('trk', () => undefined)) {
-    trkTaken.add(src);
-    return;
-  }
   if (DT_FACE && funcTake()) {
     trkTaken.add(src);
     muteModeKey();
     return;
   }
+  // TRK gagne sur le mode MUTE (la revue de D1, R5) : il se ferme, la face, le boitier et le geste montrent TRK
+  if (DT_FACE && dtFace.mute() !== 'off' && !trk.engaged()) dtFace.setMute('off');
   const was = trk.engaged();
   trk.down(src, t);
   if (!was && trk.engaged()) trkSay(TRK_HINT);
 };
-/** Les appuis de TRK pris par FUNC ou les presets (V.5.0) : leur lacher ne fait rien. */
+/** Les appuis de TRK pris par FUNC (V.5.0) : leur lacher ne fait rien. */
 const trkTaken = new Set<string>();
 /** TRK lachee ; t < 0 : un pointeur perdu (lache sans garde). */
 export const trkUp = (src: string, t = performance.now()): void => {
@@ -310,6 +309,8 @@ export const sceneArmed = (): SceneId | null => sceneCtl.get().armed;
 /** SCENE A ou B enfoncee (src : 'ptr:<pointerId>', 'key', 'at', 'midi', 'hw') : armee ; l'ecran dit ce qu'elle a. */
 export function sceneDown(w: SceneId, src: string, t = performance.now()): void {
   resume();
+  // FUNC n'a pas de sens sur SCENE A et B (la revue de D1, G2) : la scene s'arme, FUNC s'en va
+  funcDrop();
   // Jamais un P-LOCK garde et une scene armee ensemble (un pas tenu, lui, gagne : rien ne change)
   if (rytmLock.get().latched) rytmLock.leave();
   const was = sceneCtl.get().armed;
@@ -837,9 +838,10 @@ export function rytmInfoTap(hotspot: string, dock = false): boolean {
  * STEP 07 BD HIGH / MID / LOW / OFF, ou TAP A PAD FIRST (PICK A VOICE FIRST
  * au desktop depuis la face V.4.0 sans pads, 2026-10-27 : theme.ts LCD_NO_VOICE).
  */
-export function stepToggle(i: number, stage: Stage | null = null): boolean {
-  // FUNC + un pas (V.5.0, le desktop) : le mute rapide de sa voix, avant tout le reste
-  if (DT_FACE && funcTake()) {
+export function stepToggle(i: number, stage: Stage | null = null, dock = false): boolean {
+  // FUNC + un pas (V.5.0, le desktop) : le mute rapide de sa voix, avant tout le reste. Le Dock (dock : une fenetre de
+  // desktop etroite, sans FUNC ni REC a l'ecran) ecrit toujours comme avant
+  if (DT_FACE && !dock && funcTake()) {
     funcStep(i, stage);
     return true;
   }
@@ -851,12 +853,12 @@ export function stepToggle(i: number, stage: Stage | null = null): boolean {
     return true;
   }
   // Le mode MUTE (V.5.0, FUNC + TRK) : les pas 1 a 8 sont les voix
-  if (muteView()) {
+  if (muteView() && !dock) {
     muteStep(i, stage);
     return true;
   }
   // Hors REC au desktop (V.5.0) : le pas joue sa voix et la choisit, rien ne s'ecrit (le P-LOCK en cours garde sa tape)
-  if (DT_FACE && !dtFace.rec() && rytmLock.get().step < 0) {
+  if (DT_FACE && !dock && !dtFace.rec() && rytmLock.get().step < 0) {
     stepPlay(i, stage);
     return true;
   }
@@ -894,6 +896,11 @@ function stepLine(inst: Inst, i: number): string {
  * selectionne se vide. false sans selection.
  */
 export function stepClear(i: number, stage: Stage | null = null): boolean {
+  // Hors REC au desktop (V.5.0) : Suppr sur un pas ne l'efface pas
+  if (!stepWrites()) {
+    lcdMessage.show('● REC TO WRITE STEPS', 1400);
+    return false;
+  }
   resume();
   stage?.pressStep(i);
   const inst = pattern.get().instrument;
@@ -1453,6 +1460,8 @@ export function presetKnobHeld(k: number): number | null {
 
 /** Le potard de page k tourne (rytm:knob, la face, phase 3 le potard motorise) : la page se montre, puis le bloc. */
 export function knobDial(k: number, v: number, src: CtlSrc = 'ui'): void {
+  // Un potard tourne n'a pas de fonction FUNC (la revue de D1, G2) : une FUNC gardee pour une touche s'en va
+  funcDrop();
   // Le mode presets du desktop (2026-10-27) : le potard tourne la liste ou le nom, la page ne bouge pas
   if (presetTurns()) {
     presetAbsTurn(k, v);
@@ -1560,6 +1569,8 @@ export function openToggle(stage: Stage | null = null, which: MachineId = hoodMa
   // Le MM-DECKS n'a pas de capot ; le MM-BASS a le sien depuis le 2026-10-08 (sa touche OPEN est sur sa face)
   if (which === 'dj') return false;
   resume();
+  // Le logo M (V.5.0) : FUNC s'en va (la revue de D1, G2)
+  if (which === 'mm808') funcDrop();
   const ok = hoodOf(which).toggle();
   if (ok) {
     if (which === 'voy') stage?.voy?.keys.pressButton('open');
@@ -1789,6 +1800,7 @@ export const presetTurns = (): boolean => !SCREEN_TOUCH && presetMode.on('mm808'
 export function presetTurn(k: number, d: number): boolean {
   if (!presetTurns()) return false;
   gesture();
+  funcDrop();
   return presetMode.turn('mm808', k, d);
 }
 
@@ -1800,6 +1812,8 @@ function presetSoftKey(id: FpButtonId, press: () => void): boolean {
   if (!presetTurns()) return false;
   const slot = softSlotOf(id);
   if (!slot) return false;
+  // FUNC n'a pas de sens sur une touche de l'ecran (la revue de D1, G2) : la touche fait la sienne, FUNC s'en va
+  funcDrop();
   press();
   presetKey('mm808', slot);
   return true;
@@ -2891,7 +2905,8 @@ function leaveRytmOverlay(): boolean {
 export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
   // Une page que cet appareil n'a pas (V.5.0 : MOD, TRIG, TEMPO, le MIXER au telephone, par le MIDI) : rien
   if (!isRytmPage(id)) return;
-  // Le mode presets du desktop (2026-10-27) : des touches de la rangee sont ses touches de l'ecran (V.5.0 : TRIG DEL, SRC EXIT)
+  // Le mode presets du desktop (2026-10-27) : des touches de la rangee sont ses touches de l'ecran (SRC LOAD, FLTR SAVE, AMP
+  // NAME, FX DEL ; PTN EXIT, editToggle)
   const btn = PAGE_BTN[id];
   if (btn && presetSoftKey(btn, () => stage?.pressPageKey(id))) return;
   // V.5.0 au desktop : FUNC + la touche, sa fonction orange ; MOD sur le MIXER, l'onglet suivant
@@ -3592,9 +3607,15 @@ export function pageKnobReset(k: number): void {
  * au lacher. L'ecran passe a la vue PAGE (HOME ne montre pas les blocs).
  * false s'il n'a pas pu (EDIT, pas de voix).
  */
-export function rytmLockEnter(i: number, latched: boolean): boolean {
+export function rytmLockEnter(i: number, latched: boolean, dock = false): boolean {
   if (editor.get() === 'mm808') {
-    lcdMessage.show('CLOSE EDIT TO P-LOCK A STEP');
+    // V.5.0 au desktop : la touche s'appelle PTN
+    lcdMessage.show(DT_FACE ? 'CLOSE PTN TO P-LOCK A STEP' : 'CLOSE EDIT TO P-LOCK A STEP');
+    return false;
+  }
+  // Le P-LOCK demande REC au desktop (V.5.0, comme la Digitakt) ; le Dock garde le sien
+  if (!dock && !stepWrites()) {
+    recHoldHint(true);
     return false;
   }
   const inst = pattern.get().instrument;
@@ -3623,7 +3644,7 @@ export function rytmLockTap(i: number): void {
 }
 
 /** L, rytm:lock : le P-LOCK sur ce pas (le pas choisi par defaut), ou hors P-LOCK s'il y est deja. */
-export function rytmLockToggle(i: number = rytmPage.get().sel): void {
+export function rytmLockToggle(i: number = rytmPage.get().sel, dock = false): void {
   const s = rytmLock.get();
   if (s.step >= 0 && (i < 0 || s.step === i)) {
     rytmLock.leave();
@@ -3631,10 +3652,10 @@ export function rytmLockToggle(i: number = rytmPage.get().sel): void {
     return;
   }
   if (i < 0) {
-    lcdMessage.show('HOLD A STEP TO P-LOCK IT');
+    lcdMessage.show(stepWrites() || dock ? 'HOLD A STEP TO P-LOCK IT' : '● REC + HOLD A STEP: P-LOCK');
     return;
   }
-  rytmLockEnter(i, true);
+  rytmLockEnter(i, true, dock);
 }
 
 /** CLEAR en P-LOCK : les verrous des pas en P-LOCK (ou tenus) s'en vont ; leurs coups restent. */
@@ -4247,6 +4268,15 @@ function funcTake(): boolean {
   return true;
 }
 
+/**
+ * Une entree qui n'a pas de fonction FUNC (la revue de D1, G2 : une touche de KIT, SCENE A ou B, le logo M, un potard, un
+ * pas, une voix au clavier, une cible MIDI) : elle fait la sienne et une FUNC gardee pour une touche s'en va (tenue : elle
+ * sert, son lacher ne la garde pas ; verrouillee par deux tapes : elle reste). Sans cela, un PLAY bien plus tard faisait CLEAR.
+ */
+export function funcDrop(): void {
+  if (DT_FACE && func.engaged() && func.get().mode !== 'locked') func.use();
+}
+
 /** Les pages de la rangee et leur touche (les touches de l'ecran du mode presets, rytm/presetKeys.ts). */
 const PAGE_BTN: Readonly<Partial<Record<RytmPageId, FpButtonId>>> = { trig: 'trig', voice: 'src', fltr: 'fltr', env: 'amp', fx: 'fx', mod: 'mod' };
 
@@ -4267,7 +4297,7 @@ function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
     // MOD rappuye sur le MIXER (FUNC + MOD) : l'onglet suivant, LEVELS puis MASTER
     if (id === 'mod' && rytmPage.get().page === 'mixer' && rytmPage.get().view === 'page' && !presetMode.on('mm808') && editor.get() !== 'mm808') {
       stage?.pressFaceKey('pkey-mod');
-      pageKeyBody('mixer', null);
+      funcPage('mixer');
       return true;
     }
     return false;
@@ -4305,6 +4335,8 @@ function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
 /** Une page de FUNC (TEMPO, SEND FX, MIXER) : comme une touche de page (sa page, et rappuyee l'onglet suivant ou HOME). */
 function funcPage(p: RytmPageId): void {
   pageKeyBody(p, null);
+  // SEND FX et le MIXER s'arment pour YES (au hasard) et NO (recharges), comme une touche de page ; TEMPO non : YES y est le TAP
+  if ((p === 'sendfx' || p === 'mixer') && !presetTurns()) pageArm = { page: p, until: performance.now() + DT_GESTURE.pageArmMs };
 }
 
 /**
@@ -4313,14 +4345,14 @@ function funcPage(p: RytmPageId): void {
  */
 export function pageKeyHold(id: string, down: boolean): void {
   if (!DT_FACE || !isRytmPage(id) || !PAGE_BTN[id]) return;
-  // FUNC + la touche : sa fonction orange, la page n'est pas armee
-  if (down) pageArm = func.engaged() ? null : { page: id, until: Infinity };
+  // FUNC + la touche : sa fonction orange, la page n'est pas armee ; sous KIT non plus (une touche de l'ecran, G7)
+  if (down) pageArm = func.engaged() || presetTurns() ? null : { page: id, until: Infinity };
   else if (pageArm && pageArm.page === id && pageArm.until === Infinity) pageArm = { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
 }
 
 /** Apres le chemin de toujours (V.5.0) : la page reste armee pour YES et NO ; MOD dit ce qui vient. */
 function dtPageKeyAfter(id: RytmPageId): void {
-  pageArm = { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
+  pageArm = presetTurns() ? null : { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
   if (id === 'mod') lcdMessage.show('MOD: 2 LFO IN V.5.1', 1800);
 }
 
@@ -4330,7 +4362,6 @@ function dtPageKeyAfter(id: RytmPageId): void {
 export function recKey(stage: Stage | null = null): void {
   if (!DT_FACE) return;
   resume();
-  if (presetSoftKey('rec', () => stage?.pressFaceKey('rec'))) return;
   stage?.pressFaceKey('rec');
   if (funcTake()) {
     copyKey();
@@ -4339,6 +4370,8 @@ export function recKey(stage: Stage | null = null): void {
   const on = !dtFace.rec();
   dtFace.setRec(on);
   recHinted = false;
+  // REC eteint : plus rien ne s'ecrit, le P-LOCK en cours s'en va aussi (la revue de D1, G10)
+  if (!on) rytmLock.leave();
   lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
 }
 /** L'aide "le P-LOCK demande REC" dite une fois (jusqu'au prochain REC). */
@@ -4495,6 +4528,11 @@ export function reloadKey(): void {
     lcdMessage.show('NOTHING SAVED: FUNC + YES FIRST', 1800);
     return;
   }
+  // Le point appartient a son pattern (la revue de D1, G1) : sur un autre emplacement, rien ne se pose
+  if (savePoint.slot !== patterns.get().cur) {
+    lcdMessage.show(`SAVED ON ${slotName(savePoint.slot)}`, 1800);
+    return;
+  }
   undo.boundary('mm808', 'step');
   apply('mm808', JSON.parse(JSON.stringify(savePoint.data)) as ReturnType<typeof capture>);
   lcdMessage.show(`RELOADED ${slotName(savePoint.slot)}`);
@@ -4552,13 +4590,37 @@ export function noKey(stage: Stage | null = null, viaEsc = false): boolean {
     reloadKey();
     return true;
   }
-  const pg = armedPage();
-  if (pg && !presetMode.on('mm808') && editor.get() !== 'mm808') {
+  // Une page puis NO (la revue de D1, G4) : rechargee seulement par la touche NO (ou rytm:no), avec un point de sauvegarde et
+  // rien d'ouvert par-dessus ; un point d'un autre pattern ne s'y pose pas (G1 : reloadPage dit SAVED ON A01) ; sinon, et
+  // toujours pour Echap au clavier, la chaine d'Echap
+  const pg = viaEsc ? null : armedPage();
+  if (pg && savePoint && !overlayOpen()) {
     pageArm = null;
     reloadPage(pg);
     return true;
   }
   return escape(!viaEsc);
+}
+
+/** Quelque chose est-il ouvert que la chaine d'Echap fermerait avant tout (KIT, PTN, la liste des sons, un mode, une page de FX) ? */
+function overlayOpen(): boolean {
+  const tk = trk.get().mode;
+  return (
+    section.get() !== null ||
+    presetMode.on('mm808') ||
+    editor.get() === 'mm808' ||
+    lcdSamples.isOpen() ||
+    tk === 'latched' ||
+    tk === 'closing' ||
+    sceneCtl.get().how === 'latched' ||
+    rytmLock.active() ||
+    dtFace.mute() !== 'off' ||
+    voices.get().muteMode ||
+    voices.get().soloMode ||
+    rytmInfos.isOn() ||
+    !!rytmPage.get().detail ||
+    hoodOf('mm808').get() === 'open'
+  );
 }
 
 /* ---------- la page au hasard (une page puis YES), la page rechargee (une page puis NO) ---------- */
@@ -4645,6 +4707,10 @@ function randomPage(pg: RytmPageId): void {
 function reloadPage(pg: RytmPageId): void {
   if (!savePoint) {
     lcdMessage.show('NOTHING SAVED: FUNC + YES FIRST', 1800);
+    return;
+  }
+  if (savePoint.slot !== patterns.get().cur) {
+    lcdMessage.show(`SAVED ON ${slotName(savePoint.slot)}`, 1800);
     return;
   }
   const d = savePoint.data as { voices?: Partial<Record<Inst, Partial<VoiceFx>>>; fx?: Record<string, number>; stretch?: number; bpm?: number };
@@ -4784,8 +4850,8 @@ function stepPlay(i: number, stage: Stage | null): void {
 }
 
 /** La tenue d'un pas hors REC au desktop : pas de P-LOCK (il demande REC, comme la Digitakt) ; l'ecran le dit une fois. */
-function recHoldHint(): void {
-  if (recHinted) return;
+function recHoldHint(force = false): void {
+  if (recHinted && !force) return;
   recHinted = true;
   lcdMessage.show('P-LOCK NEEDS ● REC: TURN REC ON, THEN HOLD A STEP', 2200);
 }

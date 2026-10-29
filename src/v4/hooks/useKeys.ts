@@ -121,6 +121,21 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
           return;
         }
       }
+      // Alt tenu = FUNC (V.5.0, la revue de D1, G5) : Alt + Espace, Maj + Espace, Entree, W ou E font FUNC + la touche (les
+      // codes physiques : Option change la lettre sur un Mac) ; rien d'autre ne part avec Alt
+      if (dt && e.altKey && !e.ctrlKey && !e.metaKey && !e.repeat && !isEditable(e.target)) {
+        const c = e.code;
+        if (c === 'Space' || c === 'Enter' || c === 'NumpadEnter' || c === `Key${REC_KEY}` || c === 'KeyE') {
+          e.preventDefault();
+          if (c === 'Space') {
+            if (e.shiftKey) stopKey(getStage());
+            else playKey(getStage());
+          } else if (c === 'Enter' || c === 'NumpadEnter') yesKey(getStage());
+          else if (c === 'KeyE') editToggle('mm808', getStage());
+          else recKey(getStage());
+          return;
+        }
+      }
       if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || isEditable(e.target)) return;
       // Le nom d'un preset en cours (2026-10-27) : les touches sont au dialogue (ui/PresetNameDialog.tsx, une lettre tapee
       // hors de lui y revient) ; Entree garde le nom, Echap (plus haut) annule

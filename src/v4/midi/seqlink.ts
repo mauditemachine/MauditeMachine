@@ -975,7 +975,7 @@ const rytm: SeqMachine = {
     rytmPage.select(i);
     lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? vel : 0]}  HOLD: LOCK`);
   },
-  enter: (i, latched) => rytmLockEnter(i, latched),
+  enter: (i, latched) => rytmLockEnter(i, latched, true),
   // TRK (2026-10-27) : le bouton physique b, BD a CY
   trk: (b) => trkStep(b, null),
   restore(prev) {

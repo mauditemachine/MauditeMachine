@@ -124,6 +124,7 @@ import {
   muteStepHold,
   muteView,
   noKey,
+  funcDrop,
   pageKeyHold,
   playKey,
   recKey,
@@ -972,7 +973,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     /** L'objet tape (relache sur lui, tape au sens du brief) part ; renvoie son id. */
+    /**
+     * L'objet tape part ; puis (V.5.0, la revue de D1, G2) une FUNC gardee pour une touche s'en va si l'objet ne s'en est pas
+     * servi (une touche de l'ecran, un potard tape, le logo M, un onglet...) : elle ne traine plus jusqu'a un PLAY bien plus
+     * tard qui ferait CLEAR. FUNC elle-meme, non.
+     */
     const fire = (d: Down): string | null => {
+      const r = fireObject(d);
+      if (DT_FACE && d.kind !== 'func') funcDrop();
+      return r;
+    };
+
+    const fireObject = (d: Down): string | null => {
       // MM-ARP (2026-10-08) : la touche i du grand ecran allume ou eteint INFOS ; INFOS allume, au doigt, une tape montre la carte au lieu de jouer
       if (d.kind === 'vinfo') {
         voyInfos.toggle();
@@ -1752,7 +1764,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // suit sa voix)
         // (V.4.2 : un potard de la face non plus quand l'ecran ne se touche pas : la tape du potard SOUND la tient ouverte, comme il la tourne ;
         // ni un clic sur l'ecran lui-meme, inerte au desktop : 2026-10-27, la revue, une ligne cliquee fermait la liste)
-        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
+        // V.5.0 au desktop (la revue de D1, G11) : hors REC, un pas 1 a 8 est le pad de sa voix, la liste suit la voix choisie
+        const padStep = DT_FACE && d.kind === 'step' && d.index !== undefined && d.index < 8 && !stepWrites() && editor.get() !== 'mm808' && !muteView() && !trk.engaged();
+        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !padStep && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
         if (tap && d.id !== null) {

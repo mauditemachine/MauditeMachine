@@ -197,6 +197,12 @@ if (typeof window !== 'undefined') {
   });
 }
 
+/**
+ * Ce qu'etait la chaine avant le dernier debut de mesure (V.5.0, la revue de D1, G3) : une pause avant que cette mesure ne
+ * s'entende y revient (unbar) ; null : rien a rendre.
+ */
+let beforeBar: { cur: number; pos: number; next: number } | null = null;
+
 /** Passe au pattern i tout de suite (a l'arret, ou au debut d'une mesure). */
 function switchTo(i: number, pos: number): void {
   if (i !== state.cur) apply(i);
@@ -275,6 +281,7 @@ export const patterns = {
    */
   bar(first: boolean): void {
     const c = state.chain;
+    beforeBar = { cur: state.cur, pos: state.pos, next: state.next };
     if (first) {
       if (c.length > 1 && state.cur !== c[0]) switchTo(c[0], 0);
       else if (state.next >= 0) switchTo(state.next, 0);
@@ -288,6 +295,14 @@ export const patterns = {
       const pos = (state.pos + 1) % c.length;
       switchTo(c[pos], pos);
     }
+  },
+  /** La pause avant que la mesure annoncee ne s'entende (audio/clock.ts onUnbar) : la chaine revient a ce qu'elle etait. */
+  unbar(): void {
+    const b = beforeBar;
+    beforeBar = null;
+    if (!b) return;
+    if (b.cur !== state.cur) apply(b.cur);
+    setState({ ...state, cur: b.cur, pos: b.pos, next: b.next });
   },
   /** Tests : tout vide, A01 courant (le motif du moment). */
   reset(): void {
@@ -307,3 +322,4 @@ export const patterns = {
 
 // La chaine avance avec l'horloge du MM-RYTM
 clock.onBar((first) => patterns.bar(first));
+clock.onUnbar(() => patterns.unbar());

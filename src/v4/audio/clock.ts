@@ -45,7 +45,7 @@
 
 import { voices } from '../state/voices';
 import { sceneCtl } from '../state/sceneCtl';
-import { PORTRAIT, SWING, XFADE_UI, type Inst } from '../theme';
+import { DT_FACE, PORTRAIT, SWING, XFADE_UI, type Inst } from '../theme';
 import { voiceFx } from './voicefx';
 import { kit } from './kit';
 import { cancelVoice, context, mix, trigger, type Voice } from './drums';
@@ -149,6 +149,8 @@ interface Planned {
 const plan: Planned[] = [];
 /** re-programmation en cours : le motif (et ses verrous) des pas d'une mesure deja finie */
 const replay = new Map<number, Snap>();
+/** Aucune voix coupee par le pattern (le telephone, V.5.0). */
+const NO_PM: readonly Inst[] = [];
 /** repli sans WebGL affiche : plus de machine, RUN refuse (index.tsx) */
 let locked = false;
 /**
@@ -204,6 +206,12 @@ const stepListeners = new Set<(e: StepEvent) => void>();
  * la premiere mesure de la lecture.
  */
 const barListeners = new Set<(first: boolean) => void>();
+/**
+ * La pause de PLAY avant qu'un debut de mesure deja annonce ne s'entende (V.5.0, la revue de D1, G3) : bar() a deja avance
+ * la chaine des patterns, ses ecouteurs la ramenent (state/patterns.ts unbar) ; sinon la reprise jouait la fin de la mesure
+ * dans le pattern suivant, puis en sautait un.
+ */
+const unbarListeners = new Set<() => void>();
 let firstBar = false;
 
 function resetStats(): void {
@@ -260,8 +268,9 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     // Velocite 1 a 3 (0 : rien) ; les coups du sequenceur sont toujours des
     // charleys fermes ; MUTE et SOLO (state/voices.ts) retirent la voix
     const vel = velocity(steps, inst, s);
-    // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant)
-    if (vel > 0 && voices.plays(inst, cur.pmutes)) {
+    // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant) ; au desktop
+    // seulement (la revue de D1, K5 : le telephone ne le montre ni ne le defait, il joue comme avant ; le mute reste garde)
+    if (vel > 0 && voices.plays(inst, DT_FACE ? cur.pmutes : NO_PM)) {
       mask |= 1 << k;
       // Les verrous du pas (2026-10-08) : null sans verrou, le coup d'avant
       trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s), snap.scenes);
@@ -685,7 +694,10 @@ function pause(): boolean {
   const c = context();
   const e = c ? entryAt(c.currentTime) : null;
   const at = e ? (e.step + 1) % STEP_COUNT : (plan[0]?.step ?? step);
+  // Un pas 1 programme mais pas encore entendu : sa mesure est annoncee (bar), la chaine a avance pour rien
+  const unheard = !!c && plan.some((p) => p.step === 0 && p.when > c.currentTime);
   stop();
+  if (unheard) unbarListeners.forEach((fn) => fn());
   resumeAt = at;
   emit();
   return true;
@@ -812,6 +824,13 @@ export const clock = {
    */
   barAt: (): number => (inBar ? barTime : 0),
   /** Le debut de chaque mesure, avant que son premier pas soit programme ; rend de quoi se desabonner. */
+  /** La pause avant un debut de mesure deja annonce (V.5.0) : ce que onBar a avance revient. */
+  onUnbar(fn: () => void): () => void {
+    unbarListeners.add(fn);
+    return () => {
+      unbarListeners.delete(fn);
+    };
+  },
   onBar(fn: (first: boolean) => void): () => void {
     barListeners.add(fn);
     return () => {

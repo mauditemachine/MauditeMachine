@@ -220,7 +220,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const onStep = (i: number): void => {
     // INFOS allume (R4) : la carte du pas, il ne change pas
     if (rytmInfos.dock(`step-${i + 1}`)) return;
-    if (!stepToggle(i, getStage())) setNudge((n) => n + 1);
+    if (!stepToggle(i, getStage(), true)) setNudge((n) => n + 1);
   };
 
   return (
@@ -344,7 +344,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                     // L'appui long (2026-10-08) : le LOCK sur ce pas (encore : hors LOCK), la page KNOBS regle ses verrous
                     if (!inst) setNudge((n) => n + 1);
                     else {
-                      rytmLockToggle(i);
+                      rytmLockToggle(i, true);
                       if (rytmLock.get().step >= 0) {
                         autoKnobs.current = true;
                         setPage('knobs');

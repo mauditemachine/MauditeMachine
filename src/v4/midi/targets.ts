@@ -55,7 +55,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
 import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen, pageLabel } from '../rytm/pages';
 import { sceneTag, type SceneTag } from '../rytm/sceneParams';
@@ -140,7 +140,24 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
   };
 }
 
-const press = (id: string, scope: TargetScope, label: string, fn: () => void): MidiTarget => ({ id, scope, label, kind: 'press', down: fn });
+/**
+ * Une cible a appui. Une cible du MM-RYTM (V.5.0, la revue de D1, G2) : une FUNC gardee pour une touche s'en va apres elle si
+ * elle ne s'en est pas servie (rytm:clear, rytm:open, rytm:pad...) ; celles qui la lisent (rytm:play, rytm:rec...) l'ont deja
+ * consommee.
+ */
+const press = (id: string, scope: TargetScope, label: string, fn: () => void): MidiTarget => ({
+  id,
+  scope,
+  label,
+  kind: 'press',
+  down:
+    scope === 'mm808'
+      ? () => {
+          fn();
+          funcDrop();
+        }
+      : fn,
+});
 
 /* ---------------- la phase 3 (2026-10-27) : TRK, SCENE A et B, le crossfader ---------------- */
 
@@ -349,7 +366,9 @@ function coreTargets(): MidiTarget[] {
   // Les anciennes pages (jusqu'au 2026-10-09) : leurs assignations retenues ouvrent la page d'aujourd'hui (TRIG SRC SMPL : VOICE ; AMP : ENV) ;
   // au desktop depuis V.5.0, rytm:page:trig ouvre la vraie page TRIG, SRC et AMP sont les noms de VOICE et ENV
   const OLD_PAGES = DT_FACE ? ([['trig', ''], ['src', ''], ['smpl', 'SRC'], ['amp', '']] as const) : ([['trig', 'VOICE'], ['src', 'VOICE'], ['smpl', 'VOICE'], ['amp', 'ENV']] as const);
-  for (const [old, now] of OLD_PAGES) out.push(press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()}${now ? ` (NOW ${now})` : ''}`, () => rytmShowPage(old)));
+  // rytm:page:trig au desktop (la revue de D1, K2) : la touche TRIG elle-meme (FUNC + TRIG = TEMPO, TRIG puis YES = RANDOM,
+  // TRIG encore = HOME), comme les autres touches de page ; le telephone garde l'alias de VOICE
+  for (const [old, now] of OLD_PAGES) out.push(press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()}${now ? ` (NOW ${now})` : ''}`, () => (DT_FACE && old === 'trig' ? rytmPageKey('trig', getStage()) : rytmShowPage(old))));
   // Un ecran precis (2026-10-09) : VOICE, VOICE SYNTH, FLTR, ENV, VOICE FX, GLOBAL FX (les onglets de l'en-tete)
   for (const sc of RYTM_SCREENS) out.push(press(`rytm:screen:${sc}`, 'mm808', `SCREEN ${SCREEN_TITLE[sc]}`, () => rytmScreenTab(sc)));
   out.push({
