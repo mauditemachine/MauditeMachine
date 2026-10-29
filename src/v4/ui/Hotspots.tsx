@@ -512,6 +512,8 @@ const PRESET_PX = 24;
 
 function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   if (!d.dial) return;
+  // Un potard tourne a la souris ou au doigt (la revue de D1, G2) : une FUNC gardee pour une touche s'en va
+  if (DT_FACE) funcDrop();
   const travel = d.axis === 'y' ? -dy : dx;
   // L'ecran ne se touche plus (V.4.2, 2026-10-27) : les presets ouverts, un potard de la face les fait defiler (actions.ts
   // presetFaceKnob), il ne regle pas sa page en cachette
@@ -1868,6 +1870,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const px = k === 'tempo' ? TEMPO_UI.wheelPx : POT_UI.wheelPx;
       const steps = Math.trunc(wheelAcc / px);
       const pencK = h && h.kind === 'penc' && h.index !== undefined ? h.index : -1;
+      // Un cran de molette sur un potard (la revue de D1, G2) : une FUNC gardee pour une touche s'en va
+      if (steps !== 0 && DT_FACE) funcDrop();
       if (steps !== 0 && (pageKnobOf(k) >= 0 || pencK >= 0)) {
         // Un bloc de l'ecran (2026-10-08) ou un encodeur du desktop (2026-10-09) : un cran = 1 sur 127 (un cran du reglage
         // s'il en a), accelere quand les crans se suivent vite (wheelGain) ; Maj : un cran a la fois
