@@ -93,6 +93,29 @@ export interface PtnLevels {
   readonly filled: number;
 }
 
+/** Les marques des trigs de la voix choisie pour le boitier (V.5.1) : ses lock trigs et ses pas a condition, leur couleur. */
+export interface HwTrigLeds {
+  /** les pas (0 a 15) qui sont des lock trigs : allumes en jaune, sans note */
+  readonly lock: readonly number[];
+  /** les pas dont le trig a une COND ou une PROB : le petit point jaune au coin */
+  readonly cond: readonly number[];
+  /** le jaune des verrous (#RRGGBB) */
+  readonly color: string;
+}
+
+/**
+ * Les marques des trigs (V.5.1, 2026-10-29) d'apres leurs masques de 16 bits (bit i : le pas i, rytm/trigMarks.ts) et le
+ * jaune de la palette.
+ */
+export function trigLeds(ltrg: number, cond: number, yellow: string): HwTrigLeds {
+  const bits = (m: number): number[] => {
+    const out: number[] = [];
+    for (let i = 0; i < 16; i += 1) if ((m >> i) & 1) out.push(i);
+    return out;
+  };
+  return { lock: bits(ltrg), cond: bits(cond), color: yellow };
+}
+
 /**
  * La vue PTN facon Digitakt sur les seize pas : le pattern qui joue rouge plein, le suivant (a la mesure) et la chaine
  * rouges clignotants, un pattern plein blanc faible, un vide eteint.

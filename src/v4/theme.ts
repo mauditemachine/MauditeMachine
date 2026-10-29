@@ -1756,7 +1756,8 @@ export const FACE_INERT: ReadonlySet<string> = new Set<string>();
  * coups, REC, la page, la voix choisie ; dgreen : PLAY, le mute global ; dwhite : la tete de lecture, les flashs ;
  * dmagenta : le mute du pattern ; dblue : les scenes ; dorange : FUNC) ; le telephone garde orange, run, red et blue.
  */
-export type KeyLitTone = 'orange' | 'run' | 'red' | 'blue' | 'dred' | 'dgreen' | 'dwhite' | 'dmagenta' | 'dblue' | 'dorange';
+// dyellow (V.5.1, 2026-10-29) : un lock trig sur les pas (le jaune des verrous de la Digitakt, DT_HEX.yellow)
+export type KeyLitTone = 'orange' | 'run' | 'red' | 'blue' | 'dred' | 'dgreen' | 'dwhite' | 'dmagenta' | 'dblue' | 'dorange' | 'dyellow';
 export const KEY_LIT = {
   // Cales par lecture de pixels a 1440 x 900 (2026-10-18) : orange 244,110,56 (l'orange d'OPEN : 235,111,38), RUN 243,97,62
   // (au repos 192,70,52), MUTE 239,59,57, SOLO 97,133,230 ; plus fort, l'ACES les palissait en peche (252,160,75)
@@ -1773,6 +1774,8 @@ export const KEY_LIT = {
     dblue: [0.05, 0.3, 0.95],
     // La revue de D1 (R7) : 0.16 de vert (0.08 lisait a 11 degres de teinte, pres du rouge d'une touche allumee)
     dorange: [0.95, 0.16, 0],
+    // V.5.1 : le jaune #FFD75E des lock trigs (lineaire 1, 0.68, 0.11), a 0.85 comme les autres
+    dyellow: [0.85, 0.56, 0.08],
   } as Readonly<Record<KeyLitTone, readonly number[]>>,
   dark: 0.4,
   ledWhite: 0.55,
@@ -1825,6 +1828,8 @@ export const STEP_LIT = {
   edit: { cur: 1, next: 0.51, chain: 0.3, filled: 0.115 },
   /** la vue PTN du desktop (V.5.0) : le courant, le suivant et la chaine (clignotants), un pattern plein (blanc) */
   dtEdit: { cur: 1, next: 1, chain: 0.6, filled: 0.2, blinkMs: 260 },
+  /** un lock trig (V.5.1, au desktop) : le pas allume en jaune (dyellow), a cette part ; sans velocite, il ne joue pas */
+  lockTrig: 0.6,
 } as const;
 /** La teinte d'un pas mis (V.5.0) : le rouge de la Digitakt au desktop, l'orange de la machine au telephone. */
 export const STEP_TONE: KeyLitTone = PORTRAIT ? 'orange' : 'dred';
@@ -2822,8 +2827,8 @@ export const TWIN_ARIA = {
   yes: 'Yes (YES), Enter: confirm; after a page key, randomize that page (TRIG then YES: a random beat); on TEMPO: tap tempo; FUNC + YES: save point',
   no: 'No (NO), Escape: back; after a page key, reload that page from the save point; FUNC + NO: reload everything',
   ptn: 'Pattern (PTN), key E: the 16 patterns on the steps; press twice: KIT, the presets; FUNC + PTN: banks',
-  trig: 'Trig page (TRIG): note and velocity; then YES: a random beat; FUNC + TRIG: tempo',
-  mod: 'Modulation page (MOD), LFOs coming in V.5.1; FUNC + MOD: mixer',
+  trig: 'Trig page (TRIG): note, velocity, length, probability, condition, micro timing; press again for retrig; then YES: a random beat; FUNC + TRIG: tempo',
+  mod: 'Modulation page (MOD): two LFOs per voice, press again for LFO 2; FUNC + MOD: mixer',
   group: 'MM-RYTM drum machine',
   soundNoVoice: PORTRAIT ? 'Sound: tap a pad first' : 'Sound: pick a voice first, keys A S D F and Z X C V',
   // Le crossfader (2026-10-27, P2-20) : son jumeau, un curseur natif
@@ -2963,6 +2968,8 @@ const LIGHT = {
     dmagenta: [0.55, 0.06, 0.5],
     dblue: [0.05, 0.24, 0.8],
     dorange: [0.85, 0.2, 0.01],
+    // V.5.1 : le jaune des lock trigs sur la creme (#E09A10, DT_HEX_LIGHT)
+    dyellow: [0.75, 0.33, 0.006],
   } as Record<KeyLitTone, number[]>,
   keyLitGlow: 0.3,
 };

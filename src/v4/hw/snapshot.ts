@@ -10,7 +10,9 @@ import { faceKnobs, type KnobCause } from '../rytm/faceKnobs';
 import type { RytmPageId, RytmScreenId } from '../rytm/pages';
 import { sceneCount, type SceneId } from '../rytm/sceneData';
 import { muteLeds, trkLeds } from '../rytm/stepLeds';
-import { ptnLeds, rowLeds, type HwGridLed, type HwRowLed } from './rowLeds';
+import { ptnLeds, rowLeds, trigLeds, type HwGridLed, type HwRowLed, type HwTrigLeds } from './rowLeds';
+import { trigMarks } from '../rytm/trigMarks';
+import { fill } from '../state/fill';
 import { dtFace } from '../state/dtFace';
 import { editor } from '../state/editor';
 import { func } from '../state/func';
@@ -113,7 +115,14 @@ export interface HwSnapshot {
     readonly view: 'pattern' | 'trk' | 'mute' | 'pmute' | 'ptn';
     /** les seize pas du mode MUTE (vert ou magenta, blanc en solo) et de la vue PTN (rouge, blanc faible) ; null sinon */
     readonly grid: readonly HwGridLed[] | null;
+    /**
+     * V.5.1 (2026-10-29) : dans la vue du motif, les lock trigs de la voix choisie (en jaune, sans note) et ses pas a COND
+     * ou PROB (le point jaune) ; null : une autre vue, aucune voix choisie, le telephone
+     */
+    readonly trigs: HwTrigLeds | null;
   };
+  /** V.5.1 : FILL est tenu (YES tenu, rytm:fill) */
+  readonly fill: boolean;
   /** les presets ouverts : les potards ne reglent plus leur page (label et value restent ceux de la page cachee) ; null : fermes */
   readonly presets: HwPresets | null;
 }
@@ -130,6 +139,13 @@ export type KnobCauses = readonly KnobCause[];
  * de D1, R10 : une seule palette), le boitier n'a pas de creme.
  */
 const HW_PAL = DT_HEX_DARK;
+
+/** Les marques des trigs de la voix choisie (V.5.1) : le jaune de la machine noire. */
+function trigLedsNow(inst: Inst): HwTrigLeds {
+  const p = pattern.get();
+  const m = trigMarks(p.steps[inst], p.locks, p.trigs, inst);
+  return trigLeds(m.ltrg, m.cond, HW_PAL.yellow);
+}
 
 export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   const p = pattern.get();
@@ -194,7 +210,9 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
       keys,
       view,
       grid,
+      trigs: DT_FACE && view === 'pattern' && inst ? trigLedsNow(inst) : null,
     },
     presets: pv ? { stage: pv.stage, name: pv.name, keys: [...pv.keys], face: !SCREEN_TOUCH } : null,
+    fill: fill.on,
   };
 }

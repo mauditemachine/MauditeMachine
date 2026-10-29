@@ -302,6 +302,14 @@ export class Sequencer3D {
   private lockBlink = false;
   /** l'appui en cours de chaque pas (0 a 1), pour composer sa lueur avec celle des verrous */
   private keyPress = new Float32Array(STEP_COUNT);
+  /**
+   * V.5.1 (2026-10-29, au desktop) : les lock trigs de la voix choisie (bit i : le pas i, allume en jaune) et ses pas a COND
+   * ou PROB (un petit point jaune au coin arriere gauche, comme la Digitakt) ; 0 au telephone
+   */
+  private ltrgMask = 0;
+  private condMask = 0;
+  readonly condDots: InstancedMesh;
+  private condShown = new Uint8Array(STEP_COUNT);
 
   constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas; transport?: boolean }) {
     const transport = opts.transport ?? true;
@@ -397,13 +405,23 @@ export class Sequencer3D {
     this.lockMarks.instanceMatrix.setUsage(DynamicDrawUsage);
     this.lockMarks.instanceMatrix.needsUpdate = true;
     this.lockMarks.instanceColor?.setUsage(DynamicDrawUsage);
+    // Le point des conditions (V.5.1) : un petit carre jaune au coin arriere gauche du pas, cache tant que rien ne le demande
+    const dot = Math.min(KEYS.lockMark.d * 1.6, KEYS.w * 0.12);
+    this.condDots = new InstancedMesh(ledGeometry(dot, dot), this.markMat, STEP_COUNT);
+    this.condDots.name = 'condDots';
+    for (let i = 0; i < STEP_COUNT; i += 1) {
+      this.condDots.setMatrixAt(i, m4.makeScale(0, 0, 0));
+      this.condDots.setColorAt(i, this.markLight);
+    }
+    this.condDots.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.condDots.instanceMatrix.needsUpdate = true;
     // Au depart : la teinte de chaque pas (la machine claire teinte les touches allumees)
     for (let i = 0; i < STEP_COUNT; i += 1) this.writeKeyColor(i);
   }
 
   /** Les maillages a poser sur le plateau (le transport seulement au telephone, V.5.0). */
   objects(): Object3D[] {
-    return [this.keys, this.frames, this.lockMarks, ...(this.buttons ? [this.buttons] : []), ...(this.btnLeds ? [this.btnLeds] : []), ...(this.labels ? [this.labels.mesh] : []), ...(this.stepLabels ? [this.stepLabels.mesh] : [])];
+    return [this.keys, this.frames, this.lockMarks, ...(DT_FACE ? [this.condDots] : []), ...(this.buttons ? [this.buttons] : []), ...(this.btnLeds ? [this.btnLeds] : []), ...(this.labels ? [this.labels.mesh] : []), ...(this.stepLabels ? [this.stepLabels.mesh] : [])];
   }
 
   /** Teinte d'un bouton du transport (l'appui en cours s'y ajoute). */
@@ -593,6 +611,7 @@ export class Sequencer3D {
     this.stepLabels?.setDy(j, dy);
     if (j < INSTRUMENTS.length) this.stepLabels?.setDy(STEP_COUNT + j, dy);
     if (this.markState[j] !== 0) this.placeMark(j);
+    if (this.condShown[j] !== 0) this.placeDot(j);
     if (PRESS_TINT.rgb) this.writeKeyColor(j);
     this.writeKeyGlow(j);
     this.emissive.needsUpdate = true;
@@ -609,6 +628,8 @@ export class Sequencer3D {
   private litOf(i: number): number {
     // TRK (2026-10-27) : l'intensite de la voix du pas
     if (this.trkView) return this.trkView[i]?.level ?? 0;
+    // Un lock trig (V.5.1) : allume en jaune a sa part, sans velocite
+    if (!this.patView && this.lockTrigAt(i)) return STEP_LIT.lockTrig;
     const v = this.patView;
     // La vue PTN facon Digitakt (V.5.0, au desktop) : le pattern qui joue rouge plein, le suivant et la chaine rouges
     // clignotants, un pattern plein blanc faible (toneOf), un vide eteint
@@ -645,7 +666,26 @@ export class Sequencer3D {
     if (this.trkView) return this.trkView[i]?.tone ?? STEP_TONE;
     const v = this.patView;
     if (v && DT_FACE && i !== v.cur && i !== v.next && !(v.chain.length > 1 && v.chain.includes(i))) return 'dwhite';
+    // Un lock trig (V.5.1) : jaune
+    if (this.lockTrigAt(i)) return 'dyellow';
     return STEP_TONE;
+  }
+
+  /** Le pas i est-il un lock trig montre (V.5.1 : la vue du motif, sans note) ? */
+  private lockTrigAt(i: number): boolean {
+    return this.lockShown && ((this.ltrgMask >> i) & 1) === 1 && this.programmed(i) === 0;
+  }
+
+  /**
+   * Les lock trigs et les pas a COND ou PROB de la voix choisie (V.5.1, au desktop ; 0 et 0 au telephone, rien ne change) ;
+   * true s'il faut une frame.
+   */
+  setTrigMarks(ltrg: number, cond: number): boolean {
+    if (ltrg === this.ltrgMask && cond === this.condMask) return false;
+    this.ltrgMask = ltrg;
+    this.condMask = cond;
+    this.refresh(true);
+    return true;
   }
 
   /** La vue PTN (V.5.0) : le pattern suivant et la chaine clignotent ; la phase (on : allumes) ; true s'il faut une frame. */
@@ -801,7 +841,23 @@ export class Sequencer3D {
       this.emissive.needsUpdate = true;
     }
     if (marks && this.lockMarks.instanceColor) this.lockMarks.instanceColor.needsUpdate = true;
-    return changed || marks;
+    // Le point des conditions (V.5.1) : seulement dans la vue du motif ; il suit l'enfoncement de sa touche
+    let dots = false;
+    for (let i = 0; i < STEP_COUNT; i += 1) {
+      const on = this.lockShown && ((this.condMask >> i) & 1) === 1 ? 1 : 0;
+      if (on === this.condShown[i] && !force) continue;
+      this.condShown[i] = on;
+      this.placeDot(i);
+      dots = true;
+    }
+    return changed || marks || dots;
+  }
+
+  /** Le point des conditions du pas j a sa place (au coin arriere gauche, son enfoncement compris), ou cache. */
+  private placeDot(j: number): void {
+    if (this.condShown[j] === 0) this.condDots.setMatrixAt(j, m4.makeScale(0, 0, 0));
+    else this.condDots.setMatrixAt(j, m4.makeTranslation(keyX(j) - KEYS.w * 0.34, MARK_Y + this.keyDy[j], markZ(j)));
+    this.condDots.instanceMatrix.needsUpdate = true;
   }
 
   /** Motif et instrument selectionne (store pattern.ts) ; true s'il faut une frame. */

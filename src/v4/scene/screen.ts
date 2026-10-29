@@ -186,6 +186,9 @@ import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageVi
 import { encUnit, v127Text } from '../rytm/values';
 import { screenDials, type ScreenDialId } from '../state/screenDials';
 import { makeCanvasTexture, onFonts } from './silk';
+import { CONDS, RATE_DENS, rtrgGain } from '../audio/trig';
+import { LFO_WAVES, waveAt } from '../audio/lfo';
+import { fill } from '../state/fill';
 
 export interface ScreenInfo {
   /** redessins de la texture (le premier compris) */
@@ -982,6 +985,8 @@ export class Screen {
       voices.subscribe(active),
       // V.5.0 : le mode MUTE de FUNC + TRK et REC se lisent au pied
       dtFace.subscribe(active),
+      // FILL (V.5.1) : sa pastille dans l'en-tete
+      fill.subscribe(active),
       voiceFx.subscribe(active),
       mix.subscribe(active),
       clock.subscribe(active),
@@ -1628,6 +1633,76 @@ export class Screen {
     }
     this.line([x0, mid, x1, mid], this.pal.faint, 0.8);
     this.line(pts, this.pal.ink, 2 * Math.max(0.7, Screen.cardK(r)));
+  }
+
+  /**
+   * COND (V.5.1) : A:B, une case par passage du cycle, celle qui joue pleine (!A:B : les autres pleines) ; les autres
+   * conditions, une ligne et un point (NONE : la ligne seule ; FILL, PRE, NEI, 1ST, LST : la valeur les dit en toutes lettres).
+   */
+  private drawCond(r: Rect, i: number): void {
+    const c = CONDS[Math.max(0, Math.min(CONDS.length - 1, i))];
+    const y = (r.y0 + r.y1) / 2;
+    if (c.kind !== 'ab') {
+      this.line([r.x0, y, r.x1, y], this.pal.faint, 1.2);
+      if (c.kind !== 'none') this.circle(r.x0 + (r.x1 - r.x0) / 2, y, 2.2, c.not ? this.pal.half : this.pal.ink);
+      return;
+    }
+    const gap = 1.6;
+    const w = Math.min(7, (r.x1 - r.x0 - gap * (c.b - 1)) / c.b);
+    const h = Math.min(r.y1 - r.y0 - 2, w + 2);
+    const x0 = r.x0 + (r.x1 - r.x0 - (w * c.b + gap * (c.b - 1))) / 2;
+    for (let k = 0; k < c.b; k += 1) {
+      const on = (k === c.a - 1) !== c.not;
+      const x = x0 + k * (w + gap);
+      if (on) this.roundRect(x, y - h / 2, w, h, 1, this.pal.ink);
+      else this.roundRect(x + 0.4, y - h / 2 + 0.4, w - 0.8, h - 0.8, 1, null, this.pal.half, 0.8);
+    }
+  }
+
+  /** RATE (V.5.1) : les repetitions d'un temps (quatre pas), un trait chacune, les pas reperes a peine. */
+  private drawRate(r: Rect, i: number): void {
+    const den = RATE_DENS[Math.max(0, Math.min(RATE_DENS.length - 1, i))];
+    const span = r.x1 - r.x0;
+    const base = r.y1;
+    const top = r.y0 + 2;
+    this.line([r.x0, base, r.x1, base], this.pal.faint, 0.8);
+    for (let k = 1; k < 4; k += 1) this.line([r.x0 + (span * k) / 4, base, r.x0 + (span * k) / 4, base - 2], this.pal.faint, 0.6);
+    // Un temps = quatre pas : den / 4 repetitions (1/1 : une par mesure, un seul trait au debut)
+    const n = Math.max(1, Math.min(24, Math.round(den / 4)));
+    for (let k = 0; k < n; k += 1) {
+      const x = r.x0 + (span * k) / n + 0.6;
+      this.line([x, base, x, top], k === 0 ? this.pal.ink : this.pal.half, k === 0 ? 1.6 : 1.1);
+    }
+  }
+
+  /** VFAD (V.5.1) : six repetitions, leur hauteur menee par VFAD (elle descend, monte, ou reste). */
+  private drawVfad(r: Rect, v: number): void {
+    const n = 6;
+    const gap = 2;
+    const bw = (r.x1 - r.x0 - gap * (n - 1)) / n;
+    for (let k = 0; k < n; k += 1) {
+      const g = rtrgGain(1, v, k / (n - 1));
+      const h = Math.max(1.2, (r.y1 - r.y0 - 1) * g);
+      this.ctx.fillStyle = k === 0 ? this.pal.ink : this.pal.half;
+      this.ctx.fillRect(r.x0 + k * (bw + gap), r.y1 - h, bw, h);
+    }
+  }
+
+  /** WAVE (V.5.1) : la forme du LFO sur un cycle et demi, son zero a peine (EXP et RMP partent du bas : unipolaires). */
+  private drawWave(r: Rect, i: number): void {
+    const w = LFO_WAVES[Math.max(0, Math.min(LFO_WAVES.length - 1, i))];
+    const mid = (r.y0 + r.y1) / 2;
+    const amp = (r.y1 - r.y0) / 2 - 1.5;
+    const uni = w === 'EXP' || w === 'RMP';
+    const pts: number[] = [];
+    const n = 54;
+    for (let k = 0; k <= n; k += 1) {
+      const u = (k / n) * 1.5;
+      const val = waveAt(w, Math.min(u, 1.4999), 7);
+      pts.push(r.x0 + (r.x1 - r.x0) * (k / n), uni ? r.y1 - 1.5 - val * 2 * amp : mid - val * amp);
+    }
+    this.line([r.x0, uni ? r.y1 - 1.5 : mid, r.x1, uni ? r.y1 - 1.5 : mid], this.pal.faint, 0.8);
+    this.line(pts, this.pal.ink, 1.6 * Math.max(0.7, Screen.cardK(r)));
   }
 
   /** Des crans (SOUND, GATE) : un point par cran, le choisi en grand ; plus de 12 : une barre. */
@@ -2370,6 +2445,17 @@ export class Screen {
           x1 -= 5;
         }
       }
+      // FILL tenu (V.5.1, tenir YES) : sa pastille pleine, avant tout le reste du milieu
+      if (DT_FACE && fill.on) {
+        const w = this.textWidth('FILL', T.sound, 800, 0.6) + 8;
+        if (fits(w)) {
+          x1 -= w;
+          this.roundRect(x1, H.pillY, w, T.pillH, 2.2, INK);
+          this.text('FILL', x1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 800, 'center', 0.6);
+          this.info.head += '|FILL';
+          x1 -= 5;
+        }
+      }
       // Le pas qui joue a des verrous (n'importe quelle page) : P-LOCK un instant, plein (69-common2, point 3)
       if (mode && mode.kind === 'flash') {
         const word = 'P-LOCK';
@@ -2392,6 +2478,13 @@ export class Screen {
         const txt = plays === inst ? '' : ([plays, plays.split(' + ')[0]].find((t) => this.textWidth(t, T.sound, 600, 0.6) <= room) ?? '');
         if (txt) this.text(txt, x1, y, T.sound, HALF, 600, 'right', 0.6);
       }
+    } else if (DT_FACE && fill.on && fits(this.textWidth('FILL', T.sound, 800, 0.6) + 8)) {
+      // FILL tenu sans voix choisie (V.5.1) : sa pastille a la place de PICK A VOICE
+      const w = this.textWidth('FILL', T.sound, 800, 0.6) + 8;
+      x1 -= w;
+      this.roundRect(x1, H.pillY, w, T.pillH, 2.2, INK);
+      this.text('FILL', x1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 800, 'center', 0.6);
+      this.info.head += '|FILL';
     } else if (fits(this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5))) {
       // Sans voix : PICK A VOICE devant ALL (ou devant l'onglet VOICE d'une page de FX) s'il tient
       this.text('PICK A VOICE', x1, y, T.sound * 0.85, FAINT_TEXT, 600, 'right', 0.5);
@@ -2806,10 +2899,24 @@ export class Screen {
     if (DY < 12) return;
     this.runIcon(PAGE_HEAD.iconX, PAGE_HEAD.y);
     const left = this.paintDials(PAGE_HEAD.y, PAGE_HEAD.iconX + 14, this.mobile ? DY + CARD.y0 - 4 : DY + 6, now, cur);
+    // FILL tenu (V.5.1, tenir YES) : sa pastille pleine juste apres la lecture, le preset charge passe apres elle
+    let fx0 = PAGE_HEAD.iconX + 14;
+    if (DT_FACE && fill.on) {
+      const ts = this.bt.head.sound;
+      const ph = this.bt.head.pillH;
+      const w = this.textWidth('FILL', ts, 800, 0.6) + 8;
+      if (left - 8 - fx0 >= w) {
+        const py = PAGE_HEAD.pillY;
+        this.roundRect(fx0, py, w, ph, 2.2, INK);
+        this.text('FILL', fx0 + w / 2, py + ph / 2 + ts * 0.36, ts, BLACK, 800, 'center', 0.6);
+        this.info.head = 'FILL';
+        fx0 += w + 6;
+      }
+    }
     // Le preset charge (2026-10-27) : dans l'air entre la lecture et le pattern, une etoile s'il a bouge ; il cede sa
     // place (coupe d'un point, ou rien sous 30 unites), jamais le pattern, MASTER ni TEMPO
     if (preset) {
-      const x0 = PAGE_HEAD.iconX + 14;
+      const x0 = fx0;
       const room = left - 8 - x0;
       if (room >= 30) {
         const label = this.fitText(`${preset.label}${preset.edited ? '*' : ''}`, room, 8.5, 0.6, 600);
@@ -3092,6 +3199,19 @@ export class Screen {
         break;
       case 'gr':
         this.drawGr(r, b.course, T.tagSize);
+        break;
+      // V.5.1 (2026-10-29, TRIG et MOD) : la condition, la vitesse du retrig, la velocite des repetitions, la forme du LFO
+      case 'cond':
+        this.drawCond(r, Math.round(b.value));
+        break;
+      case 'rate':
+        this.drawRate(r, Math.round(b.value));
+        break;
+      case 'vfad':
+        this.drawVfad(r, b.value);
+        break;
+      case 'wave':
+        this.drawWave(r, Math.round(b.value));
         break;
       default:
         // Un grand carre (2 x 2, la quantite d'un FX sur sa page, 2026-10-10) : le potard a droite de la valeur, sur toute la

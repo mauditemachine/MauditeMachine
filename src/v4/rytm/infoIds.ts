@@ -198,7 +198,14 @@ export const RYTM_CONTROL_IDS = [
 ] as const;
 export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
 
-export type RytmInfoId = RytmInfoPage | RytmInfoTab | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId;
+/**
+ * V.5.1 (2026-10-29, l'etape D2) : les reglages de la page TRIG (leur cible q:<reglage>), ceux des LFO (une carte par
+ * reglage, les deux LFO la partagent : lfo:<reglage>), TRIG 2/2 (le retrig), le lock trig et FILL.
+ */
+export const RYTM_D2_IDS = ['q:len', 'q:prob', 'q:cond', 'q:utime', 'q:lfot', 'q:rtrg', 'q:rate', 'q:vfad', 'q:rlen', 'lfo:spd', 'lfo:mul', 'lfo:fad', 'lfo:dst', 'lfo:wav', 'lfo:phs', 'lfo:mod', 'lfo:dep', 'ptrig2', 'locktrig', 'fill'] as const;
+export type RytmD2Id = (typeof RYTM_D2_IDS)[number];
+
+export type RytmInfoId = RytmInfoPage | RytmInfoTab | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId | RytmD2Id;
 
 export const RYTM_INFO_IDS: readonly RytmInfoId[] = [
   ...RYTM_INFO_PAGES,
@@ -208,6 +215,7 @@ export const RYTM_INFO_IDS: readonly RytmInfoId[] = [
   ...RYTM_SOON_IDS,
   ...RYTM_R3_IDS,
   ...RYTM_CONTROL_IDS,
+  ...RYTM_D2_IDS,
 ];
 const ID_SET: ReadonlySet<string> = new Set(RYTM_INFO_IDS);
 export const isRytmInfoId = (s: unknown): s is RytmInfoId => typeof s === 'string' && ID_SET.has(s);
@@ -285,6 +293,8 @@ const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
   'm:TOM': 'mixvol',
   'm:HT': 'mixvol',
   'm:CY': 'mixvol',
+  // V.5.1 : les deux LFO partagent la carte de chaque reglage
+  ...Object.fromEntries([1, 2].flatMap((n) => ['spd', 'mul', 'fad', 'dst', 'wav', 'phs', 'mod', 'dep'].map((k) => [`q:l${n}${k}`, `lfo:${k}`]))),
 };
 
 /** La carte d'une cible de bloc (pages.ts SlotTarget), 'enc' si elle n'en a pas. */
@@ -397,6 +407,8 @@ const TRANSPORT = new Set(['run', 'clear', 'random', 'mute', 'solo']);
 /** Les touches de la rangee V.5.0 qui ont leur carte (2026-10-29) ; TRIG et MOD, leur page (ptrig, pmod). */
 const DT_KEYS = new Set(['func', 'rec', 'stop', 'yes', 'no']);
 const DT_PAGE_CARD: Readonly<Record<string, RytmInfoId>> = { trig: 'ptrig', mod: 'pmod' };
+/** Les onglets de TRIG et MOD (V.5.1) : la carte de leur page ; TRIG 2/2, celle du retrig. */
+const DT_TAB_CARD: Readonly<Record<string, RytmInfoId>> = { trig: 'ptrig', trig2: 'ptrig2', mod: 'pmod', mod2: 'pmod' };
 const PAGE_IDS: ReadonlySet<string> = new Set(RYTM_PAGES.map((p) => p.id));
 const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);
 
@@ -407,6 +419,11 @@ const TAB_IDS: ReadonlySet<string> = new Set(RYTM_INFO_TABS);
 let knobResolver: (k: number) => number | null = (k) => k;
 export function setKnobResolver(fn: (k: number) => number | null): void {
   knobResolver = fn;
+}
+/** Ce qu'est le pas i de la voix choisie (V.5.1) : 'locktrig' pour un lock trig ; actions.ts l'inscrit. */
+let stepResolver: (i: number) => 'locktrig' | null = () => null;
+export function setStepResolver(fn: (i: number) => 'locktrig' | null): void {
+  stepResolver = fn;
 }
 
 /**
@@ -456,10 +473,13 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
     const t = pageSlots(tb[1], null)[0]?.target;
     return t ? { id: infoIdOfTarget(t) } : null;
   }
+  if (tb && DT_TAB_CARD[tb[1]]) return { id: DT_TAB_CARD[tb[1]] };
   if (tb) return tb[1] === 'voice' || PAGE_IDS.has(tb[1]) || TAB_IDS.has(tb[1]) ? { id: tb[1] } : null;
   const st = /^step-(\d+)$/.exec(hotspot);
   if (st) {
     const i = Number(st[1]) - 1;
+    // Un lock trig de la voix choisie (V.5.1) : sa carte (actions.ts le dit, ce module reste pur)
+    if (i >= 0 && i < 16 && stepResolver(i) === 'locktrig') return { id: 'locktrig', step: i };
     return i >= 0 && i < 16 ? { id: 'step', step: i } : null;
   }
   if (TRANSPORT.has(hotspot)) return { id: hotspot };

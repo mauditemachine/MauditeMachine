@@ -73,6 +73,7 @@ import { screenDialOf, screenDials } from '../state/screenDials';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
 import { lockMask } from '../audio/locks';
+import { NO_MARKS, trigMarks } from '../rytm/trigMarks';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import {
@@ -3267,7 +3268,11 @@ export class Stage {
     const p = pattern.get();
     const step = ed ? -1 : rytmLock.get().step;
     const blink = step >= 0 && Math.floor(now / Stage.LOCK_BLINK_MS) % 2 === 0;
-    return this.seq.setLocks(ed ? 0 : lockMask(p.locks, p.instrument), step, blink);
+    const a = this.seq.setLocks(ed ? 0 : lockMask(p.locks, p.instrument), step, blink);
+    // Les lock trigs en jaune et le point des conditions (V.5.1, au desktop ; le telephone n'en montre rien)
+    const m = DT_FACE && !ed ? trigMarks(p.instrument ? p.steps[p.instrument] : undefined, p.locks, p.trigs, p.instrument) : NO_MARKS;
+    const b = this.seq.setTrigMarks(m.ltrg, m.cond);
+    return a || b;
   }
 
   private syncLocks = (): void => {

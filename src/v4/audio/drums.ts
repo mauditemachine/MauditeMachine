@@ -84,7 +84,7 @@ import {
   type VoiceParam,
 } from './voicefx';
 import { seqLast, seqState, seqStep, type HitLfo } from './seq';
-import { LEN_REL_S, LFO_FREQ_CENTS, LFO_PITCH_CENTS, LFO_SPAN_S, lfoDistOf, lfoHitLock, lfoPoints, liveDests, liveNeeds, type LiveNeeds } from './seqhit';
+import { LEN_REL_S, LFO_FREQ_CENTS, LFO_PITCH_CENTS, LFO_SPAN_S, lfoDistOf, lfoHitLock, lfoPoints, lfoSum, liveDests, liveNeeds, type LiveNeeds } from './seqhit';
 import { NO_TRIGS, type TrigSet } from './trig';
 import type { LfoDest } from './lfo';
 import { InsertLocks } from './lockfx';
@@ -2220,10 +2220,18 @@ export interface OfflineHit {
   gain?: number;
   kind?: 'note' | 'rep' | 'lock';
   len?: number | null;
+  /** avec log : la valeur de chaque LFO du coup a son debut, par destination (la somme des deux LFO, -1 a 1) */
+  lfo?: Partial<Record<LfoDest, number>>;
 }
 let offlineHitsLog: OfflineHit[] = [];
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+/** Les LFO d'un coup au journal (tests) : leur valeur a son debut, par destination. */
+const lfoLog = (l: HitLfo): Partial<Record<LfoDest, number>> => {
+  const out: Partial<Record<LfoDest, number>> = {};
+  for (const x of l.list) out[x.dest] = lfoSum(l.list, x.dest, l.pos, l.anchor);
+  return out;
+};
 
 function seeded(seed: number): () => number {
   let a = seed >>> 0;
@@ -2416,7 +2424,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
           const gain = hit.vel * hp.gain;
           const entry = hitEntry(g, inst, hp, h.fx, gain);
           const vo = voice(g, inst, th, entry.dest, hp, true, ex);
-          if (log) offlineHitsLog.push({ t: th, inst, bar, step: s, pf: hp.pf, decay: hp.decay, ...(o.log ? { gain, kind: hit.rep ? ('rep' as const) : ('note' as const), len: hit.len } : {}) });
+          if (log) offlineHitsLog.push({ t: th, inst, bar, step: s, pf: hp.pf, decay: hp.decay, ...(o.log ? { gain, kind: hit.rep ? ('rep' as const) : ('note' as const), len: hit.len, ...(hit.lfo ? { lfo: lfoLog(hit.lfo) } : {}) } : {}) });
           if (vo) {
             if (hit.rep && prev) rollCut(prev, th, vo);
             postSends(g, inst, th, h.lock, vo);
@@ -2639,6 +2647,8 @@ export interface AudioDebug {
   /** contextes crees depuis le chargement de la page (0 avant le premier geste, 1 ensuite) */
   readonly created: number;
   readonly triggers: number;
+  /** les lock trigs appliques en direct depuis le chargement (V.5.1) */
+  readonly lockTrigs: number;
   readonly last: TriggerInfo | null;
   /** crete absolue des 1024 derniers echantillons de l'analyseur */
   peak(): number;
@@ -2799,6 +2809,9 @@ export const audioDebug: AudioDebug = {
   },
   get triggers() {
     return triggers;
+  },
+  get lockTrigs() {
+    return lockTrigs;
   },
   get last() {
     return last;
