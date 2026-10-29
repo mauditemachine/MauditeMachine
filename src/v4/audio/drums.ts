@@ -1119,6 +1119,19 @@ function lfoParam(lv: LiveHit, d: LfoDest): AudioParam | null {
 const LIVE_GLIDE_S = 0.003;
 const LIVE_TAU_S = 0.001;
 
+/**
+ * Tient un parametre a t (V.5.1, la revue de D2, E1) : cancelAndHoldAtTime la ou il existe ; sinon (Firefox ne l'a pas,
+ * dj/engine.ts le disait deja) l'annulation simple, puis la valeur v posee a t si on la connait (sans elle, un
+ * setTargetAtTime qui suit part de ce que valent les evenements d'avant t, ce qui revient au meme).
+ */
+function holdAt(p: AudioParam, t: number, v?: number): void {
+  if (typeof p.cancelAndHoldAtTime === 'function') p.cancelAndHoldAtTime(t);
+  else {
+    p.cancelScheduledValues(t);
+    if (v !== undefined) p.setValueAtTime(v, t);
+  }
+}
+
 /** La valeur des LFO continus d'un coup a t, par destination, telle que ses courbes la donnent maintenant (avant une relance). */
 function lfoHeld(lv: LiveHit, t: number): Map<LfoDest, number> {
   const out = new Map<LfoDest, number>();
@@ -1149,8 +1162,8 @@ function lfoCurves(lv: LiveHit, from: number, held: Map<LfoDest, number> = lfoHe
     if (from > lv.when) {
       // La valeur tenue posee a t0 : sans evenement apres lui, cancelAndHoldAtTime ne pose rien et la rampe partirait du
       // debut du coup
-      param.cancelAndHoldAtTime(t0);
       const h = held.get(d);
+      holdAt(param, t0, h);
       if (h !== undefined) param.setValueAtTime(h, t0);
       t0 += LIVE_GLIDE_S;
       if (t0 >= t1) continue;
@@ -1575,7 +1588,7 @@ function lockTrigOn(g: Graph, inst: Inst, t: number, lock: Readonly<StepLock> | 
   // De la valeur du moment (quelle que soit la courbe d'avant : une enveloppe, une valeur fixe) vers celle du verrou, en
   // quelques ms : setTargetAtTime part de ce que vaut le parametre a t (une rampe lineaire partait de l'evenement d'avant)
   const glideTo = (p: AudioParam, v: number): void => {
-    p.cancelAndHoldAtTime(t);
+    holdAt(p, t);
     p.setTargetAtTime(v, t, LIVE_TAU_S);
     u.params.push(p);
   };

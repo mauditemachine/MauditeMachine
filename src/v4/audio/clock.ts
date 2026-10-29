@@ -224,6 +224,8 @@ const stats = {
   asks: 0,
   /** fins de mesure recalees sur la platine qui mene (2026-10-27, leadRealign) */
   leadShifts: 0,
+  /** coups ou lock trigs qui ont leve pendant la programmation (V.5.1, la revue de D2, E1), depuis le chargement */
+  seqErrors: 0,
 };
 
 const runListeners = new Set<() => void>();
@@ -319,11 +321,21 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     const live = liveNeeds(snap.locks, h.inst);
     const sq: HitSeq | undefined = h.len !== null || h.lfo || h.roll || live ? { len: h.len, lfo: h.lfo, roll: h.roll, rep: h.rep, prev: seqSt.v[h.inst].last as Voice | null, live } : undefined;
     const n0 = vs.length;
-    if (trigger(h.inst, h.t, false, vs, h.vel, h.lock, snap.scenes, sq) && vs.length > n0) seqLast(seqSt, h.inst, vs[vs.length - 1]);
+    // Une erreur d'automation (la revue de D2, E1 : un navigateur sans cancelAndHoldAtTime) ne bloque jamais l'horloge : le
+    // pas suivant part quand meme (sinon le meme pas se rejouait a chaque reveil)
+    try {
+      if (trigger(h.inst, h.t, false, vs, h.vel, h.lock, snap.scenes, sq) && vs.length > n0) seqLast(seqSt, h.inst, vs[vs.length - 1]);
+    } catch (err) {
+      seqWarn(err);
+    }
   }
   for (const lt of out.locks) {
-    const pv = lockTrig(lt.inst, lt.t, lt.lock, lt.last as Voice | null, lt.anchor);
-    if (pv) vs.push(pv);
+    try {
+      const pv = lockTrig(lt.inst, lt.t, lt.lock, lt.last as Voice | null, lt.anchor);
+      if (pv) vs.push(pv);
+    } catch (err) {
+      seqWarn(err);
+    }
   }
   let first = when;
   let last = when;
@@ -347,6 +359,15 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   if (-late < stats.minLead) stats.minLead = -late;
   stepListeners.forEach((fn) => fn(e));
+}
+
+/** Une erreur du moteur pendant la programmation d'un pas : dite une fois dans la console, l'horloge continue. */
+let seqWarned = false;
+function seqWarn(err: unknown): void {
+  stats.seqErrors += 1;
+  if (seqWarned) return;
+  seqWarned = true;
+  console.warn('[clock] un coup du pas n\'a pas pu etre programme', err);
 }
 
 /** Oublie les voix deja parties et les pas passes (compactage sur place, aucune allocation). */
@@ -992,6 +1013,8 @@ export interface ClockDebug {
   readonly leadShifts: number;
   /** le compteur de passages du pattern (V.5.1, les conditions A:B et 1ST) */
   readonly pass: number;
+  readonly seqErrors: number;
+  readonly abs: number;
 }
 
 export const clockDebug: ClockDebug = {
@@ -1034,5 +1057,12 @@ export const clockDebug: ClockDebug = {
   },
   get pass() {
     return passN;
+  },
+  /** V.5.1, la revue de D2 : les erreurs de programmation rattrapees (E1) et la position du prochain pas (E6, la reprise) */
+  get seqErrors() {
+    return stats.seqErrors;
+  },
+  get abs() {
+    return abs;
   },
 };
