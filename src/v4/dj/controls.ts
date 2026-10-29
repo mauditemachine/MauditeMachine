@@ -628,10 +628,13 @@ export class DjControls {
     const g = round ? DJ_ROUND.glow : 1;
     if (round) {
       const slot = this.roundSlot[i];
+      // La table vient d'etre refaite (ADD DECK, REMOVE DECK) : un relachement arrive sur l'ancienne, sans cette touche
+      if (!slot) return false;
       attr = this.roundEm[slot.face];
       i = slot.j;
     }
     const a = attr.array as Float32Array;
+    if (i * 3 + 2 >= a.length) return false;
     const r = Math.fround(rgb[0] * g);
     const gg = Math.fround(rgb[1] * g);
     const b = Math.fround(rgb[2] * g);
@@ -646,6 +649,8 @@ export class DjControls {
   /** Une touche enfoncee (0 a 1) ; true si elle bouge. */
   setKeyPress(i: number, v: number, round = false): boolean {
     const ys = round ? this.roundY : this.keyY;
+    // La table vient d'etre refaite : l'ancienne n'a pas cette touche
+    if (i >= ys.length || (round && !this.roundSlot[i])) return false;
     const y = Math.fround(-DJ_KEY.press * v);
     if (ys[i] === y) return false;
     ys[i] = y;

@@ -94,7 +94,8 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
   const lines: Line[] = [];
   const brackets: Bracket[] = [];
   for (const k of DJ_KEYS) {
-    if (k.target.kind === 'time' || !('deck' in k.target) || k.target.deck !== u) continue;
+    // REMOVE DECK de la table (2026-10-29) vise la derniere platine mais se grave sur la table
+    if (k.target.kind === 'time' || !('deck' in k.target) || k.target.deck !== u || k.id === 'dj-removedeck') continue;
     const x = k.x - ux;
     // Le sampler (2026-10-07) : les noms au-dessus des touches, REC DECK et REC MIX en orange
     if (k.target.kind === 'smpl') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 700, group: 'cues', ...(k.target.fn === 'recdeck' || k.target.fn === 'recmix' ? { ink: 'orange' as const, alpha: 1 } : {}) });
@@ -215,6 +216,8 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
       : { text, x: k.x - ux - k.w / 2 - 0.14, z: k.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' };
   const ad = DJ_KEYS.find((k) => k.target.kind === 'adddeck');
   if (ad) texts.push(keyName(ad, 'ADD DECK'));
+  const rd = DJ_KEYS.find((k) => k.id === 'dj-removedeck');
+  if (rd) texts.push(keyName(rd, 'REMOVE DECK'));
   return { texts, lines, brackets };
 }
 

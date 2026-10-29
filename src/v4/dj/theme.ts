@@ -487,6 +487,12 @@ export const MIX = {
    */
   add: PORTRAIT ? { dx: 0, z: 4.12, w: 0.72, d: 0.3 } : { dx: 1.62, z: -5.19, w: 0.72, d: 0.28 },
   /**
+   * REMOVE DECK sur la table, a gauche d'ADD DECK (2026-10-29, Mika : "J'aimerais aussi avoir la possibilite de delete
+   * des deck que j'ai rajoute !" : la touche de l'en-tete de la derniere platine ne se voyait pas) ; dx : son centre
+   * depuis le bord droit de la table, comme ADD DECK
+   */
+  remove: { dx: 3.55 },
+  /**
    * Au telephone tenu droit, l'en-tete n'a plus la place : ADD DECK descend
    * dans la colonne du MASTER, sous PLAY, son nom au-dessus.
    */

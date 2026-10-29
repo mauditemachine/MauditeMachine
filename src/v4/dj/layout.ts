@@ -12,7 +12,7 @@
  */
 
 import { PORTRAIT } from '../theme';
-import { DECK, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_MAX, DJ_MIXER_ONLY, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DECK, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_MAX, DJ_DECKS_MIN, DJ_MIXER_ONLY, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /**
  * fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a
@@ -263,6 +263,11 @@ function buildKeys(): DjKeySpec[] {
   const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_SHOWN.length) / 2 - dx);
   const A = MIX.add;
   if (!DJ_MIXER_ONLY && DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
+  // REMOVE DECK a cote d'ADD DECK (2026-10-29) : la derniere platine ajoutee s'en va (deux appuis si elle joue), comme la
+  // touche de son en-tete ; tenu droit au telephone, la table est seule : rien
+  if (!DJ_MIXER_ONLY && !MIX.keysInMaster && DJ_DECKS.length > DJ_DECKS_MIN) {
+    keys.push({ id: 'dj-removedeck', label: 'REMOVE', x: rightX(MIX.remove.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'removedeck', deck: DJ_DECKS[DJ_DECKS.length - 1] } });
+  }
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;
 }
