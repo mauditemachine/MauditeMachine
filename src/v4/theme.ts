@@ -1774,8 +1774,8 @@ export const KEY_LIT = {
     dblue: [0.05, 0.3, 0.95],
     // La revue de D1 (R7) : 0.16 de vert (0.08 lisait a 11 degres de teinte, pres du rouge d'une touche allumee)
     dorange: [0.95, 0.16, 0],
-    // V.5.1 : le jaune #FFD75E des lock trigs (lineaire 1, 0.68, 0.11), a 0.85 comme les autres
-    dyellow: [0.85, 0.56, 0.08],
+    // V.5.1 : le jaune #FFD75E des lock trigs (lineaire 1, 0.68, 0.11), un peu plus sature (l'ACES le palissait en paille)
+    dyellow: [0.9, 0.52, 0.03],
   } as Readonly<Record<KeyLitTone, readonly number[]>>,
   dark: 0.4,
   ledWhite: 0.55,
@@ -1829,7 +1829,7 @@ export const STEP_LIT = {
   /** la vue PTN du desktop (V.5.0) : le courant, le suivant et la chaine (clignotants), un pattern plein (blanc) */
   dtEdit: { cur: 1, next: 1, chain: 0.6, filled: 0.2, blinkMs: 260 },
   /** un lock trig (V.5.1, au desktop) : le pas allume en jaune (dyellow), a cette part ; sans velocite, il ne joue pas */
-  lockTrig: 0.6,
+  lockTrig: 0.9,
 } as const;
 /** La teinte d'un pas mis (V.5.0) : le rouge de la Digitakt au desktop, l'orange de la machine au telephone. */
 export const STEP_TONE: KeyLitTone = PORTRAIT ? 'orange' : 'dred';

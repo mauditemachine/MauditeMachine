@@ -232,6 +232,8 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
   fxvdelay: 'DELAY',
   fxvreverb: 'REVERB',
   fxm: 'MASTER',
+  // V.5.1 : TRIG 1/2 (le coup) et 2/2 (le retrig) a la Digitakt, MOD 1/2 et 2/2 (un LFO chacun) ; un nom qui est deja un
+  // rang (1/2) se dit par son titre dans les messages (actions.ts pageKeyBody)
   trig: '1/2',
   mod: 'LFO 1',
   tempo: 'TEMPO',

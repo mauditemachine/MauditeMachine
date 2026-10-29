@@ -352,5 +352,14 @@ export const patterns = {
 // La chaine avance avec l'horloge du MM-RYTM
 clock.onBar((first) => patterns.bar(first));
 clock.onUnbar(() => patterns.unbar());
-// La condition LST (V.5.1) : un changement de pattern est prevu a la fin de cette mesure (un pattern qui attend, une chaine)
-clock.lastPass(() => (state.next >= 0 && state.next !== state.cur) || state.chain.length > 1);
+// La condition LST (V.5.1) : un changement de pattern est prevu a la fin de cette mesure (un pattern qui attend, une chaine) ;
+// quand cela change en cours de mesure (un pattern tape en lecture), les pas a venir l'entendent tout de suite
+const lastNow = (): boolean => (state.next >= 0 && state.next !== state.cur) || state.chain.length > 1;
+clock.lastPass(lastNow);
+let lastWas = lastNow();
+listeners.add(() => {
+  const l = lastNow();
+  if (l === lastWas) return;
+  lastWas = l;
+  clock.refresh();
+});

@@ -182,7 +182,10 @@ export function lfoText(p: LfoParam, v: number): string {
   }
 }
 
-/** La ligne d'unite ; spd, mul : ceux du LFO (la duree d'un cycle) ; stepMs : un pas en ms. */
+/**
+ * La ligne d'unite, courte (une case de l'ecran) ; spd, mul : ceux du LFO (la duree d'un cycle) ; stepMs : un pas en ms
+ * (sous un pas, la duree en ms).
+ */
 export function lfoUnit(p: LfoParam, v: number, l: { spd: number; mul: number }, stepMs: number): string {
   const c = clampLfo(p, v);
   const { key } = lfoParts(p);
@@ -190,12 +193,15 @@ export function lfoUnit(p: LfoParam, v: number, l: { spd: number; mul: number },
     const cyc = lfoCycle({ spd: key === 'spd' ? c : l.spd, mult: LFO_MULTS[key === 'mul' ? c : l.mul] });
     if (!Number.isFinite(cyc)) return 'STILL';
     const bars = cyc / 16;
-    return bars >= 1 ? `${+bars.toFixed(2)} BAR CYCLE` : `${+cyc.toFixed(2)} STEP${cyc === 1 ? '' : 'S'} ${Math.round(cyc * stepMs)} MS`;
+    if (bars >= 1) return `${+bars.toFixed(2)} BAR${bars === 1 ? '' : 'S'}`;
+    if (cyc >= 1) return `${+cyc.toFixed(2)} STEP${cyc === 1 ? '' : 'S'}`;
+    return `${Math.round(cyc * stepMs)} MS`;
   }
-  if (key === 'fad') return c === 0 ? 'NO FADE' : `${c < 0 ? 'IN' : 'OUT'} ${+(64 / Math.abs(c)).toFixed(1)} STEPS`;
-  if (key === 'dst') return c === 0 ? 'NO TARGET' : 'TARGET';
-  if (key === 'wav') return ['TRIANGLE', 'SINE', 'SQUARE', 'SAW', 'EXPONENTIAL', 'RAMP DOWN', 'RANDOM'][c];
+  if (key === 'fad') return c === 0 ? 'NO FADE' : `${c < 0 ? 'IN' : 'OUT'} ${+(64 / Math.abs(c)).toFixed(1)} ST`;
+  // DEST : en continu sur le coup qui sonne (LIVE) ou pris au coup (AT HIT)
+  if (key === 'dst') return c === 0 ? 'NO TARGET' : c <= 5 ? 'LIVE' : 'AT HIT';
+  if (key === 'wav') return ['TRIANGLE', 'SINE', 'SQUARE', 'SAW', 'EXPO', 'RAMP DOWN', 'RANDOM'][c];
   if (key === 'phs') return `${Math.round((c / 128) * 360)} DEG`;
-  if (key === 'mod') return ['FREE RUNNING', 'TRIG RESTARTS', 'HOLD AT TRIG', 'ONE CYCLE', 'HALF CYCLE'][c];
-  return c === 0 ? 'OFF' : c < 0 ? 'INVERTED' : 'AMOUNT';
+  if (key === 'mod') return ['FREE', 'RESTARTS', 'HOLD', 'ONE CYCLE', 'HALF'][c];
+  return c === 0 ? 'OFF' : c < 0 ? 'INVERTED' : 'DEPTH';
 }

@@ -231,28 +231,32 @@ export function trigText(p: TrigParam, v: number): string {
   }
 }
 
-/** La ligne d'unite ; ms : la duree d'un pas en ms (le tempo du moment). */
+/** La ligne d'unite, courte (une case de l'ecran : une dizaine de signes) ; ms : la duree d'un pas en ms (le tempo du moment). */
 export function trigUnit(p: TrigParam, v: number, stepMs: number): string {
   const c = clampTrig(p, v);
   switch (p) {
     case 'len':
     case 'rlen': {
       const s = LEN_STEPS[c];
-      if (s === null) return p === 'len' ? 'NO CUT' : 'TO NEXT TRIG';
-      return `${s === 1 ? '1 STEP' : `${LEN_LABELS[c]} STEPS`} ${Math.round(s * stepMs)} MS`;
+      if (s === null) return p === 'len' ? 'NO CUT' : 'TO NEXT';
+      const ms = s * stepMs;
+      return `${ms < 10 ? ms.toFixed(1) : Math.round(ms)} MS`;
     }
     case 'prob':
-      return c >= 100 ? 'ALWAYS' : c <= 0 ? 'NEVER' : 'OF THE TRIGS';
+      return c >= 100 ? 'ALWAYS' : c <= 0 ? 'NEVER' : 'CHANCE';
     case 'cond': {
       const k = CONDS[c];
-      if (k.kind === 'none') return 'PROB DECIDES';
-      if (k.kind === 'ab') return `${k.not ? 'NOT ' : ''}PASS ${k.a} OF ${k.b}`;
-      return { fill: 'HOLD YES', pre: 'LAST RESULT', nei: 'VOICE BEFORE', first: 'FIRST PASS', last: 'LAST PASS', none: '' }[k.kind];
+      if (k.kind === 'none') return 'USE PROB';
+      if (k.kind === 'ab') return `${k.not ? 'NOT ' : ''}${k.a} OF ${k.b}`;
+      if (k.kind === 'fill') return k.not ? 'NO FILL' : 'HOLD YES';
+      if (k.kind === 'first') return k.not ? 'NOT 1ST' : 'FIRST PASS';
+      if (k.kind === 'last') return k.not ? 'NOT LAST' : 'LAST PASS';
+      return `${k.kind.toUpperCase()} ${k.not ? 'FALSE' : 'TRUE'}`;
     }
     case 'utime':
-      return c === 0 ? 'ON THE GRID' : `${c > 0 ? 'LATE' : 'EARLY'} ${(Math.abs(c) * stepMs / 24).toFixed(1)} MS`;
+      return c === 0 ? 'ON GRID' : `${c > 0 ? 'LATE' : 'EARLY'} ${((Math.abs(c) * stepMs) / 24).toFixed(1)} MS`;
     case 'lfot':
-      return c ? 'TRIG RESTARTS LFO' : 'LFO RUNS ON';
+      return c ? 'RESTARTS' : 'LFO FREE';
     case 'rtrg':
       return c ? 'REPEATS' : 'ONE HIT';
     case 'rate': {

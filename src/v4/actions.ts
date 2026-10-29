@@ -54,7 +54,7 @@ import { sceneCtl } from './state/sceneCtl';
 import { morph } from './audio/morph';
 import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId, type SceneSet } from './rytm/sceneData';
 import { bindingOf, from01, sceneRole, to01, voiceRowId, type SceneBinding } from './rytm/sceneParams';
-import { FACE_PAGES, RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
+import { FACE_PAGES, RYTM_PAGES, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { setKnobResolver, setStepResolver } from './rytm/infoIds';
 import { section } from './state/section';
@@ -2991,8 +2991,11 @@ function pageKeyBody(id: RytmPageId, stage: Stage | null): void {
     // SYNTH · VOICE AGAIN: MAIN (revue du 2026-10-09 : VOICE SYNTH  VOICE AGAIN: VOI. au telephone) ; au desktop depuis le
     // 2026-10-27 l'onglet dit son rang (SYNTH 2/2 : la deuxieme page des huit potards, comme une Digitakt)
     const next = screensOf(id, inst)[(r.tab + 1) % r.tabs];
-    const rank = FACE_FOLLOWS_PAGE ? ` ${r.tab + 1}/${r.tabs}` : '';
-    lcdMessage.show(`${tabWord(curScreen(), inst)}${rank} · ${pageLabel(id)} AGAIN: ${tabWord(next, inst)}`, 1600);
+    // Un onglet nomme par son rang (V.5.1, TRIG 1/2 et 2/2) : son titre, sans rang de plus (1/2 1/2 se lisait)
+    const word = (sc: RytmScreenId): string => (SCREEN_LABEL[sc].includes('/') ? SCREEN_TITLE[sc] : tabWord(sc, inst));
+    const cur = curScreen();
+    const rank = FACE_FOLLOWS_PAGE && !SCREEN_LABEL[cur].includes('/') ? ` ${r.tab + 1}/${r.tabs}` : '';
+    lcdMessage.show(`${word(cur)}${rank} · ${pageLabel(id)} AGAIN: ${word(next)}`, 1600);
   } else if (was === 'home') lcdMessage.show(`${pageLabel(id)} PAGE`);
 }
 

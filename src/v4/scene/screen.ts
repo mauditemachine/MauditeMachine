@@ -3092,7 +3092,8 @@ export class Screen {
     const faceText = strip && b.draw !== 'gr';
     const under = tall || faceText;
     const drawW = under ? 0 : wide ? Math.min(54, bw * 0.34) : bw - B.draw.dx0 + 1;
-    const stepped = b.draw === 'notch' || b.draw === 'ftype' || b.draw === 'time';
+    // COND (V.5.1) aussi : sa valeur (1:2, !FILL, NONE) prend toute la largeur, son dessin le bout de la ligne d'unite
+    const stepped = b.draw === 'notch' || b.draw === 'ftype' || b.draw === 'time' || b.draw === 'cond';
     const valueRoom = muted || stepped || under ? bw - 2 * B.padX : wide ? bw - 2 * B.padX - drawW - 4 : B.valueW;
     // Une seule case (la face, 2026-10-27) : le nom d'un son ou le melange se serre encore un peu avant d'etre coupe
     const v = this.fitValue(b.text, valueRoom, wide ? 1 : 0, tall ? TALL_VALUE : 1, faceText ? FACE_TEXT_SIZES : []);
@@ -3156,6 +3157,7 @@ export class Screen {
       if (!T.notchRow && !wide) return;
       const nr: Rect = wide ? r : { x0: bx + bw - B.padX - 22, y0: unitY - 4, x1: bx + bw - B.padX - 1, y1: unitY };
       if (b.draw === 'ftype') this.drawFtype(wide ? r : { x0: bx + B.draw.dx0 - 2, y0: by + B.draw.dy0, x1: bx + B.draw.dx1, y1: by + B.draw.dy1 }, b.value);
+      else if (b.draw === 'cond') this.drawCond(nr, Math.round(b.value));
       else if (b.notches === 2) this.drawSwitch({ x0: nr.x1 - 13, y0: nr.y0 - 1.5, x1: nr.x1, y1: nr.y1 + 0.5 }, b.course >= 0.5);
       else this.drawNotch(nr, b.notches, b.course);
       return;
@@ -3201,9 +3203,6 @@ export class Screen {
         this.drawGr(r, b.course, T.tagSize);
         break;
       // V.5.1 (2026-10-29, TRIG et MOD) : la condition, la vitesse du retrig, la velocite des repetitions, la forme du LFO
-      case 'cond':
-        this.drawCond(r, Math.round(b.value));
-        break;
       case 'rate':
         this.drawRate(r, Math.round(b.value));
         break;
