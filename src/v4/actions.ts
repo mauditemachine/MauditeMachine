@@ -4273,6 +4273,7 @@ function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
     return false;
   }
   resume();
+  pageArm = null;
   const key = PAGE_BTN[id] ? `pkey-${id}` : null;
   if (key) stage?.pressFaceKey(key);
   switch (id) {
@@ -4304,6 +4305,17 @@ function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
 /** Une page de FUNC (TEMPO, SEND FX, MIXER) : comme une touche de page (sa page, et rappuyee l'onglet suivant ou HOME). */
 function funcPage(p: RytmPageId): void {
   pageKeyBody(p, null);
+}
+
+/**
+ * Une touche de page vraiment tenue (V.5.0, le doigt ou la souris, avant son lacher) : armee tant qu'on la tient, puis
+ * DT_GESTURE.pageArmMs apres le lacher (TRIG tenue + YES = RANDOM, comme la Digitakt).
+ */
+export function pageKeyHold(id: string, down: boolean): void {
+  if (!DT_FACE || !isRytmPage(id) || !PAGE_BTN[id]) return;
+  // FUNC + la touche : sa fonction orange, la page n'est pas armee
+  if (down) pageArm = func.engaged() ? null : { page: id, until: Infinity };
+  else if (pageArm && pageArm.page === id && pageArm.until === Infinity) pageArm = { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
 }
 
 /** Apres le chemin de toujours (V.5.0) : la page reste armee pour YES et NO ; MOD dit ce qui vient. */

@@ -124,6 +124,7 @@ import {
   muteStepHold,
   muteView,
   noKey,
+  pageKeyHold,
   playKey,
   recKey,
   stepWrites,
@@ -1366,6 +1367,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // FUNC (V.5.0, 2026-10-29) : enfoncee, ce pointeur la tient (une tape la garde pour la touche suivante, deux tapes la
       // gardent) ; ni orbite ni pincement. INFOS allume, au doigt : la carte seulement
+      // Une touche de page tenue (V.5.0) : armee pour YES et NO tant qu'on la tient
+      if (DT_FACE && h && h.kind === 'pkey' && h.rpage && !h.id.startsWith('lcd-tab-')) pageKeyHold(h.rpage, true);
       if (h && h.kind === 'func') {
         stage.orbit.claim(e.pointerId);
         const d0 = downs.get(e.pointerId);
@@ -1612,6 +1615,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK tenue par ce pointeur perdu : lachee sans garde ; une scene aussi
       if (d.trkSrc) trkUp(d.trkSrc, -1);
       if (d.funcSrc) funcUp(d.funcSrc, -1);
+      if (DT_FACE && d.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, -1);
       if (d.xf) xfadeGesture('end', 'ptr');
       stepUp(d);
@@ -1725,6 +1729,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde ; SCENE A et B
       if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.funcSrc) funcUp(d.funcSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      if (DT_FACE && d?.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.xf) xfadeGesture('end', 'ptr');
       if (d && d.turning && d.mouse) {
