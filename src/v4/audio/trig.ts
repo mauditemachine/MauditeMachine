@@ -220,7 +220,8 @@ export function trigText(p: TrigParam, v: number): string {
     case 'cond':
       return CONDS[c].label;
     case 'utime':
-      return c === 0 ? '0' : `${c > 0 ? '+' : ''}${c}/384`;
+      // Le compte seul (la revue de D2, U5 : -12/384 ne tenait pas dans son bloc, "-12/3.") ; /384 est sur la ligne d'unite
+      return c > 0 ? `+${c}` : String(c);
     case 'lfot':
     case 'rtrg':
       return c ? 'ON' : 'OFF';
@@ -253,8 +254,11 @@ export function trigUnit(p: TrigParam, v: number, stepMs: number): string {
       if (k.kind === 'last') return k.not ? 'NOT LAST' : 'LAST PASS';
       return `${k.kind.toUpperCase()} ${k.not ? 'FALSE' : 'TRUE'}`;
     }
-    case 'utime':
-      return c === 0 ? 'ON GRID' : `${c > 0 ? 'LATE' : 'EARLY'} ${((Math.abs(c) * stepMs) / 24).toFixed(1)} MS`;
+    case 'utime': {
+      if (c === 0) return 'ON GRID';
+      const ms = (Math.abs(c) * stepMs) / 24;
+      return `/384 ${ms < 10 ? ms.toFixed(1) : Math.round(ms)}MS`;
+    }
     case 'lfot':
       return c ? 'RESTARTS' : 'LFO FREE';
     case 'rtrg':

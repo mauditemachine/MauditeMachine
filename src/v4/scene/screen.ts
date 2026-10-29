@@ -2526,6 +2526,8 @@ export class Screen {
       rightX = bx - 5;
       this.info.badge = `${badge}${multi ? '+' : ''}`;
     } else this.info.badge = '';
+    // FILL tenu (V.5.1, la revue de D2, U6) : sa pastille aussi en P-LOCK, en negatif comme la bande
+    rightX = this.negFill(rightX);
     this.info.headFit = '';
     // P-LOCK STEP 05 : le cadenas, le pas ; puis la page et P-LOCKS en contour
     const gs = T.pill * 0.82;
@@ -2543,7 +2545,7 @@ export class Screen {
     const pw = this.textWidth(fitted, T.pill, 700, 0.7) + 10;
     this.roundRect(x, H.pillY + 0.5, pw, T.pillH - 1, 2.5, null, BLACK, 0.9);
     this.text(fitted, x + pw / 2, ty, T.pill, BLACK, 700, 'center', 0.7);
-    this.info.head = `${lk} | ${fitted}`;
+    this.info.head = `${lk} | ${fitted}${DT_FACE && fill.on ? '|FILL' : ''}`;
     x += pw + 7;
     if (inst && x + 10 < rightX) this.text(inst, x, y, T.voice, BLACK, 700);
   }
@@ -2561,15 +2563,29 @@ export class Screen {
     const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
     let rightX = H.right;
     if (inst) rightX -= this.text(inst, H.right, y, T.voice, BLACK, 700, 'right') + 6;
+    // FILL tenu (U6) : sa pastille aussi quand une scene est armee
+    rightX = this.negFill(rightX);
     const n = sceneCount(pattern.scenes.get(), w);
     const head = `SCENE ${w === 'a' ? 'A' : 'B'} · ${n} PARAM${n === 1 ? '' : 'S'} · ${slotName(patterns.get().cur)}`;
     const fitted = this.fitText(head, Math.max(20, rightX - H.iconX - 4), T.pill, 0.8, 800);
     this.text(fitted, H.iconX - 1, ty, T.pill, BLACK, 800, 'left', 0.8);
-    this.info.head = head;
+    this.info.head = `${head}${DT_FACE && fill.on ? '|FILL' : ''}`;
     this.info.lockCount = 0;
     this.info.badge = '';
     this.info.headFit = '';
     void screen;
+  }
+
+  /** La pastille FILL sur une bande en negatif (P-LOCK, une scene armee), a gauche de rightX ; rend le nouveau bord. */
+  private negFill(rightX: number): number {
+    if (!DT_FACE || !fill.on) return rightX;
+    const H = PAGE_HEAD;
+    const T = this.bt.head;
+    const w = this.textWidth('FILL', T.sound, 800, 0.6) + 8;
+    const x = rightX - w;
+    this.roundRect(x, H.pillY, w, T.pillH, 2.2, BLACK);
+    this.text('FILL', x + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, INK, 800, 'center', 0.6);
+    return x - 5;
   }
 
   /**

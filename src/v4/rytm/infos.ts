@@ -835,7 +835,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   func: {
     section: 'KEYS',
     title: 'FUNC',
-    text: "La touche des fonctions secondaires, comme sur une Digitakt : son capuchon orange, et sous chaque touche de la rangée, sa fonction imprimée en orange. Une tape sur FUNC la garde pour la touche suivante (sa LED blanche clignote), puis elle se relâche ; tiens-la, elle reste tant que tu la tiens ; deux tapes rapides la gardent jusqu'à une nouvelle tape (NO ou Échap la relâchent aussi). FUNC + TRK : MUTE ; + PTN : BANK ; + ● : COPY ; + ▶ : CLEAR ; + ■ : PASTE ; + TRIG : TEMPO ; + SRC : SOUNDS ; + FLTR : SETUP ; + AMP : EUCLID ; + FX : SEND FX ; + MOD : MIXER ; + YES : SAVE ; + NO : RELOAD. FUNC + un pas de 1 à 8 coupe sa voix ou la rend ; ● REC allumé, FUNC + un pas pose ou enlève un lock trig.",
+    text: "La touche des fonctions secondaires, comme sur une Digitakt : son capuchon orange, et sous chaque touche de la rangée, sa fonction imprimée en orange. Une tape sur FUNC la garde pour la touche suivante (sa LED blanche clignote), puis elle se relâche ; tiens-la, elle reste tant que tu la tiens ; deux tapes rapides la gardent jusqu'à une nouvelle tape (NO ou Échap la relâchent aussi). FUNC + TRK : MUTE ; + PTN : BANK ; + ● : COPY ; + ▶ : CLEAR ; + ■ : PASTE ; + TRIG : TEMPO ; + SRC : SOUNDS ; + FLTR : SETUP ; + AMP : EUCLID ; + FX : SEND FX ; + MOD : MIXER ; + YES : SAVE ; + NO : RELOAD. REC éteint, FUNC + un pas de 1 à 8 coupe sa voix ou la rend ; ● REC allumé, FUNC + un pas pose ou enlève un lock trig.",
     key: 'Alt (Option) tenu',
     tip: 'FUNC + YES avant de tout casser, FUNC + NO pour tout retrouver.',
   },
@@ -925,7 +925,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'q:utime': {
     section: 'TRIG',
     title: 'μTIME',
-    text: "Le coup un peu avant ou après la grille, de -23/384 à +23/384 de mesure (1/24 de pas chacun), comme la Digitakt ; 0 : sur la grille. L'unité dit le décalage en ms au tempo du moment. Un coup en avance sur le pas 1 tombe à la fin de la mesure d'avant.",
+    text: "Le coup un peu avant ou après la grille, de -23/384 à +23/384 de mesure (1/24 de pas chacun), comme la Digitakt ; 0 : sur la grille. À l'écran le compte (-12, +6) ; l'unité dit /384 et le décalage en ms au tempo du moment. Un coup en avance sur le pas 1 tombe à la fin de la mesure d'avant.",
     lock: 'yes',
     tip: 'La caisse claire à +6/384 : elle traîne, la dark disco.',
   },
@@ -987,7 +987,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'lfo:wav': {
     section: 'MOD',
     title: 'WAVE',
-    text: "La forme : TRI (triangle, le départ), SINE, SQR (carré), SAW (dent de scie), EXP (une montée exponentielle), RMP (une rampe qui descend), RND (une valeur au hasard par quart de cycle, la même à chaque cycle). Le bloc la dessine.",
+    text: "La forme : TRI (triangle, le départ), SINE, SQR (carré), SAW (dent de scie), EXP (une montée exponentielle), RMP (une rampe qui descend), RND (une valeur au hasard par quart de cycle, une autre à chaque cycle ; relancé par un trig, il rejoue la même suite). Le bloc la dessine.",
     lock: 'yes',
   },
   'lfo:phs': {
@@ -1211,7 +1211,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   step: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Les 16 pas de la voix choisie. Un coup s'allume en rouge, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; la tête de lecture passe en blanc. ● REC allumé : une tape pose le pas (à la vélocité des nouveaux pas, HIGH au départ, ou celle de VEL sur TRIG) ou le retire ; tiens-le et glisse : sa vélocité ; tiens-le 350 ms sans bouger (ou L) : P-LOCK ; tiens un pas et tourne un potard : le verrou se pose tout de suite. REC éteint : un pas de 1 à 8 joue sa voix et la choisit, rien ne s'écrit ; 9 à 16 ne jouent rien ; pas de P-LOCK sans REC. FUNC + un pas de 1 à 8 coupe sa voix ou la rend, partout. Un pas qui porte des verrous a un trait sur sa touche et un point dessous à l'écran ; un lock trig (● REC, FUNC + le pas) s'allume en jaune ; un pas à COND ou PROB a un petit point jaune au coin. PTN ouvert, les 16 pas sont les 16 patterns ; TRK tenue ou gardée, un pas de 1 à 8 choisit sa voix ; en mode MUTE (FUNC + TRK), ils sont les voix.",
+    text: "Les 16 pas de la voix choisie. Un coup s'allume en rouge, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; la tête de lecture passe en blanc. ● REC allumé : une tape pose le pas (à la vélocité des nouveaux pas, HIGH au départ, ou celle de VEL sur TRIG) ou le retire ; tiens-le et glisse : sa vélocité ; tiens-le 350 ms sans bouger (ou L) : P-LOCK ; tiens un pas et tourne un potard : le verrou se pose tout de suite. REC éteint : un pas de 1 à 8 joue sa voix et la choisit, rien ne s'écrit ; 9 à 16 ne jouent rien ; pas de P-LOCK sans REC. REC éteint, FUNC + un pas de 1 à 8 coupe sa voix ou la rend ; ● REC allumé, FUNC + un pas pose ou enlève un lock trig (en mode MUTE, toujours le mute). Un pas qui porte des verrous a un trait sur sa touche et un point dessous à l'écran ; un lock trig (● REC, FUNC + le pas) s'allume en jaune ; un pas à COND ou PROB a un petit point jaune au coin. PTN ouvert, les 16 pas sont les 16 patterns ; TRK tenue ou gardée, un pas de 1 à 8 choisit sa voix ; en mode MUTE (FUNC + TRK), ils sont les voix.",
     tip: 'Le kick sur 1, 5, 9 et 13 (les pas encadrés), le clap ou la caisse claire sur 5 et 13 : la base du four on the floor.',
     phone: {
       text: "Les 16 pas de la voix choisie. Un pas mis s'allume en entier, plein à la vélocité la plus forte (127, HIGH), de plus en plus sombre jusqu'à la plus douce (14) ; un pas vide reste éteint. Touche un pas vide : il prend la vélocité des nouveaux pas (HIGH au départ) ; touche-le encore : MID, LOW, vide. Tiens-le et glisse vers le haut ou le bas : sa vélocité, en neuf niveaux, la touche suit. Tiens-le 350 ms sans bouger : P-LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un trait sur sa touche, près du bord arrière, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",

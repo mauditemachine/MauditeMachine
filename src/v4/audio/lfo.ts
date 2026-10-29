@@ -95,7 +95,7 @@ export function activeLfos(fx: Src, lock: Src): Lfo[] {
 /** La duree d'un cycle, en pas ; Infinity a SPD 0. */
 export const lfoCycle = (l: Pick<Lfo, 'spd' | 'mult'>): number => (l.spd === 0 ? Infinity : 128 / (Math.abs(l.spd) * l.mult));
 
-/** Un nombre de 0 a 1 tire d'un entier (RND, toujours le meme pour le meme cycle). */
+/** Un nombre de 0 a 1 tire d'un entier (RND : le meme pour le meme quart de cycle, un autre au cycle suivant). */
 function hash01(i: number, salt: number): number {
   let h = (Math.imul(i | 0, 0x9e3779b1) ^ Math.imul(salt | 0, 0x85ebca77)) >>> 0;
   h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0;

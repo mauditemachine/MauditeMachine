@@ -770,8 +770,9 @@ export class Sequencer3D {
       return;
     }
     const lt = KEY_LIT_LIGHT.tint?.[this.toneOf(j)];
-    // Hors EDIT (relecture du 2026-10-19) : la rampe reguliere de la machine claire (STEP_LIT.lightRamp) ; EDIT : la part du pattern
-    const tf = f <= 0 ? 0 : this.patView ? STEP_LIT.lightFloor + (1 - STEP_LIT.lightFloor) * f : (STEP_LIT.lightRamp[this.programmed(j)] ?? 0);
+    // Hors EDIT (relecture du 2026-10-19) : la rampe reguliere de la machine claire (STEP_LIT.lightRamp) ; EDIT : la part du pattern.
+    // Un lock trig (V.5.1, la revue de D2, U2) : sans velocite, la rampe ne le teintait pas, il avait l'air vide ; sa part a lui
+    const tf = f <= 0 ? 0 : this.patView ? STEP_LIT.lightFloor + (1 - STEP_LIT.lightFloor) * f : this.lockTrigAt(j) ? STEP_LIT.lockTrig : (STEP_LIT.lightRamp[this.programmed(j)] ?? 0);
     if (lt && tf > 0) c.setRGB(c.r + (lt[0] - c.r) * tf, c.g + (lt[1] - c.g) * tf, c.b + (lt[2] - c.b) * tf);
     if (lt && this.isHead(j)) {
       const h = STEP_LIT.headLight;
