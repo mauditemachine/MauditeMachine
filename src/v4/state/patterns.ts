@@ -23,7 +23,8 @@
 
 import { clock } from '../audio/clock';
 import { anyLocks, cleanLocks, sameLocks, type Locks } from '../audio/locks';
-import { INSTRUMENTS, STEP_COUNT, pattern, type Steps } from '../audio/pattern';
+import { INSTRUMENTS, STEP_COUNT, cleanPmutes, pattern, type Steps } from '../audio/pattern';
+import type { Inst } from '../theme';
 import { NO_SCENES, anyScenes, cleanScenes, sameScenes, toStored, type SceneSet } from '../rytm/sceneData';
 
 export const PATTERN_SLOTS = 16;
@@ -40,6 +41,8 @@ export interface PatternsState {
   locks: readonly (Readonly<Locks> | null)[];
   /** les scenes A et B de chaque emplacement (2026-10-27, la phase 2) ; null : aucune */
   scenes: readonly (SceneSet | null)[];
+  /** le mute de chaque pattern (V.5.0, 2026-10-29, FUNC + TRK deux fois) ; null : aucune voix coupee */
+  pmutes: readonly (readonly Inst[] | null)[];
   /** l'emplacement qui joue (et qu'on edite) */
   cur: number;
   /** la chaine : au moins un pattern (le courant seul : pas de chaine) */
@@ -74,21 +77,27 @@ const keepLocks = (l: Readonly<Locks> | null | undefined): Readonly<Locks> | nul
 /** Les scenes a garder dans un emplacement : null sans scene. */
 const keepScenes = (s: SceneSet | null | undefined): SceneSet | null => (s && anyScenes(s) ? s : null);
 const sameKept = (a: SceneSet | null, b: SceneSet | null): boolean => a === b || (!!a && !!b && sameScenes(a, b));
+/** Le mute d'un pattern a garder : null sans voix coupee. */
+const keepPmutes = (m: readonly Inst[] | null | undefined): readonly Inst[] | null => (m && m.length > 0 ? [...m] : null);
+const samePm = (a: readonly Inst[] | null, b: readonly Inst[] | null): boolean => (a ?? []).join() === (b ?? []).join();
 
 function load(): PatternsState {
   const slots: (Steps | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   const locks: (Readonly<Locks> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   const scenes: (SceneSet | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+  const pmutes: (readonly Inst[] | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   let cur = 0;
   let chain: number[] = [0];
   try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; scenes?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; scenes?: unknown[]; pmutes?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
     if (raw && Array.isArray(raw.slots)) {
       for (let i = 0; i < PATTERN_SLOTS; i += 1) slots[i] = raw.slots[i] ? validSteps(raw.slots[i]) : null;
       // Une sauvegarde d'avant les verrous (2026-10-08) : aucun
       if (Array.isArray(raw.locks)) for (let i = 0; i < PATTERN_SLOTS; i += 1) locks[i] = cleanLocks(raw.locks[i]);
       // Les scenes (2026-10-27) : une sauvegarde d'avant n'en a pas ; une illisible part, jamais une exception
       if (Array.isArray(raw.scenes)) for (let i = 0; i < PATTERN_SLOTS; i += 1) scenes[i] = keepScenes(cleanScenes(raw.scenes[i]));
+      // Le mute de chaque pattern (V.5.0) : une sauvegarde d'avant n'en a pas
+      if (Array.isArray(raw.pmutes)) for (let i = 0; i < PATTERN_SLOTS; i += 1) pmutes[i] = keepPmutes(cleanPmutes(raw.pmutes[i]));
       if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < PATTERN_SLOTS) cur = raw.cur as number;
       if (Array.isArray(raw.chain)) {
         const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < PATTERN_SLOTS).slice(0, PATTERN_SLOTS);
@@ -102,11 +111,12 @@ function load(): PatternsState {
   slots[cur] = { ...pattern.get().steps };
   locks[cur] = keepLocks(pattern.get().locks);
   scenes[cur] = keepScenes(pattern.scenes.get());
+  pmutes[cur] = keepPmutes(pattern.get().pmutes);
   if (!chain.includes(cur)) chain = [cur];
-  return { slots, locks, scenes, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
+  return { slots, locks, scenes, pmutes, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
 }
 
-let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], scenes: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
+let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], scenes: [], pmutes: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
 const listeners = new Set<() => void>();
 let saveTimer = 0;
 /** le motif pose par nous (un changement de pattern) : pas une edition a garder */
@@ -121,7 +131,9 @@ function save(): void {
       const locks = state.locks.some((l) => l !== null) ? state.locks : undefined;
       // Les scenes de meme (2026-10-27) : une sauvegarde sans scene reste octet pour octet celle d'avant
       const scenes = state.scenes.some((s) => s !== null) ? state.scenes.map((s) => (s ? (toStored(s) ?? null) : null)) : undefined;
-      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), ...(scenes ? { scenes } : {}), cur: state.cur, chain: state.chain }));
+      // Les mutes des patterns de meme (V.5.0)
+      const pmutes = state.pmutes.some((m) => m !== null) ? state.pmutes : undefined;
+      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), ...(scenes ? { scenes } : {}), ...(pmutes ? { pmutes } : {}), cur: state.cur, chain: state.chain }));
     } catch {
       /* stockage indisponible : les patterns vivent pour la visite */
     }
@@ -139,6 +151,8 @@ function apply(i: number): void {
   const steps = state.slots[i] ?? emptySteps();
   loading = true;
   pattern.replace(steps, state.locks[i] ?? {});
+  // Son mute (V.5.0, 2026-10-29) : celui du pattern pose
+  pattern.setPmutes(state.pmutes[i] ?? []);
   // Ses scenes (2026-10-27), a l'heure de la mesure qui commence (le bus tombe sur le temps fort) ; a l'arret tout de suite
   pattern.scenes.replace(state.scenes[i] ?? NO_SCENES, clock.barAt());
   loading = false;
@@ -148,11 +162,24 @@ function apply(i: number): void {
 if (typeof window !== 'undefined') {
   pattern.subscribe(() => {
     if (loading) return;
-    const { steps, locks } = pattern.get();
+    const { steps, locks, pmutes } = pattern.get();
     const had = state.slots[state.cur];
     const sameL = sameLocks(state.locks[state.cur], keepLocks(locks));
-    if (had && sameSteps(had, steps) && sameL) return;
-    if (!had && isEmpty(steps) && sameL) return;
+    // Le mute du pattern (V.5.0) : garde dans l'emplacement courant, comme ses verrous
+    const sameM = samePm(state.pmutes[state.cur] ?? null, keepPmutes(pmutes));
+    if (!sameM) {
+      const pm = state.pmutes.slice();
+      pm[state.cur] = keepPmutes(pmutes);
+      state = { ...state, pmutes: pm };
+    }
+    if (had && sameSteps(had, steps) && sameL) {
+      if (!sameM) setState({ ...state });
+      return;
+    }
+    if (!had && isEmpty(steps) && sameL) {
+      if (!sameM) setState({ ...state });
+      return;
+    }
     const slots = state.slots.slice();
     slots[state.cur] = isEmpty(steps) && !had && !keepLocks(locks) ? null : { ...steps };
     const ls = state.locks.slice();
@@ -230,7 +257,10 @@ export const patterns = {
     // Ses scenes aussi (2026-10-27)
     const scenes = state.scenes.slice();
     scenes[i] = keepScenes(pattern.scenes.get());
-    setState({ ...state, slots, locks, scenes });
+    // Son mute aussi (V.5.0)
+    const pmutes = state.pmutes.slice();
+    pmutes[i] = keepPmutes(pattern.get().pmutes);
+    setState({ ...state, slots, locks, scenes, pmutes });
     return true;
   },
   /** La chaine redevient le pattern courant seul. */
@@ -269,7 +299,9 @@ export const patterns = {
     locks[0] = keepLocks(pattern.get().locks);
     const scenes: (SceneSet | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
     scenes[0] = keepScenes(pattern.scenes.get());
-    setState({ slots, locks, scenes, cur: 0, chain: [0], pos: 0, next: -1 });
+    const pmutes: (readonly Inst[] | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+    pmutes[0] = keepPmutes(pattern.get().pmutes);
+    setState({ slots, locks, scenes, pmutes, cur: 0, chain: [0], pos: 0, next: -1 });
   },
 };
 

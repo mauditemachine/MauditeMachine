@@ -811,6 +811,15 @@ export function quiet(): void {
   graph?.arpReverb.silence();
 }
 
+/**
+ * STOP deux fois (V.5.0, 2026-10-29, la face facon Digitakt) : les queues de la REVERB et du DELAY du MM-RYTM s'effacent en
+ * un fondu court ; les envois restent (la lecture suivante a ses FX). Le MM-ARP garde la sienne.
+ */
+export function cutTails(): void {
+  graph?.reverb.cut();
+  graph?.delay.cut();
+}
+
 /** Onglet cache, canvas hors ecran, demontage : le contexte dort, on le garde. */
 export function suspend(): void {
   want = 'suspended';

@@ -119,6 +119,11 @@ export interface SendBus {
   /** Apres silence() : les envois au-dessus de 0 se rebranchent sur une unite neuve. */
   revive(): void;
   /**
+   * STOP deux fois (V.5.0, 2026-10-29, la face facon Digitakt) : la queue en cours s'efface en un fondu court (l'unite
+   * part en douceur), les envois au-dessus de 0 se rebranchent tout de suite sur une unite neuve.
+   */
+  cut(): void;
+  /**
    * L'unite construite d'avance, en temps libre (2026-10-05) : le premier
    * tour de REVERB ne calcule plus sa reponse sous la musique (un gel de
    * 130 ms, une note en retard). Seulement pour un bus jamais arrete.
@@ -359,6 +364,27 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
     revive() {
       for (const s of sends) if (s.value > 0 && !s.linked) apply(s);
     },
+    cut() {
+      clearTimeout(idleTimer);
+      idleTimer = undefined;
+      if (!unit) return;
+      const old = unit;
+      unit = null;
+      for (const s of sends) {
+        clearTimeout(s.timer);
+        s.timer = undefined;
+        s.pts.length = 0;
+        if (s.linked && s.gain) {
+          s.src.disconnect(s.gain);
+          unlinks += 1;
+        }
+        s.linked = false;
+        s.gain?.disconnect();
+        s.gain = null;
+      }
+      old.dispose(true);
+      for (const s of sends) if (s.value > 0) apply(s);
+    },
     warm() {
       if (!Number.isFinite(idleMs)) ensureUnit();
     },
@@ -373,6 +399,9 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
     }),
   };
 }
+
+/** Le fondu de la queue de REVERB coupee par STOP deux fois (V.5.0) : court, sans clic. */
+const TAIL_CUT_S = 0.08;
 
 export interface ReverbBus extends SendBus {
   /**
@@ -512,7 +541,7 @@ export function buildReverbBus(c: BaseAudioContext, out: AudioNode, shape0: Read
       live = u;
       return {
         input,
-        dispose() {
+        dispose(soft = false) {
           clearTimeout(debounce);
           clearTimeout(swapTimer);
           debounce = undefined;
@@ -520,10 +549,26 @@ export function buildReverbBus(c: BaseAudioContext, out: AudioNode, shape0: Read
           busy = false;
           dirty = false;
           input.disconnect();
-          drop(u);
-          if (fading) drop(fading);
+          const f = fading;
           fading = null;
           if (live === u) live = null;
+          if (!soft) {
+            drop(u);
+            if (f) drop(f);
+            return;
+          }
+          // STOP deux fois (V.5.0) : la queue s'efface en TAIL_CUT_S (temps du contexte), puis tout part
+          const now = c.currentTime;
+          for (const x of f ? [u, f] : [u]) {
+            const p = x.g.gain;
+            p.cancelScheduledValues(now);
+            p.setValueAtTime(p.value, now);
+            p.linearRampToValueAtTime(0, now + TAIL_CUT_S);
+          }
+          setTimeout(() => {
+            drop(u);
+            if (f) drop(f);
+          }, TAIL_CUT_S * 1000 + 40);
         },
       };
     },

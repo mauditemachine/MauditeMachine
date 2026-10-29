@@ -109,7 +109,8 @@ function slotOf(m: PresetMachine): number | null {
 
 type Part = Record<string, unknown>;
 /** Les cles d'un etat qui appartiennent a l'emplacement (le motif et ses verrous ; la ligne, sa recette, sa longueur). */
-const PART_KEYS: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: ['steps', 'locks', 'scenes'], bass: ['steps', 'recipe', 'len'], voy: [] };
+// Le mute du pattern (V.5.0, 2026-10-29) appartient a l'emplacement, comme ses verrous et ses scenes
+const PART_KEYS: Readonly<Record<PresetMachine, readonly string[]>> = { mm808: ['steps', 'locks', 'scenes', 'pmutes'], bass: ['steps', 'recipe', 'len'], voy: [] };
 
 function partOf(m: PresetMachine, d: Snap): Part {
   const o = d as unknown as Part;
@@ -134,7 +135,8 @@ function storedPart(m: PresetMachine, slot: number): Part {
     // Ses scenes (2026-10-27) : elles appartiennent a l'emplacement comme ses verrous
     const scenes = p.scenes[slot];
     const sc = scenes ? toStored(scenes) : undefined;
-    return { steps: { ...steps }, ...(locks ? { locks: JSON.parse(JSON.stringify(locks)) as unknown } : {}), ...(sc ? { scenes: sc } : {}) };
+    const pm = p.pmutes[slot];
+    return { steps: { ...steps }, ...(locks ? { locks: JSON.parse(JSON.stringify(locks)) as unknown } : {}), ...(sc ? { scenes: sc } : {}), ...(pm && pm.length ? { pmutes: [...pm] } : {}) };
   }
   const b = bassSlots?.get();
   const steps = b?.slots[slot];
@@ -152,7 +154,7 @@ function storedPart(m: PresetMachine, slot: number): Part {
 function sigOf(m: PresetMachine): readonly unknown[] {
   if (m === 'mm808') {
     const p = pattern.get();
-    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get(), pattern.scenes.get()];
+    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get(), pattern.scenes.get(), p.pmutes];
   }
   if (m === 'voy') return [voyParams.get(), seq.get(), arp.get().prog];
   const s = bassState.get();

@@ -274,13 +274,31 @@ export interface StoredPattern {
   locks?: Locks;
   /** les scenes A et B du motif (2026-10-27, rytm/sceneData.ts) ; absentes sans scene (le JSON d'avant, octet pour octet) */
   scenes?: StoredScenes;
+  /**
+   * le mute du pattern (V.5.0, 2026-10-29, la Digitakt : FUNC + TRK deux fois) : les voix que ce pattern coupe ; absent sans
+   * voix coupee (le JSON d'avant, octet pour octet)
+   */
+  pmutes?: Inst[];
 }
 
 export interface PatternState extends Pattern {
   instrument: Inst | null;
   /** les verrous des pas (2026-10-08, audio/locks.ts) : {} sans verrou */
   locks: Readonly<Locks>;
+  /**
+   * le mute du pattern (V.5.0, 2026-10-29) : les voix que ce pattern coupe, dans l'ordre d'INSTRUMENTS ; [] aucune. Une
+   * voix est coupee si les mutes de la machine (state/voices.ts) ou ceux du pattern la coupent.
+   */
+  pmutes: readonly Inst[];
 }
+
+/** Le mute d'un pattern lu (un stockage, un preset, l'UNDO) : les voix connues, sans doublon, dans l'ordre ; [] sinon. */
+export function cleanPmutes(raw: unknown): Inst[] {
+  if (!Array.isArray(raw)) return [];
+  return INSTRUMENTS.filter((k) => raw.includes(k));
+}
+const NO_PMUTES: readonly Inst[] = Object.freeze([]) as readonly Inst[];
+const samePmutes = (a: readonly Inst[], b: readonly Inst[]): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /**
  * Le motif d'arrivee (2026-10-01), techno a 130 BPM, charge
@@ -397,7 +415,7 @@ export function load(): Pattern {
 /** Au millieme : le JSON reste court, un glisser donne des valeurs continues. */
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
-export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES): StoredPattern {
+export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES): StoredPattern {
   const out: StoredPattern = {
     v: 1,
     // Au BPM entier (2026-10-27) : un tempo suivi au centieme (followBpm) se retient arrondi, validate le relit
@@ -408,6 +426,7 @@ export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Reado
   if (anyLocks(locks)) out.locks = locks as Locks;
   const sc = toStored(scenes);
   if (sc) out.scenes = sc;
+  if (pmutes.length > 0) out.pmutes = [...pmutes];
   return out;
 }
 
@@ -424,9 +443,9 @@ export function validateLocks(raw: unknown): Readonly<Locks> {
 }
 
 /** true si l'ecriture a reussi. */
-export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES): boolean {
+export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES): boolean {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks, scenes)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks, scenes, pmutes)));
     return true;
   } catch {
     return false;
@@ -472,7 +491,13 @@ export function clearSteps(p: Pattern): Pattern {
 
 const stored = typeof window === 'undefined' ? { raw: null, legacy: false } : readStored();
 // Depuis le 2026-10-05 (Mika : "par defaut je veux toujours que le BD soit selectionne pour les FX Voices") : la grosse caisse
-let state: PatternState = { ...validate(stored.raw, stored.legacy), instrument: 'BD', locks: stored.legacy ? NO_LOCKS : validateLocks(stored.raw) };
+let state: PatternState = {
+  ...validate(stored.raw, stored.legacy),
+  instrument: 'BD',
+  locks: stored.legacy ? NO_LOCKS : validateLocks(stored.raw),
+  // Le mute du pattern (V.5.0) : un motif d'avant n'en a pas
+  pmutes: stored.legacy || !stored.raw || typeof stored.raw !== 'object' ? NO_PMUTES : cleanPmutes((stored.raw as { pmutes?: unknown }).pmutes),
+};
 let fxState: Readonly<Fx> = validateFx(stored.raw);
 let scenesState: SceneSet = stored.legacy ? NO_SCENES : validateScenes(stored.raw);
 const listeners = new Set<() => void>();
@@ -486,7 +511,7 @@ function scheduleSave(): void {
   if (saveTimer !== 0) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
-    save(state, fxState, state.locks, scenesState);
+    save(state, fxState, state.locks, scenesState, state.pmutes);
   }, SAVE_DEBOUNCE_MS);
 }
 
@@ -495,7 +520,7 @@ function flush(): void {
   if (saveTimer === 0) return;
   window.clearTimeout(saveTimer);
   saveTimer = 0;
-  save(state, fxState, state.locks, scenesState);
+  save(state, fxState, state.locks, scenesState, state.pmutes);
 }
 
 function commit(next: PatternState, persist: boolean): void {
@@ -601,21 +626,21 @@ export const pattern = {
   },
   toggle(inst: Inst, i: number): void {
     const next = toggleStep(state, inst, i);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes }, true);
   },
   /** L'editeur (ui/BeatEditor.tsx) : un pas a un niveau, 0 a 9. */
   set(inst: Inst, i: number, v: number): void {
     const next = setStep(state, inst, i, v);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes }, true);
   },
   /** Appui long : le pas vide. */
   clearStep(inst: Inst, i: number): void {
     const next = clearStep(state, inst, i);
-    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes }, true);
   },
   /** CLEAR : les pas et leurs verrous, toutes les voix. */
   clear(): void {
-    commit({ ...clearSteps(state), instrument: state.instrument, locks: NO_LOCKS }, true);
+    commit({ ...clearSteps(state), instrument: state.instrument, locks: NO_LOCKS, pmutes: state.pmutes }, true);
   },
   /**
    * Un motif entier ; les rangees invalides gardent les leurs. locks : ceux
@@ -653,7 +678,20 @@ export const pattern = {
     if (b !== state.bpm) commit({ ...state, bpm: b }, keep);
     else if (keep) scheduleSave();
   },
-  serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState),
+  serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState, state.pmutes),
+  /** Le mute du pattern (V.5.0) : les voix qu'il coupe (un autre pattern, un preset, l'UNDO, FUNC + TRK deux fois). */
+  setPmutes(list: readonly Inst[]): void {
+    const next = cleanPmutes(list);
+    if (samePmutes(next, state.pmutes)) return;
+    commit({ ...state, pmutes: next.length ? next : NO_PMUTES }, true);
+  },
+  /** Une voix du mute du pattern coupee ou rendue (le mode MUTE du pattern, une tape sur son pas). */
+  togglePmute(inst: Inst): void {
+    const has = state.pmutes.includes(inst);
+    pattern.setPmutes(has ? state.pmutes.filter((k) => k !== inst) : [...state.pmutes, inst]);
+  },
+  /** La voix est-elle coupee par le pattern ? */
+  pmuted: (inst: Inst): boolean => state.pmutes.includes(inst),
   flush,
   /** SWING, DIST, REVERB, DELAY, CHORUS (0 a 1) : get, set(patch), subscribe. */
   fx: fxStore,

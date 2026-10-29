@@ -68,7 +68,7 @@
  * chaque machine est retenu (cur, avec les sons mis de cote) : l'ecran le nomme, une etoile s'il a bouge (loaded).
  */
 
-import { INSTRUMENTS, NEUTRAL_FX, clampBpm, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
+import { INSTRUMENTS, NEUTRAL_FX, clampBpm, cleanPmutes, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
 import { NO_SCENES, anyScenes, cleanScenes, toStored, type StoredScenes } from '../rytm/sceneData';
@@ -137,6 +137,8 @@ interface RytmData {
   knobs?: Record<string, number>;
   /** les scenes A et B du motif (2026-10-27, la phase 2) ; absentes sans scene (toutes les empreintes d'avant inchangees) */
   scenes?: StoredScenes;
+  /** le mute du pattern (V.5.0, 2026-10-29) : les voix qu'il coupe ; absent sans voix coupee (les empreintes d'avant inchangees) */
+  pmutes?: Inst[];
 }
 
 export interface Preset {
@@ -466,6 +468,8 @@ export function capture(m: PresetMachine): VoyData | RytmData | BassData {
     knobs: { ...kit.get().knob },
     // Les scenes (2026-10-27) seulement s'il y en a : un preset, un brouillon, une marque d'avant gardent leur empreinte
     ...(anyScenes(pattern.scenes.get()) ? { scenes: toStored(pattern.scenes.get()) } : {}),
+    // Le mute du pattern (V.5.0) de meme : seulement s'il coupe une voix
+    ...(p.pmutes.length > 0 ? { pmutes: [...p.pmutes] } : {}),
   };
 }
 
@@ -521,6 +525,8 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
   pattern.replace(r.steps, cleanLocks(r.locks) ?? {});
   // Ses scenes, ou aucune (un preset de la V.3, un brouillon d'avant : vides, sans erreur)
   pattern.scenes.replace(cleanScenes(r.scenes) ?? NO_SCENES);
+  // Son mute du pattern, ou aucun (un preset d'avant la V.5.0)
+  pattern.setPmutes(cleanPmutes(r.pmutes));
   pattern.setBpm(r.bpm);
   // Un reglage d'effet absent du preset (DLY TIME et FB du 2026-10-09, BIT, COMP et les reglages de chaque FX du
   // 2026-10-10) : sa valeur de depart, le son d'alors (2026-10-11 ; avant, il gardait celle du moment : un preset
@@ -711,6 +717,12 @@ function rytmNow(o: Record<string, unknown>): Record<string, unknown> {
     const { scenes: _old, ...rest } = out;
     out = st ? { ...rest, scenes: st } : rest;
   }
+  // Le mute du pattern lu comme le motif le relit (V.5.0) : vide, il part
+  if (o.pmutes !== undefined) {
+    const pm = cleanPmutes(o.pmutes);
+    const { pmutes: _old, ...rest } = out;
+    out = pm.length > 0 ? { ...rest, pmutes: pm } : rest;
+  }
   return out;
 }
 
@@ -739,7 +751,7 @@ function sigNow(m: PresetMachine, kept: string): string {
 
 /** Une chaine de patterns en lecture (MM-RYTM) : les pas changent a chaque mesure, ce n'est pas un son nouveau. */
 const chaining = (m: PresetMachine): boolean => m === 'mm808' && patterns.get().chain.length > 1;
-const skipOf = (m: PresetMachine, kept: boolean): string[] => [...(kept ? LOST_ON_RELOAD[m] : []), ...(chaining(m) ? ['steps', 'locks', 'scenes'] : [])];
+const skipOf = (m: PresetMachine, kept: boolean): string[] => [...(kept ? LOST_ON_RELOAD[m] : []), ...(chaining(m) ? ['steps', 'locks', 'scenes', 'pmutes'] : [])];
 const markOf = (m: PresetMachine, d: Preset['data']): Mark => ({ full: sig(m, d, skipOf(m, false)), kept: sig(m, d, skipOf(m, true)), visit: VISIT });
 
 const okDraft = (m: PresetMachine, d: unknown): boolean => {

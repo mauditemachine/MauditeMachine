@@ -152,6 +152,13 @@ const replay = new Map<number, Snap>();
 /** repli sans WebGL affiche : plus de machine, RUN refuse (index.tsx) */
 let locked = false;
 /**
+ * La pause de PLAY (V.5.0, 2026-10-29, la face facon Digitakt) : le pas ou la lecture reprendra (-1 : pas en pause). STOP,
+ * RUN/STOP et un RUN frais l'oublient ; PLAY en pause reprend a ce pas.
+ */
+let resumeAt = -1;
+/** le RUN qui attend le son est une reprise de pause (onCtxState la garde) */
+let wantResume = false;
+/**
  * Une grille a rejoindre au depart (2026-10-03) : l'arpegiateur du
  * MM-VOYAGER qui joue deja (voyager/arp.ts). RUN part alors sur sa
  * prochaine frontiere de pas, avec son numero : memes temps, memes mesures.
@@ -253,7 +260,8 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     // Velocite 1 a 3 (0 : rien) ; les coups du sequenceur sont toujours des
     // charleys fermes ; MUTE et SOLO (state/voices.ts) retirent la voix
     const vel = velocity(steps, inst, s);
-    if (vel > 0 && voices.plays(inst)) {
+    // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant)
+    if (vel > 0 && voices.plays(inst, cur.pmutes)) {
       mask |= 1 << k;
       // Les verrous du pas (2026-10-08) : null sans verrou, le coup d'avant
       trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s), snap.scenes);
@@ -472,13 +480,15 @@ function hitKey(): string {
 let lastSteps = pattern.get().steps;
 let lastLocks = pattern.get().locks;
 let lastBpm = pattern.get().bpm;
+let lastPmutes = pattern.get().pmutes;
 pattern.subscribe(() => {
   const p = pattern.get();
   setBpm(p.bpm);
-  if (p.steps === lastSteps && p.locks === lastLocks && p.bpm === lastBpm) return;
+  if (p.steps === lastSteps && p.locks === lastLocks && p.bpm === lastBpm && p.pmutes === lastPmutes) return;
   lastSteps = p.steps;
   lastLocks = p.locks;
   lastBpm = p.bpm;
+  lastPmutes = p.pmutes;
   ask();
 });
 let lastSwing = pattern.fx.get().swing;
@@ -578,15 +588,17 @@ function onCtxState(): void {
   if (c.state === 'closed') cancelWait();
   if (c.state !== 'running') return;
   cancelWait();
-  start();
+  start(wantResume);
 }
 
-function start(): boolean {
+/** RUN ; fromPause (V.5.0) : la reprise de la pause de PLAY, au pas de la pause (sans elle : du pas 1, comme avant). */
+function start(fromPause = false): boolean {
   if (running) return true;
   if (locked) return false;
   const c = context();
   if (!c || c.state === 'closed') return false;
   if (c.state !== 'running') {
+    wantResume = fromPause;
     if (waitCtx !== c) {
       cancelWait();
       waitCtx = c;
@@ -596,6 +608,9 @@ function start(): boolean {
     return false;
   }
   cancelWait();
+  wantResume = false;
+  const from = fromPause ? resumeAt : -1;
+  resumeAt = -1;
   bpm = pattern.get().bpm;
   stepDur = stepDuration(bpm);
   pendingDur = 0;
@@ -605,15 +620,19 @@ function start(): boolean {
   const lb = g || !lead ? null : lead(c.currentTime + START_DELAY_S);
   if (lb && lb.period > 0) stepDur = lb.period / 4;
   anchor = g ? g.time : lb ? lb.time : c.currentTime + START_DELAY_S;
+  // La reprise d'une pause (V.5.0) : au pas de la pause, tout de suite (la grille de la platine ou de l'arpege se rattrape a
+  // la fin de la mesure)
+  if (from >= 0) anchor = c.currentTime + START_DELAY_S;
   nextTime = anchor;
   n = 0;
-  step = g ? g.step : 0;
+  step = from >= 0 ? from : g ? g.step : 0;
   leadAt = -1;
   abs = 0;
   barAbs = -1;
   plan.length = 0;
   runFirst = seq;
-  firstBar = true;
+  // Une reprise n'est pas une premiere mesure : la chaine des patterns continue ou elle en etait
+  firstBar = from < 0;
   resetStats();
   running = true;
   timer = window.setInterval(tick, TICK_MS);
@@ -629,7 +648,14 @@ function start(): boolean {
  */
 function stop(): void {
   cancelWait();
-  if (!running) return;
+  wantResume = false;
+  // STOP oublie la pause (V.5.0) : la prochaine lecture repart du pas 1
+  const hadPause = resumeAt >= 0;
+  resumeAt = -1;
+  if (!running) {
+    if (hadPause) emit();
+    return;
+  }
   running = false;
   window.clearInterval(timer);
   timer = 0;
@@ -648,6 +674,21 @@ function stop(): void {
   pending.length = 0;
   plan.length = 0;
   emit();
+}
+
+/**
+ * La pause de PLAY (V.5.0, 2026-10-29) : la lecture s'arrete comme STOP (les coups programmes partent), le pas d'apres
+ * celui qu'on vient d'entendre est retenu ; false a l'arret.
+ */
+function pause(): boolean {
+  if (!running) return false;
+  const c = context();
+  const e = c ? entryAt(c.currentTime) : null;
+  const at = e ? (e.step + 1) % STEP_COUNT : (plan[0]?.step ?? step);
+  stop();
+  resumeAt = at;
+  emit();
+  return true;
 }
 
 /** Le dernier pas de la lecture en cours dont l'instant est passe a t (temps du contexte). */
@@ -707,8 +748,20 @@ export const clock = {
     return bpm;
   },
   /** RUN : exige le contexte (cree par le geste qui appelle) ; false sinon. */
-  start,
+  start: (): boolean => start(false),
   stop,
+  /** PLAY en lecture (V.5.0) : la pause ; le pas de la reprise est retenu. */
+  pause,
+  /** PLAY en pause (V.5.0) : la reprise au pas de la pause ; false s'il n'y a pas de pause (ou deja en lecture). */
+  resume: (): boolean => (resumeAt >= 0 && !running ? start(true) : false),
+  /** En pause (V.5.0) : PLAY reprendra au pas de la pause, son temoin clignote. */
+  get paused(): boolean {
+    return resumeAt >= 0 && !running;
+  },
+  /** Le pas de la reprise (-1 : pas en pause). */
+  get resumeStep(): number {
+    return running ? -1 : resumeAt;
+  },
   /**
    * Repli sans WebGL (perte de contexte, erreur) : STOP, et RUN refuse tant
    * qu'il est affiche ; la page de repli n'a aucune commande de transport.
@@ -729,7 +782,7 @@ export const clock = {
   toggle(): boolean {
     if (running) stop();
     else if (waitCtx) cancelWait();
-    else start();
+    else start(false);
     return running;
   },
   /** Un RUN attend que le contexte tourne (2026-10-08). */

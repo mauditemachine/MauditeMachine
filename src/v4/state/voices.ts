@@ -72,8 +72,11 @@ export const voices = {
   },
   isMuted: (inst: Inst): boolean => state.muted.includes(inst),
   isSolo: (inst: Inst): boolean => state.solo.includes(inst),
-  /** Le sequenceur joue-t-il cette voix ? Le solo passe avant les mutes. */
-  plays: (inst: Inst): boolean => (state.solo.length > 0 ? state.solo.includes(inst) : !state.muted.includes(inst)),
+  /**
+   * Le sequenceur joue-t-il cette voix ? Le solo passe avant les mutes ; pmuted (V.5.0, 2026-10-29) : le mute du pattern
+   * (audio/pattern.ts pmutes), une voix coupee par l'un ou l'autre ne joue pas.
+   */
+  plays: (inst: Inst, pmuted: readonly Inst[] = []): boolean => (state.solo.length > 0 ? state.solo.includes(inst) : !state.muted.includes(inst) && !pmuted.includes(inst)),
   /** Le temoin d'un mode : arme, ou une voix encore coupee (en solo). */
   lit: (k: VoiceModeKind): boolean => (k === 'mute' ? state.muteMode || state.muted.length > 0 : state.soloMode || state.solo.length > 0),
   /** L'etat d'un mode (2026-10-09). */
