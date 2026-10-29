@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 23 octobre 2026 depuis le code du site (`npm run docs:midi`) : 649 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 29 octobre 2026 depuis le code du site (`npm run docs:midi`) : 679 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -348,7 +348,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 18 | 3.3 | 3 | 102 | CHORUS | violet | dj:dj-fx-chorus | EFFECT CHORUS | continu |
 | 19 | 3.4 | 3 | 103 | FLANGER | violet | dj:dj-fx-flanger | EFFECT FLANGER | continu |
 | 20 | 3.5 | 3 | 104 | TRANS | violet | dj:dj-fx-trans | EFFECT TRANS | continu |
-| 21 | 3.6 | 3 | 105 | DELAY | violet | dj:dj-fx-delay | EFFECT DELAY | continu |
+| 21 | 3.6 | 3 | 105 | DELAY | violet | dj:dj-fx-delay | EFFECT DUB ECHO | continu |
 | 22 | 3.7 | 3 | 106 | REVERB | violet | dj:dj-fx-reverb | EFFECT REVERB | continu |
 | 23 | 3.8 | 3 | 107 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 5 crans : ALL / RYTM / ARP / A / B |
 | 24 | 4.1 | 3 | 108 | SMPL LVL A | cyan | dj:smpl:a:knob:level | SMPL A LEVEL | continu |
@@ -432,7 +432,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 26 | 4.3 | 4 | 110 | CHORUS | violet | dj:dj-fx-chorus | EFFECT CHORUS | continu |
 | 27 | 4.4 | 4 | 111 | FLANGER | violet | dj:dj-fx-flanger | EFFECT FLANGER | continu |
 | 28 | 4.5 | 4 | 112 | TRANS | violet | dj:dj-fx-trans | EFFECT TRANS | continu |
-| 29 | 4.6 | 4 | 113 | DELAY | violet | dj:dj-fx-delay | EFFECT DELAY | continu |
+| 29 | 4.6 | 4 | 113 | DELAY | violet | dj:dj-fx-delay | EFFECT DUB ECHO | continu |
 | 30 | 4.7 | 4 | 114 | REVERB | violet | dj:dj-fx-reverb | EFFECT REVERB | continu |
 | 31 | 4.8 | 4 | 115 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 5 crans : ALL / RYTM / ARP / A / B |
 
@@ -506,7 +506,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 26 | 4.3 | 6 | 110 | CHORUS | violet | dj:dj-fx-chorus | EFFECT CHORUS | continu |
 | 27 | 4.4 | 6 | 111 | FLANGER | violet | dj:dj-fx-flanger | EFFECT FLANGER | continu |
 | 28 | 4.5 | 6 | 112 | TRANS | violet | dj:dj-fx-trans | EFFECT TRANS | continu |
-| 29 | 4.6 | 6 | 113 | DELAY | violet | dj:dj-fx-delay | EFFECT DELAY | continu |
+| 29 | 4.6 | 6 | 113 | DELAY | violet | dj:dj-fx-delay | EFFECT DUB ECHO | continu |
 | 30 | 4.7 | 6 | 114 | REVERB | violet | dj:dj-fx-reverb | EFFECT REVERB | continu |
 | 31 | 4.8 | 6 | 115 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 5 crans : ALL / RYTM / ARP / A / B |
 
@@ -598,9 +598,9 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 5 | 1.6 | 15 | 19 | STEP 6/14 | orange | rytm:seq:6 | SEQ STEP 6/14 (TAP, HOLD + TURN) | maintenu |
 | 6 | 1.7 | 15 | 20 | STEP 7/15 | orange | rytm:seq:7 | SEQ STEP 7/15 (TAP, HOLD + TURN) | maintenu |
 | 7 | 1.8 | 15 | 21 | STEP 8/16 | orange | rytm:seq:8 | SEQ STEP 8/16 (TAP, HOLD + TURN) | maintenu |
-| 8 | 2.1 | 15 | 3 | VOICE | jaune | rytm:page:voice | PAGE VOICE | appui |
+| 8 | 2.1 | 15 | 3 | VOICE | jaune | rytm:page:voice | PAGE SRC | appui |
 | 9 | 2.2 | 15 | 25 | FLTR | jaune | rytm:page:fltr | PAGE FLTR | appui |
-| 10 | 2.3 | 15 | 9 | ENV | jaune | rytm:page:env | PAGE ENV | appui |
+| 10 | 2.3 | 15 | 9 | ENV | jaune | rytm:page:env | PAGE AMP | appui |
 | 11 | 2.4 | 15 | 27 | FX | jaune | rytm:page:fx | PAGE FX | appui |
 | 12 | 2.5 | 15 | 85 | MUTE | rouge | rytm:mute | MUTE | appui |
 | 13 | 2.6 | 15 | 86 | SOLO | bleu | rytm:solo | SOLO | appui |
@@ -627,7 +627,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 415 cibles)
+### MM-RYTM (scope `mm808`, 444 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -937,30 +937,35 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:knob:6` | KNOB F (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
 | `rytm:knob:7` | KNOB G (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
 | `rytm:knob:8` | KNOB H (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
-| `rytm:page:voice` | PAGE VOICE | appui |  | RSEQ |
+| `rytm:page:voice` | PAGE SRC | appui |  | RSEQ |
 | `rytm:page:fltr` | PAGE FLTR | appui |  | RSEQ |
-| `rytm:page:env` | PAGE ENV | appui |  | RSEQ |
+| `rytm:page:env` | PAGE AMP | appui |  | RSEQ |
 | `rytm:page:fx` | PAGE FX | appui |  | RSEQ |
-| `rytm:page:trig` | PAGE TRIG (NOW VOICE) | appui |  |  |
-| `rytm:page:src` | PAGE SRC (NOW VOICE) | appui |  |  |
-| `rytm:page:smpl` | PAGE SMPL (NOW VOICE) | appui |  |  |
-| `rytm:page:amp` | PAGE AMP (NOW ENV) | appui |  |  |
-| `rytm:screen:voice` | SCREEN VOICE | appui |  |  |
-| `rytm:screen:synth` | SCREEN VOICE SYNTH | appui |  |  |
+| `rytm:page:trig` | PAGE TRIG | appui |  |  |
+| `rytm:page:src` | PAGE SRC | appui |  |  |
+| `rytm:page:smpl` | PAGE SMPL (NOW SRC) | appui |  |  |
+| `rytm:page:amp` | PAGE AMP | appui |  |  |
+| `rytm:screen:voice` | SCREEN SRC | appui |  |  |
+| `rytm:screen:synth` | SCREEN SRC SYNTH | appui |  |  |
 | `rytm:screen:fltr` | SCREEN FLTR | appui |  |  |
-| `rytm:screen:env` | SCREEN ENV | appui |  |  |
+| `rytm:screen:env` | SCREEN AMP | appui |  |  |
 | `rytm:screen:fxv` | SCREEN VOICE FX | appui |  |  |
-| `rytm:screen:fxg` | SCREEN GLOBAL FX | appui |  |  |
-| `rytm:screen:fxdist` | SCREEN GLOBAL FX · DIST | appui |  |  |
-| `rytm:screen:fxchorus` | SCREEN GLOBAL FX · CHORUS | appui |  |  |
-| `rytm:screen:fxdelay` | SCREEN GLOBAL FX · DELAY | appui |  |  |
-| `rytm:screen:fxreverb` | SCREEN GLOBAL FX · REVERB | appui |  |  |
-| `rytm:screen:fxbit` | SCREEN GLOBAL FX · BIT | appui |  |  |
-| `rytm:screen:fxcomp` | SCREEN GLOBAL FX · COMP | appui |  |  |
+| `rytm:screen:fxg` | SCREEN SEND FX | appui |  |  |
+| `rytm:screen:fxdist` | SCREEN SEND FX · DIST | appui |  |  |
+| `rytm:screen:fxchorus` | SCREEN SEND FX · CHORUS | appui |  |  |
+| `rytm:screen:fxdelay` | SCREEN SEND FX · DELAY | appui |  |  |
+| `rytm:screen:fxreverb` | SCREEN SEND FX · REVERB | appui |  |  |
+| `rytm:screen:fxbit` | SCREEN SEND FX · BIT | appui |  |  |
+| `rytm:screen:fxcomp` | SCREEN SEND FX · COMP | appui |  |  |
 | `rytm:screen:fxvdist` | SCREEN VOICE FX · DIST | appui |  |  |
 | `rytm:screen:fxvchorus` | SCREEN VOICE FX · CHORUS | appui |  |  |
 | `rytm:screen:fxvdelay` | SCREEN VOICE FX · DELAY | appui |  |  |
 | `rytm:screen:fxvreverb` | SCREEN VOICE FX · REVERB | appui |  |  |
+| `rytm:screen:fxm` | SCREEN MIXER MASTER | appui |  |  |
+| `rytm:screen:trig` | SCREEN TRIG | appui |  |  |
+| `rytm:screen:mod` | SCREEN MOD | appui |  |  |
+| `rytm:screen:tempo` | SCREEN TEMPO | appui |  |  |
+| `rytm:screen:mixer` | SCREEN MIXER LEVELS | appui |  |  |
 | `rytm:page` | PAGE (VOICE TO FX) | valeur 0 a 127 | 4 |  |
 | `rytm:home` | HOME / PAGE SCREEN | appui |  |  |
 | `rytm:pad:BD` | PAD BD | appui |  | RYTM |
@@ -1046,6 +1051,30 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:seq:voice:TOM` | SEQ VOICE TOM (SELECT, SILENT) | appui |  | RSEQ |
 | `rytm:seq:voice:HT` | SEQ VOICE HT (SELECT, SILENT) | appui |  | RSEQ |
 | `rytm:seq:voice:CY` | SEQ VOICE CY (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:trk` | TRK (HOLD + STEPS 1-8: PICK A VOICE) | maintenu (appui puis relachement) |  |  |
+| `rytm:scene:a` | SCENE A (HOLD OR TAP) | maintenu (appui puis relachement) |  |  |
+| `rytm:scene:b` | SCENE B (HOLD OR TAP) | maintenu (appui puis relachement) |  |  |
+| `rytm:xfade` | CROSSFADER (SCENE A TO B) | valeur 0 a 127 |  |  |
+| `rytm:voice:select:BD` | VOICE BD (SELECT, SILENT) | appui |  |  |
+| `rytm:voice:select:SD` | VOICE SD (SELECT, SILENT) | appui |  |  |
+| `rytm:voice:select:CH` | VOICE CH (SELECT, SILENT) | appui |  |  |
+| `rytm:voice:select:OH` | VOICE OH (SELECT, SILENT) | appui |  |  |
+| `rytm:voice:select:CP` | VOICE CP (SELECT, SILENT) | appui |  |  |
+| `rytm:voice:select:TOM` | VOICE TOM (SELECT, SILENT) | appui |  |  |
+| `rytm:voice:select:HT` | VOICE HT (SELECT, SILENT) | appui |  |  |
+| `rytm:voice:select:CY` | VOICE CY (SELECT, SILENT) | appui |  |  |
+| `rytm:func` | FUNC (HOLD + A KEY: ITS ORANGE FUNCTION) | maintenu (appui puis relachement) |  |  |
+| `rytm:rec` | REC (WRITE THE STEPS, ON / OFF) | appui |  |  |
+| `rytm:play` | PLAY (PAUSE, RESUME) | appui |  |  |
+| `rytm:stop` | STOP (TWICE: CUT THE TAILS) | appui |  |  |
+| `rytm:yes` | YES (CONFIRM, A PAGE THEN YES: RANDOM) | appui |  |  |
+| `rytm:no` | NO (BACK, A PAGE THEN NO: RELOAD IT) | appui |  |  |
+| `rytm:page:mod` | PAGE MOD | appui |  |  |
+| `rytm:mutemode` | MUTE MODE (GLOBAL, PATTERN, OFF) | appui |  |  |
+| `rytm:save` | SAVE (THE SAVE POINT) | appui |  |  |
+| `rytm:reload` | RELOAD (BACK TO THE SAVE POINT) | appui |  |  |
+| `rytm:copy` | COPY (THE PATTERN, WITH REC THE VOICE ROW) | appui |  |  |
+| `rytm:paste` | PASTE | appui |  |  |
 
 ### MM-ARP (scope `voy`, 80 cibles)
 
@@ -1137,7 +1166,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
 
-### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 147 cibles)
+### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 148 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1166,7 +1195,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-fx-chorus` | EFFECT CHORUS | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-flanger` | EFFECT FLANGER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-trans` | EFFECT TRANS | valeur 0 a 127 |  | DECK, MIXER, LIVE |
-| `dj:dj-fx-delay` | EFFECT DELAY | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-fx-delay` | EFFECT DUB ECHO | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-reverb` | EFFECT REVERB | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fxto` | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | valeur 0 a 127 | 5 | DECK, MIXER, LIVE |
 | `dj:dj-master` | MASTER VOLUME | valeur 0 a 127 |  | DECK |
@@ -1213,6 +1242,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-time5` | EFFECTS TIME 2 BEATS | maintenu (appui puis relachement) |  | MIXER, LIVE |
 | `dj:dj-time6` | EFFECTS TIME 4 BEATS | maintenu (appui puis relachement) |  | MIXER |
 | `dj:dj-machines` | PLAY OR STOP THE MACHINES TOGETHER (MM-RYTM, MM-BASS, MM-ARP), KEY G | maintenu (appui puis relachement) |  |  |
+| `dj:dj-machsync` | MACHINES SYNC TO THE MASTER DECK | maintenu (appui puis relachement) |  |  |
 | `dj:dj-adddeck` | ADD A DECK, WITH ITS CHANNEL ON THE MIXER | maintenu (appui puis relachement) |  | MIXER |
 | `dj:smpl:a:knob:start` | SMPL A START | valeur 0 a 127 |  |  |
 | `dj:smpl:a:knob:end` | SMPL A END | valeur 0 a 127 |  |  |

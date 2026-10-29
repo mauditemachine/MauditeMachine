@@ -305,30 +305,35 @@ rytm:knob:5,mm808,MM-RYTM,KNOB E (PAGE),value,selon la page,RSEQ
 rytm:knob:6,mm808,MM-RYTM,KNOB F (PAGE),value,selon la page,RSEQ
 rytm:knob:7,mm808,MM-RYTM,KNOB G (PAGE),value,selon la page,RSEQ
 rytm:knob:8,mm808,MM-RYTM,KNOB H (PAGE),value,selon la page,RSEQ
-rytm:page:voice,mm808,MM-RYTM,PAGE VOICE,press,,RSEQ
+rytm:page:voice,mm808,MM-RYTM,PAGE SRC,press,,RSEQ
 rytm:page:fltr,mm808,MM-RYTM,PAGE FLTR,press,,RSEQ
-rytm:page:env,mm808,MM-RYTM,PAGE ENV,press,,RSEQ
+rytm:page:env,mm808,MM-RYTM,PAGE AMP,press,,RSEQ
 rytm:page:fx,mm808,MM-RYTM,PAGE FX,press,,RSEQ
-rytm:page:trig,mm808,MM-RYTM,PAGE TRIG (NOW VOICE),press,,
-rytm:page:src,mm808,MM-RYTM,PAGE SRC (NOW VOICE),press,,
-rytm:page:smpl,mm808,MM-RYTM,PAGE SMPL (NOW VOICE),press,,
-rytm:page:amp,mm808,MM-RYTM,PAGE AMP (NOW ENV),press,,
-rytm:screen:voice,mm808,MM-RYTM,SCREEN VOICE,press,,
-rytm:screen:synth,mm808,MM-RYTM,SCREEN VOICE SYNTH,press,,
+rytm:page:trig,mm808,MM-RYTM,PAGE TRIG,press,,
+rytm:page:src,mm808,MM-RYTM,PAGE SRC,press,,
+rytm:page:smpl,mm808,MM-RYTM,PAGE SMPL (NOW SRC),press,,
+rytm:page:amp,mm808,MM-RYTM,PAGE AMP,press,,
+rytm:screen:voice,mm808,MM-RYTM,SCREEN SRC,press,,
+rytm:screen:synth,mm808,MM-RYTM,SCREEN SRC SYNTH,press,,
 rytm:screen:fltr,mm808,MM-RYTM,SCREEN FLTR,press,,
-rytm:screen:env,mm808,MM-RYTM,SCREEN ENV,press,,
+rytm:screen:env,mm808,MM-RYTM,SCREEN AMP,press,,
 rytm:screen:fxv,mm808,MM-RYTM,SCREEN VOICE FX,press,,
-rytm:screen:fxg,mm808,MM-RYTM,SCREEN GLOBAL FX,press,,
-rytm:screen:fxdist,mm808,MM-RYTM,SCREEN GLOBAL FX · DIST,press,,
-rytm:screen:fxchorus,mm808,MM-RYTM,SCREEN GLOBAL FX · CHORUS,press,,
-rytm:screen:fxdelay,mm808,MM-RYTM,SCREEN GLOBAL FX · DELAY,press,,
-rytm:screen:fxreverb,mm808,MM-RYTM,SCREEN GLOBAL FX · REVERB,press,,
-rytm:screen:fxbit,mm808,MM-RYTM,SCREEN GLOBAL FX · BIT,press,,
-rytm:screen:fxcomp,mm808,MM-RYTM,SCREEN GLOBAL FX · COMP,press,,
+rytm:screen:fxg,mm808,MM-RYTM,SCREEN SEND FX,press,,
+rytm:screen:fxdist,mm808,MM-RYTM,SCREEN SEND FX · DIST,press,,
+rytm:screen:fxchorus,mm808,MM-RYTM,SCREEN SEND FX · CHORUS,press,,
+rytm:screen:fxdelay,mm808,MM-RYTM,SCREEN SEND FX · DELAY,press,,
+rytm:screen:fxreverb,mm808,MM-RYTM,SCREEN SEND FX · REVERB,press,,
+rytm:screen:fxbit,mm808,MM-RYTM,SCREEN SEND FX · BIT,press,,
+rytm:screen:fxcomp,mm808,MM-RYTM,SCREEN SEND FX · COMP,press,,
 rytm:screen:fxvdist,mm808,MM-RYTM,SCREEN VOICE FX · DIST,press,,
 rytm:screen:fxvchorus,mm808,MM-RYTM,SCREEN VOICE FX · CHORUS,press,,
 rytm:screen:fxvdelay,mm808,MM-RYTM,SCREEN VOICE FX · DELAY,press,,
 rytm:screen:fxvreverb,mm808,MM-RYTM,SCREEN VOICE FX · REVERB,press,,
+rytm:screen:fxm,mm808,MM-RYTM,SCREEN MIXER MASTER,press,,
+rytm:screen:trig,mm808,MM-RYTM,SCREEN TRIG,press,,
+rytm:screen:mod,mm808,MM-RYTM,SCREEN MOD,press,,
+rytm:screen:tempo,mm808,MM-RYTM,SCREEN TEMPO,press,,
+rytm:screen:mixer,mm808,MM-RYTM,SCREEN MIXER LEVELS,press,,
 rytm:page,mm808,MM-RYTM,PAGE (VOICE TO FX),value,4,
 rytm:home,mm808,MM-RYTM,HOME / PAGE SCREEN,press,,
 rytm:pad:BD,mm808,MM-RYTM,PAD BD,press,,RYTM
@@ -414,6 +419,30 @@ rytm:seq:voice:CP,mm808,MM-RYTM,"SEQ VOICE CP (SELECT, SILENT)",press,,RSEQ
 rytm:seq:voice:TOM,mm808,MM-RYTM,"SEQ VOICE TOM (SELECT, SILENT)",press,,RSEQ
 rytm:seq:voice:HT,mm808,MM-RYTM,"SEQ VOICE HT (SELECT, SILENT)",press,,RSEQ
 rytm:seq:voice:CY,mm808,MM-RYTM,"SEQ VOICE CY (SELECT, SILENT)",press,,RSEQ
+rytm:trk,mm808,MM-RYTM,TRK (HOLD + STEPS 1-8: PICK A VOICE),hold,,
+rytm:scene:a,mm808,MM-RYTM,SCENE A (HOLD OR TAP),hold,,
+rytm:scene:b,mm808,MM-RYTM,SCENE B (HOLD OR TAP),hold,,
+rytm:xfade,mm808,MM-RYTM,CROSSFADER (SCENE A TO B),value,,
+rytm:voice:select:BD,mm808,MM-RYTM,"VOICE BD (SELECT, SILENT)",press,,
+rytm:voice:select:SD,mm808,MM-RYTM,"VOICE SD (SELECT, SILENT)",press,,
+rytm:voice:select:CH,mm808,MM-RYTM,"VOICE CH (SELECT, SILENT)",press,,
+rytm:voice:select:OH,mm808,MM-RYTM,"VOICE OH (SELECT, SILENT)",press,,
+rytm:voice:select:CP,mm808,MM-RYTM,"VOICE CP (SELECT, SILENT)",press,,
+rytm:voice:select:TOM,mm808,MM-RYTM,"VOICE TOM (SELECT, SILENT)",press,,
+rytm:voice:select:HT,mm808,MM-RYTM,"VOICE HT (SELECT, SILENT)",press,,
+rytm:voice:select:CY,mm808,MM-RYTM,"VOICE CY (SELECT, SILENT)",press,,
+rytm:func,mm808,MM-RYTM,FUNC (HOLD + A KEY: ITS ORANGE FUNCTION),hold,,
+rytm:rec,mm808,MM-RYTM,"REC (WRITE THE STEPS, ON / OFF)",press,,
+rytm:play,mm808,MM-RYTM,"PLAY (PAUSE, RESUME)",press,,
+rytm:stop,mm808,MM-RYTM,STOP (TWICE: CUT THE TAILS),press,,
+rytm:yes,mm808,MM-RYTM,"YES (CONFIRM, A PAGE THEN YES: RANDOM)",press,,
+rytm:no,mm808,MM-RYTM,"NO (BACK, A PAGE THEN NO: RELOAD IT)",press,,
+rytm:page:mod,mm808,MM-RYTM,PAGE MOD,press,,
+rytm:mutemode,mm808,MM-RYTM,"MUTE MODE (GLOBAL, PATTERN, OFF)",press,,
+rytm:save,mm808,MM-RYTM,SAVE (THE SAVE POINT),press,,
+rytm:reload,mm808,MM-RYTM,RELOAD (BACK TO THE SAVE POINT),press,,
+rytm:copy,mm808,MM-RYTM,"COPY (THE PATTERN, WITH REC THE VOICE ROW)",press,,
+rytm:paste,mm808,MM-RYTM,PASTE,press,,
 voy:knob:rate,voy,MM-ARP,RATE,value,4,ARP LIVE
 voy:knob:mode,voy,MM-ARP,ARP MODE,value,4,ARP
 voy:knob:range,voy,MM-ARP,RANGE,value,3,ARP
@@ -519,7 +548,7 @@ dj:dj-fx-crush,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT CRUSH,va
 dj:dj-fx-chorus,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT CHORUS,value,,DECK MIXER LIVE
 dj:dj-fx-flanger,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT FLANGER,value,,DECK MIXER LIVE
 dj:dj-fx-trans,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT TRANS,value,,DECK MIXER LIVE
-dj:dj-fx-delay,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT DELAY,value,,DECK MIXER LIVE
+dj:dj-fx-delay,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT DUB ECHO,value,,DECK MIXER LIVE
 dj:dj-fx-reverb,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT REVERB,value,,DECK MIXER LIVE
 dj:dj-fxto,dj,"MM-DECKS (table, platines, samplers, effets)","EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL",value,5,DECK MIXER LIVE
 dj:dj-master,dj,"MM-DECKS (table, platines, samplers, effets)",MASTER VOLUME,value,,DECK
@@ -566,6 +595,7 @@ dj:dj-time4,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 1 BEA
 dj:dj-time5,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 2 BEATS,hold,,MIXER LIVE
 dj:dj-time6,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 4 BEATS,hold,,MIXER
 dj:dj-machines,dj,"MM-DECKS (table, platines, samplers, effets)","PLAY OR STOP THE MACHINES TOGETHER (MM-RYTM, MM-BASS, MM-ARP), KEY G",hold,,
+dj:dj-machsync,dj,"MM-DECKS (table, platines, samplers, effets)",MACHINES SYNC TO THE MASTER DECK,hold,,
 dj:dj-adddeck,dj,"MM-DECKS (table, platines, samplers, effets)","ADD A DECK, WITH ITS CHANNEL ON THE MIXER",hold,,MIXER
 dj:smpl:a:knob:start,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A START,value,,
 dj:smpl:a:knob:end,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A END,value,,
