@@ -222,6 +222,8 @@ import { isRytmInfoHotspot } from '../rytm/infoIds';
 import { isSwitch } from '../voyager/theme';
 import { EXTERNAL_REL } from './ExternalLink';
 import { SWIPE, eventTime, isSwipe, mayBeSwipe, swipeable, type SwipeHandBack } from './swipe';
+import { laneTwins } from './twins';
+import { laneZoneTitle } from '../scene/zones';
 import {
   BLOCKS_ARE_KNOBS,
   BOARD_CHIPS,
@@ -892,7 +894,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         stage.setHover(id);
         // L'infobulle de la face V.4.0 du desktop (2026-10-27, Mika : "le nom complet dans l'infobulle") : sur la couche de
         // saisie, le temps du survol (au telephone, FACE_TITLE est vide)
-        const tip = id !== null ? FACE_TITLE[id] : undefined;
+        const tip = id !== null ? (FACE_TITLE[id] ?? (PORTRAIT ? undefined : laneZoneTitle(id))) : undefined;
         if (tip) el.title = tip;
         else if (el.title) el.removeAttribute('title');
       }
@@ -3195,6 +3197,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     return <HoldTwin key={id} id={id} twin="scene" label={FACE_TITLE[id]} latch={sceneCtl.latch(w)} refFn={refFor(id)} down={(src, t) => sceneDown(w, src, t)} up={(src, t) => sceneUp(w, src, t)} />;
   };
   const xfadeTwin = <XfadeTwin key="xfade" refFn={refFor('xfade')} />;
+  const twinCtx = { stage, refFor };
 
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label={TWIN_ARIA.group} aria-hidden={off || undefined}>
@@ -3230,7 +3233,10 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {blockTwins}
           {browserTwins}
           {menuTwins}
+          {/* Les jumeaux des lanes de la refonte DT2 (P0, ui/twins/) a leur place : vides en P0, rien ne s'ajoute */}
+          {laneTwins('screen', twinCtx)}
           {knobTwins}
+          {laneTwins('knobs', twinCtx)}
           {/* V.5.0 : la rangee de gauche a droite, FUNC TRK PTN REC PLAY STOP, les six touches de page, YES NO */}
           {funcTwin}
           {/* TRK (2026-10-27, la phase 2) : tenue ou gardee */}
@@ -3242,6 +3248,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {dtPkeyTwins}
           {yesTwin}
           {noTwin}
+          {laneTwins('keys', twinCtx)}
           {sceneTwin('a')}
           {xfadeTwin}
           {sceneTwin('b')}
@@ -3250,6 +3257,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {chips}
           {tweakTwins}
           {stepTwins}
+          {laneTwins('steps', twinCtx)}
         </>
       )}
     </div>

@@ -179,6 +179,7 @@ import { djView } from '../dj/view';
 import type { BassRig } from '../bass/rig';
 import { bassLoad } from '../state/bassload';
 import { boot } from '../state/boot';
+import { laneZones } from './zones';
 import { BASS_D, BASS_FRAME, BASS_OPEN_FRAME, BASS_W, bassX } from '../bass/theme';
 
 const DEG = Math.PI / 180;
@@ -839,6 +840,9 @@ export class Stage {
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A, le crossfader, SCENE B
     this.faceDefs = this.faceKeys?.hotspots(plateau) ?? [];
     this.hit.add(this.faceDefs);
+    // Les zones des lanes de la refonte DT2 (P0, scene/zones/) : vides en P0, rien ne s'ajoute
+    const laneDefs = PORTRAIT ? [] : laneZones({ plateau });
+    if (laneDefs.length) this.hit.add(laneDefs);
     const seqDefs = this.seq.hotspots(plateau);
     this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
     this.hit.add(seqDefs.filter((d) => d.kind !== 'step'));
