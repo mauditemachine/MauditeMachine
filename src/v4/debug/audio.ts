@@ -11,6 +11,14 @@
 
 import type { DebugSource } from './index';
 import { LEGACY_KEYS, TRACKS_KEY, TRACK_KEYS, kit16FromLegacy, kit16FromStored, kit16ToStored, sameKit16, tracks, tracksLegacy } from '../audio/tracks';
+import { ensure } from '../audio/drums';
+import { clock } from '../audio/clock';
+import { FLAGS } from '../state/flags';
+
+/** Les sondes seulement, sous ?mute=1&debug=1 (MASTER a 0 pour toute la page : rien ne sort des enceintes). */
+const muted = (what: string): void => {
+  if (!FLAGS.mute || !FLAGS.debug) throw new Error(`${what}: ?mute=1&debug=1 only`);
+};
 
 export interface AudioLaneDebug {
   /** le store des 16 pistes (V.5.9) */
@@ -27,6 +35,10 @@ export interface AudioLaneDebug {
     /** les vues d'avant que lisent les facades kit et voiceFx (pistes 1 a 8) */
     readonly legacy: typeof tracksLegacy.kit;
     readonly legacyVoices: typeof tracksLegacy.voices;
+    /** le contexte audio d'un geste (les sondes du graphe vivant : ses tranches) ; MASTER a 0, aucun coup */
+    ctx(): boolean;
+    /** RUN et STOP de l'horloge (les sondes de la re-programmation par piste), MASTER a 0 */
+    run(on: boolean): boolean;
   };
 }
 
@@ -43,6 +55,16 @@ export function audioLane(_src: DebugSource): AudioLaneDebug {
       same: sameKit16,
       legacy: tracksLegacy.kit,
       legacyVoices: tracksLegacy.voices,
+      ctx(): boolean {
+        muted('tracks16.ctx');
+        return ensure() !== undefined;
+      },
+      run(on: boolean): boolean {
+        muted('tracks16.run');
+        if (on) return clock.start();
+        clock.stop();
+        return false;
+      },
     },
   };
 }
