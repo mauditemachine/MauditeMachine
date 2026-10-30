@@ -25,7 +25,7 @@ import { sceneDrop } from './internal/scenes';
 import { recHoldHint } from './internal/steps';
 import type { ContEnc } from './internal/dials';
 import { layerSpan, sampleCtx, voiceSoundAt } from './internal/kit';
-import { FAM_TAG, LFO_KEY_NAMES, LOCK_FAMS, lockName, lockSampleCache, lockSoundCache, lockWrite } from './internal/locks';
+import { FAM_TAG, LOCK_FAMS, LOCK_NAMES, lockName, lockSampleCache, lockSoundCache, lockWrite } from './internal/locks';
 import { stepWrites } from './steps';
 import { anyDial, anyDialReset } from './anyDial';
 import { type DialId, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageSlotOf, voiceSounds, voiceSoundText, voiceSoundUnit } from './kit';
@@ -258,57 +258,6 @@ function sndLabel(inst: Inst, snd: string): string {
 
 /** Les reglages de l'ancien SMPL sans bloc depuis le 2026-10-09 : leur nombre comme leur page l'ecrivait. */
 const LEGACY_LAYER: Readonly<Record<string, LayerDial>> = { stune: 'tune', sfine: 'fine', sstart: 'start' };
-const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
-  { key: 'snd', name: 'SOUND', page: 'VOICE' },
-  { key: 'level', name: 'VOL', page: 'VOICE' },
-  { key: 'tune', name: 'PITCH', page: 'VOICE' },
-  { key: 'fine', name: 'FINE', page: 'VOICE' },
-  { key: 'slen', name: 'LEN', page: 'VOICE' },
-  { key: 'srev', name: 'REV', page: 'VOICE' },
-  { key: 'mach', name: 'MACHINE', page: 'VOICE' },
-  { key: 'syn', name: 'MIX', page: 'VOICE' },
-  { key: 'slev', name: 'MIX', page: 'VOICE' },
-  { key: 'ktune', name: 'TUNE', page: 'VOICE' },
-  { key: 'sdtune', name: 'TUNE', page: 'VOICE' },
-  { key: 'kattack', name: 'ATTACK', page: 'VOICE' },
-  { key: 'snappy', name: 'SNAPPY', page: 'VOICE' },
-  { key: 'ksweep', name: 'SWEEP', page: 'VOICE' },
-  { key: 'sdtone', name: 'TONE', page: 'VOICE' },
-  { key: 'kdecay', name: 'DECAY', page: 'VOICE' },
-  { key: 'sddecay', name: 'DECAY', page: 'VOICE' },
-  { key: 'kdrive', name: 'DRIVE', page: 'VOICE' },
-  { key: 'gate', name: 'GATE', page: 'VOICE' },
-  { key: 'stune', name: 'S.TUNE', page: 'VOICE' },
-  { key: 'sfine', name: 'S.FINE', page: 'VOICE' },
-  { key: 'sstart', name: 'S.START', page: 'VOICE' },
-  { key: 'fcut', name: 'FREQ', page: 'FLTR' },
-  { key: 'freso', name: 'RESO', page: 'FLTR' },
-  { key: 'ftype', name: 'TYPE', page: 'FLTR' },
-  { key: 'tone', name: 'TONE', page: 'FLTR' },
-  { key: 'fatk', name: 'F.ATK', page: 'FLTR' },
-  { key: 'fdec', name: 'F.DEC', page: 'FLTR' },
-  { key: 'fenv', name: 'F.ENV', page: 'FLTR' },
-  { key: 'atk', name: 'ATK', page: 'ENV' },
-  { key: 'hold', name: 'HOLD', page: 'ENV' },
-  { key: 'decay', name: 'DEC', page: 'ENV' },
-  { key: 'start', name: 'START', page: 'ENV' },
-  { key: 'pan', name: 'PAN', page: 'ENV' },
-  { key: 'dist', name: 'DIST', page: 'FX' },
-  { key: 'chorus', name: 'CHORUS', page: 'FX' },
-  { key: 'delay', name: 'DELAY', page: 'FX' },
-  { key: 'reverb', name: 'REVERB', page: 'FX' },
-  // V.5.1 (2026-10-29) : la page TRIG et les deux LFO de MOD ; ltrg (le lock trig) n'est pas un reglage, il ne compte pas
-  { key: 'len', name: 'LEN', page: 'TRIG' },
-  { key: 'prob', name: 'PROB', page: 'TRIG' },
-  { key: 'cond', name: 'COND', page: 'TRIG' },
-  { key: 'utime', name: 'μTIME', page: 'TRIG' },
-  { key: 'lfot', name: 'LFO.T', page: 'TRIG' },
-  { key: 'rtrg', name: 'RTRG', page: 'TRIG' },
-  { key: 'rate', name: 'RATE', page: 'TRIG' },
-  { key: 'vfad', name: 'VFAD', page: 'TRIG' },
-  { key: 'rlen', name: 'RLEN', page: 'TRIG' },
-  ...([1, 2] as const).flatMap((n) => LFO_KEY_NAMES.map(([k, name]) => ({ key: `l${n}${k}`, name: `L${n} ${name}`, page: 'MOD' }))),
-];
 
 /** Le nom court d'un verrou pour cette voix (le TONE de la caisse claire, le TUNE du kick : ceux de leur machine). */
 function lockNameOf(key: string, _inst: Inst): string | undefined {
