@@ -2100,7 +2100,8 @@ export class Screen {
       this.text(this.fitText(s.l3, x1 - x0, 9, 0.6, 600), x0, LINE.y, 9, INK, 600, 'left', 0.6);
       return;
     }
-    if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT_TEXT, 700, 'left', 0.6);
+    // La vue BANK (V.5.2) : ce que font ses pas
+    if (rytmEdit) this.text(DT_FACE && dtFace.bank() ? 'STEPS 1-8: BANKS A-H   PTN: BACK' : 'TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT_TEXT, 700, 'left', 0.6);
     else if (this.paintMode(x0, x1)) return;
     // Les presets (V.4.2 : au desktop l'ecran ne se touche plus, EDIT pressee deux fois les ouvre)
     else if (s.tag) this.text(SCREEN_TOUCH ? 'TOUCH: PRESETS' : DT_FACE ? 'PTN 2X: KIT' : 'EDIT 2X: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
