@@ -19,16 +19,24 @@
  * garde aussi ceux de ses pas (locks, a cote des slots ; une sauvegarde
  * d'avant n'en a pas : aucun) ; changer de pattern pose les siens, la copie
  * d'un emplacement les copie.
+ * Les banques A a H (V.5.2, 2026-10-30, docs/v4/digitakt-d3a-spec.md section 1) : 128 emplacements, 8 banques de 16, A01 a
+ * H16 ; la grille montre les 16 de la banque affichee (bank, jamais retenue : au chargement celle du pattern courant). Une
+ * sauvegarde d'avant (16 emplacements) se relit en banque A, B a H vides : meme cle, tableaux de 128.
  */
 
 import { clock } from '../audio/clock';
 import { anyLocks, cleanLocks, sameLocks, type Locks } from '../audio/locks';
 import { INSTRUMENTS, STEP_COUNT, cleanPmutes, pattern, type Steps } from '../audio/pattern';
 import { anyTrigs, cleanTrigs, sameTrigs, type TrigSet } from '../audio/trig';
-import type { Inst } from '../theme';
+import { DT_FACE, type Inst } from '../theme';
 import { NO_SCENES, anyScenes, cleanScenes, sameScenes, toStored, type SceneSet } from '../rytm/sceneData';
 
-export const PATTERN_SLOTS = 16;
+export const PATTERN_SLOTS = 128;
+/** Les banques (V.5.2) : 8 de 16 patterns, A a H. */
+export const BANKS = 8;
+export const BANK_SIZE = 16;
+/** La chaine : 64 patterns au plus, de banques differentes s'il le faut. */
+export const CHAIN_MAX = 64;
 /** Taper un autre pattern dans ce delai l'ajoute a la chaine. */
 export const CHAIN_MS = 2000;
 const KEY = 'mm.v4.patterns.1';
@@ -54,10 +62,16 @@ export interface PatternsState {
   pos: number;
   /** le pattern qui attend la fin de la mesure (lecture), -1 aucun */
   next: number;
+  /** la banque affichee (V.5.2), 0 a 7 ; jamais retenue */
+  bank: number;
 }
 
-/** Le nom d'un emplacement : A01 a A16. */
-export const slotName = (i: number): string => `A${String(i + 1).padStart(2, '0')}`;
+/** La banque d'un emplacement (0 : A). */
+export const bankOf = (i: number): number => Math.max(0, Math.min(BANKS - 1, Math.floor(i / BANK_SIZE)));
+/** Le nom d'une banque : A a H. */
+export const bankName = (b: number): string => 'ABCDEFGH'[Math.max(0, Math.min(BANKS - 1, b))];
+/** Le nom d'un emplacement : A01 a H16. */
+export const slotName = (i: number): string => `${bankName(bankOf(i))}${String((i % BANK_SIZE) + 1).padStart(2, '0')}`;
 
 const emptySteps = (): Steps => Object.fromEntries(INSTRUMENTS.map((k) => [k, '0'.repeat(STEP_COUNT)])) as Steps;
 const isEmpty = (s: Steps): boolean => INSTRUMENTS.every((k) => /^0+$/.test(s[k]));
@@ -108,7 +122,7 @@ function load(): PatternsState {
       if (Array.isArray(raw.trigs)) for (let i = 0; i < PATTERN_SLOTS; i += 1) trigs[i] = keepTrigs(cleanTrigs(raw.trigs[i]));
       if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < PATTERN_SLOTS) cur = raw.cur as number;
       if (Array.isArray(raw.chain)) {
-        const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < PATTERN_SLOTS).slice(0, PATTERN_SLOTS);
+        const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < PATTERN_SLOTS).slice(0, CHAIN_MAX);
         if (c.length > 0) chain = c;
       }
     }
@@ -122,10 +136,10 @@ function load(): PatternsState {
   pmutes[cur] = keepPmutes(pattern.get().pmutes);
   trigs[cur] = keepTrigs(pattern.get().trigs);
   if (!chain.includes(cur)) chain = [cur];
-  return { slots, locks, scenes, pmutes, trigs, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
+  return { slots, locks, scenes, pmutes, trigs, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1, bank: bankOf(cur) };
 }
 
-let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], scenes: [], pmutes: [], trigs: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
+let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], scenes: [], pmutes: [], trigs: [], cur: 0, chain: [0], pos: 0, next: -1, bank: 0 } : load();
 const listeners = new Set<() => void>();
 let saveTimer = 0;
 /** le motif pose par nous (un changement de pattern) : pas une edition a garder */
@@ -253,19 +267,34 @@ export const patterns = {
    */
   tap(i: number, running: boolean, now = performance.now()): 'chain' | 'next' | 'now' {
     if (i < 0 || i >= PATTERN_SLOTS) return 'now';
-    const chaining = now - lastTap < CHAIN_MS && state.chain.length < PATTERN_SLOTS;
+    const chaining = now - lastTap < CHAIN_MS && state.chain.length < CHAIN_MAX;
     lastTap = now;
+    const bank = bankOf(i);
     if (chaining) {
-      setState({ ...state, chain: [...state.chain, i] });
+      setState({ ...state, chain: [...state.chain, i], bank });
       return 'chain';
     }
     if (running) {
-      setState({ ...state, chain: [i], next: i === state.cur ? -1 : i });
+      setState({ ...state, chain: [i], next: i === state.cur ? -1 : i, bank });
       return 'next';
     }
     if (i !== state.cur) apply(i);
-    setState({ ...state, cur: i, chain: [i], pos: 0, next: -1 });
+    setState({ ...state, cur: i, chain: [i], pos: 0, next: -1, bank });
     return 'now';
+  },
+  /** La banque affichee (V.5.2, FUNC + PTN, rytm:bank:<b>) : la grille montre ses 16 patterns. */
+  setBank(b: number): void {
+    const n = Math.max(0, Math.min(BANKS - 1, Math.round(b)));
+    if (n !== state.bank) setState({ ...state, bank: n }, false);
+  },
+  /** La banque que montre la grille : l'affichee au desktop, celle du pattern courant au telephone (il n'a pas de BANK). */
+  shown: (): number => (DT_FACE ? state.bank : bankOf(state.cur)),
+  /** L'emplacement du pas k (0 a 15) de la grille : celui de la banque montree. */
+  slotAt: (k: number): number => patterns.shown() * BANK_SIZE + Math.max(0, Math.min(BANK_SIZE - 1, Math.round(k))),
+  /** Une banque a-t-elle au moins un pattern plein (la vue BANK). */
+  bankFilled(b: number): boolean {
+    for (let i = b * BANK_SIZE; i < (b + 1) * BANK_SIZE; i += 1) if (patterns.filled(i)) return true;
+    return false;
   },
   /**
    * UNDO (state/undo.ts, 2026-10-11) : l'emplacement d'une etape devient tout de suite le courant (meme en lecture),
@@ -274,7 +303,7 @@ export const patterns = {
   select(i: number): void {
     if (i < 0 || i >= PATTERN_SLOTS || (i === state.cur && state.chain.length === 1 && state.next < 0)) return;
     if (i !== state.cur) apply(i);
-    setState({ ...state, cur: i, chain: [i], pos: 0, next: -1 });
+    setState({ ...state, cur: i, chain: [i], pos: 0, next: -1, bank: bankOf(i) });
   },
   /** Tenir un emplacement vide : il recoit une copie du pattern courant ; false s'il est plein (ou le courant vide). */
   copyTo(i: number): boolean {
@@ -345,9 +374,27 @@ export const patterns = {
     pmutes[0] = keepPmutes(pattern.get().pmutes);
     const trigs: (Readonly<TrigSet> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
     trigs[0] = keepTrigs(pattern.get().trigs);
-    setState({ slots, locks, scenes, pmutes, trigs, cur: 0, chain: [0], pos: 0, next: -1 });
+    setState({ slots, locks, scenes, pmutes, trigs, cur: 0, chain: [0], pos: 0, next: -1, bank: 0 });
   },
 };
+
+/**
+ * La grille d'une banque (V.5.2) : ses 16 patterns en indices de la grille (0 a 15) ; le courant et celui qui attend, -1
+ * s'ils sont dans une autre banque ; la chaine garde sa longueur (-1 a la place d'un pattern d'une autre banque).
+ */
+export function bankGrid(b: number, s: PatternsState = state): { cur: number; next: number; chain: number[]; filled: boolean[] } {
+  const local = (i: number): number => (i >= 0 && bankOf(i) === b ? i % BANK_SIZE : -1);
+  return { cur: local(s.cur), next: local(s.next), chain: s.chain.map(local), filled: Array.from({ length: BANK_SIZE }, (_, k) => patterns.filled(b * BANK_SIZE + k)) };
+}
+
+/**
+ * La vue BANK (V.5.2, FUNC + PTN) sur les memes 16 pas : les pas 1 a 8 sont les banques ; cur : celle du pattern qui joue,
+ * next : la banque affichee si ce n'est pas elle (elle clignote), filled : celles qui ont des patterns.
+ */
+export function banksGrid(s: PatternsState = state): { cur: number; next: number; chain: number[]; filled: boolean[] } {
+  const cur = bankOf(s.cur);
+  return { cur, next: s.bank !== cur ? s.bank : -1, chain: [], filled: Array.from({ length: BANK_SIZE }, (_, k) => k < BANKS && patterns.bankFilled(k)) };
+}
 
 // La chaine avance avec l'horloge du MM-RYTM
 clock.onBar((first) => patterns.bar(first));

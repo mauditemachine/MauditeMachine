@@ -204,8 +204,11 @@ export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
  */
 export const RYTM_D2_IDS = ['q:len', 'q:prob', 'q:cond', 'q:utime', 'q:lfot', 'q:rtrg', 'q:rate', 'q:vfad', 'q:rlen', 'lfo:spd', 'lfo:mul', 'lfo:fad', 'lfo:dst', 'lfo:wav', 'lfo:phs', 'lfo:mod', 'lfo:dep', 'ptrig2', 'locktrig', 'fill'] as const;
 export type RytmD2Id = (typeof RYTM_D2_IDS)[number];
+/** V.5.2 (2026-10-30, l'etape D3a) : la vue BANK (FUNC + PTN) et CONTROL ALL (TRK + un potard). */
+export const RYTM_D3A_IDS = ['bank', 'ctlall'] as const;
+export type RytmD3aId = (typeof RYTM_D3A_IDS)[number];
 
-export type RytmInfoId = RytmInfoPage | RytmInfoTab | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId | RytmD2Id;
+export type RytmInfoId = RytmInfoPage | RytmInfoTab | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId | RytmD2Id | RytmD3aId;
 
 export const RYTM_INFO_IDS: readonly RytmInfoId[] = [
   ...RYTM_INFO_PAGES,
@@ -216,6 +219,7 @@ export const RYTM_INFO_IDS: readonly RytmInfoId[] = [
   ...RYTM_R3_IDS,
   ...RYTM_CONTROL_IDS,
   ...RYTM_D2_IDS,
+  ...RYTM_D3A_IDS,
 ];
 const ID_SET: ReadonlySet<string> = new Set(RYTM_INFO_IDS);
 export const isRytmInfoId = (s: unknown): s is RytmInfoId => typeof s === 'string' && ID_SET.has(s);
@@ -420,10 +424,15 @@ let knobResolver: (k: number) => number | null = (k) => k;
 export function setKnobResolver(fn: (k: number) => number | null): void {
   knobResolver = fn;
 }
-/** Ce qu'est le pas i de la voix choisie (V.5.1) : 'locktrig' pour un lock trig ; actions.ts l'inscrit. */
-let stepResolver: (i: number) => 'locktrig' | null = () => null;
-export function setStepResolver(fn: (i: number) => 'locktrig' | null): void {
+/** Ce qu'est le pas i (V.5.1) : 'locktrig' pour un lock trig de la voix choisie, 'bank' dans la vue BANK (V.5.2) ; actions.ts l'inscrit. */
+let stepResolver: (i: number) => 'locktrig' | 'bank' | null = () => null;
+export function setStepResolver(fn: (i: number) => 'locktrig' | 'bank' | null): void {
   stepResolver = fn;
+}
+/** TRK tenue ou gardee (V.5.2) : un potard fait CONTROL ALL, sa carte ; actions.ts l'inscrit. */
+let ctlAllResolver: () => boolean = () => false;
+export function setCtlAllResolver(fn: () => boolean): void {
+  ctlAllResolver = fn;
 }
 
 /**
@@ -452,6 +461,7 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   if (pe) {
     const k = Number(pe[1]);
     if (FACE_FOLLOWS_PAGE) {
+      if (ctlAllResolver()) return { id: 'ctlall' };
       const b = knobResolver(k);
       return b === null ? { id: 'knob:empty' } : { id: `p:${b}` };
     }
@@ -479,7 +489,9 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   if (st) {
     const i = Number(st[1]) - 1;
     // Un lock trig de la voix choisie (V.5.1) : sa carte (actions.ts le dit, ce module reste pur)
-    if (i >= 0 && i < 16 && stepResolver(i) === 'locktrig') return { id: 'locktrig', step: i };
+    const sr = i >= 0 && i < 16 ? stepResolver(i) : null;
+    if (sr === 'bank') return { id: 'bank' };
+    if (sr === 'locktrig') return { id: 'locktrig', step: i };
     return i >= 0 && i < 16 ? { id: 'step', step: i } : null;
   }
   if (TRANSPORT.has(hotspot)) return { id: hotspot };

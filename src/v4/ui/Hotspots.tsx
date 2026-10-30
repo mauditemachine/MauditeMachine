@@ -187,7 +187,7 @@ import { djLoad, type DjModules } from '../state/djload';
 import { bassLoad, type BassModules } from '../state/bassload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
-import { patterns, slotName } from '../state/patterns';
+import { bankName, patterns, slotName } from '../state/patterns';
 import { rytmPage } from '../state/rytmPage';
 import { screenDials, type ScreenDialId } from '../state/screenDials';
 import { lcdMessage } from '../state/lcdMessage';
@@ -2281,6 +2281,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   // V.5.0 : la pause de PLAY, REC
   const paused = useSyncExternalStore(clock.subscribe, () => clock.paused, () => clock.paused);
   const recOn = useSyncExternalStore(dtFace.subscribe, dtFace.rec, dtFace.rec);
+  const bankView = useSyncExternalStore(dtFace.subscribe, dtFace.bank, dtFace.bank);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
   // INFOS du MM-RYTM (R4) : la touche i de l'ecran
   const rytmInfosOn = useSyncExternalStore(rytmInfos.subscribe, rytmInfos.isOn, rytmInfos.isOn);
@@ -3082,11 +3083,17 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   );
 
   const stepTwins = STEP_INDEXES.map((i) => {
-    const on = rytmEdit ? i === ptns.cur : inst ? isOn(p.steps, inst, i) : false;
+    // V.5.2 : la grille montre la banque montree ; la vue BANK, les banques A a H
+    const slot = patterns.slotAt(i);
+    const on = rytmEdit ? (bankView ? i === Math.floor(ptns.cur / 16) : slot === ptns.cur) : inst ? isOn(p.steps, inst, i) : false;
     // Ses verrous (2026-10-08) : combien, et s'il est en LOCK
     const nl = inst && !rytmEdit ? lockCount(p.locks, inst, i) : 0;
-    const label = rytmEdit
-      ? `Pattern ${slotName(i)}${patterns.filled(i) ? '' : ', empty'}${i === ptns.cur ? ', playing' : ''}. Tap to play it, tap others within two seconds to chain them, hold an empty one to copy the current pattern`
+    const label = rytmEdit && bankView
+      ? i < 8
+        ? `Bank ${bankName(i)}${patterns.bankFilled(i) ? '' : ', empty'}${on ? ', playing' : ''}. Tap to show its patterns`
+        : `Step ${i + 1}, no bank`
+      : rytmEdit
+      ? `Pattern ${slotName(slot)}${patterns.filled(slot) ? '' : ', empty'}${slot === ptns.cur ? ', playing' : ''}. Tap to play it, tap others within two seconds to chain them, hold an empty one to copy the current pattern`
       : inst
         ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}${nl > 0 ? `, ${nl} lock${nl > 1 ? 's' : ''}` : ''}${lockAt === i ? ', in lock mode' : ''}. L: lock mode`
         : `Step ${i + 1}, no instrument selected`;

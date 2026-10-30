@@ -36,7 +36,7 @@ import { BROWSER_ARM_MS, BROWSER_ROWS, lcdSamples } from './state/lcdSamples';
 import type { ShotId } from './audio/shotsdsp';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { editor, type EditorId } from './state/editor';
-import { patterns, slotName } from './state/patterns';
+import { BANKS, bankName, bankOf, patterns, slotName } from './state/patterns';
 import { presetMode, type PresetKey } from './state/presetMode';
 import { softSlotOf } from './rytm/presetKeys';
 import type { FpButtonId } from './rytm/faceplate';
@@ -48,7 +48,7 @@ import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
 import { faceTouch, type CtlSrc } from './state/ctl';
-import { trk } from './state/trk';
+import { ctlAllState, trk } from './state/trk';
 import { fill } from './state/fill';
 import { sceneCtl } from './state/sceneCtl';
 import { morph } from './audio/morph';
@@ -56,7 +56,7 @@ import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId, type SceneSet 
 import { bindingOf, from01, sceneRole, to01, voiceRowId, type SceneBinding } from './rytm/sceneParams';
 import { FACE_PAGES, RYTM_PAGES, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
-import { setKnobResolver, setStepResolver } from './rytm/infoIds';
+import { setCtlAllResolver, setKnobResolver, setStepResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
@@ -275,9 +275,10 @@ export const trkUp = (src: string, t = performance.now()): void => {
   if (trkTaken.delete(src)) return;
   trk.up(src, t);
 };
-// TRK eteinte (lachee, fermee, Echap, une autre machine) : son aide s'en va avec elle
+// TRK eteinte (lachee, fermee, Echap, une autre machine) : son aide s'en va avec elle ; CONTROL ALL est fait (V.5.2)
 trk.subscribe(() => {
   if (trk.engaged()) return;
+  ctlAllEnd();
   // Eteinte : la double tape repart de zero a la prochaine
   trkLast = null;
   if (!trkLcd) return;
@@ -996,20 +997,26 @@ export function stepHoldHint(i: number): void {
 
 /** La chaine pour l'ecran : ses patterns, les derniers s'ils ne tiennent pas (A01>A03>A02). */
 function chainLine(c: readonly number[]): string {
-  const names = c.map((k) => slotName(k).slice(1));
+  // Hors de la banque A (V.5.2) : le nom entier (A02>C05) ; en banque A, comme avant (01>03)
+  const names = c.map((k) => (c.every((x) => bankOf(x) === 0) ? slotName(k).slice(1) : slotName(k)));
   let out = names.join('>');
   for (let k = 1; out.length > 14 && k < names.length; k += 1) out = `..${names.slice(k).join('>')}`;
   return `CHAIN ${out}`;
 }
 
 /**
- * EDIT, un step touche : son pattern (A01 a A16). A l'arret il est pose,
- * en lecture il attend la fin de la mesure ; d'autres touches dans les deux
- * secondes en font une chaine (state/patterns.ts).
+ * EDIT, un step touche (k : 0 a 15) : son pattern dans la banque montree (V.5.2 : A01 a H16). A l'arret il est pose,
+ * en lecture il attend la fin de la mesure ; d'autres touches dans les deux secondes en font une chaine
+ * (state/patterns.ts). La vue BANK ouverte : le pas choisit la banque.
  */
-export function patternTap(i: number, stage: Stage | null = null): void {
+export function patternTap(k: number, stage: Stage | null = null): void {
+  if (DT_FACE && dtFace.bank()) {
+    bankStep(k, stage);
+    return;
+  }
   resume();
-  stage?.pressStep(i);
+  stage?.pressStep(k);
+  const i = patterns.slotAt(k);
   const r = patterns.tap(i, clock.running);
   const p = patterns.get();
   if (r === 'chain') lcdMessage.show(chainLine(p.chain), 2600);
@@ -1017,12 +1024,72 @@ export function patternTap(i: number, stage: Stage | null = null): void {
   else lcdMessage.show(`PATTERN ${slotName(i)}${patterns.filled(i) ? '' : ' EMPTY'}`, 2000);
 }
 
-/** EDIT, un step tenu : un emplacement vide recoit une copie du pattern courant. */
-export function patternHold(i: number): void {
+/** EDIT, un step tenu (k : 0 a 15, la banque montree) : un emplacement vide recoit une copie du pattern courant. */
+export function patternHold(k: number): void {
+  if (DT_FACE && dtFace.bank()) return;
+  const i = patterns.slotAt(k);
   const from = patterns.get().cur;
   if (patterns.copyTo(i)) lcdMessage.show(`COPY ${slotName(from)} > ${slotName(i)}`, 2000);
   else lcdMessage.show(i === from ? `${slotName(i)} PLAYS` : !patterns.filled(from) ? `${slotName(from)} IS EMPTY` : 'HOLD AN EMPTY SLOT TO COPY', 2000);
 }
+
+/* ---------------- les banques A a H (V.5.2, 2026-10-30, docs/v4/digitakt-d3a-spec.md section 1) ---------------- */
+
+/** La grille PTN etait-elle ouverte sous la vue BANK (la fermer y revient ; sinon tout se ferme). */
+let bankOverGrid = false;
+
+/** FUNC + PTN : la vue BANK, les pas 1 a 8 sont les banques A a H ; encore une fois, elle se ferme. */
+function bankViewToggle(stage: Stage | null): void {
+  stage?.pressRytmPad('edit');
+  if (dtFace.bank()) {
+    bankViewClose();
+    return;
+  }
+  bankOverGrid = editor.get() === 'mm808';
+  if (!bankOverGrid) editor.toggle('mm808');
+  dtFace.setBank(true);
+  lcdMessage.show(`BANK ${bankName(patterns.get().bank)} · STEPS 1-8: BANKS A-H`, 2400);
+}
+
+/** PTN, NO ou Echap dans la vue BANK : elle se ferme (la grille PTN reste si elle etait la avant). */
+function bankViewClose(): void {
+  dtFace.setBank(false);
+  if (!bankOverGrid && editor.get() === 'mm808') editor.toggle('mm808');
+  bankOverGrid = false;
+  lcdMessage.show('BANK CLOSED', 900);
+}
+
+/** La vue BANK, le pas k : la banque A a H s'affiche et sa grille PTN s'ouvre (on y choisit le pattern). */
+function bankStep(k: number, stage: Stage | null): void {
+  resume();
+  stage?.pressStep(k);
+  if (k < 0 || k >= BANKS) {
+    lcdMessage.show('BANKS: STEPS 1-8 (A-H)', 1400);
+    return;
+  }
+  patterns.setBank(k);
+  dtFace.setBank(false);
+  bankOverGrid = false;
+  lcdMessage.show(`BANK ${bankName(k)}: PICK A PATTERN`, 2000);
+}
+
+/** MIDI rytm:bank:<b> (V.5.2) : la banque b s'affiche ; rytm:ptn:<k> y choisit ensuite le pattern k. */
+export function bankKey(b: number, stage: Stage | null = null): void {
+  if (DT_FACE && dtFace.bank()) {
+    bankStep(b, stage);
+    return;
+  }
+  patterns.setBank(b);
+  lcdMessage.show(`BANK ${bankName(b)}`, 1400);
+}
+
+// La grille fermee (Echap, une autre machine, PTN) : la vue BANK s'en va avec elle
+editor.subscribe(() => {
+  if (editor.get() !== 'mm808' && dtFace.bank()) {
+    dtFace.setBank(false);
+    bankOverGrid = false;
+  }
+});
 
 /**
  * RUN/STOP ; renvoie l'etat de lecture. Le contexte vient du geste en
@@ -1456,8 +1523,9 @@ export function revealPage(): boolean {
 
 // Les cartes INFOS d'un potard de la face (rytm/infoIds.ts, pur) : le bloc qu'il tourne sur l'ecran affiche
 setKnobResolver(knobBlock);
-// La carte d'un pas (V.5.1) : un lock trig de la voix choisie a la sienne
+// La carte d'un pas (V.5.1) : un lock trig de la voix choisie a la sienne ; la vue BANK (V.5.2), la sienne
 setStepResolver((i) => {
+  if (DT_FACE && dtFace.bank() && editor.get() === 'mm808') return 'bank';
   const p = pattern.get();
   const inst = p.instrument;
   return inst && velocity(p.steps, inst, i) === 0 && isLockTrig(p.locks, inst, i) ? 'locktrig' : null;
@@ -1672,6 +1740,11 @@ export function escape(fromNo = false): boolean {
   const tk = trk.get().mode;
   if (tk === 'latched' || tk === 'closing') {
     trk.cancel();
+    return true;
+  }
+  // La vue BANK (V.5.2) : Echap la ferme
+  if (DT_FACE && dtFace.bank()) {
+    bankViewClose();
     return true;
   }
   // Le mode MUTE (V.5.0, FUNC + TRK) : Echap en sort, les mutes restent
@@ -1903,10 +1976,15 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
   // Le mode presets du desktop (2026-10-27) : EDIT est sa touche EXIT (ou CANCEL, NO), l'editeur ne s'ouvre pas
   if (which === 'mm808' && presetSoftKey('ptn', () => stage?.pressRytmPad('edit'))) return;
   gesture();
-  // FUNC + PTN (V.5.0) : BANK, les banques A a H arrivent en V.5.2
+  // FUNC + PTN : BANK (V.5.2), la vue des banques A a H
   if (which === 'mm808' && funcTake()) {
+    bankViewToggle(stage);
+    return;
+  }
+  // PTN dans la vue BANK : elle se ferme
+  if (which === 'mm808' && DT_FACE && dtFace.bank()) {
     stage?.pressRytmPad('edit');
-    lcdMessage.show('BANKS A-H: V.5.2', 1800);
+    bankViewClose();
     return;
   }
   // La grille des patterns gagne sur le mode MUTE (V.5.0) : il se ferme
@@ -2541,16 +2619,133 @@ function pageDial(k: number, v: number): void {
     return;
   }
   const before = rytmPage.get().echo;
+  // CONTROL ALL (V.5.2) : TRK tenue ou gardee, la valeur d'avant des huit voix est notee avant d'ecrire
+  const all = ctlAllStart(t);
   if (t === 'step:vel') tapVelDial(v);
   else if (t === 'smpl:sample') sampleDial(v);
   else if (t === 'voice:sound') voiceSoundDial(v);
   else if (t === 'voice:mix') voiceMixDial(v);
   else anyDial(t, v);
+  if (all) ctlAllApply(all, k);
   sceneHint(`p:${k}` as DialId);
   // Rien a regler (pas de voix choisie, une voix a un seul son) : le message suffit, pas de contour
   if (!pageKnobLive(k)) return;
   const e = rytmPage.get().echo;
   if (!e || e === before || e.k !== k || e.page !== curScreen()) rytmPage.echo(k, pattern.get().instrument);
+}
+
+/* ---------------- CONTROL ALL (V.5.2, 2026-10-30, docs/v4/digitakt-d3a-spec.md section 2) ---------------- */
+
+/**
+ * Ce que CONTROL ALL regle : un reglage de voix (VOL, PITCH, FINE, FLTR, AMP, les FX de la voix), un reglage de trig par
+ * defaut ou un LFO. Les reglages de la machine de synthese et le choix du son different d'une famille a l'autre (le kick
+ * n'a pas les reglages de la caisse claire) : ils restent sur la voix choisie.
+ */
+type CtlAllKey = { kind: 'fx'; p: VoiceParam } | { kind: 'trig'; p: TrigParam } | { kind: 'lfo'; p: LfoParam };
+
+function ctlAllKeyOf(t: SlotTarget): CtlAllKey | null {
+  const sd = seqDialOf(t);
+  if (sd) return isTrigParam(sd) ? { kind: 'trig', p: sd } : { kind: 'lfo', p: sd };
+  const p = t.includes(':') ? null : voiceParam(t as EncId);
+  return p ? { kind: 'fx', p } : null;
+}
+
+function ctlAllGet(k: CtlAllKey, inst: Inst): number {
+  if (k.kind === 'fx') return voiceFx.of(inst)[k.p];
+  if (k.kind === 'trig') return pattern.get().trigs[inst]?.[k.p] ?? TRIG_DEF[k.p];
+  return lfoOf(voiceFx.of(inst), k.p);
+}
+
+function ctlAllSet(k: CtlAllKey, inst: Inst, v: number): void {
+  if (k.kind === 'fx') voiceFx.set(inst, k.p, v);
+  else if (k.kind === 'trig') pattern.setTrig(inst, k.p, v);
+  else voiceFx.setLfo(inst, k.p, v);
+}
+
+/** Les reglages touches pendant cette tenue de TRK et la valeur d'avant de chaque voix (NO les rend). */
+const ctlAllBefore = new Map<string, { key: CtlAllKey; was: Record<Inst, number> }>();
+/** Le potard du geste et la minuterie de son lacher (un potard qui ne se tient pas : la molette, le MIDI). */
+let ctlAllKnob = -1;
+let ctlAllTimer = 0;
+const CTL_ALL_RELEASE_MS = 400;
+
+/** TRK tenue ou gardee (en fermeture : seulement si CONTROL ALL a deja servi pendant cette tenue). */
+function ctlAllOn(): boolean {
+  if (!DT_FACE) return false;
+  const m = trk.get().mode;
+  return m === 'held' || m === 'latched' || (m === 'closing' && ctlAllBefore.size > 0);
+}
+
+/** Avant l'ecriture : le reglage et la valeur d'avant des huit voix ; null si CONTROL ALL ne s'applique pas. */
+function ctlAllStart(t: SlotTarget): CtlAllKey | null {
+  if (!ctlAllOn() || !pattern.get().instrument) return null;
+  const key = ctlAllKeyOf(t);
+  if (!key) return null;
+  // Un CONTROL ALL entier, une seule etape d'UNDO : la rafale d'avant se ferme, celle-ci reste ouverte jusqu'a TRK eteinte
+  if (ctlAllBefore.size === 0) {
+    undo.boundary('mm808');
+    undo.hold('mm808', true);
+  }
+  const id = `${key.kind}:${key.p}`;
+  if (!ctlAllBefore.has(id)) ctlAllBefore.set(id, { key, was: Object.fromEntries(INSTRUMENTS.map((i) => [i, ctlAllGet(key, i)])) as Record<Inst, number> });
+  ctlAllState.set(true);
+  return key;
+}
+
+/**
+ * Apres l'ecriture : les huit voix prennent la valeur de la voix choisie (le manuel [M1] 6.2.2 ne dit pas si c'est la meme
+ * valeur ou le meme ecart : le cahier tranche, la meme valeur). TRK tenue : elle a servi ; gardee : elle se referme au
+ * lacher du potard, pas pendant.
+ */
+function ctlAllApply(key: CtlAllKey, k: number): void {
+  const inst = pattern.get().instrument;
+  if (!inst) return;
+  const v = ctlAllGet(key, inst);
+  for (const o of INSTRUMENTS) if (o !== inst && ctlAllGet(key, o) !== v) ctlAllSet(key, o, v);
+  const now = performance.now();
+  if (trk.get().mode !== 'latched') trk.use(now);
+  ctlAllKnob = k;
+  window.clearTimeout(ctlAllTimer);
+  ctlAllTimer = faceTouch.held(k) ? 0 : window.setTimeout(ctlAllReleased, CTL_ALL_RELEASE_MS);
+}
+
+/** Le potard du geste lache : TRK gardee a servi, elle se referme comme apres le choix d'une voix. */
+function ctlAllReleased(): void {
+  window.clearTimeout(ctlAllTimer);
+  ctlAllTimer = 0;
+  if (ctlAllBefore.size > 0 && trk.engaged()) trk.use(performance.now());
+}
+
+faceTouch.onUp((k) => {
+  if (k === ctlAllKnob && ctlAllBefore.size > 0) ctlAllReleased();
+});
+// La carte d'un potard pendant TRK : CONTROL ALL
+setCtlAllResolver(ctlAllOn);
+
+/** TRK eteinte : CONTROL ALL est fait (son etape d'UNDO se ferme). */
+function ctlAllEnd(): void {
+  window.clearTimeout(ctlAllTimer);
+  ctlAllTimer = 0;
+  ctlAllKnob = -1;
+  ctlAllState.set(false);
+  if (ctlAllBefore.size === 0) return;
+  ctlAllBefore.clear();
+  undo.hold('mm808', false);
+}
+
+/** NO avant de lacher TRK : chaque voix retrouve sa valeur d'avant ; true s'il y avait un CONTROL ALL a annuler. */
+function ctlAllUndo(): boolean {
+  if (ctlAllBefore.size === 0 || !trk.engaged()) return false;
+  for (const { key, was } of ctlAllBefore.values()) for (const i of INSTRUMENTS) if (ctlAllGet(key, i) !== was[i]) ctlAllSet(key, i, was[i]);
+  ctlAllBefore.clear();
+  // La rafale revient a son depart : elle ne laisse aucune etape
+  undo.hold('mm808', false);
+  ctlAllState.set(false);
+  window.clearTimeout(ctlAllTimer);
+  ctlAllTimer = 0;
+  if (trk.get().mode !== 'held') trk.cancel();
+  lcdMessage.show('CONTROL ALL UNDONE', 1400);
+  return true;
 }
 
 /**
@@ -4759,6 +4954,13 @@ export function noKey(stage: Stage | null = null, viaEsc = false): boolean {
     reloadKey();
     return true;
   }
+  // NO avant de lacher TRK (V.5.2, CONTROL ALL de la Digitakt) : chaque voix retrouve sa valeur d'avant
+  if (!viaEsc && ctlAllUndo()) return true;
+  // La vue BANK (V.5.2) : NO la ferme
+  if (dtFace.bank()) {
+    bankViewClose();
+    return true;
+  }
   // Une page puis NO (la revue de D1, G4) : rechargee seulement par la touche NO (ou rytm:no), avec un point de sauvegarde et
   // rien d'ouvert par-dessus ; un point d'un autre pattern ne s'y pose pas (G1 : reloadPage dit SAVED ON A01) ; sinon, et
   // toujours pour Echap au clavier, la chaine d'Echap
@@ -4784,6 +4986,7 @@ function overlayOpen(): boolean {
     sceneCtl.get().how === 'latched' ||
     rytmLock.active() ||
     dtFace.mute() !== 'off' ||
+    dtFace.bank() ||
     voices.get().muteMode ||
     voices.get().soloMode ||
     rytmInfos.isOn() ||

@@ -41,7 +41,7 @@ import { INSTRUMENTS, STEP_COUNT, VEL_MAX, VEL_NAMES, pattern, velocity } from '
 import { lockCount } from '../audio/locks';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
-import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
+import { BANK_SIZE, bankName, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
 import { DT_FACE, type Inst } from '../theme';
 import { useEditorPanel } from './editorPanel';
@@ -49,25 +49,30 @@ import { useEditorPanel } from './editorPanel';
 /** Tenir un emplacement vide (ms) : il recoit une copie du pattern courant. */
 const HOLD_MS = 500;
 
-/** Les seize patterns (le telephone) : le courant en jaune, la chaine et les pleins en orange. */
+/**
+ * Les seize patterns (le telephone) : le courant en jaune, la chaine et les pleins en orange. V.5.2 : ceux de la banque du
+ * pattern courant (le telephone n'a pas de BANK) ; k : le pas de la grille, s : son emplacement.
+ */
 const PatternStrip: React.FC = () => {
   const p = useSyncExternalStore(patterns.subscribe, patterns.get, patterns.get);
   const hold = useRef<{ i: number; t: number; fired: boolean } | null>(null);
+  const bank = patterns.shown();
   return (
-    <div className="v4-beat-ptns" role="group" aria-label="Patterns A01 to A16">
-      {Array.from({ length: PATTERN_SLOTS }, (_, i) => {
-        const inChain = p.chain.length > 1 ? p.chain.indexOf(i) : -1;
+    <div className="v4-beat-ptns" role="group" aria-label={`Patterns ${bankName(bank)}01 to ${bankName(bank)}16`}>
+      {Array.from({ length: BANK_SIZE }, (_, i) => {
+        const s = bank * BANK_SIZE + i;
+        const inChain = p.chain.length > 1 ? p.chain.indexOf(s) : -1;
         return (
           <button
             key={i}
             type="button"
             className="v4-beat-ptn"
-            data-cur={i === p.cur ? '1' : '0'}
-            data-next={i === p.next ? '1' : '0'}
+            data-cur={s === p.cur ? '1' : '0'}
+            data-next={s === p.next ? '1' : '0'}
             data-chain={inChain >= 0 ? '1' : '0'}
-            data-full={patterns.filled(i) ? '1' : '0'}
-            aria-pressed={i === p.cur}
-            aria-label={`Pattern ${slotName(i)}${patterns.filled(i) ? '' : ', empty'}${inChain >= 0 ? `, chain position ${inChain + 1}` : ''}`}
+            data-full={patterns.filled(s) ? '1' : '0'}
+            aria-pressed={s === p.cur}
+            aria-label={`Pattern ${slotName(s)}${patterns.filled(s) ? '' : ', empty'}${inChain >= 0 ? `, chain position ${inChain + 1}` : ''}`}
             onPointerDown={() => {
               const t = window.setTimeout(() => {
                 if (hold.current?.i === i) {

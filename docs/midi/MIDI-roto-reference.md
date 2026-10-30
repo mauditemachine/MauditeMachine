@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 29 octobre 2026 depuis le code du site (`npm run docs:midi`) : 883 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 30 octobre 2026 depuis le code du site (`npm run docs:midi`) : 891 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -248,14 +248,14 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 21 | 3.6 | 9 | 105 | MUTE TOM | rose | rytm:voice:TOM:mute | MUTE TOM | bascule (la LED suit le site) |
 | 22 | 3.7 | 9 | 106 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
 | 23 | 3.8 | 9 | 107 | MUTE CY | rose | rytm:voice:CY:mute | MUTE CY | bascule (la LED suit le site) |
-| 24 | 4.1 | 9 | 108 | PTN A01 | bleu | rytm:ptn:0 | PATTERN A01 | appui |
-| 25 | 4.2 | 9 | 109 | PTN A02 | bleu | rytm:ptn:1 | PATTERN A02 | appui |
-| 26 | 4.3 | 9 | 110 | PTN A03 | bleu | rytm:ptn:2 | PATTERN A03 | appui |
-| 27 | 4.4 | 9 | 111 | PTN A04 | bleu | rytm:ptn:3 | PATTERN A04 | appui |
-| 28 | 4.5 | 9 | 112 | PTN A05 | bleu | rytm:ptn:4 | PATTERN A05 | appui |
-| 29 | 4.6 | 9 | 113 | PTN A06 | bleu | rytm:ptn:5 | PATTERN A06 | appui |
-| 30 | 4.7 | 9 | 114 | PTN A07 | bleu | rytm:ptn:6 | PATTERN A07 | appui |
-| 31 | 4.8 | 9 | 115 | PTN A08 | bleu | rytm:ptn:7 | PATTERN A08 | appui |
+| 24 | 4.1 | 9 | 108 | PTN A01 | bleu | rytm:ptn:0 | PATTERN 01 (OF THE SHOWN BANK) | appui |
+| 25 | 4.2 | 9 | 109 | PTN A02 | bleu | rytm:ptn:1 | PATTERN 02 (OF THE SHOWN BANK) | appui |
+| 26 | 4.3 | 9 | 110 | PTN A03 | bleu | rytm:ptn:2 | PATTERN 03 (OF THE SHOWN BANK) | appui |
+| 27 | 4.4 | 9 | 111 | PTN A04 | bleu | rytm:ptn:3 | PATTERN 04 (OF THE SHOWN BANK) | appui |
+| 28 | 4.5 | 9 | 112 | PTN A05 | bleu | rytm:ptn:4 | PATTERN 05 (OF THE SHOWN BANK) | appui |
+| 29 | 4.6 | 9 | 113 | PTN A06 | bleu | rytm:ptn:5 | PATTERN 06 (OF THE SHOWN BANK) | appui |
+| 30 | 4.7 | 9 | 114 | PTN A07 | bleu | rytm:ptn:6 | PATTERN 07 (OF THE SHOWN BANK) | appui |
+| 31 | 4.8 | 9 | 115 | PTN A08 | bleu | rytm:ptn:7 | PATTERN 08 (OF THE SHOWN BANK) | appui |
 
 ### ARP (SETUP 12, potards canal 2, boutons canal 10)
 
@@ -627,7 +627,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 648 cibles)
+### MM-RYTM (scope `mm808`, 656 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1017,22 +1017,22 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:edit` | EDIT | appui |  | RYTM, RSEQ |
 | `rytm:open` | OPEN | appui |  | RYTM |
 | `rytm:infos` | INFOS (HELP ON HOVER) | appui |  |  |
-| `rytm:ptn:0` | PATTERN A01 | appui |  | RYTM |
-| `rytm:ptn:1` | PATTERN A02 | appui |  | RYTM |
-| `rytm:ptn:2` | PATTERN A03 | appui |  | RYTM |
-| `rytm:ptn:3` | PATTERN A04 | appui |  | RYTM |
-| `rytm:ptn:4` | PATTERN A05 | appui |  | RYTM |
-| `rytm:ptn:5` | PATTERN A06 | appui |  | RYTM |
-| `rytm:ptn:6` | PATTERN A07 | appui |  | RYTM |
-| `rytm:ptn:7` | PATTERN A08 | appui |  | RYTM |
-| `rytm:ptn:8` | PATTERN A09 | appui |  |  |
-| `rytm:ptn:9` | PATTERN A10 | appui |  |  |
-| `rytm:ptn:10` | PATTERN A11 | appui |  |  |
-| `rytm:ptn:11` | PATTERN A12 | appui |  |  |
-| `rytm:ptn:12` | PATTERN A13 | appui |  |  |
-| `rytm:ptn:13` | PATTERN A14 | appui |  |  |
-| `rytm:ptn:14` | PATTERN A15 | appui |  |  |
-| `rytm:ptn:15` | PATTERN A16 | appui |  |  |
+| `rytm:ptn:0` | PATTERN 01 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:1` | PATTERN 02 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:2` | PATTERN 03 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:3` | PATTERN 04 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:4` | PATTERN 05 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:5` | PATTERN 06 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:6` | PATTERN 07 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:7` | PATTERN 08 (OF THE SHOWN BANK) | appui |  | RYTM |
+| `rytm:ptn:8` | PATTERN 09 (OF THE SHOWN BANK) | appui |  |  |
+| `rytm:ptn:9` | PATTERN 10 (OF THE SHOWN BANK) | appui |  |  |
+| `rytm:ptn:10` | PATTERN 11 (OF THE SHOWN BANK) | appui |  |  |
+| `rytm:ptn:11` | PATTERN 12 (OF THE SHOWN BANK) | appui |  |  |
+| `rytm:ptn:12` | PATTERN 13 (OF THE SHOWN BANK) | appui |  |  |
+| `rytm:ptn:13` | PATTERN 14 (OF THE SHOWN BANK) | appui |  |  |
+| `rytm:ptn:14` | PATTERN 15 (OF THE SHOWN BANK) | appui |  |  |
+| `rytm:ptn:15` | PATTERN 16 (OF THE SHOWN BANK) | appui |  |  |
 | `rytm:seq:1` | SEQ STEP 1/9 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
 | `rytm:seq:2` | SEQ STEP 2/10 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
 | `rytm:seq:3` | SEQ STEP 3/11 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
@@ -1279,6 +1279,14 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:screen:trig2` | SCREEN TRIG 2/2 | appui |  |  |
 | `rytm:screen:mod1` | SCREEN MOD 1/2 (LFO 1) | appui |  |  |
 | `rytm:screen:mod2` | SCREEN MOD 2/2 (LFO 2) | appui |  |  |
+| `rytm:bank:0` | BANK A (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:bank:1` | BANK B (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:bank:2` | BANK C (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:bank:3` | BANK D (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:bank:4` | BANK E (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:bank:5` | BANK F (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:bank:6` | BANK G (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:bank:7` | BANK H (SHOW ITS PATTERNS) | appui |  |  |
 
 ### MM-ARP (scope `voy`, 80 cibles)
 

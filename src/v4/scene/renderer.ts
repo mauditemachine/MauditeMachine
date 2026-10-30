@@ -59,7 +59,7 @@ import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { FLAGS } from '../state/flags';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
-import { PATTERN_SLOTS, patterns } from '../state/patterns';
+import { bankGrid, banksGrid, patterns } from '../state/patterns';
 import { PRESET_SLOTS, presetMode, type PresetKey } from '../state/presetMode';
 import { bassExplode, explode as explodeState, voyExplode } from '../state/explode';
 import { BASS, DJ, MACHINES, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
@@ -1246,7 +1246,8 @@ export class Stage {
     // les seize steps y sont les patterns (state/patterns.ts)
     const syncPatView = (): void => {
       const p = patterns.get();
-      const view = editor.get() === 'mm808' ? { cur: p.cur, next: p.next, chain: p.chain, filled: Array.from({ length: PATTERN_SLOTS }, (_, i) => patterns.filled(i)) } : null;
+      // V.5.2 : la grille montre les 16 patterns de la banque montree ; la vue BANK (FUNC + PTN), les banques A a H
+      const view = editor.get() === 'mm808' ? (DT_FACE && dtFace.bank() ? banksGrid(p) : bankGrid(patterns.shown(), p)) : null;
       if (this.seq.setPatternView(view)) this.repaint();
     };
     const syncEditor = (): void => {
@@ -1258,7 +1259,8 @@ export class Stage {
     };
     syncEditor();
     this.unsubEditor = editor.subscribe(syncEditor);
-    this.unsubPatterns = patterns.subscribe(syncPatView);
+    const offPat = [patterns.subscribe(syncPatView), dtFace.subscribe(syncPatView)];
+    this.unsubPatterns = () => offPat.forEach((f) => f());
     // Le mode presets : les touches des ecrans suivent
     const syncPresets = (): void => {
       let changed = false;

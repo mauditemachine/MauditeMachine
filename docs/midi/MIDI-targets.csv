@@ -385,22 +385,22 @@ rytm:solo,mm808,MM-RYTM,SOLO,press,,RSEQ
 rytm:edit,mm808,MM-RYTM,EDIT,press,,RYTM RSEQ
 rytm:open,mm808,MM-RYTM,OPEN,press,,RYTM
 rytm:infos,mm808,MM-RYTM,INFOS (HELP ON HOVER),press,,
-rytm:ptn:0,mm808,MM-RYTM,PATTERN A01,press,,RYTM
-rytm:ptn:1,mm808,MM-RYTM,PATTERN A02,press,,RYTM
-rytm:ptn:2,mm808,MM-RYTM,PATTERN A03,press,,RYTM
-rytm:ptn:3,mm808,MM-RYTM,PATTERN A04,press,,RYTM
-rytm:ptn:4,mm808,MM-RYTM,PATTERN A05,press,,RYTM
-rytm:ptn:5,mm808,MM-RYTM,PATTERN A06,press,,RYTM
-rytm:ptn:6,mm808,MM-RYTM,PATTERN A07,press,,RYTM
-rytm:ptn:7,mm808,MM-RYTM,PATTERN A08,press,,RYTM
-rytm:ptn:8,mm808,MM-RYTM,PATTERN A09,press,,
-rytm:ptn:9,mm808,MM-RYTM,PATTERN A10,press,,
-rytm:ptn:10,mm808,MM-RYTM,PATTERN A11,press,,
-rytm:ptn:11,mm808,MM-RYTM,PATTERN A12,press,,
-rytm:ptn:12,mm808,MM-RYTM,PATTERN A13,press,,
-rytm:ptn:13,mm808,MM-RYTM,PATTERN A14,press,,
-rytm:ptn:14,mm808,MM-RYTM,PATTERN A15,press,,
-rytm:ptn:15,mm808,MM-RYTM,PATTERN A16,press,,
+rytm:ptn:0,mm808,MM-RYTM,PATTERN 01 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:1,mm808,MM-RYTM,PATTERN 02 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:2,mm808,MM-RYTM,PATTERN 03 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:3,mm808,MM-RYTM,PATTERN 04 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:4,mm808,MM-RYTM,PATTERN 05 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:5,mm808,MM-RYTM,PATTERN 06 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:6,mm808,MM-RYTM,PATTERN 07 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:7,mm808,MM-RYTM,PATTERN 08 (OF THE SHOWN BANK),press,,RYTM
+rytm:ptn:8,mm808,MM-RYTM,PATTERN 09 (OF THE SHOWN BANK),press,,
+rytm:ptn:9,mm808,MM-RYTM,PATTERN 10 (OF THE SHOWN BANK),press,,
+rytm:ptn:10,mm808,MM-RYTM,PATTERN 11 (OF THE SHOWN BANK),press,,
+rytm:ptn:11,mm808,MM-RYTM,PATTERN 12 (OF THE SHOWN BANK),press,,
+rytm:ptn:12,mm808,MM-RYTM,PATTERN 13 (OF THE SHOWN BANK),press,,
+rytm:ptn:13,mm808,MM-RYTM,PATTERN 14 (OF THE SHOWN BANK),press,,
+rytm:ptn:14,mm808,MM-RYTM,PATTERN 15 (OF THE SHOWN BANK),press,,
+rytm:ptn:15,mm808,MM-RYTM,PATTERN 16 (OF THE SHOWN BANK),press,,
 rytm:seq:1,mm808,MM-RYTM,"SEQ STEP 1|9 (TAP, HOLD + TURN)",hold,,RSEQ
 rytm:seq:2,mm808,MM-RYTM,"SEQ STEP 2|10 (TAP, HOLD + TURN)",hold,,RSEQ
 rytm:seq:3,mm808,MM-RYTM,"SEQ STEP 3|11 (TAP, HOLD + TURN)",hold,,RSEQ
@@ -647,6 +647,14 @@ rytm:fill,mm808,MM-RYTM,FILL (HOLD: THE FILL CONDITIONS PLAY),hold,,
 rytm:screen:trig2,mm808,MM-RYTM,SCREEN TRIG 2/2,press,,
 rytm:screen:mod1,mm808,MM-RYTM,SCREEN MOD 1/2 (LFO 1),press,,
 rytm:screen:mod2,mm808,MM-RYTM,SCREEN MOD 2/2 (LFO 2),press,,
+rytm:bank:0,mm808,MM-RYTM,BANK A (SHOW ITS PATTERNS),press,,
+rytm:bank:1,mm808,MM-RYTM,BANK B (SHOW ITS PATTERNS),press,,
+rytm:bank:2,mm808,MM-RYTM,BANK C (SHOW ITS PATTERNS),press,,
+rytm:bank:3,mm808,MM-RYTM,BANK D (SHOW ITS PATTERNS),press,,
+rytm:bank:4,mm808,MM-RYTM,BANK E (SHOW ITS PATTERNS),press,,
+rytm:bank:5,mm808,MM-RYTM,BANK F (SHOW ITS PATTERNS),press,,
+rytm:bank:6,mm808,MM-RYTM,BANK G (SHOW ITS PATTERNS),press,,
+rytm:bank:7,mm808,MM-RYTM,BANK H (SHOW ITS PATTERNS),press,,
 voy:knob:rate,voy,MM-ARP,RATE,value,4,ARP LIVE
 voy:knob:mode,voy,MM-ARP,ARP MODE,value,4,ARP
 voy:knob:range,voy,MM-ARP,RANGE,value,3,ARP

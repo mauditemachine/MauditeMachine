@@ -171,7 +171,8 @@ import { focus } from '../state/focus';
 import { lcd, type LcdState } from '../state/lcd';
 import { lcdMessage } from '../state/lcdMessage';
 import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
-import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
+import { BANKS, BANK_SIZE, bankName, bankOf, patterns, slotName } from '../state/patterns';
+import { ctlAllState } from '../state/trk';
 import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
@@ -987,6 +988,8 @@ export class Screen {
       dtFace.subscribe(active),
       // FILL (V.5.1) : sa pastille dans l'en-tete
       fill.subscribe(active),
+      // CONTROL ALL (V.5.2) : l'en-tete le dit pendant le geste
+      ctlAllState.subscribe(active),
       voiceFx.subscribe(active),
       mix.subscribe(active),
       clock.subscribe(active),
@@ -1377,7 +1380,17 @@ export class Screen {
     const x = COL.x0;
     this.runIcon(x, y);
     const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
-    this.text(slotName(cur), x + 14, y, 12, blinkOff ? FAINT : INK, 600, 'left', 0.6);
+    const nw = this.text(slotName(cur), x + 14, y, 12, blinkOff ? FAINT : INK, 600, 'left', 0.6);
+    // La banque que montre la grille (V.5.2, au desktop) : BANK B a cote du pattern ; la vue BANK le dit en plein
+    if (DT_FACE) {
+      const word = `BANK ${bankName(patterns.shown())}`;
+      const bx = x + 14 + nw + 6;
+      const bw = this.textWidth(word, 7, 700, 0.8) + 8;
+      if (dtFace.bank()) this.pill(bx, y - 8.5, bw, 10, INK);
+      else this.roundRect(bx + 0.5, y - 8, bw - 1, 9, 2.5, null, INK, 0.9);
+      this.text(word, bx + bw / 2, y - 1, 7, dtFace.bank() ? BLACK : INK, 700, 'center', 0.8);
+      this.info.head = `${dtFace.bank() ? 'BANKS|' : ''}${word}|${slotName(cur)}`;
+    }
     // Le tempo : le nombre, BPM a cote en petit (la ligne 1 du texte porte autre chose sur les pages MIX et SAMPLES) ;
     // il suit les platines (2026-10-27, le SYNC du MIXER) : au dixieme, SYNC a la place de BPM
     const bpm = tempoSync.text(pattern.get().bpm);
@@ -1463,34 +1476,47 @@ export class Screen {
     return best;
   }
 
-  /** EDIT : l'anneau des seize patterns (le courant plein, la chaine reliee, celui qui attend clignote). */
+  /**
+   * EDIT : l'anneau des seize patterns de la banque montree (V.5.2 ; le courant plein, la chaine reliee, celui qui attend
+   * clignote). La vue BANK (FUNC + PTN) : les huit banques sur les pas 1 a 8.
+   */
   private paintPatternRing(now: number): void {
     const p = patterns.get();
     const blinkOn = Math.floor(now / 160) % 2 === 0;
     this.circle(RING.cx, RING.cy, RING.r, null, FAINT, 0.8);
-    // La chaine : un arc d'un pattern au suivant
+    if (DT_FACE && dtFace.bank()) {
+      this.paintBankRing(blinkOn);
+      return;
+    }
+    const b0 = patterns.shown() * BANK_SIZE;
+    const local = (i: number): number => (i >= b0 && i < b0 + BANK_SIZE ? i - b0 : -1);
+    // La chaine : un arc d'un pattern au suivant (les deux dans la banque montree)
     if (p.chain.length > 1) {
       const c = this.ctx;
       c.strokeStyle = HALF;
       c.lineWidth = 2.2;
       c.lineCap = 'round';
       for (let k = 0; k + 1 < p.chain.length; k += 1) {
-        const a = this.ringAt(p.chain[k]);
-        const b = this.ringAt(p.chain[k + 1]);
+        const ia = local(p.chain[k]);
+        const ib = local(p.chain[k + 1]);
+        if (ia < 0 || ib < 0) continue;
+        const a = this.ringAt(ia);
+        const b = this.ringAt(ib);
         c.beginPath();
         c.moveTo(a.x, a.y);
         c.quadraticCurveTo(RING.cx, RING.cy, b.x, b.y);
         c.stroke();
       }
     }
-    for (let i = 0; i < PATTERN_SLOTS; i += 1) {
+    for (let i = 0; i < BANK_SIZE; i += 1) {
       const at = this.ringAt(i);
-      const inChain = p.chain.length > 1 && p.chain.includes(i);
-      if (i === p.cur) {
+      const slot = b0 + i;
+      const inChain = p.chain.length > 1 && p.chain.includes(slot);
+      if (slot === p.cur) {
         this.circle(at.x, at.y, 5.4, INK);
-        if (inChain && p.chain[p.pos] === i) this.circle(at.x, at.y, 8.2, null, INK, 1);
-      } else if (i === p.next) this.circle(at.x, at.y, 4.6, blinkOn ? INK : null, INK, 1.2);
-      else if (patterns.filled(i)) this.circle(at.x, at.y, 3.6, inChain ? INK : HALF);
+        if (inChain && p.chain[p.pos] === slot) this.circle(at.x, at.y, 8.2, null, INK, 1);
+      } else if (slot === p.next) this.circle(at.x, at.y, 4.6, blinkOn ? INK : null, INK, 1.2);
+      else if (patterns.filled(slot)) this.circle(at.x, at.y, 3.6, inChain ? INK : HALF);
       else this.circle(at.x, at.y, 1.4, FAINT);
       // Le numero, dehors, sur les temps (1 5 9 13)
       if (i % 4 === 0) {
@@ -1504,6 +1530,25 @@ export class Screen {
     const w = this.textWidth(word, 7, 700, 0.8) + 8;
     this.pill(RING.cx - w / 2, RING.cy + 12, w, 10, INK);
     this.text(word, RING.cx, RING.cy + 19.5, 7, BLACK, 700, 'center', 0.8);
+  }
+
+  /** La vue BANK (V.5.2) : les banques A a H sur les pas 1 a 8, celle qui joue pleine, l'affichee clignote, une vide a peine. */
+  private paintBankRing(blinkOn: boolean): void {
+    const p = patterns.get();
+    const playing = bankOf(p.cur);
+    for (let b = 0; b < BANKS; b += 1) {
+      const at = this.ringAt(b);
+      if (b === playing) this.circle(at.x, at.y, 5.4, INK);
+      else if (b === p.bank) this.circle(at.x, at.y, 4.6, blinkOn ? INK : null, INK, 1.2);
+      else if (patterns.bankFilled(b)) this.circle(at.x, at.y, 3.6, HALF);
+      else this.circle(at.x, at.y, 1.4, FAINT);
+      const o = this.ringAt(b, RING.r - 11);
+      this.text(bankName(b), o.x, o.y + 2.6, 7, b === p.bank ? INK : HALF, 700, 'center');
+    }
+    this.text(`BANK ${bankName(p.bank)}`, RING.cx, RING.cy + 6, 15, INK, 300, 'center', 0.5);
+    const w = this.textWidth('BANK', 7, 700, 0.8) + 8;
+    this.pill(RING.cx - w / 2, RING.cy + 12, w, 10, INK);
+    this.text('BANK', RING.cx, RING.cy + 19.5, 7, BLACK, 700, 'center', 0.8);
   }
 
   /** EDIT, la colonne de droite : la chaine en grand, ce qui attend, l'aide. */
@@ -2455,6 +2500,19 @@ export class Screen {
           this.info.head += '|FILL';
           x1 -= 5;
         }
+      }
+      // CONTROL ALL (V.5.2, TRK + un potard d'une page de voix) : sa pastille pleine pendant le geste
+      if (DT_FACE && ctlAllState.get()) {
+        const full = this.textWidth('CONTROL ALL', T.sound, 800, 0.6) + 8;
+        const word = fits(full) ? 'CONTROL ALL' : 'ALL';
+        const w = word === 'ALL' ? this.textWidth(word, T.sound, 800, 0.6) + 8 : full;
+        if (fits(w)) {
+          x1 -= w;
+          this.roundRect(x1, H.pillY, w, T.pillH, 2.2, INK);
+          this.text(word, x1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 800, 'center', 0.6);
+          x1 -= 5;
+        }
+        this.info.head += '|CONTROL ALL';
       }
       // Le pas qui joue a des verrous (n'importe quelle page) : P-LOCK un instant, plein (69-common2, point 3)
       if (mode && mode.kind === 'flash') {

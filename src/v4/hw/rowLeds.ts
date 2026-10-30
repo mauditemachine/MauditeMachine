@@ -117,6 +117,14 @@ export function trigLeds(ltrg: number, cond: number, yellow: string): HwTrigLeds
 }
 
 /**
+ * La vue BANK (V.5.2, FUNC + PTN) sur les pas 1 a 8 : la banque du pattern qui joue rouge plein, la banque affichee (si ce
+ * n'est pas elle) rouge clignotante, une banque qui a des patterns blanc faible, une vide eteinte ; 9 a 16 eteints.
+ */
+export function bankLeds(playing: number, shown: number, filled: readonly boolean[], pal: RowPalette, lv: PtnLevels): HwGridLed[] {
+  return ptnLeds(playing, shown !== playing ? shown : -1, [], Array.from({ length: 16 }, (_, i) => i < 8 && !!filled[i]), pal, lv);
+}
+
+/**
  * La vue PTN facon Digitakt sur les seize pas : le pattern qui joue rouge plein, le suivant (a la mesure) et la chaine
  * rouges clignotants, un pattern plein blanc faible, un vide eteint.
  */

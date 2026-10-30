@@ -894,6 +894,29 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "Un trig qui ne joue pas, comme sur une Digitakt : ses verrous changent le coup de la voix qui sonne encore quand le séquenceur passe dessus. Ce que le moteur change en direct : VOL, PAN, la fréquence et la résonance du filtre (FREQ, RESO), les envois DELAY et REVERB, DIST et CHORUS de la voix. Avec LFO.T ON (son départ), il relance aussi les LFO de la voix. FUNC + un lock trig l'enlève, avec ses verrous ; FUNC + un pas qui joue le transforme en lock trig (ses verrous restent) ; une tape l'enlève aussi. Hors REC, FUNC + un pas garde le mute rapide de sa voix.",
     tip: 'Une cymbale longue sur 1, un lock trig sur 9 avec VOL bas : elle s\'éteint au milieu de la mesure, sans nouveau coup.',
   },
+  bank: {
+    section: 'KEYS',
+    title: 'BANK',
+    steps: [
+      'FUNC + PTN : les pas 1 à 8 deviennent les banques A à H.',
+      'Touche une banque : la grille PTN montre ses 16 patterns.',
+      'Touche un pas : son pattern joue (en lecture, à la mesure).',
+    ],
+    text: "Les huit banques de patterns, comme sur une Digitakt : A à H, 16 patterns chacune, 128 en tout (A01 à H16). La banque du pattern qui joue est en rouge plein, une banque qui a des patterns en blanc faible, une vide éteinte ; celle que tu regardes clignote si ce n'est pas celle qui joue. Une chaîne peut mêler les banques (A02 > C05). PTN, NO ou Échap referment la vue BANK.",
+    tip: 'Range un morceau par banque : A pour le set de vendredi, B pour les essais.',
+  },
+  ctlall: {
+    section: 'KEYS',
+    title: 'CONTROL ALL',
+    steps: [
+      'Tiens TRK (ou une tape pour la garder).',
+      "Tourne un potard d'une page de voix (TRIG, SRC, FLTR, AMP, FX, MOD) : les huit voix prennent la même valeur.",
+      'NO avant de lâcher TRK : chaque voix retrouve sa valeur d\'avant.',
+    ],
+    text: "Comme sur une Digitakt : TRK tenue et un potard tourné, le réglage change sur les huit voix, l'en-tête dit CONTROL ALL. Elles prennent toutes la valeur de la voix choisie. NO avant de lâcher TRK annule tout le geste ; un UNDO défait un CONTROL ALL entier en une fois. Un pas tenu (P-LOCK) gagne, comme d'habitude. Le son lui-même et les réglages de la machine de synthèse (différents d'une voix à l'autre) restent sur la voix choisie. Les potards de TEMPO, SEND FX, MIXER et KIT ne sont pas concernés.",
+    key: 'TRK tenue',
+    tip: 'TRK et FLTR FREQ vers le bas : tout le kit se ferme d\'un coup avant le drop, NO si tu changes d\'avis.',
+  },
   fill: {
     section: 'KEYS',
     title: 'FILL',
@@ -1291,7 +1314,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   edit: {
     section: 'KEYS',
     title: PHONE ? 'EDIT' : 'PTN',
-    text: "La grille des patterns (l'ancien EDIT, la touche PTN) : les 16 pas deviennent les 16 patterns (A01 à A16) : le pattern qui joue en rouge plein, le suivant et la chaîne en rouge clignotant, un pattern plein en blanc faible, un vide éteint. Touche un pas pour jouer son pattern (en lecture, à la fin de la mesure), plusieurs dans les 2 s pour les enchaîner, tiens un vide pour y copier le pattern courant, verrous et mute du pattern compris. PTN deux fois de suite : KIT, tes presets. FUNC + PTN : BANK (les banques A à H, en V.5.2). Une touche de page, PTN, E, NO ou Échap la referment.",
+    text: "La grille des patterns (l'ancien EDIT, la touche PTN) : les 16 pas deviennent les 16 patterns (A01 à A16) : le pattern qui joue en rouge plein, le suivant et la chaîne en rouge clignotant, un pattern plein en blanc faible, un vide éteint. Touche un pas pour jouer son pattern (en lecture, à la fin de la mesure), plusieurs dans les 2 s pour les enchaîner, tiens un vide pour y copier le pattern courant, verrous et mute du pattern compris. PTN deux fois de suite : KIT, tes presets. FUNC + PTN : BANK, les banques A à H (128 patterns, A01 à H16) ; la grille montre les 16 patterns de la banque affichée. Une touche de page, PTN, E, NO ou Échap la referment.",
     phone: { text: "Les 16 pas deviennent les 16 patterns (A01 à A16) : touche un pas pour jouer son pattern (en lecture, à la fin de la mesure), plusieurs dans les 2 s pour les enchaîner, tiens un vide pour y copier le pattern courant, verrous compris. L'éditeur du motif s'ouvre : les huit voix sur 16 pas, la vélocité en tenant une case. Une touche de page, EDIT, E ou Échap le referment." },
     tip: 'Quatre patterns enchaînés (A01 > A02 > A01 > A03) : une phrase de quatre mesures qui évolue toute seule.',
   },

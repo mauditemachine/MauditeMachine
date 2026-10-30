@@ -55,7 +55,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, fillHold, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, fillHold, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
 import { D2_SCREENS, RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen, pageLabel } from '../rytm/pages';
 import { TRIG_PARAMS, TRIG_RANGE, trigValue, type TrigParam } from '../audio/trig';
@@ -72,7 +72,7 @@ import { setVoiceFx } from '../audio/drums';
 import { VOICE_PARAMS, lfoOf, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
-import { PATTERN_SLOTS, slotName } from '../state/patterns';
+import { BANKS, BANK_SIZE, bankName } from '../state/patterns';
 import { DT_FACE, ENCODERS, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
 import { INSTRUMENTS, STEP_COUNT, pattern } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
@@ -438,8 +438,10 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:open', 'mm808', 'OPEN', () => void openToggle(getStage(), 'mm808')));
   // La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol
   out.push(press('rytm:infos', 'mm808', 'INFOS (HELP ON HOVER)', () => void rytmInfos.toggle()));
-  // Les seize patterns (2026-10-05, state/patterns.ts) : comme un step en EDIT (d'autres dans les deux secondes : la chaine)
-  for (let i = 0; i < PATTERN_SLOTS; i += 1) out.push(press(`rytm:ptn:${i}`, 'mm808', `PATTERN ${slotName(i)}`, () => patternTap(i, getStage())));
+  // Les seize patterns (2026-10-05, state/patterns.ts) : comme un step en EDIT (d'autres dans les deux secondes : la chaine).
+  // V.5.2 : le pattern k de la banque affichee (rytm:bank:<b>), comme les touches de trig de la Digitakt en mode PTN ; la
+  // banque A au depart, les memes ids
+  for (let i = 0; i < BANK_SIZE; i += 1) out.push(press(`rytm:ptn:${i}`, 'mm808', `PATTERN ${String(i + 1).padStart(2, '0')} (OF THE SHOWN BANK)`, () => patternTap(i, getStage())));
   // Le Roto en sequenceur (2026-10-09, le setup RSEQ, midi/seqlink.ts) : les huit pas d'une fenetre (taper, tenir,
   // tourner : appui et lacher), la fenetre 1-8 / 9-16, STEP FOLLOW (une bascule), la voix des pas (sans la jouer)
   for (let b = 0; b < 8; b += 1) {
@@ -483,6 +485,9 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:screen:trig2', 'mm808', `SCREEN ${SCREEN_TITLE.trig2}`, () => rytmScreenTab('trig2')));
   out.push(press('rytm:screen:mod1', 'mm808', `SCREEN ${SCREEN_TITLE.mod} (LFO 1)`, () => rytmScreenTab('mod')));
   out.push(press('rytm:screen:mod2', 'mm808', `SCREEN ${SCREEN_TITLE.mod2} (LFO 2)`, () => rytmScreenTab('mod2')));
+  // V.5.2 (2026-10-30, docs/v4/digitakt-d3a-spec.md section 1) : ajoutees a la fin, aucun id d'avant ne change ni ne bouge.
+  // Les banques A a H : afficher la banque b (rytm:ptn:<k> y choisit ensuite le pattern)
+  for (let b = 0; b < BANKS; b += 1) out.push(press(`rytm:bank:${b}`, 'mm808', `BANK ${bankName(b)} (SHOW ITS PATTERNS)`, () => bankKey(b, getStage())));
   // Les scenes (2026-10-27) : chaque cible de valeur du MM-RYTM dit son role, ou sa classe si elle se morphe (rien d'autre
   // ne change : ni id, ni nom, ni ordre)
   for (const t of out) if (t.scope === 'mm808' && t.kind === 'value') t.scene = sceneTag(t.id);

@@ -10,7 +10,7 @@ import { faceKnobs, type KnobCause } from '../rytm/faceKnobs';
 import type { RytmPageId, RytmScreenId } from '../rytm/pages';
 import { sceneCount, type SceneId } from '../rytm/sceneData';
 import { muteLeds, trkLeds } from '../rytm/stepLeds';
-import { ptnLeds, rowLeds, trigLeds, type HwGridLed, type HwRowLed, type HwTrigLeds } from './rowLeds';
+import { bankLeds, ptnLeds, rowLeds, trigLeds, type HwGridLed, type HwRowLed, type HwTrigLeds } from './rowLeds';
 import { trigMarks } from '../rytm/trigMarks';
 import { fill } from '../state/fill';
 import { dtFace } from '../state/dtFace';
@@ -19,7 +19,7 @@ import { func } from '../state/func';
 import { faceTouch, type CtlSrc } from '../state/ctl';
 import type { HoldMode } from '../state/holdLatch';
 import { presetMode, type PresetStage } from '../state/presetMode';
-import { patterns, slotName } from '../state/patterns';
+import { bankGrid, bankName, bankOf, patterns, slotName } from '../state/patterns';
 import { rytmPage, type RytmView } from '../state/rytmPage';
 import { sceneCtl } from '../state/sceneCtl';
 import { tempoSync } from '../state/tempoSync';
@@ -80,7 +80,8 @@ export interface HwPresets {
 export interface HwSnapshot {
   readonly page: { readonly page: RytmPageId; readonly tab: number; readonly screen: RytmScreenId; readonly view: RytmView };
   readonly voice: Inst | null;
-  readonly pattern: { readonly slot: number; readonly name: string; readonly next: number };
+  /** le pattern qui joue (A01 a H16), celui qui attend ; bank : la banque que montre la grille (V.5.2) */
+  readonly pattern: { readonly slot: number; readonly name: string; readonly next: number; readonly bank: string };
   readonly tempo: number;
   /**
    * le TEMPO suit la platine MASTER (2026-10-27, revue SEAM-6 : le SYNC du MIXER, state/tempoSync.ts) : tempo est alors
@@ -112,7 +113,7 @@ export interface HwSnapshot {
      */
     readonly keys: readonly HwRowLed[];
     /** ce que montrent les seize pas : le motif, la vue TRK, le mode MUTE (global, du pattern), la grille PTN */
-    readonly view: 'pattern' | 'trk' | 'mute' | 'pmute' | 'ptn';
+    readonly view: 'pattern' | 'trk' | 'mute' | 'pmute' | 'ptn' | 'bank';
     /** les seize pas du mode MUTE (vert ou magenta, blanc en solo) et de la vue PTN (rouge, blanc faible) ; null sinon */
     readonly grid: readonly HwGridLed[] | null;
     /**
@@ -175,7 +176,8 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   // V.5.0 : la rangee, et ce que montrent les pas (le mode MUTE et la grille PTN gagnent sur le motif, TRK sur tout)
   const dm = DT_FACE ? dtFace.mute() : 'off';
   const ptnOpen = editor.get() === 'mm808';
-  const view: HwSnapshot['leds']['view'] = engaged ? 'trk' : dm === 'global' ? 'mute' : dm === 'pattern' ? 'pmute' : DT_FACE && ptnOpen ? 'ptn' : 'pattern';
+  const view: HwSnapshot['leds']['view'] = engaged ? 'trk' : dm === 'global' ? 'mute' : dm === 'pattern' ? 'pmute' : DT_FACE && ptnOpen ? (dtFace.bank() ? 'bank' : 'ptn') : 'pattern';
+  const bg = bankGrid(patterns.shown());
   const keys = DT_FACE
     ? rowLeds({ func: func.get().mode, trk: t.mode, ptn: ptnOpen || presetMode.on('mm808'), rec: dtFace.rec(), play: clock.running ? 'run' : clock.paused ? 'pause' : 'stop', page: rp.page, home: rp.view === 'home' }, HW_PAL)
     : [];
@@ -183,12 +185,14 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
     view === 'mute' || view === 'pmute'
       ? muteLeds(view === 'mute' ? 'global' : 'pattern', v.muted, p.pmutes, v.solo, HW_PAL).map((l, i) => ({ i, color: l.color, level: l.level, blink: false }))
       : view === 'ptn'
-        ? ptnLeds(ps.cur, ps.next, ps.chain, Array.from({ length: 16 }, (_, i) => patterns.filled(i)), HW_PAL, STEP_LIT.dtEdit)
-        : null;
+        ? ptnLeds(bg.cur, bg.next, bg.chain, bg.filled, HW_PAL, STEP_LIT.dtEdit)
+        : view === 'bank'
+          ? bankLeds(bankOf(ps.cur), ps.bank, Array.from({ length: 8 }, (_, b) => patterns.bankFilled(b)), HW_PAL, STEP_LIT.dtEdit)
+          : null;
   return {
     page: { page: rp.page, tab: rp.tabs[rp.page] ?? 0, screen: rytmPage.screen(inst), view: rp.view },
     voice: inst,
-    pattern: { slot: ps.cur, name: slotName(ps.cur), next: ps.next },
+    pattern: { slot: ps.cur, name: slotName(ps.cur), next: ps.next, bank: bankName(patterns.shown()) },
     tempo: p.bpm,
     sync: tempoSync.get() !== null,
     tempoLabel: tempoSync.label(p.bpm),

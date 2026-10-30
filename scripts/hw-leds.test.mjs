@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ROW_HOME_LEVEL, ROW_KEYS, ptnLeds, rowLeds, trigLeds } from '../src/v4/hw/rowLeds.ts';
+import { ROW_HOME_LEVEL, ROW_KEYS, bankLeds, ptnLeds, rowLeds, trigLeds } from '../src/v4/hw/rowLeds.ts';
 
 const PAL = { red: '#FF2B2B', green: '#3DDC5A', white: '#F4F1EA' };
 const REST = { func: 'off', trk: 'off', ptn: false, rec: false, play: 'stop', page: 'voice', home: false };
@@ -74,6 +74,20 @@ test('la vue PTN : qui joue rouge plein, le suivant et la chaine clignotent, un 
   assert.deepEqual(g[1], { i: 1, color: '#FF2B2B', level: 0.6, blink: true });
   assert.deepEqual(g[4], { i: 4, color: '#F4F1EA', level: 0.2, blink: false });
   assert.deepEqual(g[9], { i: 9, color: '', level: 0, blink: false });
+});
+
+test('V.5.2 : la vue BANK, la banque qui joue rouge, l affichee clignote, une pleine blanc faible, 9 a 16 eteints', () => {
+  const lv = { cur: 1, next: 1, chain: 0.6, filled: 0.2 };
+  // Joue en A, banque C affichee, A B et C ont des patterns
+  const g = bankLeds(0, 2, [true, true, true, false, false, false, false, false], PAL, lv);
+  assert.equal(g.length, 16);
+  assert.deepEqual(g[0], { i: 0, color: '#FF2B2B', level: 1, blink: false });
+  assert.deepEqual(g[2], { i: 2, color: '#FF2B2B', level: 1, blink: true });
+  assert.deepEqual(g[1], { i: 1, color: '#F4F1EA', level: 0.2, blink: false });
+  assert.deepEqual(g[3], { i: 3, color: '', level: 0, blink: false });
+  assert.ok(g.slice(8).every((l) => l.level === 0));
+  // La banque affichee est celle qui joue : rien ne clignote
+  assert.ok(bankLeds(2, 2, [false, false, true], PAL, lv).every((l) => !l.blink));
 });
 
 test('V.5.1 : les lock trigs et les pas a condition de la voix choisie, en jaune', () => {

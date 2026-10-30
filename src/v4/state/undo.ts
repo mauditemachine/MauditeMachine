@@ -78,6 +78,8 @@ export interface UndoView {
 
 const QUIET_MS = 600;
 const MAX_MS = 2000;
+/** Les machines tenues en une seule etape (V.5.2, CONTROL ALL : le geste entier, si long soit-il) : la rafale reste ouverte. */
+const held = new Set<PresetMachine>();
 const DEPTH = 50;
 const KEEP = 20;
 const KEY = 'mm.v4.undo.1';
@@ -295,6 +297,10 @@ function change(m: PresetMachine, t: Track): void {
   // RANDOM, CLEAR, un preset : l'etape se ferme avec la tache
   if (kind) {
     settle(m);
+    return;
+  }
+  if (held.has(m)) {
+    persist();
     return;
   }
   const wait = Math.max(0, Math.min(QUIET_MS, b.start + MAX_MS - performance.now()));
@@ -618,6 +624,12 @@ export const undo = {
         delete sealCur[m];
       }, 0);
     }
+  },
+  /** Un geste qui fait une seule etape (V.5.2, CONTROL ALL) : tenu, la rafale ne se ferme pas seule ; relache, elle se ferme. */
+  hold(m: PresetMachine, on: boolean): void {
+    if (typeof window === 'undefined') return;
+    if (on) held.add(m);
+    else if (held.delete(m)) flush([m]);
   },
   /** Tests : les deux piles (les plus recentes en dernier), sans les etats ; pending : les rafales ouvertes. */
   debug(): { undo: { m: PresetMachine; kind: UndoKind; slot: number | null; at: number }[]; redo: { m: PresetMachine; kind: UndoKind; slot: number | null; at: number }[]; pending: PresetMachine[]; machines: readonly PresetMachine[]; slots: Record<PresetMachine, number | null> } {

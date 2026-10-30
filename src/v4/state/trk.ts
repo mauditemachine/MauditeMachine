@@ -13,6 +13,24 @@ import { holdLatch } from './holdLatch';
 
 export const trk = holdLatch({ tapMs: FACE_HOLD_MS, onUse: 'close', closeMs: PAD_DOUBLE_TAP_MS });
 
+/** CONTROL ALL (V.5.2, actions.ts) : TRK + un potard d'une page de voix regle les huit voix ; l'ecran le dit tant qu'il dure. */
+let ctlAllOn = false;
+const ctlAllListeners = new Set<() => void>();
+export const ctlAllState = {
+  get: (): boolean => ctlAllOn,
+  set(on: boolean): void {
+    if (on === ctlAllOn) return;
+    ctlAllOn = on;
+    ctlAllListeners.forEach((fn) => fn());
+  },
+  subscribe(fn: () => void): () => void {
+    ctlAllListeners.add(fn);
+    return () => {
+      ctlAllListeners.delete(fn);
+    };
+  },
+};
+
 /** La minuterie de la fermeture (0 : aucune) ; un usage pendant la fermeture ne la refait pas, elle se recale a son heure. */
 let timer = 0;
 /** Les minuteries posees depuis le chargement (les tests : une seule par fermeture). */
