@@ -91,6 +91,8 @@ export interface StepEvent {
   mask: number;
   /** retard du swing (s) : 0 sur les pas impairs (1, 3 ... 15) */
   off: number;
+  /** sa position depuis PLAY (V.5.3 : LIVE REC retient un pas a ne pas rejouer a ce passage) */
+  abs: number;
 }
 
 export interface Drift {
@@ -327,7 +329,10 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     fxOf: (inst) => voiceFx.of(inst),
   });
   const made: { inst: Inst; v: Voice }[] = [];
+  // LIVE REC (V.5.3) : une frappe arrondie vers ce pas l'a deja jouee, il ne la rejoue pas a ce passage
+  if (skips.size > 0) for (const k of skips) if (Number(k.slice(0, k.indexOf(':'))) < abs - 64) skips.delete(k);
   for (const h of out.hits) {
+    if (skips.size > 0 && !h.rep && skips.has(`${abs}:${h.inst}`)) continue;
     mask |= 1 << INSTRUMENTS.indexOf(h.inst);
     const live = liveNeeds(snap.locks, h.inst);
     const sq: HitSeq | undefined = h.len !== null || h.lfo || h.roll || live ? { len: h.len, lfo: h.lfo, roll: h.roll, rep: h.rep, prev: seqSt.v[h.inst].last as Voice | null, live } : undefined;
@@ -362,7 +367,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   for (const v of vs) pending.push(v);
   plan.push({ abs, step: s, grid, when, voices: vs, snap, seq, seqBefore, first, last });
-  const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off };
+  const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off, abs };
   seq += 1;
   push(e);
   const drift = Math.abs(when - expected);
@@ -771,6 +776,7 @@ function start(fromPause = false): boolean {
   resumeAbs = 0;
   barAbs = -1;
   plan.length = 0;
+  if (!resumed) skips.clear();
   runFirst = seq;
   // Une reprise n'est pas une premiere mesure : la chaine des patterns continue ou elle en etait
   firstBar = from < 0;
@@ -817,6 +823,7 @@ function stop(): void {
   }
   pending.length = 0;
   plan.length = 0;
+  skips.clear();
   emit();
 }
 
@@ -845,6 +852,21 @@ function pause(): boolean {
   pausedAt = e ? e.step : -1;
   emit();
   return true;
+}
+
+/** Les coups a ne pas rejouer (V.5.3, LIVE REC) : `${abs}:${voix}`. */
+const skips = new Set<string>();
+
+/** Le pas programme le plus proche de t (V.5.3, LIVE REC : la frappe y va), passe ou a venir ; null a l'arret. */
+function nearestAt(t: number): StepEvent | null {
+  if (!running) return null;
+  let best: StepEvent | null = null;
+  for (let i = journal.length - 1; i >= 0; i -= 1) {
+    const e = journal[i];
+    if (e.seq < runFirst) break;
+    if (!best || Math.abs(e.when - t) < Math.abs(best.when - t)) best = e;
+  }
+  return best;
 }
 
 /** Le dernier pas de la lecture en cours dont l'instant est passe a t (temps du contexte). */
@@ -954,6 +976,11 @@ export const clock = {
     pattern.clear();
   },
   entryAt,
+  nearestAt,
+  /** LIVE REC (V.5.3) : la voix ne rejoue pas au pas abs de ce passage (la frappe arrondie vers lui l'a deja jouee). */
+  skipHit(inst: Inst, abs: number): void {
+    skips.add(`${abs}:${inst}`);
+  },
   gridAfter,
   /** Le pas sous la tete de lecture a t (temps du contexte), -1 a l'arret ou avant le premier. */
   currentStep(t: number): number {

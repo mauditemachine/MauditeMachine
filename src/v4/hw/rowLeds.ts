@@ -33,6 +33,8 @@ export interface RowState {
   /** la grille des patterns ou KIT ouverte */
   readonly ptn: boolean;
   readonly rec: boolean;
+  /** LIVE REC (V.5.3) : la LED de ● clignote */
+  readonly live?: boolean;
   readonly play: 'stop' | 'run' | 'pause';
   /** la page affichee (rytm/pages.ts) et la vue HOME */
   readonly page: string;
@@ -61,7 +63,7 @@ export function rowLeds(s: RowState, pal: RowPalette): HwRowLed[] {
       case 'ptn':
         return led(id, pal.red, s.ptn ? 1 : 0);
       case 'rec':
-        return led(id, pal.red, s.rec ? 1 : 0);
+        return led(id, pal.red, s.rec ? 1 : 0, s.rec && !!s.live);
       case 'play':
         return led(id, pal.green, s.play === 'stop' ? 0 : 1, s.play === 'pause');
       case 'stop':

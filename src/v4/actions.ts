@@ -8,7 +8,7 @@
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { cutTails, ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
+import { context as audioCtx, cutTails, ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
 import { TAP_VEL_DEFAULT } from './state/rytmPage';
 import { tempoSync } from './state/tempoSync';
 import { VOICE_FX_DEFAULT, lfoOf, voiceFx, type VoiceFx, type VoiceParam } from './audio/voicefx';
@@ -47,7 +47,7 @@ import { dtFace, type MuteView } from './state/dtFace';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { faceTouch, type CtlSrc } from './state/ctl';
+import { faceTouch, pressVel, type CtlSrc } from './state/ctl';
 import { ctlAllState, trk } from './state/trk';
 import { fill } from './state/fill';
 import { sceneCtl } from './state/sceneCtl';
@@ -56,7 +56,7 @@ import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId, type SceneSet 
 import { bindingOf, from01, sceneRole, to01, voiceRowId, type SceneBinding } from './rytm/sceneParams';
 import { FACE_PAGES, RYTM_PAGES, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
-import { setCtlAllResolver, setKnobResolver, setStepResolver } from './rytm/infoIds';
+import { setCtlAllResolver, setKnobResolver, setLiveResolver, setStepResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
@@ -98,6 +98,16 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   if (voices.get().muteMode) {
     muteVoice(inst);
     stage?.pressRytmPad(inst);
+    return;
+  }
+  // LIVE REC en lecture (V.5.3) : le pad joue sa voix tout de suite et s'ecrit au pas le plus proche (une voix coupee
+  // s'ecrit sans un son)
+  if (liveRunning()) {
+    const n = liveVel();
+    if (!voices.isMuted(inst) && !(DT_FACE && pattern.pmuted(inst))) trigger(inst, undefined, false, undefined, VEL_GAIN[n] ?? 1);
+    liveHit(inst, n);
+    stage?.pressRytmPad(inst);
+    funcDrop();
     return;
   }
   // En lecture (2026-10-05, Mika : "quand RYTM est sur RUN, cliquer sur une voix ne doit pas la jouer, juste la
@@ -870,6 +880,11 @@ export function stepToggle(i: number, stage: Stage | null = null, dock = false):
   // Le mode MUTE (V.5.0, FUNC + TRK) : les pas 1 a 8 sont les voix
   if (muteView() && !dock) {
     muteStep(i, stage);
+    return true;
+  }
+  // LIVE REC (V.5.3) : les pas 1 a 8 jouent leur voix ; en lecture, la frappe s'ecrit
+  if (DT_FACE && !dock && dtFace.live() && rytmLock.get().step < 0) {
+    stepPlay(i, stage);
     return true;
   }
   // Hors REC au desktop (V.5.0) : le pas joue sa voix et la choisit, rien ne s'ecrit (le P-LOCK en cours garde sa tape)
@@ -2634,6 +2649,9 @@ function pageDial(k: number, v: number): void {
   else if (t === 'voice:mix') voiceMixDial(v);
   else anyDial(t, v);
   if (all) ctlAllApply(all);
+  // LIVE REC en lecture (V.5.3) : le reglage s'enregistre en P-LOCK sur les pas que traverse la tete de lecture ; TRK tenue
+  // (CONTROL ALL) gagne, rien ne s'ecrit
+  else if (liveRunning() && !ctlAllOn()) liveKnobTurn(slot, v);
   sceneHint(`p:${k}` as DialId);
   // Rien a regler (pas de voix choisie, une voix a un seul son) : le message suffit, pas de contour
   if (!pageKnobLive(k)) return;
@@ -2688,7 +2706,8 @@ function ctlAllStart(t: SlotTarget): CtlAllKey | null {
   if (!key) return null;
   // Un CONTROL ALL entier, une seule etape d'UNDO : la rafale d'avant se ferme, celle-ci reste ouverte jusqu'a sa fin
   if (ctlAllBefore.size === 0) {
-    undo.boundary('mm808');
+    // Pendant une prise de LIVE REC (V.5.3), elle reste la seule etape : pas de coupure
+    if (!dtFace.live()) undo.boundary('mm808');
     undo.hold('mm808', true);
     ctlAllSlot = patterns.get().cur;
   }
@@ -4659,6 +4678,20 @@ export function recKey(stage: Stage | null = null): void {
     copyKey();
     return;
   }
+  // ● tapee deux fois vite (V.5.3, la souris ne tient pas deux touches) : LIVE REC
+  const t = eventAt();
+  if (t - recTapAt < PAD_DOUBLE_TAP_MS && !dtFace.live()) {
+    liveEnter();
+    return;
+  }
+  recTapAt = t;
+  // ● en LIVE REC : le grid rec (le manuel [M1] 10.2.3 : "If LIVE RECORDING mode is active and [RECORD] is pressed, GRID
+  // RECORDING mode will be activated")
+  if (dtFace.live()) {
+    liveExit(true);
+    lcdMessage.show('● GRID REC · LIVE REC OFF', 1400);
+    return;
+  }
   const on = !dtFace.rec();
   dtFace.setRec(on);
   recHinted = false;
@@ -4687,6 +4720,26 @@ export function playKey(stage: Stage | null = null): boolean {
     return clock.running;
   }
   stage?.pressButton('run');
+  // ● tenue + ▶ (V.5.3, le manuel [M1] 10.2.3) : LIVE REC, la lecture part ; le lacher de ● ne fait pas REC
+  if (DT_FACE && recHolders.size > 0) {
+    for (const s of recHolders) recTaken.add(s);
+    liveEnter();
+    if (!clock.running) {
+      sc.pauseForRun();
+      return clock.paused ? clock.resume() : clock.toggle();
+    }
+    return true;
+  }
+  // ▶ en LIVE REC : en lecture, il en sort et la lecture continue (le manuel) ; arme a l'arret, la lecture part
+  if (dtFace.live()) {
+    if (clock.running) {
+      liveExit(false);
+      lcdMessage.show('LIVE REC OFF · STILL PLAYING', 1400);
+      return true;
+    }
+    sc.pauseForRun();
+    return clock.paused ? clock.resume() : clock.toggle();
+  }
   if (clock.running) {
     clock.pause();
     lcdMessage.show('PAUSE · PLAY: RESUME · STOP: STEP 1', 1400);
@@ -4695,6 +4748,191 @@ export function playKey(stage: Stage | null = null): boolean {
   sc.pauseForRun();
   if (clock.paused) return clock.resume();
   return clock.toggle();
+}
+
+/* ---------- LIVE REC (V.5.3, 2026-10-30, docs/v4/digitakt-d3b-spec.md) ---------- */
+
+/** Les mains sur ● (● tenue + ▶ : LIVE REC) et celles que ▶ a prises (leur lacher ne fait pas REC). */
+const recHolders = new Set<string>();
+const recTaken = new Set<string>();
+/** La derniere tape de ● (deux en PAD_DOUBLE_TAP_MS : LIVE REC). */
+let recTapAt = -Infinity;
+/** ● enfoncee (la face au pointeur, W au clavier). */
+export function recDown(src: string): void {
+  recHolders.add(src);
+}
+/** ● lachee ; true si ▶ l'a prise pendant la tenue (son lacher ne fait pas REC). */
+export function recUp(src: string): boolean {
+  recHolders.delete(src);
+  return recTaken.delete(src);
+}
+
+/** NO tenue (NO + un pad efface la voix au fil de la tete de lecture) ; celles qui ont efface (leur lacher ne fait pas NO). */
+const noHolders = new Set<string>();
+const noUsed = new Set<string>();
+export function noDown(src: string): void {
+  noHolders.add(src);
+}
+/** NO lachee ; true si elle a servi a effacer (son lacher ne fait pas NO). */
+export function noUp(src: string): boolean {
+  noHolders.delete(src);
+  return noUsed.delete(src);
+}
+
+/** LIVE REC allume (arme ou en lecture), et en lecture. */
+export const liveOn = (): boolean => DT_FACE && dtFace.live();
+const liveRunning = (): boolean => liveOn() && clock.running;
+
+/** La velocite d'une frappe : celle de la note MIDI, sinon HIGH (la souris, le clavier). */
+function liveVel(): number {
+  const v = pressVel.v;
+  return v === null ? VEL_MAX : Math.max(1, Math.min(VEL_MAX, Math.round(v * VEL_MAX)));
+}
+
+/** L'heure entendue maintenant (temps du contexte) : ce qui sort des enceintes a ete programme plus tot de la latence. */
+function heardNow(): number | null {
+  const c = audioCtx();
+  return c ? c.currentTime - ((c.outputLatency || 0) + (c.baseLatency || 0)) : null;
+}
+
+let liveTimer = 0;
+let liveStep = -1;
+/** Le dernier potard tourne : son bloc, sa valeur, la voix et l'heure ; il ecrit sur les pas traverses tant qu'on tourne. */
+let liveKnob: { slot: PageSlot; v: number; inst: Inst; at: number } | null = null;
+/** Tourne il y a moins de ce temps (ou tenu) : le potard ecrit encore sur le pas qui arrive. */
+const LIVE_KNOB_MS = 220;
+/** Les voix qu'on efface (NO tenue + leur pad). */
+const liveErase = new Set<Inst>();
+
+/** Entrer en LIVE REC (● tenue + ▶, ● deux fois, MIDI rytm:liverec) : arme a l'arret, tout de suite en lecture. */
+function liveEnter(): void {
+  if (!DT_FACE) return;
+  recTapAt = -Infinity;
+  if (dtFace.live()) return;
+  rytmLock.leave();
+  // Une prise entiere, de l'entree a la sortie : une seule etape d'UNDO
+  undo.boundary('mm808');
+  undo.hold('mm808', true);
+  dtFace.setRec(true);
+  dtFace.setLive(true);
+  liveStep = -1;
+  window.clearInterval(liveTimer);
+  liveTimer = window.setInterval(livePoll, 15);
+  lcdMessage.show(clock.running ? 'LIVE REC: PLAY STEPS 1-8, TURN A KNOB' : 'LIVE REC ARMED · PLAY: GO', 2000);
+}
+
+/** Sortir de LIVE REC ; rec : le grid rec reste allume (● en LIVE REC), sinon tout l'enregistrement s'eteint. */
+function liveExit(rec: boolean): void {
+  if (!dtFace.live()) return;
+  dtFace.setLive(false);
+  dtFace.setRec(rec);
+  window.clearInterval(liveTimer);
+  liveTimer = 0;
+  liveErase.clear();
+  liveKnob = null;
+  undo.hold('mm808', false);
+}
+
+// La carte de ● en LIVE REC : LIVE REC
+setLiveResolver(() => liveOn());
+
+/** MIDI rytm:liverec : entre en LIVE REC, ou en sort (tout l'enregistrement s'eteint). */
+export function liveKey(): void {
+  if (!DT_FACE) return;
+  resume();
+  if (dtFace.live()) {
+    liveExit(false);
+    lcdMessage.show('LIVE REC OFF', 1000);
+  } else liveEnter();
+}
+
+/**
+ * Une frappe en LIVE REC et en lecture (un pas 1 a 8, un pad, le MIDI) : un trig de la voix au pas le plus proche de l'heure
+ * entendue (quantifie, sans uTIME) ; arrondie vers l'avant, ce pas ne rejoue pas la voix a ce passage. at : l'heure
+ * entendue (les tests), maintenant sinon. true si elle s'est ecrite.
+ */
+export function liveHit(inst: Inst, vel = VEL_MAX, at?: number): boolean {
+  if (!liveRunning()) return false;
+  const t = at ?? heardNow();
+  if (t === null) return false;
+  const e = clock.nearestAt(t);
+  if (!e) return false;
+  const was = velocity(pattern.get().steps, inst, e.step);
+  if (e.when > t) clock.skipHit(inst, e.abs);
+  if (was !== vel) pattern.set(inst, e.step, vel);
+  // Rien n'a change au motif : le pas deja programme repasse quand meme (il ne rejoue pas la frappe)
+  else if (e.when > t) clock.refresh();
+  lcdMessage.show(`LIVE REC ${inst} STEP ${two(e.step + 1)}`, 700);
+  return true;
+}
+
+/** Un bloc qui s'enregistre en P-LOCK (un verrou de nombre : ni le son, ni la machine, ni VEL, ni un reglage de machine entiere). */
+function liveLockable(slot: PageSlot): boolean {
+  if (!slot.lock || slot.lock === 'vel' || slot.lock === 'snd' || slot.lock === 'mach' || slot.scope === 'all') return false;
+  if (slot.target === 'voice:sound' || slot.target === 'voice:mix' || slot.target === 'smpl:sample') return false;
+  return !(slot.target && layerIdOf(slot.target) && !soundFamily());
+}
+
+/**
+ * Le verrou du potard sur le pas s (le manuel [M1] 10.2.3 et 10.9.1 : en LIVE RECORDING, les reglages "are recorded as parameter
+ * locks and add lock trigs where needed") : un pas sans trig de la voix recoit un lock trig.
+ */
+function liveLockAt(k: { slot: PageSlot; v: number; inst: Inst }, s: number): void {
+  const id = k.slot.lock as LockId;
+  const v = k.v;
+  const val = id === 'pan' || id === 'fenv' ? (Math.abs(v) < 0.02 ? 0 : v) : id === 'tune' ? Math.round(v * 24) / 24 : v;
+  const [lo, hi] = slotDomain(k.slot);
+  const p = pattern.get();
+  if (velocity(p.steps, k.inst, s) === 0 && !isLockTrig(p.locks, k.inst, s)) pattern.setLock(k.inst, [s], 'ltrg', 1);
+  pattern.setLock(k.inst, [s], id, Math.max(lo, Math.min(hi, val)));
+}
+
+/** Un potard d'une page de voix tourne en LIVE REC : il ecrit sur le pas entendu, puis sur ceux que la tete traverse. */
+function liveKnobTurn(slot: PageSlot, v: number): void {
+  const inst = pattern.get().instrument;
+  if (!inst || !liveLockable(slot)) return;
+  liveKnob = { slot, v, inst, at: performance.now() };
+  const t = heardNow();
+  const e = t === null ? null : clock.entryAt(t);
+  if (e) liveLockAt(liveKnob, e.step);
+}
+
+/** Efface la voix au pas s (son trig et ses verrous). */
+function liveEraseAt(inst: Inst, s: number): void {
+  const p = pattern.get();
+  if (velocity(p.steps, inst, s) > 0) pattern.clearStep(inst, s);
+  if (lockOf(pattern.get().locks, inst, s)) pattern.clearLock(inst, [s]);
+}
+
+/** NO tenue + un pad (V.5.3, LIVE REC en lecture) : la voix s'efface au fil de la tete de lecture tant qu'on tient ; true si pris. */
+export function liveEraseDown(inst: Inst): boolean {
+  if (!liveRunning() || noHolders.size === 0) return false;
+  for (const s of noHolders) noUsed.add(s);
+  liveErase.add(inst);
+  const t = heardNow();
+  const e = t === null ? null : clock.entryAt(t);
+  if (e) liveEraseAt(inst, e.step);
+  lcdMessage.show(`LIVE ERASE ${inst}`, 1200);
+  return true;
+}
+export function liveEraseUp(inst: Inst): void {
+  liveErase.delete(inst);
+}
+
+/** La tete de lecture (l'heure entendue) passe sur un autre pas : l'effacement et le potard qui tourne y ecrivent. */
+function livePoll(): void {
+  if (!liveRunning()) {
+    liveStep = -1;
+    return;
+  }
+  const t = heardNow();
+  const e = t === null ? null : clock.entryAt(t);
+  const s = e ? e.step : -1;
+  if (s < 0 || s === liveStep) return;
+  liveStep = s;
+  for (const inst of liveErase) liveEraseAt(inst, s);
+  const k = liveKnob;
+  if (k && (performance.now() - k.at < LIVE_KNOB_MS || faceTouch.anyHeld())) liveLockAt(k, s);
 }
 
 let stopAt = -Infinity;
@@ -4717,6 +4955,8 @@ export function stopKey(stage: Stage | null = null): void {
   const t = eventAt();
   const dbl = t - stopAt < DT_GESTURE.stopDoubleMs;
   stopAt = dbl ? -Infinity : t;
+  // LIVE REC (V.5.3, le manuel [M1] 10.2.3 : "Press [STOP] to stop both recording and playback")
+  if (dtFace.live()) liveExit(false);
   clock.stop();
   if (dbl) {
     cutTails();
@@ -5278,7 +5518,10 @@ function stepPlay(i: number, stage: Stage | null): void {
     padHit(inst, null);
     return;
   }
-  if (!voices.isMuted(inst) && !pattern.pmuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[TAP_VEL_DEFAULT] ?? 1);
+  const n = liveRunning() ? liveVel() : TAP_VEL_DEFAULT;
+  if (!voices.isMuted(inst) && !pattern.pmuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[n] ?? 1);
+  // LIVE REC en lecture (V.5.3) : la frappe s'ecrit (une voix coupee aussi)
+  if (liveHit(inst, n)) return;
   if (pattern.get().instrument !== inst) selectVoice(inst);
   else lcdMessage.show(`${inst} · ● REC TO WRITE STEPS`, 900);
 }

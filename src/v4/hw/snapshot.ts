@@ -179,7 +179,7 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   const view: HwSnapshot['leds']['view'] = engaged ? 'trk' : dm === 'global' ? 'mute' : dm === 'pattern' ? 'pmute' : DT_FACE && ptnOpen ? (dtFace.bank() ? 'bank' : 'ptn') : 'pattern';
   const bg = bankGrid(patterns.shown());
   const keys = DT_FACE
-    ? rowLeds({ func: func.get().mode, trk: t.mode, ptn: ptnOpen || presetMode.on('mm808'), rec: dtFace.rec(), play: clock.running ? 'run' : clock.paused ? 'pause' : 'stop', page: rp.page, home: rp.view === 'home' }, HW_PAL)
+    ? rowLeds({ func: func.get().mode, trk: t.mode, ptn: ptnOpen || presetMode.on('mm808'), rec: dtFace.rec(), live: dtFace.live(), play: clock.running ? 'run' : clock.paused ? 'pause' : 'stop', page: rp.page, home: rp.view === 'home' }, HW_PAL)
     : [];
   const grid =
     view === 'mute' || view === 'pmute'

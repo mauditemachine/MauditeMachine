@@ -655,6 +655,7 @@ rytm:bank:4,mm808,MM-RYTM,BANK E (SHOW ITS PATTERNS),press,,
 rytm:bank:5,mm808,MM-RYTM,BANK F (SHOW ITS PATTERNS),press,,
 rytm:bank:6,mm808,MM-RYTM,BANK G (SHOW ITS PATTERNS),press,,
 rytm:bank:7,mm808,MM-RYTM,BANK H (SHOW ITS PATTERNS),press,,
+rytm:liverec,mm808,MM-RYTM,LIVE REC (ON / OFF),press,,
 voy:knob:rate,voy,MM-ARP,RATE,value,4,ARP LIVE
 voy:knob:mode,voy,MM-ARP,ARP MODE,value,4,ARP
 voy:knob:range,voy,MM-ARP,RANGE,value,3,ARP
