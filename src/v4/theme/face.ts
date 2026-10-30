@@ -5,8 +5,12 @@
  */
 
 import { fwText } from '../firmware';
-import { RYTM_FACEPLATE, fpU, fpX, fpZ, rectCenter, stepRect } from '../rytm/faceplate';
-import { type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_PAGE_KEYS, SCENE_KEY, SILK, type SilkText } from './base';
+import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2StepRect, fpU, fpX, fpZ, rectCenter, stepRect } from '../rytm/faceplate';
+import type { Dt2KeyClass } from '../rytm/dtFaceIds';
+import { DT2_FACE, type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_KNOBS, FP_OPEN, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_PAGE_KEYS, SCENE_KEY, SILK, type SilkText } from './base';
+
+/** La face DT2 (V.6.0, ?face=dt2) : ses donnees en mm (rytm/faceplate.ts), lues seulement derriere DT2_FACE. */
+const DT2 = DT2_FACEPLATE;
 
 /**
  * Encodeurs noirs a repere blanc (spec 20.3.7 ; STRETCH a cote de TONE en
@@ -44,13 +48,14 @@ export const ENCODER = PORTRAIT
       segments: { desktop: 60, mobile: 40 },
       voiceScale: 0.85,
     } as const)
-  : ({
-      r: fpU(RYTM_FACEPLATE.knobs.cap.d / 2),
-      rTop: fpU(RYTM_FACEPLATE.knobs.cap.top / 2),
-      h: fpU(RYTM_FACEPLATE.knobs.cap.h),
-      collar: { r: fpU(RYTM_FACEPLATE.knobs.skirt.d / 2), h: 0.025 },
-      skirt: { r: fpU(RYTM_FACEPLATE.knobs.skirt.d / 2), rTop: 0.45, h: fpU(RYTM_FACEPLATE.knobs.skirt.h) },
-      mark: { w: 0.05, h: 0.012, d: 0.3 },
+  : // La face DT2 (V.6.0, ?face=dt2) : les potards de 24 (capuchon 14.5 / 13.6 / 7), leur repere un rien plus court
+    ({
+      r: fpU(FP_KNOBS.cap.d / 2),
+      rTop: fpU(FP_KNOBS.cap.top / 2),
+      h: fpU(FP_KNOBS.cap.h),
+      collar: { r: fpU(FP_KNOBS.skirt.d / 2), h: 0.025 },
+      skirt: { r: fpU(FP_KNOBS.skirt.d / 2), rTop: DT2_FACE ? fpU(FP_KNOBS.skirt.d / 2) - 0.015 : 0.45, h: fpU(FP_KNOBS.skirt.h) },
+      mark: { w: 0.05, h: 0.012, d: DT2_FACE ? 0.26 : 0.3 },
       chamfer: 0.04,
       chamferGain: 3.4,
       flutes: 28,
@@ -67,11 +72,12 @@ export const ENCODER = PORTRAIT
  * dernier en partie (le mouvement reste doux) ; un potard a zero au centre (STRETCH) s'allume du centre a la valeur, son
  * segment du milieu toujours a center (il dit ou est le zero).
  */
+// La face DT2 (V.6.0, ?face=dt2) : l'anneau de 19.8 a 23.2 (FP_KNOBS, la face lue)
 export const KNOB_RING = {
-  r0: fpU(RYTM_FACEPLATE.knobs.ring.inner / 2),
-  r1: fpU(RYTM_FACEPLATE.knobs.ring.outer / 2),
-  segments: RYTM_FACEPLATE.knobs.ring.segments,
-  airDeg: RYTM_FACEPLATE.knobs.ring.airDeg,
+  r0: fpU(FP_KNOBS.ring.inner / 2),
+  r1: fpU(FP_KNOBS.ring.outer / 2),
+  segments: FP_KNOBS.ring.segments,
+  airDeg: FP_KNOBS.ring.airDeg,
   y: 0.006,
   center: 0.35,
   /** les scenes (2026-10-27, la phase 2) : les segments eteints entre la course de A et celle de B luisent a cette part */
@@ -97,22 +103,95 @@ export const KNOB_RING = {
  */
 // La hauteur, les coins et le temoin depuis RYTM_FACEPLATE.buttons (2026-10-27, la revue : en mm, comme le reste)
 // V.5.0 (2026-10-29) : 10.4 x 12 (w, h), la largeur et la profondeur separees ; SCENE A et B gardent leurs 12 x 12
-export const FACE_KEY = {
-  w: fpU(RYTM_FACEPLATE.buttons.w),
-  d: fpU(RYTM_FACEPLATE.buttons.h),
-  h: fpU(RYTM_FACEPLATE.buttons.capHeight),
-  radius: fpU(RYTM_FACEPLATE.buttons.corner),
-  /** V.4.2 (2026-10-27) : le chanfrein du dessus et la course de l'appui (scene/keyCap.ts) */
-  bevel: fpU(RYTM_FACEPLATE.buttons.bevel),
-  travel: fpU(RYTM_FACEPLATE.buttons.travel),
-  z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.h / 2),
-  led: { w: fpU(RYTM_FACEPLATE.buttons.led.w), d: fpU(RYTM_FACEPLATE.buttons.led.h), back: fpU(RYTM_FACEPLATE.buttons.led.dy) },
-} as const;
-export const FACE_KEYS: readonly { id: FaceKeyId; x: number; hotspot: string }[] = [
-  ...RYTM_FACEPLATE.buttons.keys.map((b, i) => ({ id: b.id as FaceKeyId, x: faceKeyX(i), hotspot: b.hotspot })),
-  { id: 'scene-a', x: rectCenter(RYTM_FACEPLATE.scenes.a.rect).x, hotspot: RYTM_FACEPLATE.scenes.a.hotspot },
-  { id: 'scene-b', x: rectCenter(RYTM_FACEPLATE.scenes.b.rect).x, hotspot: RYTM_FACEPLATE.scenes.b.hotspot },
-];
+/*
+ * La face DT2 (V.6.0, ?face=dt2, cahier 2.2) : trois classes de touches (P 12 x 11, L 22 x 11, G 26 x 11, FACE_KEY_CLASS),
+ * chacune sa place (FACE_KEYS : x, z, w, d par touche) ; le relief, les coins, la course et le temoin de la V.5.3. FACE_KEY
+ * y garde la petite touche (P) et le z de la rangee YES / menus (plus lu en 3D : chaque touche a le sien).
+ */
+export const FACE_KEY = DT2_FACE
+  ? ({
+      w: fpU(DT2.buttons.sizes.P.w),
+      d: fpU(DT2.buttons.sizes.P.h),
+      h: fpU(DT2.buttons.capHeight),
+      radius: fpU(DT2.buttons.corner),
+      bevel: fpU(DT2.buttons.bevel),
+      travel: fpU(DT2.buttons.travel),
+      z: fpZ(83.5),
+      led: { w: fpU(DT2.buttons.led.w), d: fpU(DT2.buttons.led.h), back: fpU(DT2.buttons.led.dy) },
+    } as const)
+  : ({
+      w: fpU(RYTM_FACEPLATE.buttons.w),
+      d: fpU(RYTM_FACEPLATE.buttons.h),
+      h: fpU(RYTM_FACEPLATE.buttons.capHeight),
+      radius: fpU(RYTM_FACEPLATE.buttons.corner),
+      /** V.4.2 (2026-10-27) : le chanfrein du dessus et la course de l'appui (scene/keyCap.ts) */
+      bevel: fpU(RYTM_FACEPLATE.buttons.bevel),
+      travel: fpU(RYTM_FACEPLATE.buttons.travel),
+      z: fpZ(RYTM_FACEPLATE.buttons.y + RYTM_FACEPLATE.buttons.h / 2),
+      led: { w: fpU(RYTM_FACEPLATE.buttons.led.w), d: fpU(RYTM_FACEPLATE.buttons.led.h), back: fpU(RYTM_FACEPLATE.buttons.led.dy) },
+    } as const);
+/** La classe d'une touche de la face : row (la rangee de la V.5.3), scene (SCENE A et B), ou P, L, G (la face DT2). */
+export type FaceKeyClass = 'row' | 'scene' | Dt2KeyClass;
+/** La taille (unites) de chaque classe de touches de la face DT2 (un InstancedMesh par classe, scene/rytmFaceKeys.ts). */
+export const FACE_KEY_CLASS: Readonly<Record<Dt2KeyClass, { readonly w: number; readonly d: number }>> = {
+  P: { w: fpU(DT2.buttons.sizes.P.w), d: fpU(DT2.buttons.sizes.P.h) },
+  L: { w: fpU(DT2.buttons.sizes.L.w), d: fpU(DT2.buttons.sizes.L.h) },
+  G: { w: fpU(DT2.buttons.sizes.G.w), d: fpU(DT2.buttons.sizes.G.h) },
+};
+/**
+ * Les touches de la face, chacune sa place (x, z son centre, w x d sa taille, cls sa classe) et l'id de sa zone. V.5.3 :
+ * les quatorze de la rangee (un z, la taille FACE_KEY), SCENE A et B (SCENE_KEY ; d : celui de la rangee, la meme). DT2
+ * (V.6.0, ?face=dt2) : les 25 touches dans l'ordre de lecture de la face (rytm/dtFaceIds.ts DT2_BUTTONS), sans les scenes.
+ */
+export const FACE_KEYS: readonly { id: FaceKeyId; x: number; z: number; w: number; d: number; cls: FaceKeyClass; hotspot: string }[] = DT2_FACE
+  ? DT2.buttons.keys.map((b) => {
+      const c = rectCenter(b.rect);
+      return { id: b.id, x: c.x, z: c.z, w: fpU(b.rect.w), d: fpU(b.rect.h), cls: b.cls, hotspot: b.hotspot };
+    })
+  : [
+      ...RYTM_FACEPLATE.buttons.keys.map((b, i) => ({ id: b.id as FaceKeyId, x: faceKeyX(i), z: FACE_KEY.z, w: FACE_KEY.w, d: FACE_KEY.d, cls: 'row' as const, hotspot: b.hotspot })),
+      { id: 'scene-a', x: rectCenter(RYTM_FACEPLATE.scenes.a.rect).x, z: FACE_KEY.z, w: SCENE_KEY.w, d: FACE_KEY.d, cls: 'scene', hotspot: RYTM_FACEPLATE.scenes.a.hotspot },
+      { id: 'scene-b', x: rectCenter(RYTM_FACEPLATE.scenes.b.rect).x, z: FACE_KEY.z, w: SCENE_KEY.w, d: FACE_KEY.d, cls: 'scene', hotspot: RYTM_FACEPLATE.scenes.b.hotspot },
+    ];
+
+/** MAIN VOLUME et LEVEL/DATA (V.6.0, ?face=dt2, cahier 2.2, scene/sideKnobs.ts) en unites : centre, capuchon, jupe, anneau. */
+export interface SideKnobSpec {
+  id: 'mvol' | 'data';
+  x: number;
+  z: number;
+  /** le rayon de la zone (l'emprise) */
+  hitR: number;
+  cap: { r: number; rTop: number; h: number };
+  skirt: { r: number; rTop: number; h: number };
+  ring: { r0: number; r1: number; segments: number; airDeg: number };
+  mark: boolean;
+  title: string;
+}
+export const SIDE_KNOBS: readonly SideKnobSpec[] = DT2_FACE
+  ? DT2.side.knobs.map((s) => ({
+      id: s.id,
+      x: fpX(s.cx),
+      z: fpZ(s.cy),
+      hitR: fpU(s.d / 2) - 0.02,
+      cap: { r: fpU(s.cap.d / 2), rTop: fpU(s.cap.top / 2), h: fpU(s.cap.h) },
+      skirt: { r: fpU(s.skirt.d / 2), rTop: fpU(s.skirt.d / 2) - 0.015, h: fpU(s.skirt.h) },
+      ring: { r0: fpU(s.ring.inner / 2), r1: fpU(s.ring.outer / 2), segments: s.ring.segments, airDeg: s.ring.airDeg },
+      mark: s.mark,
+      title: s.title,
+    }))
+  : [];
+
+/**
+ * Les 8 LED de page de la face DT2 (V.6.0, ?face=dt2, cahier 2.2 et 2.4) en unites : la fenetre sombre (son centre, sa
+ * taille, ses coins) et chaque LED (x, z, rayon), 1 a 4 en haut, 5 a 8 dessous. null : la face de la V.5.3.
+ */
+export const PAGE_LEDS = DT2_FACE
+  ? {
+      window: { x: fpX(DT2.pageLeds.window.x + DT2.pageLeds.window.w / 2), z: fpZ(DT2.pageLeds.window.y + DT2.pageLeds.window.h / 2), w: fpU(DT2.pageLeds.window.w), d: fpU(DT2.pageLeds.window.h), r: fpU(DT2.pageLeds.corner) },
+      r: fpU(DT2.pageLeds.d / 2),
+      leds: DT2.pageLeds.cy.flatMap((cy) => DT2.pageLeds.cx.map((cx) => ({ x: fpX(cx), z: fpZ(cy) }))),
+    }
+  : null;
 
 /*
  * Sous les pads depuis le 2026-10-08 (la refonte facon Digitakt : sous
@@ -226,17 +305,18 @@ export const keyDz = (i: number): number => KEYS.rowDz * Math.floor(i / KEYS.per
  */
 export const PAGE_KNOBS = PORTRAIT
   ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78, hitR: 0, labelW: 1.78 - 0.2 } as const)
-  : ({
-      rowZ: [fpZ(RYTM_FACEPLATE.knobs.cy[0]), fpZ(RYTM_FACEPLATE.knobs.cy[1])],
+  : // La face DT2 (V.6.0, ?face=dt2) : FP_KNOBS (24 d'emprise, au pas de 80 / 3, la lettre a 10.6 mm du centre)
+    ({
+      rowZ: [fpZ(FP_KNOBS.cy[0]), fpZ(FP_KNOBS.cy[1])],
       s: 1,
-      pitch: fpU(RYTM_FACEPLATE.knobs.pitch),
-      cap: fpU(RYTM_FACEPLATE.knobs.label.cap),
-      nameDz: fpU(RYTM_FACEPLATE.knobs.label.r),
+      pitch: fpU(FP_KNOBS.pitch),
+      cap: fpU(FP_KNOBS.label.cap),
+      nameDz: fpU(FP_KNOBS.label.r),
       hitD: 0,
       hitUp: 0,
       hitW: 0,
-      hitR: fpU(RYTM_FACEPLATE.knobs.d / 2) - 0.02,
-      labelW: 0.8,
+      hitR: fpU(FP_KNOBS.d / 2) - 0.02,
+      labelW: DT2_FACE ? 0.7 : 0.8,
     } as const);
 
 /** Les encodeurs de la face, dans l'ordre A a H (le desktop et, depuis le 2026-10-19, le telephone). */
@@ -316,7 +396,35 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
         ] as const
       ).map(([id, text]): KeyLabelSpec => ({ id, text, x: TRANSPORT[id].x, z: TRANSPORT.z, w: TRANSPORT.w, d: TRANSPORT.d, group: 'tr', rest: id === 'run' ? 'bone' : 'ink' })),
     ]
-  : [
+  : DT2_FACE
+    ? [
+        // La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : un mot sur chaque touche (Mika, V.4.2 : des mots plutot que des
+        // pictogrammes), le meme corps pour les 25 (un groupe), dans la largeur de sa touche moins une marge ; les signes du
+        // transport et les chevrons des fleches
+        ...DT2.buttons.keys.map((b): KeyLabelSpec => {
+          const L = DT2.buttons.legend;
+          const c = rectCenter(b.rect);
+          return {
+            id: b.id,
+            text: b.legend,
+            x: c.x,
+            z: c.z,
+            w: fpU(b.rect.w),
+            d: fpU(b.rect.h),
+            group: 'face',
+            rest: 'ink',
+            ...(b.marks ? { marks: b.marks, dz: KEY_MARK.dz } : { cap: fpU(L.cap), qw: fpU(b.rect.w - 2 * L.margin), dz: fpU(L.dy), tracking: L.tracking }),
+          };
+        }),
+        // Le numero seul sur chaque pas (16 pistes libres, cahier 2.2), en haut a gauche comme avant
+        ...Array.from({ length: 16 }, (_, i): KeyLabelSpec => {
+          const r = dt2StepRect(i);
+          const L = DT2.steps.legend.num;
+          const qw = fpU(L.w);
+          return { id: `stepn-${i + 1}`, text: String(i + 1), x: fpX(r.x + L.dx) + qw / 2, z: fpZ(r.y + L.dy + L.cap / 2), w: fpU(r.w), d: fpU(r.h), group: 'stepn', rest: 'ink', cap: fpU(L.cap), qw, dz: 0, align: 'left' };
+        }),
+      ]
+    : [
       ...RYTM_FACEPLATE.buttons.keys.map((b, i): KeyLabelSpec => {
         const L = RYTM_FACEPLATE.buttons.legend;
         return {
@@ -366,10 +474,26 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
  * dans l'aria-label du jumeau") : par id de zone ; TRK, SCENE A et B et le crossfader disent leur geste depuis la phase 2
  * (une touche phase 2 du gabarit dirait coming soon : aucune depuis le 2026-10-27).
  */
+/** Le titre d'une touche de la face : coming soon (phase 2), sa fonction orange, ou son nom seul. */
+const keyTitle = (b: { title: string; name: string; alt?: string; phase: 1 | 2 }): string =>
+  b.phase === 2 ? `${b.title} (${b.name}), coming soon` : b.alt ? `${b.title} (${b.name}); FUNC + ${b.name}: ${b.alt}` : `${b.title} (${b.name})`;
+
 export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
   ? {}
-  : {
-      ...Object.fromEntries(RYTM_FACEPLATE.buttons.keys.map((b) => [b.hotspot, b.phase === 2 ? `${b.title} (${b.name}), coming soon` : b.alt ? `${b.title} (${b.name}); FUNC + ${b.name}: ${b.alt}` : `${b.title} (${b.name})`])),
+  : DT2_FACE
+    ? {
+        // La face DT2 (V.6.0, ?face=dt2) : ses 25 touches (les onze nouvelles : coming soon, tant que la lane B4 ne les a pas
+        // branchees), MAIN VOLUME et LEVEL/DATA ; TRK, FUNC, le logo M et les potards gardent leur geste d'aujourd'hui
+        ...Object.fromEntries(DT2.buttons.keys.map((b) => [b.hotspot, keyTitle(b)])),
+        trk: 'Track (TRK): hold, then a step 1-8 picks its voice; tap to latch; FUNC + TRK: MUTE mode',
+        func: 'Function (FUNC): tap, then a key for its orange function; hold it for a moment; tap twice to keep it (Alt key)',
+        [FP_OPEN.hotspot]: FP_OPEN.title,
+        mvol: 'Main volume (MAIN VOLUME): drag or scroll; double-click: back to its start',
+        data: 'Level / data (LEVEL/DATA): the level of the track, scrolls the menus; FUNC + LEVEL/DATA: PRESET POOL, coming soon',
+        ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen; click: what it opens there`])),
+      }
+    : {
+      ...Object.fromEntries(RYTM_FACEPLATE.buttons.keys.map((b) => [b.hotspot, keyTitle(b)])),
       // TRK agit depuis la phase 2 (2026-10-27) : son geste dans l'infobulle et le jumeau
       trk: 'Track (TRK): hold, then a step 1-8 picks its voice; tap to latch; FUNC + TRK: MUTE mode',
       // V.5.0 (2026-10-29, la face facon Digitakt) : FUNC et ses gestes, le logo M qui ouvre le capot
@@ -385,7 +509,34 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
       ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen; click: what it opens there`])),
     };
 
-export const SILK_TEXTS: readonly SilkText[] = [
+/**
+ * La serigraphie de la face DT2 (V.6.0, ?face=dt2, cahier 2.3) : les lettres A a H a 6 h dans la fente de l'anneau, MAIN
+ * VOLUME et LEVEL/DATA sous leur potard et PRESET POOL en orange, la fonction orange sous chaque touche (gap sous la
+ * touche, le meme corps pour toutes), KB OCT a droite de UP, TRACK/MUTE entre les deux rangees de TRIG. Le wordmark,
+ * MM-RYTM et le firmware passent sur le decalque du cadre de l'ecran (scene/silk.ts BezelDecal) ; plus de ligne d'aide.
+ */
+const DT2_SILK_TEXTS = (): SilkText[] => {
+  const A = DT2.buttons.alt;
+  const S = DT2.side;
+  const out: SilkText[] = FACE_KNOBS.map((k, i) => ({ text: FP_KNOBS.labels[i] ?? PAGE_KNOB_LETTERS[i], x: k.x, z: k.labelZ, cap: PAGE_KNOBS.cap, maxW: PAGE_KNOBS.labelW, group: 'genc', weight: 700, alpha: 0.9 }));
+  for (const s of S.knobs) {
+    const cy = s.cy + s.d / 2 + S.legend.gap + S.legend.cap / 2;
+    out.push({ text: s.legend, x: fpX(s.cx), z: fpZ(cy), cap: fpU(S.legend.cap), maxW: fpU(21), group: 'side', weight: 700, alpha: 0.9 });
+    if (s.alt) out.push({ text: s.alt, x: fpX(s.cx), z: fpZ(cy + S.legend.cap / 2 + S.alt.gap + S.alt.cap / 2), cap: fpU(S.alt.cap), maxW: fpU(21), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  }
+  for (const b of DT2.buttons.keys) {
+    if (!b.alt) continue;
+    const c = rectCenter(b.rect);
+    out.push({ text: b.alt, x: c.x, z: fpZ(b.rect.y + b.rect.h + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(A.w), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  }
+  const K = DT2.silk.kbOct;
+  out.push({ text: K.text, x: fpX(K.x), z: fpZ(K.cy), cap: fpU(K.cap), maxW: fpU(K.w), align: 'left', group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  const T = DT2.silk.trackMute;
+  out.push({ text: T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  return out;
+};
+
+export const SILK_TEXTS: readonly SilkText[] = DT2_FACE ? DT2_SILK_TEXTS() : [
   // Le repli du wordmark : au desktop V.4.0 (2026-10-27) dans sa largeur
   { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.word.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark', ...(PORTRAIT ? {} : { maxW: HEAD.word.w }) },
   { text: 'MM-RYTM', x: HEAD.model.x, z: HEAD.model.z, cap: HEAD.model.cap, align: HEAD.model.align },
