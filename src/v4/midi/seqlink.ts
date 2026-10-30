@@ -79,6 +79,8 @@ export interface SeqMachine {
   lit(i: number): boolean;
   /** dans EDIT : le pattern qui joue */
   current(): number;
+  /** une fenetre imposee (V.5.2 : la vue BANK du MM-RYTM, les banques sur les boutons 1 a 8) ; null ou absent : aucune */
+  pinWin?(): number | null;
   /** le pas en LOCK (-1 : aucun) */
   lockStep(): number;
   /** le LOCK fixe (il reste au lacher) : son pas, -1 */
@@ -474,6 +476,8 @@ function resync(l: Lane): void {
     // Jamais hors des deux fenetres (V.5.2 : le pattern qui joue peut etre dans une autre banque, -1)
     if (ed) l.win = Math.max(0, Math.min(1, m.current() >> 3));
   }
+  const pin = m.pinWin?.() ?? null;
+  if (pin !== null) l.win = pin;
   const run = m.running();
   if (run !== l.run) {
     l.run = run;
@@ -941,6 +945,7 @@ const rytm: SeqMachine = {
     // Sans voix choisie : tout le pattern (les pas ou une voix joue)
     return p.instrument ? velocity(p.steps, p.instrument, i) > 0 : INSTRUMENTS.some((x) => velocity(p.steps, x, i) > 0);
   },
+  pinWin: () => (rytmEditing() && dtFace.bank() ? 0 : null),
   current: () => {
     const cur = patterns.get().cur;
     if (dtFace.bank()) return bankOf(cur);
