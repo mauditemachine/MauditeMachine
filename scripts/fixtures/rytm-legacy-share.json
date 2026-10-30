@@ -1,0 +1,1234 @@
+{
+ "note": "Trois liens SHARE v1 (?b=) fabriques sur V.5.3 et ce que V.5.3 en lit. Ne pas regenerer dans une lane.",
+ "ref": "ecfb30a",
+ "links": [
+  {
+   "kind": "arrival",
+   "code": "AQIeL5AAkACQAJAAAACQAAAAkABjCWMJYwljCQCQAJAAkACQAAAAMAAGAJABAAALuAwBtAEAAA4B7QEAAAIOARYBAAACAgICug",
+   "beat": {
+    "bpm": 130,
+    "steps": {
+     "BD": "9000900090009000",
+     "SD": "0000900000009000",
+     "CH": "6309630963096309",
+     "OH": "0090009000900090",
+     "CP": "0000000000000000",
+     "TOM": "0000003000060090",
+     "HT": "0000000000000000",
+     "CY": "0000000000000000"
+    },
+    "fx": {
+     "swing": 0.3
+    },
+    "kit": {
+     "bd": {
+      "model": 0,
+      "sample": {
+       "n": 1,
+       "hash": 180
+      },
+      "layer": {
+       "syn": 0
+      }
+     },
+     "sd": {
+      "model": 2,
+      "sample": {
+       "n": 1,
+       "hash": 237
+      },
+      "layer": {
+       "syn": 0
+      }
+     },
+     "ch": {
+      "model": 2
+     },
+     "oh": {
+      "model": 2,
+      "sample": {
+       "n": 1,
+       "hash": 22
+      },
+      "layer": {
+       "syn": 0
+      }
+     },
+     "cp": {
+      "model": 2
+     },
+     "tom": {
+      "model": 2
+     },
+     "ht": {
+      "model": 2
+     },
+     "cy": {
+      "model": 2
+     }
+    }
+   },
+   "data": {
+    "steps": {
+     "BD": "9000900090009000",
+     "SD": "0000900000009000",
+     "CH": "6309630963096309",
+     "OH": "0090009000900090",
+     "CP": "0000000000000000",
+     "TOM": "0000003000060090",
+     "HT": "0000000000000000",
+     "CY": "0000000000000000"
+    },
+    "bpm": 130,
+    "fx": {
+     "swing": 0.3,
+     "drive": 0,
+     "reverb": 0,
+     "delay": 0,
+     "chorus": 0,
+     "dtime": 0.4,
+     "dfb": 0.6666666666666666,
+     "bits": 0,
+     "comp": 0,
+     "dtone": 0.638,
+     "rsize": 0.566,
+     "rtone": 0.442,
+     "rpre": 0.167,
+     "xtone": 1,
+     "crate": 0.624,
+     "cdepth": 0.5,
+     "brate": 0,
+     "catk": 0.742,
+     "crel": 1,
+     "cthr": 0.45,
+     "cratio": 0.571,
+     "cknee": 0.5,
+     "cmake": 0,
+     "chpf": 0.5
+    },
+    "stretch": 0,
+    "voices": {
+     "BD": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "SD": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CH": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "OH": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CP": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "TOM": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "HT": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CY": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     }
+    },
+    "kit": {
+     "tune": 0.5,
+     "attack": 0.5,
+     "decay": 0.45,
+     "drive": 0.25,
+     "snappy": 0.5,
+     "gate": 0,
+     "sweep": 0.5,
+     "sdtune": 0.5,
+     "sddecay": 0.5,
+     "sdtone": 0.5
+    },
+    "sounds": {},
+    "machines": {
+     "bd": "909",
+     "sd": "mm",
+     "ch": "mm",
+     "oh": "mm",
+     "cp": "mm",
+     "tom": "mm",
+     "ht": "mm",
+     "cy": "mm"
+    },
+    "samples": {
+     "bd": "bd/01 BluePrint.wav",
+     "sd": "sd/01 Psy 02.wav",
+     "ch": "",
+     "oh": "oh/01 RID 014 Narrow.wav",
+     "cp": "",
+     "tom": "",
+     "ht": "",
+     "cy": ""
+    },
+    "layers": {
+     "bd": {
+      "syn": 0,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "sd": {
+      "syn": 0,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "ch": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "oh": {
+      "syn": 0,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "cp": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "tom": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "ht": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "cy": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     }
+    },
+    "knobs": {
+     "tune": 0.5,
+     "attack": 0.5,
+     "decay": 0.45,
+     "drive": 0.25,
+     "snappy": 0.5,
+     "gate": 0,
+     "sweep": 0.5,
+     "sdtune": 0.5,
+     "sddecay": 0.5,
+     "sdtone": 0.5
+    }
+   }
+  },
+  {
+   "kind": "edited",
+   "code": "AS4c_5AAdgMHB4gAAACAAAAAAFBgVnKEAAAQdwACAJAAkJBgAAAAAAAAQAAAAAAJAQAAAAAAMABgIwACUAAAAAAAAABPAAALuAH0BdwD6BoODAG0AwAAH18OAe0BE68BDgEWAQAAAgICAhEAFYgXYEcEAAAhNIABAC8zG1gCAAALuIAAADdXIFc",
+   "beat": {
+    "bpm": 128,
+    "steps": {
+     "BD": "9000760307078800",
+     "SD": "0000800000000050",
+     "CH": "6056728400001077",
+     "OH": "0002009000909060",
+     "CP": "0000000000004000",
+     "TOM": "0000000901000000",
+     "HT": "0000300060230002",
+     "CY": "5000000000000000"
+    },
+    "fx": {
+     "swing": 0.3,
+     "drive": 0.05,
+     "reverb": 0.15,
+     "delay": 0.1,
+     "dfb": 0.667
+    },
+    "kit": {
+     "bd": {
+      "model": 0,
+      "sample": {
+       "n": 1,
+       "hash": 180
+      },
+      "layer": {
+       "syn": 0,
+       "lev": 0.8031
+      }
+     },
+     "sd": {
+      "model": 2,
+      "sample": {
+       "n": 1,
+       "hash": 237
+      },
+      "layer": {
+       "syn": 0.5039
+      }
+     },
+     "ch": {
+      "model": 1
+     },
+     "oh": {
+      "model": 2,
+      "sample": {
+       "n": 1,
+       "hash": 22
+      },
+      "layer": {
+       "syn": 0
+      }
+     },
+     "cp": {
+      "model": 2
+     },
+     "tom": {
+      "model": 2
+     },
+     "ht": {
+      "model": 2
+     },
+     "cy": {
+      "model": 2
+     }
+    },
+    "knobs": {
+     "tune": 0.5512,
+     "snappy": 0.5984
+    },
+    "voices": {
+     "BD": {
+      "level": 0.85
+     },
+     "SD": {
+      "tune": 0.2083,
+      "pan": -0.3
+     },
+     "CH": {
+      "decay": 0.3
+     },
+     "HT": {
+      "tune": 0.4167
+     }
+    },
+    "pmutes": [
+     "TOM"
+    ]
+   },
+   "data": {
+    "steps": {
+     "BD": "9000760307078800",
+     "SD": "0000800000000050",
+     "CH": "6056728400001077",
+     "OH": "0002009000909060",
+     "CP": "0000000000004000",
+     "TOM": "0000000901000000",
+     "HT": "0000300060230002",
+     "CY": "5000000000000000"
+    },
+    "bpm": 128,
+    "fx": {
+     "swing": 0.3,
+     "drive": 0.05,
+     "reverb": 0.15,
+     "delay": 0.1,
+     "chorus": 0,
+     "dtime": 0.4,
+     "dfb": 0.667,
+     "bits": 0,
+     "comp": 0,
+     "dtone": 0.638,
+     "rsize": 0.566,
+     "rtone": 0.442,
+     "rpre": 0.167,
+     "xtone": 1,
+     "crate": 0.624,
+     "cdepth": 0.5,
+     "brate": 0,
+     "catk": 0.742,
+     "crel": 1,
+     "cthr": 0.45,
+     "cratio": 0.571,
+     "cknee": 0.5,
+     "cmake": 0,
+     "chpf": 0.5
+    },
+    "stretch": 0,
+    "voices": {
+     "BD": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.85,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "SD": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0.2083,
+      "pan": -0.3,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CH": {
+      "tone": 0,
+      "decay": 0.3,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "OH": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CP": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "TOM": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "HT": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0.4167,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CY": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     }
+    },
+    "kit": {
+     "tune": 0.5512,
+     "attack": 0.5,
+     "decay": 0.45,
+     "drive": 0.25,
+     "snappy": 0.5984,
+     "gate": 0,
+     "sweep": 0.5,
+     "sdtune": 0.5,
+     "sddecay": 0.5,
+     "sdtone": 0.5
+    },
+    "sounds": {},
+    "machines": {
+     "bd": "909",
+     "sd": "mm",
+     "ch": "808",
+     "oh": "mm",
+     "cp": "mm",
+     "tom": "mm",
+     "ht": "mm",
+     "cy": "mm"
+    },
+    "samples": {
+     "bd": "bd/01 BluePrint.wav",
+     "sd": "sd/01 Psy 02.wav",
+     "ch": "",
+     "oh": "oh/01 RID 014 Narrow.wav",
+     "cp": "",
+     "tom": "",
+     "ht": "",
+     "cy": ""
+    },
+    "layers": {
+     "bd": {
+      "syn": 0,
+      "lev": 0.8031,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "sd": {
+      "syn": 0.5039,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "ch": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "oh": {
+      "syn": 0,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "cp": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "tom": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "ht": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "cy": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     }
+    },
+    "knobs": {
+     "tune": 0.5512,
+     "attack": 0.5,
+     "decay": 0.45,
+     "drive": 0.25,
+     "snappy": 0.5984,
+     "gate": 0,
+     "sweep": 0.5,
+     "sdtune": 0.5,
+     "sddecay": 0.5,
+     "sdtone": 0.5
+    },
+    "pmutes": [
+     "TOM"
+    ]
+   }
+  },
+  {
+   "kind": "factory",
+   "code": "AQ4eH5AAkACQAJAAAAAAAAAAAwR0CHQIdAh0CACAAIAAgACAAACAAAAAgAAPAAAEsAXcAyAB9AwEfgUAACVvDAIyAQAAAAAAAAACCwAM6xg4DIAYAgAAH0AQAAAF3Ko",
+   "beat": {
+    "bpm": 130,
+    "steps": {
+     "BD": "9000900090009000",
+     "SD": "0000000000000304",
+     "CH": "7408740874087408",
+     "OH": "0080008000800080",
+     "CP": "0000800000008000",
+     "TOM": "0000000000000000",
+     "HT": "0000000000000000",
+     "CY": "0000000000000000"
+    },
+    "fx": {
+     "swing": 0.12,
+     "drive": 0.15,
+     "reverb": 0.08,
+     "delay": 0.05
+    },
+    "kit": {
+     "bd": {
+      "model": 0,
+      "sample": {
+       "n": 4,
+       "hash": 126
+      },
+      "layer": {
+       "syn": 0,
+       "tune": -0.0417
+      }
+     },
+     "sd": {
+      "model": 0,
+      "sample": {
+       "n": 2,
+       "hash": 50
+      },
+      "layer": {
+       "syn": 0
+      }
+     },
+     "ch": {
+      "model": 0
+     },
+     "oh": {
+      "model": 0
+     },
+     "cp": {
+      "model": 0
+     },
+     "tom": {
+      "model": 0
+     },
+     "ht": {
+      "model": 0
+     },
+     "cy": {
+      "model": 2
+     }
+    },
+    "knobs": {
+     "tune": 0.3307,
+     "attack": 0.62,
+     "drive": 0.32
+    },
+    "voices": {
+     "OH": {
+      "decay": 0.8
+     },
+     "CP": {
+      "reverb": 0.15
+     }
+    }
+   },
+   "data": {
+    "steps": {
+     "BD": "9000900090009000",
+     "SD": "0000000000000304",
+     "CH": "7408740874087408",
+     "OH": "0080008000800080",
+     "CP": "0000800000008000",
+     "TOM": "0000000000000000",
+     "HT": "0000000000000000",
+     "CY": "0000000000000000"
+    },
+    "bpm": 130,
+    "fx": {
+     "swing": 0.12,
+     "drive": 0.15,
+     "reverb": 0.08,
+     "delay": 0.05,
+     "chorus": 0,
+     "dtime": 0.4,
+     "dfb": 0.6666666666666666,
+     "bits": 0,
+     "comp": 0,
+     "dtone": 0.638,
+     "rsize": 0.566,
+     "rtone": 0.442,
+     "rpre": 0.167,
+     "xtone": 1,
+     "crate": 0.624,
+     "cdepth": 0.5,
+     "brate": 0,
+     "catk": 0.742,
+     "crel": 1,
+     "cthr": 0.45,
+     "cratio": 0.571,
+     "cknee": 0.5,
+     "cmake": 0,
+     "chpf": 0.5
+    },
+    "stretch": 0,
+    "voices": {
+     "BD": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "SD": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CH": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "OH": {
+      "tone": 0,
+      "decay": 0.8,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CP": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0.15,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "TOM": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "HT": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     },
+     "CY": {
+      "tone": 0,
+      "decay": 1,
+      "level": 0.8,
+      "dist": 0,
+      "reverb": 0,
+      "delay": 0,
+      "chorus": 0,
+      "tune": 0,
+      "pan": 0,
+      "start": 0,
+      "atk": 0,
+      "hold": 0,
+      "fine": 0,
+      "ftype": 0,
+      "fcut": 1,
+      "freso": 0,
+      "fenv": 0,
+      "fatk": 0,
+      "fdec": 0.5
+     }
+    },
+    "kit": {
+     "tune": 0.3307,
+     "attack": 0.62,
+     "decay": 0.45,
+     "drive": 0.32,
+     "snappy": 0.5,
+     "gate": 0,
+     "sweep": 0.5,
+     "sdtune": 0.5,
+     "sddecay": 0.5,
+     "sdtone": 0.5
+    },
+    "sounds": {},
+    "machines": {
+     "bd": "909",
+     "sd": "909",
+     "ch": "909",
+     "oh": "909",
+     "cp": "909",
+     "tom": "909",
+     "ht": "909",
+     "cy": "mm"
+    },
+    "samples": {
+     "bd": "bd/04 Carassi.wav",
+     "sd": "sd/02 Psy 12.wav",
+     "ch": "",
+     "oh": "",
+     "cp": "",
+     "tom": "",
+     "ht": "",
+     "cy": ""
+    },
+    "layers": {
+     "bd": {
+      "syn": 0,
+      "lev": 1,
+      "tune": -0.0417,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "sd": {
+      "syn": 0,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "ch": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "oh": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "cp": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "tom": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "ht": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     },
+     "cy": {
+      "syn": 1,
+      "lev": 1,
+      "tune": 0,
+      "fine": 0,
+      "start": 0,
+      "len": 1,
+      "rev": 0
+     }
+    },
+    "knobs": {
+     "tune": 0.3307,
+     "attack": 0.62,
+     "decay": 0.45,
+     "drive": 0.32,
+     "snappy": 0.5,
+     "gate": 0,
+     "sweep": 0.5,
+     "sdtune": 0.5,
+     "sddecay": 0.5,
+     "sdtone": 0.5
+    }
+   }
+  }
+ ]
+}
