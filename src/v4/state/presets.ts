@@ -87,6 +87,8 @@ import { focus } from './focus';
 import { bassLine } from '../bass/line';
 import { bassState, cleanLen, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
 import { arpFactory, bassFactory, rytmFactory } from './factory';
+import { kit16FromLegacy, kit16FromStored, kit16ToStored, sameKit16, tracks, type StoredKit16 } from '../audio/tracks';
+import { stepsOut } from '../audio/pattern';
 import { patterns } from './patterns';
 import { analytics, track } from './analytics';
 import { cleanUser, migrateNames, presetLabel, userOk } from './presetName';
@@ -147,6 +149,12 @@ interface RytmData {
    * leur depart.
    */
   trigs?: TrigSet;
+  /**
+   * les 16 pistes (V.5.9, audio/tracks.ts StoredKit16, des diffs) : seulement quand elles disent ce que les champs d'avant
+   * ne disent pas (une piste 9 a 16 qui a un son, un comportement de voix ou un mix hors du depart) ; absentes sinon (un
+   * preset, un brouillon, une marque d'avant gardent leur empreinte, V.5.3 relit ce preset sans rien perdre de ses 8 voix)
+   */
+  tracks?: StoredKit16;
 }
 
 export interface Preset {
@@ -461,8 +469,12 @@ export function capture(m: PresetMachine): VoyData | RytmData | BassData {
   }
   const p = pattern.get();
   const v = voiceFx.get();
+  // Les 16 pistes (V.5.9) : a cote, seulement si les champs d'avant ne les disent pas
+  const k16 = tracks.get();
+  const more = sameKit16(k16, kit16FromLegacy(kit.get(), v)) ? null : kit16ToStored(k16);
   return {
-    steps: { ...p.steps },
+    // Les rangees des pistes 9 a 16 seulement si elles servent (V.5.9) : le JSON d'avant, octet pour octet, sans elles
+    steps: stepsOut(p.steps),
     bpm: p.bpm,
     fx: { ...pattern.fx.get() },
     stretch: mix.stretch,
@@ -480,6 +492,7 @@ export function capture(m: PresetMachine): VoyData | RytmData | BassData {
     ...(p.pmutes.length > 0 ? { pmutes: [...p.pmutes] } : {}),
     // Les reglages de trig (V.5.1) de meme : seulement s'il y en a hors du depart
     ...(anyTrigs(p.trigs) ? { trigs: JSON.parse(JSON.stringify(p.trigs)) as TrigSet } : {}),
+    ...(more ? { tracks: more } : {}),
   };
 }
 
@@ -556,6 +569,10 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
     for (const p of LFO_PARAMS) voiceFx.setLfo(inst, p, typeof fx[p] === 'number' ? (fx[p] as number) : lfoDefault(p));
   }
   applyKit(r);
+  // Les 16 pistes (V.5.9) : celles du preset s'il les porte ; sinon (un preset d'avant, ou sans rien de neuf) les pistes 1
+  // a 8 qu'il vient de poser, les pistes 9 a 16 vides, le comportement et le mix d'heritage (rien ne change sans elles)
+  const k16 = r.tracks ? kit16FromStored(r.tracks) : null;
+  tracks.replace(k16 ?? kit16FromLegacy(kit.get(), voiceFx.get()));
 }
 
 /**

@@ -45,12 +45,18 @@ export interface Dropped {
   mine: boolean;
   /** les scenes A et B (2026-10-27) : le lien V1 ne les porte pas */
   scenes: boolean;
+  /**
+   * les 16 pistes (V.5.9) : ce que les champs d'avant ne disent pas (une piste 9 a 16 qui a un son ou des pas, un
+   * comportement de voix ou un mix hors du depart) ; le lien V1 (fige, 8 voix) ne les porte pas, la v2 viendra avec V.6.0
+   */
+  tracks: boolean;
 }
 
 /** Le beat du MM-RYTM tel qu'il joue, en Beat (audio/beatcode.ts). */
 export function beatNow(): { beat: Beat; dropped: Dropped } {
   const r = capture('mm808') as RytmData & { locks?: unknown; scenes?: unknown; pmutes?: Inst[] };
-  const dropped: Dropped = { locks: !!r.locks && Object.keys(r.locks as object).length > 0, mine: false, scenes: !!r.scenes };
+  const extraRows = Object.keys(r.steps ?? {}).some((k) => !(INSTRUMENTS as readonly string[]).includes(k));
+  const dropped: Dropped = { locks: !!r.locks && Object.keys(r.locks as object).length > 0, mine: false, scenes: !!r.scenes, tracks: !!(r as { tracks?: unknown }).tracks || extraRows };
   const kit = {} as Record<BeatFam, BeatFamily>;
   for (const f of FAMS_V1) {
     const m = MODELS_V1.indexOf((r.machines?.[f] ?? '909') as (typeof MODELS_V1)[number]);

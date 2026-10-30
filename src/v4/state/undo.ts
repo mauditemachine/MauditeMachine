@@ -29,6 +29,7 @@ import { mix } from '../audio/drums';
 import { kit } from '../audio/kit';
 import { INSTRUMENTS, STEP_COUNT, pattern } from '../audio/pattern';
 import { voiceFx } from '../audio/voicefx';
+import { tracks as trackStore } from '../audio/tracks';
 import { toStored } from '../rytm/sceneData';
 import { bassParams } from '../bass/params';
 import { BASS_STEPS, bassState, emptyStep } from '../bass/state';
@@ -166,7 +167,8 @@ function storedPart(m: PresetMachine, slot: number): Part {
 function sigOf(m: PresetMachine): readonly unknown[] {
   if (m === 'mm808') {
     const p = pattern.get();
-    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get(), pattern.scenes.get(), p.pmutes, p.trigs];
+    // Les 16 pistes (V.5.9) : le store des pistes (les pistes 9 a 16, leur comportement, le mix)
+    return [p.steps, p.bpm, p.locks, pattern.fx.get(), mix.stretch, voiceFx.get(), kit.get(), pattern.scenes.get(), p.pmutes, p.trigs, trackStore.get()];
   }
   if (m === 'voy') return [voyParams.get(), seq.get(), arp.get().prog];
   const s = bassState.get();
@@ -601,7 +603,7 @@ function safeWatch(m: PresetMachine, stores: readonly { subscribe(fn: () => void
 
 if (typeof window !== 'undefined') {
   load();
-  safeWatch('mm808', [pattern, pattern.fx, mix, voiceFx, kit, patterns, pattern.scenes]);
+  safeWatch('mm808', [pattern, pattern.fx, mix, voiceFx, kit, patterns, pattern.scenes, trackStore]);
   if (MS.includes('voy')) safeWatch('voy', [voyParams, seq, arp]);
   if (MS.includes('bass')) {
     safeWatch('bass', [bassParams, bassState]);

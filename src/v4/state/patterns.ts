@@ -26,7 +26,8 @@
 
 import { clock } from '../audio/clock';
 import { anyLocks, cleanLocks, sameLocks, type Locks } from '../audio/locks';
-import { INSTRUMENTS, STEP_COUNT, cleanPmutes, pattern, type Steps } from '../audio/pattern';
+import { INSTRUMENTS, STEP_COUNT, cleanPmutes, extraRows, pattern, type Steps } from '../audio/pattern';
+import { TRACK_KEYS } from '../audio/tracks';
 import { anyTrigs, cleanTrigs, sameTrigs, type TrigSet } from '../audio/trig';
 import { DT_FACE, type Inst } from '../theme';
 import { NO_SCENES, anyScenes, cleanScenes, sameScenes, toStored, type SceneSet } from '../rytm/sceneData';
@@ -74,8 +75,9 @@ export const bankName = (b: number): string => 'ABCDEFGH'[Math.max(0, Math.min(B
 export const slotName = (i: number): string => `${bankName(bankOf(i))}${String((i % BANK_SIZE) + 1).padStart(2, '0')}`;
 
 const emptySteps = (): Steps => Object.fromEntries(INSTRUMENTS.map((k) => [k, '0'.repeat(STEP_COUNT)])) as Steps;
-const isEmpty = (s: Steps): boolean => INSTRUMENTS.every((k) => /^0+$/.test(s[k]));
-const sameSteps = (a: Steps, b: Steps): boolean => INSTRUMENTS.every((k) => a[k] === b[k]);
+// Les 16 pistes (V.5.9) : une rangee 9 a 16 absente est vide
+const isEmpty = (s: Steps): boolean => TRACK_KEYS.every((k) => /^0*$/.test(s[k] ?? ''));
+const sameSteps = (a: Steps, b: Steps): boolean => TRACK_KEYS.every((k) => (a[k] ?? '') === (b[k] ?? ''));
 
 function validSteps(x: unknown): Steps | null {
   if (!x || typeof x !== 'object') return null;
@@ -85,8 +87,16 @@ function validSteps(x: unknown): Steps | null {
     const v = o[k];
     out[k] = typeof v === 'string' && STEPS_RE.test(v) ? v : '0'.repeat(STEP_COUNT);
   }
-  return out;
+  // Les rangees des pistes 9 a 16 (V.5.9) : celles qui servent ; une sauvegarde d'avant n'en a pas
+  return Object.assign(out, extraRows(o));
 }
+
+/**
+ * Les champs d'une sauvegarde que cette version ne connait pas (V.5.9, cahier 4.5 : ceux de V.6.1 et V.6.2, les pas 17 a
+ * 128 de chaque emplacement par exemple) : recopies tels quels a chaque ecriture, pour qu'un retour arriere ne perde rien.
+ */
+const KNOWN_KEYS = new Set(['slots', 'locks', 'scenes', 'pmutes', 'trigs', 'cur', 'chain']);
+let unknownKeys: Record<string, unknown> = {};
 
 /** Les verrous a garder dans un emplacement : null sans verrou (le JSON reste court). */
 // Au moins un verrou (anyLocks : la forme v des verrous de R3 seule n'en est pas un)
@@ -111,6 +121,7 @@ function load(): PatternsState {
   try {
     const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; scenes?: unknown[]; pmutes?: unknown[]; trigs?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
     if (raw && Array.isArray(raw.slots)) {
+      unknownKeys = Object.fromEntries(Object.entries(raw).filter(([k]) => !KNOWN_KEYS.has(k)));
       for (let i = 0; i < PATTERN_SLOTS; i += 1) slots[i] = raw.slots[i] ? validSteps(raw.slots[i]) : null;
       // Une sauvegarde d'avant les verrous (2026-10-08) : aucun
       if (Array.isArray(raw.locks)) for (let i = 0; i < PATTERN_SLOTS; i += 1) locks[i] = cleanLocks(raw.locks[i]);
@@ -158,7 +169,7 @@ function save(): void {
       const pmutes = state.pmutes.some((m) => m !== null) ? state.pmutes : undefined;
       // Les reglages de trig de meme (V.5.1)
       const trigs = state.trigs.some((t) => t !== null) ? state.trigs : undefined;
-      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), ...(scenes ? { scenes } : {}), ...(pmutes ? { pmutes } : {}), ...(trigs ? { trigs } : {}), cur: state.cur, chain: state.chain }));
+      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), ...(scenes ? { scenes } : {}), ...(pmutes ? { pmutes } : {}), ...(trigs ? { trigs } : {}), cur: state.cur, chain: state.chain, ...unknownKeys }));
     } catch {
       /* stockage indisponible : les patterns vivent pour la visite */
     }
