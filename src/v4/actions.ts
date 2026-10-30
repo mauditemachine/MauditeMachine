@@ -216,6 +216,7 @@ let trkLast: { i: number; t: number } | null = null;
  * et sans la choisir (padMute) ; TRK s'en est servi.
  */
 export function trkMute(inst: Inst, t = performance.now()): void {
+  ctlAllEnd();
   padMute(inst, null);
   trk.use(t);
 }
@@ -236,6 +237,8 @@ export function trkStepMute(i: number, stage: Stage | null = null, t = performan
  * un son (la Digitakt), jamais deselectionnee ; l'ecran dit TRK SD. TRK s'en est servi : gardee, elle se ferme.
  */
 export function trkPick(inst: Inst, t: number): void {
+  // Le choix d'une voix termine un CONTROL ALL (V.5.2, la revue de D3a, R4)
+  ctlAllEnd();
   resume();
   const v = voices.get();
   if (v.soloMode) soloVoice(inst);
@@ -1045,6 +1048,8 @@ function bankViewToggle(stage: Stage | null): void {
     bankViewClose();
     return;
   }
+  // La grille gagne sur le mode MUTE, comme PTN (la revue de D3a, R2 et R10)
+  if (dtFace.mute() !== 'off') dtFace.setMute('off');
   bankOverGrid = editor.get() === 'mm808';
   if (!bankOverGrid) editor.toggle('mm808');
   dtFace.setBank(true);
@@ -1736,6 +1741,8 @@ export function escape(fromNo = false): boolean {
     lcdSamples.close();
     return true;
   }
+  // Un CONTROL ALL en cours (V.5.2, la revue de D3a, R4) : Echap l'annule, puis eteint TRK gardee
+  if (ctlAllUndo()) return true;
   // TRK gardee ou en fermeture (2026-10-27) : Echap l'eteint, avant le P-LOCK ; tenue, la main la lachera
   const tk = trk.get().mode;
   if (tk === 'latched' || tk === 'closing') {
@@ -2626,7 +2633,7 @@ function pageDial(k: number, v: number): void {
   else if (t === 'voice:sound') voiceSoundDial(v);
   else if (t === 'voice:mix') voiceMixDial(v);
   else anyDial(t, v);
-  if (all) ctlAllApply(all, k);
+  if (all) ctlAllApply(all);
   sceneHint(`p:${k}` as DialId);
   // Rien a regler (pas de voix choisie, une voix a un seul son) : le message suffit, pas de contour
   if (!pageKnobLive(k)) return;
@@ -2664,16 +2671,14 @@ function ctlAllSet(k: CtlAllKey, inst: Inst, v: number): void {
 
 /** Les reglages touches pendant cette tenue de TRK et la valeur d'avant de chaque voix (NO les rend). */
 const ctlAllBefore = new Map<string, { key: CtlAllKey; was: Record<Inst, number> }>();
-/** Le potard du geste et la minuterie de son lacher (un potard qui ne se tient pas : la molette, le MIDI). */
-let ctlAllKnob = -1;
-let ctlAllTimer = 0;
-const CTL_ALL_RELEASE_MS = 400;
+/** Le pattern du CONTROL ALL en cours (la revue de D3a, R3 et R7) : un autre pattern le termine, jamais de reecriture croisee. */
+let ctlAllSlot = -1;
 
-/** TRK tenue ou gardee (en fermeture : seulement si CONTROL ALL a deja servi pendant cette tenue). */
+/** TRK tenue ou gardee (la revue de D3a, R4 : gardee, elle le reste apres un CONTROL ALL). */
 function ctlAllOn(): boolean {
   if (!DT_FACE) return false;
   const m = trk.get().mode;
-  return m === 'held' || m === 'latched' || (m === 'closing' && ctlAllBefore.size > 0);
+  return m === 'held' || m === 'latched';
 }
 
 /** Avant l'ecriture : le reglage et la valeur d'avant des huit voix ; null si CONTROL ALL ne s'applique pas. */
@@ -2681,10 +2686,11 @@ function ctlAllStart(t: SlotTarget): CtlAllKey | null {
   if (!ctlAllOn() || !pattern.get().instrument) return null;
   const key = ctlAllKeyOf(t);
   if (!key) return null;
-  // Un CONTROL ALL entier, une seule etape d'UNDO : la rafale d'avant se ferme, celle-ci reste ouverte jusqu'a TRK eteinte
+  // Un CONTROL ALL entier, une seule etape d'UNDO : la rafale d'avant se ferme, celle-ci reste ouverte jusqu'a sa fin
   if (ctlAllBefore.size === 0) {
     undo.boundary('mm808');
     undo.hold('mm808', true);
+    ctlAllSlot = patterns.get().cur;
   }
   const id = `${key.kind}:${key.p}`;
   if (!ctlAllBefore.has(id)) ctlAllBefore.set(id, { key, was: Object.fromEntries(INSTRUMENTS.map((i) => [i, ctlAllGet(key, i)])) as Record<Inst, number> });
@@ -2694,55 +2700,52 @@ function ctlAllStart(t: SlotTarget): CtlAllKey | null {
 
 /**
  * Apres l'ecriture : les huit voix prennent la valeur de la voix choisie (le manuel [M1] 6.2.2 ne dit pas si c'est la meme
- * valeur ou le meme ecart : le cahier tranche, la meme valeur). TRK tenue : elle a servi ; gardee : elle se referme au
- * lacher du potard, pas pendant.
+ * valeur ou le meme ecart : le cahier tranche, la meme valeur). TRK tenue : elle a servi (son lacher ne la garde pas) ;
+ * gardee : elle le reste jusqu'a une tape sur TRK, le choix d'une voix ou Echap, NO peut annuler tant qu'elle est allumee
+ * (la revue de D3a, R4 ; plus de fermeture apres le lacher du potard, R5 et R6).
  */
-function ctlAllApply(key: CtlAllKey, k: number): void {
+function ctlAllApply(key: CtlAllKey): void {
   const inst = pattern.get().instrument;
   if (!inst) return;
   const v = ctlAllGet(key, inst);
   for (const o of INSTRUMENTS) if (o !== inst && ctlAllGet(key, o) !== v) ctlAllSet(key, o, v);
-  const now = performance.now();
-  if (trk.get().mode !== 'latched') trk.use(now);
-  ctlAllKnob = k;
-  window.clearTimeout(ctlAllTimer);
-  ctlAllTimer = faceTouch.held(k) ? 0 : window.setTimeout(ctlAllReleased, CTL_ALL_RELEASE_MS);
+  if (trk.get().mode === 'held') trk.use(performance.now());
 }
 
-/** Le potard du geste lache : TRK gardee a servi, elle se referme comme apres le choix d'une voix. */
-function ctlAllReleased(): void {
-  window.clearTimeout(ctlAllTimer);
-  ctlAllTimer = 0;
-  if (ctlAllBefore.size > 0 && trk.engaged()) trk.use(performance.now());
-}
-
-faceTouch.onUp((k) => {
-  if (k === ctlAllKnob && ctlAllBefore.size > 0) ctlAllReleased();
+// La carte d'un potard pendant TRK : CONTROL ALL, seulement s'il y regle un reglage des huit voix (R12)
+setCtlAllResolver((k) => {
+  if (!ctlAllOn()) return false;
+  const b = knobBlock(k);
+  const t = b === null ? null : pageTarget(b);
+  return t !== null && ctlAllKeyOf(t) !== null;
 });
-// La carte d'un potard pendant TRK : CONTROL ALL
-setCtlAllResolver(ctlAllOn);
 
-/** TRK eteinte : CONTROL ALL est fait (son etape d'UNDO se ferme). */
+/** CONTROL ALL est fait (TRK eteinte, une voix choisie, un autre pattern) : les changements restent, son etape d'UNDO se ferme. */
 function ctlAllEnd(): void {
-  window.clearTimeout(ctlAllTimer);
-  ctlAllTimer = 0;
-  ctlAllKnob = -1;
   ctlAllState.set(false);
   if (ctlAllBefore.size === 0) return;
   ctlAllBefore.clear();
+  ctlAllSlot = -1;
   undo.hold('mm808', false);
 }
 
-/** NO avant de lacher TRK : chaque voix retrouve sa valeur d'avant ; true s'il y avait un CONTROL ALL a annuler. */
+// Un autre pattern pendant le geste (la chaine qui avance, un pattern pose) : CONTROL ALL se termine (R3, R7)
+patterns.subscribe(() => {
+  if (ctlAllBefore.size > 0 && patterns.get().cur !== ctlAllSlot) ctlAllEnd();
+});
+
+/**
+ * NO (ou Echap, le NO du desktop) tant que TRK est allumee : chaque voix retrouve sa valeur d'avant, puis TRK gardee
+ * s'eteint ; true s'il y avait un CONTROL ALL a annuler.
+ */
 function ctlAllUndo(): boolean {
   if (ctlAllBefore.size === 0 || !trk.engaged()) return false;
   for (const { key, was } of ctlAllBefore.values()) for (const i of INSTRUMENTS) if (ctlAllGet(key, i) !== was[i]) ctlAllSet(key, i, was[i]);
   ctlAllBefore.clear();
+  ctlAllSlot = -1;
   // La rafale revient a son depart : elle ne laisse aucune etape
   undo.hold('mm808', false);
   ctlAllState.set(false);
-  window.clearTimeout(ctlAllTimer);
-  ctlAllTimer = 0;
   if (trk.get().mode !== 'held') trk.cancel();
   lcdMessage.show('CONTROL ALL UNDONE', 1400);
   return true;
@@ -4954,8 +4957,9 @@ export function noKey(stage: Stage | null = null, viaEsc = false): boolean {
     reloadKey();
     return true;
   }
-  // NO avant de lacher TRK (V.5.2, CONTROL ALL de la Digitakt) : chaque voix retrouve sa valeur d'avant
-  if (!viaEsc && ctlAllUndo()) return true;
+  // NO ou Echap tant que TRK est allumee (V.5.2, CONTROL ALL de la Digitakt ; la revue de D3a, R4) : chaque voix retrouve sa
+  // valeur d'avant
+  if (ctlAllUndo()) return true;
   // La vue BANK (V.5.2) : NO la ferme
   if (dtFace.bank()) {
     bankViewClose();

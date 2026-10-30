@@ -429,9 +429,9 @@ let stepResolver: (i: number) => 'locktrig' | 'bank' | null = () => null;
 export function setStepResolver(fn: (i: number) => 'locktrig' | 'bank' | null): void {
   stepResolver = fn;
 }
-/** TRK tenue ou gardee (V.5.2) : un potard fait CONTROL ALL, sa carte ; actions.ts l'inscrit. */
-let ctlAllResolver: () => boolean = () => false;
-export function setCtlAllResolver(fn: () => boolean): void {
+/** TRK tenue ou gardee (V.5.2) : le potard k fait CONTROL ALL sur sa page, sa carte ; actions.ts l'inscrit. */
+let ctlAllResolver: (k: number) => boolean = () => false;
+export function setCtlAllResolver(fn: (k: number) => boolean): void {
   ctlAllResolver = fn;
 }
 
@@ -461,7 +461,7 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   if (pe) {
     const k = Number(pe[1]);
     if (FACE_FOLLOWS_PAGE) {
-      if (ctlAllResolver()) return { id: 'ctlall' };
+      if (ctlAllResolver(k)) return { id: 'ctlall' };
       const b = knobResolver(k);
       return b === null ? { id: 'knob:empty' } : { id: `p:${b}` };
     }

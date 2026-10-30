@@ -913,8 +913,7 @@ const RAW: Record<RytmInfoId, Raw> = {
       "Tourne un potard d'une page de voix (TRIG, SRC, FLTR, AMP, FX, MOD) : les huit voix prennent la même valeur.",
       'NO avant de lâcher TRK : chaque voix retrouve sa valeur d\'avant.',
     ],
-    text: "Comme sur une Digitakt : TRK tenue et un potard tourné, le réglage change sur les huit voix, l'en-tête dit CONTROL ALL. Elles prennent toutes la valeur de la voix choisie. NO avant de lâcher TRK annule tout le geste ; un UNDO défait un CONTROL ALL entier en une fois. Un pas tenu (P-LOCK) gagne, comme d'habitude. Le son lui-même et les réglages de la machine de synthèse (différents d'une voix à l'autre) restent sur la voix choisie. Les potards de TEMPO, SEND FX, MIXER et KIT ne sont pas concernés.",
-    key: 'TRK tenue',
+    text: "Comme sur une Digitakt : TRK tenue et un potard tourné, le réglage change sur les huit voix, l'en-tête dit CONTROL ALL. Elles prennent toutes la valeur de la voix choisie. NO avant de lâcher TRK annule tout le geste ; un UNDO défait un CONTROL ALL entier en une fois. Un pas tenu (P-LOCK) gagne, comme d'habitude. Le son lui-même et les réglages de la machine de synthèse (différents d'une voix à l'autre) restent sur la voix choisie. Les potards de MASTER, TEMPO, SEND FX, MIXER et KIT ne sont pas concernés. Une tape sur TRK la garde : elle le reste après le geste, jusqu'à une autre tape sur TRK, le choix d'une voix ou Échap (qui annule, comme NO).",
     tip: 'TRK et FLTR FREQ vers le bas : tout le kit se ferme d\'un coup avant le drop, NO si tu changes d\'avis.',
   },
   fill: {

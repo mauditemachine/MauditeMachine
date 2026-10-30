@@ -1355,7 +1355,8 @@ export class Screen {
     if (drop && !s.keys) this.paintDrop(drop);
     // La touche i (R4) : par-dessus tout, sur toutes les vues ; sur l'en-tete negatif du P-LOCK, en negatif aussi
     this.paintInfoKey(rytmInfos.isOn(), (paged || !!sb) && lockStep >= 0 && !drop);
-    if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || this.waveFrom > 0) next = ANIM_MS;
+    // La vue BANK (V.5.2, la revue de D3a, R11) : la banque affichee clignote, meme a l'arret
+    if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || (rytmEdit && DT_FACE && dtFace.bank() && ptn.bank !== bankOf(ptn.cur)) || this.waveFrom > 0) next = ANIM_MS;
     // Les coups qui pulsent : sur l'anneau seulement (la page n'en montre rien)
     if (!paged && this.hitAt.some((t) => now - t < PULSE_MS)) next = next || ANIM_MS;
     this.done(s, now);
@@ -2502,18 +2503,18 @@ export class Screen {
           x1 -= 5;
         }
       }
-      // CONTROL ALL (V.5.2, TRK + un potard d'une page de voix) : sa pastille pleine pendant le geste
+      // CONTROL ALL (V.5.2, TRK + un potard d'une page de voix) : sa pastille pleine tant que NO peut l'annuler (la revue de
+      // D3a, R4) ; le mot le plus long qui tient
       if (DT_FACE && ctlAllState.get()) {
-        const full = this.textWidth('CONTROL ALL', T.sound, 800, 0.6) + 8;
-        const word = fits(full) ? 'CONTROL ALL' : 'ALL';
-        const w = word === 'ALL' ? this.textWidth(word, T.sound, 800, 0.6) + 8 : full;
-        if (fits(w)) {
+        const word = ['CONTROL ALL · NO: UNDO', 'CONTROL ALL', 'ALL'].find((t) => fits(this.textWidth(t, T.sound, 800, 0.6) + 8));
+        if (word) {
+          const w = this.textWidth(word, T.sound, 800, 0.6) + 8;
           x1 -= w;
           this.roundRect(x1, H.pillY, w, T.pillH, 2.2, INK);
           this.text(word, x1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 800, 'center', 0.6);
           x1 -= 5;
         }
-        this.info.head += '|CONTROL ALL';
+        this.info.head += '|CONTROL ALL · NO: UNDO';
       }
       // Le pas qui joue a des verrous (n'importe quelle page) : P-LOCK un instant, plein (69-common2, point 3)
       if (mode && mode.kind === 'flash') {

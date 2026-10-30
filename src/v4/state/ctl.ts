@@ -11,8 +11,6 @@ const KNOBS = 8;
 const holders: number[] = new Array(KNOBS).fill(0);
 const turnedAt: number[] = new Array(KNOBS).fill(-Infinity);
 const turnedBy: (CtlSrc | null)[] = new Array(KNOBS).fill(null);
-/** Le lacher d'un potard (V.5.2 : CONTROL ALL referme TRK gardee au lacher, pas pendant le geste). */
-const upListeners = new Set<(k: number) => void>();
 
 export const faceTouch = {
   /** un pointeur (ou le toucher du materiel) prend le potard k */
@@ -21,16 +19,11 @@ export const faceTouch = {
   },
   /** il le lache */
   up(k: number): void {
-    if (k < 0 || k >= KNOBS) return;
-    holders[k] = Math.max(0, holders[k] - 1);
-    if (holders[k] === 0) upListeners.forEach((fn) => fn(k));
+    if (k >= 0 && k < KNOBS) holders[k] = Math.max(0, holders[k] - 1);
   },
-  /** ecoute le lacher des potards */
-  onUp(fn: (k: number) => void): () => void {
-    upListeners.add(fn);
-    return () => {
-      upListeners.delete(fn);
-    };
+  /** un potard au moins est tenu (V.5.2 : TRK ne s'eteint jamais sous un potard tenu) */
+  anyHeld(): boolean {
+    return holders.some((h) => h > 0);
   },
   /** le potard k a tourne (t : performance.now()) */
   turn(k: number, src: CtlSrc, t = performance.now()): void {

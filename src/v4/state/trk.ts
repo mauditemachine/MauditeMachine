@@ -8,6 +8,7 @@
  */
 
 import { FACE_HOLD_MS, PAD_DOUBLE_TAP_MS } from '../theme';
+import { faceTouch } from './ctl';
 import { focus } from './focus';
 import { holdLatch } from './holdLatch';
 
@@ -51,8 +52,15 @@ function arm(): void {
   timer = window.setTimeout(fire, wait + 1);
 }
 
+/** Un potard tenu (V.5.2, la revue de D3a, R5) : TRK ne s'eteint pas sous lui, la fermeture attend son lacher. */
+const HELD_RETRY_MS = 100;
+
 function fire(): void {
   timer = 0;
+  if (faceTouch.anyHeld()) {
+    timer = window.setTimeout(fire, HELD_RETRY_MS);
+    return;
+  }
   trk.tick(performance.now());
   arm();
 }
