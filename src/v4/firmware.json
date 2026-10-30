@@ -1,8 +1,8 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "5.2",
-    "fingerprint": "sha256:cfbd22331b087f9c6290ae9dde9706f10ca2f31f887f30ec5d56d312dd7d386e",
+    "version": "5.3",
+    "fingerprint": "sha256:40aceef8bd9735ce0fd9aa6049479bb997edd7d70a58abf9e970b06a6b7b0468",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -11,7 +11,8 @@
       { "version": "4.3", "date": "2026-10-28", "note": "les potards tournent toujours ce qu'on entend, meme quand une scene tient le reglage", "sha": "d66a715" },
       { "version": "5.0", "date": "2026-10-29", "note": "face facon Digitakt (etape D1) : rangee de 14 touches FUNC TRK PTN REC PLAY STOP TRIG SRC FLTR AMP FX MOD YES NO et leurs fonctions orange, OPEN sur le logo M, couleurs de la Digitakt, REC (les pas hors REC jouent les voix), PLAY et sa pause, mode MUTE global et du pattern, pages TRIG MOD TEMPO SEND FX MIXER, SAVE et RELOAD, COPY et PASTE, cibles MIDI et LEDs du boitier", "sha": "00bd989" },
       { "version": "5.1", "date": "2026-10-29", "note": "le sequenceur facon Digitakt (etape D2) : page TRIG complete (LEN, PROB, COND, microtiming, LFO.T, retrig), lock trigs, FILL en tenant YES, deux LFO par voix sur MOD", "sha": "b8e03d4" },
-      { "version": "5.2", "date": "2026-10-30", "note": "les banques A a H (128 patterns) et CONTROL ALL (TRK + potard)", "sha": "2393fa3" }
+      { "version": "5.2", "date": "2026-10-30", "note": "les banques A a H (128 patterns) et CONTROL ALL (TRK + potard)", "sha": "2393fa3" },
+      { "version": "5.3", "date": "2026-10-30", "note": "l'enregistrement en direct (LIVE REC)", "sha": "7f7d1f8" }
     ]
   },
   "voy": { "name": "MM-ARP", "version": "2.3", "fingerprint": "sha256:402d3079638809c404122b6a6b66423c5453788651ee4d84b5e255ddd6322b49", "history": [] },
