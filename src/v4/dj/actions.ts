@@ -10,7 +10,7 @@
  */
 
 import { clock } from '../audio/clock';
-import { BPM, pattern } from '../audio/pattern';
+import { pattern } from '../audio/pattern';
 import { arp } from '../voyager/arp';
 import { anyPlaying, machinePlaying } from '../state/playLock';
 import { bassLoad } from '../state/bassload';
@@ -1281,6 +1281,12 @@ export function masterDeck(s = djState.get()): DjDeck | null {
   return best;
 }
 
+/**
+ * La plage du SYNC des machines (P0, 2026-10-30, docs/v4/dt2/dt2-master-spec.md 1.3) : 100 a 150 BPM, la borne
+ * d'aujourd'hui du MM-RYTM, gardee a part de BPM (audio/pattern.ts), qui passe a 30-300 en V.6.0 sans changer le SYNC.
+ */
+const SYNC_BPM = { min: 100, max: 150 } as const;
+
 /** Le tempo que la MASTER donne aux machines : le sien, au double ou a la moitie pour tenir dans 100..150 ; null sinon. */
 export function linkTempo(s = djState.get()): { deck: DjDeck; bpm: number; ratio: number } | null {
   const d = masterDeck(s);
@@ -1288,7 +1294,7 @@ export function linkTempo(s = djState.get()): { deck: DjDeck; bpm: number; ratio
   if (!d || !b) return null;
   for (const ratio of [1, 2, 0.5]) {
     const m = b * ratio;
-    if (m >= BPM.min && m <= BPM.max) return { deck: d, bpm: m, ratio };
+    if (m >= SYNC_BPM.min && m <= SYNC_BPM.max) return { deck: d, bpm: m, ratio };
   }
   return null;
 }
