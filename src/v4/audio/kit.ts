@@ -70,607 +70,86 @@
  * passe sur OFF et la synthese reprend si elle etait a 0.
  */
 
-import { lenOfDecay, sampleTuneSt } from './sampledsp';
-import { isUserKey, sampleByKey, samplesChanged, samplesOf } from './samples';
-import {
-  KICK_SWEEP,
-  SD_BODY_HZ,
-  SD_DECAY_S,
-  SD_TONE_HZ,
-  kickDecayS,
-  kickHz,
-  sdDecayFactor,
-  sdToneFactor,
-  sdTuneFactor,
-  sweepDepth,
-  type KitModel,
-  type SampleLayer,
-  type ShotId,
-  type ShotTweak,
-} from './shotsdsp';
-
-export type { KitModel, ShotTweak } from './shotsdsp';
-export const KIT_MODELS: readonly KitModel[] = ['909', '808', 'mm'];
-export const KIT_MODEL_LABEL: Readonly<Record<KitModel, string>> = { '909': '909', '808': '808', mm: 'MM' };
-
-/** Les familles de voix qui changent de son : une par voix (2026-10-18), dans l'ordre des pads. */
-export type KitFamily = 'bd' | 'sd' | 'ch' | 'oh' | 'cp' | 'tom' | 'ht' | 'cy';
-/** Les reglages continus de la machine, et GATE (0 ou 1, un commutateur a deux crans). */
-export type KitKnob = 'tune' | 'attack' | 'decay' | 'drive' | 'snappy' | 'gate' | 'sweep' | 'sdtune' | 'sddecay' | 'sdtone';
-/** Un TWEAK du MM-RYTM : un choix de son ou un potard. */
-export type KitId = KitFamily | KitKnob;
-
-export const KIT_FAMILIES: readonly KitFamily[] = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
-export const KIT_KNOBS: readonly KitKnob[] = ['tune', 'attack', 'decay', 'drive', 'snappy', 'gate', 'sweep', 'sdtune', 'sddecay', 'sdtone'];
-/**
- * Les reglages du kit gardes par un preset (state/presets.ts) et cibles MIDI
- * (rytm:kit:<id>), dans leur ordre : les onze cases de l'ancienne plaque
- * TWEAKS (R3 n'en ajoute pas) ; oh, ht et cy (une famille par voix depuis le
- * 2026-10-18) suivent a part (midi/targets.ts).
- */
-export const KIT_IDS: readonly KitId[] = ['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'ch', 'tom'];
-/**
- * La plaque TWEAKS (OPEN) et ses jumeaux, dans leur ordre : les reglages de la
- * machine seulement depuis le 2026-10-18 (Mika : "je veux avoir la selection
- * dans les Sounds ! et d'ailleurs pas dans OPEN") ; le son de chaque voix se
- * choisit a l'ecran (SOUND, page VOICE) et au MIDI (rytm:kit:<famille>).
- */
-export const KIT_PLATE_IDS: readonly KitId[] = ['tune', 'attack', 'decay', 'drive', 'snappy', 'gate'];
-/** Les potards de la machine ajoutes par R3 (2026-10-08) : sur la page SRC et en MIDI (rytm:kit:<id>), pas sur la plaque. */
-export const KIT_MORE: readonly KitKnob[] = ['sweep', 'sdtune', 'sddecay', 'sdtone'];
-
-export const isFamily = (id: KitId): id is KitFamily => (KIT_FAMILIES as readonly string[]).includes(id);
-/** Les crans d'un TWEAK : 3 pour un choix de son (plus un par echantillon de la famille), 2 pour GATE, 0 pour un potard. */
-export const kitSteps = (id: KitId): number => (isFamily(id) ? KIT_MODELS.length + samplesOf(id).length : id === 'gate' ? 2 : 0);
-/** Les noms des crans d'un choix de son : 909, 808, MM, puis le nom de chaque echantillon (la plaque). */
-export const kitStepLabels = (f: KitFamily): string[] => {
-  const list = samplesOf(f);
-  // Jusqu'a huit echantillons : leurs noms (ENGELHARDT, CARASSI) ; au-dela, leur numero (le premier, le dernier et un sur cinq ecrits)
-  if (list.length <= 8) return [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...list.map((s) => s.label)];
-  const named = (i: number): boolean => i === 0 || i === list.length - 1 || (i + 1) % 5 === 0;
-  return [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...list.map((_, i) => (named(i) ? String(i + 1) : ''))];
-};
-export const GATE_LABELS = ['OFF', 'ON'] as const;
-
-/** Les sons d'une famille, un par cran (909, 808, MM, puis ses echantillons) : les cartes INFOS, le SOUND en P-LOCK d'avant. */
-export const kitSoundNames = (f: KitFamily): string[] => [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...samplesOf(f).map((s) => s.label)];
-/** Les machines de la couche SYNTH (MACHINE de SRC). */
-export const kitMachineNames = (): string[] => KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]);
 /*
- * La liste unique de SOUND (VOICE, 2026-10-09) : actions.ts voiceSounds (OFF, 909, 808, MM, puis les samples de la
- * famille) ; le navigateur des sons (2026-10-18, state/lcdSamples.ts) la montre entiere.
+ * V.5.9 (2026-10-30, le moteur a 16 pistes, docs/v4/dt2/dt2-master-spec.md 4.1) : ce module est la FACADE du kit sur
+ * le store des 16 pistes (audio/tracks.ts). Toute son API d'aujourd'hui reste (environ 125 appels kit.* dans le code) :
+ * elle lit et ecrit les pistes 1 a 8 (une famille = la piste fixe de son rang : bd T1 ... cy T8), ses potards restent
+ * globaux (un potard tourne ecrit les 8 pistes, la loi d'avant), et kit.subscribe annonce les memes familles qu'avant.
+ * Les lois pures (types, labels, couches, la lecture d'un kit retenu, la vue d'un son, son calcul) sont dans
+ * audio/kitlaw.ts, re-exporte ici tel quel.
  */
-/** La couche SAMPLE d'une famille : OFF, puis ses echantillons (SAMPLE de SMPL). */
-export const kitSampleNames = (f: KitFamily): string[] => ['OFF', ...samplesOf(f).map((s) => s.label)];
 
-/* ---------------- les couches (2026-10-08, l'etape R3) ---------------- */
+import { sampleByKey, samplesOf } from './samples';
+import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type ShotId } from './shotsdsp';
+import {
+  GATE_LABELS,
+  KIT_DEFAULT,
+  KIT_FAMILIES,
+  KIT_LABEL,
+  KIT_MODELS,
+  KIT_MODEL_LABEL,
+  KNOB_DEFAULT,
+  LAYER_DEFAULT,
+  MODEL_DEFAULT,
+  clampLayer,
+  defaultKit,
+  familiesOf,
+  familyOf,
+  hzText,
+  isFamily,
+  isModel,
+  kickOf,
+  kitSteps,
+  playsOf,
+  q,
+  resolveSample,
+  sampleLabelOf,
+  sigOf,
+  soundIndex,
+  soundValue,
+  tweakOf,
+  viewWith,
+  voiceSoundIndexOf,
+  type Kit,
+  type KitFamily,
+  type KitId,
+  type KitKnob,
+  type KitModel,
+  type KitOverride,
+  type KitSound,
+  type KitView,
+  type Layer,
+  type LayerParam,
+  type Plays,
+  type ShotTweak,
+} from './kitlaw';
+import { LEGACY_KEYS, tracks, tracksLegacy } from './tracks';
 
-/**
- * Les reglages de couche d'une famille : syn, le niveau de la couche SYNTH ;
- * lev, celui de la couche SAMPLE (0 a 1, gain au carre : 1 la couche calee,
- * 0 muette) ; tune (-1 a 1, +/-24 demi-tons au demi-ton), fine (-1 a 1, +/-64
- * cents), start, len (0 a 1), rev (0 ou 1) : la page SMPL.
- */
-export type LayerParam = 'syn' | 'lev' | 'tune' | 'fine' | 'start' | 'len' | 'rev';
-export const LAYER_PARAMS: readonly LayerParam[] = ['syn', 'lev', 'tune', 'fine', 'start', 'len', 'rev'];
-export type Layer = Record<LayerParam, number>;
-export const LAYER_DEFAULT: Readonly<Layer> = { syn: 1, lev: 1, tune: 0, fine: 0, start: 0, len: 1, rev: 0 };
-/** TUNE de la couche SAMPLE : +/-24 demi-tons ; FINE : +/-64 cents. */
-export const LAYER_TUNE_ST = 24;
-export const LAYER_FINE_CENTS = 64;
-
-/** Le domaine d'un reglage de couche. */
-export const layerRange = (p: LayerParam): [number, number] => (p === 'tune' || p === 'fine' ? [-1, 1] : [0, 1]);
-/** Ses crans (0 : continu) : TUNE au demi-ton (49), FINE au cent (129), REV OFF / ON. */
-export const layerSteps = (p: LayerParam): number => (p === 'tune' ? 2 * LAYER_TUNE_ST + 1 : p === 'fine' ? 2 * LAYER_FINE_CENTS + 1 : p === 'rev' ? 2 : 0);
+export * from './kitlaw';
 
 const clamp01 = (v: number): number => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0);
 
-/** Un reglage de couche dans son domaine, a son cran (exact : la valeur telle quelle, une traduction d'un kit d'avant). */
-export function clampLayer(p: LayerParam, v: number, exact = false): number {
-  if (!Number.isFinite(v)) return LAYER_DEFAULT[p];
-  if (p === 'tune') return Math.max(-LAYER_TUNE_ST, Math.min(LAYER_TUNE_ST, Math.round(v * LAYER_TUNE_ST))) / LAYER_TUNE_ST;
-  if (p === 'fine') return Math.max(-LAYER_FINE_CENTS, Math.min(LAYER_FINE_CENTS, Math.round(v * LAYER_FINE_CENTS))) / LAYER_FINE_CENTS;
-  if (p === 'rev') return v >= 0.5 ? 1 : 0;
-  return exact ? clamp01(v) : Math.round(clamp01(v) * 127) / 127;
-}
-
-/** La hauteur de la couche SAMPLE en demi-tons (TUNE plus FINE en centiemes). */
-export const layerSt = (l: Readonly<Layer>): number => Math.round(l.tune * LAYER_TUNE_ST) + Math.round(l.fine * LAYER_FINE_CENTS) / 100;
-
-function cleanLayer(o: unknown): Layer {
-  const out: Layer = { ...LAYER_DEFAULT };
-  if (!o || typeof o !== 'object') return out;
-  const x = o as Record<string, unknown>;
-  for (const p of LAYER_PARAMS) {
-    const v = x[p];
-    if (typeof v === 'number' && Number.isFinite(v)) out[p] = clampLayer(p, v, true);
-  }
-  return out;
-}
-
-/**
- * Un echantillon retenu qui n'est plus dans le dossier (un nouvel import a
- * renomme ceux de Mika, scripts/import-rytm-samples.mjs) : celui du meme
- * numero (bd/04 ... : le quatrieme), sinon le premier de la famille ;
- * undefined s'il n'y en a aucun (ou pas une cle de cette famille). Un sample
- * de Mika garde dans ce navigateur (famille/u:id, audio/usersamples.ts) : sa
- * cle telle quelle s'il est la, undefined s'il est parti (jamais un autre a
- * sa place : ce n'etait pas un numero de dossier).
- */
-export function resolveSample(f: KitFamily, key: unknown): string | undefined {
-  if (typeof key !== 'string' || !key) return undefined;
-  const hit = sampleByKey(key);
-  if (hit) return hit.family === f ? key : undefined;
-  if (isUserKey(key)) return undefined;
-  if (!key.startsWith(`${f}/`)) return undefined;
-  // Seulement les samples du site (revue du 2026-10-18) : un sample du site renomme ne prend pas la place d'un sample
-  // depose dans ce navigateur
-  const list = samplesOf(f).filter((s) => !s.user);
-  if (list.length === 0) return undefined;
-  const m = /^[a-z]+\/0*(\d+)/i.exec(key);
-  const n = m ? Number(m[1]) : 0;
-  return (n >= 1 && list[n - 1] ? list[n - 1] : list[0]).key;
-}
-
-export interface Kit {
-  /** la MACHINE de la couche SYNTH de chaque famille */
-  model: Record<KitFamily, KitModel>;
-  knob: Record<KitKnob, number>;
-  /** l'echantillon de la couche SAMPLE de chaque famille (audio/samples.ts : sa cle) ; absent : OFF */
-  sample: Partial<Record<KitFamily, string>>;
-  /** les niveaux des deux couches et les reglages de la couche SAMPLE (R3) */
-  layer: Record<KitFamily, Layer>;
-}
-
-const KNOB_DEFAULT: Readonly<Record<KitKnob, number>> = { tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5, gate: 0, sweep: 0.5, sdtune: 0.5, sddecay: 0.5, sdtone: 0.5 };
-const MODEL_DEFAULT: Readonly<Record<KitFamily, KitModel>> = { bd: '909', sd: 'mm', ch: 'mm', oh: 'mm', cp: 'mm', tom: 'mm', ht: 'mm', cy: 'mm' };
-/**
- * Les familles que le kit de depart joue en echantillon (2026-10-08, Mika : "change les tout de suite pour BD et SD") ;
- * OH depuis le 2026-10-18 (Mika : "Le OH par defaut sonne super mal !") : un vrai open hat de ses projets plutot que la
- * synthese. Sans sample dans le dossier, la famille garde sa synthese (MODEL_DEFAULT).
- */
-const SAMPLE_FIRST: readonly KitFamily[] = ['bd', 'sd', 'oh'];
-
-function defaultKit(): Kit {
-  const layer = Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT }])) as Record<KitFamily, Layer>;
-  const sample: Partial<Record<KitFamily, string>> = {};
-  for (const f of SAMPLE_FIRST) {
-    const first = samplesOf(f)[0];
-    if (!first) continue;
-    sample[f] = first.key;
-    layer[f] = { ...LAYER_DEFAULT, syn: 0 };
-  }
-  return { model: { ...MODEL_DEFAULT }, knob: { ...KNOB_DEFAULT }, sample, layer };
-}
-
-export const KIT_DEFAULT: Readonly<Kit> = defaultKit();
-
-/** Noms sur la plaque, a l'ecran et pour les lecteurs d'ecran. */
-export const KIT_LABEL: Readonly<Record<KitId, string>> = {
-  bd: 'KICK',
-  tune: 'TUNE',
-  attack: 'ATTACK',
-  decay: 'DECAY',
-  drive: 'DRIVE',
-  sd: 'SNARE',
-  snappy: 'SNAPPY',
-  gate: 'GATE',
-  ch: 'CL HAT',
-  oh: 'OP HAT',
-  cp: 'CLAP',
-  tom: 'TOM',
-  ht: 'HI TOM',
-  cy: 'CYMBAL',
-  sweep: 'SWEEP',
-  sdtune: 'TUNE',
-  sddecay: 'DECAY',
-  sdtone: 'TONE',
-};
-export const KIT_ARIA: Readonly<Record<KitId, string>> = {
-  bd: 'Kick sound',
-  tune: 'Kick tune',
-  attack: 'Kick attack',
-  decay: 'Kick decay',
-  drive: 'Kick drive',
-  sd: 'Snare sound',
-  snappy: 'Snare snappy',
-  gate: 'Gated reverb on the snare and the clap',
-  ch: 'Closed hi-hat sound',
-  oh: 'Open hi-hat sound',
-  cp: 'Clap sound',
-  tom: 'Tom sound',
-  ht: 'High tom sound',
-  cy: 'Cymbal sound',
-  sweep: 'Kick pitch sweep',
-  sdtune: 'Snare tune',
-  sddecay: 'Snare decay',
-  sdtone: 'Snare tone',
-};
-
-/** La famille d'un son : sa voix (une par voix depuis le 2026-10-18 ; CHopen est le charley ferme qui s'ouvre, avec CH). */
-export const familyOf = (id: ShotId): KitFamily | null => {
-  if (id === 'BD') return 'bd';
-  if (id === 'SD') return 'sd';
-  if (id === 'CH' || id === 'CHopen') return 'ch';
-  if (id === 'OH') return 'oh';
-  if (id === 'CP') return 'cp';
-  if (id === 'TOM') return 'tom';
-  if (id === 'HT') return 'ht';
-  if (id === 'CY') return 'cy';
-  return null;
-};
-
-/** Les sons d'une famille (pour recalculer ceux qui changent). */
-export const shotsOf = (f: KitFamily): readonly ShotId[] =>
-  f === 'bd' ? ['BD'] : f === 'sd' ? ['SD'] : f === 'ch' ? ['CH', 'CHopen'] : f === 'oh' ? ['OH'] : f === 'cp' ? ['CP'] : f === 'tom' ? ['TOM'] : f === 'ht' ? ['HT'] : f === 'cy' ? ['CY'] : [];
-
-/**
- * Les familles d'avant le 2026-10-18 et celles qui les remplacent : ce que hh
- * (les deux charleys) avait va a ch et a oh, ce que tom (les deux toms) avait
- * a tom et a ht ; rs (d'avant les huit voix) s'en va, cy n'avait rien.
- */
-const OLD_FAMILY: Readonly<Partial<Record<KitFamily, string>>> = { ch: 'hh', oh: 'hh', ht: 'tom' };
-
-/**
- * Un enregistrement par famille lu d'un kit, d'un preset ou d'une empreinte
- * d'avant le 2026-10-18 (model, sample, layer, sounds...), ramene aux
- * familles d'aujourd'hui : une cle deja la gagne, sinon celle de l'ancienne
- * famille ; rien d'autre ne passe. Un enregistrement d'aujourd'hui revient
- * tel quel (sans cle inconnue).
- */
-export function foldFamilies<T>(rec: unknown): Partial<Record<KitFamily, T>> {
-  const out: Partial<Record<KitFamily, T>> = {};
-  if (!rec || typeof rec !== 'object') return out;
-  const x = rec as Record<string, T | undefined>;
-  for (const f of KIT_FAMILIES) {
-    const old = OLD_FAMILY[f];
-    const v = x[f] !== undefined ? x[f] : old ? x[old] : undefined;
-    if (v !== undefined) out[f] = v;
-  }
-  return out;
-}
-
-/**
- * Un potard au 127e depuis R3 (2026-10-08, la valeur a l'ecran est 0 a 127 :
- * chaque cran de molette un vrai changement ; au cinquantieme avant) ; GATE 0
- * ou 1. exact : une valeur lue (un kit retenu, un preset) garde la sienne.
- */
-const q = (v: number, id?: KitKnob, exact = false): number => (id === 'gate' ? (v >= 0.5 ? 1 : 0) : exact ? clamp01(v) : Math.round(clamp01(v) * 127) / 127);
-
-/** Le choix de son d'une valeur de commutateur a trois crans (0, 0.5, 1 : un preset d'avant les echantillons). */
-export const modelAt = (v: number): KitModel => KIT_MODELS[Math.max(0, Math.min(2, Math.round(v * 2)))];
-export const modelValue = (m: KitModel): number => KIT_MODELS.indexOf(m) / 2;
-
-/** Le cran du son d'une famille (le raccourci SOUND) : 0 a 2 les modeles, puis ses echantillons ; la couche SAMPLE d'abord. */
-function soundIndex(k: Kit, f: KitFamily): number {
-  const key = k.sample[f];
-  const j = key ? samplesOf(f).findIndex((x) => x.key === key) : -1;
-  return j >= 0 ? KIT_MODELS.length + j : KIT_MODELS.indexOf(k.model[f]);
-}
 /** Le cran du son d'une famille, pour l'ecran (le choix du moment). */
-export const kitSoundIndex = (f: KitFamily): number => soundIndex(state, f);
-const soundValue = (k: Kit, f: KitFamily): number => {
-  const n = kitSteps(f);
-  return n > 1 ? soundIndex(k, f) / (n - 1) : 0;
-};
-/** Le son choisi d'une famille : 909, 808, mm, ou la cle d'un echantillon. */
-export type KitSound = KitModel | string;
-const isModel = (s: unknown): s is KitModel => typeof s === 'string' && (KIT_MODELS as readonly string[]).includes(s);
+export const kitSoundIndex = (f: KitFamily): number => soundIndex(tracksLegacy.kit(), f);
 
-/** Les potards d'avant R3 qui faconnaient le son par defaut d'une famille (le KICK 909, la caisse claire MM). */
-const SHAPING: Partial<Record<KitFamily, readonly KitKnob[]>> = { bd: ['tune', 'attack', 'decay', 'drive'], sd: ['snappy'] };
-/** Ces potards sont-ils tous a leur depart (un kit d'avant R3 qui n'a jamais regle ce son) ? */
-const untouchedKnobs = (kn: Readonly<Record<KitKnob, number>>, f: KitFamily): boolean => (SHAPING[f] ?? []).every((n) => Math.abs(kn[n] - KNOB_DEFAULT[n]) < 1e-6);
-
-const KEY = 'mm.v4.kit.1';
-/**
- * La forme retenue : 2 depuis R3 (les couches), 3 depuis le 2026-10-18 (une famille par voix) ; une forme 2 se traduit
- * (foldFamilies). 4 depuis le 2026-10-18 aussi (l'OH par defaut devient un sample) : une forme 2 ou 3 dont l'OH est
- * encore le defaut d'alors (oldOh) prend celui d'aujourd'hui.
- */
-const KIT_V = 4;
-
-/**
- * L'OH d'un kit retenu avant le 2026-10-18 est-il encore son defaut d'alors (MM, aucun sample, ses reglages de couche a
- * leur depart) ? Rien ne le distingue d'un MM choisi a la main : comme pour BD et SD le 2026-10-08, le defaut gagne
- * (un MM voulu se rechoisit d'un geste, et c'est le nouveau, audio/shotsdsp.ts openHat).
- */
-const oldOh = (model: unknown, sample: unknown, layer: unknown): boolean => {
-  if (model !== 'mm' || sample !== undefined) return false;
-  const l = cleanLayer(layer);
-  return LAYER_PARAMS.every((p) => l[p] === LAYER_DEFAULT[p]);
-};
-
-function load(): Kit {
-  const k = defaultKit();
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return k;
-    const o = JSON.parse(raw) as { v?: number; model?: unknown; knob?: Partial<Record<KitKnob, unknown>>; sample?: unknown; layer?: unknown };
-    // Les familles d'avant le 2026-10-18 (hh, tom a deux voix, rs) : ce qu'elles avaient passe a leurs voix
-    const model = foldFamilies<unknown>(o.model);
-    const sample = foldFamilies<unknown>(o.sample);
-    const layer = foldFamilies<unknown>(o.layer);
-    for (const f of KIT_FAMILIES) {
-      const m = model[f];
-      if (isModel(m)) k.model[f] = m;
-    }
-    for (const n of KIT_KNOBS) {
-      const v = o.knob?.[n];
-      if (typeof v === 'number' && Number.isFinite(v)) k.knob[n] = q(v, n, true);
-    }
-    if ((o.v === KIT_V || o.v === 3 || o.v === 2) && o.layer && typeof o.layer === 'object') {
-      for (const f of KIT_FAMILIES) {
-        // L'OH d'avant le 2026-10-18 encore a son defaut (MM seul) : celui d'aujourd'hui, le sample (defaultKit)
-        if (f === 'oh' && o.v !== KIT_V && k.sample.oh && oldOh(model.oh, sample.oh, layer.oh)) continue;
-        const l = cleanLayer(layer[f]);
-        const key = resolveSample(f, sample[f]);
-        if (key) k.sample[f] = key;
-        else delete k.sample[f];
-        // Plus d'echantillon du tout (le dossier vide, un sample de ce navigateur parti, un dossier hh/ ou tom/
-        // d'avant) : la synthese reprend, jamais une voix muette sans raison
-        if (!key && sample[f] && l.syn <= 0) l.syn = 1;
-        k.layer[f] = l;
-      }
-      return k;
-    }
-    // Un kit d'avant R3 : un echantillon choisi devient la couche SAMPLE, TUNE et DECAY du kick d'alors compris ;
-    // un modele, la couche SYNTH seule ; le son par defaut d'alors (BD 909, SD MM, sans echantillon) n'etait pas un
-    // choix : il prend celui d'aujourd'hui (2026-10-08, Mika : "change les tout de suite pour BD et SD")
-    for (const f of KIT_FAMILIES) {
-      const key = resolveSample(f, sample[f]);
-      if (key) {
-        k.sample[f] = key;
-        k.layer[f] = {
-          ...LAYER_DEFAULT,
-          syn: 0,
-          tune: f === 'bd' ? sampleTuneSt(k.knob.tune) / LAYER_TUNE_ST : 0,
-          len: f === 'bd' ? lenOfDecay(k.knob.decay) : 1,
-        };
-        continue;
-      }
-      // Le defaut d'alors jamais touche : sa machine ET ses potards a leur depart (revue de R3 : un 909 accorde, une
-      // MM au SNAPPY regle etaient un choix, ils restent ; leur DRIVE ou leur ATTACK auraient sature le sample de Mika)
-      const oldDefault = SAMPLE_FIRST.includes(f) && k.model[f] === MODEL_DEFAULT[f] && untouchedKnobs(k.knob, f);
-      if (oldDefault && k.sample[f]) continue;
-      delete k.sample[f];
-      k.layer[f] = { ...LAYER_DEFAULT };
-    }
-  } catch {
-    /* rien de retenu : le kit de depart */
-  }
-  return k;
+/** Ce que joue une famille (null : une voix sans famille, sa synthese MM seule), un verrou compris : la vue d'avant, sur la piste de la famille. */
+function viewOf(f: KitFamily | null, ov?: KitOverride | null): KitView {
+  const st = tracksLegacy.kit();
+  return viewWith({ model: f ? st.model[f] : 'mm', knob: st.knob, sample: f ? st.sample[f] : undefined, layer: f ? st.layer[f] : LAYER_DEFAULT }, f, ov);
 }
 
-let state: Kit = typeof window === 'undefined' ? defaultKit() : load();
 const listeners = new Set<(changed: readonly KitFamily[]) => void>();
-let saveTimer = 0;
-
-/**
- * Le numero du choix de son de chaque famille (2026-10-21, audit RS-3 : un fichier qui finissait de s'ajouter ecrasait
- * un choix fait apres lui). Il monte quand ce que joue la famille change de nature : son sample, sa MACHINE, une couche
- * qui se tait ou revient (SOUND, le navigateur des sons, SAMPLE, MACHINE, un preset, RANDOM, CLEAR) ; pas quand un
- * potard tourne (un niveau, TUNE, START...). En memoire seulement : rien a retenir ni a traduire. actions.ts
- * soundFilesAdd ne choisit le fichier ajoute que si le numero n'a pas bouge pendant l'ajout ; audio/shots.ts calcule
- * tout de suite (sans attendre la fin du geste) le son d'un nouveau choix.
- */
-const choiceKey = (k: Kit, f: KitFamily): string => `${k.sample[f] ?? ''}|${k.model[f]}|${k.layer[f].syn > 0 ? 1 : 0}|${k.layer[f].lev > 0 ? 1 : 0}`;
-const choiceSeen = Object.fromEntries(KIT_FAMILIES.map((f) => [f, choiceKey(state, f)])) as Record<KitFamily, string>;
-const choiceGen = Object.fromEntries(KIT_FAMILIES.map((f) => [f, 0])) as Record<KitFamily, number>;
-
-// Un sample de Mika retire de ce navigateur (audio/usersamples.ts) pendant qu'une voix le joue : sa couche SAMPLE
-// passe sur OFF et la synthese reprend si elle etait a 0 (comme un fichier parti du dossier a la lecture du kit :
-// jamais une voix muette sans raison). Un sample ajoute ne change rien au kit : il attend d'etre choisi.
-samplesChanged.subscribe(() => {
-  const gone = KIT_FAMILIES.filter((f) => {
-    const key = state.sample[f];
-    return !!key && !sampleByKey(key);
-  });
-  if (gone.length === 0) return;
-  const sample = { ...state.sample };
-  const layer = { ...state.layer };
-  for (const f of gone) {
-    delete sample[f];
-    if (layer[f].syn <= 0) layer[f] = { ...layer[f], syn: 1 };
-  }
-  state = { ...state, sample, layer };
-  emit(gone);
+// Les familles annoncees comme avant (celles du geste de la facade, ou celles des pistes 1 a 8 dont le son change)
+tracksLegacy.onChange((c) => {
+  if (c.kit.length === 0) return;
+  listeners.forEach((fn) => fn(c.kit));
 });
 
-function save(): void {
-  if (typeof window === 'undefined') return;
-  window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => {
-    try {
-      window.localStorage.setItem(KEY, JSON.stringify({ v: KIT_V, ...state }));
-    } catch {
-      /* stockage plein ou refuse : le kit vit pour la visite */
-    }
-  }, 300);
-}
-
-function emit(changed: readonly KitFamily[]): void {
-  for (const f of changed) {
-    const c = choiceKey(state, f);
-    if (c === choiceSeen[f]) continue;
-    choiceSeen[f] = c;
-    choiceGen[f] += 1;
-  }
-  save();
-  listeners.forEach((fn) => fn(changed));
-}
-
-/** Les familles touchees par un reglage (les potards du KICK : le kick ; SNAPPY et ceux de la caisse claire : elle ; GATE : elle et le clap). */
-const familiesOf = (id: KitId): readonly KitFamily[] =>
-  isFamily(id) ? [id] : id === 'snappy' || id === 'sdtune' || id === 'sddecay' || id === 'sdtone' ? ['sd'] : id === 'gate' ? ['sd', 'cp'] : ['bd'];
-
-/** Des potards du kit pour un coup verrouille (revue de R2, audio/locks.ts) : ceux du moment, sauf ceux du pas. */
-export type KitKnobs = Partial<Record<KitKnob, number>>;
-
-/**
- * Ce qu'un pas verrouille change au kit de sa voix (2026-10-08, R2 puis R3,
- * audio/locks.ts) : la MACHINE, des potards, l'echantillon de la couche
- * SAMPLE (une cle de n'importe quelle famille ; null : OFF), des reglages de
- * couche. Rien : le kit du moment.
- */
-export interface KitOverride {
-  model?: KitModel;
-  knobs?: KitKnobs;
-  sample?: string | null;
-  layer?: Partial<Layer>;
-}
-
-/** Ce que joue une famille (null : une voix sans famille, sa synthese MM seule), un verrou compris. */
-interface View {
-  model: KitModel;
-  knob: Readonly<Record<KitKnob, number>>;
-  sample: string | undefined;
-  /** la famille de l'echantillon quand ce n'est pas la sienne (un sample lock) */
-  from: string | undefined;
-  layer: Readonly<Layer>;
-}
-
-function viewOf(f: KitFamily | null, ov?: KitOverride | null): View {
-  const model = ov?.model ?? (f ? state.model[f] : 'mm');
-  const knob = ov?.knobs ? { ...state.knob, ...ov.knobs } : state.knob;
-  const sample = ov && ov.sample !== undefined ? (ov.sample ?? undefined) : f ? state.sample[f] : undefined;
-  const sf = sample ? sampleByKey(sample)?.family : undefined;
-  const from = sf && sf !== f ? sf : undefined;
-  const base = f ? state.layer[f] : LAYER_DEFAULT;
-  let layer: Readonly<Layer> = ov?.layer ? { ...base, ...ov.layer } : base;
-  // Un sample emprunte a une autre famille (un sample lock) joue seul sur son pas, comme le sample lock de R2 (revue
-  // de R3, 2026-10-08 : la cymbale restait dessous, sans moyen de la couper) ; un SYN LEVEL verrouille sur le meme
-  // pas remet la synthese avec lui
-  if (from && ov?.sample && ov.layer?.syn === undefined) layer = { ...layer, syn: 0 };
-  return { model, knob, sample, from, layer };
-}
-
-/** Ce que joue une voix (revue de R3) : sa MACHINE, ses deux niveaux, son sample, et quelles couches s'entendent. */
-export interface Plays {
-  model: KitModel;
-  syn: number;
-  lev: number;
-  sample: string | undefined;
-  from: string | undefined;
-  synth: boolean;
-  smp: boolean;
-}
-const playsOf = (v: View): Plays => ({ model: v.model, syn: v.layer.syn, lev: v.layer.lev, sample: v.sample, from: v.from, synth: v.layer.syn > 0, smp: !!v.sample && v.layer.lev > 0 });
-
-/**
- * Le rang de ce que joue une famille dans la liste de SOUND (actions.ts voiceSounds,
- * 2026-10-09) : son sample s'il s'entend (avec ou sans la synthese dessous),
- * sinon sa machine si la synthese s'entend, sinon OFF (0).
- */
-export function voiceSoundIndexOf(p: Readonly<Plays>, f: KitFamily): number {
-  if (p.smp && p.sample && !p.from) {
-    const j = samplesOf(f).findIndex((x) => x.key === p.sample);
-    if (j >= 0) return 1 + KIT_MODELS.length + j;
-  }
-  if (p.synth) return 1 + KIT_MODELS.indexOf(p.model);
-  return 0;
-}
-
-/**
- * MIX de VOICE SYNTH (2026-10-09) : la part des deux couches, 0 la synthese
- * seule, 1 le sample seul, 0.5 les deux a leur plein ; lu de leurs deux
- * niveaux (le plus fort reste a sa place), ecrit en les deux (mixLevels).
- */
-export function mixOf(syn: number, lev: number): number {
-  if (syn <= 0 && lev <= 0) return 0.5;
-  return syn >= lev ? 0.5 * (lev / syn) : 1 - 0.5 * (syn / lev);
-}
-/** Les deux niveaux d'un MIX m, le plus fort a S (celui du moment ; 1 si les deux sont a 0). */
-export function mixLevels(m: number, S: number): { syn: number; lev: number } {
-  const x = Math.max(0, Math.min(1, m));
-  const top = S > 0 ? S : 1;
-  return { syn: top * Math.min(1, 2 * (1 - x)), lev: top * Math.min(1, 2 * x) };
-}
-
-/** Ce que le calcul d'un son doit savoir d'une vue (les deux couches). */
-function tweakOf(v: View): ShotTweak {
-  const k = v.knob;
-  const L = v.layer;
-  const tw: ShotTweak = {
-    model: v.model,
-    tune: k.tune,
-    attack: k.attack,
-    decay: k.decay,
-    drive: k.drive,
-    snappy: k.snappy,
-    gate: k.gate >= 0.5,
-    sweep: k.sweep,
-    sdTune: k.sdtune,
-    sdDecay: k.sddecay,
-    sdTone: k.sdtone,
-  };
-  if (L.syn !== 1) tw.syn = L.syn;
-  if (v.sample) {
-    tw.sample = v.sample;
-    const smp: SampleLayer = { lev: L.lev, st: layerSt(L), start: L.start, len: L.len, rev: L.rev >= 0.5, ...(v.from ? { from: v.from } : {}) };
-    tw.smp = smp;
-  }
-  return tw;
-}
-
-/** La signature d'une vue de la famille f : seulement ce qui change son calcul (une couche muette n'y compte pas). */
-function sigOf(f: KitFamily | null, v: View): string {
-  const k = v.knob;
-  const L = v.layer;
-  const synth = L.syn > 0;
-  let s = synth ? v.model : '-';
-  if (synth) {
-    if (f === 'bd') s += `~${k.tune}~${k.attack}~${k.decay}~${k.drive}~${k.sweep}`;
-    else if (f === 'sd') s += `~${k.snappy}~${k.gate}~${k.sdtune}~${k.sddecay}~${k.sdtone}`;
-    else if (f === 'cp') s += `~${k.gate}`;
-    if (L.syn !== 1) s += `~s${L.syn}`;
-  }
-  if (v.sample && L.lev > 0) {
-    s += `|${v.sample}~${L.lev}~${layerSt(L)}~${L.start}~${L.len}~${L.rev}`;
-    // Le caractere de la voix sur l'echantillon (ATTACK et DRIVE du kick, SNAPPY de la caisse claire)
-    const sf = v.from ?? f;
-    if (sf === 'bd') s += `~${k.attack}~${k.drive}`;
-    // GATE passe aussi sur le sample de la caisse claire (revue de R3)
-    else if (sf === 'sd') s += `~${k.snappy}~${k.gate}`;
-    if (v.from) s += `~${v.from}`;
-  }
-  return s;
-}
-
-/**
- * Le repli d'un son dont l'echantillon manque (2026-10-21, audit RS-1 et RS-10) : la couche SYNTH de sa voix seule, a
- * son plein niveau, avec ses potards du moment (ou ceux d'un verrou : tw est celui du coup). La meme regle partout :
- * audio/shots.ts en temps reel (un sample en echec, ou en chargement sans son precedent) et hors ligne (makeNow).
- * Sa signature est celle d'une voix qui joue cette machine seule (sigOf) : un repli deja calcule sert aussi a
- * choisir cette machine, et l'inverse.
- */
-export function synthFallback(id: ShotId, tw: Readonly<ShotTweak>): { tw: ShotTweak; sig: string } {
-  const f = familyOf(id);
-  const out: ShotTweak = { ...tw };
-  delete out.sample;
-  delete out.smp;
-  delete out.syn;
-  let s: string = tw.model;
-  if (f === 'bd') s += `~${tw.tune}~${tw.attack}~${tw.decay}~${tw.drive}~${tw.sweep}`;
-  else if (f === 'sd') s += `~${tw.snappy}~${tw.gate ? 1 : 0}~${tw.sdTune}~${tw.sdDecay}~${tw.sdTone}`;
-  else if (f === 'cp') s += `~${tw.gate ? 1 : 0}`;
-  return { tw: out, sig: s };
-}
-
-/** Un coup qui ne fait aucun son (OFF, les deux couches a 0) : rien a calculer ni a jouer a sa place (2026-10-21). */
-export const silentTweak = (tw: Readonly<ShotTweak>): boolean => (tw.syn ?? 1) <= 0 && !(tw.sample && (tw.smp?.lev ?? 1) > 0);
-
-const stText = (st: number): string => (st === 0 ? '0 ST' : `${st > 0 ? '+' : ''}${st} ST`);
-/** Une frequence : 120 HZ, 2.1 KHZ, 18 KHZ. */
-const hzText = (f: number): string => (f < 1000 ? `${Math.round(f)} HZ` : `${f / 1000 < 10 ? (f / 1000).toFixed(1) : Math.round(f / 1000)} KHZ`);
-/** Le nom d'un echantillon par sa cle (BLUEPRINT). */
-const sampleLabelOf = (key: string | undefined): string => (key ? (sampleByKey(key)?.label ?? 'SAMPLE') : 'OFF');
-
 export const kit = {
-  get: (): Readonly<Kit> => state,
+  get: (): Readonly<Kit> => tracksLegacy.kit(),
   /** Un TWEAK de 0 a 1 (un choix de son : son cran sur la course). */
   value(id: KitId): number {
+    const state = tracksLegacy.kit();
     return isFamily(id) ? soundValue(state, id) : state.knob[id];
   },
   def(id: KitId): number {
@@ -678,10 +157,12 @@ export const kit = {
   },
   /** Le son d'une famille (le raccourci SOUND) : son echantillon s'il joue, sinon sa machine. */
   sound(f: KitFamily): KitSound {
+    const state = tracksLegacy.kit();
     return state.sample[f] ?? state.model[f];
   },
   /** Les deux couches jouent-elles (la synthese au-dessus de 0 et un echantillon) ? */
   layered(f: KitFamily): boolean {
+    const state = tracksLegacy.kit();
     return !!state.sample[f] && state.layer[f].syn > 0 && state.layer[f].lev > 0;
   },
   /** Choisit le son d'une famille (un modele ou la cle d'un echantillon), le raccourci vers une couche ; true s'il change. */
@@ -699,6 +180,7 @@ export const kit = {
    * Deja ce son, seul : rien ne change.
    */
   set(id: KitId, v: number): boolean {
+    const state = tracksLegacy.kit();
     if (isFamily(id)) {
       const n = kitSteps(id);
       const i = Math.max(0, Math.min(n - 1, Math.round(clamp01(v) * (n - 1))));
@@ -708,37 +190,33 @@ export const kit = {
       if (i < KIT_MODELS.length) {
         const sample = { ...state.sample };
         delete sample[id];
-        state = { ...state, model: { ...state.model, [id]: KIT_MODELS[i] }, sample, layer: { ...state.layer, [id]: { ...l, syn: 1 } } };
+        return tracksLegacy.writeKit({ ...state, model: { ...state.model, [id]: KIT_MODELS[i] }, sample, layer: { ...state.layer, [id]: { ...l, syn: 1 } } }, [id], false);
       } else {
         const key = samplesOf(id)[i - KIT_MODELS.length].key;
-        state = { ...state, sample: { ...state.sample, [id]: key }, layer: { ...state.layer, [id]: { ...l, syn: 0, lev: 1 } } };
+        return tracksLegacy.writeKit({ ...state, sample: { ...state.sample, [id]: key }, layer: { ...state.layer, [id]: { ...l, syn: 0, lev: 1 } } }, [id], false);
       }
     } else {
       const n = q(v, id);
       if (state.knob[id] === n) return false;
-      state = { ...state, knob: { ...state.knob, [id]: n } };
+      return tracksLegacy.writeKit({ ...state, knob: { ...state.knob, [id]: n } }, familiesOf(id), true);
     }
-    emit(familiesOf(id));
-    return true;
   },
   /** La MACHINE de la couche SYNTH (909, 808, MM) ; true si elle change. La couche SAMPLE et les niveaux restent. */
   setMachine(f: KitFamily, m: KitModel): boolean {
+    const state = tracksLegacy.kit();
     if (!isModel(m) || state.model[f] === m) return false;
-    state = { ...state, model: { ...state.model, [f]: m } };
-    emit([f]);
-    return true;
+    return tracksLegacy.writeKit({ ...state, model: { ...state.model, [f]: m } }, [f], false);
   },
   /** L'echantillon de la couche SAMPLE (null : OFF) ; true s'il change. La couche SYNTH reste. */
   setSample(f: KitFamily, key: string | null): boolean {
     const k = key ? resolveSample(f, key) : undefined;
     if (key && !k) return false;
+    const state = tracksLegacy.kit();
     if ((state.sample[f] ?? null) === (k ?? null)) return false;
     const sample = { ...state.sample };
     if (k) sample[f] = k;
     else delete sample[f];
-    state = { ...state, sample };
-    emit([f]);
-    return true;
+    return tracksLegacy.writeKit({ ...state, sample }, [f], false);
   },
   /**
    * Le son de VOICE et son melange (2026-10-09, la liste unique SOUND et MIX,
@@ -747,6 +225,7 @@ export const kit = {
    * change quelque chose.
    */
   setVoice(f: KitFamily, patch: { model?: KitModel; sample?: string | null; syn?: number; lev?: number }): boolean {
+    const state = tracksLegacy.kit();
     let next = state;
     if (patch.model !== undefined && isModel(patch.model) && next.model[f] !== patch.model) next = { ...next, model: { ...next.model, [f]: patch.model } };
     if (patch.sample !== undefined) {
@@ -763,13 +242,11 @@ export const kit = {
     const lev = patch.lev === undefined ? l.lev : clampLayer('lev', patch.lev);
     if (syn !== l.syn || lev !== l.lev) next = { ...next, layer: { ...next.layer, [f]: { ...l, syn, lev } } };
     if (next === state) return false;
-    state = next;
-    emit([f]);
-    return true;
+    return tracksLegacy.writeKit(next, [f], false);
   },
   /** Les reglages de couche d'une famille. */
   layerOf(f: KitFamily): Readonly<Layer> {
-    return state.layer[f];
+    return tracksLegacy.kit().layer[f];
   },
   /** Leur depart (le kit de depart : BD, SD et OH a SYNTH 0). */
   layerDef(f: KitFamily, p: LayerParam): number {
@@ -778,10 +255,9 @@ export const kit = {
   /** Un reglage de couche ; true s'il change. */
   setLayer(f: KitFamily, p: LayerParam, v: number): boolean {
     const n = clampLayer(p, v);
+    const state = tracksLegacy.kit();
     if (state.layer[f][p] === n) return false;
-    state = { ...state, layer: { ...state.layer, [f]: { ...state.layer[f], [p]: n } } };
-    emit([f]);
-    return true;
+    return tracksLegacy.writeKit({ ...state, layer: { ...state.layer, [f]: { ...state.layer[f], [p]: n } } }, [f], false);
   },
   /** Ce que le calcul d'un son doit savoir (sa famille ; une voix sans famille : MM et reglages neutres). */
   tweak(id: ShotId): ShotTweak {
@@ -828,8 +304,7 @@ export const kit = {
   },
   /** Le coup d'une famille avec ce verrou joue-t-il un kick (la synthese, ou un echantillon de kick) ? Le SIDECHAIN du MM-ARP s'y cale. */
   kickWith(ov: KitOverride | null): boolean {
-    const v = viewOf('bd', ov);
-    return v.layer.syn > 0 || (!!v.sample && !v.from);
+    return kickOf(viewOf('bd', ov));
   },
   /** Le nom d'un son d'une famille (909, 808, MM, BLUEPRINT), pour l'ecran d'un verrou. */
   soundName(_f: KitFamily, sound: KitSound): string {
@@ -839,11 +314,11 @@ export const kit = {
   },
   /** Le numero du choix de son d'une famille (2026-10-21) : il monte a chaque nouveau choix (choiceGen). */
   choice(f: KitFamily): number {
-    return choiceGen[f];
+    return tracks.choice(LEGACY_KEYS[KIT_FAMILIES.indexOf(f)]);
   },
   /** Le nom de l'echantillon de la couche SAMPLE (OFF sans lui). */
   sampleLabel(f: KitFamily): string {
-    return sampleLabelOf(state.sample[f]);
+    return sampleLabelOf(tracksLegacy.kit().sample[f]);
   },
   /**
    * La valeur seule d'un TWEAK (sous un potard du telephone) : 909, 52 HZ,
@@ -852,7 +327,7 @@ export const kit = {
   valueText(id: KitId): string {
     // Les deux couches muettes (SYNTH a 0, SAMPLE sur OFF ou a 0) : la voix se tait, l'ecran le dit
     if (isFamily(id)) return kit.playsText(playsOf(viewOf(id)));
-    return kit.knobText(id, state.knob[id]);
+    return kit.knobText(id, tracksLegacy.kit().knob[id]);
   },
   /**
    * La valeur d'un potard de la machine a v (un verrou de pas, revue de R2) :
@@ -860,6 +335,7 @@ export const kit = {
    * celle d'un verrou).
    */
   knobText(id: KitKnob, v: number, model?: KitModel): string {
+    const state = tracksLegacy.kit();
     if (id === 'gate') return GATE_LABELS[v >= 0.5 ? 1 : 0];
     if (id === 'tune') return `${Math.round(kickHz(model ?? state.model.bd, v))} HZ`;
     if (id === 'decay') return `${Math.round(kickDecayS(model ?? state.model.bd, v) * 1000)} MS`;
@@ -873,7 +349,7 @@ export const kit = {
   /** La valeur lisible d'un TWEAK (l'ecran du MM-RYTM). */
   readout(id: KitId): string {
     if (isFamily(id)) return `${KIT_LABEL[id]} ${kit.valueText(id)}`;
-    const v = state.knob[id];
+    const v = tracksLegacy.kit().knob[id];
     if (id === 'gate') return `SNARE + CLAP GATE ${GATE_LABELS[v >= 0.5 ? 1 : 0]}`;
     if (id === 'tune' || id === 'decay' || id === 'sweep') return `KICK ${KIT_LABEL[id]} ${kit.valueText(id)}`;
     if (id === 'sdtune' || id === 'sddecay' || id === 'sdtone') return `SNARE ${KIT_LABEL[id]} ${kit.valueText(id)}`;
@@ -882,18 +358,17 @@ export const kit = {
   },
   /** Le kit de depart (tests ; un CLEAR du kit) : tout revient, les echantillons de Mika sur BD, SD et OH. */
   reset(): void {
-    state = defaultKit();
-    emit(KIT_FAMILIES);
+    tracksLegacy.writeKit(defaultKit(), KIT_FAMILIES, true);
   },
   /** Un kit entier (un preset) : un seul changement annonce. Une famille absente garde son depart (jamais une couche sans reglage). */
   replace(next: Kit): void {
-    state = {
+    const state: Kit = {
       model: { ...MODEL_DEFAULT, ...next.model },
       knob: { ...KNOB_DEFAULT, ...next.knob },
       sample: { ...next.sample },
       layer: Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT, ...(next.layer[f] ?? {}) }])) as Record<KitFamily, Layer>,
     };
-    emit(KIT_FAMILIES);
+    tracksLegacy.writeKit(state, KIT_FAMILIES, true);
   },
   subscribe(fn: (changed: readonly KitFamily[]) => void): () => void {
     listeners.add(fn);
@@ -902,9 +377,3 @@ export const kit = {
     };
   },
 };
-
-/** Un kit a remplir (un preset) : celui de depart, copie. */
-export const kitDefaultCopy = (): Kit => defaultKit();
-/** Les valeurs lues d'un kit (un preset) : un potard dans son domaine (exact), un reglage de couche dans le sien. */
-export const cleanKnob = (n: KitKnob, v: number): number => q(v, n, true);
-export { cleanLayer };
