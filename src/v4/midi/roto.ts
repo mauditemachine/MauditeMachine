@@ -234,8 +234,8 @@ function buildSetups(): RotoSetup[] {
       ...VOICES8.map((i) => b(`rytm:pad:${i}`, i, C.yellow)),
       // 3 : les mutes
       ...VOICES8.map(mute),
-      // 4 : les huit premiers patterns (un toucher joue, deux enchainent)
-      ...Array.from({ length: 8 }, (_, i) => b(`rytm:ptn:${i}`, `PTN A${String(i + 1).padStart(2, '0')}`, C.blue)),
+      // 4 : les huit premiers patterns de la banque affichee (un toucher joue, deux enchainent ; V.5.2 : sans la lettre A)
+      ...Array.from({ length: 8 }, (_, i) => b(`rytm:ptn:${i}`, `PTN ${String(i + 1).padStart(2, '0')}`, C.blue)),
     ],
   };
 

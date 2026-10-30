@@ -40,6 +40,7 @@ import { gesture, patternHold, patternTap } from '../actions';
 import { INSTRUMENTS, STEP_COUNT, VEL_MAX, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import { lockCount } from '../audio/locks';
 import type { Stage } from '../scene/renderer';
+import { dtFace } from '../state/dtFace';
 import { editor } from '../state/editor';
 import { BANK_SIZE, bankName, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
@@ -550,9 +551,19 @@ const ON_MACHINE = { names: 44, fixed: 140, rowMin: 10, rowMax: 17, two: { fixed
 export const BeatPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
   const { shown, ref } = useEditorPanel('mm808', stage, { inset: mobile });
   useOnMachine(stage, shown && !mobile, ref);
+  // La vue BANK au desktop (V.5.2, la revue de D3a, R9 et R14) : le panneau se cache, les pas 3D (leurs LED de banque, leurs
+  // clics) reviennent dessus ; il revient quand la vue BANK se ferme
+  const bankView = useSyncExternalStore(dtFace.subscribe, dtFace.bank, dtFace.bank);
+  const on = shown && !(DT_FACE && !mobile && bankView);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (on) el.removeAttribute('inert');
+    else el.setAttribute('inert', '');
+  }, [on, shown, ref]);
   // data-dt (V.5.0, la revue de D1, R4) : au desktop, la grille dans la langue des couleurs de la Digitakt (v4.css)
   return (
-    <section ref={ref} className="v4-seq v4-beat" data-place={mobile ? 'below' : 'machine'} data-dt={DT_FACE ? '1' : '0'} data-shown={shown ? '1' : '0'} aria-label="Pattern editor" aria-hidden={!shown}>
+    <section ref={ref} className="v4-seq v4-beat" data-place={mobile ? 'below' : 'machine'} data-dt={DT_FACE ? '1' : '0'} data-shown={on ? '1' : '0'} aria-label="Pattern editor" aria-hidden={!on}>
       <BeatEditor variant={mobile ? 'mobile' : 'desk'} />
     </section>
   );

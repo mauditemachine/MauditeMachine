@@ -248,14 +248,14 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 21 | 3.6 | 9 | 105 | MUTE TOM | rose | rytm:voice:TOM:mute | MUTE TOM | bascule (la LED suit le site) |
 | 22 | 3.7 | 9 | 106 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
 | 23 | 3.8 | 9 | 107 | MUTE CY | rose | rytm:voice:CY:mute | MUTE CY | bascule (la LED suit le site) |
-| 24 | 4.1 | 9 | 108 | PTN A01 | bleu | rytm:ptn:0 | PATTERN 01 (OF THE SHOWN BANK) | appui |
-| 25 | 4.2 | 9 | 109 | PTN A02 | bleu | rytm:ptn:1 | PATTERN 02 (OF THE SHOWN BANK) | appui |
-| 26 | 4.3 | 9 | 110 | PTN A03 | bleu | rytm:ptn:2 | PATTERN 03 (OF THE SHOWN BANK) | appui |
-| 27 | 4.4 | 9 | 111 | PTN A04 | bleu | rytm:ptn:3 | PATTERN 04 (OF THE SHOWN BANK) | appui |
-| 28 | 4.5 | 9 | 112 | PTN A05 | bleu | rytm:ptn:4 | PATTERN 05 (OF THE SHOWN BANK) | appui |
-| 29 | 4.6 | 9 | 113 | PTN A06 | bleu | rytm:ptn:5 | PATTERN 06 (OF THE SHOWN BANK) | appui |
-| 30 | 4.7 | 9 | 114 | PTN A07 | bleu | rytm:ptn:6 | PATTERN 07 (OF THE SHOWN BANK) | appui |
-| 31 | 4.8 | 9 | 115 | PTN A08 | bleu | rytm:ptn:7 | PATTERN 08 (OF THE SHOWN BANK) | appui |
+| 24 | 4.1 | 9 | 108 | PTN 01 | bleu | rytm:ptn:0 | PATTERN 01 (OF THE SHOWN BANK) | appui |
+| 25 | 4.2 | 9 | 109 | PTN 02 | bleu | rytm:ptn:1 | PATTERN 02 (OF THE SHOWN BANK) | appui |
+| 26 | 4.3 | 9 | 110 | PTN 03 | bleu | rytm:ptn:2 | PATTERN 03 (OF THE SHOWN BANK) | appui |
+| 27 | 4.4 | 9 | 111 | PTN 04 | bleu | rytm:ptn:3 | PATTERN 04 (OF THE SHOWN BANK) | appui |
+| 28 | 4.5 | 9 | 112 | PTN 05 | bleu | rytm:ptn:4 | PATTERN 05 (OF THE SHOWN BANK) | appui |
+| 29 | 4.6 | 9 | 113 | PTN 06 | bleu | rytm:ptn:5 | PATTERN 06 (OF THE SHOWN BANK) | appui |
+| 30 | 4.7 | 9 | 114 | PTN 07 | bleu | rytm:ptn:6 | PATTERN 07 (OF THE SHOWN BANK) | appui |
+| 31 | 4.8 | 9 | 115 | PTN 08 | bleu | rytm:ptn:7 | PATTERN 08 (OF THE SHOWN BANK) | appui |
 
 ### ARP (SETUP 12, potards canal 2, boutons canal 10)
 

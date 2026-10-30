@@ -62,7 +62,8 @@ import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, trkStep, 
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { lcdMessage } from '../state/lcdMessage';
-import { patterns } from '../state/patterns';
+import { bankOf, patterns } from '../state/patterns';
+import { dtFace } from '../state/dtFace';
 import { rytmLock } from '../state/rytmLock';
 import { rytmPage } from '../state/rytmPage';
 import type { Inst } from '../theme';
@@ -470,7 +471,8 @@ function resync(l: Lane): void {
     l.edit = ed;
     // EDIT s'ouvre sur la fenetre du pattern qui joue, une fois : ensuite la chaine qui avance (A01 > A10) ne la tire
     // plus d'une moitie a l'autre a chaque mesure (sous un doigt qui tient un pattern pour la copie), revue du 2026-10-09
-    if (ed) l.win = m.current() >> 3;
+    // Jamais hors des deux fenetres (V.5.2 : le pattern qui joue peut etre dans une autre banque, -1)
+    if (ed) l.win = Math.max(0, Math.min(1, m.current() >> 3));
   }
   const run = m.running();
   if (run !== l.run) {
@@ -931,22 +933,28 @@ const rytmEditing = (): boolean => editor.get() === 'mm808';
 
 const rytm: SeqMachine = {
   editing: rytmEditing,
+  // La grille PTN (V.5.2, la revue de D3a, R1 et R8) : les indices de la grille (0 a 15) dans la banque affichee ; la vue
+  // BANK, les banques A a H sur les boutons 1 a 8
   lit(i) {
-    if (rytmEditing()) return patterns.filled(i);
+    if (rytmEditing()) return dtFace.bank() ? i >= 0 && i < 8 && patterns.bankFilled(i) : patterns.filled(patterns.slotAt(i));
     const p = pattern.get();
     // Sans voix choisie : tout le pattern (les pas ou une voix joue)
     return p.instrument ? velocity(p.steps, p.instrument, i) > 0 : INSTRUMENTS.some((x) => velocity(p.steps, x, i) > 0);
   },
-  current: () => patterns.get().cur,
+  current: () => {
+    const cur = patterns.get().cur;
+    if (dtFace.bank()) return bankOf(cur);
+    return bankOf(cur) === patterns.shown() ? cur % 16 : -1;
+  },
   lockStep: () => (rytmEditing() ? -1 : rytmLock.get().step),
   latched: () => (rytmLock.get().latched ? rytmLock.get().step : -1),
   running: () => clock.running,
   subscribe(fn) {
-    const offs = [pattern.subscribe(fn), rytmLock.subscribe(fn), editor.subscribe(fn), patterns.subscribe(fn), clock.subscribe(fn)];
+    const offs = [pattern.subscribe(fn), rytmLock.subscribe(fn), editor.subscribe(fn), patterns.subscribe(fn), clock.subscribe(fn), dtFace.subscribe(fn)];
     return () => offs.forEach((o) => o());
   },
   onStep: (fn) => clock.onStep((e) => fn(e.step, e.when, e.when - e.off)),
-  context: () => `${pattern.get().instrument ?? '-'}|${rytmEditing() ? 'E' : ''}${patterns.get().cur}`,
+  context: () => `${pattern.get().instrument ?? '-'}|${rytmEditing() ? 'E' : ''}${dtFace.bank() ? 'B' : ''}${patterns.shown()}:${patterns.get().cur}`,
   writes: () => rytmLock.get().writes,
   // Tenu (comme un doigt sur la face) : un encodeur de page tourne pendant la tenue le verrouille tout de suite
   press(i) {
