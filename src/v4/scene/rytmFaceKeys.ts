@@ -837,16 +837,22 @@ export class RytmFaceKeys {
     const off = new Color(offHex);
     const on = new Color(DT_HEX_DARK.red);
     let changed = false;
+    // Le premier dessin les peint toutes (three cree instanceColor au premier setColorAt, rempli de blanc)
+    const first = !this.pagesPainted;
     for (let k = 0; k < leds.count; k += 1) {
       const lv = this.pageLedLevel(k);
-      if (leds.instanceColor && Math.abs(this.pageLevel[k] - lv) < 1e-4) continue;
+      if (!first && Math.abs(this.pageLevel[k] - lv) < 1e-4) continue;
       this.pageLevel[k] = lv;
       leds.setColorAt(k, col.copy(off).lerp(on, lv));
       changed = true;
     }
+    this.pagesPainted = true;
     if (changed && leds.instanceColor) leds.instanceColor.needsUpdate = true;
     return changed;
   }
+
+  /** Les 8 LED de page ont-elles ete peintes une premiere fois. */
+  private pagesPainted = false;
 
   /** Un temoin clignote-t-il (TRK gardee, FUNC gardee, PLAY en pause, une scene gardee) : il a besoin de la boucle. */
   get blinking(): boolean {
