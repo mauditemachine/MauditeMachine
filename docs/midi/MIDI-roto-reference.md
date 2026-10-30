@@ -1064,7 +1064,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:select:HT` | VOICE HT (SELECT, SILENT) | appui |  |  |
 | `rytm:voice:select:CY` | VOICE CY (SELECT, SILENT) | appui |  |  |
 | `rytm:func` | FUNC (HOLD + A KEY: ITS ORANGE FUNCTION) | maintenu (appui puis relachement) |  |  |
-| `rytm:rec` | REC (WRITE THE STEPS, ON / OFF) | appui |  |  |
+| `rytm:rec` | REC (WRITE THE STEPS, ON / OFF; HOLD + PLAY: LIVE REC) | maintenu (appui puis relachement) |  |  |
 | `rytm:play` | PLAY (PAUSE, RESUME) | appui |  |  |
 | `rytm:stop` | STOP (TWICE: CUT THE TAILS) | appui |  |  |
 | `rytm:yes` | YES (CONFIRM, A PAGE THEN YES: RANDOM) | appui |  |  |

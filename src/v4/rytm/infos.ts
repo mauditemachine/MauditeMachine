@@ -899,10 +899,10 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'LIVE REC',
     steps: [
       '● tenue puis ▶ (ou ● deux fois vite à la souris) : LIVE REC, la LED de ● clignote ; à l\'arrêt il s\'arme, ▶ lance la lecture.',
-      'Tape les pas 1 à 8 (ou les touches A S D F, Z X C V, les pads MIDI) pendant que ça tourne : chaque frappe joue sa voix et s\'écrit au pas le plus proche.',
-      "Tourne un potard d'une page de voix : il s'enregistre en P-LOCK sur les pas que traverse la tête de lecture (un pas vide reçoit un lock trig).",
+      'Tape les pas 1 à 8 (ou les touches A S D F, Z X C V, les pads MIDI) pendant que ça tourne : chaque frappe joue sa voix, la choisit et s\'écrit au pas le plus proche, dans le pattern que tu entends.',
+      "Tourne un potard d'une page de voix : tant que tu le tournes, il s'enregistre en P-LOCK de la voix choisie sur les pas que traverse la tête de lecture (un pas vide reçoit un lock trig).",
     ],
-    text: "L'enregistrement en direct, comme sur une Digitakt. Les frappes se rangent sur le pas le plus proche de ce que tu entends (pas de μTIME). Une frappe juste avant son pas ne le rejoue pas tout de suite : tu l'entends au passage suivant. Une voix coupée s'enregistre quand même. NO tenue (Échap au clavier) + un pad : sa voix s'efface au fil de la tête de lecture, tant que tu tiens. ▶ sort de LIVE REC sans arrêter la lecture, ● repasse en grid rec, ■ arrête tout. Une prise entière, de l'entrée à la sortie, se défait d'un seul UNDO. TRK tenue (CONTROL ALL) gagne : rien ne s'écrit.",
+    text: "L'enregistrement en direct, comme sur une Digitakt. Les frappes se rangent sur le pas le plus proche de ce que tu entends (pas de μTIME). Une frappe juste avant son pas ne le rejoue pas tout de suite : tu l'entends au passage suivant ; sur un pas qui joue déjà la voix, elle ne la double pas. Une voix coupée s'enregistre quand même. Un pas 1 à 8 y est un pad : pas de P-LOCK ni de vélocité au glisser. NO tenue (Échap au clavier) + un pad : sa voix s'efface au fil de la tête de lecture, tant que tu tiens. ▶ sort de LIVE REC sans arrêter la lecture, ● repasse en grid rec, ■ arrête tout. Une prise, de l'entrée à la sortie, se défait d'un UNDO par pattern touché, et la chaîne continue. TRK tenue (CONTROL ALL) gagne : rien ne s'écrit ; TRK + un pad choisit sa voix sans l'écrire.",
     key: 'W tenue + Espace',
     tip: 'Tape le kick sur les temps pendant que ça tourne, puis le clap sur 5 et 13 : le beat s\'écrit tout seul.',
   },

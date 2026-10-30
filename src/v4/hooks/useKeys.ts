@@ -44,7 +44,7 @@
 
 import { useEffect, useRef } from 'react';
 import { trk } from '../state/trk';
-import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, liveEraseDown, liveEraseUp, liveOn, modeHold, muteToggle, noDown, noKey, noUp, openToggle, padHit, page, playKey, presetEnter, presetKey, recDown, recKey, recUp, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
+import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, liveEraseAll, liveEraseDown, liveEraseUp, liveOn, modeHold, muteToggle, noDown, noKey, noUp, openToggle, padHit, page, playKey, presetEnter, presetKey, recDown, recKey, recUp, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
 import { lcdSamples } from '../state/lcdSamples';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
@@ -354,12 +354,14 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
     };
     // La fenetre perd le clavier pendant la tenue : rien ne part
     const onBlur = (): void => {
-      // V.5.3 : les mains sont parties, W et Echap laches sans rien faire
+      // V.5.3 : les mains sont parties, W et Echap laches sans rien faire ; l'effacement s'arrete (la revue de D3b R8 R15 : le
+      // lacher de la touche d'une voix ne reviendra pas)
       recUp('key');
       if (escHeld.current) {
         escHeld.current = false;
         noUp('key');
       }
+      liveEraseAll();
       if (mKey.current) window.clearTimeout(mKey.current.timer);
       mKey.current = null;
       // Entree tenue quand la fenetre perd le clavier (V.5.1) : FILL finit, aucune tape ne part

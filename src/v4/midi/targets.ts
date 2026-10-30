@@ -55,7 +55,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, fillHold, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, fillHold, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
 import { D2_SCREENS, RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen, pageLabel } from '../rytm/pages';
 import { TRIG_PARAMS, TRIG_RANGE, trigValue, type TrigParam } from '../audio/trig';
@@ -462,7 +462,8 @@ function coreTargets(): MidiTarget[] {
   // ne change ni ne bouge ; rytm:run, rytm:clear, rytm:random, rytm:mute, rytm:solo, rytm:edit et rytm:open gardent leur
   // effet. FUNC passe par la meme machine que sa touche (state/func.ts, la source 'midi') : tenue, puis une autre cible
   out.push(faceHold('rytm:func', 'FUNC (HOLD + A KEY: ITS ORANGE FUNCTION)', 'func', () => funcDown('midi'), () => funcUp('midi')));
-  out.push(press('rytm:rec', 'mm808', 'REC (WRITE THE STEPS, ON / OFF)', () => recKey(getStage())));
+  // ● REC (V.5.3, la revue de D3b R6) : tenue comme W et la face ; tenue + rytm:play : LIVE REC (FUNC + REC, COPY, la lit)
+  out.push({ id: 'rytm:rec', scope: 'mm808', label: 'REC (WRITE THE STEPS, ON / OFF; HOLD + PLAY: LIVE REC)', kind: 'hold', down: () => { recKey(getStage()); recDown('midi'); }, up: () => void recUp('midi') });
   out.push(press('rytm:play', 'mm808', 'PLAY (PAUSE, RESUME)', () => void playKey(getStage())));
   out.push(press('rytm:stop', 'mm808', 'STOP (TWICE: CUT THE TAILS)', () => stopKey(getStage())));
   out.push(press('rytm:yes', 'mm808', 'YES (CONFIRM, A PAGE THEN YES: RANDOM)', () => yesKey(getStage())));

@@ -360,6 +360,45 @@ export const patterns = {
     if (b.cur !== state.cur) apply(b.cur);
     setState({ ...state, cur: b.cur, pos: b.pos, next: b.next });
   },
+  /** Les pas et les verrous retenus d'un emplacement (V.5.3, LIVE REC : un emplacement qui n'est pas le courant). */
+  stepsOf: (i: number): Steps => state.slots[i] ?? emptySteps(),
+  locksOf: (i: number): Readonly<Locks> => state.locks[i] ?? {},
+  /**
+   * LIVE REC (V.5.3, la revue de D3b R9) : un emplacement qui n'est pas le courant recoit une frappe, un verrou ou un
+   * effacement (la fin de la mesure qu'on entend, quand la chaine a deja pose le pattern suivant) ; le courant passe par
+   * le motif (audio/pattern.ts), jamais par ici.
+   */
+  writeSlot(i: number, steps: Steps, locks: Readonly<Locks>): void {
+    if (i < 0 || i >= PATTERN_SLOTS || i === state.cur) return;
+    const had = state.slots[i];
+    const l = keepLocks(locks);
+    if (sameLocks(state.locks[i], l) && (had ? sameSteps(had, steps) : isEmpty(steps))) return;
+    const slots = state.slots.slice();
+    slots[i] = isEmpty(steps) && !had && !l ? null : { ...steps };
+    const ls = state.locks.slice();
+    ls[i] = l;
+    setState({ ...state, slots, locks: ls });
+  },
+  /**
+   * UNDO dans une chaine (V.5.3, la revue de D3b R12) : la part d'un emplacement de la chaine qui n'est pas le courant (ses
+   * pas, ses verrous, ses scenes, son mute, ses reglages de trig) est rendue sans en changer ; la chaine continue.
+   */
+  restoreSlot(i: number, part: { steps?: unknown; locks?: unknown; scenes?: unknown; pmutes?: unknown; trigs?: unknown }): void {
+    if (i < 0 || i >= PATTERN_SLOTS || i === state.cur) return;
+    const steps = validSteps(part.steps) ?? emptySteps();
+    const l = keepLocks(cleanLocks(part.locks));
+    const slots = state.slots.slice();
+    slots[i] = isEmpty(steps) && !l ? null : steps;
+    const locks = state.locks.slice();
+    locks[i] = l;
+    const scenes = state.scenes.slice();
+    scenes[i] = keepScenes(cleanScenes(part.scenes));
+    const pmutes = state.pmutes.slice();
+    pmutes[i] = keepPmutes(cleanPmutes(part.pmutes));
+    const trigs = state.trigs.slice();
+    trigs[i] = keepTrigs(cleanTrigs(part.trigs));
+    setState({ ...state, slots, locks, scenes, pmutes, trigs });
+  },
   /** Tests : tout vide, A01 courant (le motif du moment). */
   reset(): void {
     window.clearTimeout(saveTimer);
@@ -403,6 +442,8 @@ clock.onUnbar(() => patterns.unbar());
 // quand cela change en cours de mesure (un pattern tape en lecture), les pas a venir l'entendent tout de suite
 const lastNow = (): boolean => (state.next >= 0 && state.next !== state.cur) || state.chain.length > 1;
 clock.lastPass(lastNow);
+// Chaque pas programme retient l'emplacement de sa mesure (V.5.3, la revue de D3b R9 : LIVE REC ecrit dans celui qu'on entend)
+clock.slotOf(() => state.cur);
 let lastWas = lastNow();
 listeners.add(() => {
   const l = lastNow();

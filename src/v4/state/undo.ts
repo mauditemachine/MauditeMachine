@@ -39,7 +39,7 @@ import { seq } from '../voyager/seq';
 import { bassLoad } from './bassload';
 import { BASS, VOYAGER, focus } from './focus';
 import { lcdMessage } from './lcdMessage';
-import { patterns } from './patterns';
+import { patterns, slotName } from './patterns';
 import { presetMode } from './presetMode';
 import { apply, capture, presets, type PresetMachine } from './presets';
 import { tempoSync } from './tempoSync';
@@ -83,6 +83,11 @@ const MAX_MS = 2000;
  * REC) : la rafale reste ouverte ; un compte, les deux peuvent se tenir ensemble.
  */
 const held = new Map<PresetMachine, number>();
+/**
+ * Pendant une tenue (V.5.3, la revue de D3b R12 : une prise de LIVE REC sur une chaine) : l'etape de chaque emplacement
+ * touche ; y revenir reprend la sienne (une etape par pattern touche au plus, jamais une par mesure).
+ */
+const takes = new Map<PresetMachine, Map<number, UndoEntry>>();
 const DEPTH = 50;
 const KEEP = 20;
 const KEY = 'mm.v4.undo.1';
@@ -285,10 +290,15 @@ function change(m: PresetMachine, t: Track): void {
     const prev = mergeable;
     const merged = kind === 'preset' && prev !== null && prev.m === m && undoStack[undoStack.length - 1] === prev;
     let entry: UndoEntry;
+    // Une tenue revenue a un emplacement deja touche (la chaine qui boucle pendant une prise) : la meme etape
+    const take = !kind && t.slot !== null ? takes.get(m) : undefined;
+    const again = take && t.slot !== null ? take.get(t.slot) : undefined;
     if (merged && prev) entry = prev;
+    else if (again && undoStack.includes(again)) entry = again;
     else {
       entry = { m, data: t.stable, at: Date.now(), slot: t.slot, kind: kind ?? 'edit', ...(kind === 'preset' ? { cur: sealCur[m] ?? null } : {}) };
       pushUndo(entry);
+      if (take && t.slot !== null) take.set(t.slot, entry);
     }
     // La rafale fermee le redira (un preset qui reste)
     mergeable = null;
@@ -408,7 +418,23 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
   const now = capture(e.m);
   const nowSlot = slotOf(e.m);
   let data = e.data;
-  if (e.slot !== null && nowSlot !== null && e.slot !== nowSlot) {
+  // L'etape d'un autre pattern de la chaine (V.5.3, la revue de D3b R12 : une prise de LIVE REC sur une chaine) : sa part
+  // revient dans son emplacement, la chaine continue ; le reste (le son, les effets, le tempo) se pose ici
+  const p808 = patterns.get();
+  const inChain = e.m === 'mm808' && e.slot !== null && nowSlot !== null && e.slot !== nowSlot && p808.chain.length > 1 && p808.chain.includes(e.slot);
+  let back = now;
+  let backSlot = nowSlot;
+  if (inChain && e.slot !== null) {
+    back = withPart(e.m, now, storedPart(e.m, e.slot));
+    backSlot = e.slot;
+    applying = true;
+    try {
+      patterns.restoreSlot(e.slot, partOf(e.m, e.data));
+    } finally {
+      applying = false;
+    }
+    data = withPart(e.m, e.data, partOf(e.m, now));
+  } else if (e.slot !== null && nowSlot !== null && e.slot !== nowSlot) {
     // Une etape d'un autre emplacement : on y retourne et elle s'y pose (avant, le motif de celui qu'on regardait
     // restait : une etape qui ne changeait que ses pas ne faisait rien) ; sans banque : le motif d'ici reste
     const sel = e.m === 'mm808' ? patterns : e.m === 'bass' ? bassSlots : null;
@@ -435,6 +461,7 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
     ok = false;
     // Une etape qu'apply ne lit plus (une version d'avant) : ce qui jouait revient
     try {
+      if (inChain && e.slot !== null) patterns.restoreSlot(e.slot, partOf(e.m, back));
       apply(e.m, clone(now));
     } catch {
       /* rien de plus a faire */
@@ -444,12 +471,16 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
   }
   rebase(t, e.m);
   if (!ok) return false;
+  if (inChain) chainSlot = e.slot;
   if (e.cur !== undefined) presets.recall(e.m, e.cur);
-  other.push({ m: e.m, data: now, at: Date.now(), slot: nowSlot, kind: e.kind, ...(curNow !== undefined ? { cur: curNow } : {}) });
+  other.push({ m: e.m, data: back, at: Date.now(), slot: backSlot, kind: e.kind, ...(curNow !== undefined ? { cur: curNow } : {}) });
   if (other.length > DEPTH) other.splice(0, other.length - DEPTH);
   mergeable = null;
   return true;
 }
+
+/** L'emplacement de la chaine que le dernier UNDO ou REDO a rendu sans le choisir (l'ecran le nomme) ; null : aucun. */
+let chainSlot: number | null = null;
 
 function step(from: 'undo' | 'redo'): boolean {
   try {
@@ -470,10 +501,12 @@ function stepNow(from: 'undo' | 'redo'): boolean {
       emit();
       return false;
     }
+    chainSlot = null;
     if (put(e, from === 'undo' ? redoStack : undoStack)) {
       // Le mode presets montrait le preset charge : il se ferme, l'ecran montre ce qui joue (et UNDO)
       if (presetMode.on(e.m)) presetMode.close();
-      say(e.m, from === 'undo' ? 'UNDO' : 'REDO');
+      const word = from === 'undo' ? 'UNDO' : 'REDO';
+      say(e.m, chainSlot !== null ? `${word} ${slotName(chainSlot)}` : word);
       emit();
       persist();
       return true;
@@ -632,14 +665,36 @@ export const undo = {
   hold(m: PresetMachine, on: boolean): void {
     if (typeof window === 'undefined') return;
     const n = held.get(m) ?? 0;
-    if (on) held.set(m, n + 1);
-    else if (n > 0) {
+    if (on) {
+      held.set(m, n + 1);
+      if (n === 0) takes.set(m, new Map());
+    } else if (n > 0) {
       if (n > 1) held.set(m, n - 1);
       else {
         held.delete(m);
         flush([m]);
+        takes.delete(m);
       }
     }
+  },
+  /**
+   * LIVE REC (V.5.3, la revue de D3b R9 R12) : un emplacement qui n'est pas le courant va changer (la fin de la mesure
+   * qu'on entend, quand la chaine a deja pose le pattern suivant). Pendant une tenue (une prise), une etape par pattern
+   * touche au plus : celle d'avant sa premiere touche ; deja la, rien de plus.
+   */
+  slotEdit(m: PresetMachine, slot: number): void {
+    if (typeof window === 'undefined' || applying) return;
+    if (!tracks[m]) return;
+    const take = takes.get(m);
+    const had = take?.get(slot);
+    if (had && undoStack.includes(had)) return;
+    const entry: UndoEntry = { m, data: withPart(m, capture(m), storedPart(m, slot)), at: Date.now(), slot, kind: 'edit' };
+    pushUndo(entry);
+    take?.set(slot, entry);
+    redoStack = [];
+    mergeable = null;
+    emit();
+    persist();
   },
   /** Tests : les deux piles (les plus recentes en dernier), sans les etats ; pending : les rafales ouvertes. */
   debug(): { undo: { m: PresetMachine; kind: UndoKind; slot: number | null; at: number }[]; redo: { m: PresetMachine; kind: UndoKind; slot: number | null; at: number }[]; pending: PresetMachine[]; machines: readonly PresetMachine[]; slots: Record<PresetMachine, number | null> } {
