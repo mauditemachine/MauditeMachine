@@ -16,11 +16,11 @@ import { NO_SCENES, morph01, type SceneSet } from '../rytm/sceneData';
 import { snapTone } from './tone';
 import { bindingOf, from01, to01, type SceneBinding } from '../rytm/sceneParams';
 import { sceneCtl } from '../state/sceneCtl';
-import type { Inst } from '../theme';
-import type { KitOverride } from './kit';
+import type { KitOverride } from './kitlaw';
+import { TRACK_KEYS, tracks, type TrackKey } from './tracks';
 import type { StepLock } from './locks';
 import { pattern, type Fx } from './pattern';
-import { voiceFx, type VoiceFx, type VoiceParam } from './voicefx';
+import type { VoiceFx, VoiceParam } from './voicelaw';
 
 interface Entry {
   readonly b: SceneBinding;
@@ -51,11 +51,14 @@ export interface MorphHit {
   readonly lazy: boolean;
 }
 
-const VOICES: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
+/** Les 16 pistes (V.5.9) : une scene peut mener rytm:voice:T9:decay comme celles des 8 voix d'avant. */
+const VOICES: readonly TrackKey[] = TRACK_KEYS;
+/** Les reglages de base d'une piste (voiceFx.of d'avant, sur les 16). */
+const baseVoice = (t: TrackKey): Readonly<VoiceFx> => tracks.vfx(t);
 
 /** Les entrees vivantes d'un jeu de scenes : par domaine (le heavy attend P2-22). */
-function entriesOf(s: SceneSet): { fx: Entry[]; voice: Partial<Record<Inst, Entry[]>>; stretch: Entry | null; all: Entry[] } {
-  const out = { fx: [] as Entry[], voice: {} as Partial<Record<Inst, Entry[]>>, stretch: null as Entry | null, all: [] as Entry[] };
+function entriesOf(s: SceneSet): { fx: Entry[]; voice: Partial<Record<TrackKey, Entry[]>>; stretch: Entry | null; all: Entry[] } {
+  const out = { fx: [] as Entry[], voice: {} as Partial<Record<TrackKey, Entry[]>>, stretch: null as Entry | null, all: [] as Entry[] };
   if (s === NO_SCENES) return out;
   const keys = new Set([...Object.keys(s.a), ...Object.keys(s.b)]);
   for (const id of keys) {
@@ -76,17 +79,17 @@ function entriesOf(s: SceneSet): { fx: Entry[]; voice: Partial<Record<Inst, Entr
  * par 0 ne branche ni ne debranche rien.
  */
 export interface InsertNeeds {
-  readonly dist: ReadonlySet<Inst>;
-  readonly chorus: ReadonlySet<Inst>;
+  readonly dist: ReadonlySet<TrackKey>;
+  readonly chorus: ReadonlySet<TrackKey>;
   readonly busDist: boolean;
   readonly busChorus: boolean;
 }
-export const NO_NEEDS: InsertNeeds = Object.freeze({ dist: new Set<Inst>(), chorus: new Set<Inst>(), busDist: false, busChorus: false });
+export const NO_NEEDS: InsertNeeds = Object.freeze({ dist: new Set<TrackKey>(), chorus: new Set<TrackKey>(), busDist: false, busChorus: false });
 
 function needsOf(all: readonly Entry[]): InsertNeeds {
   if (all.length === 0) return NO_NEEDS;
-  const dist = new Set<Inst>();
-  const chorus = new Set<Inst>();
+  const dist = new Set<TrackKey>();
+  const chorus = new Set<TrackKey>();
   let busDist = false;
   let busChorus = false;
   for (const e of all) {
@@ -141,7 +144,7 @@ export function morphFxPure(base: Readonly<Fx>, s: SceneSet, x: number): Readonl
 }
 
 /** Les reglages d'une voix morphes (pur, alloue) : le meme objet sans entree pour elle. */
-export function morphVoicePure(inst: Inst, base: Readonly<VoiceFx>, s: SceneSet, x: number): Readonly<VoiceFx> {
+export function morphVoicePure(inst: TrackKey, base: Readonly<VoiceFx>, s: SceneSet, x: number): Readonly<VoiceFx> {
   const es = entriesOf(s).voice[inst];
   if (!es || es.length === 0) return base;
   const out = { ...base };
@@ -159,7 +162,7 @@ export function morphVoicePure(inst: Inst, base: Readonly<VoiceFx>, s: SceneSet,
  * (postSends, postInserts) et le filtre du TONE du coup (hitEntry) ne lisent que le verrou : sorti du verrou, il se
  * perdait, le coup jouait la tranche (un VOL 0.2 a plein, +24 dB).
  */
-export function morphHitPure(inst: Inst, base: Readonly<VoiceFx>, lock: Readonly<StepLock> | null, s: SceneSet, x: number): { fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null; kit: KitOverride | null } {
+export function morphHitPure(inst: TrackKey, base: Readonly<VoiceFx>, lock: Readonly<StepLock> | null, s: SceneSet, x: number): { fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null; kit: KitOverride | null } {
   return hitWith(entriesOf(s).voice[inst], base, lock, x);
 }
 
@@ -199,10 +202,10 @@ let needs = needsOf(live.all);
 let byId = new Map<string, Entry>(live.all.map((e) => [e.b.id, e]));
 const effFx: Fx = { ...pattern.fx.get() };
 let fxDirty = true;
-const effVoice: Partial<Record<Inst, VoiceFx>> = {};
-const voiceDirty = new Set<Inst>(VOICES);
+const effVoice: Partial<Record<TrackKey, VoiceFx>> = {};
+const voiceDirty = new Set<TrackKey>(VOICES);
 /** ce que joue un coup sans verrou d'une voix dont TONE se morphe : la voix jouee, sa hauteur sur la grille (hitTone) */
-const effHit: Partial<Record<Inst, VoiceFx>> = {};
+const effHit: Partial<Record<TrackKey, VoiceFx>> = {};
 let stretchBase: () => number = () => 0;
 const listeners = new Set<(c: MorphChange) => void>();
 
@@ -236,12 +239,12 @@ function fxNow(): Readonly<Fx> {
   return effFx;
 }
 
-function voiceNow(inst: Inst): Readonly<VoiceFx> {
+function voiceNow(inst: TrackKey): Readonly<VoiceFx> {
   const es = live.voice[inst];
-  if (!es || es.length === 0) return voiceFx.of(inst);
+  if (!es || es.length === 0) return baseVoice(inst);
   let o = effVoice[inst];
   if (!o || voiceDirty.has(inst)) {
-    const base = voiceFx.of(inst);
+    const base = baseVoice(inst);
     if (!o) {
       o = { ...base };
       effVoice[inst] = o;
@@ -273,7 +276,7 @@ export const morph = {
    * les voix dont une hauteur se morphe (TUNE, FINE, TONE) : leurs coups se preparent aux deux bouts ; toutes quand le
    * STRETCH est dans une scene (2026-10-27, revue F2 : il change la duree de chaque coup)
    */
-  pitchVoices(): Inst[] {
+  pitchVoices(): TrackKey[] {
     if (live.stretch) return [...VOICES];
     return VOICES.filter((i) => live.voice[i]?.some(pitchy));
   },
@@ -281,14 +284,14 @@ export const morph = {
    * Un coup, pour une banque de scenes (Snap.scenes) au x du moment : la valeur de base est celle du trig (son verrou s'il
    * en a). Sans scene pour la voix : le verrou lui-meme, fx de la voix, kit null.
    */
-  hit(inst: Inst, lock: Readonly<StepLock> | null, s: SceneSet): MorphHit {
+  hit(inst: TrackKey, lock: Readonly<StepLock> | null, s: SceneSet): MorphHit {
     // Le STRETCH dans une scene (2026-10-27, revue F2) : chaque coup de chaque voix a une hauteur menee par le
     // crossfader ; lazy, le plus proche joue et son calcul ne re-programme rien (sans lui, chaque arrivee demandait une
     // re-programmation, la tempete du F9)
     if (s === scenes) {
       const es = live.voice[inst];
       const st = live.stretch !== null;
-      if (!es || es.length === 0) return { fx: voiceFx.of(inst), lock, kit: null, lazy: st };
+      if (!es || es.length === 0) return { fx: baseVoice(inst), lock, kit: null, lazy: st };
       const lazy = st || es.some(pitchy);
       if (!lock) {
         const v = voiceNow(inst);
@@ -298,13 +301,13 @@ export const morph = {
         h.tone = hitTone(v.tone);
         return { fx: h, lock: null, kit: null, lazy };
       }
-      return { ...hitWith(es, voiceFx.of(inst), lock, x), lazy };
+      return { ...hitWith(es, baseVoice(inst), lock, x), lazy };
     }
-    if (s === NO_SCENES) return { fx: voiceFx.of(inst), lock, kit: null, lazy: false };
+    if (s === NO_SCENES) return { fx: baseVoice(inst), lock, kit: null, lazy: false };
     const ls = entriesOf(s);
     const es = ls.voice[inst];
     const lazy = ls.stretch !== null || (!!es && es.some(pitchy));
-    return { ...hitWith(es, voiceFx.of(inst), lock, x), lazy };
+    return { ...hitWith(es, baseVoice(inst), lock, x), lazy };
   },
   /** le 0 a 1 joue d'un id qui se morphe (les anneaux, les blocs, les moteurs) ; null : pas morphe */
   played01(id: string): number | null {
@@ -330,7 +333,7 @@ export const morph = {
         : b.domain === 'stretch'
           ? stretchBase()
           : b.domain === 'voice' && b.inst
-            ? voiceFx.of(b.inst)[b.key as VoiceParam]
+            ? baseVoice(b.inst)[b.key as VoiceParam]
             : undefined;
     if (typeof base !== 'number') return false;
     const b01 = to01(b, base);
@@ -341,7 +344,7 @@ export const morph = {
   /** un reglage de fx est-il dans une scene du motif (drums.ts : ses changements de base passent par l'applicateur) */
   fxMorphed: (): boolean => live.fx.length > 0,
   /** un reglage de la voix est-il dans une scene du motif */
-  voiceMorphed: (inst: Inst): boolean => (live.voice[inst]?.length ?? 0) > 0,
+  voiceMorphed: (inst: TrackKey): boolean => (live.voice[inst]?.length ?? 0) > 0,
   /** les inserts que les scenes du motif menent (le meme objet tant qu'elles ne changent pas) */
   inserts: (): InsertNeeds => needs,
   /** une duree d'application (ms) gardee pour les tests, les 4096 dernieres au plus */
@@ -403,7 +406,9 @@ if (typeof window !== 'undefined') {
     fxDirty = true;
     notify({ cause: 'base' });
   });
-  voiceFx.subscribe(() => {
+  // Les reglages de base d'une piste ont change (voiceFx d'avant, sur les 16 : le store des pistes)
+  tracks.onChange((c) => {
+    if (c.voice.length === 0) return;
     let any = false;
     for (const i of VOICES) {
       if (live.voice[i]?.length) {

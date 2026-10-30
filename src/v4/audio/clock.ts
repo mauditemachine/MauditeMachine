@@ -48,19 +48,24 @@
  * re-programmation repart de celui de son premier pas. Le compteur de passages (A:B, 1ST) vit ici : 1 a RUN et a chaque
  * changement de pattern (resetPass, state/patterns.ts), +1 a chaque debut de mesure ; la pause le garde, STOP le remet a 1.
  * Un uTIME negatif avance l'horizon d'autant : le coup du pas 1 tombe a la fin de la mesure d'avant, jamais en retard.
+ *
+ * Les 16 pistes (V.5.9, 2026-10-30, cahier 4.6) : le masque d'un pas sur 16 bits (bit k : TRACK_KEYS[k]) ; un changement
+ * du son ou des reglages d'une piste (un potard, un sample, un coup qui arrive apres un remplacant) ne refait que les coups
+ * de cette piste (et de son groupe de choke, ses portes se tiennent), pas toute l'horloge : chaque pas programme garde ses
+ * coups piste par piste (de quoi les refaire tels quels). Le reste (pas, verrous, mutes, tempo, swing, TONE, STRETCH,
+ * scenes) refait tout, comme avant.
  */
 
 import { voices } from '../state/voices';
 import { sceneCtl } from '../state/sceneCtl';
 import { DT_FACE, PORTRAIT, SWING, XFADE_UI, type Inst } from '../theme';
-import { voiceFx } from './voicefx';
-import { kit } from './kit';
-import { cancelVoice, context, lockTrig, mix, trigger, type HitSeq, type Voice } from './drums';
+import { TRACK_KEYS, trackIndex, tracks, type TrackKey } from './tracks';
+import { cancelVoice, context, kitOverride, lockTrig, mix, trigger, type HitSeq, type Voice } from './drums';
 import { shots } from './shots';
-import { INSTRUMENTS, STEP_COUNT, pattern, type Steps } from './pattern';
+import { STEP_COUNT, pattern, type Steps } from './pattern';
 import type { Locks } from './locks';
-import { cloneSeq, earliestShift, seqLast, seqState, seqStep, soundingAt, type SeqState } from './seq';
-import { liveNeeds } from './seqhit';
+import { cloneSeq, earliestShift, seqLast, seqState, seqStep, soundingAt, type SeqHit, type SeqLockTrig, type SeqState } from './seq';
+import { liveNeeds, type LiveNeeds } from './seqhit';
 import type { TrigSet } from './trig';
 import { LFO_PARAMS } from './lfo';
 import { fill } from '../state/fill';
@@ -87,7 +92,7 @@ export interface StepEvent {
   expected: number;
   /** ctx.currentTime au moment de la programmation */
   at: number;
-  /** instruments joues : bit k = INSTRUMENTS[k] */
+  /** pistes jouees : bit k = TRACK_KEYS[k] (16 bits depuis la V.5.9 ; les 8 premiers, les voix d'avant) */
   mask: number;
   /** retard du swing (s) : 0 sur les pas impairs (1, 3 ... 15) */
   off: number;
@@ -163,6 +168,12 @@ interface Snap {
   slot: number;
 }
 
+/**
+ * Un coup d'un pas programme (V.5.9) : de quoi refaire ce coup seul, tel quel (sa piste, ce que le sequenceur des trigs en
+ * a decide, le coup d'avant de sa piste ou celui qu'un lock trig touche) ; sa voix (null : rien n'a joue).
+ */
+type Item = { kind: 'hit'; t: TrackKey; h: SeqHit; live: LiveNeeds | null; prev: Voice | null; v: Voice | null } | { kind: 'lock'; t: TrackKey; lt: SeqLockTrig; tgt: Voice | null; v: Voice | null };
+
 /** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
 interface Planned {
   abs: number;
@@ -178,6 +189,8 @@ interface Planned {
   seqBefore: SeqState;
   first: number;
   last: number;
+  /** ses coups piste par piste, dans l'ordre (V.5.9 : une re-programmation d'une piste ne refait que les siens) */
+  items: Item[];
 }
 const plan: Planned[] = [];
 /** re-programmation en cours : le motif (et ses verrous) des pas d'une mesure deja finie */
@@ -247,6 +260,10 @@ const stats = {
   leadShifts: 0,
   /** coups ou lock trigs qui ont leve pendant la programmation (V.5.1, la revue de D2, E1), depuis le chargement */
   seqErrors: 0,
+  /** V.5.9 : re-programmations d'une piste (un potard, un son) ; les pistes de la derniere ; les coups refaits (total) */
+  trackRescheduled: 0,
+  lastTracks: [] as TrackKey[],
+  redone: 0,
 };
 
 const runListeners = new Set<() => void>();
@@ -335,24 +352,28 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     trigs: snap.trigs,
     ctx: { pass: snap.pass, fill: fill.on, last: snap.last },
     plays: (inst) => voices.plays(inst, pm),
-    fxOf: (inst) => voiceFx.of(inst),
+    fxOf: (inst) => tracks.vfx(inst),
   });
-  const made: { inst: Inst; v: Voice }[] = [];
+  const made: { inst: TrackKey; v: Voice }[] = [];
+  const items: Item[] = [];
   // LIVE REC (V.5.3) : une frappe arrondie vers ce pas l'a deja jouee, il ne la rejoue pas a ce passage
   if (skips.size > 0) for (const k of skips) if (Number(k.slice(0, k.indexOf(':'))) < abs - 64) skips.delete(k);
   for (const h of out.hits) {
     if (skips.size > 0 && !h.rep && skips.has(`${abs}:${h.inst}`)) continue;
-    mask |= 1 << INSTRUMENTS.indexOf(h.inst);
+    mask |= 1 << trackIndex(h.inst);
     const live = liveNeeds(snap.locks, h.inst);
-    const sq: HitSeq | undefined = h.len !== null || h.lfo || h.roll || live ? { len: h.len, lfo: h.lfo, roll: h.roll, rep: h.rep, prev: seqSt.v[h.inst].last as Voice | null, live } : undefined;
+    const prev = seqSt.v[h.inst].last as Voice | null;
+    const it: Item = { kind: 'hit', t: h.inst, h, live, prev, v: null };
+    items.push(it);
     const n0 = vs.length;
     // Une erreur d'automation (la revue de D2, E1 : un navigateur sans cancelAndHoldAtTime) ne bloque jamais l'horloge : le
     // pas suivant part quand meme (sinon le meme pas se rejouait a chaque reveil)
     try {
-      if (trigger(h.inst, h.t, false, vs, h.vel, h.lock, snap.scenes, sq) && vs.length > n0) {
+      if (trigger(h.inst, h.t, false, vs, h.vel, h.lock, snap.scenes, seqOf(it)) && vs.length > n0) {
         const v = vs[vs.length - 1];
         seqLast(seqSt, h.inst, v);
         made.push({ inst: h.inst, v });
+        it.v = v;
       }
     } catch (err) {
       seqWarn(err);
@@ -362,8 +383,13 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     try {
       // Le coup qui sonne a son heure (E5) : une repetition de ce pas, sinon celui d'avant ; les scenes du pas (E7)
       const tgt = soundingAt(made, lt.inst, Math.max(lt.t, now), lt.last as Voice | null);
+      const it: Item = { kind: 'lock', t: lt.inst, lt, tgt, v: null };
+      items.push(it);
       const pv = lockTrig(lt.inst, lt.t, lt.lock, tgt, lt.anchor, snap.scenes);
-      if (pv) vs.push(pv);
+      if (pv) {
+        vs.push(pv);
+        it.v = pv;
+      }
     } catch (err) {
       seqWarn(err);
     }
@@ -375,7 +401,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     if (v.when > last) last = v.when;
   }
   for (const v of vs) pending.push(v);
-  plan.push({ abs, step: s, grid, when, voices: vs, snap, seq, seqBefore, first, last });
+  plan.push({ abs, step: s, grid, when, voices: vs, snap, seq, seqBefore, first, last, items });
   const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off, abs, slot: snap.slot };
   seq += 1;
   push(e);
@@ -390,6 +416,12 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   if (-late < stats.minLead) stats.minLead = -late;
   stepListeners.forEach((fn) => fn(e));
+}
+
+/** Ce que le sequenceur des trigs ajoute au coup d'un item (rien au depart : le coup d'avant). */
+function seqOf(it: Extract<Item, { kind: 'hit' }>): HitSeq | undefined {
+  const h = it.h;
+  return h.len !== null || h.lfo || h.roll || it.live ? { len: h.len, lfo: h.lfo, roll: h.roll, rep: h.rep, prev: it.prev, live: it.live } : undefined;
 }
 
 /** Une erreur du moteur pendant la programmation d'un pas : dite une fois dans la console, l'horloge continue. */
@@ -525,6 +557,86 @@ function reschedule(): void {
 }
 
 /**
+ * La re-programmation des pistes ts seules (V.5.9, cahier 4.6) : le son ou les reglages d'une piste ont change, les
+ * memes coups (ce que le sequenceur des trigs en a decide reste : COND, PROB, uTIME, retrigs, lock trigs) sont refaits
+ * avec ce qui vaut maintenant, ceux des autres pistes ne bougent pas. Une piste d'un groupe de choke emmene son groupe
+ * (ses portes se tiennent). Annules du dernier au premier (les portes reviennent dans l'ordre), refaits du premier au
+ * dernier ; le coup d'avant d'une repetition, celui qu'un lock trig touche et le dernier coup de chaque piste suivent.
+ */
+function rescheduleTracks(ask: ReadonlySet<TrackKey>): void {
+  if (!running) return;
+  const c = context();
+  if (!c) return;
+  const now = c.currentTime;
+  prune(now);
+  const edge = now + GUARD_S;
+  const ts = new Set(ask);
+  for (const t of ask) {
+    const g = tracks.voiceOf(t).choke;
+    if (g > 0) for (const u of TRACK_KEYS) if (tracks.voiceOf(u).choke === g) ts.add(u);
+  }
+  const todo: { x: Planned; it: Item }[] = [];
+  for (const x of plan) for (const it of x.items) if (ts.has(it.t) && (it.v ? it.v.when : it.kind === 'hit' ? it.h.t : it.lt.t) > edge) todo.push({ x, it });
+  if (todo.length === 0) return;
+  const dead = new Set<Voice>();
+  for (let i = todo.length - 1; i >= 0; i -= 1) {
+    const v = todo[i].it.v;
+    if (!v) continue;
+    cancelVoice(v);
+    dead.add(v);
+  }
+  let w = 0;
+  for (let k = 0; k < pending.length; k += 1) if (!dead.has(pending[k])) pending[w++] = pending[k];
+  pending.length = w;
+  const map = new Map<Voice, Voice | null>();
+  const mapped = (v: Voice | null): Voice | null => (v && map.has(v) ? (map.get(v) ?? null) : v);
+  for (const { x, it } of todo) {
+    const old = it.v;
+    let nv: Voice | null = null;
+    try {
+      if (it.kind === 'hit') {
+        it.prev = mapped(it.prev);
+        const tmp: Voice[] = [];
+        if (trigger(it.t, it.h.t, false, tmp, it.h.vel, it.h.lock, x.snap.scenes, seqOf(it)) && tmp.length > 0) nv = tmp[tmp.length - 1];
+      } else {
+        it.tgt = mapped(it.tgt);
+        nv = lockTrig(it.t, it.lt.t, it.lt.lock, it.tgt, it.lt.anchor, x.snap.scenes);
+      }
+    } catch (err) {
+      seqWarn(err);
+    }
+    if (old) map.set(old, nv);
+    it.v = nv;
+    const at = old ? x.voices.indexOf(old) : -1;
+    if (at >= 0) {
+      if (nv) x.voices[at] = nv;
+      else x.voices.splice(at, 1);
+    } else if (nv) x.voices.push(nv);
+    if (nv) pending.push(nv);
+    let first = x.when;
+    let last = x.when;
+    for (const v of x.voices) {
+      if (v.when < first) first = v.when;
+      if (v.when > last) last = v.when;
+    }
+    x.first = first;
+    x.last = last;
+  }
+  // Le dernier coup de chaque piste (celui qu'un lock trig plus loin touche), dans l'etat du sequenceur et dans ceux des pas
+  for (const t of ts) {
+    const l = seqSt.v[t].last as Voice | null;
+    if (l && map.has(l)) seqSt.v[t].last = map.get(l) ?? null;
+    for (const x of plan) {
+      const b = x.seqBefore.v[t].last as Voice | null;
+      if (b && map.has(b)) x.seqBefore.v[t].last = map.get(b) ?? null;
+    }
+  }
+  stats.trackRescheduled += 1;
+  stats.lastTracks = [...ts];
+  stats.redone += todo.length;
+}
+
+/**
  * Le SYNC du MIXER (2026-10-27, Mika : "je voudrais un bouton sync qui fait que c'est sync avec le bpm des cdj quand
  * ces derniers sont sync aussi" ; dj/actions.ts : la platine MASTER mene) : a la fin de chaque mesure, au moment de
  * programmer son pas 14, la barre qui vient se pose sur le temps de la platine le plus proche (au plus un demi-temps
@@ -563,11 +675,38 @@ function leadRealign(now: number): boolean {
   return true;
 }
 
-const me: Scheduler = { tick, reschedule, order: 0 };
+/** Ce qui attend la prochaine re-programmation groupee (V.5.9) : tout, ou seulement des pistes. */
+let askAll = false;
+let askTracks = new Set<TrackKey>();
+const me: Scheduler = {
+  tick,
+  reschedule(): void {
+    const all = askAll;
+    const ts = askTracks;
+    askAll = false;
+    askTracks = new Set();
+    // Une demande d'ailleurs (sched.ts) ou une demande pour tout : toute l'horloge, comme avant
+    if (!all && ts.size > 0) rescheduleTracks(ts);
+    else reschedule();
+  },
+  order: 0,
+};
 registerScheduler(me);
 const ask = (): void => {
   stats.asks += 1;
-  if (running && !inBar) askReschedule(me);
+  if (running && !inBar) {
+    askAll = true;
+    askReschedule(me);
+  }
+};
+/** Seulement les coups de ces pistes (V.5.9) : un potard, un son, un coup qui arrive. */
+const askFor = (ts: readonly TrackKey[]): void => {
+  if (ts.length === 0) return;
+  stats.asks += 1;
+  if (running && !inBar) {
+    for (const t of ts) askTracks.add(t);
+    askReschedule(me);
+  }
 };
 
 const emit = (): void => runListeners.forEach((fn) => fn());
@@ -595,24 +734,26 @@ const HIT_PARAMS = ['tone', 'decay', 'tune', 'pan', 'start', 'atk', 'hold', 'fin
  * R3 : son coup passe apres le LEVEL de la tranche, drums.ts hitEntry, et porte le VOL de la voix dans son gain ;
  * sans re-programmer, VOL a 0 laissait ces coups sonner plein pot jusqu'a 450 ms).
  */
-const levelBaked = (inst: Inst, locks: Readonly<Locks>): boolean => {
+const levelBaked = (inst: TrackKey, locks: Readonly<Locks>): boolean => {
   const row = locks[inst];
   return !!row && Object.values(row).some((l) => l.level !== undefined || l.tone !== undefined);
 };
-function hitKey(): string {
-  const locks = pattern.get().locks;
-  return INSTRUMENTS.map((inst) => {
-    const v = voiceFx.of(inst);
-    const k = `${HIT_PARAMS.map((p) => v[p]).join(',')}|${lfoKey(inst)}`;
-    return inst === 'BD' || levelBaked(inst, locks) ? `${k},${v.level}` : k;
-  }).join(';');
+/** La cle de coup d'une piste (V.5.9 : par piste) ; la source du SIDECHAIN (T1 au depart, le BD d'avant) garde son VOL dedans. */
+function hitKeyOf(inst: TrackKey): string {
+  const v = tracks.vfx(inst);
+  const k = `${HIT_PARAMS.map((p) => v[p]).join(',')}|${lfoKey(inst)}`;
+  return inst === tracks.scSrc() || levelBaked(inst, pattern.get().locks) ? `${k},${v.level},${tracks.param(inst, 'tlev')}` : k;
 }
 
 // Les LFO d'une voix (V.5.1) changent ses coups : ils comptent dans la cle
-const lfoKey = (inst: Inst): string => {
-  const v = voiceFx.of(inst);
+const lfoKey = (inst: TrackKey): string => {
+  const v = tracks.vfx(inst);
   return LFO_PARAMS.map((p) => v[p] ?? '').join(',');
 };
+/** Les pas de la piste changent-ils son son (un verrou de sample, de MACHINE, de potard ou de couche) ? */
+const kitLocked = (t: TrackKey): boolean => Object.values(pattern.get().locks[t] ?? {}).some((l) => kitOverride(l) !== null);
+/** Ce que joue le son d'une piste (V.5.9) : son moteur, sa signature, et s'il est un kick (le SIDECHAIN). */
+const soundKeyOf = (t: TrackKey): string => `${tracks.engine(t)}|${tracks.sigWith(t, null)}|${tracks.kickWith(t, null) ? 1 : 0}`;
 // Le tempo suit le store du motif (TEMPO, tests, rechargement) ; tout ce qui change un coup le re-programme. Choisir une
 // voix ne change aucun coup (2026-10-27, TRK et A S D F en lecture) : pas de re-programmation ; le tempo, les pas et les
 // verrous, si (PatternState : bpm, steps, instrument, locks ; setBpm ne fait que garder pendingDur, ask l'applique)
@@ -642,16 +783,49 @@ pattern.fx.subscribe(() => {
   ask();
 });
 voices.subscribe(ask);
-let lastHitKey = hitKey();
-voiceFx.subscribe(() => {
-  const k = hitKey();
-  if (k === lastHitKey) return;
-  lastHitKey = k;
-  ask();
+/*
+ * Le son et les reglages des pistes (V.5.9 ; avant : voiceFx.subscribe et kit.subscribe, qui refaisaient toute
+ * l'horloge) : seulement les pistes dont la cle de coup ou le son ont vraiment change (un potard du kick ne refait que
+ * les coups du kick). Le comportement de voix (mono, choke) et la source du SIDECHAIN : tout.
+ */
+const lastHit = new Map<TrackKey, string>(TRACK_KEYS.map((t) => [t, hitKeyOf(t)]));
+const lastSound = new Map<TrackKey, string>(TRACK_KEYS.map((t) => [t, soundKeyOf(t)]));
+let lastSc = tracks.scSrc();
+tracks.onChange((c) => {
+  const ts = new Set<TrackKey>();
+  for (const t of c.voice) {
+    const k = hitKeyOf(t);
+    if (k === lastHit.get(t)) continue;
+    lastHit.set(t, k);
+    ts.add(t);
+  }
+  for (const t of c.sound) {
+    const k = soundKeyOf(t);
+    // Une piste aux verrous de son (un sample d'une autre famille, une MACHINE, un potard verrouille) : ses coups verrouilles
+    // lisent aussi les potards du moment (comme avant, quand tout le kit refaisait toute l'horloge)
+    if (k === lastSound.get(t) && !kitLocked(t)) continue;
+    lastSound.set(t, k);
+    ts.add(t);
+  }
+  if (c.mix) {
+    for (const t of c.tracks) {
+      const k = hitKeyOf(t);
+      if (k === lastHit.get(t)) continue;
+      lastHit.set(t, k);
+      ts.add(t);
+    }
+  }
+  const sc = tracks.scSrc();
+  if (c.beh || sc !== lastSc) {
+    lastSc = sc;
+    for (const t of TRACK_KEYS) lastHit.set(t, hitKeyOf(t));
+    ask();
+    return;
+  }
+  askFor([...ts]);
 });
-kit.subscribe(ask);
-// Le coup d'un nouveau son arrive (2026-10-21, audit RS-2) : les pas deja programmes avec un remplacant sont refaits
-shots.onReady(ask);
+// Le coup d'un nouveau son arrive (2026-10-21, audit RS-2) : les pas deja programmes avec un remplacant sont refaits (V.5.9 : ceux de ses pistes)
+shots.onReady((ts) => askFor(ts));
 
 /*
  * Les coups suivent le crossfader (2026-10-27, la phase 2) : aucune re-programmation par mouvement (le pic de calcul du
@@ -987,7 +1161,7 @@ export const clock = {
   entryAt,
   nearestAt,
   /** LIVE REC (V.5.3) : la voix ne rejoue pas au pas abs de ce passage (la frappe arrondie vers lui l'a deja jouee). */
-  skipHit(inst: Inst, abs: number): void {
+  skipHit(inst: TrackKey, abs: number): void {
     skips.add(`${abs}:${inst}`);
   },
   gridAfter,
@@ -1081,6 +1255,10 @@ export interface ClockDebug {
   readonly pass: number;
   readonly seqErrors: number;
   readonly abs: number;
+  /** V.5.9 (cahier 4.6) : re-programmations d'une piste, les pistes de la derniere, les coups refaits (total) */
+  readonly trackRescheduled: number;
+  readonly lastTracks: readonly TrackKey[];
+  readonly redone: number;
 }
 
 export const clockDebug: ClockDebug = {
@@ -1130,5 +1308,14 @@ export const clockDebug: ClockDebug = {
   },
   get abs() {
     return abs;
+  },
+  get trackRescheduled() {
+    return stats.trackRescheduled;
+  },
+  get lastTracks() {
+    return stats.lastTracks;
+  },
+  get redone() {
+    return stats.redone;
   },
 };

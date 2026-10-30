@@ -27,6 +27,14 @@
  */
 
 import type { Inst } from '../theme';
+import type { TrackKey } from '../audio/tracks';
+
+/*
+ * V.5.9 (2026-10-30, le moteur a 16 pistes) : le sequenceur demande pour les 16 pistes (plays, isMuted, isSolo prennent
+ * une TrackKey) ; les mutes et le solo restent ceux des 8 voix (leurs ecrans, le boitier et le telephone les lisent a 8) :
+ * une piste 9 a 16 joue tant qu'aucun solo n'est pose. Les mutes sur 16 viennent avec leur face (V.6.0).
+ */
+const has = (list: readonly Inst[], t: TrackKey): boolean => (list as readonly string[]).includes(t);
 
 export interface VoicesState {
   muted: readonly Inst[];
@@ -70,13 +78,13 @@ export const voices = {
       listeners.delete(fn);
     };
   },
-  isMuted: (inst: Inst): boolean => state.muted.includes(inst),
-  isSolo: (inst: Inst): boolean => state.solo.includes(inst),
+  isMuted: (inst: TrackKey): boolean => has(state.muted, inst),
+  isSolo: (inst: TrackKey): boolean => has(state.solo, inst),
   /**
    * Le sequenceur joue-t-il cette voix ? Le solo passe avant les mutes ; pmuted (V.5.0, 2026-10-29) : le mute du pattern
    * (audio/pattern.ts pmutes), une voix coupee par l'un ou l'autre ne joue pas.
    */
-  plays: (inst: Inst, pmuted: readonly Inst[] = []): boolean => (state.solo.length > 0 ? state.solo.includes(inst) : !state.muted.includes(inst) && !pmuted.includes(inst)),
+  plays: (inst: TrackKey, pmuted: readonly Inst[] = []): boolean => (state.solo.length > 0 ? has(state.solo, inst) : !has(state.muted, inst) && !has(pmuted, inst)),
   /** Le temoin d'un mode : arme, ou une voix encore coupee (en solo). */
   lit: (k: VoiceModeKind): boolean => (k === 'mute' ? state.muteMode || state.muted.length > 0 : state.soloMode || state.solo.length > 0),
   /** L'etat d'un mode (2026-10-09). */

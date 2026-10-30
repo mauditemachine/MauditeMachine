@@ -79,9 +79,16 @@
  * - une exception dans le worker ne coupe plus le worker pour la visite : il
  *   repond par une erreur, le calcul est retente une fois puis son repli
  *   joue ; un worker qui plante en route est relance (MAX_RESTARTS fois).
+ *
+ * Par piste (V.5.9, 2026-10-30, le moteur a 16 pistes, cahier 4.6) : la cle du cache reste celle du moteur et de la
+ * signature (deux pistes au meme son partagent le calcul) ; tout ce qui etait par voix (la rotation des variantes, le
+ * son precedent, le dernier coup, les remplacants, le choix de son) est par piste : deux kicks ne se jouent pas l'un
+ * l'autre pendant un calcul. Le son d'un coup sans verrou est celui de sa piste (tracks.tweakWith) ; le prechauffage
+ * prend les sons des pistes qui en ont un, dans l'ordre du motif d'arrivee.
  */
 
-import { KIT_FAMILIES, familyOf, kit, shotsOf, silentTweak, synthFallback, type KitFamily } from './kit';
+import { silentTweak, synthFallback } from './kitlaw';
+import { TRACK_KEYS, tracks, type TrackKey } from './tracks';
 import { keepSample, loadSample, onSampleDropped, onSampleFailed, onSampleLoaded, requestSample, samplePcm, sampleStatus } from './samples';
 import { renderLayers, VARIANTS, type ShotId, type ShotTweak } from './shotsdsp';
 import { boot } from '../state/boot';
@@ -103,9 +110,27 @@ const MAX_ENTRIES = 240;
 const MAX_RESTARTS = 3;
 /** Les calculs en attente de leur echantillon gardes au plus. */
 const MAX_WAITING = 64;
-/** Ordre du prechauffage : les voix du motif d'arrivee d'abord. */
+/** Ordre du prechauffage : les voix du motif d'arrivee d'abord (leurs pistes : T1 T3 T5 T2 T6 T8 T4 T7, puis le charley ouvert de T3), puis les pistes 9 a 16 qui ont un son. */
 // Huit voix (2026-10-05) : RS et PC ne se calculent plus
-const IDS: readonly ShotId[] = ['BD', 'CH', 'CP', 'SD', 'TOM', 'CY', 'OH', 'HT', 'CHopen'];
+const WARM: readonly (readonly [TrackKey, boolean])[] = [
+  ['BD', false],
+  ['CH', false],
+  ['CP', false],
+  ['SD', false],
+  ['TOM', false],
+  ['CY', false],
+  ['OH', false],
+  ['HT', false],
+  ['CH', true],
+  ...TRACK_KEYS.slice(8).map((t) => [t, false] as const),
+];
+/** Les sons d'une piste : son moteur, et le charley ouvert d'un moteur CH (le pad tenu). */
+const idsOf = (t: TrackKey): ShotId[] => {
+  const e = tracks.engine(t);
+  return e === 'CH' ? ['CH', 'CHopen'] : [e];
+};
+/** La cle par piste et par son (V.5.9) : la rotation des variantes, le son precedent, le dernier coup. */
+const tk = (t: TrackKey, id: ShotId): string => `${t}|${id}`;
 /** Frequence du prechauffage, avant tout contexte (la plus courante). */
 const PREWARM_SR = 48000;
 let prewarmed = false;
@@ -159,12 +184,12 @@ let worker: Worker | null | undefined;
 let workerOk = false;
 let restarts = 0;
 const stats = { rendered: 0, ms: 0, sync: 0, nearest: 0, inWorker: 0, skipped: 0, previous: 0, fallback: 0, errors: 0, restarts: 0, lastError: '' };
-/** La derniere variante jouee de chaque son. */
-const lastVar = new Map<ShotId, number>();
-/** Le dernier coup joue par chaque voix hors verrou (2026-10-21) : son son precedent, tant que le nouveau se calcule. */
-const lastPlayed = new Map<ShotId, { buf: AudioBuffer; pk: number; key: string }>();
-/** La hauteur, le STRETCH et la frequence du dernier coup de chaque voix hors verrou : un nouveau choix s'y calcule. */
-const lastReq = new Map<ShotId, { k: number; pk: number; sr: number }>();
+/** La derniere variante jouee de chaque son de chaque piste. */
+const lastVar = new Map<string, number>();
+/** Le dernier coup joue par chaque piste hors verrou (2026-10-21) : son son precedent, tant que le nouveau se calcule. */
+const lastPlayed = new Map<string, { buf: AudioBuffer; pk: number; key: string }>();
+/** La hauteur, le STRETCH et la frequence du dernier coup de chaque piste hors verrou : un nouveau choix s'y calcule. */
+const lastReq = new Map<string, { k: number; pk: number; sr: number }>();
 /** Les calculs qui ont echoue deux fois (2026-10-21) : plus redemandes, leur repli joue. */
 const broken = new Set<string>();
 /** Ceux qu'on attend (whenReady : l'ecoute a l'arret). */
@@ -174,11 +199,18 @@ const waiters = new Map<string, Array<(ok: boolean) => void>>();
  * qu'un de leurs coups arrive, l'horloge refait ses pas deja programmes (onReady). Avant, les 300 ms programmees
  * d'avance apres un changement gardaient le remplacant.
  */
-const substituted = new Set<ShotId>();
-const readyFns = new Set<() => void>();
+const substituted = new Map<TrackKey, Set<ShotId>>();
+const readyFns = new Set<(tracks: readonly TrackKey[]) => void>();
 let readyTimer = 0;
-function substitute(id: ShotId): void {
-  substituted.add(id);
+/** Les pistes dont un coup de remplacement attend le bon (V.5.9 : par piste ; l'horloge ne refait que les leurs). */
+let readyTracks = new Set<TrackKey>();
+function substitute(t: TrackKey, id: ShotId): void {
+  let m = substituted.get(t);
+  if (!m) {
+    m = new Set();
+    substituted.set(t, m);
+  }
+  m.add(id);
 }
 
 /**
@@ -186,13 +218,23 @@ function substitute(id: ShotId): void {
  * echantillon (toutes seraient le meme) ; la couche SYNTH a son niveau garde
  * les siennes (le bruit de la caisse claire change d'un coup a l'autre).
  */
-const variantsOf = (id: ShotId): number => {
-  const f = familyOf(id);
-  return f && kit.get().sample[f] && kit.get().layer[f].syn <= 0 ? 1 : VARIANTS[id];
+const variantsOf = (t: TrackKey, id: ShotId): number => {
+  const tw = tracks.tweakWith(t, null);
+  return tw.sample && (tw.syn ?? 1) <= 0 ? 1 : VARIANTS[id];
 };
 
-/** La cle d'un echantillon : son, STRETCH, variante, frequence, hauteur, et la signature du kit (audio/kit.ts, 2026-10-04). */
-const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk = 0, sig = kit.sig(id)): string => `${id}|${k}|${v}|${sr}|${pk}|${sig}`;
+/** La cle d'un echantillon : son, STRETCH, variante, frequence, hauteur, et la signature du son (audio/kit.ts, 2026-10-04). */
+const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk: number, sig: string): string => `${id}|${k}|${v}|${sr}|${pk}|${sig}`;
+/** Les signatures du moment des pistes qui jouent ce moteur, et de leurs replis (un calcul qui ne sert plus a aucune piste part). */
+function liveSigs(id: ShotId): Set<string> {
+  const out = new Set<string>();
+  for (const t of TRACK_KEYS) {
+    if (!idsOf(t).includes(id)) continue;
+    out.add(tracks.sigWith(t, null));
+    out.add(synthFallback(id, tracks.tweakWith(t, null)).sig);
+  }
+  return out;
+}
 /** Une cle lue : la signature est tout ce qui suit le cinquieme separateur (celle d'un sample en contient un). */
 const KEY_RE = /^([^|]+)\|(-?\d+)\|(\d+)\|([\d.]+)\|(-?\d+)\|(.*)$/;
 
@@ -243,10 +285,20 @@ function put(key: string, b: AudioBuffer): void {
   cache.set(key, b);
   cacheBytes += bytesOf(b);
   const id = key.slice(0, key.indexOf('|')) as ShotId;
-  if (substituted.delete(id) && readyFns.size > 0 && typeof window !== 'undefined' && !readyTimer) {
+  // Les pistes qui jouaient un remplacant de ce son (V.5.9 : chacune la sienne)
+  let any = false;
+  for (const [t, ids] of substituted) {
+    if (!ids.delete(id)) continue;
+    if (ids.size === 0) substituted.delete(t);
+    readyTracks.add(t);
+    any = true;
+  }
+  if (any && readyFns.size > 0 && typeof window !== 'undefined' && !readyTimer) {
     readyTimer = window.setTimeout(() => {
       readyTimer = 0;
-      readyFns.forEach((fn) => fn());
+      const ts = [...readyTracks];
+      readyTracks = new Set();
+      readyFns.forEach((fn) => fn(ts));
     }, 0);
   }
   // Le budget : le moins recemment joue part d'abord (le dernier arrive reste)
@@ -463,11 +515,11 @@ function addJob(spec: JobSpec, first: boolean): void {
   // Un reglage du kit tourne : les calculs en attente d'un reglage depasse de ce son ne servent plus (ni ceux des
   // verrous, 2026-10-08 : ils ne suivent pas le son du kit, gotcha 4 de l'etude) ; son repli du moment reste
   if (!spec.lock) {
-    const cur = kit.sig(spec.id);
-    const curFb = synthFallback(spec.id, kit.tweak(spec.id)).sig;
+    // Les signatures du moment de toutes les pistes de ce moteur (V.5.9 : deux kicks, chacun la sienne) et leurs replis
+    const cur = liveSigs(spec.id);
     for (let i = queue.length - 1; i >= 0; i -= 1) {
       const q = queue[i];
-      if (q.id === spec.id && !q.lock && q.sig !== cur && q.sig !== curFb && q.sig !== spec.sig) queue.splice(i, 1);
+      if (q.id === spec.id && !q.lock && !cur.has(q.sig) && q.sig !== spec.sig) queue.splice(i, 1);
     }
   }
   const job: Job = { ...spec, key, ts: keyTs(spec.k) };
@@ -476,8 +528,8 @@ function addJob(spec: JobSpec, first: boolean): void {
   pump();
 }
 
-function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0, first = false, ov: ShotOverride | null = null): void {
-  addJob({ id, k, v, sr, pk, tw: ov ? ov.tw : kit.tweak(id), sig: ov ? ov.sig : kit.sig(id), ...(ov ? { lock: true } : {}) }, first);
+function enqueue(t: TrackKey, id: ShotId, k: number, v: number, sr: number, pk = 0, first = false, ov: ShotOverride | null = null): void {
+  addJob({ id, k, v, sr, pk, tw: ov ? ov.tw : tracks.tweakWith(t, null), sig: ov ? ov.sig : tracks.sigWith(t, null), ...(ov ? { lock: true } : {}) }, first);
 }
 
 /** Le repli d'un coup (sa couche SYNTH seule) en file, la variante 0. */
@@ -490,9 +542,9 @@ function addFallback(id: ShotId, tw: Readonly<ShotTweak>, k: number, pk: number,
 /** La frequence des derniers sons prepares (celle du contexte), pour recalculer ceux qu'un TWEAK change. */
 let warmSr = 0;
 let rewarmTimer = 0;
-const rewarmIds = new Set<ShotId>();
-/** Le dernier choix de son vu de chaque famille (kit.choice). */
-const choiceAt = new Map<KitFamily, number>();
+const rewarmIds = new Set<TrackKey>();
+/** Le dernier choix de son vu de chaque piste (tracks.choice ; kit.choice d'avant, par famille). */
+const choiceAt = new Map<TrackKey, number>();
 /**
  * Un nouveau choix moins de CHOICE_GAP_MS apres le precedent (2026-10-22, revue RA1-2 : un potard SOUND qui balaie la
  * liste telechargeait, decodait et calculait chaque cran, 11 kicks pour un geste) : une rafale, seul son dernier choix
@@ -500,17 +552,20 @@ const choiceAt = new Map<KitFamily, number>();
  * un cran dont l'echantillon est deja decode.
  */
 const CHOICE_GAP_MS = 100;
-const choiceTimer = new Map<KitFamily, number>();
-const choiceLast = new Map<KitFamily, number>();
+const choiceTimer = new Map<TrackKey, number>();
+const choiceLast = new Map<TrackKey, number>();
 
-/** Le son choisi d'une famille, tout de suite : son echantillon demande explicitement, ses coups en tete de file. */
-function choose(f: KitFamily): void {
-  choiceTimer.delete(f);
-  const key = kit.get().sample[f];
+/** Le sample d'une piste qui s'entend ('' : aucun). */
+const trackSmp = (t: TrackKey): string => smpOf(tracks.tweakWith(t, null));
+
+/** Le son choisi d'une piste, tout de suite : son echantillon demande explicitement, ses coups en tete de file. */
+function choose(t: TrackKey): void {
+  choiceTimer.delete(t);
+  const key = trackSmp(t);
   // Pas avant le demarrage (2026-10-22, revue INT-2) : un lien SHARE pose le kit au montage, ses WAV partaient avant
   // la premiere image ; prewarm (apres boot.onReady) les charge de toute facon.
-  if (key && kit.get().layer[f].lev > 0 && (warmSr !== 0 || boot.ready())) void requestSample(key);
-  for (const id of shotsOf(f)) prime(id);
+  if (key && (warmSr !== 0 || boot.ready())) void requestSample(key);
+  for (const id of idsOf(t)) prime(t, id);
 }
 
 /**
@@ -518,16 +573,16 @@ function choose(f: KitFamily): void {
  * frequence de son dernier coup (lastReq), et a STRETCH 0 (le prechauffage) ; son echantillon pas encore la, son repli
  * aussi (il jouera si le fichier ne vient pas).
  */
-function prime(id: ShotId): void {
-  const r = lastReq.get(id);
+function prime(t: TrackKey, id: ShotId): void {
+  const r = lastReq.get(tk(t, id));
   const sr = r?.sr || warmSr;
   if (!sr) return;
-  const tw = kit.tweak(id);
+  const tw = tracks.tweakWith(t, null);
   if (silentTweak(tw)) return;
   const k = r?.k ?? 0;
   const pk = r?.pk ?? 0;
-  if (warmSr && (k !== 0 || pk !== 0 || sr !== warmSr)) enqueue(id, 0, 0, warmSr, 0, true);
-  enqueue(id, k, 0, sr, pk, true);
+  if (warmSr && (k !== 0 || pk !== 0 || sr !== warmSr)) enqueue(t, id, 0, 0, warmSr, 0, true);
+  enqueue(t, id, k, 0, sr, pk, true);
   const smp = smpOf(tw);
   if (smp && !samplePcm(smp)) addFallback(id, tw, k, pk, sr, false, sampleStatus(smp).state === 'failed');
 }
@@ -540,25 +595,36 @@ function prime(id: ShotId): void {
  * attendre (prime), son echantillon demande explicitement (un echec passager
  * se retente) ; dans une rafale (2026-10-22), le dernier seulement.
  */
-kit.subscribe((changed) => {
-  for (const f of changed) for (const id of shotsOf(f)) rewarmIds.add(id);
-  if (typeof window === 'undefined') return;
-  for (const f of changed) {
-    const c = kit.choice(f);
-    if (choiceAt.get(f) === c) continue;
-    choiceAt.set(f, c);
-    const now = performance.now();
-    const burst = now - (choiceLast.get(f) ?? -Infinity) < CHOICE_GAP_MS;
-    choiceLast.set(f, now);
-    window.clearTimeout(choiceTimer.get(f) ?? 0);
-    const key = kit.get().sample[f];
-    if (!burst || (key && samplePcm(key))) choose(f);
-    else choiceTimer.set(f, window.setTimeout(() => choose(f), CHOICE_GAP_MS));
+/** La signature du moment de chaque piste (V.5.9) : seules celles dont le son a vraiment change se recalculent. */
+const sigNow = (t: TrackKey): string => `${tracks.engine(t)}|${tracks.sigWith(t, null)}`;
+const sigSeen = new Map<TrackKey, string>(TRACK_KEYS.map((t) => [t, sigNow(t)]));
+tracks.onChange((c) => {
+  if (c.sound.length === 0) return;
+  const changed: TrackKey[] = [];
+  for (const t of c.sound) {
+    const sg = sigNow(t);
+    if (sigSeen.get(t) === sg) continue;
+    sigSeen.set(t, sg);
+    changed.push(t);
   }
-  if (warmSr === 0) return;
+  for (const t of changed) rewarmIds.add(t);
+  if (typeof window === 'undefined') return;
+  for (const t of c.sound) {
+    const ch = tracks.choice(t);
+    if (choiceAt.get(t) === ch) continue;
+    choiceAt.set(t, ch);
+    const now = performance.now();
+    const burst = now - (choiceLast.get(t) ?? -Infinity) < CHOICE_GAP_MS;
+    choiceLast.set(t, now);
+    window.clearTimeout(choiceTimer.get(t) ?? 0);
+    const key = trackSmp(t);
+    if (!burst || (key && samplePcm(key))) choose(t);
+    else choiceTimer.set(t, window.setTimeout(() => choose(t), CHOICE_GAP_MS));
+  }
+  if (warmSr === 0 || changed.length === 0) return;
   window.clearTimeout(rewarmTimer);
   rewarmTimer = window.setTimeout(() => {
-    for (const id of rewarmIds) for (let v = 0; v < variantsOf(id); v += 1) enqueue(id, 0, v, warmSr);
+    for (const t of rewarmIds) for (const id of idsOf(t)) for (let v = 0; v < variantsOf(t, id); v += 1) enqueue(t, id, 0, v, warmSr);
     rewarmIds.clear();
   }, 120);
 });
@@ -572,11 +638,11 @@ onSampleLoaded((key) => {
     waitSample.splice(i, 1);
     if (cache.has(j.key) || queue.some((q) => q.key === j.key)) continue;
     // Ceux d'un reglage du kit depasse ne servent plus ; ceux des verrous, toujours
-    if (j.lock || j.sig === kit.sig(j.id)) back.unshift(j);
+    if (j.lock || liveSigs(j.id).has(j.sig)) back.unshift(j);
     else settle(j.key, false);
   }
   queue.unshift(...back);
-  for (const f of KIT_FAMILIES) if (kit.get().sample[f] === key) for (const id of shotsOf(f)) prime(id);
+  for (const t of TRACK_KEYS) if (trackSmp(t) === key) for (const id of idsOf(t)) prime(t, id);
   pump();
 });
 
@@ -587,7 +653,7 @@ onSampleFailed((key) => {
     settle(j.key, false);
     addFallback(j.id, j.tw, j.k, j.pk, j.sr, !!j.lock, true);
   }
-  for (const f of KIT_FAMILIES) if (kit.get().sample[f] === key) for (const id of shotsOf(f)) prime(id);
+  for (const t of TRACK_KEYS) if (trackSmp(t) === key) for (const id of idsOf(t)) prime(t, id);
 });
 
 /** Un PCM libere : le worker lache sa copie ; un sample retire de ce navigateur emporte aussi ses coups. */
@@ -610,12 +676,12 @@ onSampleDropped((key, gone) => {
   for (const [id, p] of [...lastPlayed]) if (p.key.includes(tag)) lastPlayed.delete(id);
 });
 
-// Les samples que le kit joue ne quittent jamais la memoire (audio/samples.ts, son budget)
-keepSample((key) => KIT_FAMILIES.some((f) => kit.get().sample[f] === key));
+// Les samples que les pistes jouent ne quittent jamais la memoire (audio/samples.ts, son budget)
+keepSample((key) => TRACK_KEYS.some((t) => tracks.of(t).snd === key));
 
-/** Ce que joue un coup (hors verrou, hors rendu hors ligne : retenu comme le son precedent de la voix). */
-function play(id: ShotId, ov: ShotOverride | null, buf: AudioBuffer, pk: number, key: string, rate: number): ShotPlay {
-  if (!ov) lastPlayed.set(id, { buf, pk, key });
+/** Ce que joue un coup (hors verrou, hors rendu hors ligne : retenu comme le son precedent de la piste). */
+function play(t: TrackKey, id: ShotId, ov: ShotOverride | null, buf: AudioBuffer, pk: number, key: string, rate: number): ShotPlay {
+  if (!ov) lastPlayed.set(tk(t, id), { buf, pk, key });
   return { buf, rate };
 }
 
@@ -623,13 +689,15 @@ export const shots = {
   /** Prepare tous les sons a STRETCH 0 (le contexte vient d'etre cree). */
   warm(sr: number): void {
     warmSr = sr;
-    // Les echantillons choisis : telecharges tout de suite
-    for (const f of KIT_FAMILIES) {
-      const key = kit.get().sample[f];
+    // Les echantillons choisis : telecharges tout de suite (ceux des pistes 1 a 8 d'abord, dans l'ordre d'avant)
+    for (const t of TRACK_KEYS) {
+      const key = tracks.of(t).snd;
       if (key) void loadSample(key);
     }
-    const most = Math.max(...IDS.map((id) => variantsOf(id)));
-    for (let v = 0; v < most; v += 1) for (const id of IDS) if (v < variantsOf(id)) enqueue(id, 0, v, sr);
+    // Les sons des pistes qui en ont un (une piste vide n'a rien a calculer), la variante 0 de chacun d'abord
+    const list = WARM.filter(([t]) => tracks.sounds(t)).map(([t, open]) => [t, open ? 'CHopen' : tracks.engine(t)] as const).filter(([t, id]) => idsOf(t).includes(id));
+    const most = Math.max(0, ...list.map(([t, id]) => variantsOf(t, id)));
+    for (let v = 0; v < most; v += 1) for (const [t, id] of list) if (v < variantsOf(t, id)) enqueue(t, id, 0, v, sr);
   },
   /** Le prechauffage a 48 kHz, une fois, quand la page est calme (aucun AudioContext) ; jamais apres le vrai (2026-10-21). */
   prewarm(): void {
@@ -650,8 +718,8 @@ export const shots = {
    * hauteur menee par le crossfader) : le plus proche joue et le calcul se
    * met en file, sans substitute (son arrivee ne re-programme rien).
    */
-  get(id: ShotId, ts: number, pf: number, sr: number, sync = false, ov: ShotOverride | null = null, lazy = false): ShotPlay | null {
-    const tw = ov ? ov.tw : kit.tweak(id);
+  get(t: TrackKey, id: ShotId, ts: number, pf: number, sr: number, sync = false, ov: ShotOverride | null = null, lazy = false): ShotPlay | null {
+    const tw = ov ? ov.tw : tracks.tweakWith(t, null);
     // Un son muet (OFF, les deux couches a 0) : rien, jamais un autre son a sa place (2026-10-21)
     if (silentTweak(tw)) return null;
     // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien. Une hauteur menee par
@@ -660,22 +728,23 @@ export const shots = {
     // toutes), sinon la variante 0 (revue F3 : avant, la voix restait sur la variante 0 meme crossfader immobile)
     const k = shotKey(ts);
     const pk = pitchKey(pf);
-    const sig = ov ? ov.sig : kit.sig(id);
+    const sig = ov ? ov.sig : tracks.sigWith(t, null);
+    const tid = tk(t, id);
     let v = 0;
     if (!ov) {
-      const n = variantsOf(id);
+      const n = variantsOf(t, id);
       let r = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
-      if (n > 1 && r >= (lastVar.get(id) ?? -1)) r += 1;
+      if (n > 1 && r >= (lastVar.get(tid) ?? -1)) r += 1;
       r = Math.min(n - 1, r);
       if (!(lazy && !sync) || r === 0 || cache.has(cacheKey(id, k, r, sr, pk, sig))) {
         v = r;
-        lastVar.set(id, v);
+        lastVar.set(tid, v);
       }
     }
     const key = cacheKey(id, k, v, sr, pk, sig);
-    if (!ov && !sync) lastReq.set(id, { k, pk, sr });
+    if (!ov && !sync) lastReq.set(tid, { k, pk, sr });
     const hit = touch(key);
-    if (hit) return sync ? { buf: hit, rate: 1 } : play(id, ov, hit, pk, key, 1);
+    if (hit) return sync ? { buf: hit, rate: 1 } : play(t, id, ov, hit, pk, key, 1);
     if (sync) {
       stats.sync += 1;
       const b = makeNow({ key, id, sr, k, ts: keyTs(k), v, pk, tw, sig });
@@ -683,17 +752,17 @@ export const shots = {
     }
     // Le meme son deja calcule a une autre hauteur, un autre STRETCH, une autre variante ou frequence
     const near = nearest(id, sig, k, pk, v, sr);
-    if (!lazy) substitute(id);
+    if (!lazy) substitute(t, id);
     if (near) {
       stats.nearest += 1;
-      enqueue(id, k, v, sr, pk, false, ov);
-      return play(id, ov, near.buf, near.pk, key, pf / keyPf(near.pk));
+      enqueue(t, id, k, v, sr, pk, false, ov);
+      return play(t, id, ov, near.buf, near.pk, key, pf / keyPf(near.pk));
     }
     // Rien de ce son : il passe en tete de file ; son echantillon pas encore la, ou en echec
     const smp = smpOf(tw);
     const have = !smp || !!samplePcm(smp);
     const failed = (!have && sampleStatus(smp).state === 'failed') || broken.has(key);
-    enqueue(id, k, v, sr, pk, !failed, ov);
+    enqueue(t, id, k, v, sr, pk, !failed, ov);
     let fb: (ShotPlay & { pk: number; key: string }) | null = null;
     if (!have || broken.has(key)) {
       // En echec aussi (2026-10-22, revue RA1-3) : loadSample relance un echec passager que plus rien ne retente (un
@@ -709,17 +778,17 @@ export const shots = {
     // Un sample en echec : son repli (l'ecran dit OFFLINE: 909 PLAYS)
     if (failed && fb) {
       stats.fallback += 1;
-      return play(id, ov, fb.buf, fb.pk, fb.key, fb.rate);
+      return play(t, id, ov, fb.buf, fb.pk, fb.key, fb.rate);
     }
-    // Sinon le son precedent de la voix (un sample en chargement, un reglage qui change), puis le repli
-    const prev = lastPlayed.get(id);
+    // Sinon le son precedent de la piste (un sample en chargement, un reglage qui change), puis le repli
+    const prev = lastPlayed.get(tid);
     if (prev) {
       stats.previous += 1;
       return { buf: prev.buf, rate: pf / keyPf(prev.pk) };
     }
     if (fb) {
       stats.fallback += 1;
-      return play(id, ov, fb.buf, fb.pk, fb.key, fb.rate);
+      return play(t, id, ov, fb.buf, fb.pk, fb.key, fb.rate);
     }
     stats.skipped += 1;
     return null;
@@ -729,13 +798,13 @@ export const shots = {
    * calcule en fond s'il manque, la variante 0 ; rien s'il est deja la. Son
    * echantillon en echec : son repli (2026-10-21).
    */
-  prepare(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null, all = false): void {
+  prepare(t: TrackKey, id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null, all = false): void {
     const k = shotKey(ts);
     const pk = pitchKey(pf);
-    enqueue(id, k, 0, sr, pk, false, ov);
+    enqueue(t, id, k, 0, sr, pk, false, ov);
     // all (2026-10-27, revue F3, les bouts et le repos d'un crossfader) : les autres variantes aussi, la rotation revient
-    if (all && !ov) for (let v = 1; v < variantsOf(id); v += 1) enqueue(id, k, v, sr, pk, false, null);
-    const tw = ov ? ov.tw : kit.tweak(id);
+    if (all && !ov) for (let v = 1; v < variantsOf(t, id); v += 1) enqueue(t, id, k, v, sr, pk, false, null);
+    const tw = ov ? ov.tw : tracks.tweakWith(t, null);
     const smp = smpOf(tw);
     if (smp && !samplePcm(smp) && sampleStatus(smp).state === 'failed') addFallback(id, tw, k, pk, sr, !!ov, false);
   },
@@ -744,9 +813,9 @@ export const shots = {
    * plus ancien coup de la voix, le kick par defaut) : true quand il est pret, false au bout de ms ou s'il ne peut
    * pas l'etre. Un echantillon en echec : son repli est le coup exact (ce que la voix joue).
    */
-  whenReady(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null, ms = 1500): Promise<boolean> {
+  whenReady(t: TrackKey, id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null, ms = 1500): Promise<boolean> {
     if (!(sr > 0) || typeof window === 'undefined') return Promise.resolve(false);
-    const tw = ov ? ov.tw : kit.tweak(id);
+    const tw = ov ? ov.tw : tracks.tweakWith(t, null);
     if (silentTweak(tw)) return Promise.resolve(true);
     const k = shotKey(ts);
     const pk = pitchKey(pf);
@@ -755,7 +824,7 @@ export const shots = {
     const fb = missing && sampleStatus(smp).state === 'failed' ? synthFallback(id, tw) : null;
     const spec: JobSpec = fb
       ? { id, k, v: 0, sr, pk, tw: fb.tw, sig: fb.sig, fb: true, ...(ov ? { lock: true } : {}) }
-      : { id, k, v: 0, sr, pk, tw, sig: ov ? ov.sig : kit.sig(id), ...(ov ? { lock: true } : {}) };
+      : { id, k, v: 0, sr, pk, tw, sig: ov ? ov.sig : tracks.sigWith(t, null), ...(ov ? { lock: true } : {}) };
     const key = cacheKey(id, k, 0, sr, pk, spec.sig);
     if (cache.has(key)) return Promise.resolve(true);
     if (broken.has(key)) return Promise.resolve(false);
@@ -786,15 +855,15 @@ export const shots = {
     return stereoBufs.has(b);
   },
   /** Ce coup est-il deja calcule (tests : un verrou prepare a l'avance) ? */
-  ready(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null): boolean {
-    return cache.has(cacheKey(id, shotKey(ts), 0, sr, pitchKey(pf), ov ? ov.sig : kit.sig(id)));
+  ready(t: TrackKey, id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null): boolean {
+    return cache.has(cacheKey(id, shotKey(ts), 0, sr, pitchKey(pf), ov ? ov.sig : tracks.sigWith(t, null)));
   },
   /** La rotation des variantes repart du debut (rendus hors ligne reproductibles). */
   resetRotation(): void {
     lastVar.clear();
   },
-  /** Un coup qui manquait vient d'arriver pour une voix qui jouait un remplacant (l'horloge reprogramme, audio/clock.ts). */
-  onReady(fn: () => void): () => void {
+  /** Un coup qui manquait vient d'arriver pour des pistes qui jouaient un remplacant (l'horloge reprogramme les leurs, audio/clock.ts). */
+  onReady(fn: (tracks: readonly TrackKey[]) => void): () => void {
     readyFns.add(fn);
     return () => {
       readyFns.delete(fn);

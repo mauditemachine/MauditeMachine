@@ -36,6 +36,7 @@
  */
 
 import type { Inst } from '../theme';
+import { TRACK_KEYS, isLegacyTrack, type PatternSetup, type StoredPatternMore, type TrackKey } from './tracks';
 import { anyLocks, cleanLocks, NO_LOCKS, withLock, withoutLock, type LockKey, type Locks } from './locks';
 import { NO_SCENES, cleanScenes, clearScene, sameScenes, toStored, withScene, withoutScene, type SceneId, type SceneSet, type StoredScenes } from '../rytm/sceneData';
 import { NO_TRIGS, anyTrigs, cleanTrigs, sameTrigs, withTrig, type TrigParam, type TrigSet } from './trig';
@@ -59,7 +60,38 @@ const LEGACY_RE = /^[0-3]{16}$/;
 /** Les trois crans d'avant (1 fort, 2 moyen, 3 doux) en niveaux : 9, 6, 3. */
 export const fromLevels3 = (s: string): string => s.replace(/[12]/g, (c) => (c === '1' ? '9' : '6'));
 
-export type Steps = Record<Inst, string>;
+/**
+ * Les pas : 16 chiffres par piste. Les 8 rangees d'heritage (BD..CY) toujours la ; celles des pistes 9 a 16 (V.5.9, le
+ * moteur a 16 pistes) seulement quand elles ont un pas (absente : vide). serialize, les emplacements et les presets
+ * n'ecrivent donc une rangee 9 a 16 que si elle sert : le JSON d'avant, octet pour octet, sans elles.
+ */
+export type Steps = Record<Inst, string> & Partial<Record<TrackKey, string>>;
+/** Une rangee de pistes 9 a 16 qui sert (un pas pose) ; les autres ne s'ecrivent ni ne se gardent. */
+const rowUsed = (s: string | undefined): s is string => typeof s === 'string' && /[1-9]/.test(s);
+/**
+ * Les pas tels qu'ils s'ecrivent (stockage, preset, emplacement) : les 8 d'heritage dans leur ordre, puis les rangees 9 a
+ * 16 qui servent ; rien d'autre.
+ */
+export function stepsOut(steps: Readonly<Steps>): Steps {
+  const out = {} as Steps;
+  for (const [k, v] of Object.entries(steps) as [TrackKey, string | undefined][]) {
+    if (typeof v !== 'string') continue;
+    if (isLegacyTrack(k) || ((TRACK_KEYS as readonly string[]).includes(k) && rowUsed(v))) out[k] = v;
+  }
+  return out;
+}
+/** Une rangee de pistes 9 a 16 lue (stockage, preset, emplacement) : valide et utile, sinon absente. */
+export function extraRows(raw: unknown, re: RegExp = /^[0-9]{16}$/): Partial<Record<TrackKey, string>> {
+  const out: Partial<Record<TrackKey, string>> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  const o = raw as Record<string, unknown>;
+  for (const k of TRACK_KEYS) {
+    if (isLegacyTrack(k)) continue;
+    const v = o[k];
+    if (typeof v === 'string' && re.test(v) && rowUsed(v)) out[k] = v;
+  }
+  return out;
+}
 
 export interface Pattern {
   bpm: number;
@@ -285,6 +317,13 @@ export interface StoredPattern {
    * quitte le depart ; absent sinon (le JSON d'avant, octet pour octet)
    */
   trigs?: TrigSet;
+  /**
+   * V.5.9 (cahier 4.5) : les champs de V.6.1 et V.6.2 (les pas 17 a 128 dans pages, le setup, l'empreinte du kit), lus et
+   * recopies tels quels a l'ecriture : un retour arriere de V.6.1 vers V.5.9 ne perd rien. Absents : le JSON d'avant.
+   */
+  pages?: StoredPatternMore['pages'];
+  setup?: PatternSetup;
+  kit?: string;
 }
 
 export interface PatternState extends Pattern {
@@ -331,8 +370,10 @@ export const DEFAULT_STEPS: Readonly<Steps> = {
 };
 
 /** Velocite du pas i de inst : 0 (vide) a 9 (le plus fort). */
-export const velocity = (steps: Steps, inst: Inst, i: number): number => {
-  const c = steps[inst].charCodeAt(i) - 48;
+export const velocity = (steps: Steps, inst: TrackKey, i: number): number => {
+  const s = steps[inst];
+  if (s === undefined) return 0;
+  const c = s.charCodeAt(i) - 48;
   return c >= 0 && c <= 9 ? c : 0;
 };
 
@@ -340,7 +381,7 @@ export const velocity = (steps: Steps, inst: Inst, i: number): number => {
 export const VEL_MAX = 9;
 
 /** Pas i joue par inst. */
-export const isOn = (steps: Steps, inst: Inst, i: number): boolean => velocity(steps, inst, i) > 0;
+export const isOn = (steps: Steps, inst: TrackKey, i: number): boolean => velocity(steps, inst, i) > 0;
 
 /**
  * Un lock trig devenu une note perd son ltrg (V.5.1, la revue de D2, U3) : une velocite (une tape, un glisser, la fleche,
@@ -348,7 +389,7 @@ export const isOn = (steps: Steps, inst: Inst, i: number): boolean => velocity(s
  */
 function noteLocks(locks: Readonly<Locks>, steps: Steps): Readonly<Locks> {
   let out = locks;
-  for (const inst of INSTRUMENTS) {
+  for (const inst of TRACK_KEYS) {
     const row = locks[inst];
     if (!row) continue;
     for (const [k, l] of Object.entries(row)) {
@@ -396,6 +437,8 @@ export function validate(raw: unknown, legacy = false): Pattern {
         if (LEGACY_RE.test(s)) out.steps[inst] = fromLevels3(s);
       } else if (STEPS_RE.test(s)) out.steps[inst] = s;
     }
+    // Les pistes 9 a 16 (V.5.9) : une rangee qui sert ; une cle d'avant les neuf niveaux n'en a jamais
+    if (!legacy) Object.assign(out.steps, extraRows(steps));
   }
   return out;
 }
@@ -439,12 +482,13 @@ export function load(): Pattern {
 /** Au millieme : le JSON reste court, un glisser donne des valeurs continues. */
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
-export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES, trigs: Readonly<TrigSet> = NO_TRIGS): StoredPattern {
+export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES, trigs: Readonly<TrigSet> = NO_TRIGS, more: Readonly<StoredPatternMore> | null = null): StoredPattern {
   const out: StoredPattern = {
     v: 1,
     // Au BPM entier (2026-10-27) : un tempo suivi au centieme (followBpm) se retient arrondi, validate le relit
     bpm: clampBpm(p.bpm),
-    steps: { ...p.steps },
+    // Les rangees 9 a 16 seulement si elles servent (V.5.9) : le JSON d'avant, octet pour octet, sans elles
+    steps: stepsOut(p.steps),
     fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0), ...(Object.fromEntries(FX_SETTING_IDS.map((k) => [k, r3(f[k] ?? FX_SETTINGS[k])])) as Record<FxSettingId, number>) },
   };
   if (anyLocks(locks)) out.locks = locks as Locks;
@@ -452,7 +496,32 @@ export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Reado
   if (sc) out.scenes = sc;
   if (pmutes.length > 0) out.pmutes = [...pmutes];
   if (anyTrigs(trigs)) out.trigs = JSON.parse(JSON.stringify(trigs)) as TrigSet;
+  // Recopies tels quels (V.5.9) : ce que V.6.1 et V.6.2 ecriront, qu'un retour arriere ne doit pas perdre
+  if (more?.pages) out.pages = more.pages;
+  if (more?.setup) out.setup = more.setup;
+  if (more?.kit) out.kit = more.kit;
   return out;
+}
+
+/**
+ * Les champs de V.6.1 et V.6.2 d'un motif stocke (cahier 4.5) : pages (des chaines de chiffres par piste), setup (un
+ * objet a longueur 1 a 128), kit (une empreinte) ; lus sans les interpreter, pour les recopier. null : aucun.
+ */
+export function validateMore(raw: unknown): StoredPatternMore | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as { pages?: unknown; setup?: unknown; kit?: unknown };
+  const out: StoredPatternMore = {};
+  if (o.pages && typeof o.pages === 'object') {
+    const pg: Partial<Record<TrackKey, string>> = {};
+    for (const [k, v] of Object.entries(o.pages as Record<string, unknown>)) if ((TRACK_KEYS as readonly string[]).includes(k) && typeof v === 'string' && /^[0-9]{1,112}$/.test(v)) pg[k as TrackKey] = v;
+    if (Object.keys(pg).length > 0) out.pages = pg;
+  }
+  if (o.setup && typeof o.setup === 'object') {
+    const len = (o.setup as { len?: unknown }).len;
+    if (typeof len === 'number' && Number.isInteger(len) && len >= 1 && len <= 128) out.setup = JSON.parse(JSON.stringify(o.setup)) as PatternSetup;
+  }
+  if (typeof o.kit === 'string' && o.kit.length > 0 && o.kit.length <= 64) out.kit = o.kit;
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /** Les reglages de trig d'un motif stocke (V.5.1) ; {} sans eux. */
@@ -474,9 +543,9 @@ export function validateLocks(raw: unknown): Readonly<Locks> {
 }
 
 /** true si l'ecriture a reussi. */
-export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES, trigs: Readonly<TrigSet> = NO_TRIGS): boolean {
+export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES, trigs: Readonly<TrigSet> = NO_TRIGS, more: Readonly<StoredPatternMore> | null = null): boolean {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks, scenes, pmutes, trigs)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks, scenes, pmutes, trigs, more)));
     return true;
   } catch {
     return false;
@@ -488,34 +557,50 @@ export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<L
  * immuable) : vide, fort (9), moyen (6), doux (3), vide ; un niveau
  * dessine passe au cran en dessous.
  */
-export function toggleStep(p: Pattern, inst: Inst, i: number): Pattern {
+export function toggleStep(p: Pattern, inst: TrackKey, i: number): Pattern {
   if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
-  const s = p.steps[inst];
+  const s = p.steps[inst] ?? EMPTY_ROW;
   const v = velocity(p.steps, inst, i);
   const next = String(v === 0 ? 9 : v > 6 ? 6 : v > 3 ? 3 : 0);
   return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + next + s.slice(i + 1) } };
 }
 
 /** Le pas i de inst a un niveau (0 a 9 ; 0 : vide). */
-export function setStep(p: Pattern, inst: Inst, i: number, v: number): Pattern {
+export function setStep(p: Pattern, inst: TrackKey, i: number, v: number): Pattern {
   if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
   const c = String(Math.max(0, Math.min(VEL_MAX, Math.round(v))));
-  const s = p.steps[inst];
+  const s = p.steps[inst] ?? EMPTY_ROW;
   if (s[i] === c) return p;
   return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + c + s.slice(i + 1) } };
 }
 
 /** Le pas i de inst vide (appui long) ; le meme motif s'il l'etait deja. */
-export function clearStep(p: Pattern, inst: Inst, i: number): Pattern {
+export function clearStep(p: Pattern, inst: TrackKey, i: number): Pattern {
   if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
   const s = p.steps[inst];
-  if (s[i] === '0') return p;
+  if (s === undefined || s[i] === '0') return p;
   return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + '0' + s.slice(i + 1) } };
 }
 
 export function clearSteps(p: Pattern): Pattern {
   const empty = '0'.repeat(STEP_COUNT);
+  // Les rangees 9 a 16 partent (vides, elles n'existent pas)
   return { ...p, steps: Object.fromEntries(INSTRUMENTS.map((k) => [k, empty])) as Steps };
+}
+
+/** Une rangee vide (une piste 9 a 16 sans pas). */
+const EMPTY_ROW = '0'.repeat(STEP_COUNT);
+/** Le motif garde ses rangees 9 a 16 seulement si elles servent (une rangee videe part : le JSON d'avant). */
+function normSteps(steps: Steps): Steps {
+  let out = steps;
+  for (const k of TRACK_KEYS) {
+    if (isLegacyTrack(k)) continue;
+    const v = steps[k];
+    if (v === undefined || rowUsed(v)) continue;
+    if (out === steps) out = { ...steps };
+    delete out[k];
+  }
+  return out;
 }
 
 /* ---------------- le store ---------------- */
@@ -532,6 +617,8 @@ let state: PatternState = {
   trigs: stored.legacy ? NO_TRIGS : validateTrigs(stored.raw),
 };
 let fxState: Readonly<Fx> = validateFx(stored.raw);
+/** Les champs de V.6.1 et V.6.2 du motif courant (V.5.9) : recopies tels quels a chaque ecriture. */
+let moreState: StoredPatternMore | null = stored.legacy ? null : validateMore(stored.raw);
 let scenesState: SceneSet = stored.legacy ? NO_SCENES : validateScenes(stored.raw);
 const listeners = new Set<() => void>();
 const fxListeners = new Set<() => void>();
@@ -544,7 +631,7 @@ function scheduleSave(): void {
   if (saveTimer !== 0) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
-    save(state, fxState, state.locks, scenesState, state.pmutes, state.trigs);
+    save(state, fxState, state.locks, scenesState, state.pmutes, state.trigs, moreState);
   }, SAVE_DEBOUNCE_MS);
 }
 
@@ -553,11 +640,12 @@ function flush(): void {
   if (saveTimer === 0) return;
   window.clearTimeout(saveTimer);
   saveTimer = 0;
-  save(state, fxState, state.locks, scenesState, state.pmutes, state.trigs);
+  save(state, fxState, state.locks, scenesState, state.pmutes, state.trigs, moreState);
 }
 
 function commit(next: PatternState, persist: boolean): void {
-  state = next;
+  const steps = normSteps(next.steps);
+  state = steps === next.steps ? next : { ...next, steps };
   if (persist) scheduleSave();
   emit();
 }
@@ -657,17 +745,17 @@ export const pattern = {
     if (state.instrument === inst) return;
     commit({ ...state, instrument: inst }, false);
   },
-  toggle(inst: Inst, i: number): void {
+  toggle(inst: TrackKey, i: number): void {
     const next = toggleStep(state, inst, i);
     if (next !== state) commit({ ...next, instrument: state.instrument, locks: noteLocks(state.locks, next.steps), pmutes: state.pmutes, trigs: state.trigs }, true);
   },
   /** L'editeur (ui/BeatEditor.tsx) : un pas a un niveau, 0 a 9. */
-  set(inst: Inst, i: number, v: number): void {
+  set(inst: TrackKey, i: number, v: number): void {
     const next = setStep(state, inst, i, v);
     if (next !== state) commit({ ...next, instrument: state.instrument, locks: noteLocks(state.locks, next.steps), pmutes: state.pmutes, trigs: state.trigs }, true);
   },
   /** Appui long : le pas vide. */
-  clearStep(inst: Inst, i: number): void {
+  clearStep(inst: TrackKey, i: number): void {
     const next = clearStep(state, inst, i);
     if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks, pmutes: state.pmutes, trigs: state.trigs }, true);
   },
@@ -683,16 +771,19 @@ export const pattern = {
   replace(steps: Steps, locks: Readonly<Locks> | 'keep' = 'keep'): void {
     const next = { ...state.steps };
     for (const inst of INSTRUMENTS) if (STEPS_RE.test(steps[inst])) next[inst] = steps[inst];
+    // Les rangees 9 a 16 (V.5.9) : celles du motif pose ; absentes de lui (un pattern, un preset d'avant), vides
+    for (const k of TRACK_KEYS) if (!isLegacyTrack(k)) delete next[k];
+    Object.assign(next, extraRows(steps));
     commit({ ...state, steps: next, locks: noteLocks(locks === 'keep' ? state.locks : (cleanLocks(locks) ?? NO_LOCKS), next) }, true);
   },
   /** Un verrou sur des pas d'une voix (2026-10-08, audio/locks.ts) : la valeur du domaine, ou le son (snd). */
-  setLock(inst: Inst, steps: readonly number[], key: LockKey, v: number | string): void {
+  setLock(inst: TrackKey, steps: readonly number[], key: LockKey, v: number | string): void {
     const locks = withLock(state.locks, inst, steps, key, v);
     if (JSON.stringify(locks[inst]) === JSON.stringify(state.locks[inst])) return;
     commit({ ...state, locks }, true);
   },
   /** Un verrou retire de ces pas ; key absent : tous ceux de ces pas. */
-  clearLock(inst: Inst, steps: readonly number[], key?: LockKey): void {
+  clearLock(inst: TrackKey, steps: readonly number[], key?: LockKey): void {
     const locks = withoutLock(state.locks, inst, steps, key);
     if (locks !== state.locks) commit({ ...state, locks }, true);
   },
@@ -711,9 +802,9 @@ export const pattern = {
     if (b !== state.bpm) commit({ ...state, bpm: b }, keep);
     else if (keep) scheduleSave();
   },
-  serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState, state.pmutes, state.trigs),
+  serialize: (): StoredPattern => serialize(state, fxState, state.locks, scenesState, state.pmutes, state.trigs, moreState),
   /** Un reglage de trig par defaut d'une voix (V.5.1, la page TRIG sans pas tenu) ; rien ne part si rien ne change. */
-  setTrig(inst: Inst, p: TrigParam, v: number): void {
+  setTrig(inst: TrackKey, p: TrigParam, v: number): void {
     const next = withTrig(state.trigs, inst, p, v);
     if (sameTrigs(next, state.trigs)) return;
     commit({ ...state, trigs: anyTrigs(next) ? next : NO_TRIGS }, true);
@@ -725,7 +816,7 @@ export const pattern = {
     commit({ ...state, trigs: next }, true);
   },
   /** Les reglages de trig d'une voix repartent au depart (la ligne de la voix videe). */
-  clearTrigs(inst: Inst): void {
+  clearTrigs(inst: TrackKey): void {
     if (!state.trigs[inst]) return;
     const next: TrigSet = { ...state.trigs };
     delete next[inst];

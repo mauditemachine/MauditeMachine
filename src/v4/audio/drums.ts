@@ -42,16 +42,26 @@
  * renderLayers) ; le reste de la voix ne change pas (DECAY, VOL, PAN, la
  * tranche, le kick monophonique, son bus). Un verrou de MACHINE, d'un
  * potard, d'un echantillon ou d'une couche donne un ShotOverride (kitOverride).
+ *
+ * Les 16 pistes (V.5.9, 2026-10-30, docs/v4/dt2/dt2-master-spec.md 4.3 et 4.6, la lane B1 : invisibles, rien ne change a
+ * l'oreille) : une tranche par piste, celles des pistes 1 a 8 construites au depart comme avant, celles de 9 a 16 a leur
+ * premier coup (au repos le graphe d'avant). Un coup prend le moteur de sa piste (audio/tracks.ts engine) et son son
+ * (tracks.tweakWith) ; les comportements d'avant deviennent ceux de la piste : la voie du kick suit le moteur KICK, le
+ * kick monophonique est vmode mono (le coup suivant coupe le precedent en 3 ms), le choke des charleys est un groupe de
+ * choke (un coup du groupe ferme en 8 ms les portes gated), la source du SIDECHAIN est mix.scSrc. TRK LEV (tlev) passe
+ * sur la tranche, exactement 1 au depart. Un plafond de sources : une piste poly d'heritage garde 4 sources, tout le
+ * MM-RYTM 48 au desktop (24 au telephone), la plus vieille coupee en 8 ms.
  */
 
 import limiterUrl from './limiter.worklet.js?url';
 import glueUrl from './glue.worklet.js?url';
 import { FLAGS } from '../state/flags';
 import { SWING, XFADE_UI, type Inst } from '../theme';
+import { LEGACY_KEYS, LEGACY_POLY_MAX, TRACK_KEYS, tracks, type TrackKey, type TracksChange } from './tracks';
 import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
-import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, FX_SETTING_IDS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
-import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
+import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, FX_SETTING_IDS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, type Steps, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
+import type { KitKnob, KitKnobs, KitModel, KitOverride, Layer } from './kit';
 import { loadSample, sampleByKey, samplePcm, sampleStats, sampleStatus, samplesOf, samplesVersion } from './samples';
 import { userSamples } from './usersamples';
 import { KIT_LOCK_IDS, KNOB_OF, LAYER_LOCK_IDS, LAYER_OF, lockOf, parseSnd, type Locks, type StepLock } from './locks';
@@ -96,8 +106,11 @@ import { sceneCtl } from '../state/sceneCtl';
 
 type Ctor = typeof AudioContext;
 
-/** La tranche d'une voix : son niveau, ses inserts, ses envois. */
+/** La tranche d'une piste : son niveau, ses inserts, ses envois. */
 interface Channel {
+  /** la piste (V.5.9) et ce ou sa sortie va : le bus, ou la voie du kick (son moteur est KICK) */
+  t: TrackKey;
+  route: AudioNode;
   input: GainNode;
   tone: ToneStage;
   drive: DriveStage;
@@ -140,8 +153,23 @@ interface Graph {
   delay: DelayBus;
   reverbSend: Send;
   delaySend: Send;
-  /** tranches des voix (null : reference sans effets, rendu hors ligne) */
-  ch: Record<Inst, Channel> | null;
+  /** tranches des pistes (null : reference sans effets, rendu hors ligne) : les 8 d'avant au depart, 9 a 16 a leur premier coup */
+  ch: Partial<Record<TrackKey, Channel>> | null;
+  /** construit la tranche d'une piste (null sans tranches) */
+  mkCh: ((t: TrackKey) => Channel) | null;
+  /** le bus des voix (pads) et la voie du kick : la sortie d'une tranche va a l'un ou a l'autre */
+  kickBus: GainNode;
+  /** les reglages des FX du moment (une tranche construite plus tard les prend) */
+  fxs: Readonly<Fx>;
+  /** les reglages d'une piste a la construction de sa tranche (le direct : ce que les scenes en font jouer ; hors ligne : ceux du rendu) */
+  voiceOf: (t: TrackKey) => Readonly<VoiceFx>;
+  /** TRK LEV d'une piste, en gain (exactement 1 au depart) */
+  tlevOf: (t: TrackKey) => number;
+  /** les portes des pistes mono et des groupes de choke de ce graphe */
+  gates: GateState;
+  /** les sources qui sonnent (le plafond), et ce qu'il a fait */
+  live: Sounding[];
+  cap: { peak: number; capped: number; polyCapped: number };
   /**
    * La sortie de chaque machine (2026-10-04), sec et effets compris : le
    * MM-RYTM (apres son compresseur, avec sa REVERB et son DELAY) et le
@@ -168,7 +196,7 @@ interface Graph {
 }
 
 export interface TriggerInfo {
-  inst: Inst;
+  inst: TrackKey;
   open: boolean;
   /** instant programme (temps du contexte) */
   when: number;
@@ -216,6 +244,32 @@ export interface Voice {
   undo?: LiveUndo;
   /** une repetition d'un retrig (V.5.1) : la coupe du coup d'avant de la voix (une annulation la retire) */
   rollCut?: { param: AudioParam; t: number; lv: LiveHit; end: number; stop: number };
+  /** V.5.9 : sa piste, le groupe de choke de sa porte gated, l'etat des portes de son graphe */
+  trk?: TrackKey;
+  grp?: number;
+  gs?: GateState;
+  /** sa source dans le plafond de sources (V.5.9) */
+  snd?: Sounding;
+  /** les coups plus vieux que le plafond a coupes pour lui (une annulation les leur rend) */
+  capCut?: { x: Sounding; end: number; stop: number }[];
+}
+
+/** Les portes d'un graphe (V.5.9) : celle du dernier coup de chaque piste mono, celle du dernier coup gated de chaque groupe de choke. */
+interface GateState {
+  mono: Partial<Record<TrackKey, { gate: GainNode; end: number }>>;
+  choke: Partial<Record<number, { gate: GainNode; end: number }>>;
+}
+const gateState = (): GateState => ({ mono: {}, choke: {} });
+
+/** Une source qui sonne (le plafond de sources, V.5.9) : sa piste, son debut, sa fin connue, sa porte, son arret prevu. */
+interface Sounding {
+  t: TrackKey;
+  when: number;
+  end: number;
+  gate: GainNode;
+  src: AudioBufferSourceNode;
+  /** l'arret de sa source sans plafond (la fin du tampon, ou LEN) */
+  stop: number;
 }
 
 /**
@@ -262,6 +316,11 @@ interface LiveUndo {
 const COMP = { threshold: -14, knee: 10, ratio: 3, attack: 0.004, release: 0.15 };
 /** Un charley (ferme ou ouvert) coupe le charley ouvert qui sonne encore, en 8 ms (choke 808). */
 const CHOKE_S = 0.008;
+/**
+ * Le plafond global de sources du MM-RYTM (V.5.9, cahier 4.6) : 48 au desktop, 24 au telephone ; au-dela, la plus vieille
+ * se coupe en 8 ms. Une piste poly d'heritage garde LEGACY_POLY_MAX sources.
+ */
+const SOURCE_CAP = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches ? 24 : 48;
 /**
  * Le kick monophonique (2026-10-08, Mika : "mon kick a l'air double") : un
  * kick coupe la queue du precedent en 3 ms, juste avant de frapper, comme une
@@ -321,8 +380,10 @@ interface BuildOpts {
   /** les reglages des FX (2026-10-10, 0 a 1, FX_SETTINGS) imposes, les autres a leur depart ; absent : ceux du store */
   fxs?: Partial<Record<FxSettingId, number>>;
   bpm?: number;
-  /** effets par voix imposes (hors ligne) ; absent : ceux du store */
-  voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
+  /** effets par piste imposes (hors ligne) ; absent : ceux du store */
+  voice?: Partial<Record<TrackKey, Partial<VoiceFx>>>;
+  /** TRK LEV par piste impose (hors ligne, V.5.9) ; absent : celui du store */
+  tlev?: Partial<Record<TrackKey, number>>;
   /** master a 1 quel que soit ?mute=1 (rendu hors ligne : rien ne sort des enceintes) */
   master?: number;
   /** reference : le bus rejoint LEVEL sans aucun stage TONE ni CHORUS, les voix sans tranche */
@@ -373,11 +434,10 @@ function applyFxSettings(g: Graph, f: Readonly<Fx>, shape = true): void {
   g.chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
   // Les chorus et les DIST des voix aussi (2026-10-21, audit F3 : RATE, DEPTH et TONE de leur page ne faisaient rien
   // sur la voix) ; le CHORUS du MM-ARP garde les siens
-  if (g.ch) {
-    for (const inst of INSTRUMENTS) {
-      g.ch[inst].chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
-      g.ch[inst].drive.setTone(fxValue(f, 'xtone'));
-    }
+  g.fxs = f;
+  for (const ch of chans(g)) {
+    ch.chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
+    ch.drive.setTone(fxValue(f, 'xtone'));
   }
   if (g.glue) setGlue(g.glue, f);
 }
@@ -533,17 +593,23 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const reverbSend = reverb.attach(padsSend);
   const delaySend = delay.attach(padsSend);
 
-  // Tranches des voix : LEVEL -> TONE -> DIST -> CHORUS -> bus (le kick : sa voie), et leurs envois
-  let ch: Record<Inst, Channel> | null = null;
-  if (!o.bare) {
-    const out = {} as Record<Inst, Channel>;
-    for (const inst of INSTRUMENTS) {
+  // Tranches des pistes : LEVEL -> TONE -> DIST -> CHORUS -> bus (le kick : sa voie), et leurs envois ; celles des
+  // pistes 1 a 8 tout de suite (le graphe d'avant), celles de 9 a 16 a leur premier coup (V.5.9)
+  const ch: Partial<Record<TrackKey, Channel>> | null = o.bare ? null : {};
+  const duck = new Ducker(c, arpOut.gain);
+  const bassDuck = new Ducker(c, bassIn.gain);
+  const voiceOf = (t: TrackKey): Readonly<VoiceFx> => (o.voice ? { ...VOICE_FX_DEFAULT, ...(o.voice[t] ?? {}) } : morph.voice(t));
+  const tlevOf = (t: TrackKey): number => (o.tlev && typeof o.tlev[t] === 'number' ? Math.pow((o.tlev[t] as number) / VOICE_FX_DEFAULT.level, 2) : tracks.tlevGain(t));
+  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, kickFx, reverb, delay, reverbSend, delaySend, ch, mkCh: null, kickBus, fxs: fs, voiceOf, tlevOf, gates: gateState(), live: [], cap: { peak: 0, capped: 0, polyCapped: 0 }, rytmOut, glueIn, glue: null, arpOut, bassOut, bassIn, arpReverb, taps, duck, bassDuck };
+  if (ch) {
+    g.mkCh = (t: TrackKey): Channel => {
       const chOut = c.createGain();
-      chOut.connect(inst === 'BD' ? kickBus : bus);
+      const route = routeOf(g, t);
+      chOut.connect(route);
       const chChorus = buildChorus(c, chOut);
       // RATE, DEPTH et DIST TONE de la machine (2026-10-21) : poses avant leur premiere branche
-      chChorus.setMod?.(fxValue(fs, 'crate'), fxValue(fs, 'cdepth'));
-      const chDrive = buildDrive(c, chChorus.input, fxValue(fs, 'xtone'));
+      chChorus.setMod?.(fxValue(g.fxs, 'crate'), fxValue(g.fxs, 'cdepth'));
+      const chDrive = buildDrive(c, chChorus.input, fxValue(g.fxs, 'xtone'));
       const chTone = buildTone(c, chDrive.input, 0);
       const chIn = c.createGain();
       chIn.gain.value = 1;
@@ -553,7 +619,9 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
       tap.gain.value = level * level;
       chOut.connect(tap);
       taps.push(tap);
-      out[inst] = {
+      return {
+        t,
+        route,
         input: chIn,
         tone: chTone,
         drive: chDrive,
@@ -564,27 +632,62 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
         distLocks: new InsertLocks(c, chDrive),
         chorusLocks: new InsertLocks(c, chChorus),
       };
-    }
-    ch = out;
+    };
+    for (const inst of LEGACY_KEYS) ch[inst] = g.mkCh(inst);
   }
-
-  const duck = new Ducker(c, arpOut.gain);
-  const bassDuck = new Ducker(c, bassIn.gain);
-  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, kickFx, reverb, delay, reverbSend, delaySend, ch, rytmOut, glueIn, glue: null, arpOut, bassOut, bassIn, arpReverb, taps, duck, bassDuck };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
     chorusSt.set(o.chorus ?? f.chorus);
-    for (const inst of INSTRUMENTS) applyVoice(g, inst, o.voice ? { ...VOICE_FX_DEFAULT, ...(o.voice[inst] ?? {}) } : morph.voice(inst));
+    for (const inst of LEGACY_KEYS) applyVoice(g, inst, voiceOf(inst));
   }
   return g;
 }
 
-/** Les reglages d'une voix sur sa tranche (chaque setter ne fait rien si rien ne change). */
-function applyVoice(g: Graph, inst: Inst, v: Readonly<VoiceFx>): void {
+/** Ou va la sortie de la tranche d'une piste (cahier 4.3) : la voie du kick si son moteur est KICK, sinon le bus. */
+const routeOf = (g: Graph, t: TrackKey): AudioNode => (tracks.family(t) === 'bd' ? g.kickBus : g.bus);
+
+/** Les tranches construites d'un graphe, dans l'ordre des pistes. */
+function chans(g: Graph): Channel[] {
+  const out: Channel[] = [];
+  if (!g.ch) return out;
+  for (const t of TRACK_KEYS) {
+    const c = g.ch[t];
+    if (c) out.push(c);
+  }
+  return out;
+}
+
+/** La tranche d'une piste, construite a sa premiere demande (une piste 9 a 16), ses reglages poses ; null sans tranches. */
+function chOf(g: Graph, t: TrackKey): Channel | null {
+  if (!g.ch || !g.mkCh) return null;
+  let c = g.ch[t];
+  if (!c) {
+    c = g.mkCh(t);
+    g.ch[t] = c;
+    applyVoice(g, t, g.voiceOf(t));
+  }
+  return c;
+}
+
+/** Une piste a change de moteur (V.5.9 : une machine KICK neuve prend la voie du kick) : sa tranche suit. */
+function reroute(g: Graph, ts: readonly TrackKey[]): void {
+  for (const t of ts) {
+    const c = g.ch?.[t];
+    if (!c) continue;
+    const r = routeOf(g, t);
+    if (r === c.route) continue;
+    c.out.disconnect(c.route);
+    c.out.connect(r);
+    c.route = r;
+  }
+}
+
+/** Les reglages d'une piste sur sa tranche (chaque setter ne fait rien si rien ne change) ; TRK LEV y passe (1 au depart). */
+function applyVoice(g: Graph, inst: TrackKey, v: Readonly<VoiceFx>): void {
   const t = g.ch?.[inst];
   if (!t) return;
-  const gain = voiceGain(v.level);
+  const gain = voiceGain(v.level) * g.tlevOf(inst);
   if (t.input.gain.value !== gain) glide(t.input.gain, gain, g.ctx);
   t.tone.set(v.tone);
   // Un reglage tourne efface ce qui etait programme sur l'insert : ses verrous a venir reviennent d'eux-memes (onRetime, audio/lockfx.ts)
@@ -594,12 +697,11 @@ function applyVoice(g: Graph, inst: Inst, v: Readonly<VoiceFx>): void {
   t.delay.set(v.delay);
 }
 
-/** Entree d'une voix : sa tranche, ou le bus (reference hors ligne). */
-const voiceIn = (g: Graph, inst: Inst): AudioNode => g.ch?.[inst].input ?? g.bus;
+/** Entree d'une piste : sa tranche (construite au besoin), ou le bus (reference hors ligne). */
+const voiceIn = (g: Graph, inst: TrackKey): AudioNode => chOf(g, inst)?.input ?? g.bus;
 
 /** Facteur de hauteur d'une voix : TONE du pattern et TONE de la voix (exactement 1 a 0 et 0). */
-const voicePitch = (inst: Inst, globalTone: number, voiceTone?: number): number =>
-  pitchFactor(globalTone) * pitchFactor(voiceTone ?? voiceFx.of(inst).tone);
+const voicePitch = (globalTone: number, voiceTone: number): number => pitchFactor(globalTone) * pitchFactor(voiceTone);
 
 /** Facteur d'etirement des coups : STRETCH du pattern (exactement 1 a 0) ; la voix a DECAY depuis le 2026-10-04. */
 const voiceTime = (globalStretch: number): number => hitTime(globalStretch, 0);
@@ -968,33 +1070,81 @@ export function routeMachines(to: MachineOuts | null): void {
  */
 export function scopeTaps(): { ctx: AudioContext; rytm: AudioNode; arp: AudioNode; kick: AudioNode | null; master: AudioNode } | null {
   if (!ctx || !graph) return null;
-  return { ctx, rytm: graph.rytmOut, arp: graph.arpOut, kick: graph.ch?.BD.out ?? null, master: graph.post };
+  return { ctx, rytm: graph.rytmOut, arp: graph.arpOut, kick: graph.ch?.[tracks.scSrc()]?.out ?? null, master: graph.post };
 }
 
 /* ---------------- voix (spec 8.2) ---------------- */
 
-/** La porte du dernier charley ouvert et la fin de son enveloppe (choke). */
-let ohGate: GainNode | null = null;
-let ohEnd = 0;
-/** La porte du dernier kick et la fin de son echantillon (le kick monophonique). */
-let bdGate: GainNode | null = null;
-let bdEnd = 0;
+/*
+ * Les portes (V.5.9, cahier 4.3) : par graphe (g.gates), celle du dernier coup de chaque piste mono (le kick
+ * monophonique d'avant : bdGate) et celle du dernier coup gated de chaque groupe de choke (le charley ouvert d'avant :
+ * ohGate). Une piste mono ET gated dans un groupe (l'OH d'avant) se coupe par son groupe (8 ms a l'heure du coup) : la
+ * loi d'avant, pas de coupe de 3 ms en plus.
+ */
+const gatedIn = (vo: Readonly<{ choke: number; gated: boolean }>): boolean => vo.choke > 0 && vo.gated;
 
-/** Coupe le kick qui sonne encore : la porte tombe en 3 ms et finit a `when` (des que possible si c'est deja passe). */
-function chokeBD(when: number, now: number): void {
-  if (!bdGate || bdEnd <= when) return;
+/** Les sources dont la porte est celle-ci (le plafond : leur fin suit la coupe). */
+const soundingOf = new WeakMap<GainNode, Sounding>();
+const cutEnd = (gate: GainNode, end: number): void => {
+  const x = soundingOf.get(gate);
+  if (x && end < x.end) x.end = end;
+};
+
+/** Coupe le coup qui sonne encore de la piste mono t : la porte tombe en 3 ms et finit a `when` (des que possible si c'est deja passe). */
+function chokeMono(gs: GateState, t: TrackKey, when: number, now: number): void {
+  const m = gs.mono[t];
+  if (!m || m.end <= when) return;
   const t0 = when - BD_CHOKE_S >= now ? when - BD_CHOKE_S : when;
-  bdGate.gain.setValueAtTime(1, t0);
-  bdGate.gain.linearRampToValueAtTime(0, t0 + BD_CHOKE_S);
-  bdGate = null;
+  m.gate.gain.setValueAtTime(1, t0);
+  m.gate.gain.linearRampToValueAtTime(0, t0 + BD_CHOKE_S);
+  cutEnd(m.gate, t0 + BD_CHOKE_S);
+  delete gs.mono[t];
 }
 
-/** Ferme le charley ouvert qui sonne encore a `when` (le suivant le coupe). */
-function chokeOH(when: number): void {
-  if (!ohGate || ohEnd <= when) return;
-  ohGate.gain.setValueAtTime(1, when);
-  ohGate.gain.linearRampToValueAtTime(0, when + CHOKE_S);
-  ohGate = null;
+/** Ferme a `when` le coup gated qui sonne encore du groupe de choke grp (le suivant du groupe le coupe). */
+function chokeGroup(gs: GateState, grp: number, when: number): void {
+  const m = gs.choke[grp];
+  if (!m || m.end <= when) return;
+  m.gate.gain.setValueAtTime(1, when);
+  m.gate.gain.linearRampToValueAtTime(0, when + CHOKE_S);
+  cutEnd(m.gate, when + CHOKE_S);
+  delete gs.choke[grp];
+}
+
+/**
+ * Le plafond de sources (V.5.9, cahier 4.6) : avant un coup de la piste t a `when`, une piste poly d'heritage garde
+ * LEGACY_POLY_MAX sources, tout le graphe SOURCE_CAP ; la plus vieille qui sonne encore se coupe en 8 ms (sa porte), sa
+ * source s'arrete juste apres. Rend ce qu'il a coupe (une annulation le rend).
+ */
+function capSources(g: Graph, t: TrackKey, poly: boolean, when: number): { x: Sounding; end: number; stop: number }[] | undefined {
+  const live = g.live;
+  let k = 0;
+  for (let i = 0; i < live.length; i += 1) if (live[i].end > when - 0.05) live[k++] = live[i];
+  live.length = k;
+  let out: { x: Sounding; end: number; stop: number }[] | undefined;
+  const cut = (x: Sounding): void => {
+    (out ??= []).push({ x, end: x.end, stop: x.stop });
+    x.gate.gain.setValueAtTime(1, when);
+    x.gate.gain.linearRampToValueAtTime(0, when + CHOKE_S);
+    x.end = when + CHOKE_S;
+    stopSrc(x.src, when + CHOKE_S + 0.002);
+  };
+  const sounding = (x: Sounding): boolean => x.when <= when + 1e-9 && x.end > when;
+  if (poly) {
+    for (;;) {
+      const mine = live.filter((x) => x.t === t && sounding(x));
+      if (mine.length < LEGACY_POLY_MAX) break;
+      cut(mine.reduce((a, b) => (b.when < a.when ? b : a)));
+      g.cap.polyCapped += 1;
+    }
+  }
+  for (;;) {
+    const all = live.filter(sounding);
+    if (all.length < SOURCE_CAP) break;
+    cut(all.reduce((a, b) => (b.when < a.when ? b : a)));
+    g.cap.capped += 1;
+  }
+  return out;
 }
 
 /* ---------------- un coup et ses verrous (2026-10-08) ---------------- */
@@ -1009,6 +1159,8 @@ function chokeOH(when: number): void {
  * hors ligne (renderOffline) : ce que les tests mesurent est ce qu'on entend.
  */
 export interface HitParams {
+  /** la piste du coup (V.5.9) : son son, son etat dans le cache des coups */
+  t: TrackKey;
   id: ShotId;
   ov: ShotOverride | null;
   /** un coup de kick (la voie BD qui joue un kick : le SIDECHAIN du MM-ARP s'y cale) */
@@ -1263,16 +1415,21 @@ export function mergeKitOv(a: KitOverride | null, b: KitOverride | null): KitOve
   return out;
 }
 
-export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | null, globalTone: number, globalStretch: number, fx: Readonly<VoiceFx>, ko0: KitOverride | null = null, lazy = false): HitParams {
-  const base: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
+export function hitParams(inst: TrackKey, open: boolean, lock: Readonly<StepLock> | null, globalTone: number, globalStretch: number, fx: Readonly<VoiceFx>, ko0: KitOverride | null = null, lazy = false): HitParams {
+  // Le moteur de la piste (V.5.9) : sa machine, ou la categorie de son sample ; le charley ferme s'ouvre au pad tenu
+  const eng = tracks.engine(inst);
+  const base: ShotId = eng === 'CH' && open ? 'CHopen' : eng;
   const tune = lock?.tune ?? fx.tune;
   // TONE et FINE du pas (2026-10-09) : sa hauteur ; TONE verrouille passe aussi son filtre au coup (tone)
   const toneV = lock?.tone ?? fx.tone;
-  const pf = voicePitch(inst, globalTone, toneV) * tuneFactor(tune) * fineFactor(lock?.fine ?? fx.fine);
+  const pf = voicePitch(globalTone, toneV) * tuneFactor(tune) * fineFactor(lock?.fine ?? fx.fine);
+  // La source du SIDECHAIN (mix.scSrc, T1 au depart) qui joue un moteur KICK : un kick
+  const sc = inst === tracks.scSrc();
   const hp: HitParams = {
+    t: inst,
     id: base,
     ov: null,
-    kick: inst === 'BD',
+    kick: sc && eng === 'BD',
     pf,
     ts: voiceTime(globalStretch),
     decay: lock?.decay ?? fx.decay,
@@ -1291,12 +1448,12 @@ export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | 
   // d'abord (2026-10-27, P2-22), les cles du verrou gagnent
   const ko = mergeKitOv(ko0, lock ? kitOverride(lock) : null);
   if (ko) {
-    hp.ov = { tw: kit.tweakWith(base, ko), sig: kit.sigWith(base, ko) };
+    hp.ov = { tw: tracks.tweakWith(inst, ko), sig: tracks.sigWith(inst, ko) };
     // Un echantillon d'une autre famille, seul, sur la voie du kick n'est pas un kick (2026-10-08, R2)
-    if (inst === 'BD') hp.kick = kit.kickWith(ko);
+    if (sc) hp.kick = tracks.kickWith(inst, ko);
   } else if (lock && (lock.tune !== undefined || lock.fine !== undefined || lock.tone !== undefined)) {
     // Une hauteur verrouillee (TUNE ; FINE et TONE depuis le 2026-10-09) : la variante 0 (le calcul prepare a l'avance est celui-la)
-    hp.ov = { tw: kit.tweak(base), sig: kit.sig(base) };
+    hp.ov = { tw: tracks.tweakWith(inst, null), sig: tracks.sigWith(inst, null) };
   }
   if (lock && lock.level !== undefined) {
     // Le gain du verrou rapporte a celui de la voix (sa tranche l'applique ensuite) : le niveau exact du VOL
@@ -1328,22 +1485,31 @@ const withPanGain = (hp: HitParams): HitParams => {
  * qui sonne encore (choke) ; le charley ouvert passe par sa porte. `open` :
  * le pad CH tenu (CHopen).
  */
-function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParams, sync = false, ex: HitExtra | null = null): Voice | null {
+function voice(g: Graph, inst: TrackKey, when: number, dest: AudioNode, hp: HitParams, sync = false, ex: HitExtra | null = null): Voice | null {
   const c = g.ctx;
   const { decay, ts, pf } = hp;
   // Rien de pret pour ce son (le tout premier coup, avant le prechauffage) : il ne joue pas, aucun calcul ici
-  const shot = shots.get(hp.id, ts, pf, c.sampleRate, sync, hp.ov, hp.lazy === true);
+  const shot = shots.get(hp.t, hp.id, ts, pf, c.sampleRate, sync, hp.ov, hp.lazy === true);
   if (!shot) return null;
+  // Le comportement de voix de la piste (V.5.9) : mono, son groupe de choke, gated
+  const vo = tracks.voiceOf(inst);
+  const gs = g.gates;
+  const gated = gatedIn(vo);
+  const mono = vo.vmode === 'mono' && !gated;
   let choked: { gate: GainNode; end: number } | undefined;
-  if (inst === 'CH' || inst === 'OH') {
-    if (ohGate && ohEnd > when) choked = { gate: ohGate, end: ohEnd };
-    chokeOH(when);
+  if (vo.choke > 0) {
+    const cur = gs.choke[vo.choke];
+    if (cur && cur.end > when) choked = { gate: cur.gate, end: cur.end };
+    chokeGroup(gs, vo.choke, when);
   }
   let bdChoked: { gate: GainNode; end: number } | undefined;
-  if (inst === 'BD') {
-    if (bdGate && bdEnd > when) bdChoked = { gate: bdGate, end: bdEnd };
-    chokeBD(when, c.currentTime);
+  if (mono) {
+    const cur = gs.mono[inst];
+    if (cur && cur.end > when) bdChoked = { gate: cur.gate, end: cur.end };
+    chokeMono(gs, inst, when, c.currentTime);
   }
+  // Le plafond de sources (V.5.9) : la plus vieille coupee avant que ce coup parte
+  const capCut = capSources(g, inst, vo.vmode === 'poly', when);
   const src = c.createBufferSource();
   src.buffer = shot.buf;
   // 1 : l'echantillon est deja a sa hauteur (aucune interpolation) ; sinon, en attendant, le plus proche relu
@@ -1450,22 +1616,20 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   }
   let ownGate: GainNode | undefined;
   let ownBd: GainNode | undefined;
-  if (inst === 'OH' || inst === 'BD') {
-    const gate = c.createGain();
-    gate.gain.value = 1;
-    src.connect(gate);
-    gate.connect(dest);
-    nodes.push(gate);
-    if (inst === 'OH') {
-      ohGate = gate;
-      ohEnd = when + len;
-      ownGate = gate;
-    } else {
-      bdGate = gate;
-      bdEnd = when + len;
-      ownBd = gate;
-    }
-  } else src.connect(dest);
+  // Chaque coup a sa porte (V.5.9 : un gain a 1, au bit pres le son d'avant) : celle de la piste mono, du groupe de choke,
+  // ou celle que le plafond de sources ferme
+  const gate = c.createGain();
+  gate.gain.value = 1;
+  src.connect(gate);
+  gate.connect(dest);
+  nodes.push(gate);
+  if (gated) {
+    gs.choke[vo.choke] = { gate, end: when + len };
+    ownGate = gate;
+  } else if (mono) {
+    gs.mono[inst] = { gate, end: when + len };
+    ownBd = gate;
+  }
   src.onended = () => {
     for (const n of nodes) n.disconnect();
   };
@@ -1476,8 +1640,10 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
       cutG.gain.setValueAtTime(1, cutAt);
       cutG.gain.linearRampToValueAtTime(0, cutAt + LEN_REL_S);
       stopAt = cutAt + LEN_REL_S + 0.002;
-      if (ownGate) ohEnd = Math.min(ohEnd, stopAt);
-      if (ownBd) bdEnd = Math.min(bdEnd, stopAt);
+      const mc = gs.choke[vo.choke];
+      if (ownGate && mc?.gate === ownGate) mc.end = Math.min(mc.end, stopAt);
+      const mm = gs.mono[inst];
+      if (ownBd && mm?.gate === ownBd) mm.end = Math.min(mm.end, stopAt);
     }
   }
   if (off > 0) src.start(when, off);
@@ -1490,8 +1656,16 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   }
   // Un kick : son enveloppe, a sa vitesse, avec son DECAY (le SIDECHAIN du MM-ARP) ; un son verrouille d'une
   // autre famille sur la voie du kick n'en est pas un (2026-10-08 : le SIDECHAIN suit les kicks, pas la voie)
-  const kick = inst === 'BD' && hp.kick ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: Math.max(DECAY_HOLD_S, atk + hp.hold), tau, vel: 1, ...(off > 0 ? { off } : {}) } : undefined;
-  return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd, ...(live ? { live } : {}) };
+  const kick = hp.kick ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: Math.max(DECAY_HOLD_S, atk + hp.hold), tau, vel: 1, ...(off > 0 ? { off } : {}) } : undefined;
+  // Sa source dans le plafond (V.5.9) : son debut, sa fin connue, sa porte
+  const sstop = stopAt > 0 ? stopAt : when + len;
+  const snd: Sounding = { t: inst, when, end: sstop, gate, src, stop: sstop };
+  soundingOf.set(gate, snd);
+  g.live.push(snd);
+  let n = 0;
+  for (const x of g.live) if (x.when <= when + 1e-9 && x.end > when) n += 1;
+  if (n > g.cap.peak) g.cap.peak = n;
+  return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd, trk: inst, ...(vo.choke > 0 ? { grp: vo.choke } : {}), gs, snd, ...(capCut ? { capCut } : {}), ...(live ? { live } : {}) };
 }
 
 /**
@@ -1499,13 +1673,13 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
  * l'arret partait avant lui et faisait entendre le kick par defaut) ? Son calcul passe en tete de file ; true des qu'il
  * est la, false au bout de ms (ou sans contexte audio). actions.ts previewSound l'attend avant de jouer.
  */
-export function shotReady(inst: Inst, lock: Readonly<StepLock> | null, ms: number): Promise<boolean> {
+export function shotReady(inst: TrackKey, lock: Readonly<StepLock> | null, ms: number): Promise<boolean> {
   const c = ctx;
   if (!c) return Promise.resolve(false);
   // Ce que le coup jouera, scenes comprises (2026-10-27 : sans scene, le verrou et la voix eux-memes)
   const m = morph.hit(inst, lock, pattern.scenes.get());
   const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
-  return shots.whenReady(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov, ms);
+  return shots.whenReady(hp.t, hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov, ms);
 }
 
 /**
@@ -1515,7 +1689,7 @@ export function shotReady(inst: Inst, lock: Readonly<StepLock> | null, ms: numbe
  * `out` recoit la voix programmee (l'horloge, pour pouvoir l'annuler).
  * `vel` : la velocite du pas, en gain (1 fort, 0.6 moyen, 0.32 doux).
  */
-export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], vel = 1, lock0: Readonly<StepLock> | null = null, scenes: SceneSet = pattern.scenes.get(), sq?: HitSeq): boolean {
+export function trigger(inst: TrackKey, when?: number, open = false, out?: Voice[], vel = 1, lock0: Readonly<StepLock> | null = null, scenes: SceneSet = pattern.scenes.get(), sq?: HitSeq): boolean {
   const g = graph;
   if (!g) return false;
   enforceMute(g);
@@ -1552,7 +1726,7 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   }
   out?.push(v);
   triggers += 1;
-  last = { inst, open: inst === 'CH' && open, when: t, at: performance.now(), state: g.ctx.state as AudioContextState, lock, decay: hp.decay, gain, shot: hp.id, pf: hp.pf, pan: hp.pan, start: hp.start };
+  last = { inst, open: hp.id === 'CHopen', when: t, at: performance.now(), state: g.ctx.state as AudioContextState, lock, decay: hp.decay, gain, shot: hp.id, pf: hp.pf, pan: hp.pan, start: hp.start };
   return true;
 }
 
@@ -1579,6 +1753,8 @@ function rollCut(prev: Voice, t: number, v: Voice): void {
   const stop = t + CHOKE_S + 0.002;
   v.rollCut = { param: p, t, lv, end: lv.end, stop };
   lv.end = t + CHOKE_S;
+  // Le plafond de sources le sait coupe (V.5.9)
+  if (prev.snd && prev.snd.end > t + CHOKE_S) prev.snd.end = t + CHOKE_S;
   stopSrc(lv.src, stop);
   if (lv.lfo) {
     const held = lfoHeld(lv, stop);
@@ -1596,7 +1772,7 @@ function rollCut(prev: Voice, t: number, v: Voice): void {
  * CHORUS de sa tranche (comme le verrou d'un coup, jusqu'au coup suivant de la voix). anchor : LFO.T ON, ses LFO
  * repartent de la. Rend la voix vide qui le porte (l'horloge peut l'annuler, cancelVoice rend au coup ce qu'il avait).
  */
-function lockTrigOn(g: Graph, inst: Inst, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null): Voice {
+function lockTrigOn(g: Graph, inst: TrackKey, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null): Voice {
   const pv: Voice = { when: t, srcs: [], nodes: [] };
   postSends(g, inst, t, lock, pv);
   postInserts(g, inst, t, lock, pv);
@@ -1660,7 +1836,7 @@ function playedLock(lock: Readonly<StepLock> | null, m: { fx: Readonly<VoiceFx>;
 }
 
 /** Un lock trig sur le graphe vivant (l'horloge), aux valeurs que jouent les scenes ; null sans contexte. */
-export function lockTrig(inst: Inst, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null, scenes: SceneSet = pattern.scenes.get()): Voice | null {
+export function lockTrig(inst: TrackKey, t: number, lock: Readonly<StepLock> | null, last: Voice | null, anchor: number | null, scenes: SceneSet = pattern.scenes.get()): Voice | null {
   const g = graph;
   if (!g) return null;
   return lockTrigOn(g, inst, Math.max(t, g.ctx.currentTime), playedLock(lock, morph.hit(inst, lock, scenes)), last, anchor);
@@ -1674,8 +1850,8 @@ export function lockTrig(inst: Inst, t: number, lock: Readonly<StepLock> | null,
  * queue deja envoyee reste. Une voix qui n'a jamais eu de verrou d'envoi ne
  * recoit rien (audio/sends.ts hit) : le son de toujours.
  */
-function postSends(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock> | null, v: Voice): void {
-  const ch = g.ch?.[inst];
+function postSends(g: Graph, inst: TrackKey, when: number, lock: Readonly<StepLock> | null, v: Voice): void {
+  const ch = chOf(g, inst);
   if (!ch) return;
   const r = ch.reverb.hit(when, lock?.reverb ?? null, v);
   const d = ch.delay.hit(when, lock?.delay ?? null, v);
@@ -1688,8 +1864,8 @@ function postSends(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock> 
  * gardent jusqu'au coup suivant de la voix (qui remet la sienne). Une voix
  * sans ces verrous dans le motif ne recoit rien.
  */
-function postInserts(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock> | null, v: Voice): void {
-  const ch = g.ch?.[inst];
+function postInserts(g: Graph, inst: TrackKey, when: number, lock: Readonly<StepLock> | null, v: Voice): void {
+  const ch = chOf(g, inst);
   if (!ch) return;
   const d = ch.distLocks.hit(when, lock?.dist ?? null, v);
   const c = ch.chorusLocks.hit(when, lock?.chorus ?? null, v);
@@ -1700,9 +1876,9 @@ function postInserts(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock
  * Les inserts DIST et CHORUS tenus engages pour les voix qui en ont un verrou dans ces verrous (le motif, un rendu), ou
  * dont DIST ou CHORUS est dans une scene (2026-10-27, needs : un crossfader qui passe par 0 ne debranche rien).
  */
-function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds = NO_NEEDS, fxOf: (inst: Inst) => Readonly<Partial<Record<string, number>>> | null = (i) => voiceFx.of(i)): void {
+function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds = NO_NEEDS, fxOf: (inst: TrackKey) => Readonly<Partial<Record<string, number>>> | null = (i) => tracks.vfx(i)): void {
   if (!g.ch) return;
-  for (const inst of INSTRUMENTS) {
+  for (const inst of TRACK_KEYS) {
     const row = locks?.[inst];
     // Un LFO de la voix sur DIST (V.5.1) : tenu engage comme pour un verrou
     let dist = needs.dist.has(inst) || lfoDistOf(fxOf(inst), row);
@@ -1713,13 +1889,16 @@ function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined, needs:
         if (l.chorus !== undefined) chorus = true;
       }
     }
-    g.ch[inst].distLocks.hold(dist);
-    g.ch[inst].chorusLocks.hold(chorus);
+    // Une piste 9 a 16 sans tranche ni rien a tenir : rien a construire (V.5.9)
+    const ch = g.ch[inst] ?? (dist || chorus ? chOf(g, inst) : null);
+    if (!ch) continue;
+    ch.distLocks.hold(dist);
+    ch.chorusLocks.hold(chorus);
   }
 }
 
 /** Les tenues que demandent les verrous du motif et ses scenes (2026-10-27) : les inserts des voix, DIST et CHORUS du bus. */
-function holdScenes(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds, fxOf?: (inst: Inst) => Readonly<Partial<Record<string, number>>> | null): void {
+function holdScenes(g: Graph, locks: Readonly<Locks> | null | undefined, needs: InsertNeeds, fxOf?: (inst: TrackKey) => Readonly<Partial<Record<string, number>>> | null): void {
   holdInserts(g, locks, needs, fxOf);
   g.fx.hold(needs.busDist);
   g.kickFx?.hold(needs.busDist);
@@ -1734,15 +1913,16 @@ function holdScenes(g: Graph, locks: Readonly<Locks> | null | undefined, needs: 
  * voix dans son gain et le filtre de son TONE a lui (audio/tone.ts : les
  * memes passe-haut et passe-bas, poses pour ce coup ; aucun a TONE 0).
  */
-function hitEntry(g: Graph, inst: Inst, hp: HitParams, fx: Readonly<VoiceFx>, gain: number): { dest: AudioNode; nodes: AudioNode[] } {
+function hitEntry(g: Graph, inst: TrackKey, hp: HitParams, fx: Readonly<VoiceFx>, gain: number): { dest: AudioNode; nodes: AudioNode[] } {
   const c = g.ctx;
-  const ch = g.ch?.[inst];
+  const ch = chOf(g, inst);
   const nodes: AudioNode[] = [];
   let dest: AudioNode = voiceIn(g, inst);
   let gn = gain;
   if (ch && hp.tone !== null) {
     dest = ch.drive.input;
-    gn *= voiceGain(fx.level);
+    // Le niveau de la tranche qu'il ne traverse pas : VOL, et TRK LEV (V.5.9, exactement 1 au depart)
+    gn *= voiceGain(fx.level) * g.tlevOf(inst);
     if (hp.tone !== 0) {
       // Q en dB, comme le TONE de la tranche (2026-10-21, audit F13)
       const hpF = c.createBiquadFilter();
@@ -1776,16 +1956,26 @@ function hitEntry(g: Graph, inst: Inst, hp: HitParams, fx: Readonly<VoiceFx>, ga
  * apres le dernier changement) ; le coup arrive deja pret quand son pas joue.
  */
 let prepTimer = 0;
-function prepareLocks(): void {
+/** Les pistes a preparer au prochain passage (V.5.9, cahier 4.6 : bornees a la piste changee) ; null : toutes. */
+let prepOnly: Set<TrackKey> | null = null;
+function prepareLocks(only?: readonly TrackKey[]): void {
   if (!ctx || !graph || typeof window === 'undefined') return;
+  if (!only) prepOnly = null;
+  else if (prepTimer === 0 || prepOnly) {
+    prepOnly ??= new Set();
+    for (const t of only) prepOnly.add(t);
+  }
   window.clearTimeout(prepTimer);
   prepTimer = window.setTimeout(() => {
     prepTimer = 0;
+    const only = prepOnly;
+    prepOnly = null;
     const c = ctx;
     if (!c) return;
     const locks = pattern.get().locks;
     const sc = pattern.scenes.get();
-    for (const inst of INSTRUMENTS) {
+    for (const inst of TRACK_KEYS) {
+      if (only && !only.has(inst)) continue;
       const row = locks[inst];
       if (!row) continue;
       for (const l of Object.values(row)) {
@@ -1793,7 +1983,7 @@ function prepareLocks(): void {
         // Ce que le coup jouera, scenes comprises (2026-10-27 : sans scene, le verrou et la voix eux-memes)
         const m = morph.hit(inst, l, sc);
         const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
-        shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
+        shots.prepare(hp.t, hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
       }
     }
   }, 120);
@@ -1820,10 +2010,10 @@ function prepareScenes(): void {
     scenePrep.at = performance.now();
     for (const inst of insts) {
       for (const xv of [0, 1, morph.x()]) {
-        const m = morphHitPure(inst, voiceFx.of(inst), null, sc, xv);
+        const m = morphHitPure(inst, tracks.vfx(inst), null, sc, xv);
         const hp = hitParams(inst, false, m.lock, tone, morph.stretchAt(xv), m.fx, m.kit, true);
         // Toutes les variantes (2026-10-27, revue F3) : au repos, la rotation des variantes revient
-        shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov, true);
+        shots.prepare(hp.t, hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov, true);
         scenePrep.prepared += 1;
       }
     }
@@ -1831,6 +2021,7 @@ function prepareScenes(): void {
 }
 let prepKey = '';
 let prepLocks = pattern.get().locks;
+let prepRows: Readonly<Locks> = prepLocks;
 pattern.subscribe(() => {
   // Seulement quand les verrous changent (pas a chaque pas pose) ; leur objet d'abord (2026-10-27 : choisir une voix ne
   // les touche pas, pas de JSON a chaque choix)
@@ -1840,16 +2031,45 @@ pattern.subscribe(() => {
   const k = JSON.stringify(lk);
   if (k === prepKey) return;
   prepKey = k;
-  prepareLocks();
+  // Seulement les pistes dont les verrous ont change (V.5.9, cahier 4.6)
+  const was = prepRows;
+  prepRows = lk;
+  prepareLocks(TRACK_KEYS.filter((t) => was[t] !== lk[t]));
   // Les inserts DIST et CHORUS des voix qui en ont un verrou : tenus engages tout de suite (le prochain coup les trouve)
   if (graph) holdInserts(graph, pattern.get().locks, morph.inserts());
 });
-kit.subscribe(() => prepareLocks());
-voiceFx.subscribe(() => {
-  prepareLocks();
-  // Un LFO de voix sur DIST (V.5.1) : l'insert de sa tranche tenu engage, comme pour un verrou
-  if (graph) holdInserts(graph, pattern.get().locks, morph.inserts());
+/*
+ * Le store des pistes (V.5.9 ; avant : kit.subscribe et voiceFx.subscribe) : le son d'une piste change, ses coups
+ * verrouilles se preparent et sa tranche suit son moteur ; ses reglages changent, ils rejoignent sa tranche (ce que les
+ * scenes en font jouer) ; TRK LEV aussi.
+ */
+tracks.onChange((c: TracksChange) => {
+  if (c.sound.length > 0) {
+    prepareLocks(c.sound);
+    if (graph) reroute(graph, c.sound);
+  }
+  if (c.voice.length > 0) {
+    prepareLocks(c.voice);
+    // Un LFO de voix sur DIST (V.5.1) : l'insert de sa tranche tenu engage, comme pour un verrou
+    if (graph) holdInserts(graph, pattern.get().locks, morph.inserts());
+  }
+  if (graph && (c.voice.length > 0 || c.mix)) {
+    let wait = false;
+    for (const ch of chans(graph)) {
+      if (!c.tracks.includes(ch.t)) continue;
+      if (applier && morph.voiceMorphed(ch.t)) wait = true;
+      else applyVoice(graph, ch.t, morph.voice(ch.t));
+    }
+    if (wait) applier?.request();
+  }
+  if (c.voice.some((t) => LEGACY_KEYS.includes(t))) emitMix();
 });
+
+/** Une porte rendue (une annulation) : sa source compte de nouveau jusqu'a sa fin (le plafond, V.5.9). */
+function uncut(gate: GainNode, end: number): void {
+  const x = soundingOf.get(gate);
+  if (x) x.end = Math.min(x.stop, Math.max(x.end, end));
+}
 
 /**
  * Annule une voix programmee qui n'a pas encore sonne (STOP de l'horloge).
@@ -1884,29 +2104,37 @@ export function cancelVoice(v: Voice): void {
     if (rc.lv.lfo) lfoCurves(rc.lv, rc.stop);
   }
   // Un charley annule (re-programmation, 2026-10-05) : le charley ouvert qu'il etouffait sonne de nouveau
-  // (annulees du dernier au premier, les portes reviennent dans l'ordre)
-  if (v.choked) {
-    v.choked.gate.gain.cancelScheduledValues(v.when);
-    if (ohGate === null || ohGate === v.gate) {
-      ohGate = v.choked.gate;
-      ohEnd = v.choked.end;
-    }
-  } else if (v.gate && ohGate === v.gate) {
-    ohGate = null;
-    ohEnd = 0;
+  // (annulees du dernier au premier, les portes reviennent dans l'ordre) ; V.5.9 : le groupe de choke de sa piste
+  const gs = v.gs;
+  const grp = v.grp ?? 0;
+  if (gs && grp > 0) {
+    const cur = gs.choke[grp];
+    if (v.choked) {
+      v.choked.gate.gain.cancelScheduledValues(v.when);
+      uncut(v.choked.gate, v.choked.end);
+      if (!cur || cur.gate === v.gate) gs.choke[grp] = { gate: v.choked.gate, end: v.choked.end };
+    } else if (v.gate && cur?.gate === v.gate) delete gs.choke[grp];
   }
-  // Un kick annule : le kick d'avant qu'il coupait sonne de nouveau
-  if (v.bdChoked) {
-    v.bdChoked.gate.gain.cancelScheduledValues(0);
-    v.bdChoked.gate.gain.value = 1;
-    if (bdGate === null || bdGate === v.bdGate) {
-      bdGate = v.bdChoked.gate;
-      bdEnd = v.bdChoked.end;
-    }
-  } else if (v.bdGate && bdGate === v.bdGate) {
-    bdGate = null;
-    bdEnd = 0;
+  // Un kick annule : le kick d'avant qu'il coupait sonne de nouveau ; V.5.9 : toute piste mono
+  if (gs && v.trk) {
+    const cur = gs.mono[v.trk];
+    if (v.bdChoked) {
+      v.bdChoked.gate.gain.cancelScheduledValues(0);
+      v.bdChoked.gate.gain.value = 1;
+      uncut(v.bdChoked.gate, v.bdChoked.end);
+      if (!cur || cur.gate === v.bdGate) gs.mono[v.trk] = { gate: v.bdChoked.gate, end: v.bdChoked.end };
+    } else if (v.bdGate && cur?.gate === v.bdGate) delete gs.mono[v.trk];
   }
+  // Le plafond de sources (V.5.9) : ce qu'il avait coupe pour ce coup sonne de nouveau ; ce coup sort du compte
+  if (v.capCut) {
+    for (let i = v.capCut.length - 1; i >= 0; i -= 1) {
+      const k = v.capCut[i];
+      k.x.gate.gain.cancelScheduledValues(v.when);
+      k.x.end = k.end;
+      stopSrc(k.x.src, k.stop);
+    }
+  }
+  if (v.snd) v.snd.end = 0;
   for (const s of v.srcs) {
     s.onended = null;
     try {
@@ -1992,18 +2220,7 @@ pattern.fx.subscribe(() => {
   emitMix();
 });
 
-/* Effets par piste : chaque changement du store rejoint les tranches (ce que les scenes en font jouer, 2026-10-27). */
-voiceFx.subscribe(() => {
-  if (graph) {
-    let wait = false;
-    for (const inst of INSTRUMENTS) {
-      if (applier && morph.voiceMorphed(inst)) wait = true;
-      else applyVoice(graph, inst, morph.voice(inst));
-    }
-    if (wait) applier?.request();
-  }
-  emitMix();
-});
+/* Effets par piste : chaque changement du store rejoint les tranches (ce que les scenes en font jouer, 2026-10-27) ; V.5.9 : tracks.onChange plus haut. */
 
 /* ---------------- les scenes : l'applicateur (2026-10-27, la phase 2) ---------------- */
 
@@ -2054,7 +2271,7 @@ function applyMorph(): void {
   glideMode.step = morphStepLive;
   try {
     if (all || morph.fxMorphed()) applyFx(g, morph.fx(), shapeFree());
-    for (const inst of INSTRUMENTS) if (all || morph.voiceMorphed(inst)) applyVoice(g, inst, morph.voice(inst));
+    for (const ch of chans(g)) if (all || morph.voiceMorphed(ch.t)) applyVoice(g, ch.t, morph.voice(ch.t));
   } finally {
     glideMode.step = false;
   }
@@ -2210,11 +2427,11 @@ export const mix = {
 export interface OfflineOpts {
   seconds: number;
   sampleRate?: number;
-  /** motif et tempo ; le motif courant par defaut */
+  /** motif et tempo ; le motif courant par defaut (V.5.9 : les rangees des pistes 9 a 16 aussi) */
   bpm?: number;
-  steps?: Record<Inst, string>;
-  /** un seul coup de cette voix a 50 ms, au lieu du motif */
-  single?: Inst;
+  steps?: Steps;
+  /** un seul coup de cette piste a 50 ms, au lieu du motif */
+  single?: TrackKey;
   /** sans le limiteur de sortie (mesure du signal avant lui) */
   limiter?: boolean;
   /** sinus continus (Hz) dans le bus, au lieu de la batterie */
@@ -2241,8 +2458,10 @@ export interface OfflineOpts {
   glue?: boolean;
   /** les reglages de BIT et du COMP pendant le rendu (2026-10-18, les clics) : [instant (s), reglages 0 a 1], 50 ms d'ecart au moins */
   fxAt?: [number, Partial<Fx>][];
-  /** effets par voix (neutres par defaut hors ligne) */
-  voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
+  /** effets par piste (neutres par defaut hors ligne) */
+  voice?: Partial<Record<TrackKey, Partial<VoiceFx>>>;
+  /** TRK LEV par piste (V.5.9) ; absent : celui du store (0.8, gain 1, au depart) */
+  tlev?: Partial<Record<TrackKey, number>>;
   /** reference : sans aucun stage TONE ni CHORUS, voix sans tranche */
   bare?: boolean;
   /** reglages pendant le rendu : [instant (s), valeur], 50 ms d'ecart au moins */
@@ -2268,13 +2487,13 @@ export interface OfflineOpts {
   /** le controle negatif : chaque application saute (setValueAtTime) au lieu de glisser */
   morphStep?: boolean;
   /** une tension continue ou un sinus dans l'entree de la tranche d'une voix, au lieu de la batterie */
-  dcInto?: { inst: Inst; level: number };
-  sineInto?: { inst: Inst; hz: number; level: number };
+  dcInto?: { inst: TrackKey; level: number };
+  sineInto?: { inst: TrackKey; hz: number; level: number };
   /**
    * Plusieurs mesures (2026-10-27, P2-18, tests) : chacune ses pas, ses verrous, ses scenes, l'une apres l'autre au tempo
    * du rendu, le SWING du rendu (swing, 0 par defaut) morphe par les scenes de la mesure comme l'horloge le fait.
    */
-  bars?: { steps: Record<Inst, string>; locks?: Locks; scenes?: SceneSet | { a?: Record<string, number>; b?: Record<string, number> } }[];
+  bars?: { steps: Steps; locks?: Locks; scenes?: SceneSet | { a?: Record<string, number>; b?: Record<string, number> } }[];
   swing?: number;
   /**
    * La prise rendue (2026-10-27) : 'rytm', la sortie du MM-RYTM (celle de l'oscilloscope, scopeTaps().rytm), avant le
@@ -2300,7 +2519,7 @@ let offlineMorphLog: [number, number][] = [];
 /** Les coups du dernier rendu hors ligne (tests) : instant, voix, mesure, pas, hauteur, DECAY. */
 export interface OfflineHit {
   t: number;
-  inst: Inst;
+  inst: TrackKey;
   bar: number;
   step: number;
   pf: number;
@@ -2313,6 +2532,8 @@ export interface OfflineHit {
   lfo?: Partial<Record<LfoDest, number>>;
 }
 let offlineHitsLog: OfflineHit[] = [];
+/** Le plafond de sources et les tranches du dernier rendu hors ligne (V.5.9, la sonde des 16 pistes). */
+let offlineCap: { peak: number; capped: number; polyCapped: number; channels: TrackKey[] } = { peak: 0, capped: 0, polyCapped: 0, channels: [] };
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 /** Les LFO d'un coup au journal (tests) : leur valeur a son debut, par destination. */
@@ -2351,7 +2572,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     return v;
   };
   const baseFx: Fx = { ...pattern.fx.get(), ...FX_SETTINGS, ...(o.fxs ?? {}), drive: o.drive ?? 0, reverb: o.reverb ?? 0, delay: o.delay ?? 0, chorus: o.chorus ?? 0, dtime: o.dtime ?? DTIME_DEFAULT, dfb: o.dfb ?? DFB_DEFAULT, bits: o.bits ?? 0, comp: o.comp ?? 0 };
-  const voiceBase = (inst: Inst): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}) });
+  const voiceBase = (inst: TrackKey): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}) });
   const f0 = morphed ? morphFxPure(baseFx, sc, xNow) : null;
   const settingsOf = (f: Readonly<Fx>): Partial<Record<FxSettingId, number>> => Object.fromEntries(FX_SETTING_IDS.map((k) => [k, f[k] ?? FX_SETTINGS[k]]));
   offlineMorphLog = [];
@@ -2361,17 +2582,10 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const tone0 = snapTone(o.tone ?? 0);
   const stretch0 = snapTime(o.stretch ?? 0);
   const rnd = Math.random;
-  const gate = ohGate;
-  const end = ohEnd;
-  const bGate = bdGate;
-  const bEnd = bdEnd;
-  bdGate = null;
-  bdEnd = 0;
+  // Les portes des pistes (V.5.9) sont celles du graphe du rendu : neuves, comme l'etaient ohGate et bdGate a son debut
   Math.random = seeded(o.seed ?? 808);
   // Deux rendus identiques : la rotation des variantes repart du debut
   shots.resetRotation();
-  ohGate = null;
-  ohEnd = 0;
   let g: Graph;
   // Les voix ne se debranchent pas pendant le rendu : leur onended tombe a
   // un instant quelconque du rendu et couperait la queue d'un filtre (deux
@@ -2388,14 +2602,15 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       dfb: f0 ? f0.dfb : (o.dfb ?? DFB_DEFAULT),
       fxs: f0 ? settingsOf(f0) : (o.fxs ?? {}),
       bpm: o.bpm,
-      voice: morphed ? (Object.fromEntries(INSTRUMENTS.map((i) => [i, morphVoicePure(i, voiceBase(i), sc, xNow)])) as Record<Inst, VoiceFx>) : (o.voice ?? {}),
+      voice: morphed ? (Object.fromEntries(TRACK_KEYS.map((i) => [i, morphVoicePure(i, voiceBase(i), sc, xNow)])) as Record<TrackKey, VoiceFx>) : (o.voice ?? {}),
+      ...(o.tlev ? { tlev: o.tlev } : {}),
       master: 1,
       bare: o.bare,
     });
     // Les reglages de chaque voix hors ligne : neutres, sauf ceux imposes ; le meme calcul de coup qu'en direct
-    const vfx = (inst: Inst): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}), tone: snapTone(o.voice?.[inst]?.tone ?? 0) });
+    const vfx = (inst: TrackKey): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}), tone: snapTone(o.voice?.[inst]?.tone ?? 0) });
     /** un coup : sans scene le calcul d'avant ; avec, le morphing du coup au x de son instant (morphHitPure, comme en direct) */
-    const hitOf = (inst: Inst, lock: Readonly<StepLock> | null, t: number, s: SceneSet = sc, lfo: HitLfo | null = null): { hp: HitParams; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } => {
+    const hitOf = (inst: TrackKey, lock: Readonly<StepLock> | null, t: number, s: SceneSet = sc, lfo: HitLfo | null = null): { hp: HitParams; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } => {
       if (s === NO_SCENES) {
         const fx = vfx(inst);
         if (!lfo) return { hp: hitParams(inst, false, lock, tone0, stretch0, fx), fx, lock };
@@ -2410,7 +2625,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     // Les inserts DIST et CHORUS des voix qui en ont un verrou dans le rendu (2026-10-09) : tenus engages, comme en direct ;
     // ceux que les scenes du rendu menent aussi, et DIST et CHORUS du bus (2026-10-27)
     const rLocks = o.single ? (o.singleLock ? ({ [o.single]: { 0: o.singleLock } } as Locks) : null) : o.locks;
-    const fxOff = (i: Inst): Readonly<Partial<Record<string, number>>> | null => o.voice?.[i] ?? null;
+    const fxOff = (i: TrackKey): Readonly<Partial<Record<string, number>>> | null => o.voice?.[i] ?? null;
     if (morphed) holdScenes(g, rLocks, insertNeedsOf(sc), fxOff);
     else holdInserts(g, rLocks, NO_NEEDS, fxOff);
     const probeIn = o.dcInto ?? o.sineInto;
@@ -2452,7 +2667,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
           const sw = (s & 1) === 1 ? morphFxPure(swingBase, bs, xOfHit(t0)).swing * SWING.maxDelay * step : 0;
           const t = t0 + sw;
           if (t >= o.seconds - 0.05) continue;
-          for (const inst of INSTRUMENTS) {
+          for (const inst of TRACK_KEYS) {
             const v = velocity(bar.steps, inst, s);
             if (v === 0) continue;
             const h = hitOf(inst, lockOf(bar.locks, inst, s), t0, bs);
@@ -2495,12 +2710,12 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         return f;
       };
       const log = morphed || o.log === true;
-      const fxSeq = (i: Inst): Readonly<Partial<Record<string, number>>> | null => o.voice?.[i] ?? null;
+      const fxSeq = (i: TrackKey): Readonly<Partial<Record<string, number>>> | null => o.voice?.[i] ?? null;
       for (let n = 0, t = 0.02; t < o.seconds - 0.5; n += 1, t += step) {
         const s = n % STEP_COUNT;
         const bar = Math.floor(n / STEP_COUNT);
         const out = seqStep(st, { s, pos: n, when: t, grid: t, dur: step, steps, locks: o.locks, trigs, ctx: { pass: bar + 1, fill: fillOf(t), last: o.last === true }, plays: () => true, fxOf: fxSeq });
-        const made: { inst: Inst; v: Voice }[] = [];
+        const made: { inst: TrackKey; v: Voice }[] = [];
         for (const hit of out.hits) {
           const inst = hit.inst;
           // Un uTIME negatif au tout premier pas tombe avant le rendu : au debut
@@ -2536,11 +2751,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     for (const v of voices) for (const src of v.srcs) src.onended = null;
   } finally {
     Math.random = rnd;
-    ohGate = gate;
-    ohEnd = end;
-    bdGate = bGate;
-    bdEnd = bEnd;
   }
+  offlineCap = { ...g.cap, channels: chans(g).map((c) => c.t) };
   // BIT et COMP (2026-10-18) : le worklet en place comme en direct, avec les reglages du rendu (ceux absents a leur depart)
   let glueFx: Fx = f0 ? { ...f0 } : { ...pattern.fx.get(), ...FX_SETTINGS, ...(o.fxs ?? {}), bits: o.bits ?? 0, comp: o.comp ?? 0 };
   if (!o.bare && o.glue !== false) await attachGlue(oc, g, () => glueFx, false);
@@ -2606,7 +2818,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   // Le crossfader pendant le rendu : chaque evenement a son quantum, LE MEME applicateur qu'en direct, sur l'horloge du rendu
   if (morphed && xs.length > 0) {
     let settled = false;
-    const voicesMorphed = INSTRUMENTS.filter((i) => morphVoicePure(i, VOICE_FX_DEFAULT, sc, 0) !== VOICE_FX_DEFAULT);
+    const voicesMorphed = TRACK_KEYS.filter((i) => morphVoicePure(i, VOICE_FX_DEFAULT, sc, 0) !== VOICE_FX_DEFAULT && !!g.ch?.[i]);
     const applyOff = (): void => {
       const f = morphFxPure(baseFx, sc, xNow);
       glideMode.step = o.morphStep === true;
@@ -2657,7 +2869,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
 
 /** La source de test du graphe vivant (2026-10-27, probe) */
 let probeSrc: { src: AudioScheduledSourceNode; gain: GainNode } | null = null;
-function probe(inst: Inst | null, o?: { dc?: number; hz?: number; level: number } | null): void {
+function probe(inst: TrackKey | null, o?: { dc?: number; hz?: number; level: number } | null): void {
   if (!FLAGS.mute || !FLAGS.debug) throw new Error('probe: ?mute=1&debug=1 only');
   if (probeSrc) {
     try {
@@ -2748,11 +2960,11 @@ export interface AudioDebug {
   setTone(v: number): void;
   setStretch(v: number): void;
   /** facteur des durees du prochain coup de inst (STRETCH du pattern et de la voix) */
-  timeOf(inst: Inst): number;
+  timeOf(inst: TrackKey): number;
   /** rendu hors ligne du graphe reel (tests) */
   renderOffline(o: OfflineOpts): Promise<Float32Array>;
   /** ce que jouerait un coup de inst avec ces verrous (2026-10-08, tests) */
-  hitParams(inst: Inst, lock: StepLock | null): HitParams;
+  hitParams(inst: TrackKey, lock: StepLock | null): HitParams;
   setLevel(v: number): void;
   setSwing(v: number): void;
   setDrive(v: number): void;
@@ -2767,7 +2979,7 @@ export interface AudioDebug {
    * tension continue (dc) ou un sinus (hz), jamais un coup ni RUN ; seulement sous ?mute=1&debug=1 (sinon une exception),
    * MASTER a 0. probe(null) l'enleve.
    */
-  probe(inst: Inst | null, o?: { dc?: number; hz?: number; level: number } | null): void;
+  probe(inst: TrackKey | null, o?: { dc?: number; hz?: number; level: number } | null): void;
   /** le controle negatif des tests (2026-10-27) : vrai, l'applicateur des scenes pose ses reglages en sauts */
   morphStep: boolean;
   /** ce que l'applicateur du dernier rendu hors ligne a pose : [instant (s), x] */
@@ -2778,9 +2990,14 @@ export interface AudioDebug {
    * Ce qu'un coup de inst demanderait au cache maintenant (2026-10-27, P2-18, tests) : le meme chemin que trigger
    * (morph.hit, hitParams, shots.get paresseux), sans voix, sans son ; sa hauteur, son STRETCH, s'il etait pret.
    */
-  hitProbe(inst: Inst, lock?: StepLock | null): { pf: number; ts: number; lazy: boolean; ready: boolean; got: boolean } | null;
+  hitProbe(inst: TrackKey, lock?: StepLock | null): { pf: number; ts: number; lazy: boolean; ready: boolean; got: boolean } | null;
   /** les preparations des deux bouts d'un balayage (prepareScenes) */
   readonly scenePrep: { runs: number; prepared: number; at: number };
+  /**
+   * Les 16 pistes (V.5.9) : les tranches construites du graphe vivant (au repos, les 8 d'avant), ses sources et son
+   * plafond ; ceux du dernier rendu hors ligne.
+   */
+  readonly tracks16: { channels: TrackKey[]; sources: number; peak: number; capped: number; polyCapped: number; cap: number; offline: { peak: number; capped: number; polyCapped: number; channels: TrackKey[] } } | null;
 }
 
 /** DIST, envois et unites REVERB et DELAY, CHORUS du bus (debug). */
@@ -2883,7 +3100,7 @@ export const audioDebug: AudioDebug = {
   get voices() {
     const g = graph;
     if (!g?.ch) return null;
-    const ch = g.ch;
+    const ch = g.ch as Record<Inst, Channel>;
     return Object.fromEntries(
       INSTRUMENTS.map((i) => [
         i,
@@ -2923,7 +3140,7 @@ export const audioDebug: AudioDebug = {
   setStretch,
   timeOf: () => voiceTime(stretch),
   renderOffline,
-  hitParams: (inst: Inst, lock: StepLock | null) => hitParams(inst, false, lock, tone, stretch, voiceFx.of(inst)),
+  hitParams: (inst: TrackKey, lock: StepLock | null) => hitParams(inst, false, lock, tone, stretch, tracks.vfx(inst)),
   setLevel,
   setSwing,
   setDrive,
@@ -2947,14 +3164,21 @@ export const audioDebug: AudioDebug = {
   get offlineHits() {
     return offlineHitsLog;
   },
-  hitProbe(inst: Inst, lock: StepLock | null = null) {
+  hitProbe(inst: TrackKey, lock: StepLock | null = null) {
     const c = ctx;
     if (!c) return null;
     const m = morph.hit(inst, lock, pattern.scenes.get());
     const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
-    const ready = shots.ready(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
-    const got = shots.get(hp.id, hp.ts, hp.pf, c.sampleRate, false, hp.ov, hp.lazy === true) !== null;
+    const ready = shots.ready(hp.t, hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
+    const got = shots.get(hp.t, hp.id, hp.ts, hp.pf, c.sampleRate, false, hp.ov, hp.lazy === true) !== null;
     return { pf: hp.pf, ts: hp.ts, lazy: hp.lazy === true, ready, got };
   },
   scenePrep,
+  get tracks16() {
+    const g = graph;
+    const now = g ? g.ctx.currentTime : 0;
+    return g
+      ? { channels: chans(g).map((c) => c.t), sources: g.live.filter((x) => x.when <= now && x.end > now).length, peak: g.cap.peak, capped: g.cap.capped, polyCapped: g.cap.polyCapped, cap: SOURCE_CAP, offline: offlineCap }
+      : null;
+  },
 };

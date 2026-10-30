@@ -9,7 +9,7 @@
  * Rien de tout cela au depart (LEN INF, aucun LFO, aucun lock trig) : le coup d'avant.
  */
 
-import type { Inst } from '../theme';
+import type { TrackKey } from './tracks';
 import { LFO_DESTS, lfoCycle, lfoValue, type Lfo, type LfoDest } from './lfo';
 import type { HitLfo } from './seq';
 import type { Locks, StepLock } from './locks';
@@ -107,8 +107,8 @@ export interface LiveNeeds {
   pan: boolean;
   filter: boolean;
 }
-const needsCache = new WeakMap<object, Partial<Record<Inst, LiveNeeds | null>>>();
-export function liveNeeds(locks: Readonly<Locks> | null | undefined, inst: Inst): LiveNeeds | null {
+const needsCache = new WeakMap<object, Partial<Record<TrackKey, LiveNeeds | null>>>();
+export function liveNeeds(locks: Readonly<Locks> | null | undefined, inst: TrackKey): LiveNeeds | null {
   if (!locks) return null;
   let c = needsCache.get(locks);
   if (!c) {

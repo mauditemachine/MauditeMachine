@@ -8,7 +8,7 @@
  * section 0 du cahier). Pur : aucun store, aucun moteur.
  */
 
-import type { Inst } from '../theme';
+import { TRACK_KEYS, normTrackKey, type TrackKey } from './tracks';
 
 export type TrigParam = 'len' | 'prob' | 'cond' | 'utime' | 'lfot' | 'rtrg' | 'rate' | 'vfad' | 'rlen';
 export const TRIG_PARAMS: readonly TrigParam[] = ['len', 'prob', 'cond', 'utime', 'lfot', 'rtrg', 'rate', 'vfad', 'rlen'];
@@ -79,10 +79,11 @@ export function clampTrig(p: TrigParam, v: number): number {
 
 /** Les reglages de trig d'une voix (seulement ce qui quitte le depart) ; ceux d'un pattern, par voix (absent : le depart). */
 export type TrigRow = Partial<Record<TrigParam, number>>;
-export type TrigSet = Partial<Record<Inst, Readonly<TrigRow>>>;
+export type TrigSet = Partial<Record<TrackKey, Readonly<TrigRow>>>;
 export const NO_TRIGS: Readonly<TrigSet> = Object.freeze({});
 
-const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
+/** Les 16 pistes (V.5.9 ; BD..CY les voix d'avant), dans l'ordre : audio/tracks.ts. */
+const INSTS: readonly TrackKey[] = TRACK_KEYS;
 
 /** Un jeu lu (stockage, preset, pattern, UNDO) : les voix et reglages inconnus partent, les valeurs au depart aussi ; null : rien. */
 export function cleanTrigs(raw: unknown): TrigSet | null {
@@ -90,8 +91,14 @@ export function cleanTrigs(raw: unknown): TrigSet | null {
   const x = raw as Record<string, unknown>;
   const out: Record<string, TrigRow> = {};
   let any = false;
+  // Les alias T1..T8 (V.5.9) : lus pour BD..CY, jamais ecrits ; la cle d'aujourd'hui gagne
+  const alias: Record<string, unknown> = {};
+  for (const k of Object.keys(x)) {
+    const t = normTrackKey(k);
+    if (t && t !== k && x[t] === undefined) alias[t] = x[k];
+  }
   for (const inst of INSTS) {
-    const row = x[inst];
+    const row = x[inst] ?? alias[inst];
     if (!row || typeof row !== 'object') continue;
     const r = row as Record<string, unknown>;
     const o: TrigRow = {};
@@ -113,7 +120,7 @@ export function cleanTrigs(raw: unknown): TrigSet | null {
 }
 
 /** Un reglage pose sur une voix (mise a jour immuable ; le depart le retire). */
-export function withTrig(t: Readonly<TrigSet>, inst: Inst, p: TrigParam, v: number): TrigSet {
+export function withTrig(t: Readonly<TrigSet>, inst: TrackKey, p: TrigParam, v: number): TrigSet {
   const c = clampTrig(p, v);
   const row: TrigRow = { ...(t[inst] ?? {}) };
   if (c === TRIG_DEF[p]) delete row[p];
@@ -132,7 +139,7 @@ export function sameTrigs(a: Readonly<TrigSet> | null | undefined, b: Readonly<T
 export const anyTrigs = (t: Readonly<TrigSet> | null | undefined): boolean => !!t && INSTS.some((i) => !!t[i] && Object.keys(t[i] as object).length > 0);
 
 /** La valeur d'un reglage pour la voix (le defaut du pattern) et le pas (son verrou, s'il en a un). */
-export function trigValue(t: Readonly<TrigSet> | null | undefined, inst: Inst, p: TrigParam, lock?: Readonly<Partial<Record<string, number | string>>> | null): number {
+export function trigValue(t: Readonly<TrigSet> | null | undefined, inst: TrackKey, p: TrigParam, lock?: Readonly<Partial<Record<string, number | string>>> | null): number {
   const l = lock?.[p];
   if (typeof l === 'number' && Number.isFinite(l)) return clampTrig(p, l);
   const d = t?.[inst]?.[p];
@@ -156,7 +163,7 @@ export interface TrigNow {
   rlen: number | null;
 }
 
-export function trigNow(t: Readonly<TrigSet> | null | undefined, inst: Inst, lock?: Readonly<Partial<Record<string, number | string>>> | null): TrigNow {
+export function trigNow(t: Readonly<TrigSet> | null | undefined, inst: TrackKey, lock?: Readonly<Partial<Record<string, number | string>>> | null): TrigNow {
   const v = (p: TrigParam): number => trigValue(t, inst, p, lock);
   return {
     len: LEN_STEPS[v('len')] ?? null,

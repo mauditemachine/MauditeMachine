@@ -20,7 +20,8 @@ import { VOICE_PARAMS, voiceClamp, type VoiceParam } from '../audio/voicefx';
 import { isTrigParam } from '../audio/trig';
 import { isLfoParam } from '../audio/lfo';
 import type { KitFamily } from '../audio/kit';
-import { VOICE_PARAM, isVoiceEnc, type EncId, type Inst } from '../theme';
+import { VOICE_PARAM, isVoiceEnc, type EncId } from '../theme';
+import { LEGACY_KEYS, TRACK_KEYS, normTrackKey, type TrackKey } from '../audio/tracks';
 
 /** Comment une valeur morphee s'applique (audio/morph.ts, audio/drums.ts). */
 export type MorphClass = 'ramp' | 'worklet' | 'notch' | 'settle' | 'hit' | 'pitch' | 'heavy';
@@ -37,7 +38,7 @@ export interface SceneBinding {
   readonly domain: 'fx' | 'stretch' | 'voice' | 'kit' | 'layer';
   /** la cle dans le store (un champ de Fx, un VoiceParam, un potard du kit, un reglage de couche) */
   readonly key: string;
-  readonly inst: Inst | null;
+  readonly inst: TrackKey | null;
   readonly fam: KitFamily | null;
   /** la course native (celle du store) */
   readonly lo: number;
@@ -49,7 +50,8 @@ export interface SceneBinding {
   readonly alsoPitch: boolean;
 }
 
-const VOICES: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
+/** Les pistes d'une scene (V.5.9 : les 16 ; T1 a T8 lus pour BD a CY). */
+const VOICES: readonly TrackKey[] = TRACK_KEYS;
 const FAMS: readonly KitFamily[] = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
 
 /** Les champs de pattern.fx et leur classe (la table de la spec 7.2) ; dist ecrit drive. */
@@ -151,9 +153,9 @@ function parse(id: string): SceneBinding | null {
     return { id, domain: 'fx', key: FX_KEY(e), inst: null, fam: null, lo: 0, hi: 1, steps, cls, alsoPitch: false };
   }
   if (p[1] === 'voice' && p.length === 4) {
-    const inst = p[2] as Inst;
+    const inst = normTrackKey(p[2]);
     const vp = p[3] as VoiceParam;
-    if (!VOICES.includes(inst) || !(VOICE_PARAMS as readonly string[]).includes(vp)) return null;
+    if (!inst || !VOICES.includes(inst) || !(VOICE_PARAMS as readonly string[]).includes(vp)) return null;
     const bip = VOICE_BIP.has(vp);
     return { id, domain: 'voice', key: vp, inst, fam: null, lo: bip ? -1 : 0, hi: 1, steps: VOICE_STEPS[vp] ?? 0, cls: VOICE_CLASS[vp], alsoPitch: vp === 'tone' };
   }
@@ -217,14 +219,14 @@ export function from01(b: SceneBinding, v01: number): number {
 export const snap01 = (b: SceneBinding, v01: number): number => to01(b, from01(b, v01));
 
 /** L'id absolu d'un encodeur de la rangee de la voix choisie (rytm:enc:vdecay -> rytm:voice:SD:decay) ; null sans voix. */
-export function voiceRowId(e: EncId, inst: Inst | null): string | null {
+export function voiceRowId(e: EncId, inst: TrackKey | null): string | null {
   if (!inst || !isVoiceEnc(e) || e === 'vsound') return null;
   const vp = (VOICE_PARAM as Readonly<Record<string, VoiceParam>>)[e];
   return vp ? `rytm:voice:${inst}:${vp}` : null;
 }
 
 /** L'id absolu d'un verrou de voix (le meme nom que son VoiceParam) ; null pour les autres verrous. */
-export function lockKeyToId(inst: Inst, key: string): string | null {
+export function lockKeyToId(inst: TrackKey, key: string): string | null {
   return (VOICE_PARAMS as readonly string[]).includes(key) ? `rytm:voice:${inst}:${key}` : null;
 }
 
@@ -232,6 +234,7 @@ export function lockKeyToId(inst: Inst, key: string): string | null {
 export function allBindings(): SceneBinding[] {
   const out: SceneBinding[] = [];
   for (const e of [...Object.keys(FX_CLASS), 'stretch']) out.push(bindingOf(`rytm:enc:${e}`) as SceneBinding);
-  for (const inst of VOICES) for (const vp of VOICE_PARAMS) out.push(bindingOf(`rytm:voice:${inst}:${vp}`) as SceneBinding);
+  // Les 8 voix d'avant (le test A2 compte ces liaisons ; celles des pistes 9 a 16 se lient de meme, bindingOf)
+  for (const inst of LEGACY_KEYS) for (const vp of VOICE_PARAMS) out.push(bindingOf(`rytm:voice:${inst}:${vp}`) as SceneBinding);
   return out;
 }

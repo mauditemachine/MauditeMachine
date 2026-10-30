@@ -26,11 +26,15 @@
  * worker, des que le contexte existe.
  */
 
-import type { Inst } from '../theme';
+import type { EngineId } from './tracks';
 import { SAMPLE_MAX_OUT_S, playSample, type SamplePcm } from './sampledsp';
 import { timeStretch } from './stretch';
 
-export type ShotId = Inst | 'CHopen';
+/**
+ * Le son calcule : l'un des 9 algorithmes (V.5.9, cahier 4.1 : il cesse d'etre la voix, Inst ; c'est le moteur d'une
+ * piste, EngineId, inchange : BD SD CH CHopen OH CP TOM HT CY).
+ */
+export type ShotId = EngineId;
 
 /** Le son d'une famille de voix (audio/kit.ts) : a la facon d'une 909, d'une 808, ou celui du MM-RYTM d'avant. */
 export type KitModel = '909' | '808' | 'mm';

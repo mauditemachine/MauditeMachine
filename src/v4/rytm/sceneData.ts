@@ -43,6 +43,17 @@ export const sceneRound = (v: number): number => Math.round(Math.max(0, Math.min
 const ID_RE = /^rytm:[a-z0-9]+(?::[A-Za-z0-9]+){1,3}$/;
 export const isSceneKey = (id: unknown): id is string => typeof id === 'string' && id.length <= 64 && ID_RE.test(id);
 
+/** Les cles des pistes 1 a 8 (V.5.9, audio/tracks.ts TRACK_KEYS ; une copie : ce module reste sans import). */
+const LEGACY_TRACKS = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as const;
+/**
+ * Un id de scene ramene a sa forme ecrite (V.5.9, cahier 4.5 : les alias T1 a T8 des pistes 1 a 8 se lisent, jamais ne
+ * s'ecrivent) : rytm:voice:T2:decay devient rytm:voice:SD:decay ; tout autre id reste tel quel.
+ */
+export function normSceneId(id: string): string {
+  const m = /^rytm:voice:[Tt]([1-8]):/.exec(id);
+  return m ? `rytm:voice:${LEGACY_TRACKS[Number(m[1]) - 1]}:${id.slice(m[0].length)}` : id;
+}
+
 /** Une scene lue (localStorage, un preset, l'UNDO) : propre, ou null ; jamais une exception. */
 function cleanMap(raw: unknown, rename?: (id: string) => string): SceneMap | null {
   if (raw === undefined || raw === null) return EMPTY;
@@ -57,6 +68,7 @@ function cleanMap(raw: unknown, rename?: (id: string) => string): SceneMap | nul
     } catch {
       k = k0;
     }
+    k = normSceneId(k);
     if (!isSceneKey(k)) continue;
     if (typeof v !== 'number' || !Number.isFinite(v)) continue;
     out[k] = sceneRound(v);

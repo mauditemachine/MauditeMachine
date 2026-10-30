@@ -64,8 +64,8 @@
  * garde, state/patterns.ts et state/presets.ts les transportent).
  */
 
-import type { Inst } from '../theme';
-import type { KitKnob, Layer } from './kit';
+import type { KitKnob, Layer } from './kitlaw';
+import { TRACK_KEYS, normTrackKey, type TrackKey } from './tracks';
 import { TRIG_PARAMS, clampTrig, isTrigParam, type TrigParam } from './trig';
 import { LFO_PARAMS, clampLfo, isLfoParam, type LfoParam } from './lfo';
 
@@ -128,15 +128,24 @@ export type LockKey = LockId | 'snd' | 'mach';
 /** Les verrous d'un pas : des valeurs (le domaine du reglage), l'echantillon et la MACHINE. */
 export type StepLock = Partial<Record<LockId, number>> & { snd?: string; mach?: string };
 
-/** Les verrous du motif : par voix, par pas ('0' a '15') ; v, leur forme (LOCKS_V, absente : R2). */
-export type Locks = Partial<Record<Inst, Readonly<Record<string, Readonly<StepLock>>>>> & { v?: number };
+/**
+ * Les verrous du motif : par piste (les 16 depuis la V.5.9 ; BD..CY les 8 d'avant), par pas ('0' a '15' ; jusqu'a '127'
+ * lus et recopies tels quels, V.6.1) ; v, leur forme (LOCKS_V, absente : R2).
+ */
+export type Locks = Partial<Record<TrackKey, Readonly<Record<string, Readonly<StepLock>>>>> & { v?: number };
 
 /** La forme des verrous depuis R3 (les couches) ; un jeu sans elle vient de R2. */
 export const LOCKS_V = 3;
 
-/** Les voix (l'ordre des pads) : une copie locale, pas d'import circulaire avec audio/pattern.ts. */
-const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
-const STEPS = 16;
+/** Les pistes (l'ordre des pads, puis 9 a 16 ; V.5.9) : audio/tracks.ts, sans import circulaire avec audio/pattern.ts. */
+const INSTS: readonly TrackKey[] = TRACK_KEYS;
+/**
+ * Les pas qu'un verrou peut porter (cahier 4.1 : variable des la V.6.0, pour ne migrer qu'une fois) : 128 lus et
+ * recopies ; le sequenceur d'aujourd'hui n'en joue que 16 (les versions d'avant ignorent les autres).
+ */
+const STEPS = 128;
+/** Les pas d'un masque (lockMask) : la page jouee, 16. */
+const MASK_STEPS = 16;
 /**
  * Le son verrouille : famille, deux-points, son (la cle d'un echantillon, ou
  * off ; 909, 808, mm avant R3). Une famille par voix depuis le 2026-10-18
@@ -156,7 +165,7 @@ const SND_READ_RE = new RegExp(`^(bd|sd|ch|oh|cp|tom|ht|cy|hh|rs):${SND_SOUND}$`
  * inst : la voix du pas ; un hh: d'avant prend la famille de SA voix (OH : oh, sinon ch) et un tom: sur HT
  * devient ht: (revue du 2026-10-18 : un verrou de R2 'hh:808' sur OH restait sa MACHINE).
  */
-function sndNow(v: unknown, inst?: Inst): string | null {
+function sndNow(v: unknown, inst?: TrackKey): string | null {
   if (typeof v !== 'string' || !SND_READ_RE.test(v)) return null;
   if (v.startsWith('hh:')) return `${inst === 'OH' ? 'oh' : 'ch'}:${v.slice(3)}`;
   if (v.startsWith('tom:') && inst === 'HT' && /^tom:(909|808|mm)$/.test(v)) return `ht:${v.slice(4)}`;
@@ -198,8 +207,11 @@ export function clampLock(id: LockId, v: number, exact = false): number {
   return r3(Math.max(0, Math.min(1, v)));
 }
 
-/** La famille du kit de chaque voix (une copie de audio/kit.ts familyOf : ce module reste pur) ; une par voix depuis le 2026-10-18. */
-const FAMILY: Readonly<Record<Inst, string | null>> = { BD: 'bd', SD: 'sd', CH: 'ch', OH: 'oh', CP: 'cp', TOM: 'tom', HT: 'ht', CY: 'cy' };
+/**
+ * La famille du kit de chaque voix d'avant (une copie de audio/kit.ts familyOf : ce module reste pur) ; une par voix
+ * depuis le 2026-10-18 ; les pistes 9 a 16 n'ont jamais eu de verrou de R2.
+ */
+const FAMILY: Readonly<Partial<Record<TrackKey, string | null>>> = { BD: 'bd', SD: 'sd', CH: 'ch', OH: 'oh', CP: 'cp', TOM: 'tom', HT: 'ht', CY: 'cy' };
 
 /** TUNE d'un sample de R2 (le K.TUNE du kick : -12 a +12 demi-tons), en TUNE de couche (-1 a 1 pour +/-24). */
 const r2SampleTune = (v: number): number => Math.round((Math.min(1, Math.max(0, v)) - 0.5) * 24) / 24;
@@ -210,9 +222,9 @@ const r2SampleLen = (v: number): number => (v >= 0.45 ? 1 : Math.max(0, v) / 0.4
  * Un pas de R2 traduit au meme son (revue de R3, 2026-10-08) : x est le pas
  * lu tel quel, out ce qui en est deja garde (snd sur un modele mis a part).
  */
-function fromR2(inst: Inst, x: Record<string, unknown>, out: StepLock): number {
+function fromR2(inst: TrackKey, x: Record<string, unknown>, out: StepLock): number {
   let n = 0;
-  const fam = FAMILY[inst];
+  const fam = FAMILY[inst] ?? null;
   const snd = sndNow(x.snd, inst) ?? '';
   const m = snd ? /^([a-z]+):(909|808|mm)$/.exec(snd) : null;
   if (m && fam && m[1] === fam && out.mach === undefined) {
@@ -244,7 +256,7 @@ function fromR2(inst: Inst, x: Record<string, unknown>, out: StepLock): number {
 }
 
 /** Les verrous d'un pas, nettoyes (r2 : un pas de R2, traduit) ; null s'il n'en reste aucun. */
-function cleanStep(o: unknown, inst: Inst, r2: boolean): StepLock | null {
+function cleanStep(o: unknown, inst: TrackKey, r2: boolean): StepLock | null {
   if (!o || typeof o !== 'object') return null;
   const x = o as Record<string, unknown>;
   const out: StepLock = {};
@@ -289,8 +301,14 @@ export function cleanLocks(o: unknown): Locks | null {
   const r2 = x.v !== LOCKS_V;
   const out: Record<string, Record<string, StepLock>> = {};
   let any = false;
+  // Les alias T1..T8 (V.5.9, cahier 4.1 normTrackKey) : lus pour BD..CY, jamais ecrits ; la cle d'aujourd'hui gagne
+  const alias: Record<string, unknown> = {};
+  for (const k of Object.keys(x)) {
+    const t = normTrackKey(k);
+    if (t && t !== k && x[t] === undefined) alias[t] = x[k];
+  }
   for (const inst of INSTS) {
-    const per = x[inst];
+    const per = x[inst] ?? alias[inst];
     if (!per || typeof per !== 'object') continue;
     const row: Record<string, StepLock> = {};
     let n = 0;
@@ -311,12 +329,12 @@ export function cleanLocks(o: unknown): Locks | null {
 }
 
 /** Les verrous du pas `step` de `inst`, null sans verrou. */
-export function lockOf(l: Readonly<Locks> | null | undefined, inst: Inst, step: number): Readonly<StepLock> | null {
+export function lockOf(l: Readonly<Locks> | null | undefined, inst: TrackKey, step: number): Readonly<StepLock> | null {
   return l?.[inst]?.[String(step)] ?? null;
 }
 
 /** Le pas est-il un lock trig (V.5.1) : il ne joue pas, ses verrous s'appliquent au coup de la voix qui sonne encore. */
-export const isLockTrig = (l: Readonly<Locks> | null | undefined, inst: Inst, step: number): boolean => lockOf(l, inst, step)?.ltrg === 1;
+export const isLockTrig = (l: Readonly<Locks> | null | undefined, inst: TrackKey, step: number): boolean => lockOf(l, inst, step)?.ltrg === 1;
 
 /**
  * Les verrous d'un pas tels que le coup les lit (V.5.1) : sans les reglages de trig, des LFO ni ltrg (le sequenceur et les
@@ -336,21 +354,24 @@ export function hitLock(l: Readonly<StepLock> | null): Readonly<StepLock> | null
 }
 
 /** Le pas porte-t-il au moins un verrou ? */
-export const hasLock = (l: Readonly<Locks> | null | undefined, inst: Inst, step: number): boolean => lockOf(l, inst, step) !== null;
+export const hasLock = (l: Readonly<Locks> | null | undefined, inst: TrackKey, step: number): boolean => lockOf(l, inst, step) !== null;
 
 /** Combien de verrous sur ce pas. */
-export function lockCount(l: Readonly<Locks> | null | undefined, inst: Inst, step: number): number {
+export function lockCount(l: Readonly<Locks> | null | undefined, inst: TrackKey, step: number): number {
   const s = lockOf(l, inst, step);
   return s ? Object.keys(s).length : 0;
 }
 
 /** Les pas d'une voix qui portent des verrous : un masque de 16 bits (bit i : le pas i). */
-export function lockMask(l: Readonly<Locks> | null | undefined, inst: Inst | null): number {
+export function lockMask(l: Readonly<Locks> | null | undefined, inst: TrackKey | null): number {
   if (!inst) return 0;
   const row = l?.[inst];
   if (!row) return 0;
   let m = 0;
-  for (const k of Object.keys(row)) m |= 1 << Number(k);
+  for (const k of Object.keys(row)) {
+    const i = Number(k);
+    if (i < MASK_STEPS) m |= 1 << i;
+  }
   return m;
 }
 
@@ -358,7 +379,7 @@ export function lockMask(l: Readonly<Locks> | null | undefined, inst: Inst | nul
 export const anyLocks = (l: Readonly<Locks> | null | undefined): boolean => !!l && INSTS.some((i) => !!l[i] && Object.keys(l[i] as object).length > 0);
 
 /** Un verrou pose (ou remplace) sur des pas d'une voix : de nouveaux verrous (mise a jour immuable). */
-export function withLock(l: Readonly<Locks>, inst: Inst, steps: readonly number[], key: LockKey, v: number | string): Locks {
+export function withLock(l: Readonly<Locks>, inst: TrackKey, steps: readonly number[], key: LockKey, v: number | string): Locks {
   if (key === 'snd' && typeof v === 'string' && oldModelSnd(v)) return l as Locks;
   const row: Record<string, StepLock> = { ...(l[inst] ?? {}) };
   for (const i of steps) {
@@ -381,7 +402,7 @@ export function withLock(l: Readonly<Locks>, inst: Inst, steps: readonly number[
 }
 
 /** Un verrou retire (key absent : tous ceux du pas) ; les memes verrous s'il n'y avait rien. */
-export function withoutLock(l: Readonly<Locks>, inst: Inst, steps: readonly number[], key?: LockKey): Locks {
+export function withoutLock(l: Readonly<Locks>, inst: TrackKey, steps: readonly number[], key?: LockKey): Locks {
   const was = l[inst];
   if (!was) return l as Locks;
   const row: Record<string, StepLock> = { ...was };

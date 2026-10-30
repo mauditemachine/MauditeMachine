@@ -17,8 +17,8 @@
  * velocites, memes verrous (l'identite audio de la section 0). Pur : aucun store, aucun moteur ; l'appelant execute.
  */
 
-import type { Inst } from '../theme';
-import { INSTRUMENTS, VEL_GAIN, velocity, type Steps } from './pattern';
+import { VEL_GAIN, velocity, type Steps } from './pattern';
+import { TRACK_KEYS, type TrackKey } from './tracks';
 import { hitLock, lockOf, type Locks, type StepLock } from './locks';
 import { CONDS, condTrue, rtrgGain, trigNow, makeRng, type CondCtx, type TrigSet } from './trig';
 import { activeLfos, type Lfo } from './lfo';
@@ -74,21 +74,22 @@ export interface SeqVoice {
 }
 
 export interface SeqState {
-  v: Record<Inst, SeqVoice>;
+  /** les 16 pistes (V.5.9) ; NEI : la piste d'avant (T9 lit T8) */
+  v: Record<TrackKey, SeqVoice>;
   /** l'etat du generateur de PROB */
   rng: number;
 }
 
 export function seqState(seed: number): SeqState {
-  const v = {} as Record<Inst, SeqVoice>;
-  for (const inst of INSTRUMENTS) v[inst] = { pre: null, anchor: 0, rt: null, last: null };
+  const v = {} as Record<TrackKey, SeqVoice>;
+  for (const inst of TRACK_KEYS) v[inst] = { pre: null, anchor: 0, rt: null, last: null };
   return { v, rng: seed >>> 0 };
 }
 
 /** Une copie (l'horloge en garde une par pas programme : une re-programmation repart de celle de son premier pas). */
 export function cloneSeq(s: SeqState): SeqState {
-  const v = {} as Record<Inst, SeqVoice>;
-  for (const inst of INSTRUMENTS) v[inst] = { ...s.v[inst] };
+  const v = {} as Record<TrackKey, SeqVoice>;
+  for (const inst of TRACK_KEYS) v[inst] = { ...s.v[inst] };
   return { v, rng: s.rng };
 }
 
@@ -102,7 +103,7 @@ export interface HitLfo {
 
 /** Un coup a jouer. */
 export interface SeqHit {
-  inst: Inst;
+  inst: TrackKey;
   /** son heure (temps du contexte) */
   t: number;
   /** sa velocite, en gain */
@@ -121,7 +122,7 @@ export interface SeqHit {
 
 /** Un lock trig a appliquer. */
 export interface SeqLockTrig {
-  inst: Inst;
+  inst: TrackKey;
   t: number;
   /** ses verrous (sans ceux du sequenceur) ; null : aucun */
   lock: Readonly<StepLock> | null;
@@ -145,9 +146,9 @@ export interface SeqIn {
   trigs: Readonly<TrigSet> | null | undefined;
   ctx: CondCtx;
   /** la voix joue-t-elle (MUTE, SOLO, le mute du pattern) */
-  plays(inst: Inst): boolean;
+  plays(inst: TrackKey): boolean;
   /** les reglages de LFO de la voix (ses reglages de voix) */
-  fxOf(inst: Inst): Readonly<Partial<Record<string, number>>> | null;
+  fxOf(inst: TrackKey): Readonly<Partial<Record<string, number>>> | null;
 }
 
 export interface SeqOut {
@@ -158,7 +159,7 @@ export interface SeqOut {
 const EPS = 1e-9;
 
 /** Les repetitions du retrig rt dans la fenetre [from, to) (positions), avant `before` ; anchor : l'ancre des LFO de la voix. */
-function repeats(inst: Inst, rt: Retrig, inp: SeqIn, from: number, to: number, before: number, anchor: number, out: SeqHit[]): boolean {
+function repeats(inst: TrackKey, rt: Retrig, inp: SeqIn, from: number, to: number, before: number, anchor: number, out: SeqHit[]): boolean {
   let k = Math.max(1, Math.ceil((from - rt.pos) / rt.every - EPS));
   for (; ; k += 1) {
     const rp = rt.pos + k * rt.every;
@@ -188,9 +189,10 @@ export function seqStep(st: SeqState, inp: SeqIn): SeqOut {
   const locks: SeqLockTrig[] = [];
   const rng = makeRng(st.rng);
   let drew = false;
-  let prev: Inst | null = null;
+  let prev: TrackKey | null = null;
   const end = inp.pos + 1;
-  for (const inst of INSTRUMENTS) {
+  // Les 16 pistes (V.5.9) : une piste 9 a 16 sans pas ni verrou ni retrig ne fait rien (au depart, les coups d'avant)
+  for (const inst of TRACK_KEYS) {
     const sv = st.v[inst];
     const nei = prev ? st.v[prev].pre : null;
     prev = inst;
@@ -271,7 +273,7 @@ export function seqStep(st: SeqState, inp: SeqIn): SeqOut {
  * Le coup qu'un lock trig touche (la revue de D2, E5) : le plus recent de la voix parmi ceux que le pas vient de jouer et
  * qui ont commence a son heure (une repetition de retrig sur le pas), sinon celui d'avant le pas (last).
  */
-export function soundingAt<V extends { when: number }>(made: readonly { inst: Inst; v: V }[], inst: Inst, t: number, last: V | null): V | null {
+export function soundingAt<V extends { when: number }>(made: readonly { inst: TrackKey; v: V }[], inst: TrackKey, t: number, last: V | null): V | null {
   for (let i = made.length - 1; i >= 0; i -= 1) {
     const m = made[i];
     if (m.inst === inst && m.v.when <= t + EPS) return m.v;
@@ -280,14 +282,14 @@ export function soundingAt<V extends { when: number }>(made: readonly { inst: In
 }
 
 /** Le dernier coup d'une voix (l'appelant le pose apres l'avoir joue) : un lock trig plus loin s'y applique. */
-export function seqLast(st: SeqState, inst: Inst, v: unknown): void {
+export function seqLast(st: SeqState, inst: TrackKey, v: unknown): void {
   st.v[inst].last = v;
 }
 
 /** Le premier instant d'un pas (le plus en avance de ses coups : uTIME negatif) : l'horloge l'anticipe d'autant. */
 export function earliestShift(trigs: Readonly<TrigSet> | null | undefined, locks: Readonly<Locks> | null | undefined): number {
   let m = 0;
-  for (const inst of INSTRUMENTS) {
+  for (const inst of TRACK_KEYS) {
     const d = trigs?.[inst]?.utime;
     if (typeof d === 'number' && d < m) m = d;
     const row = locks?.[inst];
