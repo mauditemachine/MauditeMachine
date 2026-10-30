@@ -13,6 +13,8 @@
  * Pur, sans minuteur.
  */
 
+import type { ScreenMenuId } from '../scene/screen/menus/registry';
+
 export type MuteView = 'off' | 'global' | 'pattern';
 
 export interface DtFaceState {
@@ -20,6 +22,23 @@ export interface DtFaceState {
   readonly mute: MuteView;
   readonly bank: boolean;
   readonly live: boolean;
+}
+
+/**
+ * La forme etendue de l'etat de la face (P0, 2026-10-30, docs/v4/dt2/dt2-master-spec.md 5.0, contrat sans comportement) :
+ * ce que V.6.0 (B4) et V.6.1 (C2, C4) ajoutent a DtFaceState, noms figes. Le store ci-dessous ne la porte pas encore :
+ * rien ne change en P0.
+ * - keyboard : le mode KEYBOARD (la touche KEYBOARD allumee, V.6.1) ;
+ * - song : SONG (off, le mode SONG, SONG EDIT ; V.6.2) ;
+ * - menu : le menu plein ecran ouvert (scene/screen/menus/registry.ts ScreenMenuId), null : aucun ;
+ * - ptnPage : la page du pattern editee (0 a 7, les 8 LED de page ; 0 tant que le pattern fait 16 pas) ;
+ * - live : LIVE REC (deja la, V.5.3).
+ */
+export interface DtFaceStateDt2 extends DtFaceState {
+  readonly keyboard: boolean;
+  readonly song: 'off' | 'mode' | 'edit';
+  readonly menu: ScreenMenuId | null;
+  readonly ptnPage: number;
 }
 
 let state: DtFaceState = { rec: false, mute: 'off', bank: false, live: false };
