@@ -205,7 +205,7 @@ export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
 export const RYTM_D2_IDS = ['q:len', 'q:prob', 'q:cond', 'q:utime', 'q:lfot', 'q:rtrg', 'q:rate', 'q:vfad', 'q:rlen', 'lfo:spd', 'lfo:mul', 'lfo:fad', 'lfo:dst', 'lfo:wav', 'lfo:phs', 'lfo:mod', 'lfo:dep', 'ptrig2', 'locktrig', 'fill'] as const;
 export type RytmD2Id = (typeof RYTM_D2_IDS)[number];
 /** V.5.2 (2026-10-30, l'etape D3a) : la vue BANK (FUNC + PTN) et CONTROL ALL (TRK + un potard). */
-export const RYTM_D3A_IDS = ['bank', 'ctlall'] as const;
+export const RYTM_D3A_IDS = ['bank', 'ctlall', 'liverec'] as const;
 export type RytmD3aId = (typeof RYTM_D3A_IDS)[number];
 
 export type RytmInfoId = RytmInfoPage | RytmInfoTab | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId | RytmD2Id | RytmD3aId;
@@ -429,6 +429,11 @@ let stepResolver: (i: number) => 'locktrig' | 'bank' | null = () => null;
 export function setStepResolver(fn: (i: number) => 'locktrig' | 'bank' | null): void {
   stepResolver = fn;
 }
+/** LIVE REC allume (V.5.3) : la carte de ● est la sienne ; actions.ts l'inscrit. */
+let liveResolver: () => boolean = () => false;
+export function setLiveResolver(fn: () => boolean): void {
+  liveResolver = fn;
+}
 /** TRK tenue ou gardee (V.5.2) : le potard k fait CONTROL ALL sur sa page, sa carte ; actions.ts l'inscrit. */
 let ctlAllResolver: (k: number) => boolean = () => false;
 export function setCtlAllResolver(fn: (k: number) => boolean): void {
@@ -476,6 +481,7 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   if (mn) return mn[1] === 'sound' ? { id: 'voice:sound' } : PAGE_IDS.has(mn[1]) ? { id: mn[1] } : null;
   const pk = /^pkey-([a-z]+)$/.exec(hotspot);
   if (pk) return PAGE_IDS.has(pk[1]) ? { id: DT_PAGE_CARD[pk[1]] ?? pk[1] } : null;
+  if (hotspot === 'rec' && liveResolver()) return { id: 'liverec' };
   if (DT_KEYS.has(hotspot)) return { id: hotspot };
   const tb = /^lcd-tab-([a-z]+)$/.exec(hotspot);
   // Les onglets de la page d'un FX (2026-10-10) : GLOBAL, la carte du FX de la machine (delay) ; la voix, celle de son envoi (vdelay)

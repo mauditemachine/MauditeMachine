@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 30 octobre 2026 depuis le code du site (`npm run docs:midi`) : 891 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 30 octobre 2026 depuis le code du site (`npm run docs:midi`) : 892 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -627,7 +627,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 656 cibles)
+### MM-RYTM (scope `mm808`, 657 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1064,7 +1064,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:select:HT` | VOICE HT (SELECT, SILENT) | appui |  |  |
 | `rytm:voice:select:CY` | VOICE CY (SELECT, SILENT) | appui |  |  |
 | `rytm:func` | FUNC (HOLD + A KEY: ITS ORANGE FUNCTION) | maintenu (appui puis relachement) |  |  |
-| `rytm:rec` | REC (WRITE THE STEPS, ON / OFF) | appui |  |  |
+| `rytm:rec` | REC (WRITE THE STEPS, ON / OFF; HOLD + PLAY: LIVE REC) | maintenu (appui puis relachement) |  |  |
 | `rytm:play` | PLAY (PAUSE, RESUME) | appui |  |  |
 | `rytm:stop` | STOP (TWICE: CUT THE TAILS) | appui |  |  |
 | `rytm:yes` | YES (CONFIRM, A PAGE THEN YES: RANDOM) | appui |  |  |
@@ -1287,6 +1287,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:bank:5` | BANK F (SHOW ITS PATTERNS) | appui |  |  |
 | `rytm:bank:6` | BANK G (SHOW ITS PATTERNS) | appui |  |  |
 | `rytm:bank:7` | BANK H (SHOW ITS PATTERNS) | appui |  |  |
+| `rytm:liverec` | LIVE REC (ON / OFF) | appui |  |  |
 
 ### MM-ARP (scope `voy`, 80 cibles)
 

@@ -128,6 +128,13 @@ import {
   pageKeyHold,
   playKey,
   recKey,
+  recDown,
+  recUp,
+  noDown,
+  noUp,
+  liveEraseDown,
+  liveEraseUp,
+  liveOn,
   stepWrites,
   stopKey,
   yesDown,
@@ -179,7 +186,7 @@ import { targetIdOfHotspot } from '../midi/targets';
 import { KIT_ARIA, KIT_PLATE_IDS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
 import { mix } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
-import { BPM, FX_SETTING_IDS, STEP_COUNT, isOn, pattern } from '../audio/pattern';
+import { BPM, FX_SETTING_IDS, INSTRUMENTS, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
@@ -345,6 +352,13 @@ interface Down {
   funcSrc?: string;
   /** YES tenue par ce pointeur (V.5.1, 2026-10-29) : sa source ; une tape au lacher, FILL tenue plus de 250 ms */
   yesSrc?: string;
+  /** ● et NO tenues par ce pointeur (V.5.3, LIVE REC : ● + ▶ y entre, NO + un pas efface) ; leur lacher pris : rien ne part */
+  recSrc?: string;
+  recTaken?: boolean;
+  noSrc?: string;
+  noUsed?: boolean;
+  /** un pas qui efface sa voix (NO tenue, LIVE REC) */
+  erase?: Inst;
   /** SCENE A ou B tenue par ce pointeur (2026-10-27) : laquelle et sa source, lachee au pointerup ou perdue */
   scene?: 'a' | 'b';
   sceneSrc?: string;
@@ -1045,13 +1059,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // V.5.0 au desktop : PLAY (la pause, la reprise ; FUNC + PLAY : CLEAR), REC, STOP, YES, NO ; FUNC a agi a l'appui
       else if (d.kind === 'run') playKey(stage);
-      else if (d.kind === 'rec') recKey(stage);
+      else if (d.kind === 'rec') {
+        if (!d.recTaken) recKey(stage, d.mouse);
+      }
       else if (d.kind === 'stop') stopKey(stage);
       // YES (V.5.1) : tenu par ce pointeur depuis l'appui (yesDown) ; son lacher fait la tape ou finit FILL (yesUp)
       else if (d.kind === 'yes') {
         if (!d.yesSrc) yesKey(stage);
       }
-      else if (d.kind === 'no') noKey(stage);
+      else if (d.kind === 'no') {
+        if (!d.noUsed) noKey(stage);
+      }
       else if (d.kind === 'func') return d.id;
       else if (d.kind === 'clear') clearPattern(stage);
       // MUTE et SOLO (2026-10-09) : tenus, toutes les voix sont deja revenues ; sinon l'appui suivant de la machine a etats
@@ -1402,6 +1420,22 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // YES (V.5.1, 2026-10-29) : enfoncee, ce pointeur la tient ; une tape au lacher (D1), tenue plus de 250 ms FILL tant
       // qu'on la tient (une seule souris suffit) ; ni orbite ni pincement. INFOS allume, au doigt : la carte seulement
+      // ● et NO (V.5.3) : tenues par ce pointeur (● + ▶ : LIVE REC ; NO + un pas 1 a 8 : l'effacement en direct)
+      // ni orbite ni pincement (la revue de D3b R7 : au toucher, ● tenue + ▶ depuis l'arret devenait un pincement)
+      if (DT_FACE && h && (h.kind === 'rec' || h.kind === 'no')) {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        if (d0 && !d0.info) {
+          const src = `ptr:${e.pointerId}`;
+          if (h.kind === 'rec') {
+            d0.recSrc = src;
+            recDown(src);
+          } else {
+            d0.noSrc = src;
+            noDown(src);
+          }
+        }
+      }
       if (DT_FACE && h && h.kind === 'yes') {
         stage.orbit.claim(e.pointerId);
         const d0 = downs.get(e.pointerId);
@@ -1494,6 +1528,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           e.preventDefault();
           return;
         }
+        // LIVE REC (V.5.3) : NO tenue d'un autre doigt et un pas 1 a 8 : sa voix s'efface au fil de la tete tant qu'on tient
+        const ev = DT_FACE && dt && !dt.info && idx < INSTRUMENTS.length ? INSTRUMENTS[idx] : null;
+        if (ev && dt && liveEraseDown(ev)) {
+          dt.erase = ev;
+          dt.trk = true;
+          e.preventDefault();
+          return;
+        }
         // V.5.0 au desktop : FUNC + un pas part a la tape (ni P-LOCK ni velocite) ; le mode MUTE, une tenue de
         // DT_GESTURE.muteHoldMs met la voix en SOLO ; hors REC, la tenue ne met pas de P-LOCK (stepHoldHint le dit)
         if (DT_FACE && dt && !dt.info && editor.get() !== 'mm808' && (func.engaged() || muteView())) {
@@ -1508,7 +1550,15 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           e.preventDefault();
           return;
         }
-        const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null && stepWrites();
+        // LIVE REC (V.5.3, la revue de D3b R1 R3 R14) : un pas 1 a 8 est un pad, il part a l'appui (le son et l'heure de la
+        // frappe) ; ni P-LOCK, ni velocite, ni tenue, ni tape au lacher
+        if (DT_FACE && dt && !dt.info && liveOn() && editor.get() !== 'mm808' && rytmLock.get().step < 0) {
+          dt.trk = true;
+          stepToggle(idx, stage, false, e.timeStamp || performance.now());
+          e.preventDefault();
+          return;
+        }
+        const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null && stepWrites() && !liveOn();
         // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
         // clic d'avant ne doit pas prendre le clic suivant pour une tenue (trois clics a la seconde latchaient le LOCK)
         const d0 = downs.get(pid);
@@ -1649,6 +1699,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d.funcSrc) funcUp(d.funcSrc, -1);
       // YES perdu (V.5.1) : FILL finit, aucune tape ne part
       if (d.yesSrc) yesUp(d.yesSrc, null, false);
+      // ● et NO perdus, un effacement en cours (V.5.3) : laches
+      if (d.recSrc) recUp(d.recSrc);
+      if (d.noSrc) noUp(d.noSrc);
+      if (d.erase) liveEraseUp(d.erase);
       if (DT_FACE && d.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, -1);
       if (d.xf) xfadeGesture('end', 'ptr');
@@ -1766,6 +1820,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // YES lache (V.5.1) : une tape (YES de D1) avant 250 ms, sinon la fin de FILL ; un pointeur annule, ou lache hors de
       // YES (la revue de D2, U1 : comme en D1, glisser hors de la touche annule le hasard) : rien ne part, FILL finit
       if (d?.yesSrc) yesUp(d.yesSrc, stage, e.type === 'pointerup' && d.id !== null && pickAt(e, isCoarse(e))?.id === d.id);
+      // ● et NO laches (V.5.3) : prises par ▶ ou par un effacement, leur tape ne part pas ; l'effacement s'arrete
+      if (d?.recSrc) d.recTaken = recUp(d.recSrc);
+      if (d?.noSrc) d.noUsed = noUp(d.noSrc);
+      if (d?.erase) liveEraseUp(d.erase);
       if (DT_FACE && d?.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.xf) xfadeGesture('end', 'ptr');
@@ -1790,7 +1848,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // (V.4.2 : un potard de la face non plus quand l'ecran ne se touche pas : la tape du potard SOUND la tient ouverte, comme il la tourne ;
         // ni un clic sur l'ecran lui-meme, inerte au desktop : 2026-10-27, la revue, une ligne cliquee fermait la liste)
         // V.5.0 au desktop (la revue de D1, G11) : hors REC, un pas 1 a 8 est le pad de sa voix, la liste suit la voix choisie
-        const padStep = DT_FACE && d.kind === 'step' && d.index !== undefined && d.index < 8 && !stepWrites() && editor.get() !== 'mm808' && !muteView() && !trk.engaged();
+        const padStep = DT_FACE && d.kind === 'step' && d.index !== undefined && d.index < 8 && (!stepWrites() || liveOn()) && editor.get() !== 'mm808' && !muteView() && !trk.engaged();
         if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !padStep && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;

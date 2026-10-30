@@ -3433,7 +3433,7 @@ export class Stage {
   private syncDt = (): void => {
     const fk = this.faceKeys;
     if (!fk || this.disposed) return;
-    if (fk.setRec(dtFace.rec())) this.repaint();
+    if (fk.setRec(dtFace.rec(), dtFace.live())) this.repaint();
     this.syncTrk();
   };
 

@@ -8,6 +8,8 @@
  *   avec lui, audio/pattern.ts pmutes) ; les pas 1 a 8 sont les voix (vert ou magenta : joue, eteint : coupee, blanc : en
  *   solo). Encore FUNC + TRK, NO ou Echap : sortie, les mutes restent.
  * - bank : la vue BANK de FUNC + PTN (V.5.2) : les pas 1 a 8 sont les banques A a H ; PTN, NO ou Echap la ferment.
+ * - live : LIVE REC (V.5.3, ● tenue + ▶, ou ● deux fois) : les pas 1 a 8 jouent les voix et s'ecrivent en lecture ; REC
+ *   reste allume (sa LED clignote).
  * Pur, sans minuteur.
  */
 
@@ -17,14 +19,15 @@ export interface DtFaceState {
   readonly rec: boolean;
   readonly mute: MuteView;
   readonly bank: boolean;
+  readonly live: boolean;
 }
 
-let state: DtFaceState = { rec: false, mute: 'off', bank: false };
+let state: DtFaceState = { rec: false, mute: 'off', bank: false, live: false };
 const listeners = new Set<() => void>();
 
 function set(next: Partial<DtFaceState>): void {
   const n = { ...state, ...next };
-  if (n.rec === state.rec && n.mute === state.mute && n.bank === state.bank) return;
+  if (n.rec === state.rec && n.mute === state.mute && n.bank === state.bank && n.live === state.live) return;
   state = n;
   listeners.forEach((fn) => fn());
 }
@@ -40,6 +43,10 @@ export const dtFace = {
     set({ mute: m });
   },
   bank: (): boolean => state.bank,
+  live: (): boolean => state.live,
+  setLive(on: boolean): void {
+    set({ live: on });
+  },
   setBank(on: boolean): void {
     set({ bank: on });
   },

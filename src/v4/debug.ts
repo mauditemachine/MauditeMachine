@@ -36,7 +36,7 @@
  * console.log : index.html filtre la console.
  */
 
-import { knobBlock, openToggle, presetKey, presetTurn } from './actions';
+import { knobBlock, liveHit, liveOn, openToggle, presetKey, presetTurn } from './actions';
 import { presets, type PresetMachine } from './state/presets';
 import { presetMode, type PresetView } from './state/presetMode';
 import { faceKnobs } from './rytm/faceKnobs';
@@ -294,6 +294,8 @@ export interface V4Debug {
     dtFace: typeof dtFace;
     /** les patterns A01 a H16 (V.5.2, state/patterns.ts) : get, tap, select, setBank, slotAt, filled, bankFilled */
     patterns: typeof patterns;
+    /** LIVE REC (V.5.3, actions.ts) : une frappe a une heure entendue donnee (les tests), et l'etat */
+    readonly live: { hit: typeof liveHit; on: () => boolean };
     /** les pas, leur teinte et leur niveau (V.5.0) : stage.seq.info() ; la pause de PLAY : clock.paused, resumeStep */
     readonly transport: { running: boolean; paused: boolean; resumeStep: number };
   };
@@ -541,6 +543,7 @@ export function installDebug(src: DebugSource): () => void {
       func,
       dtFace,
       patterns,
+      live: { hit: liveHit, on: liveOn },
       get transport() {
         return { running: clock.running, paused: clock.paused, resumeStep: clock.resumeStep };
       },

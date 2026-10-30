@@ -88,6 +88,7 @@ import { bassLoad } from '../state/bassload';
 import { djLoad } from '../state/djload';
 import { MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
+import { pressVel } from '../state/ctl';
 import { midiLeader } from './leader';
 import { noteOutAttach, noteOutEcho, noteOutPorts, noteOutRelease } from './noteout';
 import { isSeqSetup, rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetup, rotoKnownCc, rotoTarget, type RotoKeyInfo, type RotoSetupName } from './roto';
@@ -702,7 +703,15 @@ function apply(t: MidiTarget, m: MidiMsg, key: string, sk: string, toggle: boole
   pressed.set(key, isOn);
   if (isOn) pressedBy.set(key, { device: m.device ?? '', id: t.id });
   else pressedBy.delete(key);
-  if (isOn && !was) t.down?.();
+  if (isOn && !was) {
+    // La velocite de la note (V.5.3, LIVE REC : le pad s'ecrit a elle)
+    pressVel.v = m.kind === 'note' ? m.value : null;
+    try {
+      t.down?.();
+    } finally {
+      pressVel.v = null;
+    }
+  }
   else if (!isOn && was && t.kind === 'hold') t.up?.();
 }
 

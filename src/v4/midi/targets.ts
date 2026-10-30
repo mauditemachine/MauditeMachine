@@ -55,7 +55,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recKey, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, fillHold, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, clearPattern, copyKey, funcDown, funcDrop, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, dialEdit, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepMachine, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, voyClear, voyDial, voyPad, voyRandom, voyRun, xfadeGesture, xfadeSet, fillHold, type DialId } from '../actions';
 import { sceneCtl } from '../state/sceneCtl';
 import { D2_SCREENS, RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen, pageLabel } from '../rytm/pages';
 import { TRIG_PARAMS, TRIG_RANGE, trigValue, type TrigParam } from '../audio/trig';
@@ -462,7 +462,8 @@ function coreTargets(): MidiTarget[] {
   // ne change ni ne bouge ; rytm:run, rytm:clear, rytm:random, rytm:mute, rytm:solo, rytm:edit et rytm:open gardent leur
   // effet. FUNC passe par la meme machine que sa touche (state/func.ts, la source 'midi') : tenue, puis une autre cible
   out.push(faceHold('rytm:func', 'FUNC (HOLD + A KEY: ITS ORANGE FUNCTION)', 'func', () => funcDown('midi'), () => funcUp('midi')));
-  out.push(press('rytm:rec', 'mm808', 'REC (WRITE THE STEPS, ON / OFF)', () => recKey(getStage())));
+  // ● REC (V.5.3, la revue de D3b R6) : tenue comme W et la face ; tenue + rytm:play : LIVE REC (FUNC + REC, COPY, la lit)
+  out.push({ id: 'rytm:rec', scope: 'mm808', label: 'REC (WRITE THE STEPS, ON / OFF; HOLD + PLAY: LIVE REC)', kind: 'hold', down: () => { recKey(getStage()); recDown('midi'); }, up: () => void recUp('midi') });
   out.push(press('rytm:play', 'mm808', 'PLAY (PAUSE, RESUME)', () => void playKey(getStage())));
   out.push(press('rytm:stop', 'mm808', 'STOP (TWICE: CUT THE TAILS)', () => stopKey(getStage())));
   out.push(press('rytm:yes', 'mm808', 'YES (CONFIRM, A PAGE THEN YES: RANDOM)', () => yesKey(getStage())));
@@ -488,6 +489,8 @@ function coreTargets(): MidiTarget[] {
   // V.5.2 (2026-10-30, docs/v4/digitakt-d3a-spec.md section 1) : ajoutees a la fin, aucun id d'avant ne change ni ne bouge.
   // Les banques A a H : afficher la banque b (rytm:ptn:<k> y choisit ensuite le pattern)
   for (let b = 0; b < BANKS; b += 1) out.push(press(`rytm:bank:${b}`, 'mm808', `BANK ${bankName(b)} (SHOW ITS PATTERNS)`, () => bankKey(b, getStage())));
+  // V.5.3 (2026-10-30, docs/v4/digitakt-d3b-spec.md) : ajoutee a la fin. LIVE REC : un appui y entre (arme a l'arret), un autre en sort
+  out.push(press('rytm:liverec', 'mm808', 'LIVE REC (ON / OFF)', () => liveKey()));
   // Les scenes (2026-10-27) : chaque cible de valeur du MM-RYTM dit son role, ou sa classe si elle se morphe (rien d'autre
   // ne change : ni id, ni nom, ni ordre)
   for (const t of out) if (t.scope === 'mm808' && t.kind === 'value') t.scene = sceneTag(t.id);

@@ -76,6 +76,13 @@ test('la vue PTN : qui joue rouge plein, le suivant et la chaine clignotent, un 
   assert.deepEqual(g[9], { i: 9, color: '', level: 0, blink: false });
 });
 
+test('V.5.3 : LIVE REC, la LED de REC clignote (grid rec : fixe)', () => {
+  const grid = rowLeds({ ...REST, rec: true }, PAL).find((l) => l.id === 'rec');
+  const live = rowLeds({ ...REST, rec: true, live: true }, PAL).find((l) => l.id === 'rec');
+  assert.deepEqual([grid.level, grid.blink], [1, false]);
+  assert.deepEqual([live.level, live.blink, live.color], [1, true, '#FF2B2B']);
+});
+
 test('V.5.2 : la vue BANK, la banque qui joue rouge, l affichee clignote, une pleine blanc faible, 9 a 16 eteints', () => {
   const lv = { cur: 1, next: 1, chain: 0.6, filled: 0.2 };
   // Joue en A, banque C affichee, A B et C ont des patterns

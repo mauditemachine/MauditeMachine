@@ -7,13 +7,13 @@
  */
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
-import { clock } from './audio/clock';
-import { cutTails, ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
+import { clock, type StepEvent } from './audio/clock';
+import { context as audioCtx, cutTails, ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, shotReady, trigger } from './audio/drums';
 import { TAP_VEL_DEFAULT } from './state/rytmPage';
 import { tempoSync } from './state/tempoSync';
 import { VOICE_FX_DEFAULT, lfoOf, voiceFx, type VoiceFx, type VoiceParam } from './audio/voicefx';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, mixLevels, mixOf, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
-import { isLockTrig, lockOf, parseSnd, type LockId, type LockKey, type Locks, type StepLock } from './audio/locks';
+import { isLockTrig, lockOf, parseSnd, sameLocks, withLock, withoutLock, type LockId, type LockKey, type Locks, type StepLock } from './audio/locks';
 import { TRIG_DEF, TRIG_PARAMS, TRIG_RANGE, isTrigParam, trigText, trigUnit, trigValue, type TrigParam, type TrigRow, type TrigSet } from './audio/trig';
 import { LFO_MULTS, LFO_PARAMS, isLfoParam, lfoDefault, lfoParts, lfoRange, lfoText, lfoUnit, type LfoParam } from './audio/lfo';
 import { onSampleFailed, onSampleLoaded, requestSample, sampleByKey, sampleLabel, samplePcm, sampleStatus, samplesChanged, samplesOf, samplesVersion, type KitSample, type SampleFail } from './audio/samples';
@@ -47,7 +47,7 @@ import { dtFace, type MuteView } from './state/dtFace';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { faceTouch, type CtlSrc } from './state/ctl';
+import { faceTouch, pressVel, type CtlSrc } from './state/ctl';
 import { ctlAllState, trk } from './state/trk';
 import { fill } from './state/fill';
 import { sceneCtl } from './state/sceneCtl';
@@ -56,7 +56,7 @@ import { NO_SCENES, anyScenes, morph01, sceneCount, type SceneId, type SceneSet 
 import { bindingOf, from01, sceneRole, to01, voiceRowId, type SceneBinding } from './rytm/sceneParams';
 import { FACE_PAGES, RYTM_PAGES, SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, allScreens, faceBlockOf, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
-import { setCtlAllResolver, setKnobResolver, setStepResolver } from './rytm/infoIds';
+import { setCtlAllResolver, setKnobResolver, setLiveResolver, setStepResolver } from './rytm/infoIds';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
@@ -98,6 +98,18 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   if (voices.get().muteMode) {
     muteVoice(inst);
     stage?.pressRytmPad(inst);
+    return;
+  }
+  // LIVE REC en lecture (V.5.3) : le pad joue sa voix tout de suite, s'ecrit au pas le plus proche et la choisit (une voix
+  // coupee s'ecrit sans un son) ; le pas qui la joue deja a ce passage la joue seul (la revue de D3b R10 : pas de flam).
+  // TRK engagee : le pad choisit sa voix, il n'ecrit rien (la revue de D3b R4, comme hors LIVE REC)
+  if (liveRunning() && !trk.engaged()) {
+    const n = liveVel();
+    const r = liveHit(inst, n);
+    if (r !== 'quiet' && !voices.isMuted(inst) && !(DT_FACE && pattern.pmuted(inst))) trigger(inst, undefined, false, undefined, VEL_GAIN[n] ?? 1);
+    liveSelect(inst);
+    stage?.pressRytmPad(inst);
+    funcDrop();
     return;
   }
   // En lecture (2026-10-05, Mika : "quand RYTM est sur RUN, cliquer sur une voix ne doit pas la jouer, juste la
@@ -853,7 +865,7 @@ export function rytmInfoTap(hotspot: string, dock = false): boolean {
  * STEP 07 BD HIGH / MID / LOW / OFF, ou TAP A PAD FIRST (PICK A VOICE FIRST
  * au desktop depuis la face V.4.0 sans pads, 2026-10-27 : theme.ts LCD_NO_VOICE).
  */
-export function stepToggle(i: number, stage: Stage | null = null, dock = false): boolean {
+export function stepToggle(i: number, stage: Stage | null = null, dock = false, ts = -1): boolean {
   // FUNC + un pas (V.5.0, le desktop) : le mute rapide de sa voix, avant tout le reste. Le Dock (dock : une fenetre de
   // desktop etroite, sans FUNC ni REC a l'ecran) ecrit toujours comme avant
   if (DT_FACE && !dock && funcTake()) {
@@ -870,6 +882,12 @@ export function stepToggle(i: number, stage: Stage | null = null, dock = false):
   // Le mode MUTE (V.5.0, FUNC + TRK) : les pas 1 a 8 sont les voix
   if (muteView() && !dock) {
     muteStep(i, stage);
+    return true;
+  }
+  // LIVE REC (V.5.3) : les pas 1 a 8 jouent leur voix ; en lecture, la frappe s'ecrit (ts : l'heure de l'appui, ui/Hotspots.tsx
+  // les fait partir au pointerdown, la revue de D3b R3)
+  if (DT_FACE && !dock && dtFace.live() && rytmLock.get().step < 0) {
+    stepPlay(i, stage, ts);
     return true;
   }
   // Hors REC au desktop (V.5.0) : le pas joue sa voix et la choisit, rien ne s'ecrit (le P-LOCK en cours garde sa tape)
@@ -952,8 +970,9 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
  */
 export function stepVelocity(i: number, v: number): boolean {
   if (editor.get() === 'mm808') return false;
-  // V.5.0 : hors REC au desktop, et dans le mode MUTE, un pas glisse ne change rien
-  if (!stepWrites() || muteView()) return false;
+  // V.5.0 : hors REC au desktop, et dans le mode MUTE, un pas glisse ne change rien ; en LIVE REC non plus (V.5.3, la revue
+  // de D3b R1 : un pas y est un pad)
+  if (!stepWrites() || muteView() || liveOn()) return false;
   resume();
   const inst = pattern.get().instrument;
   if (!inst) {
@@ -1577,7 +1596,13 @@ export function knobDial(k: number, v: number, src: CtlSrc = 'ui'): void {
   }
   faceTouch.turn(k, src);
   revealPage();
-  anyDial(knobDialOf(k), v);
+  // LIVE REC (V.5.3, la revue de D3b R2 R11) : le potard de la face qui tourne, pour que seul lui continue d'ecrire
+  liveFace = k;
+  try {
+    anyDial(knobDialOf(k), v);
+  } finally {
+    liveFace = -1;
+  }
 }
 
 /** Le potard k de la face tourne (glisser, molette, jumeau) : knobDial au desktop, globalDial au telephone. */
@@ -2606,6 +2631,9 @@ function tapVelDial(v: number): void {
  */
 function pageDial(k: number, v: number): void {
   resume();
+  // LIVE REC (V.5.3, la revue de D3b R2 R11) : le potard d'avant cesse d'ecrire ; celui-ci reprend la main s'il s'enregistre
+  // (liveKnobTurn)
+  liveKnob = null;
   const slot = pageSlotOf(k);
   const screen = curScreen();
   const letter = PAGE_KNOB_LETTERS[k] ?? '?';
@@ -2616,10 +2644,12 @@ function pageDial(k: number, v: number): void {
   }
   // Un pas tenu (deux doigts, ou la souris et un potard MIDI, 2026-10-08) : le LOCK passe sur lui des ce potard,
   // meme avant les 350 ms de la tenue
+  // LIVE REC (V.5.3, la revue de D3b R14) : un pas tenu n'y compte pas (c'est un pad)
   const lk = rytmLock.get();
-  if (editor.get() !== 'mm808' && lk.held.length > 0 && !lk.held.includes(lk.step) && pattern.get().instrument) rytmLockEnter(lk.held[0], false);
+  const held = liveOn() ? [] : lk.held;
+  if (editor.get() !== 'mm808' && held.length > 0 && !held.includes(lk.step) && pattern.get().instrument) rytmLockEnter(held[0], false);
   // Une scene armee (2026-10-27) : le bloc ecrit dans la scene, jamais dans la base (un pas tenu gagne : le P-LOCK)
-  if (lk.held.length === 0 && sceneTake(`p:${k}` as DialId, v)) return;
+  if (held.length === 0 && sceneTake(`p:${k}` as DialId, v)) return;
   // En P-LOCK (2026-10-08) : le bloc pose le verrou du pas (des pas tenus), jamais la valeur de la voix
   if (lockMode()) {
     lockWrite(k, slot, v);
@@ -2634,6 +2664,9 @@ function pageDial(k: number, v: number): void {
   else if (t === 'voice:mix') voiceMixDial(v);
   else anyDial(t, v);
   if (all) ctlAllApply(all);
+  // LIVE REC en lecture (V.5.3) : le reglage s'enregistre en P-LOCK sur les pas que traverse la tete de lecture ; TRK tenue
+  // (CONTROL ALL) gagne, rien ne s'ecrit
+  else if (liveRunning() && !ctlAllOn()) liveKnobTurn(slot, v, screen);
   sceneHint(`p:${k}` as DialId);
   // Rien a regler (pas de voix choisie, une voix a un seul son) : le message suffit, pas de contour
   if (!pageKnobLive(k)) return;
@@ -2688,7 +2721,8 @@ function ctlAllStart(t: SlotTarget): CtlAllKey | null {
   if (!key) return null;
   // Un CONTROL ALL entier, une seule etape d'UNDO : la rafale d'avant se ferme, celle-ci reste ouverte jusqu'a sa fin
   if (ctlAllBefore.size === 0) {
-    undo.boundary('mm808');
+    // Pendant une prise de LIVE REC (V.5.3), elle reste la seule etape : pas de coupure
+    if (!dtFace.live()) undo.boundary('mm808');
     undo.hold('mm808', true);
     ctlAllSlot = patterns.get().cur;
   }
@@ -3911,6 +3945,11 @@ export function rytmLockEnter(i: number, latched: boolean, dock = false): boolea
     recHoldHint(true);
     return false;
   }
+  // LIVE REC (V.5.3, la revue de D3b R1 R14) : un pas 1 a 8 y est un pad ; les potards s'y enregistrent seuls
+  if (!dock && liveOn()) {
+    lcdMessage.show('LIVE REC: TURN A KNOB TO RECORD IT', 1400);
+    return false;
+  }
   const inst = pattern.get().instrument;
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
@@ -4650,8 +4689,11 @@ function dtPageKeyAfter(id: RytmPageId): void {
 
 /* ---------- REC, le mode ecriture ---------- */
 
-/** ● REC (la face, son jumeau, W au clavier, MIDI rytm:rec) : le mode ecriture des pas ; FUNC + REC : COPY. */
-export function recKey(stage: Stage | null = null): void {
+/**
+ * ● REC (la face, son jumeau, W au clavier, MIDI rytm:rec) : le mode ecriture des pas ; FUNC + REC : COPY. mouse : une tape
+ * de la souris sur la face (seule a faire LIVE REC par un double appui).
+ */
+export function recKey(stage: Stage | null = null, mouse = false): void {
   if (!DT_FACE) return;
   resume();
   stage?.pressFaceKey('rec');
@@ -4659,8 +4701,25 @@ export function recKey(stage: Stage | null = null): void {
     copyKey();
     return;
   }
+  // ● tapee deux fois vite a la souris (V.5.3, la souris ne tient pas deux touches) : LIVE REC ; seulement si la premiere
+  // tape a allume REC depuis REC eteint (la revue de D3b R5 : jamais en sortant de LIVE REC, ni par W ou le MIDI)
+  const t = eventAt();
+  const dbl = mouse && t - recTapAt < PAD_DOUBLE_TAP_MS && dtFace.rec() && !dtFace.live();
+  recTapAt = -Infinity;
+  if (dbl) {
+    liveEnter();
+    return;
+  }
+  // ● en LIVE REC : le grid rec (le manuel [M1] 10.2.3 : "If LIVE RECORDING mode is active and [RECORD] is pressed, GRID
+  // RECORDING mode will be activated")
+  if (dtFace.live()) {
+    liveExit(true);
+    lcdMessage.show('● GRID REC · LIVE REC OFF', 1400);
+    return;
+  }
   const on = !dtFace.rec();
   dtFace.setRec(on);
+  if (on && mouse) recTapAt = t;
   recHinted = false;
   // REC eteint : plus rien ne s'ecrit, le P-LOCK en cours s'en va aussi (la revue de D1, G10)
   if (!on) rytmLock.leave();
@@ -4687,6 +4746,26 @@ export function playKey(stage: Stage | null = null): boolean {
     return clock.running;
   }
   stage?.pressButton('run');
+  // ● tenue + ▶ (V.5.3, le manuel [M1] 10.2.3) : LIVE REC, la lecture part ; le lacher de ● ne fait pas REC
+  if (DT_FACE && recHolders.size > 0) {
+    for (const s of recHolders) recTaken.add(s);
+    liveEnter();
+    if (!clock.running) {
+      sc.pauseForRun();
+      return clock.paused ? clock.resume() : clock.toggle();
+    }
+    return true;
+  }
+  // ▶ en LIVE REC : en lecture, il en sort et la lecture continue (le manuel) ; arme a l'arret, la lecture part
+  if (dtFace.live()) {
+    if (clock.running) {
+      liveExit(false);
+      lcdMessage.show('LIVE REC OFF · STILL PLAYING', 1400);
+      return true;
+    }
+    sc.pauseForRun();
+    return clock.paused ? clock.resume() : clock.toggle();
+  }
   if (clock.running) {
     clock.pause();
     lcdMessage.show('PAUSE · PLAY: RESUME · STOP: STEP 1', 1400);
@@ -4695,6 +4774,294 @@ export function playKey(stage: Stage | null = null): boolean {
   sc.pauseForRun();
   if (clock.paused) return clock.resume();
   return clock.toggle();
+}
+
+/* ---------- LIVE REC (V.5.3, 2026-10-30, docs/v4/digitakt-d3b-spec.md) ---------- */
+
+/** Les mains sur ● (● tenue + ▶ : LIVE REC) et celles que ▶ a prises (leur lacher ne fait pas REC). */
+const recHolders = new Set<string>();
+const recTaken = new Set<string>();
+/** La derniere tape de ● a la souris qui a allume REC (une deuxieme en PAD_DOUBLE_TAP_MS : LIVE REC). */
+let recTapAt = -Infinity;
+/** ● enfoncee (la face au pointeur, W au clavier). */
+export function recDown(src: string): void {
+  recHolders.add(src);
+}
+/** ● lachee ; true si ▶ l'a prise pendant la tenue (son lacher ne fait pas REC). */
+export function recUp(src: string): boolean {
+  recHolders.delete(src);
+  return recTaken.delete(src);
+}
+
+/** NO tenue (NO + un pad efface la voix au fil de la tete de lecture) ; celles qui ont efface (leur lacher ne fait pas NO). */
+const noHolders = new Set<string>();
+const noUsed = new Set<string>();
+export function noDown(src: string): void {
+  noHolders.add(src);
+}
+/** NO lachee ; true si elle a servi a effacer (son lacher ne fait pas NO). Plus de NO tenue : l'effacement s'arrete (la revue de D3b R8 R15). */
+export function noUp(src: string): boolean {
+  noHolders.delete(src);
+  if (noHolders.size === 0) liveErase.clear();
+  return noUsed.delete(src);
+}
+
+/** LIVE REC allume (arme ou en lecture), et en lecture. */
+export const liveOn = (): boolean => DT_FACE && dtFace.live();
+const liveRunning = (): boolean => liveOn() && clock.running;
+
+/** La velocite d'une frappe : celle de la note MIDI, sinon HIGH (la souris, le clavier). */
+function liveVel(): number {
+  const v = pressVel.v;
+  return v === null ? VEL_MAX : Math.max(1, Math.min(VEL_MAX, Math.round(v * VEL_MAX)));
+}
+
+/**
+ * L'heure entendue maintenant (temps du contexte) : ce qui sort des enceintes a ete programme plus tot de la latence. ts
+ * (performance.now() d'un evenement, la revue de D3b R3) : l'heure entendue a ce moment-la.
+ */
+function heardNow(ts = -1): number | null {
+  const c = audioCtx();
+  if (!c) return null;
+  const age = ts >= 0 ? Math.max(0, Math.min(0.25, (performance.now() - ts) / 1000)) : 0;
+  return c.currentTime - ((c.outputLatency || 0) + (c.baseLatency || 0)) - age;
+}
+
+let liveTimer = 0;
+/** Le dernier pas entendu (sa position depuis PLAY) : livePoll ecrit a chaque nouveau. */
+let liveAbs = -1;
+/**
+ * Le dernier potard tourne : son bloc, sa valeur, la voix, sa page, le potard de la face (-1 : un autre chemin) et l'heure ;
+ * il ecrit sur les pas traverses tant qu'on le tourne (la revue de D3b R2 R11 : lui seul, sur sa page et sa voix).
+ */
+interface LiveKnob {
+  slot: PageSlot;
+  v: number;
+  inst: Inst;
+  screen: RytmScreenId;
+  face: number;
+  at: number;
+}
+let liveKnob: LiveKnob | null = null;
+/** Le potard de la face que knobDial fait tourner en ce moment (-1 : aucun). */
+let liveFace = -1;
+/** Tourne il y a moins de ce temps (ou tenu) : le potard ecrit encore sur le pas qui arrive. */
+const LIVE_KNOB_MS = 220;
+/** Les voix qu'on efface (NO tenue + leur pad). */
+const liveErase = new Set<Inst>();
+
+/** Entrer en LIVE REC (● tenue + ▶, ● deux fois, MIDI rytm:liverec) : arme a l'arret, tout de suite en lecture. */
+function liveEnter(): void {
+  if (!DT_FACE) return;
+  recTapAt = -Infinity;
+  if (dtFace.live()) return;
+  rytmLock.leave();
+  // Une prise entiere, de l'entree a la sortie : une seule etape d'UNDO par pattern touche (state/undo.ts, la revue de D3b R12)
+  undo.boundary('mm808');
+  undo.hold('mm808', true);
+  dtFace.setRec(true);
+  dtFace.setLive(true);
+  liveAbs = -1;
+  window.clearInterval(liveTimer);
+  liveTimer = window.setInterval(livePoll, 15);
+  lcdMessage.show(clock.running ? 'LIVE REC: PLAY STEPS 1-8, TURN A KNOB' : 'LIVE REC ARMED · PLAY: GO', 2000);
+}
+
+/** Sortir de LIVE REC ; rec : le grid rec reste allume (● en LIVE REC), sinon tout l'enregistrement s'eteint. */
+function liveExit(rec: boolean): void {
+  if (!dtFace.live()) return;
+  dtFace.setLive(false);
+  dtFace.setRec(rec);
+  window.clearInterval(liveTimer);
+  liveTimer = 0;
+  liveErase.clear();
+  liveKnob = null;
+  // Sortir n'arme jamais le double appui (la revue de D3b R5)
+  recTapAt = -Infinity;
+  undo.hold('mm808', false);
+}
+
+// La carte de ● en LIVE REC : LIVE REC
+setLiveResolver(() => liveOn());
+
+/** MIDI rytm:liverec : entre en LIVE REC, ou en sort (tout l'enregistrement s'eteint). */
+export function liveKey(): void {
+  if (!DT_FACE) return;
+  resume();
+  if (dtFace.live()) {
+    liveExit(false);
+    lcdMessage.show('LIVE REC OFF', 1000);
+  } else liveEnter();
+}
+
+/* Ecrire dans le pattern qu'on entend (la revue de D3b R9) : le courant passe par le motif (audio/pattern.ts, la lecture le
+ * re-programme) ; un autre (la fin de la mesure d'avant, la chaine a deja pose le suivant) par son emplacement (patterns),
+ * l'UNDO de la prise le note d'abord (une etape par pattern touche). */
+
+/** L'emplacement d'un pas entendu est-il le courant (ou sans patterns) ? */
+const liveCur = (slot: number): boolean => slot < 0 || slot === patterns.get().cur;
+/** Les pas et les verrous du pattern d'un pas entendu. */
+function liveRow(slot: number): { steps: Steps; locks: Readonly<Locks> } {
+  return liveCur(slot) ? pattern.get() : { steps: patterns.stepsOf(slot), locks: patterns.locksOf(slot) };
+}
+/** Un emplacement qui n'est pas le courant recoit ses pas et ses verrous (rien s'ils n'ont pas change). */
+function liveWrite(slot: number, steps: Steps, locks: Readonly<Locks>): void {
+  const r = liveRow(slot);
+  if (sameLocks(r.locks, locks) && INSTRUMENTS.every((k) => r.steps[k] === steps[k])) return;
+  undo.slotEdit('mm808', slot);
+  patterns.writeSlot(slot, steps, locks);
+}
+/** Le pas s de inst a la velocite v dans une rangee de pas. */
+const stepAt = (steps: Steps, inst: Inst, s: number, v: number): Steps => ({ ...steps, [inst]: steps[inst].slice(0, s) + String(v) + steps[inst].slice(s + 1) });
+
+/**
+ * Le pas ou va une frappe entendue a t : le plus proche, dans le pattern qu'on entend. Arrondie au pas 1 de la mesure
+ * suivante quand celle-ci est un autre pattern (une chaine, un pattern qui attend), elle reste sur le dernier pas entendu
+ * du pattern qu'on entend (le pas 16 d'ordinaire, la revue de D3b R9) : jamais une frappe dans un pattern pas encore
+ * entendu.
+ */
+function liveTarget(t: number): StepEvent | null {
+  const e = clock.nearestAt(t);
+  const h = clock.entryAt(t);
+  return e && h && e.slot !== h.slot ? h : e;
+}
+
+/** La voix frappee devient la voix choisie (la revue de D3b R4), sans dire KNOBS > (l'ecran dit LIVE REC). */
+function liveSelect(inst: Inst): void {
+  if (pattern.get().instrument === inst) return;
+  pattern.select(inst);
+  if (lcdSamples.isOpen()) lcdSamples.touch();
+}
+
+/**
+ * Une frappe en LIVE REC et en lecture (un pas 1 a 8, un pad, le MIDI) : un trig de la voix au pas le plus proche de l'heure
+ * entendue (quantifie, sans uTIME), dans le pattern qu'on entend. at : l'heure entendue (les tests), maintenant sinon.
+ * 'play' : ecrite, sa voix sonne tout de suite ; un pas qui la joue deja a ce passage (programme ou deja parti) la joue
+ * seul, 'quiet' : la frappe ne sonne pas en plus (la revue de D3b R10 : pas de flam) ; arrondie vers un pas a venir qui ne
+ * la joue pas, ce pas ne la rejoue pas a ce passage (la frappe l'a jouee). null : rien d'ecrit.
+ */
+export function liveHit(inst: Inst, vel = VEL_MAX, at?: number): 'play' | 'quiet' | null {
+  if (!liveRunning()) return null;
+  const t = at ?? heardNow();
+  if (t === null) return null;
+  const e = liveTarget(t);
+  if (!e) return null;
+  // Le pas joue deja la voix a ce passage (le journal : programme, ou parti)
+  const plays = (e.mask & (1 << INSTRUMENTS.indexOf(inst))) !== 0;
+  if (e.when > t && !plays) clock.skipHit(inst, e.abs);
+  const r = liveRow(e.slot);
+  const was = velocity(r.steps, inst, e.step);
+  if (was !== vel) {
+    if (liveCur(e.slot)) pattern.set(inst, e.step, vel);
+    else {
+      const locks = isLockTrig(r.locks, inst, e.step) ? withoutLock(r.locks, inst, [e.step], 'ltrg') : r.locks;
+      liveWrite(e.slot, stepAt(r.steps, inst, e.step, vel), locks);
+    }
+  }
+  // Rien n'a change au motif : le pas deja programme repasse quand meme (il ne rejoue pas la frappe)
+  else if (e.when > t && !plays) clock.refresh();
+  lcdMessage.show(`LIVE REC ${inst} STEP ${two(e.step + 1)}${liveCur(e.slot) ? '' : ` ${slotName(e.slot)}`}`, 700);
+  return plays ? 'quiet' : 'play';
+}
+
+/** Un bloc qui s'enregistre en P-LOCK (un verrou de nombre : ni le son, ni la machine, ni VEL, ni un reglage de machine entiere). */
+function liveLockable(slot: PageSlot): boolean {
+  if (!slot.lock || slot.lock === 'vel' || slot.lock === 'snd' || slot.lock === 'mach' || slot.scope === 'all') return false;
+  if (slot.target === 'voice:sound' || slot.target === 'voice:mix' || slot.target === 'smpl:sample') return false;
+  return !(slot.target && layerIdOf(slot.target) && !soundFamily());
+}
+
+/**
+ * Le verrou du potard sur le pas s (le manuel [M1] 10.2.3 et 10.9.1 : en LIVE RECORDING, les reglages "are recorded as parameter
+ * locks and add lock trigs where needed") : un pas sans trig de la voix recoit un lock trig.
+ */
+function liveLockAt(k: LiveKnob, e: StepEvent): void {
+  const s = e.step;
+  const id = k.slot.lock as LockId;
+  const v = k.v;
+  const val = id === 'pan' || id === 'fenv' ? (Math.abs(v) < 0.02 ? 0 : v) : id === 'tune' ? Math.round(v * 24) / 24 : v;
+  const [lo, hi] = slotDomain(k.slot);
+  const x = Math.max(lo, Math.min(hi, val));
+  const p = liveRow(e.slot);
+  const trig = velocity(p.steps, k.inst, s) === 0 && !isLockTrig(p.locks, k.inst, s);
+  if (liveCur(e.slot)) {
+    if (trig) pattern.setLock(k.inst, [s], 'ltrg', 1);
+    pattern.setLock(k.inst, [s], id, x);
+    return;
+  }
+  // Le pattern qu'on entend n'est plus le courant (la revue de D3b R9) : son emplacement
+  const l = withLock(trig ? withLock(p.locks, k.inst, [s], 'ltrg', 1) : p.locks, k.inst, [s], id, x);
+  liveWrite(e.slot, p.steps, l);
+}
+
+/**
+ * Un potard d'une page de voix tourne en LIVE REC : il ecrit sur le pas entendu, puis sur ceux que la tete traverse tant
+ * qu'on le tourne (livePoll). screen : la page de son bloc.
+ */
+function liveKnobTurn(slot: PageSlot, v: number, screen: RytmScreenId): void {
+  const inst = pattern.get().instrument;
+  if (!inst || !liveLockable(slot)) return;
+  liveKnob = { slot, v, inst, screen, face: liveFace, at: performance.now() };
+  const t = heardNow();
+  const e = t === null ? null : clock.entryAt(t);
+  if (e) liveLockAt(liveKnob, e);
+}
+
+/** Le potard d'avant ecrit-il encore (la revue de D3b R2 R11) : lui, tourne il y a moins de LIVE_KNOB_MS ou tenu, sur sa page et sa voix, hors CONTROL ALL. */
+function liveKnobOn(k: LiveKnob): boolean {
+  if (ctlAllOn() || pattern.get().instrument !== k.inst || curScreen() !== k.screen) return false;
+  return performance.now() - k.at < LIVE_KNOB_MS || (k.face >= 0 && faceTouch.held(k.face));
+}
+
+/** Efface la voix au pas entendu e (son trig et ses verrous), dans le pattern qu'on entend. */
+function liveEraseAt(inst: Inst, e: StepEvent): void {
+  const s = e.step;
+  if (liveCur(e.slot)) {
+    const p = pattern.get();
+    if (velocity(p.steps, inst, s) > 0) pattern.clearStep(inst, s);
+    if (lockOf(pattern.get().locks, inst, s)) pattern.clearLock(inst, [s]);
+    return;
+  }
+  const r = liveRow(e.slot);
+  const steps = velocity(r.steps, inst, s) > 0 ? stepAt(r.steps, inst, s, 0) : r.steps;
+  const locks = lockOf(r.locks, inst, s) ? withoutLock(r.locks, inst, [s]) : r.locks;
+  liveWrite(e.slot, steps, locks);
+}
+
+/** NO tenue + un pad (V.5.3, LIVE REC en lecture) : la voix s'efface au fil de la tete de lecture tant qu'on tient ; true si pris. */
+export function liveEraseDown(inst: Inst): boolean {
+  if (!liveRunning() || noHolders.size === 0) return false;
+  for (const s of noHolders) noUsed.add(s);
+  liveErase.add(inst);
+  const t = heardNow();
+  const e = t === null ? null : clock.entryAt(t);
+  if (e) liveEraseAt(inst, e);
+  lcdMessage.show(`LIVE ERASE ${inst}`, 1200);
+  return true;
+}
+export function liveEraseUp(inst: Inst): void {
+  liveErase.delete(inst);
+}
+/** Plus rien ne s'efface (la fenetre perd le clavier, la revue de D3b R8 R15 : une touche lachee ailleurs ne revient jamais). */
+export function liveEraseAll(): void {
+  liveErase.clear();
+}
+
+/** La tete de lecture (l'heure entendue) passe sur un autre pas : l'effacement et le potard qui tourne y ecrivent. */
+function livePoll(): void {
+  if (!liveRunning()) {
+    liveAbs = -1;
+    return;
+  }
+  const t = heardNow();
+  const e = t === null ? null : clock.entryAt(t);
+  if (!e || e.abs === liveAbs) return;
+  liveAbs = e.abs;
+  // L'effacement : seulement tant que NO est tenue (la revue de D3b R15)
+  if (noHolders.size === 0) liveErase.clear();
+  for (const inst of liveErase) liveEraseAt(inst, e);
+  const k = liveKnob;
+  if (k && liveKnobOn(k)) liveLockAt(k, e);
 }
 
 let stopAt = -Infinity;
@@ -4717,6 +5084,8 @@ export function stopKey(stage: Stage | null = null): void {
   const t = eventAt();
   const dbl = t - stopAt < DT_GESTURE.stopDoubleMs;
   stopAt = dbl ? -Infinity : t;
+  // LIVE REC (V.5.3, le manuel [M1] 10.2.3 : "Press [STOP] to stop both recording and playback")
+  if (dtFace.live()) liveExit(false);
   clock.stop();
   if (dbl) {
     cutTails();
@@ -5260,7 +5629,7 @@ function lockTrigStep(i: number): void {
  * velocite HIGH, meme en lecture) et devient la voix choisie ; rien ne s'ecrit. 9 a 16 : rien ne joue, l'ecran dit de
  * passer en REC (au plus une fois toutes les DT_GESTURE.hintMs).
  */
-function stepPlay(i: number, stage: Stage | null): void {
+function stepPlay(i: number, stage: Stage | null, ts = -1): void {
   gesture();
   stage?.pressStep(i);
   const inst = i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
@@ -5268,7 +5637,7 @@ function stepPlay(i: number, stage: Stage | null): void {
     const now = performance.now();
     if (now - recHintAt >= DT_GESTURE.hintMs) {
       recHintAt = now;
-      lcdMessage.show('● REC TO WRITE STEPS', 1400);
+      lcdMessage.show(liveOn() ? 'LIVE REC: STEPS 1-8 PLAY THE VOICES' : '● REC TO WRITE STEPS', 1400);
     }
     return;
   }
@@ -5278,9 +5647,19 @@ function stepPlay(i: number, stage: Stage | null): void {
     padHit(inst, null);
     return;
   }
-  if (!voices.isMuted(inst) && !pattern.pmuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[TAP_VEL_DEFAULT] ?? 1);
+  const live = liveRunning();
+  const n = live ? liveVel() : TAP_VEL_DEFAULT;
+  // LIVE REC en lecture (V.5.3) : la frappe s'ecrit (une voix coupee aussi) a l'heure de l'appui ; un pas qui joue deja la
+  // voix la joue seul (la revue de D3b R10)
+  const r = live ? liveHit(inst, n, ts >= 0 ? (heardNow(ts) ?? undefined) : undefined) : null;
+  if (r !== 'quiet' && !voices.isMuted(inst) && !pattern.pmuted(inst)) trigger(inst, undefined, false, undefined, VEL_GAIN[n] ?? 1);
+  // Elle choisit sa voix (la revue de D3b R4 : le potard verrouille ensuite la voix frappee)
+  if (r) {
+    liveSelect(inst);
+    return;
+  }
   if (pattern.get().instrument !== inst) selectVoice(inst);
-  else lcdMessage.show(`${inst} · ● REC TO WRITE STEPS`, 900);
+  else lcdMessage.show(dtFace.live() ? `${inst} · PLAY: LIVE REC` : `${inst} · ● REC TO WRITE STEPS`, 900);
 }
 
 /** La tenue d'un pas hors REC au desktop : pas de P-LOCK (il demande REC, comme la Digitakt) ; l'ecran le dit une fois. */

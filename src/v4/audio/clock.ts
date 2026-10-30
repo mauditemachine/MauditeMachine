@@ -91,6 +91,13 @@ export interface StepEvent {
   mask: number;
   /** retard du swing (s) : 0 sur les pas impairs (1, 3 ... 15) */
   off: number;
+  /** sa position depuis PLAY (V.5.3 : LIVE REC retient un pas a ne pas rejouer a ce passage) */
+  abs: number;
+  /**
+   * l'emplacement du pattern qui l'a joue (V.5.3, la revue de D3b R9 : une frappe de LIVE REC s'ecrit dans le pattern
+   * qu'on entend, pas dans le suivant que la chaine a deja pose) ; -1 sans patterns
+   */
+  slot: number;
 }
 
 export interface Drift {
@@ -152,6 +159,8 @@ interface Snap {
    * la garde (la chaine a deja avance, lastFn ne parle plus de sa mesure)
    */
   last: boolean;
+  /** l'emplacement du pattern de sa mesure (V.5.3, la revue de D3b R9) : rejoue d'une mesure finie, il garde le sien */
+  slot: number;
 }
 
 /** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
@@ -199,6 +208,8 @@ let passN = 1;
 let passBefore = 1;
 /** La condition LST (V.5.1) : un changement de pattern est-il prevu a la fin de la mesure (state/patterns.ts) */
 let lastFn: (() => boolean) | null = null;
+/** L'emplacement du pattern qui joue (V.5.3, state/patterns.ts) : chaque pas programme le retient. */
+let slotFn: (() => number) | null = null;
 /**
  * Une grille a rejoindre au depart (2026-10-03) : l'arpegiateur du
  * MM-VOYAGER qui joue deja (voyager/arp.ts). RUN part alors sur sa
@@ -303,7 +314,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
-  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get(), trigs: cur.trigs, pass: passN, last: lastFn ? lastFn() : false };
+  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get(), trigs: cur.trigs, pass: passN, last: lastFn ? lastFn() : false, slot: slotFn ? slotFn() : -1 };
   const vs: Voice[] = [];
   let mask = 0;
   // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant) ; au desktop
@@ -327,7 +338,10 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     fxOf: (inst) => voiceFx.of(inst),
   });
   const made: { inst: Inst; v: Voice }[] = [];
+  // LIVE REC (V.5.3) : une frappe arrondie vers ce pas l'a deja jouee, il ne la rejoue pas a ce passage
+  if (skips.size > 0) for (const k of skips) if (Number(k.slice(0, k.indexOf(':'))) < abs - 64) skips.delete(k);
   for (const h of out.hits) {
+    if (skips.size > 0 && !h.rep && skips.has(`${abs}:${h.inst}`)) continue;
     mask |= 1 << INSTRUMENTS.indexOf(h.inst);
     const live = liveNeeds(snap.locks, h.inst);
     const sq: HitSeq | undefined = h.len !== null || h.lfo || h.roll || live ? { len: h.len, lfo: h.lfo, roll: h.roll, rep: h.rep, prev: seqSt.v[h.inst].last as Voice | null, live } : undefined;
@@ -362,7 +376,7 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   for (const v of vs) pending.push(v);
   plan.push({ abs, step: s, grid, when, voices: vs, snap, seq, seqBefore, first, last });
-  const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off };
+  const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off, abs, slot: snap.slot };
   seq += 1;
   push(e);
   const drift = Math.abs(when - expected);
@@ -771,6 +785,7 @@ function start(fromPause = false): boolean {
   resumeAbs = 0;
   barAbs = -1;
   plan.length = 0;
+  if (!resumed) skips.clear();
   runFirst = seq;
   // Une reprise n'est pas une premiere mesure : la chaine des patterns continue ou elle en etait
   firstBar = from < 0;
@@ -817,6 +832,7 @@ function stop(): void {
   }
   pending.length = 0;
   plan.length = 0;
+  skips.clear();
   emit();
 }
 
@@ -845,6 +861,21 @@ function pause(): boolean {
   pausedAt = e ? e.step : -1;
   emit();
   return true;
+}
+
+/** Les coups a ne pas rejouer (V.5.3, LIVE REC) : `${abs}:${voix}`. */
+const skips = new Set<string>();
+
+/** Le pas programme le plus proche de t (V.5.3, LIVE REC : la frappe y va), passe ou a venir ; null a l'arret. */
+function nearestAt(t: number): StepEvent | null {
+  if (!running) return null;
+  let best: StepEvent | null = null;
+  for (let i = journal.length - 1; i >= 0; i -= 1) {
+    const e = journal[i];
+    if (e.seq < runFirst) break;
+    if (!best || Math.abs(e.when - t) < Math.abs(best.when - t)) best = e;
+  }
+  return best;
 }
 
 /** Le dernier pas de la lecture en cours dont l'instant est passe a t (temps du contexte). */
@@ -954,6 +985,11 @@ export const clock = {
     pattern.clear();
   },
   entryAt,
+  nearestAt,
+  /** LIVE REC (V.5.3) : la voix ne rejoue pas au pas abs de ce passage (la frappe arrondie vers lui l'a deja jouee). */
+  skipHit(inst: Inst, abs: number): void {
+    skips.add(`${abs}:${inst}`);
+  },
   gridAfter,
   /** Le pas sous la tete de lecture a t (temps du contexte), -1 a l'arret ou avant le premier. */
   currentStep(t: number): number {
@@ -982,6 +1018,10 @@ export const clock = {
   /** La condition LST (V.5.1) : state/patterns.ts dit si un changement de pattern est prevu a la fin de la mesure. */
   lastPass(fn: (() => boolean) | null): void {
     lastFn = fn;
+  },
+  /** L'emplacement du pattern qui joue (V.5.3, la revue de D3b R9) : state/patterns.ts le dit, chaque pas le retient. */
+  slotOf(fn: (() => number) | null): void {
+    slotFn = fn;
   },
   /** Re-programme les pas a venir (V.5.1 : la condition LST a change) ; rien a l'arret. */
   refresh(): void {

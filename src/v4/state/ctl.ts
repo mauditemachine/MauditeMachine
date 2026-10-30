@@ -12,6 +12,12 @@ const holders: number[] = new Array(KNOBS).fill(0);
 const turnedAt: number[] = new Array(KNOBS).fill(-Infinity);
 const turnedBy: (CtlSrc | null)[] = new Array(KNOBS).fill(null);
 
+/**
+ * La velocite de la note MIDI qui appuie en ce moment une cible (V.5.3, LIVE REC : un pad au MIDI s'ecrit a sa velocite),
+ * 0 a 1 ; null hors d'un appui MIDI (la souris, le clavier : HIGH).
+ */
+export const pressVel: { v: number | null } = { v: null };
+
 export const faceTouch = {
   /** un pointeur (ou le toucher du materiel) prend le potard k */
   down(k: number, _src: CtlSrc = 'ptr'): void {

@@ -258,6 +258,8 @@ export class RytmFaceKeys {
   private editing = false;
   private func: FuncMode = 'off';
   private rec = false;
+  /** LIVE REC (V.5.3) : la LED de ● clignote */
+  private live = false;
   private play: PlayState = 'stop';
   private page: string | null = null;
   private home = false;
@@ -394,7 +396,11 @@ export class RytmFaceKeys {
     }
     if (i === TRK) return this.trk === 'off' ? none : { fill: 1, tone: 'dred', glow: 1, led: this.trk === 'latched' ? this.blinkLevel : 1, ledTone: 'red' };
     if (i === PTN) return this.editing ? { fill: 1, tone: 'dred', glow: 1, led: 1, ledTone: 'red' } : none;
-    if (i === REC) return this.rec ? { fill: 1, tone: 'dred', glow: 1, led: 1, ledTone: 'red' } : none;
+    if (i === REC) {
+      if (!this.rec) return none;
+      // LIVE REC (V.5.3) : rouge clignotant, comme la Digitakt
+      return this.live ? { fill: 1, tone: 'dred', glow: 1, led: this.blinkLevel, ledTone: 'red' } : { fill: 1, tone: 'dred', glow: 1, led: 1, ledTone: 'red' };
+    }
     if (i === PLAY) {
       if (this.play === 'run') return { fill: 1, tone: 'dgreen', glow: 1, led: 1, ledTone: 'green' };
       if (this.play === 'pause') {
@@ -487,10 +493,11 @@ export class RytmFaceKeys {
     return true;
   }
 
-  /** REC (V.5.0, state/dtFace.ts) : rouge en mode ecriture ; true s'il faut une frame. */
-  setRec(on: boolean): boolean {
-    if (on === this.rec) return false;
+  /** REC (V.5.0, state/dtFace.ts) : rouge en mode ecriture ; LIVE REC (V.5.3) : rouge clignotant ; true s'il faut une frame. */
+  setRec(on: boolean, live = false): boolean {
+    if (on === this.rec && live === this.live) return false;
     this.rec = on;
+    this.live = live;
     this.refresh(REC);
     return true;
   }
@@ -530,7 +537,7 @@ export class RytmFaceKeys {
 
   /** Un temoin clignote-t-il (TRK gardee, FUNC gardee, PLAY en pause, une scene gardee) : il a besoin de la boucle. */
   get blinking(): boolean {
-    return this.trk === 'latched' || this.func === 'once' || this.func === 'locked' || this.play === 'pause' || this.armHow === 'latched';
+    return this.trk === 'latched' || this.func === 'once' || this.func === 'locked' || this.play === 'pause' || this.armHow === 'latched' || (this.rec && this.live);
   }
 
   /** Le clignotement (periodMs allume, periodMs a peine) des temoins et du cadre d'une scene gardee ; true si la phase a change. */
@@ -540,7 +547,7 @@ export class RytmFaceKeys {
     let changed = false;
     if (on !== this.blinkOn) {
       this.blinkOn = on;
-      for (const i of [TRK, FUNC, PLAY]) if (i >= 0) this.refresh(i);
+      for (const i of [TRK, FUNC, PLAY, REC]) if (i >= 0) this.refresh(i);
       changed = true;
     }
     if (this.armHow === 'latched') {

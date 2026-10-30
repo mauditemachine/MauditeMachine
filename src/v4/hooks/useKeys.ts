@@ -44,7 +44,7 @@
 
 import { useEffect, useRef } from 'react';
 import { trk } from '../state/trk';
-import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, modeHold, muteToggle, noKey, openToggle, padHit, page, playKey, presetEnter, presetKey, recKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
+import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, liveEraseAll, liveEraseDown, liveEraseUp, liveOn, modeHold, muteToggle, noDown, noKey, noUp, openToggle, padHit, page, playKey, presetEnter, presetKey, recDown, recKey, recUp, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
 import { lcdSamples } from '../state/lcdSamples';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
@@ -93,6 +93,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
   on.current = machine;
   // M tenu (2026-10-09) : son mode (MUTE, Maj : SOLO), sa minuterie, et si la tenue a deja tout rendu
   const mKey = useRef<{ kind: 'mute' | 'solo'; timer: number; fired: boolean } | null>(null);
+  /** Echap tenue en LIVE REC (V.5.3) : NO tenue, son action au lacher */
+  const escHeld = useRef(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -100,6 +102,15 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       // V.5.0 (le desktop, devant le MM-RYTM) : Echap est NO (la chaine d'Echap ; une page tapee juste avant : rechargee)
       const dt = DT_FACE && on.current && focus.get() === 'mm808';
       if (e.key === 'Escape') {
+        // LIVE REC (V.5.3) : Echap tenue est NO tenue (NO + un pad efface la voix) ; son action part au lacher, s'il n'a pas efface
+        if (dt && liveOn()) {
+          e.preventDefault();
+          if (!e.repeat) {
+            noDown('key');
+            escHeld.current = true;
+          }
+          return;
+        }
         if (dt ? noKey(getStage(), true) : escape()) e.preventDefault();
         return;
       }
@@ -218,6 +229,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       const inst = focus.get() === 'voy' || focus.get() === 'dj' || focus.get() === 'bass' ? undefined : PAD_KEYS.get(e.key.toLowerCase());
       if (inst) {
         e.preventDefault();
+        // LIVE REC (V.5.3) : Echap tenue + la touche de la voix l'efface au fil de la tete, tant qu'on tient
+        if (DT_FACE && liveEraseDown(inst)) return;
         padHit(inst, getStage());
         // TRK gardee (2026-10-27) : une voix est choisie, la garde s'en va (tenue, la main la lachera)
         const tk = trk.get().mode;
@@ -280,6 +293,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       if (dt && (e.code === `Key${REC_KEY}` || e.key.toUpperCase() === REC_KEY)) {
         e.preventDefault();
         recKey(getStage());
+        // W tenue (V.5.3) : W + Espace entre en LIVE REC, comme ● tenue + ▶
+        recDown('key');
         return;
       }
       // Entree tenue (V.5.1) : comme YES a la souris, une tape au lacher, FILL tenue plus de 250 ms
@@ -314,6 +329,14 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       }
     };
     const onUp = (e: KeyboardEvent): void => {
+      // V.5.3 : W lachee ; Echap lachee en LIVE REC (NO, s'il n'a pas efface) ; la touche d'une voix lachee (l'effacement s'arrete)
+      if (e.code === `Key${REC_KEY}` || e.key.toUpperCase() === REC_KEY) recUp('key');
+      if (e.key === 'Escape' && escHeld.current) {
+        escHeld.current = false;
+        if (!noUp('key')) noKey(getStage(), true);
+      }
+      const ui = PAD_KEYS.get(e.key.toLowerCase());
+      if (ui) liveEraseUp(ui);
       // Alt lache (V.5.0) : FUNC lachee, sans garde (une tape d'Alt ne garde pas FUNC)
       if (e.key === 'Alt') {
         funcUp('key', -1);
@@ -331,6 +354,14 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
     };
     // La fenetre perd le clavier pendant la tenue : rien ne part
     const onBlur = (): void => {
+      // V.5.3 : les mains sont parties, W et Echap laches sans rien faire ; l'effacement s'arrete (la revue de D3b R8 R15 : le
+      // lacher de la touche d'une voix ne reviendra pas)
+      recUp('key');
+      if (escHeld.current) {
+        escHeld.current = false;
+        noUp('key');
+      }
+      liveEraseAll();
       if (mKey.current) window.clearTimeout(mKey.current.timer);
       mKey.current = null;
       // Entree tenue quand la fenetre perd le clavier (V.5.1) : FILL finit, aucune tape ne part

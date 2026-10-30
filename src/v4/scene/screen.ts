@@ -2492,6 +2492,17 @@ export class Screen {
           x1 -= 5;
         }
       }
+      // LIVE REC (V.5.3) : sa pastille pleine, la premiere du milieu
+      if (DT_FACE && dtFace.live()) {
+        const w = this.textWidth('LIVE REC', T.sound, 800, 0.6) + 8;
+        if (fits(w)) {
+          x1 -= w;
+          this.roundRect(x1, H.pillY, w, T.pillH, 2.2, INK);
+          this.text('LIVE REC', x1 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 800, 'center', 0.6);
+          x1 -= 5;
+        }
+        this.info.head += '|LIVE REC';
+      }
       // FILL tenu (V.5.1, tenir YES) : sa pastille pleine, avant tout le reste du milieu
       if (DT_FACE && fill.on) {
         const w = this.textWidth('FILL', T.sound, 800, 0.6) + 8;
@@ -2975,8 +2986,21 @@ export class Screen {
     if (DY < 12) return;
     this.runIcon(PAGE_HEAD.iconX, PAGE_HEAD.y);
     const left = this.paintDials(PAGE_HEAD.y, PAGE_HEAD.iconX + 14, this.mobile ? DY + CARD.y0 - 4 : DY + 6, now, cur);
-    // FILL tenu (V.5.1, tenir YES) : sa pastille pleine juste apres la lecture, le preset charge passe apres elle
+    // FILL tenu (V.5.1, tenir YES) : sa pastille pleine juste apres la lecture, le preset charge passe apres elle ; LIVE REC
+    // (V.5.3) avant elle
     let fx0 = PAGE_HEAD.iconX + 14;
+    if (DT_FACE && dtFace.live()) {
+      const ts = this.bt.head.sound;
+      const ph = this.bt.head.pillH;
+      const w = this.textWidth('LIVE REC', ts, 800, 0.6) + 8;
+      if (left - 8 - fx0 >= w) {
+        const py = PAGE_HEAD.pillY;
+        this.roundRect(fx0, py, w, ph, 2.2, INK);
+        this.text('LIVE REC', fx0 + w / 2, py + ph / 2 + ts * 0.36, ts, BLACK, 800, 'center', 0.6);
+        this.info.head = 'LIVE REC';
+        fx0 += w + 6;
+      }
+    }
     if (DT_FACE && fill.on) {
       const ts = this.bt.head.sound;
       const ph = this.bt.head.pillH;
@@ -2985,7 +3009,7 @@ export class Screen {
         const py = PAGE_HEAD.pillY;
         this.roundRect(fx0, py, w, ph, 2.2, INK);
         this.text('FILL', fx0 + w / 2, py + ph / 2 + ts * 0.36, ts, BLACK, 800, 'center', 0.6);
-        this.info.head = 'FILL';
+        this.info.head = this.info.head ? `${this.info.head}|FILL` : 'FILL';
         fx0 += w + 6;
       }
     }

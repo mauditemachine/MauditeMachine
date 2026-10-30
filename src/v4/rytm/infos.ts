@@ -842,7 +842,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   rec: {
     section: 'KEYS',
     title: '● REC',
-    text: "Le mode écriture des pas, sa LED rouge. REC allumé : une tape sur un pas le pose (à la vélocité des nouveaux pas, HIGH au départ) ou le retire ; tiens un pas et glisse : sa vélocité ; tiens-le sans bouger : P-LOCK. REC éteint : un pas de 1 à 8 joue sa voix et la choisit, rien ne s'écrit (les pas montrent toujours le motif de la voix choisie et la tête de lecture) ; 9 à 16 ne jouent rien. REC n'est pas gardé : il est éteint à chaque visite. TRK, PTN et le mode MUTE passent avant lui. FUNC + REC : COPY (REC éteint, le pattern entier, ses verrous, ses scènes et son mute ; REC allumé, la ligne de la voix choisie).",
+    text: "Le mode écriture des pas, sa LED rouge. REC allumé : une tape sur un pas le pose (à la vélocité des nouveaux pas, HIGH au départ) ou le retire ; tiens un pas et glisse : sa vélocité ; tiens-le sans bouger : P-LOCK. REC éteint : un pas de 1 à 8 joue sa voix et la choisit, rien ne s'écrit (les pas montrent toujours le motif de la voix choisie et la tête de lecture) ; 9 à 16 ne jouent rien. REC n'est pas gardé : il est éteint à chaque visite. ● tenue + ▶, ou ● deux fois vite : LIVE REC, l'enregistrement en direct (sa LED clignote). TRK, PTN et le mode MUTE passent avant lui. FUNC + REC : COPY (REC éteint, le pattern entier, ses verrous, ses scènes et son mute ; REC allumé, la ligne de la voix choisie).",
     key: 'W',
     tip: 'REC éteint, les pas 1 à 8 sont huit pads : trouve le son ; REC allumé, écris-le.',
   },
@@ -893,6 +893,18 @@ const RAW: Record<RytmInfoId, Raw> = {
     ],
     text: "Un trig qui ne joue pas, comme sur une Digitakt : ses verrous changent le coup de la voix qui sonne encore quand le séquenceur passe dessus. Ce que le moteur change en direct : VOL, PAN, la fréquence et la résonance du filtre (FREQ, RESO), les envois DELAY et REVERB, DIST et CHORUS de la voix. Avec LFO.T ON (son départ), il relance aussi les LFO de la voix. FUNC + un lock trig l'enlève, avec ses verrous ; FUNC + un pas qui joue le transforme en lock trig (ses verrous restent) ; une tape l'enlève aussi. Hors REC, FUNC + un pas garde le mute rapide de sa voix.",
     tip: 'Une cymbale longue sur 1, un lock trig sur 9 avec VOL bas : elle s\'éteint au milieu de la mesure, sans nouveau coup.',
+  },
+  liverec: {
+    section: 'KEYS',
+    title: 'LIVE REC',
+    steps: [
+      '● tenue puis ▶ (ou ● deux fois vite à la souris) : LIVE REC, la LED de ● clignote ; à l\'arrêt il s\'arme, ▶ lance la lecture.',
+      'Tape les pas 1 à 8 (ou les touches A S D F, Z X C V, les pads MIDI) pendant que ça tourne : chaque frappe joue sa voix, la choisit et s\'écrit au pas le plus proche, dans le pattern que tu entends.',
+      "Tourne un potard d'une page de voix : tant que tu le tournes, il s'enregistre en P-LOCK de la voix choisie sur les pas que traverse la tête de lecture (un pas vide reçoit un lock trig).",
+    ],
+    text: "L'enregistrement en direct, comme sur une Digitakt. Les frappes se rangent sur le pas le plus proche de ce que tu entends (pas de μTIME). Une frappe juste avant son pas ne le rejoue pas tout de suite : tu l'entends au passage suivant ; sur un pas qui joue déjà la voix, elle ne la double pas. Une voix coupée s'enregistre quand même. Un pas 1 à 8 y est un pad : pas de P-LOCK ni de vélocité au glisser. NO tenue (Échap au clavier) + un pad : sa voix s'efface au fil de la tête de lecture, tant que tu tiens. ▶ sort de LIVE REC sans arrêter la lecture, ● repasse en grid rec, ■ arrête tout. Une prise, de l'entrée à la sortie, se défait d'un UNDO par pattern touché, et la chaîne continue. TRK tenue (CONTROL ALL) gagne : rien ne s'écrit ; TRK + un pad choisit sa voix sans l'écrire.",
+    key: 'W tenue + Espace',
+    tip: 'Tape le kick sur les temps pendant que ça tourne, puis le clap sur 5 et 13 : le beat s\'écrit tout seul.',
   },
   bank: {
     section: 'KEYS',
