@@ -24,7 +24,8 @@
     "firmware:check": "node scripts/firmware.mjs check",
     "firmware:bump": "node scripts/firmware.mjs bump",
     "firmware:stamp": "node scripts/firmware.mjs stamp",
-    "presets:test": "node scripts/presets-name.test.mjs && node scripts/presets-bpm.test.mjs"
+    "presets:test": "node scripts/presets-name.test.mjs && node scripts/presets-bpm.test.mjs",
+    "face:test": "node scripts/face.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
