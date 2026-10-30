@@ -23,7 +23,9 @@ import {
   SRGBColorSpace,
 } from 'three';
 import {
+  BEZEL_DECAL,
   BRUSH,
+  DECAL_LOGOS,
   DT_HEX,
   FONT_DISPLAY,
   FONT_LOADS,
@@ -33,9 +35,11 @@ import {
   PAD,
   PORTRAIT,
   SILK,
+  SILK_FRAMES,
   SILK_LINES,
   SILK_LOGOS,
   SILK_PLANE,
+  SILK_STROKES,
   SILK_TEXTS,
   silkA,
   type SilkLogoId,
@@ -117,8 +121,10 @@ export function whenLogos(): Promise<void> {
     logosPromise = Promise.resolve();
     return logosPromise;
   }
+  // Le wordmark du decalque du cadre de l'ecran (V.6.0, la face DT2) avec ceux de la serigraphie, une fois chacun
+  const logos = [...SILK_LOGOS, ...DECAL_LOGOS.filter((d) => !SILK_LOGOS.some((l) => l.id === d.id))];
   logosPromise = Promise.all(
-    SILK_LOGOS.map(
+    logos.map(
       (l) =>
         new Promise<void>((resolve) => {
           const img = new Image();
@@ -405,6 +411,40 @@ export class PanelSilk {
       }
       ctx.stroke();
     }
+    // Les cadres de la face DT2 (V.6.0, cahier 2.3) : des rectangles a coins arrondis, du trait des filets ; aucun sur la
+    // face de la V.5.3 (SILK_FRAMES vide : rien ne change au canvas)
+    for (const f of SILK_FRAMES) {
+      const x0 = this.px(f.x);
+      const y0 = this.py(f.z);
+      const x1 = this.px(f.x + f.w);
+      const y1 = this.py(f.z + f.d);
+      const r = f.r * u;
+      ctx.beginPath();
+      ctx.moveTo(x0 + r, y0);
+      ctx.arcTo(x1, y0, x1, y1, r);
+      ctx.arcTo(x1, y1, x0, y1, r);
+      ctx.arcTo(x0, y1, x0, y0, r);
+      ctx.arcTo(x0, y0, x1, y0, r);
+      ctx.closePath();
+      ctx.stroke();
+    }
+    // L'accolade pointillee de TRACK/MUTE (V.6.0, la face DT2) : en orange comme le mot, des points ronds
+    for (const s of SILK_STROKES) {
+      ctx.save();
+      ctx.strokeStyle = DT_HEX.orange;
+      ctx.lineWidth = Math.max(1, s.width * u);
+      ctx.lineCap = 'round';
+      ctx.setLineDash(s.dash ? [Math.max(0.5, s.dash[0] * u * 0.05), s.dash[1] * u] : []);
+      ctx.beginPath();
+      for (let k = 0; k < s.pts.length; k += 2) {
+        const x = this.px(s.pts[k]);
+        const y = this.py(s.pts[k + 1]);
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Logos, centres en z, poses sur leur bord d'alignement
     const logos: SilkLogoId[] = [];
@@ -463,6 +503,17 @@ export class PanelSilk {
     return canvas;
   }
 
+  /** Un texte de la serigraphie (sa hauteur de capitale centree en z), dessine a ce corps (le decalque de l'ecran s'en sert). */
+  static drawText(ctx: Ctx, it: SilkText, cx: number, cy: number, u: number, scale: number, fill: string): void {
+    const cap = it.cap * scale;
+    const fontPx = (cap / SILK.capRatio) * u;
+    const weight = it.weight ?? SILK.weight;
+    const w = trackedWidth(ctx, it.text, fontPx, weight);
+    const x0 = it.align === 'right' ? cx - w : it.align === 'left' ? cx : cx - w / 2;
+    ctx.fillStyle = fill;
+    drawTracked(ctx, it.text, x0, cy + (cap * u) / 2, fontPx, weight);
+  }
+
   /** OPEN <-> CLOSE sous le pad OPEN : deux televersements par cycle d'eclate. */
   setOpenLabel(label: OpenLabel): boolean {
     // Sans le libelle OPEN (2026-10-27, la face V.4.0 du desktop : OPEN est une touche de la rangee, son nom dessus) : rien a redessiner
@@ -483,6 +534,117 @@ export class PanelSilk {
       c.height = 0;
     }
     this.tinted.clear();
+    this.canvas.width = 0;
+    this.canvas.height = 0;
+  }
+}
+
+/* ---------------- le decalque du cadre de l'ecran (V.6.0, la face DT2) ---------------- */
+
+export interface BezelDecalInfo {
+  draws: number;
+  size: [number, number];
+  /** le wordmark dessine en image (false : son texte de repli, l'image manque encore) */
+  logo: boolean;
+}
+
+/**
+ * Le decalque du cadre de l'ecran de la face DT2 (V.6.0, 2026-10-30, ?face=dt2, cahier 2.3 : "MAUDITE MACHINE en bas a
+ * gauche de la bande basse du cadre, MM-RYTM et le firmware a droite, comme Digitakt II") : le plan de la serigraphie
+ * (y 0.004) est sous le cadre (y 0.02), un petit plan a part juste au-dessus du cadre (theme.ts BEZEL_DECAL), sa texture a
+ * lui (la bande sous la zone active : 106 x 5.4 mm), l'os sur les deux machines (le cadre reste noir sur la creme).
+ * Redessine a l'arrivee du logo et des polices (le Stage).
+ */
+export class BezelDecal {
+  readonly mesh: Mesh;
+  readonly texture: CanvasTexture;
+  readonly info: BezelDecalInfo;
+  private canvas: HTMLCanvasElement;
+  private ctx: Ctx;
+  private u: number;
+
+  constructor(anisotropy: number) {
+    const B = BEZEL_DECAL;
+    if (!B) throw new Error('silk: BezelDecal hors de la face DT2');
+    this.u = B.ppu;
+    const W = Math.ceil(B.w * B.ppu);
+    const H = Math.ceil(B.d * B.ppu);
+    const c = canvas2d(W, H, 'decal');
+    this.canvas = c.canvas;
+    this.ctx = c.ctx;
+    this.texture = makeCanvasTexture(this.canvas, anisotropy);
+    this.info = { draws: 0, size: [W, H], logo: false };
+    const geo = new PlaneGeometry(B.w, B.d);
+    geo.rotateX(-Math.PI / 2);
+    const mat = new MeshStandardMaterial({ map: this.texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, roughness: 0.7, metalness: 0 });
+    mat.name = 'bezelDecal';
+    this.mesh = new Mesh(geo, mat);
+    this.mesh.name = 'bezelDecal';
+    this.mesh.position.set(B.x, B.y, B.z);
+    this.mesh.receiveShadow = true;
+    this.draw();
+  }
+
+  private px(x: number): number {
+    const B = BEZEL_DECAL;
+    return B ? (x - (B.x - B.w / 2)) * this.u : 0;
+  }
+
+  private py(z: number): number {
+    const B = BEZEL_DECAL;
+    return B ? (z - (B.z - B.d / 2)) * this.u : 0;
+  }
+
+  /** Redessine le decalque (le logo arrive, les polices) et marque la texture. */
+  draw(): void {
+    const B = BEZEL_DECAL;
+    if (!B) return;
+    const ctx = this.ctx;
+    const u = this.u;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.textBaseline = 'alphabetic';
+    // Le wordmark (DECAL_LOGOS), teinte a l'encre du decalque ; son texte de repli tant que l'image manque
+    let logo = false;
+    for (const l of DECAL_LOGOS) {
+      const img = logoImages.get(l.id);
+      if (!img) continue;
+      const ratio = img.naturalWidth / img.naturalHeight;
+      const wU = l.w ?? (l.h ?? 0) * ratio;
+      const hU = l.h ?? wU / ratio;
+      const w = Math.max(1, Math.round(wU * u));
+      const h = Math.max(1, Math.round(hU * u));
+      const { canvas: t, ctx: tc } = canvas2d(w, h, 'decalLogo');
+      tc.imageSmoothingEnabled = true;
+      tc.imageSmoothingQuality = 'high';
+      tc.drawImage(img, 0, 0, w, h);
+      tc.globalCompositeOperation = 'source-in';
+      tc.fillStyle = B.ink;
+      tc.fillRect(0, 0, w, h);
+      const x0 = l.align === 'right' ? this.px(l.x) - w : this.px(l.x);
+      ctx.drawImage(t, Math.round(x0), Math.round(this.py(l.z) - h / 2));
+      t.width = 0;
+      t.height = 0;
+      logo = true;
+    }
+    const items = logo ? B.texts : [B.fallback, ...B.texts];
+    for (const it of items) {
+      let scale = 1;
+      if (it.maxW) {
+        const w = trackedWidth(ctx, it.text, (it.cap / SILK.capRatio) * u, it.weight ?? SILK.weight) / u;
+        if (w > it.maxW) scale = it.maxW / w;
+      }
+      const fill = B.ink.replace(/[\d.]+\)$/, `${(it.alpha ?? 1) * 0.88})`);
+      PanelSilk.drawText(ctx, it, this.px(it.x), this.py(it.z), u, scale, fill);
+    }
+    this.info.draws += 1;
+    this.info.logo = logo;
+    this.texture.needsUpdate = true;
+  }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    (this.mesh.material as MeshStandardMaterial).dispose();
+    this.texture.dispose();
     this.canvas.width = 0;
     this.canvas.height = 0;
   }
