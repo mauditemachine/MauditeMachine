@@ -2533,7 +2533,7 @@ export interface OfflineHit {
 }
 let offlineHitsLog: OfflineHit[] = [];
 /** Le plafond de sources et les tranches du dernier rendu hors ligne (V.5.9, la sonde des 16 pistes). */
-let offlineCap: { peak: number; capped: number; polyCapped: number; channels: TrackKey[] } = { peak: 0, capped: 0, polyCapped: 0, channels: [] };
+let offlineCap: { peak: number; capped: number; polyCapped: number; channels: TrackKey[]; schedMs: number; renderMs: number; voices: number } = { peak: 0, capped: 0, polyCapped: 0, channels: [], schedMs: 0, renderMs: 0, voices: 0 };
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 /** Les LFO d'un coup au journal (tests) : leur valeur a son debut, par destination. */
@@ -2582,6 +2582,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const tone0 = snapTone(o.tone ?? 0);
   const stretch0 = snapTime(o.stretch ?? 0);
   const rnd = Math.random;
+  const schedAt = performance.now();
   // Les portes des pistes (V.5.9) sont celles du graphe du rendu : neuves, comme l'etaient ohGate et bdGate a son debut
   Math.random = seeded(o.seed ?? 808);
   // Deux rendus identiques : la rotation des variantes repart du debut
@@ -2752,7 +2753,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   } finally {
     Math.random = rnd;
   }
-  offlineCap = { ...g.cap, channels: chans(g).map((c) => c.t) };
+  offlineCap = { ...g.cap, channels: chans(g).map((c) => c.t), schedMs: performance.now() - schedAt, renderMs: 0, voices: voices.length };
   // BIT et COMP (2026-10-18) : le worklet en place comme en direct, avec les reglages du rendu (ceux absents a leur depart)
   let glueFx: Fx = f0 ? { ...f0 } : { ...pattern.fx.get(), ...FX_SETTINGS, ...(o.fxs ?? {}), bits: o.bits ?? 0, comp: o.comp ?? 0 };
   if (!o.bare && o.glue !== false) await attachGlue(oc, g, () => glueFx, false);
@@ -2861,7 +2862,9 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       ap.request();
     });
   }
+  const renderAt = performance.now();
   const buf = await oc.startRendering();
+  offlineCap.renderMs = performance.now() - renderAt;
   return buf.getChannelData(Math.min(buf.numberOfChannels - 1, o.channel ?? 0)).slice();
 }
 
@@ -2997,7 +3000,7 @@ export interface AudioDebug {
    * Les 16 pistes (V.5.9) : les tranches construites du graphe vivant (au repos, les 8 d'avant), ses sources et son
    * plafond ; ceux du dernier rendu hors ligne.
    */
-  readonly tracks16: { channels: TrackKey[]; sources: number; peak: number; capped: number; polyCapped: number; cap: number; offline: { peak: number; capped: number; polyCapped: number; channels: TrackKey[] } } | null;
+  readonly tracks16: { channels: TrackKey[] | null; sources: number; peak: number; capped: number; polyCapped: number; cap: number; offline: { peak: number; capped: number; polyCapped: number; channels: TrackKey[]; schedMs: number; renderMs: number; voices: number } };
 }
 
 /** DIST, envois et unites REVERB et DELAY, CHORUS du bus (debug). */
@@ -3177,8 +3180,7 @@ export const audioDebug: AudioDebug = {
   get tracks16() {
     const g = graph;
     const now = g ? g.ctx.currentTime : 0;
-    return g
-      ? { channels: chans(g).map((c) => c.t), sources: g.live.filter((x) => x.when <= now && x.end > now).length, peak: g.cap.peak, capped: g.cap.capped, polyCapped: g.cap.polyCapped, cap: SOURCE_CAP, offline: offlineCap }
-      : null;
+    // Sans graphe vivant (aucun geste) : channels null, le dernier rendu hors ligne quand meme
+    return { channels: g ? chans(g).map((c) => c.t) : null, sources: g ? g.live.filter((x) => x.when <= now && x.end > now).length : 0, peak: g?.cap.peak ?? 0, capped: g?.cap.capped ?? 0, polyCapped: g?.cap.polyCapped ?? 0, cap: SOURCE_CAP, offline: offlineCap };
   },
 };

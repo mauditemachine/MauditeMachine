@@ -187,6 +187,14 @@ async function pageOffline(rows) {
   await v4.audio.renderOffline({ ...opts(dense, { locks, trigs: dtrigs }), seconds: dsec });
   const dms = performance.now() - t1;
   out.dense = { seconds: dsec, ms: dms, ratio: dsec / (dms / 1000), hits: v4.audio.offlineHits.length, cap: v4.audio.tracks16?.offline ?? null };
+  // 6. La reference : le meme motif dense sur les 8 voix seules (toutes leurs rangees aussi denses), meme duree
+  const dense8 = { BD: '9000900090009000', SD: '0000900000009000', CH: '9999999999999999', OH: '0090009000900090', CP: '0000900000009000', TOM: '9009009009009009', HT: '0909090909090909', CY: '9000000090000000' };
+  const d8trigs = { CH: { rtrg: 1, rate: 12, rlen: 4 }, HT: { len: 2 } };
+  await v4.audio.renderOffline({ ...opts(dense8, { trigs: d8trigs }), seconds: dsec });
+  const t2 = performance.now();
+  await v4.audio.renderOffline({ ...opts(dense8, { trigs: d8trigs }), seconds: dsec });
+  const ems = performance.now() - t2;
+  out.dense8 = { seconds: dsec, ms: ems, ratio: dsec / (ems / 1000), hits: v4.audio.offlineHits.length, cap: v4.audio.tracks16?.offline ?? null };
   return out;
 }
 
@@ -394,14 +402,17 @@ async function main() {
       check(r.fullDiff > 1e-3, 'T9 a T16 avec des pas : ils s\'entendent', `ecart ${r.fullDiff.toFixed(4)}`);
       const exp = expected();
       for (const [k, n] of Object.entries(exp)) check(r.count[k] === n, `coups ${k}`, `${r.count[k] ?? 0} / ${n} attendus`);
-      const legacyNotes = Object.entries(r.count).filter(([k]) => !k.startsWith('T')).reduce((a, [, n]) => a + n, 0);
-      console.log(`      coups des 8 voix : ${legacyNotes} ; ceux des pistes 9 a 16 : ${Object.entries(r.count).filter(([k]) => k.startsWith('T')).map(([k, n]) => `${k} ${n}`).join(', ')}`);
-      const extra = Object.keys(r.count).filter((k) => k.startsWith('T') && !(k in exp));
+      const t16 = (k) => /^T\d+:/.test(k);
+      const legacyNotes = Object.entries(r.count).filter(([k]) => !t16(k)).reduce((a, [, n]) => a + n, 0);
+      console.log(`      coups des 8 voix : ${legacyNotes} ; ceux des pistes 9 a 16 : ${Object.entries(r.count).filter(([k]) => t16(k)).map(([k, n]) => `${k} ${n}`).join(', ')}`);
+      const extra = Object.keys(r.count).filter((k) => t16(k) && !(k in exp));
       check(extra.length === 0, 'aucun coup imprevu sur T9 a T16', extra.join(' '));
       check(!!r.cap && ['T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'].every((k) => r.cap.channels.includes(k)), 'les tranches de T9 a T16 construites a leur premier coup', r.cap ? r.cap.channels.join(' ') : 'aucune');
       check(!!r.cap && r.cap.peak <= 48, 'sources simultanees <= 48', r.cap ? `pic ${r.cap.peak}, coupees ${r.cap.capped} (plafond), ${r.cap.polyCapped} (poly)` : '');
       console.log(`      rendu de ${r.seconds} s en ${r.ms.toFixed(0)} ms : rapport temps reel ${r.ratio.toFixed(1)}`);
-      check(r.dense.ratio >= 8, 'pattern dense de 16 pistes, 4 mesures (verrous, retrigs 1/32, LFO) : rapport temps reel >= 8', `${r.dense.seconds} s en ${r.dense.ms.toFixed(0)} ms : ${r.dense.ratio.toFixed(1)} ; ${r.dense.hits} coups ; pic ${r.dense.cap?.peak} sources`);
+      const det = (d) => `${d.seconds} s en ${d.ms.toFixed(0)} ms (programmation ${d.cap?.schedMs?.toFixed(0)} ms, rendu ${d.cap?.renderMs?.toFixed(0)} ms) : ${d.ratio.toFixed(1)} ; ${d.hits} coups, ${d.cap?.voices} voix ; pic ${d.cap?.peak} sources`;
+      console.log(`      reference, 8 voix denses : ${det(r.dense8)}`);
+      check(r.dense.ratio >= 8, 'pattern dense de 16 pistes, 4 mesures (verrous, retrigs 1/32, LFO) : rapport temps reel >= 8', det(r.dense));
       await s.context.close();
     }
     if (want('live')) {
