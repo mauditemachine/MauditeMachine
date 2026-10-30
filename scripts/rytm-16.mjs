@@ -182,19 +182,29 @@ async function pageOffline(rows) {
   const dense = { ...steps8, T9: '9090909090909090', T10: '0909090909090909', T11: '9999999999999999', T12: '9000900090009000', T13: '0090009000900090', T14: '9009009009009009', T15: '9999999999999999', T16: '9000000090000000' };
   const dsec = Math.round((0.52 + 63.5 * step) * 10000) / 10000;
   const dtrigs = { T12: { rtrg: 1, rate: 12, rlen: 6 }, T15: { len: 2 }, T11: { rtrg: 1, rate: 12, rlen: 4 } };
-  await v4.audio.renderOffline({ ...opts(dense, { locks, trigs: dtrigs }), seconds: dsec });
-  const t1 = performance.now();
-  await v4.audio.renderOffline({ ...opts(dense, { locks, trigs: dtrigs }), seconds: dsec });
-  const dms = performance.now() - t1;
-  out.dense = { seconds: dsec, ms: dms, ratio: dsec / (dms / 1000), hits: v4.audio.offlineHits.length, cap: v4.audio.tracks16?.offline ?? null };
+  // Le meilleur de 3 rendus (apres un de chauffe) : une machine partagee a des a-coups (le ramasse-miettes, les autres taches)
+  const best = async (o) => {
+    await v4.audio.renderOffline(o);
+    let ms = Infinity;
+    let cap = null;
+    for (let i = 0; i < 3; i += 1) {
+      const t = performance.now();
+      await v4.audio.renderOffline(o);
+      const d = performance.now() - t;
+      if (d < ms) {
+        ms = d;
+        cap = v4.audio.tracks16?.offline ? { ...v4.audio.tracks16.offline } : null;
+      }
+    }
+    return { ms, cap };
+  };
+  const bd = await best({ ...opts(dense, { locks, trigs: dtrigs }), seconds: dsec });
+  out.dense = { seconds: dsec, ms: bd.ms, ratio: dsec / (bd.ms / 1000), hits: v4.audio.offlineHits.length, cap: bd.cap };
   // 6. La reference : le meme motif dense sur les 8 voix seules (toutes leurs rangees aussi denses), meme duree
   const dense8 = { BD: '9000900090009000', SD: '0000900000009000', CH: '9999999999999999', OH: '0090009000900090', CP: '0000900000009000', TOM: '9009009009009009', HT: '0909090909090909', CY: '9000000090000000' };
   const d8trigs = { CH: { rtrg: 1, rate: 12, rlen: 4 }, HT: { len: 2 } };
-  await v4.audio.renderOffline({ ...opts(dense8, { trigs: d8trigs }), seconds: dsec });
-  const t2 = performance.now();
-  await v4.audio.renderOffline({ ...opts(dense8, { trigs: d8trigs }), seconds: dsec });
-  const ems = performance.now() - t2;
-  out.dense8 = { seconds: dsec, ms: ems, ratio: dsec / (ems / 1000), hits: v4.audio.offlineHits.length, cap: v4.audio.tracks16?.offline ?? null };
+  const b8 = await best({ ...opts(dense8, { trigs: d8trigs }), seconds: dsec });
+  out.dense8 = { seconds: dsec, ms: b8.ms, ratio: dsec / (b8.ms / 1000), hits: v4.audio.offlineHits.length, cap: b8.cap };
   return out;
 }
 
@@ -218,43 +228,46 @@ function expected() {
 
 async function pageLive() {
   const v4 = window.__v4;
+  const X = v4.tracks16;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const target = (id, v) => {
-    const t = v4.hw.resolve(id);
-    if (!t || typeof t.set !== 'function') throw new Error(`cible absente : ${id}`);
-    t.set(v);
-  };
   const out = {};
   // Un son sur T9 (sans pas : rien a construire)
   v4.tracks.machine('T9', 'bd', '808');
   v4.tracks.setMany('T9', { syn: 1 });
-  out.ctx = v4.tracks16.ctx();
+  out.ctx = X.ctx();
   await wait(300);
   out.restChannels = v4.audio.tracks16?.channels ?? null;
-  // Un motif : les 8 voix d'arrivee, et T9 sur les temps
-  v4.pattern.set('T9', 0, 9);
-  v4.pattern.set('T9', 8, 9);
-  out.ran = v4.tracks16.run(true);
-  await wait(900);
-  const snap = () => ({ full: v4.clock.rescheduled, trk: v4.clock.trackRescheduled, last: [...v4.clock.lastTracks], redone: v4.clock.redone });
-  const s0 = snap();
+  // Un motif dense (chaque piste refaite a des coups dans la fenetre programmee, 300 ms) : BD, SD, CH, OH, T9
+  for (let i = 0; i < 16; i += 1) {
+    v4.pattern.set('BD', i, 9);
+    v4.pattern.set('SD', i, 6);
+    v4.pattern.set('T9', i, 7);
+    v4.pattern.set(i % 2 ? 'OH' : 'CH', i, 6);
+  }
+  out.ran = X.run(true);
+  await wait(700);
+  // Le temps du contexte fige (dans ce Chromium sans sortie audio, il court plus vite que l'horloge murale) : les pas
+  // programmes restent a venir, chaque geste a des coups a refaire ; les gestes passent par les facades et le store
+  // (une cible MIDI relancerait le contexte)
+  await v4.audio.ctx.suspend();
+  const snap = () => ({ full: v4.clock.rescheduled, trk: v4.clock.trackRescheduled, last: [...v4.clock.lastTracks], redone: v4.clock.redone, pending: v4.clock.pending });
   const turn = async (fn) => {
     const a = snap();
     fn();
     await wait(250);
     const b = snap();
-    return { full: b.full - a.full, trk: b.trk - a.trk, last: b.last, redone: b.redone - a.redone };
+    return { full: b.full - a.full, trk: b.trk - a.trk, last: b.last, redone: b.redone - a.redone, pending: b.pending };
   };
-  out.kickTune = await turn(() => target('rytm:kit:tune', 0.72));
-  out.sdDecay = await turn(() => target('rytm:voice:SD:decay', 0.4));
-  out.ohDecay = await turn(() => target('rytm:voice:OH:decay', 0.6));
+  // DRIVE du kick : le sample du BD d'arrivee le prend (son caractere), sa signature change ; TUNE ne regle que la synthese
+  out.kickTune = await turn(() => X.kit.set('drive', 0.6));
+  out.sdDecay = await turn(() => X.voiceFx.set('SD', 'decay', 0.4));
+  out.ohDecay = await turn(() => X.voiceFx.set('OH', 'decay', 0.6));
   out.t9Decay = await turn(() => v4.tracks.set('T9', 'decay', 0.5));
-  out.steps = await turn(() => v4.pattern.set('SD', 2, 6));
-  await wait(400);
+  out.steps = await turn(() => v4.pattern.set('HT', 2, 6));
   out.liveChannels = v4.audio.tracks16?.channels ?? null;
   out.sources = v4.audio.tracks16 ? { peak: v4.audio.tracks16.peak, cap: v4.audio.tracks16.cap, capped: v4.audio.tracks16.capped } : null;
-  v4.tracks16.run(false);
-  out.start = s0;
+  X.run(false);
+  await v4.audio.ctx.resume();
   return out;
 }
 
@@ -423,7 +436,7 @@ async function main() {
       check(JSON.stringify(r.restChannels) === JSON.stringify(['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY']), 'au repos, les 8 tranches d\'avant (T9 a un son, aucun coup)', JSON.stringify(r.restChannels));
       check(r.ran === true, 'RUN (muet)');
       const one = (x, tracksWant, what) => check(x.full === 0 && x.trk >= 1 && JSON.stringify([...x.last].sort()) === JSON.stringify([...tracksWant].sort()), what, `pistes refaites ${x.last.join(' ')}, ${x.redone} coups, ${x.trk} re-programmation(s) de piste, ${x.full} de toute l'horloge`);
-      one(r.kickTune, ['BD'], 'un cran du TUNE du kick : seule T1 refaite');
+      one(r.kickTune, ['BD'], 'un cran du DRIVE du kick : seule T1 refaite');
       one(r.sdDecay, ['SD'], 'un cran du DECAY de la caisse claire : seule T2 refaite');
       one(r.ohDecay, ['CH', 'OH'], 'un cran du DECAY de l\'OH : son groupe de choke (T3, T4)');
       one(r.t9Decay, ['T9'], 'un cran du DECAY de T9 : seule T9 refaite');

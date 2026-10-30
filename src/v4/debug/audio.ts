@@ -12,6 +12,8 @@
 import type { DebugSource } from './index';
 import { LEGACY_KEYS, TRACKS_KEY, TRACK_KEYS, kit16FromLegacy, kit16FromStored, kit16ToStored, sameKit16, tracks, tracksLegacy } from '../audio/tracks';
 import { ensure } from '../audio/drums';
+import { kit } from '../audio/kit';
+import { voiceFx } from '../audio/voicefx';
 import { clock } from '../audio/clock';
 import { FLAGS } from '../state/flags';
 
@@ -35,6 +37,9 @@ export interface AudioLaneDebug {
     /** les vues d'avant que lisent les facades kit et voiceFx (pistes 1 a 8) */
     readonly legacy: typeof tracksLegacy.kit;
     readonly legacyVoices: typeof tracksLegacy.voices;
+    /** les facades d'avant (leurs gestes sans le geste d'une cible MIDI, qui relance le contexte) */
+    readonly kit: typeof kit;
+    readonly voiceFx: typeof voiceFx;
     /** le contexte audio d'un geste (les sondes du graphe vivant : ses tranches) ; MASTER a 0, aucun coup */
     ctx(): boolean;
     /** RUN et STOP de l'horloge (les sondes de la re-programmation par piste), MASTER a 0 */
@@ -55,6 +60,8 @@ export function audioLane(_src: DebugSource): AudioLaneDebug {
       same: sameKit16,
       legacy: tracksLegacy.kit,
       legacyVoices: tracksLegacy.voices,
+      kit,
+      voiceFx,
       ctx(): boolean {
         muted('tracks16.ctx');
         return ensure() !== undefined;
