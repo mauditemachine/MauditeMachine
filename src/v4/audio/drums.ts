@@ -1083,11 +1083,17 @@ export function scopeTaps(): { ctx: AudioContext; rytm: AudioNode; arp: AudioNod
  */
 const gatedIn = (vo: Readonly<{ choke: number; gated: boolean }>): boolean => vo.choke > 0 && vo.gated;
 
-/** Les sources dont la porte est celle-ci (le plafond : leur fin suit la coupe). */
+/**
+ * Les sources dont la porte est celle-ci (le plafond : leur fin suit la coupe). V.5.9 : une source coupee par sa porte
+ * s'arrete juste apres (2 ms apres la fin de la rampe, la porte deja a 0 : au bit pres le meme son) au lieu de tourner a
+ * vide jusqu'au bout de son tampon ; une annulation lui rend son arret d'avant (uncut).
+ */
 const soundingOf = new WeakMap<GainNode, Sounding>();
 const cutEnd = (gate: GainNode, end: number): void => {
   const x = soundingOf.get(gate);
-  if (x && end < x.end) x.end = end;
+  if (!x) return;
+  if (end < x.end) x.end = end;
+  if (end + 0.002 < x.stop) stopSrc(x.src, end + 0.002);
 };
 
 /** Coupe le coup qui sonne encore de la piste mono t : la porte tombe en 3 ms et finit a `when` (des que possible si c'est deja passe). */
@@ -1631,7 +1637,13 @@ function voice(g: Graph, inst: TrackKey, when: number, dest: AudioNode, hp: HitP
     ownBd = gate;
   }
   src.onended = () => {
-    for (const n of nodes) n.disconnect();
+    const drop = (): void => {
+      for (const n of nodes) n.disconnect();
+    };
+    // Coupee avant la fin de son tampon par sa porte ou le plafond (V.5.9) : ses filtres finissent de sonner avant d'etre
+    // debranches (comme quand la source allait jusqu'au bout)
+    if (snd.end < snd.stop - 1e-3 && typeof window !== 'undefined') window.setTimeout(drop, 1000);
+    else drop();
   };
   // LEN (V.5.1) : le coup relache en 8 ms a la fin de LEN, sa source s'arrete juste apres (les envois gardent leur queue)
   if (cutG && ex && ex.cut !== null) {
@@ -2065,10 +2077,12 @@ tracks.onChange((c: TracksChange) => {
   if (c.voice.some((t) => LEGACY_KEYS.includes(t))) emitMix();
 });
 
-/** Une porte rendue (une annulation) : sa source compte de nouveau jusqu'a sa fin (le plafond, V.5.9). */
+/** Une porte rendue (une annulation) : sa source compte de nouveau jusqu'a sa fin, et s'arrete de nouveau a son heure d'avant (V.5.9). */
 function uncut(gate: GainNode, end: number): void {
   const x = soundingOf.get(gate);
-  if (x) x.end = Math.min(x.stop, Math.max(x.end, end));
+  if (!x) return;
+  x.end = Math.min(x.stop, Math.max(x.end, end));
+  stopSrc(x.src, x.stop);
 }
 
 /**
