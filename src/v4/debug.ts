@@ -47,6 +47,7 @@ import { morph } from './audio/morph';
 import { sceneCtl } from './state/sceneCtl';
 import { func } from './state/func';
 import { dtFace } from './state/dtFace';
+import { patterns } from './state/patterns';
 import { clock, clockDebug, type ClockDebug } from './audio/clock';
 import { audioDebug, type AudioDebug } from './audio/drums';
 import { pattern, type StoredPattern } from './audio/pattern';
@@ -291,6 +292,8 @@ export interface V4Debug {
     func: typeof func;
     /** la face facon Digitakt (V.5.0, state/dtFace.ts) : rec(), mute() (off, global, pattern), setRec, setMute */
     dtFace: typeof dtFace;
+    /** les patterns A01 a H16 (V.5.2, state/patterns.ts) : get, tap, select, setBank, slotAt, filled, bankFilled */
+    patterns: typeof patterns;
     /** les pas, leur teinte et leur niveau (V.5.0) : stage.seq.info() ; la pause de PLAY : clock.paused, resumeStep */
     readonly transport: { running: boolean; paused: boolean; resumeStep: number };
   };
@@ -537,6 +540,7 @@ export function installDebug(src: DebugSource): () => void {
       ctl: sceneCtl,
       func,
       dtFace,
+      patterns,
       get transport() {
         return { running: clock.running, paused: clock.paused, resumeStep: clock.resumeStep };
       },
