@@ -870,7 +870,8 @@ if (typeof window !== 'undefined') {
     resyncTimer = window.setInterval(hitAsk, XFADE_UI.resyncMs);
   });
 }
-let mixKey = '';
+// Sa valeur au depart (V.5.9 : vide, le premier changement d'une voix, qui previent mix, refaisait toute l'horloge pour rien)
+let mixKey = `${mix.tone}|${mix.stretch}`;
 mix.subscribe(() => {
   const k = `${mix.tone}|${mix.stretch}`;
   if (k === mixKey) return;

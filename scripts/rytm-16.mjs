@@ -251,10 +251,17 @@ async function pageLive() {
   // (une cible MIDI relancerait le contexte)
   await v4.audio.ctx.suspend();
   const snap = () => ({ full: v4.clock.rescheduled, trk: v4.clock.trackRescheduled, last: [...v4.clock.lastTracks], redone: v4.clock.redone, pending: v4.clock.pending });
+  // Avant chaque geste : la file du worker vide (un coup de remplacement qui arrive refait aussi sa piste, shots.onReady) ;
+  // apres : la re-programmation groupee (12 ms), avant tout autre arrivee
+  const quiet = async () => {
+    for (let i = 0; i < 100 && (v4.audio.shots().queued > 0 || v4.audio.shots().waiting > 0); i += 1) await wait(50);
+    await wait(150);
+  };
   const turn = async (fn) => {
+    await quiet();
     const a = snap();
     fn();
-    await wait(250);
+    await wait(60);
     const b = snap();
     return { full: b.full - a.full, trk: b.trk - a.trk, last: b.last, redone: b.redone - a.redone, pending: b.pending };
   };
