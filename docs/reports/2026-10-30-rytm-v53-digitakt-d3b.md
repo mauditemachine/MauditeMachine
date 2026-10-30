@@ -71,7 +71,7 @@ Aucun son : Chromium `--mute-audio`, `?mute=1`. La lecture est muette ; la sonde
   - W tenue + Espace : LIVE REC, la lecture part, la LED de ● est à `1 blink`, l'en-tête dit `LIVE REC`. STOP éteint LIVE REC, REC et la lecture.
   - ● deux fois à la souris : LIVE REC armé (LED `1 blink`, à l'arrêt), puis PLAY lance la lecture et LIVE REC reste.
   - SD juste après le pas 5 s'écrit au pas 5, et juste avant le pas 9 au pas 9 (`0000900090000000`). Le pas 9 de ce passage n'a pas SD au journal, celui du passage suivant l'a.
-  - FREQ tourné pendant 16 x 40 ms : des P-LOCKs sur 7 pas (8 à 14), un sur un trig, des lock trigs sur les 6 pas vides.
+  - FREQ tourné pendant 16 x 40 ms : des P-LOCKs sur 6 pas (8 à 13), un sur un trig, des lock trigs sur les 5 pas vides (un premier passage : 7 pas).
   - Échap tenue + A pendant 900 ms : 7 BD effacés au fil de la lecture (`6666666666666666` devient `0000006666666660`), LIVE REC et la lecture continuent.
   - Une prise : une étape d'UNDO (1 vers 2), qui rend BD et SD vides et aucun verrou.
-- **Le téléphone** (`?portrait=1`, au repos) : identique à la V.5.2, sauf le texte FIRMWARE V.5.3.
+- **Le téléphone** (`?portrait=1`, au repos) : identique à la V.5.2, sauf le texte FIRMWARE V.5.3 (528 et 615 pixels, dans 102 x 9).
