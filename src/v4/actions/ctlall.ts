@@ -11,10 +11,10 @@ import { lcdMessage } from '../state/lcdMessage';
 import { patterns } from '../state/patterns';
 import { undo } from '../state/undo';
 import { dtFace } from '../state/dtFace';
-import { ctlAllState, trk } from '../state/trk';
+import { activeTrack, ctlAllState, trk } from '../state/trk';
 import { type SlotTarget } from '../rytm/pages';
 import { DT2_FACE, DT_FACE, type EncId, type Inst } from '../theme';
-import { TRACK_KEYS, isTrackParam, normTrackKey, tracks, type TrackKey, type TrackParamId } from '../audio/tracks';
+import { TRACK_KEYS, isLegacyTrack, isTrackParam, tracks, type TrackKey, type TrackParamId } from '../audio/tracks';
 import { st } from './state';
 import { voiceParam } from './internal/dials';
 import { seqDialOf } from './mixer';
@@ -76,11 +76,24 @@ export function ctlAllOn(): boolean {
   return m === 'held' || m === 'latched';
 }
 
-/** Avant l'ecriture : le reglage et la valeur d'avant des huit voix ; null si CONTROL ALL ne s'applique pas. */
+/**
+ * La piste source de CONTROL ALL : la piste active (la face DT2, T9 a T16 compris : relecture de la V.6.0 ; sans elle, la
+ * voix du motif). Une piste 9 a 16 ne regle que ses reglages de piste (t:, ses pages SRC), comme son P-LOCK : ses pages
+ * FLTR, AMP, FX, MOD et TRIG sont encore celles des voix 1 a 8 (V.6.1), le potard n'y ecrit rien, rien ne se recopie.
+ */
+function ctlSource(key: CtlAllKey): TrackKey | null {
+  const t = activeTrack.get();
+  if (!t) return null;
+  return isLegacyTrack(t) || key.kind === 'trk' ? t : null;
+}
+
+/** Avant l'ecriture : le reglage et la valeur d'avant des pistes ; null si CONTROL ALL ne s'applique pas. */
 export function ctlAllStart(t: SlotTarget): CtlAllKey | null {
-  if (!ctlAllOn() || !pattern.get().instrument) return null;
+  if (!ctlAllOn()) return null;
   const key = ctlAllKeyOf(t);
   if (!key) return null;
+  const act = ctlSource(key);
+  if (!act) return null;
   // Un CONTROL ALL entier, une seule etape d'UNDO : la rafale d'avant se ferme, celle-ci reste ouverte jusqu'a sa fin
   if (ctlAllBefore.size === 0) {
     // Pendant une prise de LIVE REC (V.5.3), elle reste la seule etape : pas de coupure
@@ -89,7 +102,6 @@ export function ctlAllStart(t: SlotTarget): CtlAllKey | null {
     st.ctlAllSlot = patterns.get().cur;
   }
   const id = `${key.kind}:${key.p}`;
-  const act = normTrackKey(pattern.get().instrument as string | null) ?? 'BD';
   if (!ctlAllBefore.has(id)) ctlAllBefore.set(id, { key, was: Object.fromEntries(ctlTracks(act).map((i) => [i, ctlAllGet(key, i)])) as Partial<Record<TrackKey, number>> });
   ctlAllState.set(true);
   return key;
@@ -102,7 +114,7 @@ export function ctlAllStart(t: SlotTarget): CtlAllKey | null {
  * (la revue de D3a, R4 ; plus de fermeture apres le lacher du potard, R5 et R6).
  */
 export function ctlAllApply(key: CtlAllKey): void {
-  const inst = normTrackKey(pattern.get().instrument as string | null);
+  const inst = ctlSource(key);
   if (!inst) return;
   const v = ctlAllGet(key, inst);
   for (const o of ctlTracks(inst)) if (o !== inst && ctlAllGet(key, o) !== v) ctlAllSet(key, o, v);
