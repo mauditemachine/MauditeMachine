@@ -10,6 +10,7 @@ import { pattern } from '../../../audio/pattern';
 import { TRACK_KEYS, type TrackKey } from '../../../audio/tracks';
 import { TRIG_DEF } from '../../../audio/trig';
 import { lcdMessage } from '../../../state/lcdMessage';
+import { undo } from '../../../state/undo';
 import { anyDial, dialRange } from '../../../actions';
 import type { PageSlot } from '../../../rytm/pages';
 import { registerDialSpec, registerScreenMenu } from './registry';
@@ -30,7 +31,15 @@ export const QUANTIZE_SLOTS: readonly PageSlot[] = [
 
 /** Les uTIME d'avant l'ouverture : par piste, le defaut, et chaque pas verrouille (pas : valeur). */
 let snap: Map<TrackKey, { def: number; steps: Map<number, number> }> | null = null;
-let amt = { trk: 0, ptn: 0 };
+/**
+ * Les quantites : PTN pour toutes les pistes, TRACK pour chaque piste reglee (relecture de la V.6.0 : une piste garde la
+ * plus forte des deux, PTN n'efface plus TRACK et l'ecran dit ce qui s'entend).
+ */
+let amt = { ptn: 0 };
+let trkAmt = new Map<TrackKey, number>();
+const trkOf = (k: TrackKey | null): number => (k ? (trkAmt.get(k) ?? 0) : 0);
+/** Le menu ouvert fait une seule etape d'UNDO (relecture de la V.6.0 : avant, chaque cran en faisait une). */
+let holding = false;
 
 function take(): void {
   const p = pattern.get();
@@ -42,7 +51,8 @@ function take(): void {
     const def = p.trigs[k]?.utime ?? TRIG_DEF.utime;
     if (steps.size || def !== 0) snap.set(k, { def, steps });
   }
-  amt = { trk: 0, ptn: 0 };
+  amt = { ptn: 0 };
+  trkAmt = new Map();
 }
 
 /** Ramene les uTIME d'une piste a q de la grille, depuis ceux d'avant l'ouverture. */
@@ -61,12 +71,15 @@ function apply(k: TrackKey, q: number): void {
 const pct = (v: number): string => `${Math.round(v * 100)}%`;
 
 registerDialSpec('z:qtrk', {
-  value: () => amt.trk,
+  value: () => trkOf(screenTrack()),
   set(v) {
     const t = screenTrack();
-    amt.trk = Math.max(0, Math.min(1, v));
-    if (t) apply(t, Math.max(amt.trk, amt.ptn));
-    lcdMessage.show(`QUANTIZE ${t ?? 'TRACK'} ${pct(amt.trk)}`, 1200, true);
+    const q = Math.max(0, Math.min(1, v));
+    if (t) {
+      trkAmt.set(t, q);
+      apply(t, Math.max(q, amt.ptn));
+    }
+    lcdMessage.show(`QUANTIZE ${t ?? 'TRACK'} ${pct(q)}`, 1200, true);
     menuChanged();
   },
   range: () => [0, 1],
@@ -82,7 +95,7 @@ registerDialSpec('z:qptn', {
   value: () => amt.ptn,
   set(v) {
     amt.ptn = Math.max(0, Math.min(1, v));
-    for (const k of TRACK_KEYS) apply(k, amt.ptn);
+    for (const k of TRACK_KEYS) apply(k, Math.max(amt.ptn, trkOf(k)));
     lcdMessage.show(`QUANTIZE PATTERN ${pct(amt.ptn)}`, 1200, true);
     menuChanged();
   },
@@ -99,16 +112,28 @@ registerScreenMenu({
   title: () => 'QUANTIZE',
   slots: () => QUANTIZE_SLOTS,
   paint: () => 0,
-  onOpen: take,
+  onOpen() {
+    // Une seule etape d'UNDO pour tout le menu : la rafale d'avant se ferme, celle-ci tient jusqu'a la fermeture
+    if (!holding) {
+      undo.boundary('mm808');
+      undo.hold('mm808', true);
+      holding = true;
+    }
+    take();
+  },
   onClose() {
     snap = null;
+    if (holding) {
+      holding = false;
+      undo.hold('mm808', false);
+    }
   },
-  info: () => `TRACK ${pct(amt.trk)} PTN ${pct(amt.ptn)} (${snap ? snap.size : 0} tracks with uTIME)`,
+  info: () => `TRACK ${pct(trkOf(screenTrack()))} PTN ${pct(amt.ptn)} (${snap ? snap.size : 0} tracks with uTIME)`,
   onInput(i) {
     if (!acting(i)) return true;
     const step = (n: number): void => {
       const [lo, hi] = dialRange('z:qtrk');
-      anyDial('z:qtrk', Math.max(lo, Math.min(hi, amt.trk + n / 100)));
+      anyDial('z:qtrk', Math.max(lo, Math.min(hi, trkOf(screenTrack()) + n / 100)));
     };
     if (i.kind === 'data') step(i.delta ?? 0);
     else if (i.kind === 'up' || i.kind === 'down') step((i.kind === 'up' ? 1 : -1) * (i.func ? 10 : 1));
