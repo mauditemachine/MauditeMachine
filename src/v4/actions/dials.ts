@@ -27,7 +27,7 @@ import { type ContEnc, presetAbs, readout, touchPage, voiceParam } from './inter
 import { soundDial } from './internal/kit';
 import { sceneIdOfDial, sceneTake } from './scenes';
 import { anyDial, anyDialReset, dialRange } from './anyDial';
-import { curScreen, type DialId, soundFamily } from './kit';
+import { curScreen, curSlots, type DialId, soundFamily } from './kit';
 import { lockMode, pageKnobReset } from './locks';
 import { funcDrop } from './face';
 import { presetTurn, presetTurns } from './presets';
@@ -187,7 +187,8 @@ export const globalEncId = (k: number): EncId | null => GLOBAL_ENCODERS[k] ?? nu
 
 /** Le bloc que tourne le potard de page k (MIDI rytm:knob, la face du desktop) : faceBlockOf sur l'ecran affiche ; k au telephone. */
 export function knobBlock(k: number): number | null {
-  return FACE_PAGES ? faceBlockOf(pageSlots(curScreen(), pattern.get().instrument), k) : k;
+  // La face DT2 (V.6.0) : un menu a potards (TEMPO, QUANTIZE, MIXER, SCENES) les prend (curSlots)
+  return FACE_PAGES ? faceBlockOf(curSlots(), k) : k;
 }
 
 /** Son DialId : p:<bloc>, p:k pour une case vide (pageDial dit "G: EMPTY ON ENV"). */

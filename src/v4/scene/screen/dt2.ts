@@ -17,6 +17,7 @@
 import { clock } from '../../audio/clock';
 import { pattern } from '../../audio/pattern';
 import { tracks, trackIndex, type TrackKey } from '../../audio/tracks';
+import { sampleByKey } from '../../audio/samples';
 import { curScreen, curSlots } from '../../actions';
 import { ctlAllState } from '../../state/trk';
 import { dtFace } from '../../state/dtFace';
@@ -71,7 +72,7 @@ export function trackTag(t: TrackKey | null): string {
 export function trackSoundName(t: TrackKey | null): string {
   if (!t) return '';
   const tr = tracks.of(t);
-  const smp = tr.snd ? (tr.snd.split('/').pop() ?? '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : '';
+  const smp = tr.snd ? sampleByKey(tr.snd)?.label ?? (tr.snd.split('/').pop() ?? '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : '';
   if (tr.mach === 'oneshot') return smp || 'OFF';
   return smp && tr.p.slev > 0 && tr.p.syn <= 0 ? smp : `${tr.mach.toUpperCase()} ${tr.model.toUpperCase()}`;
 }

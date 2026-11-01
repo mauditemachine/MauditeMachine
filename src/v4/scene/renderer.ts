@@ -3112,6 +3112,12 @@ export class Stage {
     const now = performance.now();
     let ring = false;
     let cap = false;
+    // LEVEL/DATA (V.6.0, la face DT2, lane B5) : son anneau et son capuchon suivent le TRK LEV de la piste active
+    if (this.sideKnobs) {
+      const d = faceKnobs.data();
+      if (this.sideKnobs.setRing('data', d)) ring = true;
+      if (this.sideKnobs.setCap('data', d.t)) cap = true;
+    }
     for (const k of c.moved) {
       const v = views[k];
       if (!v) continue;
