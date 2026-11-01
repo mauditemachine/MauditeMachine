@@ -82,8 +82,8 @@ export const OverviewHelp: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const left = Math.max(16, Math.min(vw - CARD_W - 16, box.x + box.w / 2 - CARD_W / 2));
-  // Sous le nom de la machine (MachineNav, une quarantaine de pixels sous elle)
-  const below = box.y + box.h + 64;
+  // Sous le nom de la machine (MachineNav, une quarantaine de pixels sous elle, sur deux lignes : la carte ne le couvre plus)
+  const below = box.y + box.h + 100;
   const style: React.CSSProperties = below + 220 < vh ? { left, top: below, width: CARD_W } : { left, bottom: Math.max(16, vh - box.y + 14), width: CARD_W };
   return (
     <div className="v4-ovhelp" role="note" aria-live="polite" style={style}>
