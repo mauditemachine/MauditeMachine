@@ -73,6 +73,7 @@ import { familyOf, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
 import { normTrackKey, tracks } from '../audio/tracks';
+import { activeTrack } from '../state/trk';
 import { DT2_FACE, DT_PAGE_KEYS, PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
 
 /**
@@ -695,9 +696,12 @@ export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
   return out;
 }
 
-/** La machine SRC de la piste d'une voix (V.6.0) : celle du store des 16 pistes ; null : aucune piste. */
+/**
+ * La machine SRC de la piste d'une voix (V.6.0) : celle du store des 16 pistes ; null : aucune piste. La face DT2 (l'integration
+ * de la V.6.0) : la piste active de la saisie (state/trk.ts activeTrack), T9 a T16 compris (le motif n'a alors plus de voix).
+ */
 function machineOf(inst: Inst | null): string | null {
-  const t = normTrackKey(inst as string | null);
+  const t = DT2_FACE ? activeTrack.get() : normTrackKey(inst as string | null);
   return t ? tracks.of(t).mach : null;
 }
 

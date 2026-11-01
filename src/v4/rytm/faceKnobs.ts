@@ -27,6 +27,7 @@ import { rytmPage } from '../state/rytmPage';
 import { sceneCtl } from '../state/sceneCtl';
 import { DT2_FACE, PAGE_KNOB_LETTERS, type KnobTone } from '../theme';
 import { tracks } from '../audio/tracks';
+import { activeTrack } from '../state/trk';
 import { openMenu, subscribeMenu } from '../scene/screen/menus/open';
 import type { SceneId } from './sceneData';
 import { bindingOf, from01, sceneRole, type SceneBinding } from './sceneParams';
@@ -258,7 +259,10 @@ function recompute(): FaceKnobChange | null {
   // La face DT2 (V.6.0) : un menu ouvert (et sa sous-page) change ce que tiennent les potards
   const om = DT2_FACE ? openMenu() : null;
   const screen = om ? `${curScreen()}|${om.id}|${om.pages?.().cur ?? 0}` : curScreen();
-  const voice = inst ?? '-';
+  // La face DT2 (l'integration) : la piste active et sa machine (T9 a T16 ne changent pas la voix du motif ; la page SRC suit
+  // la machine)
+  const at = DT2_FACE ? activeTrack.get() : null;
+  const voice = DT2_FACE ? `${at ?? '-'}|${at ? tracks.of(at).mach : '-'}` : (inst ?? '-');
   // LEVEL/DATA (la face DT2) : le TRK LEV de la piste active ; son anneau suit (scene/renderer.ts, faceKnobs.data)
   const dv = levelDataView();
   const dKey = `${dv.live ? 1 : 0}|${dv.t}`;
