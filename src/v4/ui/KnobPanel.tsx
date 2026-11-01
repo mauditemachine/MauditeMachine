@@ -38,6 +38,14 @@
  * de la voix en retrait, GLOBAL et NO LOCK a peine ; deux tapes retirent un
  * verrou. La rangee des voix laisse la place a la barre du LOCK : le pas, ses
  * verrous, CLEAR (ses verrous) et EXIT.
+ *
+ * V.6.0 (2026-11-01, la refonte Digitakt II, cahier dt2 1.3, lane B6) : la
+ * bascule 1-8 / 9-16 du telephone (actions/phone.ts phoneBank) au bout de la
+ * rangee des voix, montree seulement si le pattern ou le kit se servent d'une
+ * piste 9 a 16 (sans elle, le panneau de la V.5.3 au pixel pres). En 9-16, la
+ * rangee montre T9 a T16 et les huit potards reglent la piste choisie (VOL,
+ * TRK LEV, TUNE, DECAY / TONE, PAN, DELAY, REVERB) : les pages de l'ecran ne
+ * savent pas encore montrer une piste 9 a 16 (B5).
  */
 
 import React, { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
@@ -53,6 +61,9 @@ import {
   dialValueText,
   lockSummary,
   pageKnobReset,
+  phoneBank,
+  phoneBankToggle,
+  phonePick,
   rytmInfoTap,
   rytmLockClear,
   rytmLockToggle,
@@ -64,10 +75,11 @@ import {
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
+import { TRACK_KEYS, TRACK_P_DEFAULT, tracks, type TrackKey, type TrackParamId } from '../audio/tracks';
 import { stageNow } from '../midi/targets';
 import { pageSlots } from '../rytm/pages';
 import { slotBlock } from '../rytm/pageView';
-import { v127 } from '../rytm/values';
+import { v127, v127Text } from '../rytm/values';
 import type { Stage } from '../scene/renderer';
 import type { MachineId } from '../state/focus';
 import { rytmPage } from '../state/rytmPage';
@@ -479,6 +491,61 @@ const BigKnob: React.FC<Dial & { machine?: 'mm808' | 'voy' }> = ({ id, label, ma
   return <KnobView spec={spec} />;
 };
 
+/** V.6.0 : les pistes 9 a 16 et les huit reglages de la piste choisie en 9-16 (2 x 4, comme les potards de page). */
+const HI_TRACKS: readonly TrackKey[] = TRACK_KEYS.slice(8);
+const TRACK_DIALS: readonly { p: TrackParamId; label: string }[] = [
+  { p: 'level', label: 'VOL' },
+  { p: 'tlev', label: 'TRK LEV' },
+  { p: 'tune', label: 'TUNE' },
+  { p: 'decay', label: 'DECAY' },
+  { p: 'tone', label: 'TONE' },
+  { p: 'pan', label: 'PAN' },
+  { p: 'delay', label: 'DELAY' },
+  { p: 'reverb', label: 'REVERB' },
+];
+/** A zero au centre (comme leurs cibles MIDI rytm:voice:<piste>:<reglage>). */
+const TRACK_BIP: ReadonlySet<string> = new Set(['tone', 'tune', 'pan']);
+
+/**
+ * Un potard d'une piste 9 a 16 (V.6.0, le telephone en 9-16) : la valeur de la piste dans le store tracks, 0 a 127 comme
+ * l'ecran (-64 a +63 a zero au centre), TUNE au demi-ton (49 crans), TRK LEV sur 128 ; deux tapes : sa valeur de depart.
+ */
+const TrackKnob: React.FC<{ k: TrackKey | null; n: number }> = ({ k, n }) => {
+  const d = TRACK_DIALS[n];
+  const spec = useMemo<KnobSpec | null>(() => {
+    if (!k) return null;
+    const bip = TRACK_BIP.has(d.p);
+    const lo = bip ? -1 : 0;
+    const course = (): number => (tracks.param(k, d.p) - lo) / (1 - lo);
+    return {
+      label: d.label,
+      letter: PAGE_KNOB_LETTERS[n],
+      get: () => tracks.param(k, d.p),
+      set: (v) => tracks.set(k, d.p, v),
+      reset: () => TRACK_P_DEFAULT[d.p],
+      range: [lo, 1] as const,
+      steps: d.p === 'tune' ? 49 : d.p === 'tlev' ? 128 : 0,
+      bipolar: bip,
+      readout: () => `${k} ${d.label} ${v127Text(course(), bip)}`,
+      valueText: () => v127Text(course(), bip),
+      unit: () => k,
+      subscribe: (fn: () => void) => tracks.subscribe(() => fn()),
+      scale127: true,
+      selector: false,
+    };
+  }, [k, d, n]);
+  if (!spec) {
+    return (
+      <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
+        <span className="v4-knob-label">
+          <span className="v4-knob-letter">{PAGE_KNOB_LETTERS[n]}</span>
+        </span>
+      </div>
+    );
+  }
+  return <KnobView spec={spec} compact />;
+};
+
 interface Props {
   machine: 'mm808' | 'voy';
 }
@@ -488,6 +555,10 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
   const [tab, setTab] = useState(() => readTab(machine, groups));
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
   const locking = useSyncExternalStore(rytmLock.subscribe, () => rytmLock.get().step >= 0, () => false) && machine === 'mm808';
+  // V.6.0 : la bascule 1-8 / 9-16 (le MM-RYTM seulement) ; montree : bank.shown ; 9-16 : hi
+  const bank = useSyncExternalStore(phoneBank.subscribe, phoneBank.get, phoneBank.get);
+  const shown916 = machine === 'mm808' && bank.shown;
+  const hi = shown916 && bank.hi;
   const g = groups.find((x) => x.id === tab) ?? groups[0];
   const pick = (id: string): void => {
     setTab(id);
@@ -506,28 +577,47 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
           </button>
         ))}
       </div>
-      {g.pages && <PageKeys />}
-      {g.pages && locking && <LockBar />}
-      {g.voices && !(g.pages && locking) && (
-        <div className="v4-knobs-voices" role="group" aria-label="Voice to tune">
-          {INSTRUMENTS.map((inst) => (
+      {g.pages && !hi && <PageKeys />}
+      {g.pages && locking && !hi && <LockBar />}
+      {g.voices && (hi || !(g.pages && locking)) && (
+        // V.6.0 : la bascule montree, une neuvieme case au bout de la rangee (9-16, allumee en 9-16)
+        <div className="v4-knobs-voices" role="group" aria-label="Voice to tune" style={shown916 ? { gridTemplateColumns: 'repeat(9, 1fr)' } : undefined}>
+          {(hi ? HI_TRACKS : INSTRUMENTS).map((inst) => (
             <button
               key={inst}
               type="button"
               className="v4-knobs-voice"
-              aria-pressed={p.instrument === inst}
+              aria-pressed={hi ? bank.track === inst : p.instrument === inst}
               onClick={() => {
+                // V.6.0, en 9-16 : la piste du telephone (sans un son, ni MUTE ni SOLO)
+                if (hi) phonePick(inst);
                 // INFOS du MM-RYTM (R4) : la carte de la voix, choisie quand meme (la navigation, actions.ts rytmInfoTap), jamais deselectionnee
-                if (!(machine === 'mm808' && rytmInfoTap(`pad-${inst}`, true))) tuneVoice(inst);
+                else if (!(machine === 'mm808' && rytmInfoTap(`pad-${inst}`, true))) tuneVoice(inst as (typeof INSTRUMENTS)[number]);
               }}
             >
               {inst}
             </button>
           ))}
+          {shown916 && (
+            <button
+              type="button"
+              className="v4-knobs-voice"
+              data-bank="1"
+              aria-pressed={hi}
+              aria-label={hi ? 'Tracks 9 to 16 shown. Press for tracks 1 to 8' : 'Tracks 1 to 8 shown. Press for tracks 9 to 16'}
+              onClick={() => phoneBankToggle()}
+            >
+              9-16
+            </button>
+          )}
         </div>
       )}
       <div className="v4-knobs-grid" role="tabpanel" aria-label={g.label}>
-        {g.pages ? PAGE_KNOB_IDS.map((pk, k) => <PageKnob key={pk} k={k} />) : g.dials.map((d) => <BigKnob key={d.id} id={d.id} label={d.label} machine={machine} />)}
+        {g.pages && hi
+          ? TRACK_DIALS.map((d, n) => <TrackKnob key={d.p} k={bank.track} n={n} />)
+          : g.pages
+            ? PAGE_KNOB_IDS.map((pk, k) => <PageKnob key={pk} k={k} />)
+            : g.dials.map((d) => <BigKnob key={d.id} id={d.id} label={d.label} machine={machine} />)}
       </div>
     </div>
   );
