@@ -39,6 +39,10 @@ import {
   clearRow60,
   copy60,
   dispatch,
+  dropPrepared,
+  knobClick60,
+  knobNo,
+  stepShiftHold as stepShiftHold60,
   faceMenuOf,
   menuInput,
   menuLog,
@@ -171,7 +175,8 @@ export function recBody(stage: Stage | null, mouse: boolean): void {
   st.recHinted = false;
   // REC eteint : plus rien ne s'ecrit, le P-LOCK en cours s'en va aussi (la revue de D1, G10)
   if (!on) rytmLock.leave();
-  lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
+  // La face DT2 (la relecture de la V.6.0) : les 16 TRIG jouent les 16 pistes
+  lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : DT2_FACE ? 'REC OFF: TRIG 1-16 PLAY THE TRACKS' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
 }
 
 /* ---------- PLAY, STOP ---------- */
@@ -281,6 +286,15 @@ function no60Down(src: string, stage: Stage | null = null): void {
 const menuTakenLast = (): boolean => menuLog.length > 0 && menuLog[menuLog.length - 1].taken;
 
 function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
+  const r = noRelease60Body(stage, viaEsc);
+  // NO ou Echap relachent les touches gardees (cahier 2.7 ; la relecture : PAGE tapee, puis Echap, puis YES verrouillait
+  // FILL) ; une page tapee (page + YES : le hasard) aussi ; les tenues restent
+  gestureLayer.dropArmed();
+  st.pageArm = null;
+  return r;
+}
+
+function noRelease60Body(stage: Stage | null, viaEsc: boolean): boolean {
   stageSet(stage);
   // Echap au clavier : un appui et un lacher d'un coup ; FUNC engagee, la chaine d'Echap la relache (comme toujours)
   if (viaEsc) {
@@ -292,7 +306,13 @@ function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
       if (!menuInput('no', 'up')) menuSet(null);
       return true;
     }
-    if (func.engaged()) return escape();
+    if (func.engaged()) {
+      // Des mutes prepares (FUNC + TRIG) : Echap les laisse tomber, FUNC se relache sans les appliquer
+      dropPrepared();
+      return escape();
+    }
+    // Un potard presse + Echap (le NO du clavier) : sa valeur de depart (cahier 2.7)
+    if (knobNo()) return true;
     return noBody(stage, true);
   }
   // Un jumeau, le MIDI : l'appui n'a pas eu lieu, il part maintenant
@@ -986,6 +1006,22 @@ export function trackMuteFlip(k: TrackKey): void {
 }
 /** La piste active (1 a 16), null : aucune (la face DT2 ; sinon la voix du motif). */
 export const activeTrackKey = (): TrackKey | null => activeTrack.get();
+
+/**
+ * Un potard A a H clique sans glisser au pointeur (la face DT2, cahier 2.7 ; la relecture de la V.6.0) : un TRIG tenu (le
+ * P-LOCK), le verrou de ce reglage s'en va et le clic est pris (true) ; sinon le potard reste presse 1,5 s pour NO (sa
+ * valeur de depart) et le clic suit son chemin (la double tape remet aussi a zero).
+ */
+export function faceKnobPress(k: number): boolean {
+  if (!DT2_FACE) return false;
+  return knobClick60(k);
+}
+
+/** Maj + clic sur un TRIG (la face DT2, GRID REC, cahier 2.7) : un TRIG tenu de plus (ou de moins) ; true si pris. */
+export function stepShiftHold(i: number): boolean {
+  if (!DT2_FACE) return false;
+  return stepShiftHold60(i);
+}
 
 /**
  * Les LED des touches de la face DT2 que la saisie pose (cahier 2.4) : le menu ouvert (PRESET/KIT, SETTINGS, SOUNDS,

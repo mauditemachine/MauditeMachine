@@ -65,6 +65,11 @@ export interface UndoEntry {
    * par UNDO et REDO ; absent : une etape d'avant, le preset charge ne change pas
    */
   cur?: string | null;
+  /**
+   * 'slot' (V.6.0, la relecture : PTN, un pattern tenu + STOP ou PLAY sur un emplacement qui n'est pas le courant) : l'etape
+   * ne rend que la part de son emplacement (slot), sans en changer ni toucher au reste (le son, les effets, le tempo)
+   */
+  only?: 'slot';
 }
 
 /** Ce que l'en-tete montre. */
@@ -419,6 +424,9 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
   if (!t) return false;
   const now = capture(e.m);
   const nowSlot = slotOf(e.m);
+  // Une etape d'emplacement seul (V.6.0, la relecture : PTN, un pattern tenu + STOP ou PLAY) : sa part revient dans son
+  // emplacement, on n'en change pas et rien d'autre ne bouge ; si on y est venu depuis, sa part se pose sur le motif
+  if (e.only === 'slot' && e.slot !== null && nowSlot !== null) return putSlot(e, t, now, nowSlot, other);
   let data = e.data;
   // L'etape d'un autre pattern de la chaine (V.5.3, la revue de D3b R12 : une prise de LIVE REC sur une chaine) : sa part
   // revient dans son emplacement, la chaine continue ; le reste (le son, les effets, le tempo) se pose ici
@@ -476,6 +484,40 @@ function put(e: UndoEntry, other: UndoEntry[]): boolean {
   if (inChain) chainSlot = e.slot;
   if (e.cur !== undefined) presets.recall(e.m, e.cur);
   other.push({ m: e.m, data: back, at: Date.now(), slot: backSlot, kind: e.kind, ...(curNow !== undefined ? { cur: curNow } : {}) });
+  if (other.length > DEPTH) other.splice(0, other.length - DEPTH);
+  mergeable = null;
+  return true;
+}
+
+/** L'etape d'un emplacement seul (only 'slot') posee ; l'etape inverse va dans other. */
+function putSlot(e: UndoEntry, t: Track, now: Snap, nowSlot: number, other: UndoEntry[]): boolean {
+  const slot = e.slot as number;
+  const here = slot === nowSlot;
+  // L'etat d'arrivee, pour l'etape inverse : la part de l'emplacement telle qu'elle est maintenant
+  const back = here ? now : withPart(e.m, now, storedPart(e.m, slot));
+  const followed = e.m === 'mm808' && tempoSync.get() !== null ? pattern.get().bpm : null;
+  let ok = true;
+  applying = true;
+  try {
+    if (here) {
+      apply(e.m, clone(withPart(e.m, now, partOf(e.m, e.data))));
+      if (followed !== null) pattern.followBpm(followed);
+    } else if (e.m === 'mm808') patterns.restoreSlot(slot, partOf(e.m, e.data));
+    else ok = false;
+  } catch {
+    ok = false;
+    try {
+      if (here) apply(e.m, clone(now));
+    } catch {
+      /* rien de plus a faire */
+    }
+  } finally {
+    applying = false;
+  }
+  rebase(t, e.m);
+  if (!ok) return false;
+  if (!here) chainSlot = slot;
+  other.push({ m: e.m, data: back, at: Date.now(), slot, kind: e.kind, only: 'slot' });
   if (other.length > DEPTH) other.splice(0, other.length - DEPTH);
   mergeable = null;
   return true;
@@ -568,7 +610,7 @@ function readEntries(xs: unknown): UndoEntry[] {
     const e = x as Partial<UndoEntry> | null;
     if (!e || !MS.includes(e.m as PresetMachine) || !okData(e.m as PresetMachine, e.data)) continue;
     const kind: UndoKind = e.kind === 'step' || e.kind === 'preset' ? e.kind : 'edit';
-    out.push({ m: e.m as PresetMachine, data: e.data as Snap, at: typeof e.at === 'number' ? e.at : 0, slot: typeof e.slot === 'number' ? e.slot : null, kind, ...(typeof e.cur === 'string' || e.cur === null ? { cur: e.cur } : {}) });
+    out.push({ m: e.m as PresetMachine, data: e.data as Snap, at: typeof e.at === 'number' ? e.at : 0, slot: typeof e.slot === 'number' ? e.slot : null, kind, ...(typeof e.cur === 'string' || e.cur === null ? { cur: e.cur } : {}), ...(e.only === 'slot' && typeof e.slot === 'number' ? { only: 'slot' as const } : {}) });
   }
   return out;
 }
@@ -693,6 +735,21 @@ export const undo = {
     const entry: UndoEntry = { m, data: withPart(m, capture(m), storedPart(m, slot)), at: Date.now(), slot, kind: 'edit' };
     pushUndo(entry);
     take?.set(slot, entry);
+    redoStack = [];
+    mergeable = null;
+    emit();
+    persist();
+  },
+  /**
+   * PTN (V.6.0, la relecture) : un emplacement qui n'est pas le courant va etre colle ou efface (un pattern tenu + STOP ou
+   * PLAY). La signature ne voit que le motif courant : une etape a lui, tout de suite, qui ne rend que lui (only 'slot').
+   * Le courant : rien ici, la signature le voit (undo.boundary avant l'ecriture).
+   */
+  slotOp(m: PresetMachine, slot: number): void {
+    if (typeof window === 'undefined' || applying || !tracks[m]) return;
+    if (slot === slotOf(m)) return;
+    flush([m]);
+    pushUndo({ m, data: withPart(m, capture(m), storedPart(m, slot)), at: Date.now(), slot, kind: 'step', only: 'slot' });
     redoStack = [];
     mergeable = null;
     emit();

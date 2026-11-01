@@ -42,7 +42,7 @@ import { undo } from '../../state/undo';
 import { voices } from '../../state/voices';
 import { isRytmPage, screensOf, type RytmPageId } from '../../rytm/pages';
 import { CHORDS, type Chord, type ChordEvent, type ChordGesture, type ChordKey } from '../chords';
-import { DT2_FACE, DT_GESTURE, LCD_NO_VOICE, PAD_DOUBLE_TAP_MS, type Inst } from '../../theme';
+import { DT2_FACE, DT_GESTURE, PAD_DOUBLE_TAP_MS, type Inst } from '../../theme';
 import { st } from '../state';
 import { gesture as audioGesture, two } from '../shared';
 import { ctlAllEnd } from '../ctlall';
@@ -50,8 +50,11 @@ import { heardNow, liveRunning, liveVel } from './live';
 import { tapTempo } from './transport';
 import { bankViewClose, bankViewToggle } from './patterns';
 import { randomPage, reloadPage } from './pages';
-import { rytmLockTap } from '../locks';
+import { lockMode, rytmLockTap } from '../locks';
 import { liveHit } from '../live';
+// Apres ../locks (qui l'evalue deja par ../anyDial) : l'ordre de chargement ne change pas
+import { faceKnobReset } from '../dials';
+import { faceTouch } from '../../state/ctl';
 
 /* ---------------- les mots ---------------- */
 
@@ -83,6 +86,8 @@ export function hint60(h: Hint60): void {
 export const trackName = (k: TrackKey): string => `T${TRACK_KEYS.indexOf(k) + 1}`;
 const trackAt = (i: number): TrackKey | null => (Number.isInteger(i) && i >= 0 && i < TRACK_KEYS.length ? TRACK_KEYS[i] : null);
 const isLegacy = (k: TrackKey): k is Inst => TRACK_KEYS.indexOf(k) < 8;
+/** Aucune piste active (la relecture de la V.6.0 : la face DT2 parle de pistes, plus de voix ; le mot des menus de B5). */
+const NO_TRACK = 'PICK A TRACK: TRK + TRIG';
 
 /** Le Stage du dernier geste de la face (les accords le lisent pour enfoncer une touche) ; null : aucun. */
 let stageRef: Stage | null = null;
@@ -164,6 +169,8 @@ function modsOn(c: Chord): boolean {
 /** Le dernier accord parti (les sondes) et le compte par id. */
 export const chordLog: { id: string; key: ChordKey; gesture: ChordGesture; src: ChordEvent['src'] }[] = [];
 export const chordCount = new Map<string, number>();
+/** Les accords partis depuis le chargement (la vue PTN : une saisie entre ses deux PTN n'est pas l'ancien geste PTN deux fois). */
+let chordSeq = 0;
 
 /** L'accord que ferait cet evenement maintenant (sans le jouer) : les sondes, INFOS. */
 export function chordFor(key: ChordKey, g: ChordGesture): Chord | null {
@@ -190,6 +197,7 @@ export function dispatch(key: ChordKey, g: ChordGesture, src: ChordEvent['src'] 
     chordLog.push({ id: c.id, key, gesture: g, src });
     if (chordLog.length > 128) chordLog.shift();
     chordCount.set(c.id, (chordCount.get(c.id) ?? 0) + 1);
+    chordSeq += 1;
     return c;
   }
   return null;
@@ -273,13 +281,61 @@ export function trigQuickMute(i: number, stage: Stage | null): void {
   stage?.pressStep(i);
   const k = trackAt(i);
   if (!k) return;
-  if (dtFace.lastMute() === 'pattern' && isLegacy(k)) {
+  const mode = dtFace.lastMute() === 'pattern' && isLegacy(k) ? 'pattern' : 'global';
+  // FUNC vraiment tenue (ou verrouillee) : la bascule se prepare, elle part au relacher de FUNC (cahier 3.4 et 2.7 ; la
+  // relecture de la V.6.0) ; FUNC tapee (gardee pour une touche) s'en va avec ce TRIG : la bascule part tout de suite
+  const fm = func.get().mode;
+  if (fm === 'held' || fm === 'locked') {
+    const on = dtFace.prepareToggle(k, mode);
+    const n = dtFace.prepared().size;
+    const will = mode === 'pattern' && isLegacy(k) ? !pattern.pmuted(k) : !voices.isMuted(k);
+    lcdMessage.show(on ? `${trackName(k)} ${will ? 'MUTE' : 'UNMUTE'} PREPARED · ${fm === 'held' ? 'RELEASE FUNC' : 'TAP FUNC'}` : `${trackName(k)} NOT PREPARED${n ? ` · ${n} PREPARED` : ''}`, 1600);
+    return;
+  }
+  muteFlip(k, mode);
+}
+
+/** Une piste coupee ou rendue dans un mode (global, ou le mute du pattern pour 1 a 8). */
+function muteFlip(k: TrackKey, mode: 'global' | 'pattern'): void {
+  if (mode === 'pattern' && isLegacy(k)) {
     undo.boundary('mm808', 'step');
     pattern.togglePmute(k);
     lcdMessage.show(`${trackName(k)} ${pattern.pmuted(k) ? 'MUTED IN THE PATTERN' : 'BACK IN THE PATTERN'}`);
     return;
   }
   trackMuteToggle(k);
+}
+
+/** Les mutes prepares partent (le relacher de FUNC, la tape qui la deverrouille) ; l'ecran dit combien. */
+export function applyPrepared(): void {
+  const all = dtFace.takePrepared();
+  if (all.size === 0) return;
+  if ([...all.values()].includes('pattern')) undo.boundary('mm808', 'step');
+  for (const [k, mode] of all) {
+    if (mode === 'pattern' && isLegacy(k)) pattern.togglePmute(k);
+    else voices.toggleMute(k);
+  }
+  const [first] = [...all];
+  if (all.size === 1 && first) {
+    const [k, mode] = first;
+    const off = mode === 'pattern' && isLegacy(k) ? pattern.pmuted(k) : voices.isMuted(k);
+    lcdMessage.show(`${trackName(k)} ${off ? 'MUTED' : 'BACK'}`, 1200);
+  } else lcdMessage.show(`${all.size} MUTES APPLIED`, 1200);
+}
+/** NO ou Echap : la preparation s'en va sans rien appliquer. */
+export function dropPrepared(): void {
+  if (dtFace.takePrepared().size > 0) lcdMessage.show('MUTES NOT APPLIED', 900);
+}
+
+// FUNC relachee (tenue puis lachee, verrouillee puis tapee, la fenetre qui perd le focus) : les mutes prepares partent
+let funcWas = func.get().mode;
+if (DT2_FACE && typeof window !== 'undefined') {
+  func.subscribe(() => {
+    const m = func.get().mode;
+    const was = funcWas;
+    funcWas = m;
+    if ((was === 'held' || was === 'locked') && m !== 'held' && m !== 'locked') applyPrepared();
+  });
 }
 
 /** Le mode MUTE (FUNC + TRK) : TRIG 1 a 16 coupent leur piste ou la rendent (global, ou le pattern pour 1 a 8). */
@@ -352,7 +408,7 @@ export function trigWrite(i: number, stage: Stage | null): boolean {
   stage?.pressStep(i);
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return false;
   }
   if (rytmLock.get().step >= 0) {
@@ -379,7 +435,7 @@ export function trigLockTrig(i: number, stage: Stage | null): void {
   stage?.pressStep(i);
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   const p = pattern.get();
@@ -393,6 +449,72 @@ export function trigLockTrig(i: number, stage: Stage | null): void {
   pattern.setLock(k, [i], 'ltrg', 1);
   rytmPage.select(i);
   lcdMessage.show(vel > 0 ? `STEP ${two(i + 1)} ${trackName(k)} NOW A LOCK TRIG` : `STEP ${two(i + 1)} ${trackName(k)} LOCK TRIG: HOLD + KNOB`, 1800);
+}
+
+/* ---------------- les potards presses et les TRIG tenus au pointeur (cahier 2.7, 3.1, 3.3 ; la relecture) ---------------- */
+
+/** Le dernier potard A a H clique sans glisser (presse) et l'heure : il le reste DT_GESTURE.pageArmMs pour NO. */
+let knobClick: { k: number; at: number } | null = null;
+
+/** Le potard presse (tenu sans tourner, ou clique sans glisser il y a moins de pageArmMs) : son index, -1 aucun. */
+export function knobPressed(now = performance.now()): number {
+  for (let k = 0; k < 8; k += 1) if (faceTouch.pressed(k)) return k;
+  return knobClick && now - knobClick.at <= DT_GESTURE.pageArmMs ? knobClick.k : -1;
+}
+
+/**
+ * Un potard A a H clique sans glisser (la face DT2) : un TRIG tenu (le P-LOCK), le verrou de ce reglage s'en va (TRIG +
+ * potard presse) et le clic est pris ; sinon il reste presse pour NO (potard presse + NO = sa valeur de depart).
+ */
+export function knobClick60(k: number): boolean {
+  if (!DT2_FACE || k < 0 || k > 7) return false;
+  if (lockMode()) {
+    knobClick = null;
+    faceKnobReset(k);
+    return true;
+  }
+  knobClick = { k, at: performance.now() };
+  return false;
+}
+
+/** NO avec un potard presse : sa valeur de depart (ou, en P-LOCK, son verrou retire) ; true s'il y en avait un. */
+export function knobNo(): boolean {
+  const k = knobPressed();
+  if (k < 0) return false;
+  knobClick = null;
+  faceKnobReset(k);
+  return true;
+}
+
+/** Les TRIG tenus par Maj + clic (cahier 2.7) : tenus jusqu'a la sortie du P-LOCK, ou un autre Maj + clic sur eux. */
+const sticky = new Set<number>();
+
+/** Maj + clic sur un TRIG en GRID REC : il s'ajoute aux TRIG tenus (ou s'en retire) ; true si le clic est pris. */
+export function stepShiftHold(i: number): boolean {
+  if (!DT2_FACE || !recOpen() || liveOpen() || ptnView() || bankView() || muteOpen() || !activeTrack.get()) return false;
+  if (!Number.isInteger(i) || i < 0 || i > 15) return false;
+  if (sticky.has(i)) {
+    sticky.delete(i);
+    rytmLock.release(i);
+  } else {
+    // Le P-LOCK d'abord (garde) : la sortie du P-LOCK lache les TRIG tenus, il ne faut pas qu'elle les voie avant
+    if (rytmLock.get().step < 0) rytmLock.enter(i, true);
+    sticky.add(i);
+    rytmLock.hold(i);
+  }
+  rytmPage.select(i);
+  lcdMessage.show(sticky.size > 0 ? `${sticky.size} TRIG${sticky.size > 1 ? 'S' : ''} HELD · TURN A KNOB` : 'NO TRIG HELD', 1400);
+  return true;
+}
+
+if (DT2_FACE && typeof window !== 'undefined') {
+  // Le P-LOCK quitte (Echap, NO, REC eteint, une autre machine) : les TRIG tenus par Maj + clic se lachent
+  rytmLock.subscribe(() => {
+    if (rytmLock.get().step >= 0 || sticky.size === 0) return;
+    const all = [...sticky];
+    sticky.clear();
+    for (const i of all) rytmLock.release(i);
+  });
 }
 
 /* ---------------- SETTINGS tenu + TRIG (cahier 3.1 : l'intensite des LED, le retroeclairage) ---------------- */
@@ -418,6 +540,8 @@ export function trigSettings(i: number, stage: Stage | null): boolean {
 
 /** La derniere tape de PTN qui a ouvert la vue (deux fois vite : l'indice KIT: PRESET KEY). */
 let ptnOpenedAt = -Infinity;
+/** chordSeq a l'ouverture de la vue PTN (avant que son accord ne compte). */
+let ptnOpenedSeq = -1;
 const PTN_AGAIN_MS = 1600;
 
 /** PTN : la vue PTN (les TRIG sont les patterns de la banque affichee) s'ouvre ou se ferme ; la vue BANK, elle se ferme. */
@@ -431,8 +555,9 @@ export function ptnToggle(stage: Stage | null, t = performance.now()): void {
   if (dtFace.mute() !== 'off') dtFace.setMute('off');
   if (editor.get() === 'mm808') {
     editor.close();
-    // L'ancien geste (PTN deux fois = KIT) : l'indice
-    if (t - ptnOpenedAt < PTN_AGAIN_MS) hint60('kit');
+    // L'ancien geste (PTN deux fois = KIT) : l'indice, seulement si rien n'a servi entre les deux PTN (la relecture de la
+    // V.6.0 : choisir un pattern puis sortir vite montrait KIT: PRESET KEY) ; chordSeq compte l'accord de l'ouverture
+    if (t - ptnOpenedAt < PTN_AGAIN_MS && chordSeq === ptnOpenedSeq + 1) hint60('kit');
     else lcdMessage.show('PTN CLOSED', 900);
     ptnOpenedAt = -Infinity;
     return;
@@ -440,6 +565,7 @@ export function ptnToggle(stage: Stage | null, t = performance.now()): void {
   editor.setGrid(false);
   editor.toggle('mm808');
   ptnOpenedAt = t;
+  ptnOpenedSeq = chordSeq;
   lcdMessage.show(`PATTERNS ${bankName(patterns.shown())}: TRIG 1-16 · LEFT RIGHT: BANK`, 2000);
 }
 
@@ -480,6 +606,8 @@ export function ptnBankStep(dir: -1 | 1): void {
  */
 let ptnHeld: { slot: number; until: number } | null = null;
 export function ptnHold(k: number): void {
+  // Un pattern tenu a servi : le PTN suivant n'est pas l'ancien geste PTN deux fois
+  ptnOpenedAt = -Infinity;
   const slot = patterns.slotAt(k);
   ptnHeld = { slot, until: performance.now() + DT_GESTURE.pageArmMs * 2 };
   lcdMessage.show(`${slotName(slot)}: REC COPY · STOP PASTE · PLAY CLEAR`, 2400);
@@ -516,12 +644,17 @@ export function ptnSlotOp(op: 'copy' | 'paste' | 'clear'): boolean {
     }
     part = JSON.parse(JSON.stringify(c.data)) as typeof part;
   }
-  undo.boundary('mm808', 'step');
   if (cur) {
+    undo.boundary('mm808', 'step');
     const steps = (part.steps ?? emptySteps()) as Steps;
     pattern.replace(steps, (part.locks ?? {}) as never);
     pattern.setTrigs((part.trigs ?? null) as never);
-  } else patterns.restoreSlot(slot, part);
+  } else {
+    // Un autre emplacement (la relecture de la V.6.0) : la signature d'UNDO ne voit que le motif courant, l'etape est posee
+    // a part et ne rend que cet emplacement
+    undo.slotOp('mm808', slot);
+    patterns.restoreSlot(slot, part);
+  }
   lcdMessage.show(op === 'paste' ? `PATTERN PASTED ON ${slotName(slot)}` : `PATTERN ${slotName(slot)} CLEARED`);
   return true;
 }
@@ -543,7 +676,7 @@ export function copy60(): void {
   if (dtFace.rec()) {
     const k = activeTrack.get();
     if (!k) {
-      lcdMessage.show(LCD_NO_VOICE);
+      lcdMessage.show(NO_TRACK);
       return;
     }
     clipboard.put('track', { track: k, steps: p.steps[k] ?? '0'.repeat(STEP_COUNT), locks: p.locks[k] ? JSON.parse(JSON.stringify(p.locks[k])) : undefined, trigs: p.trigs[k] ? { ...p.trigs[k] } : undefined });
@@ -577,7 +710,7 @@ export function paste60(): void {
   }
   const k = activeTrack.get();
   if (!row || !k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   undo.boundary('mm808', 'step');
@@ -594,7 +727,7 @@ export function paste60(): void {
 export function clearRow60(): boolean {
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return true;
   }
   const p = pattern.get();
@@ -611,7 +744,7 @@ export function clearRow60(): boolean {
 export function trackSoundOp(op: 'copy' | 'paste' | 'clear'): void {
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   const i = TRACK_KEYS.indexOf(k);
@@ -683,7 +816,7 @@ export function microTime(dir: -1 | 1): boolean {
 export function trackLevelTurn(delta: number): void {
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   const v0 = tracks.param(k, 'tlev');
@@ -729,15 +862,21 @@ export function fillLatch(): void {
   fill.latch(true);
   lcdMessage.show('FILL LATCHED · PAGE: OFF', 1600);
 }
-/** PAGE encore (FILL verrouille) : il se leve. */
+/**
+ * PAGE encore (FILL verrouille, ou un cycle arme ou en cours) : il se leve (cahier 1.4 : "PAGE encore = fin"). PAGE a servi
+ * (la relecture de la V.6.0) : son lacher ne la garde pas, un YES juste apres ne re-verrouille pas FILL.
+ */
 export function fillUnlatch(): void {
-  fill.latch(false);
+  if (fill.latched) fill.latch(false);
+  fill.cancelCycle();
+  gesture.use('ptnpage');
   lcdMessage.show('FILL OFF', 900);
 }
-/** YES puis PAGE : FILL un cycle, au debut de la mesure suivante. */
+/** YES puis PAGE : FILL un cycle, au debut de la mesure suivante ; PAGE a servi (son lacher ne la garde pas). */
 export function fillCycle(): void {
   if (!barOff) barOff = clock.onBar(() => fill.cycleBar());
   fill.armCycle();
+  gesture.use('ptnpage');
   lcdMessage.show('FILL: ONE CYCLE, FROM THE NEXT BAR', 1600);
 }
 

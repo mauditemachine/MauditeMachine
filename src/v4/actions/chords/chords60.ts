@@ -14,14 +14,18 @@ import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
 import { func } from '../../state/func';
 import { fill } from '../../state/fill';
 import type { ModKey } from '../../state/gesture';
+import { trk, trkFresh } from '../../state/trk';
 import { st } from '../state';
 import { lcdMessage } from '../../state/lcdMessage';
 import {
   bankView,
+  dropPrepared,
   fillCycle,
   fillLatch,
   fillUnlatch,
   hint60,
+  knobNo,
+  knobPressed,
   liveOpen,
   menuInput,
   menuOpen,
@@ -64,6 +68,12 @@ import { anyDial, anyDialValue } from '../anyDial';
 import { levelDataTurn } from '../mixer';
 import type { RytmPageId } from '../../rytm/pages';
 import type { Chord, ChordKey } from './types';
+
+/** REC, PLAY ou STOP seules : une TRK qui ne sert plus de modificateur (fermee, ou gardee depuis plus de 1,5 s) s'eteint. */
+function trkDrop(): void {
+  const m = trk.get().mode;
+  if ((m === 'latched' || m === 'closing') && !trkFresh()) trk.cancel();
+}
 
 /** Une entree, ses chemins par defaut deduits de la touche (le texte pour INFOS et le test d'enumeration). */
 function c(e: Omit<Chord, 'version' | 'paths'> & { paths?: Chord['paths']; version?: Chord['version'] }): Chord {
@@ -218,12 +228,16 @@ export const CHORDS_60: readonly Chord[] = [
     info: 'no',
     when: () => func.get().mode === 'locked',
     run: () => {
+      // Des mutes prepares (FUNC verrouillee + TRIG) : NO les laisse tomber, sans les appliquer
+      dropPrepared();
       func.cancel();
       lcdMessage.show('FUNC OFF', 700);
       return true;
     },
   }),
   c({ id: 'no.func', key: 'no', gesture: 'press', mods: ['func'], prio: 90, info: 'no', run: () => reloadKey() }),
+  // Un potard presse (tenu sans tourner, ou clique sans glisser juste avant) + NO : sa valeur de depart (cahier 2.7, 3.1)
+  c({ id: 'no.knob', key: 'no', gesture: 'press', mods: [], prio: 82, info: 'no', when: () => knobPressed() >= 0, run: () => knobNo() }),
   c({ id: 'no.page', key: 'no', gesture: 'press', mods: [], prio: 80, info: 'no', when: () => pageArmed() && !!st.savePoint, run: () => pageReload() }),
   c({ id: 'no', key: 'no', gesture: 'release', mods: [], prio: 0, info: 'no', run: () => void noBody(stageNow()) }),
 
@@ -231,17 +245,19 @@ export const CHORDS_60: readonly Chord[] = [
   c({ id: 'rec.func', key: 'rec', gesture: 'press', mods: ['func'], prio: 90, info: 'rec', run: () => copyKey() }),
   c({ id: 'play.func', key: 'play', gesture: 'press', mods: ['func'], prio: 90, info: 'run', run: () => clearKey(stageNow()) }),
   c({ id: 'stop.func', key: 'stop', gesture: 'press', mods: ['func'], prio: 90, info: 'stop', run: () => pasteKey() }),
-  // TRK + REC / PLAY / STOP : le son de la piste active (cahier 3.2)
-  c({ id: 'rec.trk', key: 'rec', gesture: 'press', mods: ['trk'], prio: 85, info: 'rec', run: () => trackSoundOp('copy') }),
-  c({ id: 'play.trk', key: 'play', gesture: 'press', mods: ['trk'], prio: 85, info: 'run', run: () => trackSoundOp('clear') }),
-  c({ id: 'stop.trk', key: 'stop', gesture: 'press', mods: ['trk'], prio: 85, info: 'stop', run: () => trackSoundOp('paste') }),
+  // TRK + REC / PLAY / STOP : le son de la piste active (cahier 3.2) ; TRK tenue, ou tapee il y a moins de 1,5 s (2.7, la
+  // relecture : gardee sans fin, elle prenait PLAY et STOP longtemps apres) ; sinon REC, PLAY et STOP font les leurs
+  c({ id: 'rec.trk', key: 'rec', gesture: 'press', mods: ['trk'], prio: 85, info: 'rec', when: () => trkFresh(), run: () => trackSoundOp('copy') }),
+  c({ id: 'play.trk', key: 'play', gesture: 'press', mods: ['trk'], prio: 85, info: 'run', when: () => trkFresh(), run: () => trackSoundOp('clear') }),
+  c({ id: 'stop.trk', key: 'stop', gesture: 'press', mods: ['trk'], prio: 85, info: 'stop', when: () => trkFresh(), run: () => trackSoundOp('paste') }),
   // Un pattern tenu dans la vue PTN + REC / PLAY / STOP : copier, effacer, coller (cahier 3.3)
   c({ id: 'rec.ptn', key: 'rec', gesture: 'press', mods: [], prio: 80, info: 'rec', when: () => ptnHeldSlot() >= 0, run: () => ptnSlotOp('copy') }),
   c({ id: 'play.ptn', key: 'play', gesture: 'press', mods: [], prio: 80, info: 'run', when: () => ptnHeldSlot() >= 0, run: () => ptnSlotOp('clear') }),
   c({ id: 'stop.ptn', key: 'stop', gesture: 'press', mods: [], prio: 80, info: 'stop', when: () => ptnHeldSlot() >= 0, run: () => ptnSlotOp('paste') }),
-  c({ id: 'rec', key: 'rec', gesture: 'press', mods: [], prio: 0, info: 'rec', run: (e) => recBody(stageNow(), e.src === 'mouse') }),
-  c({ id: 'play', key: 'play', gesture: 'press', mods: [], prio: 0, info: 'run', run: () => void playBody(stageNow()) }),
-  c({ id: 'stop', key: 'stop', gesture: 'press', mods: [], prio: 0, info: 'stop', run: () => stopBody(stageNow()) }),
+  // Seules : une TRK qui ne sert plus (fermee, ou gardee trop tot) s'eteint avec elles
+  c({ id: 'rec', key: 'rec', gesture: 'press', mods: [], prio: 0, info: 'rec', run: (e) => (trkDrop(), recBody(stageNow(), e.src === 'mouse')) }),
+  c({ id: 'play', key: 'play', gesture: 'press', mods: [], prio: 0, info: 'run', run: () => void (trkDrop(), playBody(stageNow())) }),
+  c({ id: 'stop', key: 'stop', gesture: 'press', mods: [], prio: 0, info: 'stop', run: () => (trkDrop(), stopBody(stageNow())) }),
 
   /* ---------- TRK, PTN ---------- */
   // FUNC + TRK : le mode MUTE (le dernier retenu, cahier 3.4)
@@ -251,8 +267,8 @@ export const CHORDS_60: readonly Chord[] = [
 
   /* ---------- PAGE et FILL ---------- */
   c({ id: 'ptnpage.func', key: 'ptnpage', gesture: 'press', mods: ['func'], prio: 90, info: 'ptnpage', version: '6.1', run: () => soon('6.1') }),
-  // PAGE encore, FILL verrouille : il se leve
-  c({ id: 'ptnpage.unlatch', key: 'ptnpage', gesture: 'press', mods: [], prio: 86, info: 'ptnpage', when: () => fill.latched, run: () => fillUnlatch() }),
+  // PAGE encore, FILL verrouille ou un cycle arme ou en cours : il se leve (1.4 : PAGE encore = fin)
+  c({ id: 'ptnpage.unlatch', key: 'ptnpage', gesture: 'press', mods: [], prio: 86, info: 'ptnpage', when: () => fill.latched || fill.cycle !== 'off', run: () => fillUnlatch() }),
   // YES puis PAGE : un cycle
   c({ id: 'ptnpage.yes', key: 'ptnpage', gesture: 'press', mods: ['yes'], prio: 85, info: 'ptnpage', run: () => fillCycle() }),
   // PAGE tenue : FILL tant qu'on la tient

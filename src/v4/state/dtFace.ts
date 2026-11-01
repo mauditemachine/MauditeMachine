@@ -14,6 +14,7 @@
  */
 
 import type { ScreenMenuId } from '../scene/screen/menus/registry';
+import type { TrackKey } from '../audio/tracks';
 
 export type MuteView = 'off' | 'global' | 'pattern';
 
@@ -66,6 +67,7 @@ export interface DtPersonal {
 const INIT: DtFaceStateDt2 = { rec: false, mute: 'off', bank: false, live: false, keyboard: false, song: 'off', menu: null, ptnPage: 0 };
 let state: DtFaceStateDt2 = INIT;
 let lastMute: Exclude<MuteView, 'off'> = 'global';
+let prepared: ReadonlyMap<TrackKey, Exclude<MuteView, 'off'>> = new Map();
 let personal: DtPersonal = { led: 'max', backlight: true, trkSelect: 'normal' };
 const listeners = new Set<() => void>();
 
@@ -125,6 +127,29 @@ export const dtFace = {
   },
   /** le dernier mode de MUTE montre (global au depart) : FUNC + TRK et le QUICK MUTE le reprennent */
   lastMute: (): Exclude<MuteView, 'off'> => lastMute,
+  /**
+   * Les mutes prepares (V.6.0, la relecture ; cahier 3.4 : FUNC tenue + TRIG, appliques au relacher de FUNC) : chaque piste
+   * et le mode ou sa bascule partira (global, ou le pattern pour 1 a 8). L'ecran peut les montrer (+ et X de l'apercu).
+   */
+  prepared: (): ReadonlyMap<TrackKey, Exclude<MuteView, 'off'>> => prepared,
+  /** Une piste preparee, ou retiree de la preparation si elle y etait (rend true si elle y est maintenant). */
+  prepareToggle(k: TrackKey, mode: Exclude<MuteView, 'off'>): boolean {
+    const next = new Map(prepared);
+    const on = !next.has(k);
+    if (on) next.set(k, mode);
+    else next.delete(k);
+    prepared = next;
+    listeners.forEach((fn) => fn());
+    return on;
+  },
+  /** La preparation prise (pour l'appliquer) et videe. */
+  takePrepared(): ReadonlyMap<TrackKey, Exclude<MuteView, 'off'>> {
+    const out = prepared;
+    if (out.size === 0) return out;
+    prepared = new Map();
+    listeners.forEach((fn) => fn());
+    return out;
+  },
   /** PERSONALIZE (6.0) : l'intensite des LED, le retroeclairage, TRK SELECT */
   personal: (): DtPersonal => personal,
   setPersonal(patch: Partial<DtPersonal>): void {

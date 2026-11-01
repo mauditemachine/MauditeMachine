@@ -162,6 +162,11 @@ export const gesture: GestureLayer & {
   armed(k: ModKey): boolean;
   /** tenue par une main en ce moment */
   held(k: ModKey): boolean;
+  /**
+   * NO ou Echap (cahier 2.7 : "NO ou Echap relachent" ; la relecture de la V.6.0) : les touches gardees (tapees) se
+   * relachent, TRK gardee ou qui se ferme aussi, FUNC gardee pour une touche ; les tenues et FUNC verrouillee restent
+   */
+  dropArmed(): void;
   /** les tests : l'horloge de la couche (performance.now par defaut, null la rend) */
   setClock(fn: (() => number) | null): void;
 } = {
@@ -254,6 +259,18 @@ export const gesture: GestureLayer & {
     if (k === 'func') func.cancel();
     else if (k === 'trk') trk.cancel();
     else if (own.delete(k)) emit();
+  },
+  dropArmed(): void {
+    let changed = false;
+    for (const [k, e] of own) {
+      if (e.mode !== 'armed') continue;
+      own.delete(k);
+      changed = true;
+    }
+    const tm = trk.get().mode;
+    if (tm === 'latched' || tm === 'closing') trk.cancel();
+    if (func.get().mode === 'once') func.cancel();
+    if (changed) emit();
   },
   releaseAll(): void {
     func.releaseAll();

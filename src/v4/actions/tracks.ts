@@ -98,6 +98,8 @@ export function voiceMute(inst: Inst, on: boolean): void {
  * gardee ou en fermeture), eteinte avec elle.
  */
 export const TRK_HINT = 'TRK: PICK A VOICE, STEPS 1-8';
+/** La face DT2 (la relecture de la V.6.0, cahier 3.1 : les messages de place perimes) : les 16 TRIG choisissent les 16 pistes. */
+const TRK_HINT_60 = 'TRK: PICK A TRACK, TRIG 1-16';
 const trkSay = (text: string): void => {
   st.trkLcd = text;
   lcdMessage.show(text, TRK_HINT_MS);
@@ -212,7 +214,7 @@ export const trkDown = (src: string, t = performance.now()): void => {
   if (DT_FACE && dtFace.mute() !== 'off' && !trk.engaged()) dtFace.setMute('off');
   const was = trk.engaged();
   trk.down(src, t);
-  if (!was && trk.engaged()) trkSay(TRK_HINT);
+  if (!was && trk.engaged()) trkSay(DT2_FACE ? TRK_HINT_60 : TRK_HINT);
 };
 /** Les appuis de TRK pris par FUNC (V.5.0) : leur lacher ne fait rien. */
 const trkTaken = new Set<string>();
