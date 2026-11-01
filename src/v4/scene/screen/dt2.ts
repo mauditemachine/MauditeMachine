@@ -134,7 +134,12 @@ function paintHead(screen: Screen, title: string, cur: number, waiting: boolean,
   const nw = H.name[1] - H.name[0];
   let name = '';
   const mute = dtFace.mute();
-  if (msg && msg.text) {
+  // Des mutes prepares (FUNC tenue ou verrouillee + TRIG, cahier 3.4) : l'apercu des 16 pistes passe avant le message, le +
+  // et le X disent ce qui partira au relacher de FUNC (le QUICK MUTE hors du mode MUTE compris)
+  const prep = dtFace.prepared();
+  if (prep.size > 0) {
+    name = paintMutePreview(screen, H.name[0], mute !== 'off' ? mute : ([...prep.values()][0] ?? 'global'), prep);
+  } else if (msg && msg.text) {
     name = screen.fitText(msg.text, nw, 8.6, 0.3, 600);
     screen.text(name, H.name[0], 13.5, 8.6, INK, 600, 'left', 0.3);
   } else if (mute !== 'off') {
@@ -175,8 +180,12 @@ function paintHead(screen: Screen, title: string, cur: number, waiting: boolean,
   return waiting ? WAIT_BLINK_MS - (now % WAIT_BLINK_MS) + 1 : msg ? Math.max(60, msg.until - now + 1) : 0;
 }
 
-/** L'apercu des 16 pistes en MUTE (cahier 2.5) : un carre = joue, un trait = coupee ; rend son texte (o, -). */
-function paintMutePreview(screen: Screen, x0: number, mute: 'global' | 'pattern'): string {
+/**
+ * L'apercu des 16 pistes en MUTE (cahier 2.5) : un carre = joue, un trait = coupee ; rend son texte (o, -). Les mutes
+ * prepares (cahier 3.4, la relecture de la V.6.0 : dtFace.prepared, la saisie les prepare) : un X sur une piste qui se coupera
+ * au relacher de FUNC, un + sur une piste qui reviendra (x, +), chacune dans son mode (global, ou le pattern pour 1 a 8).
+ */
+function paintMutePreview(screen: Screen, x0: number, mute: 'global' | 'pattern', prep: ReadonlyMap<TrackKey, 'global' | 'pattern'> = NO_PREP): string {
   const pm = pmutesNow();
   let out = mute === 'global' ? 'G ' : 'P ';
   screen.text(mute === 'global' ? 'GLB' : 'PTN', x0, 13.5, 7, HALF, 700, 'left', 0.4);
@@ -184,13 +193,28 @@ function paintMutePreview(screen: Screen, x0: number, mute: 'global' | 'pattern'
     const x = x0 + 22 + i * 7.6;
     // Les 16 pistes (l'integration de la V.6.0) : le mute global sur 16 (state/voices.ts hiMuted), celui du pattern sur 1 a 8
     const key = TRACK_KEYS[i];
-    const off = mute === 'global' ? voices.isMuted(key) : (pm as readonly string[]).includes(key);
+    const pmode = prep.get(key);
+    const off = (pmode ?? mute) === 'global' ? voices.isMuted(key) : (pm as readonly string[]).includes(key);
+    if (pmode) {
+      // Preparee : X (elle se coupera) ou + (elle reviendra), un peu plus grands que le carre
+      if (off) {
+        screen.line([x + 2.5, 6.6, x + 2.5, 13.4], INK, 1.3);
+        screen.line([x - 0.9, 10, x + 5.9, 10], INK, 1.3);
+      } else {
+        screen.line([x - 0.3, 7.2, x + 5.3, 12.8], INK, 1.3);
+        screen.line([x - 0.3, 12.8, x + 5.3, 7.2], INK, 1.3);
+      }
+      out += off ? '+' : 'x';
+      continue;
+    }
     if (off) screen.line([x, 10, x + 5, 10], INK, 1.2);
     else screen.roundRect(x, 7.5, 5, 5, 0.8, INK);
     out += off ? '-' : 'o';
   }
   return out;
 }
+
+const NO_PREP: ReadonlyMap<TrackKey, 'global' | 'pattern'> = new Map();
 
 /* ---------------- la colonne gauche ---------------- */
 
