@@ -790,13 +790,23 @@ voices.subscribe(ask);
  */
 const lastHit = new Map<TrackKey, string>(TRACK_KEYS.map((t) => [t, hitKeyOf(t)]));
 const lastSound = new Map<TrackKey, string>(TRACK_KEYS.map((t) => [t, soundKeyOf(t)]));
+const lastLfo = new Map<TrackKey, string>(TRACK_KEYS.map((t) => [t, lfoKey(t)]));
 let lastSc = tracks.scSrc();
 tracks.onChange((c) => {
   const ts = new Set<TrackKey>();
+  // Un reglage de LFO (relecture de V.5.9, R6) : chaque coup programme porte sa liste de LFO, calculee par seqStep avec les
+  // reglages du moment (les repetitions d'un retrig aussi) ; une re-programmation de piste la rejouerait telle quelle. Toute
+  // l'horloge est refaite depuis l'etat du sequenceur, comme en V.5.3 : le reglage atteint les coups deja programmes
+  let all = false;
   for (const t of c.voice) {
     const k = hitKeyOf(t);
     if (k === lastHit.get(t)) continue;
     lastHit.set(t, k);
+    const lk = lfoKey(t);
+    if (lk !== lastLfo.get(t)) {
+      lastLfo.set(t, lk);
+      all = true;
+    }
     ts.add(t);
   }
   for (const t of c.sound) {
@@ -816,9 +826,12 @@ tracks.onChange((c) => {
     }
   }
   const sc = tracks.scSrc();
-  if (c.beh || sc !== lastSc) {
+  if (c.beh || sc !== lastSc || all) {
     lastSc = sc;
-    for (const t of TRACK_KEYS) lastHit.set(t, hitKeyOf(t));
+    for (const t of TRACK_KEYS) {
+      lastHit.set(t, hitKeyOf(t));
+      lastLfo.set(t, lfoKey(t));
+    }
     ask();
     return;
   }
@@ -1260,6 +1273,8 @@ export interface ClockDebug {
   readonly trackRescheduled: number;
   readonly lastTracks: readonly TrackKey[];
   readonly redone: number;
+  /** les coups programmes d'une piste et leurs LFO (destination, profondeur) : la sonde de la relecture R6 */
+  planLfo(t: TrackKey): { when: number; rep: boolean; lfo: { dest: string; depth: number }[] }[];
 }
 
 export const clockDebug: ClockDebug = {
@@ -1318,5 +1333,10 @@ export const clockDebug: ClockDebug = {
   },
   get redone() {
     return stats.redone;
+  },
+  planLfo(t) {
+    const out: { when: number; rep: boolean; lfo: { dest: string; depth: number }[] }[] = [];
+    for (const p of plan) for (const it of p.items) if (it.kind === 'hit' && it.t === t) out.push({ when: it.h.t, rep: it.h.rep, lfo: (it.h.lfo?.list ?? []).map((l) => ({ dest: String(l.dest), depth: l.depth })) });
+    return out;
   },
 };
