@@ -307,6 +307,21 @@ export function phonePadTap(inst: string, stage: Stage | null, double = false): 
   return true;
 }
 
+/**
+ * Une piste 9 a 16 touchee dans le Dock ou le KnobPanel du telephone en 9-16 (selectInstrument d'aujourd'hui pour 1 a 8) :
+ * en mode SOLO ou MUTE, elle passe en solo ou se coupe ; sinon elle devient la piste du telephone, sans un son.
+ */
+export function phoneTrackSelect(k: TrackKey): void {
+  gesture();
+  const v = voices.get();
+  if (v.soloMode) soloVoice(asVoiceKey(k));
+  else if (v.muteMode) muteVoice(asVoiceKey(k));
+  else {
+    phonePick(k);
+    lcdMessage.show(`KNOBS > ${trackName(k)}`);
+  }
+}
+
 /** Une double tape sur une voix du Dock ou du KnobPanel : 1 a 8, padMute d'aujourd'hui ; 9 a 16, trackMute. */
 export function trackMuteToggle(k: TrackKey, stage: Stage | null = null): void {
   if (isLegacyTrack(k)) padMute(k, stage);

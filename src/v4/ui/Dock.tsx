@@ -43,10 +43,20 @@
  * replie, posee alors sur son bord haut). Le choix est retenu
  * (localStorage mm.v4.dock). Replie, il sort du clavier et des lecteurs
  * d'ecran (inert).
+ *
+ * V.6.0 (2026-11-01, la refonte Digitakt II, cahier dt2 1.3, lane B6) : la
+ * bascule 1-8 / 9-16 (actions/phone.ts phoneBank). Elle n'apparait que si le
+ * pattern ou le kit se servent d'une piste 9 a 16 : sans elle, le Dock est
+ * celui de la V.5.3 au pixel pres. Montree, RANDOM ne tient plus qu'une
+ * rangee et la touche 9-16 prend la place sous lui ; allumee, les voix sont
+ * T9 a T16 (toucher : la piste du telephone, deux fois vite : coupee ou
+ * rendue) et les pas ceux de cette piste (une tape pose ou baisse le pas ;
+ * le LOCK des pistes 9 a 16 attend B4 et B5).
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { MODE_HOLD_MS, clearPattern, modeHold, randomPattern, muteToggle, padMute, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, rytmInfoTap } from '../actions';
+import { MODE_HOLD_MS, clearPattern, modeHold, randomPattern, muteToggle, padMute, phoneBank, phoneBankToggle, phoneStepToggle, phoneTrackSelect, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, rytmInfoTap, trackMuteToggle } from '../actions';
+import { TRACK_KEYS, type TrackKey } from '../audio/tracks';
 import { lockMask } from '../audio/locks';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
@@ -60,6 +70,25 @@ import { DockPages, KnobPanel, useDockInset, useDockPage } from './KnobPanel';
 import { FaIcon } from './uiIcons';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
+/** Les pistes 9 a 16 (la bascule du telephone, V.6.0). */
+const HI_TRACKS: readonly TrackKey[] = TRACK_KEYS.slice(8);
+
+/**
+ * La touche de la bascule 1-8 / 9-16 (V.6.0) : la forme d'une voix, allumee en 9-16. Montree seulement quand le pattern ou
+ * le kit se servent d'une piste 9 a 16.
+ */
+const BankKey: React.FC<{ hi: boolean; className: string }> = ({ hi, className }) => (
+  <button
+    type="button"
+    className={className}
+    data-bank="1"
+    aria-pressed={hi}
+    aria-label={hi ? 'Tracks 9 to 16 shown. Press for tracks 1 to 8' : 'Tracks 1 to 8 shown. Press for tracks 9 to 16'}
+    onClick={() => phoneBankToggle()}
+  >
+    9-16
+  </button>
+);
 
 const DOCK_KEY = 'mm.v4.dock';
 /** La page du Dock (2026-10-04) : le sequenceur, ou les potards en gros (ui/KnobPanel.tsx). */
@@ -213,13 +242,23 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   // La derniere tape sur une voix (2026-10-22) : la deuxieme, vite, la coupe ou la rend ; pick, la premiere la choisissait
   // (hors des modes MUTE et SOLO)
   const lastVoice = useRef<{ k: Inst; t: number; pick: boolean } | null>(null);
+  // V.6.0 : la bascule 1-8 / 9-16 (montree : bank.shown ; 9-16 : hi) et la derniere tape sur une piste 9 a 16
+  const bank = useSyncExternalStore(phoneBank.subscribe, phoneBank.get, phoneBank.get);
+  const hi = bank.shown && bank.hi;
+  const lastTrack = useRef<{ k: TrackKey; t: number } | null>(null);
   const inst = p.instrument;
+  // La piste des pas : la voix choisie (1 a 8), ou en 9-16 la piste du telephone
+  const cur: TrackKey | null = hi ? bank.track : inst;
   const bpm = p.bpm;
-  const locks = lockMask(p.locks, inst);
+  const locks = lockMask(p.locks, cur);
 
   const onStep = (i: number): void => {
     // INFOS allume (R4) : la carte du pas, il ne change pas
     if (rytmInfos.dock(`step-${i + 1}`)) return;
+    if (hi) {
+      if (!phoneStepToggle(i, getStage())) setNudge((n) => n + 1);
+      return;
+    }
     if (!stepToggle(i, getStage(), true)) setNudge((n) => n + 1);
   };
 
@@ -238,7 +277,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       >
         <Icon name={shown ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'} />
       </button>
-      <div ref={dockRef} id="v4-dock" className="v4-dock" data-open={shown ? '1' : '0'} data-mode={inst ? 'edit' : 'union'} data-page={page}>
+      <div ref={dockRef} id="v4-dock" className="v4-dock" data-open={shown ? '1' : '0'} data-mode={cur ? 'edit' : 'union'} data-page={page}>
         <DockPages
           page={page}
           onPage={setPage}
@@ -263,13 +302,48 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
           <>
         <div key={nudge} className="v4-dock-insts" data-nudge={nudge > 0 ? '1' : '0'} role="group" aria-label="Instrument, tap one, then the steps">
           {/* RANDOM a gauche des voix, comme sur la machine */}
-          <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => rytmInfos.dock('random') || randomPattern(getStage())}>
+          {/* V.6.0 : la bascule montree, RANDOM ne tient plus qu'une rangee, la touche 9-16 sous lui (apres les quatre premieres voix) */}
+          <button type="button" className="v4-dock-inst v4-dock-random" style={bank.shown ? { gridRow: 'span 1' } : undefined} aria-label="Random house pattern" onClick={() => rytmInfos.dock('random') || randomPattern(getStage())}>
             <Icon name="fa-solid fa-dice" />
           </button>
-          {INSTRUMENTS.map((k) => {
+          {hi &&
+            HI_TRACKS.map((k, n) => {
+              const muted = voices.isMuted(k);
+              const solo = voices.isSolo(k);
+              return (
+                <React.Fragment key={k}>
+                  {n === 4 && <BankKey hi className="v4-dock-inst" />}
+                  <button
+                    type="button"
+                    className="v4-dock-inst"
+                    data-muted={muted ? '1' : '0'}
+                    data-solo={solo ? '1' : '0'}
+                    aria-pressed={v.soloMode ? solo : v.muteMode ? muted : bank.track === k}
+                    aria-label={v.soloMode ? `Solo track ${k}` : v.muteMode ? `Mute track ${k}` : `Select track ${k}${muted ? ', muted' : ''}${solo ? ', solo' : ''}. Twice quickly: ${muted ? 'unmute' : 'mute'}`}
+                    onClick={(e) => {
+                      // Deux tapes vite sur la meme piste : coupee ou rendue (comme une voix 1 a 8)
+                      const last = lastTrack.current;
+                      if (last && last.k === k && e.timeStamp - last.t <= PAD_DOUBLE_TAP_MS) {
+                        lastTrack.current = null;
+                        trackMuteToggle(k, getStage());
+                        return;
+                      }
+                      lastTrack.current = { k, t: e.timeStamp };
+                      phoneTrackSelect(k);
+                    }}
+                  >
+                    {k}
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          {!hi && INSTRUMENTS.map((k, n) => {
             const muted = v.muted.includes(k);
             const solo = v.solo.includes(k);
-            return (
+            // V.6.0 : la touche 9-16 (montree seulement si une piste 9 a 16 sert) avant la cinquieme voix, sous RANDOM
+            const bankKey = n === 4 && bank.shown ? <BankKey key="bank" hi={false} className="v4-dock-inst" /> : null;
+            return [
+              bankKey,
               <button
                 key={k}
                 type="button"
@@ -302,23 +376,27 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 }}
               >
                 {k}
-              </button>
-            );
+              </button>,
+            ];
           })}
         </div>
         <div className="v4-dock-steps" role="group" aria-label="Steps">
           {STEP_INDEXES.map((i) => {
-            // Velocite : 1 fort, 2 moyen, 3 doux ; sans selection, la plus forte des voix
-            const vel = inst
-              ? velocity(p.steps, inst, i)
-              : INSTRUMENTS.reduce((b, k) => {
+            // Velocite : 1 fort, 2 moyen, 3 doux ; sans selection, la plus forte des voix (en 9-16 : des pistes 9 a 16)
+            const vel = cur
+              ? velocity(p.steps, cur, i)
+              : (hi ? HI_TRACKS : INSTRUMENTS).reduce((b, k) => {
                   const v = velocity(p.steps, k, i);
                   return v > 0 && (b === 0 || v < b) ? v : b;
                 }, 0);
             const on = vel > 0;
-            const label = inst
-              ? `Step ${i + 1}, ${INST_NAMES[inst]} ${VEL_NAMES[vel].toLowerCase()}${(locks >> i) & 1 ? ', locked' : ''}${lockAt === i ? ', in lock mode' : ''}. Hold: lock mode`
-              : `Step ${i + 1}, no instrument selected`;
+            const label = hi
+              ? cur
+                ? `Step ${i + 1}, track ${cur} ${VEL_NAMES[vel].toLowerCase()}${(locks >> i) & 1 ? ', locked' : ''}`
+                : `Step ${i + 1}, no track selected`
+              : inst
+                ? `Step ${i + 1}, ${INST_NAMES[inst]} ${VEL_NAMES[vel].toLowerCase()}${(locks >> i) & 1 ? ', locked' : ''}${lockAt === i ? ', in lock mode' : ''}. Hold: lock mode`
+                : `Step ${i + 1}, no instrument selected`;
             return (
               <button
                 key={i}
@@ -328,9 +406,9 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 data-vel={vel}
                 data-head={head === i ? '1' : '0'}
                 data-locks={(locks >> i) & 1 ? '1' : undefined}
-                data-lockstep={lockAt === i ? '1' : undefined}
-                aria-pressed={inst ? on : false}
-                aria-disabled={inst ? undefined : true}
+                data-lockstep={lockAt === i && !hi ? '1' : undefined}
+                aria-pressed={cur ? on : false}
+                aria-disabled={cur ? undefined : true}
                 aria-label={label}
                 onPointerDown={(e) => {
                   hold.current = { i, t: e.timeStamp };
@@ -338,8 +416,9 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 onPointerUp={(e) => {
                   const h = hold.current;
                   hold.current = null;
-                  // INFOS allume (R4) : l'appui long ne met pas le LOCK, le clic qui suit montre la carte du pas
-                  if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS && !rytmInfos.isOn()) {
+                  // INFOS allume (R4) : l'appui long ne met pas le LOCK, le clic qui suit montre la carte du pas ; en 9-16
+                  // (V.6.0), pas encore de LOCK : l'appui long est une tape
+                  if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS && !rytmInfos.isOn() && !hi) {
                     skipClick.current = i;
                     // L'appui long (2026-10-08) : le LOCK sur ce pas (encore : hors LOCK), la page KNOBS regle ses verrous
                     if (!inst) setNudge((n) => n + 1);
