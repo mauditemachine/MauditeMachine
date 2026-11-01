@@ -26,6 +26,15 @@ import React from 'react';
 import { BPM, DEFAULT_STEPS, INSTRUMENTS, velocity } from '../audio/pattern';
 import { faceKnobs } from '../rytm/faceKnobs';
 import {
+  BEZEL_DECAL,
+  DT2_FACE,
+  DT_HEX_DARK,
+  PAGE_LED_TONE,
+  PAGE_LEDS,
+  SIDE_KNOBS,
+  SILK_FRAMES,
+  SILK_STROKES,
+  markW,
   BODY,
   ENCODER,
   FACE_KEY,
@@ -235,8 +244,32 @@ function panelTop(): React.ReactNode {
             </text>
           );
         })}
+        {/* La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : les cadres des groupes et l'accolade de TRACK/MUTE */}
+        {SILK_FRAMES.map((f, i) => (
+          <rect key={`frame-${i}`} x={r4(f.x)} y={r4(f.z)} width={r4(f.w)} height={r4(f.d)} rx={r4(f.r)} fill="none" stroke={`rgba(246, 241, 231, ${SILK.lineAlpha})`} strokeWidth={SILK.lineWidth} />
+        ))}
+        {SILK_STROKES.map((s, i) => (
+          <path key={`stroke-${i}`} d={polyline(s.pts)} fill="none" stroke={DT_HEX.orange} strokeWidth={r4(s.width)} strokeLinecap="round" {...(s.dash ? { strokeDasharray: `0.001 ${r4(s.dash[1])}` } : {})} />
+        ))}
         <rect x={O.x - b.w / 2} y={O.z - b.d / 2} width={b.w} height={b.d} fill={HEX.oled} />
       </g>
+      {/* Le decalque du cadre de l'ecran de la face DT2 : MAUDITE MACHINE (le texte, le SVG n'a pas le logo), MM-RYTM, le firmware */}
+      {BEZEL_DECAL && (
+        <g transform={planeAt(BEZEL_DECAL.y)}>
+          {[BEZEL_DECAL.fallback, ...BEZEL_DECAL.texts].map((t, i) => {
+            const fit = t.maxW && textW(t, t.cap) > t.maxW ? t.maxW / textW(t, t.cap) : 1;
+            const cap = t.cap * fit;
+            const size = cap / SILK.capRatio;
+            const ls = SILK.tracking * size;
+            const anchor = t.align === 'right' ? 'end' : t.align === 'left' ? 'start' : 'middle';
+            return (
+              <text key={`decal-${i}`} x={r4(t.x + (t.align === 'right' ? ls : 0))} y={r4(t.z + cap / 2)} fontSize={r4(size)} fontWeight={t.weight ?? SILK.weight} textAnchor={anchor} fill={`rgba(246, 241, 231, ${(t.alpha ?? 1) * 0.88})`} className="v4-silk">
+                {t.text}
+              </text>
+            );
+          })}
+        </g>
+      )}
       {!PORTRAIT && faceFlat()}
       <g transform={planeAt(O.y)}>
         <rect x={O.x - O.w / 2} y={O.z - O.d / 2} width={O.w} height={O.d} fill={HEX.oled} />
@@ -315,7 +348,15 @@ function keyLabel(s: Solid, id: string, h: number): Solid {
 /** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone. */
 function encoder(i: number, angleDeg: number): Solid {
   const { x, z, s } = FACE_KNOBS[i];
-  const E = { r: ENCODER.r, rTop: ENCODER.rTop, h: ENCODER.h, markD: ENCODER.mark.d, markW: ENCODER.mark.w };
+  return knobSolid(`enc-${i}`, x, z, s, { r: ENCODER.r, rTop: ENCODER.rTop, h: ENCODER.h, markD: ENCODER.mark.d, markW: ENCODER.mark.w }, angleDeg);
+}
+
+/**
+ * Un capuchon a (x, z), a l'echelle s, de cotes E (markD 0 : sans repere, LEVEL/DATA de la face DT2) : son flanc, son
+ * dessus, son repere.
+ */
+function knobSolid(key: string, x: number, z: number, s: number, E: { r: number; rTop: number; h: number; markD: number; markW: number }, angleDeg: number): Solid {
+  const i = key;
   const ring = (r: number, y: number): V2[] =>
     Array.from({ length: 24 }, (_, k) => {
       const a = (k / 24) * Math.PI * 2;
@@ -344,9 +385,9 @@ function encoder(i: number, angleDeg: number): Solid {
   return {
     depth: dot(Z, panel(x, topY / 2, z)),
     nodes: [
-      <path key={`enc-${i}-s`} d={pathOf(hull)} fill={C.encSide} />,
-      <path key={`enc-${i}-t`} d={pathOf(top)} fill={HEX.encoder} />,
-      <line key={`enc-${i}-m`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(E.markW * S)} strokeLinecap="round" />,
+      <path key={`${i}-s`} d={pathOf(hull)} fill={C.encSide} />,
+      <path key={`${i}-t`} d={pathOf(top)} fill={HEX.encoder} />,
+      ...(E.markD > 0 ? [<line key={`${i}-m`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(E.markW * S)} strokeLinecap="round" />] : []),
     ],
   };
 }
@@ -387,6 +428,37 @@ function faceFlat(): React.ReactNode {
       segs.push(<path key={`ring-${i}-${j}`} d={`M${[...outer, ...inner].join('L')}Z`} fill={mixHex(HEX.line, tone.on, ringLit(j, t, bip) * tone.k)} />);
     }
   });
+  // La face DT2 (V.6.0, ?face=dt2) : les anneaux de MAIN VOLUME (au niveau de depart) et de LEVEL/DATA (eteint), la fenetre
+  // des LED de page et ses huit LED (la LED 1 pleine : 16 pas) ; plus de fente de crossfader
+  if (DT2_FACE) {
+    SIDE_KNOBS.forEach((k) => {
+      const seg = TEMPO_UI.sweepDeg / k.ring.segments;
+      const hs = (seg - k.ring.airDeg) / 2;
+      const t = k.id === 'mvol' ? SIDE_START.mvol : 0;
+      for (let j = 0; j < k.ring.segments; j += 1) {
+        const a = potDeg((j + 0.5) / k.ring.segments);
+        const steps = [-hs, -hs / 2, 0, hs / 2, hs];
+        const outer = steps.map((d) => ringPt(k.x, k.z, a + d, k.ring.r1));
+        const inner = steps.reverse().map((d) => ringPt(k.x, k.z, a + d, k.ring.r0));
+        const lit = Math.min(1, Math.max(0, t * k.ring.segments - j));
+        segs.push(<path key={`sring-${k.id}-${j}`} d={`M${[...outer, ...inner].join('L')}Z`} fill={mixHex(HEX.line, DT_HEX.white, lit)} />);
+      }
+    });
+    const L = PAGE_LEDS;
+    return (
+      <>
+        <g transform={planeAt(R.y)}>{segs}</g>
+        {L && (
+          <g transform={planeAt(0.005)}>
+            <rect x={r4(L.window.x - L.window.w / 2)} y={r4(L.window.z - L.window.d / 2)} width={r4(L.window.w)} height={r4(L.window.d)} rx={r4(L.window.r)} fill={HEX.oled} />
+            {L.leds.map((p, k) => (
+              <circle key={`pled-${k}`} cx={r4(p.x)} cy={r4(p.z)} r={r4(L.r)} fill={k === 0 ? DT_HEX_DARK.red : PAGE_LED_TONE.off} />
+            ))}
+          </g>
+        )}
+      </>
+    );
+  }
   const X = XFADE;
   return (
     <>
@@ -397,6 +469,9 @@ function faceFlat(): React.ReactNode {
     </>
   );
 }
+
+/** MAIN VOLUME a l'arrivee (la face DT2) : le niveau general de depart (theme.ts ENCODERS level, 80 %). */
+const SIDE_START = { mvol: 0.8 } as const;
 
 /**
  * Ce qui est imprime sur une touche de la face V.4.0 (theme.ts KEY_LABELS) : son texte (V.4.2, 2026-10-27 : le mot d'une
@@ -413,6 +488,21 @@ function faceLabel(s: Solid, l: KeyLabelSpec, h: number, lit = false): Solid {
     const shapes = l.marks.map((m, i) => {
       if (i > 0) x += M.gap;
       const x0 = x;
+      // Les chevrons des fleches (V.6.0, la face DT2) : un trait, comme scene/keyLabels.ts
+      if (m === 'up' || m === 'down' || m === 'left' || m === 'right') {
+        const w = markW(m);
+        x += w;
+        const n = M.h * M.chevron.narrow;
+        const d =
+          m === 'left'
+            ? `M${r4(x0 + w)} ${r4(z0)}L${r4(x0)} ${r4(cz)}L${r4(x0 + w)} ${r4(z0 + M.h)}`
+            : m === 'right'
+              ? `M${r4(x0)} ${r4(z0)}L${r4(x0 + w)} ${r4(cz)}L${r4(x0)} ${r4(z0 + M.h)}`
+              : m === 'up'
+                ? `M${r4(x0)} ${r4(cz + n / 2)}L${r4(x0 + w / 2)} ${r4(cz - n / 2)}L${r4(x0 + w)} ${r4(cz + n / 2)}`
+                : `M${r4(x0)} ${r4(cz - n / 2)}L${r4(x0 + w / 2)} ${r4(cz + n / 2)}L${r4(x0 + w)} ${r4(cz - n / 2)}`;
+        return <path key={`m${i}`} d={d} fill="none" stroke={ink} strokeWidth={r4(M.h * M.chevron.line)} strokeLinecap="round" strokeLinejoin="round" />;
+      }
       if (m === 'play') {
         const w = M.h * M.playW;
         x += w;
@@ -477,14 +567,22 @@ function faceSolids(items: Solid[]): void {
     const fn = l.id === 'func';
     items.push(faceLabel(box(`fkey-${l.id}`, l.x, l.z, l.w / 2, l.d / 2, FACE_KEY.h, fn ? DT_HEX.orange : HEX.graphiteHi, C.clearSide, C.clearSide), l, FACE_KEY.h, fn));
   }
-  // Le capuchon du crossfader, a x 0 a l'arrivee (2026-10-27, P2-20 : le bout de la scene A), son trait d'os sur le dessus
-  const X = XFADE;
-  const cx = xfadeCapX(0);
-  const cap = box('xfade', cx, X.z, X.cap.w / 2, X.cap.d / 2, X.cap.h, HEX.encoder, C.encSide, C.encSide);
-  const m0 = P(panel(cx, X.cap.h, X.z - X.cap.mark.d / 2));
-  const m1 = P(panel(cx, X.cap.h, X.z + X.cap.mark.d / 2));
-  cap.nodes.push(<line key="xfade-m" x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(X.cap.mark.w * S)} strokeLinecap="round" />);
-  items.push(cap);
+  if (DT2_FACE) {
+    // La face DT2 (V.6.0) : MAIN VOLUME (son repere, au niveau de depart) et LEVEL/DATA (sans repere) ; plus de crossfader
+    for (const k of SIDE_KNOBS) {
+      const E = { r: k.cap.r, rTop: k.cap.rTop, h: k.cap.h, markD: k.mark ? k.cap.rTop * 0.78 : 0, markW: ENCODER.mark.w };
+      items.push(knobSolid(`side-${k.id}`, k.x, k.z, 1, E, potDeg(k.id === 'mvol' ? SIDE_START.mvol : 0)));
+    }
+  } else {
+    // Le capuchon du crossfader, a x 0 a l'arrivee (2026-10-27, P2-20 : le bout de la scene A), son trait d'os sur le dessus
+    const X = XFADE;
+    const cx = xfadeCapX(0);
+    const cap = box('xfade', cx, X.z, X.cap.w / 2, X.cap.d / 2, X.cap.h, HEX.encoder, C.encSide, C.encSide);
+    const m0 = P(panel(cx, X.cap.h, X.z - X.cap.mark.d / 2));
+    const m1 = P(panel(cx, X.cap.h, X.z + X.cap.mark.d / 2));
+    cap.nodes.push(<line key="xfade-m" x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(X.cap.mark.w * S)} strokeLinecap="round" />);
+    items.push(cap);
+  }
   // Les seize pas en deux rangees : ceux de BD (la voix choisie a l'arrivee) allumes selon leur velocite, leurs legendes
   // au noir sur un pas allume
   const inst = INSTRUMENTS[0];
@@ -592,7 +690,9 @@ export const StaticMachine: React.FC = () => (
     <desc id="v4-machine-desc">
       {PORTRAIT
         ? 'A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.'
-        : 'A black drum machine: a 4.3 inch screen, eight knobs A to H with value rings mirroring the eight screen values, a row of twelve keys with printed names (TRK VOICE FLTR ENV FX EDIT OPEN, play and stop, CLEAR RANDOM MUTE SOLO), scenes A and B with a crossfader, sixteen step keys in two rows.'}
+        : DT2_FACE
+          ? 'A black drum machine laid out like a Digitakt II: main volume and level knobs, the M logo, FUNC, KEYBOARD, TRK, PTN and SONG on the left; a 4.3 inch screen with PRESET, SETTINGS, SOUNDS, TEMPO and record, play, stop under it; eight knobs A to H, the six page keys, YES, NO, the four arrows, the eight page lights and PAGE on the right; sixteen trig keys in two rows.'
+          : 'A black drum machine: a 4.3 inch screen, eight knobs A to H with value rings mirroring the eight screen values, a row of twelve keys with printed names (TRK VOICE FLTR ENV FX EDIT OPEN, play and stop, CLEAR RANDOM MUTE SOLO), scenes A and B with a crossfader, sixteen step keys in two rows.'}
     </desc>
     {DRAWING()}
   </svg>

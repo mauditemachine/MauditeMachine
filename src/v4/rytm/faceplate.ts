@@ -47,6 +47,7 @@
  */
 
 import FW from '../firmware.json';
+import { DT2_BUTTONS, DT2_SIDE_KNOBS, type Dt2ButtonId, type Dt2KeyClass } from './dtFaceIds';
 
 /** Les millimetres d'une unite de la scene (Mika, 2026-10-27) : la face fait 12.8 x 7.8 unites. */
 export const MM_PER_UNIT = 20;
@@ -71,8 +72,11 @@ export type FpFx = 'dist' | 'chorus' | 'delay' | 'reverb' | 'stretch' | 'swing' 
  * gardes (hotspot) : trk, pad-edit (PTN), run (PLAY), pkey-voice (SRC), pkey-fltr, pkey-env (AMP), pkey-fx.
  */
 export type FpButtonId = 'func' | 'trk' | 'ptn' | 'rec' | 'play' | 'stop' | 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'mod' | 'yes' | 'no';
-/** Un signe imprime (V.4.2, 2026-10-27) : le triangle PLAY, le carre STOP ; V.5.0 (2026-10-29) : le rond de REC, comme la Digitakt. */
-export type FpMark = 'play' | 'stop' | 'rec';
+/**
+ * Un signe imprime (V.4.2, 2026-10-27) : le triangle PLAY, le carre STOP ; V.5.0 (2026-10-29) : le rond de REC, comme la
+ * Digitakt ; V.6.0 (2026-10-30, la face DT2) : les chevrons des quatre fleches.
+ */
+export type FpMark = 'play' | 'stop' | 'rec' | 'up' | 'down' | 'left' | 'right';
 
 export interface FpButton {
   readonly id: FpButtonId;
@@ -333,6 +337,391 @@ export function faceplateCheck(): string[] {
       const b = parts[j].rect;
       if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) bad.push(`${parts[i].id} / ${parts[j].id}: se touchent`);
     }
+  }
+  return bad;
+}
+
+/* ---------- V.6.0 : la face Digitakt II de Mika (option A, 256 x 156) ---------- */
+
+/*
+ * La face DT2 (V.6.0, 2026-10-30, docs/v4/dt2/dt2-master-spec.md 2.2 a 2.4 ; Mika : "refais la Digitakt mais avec mon
+ * design ; tous les boutons, le placement des choses et toutes les fonctionnalites c'est base sur la Digitakt, sans le cote
+ * sampler" ; ses reponses : sa taille 256 x 156 et son ecran 4.3 pouces, les scenes A et B quittent la face, SAMPLING
+ * devient SOUNDS). Les memes regles que RYTM_FACEPLATE : des donnees seules, en mm, le meme repere. Derriere le drapeau
+ * ?face=dt2 (theme/base.ts DT2_FACE) tant que la V.6.0 n'est pas integree : sans lui, rien ne la lit.
+ *
+ * Les places : la grille A du cahier (2.2), dont les centres et les classes de touches sont figes dans rytm/dtFaceIds.ts
+ * (DT2_BUTTONS, DT2_SIDE_KNOBS) : rien n'est recopie ici. Les tailles (option A) : potards A a H de 24 d'emprise (anneau
+ * 19.8 a 23.2, capuchon 14.5 / 13.6 / 7), MAIN VOLUME 20 (un anneau fin), LEVEL/DATA 22 ; touches P 12 x 11, L 22 x 11, G
+ * (PAGE) 26 x 11 ; TRIG 22 x 19 au pas de 190 / 7. Le relief, les coins, le temoin, les legendes : ceux de la V.5.3.
+ */
+
+/** La taille des trois classes de touches (2.2) : P petite, L large, G la touche PAGE. */
+export const DT2_KEY_SIZE: Readonly<Record<Dt2KeyClass, { readonly w: number; readonly h: number }>> = { P: { w: 12, h: 11 }, L: { w: 22, h: 11 }, G: { w: 26, h: 11 } };
+
+/** Une touche de la face DT2 : sa classe et son rectangle, ce qu'elle porte, sa zone (les ids d'avant gardes, 2.6). */
+export interface Dt2Key {
+  readonly id: Dt2ButtonId;
+  readonly cls: Dt2KeyClass;
+  readonly rect: FpRect;
+  /** le mot imprime sur la touche (marks : des signes a la place, legend reste son nom ecrit) */
+  readonly legend: string;
+  readonly marks?: readonly FpMark[];
+  /** la fonction orange (FUNC +), imprimee sous la touche ; absente : rien */
+  readonly alt?: string;
+  readonly name: string;
+  readonly title: string;
+  readonly hotspot: string;
+  /** 1 : agit (les touches de la V.5.3) ; 2 : dessinee, inerte tant que la lane B4 ne l'a pas branchee */
+  readonly phase: 1 | 2;
+}
+
+/**
+ * Ce qui n'est pas dans le contrat P0 : le nom complet (l'infobulle, le jumeau), l'id de zone (2.6 : func trk pad-edit rec
+ * run stop pkey-* yes no gardes ; les touches nouvelles prennent leur id, PAGE prend ptnpage), les signes.
+ */
+const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: string; marks?: readonly FpMark[] }>> = {
+  func: { title: 'Function', hotspot: 'func' },
+  kbd: { title: 'Keyboard', hotspot: 'kbd' },
+  trk: { title: 'Track', hotspot: 'trk' },
+  ptn: { title: 'Pattern', hotspot: 'pad-edit' },
+  song: { title: 'Song', hotspot: 'song' },
+  preset: { title: 'Presets and kits', hotspot: 'preset' },
+  settings: { title: 'Settings', hotspot: 'settings' },
+  sounds: { title: 'Sounds, your sample bank', hotspot: 'sounds' },
+  tempo: { title: 'Tempo', hotspot: 'tempo' },
+  rec: { title: 'Record', hotspot: 'rec', marks: ['rec'] },
+  play: { title: 'Play, pause', hotspot: 'run', marks: ['play'] },
+  stop: { title: 'Stop', hotspot: 'stop', marks: ['stop'] },
+  trig: { title: 'Trig page', hotspot: 'pkey-trig' },
+  src: { title: 'Source page', hotspot: 'pkey-voice' },
+  fltr: { title: 'Filter page', hotspot: 'pkey-fltr' },
+  amp: { title: 'Amp page, the envelope', hotspot: 'pkey-env' },
+  fx: { title: 'Effects page of the track', hotspot: 'pkey-fx' },
+  mod: { title: 'Modulation page', hotspot: 'pkey-mod' },
+  yes: { title: 'Yes', hotspot: 'yes' },
+  up: { title: 'Up', hotspot: 'up', marks: ['up'] },
+  no: { title: 'No, back', hotspot: 'no' },
+  left: { title: 'Left', hotspot: 'left', marks: ['left'] },
+  down: { title: 'Down', hotspot: 'down', marks: ['down'] },
+  right: { title: 'Right', hotspot: 'right', marks: ['right'] },
+  ptnpage: { title: 'Pattern page', hotspot: 'ptnpage' },
+};
+
+/** Les quatorze touches de la V.5.3 (elles agissent) ; les onze autres attendent la lane B4. */
+const DT2_KEPT: ReadonlySet<Dt2ButtonId> = new Set<Dt2ButtonId>(['func', 'trk', 'ptn', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'no']);
+
+/** Le rectangle d'une touche de classe cls centree en (cx, cy). */
+const keyRect = (cls: Dt2KeyClass, cx: number, cy: number): FpRect => ({ x: cx - DT2_KEY_SIZE[cls].w / 2, y: cy - DT2_KEY_SIZE[cls].h / 2, w: DT2_KEY_SIZE[cls].w, h: DT2_KEY_SIZE[cls].h });
+
+/** Les 25 touches dans l'ordre de lecture de la face (celui de DT2_BUTTONS, l'ordre de tabulation des jumeaux en derive). */
+const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.map((b) => ({
+  id: b.id,
+  cls: b.cls,
+  rect: keyRect(b.cls, b.cx, b.cy),
+  legend: b.legend,
+  ...(DT2_KEY_MORE[b.id].marks ? { marks: DT2_KEY_MORE[b.id].marks } : {}),
+  ...(b.func ? { alt: b.func } : {}),
+  name: b.legend,
+  title: DT2_KEY_MORE[b.id].title,
+  hotspot: DT2_KEY_MORE[b.id].hotspot,
+  phase: DT2_KEPT.has(b.id) ? 1 : 2,
+}));
+
+/** Un potard de la colonne gauche (2.2) : son centre, son emprise (d), son capuchon, sa jupe, son anneau, ses legendes. */
+export interface Dt2SideKnob {
+  readonly id: 'mvol' | 'data';
+  readonly cx: number;
+  readonly cy: number;
+  readonly d: number;
+  readonly cap: { readonly d: number; readonly top: number; readonly h: number };
+  readonly skirt: { readonly d: number; readonly h: number };
+  readonly ring: { readonly inner: number; readonly outer: number; readonly segments: number; readonly airDeg: number };
+  /** MAIN VOLUME a son repere (un potentiometre absolu, comme la DT2) ; LEVEL/DATA non (un encodeur sans fin) */
+  readonly mark: boolean;
+  readonly legend: string;
+  readonly alt: string;
+  readonly title: string;
+}
+
+/**
+ * MAIN VOLUME et LEVEL/DATA : les tailles des potards A a H ramenees a leur emprise (20 / 24 et 22 / 24) ; MAIN VOLUME a
+ * un anneau fin (2.2 : "pot d 20, repere, anneau fin"), LEVEL/DATA l'anneau des autres.
+ */
+const SIDE_MORE: Readonly<Record<'mvol' | 'data', Omit<Dt2SideKnob, 'id' | 'cx' | 'cy' | 'd' | 'legend' | 'alt'>>> = {
+  mvol: { cap: { d: 12.1, top: 11.3, h: 5.8 }, skirt: { d: 13.2, h: 0.8 }, ring: { inner: 17.6, outer: 19.2, segments: 27, airDeg: 3 }, mark: true, title: 'Main volume' },
+  data: { cap: { d: 13.3, top: 12.5, h: 6.4 }, skirt: { d: 14.5, h: 0.8 }, ring: { inner: 18.2, outer: 21.3, segments: 27, airDeg: 3 }, mark: false, title: 'Level / data: the level of the track, scrolls the menus' },
+};
+
+export const DT2_FACEPLATE = {
+  version: 'V.6.0',
+  size: RYTM_FACEPLATE.size,
+  edge: RYTM_FACEPLATE.edge,
+  screen: {
+    /** le meme ecran 4.3 pouces (Q1), deplace a droite de la colonne gauche (2.2 : x 34 a 140, y 8 a 75) */
+    rect: { x: 34, y: 8, w: 106, h: 67 },
+    active: RYTM_FACEPLATE.screen.active,
+    px: RYTM_FACEPLATE.screen.px,
+    diagonalIn: RYTM_FACEPLATE.screen.diagonalIn,
+  },
+  knobs: {
+    /** 24 d'emprise (le potard et son anneau), au pas de 80 / 3 en x, 26 en y (2.2) */
+    d: 24,
+    pitch: 80 / 3,
+    cx: [156, 156 + 80 / 3, 156 + 160 / 3, 236],
+    cy: [20, 46],
+    fx: RYTM_FACEPLATE.knobs.fx,
+    labels: RYTM_FACEPLATE.knobs.labels,
+    /** inv-mm-face 8 : 6.8 + 7 / tan 69 = 9.5 < 9.9, le bord interieur de l'anneau reste visible a l'arrivee */
+    cap: { d: 14.5, top: 13.6, h: 7 },
+    skirt: { d: 15.8, h: 0.8 },
+    ring: { inner: 19.8, outer: 23.2, sweepDeg: 270, segments: 27, airDeg: 3 },
+    label: { r: 10.6, cap: 1.8 },
+  },
+  /** MAIN VOLUME et LEVEL/DATA (2.2), leurs legendes dessous (2.3) : le nom 1.3 sous le potard, la fonction orange 0.6 dessous */
+  side: {
+    knobs: DT2_SIDE_KNOBS.map((s): Dt2SideKnob => ({ id: s.id, cx: s.cx, cy: s.cy, d: s.d, legend: s.legend, alt: s.func, ...SIDE_MORE[s.id] })),
+    legend: { gap: 1.3, cap: 1.4 },
+    alt: { gap: 0.6, cap: 1.25 },
+  },
+  buttons: {
+    sizes: DT2_KEY_SIZE,
+    capHeight: RYTM_FACEPLATE.buttons.capHeight,
+    corner: RYTM_FACEPLATE.buttons.corner,
+    bevel: RYTM_FACEPLATE.buttons.bevel,
+    travel: RYTM_FACEPLATE.buttons.travel,
+    led: RYTM_FACEPLATE.buttons.led,
+    /** la legende sur la touche : le corps de la V.5.3, la largeur de la touche moins margin de chaque cote */
+    legend: { cap: RYTM_FACEPLATE.buttons.legend.cap, tracking: RYTM_FACEPLATE.buttons.legend.tracking, margin: 0.8, dy: RYTM_FACEPLATE.buttons.legend.dy },
+    marks: RYTM_FACEPLATE.buttons.marks,
+    /** la fonction orange (2.2) : imprimee gap sous la touche (le haut des capitales), cap 1.25, au plus w de large */
+    alt: { gap: 1.3, cap: 1.25, w: 17 },
+    keys: DT2_KEYS,
+  },
+  /** Les 8 LED de page (2.2, 2.4) : une fenetre sombre en creux (2.3), deux rangees de quatre, d 3.4. */
+  pageLeds: { window: { x: 222, y: 79, w: 26, h: 10 }, corner: 1.6, d: 3.4, cx: [226, 232, 238, 244], cy: [81.5, 86.5] },
+  /** Le logo M (OPEN) dans la colonne gauche, entre LEVEL/DATA et FUNC (2.2, corrige par la critique : cy 67). */
+  open: { rect: { x: 13.7, y: 62.5, w: 10.6, h: 9 }, title: RYTM_FACEPLATE.open.title, hotspot: RYTM_FACEPLATE.open.hotspot },
+  steps: {
+    w: 22,
+    h: 19,
+    pitch: 190 / 7,
+    x0: 36,
+    rows: [111, 133],
+    perRow: 8,
+    /** 16 pistes libres (2.2) : les pas ne portent que leur numero */
+    voices: [] as readonly FpVoice[],
+    legend: { num: RYTM_FACEPLATE.steps.legend.num },
+    capHeight: RYTM_FACEPLATE.steps.capHeight,
+    corner: RYTM_FACEPLATE.steps.corner,
+    bevel: RYTM_FACEPLATE.steps.bevel,
+    travel: RYTM_FACEPLATE.steps.travel,
+    beatFrame: RYTM_FACEPLATE.steps.beatFrame,
+    lockMark: RYTM_FACEPLATE.steps.lockMark,
+    trkColor: RYTM_FACEPLATE.steps.trkColor,
+  },
+  /**
+   * Les cadres (2.3) : des traits fins a coins arrondis, seulement autour des groupes de la DT2 (potards A a H, touches de
+   * page, fleches, TRIG 1 a 16 ; la fenetre des LED est une piece a part) ; members : ce qu'ils entourent, legendes comprises.
+   */
+  frames: [
+    { id: 'knobs', rect: { x: 142, y: 6, w: 108, h: 53 }, r: 2, members: ['knob-a', 'knob-b', 'knob-c', 'knob-d', 'knob-e', 'knob-f', 'knob-g', 'knob-h'] },
+    { id: 'pages', rect: { x: 142, y: 60, w: 108, h: 15.5 }, r: 2, members: ['btn-trig', 'btn-src', 'btn-fltr', 'btn-amp', 'btn-fx', 'btn-mod'] },
+    { id: 'arrows', rect: { x: 160, y: 76.5, w: 53, h: 32 }, r: 2, members: ['btn-up', 'btn-left', 'btn-down', 'btn-right', 'kboct'] },
+    { id: 'trigs', rect: { x: 34, y: 109.5, w: 216, h: 44.5 }, r: 2, members: [...Array.from({ length: 16 }, (_, i) => `step-${i + 1}`), 'trackmute'] },
+  ] as readonly { id: string; rect: FpRect; r: number; members: readonly string[] }[],
+  silk: {
+    /**
+     * Le decalque du cadre de l'ecran (2.3, comme "Digitakt II") : dans la bande sous la zone active, le wordmark a gauche
+     * (cale sur le bord gauche de la zone active), MM-RYTM et le firmware a droite (cales sur son bord droit, l'un sur
+     * l'autre : la bande fait 5.4 de haut). Un petit maillage au-dessus du cadre (scene/silk.ts BezelDecal).
+     */
+    decal: {
+      wordmark: { x: 40.2, cy: 72.3, w: 56, h: 3.3 },
+      model: { text: 'MM-RYTM', x: 133.8, cy: 71.4, cap: 2 },
+      firmware: { text: `FIRMWARE V.${FW.mm808.version} / 2026`, x: 133.8, cy: 73.7, cap: 1 },
+    },
+    /** le M serigraphie sur la zone du logo (cale a droite, comme avant) */
+    mark: { x: 24.3, cy: 67, h: 9 },
+    /** KB OCT a droite de UP, dans le cadre des fleches (2.2 : x 194 a 210 au plus), en orange */
+    kbOct: { text: '↕ KB OCT', x: 194, cy: 83.5, cap: 1.25, w: 16 },
+    /** TRACK/MUTE entre les deux rangees de TRIG (2.3), en orange, et son accolade pointillee de TRIG 1 a TRIG 8 */
+    trackMute: { text: 'TRACK/MUTE', cx: 142, cy: 131.5, cap: 1.25, x0: 47, x1: 237, gap: 2.5, dot: 0.35, dash: 0.9, tick: 0.8 },
+  },
+} as const;
+
+/* ---------- aides de la face DT2 (pures) ---------- */
+
+const D = DT2_FACEPLATE;
+
+/** Le pas i (0 a 15) de la face DT2. */
+export const dt2StepRect = (i: number): FpRect => ({
+  x: D.steps.x0 + D.steps.pitch * (i % D.steps.perRow),
+  y: D.steps.rows[Math.floor(i / D.steps.perRow)] ?? D.steps.rows[0],
+  w: D.steps.w,
+  h: D.steps.h,
+});
+/** Le potard k (0 a 7) de la face DT2. */
+export const dt2KnobCircle = (k: number): FpCircle => ({ cx: D.knobs.cx[k % 4], cy: D.knobs.cy[k >> 2] ?? D.knobs.cy[0], d: D.knobs.d });
+/** Une touche de la face DT2 par son id. */
+export const dt2Key = (id: Dt2ButtonId): Dt2Key | undefined => D.buttons.keys.find((k) => k.id === id);
+
+const circleRect = (c: FpCircle): FpRect => ({ x: c.cx - c.d / 2, y: c.cy - c.d / 2, w: c.d, h: c.d });
+
+export type Dt2PartKind = 'screen' | 'knob' | 'side' | 'button' | 'logo' | 'leds' | 'step';
+
+/** Toutes les pieces de la face DT2 (decoupees ou posees) : la jupe d'ombre, l'export et le controle les lisent. */
+export function dt2FaceplateParts(): { id: string; kind: Dt2PartKind; rect: FpRect }[] {
+  const out: { id: string; kind: Dt2PartKind; rect: FpRect }[] = [];
+  out.push({ id: 'screen', kind: 'screen', rect: D.screen.rect });
+  for (const s of D.side.knobs) out.push({ id: `side-${s.id}`, kind: 'side', rect: circleRect({ cx: s.cx, cy: s.cy, d: s.d }) });
+  for (let k = 0; k < 8; k += 1) out.push({ id: `knob-${D.knobs.labels[k].toLowerCase()}`, kind: 'knob', rect: circleRect(dt2KnobCircle(k)) });
+  out.push({ id: 'logo', kind: 'logo', rect: D.open.rect });
+  for (const b of D.buttons.keys) out.push({ id: `btn-${b.id}`, kind: 'button', rect: b.rect });
+  out.push({ id: 'page-leds', kind: 'leds', rect: D.pageLeds.window });
+  for (let i = 0; i < 16; i += 1) out.push({ id: `step-${i + 1}`, kind: 'step', rect: dt2StepRect(i) });
+  return out;
+}
+
+/**
+ * La largeur estimee d'un texte de la serigraphie (sans police : node, le test) : une capitale moyenne de 0.62 em (un rien
+ * plus large que SF Pro, une police de repli comprise), l'interlettrage entre les lettres. La scene reduit le corps d'un
+ * texte trop large (maxW) : cette estimation est le pire cas.
+ */
+export const silkTextW = (text: string, cap: number, tracking = 0.2): number => (cap / 0.7) * (text.length * 0.62 + Math.max(0, text.length - 1) * tracking);
+
+/** Une legende imprimee : sa boite (le haut et le bas des capitales), son texte, a qui elle est (le controle l'excuse sur sa piece). */
+export interface Dt2Legend {
+  readonly id: string;
+  readonly text: string;
+  readonly rect: FpRect;
+  readonly cap: number;
+  readonly ink: 'silk' | 'alt' | 'decal';
+  /** la piece qui la porte (une lettre dans la fente de son anneau) */
+  readonly owner?: string;
+}
+
+const boxAt = (text: string, cap: number, cx: number, cy: number, align: 'center' | 'left' | 'right' = 'center', tracking = 0.2): FpRect => {
+  const w = silkTextW(text, cap, tracking);
+  const x = align === 'left' ? cx : align === 'right' ? cx - w : cx - w / 2;
+  return { x, y: cy - cap / 2, w, h: cap };
+};
+
+/** Toutes les legendes de la serigraphie de la face DT2 (hors celles imprimees sur les touches) et du decalque de l'ecran. */
+export function dt2FaceplateLegends(): Dt2Legend[] {
+  const out: Dt2Legend[] = [];
+  const A = D.buttons.alt;
+  for (const b of D.buttons.keys) {
+    if (!b.alt) continue;
+    const cy = b.rect.y + b.rect.h + A.gap + A.cap / 2;
+    out.push({ id: `alt-${b.id}`, text: b.alt, cap: A.cap, ink: 'alt', rect: boxAt(b.alt, A.cap, b.rect.x + b.rect.w / 2, cy) });
+  }
+  for (const s of D.side.knobs) {
+    const L = D.side.legend;
+    const cy = s.cy + s.d / 2 + L.gap + L.cap / 2;
+    out.push({ id: `side-${s.id}`, text: s.legend, cap: L.cap, ink: 'silk', rect: boxAt(s.legend, L.cap, s.cx, cy) });
+    if (s.alt) {
+      const S = D.side.alt;
+      const cy2 = cy + L.cap / 2 + S.gap + S.cap / 2;
+      out.push({ id: `side-${s.id}-alt`, text: s.alt, cap: S.cap, ink: 'alt', rect: boxAt(s.alt, S.cap, s.cx, cy2) });
+    }
+  }
+  for (let k = 0; k < 8; k += 1) {
+    const c = dt2KnobCircle(k);
+    const l = D.knobs.labels[k];
+    out.push({ id: `letter-${l.toLowerCase()}`, text: l, cap: D.knobs.label.cap, ink: 'silk', rect: boxAt(l, D.knobs.label.cap, c.cx, c.cy + D.knobs.label.r), owner: `knob-${l.toLowerCase()}` });
+  }
+  const K = D.silk.kbOct;
+  out.push({ id: 'kboct', text: K.text, cap: K.cap, ink: 'alt', rect: boxAt(K.text, K.cap, K.x, K.cy, 'left') });
+  const T = D.silk.trackMute;
+  out.push({ id: 'trackmute', text: T.text, cap: T.cap, ink: 'alt', rect: boxAt(T.text, T.cap, T.cx, T.cy) });
+  const W = D.silk.decal;
+  out.push({ id: 'decal-wordmark', text: 'MAUDITE MACHINE', cap: W.wordmark.h, ink: 'decal', rect: { x: W.wordmark.x, y: W.wordmark.cy - W.wordmark.h / 2, w: W.wordmark.w, h: W.wordmark.h } });
+  out.push({ id: 'decal-model', text: W.model.text, cap: W.model.cap, ink: 'decal', rect: boxAt(W.model.text, W.model.cap, W.model.x, W.model.cy, 'right') });
+  out.push({ id: 'decal-firmware', text: W.firmware.text, cap: W.firmware.cap, ink: 'decal', rect: boxAt(W.firmware.text, W.firmware.cap, W.firmware.x, W.firmware.cy, 'right') });
+  return out;
+}
+
+/** L'accolade pointillee de TRACK/MUTE : deux traits de x0 au texte et du texte a x1, une petite barre au bout. */
+export function dt2TrackMuteDots(): { x0: number; x1: number; y: number; tick: number }[] {
+  const T = D.silk.trackMute;
+  const w = silkTextW(T.text, T.cap);
+  return [
+    { x0: T.x0, x1: T.cx - w / 2 - T.gap, y: T.cy, tick: T.tick },
+    { x0: T.cx + w / 2 + T.gap, x1: T.x1, y: T.cy, tick: T.tick },
+  ];
+}
+
+const inside = (a: FpRect, b: FpRect, m = 0): boolean => a.x >= b.x + m - 1e-9 && a.y >= b.y + m - 1e-9 && a.x + a.w <= b.x + b.w - m + 1e-9 && a.y + a.h <= b.y + b.h - m + 1e-9;
+const overlap = (a: FpRect, b: FpRect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+const gapBetween = (a: FpRect, b: FpRect): number => Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h));
+const r2 = (v: number): number => Math.round(v * 100) / 100;
+
+/** Le jeu minimal entre deux cadres (2.3, la critique : 0 mm avant, 2 mm sur la DT2) et la marge des pieces au bord (le chanfrein). */
+export const DT2_CHECK = { frameGap: 0.8, edge: RYTM_FACEPLATE.edge.chamfer, frameIn: 0.5 } as const;
+
+/**
+ * Les problemes de la face DT2 ([] attendu, npm run face:test) : une piece ou une legende hors de la face (a moins du
+ * chanfrein du bord), deux pieces qui se touchent, une legende sur une piece ou une autre legende, le decalque hors de la
+ * bande du cadre de l'ecran, un cadre qui n'entoure pas ses membres (legendes comprises, frameIn de marge) ou qui coupe
+ * une piece ou une legende, deux cadres a moins de frameGap.
+ */
+export function dt2FaceplateCheck(): string[] {
+  const bad: string[] = [];
+  const parts = dt2FaceplateParts();
+  const legends = dt2FaceplateLegends();
+  const E = DT2_CHECK.edge;
+  const face: FpRect = { x: 0, y: 0, w: D.size.w, h: D.size.h };
+  const all = [...parts.map((p) => ({ id: p.id, rect: p.rect })), ...legends.map((l) => ({ id: l.id, rect: l.rect })), ...D.frames.map((f) => ({ id: `frame-${f.id}`, rect: f.rect }))];
+  for (const p of all) if (!inside(p.rect, face, E)) bad.push(`${p.id}: hors de la face (a moins de ${E} du bord)`);
+  for (let i = 0; i < parts.length; i += 1) {
+    for (let j = i + 1; j < parts.length; j += 1) if (overlap(parts[i].rect, parts[j].rect)) bad.push(`${parts[i].id} / ${parts[j].id}: se touchent`);
+  }
+  // Les legendes : ni sur une piece (sauf la sienne), ni sur une autre legende ; le decalque dans la bande du cadre
+  const screen = D.screen.rect;
+  const act = D.screen.active;
+  const band: FpRect = { x: screen.x + (screen.w - act.w) / 2, y: screen.y + (screen.h + act.h) / 2, w: act.w, h: (screen.h - act.h) / 2 };
+  for (const l of legends) {
+    if (l.ink === 'decal') {
+      if (!inside(l.rect, band)) bad.push(`${l.id}: hors de la bande du cadre de l'ecran`);
+      continue;
+    }
+    for (const p of parts) if (p.id !== l.owner && overlap(l.rect, p.rect)) bad.push(`${l.id} / ${p.id}: la legende touche la piece`);
+  }
+  for (let i = 0; i < legends.length; i += 1) {
+    for (let j = i + 1; j < legends.length; j += 1) if (overlap(legends[i].rect, legends[j].rect)) bad.push(`${legends[i].id} / ${legends[j].id}: les legendes se touchent`);
+  }
+  // Les cadres : leurs membres dedans (avec leurs legendes : la fonction orange d'une touche, la lettre d'un potard), rien
+  // d'autre coupe ni dedans, le jeu entre deux cadres
+  const byId = new Map(all.map((p) => [p.id, p.rect]));
+  const ownLegends = (m: string): string[] => (m.startsWith('btn-') ? [`alt-${m.slice(4)}`] : m.startsWith('knob-') ? [`letter-${m.slice(5)}`] : []);
+  for (const f of D.frames) {
+    const mine = new Set(f.members.flatMap((m) => [m, ...ownLegends(m)]));
+    for (const m of mine) {
+      const r = byId.get(m);
+      if (!r) continue;
+      if (!inside(r, f.rect, DT2_CHECK.frameIn)) bad.push(`frame-${f.id}: ${m} n'est pas dedans (marge ${DT2_CHECK.frameIn})`);
+    }
+    for (const p of [...parts, ...legends]) {
+      if (mine.has(p.id) || ('ink' in p && p.ink === 'decal')) continue;
+      if (overlap(p.rect, f.rect)) bad.push(`frame-${f.id}: coupe ou contient ${p.id}`);
+    }
+  }
+  for (let i = 0; i < D.frames.length; i += 1) {
+    for (let j = i + 1; j < D.frames.length; j += 1) {
+      const g = gapBetween(D.frames[i].rect, D.frames[j].rect);
+      if (g < DT2_CHECK.frameGap) bad.push(`frame-${D.frames[i].id} / frame-${D.frames[j].id}: ${r2(g)} de jeu (${DT2_CHECK.frameGap} au moins)`);
+    }
+  }
+  // La fenetre des LED : ses huit LED dedans
+  for (const cy of D.pageLeds.cy) {
+    for (const cx of D.pageLeds.cx) if (!inside(circleRect({ cx, cy, d: D.pageLeds.d }), D.pageLeds.window, 0.3)) bad.push(`page-leds: la LED ${cx}, ${cy} deborde de sa fenetre`);
+  }
+  // L'accolade de TRACK/MUTE : entre les deux rangees de TRIG
+  for (const t of dt2TrackMuteDots()) {
+    const r: FpRect = { x: t.x0, y: t.y - t.tick, w: t.x1 - t.x0, h: 2 * t.tick };
+    if (r.w <= 0) bad.push('trackmute: l accolade n a plus de place');
+    for (const p of parts) if (overlap(r, p.rect)) bad.push(`trackmute: l accolade touche ${p.id}`);
   }
   return bad;
 }

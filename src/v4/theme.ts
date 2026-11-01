@@ -14,11 +14,11 @@
 
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
-import { RYTM_FACEPLATE, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
-import { GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAGE_KNOB_IDS, type PageId, type PageKnobId, PORTRAIT, type SilkLogoId, VOICE_COLS } from './theme/base';
+import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2TrackMuteDots, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
+import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAGE_KNOB_IDS, type PageId, type PageKnobId, PORTRAIT, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
-export { PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK } from './theme/base';
+export { PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
 export type { FaceKeyId, Inst, PageId, VoicePad, PagePad, OpenPad, EditPad, PadSpec, PageKnobId, FaceKnobId, EncPlace, KeyLabelSpec, SilkText, SilkLogoId } from './theme/base';
 
 /* ---------- couleurs (spec 4.4 et 20.3) ---------- */
@@ -114,6 +114,14 @@ export const DT_HEX_DARK: Readonly<Record<DtTone, string>> = { red: '#FF2B2B', y
 const DT_HEX_LIGHT: Readonly<Record<DtTone, string>> = { red: '#D81E1E', yellow: '#E09A10', white: '#191919', green: '#1F9E3A', magenta: '#B23AAB', blue: '#2F78D6', orange: '#A84300' };
 /** La palette de l'apparence posee (applyAppearance la change en place). */
 export const DT_HEX: Record<DtTone, string> = { ...DT_HEX_DARK };
+/**
+ * Les 8 LED de page de la face DT2 (V.6.0, ?face=dt2, cahier 2.4) : dans leur fenetre en creux, du noir du verre sur les
+ * deux machines (comme le cadre de l'ecran) ; eteinte, une pastille a peine plus claire que la fenetre (off) ; allumee,
+ * la palette de la machine noire (DT_HEX_DARK), la variante creme est la meme : la fenetre reste noire sur la creme, l'encre
+ * sombre du blanc de la creme ne s'y verrait pas. faint : une page que compte le pattern sans qu'on l'edite ; blinkLow : le
+ * creux du clignotement de la page qui joue.
+ */
+export const PAGE_LED_TONE = { off: '#2A2B30', offLight: '#2A2B30', faint: 0.22, blinkLow: 0.12 } as const;
 
 /**
  * Les teintes du brief sont des couleurs AFFICHEES (section 19 point 12) :
@@ -961,7 +969,9 @@ export const KEY_LABEL = PORTRAIT
   ? ({ cap: 0.094, dz: 0.03, margin: 0.1, weight: 700, inkRest: { dark: 'rgba(246, 241, 231, 0.96)', light: 'rgba(38, 38, 41, 0.96)' } } as const)
   : ({ cap: 0.062, dz: 0.024, margin: 0.08, weight: 700, inkRest: { dark: 'rgba(246, 241, 231, 0.96)', light: 'rgba(38, 38, 41, 0.96)' } } as const);
 /** La largeur des signes d'une legende (en unites) : chacun sa largeur, l'air entre eux. */
-export const marksW = (m: readonly FpMark[]): number => m.reduce((w, k, i) => w + (k === 'play' ? KEY_MARK.h * KEY_MARK.playW : KEY_MARK.h) + (i > 0 ? KEY_MARK.gap : 0), 0);
+// Les chevrons (V.6.0, la face DT2) : < et > etroits (KEY_MARK.chevron.narrow), ^ et v de la largeur des autres signes
+export const markW = (k: FpMark): number => (k === 'play' ? KEY_MARK.h * KEY_MARK.playW : k === 'left' || k === 'right' ? KEY_MARK.h * KEY_MARK.chevron.narrow : KEY_MARK.h);
+export const marksW = (m: readonly FpMark[]): number => m.reduce((w, k, i) => w + markW(k) + (i > 0 ? KEY_MARK.gap : 0), 0);
 /** Le rond de REC (V.5.0, 2026-10-29) : son diametre, en part de la hauteur des signes (le carre de STOP en fait 1). */
 export const REC_MARK_D = 1;
 /**
@@ -977,7 +987,9 @@ export const SCREEN_TOUCH: boolean = PORTRAIT;
  * Les commandes de la face visibles et inertes : curseur par defaut, rien ne part. Vide depuis P2-20 (2026-10-27) : TRK,
  * SCENE A et B, puis le crossfader agissent.
  */
-export const FACE_INERT: ReadonlySet<string> = new Set<string>();
+// La face DT2 (V.6.0, ?face=dt2) : ses onze touches nouvelles (phase 2) et LEVEL/DATA, tant que la lane B4 ne les a pas
+// branchees (le curseur reste la fleche ; leur zone ne fait rien)
+export const FACE_INERT: ReadonlySet<string> = new Set<string>(DT2_FACE ? [...DT2_FACEPLATE.buttons.keys.filter((b) => b.phase === 2).map((b) => b.hotspot), 'data'] : []);
 
 /**
  * Une touche selectionnee s'allume en entier (2026-10-18, Mika : "quand c'est
@@ -1380,12 +1392,69 @@ export const LCD_TEXT = {
   pendingMs: 8000,
 } as const;
 
+const SILK_WORDMARK = { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.word.z, w: HEAD.word.w, align: 'left' } as const;
+// La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : le wordmark passe sur le decalque du cadre de l'ecran (DECAL_LOGOS), le M
+// reste sur la serigraphie, sur la zone du logo de la colonne gauche
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [
-  { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.word.z, w: HEAD.word.w, align: 'left' },
+  ...(DT2_FACE ? [] : [SILK_WORDMARK]),
   { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: HEAD.mark.x, z: HEAD.mark.z, h: HEAD.mark.h, align: 'right' },
 ];
+/** Les logos du decalque du cadre de l'ecran (V.6.0, la face DT2) : le wordmark ; vide sur la face de la V.5.3. */
+export const DECAL_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = DT2_FACE ? [SILK_WORDMARK] : [];
+/**
+ * Le decalque du cadre de l'ecran (V.6.0, la face DT2, cahier 2.3, comme "Digitakt II") : la bande sous la zone active
+ * (x, z son centre, w x d sa taille, en unites ; y juste au-dessus du cadre, OLED.bezel.h), ses textes (MM-RYTM, le
+ * firmware) ; son encre : l'os, sur les deux machines (le cadre reste noir sur la creme, comme le verre) ; ppu, ses px par
+ * unite. null : la face de la V.5.3 (le wordmark et MM-RYTM sont sur la serigraphie).
+ */
+export const BEZEL_DECAL = DT2_FACE
+  ? (() => {
+      const S = DT2_FACEPLATE.screen;
+      const bandH = (S.rect.h - S.active.h) / 2;
+      const D = DT2_FACEPLATE.silk.decal;
+      return {
+        x: fpX(S.rect.x + S.rect.w / 2),
+        z: fpZ(S.rect.y + S.rect.h - bandH / 2),
+        w: fpU(S.rect.w),
+        d: fpU(bandH),
+        y: OLED.bezel.h + 0.0015,
+        ppu: 480,
+        ink: 'rgba(246, 241, 231, 0.88)',
+        texts: [
+          { text: D.model.text, x: fpX(D.model.x), z: fpZ(D.model.cy), cap: fpU(D.model.cap), align: 'right' as const, weight: SILK.strongWeight, alpha: 1 },
+          { text: fwText('mm808'), x: fpX(D.firmware.x), z: fpZ(D.firmware.cy), cap: fpU(D.firmware.cap), align: 'right' as const, weight: SILK.weight, alpha: 0.6 },
+        ] as readonly SilkText[],
+        fallback: { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.word.z, cap: fpU(D.wordmark.h) * 0.7, align: 'left' as const, weight: SILK.strongWeight, maxW: HEAD.word.w, fallbackFor: 'wordmark' as const } as SilkText,
+      };
+    })()
+  : null;
 /** Index du libelle du pad OPEN dans SILK_TEXTS (redessine en CLOSE pendant la vue eclatee). */
 export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
+
+/**
+ * Les cadres de la face DT2 (V.6.0, ?face=dt2, cahier 2.3, rytm/faceplate.ts frames) : des rectangles a coins arrondis au
+ * trait fin de la serigraphie (SILK.lineWidth, SILK.lineAlpha), en unites (x, z le coin arriere gauche, w x d, r). Vide
+ * sur la face de la V.5.3.
+ */
+export const SILK_FRAMES: readonly { x: number; z: number; w: number; d: number; r: number }[] = DT2_FACE
+  ? DT2_FACEPLATE.frames.map((f) => ({ x: fpX(f.rect.x), z: fpZ(f.rect.y), w: fpU(f.rect.w), d: fpU(f.rect.h), r: fpU(f.r) }))
+  : [];
+/**
+ * Les traits de la face DT2 a part des filets (V.6.0, cahier 2.3) : l'accolade pointillee de TRACK/MUTE, en orange (alt,
+ * DT_HEX.orange, comme le mot), un pointille de dash et son trou, une petite barre au bout (tick), en unites. Vide sur
+ * la face de la V.5.3.
+ */
+export const SILK_STROKES: readonly { pts: readonly number[]; ink: 'alt'; width: number; dash: readonly [number, number] | null }[] = DT2_FACE
+  ? dt2TrackMuteDots().flatMap((t, i) => {
+      const T = DT2_FACEPLATE.silk.trackMute;
+      // La barre au bout de l'accolade, du cote du pas 1 (a gauche) ou du pas 8 (a droite), qui remonte vers le pas
+      const xe = i === 0 ? t.x0 : t.x1;
+      return [
+        { pts: [fpX(t.x0), fpZ(t.y), fpX(t.x1), fpZ(t.y)], ink: 'alt' as const, width: fpU(T.dot), dash: [fpU(T.dot), fpU(T.dash)] as const },
+        { pts: [fpX(xe), fpZ(t.y), fpX(xe), fpZ(t.y - t.tick)], ink: 'alt' as const, width: fpU(T.dot), dash: null },
+      ];
+    })
+  : [];
 
 /**
  * Filets du panneau (polylignes [x0, z0, x1, z1, ...]) : celui qui separe

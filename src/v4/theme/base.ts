@@ -5,7 +5,8 @@
  * theme.ts re-exporte ses exports.
  */
 
-import { RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, type FpButtonId, type FpMark } from '../rytm/faceplate';
+import { DT2_FACEPLATE, RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, type FpMark } from '../rytm/faceplate';
+import type { Dt2ButtonId } from '../rytm/dtFaceIds';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -34,6 +35,27 @@ export const PORTRAIT: boolean = (() => {
     return false;
   }
 })();
+
+/**
+ * La face Digitakt II de la V.6.0 (2026-10-30, docs/v4/dt2/dt2-master-spec.md 2 et 5.1, la lane B3) : derriere ce drapeau
+ * tant que les lanes de la V.6.0 (la saisie, l'ecran, le MIDI) ne l'ont pas branchee. Faux par defaut : la face, le
+ * telephone et le rendu restent ceux de la V.5.3 au pixel pres. Vrai avec ?face=dt2 dans l'URL (les tests, les captures),
+ * au desktop seulement (le telephone garde sa face, cahier 1.3) ; lu au chargement, jamais retenu (un rechargement sans
+ * le parametre rend la V.5.3). Tout ce qui en depend se decide a l'evaluation des modules, comme PORTRAIT.
+ */
+export const DT2_FACE: boolean = (() => {
+  if (PORTRAIT || typeof window === 'undefined') return false;
+  try {
+    return new URLSearchParams(window.location.search).get('face') === 'dt2';
+  } catch {
+    return false;
+  }
+})();
+
+/** Les potards A a H de la face lue (la V.5.3 ou la DT2 : la meme forme, rytm/faceplate.ts knobs). */
+export const FP_KNOBS = DT2_FACE ? DT2_FACEPLATE.knobs : RYTM_FACEPLATE.knobs;
+/** La zone du logo M (OPEN) de la face lue. */
+export const FP_OPEN = DT2_FACE ? DT2_FACEPLATE.open : RYTM_FACEPLATE.open;
 
 /**
  * Serigraphie du panneau (spec 20.3.9), facon legendes Elektron : SF Pro
@@ -98,7 +120,8 @@ export const SILK = {
  */
 /** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 158 partout depuis le 2026-10-18 (120 au desktop avant) ; 192 au desktop depuis le 2026-10-27 (5:3). */
 export const OLED_UH = PORTRAIT ? 158 : 192;
-const FP_SCREEN = RYTM_FACEPLATE.screen;
+// La face DT2 (V.6.0, ?face=dt2) : le meme ecran, deplace (x 34 a 140) ; le dessin ne change pas (5:3)
+const FP_SCREEN = DT2_FACE ? DT2_FACEPLATE.screen : RYTM_FACEPLATE.screen;
 export const OLED = PORTRAIT
   ? ({ x: 0, z: -6.3 + (7.28 * OLED_UH) / 640, w: 7.28, d: (7.28 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 7.5, d: (7.28 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
   : ({
@@ -115,9 +138,10 @@ export const SCENE_KEY = { w: fpU(RYTM_FACEPLATE.scenes.a.rect.w), d: fpU(RYTM_F
 export const faceKeyX = (i: number): number => rectCenter(buttonRect(i)).x;
 /**
  * Les touches de la face du desktop (scene/rytmFaceKeys.ts) : depuis V.5.0 (2026-10-29) les quatorze de la rangee (leurs
- * ids, rytm/faceplate.ts FpButtonId), SCENE A et SCENE B.
+ * ids, rytm/faceplate.ts FpButtonId), SCENE A et SCENE B ; la face DT2 (V.6.0, ?face=dt2) : ses 25 touches
+ * (rytm/dtFaceIds.ts Dt2ButtonId, qui contient les quatorze), sans les scenes.
  */
-export type FaceKeyId = FpButtonId | 'scene-a' | 'scene-b';
+export type FaceKeyId = Dt2ButtonId | 'scene-a' | 'scene-b';
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
 
@@ -262,7 +286,8 @@ export const PADS: readonly PadSpec[] = !PORTRAIT ? [] : [
  * des verrous a l'echelle des touches ; numberZ et bracketZ ne servent plus au desktop (le numero est sur la touche,
  * KEY_LABELS ; plus de crochets), gardes pour le type.
  */
-export const FP_STEPS = RYTM_FACEPLATE.steps;
+// La face DT2 (V.6.0, ?face=dt2) : 22 x 19 au pas de 190 / 7 depuis x 36, en y 111 et 133, le numero seul
+export const FP_STEPS = DT2_FACE ? DT2_FACEPLATE.steps : RYTM_FACEPLATE.steps;
 
 /**
  * Les potards de la face (2026-10-08, la refonte facon Digitakt, Mika :
@@ -331,7 +356,7 @@ export const GLOBAL_FX_RULE = PORTRAIT
  */
 export const pageKnobX = (k: number): number => {
   // La face V.4.0 du desktop (2026-10-27) : la colonne k % 4 de la grille de Mika
-  if (!PORTRAIT) return fpX(RYTM_FACEPLATE.knobs.cx[k % 4]);
+  if (!PORTRAIT) return fpX(FP_KNOBS.cx[k % 4]);
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS_PHONE_W / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS_PHONE_W / 2;
   return x0 + ((x1 - x0) * (k % 4)) / 3;
@@ -390,7 +415,9 @@ export interface KeyLabelSpec {
  * Les signes de RUN/STOP sur leur touche (V.4.2, 2026-10-27, RYTM_FACEPLATE.buttons.marks) : leur hauteur, l'air entre
  * eux, leur centre un rien vers l'avant (le temoin est derriere) ; le triangle PLAY un rien moins large que haut.
  */
-export const KEY_MARK = { h: fpU(RYTM_FACEPLATE.buttons.marks.h), gap: fpU(RYTM_FACEPLATE.buttons.marks.gap), dz: fpU(RYTM_FACEPLATE.buttons.marks.dy), playW: 0.88 } as const;
+// chevron (V.6.0, la face DT2, cahier 2.3) : les fleches, < et > larges de narrow fois leur hauteur, ^ et v aussi larges
+// que la hauteur des signes et hauts de narrow fois elle ; leur trait, line fois la hauteur des signes
+export const KEY_MARK = { h: fpU(RYTM_FACEPLATE.buttons.marks.h), gap: fpU(RYTM_FACEPLATE.buttons.marks.gap), dz: fpU(RYTM_FACEPLATE.buttons.marks.dy), playW: 0.88, chevron: { narrow: 0.6, line: 0.15 } } as const;
 
 /* ---------- serigraphie du panneau (spec 20.3.4 et 20.3.9) ---------- */
 
@@ -433,14 +460,27 @@ export type SilkLogoId = 'wordmark' | 'mark';
  * chacun son z (au telephone, l'en-tete d'une ligne).
  */
 const FP_SILK = RYTM_FACEPLATE.silk;
+/*
+ * La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : le wordmark, MM-RYTM et le firmware passent sur le decalque du cadre de
+ * l'ecran (scene/silk.ts BezelDecal lit DT2_FACEPLATE.silk.decal ; HEAD en garde les places pour le repli SVG), le M sur
+ * la zone du logo dans la colonne gauche.
+ */
+const DT2_SILK = DT2_FACEPLATE.silk;
 export const HEAD = PORTRAIT
   ? { word: { x: -3.75, z: -6.74, w: 3.0 }, model: { x: -0.55, z: -6.74, cap: 0.13, align: 'left' as const }, firmware: { x: 3.05, z: -6.74, cap: 0.06 }, mark: { x: 3.75, z: -6.74, h: 0.5 } }
-  : {
-      word: { x: fpX(FP_SILK.wordmark.x), z: fpZ(FP_SILK.wordmark.cy), w: fpU(FP_SILK.wordmark.w) },
-      model: { x: fpX(FP_SILK.model.x), z: fpZ(FP_SILK.model.cy), cap: fpU(FP_SILK.model.cap), align: 'right' as const },
-      firmware: { x: fpX(FP_SILK.firmware.x), z: fpZ(FP_SILK.firmware.cy), cap: fpU(FP_SILK.firmware.cap) },
-      mark: { x: fpX(FP_SILK.mark.x), z: fpZ(FP_SILK.mark.cy), h: fpU(FP_SILK.mark.h) },
-    };
+  : DT2_FACE
+    ? {
+        word: { x: fpX(DT2_SILK.decal.wordmark.x), z: fpZ(DT2_SILK.decal.wordmark.cy), w: fpU(DT2_SILK.decal.wordmark.w) },
+        model: { x: fpX(DT2_SILK.decal.model.x), z: fpZ(DT2_SILK.decal.model.cy), cap: fpU(DT2_SILK.decal.model.cap), align: 'right' as const },
+        firmware: { x: fpX(DT2_SILK.decal.firmware.x), z: fpZ(DT2_SILK.decal.firmware.cy), cap: fpU(DT2_SILK.decal.firmware.cap) },
+        mark: { x: fpX(DT2_SILK.mark.x), z: fpZ(DT2_SILK.mark.cy), h: fpU(DT2_SILK.mark.h) },
+      }
+    : {
+        word: { x: fpX(FP_SILK.wordmark.x), z: fpZ(FP_SILK.wordmark.cy), w: fpU(FP_SILK.wordmark.w) },
+        model: { x: fpX(FP_SILK.model.x), z: fpZ(FP_SILK.model.cy), cap: fpU(FP_SILK.model.cap), align: 'right' as const },
+        firmware: { x: fpX(FP_SILK.firmware.x), z: fpZ(FP_SILK.firmware.cy), cap: fpU(FP_SILK.firmware.cap) },
+        mark: { x: fpX(FP_SILK.mark.x), z: fpZ(FP_SILK.mark.cy), h: fpU(FP_SILK.mark.h) },
+      };
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
 const PAD_CAP = 0.09;

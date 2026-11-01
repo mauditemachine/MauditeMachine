@@ -257,6 +257,8 @@ export class Sequencer3D {
    * 1 a 8 (quads 16 a 23) ; null au telephone (ses numeros sont serigraphies sous les pas)
    */
   readonly stepLabels: KeyLabels | null;
+  /** les voix BD a CY sous les pas 1 a 8 (la face de la V.5.3) ; la face DT2 : les numeros seuls (V.6.0) */
+  private stepVoices = false;
   private btnLedOff = new Color();
   private btnLedOn = new Color();
   /** RUN est rouge : son temoin passe au jaune (l'orange s'y perdait) */
@@ -381,12 +383,13 @@ export class Sequencer3D {
       this.btnLeds = null;
       this.labels = null;
     }
-    // Les legendes des pas (2026-10-27) : les numeros puis les voix, dans l'ordre des pas
-    const stepSpecs = [
-      ...Array.from({ length: STEP_COUNT }, (_, i) => KEY_LABELS.find((l) => l.id === `stepn-${i + 1}`)),
-      ...INSTRUMENTS.map((v) => KEY_LABELS.find((l) => l.id === `stepv-${v}`)),
-    ].filter((l) => l !== undefined);
-    this.stepLabels = stepSpecs.length === STEP_COUNT + INSTRUMENTS.length ? new KeyLabels(opts.atlas, stepSpecs, KEYS.h, 'step') : null;
+    // Les legendes des pas (2026-10-27) : les numeros puis les voix, dans l'ordre des pas. La face DT2 (V.6.0, cahier 2.2 et
+    // inv-mm-face 3.4, le piege) : les numeros seuls (16 pistes libres) ; sans les voix les numeros restent (avant : tous a null)
+    const nums = Array.from({ length: STEP_COUNT }, (_, i) => KEY_LABELS.find((l) => l.id === `stepn-${i + 1}`)).filter((l) => l !== undefined);
+    const voices = INSTRUMENTS.map((v) => KEY_LABELS.find((l) => l.id === `stepv-${v}`)).filter((l) => l !== undefined);
+    this.stepVoices = voices.length === INSTRUMENTS.length;
+    const stepSpecs = [...nums, ...(this.stepVoices ? voices : [])];
+    this.stepLabels = nums.length === STEP_COUNT ? new KeyLabels(opts.atlas, stepSpecs, KEYS.h, 'step') : null;
 
     this.ledMat.name = 'led';
     void FACE_KEY;
@@ -612,7 +615,7 @@ export class Sequencer3D {
     // La marque des verrous descend avec sa touche (2026-10-19) ; ses legendes aussi (2026-10-27)
     this.keyDy[j] = dy;
     this.stepLabels?.setDy(j, dy);
-    if (j < INSTRUMENTS.length) this.stepLabels?.setDy(STEP_COUNT + j, dy);
+    if (this.stepVoices && j < INSTRUMENTS.length) this.stepLabels?.setDy(STEP_COUNT + j, dy);
     if (this.markState[j] !== 0) this.placeMark(j);
     if (this.condShown[j] !== 0) this.placeDot(j);
     if (PRESS_TINT.rgb) this.writeKeyColor(j);
@@ -822,7 +825,7 @@ export class Sequencer3D {
         // Les legendes d'un pas allume passent au noir, comme le nom d'une touche allumee (2026-10-27)
         const dark = f > KEY_LIT.dark;
         this.stepLabels?.setLit(i, dark);
-        if (i < INSTRUMENTS.length) this.stepLabels?.setLit(STEP_COUNT + i, dark);
+        if (this.stepVoices && i < INSTRUMENTS.length) this.stepLabels?.setLit(STEP_COUNT + i, dark);
       }
       // La machine claire : la teinte suit aussi la tete de lecture (force)
       if (KEY_LIT_LIGHT.tint && (part || force)) this.writeKeyColor(i);

@@ -70,11 +70,36 @@ function flat(g: BufferGeometry): BufferGeometry {
 }
 
 /**
+ * Les cotes d'un capuchon (theme.ts ENCODER ; V.6.0, la face DT2 : celles de MAIN VOLUME et LEVEL/DATA aussi,
+ * scene/sideKnobs.ts) : son corps, son chanfrein, ses cannelures, son repere (null : sans repere, un encodeur sans fin),
+ * sa jupe.
+ */
+export interface EncoderDims {
+  r: number;
+  rTop: number;
+  h: number;
+  chamfer: number;
+  chamferGain: number;
+  flutes: number;
+  fluteDepth: number;
+  segments: { desktop: number; mobile: number };
+  mark: { w: number; h: number; d: number } | null;
+  skirt: { r: number; rTop: number; h: number };
+}
+/** Les cotes d'un anneau de valeur (theme.ts KNOB_RING) : ses rayons, ses segments, l'air entre eux, sa hauteur. */
+export interface RingDims {
+  r0: number;
+  r1: number;
+  segments: number;
+  airDeg: number;
+  y: number;
+}
+
+/**
  * Le corps (2026-10-22) : le flanc cannele (un tour, ses creux en cos^2 comme le MM-ARP, voyager/knobs.ts), le chanfrein
  * du haut et le dessus plat, trois tours a part : chacun ses normales, les aretes restent nettes.
  */
-function bodyParts(seg: number): BufferGeometry[] {
-  const E = ENCODER;
+function bodyParts(seg: number, E: EncoderDims = ENCODER): BufferGeometry[] {
   const c = E.chamfer;
   const wall = new LatheGeometry([new Vector2(E.r, 0), new Vector2(E.rTop, E.h - c)], seg);
   const p = wall.getAttribute('position');
@@ -95,17 +120,18 @@ function bodyParts(seg: number): BufferGeometry[] {
   return [wall, chamfer, top];
 }
 
-function buildGeometry(mobile: boolean): BufferGeometry {
-  const E = ENCODER;
+/** Le capuchon (le corps, son chanfrein, son dessus, son repere s'il en a un) : une geometrie fusionnee a couleurs de sommets. */
+export function encoderGeometry(mobile: boolean, E: EncoderDims = ENCODER): BufferGeometry {
   const seg = mobile ? E.segments.mobile : E.segments.desktop;
-  const mark = new BoxGeometry(E.mark.w, E.mark.h, E.mark.d);
+  const mk = E.mark;
+  const mark = mk ? new BoxGeometry(mk.w, mk.h, mk.d) : null;
   // Du centre vers l'arriere (-z), pose sur le dessus
-  mark.translate(0, E.h + E.mark.h / 2 - 0.002, -E.mark.d / 2);
-  const parts = [...bodyParts(seg), mark].map(flat);
+  if (mark && mk) mark.translate(0, E.h + mk.h / 2 - 0.002, -mk.d / 2);
+  const parts = [...bodyParts(seg, E), ...(mark ? [mark] : [])].map(flat);
   paintSolid(parts[0], 'encoder');
   paintSolid(parts[1], 'encoder', gainOf('encoder') * E.chamferGain);
   paintSolid(parts[2], 'encoder');
-  paintLinear(parts[3], LIT.mark);
+  if (parts[3]) paintLinear(parts[3], LIT.mark);
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('encoders: merge failed');
@@ -113,9 +139,9 @@ function buildGeometry(mobile: boolean): BufferGeometry {
 }
 
 /** La jupe d'aluminium : un disque biseaute a la base de l'encodeur. */
-function skirtGeometry(mobile: boolean): BufferGeometry {
-  const C = ENCODER.skirt;
-  const g = new CylinderGeometry(C.rTop, C.r, C.h, mobile ? ENCODER.segments.mobile + 12 : ENCODER.segments.desktop + 16);
+export function encoderSkirtGeometry(mobile: boolean, E: EncoderDims = ENCODER): BufferGeometry {
+  const C = E.skirt;
+  const g = new CylinderGeometry(C.rTop, C.r, C.h, mobile ? E.segments.mobile + 12 : E.segments.desktop + 16);
   g.translate(0, C.h / 2, 0);
   const out = flat(g);
   paintSolid(out, 'voySkirt');
@@ -123,8 +149,7 @@ function skirtGeometry(mobile: boolean): BufferGeometry {
 }
 
 /** Un segment de l'anneau (2026-10-27) : un secteur a plat, son milieu vers l'arriere (-z, midi : le repere a mi-course). */
-function ringSegment(): BufferGeometry {
-  const R = KNOB_RING;
+export function ringSegmentGeometry(R: RingDims = KNOB_RING): BufferGeometry {
   const a = ((TEMPO_UI.sweepDeg / R.segments - R.airDeg) * Math.PI) / 180;
   const g = new RingGeometry(R.r0, R.r1, 4, 1, Math.PI / 2 - a / 2, a);
   // (cos t, sin t, 0) -> (cos t, 0, -sin t) : a plat, face vers le haut
@@ -187,7 +212,7 @@ export class Encoders {
     const n = FACE_KNOBS.length;
     this.material = new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.encoder });
     this.material.name = 'encoder';
-    this.mesh = new InstancedMesh(buildGeometry(opts.mobile), this.material, n);
+    this.mesh = new InstancedMesh(encoderGeometry(opts.mobile), this.material, n);
     this.mesh.name = 'encoders';
     this.mesh.castShadow = opts.castShadow;
     this.mesh.receiveShadow = true;
@@ -195,7 +220,7 @@ export class Encoders {
     // La jupe : la matiere de celle du MM-VOYAGER (voyager/knobs.ts)
     this.skirtMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.skirtMat.name = 'encoderSkirt';
-    this.skirts = new InstancedMesh(skirtGeometry(opts.mobile), this.skirtMat, n);
+    this.skirts = new InstancedMesh(encoderSkirtGeometry(opts.mobile), this.skirtMat, n);
     this.skirts.name = 'encoderSkirts';
     this.skirts.receiveShadow = true;
     for (let i = 0; i < n; i += 1) {
@@ -220,7 +245,7 @@ export class Encoders {
       else this.ringOn.setHex(COLOR.ledSet);
       this.ringMat = new MeshBasicMaterial({ toneMapped: false });
       this.ringMat.name = 'knobRing';
-      const rings = new InstancedMesh(ringSegment(), this.ringMat, n * S);
+      const rings = new InstancedMesh(ringSegmentGeometry(), this.ringMat, n * S);
       rings.name = 'knobRings';
       rings.receiveShadow = false;
       for (let i = 0; i < n; i += 1) {

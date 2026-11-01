@@ -143,11 +143,13 @@ import {
   xfadeCapX,
   DT_FACE,
   DT_HEX,
+  DT2_FACE,
 } from '../theme';
 import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
+import { SideKnobs } from './sideKnobs';
 import { dialEdit, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
@@ -168,7 +170,7 @@ import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen, infoKeySpot, presetKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
-import { PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
+import { BezelDecal, PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
 import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
@@ -424,6 +426,9 @@ export class Stage {
   readonly pads: Pads | null;
   /** la face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le capuchon du crossfader ; null au telephone */
   readonly faceKeys: RytmFaceKeys | null;
+  /** la face DT2 (V.6.0, ?face=dt2) : MAIN VOLUME et LEVEL/DATA (scene/sideKnobs.ts), le decalque du cadre de l'ecran ; null sinon */
+  readonly sideKnobs: SideKnobs | null;
+  readonly bezelDecal: BezelDecal | null;
   /** touches trig, RUN/STOP, CLEAR et les 16 LED */
   readonly seq: Sequencer3D;
   /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
@@ -749,11 +754,16 @@ export class Stage {
     void whenLogos().then(() => {
       if (this.disposed) return;
       this.silk.draw();
+      this.bezelDecal?.draw();
       this.backPlate.draw();
       this.repaint();
     });
     const plateau = this.machine.plateau;
     plateau.add(this.silk.mesh);
+    // La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : le decalque du cadre de l'ecran (MAUDITE MACHINE, MM-RYTM, le firmware),
+    // un petit plan au-dessus du cadre ; la face de la V.5.3 n'en a pas
+    this.bezelDecal = DT2_FACE ? new BezelDecal(aniso) : null;
+    if (this.bezelDecal) plateau.add(this.bezelDecal.mesh);
     this.floor = new Floor();
     // Le sol est a la scene (2026-10-03) : il reste quand la vue cache une machine
     this.scene.add(this.floor.mesh);
@@ -783,13 +793,16 @@ export class Stage {
     // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09 ; au telephone
     // seulement depuis V.5.0 (2026-10-29 : au desktop, TRIG SRC FLTR AMP FX MOD sont dans la rangee de faceKeys)
     this.pageKeys = PORTRAIT ? new RytmPageKeys({ mobile, atlas: this.keyAtlas }) : null;
+    // La face DT2 (V.6.0, ?face=dt2, cahier 2.2) : MAIN VOLUME et LEVEL/DATA dans la colonne gauche
+    this.sideKnobs = DT2_FACE ? new SideKnobs({ mobile, castShadow: !mobile }) : null;
     // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi
     plateau.add(
       ...(this.pads ? [this.pads.mesh, this.pads.halos] : []),
       ...this.seq.objects(),
       ...this.encoders.objects(),
       ...(this.pageKeys?.objects() ?? []),
-      ...(this.faceKeys?.objects() ?? [])
+      ...(this.faceKeys?.objects() ?? []),
+      ...(this.sideKnobs?.objects() ?? [])
     );
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
@@ -2326,6 +2339,7 @@ export class Stage {
     this.unsubFonts = onFonts(() => {
       if (this.disposed) return;
       this.silk.draw();
+      this.bezelDecal?.draw();
       this.keyAtlas.draw();
       this.backPlate.draw();
       this.pcb.redraw();
@@ -2845,6 +2859,8 @@ export class Stage {
     const blkHover = FACE_FOLLOWS_PAGE && id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : -1;
     const knobsLit = blkHover >= 0 ? faceKnobs.get().filter((v) => v.block === blkHover).map((v) => v.k) : id !== null && id.startsWith('penc-') ? Number(id.slice(5)) : -1;
     if (this.encoders.setHover(knobsLit)) changed = true;
+    // La face DT2 (V.6.0) : MAIN VOLUME et LEVEL/DATA (leurs zones mvol, data)
+    if (this.sideKnobs?.setHover(id)) changed = true;
     if (this.pageKeys?.setHover(id !== null && id.startsWith('pkey-') ? id.slice(5) : null)) changed = true;
     if (this.seq.setButtonHover(id)) changed = true;
     // Puce du PCB (vue ouverte)
@@ -3059,6 +3075,12 @@ export class Stage {
    * l'ecran (scene/screen.ts), plus sur la face.
    */
   private syncMix = (): void => {
+    // La face DT2 (V.6.0, ?face=dt2) : MAIN VOLUME montre le niveau general (le dial level, celui de rytm:enc:level)
+    const sk = this.sideKnobs;
+    if (sk) {
+      const [lo, hi] = dialRange('level');
+      if (sk.setValue('mvol', hi > lo ? (dialEdit('level') - lo) / (hi - lo) : 0)) this.encodersMoved();
+    }
     // Au desktop depuis le 2026-10-27 : les potards suivent la page (syncFaceKnobs)
     if (FACE_FOLLOWS_PAGE) return;
     const e = this.encoders;
@@ -3144,7 +3166,8 @@ export class Stage {
   private xfA = { x: 0, y: 0 };
   private xfB = { x: 0, y: 0 };
   xfadeAxis(): { ax: number; ay: number; bx: number; by: number } | null {
-    if (!this.faceKeys) return null;
+    // La face DT2 (V.6.0) : plus de crossfader sur la face (cahier 1.3)
+    if (!this.faceKeys?.cap) return null;
     const a = this.projectPlateau(xfadeCapX(0), XFADE.cap.h, XFADE.z, this.xfA);
     const b = this.projectPlateau(xfadeCapX(1), XFADE.cap.h, XFADE.z, this.xfB);
     return { ax: a.x, ay: a.y, bx: b.x, by: b.y };
@@ -3667,6 +3690,8 @@ export class Stage {
     this.backPlate.dispose();
     this.pads?.dispose();
     this.faceKeys?.dispose();
+    this.sideKnobs?.dispose();
+    this.bezelDecal?.dispose();
     this.seq.dispose();
     this.encoders.dispose();
     this.pageKeys?.dispose();

@@ -163,6 +163,54 @@ export class KeyLabelAtlas {
     ctx.fillStyle = ink;
     marks.forEach((m, i) => {
       if (i > 0) x += KEY_MARK.gap * u;
+      // Les chevrons des fleches (V.6.0, la face DT2, cahier 2.3) : un trait, pas une forme pleine ; < et > etroits, ^ et v
+      // de la largeur des autres signes et moins hauts, le trait dans la cellule (l'inset d'un demi-trait)
+      if (m === 'up' || m === 'down' || m === 'left' || m === 'right') {
+        const C = KEY_MARK.chevron;
+        const lw = C.line * h;
+        const k = lw / 2;
+        const narrow = h * C.narrow;
+        ctx.save();
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = lw;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        if (m === 'left' || m === 'right') {
+          const x0 = x + k;
+          const x1 = x + narrow - k;
+          const ya = y0 + k;
+          const yb = y0 + h - k;
+          if (m === 'left') {
+            ctx.moveTo(x1, ya);
+            ctx.lineTo(x0, (ya + yb) / 2);
+            ctx.lineTo(x1, yb);
+          } else {
+            ctx.moveTo(x0, ya);
+            ctx.lineTo(x1, (ya + yb) / 2);
+            ctx.lineTo(x0, yb);
+          }
+          x += narrow;
+        } else {
+          const top = y0 + (h - narrow) / 2 + k;
+          const bot = y0 + (h + narrow) / 2 - k;
+          const x0 = x + k;
+          const x1 = x + h - k;
+          if (m === 'up') {
+            ctx.moveTo(x0, bot);
+            ctx.lineTo((x0 + x1) / 2, top);
+            ctx.lineTo(x1, bot);
+          } else {
+            ctx.moveTo(x0, top);
+            ctx.lineTo((x0 + x1) / 2, bot);
+            ctx.lineTo(x1, top);
+          }
+          x += h;
+        }
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
       ctx.beginPath();
       if (m === 'play') {
         const w = h * KEY_MARK.playW;
