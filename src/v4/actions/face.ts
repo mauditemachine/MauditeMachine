@@ -68,7 +68,7 @@ import { clearPattern, randomPattern } from './patterns';
 import { runToggle } from './transport';
 import { trkDown, trkUp } from './tracks';
 import { curScreen } from './kit';
-import { lockMode } from './locks';
+import { lockMode, lockPages } from './locks';
 import { presetKey, presetTurns } from './presets';
 
 /* ---------------- V.5.0 : la face facon Digitakt du desktop (2026-10-29, l'etape D1) ---------------- */
@@ -989,21 +989,28 @@ export const activeTrackKey = (): TrackKey | null => activeTrack.get();
 
 /**
  * Les LED des touches de la face DT2 que la saisie pose (cahier 2.4) : le menu ouvert (PRESET/KIT, SETTINGS, SOUNDS,
- * TEMPO), PAGE et FILL, PTN en vue BANK, KEYBOARD et SONG (eteintes en 6.0). Rend de quoi se desabonner.
+ * TEMPO), PERFORM (6.2, eteinte), PAGE et FILL, PTN en vue BANK, KEYBOARD et SONG (eteintes en 6.0) ; l'integration de la
+ * V.6.0 y ajoute les 8 LED de page (le pattern fait 16 pas en 6.0 : une page, la page editee pleine) et, un trig tenu en
+ * GRID REC, les touches de page qui portent ses verrous (rouges, les autres eteintes ; cahier 3.1). Rend de quoi se
+ * desabonner.
  */
 export function dt2FaceSync(stage: Stage): () => void {
   const fk = stage.faceKeys;
   if (!DT2_FACE || !fk) return () => undefined;
   const sync = (): void => {
     let ch = fk.setMenu(faceMenuOf(dtFace.menu()));
+    if (fk.setPerform(dtFace.menu() === 'perform')) ch = true;
     if (fk.setFill(fill.mode)) ch = true;
     if (fk.setBank(dtFace.bank())) ch = true;
     if (fk.setKeyboard(dtFace.keyboard())) ch = true;
     const sg = dtFace.song();
     if (fk.setSong(sg === 'mode' ? 'song' : sg)) ch = true;
+    if (fk.setPatternPages(Math.ceil(STEP_COUNT / 16), dtFace.ptnPage(), -1)) ch = true;
+    const lk = rytmLock.get();
+    if (fk.setPageLocks(dtFace.rec() && lk.step >= 0 ? lockPages(lk.step).map((pg) => pg.toLowerCase()) : [])) ch = true;
     if (ch) stage.repaint();
   };
-  const offs = [dtFace.subscribe(sync), fill.subscribe(sync)];
+  const offs = [dtFace.subscribe(sync), fill.subscribe(sync), rytmLock.subscribe(sync), pattern.subscribe(sync)];
   sync();
   return () => {
     offs.forEach((o) => o());
