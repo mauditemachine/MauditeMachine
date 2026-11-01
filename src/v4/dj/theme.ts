@@ -583,11 +583,13 @@ export const DECK = {
    */
   tempo: { xs: [1.9, 2.5] as readonly number[], z: 4.88, w: 0.52, d: 0.38 },
   /**
-   * REMOVE DECK : sur la derniere platine ajoutee (C ou D), dans l'en-tete,
-   * avant le logo ; son nom en orange a gauche, assez grand pour se lire
-   * (Mika, 2026-10-04 : il ne le voyait pas), a la place de DIGITAL DECK
+   * La croix qui ferme la derniere platine ajoutee (C ou D) : en haut a droite,
+   * dans l'en-tete juste avant le logo (la vis du coin a sa place), discrete
+   * (Mika, 2026-11-01 : "des croix pour fermer les decks que nous avons
+   * rajoutes, discretes quand meme et en haut a droite") ; la gravure fait
+   * 2 x cross de cote, la zone a toucher w x d
    */
-  remove: { x: 1.42, z: -5.19, w: 0.72, d: 0.28 },
+  remove: { x: 1.86, z: -5.19, w: 0.36, d: 0.32, cross: 0.075 },
 } as const;
 
 /**

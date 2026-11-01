@@ -97,6 +97,8 @@ export interface DjKeySpec {
   round: boolean;
   /** pas de touche en caoutchouc : l'ecran rond du jog (SYNC) */
   screen?: boolean;
+  /** pas de touche du tout : une gravure de la plaque qui se touche (la croix qui ferme une platine, dj/silk.ts) */
+  flat?: boolean;
   target: DjKeyTarget;
 }
 
@@ -235,10 +237,10 @@ function buildKeys(): DjKeySpec[] {
     const c = jogCenter(d);
     const r = DECK.jog.center;
     keys.push({ id: `dj-${d}-sync`, label: 'SYNC', x: c.x, z: c.z, w: 2 * r, d: 2 * r, round: true, screen: true, target: { kind: 'sync', deck: d } });
-    // REMOVE : la derniere platine ajoutee seulement (C ou D)
+    // La croix qui ferme la platine (2026-11-01) : la derniere ajoutee seulement (C ou D), gravee, sans touche
     if (d === last && DJ_DECKS.length > 2) {
       const R = DECK.remove;
-      keys.push({ id: `dj-${d}-remove`, label: 'REMOVE', x: ux + R.x, z: R.z, w: R.w, d: R.d, round: false, target: { kind: 'removedeck', deck: d } });
+      keys.push({ id: `dj-${d}-remove`, label: 'CLOSE', x: ux + R.x, z: R.z, w: R.w, d: R.d, round: false, flat: true, target: { kind: 'removedeck', deck: d } });
     }
   }
   DJ_TIMES.forEach((t, i) => {
@@ -277,8 +279,8 @@ function build(): void {
   DJ_KNOBS = buildKnobs();
   DJ_FADERS = buildFaders();
   DJ_KEYS = buildKeys();
-  DJ_RECT_KEYS = DJ_KEYS.filter((k) => !k.round);
-  DJ_ROUND_KEYS = DJ_KEYS.filter((k) => k.round && !k.screen);
+  DJ_RECT_KEYS = DJ_KEYS.filter((k) => !k.round && !k.flat);
+  DJ_ROUND_KEYS = DJ_KEYS.filter((k) => k.round && !k.screen && !k.flat);
   knobMap.clear();
   faderMap.clear();
   keyMap.clear();

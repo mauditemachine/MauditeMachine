@@ -685,6 +685,8 @@ export class DjControls {
     for (const k of [...DJ_RECT_KEYS, ...DJ_ROUND_KEYS]) out.push(keyHotspot(k, top));
     // SYNC, l'ecran rond au centre du jog : au-dessus de la platine, il passe avant le jog au picking
     for (const k of DJ_KEYS) if (k.screen) out.push({ ...keyHotspot(k, top), y1: DECK.jog.platterH + 0.06 });
+    // Les gravures qui se touchent (la croix qui ferme une platine) : a fleur de plaque
+    for (const k of DJ_KEYS) if (k.flat) out.push({ ...keyHotspot(k, top), y1: 0.05 });
     for (const d of DJ_DECKS) {
       const c = jogCenter(d);
       const r = DECK.jog.ring;

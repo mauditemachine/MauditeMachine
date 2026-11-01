@@ -449,8 +449,9 @@ html:has(body.v4-active) {
 }
 
 .v4-root[data-v4-theme='light'] .v4-ovhelp {
-  background: rgba(250, 247, 241, 0.95);
-  color: var(--ink);
+  background: rgba(250, 247, 241, 0.97);
+  /* Pas var(--ink) : en clair, --ink vaut la creme du fond (le texte disparaissait, Mika 2026-11-01) */
+  color: #191919;
 }
 
 .v4-root .v4-ovhelp-head {

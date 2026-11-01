@@ -447,7 +447,7 @@ export class DjRig {
         pitch: (ds.pitch * ds.range) / 100,
         zoom: ds.zoom,
         wave: DJ_WAVE_LABEL[s.wave],
-        note: ds.remove ? 'PLAYING: PRESS REMOVE DECK AGAIN' : '',
+        note: ds.remove ? 'PLAYING: CLOSE AGAIN TO REMOVE THE DECK' : '',
         back: this.held.has(`dj-${d}-back`),
       };
       if (this.screens.setDeck(d, screen)) changed = true;
