@@ -27,6 +27,18 @@ import { dial, dialReset, dialTarget, dialValue } from './dials';
 import { type DialId, kitDial, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageKnobOf, pageSlotOf, pageTarget, soundFamily, voiceSounds, voiceSoundText, voiceSoundUnit, voyDial } from './kit';
 import { lockMode, lockReadStep, pageLockView } from './locks';
 import { seqDialOf, seqRange, seqText, seqUnit } from './mixer';
+import { dialSpecOf, isDialV60, type DialSpec } from '../scene/screen/menus/registry';
+
+/** La fiche d'un reglage neuf de V.6.0 (t:, k:, z:), ou celle de la cible d'un potard de page ; null : un chemin d'avant. */
+function specOf(id: DialId): DialSpec | null {
+  const t = resolve(id);
+  return t !== null && isDialV60(t) ? dialSpecOf(t) : null;
+}
+/** Un id neuf sans fiche (une piste inconnue, un menu ferme) : rien, jamais un chemin d'avant. */
+const deadV60 = (id: DialId): boolean => {
+  const t = resolve(id);
+  return t !== null && isDialV60(t) && !dialSpecOf(t);
+};
 
 /**
  * Le potard de page k a-t-il quelque chose a regler maintenant (un bloc
@@ -69,6 +81,11 @@ const resolve = (id: DialId): SlotTarget | null => {
 export function anyDial(id: DialId, v: number): void {
   const pk = pageKnobOf(id);
   if (pk >= 0) return pageDial(pk, v);
+  // V.6.0 (la face DT2) : un reglage de piste ou d'un menu, par sa fiche
+  if (isDialV60(id)) {
+    dialSpecOf(id)?.set(v);
+    return;
+  }
   // Une scene armee (2026-10-27) : rytm:enc:*, les TWEAKS, les couches ; TEMPO et MASTER passent (sceneTake rend false)
   if (sceneTake(id, v)) return;
   if (!voyId(id)) sceneHint(id);
@@ -93,6 +110,9 @@ export function anyDialValue(id: DialId): number {
   }
   const t = resolve(id);
   if (t === null) return 0;
+  const sp = specOf(id);
+  if (sp) return sp.value();
+  if (deadV60(id)) return 0;
   if (t === 'step:vel') {
     const inst = pattern.get().instrument;
     // En P-LOCK : la velocite du pas (lockDialValue) ; sinon celle des nouveaux pas
@@ -119,6 +139,9 @@ export function anyDialValue(id: DialId): number {
 export function anyDialReset(id: DialId): number {
   const t = resolve(id);
   if (t === null) return 0;
+  const sp = specOf(id);
+  if (sp) return sp.reset ? sp.reset() : sp.value();
+  if (deadV60(id)) return 0;
   // VEL : HIGH, la velocite d'un appui (celle d'avant)
   if (t === 'step:vel') return TAP_VEL_DEFAULT;
   // SMPL SAMPLE : celui du kit de depart (BD, SD, OH : le premier sample de Mika ; les autres OFF)
@@ -167,6 +190,12 @@ export function anyDialReset(id: DialId): number {
 export function dialRange(id: DialId): [number, number] {
   const t = resolve(id);
   if (t === null) return [0, 1];
+  const sp = specOf(id);
+  if (sp) {
+    const [lo, hi] = sp.range();
+    return [lo, hi];
+  }
+  if (deadV60(id)) return [0, 1];
   const inPage = pageKnobOf(id) >= 0;
   if (t === 'vsound' && inPage && lockMode()) return [0, Math.max(1, lockSoundsOf().length - 1)];
   if (t === 'step:vel') return inPage && lockMode() ? [0, VEL_MAX] : [1, VEL_MAX];
@@ -192,6 +221,9 @@ export function dialRange(id: DialId): [number, number] {
 export function dialSteps(id: DialId): number {
   const t = resolve(id);
   if (t === null) return 0;
+  const sp = specOf(id);
+  if (sp) return sp.steps();
+  if (deadV60(id)) return 0;
   const inPage = pageKnobOf(id) >= 0;
   if (t === 'step:vel') return inPage && lockMode() ? VEL_MAX + 1 : VEL_MAX;
   // SOUND en LOCK (2026-10-08) : les sons de toutes les familles, un cran chacun
@@ -292,6 +324,14 @@ export function dialReadout(id: DialId): string {
     }
     return dialReadout(t);
   }
+  if (isDialV60(id)) {
+    const sp = dialSpecOf(id);
+    if (!sp || (sp.live && !sp.live())) return 'TAP A VOICE';
+    const v = sp.value();
+    if (sp.say) return sp.say(v);
+    const u = sp.unit(v);
+    return `${sp.text(v)}${u ? `, ${u.toLowerCase()}` : ''}`;
+  }
   const r = kitIdOf(id);
   if (r) return kitReadout(r);
   const lp = layerIdOf(id);
@@ -346,10 +386,15 @@ export function dialValueText(id: DialId): string {
       if (t === 'step:vel') return 'OFF';
     }
     if (t === 'step:vel') return inst ? String(velTo127(rytmPage.tapVel(inst))) : '--';
+    if (isDialV60(t)) return dialValueText(t as DialId);
     if (t === 'smpl:sample') return sampleText();
     if (t === 'voice:sound') return inst ? (soundFamily() || ls >= 0 ? voiceSoundText(inst, kit.playsWith(inst as ShotId, null)) : '--') : '--';
     if (t === 'voice:mix') return inst && soundFamily() ? mixText(kit.playsWith(inst as ShotId, null)) : '--';
     return dialValueText(t);
+  }
+  if (isDialV60(id)) {
+    const sp = dialSpecOf(id);
+    return !sp || (sp.live && !sp.live()) ? '--' : sp.text(sp.value());
   }
   const r = kitIdOf(id);
   if (r) return isFamily(r) || r === 'gate' ? kit.valueText(r) : v127Text(kit.value(r));
@@ -387,6 +432,10 @@ export function dialUnit(id: DialId): string {
     if (t === 'step:vel') return 'EMPTY STEP';
   }
   if (t === 'step:vel') return inst ? `NEW STEPS ${velWord(rytmPage.tapVel(inst))}` : '';
+  if (isDialV60(t)) {
+    const sp = dialSpecOf(t);
+    return !sp || (sp.live && !sp.live()) ? '' : sp.unit(sp.value());
+  }
   if (t === 'smpl:sample') return sampleUnit();
   if (t === 'voice:sound') return inst ? voiceSoundUnit(inst, kit.playsWith(inst as ShotId, null)) : '';
   if (t === 'voice:mix') return inst && soundFamily() ? mixUnit(kit.playsWith(inst as ShotId, null)) : '';

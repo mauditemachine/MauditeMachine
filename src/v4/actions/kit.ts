@@ -18,7 +18,10 @@ import { POT_UI, type EncId, type Inst } from '../theme';
 import { stepIndex, voyKnob, voyParams, type VoyKnobId } from '../voyager/params';
 import { seq } from '../voyager/seq';
 import { kitReadout, touchPage } from './internal/dials';
-import { FAIL_WORD, layerNotches, layerReadout, layerSpan, layerValueOf, voiceSoundCache } from './internal/kit';
+import { FAIL_WORD, layerNotches, layerReadout, layerSpan, layerValueOf, voiceSoundCache, type TrackDial } from './internal/kit';
+import type { TrackKey } from '../audio/tracks';
+import { openMenu } from '../scene/screen/menus/open';
+import { DT2_FACE } from '../theme';
 import { FAM_TAG, LOCK_FAMS } from './internal/locks';
 import type { SeqDial } from './mixer';
 
@@ -75,7 +78,10 @@ export function kitDial(id: KitId, v: number): void {
  */
 // m:<voix> (V.5.0, 2026-10-29) : le VOL d'une voix sur le MIXER (FUNC + MOD), rytm:voice:<voix>:level
 // q:<reglage> (V.5.1, 2026-10-29) : un reglage de trig (TRIG) ou d'un LFO (MOD) de la voix choisie, rytm:voice:<voix>:<reglage>
-export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}` | `p:${number}` | `l:${LayerDial}` | `m:${Inst}` | `q:${SeqDial}`;
+// V.6.0 (lane B5, 2026-11-01, la face DT2) : t:<reglage> un reglage de la piste active (les pages SRC par machine), k:<piste>
+// le TRK LEV d'une piste (MIXER 16, LEVEL/DATA), z:<id> un reglage d'un menu de l'ecran (TEMPO, QUANTIZE, SCENES) ; leurs
+// fiches : scene/screen/menus/registry.ts dialSpecOf
+export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}` | `p:${number}` | `l:${LayerDial}` | `m:${Inst}` | `q:${SeqDial}` | `t:${TrackDial}` | `k:${TrackKey}` | `z:${string}`;
 export const kitIdOf = (id: DialId): KitId | null => (id.startsWith('r:') ? (id.slice(2) as KitId) : null);
 
 /* ---------------- les couches SYNTH et SAMPLE du MM-RYTM (2026-10-08, l'etape R3) ---------------- */
@@ -159,9 +165,25 @@ export function curScreen(): RytmScreenId {
   return rytmPage.screen(pattern.get().instrument);
 }
 
+/**
+ * Les blocs de l'ecran affiche (les huit potards A a H) : ceux de la page pour la voix choisie ; avec la face DT2 (V.6.0,
+ * ?face=dt2), ceux du menu ouvert qui en a (TEMPO, QUANTIZE, MIXER, SCENES). La page SRC de la face DT2 (par machine)
+ * vient de rytm/pages.ts pageSlots.
+ */
+export function curSlots(): readonly PageSlot[] {
+  if (DT2_FACE) {
+    const ms = openMenu()?.slots?.();
+    if (ms) return ms;
+  }
+  return pageSlots(curScreen(), pattern.get().instrument);
+}
+
+/** Un menu de l'ecran tient-il les potards A a H (V.6.0, la face DT2) ? */
+export const menuKnobs = (): boolean => DT2_FACE && !!openMenu()?.slots?.();
+
 /** Ce que porte le potard de page k sur l'ecran affiche, pour la voix choisie. */
 export function pageSlotOf(k: number): PageSlot | null {
-  return pageSlots(curScreen(), pattern.get().instrument)[k] ?? null;
+  return curSlots()[k] ?? null;
 }
 
 /** La cible du potard de page k (un DialId, la velocite, le son ou le melange de VOICE), null : vide ou un dessin. */

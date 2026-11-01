@@ -9,6 +9,7 @@
  */
 
 import type { LcdState } from '../../../state/lcd';
+import type { PageSlot } from '../../../rytm/pages';
 import type { Screen } from '../core';
 
 /** Les menus de la DT2 sans sampling (cahier 2.5 et 3), noms figes ; une lane qui en ajoute un l'ajoute a la fin. */
@@ -69,7 +70,73 @@ export interface ScreenMenu {
    * null) ; une fleche non prise ne fait rien. Absent : le menu ne se navigue pas (B4 ne lui envoie rien, NO le ferme).
    */
   onInput?: (input: ScreenMenuInput) => boolean;
+  /*
+   * V.6.0 (lane B5, 2026-11-01), des ajouts facultatifs au contrat, aucun nom d'avant ne change :
+   */
+  /** le titre de l'en-tete, a la place du nom du pattern (TEMPO, MACHINE, SETTINGS > PATTERN) */
+  title?: () => string;
+  /**
+   * ses huit potards A a H, comme une page (le bloc k est le potard k, sa case k) : l'ecran les dessine dans la grille, les
+   * potards de la face, le MIDI rytm:knob et les jumeaux les reglent (actions/kit.ts curSlots) ; null : pas de potards
+   */
+  slots?: () => readonly PageSlot[] | null;
+  /** un potard presse (clic sans glisser, B4 l'envoie par actions screenKnobPress) : true s'il l'a pris */
+  knobPress?: (k: number) => boolean;
+  /** dtFace.menu vient de passer a lui (ou de le quitter) : son curseur repart, ce qu'il garde se pose ou se rend */
+  onOpen?: () => void;
+  onClose?: () => void;
+  /** ce qu'il montre, en une ligne (les sondes, le jumeau) */
+  info?: () => string;
+  /** le nombre de ses sous-pages et celle affichee (l'indicateur de droite) ; absent : aucune */
+  pages?: () => { n: number; cur: number };
 }
+
+/*
+ * Les reglages des menus et des 16 pistes (V.6.0, lane B5) : un DialId neuf (t:<reglage> la piste active, k:<piste> le TRK
+ * LEV d'une piste, z:<id> un reglage d'un menu) se lit et s'ecrit par sa fiche, que le menu ou actions/kit.ts inscrit ;
+ * actions/anyDial.ts la consulte avant tout le reste (un id inconnu ne tombe jamais dans le chemin des FX globaux).
+ */
+export interface DialSpec {
+  /** ce que montre le bloc et ce que lit le potard (dans ses unites) */
+  value: () => number;
+  /** ecrit (dans ses unites, borne par l'appelant) */
+  set: (v: number) => void;
+  range: () => readonly [number, number];
+  /** ses crans (0 : continu) */
+  steps: () => number;
+  text: (v: number) => string;
+  unit: (v: number) => string;
+  /** le depart (le double clic, potard presse + NO) ; absent : rien */
+  reset?: () => number;
+  /** false : rien a regler maintenant (pas de piste, un reglage a venir) : le bloc dit -- */
+  live?: () => boolean;
+  /** le message du pied apres un geste (T1 LEV 102  -1.2 DB) ; absent : NOM VALEUR UNITE */
+  say?: (v: number) => string;
+}
+
+const SPECS = new Map<string, DialSpec>();
+const PREFIXES: { prefix: string; of: (id: string) => DialSpec | null }[] = [];
+
+/** Inscrit la fiche d'un reglage (un id exact). */
+export function registerDialSpec(id: string, spec: DialSpec): void {
+  SPECS.set(id, spec);
+}
+
+/** Inscrit un resolveur de fiches pour un prefixe (t:, k:). */
+export function registerDialPrefix(prefix: string, of: (id: string) => DialSpec | null): void {
+  PREFIXES.push({ prefix, of });
+}
+
+/** La fiche d'un reglage neuf (V.6.0) ; null : un DialId d'avant (son chemin de toujours). */
+export function dialSpecOf(id: string): DialSpec | null {
+  const s = SPECS.get(id);
+  if (s) return s;
+  for (const p of PREFIXES) if (id.startsWith(p.prefix)) return p.of(id);
+  return null;
+}
+
+/** Un DialId neuf de V.6.0 (t:, k:, z:) ? Meme sans fiche : il ne doit jamais tomber dans un chemin d'avant. */
+export const isDialV60 = (id: string): boolean => id.startsWith('t:') || id.startsWith('k:') || id.startsWith('z:');
 
 const MENUS = new Map<ScreenMenuId, ScreenMenu>();
 

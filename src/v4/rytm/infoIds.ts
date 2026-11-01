@@ -36,7 +36,7 @@
  * (theme.ts GLOBAL_ENCODERS) : leur carte est celle de leur FX.
  */
 
-import { FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, type Inst } from '../theme';
+import { DT2_FACE, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, type Inst } from '../theme';
 import { FX_DETAILS, RYTM_PAGES, SCREEN_TITLE, allScreens, cellsOf, isFxPage, pageSlots, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
 
 /* ---------------- les ids ---------------- */
@@ -208,7 +208,46 @@ export type RytmD2Id = (typeof RYTM_D2_IDS)[number];
 export const RYTM_D3A_IDS = ['bank', 'ctlall', 'liverec'] as const;
 export type RytmD3aId = (typeof RYTM_D3A_IDS)[number];
 
-export type RytmInfoId = RytmInfoPage | RytmInfoTab | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId | RytmD2Id | RytmD3aId;
+/**
+ * V.6.0 (lane B5, 2026-11-01, la face DT2, ?face=dt2) : une carte par touche, potard, page et menu nouveaux. Les touches de
+ * la face (key:, leurs zones scene/zones/face60.ts), les menus de l'ecran (menu:), les reglages des pages SRC par machine
+ * (t:<reglage>, les memes ids que leurs cibles), le TRK LEV (trklev, MIXER et LEVEL/DATA).
+ */
+export const RYTM_V60_IDS = [
+  'key:preset',
+  'key:settings',
+  'key:sounds',
+  'key:tempo',
+  'key:kbd',
+  'key:song',
+  'key:arrows',
+  'key:page',
+  'key:mvol',
+  'key:data',
+  'menu:machine',
+  'menu:tempo',
+  'menu:quantize',
+  'menu:preset',
+  'menu:sounds',
+  'menu:samples',
+  'menu:settings',
+  'menu:mixer',
+  'menu:scenes',
+  'src:page',
+  't:tune',
+  't:srev',
+  't:snd',
+  't:sstart',
+  't:slen',
+  't:slev',
+  't:syn',
+  't:fine',
+  't:model',
+  'trklev',
+] as const;
+export type RytmV60Id = (typeof RYTM_V60_IDS)[number];
+
+export type RytmInfoId = RytmInfoPage | RytmInfoTab | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId | RytmD2Id | RytmD3aId | RytmV60Id;
 
 export const RYTM_INFO_IDS: readonly RytmInfoId[] = [
   ...RYTM_INFO_PAGES,
@@ -220,6 +259,7 @@ export const RYTM_INFO_IDS: readonly RytmInfoId[] = [
   ...RYTM_CONTROL_IDS,
   ...RYTM_D2_IDS,
   ...RYTM_D3A_IDS,
+  ...RYTM_V60_IDS,
 ];
 const ID_SET: ReadonlySet<string> = new Set(RYTM_INFO_IDS);
 export const isRytmInfoId = (s: unknown): s is RytmInfoId => typeof s === 'string' && ID_SET.has(s);
@@ -299,6 +339,29 @@ const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
   'm:CY': 'mixvol',
   // V.5.1 : les deux LFO partagent la carte de chaque reglage
   ...Object.fromEntries([1, 2].flatMap((n) => ['spd', 'mul', 'fad', 'dst', 'wav', 'phs', 'mod', 'dep'].map((k) => [`q:l${n}${k}`, `lfo:${k}`]))),
+  // V.6.0 (la face DT2) : les potards des machines de la page SRC (ceux de la plaque TWEAKS et de SRC SYNTH), la couche
+  // sample, le TRK LEV des 16 pistes (MIXER INTERNAL), les reglages des menus TEMPO, QUANTIZE et SCENES
+  't:ktune': 'r:tune',
+  't:kattack': 'r:attack',
+  't:kdecay': 'r:decay',
+  't:kdrive': 'r:drive',
+  't:snappy': 'r:snappy',
+  't:gate': 'r:gate',
+  't:ksweep': 'r3:sweep',
+  't:sdtune': 'r3:sdtune',
+  't:sddecay': 'r3:sddecay',
+  't:sdtone': 'r3:sdtone',
+  't:stune': 'r3:stune',
+  't:sfine': 'r3:sfine',
+  't:tlev': 'trklev',
+  ...Object.fromEntries(['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'].map((k) => [`k:${k}`, 'trklev'])),
+  'z:qtrk': 'menu:quantize',
+  'z:qptn': 'menu:quantize',
+  'z:sca': 'menu:scenes',
+  'z:scb': 'menu:scenes',
+  'z:kya': 'menu:scenes',
+  'z:kyb': 'menu:scenes',
+  'z:xf': 'xfade',
 };
 
 /** La carte d'une cible de bloc (pages.ts SlotTarget), 'enc' si elle n'en a pas. */
@@ -410,6 +473,22 @@ const KIT_HOT: ReadonlySet<string> = new Set(['tune', 'attack', 'decay', 'drive'
 const TRANSPORT = new Set(['run', 'clear', 'random', 'mute', 'solo']);
 /** Les touches de la rangee V.5.0 qui ont leur carte (2026-10-29) ; TRIG et MOD, leur page (ptrig, pmod). */
 const DT_KEYS = new Set(['func', 'rec', 'stop', 'yes', 'no']);
+/** Les zones nouvelles de la face DT2 (V.6.0) et leur carte. */
+const DT2_ZONE_CARD: Readonly<Record<string, RytmInfoId>> = {
+  preset: 'key:preset',
+  settings: 'key:settings',
+  sounds: 'key:sounds',
+  tempo: 'key:tempo',
+  kbd: 'key:kbd',
+  song: 'key:song',
+  up: 'key:arrows',
+  down: 'key:arrows',
+  left: 'key:arrows',
+  right: 'key:arrows',
+  ptnpage: 'key:page',
+  mvol: 'key:mvol',
+  data: 'key:data',
+};
 const DT_PAGE_CARD: Readonly<Record<string, RytmInfoId>> = { trig: 'ptrig', mod: 'pmod' };
 /** Les onglets de TRIG et MOD (V.5.1) : la carte de leur page ; TRIG 2/2, celle du retrig. */
 const DT_TAB_CARD: Readonly<Record<string, RytmInfoId>> = { trig: 'ptrig', trig2: 'ptrig2', mod: 'pmod', mod2: 'pmod' };
@@ -480,8 +559,12 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   const mn = /^lcd-menu-([a-z]+)$/.exec(hotspot);
   if (mn) return mn[1] === 'sound' ? { id: 'voice:sound' } : PAGE_IDS.has(mn[1]) ? { id: mn[1] } : null;
   const pk = /^pkey-([a-z]+)$/.exec(hotspot);
-  if (pk) return PAGE_IDS.has(pk[1]) ? { id: DT_PAGE_CARD[pk[1]] ?? pk[1] } : null;
+  // La face DT2 (V.6.0) : SRC a sa carte de page par machine
+  if (pk) return PAGE_IDS.has(pk[1]) ? { id: DT2_FACE && pk[1] === 'voice' ? 'src:page' : (DT_PAGE_CARD[pk[1]] ?? pk[1]) } : null;
   if (hotspot === 'rec' && liveResolver()) return { id: 'liverec' };
+  // V.6.0 (la face DT2) : les touches et les potards nouveaux (scene/zones/face60.ts)
+  const k60 = DT2_ZONE_CARD[hotspot];
+  if (DT2_FACE && k60) return { id: k60 };
   if (DT_KEYS.has(hotspot)) return { id: hotspot };
   const tb = /^lcd-tab-([a-z]+)$/.exec(hotspot);
   // Les onglets de la page d'un FX (2026-10-10) : GLOBAL, la carte du FX de la machine (delay) ; la voix, celle de son envoi (vdelay)

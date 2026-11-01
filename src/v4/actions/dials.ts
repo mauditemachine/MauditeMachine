@@ -19,14 +19,15 @@ import { morph } from '../audio/morph';
 import { NO_SCENES } from '../rytm/sceneData';
 import { bindingOf, from01 } from '../rytm/sceneParams';
 import { FACE_PAGES, faceBlockOf, fxDetailOf, pageSlots, screensOf } from '../rytm/pages';
-import { FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_NO_VOICE, POT_UI, isVoiceEnc, type EncId, type Inst } from '../theme';
+import { DT2_FACE, FACE_FOLLOWS_PAGE, GLOBAL_ENCODERS, LCD_NO_VOICE, POT_UI, isVoiceEnc, type EncId, type Inst } from '../theme';
+import { openMenu } from '../scene/screen/menus/open';
 import { st } from './state';
 import { sceneHideSay } from './internal/scenes';
 import { type ContEnc, presetAbs, readout, touchPage, voiceParam } from './internal/dials';
 import { soundDial } from './internal/kit';
 import { sceneIdOfDial, sceneTake } from './scenes';
 import { anyDial, anyDialReset, dialRange } from './anyDial';
-import { curScreen, type DialId, soundFamily } from './kit';
+import { curScreen, curSlots, type DialId, soundFamily } from './kit';
 import { lockMode, pageKnobReset } from './locks';
 import { funcDrop } from './face';
 import { presetTurn, presetTurns } from './presets';
@@ -46,6 +47,17 @@ export function pageKnobBand(k: number, out: [number, number]): boolean {
   if (!(hi > lo)) return false;
   for (let i = 0; i < 2; i += 1) out[i] = Math.max(0, Math.min(1, (from01(b, bandEnds[i]) - lo) / (hi - lo)));
   return true;
+}
+
+/**
+ * Un potard A a H presse (V.6.0, la face DT2 : un clic sans glisser, B4 l'envoie ; cahier 2.7) : le menu ouvert le prend
+ * (SCENES : A et B arment leur scene) ; true s'il a servi. Le reste (potard presse + NO = defaut, TRIG + potard presse =
+ * retire le verrou) est a B4, avec dialReset et rytmLockClear.
+ */
+export function screenKnobPress(k: number): boolean {
+  if (!DT2_FACE) return false;
+  const m = openMenu();
+  return !!m?.knobPress?.(k);
 }
 
 /**
@@ -175,7 +187,8 @@ export const globalEncId = (k: number): EncId | null => GLOBAL_ENCODERS[k] ?? nu
 
 /** Le bloc que tourne le potard de page k (MIDI rytm:knob, la face du desktop) : faceBlockOf sur l'ecran affiche ; k au telephone. */
 export function knobBlock(k: number): number | null {
-  return FACE_PAGES ? faceBlockOf(pageSlots(curScreen(), pattern.get().instrument), k) : k;
+  // La face DT2 (V.6.0) : un menu a potards (TEMPO, QUANTIZE, MIXER, SCENES) les prend (curSlots)
+  return FACE_PAGES ? faceBlockOf(curSlots(), k) : k;
 }
 
 /** Son DialId : p:<bloc>, p:k pour une case vide (pageDial dit "G: EMPTY ON ENV"). */

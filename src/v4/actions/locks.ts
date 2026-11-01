@@ -6,7 +6,7 @@
 import { kitOverride, mix } from '../audio/drums';
 import { voiceFx } from '../audio/voicefx';
 import { KIT_MODELS, KIT_MODEL_LABEL, familyOf, isFamily, kit, kitSoundNames, type KitFamily, type KitModel, type Plays } from '../audio/kit';
-import { lockOf, parseSnd, type LockKey, type StepLock } from '../audio/locks';
+import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from '../audio/locks';
 import { samplesOf } from '../audio/samples';
 import { VEL_MAX, pattern, velocity } from '../audio/pattern';
 import { lcdMessage } from '../state/lcdMessage';
@@ -24,7 +24,8 @@ import { two } from './shared';
 import { sceneDrop } from './internal/scenes';
 import { recHoldHint } from './internal/steps';
 import type { ContEnc } from './internal/dials';
-import { layerSpan, sampleCtx, voiceSoundAt } from './internal/kit';
+import { layerSpan, sampleCtx, trackSampleList, voiceSoundAt } from './internal/kit';
+import { dialSpecOf, isDialV60 } from '../scene/screen/menus/registry';
 import { FAM_TAG, LOCK_FAMS, LOCK_NAMES, lockName, lockSampleCache, lockSoundCache, lockWrite } from './internal/locks';
 import { stepWrites } from './steps';
 import { anyDial, anyDialReset } from './anyDial';
@@ -202,6 +203,22 @@ function slotLockView(slot: PageSlot, inst: Inst, step: number, lockArg?: Readon
     if (!l.mach) return null;
     const i = Math.max(0, KIT_MODELS.indexOf(l.mach as KitModel));
     return { text: KIT_MODEL_LABEL[KIT_MODELS[i]], unit: 'SYNTH', course: i / (KIT_MODELS.length - 1), value: i };
+  }
+  // V.6.0 (la face DT2) : un reglage de piste (t:) se lit par sa fiche ; son sample lock, dans toute la banque
+  const sp60 = slot.target && isDialV60(slot.target) ? dialSpecOf(slot.target) : null;
+  if (sp60) {
+    if (slot.lock === 'snd') {
+      if (!l.snd) return null;
+      const ps = parseSnd(l.snd);
+      const list = trackSampleList();
+      const i = ps ? list.findIndex((x) => x.key === ps.sound) : -1;
+      const n = Math.max(1, list.length - 1);
+      return { text: i > 0 ? list[i].label : 'OFF', unit: i > 0 ? `SAMPLE LOCK ${i}/${n}` : 'NO SAMPLE', course: Math.max(0, i) / n, value: Math.max(0, i) };
+    }
+    const v60 = l[slot.lock as LockId];
+    if (v60 === undefined) return null;
+    const [lo60, hi60] = sp60.range();
+    return { text: sp60.text(v60), unit: sp60.unit(v60), course: hi60 > lo60 ? (v60 - lo60) / (hi60 - lo60) : 0, value: v60 };
   }
   if (slot.lock === 'snd') {
     if (!l.snd) return null;

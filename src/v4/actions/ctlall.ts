@@ -13,7 +13,8 @@ import { undo } from '../state/undo';
 import { dtFace } from '../state/dtFace';
 import { ctlAllState, trk } from '../state/trk';
 import { type SlotTarget } from '../rytm/pages';
-import { DT_FACE, type EncId, type Inst } from '../theme';
+import { DT2_FACE, DT_FACE, type EncId, type Inst } from '../theme';
+import { TRACK_KEYS, isTrackParam, normTrackKey, tracks, type TrackKey, type TrackParamId } from '../audio/tracks';
 import { st } from './state';
 import { voiceParam } from './internal/dials';
 import { seqDialOf } from './mixer';
@@ -25,29 +26,48 @@ import { seqDialOf } from './mixer';
  * defaut ou un LFO. Les reglages de la machine de synthese et le choix du son different d'une famille a l'autre (le kick
  * n'a pas les reglages de la caisse claire) : ils restent sur la voix choisie.
  */
-type CtlAllKey = { kind: 'fx'; p: VoiceParam } | { kind: 'trig'; p: TrigParam } | { kind: 'lfo'; p: LfoParam };
+// V.6.0 (la face DT2, lane B5) : trk, un reglage de piste des pages SRC par machine (t:<reglage>) ; sur 16 pistes
+type CtlAllKey = { kind: 'fx'; p: VoiceParam } | { kind: 'trig'; p: TrigParam } | { kind: 'lfo'; p: LfoParam } | { kind: 'trk'; p: TrackParamId };
+
+/**
+ * Les pistes que touche CONTROL ALL : les huit voix d'avant ; avec la face DT2 (V.6.0), les 16 pistes que coche CONTROL ALL
+ * CONFIG (mix.ctlAll, toutes au depart) et toujours la piste active (manuel DT2 9.8.1).
+ */
+function ctlTracks(active: TrackKey): readonly TrackKey[] {
+  if (!DT2_FACE) return INSTRUMENTS;
+  const mask = tracks.get().mix.ctlAll;
+  return TRACK_KEYS.filter((t, i) => t === active || ((mask >> i) & 1) === 1);
+}
 
 export function ctlAllKeyOf(t: SlotTarget): CtlAllKey | null {
+  // Un reglage de piste (t:) : les crans de son, de sample et de machine restent a la piste choisie (ils different d'un son a l'autre)
+  if (t.startsWith('t:')) {
+    const d = t.slice(2);
+    return isTrackParam(d) && d !== 'tlev' ? { kind: 'trk', p: d } : null;
+  }
   const sd = seqDialOf(t);
   if (sd) return isTrigParam(sd) ? { kind: 'trig', p: sd } : { kind: 'lfo', p: sd };
   const p = t.includes(':') ? null : voiceParam(t as EncId);
   return p ? { kind: 'fx', p } : null;
 }
 
-function ctlAllGet(k: CtlAllKey, inst: Inst): number {
-  if (k.kind === 'fx') return voiceFx.of(inst)[k.p];
+function ctlAllGet(k: CtlAllKey, inst: TrackKey): number {
+  // V.6.0 (la face DT2) : le store des 16 pistes, pour toutes (les facades ne connaissent que les huit voix)
+  if (k.kind === 'trk' || (DT2_FACE && k.kind !== 'trig')) return tracks.param(inst, k.p as TrackParamId);
+  if (k.kind === 'fx') return voiceFx.of(inst as Inst)[k.p];
   if (k.kind === 'trig') return pattern.get().trigs[inst]?.[k.p] ?? TRIG_DEF[k.p];
-  return lfoOf(voiceFx.of(inst), k.p);
+  return lfoOf(voiceFx.of(inst as Inst), k.p);
 }
 
-function ctlAllSet(k: CtlAllKey, inst: Inst, v: number): void {
-  if (k.kind === 'fx') voiceFx.set(inst, k.p, v);
+function ctlAllSet(k: CtlAllKey, inst: TrackKey, v: number): void {
+  if (k.kind === 'trk' || (DT2_FACE && k.kind !== 'trig')) tracks.set(inst, k.p as TrackParamId, v);
+  else if (k.kind === 'fx') voiceFx.set(inst as Inst, k.p, v);
   else if (k.kind === 'trig') pattern.setTrig(inst, k.p, v);
-  else voiceFx.setLfo(inst, k.p, v);
+  else voiceFx.setLfo(inst as Inst, k.p, v);
 }
 
 /** Les reglages touches pendant cette tenue de TRK et la valeur d'avant de chaque voix (NO les rend). */
-export const ctlAllBefore = new Map<string, { key: CtlAllKey; was: Record<Inst, number> }>();
+export const ctlAllBefore = new Map<string, { key: CtlAllKey; was: Partial<Record<TrackKey, number>> }>();
 
 /** TRK tenue ou gardee (la revue de D3a, R4 : gardee, elle le reste apres un CONTROL ALL). */
 export function ctlAllOn(): boolean {
@@ -69,7 +89,8 @@ export function ctlAllStart(t: SlotTarget): CtlAllKey | null {
     st.ctlAllSlot = patterns.get().cur;
   }
   const id = `${key.kind}:${key.p}`;
-  if (!ctlAllBefore.has(id)) ctlAllBefore.set(id, { key, was: Object.fromEntries(INSTRUMENTS.map((i) => [i, ctlAllGet(key, i)])) as Record<Inst, number> });
+  const act = normTrackKey(pattern.get().instrument as string | null) ?? 'BD';
+  if (!ctlAllBefore.has(id)) ctlAllBefore.set(id, { key, was: Object.fromEntries(ctlTracks(act).map((i) => [i, ctlAllGet(key, i)])) as Partial<Record<TrackKey, number>> });
   ctlAllState.set(true);
   return key;
 }
@@ -81,10 +102,10 @@ export function ctlAllStart(t: SlotTarget): CtlAllKey | null {
  * (la revue de D3a, R4 ; plus de fermeture apres le lacher du potard, R5 et R6).
  */
 export function ctlAllApply(key: CtlAllKey): void {
-  const inst = pattern.get().instrument;
+  const inst = normTrackKey(pattern.get().instrument as string | null);
   if (!inst) return;
   const v = ctlAllGet(key, inst);
-  for (const o of INSTRUMENTS) if (o !== inst && ctlAllGet(key, o) !== v) ctlAllSet(key, o, v);
+  for (const o of ctlTracks(inst)) if (o !== inst && ctlAllGet(key, o) !== v) ctlAllSet(key, o, v);
   if (trk.get().mode === 'held') trk.use(performance.now());
 }
 
@@ -103,7 +124,8 @@ export function ctlAllEnd(): void {
  */
 export function ctlAllUndo(): boolean {
   if (ctlAllBefore.size === 0 || !trk.engaged()) return false;
-  for (const { key, was } of ctlAllBefore.values()) for (const i of INSTRUMENTS) if (ctlAllGet(key, i) !== was[i]) ctlAllSet(key, i, was[i]);
+  for (const { key, was } of ctlAllBefore.values())
+    for (const [i, w] of Object.entries(was) as [TrackKey, number][]) if (ctlAllGet(key, i) !== w) ctlAllSet(key, i, w);
   ctlAllBefore.clear();
   st.ctlAllSlot = -1;
   // La rafale revient a son depart : elle ne laisse aucune etape

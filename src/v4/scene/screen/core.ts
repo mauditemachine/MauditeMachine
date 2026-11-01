@@ -32,7 +32,7 @@ import { rytmInfos } from '../../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../../state/rytmPage';
 import { voices } from '../../state/voices';
 import { dtFace } from '../../state/dtFace';
-import { DT_FACE, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, OLED, OLED_BAR, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, OLED, OLED_BAR, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../../theme';
 import { PRESET_SLOTS } from '../../state/presetMode';
 import { softKeyName } from '../../rytm/presetKeys';
 import { rytmInfoHit } from '../../rytm/infoIds';
@@ -41,6 +41,12 @@ import { pageBlocks, screenIn, type Block, type BlockMode } from '../../rytm/pag
 import { encUnit, v127Text } from '../../rytm/values';
 import { screenDials, type ScreenDialId } from '../../state/screenDials';
 import { makeCanvasTexture, onFonts } from '../silk';
+import { tracks } from '../../audio/tracks';
+import { DT2_INFO_EMPTY, paintDt2, type Dt2Info } from './dt2';
+import { subscribeMenu } from './menus/open';
+import { subscribeNames } from './menus/names';
+// Les menus de la face DT2 (V.6.0) : chacun s'inscrit au registre a son chargement
+import './menus/v60';
 import { CONDS, RATE_DENS, rtrgGain } from '../../audio/trig';
 import { LFO_WAVES, waveAt } from '../../audio/lfo';
 import { fill } from '../../state/fill';
@@ -132,6 +138,8 @@ export interface ScreenInfo {
   headFit: string;
   /** les points de page sous la pastille (2026-10-27, desktop, une page a deux onglets) : 1/2, 2/2 ; '' aucun */
   pageDots: string;
+  /** la face DT2 (V.6.0, ?face=dt2) : son gabarit dessine (le menu ouvert, l'en-tete, la colonne gauche, les points) */
+  dt2: Dt2Info;
 }
 
 export class Screen {
@@ -183,7 +191,8 @@ export class Screen {
     // L'ecran haut du telephone (2026-10-09) a ses corps a lui ; une tablette (mobile, l'ecran du desktop) garde ceux du telephone ;
     // depuis le 2026-10-18 l'ecran du desktop est haut aussi : les corps du dessin haut (1.56 px l'unite a 1440 x 900)
     // L'ecran 5:3 du desktop (2026-10-27, GROW) : les corps de ses blocs plus hauts
-    this.bt = TALL && GROW > 0 ? BLOCK_TYPE.wide : TALL ? BLOCK_TYPE.tall : mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
+    // La face DT2 (V.6.0) : ses cases de 62 x 81.5
+    this.bt = DT2_FACE ? BLOCK_TYPE.dt2 : TALL && GROW > 0 ? BLOCK_TYPE.wide : TALL ? BLOCK_TYPE.tall : mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
     this.info = {
       draws: 0,
       text: ['', '', ''],
@@ -223,6 +232,7 @@ export class Screen {
       dialSlot: '',
       headFit: '',
       pageDots: '',
+      dt2: DT2_INFO_EMPTY,
     };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -246,6 +256,8 @@ export class Screen {
     this.sheen = PORTRAIT ? glassSheen(OLED.w, OLED.d) : glassSheen(OLED.bezel.w, OLED.bezel.d);
     this.mesh.add(this.sheen);
     this.lastCur = patterns.get().cur;
+    // La face DT2 (V.6.0, cahier 1.3) : HOME a quitte la navigation, la vue PAGE tout le temps
+    if (DT2_FACE && rytmPage.get().view === 'home') rytmPage.setView('page');
     this.paint(lcd.get(), performance.now());
   }
 
@@ -309,6 +321,8 @@ export class Screen {
       onSampleStatus(active),
       // MASTER et TEMPO (2026-10-19) : celui qu'on survole ou qu'on tient se cerne
       screenDials.subscribe(() => this.request()),
+      // La face DT2 (V.6.0) : le menu ouvert et ce qu'il montre, les 16 pistes (la colonne gauche, la page SRC), les noms
+      ...(DT2_FACE ? [subscribeMenu(active), tracks.onChange(() => active()), subscribeNames(active)] : []),
       // La police arrivee apres la premiere image : on redessine. 2026-10-22 (audit SB-01) : onFonts attend les graisses
       // 300 et 400 des valeurs (document.fonts.ready resolvait avant leur arrivee), et se rappelle si elles tardent ; les
       // places fixes de l'en-tete (headPlan) se mesurent de nouveau
@@ -440,6 +454,8 @@ export class Screen {
       this.blinkUntil = now + BLINK_MS;
     }
     this.stepHits(now);
+    // La face DT2 (V.6.0, ?face=dt2) : son gabarit (scene/screen/dt2.ts), HOME n'y existe plus ; EDIT garde son dessin
+    if (DT2_FACE && !rytmEdit) return this.paintDt2Frame(s, now);
     // La vague du repos (desktop, la machine regardee, rien ne joue ni ne s'affiche ; jamais sur la page)
     const quiet = !clock.running && sc.get().status !== 'playing' && !s.l3 && !s.mix && !sb && !s.keys;
     if (!paged && !this.mobile && quiet && focus.get() === 'mm808' && now - this.activeAt > IDLE_MS) {
@@ -517,6 +533,53 @@ export class Screen {
     if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || (rytmEdit && DT_FACE && dtFace.bank() && ptn.bank !== bankOf(ptn.cur)) || this.waveFrom > 0) next = ANIM_MS;
     // Les coups qui pulsent : sur l'anneau seulement (la page n'en montre rien)
     if (!paged && this.hitAt.some((t) => now - t < PULSE_MS)) next = next || ANIM_MS;
+    this.done(s, now);
+    return next;
+  }
+
+  /** La face DT2 (V.6.0) : une image de son gabarit ; les zones d'avant (HOME, MASTER, TEMPO, les onglets) n'y sont pas. */
+  paintDt2Frame(s: LcdState, now: number): number {
+    this.waveFrom = 0;
+    this.bar = null;
+    this.tabsShown = false;
+    this.browserRects = [];
+    this.menuRects = [];
+    this.dialRects = [];
+    this.tabSpots = [];
+    this.blockRects = [];
+    this.info.dials = '';
+    this.info.dialSlot = '';
+    this.info.headFit = '';
+    this.info.pageDots = '';
+    this.info.menu = [];
+    this.info.browser = null;
+    this.info.drop = '';
+    this.info.view = 'page';
+    this.info.presetList = '';
+    this.info.presetHead = '';
+    this.info.page = rytmPage.get().page;
+    this.info.blocks = [];
+    this.info.echo = -1;
+    this.info.lock = rytmLock.get().step;
+    this.info.flash = [];
+    this.info.strip = '';
+    this.info.foot = [];
+    this.info.panel = [];
+    this.info.footText = '';
+    this.info.layers = '';
+    this.info.infoBlock = -1;
+    this.info.cells = [];
+    this.info.graph = '';
+    this.info.tags = [];
+    this.info.xfade = '';
+    this.info.popup = '';
+    this.info.head = '';
+    this.xLive = false;
+    let next = paintDt2(this, s, now);
+    const drop = lcdSamples.get().drop;
+    if (drop) this.paintDrop(drop);
+    this.paintInfoKey(rytmInfos.isOn());
+    if (this.blinkUntil > now) next = next > 0 ? Math.min(next, ANIM_MS) : ANIM_MS;
     this.done(s, now);
     return next;
   }

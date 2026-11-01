@@ -17,7 +17,7 @@ import { undo } from '../../state/undo';
 import { rytmPage } from '../../state/rytmPage';
 import { rytmLock } from '../../state/rytmLock';
 import { SCREEN_LABEL, SCREEN_TITLE, pageLabel, screensOf, tabWord, type RytmPageId, type RytmScreenId } from '../../rytm/pages';
-import { FACE_FOLLOWS_PAGE, LCD_NO_VOICE, type Inst } from '../../theme';
+import { DT2_FACE, FACE_FOLLOWS_PAGE, LCD_NO_VOICE, type Inst } from '../../theme';
 import { st } from '../state';
 import { rand, two } from '../shared';
 import { randomVoiceSounds } from './patterns';
@@ -62,6 +62,19 @@ export function pageKeyBody(id: RytmPageId, stage: Stage | null): void {
     return;
   }
   const was = rytmPage.get().view;
+  // La face DT2 (V.6.0, cahier 1.3 et 3.1) : jamais HOME ; la touche de la page affichee, pressee encore, passe a la
+  // sous-page suivante (en boucle), comme UP / DOWN ; une autre touche ouvre sa page sur la sous-page retenue
+  if (DT2_FACE) {
+    const tabs = screensOf(id, inst);
+    const s0 = rytmPage.get();
+    if (s0.page === id && !s0.detail && tabs.length > 1) rytmPage.setTab(id, ((s0.tabs[id] ?? 0) + 1) % tabs.length, inst);
+    else if (s0.page === id && s0.detail) rytmPage.closeFx();
+    else rytmPage.setPage(id);
+    if (rytmPage.get().view !== 'page') rytmPage.setView('page');
+    const t = screensOf(id, inst).indexOf(curScreen());
+    lcdMessage.show(tabs.length > 1 ? `${SCREEN_TITLE[curScreen()]}  ${t + 1}/${tabs.length}` : `${SCREEN_TITLE[curScreen()]} PAGE`, 1400);
+    return;
+  }
   const r = rytmPage.press(id, inst);
   // HOME le dit (et comment revenir) ; un onglet dit le suivant
   if (r.view === 'home') lcdMessage.show(`HOME  ${pageLabel(id)} AGAIN: PAGE`, 1600);

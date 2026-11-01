@@ -13,7 +13,7 @@
  * l'ecran glisse, une autre cible MIDI).
  */
 
-import { curScreen, dialRange, dialSteps, knobBlock, knobDialOf, lockReadStep, pageKnobBand, pageKnobLive, pageKnobShown, pageLockView, sceneIdOfDial, type DialId } from '../actions';
+import { curScreen, curSlots, levelDataView, dialRange, dialSteps, knobBlock, knobDialOf, lockReadStep, pageKnobBand, pageKnobLive, pageKnobShown, pageLockView, sceneIdOfDial, type DialId } from '../actions';
 import { mix } from '../audio/drums';
 import { morph } from '../audio/morph';
 import { kit } from '../audio/kit';
@@ -25,8 +25,9 @@ import { editor } from '../state/editor';
 import { rytmLock } from '../state/rytmLock';
 import { rytmPage } from '../state/rytmPage';
 import { sceneCtl } from '../state/sceneCtl';
-import { PAGE_KNOB_LETTERS, type KnobTone } from '../theme';
-import { pageSlots } from './pages';
+import { DT2_FACE, PAGE_KNOB_LETTERS, type KnobTone } from '../theme';
+import { tracks } from '../audio/tracks';
+import { openMenu, subscribeMenu } from '../scene/screen/menus/open';
 import type { SceneId } from './sceneData';
 import { bindingOf, from01, sceneRole, type SceneBinding } from './sceneParams';
 
@@ -116,6 +117,8 @@ let sigVoice = '';
 let sigLock = '';
 let sigRest = '';
 let sigArm = '';
+/** LEVEL/DATA (la face DT2, V.6.0) : sa derniere vue lue */
+let sigData = '';
 /** Les scenes du motif au dernier calcul de la partie fixe : armee, une cle ecrite change la teinte (unlocked, scene). */
 let sigScenes: unknown = null;
 /** Les verrous du motif au dernier calcul de la partie fixe : en P-LOCK, un verrou pose change la teinte (unlocked, lock). */
@@ -126,7 +129,8 @@ let lastCause: KnobCause = 'value';
 
 /** La partie fixe d'un potard (le bloc, son nom, son etat, sa teinte) ; true si elle a change. */
 function fixPart(v: Mut): boolean {
-  const slots = pageSlots(curScreen(), pattern.get().instrument);
+  // La face DT2 (V.6.0) : les potards d'un menu ouvert (TEMPO, QUANTIZE, MIXER, SCENES) ou de la page
+  const slots = curSlots();
   const block = knobBlock(v.k);
   const slot = block === null ? null : (slots[block] ?? null);
   const dial = knobDialOf(v.k);
@@ -251,8 +255,15 @@ function recompute(): FaceKnobChange | null {
   }
   const inst = pattern.get().instrument;
   const lk = rytmLock.get();
-  const screen = curScreen();
+  // La face DT2 (V.6.0) : un menu ouvert (et sa sous-page) change ce que tiennent les potards
+  const om = DT2_FACE ? openMenu() : null;
+  const screen = om ? `${curScreen()}|${om.id}|${om.pages?.().cur ?? 0}` : curScreen();
   const voice = inst ?? '-';
+  // LEVEL/DATA (la face DT2) : le TRK LEV de la piste active ; son anneau suit (scene/renderer.ts, faceKnobs.data)
+  const dv = levelDataView();
+  const dKey = `${dv.live ? 1 : 0}|${dv.t}`;
+  const dataMoved = DT2_FACE && dKey !== sigData;
+  sigData = dKey;
   const lock = `${lk.step}|${lk.latched ? 1 : 0}|${lk.held.join(',')}`;
   const rest = `${editor.get() ?? '-'}|${samplesVersion()}`;
   const am = sceneCtl.get();
@@ -286,7 +297,7 @@ function recompute(): FaceKnobChange | null {
   }
   ms.push(performance.now() - t0);
   if (ms.length > 120) ms.shift();
-  if (moved.length === 0) return null;
+  if (moved.length === 0 && !dataMoved) return null;
   version += 1;
   const now = performance.now();
   const c: KnobCause =
@@ -350,6 +361,11 @@ function start(): void {
   pattern.scenes.subscribe(poke);
   sceneCtl.subscribe(poke);
   sceneCtl.onX(pokeX);
+  // La face DT2 (V.6.0) : le menu ouvert, les 16 pistes (TRK LEV, la machine de la page SRC)
+  if (DT2_FACE) {
+    subscribeMenu(poke);
+    tracks.onChange(poke);
+  }
 }
 
 export const faceKnobs = {
@@ -363,6 +379,11 @@ export const faceKnobs = {
     return views;
   },
   version: (): number => version,
+  /** LEVEL/DATA (la face DT2, V.6.0) : la course de son anneau (le TRK LEV de la piste active) et sa teinte */
+  data(): { t: number; tone: KnobTone } {
+    const d = levelDataView();
+    return { t: d.t, tone: d.live ? 'base' : 'off' };
+  },
   /** la derniere cause */
   cause: (): KnobCause => lastCause,
   subscribe(fn: (c: FaceKnobChange) => void): () => void {
