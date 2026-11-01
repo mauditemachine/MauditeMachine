@@ -761,14 +761,19 @@ export const pattern = {
   },
   /** CLEAR : les pas et leurs verrous, toutes les voix ; les reglages de trig repartent au depart (V.5.1). */
   clear(): void {
+    // Les pages, le setup et le kit de V.6.1 et V.6.2 partent avec le motif (relecture de V.5.9, R3)
+    moreState = null;
     commit({ ...clearSteps(state), instrument: state.instrument, locks: NO_LOCKS, pmutes: state.pmutes, trigs: NO_TRIGS }, true);
   },
   /**
    * Un motif entier ; les rangees invalides gardent les leurs. locks : ceux
    * du motif pose (un pattern, un preset : les siens, ou aucun), 'keep'
-   * (RANDOM) : ceux d'avant restent.
+   * (RANDOM) : ceux d'avant restent. keepMore (une ligne collee ou videe du motif courant) : ses pages, son setup et son
+   * kit de V.6.1 et V.6.2 restent ; sinon (un autre pattern, un preset, l'UNDO, RANDOM) ils partent avec lui (relecture
+   * de V.5.9, R3 : ils s'attachaient au motif suivant).
    */
-  replace(steps: Steps, locks: Readonly<Locks> | 'keep' = 'keep'): void {
+  replace(steps: Steps, locks: Readonly<Locks> | 'keep' = 'keep', opts?: { keepMore?: boolean }): void {
+    if (!opts?.keepMore) moreState = null;
     const next = { ...state.steps };
     for (const inst of INSTRUMENTS) if (STEPS_RE.test(steps[inst])) next[inst] = steps[inst];
     // Les rangees 9 a 16 (V.5.9) : celles du motif pose ; absentes de lui (un pattern, un preset d'avant), vides
