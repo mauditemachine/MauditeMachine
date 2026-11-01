@@ -240,6 +240,19 @@ export function presetKnobHeld(k: number): number | null {
   return u === undefined || !Number.isFinite(u) ? null : Math.max(0, Math.min(1, u));
 }
 
+/**
+ * Un menu plein ecran sans potards (SETTINGS, MACHINE, SOUNDS, SAMPLES, PRESET/KIT hors de la liste des kits) couvre la
+ * page de la face DT2 (relecture de la V.6.0) : les potards A a H n'y reglent rien, jamais la page SRC cachee dessous
+ * (la face, la molette, le Roto rytm:knob, le boitier) ; l'ecran dit quoi tourner. true : le geste est pris.
+ */
+function menuCoversKnobs(): boolean {
+  if (!DT2_FACE) return false;
+  const m = openMenu();
+  if (!m || m.slots?.()) return false;
+  lcdMessage.show(`${m.id.toUpperCase()}: TURN LEVEL/DATA`, 1400);
+  return true;
+}
+
 /** Le potard de page k tourne (rytm:knob, la face, phase 3 le potard motorise) : la page se montre, puis le bloc. */
 export function knobDial(k: number, v: number, src: CtlSrc = 'ui'): void {
   // Un potard tourne n'a pas de fonction FUNC (la revue de D1, G2) : une FUNC gardee pour une touche s'en va
@@ -249,6 +262,7 @@ export function knobDial(k: number, v: number, src: CtlSrc = 'ui'): void {
     presetAbsTurn(k, v);
     return;
   }
+  if (menuCoversKnobs()) return;
   faceTouch.turn(k, src);
   revealPage();
   // LIVE REC (V.5.3, la revue de D3b R2 R11) : le potard de la face qui tourne, pour que seul lui continue d'ecrire
@@ -269,6 +283,7 @@ export function faceKnob(k: number, v: number, src: CtlSrc = 'ui'): void {
 /** Deux tapes, Suppr : le bloc revient a son depart, ou perd son verrou en P-LOCK ; au telephone, le FX global. */
 export function faceKnobReset(k: number): void {
   if (FACE_FOLLOWS_PAGE) {
+    if (menuCoversKnobs()) return;
     faceTouch.turn(k, 'ui');
     revealPage();
     pageKnobReset(knobBlock(k) ?? k);
