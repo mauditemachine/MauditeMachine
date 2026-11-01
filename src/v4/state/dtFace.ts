@@ -41,18 +41,48 @@ export interface DtFaceStateDt2 extends DtFaceState {
   readonly ptnPage: number;
 }
 
-let state: DtFaceState = { rec: false, mute: 'off', bank: false, live: false };
+/**
+ * V.6.0 (2026-11-01, la lane B4) : le store porte la forme etendue. Ses champs neufs ne bougent que sur la face DT2
+ * (?face=dt2, actions/face.ts) : sans le drapeau ils restent a leur depart (false, 'off', null, 0) et la V.5.3 ne les lit
+ * pas. Le dernier mode de MUTE (cahier 3.4, manuel 8.5.3 : FUNC + TRK et le QUICK MUTE le reprennent) et les reglages
+ * PERSONALIZE de 6.0 que la face lit (cahier 3.1 et 3.11 : l'intensite des LED, le retroeclairage, TRK SELECT) vivent a
+ * cote, hors du contrat.
+ */
+export type LedIntensity = 'low' | 'mid' | 'max';
+/** TRK SELECT (PERSONALIZE) : auto, un TRIG hors REC choisit aussi sa piste (le comportement d'avant) ; manual, il la joue seulement. */
+export type TrkSelect = 'auto' | 'manual';
+export interface DtPersonal {
+  readonly led: LedIntensity;
+  readonly backlight: boolean;
+  readonly trkSelect: TrkSelect;
+}
+
+const INIT: DtFaceStateDt2 = { rec: false, mute: 'off', bank: false, live: false, keyboard: false, song: 'off', menu: null, ptnPage: 0 };
+let state: DtFaceStateDt2 = INIT;
+let lastMute: Exclude<MuteView, 'off'> = 'global';
+let personal: DtPersonal = { led: 'max', backlight: true, trkSelect: 'auto' };
 const listeners = new Set<() => void>();
 
-function set(next: Partial<DtFaceState>): void {
+function set(next: Partial<DtFaceStateDt2>): void {
   const n = { ...state, ...next };
-  if (n.rec === state.rec && n.mute === state.mute && n.bank === state.bank && n.live === state.live) return;
+  if (
+    n.rec === state.rec &&
+    n.mute === state.mute &&
+    n.bank === state.bank &&
+    n.live === state.live &&
+    n.keyboard === state.keyboard &&
+    n.song === state.song &&
+    n.menu === state.menu &&
+    n.ptnPage === state.ptnPage
+  )
+    return;
+  if (n.mute !== 'off') lastMute = n.mute;
   state = n;
   listeners.forEach((fn) => fn());
 }
 
 export const dtFace = {
-  get: (): DtFaceState => state,
+  get: (): DtFaceStateDt2 => state,
   rec: (): boolean => state.rec,
   setRec(on: boolean): void {
     set({ rec: on });
@@ -68,6 +98,34 @@ export const dtFace = {
   },
   setBank(on: boolean): void {
     set({ bank: on });
+  },
+  /* ---------- V.6.0, la face DT2 ---------- */
+  /** le menu plein ecran ouvert (scene/screen/menus/registry.ts), null : aucun */
+  menu: (): ScreenMenuId | null => state.menu,
+  setMenu(m: ScreenMenuId | null): void {
+    set({ menu: m });
+  },
+  keyboard: (): boolean => state.keyboard,
+  setKeyboard(on: boolean): void {
+    set({ keyboard: on });
+  },
+  song: (): DtFaceStateDt2['song'] => state.song,
+  setSong(m: DtFaceStateDt2['song']): void {
+    set({ song: m });
+  },
+  ptnPage: (): number => state.ptnPage,
+  setPtnPage(p: number): void {
+    set({ ptnPage: Math.max(0, Math.min(7, Math.round(p))) });
+  },
+  /** le dernier mode de MUTE montre (global au depart) : FUNC + TRK et le QUICK MUTE le reprennent */
+  lastMute: (): Exclude<MuteView, 'off'> => lastMute,
+  /** PERSONALIZE (6.0) : l'intensite des LED, le retroeclairage, TRK SELECT */
+  personal: (): DtPersonal => personal,
+  setPersonal(patch: Partial<DtPersonal>): void {
+    const n = { ...personal, ...patch };
+    if (n.led === personal.led && n.backlight === personal.backlight && n.trkSelect === personal.trkSelect) return;
+    personal = n;
+    listeners.forEach((fn) => fn());
   },
   subscribe(fn: () => void): () => void {
     listeners.add(fn);

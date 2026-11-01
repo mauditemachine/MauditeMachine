@@ -26,7 +26,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { isRytmPage } from '../rytm/pages';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
-import { BOARD_CHIPS, DT_FACE, MOBILE_QUERY, isPage, type ChipId, type Inst, type PageId, type SectionId } from '../theme';
+import { BOARD_CHIPS, DT2_FACE, DT_FACE, MOBILE_QUERY, isPage, type ChipId, type Inst, type PageId, type SectionId } from '../theme';
 import { ctlAllUndo } from './ctlall';
 import { muteVoice, selectVoice, soloVoice } from './internal/tracks';
 import { bankViewClose } from './internal/patterns';
@@ -187,6 +187,11 @@ export function escape(fromNo = false): boolean {
   // FUNC gardee (V.5.0) : Echap la relache d'abord
   if (DT_FACE && func.engaged()) {
     func.cancel();
+    return true;
+  }
+  // Un menu plein ecran de la face DT2 (V.6.0) : Echap le ferme d'abord (NO passe d'abord par son onInput, actions/face.ts)
+  if (DT2_FACE && dtFace.menu() !== null && focus.get() === 'mm808') {
+    dtFace.setMenu(null);
     return true;
   }
   if (section.get() !== null) {

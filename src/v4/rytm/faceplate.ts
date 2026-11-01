@@ -425,7 +425,8 @@ const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.map((b) => ({
   name: b.legend,
   title: DT2_KEY_MORE[b.id].title,
   hotspot: DT2_KEY_MORE[b.id].hotspot,
-  phase: DT2_KEPT.has(b.id) ? 1 : 2,
+  // V.6.0 (lane B4, 2026-11-01) : toutes branchees, sauf KEYBOARD et SONG (inertes, BIENTOT : V.6.1 et V.6.2)
+  phase: DT2_KEPT.has(b.id) || (b.id !== 'kbd' && b.id !== 'song') ? 1 : 2,
 }));
 
 /** Un potard de la colonne gauche (2.2) : son centre, son emprise (d), son capuchon, sa jupe, son anneau, ses legendes. */

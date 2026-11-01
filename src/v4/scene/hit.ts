@@ -27,6 +27,7 @@ import type { PresetKey } from '../state/presetMode';
 import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../theme';
 import type { VoyKnobId } from '../voyager/params';
 import type { KitId } from '../audio/kit';
+import type { Dt2ZoneKind } from '../rytm/dtFaceIds';
 
 /**
  * pad (voix), page (pads de navigation), open, step, run, clear, chip
@@ -106,7 +107,14 @@ export type HotspotKind =
   | 'basskey'
   | 'basstrig'
   | 'basslock'
-  | 'basslcd';
+  | 'basslcd'
+  // MM-RYTM V.6.0 (2026-11-01, la face DT2 derriere ?face=dt2, lane B4) : les kinds des zones nouvelles (rytm/dtFaceIds.ts
+  // Dt2ZoneKind, cahier dt2 2.6) ; encoder y est deja (MAIN VOLUME), data (LEVEL/DATA) est un potard sans butee, arrow porte
+  // sa fleche (dir), pagekey est la touche PAGE (zone ptnpage)
+  | Dt2ZoneKind;
+
+/** Une fleche de la face DT2 (une zone arrow). */
+export type HotspotDir = 'up' | 'down' | 'left' | 'right';
 
 export interface HotspotDef {
   id: string;
@@ -152,6 +160,8 @@ export interface HotspotDef {
   bass?: string;
   /** MM-RYTM V.4.0 (2026-10-27) : la scene d'une touche SCENE */
   scene?: 'a' | 'b';
+  /** MM-RYTM V.6.0 (la face DT2) : la fleche d'une zone arrow */
+  dir?: HotspotDir;
   /**
    * MM-RYTM V.4.2 (2026-10-27) : une zone de l'ecran (ses blocs, ses onglets, son menu, MASTER et TEMPO, la liste des sons,
    * les presets, le i) ; theme.ts SCREEN_TOUCH faux (le desktop), le pointeur la traverse (HitMap.screenTouch)
@@ -194,6 +204,8 @@ export interface HotspotView {
   bass?: string;
   /** MM-RYTM V.4.0 : la scene d'une touche SCENE */
   scene?: 'a' | 'b';
+  /** MM-RYTM V.6.0 : la fleche d'une zone arrow */
+  dir?: HotspotDir;
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;
   y: number;
@@ -734,6 +746,7 @@ export class HitMap {
         ...(def.dj ? { dj: def.dj } : {}),
         ...(def.bass ? { bass: def.bass } : {}),
         ...(def.scene ? { scene: def.scene } : {}),
+        ...(def.dir ? { dir: def.dir } : {}),
         x: r1(rect[0]),
         y: r1(rect[1]),
         w: r1(rect[2]),

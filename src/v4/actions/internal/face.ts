@@ -16,8 +16,9 @@ import { dtFace } from '../../state/dtFace';
 import { rytmPage } from '../../state/rytmPage';
 import { type RytmPageId } from '../../rytm/pages';
 import { voices } from '../../state/voices';
-import { DT_FACE, DT_GESTURE, LCD_NO_VOICE } from '../../theme';
+import { DT2_FACE, DT_FACE, DT_GESTURE, LCD_NO_VOICE } from '../../theme';
 import { st } from '../state';
+import { hint60, soon } from './keys60';
 import { TRK_HINT_MS } from './tracks';
 import { pageKeyBody } from './pages';
 import { soundBrowserOpen } from '../browser';
@@ -60,6 +61,25 @@ export function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
   st.pageArm = null;
   const key = PAGE_BTN[id] ? `pkey-${id}` : null;
   if (key) stage?.pressFaceKey(key);
+  // La face DT2 (V.6.0, cahier 1.4 et 5.1) : FUNC + TRIG = QUANTIZE, FUNC + SRC = MACHINE (les menus de la lane B5, avec
+  // l'indice de l'ancien geste), FUNC + FLTR (SETUP) et FUNC + AMP (SEQUENCER) inertes ; FX et MOD comme avant
+  if (DT2_FACE) {
+    if (id === 'trig') {
+      dtFace.setMenu('quantize');
+      hint60('tempo');
+      return true;
+    }
+    if (id === 'voice') {
+      dtFace.setMenu('machine');
+      hint60('sounds');
+      return true;
+    }
+    if (id === 'fltr' || id === 'env') {
+      soon('6.1');
+      return true;
+    }
+    if (dtFace.menu()) dtFace.setMenu(null);
+  }
   switch (id) {
     case 'trig':
       funcPage('tempo');

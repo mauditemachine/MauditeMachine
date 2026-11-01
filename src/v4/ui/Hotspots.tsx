@@ -171,8 +171,19 @@ import {
   xfadeGesture,
   xfadeSet,
   xfadeValue,
+  faceKeyDown,
+  faceKeyUp,
+  faceKeyTap,
+  dataTurn,
+  dt2FaceSync,
   type DialId,
 } from '../actions';
+import { DT2_BUTTONS, type Dt2ButtonId } from '../rytm/dtFaceIds';
+import { TRACK_KEYS, tracks, type TrackKey } from '../audio/tracks';
+import { FaceKeyTwin, SideKnobTwin } from './twins/input60';
+import { gesture as gestureLayer } from '../state/gesture';
+import { fill } from '../state/fill';
+import { activeTrack } from '../state/trk';
 import { samplesChanged, samplesVersion } from '../audio/samples';
 import { BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import { trk } from '../state/trk';
@@ -231,6 +242,7 @@ import {
   COARSE_QUERY,
   DIAL_FINE,
   DT_FACE,
+  DT2_FACE,
   DT_GESTURE,
   DT_PAGE_KEYS,
   REC_KEY,
@@ -272,6 +284,10 @@ import {
 } from '../theme';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
+/** Un abonnement qui n'ecoute rien (les stores de la face DT2, sans le drapeau). */
+const NO_SUB = (): (() => void) => () => undefined;
+/** La face DT2 : les lettres des TRIG 1 a 8 au clavier (Maj : 9 a 16, cahier 2.7). */
+const STEP_KEY_LETTERS = ['A', 'S', 'D', 'F', 'Z', 'X', 'C', 'V'];
 
 interface Props {
   getStage: () => Stage | null;
@@ -360,8 +376,13 @@ interface Down {
   recTaken?: boolean;
   noSrc?: string;
   noUsed?: boolean;
-  /** un pas qui efface sa voix (NO tenue, LIVE REC) */
-  erase?: Inst;
+  /** un pas qui efface sa voix (NO tenue, LIVE REC ; la face DT2 : 16 pistes) */
+  erase?: TrackKey;
+  /** la face DT2 (V.6.0) : une touche nouvelle tenue par ce pointeur (KEYBOARD a PAGE, les fleches), sa source */
+  faceKey?: Dt2ButtonId;
+  faceSrc?: string;
+  /** la face DT2 : LEVEL/DATA glisse, les crans deja partis */
+  dataSent?: number;
   /** SCENE A ou B tenue par ce pointeur (2026-10-27) : laquelle et sa source, lachee au pointerup ou perdue */
   scene?: 'a' | 'b';
   sceneSrc?: string;
@@ -391,6 +412,18 @@ interface Down {
 
 /** Un bloc de l'ecran glisse a l'horizontale (1.4 fois plus qu'a la verticale, comme SWIPE) : le glisser de machine. */
 const BLOCK_SWIPE_RATIO = 1.4;
+
+/**
+ * La face DT2 (V.6.0, ?face=dt2, la lane B4) : les kinds des touches nouvelles (KEYBOARD, SONG, PRESET/KIT, SETTINGS, SOUNDS,
+ * TEMPO, les fleches, PAGE), tenues par le pointeur de l'appui au lacher (actions/face.ts faceKeyDown, faceKeyUp).
+ */
+const DT2_KEY_KINDS: ReadonlySet<HotspotKind> = new Set<HotspotKind>(['kbd', 'song', 'preset', 'settings', 'sounds', 'tempo', 'arrow', 'pagekey']);
+const dt2KeyOf = (h: { kind: HotspotKind | null; id: string | null } | null): Dt2ButtonId | null =>
+  DT2_FACE && h && h.kind && h.id && DT2_KEY_KINDS.has(h.kind) ? (h.id as Dt2ButtonId) : null;
+/** La page d'une touche de page de la face (pkey-<page>) et sa touche DT2. */
+const DT2_PAGE_BTN: Readonly<Record<string, Dt2ButtonId>> = { trig: 'trig', voice: 'src', fltr: 'fltr', env: 'amp', fx: 'fx', mod: 'mod' };
+/** LEVEL/DATA glisse (la face DT2) : un cran tous les px (Maj : fin) ; Ctrl ou Cmd : huit crans d'un coup (presser et tourner). */
+const DATA_PX = { step: 6, fine: 18, coarse: 8 } as const;
 
 /** Tenir un pas du MM-RYTM (2026-10-08) : le LOCK, comme un trig tenu d'une Elektron (et le MM-BASS). */
 const LOCK_HOLD_MS = 350;
@@ -784,6 +817,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
     /** Maj tenue au dernier mouvement du pointeur (reglage fin des potards) */
     let shiftHeld = false;
+    /** Ctrl ou Cmd tenu (la face DT2 : LEVEL/DATA a gros pas) */
+    let ctrlHeld = false;
+    /** la molette au-dessus de LEVEL/DATA (la face DT2) : ses petits deltas */
+    let dataWheel = 0;
+    // La face DT2 (V.6.0) : les LED des touches que la saisie pose (le menu, PAGE et FILL, PTN en BANK)
+    const offFace = dt2FaceSync(stage);
     /** la molette au-dessus du crossfader (P2-20) : ses petits deltas, et la fin du geste 120 ms apres le dernier cran */
     let xfWheel = 0;
     let xfWheelTimer = 0;
@@ -884,7 +923,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
                   : // Le crossfader (P2-20) : la fleche de gauche a droite ; une commande inerte de la face, la fleche
                   hover === 'xfade'
                   ? 'ew-resize'
-                  : FACE_INERT.has(hover)
+                  : // LEVEL/DATA (la face DT2, branchee par la lane B4) : un potard comme les autres
+                    FACE_INERT.has(hover) && hover !== 'data'
                     ? 'default'
                     : own ?? 'pointer';
     };
@@ -1039,6 +1079,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         rytmMenu(d.id.slice('lcd-menu-'.length), stage);
         return d.id;
       }
+      // La face DT2 (V.6.0, la lane B4) : les touches nouvelles ont agi a l'appui et au lacher (faceKeyDown, faceKeyUp) ;
+      // LEVEL/DATA tape : rien (tourne, il regle) ; PTN et les touches de page passent par la table des accords
+      if (d.faceKey || (DT2_FACE && d.kind === 'data')) return d.id;
+      if (DT2_FACE && d.kind === 'edit') {
+        faceKeyTap('ptn', stage);
+        return d.id;
+      }
+      if (DT2_FACE && d.kind === 'pkey' && d.rpage && !d.id?.startsWith('lcd-tab-') && DT2_PAGE_BTN[d.rpage]) {
+        faceKeyUp(DT2_PAGE_BTN[d.rpage], 'at', stage, performance.now(), true);
+        return d.id;
+      }
       if (d.kind === 'pad' && d.inst) {
         // Double tape au doigt sur le meme pad (2026-10-10) : la voix se coupe ou revient (la premiere tape l'a choisie)
         const t = performance.now();
@@ -1115,6 +1166,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const sbDrag = (d: Down, dy: number): void => {
       if (!d.rowPx || d.rowPx <= 0) return;
       soundBrowserScrollTo((d.sbTop ?? 0) - Math.round(dy / d.rowPx));
+    };
+
+    /**
+     * LEVEL/DATA glisse (la face DT2) : vers le haut, des crans de plus (DATA_PX) ; Maj : fin ; Ctrl ou Cmd : huit crans d'un
+     * coup (le presser et tourner de la DT2). Relatif : rien ne saute a la prise.
+     */
+    const dataDrag = (d: Down, _dx: number, dy: number, fine: boolean, coarse: boolean): void => {
+      const total = Math.trunc(-dy / (fine ? DATA_PX.fine : DATA_PX.step));
+      const delta = total - (d.dataSent ?? 0);
+      if (delta === 0) return;
+      d.dataSent = total;
+      dataTurn(delta * (coarse ? DATA_PX.coarse : 1), 'ptr', stage);
     };
 
     /** Un pas glisse : sa velocite suit le doigt (vers le haut, plus fort). */
@@ -1201,6 +1264,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK, SCENE A ou B tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
       // YES tenue pour FILL (V.5.1) de meme
       if (d && (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'func' || (d.kind === 'yes' && !!d.yesSrc))) return false;
+      // La face DT2 (V.6.0) : une touche nouvelle tenue ne fait pas tourner la vue ; LEVEL/DATA glisse : ses crans
+      if (d && d.faceKey) return false;
+      if (d && DT2_FACE && d.kind === 'data') {
+        d.turning = true;
+        dataDrag(d, dx, dy, shiftHeld, ctrlHeld);
+        if (d.mouse) {
+          turnAxis = 'y';
+          turnBlock = true;
+          setCursor();
+        }
+        return false;
+      }
       // Le crossfader (P2-20) : le glisser le deplace, jamais l'orbite ; le premier mouvement compte deja (depuis la prise)
       if (d && d.kind === 'xfade') {
         if (!d.xf) return false;
@@ -1422,6 +1497,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           stage.pressFaceKey('func');
         }
       }
+      // La face DT2 (V.6.0, la lane B4) : une touche nouvelle (KEYBOARD a PAGE, les fleches) est tenue par ce pointeur de
+      // l'appui au lacher ; LEVEL/DATA se glisse ; ni orbite ni pincement. INFOS allume, au doigt : la carte seulement
+      const fk = dt2KeyOf(h);
+      if (fk || (DT2_FACE && h && h.kind === 'data')) {
+        stage.orbit.claim(e.pointerId);
+        const d0 = downs.get(e.pointerId);
+        if (d0 && !d0.info && fk) {
+          d0.faceKey = fk;
+          d0.faceSrc = `ptr:${e.pointerId}`;
+          faceKeyDown(fk, d0.faceSrc, stage, e.timeStamp || performance.now(), e.pointerType === 'touch');
+        } else if (d0) d0.dataSent = 0;
+      }
       // YES (V.5.1, 2026-10-29) : enfoncee, ce pointeur la tient ; une tape au lacher (D1), tenue plus de 250 ms FILL tant
       // qu'on la tient (une seule souris suffit) ; ni orbite ni pincement. INFOS allume, au doigt : la carte seulement
       // ● et NO (V.5.3) : tenues par ce pointeur (● + ▶ : LIVE REC ; NO + un pas 1 a 8 : l'effacement en direct)
@@ -1533,7 +1620,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           return;
         }
         // LIVE REC (V.5.3) : NO tenue d'un autre doigt et un pas 1 a 8 : sa voix s'efface au fil de la tete tant qu'on tient
-        const ev = DT_FACE && dt && !dt.info && idx < INSTRUMENTS.length ? INSTRUMENTS[idx] : null;
+        // La face DT2 (V.6.0) : les 16 pistes
+        const ev: TrackKey | null = DT_FACE && dt && !dt.info ? (DT2_FACE ? (TRACK_KEYS[idx] ?? null) : idx < INSTRUMENTS.length ? INSTRUMENTS[idx] : null) : null;
         if (ev && dt && liveEraseDown(ev)) {
           dt.erase = ev;
           dt.trk = true;
@@ -1542,7 +1630,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         }
         // V.5.0 au desktop : FUNC + un pas part a la tape (ni P-LOCK ni velocite) ; le mode MUTE, une tenue de
         // DT_GESTURE.muteHoldMs met la voix en SOLO ; hors REC, la tenue ne met pas de P-LOCK (stepHoldHint le dit)
-        if (DT_FACE && dt && !dt.info && editor.get() !== 'mm808' && (func.engaged() || muteView())) {
+        if (DT_FACE && dt && !dt.info && editor.get() !== 'mm808' && (func.engaged() || muteView() || (DT2_FACE && gestureLayer.on('settings')))) {
           if (!func.engaged()) {
             window.setTimeout(() => {
               const d = downs.get(pid);
@@ -1701,6 +1789,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK tenue par ce pointeur perdu : lachee sans garde ; une scene aussi
       if (d.trkSrc) trkUp(d.trkSrc, -1);
       if (d.funcSrc) funcUp(d.funcSrc, -1);
+      // Une touche nouvelle de la face DT2 perdue : lachee sans tape
+      if (d.faceKey && d.faceSrc) faceKeyUp(d.faceKey, d.faceSrc, stage, -1, false);
       // YES perdu (V.5.1) : FILL finit, aucune tape ne part
       if (d.yesSrc) yesUp(d.yesSrc, null, false);
       // ● et NO perdus, un effacement en cours (V.5.3) : laches
@@ -1745,6 +1835,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const onMove = (e: PointerEvent): void => {
       // Lu ici, avant l'orbite (sur le parent) dont la garde prend l'encodeur
       shiftHeld = e.shiftKey;
+      ctrlHeld = e.ctrlKey || e.metaKey;
       if (seqDrags.has(e.pointerId)) {
         const uv = seqUv(e.clientX - rect.left, e.clientY - rect.top);
         if (uv) stage.voy?.seqScreen?.move(uv.u, uv.v);
@@ -1765,6 +1856,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d && d.turning) {
         if (d.kind === 'sbrowse') sbDrag(d, e.clientY - d.y);
         else if (d.xf) xfMove(d, e.clientX, e.clientY, e.shiftKey);
+        else if (DT2_FACE && d.kind === 'data') dataDrag(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey, e.ctrlKey || e.metaKey);
         else turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey);
         return;
       } else if (d && d.velDrag) {
@@ -1821,6 +1913,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // TRK lachee (2026-10-27) : une tape la garde, une tenue la lache ; un pointeur annule la lache sans garde ; SCENE A et B
       if (d?.trkSrc) trkUp(d.trkSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.funcSrc) funcUp(d.funcSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      // La face DT2 (V.6.0) : une touche nouvelle lachee ; sur elle, c'est une tape (SETTINGS ouvre son menu au lacher)
+      if (d?.faceKey && d.faceSrc)
+        faceKeyUp(d.faceKey, d.faceSrc, stage, e.timeStamp || performance.now(), e.type === 'pointerup' && pickAt(e, isCoarse(e))?.id === d.id, e.pointerType === 'touch');
       // YES lache (V.5.1) : une tape (YES de D1) avant 250 ms, sinon la fin de FILL ; un pointeur annule, ou lache hors de
       // YES (la revue de D2, U1 : comme en D1, glisser hors de la touche annule le hasard) : rien ne part, FILL finit
       if (d?.yesSrc) yesUp(d.yesSrc, stage, e.type === 'pointerup' && d.id !== null && pickAt(e, isCoarse(e))?.id === d.id);
@@ -1903,6 +1998,19 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return;
       }
       sbWheel = 0;
+      // Au-dessus de LEVEL/DATA (la face DT2, V.6.0) : un cran par cran de molette (vers soi : moins), Ctrl ou Cmd huit
+      if (DT2_FACE && h && h.kind === 'data') {
+        e.preventDefault();
+        const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
+        dataWheel -= delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+        const n = Math.trunc(dataWheel / POT_UI.wheelPx);
+        if (n !== 0) {
+          dataWheel -= n * POT_UI.wheelPx;
+          dataTurn(n * (e.metaKey ? DATA_PX.coarse : 1), 'ptr', stage);
+        }
+        return;
+      }
+      dataWheel = 0;
       // Au-dessus d'une commande du MM-DECKS : elle prend la molette si elle en veut (sinon la vue zoome)
       const g = gesturesOf(h);
       if (h && g) {
@@ -2068,6 +2176,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     document.addEventListener('drop', onDocDrop);
     return () => {
       disposed = true;
+      offFace();
       fxOpenCancel();
       ro.disconnect();
       // Demontee en plein geste : l'echo du MM-ARP ne reste pas tenu par un pointeur parti
@@ -2403,6 +2512,12 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const sbHadFocus = useRef(false);
   const pressed = s === 'opening' || s === 'open';
   const inst = p.instrument;
+  // La face DT2 (V.6.0) : la piste active (1 a 16), le menu ouvert, FILL (le nom et l'etat des jumeaux nouveaux)
+  // (sans le drapeau, aucun abonnement de plus : les rendus de la V.5.3 ne changent pas)
+  const at16 = useSyncExternalStore(DT2_FACE ? activeTrack.subscribe : NO_SUB, activeTrack.get, activeTrack.get);
+  const menu60 = useSyncExternalStore(DT2_FACE ? dtFace.subscribe : NO_SUB, dtFace.menu, dtFace.menu);
+  const fill60 = useSyncExternalStore(DT2_FACE ? fill.subscribe : NO_SUB, () => fill.mode, () => fill.mode);
+  const kit16 = useSyncExternalStore(DT2_FACE ? tracks.subscribe : NO_SUB, tracks.get, tracks.get);
   const sel = p.instrument ? vfx[p.instrument] : VOICE_FX_DEFAULT;
   const values = {
     tempo: p.bpm,
@@ -2605,11 +2720,11 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       className="v4-twin"
       data-twin="edit"
       data-hotspot="pad-edit"
-      aria-label={PORTRAIT ? 'Edit the pattern and its velocities, key E' : TWIN_ARIA.ptn}
+      aria-label={PORTRAIT ? 'Edit the pattern and its velocities, key E' : DT2_FACE ? 'Pattern (PTN): the trig keys pick a pattern, left and right the bank; FUNC + PTN: banks on trig 9 to 16; key E (Shift + E: the edit grid)' : TWIN_ARIA.ptn}
       aria-pressed={edOpen === 'mm808'}
       title={FACE_TITLE['pad-edit']}
       onKeyDown={noRepeat}
-      onClick={() => editToggle('mm808', stageRef.current)}
+      onClick={() => (DT2_FACE ? faceKeyTap('ptn', stageRef.current) : editToggle('mm808', stageRef.current))}
     />
   );
   const openTwin = (
@@ -3087,7 +3202,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     const id = `pkey-${pk.id}`;
     const shown = rp.page === pk.id && rp.view === 'page';
     const extra = pk.id === 'trig' ? TWIN_ARIA.trig : pk.id === 'mod' ? TWIN_ARIA.mod : FACE_TITLE[id];
-    return keyTwin(id, 'pkey', `${extra}${shown ? ', shown, press again for its next view or HOME' : ''}`, () => rytmPageKey(pk.id, stageRef.current), shown);
+    const btn = DT2_PAGE_BTN[pk.id];
+    return keyTwin(id, 'pkey', `${extra}${shown ? ', shown, press again for its next view or HOME' : ''}`, () => (DT2_FACE && btn ? faceKeyTap(btn, stageRef.current) : rytmPageKey(pk.id, stageRef.current)), shown);
   });
   const clearTwin = (
     <button
@@ -3147,6 +3263,45 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const stepTwins = STEP_INDEXES.map((i) => {
     // V.5.2 : la grille montre la banque montree ; la vue BANK, les banques A a H
     const slot = patterns.slotAt(i);
+    // La face DT2 (V.6.0) : la piste active (1 a 16), la vue BANK sur les TRIG 9 a 16
+    if (DT2_FACE) {
+      const bk = i - 8;
+      const on2 = rytmEdit ? (bankView ? bk === Math.floor(ptns.cur / 16) : slot === ptns.cur) : at16 ? isOn(p.steps, at16, i) : false;
+      const label2 =
+        rytmEdit && bankView
+          ? bk >= 0
+            ? `Trig ${i + 1}, bank ${bankName(bk)}${patterns.bankFilled(bk) ? '' : ', empty'}${on2 ? ', playing' : ''}. Tap to show its patterns`
+            : `Trig ${i + 1}, no bank: banks are on trig 9 to 16`
+          : rytmEdit
+            ? `Pattern ${slotName(slot)}${patterns.filled(slot) ? '' : ', empty'}${slot === ptns.cur ? ', playing' : ''}. Tap to play it, hold it then REC copies, STOP pastes, PLAY clears`
+            : `Trig ${i + 1}, track ${i + 1}${at16 ? `; step ${i + 1} of track ${TRACK_KEYS.indexOf(at16) + 1} ${on2 ? 'on' : 'off'}` : ''}. REC on: writes the step; off: plays the track. Key ${i < 8 ? STEP_KEY_LETTERS[i] : `Shift + ${STEP_KEY_LETTERS[i - 8]}`}`;
+      return (
+        <button
+          key={i}
+          ref={refFor(`step-${i + 1}`)}
+          type="button"
+          className="v4-twin"
+          data-twin="step"
+          data-hotspot={`step-${i + 1}`}
+          aria-label={label2}
+          aria-pressed={on2}
+          onKeyDown={(e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+              e.preventDefault();
+              stepClear(i, stage);
+            } else if ((e.key === 'l' || e.key === 'L') && !e.repeat && !rytmEdit) {
+              e.preventDefault();
+              rytmLockToggle(i);
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              const v = stepVelocityOf(i);
+              stepVelocity(i, (v > 0 ? v : 6) + (e.key === 'ArrowUp' ? 1 : -1));
+            } else noRepeat(e);
+          }}
+          onClick={() => stepToggle(i, stage)}
+        />
+      );
+    }
     const on = rytmEdit ? (bankView ? i === Math.floor(ptns.cur / 16) : slot === ptns.cur) : inst ? isOn(p.steps, inst, i) : false;
     // Ses verrous (2026-10-08) : combien, et s'il est en LOCK
     const nl = inst && !rytmEdit ? lockCount(p.locks, inst, i) : 0;
@@ -3201,6 +3356,64 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const xfadeTwin = <XfadeTwin key="xfade" refFn={refFor('xfade')} />;
   const twinCtx = { stage, refFor };
 
+  /*
+   * La face DT2 (V.6.0, ?face=dt2, la lane B4) : les jumeaux dans l'ordre de lecture de la face (cahier 2.7, rytm/dtFaceIds.ts
+   * DT2_BUTTONS) : l'ecran et ses potards, la colonne gauche (MAIN VOLUME, LEVEL/DATA, le logo M et ce qu'il decouvre, FUNC,
+   * KEYBOARD, TRK, PTN, SONG), les touches de menu et le transport, les touches de page, YES, UP, NO, les fleches, PAGE, puis
+   * les seize TRIG. Plus de SCENE A, de crossfader ni de SCENE B (ils ont quitte la face), plus de MASTER ni de TEMPO dans
+   * l'ecran (ils sont sur la face).
+   */
+  const lev = DT2_FACE && at16 ? Math.round((kit16.mix.tlev[TRACK_KEYS.indexOf(at16)] ?? 0.8) * 127) : 0;
+  const dt2Side = DT2_FACE ? (
+    <>
+      <SideKnobTwin key="mvol" id="mvol" refFn={refFor('mvol')} text={`${Math.round(level * 100)} %`} now={Math.round(level * 127)} />
+      <SideKnobTwin key="data" id="data" refFn={refFor('data')} text={menu60 ? `menu ${menu60}` : at16 ? `track ${TRACK_KEYS.indexOf(at16) + 1}, level ${lev}` : 'no track'} now={lev} />
+    </>
+  ) : null;
+  const dt2PkeyOf = (id: Dt2ButtonId): React.ReactElement | null => {
+    const k = Object.keys(DT2_PAGE_BTN).find((p) => DT2_PAGE_BTN[p] === id);
+    const i = DT_PAGE_KEYS.findIndex((pk) => pk.id === k);
+    return i >= 0 ? dtPkeyTwins[i] : null;
+  };
+  const dt2Pressed = (id: Dt2ButtonId): boolean | undefined => {
+    if (id === 'ptnpage') return fill60 !== 'off';
+    if (id === 'tempo' || id === 'settings') return menu60 === id;
+    if (id === 'preset') return menu60 === 'preset' || menu60 === 'kit';
+    if (id === 'sounds') return menu60 === 'sounds' || menu60 === 'samples';
+    return undefined;
+  };
+  const dt2Keys = DT2_FACE
+    ? DT2_BUTTONS.map((b): React.ReactNode => {
+        switch (b.id) {
+          case 'func':
+            return funcTwin;
+          case 'trk':
+            return <HoldTwin key="trk" id="trk" twin="trk" label={`${FACE_TITLE.trk ?? 'Track'}, key T`} latch={trk} refFn={refFor('trk')} down={trkDown} up={trkUp} />;
+          case 'ptn':
+            return editTwin;
+          case 'rec':
+            return recTwin;
+          case 'play':
+            return runTwin;
+          case 'stop':
+            return stopTwin;
+          case 'yes':
+            return yesTwin;
+          case 'no':
+            return noTwin;
+          case 'trig':
+          case 'src':
+          case 'fltr':
+          case 'amp':
+          case 'fx':
+          case 'mod':
+            return dt2PkeyOf(b.id);
+          default:
+            return <FaceKeyTwin key={b.id} id={b.id} refFn={refFor(b.id)} stage={stage} pressed={dt2Pressed(b.id)} />;
+        }
+      })
+    : null;
+
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label={TWIN_ARIA.group} aria-hidden={off || undefined}>
       {PORTRAIT ? (
@@ -3223,6 +3436,26 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {muteTwin}
           {soloTwin}
           {stepTwins}
+        </>
+      ) : DT2_FACE ? (
+        // La face DT2 (V.6.0) : l'ordre de lecture de sa face (plus haut, dt2Keys)
+        <>
+          {presetTwins}
+          {infoKeyTwin}
+          {blockTwins}
+          {browserTwins}
+          {menuTwins}
+          {laneTwins('screen', twinCtx)}
+          {knobTwins}
+          {laneTwins('knobs', twinCtx)}
+          {dt2Side}
+          {openTwin}
+          {chips}
+          {tweakTwins}
+          {dt2Keys}
+          {laneTwins('keys', twinCtx)}
+          {stepTwins}
+          {laneTwins('steps', twinCtx)}
         </>
       ) : (
         // La face V.4.0 du desktop (2026-10-27) dans son ordre de lecture : l'ecran (en haut a gauche), les huit potards (a

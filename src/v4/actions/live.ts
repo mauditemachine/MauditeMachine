@@ -6,7 +6,8 @@
 import { clock, type StepEvent } from '../audio/clock';
 import { resume } from '../audio/drums';
 import { isLockTrig, withoutLock } from '../audio/locks';
-import { INSTRUMENTS, VEL_MAX, pattern, velocity } from '../audio/pattern';
+import { VEL_MAX, pattern, velocity } from '../audio/pattern';
+import { TRACK_KEYS, type TrackKey } from '../audio/tracks';
 import { lcdMessage } from '../state/lcdMessage';
 import { slotName } from '../state/patterns';
 import { dtFace } from '../state/dtFace';
@@ -47,14 +48,14 @@ function liveTarget(t: number): StepEvent | null {
  * seul, 'quiet' : la frappe ne sonne pas en plus (la revue de D3b R10 : pas de flam) ; arrondie vers un pas a venir qui ne
  * la joue pas, ce pas ne la rejoue pas a ce passage (la frappe l'a jouee). null : rien d'ecrit.
  */
-export function liveHit(inst: Inst, vel = VEL_MAX, at?: number): 'play' | 'quiet' | null {
+export function liveHit(inst: TrackKey, vel = VEL_MAX, at?: number): 'play' | 'quiet' | null {
   if (!liveRunning()) return null;
   const t = at ?? heardNow();
   if (t === null) return null;
   const e = liveTarget(t);
   if (!e) return null;
   // Le pas joue deja la voix a ce passage (le journal : programme, ou parti)
-  const plays = (e.mask & (1 << INSTRUMENTS.indexOf(inst))) !== 0;
+  const plays = (e.mask & (1 << TRACK_KEYS.indexOf(inst))) !== 0;
   if (e.when > t && !plays) clock.skipHit(inst, e.abs);
   const r = liveRow(e.slot);
   const was = velocity(r.steps, inst, e.step);
@@ -72,7 +73,7 @@ export function liveHit(inst: Inst, vel = VEL_MAX, at?: number): 'play' | 'quiet
 }
 
 /** NO tenue + un pad (V.5.3, LIVE REC en lecture) : la voix s'efface au fil de la tete de lecture tant qu'on tient ; true si pris. */
-export function liveEraseDown(inst: Inst): boolean {
+export function liveEraseDown(inst: TrackKey): boolean {
   if (!liveRunning() || noHolders.size === 0) return false;
   for (const s of noHolders) noUsed.add(s);
   liveErase.add(inst);
@@ -82,7 +83,7 @@ export function liveEraseDown(inst: Inst): boolean {
   lcdMessage.show(`LIVE ERASE ${inst}`, 1200);
   return true;
 }
-export function liveEraseUp(inst: Inst): void {
+export function liveEraseUp(inst: TrackKey): void {
   liveErase.delete(inst);
 }
 /** Plus rien ne s'efface (la fenetre perd le clavier, la revue de D3b R8 R15 : une touche lachee ailleurs ne revient jamais). */

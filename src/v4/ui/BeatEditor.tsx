@@ -45,7 +45,7 @@ import { dtFace } from '../state/dtFace';
 import { editor } from '../state/editor';
 import { BANK_SIZE, bankName, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
-import { DT_FACE } from '../theme';
+import { DT2_FACE, DT_FACE, type Inst } from '../theme';
 import { useEditorPanel } from './editorPanel';
 
 /**
@@ -582,7 +582,9 @@ export const BeatPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ 
   // La vue BANK au desktop (V.5.2, la revue de D3a, R9 et R14) : le panneau se cache, les pas 3D (leurs LED de banque, leurs
   // clics) reviennent dessus ; il revient quand la vue BANK se ferme
   const bankView = useSyncExternalStore(dtFace.subscribe, dtFace.bank, dtFace.bank);
-  const on = shown && !(DT_FACE && !mobile && bankView);
+  // La face DT2 (V.6.0, la lane B4, cahier dt2 1.3) : PTN choisit sur les TRIG ; la grille n'est plus qu'un extra (EDIT GRID)
+  const grid = useSyncExternalStore(editor.subscribe, editor.grid, editor.grid);
+  const on = shown && !(DT_FACE && !mobile && bankView) && !(DT2_FACE && !mobile && !grid);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

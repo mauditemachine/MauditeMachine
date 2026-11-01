@@ -14,11 +14,18 @@ import { focus } from './focus';
 export type EditorId = 'voy' | 'mm808' | 'bass';
 
 let current: EditorId | null = null;
+/**
+ * V.6.0 (2026-11-01, la face DT2 derriere ?face=dt2, cahier dt2 1.3) : PTN choisit sur les TRIG (l'editeur 'mm808' ouvert,
+ * les pas 3D montrent les patterns) et la grille HTML posee sur les pas (ui/BeatEditor.tsx) devient un extra, EDIT GRID
+ * (SETTINGS > PATTERN > EDIT GRID, Maj + E) : grid dit si elle se montre. Sans le drapeau, personne ne le lit.
+ */
+let grid = false;
 const listeners = new Set<() => void>();
 
 function set(next: EditorId | null): void {
   if (next === current) return;
   current = next;
+  if (next !== 'mm808') grid = false;
   listeners.forEach((fn) => fn());
 }
 
@@ -30,6 +37,16 @@ export const editor = {
   },
   close(): void {
     set(null);
+  },
+  /** La face DT2 : la grille HTML (EDIT GRID) se montre-t-elle sur l'editeur du MM-RYTM ? */
+  grid: (): boolean => grid && current === 'mm808',
+  /** EDIT GRID (la face DT2) : l'editeur du MM-RYTM s'ouvre avec sa grille, ou la grille se ferme (l'editeur aussi). */
+  setGrid(on: boolean): void {
+    if (on === (grid && current === 'mm808')) return;
+    grid = on;
+    if (on) current = 'mm808';
+    else if (current === 'mm808') current = null;
+    listeners.forEach((fn) => fn());
   },
   subscribe(fn: () => void): () => void {
     listeners.add(fn);

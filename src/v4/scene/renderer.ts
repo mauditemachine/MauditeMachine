@@ -153,7 +153,7 @@ import { SideKnobs } from './sideKnobs';
 import { dialEdit, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
-import { trk } from '../state/trk';
+import { activeTrack, trk } from '../state/trk';
 import { func } from '../state/func';
 import { dtFace } from '../state/dtFace';
 import { sceneCtl } from '../state/sceneCtl';
@@ -1197,7 +1197,7 @@ export class Stage {
     // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 allumes (une seule couleur, V.4.2)
     if (this.faceKeys) {
       // V.5.0 (2026-10-29, la face facon Digitakt) : FUNC, REC et le mode MUTE (FUNC + TRK) suivent leurs stores
-      const offTrk = [trk.subscribe(this.syncTrk), func.subscribe(this.syncFunc), dtFace.subscribe(this.syncDt), pattern.subscribe(this.syncTrk)];
+      const offTrk = [trk.subscribe(this.syncTrk), func.subscribe(this.syncFunc), dtFace.subscribe(this.syncDt), pattern.subscribe(this.syncTrk), ...(DT2_FACE ? [activeTrack.subscribe(this.syncPattern)] : [])];
       this.unsubTrk = () => offTrk.forEach((o) => o());
       this.syncTrk();
       this.syncFunc();
@@ -3330,7 +3330,8 @@ export class Stage {
   private syncPattern = (): void => {
     const p = pattern.get();
     let lit = this.pads?.setSelected(p.instrument) ?? false;
-    if (this.seq.setPattern(p.steps, p.instrument)) lit = true;
+    // La face DT2 (V.6.0, lane B4) : les TRIG montrent la piste active (1 a 16)
+    if (this.seq.setPattern(p.steps, DT2_FACE ? activeTrack.get() : p.instrument)) lit = true;
     // Les verrous suivent le motif et la voix choisie (2026-10-08)
     if (this.lockLeds(performance.now())) lit = true;
     if (this.syncVoiceKeys()) lit = true;
@@ -3386,7 +3387,9 @@ export class Stage {
       const v = voices.get();
       const pm = pattern.get().pmutes;
       let view: TrkLed[] | null = null;
-      if (mv !== 'off') view = muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
+      // La face DT2 (V.6.0, lane B4) : les 16 pistes sur les 16 TRIG, la piste active (1 a 16)
+      if (mv !== 'off') view = DT2_FACE ? muteLeds(mv, voices.mutedAll(), pm, voices.soloAll(), DT_HEX, true) : muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
+      else if (m !== 'off' && DT2_FACE) view = trkLeds(activeTrack.get(), voices.mutedAll(), voices.soloAll(), KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT, DT_HEX, pm, true);
       else if (m !== 'off') view = trkLeds(pattern.get().instrument, v.muted, v.solo, KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT, DT_FACE ? DT_HEX : undefined, pm);
       this.trkShown = view !== null;
       if (this.seq.setTrkView(view)) changed = true;

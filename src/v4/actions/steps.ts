@@ -14,7 +14,10 @@ import { dtFace } from '../state/dtFace';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
 import { voices } from '../state/voices';
-import { DT_FACE, DT_GESTURE, LCD_NO_VOICE, POT_UI, type Inst } from '../theme';
+import { DT2_FACE, DT_FACE, DT_GESTURE, LCD_NO_VOICE, POT_UI, type Inst } from '../theme';
+import type { TrackKey } from '../audio/tracks';
+import { activeTrack } from '../state/trk';
+import { dispatch, ptnHold, srcSet, stageSet, trackName } from './internal/keys60';
 import { gesture, two } from './shared';
 import { selectVoice } from './internal/tracks';
 import { recHoldHint } from './internal/steps';
@@ -36,6 +39,13 @@ import { liveHit, liveOn } from './live';
  * au desktop depuis la face V.4.0 sans pads, 2026-10-27 : theme.ts LCD_NO_VOICE).
  */
 export function stepToggle(i: number, stage: Stage | null = null, dock = false, ts = -1): boolean {
+  // La face DT2 (V.6.0, ?face=dt2) : TRIG 1 a 16 dans la table des accords (SETTINGS, TRK, FUNC, BANK, PTN, MUTE, LIVE REC,
+  // GRID REC, puis la piste jouee) ; le Dock (une fenetre etroite) ecrit toujours comme avant
+  if (DT2_FACE && !dock) {
+    stageSet(stage);
+    srcSet('at');
+    return !!dispatch(`step:${i + 1}`, 'press', 'mouse', 0, ts >= 0 ? ts : performance.now());
+  }
   // FUNC + un pas (V.5.0, le desktop) : le mute rapide de sa voix, avant tout le reste. Le Dock (dock : une fenetre de
   // desktop etroite, sans FUNC ni REC a l'ecran) ecrit toujours comme avant
   if (DT_FACE && !dock && funcTake()) {
@@ -96,10 +106,13 @@ export function stepToggle(i: number, stage: Stage | null = null, dock = false, 
   return true;
 }
 
-/** Ligne d'ecran d'un pas : STEP 07 OH HIGH / MID / LOW / OFF. */
-function stepLine(inst: Inst, i: number): string {
-  return `STEP ${two(i + 1)} ${inst} ${VEL_NAMES[velocity(pattern.get().steps, inst, i)]}`;
+/** Ligne d'ecran d'un pas : STEP 07 OH HIGH / MID / LOW / OFF (la face DT2 : STEP 07 T4 HIGH). */
+function stepLine(inst: TrackKey, i: number): string {
+  return `STEP ${two(i + 1)} ${DT2_FACE ? trackName(inst) : inst} ${VEL_NAMES[velocity(pattern.get().steps, inst, i)]}`;
 }
+
+/** La piste des pas : la face DT2, la piste active (1 a 16) ; sinon la voix du motif. */
+const stepTrack = (): TrackKey | null => (DT2_FACE ? activeTrack.get() : pattern.get().instrument);
 
 /**
  * Appui long sur un pas (revision 4, 400 ms) : le pas de l'instrument
@@ -113,7 +126,7 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
   }
   resume();
   stage?.pressStep(i);
-  const inst = pattern.get().instrument;
+  const inst = stepTrack();
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return false;
@@ -144,7 +157,7 @@ export function stepVelocity(i: number, v: number): boolean {
   // de D3b R1 : un pas y est un pad)
   if (!stepWrites() || muteView() || liveOn()) return false;
   resume();
-  const inst = pattern.get().instrument;
+  const inst = stepTrack();
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return false;
@@ -154,21 +167,23 @@ export function stepVelocity(i: number, v: number): boolean {
   // La vue PAGE (2026-10-08) : TRIG en coup d'oeil ; plus de bloc VEL depuis le 2026-10-10 (fusionne dans VOL) :
   // touchPage ne trouve rien a cerner, l'ecran dit la velocite du pas
   rytmPage.select(i);
-  touchPage('step:vel', inst);
+  if (pattern.get().instrument === inst) touchPage('step:vel', pattern.get().instrument);
   lcdMessage.show(stepLine(inst, i), POT_UI.readoutMs, true);
   return true;
 }
 
 /** La velocite du pas i de la voix choisie (0 : vide, ou pas de voix). */
 export function stepVelocityOf(i: number): number {
-  const inst = pattern.get().instrument;
+  const inst = stepTrack();
   return inst ? velocity(pattern.get().steps, inst, i) : 0;
 }
 
 /** L'appui tenu sur un pas, sans glisser encore : l'ecran dit sa velocite et comment la changer. */
 export function stepHoldHint(i: number): void {
   if (editor.get() === 'mm808') {
-    patternHold(i);
+    // La face DT2 (V.6.0) : un pattern tenu dans la vue PTN (REC copie, STOP colle, PLAY efface)
+    if (DT2_FACE && !dtFace.bank()) ptnHold(i);
+    else patternHold(i);
     return;
   }
   // V.5.0 : hors REC au desktop, la tenue ne met pas de P-LOCK ; l'ecran le dit une fois
@@ -176,7 +191,7 @@ export function stepHoldHint(i: number): void {
     recHoldHint();
     return;
   }
-  const inst = pattern.get().instrument;
+  const inst = stepTrack();
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return;

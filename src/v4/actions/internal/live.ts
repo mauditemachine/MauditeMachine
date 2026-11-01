@@ -6,7 +6,7 @@
 import { clock, type StepEvent } from '../../audio/clock';
 import { context as audioCtx } from '../../audio/drums';
 import { isLockTrig, lockOf, sameLocks, withLock, withoutLock, type LockId, type Locks } from '../../audio/locks';
-import { INSTRUMENTS, VEL_MAX, pattern, velocity, type Steps } from '../../audio/pattern';
+import { VEL_MAX, pattern, velocity, type Steps } from '../../audio/pattern';
 import { lcdMessage } from '../../state/lcdMessage';
 import { lcdSamples } from '../../state/lcdSamples';
 import { patterns } from '../../state/patterns';
@@ -16,6 +16,7 @@ import { rytmLock } from '../../state/rytmLock';
 import { faceTouch, pressVel } from '../../state/ctl';
 import { type PageSlot, type RytmScreenId } from '../../rytm/pages';
 import { DT_FACE, type Inst } from '../../theme';
+import { TRACK_KEYS, type TrackKey } from '../../audio/tracks';
 import { st } from '../state';
 import { ctlAllOn } from '../ctlall';
 import { slotDomain } from './locks';
@@ -60,7 +61,7 @@ export interface LiveKnob {
 /** Tourne il y a moins de ce temps (ou tenu) : le potard ecrit encore sur le pas qui arrive. */
 const LIVE_KNOB_MS = 220;
 /** Les voix qu'on efface (NO tenue + leur pad). */
-export const liveErase = new Set<Inst>();
+export const liveErase = new Set<TrackKey>();
 
 /** Entrer en LIVE REC (● tenue + ▶, ● deux fois, MIDI rytm:liverec) : arme a l'arret, tout de suite en lecture. */
 export function liveEnter(): void {
@@ -106,12 +107,16 @@ export function liveRow(slot: number): { steps: Steps; locks: Readonly<Locks> } 
 /** Un emplacement qui n'est pas le courant recoit ses pas et ses verrous (rien s'ils n'ont pas change). */
 export function liveWrite(slot: number, steps: Steps, locks: Readonly<Locks>): void {
   const r = liveRow(slot);
-  if (sameLocks(r.locks, locks) && INSTRUMENTS.every((k) => r.steps[k] === steps[k])) return;
+  // V.6.0 : les 16 pistes (une rangee 9 a 16 absente vaut une rangee vide)
+  if (sameLocks(r.locks, locks) && TRACK_KEYS.every((k) => (r.steps[k] ?? '') === (steps[k] ?? ''))) return;
   undo.slotEdit('mm808', slot);
   patterns.writeSlot(slot, steps, locks);
 }
 /** Le pas s de inst a la velocite v dans une rangee de pas. */
-export const stepAt = (steps: Steps, inst: Inst, s: number, v: number): Steps => ({ ...steps, [inst]: steps[inst].slice(0, s) + String(v) + steps[inst].slice(s + 1) });
+export const stepAt = (steps: Steps, inst: TrackKey, s: number, v: number): Steps => {
+  const row = steps[inst] ?? '0'.repeat(16);
+  return { ...steps, [inst]: row.slice(0, s) + String(v) + row.slice(s + 1) };
+};
 
 /** La voix frappee devient la voix choisie (la revue de D3b R4), sans dire KNOBS > (l'ecran dit LIVE REC). */
 export function liveSelect(inst: Inst): void {
@@ -170,7 +175,7 @@ function liveKnobOn(k: LiveKnob): boolean {
 }
 
 /** Efface la voix au pas entendu e (son trig et ses verrous), dans le pattern qu'on entend. */
-export function liveEraseAt(inst: Inst, e: StepEvent): void {
+export function liveEraseAt(inst: TrackKey, e: StepEvent): void {
   const s = e.step;
   if (liveCur(e.slot)) {
     const p = pattern.get();

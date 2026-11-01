@@ -7,12 +7,67 @@
  * saisie demontee (ui/Hotspots.tsx), Echap (actions.ts escape).
  */
 
-import { FACE_HOLD_MS, PAD_DOUBLE_TAP_MS } from '../theme';
+import { pattern } from '../audio/pattern';
+import { TRACK_KEYS, type TrackKey } from '../audio/tracks';
+import { FACE_HOLD_MS, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
 import { faceTouch } from './ctl';
 import { focus } from './focus';
 import { holdLatch } from './holdLatch';
 
 export const trk = holdLatch({ tapMs: FACE_HOLD_MS, onUse: 'close', closeMs: PAD_DOUBLE_TAP_MS });
+
+/**
+ * La piste active (V.6.0, 2026-11-01, la face DT2 derriere ?face=dt2, lane B4 ; cahier dt2 3.2 : TRK + TRIG 1-16) : une des
+ * 16 pistes (audio/tracks.ts TRACK_KEYS), ou null. Les pistes 1 a 8 restent celles du motif (audio/pattern.ts
+ * pattern.instrument : l'ecran, les potards, le P-LOCK, le telephone et le MIDI la lisent deja) ; une piste 9 a 16 vit ici
+ * (hi), le motif n'a alors plus de voix choisie (pattern.instrument null : aucun reglage ne part sur une voix 1 a 8 par
+ * erreur). Choisir une voix 1 a 8 par un autre chemin (le clavier, le MIDI, le telephone) rend la main au motif. Sans le
+ * drapeau, personne n'ecrit hi : get() est pattern.instrument, comme avant.
+ */
+let hi: TrackKey | null = null;
+const activeListeners = new Set<() => void>();
+const isHi = (k: TrackKey): boolean => TRACK_KEYS.indexOf(k) >= 8;
+
+export const activeTrack = {
+  get: (): TrackKey | null => hi ?? pattern.get().instrument,
+  /** l'index 0 a 15 de la piste active, -1 : aucune */
+  index: (): number => {
+    const k = activeTrack.get();
+    return k ? TRACK_KEYS.indexOf(k) : -1;
+  },
+  /** une piste 9 a 16 est-elle active (le motif n'a pas de voix choisie) */
+  high: (): boolean => hi !== null,
+  /** choisit une piste (1 a 8 : le motif la choisit aussi) ; rend true si elle a change */
+  set(k: TrackKey | null): boolean {
+    const was = activeTrack.get();
+    if (k && isHi(k)) {
+      hi = k;
+      if (pattern.get().instrument !== null) pattern.select(null);
+    } else {
+      hi = null;
+      if (pattern.get().instrument !== k) pattern.select(k as Inst | null);
+    }
+    const now = activeTrack.get();
+    if (now !== was) activeListeners.forEach((fn) => fn());
+    return now !== was;
+  },
+  subscribe(fn: () => void): () => void {
+    activeListeners.add(fn);
+    return () => {
+      activeListeners.delete(fn);
+    };
+  },
+};
+
+// Une voix 1 a 8 choisie ailleurs (le clavier, le MIDI, le Dock) : la piste 9 a 16 rend la main au motif
+let lastInst: Inst | null = pattern.get().instrument;
+pattern.subscribe(() => {
+  const inst = pattern.get().instrument;
+  if (inst === lastInst) return;
+  lastInst = inst;
+  if (inst !== null && hi !== null) hi = null;
+  activeListeners.forEach((fn) => fn());
+});
 
 /** CONTROL ALL (V.5.2, actions.ts) : TRK + un potard d'une page de voix regle les huit voix ; l'ecran le dit tant qu'il dure. */
 let ctlAllOn = false;
