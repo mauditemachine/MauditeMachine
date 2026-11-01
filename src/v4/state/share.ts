@@ -8,6 +8,10 @@
  *   sample du site par son rang et l'empreinte de son nom, ses reglages de couche), les potards du kit et les reglages
  *   de chaque voix. Pas en version 1 : les P-LOCKS (le motif part sans eux) et les samples gardes dans ce navigateur
  *   (jamais publies : la voix part avec sa synthese) ; l'ecran le dit au moment du partage.
+ * - V.6.0 (la relecture, cahier 4.5) : un beat que la version 1 ne represente pas (un tempo au dixieme ou hors de 100 a
+ *   150, un SWING au-dela de 66,7 %, des pas ou un son sur les pistes 9 a 16, un kit de 16 pistes qui dit plus que les
+ *   champs d'avant) part en version 2 : le lien ne change plus le tempo ni le SWING en silence et garde T9 a T16 ; le
+ *   texte du partage dit le tempo que le lien joue.
  * - A l'arrivee (adopt, au montage de la machine) : un code illisible est ignore (l'ecran dit BEAT LINK UNREADABLE,
  *   rien ne change) ; un bon code devient le beat du MM-RYTM. Le son du moment, s'il n'etait garde nulle part, est mis
  *   de cote d'abord (YOUR SOUND du mode presets, state/presets.ts) et UNDO le rend : rien de ce que le visiteur avait
@@ -17,8 +21,32 @@
  *   synthese de la voix ; un preset d'usine du lien (les pages de motifs du site) absent : les reglages de depart.
  */
 
-import { BPM, INSTRUMENTS, NEUTRAL_FX, type Fx, type Steps } from '../audio/pattern';
-import { FAMS_V1, FX_V1, KNOBS_V1, LAYER_DEF_V1, LAYER_V1, MODELS_V1, VOICE_V1, decodeBeat, encodeBeat, sampleHash, type Beat, type BeatFam, type BeatFamily, type BeatInst } from '../audio/beatcode';
+import { BPM_RANGE, INSTRUMENTS, NEUTRAL_FX, type Fx, type Steps } from '../audio/pattern';
+import {
+  FAMS_V1,
+  FMACHS_V2,
+  FX_V1,
+  HI_V2,
+  KNOBS_V1,
+  LAYER_DEF_V1,
+  LAYER_V1,
+  MACHS_V2,
+  MODELS_V1,
+  TRACK_P_V2,
+  VOICE_V1,
+  decodeBeat,
+  encodeBeat,
+  sampleHash,
+  type Beat,
+  type BeatFam,
+  type BeatFamily,
+  type BeatHi,
+  type BeatInst,
+  type BeatTrack,
+  type BeatTrackParam,
+  type BeatTracks,
+} from '../audio/beatcode';
+import { TRACK_KEYS, sampleFamily, type StoredKit16, type TrackKey, type TrackParamId } from '../audio/tracks';
 import { KIT_KNOBS, LAYER_PARAMS, type KitFamily, type Layer } from '../audio/kit';
 import { isUserKey, samplesOf } from '../audio/samples';
 import { VOICE_FX_DEFAULT, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
@@ -47,16 +75,123 @@ export interface Dropped {
   scenes: boolean;
   /**
    * les 16 pistes (V.5.9) : ce que les champs d'avant ne disent pas (une piste 9 a 16 qui a un son ou des pas, un
-   * comportement de voix ou un mix hors du depart) ; le lien V1 (fige, 8 voix) ne les porte pas, la v2 viendra avec V.6.0
+   * comportement de voix ou un mix hors du depart) ; depuis la V.6.0 (la relecture) le lien v2 les porte : toujours false
    */
   tracks: boolean;
+}
+
+/** Le sample d'une piste pour un lien (v2) : sa famille, son rang et son empreinte ; null : de ce navigateur ou parti. */
+function trackSampleOf(key: string, dropped: Dropped): BeatTrack['sample'] | null {
+  if (isUserKey(key)) {
+    dropped.mine = true;
+    return null;
+  }
+  const f = sampleFamily(key);
+  if (!f) return null;
+  const list = siteSamples(f);
+  const j = list.findIndex((s) => s.key === key);
+  return j >= 0 && j < 255 ? { fam: FAMS_V1.indexOf(f), n: j + 1, hash: sampleHash(list[j].file) } : null;
+}
+
+/** Le kit de 16 pistes d'un etat (StoredKit16, des diffs) en BeatTracks (v2) ; un sample qui ne part pas : la synthese. */
+function beatTracksOf(st: StoredKit16, dropped: Dropped): BeatTracks {
+  const t: (BeatTrack | null)[] = TRACK_KEYS.map((key) => {
+    const d = st.t?.[key];
+    if (!d) return null;
+    const tr: BeatTrack = {};
+    const mach = d.m ? MACHS_V2.indexOf(d.m) : 0;
+    if (mach > 0) tr.mach = mach;
+    if (d.mo) {
+      const mo = MODELS_V1.indexOf(d.mo as (typeof MODELS_V1)[number]);
+      if (mo >= 0) tr.model = mo;
+    }
+    const p: Partial<Record<BeatTrackParam, number>> = {};
+    for (const id of TRACK_P_V2) {
+      const v = d.p?.[id as TrackParamId];
+      if (typeof v === 'number' && Number.isFinite(v)) p[id] = v;
+    }
+    if (d.s) {
+      const s = trackSampleOf(d.s, dropped);
+      if (s) tr.sample = s;
+      // Une machine de synthese qui ne recoit pas son sample joue sa synthese, jamais muette (la regle de la v1)
+      else if (mach > 0 && (p.syn ?? 1) <= 0) p.syn = 1;
+    }
+    if (d.f) {
+      const fm = FMACHS_V2.indexOf(d.f);
+      if (fm > 0) tr.fmach = fm;
+    }
+    if (Object.keys(p).length > 0) tr.p = p;
+    if (d.vm === 'poly') tr.poly = true;
+    if (d.ch) tr.choke = d.ch;
+    if (d.g) tr.gated = true;
+    return Object.keys(tr).length > 0 ? tr : null;
+  });
+  const m = st.mix;
+  if (!m) return { t };
+  const mix: NonNullable<BeatTracks['mix']> = {};
+  if (m.tlev && Object.keys(m.tlev).length > 0) mix.tlev = TRACK_KEYS.map((k) => (typeof m.tlev?.[k] === 'number' ? (m.tlev[k] as number) : null));
+  if (typeof m.ctlAll === 'number') mix.ctlAll = m.ctlAll;
+  if (typeof m.compRoute === 'number') mix.compRoute = m.compRoute;
+  if (typeof m.scSrc === 'number') mix.scSrc = m.scSrc;
+  if (typeof m.vol === 'number') mix.vol = m.vol;
+  return { t, ...(Object.keys(mix).length > 0 ? { mix } : {}) };
+}
+
+/** Le kit de 16 pistes d'un beat lu (v2), tel que presets.apply le prend (StoredKit16). */
+function storedOfBeatTracks(k: BeatTracks): StoredKit16 {
+  const t: NonNullable<StoredKit16['t']> = {};
+  TRACK_KEYS.forEach((key, i) => {
+    const tr = k.t[i];
+    if (!tr) return;
+    const d: NonNullable<StoredKit16['t']>[TrackKey] = {};
+    const mach = tr.mach ? MACHS_V2[tr.mach] : 'oneshot';
+    if (mach !== 'oneshot') d.m = mach;
+    if (tr.model !== undefined) d.mo = MODELS_V1[tr.model];
+    const p: Partial<Record<TrackParamId, number>> = { ...(tr.p ?? {}) } as Partial<Record<TrackParamId, number>>;
+    if (tr.sample) {
+      const s = sampleKeyOf(FAMS_V1[tr.sample.fam], tr.sample);
+      if (s) d.s = s;
+      // Un sample du lien qui n'est plus sur ce site : la synthese de la piste, jamais une piste muette
+      else if (mach !== 'oneshot' && (p.syn ?? 1) <= 0) p.syn = 1;
+    }
+    if (tr.fmach) d.f = FMACHS_V2[tr.fmach] as NonNullable<typeof d.f>;
+    if (Object.keys(p).length > 0) d.p = p;
+    if (tr.poly) d.vm = 'poly';
+    if (tr.choke) d.ch = tr.choke;
+    if (tr.gated) d.g = 1;
+    t[key] = d;
+  });
+  const out: StoredKit16 = { v: 1, ...(Object.keys(t).length > 0 ? { t } : {}) };
+  const m = k.mix;
+  if (m) {
+    const mix: NonNullable<StoredKit16['mix']> = {};
+    if (m.tlev) {
+      const tl: Partial<Record<TrackKey, number>> = {};
+      TRACK_KEYS.forEach((key, i) => {
+        const v = m.tlev?.[i];
+        if (typeof v === 'number') tl[key] = v;
+      });
+      if (Object.keys(tl).length > 0) mix.tlev = tl;
+    }
+    if (m.ctlAll !== undefined) mix.ctlAll = m.ctlAll;
+    if (m.compRoute !== undefined) mix.compRoute = m.compRoute;
+    if (m.scSrc !== undefined) mix.scSrc = m.scSrc;
+    if (m.vol !== undefined) mix.vol = m.vol;
+    if (Object.keys(mix).length > 0) out.mix = mix;
+  }
+  return out;
 }
 
 /** Le beat du MM-RYTM tel qu'il joue, en Beat (audio/beatcode.ts). */
 export function beatNow(): { beat: Beat; dropped: Dropped } {
   const r = capture('mm808') as RytmData & { locks?: unknown; scenes?: unknown; pmutes?: Inst[] };
-  const extraRows = Object.keys(r.steps ?? {}).some((k) => !(INSTRUMENTS as readonly string[]).includes(k));
-  const dropped: Dropped = { locks: !!r.locks && Object.keys(r.locks as object).length > 0, mine: false, scenes: !!r.scenes, tracks: !!(r as { tracks?: unknown }).tracks || extraRows };
+  // Les 16 pistes (V.6.0, la relecture) : le lien v2 porte les pas de 9 a 16 et le kit de 16 pistes (audio/beatcode.ts)
+  const dropped: Dropped = { locks: !!r.locks && Object.keys(r.locks as object).length > 0, mine: false, scenes: !!r.scenes, tracks: false };
+  const steps16 = (r.steps ?? {}) as Record<string, string>;
+  const hi: Partial<Record<BeatHi, string>> = {};
+  for (const k of HI_V2) if (typeof steps16[k] === 'string' && /[1-9]/.test(steps16[k])) hi[k] = steps16[k];
+  const st = (r as { tracks?: StoredKit16 }).tracks;
+  const tracks16 = st ? beatTracksOf(st, dropped) : undefined;
   const kit = {} as Record<BeatFam, BeatFamily>;
   for (const f of FAMS_V1) {
     const m = MODELS_V1.indexOf((r.machines?.[f] ?? '909') as (typeof MODELS_V1)[number]);
@@ -92,7 +227,19 @@ export function beatNow(): { beat: Beat; dropped: Dropped } {
   for (const k of KNOBS_V1) if (typeof r.knobs?.[k] === 'number') knobs[k] = r.knobs[k];
   return {
     // Le mute du pattern (V.5.0, la revue de D1, K4) : dans le lien s'il coupe une voix
-    beat: { bpm: r.bpm, steps: { ...r.steps }, fx, stretch: r.stretch, kit, knobs, voices, ...(r.pmutes && r.pmutes.length > 0 ? { pmutes: [...r.pmutes] as BeatInst[] } : {}) },
+    beat: {
+      // Le tempo au dixieme (V.6.0 : 30 a 300 ; un tempo suivi au centieme part au dixieme)
+      bpm: Math.round(r.bpm * 10) / 10,
+      steps: Object.fromEntries(INSTRUMENTS.map((i) => [i, steps16[i] ?? '0'.repeat(16)])) as Beat['steps'],
+      fx,
+      stretch: r.stretch,
+      kit,
+      knobs,
+      voices,
+      ...(r.pmutes && r.pmutes.length > 0 ? { pmutes: [...r.pmutes] as BeatInst[] } : {}),
+      ...(Object.keys(hi).length > 0 ? { hi } : {}),
+      ...(tracks16 ? { tracks: tracks16 } : {}),
+    },
     dropped,
   };
 }
@@ -107,12 +254,16 @@ function sampleKeyOf(f: KitFamily, s: { n: number; hash: number }): string | nul
 
 /** L'etat du MM-RYTM d'un beat lu, tel que presets.apply le prend. */
 export function dataOfBeat(beat: Beat): RytmData {
-  const steps = Object.fromEntries(INSTRUMENTS.map((i) => [i, beat.steps[i as keyof Beat['steps']] ?? '0'.repeat(16)])) as Steps;
-  const bpm = Math.min(BPM.max, Math.max(BPM.min, beat.bpm));
+  // Les pistes 9 a 16 (v2) : leurs pas a cote des huit rangees d'avant
+  const steps = { ...Object.fromEntries(INSTRUMENTS.map((i) => [i, beat.steps[i as keyof Beat['steps']] ?? '0'.repeat(16)])), ...(beat.hi ?? {}) } as Steps;
+  // Le tempo au dixieme de 30 a 300 (v2 ; la v1 se lit de 100 a 150, entier)
+  const bpm = Math.min(BPM_RANGE.max, Math.max(BPM_RANGE.min, beat.bpm));
+  // Le kit de 16 pistes (v2) : il remplace celui que les champs d'avant deduiraient (presets.apply)
+  const more = beat.tracks ? { tracks: storedOfBeatTracks(beat.tracks) } : {};
   const factory = beat.base ? rytmFactory()[beat.base - 1]?.data : undefined;
   if (factory) {
     const d = JSON.parse(JSON.stringify(factory)) as RytmData;
-    return { ...d, steps, bpm, fx: { ...d.fx, ...(beat.fx ?? {}) } as Fx, ...(beat.stretch !== undefined ? { stretch: beat.stretch } : {}), ...(beat.pmutes?.length ? { pmutes: [...beat.pmutes] } : {}) };
+    return { ...d, steps, bpm, fx: { ...d.fx, ...(beat.fx ?? {}) } as Fx, ...(beat.stretch !== undefined ? { stretch: beat.stretch } : {}), ...(beat.pmutes?.length ? { pmutes: [...beat.pmutes] } : {}), ...more };
   }
   const fx = { ...NEUTRAL_FX, ...(beat.fx ?? {}) } as Fx;
   const voices = Object.fromEntries(INSTRUMENTS.map((i) => [i, { ...VOICE_FX_DEFAULT, ...(beat.voices?.[i as keyof NonNullable<Beat['voices']>] ?? {}) }])) as Record<Inst, VoiceFx>;
@@ -131,7 +282,7 @@ export function dataOfBeat(beat: Beat): RytmData {
     if (fam?.sample && !key && layer.syn <= 0) layer.syn = 1;
     layers[f] = layer;
   }
-  return { steps, bpm, fx, stretch: beat.stretch ?? 0, voices, kit: knobs, sounds: {}, machines, samples, layers, knobs, ...(beat.pmutes?.length ? { pmutes: [...beat.pmutes] } : {}) } as RytmData;
+  return { steps, bpm, fx, stretch: beat.stretch ?? 0, voices, kit: knobs, sounds: {}, machines, samples, layers, knobs, ...(beat.pmutes?.length ? { pmutes: [...beat.pmutes] } : {}), ...more } as RytmData;
 }
 
 /** Les potards du kit au depart (audio/beatcode.ts KNOB_DEF_V1, les memes que audio/kit.ts). */
@@ -140,8 +291,10 @@ const KNOB_DEFAULTS: Record<string, number> = { tune: 0.5, attack: 0.5, decay: 0
 /** L'adresse de partage du beat du moment (l'origine de la page : mauditemachine.com en ligne). */
 export function shareUrl(): { url: string; bpm: number; dropped: Dropped } {
   const { beat, dropped } = beatNow();
-  const url = `${window.location.origin}/?m=rytm&${BEAT_PARAM}=${encodeBeat(beat)}`;
-  return { url, bpm: beat.bpm, dropped };
+  const code = encodeBeat(beat);
+  const url = `${window.location.origin}/?m=rytm&${BEAT_PARAM}=${code}`;
+  // Le tempo que le lien joue vraiment (la relecture de la V.6.0 : le texte disait 45.7 quand le lien v1 jouait 100)
+  return { url, bpm: decodeBeat(code)?.bpm ?? beat.bpm, dropped };
 }
 
 /** Le code de l'adresse d'arrivee : la chaine, null sans parametre (lu une fois). */
