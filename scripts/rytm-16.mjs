@@ -19,8 +19,13 @@
  *   rollback  (avec --v53 <url d'un build V.5.3>) une sauvegarde ecrite par ce build (pistes 9 a 16, voix et kit
  *             edites, un preset) relue par V.5.3 : ses 8 voix, son preset, sans erreur ; puis relue ici : les pistes 9
  *             a 16 intactes ; et apres une edition dans V.5.3 : les pistes 1 a 8 de V.5.3, les 9 a 16 d'ici
+ *   review    les sondes de la relecture de V.5.9, chacune dans son navigateur, bornee dans le temps : R4 (des CY et OH
+ *             rapides, puis T9 a T16 denses : la page repond, chaque boucle du plafond bornee), R5 (les queues longues
+ *             des pistes 1 a 8 jamais coupees ; avec --v53, le rendu de V.5.3 au bit pres), R7 (une source coupee par
+ *             le plafond ne se rouvre pas), R6 (un reglage de LFO atteint les coups programmes, RUN muet), R1 (deux
+ *             onglets : le kit de l'un et la voix de l'autre gardes), R3 (les pages de V.6.1 partent avec leur motif)
  *
- * Usage : node scripts/rytm-16.mjs --url http://127.0.0.1:<port> [--v53 http://127.0.0.1:<port>] [--only offline,live]
+ * Usage : node scripts/rytm-16.mjs --url http://127.0.0.1:<port> [--v53 http://127.0.0.1:<port>] [--only offline,live,fixtures,rollback,review]
  * Code de sortie : 0 bon, 1 un ecart, 2 une erreur.
  */
 
@@ -406,9 +411,234 @@ async function pageRead59() {
   };
 }
 
+/* ---------------- review : les sondes de la relecture de V.5.9 (R1, R3, R4, R5, R6, R7) ---------------- */
+
+const LAUNCH = () => ({ headless: true, executablePath: chromiumPath(), args: ['--mute-audio', '--autoplay-policy=user-gesture-required', ...(process.platform === 'linux' ? ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] : [])] });
+
+/**
+ * Une page dans son propre navigateur, son evaluation bornee a `ms` (R4 : une page gelee ne repond plus du tout) : rend
+ * { r, errors }, r = { timeout: true } si elle n'a pas repondu ; le navigateur est ferme dans tous les cas.
+ */
+async function isolated(url, seed, fn, arg, ms) {
+  const { chromium } = playwright();
+  const browser = await chromium.launch(LAUNCH());
+  let timer = null;
+  try {
+    const s = await open(browser, url, seed);
+    const r = await Promise.race([s.page.evaluate(fn, arg), new Promise((res) => (timer = setTimeout(() => res({ timeout: true }), ms)))]);
+    return { r, errors: s.errors };
+  } finally {
+    if (timer) clearTimeout(timer);
+    await Promise.race([browser.close().catch(() => {}), new Promise((res) => setTimeout(res, 15000))]);
+  }
+}
+
+/** Les rendus hors ligne des pistes 1 a 8 (R4, R5) : le temps, le plafond, et le signal (pour la comparaison a V.5.3). */
+async function pageCap(arg) {
+  const v4 = window.__v4;
+  const zero = '0'.repeat(16);
+  const out = {};
+  for (const [name, c] of Object.entries(arg.cases)) {
+    const steps = { BD: zero, SD: zero, CH: zero, OH: zero, CP: zero, TOM: zero, HT: zero, CY: zero, ...c.steps };
+    const o = { seconds: c.seconds, sampleRate: 48000, channels: 2, channel: 0, bpm: c.bpm, steps, seed: 808, log: true, ...(c.trigs ? { trigs: c.trigs } : {}) };
+    const t0 = performance.now();
+    const buf = await v4.audio.renderOffline(o);
+    const ms = performance.now() - t0;
+    const cap = v4.audio.tracks16?.offline ? { ...v4.audio.tracks16.offline } : null;
+    out[name] = { ms, hits: v4.audio.offlineHits.length, cap, ...(arg.buf ? { buf: Array.from(buf) } : {}) };
+  }
+  return out;
+}
+
+/** R4 et le plafond des pistes 9 a 16 : CY et OH rapides, et T9 a T16 en cymbales poly denses avec retrigs. */
+async function pageCap16() {
+  const v4 = window.__v4;
+  const T = v4.tracks;
+  for (const k of ['T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16']) {
+    T.machine(k, 'cy', '909');
+    T.voice(k, { vmode: 'poly' });
+  }
+  const full = '9'.repeat(16);
+  const zero = '0'.repeat(16);
+  const steps = { BD: zero, SD: zero, CH: full, OH: full, CP: zero, TOM: zero, HT: zero, CY: full, T9: full, T10: full, T11: full, T12: full, T13: full, T14: full, T15: full, T16: full };
+  const trigs = { CY: { rtrg: 1, rate: 16 }, T9: { rtrg: 1, rate: 12 }, T12: { rtrg: 1, rate: 16 }, T15: { rtrg: 1, rate: 12 } };
+  const t0 = performance.now();
+  await v4.audio.renderOffline({ seconds: 4, sampleRate: 48000, channels: 2, channel: 0, bpm: 140, steps, trigs, seed: 808, log: true });
+  return { ms: performance.now() - t0, hits: v4.audio.offlineHits.length, cap: v4.audio.tracks16?.offline ? { ...v4.audio.tracks16.offline } : null };
+}
+
+/**
+ * R7 : le plafond global coupe le coup de T9 (mono, une cymbale, la plus vieille des pistes 9 a 16) ; le coup suivant
+ * de T9 ne doit pas la rouvrir. Tout le reste est muet (CY a VOL 0, T10 a T16 a TRK LEV 0) mais compte dans le
+ * plafond : la sortie avant le 2e coup de T9 est celle de T9 seule. Reference : le meme T9 sans les autres.
+ */
+async function pageR7() {
+  const v4 = window.__v4;
+  const T = v4.tracks;
+  T.machine('T9', 'cy', '909');
+  for (const k of ['T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16']) {
+    T.machine(k, 'cy', '909');
+    T.voice(k, { vmode: 'poly' });
+  }
+  const zero = '0'.repeat(16);
+  const bpm = 120;
+  const step = 60 / bpm / 4;
+  const base = { BD: zero, SD: zero, CH: zero, OH: zero, CP: zero, TOM: zero, HT: zero, CY: zero, T9: '9000000090000000' };
+  const fill = { ...base, CY: '0999999999999999', T10: '0999999999999999', T11: '0999999999999999', T12: '0999999999999999', T13: '0999999999999999', T14: '0999999999999999', T15: '0999999999999999', T16: '0999999999999999' };
+  const o = (steps, extra = {}) => ({ seconds: 1.6, sampleRate: 48000, channels: 2, channel: 0, bpm, steps, seed: 808, log: true, ...extra });
+  const quiet = { voice: { CY: { level: 0 } }, tlev: { T10: 0, T11: 0, T12: 0, T13: 0, T14: 0, T15: 0, T16: 0 }, trigs: { CY: { rtrg: 1, rate: 16 } } };
+  const ref = await v4.audio.renderOffline(o(base, { voice: { CY: { level: 0 } } }));
+  const buf = await v4.audio.renderOffline(o(fill, quiet));
+  const cap = v4.audio.tracks16?.offline ? { ...v4.audio.tracks16.offline } : null;
+  const t9 = v4.audio.offlineHits.filter((h) => h.inst === 'T9').map((h) => h.t);
+  const w2 = t9.length > 1 ? t9[1] : 0.02 + 8 * step;
+  const peak = (b) => {
+    let m = 0;
+    for (let i = Math.floor((w2 - 0.006) * 48000); i < Math.floor((w2 - 0.0005) * 48000); i += 1) m = Math.max(m, Math.abs(b[i]));
+    return m;
+  };
+  return { w2, cap, peakRef: peak(ref), peakFill: peak(buf) };
+}
+
+/** R6 : un RUN muet, la caisse claire et son LFO1 ; un cran de L1 DEPTH a 0 doit atteindre les coups deja programmes. */
+async function pageR6() {
+  const v4 = window.__v4;
+  const X = v4.tracks16;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  v4.tracks.setMany('SD', { l1dst: 1, l1dep: 30, l1spd: 24 });
+  X.ctx();
+  await wait(300);
+  for (let i = 0; i < 16; i += 1) v4.pattern.set('SD', i, 6);
+  X.run(true);
+  await wait(700);
+  await v4.audio.ctx.suspend();
+  for (let i = 0; i < 100 && (v4.audio.shots().queued > 0 || v4.audio.shots().waiting > 0); i += 1) await wait(50);
+  await wait(150);
+  const plan = typeof v4.clock.planLfo === 'function' ? (t) => v4.clock.planLfo(t) : null;
+  const before = plan ? plan('SD') : null;
+  const full0 = v4.clock.rescheduled;
+  v4.tracks.set('SD', 'l1dep', 0);
+  await wait(80);
+  const after = plan ? plan('SD') : null;
+  const full = v4.clock.rescheduled - full0;
+  X.run(false);
+  await v4.audio.ctx.resume();
+  return { full, planned: !!plan, before: before ? before.filter((h) => h.lfo.length > 0).length : null, n: after ? after.length : null, stale: after ? after.filter((h) => h.lfo.length > 0).length : null };
+}
+
+/** R1, l'onglet A : un cran de SNAPPY (le kit). L'onglet B, ouvert avant : un cran du DECAY du HT (une voix). */
+async function pageR1(what) {
+  const v4 = window.__v4;
+  if (what === 'kit') v4.tracks16.kit.set('snappy', 0.3);
+  if (what === 'voice') v4.tracks16.voiceFx.set('HT', 'decay', 0.33);
+  if (what === 'read') return { from: v4.tracks.info().loadedFrom, snappy: v4.tracks16.legacy().knob.snappy, ht: v4.tracks16.legacyVoices().HT.decay };
+  await new Promise((r) => setTimeout(r, 500));
+  v4.tracks.flush();
+  return true;
+}
+
+/** R3 : le motif courant a des pages, un setup et un kit (ecrits par V.6.1) ; un pas pose les garde, un preset charge les retire. */
+async function pageR3() {
+  const v4 = window.__v4;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const read = () => {
+    const o = JSON.parse(window.localStorage.getItem('mm.v4.pattern.3') ?? '{}');
+    return { pages: !!o.pages, setup: !!o.setup, kit: !!o.kit };
+  };
+  const loaded = !!v4.pattern.serialize().pages;
+  v4.pattern.set('BD', 3, 9);
+  await wait(400);
+  v4.pattern.flush();
+  const edited = read();
+  const f = v4.presets.store.list('mm808').find((p) => p.factory);
+  v4.presets.store.load('mm808', f.id);
+  await wait(400);
+  v4.pattern.flush();
+  return { loaded, edited, after: read() };
+}
+
+async function review(browser) {
+  console.log('--- review : les sondes de la relecture de V.5.9');
+  // R4 : des CY et OH rapides sur les pistes 1 a 8, puis T9 a T16 denses (les deux plafonds coupent) : la page repond, la
+  // programmation reste bornee
+  const heavy = { ohcy: { bpm: 140, seconds: 4, steps: { CH: '9'.repeat(16), OH: '9'.repeat(16), CY: '9'.repeat(16) }, trigs: { CY: { rtrg: 1, rate: 16 } } } };
+  const a = await isolated(URL_A, null, pageCap, { cases: heavy }, 60000);
+  const h = a.r.timeout ? null : a.r.ohcy;
+  check(!!h && h.cap && h.cap.schedMs < 2000, 'R4 : CY en retrig 1/80, OH et CH en doubles croches (pistes 1 a 8) : la page repond, programmation bornee', h ? `${h.hits} coups, programmation ${h.cap?.schedMs?.toFixed(0)} ms, rendu en ${h.ms.toFixed(0)} ms, pic ${h.cap?.peak}` : 'GEL : aucune reponse en 60 s');
+  const b = await isolated(URL_A, null, pageCap16, null, 60000);
+  const c16 = b.r.timeout ? null : b.r.cap;
+  check(!!c16 && c16.schedMs < 2000 && c16.capped > 0 && c16.polyCapped > 0 && c16.trackPeak <= 4, 'R4 : T9 a T16 en cymbales poly denses (retrigs) : les deux plafonds coupent, chaque boucle bornee', c16 ? `${b.r.hits} coups, programmation ${c16.schedMs.toFixed(0)} ms, coupees ${c16.capped} (plafond) et ${c16.polyCapped} (poly), pic d'une piste 9 a 16 ${c16.trackPeak}` : 'GEL : aucune reponse en 60 s');
+  // R5 : les queues longues superposees des pistes 1 a 8 ne sont jamais coupees ; avec --v53, le rendu au bit pres de V.5.3
+  const cases = {
+    cy8: { bpm: 120, seconds: 4, steps: { CY: '9090909090909090' } },
+    cy16: { bpm: 128, seconds: 4, steps: { CY: '9'.repeat(16) } },
+    tom16: { bpm: 140, seconds: 4, steps: { TOM: '9'.repeat(16) } },
+    dense8: { bpm: 130, seconds: 4, steps: { BD: '9000900090009000', SD: '0000900000009000', CH: '9'.repeat(16), OH: '0090009000900090', CP: '0000900000009000', TOM: '9009009009009009', HT: '0909090909090909', CY: '9000000090000000' }, trigs: { CH: { rtrg: 1, rate: 12, rlen: 4 }, HT: { len: 2 } } },
+  };
+  const c = await isolated(URL_A, null, pageCap, { cases, buf: !!URL_53 }, 120000);
+  const ref = URL_53 ? await isolated(URL_53, null, pageCap, { cases, buf: true }, 120000) : null;
+  for (const name of Object.keys(cases)) {
+    const x = c.r.timeout ? null : c.r[name];
+    let diff = null;
+    if (x && ref && !ref.r.timeout) {
+      const y = ref.r[name];
+      diff = x.buf.length === y.buf.length ? x.buf.reduce((m, v, i) => Math.max(m, Math.abs(v - y.buf[i])), 0) : Infinity;
+    }
+    const ok = !!x && x.cap && x.cap.capped === 0 && x.cap.polyCapped === 0 && (diff === null || diff <= 1e-6);
+    check(ok, `R5 : ${name}, les pistes 1 a 8 sans plafond${URL_53 ? ', comme V.5.3' : ''}`, x ? `${x.hits} coups, coupees ${x.cap?.capped} + ${x.cap?.polyCapped}, pic ${x.cap?.peak}${diff !== null ? `, ecart a V.5.3 ${diff.toExponential(2)}` : ''}` : 'GEL : aucune reponse');
+  }
+  // R7 : une source coupee par le plafond global ne se rouvre pas au coup suivant de sa piste mono
+  const d = await isolated(URL_A, null, pageR7, null, 60000);
+  const r7 = d.r.timeout ? null : d.r;
+  check(!!r7 && r7.cap && r7.cap.capped > 0 && r7.peakRef > 1e-4 && r7.peakFill <= r7.peakRef * 0.02, 'R7 : le coup de T9 coupe par le plafond reste ferme au coup suivant (aucun clic)', r7 ? `coupees ${r7.cap?.capped}, avant le 2e coup de T9 : crete ${r7.peakFill.toExponential(2)} (sans plafond ${r7.peakRef.toExponential(2)})` : 'GEL : aucune reponse en 60 s');
+  // R6 : un reglage de LFO atteint les coups deja programmes
+  const e = await isolated(URL_A, null, pageR6, null, 60000);
+  const r6 = e.r.timeout ? null : e.r;
+  check(!!r6 && r6.full >= 1 && r6.planned && r6.before > 0 && r6.n > 0 && r6.stale === 0, 'R6 : L1 DEPTH a 0 en RUN (muet) : les coups programmes de SD n\'ont plus de LFO', r6 ? `re-programmation complete ${r6.full}, coups programmes ${r6.n ?? '?'}, avec LFO avant ${r6.before ?? '?'}, apres ${r6.stale ?? '?'}` : 'aucune reponse');
+  // R1 : deux onglets V.5.9 ; A edite le kit, B (ouvert avant) une voix : un troisieme garde les deux
+  {
+    const br = await (playwright().chromium).launch(LAUNCH());
+    try {
+      const ctx = await br.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+      const origin = new URL(URL_A).origin;
+      await ctx.route('**/*', (route) => {
+        const u = route.request().url();
+        return u.startsWith(origin) || u.startsWith('data:') || u.startsWith('blob:') ? route.continue() : route.abort();
+      });
+      const tab = async () => {
+        const p = await ctx.newPage();
+        await p.goto(`${URL_A}/?mute=1&debug=1&m=mm808`, { waitUntil: 'domcontentloaded' });
+        await p.waitForFunction(() => window.__v4?.state?.intro === 'done', null, { timeout: 300000, polling: 250 });
+        return p;
+      };
+      const pa = await tab();
+      const pb = await tab();
+      await pa.evaluate(pageR1, 'kit');
+      await pb.evaluate(pageR1, 'voice');
+      const pc = await tab();
+      const r1 = await pc.evaluate(pageR1, 'read');
+      const snappy = Math.round(0.3 * 127) / 127;
+      check(Math.abs(r1.snappy - snappy) < 1e-9 && Math.abs(r1.ht - 0.33) < 0.01, 'R1 : deux onglets, le kit de l\'un et la voix de l\'autre gardes', `origine ${r1.from}, SNAPPY ${r1.snappy.toFixed(3)} (attendu ${snappy.toFixed(3)}), HT DECAY ${r1.ht}`);
+    } finally {
+      await br.close();
+    }
+  }
+  // R3 : les pages, le setup et le kit de V.6.1 partent avec leur motif
+  {
+    const s = await open(browser, URL_A);
+    const cur = await s.page.evaluate(() => window.__v4.pattern.serialize());
+    await s.context.close();
+    const seeded = { ...cur, pages: { BD: '9'.repeat(48) }, setup: { len: 64 }, kit: 'k-v61' };
+    const t = await open(browser, URL_A, { 'mm.v4.pattern.3': JSON.stringify(seeded) });
+    const r3 = await t.page.evaluate(pageR3);
+    await t.context.close();
+    check(r3.loaded && r3.edited.pages && r3.edited.setup && r3.edited.kit && !r3.after.pages && !r3.after.setup && !r3.after.kit, 'R3 : un pas pose garde les pages de V.6.1, un preset charge les retire', `lues ${r3.loaded}, apres un pas ${JSON.stringify(r3.edited)}, apres le preset ${JSON.stringify(r3.after)}`);
+  }
+}
+
 async function main() {
   const { chromium } = playwright();
-  const browser = await chromium.launch({ headless: true, executablePath: chromiumPath(), args: ['--mute-audio', '--autoplay-policy=user-gesture-required', ...(process.platform === 'linux' ? ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] : [])] });
+  const browser = await chromium.launch(LAUNCH());
   try {
     if (want('offline')) {
       console.log('--- offline : les 16 pistes');
@@ -522,6 +752,7 @@ async function main() {
       check(r.info.loadedFrom === 'mixed' && Math.abs(r.knobs.snappy - snappy) < 1e-9 && Math.abs(r.voices.HT.decay - 0.33) < 0.01 && r.t9.mach === 'bd' && r.t10.vmode === 'poly', 'apres une edition dans V.5.3 : ses 8 voix, et les pistes 9 a 16 de V.5.9', `origine ${r.info.loadedFrom}, SNAPPY ${r.knobs.snappy.toFixed(3)}, HT DECAY ${r.voices.HT.decay}, T9 ${r.t9.mach}`);
       await e.context.close();
     }
+    if (want('review')) await review(browser);
   } catch (err) {
     console.error(`rytm-16 : ${err?.stack ?? err}`);
     await browser.close();

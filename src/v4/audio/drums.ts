@@ -169,7 +169,7 @@ interface Graph {
   gates: GateState;
   /** les sources qui sonnent (le plafond), et ce qu'il a fait */
   live: Sounding[];
-  /** le pic de sources (et celui d'une seule piste), les coupes du plafond global et du plafond par piste poly */
+  /** le pic de sources (et celui d'une seule piste 9 a 16), les coupes du plafond global et du plafond par piste poly */
   cap: { peak: number; trackPeak: number; capped: number; polyCapped: number };
   /**
    * La sortie de chaque machine (2026-10-04), sec et effets compris : le
@@ -1718,7 +1718,8 @@ function voice(g: Graph, inst: TrackKey, when: number, dest: AudioNode, hp: HitP
   const snd: Sounding = { t: inst, when, end: sstop, gate, src, stop: sstop };
   soundingOf.set(gate, snd);
   g.live.push(snd);
-  // Le pic : les sources qui sonnent (pas celles deja coupees, qui s'eteignent en 8 ms), en tout et sur cette piste
+  // Le pic : les sources qui sonnent (pas celles deja coupees, qui s'eteignent en 8 ms), en tout, et sur cette piste si
+  // c'est une piste 9 a 16 (celles que le plafond par piste borne)
   let n = 0;
   let nt = 0;
   for (const x of g.live) {
@@ -1727,7 +1728,7 @@ function voice(g: Graph, inst: TrackKey, when: number, dest: AudioNode, hp: HitP
     if (x.t === inst) nt += 1;
   }
   if (n > g.cap.peak) g.cap.peak = n;
-  if (nt > g.cap.trackPeak) g.cap.trackPeak = nt;
+  if (nt > g.cap.trackPeak && !isLegacyTrack(inst)) g.cap.trackPeak = nt;
   return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd, trk: inst, ...(vo.choke > 0 ? { grp: vo.choke } : {}), gs, snd, ...(capCut ? { capCut } : {}), ...(live ? { live } : {}) };
 }
 
