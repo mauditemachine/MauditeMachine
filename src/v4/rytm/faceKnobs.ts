@@ -262,7 +262,7 @@ function recompute(): FaceKnobChange | null {
   // LEVEL/DATA (la face DT2) : le TRK LEV de la piste active ; son anneau suit (scene/renderer.ts, faceKnobs.data)
   const dv = levelDataView();
   const dKey = `${dv.live ? 1 : 0}|${dv.t}`;
-  const dataMoved = dKey !== sigData;
+  const dataMoved = DT2_FACE && dKey !== sigData;
   sigData = dKey;
   const lock = `${lk.step}|${lk.latched ? 1 : 0}|${lk.held.join(',')}`;
   const rest = `${editor.get() ?? '-'}|${samplesVersion()}`;
