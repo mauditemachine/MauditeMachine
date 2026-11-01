@@ -19,6 +19,7 @@ import { dtPageKeyAfter, dtPageKeyFirst, PAGE_BTN } from './internal/face';
 import { presetSoftKey } from './internal/presets';
 import { curScreen, pageTarget } from './kit';
 import { soundBrowserOpen } from './browser';
+import { openMenuId, setOpenMenu } from '../scene/screen/menus/open';
 
 /**
  * Une touche de page du MM-RYTM (la face, le Dock, le MIDI, 2026-10-08) :
@@ -111,6 +112,9 @@ export function rytmScreenTab(screen: RytmScreenId): void {
 export function rytmShowPage(id: RytmPageId | string): void {
   const page = pageOfAlias(id);
   if (!page) return;
+  // La face DT2 (relecture de la V.6.0) : une page montree (H au clavier, rytm:page:*) ferme le menu ouvert, comme une
+  // touche de page de la face ; sinon la page changeait sous un menu reste a l'ecran
+  if (DT2_FACE && openMenuId()) setOpenMenu(null);
   const left = leaveRytmOverlay();
   // La page d'un FX ouverte (2026-10-10) : rytm:page:fx ramene GLOBAL FX, et le dit
   const same = page === rytmPage.get().page && rytmPage.get().view === 'page' && !rytmPage.get().detail;

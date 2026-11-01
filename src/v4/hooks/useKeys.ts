@@ -341,6 +341,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         }
         if (e.code === 'BracketLeft' || e.code === 'BracketRight' || k === '[' || k === ']') {
           e.preventDefault();
+          // La face DT2 (relecture de la V.6.0, la lane ecran) : la page d'a cote ferme le menu ouvert, comme une touche de page
+          if (DT2_FACE && dtFace.menu()) dtFace.setMenu(null);
           rytmPage.step(e.code === 'BracketLeft' || k === '[' ? -1 : 1);
           return;
         }
