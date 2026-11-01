@@ -14,7 +14,10 @@ import { rytmPage } from '../state/rytmPage';
 import { type CtlSrc } from '../state/ctl';
 import { trk } from '../state/trk';
 import { voices } from '../state/voices';
-import { DT_FACE, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import { DT2_FACE, DT_FACE, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import { func } from '../state/func';
+import { dispatch, srcKind, trackMuteToggle, trigTrk } from './internal/keys60';
+import { TRACK_KEYS } from '../audio/tracks';
 import { st } from './state';
 import { ctlAllEnd } from './ctlall';
 import { gesture } from './shared';
@@ -107,6 +110,8 @@ const trkSay = (text: string): void => {
  */
 export function trkStep(i: number, stage: Stage | null = null, t = performance.now()): boolean {
   if (!trk.engaged()) return false;
+  // La face DT2 (V.6.0) : TRK + TRIG 1 a 16, la piste active (cahier 3.2)
+  if (DT2_FACE) return trigTrk(i, stage, t);
   // TRK gardee qui se ferme (closing, les 400 ms apres le choix d'une voix ; 2026-10-27, revue B2, deja en ligne depuis le
   // groupe B) : seule la deuxieme tape sur le MEME pas reste a TRK (la double tape coupe la voix) ; tout autre pas ferme
   // TRK et suit son chemin habituel (tape, P-LOCK, EDIT). Avant, chaque tape rapide sur un pas juste apres le choix
@@ -144,6 +149,17 @@ export function trkMute(inst: Inst, t = performance.now()): void {
 /** Le clic droit sur un pas pendant TRK (ui/Hotspots.tsx) : 1 a 8 coupent leur voix ; true quand TRK l'a pris. */
 export function trkStepMute(i: number, stage: Stage | null = null, t = performance.now()): boolean {
   if (!trk.engaged()) return false;
+  // La face DT2 (V.6.0) : les 16 pistes
+  if (DT2_FACE) {
+    const k = TRACK_KEYS[i];
+    if (!k) return true;
+    stage?.pressStep(i);
+    st.trkLast = null;
+    ctlAllEnd();
+    trackMuteToggle(k);
+    trk.use(t);
+    return true;
+  }
   const inst = Number.isInteger(i) && i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
   if (!inst) return true;
   stage?.pressStep(i);
@@ -180,6 +196,13 @@ export function trkPick(inst: Inst, t: number): void {
  * desktop depuis V.5.0 : FUNC + TRK, le mode MUTE (muteModeKey), son lacher est alors avale ; TRK seule ferme le mode MUTE.
  */
 export const trkDown = (src: string, t = performance.now()): void => {
+  // La face DT2 (V.6.0) : FUNC + TRK dans la table des accords (le mode MUTE, le dernier retenu)
+  if (DT2_FACE && func.engaged()) {
+    if (dispatch('trk', 'press', srcKind(src), 0, t)) {
+      trkTaken.add(src);
+      return;
+    }
+  }
   if (DT_FACE && funcTake()) {
     trkTaken.add(src);
     muteModeKey();

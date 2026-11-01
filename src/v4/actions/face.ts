@@ -29,8 +29,32 @@ import { type SceneSet } from '../rytm/sceneData';
 import { isRytmPage, type RytmPageId } from '../rytm/pages';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
-import { DT_FACE, DT_GESTURE, LCD_NO_VOICE, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import { DT2_FACE, DT_FACE, DT_GESTURE, LCD_NO_VOICE, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import type { Dt2ButtonId } from '../rytm/dtFaceIds';
+import { gesture as gestureLayer } from '../state/gesture';
+import { activeTrack } from '../state/trk';
+import type { TrackKey } from '../audio/tracks';
 import { st } from './state';
+import {
+  clearRow60,
+  copy60,
+  dispatch,
+  faceMenuOf,
+  menuInput,
+  menuLog,
+  menuOpen,
+  menuSet,
+  pageFillAll,
+  pageFillUp,
+  paste60,
+  srcKind,
+  srcSet,
+  stageSet,
+  trackMuteToggle,
+  trackSelect as trackSelect60,
+  trigSolo,
+  hint60,
+} from './internal/keys60';
 import { ctlAllUndo } from './ctlall';
 import { eventAt, gesture } from './shared';
 import { bankViewClose } from './internal/patterns';
@@ -41,6 +65,7 @@ import { liveEnter, liveErase, liveExit } from './internal/live';
 import { escape, hoodOf } from './nav';
 import { clearPattern, randomPattern } from './patterns';
 import { runToggle } from './transport';
+import { trkDown, trkUp } from './tracks';
 import { curScreen } from './kit';
 import { lockMode } from './locks';
 import { presetKey, presetTurns } from './presets';
@@ -89,6 +114,12 @@ export function pageKeyHold(id: string, down: boolean): void {
   // FUNC + la touche : sa fonction orange, la page n'est pas armee ; sous KIT non plus (une touche de l'ecran, G7)
   if (down) st.pageArm = func.engaged() || presetTurns() ? null : { page: id, until: Infinity };
   else if (st.pageArm && st.pageArm.page === id && st.pageArm.until === Infinity) st.pageArm = { page: id, until: performance.now() + DT_GESTURE.pageArmMs };
+  // La face DT2 (V.6.0) : la touche de page est aussi un modificateur de la couche de gestes (cahier 2.7)
+  const btn = PAGE_BTN[id];
+  if (DT2_FACE && btn) {
+    if (down) gestureLayer.down(btn, 'page', performance.now());
+    else gestureLayer.up(btn, 'page', performance.now());
+  }
 }
 
 /* ---------- REC, le mode ecriture ---------- */
@@ -99,12 +130,24 @@ export function pageKeyHold(id: string, down: boolean): void {
  */
 export function recKey(stage: Stage | null = null, mouse = false): void {
   if (!DT_FACE) return;
+  // La face DT2 (V.6.0) : la table des accords (FUNC + REC COPY, TRK + REC le son, TRIG tenu en PTN le pattern, REC seule)
+  if (DT2_FACE) {
+    faceKeyTap('rec', stage, mouse ? 'mouse' : 'midi');
+    return;
+  }
   resume();
   stage?.pressFaceKey('rec');
   if (funcTake()) {
     copyKey();
     return;
   }
+  recBody(stage, mouse);
+}
+
+/** ● seule (V.5.3, sans FUNC) : REC, ● deux fois a la souris LIVE REC, ● en LIVE REC le GRID REC. */
+export function recBody(stage: Stage | null, mouse: boolean): void {
+  resume();
+  stage?.pressFaceKey('rec');
   // ● tapee deux fois vite a la souris (V.5.3, la souris ne tient pas deux touches) : LIVE REC ; seulement si la premiere
   // tape a allume REC depuis REC eteint (la revue de D3b R5 : jamais en sortant de LIVE REC, ni par W ou le MIDI)
   const t = eventAt();
@@ -139,12 +182,23 @@ export function recKey(stage: Stage | null = null, mouse = false): void {
  */
 export function playKey(stage: Stage | null = null): boolean {
   if (!DT_FACE) return runToggle(stage);
+  // La face DT2 (V.6.0) : la table des accords (FUNC + PLAY CLEAR, TRK + PLAY le son, TRIG tenu en PTN le pattern)
+  if (DT2_FACE) {
+    faceKeyTap('play', stage);
+    return clock.running;
+  }
   gesture();
   if (funcTake()) {
     stage?.pressFaceKey('run');
     dtClear(stage);
     return clock.running;
   }
+  return playBody(stage);
+}
+
+/** ▶ seule (V.5.0 a V.5.3, sans FUNC) : la lecture, la pause, la reprise ; ● tenue + ▶ LIVE REC. */
+export function playBody(stage: Stage | null): boolean {
+  gesture();
   stage?.pressButton('run');
   // ● tenue + ▶ (V.5.3, le manuel [M1] 10.2.3) : LIVE REC, la lecture part ; le lacher de ● ne fait pas REC
   if (DT_FACE && recHolders.size > 0) {
@@ -192,12 +246,67 @@ export function recUp(src: string): boolean {
 }
 export function noDown(src: string): void {
   noHolders.add(src);
+  // La face DT2 (V.6.0) : l'appui de NO dans la table des accords (le menu, FUNC + NO, une page puis NO)
+  if (DT2_FACE) no60Down(src);
 }
 /** NO lachee ; true si elle a servi a effacer (son lacher ne fait pas NO). Plus de NO tenue : l'effacement s'arrete (la revue de D3b R8 R15). */
 export function noUp(src: string): boolean {
   noHolders.delete(src);
   if (noHolders.size === 0) liveErase.clear();
-  return noUsed.delete(src);
+  const used = noUsed.delete(src);
+  if (DT2_FACE) {
+    gestureLayer.up('no', src, performance.now());
+    if (used) noPress = null;
+  }
+  return used;
+}
+
+/* ---------- la face DT2 (V.6.0) : NO en deux temps (l'appui, le lacher) ---------- */
+
+/** L'appui de NO en cours : un accord l'a-t-il pris (FUNC + NO, une page puis NO), un menu etait-il ouvert. */
+let noPress: { taken: boolean; menu: boolean; menuTook: boolean } | null = null;
+
+function no60Down(src: string, stage: Stage | null = null): void {
+  resume();
+  stageSet(stage);
+  stage?.flashFaceKey('no');
+  gestureLayer.down('no', src, performance.now());
+  const menu = menuOpen();
+  const c = dispatch('no', 'press', srcKind(src));
+  noPress = { taken: !!c && !menu, menu, menuTook: menu && !!c && menuTakenLast() };
+}
+
+/** Le dernier menu a-t-il pris sa saisie (menuInput rend true) ? */
+const menuTakenLast = (): boolean => menuLog.length > 0 && menuLog[menuLog.length - 1].taken;
+
+function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
+  stageSet(stage);
+  // Echap au clavier : un appui et un lacher d'un coup ; FUNC engagee, la chaine d'Echap la relache (comme toujours)
+  if (viaEsc) {
+    noPress = null;
+    if (menuOpen()) {
+      const a = menuInput('no', 'down');
+      const b = menuInput('no', 'up');
+      if (!a && !b) menuSet(null);
+      return true;
+    }
+    if (func.engaged()) return escape();
+    return noBody(stage, true);
+  }
+  // Un jumeau, le MIDI : l'appui n'a pas eu lieu, il part maintenant
+  if (!noPress) no60Down('at', stage);
+  const p = noPress;
+  noPress = null;
+  gestureLayer.cancel('no');
+  if (!p) return false;
+  if (p.menu) {
+    const b = menuOpen() ? menuInput('no', 'up') : false;
+    // NO que le menu ne prend pas le ferme
+    if (!p.menuTook && !b) menuSet(null);
+    return true;
+  }
+  if (p.taken) return true;
+  return !!dispatch('no', 'release', 'mouse');
 }
 
 let stopAt = -Infinity;
@@ -211,18 +320,32 @@ export function stopKey(stage: Stage | null = null): void {
     if (clock.running) void runToggle(stage);
     return;
   }
+  // La face DT2 (V.6.0) : la table des accords (FUNC + STOP PASTE, TRK + STOP le son, TRIG tenu en PTN le pattern)
+  if (DT2_FACE) {
+    faceKeyTap('stop', stage);
+    return;
+  }
   resume();
   stage?.flashFaceKey('stop');
   if (funcTake()) {
     pasteKey();
     return;
   }
+  stopBody(stage);
+}
+
+/** ■ seule (V.5.0, sans FUNC) : l'arret, deux fois les queues coupees ; LIVE REC s'arrete. */
+export function stopBody(stage: Stage | null): void {
+  resume();
+  stage?.flashFaceKey('stop');
   const t = eventAt();
   const dbl = t - stopAt < DT_GESTURE.stopDoubleMs;
   stopAt = dbl ? -Infinity : t;
   // LIVE REC (V.5.3, le manuel [M1] 10.2.3 : "Press [STOP] to stop both recording and playback")
   if (dtFace.live()) liveExit(false);
   clock.stop();
+  // La face DT2 : un FILL d'un cycle s'arrete avec la lecture
+  if (DT2_FACE) fill.cancelCycle();
   if (dbl) {
     cutTails();
     lcdMessage.show('STOP · TAILS CUT');
@@ -239,6 +362,11 @@ let clip: Clip | null = null;
 
 /** FUNC + REC : COPY ; hors REC le pattern (pas, verrous, scenes, mute du pattern), REC allume la ligne de la voix. */
 export function copyKey(): void {
+  // La face DT2 (V.6.0) : le presse-papiers unique, la rangee de la piste active (16)
+  if (DT2_FACE) {
+    copy60();
+    return;
+  }
   const p = pattern.get();
   if (dtFace.rec()) {
     const inst = p.instrument;
@@ -257,6 +385,10 @@ export function copyKey(): void {
 
 /** FUNC + STOP : PASTE ; un pattern copie remplace le pattern courant, une ligne celle de la voix choisie ; une etape d'UNDO. */
 export function pasteKey(): void {
+  if (DT2_FACE) {
+    paste60();
+    return;
+  }
   if (!clip) {
     lcdMessage.show('NOTHING TO PASTE');
     return;
@@ -304,6 +436,11 @@ function dtClear(stage: Stage | null): void {
     clearPattern(stage);
     return;
   }
+  // La face DT2 (V.6.0) : la rangee de la piste active (16)
+  if (DT2_FACE) {
+    clearRow60();
+    return;
+  }
   const p = pattern.get();
   const inst = p.instrument;
   if (!inst) {
@@ -315,6 +452,12 @@ function dtClear(stage: Stage | null): void {
   // Ses reglages de trig repartent au depart (V.5.1), comme ceux du pattern a CLEAR
   pattern.clearTrigs(inst);
   lcdMessage.show(`${inst} CLEARED`);
+}
+
+/** FUNC + PLAY : CLEAR (V.5.0 ; la face DT2 y passe par la table des accords). */
+export function clearKey(stage: Stage | null = null): void {
+  stage?.pressFaceKey('run');
+  dtClear(stage);
 }
 
 /* ---------- YES, NO, SAVE, RELOAD ---------- */
@@ -350,6 +493,12 @@ export function reloadKey(): void {
  */
 export function yesKey(stage: Stage | null = null, armed?: RytmPageId | null): void {
   if (!DT_FACE) return;
+  // La face DT2 (V.6.0) : un appui et un lacher de YES dans la table des accords (le menu, FUNC + YES, une page puis YES,
+  // PAGE puis YES)
+  if (DT2_FACE) {
+    faceKeyTap('yes', stage);
+    return;
+  }
   gesture();
   stage?.flashFaceKey('yes');
   if (funcTake()) {
@@ -370,6 +519,17 @@ export function yesKey(stage: Stage | null = null, armed?: RytmPageId | null): v
   }
   if (rytmPage.get().view === 'page' && curScreen() === 'tempo' && editor.get() !== 'mm808') {
     tapTempo();
+    return;
+  }
+  lcdMessage.show('YES: TAP A PAGE KEY FIRST TO RANDOMIZE IT', 2000);
+}
+
+/** YES seule sur la face DT2 (V.6.0, au lacher, sans menu ni accord) : les presets d'avant (KIT) la prennent, sinon l'aide. */
+export function yesTap(stage: Stage | null = null): void {
+  gesture();
+  stage?.flashFaceKey('yes');
+  if (presetMode.on('mm808')) {
+    presetKey('mm808', presetMode.get().stage === 'confirm' ? 'del' : 'load');
     return;
   }
   lcdMessage.show('YES: TAP A PAGE KEY FIRST TO RANDOMIZE IT', 2000);
@@ -397,6 +557,10 @@ function yesActsNow(): boolean {
  */
 export function yesDown(src: string, stage: Stage | null = null): void {
   if (!DT_FACE || yesHolds.has(src)) return;
+  if (DT2_FACE) {
+    faceKeyDown('yes', src, stage);
+    return;
+  }
   if (yesActsNow()) {
     const ptr = src.startsWith('ptr:');
     yesHolds.set(src, { timer: 0, fill: false, done: !ptr, now: ptr, pg: null });
@@ -419,6 +583,10 @@ export function yesDown(src: string, stage: Stage | null = null): void {
 
 /** YES lache ; tap : un vrai lacher (false : le pointeur perdu, la fenetre sans clavier : rien ne part). */
 export function yesUp(src: string, stage: Stage | null = null, tap = true): void {
+  if (DT2_FACE) {
+    faceKeyUp('yes', src, stage, tap ? performance.now() : -1, tap);
+    return;
+  }
   const h = yesHolds.get(src);
   if (!h) return;
   yesHolds.delete(src);
@@ -446,6 +614,8 @@ export function fillHold(down: boolean, src = 'midi'): void {
  */
 export function noKey(stage: Stage | null = null, viaEsc = false): boolean {
   if (!DT_FACE) return escape();
+  // La face DT2 (V.6.0) : le lacher de NO (le menu ouvert, puis la table des accords)
+  if (DT2_FACE) return noRelease60(stage, viaEsc);
   resume();
   stage?.flashFaceKey('no');
   const fm = func.get().mode;
@@ -461,6 +631,13 @@ export function noKey(stage: Stage | null = null, viaEsc = false): boolean {
     reloadKey();
     return true;
   }
+  return noBody(stage, viaEsc);
+}
+
+/** NO seule (V.5.0 a V.5.3, sans FUNC) : CONTROL ALL annule, la vue BANK fermee, une page rechargee, la chaine d'Echap. */
+export function noBody(stage: Stage | null, viaEsc = false): boolean {
+  resume();
+  stage?.flashFaceKey('no');
   // NO ou Echap tant que TRK est allumee (V.5.2, CONTROL ALL de la Digitakt ; la revue de D3a, R4) : chaque voix retrouve sa
   // valeur d'avant
   if (ctlAllUndo()) return true;
@@ -513,18 +690,36 @@ export function muteModeKey(): void {
   if (!DT_FACE) return;
   resume();
   const m = dtFace.mute();
-  const next: MuteView = m === 'off' ? 'global' : m === 'global' ? 'pattern' : 'off';
+  // La face DT2 (V.6.0, cahier 3.4, manuel 8.5.3) : FUNC + TRK reprend le dernier mode retenu, encore l'autre, encore la sortie
+  const other = (v: Exclude<MuteView, 'off'>): Exclude<MuteView, 'off'> => (v === 'global' ? 'pattern' : 'global');
+  let next: MuteView;
+  if (DT2_FACE) {
+    if (m === 'off') muteEntry = dtFace.lastMute();
+    next = m === 'off' ? muteEntry : m === muteEntry ? other(muteEntry) : 'off';
+  } else next = m === 'off' ? 'global' : m === 'global' ? 'pattern' : 'off';
   if (next !== 'off') {
     // Les vues gagnent sur les pas une a la fois : TRK et la grille PTN se ferment
     trk.cancel();
     if (editor.get() === 'mm808') editor.close();
   }
   dtFace.setMute(next);
+  if (DT2_FACE) {
+    const again = next === 'off' ? '' : ` · FUNC + TRK: ${next === muteEntry ? `${other(next).toUpperCase()} MUTE` : 'EXIT'}`;
+    lcdMessage.show(next === 'off' ? 'MUTE MODE OFF' : `${next.toUpperCase()} MUTE: TRIG 1-16${again}`, 1600);
+    return;
+  }
   lcdMessage.show(next === 'global' ? 'GLOBAL MUTE · FUNC + TRK: PATTERN MUTE' : next === 'pattern' ? 'PATTERN MUTE · FUNC + TRK: EXIT' : 'MUTE MODE OFF', 1600);
 }
+/** Le mode de MUTE ouvert par le premier FUNC + TRK (la face DT2 : le dernier retenu). */
+let muteEntry: Exclude<MuteView, 'off'> = 'global';
 
 /** Un pas tenu en mode MUTE (DT_GESTURE.muteHoldMs) : le SOLO de sa voix (blanc), tenu encore la fin du SOLO. */
 export function muteStepHold(i: number, stage: Stage | null = null): void {
+  // La face DT2 (V.6.0) : les 16 pistes
+  if (DT2_FACE) {
+    trigSolo(i, stage);
+    return;
+  }
   const inst = i >= 0 && i < INSTRUMENTS.length ? INSTRUMENTS[i] : null;
   if (!inst || !DT_FACE || dtFace.mute() === 'off') return;
   stage?.pressStep(i);
@@ -534,3 +729,273 @@ export function muteStepHold(i: number, stage: Stage | null = null): void {
 
 /** Le mode MUTE est-il ouvert (les pas sont les voix, la tenue d'un pas est le SOLO) ? */
 export const muteView = (): boolean => DT_FACE && dtFace.mute() !== 'off';
+
+/* ---------------- V.6.0 : la face DT2 (?face=dt2), la saisie (lane B4, 2026-11-01) ---------------- */
+
+/*
+ * docs/v4/dt2/dt2-master-spec.md 2.7 et 3.1 : une seule entree pour les 25 touches de la face DT2, quelle que soit la main
+ * (le pointeur, le doigt, un jumeau, le clavier, le MIDI, le boitier) : faceKeyDown a l'appui, faceKeyUp au lacher (tap :
+ * un vrai lacher sur la touche), faceKeyTap pour un appui et un lacher d'un coup. Les modificateurs passent par la couche de
+ * gestes (state/gesture.ts), le reste par la table des accords (actions/chords/chords60.ts). Sans le drapeau : rien.
+ */
+
+/** Les touches de page de la face DT2 et leur page. */
+const PAGE_OF_KEY: Readonly<Partial<Record<Dt2ButtonId, RytmPageId>>> = { trig: 'trig', src: 'voice', fltr: 'fltr', amp: 'env', fx: 'fx', mod: 'mod' };
+/** La zone (l'animation de la touche) d'une touche de la face DT2. */
+const HOTSPOT_OF_KEY: Readonly<Partial<Record<Dt2ButtonId, string>>> = { ptn: 'pad-edit', play: 'run', trig: 'pkey-trig', src: 'pkey-voice', fltr: 'pkey-fltr', amp: 'pkey-env', fx: 'pkey-fx', mod: 'pkey-mod' };
+export const faceKeyHotspot = (id: Dt2ButtonId): string => HOTSPOT_OF_KEY[id] ?? id;
+
+/** YES tenue plus longtemps sans servir (l'ancien FILL) : l'indice FILL: HOLD PAGE. */
+const YES_HINT_MS = 500;
+const yes60 = new Map<string, { taken: boolean; menu: boolean; timer: number }>();
+const settings60 = new Map<string, { taken: boolean; timer: number }>();
+
+function yes60Down(src: string, stage: Stage | null, t: number, touch: boolean): void {
+  if (yes60.has(src)) return;
+  gesture();
+  stage?.pressFaceKey('yes');
+  gestureLayer.down('yes', src, t);
+  const menu = menuOpen();
+  const c = dispatch('yes', 'press', srcKind(src, touch), 0, t);
+  const h = { taken: !!c && !menu, menu, timer: 0 };
+  if (!c && !menu)
+    h.timer = window.setTimeout(() => {
+      h.timer = 0;
+      if (yes60.get(src) === h && gestureLayer.held('yes') && !gestureLayer.state('yes').used) hint60('fill');
+    }, YES_HINT_MS);
+  yes60.set(src, h);
+}
+
+function yes60Up(src: string, stage: Stage | null, t: number, tap: boolean, touch: boolean): void {
+  const h = yes60.get(src);
+  if (!h) return;
+  yes60.delete(src);
+  if (h.timer) window.clearTimeout(h.timer);
+  const used = gestureLayer.state('yes').used;
+  gestureLayer.up('yes', src, tap ? t : -1);
+  stage?.flashFaceKey('yes');
+  // Le menu a eu l'appui : il a aussi le lacher ; YES ne reste pas gardee
+  if (h.menu) {
+    if (menuOpen()) menuInput('yes', 'up');
+    gestureLayer.cancel('yes');
+    return;
+  }
+  if (h.taken || used || !tap) return;
+  dispatch('yes', 'release', srcKind(src, touch), 0, t);
+}
+
+/** Une touche de la face DT2 enfoncee (src : 'ptr:<id>', 'key', 'midi', 'hw', 'at' ; touch : un doigt). */
+export function faceKeyDown(id: Dt2ButtonId, src = 'at', stage: Stage | null = null, t = performance.now(), touch = false): void {
+  if (!DT2_FACE) return;
+  stageSet(stage);
+  srcSet(src);
+  const sk = srcKind(src, touch);
+  const page = PAGE_OF_KEY[id];
+  if (page) {
+    pageKeyHold(page, true);
+    return;
+  }
+  switch (id) {
+    case 'func':
+      funcDown(src, t);
+      stage?.pressFaceKey('func');
+      return;
+    case 'trk':
+      trkDown(src, t);
+      stage?.pressFaceKey('trk');
+      return;
+    case 'rec':
+      recDown(src);
+      return;
+    case 'yes':
+      yes60Down(src, stage, t, touch);
+      return;
+    case 'no':
+      noDown(src);
+      return;
+    case 'settings': {
+      if (settings60.has(src)) return;
+      stage?.pressFaceKey('settings');
+      const taken = func.engaged() && !!dispatch('settings', 'press', sk, 0, t);
+      if (!taken) gestureLayer.down('settings', src, t);
+      const h = { taken, timer: 0 };
+      if (!taken)
+        h.timer = window.setTimeout(() => {
+          h.timer = 0;
+          if (settings60.get(src) === h && gestureLayer.held('settings')) lcdMessage.show('SETTINGS HELD: TRIG 1-3 LED, TRIG 9 BACKLIGHT', 2000);
+        }, 1000);
+      settings60.set(src, h);
+      return;
+    }
+    case 'tempo':
+    case 'preset':
+    case 'kbd':
+    case 'song':
+      gestureLayer.down(id, src, t);
+      stage?.pressFaceKey(id);
+      dispatch(id, 'press', sk, 0, t);
+      return;
+    case 'sounds':
+      stage?.pressFaceKey('sounds');
+      dispatch('sounds', 'press', sk, 0, t);
+      return;
+    case 'up':
+    case 'down':
+    case 'left':
+    case 'right':
+      stage?.flashFaceKey(id);
+      dispatch(id, 'press', sk, 0, t);
+      return;
+    case 'ptnpage':
+      gestureLayer.down('ptnpage', src, t);
+      stage?.pressFaceKey('ptnpage');
+      dispatch('ptnpage', 'press', sk, 0, t);
+      return;
+    default:
+      // PTN, PLAY, STOP : au lacher (une tape), comme avant
+      return;
+  }
+}
+
+/** Une touche de la face DT2 lachee ; tap : un vrai lacher sur elle (false : un pointeur perdu, glisse ailleurs). */
+export function faceKeyUp(id: Dt2ButtonId, src = 'at', stage: Stage | null = null, t = performance.now(), tap = true, touch = false): void {
+  if (!DT2_FACE) return;
+  stageSet(stage);
+  srcSet(src);
+  const sk = srcKind(src, touch);
+  const page = PAGE_OF_KEY[id];
+  if (page) {
+    pageKeyHold(page, false);
+    if (tap) dispatch(id, 'press', sk, 0, t);
+    return;
+  }
+  switch (id) {
+    case 'func':
+      funcUp(src, tap ? t : -1);
+      return;
+    case 'trk':
+      trkUp(src, tap ? t : -1);
+      return;
+    case 'ptn':
+    case 'play':
+    case 'stop':
+      if (tap) dispatch(id, 'press', sk, 0, t);
+      return;
+    case 'rec': {
+      const taken = recUp(src);
+      if (tap && !taken) dispatch('rec', 'press', sk, 0, t);
+      return;
+    }
+    case 'yes':
+      yes60Up(src, stage, t, tap, touch);
+      return;
+    case 'no': {
+      const used = noUp(src);
+      if (tap && !used) noKey(stage);
+      return;
+    }
+    case 'settings': {
+      const h = settings60.get(src);
+      settings60.delete(src);
+      if (!h) return;
+      if (h.timer) window.clearTimeout(h.timer);
+      if (h.taken) return;
+      const s = gestureLayer.state('settings');
+      const short = s.mode === 'held' && t - s.since < 1000;
+      gestureLayer.up('settings', src, tap ? t : -1);
+      if (tap && short && !s.used) dispatch('settings', 'release', sk, 0, t);
+      return;
+    }
+    case 'tempo':
+    case 'preset':
+    case 'kbd':
+    case 'song':
+      gestureLayer.up(id, src, tap ? t : -1);
+      return;
+    case 'up':
+    case 'down':
+    case 'left':
+    case 'right':
+      dispatch(id, 'release', sk, 0, t);
+      return;
+    case 'ptnpage':
+      gestureLayer.up('ptnpage', src, tap ? t : -1);
+      pageFillUp(src);
+      return;
+    default:
+      return;
+  }
+}
+
+/** Un appui et un lacher d'un coup (un jumeau, une cible MIDI a une note, une touche du clavier sans tenue). */
+export function faceKeyTap(id: Dt2ButtonId, stage: Stage | null = null, kind: 'mouse' | 'midi' | 'key' = 'mouse'): void {
+  if (!DT2_FACE) return;
+  const src = kind === 'mouse' ? 'at' : kind;
+  const t = performance.now();
+  faceKeyDown(id, src, stage, t);
+  faceKeyUp(id, src, stage, t, true);
+}
+
+/** LEVEL/DATA tourne de delta crans (vers la droite, vers le bas d'une liste : plus) : le menu ouvert, sinon TRK LEV. */
+export function dataTurn(delta: number, src = 'at', stage: Stage | null = null): void {
+  if (!DT2_FACE || !Number.isFinite(delta) || delta === 0) return;
+  stageSet(stage);
+  srcSet(src);
+  dispatch('data', 'turn', srcKind(src), Math.round(delta));
+}
+
+/** MAIN VOLUME tourne de delta crans (le jumeau, un MIDI relatif) ; le glisser et la molette passent par l'encodeur level. */
+export function mainVolumeTurn(delta: number, src = 'at'): void {
+  if (!DT2_FACE || !Number.isFinite(delta) || delta === 0) return;
+  srcSet(src);
+  dispatch('mvol', 'turn', srcKind(src), delta);
+}
+
+/** EDIT GRID (SETTINGS > PATTERN > EDIT GRID, Maj + E) : la grille HTML posee sur les pas, ouverte ou fermee. */
+export function editGridToggle(stage: Stage | null = null): void {
+  if (!DT2_FACE) return;
+  gesture();
+  const on = !editor.grid();
+  if (on && dtFace.bank()) bankViewClose();
+  editor.setGrid(on);
+  stage?.pressFaceKey('pad-edit');
+  lcdMessage.show(on ? 'EDIT GRID · SHIFT + E: CLOSE' : 'EDIT GRID CLOSED', 1400);
+}
+
+/** La piste active (1 a 16) : le MIDI, le boitier, le telephone (la bascule 1-8 / 9-16) la choisissent sans TRK. */
+export function trackSelect(k: TrackKey): void {
+  if (!DT2_FACE) return;
+  resume();
+  trackSelect60(k);
+}
+/** Une piste coupee ou rendue (1 a 16, le mute global). */
+export function trackMute(k: TrackKey): void {
+  if (!DT2_FACE) return;
+  trackMuteToggle(k);
+}
+/** La piste active (1 a 16), null : aucune (la face DT2 ; sinon la voix du motif). */
+export const activeTrackKey = (): TrackKey | null => activeTrack.get();
+
+/**
+ * Les LED des touches de la face DT2 que la saisie pose (cahier 2.4) : le menu ouvert (PRESET/KIT, SETTINGS, SOUNDS,
+ * TEMPO), PAGE et FILL, PTN en vue BANK, KEYBOARD et SONG (eteintes en 6.0). Rend de quoi se desabonner.
+ */
+export function dt2FaceSync(stage: Stage): () => void {
+  const fk = stage.faceKeys;
+  if (!DT2_FACE || !fk) return () => undefined;
+  const sync = (): void => {
+    let ch = fk.setMenu(faceMenuOf(dtFace.menu()));
+    if (fk.setFill(fill.mode)) ch = true;
+    if (fk.setBank(dtFace.bank())) ch = true;
+    if (fk.setKeyboard(dtFace.keyboard())) ch = true;
+    const sg = dtFace.song();
+    if (fk.setSong(sg === 'mode' ? 'song' : sg)) ch = true;
+    if (ch) stage.repaint();
+  };
+  const offs = [dtFace.subscribe(sync), fill.subscribe(sync)];
+  sync();
+  return () => {
+    offs.forEach((o) => o());
+    pageFillAll();
+  };
+}

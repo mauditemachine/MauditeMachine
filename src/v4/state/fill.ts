@@ -73,6 +73,12 @@ export const fill = {
     else return;
     update();
   },
+  /** Le cycle s'en va (STOP : la lecture s'arrete) ; le verrou et les tenues restent. */
+  cancelCycle(): void {
+    if (cycle === 'off') return;
+    cycle = 'off';
+    update();
+  },
   /** Tout lache (la page perd le focus, un test). */
   release(): void {
     holders.clear();
