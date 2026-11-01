@@ -10,9 +10,9 @@ import { SRC_MACHINES, SRC_MACHINE_LABEL, tracks, type SrcMachine } from '../../
 import { resume } from '../../../audio/drums';
 import { lcdMessage } from '../../../state/lcdMessage';
 import type { Screen } from '../core';
-import { BLACK, FAINT_TEXT, HALF, INK } from '../consts';
+import { BLACK, HALF, INK } from '../consts';
 import { registerScreenMenu } from './registry';
-import { acting, paintHint, paintList, scrollTop, stepCursor, type MenuRow } from './frame';
+import { DIM_TEXT, acting, paintHint, paintList, scrollTop, stepCursor, type MenuRow } from './frame';
 import { menuChanged, screenTrack } from './open';
 
 const FLTR = [
@@ -42,7 +42,7 @@ function paint(screen: Screen): number {
     else screen.pill(x, 25, 44, 12, null, HALF, 0.8);
     screen.text(w, x + 22, 34, 7.5, i === cat ? BLACK : HALF, 700, 'center', 0.6);
   });
-  screen.text(t ? `TRACK ${t}` : 'PICK A TRACK', 312, 34, 7.5, t ? INK : FAINT_TEXT, 700, 'right', 0.5);
+  screen.text(t ? `TRACK ${t}` : 'PICK A TRACK', 312, 34, 7.5, t ? INK : DIM_TEXT, 700, 'right', 0.5);
   const r = rows();
   top = scrollTop(top, cursor, r.length, 8);
   body = paintList(screen, r, cursor, top, { x0: 4, x1: 316, y0: 41, y1: 170 });

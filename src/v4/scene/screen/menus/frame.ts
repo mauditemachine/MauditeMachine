@@ -7,7 +7,14 @@
 
 import type { Screen } from '../core';
 import type { ScreenMenuInput } from './registry';
-import { BLACK, FAINT, FAINT_TEXT, FRAME, HALF, INK } from '../consts';
+import { BLACK, FAINT, FRAME, HALF, INK } from '../consts';
+
+/**
+ * Le texte a peine des menus DT2 (une ligne a venir, l'aide du bas) : 0.52 de l'os sur le noir de l'ecran, 5,2:1 (la regle
+ * de Mika du 2026-11-01, "en blanc on ne voit pas les ecritures" : tout texte a 4,5:1 au moins, en noir comme en creme ;
+ * l'ecran reste noir dans les deux apparences). FAINT_TEXT (0.4, 3,4:1) reste aux ecrans d'avant.
+ */
+export const DIM_TEXT = 'rgba(246, 241, 231, 0.52)';
 
 /** Une ligne d'un menu. sub : un sous-menu (...) ; dim : a venir (sa valeur dit BIENTOT) ; on : coche. */
 export interface MenuRow {
@@ -45,7 +52,7 @@ export function paintList(screen: Screen, rows: readonly MenuRow[], cursor: numb
     const y = area.y0 + i * rh;
     const sel = k === cursor;
     if (sel) screen.roundRect(area.x0, y + 0.8, area.x1 - area.x0 - 6, rh - 1.6, 2.5, INK);
-    const fg = sel ? BLACK : r.dim ? FAINT_TEXT : INK;
+    const fg = sel ? BLACK : r.dim ? DIM_TEXT : INK;
     const label = `${r.label}${r.sub ? ' ...' : ''}`;
     const vx = area.x1 - 12;
     const vw = r.value ? screen.textWidth(r.value, 7.5, 600, 0.3) : 0;
@@ -53,7 +60,7 @@ export function paintList(screen: Screen, rows: readonly MenuRow[], cursor: numb
     if (r.on !== undefined) {
       const bx = area.x0 + (area.x1 - area.x0) - 20;
       screen.roundRect(bx, y + rh / 2 - 3.5, 7, 7, 1.2, r.on ? (sel ? BLACK : INK) : null, sel ? BLACK : HALF, 0.9);
-    } else if (r.value) screen.text(r.value, vx, y + rh * 0.68, 7.5, sel ? BLACK : r.dim ? FAINT_TEXT : HALF, 600, 'right', 0.3);
+    } else if (r.value) screen.text(r.value, vx, y + rh * 0.68, 7.5, sel ? BLACK : r.dim ? DIM_TEXT : HALF, 600, 'right', 0.3);
     out.push(`${sel ? '>' : ''}${r.dim ? '~' : ''}${label}${r.value ? `=${r.value}` : ''}${r.on !== undefined ? (r.on ? '[x]' : '[ ]') : ''}`);
   }
   // La barre de defilement (plus de lignes que la place)
@@ -86,14 +93,14 @@ export function paintPopupBox(screen: Screen, lines: readonly string[], hint = '
   const h = 28 + lines.length * 15;
   screen.roundRect(x0, y0, w, h, 5, BLACK, INK, 1.2);
   lines.forEach((l, i) => screen.text(screen.fitText(l, w - 16, i === 0 ? 11 : 9, 0.4, 600), x0 + w / 2, y0 + 18 + i * 15, i === 0 ? 11 : 9, i === 0 ? INK : HALF, 600, 'center', 0.4));
-  screen.text(hint, x0 + w / 2, y0 + h - 7, 7, FAINT_TEXT, 700, 'center', 0.6);
+  screen.text(hint, x0 + w / 2, y0 + h - 7, 7, DIM_TEXT, 700, 'center', 0.6);
   return `${lines.join(' / ')} [${hint}]`;
 }
 
 /** Une ligne d'aide au bas de la zone des menus (les gestes du moment). */
 export function paintHint(screen: Screen, text: string): void {
   screen.line([4, 178, 316, 178], FRAME, 0.6);
-  screen.text(screen.fitText(text, 300, 7, 0.5, 700), 160, 187.5, 7, FAINT_TEXT, 700, 'center', 0.5);
+  screen.text(screen.fitText(text, 300, 7, 0.5, 700), 160, 187.5, 7, DIM_TEXT, 700, 'center', 0.5);
 }
 
 /** Un pas de curseur dans une liste de n lignes (FUNC : une page) ; jamais hors de la liste. */

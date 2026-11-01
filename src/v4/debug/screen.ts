@@ -10,13 +10,17 @@
  */
 
 import type { DebugSource } from './index';
-import { anyDial, curSlots, dialValueText, levelDataTurn, levelDataView, screenKnobPress, soundPreview, type DialId } from '../actions';
+import { anyDial, curSlots, dialValueText, levelDataTurn, levelDataView, rytmHome, rytmPageKey, screenKnobPress, soundPreview, type DialId } from '../actions';
+import type { RytmPageId } from '../rytm/pages';
 import { openMenuId, menuInput, setOpenMenu, screenTrack } from '../scene/screen/menus/open';
 import { dialSpecOf, screenMenu, screenMenus, type ScreenMenuId, type ScreenMenuInputKind } from '../scene/screen/menus/registry';
 import { dt2SrcPage } from '../rytm/pages';
 import { personalize } from '../scene/screen/menus/settings';
 import { patternName } from '../scene/screen/menus/names';
 import { DT2_FACE } from '../theme';
+import { rytmInfos } from '../state/rytmInfos';
+import { BLACK, HALF, INK } from '../scene/screen/consts';
+import { DIM_TEXT } from '../scene/screen/menus/frame';
 
 export interface ScreenLaneDebug {
   readonly screen60: {
@@ -53,6 +57,15 @@ export interface ScreenLaneDebug {
     patternName(slot: number): string;
     /** fait taire la pre-ecoute des sons (la sonde choisit des sons) */
     quiet(): void;
+    /** une touche de page (la navigation DT2 : jamais HOME, la sous-page suivante) ; rytm:home */
+    pageKey(id: RytmPageId): void;
+    home(): void;
+    /** l'image de l'ecran, en PNG (data URL) : les captures de la sonde */
+    png(): string;
+    /** les teintes du texte de l'ecran DT2 et son fond (la verification du contraste, en noir et en creme) */
+    palette(): { bg: string; ink: string; half: string; dim: string };
+    /** INFOS allume et la carte d'une zone montree (null : eteint) */
+    infos(id: string | null): void;
   };
 }
 
@@ -91,6 +104,21 @@ export function screenLane(_src: DebugSource): ScreenLaneDebug {
       patternName: (slot) => patternName(slot),
       quiet() {
         soundPreview.silent = true;
+      },
+      pageKey: (id) => rytmPageKey(id, _src.stage()),
+      home: () => rytmHome(),
+      palette: () => ({ bg: BLACK, ink: INK, half: HALF, dim: DIM_TEXT }),
+      infos(id) {
+        if (id === null) {
+          rytmInfos.set(false);
+          return;
+        }
+        rytmInfos.set(true);
+        rytmInfos.show(id);
+      },
+      png() {
+        const st = _src.stage();
+        return st ? st.screen.canvas.toDataURL('image/png') : '';
       },
     },
   };

@@ -38,6 +38,7 @@ import type { Screen } from './core';
 import { openMenu, screenTrack } from './menus/open';
 import { screenMenu, type ScreenMenu } from './menus/registry';
 import { patternName } from './menus/names';
+import { DIM_TEXT } from './menus/frame';
 
 /** Les zones du gabarit (unites, cahier 2.5). */
 export const DT2 = {
@@ -199,7 +200,7 @@ function paintLeft(screen: Screen, t: TrackKey | null, tag: string): string {
   screen.roundRect(3.5, 24.5, 37, 34, 3, null, FRAME, 0.8);
   screen.text(tag, cx, 33.5, 7, HALF, 700, 'center', 0.6);
   const num = t ? String(trackIndex(t) + 1) : '--';
-  screen.text(num, cx, 54, 19, t ? INK : FAINT_TEXT, 300, 'center');
+  screen.text(num, cx, 54, 19, t ? INK : DIM_TEXT, 300, 'center');
   const name = screen.fitText(trackSoundName(t), 40, 6.2, 0.2, 600);
   screen.text(name, cx, 69, 6.2, HALF, 600, 'center', 0.2);
   // Le fader LEV : son echelle pointillee, sa course pleine, son repere

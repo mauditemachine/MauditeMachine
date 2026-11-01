@@ -12,9 +12,9 @@ import { presetKey, randomPattern } from '../../../actions';
 import { lcdMessage } from '../../../state/lcdMessage';
 import { PRESET_SLOTS, presetMode, type PresetSlot } from '../../../state/presetMode';
 import type { Screen } from '../core';
-import { BLACK, FAINT_TEXT, HALF, INK } from '../consts';
+import { BLACK, HALF, INK } from '../consts';
 import { registerScreenMenu, type ScreenMenu } from './registry';
-import { acting, paintHint, paintList, paintPanel, paintPopupBox, stepCursor, type MenuRow } from './frame';
+import { DIM_TEXT, acting, paintHint, paintList, paintPanel, paintPopupBox, stepCursor, type MenuRow } from './frame';
 import { menuChanged } from './open';
 
 const M = 'mm808' as const;
@@ -62,11 +62,11 @@ function paint(screen: Screen): number {
   // La liste : la ligne d'avant, le curseur en grand, celle d'apres ; le rang et le titre
   screen.text(v.title, 8, 36, 8, HALF, 700, 'left', 0.6);
   screen.text(`${v.group ? `${v.group}  ` : ''}${v.count}`, 312, 36, 8, HALF, 700, 'right', 0.5);
-  if (v.prev) screen.text(screen.fitText(v.prev, 296, 10, 0.4, 600), 12, 62, 10, FAINT_TEXT, 600, 'left', 0.4);
+  if (v.prev) screen.text(screen.fitText(v.prev, 296, 10, 0.4, 600), 12, 62, 10, DIM_TEXT, 600, 'left', 0.4);
   screen.roundRect(4, 72, 306, 30, 4, INK);
   const mark = v.mark === 'edited' ? ' *' : v.mark === 'loaded' ? '  (LOADED)' : '';
   screen.text(screen.fitText(`${v.empty ? 'NO PRESETS' : v.name}${mark}`, 290, 15, 0.4, 600), 12, 92.5, 15, BLACK, 600, 'left', 0.4);
-  if (v.next) screen.text(screen.fitText(v.next, 296, 10, 0.4, 600), 12, 122, 10, FAINT_TEXT, 600, 'left', 0.4);
+  if (v.next) screen.text(screen.fitText(v.next, 296, 10, 0.4, 600), 12, 122, 10, DIM_TEXT, 600, 'left', 0.4);
   body = `${v.stage}|${v.prev}|>${v.name}${mark}|${v.next}|${v.count}`;
   if (v.stage === 'name' && v.naming) {
     const n = v.naming;
