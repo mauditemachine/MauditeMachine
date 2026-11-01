@@ -40,6 +40,22 @@ export interface ScreenMenuCtx {
   now: number;
 }
 
+/**
+ * Une saisie de navigation donnee au menu ouvert (contrat V.6.0, B4 -> B5) : B4 (la face, actions/face.ts) la route vers
+ * screenMenu(dtFace.menu) quand un menu est ouvert ; B5 l'implemente dans chaque menu. data : LEVEL/DATA tourne de delta
+ * crans (signe : vers la droite, vers le bas de la liste). func : FUNC tenue ou gardee au moment de la saisie (FUNC +
+ * UP/DOWN = une page de liste, FUNC + YES = pre-ecoute...). Les potards A a H restent a B5 (actions/dials).
+ */
+export type ScreenMenuInputKind = 'up' | 'down' | 'left' | 'right' | 'yes' | 'no' | 'data';
+export interface ScreenMenuInput {
+  kind: ScreenMenuInputKind;
+  /** data seulement : les crans */
+  delta?: number;
+  func: boolean;
+  /** 'down' : l'appui ; 'up' : le relacher (YES et NO agissent au relacher sur la touche, comme en D1) */
+  phase: 'down' | 'up';
+}
+
 export interface ScreenMenu {
   id: ScreenMenuId;
   /** la lane qui le possede (cahier 5.1 a 5.3) : un seul proprietaire par menu */
@@ -48,6 +64,11 @@ export interface ScreenMenu {
   paint: (screen: Screen, ctx: ScreenMenuCtx) => number;
   /** les zones du menu (lignes, panneaux), pour la saisie et les sondes ; vide si le menu n'en a pas */
   zones?: (screen: Screen) => readonly { id: string; x0: number; y0: number; x1: number; y1: number }[];
+  /**
+   * La saisie de navigation (contrat V.6.0) : true si le menu l'a prise. NO non pris = B4 ferme le menu (dtFace.menu a
+   * null) ; une fleche non prise ne fait rien. Absent : le menu ne se navigue pas (B4 ne lui envoie rien, NO le ferme).
+   */
+  onInput?: (input: ScreenMenuInput) => boolean;
 }
 
 const MENUS = new Map<ScreenMenuId, ScreenMenu>();
