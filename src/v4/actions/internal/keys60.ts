@@ -178,6 +178,9 @@ export function dispatch(key: ChordKey, g: ChordGesture, src: ChordEvent['src'] 
     if (c.when && !c.when()) continue;
     if (c.run(e) === false) continue;
     for (const m of c.mods) gesture.use(m);
+    // Une FUNC gardee pour une touche s'en va avec la touche suivante, meme si elle n'a pas servi (la regle de la V.5.0, la
+    // revue de D1 G2 : sinon un PLAY bien plus tard ferait CLEAR) ; un menu l'a recue (func : true) ; verrouillee, elle reste
+    if (!c.mods.includes('func') && func.get().mode === 'once') func.use();
     chordLog.push({ id: c.id, key, gesture: g, src });
     if (chordLog.length > 128) chordLog.shift();
     chordCount.set(c.id, (chordCount.get(c.id) ?? 0) + 1);
