@@ -15,7 +15,7 @@ import { dtFace } from '../../state/dtFace';
 import { rytmLock } from '../../state/rytmLock';
 import { faceTouch, pressVel } from '../../state/ctl';
 import { type PageSlot, type RytmScreenId } from '../../rytm/pages';
-import { DT_FACE, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, type Inst } from '../../theme';
 import { TRACK_KEYS, isLegacyTrack, type TrackKey } from '../../audio/tracks';
 import { st } from '../state';
 import { ctlAllOn } from '../ctlall';
@@ -78,7 +78,8 @@ export function liveEnter(): void {
   liveAbs = -1;
   window.clearInterval(liveTimer);
   liveTimer = window.setInterval(livePoll, 15);
-  lcdMessage.show(clock.running ? 'LIVE REC: PLAY STEPS 1-8, TURN A KNOB' : 'LIVE REC ARMED · PLAY: GO', 2000);
+  // La face DT2 (la relecture de la V.6.0) : les 16 TRIG jouent et s'ecrivent
+  lcdMessage.show(clock.running ? (DT2_FACE ? 'LIVE REC: PLAY TRIG 1-16, TURN A KNOB' : 'LIVE REC: PLAY STEPS 1-8, TURN A KNOB') : 'LIVE REC ARMED · PLAY: GO', 2000);
 }
 
 /** Sortir de LIVE REC ; rec : le grid rec reste allume (● en LIVE REC), sinon tout l'enregistrement s'eteint. */

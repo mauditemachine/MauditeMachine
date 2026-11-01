@@ -175,7 +175,8 @@ export function recBody(stage: Stage | null, mouse: boolean): void {
   st.recHinted = false;
   // REC eteint : plus rien ne s'ecrit, le P-LOCK en cours s'en va aussi (la revue de D1, G10)
   if (!on) rytmLock.leave();
-  lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
+  // La face DT2 (la relecture de la V.6.0) : les 16 TRIG jouent les 16 pistes
+  lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : DT2_FACE ? 'REC OFF: TRIG 1-16 PLAY THE TRACKS' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
 }
 
 /* ---------- PLAY, STOP ---------- */

@@ -42,7 +42,7 @@ import { undo } from '../../state/undo';
 import { voices } from '../../state/voices';
 import { isRytmPage, screensOf, type RytmPageId } from '../../rytm/pages';
 import { CHORDS, type Chord, type ChordEvent, type ChordGesture, type ChordKey } from '../chords';
-import { DT2_FACE, DT_GESTURE, LCD_NO_VOICE, PAD_DOUBLE_TAP_MS, type Inst } from '../../theme';
+import { DT2_FACE, DT_GESTURE, PAD_DOUBLE_TAP_MS, type Inst } from '../../theme';
 import { st } from '../state';
 import { gesture as audioGesture, two } from '../shared';
 import { ctlAllEnd } from '../ctlall';
@@ -86,6 +86,8 @@ export function hint60(h: Hint60): void {
 export const trackName = (k: TrackKey): string => `T${TRACK_KEYS.indexOf(k) + 1}`;
 const trackAt = (i: number): TrackKey | null => (Number.isInteger(i) && i >= 0 && i < TRACK_KEYS.length ? TRACK_KEYS[i] : null);
 const isLegacy = (k: TrackKey): k is Inst => TRACK_KEYS.indexOf(k) < 8;
+/** Aucune piste active (la relecture de la V.6.0 : la face DT2 parle de pistes, plus de voix ; le mot des menus de B5). */
+const NO_TRACK = 'PICK A TRACK: TRK + TRIG';
 
 /** Le Stage du dernier geste de la face (les accords le lisent pour enfoncer une touche) ; null : aucun. */
 let stageRef: Stage | null = null;
@@ -403,7 +405,7 @@ export function trigWrite(i: number, stage: Stage | null): boolean {
   stage?.pressStep(i);
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return false;
   }
   if (rytmLock.get().step >= 0) {
@@ -430,7 +432,7 @@ export function trigLockTrig(i: number, stage: Stage | null): void {
   stage?.pressStep(i);
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   const p = pattern.get();
@@ -665,7 +667,7 @@ export function copy60(): void {
   if (dtFace.rec()) {
     const k = activeTrack.get();
     if (!k) {
-      lcdMessage.show(LCD_NO_VOICE);
+      lcdMessage.show(NO_TRACK);
       return;
     }
     clipboard.put('track', { track: k, steps: p.steps[k] ?? '0'.repeat(STEP_COUNT), locks: p.locks[k] ? JSON.parse(JSON.stringify(p.locks[k])) : undefined, trigs: p.trigs[k] ? { ...p.trigs[k] } : undefined });
@@ -699,7 +701,7 @@ export function paste60(): void {
   }
   const k = activeTrack.get();
   if (!row || !k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   undo.boundary('mm808', 'step');
@@ -716,7 +718,7 @@ export function paste60(): void {
 export function clearRow60(): boolean {
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return true;
   }
   const p = pattern.get();
@@ -733,7 +735,7 @@ export function clearRow60(): boolean {
 export function trackSoundOp(op: 'copy' | 'paste' | 'clear'): void {
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   const i = TRACK_KEYS.indexOf(k);
@@ -805,7 +807,7 @@ export function microTime(dir: -1 | 1): boolean {
 export function trackLevelTurn(delta: number): void {
   const k = activeTrack.get();
   if (!k) {
-    lcdMessage.show(LCD_NO_VOICE);
+    lcdMessage.show(NO_TRACK);
     return;
   }
   const v0 = tracks.param(k, 'tlev');
