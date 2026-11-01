@@ -57,7 +57,9 @@
 
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
-import { INSTRUMENTS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
+import { VEL_NAMES, pattern, velocity } from '../audio/pattern';
+import { TRACK_KEYS, TRACK_NAMES, isLegacyTrack, trackIndex, type TrackKey } from '../audio/tracks';
+import { TAP_VEL_DEFAULT } from '../state/rytmPage';
 import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, trkStep, tuneVoice } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -740,10 +742,41 @@ export function seqSetFollow(id: SeqId, on: boolean): void {
 
 /** La voix des pas (RSEQ, page 3) : choisie sans la jouer, jamais retiree ; l'ecran dit ce qu'elle change sur le Roto : ses huit pas. */
 export function seqVoice(inst: Inst): void {
+  seqHi = null;
   if (pattern.get().instrument !== inst) tuneVoice(inst);
   // 1.6 s (pas les 0.8 s d'un message) : la touche se presse sur le Roto, les yeux y sont, l'ecran doit encore le dire
   lcdMessage.show(`ROTO STEPS > ${inst}`, 1600);
 }
+
+/**
+ * V.6.0 (lane B6, cahier dt2 3.12 : seqlink sur 16 pistes) : une piste 9 a 16 comme voix des pas du Roto
+ * (rytm:seq:voice:T9...). La machine ne sait pas encore choisir une piste 9 a 16 (pattern.instrument reste une des 8 voix
+ * jusqu'a B4) : le Roto la garde pour lui, tant que la voix choisie sur la machine ne change pas (une autre voix choisie
+ * ailleurs reprend la main, comme avant). Ses pas se posent et se retirent a la tape ; le LOCK (P-LOCK d'un pas tenu) des
+ * pistes 9 a 16 attend B4 et B5 (rytm/locks), la tenue y est une tape. 1 a 8 : seqVoice d'aujourd'hui.
+ */
+let seqHi: { k: TrackKey; from: Inst | null } | null = null;
+
+export function seqVoiceTrack(k: TrackKey): void {
+  if (isLegacyTrack(k)) {
+    seqVoice(k);
+    return;
+  }
+  seqHi = { k, from: pattern.get().instrument };
+  for (const l of LANES) if (l.id === 'rytm') queue(l);
+  lcdMessage.show(`ROTO STEPS > ${TRACK_NAMES[trackIndex(k)] ?? k}`, 1600);
+}
+
+/** La voix des pas du Roto RSEQ : la piste 9 a 16 qu'il garde, sinon la voix choisie sur la machine. */
+const seqTrack = (): TrackKey | null => {
+  const inst = pattern.get().instrument;
+  if (seqHi && seqHi.from !== inst) seqHi = null;
+  return seqHi ? seqHi.k : inst;
+};
+/** Le Roto garde-t-il une piste 9 a 16 (ses pas n'ont pas de LOCK) ? */
+const seqHiOn = (): boolean => seqTrack() !== pattern.get().instrument;
+/** Pour les sondes : la piste 9 a 16 gardee par le Roto, null sinon. */
+export const seqHiTrack = (): TrackKey | null => (seqHiOn() ? seqTrack() : null);
 
 /* ---------------- ce que midi/midi.ts appelle ---------------- */
 
@@ -942,8 +975,9 @@ const rytm: SeqMachine = {
   lit(i) {
     if (rytmEditing()) return dtFace.bank() ? i >= 0 && i < 8 && patterns.bankFilled(i) : patterns.filled(patterns.slotAt(i));
     const p = pattern.get();
-    // Sans voix choisie : tout le pattern (les pas ou une voix joue)
-    return p.instrument ? velocity(p.steps, p.instrument, i) > 0 : INSTRUMENTS.some((x) => velocity(p.steps, x, i) > 0);
+    const k = seqTrack();
+    // Sans voix choisie : tout le pattern (les pas ou une piste joue, les 16 depuis V.6.0)
+    return k ? velocity(p.steps, k, i) > 0 : TRACK_KEYS.some((x) => velocity(p.steps, x, i) > 0);
   },
   pinWin: () => (rytmEditing() && dtFace.bank() ? 0 : null),
   current: () => {
@@ -959,36 +993,42 @@ const rytm: SeqMachine = {
     return () => offs.forEach((o) => o());
   },
   onStep: (fn) => clock.onStep((e) => fn(e.step, e.when, e.when - e.off)),
-  context: () => `${pattern.get().instrument ?? '-'}|${rytmEditing() ? 'E' : ''}${dtFace.bank() ? 'B' : ''}${patterns.shown()}:${patterns.get().cur}`,
+  context: () => `${seqTrack() ?? '-'}|${rytmEditing() ? 'E' : ''}${dtFace.bank() ? 'B' : ''}${patterns.shown()}:${patterns.get().cur}`,
   writes: () => rytmLock.get().writes,
-  // Tenu (comme un doigt sur la face) : un encodeur de page tourne pendant la tenue le verrouille tout de suite
+  // Tenu (comme un doigt sur la face) : un encodeur de page tourne pendant la tenue le verrouille tout de suite ; une piste
+  // 9 a 16 gardee par le Roto (V.6.0) n'a pas encore de LOCK
   press(i) {
-    if (!rytmEditing() && pattern.get().instrument) rytmLock.hold(i);
+    if (!rytmEditing() && pattern.get().instrument && !seqHiOn()) rytmLock.hold(i);
   },
   unpress: (i) => rytmLock.release(i),
   tap(i, stage) {
     gesture();
     stage?.pressStep(i);
-    const inst = pattern.get().instrument;
+    const inst = seqTrack();
     if (!inst) {
       lcdMessage.show('PICK A VOICE FIRST');
       return;
     }
     // En LOCK : le meme pas en sort, un autre y deplace le LOCK (comme une tape sur la face)
-    if (rytmLock.get().step >= 0) {
+    if (rytmLock.get().step >= 0 && isLegacyTrack(inst)) {
       rytmLockTap(i);
       return;
     }
     // Un geste, un etat (un trig d'Elektron) : vide, un coup a la VEL des nouveaux pas de la voix (HIGH au depart,
-    // sans bloc depuis le 2026-10-10 ; comme la face, le Dock et le clavier) ; un coup, vide
+    // sans bloc depuis le 2026-10-10 ; comme la face, le Dock et le clavier) ; un coup, vide. Une piste 9 a 16 : HIGH
     const on = velocity(pattern.get().steps, inst, i) === 0;
-    const vel = rytmPage.tapVel(inst);
+    const vel = isLegacyTrack(inst) ? rytmPage.tapVel(inst) : TAP_VEL_DEFAULT;
     if (on) pattern.set(inst, i, vel);
     else pattern.clearStep(inst, i);
     rytmPage.select(i);
-    lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? vel : 0]}  HOLD: LOCK`);
+    lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? vel : 0]}${isLegacyTrack(inst) ? '  HOLD: LOCK' : ''}`);
   },
-  enter: (i, latched) => rytmLockEnter(i, latched, true),
+  // Une piste 9 a 16 gardee par le Roto : pas de LOCK, la tenue est une tape (au lacher : latched, jamais a la minuterie)
+  enter(i, latched) {
+    if (!seqHiOn()) return rytmLockEnter(i, latched, true);
+    if (latched) rytm.tap(i, null);
+    return latched;
+  },
   // TRK (2026-10-27) : le bouton physique b, BD a CY
   trk: (b) => trkStep(b, null),
   restore(prev) {
@@ -1002,7 +1042,8 @@ const rytm: SeqMachine = {
   patternHold: (i) => patternHold(i),
   led(id) {
     if (id.startsWith('rytm:page:')) return rytmPage.get().page === id.slice('rytm:page:'.length) ? 1 : 0;
-    if (id.startsWith('rytm:seq:voice:')) return pattern.get().instrument === id.slice('rytm:seq:voice:'.length) ? 1 : 0;
+    // La voix des pas (une piste 9 a 16 gardee par le Roto depuis V.6.0) : sa touche allumee
+    if (id.startsWith('rytm:seq:voice:')) return seqTrack() === id.slice('rytm:seq:voice:'.length) ? 1 : 0;
     if (id === 'rytm:lock') return !rytmEditing() && rytmLock.get().step >= 0 ? 1 : 0;
     if (id === 'rytm:edit') return rytmEditing() ? 1 : 0;
     return null;

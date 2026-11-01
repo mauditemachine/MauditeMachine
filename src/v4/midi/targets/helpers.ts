@@ -4,8 +4,8 @@ import { anyDial, funcDrop, dialEdit, sceneTakeId, dialRange, dialSteps, xfadeGe
 import { sceneCtl } from '../../state/sceneCtl';
 import { TRIG_PARAMS, TRIG_RANGE, trigValue, type TrigParam } from '../../audio/trig';
 import { lfoParts, lfoRange, type LfoParam } from '../../audio/lfo';
-import { lfoOf, voiceFx, type VoiceParam } from '../../audio/voicefx';
-import { type Inst } from '../../theme';
+import { lfoOf, voiceFx, type VoiceFx, type VoiceParam } from '../../audio/voicefx';
+import { isLegacyTrack, tracks, type TrackKey } from '../../audio/tracks';
 import { pattern } from '../../audio/pattern';
 import type { MidiTarget, TargetScope } from './types';
 import { stageNow as getStage } from './stage';
@@ -128,12 +128,14 @@ export const LFO_LABEL: Readonly<Record<string, string>> = { spd: 'SPEED', mul: 
  * Un reglage de trig ou d'un LFO d'une voix (V.5.1) : sa course 0 a 1 sur ses crans (des entiers) ; il regle la voix sans la
  * choisir, comme rytm:voice:<voix>:<reglage> de toujours. Une scene armee : NO SCENE (sceneTakeId, le role noscene).
  */
-export function seqTarget(inst: Inst, p: TrigParam | LfoParam): MidiTarget {
+export function seqTarget(inst: TrackKey, p: TrigParam | LfoParam): MidiTarget {
   const trig = (TRIG_PARAMS as readonly string[]).includes(p);
   const [lo, hi] = trig ? TRIG_RANGE[p as TrigParam] : lfoRange(p as LfoParam);
   const id = `rytm:voice:${inst}:${p}`;
   const label = trig ? `${inst} ${TRIG_LABEL[p as TrigParam]}` : `${inst} LFO${lfoParts(p as LfoParam).n} ${LFO_LABEL[lfoParts(p as LfoParam).key]}`;
-  const now = (): number => (trig ? trigValue(pattern.get().trigs, inst, p as TrigParam) : lfoOf(voiceFx.of(inst), p as LfoParam));
+  // V.6.0 (B6) : les pistes 9 a 16 lisent et ecrivent leurs LFO dans le store tracks (les voix 1 a 8 : la facade voiceFx)
+  const vfx = (): Readonly<VoiceFx> => (isLegacyTrack(inst) ? voiceFx.of(inst) : tracks.vfx(inst));
+  const now = (): number => (trig ? trigValue(pattern.get().trigs, inst, p as TrigParam) : lfoOf(vfx(), p as LfoParam));
   return {
     id,
     scope: 'mm808',
@@ -145,7 +147,8 @@ export function seqTarget(inst: Inst, p: TrigParam | LfoParam): MidiTarget {
       if (sceneTakeId(id, v)) return;
       const x = Math.round(lo + Math.max(0, Math.min(1, v)) * (hi - lo));
       if (trig) pattern.setTrig(inst, p as TrigParam, x);
-      else voiceFx.setLfo(inst, p as LfoParam, x);
+      else if (isLegacyTrack(inst)) voiceFx.setLfo(inst, p as LfoParam, x);
+      else tracks.set(inst, p as LfoParam, x);
     },
   };
 }
