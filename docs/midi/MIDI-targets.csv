@@ -1,5 +1,5 @@
 id,scope,machine,nom,type,crans,dans_les_setups
-rytm:enc:level,mm808,MM-RYTM,MASTER,value,,RYTM RSEQ
+rytm:enc:level,mm808,MM-RYTM,MAIN VOLUME,value,,RYTM RSEQ
 rytm:enc:tempo,mm808,MM-RYTM,TEMPO,value,,RYTM RSEQ
 rytm:enc:swing,mm808,MM-RYTM,SWING,value,,RYTM LIVE RSEQ
 rytm:enc:stretch,mm808,MM-RYTM,STRETCH,value,,RYTM LIVE RSEQ
@@ -382,7 +382,7 @@ rytm:clear,mm808,MM-RYTM,CLEAR,press,,RYTM RSEQ
 rytm:random,mm808,MM-RYTM,RANDOM,press,,RYTM RSEQ
 rytm:mute,mm808,MM-RYTM,MUTE,press,,RSEQ
 rytm:solo,mm808,MM-RYTM,SOLO,press,,RSEQ
-rytm:edit,mm808,MM-RYTM,EDIT,press,,RYTM RSEQ
+rytm:edit,mm808,MM-RYTM,PTN (THE PATTERNS ON THE TRIGS),press,,RYTM RSEQ
 rytm:open,mm808,MM-RYTM,OPEN,press,,RYTM
 rytm:infos,mm808,MM-RYTM,INFOS (HELP ON HOVER),press,,
 rytm:ptn:0,mm808,MM-RYTM,PATTERN 01 (OF THE SHOWN BANK),press,,RYTM
@@ -656,18 +656,18 @@ rytm:bank:5,mm808,MM-RYTM,BANK F (SHOW ITS PATTERNS),press,,
 rytm:bank:6,mm808,MM-RYTM,BANK G (SHOW ITS PATTERNS),press,,
 rytm:bank:7,mm808,MM-RYTM,BANK H (SHOW ITS PATTERNS),press,,
 rytm:liverec,mm808,MM-RYTM,LIVE REC (ON / OFF),press,,
-rytm:data,mm808,MM-RYTM,"LEVEL/DATA (RELATIVE: THE OPEN LIST, ELSE TRK LEV OF THE TRACK)",relative,,
+rytm:data,mm808,MM-RYTM,"LEVEL/DATA (RELATIVE: THE OPEN MENU, ELSE TRK LEV OF THE ACTIVE TRACK)",relative,,
 rytm:keyboard,mm808,MM-RYTM,KEYBOARD (SOON),press,,
 rytm:song,mm808,MM-RYTM,SONG (SOON),press,,
-rytm:preset,mm808,MM-RYTM,"PRESET/KIT (THE KIT LIST, AGAIN: CLOSE)",press,,
-rytm:settings,mm808,MM-RYTM,SETTINGS (SOON),press,,
-rytm:sounds,mm808,MM-RYTM,"SOUNDS (THE SOUND LIST OF THE TRACK, AGAIN: CLOSE)",press,,
+rytm:preset,mm808,MM-RYTM,"PRESET/KIT (THE PRESET/KIT MENU, AGAIN: CLOSE)",press,,
+rytm:settings,mm808,MM-RYTM,"SETTINGS (THE MENU, AGAIN: CLOSE)",press,,
+rytm:sounds,mm808,MM-RYTM,"SOUNDS (THE SOUND LIST OF THE ACTIVE TRACK, AGAIN: CLOSE)",press,,
 rytm:tap,mm808,MM-RYTM,TAP TEMPO,press,,
-rytm:up,mm808,MM-RYTM,UP (IN A LIST),press,,
-rytm:down,mm808,MM-RYTM,DOWN (IN A LIST),press,,
-rytm:left,mm808,MM-RYTM,LEFT (IN A LIST),press,,
-rytm:right,mm808,MM-RYTM,RIGHT (IN A LIST),press,,
-rytm:ptnpage,mm808,MM-RYTM,PAGE (HOLD: FILL),hold,,
+rytm:up,mm808,MM-RYTM,"UP (THE MENU, ELSE THE SUB PAGE)",press,,
+rytm:down,mm808,MM-RYTM,"DOWN (THE MENU, ELSE THE SUB PAGE)",press,,
+rytm:left,mm808,MM-RYTM,"LEFT (THE MENU, ELSE PTN: THE BANK, TRIG HELD: MICRO TIMING)",press,,
+rytm:right,mm808,MM-RYTM,"RIGHT (THE MENU, ELSE PTN: THE BANK, TRIG HELD: MICRO TIMING)",press,,
+rytm:ptnpage,mm808,MM-RYTM,"PAGE (HOLD: FILL; YES THEN PAGE: ONE CYCLE; PAGE THEN YES: LATCH)",hold,,
 rytm:tempo:bpm,mm808,MM-RYTM,TEMPO 30-300 BPM (FINE 1/10),value,2701,
 rytm:tempo:swing,mm808,MM-RYTM,SWING 50-80 %,value,31,
 rytm:voice:BD:tlev,mm808,MM-RYTM,T1 TRK LEV,value,128,TRACKS
@@ -854,14 +854,14 @@ rytm:pad:T13,mm808,MM-RYTM,PAD T13,press,,TRACKS
 rytm:pad:T14,mm808,MM-RYTM,PAD T14,press,,TRACKS
 rytm:pad:T15,mm808,MM-RYTM,PAD T15,press,,TRACKS
 rytm:pad:T16,mm808,MM-RYTM,PAD T16,press,,TRACKS
-rytm:voice:select:T9,mm808,MM-RYTM,"TRACK T9 (SELECT, SILENT; SOON)",press,,TRACKS
-rytm:voice:select:T10,mm808,MM-RYTM,"TRACK T10 (SELECT, SILENT; SOON)",press,,TRACKS
-rytm:voice:select:T11,mm808,MM-RYTM,"TRACK T11 (SELECT, SILENT; SOON)",press,,TRACKS
-rytm:voice:select:T12,mm808,MM-RYTM,"TRACK T12 (SELECT, SILENT; SOON)",press,,TRACKS
-rytm:voice:select:T13,mm808,MM-RYTM,"TRACK T13 (SELECT, SILENT; SOON)",press,,TRACKS
-rytm:voice:select:T14,mm808,MM-RYTM,"TRACK T14 (SELECT, SILENT; SOON)",press,,TRACKS
-rytm:voice:select:T15,mm808,MM-RYTM,"TRACK T15 (SELECT, SILENT; SOON)",press,,TRACKS
-rytm:voice:select:T16,mm808,MM-RYTM,"TRACK T16 (SELECT, SILENT; SOON)",press,,TRACKS
+rytm:voice:select:T9,mm808,MM-RYTM,"TRACK T9 (SELECT, SILENT)",press,,TRACKS
+rytm:voice:select:T10,mm808,MM-RYTM,"TRACK T10 (SELECT, SILENT)",press,,TRACKS
+rytm:voice:select:T11,mm808,MM-RYTM,"TRACK T11 (SELECT, SILENT)",press,,TRACKS
+rytm:voice:select:T12,mm808,MM-RYTM,"TRACK T12 (SELECT, SILENT)",press,,TRACKS
+rytm:voice:select:T13,mm808,MM-RYTM,"TRACK T13 (SELECT, SILENT)",press,,TRACKS
+rytm:voice:select:T14,mm808,MM-RYTM,"TRACK T14 (SELECT, SILENT)",press,,TRACKS
+rytm:voice:select:T15,mm808,MM-RYTM,"TRACK T15 (SELECT, SILENT)",press,,TRACKS
+rytm:voice:select:T16,mm808,MM-RYTM,"TRACK T16 (SELECT, SILENT)",press,,TRACKS
 rytm:seq:voice:T9,mm808,MM-RYTM,"SEQ TRACK T9 (SELECT, SILENT)",press,,TRACKS
 rytm:seq:voice:T10,mm808,MM-RYTM,"SEQ TRACK T10 (SELECT, SILENT)",press,,TRACKS
 rytm:seq:voice:T11,mm808,MM-RYTM,"SEQ TRACK T11 (SELECT, SILENT)",press,,TRACKS

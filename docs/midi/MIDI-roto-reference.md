@@ -212,7 +212,7 @@ Le setup conseille sur le Roto (SETUP 11 a 19) laisse les premiers a toi. Un pot
 | 21 | 3.6 | 1 | 105 | TOM VOL | creme | rytm:voice:TOM:level | TOM VOLUME | continu |
 | 22 | 3.7 | 1 | 106 | HT VOL | creme | rytm:voice:HT:level | HT VOLUME | continu |
 | 23 | 3.8 | 1 | 107 | CY VOL | creme | rytm:voice:CY:level | CY VOLUME | continu |
-| 24 | 4.1 | 1 | 14 | MASTER | blanc | rytm:enc:level | MASTER | continu |
+| 24 | 4.1 | 1 | 14 | MASTER | blanc | rytm:enc:level | MAIN VOLUME | continu |
 | 25 | 4.2 | 1 | 15 | TEMPO | blanc | rytm:enc:tempo | TEMPO | continu |
 | 26 | 4.3 | 1 | 108 | KICK SOUND | or | rytm:kit:bd | TWEAK KICK | potard a 15 crans : 909 / 808 / MM / BLUEPRINT / VNTM / ENGELHARDT / CARASSI / STEIN / AFFKT / MANTZUR / BD2550 / OT3 / BD88 / DNB / 8O8 NICE |
 | 27 | 4.4 | 1 | 109 | KICK TUNE | or | rytm:kit:tune | TWEAK TUNE | bipolaire, cran au milieu (64) |
@@ -228,7 +228,7 @@ Le setup conseille sur le Roto (SETUP 11 a 19) laisse les premiers a toi. Un pot
 | 0 | 1.1 | 9 | 14 | RUN | rouge | rytm:running | RUN (ON / OFF) | bascule (la LED suit le site) |
 | 1 | 1.2 | 9 | 15 | RANDOM | orange | rytm:random | RANDOM | appui |
 | 2 | 1.3 | 9 | 16 | CLEAR | orange | rytm:clear | CLEAR | appui |
-| 3 | 1.4 | 9 | 17 | EDIT | jaune | rytm:edit | EDIT | appui |
+| 3 | 1.4 | 9 | 17 | EDIT | jaune | rytm:edit | PTN (THE PATTERNS ON THE TRIGS) | appui |
 | 4 | 1.5 | 9 | 18 | OPEN | orange | rytm:open | OPEN | appui |
 | 5 | 1.6 | 9 | 19 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
 | 6 | 1.7 | 9 | 20 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
@@ -578,7 +578,7 @@ Le setup conseille sur le Roto (SETUP 11 a 19) laisse les premiers a toi. Un pot
 | 21 | 3.6 | 7 | 105 | TOM VOL | creme | rytm:voice:TOM:level | TOM VOLUME | continu |
 | 22 | 3.7 | 7 | 106 | HT VOL | creme | rytm:voice:HT:level | HT VOLUME | continu |
 | 23 | 3.8 | 7 | 107 | CY VOL | creme | rytm:voice:CY:level | CY VOLUME | continu |
-| 24 | 4.1 | 7 | 108 | MASTER | blanc | rytm:enc:level | MASTER | continu |
+| 24 | 4.1 | 7 | 108 | MASTER | blanc | rytm:enc:level | MAIN VOLUME | continu |
 | 25 | 4.2 | 7 | 109 | TEMPO | blanc | rytm:enc:tempo | TEMPO | continu |
 | 26 | 4.3 | 7 | 110 | SWING | orange | rytm:enc:swing | SWING | continu |
 | 27 | 4.4 | 7 | 111 | STRETCH | orange | rytm:enc:stretch | STRETCH | bipolaire, cran au milieu (64) |
@@ -619,7 +619,7 @@ Le setup conseille sur le Roto (SETUP 11 a 19) laisse les premiers a toi. Un pot
 | 25 | 4.2 | 15 | 109 | CLEAR | orange | rytm:clear | CLEAR | appui |
 | 26 | 4.3 | 15 | 110 | RANDOM | orange | rytm:random | RANDOM | appui |
 | 27 | 4.4 | 15 | 111 | LOCK | jaune | rytm:lock | LOCK (SELECTED STEP) | appui |
-| 28 | 4.5 | 15 | 112 | EDIT | jaune | rytm:edit | EDIT | appui |
+| 28 | 4.5 | 15 | 112 | EDIT | jaune | rytm:edit | PTN (THE PATTERNS ON THE TRIGS) | appui |
 | 29 | 4.6 | 15 | 113 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
 | 30 | 4.7 | 15 | 114 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
 | 31 | 4.8 | 15 | 115 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
@@ -691,14 +691,14 @@ Le setup conseille sur le Roto (SETUP 11 a 19) laisse les premiers a toi. Un pot
 | 21 | 3.6 | 9 | 87 | SEQ T14 | or | rytm:seq:voice:T14 | SEQ TRACK T14 (SELECT, SILENT) | appui |
 | 22 | 3.7 | 9 | 88 | SEQ T15 | or | rytm:seq:voice:T15 | SEQ TRACK T15 (SELECT, SILENT) | appui |
 | 23 | 3.8 | 9 | 89 | SEQ T16 | or | rytm:seq:voice:T16 | SEQ TRACK T16 (SELECT, SILENT) | appui |
-| 24 | 4.1 | 9 | 90 | PICK T9 | peche | rytm:voice:select:T9 | TRACK T9 (SELECT, SILENT; SOON) | appui |
-| 25 | 4.2 | 9 | 46 | PICK T10 | peche | rytm:voice:select:T10 | TRACK T10 (SELECT, SILENT; SOON) | appui |
-| 26 | 4.3 | 9 | 47 | PICK T11 | peche | rytm:voice:select:T11 | TRACK T11 (SELECT, SILENT; SOON) | appui |
-| 27 | 4.4 | 9 | 48 | PICK T12 | peche | rytm:voice:select:T12 | TRACK T12 (SELECT, SILENT; SOON) | appui |
-| 28 | 4.5 | 9 | 49 | PICK T13 | peche | rytm:voice:select:T13 | TRACK T13 (SELECT, SILENT; SOON) | appui |
-| 29 | 4.6 | 9 | 50 | PICK T14 | peche | rytm:voice:select:T14 | TRACK T14 (SELECT, SILENT; SOON) | appui |
-| 30 | 4.7 | 9 | 51 | PICK T15 | peche | rytm:voice:select:T15 | TRACK T15 (SELECT, SILENT; SOON) | appui |
-| 31 | 4.8 | 9 | 52 | PICK T16 | peche | rytm:voice:select:T16 | TRACK T16 (SELECT, SILENT; SOON) | appui |
+| 24 | 4.1 | 9 | 90 | PICK T9 | peche | rytm:voice:select:T9 | TRACK T9 (SELECT, SILENT) | appui |
+| 25 | 4.2 | 9 | 46 | PICK T10 | peche | rytm:voice:select:T10 | TRACK T10 (SELECT, SILENT) | appui |
+| 26 | 4.3 | 9 | 47 | PICK T11 | peche | rytm:voice:select:T11 | TRACK T11 (SELECT, SILENT) | appui |
+| 27 | 4.4 | 9 | 48 | PICK T12 | peche | rytm:voice:select:T12 | TRACK T12 (SELECT, SILENT) | appui |
+| 28 | 4.5 | 9 | 49 | PICK T13 | peche | rytm:voice:select:T13 | TRACK T13 (SELECT, SILENT) | appui |
+| 29 | 4.6 | 9 | 50 | PICK T14 | peche | rytm:voice:select:T14 | TRACK T14 (SELECT, SILENT) | appui |
+| 30 | 4.7 | 9 | 51 | PICK T15 | peche | rytm:voice:select:T15 | TRACK T15 (SELECT, SILENT) | appui |
+| 31 | 4.8 | 9 | 52 | PICK T16 | peche | rytm:voice:select:T16 | TRACK T16 (SELECT, SILENT) | appui |
 
 ## 4. Le catalogue complet des cibles
 
@@ -708,7 +708,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
-| `rytm:enc:level` | MASTER | valeur 0 a 127 |  | RYTM, RSEQ |
+| `rytm:enc:level` | MAIN VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:enc:tempo` | TEMPO | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:enc:swing` | SWING | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
 | `rytm:enc:stretch` | STRETCH | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
@@ -1091,7 +1091,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:random` | RANDOM | appui |  | RYTM, RSEQ |
 | `rytm:mute` | MUTE | appui |  | RSEQ |
 | `rytm:solo` | SOLO | appui |  | RSEQ |
-| `rytm:edit` | EDIT | appui |  | RYTM, RSEQ |
+| `rytm:edit` | PTN (THE PATTERNS ON THE TRIGS) | appui |  | RYTM, RSEQ |
 | `rytm:open` | OPEN | appui |  | RYTM |
 | `rytm:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 | `rytm:ptn:0` | PATTERN 01 (OF THE SHOWN BANK) | appui |  | RYTM |
@@ -1365,18 +1365,18 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:bank:6` | BANK G (SHOW ITS PATTERNS) | appui |  |  |
 | `rytm:bank:7` | BANK H (SHOW ITS PATTERNS) | appui |  |  |
 | `rytm:liverec` | LIVE REC (ON / OFF) | appui |  |  |
-| `rytm:data` | LEVEL/DATA (RELATIVE: THE OPEN LIST, ELSE TRK LEV OF THE TRACK) | relatif (des crans signes) |  |  |
+| `rytm:data` | LEVEL/DATA (RELATIVE: THE OPEN MENU, ELSE TRK LEV OF THE ACTIVE TRACK) | relatif (des crans signes) |  |  |
 | `rytm:keyboard` | KEYBOARD (SOON) | appui |  |  |
 | `rytm:song` | SONG (SOON) | appui |  |  |
-| `rytm:preset` | PRESET/KIT (THE KIT LIST, AGAIN: CLOSE) | appui |  |  |
-| `rytm:settings` | SETTINGS (SOON) | appui |  |  |
-| `rytm:sounds` | SOUNDS (THE SOUND LIST OF THE TRACK, AGAIN: CLOSE) | appui |  |  |
+| `rytm:preset` | PRESET/KIT (THE PRESET/KIT MENU, AGAIN: CLOSE) | appui |  |  |
+| `rytm:settings` | SETTINGS (THE MENU, AGAIN: CLOSE) | appui |  |  |
+| `rytm:sounds` | SOUNDS (THE SOUND LIST OF THE ACTIVE TRACK, AGAIN: CLOSE) | appui |  |  |
 | `rytm:tap` | TAP TEMPO | appui |  |  |
-| `rytm:up` | UP (IN A LIST) | appui |  |  |
-| `rytm:down` | DOWN (IN A LIST) | appui |  |  |
-| `rytm:left` | LEFT (IN A LIST) | appui |  |  |
-| `rytm:right` | RIGHT (IN A LIST) | appui |  |  |
-| `rytm:ptnpage` | PAGE (HOLD: FILL) | maintenu (appui puis relachement) |  |  |
+| `rytm:up` | UP (THE MENU, ELSE THE SUB PAGE) | appui |  |  |
+| `rytm:down` | DOWN (THE MENU, ELSE THE SUB PAGE) | appui |  |  |
+| `rytm:left` | LEFT (THE MENU, ELSE PTN: THE BANK, TRIG HELD: MICRO TIMING) | appui |  |  |
+| `rytm:right` | RIGHT (THE MENU, ELSE PTN: THE BANK, TRIG HELD: MICRO TIMING) | appui |  |  |
+| `rytm:ptnpage` | PAGE (HOLD: FILL; YES THEN PAGE: ONE CYCLE; PAGE THEN YES: LATCH) | maintenu (appui puis relachement) |  |  |
 | `rytm:tempo:bpm` | TEMPO 30-300 BPM (FINE 1/10) | valeur 0 a 127 | 2701 |  |
 | `rytm:tempo:swing` | SWING 50-80 % | valeur 0 a 127 | 31 |  |
 | `rytm:voice:BD:tlev` | T1 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
@@ -1563,14 +1563,14 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:pad:T14` | PAD T14 | appui |  | TRACKS |
 | `rytm:pad:T15` | PAD T15 | appui |  | TRACKS |
 | `rytm:pad:T16` | PAD T16 | appui |  | TRACKS |
-| `rytm:voice:select:T9` | TRACK T9 (SELECT, SILENT; SOON) | appui |  | TRACKS |
-| `rytm:voice:select:T10` | TRACK T10 (SELECT, SILENT; SOON) | appui |  | TRACKS |
-| `rytm:voice:select:T11` | TRACK T11 (SELECT, SILENT; SOON) | appui |  | TRACKS |
-| `rytm:voice:select:T12` | TRACK T12 (SELECT, SILENT; SOON) | appui |  | TRACKS |
-| `rytm:voice:select:T13` | TRACK T13 (SELECT, SILENT; SOON) | appui |  | TRACKS |
-| `rytm:voice:select:T14` | TRACK T14 (SELECT, SILENT; SOON) | appui |  | TRACKS |
-| `rytm:voice:select:T15` | TRACK T15 (SELECT, SILENT; SOON) | appui |  | TRACKS |
-| `rytm:voice:select:T16` | TRACK T16 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T9` | TRACK T9 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:select:T10` | TRACK T10 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:select:T11` | TRACK T11 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:select:T12` | TRACK T12 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:select:T13` | TRACK T13 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:select:T14` | TRACK T14 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:select:T15` | TRACK T15 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:select:T16` | TRACK T16 (SELECT, SILENT) | appui |  | TRACKS |
 | `rytm:seq:voice:T9` | SEQ TRACK T9 (SELECT, SILENT) | appui |  | TRACKS |
 | `rytm:seq:voice:T10` | SEQ TRACK T10 (SELECT, SILENT) | appui |  | TRACKS |
 | `rytm:seq:voice:T11` | SEQ TRACK T11 (SELECT, SILENT) | appui |  | TRACKS |
