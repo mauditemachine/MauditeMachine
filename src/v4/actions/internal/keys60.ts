@@ -169,6 +169,8 @@ function modsOn(c: Chord): boolean {
 /** Le dernier accord parti (les sondes) et le compte par id. */
 export const chordLog: { id: string; key: ChordKey; gesture: ChordGesture; src: ChordEvent['src'] }[] = [];
 export const chordCount = new Map<string, number>();
+/** Les accords partis depuis le chargement (la vue PTN : une saisie entre ses deux PTN n'est pas l'ancien geste PTN deux fois). */
+let chordSeq = 0;
 
 /** L'accord que ferait cet evenement maintenant (sans le jouer) : les sondes, INFOS. */
 export function chordFor(key: ChordKey, g: ChordGesture): Chord | null {
@@ -195,6 +197,7 @@ export function dispatch(key: ChordKey, g: ChordGesture, src: ChordEvent['src'] 
     chordLog.push({ id: c.id, key, gesture: g, src });
     if (chordLog.length > 128) chordLog.shift();
     chordCount.set(c.id, (chordCount.get(c.id) ?? 0) + 1);
+    chordSeq += 1;
     return c;
   }
   return null;
@@ -537,6 +540,8 @@ export function trigSettings(i: number, stage: Stage | null): boolean {
 
 /** La derniere tape de PTN qui a ouvert la vue (deux fois vite : l'indice KIT: PRESET KEY). */
 let ptnOpenedAt = -Infinity;
+/** chordSeq a l'ouverture de la vue PTN (avant que son accord ne compte). */
+let ptnOpenedSeq = -1;
 const PTN_AGAIN_MS = 1600;
 
 /** PTN : la vue PTN (les TRIG sont les patterns de la banque affichee) s'ouvre ou se ferme ; la vue BANK, elle se ferme. */
@@ -550,8 +555,9 @@ export function ptnToggle(stage: Stage | null, t = performance.now()): void {
   if (dtFace.mute() !== 'off') dtFace.setMute('off');
   if (editor.get() === 'mm808') {
     editor.close();
-    // L'ancien geste (PTN deux fois = KIT) : l'indice
-    if (t - ptnOpenedAt < PTN_AGAIN_MS) hint60('kit');
+    // L'ancien geste (PTN deux fois = KIT) : l'indice, seulement si rien n'a servi entre les deux PTN (la relecture de la
+    // V.6.0 : choisir un pattern puis sortir vite montrait KIT: PRESET KEY) ; chordSeq compte l'accord de l'ouverture
+    if (t - ptnOpenedAt < PTN_AGAIN_MS && chordSeq === ptnOpenedSeq + 1) hint60('kit');
     else lcdMessage.show('PTN CLOSED', 900);
     ptnOpenedAt = -Infinity;
     return;
@@ -559,6 +565,7 @@ export function ptnToggle(stage: Stage | null, t = performance.now()): void {
   editor.setGrid(false);
   editor.toggle('mm808');
   ptnOpenedAt = t;
+  ptnOpenedSeq = chordSeq;
   lcdMessage.show(`PATTERNS ${bankName(patterns.shown())}: TRIG 1-16 · LEFT RIGHT: BANK`, 2000);
 }
 
@@ -599,6 +606,8 @@ export function ptnBankStep(dir: -1 | 1): void {
  */
 let ptnHeld: { slot: number; until: number } | null = null;
 export function ptnHold(k: number): void {
+  // Un pattern tenu a servi : le PTN suivant n'est pas l'ancien geste PTN deux fois
+  ptnOpenedAt = -Infinity;
   const slot = patterns.slotAt(k);
   ptnHeld = { slot, until: performance.now() + DT_GESTURE.pageArmMs * 2 };
   lcdMessage.show(`${slotName(slot)}: REC COPY · STOP PASTE · PLAY CLEAR`, 2400);
