@@ -11,6 +11,7 @@ import { type LcdState } from '../../state/lcd';
 import { playhead } from '../../state/playhead';
 import { type RytmPageState } from '../../state/rytmPage';
 import { voices } from '../../state/voices';
+import { type TrackKey } from '../../audio/tracks';
 import { DT2_FACE, type Inst } from '../../theme';
 import { FACE_PAGES, freeCells, pageSlots, type PageSlot } from '../../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../../rytm/pageView';
@@ -94,7 +95,8 @@ function paintPage(this: Screen, s: LcdState, rp: RytmPageState, inst: Inst | nu
  * Depuis la revue de R2, le flash tient jusqu'au coup suivant de la voix,
  * au moins FLASH.min pour se lire, au plus FLASH.max.
  */
-function blockMode(this: Screen, inst: Inst | null, lockStep: number, now: number): BlockMode | null {
+/* La face DT2 (relecture de la V.6.0) : la piste active, T9 a T16 compris (leurs verrous flashent aussi en lecture). */
+function blockMode(this: Screen, inst: TrackKey | null, lockStep: number, now: number): BlockMode | null {
   if (lockStep >= 0) {
     this.flash = null;
     return { kind: 'lock', step: lockStep };

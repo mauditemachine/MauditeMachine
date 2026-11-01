@@ -267,8 +267,9 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     b.unit = 'SOON';
     return b;
   }
-  // Un reglage de voix sans voix : rien a lire
-  if (slot.scope === 'track' && !inst) {
+  // Un reglage de voix sans voix : rien a lire. Un reglage de piste de la face DT2 (t:, la relecture de la V.6.0) lit la piste
+  // active, T9 a T16 compris (le motif n'a alors plus de voix) : sa fiche dit s'il a une piste (dialValueText '--' plus bas)
+  if (slot.scope === 'track' && !inst && !(typeof t === 'string' && t.startsWith('t:'))) {
     b.state = 'off';
     b.unit = 'PICK A VOICE';
     // Un demi-bloc (PITCH, FINE) : la forme courte, plutot que PICK A VOI. (2026-10-22, revue INT-4)

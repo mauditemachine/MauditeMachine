@@ -20,7 +20,7 @@ import { two } from './shared';
 import { sceneHint, sceneMark, sceneNative } from './internal/scenes';
 import { type ContEnc, kitReadout, pageDial, readout } from './internal/dials';
 import { layerDial, layerNotches, layerReadout, layerReset, layerSpan, layerUnitNow, layerValue, sampleCount, sampleText, sampleUnit, sampleValue, voiceSoundValue, voyId } from './internal/kit';
-import { lockDialValue, lockSampleList, lockSoundsOf } from './internal/locks';
+import { lockDialValue, lockSampleList, lockSoundsOf, lockTrack } from './internal/locks';
 import { mixerDial, mixerInst, seqDefault, seqDial, seqName, seqValue } from './internal/mixer';
 import { dialEdit, dialShown, sceneTake } from './scenes';
 import { dial, dialReset, dialTarget, dialValue } from './dials';
@@ -377,9 +377,10 @@ export function dialValueText(id: DialId): string {
     const t = pageTarget(pk);
     if (t === null) return '--';
     const inst = pattern.get().instrument;
-    // En P-LOCK (2026-10-08) : la valeur verrouillee du pas, sinon celle de la voix
+    // En P-LOCK (2026-10-08) : la valeur verrouillee du pas, sinon celle de la voix ; la piste du P-LOCK (lockTrack : sur la
+    // face DT2 la piste active, T9 a T16 compris, relecture de la V.6.0)
     const ls = lockReadStep();
-    if (ls >= 0 && inst) {
+    if (ls >= 0 && lockTrack()) {
       const lv = pageLockView(pk, ls);
       if (lv) return lv.text;
       // VEL en P-LOCK : le pas lui-meme (vide : OFF)
@@ -426,7 +427,7 @@ export function dialUnit(id: DialId): string {
   const pk = pageKnobOf(id);
   const ls = lockReadStep();
   const inst = pattern.get().instrument;
-  if (pk >= 0 && ls >= 0 && inst) {
+  if (pk >= 0 && ls >= 0 && lockTrack()) {
     const lv = pageLockView(pk, ls);
     if (lv) return lv.unit;
     if (t === 'step:vel') return 'EMPTY STEP';

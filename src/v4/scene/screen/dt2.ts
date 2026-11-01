@@ -103,7 +103,7 @@ export function paintDt2(screen: Screen, s: LcdState, now: number): number {
   const slots = menu ? (menu.slots?.() ?? null) : curSlots();
   if (slots) {
     info.left = paintLeft(screen, t, menu ? (MENU_TAG[menu.id] ?? menu.id.slice(0, 3).toUpperCase()) : (PAGE_TAG[SCREEN_PAGE[sc]] ?? trackTag(t)));
-    const more = paintGrid(screen, slots, inst, menu ? null : lockStep, now);
+    const more = paintGrid(screen, slots, inst, t, menu ? null : lockStep, now);
     if (more > 0) next = next > 0 ? Math.min(next, more) : more;
     const pg = menu ? (menu.pages?.() ?? null) : { n: screensOf(rp.page, inst).length, cur: Math.max(0, screensOf(rp.page, inst).indexOf(sc)) };
     info.dots = pg ? paintDots(screen, pg.n, pg.cur) : '';
@@ -221,12 +221,14 @@ function paintLeft(screen: Screen, t: TrackKey | null, tag: string): string {
 /* ---------------- la grille ---------------- */
 
 /** Les 8 blocs (une page ou un menu a potards) dans les cases de la grille DT2 ; rend l'image suivante (echo, aiguille). */
-function paintGrid(screen: Screen, slots: readonly PageSlot[], inst: ReturnType<typeof pattern.get>['instrument'], lockStep: number | null, now: number): number {
+function paintGrid(screen: Screen, slots: readonly PageSlot[], inst: ReturnType<typeof pattern.get>['instrument'], track: TrackKey | null, lockStep: number | null, now: number): number {
   let next = 0;
   screen.meterLive = false;
   const rp = rytmPage.get();
   const sc = curScreen();
-  const mode: BlockMode | null = lockStep === null ? null : screen.blockMode(inst, lockStep, now);
+  // Les verrous (P-LOCK, le flash du pas qui joue) : ceux de la piste active, T9 a T16 compris (relecture de la V.6.0 ;
+  // inst, la voix du motif, est nulle sur ces pistes)
+  const mode: BlockMode | null = lockStep === null ? null : screen.blockMode(track, lockStep, now);
   const echoK = rp.echo && rp.echo.page === sc && now < rp.echo.until ? rp.echo.k : -1;
   const cells = cellsOf(slots);
   const blocks = slots.map((slot, k) => slotBlock(slot, k, inst, k === echoK || k === rp.held, mode, cells[k], k === rp.hover));

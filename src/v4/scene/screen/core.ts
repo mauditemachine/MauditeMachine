@@ -32,7 +32,7 @@ import { rytmInfos } from '../../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../../state/rytmPage';
 import { voices } from '../../state/voices';
 import { dtFace } from '../../state/dtFace';
-import { DT2_FACE, DT_FACE, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, OLED, OLED_BAR, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, OLED, OLED_BAR, PORTRAIT, SCREEN_TOUCH, XFADE_UI, type EncId } from '../../theme';
 import { PRESET_SLOTS } from '../../state/presetMode';
 import { softKeyName } from '../../rytm/presetKeys';
 import { rytmInfoHit } from '../../rytm/infoIds';
@@ -41,7 +41,7 @@ import { pageBlocks, screenIn, type Block, type BlockMode } from '../../rytm/pag
 import { encUnit, v127Text } from '../../rytm/values';
 import { screenDials, type ScreenDialId } from '../../state/screenDials';
 import { makeCanvasTexture, onFonts } from '../silk';
-import { tracks } from '../../audio/tracks';
+import { tracks, type TrackKey } from '../../audio/tracks';
 import { DT2_INFO_EMPTY, paintDt2, type Dt2Info } from './dt2';
 import { subscribeMenu } from './menus/open';
 import { subscribeNames } from './menus/names';
@@ -171,7 +171,7 @@ export class Screen {
   /** la palette des dessins (la negative dans un bloc verrouille) */
   pal: Pal = PAL;
   /** le flash du pas verrouille qui joue (revue de R2) : sa voix, son pas, ses verrous, depuis, jusqu'a */
-  flash: { inst: Inst; step: number; lock: Readonly<StepLock>; from: number; end: number } | null = null;
+  flash: { inst: TrackKey; step: number; lock: Readonly<StepLock>; from: number; end: number } | null = null;
   /** la tete de lecture vue au dernier dessin (un nouveau pas : un nouveau coup) */
   flashHead = -1;
   /** INFOS (R4) : allume et l'encodeur dont la carte est montree, au dernier redessin demande */

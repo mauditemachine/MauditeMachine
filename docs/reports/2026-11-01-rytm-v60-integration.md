@@ -74,3 +74,9 @@ Sondes muettes (Chromium `--mute-audio`, `?mute=1`, aucun TRIG tape hors d'un mo
 - le telephone (390 x 844) contre V.5.9 (91e57cd) : en noir 99 pixels, en creme 125 pixels, tous dans le numero du firmware (V.5.9 -> V.6.0) ; rien d'autre ne bouge.
 
 Captures (hors depot) dans `/tmp/claude-0/-home-user-MauditeMachine/3e52142d-b436-522a-95d4-63ef836eaea8/scratchpad/int60/` : `v60-desktop-noir.png`, `v60-desktop-creme.png`, leurs `-mixer` (T12 active, FUNC + MOD), `v60-desktop-v5-noir.png` (la face V.5.3), `v60-overview-noir.png`, `v60-overview-creme.png` (le mode d'emploi au survol), `v60-phone-noir.png`, `v60-phone-creme.png` et leurs references `v59-phone-*.png`.
+
+## Relecture : écran et menus
+
+Branche `v60/fix-screen` (depuis 2a2a705). Chaque point a sa sonde muette (Chromium `--mute-audio`, `?mute=1`, aucune lecture), qui échoue sur 2a2a705 et passe après ; les sondes vivent hors dépôt (`scratchpad/fx-screen/probes/`).
+
+- **P-LOCK sur T9 à T16** : la page SRC d'une piste 9 à 16 se lit (les blocs `t:` ne demandent plus une voix du motif, `rytm/pageView.ts`), en P-LOCK ses blocs montrent le verrou ou la base du pas, la valeur lue (`dialValueText`, `dialUnit`) passe par la piste du P-LOCK (`lockTrack`), et le flash des verrous en lecture suit la piste active (`scene/screen/dt2.ts`, `grid.ts blockMode`). Sonde p1 : 10 sur 10 (5 sur 10 avant).
