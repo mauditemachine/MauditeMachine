@@ -68,7 +68,7 @@
  * chaque machine est retenu (cur, avec les sons mis de cote) : l'ecran le nomme, une etoile s'il a bouge (loaded).
  */
 
-import { INSTRUMENTS, NEUTRAL_FX, clampBpm, cleanPmutes, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
+import { BPM, INSTRUMENTS, NEUTRAL_FX, clampBpm, cleanPmutes, compLegacy, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
 import { NO_SCENES, anyScenes, cleanScenes, toStored, type StoredScenes } from '../rytm/sceneData';
@@ -552,7 +552,8 @@ export function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void 
   pattern.setPmutes(cleanPmutes(r.pmutes));
   // Ses reglages de trig, ou aucun (un preset d'avant la V.5.1 : tous au depart)
   pattern.setTrigs(cleanTrigs(r.trigs));
-  pattern.setBpm(r.bpm);
+  // Au dixieme (V.5.9, cahier 1.3 : 30 a 300), comme le stockage le garde ; un preset d'avant : son BPM entier
+  pattern.setBpmFine(typeof r.bpm === 'number' ? r.bpm : BPM.initial);
   // Un reglage d'effet absent du preset (DLY TIME et FB du 2026-10-09, BIT, COMP et les reglages de chaque FX du
   // 2026-10-10) : sa valeur de depart, le son d'alors (2026-10-11 ; avant, il gardait celle du moment : un preset
   // garde avant eux sonnait selon ce qui jouait avant lui, comme les voix avant le 2026-10-08)

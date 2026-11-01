@@ -2428,7 +2428,7 @@ export function setLevel(v: number): void {
   emitMix();
 }
 
-/** SWING : 0 a 1, retard des pas pairs de 0 a un tiers de pas (l'horloge le lit a chaque pas). */
+/** SWING : 0 a 1 (50 a 67 %), retard des pas pairs de 0 a un tiers de pas ; au plus SWING_MAX, 1,8 (80 %, V.5.9) ; l'horloge le lit a chaque pas. */
 export function setSwing(v: number): void {
   pattern.fx.set({ swing: v });
 }

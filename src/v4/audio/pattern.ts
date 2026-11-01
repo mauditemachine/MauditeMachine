@@ -44,7 +44,18 @@ import { NO_TRIGS, anyTrigs, cleanTrigs, sameTrigs, withTrig, type TrigParam, ty
 // Huit voix (2026-10-05), dans l'ordre des pads : BD SD CH OH en haut, CP TOM HT CY dessous
 export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 export const STEP_COUNT = 16;
+/**
+ * La course du TEMPO de la face d'avant (LEGACY RANGE) : le potard, rytm:enc:tempo, TAP, les boutons et le dessin du
+ * telephone ; 130 au depart. Le moteur et le stockage vont plus loin (BPM_RANGE).
+ */
 export const BPM = { min: 100, max: 150, initial: 130 } as const;
+/** Les bornes du moteur et du stockage (V.5.9, cahier 1.3, les bornes DT2) : 30 a 300 BPM au dixieme. */
+export const BPM_RANGE = { min: 30, max: 300, step: 0.1 } as const;
+/**
+ * SWING au plus (V.5.9, cahier 1.3) : la loi de toujours (0 = 50 %, 1 = 66,7 % : SWING.maxDelay, un tiers de pas) montee
+ * a 1,8 = 80 % (un retard de 0,6 pas). Le potard SWING et rytm:enc:swing gardent 0 a 1 (50 a 67 %).
+ */
+export const SWING_MAX = 1.8;
 /**
  * Cle de stockage. 2026-10-01 : '.2' avec les velocites ; les motifs
  * enregistres avant sont laisses de cote une fois, pour que chacun recoive
@@ -418,8 +429,14 @@ export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DE
 
 /* ---------------- fonctions pures ---------------- */
 
-export const clampBpm = (bpm: number): number =>
-  Math.min(BPM.max, Math.max(BPM.min, Math.round(Number.isFinite(bpm) ? bpm : BPM.initial)));
+/** Au dixieme de BPM. */
+const tenth = (b: number): number => Math.round(b * 10) / 10;
+/** Le tempo du moteur et du stockage (V.5.9) : 30 a 300 au dixieme ; 130 s'il n'est pas un nombre. */
+export const clampBpm = (bpm: number): number => Math.min(BPM_RANGE.max, Math.max(BPM_RANGE.min, tenth(Number.isFinite(bpm) ? bpm : BPM.initial)));
+/** Un tempo stocke lisible : dans les bornes, au dixieme (un motif d'avant : un entier de 100 a 150). */
+const bpmOk = (b: unknown): b is number => typeof b === 'number' && Number.isFinite(b) && b >= BPM_RANGE.min && b <= BPM_RANGE.max && Math.abs(b * 10 - Math.round(b * 10)) < 1e-6;
+/** SWING de 0 a SWING_MAX (les autres effets : clampFx, 0 a 1). */
+export const clampSwing = (v: number): number => (Number.isFinite(v) ? (v < 0 ? 0 : v > SWING_MAX ? SWING_MAX : v) : 0);
 
 /** Valide champ par champ ; tout ce qui manque ou cloche reprend la valeur par defaut. legacy : un motif de la cle '.2' (1 2 3). */
 export function validate(raw: unknown, legacy = false): Pattern {
@@ -427,7 +444,7 @@ export function validate(raw: unknown, legacy = false): Pattern {
   if (!raw || typeof raw !== 'object') return out;
   const o = raw as { v?: unknown; bpm?: unknown; steps?: unknown };
   if (o.v !== 1) return out;
-  if (typeof o.bpm === 'number' && Number.isInteger(o.bpm) && o.bpm >= BPM.min && o.bpm <= BPM.max) out.bpm = o.bpm;
+  if (bpmOk(o.bpm)) out.bpm = tenth(o.bpm);
   if (o.steps && typeof o.steps === 'object') {
     const steps = o.steps as Record<string, unknown>;
     for (const inst of INSTRUMENTS) {
@@ -456,7 +473,7 @@ export function validateFx(raw: unknown): Fx {
   const f = o.fx as Record<string, unknown>;
   for (const k of FX_KEYS) {
     const v = f[k];
-    if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1) out[k] = v;
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= (k === 'swing' ? SWING_MAX : 1)) out[k] = v;
   }
   // Un COMP d'avant le 2026-10-18 : ses reglages d'aujourd'hui (compLegacy)
   return { ...out, ...compLegacy(f) };
@@ -485,7 +502,8 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS, scenes: SceneSet = NO_SCENES, pmutes: readonly Inst[] = NO_PMUTES, trigs: Readonly<TrigSet> = NO_TRIGS, more: Readonly<StoredPatternMore> | null = null): StoredPattern {
   const out: StoredPattern = {
     v: 1,
-    // Au BPM entier (2026-10-27) : un tempo suivi au centieme (followBpm) se retient arrondi, validate le relit
+    // Au dixieme (V.5.9 ; au BPM entier depuis le 2026-10-27) : un tempo suivi au centieme (followBpm) se retient arrondi,
+    // validate le relit ; un tempo d'avant (un entier) s'ecrit a l'identique
     bpm: clampBpm(p.bpm),
     // Les rangees 9 a 16 seulement si elles servent (V.5.9) : le JSON d'avant, octet pour octet, sans elles
     steps: stepsOut(p.steps),
@@ -664,7 +682,7 @@ const fxStore = {
     for (const k of FX_KEYS) {
       const v = patch[k];
       if (v === undefined) continue;
-      const c = clampFx(v);
+      const c = k === 'swing' ? clampSwing(v) : clampFx(v);
       if (c === fxState[k]) continue;
       if (!next) next = { ...fxState };
       next[k] = c;
@@ -792,18 +810,27 @@ export const pattern = {
     const locks = withoutLock(state.locks, inst, steps, key);
     if (locks !== state.locks) commit({ ...state, locks }, true);
   },
+  /**
+   * Le TEMPO de la face d'avant (le potard, TAP, la page TEMPO) : au BPM entier, comme avant (V.5.9 : borne par le
+   * moteur, 30 a 300 ; ses appelants restent dans BPM.min..BPM.max).
+   */
   setBpm(bpm: number): void {
+    const b = clampBpm(Math.round(Number.isFinite(bpm) ? bpm : BPM.initial));
+    if (b !== state.bpm) commit({ ...state, bpm: b }, true);
+  },
+  /** Le tempo au dixieme, 30 a 300 (V.5.9, cahier 1.3) : un preset, l'UNDO, les cibles neuves de TEMPO. */
+  setBpmFine(bpm: number): void {
     const b = clampBpm(bpm);
     if (b !== state.bpm) commit({ ...state, bpm: b }, true);
   },
   /**
    * Le tempo suivi (2026-10-27, le SYNC du MIXER : le MM-RYTM suit la platine MASTER, dj/actions.ts) : au centieme de
-   * BPM, dans BPM.min..BPM.max, sans etre retenu a chaque changement ; keep (la fin du suivi) : retenu. Il se retient au
-   * BPM entier (serialize) : le TEMPO du potard et du stockage reste entier.
+   * BPM, dans les bornes du moteur (V.5.9 : BPM_RANGE ; les platines bornent de leur cote, SYNC_BPM), sans etre retenu a
+   * chaque changement ; keep (la fin du suivi) : retenu. Il se retient au dixieme (serialize).
    */
   followBpm(bpm: number, keep = false): void {
     if (!Number.isFinite(bpm)) return;
-    const b = Math.min(BPM.max, Math.max(BPM.min, Math.round(bpm * 100) / 100));
+    const b = Math.min(BPM_RANGE.max, Math.max(BPM_RANGE.min, Math.round(bpm * 100) / 100));
     if (b !== state.bpm) commit({ ...state, bpm: b }, keep);
     else if (keep) scheduleSave();
   },
@@ -841,7 +868,7 @@ export const pattern = {
   /** La voix est-elle coupee par le pattern ? */
   pmuted: (inst: Inst): boolean => state.pmutes.includes(inst),
   flush,
-  /** SWING, DIST, REVERB, DELAY, CHORUS (0 a 1) : get, set(patch), subscribe. */
+  /** SWING (0 a SWING_MAX), DIST, REVERB, DELAY, CHORUS (0 a 1) : get, set(patch), subscribe. */
   fx: fxStore,
   /** Les scenes A et B (2026-10-27) : get, write, drop, clear, replace(next, at), subscribe. */
   scenes: scenesStore,

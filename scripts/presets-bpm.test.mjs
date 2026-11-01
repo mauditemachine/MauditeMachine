@@ -1,11 +1,12 @@
 // Le tempo des presets du MM-RYTM (2026-10-27, la revue des coutures de la V.4.2 et du MIXER SYNC, SEAM-1 a SEAM-4) :
-// pendant le SYNC le tempo ne compte pas, hors SYNC il compte au BPM entier, et ce qu'on garde est au BPM entier. node,
-// sans dependance : src/v4/state/presetBpm.ts se charge tel quel (node 22 efface les types). npm run presets:test
+// pendant le SYNC le tempo ne compte pas, hors SYNC il compte au dixieme, et ce qu'on garde est au dixieme (V.5.9, cahier
+// 1.3 : 30 a 300 BPM au 1/10 ; avant, le BPM entier de 100 a 150). node, sans dependance : src/v4/state/presetBpm.ts se
+// charge tel quel (node 22 efface les types). npm run presets:test
 import assert from 'node:assert/strict';
 import { bpmForSig, bpmToKeep } from '../src/v4/state/presetBpm.ts';
 
-/** audio/pattern.ts clampBpm (BPM 100 a 150, 130 au depart) : ce qu'apply pose. */
-const clamp = (b) => Math.min(150, Math.max(100, Math.round(Number.isFinite(b) ? b : 130)));
+/** audio/pattern.ts clampBpm (BPM_RANGE : 30 a 300 au dixieme, 130 au depart) : ce qu'apply pose (setBpmFine). */
+const clamp = (b) => Math.min(300, Math.max(30, Math.round((Number.isFinite(b) ? b : 130) * 10) / 10));
 /** L'empreinte d'un etat du MM-RYTM comme presets.ts sig la compare (sans le reste de canon). */
 const sig = (d, synced) => JSON.stringify(bpmForSig({ ...d }, synced, clamp));
 const steps = { BD: '1000100010001000', SD: '0000100000001000' };
@@ -26,12 +27,18 @@ test('pendant le SYNC, le tempo ne compte pas (SEAM-3 : ni etoile ni EDITED pour
   assert.notEqual(sig({ steps, bpm: 124 }, true), sig({ steps: { ...steps, BD: '1000000010000000' }, bpm: 124 }, true));
 });
 
-test('hors SYNC, le BPM compte entier, comme apply le pose (SEAM-4)', () => {
-  assert.equal(sig({ steps, bpm: 124.37 }, false), sig({ steps, bpm: 124 }, false));
+test('hors SYNC, le BPM compte au dixieme, comme apply le pose (SEAM-4)', () => {
+  assert.equal(sig({ steps, bpm: 124.37 }, false), sig({ steps, bpm: 124.4 }, false));
+  assert.notEqual(sig({ steps, bpm: 124.37 }, false), sig({ steps, bpm: 124 }, false));
   assert.notEqual(sig({ steps, bpm: 124.6 }, false), sig({ steps, bpm: 124 }, false));
-  assert.equal(bpmForSig({ bpm: 124.6 }, false, clamp).bpm, 125);
-  // hors des bornes : celui qu'apply pose
-  assert.equal(sig({ steps, bpm: 174 }, false), sig({ steps, bpm: 150 }, false));
+  assert.equal(bpmForSig({ bpm: 124.66 }, false, clamp).bpm, 124.7);
+  // un BPM entier d'avant reste lui-meme
+  assert.equal(bpmForSig({ bpm: 124 }, false, clamp).bpm, 124);
+  // hors des bornes (30 a 300) : celui qu'apply pose
+  assert.equal(sig({ steps, bpm: 374 }, false), sig({ steps, bpm: 300 }, false));
+  assert.equal(sig({ steps, bpm: 12 }, false), sig({ steps, bpm: 30 }, false));
+  assert.equal(bpmForSig({ bpm: 174 }, false, clamp).bpm, 174);
+  assert.equal(bpmForSig({ bpm: 72.5 }, false, clamp).bpm, 72.5);
   assert.notEqual(sig({ steps, bpm: 126 }, false), sig({ steps, bpm: 124 }, false));
 });
 
@@ -44,12 +51,13 @@ test('un etat sans tempo (MM-ARP, MM-BASS, une empreinte deja sans bpm) reste te
   assert.deepEqual(bpmForSig(odd, true, clamp), { steps });
 });
 
-test('SAVE, OVERWRITE et un son mis de cote gardent le BPM entier, sans toucher au reste ni a l etat du moment', () => {
+test('SAVE, OVERWRITE et un son mis de cote gardent le dixieme, sans toucher au reste ni a l etat du moment', () => {
   const now = { steps, bpm: 124.37, fx: { swing: 0.3 } };
   const kept = bpmToKeep(now, clamp);
-  assert.deepEqual(kept, { steps, bpm: 124, fx: { swing: 0.3 } });
+  assert.deepEqual(kept, { steps, bpm: 124.4, fx: { swing: 0.3 } });
   assert.equal(now.bpm, 124.37);
-  assert.equal(bpmToKeep({ steps, bpm: 124.6 }, clamp).bpm, 125);
+  assert.equal(bpmToKeep({ steps, bpm: 124.66 }, clamp).bpm, 124.7);
+  assert.equal(bpmToKeep({ steps, bpm: 124 }, clamp).bpm, 124);
   const voy = { knobs: {}, prog: [] };
   assert.equal(bpmToKeep(voy, clamp), voy);
 });
@@ -57,13 +65,13 @@ test('SAVE, OVERWRITE et un son mis de cote gardent le BPM entier, sans toucher 
 test('les repros de la revue, en empreintes', () => {
   // SEAM-2 : BASE garde a 124, le SYNC suit 124.37 ; le son du moment est BASE, rien a mettre de cote
   assert.equal(sig({ steps, bpm: 124.37 }, true), sig({ steps, bpm: 124 }, true));
-  // SEAM-1 : mon son mis de cote pendant le SYNC (124.37, garde a 124), UNDO apres une derive a 124.6 : le meme son mis
+  // SEAM-1 : mon son mis de cote pendant le SYNC (124.37, garde a 124.4), UNDO apres une derive a 124.6 : le meme son mis
   // de cote, pas KEEPER (126) retouche
   const mine = { steps: { ...steps, CH: '0010001000100010' } };
   const draft = bpmToKeep({ ...mine, bpm: 124.37 }, clamp);
   assert.equal(sig({ ...mine, bpm: 124.6 }, true), sig(draft, true));
   assert.notEqual(sig({ ...mine, bpm: 124.6 }, true), sig({ steps, bpm: 126 }, true));
-  // SEAM-4 : garde pendant le SYNC (124.37), recharge hors SYNC (124) : le meme son, pas EDITED
+  // SEAM-4 : garde pendant le SYNC (124.37), recharge hors SYNC (124.4) : le meme son, pas EDITED
   assert.equal(sig({ steps, bpm: clamp(124.37) }, false), sig(bpmToKeep({ steps, bpm: 124.37 }, clamp), false));
   // un preset garde a 124.37 avant la correction : toujours reconnu une fois recharge
   assert.equal(sig({ steps, bpm: clamp(124.37) }, false), sig({ steps, bpm: 124.37 }, false));
