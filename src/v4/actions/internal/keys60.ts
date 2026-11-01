@@ -25,6 +25,7 @@ import type { VoiceFx } from '../../audio/voicefx';
 import type { Stage } from '../../scene/renderer';
 import type { FaceMenu } from '../../scene/rytmFaceKeys';
 import { screenMenu, type ScreenMenuId, type ScreenMenuInputKind } from '../../scene/screen/menus/registry';
+import { openMenuId, setOpenMenu } from '../../scene/screen/menus/open';
 import { clipboard } from '../../state/clipboard';
 import { dtFace } from '../../state/dtFace';
 import { editor } from '../../state/editor';
@@ -101,9 +102,13 @@ export function srcSet(src: string): void {
 /** Un menu plein ecran est-il ouvert (la face DT2) ? */
 export const menuOpen = (): boolean => DT2_FACE && dtFace.menu() !== null;
 
-/** Ouvre un menu (null : le ferme). Le menu d'avant se ferme ; la grille PTN et la vue BANK restent dessous. */
+/**
+ * Ouvre un menu (null : le ferme). Le menu d'avant se ferme ; la grille PTN et la vue BANK restent dessous. Par l'ecran
+ * (scene/screen/menus/open.ts setOpenMenu, l'integration de la V.6.0) : dtFace.menu, puis onClose et onOpen des menus de
+ * B5 tout de suite (leur curseur repart avant la premiere saisie, meme sans image entre les deux).
+ */
 export function menuSet(id: ScreenMenuId | null): void {
-  dtFace.setMenu(id);
+  setOpenMenu(id);
 }
 
 /** La touche d'un menu : son menu s'ouvre, ou se ferme s'il l'etait (la DT2). */
@@ -116,7 +121,8 @@ export const menuLog: { menu: ScreenMenuId; kind: ScreenMenuInputKind; phase: 'd
 
 /** Une saisie de navigation au menu ouvert : true si son onInput l'a prise (absent, ou pas encore inscrit : false). */
 export function menuInput(kind: ScreenMenuInputKind, phase: 'down' | 'up', delta = 0): boolean {
-  const id = dtFace.menu();
+  // Le menu vu par l'ecran (son onOpen d'abord, s'il vient d'etre pose sans passer par menuSet)
+  const id = openMenuId() ?? dtFace.menu();
   if (!id) return false;
   const m = screenMenu(id);
   let taken = false;

@@ -18,7 +18,7 @@ import { type RytmPageId } from '../../rytm/pages';
 import { voices } from '../../state/voices';
 import { DT2_FACE, DT_FACE, DT_GESTURE, LCD_NO_VOICE } from '../../theme';
 import { st } from '../state';
-import { hint60, soon } from './keys60';
+import { hint60, menuInput, menuSet, soon } from './keys60';
 import { TRK_HINT_MS } from './tracks';
 import { pageKeyBody } from './pages';
 import { soundBrowserOpen } from '../browser';
@@ -62,23 +62,33 @@ export function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
   const key = PAGE_BTN[id] ? `pkey-${id}` : null;
   if (key) stage?.pressFaceKey(key);
   // La face DT2 (V.6.0, cahier 1.4 et 5.1) : FUNC + TRIG = QUANTIZE, FUNC + SRC = MACHINE (les menus de la lane B5, avec
-  // l'indice de l'ancien geste), FUNC + FLTR (SETUP) et FUNC + AMP (SEQUENCER) inertes ; FX et MOD comme avant
+  // l'indice de l'ancien geste), FUNC + FLTR (SETUP) et FUNC + AMP (SEQUENCER) inertes ; FUNC + MOD = le MIXER de B5
+  // (l'integration : INTERNAL 1-8, 9-16, SCENES ; FUNC + MOD encore, sa sous-page suivante) ; FX comme avant (SEND FX)
   if (DT2_FACE) {
     if (id === 'trig') {
-      dtFace.setMenu('quantize');
+      menuSet('quantize');
       hint60('tempo');
       return true;
     }
     if (id === 'voice') {
-      dtFace.setMenu('machine');
+      menuSet('machine');
       hint60('sounds');
+      return true;
+    }
+    if (id === 'mod') {
+      const m = dtFace.menu();
+      // Le MIXER ouvert : sa sous-page suivante, comme sa fleche DOWN (scene/screen/menus/mixer16.ts mixerPage(1))
+      if (m === 'mixer' || m === 'scenes') {
+        menuInput('down', 'down');
+        menuInput('down', 'up');
+      } else menuSet('mixer');
       return true;
     }
     if (id === 'fltr' || id === 'env') {
       soon('6.1');
       return true;
     }
-    if (dtFace.menu()) dtFace.setMenu(null);
+    if (dtFace.menu()) menuSet(null);
   }
   switch (id) {
     case 'trig':

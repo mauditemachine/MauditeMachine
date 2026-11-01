@@ -286,9 +286,10 @@ function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
   if (viaEsc) {
     noPress = null;
     if (menuOpen()) {
-      const a = menuInput('no', 'down');
-      const b = menuInput('no', 'up');
-      if (!a && !b) menuSet(null);
+      // Les menus de B5 agissent sur NO au lacher (frame.ts acting : l'appui est pris sans rien faire) : le lacher dit s'il
+      // ferme (l'integration de la V.6.0 ; avant, l'appui pris gardait le menu ouvert)
+      menuInput('no', 'down');
+      if (!menuInput('no', 'up')) menuSet(null);
       return true;
     }
     if (func.engaged()) return escape();
@@ -302,8 +303,9 @@ function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
   if (!p) return false;
   if (p.menu) {
     const b = menuOpen() ? menuInput('no', 'up') : false;
-    // NO que le menu ne prend pas le ferme
-    if (!p.menuTook && !b) menuSet(null);
+    // NO que le menu ne prend pas au lacher le ferme (YES et NO agissent au lacher, le contrat de B5 : l'appui pris ne
+    // retient rien)
+    if (!b) menuSet(null);
     return true;
   }
   if (p.taken) return true;

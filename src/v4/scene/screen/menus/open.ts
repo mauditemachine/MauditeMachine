@@ -6,13 +6,14 @@
  * compare au menu vu la fois d'avant : un menu qui s'ouvre recoit onOpen, celui qui se ferme onClose (B4 peut poser
  * dtFace.menu sans passer par ici).
  *
- * La piste active : celle que porte le motif (pattern.instrument, BD..CY ; T9..T16 quand B4 l'elargit), lue en TrackKey.
- * Rien ici ne vit sans le drapeau DT2_FACE : sans lui, aucun menu n'est jamais ouvert.
+ * La piste active : celle de la saisie (state/trk.ts activeTrack, la lane B4 ; l'integration de la V.6.0) : 1 a 8, la voix
+ * du motif (pattern.instrument) ; 9 a 16, a cote (le motif n'a alors plus de voix choisie). Rien ici ne vit sans le drapeau
+ * DT2_FACE : sans lui, aucun menu n'est jamais ouvert, et la piste active est la voix du motif.
  */
 
-import { pattern } from '../../../audio/pattern';
-import { normTrackKey, type TrackKey } from '../../../audio/tracks';
+import { type TrackKey } from '../../../audio/tracks';
 import { dtFace, type DtFaceStateDt2 } from '../../../state/dtFace';
+import { activeTrack } from '../../../state/trk';
 import { DT2_FACE } from '../../../theme';
 import { screenMenu, type ScreenMenu, type ScreenMenuId, type ScreenMenuInput } from './registry';
 
@@ -79,13 +80,15 @@ export function menuInput(input: ScreenMenuInput): boolean {
   return took;
 }
 
-/** Ecoute le menu ouvert (l'etat local et dtFace). */
+/** Ecoute le menu ouvert (l'etat local et dtFace) et la piste active (T9 a T16 ne changent pas le motif). */
 export function subscribeMenu(fn: () => void): () => void {
   listeners.add(fn);
   const off = dtFace.subscribe(fn);
+  const offTrack = DT2_FACE ? activeTrack.subscribe(fn) : () => undefined;
   return () => {
     listeners.delete(fn);
     off();
+    offTrack();
   };
 }
 
@@ -96,5 +99,5 @@ export function menuChanged(): void {
 
 /** La piste active (BD..CY, T9..T16) ; null : aucune. */
 export function screenTrack(): TrackKey | null {
-  return normTrackKey(pattern.get().instrument as string | null);
+  return activeTrack.get();
 }
