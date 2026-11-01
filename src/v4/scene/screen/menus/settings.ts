@@ -17,7 +17,8 @@ import { parseVoices } from '../../../audio/voicelaw';
 import { pattern } from '../../../audio/pattern';
 import { resume } from '../../../audio/drums';
 import { fwText, fwVersion } from '../../../firmware';
-import { editor } from '../../../state/editor';
+import { dtFace, type LedIntensity, type TrkSelect } from '../../../state/dtFace';
+import { editGridToggle } from '../../../actions';
 import { lcdMessage } from '../../../state/lcdMessage';
 import { patterns, slotName } from '../../../state/patterns';
 import { undo } from '../../../state/undo';
@@ -31,8 +32,8 @@ import { NAME_CHARS, NAME_MAX, patternName, setPatternName } from './names';
 /* ---------------- PERSONALIZE : le store ---------------- */
 
 export const PERSONALIZE_KEY = 'mm.v4.rytm.personalize.1';
-export type LedIntensity = 'low' | 'mid' | 'max';
-export type TrkSelect = 'normal' | 'silent' | 'manual' | 'inverted';
+// Les types de la saisie (state/dtFace.ts, B4 ; l'integration de la V.6.0 : une seule definition)
+export type { LedIntensity, TrkSelect } from '../../../state/dtFace';
 export interface Personalize {
   led: LedIntensity;
   backlight: boolean;
@@ -64,7 +65,10 @@ function persLoad(): Personalize {
   }
   return pers;
 }
-/** Les reglages PERSONALIZE (la face, la saisie B4 et B3 les lisent ; rien ne les applique encore hors de ce menu). */
+/** La saisie (state/dtFace.ts personal, B4) prend LED INTENSITY, LED BACKLIGHT et TRK SELECT (l'integration de la V.6.0). */
+const toFace = (p: Readonly<Personalize>): void => dtFace.setPersonal({ led: p.led, backlight: p.backlight, trkSelect: p.trkSelect });
+
+/** Les reglages PERSONALIZE (gardes dans ce navigateur) ; la saisie les lit dans dtFace.personal, posee d'ici. */
 export const personalize = {
   get: (): Readonly<Personalize> => persLoad(),
   set(patch: Partial<Personalize>): void {
@@ -74,6 +78,7 @@ export const personalize = {
     } catch {
       // pour la visite
     }
+    toFace(pers);
     persListeners.forEach((fn) => fn());
   },
   subscribe(fn: () => void): () => void {
@@ -83,6 +88,17 @@ export const personalize = {
     };
   },
 };
+
+// Au chargement, la saisie part des reglages gardes ; SETTINGS tenu + TRIG 1-3 ou 9 (la saisie, B4) les change dans dtFace :
+// ils sont gardes ici aussi (le menu les montre, la visite suivante les retrouve)
+if (typeof window !== 'undefined') {
+  toFace(persLoad());
+  dtFace.subscribe(() => {
+    const d = dtFace.personal();
+    const p = persLoad();
+    if (d.led !== p.led || d.backlight !== p.backlight || d.trkSelect !== p.trkSelect) personalize.set({ led: d.led, backlight: d.backlight, trkSelect: d.trkSelect });
+  });
+}
 
 /* ---------------- l'arbre ---------------- */
 
@@ -184,9 +200,9 @@ function choose(): void {
       pop = { kind: 'rename' };
     } else if (c === 1) path.push('clear');
     else {
+      // EDIT GRID (la grille de Mika posee sur les pas, Maj + E) : la saisie de B4 l'ouvre ou la ferme (l'integration)
       setOpenMenu(null);
-      if (editor.get() !== 'mm808') editor.toggle('mm808');
-      lcdMessage.show('EDIT GRID: NO OR SHIFT+E TO CLOSE', 1600);
+      editGridToggle();
       return;
     }
   } else if (n === 'clear') pop = { kind: 'confirm', what: c === 2 ? 'sounds' : 'seq', n: c === 2 ? 2 : 1 };

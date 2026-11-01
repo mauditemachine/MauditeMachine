@@ -238,6 +238,14 @@ export function trigTrk(i: number, stage: Stage | null, t = performance.now()): 
   st.trkLast = { i, t };
   ctlAllEnd();
   resume();
+  // TRK SELECT INVERTED (PERSONALIZE, manuel DT2 14.7.9) : TRK + TRIG joue la piste sans la choisir
+  if (dtFace.personal().trkSelect === 'inverted') {
+    audioGesture();
+    if (audible(k)) trigger(k, undefined, false, undefined, VEL_GAIN[isLegacy(k) ? rytmPage.tapVel(k) : TAP_VEL_DEFAULT] ?? 1);
+    trk.use(t);
+    lcdMessage.show(`TRK ${trackName(k)}: PLAYED (TRK SELECT INVERTED)`, 900);
+    return true;
+  }
   trackSelect(k);
   trk.use(t);
   if (lcdSamples.isOpen()) lcdSamples.touch();
@@ -306,8 +314,9 @@ export function trigSolo(i: number, stage: Stage | null): void {
 const audible = (k: TrackKey): boolean => !voices.isMuted(k) && !(isLegacy(k) && pattern.pmuted(k));
 
 /**
- * Un TRIG hors REC (cahier 5.1 : TRIG 1-16 jouent les pistes) : la piste n sonne (meme en lecture) et devient la piste active
- * (TRK SELECT auto, le comportement d'avant ; manual : elle sonne seulement). LIVE REC : la frappe s'ecrit aussi (16 pistes).
+ * Un TRIG hors REC (cahier 5.1 : TRIG 1-16 jouent les pistes) : selon TRK SELECT (PERSONALIZE, state/dtFace.ts), la piste n
+ * sonne (meme en lecture) et devient la piste active (normal, le comportement d'avant) ; silent et inverted : elle est
+ * choisie sans sonner ; manual : elle sonne seulement. LIVE REC : la frappe sonne, s'ecrit et choisit (16 pistes).
  */
 export function trigPlay(i: number, stage: Stage | null, ts = -1): void {
   audioGesture();
@@ -324,10 +333,12 @@ export function trigPlay(i: number, stage: Stage | null, ts = -1): void {
     return;
   }
   const live = liveRunning();
+  const mode = dtFace.personal().trkSelect;
   const n = live ? liveVel() : isLegacy(k) ? rytmPage.tapVel(k) : TAP_VEL_DEFAULT;
   const r = live ? liveHit(k, n, ts >= 0 ? (heardNow(ts) ?? undefined) : undefined) : null;
-  if (r !== 'quiet' && audible(k)) trigger(k, undefined, false, undefined, VEL_GAIN[n] ?? 1);
-  if (r || dtFace.personal().trkSelect === 'auto') {
+  const sounds = !!r || mode === 'normal' || mode === 'manual';
+  if (sounds && r !== 'quiet' && audible(k)) trigger(k, undefined, false, undefined, VEL_GAIN[n] ?? 1);
+  if (r || mode !== 'manual') {
     if (activeTrack.get() !== k) {
       trackSelect(k);
       if (!r) lcdMessage.show(`${trackName(k)}${dtFace.live() ? ' · PLAY: LIVE REC' : ''}`, 900);

@@ -49,8 +49,14 @@ export interface DtFaceStateDt2 extends DtFaceState {
  * cote, hors du contrat.
  */
 export type LedIntensity = 'low' | 'mid' | 'max';
-/** TRK SELECT (PERSONALIZE) : auto, un TRIG hors REC choisit aussi sa piste (le comportement d'avant) ; manual, il la joue seulement. */
-export type TrkSelect = 'auto' | 'manual';
+/**
+ * TRK SELECT (PERSONALIZE, manuel DT2 14.7.9 ; l'integration de la V.6.0 prend les quatre modes du menu de B5) : ce que fait
+ * un TRIG hors REC. normal : il joue sa piste et la choisit (le comportement d'avant) ; silent : il la choisit sans la
+ * jouer ; manual : il la joue sans la choisir ; inverted : il la choisit sans la jouer, et TRK + TRIG la joue sans la
+ * choisir. Les reglages vivent dans le menu SETTINGS (scene/screen/menus/settings.ts personalize, garde dans le
+ * navigateur), qui les pose ici ; SETTINGS tenu + TRIG les change ici, le menu les reprend.
+ */
+export type TrkSelect = 'normal' | 'silent' | 'manual' | 'inverted';
 export interface DtPersonal {
   readonly led: LedIntensity;
   readonly backlight: boolean;
@@ -60,7 +66,7 @@ export interface DtPersonal {
 const INIT: DtFaceStateDt2 = { rec: false, mute: 'off', bank: false, live: false, keyboard: false, song: 'off', menu: null, ptnPage: 0 };
 let state: DtFaceStateDt2 = INIT;
 let lastMute: Exclude<MuteView, 'off'> = 'global';
-let personal: DtPersonal = { led: 'max', backlight: true, trkSelect: 'auto' };
+let personal: DtPersonal = { led: 'max', backlight: true, trkSelect: 'normal' };
 const listeners = new Set<() => void>();
 
 function set(next: Partial<DtFaceStateDt2>): void {
