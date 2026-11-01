@@ -36,16 +36,24 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
-import { gesture, patternHold, patternTap } from '../actions';
+import { gesture, patternHold, patternTap, phoneBank, phoneBankToggle, phonePick } from '../actions';
 import { INSTRUMENTS, STEP_COUNT, VEL_MAX, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import { lockCount } from '../audio/locks';
+import { TRACK_KEYS, isLegacyTrack, type TrackKey } from '../audio/tracks';
 import type { Stage } from '../scene/renderer';
 import { dtFace } from '../state/dtFace';
 import { editor } from '../state/editor';
 import { BANK_SIZE, bankName, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
-import { DT_FACE, type Inst } from '../theme';
+import { DT_FACE } from '../theme';
 import { useEditorPanel } from './editorPanel';
+
+/**
+ * V.6.0 (2026-11-01, la refonte Digitakt II, cahier dt2 1.3, lane B6) : la bascule 1-8 / 9-16 (actions/phone.ts
+ * phoneBank) dans l'en-tete, montree seulement si le pattern ou le kit se servent d'une piste 9 a 16 (sans elle, l'editeur
+ * de la V.5.3 au pixel pres) ; allumee, les huit rangees sont T9 a T16 (toucher un nom : la piste du telephone).
+ */
+const HI_TRACKS: readonly TrackKey[] = TRACK_KEYS.slice(8);
 
 /** Tenir un emplacement vide (ms) : il recoit une copie du pattern courant. */
 const HOLD_MS = 500;
@@ -119,7 +127,7 @@ const VEL_DRAG_PX = 6;
 /** Un geste dans la grille : il attend (tape), peint une rangee, ou regle une velocite. */
 interface Grip {
   id: number;
-  inst: Inst;
+  inst: TrackKey;
   r: number;
   c: number;
   x0: number;
@@ -145,7 +153,13 @@ interface Props {
 export const BeatEditor: React.FC<Props> = ({ variant }) => {
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
   const head = useSyncExternalStore(playhead.subscribe, playhead.get, playhead.get);
-  const [row, setRow] = useState<Inst>(p.instrument ?? 'BD');
+  // V.6.0 : la bascule 1-8 / 9-16 (montree : bank.shown ; 9-16 : hi), les huit rangees affichees
+  const bank = useSyncExternalStore(phoneBank.subscribe, phoneBank.get, phoneBank.get);
+  const hi = bank.shown && bank.hi;
+  const ROWS: readonly TrackKey[] = hi ? HI_TRACKS : INSTRUMENTS;
+  const [row0, setRow] = useState<TrackKey>(p.instrument ?? 'BD');
+  // La rangee choisie suit la rangee affichee (une voix 1 a 8, ou en 9-16 la piste du telephone)
+  const row: TrackKey = hi ? (ROWS.includes(row0) ? row0 : (bank.track ?? HI_TRACKS[0])) : ROWS.includes(row0) ? row0 : (p.instrument ?? 'BD');
   const [cell, setCell] = useState({ r: 0, c: 0 });
   const grid = useRef<HTMLDivElement>(null);
   const lane = useRef<HTMLDivElement>(null);
@@ -168,9 +182,11 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
     if (p.instrument) setRow(p.instrument);
   }, [p.instrument]);
 
-  const choose = (inst: Inst): void => {
+  const choose = (inst: TrackKey): void => {
     setRow(inst);
-    pattern.select(inst);
+    // V.6.0 : une piste 9 a 16 devient la piste du telephone (la machine ne la choisit pas encore, B4)
+    if (isLegacyTrack(inst)) pattern.select(inst);
+    else phonePick(inst);
   };
 
   /** La case sous le pointeur : rangee et pas ; null hors de la grille. */
@@ -179,7 +195,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
-    const r = Math.min(INSTRUMENTS.length - 1, Math.floor(((y - rect.top) / rect.height) * INSTRUMENTS.length));
+    const r = Math.min(ROWS.length - 1, Math.floor(((y - rect.top) / rect.height) * ROWS.length));
     const c = Math.min(STEP_COUNT - 1, Math.floor(((x - rect.left) / rect.width) * STEP_COUNT));
     return { r, c };
   };
@@ -195,7 +211,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
       /* pointeur deja relache */
     }
     gesture();
-    const inst = INSTRUMENTS[at.r];
+    const inst = ROWS[at.r];
     const had = velocity(pattern.get().steps, inst, at.c);
     // Une case vide se remplit tout de suite ; une pleine attend : la tape l'enleve, l'appui tenu regle sa velocite
     if (had === 0) pattern.set(inst, at.c, PEN);
@@ -290,11 +306,11 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
     if (e.key === 'ArrowLeft') nc = Math.max(0, c - 1);
     else if (e.key === 'ArrowRight') nc = Math.min(STEP_COUNT - 1, c + 1);
     else if (e.key === 'ArrowUp') nr = Math.max(0, r - 1);
-    else if (e.key === 'ArrowDown') nr = Math.min(INSTRUMENTS.length - 1, r + 1);
+    else if (e.key === 'ArrowDown') nr = Math.min(ROWS.length - 1, r + 1);
     else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       gesture();
-      const inst = INSTRUMENTS[r];
+      const inst = ROWS[r];
       pattern.set(inst, c, velocity(pattern.get().steps, inst, c) > 0 ? 0 : PEN);
       choose(inst);
       return;
@@ -333,6 +349,18 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
         <span className="v4-seq-chord" aria-live="polite">
           {row}
         </span>
+        {bank.shown && (
+          <button
+            type="button"
+            className="v4-seq-mode"
+            data-bank="1"
+            aria-pressed={hi}
+            aria-label={hi ? 'Tracks 9 to 16 shown. Press for tracks 1 to 8' : 'Tracks 1 to 8 shown. Press for tracks 9 to 16'}
+            onClick={() => phoneBankToggle()}
+          >
+            9-16
+          </button>
+        )}
         <button
           type="button"
           className="v4-seq-mode v4-beat-clear"
@@ -351,7 +379,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
       </div>
       <div className="v4-beat-main">
         <div className="v4-beat-names" role="group" aria-label="Voices">
-          {INSTRUMENTS.map((inst) => (
+          {ROWS.map((inst) => (
             <button key={inst} type="button" className="v4-beat-name" aria-pressed={inst === row} onClick={() => choose(inst)}>
               {inst}
             </button>
@@ -368,7 +396,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
           onPointerUp={(e) => onGridUp(e, false)}
           onPointerCancel={(e) => onGridUp(e, true)}
         >
-          {INSTRUMENTS.map((inst, r) => (
+          {ROWS.map((inst, r) => (
             <div key={inst} className="v4-beat-row" role="row" data-sel={inst === row ? '1' : '0'}>
               {STEPS.map((c) => {
                 const v = velocity(p.steps, inst, c);
