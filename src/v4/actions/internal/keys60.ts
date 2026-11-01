@@ -50,8 +50,11 @@ import { heardNow, liveRunning, liveVel } from './live';
 import { tapTempo } from './transport';
 import { bankViewClose, bankViewToggle } from './patterns';
 import { randomPage, reloadPage } from './pages';
-import { rytmLockTap } from '../locks';
+import { lockMode, rytmLockTap } from '../locks';
 import { liveHit } from '../live';
+// Apres ../locks (qui l'evalue deja par ../anyDial) : l'ordre de chargement ne change pas
+import { faceKnobReset } from '../dials';
+import { faceTouch } from '../../state/ctl';
 
 /* ---------------- les mots ---------------- */
 
@@ -441,6 +444,72 @@ export function trigLockTrig(i: number, stage: Stage | null): void {
   pattern.setLock(k, [i], 'ltrg', 1);
   rytmPage.select(i);
   lcdMessage.show(vel > 0 ? `STEP ${two(i + 1)} ${trackName(k)} NOW A LOCK TRIG` : `STEP ${two(i + 1)} ${trackName(k)} LOCK TRIG: HOLD + KNOB`, 1800);
+}
+
+/* ---------------- les potards presses et les TRIG tenus au pointeur (cahier 2.7, 3.1, 3.3 ; la relecture) ---------------- */
+
+/** Le dernier potard A a H clique sans glisser (presse) et l'heure : il le reste DT_GESTURE.pageArmMs pour NO. */
+let knobClick: { k: number; at: number } | null = null;
+
+/** Le potard presse (tenu sans tourner, ou clique sans glisser il y a moins de pageArmMs) : son index, -1 aucun. */
+export function knobPressed(now = performance.now()): number {
+  for (let k = 0; k < 8; k += 1) if (faceTouch.pressed(k)) return k;
+  return knobClick && now - knobClick.at <= DT_GESTURE.pageArmMs ? knobClick.k : -1;
+}
+
+/**
+ * Un potard A a H clique sans glisser (la face DT2) : un TRIG tenu (le P-LOCK), le verrou de ce reglage s'en va (TRIG +
+ * potard presse) et le clic est pris ; sinon il reste presse pour NO (potard presse + NO = sa valeur de depart).
+ */
+export function knobClick60(k: number): boolean {
+  if (!DT2_FACE || k < 0 || k > 7) return false;
+  if (lockMode()) {
+    knobClick = null;
+    faceKnobReset(k);
+    return true;
+  }
+  knobClick = { k, at: performance.now() };
+  return false;
+}
+
+/** NO avec un potard presse : sa valeur de depart (ou, en P-LOCK, son verrou retire) ; true s'il y en avait un. */
+export function knobNo(): boolean {
+  const k = knobPressed();
+  if (k < 0) return false;
+  knobClick = null;
+  faceKnobReset(k);
+  return true;
+}
+
+/** Les TRIG tenus par Maj + clic (cahier 2.7) : tenus jusqu'a la sortie du P-LOCK, ou un autre Maj + clic sur eux. */
+const sticky = new Set<number>();
+
+/** Maj + clic sur un TRIG en GRID REC : il s'ajoute aux TRIG tenus (ou s'en retire) ; true si le clic est pris. */
+export function stepShiftHold(i: number): boolean {
+  if (!DT2_FACE || !recOpen() || liveOpen() || ptnView() || bankView() || muteOpen() || !activeTrack.get()) return false;
+  if (!Number.isInteger(i) || i < 0 || i > 15) return false;
+  if (sticky.has(i)) {
+    sticky.delete(i);
+    rytmLock.release(i);
+  } else {
+    // Le P-LOCK d'abord (garde) : la sortie du P-LOCK lache les TRIG tenus, il ne faut pas qu'elle les voie avant
+    if (rytmLock.get().step < 0) rytmLock.enter(i, true);
+    sticky.add(i);
+    rytmLock.hold(i);
+  }
+  rytmPage.select(i);
+  lcdMessage.show(sticky.size > 0 ? `${sticky.size} TRIG${sticky.size > 1 ? 'S' : ''} HELD · TURN A KNOB` : 'NO TRIG HELD', 1400);
+  return true;
+}
+
+if (DT2_FACE && typeof window !== 'undefined') {
+  // Le P-LOCK quitte (Echap, NO, REC eteint, une autre machine) : les TRIG tenus par Maj + clic se lachent
+  rytmLock.subscribe(() => {
+    if (rytmLock.get().step >= 0 || sticky.size === 0) return;
+    const all = [...sticky];
+    sticky.clear();
+    for (const i of all) rytmLock.release(i);
+  });
 }
 
 /* ---------------- SETTINGS tenu + TRIG (cahier 3.1 : l'intensite des LED, le retroeclairage) ---------------- */

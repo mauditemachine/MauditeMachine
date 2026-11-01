@@ -11,6 +11,8 @@ const KNOBS = 8;
 const holders: number[] = new Array(KNOBS).fill(0);
 const turnedAt: number[] = new Array(KNOBS).fill(-Infinity);
 const turnedBy: (CtlSrc | null)[] = new Array(KNOBS).fill(null);
+/** l'instant ou le potard a ete pris (le premier appui) */
+const downAt: number[] = new Array(KNOBS).fill(-Infinity);
 
 /**
  * La velocite de la note MIDI qui appuie en ce moment une cible (V.5.3, LIVE REC : un pad au MIDI s'ecrit a sa velocite),
@@ -21,7 +23,13 @@ export const pressVel: { v: number | null } = { v: null };
 export const faceTouch = {
   /** un pointeur (ou le toucher du materiel) prend le potard k */
   down(k: number, _src: CtlSrc = 'ptr'): void {
-    if (k >= 0 && k < KNOBS) holders[k] += 1;
+    if (k < 0 || k >= KNOBS) return;
+    if (holders[k] === 0) downAt[k] = performance.now();
+    holders[k] += 1;
+  },
+  /** presse (V.6.0, la face DT2, cahier 2.7) : tenu sans avoir tourne depuis l'appui */
+  pressed(k: number): boolean {
+    return k >= 0 && k < KNOBS && holders[k] > 0 && turnedAt[k] < downAt[k];
   },
   /** il le lache */
   up(k: number): void {

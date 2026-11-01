@@ -40,6 +40,9 @@ import {
   copy60,
   dispatch,
   dropPrepared,
+  knobClick60,
+  knobNo,
+  stepShiftHold as stepShiftHold60,
   faceMenuOf,
   menuInput,
   menuLog,
@@ -298,6 +301,8 @@ function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
       dropPrepared();
       return escape();
     }
+    // Un potard presse + Echap (le NO du clavier) : sa valeur de depart (cahier 2.7)
+    if (knobNo()) return true;
     return noBody(stage, true);
   }
   // Un jumeau, le MIDI : l'appui n'a pas eu lieu, il part maintenant
@@ -991,6 +996,22 @@ export function trackMuteFlip(k: TrackKey): void {
 }
 /** La piste active (1 a 16), null : aucune (la face DT2 ; sinon la voix du motif). */
 export const activeTrackKey = (): TrackKey | null => activeTrack.get();
+
+/**
+ * Un potard A a H clique sans glisser au pointeur (la face DT2, cahier 2.7 ; la relecture de la V.6.0) : un TRIG tenu (le
+ * P-LOCK), le verrou de ce reglage s'en va et le clic est pris (true) ; sinon le potard reste presse 1,5 s pour NO (sa
+ * valeur de depart) et le clic suit son chemin (la double tape remet aussi a zero).
+ */
+export function faceKnobPress(k: number): boolean {
+  if (!DT2_FACE) return false;
+  return knobClick60(k);
+}
+
+/** Maj + clic sur un TRIG (la face DT2, GRID REC, cahier 2.7) : un TRIG tenu de plus (ou de moins) ; true si pris. */
+export function stepShiftHold(i: number): boolean {
+  if (!DT2_FACE) return false;
+  return stepShiftHold60(i);
+}
 
 /**
  * Les LED des touches de la face DT2 que la saisie pose (cahier 2.4) : le menu ouvert (PRESET/KIT, SETTINGS, SOUNDS,

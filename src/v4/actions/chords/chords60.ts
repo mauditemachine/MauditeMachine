@@ -24,6 +24,8 @@ import {
   fillLatch,
   fillUnlatch,
   hint60,
+  knobNo,
+  knobPressed,
   liveOpen,
   menuInput,
   menuOpen,
@@ -234,6 +236,8 @@ export const CHORDS_60: readonly Chord[] = [
     },
   }),
   c({ id: 'no.func', key: 'no', gesture: 'press', mods: ['func'], prio: 90, info: 'no', run: () => reloadKey() }),
+  // Un potard presse (tenu sans tourner, ou clique sans glisser juste avant) + NO : sa valeur de depart (cahier 2.7, 3.1)
+  c({ id: 'no.knob', key: 'no', gesture: 'press', mods: [], prio: 82, info: 'no', when: () => knobPressed() >= 0, run: () => knobNo() }),
   c({ id: 'no.page', key: 'no', gesture: 'press', mods: [], prio: 80, info: 'no', when: () => pageArmed() && !!st.savePoint, run: () => pageReload() }),
   c({ id: 'no', key: 'no', gesture: 'release', mods: [], prio: 0, info: 'no', run: () => void noBody(stageNow()) }),
 
