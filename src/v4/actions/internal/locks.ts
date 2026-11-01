@@ -16,7 +16,7 @@ import { DT2_FACE, LCD_NO_VOICE, POT_UI, potMin, type EncId, type Inst } from '.
 import { isLegacyTrack, type TrackKey } from '../../audio/tracks';
 import { activeTrack } from '../../state/trk';
 import { TAP_VEL_DEFAULT } from '../../state/rytmPage';
-import { isDialV60 } from '../../scene/screen/menus/registry';
+import { dialSpecOf, isDialV60 } from '../../scene/screen/menus/registry';
 import { two } from '../shared';
 import { firstSampleOf, layerSpan, layerTop, trackSampleList, voiceSoundAt } from './kit';
 import { kitIdOf, layerIdOf, mixValueOf, pageSlotOf, soundFamily, voiceSounds } from '../kit';
@@ -180,6 +180,12 @@ export function slotDomain(slot: PageSlot): [number, number] {
   const sd = seqDialOf(t);
   if (sd) return seqRange(sd);
   if (kitIdOf(t)) return [0, 1];
+  // V.6.0 (l'integration) : un reglage de piste ou de menu (t:, k:, z:) a la course de sa fiche (t:tune va sous 0, comme la
+  // TUNE des voix ; avant, potMin d'un id inconnu bornait le verrou a 0..1)
+  if (isDialV60(t)) {
+    const r = dialSpecOf(t)?.range();
+    return r ? [r[0], r[1]] : [0, 1];
+  }
   return [potMin(t as EncId), 1];
 }
 
