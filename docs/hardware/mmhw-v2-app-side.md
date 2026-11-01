@@ -71,7 +71,7 @@ Les touches nouvelles de la face reçoivent des notes **proposées, à confirmer
 | PRESET/KIT | note 76 | `rytm:preset` (la liste des presets, encore : fermée) |
 | SETTINGS | note 77 | `rytm:settings` (SOON tant que son menu n'est pas là) |
 | SOUNDS | note 78 | `rytm:sounds` (la liste des sons de la piste) |
-| TEMPO | note 81 | `rytm:screen:tempo` ; FUNC + TEMPO : `rytm:tap` |
+| TEMPO | note 81 | `rytm:screen:tempo` (sur la face DT2 : la touche TEMPO de la face, son menu de 30 à 300 BPM, encore : fermé ; l'ancienne page sur la face V.5.3) ; FUNC + TEMPO : `rytm:tap` |
 | UP, DOWN, LEFT, RIGHT | notes 82, 83, 84, 85 | `rytm:up`, `rytm:down`, `rytm:left`, `rytm:right` |
 | PAGE | note 86 | `rytm:ptnpage` (tenue : FILL) ; `rytm:fill` anime désormais PAGE sur la face DT2 |
 

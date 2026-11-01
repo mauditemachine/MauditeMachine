@@ -42,8 +42,18 @@ function pageKeyMidi(id: RytmPageId): void {
 function menuClose60(): void {
   if (DT2_FACE && openMenuId() !== null) setOpenMenu(null);
 }
-/** rytm:screen:<ecran> : l'onglet de sa page (la face DT2 : le menu ouvert se ferme d'abord). */
+/**
+ * rytm:screen:<ecran> : l'onglet de sa page (la face DT2 : le menu ouvert se ferme d'abord). rytm:screen:tempo sur la face
+ * DT2 (la relecture de la V.6.0) : la touche TEMPO de la face (faceKeyTap) : le menu TEMPO de B5 (30 a 300 BPM au dixieme,
+ * SWING jusqu'a 80 %), encore : il se ferme ; FUNC + TEMPO : TAP. C'est la cible que MIDI LEARN apprend sur la touche TEMPO
+ * (DT2_ZONES tempo.midi[0]) et celle de la note 81 du boitier : avant, elle ouvrait l'ancienne page TEMPO (100 a 150, un
+ * tempo de 85 sautait a 100 au premier geste du potard A). La face V.5.3 (?face=v5) garde l'ancienne page.
+ */
 function screenTab60(sc: RytmScreenId): void {
+  if (DT2_FACE && sc === 'tempo') {
+    faceKeyTap('tempo', getStage(), 'midi');
+    return;
+  }
   menuClose60();
   rytmScreenTab(sc);
 }
