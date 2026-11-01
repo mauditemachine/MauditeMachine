@@ -11,8 +11,12 @@ export interface MidiTarget {
   scope: TargetScope;
   /** son nom (le panneau MIDI) */
   label: string;
-  /** value : un parametre ; press : une action au premier appui ; hold : appui puis relachement */
-  kind: 'value' | 'press' | 'hold';
+  /**
+   * value : un parametre ; press : une action au premier appui ; hold : appui puis relachement ; relative (V.6.0, B6,
+   * cahier dt2 2.6) : un encodeur sans butee (LEVEL/DATA, rytm:data), turn(crans) a chaque message, decode par
+   * midi/relative.ts ; jamais de retour vers un moteur (rien a y montrer)
+   */
+  kind: 'value' | 'press' | 'hold' | 'relative';
   /** valeur de 0 a 1 */
   get?: () => number;
   set?: (v: number) => void;
@@ -36,4 +40,6 @@ export interface MidiTarget {
   gate?: 'nonzero';
   down?: () => void;
   up?: () => void;
+  /** relative : delta crans signes (+ vers la droite, vers le bas d'une liste) */
+  turn?: (delta: number) => void;
 }

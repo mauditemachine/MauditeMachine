@@ -84,6 +84,7 @@
  */
 
 import { context } from '../audio/drums';
+import { normTrackKey } from '../audio/tracks';
 import { bassLoad } from '../state/bassload';
 import { djLoad } from '../state/djload';
 import { MACHINES, focus, type Focus, type MachineId } from '../state/focus';
@@ -95,6 +96,7 @@ import { isSeqSetup, rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetu
 import { seqAttach, seqCancelAll, seqDrop, seqDropAll, seqInvalidate, seqIsStep, seqKnobGuard, seqKnobTurn, seqLed, seqMsgAt, seqOwns, seqResendAll, seqSeen, seqStepOf } from './seqlink';
 import { MACHINE_NAME, prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
 import { isHwPort } from '../hw/port';
+import { relDecode, relStart, type RelState } from './relative';
 
 export type MidiKind = 'cc' | 'note' | 'pb';
 export interface MidiMsg {
@@ -247,7 +249,21 @@ function targetNow(t: string): string | null {
   if (t === 'rytm:kit:hh') return 'rytm:kit:ch';
   if (t.startsWith('rytm:layer:hh:')) return `rytm:layer:ch:${t.slice('rytm:layer:hh:'.length)}`;
   if (t === 'rytm:kit:rs' || t.startsWith('rytm:layer:rs:')) return null;
-  return t;
+  return trackAliasNow(t);
+}
+
+/**
+ * Les alias de pistes (V.6.0, cahier dt2 4.1 et 4.5 : "targetNow accepte T1..T8") : une assignation qui nomme la piste 1 a 8
+ * par son numero (rytm:voice:T1:level, rytm:pad:T3, rytm:voice:select:T2, rytm:seq:voice:T5, un fichier d'un autre
+ * controleur, un setup ecrit a la main) vise la cle de la piste, BD a CY (audio/tracks.ts normTrackKey) : la seule qu'on
+ * ecrit. T9 a T16 sont deja des cles. Seuls les segments de piste de ces formes sont lus ; rien d'autre ne change.
+ */
+const TRACK_ALIAS_RE = /^rytm:(voice:select|seq:voice|voice|pad):([Tt][1-8])(:|$)/;
+function trackAliasNow(t: string): string {
+  const m = TRACK_ALIAS_RE.exec(t);
+  if (!m) return t;
+  const k = normTrackKey(m[2]);
+  return k ? `rytm:${m[1]}:${k}${t.slice(m[0].length - m[3].length)}` : t;
 }
 
 /** Des assignations lues (stockage, fichier importe) : seulement des chaines bien formees, vers une cible qui existe encore. */
@@ -666,6 +682,8 @@ let seqEchoSeen = 0;
 let seqEchoMax = 0;
 /** L'appui accepte de chaque bouton de ces setups : son ecart a la derniere LED de meme valeur (un echo appris apres coup l'annule). */
 const seqPressLag = new Map<string, number>();
+/** Le mode devine de chaque cle qui pilote une cible relative (midi/relative.ts), oublie a chaque nouvelle assignation. */
+const relState = new Map<string, RelState>();
 /** Le dernier message par cle (un meme message d'une deuxieme entree), et le dernier geste par cle (un potard au repos). */
 const lastIn = new Map<string, { device: string; sig: string; t: number }>();
 const lastAt = new Map<string, number>();
@@ -679,6 +697,20 @@ function apply(t: MidiTarget, m: MidiMsg, key: string, sk: string, toggle: boole
   if (tap) {
     t.down?.();
     t.up?.();
+    return;
+  }
+  // Un encodeur sans butee (V.6.0, rytm:data) : des crans signes ; une note enfoncee, un cran ; le pitch bend, un potard
+  if (t.kind === 'relative') {
+    if (m.kind === 'note') {
+      if (isOn) t.turn?.(1);
+      return;
+    }
+    const v7 = Math.round(m.value * 127);
+    const rs = relState.get(key) ?? relStart(m.kind === 'pb' || m.device === undefined || ROTO_NAME.test(m.device));
+    const r = relDecode(rs, v7);
+    relState.set(key, r.next);
+    if (r.delta !== 0) t.turn?.(r.delta);
+    touchedAt.set(sk, performance.now());
     return;
   }
   if (t.kind === 'value') {
@@ -1006,6 +1038,8 @@ export function bind(targetId: string, key: string, device?: string): void {
   set({ outputs: outputNames() });
   save();
   for (const k of [...sent.keys()]) if (k.endsWith(`|${key}`)) sent.delete(k);
+  // Une cle reapprise : son mode relatif se devine de nouveau (un autre potard, un autre reglage du controleur)
+  relState.delete(key);
 }
 
 /** L'appareil des cles qui ne sont plus apprises nulle part s'oublie. */

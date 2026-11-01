@@ -34,8 +34,8 @@ export const RESERVED_TARGET_IDS = {
 export const TEMPO_RANGE_DT2 = { bpm: [30, 300], swing: [50, 80] } as const;
 
 /**
- * Le kind relatif (2.6, critique C4) : MidiTarget.kind n'a aujourd'hui que value, press et hold ; rytm:data (LEVEL/DATA,
- * un encodeur sans butee) sera 'relative' (MIDI LEARN, la detection des CC relatifs et le retour Roto : B6 en V.6.0).
- * Ce type ne s'ajoute a MidiTarget qu'avec son code.
+ * Le kind relatif (2.6, critique C4) : rytm:data (LEVEL/DATA, un encodeur sans butee) est 'relative'. V.6.0 (B6) l'a ajoute
+ * a MidiTarget avec son code : turn(crans), la detection des CC relatifs (midi/relative.ts), MIDI LEARN comme les autres,
+ * aucun retour vers un moteur (Roto compris). Ce type reste pour les lecteurs de P0.
  */
 export type MidiTargetKindDt2 = MidiTarget['kind'] | 'relative';
