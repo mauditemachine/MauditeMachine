@@ -155,7 +155,10 @@ export const TRACK_VOICE_LEGACY: Readonly<Record<TrackKey, Readonly<TrackVoice>>
   T15: { vmode: 'mono', choke: 0, gated: false },
   T16: { vmode: 'mono', choke: 0, gated: false },
 };
-/** Les pistes poly d'heritage : 4 sources au plus (la plus vieille coupee en 8 ms). */
+/**
+ * Une piste poly : 4 sources au plus (la plus vieille coupee en 8 ms). Relecture de V.5.9 (R5) : seulement les pistes 9 a
+ * 16 (les pistes 1 a 8 n'avaient aucun plafond en V.5.3, et sonnent comme elle).
+ */
 export const LEGACY_POLY_MAX = 4;
 
 /** Ce que la DT2 range dans le kit en plus des 16 sons (MIXER, menu KIT). */
@@ -593,11 +596,21 @@ const readKey = (k: string): string | null => {
 
 /** D'ou vient le kit de ce chargement : les vieilles cles seules, TRACKS_KEY, ou les deux (un retour arriere entre-temps). */
 let loadedFrom: 'legacy' | 'tracks' | 'mixed' = 'legacy';
+/**
+ * Les vieilles cles telles que CET onglet les connait (relecture de V.5.9, R1) : lues au chargement, puis ce qu'il y a
+ * lui-meme ecrit. L'empreinte de TRACKS_KEY se prend sur elles, pas sur le stockage du moment : un autre onglet (V.5.3 ou
+ * V.5.9) qui a re-ecrit le kit ou les voix depuis ne passe pas pour ce que ce kit connait ; au chargement suivant,
+ * l'empreinte differe, et les pistes 1 a 8 viennent des vieilles cles (mixed) : les deux editions sont gardees.
+ */
+let seenKit: string | null = null;
+let seenVoices: string | null = null;
 
 function load(): Kit16 {
   if (typeof window === 'undefined') return kit16FromLegacy(defaultKit(), parseVoices(null));
   const rk = readKey(KIT_KEY);
   const rv = readKey(VOICES_KEY);
+  seenKit = rk;
+  seenVoices = rv;
   const legacy = kit16FromLegacy(parseKit(rk), parseVoices(rv));
   const raw = readKey(TRACKS_KEY);
   if (!raw) return legacy;
@@ -647,7 +660,9 @@ function flushSave(): void {
   if (!s) return;
   if (dirtyKit) {
     try {
-      s.setItem(KIT_KEY, JSON.stringify({ v: KIT_V, ...legacyKit() }));
+      const out = JSON.stringify({ v: KIT_V, ...legacyKit() });
+      s.setItem(KIT_KEY, out);
+      seenKit = out;
     } catch {
       /* stockage plein ou refuse : le kit vit pour la visite */
     }
@@ -657,6 +672,7 @@ function flushSave(): void {
       const out = voicesOut(legacyVoices());
       if (out) s.setItem(VOICES_KEY, out);
       else s.removeItem(VOICES_KEY);
+      seenVoices = out || null;
     } catch {
       /* stockage plein ou bloque : les reglages vivent pour la visite */
     }
@@ -664,7 +680,7 @@ function flushSave(): void {
   dirtyKit = false;
   dirtyVoices = false;
   try {
-    const st: StoredTracks = { ...kit16ToStored(K), lg: legacyPrint(readKey(KIT_KEY), readKey(VOICES_KEY)) };
+    const st: StoredTracks = { ...kit16ToStored(K), lg: legacyPrint(seenKit, seenVoices) };
     s.setItem(TRACKS_KEY, JSON.stringify(st));
     saves += 1;
   } catch {
