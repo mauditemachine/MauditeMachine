@@ -54,6 +54,38 @@ Le séquenceur façon Digitakt (`docs/v4/digitakt-d2-spec.md`) ajoute, à la fin
 
 Les LED des pas (V.5.1) : dans la vue du motif, `hw.getSnapshot().leds.trigs` donne pour la voix choisie `{ lock, cond, color }` : `lock`, les pas (0 à 15) qui sont des lock trigs (un trig sans note : à allumer en jaune, `color` = `#FFD75E`, le jaune des verrous de la machine noire) ; `cond`, les pas dont le trig a une COND ou une PROB (un point jaune au coin sur la face : sur le boîtier, un clignotement lent du pas ou une LED atténuée, au choix du pont). `null` dans une autre vue (TRK, MUTE, PTN), sans voix choisie, ou au téléphone. `hw.getSnapshot().fill` dit si FILL est tenu.
 
+### V.6.0 (2026-11-01) : la face Digitakt II et les 16 pistes
+
+La refonte Digitakt II (`docs/v4/dt2/dt2-master-spec.md`, sections 2.6, 3.12 et 4.5) garde le boîtier tel quel : **ses quatorze touches et leurs notes gardent leur effet** (TRK 60, puis 61 à 73 ci-dessus), SCENE A et B (79, 80), le crossfader (CC 28), les potards (CC 20 à 27) et leur toucher (CC 30 à 37) ne changent pas. `src/v4/hw/rowLeds.ts` porte la liste : `FACE_KEYS_HW` (les quatorze, dans l'ordre d'avant) et `HW_KEY_NOTES` (chaque touche, sa note, sa cible, `confirmed` et `today`).
+
+Les touches nouvelles de la face reçoivent des notes **proposées, à confirmer avec protocol.js** (celles du contrat `src/v4/rytm/dtFaceIds.ts DT2_ZONES`, `npm run hw:test` le vérifie) :
+
+| Touche ou potard | Message proposé | Cible du site |
+|---|---|---|
+| MAIN VOLUME | CC 29 | `rytm:enc:level` (value ; le libellé dit MAIN VOLUME sur la face DT2) |
+| LEVEL/DATA | CC 38 | `rytm:data` (relative : le pont appelle `resolve('rytm:data').turn(crans)`, + vers la droite) |
+| KEYBOARD | note 74 | `rytm:keyboard` (SOON : inerte en V.6.0) |
+| SONG | note 75 | `rytm:song` (SOON : inerte en V.6.0) |
+| PRESET/KIT | note 76 | `rytm:preset` (la liste des presets, encore : fermée) |
+| SETTINGS | note 77 | `rytm:settings` (SOON tant que son menu n'est pas là) |
+| SOUNDS | note 78 | `rytm:sounds` (la liste des sons de la piste) |
+| TEMPO | note 81 | `rytm:screen:tempo` ; FUNC + TEMPO : `rytm:tap` |
+| UP, DOWN, LEFT, RIGHT | notes 82, 83, 84, 85 | `rytm:up`, `rytm:down`, `rytm:left`, `rytm:right` |
+| PAGE | note 86 | `rytm:ptnpage` (tenue : FILL) ; `rytm:fill` anime désormais PAGE sur la face DT2 |
+
+`rytm:data` est le premier contrôle **relatif** (`kind: 'relative'`, `turn(delta)`) : un encodeur sans butée. Le pont connaît le codage de son encodeur et passe directement les crans. Côté MIDI générique (MIDI LEARN d'un autre contrôleur), `src/v4/midi/relative.ts` devine le codage aux premières valeurs (potard absolu, complément à deux, décalage binaire, bit de signe) ; une entrée Roto est toujours absolue ; aucune valeur n'est renvoyée vers un moteur.
+
+Les pistes 9 à 16 ont leurs cibles, à la fin du groupe RYTM (rien d'avant ne bouge) : `rytm:voice:T9:<réglage>` à `rytm:voice:T16:<réglage>` (les réglages de voix, de trig et des LFO, comme BD à CY), `rytm:voice:<piste>:mute`, `rytm:pad:<piste>` (joue la piste à l'arrêt), `rytm:voice:select:<piste>` (SOON), `rytm:seq:voice:<piste>` (la voix des pas du Roto RSEQ), et `rytm:voice:<K>:tlev` (TRK LEV) pour les 16 pistes, BD à CY compris. Les ids BD à CY restent ceux des pistes 1 à 8 ; une assignation qui les nomme T1 à T8 est lue comme BD à CY.
+
+Ce que `getSnapshot()` ajoute (les champs d'avant ne changent pas) :
+- `track` (0 à 15, -1 aucune) et `trackName` (`T1` à `T16`, `''`) : la piste choisie ; `voice` reste la clé d'héritage (BD à CY) ;
+- `leds.face` : avec la face DT2 (`?face=dt2`), les 25 touches dans l'ordre de lecture (`DT2_KEYS_HW` : func kbd trk ptn song preset settings sounds tempo rec play stop trig src fltr amp fx mod yes up no left down right ptnpage), chacune `{ id, color, level, blink, double }` : FUNC blanc ; TRK rouge ; PTN rouge, vue BANK clignotante ; KEYBOARD rouge en mode clavier ; SONG rouge, SONG EDIT clignotant ; PRESET/KIT, SETTINGS, SOUNDS, TEMPO rouges leur menu ouvert, PRESET/KIT orange `#FF6A13` en PERFORM KIT ; REC rouge en GRID, clignotant en LIVE, double clignotement (`double`) en STEP, bleu `#4DA3FF` en euclidien ; PLAY vert ; PAGE rouge en FILL, clignotante en attente d'un cycle ; TRIG à MOD la page affichée, ou les pages qui portent les verrous d'un trig tenu ; STOP, YES, NO et les flèches : l'éclair de l'appui (le boîtier le fait lui-même). Lu sur la face 3D quand elle est là (`stage.faceKeys.info()`), sinon dans les stores. `[]` sans le drapeau (`keys` garde les quatorze) ;
+- `leds.pages` : avec la face DT2, les 8 LED de page `{ count, shown, playing, levels }` (`levels` : 8 éclats de 0 à 1, 1 à 4 en haut ; en V.6.0, 16 pas : la première pleine, les autres éteintes) ; `null` sans le drapeau ;
+- `leds.tracks` : tant que TRK est engagée, les seize pistes `{ i, name, color, level, bar }` (la piste choisie 1, les autres 0.22, une coupée 0.07 ; la barre `mute` sur une piste qui joue quand d'autres sont coupées, `solo` en solo) ; sans le drapeau, 9 à 16 restent éteintes (la face V.5.3 n'en montre que 8) ; `null` TRK éteinte. `leds.steps` garde les huit d'avant ;
+- `leds.grid` en mode MUTE : seize pistes avec la face DT2 (vert, magenta, blanc en solo), huit sans elle (comme avant).
+
+Les 8 LED de page n'ont pas encore de message : leur format attend `protocol.js` (cahier 3.12 : en 6.1 elles bougeront, 128 pas sur 8 pages).
+
 ## 2. Le port USB du boîtier
 
 `src/v4/hw/port.ts` : `HW_PORT = /MM-RYTM HW/i`, `isHwPort(nom)`.
@@ -150,7 +182,7 @@ L'état du retour d'un potard : `latest`, `at` (où le site croit le moteur), `t
 
 ## 5. Tester sans boîtier
 
-- `npm run hw:test` : les 16 tests du retour des moteurs (node 22.6 ou plus, sans dépendance ; l'horloge est fausse).
+- `npm run hw:test` : les tests du retour des moteurs (node 22.6 ou plus, sans dépendance ; l'horloge est fausse), puis ceux des LED (`scripts/hw-leds.test.mjs` : la rangée, PTN, BANK, les trigs ; depuis V.6.0 les quatorze touches et leurs notes, les 25 touches de la face DT2, leurs notes proposées contre `DT2_ZONES`, leurs LED, les seize pistes en TRK et en MUTE).
 - Dans la page (`?mute=1&debug=1&m=mm808`), sans jamais lancer RUN :
 
 ```js

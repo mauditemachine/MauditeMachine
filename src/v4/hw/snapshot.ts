@@ -10,7 +10,10 @@ import { faceKnobs, type KnobCause } from '../rytm/faceKnobs';
 import type { RytmPageId, RytmScreenId } from '../rytm/pages';
 import { sceneCount, type SceneId } from '../rytm/sceneData';
 import { muteLeds, trkLeds } from '../rytm/stepLeds';
-import { bankLeds, ptnLeds, rowLeds, trigLeds, type HwGridLed, type HwRowLed, type HwTrigLeds } from './rowLeds';
+import { bankLeds, faceLeds, muteLeds16, ptnLeds, rowLeds, trackLeds16, trigLeds, type FaceState, type HwFaceLed, type HwGridLed, type HwRowLed, type HwTrackLed, type HwTrigLeds, type TracksState } from './rowLeds';
+import { TRACK_KEYS, TRACK_NAMES, trackIndex } from '../audio/tracks';
+import { stageNow } from '../midi/targets/stage';
+import { lcdSamples } from '../state/lcdSamples';
 import { trigMarks } from '../rytm/trigMarks';
 import { fill } from '../state/fill';
 import { dtFace } from '../state/dtFace';
@@ -25,7 +28,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { tempoSync } from '../state/tempoSync';
 import { trk } from '../state/trk';
 import { voices } from '../state/voices';
-import { DT_FACE, DT_HEX_DARK, SCREEN_TOUCH, STEP_LIT, TRK_LIT, type Inst } from '../theme';
+import { DT2_FACE, DT_FACE, DT_HEX_DARK, SCREEN_TOUCH, STEP_LIT, TRK_LIT, type Inst } from '../theme';
 
 export interface HwKnob {
   /** 0 a 7 (CC 20 a 27 du boitier) */
@@ -80,6 +83,12 @@ export interface HwPresets {
 export interface HwSnapshot {
   readonly page: { readonly page: RytmPageId; readonly tab: number; readonly screen: RytmScreenId; readonly view: RytmView };
   readonly voice: Inst | null;
+  /**
+   * V.6.0 (cahier dt2 4.5 : "voice garde + track + trackName") : la piste choisie, 0 a 15 (-1 : aucune), et son nom (T1 a
+   * T16, '' : aucune). voice reste la cle d'heritage (BD a CY) des pistes 1 a 8.
+   */
+  readonly track: number;
+  readonly trackName: string;
   /** le pattern qui joue (A01 a H16), celui qui attend ; bank : la banque que montre la grille (V.5.2) */
   readonly pattern: { readonly slot: number; readonly name: string; readonly next: number; readonly bank: string };
   readonly tempo: number;
@@ -121,6 +130,18 @@ export interface HwSnapshot {
      * ou PROB (le point jaune) ; null : une autre vue, aucune voix choisie, le telephone
      */
     readonly trigs: HwTrigLeds | null;
+    /**
+     * V.6.0 (la face Digitakt II, ?face=dt2) : les 25 touches de la face DT2 dans l'ordre de lecture (hw/rowLeds.ts
+     * DT2_KEYS_HW, faceLeds), lues sur la face 3D quand elle est la ; [] sans le drapeau (keys garde les quatorze d'avant)
+     */
+    readonly face: readonly HwFaceLed[];
+    /** V.6.0 : les 8 LED de page (count, shown, playing, levels 0 a 1, 1 a 4 en haut) ; null sans le drapeau */
+    readonly pages: { readonly count: number; readonly shown: number; readonly playing: number; readonly levels: readonly number[] } | null;
+    /**
+     * V.6.0 : les seize pistes tant que TRK est engagee ({ i, name, color, level, bar }) ; 9 a 16 eteintes sans le drapeau
+     * (la face V.5.3 n'en a que 8) ; null : TRK eteinte. steps garde les huit d'avant.
+     */
+    readonly tracks: readonly HwTrackLed[] | null;
   };
   /** V.5.1 : FILL est tenu (YES tenu, rytm:fill) */
   readonly fill: boolean;
@@ -146,6 +167,38 @@ function trigLedsNow(inst: Inst): HwTrigLeds {
   const p = pattern.get();
   const m = trigMarks(p.steps[inst], p.locks, p.trigs, inst);
   return trigLeds(m.ltrg, m.cond, HW_PAL.yellow);
+}
+
+/** Les 8 LED de page en V.6.0 (16 pas, une page) : la premiere pleine, les autres eteintes (cahier dt2 2.4). */
+const PAGES_60 = { count: 1, shown: 0, playing: -1, levels: [1, 0, 0, 0, 0, 0, 0, 0] } as const;
+
+/**
+ * La face DT2 pour le boitier (V.6.0, ?face=dt2) : ce que montre la face 3D (scene/rytmFaceKeys.ts info() : menus, PERFORM,
+ * FILL, BANK, REC, verrous de page, LED de page, que B4 et B5 y posent), et les stores tant que la face n'est pas la (un
+ * test, le pont avant le premier rendu).
+ */
+function dt2Leds(ptnOpen: boolean, trkMode: FaceState['trk'], page: string, home: boolean): { face: HwFaceLed[]; pages: HwSnapshot['leds']['pages'] } {
+  const fi = stageNow()?.faceKeys?.info() ?? null;
+  const menu: FaceState['menu'] = fi?.menu ?? (presetMode.on('mm808') ? 'preset' : lcdSamples.isOpen() ? 'sounds' : null);
+  const rec: FaceState['rec'] = fi && fi.recMode !== 'off' ? fi.recMode : dtFace.rec() ? (dtFace.live() ? 'live' : 'grid') : 'off';
+  const state: FaceState = {
+    func: func.get().mode,
+    trk: trkMode,
+    ptn: ptnOpen,
+    bank: fi?.bank ?? (ptnOpen && dtFace.bank()),
+    keyboard: fi?.keyboard ?? false,
+    song: fi?.song ?? 'off',
+    menu,
+    perform: fi?.perform ?? false,
+    fill: fi && fi.fill !== 'off' ? fi.fill : fill.on ? 'on' : 'off',
+    rec,
+    play: clock.running ? 'run' : clock.paused ? 'pause' : 'stop',
+    page,
+    home,
+    pageLocks: fi?.pageLocks ?? [],
+  };
+  const pl = fi?.pageLeds ?? null;
+  return { face: faceLeds(state, HW_PAL), pages: pl ? { count: pl.count, shown: pl.shown, playing: pl.playing, levels: [...pl.levels] } : { ...PAGES_60, levels: [...PAGES_60.levels] } };
 }
 
 export function getSnapshot(causes?: KnobCauses): HwSnapshot {
@@ -181,17 +234,30 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   const keys = DT_FACE
     ? rowLeds({ func: func.get().mode, trk: t.mode, ptn: ptnOpen || presetMode.on('mm808'), rec: dtFace.rec(), live: dtFace.live(), play: clock.running ? 'run' : clock.paused ? 'pause' : 'stop', page: rp.page, home: rp.view === 'home' }, HW_PAL)
     : [];
+  // V.6.0 : les seize pistes (la face DT2 en montre 16, la V.5.3 8 : 9 a 16 eteintes), lues comme le sequenceur les lit
+  const tr: TracksState = {
+    cur: inst ? trackIndex(inst) : -1,
+    muted: TRACK_KEYS.map((k) => voices.isMuted(k)),
+    pmuted: TRACK_KEYS.map((k) => (p.pmutes as readonly string[]).includes(k)),
+    solo: TRACK_KEYS.map((k) => voices.isSolo(k)),
+    count: DT2_FACE ? 16 : 8,
+  };
   const grid =
     view === 'mute' || view === 'pmute'
-      ? muteLeds(view === 'mute' ? 'global' : 'pattern', v.muted, p.pmutes, v.solo, HW_PAL).map((l, i) => ({ i, color: l.color, level: l.level, blink: false }))
+      ? DT2_FACE
+        ? muteLeds16(view === 'mute' ? 'global' : 'pattern', tr, HW_PAL)
+        : muteLeds(view === 'mute' ? 'global' : 'pattern', v.muted, p.pmutes, v.solo, HW_PAL).map((l, i) => ({ i, color: l.color, level: l.level, blink: false }))
       : view === 'ptn'
         ? ptnLeds(bg.cur, bg.next, bg.chain, bg.filled, HW_PAL, STEP_LIT.dtEdit)
         : view === 'bank'
           ? bankLeds(bankOf(ps.cur), ps.bank, Array.from({ length: 8 }, (_, b) => patterns.bankFilled(b)), HW_PAL, STEP_LIT.dtEdit)
           : null;
+  const dt2 = DT2_FACE ? dt2Leds(ptnOpen, t.mode, rp.page, rp.view === 'home') : null;
   return {
     page: { page: rp.page, tab: rp.tabs[rp.page] ?? 0, screen: rytmPage.screen(inst), view: rp.view },
     voice: inst,
+    track: tr.cur,
+    trackName: tr.cur >= 0 ? (TRACK_NAMES[tr.cur] ?? '') : '',
     pattern: { slot: ps.cur, name: slotName(ps.cur), next: ps.next, bank: bankName(patterns.shown()) },
     tempo: p.bpm,
     sync: tempoSync.get() !== null,
@@ -215,6 +281,9 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
       view,
       grid,
       trigs: DT_FACE && view === 'pattern' && inst ? trigLedsNow(inst) : null,
+      face: dt2 ? dt2.face : [],
+      pages: dt2 ? dt2.pages : null,
+      tracks: engaged ? trackLeds16(tr, HW_PAL, TRK_LIT) : null,
     },
     presets: pv ? { stage: pv.stage, name: pv.name, keys: [...pv.keys], face: !SCREEN_TOUCH } : null,
     fill: fill.on,
