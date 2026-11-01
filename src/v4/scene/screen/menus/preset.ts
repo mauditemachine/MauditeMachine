@@ -71,7 +71,8 @@ function paint(screen: Screen): number {
   if (v.stage === 'name' && v.naming) {
     const n = v.naming;
     body += `|NAME ${n.text}@${n.at}`;
-    paintPopupBox(screen, [n.kind === 'new' ? 'SAVE AS' : 'RENAME', n.text, n.problem || ' '], 'UP/DOWN: LETTER  L/R: MOVE  YES: SAVE  NO: BACK');
+    paintPopupBox(screen, [n.kind === 'new' ? 'SAVE AS' : 'RENAME', ' ', n.problem || ' '], 'UP/DOWN: LETTER  L/R: MOVE  YES: SAVE  NO: BACK');
+    body += `|CURSOR ${paintName(screen, n.text, n.at)}`;
   } else if (v.stage !== 'browse') {
     const ks = questionKeys();
     qCursor = Math.min(qCursor, Math.max(0, ks.length - 1));
@@ -81,6 +82,30 @@ function paint(screen: Screen): number {
   }
   paintHint(screen, level === 'ops' ? 'UP/DOWN: CHOOSE   YES: DO IT   NO: BACK' : 'UP/DOWN: PRESET   YES: LOAD   RIGHT: OPERATIONS   NO: BACK');
   return 0;
+}
+
+/**
+ * Le nom en cours dans la fenetre SAVE AS ou RENAME (la deuxieme ligne du cadre des pop-ups, frame.ts paintPopupBox) : le
+ * caractere du curseur en negatif (relecture de la V.6.0 : on ne voyait pas quelle lettre UP / DOWN change ; comme les cases
+ * du RENAME de SETTINGS). Rend le nom avec le curseur entre crochets (les sondes).
+ */
+const NAME_Y = 62 + 18 + 15;
+const NAME_SIZE = 11;
+function paintName(screen: Screen, text: string, at: number): string {
+  const chars = [...text];
+  const a = Math.max(0, Math.min(Math.max(0, chars.length - 1), at));
+  // Une case par caractere, de la largeur du plus large (le curseur ne fait rien bouger) ; les cases vides de l'utilisateur
+  // (avant la barre) soulignees, comme le nom de la liste (____/DEEP KICK)
+  const cell = screen.textWidth('W', NAME_SIZE, 600) + 0.6;
+  const user = Math.max(0, text.indexOf('/'));
+  let cx = 160 - (cell * chars.length) / 2;
+  chars.forEach((ch, i) => {
+    if (i === a) screen.roundRect(cx, NAME_Y - NAME_SIZE + 1, cell, NAME_SIZE + 3.2, 1.6, INK);
+    if (ch !== ' ') screen.text(ch, cx + cell / 2, NAME_Y, NAME_SIZE, i === a ? BLACK : INK, 600, 'center');
+    else if (i !== a && i < user) screen.line([cx + 1.5, NAME_Y + 1, cx + cell - 1.5, NAME_Y + 1], HALF, 0.8);
+    cx += cell;
+  });
+  return `${chars.slice(0, a).join('')}[${chars[a] ?? ' '}]${chars.slice(a + 1).join('')}`;
 }
 
 function input(i: Parameters<NonNullable<ScreenMenu['onInput']>>[0]): boolean {
