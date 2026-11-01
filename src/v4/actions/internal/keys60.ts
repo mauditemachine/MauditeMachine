@@ -660,10 +660,11 @@ export function subPage(dir: -1 | 1): void {
 /** TRIG tenu + LEFT / RIGHT (cahier 3.3, uTIME) : le pas tenu (ses voisins tenus aussi) recule ou avance d'un cran (1/384). */
 export function microTime(dir: -1 | 1): boolean {
   const steps = rytmLock.targets();
-  const k = pattern.get().instrument;
+  // La piste active (l'integration de la V.6.0 : T9 a T16 compris)
+  const k = activeTrack.get();
   if (steps.length === 0 || !k) return false;
   const p = pattern.get();
-  const base = p.trigs[k]?.utime ?? 0;
+  const base = (p.trigs as Readonly<Partial<Record<TrackKey, { utime?: number }>>>)[k]?.utime ?? 0;
   let last = 0;
   for (const s of steps) {
     const cur = (p.locks[k]?.[String(s)] as { utime?: number } | undefined)?.utime ?? base;

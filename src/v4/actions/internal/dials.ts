@@ -18,7 +18,7 @@ import { st } from '../state';
 import { ctlAllApply, ctlAllOn, ctlAllStart } from '../ctlall';
 import { sceneHint } from './scenes';
 import { sampleDial, tapVelDial, voiceMixDial, voiceSoundDial } from './kit';
-import { lockWrite } from './locks';
+import { lockTrack, lockWrite } from './locks';
 import { liveKnobTurn, liveRunning } from './live';
 import { sceneTake } from '../scenes';
 import { anyDial, pageKnobLive } from '../anyDial';
@@ -91,7 +91,7 @@ export function pageDial(k: number, v: number): void {
   // LIVE REC (V.5.3, la revue de D3b R14) : un pas tenu n'y compte pas (c'est un pad)
   const lk = rytmLock.get();
   const held = liveOn() ? [] : lk.held;
-  if (editor.get() !== 'mm808' && held.length > 0 && !held.includes(lk.step) && pattern.get().instrument) rytmLockEnter(held[0], false);
+  if (editor.get() !== 'mm808' && held.length > 0 && !held.includes(lk.step) && lockTrack()) rytmLockEnter(held[0], false);
   // Une scene armee (2026-10-27) : le bloc ecrit dans la scene, jamais dans la base (un pas tenu gagne : le P-LOCK)
   if (held.length === 0 && sceneTake(`p:${k}` as DialId, v)) return;
   // En P-LOCK (2026-10-08) : le bloc pose le verrou du pas (des pas tenus), jamais la valeur de la voix

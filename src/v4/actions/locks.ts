@@ -26,7 +26,9 @@ import { recHoldHint } from './internal/steps';
 import type { ContEnc } from './internal/dials';
 import { layerSpan, sampleCtx, trackSampleList, voiceSoundAt } from './internal/kit';
 import { dialSpecOf, isDialV60 } from '../scene/screen/menus/registry';
-import { FAM_TAG, LOCK_FAMS, LOCK_NAMES, lockName, lockSampleCache, lockSoundCache, lockWrite } from './internal/locks';
+import { FAM_TAG, LOCK_FAMS, LOCK_NAMES, hiLockable, lockName, lockSampleCache, lockSoundCache, lockTrack, lockWrite } from './internal/locks';
+import { isLegacyTrack, type TrackKey } from '../audio/tracks';
+import { TAP_VEL_DEFAULT } from '../state/rytmPage';
 import { stepWrites } from './steps';
 import { anyDial, anyDialReset } from './anyDial';
 import { type DialId, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageSlotOf, voiceSounds, voiceSoundText, voiceSoundUnit } from './kit';
@@ -121,8 +123,10 @@ function slotLocked(slot: PageSlot, l: Readonly<StepLock>): boolean {
  */
 export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLock> | null): LockView | null {
   const slot = pageSlotOf(k);
-  const inst = pattern.get().instrument;
+  // La piste du P-LOCK (la face DT2 : la piste active, T9 a T16 compris : VEL et les reglages de piste seulement)
+  const inst = lockTrack();
   if (!slot || !inst) return null;
+  if (!isLegacyTrack(inst) && !hiLockable(slot)) return null;
   return slotLockView(slot, inst, step, lockArg);
 }
 
@@ -148,21 +152,25 @@ export interface LockLine extends LockView {
  * suivent, a leur nom : ils jouent encore, CLEAR les efface.
  */
 export function lockList(step: number, lockArg?: Readonly<StepLock> | null): LockLine[] {
-  const inst = pattern.get().instrument;
-  if (!inst || step < 0) return [];
-  const l = lockArg === undefined ? lockOf(pattern.get().locks, inst, step) : lockArg;
+  const track = lockTrack();
+  if (!track || step < 0) return [];
+  const l = lockArg === undefined ? lockOf(pattern.get().locks, track, step) : lockArg;
   if (!l) return [];
+  // Une piste 9 a 16 (la face DT2) : sa page SRC (1/2 et 2/2), les reglages de piste
+  const legacy = isLegacyTrack(track);
+  const inst = legacy ? track : null;
   const out: LockLine[] = [];
   const seen = new Set<string>();
-  for (const sc of allScreens(inst)) {
+  for (const sc of legacy ? allScreens(inst) : (['voice', 'synth'] as const)) {
     for (const slot of pageSlots(sc, inst)) {
       if (!slot.lock || slot.lock === 'vel' || slot.graph) continue;
+      if (!legacy && !hiLockable(slot)) continue;
       const keys = slotLockKeys(slot);
       if (keys.every((x) => seen.has(x)) || !slotLocked(slot, l)) continue;
-      const lv = slotLockView(slot, inst, step, l);
+      const lv = slotLockView(slot, track, step, l);
       if (!lv) continue;
       for (const x of keys) seen.add(x);
-      out.push({ ...lv, page: pageLabel(SCREEN_PAGE[sc]), name: lockNameOf(slot.lock, inst) ?? lockName(slot) });
+      out.push({ ...lv, page: pageLabel(SCREEN_PAGE[sc]), name: lockNameOf(slot.lock, track) ?? lockName(slot) });
     }
   }
   // Les cles sans bloc (les reglages de l'ancien SMPL) : a leur nom, leur valeur brute
@@ -177,7 +185,9 @@ export function lockList(step: number, lockArg?: Readonly<StepLock> | null): Loc
   return out;
 }
 
-function slotLockView(slot: PageSlot, inst: Inst, step: number, lockArg?: Readonly<StepLock> | null): LockView | null {
+function slotLockView(slot: PageSlot, track: TrackKey, step: number, lockArg?: Readonly<StepLock> | null): LockView | null {
+  // Les chemins des voix 1 a 8 (SOUND, MIX, couches, sons par famille) : une piste 9 a 16 n'y arrive pas (pageLockView, hiLockable)
+  const inst = track as Inst;
   if (!slot.lock || step < 0) return null;
   if (slot.lock === 'vel') {
     const v = velocity(pattern.get().steps, inst, step);
@@ -277,13 +287,13 @@ function sndLabel(inst: Inst, snd: string): string {
 const LEGACY_LAYER: Readonly<Record<string, LayerDial>> = { stune: 'tune', sfine: 'fine', sstart: 'start' };
 
 /** Le nom court d'un verrou pour cette voix (le TONE de la caisse claire, le TUNE du kick : ceux de leur machine). */
-function lockNameOf(key: string, _inst: Inst): string | undefined {
+function lockNameOf(key: string, _inst: TrackKey): string | undefined {
   return LOCK_NAMES.find((x) => x.key === key)?.name;
 }
 
 /** Les verrous du pas en P-LOCK, par leur nom court, toutes pages, dans l'ordre des pages : SOUND VOL DEC (l'ecran et le Dock les listent). */
 export function lockSummary(step: number): string[] {
-  const inst = pattern.get().instrument;
+  const inst = lockTrack();
   const l = inst && step >= 0 ? lockOf(pattern.get().locks, inst, step) : null;
   if (!l || !inst) return [];
   // Une fois chaque nom (MIX pose ses deux niveaux, SOUND sa machine et son sample)
@@ -298,7 +308,7 @@ export function lockCountOf(step: number): number {
 
 /** Les pages ou le pas a des verrous (VOICE ENV) : le pied de l'ecran les dit quand la liste ne tient pas. */
 export function lockPages(step: number): string[] {
-  const inst = pattern.get().instrument;
+  const inst = lockTrack();
   const l = inst && step >= 0 ? lockOf(pattern.get().locks, inst, step) : null;
   if (!l) return [];
   return [...new Set(LOCK_NAMES.filter((x) => x.key in l).map((x) => x.page))];
@@ -328,24 +338,27 @@ export function pageKnobReset(k: number): void {
     return;
   }
   const slot = pageSlotOf(k);
-  const inst = pattern.get().instrument;
+  // La piste du P-LOCK (la face DT2 : la piste active, T9 a T16 compris)
+  const track = lockTrack();
   if (!slot || !slot.label || slot.target === null || slot.graph) return;
-  if (!inst) {
+  if (!track) {
     lcdMessage.show(LCD_NO_VOICE);
     return;
   }
-  if (slot.scope === 'all' || !slot.lock) {
+  if (slot.scope === 'all' || !slot.lock || (!isLegacyTrack(track) && !hiLockable(slot))) {
     lockWrite(k, slot, 0);
     return;
   }
+  const inst = isLegacyTrack(track) ? track : null;
+  const vel0 = inst ? rytmPage.tapVel(inst) : TAP_VEL_DEFAULT;
   const steps = rytmLock.targets();
   const at = rytmLock.get().step >= 0 ? rytmLock.get().step : steps[0];
   if (slot.lock === 'vel') {
     // VEL : un pas remis a la velocite des nouveaux pas de la voix
-    for (const i of steps) pattern.set(inst, i, rytmPage.tapVel(inst));
-  } else for (const key of slotLockKeys(slot)) pattern.clearLock(inst, steps, key);
+    for (const i of steps) pattern.set(track, i, vel0);
+  } else for (const key of slotLockKeys(slot)) pattern.clearLock(track, steps, key);
   rytmLock.wrote();
-  lcdMessage.show(`STEP ${two(at + 1)} ${lockName(slot)} ${slot.lock === 'vel' ? velWord(rytmPage.tapVel(inst)) : 'UNLOCKED'}`, POT_UI.readoutMs, true);
+  lcdMessage.show(`STEP ${two(at + 1)} ${lockName(slot)} ${slot.lock === 'vel' ? velWord(vel0) : 'UNLOCKED'}`, POT_UI.readoutMs, true);
   rytmPage.echo(k, inst);
 }
 
@@ -370,7 +383,8 @@ export function rytmLockEnter(i: number, latched: boolean, dock = false): boolea
     lcdMessage.show('LIVE REC: TURN A KNOB TO RECORD IT', 1400);
     return false;
   }
-  const inst = pattern.get().instrument;
+  // La piste du P-LOCK (la face DT2 : la piste active, T9 a T16 compris)
+  const inst = lockTrack();
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return false;
@@ -412,7 +426,7 @@ export function rytmLockToggle(i: number = rytmPage.get().sel, dock = false): vo
 
 /** CLEAR en P-LOCK : les verrous des pas en P-LOCK (ou tenus) s'en vont ; leurs coups restent. */
 export function rytmLockClear(): void {
-  const inst = pattern.get().instrument;
+  const inst = lockTrack();
   const steps = rytmLock.targets();
   if (!inst || steps.length === 0) return;
   const had = steps.some((i) => lockOf(pattern.get().locks, inst, i) !== null);

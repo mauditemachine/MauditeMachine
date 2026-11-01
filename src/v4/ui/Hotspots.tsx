@@ -1654,7 +1654,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           e.preventDefault();
           return;
         }
-        const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null && stepWrites() && !liveOn();
+        // La face DT2 (l'integration de la V.6.0) : la piste active, T9 a T16 compris, se verrouille aussi
+        const lockable = editor.get() !== 'mm808' && (DT2_FACE ? activeTrack.get() : pattern.get().instrument) !== null && stepWrites() && !liveOn();
         // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
         // clic d'avant ne doit pas prendre le clic suivant pour une tenue (trois clics a la seconde latchaient le LOCK)
         const d0 = downs.get(pid);

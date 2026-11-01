@@ -4,7 +4,7 @@
  */
 
 import { KIT_FAMILIES, KIT_MODELS, familyOf, kit, mixLevels, type KitFamily, type KitModel } from '../../audio/kit';
-import { isLockTrig, lockOf, type LockId } from '../../audio/locks';
+import { isLockTrig, lockOf, parseSnd, type LockId } from '../../audio/locks';
 import { samplesOf } from '../../audio/samples';
 import { VEL_MAX, pattern, velocity } from '../../audio/pattern';
 import { lcdMessage } from '../../state/lcdMessage';
@@ -12,12 +12,32 @@ import type { ShotId } from '../../audio/shotsdsp';
 import { rytmPage } from '../../state/rytmPage';
 import { rytmLock } from '../../state/rytmLock';
 import { type PageSlot } from '../../rytm/pages';
-import { LCD_NO_VOICE, POT_UI, potMin, type EncId, type Inst } from '../../theme';
+import { DT2_FACE, LCD_NO_VOICE, POT_UI, potMin, type EncId, type Inst } from '../../theme';
+import { isLegacyTrack, type TrackKey } from '../../audio/tracks';
+import { activeTrack } from '../../state/trk';
+import { TAP_VEL_DEFAULT } from '../../state/rytmPage';
+import { isDialV60 } from '../../scene/screen/menus/registry';
 import { two } from '../shared';
 import { firstSampleOf, layerSpan, layerTop, trackSampleList, voiceSoundAt } from './kit';
 import { kitIdOf, layerIdOf, mixValueOf, pageSlotOf, soundFamily, voiceSounds } from '../kit';
 import { lockReadStep, lockSamples, type LockSound, lockSounds, pageLockView, stepPlays } from '../locks';
 import { seqDialOf, seqRange } from '../mixer';
+
+/*
+ * Le P-LOCK sur les pistes 9 a 16 (l'integration de la V.6.0, la face DT2) : la piste du P-LOCK est la piste active de la
+ * saisie (state/trk.ts activeTrack) ; une piste 1 a 8 garde tous les chemins d'avant (ses couches, ses sons par famille),
+ * une piste 9 a 16 verrouille VEL et les reglages de piste de sa page SRC (t:<reglage>, la fiche de B5), avec le uTIME.
+ * Sans la face DT2, la piste du P-LOCK reste la voix du motif.
+ */
+/** La piste dont le P-LOCK lit et ecrit les verrous (null : aucune). */
+export const lockTrack = (): TrackKey | null => (DT2_FACE ? activeTrack.get() : pattern.get().instrument);
+/** La piste du P-LOCK quand c'est une piste 9 a 16 (null : une voix 1 a 8, ou aucune). */
+export function lockHi(): TrackKey | null {
+  const t = lockTrack();
+  return t && !isLegacyTrack(t) ? t : null;
+}
+/** Un bloc qu'une piste 9 a 16 verrouille : VEL, ou un reglage de piste (t:) qui a sa cle de verrou. */
+export const hiLockable = (slot: PageSlot): boolean => slot.lock === 'vel' || (!!slot.lock && !!slot.target && isDialV60(slot.target) && slot.target.startsWith('t:'));
 
 /** Les familles dans l'ordre de la liste (celle de la voix d'abord) : une par voix, dans l'ordre des pads (2026-10-18) ; et leur nom court. */
 export const LOCK_FAMS: readonly KitFamily[] = KIT_FAMILIES;
@@ -40,6 +60,21 @@ export const lockName = (slot: PageSlot): string => slot.lockName ?? slot.label;
 export function lockDialValue(k: number): number | null {
   const slot = pageSlotOf(k);
   const step = lockReadStep();
+  const hi = lockHi();
+  // Une piste 9 a 16 (la face DT2) : VEL, le sample lock de SAMP, la valeur brute d'un reglage de piste
+  if (hi) {
+    if (!slot || !slot.lock || step < 0 || !hiLockable(slot)) return null;
+    if (slot.lock === 'vel') return velocity(pattern.get().steps, hi, step);
+    const lh = lockOf(pattern.get().locks, hi, step);
+    if (slot.lock === 'snd') {
+      const ps = lh?.snd ? parseSnd(lh.snd) : null;
+      const i = ps ? trackSampleList().findIndex((x) => x.key === ps.sound) : -1;
+      return i >= 0 ? i : null;
+    }
+    if (slot.lock === 'mach') return null;
+    const vh = lh?.[slot.lock];
+    return vh === undefined ? null : vh;
+  }
   const inst = pattern.get().instrument;
   if (!slot || !slot.lock || step < 0 || !inst) return null;
   if (slot.lock === 'vel') return velocity(pattern.get().steps, inst, step);
@@ -212,6 +247,11 @@ function mixLockWrite(inst: Inst, steps: readonly number[], at: number, m: numbe
 
 /** Le bloc tourne en P-LOCK : son verrou pose sur les pas en P-LOCK ou tenus (ou un message, jamais un geste muet). */
 export function lockWrite(k: number, slot: PageSlot, v: number): void {
+  const hi = lockHi();
+  if (hi) {
+    lockWriteHi(k, slot, v, hi);
+    return;
+  }
   const inst = pattern.get().instrument;
   const steps = rytmLock.targets();
   if (!inst) {
@@ -290,6 +330,50 @@ export function lockWrite(k: number, slot: PageSlot, v: number): void {
   const silent = slot.layer && !slot.level && layerSilentAt(slot.layer, inst, at) ? `  ${slot.layer === 'synth' ? 'SYNTH' : 'SAMPLE'} OFF HERE` : '';
   lcdMessage.show(lv ? `${who} ${lockName(slot)} ${lv.text}${lv.unit ? `  ${lv.unit}` : ''}${silent}` : `${who} ${lockName(slot)}${silent}`, POT_UI.readoutMs, true);
   rytmPage.echo(k, inst);
+}
+
+/**
+ * Un verrou pose sur une piste 9 a 16 (la face DT2, l'integration de la V.6.0) : VEL (la velocite des pas), le sample lock
+ * de SAMP dans toute la banque, un reglage de piste (t:) a sa valeur dans son domaine ; le reste des pages (les reglages des
+ * voix 1 a 8) ne s'y verrouille pas.
+ */
+function lockWriteHi(k: number, slot: PageSlot, v: number, t: TrackKey): void {
+  const steps = rytmLock.targets();
+  const name = `T${t.slice(1)}`;
+  if (slot.scope === 'all') {
+    lcdMessage.show(`${slot.label} IS GLOBAL: NO P-LOCK`);
+    return;
+  }
+  if (!slot.lock || !hiLockable(slot)) {
+    lcdMessage.show(`${slot.label}: NOT LOCKABLE ON ${name}`);
+    return;
+  }
+  if (steps.length === 0) return;
+  if (slot.lock === 'vel') {
+    const n = Math.max(0, Math.min(VEL_MAX, Math.round(v)));
+    for (const i of steps) pattern.set(t, i, n);
+  } else {
+    // Un pas vide qu'on verrouille recoit un coup (la velocite des nouveaux pas), comme sur les voix 1 a 8
+    for (const i of steps) if (velocity(pattern.get().steps, t, i) === 0 && !isLockTrig(pattern.get().locks, t, i)) pattern.set(t, i, TAP_VEL_DEFAULT);
+    if (slot.lock === 'snd') {
+      const s = trackSampleList()[Math.max(0, Math.round(v))];
+      if (s && s.key) pattern.setLock(t, steps, 'snd', `${s.family}:${s.key}`);
+      else pattern.clearLock(t, steps, 'snd');
+    } else if (slot.lock === 'mach') {
+      pattern.setLock(t, steps, 'mach', KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(v)))]);
+    } else {
+      const id: LockId = slot.lock;
+      const val = id === 'tune' ? Math.round(v * 24) / 24 : v;
+      const [lo, hi] = slotDomain(slot);
+      pattern.setLock(t, steps, id, Math.max(lo, Math.min(hi, val)));
+    }
+  }
+  rytmLock.wrote();
+  if (rytmLock.get().step < 0) rytmLock.enter(steps[0], false);
+  const at = rytmLock.get().step;
+  const lv = pageLockView(k, at);
+  const who = steps.length > 1 ? `${steps.length} STEPS` : `STEP ${two(at + 1)}`;
+  lcdMessage.show(lv ? `${who} ${name} ${lockName(slot)} ${lv.text}${lv.unit ? `  ${lv.unit}` : ''}` : `${who} ${name} ${lockName(slot)}`, POT_UI.readoutMs, true);
 }
 
 /** La couche ne joue-t-elle pas sur ce pas (R3) : son niveau a 0 (ou son verrou), la couche SAMPLE sans sample ? */
