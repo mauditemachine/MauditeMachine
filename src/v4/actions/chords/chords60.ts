@@ -127,11 +127,11 @@ function trigChords(i: number): Chord[] {
     c({ id: `trig${i + 1}.trk`, key: k, gesture: 'press', mods: ['trk'], prio: 92, info, run: (e) => trigTrk(i, stageNow(), e.t) }),
     c({ id: `trig${i + 1}.func.rec`, key: k, gesture: 'press', mods: ['func'], prio: 90, info, when: () => recOpen() && !ptnView() && !bankView() && !muteOpen(), run: () => trigLockTrig(i, stageNow()) }),
     c({ id: `trig${i + 1}.func`, key: k, gesture: 'press', mods: ['func'], prio: 89, info, run: () => trigQuickMute(i, stageNow()) }),
-    c({ id: `trig${i + 1}.bank`, key: k, gesture: 'press', mods: [], prio: 70, info, when: bankView, run: () => trigBank(i, stageNow()) }),
-    c({ id: `trig${i + 1}.ptn`, key: k, gesture: 'press', mods: [], prio: 69, info, when: ptnView, run: () => patternTap(i, stageNow()) }),
-    c({ id: `trig${i + 1}.mute`, key: k, gesture: 'press', mods: [], prio: 68, info, when: muteOpen, run: () => trigMute(i, stageNow()) }),
+    c({ id: `trig${i + 1}.bank`, key: k, gesture: 'press', mods: [], prio: 70, info, when: () => bankView(), run: () => trigBank(i, stageNow()) }),
+    c({ id: `trig${i + 1}.ptn`, key: k, gesture: 'press', mods: [], prio: 69, info, when: () => ptnView(), run: () => patternTap(i, stageNow()) }),
+    c({ id: `trig${i + 1}.mute`, key: k, gesture: 'press', mods: [], prio: 68, info, when: () => muteOpen(), run: () => trigMute(i, stageNow()) }),
     c({ id: `trig${i + 1}.live`, key: k, gesture: 'press', mods: [], prio: 67, info, when: () => liveOpen() && trigHeld() < 0, run: (e) => trigPlay(i, stageNow(), e.t) }),
-    c({ id: `trig${i + 1}.rec`, key: k, gesture: 'press', mods: [], prio: 66, info, when: recOpen, run: () => trigWrite(i, stageNow()) }),
+    c({ id: `trig${i + 1}.rec`, key: k, gesture: 'press', mods: [], prio: 66, info, when: () => recOpen(), run: () => trigWrite(i, stageNow()) }),
     c({ id: `trig${i + 1}`, key: k, gesture: 'press', mods: [], prio: 0, info, run: () => trigPlay(i, stageNow()) }),
   ];
 }
@@ -141,8 +141,8 @@ function arrowChords(d: 'up' | 'down' | 'left' | 'right'): Chord[] {
   const lr = d === 'left' || d === 'right';
   const dir = d === 'up' || d === 'left' ? -1 : 1;
   const out: Chord[] = [
-    c({ id: `${d}.menu`, key: d, gesture: 'press', mods: [], prio: 100, info: d, when: menuOpen, run: () => void menuInput(d, 'down') }),
-    c({ id: `${d}.menu.up`, key: d, gesture: 'release', mods: [], prio: 100, info: d, when: menuOpen, run: () => void menuInput(d, 'up') }),
+    c({ id: `${d}.menu`, key: d, gesture: 'press', mods: [], prio: 100, info: d, when: () => menuOpen(), run: () => void menuInput(d, 'down') }),
+    c({ id: `${d}.menu.up`, key: d, gesture: 'release', mods: [], prio: 100, info: d, when: () => menuOpen(), run: () => void menuInput(d, 'up') }),
   ];
   if (lr) {
     out.push(
@@ -197,17 +197,17 @@ function keyChords(k: Dt2ButtonId, info: string, funcRun: () => void, run: () =>
 
 export const CHORDS_60: readonly Chord[] = [
   /* ---------- YES (l'appui, puis le lacher) ---------- */
-  c({ id: 'yes.menu', key: 'yes', gesture: 'press', mods: [], prio: 100, info: 'yes', when: menuOpen, run: () => void menuInput('yes', 'down') }),
+  c({ id: 'yes.menu', key: 'yes', gesture: 'press', mods: [], prio: 100, info: 'yes', when: () => menuOpen(), run: () => void menuInput('yes', 'down') }),
   c({ id: 'yes.func', key: 'yes', gesture: 'press', mods: ['func'], prio: 90, info: 'yes', run: () => saveKey() }),
   // PAGE puis YES : FILL verrouille (cahier 1.4)
   c({ id: 'yes.ptnpage', key: 'yes', gesture: 'press', mods: ['ptnpage'], prio: 85, info: 'ptnpage', run: () => fillLatch() }),
   // Une touche de page puis YES : la page au hasard (TRIG : l'indice RANDOM BEAT)
-  c({ id: 'yes.page', key: 'yes', gesture: 'press', mods: [], prio: 80, info: 'yes', when: pageArmed, run: () => pageRandom() }),
-  c({ id: 'yes.menu.up', key: 'yes', gesture: 'release', mods: [], prio: 100, info: 'yes', when: menuOpen, run: () => void menuInput('yes', 'up') }),
+  c({ id: 'yes.page', key: 'yes', gesture: 'press', mods: [], prio: 80, info: 'yes', when: () => pageArmed(), run: () => pageRandom() }),
+  c({ id: 'yes.menu.up', key: 'yes', gesture: 'release', mods: [], prio: 100, info: 'yes', when: () => menuOpen(), run: () => void menuInput('yes', 'up') }),
   c({ id: 'yes', key: 'yes', gesture: 'release', mods: [], prio: 0, info: 'yes', run: () => yesTap(stageNow()) }),
 
   /* ---------- NO ---------- */
-  c({ id: 'no.menu', key: 'no', gesture: 'press', mods: [], prio: 100, info: 'no', when: menuOpen, run: () => void menuInput('no', 'down') }),
+  c({ id: 'no.menu', key: 'no', gesture: 'press', mods: [], prio: 100, info: 'no', when: () => menuOpen(), run: () => void menuInput('no', 'down') }),
   // FUNC verrouillee (deux tapes) : NO la relache (cahier 2.7) ; tenue ou gardee : RELOAD
   c({
     id: 'no.funcoff',
@@ -287,7 +287,7 @@ export const CHORDS_60: readonly Chord[] = [
   ...arrowChords('right'),
 
   /* ---------- LEVEL/DATA et MAIN VOLUME ---------- */
-  c({ id: 'data.menu', key: 'data', gesture: 'turn', mods: [], prio: 100, info: 'data', when: menuOpen, run: (e) => void menuInput('data', 'down', e.delta) }),
+  c({ id: 'data.menu', key: 'data', gesture: 'turn', mods: [], prio: 100, info: 'data', when: () => menuOpen(), run: (e) => void menuInput('data', 'down', e.delta) }),
   c({ id: 'data.func', key: 'data', gesture: 'turn', mods: ['func'], prio: 90, info: 'data', version: '6.2', run: () => soon('6.2') }),
   c({ id: 'data', key: 'data', gesture: 'turn', mods: [], prio: 0, info: 'data', run: (e) => trackLevelTurn(e.delta) }),
   c({ id: 'mvol', key: 'mvol', gesture: 'turn', mods: [], prio: 0, info: 'mvol', run: (e) => anyDial('level', Math.max(0, Math.min(1, anyDialValue('level') + e.delta / 127))) }),
