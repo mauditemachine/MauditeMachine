@@ -25,7 +25,7 @@
  *             le plafond ne se rouvre pas), R6 (un reglage de LFO atteint les coups programmes, RUN muet), R1 (deux
  *             onglets : le kit de l'un et la voix de l'autre gardes), R3 (les pages de V.6.1 partent avec leur motif)
  *
- * Usage : node scripts/rytm-16.mjs --url http://127.0.0.1:<port> [--v53 http://127.0.0.1:<port>] [--only offline,live,fixtures,rollback,review] [--checks R1,R3,R4,R5,R6,R7]
+ * Usage : node scripts/rytm-16.mjs --url http://127.0.0.1:<port> [--v53 http://127.0.0.1:<port>] [--only offline,live,fixtures,rollback,review] [--checks R1,R3,R4,R5,R6,R7,BORNES]
  * Code de sortie : 0 bon, 1 un ecart, 2 une erreur.
  */
 
@@ -590,6 +590,41 @@ async function review(browser) {
   if (rwant('R6')) await reviewR6();
   if (rwant('R1')) await reviewR1();
   if (rwant('R3')) await reviewR3(browser);
+  if (rwant('BORNES')) await reviewBounds(browser);
+}
+
+/** Les bornes du cahier 1.3 : le moteur et le stockage a 30-300 au dixieme et au swing 80 %, les cibles d'avant a leur course. */
+async function pageBounds(step) {
+  const v4 = window.__v4;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  if (step === 'write') {
+    const enc = (id, v) => v4.hw.resolve(id).set(v);
+    enc('rytm:enc:tempo', 1);
+    const tMax = v4.pattern.get().bpm;
+    enc('rytm:enc:tempo', 0);
+    const tMin = v4.pattern.get().bpm;
+    enc('rytm:enc:swing', 1);
+    const sMax = v4.pattern.fx.get().swing;
+    v4.pattern.setBpmFine(72.46);
+    v4.pattern.fx.set({ swing: 2.4 });
+    const fine = { bpm: v4.pattern.get().bpm, swing: v4.pattern.fx.get().swing };
+    await wait(400);
+    v4.pattern.flush();
+    return { tMax, tMin, sMax, fine };
+  }
+  return { bpm: v4.pattern.get().bpm, swing: v4.pattern.fx.get().swing };
+}
+
+async function reviewBounds(browser) {
+  const s = await open(browser, URL_A);
+  const w = await s.page.evaluate(pageBounds, 'write');
+  const st = await s.page.evaluate(dumpStorage);
+  await s.context.close();
+  const t = await open(browser, URL_A, st);
+  const r = await t.page.evaluate(pageBounds, 'read');
+  await t.context.close();
+  check(w.tMax === 150 && w.tMin === 100 && Math.abs(w.sMax - 1) < 1e-9, 'bornes : rytm:enc:tempo et rytm:enc:swing gardent leur course (100-150, 50-67 %)', `TEMPO ${w.tMin} a ${w.tMax}, SWING au plus ${w.sMax}`);
+  check(w.fine.bpm === 72.5 && w.fine.swing === 1.8 && r.bpm === 72.5 && r.swing === 1.8, 'bornes : le moteur et le stockage a 30-300 au dixieme, swing jusqu\'a 1,8 (80 %), relus', `pose ${w.fine.bpm} BPM swing ${w.fine.swing}, relu ${r.bpm} BPM swing ${r.swing}`);
 }
 
 async function reviewR4() {
