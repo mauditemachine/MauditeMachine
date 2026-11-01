@@ -356,6 +356,10 @@ const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
   't:tlev': 'trklev',
   ...Object.fromEntries(['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'].map((k) => [`k:${k}`, 'trklev'])),
   'z:qtrk': 'menu:quantize',
+  // L'integration de la V.6.0 : les reglages du menu TEMPO (30 a 300 au dixieme, SWING 50 a 80 %)
+  'z:bpm': 'menu:tempo',
+  'z:bpmf': 'menu:tempo',
+  'z:swing': 'menu:tempo',
   'z:qptn': 'menu:quantize',
   'z:sca': 'menu:scenes',
   'z:scb': 'menu:scenes',

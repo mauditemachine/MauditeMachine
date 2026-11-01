@@ -18,10 +18,10 @@
  * PAGE au lieu de YES (2.6).
  */
 
-import { anyDial, dataTurn as faceDataTurn, faceKeyDown, faceKeyTap, faceKeyUp, fillHold, gesture, presetKey, presetTurn, soundBrowserClose, soundBrowserOpen, soundBrowserStep } from '../../actions';
+import { dataTurn as faceDataTurn, faceKeyDown, faceKeyTap, faceKeyUp, fillHold, gesture, presetKey, presetTurn, soundBrowserClose, soundBrowserOpen, soundBrowserStep } from '../../actions';
 import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
 import { tapTempo } from '../../actions/internal/transport';
-import { BPM, pattern } from '../../audio/pattern';
+import { BPM_RANGE, clampSwing, pattern } from '../../audio/pattern';
 import { TRACK_NAMES, trackIndex, tracks } from '../../audio/tracks';
 import { DT2_ZONES } from '../../rytm/dtFaceIds';
 import { lcdMessage } from '../../state/lcdMessage';
@@ -106,10 +106,10 @@ function arrowKey(dir: 'up' | 'down' | 'left' | 'right'): void {
   lcdMessage.show(`${dir.toUpperCase()}: IN A LIST (MORE SOON)`, 1400);
 }
 
-/** TEMPO 30 a 300 BPM au 1/10 (1.3, reserved.ts TEMPO_RANGE_DT2) ; le moteur borne aujourd'hui a BPM (100 a 150). */
+/** TEMPO 30 a 300 BPM au 1/10 (1.3, reserved.ts TEMPO_RANGE_DT2) ; le moteur y va depuis V.5.9 (audio/pattern.ts BPM_RANGE). */
 const [BPM_LO, BPM_HI] = TEMPO_RANGE_DT2.bpm;
 const BPM_STEPS = (BPM_HI - BPM_LO) * 10 + 1;
-/** SWING 50 a 80 % (1.3) : fx.swing garde sa loi (0 = 50 %, 1 = 66,7 %), 80 % = 1.8 ; le moteur borne aujourd'hui a 1. */
+/** SWING 50 a 80 % (1.3) : fx.swing garde sa loi (0 = 50 %, 1 = 66,7 %), 80 % = 1.8 (audio/pattern.ts SWING_MAX). */
 const [SW_LO, SW_HI] = TEMPO_RANGE_DT2.swing;
 const SWING_PER_PCT = 3 / 50;
 const SWING_STEPS = SW_HI - SW_LO + 1;
@@ -221,8 +221,9 @@ export function face60Targets(out: MidiTarget[]): void {
     get: () => Math.max(0, Math.min(1, (pattern.get().bpm - BPM_LO) / (BPM_HI - BPM_LO))),
     set: (v) => {
       const bpm = Math.round((BPM_LO + Math.max(0, Math.min(1, v)) * (BPM_HI - BPM_LO)) * 10) / 10;
-      // Le moteur borne a BPM (100 a 150, entier) tant que B1 et B5 n'ont pas ouvert 30-300 : le tempo y reste
-      anyDial('tempo', Math.max(BPM.min, Math.min(BPM.max, Math.round(bpm))));
+      // Le moteur va de 30 a 300 au dixieme depuis V.5.9 (l'integration de la V.6.0 : plus de borne a 100-150 ici)
+      gesture();
+      pattern.setBpmFine(Math.max(BPM_RANGE.min, Math.min(BPM_RANGE.max, bpm)));
     },
   });
   out.push({
@@ -234,7 +235,9 @@ export function face60Targets(out: MidiTarget[]): void {
     get: () => Math.max(0, Math.min(1, (pattern.fx.get().swing / SWING_PER_PCT) / (SW_HI - SW_LO))),
     set: (v) => {
       const pct = Math.round(SW_LO + Math.max(0, Math.min(1, v)) * (SW_HI - SW_LO));
-      anyDial('swing', (pct - SW_LO) * SWING_PER_PCT);
+      // Jusqu'a 80 % (SWING_MAX, V.5.9) : le potard SWING d'avant (rytm:enc:swing) garde 50 a 67 %
+      gesture();
+      pattern.fx.set({ swing: clampSwing((pct - SW_LO) * SWING_PER_PCT) });
     },
   });
 }

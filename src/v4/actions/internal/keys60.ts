@@ -581,7 +581,8 @@ export function paste60(): void {
     return;
   }
   undo.boundary('mm808', 'step');
-  pattern.replace({ ...p.steps, [k]: row.steps } as Steps, withRow(p.locks, k, row.locks));
+  // Une rangee collee sur le motif courant : ses pages, son setup et son kit de V.6.1 restent (keepMore, V.5.9 R3)
+  pattern.replace({ ...p.steps, [k]: row.steps } as Steps, withRow(p.locks, k, row.locks), { keepMore: true });
   const tr = { ...p.trigs } as Record<string, unknown>;
   if (row.trigs) tr[k] = { ...(row.trigs as object) };
   else delete tr[k];
@@ -598,7 +599,7 @@ export function clearRow60(): boolean {
   }
   const p = pattern.get();
   undo.boundary('mm808', 'step');
-  pattern.replace({ ...p.steps, [k]: '0'.repeat(STEP_COUNT) } as Steps, withRow(p.locks, k, undefined));
+  pattern.replace({ ...p.steps, [k]: '0'.repeat(STEP_COUNT) } as Steps, withRow(p.locks, k, undefined), { keepMore: true });
   pattern.clearTrigs(k);
   lcdMessage.show(`${trackName(k)} CLEARED`);
   return true;
