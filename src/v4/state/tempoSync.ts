@@ -23,8 +23,15 @@ export const tempoSync = {
       listeners.delete(fn);
     };
   },
-  /** Le nombre du TEMPO a l'ecran : au BPM entier, au dixieme quand il suit les platines (124.0). */
-  text: (b: number): string => (bpm !== null ? b.toFixed(1) : String(Math.round(b))),
+  /**
+   * Le nombre du TEMPO a l'ecran : au dixieme quand il suit les platines (124.0) ; sinon un BPM entier comme avant (124),
+   * un tempo au dixieme (V.5.9, cahier 1.3 : un preset, la fin d'un SYNC) avec son dixieme (124.4).
+   */
+  text: (b: number): string => {
+    if (bpm !== null) return b.toFixed(1);
+    const t = Math.round(b * 10) / 10;
+    return Number.isInteger(t) ? String(t) : t.toFixed(1);
+  },
   /** L'unite a cote : BPM, ou SYNC quand il suit les platines. */
   unit: (): string => (bpm !== null ? 'SYNC' : 'BPM'),
   /**

@@ -412,7 +412,7 @@ export function pasteKey(): void {
     lcdMessage.show(LCD_NO_VOICE);
     return;
   }
-  pattern.replace({ ...p.steps, [inst]: clip.row }, withRowLocks(p.locks, inst, clip.locks));
+  pattern.replace({ ...p.steps, [inst]: clip.row }, withRowLocks(p.locks, inst, clip.locks), { keepMore: true });
   // Les reglages de trig de la voix copiee (V.5.1) vont avec sa ligne
   const tr: TrigSet = { ...p.trigs };
   if (clip.trigs) tr[inst] = { ...clip.trigs };
@@ -451,7 +451,7 @@ function dtClear(stage: Stage | null): void {
     return;
   }
   undo.boundary('mm808', 'step');
-  pattern.replace({ ...p.steps, [inst]: '0'.repeat(STEP_COUNT) }, withRowLocks(p.locks, inst, undefined));
+  pattern.replace({ ...p.steps, [inst]: '0'.repeat(STEP_COUNT) }, withRowLocks(p.locks, inst, undefined), { keepMore: true });
   // Ses reglages de trig repartent au depart (V.5.1), comme ceux du pattern a CLEAR
   pattern.clearTrigs(inst);
   lcdMessage.show(`${inst} CLEARED`);
