@@ -77,6 +77,7 @@ Captures (hors depot) dans `/tmp/claude-0/-home-user-MauditeMachine/3e52142d-b43
 
 ## Relecture : écran et menus
 
-Branche `v60/fix-screen` (depuis 2a2a705). Chaque point a sa sonde muette (Chromium `--mute-audio`, `?mute=1`, aucune lecture), qui échoue sur 2a2a705 et passe après ; les sondes vivent hors dépôt (`scratchpad/fx-screen/probes/`).
+Branche `v60/fix-screen` (depuis 2a2a705). Chaque point a sa sonde muette (Chromium `--mute-audio`, `?mute=1`, aucune lecture), qui echoue sur 2a2a705 et passe apres ; les sondes vivent hors depot (`scratchpad/fx-screen/probes/`).
 
-- **P-LOCK sur T9 à T16** : la page SRC d'une piste 9 à 16 se lit (les blocs `t:` ne demandent plus une voix du motif, `rytm/pageView.ts`), en P-LOCK ses blocs montrent le verrou ou la base du pas, la valeur lue (`dialValueText`, `dialUnit`) passe par la piste du P-LOCK (`lockTrack`), et le flash des verrous en lecture suit la piste active (`scene/screen/dt2.ts`, `grid.ts blockMode`). Sonde p1 : 10 sur 10 (5 sur 10 avant).
+- **P-LOCK sur T9 a T16** : la page SRC d'une piste 9 a 16 se lit (les blocs `t:` ne demandent plus une voix du motif, `rytm/pageView.ts`), en P-LOCK ses blocs montrent le verrou ou la base du pas, la valeur lue (`dialValueText`, `dialUnit`) passe par la piste du P-LOCK (`lockTrack`), et le flash des verrous en lecture suit la piste active (`scene/screen/dt2.ts`, `grid.ts blockMode`). Sonde p1 : 10 sur 10 (5 sur 10 avant).
+- **Potard SRC pilote par une scene (moteur, pistes 1 a 8)** : TUNE et FINE de la page SRC reprennent la cle de scene de leur voix (`rytm:voice:<voix>:tune` et `:fine`, `actions/scenes.ts trackSceneId`) : une scene qui les tient suit la main, une scene armee les enregistre, comme en V.5.3 ; les blocs, la ligne d'unite et la lecture des fiches `t:` montrent ce qui joue (`dialShown`). Les reglages lourds (potards de la machine, couches), T9 a T16 et TRK LEV restent hors des scenes (NO SCENE). Sonde p2 : 9 sur 9 (5 sur 9 avant).

@@ -327,7 +327,9 @@ export function dialReadout(id: DialId): string {
   if (isDialV60(id)) {
     const sp = dialSpecOf(id);
     if (!sp || (sp.live && !sp.live())) return 'TAP A VOICE';
-    const v = sp.value();
+    // Ce qui se montre (relecture de la V.6.0) : la scene armee, ou ce qu'une scene fait entendre (TUNE et FINE d'une piste
+    // 1 a 8, actions/scenes.ts trackSceneId), sinon la base
+    const v = dialShown(id);
     if (sp.say) return sp.say(v);
     const u = sp.unit(v);
     return `${sp.text(v)}${u ? `, ${u.toLowerCase()}` : ''}`;
@@ -395,7 +397,7 @@ export function dialValueText(id: DialId): string {
   }
   if (isDialV60(id)) {
     const sp = dialSpecOf(id);
-    return !sp || (sp.live && !sp.live()) ? '--' : sp.text(sp.value());
+    return !sp || (sp.live && !sp.live()) ? '--' : sp.text(dialShown(id));
   }
   const r = kitIdOf(id);
   if (r) return isFamily(r) || r === 'gate' ? kit.valueText(r) : v127Text(kit.value(r));
@@ -435,7 +437,7 @@ export function dialUnit(id: DialId): string {
   if (t === 'step:vel') return inst ? `NEW STEPS ${velWord(rytmPage.tapVel(inst))}` : '';
   if (isDialV60(t)) {
     const sp = dialSpecOf(t);
-    return !sp || (sp.live && !sp.live()) ? '' : sp.unit(sp.value());
+    return !sp || (sp.live && !sp.live()) ? '' : sp.unit(dialShown(t as DialId));
   }
   if (t === 'smpl:sample') return sampleUnit();
   if (t === 'voice:sound') return inst ? voiceSoundUnit(inst, kit.playsWith(inst as ShotId, null)) : '';

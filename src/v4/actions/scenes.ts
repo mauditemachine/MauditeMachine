@@ -6,6 +6,8 @@
 import { isDialV60 } from '../scene/screen/menus/registry';
 import { resume } from '../audio/drums';
 import { pattern } from '../audio/pattern';
+import { isLegacyTrack } from '../audio/tracks';
+import { activeTrack } from '../state/trk';
 import { lcdMessage } from '../state/lcdMessage';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
@@ -56,8 +58,9 @@ export function sceneIdOfDial(dial: DialId): string | null {
   const pk = pageKnobOf(dial);
   const t = pk >= 0 ? pageTarget(pk) : dial;
   if (t === null || t === 'step:vel' || t === 'smpl:sample' || t === 'voice:sound' || t === 'voice:mix') return null;
-  // V.6.0 (la face DT2) : les reglages des 16 pistes et des menus n'entrent pas (encore) dans les scenes
-  if (isDialV60(t)) return null;
+  // V.6.0 (la face DT2) : les reglages des 16 pistes et des menus n'entrent pas (encore) dans les scenes, sauf ceux qu'une
+  // scene d'avant tient deja (relecture de la V.6.0 : TUNE et FINE d'une piste 1 a 8, la cle de sa voix)
+  if (isDialV60(t)) return trackSceneId(t);
   const r = kitIdOf(t as DialId);
   if (r) return `rytm:kit:${r}`;
   const lp = layerIdOf(t);
@@ -78,6 +81,18 @@ export function sceneIdOfDial(dial: DialId): string | null {
   if (e === 'vsound') return 'rytm:enc:vsound';
   if (isVoiceEnc(e)) return voiceRowId(e, pattern.get().instrument);
   return `rytm:enc:${e}`;
+}
+
+/**
+ * La cle de scene d'un reglage de piste de la face DT2 (relecture de la V.6.0, la regression des pistes 1 a 8) : TUNE et
+ * FINE de la page SRC reglent la voix elle-meme (le meme store que rytm:voice:<voix>:tune et :fine, la PITCH et la FINE de
+ * la face V.5.3) ; une scene qui les tient les fait suivre la main, une scene armee les enregistre, comme en V.5.3. Les
+ * autres (les potards de la machine et les couches, lourds : NO SCENE comme avant ; T9 a T16 ; TRK LEV ; les menus) : null.
+ */
+function trackSceneId(t: string): string | null {
+  if (t !== 't:tune' && t !== 't:fine') return null;
+  const k = activeTrack.get();
+  return k && isLegacyTrack(k) ? `rytm:voice:${k}:${t.slice(2)}` : null;
 }
 
 /** La valeur 0 a 1 de id dans la scene armee ; null : pas armee, ou id n'y est pas. */
