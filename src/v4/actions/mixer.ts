@@ -8,8 +8,44 @@ import { type StepLock } from '../audio/locks';
 import { TRIG_RANGE, isTrigParam, trigText, trigUnit, type TrigParam } from '../audio/trig';
 import { LFO_MULTS, isLfoParam, lfoDefault, lfoParts, lfoRange, lfoText, lfoUnit, type LfoParam } from '../audio/lfo';
 import { pattern } from '../audio/pattern';
+import { tracks } from '../audio/tracks';
 import { type SlotTarget } from '../rytm/pages';
+import { lcdMessage } from '../state/lcdMessage';
+import { DT2_FACE } from '../theme';
+import { menuInput, openMenu, screenTrack } from '../scene/screen/menus/open';
+import { dialSpecOf } from '../scene/screen/menus/registry';
 import type { DialId } from './kit';
+
+/* ---------- LEVEL/DATA (V.6.0, lane B5, 2026-11-01, la face DT2, cahier dt2 3.1 et 4.1) ---------- */
+
+/**
+ * LEVEL/DATA tourne de delta crans (vers la droite : positif ; B4 l'appelle depuis le glisser de la zone data, le clavier,
+ * le MIDI rytm:data) : un menu ouvert le prend (sa liste, sa valeur, onInput data) ; sinon le TRK LEV de la piste active
+ * (tlev, 0.8 = 0 dB, non verrouillable), un cent-vingt-septieme par cran (FUNC : huit). true s'il a servi.
+ */
+export function levelDataTurn(delta: number, func = false): boolean {
+  if (!DT2_FACE || !Number.isFinite(delta) || delta === 0) return false;
+  if (openMenu()) return menuInput({ kind: 'data', delta, func, phase: 'down' });
+  const t = screenTrack();
+  if (!t) {
+    lcdMessage.show('PICK A TRACK: TRK + TRIG', 1200);
+    return false;
+  }
+  const sp = dialSpecOf(`k:${t}`);
+  if (!sp) return false;
+  sp.set(Math.max(0, Math.min(1, sp.value() + (delta * (func ? 8 : 1)) / 127)));
+  return true;
+}
+
+/**
+ * Ce que montre l'anneau de LEVEL/DATA (la face DT2, scene/sideKnobs.ts setRing('data')) : le TRK LEV de la piste active,
+ * de 0 a 1 ; sans piste, eteint. Un menu ouvert ne change pas l'anneau (le potard y fait defiler).
+ */
+export function levelDataView(): { t: number; live: boolean } {
+  if (!DT2_FACE) return { t: 0, live: false };
+  const t = screenTrack();
+  return t ? { t: tracks.param(t, 'tlev'), live: true } : { t: 0, live: false };
+}
 
 /* ---------- TRIG et MOD (V.5.1, 2026-10-29, l'etape D2) : q:<reglage>, la voix choisie ---------- */
 

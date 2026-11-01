@@ -3,6 +3,7 @@
  * actions.ts (le baril) en exporte tout. Ses aides utilisees par d'autres modules : actions/internal/scenes.ts.
  */
 
+import { isDialV60 } from '../scene/screen/menus/registry';
 import { resume } from '../audio/drums';
 import { pattern } from '../audio/pattern';
 import { lcdMessage } from '../state/lcdMessage';
@@ -55,6 +56,8 @@ export function sceneIdOfDial(dial: DialId): string | null {
   const pk = pageKnobOf(dial);
   const t = pk >= 0 ? pageTarget(pk) : dial;
   if (t === null || t === 'step:vel' || t === 'smpl:sample' || t === 'voice:sound' || t === 'voice:mix') return null;
+  // V.6.0 (la face DT2) : les reglages des 16 pistes et des menus n'entrent pas (encore) dans les scenes
+  if (isDialV60(t)) return null;
   const r = kitIdOf(t as DialId);
   if (r) return `rytm:kit:${r}`;
   const lp = layerIdOf(t);

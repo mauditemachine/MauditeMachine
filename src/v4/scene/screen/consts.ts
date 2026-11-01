@@ -11,7 +11,7 @@ import type { ShotId } from '../../audio/shotsdsp';
 import { BROWSER_ROWS } from '../../state/lcdSamples';
 import { voices } from '../../state/voices';
 import { dtFace } from '../../state/dtFace';
-import { DT_FACE, FONT_DISPLAY, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, type EncId, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, FONT_DISPLAY, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, type EncId, type Inst } from '../../theme';
 import { PRESET_SLOTS } from '../../state/presetMode';
 import { softKeyPitchU, softKeyU } from '../../rytm/presetKeys';
 import { pageLabel, type RytmPageId, type RytmScreenId, type SlotCell } from '../../rytm/pages';
@@ -87,7 +87,11 @@ export function presetKeySpot(i: number, mobile: boolean = PORTRAIT): { u: numbe
   return { u, u0: Math.max(0, u - half), u1: Math.min(1, u + half) };
 }
 
-export const INFO_KEY = { x: UW - 8, y: 10.5, r: { desk: 5.2, phone: 6.6 }, hit: { desk: 8, phone: 26 }, blocks: { x: UW, y: 0 } } as const;
+// La face DT2 (V.6.0, cahier dt2 2.5) : le i en bas a droite (x 306..318, y 176..190), sous l'indicateur des sous-pages ;
+// l'en-tete garde sa droite au metronome et au tempo
+export const INFO_KEY = DT2_FACE
+  ? ({ x: 312, y: 183, r: { desk: 5.2, phone: 6.6 }, hit: { desk: 8, phone: 26 }, blocks: { x: UW, y: 0 } } as const)
+  : ({ x: UW - 8, y: 10.5, r: { desk: 5.2, phone: 6.6 }, hit: { desk: 8, phone: 26 }, blocks: { x: UW, y: 0 } } as const);
 
 /**
  * Le bloc k de la vue PAGE sur le verre (u, v de 0 a 1) : INFOS allume, sa
@@ -199,13 +203,21 @@ export interface PanelArea {
  * gagne sa place, 132 a 158).
  */
 // L'ecran 5:3 du desktop (2026-10-27) : les blocs prennent les 34 unites de plus, moitie chacun (72 x 69.5, la grille finit a UH - 26)
-export const MATRIX: { x0: number; pitch: number; w: number; h: number; rows: readonly [number, number]; r: number } = TALL
+// La face DT2 (V.6.0, cahier dt2 2.5) : la grille des 8 parametres de x 48 a 302, de y 24 a 190 (la colonne gauche a 0..44,
+// l'indicateur des sous-pages a 306..318), deux rangees de quatre cases de 62 x 81.5
+export const DT2_MATRIX = { x0: 48, pitch: 64, w: 62, h: 81.5, rows: [24, 108.5] as const, r: 4 } as const;
+export const MATRIX: { x0: number; pitch: number; w: number; h: number; rows: readonly [number, number]; r: number } = DT2_FACE
+  ? DT2_MATRIX
+  : TALL
   ? { x0: 8, pitch: 76, w: 72, h: 52.5 + GROW / 2, rows: [24, 24 + 52.5 + GROW / 2 + 3], r: 4.5 }
   : { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 };
 // valueW au telephone 39 (revue du 2026-10-09 : 127 touchait le dessin a 42 ; a trois chiffres la valeur prend le corps d'en dessous).
 // L'ecran 5:3 (la revue du 2026-10-27) : le bas du dessin a 37 + 0.3 GROW (47.2), l'air du telephone au-dessus de la
 // ligne d'unite (57.5) ; a 0.6 GROW il descendait jusqu'a elle, sur FROM TOP, BOTH et l'unite de MIX
-export const BLOCK: { padX: number; valueW: number; draw: { dx0: number; dx1: number; dy0: number; dy1: number } } = TALL
+export const BLOCK: { padX: number; valueW: number; draw: { dx0: number; dx1: number; dy0: number; dy1: number } } = DT2_FACE
+  ? // La face DT2 : la valeur sur toute la largeur de la case, le dessin dans la bande du bas (dy0 a dy1)
+    { padX: 5, valueW: 52, draw: { dx0: 5, dx1: 57, dy0: 60, dy1: 75 } }
+  : TALL
   ? { padX: 6, valueW: 39, draw: { dx0: 49, dx1: 67, dy0: 20 + GROW * 0.2, dy1: 37 + GROW * 0.3 } }
   : {
       padX: 5,
@@ -316,6 +328,32 @@ export const BLOCK_TYPE = {
    * L'ecran 5:3 du desktop V.4.0 (2026-10-27) : les blocs de 72 x 69.5 (52.5 avant) ; la valeur plus grande et plus bas,
    * l'unite au bas du bloc, le panneau des verrous plus aere. Le reste, celui du dessin haut.
    */
+  /*
+   * La face DT2 (V.6.0) : des cases de 62 x 81.5 ; le nom en haut, la valeur dessous, l'unite, puis le dessin en bande.
+   */
+  dt2: {
+    nameSize: 10.5,
+    letterSize: 0,
+    unitSize: 8.6,
+    tagAt: 'unit' as 'name' | 'unit',
+    tagSize: 8,
+    valueSizes: [26, 22, 18, 15, 13],
+    nameDy: 12.5,
+    valueDy: 38,
+    unitDy: 51,
+    letters: false,
+    notchRow: true,
+    tabs: false,
+    tabSize: 0,
+    foot: 10.5,
+    head: { pill: 10, pillH: 14.5, voice: 14.5, sound: 10, bpm: 9.8, num: 14.5 },
+    selR: 1.4,
+    panelSize: 9,
+    panelLh: 11.5,
+    lockS: 6.5,
+    lockW: 8,
+    lockDx: 6,
+  },
   wide: {
     nameSize: 11.5,
     letterSize: 0,

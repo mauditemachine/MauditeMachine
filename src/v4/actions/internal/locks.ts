@@ -14,7 +14,7 @@ import { rytmLock } from '../../state/rytmLock';
 import { type PageSlot } from '../../rytm/pages';
 import { LCD_NO_VOICE, POT_UI, potMin, type EncId, type Inst } from '../../theme';
 import { two } from '../shared';
-import { firstSampleOf, layerSpan, layerTop, voiceSoundAt } from './kit';
+import { firstSampleOf, layerSpan, layerTop, trackSampleList, voiceSoundAt } from './kit';
 import { kitIdOf, layerIdOf, mixValueOf, pageSlotOf, soundFamily, voiceSounds } from '../kit';
 import { lockReadStep, lockSamples, type LockSound, lockSounds, pageLockView, stepPlays } from '../locks';
 import { seqDialOf, seqRange } from '../mixer';
@@ -247,6 +247,11 @@ export function lockWrite(k: number, slot: PageSlot, v: number): void {
         lcdMessage.show(`${inst}: NO SAMPLES TO MIX`);
         return;
       }
+    } else if (slot.lock === 'snd' && slot.target === 't:snd') {
+      // V.6.0 (la face DT2, SAMP de SRC) : le sample lock dans toute la banque (cahier 3.2 : depuis toute categorie)
+      const s = trackSampleList()[Math.max(0, Math.round(v))];
+      if (s && s.key) pattern.setLock(inst, steps, 'snd', `${s.family}:${s.key}`);
+      else pattern.clearLock(inst, steps, 'snd');
     } else if (slot.lock === 'snd') {
       // L'ancien SAMPLE (le sample lock de R3) : OFF, ceux de la voix, puis ceux des autres voix
       const i = Math.max(0, Math.round(v));

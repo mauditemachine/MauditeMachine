@@ -12,7 +12,7 @@ import { presetMode } from '../state/presetMode';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
 import { SCREEN_PAGE, SCREEN_TITLE, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageOfAlias, screensOf, tabWord, type FxPageId, type RytmPageId, type RytmScreenId } from '../rytm/pages';
-import { DT_FACE } from '../theme';
+import { DT2_FACE, DT_FACE } from '../theme';
 import { two } from './shared';
 import { leaveRytmOverlay, pageKeyBody } from './internal/pages';
 import { dtPageKeyAfter, dtPageKeyFirst, PAGE_BTN } from './internal/face';
@@ -34,7 +34,8 @@ export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
   // Le mode presets du desktop (2026-10-27) : des touches de la rangee sont ses touches de l'ecran (SRC LOAD, FLTR SAVE, AMP
   // NAME, FX DEL ; PTN EXIT, editToggle)
   const btn = PAGE_BTN[id];
-  if (btn && presetSoftKey(btn, () => stage?.pressPageKey(id))) return;
+  // La face DT2 (V.6.0) : plus de touches d'ecran, les fleches et YES / NO menent les presets (le menu PRESET/KIT)
+  if (!DT2_FACE && btn && presetSoftKey(btn, () => stage?.pressPageKey(id))) return;
   // V.5.0 au desktop : FUNC + la touche, sa fonction orange ; MOD sur le MIXER, l'onglet suivant
   if (DT_FACE && dtPageKeyFirst(id, stage)) return;
   pageKeyBody(id, stage);
@@ -135,6 +136,13 @@ export function rytmMenu(id: string, stage: Stage | null = null): void {
 
 /** rytm:home en MIDI (H au clavier, hors EDIT) : HOME, ou la vue PAGE ; sous EDIT ou les presets, les referme sur HOME. */
 export function rytmHome(): void {
+  // La face DT2 (V.6.0, cahier 1.3) : HOME a quitte la navigation, rytm:home et H ouvrent la page TRIG
+  if (DT2_FACE) {
+    leaveRytmOverlay();
+    rytmPage.setPage('trig');
+    lcdMessage.show(`${SCREEN_TITLE[curScreen()]} PAGE`);
+    return;
+  }
   if (leaveRytmOverlay()) {
     rytmPage.setView('home');
     return;

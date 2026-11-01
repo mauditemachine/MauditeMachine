@@ -11,7 +11,7 @@ import { type LcdState } from '../../state/lcd';
 import { playhead } from '../../state/playhead';
 import { type RytmPageState } from '../../state/rytmPage';
 import { voices } from '../../state/voices';
-import { type Inst } from '../../theme';
+import { DT2_FACE, type Inst } from '../../theme';
 import { FACE_PAGES, freeCells, pageSlots, type PageSlot } from '../../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../../rytm/pageView';
 import { fill } from '../../state/fill';
@@ -254,7 +254,8 @@ function paintBlock(this: Screen, b: Block): void {
   // pour leur valeur (faceText : le nom du son, le melange), COMP garde son potard a droite
   const strip = FACE_PAGES && !tall && !wide && (b.draw === 'sound' || b.draw === 'mix' || b.draw === 'gr');
   const faceText = strip && b.draw !== 'gr';
-  const under = tall || faceText;
+  // La face DT2 (V.6.0) : la valeur prend la largeur de la case, le dessin la bande du bas (BLOCK.draw)
+  const under = tall || faceText || DT2_FACE;
   const drawW = under ? 0 : wide ? Math.min(54, bw * 0.34) : bw - B.draw.dx0 + 1;
   // COND (V.5.1) aussi : sa valeur (1:2, !FILL, NONE) prend toute la largeur, son dessin le bout de la ligne d'unite
   const stepped = b.draw === 'notch' || b.draw === 'ftype' || b.draw === 'time' || b.draw === 'cond';
@@ -268,7 +269,7 @@ function paintBlock(this: Screen, b: Block): void {
   else this.text(v.text, bx + B.padX, valueY, v.size, P.ink, neg ? 400 : 300);
   const unitY = by + T.unitDy + drop;
   // Au desktop, les crans d'un reglage a crans tiennent le bout de la ligne d'unite
-  const notchW = T.notchRow && stepped && !wide && !muted ? 24 : 0;
+  const notchW = T.notchRow && stepped && !wide && !muted && !DT2_FACE ? 24 : 0;
   // Un grand carre (2 x 2, la quantite d'un FX) : son potard tient la droite du bloc, la ligne d'unite et son etiquette
   // s'arretent avant lui (2026-10-10, le telephone : NO BD se posait sur l'arc de DELAY)
   const arcX = tall && wide && (b.draw === 'bar' || b.draw === 'barc') ? Math.max(bx + bw * 0.44, bx + B.padX + this.textWidth('127', v.size, 300) + 6) : 0;
@@ -319,8 +320,8 @@ function paintBlock(this: Screen, b: Block): void {
   if (stepped) {
     // Un reglage a crans : au desktop ses crans au bout de la ligne du nom de valeur ; au telephone rien (la valeur le dit)
     if (!T.notchRow && !wide) return;
-    const nr: Rect = wide ? r : { x0: bx + bw - B.padX - 22, y0: unitY - 4, x1: bx + bw - B.padX - 1, y1: unitY };
-    if (b.draw === 'ftype') this.drawFtype(wide ? r : { x0: bx + B.draw.dx0 - 2, y0: by + B.draw.dy0, x1: bx + B.draw.dx1, y1: by + B.draw.dy1 }, b.value);
+    const nr: Rect = wide || DT2_FACE ? r : { x0: bx + bw - B.padX - 22, y0: unitY - 4, x1: bx + bw - B.padX - 1, y1: unitY };
+    if (b.draw === 'ftype') this.drawFtype(wide || DT2_FACE ? r : { x0: bx + B.draw.dx0 - 2, y0: by + B.draw.dy0, x1: bx + B.draw.dx1, y1: by + B.draw.dy1 }, b.value);
     else if (b.draw === 'cond') this.drawCond(nr, Math.round(b.value));
     else if (b.notches === 2) this.drawSwitch({ x0: nr.x1 - 13, y0: nr.y0 - 1.5, x1: nr.x1, y1: nr.y1 + 0.5 }, b.course >= 0.5);
     else this.drawNotch(nr, b.notches, b.course);

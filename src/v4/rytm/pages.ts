@@ -72,7 +72,8 @@ import type { LockKey } from '../audio/locks';
 import { familyOf, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
-import { DT_PAGE_KEYS, PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
+import { normTrackKey, tracks } from '../audio/tracks';
+import { DT2_FACE, DT_PAGE_KEYS, PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
 
 /**
  * V.5.0 (2026-10-29, la face facon Digitakt du desktop) : les pages de FUNC + une touche de page, TEMPO (FUNC + TRIG),
@@ -640,10 +641,72 @@ export function fxVoiceDetailOf(t: SlotTarget | string): FxVoiceDetailId | null 
   return null;
 }
 
+/* ---------------- SRC par machine (V.6.0, lane B5, 2026-11-01, la face DT2) ---------------- */
+
+/*
+ * Cahier dt2 3.2 et 4.2 : la page SRC montre la machine de la piste active, a la Digitakt. Constante sur toutes les
+ * machines : A TUNE, B PLAY (FWD / REV), C vide, D le sample (SAMP en ONESHOT, SND la couche sample d'une synthese), H LEV.
+ * ONESHOT : E STRT, F LEN, G LOOP (V.6.1), H LEV (le niveau du sample) ; 2/2 : FINE. Une machine de synthese : E F G ses
+ * trois premiers potards, H LEV (la synthese) ; 2/2 : le reste (ses autres potards, MODL 909 / 808 / MM, SMP le niveau de
+ * la couche sample, FINE, STRT, LEN). Les cibles t:<reglage> lisent et ecrivent la piste active dans le store des 16
+ * pistes (actions/internal/kit.ts) : la piste 9 a les memes pages que la piste 1. Le verrou de chaque bloc est le meme id
+ * que son reglage (cahier 4.1 : l'espace des reglages = l'espace des verrous).
+ */
+const tk = (label: string, d: string, draw: SlotDraw, lock?: LockKey): PageSlot => ({ label, target: `t:${d}` as SlotTarget, scope: 'track', draw, ...(lock ? { lock } : {}) });
+const SRC_TUNE = tk('TUNE', 'tune', 'barc', 'tune');
+const SRC_PLAY = tk('PLAY', 'srev', 'notch', 'srev');
+const SRC_SAMP = tk('SAMP', 'snd', 'sound', 'snd');
+const SRC_SND = tk('SND', 'snd', 'sound', 'snd');
+const SRC_STRT = tk('STRT', 'sstart', 'start', 'sstart');
+const SRC_LEN = tk('LEN', 'slen', 'decay', 'slen');
+const SRC_SLEV = tk('LEV', 'slev', 'level', 'slev');
+const SRC_SMP = tk('SMP', 'slev', 'level', 'slev');
+const SRC_SYN = tk('LEV', 'syn', 'level', 'syn');
+const SRC_FINE = tk('FINE', 'fine', 'barc', 'fine');
+const SRC_MODL = tk('MODL', 'model', 'notch', 'mach');
+/** LOOP (G de ONESHOT) : FWD LOOP et REV LOOP arrivent en V.6.1 (cahier 3.2) ; le bloc le dit (SOON). */
+const SRC_LOOP: PageSlot = { label: 'LOOP', target: null, scope: 'track', draw: 'bar' };
+/** Les potards d'une machine de synthese (ses reglages de piste), dans l'ordre ou ils prennent E F G puis la 2/2. */
+const MACHINE_KNOBS: Readonly<Partial<Record<string, readonly PageSlot[]>>> = {
+  bd: [tk('DEC', 'kdecay', 'decay', 'kdecay'), tk('SWP', 'ksweep', 'bar', 'ksweep'), tk('DRV', 'kdrive', 'bar', 'kdrive'), tk('PTCH', 'ktune', 'barc', 'ktune'), tk('ATK', 'kattack', 'bar', 'kattack')],
+  sd: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('SNAP', 'snappy', 'bar', 'snappy'), tk('TONE', 'sdtone', 'barc', 'sdtone'), tk('PTCH', 'sdtune', 'barc', 'sdtune'), tk('GATE', 'gate', 'notch', 'gate')],
+  cp: [tk('GATE', 'gate', 'notch', 'gate')],
+};
+const NONE: PageSlot = EMPTY;
+const DT2_SRC_CACHE = new Map<string, readonly PageSlot[]>();
+
+/** Les deux sous-pages SRC d'une machine (cahier 4.2 : oneshot, bd, sd, ch, oh, cp, tom, ht, cy), sub 0 ou 1. */
+export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
+  const key = `${mach}|${sub}`;
+  const hit = DT2_SRC_CACHE.get(key);
+  if (hit) return hit;
+  let out: readonly PageSlot[];
+  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, NONE, SRC_SAMP, SRC_STRT, SRC_LEN, SRC_LOOP, SRC_SLEV] : [SRC_FINE];
+  else {
+    const kn = MACHINE_KNOBS[mach] ?? [];
+    // E F G : ses potards ; une machine qui en a moins y met la couche sample (STRT, LEN, SMP)
+    const efg = [...kn.slice(0, 3), SRC_STRT, SRC_LEN, SRC_SMP].slice(0, 3);
+    const used = new Set(efg.map((s) => s.target));
+    const rest = [...kn.slice(3), NONE, NONE].slice(0, 2);
+    const tail = [SRC_SMP, SRC_FINE, SRC_STRT, SRC_LEN].map((s) => (used.has(s.target) ? NONE : s));
+    out = sub === 0 ? [SRC_TUNE, SRC_PLAY, NONE, SRC_SND, ...efg, SRC_SYN] : [...rest, NONE, SRC_MODL, ...tail];
+  }
+  DT2_SRC_CACHE.set(key, out);
+  return out;
+}
+
+/** La machine SRC de la piste d'une voix (V.6.0) : celle du store des 16 pistes ; null : aucune piste. */
+function machineOf(inst: Inst | null): string | null {
+  const t = normTrackKey(inst as string | null);
+  return t ? tracks.of(t).mach : null;
+}
+
 const CACHE = new Map<string, readonly PageSlot[]>();
 
 /** Les blocs d'un ecran pour la voix choisie (null : aucune), tels que l'ecran, le Dock et le MIDI les voient. */
 export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly PageSlot[] {
+  // La face DT2 (V.6.0) : SRC 1/2 et 2/2 suivent la machine de la piste active (sans piste : celles de ONESHOT, a peine)
+  if (DT2_FACE && (screen === 'voice' || screen === 'synth')) return dt2SrcPage(machineOf(inst) ?? 'oneshot', screen === 'voice' ? 0 : 1);
   const f = inst ? familyOf(inst as ShotId) : null;
   const smp = hasSamples(f);
   const key = `${screen}|${f ?? (inst ? 'own' : 'none')}|${smp ? 1 : 0}`;
@@ -699,6 +762,8 @@ export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly Pag
 /** Les onglets d'une page pour cette voix (VOICE SYNTH : les familles qui ont des samples, BD et SD d'origine). */
 export function screensOf(page: RytmPageId, inst: Inst | null): readonly RytmScreenId[] {
   if (page !== 'voice') return PAGE_TABS[page];
+  // La face DT2 (V.6.0) : SRC a toujours ses deux sous-pages (la machine, puis le reste)
+  if (DT2_FACE) return PAGE_TABS.voice;
   const f = inst ? familyOf(inst as ShotId) : null;
   return hasSamples(f) ? PAGE_TABS.voice : ['voice'];
 }

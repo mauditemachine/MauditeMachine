@@ -4,15 +4,18 @@
  */
 
 import { kitOverride, resume } from '../../audio/drums';
-import { KIT_DEFAULT, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, kit, kitSteps, layerRange, layerSteps, mixLevels, type KitFamily, type KitModel, type Plays } from '../../audio/kit';
+import { KIT_DEFAULT, KIT_FAMILIES, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, kit, kitSteps, layerRange, layerSteps, mixLevels, type KitFamily, type KitKnob, type KitModel, type Layer, type Plays } from '../../audio/kit';
+import { TRACK_NAMES, TRACK_P_DEFAULT, normTrackKey, trackIndex, tracks, type TrackKey, type TrackParamId, type TrackSound } from '../../audio/tracks';
 import { type StepLock } from '../../audio/locks';
 import { samplesOf, type SampleFail } from '../../audio/samples';
 import { VEL_MAX, pattern } from '../../audio/pattern';
 import { lcdMessage } from '../../state/lcdMessage';
 import type { ShotId } from '../../audio/shotsdsp';
 import { rytmPage } from '../../state/rytmPage';
-import { layerText, layerUnit, velTo127, velWord, type LayerDial } from '../../rytm/values';
-import { LCD_NO_VOICE, POT_UI, type Inst } from '../../theme';
+import { encText, encUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from '../../rytm/values';
+import { LCD_NO_VOICE, POT_UI, isBipolar, potCourse, potMin, type Inst } from '../../theme';
+import { registerDialPrefix, type DialSpec } from '../../scene/screen/menus/registry';
+import { screenTrack } from '../../scene/screen/menus/open';
 import { type VoyKnobId } from '../../voyager/params';
 import { touchPage } from './dials';
 import { soundBrowserFollow } from './browser';
@@ -278,3 +281,163 @@ export function tapVelDial(v: number): void {
   lcdMessage.show(`${inst} NEW STEPS VEL ${velTo127(n)}  ${velWord(n)}`, POT_UI.readoutMs, true);
   touchPage('step:vel', inst);
 }
+
+/* ---------------- V.6.0 (lane B5, 2026-11-01) : les reglages des 16 pistes ---------------- */
+
+/*
+ * Cahier dt2 3.2, 4.1 et 5.1 (les pages SRC par machine, les potards sur 16 pistes, LEVEL/DATA = TRK LEV) : un reglage de
+ * piste se lit et s'ecrit dans le store des 16 pistes (audio/tracks.ts), jamais par les facades a 8 voix (kit, voiceFx)
+ * qui rangent les couches par famille. t:<reglage> : la piste active (scene/screen/menus/open.ts screenTrack) ; k:<piste> :
+ * le TRK LEV d'une piste (MIXER INTERNAL 1-8 et 9-16). Leurs fiches (registry.ts DialSpec) sont inscrites ici, au
+ * chargement ; actions/anyDial.ts les consulte avant tout. Pas de scene sur ces reglages en V.6.0 (NO SCENE), le P-LOCK
+ * passe par le verrou du bloc (meme id que le reglage), CONTROL ALL par actions/ctlall.ts.
+ */
+
+/** Les reglages de piste que montrent les pages SRC de la face DT2 (et TRK LEV). */
+export const TRACK_DIALS = ['tune', 'fine', 'srev', 'sstart', 'slen', 'slev', 'stune', 'sfine', 'syn', 'snd', 'model', 'tlev', 'ktune', 'kattack', 'ksweep', 'kdecay', 'kdrive', 'snappy', 'sdtune', 'sddecay', 'sdtone', 'gate'] as const;
+export type TrackDial = (typeof TRACK_DIALS)[number];
+/** Le nom court d'un reglage de piste (4 lettres au plus, comme la DT2 ; le message le dit en entier). */
+export const TRACK_DIAL_LABEL: Readonly<Record<TrackDial, string>> = {
+  tune: 'TUNE',
+  fine: 'FINE',
+  srev: 'PLAY',
+  sstart: 'STRT',
+  slen: 'LEN',
+  slev: 'LEV',
+  stune: 'STUN',
+  sfine: 'SFIN',
+  syn: 'LEV',
+  snd: 'SAMP',
+  model: 'MODL',
+  tlev: 'TRK LEV',
+  ktune: 'PTCH',
+  kattack: 'ATK',
+  ksweep: 'SWP',
+  kdecay: 'DEC',
+  kdrive: 'DRV',
+  snappy: 'SNAP',
+  sdtune: 'PTCH',
+  sddecay: 'DEC',
+  sdtone: 'TONE',
+  gate: 'GATE',
+};
+export const isTrackDial = (s: string): s is TrackDial => (TRACK_DIALS as readonly string[]).includes(s);
+const LAYER_OF: Readonly<Partial<Record<TrackDial, LayerDial>>> = { srev: 'rev', sstart: 'start', slen: 'len', slev: 'lev', stune: 'tune', sfine: 'fine', syn: 'syn' };
+const KNOB_OF: Readonly<Partial<Record<TrackDial, KitKnob>>> = { ktune: 'tune', kattack: 'attack', ksweep: 'sweep', kdecay: 'decay', kdrive: 'drive', snappy: 'snappy', sdtune: 'sdtune', sddecay: 'sddecay', sdtone: 'sdtone', gate: 'gate' };
+/** Le potard d'avant qui regle le meme reglage de voix (ses textes et ses crans : PITCH au demi-ton, FINE au cent). */
+type ContEncV60 = 'vtune' | 'vfine' | 'vol';
+const ENC_OF: Readonly<Partial<Record<TrackDial, ContEncV60>>> = { tune: 'vtune', fine: 'vfine', tlev: 'vol' };
+
+/** Le pool de samples d'une piste DT2 : OFF, puis toute la banque (les 8 dossiers du site et ceux de Mika), dans l'ordre. */
+export function trackSampleList(): readonly { key: string; label: string; family: string }[] {
+  const out: { key: string; label: string; family: string }[] = [{ key: '', label: 'OFF', family: '' }];
+  for (const f of KIT_FAMILIES) for (const s of samplesOf(f)) out.push({ key: s.key, label: s.label, family: s.family });
+  return out;
+}
+
+/** Le nom d'une piste a l'ecran (T1 a T16). */
+export const trackLabel = (t: TrackKey): string => TRACK_NAMES[trackIndex(t)] ?? t;
+
+/** Les couches d'une piste (sa forme Layer, pour la ligne d'unite de LEN et START en ms). */
+function trackLayer(tr: Readonly<TrackSound>): Layer {
+  const p = tr.p;
+  return { syn: p.syn, lev: p.slev, tune: p.stune, fine: p.sfine, start: p.sstart, len: p.slen, rev: p.srev };
+}
+
+/** La fiche d'un reglage de la piste que rend pick (la piste active, ou une piste fixe pour k:). */
+function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
+  const lp = LAYER_OF[d];
+  const kn = KNOB_OF[d];
+  const enc = ENC_OF[d];
+  const pid = d === 'snd' || d === 'model' ? null : (d as TrackParamId);
+  const range = (): readonly [number, number] => {
+    if (d === 'snd') return [0, Math.max(1, trackSampleList().length - 1)];
+    if (d === 'model') return [0, KIT_MODELS.length - 1];
+    if (lp) return layerSpan(lp);
+    if (enc) return [potMin(enc), 1];
+    return [0, 1];
+  };
+  const steps = (): number => {
+    if (d === 'snd') return trackSampleList().length;
+    if (d === 'model') return KIT_MODELS.length;
+    if (d === 'srev' || d === 'gate') return 2;
+    if (lp) return layerNotches(lp);
+    if (d === 'tune') return 49;
+    if (d === 'fine') return 129;
+    return 0;
+  };
+  const value = (): number => {
+    const t = pick();
+    if (!t) return 0;
+    const tr = tracks.of(t);
+    if (d === 'snd') return Math.max(0, trackSampleList().findIndex((s) => s.key === tr.snd));
+    if (d === 'model') return Math.max(0, KIT_MODELS.indexOf(tr.model));
+    return pid ? tracks.param(t, pid) : 0;
+  };
+  const text = (v: number): string => {
+    if (d === 'snd') return trackSampleList()[Math.max(0, Math.round(v))]?.label ?? 'OFF';
+    if (d === 'model') return KIT_MODEL_LABEL[KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(v)))]];
+    if (d === 'srev') return v >= 0.5 ? 'REV' : 'FWD';
+    if (d === 'gate') return v >= 0.5 ? 'ON' : 'OFF';
+    if (lp) return layerText(lp, v);
+    if (enc) return encText(enc, v, potCourse(enc, v), isBipolar(enc));
+    return v127Text(v);
+  };
+  const unit = (v: number): string => {
+    if (d === 'snd') {
+      const n = trackSampleList().length - 1;
+      const s = trackSampleList()[Math.max(0, Math.round(v))];
+      return s && s.key ? `${s.family.toUpperCase()}  ${Math.round(v)}/${n}` : `${n} SAMPLES`;
+    }
+    if (d === 'model') return 'SYNTH';
+    if (d === 'srev') return v >= 0.5 ? 'REVERSE' : 'FORWARD';
+    if (lp) {
+      const t = pick();
+      const tr = t ? tracks.of(t) : null;
+      return layerUnit(lp, v, tr && tr.snd ? { key: tr.snd, layer: trackLayer(tr) } : undefined);
+    }
+    if (enc) return encUnit(enc, v);
+    if (kn && kn !== 'gate') return kitUnitAt(kn, v);
+    return '';
+  };
+  const set = (v: number): void => {
+    const t = pick();
+    if (!t) {
+      lcdMessage.show(LCD_NO_VOICE);
+      return;
+    }
+    resume();
+    const [lo, hi] = range();
+    const x = Math.max(lo, Math.min(hi, v));
+    if (d === 'snd') tracks.sample(t, trackSampleList()[Math.round(x)]?.key ?? '');
+    else if (d === 'model') tracks.machine(t, tracks.of(t).mach, KIT_MODELS[Math.round(x)]);
+    else if (pid) tracks.set(t, pid, d === 'srev' || d === 'gate' ? (x >= 0.5 ? 1 : 0) : x);
+    const now = value();
+    const u = unit(now);
+    lcdMessage.show(`${trackLabel(t)} ${TRACK_DIAL_LABEL[d]} ${text(now)}${u ? `  ${u}` : ''}`, POT_UI.readoutMs, true);
+  };
+  const reset = (): number => {
+    const t = pick();
+    if (!t || !pid) return value();
+    const def = TRACK_P_DEFAULT[pid];
+    tracks.set(t, pid, def);
+    return def;
+  };
+  return { value, set, range, steps, text, unit, reset, live: () => pick() !== null };
+}
+
+const TRACK_SPECS = new Map<string, DialSpec>();
+registerDialPrefix('t:', (id) => {
+  const d = id.slice(2);
+  if (!isTrackDial(d)) return null;
+  let s = TRACK_SPECS.get(id);
+  if (!s) TRACK_SPECS.set(id, (s = trackSpec(d, screenTrack)));
+  return s;
+});
+registerDialPrefix('k:', (id) => {
+  const t = normTrackKey(id.slice(2));
+  if (!t) return null;
+  let s = TRACK_SPECS.get(id);
+  if (!s) TRACK_SPECS.set(id, (s = trackSpec('tlev', () => t)));
+  return s;
+});
