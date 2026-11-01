@@ -6028,3 +6028,83 @@ html:has(body.v4-active.v4-light) {
   white-space: nowrap;
   text-align: right;
 }
+
+/* V.6.0 (2026-11-01, lane B6, la regle de Mika : "en blanc on ne voit pas les ecritures") : en creme, chaque texte du
+   Dock, du KnobPanel, du BeatEditor (le telephone et le desktop) et du panneau MIDI se lit a 4,5:1 au moins sur son fond
+   reel ; la bascule 1-8 / 9-16 aussi. Jamais var(--ink) (le creme du fond en clair) pour un texte : #191919, --bone, ou
+   l'orange fonce des textes (#9A3C06, 5,4:1 sur la teinte orange des onglets, 6,5:1 sur le verre de l'editeur ; #FF6A13
+   ne fait que 2,2 a 2,7:1). Les fonds, les filets, les coups et les velocites ne changent pas ; la machine noire non plus. */
+.v4-root[data-v4-theme='light'] .v4-dock-inst[aria-pressed='true']:not([data-muted='1']):not([data-solo='1']),
+.v4-root[data-v4-theme='light'] .v4-knobs-tab[aria-selected='true'],
+.v4-root[data-v4-theme='light'] .v4-knobs-voice[aria-pressed='true'] {
+  color: #9a3c06;
+}
+
+/* Un pas pose (orange plein) : l'encre noire, 6,2:1 (le blanc n'y faisait que 2,9:1) */
+.v4-root[data-v4-theme='light'] .v4-dock-step[data-on='1'] {
+  color: #191919;
+}
+
+/* Les unites et les lettres des potards : --bone-60 (#6E6E6E) faisait 4,4:1 sur le creme, la lettre etait creme sur creme */
+.v4-root[data-v4-theme='light'] .v4-dock-bpm-unit,
+.v4-root[data-v4-theme='light'] .v4-knob-unit,
+.v4-root[data-v4-theme='light'] .v4-knob-letter {
+  color: #555;
+}
+
+/* L'editeur du motif (ui/BeatEditor.tsx) : les textes gris a 85 % de l'encre (5,6 a 6,1:1), l'orange des noms en orange
+   fonce ; la touche pressee (la bascule 9-16, une vue) : l'encre noire sur son orange ; le desktop (data-dt, le rouge de la
+   Digitakt) : son rouge des textes assombri (#B01515, 5,4:1 sur le verre le plus sombre) */
+.v4-root[data-v4-theme='light'] .v4-beat-body {
+  --seq-dim: rgba(67, 67, 67, 0.86);
+}
+
+.v4-root[data-v4-theme='light'] .v4-beat-body .v4-seq-chord,
+.v4-root[data-v4-theme='light'] .v4-beat-body .v4-beat-name[aria-pressed='true'],
+.v4-root[data-v4-theme='light'] .v4-beat-body .v4-beat-ptn[data-full='1']:not([data-cur='1']) {
+  color: #9a3c06;
+}
+
+.v4-root[data-v4-theme='light'] .v4-beat-body .v4-seq-mode[aria-pressed='true'] {
+  color: #191919;
+}
+
+/* La bascule 9-16 allumee dans l'editeur, survolee ou non, sur les deux machines : l'encre noire sur son orange ou son
+   rouge (le survol des touches de l'editeur passe le texte a --bone, le creme de la machine noire : 3,3:1 sur le rouge) */
+.v4-root .v4-beat-body .v4-seq-mode[data-bank][aria-pressed='true'],
+.v4-root .v4-beat-body .v4-seq-mode[data-bank][aria-pressed='true']:hover {
+  color: #141417;
+}
+
+/* Le panneau MIDI en creme : ses lignes d'aide (opacite 0.7 : 4,1:1), le numero de SETUP des touches (0.55 : 2,8:1) et
+   l'orange de CONNECT et DOWNLOAD (2,5:1) */
+.v4-root[data-v4-theme='light'] .v4-midi-status,
+.v4-root[data-v4-theme='light'] .v4-midi-last,
+.v4-root[data-v4-theme='light'] .v4-midi-empty {
+  opacity: 0.86;
+}
+
+.v4-root[data-v4-theme='light'] .v4-midi-slot {
+  opacity: 0.82;
+}
+
+.v4-root[data-v4-theme='light'] .v4-midi-key-main:not([data-on='1']) {
+  color: #9a3c06;
+}
+
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-beat-ptn[data-full='1']:not([data-cur='1']) {
+  color: var(--seq-dim);
+}
+
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-seq-chord,
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-beat-name[aria-pressed='true'],
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-beat-ptn[data-chain='1'],
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-beat-ptn[data-next='1'] {
+  color: #b01515;
+}
+
+/* La bascule 9-16 allumee sur le rouge creme du desktop (#D81E1E) : le blanc (5,1:1 ; l'encre noire n'y fait que 3,6:1) */
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-seq-mode[data-bank][aria-pressed='true'],
+.v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-seq-mode[data-bank][aria-pressed='true']:hover {
+  color: #fff;
+}
