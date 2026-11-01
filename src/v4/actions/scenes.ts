@@ -270,6 +270,10 @@ export function sceneTake(dial: DialId, vNative: number): boolean {
   const t = pk >= 0 ? pageTarget(pk) : dial;
   if (t === null) return false;
   if (t === 'tempo' || t === 'level') return false;
+  // Les potards des menus de la face DT2 (relecture de la V.6.0) : TEMPO (z:bpm, z:bpmf, z:swing), QUANTIZE, SCENES (le
+  // crossfader z:xf, l'armement), MIXER (TRK LEV k:) passent toujours, comme TEMPO et MASTER : le crossfader sert justement
+  // quand une scene est armee
+  if (isDialV60(t) && !t.startsWith('t:')) return false;
   const id = sceneIdOfDial(dial);
   if (!id) {
     // Une voix a choisir d'abord (la rangee de la voix, VOL, SOUND sans voix) ; sinon un choix de son
