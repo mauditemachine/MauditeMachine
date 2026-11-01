@@ -2,7 +2,7 @@
   "mm808": {
     "name": "MM-RYTM",
     "version": "5.9",
-    "fingerprint": "sha256:8b19cafc8372da04b017ee5f0f352f8ddb47d3c5bc51c96415f559a734bf0146",
+    "fingerprint": "sha256:a65ca0c947190e7c3efc56a35ef48747925820c3a81ef07d8b887ba4b87c81b7",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
