@@ -53,7 +53,9 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmLock } from '../state/rytmLock';
 import { rytmPage } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { MOBILE_QUERY, type EncId, type Inst } from '../theme';
+import { DT2_FACE, MOBILE_QUERY, type EncId, type Inst } from '../theme';
+import { openMenuId } from '../scene/screen/menus/open';
+import { isRytmInfoId } from './infoIds';
 import { v127Text } from './values';
 import { rytmDiagram, rytmInfoHit, type RytmDiagram, type RytmDiagramCtx } from './diagrams';
 import { infoOf, type RytmInfo, type RytmInfoCtx, type RytmLockable } from './infos';
@@ -230,8 +232,11 @@ export function modelOf(hotspot: string): Model | null {
     dc.step = i;
     tag = voice ?? '';
   } else if (id === 'screen') {
-    // L'ecran : ce qu'il montre (les presets, EDIT, HOME, la vue PAGE)
-    if (presetMode.on('mm808')) id = 'presets';
+    // L'ecran : ce qu'il montre (les presets, EDIT, HOME, la vue PAGE) ; la face DT2 (V.6.0) : le menu ouvert, sa carte
+    const om = openMenuId();
+    if (om && isRytmInfoId(`menu:${om}`)) id = `menu:${om}`;
+    else if (DT2_FACE && presetMode.on('mm808')) id = 'menu:preset';
+    else if (presetMode.on('mm808')) id = 'presets';
     else if (editor.get() === 'mm808') id = 'edit';
     else if (rp.view === 'home' && lockStep < 0) id = 'home';
   } else if (id.startsWith('pad:')) {
