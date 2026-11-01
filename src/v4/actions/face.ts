@@ -285,6 +285,15 @@ function no60Down(src: string, stage: Stage | null = null): void {
 const menuTakenLast = (): boolean => menuLog.length > 0 && menuLog[menuLog.length - 1].taken;
 
 function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
+  const r = noRelease60Body(stage, viaEsc);
+  // NO ou Echap relachent les touches gardees (cahier 2.7 ; la relecture : PAGE tapee, puis Echap, puis YES verrouillait
+  // FILL) ; une page tapee (page + YES : le hasard) aussi ; les tenues restent
+  gestureLayer.dropArmed();
+  st.pageArm = null;
+  return r;
+}
+
+function noRelease60Body(stage: Stage | null, viaEsc: boolean): boolean {
   stageSet(stage);
   // Echap au clavier : un appui et un lacher d'un coup ; FUNC engagee, la chaine d'Echap la relache (comme toujours)
   if (viaEsc) {

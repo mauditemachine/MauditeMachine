@@ -267,8 +267,8 @@ export const CHORDS_60: readonly Chord[] = [
 
   /* ---------- PAGE et FILL ---------- */
   c({ id: 'ptnpage.func', key: 'ptnpage', gesture: 'press', mods: ['func'], prio: 90, info: 'ptnpage', version: '6.1', run: () => soon('6.1') }),
-  // PAGE encore, FILL verrouille : il se leve
-  c({ id: 'ptnpage.unlatch', key: 'ptnpage', gesture: 'press', mods: [], prio: 86, info: 'ptnpage', when: () => fill.latched, run: () => fillUnlatch() }),
+  // PAGE encore, FILL verrouille ou un cycle arme ou en cours : il se leve (1.4 : PAGE encore = fin)
+  c({ id: 'ptnpage.unlatch', key: 'ptnpage', gesture: 'press', mods: [], prio: 86, info: 'ptnpage', when: () => fill.latched || fill.cycle !== 'off', run: () => fillUnlatch() }),
   // YES puis PAGE : un cycle
   c({ id: 'ptnpage.yes', key: 'ptnpage', gesture: 'press', mods: ['yes'], prio: 85, info: 'ptnpage', run: () => fillCycle() }),
   // PAGE tenue : FILL tant qu'on la tient

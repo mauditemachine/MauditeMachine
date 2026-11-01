@@ -851,15 +851,21 @@ export function fillLatch(): void {
   fill.latch(true);
   lcdMessage.show('FILL LATCHED · PAGE: OFF', 1600);
 }
-/** PAGE encore (FILL verrouille) : il se leve. */
+/**
+ * PAGE encore (FILL verrouille, ou un cycle arme ou en cours) : il se leve (cahier 1.4 : "PAGE encore = fin"). PAGE a servi
+ * (la relecture de la V.6.0) : son lacher ne la garde pas, un YES juste apres ne re-verrouille pas FILL.
+ */
 export function fillUnlatch(): void {
-  fill.latch(false);
+  if (fill.latched) fill.latch(false);
+  fill.cancelCycle();
+  gesture.use('ptnpage');
   lcdMessage.show('FILL OFF', 900);
 }
-/** YES puis PAGE : FILL un cycle, au debut de la mesure suivante. */
+/** YES puis PAGE : FILL un cycle, au debut de la mesure suivante ; PAGE a servi (son lacher ne la garde pas). */
 export function fillCycle(): void {
   if (!barOff) barOff = clock.onBar(() => fill.cycleBar());
   fill.armCycle();
+  gesture.use('ptnpage');
   lcdMessage.show('FILL: ONE CYCLE, FROM THE NEXT BAR', 1600);
 }
 
