@@ -16,7 +16,7 @@ import { openMenuId, menuInput, setOpenMenu, screenTrack } from '../scene/screen
 import { dialSpecOf, screenMenu, screenMenus, type ScreenMenuId, type ScreenMenuInputKind } from '../scene/screen/menus/registry';
 import { dt2SrcPage } from '../rytm/pages';
 import { personalize } from '../scene/screen/menus/settings';
-import { patternName } from '../scene/screen/menus/names';
+import { patternName, setPatternName } from '../scene/screen/menus/names';
 import { DT2_FACE } from '../theme';
 import { rytmInfos } from '../state/rytmInfos';
 import { BLACK, HALF, INK } from '../scene/screen/consts';
@@ -55,6 +55,8 @@ export interface ScreenLaneDebug {
     /** PERSONALIZE, le nom du pattern */
     personalize(): unknown;
     patternName(slot: number): string;
+    /** nomme un emplacement ('' : retire le nom ; la sonde ne laisse rien) */
+    rename(slot: number, name: string): void;
     /** fait taire la pre-ecoute des sons (la sonde choisit des sons) */
     quiet(): void;
     /** une touche de page (la navigation DT2 : jamais HOME, la sous-page suivante) ; rytm:home */
@@ -102,6 +104,7 @@ export function screenLane(_src: DebugSource): ScreenLaneDebug {
       src: (mach) => [dt2SrcPage(mach, 0).map((s) => s.label || '-'), dt2SrcPage(mach, 1).map((s) => s.label || '-')],
       personalize: () => personalize.get(),
       patternName: (slot) => patternName(slot),
+      rename: (slot, name) => setPatternName(slot, name),
       quiet() {
         soundPreview.silent = true;
       },
