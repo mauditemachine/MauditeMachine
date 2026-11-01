@@ -10,27 +10,32 @@ import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { BASS, focus, type MachineId } from '../state/focus';
 import { overviewHover } from '../state/overviewHover';
-import { PORTRAIT } from '../theme';
+import { DT2_FACE, PORTRAIT } from '../theme';
 
 export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: string; text: readonly string[] }>> = {
   mm808: {
     name: 'MM-RYTM',
     kind: 'Drum machine',
-    text: [
-      // La face V.4.0 du desktop (2026-10-27) : plus de pads (une voix se choisit au clavier), les huit potards a droite de
-      // l'ecran ; leurs noms sur les touches (V.4.2, facon Digitakt) ; le telephone garde ses mots
-      PORTRAIT
-        ? 'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.'
-        : // V.5.0 (2026-10-29, la face facon Digitakt) : REC, PLAY, FUNC et leurs fonctions orange
-          'Like a Digitakt: without REC, steps 1 to 8 play the voices and pick one; press REC (W) and tap the 16 steps to write its part, hold a step and drag for its velocity. PLAY (Space) plays and pauses, STOP (Shift + Space) stops; TRIG then YES writes a random groove.',
-      PORTRAIT
-        ? 'Like an Elektron: press a page key (VOICE FLTR ENV FX) and drag the blocks of the screen up or down to set them, values 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs under the screen are the global FX, always the same. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS.'
-        : 'Press a page key (TRIG SRC FLTR AMP FX MOD) and turn the 8 knobs right of the screen (A to H), each sets the value in its place on the screen, 0 to 127. FUNC (Alt) + a key does its orange function: CLEAR, COPY, PASTE, TEMPO, SEND FX, MIXER, SAVE, RELOAD, MUTE. PTN turns the steps into 16 patterns, twice opens KIT, the presets; the M logo lifts the hood. TRK + a step picks a voice; hold SCENE A or B and turn a knob to record a scene, the crossfader blends A and B.',
-      // Le desktop (V.4.2, 2026-10-27) : l'ecran ne se touche plus, un verrou se pose au potard ; le telephone garde son texte
-      PORTRAIT
-        ? 'Parameter locks: hold a step until the screen header reads P-LOCK STEP 05, then drag a value of the screen, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.'
-        : 'Parameter locks: with REC on, hold a step until the screen header reads P-LOCK STEP 05, then turn a knob, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.',
-    ],
+    // La face Digitakt II (V.6.0, 2026-11-01, la face par defaut du desktop) ; ?face=v5 garde la face et le texte d'avant ; le
+    // telephone garde ses mots
+    text: PORTRAIT
+      ? [
+          'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.',
+          'Like an Elektron: press a page key (VOICE FLTR ENV FX) and drag the blocks of the screen up or down to set them, values 0 to 127; the lit key again shows its next view (VOICE SYNTH, GLOBAL FX). The 8 knobs under the screen are the global FX, always the same. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS.',
+          'Parameter locks: hold a step until the screen header reads P-LOCK STEP 05, then drag a value of the screen, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.',
+        ]
+      : DT2_FACE
+        ? [
+            'A Digitakt II with 16 tracks. The trigs (keys A to V, Shift for 9 to 16) play the tracks; TRK (T) + a trig picks one. REC (W), then the trigs write its steps; hold a trig and turn a knob to lock that step. PLAY (Space) plays and pauses, STOP (Shift + Space) stops.',
+            'A page key (TRIG SRC FLTR AMP FX MOD) gives the 8 knobs A to H their settings; LEVEL/DATA sets the track level, MAIN VOLUME the output. TEMPO, PRESET/KIT, SOUNDS and SETTINGS open a menu, led by the arrows, LEVEL/DATA, YES and NO.',
+            'FUNC (Alt) + a key does its orange function: FUNC + SRC the machine, FUNC + MOD the mixer and the scenes, FUNC + TRK the mutes. PTN (E) puts the patterns on the trigs; hold PAGE (G) for a fill. The M logo lifts the hood.',
+          ]
+        : [
+            // V.5.0 a V.5.3 (2026-10-29, la face facon Digitakt) : REC, PLAY, FUNC et leurs fonctions orange
+            'Like a Digitakt: without REC, steps 1 to 8 play the voices and pick one; press REC (W) and tap the 16 steps to write its part, hold a step and drag for its velocity. PLAY (Space) plays and pauses, STOP (Shift + Space) stops; TRIG then YES writes a random groove.',
+            'Press a page key (TRIG SRC FLTR AMP FX MOD) and turn the 8 knobs right of the screen (A to H), each sets the value in its place on the screen, 0 to 127. FUNC (Alt) + a key does its orange function: CLEAR, COPY, PASTE, TEMPO, SEND FX, MIXER, SAVE, RELOAD, MUTE. PTN turns the steps into 16 patterns, twice opens KIT, the presets; the M logo lifts the hood. TRK + a step picks a voice; hold SCENE A or B and turn a knob to record a scene, the crossfader blends A and B.',
+            'Parameter locks: with REC on, hold a step until the screen header reads P-LOCK STEP 05, then turn a knob, that value plays on this step only (its block turns negative, a P in its corner): the sound, volume, velocity, pitch, the filter, the envelope and the voice FX. Tap the step again to leave; while it plays, the P-LOCK chip flashes.',
+          ],
   },
   voy: {
     name: 'MM-ARP',

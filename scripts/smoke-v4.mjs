@@ -5,6 +5,9 @@
  * avec ?bass=1) en desktop (1440 x 900) et au telephone (390 x 844, DPR 3,
  * tactile, ?portrait=1), attend la fin de l'intro, laisse vivre la page et
  * echoue (code 1) sur :
+ * Au desktop, les deux faces du MM-RYTM (V.6.0, 2026-11-01) : la face DT2 (par
+ * defaut) et la face V.5.3 (?face=v5) ; la face lue (__v4.input.dt2) doit etre
+ * celle demandee, et jamais la DT2 au telephone.
  * - une erreur de page (exception non attrapee) ou une erreur de console ;
  * - une requete locale en echec ou en 4xx / 5xx (les coupures de video et
  *   d'audio en cours de lecture, ERR_ABORTED, ne comptent pas) ; un fichier
@@ -30,6 +33,9 @@
  *                                          apres npm run build : la prod)
  *   --machines mm808,voy                   seulement ces machines
  *   --only desktop | --only phone          une seule mise en page
+ *   --faces dt2,v5                         les faces du desktop (les deux par
+ *                                          defaut ; dt2 : sans parametre, v5 :
+ *                                          ?face=v5)
  *   --settle 4000                          ms laissees a la page apres l'intro
  *   --timeout 300000                       ms max pour l'intro (rendu logiciel lent)
  *   --cache /un/dossier                    le cache de vite (sans --url ; par
@@ -63,6 +69,7 @@ const ONLY = opt('only', '');
 const SETTLE_MS = Number(opt('settle', '4000'));
 const TIMEOUT_MS = Number(opt('timeout', '300000'));
 const CACHE_DIR = opt('cache', '');
+const FACES = opt('faces', 'dt2,v5').split(',').map((s) => s.trim()).filter((f) => f === 'dt2' || f === 'v5');
 
 /** Les erreurs de console qui ne disent rien de la page : les requetes externes bloquees par ce script. */
 const IGNORED_CONSOLE = /ERR_BLOCKED_BY_CLIENT|blockedbyclient|net::ERR_FAILED .*(googletagmanager|facebook|soundcloud)/i;
@@ -134,7 +141,8 @@ async function startVite() {
 
 /* ---------- une page ---------- */
 
-async function check(browser, base, machine, phone) {
+/** face : 'dt2' (la face par defaut du desktop, sans parametre), 'v5' (?face=v5) ; null au telephone (sa face a lui). */
+async function check(browser, base, machine, phone, face = null) {
   const ctx = await browser.newContext(
     phone ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } }
   );
@@ -170,7 +178,7 @@ async function check(browser, base, machine, phone) {
       problems.push(`missing (SPA fallback) ${u}`);
     }
   });
-  const url = `${base}/?mute=1&debug=1&m=${machine}${machine === 'bass' ? '&bass=1' : ''}${phone ? '&portrait=1' : ''}`;
+  const url = `${base}/?mute=1&debug=1&m=${machine}${machine === 'bass' ? '&bass=1' : ''}${phone ? '&portrait=1' : ''}${face === 'v5' ? '&face=v5' : ''}`;
   const t0 = Date.now();
   let state = null;
   try {
@@ -187,6 +195,8 @@ async function check(browser, base, machine, phone) {
         gl: window.__v4.state.gl,
         focus: window.__v4.voyager?.focus?.get?.() ?? null,
         scroll: root ? [root.scrollLeft, root.scrollTop] : null,
+        // La face du MM-RYTM lue (V.6.0) : la DT2 ou la V.5.3 ; null sans le debug de la saisie
+        dt2: typeof window.__v4.input?.dt2 === 'boolean' ? window.__v4.input.dt2 : null,
       };
     });
   } catch (e) {
@@ -196,9 +206,11 @@ async function check(browser, base, machine, phone) {
     if (state.gl !== 'webgl') problems.push(`gl: ${state.gl} (le repli sans WebGL)`);
     if (state.focus !== machine) problems.push(`focus: ${state.focus}, attendu ${machine}`);
     if (!state.scroll || state.scroll[0] !== 0 || state.scroll[1] !== 0) problems.push(`.v4-root a defile : ${JSON.stringify(state.scroll)}`);
+    const want = phone ? false : face !== 'v5';
+    if (state.dt2 !== want) problems.push(`face : ${state.dt2 === null ? 'inconnue' : state.dt2 ? 'dt2' : 'v5'}, attendu ${want ? 'dt2' : 'v5'}`);
   }
   await ctx.close();
-  return { machine, layout: phone ? 'phone' : 'desktop', ms: Date.now() - t0, problems };
+  return { machine, layout: phone ? 'phone' : `desktop ${face}`, ms: Date.now() - t0, problems };
 }
 
 /* ---------- main ---------- */
@@ -221,15 +233,17 @@ try {
   await browser.close();
   throw e;
 }
-const layouts = ONLY === 'phone' ? [true] : ONLY === 'desktop' ? [false] : [false, true];
+// Les mises en page : le desktop une fois par face (DT2, V.5.3), puis le telephone
+const desk = FACES.map((face) => ({ phone: false, face }));
+const layouts = ONLY === 'phone' ? [{ phone: true, face: null }] : ONLY === 'desktop' ? desk : [...desk, { phone: true, face: null }];
 const results = [];
 try {
   for (const m of MACHINES) {
-    for (const phone of layouts) {
-      const r = await check(browser, server.base, m, phone);
+    for (const { phone, face } of layouts) {
+      const r = await check(browser, server.base, m, phone, face);
       results.push(r);
       const ok = r.problems.length === 0;
-      console.log(`${ok ? 'OK  ' : 'FAIL'} ${m.padEnd(6)} ${r.layout.padEnd(8)} ${Math.round(r.ms / 1000)} s`);
+      console.log(`${ok ? 'OK  ' : 'FAIL'} ${m.padEnd(6)} ${r.layout.padEnd(11)} ${Math.round(r.ms / 1000)} s`);
       for (const p of r.problems.slice(0, 8)) console.log(`       ${p}`);
     }
   }

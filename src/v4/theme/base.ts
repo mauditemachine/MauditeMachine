@@ -37,18 +37,19 @@ export const PORTRAIT: boolean = (() => {
 })();
 
 /**
- * La face Digitakt II de la V.6.0 (2026-10-30, docs/v4/dt2/dt2-master-spec.md 2 et 5.1, la lane B3) : derriere ce drapeau
- * tant que les lanes de la V.6.0 (la saisie, l'ecran, le MIDI) ne l'ont pas branchee. Faux par defaut : la face, le
- * telephone et le rendu restent ceux de la V.5.3 au pixel pres. Vrai avec ?face=dt2 dans l'URL (les tests, les captures),
- * au desktop seulement (le telephone garde sa face, cahier 1.3) ; lu au chargement, jamais retenu (un rechargement sans
- * le parametre rend la V.5.3). Tout ce qui en depend se decide a l'evaluation des modules, comme PORTRAIT.
+ * La face Digitakt II de la V.6.0 (2026-10-30, docs/v4/dt2/dt2-master-spec.md 2 et 5.1, la lane B3) : depuis l'integration
+ * de la V.6.0 (2026-11-01, les lanes B3 a B6 branchees), la face par defaut du desktop. ?face=v5 dans l'URL rend la face
+ * V.5.3 (pour comparer et revenir en arriere : la face, le clavier, le MIDI et l'ecran d'avant) ; ?face=dt2 (les liens et
+ * les sondes d'avant) reste la DT2. Le telephone garde toujours sa face (cahier 1.3) : faux au telephone, et hors d'un
+ * navigateur (les tests de node). Lu au chargement, jamais retenu (un rechargement sans ?face=v5 rend la DT2). Tout ce qui
+ * en depend se decide a l'evaluation des modules, comme PORTRAIT.
  */
 export const DT2_FACE: boolean = (() => {
   if (PORTRAIT || typeof window === 'undefined') return false;
   try {
-    return new URLSearchParams(window.location.search).get('face') === 'dt2';
+    return new URLSearchParams(window.location.search).get('face') !== 'v5';
   } catch {
-    return false;
+    return true;
   }
 })();
 
