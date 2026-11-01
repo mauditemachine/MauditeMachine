@@ -39,6 +39,7 @@ import {
   clearRow60,
   copy60,
   dispatch,
+  dropPrepared,
   faceMenuOf,
   menuInput,
   menuLog,
@@ -292,7 +293,11 @@ function noRelease60(stage: Stage | null, viaEsc: boolean): boolean {
       if (!menuInput('no', 'up')) menuSet(null);
       return true;
     }
-    if (func.engaged()) return escape();
+    if (func.engaged()) {
+      // Des mutes prepares (FUNC + TRIG) : Echap les laisse tomber, FUNC se relache sans les appliquer
+      dropPrepared();
+      return escape();
+    }
     return noBody(stage, true);
   }
   // Un jumeau, le MIDI : l'appui n'a pas eu lieu, il part maintenant

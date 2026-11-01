@@ -19,6 +19,7 @@ import { st } from '../state';
 import { lcdMessage } from '../../state/lcdMessage';
 import {
   bankView,
+  dropPrepared,
   fillCycle,
   fillLatch,
   fillUnlatch,
@@ -225,6 +226,8 @@ export const CHORDS_60: readonly Chord[] = [
     info: 'no',
     when: () => func.get().mode === 'locked',
     run: () => {
+      // Des mutes prepares (FUNC verrouillee + TRIG) : NO les laisse tomber, sans les appliquer
+      dropPrepared();
       func.cancel();
       lcdMessage.show('FUNC OFF', 700);
       return true;

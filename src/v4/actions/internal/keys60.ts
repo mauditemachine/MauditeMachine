@@ -273,13 +273,61 @@ export function trigQuickMute(i: number, stage: Stage | null): void {
   stage?.pressStep(i);
   const k = trackAt(i);
   if (!k) return;
-  if (dtFace.lastMute() === 'pattern' && isLegacy(k)) {
+  const mode = dtFace.lastMute() === 'pattern' && isLegacy(k) ? 'pattern' : 'global';
+  // FUNC vraiment tenue (ou verrouillee) : la bascule se prepare, elle part au relacher de FUNC (cahier 3.4 et 2.7 ; la
+  // relecture de la V.6.0) ; FUNC tapee (gardee pour une touche) s'en va avec ce TRIG : la bascule part tout de suite
+  const fm = func.get().mode;
+  if (fm === 'held' || fm === 'locked') {
+    const on = dtFace.prepareToggle(k, mode);
+    const n = dtFace.prepared().size;
+    const will = mode === 'pattern' && isLegacy(k) ? !pattern.pmuted(k) : !voices.isMuted(k);
+    lcdMessage.show(on ? `${trackName(k)} ${will ? 'MUTE' : 'UNMUTE'} PREPARED · ${fm === 'held' ? 'RELEASE FUNC' : 'TAP FUNC'}` : `${trackName(k)} NOT PREPARED${n ? ` · ${n} PREPARED` : ''}`, 1600);
+    return;
+  }
+  muteFlip(k, mode);
+}
+
+/** Une piste coupee ou rendue dans un mode (global, ou le mute du pattern pour 1 a 8). */
+function muteFlip(k: TrackKey, mode: 'global' | 'pattern'): void {
+  if (mode === 'pattern' && isLegacy(k)) {
     undo.boundary('mm808', 'step');
     pattern.togglePmute(k);
     lcdMessage.show(`${trackName(k)} ${pattern.pmuted(k) ? 'MUTED IN THE PATTERN' : 'BACK IN THE PATTERN'}`);
     return;
   }
   trackMuteToggle(k);
+}
+
+/** Les mutes prepares partent (le relacher de FUNC, la tape qui la deverrouille) ; l'ecran dit combien. */
+export function applyPrepared(): void {
+  const all = dtFace.takePrepared();
+  if (all.size === 0) return;
+  if ([...all.values()].includes('pattern')) undo.boundary('mm808', 'step');
+  for (const [k, mode] of all) {
+    if (mode === 'pattern' && isLegacy(k)) pattern.togglePmute(k);
+    else voices.toggleMute(k);
+  }
+  const [first] = [...all];
+  if (all.size === 1 && first) {
+    const [k, mode] = first;
+    const off = mode === 'pattern' && isLegacy(k) ? pattern.pmuted(k) : voices.isMuted(k);
+    lcdMessage.show(`${trackName(k)} ${off ? 'MUTED' : 'BACK'}`, 1200);
+  } else lcdMessage.show(`${all.size} MUTES APPLIED`, 1200);
+}
+/** NO ou Echap : la preparation s'en va sans rien appliquer. */
+export function dropPrepared(): void {
+  if (dtFace.takePrepared().size > 0) lcdMessage.show('MUTES NOT APPLIED', 900);
+}
+
+// FUNC relachee (tenue puis lachee, verrouillee puis tapee, la fenetre qui perd le focus) : les mutes prepares partent
+let funcWas = func.get().mode;
+if (DT2_FACE && typeof window !== 'undefined') {
+  func.subscribe(() => {
+    const m = func.get().mode;
+    const was = funcWas;
+    funcWas = m;
+    if ((was === 'held' || was === 'locked') && m !== 'held' && m !== 'locked') applyPrepared();
+  });
 }
 
 /** Le mode MUTE (FUNC + TRK) : TRIG 1 a 16 coupent leur piste ou la rendent (global, ou le pattern pour 1 a 8). */
