@@ -20,6 +20,8 @@ import { gesture } from '../state/gesture';
 import { activeTrack } from '../state/trk';
 import { voices } from '../state/voices';
 import { DT2_FACE } from '../theme';
+import { rytmInfoHit } from '../rytm/infoIds';
+import { infoOf } from '../rytm/infos';
 import type { DebugSource } from './index';
 
 export interface InputLaneDebug {
@@ -47,6 +49,12 @@ export interface InputLaneDebug {
     dataTurn: typeof dataTurn;
     mainVolumeTurn: typeof mainVolumeTurn;
     editGrid: typeof editGridToggle;
+    /**
+     * l'integration de la V.6.0 : la carte INFOS d'une zone (l'id de la carte, null : aucune) et son titre (null : la carte
+     * n'existe pas) ; les sondes lisent ainsi que chaque accord de la table mene a une carte
+     */
+    infoHit(hotspot: string): string | null;
+    infoTitle(id: string): string | null;
   };
 }
 
@@ -77,6 +85,8 @@ export function inputLane(src: DebugSource): InputLaneDebug {
       dataTurn,
       mainVolumeTurn,
       editGrid: editGridToggle,
+      infoHit: (h) => rytmInfoHit(h)?.id ?? null,
+      infoTitle: (id) => infoOf(id)?.title ?? null,
     },
   };
 }
