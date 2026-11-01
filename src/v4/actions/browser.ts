@@ -22,11 +22,15 @@ import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
 import { voices } from '../state/voices';
 import { LCD_DROP_NO_VOICE, LCD_NO_VOICE, POT_UI, type Inst } from '../theme';
+import { KIT_FAMILIES } from '../audio/kitlaw';
+import { TRACK_NAMES, isLegacyTrack, sampleFamily, trackIndex, tracks, type TrackKey } from '../audio/tracks';
+import { dialSpecOf } from '../scene/screen/menus/registry';
+import { activeTrack } from '../state/trk';
 import { gesture, two } from './shared';
 import { selectVoice } from './internal/tracks';
 import { coarsePointer } from './internal/transport';
 import { touchPage } from './internal/dials';
-import { FAIL_TAG, setVoiceSound, voiceSoundAt } from './internal/kit';
+import { FAIL_TAG, setVoiceSound, trackSampleList, voiceSoundAt } from './internal/kit';
 import { soundLockWrite } from './internal/locks';
 import { browserClampTop, browserReveal } from './internal/browser';
 import { type VoiceSound, voiceSounds } from './kit';
@@ -391,15 +395,104 @@ export function soundBrowserRemove(i: number, how: 'TAP' | 'CLICK' | 'DELETE' = 
   void userSamples.remove(row.key).then((ok) => lcdMessage.show(ok ? `${label} REMOVED` : 'STORAGE OFF', 1600));
 }
 
+/* ---------------- SOUNDS sur les pistes 9 a 16 (la face DT2, relecture de la V.6.0) ---------------- */
+
+/*
+ * Le navigateur d'avant est celui des 8 voix (leurs familles, leurs machines 909, 808, MM) : une piste 9 a 16 n'a pas de
+ * voix du motif. Sa liste SOUNDS est celle de son potard D (SAMP, t:snd ; cahier 3.2 : "liste des samples, D SAMP") :
+ * OFF, puis toute la banque (les 8 dossiers du site et tes fichiers), puis + LOAD A FILE... ; la TRIG de la piste est sa
+ * pre-ecoute. Les fichiers importes pour elle vont dans la categorie de son sample (sinon de sa machine).
+ */
+
+/** Une ligne de la liste SOUNDS d'une piste 9 a 16 : son sample (cle ; '' : OFF ; null : + LOAD A FILE...), nom, categorie. */
+export interface TrackSoundRow {
+  key: string | null;
+  label: string;
+  family: string;
+}
+
+/** La liste SOUNDS de la piste active quand c'est une piste 9 a 16 ; null : une voix 1 a 8 (le navigateur d'avant) ou aucune. */
+export function trackSoundList(): { track: TrackKey; name: string; rows: readonly TrackSoundRow[]; cur: number } | null {
+  const t = activeHi();
+  if (!t) return null;
+  const list = trackSampleList();
+  const snd = tracks.of(t).snd;
+  const rows: TrackSoundRow[] = list.map((x) => ({ key: x.key, label: x.label, family: x.family }));
+  rows.push({ key: null, label: BROWSER_LOAD_LABEL, family: '' });
+  return { track: t, name: TRACK_NAMES[trackIndex(t)] ?? t, rows, cur: Math.max(0, list.findIndex((x) => x.key === snd)) };
+}
+
+/** Le sample i de la liste pour la piste active 9 a 16 (par le potard D, sa fiche t:snd) ; + LOAD A FILE... : tes fichiers. */
+export function trackSoundPick(i: number): void {
+  const v = trackSoundList();
+  const row = v?.rows[i];
+  if (!v || !row) return;
+  if (row.key === null) {
+    soundFilesPick(v.track, true);
+    return;
+  }
+  dialSpecOf('t:snd')?.set(i);
+}
+
+/** La piste active quand c'est une piste 9 a 16 (la face DT2 ; sans elle, la piste active est la voix du motif) ; null sinon. */
+function activeHi(): TrackKey | null {
+  const t = activeTrack.get();
+  return t && !isLegacyTrack(t) ? t : null;
+}
+
+/** La categorie des fichiers importes pour une piste 9 a 16 : celle de son sample, sinon de sa machine, sinon BD. */
+function trackFamily(t: TrackKey): KitFamily {
+  const tr = tracks.of(t);
+  const f = sampleFamily(tr.snd);
+  if (f) return f;
+  return (KIT_FAMILIES as readonly string[]).includes(tr.mach) ? (tr.mach as KitFamily) : 'bd';
+}
+
+/** Des fichiers pour une piste 9 a 16 : ils entrent dans sa categorie, le premier devient son sample (D SAMP). */
+async function trackFilesAdd(files: readonly File[], t: TrackKey): Promise<number> {
+  const f = trackFamily(t);
+  const name = TRACK_NAMES[trackIndex(t)] ?? t;
+  const snd0 = tracks.of(t).snd;
+  lcdMessage.show(`${name} ADDING ${files.length > 1 ? `${files.length} FILES` : sampleLabel(files[0].name)}...`, 8000);
+  const added: KitSample[] = [];
+  const refused: string[] = [];
+  for (const file of files) {
+    try {
+      added.push(await userSamples.add(f, file));
+    } catch (e) {
+      refused.push(e instanceof UserSampleError ? e.text : 'NOT AUDIO');
+    }
+  }
+  const why = refused.length === 0 ? '' : files.length === 1 ? refused[0] : `${refused.length} REFUSED: ${refused[0]}`;
+  if (added.length === 0) {
+    lcdMessage.show(why || 'NOT AUDIO', 2400);
+    return 0;
+  }
+  const s = added[0];
+  // Un autre sample choisi pendant l'ajout : le fichier entre dans la liste sans etre pris
+  const chosen = tracks.of(t).snd === snd0;
+  for (const a of chosen ? added.slice(1) : added) userSamples.release(a.key);
+  const more = `${added.length > 1 ? `  +${added.length - 1}` : ''}${why ? `  ${why}` : ''}`;
+  if (!chosen) {
+    lcdMessage.show(`${name}: ADDED ${s.label}${more}`, 2400);
+    return added.length;
+  }
+  resume();
+  tracks.sample(t, s.key);
+  lcdMessage.show(`${name} SAMPLE ${s.label}${more}`, 2400);
+  return added.length;
+}
+
 /** Le champ de fichiers cache (cree au premier + LOAD A FILE...). */
 let fileInput: HTMLInputElement | null = null;
 
 /**
  * + LOAD A FILE... (2026-10-18) : le choix de fichiers du systeme (au telephone et dans Safari aussi : un vrai champ,
  * hors de la vue mais pas display none, clique dans le geste), plusieurs a la fois ; ils entrent dans la famille de la
- * voix. fromList : choisi depuis le navigateur (en P-LOCK, le premier verrouille le pas).
+ * voix. fromList : choisi depuis le navigateur (en P-LOCK, le premier verrouille le pas). Une piste 9 a 16 (la face DT2,
+ * relecture de la V.6.0) : ils entrent dans sa categorie, le premier devient son sample.
  */
-export function soundFilesPick(inst: Inst | null = pattern.get().instrument, fromList = false): void {
+export function soundFilesPick(inst: TrackKey | null = pattern.get().instrument, fromList = false): void {
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return;
@@ -436,7 +529,7 @@ export function soundFilesPick(inst: Inst | null = pattern.get().instrument, fro
   input.onchange = () => {
     const files = input.files ? Array.from(input.files) : [];
     input.value = '';
-    if (files.length > 0) void soundFilesAdd(files, inst, fromList).finally(done);
+    if (files.length > 0) void (isLegacyTrack(inst) ? soundFilesAdd(files, inst, fromList) : trackFilesAdd(files, inst)).finally(done);
     else done();
   };
   input.value = '';

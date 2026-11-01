@@ -29,7 +29,7 @@ export const RAW_V60 = {
     section: 'KEYS',
     title: 'SOUNDS',
     steps: ['SOUNDS : la liste des sons de la piste.', 'UP, DOWN : un son ; YES le choisit (il s’entend).', 'FUNC + SOUNDS : tes fichiers.'],
-    text: "L'ancienne touche SAMPLING de la Digitakt devient SOUNDS : la liste des sons de la piste active, sur tout l'écran (ses machines 909, 808, MM, puis ses samples). UP et DOWN ou LEVEL/DATA descendent (avec FUNC, une page), YES choisit, LEFT et RIGHT prennent le son d'avant ou d'après, NO ferme. FUNC + SOUNDS : SAMPLES, tes fichiers ; IMPORT FILES pour en ajouter (ils vont dans la catégorie du son de la piste), YES deux fois sur un fichier pour le retirer.",
+    text: "L'ancienne touche SAMPLING de la Digitakt devient SOUNDS : la liste des sons de la piste active, sur tout l'écran (pistes 1 à 8 : ses machines 909, 808, MM, puis ses samples ; pistes 9 à 16 : la liste de son potard D SAMP, toute ta banque). UP et DOWN ou LEVEL/DATA descendent (avec FUNC, une page), YES choisit, LEFT et RIGHT prennent le son d'avant ou d'après, NO ferme. FUNC + SOUNDS : SAMPLES, tes fichiers ; IMPORT FILES pour en ajouter (ils vont dans la catégorie du son de la piste), YES deux fois sur un fichier pour le retirer.",
     key: 'U',
   },
   'key:tempo': {
@@ -97,7 +97,7 @@ export const RAW_V60 = {
   'menu:sounds': {
     section: 'SCREEN',
     title: 'SOUNDS',
-    text: "La liste des sons de la piste active : NOW marque celui qu'elle joue. UP, DOWN ou LEVEL/DATA déplacent le curseur sans rien jouer ; YES choisit (+ LOAD A FILE : tes fichiers) ; LEFT et RIGHT, le son d'avant ou d'après ; NO ferme.",
+    text: "La liste des sons de la piste active (pistes 9 à 16 : toute ta banque, comme son potard D SAMP) : NOW marque celui qu'elle joue. UP, DOWN ou LEVEL/DATA déplacent le curseur sans rien jouer ; YES choisit (+ LOAD A FILE : tes fichiers) ; LEFT et RIGHT, le son d'avant ou d'après ; NO ferme.",
   },
   'menu:samples': {
     section: 'SCREEN',

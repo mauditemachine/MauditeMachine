@@ -9,27 +9,63 @@
  * Aucune ecoute ne part d'un deplacement du curseur ; choisir un son le fait entendre comme aujourd'hui.
  */
 
-import { pattern } from '../../../audio/pattern';
 import { userSamples } from '../../../audio/usersamples';
 import { samplesChanged } from '../../../audio/samples';
-import { soundBrowserClose, soundBrowserCursor, soundBrowserOpen, soundBrowserPick, soundBrowserStep, soundBrowserView, soundFilesPick } from '../../../actions';
+import { soundBrowserClose, soundBrowserCursor, soundBrowserOpen, soundBrowserPick, soundBrowserStep, soundBrowserView, soundFilesPick, trackSoundList, trackSoundPick } from '../../../actions';
 import { lcdMessage } from '../../../state/lcdMessage';
 import { lcdSamples } from '../../../state/lcdSamples';
+import { activeTrack } from '../../../state/trk';
 import type { Screen } from '../core';
 import { HALF } from '../consts';
 import { registerScreenMenu } from './registry';
 import { acting, LIST_ROWS, paintHint, paintList, scrollTop, stepCursor, type MenuRow } from './frame';
-import { menuChanged, screenTrack } from './open';
-import { TRACK_NAMES, trackIndex } from '../../../audio/tracks';
+import { menuChanged, openMenuId, screenTrack } from './open';
+import { TRACK_NAMES, isLegacyTrack, trackIndex, type TrackKey } from '../../../audio/tracks';
 
 /* ---------------- SOUNDS ---------------- */
 
 let soundsBody = '';
 
+/*
+ * Relecture de la V.6.0 : une piste 9 a 16 a sa liste, celle de son potard D SAMP (actions/browser.ts trackSoundList), et
+ * IMPORT pour elle.
+ */
+const LIST_AREA = { x0: 4, x1: 316, y0: 41, y1: 170 } as const;
+const LIST_N = Math.floor((LIST_AREA.y1 - LIST_AREA.y0) / 15.5);
+
+/** La liste d'une piste 9 a 16 : son curseur (-1 : le sample du moment), sa premiere ligne, la piste qu'elle montre. */
+let hiCursor = -1;
+let hiTop = -1;
+let hiTrack: TrackKey | null = null;
+
+/** La liste d'une piste 9 a 16 telle que l'ecran la montre ; null : une voix 1 a 8, ou aucune piste. */
+function hiView(): { track: TrackKey; name: string; rows: MenuRow[]; keys: readonly (string | null)[]; cur: number; cursor: number } | null {
+  const v = trackSoundList();
+  if (!v) return null;
+  if (v.track !== hiTrack) {
+    hiTrack = v.track;
+    hiCursor = -1;
+    hiTop = -1;
+  }
+  const rows: MenuRow[] = v.rows.map((r, i) => ({ label: r.label, value: r.key === null ? '' : i === v.cur ? 'NOW' : r.family.toUpperCase() }));
+  const cursor = hiCursor >= 0 && hiCursor < rows.length ? hiCursor : v.cur;
+  return { track: v.track, name: v.name, rows, keys: v.rows.map((r) => r.key), cur: v.cur, cursor };
+}
+
 function paintSounds(screen: Screen): number {
+  const h = hiView();
+  if (h) {
+    screen.text(`${h.cur + 1} / ${h.rows.length - 1}`, 312, 34, 7.5, HALF, 700, 'right', 0.5);
+    hiTop = hiTop < 0 ? Math.max(0, h.cursor - 2) : hiTop;
+    hiTop = scrollTop(hiTop, h.cursor, h.rows.length, LIST_N);
+    soundsBody = `${h.name} SOUNDS|${paintList(screen, h.rows, h.cursor, hiTop, LIST_AREA)}`;
+    paintHint(screen, 'UP/DOWN: SAMPLE   YES: CHOOSE   L/R: PREV NEXT   NO: EXIT');
+    return 0;
+  }
   const v = soundBrowserView();
   if (!v) {
-    screen.text(pattern.get().instrument ? 'NO SOUNDS' : 'PICK A TRACK: TRK + TRIG', 160, 100, 10, HALF, 600, 'center', 0.4);
+    const t = screenTrack();
+    screen.text(t ? 'NO SOUNDS' : 'PICK A TRACK: TRK + TRIG', 160, 100, 10, HALF, 600, 'center', 0.4);
     soundsBody = '';
     return 0;
   }
@@ -45,13 +81,14 @@ registerScreenMenu({
   id: 'sounds',
   owner: 'B5',
   title: () => {
-    const v = soundBrowserView();
     const t = screenTrack();
-    return v && t ? `SOUNDS  ${TRACK_NAMES[trackIndex(t)]}` : 'SOUNDS';
+    return t && (hiView() || soundBrowserView()) ? `SOUNDS  ${TRACK_NAMES[trackIndex(t)]}` : 'SOUNDS';
   },
   paint: (screen) => paintSounds(screen),
   onOpen() {
-    if (!lcdSamples.isOpen()) soundBrowserOpen(true);
+    hiCursor = -1;
+    hiTop = -1;
+    if (!lcdSamples.isOpen() && !hiView()) soundBrowserOpen(true);
   },
   onClose() {
     if (lcdSamples.isOpen()) soundBrowserClose();
@@ -59,11 +96,28 @@ registerScreenMenu({
   info: () => soundsBody,
   onInput(i) {
     if (!acting(i)) return true;
-    const v = soundBrowserView();
     if (i.kind === 'no') {
       soundBrowserClose();
       return false;
     }
+    const h = hiView();
+    if (h) {
+      const last = h.rows.length - 1;
+      if (i.kind === 'up' || i.kind === 'down') hiCursor = stepCursor(h.cursor, h.rows.length, i.kind === 'up' ? -1 : 1, i.func, LIST_N - 1);
+      else if (i.kind === 'data') hiCursor = Math.max(0, Math.min(last, h.cursor + Math.round(i.delta ?? 0)));
+      else if (i.kind === 'yes') {
+        trackSoundPick(h.cursor);
+        if (h.keys[h.cursor] !== null) hiCursor = -1;
+      } else if (i.kind === 'left' || i.kind === 'right') {
+        const n = Math.max(0, Math.min(last - 1, h.cur + (i.kind === 'left' ? -1 : 1)));
+        if (n === h.cur) lcdMessage.show(`${h.name} SOUNDS: ${i.kind === 'left' ? 'FIRST' : 'LAST'} OF ${last}`);
+        else trackSoundPick(n);
+        hiCursor = -1;
+      }
+      menuChanged();
+      return true;
+    }
+    const v = soundBrowserView();
     if (!v) return i.kind !== 'yes' ? true : (soundBrowserOpen(true), true);
     if (i.kind === 'up' || i.kind === 'down') soundBrowserCursor((i.kind === 'up' ? -1 : 1) * (i.func ? Math.max(1, v.visible - 1) : 1));
     else if (i.kind === 'data') soundBrowserCursor(Math.round(i.delta ?? 0));
@@ -124,7 +178,8 @@ registerScreenMenu({
       cursor = stepCursor(cursor, rows.length, dir, i.func && i.kind !== 'data', LIST_ROWS - 1);
       arm = -1;
     } else if (i.kind === 'yes') {
-      if (cursor === 0) soundFilesPick(pattern.get().instrument, false);
+      // La piste active, T9 a T16 compris (relecture de la V.6.0 : le motif n'a alors plus de voix)
+      if (cursor === 0) soundFilesPick(screenTrack(), false);
       else if (arm === cursor) {
         const s = userSamples.all()[cursor - 1];
         arm = -1;
@@ -145,3 +200,12 @@ registerScreenMenu({
 
 // Un fichier importe ou retire (par ici ou par la liste des sons) : la liste se redessine
 samplesChanged.subscribe(() => menuChanged());
+
+// Une autre piste choisie sous SOUNDS (relecture de la V.6.0) : une voix 1 a 8 retrouve sa liste (le navigateur d'avant se
+// ferme quand le motif n'a plus de voix), une piste 9 a 16 la sienne
+activeTrack.subscribe(() => {
+  if (openMenuId() !== 'sounds') return;
+  const t = screenTrack();
+  if (t && isLegacyTrack(t) && !lcdSamples.isOpen()) soundBrowserOpen(true);
+  menuChanged();
+});
