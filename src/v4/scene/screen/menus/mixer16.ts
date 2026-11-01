@@ -59,7 +59,7 @@ for (const w of ['a', 'b'] as const) {
     range: () => [0, 1],
     steps: () => 2,
     text: (v) => (v >= 0.5 ? 'ARMED' : 'OFF'),
-    unit: () => 'PRESS TO ARM',
+    unit: () => `PRESS ${w.toUpperCase()}`,
   });
   registerDialSpec(`z:ky${w}`, {
     value: () => keysOf(w),

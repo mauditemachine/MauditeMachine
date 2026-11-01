@@ -15,7 +15,7 @@ import { DT2_FACE, type Inst } from '../../theme';
 import { FACE_PAGES, freeCells, pageSlots, type PageSlot } from '../../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../../rytm/pageView';
 import { fill } from '../../state/fill';
-import { BLACK, BLOCK, cellRect, FACE_STRIP, FACE_TEXT_SIZES, FACE_UNIT_SHRINK, FLASH, FRAME, FRAME_DIM, HALF, HOVER_FILL, INK, MATRIX, METER_MS, PAL, PAL_NEG, type PanelArea, pmutesNow, type Rect, TALL, TALL_VALUE } from './consts';
+import { BLACK, BLOCK, cellRect, DT2_DIM, FACE_STRIP, FACE_TEXT_SIZES, FACE_UNIT_SHRINK, FLASH, FRAME, FRAME_DIM, HALF, HOVER_FILL, INK, MATRIX, METER_MS, PAL, PAL_NEG, type PanelArea, pmutesNow, type Rect, TALL, TALL_VALUE } from './consts';
 import { Screen } from './core';
 import { defineMethods } from './proto';
 
@@ -235,15 +235,17 @@ function paintBlock(this: Screen, b: Block): void {
   const ntw = nameTag ? tagW(nameTag) + 5 : 0;
   // Un nom qui ne tient pas (2026-10-10, FEEDBACK de la page DELAY au telephone : FEEDBA.) : un corps plus petit avant de le couper
   const nameSize = nameW <= nameRoom - ntw ? T.nameSize : ([0.9, 0.82].map((f) => T.nameSize * f).find((s) => this.textWidth(b.label, s, 700, 0.7) <= nameRoom - ntw) ?? T.nameSize);
-  this.text(this.fitText(b.label, nameRoom - ntw, nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
+  // La face DT2 (V.6.0) : le texte d'un bloc eteint se lit (4,5:1 au moins, DT2_DIM)
+  const offInk = DT2_FACE ? DT2_DIM : P.faint;
+  this.text(this.fitText(b.label, nameRoom - ntw, nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, nameSize, alive ? P.half : offInk, 700, 'left', 0.7);
   if (nameTag) this.text(nameTag, bx + bw - B.padX - cornerW, by + T.nameDy, T.tagSize, tagColor, 700, 'right', tagSp);
   if (!alive) {
     // Une voix a un seul son (CY) : son nom quand meme, a peine
     const t = b.text && b.text !== '--' ? b.text : '--';
-    this.text(this.fitText(t, bw - 2 * B.padX, T.valueSizes[1], 0, 300), bx + B.padX, by + T.valueDy, T.valueSizes[1], P.faint, 300);
+    this.text(this.fitText(t, bw - 2 * B.padX, T.valueSizes[1], 0, 300), bx + B.padX, by + T.valueDy, T.valueSizes[1], offInk, 300);
     // Sa forme courte quand l'unite ne tient pas (2026-10-22, revue INT-4 : PICK A VOI. dans PITCH et FINE)
     const offUnit = b.unit && b.unitShort && this.textWidth(b.unit, T.unitSize, 600, 0.4) > bw - 2 * B.padX ? b.unitShort : b.unit;
-    if (offUnit) this.text(this.fitText(offUnit, bw - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
+    if (offUnit) this.text(this.fitText(offUnit, bw - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, offInk, 600, 'left', 0.4);
     this.info.tags.push(`${b.label}:${b.unit}|${nameTag ? `${nameTag}@name` : ''}`);
     return;
   }

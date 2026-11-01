@@ -19,7 +19,7 @@ import { personalize } from '../scene/screen/menus/settings';
 import { patternName, setPatternName } from '../scene/screen/menus/names';
 import { DT2_FACE } from '../theme';
 import { rytmInfos } from '../state/rytmInfos';
-import { BLACK, HALF, INK } from '../scene/screen/consts';
+import { BLACK, DT2_DIM, HALF, INK } from '../scene/screen/consts';
 import { DIM_TEXT } from '../scene/screen/menus/frame';
 
 export interface ScreenLaneDebug {
@@ -65,7 +65,7 @@ export interface ScreenLaneDebug {
     /** l'image de l'ecran, en PNG (data URL) : les captures de la sonde */
     png(): string;
     /** les teintes du texte de l'ecran DT2 et son fond (la verification du contraste, en noir et en creme) */
-    palette(): { bg: string; ink: string; half: string; dim: string };
+    palette(): { bg: string; ink: string; half: string; dim: string; off: string };
     /** INFOS allume et la carte d'une zone montree (null : eteint) */
     infos(id: string | null): void;
   };
@@ -110,7 +110,7 @@ export function screenLane(_src: DebugSource): ScreenLaneDebug {
       },
       pageKey: (id) => rytmPageKey(id, _src.stage()),
       home: () => rytmHome(),
-      palette: () => ({ bg: BLACK, ink: INK, half: HALF, dim: DIM_TEXT }),
+      palette: () => ({ bg: BLACK, ink: INK, half: HALF, dim: DIM_TEXT, off: DT2_DIM }),
       infos(id) {
         if (id === null) {
           rytmInfos.set(false);

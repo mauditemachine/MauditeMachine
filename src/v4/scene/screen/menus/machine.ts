@@ -6,7 +6,9 @@
  * LEGACY (le filtre d'aujourd'hui) ; MULTI-MODE, LOWPASS 4 et EQ arrivent en V.6.1.
  */
 
-import { SRC_MACHINES, SRC_MACHINE_LABEL, tracks, type SrcMachine } from '../../../audio/tracks';
+import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, trackIndex, tracks, type SrcMachine, type TrackKey } from '../../../audio/tracks';
+
+const trackLabel = (t: TrackKey): string => TRACK_NAMES[trackIndex(t)] ?? t;
 import { resume } from '../../../audio/drums';
 import { lcdMessage } from '../../../state/lcdMessage';
 import type { Screen } from '../core';
@@ -42,7 +44,7 @@ function paint(screen: Screen): number {
     else screen.pill(x, 25, 44, 12, null, HALF, 0.8);
     screen.text(w, x + 22, 34, 7.5, i === cat ? BLACK : HALF, 700, 'center', 0.6);
   });
-  screen.text(t ? `TRACK ${t}` : 'PICK A TRACK', 312, 34, 7.5, t ? INK : DIM_TEXT, 700, 'right', 0.5);
+  screen.text(t ? `TRACK ${trackLabel(t)}` : 'PICK A TRACK', 312, 34, 7.5, t ? INK : DIM_TEXT, 700, 'right', 0.5);
   const r = rows();
   top = scrollTop(top, cursor, r.length, 8);
   body = paintList(screen, r, cursor, top, { x0: 4, x1: 316, y0: 41, y1: 170 });
@@ -58,13 +60,13 @@ function set(): void {
     return;
   }
   if (cat === 1) {
-    lcdMessage.show(cursor === 0 ? `${t} FILTER: LEGACY` : 'FLTR MACHINES: BIENTOT V.6.1', 1400);
+    lcdMessage.show(cursor === 0 ? `${trackLabel(t)} FILTER: LEGACY` : 'FLTR MACHINES: BIENTOT V.6.1', 1400);
     return;
   }
   const m: SrcMachine = SRC_MACHINES[cursor];
   resume();
   tracks.machine(t, m);
-  lcdMessage.show(`${t} MACHINE ${SRC_MACHINE_LABEL[m]}`, 1400);
+  lcdMessage.show(`${trackLabel(t)} MACHINE ${SRC_MACHINE_LABEL[m]}`, 1400);
 }
 
 registerScreenMenu({

@@ -19,7 +19,8 @@ import type { Screen } from '../core';
 import { HALF } from '../consts';
 import { registerScreenMenu } from './registry';
 import { acting, LIST_ROWS, paintHint, paintList, scrollTop, stepCursor, type MenuRow } from './frame';
-import { menuChanged } from './open';
+import { menuChanged, screenTrack } from './open';
+import { TRACK_NAMES, trackIndex } from '../../../audio/tracks';
 
 /* ---------------- SOUNDS ---------------- */
 
@@ -45,7 +46,8 @@ registerScreenMenu({
   owner: 'B5',
   title: () => {
     const v = soundBrowserView();
-    return v ? `SOUNDS  ${v.inst}` : 'SOUNDS';
+    const t = screenTrack();
+    return v && t ? `SOUNDS  ${TRACK_NAMES[trackIndex(t)]}` : 'SOUNDS';
   },
   paint: (screen) => paintSounds(screen),
   onOpen() {

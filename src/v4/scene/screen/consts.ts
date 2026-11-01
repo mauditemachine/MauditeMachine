@@ -137,6 +137,11 @@ export const FAINT: string = 'rgba(246, 241, 231, 0.2)';
  */
 export const FAINT_TEXT: string = 'rgba(246, 241, 231, 0.4)';
 export const BLACK: string = HEX.oled;
+/**
+ * La face DT2 (V.6.0) : le texte d'un bloc a venir ou sans reglage (SOON, --), 0.52 de l'os, 5,2:1 sur le noir (la regle
+ * de Mika du 2026-11-01 : tout texte a 4,5:1 au moins) ; FAINT (0.2) reste au dessin d'avant.
+ */
+export const DT2_DIM: string = 'rgba(246, 241, 231, 0.52)';
 /** Le cadre d'un bloc de la vue PAGE : a peine (un reglage a venir, encore moins). */
 export const FRAME: string = 'rgba(246, 241, 231, 0.14)';
 export const FRAME_DIM: string = 'rgba(246, 241, 231, 0.07)';
