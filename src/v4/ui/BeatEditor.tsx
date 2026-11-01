@@ -43,6 +43,7 @@ import { TRACK_KEYS, isLegacyTrack, type TrackKey } from '../audio/tracks';
 import type { Stage } from '../scene/renderer';
 import { dtFace } from '../state/dtFace';
 import { editor } from '../state/editor';
+import { activeTrack } from '../state/trk';
 import { BANK_SIZE, bankName, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
 import { DT2_FACE, DT_FACE, type Inst } from '../theme';
@@ -54,6 +55,16 @@ import { useEditorPanel } from './editorPanel';
  * de la V.5.3 au pixel pres) ; allumee, les huit rangees sont T9 a T16 (toucher un nom : la piste du telephone).
  */
 const HI_TRACKS: readonly TrackKey[] = TRACK_KEYS.slice(8);
+/**
+ * La relecture de la V.6.0 (cahier dt2 1.3 : 16 rangees dans l'EDIT GRID du desktop) : sur la face DT2 au desktop, les 16
+ * pistes ensemble (T9 a T16 a leur nom), sans bascule ; toucher un nom choisit la piste active de la face (activeTrack, comme
+ * TRK + TRIG, sans la jouer). Le telephone garde ses 8 rangees et sa bascule.
+ */
+const ALL_ROWS: readonly TrackKey[] = TRACK_KEYS;
+/** Les 16 rangees : la grille et la colonne des noms (v4.css les pose a 8), les noms plus petits. */
+const ROWS16_GRID: React.CSSProperties = { gridTemplateRows: 'repeat(16, minmax(var(--beat-row16, 9px), 1fr))', gap: '1px' };
+const ROWS16_NAMES: React.CSSProperties = { gridTemplateRows: 'repeat(16, minmax(0, 1fr))', gap: '1px' };
+const ROWS16_NAME: React.CSSProperties = { fontSize: '7.5px', lineHeight: 1 };
 
 /** Tenir un emplacement vide (ms) : il recoit une copie du pattern courant. */
 const HOLD_MS = 500;
@@ -155,11 +166,14 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
   const head = useSyncExternalStore(playhead.subscribe, playhead.get, playhead.get);
   // V.6.0 : la bascule 1-8 / 9-16 (montree : bank.shown ; 9-16 : hi), les huit rangees affichees
   const bank = useSyncExternalStore(phoneBank.subscribe, phoneBank.get, phoneBank.get);
-  const hi = bank.shown && bank.hi;
-  const ROWS: readonly TrackKey[] = hi ? HI_TRACKS : INSTRUMENTS;
+  // La face DT2 au desktop : les 16 rangees, la rangee choisie est la piste active de la face
+  const all16 = DT2_FACE && variant === 'desk';
+  const act = useSyncExternalStore(activeTrack.subscribe, activeTrack.get, activeTrack.get);
+  const hi = !all16 && bank.shown && bank.hi;
+  const ROWS: readonly TrackKey[] = all16 ? ALL_ROWS : hi ? HI_TRACKS : INSTRUMENTS;
   const [row0, setRow] = useState<TrackKey>(p.instrument ?? 'BD');
-  // La rangee choisie suit la rangee affichee (une voix 1 a 8, ou en 9-16 la piste du telephone)
-  const row: TrackKey = hi ? (ROWS.includes(row0) ? row0 : (bank.track ?? HI_TRACKS[0])) : ROWS.includes(row0) ? row0 : (p.instrument ?? 'BD');
+  // La rangee choisie suit la rangee affichee (une voix 1 a 8, ou en 9-16 la piste du telephone ; 16 rangees : la piste active)
+  const row: TrackKey = all16 ? (act ?? row0) : hi ? (ROWS.includes(row0) ? row0 : (bank.track ?? HI_TRACKS[0])) : ROWS.includes(row0) ? row0 : (p.instrument ?? 'BD');
   const [cell, setCell] = useState({ r: 0, c: 0 });
   const grid = useRef<HTMLDivElement>(null);
   const lane = useRef<HTMLDivElement>(null);
@@ -184,8 +198,10 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
 
   const choose = (inst: TrackKey): void => {
     setRow(inst);
+    // 16 rangees (la face DT2 au desktop) : la piste active de la face, T9 a T16 compris
+    if (all16) activeTrack.set(inst);
     // V.6.0 : une piste 9 a 16 devient la piste du telephone (la machine ne la choisit pas encore, B4)
-    if (isLegacyTrack(inst)) pattern.select(inst);
+    else if (isLegacyTrack(inst)) pattern.select(inst);
     else phonePick(inst);
   };
 
@@ -349,7 +365,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
         <span className="v4-seq-chord" aria-live="polite">
           {row}
         </span>
-        {bank.shown && (
+        {bank.shown && !all16 && (
           <button
             type="button"
             className="v4-seq-mode"
@@ -378,9 +394,9 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
         </button>
       </div>
       <div className="v4-beat-main">
-        <div className="v4-beat-names" role="group" aria-label="Voices">
+        <div className="v4-beat-names" role="group" aria-label={all16 ? 'Tracks' : 'Voices'} style={all16 ? ROWS16_NAMES : undefined}>
           {ROWS.map((inst) => (
-            <button key={inst} type="button" className="v4-beat-name" aria-pressed={inst === row} onClick={() => choose(inst)}>
+            <button key={inst} type="button" className="v4-beat-name" aria-pressed={inst === row} onClick={() => choose(inst)} style={all16 ? ROWS16_NAME : undefined}>
               {inst}
             </button>
           ))}
@@ -389,7 +405,9 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
           ref={grid}
           className="v4-beat-grid"
           role="grid"
-          aria-label="Pattern: voices by steps"
+          data-rows={ROWS.length}
+          style={all16 ? ROWS16_GRID : undefined}
+          aria-label={all16 ? 'Pattern: tracks by steps' : 'Pattern: voices by steps'}
           data-vel={velCell ? '1' : '0'}
           onPointerDown={onGridDown}
           onPointerMove={onGridMove}
@@ -529,6 +547,7 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
       let top: number;
       let row: number;
       let lane: number = ON_MACHINE.two.lane;
+      let row16: number = ROW16.max;
       if (rows > 1) {
         // Deux rangees (la face V.4.0, la revue du 2026-10-27 : le panneau passait sous le pas 16, sur l'aide et le
         // chanfrein, a 1440 x 900 et moins) : il tient dans l'emprise des pas. Le haut monte jusqu'a 0.3 d'un pas
@@ -540,6 +559,12 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
         const room = cr.top - host.top + yb - top - ON_MACHINE.two.margin;
         row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.two.fixed - lane) / INSTRUMENTS.length)));
         lane = Math.max(ON_MACHINE.two.laneMin, Math.min(lane, Math.floor(room - ON_MACHINE.two.fixed - row * INSTRUMENTS.length)));
+        // Les 16 rangees de la face DT2 (relecture de la V.6.0) : la meme emprise, des rangees plus fines (1 px de jour), la
+        // bande VEL a son plus bas
+        if (DT2_FACE) {
+          lane = ON_MACHINE.two.laneMin;
+          row16 = Math.max(ROW16.min, Math.min(ROW16.max, Math.floor((room - ON_MACHINE.two.fixed - lane + INSTRUMENTS.length * 2 - 15) / 16)));
+        }
       } else {
         // Une rangee (avant) : une hauteur de touche au-dessus des pas (la ou etaient leurs LED, parties le 2026-10-19),
         // les rangees a la hauteur qui tient jusqu'au bas de la fenetre
@@ -547,13 +572,14 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
         const room = host.bottom - host.top - top - 12;
         row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / INSTRUMENTS.length) - 2));
       }
-      const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}|${lane}`;
+      const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}|${lane}|${row16}`;
       if (key === last) return;
       last = key;
       el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
       el.style.width = `${Math.round(width)}px`;
       el.style.setProperty('--beat-row', `${row}px`);
       el.style.setProperty('--beat-lane', `${lane}px`);
+      el.style.setProperty('--beat-row16', `${row16}px`);
     };
     place();
     const a = stage.onView(place);
@@ -574,6 +600,8 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
  * descend jusqu'a laneMin, margin sous le pas 16.
  */
 const ON_MACHINE = { names: 44, fixed: 140, rowMin: 10, rowMax: 17, two: { fixed: 90, lane: 44, laneMin: 26, margin: 2 } } as const;
+/** Les 16 rangees de la face DT2 (relecture de la V.6.0) : leur hauteur (px), de min a max. */
+const ROW16 = { min: 7, max: 13 } as const;
 
 /** Le panneau du MM-RYTM ouvert par son pad EDIT : sur la machine au desktop, sous elle au telephone. */
 export const BeatPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
