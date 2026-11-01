@@ -29,13 +29,6 @@ export function uses916(): boolean {
   return false;
 }
 
-/**
- * Une piste 9 a 16 dans la liste des voix coupees ou en solo (state/voices.ts, des Inst[] : V.5.9 les a laissees a 8, le
- * sequenceur les lit deja pour 16 avec voices.plays). Ces listes ne font que des includes et des join : une cle T9 y
- * passe sans dommage. A l'integration de B4 (les mutes sur 16), ce detour disparait.
- */
-export const asVoiceKey = (k: TrackKey): Inst => k as unknown as Inst;
-
 /** La piste d'un pad du telephone (0 a 7) selon la rangee affichee. */
 export const padTrack = (i: number, hi: boolean): TrackKey | null => (i < 0 || i > 7 ? null : hi ? HI_TRACKS[i] : TRACK_KEYS[i]);
 

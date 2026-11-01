@@ -12,7 +12,7 @@ import { tracks, type TrackKey } from '../audio/tracks';
 import { lcdMessage } from '../state/lcdMessage';
 import { TAP_VEL_DEFAULT } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { HI_TRACKS, asVoiceKey, isLegacyTrack, padTrack, trackName, uses916 } from './internal/phone';
+import { HI_TRACKS, isLegacyTrack, padTrack, trackName, uses916 } from './internal/phone';
 import { funcDrop } from './face';
 import { padHit, padMute, voiceMute } from './tracks';
 import { muteVoice, soloVoice } from './internal/tracks';
@@ -174,7 +174,8 @@ export function trackMute(k: TrackKey, on: boolean): void {
     return;
   }
   if (voices.isMuted(k) === on) return;
-  voices.toggleMute(asVoiceKey(k));
+  // Les mutes des 16 pistes (state/voices.ts, la face DT2 de B4 et le telephone de B6 : le meme store, hiMuted pour 9 a 16)
+  voices.toggleMute(k);
   lcdMessage.show(`${trackName(k)} ${on ? 'MUTED' : 'ON'}`);
 }
 
@@ -193,8 +194,8 @@ export function trackPlay(k: TrackKey, stage: Stage | null = null): void {
   gesture();
   const v = voices.get();
   // Les memes aides que les pads 1 a 8 (actions/internal/tracks.ts) : la cle T9 n'y sert qu'a des includes et a l'ecran
-  if (v.soloMode) soloVoice(asVoiceKey(k));
-  else if (v.muteMode) muteVoice(asVoiceKey(k));
+  if (v.soloMode) soloVoice(k);
+  else if (v.muteMode) muteVoice(k);
   else if (!clock.running && !voices.isMuted(k) && tracks.sounds(k)) {
     trigger(k, undefined, false, undefined, VEL_GAIN[TAP_VEL_DEFAULT] ?? 1);
   }
@@ -314,8 +315,8 @@ export function phonePadTap(inst: string, stage: Stage | null, double = false): 
 export function phoneTrackSelect(k: TrackKey): void {
   gesture();
   const v = voices.get();
-  if (v.soloMode) soloVoice(asVoiceKey(k));
-  else if (v.muteMode) muteVoice(asVoiceKey(k));
+  if (v.soloMode) soloVoice(k);
+  else if (v.muteMode) muteVoice(k);
   else {
     phonePick(k);
     lcdMessage.show(`KNOBS > ${trackName(k)}`);

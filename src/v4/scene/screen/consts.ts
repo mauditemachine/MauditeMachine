@@ -573,9 +573,12 @@ export function globalValueOf(id: EncId): { text: string; unit: string; course: 
  */
 export function modeLines(): { left: string; tip: string; short: string } | null {
   const v = voices.get();
+  // Les 16 pistes (l'integration de la V.6.0) : les listes 1 a 8 puis 9 a 16 (state/voices.ts) ; sans piste 9 a 16, celles d'avant
+  const muted = voices.mutedAll();
+  const solo = voices.soloAll();
   // Le mode MUTE de FUNC + TRK (V.5.0, le desktop) : global ou du pattern, les voix coupees, comment en sortir
   const dm = DT_FACE ? dtFace.mute() : 'off';
-  if (dm === 'global') return { left: `GLOBAL MUTE: ${v.muted.length ? v.muted.join(' ') : 'STEPS 1-8'}`, tip: 'HOLD: SOLO  NO: EXIT', short: 'NO: EXIT' };
+  if (dm === 'global') return { left: `GLOBAL MUTE: ${muted.length ? muted.join(' ') : DT2_FACE ? 'TRIG 1-16' : 'STEPS 1-8'}`, tip: 'HOLD: SOLO  NO: EXIT', short: 'NO: EXIT' };
   if (dm === 'pattern') {
     const pm = pattern.get().pmutes;
     return { left: `PATTERN MUTE: ${pm.length ? pm.join(' ') : 'STEPS 1-8'}`, tip: 'FUNC + TRK OR NO: EXIT', short: 'NO: EXIT' };
@@ -583,15 +586,15 @@ export function modeLines(): { left: string; tip: string; short: string } | null
   // short : l'aide quand la liste des voix prend la place (la revue du 2026-10-09 : MULTI MUTE: B. au desktop)
   if (v.soloMode)
     return v.soloMulti
-      ? { left: `MULTI SOLO: ${v.solo.length ? v.solo.join(' ') : 'TAP VOICES'}`, tip: 'SOLO: DONE  HOLD: ALL OFF', short: 'HOLD: ALL OFF' }
+      ? { left: `MULTI SOLO: ${solo.length ? solo.join(' ') : 'TAP VOICES'}`, tip: 'SOLO: DONE  HOLD: ALL OFF', short: 'HOLD: ALL OFF' }
       : { left: 'SOLO: TAP A VOICE', tip: 'SOLO AGAIN: SEVERAL', short: 'AGAIN: SEVERAL' };
   if (v.muteMode)
     return v.muteMulti
-      ? { left: `MULTI MUTE: ${v.muted.length ? v.muted.join(' ') : 'TAP VOICES'}`, tip: 'MUTE: DONE  HOLD: ALL ON', short: 'HOLD: ALL ON' }
+      ? { left: `MULTI MUTE: ${muted.length ? muted.join(' ') : 'TAP VOICES'}`, tip: 'MUTE: DONE  HOLD: ALL ON', short: 'HOLD: ALL ON' }
       : { left: 'MUTE: TAP A VOICE', tip: 'MUTE AGAIN: SEVERAL', short: 'AGAIN: SEVERAL' };
-  if (v.solo.length) return { left: `SOLO: ${v.solo.join(' ')}`, tip: 'HOLD SOLO: ALL OFF', short: 'HOLD: ALL OFF' };
+  if (solo.length) return { left: `SOLO: ${solo.join(' ')}`, tip: 'HOLD SOLO: ALL OFF', short: 'HOLD: ALL OFF' };
   // MUTE rend toutes les voix d'une tape (2026-10-10) ; au desktop (V.5.0) le mode MUTE de FUNC + TRK les rend une a une
-  if (v.muted.length) return DT_FACE ? { left: `MUTED: ${v.muted.join(' ')}`, tip: 'FUNC + TRK: MUTE MODE', short: 'FUNC + TRK' } : { left: `MUTED: ${v.muted.join(' ')}`, tip: 'MUTE: ALL ON', short: 'MUTE: ALL ON' };
+  if (muted.length) return DT_FACE ? { left: `MUTED: ${muted.join(' ')}`, tip: 'FUNC + TRK: MUTE MODE', short: 'FUNC + TRK' } : { left: `MUTED: ${muted.join(' ')}`, tip: 'MUTE: ALL ON', short: 'MUTE: ALL ON' };
   // Le mute du pattern (V.5.0)
   const pm = DT_FACE ? pattern.get().pmutes : [];
   if (pm.length) return { left: `PTN MUTED: ${pm.join(' ')}`, tip: 'FUNC + TRK 2X: PATTERN MUTE', short: 'FUNC + TRK' };

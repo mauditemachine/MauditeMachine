@@ -8,20 +8,27 @@ import { lcdMessage } from '../../state/lcdMessage';
 import { lcdSamples } from '../../state/lcdSamples';
 import { voices } from '../../state/voices';
 import { type Inst } from '../../theme';
+import { isLegacyTrack, TRACK_NAMES, trackIndex, type TrackKey } from '../../audio/tracks';
 
-/** Mode SOLO : la voix passe en solo, ou en sort ; a une voix (ONE), le mode retombe ; l'ecran le dit. */
-export function soloVoice(inst: Inst): void {
-  voices.toggleSolo(inst);
+/** Le nom d'une voix a l'ecran : BD..CY pour 1 a 8 (comme toujours), T9 a T16 ensuite. */
+const voiceName = (k: TrackKey): string => (isLegacyTrack(k) ? k : (TRACK_NAMES[trackIndex(k)] ?? k));
+
+/**
+ * Mode SOLO : la voix passe en solo, ou en sort ; a une voix (ONE), le mode retombe ; l'ecran le dit. V.6.0 (l'integration) :
+ * les 16 pistes (state/voices.ts : 1 a 8 dans solo, 9 a 16 dans hiSolo).
+ */
+export function soloVoice(k: TrackKey): void {
+  voices.toggleSolo(k);
   const v = voices.get();
   if (!v.soloMulti) voices.disarm('solo');
-  lcdMessage.show(v.solo.includes(inst) ? `SOLO ${inst}` : `${inst} SOLO OFF`);
+  lcdMessage.show(voices.isSolo(k) ? `SOLO ${voiceName(k)}` : `${voiceName(k)} SOLO OFF`);
 }
 
-/** Mode MUTE : une voix coupee ou rendue ; a une voix (ONE), le mode retombe ; l'ecran le dit. */
-export function muteVoice(inst: Inst): void {
-  voices.toggleMute(inst);
+/** Mode MUTE : une voix coupee ou rendue ; a une voix (ONE), le mode retombe ; l'ecran le dit (16 pistes, comme soloVoice). */
+export function muteVoice(k: TrackKey): void {
+  voices.toggleMute(k);
   if (!voices.get().muteMulti) voices.disarm('mute');
-  lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
+  lcdMessage.show(`${voiceName(k)} ${voices.isMuted(k) ? 'MUTED' : 'ON'}`);
 }
 
 /**

@@ -16,7 +16,7 @@
 
 import { clock } from '../../audio/clock';
 import { pattern } from '../../audio/pattern';
-import { tracks, trackIndex, type TrackKey } from '../../audio/tracks';
+import { TRACK_KEYS, tracks, trackIndex, type TrackKey } from '../../audio/tracks';
 import { sampleByKey } from '../../audio/samples';
 import { curScreen, curSlots } from '../../actions';
 import { ctlAllState } from '../../state/trk';
@@ -178,13 +178,13 @@ function paintHead(screen: Screen, title: string, cur: number, waiting: boolean,
 /** L'apercu des 16 pistes en MUTE (cahier 2.5) : un carre = joue, un trait = coupee ; rend son texte (o, -). */
 function paintMutePreview(screen: Screen, x0: number, mute: 'global' | 'pattern'): string {
   const pm = pmutesNow();
-  const v = voices.get();
   let out = mute === 'global' ? 'G ' : 'P ';
   screen.text(mute === 'global' ? 'GLB' : 'PTN', x0, 13.5, 7, HALF, 700, 'left', 0.4);
   for (let i = 0; i < 16; i += 1) {
     const x = x0 + 22 + i * 7.6;
-    const key = (['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as const)[i];
-    const off = key ? (mute === 'global' ? v.muted.includes(key) : pm.includes(key)) : false;
+    // Les 16 pistes (l'integration de la V.6.0) : le mute global sur 16 (state/voices.ts hiMuted), celui du pattern sur 1 a 8
+    const key = TRACK_KEYS[i];
+    const off = mute === 'global' ? voices.isMuted(key) : (pm as readonly string[]).includes(key);
     if (off) screen.line([x, 10, x + 5, 10], INK, 1.2);
     else screen.roundRect(x, 7.5, 5, 5, 0.8, INK);
     out += off ? '-' : 'o';
