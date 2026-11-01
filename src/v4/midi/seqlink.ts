@@ -60,7 +60,7 @@ import { context } from '../audio/drums';
 import { VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import { TRACK_KEYS, TRACK_NAMES, isLegacyTrack, trackIndex, type TrackKey } from '../audio/tracks';
 import { TAP_VEL_DEFAULT } from '../state/rytmPage';
-import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, trkStep, tuneVoice } from '../actions';
+import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, trackSelect, trkStep, tuneVoice } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { lcdMessage } from '../state/lcdMessage';
@@ -68,7 +68,8 @@ import { bankOf, patterns } from '../state/patterns';
 import { dtFace } from '../state/dtFace';
 import { rytmLock } from '../state/rytmLock';
 import { rytmPage } from '../state/rytmPage';
-import type { Inst } from '../theme';
+import { activeTrack } from '../state/trk';
+import { DT2_FACE, type Inst } from '../theme';
 import { rotoKeyInfo, rotoKeysOfSetup, type RotoSetupName } from './roto';
 
 export type SeqId = 'rytm' | 'bass';
@@ -750,31 +751,43 @@ export function seqVoice(inst: Inst): void {
 
 /**
  * V.6.0 (lane B6, cahier dt2 3.12 : seqlink sur 16 pistes) : une piste 9 a 16 comme voix des pas du Roto
- * (rytm:seq:voice:T9...). La machine ne sait pas encore choisir une piste 9 a 16 (pattern.instrument reste une des 8 voix
- * jusqu'a B4) : le Roto la garde pour lui, tant que la voix choisie sur la machine ne change pas (une autre voix choisie
- * ailleurs reprend la main, comme avant). Ses pas se posent et se retirent a la tape ; le LOCK (P-LOCK d'un pas tenu) des
- * pistes 9 a 16 attend B4 et B5 (rytm/locks), la tenue y est une tape. 1 a 8 : seqVoice d'aujourd'hui.
+ * (rytm:seq:voice:T9...). La face V.5.3 (?face=v5) ne sait pas choisir une piste 9 a 16 (pattern.instrument reste une des
+ * 8 voix) : le Roto la garde pour lui, tant que la voix choisie sur la machine ne change pas (une autre voix choisie
+ * ailleurs reprend la main, comme avant). Ses pas se posent et se retirent a la tape ; le LOCK n'y est pas, la tenue y est
+ * une tape. 1 a 8 : seqVoice d'aujourd'hui.
+ *
+ * La face DT2 (la relecture de la V.6.0) : la piste des pas est la piste active de la machine (state/trk.ts activeTrack,
+ * T9 a T16 compris : TRK + TRIG 12, rytm:voice:select:T12) ; rytm:seq:voice:T12 la choisit comme seqVoice choisit BD
+ * (actions/face.ts trackSelect). Ses pas se posent a la tape et prennent le P-LOCK a la tenue, comme sur la face (la piste
+ * du P-LOCK est la piste active, actions/internal/locks.ts lockTrack). Avant, une piste 9 a 16 choisie sur la face
+ * laissait le Roto sans voix (PICK A VOICE FIRST).
  */
-let seqHi: { k: TrackKey; from: Inst | null } | null = null;
+let seqHi: { k: TrackKey; from: TrackKey | null } | null = null;
+
+/** La piste choisie sur la machine : la piste active sur la face DT2 (1 a 16), sinon la voix du motif (1 a 8). */
+const machineTrack = (): TrackKey | null => (DT2_FACE ? activeTrack.get() : pattern.get().instrument);
 
 export function seqVoiceTrack(k: TrackKey): void {
   if (isLegacyTrack(k)) {
     seqVoice(k);
     return;
   }
-  seqHi = { k, from: pattern.get().instrument };
+  if (DT2_FACE) {
+    seqHi = null;
+    trackSelect(k);
+  } else seqHi = { k, from: machineTrack() };
   for (const l of LANES) if (l.id === 'rytm') queue(l);
   lcdMessage.show(`ROTO STEPS > ${TRACK_NAMES[trackIndex(k)] ?? k}`, 1600);
 }
 
-/** La voix des pas du Roto RSEQ : la piste 9 a 16 qu'il garde, sinon la voix choisie sur la machine. */
+/** La voix des pas du Roto RSEQ : la piste 9 a 16 qu'il garde (la face V.5.3), sinon la piste choisie sur la machine. */
 const seqTrack = (): TrackKey | null => {
-  const inst = pattern.get().instrument;
-  if (seqHi && seqHi.from !== inst) seqHi = null;
-  return seqHi ? seqHi.k : inst;
+  const cur = machineTrack();
+  if (seqHi && seqHi.from !== cur) seqHi = null;
+  return seqHi ? seqHi.k : cur;
 };
-/** Le Roto garde-t-il une piste 9 a 16 (ses pas n'ont pas de LOCK) ? */
-const seqHiOn = (): boolean => seqTrack() !== pattern.get().instrument;
+/** Le Roto garde-t-il une piste a lui, autre que celle de la machine (la face V.5.3 : ses pas n'ont pas de LOCK) ? */
+const seqHiOn = (): boolean => seqTrack() !== machineTrack();
 /** Pour les sondes : la piste 9 a 16 gardee par le Roto, null sinon. */
 export const seqHiTrack = (): TrackKey | null => (seqHiOn() ? seqTrack() : null);
 
@@ -989,16 +1002,17 @@ const rytm: SeqMachine = {
   latched: () => (rytmLock.get().latched ? rytmLock.get().step : -1),
   running: () => clock.running,
   subscribe(fn) {
-    const offs = [pattern.subscribe(fn), rytmLock.subscribe(fn), editor.subscribe(fn), patterns.subscribe(fn), clock.subscribe(fn), dtFace.subscribe(fn)];
+    // La piste active de la face DT2 (T9 a T16 ne changent pas le motif) : les LED des pas suivent aussi
+    const offs = [pattern.subscribe(fn), rytmLock.subscribe(fn), editor.subscribe(fn), patterns.subscribe(fn), clock.subscribe(fn), dtFace.subscribe(fn), activeTrack.subscribe(fn)];
     return () => offs.forEach((o) => o());
   },
   onStep: (fn) => clock.onStep((e) => fn(e.step, e.when, e.when - e.off)),
   context: () => `${seqTrack() ?? '-'}|${rytmEditing() ? 'E' : ''}${dtFace.bank() ? 'B' : ''}${patterns.shown()}:${patterns.get().cur}`,
   writes: () => rytmLock.get().writes,
   // Tenu (comme un doigt sur la face) : un encodeur de page tourne pendant la tenue le verrouille tout de suite ; une piste
-  // 9 a 16 gardee par le Roto (V.6.0) n'a pas encore de LOCK
+  // 9 a 16 gardee par le Roto (V.6.0, la face V.5.3) n'a pas de LOCK ; la piste active de la face DT2 l'a (1 a 16)
   press(i) {
-    if (!rytmEditing() && pattern.get().instrument && !seqHiOn()) rytmLock.hold(i);
+    if (!rytmEditing() && machineTrack() && !seqHiOn()) rytmLock.hold(i);
   },
   unpress: (i) => rytmLock.release(i),
   tap(i, stage) {
@@ -1009,8 +1023,10 @@ const rytm: SeqMachine = {
       lcdMessage.show('PICK A VOICE FIRST');
       return;
     }
-    // En LOCK : le meme pas en sort, un autre y deplace le LOCK (comme une tape sur la face)
-    if (rytmLock.get().step >= 0 && isLegacyTrack(inst)) {
+    // En LOCK : le meme pas en sort, un autre y deplace le LOCK (comme une tape sur la face) ; la piste de la machine
+    // seulement (une piste gardee par le Roto n'a pas de LOCK)
+    const lockable = !seqHiOn();
+    if (rytmLock.get().step >= 0 && lockable) {
       rytmLockTap(i);
       return;
     }
@@ -1021,9 +1037,10 @@ const rytm: SeqMachine = {
     if (on) pattern.set(inst, i, vel);
     else pattern.clearStep(inst, i);
     rytmPage.select(i);
-    lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? vel : 0]}${isLegacyTrack(inst) ? '  HOLD: LOCK' : ''}`);
+    lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? vel : 0]}${lockable ? '  HOLD: LOCK' : ''}`);
   },
-  // Une piste 9 a 16 gardee par le Roto : pas de LOCK, la tenue est une tape (au lacher : latched, jamais a la minuterie)
+  // Une piste 9 a 16 gardee par le Roto (la face V.5.3) : pas de LOCK, la tenue est une tape (au lacher : latched, jamais a
+  // la minuterie) ; la piste active de la face DT2 prend le P-LOCK de la face (rytmLockEnter, lockTrack)
   enter(i, latched) {
     if (!seqHiOn()) return rytmLockEnter(i, latched, true);
     if (latched) rytm.tap(i, null);

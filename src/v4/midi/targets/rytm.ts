@@ -1,6 +1,8 @@
 /** Les cibles MIDI du MM-RYTM, dans l'ordre d'aujourd'hui (le corps de coreTargets, deplace tel quel en P0). Ajouts : dans le fichier reserve de sa lane, jamais ici. */
 
-import { LAYER_TARGET_FAMS, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, fillHold, faceKeyTap } from '../../actions';
+import { LAYER_TARGET_FAMS, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, fillHold, faceKeyTap, anyDial, anyDialValue } from '../../actions';
+import { activeTrack } from '../../state/trk';
+import type { TrackKey } from '../../audio/tracks';
 import { sceneCtl } from '../../state/sceneCtl';
 import { D2_SCREENS, RYTM_SCREENS, SCREEN_TITLE, pageLabel, type RytmPageId, type RytmScreenId } from '../../rytm/pages';
 import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
@@ -15,12 +17,13 @@ import { KIT_FAMILIES, KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob
 import { setVoiceFx } from '../../audio/drums';
 import { VOICE_PARAMS, voiceFx } from '../../audio/voicefx';
 import { BANKS, BANK_SIZE, bankName } from '../../state/patterns';
-import { DT2_FACE, DT_FACE, ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, VOICE_PARAM, isVoiceEnc, type EncId, type Inst, type VoiceFxEncId } from '../../theme';
 import { INSTRUMENTS, STEP_COUNT } from '../../audio/pattern';
 import { seqFollow, seqPress, seqRelease, seqSetFollow, seqVoice, seqWindow } from '../seqlink';
 import type { MidiTarget } from './types';
 import { stageNow as getStage } from './stage';
 import { dialTarget, faceHold, press, seqTarget, VOICE_LABEL, xfadeMidi } from './helpers';
+import { hiVoiceTarget } from './tracks60';
 
 /**
  * La face DT2 (V.6.0, la relecture : MIDI, boitier, telephone) : une touche de page du MIDI ou du boitier
@@ -45,10 +48,66 @@ function screenTab60(sc: RytmScreenId): void {
   rytmScreenTab(sc);
 }
 
+/**
+ * La rangee VOICE (rytm:enc:vol..., SELECTED VOICE : la page 2 du setup RYTM du Roto) sur la face DT2 avec une piste 9 a 16
+ * active (la relecture de la V.6.0) : elle regle cette piste, avec les lois de rytm:voice:<T9..T16>:<reglage>
+ * (tracks60.ts hiVoiceTarget, les scenes comprises) ; SAMPLE y est le SAMP de sa page SRC (la fiche t:snd : OFF puis toute
+ * la banque). Avant : rien, PICK A VOICE FIRST. Les pistes 1 a 8 et la face V.5.3 gardent le chemin d'avant (dialTarget).
+ */
+const T_SND = 't:snd' as const;
+const hiActive = (): TrackKey | null => (DT2_FACE && activeTrack.high() ? activeTrack.get() : null);
+const hiEncs = new Map<string, MidiTarget>();
+function voiceEncTarget(e: EncId, label: string): MidiTarget {
+  const base = dialTarget(`rytm:enc:${e}`, 'mm808', label, e);
+  const p = e === 'vsound' ? null : (VOICE_PARAM[e as VoiceFxEncId] ?? null);
+  const hi = (): MidiTarget | null => {
+    const k = hiActive();
+    if (!k || !p) return null;
+    let t = hiEncs.get(`${k}:${p}`);
+    if (!t) hiEncs.set(`${k}:${p}`, (t = hiVoiceTarget(k, p)));
+    return t;
+  };
+  const snd = (): boolean => e === 'vsound' && hiActive() !== null;
+  return {
+    id: base.id,
+    scope: base.scope,
+    label: base.label,
+    kind: 'value',
+    get steps() {
+      const h = hi();
+      if (h) return h.steps ?? 0;
+      return snd() ? dialSteps(T_SND) : (base.steps ?? 0);
+    },
+    get: () => {
+      const h = hi();
+      if (h?.get) return h.get();
+      if (snd()) {
+        const [lo, top] = dialRange(T_SND);
+        return top > lo ? Math.max(0, Math.min(1, (anyDialValue(T_SND) - lo) / (top - lo))) : 0;
+      }
+      return base.get ? base.get() : 0;
+    },
+    set: (v) => {
+      const h = hi();
+      if (h?.set) {
+        h.set(v);
+        return;
+      }
+      if (snd()) {
+        const [lo, top] = dialRange(T_SND);
+        anyDial(T_SND, Math.round(lo + Math.max(0, Math.min(1, v)) * (top - lo)));
+        return;
+      }
+      base.set?.(v);
+    },
+  };
+}
+
 export function rytmTargets(out: MidiTarget[]): void {
   // MM-RYTM
-  // La rangee VOICE regle la voix choisie (comme sur la machine) ; rytm:voice:... vise une voix sans la choisir
-  for (const e of ENCODERS) out.push(dialTarget(`rytm:enc:${e.id}`, 'mm808', isVoiceEnc(e.id) ? `${e.label} (SELECTED VOICE)` : e.label, e.id));
+  // La rangee VOICE regle la voix choisie (comme sur la machine) ; rytm:voice:... vise une voix sans la choisir. La face
+  // DT2 (la relecture) : la piste active, T9 a T16 compris (voiceEncTarget)
+  for (const e of ENCODERS) out.push(isVoiceEnc(e.id) ? voiceEncTarget(e.id, `${e.label} (SELECTED VOICE)`) : dialTarget(`rytm:enc:${e.id}`, 'mm808', e.label, e.id));
   // Les huit voix d'INSTRUMENTS (2026-10-27, la face V.4.0 n'a plus de pads au desktop) : le meme ordre, les memes ids
   const voices: readonly Inst[] = INSTRUMENTS;
   for (const inst of voices) {

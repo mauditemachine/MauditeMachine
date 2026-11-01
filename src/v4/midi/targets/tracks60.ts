@@ -40,8 +40,11 @@ const nameOf = (k: TrackKey): string => TRACK_NAMES[trackIndex(k)] ?? k;
 /** TRK LEV : 128 crans (0 a 127, la course de la DT2). */
 const TLEV_STEPS = 128;
 
-/** Un reglage de voix d'une piste 9 a 16 : la loi de rytm:voice:<BD..CY>:<reglage> (midi/targets/rytm.ts), sur le store tracks. */
-function hiVoiceTarget(k: TrackKey, p: (typeof VOICE_PARAMS)[number]): MidiTarget {
+/**
+ * Un reglage de voix d'une piste 9 a 16 : la loi de rytm:voice:<BD..CY>:<reglage> (midi/targets/rytm.ts), sur le store
+ * tracks. La rangee VOICE (rytm:enc:vol..., SELECTED VOICE) la reprend quand la piste active de la face DT2 est 9 a 16.
+ */
+export function hiVoiceTarget(k: TrackKey, p: (typeof VOICE_PARAMS)[number]): MidiTarget {
   const bip = p === 'tone' || p === 'tune' || p === 'pan' || p === 'fine' || p === 'fenv';
   const id = `rytm:voice:${k}:${p}`;
   const base = (): number => {
