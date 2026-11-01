@@ -50,6 +50,7 @@ import {
   srcKind,
   srcSet,
   stageSet,
+  stageNow as stageNowFace,
   trackMuteToggle,
   trackSelect as trackSelect60,
   trigSolo,
@@ -942,7 +943,15 @@ export function dataTurn(delta: number, src = 'at', stage: Stage | null = null):
   stageSet(stage);
   srcSet(src);
   dispatch('data', 'turn', srcKind(src), Math.round(delta));
+  // Le capuchon de LEVEL/DATA tourne avec ses crans (un encodeur sans butee : un tour pour DATA_TURN crans) ; son anneau dit
+  // la valeur reglee (la lane B5)
+  dataCap = (((dataCap + Math.round(delta) / DATA_TURN) % 1) + 1) % 1;
+  const s = stage ?? stageNowFace();
+  if (s?.sideKnobs?.setCap('data', dataCap)) s.invalidate();
 }
+/** Les crans d'un tour du capuchon de LEVEL/DATA, et sa course du moment (0 a 1). */
+const DATA_TURN = 48;
+let dataCap = 0.5;
 
 /** MAIN VOLUME tourne de delta crans (le jumeau, un MIDI relatif) ; le glisser et la molette passent par l'encodeur level. */
 export function mainVolumeTurn(delta: number, src = 'at'): void {
