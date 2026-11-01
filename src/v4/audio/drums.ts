@@ -57,7 +57,7 @@ import limiterUrl from './limiter.worklet.js?url';
 import glueUrl from './glue.worklet.js?url';
 import { FLAGS } from '../state/flags';
 import { SWING, XFADE_UI, type Inst } from '../theme';
-import { LEGACY_KEYS, LEGACY_POLY_MAX, TRACK_KEYS, tracks, type TrackKey, type TracksChange } from './tracks';
+import { LEGACY_KEYS, LEGACY_POLY_MAX, TRACK_KEYS, isLegacyTrack, tracks, type TrackKey, type TracksChange } from './tracks';
 import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
 import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, FX_SETTING_IDS, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, type Steps, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
@@ -169,7 +169,8 @@ interface Graph {
   gates: GateState;
   /** les sources qui sonnent (le plafond), et ce qu'il a fait */
   live: Sounding[];
-  cap: { peak: number; capped: number; polyCapped: number };
+  /** le pic de sources (et celui d'une seule piste), les coupes du plafond global et du plafond par piste poly */
+  cap: { peak: number; trackPeak: number; capped: number; polyCapped: number };
   /**
    * La sortie de chaque machine (2026-10-04), sec et effets compris : le
    * MM-RYTM (apres son compresseur, avec sa REVERB et son DELAY) et le
@@ -251,7 +252,7 @@ export interface Voice {
   /** sa source dans le plafond de sources (V.5.9) */
   snd?: Sounding;
   /** les coups plus vieux que le plafond a coupes pour lui (une annulation les leur rend) */
-  capCut?: { x: Sounding; end: number; stop: number }[];
+  capCut?: CapCut[];
 }
 
 /** Les portes d'un graphe (V.5.9) : celle du dernier coup de chaque piste mono, celle du dernier coup gated de chaque groupe de choke. */
@@ -318,7 +319,8 @@ const COMP = { threshold: -14, knee: 10, ratio: 3, attack: 0.004, release: 0.15 
 const CHOKE_S = 0.008;
 /**
  * Le plafond global de sources du MM-RYTM (V.5.9, cahier 4.6) : 48 au desktop, 24 au telephone ; au-dela, la plus vieille
- * se coupe en 8 ms. Une piste poly d'heritage garde LEGACY_POLY_MAX sources.
+ * des pistes 9 a 16 se coupe en 8 ms (les pistes 1 a 8 jamais : la relecture R5). Une piste 9 a 16 poly garde
+ * LEGACY_POLY_MAX sources.
  */
 const SOURCE_CAP = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches ? 24 : 48;
 /**
@@ -600,7 +602,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bassDuck = new Ducker(c, bassIn.gain);
   const voiceOf = (t: TrackKey): Readonly<VoiceFx> => (o.voice ? { ...VOICE_FX_DEFAULT, ...(o.voice[t] ?? {}) } : morph.voice(t));
   const tlevOf = (t: TrackKey): number => (o.tlev && typeof o.tlev[t] === 'number' ? Math.pow((o.tlev[t] as number) / VOICE_FX_DEFAULT.level, 2) : tracks.tlevGain(t));
-  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, kickFx, reverb, delay, reverbSend, delaySend, ch, mkCh: null, kickBus, fxs: fs, voiceOf, tlevOf, gates: gateState(), live: [], cap: { peak: 0, capped: 0, polyCapped: 0 }, rytmOut, glueIn, glue: null, arpOut, bassOut, bassIn, arpReverb, taps, duck, bassDuck };
+  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, kickFx, reverb, delay, reverbSend, delaySend, ch, mkCh: null, kickBus, fxs: fs, voiceOf, tlevOf, gates: gateState(), live: [], cap: { peak: 0, trackPeak: 0, capped: 0, polyCapped: 0 }, rytmOut, glueIn, glue: null, arpOut, bassOut, bassIn, arpReverb, taps, duck, bassDuck };
   if (ch) {
     g.mkCh = (t: TrackKey): Channel => {
       const chOut = c.createGain();
@@ -1100,6 +1102,11 @@ const cutEnd = (gate: GainNode, end: number): void => {
 function chokeMono(gs: GateState, t: TrackKey, when: number, now: number): void {
   const m = gs.mono[t];
   if (!m || m.end <= when) return;
+  // Deja coupee par le plafond (relecture R7) : sa porte reste fermee (la rouvrir a 1 ferait un clic)
+  if (gateCut(m.gate)) {
+    delete gs.mono[t];
+    return;
+  }
   const t0 = when - BD_CHOKE_S >= now ? when - BD_CHOKE_S : when;
   m.gate.gain.setValueAtTime(1, t0);
   m.gate.gain.linearRampToValueAtTime(0, t0 + BD_CHOKE_S);
@@ -1111,6 +1118,10 @@ function chokeMono(gs: GateState, t: TrackKey, when: number, now: number): void 
 function chokeGroup(gs: GateState, grp: number, when: number): void {
   const m = gs.choke[grp];
   if (!m || m.end <= when) return;
+  if (gateCut(m.gate)) {
+    delete gs.choke[grp];
+    return;
+  }
   m.gate.gain.setValueAtTime(1, when);
   m.gate.gain.linearRampToValueAtTime(0, when + CHOKE_S);
   cutEnd(m.gate, when + CHOKE_S);
@@ -1118,37 +1129,70 @@ function chokeGroup(gs: GateState, grp: number, when: number): void {
 }
 
 /**
- * Le plafond de sources (V.5.9, cahier 4.6) : avant un coup de la piste t a `when`, une piste poly d'heritage garde
- * LEGACY_POLY_MAX sources, tout le graphe SOURCE_CAP ; la plus vieille qui sonne encore se coupe en 8 ms (sa porte), sa
- * source s'arrete juste apres. Rend ce qu'il a coupe (une annulation le rend).
+ * Une source coupee par le plafond : sa fin et son arret d'avant, et la porte de piste mono ou de groupe de choke qu'elle
+ * tenait (relecture R7 : si un coup suivant de cette piste ou de ce groupe l'a remplacee, une annulation ne la rouvre pas).
  */
-function capSources(g: Graph, t: TrackKey, poly: boolean, when: number): { x: Sounding; end: number; stop: number }[] | undefined {
+interface CapCut {
+  x: Sounding;
+  end: number;
+  stop: number;
+  slot?: { mono: TrackKey } | { grp: number };
+}
+
+/** Une source deja coupee (sa porte, le plafond) : sa fin est avant l'arret prevu de sa source. */
+const isCut = (x: Sounding): boolean => x.end < x.stop - 1e-9;
+/** Une source qui sonne a `when`, pas encore coupee (le plafond, le pic). */
+const liveAt = (x: Sounding, when: number): boolean => x.when <= when + 1e-9 && x.end > when && !isCut(x);
+/** La porte d'une piste mono ou d'un groupe de choke dont la source a deja ete coupee (relecture R7) : ni a refermer, ni a rendre. */
+const gateCut = (gate: GainNode): boolean => {
+  const x = soundingOf.get(gate);
+  return !!x && isCut(x);
+};
+
+/**
+ * Le plafond de sources (V.5.9, cahier 4.6) : avant un coup de la piste t a `when`, la plus vieille source qui sonne encore
+ * se coupe en 8 ms (sa porte), sa source s'arrete juste apres. Rend ce qu'il a coupe (une annulation le rend).
+ *
+ * Relecture de V.5.9 : seulement sur les pistes 9 a 16 (R5). V.5.3 n'avait aucun plafond, et les pistes 1 a 8 sonnent
+ * comme en V.5.3 : une piste 9 a 16 poly garde LEGACY_POLY_MAX sources ; le graphe compte toutes ses sources (le budget),
+ * mais au-dela de SOURCE_CAP ne coupe que celles des pistes 9 a 16 (s'il n'y en a plus, il s'arrete). Une source deja
+ * coupee ne compte plus et ne se recoupe pas : chaque boucle a un nombre de tours borne (R4, la boucle infinie de 91e57cd).
+ */
+function capSources(g: Graph, t: TrackKey, poly: boolean, when: number): CapCut[] | undefined {
   const live = g.live;
   let k = 0;
   for (let i = 0; i < live.length; i += 1) if (live[i].end > when - 0.05) live[k++] = live[i];
   live.length = k;
-  let out: { x: Sounding; end: number; stop: number }[] | undefined;
+  let out: CapCut[] | undefined;
+  const gs = g.gates;
   const cut = (x: Sounding): void => {
-    (out ??= []).push({ x, end: x.end, stop: x.stop });
+    let slot: CapCut['slot'];
+    if (gs.mono[x.t]?.gate === x.gate) slot = { mono: x.t };
+    else for (const k of Object.keys(gs.choke)) if (gs.choke[Number(k)]?.gate === x.gate) slot = { grp: Number(k) };
+    (out ??= []).push({ x, end: x.end, stop: x.stop, ...(slot ? { slot } : {}) });
     x.gate.gain.setValueAtTime(1, when);
     x.gate.gain.linearRampToValueAtTime(0, when + CHOKE_S);
     x.end = when + CHOKE_S;
     stopSrc(x.src, when + CHOKE_S + 0.002);
   };
-  const sounding = (x: Sounding): boolean => x.when <= when + 1e-9 && x.end > when;
-  if (poly) {
-    for (;;) {
-      const mine = live.filter((x) => x.t === t && sounding(x));
-      if (mine.length < LEGACY_POLY_MAX) break;
-      cut(mine.reduce((a, b) => (b.when < a.when ? b : a)));
+  const byAge = (a: Sounding, b: Sounding): number => a.when - b.when;
+  if (poly && !isLegacyTrack(t)) {
+    const mine = live.filter((x) => x.t === t && liveAt(x, when)).sort(byAge);
+    // Avec le coup qui arrive, LEGACY_POLY_MAX au plus : les (n - MAX + 1) plus vieilles
+    for (let i = 0; i <= mine.length - LEGACY_POLY_MAX; i += 1) {
+      cut(mine[i]);
       g.cap.polyCapped += 1;
     }
   }
-  for (;;) {
-    const all = live.filter(sounding);
-    if (all.length < SOURCE_CAP) break;
-    cut(all.reduce((a, b) => (b.when < a.when ? b : a)));
-    g.cap.capped += 1;
+  let over = 0;
+  for (const x of live) if (liveAt(x, when)) over += 1;
+  over -= SOURCE_CAP - 1;
+  if (over > 0) {
+    const mine = live.filter((x) => !isLegacyTrack(x.t) && liveAt(x, when)).sort(byAge);
+    for (let i = 0; i < mine.length && over > 0; i += 1, over -= 1) {
+      cut(mine[i]);
+      g.cap.capped += 1;
+    }
   }
   return out;
 }
@@ -1505,13 +1549,13 @@ function voice(g: Graph, inst: TrackKey, when: number, dest: AudioNode, hp: HitP
   let choked: { gate: GainNode; end: number } | undefined;
   if (vo.choke > 0) {
     const cur = gs.choke[vo.choke];
-    if (cur && cur.end > when) choked = { gate: cur.gate, end: cur.end };
+    if (cur && cur.end > when && !gateCut(cur.gate)) choked = { gate: cur.gate, end: cur.end };
     chokeGroup(gs, vo.choke, when);
   }
   let bdChoked: { gate: GainNode; end: number } | undefined;
   if (mono) {
     const cur = gs.mono[inst];
-    if (cur && cur.end > when) bdChoked = { gate: cur.gate, end: cur.end };
+    if (cur && cur.end > when && !gateCut(cur.gate)) bdChoked = { gate: cur.gate, end: cur.end };
     chokeMono(gs, inst, when, c.currentTime);
   }
   // Le plafond de sources (V.5.9) : la plus vieille coupee avant que ce coup parte
@@ -1674,9 +1718,16 @@ function voice(g: Graph, inst: TrackKey, when: number, dest: AudioNode, hp: HitP
   const snd: Sounding = { t: inst, when, end: sstop, gate, src, stop: sstop };
   soundingOf.set(gate, snd);
   g.live.push(snd);
+  // Le pic : les sources qui sonnent (pas celles deja coupees, qui s'eteignent en 8 ms), en tout et sur cette piste
   let n = 0;
-  for (const x of g.live) if (x.when <= when + 1e-9 && x.end > when) n += 1;
+  let nt = 0;
+  for (const x of g.live) {
+    if (!liveAt(x, when)) continue;
+    n += 1;
+    if (x.t === inst) nt += 1;
+  }
   if (n > g.cap.peak) g.cap.peak = n;
+  if (nt > g.cap.trackPeak) g.cap.trackPeak = nt;
   return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd, trk: inst, ...(vo.choke > 0 ? { grp: vo.choke } : {}), gs, snd, ...(capCut ? { capCut } : {}), ...(live ? { live } : {}) };
 }
 
@@ -2143,6 +2194,11 @@ export function cancelVoice(v: Voice): void {
   if (v.capCut) {
     for (let i = v.capCut.length - 1; i >= 0; i -= 1) {
       const k = v.capCut[i];
+      // Sa piste mono ou son groupe de choke a joue depuis (relecture R7) : ce coup l'aurait coupee, elle reste fermee
+      if (k.slot && gs) {
+        const cur = 'mono' in k.slot ? gs.mono[k.slot.mono] : gs.choke[k.slot.grp];
+        if (cur?.gate !== k.x.gate) continue;
+      }
       k.x.gate.gain.cancelScheduledValues(v.when);
       k.x.end = k.end;
       stopSrc(k.x.src, k.stop);
@@ -2547,7 +2603,7 @@ export interface OfflineHit {
 }
 let offlineHitsLog: OfflineHit[] = [];
 /** Le plafond de sources et les tranches du dernier rendu hors ligne (V.5.9, la sonde des 16 pistes). */
-let offlineCap: { peak: number; capped: number; polyCapped: number; channels: TrackKey[]; schedMs: number; renderMs: number; voices: number } = { peak: 0, capped: 0, polyCapped: 0, channels: [], schedMs: 0, renderMs: 0, voices: 0 };
+let offlineCap: { peak: number; trackPeak: number; capped: number; polyCapped: number; channels: TrackKey[]; schedMs: number; renderMs: number; voices: number } = { peak: 0, trackPeak: 0, capped: 0, polyCapped: 0, channels: [], schedMs: 0, renderMs: 0, voices: 0 };
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 /** Les LFO d'un coup au journal (tests) : leur valeur a son debut, par destination. */
@@ -3014,7 +3070,7 @@ export interface AudioDebug {
    * Les 16 pistes (V.5.9) : les tranches construites du graphe vivant (au repos, les 8 d'avant), ses sources et son
    * plafond ; ceux du dernier rendu hors ligne.
    */
-  readonly tracks16: { channels: TrackKey[] | null; sources: number; peak: number; capped: number; polyCapped: number; cap: number; offline: { peak: number; capped: number; polyCapped: number; channels: TrackKey[]; schedMs: number; renderMs: number; voices: number } };
+  readonly tracks16: { channels: TrackKey[] | null; sources: number; peak: number; capped: number; polyCapped: number; cap: number; offline: { peak: number; trackPeak: number; capped: number; polyCapped: number; channels: TrackKey[]; schedMs: number; renderMs: number; voices: number } };
 }
 
 /** DIST, envois et unites REVERB et DELAY, CHORUS du bus (debug). */
