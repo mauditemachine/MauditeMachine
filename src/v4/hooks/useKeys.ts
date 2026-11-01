@@ -44,7 +44,12 @@
 
 import { useEffect, useRef } from 'react';
 import { trk } from '../state/trk';
-import { MODE_HOLD_MS, editToggle, escape, funcDown, funcUp, liveEraseAll, liveEraseDown, liveEraseUp, liveOn, modeHold, muteToggle, noDown, noKey, noUp, openToggle, padHit, page, playKey, presetEnter, presetKey, recDown, recKey, recUp, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
+import { MODE_HOLD_MS, editGridToggle, editToggle, escape, faceKeyDown, faceKeyTap, faceKeyUp, funcDown, funcUp, liveEraseAll, liveEraseDown, liveEraseUp, liveOn, modeHold, muteToggle, noDown, noKey, noUp, openToggle, padHit, page, playKey, presetEnter, presetKey, recDown, recKey, recUp, resetView, runToggle, rytmHome, rytmLockToggle, rytmShowPage, soloToggle, soundBrowserRemove, soundBrowserStep, soundBrowserView, stepMachine, stepToggle, stopKey, voyPad, voyRun, yesDown, yesKey, yesUp } from '../actions';
+import type { Dt2ButtonId } from '../rytm/dtFaceIds';
+import { TRACK_KEYS } from '../audio/tracks';
+import { dtFace } from '../state/dtFace';
+import { gesture as gestureLayer } from '../state/gesture';
+import { rytmLock } from '../state/rytmLock';
 import { lcdSamples } from '../state/lcdSamples';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
@@ -56,7 +61,24 @@ import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { undo } from '../state/undo';
 import { INSTRUMENTS } from '../audio/pattern';
-import { DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VOICE_KEYS, type PageId } from '../theme';
+import { DT2_FACE, DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VOICE_KEYS, type PageId } from '../theme';
+
+/*
+ * La face DT2 (V.6.0, 2026-11-01, ?face=dt2, la lane B4 ; cahier dt2 2.7), devant le MM-RYTM : A S D F Z X C V = TRIG 1 a 8,
+ * Maj + les memes = TRIG 9 a 16 ; T = TRK tenue, G = PAGE tenue, N = SONG, K = KEYBOARD, Y = TEMPO, U = SOUNDS, virgule =
+ * SETTINGS (tenues comme sur la machine) ; E = PTN, Maj + E = EDIT GRID ; P = PRESET/KIT ; H = la page TRIG (plus HOME) ;
+ * Alt tenu = FUNC, avec ces lettres (leurs codes physiques) aussi. Les fleches changent de machine comme avant, sauf quand un
+ * menu est ouvert ou qu'un modificateur est tenu (un TRIG, PTN, PAGE, KEYBOARD, TRK) : alors les fleches de la DT2 ; Maj +
+ * fleches : toujours celles de la DT2. Sans le drapeau, le clavier de la V.5.3 ne change pas.
+ */
+/** Les lettres des touches de la face DT2 tenues au clavier (code physique : Option change la lettre sur un Mac). */
+const DT2_HELD_KEYS: Readonly<Record<string, Dt2ButtonId>> = { KeyT: 'trk', KeyG: 'ptnpage', KeyN: 'song', KeyK: 'kbd', KeyY: 'tempo', KeyU: 'sounds', Comma: 'settings' };
+/** Les TRIG 1 a 8 au clavier (code physique) ; Maj : 9 a 16. */
+const DT2_TRIG_CODES = ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyZ', 'KeyX', 'KeyC', 'KeyV'];
+const DT2_ARROWS: Readonly<Record<string, Dt2ButtonId>> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+/** Un modificateur de la face DT2 est-il tenu (les fleches deviennent celles de la DT2, cahier 1.4) ? */
+const dt2ArrowMode = (shift: boolean): boolean =>
+  shift || dtFace.menu() !== null || rytmLock.get().step >= 0 || dtFace.bank() || editor.get() === 'mm808' || gestureLayer.on('ptnpage') || gestureLayer.on('kbd') || trk.engaged();
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
 const CHORD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
@@ -95,6 +117,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
   const mKey = useRef<{ kind: 'mute' | 'solo'; timer: number; fired: boolean } | null>(null);
   /** Echap tenue en LIVE REC (V.5.3) : NO tenue, son action au lacher */
   const escHeld = useRef(false);
+  /** La face DT2 (V.6.0) : les touches de la face tenues au clavier (code physique -> touche), lachees au keyup ou au blur */
+  const dt2Held = useRef(new Map<string, Dt2ButtonId>());
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -142,9 +166,24 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
             if (e.shiftKey) stopKey(getStage());
             else playKey(getStage());
           } else if (c === 'Enter' || c === 'NumpadEnter') yesKey(getStage());
-          else if (c === 'KeyE') editToggle('mm808', getStage());
+          else if (c === 'KeyE') {
+            // La face DT2 : FUNC + PTN, la vue BANK (TRIG 9 a 16)
+            if (DT2_FACE) faceKeyTap('ptn', getStage(), 'key');
+            else editToggle('mm808', getStage());
+          }
           else recKey(getStage());
           return;
+        }
+        // La face DT2 (V.6.0) : Alt + les lettres de la face (FUNC + la touche) et Alt + les fleches (FUNC + fleche)
+        if (DT2_FACE) {
+          const ti = DT2_TRIG_CODES.indexOf(c);
+          const key = c === 'KeyP' ? 'preset' : DT2_HELD_KEYS[c] ?? DT2_ARROWS[e.key];
+          if (ti >= 0 || key) {
+            e.preventDefault();
+            if (ti >= 0) stepToggle(ti + (e.shiftKey ? 8 : 0), getStage());
+            else if (key) faceKeyTap(key, getStage(), 'key');
+            return;
+          }
         }
       }
       if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || isEditable(e.target)) return;
@@ -157,6 +196,58 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
           presetEnter(naming);
         }
         return;
+      }
+      // La face DT2 (V.6.0, cahier 2.7), devant le MM-RYTM : ses lettres, puis le clavier d'avant
+      if (DT2_FACE && dt) {
+        const st = getStage();
+        const ts = e.timeStamp || performance.now();
+        if (e.code === 'KeyP') {
+          e.preventDefault();
+          faceKeyTap('preset', st, 'key');
+          return;
+        }
+        const held = DT2_HELD_KEYS[e.code];
+        if (held) {
+          e.preventDefault();
+          if (!dt2Held.current.has(e.code)) {
+            dt2Held.current.set(e.code, held);
+            faceKeyDown(held, 'key', st, ts);
+          }
+          return;
+        }
+        const ti = DT2_TRIG_CODES.indexOf(e.code);
+        if (ti >= 0) {
+          e.preventDefault();
+          const n = ti + (e.shiftKey ? 8 : 0);
+          // LIVE REC : Echap tenue + la touche d'un TRIG efface sa piste au fil de la tete, tant qu'on tient
+          if (liveEraseDown(TRACK_KEYS[n])) return;
+          stepToggle(n, st);
+          // TRK gardee : une piste est choisie, la garde s'en va (tenue, la main la lachera)
+          const tk = trk.get().mode;
+          if (tk === 'latched' || tk === 'closing') trk.cancel();
+          return;
+        }
+        const ar = DT2_ARROWS[e.key];
+        if (ar && !ownsArrows(e.target) && dt2ArrowMode(e.shiftKey)) {
+          e.preventDefault();
+          if (!dt2Held.current.has(e.key)) {
+            dt2Held.current.set(e.key, ar);
+            faceKeyDown(ar, 'key', st, ts);
+          }
+          return;
+        }
+        if (e.code === 'KeyE') {
+          e.preventDefault();
+          if (e.shiftKey) editGridToggle(st);
+          else faceKeyTap('ptn', st, 'key');
+          return;
+        }
+        // H : la page TRIG (HOME a quitte la navigation, cahier 1.3)
+        if (e.code === 'KeyH' && editor.get() !== 'mm808') {
+          e.preventDefault();
+          rytmShowPage('trig');
+          return;
+        }
       }
       // P (2026-10-27) : les presets de la machine qu'on utilise (MM-RYTM, MM-ARP, MM-BASS) s'ouvrent, ou se ferment
       const fm = focus.get();
@@ -337,6 +428,21 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       }
       const ui = PAD_KEYS.get(e.key.toLowerCase());
       if (ui) liveEraseUp(ui);
+      // La face DT2 (V.6.0) : une touche de la face tenue au clavier lachee (TRK, PAGE, TEMPO, les fleches...) ; un TRIG lache
+      // (l'effacement de LIVE REC s'arrete)
+      if (DT2_FACE) {
+        const k = dt2Held.current.has(e.code) ? e.code : dt2Held.current.has(e.key) ? e.key : null;
+        const id = k ? dt2Held.current.get(k) : undefined;
+        if (k && id) {
+          dt2Held.current.delete(k);
+          faceKeyUp(id, 'key', getStage(), e.timeStamp || performance.now(), true);
+        }
+        const ti = DT2_TRIG_CODES.indexOf(e.code);
+        if (ti >= 0) {
+          liveEraseUp(TRACK_KEYS[ti]);
+          liveEraseUp(TRACK_KEYS[ti + 8]);
+        }
+      }
       // Alt lache (V.5.0) : FUNC lachee, sans garde (une tape d'Alt ne garde pas FUNC)
       if (e.key === 'Alt') {
         funcUp('key', -1);
@@ -362,6 +468,9 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         noUp('key');
       }
       liveEraseAll();
+      // La face DT2 : les touches tenues au clavier lachees sans tape
+      for (const id of dt2Held.current.values()) faceKeyUp(id, 'key', getStage(), -1, false);
+      dt2Held.current.clear();
       if (mKey.current) window.clearTimeout(mKey.current.timer);
       mKey.current = null;
       // Entree tenue quand la fenetre perd le clavier (V.5.1) : FILL finit, aucune tape ne part
