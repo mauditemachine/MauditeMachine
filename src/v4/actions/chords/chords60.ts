@@ -14,6 +14,7 @@ import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
 import { func } from '../../state/func';
 import { fill } from '../../state/fill';
 import type { ModKey } from '../../state/gesture';
+import { trk, trkFresh } from '../../state/trk';
 import { st } from '../state';
 import { lcdMessage } from '../../state/lcdMessage';
 import {
@@ -64,6 +65,12 @@ import { anyDial, anyDialValue } from '../anyDial';
 import { levelDataTurn } from '../mixer';
 import type { RytmPageId } from '../../rytm/pages';
 import type { Chord, ChordKey } from './types';
+
+/** REC, PLAY ou STOP seules : une TRK qui ne sert plus de modificateur (fermee, ou gardee depuis plus de 1,5 s) s'eteint. */
+function trkDrop(): void {
+  const m = trk.get().mode;
+  if ((m === 'latched' || m === 'closing') && !trkFresh()) trk.cancel();
+}
 
 /** Une entree, ses chemins par defaut deduits de la touche (le texte pour INFOS et le test d'enumeration). */
 function c(e: Omit<Chord, 'version' | 'paths'> & { paths?: Chord['paths']; version?: Chord['version'] }): Chord {
@@ -231,17 +238,19 @@ export const CHORDS_60: readonly Chord[] = [
   c({ id: 'rec.func', key: 'rec', gesture: 'press', mods: ['func'], prio: 90, info: 'rec', run: () => copyKey() }),
   c({ id: 'play.func', key: 'play', gesture: 'press', mods: ['func'], prio: 90, info: 'run', run: () => clearKey(stageNow()) }),
   c({ id: 'stop.func', key: 'stop', gesture: 'press', mods: ['func'], prio: 90, info: 'stop', run: () => pasteKey() }),
-  // TRK + REC / PLAY / STOP : le son de la piste active (cahier 3.2)
-  c({ id: 'rec.trk', key: 'rec', gesture: 'press', mods: ['trk'], prio: 85, info: 'rec', run: () => trackSoundOp('copy') }),
-  c({ id: 'play.trk', key: 'play', gesture: 'press', mods: ['trk'], prio: 85, info: 'run', run: () => trackSoundOp('clear') }),
-  c({ id: 'stop.trk', key: 'stop', gesture: 'press', mods: ['trk'], prio: 85, info: 'stop', run: () => trackSoundOp('paste') }),
+  // TRK + REC / PLAY / STOP : le son de la piste active (cahier 3.2) ; TRK tenue, ou tapee il y a moins de 1,5 s (2.7, la
+  // relecture : gardee sans fin, elle prenait PLAY et STOP longtemps apres) ; sinon REC, PLAY et STOP font les leurs
+  c({ id: 'rec.trk', key: 'rec', gesture: 'press', mods: ['trk'], prio: 85, info: 'rec', when: () => trkFresh(), run: () => trackSoundOp('copy') }),
+  c({ id: 'play.trk', key: 'play', gesture: 'press', mods: ['trk'], prio: 85, info: 'run', when: () => trkFresh(), run: () => trackSoundOp('clear') }),
+  c({ id: 'stop.trk', key: 'stop', gesture: 'press', mods: ['trk'], prio: 85, info: 'stop', when: () => trkFresh(), run: () => trackSoundOp('paste') }),
   // Un pattern tenu dans la vue PTN + REC / PLAY / STOP : copier, effacer, coller (cahier 3.3)
   c({ id: 'rec.ptn', key: 'rec', gesture: 'press', mods: [], prio: 80, info: 'rec', when: () => ptnHeldSlot() >= 0, run: () => ptnSlotOp('copy') }),
   c({ id: 'play.ptn', key: 'play', gesture: 'press', mods: [], prio: 80, info: 'run', when: () => ptnHeldSlot() >= 0, run: () => ptnSlotOp('clear') }),
   c({ id: 'stop.ptn', key: 'stop', gesture: 'press', mods: [], prio: 80, info: 'stop', when: () => ptnHeldSlot() >= 0, run: () => ptnSlotOp('paste') }),
-  c({ id: 'rec', key: 'rec', gesture: 'press', mods: [], prio: 0, info: 'rec', run: (e) => recBody(stageNow(), e.src === 'mouse') }),
-  c({ id: 'play', key: 'play', gesture: 'press', mods: [], prio: 0, info: 'run', run: () => void playBody(stageNow()) }),
-  c({ id: 'stop', key: 'stop', gesture: 'press', mods: [], prio: 0, info: 'stop', run: () => stopBody(stageNow()) }),
+  // Seules : une TRK qui ne sert plus (fermee, ou gardee trop tot) s'eteint avec elles
+  c({ id: 'rec', key: 'rec', gesture: 'press', mods: [], prio: 0, info: 'rec', run: (e) => (trkDrop(), recBody(stageNow(), e.src === 'mouse')) }),
+  c({ id: 'play', key: 'play', gesture: 'press', mods: [], prio: 0, info: 'run', run: () => void (trkDrop(), playBody(stageNow())) }),
+  c({ id: 'stop', key: 'stop', gesture: 'press', mods: [], prio: 0, info: 'stop', run: () => (trkDrop(), stopBody(stageNow())) }),
 
   /* ---------- TRK, PTN ---------- */
   // FUNC + TRK : le mode MUTE (le dernier retenu, cahier 3.4)

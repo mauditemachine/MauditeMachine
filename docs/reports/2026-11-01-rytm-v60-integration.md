@@ -74,3 +74,9 @@ Sondes muettes (Chromium `--mute-audio`, `?mute=1`, aucun TRIG tape hors d'un mo
 - le telephone (390 x 844) contre V.5.9 (91e57cd) : en noir 99 pixels, en creme 125 pixels, tous dans le numero du firmware (V.5.9 -> V.6.0) ; rien d'autre ne bouge.
 
 Captures (hors depot) dans `/tmp/claude-0/-home-user-MauditeMachine/3e52142d-b436-522a-95d4-63ef836eaea8/scratchpad/int60/` : `v60-desktop-noir.png`, `v60-desktop-creme.png`, leurs `-mixer` (T12 active, FUNC + MOD), `v60-desktop-v5-noir.png` (la face V.5.3), `v60-overview-noir.png`, `v60-overview-creme.png` (le mode d'emploi au survol), `v60-phone-noir.png`, `v60-phone-creme.png` et leurs references `v59-phone-*.png`.
+
+## Relecture : saisie et donnees
+
+Branche `v60/fix-input` (depart 2a2a705). Une sonde muette par point (Chromium `--mute-audio`, `?mute=1`, PLAY jamais tapee : l'accord qu'elle ferait est lu par `chordFor`), qui echoue sur 2a2a705 et passe apres.
+
+- **TRK tapee gardee sans fin** (high) : sur la face DT2, TRK tapee ne vit que `DT_GESTURE.pageArmMs` (1,5 s) ou jusqu'au choix d'une piste (`state/trk.ts trkFresh`, une minuterie qui l'eteint ; un potard tenu ou tourne a l'instant la retient, pour CONTROL ALL et son NO) ; TRK + REC / PLAY / STOP seulement TRK tenue ou tapee il y a moins de 1,5 s (`chords60.ts`), sinon REC, PLAY et STOP font les leurs et eteignent une TRK qui ne sert plus (fermee apres un choix). Sonde `p1-trk` : 3 sur 6 avant, 6 sur 6 apres.

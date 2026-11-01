@@ -9,7 +9,7 @@
 
 import { pattern } from '../audio/pattern';
 import { TRACK_KEYS, type TrackKey } from '../audio/tracks';
-import { FACE_HOLD_MS, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import { DT2_FACE, DT_GESTURE, FACE_HOLD_MS, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
 import { faceTouch } from './ctl';
 import { focus } from './focus';
 import { holdLatch } from './holdLatch';
@@ -120,6 +120,50 @@ function fire(): void {
   arm();
 }
 
+/*
+ * La face DT2 (V.6.0, la relecture de la saisie ; cahier 2.7 : "tapee = gardee pour la touche suivante pendant 1,5 s") :
+ * TRK tapee ne vit que DT_GESTURE.pageArmMs, ou jusqu'au choix d'une piste. Avant, gardee sans fin, elle prenait PLAY,
+ * STOP et REC longtemps apres (TRK + PLAY efface le son de la piste au lieu de lancer la lecture). Un potard tenu ou tourne a
+ * l'instant (CONTROL ALL avec TRK gardee) la retient : la garde finit pageArmMs apres le dernier geste du potard (NO
+ * annule encore le CONTROL ALL). La face V.5.3 et le telephone gardent la regle d'avant (jusqu'au choix d'une voix).
+ */
+
+/** TRK sert-elle de modificateur a la touche suivante : tenue, ou tapee il y a moins de pageArmMs (la face DT2). */
+export function trkFresh(now = performance.now()): boolean {
+  const s = trk.get();
+  return s.mode === 'held' || (s.mode === 'latched' && now - s.since <= DT_GESTURE.pageArmMs);
+}
+
+const KNOB_IDS = [0, 1, 2, 3, 4, 5, 6, 7];
+/** La minuterie de la fin de la garde (0 : aucune). */
+let latchTimer = 0;
+
+function armLatch(): void {
+  const s = trk.get();
+  if (!DT2_FACE || s.mode !== 'latched') {
+    if (latchTimer) {
+      window.clearTimeout(latchTimer);
+      latchTimer = 0;
+    }
+    return;
+  }
+  if (latchTimer) return;
+  latchTimer = window.setTimeout(latchFire, Math.max(0, s.since + DT_GESTURE.pageArmMs - performance.now()) + 1);
+}
+
+function latchFire(): void {
+  latchTimer = 0;
+  const s = trk.get();
+  if (s.mode !== 'latched') return;
+  const now = performance.now();
+  const busy = faceTouch.anyHeld() || KNOB_IDS.some((k) => faceTouch.recent(k, DT_GESTURE.pageArmMs, now));
+  if (busy || now - s.since < DT_GESTURE.pageArmMs) {
+    latchTimer = window.setTimeout(latchFire, HELD_RETRY_MS);
+    return;
+  }
+  trk.cancel();
+}
+
 /** Le debug (__v4.rytm.trk) : l'etat et les minuteries posees. */
 export const trkDebug = {
   get mode() {
@@ -138,6 +182,7 @@ export const trkDebug = {
 
 if (typeof window !== 'undefined') {
   trk.subscribe(arm);
+  trk.subscribe(armLatch);
   // Une autre machine : TRK s'eteint (comme le P-LOCK, state/rytmLock.ts)
   focus.subscribe(() => {
     if (focus.get() !== 'mm808') trk.cancel();
