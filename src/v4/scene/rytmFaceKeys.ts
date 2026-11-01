@@ -35,6 +35,7 @@ import { DT2_FACEPLATE, dt2FaceplateParts, faceplateParts, fpU, fpX, fpZ, rectCe
 import { keyCapGeometry, keySkirtGeometry } from './keyCap';
 import type { HoldMode } from '../state/holdLatch';
 import type { FuncMode } from '../state/func';
+import type { LedIntensity } from '../state/dtFace';
 import type { HotspotDef, HotspotKind } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { paintLinear, paintSolid, withInstanceEmissive } from './materials';
@@ -258,6 +259,14 @@ interface Look {
   ledTone: DtTone;
 }
 
+/**
+ * PERSONALIZE (V.6.0, cahier dt2 3.11 ; branche a la relecture de la V.6.0) : LED INTENSITY regle l'eclat des temoins, des
+ * touches allumees et des 8 LED de page ; LED BACKLIGHT OFF eteint le dessus des touches (le temoin seul s'allume ; FUNC
+ * garde son capuchon orange, c'est sa couleur et non une lumiere). L'appui et le survol ne changent pas (ils repondent a la
+ * main).
+ */
+const LED_SCALE: Readonly<Record<LedIntensity, number>> = { low: 0.4, mid: 0.7, max: 1 };
+
 /** Les 8 LED de page (V.6.0, la face DT2, cahier 2.4) : ce qu'elles montrent. */
 export interface PageLedsInfo {
   /** les pages que compte le pattern (1 a 8), la page editee et celle qui joue (0 a 7, -1 aucune) */
@@ -318,6 +327,9 @@ export interface RytmFaceKeysInfo {
   recMode: RecMode;
   pageLocks: string[];
   pageLeds: PageLedsInfo | null;
+  /** PERSONALIZE (V.6.0) : l'eclat des LED (LED INTENSITY : 0,4, 0,7, 1) et le retroeclairage des touches */
+  ledScale: number;
+  backlight: boolean;
 }
 
 export class RytmFaceKeys {
@@ -394,6 +406,9 @@ export class RytmFaceKeys {
   /** les 8 LED de page : les pages du pattern, la page editee, celle qui joue (16 pas en 6.0 : LED 1 pleine) */
   private pages = { count: 1, shown: 0, playing: -1 };
   private pageLevel = new Float32Array(8);
+  /** PERSONALIZE (V.6.0) : LED INTENSITY (LED_SCALE) et LED BACKLIGHT */
+  private ledScale = 1;
+  private backlight = true;
   private off = new Color();
   private offLit = new Color(LED_LIT_KEY_LIGHT.off);
   private ledColors = new Map<DtTone, Color>();
@@ -633,10 +648,33 @@ export class RytmFaceKeys {
     return c;
   }
 
+  /** Ce que la touche i montre une fois PERSONALIZE applique (LED INTENSITY, LED BACKLIGHT). */
+  private personal(i: number, s: Look): Look {
+    if (this.ledScale === 1 && this.backlight) return s;
+    const k = this.ledScale;
+    // FUNC : son capuchon orange (son dessus et sa lueur en noir) reste tel quel, seul son temoin suit LED INTENSITY
+    if (i === FUNC) return { ...s, led: s.led * k };
+    return { ...s, fill: this.backlight ? s.fill : 0, glow: this.backlight ? s.glow * k : 0, led: s.led * k };
+  }
+
+  /**
+   * PERSONALIZE (V.6.0, la relecture : LED INTENSITY et LED BACKLIGHT ne changeaient aucune lueur) : toutes les touches et
+   * les 8 LED de page se repeignent ; true s'il faut une frame.
+   */
+  setPersonal(p: { readonly led: LedIntensity; readonly backlight: boolean }): boolean {
+    const k = LED_SCALE[p.led] ?? 1;
+    if (k === this.ledScale && p.backlight === this.backlight) return false;
+    this.ledScale = k;
+    this.backlight = p.backlight;
+    for (let i = 0; i < N; i += 1) this.refresh(i);
+    this.paintPageLeds();
+    return true;
+  }
+
   /** Repeint la touche i : son dessus, son temoin, son nom. */
   private refresh(i: number): void {
     if (i < 0 || i >= N) return;
-    const s = this.look(i);
+    const s = this.personal(i, this.look(i));
     this.fill[i] = s.fill;
     this.glow[i] = s.glow;
     this.level[i] = s.led;
@@ -840,7 +878,7 @@ export class RytmFaceKeys {
     // Le premier dessin les peint toutes (three cree instanceColor au premier setColorAt, rempli de blanc)
     const first = !this.pagesPainted;
     for (let k = 0; k < leds.count; k += 1) {
-      const lv = this.pageLedLevel(k);
+      const lv = this.pageLedLevel(k) * this.ledScale;
       if (!first && Math.abs(this.pageLevel[k] - lv) < 1e-4) continue;
       this.pageLevel[k] = lv;
       leds.setColorAt(k, col.copy(off).lerp(on, lv));
@@ -1083,6 +1121,8 @@ export class RytmFaceKeys {
       recMode: this.recMode,
       pageLocks: [...this.pageLocks],
       pageLeds: this.pageLeds ? { ...this.pages, levels: Array.from(this.pageLevel, (v) => +v.toFixed(2)) } : null,
+      ledScale: this.ledScale,
+      backlight: this.backlight,
     };
   }
 

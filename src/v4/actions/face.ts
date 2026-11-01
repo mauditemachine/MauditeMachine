@@ -1008,6 +1008,8 @@ export function dt2FaceSync(stage: Stage): () => void {
     if (fk.setPatternPages(Math.ceil(STEP_COUNT / 16), dtFace.ptnPage(), -1)) ch = true;
     const lk = rytmLock.get();
     if (fk.setPageLocks(dtFace.rec() && lk.step >= 0 ? lockPages(lk.step).map((pg) => pg.toLowerCase()) : [])) ch = true;
+    // PERSONALIZE (relecture de la V.6.0, la lane ecran) : LED INTENSITY et LED BACKLIGHT sur la lueur de la face
+    if (fk.setPersonal(dtFace.personal())) ch = true;
     if (ch) stage.repaint();
   };
   const offs = [dtFace.subscribe(sync), fill.subscribe(sync), rytmLock.subscribe(sync), pattern.subscribe(sync)];
