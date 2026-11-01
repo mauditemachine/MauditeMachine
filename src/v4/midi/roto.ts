@@ -52,7 +52,8 @@ import { PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS } from '../theme';
 import { ROTO_KEYS, type RotoKey } from './rotoKeys';
 import { BASS as BASS_ON } from '../state/focus';
 
-export type RotoSetupName = 'RYTM' | 'ARP' | 'BASS' | 'DECK' | 'MIXER' | 'LIVE' | 'RSEQ' | 'BSEQ';
+/** TRACKS (V.6.0, 2026-11-01) : les 16 pistes du MM-RYTM, SETUP 19, sur les canaux du RYTM (midi/rotoKeys.ts). */
+export type RotoSetupName = 'RYTM' | 'ARP' | 'BASS' | 'DECK' | 'MIXER' | 'LIVE' | 'RSEQ' | 'BSEQ' | 'TRACKS';
 /** Les setups sequenceurs (2026-10-09, midi/seqlink.ts) : leurs pas et leurs LEDs sont tenus par le site. */
 export const SEQ_SETUPS: readonly RotoSetupName[] = ['RSEQ', 'BSEQ'];
 export const isSeqSetup = (name: RotoSetupName | null | undefined): boolean => name === 'RSEQ' || name === 'BSEQ';
@@ -90,7 +91,7 @@ export interface Ctl {
 
 export interface RotoSetup {
   name: RotoSetupName;
-  /** le setup conseille sur le Roto (SETUP 11 a 18 : les premiers restent a toi) */
+  /** le setup conseille sur le Roto (SETUP 11 a 19 : les premiers restent a toi) */
   slot: number;
   /** le canal des potards ; les boutons : + 8 */
   ch: number;
@@ -710,7 +711,35 @@ function buildSetups(): RotoSetup[] {
   };
 
   // Le MM-BASS cache (2026-10-10, state/focus.ts) : ni BASS ni BSEQ dans les setups
-  return BASS_ON ? [RYTM, ARP, BASS, DECK, MIXER, LIVE, RSEQ, BSEQ] : [RYTM, ARP, DECK, MIXER, LIVE, RSEQ];
+  /*
+   * TRACKS (V.6.0, 2026-11-01, la refonte Digitakt II, cahier dt2 3.12 : "pages T9-T16 (VOL, MUTE, PAD) ajoutees a la fin ;
+   * aucune ligne gelee de rotoKeys.ts touchee") : le RYTM est plein (32 potards, 32 boutons), les 16 pistes ont leur
+   * setup, SETUP 19, sur les canaux du RYTM (1 et 9 ; les seize canaux sont pris) et des CC qu'il n'a jamais eus. Page 1 :
+   * les volumes de T9 a T16 au-dessus de leurs mutes ; page 2 : leurs TRK LEV au-dessus de leurs pads (jouer la piste) ;
+   * page 3 : TRK LEV de T1 a T8 au-dessus de la voix des pas du Roto RSEQ (T9 a T16, sans la jouer) ; page 4 : DECAY de
+   * T9 a T16 au-dessus du choix de la piste (SOON tant que la machine ne choisit pas une piste 9 a 16). Le reste des pistes
+   * 9 a 16 (tous leurs reglages, trig et LFO compris) : MIDI LEARN.
+   */
+  const T916 = ['T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'] as const;
+  const TRACKS: RotoSetup = {
+    name: 'TRACKS',
+    slot: 19,
+    ch: 1,
+    knobs: [
+      ...T916.map((t) => k(`rytm:voice:${t}:level`, `${t} VOL`, C.cream)),
+      ...T916.map((t) => k(`rytm:voice:${t}:tlev`, `${t} TRK LEV`, C.white)),
+      ...VOICES8.map((v, i) => k(`rytm:voice:${v}:tlev`, `T${i + 1} TRK LEV`, C.white)),
+      ...T916.map((t) => k(`rytm:voice:${t}:decay`, `${t} DECAY`, C.yellow)),
+    ],
+    buttons: [
+      ...T916.map((t) => tog(`rytm:voice:${t}:mute`, `MUTE ${t}`, C.pink)),
+      ...T916.map((t) => b(`rytm:pad:${t}`, t, C.yellow)),
+      ...T916.map((t) => b(`rytm:seq:voice:${t}`, `SEQ ${t}`, C.gold)),
+      ...T916.map((t) => b(`rytm:voice:select:${t}`, `PICK ${t}`, C.peach)),
+    ],
+  };
+
+  return BASS_ON ? [RYTM, ARP, BASS, DECK, MIXER, LIVE, RSEQ, BSEQ, TRACKS] : [RYTM, ARP, DECK, MIXER, LIVE, RSEQ, TRACKS];
 }
 
 /** Les setups (au chargement ; refaits au telechargement : rotoSetups). */
@@ -754,7 +783,9 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * SOUND, il ne regle plus que le charley ferme, ses crans suivent les samples de CH : 1018. A reimporter : RYTM.
  * Le meme jour, le hasard de MOD du MM-ARP (Mika : "dans les MOD je veux un random aussi et qui se cale au beat") :
  * MOD SHAPE (ARP page 4, la meme adresse) passe a cinq crans, TRI, SAW, RND, SQR, S&H : 1018.2. A reimporter : ARP
- * (12). Un Roto encore en 1018 tient ses quatre formes (ses crans tombent sur TRI, SAW, SQR, S&H), sans RND. */
+ * (12). Un Roto encore en 1018 tient ses quatre formes (ses crans tombent sur TRI, SAW, SQR, S&H), sans RND.
+ * 2026-11-01 (V.6.0, les 16 pistes) : un setup de plus, TRACKS (SETUP 19) ; les sept d'avant n'ont rien change (ni nom,
+ * ni mode, ni crans, ni adresse) : la version reste, rien a reimporter, TRACKS s'importe seul sur le SETUP 19. */
 export const ROTO_VERSION = '2026-10-18.2';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */

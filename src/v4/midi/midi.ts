@@ -572,7 +572,7 @@ function route(key: string, device?: string): Route | null {
 }
 
 /** La machine que montre un setup du Roto (LIVE les pilote toutes : aucune). */
-const SETUP_MACHINE: Readonly<Record<RotoSetupName, MachineId | null>> = { RYTM: 'mm808', ARP: 'voy', BASS: 'bass', DECK: 'dj', MIXER: 'dj', LIVE: null, RSEQ: 'mm808', BSEQ: 'bass' };
+const SETUP_MACHINE: Readonly<Record<RotoSetupName, MachineId | null>> = { RYTM: 'mm808', ARP: 'voy', BASS: 'bass', DECK: 'dj', MIXER: 'dj', LIVE: null, RSEQ: 'mm808', BSEQ: 'bass', TRACKS: 'mm808' };
 
 /**
  * FOLLOW (2026-10-05) : un controle d'un setup du Roto (resolu par sa carte)
@@ -834,8 +834,8 @@ function nothing(key: string, device?: string): string {
   else if (SCOPES.some((s) => view.maps[s]?.[key])) why = 'learned with another device';
   // 2026-10-09 : les huit setups prennent les seize canaux (RSEQ 7 et 15, BSEQ 8 et 16) ; un CC hors de leurs CC : un Roto
   // pas en mode MIDI sur ces setups (un mode DAW ou plugin), la revue du 2026-10-09
-  else if (key.startsWith('cc:') && ch >= 1 && ch <= 16 && rotoKnownCc(Number(key.split(':')[2]))) why = 'not in the Roto setups of this version (setups 11 to 18): re-import them?';
-  else if (key.startsWith('cc:')) why = 'Roto in MIDI mode, on setups 11 to 18?';
+  else if (key.startsWith('cc:') && ch >= 1 && ch <= 16 && rotoKnownCc(Number(key.split(':')[2]))) why = 'not in the Roto setups of this version (setups 11 to 19): re-import them?';
+  else if (key.startsWith('cc:')) why = 'Roto in MIDI mode, on setups 11 to 19?';
   return `${keyText(key)} -> nothing${why ? ` (${why})` : ''}`;
 }
 
