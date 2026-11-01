@@ -6,18 +6,20 @@
  *
  * Les quatorze ids reserves, dans l'ordre de reserved.ts : rytm:data (LEVEL/DATA, kind relative), rytm:keyboard,
  * rytm:song, rytm:preset, rytm:settings, rytm:sounds, rytm:tap, rytm:up, rytm:down, rytm:left, rytm:right, rytm:ptnpage,
- * rytm:tempo:bpm (30 a 300 au 1/10), rytm:tempo:swing (50 a 80 %). Ils existent tout le temps (des ajouts). Chacun appelle
- * l'action la plus proche qui existe aujourd'hui ; les touches de B4 (fleches, PAGE, SETTINGS, LEVEL/DATA dans les menus)
- * et les menus de B5 les remplaceront a l'integration (une ligne par cible, ACTION60 plus bas). Une touche inerte en V.6.0
- * (KEYBOARD, SONG ; SETTINGS tant que son menu n'est pas la) porte SOON dans son libelle (C3.10), retire a l'activation
- * (le libelle peut changer, jamais l'id). Sur la face V.5.3 (DT2_FACE faux) : aucune touche ne s'anime (elles n'y sont
- * pas), les actions sont celles du site d'aujourd'hui (la liste des presets, des sons, TAP, FILL).
+ * rytm:tempo:bpm (30 a 300 au 1/10), rytm:tempo:swing (50 a 80 %). Ils existent tout le temps (des ajouts). Une touche
+ * inerte en V.6.0 (KEYBOARD, SONG) porte SOON dans son libelle (C3.10), retire a l'activation (le libelle peut changer,
+ * jamais l'id).
  *
- * Avec le drapeau (?face=dt2, theme/base.ts DT2_FACE) et seulement avec lui : rytm:enc:level s'appelle MAIN VOLUME (2.6,
- * l'id ne change pas) et rytm:fill anime la touche PAGE au lieu de YES (2.6) ; le CSV (sans drapeau) n'en voit rien.
+ * L'integration de la V.6.0 (2026-11-01) : sur la face DT2 (theme/base.ts DT2_FACE, la face par defaut au desktop), chaque
+ * cible passe par la saisie de la lane B4 (actions/face.ts faceKeyDown, faceKeyUp, faceKeyTap(id, 'midi'), dataTurn),
+ * comme la touche de la face : la table des accords, les menus de B5, FUNC. Sur la face V.5.3 (?face=v5, DT2_FACE faux) :
+ * l'action la plus proche du site d'avant (la liste des presets, des sons, TAP, FILL), comme la lane B6 l'avait posee.
+ * Avec la face DT2 seulement : rytm:enc:level s'appelle MAIN VOLUME (2.6, l'id ne change pas) et rytm:fill anime la touche
+ * PAGE au lieu de YES (2.6).
  */
 
-import { anyDial, fillHold, gesture, presetKey, presetTurn, soundBrowserClose, soundBrowserOpen, soundBrowserStep } from '../../actions';
+import { anyDial, dataTurn as faceDataTurn, faceKeyDown, faceKeyTap, faceKeyUp, fillHold, gesture, presetKey, presetTurn, soundBrowserClose, soundBrowserOpen, soundBrowserStep } from '../../actions';
+import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
 import { tapTempo } from '../../actions/internal/transport';
 import { BPM, pattern } from '../../audio/pattern';
 import { TRACK_NAMES, trackIndex, tracks } from '../../audio/tracks';
@@ -45,16 +47,21 @@ const soon = (word: string, zone: string, ver: string): void => {
 /** TRK LEV : 0 a 127, un cran = 1/127 (cahier 4.1 : 0.8 = 0 dB, le depart). */
 const TLEV_CRANS = 127;
 
+/** Les crans d'un message relatif, bornes (un codage mal devine ne fait pas un saut de toute la course). */
+const crans = (d: number): number => (Number.isFinite(d) ? Math.max(-16, Math.min(16, Math.round(d))) : 0);
+
 /**
- * LEVEL/DATA tourne de d crans (rytm:data ; le boitier MMHW v2 : CC 38, le pont appelle turn) : une liste ouverte defile
- * (les presets du MM-RYTM, la liste des sons), sinon TRK LEV de la piste choisie (cahier 3.1 : "potard : TRK LEV ; dans un
- * menu : defiler"). A l'integration, l'action de B4 (LEVEL/DATA sur la face, les menus de B5 par onInput 'data') prend
- * sa place.
+ * LEVEL/DATA tourne de d crans (rytm:data ; le boitier MMHW v2 : CC 38, le pont appelle turn). La face DT2 : la saisie de
+ * B4 (dataTurn : le menu ouvert le prend, sinon le TRK LEV de la piste active, levelDataTurn de B5). La face V.5.3 : une
+ * liste ouverte defile (les presets du MM-RYTM, la liste des sons), sinon TRK LEV de la voix choisie.
  */
 function dataTurn(d: number): void {
-  if (!Number.isFinite(d) || d === 0) return;
-  const n = Math.max(-16, Math.min(16, Math.round(d)));
+  const n = crans(d);
   if (n === 0) return;
+  if (DT2_FACE) {
+    faceDataTurn(n, 'midi', getStage());
+    return;
+  }
   if (presetMode.on('mm808')) {
     if (!presetTurn(0, n)) presetMode.turn('mm808', 0, n);
     return;
@@ -75,8 +82,18 @@ function dataTurn(d: number): void {
   lcdMessage.show(`${TRACK_NAMES[trackIndex(k)] ?? k} TRK LEV ${Math.round(tracks.param(k, 'tlev') * TLEV_CRANS)}`, 1200, true);
 }
 
-/** Une fleche (rytm:up...) : dans la liste des presets ou des sons, comme les fleches du clavier ; ailleurs, B4 (SOON). */
+/** Une touche de la face DT2 tapee au MIDI (un appui et un lacher d'un coup), par la saisie de B4. */
+const tap60 = (id: Dt2ButtonId): void => faceKeyTap(id, getStage(), 'midi');
+
+/**
+ * Une fleche (rytm:up...) : la face DT2, la fleche de la face (le menu ouvert, PTN + LEFT / RIGHT la banque, un TRIG tenu +
+ * LEFT / RIGHT le uTIME, UP / DOWN la sous-page) ; la face V.5.3, la liste des presets ou des sons.
+ */
 function arrowKey(dir: 'up' | 'down' | 'left' | 'right'): void {
+  if (DT2_FACE) {
+    tap60(dir);
+    return;
+  }
   flash(dir);
   if (presetMode.on('mm808')) {
     presetKey('mm808', dir === 'up' || dir === 'left' ? 'prev' : 'next');
@@ -98,31 +115,81 @@ const SWING_PER_PCT = 3 / 50;
 const SWING_STEPS = SW_HI - SW_LO + 1;
 
 /**
- * Les actions de chaque cible (a remplacer a l'integration de B4 et B5, une ligne chacune) ; ce que chacune fait
- * aujourd'hui est dans son libelle.
+ * Les actions de chaque cible : la face DT2 par la saisie de B4 (la touche de la face), la face V.5.3 par l'action la plus
+ * proche d'avant ; ce que chacune fait est dans son libelle (LABEL60).
  */
 const ACTION60 = {
   data: dataTurn,
   preset: (): void => {
+    if (DT2_FACE) {
+      tap60('preset');
+      return;
+    }
     flash('preset');
     presetKey('mm808', presetMode.on('mm808') ? 'close' : 'open');
   },
+  settings: (): void => {
+    if (DT2_FACE) tap60('settings');
+    else soon('SETTINGS', 'settings', 'V.6.0');
+  },
   sounds: (): void => {
+    if (DT2_FACE) {
+      tap60('sounds');
+      return;
+    }
     flash('sounds');
     if (lcdSamples.isOpen()) soundBrowserClose();
     else soundBrowserOpen();
   },
+  // KEYBOARD et SONG, inertes en V.6.0 : la face DT2 dit BIENTOT comme sa touche (la table des accords)
+  keyboard: (): void => {
+    if (DT2_FACE) tap60('kbd');
+    else soon('KEYBOARD', 'kbd', 'V.6.1');
+  },
+  song: (): void => {
+    if (DT2_FACE) tap60('song');
+    else soon('SONG', 'song', 'V.6.2');
+  },
+  // FUNC + TEMPO sur la face (l'eclair blanc a chaque tape) : le TAP, sans engager FUNC
   tap: (): void => {
     flash('tempo');
     gesture();
     tapTempo();
   },
-  ptnDown: (): void => {
+  // rytm:fill (la face DT2) : FILL tenu, la touche PAGE s'anime
+  fillDown: (): void => {
     fillHold(true);
     if (DT2_FACE) getStage()?.pressFaceKey('ptnpage');
   },
-  ptnUp: (): void => fillHold(false),
+  // rytm:ptnpage : la touche PAGE elle-meme (la face DT2 : tenue = FILL, YES puis PAGE = un cycle, PAGE puis YES = verrou)
+  ptnDown: (): void => {
+    if (DT2_FACE) faceKeyDown('ptnpage', 'midi', getStage());
+    else fillHold(true);
+  },
+  ptnUp: (): void => {
+    if (DT2_FACE) faceKeyUp('ptnpage', 'midi', getStage());
+    else fillHold(false);
+  },
 };
+
+/** Les libelles (la face DT2 dans le CSV : docs:midi lit le site a sa face par defaut ; la face V.5.3 garde les siens). */
+const LABEL60 = DT2_FACE
+  ? {
+      data: 'LEVEL/DATA (RELATIVE: THE OPEN MENU, ELSE TRK LEV OF THE ACTIVE TRACK)',
+      preset: 'PRESET/KIT (THE PRESET/KIT MENU, AGAIN: CLOSE)',
+      settings: 'SETTINGS (THE MENU, AGAIN: CLOSE)',
+      sounds: 'SOUNDS (THE SOUND LIST OF THE ACTIVE TRACK, AGAIN: CLOSE)',
+      arrow: (d: string): string => `${d} (THE MENU, ELSE ${d === 'UP' || d === 'DOWN' ? 'THE SUB PAGE' : 'PTN: THE BANK, TRIG HELD: MICRO TIMING'})`,
+      ptnpage: 'PAGE (HOLD: FILL; YES THEN PAGE: ONE CYCLE; PAGE THEN YES: LATCH)',
+    }
+  : {
+      data: 'LEVEL/DATA (RELATIVE: THE OPEN LIST, ELSE TRK LEV OF THE TRACK)',
+      preset: 'PRESET/KIT (THE KIT LIST, AGAIN: CLOSE)',
+      settings: 'SETTINGS (SOON)',
+      sounds: 'SOUNDS (THE SOUND LIST OF THE TRACK, AGAIN: CLOSE)',
+      arrow: (d: string): string => `${d} (IN A LIST)`,
+      ptnpage: 'PAGE (HOLD: FILL)',
+    };
 
 export function face60Targets(out: MidiTarget[]): void {
   // La face DT2 seulement (2.6) : les libelles et les touches animees qui changent, sans changer un id ni une place
@@ -130,20 +197,21 @@ export function face60Targets(out: MidiTarget[]): void {
     const level = out.find((t) => t.id === 'rytm:enc:level');
     if (level) level.label = 'MAIN VOLUME';
     const fill = out.find((t) => t.id === 'rytm:fill');
-    if (fill) fill.down = ACTION60.ptnDown;
+    if (fill) fill.down = ACTION60.fillDown;
   }
-  out.push({ id: 'rytm:data', scope: 'mm808', label: 'LEVEL/DATA (RELATIVE: THE OPEN LIST, ELSE TRK LEV OF THE TRACK)', kind: 'relative', turn: ACTION60.data });
-  out.push(press('rytm:keyboard', 'mm808', 'KEYBOARD (SOON)', () => soon('KEYBOARD', 'kbd', 'V.6.1')));
-  out.push(press('rytm:song', 'mm808', 'SONG (SOON)', () => soon('SONG', 'song', 'V.6.2')));
-  out.push(press('rytm:preset', 'mm808', 'PRESET/KIT (THE KIT LIST, AGAIN: CLOSE)', ACTION60.preset));
-  out.push(press('rytm:settings', 'mm808', 'SETTINGS (SOON)', () => soon('SETTINGS', 'settings', 'V.6.0')));
-  out.push(press('rytm:sounds', 'mm808', 'SOUNDS (THE SOUND LIST OF THE TRACK, AGAIN: CLOSE)', ACTION60.sounds));
+  out.push({ id: 'rytm:data', scope: 'mm808', label: LABEL60.data, kind: 'relative', turn: ACTION60.data });
+  out.push(press('rytm:keyboard', 'mm808', 'KEYBOARD (SOON)', ACTION60.keyboard));
+  out.push(press('rytm:song', 'mm808', 'SONG (SOON)', ACTION60.song));
+  out.push(press('rytm:preset', 'mm808', LABEL60.preset, ACTION60.preset));
+  out.push(press('rytm:settings', 'mm808', LABEL60.settings, ACTION60.settings));
+  out.push(press('rytm:sounds', 'mm808', LABEL60.sounds, ACTION60.sounds));
   out.push(press('rytm:tap', 'mm808', 'TAP TEMPO', ACTION60.tap));
-  out.push(press('rytm:up', 'mm808', 'UP (IN A LIST)', () => arrowKey('up')));
-  out.push(press('rytm:down', 'mm808', 'DOWN (IN A LIST)', () => arrowKey('down')));
-  out.push(press('rytm:left', 'mm808', 'LEFT (IN A LIST)', () => arrowKey('left')));
-  out.push(press('rytm:right', 'mm808', 'RIGHT (IN A LIST)', () => arrowKey('right')));
-  out.push(faceHold('rytm:ptnpage', 'PAGE (HOLD: FILL)', DT2_FACE ? 'ptnpage' : '', () => fillHold(true), ACTION60.ptnUp));
+  out.push(press('rytm:up', 'mm808', LABEL60.arrow('UP'), () => arrowKey('up')));
+  out.push(press('rytm:down', 'mm808', LABEL60.arrow('DOWN'), () => arrowKey('down')));
+  out.push(press('rytm:left', 'mm808', LABEL60.arrow('LEFT'), () => arrowKey('left')));
+  out.push(press('rytm:right', 'mm808', LABEL60.arrow('RIGHT'), () => arrowKey('right')));
+  // La face DT2 : faceKeyDown anime la touche PAGE elle-meme (la zone de faceHold reste vide)
+  out.push(faceHold('rytm:ptnpage', LABEL60.ptnpage, '', ACTION60.ptnDown, ACTION60.ptnUp));
   out.push({
     id: 'rytm:tempo:bpm',
     scope: 'mm808',

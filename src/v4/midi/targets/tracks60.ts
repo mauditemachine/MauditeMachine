@@ -11,14 +11,16 @@
  *    les scenes comprises) ;
  * 3. rytm:voice:<T9..T16>:mute (1 coupee, 0 rendue, sans le mode MUTE) ;
  * 4. rytm:pad:<T9..T16> (joue la piste a l'arret, actions/phone.ts trackPlay) ;
- * 5. rytm:voice:select:<T9..T16> (SOON : choisir une piste 9 a 16 attend B4, pattern.instrument reste a 8) ;
+ * 5. rytm:voice:select:<T9..T16> (la piste active, sans un son : actions/face.ts trackSelect de B4, l'integration de la
+ *    V.6.0 ; la face V.5.3, ?face=v5, n'a pas de piste 9 a 16 a choisir : SOON) ;
  * 6. rytm:seq:voice:<T9..T16> (la voix des pas du Roto RSEQ, midi/seqlink.ts) ;
  * 7. rytm:voice:<T9..T16>:<reglage de trig, LFO> (TRIG_PARAMS puis LFO_PARAMS, comme BD..CY en V.5.1).
  * Les ids BD..CY d'avant (rytm:voice:BD:level...) gardent leur effet : ce sont toujours les pistes 1 a 8. Les cibles
  * existent tout le temps (des ajouts) ; sur la face V.5.3 (DT2_FACE faux), elles reglent le moteur sans rien dessiner.
  */
 
-import { sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, trackMute, trackPlay } from '../../actions';
+import { sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, trackMute, trackPlay, trackSelect } from '../../actions';
+import { DT2_FACE } from '../../theme';
 import { LFO_PARAMS } from '../../audio/lfo';
 import { TRIG_PARAMS } from '../../audio/trig';
 import { TRACK_KEYS, TRACK_NAMES, trackIndex, tracks, type TrackKey } from '../../audio/tracks';
@@ -97,8 +99,18 @@ export function tracks60Targets(out: MidiTarget[]): void {
   }
   // 4. Leurs pads (jouer la piste a l'arret)
   for (const k of HI) out.push(press(`rytm:pad:${k}`, 'mm808', `PAD ${nameOf(k)}`, () => trackPlay(k, getStage())));
-  // 5. Choisir la piste sans un son : SOON (B4 elargit le choix de la piste, TRK + TRIG 9-16 ; d'ici la, l'ecran le dit)
-  for (const k of HI) out.push(press(`rytm:voice:select:${k}`, 'mm808', `TRACK ${nameOf(k)} (SELECT, SILENT; SOON)`, () => lcdMessage.show(`TRK ${nameOf(k)}: SOON`)));
+  // 5. Choisir la piste sans un son (la face DT2 : TRK + TRIG 9-16, la piste active de B4 ; la face V.5.3 : SOON, l'ecran le dit)
+  for (const k of HI)
+    out.push(
+      press(`rytm:voice:select:${k}`, 'mm808', DT2_FACE ? `TRACK ${nameOf(k)} (SELECT, SILENT)` : `TRACK ${nameOf(k)} (SELECT, SILENT; SOON)`, () => {
+        if (!DT2_FACE) {
+          lcdMessage.show(`TRK ${nameOf(k)}: SOON`);
+          return;
+        }
+        trackSelect(k);
+        lcdMessage.show(`TRK ${nameOf(k)}`, 900);
+      }),
+    );
   // 6. La voix des pas du Roto en sequenceur (RSEQ) : la piste, sans la jouer
   for (const k of HI) out.push(press(`rytm:seq:voice:${k}`, 'mm808', `SEQ TRACK ${nameOf(k)} (SELECT, SILENT)`, () => seqVoiceTrack(k)));
   // 7. Leurs reglages de trig et leurs deux LFO (V.5.1 pour BD..CY)

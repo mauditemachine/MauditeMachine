@@ -1,6 +1,6 @@
 /** Les cibles MIDI du MM-RYTM, dans l'ordre d'aujourd'hui (le corps de coreTargets, deplace tel quel en P0). Ajouts : dans le fichier reserve de sa lane, jamais ici. */
 
-import { LAYER_TARGET_FAMS, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, fillHold } from '../../actions';
+import { LAYER_TARGET_FAMS, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, fillHold, faceKeyTap } from '../../actions';
 import { sceneCtl } from '../../state/sceneCtl';
 import { D2_SCREENS, RYTM_SCREENS, SCREEN_TITLE, pageLabel } from '../../rytm/pages';
 import { TRIG_PARAMS } from '../../audio/trig';
@@ -13,7 +13,7 @@ import { KIT_FAMILIES, KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob
 import { setVoiceFx } from '../../audio/drums';
 import { VOICE_PARAMS, voiceFx } from '../../audio/voicefx';
 import { BANKS, BANK_SIZE, bankName } from '../../state/patterns';
-import { DT_FACE, ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../../theme';
 import { INSTRUMENTS, STEP_COUNT } from '../../audio/pattern';
 import { seqFollow, seqPress, seqRelease, seqSetFollow, seqVoice, seqWindow } from '../seqlink';
 import type { MidiTarget } from './types';
@@ -192,7 +192,8 @@ export function rytmTargets(out: MidiTarget[]): void {
   out.push(press('rytm:random', 'mm808', 'RANDOM', () => randomPattern(getStage())));
   out.push(press('rytm:mute', 'mm808', 'MUTE', () => void muteToggle(getStage())));
   out.push(press('rytm:solo', 'mm808', 'SOLO', () => void soloToggle(getStage())));
-  out.push(press('rytm:edit', 'mm808', 'EDIT', () => editToggle('mm808', getStage())));
+  // La face DT2 (V.6.0, l'integration) : la touche PTN elle-meme (les patterns sur les TRIG, FUNC + PTN la vue BANK)
+  out.push(press('rytm:edit', 'mm808', DT2_FACE ? 'PTN (THE PATTERNS ON THE TRIGS)' : 'EDIT', () => (DT2_FACE ? faceKeyTap('ptn', getStage(), 'midi') : editToggle('mm808', getStage()))));
   out.push(press('rytm:open', 'mm808', 'OPEN', () => void openToggle(getStage(), 'mm808')));
   // La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol
   out.push(press('rytm:infos', 'mm808', 'INFOS (HELP ON HOVER)', () => void rytmInfos.toggle()));
