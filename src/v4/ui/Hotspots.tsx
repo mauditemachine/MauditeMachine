@@ -111,6 +111,7 @@ import {
   padHit,
   padMute,
   page,
+  phonePadTap,
   resetView,
   runToggle,
   soloToggle,
@@ -1043,10 +1044,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const t = performance.now();
         if (!d.mouse && lastPad && lastPad.inst === d.inst && t - lastPad.at <= PAD_DOUBLE_TAP_MS) {
           lastPad = null;
-          padMute(d.inst, stage);
+          // V.6.0 (lane B6) : la bascule du telephone en 9-16, le pad joue (coupe) la piste 9 + n (actions/phone.ts)
+          if (!phonePadTap(d.inst, stage, true)) padMute(d.inst, stage);
         } else {
           lastPad = d.mouse ? null : { inst: d.inst, at: t };
-          padHit(d.inst, stage);
+          if (!phonePadTap(d.inst, stage)) padHit(d.inst, stage);
         }
       }
       else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);

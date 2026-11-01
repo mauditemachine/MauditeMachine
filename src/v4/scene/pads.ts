@@ -22,6 +22,15 @@
  * Frappe (les 12) : le pad s'enfonce de 0.06 en 60 ms et remonte en 180 ms
  * (reduced motion : la lumiere seule). Le son part AVANT : l'appelant
  * declenche la voix puis appelle press() (actions.ts).
+ *
+ * V.6.0 (2026-11-01, la refonte Digitakt II, cahier dt2 1.3, lane B6) : la
+ * bascule 1-8 / 9-16 du telephone (actions/phone.ts phoneBank). En 9-16, le
+ * pad de la voix i est la piste 9 + i : sa lumiere dit la piste choisie au
+ * telephone, ses mutes et son solo, et ses coups du sequenceur (le masque de
+ * l'horloge, bits 8 a 15, relu a chaque pas de la tete de lecture) ; une tape
+ * la joue (ui/Hotspots.tsx, phonePadTap). La serigraphie (BD SD...) ne change
+ * pas : la bascule du Dock dit la rangee. Sans la bascule (aucune piste 9 a
+ * 16), rien ne change.
  */
 
 import {
@@ -42,6 +51,11 @@ import {
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { COLOR, FLASH_TINT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, VOICE_TINT, gainOf, type Inst, type PadId, type PageId } from '../theme';
+import { phoneBank } from '../actions/phone';
+import { clock } from '../audio/clock';
+import { context } from '../audio/drums';
+import { TRACK_KEYS } from '../audio/tracks';
+import { playhead } from '../state/playhead';
 import type { HotspotDef } from './hit';
 import { albedo, withInstanceEmissive } from './materials';
 import { makeHaloTexture } from './silk';
@@ -86,6 +100,9 @@ const GLOW_RGB: readonly (readonly number[])[] = [
 const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash, PAD_HALO.orange, PAD_HALO.orangeDim, PAD_HALO.muted, PAD_HALO.muted];
 const COUNT = PADS.length;
 const OPEN_I = PADS.findIndex((p) => p.id === 'open');
+/** V.6.0 : l'ordre des voix 1 a 8 (le pad de la voix n est la piste 9 + n en 9-16) et les pistes 9 a 16. */
+const LO_KEYS: readonly string[] = TRACK_KEYS.slice(0, 8);
+const HI_KEYS: readonly string[] = TRACK_KEYS.slice(8);
 
 const m4 = new Matrix4();
 const col = new Color();
@@ -173,6 +190,9 @@ export interface PadsInfo {
   flashes: number[];
   /** teinte de chaque pad : la sienne, coupee (rouge), en solo (bleu) */
   tint: ('none' | 'mute' | 'solo')[];
+  /** V.6.0 : la rangee jouee par les pads (la bascule du telephone) et la piste de chaque pad (ordre des pads) */
+  bank: '1-8' | '9-16';
+  keys: string[];
 }
 
 export class Pads {
@@ -210,6 +230,14 @@ export class Pads {
   // Cles et setters prepares : un appui n'alloue presque rien
   private keyY = PADS.map((p) => `pad.y.${p.id}`);
   private setters = PADS.map((_, i) => (v: number) => this.setY(i, v));
+  /**
+   * V.6.0 : ce que le Stage a pose (la voix choisie, les coupees, le solo, le mode MUTE arme) ; hi : la rangee 9-16 de la
+   * bascule du telephone (les pads jouent alors les pistes 9 a 16)
+   */
+  private ext: { sel: Inst | null; muted: readonly string[]; solo: readonly string[]; armed: boolean } = { sel: null, muted: [], solo: [], armed: true };
+  private hi = false;
+  private hiTrack: string | null = null;
+  private offs: (() => void)[] = [];
 
   constructor(private opts: PadsOpts) {
     const geo = buildGeometry(opts.mobile);
@@ -261,7 +289,54 @@ export class Pads {
     this.halos.instanceMatrix.needsUpdate = true;
     this.halos.instanceColor?.setUsage(DynamicDrawUsage);
     for (let i = 0; i < COUNT; i += 1) this.setGlow(i, this.restGlow(i));
+    // V.6.0 : la bascule 1-8 / 9-16 du telephone, et les coups des pistes 9 a 16 a chaque pas de la tete de lecture
+    if (COUNT > 0) {
+      this.offs.push(phoneBank.subscribe(this.onBank));
+      this.offs.push(playhead.subscribe(this.onHead));
+    }
   }
+
+  /** La piste d'un pad (son id en 1-8 ; en 9-16, le pad de la voix n est la piste 9 + n). */
+  private padKey(i: number): string {
+    const id = PADS[i].id;
+    if (!this.hi) return id;
+    const n = LO_KEYS.indexOf(id);
+    return n >= 0 ? HI_KEYS[n] : id;
+  }
+
+  /** Le pad d'une piste (dans la rangee affichee) ; -1 : aucun. */
+  private padOfKey(key: string | null): number {
+    if (!key) return -1;
+    for (let i = 0; i < COUNT; i += 1) if (PADS[i].kind === 'voice' && this.padKey(i) === key) return i;
+    return -1;
+  }
+
+  /** La bascule a change (la rangee, la piste du telephone) : la lumiere des pads suit. */
+  private onBank = (): void => {
+    const b = phoneBank.get();
+    const hi = b.shown && b.hi;
+    const track = hi ? b.track : null;
+    if (hi === this.hi && track === this.hiTrack) return;
+    this.hi = hi;
+    this.hiTrack = track;
+    const a = this.paintVoiceState();
+    const s = this.paintSelected();
+    if (a || s) this.opts.repaint();
+  };
+
+  /** Un pas de la tete de lecture, en 9-16 : les pistes 9 a 16 qui frappent (le masque de l'horloge, bits 8 a 15) flashent. */
+  private onHead = (): void => {
+    if (!this.hi || playhead.get() < 0) return;
+    const c = context();
+    const e = clock.running && c ? clock.entryAt(c.currentTime) : null;
+    if (!e || e.mask === 0) return;
+    const now = performance.now();
+    for (let n = 0; n < HI_KEYS.length; n += 1) {
+      if (!(e.mask & (1 << (LO_KEYS.length + n)))) continue;
+      const i = this.padOfKey(HI_KEYS[n]);
+      if (i >= 0) this.flashAt(i, PAD_FX.seqFlashMs, now);
+    }
+  };
 
   index(id: PadId): number {
     for (let i = 0; i < COUNT; i += 1) if (PADS[i].id === id) return i;
@@ -346,6 +421,8 @@ export class Pads {
    * update() : deux frames par flash (allume, eteint).
    */
   flash(inst: Inst, ms: number = PAD_FX.seqFlashMs, now: number = performance.now()): void {
+    // V.6.0 : en 9-16, les coups des voix 1 a 8 ne s'y montrent pas (onHead flashe ceux des pistes 9 a 16)
+    if (this.hi) return;
     const i = this.index(inst);
     if (i >= 0) this.flashAt(i, ms, now);
   }
@@ -422,13 +499,21 @@ export class Pads {
    * passe avant le mute. true s'il faut une frame.
    */
   setVoiceState(muted: readonly Inst[], solo: readonly Inst[], armed = true): boolean {
+    this.ext = { ...this.ext, muted, solo, armed };
+    return this.paintVoiceState();
+  }
+
+  /** La teinte des pads de voix d'apres ce que le Stage a pose (V.6.0 : la piste de chaque pad, 1-8 ou 9-16). */
+  private paintVoiceState(): boolean {
+    const { muted, solo, armed } = this.ext;
     let changed = false;
     // Le mode MUTE arme (ONE, MULTI) : la LED rouge pleine ; ferme, les voix gardees coupees l'ont a peine
     const re = armed !== this.muteArmed;
     this.muteArmed = armed;
     PADS.forEach((p, i) => {
       if (p.kind !== 'voice') return;
-      const s = solo.includes(p.id) ? 2 : muted.includes(p.id) ? 1 : 0;
+      const key = this.padKey(i);
+      const s = solo.includes(key) ? 2 : muted.includes(key) ? 1 : 0;
       if (s === this.voiceState[i]) {
         if (re && s === 1) {
           this.paintRubber(i);
@@ -447,7 +532,13 @@ export class Pads {
 
   /** L'instrument selectionne reste allume (blanc chaud faible). */
   setSelected(inst: Inst | null): boolean {
-    const i = inst ? this.index(inst) : -1;
+    this.ext.sel = inst;
+    return this.paintSelected();
+  }
+
+  /** Le pad choisi : la voix du Stage, ou en 9-16 la piste du telephone (V.6.0). */
+  private paintSelected(): boolean {
+    const i = this.hi ? this.padOfKey(this.hiTrack) : this.ext.sel ? this.index(this.ext.sel) : -1;
     if (i === this.selected) return false;
     const prev = this.selected;
     this.selected = i;
@@ -533,10 +624,14 @@ export class Pads {
       lastPress: { ...this.lastPress },
       flashes: Array.from(this.flashCount),
       tint: Array.from(this.voiceState, (s) => (s === 2 ? 'solo' : s === 1 ? 'mute' : 'none')),
+      bank: this.hi ? '9-16' : '1-8',
+      keys: PADS.map((_, i) => this.padKey(i)),
     };
   }
 
   dispose(): void {
+    for (const off of this.offs) off();
+    this.offs = [];
     this.mesh.geometry.dispose();
     this.material.dispose();
     this.mesh.dispose();
