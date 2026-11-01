@@ -16,10 +16,10 @@ import { rytmLock } from '../../state/rytmLock';
 import { faceTouch, pressVel } from '../../state/ctl';
 import { type PageSlot, type RytmScreenId } from '../../rytm/pages';
 import { DT_FACE, type Inst } from '../../theme';
-import { TRACK_KEYS, type TrackKey } from '../../audio/tracks';
+import { TRACK_KEYS, isLegacyTrack, type TrackKey } from '../../audio/tracks';
 import { st } from '../state';
 import { ctlAllOn } from '../ctlall';
-import { slotDomain } from './locks';
+import { hiLockable, lockTrack, slotDomain } from './locks';
 import { noHolders } from './face';
 import { curScreen, layerIdOf, soundFamily } from '../kit';
 import { liveOn } from '../live';
@@ -53,7 +53,8 @@ let liveAbs = -1;
 export interface LiveKnob {
   slot: PageSlot;
   v: number;
-  inst: Inst;
+  /** la piste (V.6.0, la relecture : T9 a T16 comprises sur la face DT2) */
+  inst: TrackKey;
   screen: RytmScreenId;
   face: number;
   at: number;
@@ -125,9 +126,14 @@ export function liveSelect(inst: Inst): void {
   if (lcdSamples.isOpen()) lcdSamples.touch();
 }
 
-/** Un bloc qui s'enregistre en P-LOCK (un verrou de nombre : ni le son, ni la machine, ni VEL, ni un reglage de machine entiere). */
-function liveLockable(slot: PageSlot): boolean {
+/**
+ * Un bloc qui s'enregistre en P-LOCK (un verrou de nombre : ni le son, ni la machine, ni VEL, ni un reglage de machine
+ * entiere). Une piste 9 a 16 (la face DT2, la relecture de la V.6.0) : les reglages de piste de sa page SRC (t:), comme son
+ * P-LOCK tenu (hiLockable).
+ */
+function liveLockable(slot: PageSlot, t: TrackKey): boolean {
   if (!slot.lock || slot.lock === 'vel' || slot.lock === 'snd' || slot.lock === 'mach' || slot.scope === 'all') return false;
+  if (!isLegacyTrack(t)) return hiLockable(slot);
   if (slot.target === 'voice:sound' || slot.target === 'voice:mix' || slot.target === 'smpl:sample') return false;
   return !(slot.target && layerIdOf(slot.target) && !soundFamily());
 }
@@ -160,8 +166,9 @@ function liveLockAt(k: LiveKnob, e: StepEvent): void {
  * qu'on le tourne (livePoll). screen : la page de son bloc.
  */
 export function liveKnobTurn(slot: PageSlot, v: number, screen: RytmScreenId): void {
-  const inst = pattern.get().instrument;
-  if (!inst || !liveLockable(slot)) return;
+  // La piste du P-LOCK (la face DT2 : la piste active, T9 a T16 comprises ; sinon la voix du motif)
+  const inst = lockTrack();
+  if (!inst || !liveLockable(slot, inst)) return;
   st.liveKnob = { slot, v, inst, screen, face: st.liveFace, at: performance.now() };
   const t = heardNow();
   const e = t === null ? null : clock.entryAt(t);
@@ -170,7 +177,7 @@ export function liveKnobTurn(slot: PageSlot, v: number, screen: RytmScreenId): v
 
 /** Le potard d'avant ecrit-il encore (la revue de D3b R2 R11) : lui, tourne il y a moins de LIVE_KNOB_MS ou tenu, sur sa page et sa voix, hors CONTROL ALL. */
 function liveKnobOn(k: LiveKnob): boolean {
-  if (ctlAllOn() || pattern.get().instrument !== k.inst || curScreen() !== k.screen) return false;
+  if (ctlAllOn() || lockTrack() !== k.inst || curScreen() !== k.screen) return false;
   return performance.now() - k.at < LIVE_KNOB_MS || (k.face >= 0 && faceTouch.held(k.face));
 }
 
