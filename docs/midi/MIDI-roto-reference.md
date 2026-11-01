@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 30 octobre 2026 depuis le code du site (`npm run docs:midi`) : 892 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 1 novembre 2026 depuis le code du site (`npm run docs:midi`) : 1306 cibles, 7 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -9,7 +9,7 @@ Genere le 30 octobre 2026 depuis le code du site (`npm run docs:midi`) : 892 cib
 **D'ou vient la cible d'une cle**, dans cet ordre :
 
 1. ce que tu as appris (MIDI LEARN, ou un fichier d'assignations importe) pour la machine regardee, puis les assignations de partout ;
-2. sinon la **carte du Roto** (les 6 setups ci-dessous), si elle est allumee (par defaut oui), pour un message d'une entree dont le nom contient « roto » ;
+2. sinon la **carte du Roto** (les 7 setups ci-dessous), si elle est allumee (par defaut oui), pour un message d'une entree dont le nom contient « roto » ;
 3. sinon ce que tu as appris pour une autre machine (depuis le 2026-10-08 : une vieille assignation d'une autre machine ne vole plus un controle du Roto).
 
 Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MIDI liste celles qui tombent sur une cle de la carte (REMOVE CONFLICTS WITH THE ROTO MAP) et dit, pour chaque message recu, ce qu'il a fait.
@@ -18,7 +18,7 @@ Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MI
 
 - Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.
 - Les adresses sont gelees (2026-10-08, `src/v4/midi/rotoKeys.ts`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115 ; les colonnes Canal et CC ci-dessous font foi.
-- **Version des setups : 2026-10-18.2.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1018.2, ARP 1018.2, DECK 1018.2, MIXER 1018.2, LIVE 1018.2, RSEQ 1018.2) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
+- **Version des setups : 2026-10-18.2.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1018.2, ARP 1018.2, DECK 1018.2, MIXER 1018.2, LIVE 1018.2, RSEQ 1018.2, TRACKS 1018.) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
 - Ces CC n'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).
 - Ce que dit le fichier JSON, c'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).
 
@@ -168,9 +168,9 @@ Couleurs utilisees (palette du Roto, 83 numeros) :
 | peche | 29 |
 | LED eteinte | 70 |
 
-## 3. Les 6 setups, controle par controle
+## 3. Les 7 setups, controle par controle
 
-Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un potard et un bouton partagent la meme page : ils vont ensemble.
+Le setup conseille sur le Roto (SETUP 11 a 19) laisse les premiers a toi. Un potard et un bouton partagent la meme page : ils vont ensemble.
 
 | Setup | Fichier | SETUP | Canal potards | Canal boutons |
 | --- | --- | --- | --- | --- |
@@ -180,6 +180,7 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | MIXER | MM MIXER (SETUP 14).json | 14 | 4 | 12 |
 | LIVE | MM LIVE (SETUP 16).json | 16 | 6 | 14 |
 | RSEQ | MM RSEQ (SETUP 17).json | 17 | 7 | 15 |
+| TRACKS | MM TRACKS (SETUP 19).json | 19 | 1 | 9 |
 
 ### RYTM (SETUP 11, potards canal 1, boutons canal 9)
 
@@ -623,11 +624,87 @@ Le setup conseille sur le Roto (SETUP 11 a 17) laisse les premiers a toi. Un pot
 | 30 | 4.7 | 15 | 114 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
 | 31 | 4.8 | 15 | 115 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
 
+### TRACKS (SETUP 19, potards canal 1, boutons canal 9)
+
+**Potards**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 1 | 70 | T9 VOL | creme | rytm:voice:T9:level | T9 VOLUME | continu |
+| 1 | 1.2 | 1 | 71 | T10 VOL | creme | rytm:voice:T10:level | T10 VOLUME | continu |
+| 2 | 1.3 | 1 | 72 | T11 VOL | creme | rytm:voice:T11:level | T11 VOLUME | continu |
+| 3 | 1.4 | 1 | 73 | T12 VOL | creme | rytm:voice:T12:level | T12 VOLUME | continu |
+| 4 | 1.5 | 1 | 74 | T13 VOL | creme | rytm:voice:T13:level | T13 VOLUME | continu |
+| 5 | 1.6 | 1 | 75 | T14 VOL | creme | rytm:voice:T14:level | T14 VOLUME | continu |
+| 6 | 1.7 | 1 | 76 | T15 VOL | creme | rytm:voice:T15:level | T15 VOLUME | continu |
+| 7 | 1.8 | 1 | 77 | T16 VOL | creme | rytm:voice:T16:level | T16 VOLUME | continu |
+| 8 | 2.1 | 1 | 78 | T9 TRK LEV | blanc | rytm:voice:T9:tlev | T9 TRK LEV | continu |
+| 9 | 2.2 | 1 | 79 | T10 TRK LEV | blanc | rytm:voice:T10:tlev | T10 TRK LEV | continu |
+| 10 | 2.3 | 1 | 80 | T11 TRK LEV | blanc | rytm:voice:T11:tlev | T11 TRK LEV | continu |
+| 11 | 2.4 | 1 | 81 | T12 TRK LEV | blanc | rytm:voice:T12:tlev | T12 TRK LEV | continu |
+| 12 | 2.5 | 1 | 82 | T13 TRK LEV | blanc | rytm:voice:T13:tlev | T13 TRK LEV | continu |
+| 13 | 2.6 | 1 | 83 | T14 TRK LEV | blanc | rytm:voice:T14:tlev | T14 TRK LEV | continu |
+| 14 | 2.7 | 1 | 84 | T15 TRK LEV | blanc | rytm:voice:T15:tlev | T15 TRK LEV | continu |
+| 15 | 2.8 | 1 | 116 | T16 TRK LEV | blanc | rytm:voice:T16:tlev | T16 TRK LEV | continu |
+| 16 | 3.1 | 1 | 117 | T1 TRK LEV | blanc | rytm:voice:BD:tlev | T1 TRK LEV | continu |
+| 17 | 3.2 | 1 | 118 | T2 TRK LEV | blanc | rytm:voice:SD:tlev | T2 TRK LEV | continu |
+| 18 | 3.3 | 1 | 119 | T3 TRK LEV | blanc | rytm:voice:CH:tlev | T3 TRK LEV | continu |
+| 19 | 3.4 | 1 | 85 | T4 TRK LEV | blanc | rytm:voice:OH:tlev | T4 TRK LEV | continu |
+| 20 | 3.5 | 1 | 86 | T5 TRK LEV | blanc | rytm:voice:CP:tlev | T5 TRK LEV | continu |
+| 21 | 3.6 | 1 | 87 | T6 TRK LEV | blanc | rytm:voice:TOM:tlev | T6 TRK LEV | continu |
+| 22 | 3.7 | 1 | 88 | T7 TRK LEV | blanc | rytm:voice:HT:tlev | T7 TRK LEV | continu |
+| 23 | 3.8 | 1 | 89 | T8 TRK LEV | blanc | rytm:voice:CY:tlev | T8 TRK LEV | continu |
+| 24 | 4.1 | 1 | 90 | T9 DECAY | jaune | rytm:voice:T9:decay | T9 DECAY | continu |
+| 25 | 4.2 | 1 | 46 | T10 DECAY | jaune | rytm:voice:T10:decay | T10 DECAY | continu |
+| 26 | 4.3 | 1 | 47 | T11 DECAY | jaune | rytm:voice:T11:decay | T11 DECAY | continu |
+| 27 | 4.4 | 1 | 48 | T12 DECAY | jaune | rytm:voice:T12:decay | T12 DECAY | continu |
+| 28 | 4.5 | 1 | 49 | T13 DECAY | jaune | rytm:voice:T13:decay | T13 DECAY | continu |
+| 29 | 4.6 | 1 | 50 | T14 DECAY | jaune | rytm:voice:T14:decay | T14 DECAY | continu |
+| 30 | 4.7 | 1 | 51 | T15 DECAY | jaune | rytm:voice:T15:decay | T15 DECAY | continu |
+| 31 | 4.8 | 1 | 52 | T16 DECAY | jaune | rytm:voice:T16:decay | T16 DECAY | continu |
+
+**Boutons**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 9 | 70 | MUTE T9 | rose | rytm:voice:T9:mute | MUTE T9 | bascule (la LED suit le site) |
+| 1 | 1.2 | 9 | 71 | MUTE T10 | rose | rytm:voice:T10:mute | MUTE T10 | bascule (la LED suit le site) |
+| 2 | 1.3 | 9 | 72 | MUTE T11 | rose | rytm:voice:T11:mute | MUTE T11 | bascule (la LED suit le site) |
+| 3 | 1.4 | 9 | 73 | MUTE T12 | rose | rytm:voice:T12:mute | MUTE T12 | bascule (la LED suit le site) |
+| 4 | 1.5 | 9 | 74 | MUTE T13 | rose | rytm:voice:T13:mute | MUTE T13 | bascule (la LED suit le site) |
+| 5 | 1.6 | 9 | 75 | MUTE T14 | rose | rytm:voice:T14:mute | MUTE T14 | bascule (la LED suit le site) |
+| 6 | 1.7 | 9 | 76 | MUTE T15 | rose | rytm:voice:T15:mute | MUTE T15 | bascule (la LED suit le site) |
+| 7 | 1.8 | 9 | 77 | MUTE T16 | rose | rytm:voice:T16:mute | MUTE T16 | bascule (la LED suit le site) |
+| 8 | 2.1 | 9 | 78 | T9 | jaune | rytm:pad:T9 | PAD T9 | appui |
+| 9 | 2.2 | 9 | 79 | T10 | jaune | rytm:pad:T10 | PAD T10 | appui |
+| 10 | 2.3 | 9 | 80 | T11 | jaune | rytm:pad:T11 | PAD T11 | appui |
+| 11 | 2.4 | 9 | 81 | T12 | jaune | rytm:pad:T12 | PAD T12 | appui |
+| 12 | 2.5 | 9 | 82 | T13 | jaune | rytm:pad:T13 | PAD T13 | appui |
+| 13 | 2.6 | 9 | 83 | T14 | jaune | rytm:pad:T14 | PAD T14 | appui |
+| 14 | 2.7 | 9 | 84 | T15 | jaune | rytm:pad:T15 | PAD T15 | appui |
+| 15 | 2.8 | 9 | 116 | T16 | jaune | rytm:pad:T16 | PAD T16 | appui |
+| 16 | 3.1 | 9 | 117 | SEQ T9 | or | rytm:seq:voice:T9 | SEQ TRACK T9 (SELECT, SILENT) | appui |
+| 17 | 3.2 | 9 | 118 | SEQ T10 | or | rytm:seq:voice:T10 | SEQ TRACK T10 (SELECT, SILENT) | appui |
+| 18 | 3.3 | 9 | 119 | SEQ T11 | or | rytm:seq:voice:T11 | SEQ TRACK T11 (SELECT, SILENT) | appui |
+| 19 | 3.4 | 9 | 85 | SEQ T12 | or | rytm:seq:voice:T12 | SEQ TRACK T12 (SELECT, SILENT) | appui |
+| 20 | 3.5 | 9 | 86 | SEQ T13 | or | rytm:seq:voice:T13 | SEQ TRACK T13 (SELECT, SILENT) | appui |
+| 21 | 3.6 | 9 | 87 | SEQ T14 | or | rytm:seq:voice:T14 | SEQ TRACK T14 (SELECT, SILENT) | appui |
+| 22 | 3.7 | 9 | 88 | SEQ T15 | or | rytm:seq:voice:T15 | SEQ TRACK T15 (SELECT, SILENT) | appui |
+| 23 | 3.8 | 9 | 89 | SEQ T16 | or | rytm:seq:voice:T16 | SEQ TRACK T16 (SELECT, SILENT) | appui |
+| 24 | 4.1 | 9 | 90 | PICK T9 | peche | rytm:voice:select:T9 | TRACK T9 (SELECT, SILENT; SOON) | appui |
+| 25 | 4.2 | 9 | 46 | PICK T10 | peche | rytm:voice:select:T10 | TRACK T10 (SELECT, SILENT; SOON) | appui |
+| 26 | 4.3 | 9 | 47 | PICK T11 | peche | rytm:voice:select:T11 | TRACK T11 (SELECT, SILENT; SOON) | appui |
+| 27 | 4.4 | 9 | 48 | PICK T12 | peche | rytm:voice:select:T12 | TRACK T12 (SELECT, SILENT; SOON) | appui |
+| 28 | 4.5 | 9 | 49 | PICK T13 | peche | rytm:voice:select:T13 | TRACK T13 (SELECT, SILENT; SOON) | appui |
+| 29 | 4.6 | 9 | 50 | PICK T14 | peche | rytm:voice:select:T14 | TRACK T14 (SELECT, SILENT; SOON) | appui |
+| 30 | 4.7 | 9 | 51 | PICK T15 | peche | rytm:voice:select:T15 | TRACK T15 (SELECT, SILENT; SOON) | appui |
+| 31 | 4.8 | 9 | 52 | PICK T16 | peche | rytm:voice:select:T16 | TRACK T16 (SELECT, SILENT; SOON) | appui |
+
 ## 4. Le catalogue complet des cibles
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 657 cibles)
+### MM-RYTM (scope `mm808`, 1071 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1288,6 +1365,420 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:bank:6` | BANK G (SHOW ITS PATTERNS) | appui |  |  |
 | `rytm:bank:7` | BANK H (SHOW ITS PATTERNS) | appui |  |  |
 | `rytm:liverec` | LIVE REC (ON / OFF) | appui |  |  |
+| `rytm:data` | LEVEL/DATA (RELATIVE: THE OPEN LIST, ELSE TRK LEV OF THE TRACK) | relatif (des crans signes) |  |  |
+| `rytm:keyboard` | KEYBOARD (SOON) | appui |  |  |
+| `rytm:song` | SONG (SOON) | appui |  |  |
+| `rytm:preset` | PRESET/KIT (THE KIT LIST, AGAIN: CLOSE) | appui |  |  |
+| `rytm:settings` | SETTINGS (SOON) | appui |  |  |
+| `rytm:sounds` | SOUNDS (THE SOUND LIST OF THE TRACK, AGAIN: CLOSE) | appui |  |  |
+| `rytm:tap` | TAP TEMPO | appui |  |  |
+| `rytm:up` | UP (IN A LIST) | appui |  |  |
+| `rytm:down` | DOWN (IN A LIST) | appui |  |  |
+| `rytm:left` | LEFT (IN A LIST) | appui |  |  |
+| `rytm:right` | RIGHT (IN A LIST) | appui |  |  |
+| `rytm:ptnpage` | PAGE (HOLD: FILL) | maintenu (appui puis relachement) |  |  |
+| `rytm:tempo:bpm` | TEMPO 30-300 BPM (FINE 1/10) | valeur 0 a 127 | 2701 |  |
+| `rytm:tempo:swing` | SWING 50-80 % | valeur 0 a 127 | 31 |  |
+| `rytm:voice:BD:tlev` | T1 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:SD:tlev` | T2 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:CH:tlev` | T3 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:OH:tlev` | T4 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:CP:tlev` | T5 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:TOM:tlev` | T6 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:HT:tlev` | T7 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:CY:tlev` | T8 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T9:tlev` | T9 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T10:tlev` | T10 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T11:tlev` | T11 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T12:tlev` | T12 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T13:tlev` | T13 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T14:tlev` | T14 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T15:tlev` | T15 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T16:tlev` | T16 TRK LEV | valeur 0 a 127 | 128 | TRACKS |
+| `rytm:voice:T9:tone` | T9 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:decay` | T9 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T9:level` | T9 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T9:dist` | T9 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:reverb` | T9 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:delay` | T9 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:chorus` | T9 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:tune` | T9 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T9:pan` | T9 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:start` | T9 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:atk` | T9 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:hold` | T9 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:fine` | T9 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T9:ftype` | T9 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T9:fcut` | T9 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:freso` | T9 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:fenv` | T9 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:fatk` | T9 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:fdec` | T9 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:tone` | T10 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:decay` | T10 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T10:level` | T10 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T10:dist` | T10 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:reverb` | T10 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:delay` | T10 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:chorus` | T10 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:tune` | T10 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T10:pan` | T10 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:start` | T10 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:atk` | T10 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:hold` | T10 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:fine` | T10 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T10:ftype` | T10 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T10:fcut` | T10 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:freso` | T10 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:fenv` | T10 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:fatk` | T10 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T10:fdec` | T10 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:tone` | T11 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:decay` | T11 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T11:level` | T11 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T11:dist` | T11 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:reverb` | T11 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:delay` | T11 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:chorus` | T11 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:tune` | T11 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T11:pan` | T11 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:start` | T11 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:atk` | T11 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:hold` | T11 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:fine` | T11 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T11:ftype` | T11 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T11:fcut` | T11 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:freso` | T11 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:fenv` | T11 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:fatk` | T11 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T11:fdec` | T11 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:tone` | T12 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:decay` | T12 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T12:level` | T12 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T12:dist` | T12 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:reverb` | T12 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:delay` | T12 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:chorus` | T12 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:tune` | T12 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T12:pan` | T12 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:start` | T12 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:atk` | T12 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:hold` | T12 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:fine` | T12 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T12:ftype` | T12 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T12:fcut` | T12 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:freso` | T12 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:fenv` | T12 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:fatk` | T12 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T12:fdec` | T12 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:tone` | T13 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:decay` | T13 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T13:level` | T13 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T13:dist` | T13 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:reverb` | T13 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:delay` | T13 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:chorus` | T13 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:tune` | T13 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T13:pan` | T13 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:start` | T13 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:atk` | T13 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:hold` | T13 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:fine` | T13 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T13:ftype` | T13 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T13:fcut` | T13 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:freso` | T13 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:fenv` | T13 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:fatk` | T13 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T13:fdec` | T13 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:tone` | T14 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:decay` | T14 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T14:level` | T14 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T14:dist` | T14 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:reverb` | T14 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:delay` | T14 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:chorus` | T14 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:tune` | T14 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T14:pan` | T14 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:start` | T14 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:atk` | T14 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:hold` | T14 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:fine` | T14 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T14:ftype` | T14 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T14:fcut` | T14 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:freso` | T14 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:fenv` | T14 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:fatk` | T14 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T14:fdec` | T14 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:tone` | T15 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:decay` | T15 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T15:level` | T15 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T15:dist` | T15 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:reverb` | T15 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:delay` | T15 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:chorus` | T15 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:tune` | T15 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T15:pan` | T15 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:start` | T15 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:atk` | T15 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:hold` | T15 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:fine` | T15 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T15:ftype` | T15 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T15:fcut` | T15 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:freso` | T15 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:fenv` | T15 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:fatk` | T15 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T15:fdec` | T15 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:tone` | T16 TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:decay` | T16 DECAY | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T16:level` | T16 VOLUME | valeur 0 a 127 |  | TRACKS |
+| `rytm:voice:T16:dist` | T16 DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:reverb` | T16 REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:delay` | T16 DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:chorus` | T16 CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:tune` | T16 TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:T16:pan` | T16 PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:start` | T16 START | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:atk` | T16 ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:hold` | T16 HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:fine` | T16 FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:T16:ftype` | T16 FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:T16:fcut` | T16 FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:freso` | T16 FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:fenv` | T16 FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:fatk` | T16 FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:T16:fdec` | T16 FILTER DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:T9:mute` | MUTE T9 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:voice:T10:mute` | MUTE T10 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:voice:T11:mute` | MUTE T11 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:voice:T12:mute` | MUTE T12 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:voice:T13:mute` | MUTE T13 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:voice:T14:mute` | MUTE T14 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:voice:T15:mute` | MUTE T15 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:voice:T16:mute` | MUTE T16 | valeur 0 a 127 | 2 | TRACKS |
+| `rytm:pad:T9` | PAD T9 | appui |  | TRACKS |
+| `rytm:pad:T10` | PAD T10 | appui |  | TRACKS |
+| `rytm:pad:T11` | PAD T11 | appui |  | TRACKS |
+| `rytm:pad:T12` | PAD T12 | appui |  | TRACKS |
+| `rytm:pad:T13` | PAD T13 | appui |  | TRACKS |
+| `rytm:pad:T14` | PAD T14 | appui |  | TRACKS |
+| `rytm:pad:T15` | PAD T15 | appui |  | TRACKS |
+| `rytm:pad:T16` | PAD T16 | appui |  | TRACKS |
+| `rytm:voice:select:T9` | TRACK T9 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T10` | TRACK T10 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T11` | TRACK T11 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T12` | TRACK T12 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T13` | TRACK T13 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T14` | TRACK T14 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T15` | TRACK T15 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:voice:select:T16` | TRACK T16 (SELECT, SILENT; SOON) | appui |  | TRACKS |
+| `rytm:seq:voice:T9` | SEQ TRACK T9 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:seq:voice:T10` | SEQ TRACK T10 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:seq:voice:T11` | SEQ TRACK T11 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:seq:voice:T12` | SEQ TRACK T12 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:seq:voice:T13` | SEQ TRACK T13 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:seq:voice:T14` | SEQ TRACK T14 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:seq:voice:T15` | SEQ TRACK T15 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:seq:voice:T16` | SEQ TRACK T16 (SELECT, SILENT) | appui |  | TRACKS |
+| `rytm:voice:T9:len` | T9 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T9:prob` | T9 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T9:cond` | T9 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T9:utime` | T9 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T9:lfot` | T9 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T9:rtrg` | T9 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T9:rate` | T9 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T9:vfad` | T9 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:rlen` | T9 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T9:l1spd` | T9 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:l1mul` | T9 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T9:l1fad` | T9 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:l1dst` | T9 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T9:l1wav` | T9 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T9:l1phs` | T9 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:l1mod` | T9 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T9:l1dep` | T9 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:l2spd` | T9 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:l2mul` | T9 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T9:l2fad` | T9 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:l2dst` | T9 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T9:l2wav` | T9 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T9:l2phs` | T9 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T9:l2mod` | T9 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T9:l2dep` | T9 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:len` | T10 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T10:prob` | T10 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T10:cond` | T10 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T10:utime` | T10 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T10:lfot` | T10 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T10:rtrg` | T10 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T10:rate` | T10 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T10:vfad` | T10 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:rlen` | T10 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T10:l1spd` | T10 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:l1mul` | T10 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T10:l1fad` | T10 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:l1dst` | T10 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T10:l1wav` | T10 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T10:l1phs` | T10 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:l1mod` | T10 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T10:l1dep` | T10 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:l2spd` | T10 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:l2mul` | T10 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T10:l2fad` | T10 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:l2dst` | T10 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T10:l2wav` | T10 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T10:l2phs` | T10 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T10:l2mod` | T10 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T10:l2dep` | T10 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:len` | T11 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T11:prob` | T11 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T11:cond` | T11 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T11:utime` | T11 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T11:lfot` | T11 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T11:rtrg` | T11 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T11:rate` | T11 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T11:vfad` | T11 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:rlen` | T11 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T11:l1spd` | T11 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:l1mul` | T11 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T11:l1fad` | T11 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:l1dst` | T11 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T11:l1wav` | T11 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T11:l1phs` | T11 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:l1mod` | T11 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T11:l1dep` | T11 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:l2spd` | T11 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:l2mul` | T11 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T11:l2fad` | T11 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:l2dst` | T11 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T11:l2wav` | T11 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T11:l2phs` | T11 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T11:l2mod` | T11 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T11:l2dep` | T11 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:len` | T12 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T12:prob` | T12 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T12:cond` | T12 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T12:utime` | T12 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T12:lfot` | T12 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T12:rtrg` | T12 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T12:rate` | T12 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T12:vfad` | T12 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:rlen` | T12 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T12:l1spd` | T12 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:l1mul` | T12 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T12:l1fad` | T12 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:l1dst` | T12 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T12:l1wav` | T12 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T12:l1phs` | T12 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:l1mod` | T12 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T12:l1dep` | T12 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:l2spd` | T12 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:l2mul` | T12 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T12:l2fad` | T12 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:l2dst` | T12 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T12:l2wav` | T12 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T12:l2phs` | T12 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T12:l2mod` | T12 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T12:l2dep` | T12 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:len` | T13 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T13:prob` | T13 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T13:cond` | T13 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T13:utime` | T13 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T13:lfot` | T13 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T13:rtrg` | T13 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T13:rate` | T13 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T13:vfad` | T13 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:rlen` | T13 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T13:l1spd` | T13 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:l1mul` | T13 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T13:l1fad` | T13 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:l1dst` | T13 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T13:l1wav` | T13 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T13:l1phs` | T13 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:l1mod` | T13 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T13:l1dep` | T13 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:l2spd` | T13 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:l2mul` | T13 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T13:l2fad` | T13 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:l2dst` | T13 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T13:l2wav` | T13 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T13:l2phs` | T13 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T13:l2mod` | T13 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T13:l2dep` | T13 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:len` | T14 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T14:prob` | T14 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T14:cond` | T14 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T14:utime` | T14 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T14:lfot` | T14 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T14:rtrg` | T14 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T14:rate` | T14 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T14:vfad` | T14 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:rlen` | T14 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T14:l1spd` | T14 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:l1mul` | T14 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T14:l1fad` | T14 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:l1dst` | T14 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T14:l1wav` | T14 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T14:l1phs` | T14 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:l1mod` | T14 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T14:l1dep` | T14 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:l2spd` | T14 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:l2mul` | T14 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T14:l2fad` | T14 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:l2dst` | T14 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T14:l2wav` | T14 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T14:l2phs` | T14 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T14:l2mod` | T14 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T14:l2dep` | T14 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:len` | T15 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T15:prob` | T15 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T15:cond` | T15 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T15:utime` | T15 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T15:lfot` | T15 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T15:rtrg` | T15 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T15:rate` | T15 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T15:vfad` | T15 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:rlen` | T15 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T15:l1spd` | T15 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:l1mul` | T15 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T15:l1fad` | T15 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:l1dst` | T15 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T15:l1wav` | T15 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T15:l1phs` | T15 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:l1mod` | T15 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T15:l1dep` | T15 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:l2spd` | T15 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:l2mul` | T15 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T15:l2fad` | T15 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:l2dst` | T15 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T15:l2wav` | T15 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T15:l2phs` | T15 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T15:l2mod` | T15 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T15:l2dep` | T15 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:len` | T16 TRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T16:prob` | T16 TRIG PROBABILITY | valeur 0 a 127 | 101 |  |
+| `rytm:voice:T16:cond` | T16 TRIG CONDITION | valeur 0 a 127 | 81 |  |
+| `rytm:voice:T16:utime` | T16 TRIG MICRO TIMING | valeur 0 a 127 | 47 |  |
+| `rytm:voice:T16:lfot` | T16 TRIG LFO RESTART | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T16:rtrg` | T16 RETRIG ON | valeur 0 a 127 | 2 |  |
+| `rytm:voice:T16:rate` | T16 RETRIG RATE | valeur 0 a 127 | 17 |  |
+| `rytm:voice:T16:vfad` | T16 RETRIG VELOCITY FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:rlen` | T16 RETRIG LENGTH | valeur 0 a 127 | 13 |  |
+| `rytm:voice:T16:l1spd` | T16 LFO1 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:l1mul` | T16 LFO1 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T16:l1fad` | T16 LFO1 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:l1dst` | T16 LFO1 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T16:l1wav` | T16 LFO1 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T16:l1phs` | T16 LFO1 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:l1mod` | T16 LFO1 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T16:l1dep` | T16 LFO1 DEPTH | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:l2spd` | T16 LFO2 SPEED | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:l2mul` | T16 LFO2 MULTIPLIER | valeur 0 a 127 | 8 |  |
+| `rytm:voice:T16:l2fad` | T16 LFO2 FADE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:l2dst` | T16 LFO2 DESTINATION | valeur 0 a 127 | 11 |  |
+| `rytm:voice:T16:l2wav` | T16 LFO2 WAVE | valeur 0 a 127 | 7 |  |
+| `rytm:voice:T16:l2phs` | T16 LFO2 PHASE | valeur 0 a 127 | 128 |  |
+| `rytm:voice:T16:l2mod` | T16 LFO2 MODE | valeur 0 a 127 | 5 |  |
+| `rytm:voice:T16:l2dep` | T16 LFO2 DEPTH | valeur 0 a 127 | 128 |  |
 
 ### MM-ARP (scope `voy`, 80 cibles)
 
@@ -1546,7 +2037,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 
 ## 5. Faire ton propre fichier
 
-**Voie 1, la plus simple : partir d'un setup fait.** Panneau MIDI > DOWNLOAD THE 6 SETUPS, tu changes les noms et les couleurs dans le JSON (`controlName`, `colorScheme`), tu importes dans ROTO-SETUP. Ne change pas le canal ni le CC : c'est eux que le site reconnait. (Apres l'ajout des samples, retelecharge « MM RYTM (SETUP 11).json » : KICK SOUND a maintenant 9 crans, SNARE SOUND 7.)
+**Voie 1, la plus simple : partir d'un setup fait.** Panneau MIDI > DOWNLOAD THE 7 SETUPS, tu changes les noms et les couleurs dans le JSON (`controlName`, `colorScheme`), tu importes dans ROTO-SETUP. Ne change pas le canal ni le CC : c'est eux que le site reconnait. (Apres l'ajout des samples, retelecharge « MM RYTM (SETUP 11).json » : KICK SOUND a maintenant 9 crans, SNARE SOUND 7.)
 
 **Voie 2, ta propre disposition.** Deux fichiers : celui du Roto (canal, CC, nom, couleur : tu l'ecris comme au chapitre 2) et le fichier d'assignations du site, qui dit quelle cible va avec quel canal et quel CC.
 

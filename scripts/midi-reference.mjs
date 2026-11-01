@@ -118,7 +118,8 @@ const COLORS = [
 const colorName = (n) => COLORS.find((c) => c[1] === n)?.[0] ?? String(n);
 const MACHINE = { mm808: 'MM-RYTM', voy: 'MM-ARP', bass: 'MM-BASS', dj: 'MM-DECKS (table, platines, samplers, effets)', global: 'Partout (navigation)' };
 const SCOPE_OF_PREFIX = { rytm: 'mm808', voy: 'voy', bass: 'bass', dj: 'dj', nav: 'global' };
-const KIND = { value: 'valeur 0 a 127', press: 'appui', hold: 'maintenu (appui puis relachement)' };
+// relative (V.6.0, rytm:data, LEVEL/DATA) : un encodeur sans butee, des crans signes (midi/relative.ts devine le codage)
+const KIND = { value: 'valeur 0 a 127', press: 'appui', hold: 'maintenu (appui puis relachement)', relative: 'relatif (des crans signes)' };
 const cell = (s) => String(s ?? '').replace(/\|/g, '/').replace(/\n/g, ' ');
 const csv = (rows) => rows.map((r) => r.map((c) => (/[",;\n]/.test(String(c ?? '')) ? `"${String(c ?? '').replace(/"/g, '""')}"` : String(c ?? ''))).join(',')).join('\n') + '\n';
 const table = (head, rows) => [`| ${head.join(' | ')} |`, `| ${head.map(() => '---').join(' | ')} |`, ...rows.map((r) => `| ${r.map(cell).join(' | ')} |`)].join('\n');
