@@ -16,6 +16,7 @@ import { presetMode } from '../../state/presetMode';
 import { undo } from '../../state/undo';
 import { rytmPage } from '../../state/rytmPage';
 import { rytmLock } from '../../state/rytmLock';
+import { personalize } from '../../state/personal';
 import { SCREEN_LABEL, SCREEN_TITLE, pageLabel, screensOf, tabWord, type RytmPageId, type RytmScreenId } from '../../rytm/pages';
 import { DT2_FACE, FACE_FOLLOWS_PAGE, LCD_NO_VOICE, type Inst } from '../../theme';
 import { st } from '../state';
@@ -43,13 +44,22 @@ export function leaveRytmOverlay(): boolean {
   return left;
 }
 
+/**
+ * Une page ouverte par sa touche (une autre que celle affichee) : sa sous-page retenue ; la face DT2 avec PERSONALIZE >
+ * REMEMBER SUBPAGE sur OFF (relecture de la V.6.0) : sa premiere sous-page, comme la Digitakt.
+ */
+function openPage(id: RytmPageId, inst: Inst | null): void {
+  if (DT2_FACE && !personalize.get().subpage) rytmPage.setTab(id, 0, inst);
+  else rytmPage.setPage(id);
+}
+
 /** Le chemin de toujours d'une touche de page (et des pages de FUNC au desktop). */
 export function pageKeyBody(id: RytmPageId, stage: Stage | null): void {
   resume();
   stage?.pressPageKey(id);
   const inst = pattern.get().instrument;
   if (leaveRytmOverlay()) {
-    rytmPage.setPage(id);
+    openPage(id, inst);
     lcdMessage.show(`${SCREEN_TITLE[curScreen()]} PAGE`);
     return;
   }
@@ -57,7 +67,7 @@ export function pageKeyBody(id: RytmPageId, stage: Stage | null): void {
   if (lk >= 0 && editor.get() !== 'mm808') {
     const tabs = screensOf(id, inst).length;
     if (rytmPage.get().page === id && rytmPage.get().view === 'page' && tabs > 1) rytmPage.press(id, inst);
-    else rytmPage.setPage(id);
+    else openPage(id, inst);
     lcdMessage.show(`${SCREEN_TITLE[curScreen()]}  P-LOCK ${two(lk + 1)}`);
     return;
   }
@@ -69,7 +79,7 @@ export function pageKeyBody(id: RytmPageId, stage: Stage | null): void {
     const s0 = rytmPage.get();
     if (s0.page === id && !s0.detail && tabs.length > 1) rytmPage.setTab(id, ((s0.tabs[id] ?? 0) + 1) % tabs.length, inst);
     else if (s0.page === id && s0.detail) rytmPage.closeFx();
-    else rytmPage.setPage(id);
+    else openPage(id, inst);
     if (rytmPage.get().view !== 'page') rytmPage.setView('page');
     const t = screensOf(id, inst).indexOf(curScreen());
     lcdMessage.show(tabs.length > 1 ? `${SCREEN_TITLE[curScreen()]}  ${t + 1}/${tabs.length}` : `${SCREEN_TITLE[curScreen()]} PAGE`, 1400);
