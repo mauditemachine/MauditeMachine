@@ -27,9 +27,12 @@ import { TRACK_NAMES, isLegacyTrack, trackIndex, type TrackKey } from '../../../
 let soundsBody = '';
 
 /*
- * Relecture de la V.6.0 : une piste 9 a 16 a sa liste, celle de son potard D SAMP (actions/browser.ts trackSoundList), et
- * IMPORT pour elle.
+ * Relecture de la V.6.0 :
+ * - le menu ouvert tient la liste des voix 1 a 8 ouverte (lcdSamples.hold : plus de fermeture au repos sous le menu,
+ *   NO SOUNDS ne reste plus a l'ecran) ; une saisie sur une liste fermee quand meme (une autre voix, le P-LOCK) la rouvre ;
+ * - une piste 9 a 16 a sa liste, celle de son potard D SAMP (actions/browser.ts trackSoundList), et IMPORT pour elle.
  */
+let release: (() => void) | null = null;
 const LIST_AREA = { x0: 4, x1: 316, y0: 41, y1: 170 } as const;
 const LIST_N = Math.floor((LIST_AREA.y1 - LIST_AREA.y0) / 15.5);
 
@@ -65,7 +68,7 @@ function paintSounds(screen: Screen): number {
   const v = soundBrowserView();
   if (!v) {
     const t = screenTrack();
-    screen.text(t ? 'NO SOUNDS' : 'PICK A TRACK: TRK + TRIG', 160, 100, 10, HALF, 600, 'center', 0.4);
+    screen.text(t ? 'YES: SHOW THE SOUNDS' : 'PICK A TRACK: TRK + TRIG', 160, 100, 10, HALF, 600, 'center', 0.4);
     soundsBody = '';
     return 0;
   }
@@ -88,9 +91,12 @@ registerScreenMenu({
   onOpen() {
     hiCursor = -1;
     hiTop = -1;
+    if (!release) release = lcdSamples.hold();
     if (!lcdSamples.isOpen() && !hiView()) soundBrowserOpen(true);
   },
   onClose() {
+    release?.();
+    release = null;
     if (lcdSamples.isOpen()) soundBrowserClose();
   },
   info: () => soundsBody,
@@ -117,8 +123,14 @@ registerScreenMenu({
       menuChanged();
       return true;
     }
-    const v = soundBrowserView();
-    if (!v) return i.kind !== 'yes' ? true : (soundBrowserOpen(true), true);
+    // Une liste fermee sous le menu (une autre voix, le P-LOCK qui change) : toute saisie la rouvre
+    let v = soundBrowserView();
+    if (!v) {
+      soundBrowserOpen(true);
+      v = soundBrowserView();
+      menuChanged();
+      if (!v || i.kind === 'yes') return true;
+    }
     if (i.kind === 'up' || i.kind === 'down') soundBrowserCursor((i.kind === 'up' ? -1 : 1) * (i.func ? Math.max(1, v.visible - 1) : 1));
     else if (i.kind === 'data') soundBrowserCursor(Math.round(i.delta ?? 0));
     else if (i.kind === 'yes') soundBrowserPick(v.cursor);
