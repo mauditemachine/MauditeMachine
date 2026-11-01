@@ -8,7 +8,7 @@ import type { MidiTarget, TargetScope } from './types';
 import { rytmTargets } from './rytm';
 import { voyTargets } from './voy';
 import { navTargets } from './nav';
-import { face60Targets } from './face60';
+import { face60TargetOfHotspot, face60Targets } from './face60';
 import { tracks60Targets } from './tracks60';
 import { phone60Targets } from './phone60';
 import { pages61Targets } from './pages61';
@@ -182,7 +182,8 @@ export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string
       return h.bass ? `bass:trig:${h.bass}` : null;
     case 'basslock':
       return h.bass ? `bass:lock:${h.bass}` : null;
+    // V.6.0 (lane B6) : les zones nouvelles de la face DT2 (data, kbd, song, preset, settings, sounds, tempo, arrow, pagekey)
     default:
-      return null;
+      return face60TargetOfHotspot(h);
   }
 }
