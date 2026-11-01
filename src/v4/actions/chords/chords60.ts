@@ -44,7 +44,6 @@ import {
   srcNow,
   stageNow,
   subPage,
-  trackLevelTurn,
   trackSoundOp,
   trigBank,
   trigHeld,
@@ -62,6 +61,7 @@ import { clearKey, copyKey, muteModeKey, noBody, pasteKey, playBody, recBody, re
 import { patternTap } from '../patterns';
 import { rytmPageKey } from '../pages';
 import { anyDial, anyDialValue } from '../anyDial';
+import { levelDataTurn } from '../mixer';
 import type { RytmPageId } from '../../rytm/pages';
 import type { Chord, ChordKey } from './types';
 
@@ -289,7 +289,8 @@ export const CHORDS_60: readonly Chord[] = [
   /* ---------- LEVEL/DATA et MAIN VOLUME ---------- */
   c({ id: 'data.menu', key: 'data', gesture: 'turn', mods: [], prio: 100, info: 'data', when: () => menuOpen(), run: (e) => void menuInput('data', 'down', e.delta) }),
   c({ id: 'data.func', key: 'data', gesture: 'turn', mods: ['func'], prio: 90, info: 'data', version: '6.2', run: () => soon('6.2') }),
-  c({ id: 'data', key: 'data', gesture: 'turn', mods: [], prio: 0, info: 'data', run: (e) => trackLevelTurn(e.delta) }),
+  // LEVEL/DATA hors menu : le TRK LEV de la piste active, par la fiche de B5 (actions/mixer.ts levelDataTurn ; l'integration)
+  c({ id: 'data', key: 'data', gesture: 'turn', mods: [], prio: 0, info: 'data', run: (e) => void levelDataTurn(e.delta, false) }),
   c({ id: 'mvol', key: 'mvol', gesture: 'turn', mods: [], prio: 0, info: 'mvol', run: (e) => anyDial('level', Math.max(0, Math.min(1, anyDialValue('level') + e.delta / 127))) }),
 
   /* ---------- les TRIG 1 a 16 ---------- */

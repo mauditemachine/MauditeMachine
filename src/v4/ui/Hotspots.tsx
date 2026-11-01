@@ -72,6 +72,7 @@ import {
   anyDialReset,
   anyDialValue,
   pageKnobReset,
+  screenKnobPress,
   rytmLockEnter,
   rytmLockToggle,
   dialNudge,
@@ -1151,6 +1152,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // prise et ne fait rien (ni la page d'un FX, ni la liste des sons, cachees sous les presets) ; les actions passent par
       // les touches VOICE FLTR ENV FX EDIT (rytm/presetKeys.ts), tourner un potard fait defiler (actions.ts presetFaceKnob)
       else if (d.kind === 'penc' && d.index !== undefined && presetFaceKnob(d.index)) return d.id;
+      // La face DT2 (l'integration de la V.6.0, cahier 2.7) : un clic sans glisser = le potard presse ; le menu ouvert le prend
+      // d'abord (MIXER SCENES : A et B arment leur scene), sinon la tape de toujours
+      else if (DT2_FACE && d.kind === 'penc' && d.index !== undefined && screenKnobPress(d.index)) return d.id;
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
       else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
@@ -2852,8 +2856,11 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       );
     });
 
+  // La face DT2 (l'integration de la V.6.0) : plus de MASTER ni de TEMPO dans l'ecran (B5), leurs jumeaux s'en vont aussi
+  // (MAIN VOLUME et la touche TEMPO ont les leurs, ui/twins/input60.ts)
   const dialTwins =
     dialsShown &&
+    !DT2_FACE &&
     (['level', 'tempo'] as const).map((k) => {
       // MASTER et TEMPO dans l'ecran (2026-10-19) : leurs jumeaux poses la ou l'ecran les dessine (lcd-master, lcd-tempo)
       const enc = ENCODERS.find((e) => e.id === k) ?? ENCODERS[0];
