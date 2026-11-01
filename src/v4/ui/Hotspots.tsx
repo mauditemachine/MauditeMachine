@@ -73,6 +73,8 @@ import {
   anyDialValue,
   pageKnobReset,
   screenKnobPress,
+  faceKnobPress,
+  stepShiftHold,
   rytmLockEnter,
   rytmLockToggle,
   dialNudge,
@@ -362,6 +364,8 @@ interface Down {
   lockKey: string;
   /** un potard : la course du dernier mouvement (2026-10-27, la fonction d'un potard de la face qui change sous la main) */
   lastTravel?: number;
+  /** un potard A a H de la face DT2 : le gros pas (Ctrl ou Cmd) en cours */
+  coarse?: boolean;
   /** V.4.2 (2026-10-27) : les presets ouverts, un potard de la face les fait defiler ; les crans deja partis de ce glisser */
   pstep?: number;
   /** un pas pris par TRK (2026-10-27) : sa voix choisie a l'appui, ni P-LOCK, ni velocite, ni tape au lacher */
@@ -565,8 +569,17 @@ const perPx = (k: DialId): number => {
 /** Les presets ouverts au desktop (V.4.2) : un potard de la face tourne, un preset par PRESET_PX de glisser. */
 const PRESET_PX = 24;
 
-function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
+/**
+ * La face DT2 (V.6.0, cahier 2.7 et 3.1 ; la relecture) : Ctrl ou Cmd + glisser un potard A a H = le gros pas (le "presser
+ * et tourner" de la DT2), huit fois la course, comme les huit crans de LEVEL/DATA.
+ */
+const DIAL_COARSE = 8;
+
+function turnDial(d: Down, dx: number, dy: number, fine: boolean, coarseKey = false): void {
   if (!d.dial) return;
+  const coarse = DT2_FACE && coarseKey && !fine && d.kind === 'penc';
+  // Ctrl ou Cmd des l'appui : la course part de l'appui (rien a reprendre) ; pris ou lache en cours : elle repart d'ici
+  if (d.coarse === undefined) d.coarse = coarse;
   // Un potard tourne a la souris ou au doigt (la revue de D1, G2) : une FUNC gardee pour une touche s'en va
   if (DT_FACE) funcDrop();
   const travel = d.axis === 'y' ? -dy : dx;
@@ -590,16 +603,17 @@ function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
     d.dial = pencId;
     d.lockKey = '';
   }
-  if (fine !== d.fine || lk !== d.lockKey) {
+  if (fine !== d.fine || lk !== d.lockKey || coarse !== !!d.coarse) {
     // D'ou repart le glisser : la valeur de la scene armee (2026-10-27), sinon la base (ou le verrou en P-LOCK)
     d.v0 = dialEdit(d.dial);
     // Un potard de la face dont la fonction a change (2026-10-27) : la course repart du dernier mouvement vu, aucun pixel
     // de la main ne se perd
-    d.a = pencId && fine === d.fine && d.lastTravel !== undefined ? d.lastTravel : travel;
+    d.a = pencId && fine === d.fine && coarse === !!d.coarse && d.lastTravel !== undefined ? d.lastTravel : travel;
     d.fine = fine;
+    d.coarse = coarse;
     d.lockKey = lk;
   }
-  const v = d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1);
+  const v = d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : coarse ? DIAL_COARSE : 1);
   d.lastTravel = travel;
   // Un potard de la face : la page au desktop (2026-10-27), son FX global et son popup au telephone
   if (d.kind === 'penc' && d.index !== undefined) faceKnob(d.index, v, 'ptr');
@@ -1155,6 +1169,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // La face DT2 (l'integration de la V.6.0, cahier 2.7) : un clic sans glisser = le potard presse ; le menu ouvert le prend
       // d'abord (MIXER SCENES : A et B arment leur scene), sinon la tape de toujours
       else if (DT2_FACE && d.kind === 'penc' && d.index !== undefined && screenKnobPress(d.index)) return d.id;
+      // Hors menu (la relecture de la V.6.0, cahier 2.7) : un TRIG tenu, le verrou de ce reglage s'en va (TRIG + potard
+      // presse) ; sinon le potard reste presse 1,5 s pour NO (sa valeur de depart) et la tape suit son chemin
+      else if (DT2_FACE && d.kind === 'penc' && d.index !== undefined && faceKnobPress(d.index)) return d.id;
       // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
       // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
       else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
@@ -1337,7 +1354,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         d.v0 = dialEdit(d.dial);
         d.a = d.axis === 'y' ? -dy : dx;
       }
-      turnDial(d, dx, dy, shiftHeld);
+      turnDial(d, dx, dy, shiftHeld, ctrlHeld);
       if (d.mouse) {
         turnAxis = d.axis;
         turnBlock = d.kind === 'rblock' || d.kind === 'rdial';
@@ -1654,6 +1671,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           e.preventDefault();
           return;
         }
+        // La face DT2 (la relecture de la V.6.0, cahier 2.7) : Maj + clic ajoute un TRIG tenu (le P-LOCK de plusieurs pas a
+        // la souris) ; le clic est pris, ni tape ni velocite au lacher
+        if (DT2_FACE && e.shiftKey && dt && !dt.info && stepShiftHold(idx)) {
+          dt.trk = true;
+          e.preventDefault();
+          return;
+        }
         // La face DT2 (l'integration de la V.6.0) : la piste active, T9 a T16 compris, se verrouille aussi
         const lockable = editor.get() !== 'mm808' && (DT2_FACE ? activeTrack.get() : pattern.get().instrument) !== null && stepWrites() && !liveOn();
         // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
@@ -1862,7 +1886,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         if (d.kind === 'sbrowse') sbDrag(d, e.clientY - d.y);
         else if (d.xf) xfMove(d, e.clientX, e.clientY, e.shiftKey);
         else if (DT2_FACE && d.kind === 'data') dataDrag(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey, e.ctrlKey || e.metaKey);
-        else turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey);
+        else turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey, e.ctrlKey || e.metaKey);
         return;
       } else if (d && d.velDrag) {
         dragVelocity(d, e.clientY - d.y);

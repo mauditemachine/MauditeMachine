@@ -11,7 +11,7 @@ import type { RytmPageId, RytmScreenId } from '../rytm/pages';
 import { sceneCount, type SceneId } from '../rytm/sceneData';
 import { muteLeds, trkLeds } from '../rytm/stepLeds';
 import { bankLeds, faceLeds, muteLeds16, ptnLeds, rowLeds, trackLeds16, trigLeds, type FaceState, type HwFaceLed, type HwGridLed, type HwRowLed, type HwTrackLed, type HwTrigLeds, type TracksState } from './rowLeds';
-import { TRACK_KEYS, TRACK_NAMES, trackIndex } from '../audio/tracks';
+import { TRACK_KEYS, TRACK_NAMES, trackIndex, type TrackKey } from '../audio/tracks';
 import { stageNow } from '../midi/targets/stage';
 import { lcdSamples } from '../state/lcdSamples';
 import { trigMarks } from '../rytm/trigMarks';
@@ -26,7 +26,7 @@ import { bankGrid, bankName, bankOf, patterns, slotName } from '../state/pattern
 import { rytmPage, type RytmView } from '../state/rytmPage';
 import { sceneCtl } from '../state/sceneCtl';
 import { tempoSync } from '../state/tempoSync';
-import { trk } from '../state/trk';
+import { activeTrack, trk } from '../state/trk';
 import { voices } from '../state/voices';
 import { DT2_FACE, DT_FACE, DT_HEX_DARK, SCREEN_TOUCH, STEP_LIT, TRK_LIT, type Inst } from '../theme';
 
@@ -162,10 +162,13 @@ export type KnobCauses = readonly KnobCause[];
  */
 const HW_PAL = DT_HEX_DARK;
 
-/** Les marques des trigs de la voix choisie (V.5.1) : le jaune de la machine noire. */
-function trigLedsNow(inst: Inst): HwTrigLeds {
+/**
+ * Les marques des trigs de la piste choisie (V.5.1) : le jaune de la machine noire. Une piste 9 a 16 (la face DT2, la
+ * relecture de la V.6.0) : trigMarks ne lit que par cle (lockOf et trigValue prennent une TrackKey), sa signature dit Inst.
+ */
+function trigLedsNow(k: TrackKey): HwTrigLeds {
   const p = pattern.get();
-  const m = trigMarks(p.steps[inst], p.locks, p.trigs, inst);
+  const m = trigMarks(p.steps[k], p.locks, p.trigs, k as Inst);
   return trigLeds(m.ltrg, m.cond, HW_PAL.yellow);
 }
 
@@ -204,6 +207,9 @@ function dt2Leds(ptnOpen: boolean, trkMode: FaceState['trk'], page: string, home
 export function getSnapshot(causes?: KnobCauses): HwSnapshot {
   const p = pattern.get();
   const inst = p.instrument;
+  // La piste choisie (V.6.0) : sur la face DT2, la piste active de la saisie (state/trk.ts, T9 a T16 compris : le motif n'a
+  // alors pas de voix, inst est null) ; sinon la voix du motif (la relecture : track valait -1 avec une piste 9 a 16)
+  const cur = DT2_FACE ? activeTrack.get() : inst;
   const rp = rytmPage.get();
   const ps = patterns.get();
   const arm = sceneCtl.get();
@@ -236,7 +242,7 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
     : [];
   // V.6.0 : les seize pistes (la face DT2 en montre 16, la V.5.3 8 : 9 a 16 eteintes), lues comme le sequenceur les lit
   const tr: TracksState = {
-    cur: inst ? trackIndex(inst) : -1,
+    cur: cur ? trackIndex(cur) : -1,
     muted: TRACK_KEYS.map((k) => voices.isMuted(k)),
     pmuted: TRACK_KEYS.map((k) => (p.pmutes as readonly string[]).includes(k)),
     solo: TRACK_KEYS.map((k) => voices.isSolo(k)),
@@ -280,7 +286,7 @@ export function getSnapshot(causes?: KnobCauses): HwSnapshot {
       keys,
       view,
       grid,
-      trigs: DT_FACE && view === 'pattern' && inst ? trigLedsNow(inst) : null,
+      trigs: DT_FACE && view === 'pattern' && cur ? trigLedsNow(cur) : null,
       face: dt2 ? dt2.face : [],
       pages: dt2 ? dt2.pages : null,
       tracks: engaged ? trackLeds16(tr, HW_PAL, TRK_LIT) : null,

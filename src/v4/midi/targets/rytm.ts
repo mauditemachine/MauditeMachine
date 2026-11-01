@@ -1,8 +1,12 @@
 /** Les cibles MIDI du MM-RYTM, dans l'ordre d'aujourd'hui (le corps de coreTargets, deplace tel quel en P0). Ajouts : dans le fichier reserve de sa lane, jamais ici. */
 
-import { LAYER_TARGET_FAMS, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, fillHold, faceKeyTap } from '../../actions';
+import { LAYER_TARGET_FAMS, clearPattern, copyKey, funcDown, funcUp, muteModeKey, noKey, pasteKey, playKey, recDown, recKey, recUp, reloadKey, saveKey, stopKey, yesKey, sceneEdit01, sceneFollowId, sceneHeard01, sceneTakeId, knobBlock, knobDial, knobDialOf, dialRange, dialSteps, editToggle, bankKey, liveKey, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, presetKnobHeld, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, sceneDown, sceneUp, soloToggle, stepToggle, trkDown, trkUp, voiceMute, voiceSelect, fillHold, faceKeyTap, anyDial, anyDialValue } from '../../actions';
+import { activeTrack } from '../../state/trk';
+import type { TrackKey } from '../../audio/tracks';
 import { sceneCtl } from '../../state/sceneCtl';
-import { D2_SCREENS, RYTM_SCREENS, SCREEN_TITLE, pageLabel } from '../../rytm/pages';
+import { D2_SCREENS, RYTM_SCREENS, SCREEN_TITLE, pageLabel, type RytmPageId, type RytmScreenId } from '../../rytm/pages';
+import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
+import { openMenuId, setOpenMenu } from '../../scene/screen/menus/open';
 import { TRIG_PARAMS } from '../../audio/trig';
 import { LFO_PARAMS } from '../../audio/lfo';
 import { rytmPage } from '../../state/rytmPage';
@@ -13,17 +17,107 @@ import { KIT_FAMILIES, KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob
 import { setVoiceFx } from '../../audio/drums';
 import { VOICE_PARAMS, voiceFx } from '../../audio/voicefx';
 import { BANKS, BANK_SIZE, bankName } from '../../state/patterns';
-import { DT2_FACE, DT_FACE, ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../../theme';
+import { DT2_FACE, DT_FACE, ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, VOICE_PARAM, isVoiceEnc, type EncId, type Inst, type VoiceFxEncId } from '../../theme';
 import { INSTRUMENTS, STEP_COUNT } from '../../audio/pattern';
 import { seqFollow, seqPress, seqRelease, seqSetFollow, seqVoice, seqWindow } from '../seqlink';
 import type { MidiTarget } from './types';
 import { stageNow as getStage } from './stage';
 import { dialTarget, faceHold, press, seqTarget, VOICE_LABEL, xfadeMidi } from './helpers';
+import { hiVoiceTarget } from './tracks60';
+
+/**
+ * La face DT2 (V.6.0, la relecture : MIDI, boitier, telephone) : une touche de page du MIDI ou du boitier
+ * (rytm:page:<page>, notes 66 a 71) passe par la touche de la face (faceKeyTap, la table des accords de B4) : le menu
+ * ouvert se ferme et sa page s'affiche, FUNC + la touche fait sa fonction orange, comme a la souris ; les potards de la
+ * face, et donc les moteurs du boitier, suivent la page. Avant, le menu restait ouvert et ses potards aussi (un potard
+ * tourne reglait le niveau d'une piste du MIXER). La face V.5.3 (?face=v5) garde rytmPageKey.
+ */
+const DT2_PAGE_BTN: Readonly<Partial<Record<RytmPageId, Dt2ButtonId>>> = { trig: 'trig', voice: 'src', fltr: 'fltr', env: 'amp', fx: 'fx', mod: 'mod' };
+function pageKeyMidi(id: RytmPageId): void {
+  const btn = DT2_FACE ? DT2_PAGE_BTN[id] : undefined;
+  if (btn) faceKeyTap(btn, getStage(), 'midi');
+  else rytmPageKey(id, getStage());
+}
+/** Une page montree sans sa touche (un ancien nom, rytm:page, un onglet, HOME) : sur la face DT2, le menu ouvert se ferme d'abord. */
+function menuClose60(): void {
+  if (DT2_FACE && openMenuId() !== null) setOpenMenu(null);
+}
+/**
+ * rytm:screen:<ecran> : l'onglet de sa page (la face DT2 : le menu ouvert se ferme d'abord). rytm:screen:tempo sur la face
+ * DT2 (la relecture de la V.6.0) : la touche TEMPO de la face (faceKeyTap) : le menu TEMPO de B5 (30 a 300 BPM au dixieme,
+ * SWING jusqu'a 80 %), encore : il se ferme ; FUNC + TEMPO : TAP. C'est la cible que MIDI LEARN apprend sur la touche TEMPO
+ * (DT2_ZONES tempo.midi[0]) et celle de la note 81 du boitier : avant, elle ouvrait l'ancienne page TEMPO (100 a 150, un
+ * tempo de 85 sautait a 100 au premier geste du potard A). La face V.5.3 (?face=v5) garde l'ancienne page.
+ */
+function screenTab60(sc: RytmScreenId): void {
+  if (DT2_FACE && sc === 'tempo') {
+    faceKeyTap('tempo', getStage(), 'midi');
+    return;
+  }
+  menuClose60();
+  rytmScreenTab(sc);
+}
+
+/**
+ * La rangee VOICE (rytm:enc:vol..., SELECTED VOICE : la page 2 du setup RYTM du Roto) sur la face DT2 avec une piste 9 a 16
+ * active (la relecture de la V.6.0) : elle regle cette piste, avec les lois de rytm:voice:<T9..T16>:<reglage>
+ * (tracks60.ts hiVoiceTarget, les scenes comprises) ; SAMPLE y est le SAMP de sa page SRC (la fiche t:snd : OFF puis toute
+ * la banque). Avant : rien, PICK A VOICE FIRST. Les pistes 1 a 8 et la face V.5.3 gardent le chemin d'avant (dialTarget).
+ */
+const T_SND = 't:snd' as const;
+const hiActive = (): TrackKey | null => (DT2_FACE && activeTrack.high() ? activeTrack.get() : null);
+const hiEncs = new Map<string, MidiTarget>();
+function voiceEncTarget(e: EncId, label: string): MidiTarget {
+  const base = dialTarget(`rytm:enc:${e}`, 'mm808', label, e);
+  const p = e === 'vsound' ? null : (VOICE_PARAM[e as VoiceFxEncId] ?? null);
+  const hi = (): MidiTarget | null => {
+    const k = hiActive();
+    if (!k || !p) return null;
+    let t = hiEncs.get(`${k}:${p}`);
+    if (!t) hiEncs.set(`${k}:${p}`, (t = hiVoiceTarget(k, p)));
+    return t;
+  };
+  const snd = (): boolean => e === 'vsound' && hiActive() !== null;
+  return {
+    id: base.id,
+    scope: base.scope,
+    label: base.label,
+    kind: 'value',
+    get steps() {
+      const h = hi();
+      if (h) return h.steps ?? 0;
+      return snd() ? dialSteps(T_SND) : (base.steps ?? 0);
+    },
+    get: () => {
+      const h = hi();
+      if (h?.get) return h.get();
+      if (snd()) {
+        const [lo, top] = dialRange(T_SND);
+        return top > lo ? Math.max(0, Math.min(1, (anyDialValue(T_SND) - lo) / (top - lo))) : 0;
+      }
+      return base.get ? base.get() : 0;
+    },
+    set: (v) => {
+      const h = hi();
+      if (h?.set) {
+        h.set(v);
+        return;
+      }
+      if (snd()) {
+        const [lo, top] = dialRange(T_SND);
+        anyDial(T_SND, Math.round(lo + Math.max(0, Math.min(1, v)) * (top - lo)));
+        return;
+      }
+      base.set?.(v);
+    },
+  };
+}
 
 export function rytmTargets(out: MidiTarget[]): void {
   // MM-RYTM
-  // La rangee VOICE regle la voix choisie (comme sur la machine) ; rytm:voice:... vise une voix sans la choisir
-  for (const e of ENCODERS) out.push(dialTarget(`rytm:enc:${e.id}`, 'mm808', isVoiceEnc(e.id) ? `${e.label} (SELECTED VOICE)` : e.label, e.id));
+  // La rangee VOICE regle la voix choisie (comme sur la machine) ; rytm:voice:... vise une voix sans la choisir. La face
+  // DT2 (la relecture) : la piste active, T9 a T16 compris (voiceEncTarget)
+  for (const e of ENCODERS) out.push(isVoiceEnc(e.id) ? voiceEncTarget(e.id, `${e.label} (SELECTED VOICE)`) : dialTarget(`rytm:enc:${e.id}`, 'mm808', e.label, e.id));
   // Les huit voix d'INSTRUMENTS (2026-10-27, la face V.4.0 n'a plus de pads au desktop) : le meme ordre, les memes ids
   const voices: readonly Inst[] = INSTRUMENTS;
   for (const inst of voices) {
@@ -162,16 +256,29 @@ export function rytmTargets(out: MidiTarget[]): void {
   });
   // Les quatre touches de page (2026-10-09 : VOICE FLTR ENV FX) : la page, la touche allumee encore son onglet suivant ou HOME ;
   // au desktop depuis V.5.0 leur nom de la face (SRC, AMP) et FUNC + la touche (MIDI rytm:func tenue)
-  for (const pk of RYTM_PAGE_KEYS) out.push(press(`rytm:page:${pk.id}`, 'mm808', `PAGE ${pageLabel(pk.id)}`, () => rytmPageKey(pk.id, getStage())));
+  // La face DT2 : la touche de la face elle-meme (pageKeyMidi : le menu ouvert se ferme)
+  for (const pk of RYTM_PAGE_KEYS) out.push(press(`rytm:page:${pk.id}`, 'mm808', `PAGE ${pageLabel(pk.id)}`, () => pageKeyMidi(pk.id)));
   // Les anciennes pages (jusqu'au 2026-10-09) : leurs assignations retenues ouvrent la page d'aujourd'hui (TRIG SRC SMPL : VOICE ; AMP : ENV) ;
   // au desktop depuis V.5.0, rytm:page:trig ouvre la vraie page TRIG, SRC et AMP sont les noms de VOICE et ENV
   const OLD_PAGES = DT_FACE ? ([['trig', ''], ['src', ''], ['smpl', 'SRC'], ['amp', '']] as const) : ([['trig', 'VOICE'], ['src', 'VOICE'], ['smpl', 'VOICE'], ['amp', 'ENV']] as const);
   // rytm:page:trig au desktop (la revue de D1, K2) : la touche TRIG elle-meme (FUNC + TRIG = TEMPO, TRIG puis YES = RANDOM,
   // TRIG encore = HOME), comme les autres touches de page ; le telephone garde l'alias de VOICE
-  for (const [old, now] of OLD_PAGES) out.push(press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()}${now ? ` (NOW ${now})` : ''}`, () => (DT_FACE && old === 'trig' ? rytmPageKey('trig', getStage()) : rytmShowPage(old))));
+  // (la face DT2, la relecture : TRIG est la touche de la face ; SRC, SMPL et AMP montrent leur page, le menu ouvert ferme)
+  for (const [old, now] of OLD_PAGES)
+    out.push(
+      press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()}${now ? ` (NOW ${now})` : ''}`, () => {
+        if (DT_FACE && old === 'trig') {
+          pageKeyMidi('trig');
+          return;
+        }
+        menuClose60();
+        rytmShowPage(old);
+      }),
+    );
   // Un ecran precis (2026-10-09) : VOICE, VOICE SYNTH, FLTR, ENV, VOICE FX, GLOBAL FX (les onglets de l'en-tete)
-  // Ceux de V.5.1 (TRIG 2/2, MOD 2/2) viennent a la fin de la liste : aucun id d'avant ne bouge
-  for (const sc of RYTM_SCREENS) if (!D2_SCREENS.includes(sc)) out.push(press(`rytm:screen:${sc}`, 'mm808', `SCREEN ${SCREEN_TITLE[sc]}`, () => rytmScreenTab(sc)));
+  // Ceux de V.5.1 (TRIG 2/2, MOD 2/2) viennent a la fin de la liste : aucun id d'avant ne bouge. La face DT2 (la relecture) :
+  // un onglet montre sa page, le menu ouvert se ferme d'abord
+  for (const sc of RYTM_SCREENS) if (!D2_SCREENS.includes(sc)) out.push(press(`rytm:screen:${sc}`, 'mm808', `SCREEN ${SCREEN_TITLE[sc]}`, () => screenTab60(sc)));
   out.push({
     id: 'rytm:page',
     scope: 'mm808',
@@ -179,9 +286,17 @@ export function rytmTargets(out: MidiTarget[]): void {
     kind: 'value',
     steps: RYTM_PAGE_KEYS.length,
     get: () => Math.max(0, RYTM_PAGE_KEYS.findIndex((p) => p.id === rytmPage.get().page)) / (RYTM_PAGE_KEYS.length - 1),
-    set: (v) => rytmShowPage(RYTM_PAGE_KEYS[Math.max(0, Math.min(RYTM_PAGE_KEYS.length - 1, Math.round(v * (RYTM_PAGE_KEYS.length - 1))))].id),
+    set: (v) => {
+      menuClose60();
+      rytmShowPage(RYTM_PAGE_KEYS[Math.max(0, Math.min(RYTM_PAGE_KEYS.length - 1, Math.round(v * (RYTM_PAGE_KEYS.length - 1))))].id);
+    },
   });
-  out.push(press('rytm:home', 'mm808', 'HOME / PAGE SCREEN', () => rytmHome()));
+  out.push(
+    press('rytm:home', 'mm808', 'HOME / PAGE SCREEN', () => {
+      menuClose60();
+      rytmHome();
+    }),
+  );
   for (const inst of voices) out.push(press(`rytm:pad:${inst}`, 'mm808', `PAD ${inst}`, () => padHit(inst, getStage())));
   for (let i = 0; i < STEP_COUNT; i += 1) out.push(press(`rytm:step:${i}`, 'mm808', `STEP ${i + 1}`, () => void stepToggle(i, getStage())));
   // Le LOCK (2026-10-08, les parameter locks) : un bouton par pas (encore : hors LOCK), et celui du pas choisi
@@ -227,7 +342,7 @@ export function rytmTargets(out: MidiTarget[]): void {
   out.push(press('rytm:stop', 'mm808', 'STOP (TWICE: CUT THE TAILS)', () => stopKey(getStage())));
   out.push(press('rytm:yes', 'mm808', 'YES (CONFIRM, A PAGE THEN YES: RANDOM)', () => yesKey(getStage())));
   out.push(press('rytm:no', 'mm808', 'NO (BACK, A PAGE THEN NO: RELOAD IT)', () => void noKey(getStage())));
-  out.push(press('rytm:page:mod', 'mm808', 'PAGE MOD', () => rytmPageKey('mod', getStage())));
+  out.push(press('rytm:page:mod', 'mm808', 'PAGE MOD', () => pageKeyMidi('mod')));
   out.push(press('rytm:mutemode', 'mm808', 'MUTE MODE (GLOBAL, PATTERN, OFF)', () => muteModeKey()));
   out.push(press('rytm:save', 'mm808', 'SAVE (THE SAVE POINT)', () => saveKey()));
   out.push(press('rytm:reload', 'mm808', 'RELOAD (BACK TO THE SAVE POINT)', () => reloadKey()));
@@ -242,9 +357,9 @@ export function rytmTargets(out: MidiTarget[]): void {
   }
   // FILL tenu (YES tenu sur la face, le boitier : une note tenue)
   out.push(faceHold('rytm:fill', 'FILL (HOLD: THE FILL CONDITIONS PLAY)', 'yes', () => fillHold(true), () => fillHold(false)));
-  out.push(press('rytm:screen:trig2', 'mm808', `SCREEN ${SCREEN_TITLE.trig2}`, () => rytmScreenTab('trig2')));
-  out.push(press('rytm:screen:mod1', 'mm808', `SCREEN ${SCREEN_TITLE.mod} (LFO 1)`, () => rytmScreenTab('mod')));
-  out.push(press('rytm:screen:mod2', 'mm808', `SCREEN ${SCREEN_TITLE.mod2} (LFO 2)`, () => rytmScreenTab('mod2')));
+  out.push(press('rytm:screen:trig2', 'mm808', `SCREEN ${SCREEN_TITLE.trig2}`, () => screenTab60('trig2')));
+  out.push(press('rytm:screen:mod1', 'mm808', `SCREEN ${SCREEN_TITLE.mod} (LFO 1)`, () => screenTab60('mod')));
+  out.push(press('rytm:screen:mod2', 'mm808', `SCREEN ${SCREEN_TITLE.mod2} (LFO 2)`, () => screenTab60('mod2')));
   // V.5.2 (2026-10-30, docs/v4/digitakt-d3a-spec.md section 1) : ajoutees a la fin, aucun id d'avant ne change ni ne bouge.
   // Les banques A a H : afficher la banque b (rytm:ptn:<k> y choisit ensuite le pattern)
   for (let b = 0; b < BANKS; b += 1) out.push(press(`rytm:bank:${b}`, 'mm808', `BANK ${bankName(b)} (SHOW ITS PATTERNS)`, () => bankKey(b, getStage())));
