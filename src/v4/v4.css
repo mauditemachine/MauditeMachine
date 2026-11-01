@@ -6109,3 +6109,10 @@ html:has(body.v4-active.v4-light) {
 .v4-root[data-v4-theme='light'] .v4-seq[data-dt='1'] .v4-beat-body .v4-seq-mode[data-bank][aria-pressed='true']:hover {
   color: #fff;
 }
+
+/* L'integration de la V.6.0 (2026-11-01, la regle de Mika : en creme, chaque texte a 4,5:1 au moins) : le sous-titre des
+   machines de la vue d'ensemble (DRUM MACHINE, SYNTHESIZER...) en --bone-60 (#6E6E6E) faisait 4,4:1 sur le creme ; #555,
+   6,4:1 (comme les unites des potards plus haut) */
+.v4-root[data-v4-theme='light'] .v4-mname-sub {
+  color: #555;
+}
