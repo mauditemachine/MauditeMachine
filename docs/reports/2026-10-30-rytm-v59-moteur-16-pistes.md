@@ -18,7 +18,7 @@
     - une piste mono se coupe en 3 ms ;
     - un coup gated se coupe en 8 ms par le suivant de son groupe de choke ;
     - l'OH (mono et gated) se coupe par son groupe seulement, comme avant.
-  - **Le plafond de sources** : une piste poly d'héritage garde 4 sources au plus, le graphe 48 au desktop et 24 au téléphone. La plus vieille source se coupe en 8 ms. Une annulation rend ce qui avait été coupé.
+  - **Le plafond de sources** (corrigé par la relecture, R4 et R5) : seulement sur les pistes 9 à 16. Une piste 9 à 16 poly garde 4 sources au plus ; au-delà de 48 sources au desktop et 24 au téléphone, la plus vieille des pistes 9 à 16 se coupe en 8 ms. Les pistes 1 à 8 ne sont jamais coupées, comme en V.5.3. Une annulation rend ce qui avait été coupé.
   - Une source coupée par sa porte s'arrête 2 ms après la rampe.
   - **Les rendus hors ligne** acceptent les 16 pistes, `tlev`, et un compteur (`__v4.audio.tracks16.offline` : pic, coupes, tranches, temps de programmation et de rendu).
 - **`shots` par piste** : la rotation des variantes, le son précédent et le dernier coup sont clés par piste. `onReady` donne les pistes concernées. La clé du cache ne change pas.
@@ -33,7 +33,7 @@
   - **UNDO** suit le store.
   - **SHARE v1** n'a pas changé : il n'encode que les 8 voix.
   - **Double écriture** : l'écriture va à `mm.v4.rytm.tracks.1`, et aussi aux vieilles clés du domaine qui a changé, au format d'avant. Rien n'est écrit au chargement.
-- **La sonde `scripts/rytm-16.mjs`** (nouveau script, muet) a 4 parties : offline, live, fixtures et rollback (`--v53 <url>`).
+- **La sonde `scripts/rytm-16.mjs`** (nouveau script, muet) a 5 parties : offline, live, fixtures, rollback (`--v53 <url>`) et review (les sondes de la relecture et des bornes, `--checks`).
 - **Le debug** : `__v4.tracks` (le store) et `__v4.tracks16` (clés, conversions, façades). Ses deux fonctions `ctx()` et `run(on)` refusent de s'exécuter hors `?mute=1&debug=1`.
 - **Le firmware** : V.5.9 (voir les décisions).
 - **Les fichiers** (25 fichiers, +3 543 / -1 321 lignes) :
@@ -112,11 +112,13 @@
   - En alternant les deux builds, le meilleur rendu sur 9 va de 364 à 427 ms pour V.5.3 et de 384 à 442 ms pour V.5.9. Les deux plages se recouvrent, l'écart reste dans le bruit du VM.
   - Je n'ai donc pas ajouté d'optimisation. Ne poser une porte que sur les coups longs aurait changé la règle du plafond (« le plus vieux ») pour un gain non mesurable.
 - **Une source coupée s'arrête 2 ms après sa rampe**, au lieu de tourner à vide jusqu'au bout de son tampon. La porte est déjà à 0, donc le son est le même. Le motif dense mesurait entre 5,7 et 7,8 avant ce changement ; après, il mesure de 7,7 à 9,0, et 8,1 au dernier passage.
-- **Les pistes neuves sont mono par défaut** (cahier 4.6). Le plafond de 4 ne vaut que pour les pistes poly d'héritage (SD, CH, CP, TOM, HT, CY).
+- **Les pistes neuves sont mono par défaut** (cahier 4.6). Le plafond de 4 ne vaut que pour une piste 9 à 16 passée en poly. Écart au cahier (4.3, 4.6) : les pistes 1 à 8 n'ont aucun plafond en V.5.9, parce que le plafond de 4 changeait leur son par rapport à V.5.3 (relecture R5).
 - **La clé du mix de l'horloge part de sa valeur.** Vide au départ, elle faisait refaire toute l'horloge au premier réglage de voix. C'est une correction d'un défaut que la sonde live a trouvé.
 - **Les paramètres réservés à la V.6.1 valent 0** et n'entrent dans aucun calcul.
 - **La sonde live fige le temps du contexte** (`ctx.suspend()`). Dans ce Chromium headless sans sortie audio, le temps du contexte court environ 8 fois plus vite que l'horloge murale : tout était déjà joué avant le geste. Les gestes passent par les façades, parce qu'une cible MIDI relance le contexte. Le RUN est muet (`?mute=1`, `--mute-audio`, MASTER à 0), et rien n'est jamais écouté.
 - **Le firmware** : `bump mm808 minor` donne 5.4, et le script n'a pas d'option de version exacte. J'ai posé à la main la version et sa ligne d'historique à 5.9 (« le moteur a 16 pistes (invisible) »). L'empreinte ne dépend pas de la version, et `check` est bon.
+- **Un réglage de LFO refait toute l'horloge** (relecture R6), comme en V.5.3 : chaque coup programmé porte sa liste de LFO, calculée au moment de la programmation. Les autres réglages d'une piste ne refont que sa piste. C'est une exception au budget 4.6 (« 1 piste par cran »), à reprendre si un jour la liste se recalcule par coup.
+- **Les bornes du tempo et du swing** (cahier 1.3) : `BPM` reste la course de la face d'avant (100-150, le potard, `rytm:enc:tempo`, TAP, le téléphone, le dessin), sinon ces fichiers de B4 à B6 auraient changé à l'œil. Le moteur et le stockage ont leurs bornes à part, `BPM_RANGE`.
 - **Écarts au cahier** (reportés à la V.6.0, ou hors de cette lane) :
   - mutes, solo et mutes du pattern restent sur 8 voix (`state/voices.ts` reste en `Inst`) ;
   - `rytmPage.vel` n'est pas passé à 16 (B2 complet) ;
@@ -129,7 +131,8 @@
 ## 3. Ce qui reste à faire / points en suspens
 
 - **Pour l'intégrateur** :
-  - **Relecture** : faire relire B1 et B2 par un agent neuf avant la fusion (cahier, critique). Ce sont eux qui peuvent casser des sauvegardes.
+  - **Relecture** : faite sur 91e57cd ; les 6 points confirmés sont corrigés (section 5). R2 a été réfuté.
+  - **Les bornes** : les deux cibles neuves de TEMPO (30-300 au 1/10, swing 50-80 %) sont à B6 ; elles appellent `pattern.setBpmFine` et `pattern.fx.set({ swing })`, jusqu'à `SWING_MAX`. Les consommateurs de `BPM` (face, téléphone, dessin) passent à `BPM_RANGE` quand la face DT2 le demande.
   - **`firmware.json`** : la V.6.0 fera `bump major` depuis 5.9 et donnera 6.0. Si une autre branche a monté la version entre-temps, il y aura un conflit de texte à résoudre à la main.
   - **Les références à 8** : 35 fichiers lisent encore `INSTRUMENTS` (les 8 voix). Dans B1 et B2, c'est voulu : les 8 rangées d'avant sont toujours là, et les rangées 9 à 16 passent par `extraRows`. Ailleurs, il reste les actions, la face, l'écran, le MIDI et le téléphone, qui sont le travail de B3 à B6.
 - **Le rapport temps réel est juste au seuil** (8,1 pour 8) sur ce VM lent. Il faut le remesurer sur une vraie machine de bureau : `node scripts/rytm-16.mjs --url ... --only offline`.
@@ -137,10 +140,33 @@
 
 ## 4. Commandes utiles ajoutées
 
-- `node scripts/rytm-16.mjs --url http://127.0.0.1:<port> [--v53 http://127.0.0.1:<port>] [--only offline,live,fixtures,rollback]` : la sonde 16 pistes, muette. Code de sortie 0 bon, 1 un écart, 2 une erreur. Le retour arrière demande un build V.5.3 servi (`git archive 48397aa`).
+- `node scripts/rytm-16.mjs --url http://127.0.0.1:<port> [--v53 http://127.0.0.1:<port>] [--only offline,live,fixtures,rollback,review] [--checks R1,R3,R4,R5,R6,R7,BORNES]` : la sonde 16 pistes, muette ; chaque sonde de review tourne dans son navigateur, bornée dans le temps. Code de sortie 0 bon, 1 un écart, 2 une erreur. Le retour arrière demande un build V.5.3 servi (`git archive 48397aa`).
 - Les sondes sous `?mute=1&debug=1` :
   - `__v4.tracks` (le store) ;
   - `__v4.tracks16` (`keys`, `legacyKeys`, `storageKey`, `kit16FromLegacy`, `toStored`, `fromStored`, `same`, `legacy`, `legacyVoices`, `kit`, `voiceFx`, plus `ctx()` et `run(on)`, muets) ;
   - `__v4.audio.tracks16` (les tranches vivantes, le compteur du dernier rendu hors ligne) ;
-  - `__v4.clock.trackRescheduled`, `lastTracks`.
+  - `__v4.clock.trackRescheduled`, `lastTracks`, `planLfo(t)` (les LFO des coups programmés d'une piste).
 - Aucun script npm ajouté.
+
+## 5. La relecture de 91e57cd et les bornes (2026-11-01)
+
+Chaque point a sa sonde muette (`rytm-16 --only review`), qui échoue sur 91e57cd et passe sur la branche.
+
+- **R4 (haut)** : `capSources` bouclait sans fin dès la 5e source d'une piste poly (une source coupée comptait encore) et gelait la page. Une source coupée ne compte plus, et chaque boucle coupe en un passage les plus vieilles en trop. Sonde : CY en retrig 1/80 avec OH et CH en doubles croches, programmés en 20 ms ; T9 à T16 en cymbales poly denses, en 42 ms, avec 95 coupes du plafond global et 143 du plafond par piste, au plus 4 sources par piste. Sur 91e57cd : gel, aucune réponse en 120 s.
+- **R5 (haut)** : le plafond de 4 changeait le son des pistes 1 à 8. Les pistes 1 à 8 n'ont plus aucun plafond ; le plafond par piste et les coupes du plafond global ne touchent que les pistes 9 à 16. Sonde : CY en croches à 120, en doubles croches à 128, TOM en doubles croches à 140 et le motif dense à 8 voix, aucune coupe, au bit près de V.5.3 (écart 8,9e-8 à 1,8e-7). Sur 91e57cd : gel.
+- **R6 (moyen)** : une re-programmation de piste rejouait des listes de LFO périmées. Un réglage de LFO refait toute l'horloge, comme V.5.3. Sonde (RUN muet) : L1 DEPTH à 0, les coups programmés de SD n'ont plus de LFO. Sur 91e57cd : aucune re-programmation complète.
+- **R7 (bas)** : une porte de piste mono ou de groupe de choke déjà coupée par le plafond n'est plus refermée ni rouverte par le coup suivant, et une annulation ne la rouvre pas si sa piste a rejoué. Sonde : T9 coupé par le plafond, rien avant l'attaque de son coup suivant. Vérifiée aussi sur une variante sans le correctif, où la porte rouverte donne une crête de 1,0e-2 (sur 91e57cd : gel).
+- **R1 (bas)** : l'empreinte `lg` se prend sur les vieilles clés telles que l'onglet les a lues ou écrites, plus sur le stockage du moment. Sonde : l'onglet A édite SNAPPY, l'onglet B (ouvert avant) le DECAY du HT ; un troisième onglet garde les deux (origine `mixed`). Sur 91e57cd : SNAPPY perdu.
+- **R3 (bas)** : les pages, le setup et le kit de V.6.1 partent avec leur motif (un autre pattern, un preset, l'UNDO, RANDOM, CLEAR). Une ligne collée ou vidée du motif courant les garde ; c'est `keepMore`, deux appels dans `actions/face.ts` (fichier de B4, changement minimal). Sur 91e57cd : ils restaient après un preset. Un UNDO en V.5.9 les retire aussi : c'est la règle d'un autre pattern.
+- **Bornes (cahier 1.3)** : le moteur et le stockage acceptent de 30 à 300 BPM au dixième (`BPM_RANGE`, `clampBpm`, `setBpmFine` pour un preset et l'UNDO), et un swing jusqu'à 1,8, soit 80 % (`SWING_MAX`). `fx.swing` garde sa loi : 0 = 50 %, 1 = 66,7 %, `SWING.maxDelay` reste 1/3. Les courses d'avant ne changent pas : `rytm:enc:tempo` va de 100 à 150, `rytm:enc:swing` de 50 à 67 %, et le potard TEMPO pose des BPM entiers. Les platines gardent `SYNC_BPM`. L'écran affiche un tempo au dixième avec son dixième. `presets-bpm.test.mjs` passe au dixième et aux bornes 30-300. SHARE v1 ne porte qu'un BPM entier de 100 à 150 et un swing de 66,7 % au plus. Identité à 1e-6 aux réglages de départ (20 sur 20).
+- **Les portes rejouées** sur une copie propre du HEAD :
+  - `tsc` : 13 erreurs ;
+  - build : bon ;
+  - smoke : 6 pages sur 6 ;
+  - `hw:test` : 17 et 11 tests ; `presets:test` : 5 ; `exports-check` : identique ;
+  - `docs:midi` : 892 cibles, seule la date de génération change ;
+  - firmware : `stamp` puis `check`, toujours V.5.9 ;
+  - identité : 20 sur 20, écart au plus 4,5e-7 ;
+  - `rytm-16` : bon, toutes les parties ; le motif dense à 16 pistes est à 8,5 ;
+  - fixtures et retour arrière vers V.5.3 : sans perte.
+- **Fichiers** : `audio/drums.ts`, `audio/clock.ts`, `audio/tracks.ts`, `audio/pattern.ts`, `state/presets.ts`, `state/presetBpm.ts`, `state/tempoSync.ts`, `actions/face.ts` (2 lignes), `scripts/rytm-16.mjs`, `scripts/presets-bpm.test.mjs`, `src/v4/firmware.json` (empreinte reposée, toujours V.5.9).
