@@ -35,7 +35,7 @@ export const RAW_V60 = {
   'key:tempo': {
     section: 'KEYS',
     title: 'TEMPO',
-    text: "Le menu TEMPO, comme sur une Digitakt : le potard A règle le BPM (LEVEL/DATA aussi ; UP et DOWN d'un BPM, avec FUNC de quatre), D le SWING. FUNC + TEMPO : TAP, tape en rythme, le tempo suit après quatre tapes. Le dixième de BPM et le métronome (E à H) arrivent en V.6.1.",
+    text: "Le menu TEMPO, comme sur une Digitakt : le potard A règle le BPM, de 30 à 300 (LEVEL/DATA aussi ; UP et DOWN d'un BPM, avec FUNC de quatre), B FINE son dixième, D le SWING, de 50 à 80 %. FUNC + TEMPO : TAP, tape en rythme, le tempo suit après quatre tapes. Le métronome (E à H) arrive en V.6.1.",
     key: 'Y',
   },
   'key:kbd': {
@@ -82,7 +82,7 @@ export const RAW_V60 = {
   'menu:tempo': {
     section: 'SCREEN',
     title: 'TEMPO',
-    text: "La page TEMPO : A le BPM, D le SWING, sur leurs potards ; LEVEL/DATA et UP, DOWN règlent aussi le BPM. FINE (le dixième), METRO, SIG., PREROLL et VOL sont dessinés à peine : ils arrivent en V.6.1. NO ferme.",
+    text: "La page TEMPO : A le BPM, de 30 à 300 ; B FINE, son dixième (45,7 BPM) ; D le SWING, de 50 à 80 %. LEVEL/DATA et UP, DOWN règlent aussi le BPM (avec FUNC, de quatre). METRO, SIG., PREROLL et VOL sont dessinés à peine : le métronome arrive en V.6.1. NO ferme.",
   },
   'menu:quantize': {
     section: 'SCREEN',
@@ -185,7 +185,7 @@ export const RAW_V60 = {
   trklev: {
     section: 'MIXER',
     title: 'TRK LEV',
-    text: "Le niveau de la piste dans le mix, comme sur une Digitakt : LEVEL/DATA sur une page, A à H sur les pages INTERNAL du MIXER. 0 dB vers les deux tiers, il ne se verrouille pas sur un pas (AMP VOL, lui, se verrouille).",
+    text: "Le niveau de la piste dans le mix, comme sur une Digitakt : LEVEL/DATA sur une page, A à H sur les pages INTERNAL du MIXER. 0 dB vers les quatre cinquièmes (102), il ne se verrouille pas sur un pas (AMP VOL, lui, se verrouille).",
     lock: 'no',
   },
 } satisfies Partial<Record<RytmInfoId, Raw>>;
