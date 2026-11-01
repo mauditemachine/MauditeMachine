@@ -14,6 +14,10 @@
 
 import { RYTM_FACEPLATE } from './faceplate';
 import type { Inst, KeyLitTone } from '../theme';
+import type { TrackKey } from '../audio/tracks';
+
+/** V.6.0 (la face DT2, lane B4) : les 16 pistes sur les 16 TRIG (n16) ; sans, les 8 voix d'avant sur les pas 1 a 8. */
+const KEYS16: readonly TrackKey[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'];
 
 export interface TrkLed {
   /** la couleur sRGB d'affichage du pas (rytm/faceplate.ts steps.trkColor, la meme pour les huit) ; '' : eteint */
@@ -26,7 +30,7 @@ export interface TrkLed {
    */
   readonly bar: 'mute' | 'solo' | null;
   /** la voix du pas (null : 9 a 16) */
-  readonly inst: Inst | null;
+  readonly inst: TrackKey | null;
   /** V.5.0 : la teinte du pas a l'ecran (theme.ts KEY_LIT) ; absente : celle des pas (STEP_TONE) */
   readonly tone?: KeyLitTone;
 }
@@ -50,8 +54,8 @@ export interface DtLedColors {
  * Les seize pas en vue TRK : cur la voix choisie, muted et solo les voix coupees et en solo ; dt (V.5.0, le desktop) : le
  * rouge de la Digitakt et la barre verte des voix qui jouent ; pmuted : les voix coupees par le pattern (V.5.0).
  */
-export function trkLeds(cur: Inst | null, muted: readonly Inst[], solo: readonly Inst[], lv: TrkLevels, dt?: DtLedColors, pmuted: readonly Inst[] = []): TrkLed[] {
-  const voices = RYTM_FACEPLATE.steps.voices as readonly Inst[];
+export function trkLeds(cur: TrackKey | null, muted: readonly TrackKey[], solo: readonly TrackKey[], lv: TrkLevels, dt?: DtLedColors, pmuted: readonly TrackKey[] = [], n16 = false): TrkLed[] {
+  const voices: readonly TrackKey[] = n16 ? KEYS16 : (RYTM_FACEPLATE.steps.voices as readonly Inst[]);
   const out: TrkLed[] = [];
   const anyCut = muted.length > 0 || pmuted.length > 0 || solo.length > 0;
   for (let i = 0; i < 16; i += 1) {
@@ -79,8 +83,8 @@ export function trkLeds(cur: Inst | null, muted: readonly Inst[], solo: readonly
  * (muted, les mutes de la machine) ; pattern, en magenta (pmuted, ceux du pattern) ; une voix en solo en blanc, pleine.
  * Les pas 9 a 16 : eteints.
  */
-export function muteLeds(kind: 'global' | 'pattern', muted: readonly Inst[], pmuted: readonly Inst[], solo: readonly Inst[], dt: DtLedColors): TrkLed[] {
-  const voices = RYTM_FACEPLATE.steps.voices as readonly Inst[];
+export function muteLeds(kind: 'global' | 'pattern', muted: readonly TrackKey[], pmuted: readonly TrackKey[], solo: readonly TrackKey[], dt: DtLedColors, n16 = false): TrkLed[] {
+  const voices: readonly TrackKey[] = n16 ? KEYS16 : (RYTM_FACEPLATE.steps.voices as readonly Inst[]);
   const out: TrkLed[] = [];
   for (let i = 0; i < 16; i += 1) {
     const inst = i < voices.length ? voices[i] : null;

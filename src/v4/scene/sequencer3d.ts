@@ -65,6 +65,7 @@ import { BTN_LED, COLOR, DT_FACE, DT_HEX, FACE_KEY, HOVER_LIGHT, INK, KEYS, KEY_
 import { keyCapGeometry } from './keyCap';
 import { RYTM_FACEPLATE } from '../rytm/faceplate';
 import type { TrkLed } from '../rytm/stepLeds';
+import type { TrackKey } from '../audio/tracks';
 import type { HotspotDef } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { withInstanceEmissive } from './materials';
@@ -196,7 +197,7 @@ export interface SequencerInfo {
   trkFlash: number[];
   trkHits: number;
   /** en vue TRK : la voix et l'intensite de chaque pas ('' et 0 : eteint), sa barre */
-  trkLeds: { inst: Inst | null; level: number; bar: 'mute' | 'solo' | null }[] | null;
+  trkLeds: { inst: TrackKey | null; level: number; bar: 'mute' | 'solo' | null }[] | null;
   run: boolean;
   /** eclat du temoin de chaque bouton (0 a 1) : RUN, CLEAR, MUTE, SOLO, RANDOM */
   buttonLeds: number[];
@@ -217,7 +218,7 @@ export interface SequencerInfo {
   programmed: string;
   /** V.5.0 : la teinte de chaque pas (KEY_LIT : dred les coups, dwhite un pattern plein, dgreen et dmagenta le mode MUTE) */
   tones: KeyLitTone[];
-  instrument: Inst | null;
+  instrument: TrackKey | null;
 }
 
 export class Sequencer3D {
@@ -269,7 +270,7 @@ export class Sequencer3D {
   /** teinte propre de chaque bouton (l'appui la tire vers PRESS_TINT en mode clair) */
   private btnColor = new Float32Array(BUTTON_COUNT * 3);
   private steps: Steps | null = null;
-  private instrument: Inst | null = null;
+  private instrument: TrackKey | null = null;
   private hover = -1;
   /** le bouton du transport sous la souris (son rang, 0 RUN), -1 aucun (2026-10-22) */
   private btnHover = -1;
@@ -868,7 +869,7 @@ export class Sequencer3D {
   }
 
   /** Motif et instrument selectionne (store pattern.ts) ; true s'il faut une frame. */
-  setPattern(steps: Steps, instrument: Inst | null): boolean {
+  setPattern(steps: Steps, instrument: TrackKey | null): boolean {
     this.steps = steps;
     this.instrument = instrument;
     return this.refresh();

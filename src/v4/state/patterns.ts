@@ -29,7 +29,7 @@ import { anyLocks, cleanLocks, sameLocks, type Locks } from '../audio/locks';
 import { INSTRUMENTS, STEP_COUNT, cleanPmutes, extraRows, pattern, type Steps } from '../audio/pattern';
 import { TRACK_KEYS } from '../audio/tracks';
 import { anyTrigs, cleanTrigs, sameTrigs, type TrigSet } from '../audio/trig';
-import { DT_FACE, type Inst } from '../theme';
+import { DT2_FACE, DT_FACE, type Inst } from '../theme';
 import { NO_SCENES, anyScenes, cleanScenes, sameScenes, toStored, type SceneSet } from '../rytm/sceneData';
 
 export const PATTERN_SLOTS = 128;
@@ -443,6 +443,8 @@ export function bankGrid(b: number, s: PatternsState = state): { cur: number; ne
  */
 export function banksGrid(s: PatternsState = state): { cur: number; next: number; chain: number[]; filled: boolean[] } {
   const cur = bankOf(s.cur);
+  // La face DT2 (V.6.0, la lane B4, cahier dt2 3.3) : les banques A a H sont sur les TRIG 9 a 16
+  if (DT2_FACE) return { cur: cur + 8, next: s.bank !== cur ? s.bank + 8 : -1, chain: [], filled: Array.from({ length: BANK_SIZE }, (_, k) => k >= 8 && k - 8 < BANKS && patterns.bankFilled(k - 8)) };
   return { cur, next: s.bank !== cur ? s.bank : -1, chain: [], filled: Array.from({ length: BANK_SIZE }, (_, k) => k < BANKS && patterns.bankFilled(k)) };
 }
 
