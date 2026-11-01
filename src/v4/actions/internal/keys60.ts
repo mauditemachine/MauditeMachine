@@ -516,12 +516,17 @@ export function ptnSlotOp(op: 'copy' | 'paste' | 'clear'): boolean {
     }
     part = JSON.parse(JSON.stringify(c.data)) as typeof part;
   }
-  undo.boundary('mm808', 'step');
   if (cur) {
+    undo.boundary('mm808', 'step');
     const steps = (part.steps ?? emptySteps()) as Steps;
     pattern.replace(steps, (part.locks ?? {}) as never);
     pattern.setTrigs((part.trigs ?? null) as never);
-  } else patterns.restoreSlot(slot, part);
+  } else {
+    // Un autre emplacement (la relecture de la V.6.0) : la signature d'UNDO ne voit que le motif courant, l'etape est posee
+    // a part et ne rend que cet emplacement
+    undo.slotOp('mm808', slot);
+    patterns.restoreSlot(slot, part);
+  }
   lcdMessage.show(op === 'paste' ? `PATTERN PASTED ON ${slotName(slot)}` : `PATTERN ${slotName(slot)} CLEARED`);
   return true;
 }
