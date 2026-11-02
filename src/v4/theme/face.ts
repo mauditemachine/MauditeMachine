@@ -463,8 +463,8 @@ const DT2_SILK_TEXTS = (): SilkText[] => {
     const c = rectCenter(b.rect);
     out.push({ text: b.alt, x: c.x, z: fpZ(b.rect.y + b.rect.h + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(A.w), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   }
-  const K = DT2.silk.kbOct;
-  out.push({ text: K.text, x: fpX(K.x), z: fpZ(K.cy), cap: fpU(K.cap), maxW: fpU(K.w), align: 'left', group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  // Le mot OPEN en orange sous le logo M (2026-11-02, Mika : "et je vois plus le bouton OPEN") ; plus de KB OCT a droite de UP
+  out.push({ text: 'OPEN', x: fpX(19), z: fpZ(74), cap: fpU(1.3), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   const T = DT2.silk.trackMute;
   out.push({ text: T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   return out;

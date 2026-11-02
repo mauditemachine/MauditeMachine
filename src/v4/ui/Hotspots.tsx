@@ -1283,8 +1283,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return false;
       }
       // TRK, SCENE A ou B tenue (2026-10-27) : le doigt ou la souris qui la tient ne fait pas tourner la vue
-      // YES tenue pour FILL (V.5.1) de meme
-      if (d && (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'func' || (d.kind === 'yes' && !!d.yesSrc))) return false;
+      // YES tenue pour FILL (V.5.1) de meme ; les touches de page et de transport de la face desktop aussi (2026-11-02)
+      if (d && (d.kind === 'trk' || d.kind === 'scene' || d.kind === 'func' || (d.kind === 'yes' && !!d.yesSrc) || (DT_FACE && (d.kind === 'pkey' || d.kind === 'edit' || d.kind === 'run' || d.kind === 'stop' || d.kind === 'rec' || d.kind === 'no' || d.kind === 'open')))) return false;
       // La face DT2 (V.6.0) : une touche nouvelle tenue ne fait pas tourner la vue ; LEVEL/DATA glisse : ses crans
       if (d && d.faceKey) return false;
       if (d && DT2_FACE && d.kind === 'data') {
@@ -1507,7 +1507,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // FUNC (V.5.0, 2026-10-29) : enfoncee, ce pointeur la tient (une tape la garde pour la touche suivante, deux tapes la
       // gardent) ; ni orbite ni pincement. INFOS allume, au doigt : la carte seulement
-      // Une touche de page tenue (V.5.0) : armee pour YES et NO tant qu'on la tient
+      // Une touche de page tenue (V.5.0) : armee pour YES et NO tant qu'on la tient ; ni orbite ni pincement
+      if (DT_FACE && h && (h.kind === 'pkey' || h.kind === 'edit' || h.kind === 'run' || h.kind === 'stop' || h.kind === 'open')) stage.orbit.claim(e.pointerId);
       if (DT_FACE && h && h.kind === 'pkey' && h.rpage && !h.id.startsWith('lcd-tab-')) pageKeyHold(h.rpage, true);
       if (h && h.kind === 'func') {
         stage.orbit.claim(e.pointerId);
@@ -1980,7 +1981,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         if (tap && lcdSamples.isOpen() && !(DT2_FACE && dtFace.menu() === 'sounds') && d.kind !== 'sbrowse' && d.kind !== 'pad' && !padStep && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
-        if (tap && d.id !== null) {
+        const btnSame = DT_FACE && d.id !== null && !stage.orbit.dragging && !d.multi && !d.velDrag && (d.kind === 'pkey' || d.kind === 'edit' || d.kind === 'run' || d.kind === 'stop' || d.kind === 'rec' || d.kind === 'no' || d.kind === 'yes' || d.kind === 'open');
+        if ((tap && d.id !== null) || btnSame) {
           // Relache sur le meme objet : il part
           if (pickAt(e, isCoarse(e))?.id === d.id) fired = fire(d);
         } else if (other && other !== focus.machine()) {

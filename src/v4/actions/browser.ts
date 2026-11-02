@@ -149,11 +149,23 @@ const browserCenterTop = (i: number, len: number): number => browserClampTop(i -
 /** La touche SOUNDS de la face DT2 (V.6.0) : la liste reste ouverte meme si PTN est allume ou si le focus suit le clic. */
 const inSoundsMenu = (): boolean => DT2_FACE && dtFace.menu() === 'sounds';
 
+/** La voix du navigateur : celle du motif, sinon sur la face DT2 la piste 1 a 8 active, sinon BD. */
+function browserVoice(): Inst | null {
+  const p = pattern.get().instrument;
+  if (p) return p;
+  if (DT2_FACE) {
+    const t = activeTrack.get();
+    if (t && isLegacyTrack(t)) return t;
+    return 'BD';
+  }
+  return null;
+}
+
 /** Le navigateur ouvert, tel que l'ecran le dessine ; null ferme (ou EDIT, les presets, pas de voix : ils ont l'ecran). */
 export function soundBrowserView(): SoundBrowserView | null {
   const st = lcdSamples.get();
   if (!st.open) return null;
-  const inst = pattern.get().instrument;
+  const inst = browserVoice();
   if (!inst || (!inSoundsMenu() && (editor.get() === 'mm808' || presetMode.on('mm808')))) return null;
   const lock = browserLockStep();
   const list = voiceSounds(inst, lock >= 0);
@@ -191,12 +203,12 @@ let browserInst: Inst | null = null;
  */
 function watchBrowser(): void {
   browserKeyAt = browserCloseKey();
-  browserInst = pattern.get().instrument;
+  browserInst = browserVoice();
   if (browserWatched) return;
   browserWatched = true;
   const check = (): void => {
     if (!lcdSamples.isOpen()) return;
-    const inst = pattern.get().instrument;
+    const inst = browserVoice();
     if (inSoundsMenu() && inst) {
       browserKeyAt = browserCloseKey();
     } else if (browserCloseKey() !== browserKeyAt || !inst || editor.get() === 'mm808' || presetMode.on('mm808')) {
@@ -221,11 +233,12 @@ function watchBrowser(): void {
  * repos repart. focusList : le clavier le prend (Entree sur le bloc SOUND). false : pas de voix, EDIT ou les presets.
  */
 export function soundBrowserOpen(focusList = false): boolean {
-  const inst = pattern.get().instrument;
+  const inst = browserVoice();
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
+  if (!pattern.get().instrument && DT2_FACE && !activeHi()) pattern.select(inst);
   if (!inSoundsMenu() && (editor.get() === 'mm808' || presetMode.on('mm808'))) return false;
   watchBrowser();
   if (lcdSamples.isOpen()) {
@@ -498,7 +511,7 @@ let fileInput: HTMLInputElement | null = null;
  * voix. fromList : choisi depuis le navigateur (en P-LOCK, le premier verrouille le pas). Une piste 9 a 16 (la face DT2,
  * relecture de la V.6.0) : ils entrent dans sa categorie, le premier devient son sample.
  */
-export function soundFilesPick(inst: TrackKey | null = pattern.get().instrument, fromList = false): void {
+export function soundFilesPick(inst: TrackKey | null = pattern.get().instrument ?? (DT2_FACE ? (activeTrack.get() ?? 'BD') : null), fromList = false): void {
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
     return;

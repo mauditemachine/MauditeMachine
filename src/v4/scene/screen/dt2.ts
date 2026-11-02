@@ -157,6 +157,7 @@ function paintHead(screen: Screen, title: string, cur: number, waiting: boolean,
   if (dtFace.live()) pills.push('LIVE');
   if (lockStep >= 0) pills.push('LOCK');
   if (dtFace.bank()) pills.push('BANK');
+  if (dtFace.keyboard()) pills.push('KBD');
   let px = H.pills[0];
   const drawn: string[] = [];
   for (const p of pills) {

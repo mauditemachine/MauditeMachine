@@ -1569,7 +1569,7 @@ html:has(body.v4-active) {
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page {
   grid-template-columns: 48px minmax(0, 1fr) auto;
   min-height: 0;
-  padding: clamp(10px, 1.8vh, 18px) 4px;
+  padding: clamp(8px, 1.4vh, 15px) 4px;
 }
 
 .v4-mmenu[data-variant='desk'] .v4-mm-num {
@@ -5083,9 +5083,20 @@ html:has(body.v4-active.v4-light) {
   background: rgba(246, 241, 231, 0.28);
 }
 
-.v4-ver-btn[aria-pressed='true'] .v4-ver-led {
+.v4-ver-btn[aria-pressed='true'] .v4-ver-led,
+.v4-ver-led-hot {
   background: var(--orange);
   box-shadow: 0 0 6px var(--orange);
+}
+
+.v4-ver-open {
+  border-color: var(--orange);
+  color: #ffffff;
+}
+
+.v4-ver-sample {
+  border-color: rgba(255, 106, 34, 0.55);
+  color: #f6f1e7;
 }
 
 .v4-root[data-v4-motion='reduced'] .v4-ver-bar {

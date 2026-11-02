@@ -466,8 +466,8 @@ export class Screen {
       this.blinkUntil = now + BLINK_MS;
     }
     this.stepHits(now);
-    // La face DT2 (V.6.0, ?face=dt2) : son gabarit (scene/screen/dt2.ts), HOME n'y existe plus ; EDIT garde son dessin
-    if (DT2_FACE && !rytmEdit) return this.paintDt2Frame(s, now);
+    // La face DT2 (V.6.0, ?face=dt2) : son gabarit (scene/screen/dt2.ts), HOME n'y existe plus ; EDIT garde son dessin hors menu ouvert
+    if (DT2_FACE && (!rytmEdit || dtFace.menu() !== null)) return this.paintDt2Frame(s, now);
     // La vague du repos (desktop, la machine regardee, rien ne joue ni ne s'affiche ; jamais sur la page)
     const quiet = !clock.running && sc.get().status !== 'playing' && !s.l3 && !s.mix && !sb && !s.keys;
     if (!paged && !this.mobile && quiet && focus.get() === 'mm808' && now - this.activeAt > IDLE_MS) {

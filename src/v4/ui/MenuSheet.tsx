@@ -33,7 +33,7 @@ import { section } from '../state/section';
 import { AMark } from './AMark';
 import { AppearanceToggle } from './AppearanceToggle';
 import { ExternalLink } from './ExternalLink';
-import { HOOD_LINKS, PAGE_LINKS, openHood } from './Header';
+import { HOOD_LINKS, PAGE_LINKS, goHome, openHood } from './Header';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
 import { boot } from '../state/boot';
 import { BandcampIcon, SOCIAL_ICONS } from './icons';
@@ -122,10 +122,13 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
     };
   }, []);
 
-  // Ouvert : le focus sur la premiere page (l'interrupteur est juste avant, Maj+Tab), Echap le ferme
+  const didMount = useRef(false);
+  // Ouvert : le focus sur la premiere page (sauf a l'arrivee initiale pour eviter le cadre jaune), Echap le ferme
   useEffect(() => {
+    const first = !didMount.current;
+    didMount.current = true;
     if (!open) return undefined;
-    ref.current?.querySelector<HTMLElement>('.v4-mm-page')?.focus({ preventScroll: true });
+    if (!first) ref.current?.querySelector<HTMLElement>('.v4-mm-page')?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return;
       e.stopPropagation();
@@ -151,24 +154,27 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
         <AppearanceToggle />
       </div>
       <ol className="v4-mm-pages">
-        {PAGE_LINKS.map((l, i) => (
-          <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties}>
-            <button
-              type="button"
-              className="v4-mm-page"
-              data-active={opened === l.id ? '1' : '0'}
-              aria-expanded={opened === l.id}
-              aria-controls={`v4-section-${l.id}`}
-              onClick={pick(() => page(l.id, getStage()))}
-            >
-              <span className="v4-mm-num" aria-hidden="true">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <span className="v4-mm-label">{l.label}</span>
-              <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
-            </button>
-          </li>
-        ))}
+        {PAGE_LINKS.map((l, i) => {
+          const isStudio = l.id === 'mmstudio';
+          return (
+            <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties}>
+              <button
+                type="button"
+                className="v4-mm-page"
+                data-active={!isStudio && opened === l.id ? '1' : '0'}
+                aria-expanded={!isStudio ? opened === l.id : undefined}
+                aria-controls={!isStudio ? `v4-section-${l.id}` : undefined}
+                onClick={pick(() => (isStudio ? goHome(getStage()) : page(l.id, getStage())))}
+              >
+                <span className="v4-mm-num" aria-hidden="true">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className="v4-mm-label">{l.label}</span>
+                <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
+              </button>
+            </li>
+          );
+        })}
       </ol>
       <div className="v4-mm-about" style={{ '--i': n + 1 } as React.CSSProperties}>
         <p className="v4-mm-kicker">{MENU_ABOUT.kicker}</p>

@@ -66,7 +66,7 @@ function paintSounds(screen: Screen): number {
     return 0;
   }
   let v = soundBrowserView();
-  if (!v && screenTrack()) {
+  if (!v) {
     soundBrowserOpen(true);
     v = soundBrowserView();
   }
@@ -80,7 +80,7 @@ function paintSounds(screen: Screen): number {
   const rows: MenuRow[] = v.rows.map((r, i) => ({ label: `${i === v.arm ? 'REMOVE? ' : ''}${r.label}`, value: i === v.cur ? 'NOW' : r.tag }));
   const top = scrollTop(v.top, v.cursor, rows.length, 8);
   soundsBody = `${v.title}|${paintList(screen, rows, v.cursor, top, { x0: 4, x1: 316, y0: 41, y1: 170 })}`;
-  paintHint(screen, 'UP/DOWN: SOUND   YES: CHOOSE   L/R: PREV NEXT   NO: EXIT');
+  paintHint(screen, 'UP/DOWN: SOUND   YES: PICK   FUNC+SOUNDS: +SAMPLE   NO: EXIT');
   return 0;
 }
 
@@ -95,6 +95,7 @@ registerScreenMenu({
   onOpen() {
     hiCursor = -1;
     hiTop = -1;
+    if (!activeTrack.get()) activeTrack.set('BD');
     if (!release) release = lcdSamples.hold();
     if (!lcdSamples.isOpen() && !hiView()) soundBrowserOpen(true);
   },

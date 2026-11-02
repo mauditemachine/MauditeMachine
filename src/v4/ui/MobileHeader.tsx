@@ -10,7 +10,7 @@
 import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
-import { ShareButton, UndoButton, goHome } from './Header';
+import { ShareButton, UndoButton, goHome, initialMenuOpen } from './Header';
 import { MenuSheet } from './MenuSheet';
 
 interface Props {
@@ -18,7 +18,7 @@ interface Props {
 }
 
 export const MobileHeader: React.FC<Props> = ({ getStage }) => {
-  const [menu, setMenu] = useState(false);
+  const [menu, setMenu] = useState(initialMenuOpen);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const burgerRef = useRef<HTMLButtonElement>(null);
 

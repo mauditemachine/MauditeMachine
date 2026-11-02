@@ -51,6 +51,7 @@ import {
   pageFillAll,
   pageFillUp,
   paste60,
+  ptnPageTap,
   srcKind,
   srcSet,
   stageSet,
@@ -941,10 +942,14 @@ export function faceKeyUp(id: Dt2ButtonId, src = 'at', stage: Stage | null = nul
     case 'right':
       dispatch(id, 'release', sk, 0, t);
       return;
-    case 'ptnpage':
+    case 'ptnpage': {
+      const s = gestureLayer.state('ptnpage');
+      const used = s.used;
       gestureLayer.up('ptnpage', src, tap ? t : -1);
-      pageFillUp(src);
+      const heldFill = pageFillUp(src);
+      if (tap && !heldFill && !used) ptnPageTap();
       return;
+    }
     default:
       return;
   }
@@ -1041,7 +1046,7 @@ export function dt2FaceSync(stage: Stage): () => void {
     if (fk.setKeyboard(dtFace.keyboard())) ch = true;
     const sg = dtFace.song();
     if (fk.setSong(sg === 'mode' ? 'song' : sg)) ch = true;
-    if (fk.setPatternPages(Math.ceil(STEP_COUNT / 16), dtFace.ptnPage(), -1)) ch = true;
+    if (fk.setPatternPages(4, dtFace.ptnPage(), -1)) ch = true;
     const lk = rytmLock.get();
     if (fk.setPageLocks(dtFace.rec() && lk.step >= 0 ? lockPages(lk.step).map((pg) => pg.toLowerCase()) : [])) ch = true;
     // PERSONALIZE (relecture de la V.6.0, la lane ecran) : LED INTENSITY et LED BACKLIGHT sur la lueur de la face

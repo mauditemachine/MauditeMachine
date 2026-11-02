@@ -13,14 +13,16 @@
  */
 
 import React, { useSyncExternalStore } from 'react';
-import { hoodMachine, hoodOf, openToggle } from '../actions';
+import { hoodMachine, hoodOf, openToggle, soundFilesPick } from '../actions';
+import { pattern } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import { RYTM_CLOSE_KEY } from '../scene/rytmTweaks';
 import { bassExplode, explode, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
+import { activeTrack } from '../state/trk';
 import { VOY_CLOSE_KEY } from '../voyager/theme';
 import { BASS_CLOSE_KEY } from '../bass/theme';
-import { RYTM_FACE_VER, RYTM_VERSIONS, type RytmFaceVer } from '../theme/base';
+import { PORTRAIT, RYTM_FACE_VER, RYTM_VERSIONS, type RytmFaceVer } from '../theme/base';
 import { MachineKey } from './MachineKey';
 
 interface Props {
@@ -30,6 +32,7 @@ interface Props {
 /** Choisir une version du MM-RYTM (V.1.0 a V.6.0) : ?face=v1..v6 dans l'URL et rechargement complet. */
 export function pickRytmVersion(v: RytmFaceVer): void {
   const url = new URL(window.location.href);
+  url.searchParams.set('m', 'mm808');
   if (v === '6.0') url.searchParams.delete('face');
   else url.searchParams.set('face', `v${v[0]}`);
   if (url.href === window.location.href) window.location.reload();
@@ -42,24 +45,45 @@ export const HoodClose: React.FC<Props> = ({ getStage }) => {
   useSyncExternalStore(bassExplode.subscribe, bassExplode.get, bassExplode.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const m = hoodMachine();
-  if ((f !== 'mm808' && f !== 'voy' && f !== 'bass') || hoodOf(m).get() !== 'open') return null;
+  const state = hoodOf(m).get();
+  const isOpen = state === 'open';
+  if (f !== 'mm808' && f !== 'voy' && f !== 'bass') return null;
+  if (!isOpen && (f !== 'mm808' || PORTRAIT)) return null;
   return (
     <>
-      <MachineKey
-        key={m}
-        getStage={getStage}
-        layer={(st) => (m === 'voy' ? st.voy?.tweaks.top : m === 'bass' ? st.bass?.tweaks.top : st.rytmTweaks.top)}
-        spot={m === 'voy' ? VOY_CLOSE_KEY : m === 'bass' ? BASS_CLOSE_KEY : RYTM_CLOSE_KEY}
-        className="v4-close-key"
-        label="Close the machine"
-        onClick={() => openToggle(getStage(), m)}
-      >
-        <span className="v4-close-led" aria-hidden="true" />
-        CLOSE
-      </MachineKey>
+      {isOpen && (
+        <MachineKey
+          key={m}
+          getStage={getStage}
+          layer={(st) => (m === 'voy' ? st.voy?.tweaks.top : m === 'bass' ? st.bass?.tweaks.top : st.rytmTweaks.top)}
+          spot={m === 'voy' ? VOY_CLOSE_KEY : m === 'bass' ? BASS_CLOSE_KEY : RYTM_CLOSE_KEY}
+          className="v4-close-key"
+          label="Close the machine"
+          onClick={() => openToggle(getStage(), m)}
+        >
+          <span className="v4-close-led" aria-hidden="true" />
+          CLOSE
+        </MachineKey>
+      )}
       {m === 'mm808' && (
-        <div className="v4-ver-bar" role="group" aria-label="MM-RYTM version">
-          <span className="v4-ver-title">MM-RYTM VERSION</span>
+        <div className="v4-ver-bar" role="group" aria-label="MM-RYTM controls and versions">
+          <button
+            type="button"
+            className="v4-ver-btn v4-ver-open"
+            aria-pressed={isOpen}
+            onClick={() => openToggle(getStage(), 'mm808')}
+          >
+            <span className="v4-ver-led v4-ver-led-hot" aria-hidden="true" />
+            {isOpen ? 'CLOSE' : 'OPEN'}
+          </button>
+          <button
+            type="button"
+            className="v4-ver-btn v4-ver-sample"
+            onClick={() => soundFilesPick(activeTrack.get() ?? pattern.get().instrument ?? 'BD', false)}
+          >
+            + SAMPLE
+          </button>
+          <span className="v4-ver-title">VERSION</span>
           <div className="v4-ver-list">
             {RYTM_VERSIONS.map((v) => (
               <button

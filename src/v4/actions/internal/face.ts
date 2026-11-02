@@ -85,7 +85,8 @@ export function dtPageKeyFirst(id: RytmPageId, stage: Stage | null): boolean {
       return true;
     }
     if (id === 'fltr' || id === 'env') {
-      soon('6.1');
+      if (dtFace.menu()) menuSet(null);
+      pageKeyBody(id, stage);
       return true;
     }
     if (dtFace.menu()) menuSet(null);

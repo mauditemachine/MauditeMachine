@@ -369,6 +369,26 @@ export function trigSolo(i: number, stage: Stage | null): void {
 /** La piste a-t-elle un son qui sort (ni coupee ni dans le mute du pattern) ? */
 const audible = (k: TrackKey): boolean => !voices.isMuted(k) && !(isLegacy(k) && pattern.pmuted(k));
 
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
+let kbdOct = 0;
+function kbdNoteName(semi: number): string {
+  const midi = Math.max(0, Math.min(127, 60 + semi));
+  return `${NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
+}
+
+/** KEYBOARD (2026-11-02, Mika : "Keyboard non plus..") : active ou coupe le jeu chromatique sur TRIG 1 a 16. */
+export function kbdToggle(): void {
+  const on = !dtFace.keyboard();
+  dtFace.setKeyboard(on);
+  lcdMessage.show(on ? 'KEYBOARD ON · TRIG 1-16 PLAY NOTES' : 'KEYBOARD OFF', 1400);
+}
+
+/** Octave du mode KEYBOARD (-2 a +2). */
+export function kbdOctStep(dir: -1 | 1): void {
+  kbdOct = Math.max(-2, Math.min(2, kbdOct + dir));
+  lcdMessage.show(`KEYBOARD OCTAVE ${kbdOct >= 0 ? `+${kbdOct}` : kbdOct}`, 1100);
+}
+
 /**
  * Un TRIG hors REC (cahier 5.1 : TRIG 1-16 jouent les pistes) : selon TRK SELECT (PERSONALIZE, state/dtFace.ts), la piste n
  * sonne (meme en lecture) et devient la piste active (normal, le comportement d'avant) ; silent et inverted : elle est
@@ -379,6 +399,20 @@ export function trigPlay(i: number, stage: Stage | null, ts = -1): void {
   stage?.pressStep(i);
   const k = trackAt(i);
   if (!k) return;
+  // Mode KEYBOARD actif : TRIG 1 a 16 jouent la piste active en chromatique (-7 a +8 demi-tons + octave)
+  if (dtFace.keyboard()) {
+    const tk = activeTrack.get() ?? 'BD';
+    const semi = Math.max(-24, Math.min(24, i - 7 + kbdOct * 12));
+    const tune = Math.max(-1, Math.min(1, semi / 24));
+    const n = isLegacy(tk) ? rytmPage.tapVel(tk) : TAP_VEL_DEFAULT;
+    if (rytmLock.get().step >= 0) {
+      pattern.setLock(tk, rytmLock.targets(), 'tune', tune);
+      rytmLock.wrote();
+    }
+    if (audible(tk)) trigger(tk, undefined, false, undefined, VEL_GAIN[n] ?? 1, { tune });
+    lcdMessage.show(`${trackName(tk)} NOTE ${kbdNoteName(semi)} (${semi >= 0 ? '+' : ''}${semi} ST)`, 900);
+    return;
+  }
   // Les modes MUTE et SOLO d'avant (M et Maj + M au clavier, MIDI rytm:mute) : la piste touchee y bascule
   const v = voices.get();
   if (v.soloMode || v.muteMode) {
@@ -774,7 +808,9 @@ export function trackSoundOp(op: 'copy' | 'paste' | 'clear'): void {
 
 /* ---------------- les fleches ---------------- */
 
-/** UP / DOWN sur l'ecran principal (cahier 3.1) : la sous-page d'avant ou d'apres de la page affichee. */
+const MAIN_PAGES: readonly RytmPageId[] = ['trig', 'voice', 'fltr', 'env', 'fx', 'mod'];
+
+/** UP / DOWN sur l'ecran principal (cahier 3.1) : la sous-page d'avant ou d'apres de la page affichee (sinon la page voisine). */
 export function subPage(dir: -1 | 1): void {
   const rp = rytmPage.get();
   const inst = pattern.get().instrument;
@@ -782,13 +818,30 @@ export function subPage(dir: -1 | 1): void {
   if (!isRytmPage(page)) return;
   const tabs = screensOf(page, inst);
   if (tabs.length < 2) {
-    lcdMessage.show('NO SUB PAGE', 700);
+    const idx = Math.max(0, MAIN_PAGES.indexOf(page));
+    const nextPg = MAIN_PAGES[(idx + dir + MAIN_PAGES.length) % MAIN_PAGES.length];
+    rytmPage.setPage(nextPg);
+    const nextTabs = screensOf(nextPg, inst);
+    const sc = rytmPage.screen(inst);
+    lcdMessage.show(nextTabs.length > 1 ? `${(SCREEN_TITLE[sc] ?? sc).toUpperCase()} ${ Math.max(0, nextTabs.indexOf(sc)) + 1}/${nextTabs.length}` : `${(SCREEN_TITLE[sc] ?? sc).toUpperCase()} PAGE`, 900);
     return;
   }
   const cur = Math.max(0, tabs.indexOf(rytmPage.screen(inst)));
   const next = (cur + dir + tabs.length) % tabs.length;
   if (next !== cur) rytmPage.setTab(page, next, inst);
   lcdMessage.show(`${(SCREEN_TITLE[tabs[next]] ?? tabs[next]).toUpperCase()} ${next + 1}/${tabs.length}`, 900);
+}
+
+/** PAGE tapee (2026-11-02, Mika : "PAge aussi ne fait rien quandon touche dessus") : avance la page et les LED de PAGE. */
+export function ptnPageTap(): void {
+  const nextLed = (dtFace.ptnPage() + 1) % 4;
+  dtFace.setPtnPage(nextLed);
+  if (menuOpen()) {
+    menuInput('down', 'down');
+    menuInput('down', 'up');
+    return;
+  }
+  subPage(1);
 }
 
 /** TRIG tenu + LEFT / RIGHT (cahier 3.3, uTIME) : le pas tenu (ses voisins tenus aussi) recule ou avance d'un cran (1/384). */
@@ -845,13 +898,14 @@ export function pageFillDown(src: string): void {
   else h.timer = window.setTimeout(start, PAGE_FILL_MS);
   pageHolds.set(src, h);
 }
-/** PAGE lachee : la tenue de FILL s'arrete (le verrou et un cycle restent). */
-export function pageFillUp(src: string): void {
+/** PAGE lachee : la tenue de FILL s'arrete (le verrou et un cycle restent) ; rend true si FILL avait demarre. */
+export function pageFillUp(src: string): boolean {
   const h = pageHolds.get(src);
-  if (!h) return;
+  if (!h) return false;
   pageHolds.delete(src);
   if (h.timer) window.clearTimeout(h.timer);
   if (h.on) fill.hold(`page:${src}`, false);
+  return h.on;
 }
 /** Toutes les tenues de PAGE s'arretent (la fenetre perd le focus). */
 export function pageFillAll(): void {

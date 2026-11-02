@@ -11,9 +11,11 @@
  */
 
 import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
+import { dtFace } from '../../state/dtFace';
 import { func } from '../../state/func';
 import { fill } from '../../state/fill';
 import type { ModKey } from '../../state/gesture';
+import { lcdSamples } from '../../state/lcdSamples';
 import { trk, trkFresh } from '../../state/trk';
 import { st } from '../state';
 import { lcdMessage } from '../../state/lcdMessage';
@@ -24,6 +26,8 @@ import {
   fillLatch,
   fillUnlatch,
   hint60,
+  kbdOctStep,
+  kbdToggle,
   knobNo,
   knobPressed,
   liveOpen,
@@ -141,7 +145,7 @@ function trigChords(i: number): Chord[] {
     c({ id: `trig${i + 1}.ptn`, key: k, gesture: 'press', mods: [], prio: 69, info, when: () => ptnView(), run: () => patternTap(i, stageNow()) }),
     c({ id: `trig${i + 1}.mute`, key: k, gesture: 'press', mods: [], prio: 68, info, when: () => muteOpen(), run: () => trigMute(i, stageNow()) }),
     c({ id: `trig${i + 1}.live`, key: k, gesture: 'press', mods: [], prio: 67, info, when: () => liveOpen() && trigHeld() < 0, run: (e) => trigPlay(i, stageNow(), e.t) }),
-    c({ id: `trig${i + 1}.rec`, key: k, gesture: 'press', mods: [], prio: 66, info, when: () => recOpen(), run: () => trigWrite(i, stageNow()) }),
+    c({ id: `trig${i + 1}.rec`, key: k, gesture: 'press', mods: [], prio: 66, info, when: () => recOpen() && !dtFace.keyboard(), run: () => trigWrite(i, stageNow()) }),
     c({ id: `trig${i + 1}`, key: k, gesture: 'press', mods: [], prio: 0, info, run: () => trigPlay(i, stageNow()) }),
   ];
 }
@@ -162,14 +166,14 @@ function arrowChords(d: 'up' | 'down' | 'left' | 'right'): Chord[] {
       c({ id: `${d}.func`, key: d, gesture: 'press', mods: ['func'], prio: 90, info: d, version: '6.1', run: () => soon('6.1') }),
       // PTN + LEFT / RIGHT : la banque (cahier 1.4)
       c({ id: `${d}.ptn`, key: d, gesture: 'press', mods: [], prio: 80, info: d, when: () => ptnView() || bankView(), run: () => ptnBankStep(dir as -1 | 1) }),
-      c({ id: d, key: d, gesture: 'press', mods: [], prio: 0, info: d, run: () => void 0 }),
+      c({ id: d, key: d, gesture: 'press', mods: [], prio: 0, info: d, run: () => (dtFace.keyboard() ? kbdOctStep(dir as -1 | 1) : subPage(dir as -1 | 1)) }),
     );
   } else {
     out.push(
       // FUNC + UP / DOWN : TRIG MODE (6.1) ; dans un menu, une page de liste (le menu le prend, func: true)
       c({ id: `${d}.func`, key: d, gesture: 'press', mods: ['func'], prio: 90, info: d, version: '6.1', run: () => soon('6.1') }),
-      // UP / DOWN : la sous-page d'avant ou d'apres (cahier 3.1)
-      c({ id: d, key: d, gesture: 'press', mods: [], prio: 0, info: d, run: () => subPage(dir as -1 | 1) }),
+      // UP / DOWN : la sous-page d'avant ou d'apres (cahier 3.1) ; en mode KEYBOARD, l'octave
+      c({ id: d, key: d, gesture: 'press', mods: [], prio: 0, info: d, run: () => (dtFace.keyboard() ? kbdOctStep(dir < 0 ? 1 : -1) : subPage(dir as -1 | 1)) }),
     );
   }
   return out;
@@ -191,6 +195,8 @@ function pageChords(p: keyof typeof PAGE_OF): Chord[] {
       run: () => {
         // Une touche de page ferme le menu ouvert et montre sa page (la DT2)
         if (menuOpen()) menuSet(null);
+        if (lcdSamples.isOpen()) lcdSamples.close();
+        if (dtFace.bank()) dtFace.setBank(false);
         rytmPageKey(pg, stageNow());
       },
     }),
@@ -266,7 +272,7 @@ export const CHORDS_60: readonly Chord[] = [
   c({ id: 'ptn', key: 'ptn', gesture: 'press', mods: [], prio: 0, info: 'pad-edit', run: (e) => ptnToggle(stageNow(), e.t) }),
 
   /* ---------- PAGE et FILL ---------- */
-  c({ id: 'ptnpage.func', key: 'ptnpage', gesture: 'press', mods: ['func'], prio: 90, info: 'ptnpage', version: '6.1', run: () => soon('6.1') }),
+  c({ id: 'ptnpage.func', key: 'ptnpage', gesture: 'press', mods: ['func'], prio: 90, info: 'ptnpage', run: () => (fill.latched ? fillUnlatch() : fillLatch()) }),
   // PAGE encore, FILL verrouille ou un cycle arme ou en cours : il se leve (1.4 : PAGE encore = fin)
   c({ id: 'ptnpage.unlatch', key: 'ptnpage', gesture: 'press', mods: [], prio: 86, info: 'ptnpage', when: () => fill.latched || fill.cycle !== 'off', run: () => fillUnlatch() }),
   // YES puis PAGE : un cycle
@@ -289,9 +295,9 @@ export const CHORDS_60: readonly Chord[] = [
   ...keyChords('sounds', 'sounds', () => menuToggle('samples'), () => menuToggle('sounds')),
   // SETTINGS : sa tape (au lacher) ouvre le menu ; tenue 1 s, elle garde pour un TRIG (trig.settings)
   ...keyChords('settings', 'settings', () => soon('6.2'), () => menuToggle('settings'), '6.2', '6.0', 'release'),
-  // KEYBOARD et SONG : dessinees, inertes (cahier 5.1)
-  ...keyChords('kbd', 'kbd', () => soon('6.1'), () => soon('6.1'), '6.1', '6.1'),
-  ...keyChords('song', 'song', () => soon('6.2'), () => soon('6.2'), '6.2', '6.2'),
+  // KEYBOARD (2026-11-02, Mika : "Keyboard non plus..") : jeu chromatique sur TRIG 1-16 ; SONG : banques et patterns
+  ...keyChords('kbd', 'kbd', () => kbdToggle(), () => kbdToggle()),
+  ...keyChords('song', 'song', () => ptnBank(stageNow()), () => ptnToggle(stageNow())),
 
   /* ---------- les touches de page ---------- */
   ...PAGE_KEYS.flatMap(pageChords),

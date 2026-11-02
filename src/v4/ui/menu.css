@@ -460,9 +460,9 @@
     aspect-ratio: 4 / 3;
   }
 
-  /* Trois colonnes : les titres des pages un peu moins grands (MIXTAPES tient avec sa fleche) */
+  /* Trois colonnes : les six titres des pages (avec STUDIO apres MIXTAPES) tiennent dans 1440 x 900 */
   .v4-mmenu[data-variant='desk'] .v4-mm-label {
-    font-size: clamp(40px, min(5.2vw, 9.6vh), 88px);
+    font-size: clamp(36px, min(4.8vw, 8.2vh), 76px);
   }
 }
 

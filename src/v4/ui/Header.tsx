@@ -19,22 +19,41 @@ import { appearance } from '../state/appearance';
 import { bassExplode, explode, voyExplode } from '../state/explode';
 import { MACHINES, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { section } from '../state/section';
+import { sectionFromPath } from '../state/sectionRoute';
 import { UNDO_MACHINE_NAME, undo } from '../state/undo';
 import { shareBeat } from '../state/share';
-import { COARSE_QUERY, MOBILE_QUERY, type PageId } from '../theme';
+import { COARSE_QUERY, MOBILE_QUERY, PRESSKIT_ROUTE, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
 import { MidiButton } from './MidiPanel';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
+export type PageLinkId = PageId | 'mmstudio';
 
 /** Les liens du menu, partages avec l'en-tete mobile (ui/MobileHeader.tsx). */
-export const PAGE_LINKS: readonly { id: PageId; label: string }[] = [
+export const PAGE_LINKS: readonly { id: PageLinkId; label: string }[] = [
   { id: 'tracks', label: 'Tracks' },
   { id: 'mixtapes', label: 'Mixtapes' },
+  { id: 'mmstudio', label: 'Studio' },
   { id: 'shows', label: 'Shows' },
   { id: 'press', label: 'Press' },
   { id: 'contact', label: 'Contact' },
 ];
+
+/**
+ * Menu ouvert a l'arrivee sur le site (2026-11-02, Mika : "Quand on arrive sur le site je veux qu'on arrive avec le
+ * menu deploye et la nous pouvons cliquer ensuite dans STUDIO apres mixtapes") : actif sur l'accueil sans section ni
+ * parametre de machine/debug (?m=, ?face=, ?rytmv=, ?b=, ?beat=, ?open=, ?s=, ?debug=).
+ */
+export function initialMenuOpen(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (sectionFromPath(window.location.pathname) !== null) return false;
+  if (PRESSKIT_ROUTE.re.test(window.location.pathname)) return false;
+  const q = new URLSearchParams(window.location.search);
+  for (const k of ['m', 'face', 'rytmv', 'b', 'beat', 'open', 's', 'debug']) {
+    if (q.has(k)) return false;
+  }
+  return true;
+}
 
 export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
   { id: 'goodies', label: 'Goodies' },
@@ -160,13 +179,24 @@ const SHORT: Record<MachineId, { label: string; aria: string }> = {
   dj: { label: 'DECKS', aria: 'MM-DECKS DJ decks and mixer' },
 };
 
-const HeaderMachines: React.FC = () => {
+const HeaderMachines: React.FC<{ onPick?: () => void }> = ({ onPick }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const items: readonly { id: Focus; label: string; aria: string }[] = [{ id: 'all', label: 'STUDIO', aria: 'MM-STUDIO, all the machines' }, ...MACHINES.map((id) => ({ id, ...SHORT[id] }))];
   return (
     <nav className="v4-hmachines" aria-label="Machines">
       {items.map((it) => (
-        <button key={it.id} type="button" className="v4-hmachines-btn" data-all={it.id === 'all' ? '1' : '0'} aria-pressed={f === it.id} aria-label={it.aria} onClick={() => focusMachine(it.id)}>
+        <button
+          key={it.id}
+          type="button"
+          className="v4-hmachines-btn"
+          data-all={it.id === 'all' ? '1' : '0'}
+          aria-pressed={f === it.id}
+          aria-label={it.aria}
+          onClick={() => {
+            onPick?.();
+            focusMachine(it.id);
+          }}
+        >
           {it.label}
         </button>
       ))}
@@ -175,7 +205,7 @@ const HeaderMachines: React.FC = () => {
 };
 
 export const Header: React.FC<Props> = ({ getStage }) => {
-  const [menu, setMenu] = useState(false);
+  const [menu, setMenu] = useState(initialMenuOpen);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -201,7 +231,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
         <ShareButton />
         <UndoButton />
         <MidiButton />
-        {VOYAGER && <HeaderMachines />}
+        {VOYAGER && <HeaderMachines onPick={() => setMenu(false)} />}
         <button
           ref={btnRef}
           type="button"
