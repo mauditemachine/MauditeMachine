@@ -10,7 +10,8 @@ import { bassExplode, chipsLive, explode, voyExplode, type ExplodeStore } from '
 import { bassInfos } from '../state/bassInfos';
 import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
-import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from '../state/focus';
+import { DJ, focus, MACHINES, VOYAGER, type Focus, type MachineId } from '../state/focus';
+import { djLoad } from '../state/djload';
 import { lcdMessage } from '../state/lcdMessage';
 import { lcdSamples } from '../state/lcdSamples';
 import { contactDraft, type ContactTopic } from '../state/contactDraft';
@@ -26,7 +27,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { isRytmPage } from '../rytm/pages';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
-import { BOARD_CHIPS, DT2_FACE, DT_FACE, MOBILE_QUERY, isPage, type ChipId, type Inst, type PageId, type SectionId } from '../theme';
+import { BOARD_CHIPS, DT2_FACE, DT_FACE, MOBILE_QUERY, PORTRAIT, isPage, type ChipId, type Inst, type PageId, type SectionId } from '../theme';
 import { ctlAllUndo } from './ctlall';
 import { muteVoice, selectVoice, soloVoice } from './internal/tracks';
 import { bankViewClose } from './internal/patterns';
@@ -39,6 +40,15 @@ import { funcDrop } from './face';
  */
 export function page(id: PageId, stage: Stage | null): void {
   resume();
+  // TRACKS et MIXTAPES jouent directement dans le MIXER avec les platines (MM-DECKS, demande de Mika 2026-11-02)
+  if ((id === 'tracks' || id === 'mixtapes') && DJ && !PORTRAIT) {
+    section.set(null);
+    focus.set('dj');
+    void djLoad.load();
+    void import('../dj/actions').then((m) => m.djOpenCatalog(id));
+    pressPage(id, stage);
+    return;
+  }
   // CONTACT ouvert directement : l'objet propose est Booking
   if (id === 'contact' && section.get() !== 'contact') contactDraft.set('booking');
   // Arrive par /presskit (2026-10-01) : PRESS rouvre la visionneuse, sur sa section

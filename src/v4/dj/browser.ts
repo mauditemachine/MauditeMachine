@@ -11,10 +11,13 @@
 
 import type { DjDeck } from './theme';
 
+export type DjCatalogTab = 'tracks' | 'mixtapes';
+
 /** true : l'ecran de la platine montre la liste ; absente : la liste si elle est vide. */
 type Browse = Partial<Record<DjDeck, boolean>>;
 
 let state: Browse = {};
+let tabs: Partial<Record<DjDeck, DjCatalogTab>> = {};
 const listeners = new Set<() => void>();
 const set = (d: DjDeck, on: boolean): void => {
   if (state[d] === on) return;
@@ -24,9 +27,16 @@ const set = (d: DjDeck, on: boolean): void => {
 
 export const djBrowser = {
   get: (): Browse => state,
+  tab: (d: DjDeck): DjCatalogTab | null => tabs[d] ?? null,
   /** La liste dans l'ecran de cette platine. */
   open(d: DjDeck): void {
     set(d, true);
+  },
+  /** Ouvre la liste de la platine directement sur l'onglet TRACKS ou MIXTAPES. */
+  openTab(d: DjDeck, t: DjCatalogTab): void {
+    tabs = { ...tabs, [d]: t };
+    state = { ...state, [d]: true };
+    listeners.forEach((fn) => fn());
   },
   /** L'ecran revient au morceau. */
   close(d: DjDeck): void {

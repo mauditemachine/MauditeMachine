@@ -76,7 +76,16 @@ import {
 import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
 import { DeckSampler } from './SamplerScreen';
 import { samplerOf } from '../sampler/sampler';
-import { LICENSE_LABEL, connectSoundcloud, disconnectSoundcloud, mauditeTracks, myTracks, scAccount, searchSoundcloud } from './soundcloud';
+import {
+  CATALOG_MIXTAPES,
+  CATALOG_TRACKS,
+  LICENSE_LABEL,
+  connectSoundcloud,
+  disconnectSoundcloud,
+  myTracks,
+  scAccount,
+  searchSoundcloud,
+} from './soundcloud';
 import { djState, type DjTrack } from './state';
 import { DECK, DJ_BEZEL, DJ_DECKS, UNIT_X, djDecks, type DjDeck } from './theme';
 import './dj.css';
@@ -137,11 +146,19 @@ function childFolders(tracks: readonly DjTrack[], path: string): { name: string;
   return [...out.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, n]) => ({ name, path: prefix + name, n }));
 }
 
-type Tab = 'maudite' | 'soundcloud' | 'mysc' | 'files' | 'lists';
-const TABS: readonly Tab[] = ['maudite', 'soundcloud', 'mysc', 'files', 'lists'];
-const TAB_LABEL: Readonly<Record<Tab, string>> = { maudite: 'MAUDITE', soundcloud: 'SOUNDCLOUD', mysc: 'MY SC', files: 'FILES', lists: 'PLAYLISTS' };
+type Tab = 'tracks' | 'mixtapes' | 'files' | 'lists' | 'soundcloud' | 'mysc';
+const TABS: readonly Tab[] = ['tracks', 'mixtapes', 'files', 'lists', 'soundcloud', 'mysc'];
+const TAB_LABEL: Readonly<Record<Tab, string>> = {
+  tracks: 'TRACKS',
+  mixtapes: 'MIXTAPES',
+  files: 'FILES',
+  lists: 'PLAYLISTS',
+  soundcloud: 'SOUNDCLOUD',
+  mysc: 'MY SC',
+};
 const PLACEHOLDER: Readonly<Record<Tab, string>> = {
-  maudite: 'Search Maudite Machine',
+  tracks: 'Search Maudite Machine tracks',
+  mixtapes: 'Search Maudite Machine mixtapes',
   soundcloud: 'Search SoundCloud (CC)',
   mysc: 'Search my SoundCloud',
   files: 'Search all my files',
@@ -166,19 +183,22 @@ const saveKey = (k: string, v: string): void => {
   }
 };
 
-/** L'onglet retenu (FILES pour qui a sa caisse). */
+/** L'onglet retenu par platine (TRACKS sur A, MIXTAPES sur B par defaut). */
 const TAB_KEY = 'mm.v4.dj.tab';
-const readTab = (): Tab => {
+const readTab = (deck: DjDeck = 'a'): Tab => {
+  const forced = djBrowser.tab(deck);
+  if (forced) return forced;
   try {
-    const t = window.localStorage.getItem(TAB_KEY);
-    return t === 'files' || t === 'soundcloud' || t === 'mysc' || t === 'lists' ? t : 'maudite';
+    const t = window.localStorage.getItem(`${TAB_KEY}.${deck}`) ?? window.localStorage.getItem(TAB_KEY);
+    if (t === 'tracks' || t === 'mixtapes' || t === 'files' || t === 'soundcloud' || t === 'mysc' || t === 'lists') return t;
+    return deck === 'b' ? 'mixtapes' : 'tracks';
   } catch {
-    return 'maudite';
+    return deck === 'b' ? 'mixtapes' : 'tracks';
   }
 };
-const saveTab = (t: Tab): void => {
+const saveTab = (deck: DjDeck, t: Tab): void => {
   try {
-    window.localStorage.setItem(TAB_KEY, t);
+    window.localStorage.setItem(`${TAB_KEY}.${deck}`, t);
   } catch {
     /* rien a retenir */
   }
@@ -198,13 +218,11 @@ const group = (n: number): string => String(Math.round(n)).replace(/\B(?=(\d{3})
 /** Au-dela, on demande avant de copier. */
 const ASK = { files: 1, bytes: 300 * 1e6 } as const;
 
-/** Les morceaux de Maudite Machine, lus une fois par visite. */
-let mauditeCache: DjTrack[] | null = null;
 /** Les morceaux du compte connecte, lus une fois par visite et par seance. */
 let myCache: { s: string; tracks: DjTrack[] } | null = null;
-/** La reponse du Worker sur SoundCloud, une fois par visite. */
+/** La reponse du Worker sur SoundCloud, une fois par visite (masque SOUNDCLOUD/MY SC tant que la cle n'est pas active). */
 let scProbe: Promise<boolean> | null = null;
-let scProbeOff = false;
+let scProbeOff = true;
 
 /* ---------------- la pose sur l'ecran 3D ---------------- */
 
@@ -319,13 +337,24 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
   const sc = useSyncExternalStore(scAccount.subscribe, scAccount.get, scAccount.get);
   const me = sc.account;
-  const [tab, setTabState] = useState<Tab>(readTab);
+  const [tab, setTabState] = useState<Tab>(() => readTab(deck));
   const setTab = (t: Tab): void => {
     setTabState(t);
-    saveTab(t);
+    saveTab(deck, t);
     setAdding(null);
     setLoadSure(null);
   };
+  useEffect(() => {
+    const syncForcedTab = (): void => {
+      const forced = djBrowser.tab(deck);
+      if (forced) {
+        setTabState(forced);
+        saveTab(deck, forced);
+      }
+    };
+    syncForcedTab();
+    return djBrowser.subscribe(syncForcedTab);
+  }, [deck]);
   const mine = useCrate(true) ?? [];
   const lists = useLists();
   const [path, setPathState] = useState<string>(() => readKey(PATH_KEY));
@@ -337,7 +366,12 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const [legend, setLegend] = useState(false);
   const [drop, setDrop] = useState(false);
   const [query, setQuery] = useState('');
-  const [list, setList] = useState<DjTrack[] | null>(null);
+  const [list, setList] = useState<DjTrack[] | null>(() => {
+    const initial = readTab(deck);
+    if (initial === 'tracks') return [...CATALOG_TRACKS];
+    if (initial === 'mixtapes') return [...CATALOG_MIXTAPES];
+    return null;
+  });
   const [scDown, setScDown] = useState<'off' | 'down' | null>(null);
   const [scOff, setScOff] = useState(scProbeOff);
   /** le morceau qu'on range dans une playlist (le choix s'ouvre sur l'ecran) */
@@ -429,26 +463,36 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     };
   }, [crateV]);
 
-  // SoundCloud branche ? Une recherche vide le dit (gardee au Worker) ; sinon ses onglets s'effacent
+  // SoundCloud externe branche ? Une recherche vide le dit (gardee au Worker) ; TRACKS et MIXTAPES restent toujours la
   useEffect(() => {
     scProbe ??= searchSoundcloud('', new AbortController().signal).then((r) => {
-      scProbeOff = !r.ok && r.reason === 'off';
+      scProbeOff = !r.ok;
       return scProbeOff;
     });
     let live = true;
     void scProbe.then((off) => {
-      if (!live || !off) return;
-      setScOff(true);
-      setTabState((t) => (t === 'files' || t === 'lists' ? t : 'files'));
+      if (!live) return;
+      setScOff(off);
+      if (off) setTabState((t) => (t === 'soundcloud' || t === 'mysc' ? 'tracks' : t));
     });
     return () => {
       live = false;
     };
   }, []);
 
-  // SOUNDCLOUD cherche chez SoundCloud (300 ms apres la frappe) ; MAUDITE et MY SC se lisent une fois
+  // TRACKS et MIXTAPES viennent du catalogue local instantanement ; SOUNDCLOUD et MY SC passent par le Worker
   useEffect(() => {
     if (tab === 'files' || tab === 'lists') return undefined;
+    if (tab === 'tracks') {
+      setScDown(null);
+      setList([...CATALOG_TRACKS]);
+      return undefined;
+    }
+    if (tab === 'mixtapes') {
+      setScDown(null);
+      setList([...CATALOG_MIXTAPES]);
+      return undefined;
+    }
     if (tab === 'mysc' && !me) {
       setList([]);
       return undefined;
@@ -458,25 +502,20 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     const t = window.setTimeout(
       () => {
         setScDown(null);
-        if (tab === 'maudite' && mauditeCache) {
-          setList(mauditeCache);
-          return;
-        }
         if (tab === 'mysc' && me && myCache?.s === me.s) {
           setList(myCache.tracks);
           return;
         }
         setList(null);
-        (tab === 'maudite' ? mauditeTracks(ctl.signal) : tab === 'mysc' ? myTracks(ctl.signal) : searchSoundcloud(q, ctl.signal))
+        (tab === 'mysc' ? myTracks(ctl.signal) : searchSoundcloud(q, ctl.signal))
           .then((r) => {
             if (r.ok) {
-              if (tab === 'maudite') mauditeCache = r.tracks;
               if (tab === 'mysc' && me) myCache = { s: me.s, tracks: r.tracks };
               setList(r.tracks);
             } else if (r.reason === 'out') setList([]);
             else if (r.reason === 'off') {
               setScOff(true);
-              setTab('files');
+              setTab('tracks');
             } else {
               setScDown(r.reason);
               setList([]);
@@ -523,7 +562,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   /** Un morceau choisi : il part sur cette platine, l'ecran revient au morceau. sure : sans demander, meme si la platine joue. */
   const load = (t: DjTrack, sure = false): void => {
     gesture();
-    if (!sure && djState.get().deck[deck].playing && loadSure !== t.id) {
+    const curState = djState.get();
+    const wasPlaying = curState.deck[deck].playing;
+    if (!sure && wasPlaying && loadSure !== t.id) {
       setLoadSure(t.id);
       window.clearTimeout(sureTimer.current);
       sureTimer.current = window.setTimeout(() => setLoadSure(null), SURE_LOAD_MS);
@@ -531,7 +572,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     }
     window.clearTimeout(sureTimer.current);
     setLoadSure(null);
-    void djLoad(deck, t);
+    const otherPlaying = DJ_DECKS.some((d) => d !== deck && curState.deck[d].playing);
+    const autoPlay = wasPlaying || (t.id.startsWith('mm:') && !otherPlaying);
+    void djLoad(deck, t, autoPlay);
     djBrowser.close(deck);
   };
 
@@ -779,7 +822,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
             el.scrollLeft += e.deltaY;
           }}
         >
-          {TABS.filter((t) => t === 'files' || t === 'lists' || !scOff).map((t) => (
+          {TABS.filter((t) => t === 'tracks' || t === 'mixtapes' || t === 'files' || t === 'lists' || !scOff).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} className="dj-scr-tab" onClick={() => setTab(t)}>
               {t === 'files' && mine.length ? `${TAB_LABEL.files} ${mine.length}` : t === 'lists' && lists.length ? `${TAB_LABEL.lists} ${lists.length}` : TAB_LABEL[t]}
             </button>
@@ -1052,7 +1095,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
               </button>
             </li>
           ))}
-        {!gate && (tab === 'maudite' || tab === 'soundcloud' || tab === 'mysc') && list === null && <li className="dj-scr-empty">Loading...</li>}
+        {!gate && (tab === 'soundcloud' || tab === 'mysc') && list === null && <li className="dj-scr-empty">Loading...</li>}
         {!gate && rows.length === 0 && !(tab === 'files' && subfolders.length > 0 && !query.trim()) && (tab === 'files' || tab === 'lists' || list !== null) && (
           <li className="dj-scr-empty">
             {tab === 'files'
@@ -1154,9 +1197,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
             {me.name ? `, connected as ${me.name}` : ''}. Only you see them here.
           </li>
         )}
-        {tab === 'maudite' && rows.length > 0 && (
+        {(tab === 'tracks' || tab === 'mixtapes') && rows.length > 0 && (
           <li className="dj-scr-credit">
-            Tracks by{' '}
+            {tab === 'mixtapes' ? 'Mixtapes by ' : 'Tracks by '}
             <a href="https://soundcloud.com/mauditemachine" target="_blank" rel="noopener noreferrer">
               Maudite Machine
             </a>

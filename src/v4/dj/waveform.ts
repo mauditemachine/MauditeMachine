@@ -178,9 +178,10 @@ float cover(float f, float w, float b) {
 /** La crete d'une barre de la forme d'onde fine : les tranches de [i0, i0 + span). */
 vec4 detailBar(int deck, float i0, float span, float len) {
   vec4 a = vec4(0.0);
+  float maxFi = uDur[deck] * ${DETAIL_RATE.toFixed(1)};
   for (int k = 0; k < 16; k++) {
     float fi = i0 + span * (float(k) + 0.5) / 16.0;
-    if (fi >= 0.0 && fi < len) a = max(a, peak(deck, 1, int(fi)));
+    if (fi >= 0.0 && len > 0.0 && fi < maxFi) a = max(a, peak(deck, 1, int(mod(fi, len))));
   }
   return a;
 }

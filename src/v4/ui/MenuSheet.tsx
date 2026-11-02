@@ -164,7 +164,7 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
                 data-active={!isStudio && opened === l.id ? '1' : '0'}
                 aria-expanded={!isStudio ? opened === l.id : undefined}
                 aria-controls={!isStudio ? `v4-section-${l.id}` : undefined}
-                onClick={pick(() => (isStudio ? goHome(getStage()) : page(l.id, getStage())))}
+                onClick={pick(() => (l.id === 'mmstudio' ? goHome(getStage()) : page(l.id, getStage())))}
               >
                 <span className="v4-mm-num" aria-hidden="true">
                   {String(i + 1).padStart(2, '0')}

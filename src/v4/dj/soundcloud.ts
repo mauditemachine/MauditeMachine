@@ -28,8 +28,61 @@
 
 import type { DjTrack } from './state';
 import { camelot } from './math';
+import { MIXTAPES, TRACKS } from '../data';
+import type { V2Track } from '../../v2/context/AudioPlayerContext';
 
 const PASSERELLE = 'https://sonaa-sets.massivemedias.workers.dev/api/soundcloud';
+
+const CAMELOT_KEYS = ['8A', '9A', '10A', '11A', '12A', '1A', '2A', '4A', '5A', '6A', '7A', '8B'] as const;
+
+const parseDurationSec = (meta?: string, isMix = false): number => {
+  if (!meta) return isMix ? 5400 : 210;
+  const hms = /(\d+):(\d{2}):(\d{2})/.exec(meta);
+  if (hms) {
+    return Number.parseInt(hms[1], 10) * 3600 + Number.parseInt(hms[2], 10) * 60 + Number.parseInt(hms[3], 10);
+  }
+  const ms = /(\d+):(\d{2})/.exec(meta);
+  if (ms) {
+    return Number.parseInt(ms[1], 10) * 60 + Number.parseInt(ms[2], 10);
+  }
+  const minMatch = /(\d+)\s*min/i.exec(meta);
+  if (minMatch) return Math.max(60, Number.parseInt(minMatch[1], 10) * 60);
+  return isMix ? 5400 : 210;
+};
+
+const seedHash = (s: string): number => {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+};
+
+/** Convertit un morceau ou une mixtape du catalogue Maudite Machine en piste DjTrack pour les platines. */
+export function v2TrackToDjTrack(t: V2Track, kind?: 'tracks' | 'mixtapes', meta?: string): DjTrack {
+  const isMix = kind === 'mixtapes' || t.id.startsWith('mix-') || t.role === 'DJ Mix';
+  const h = seedHash(t.id + ':' + t.title);
+  const bpm = isMix ? 122 + (h % 5) : 120 + (h % 9);
+  const key = CAMELOT_KEYS[h % CAMELOT_KEYS.length];
+  return {
+    id: `mm:${t.id}`,
+    source: 'soundcloud',
+    title: t.title,
+    artist: meta || t.artist || 'Maudite Machine',
+    bpm,
+    key,
+    duration: parseDurationSec(meta ?? t.project, isMix),
+    link: t.soundcloudUrl || t.link,
+    license: 'mauditemachine',
+  };
+}
+
+/** Tous les morceaux de Maudite Machine (37 tracks), toujours disponibles sur les platines. */
+export const CATALOG_TRACKS: readonly DjTrack[] = TRACKS.filter((p) => p.playable).map((p) => v2TrackToDjTrack(p.track, 'tracks', p.meta));
+
+/** Toutes les mixtapes de Maudite Machine (5 mixtapes), toujours disponibles sur les platines. */
+export const CATALOG_MIXTAPES: readonly DjTrack[] = MIXTAPES.filter((p) => p.playable).map((p) => v2TrackToDjTrack(p.track, 'mixtapes', p.meta));
 
 /** Le nom court d'une licence, pour l'ecran. */
 export const LICENSE_LABEL: Readonly<Record<string, string>> = {
@@ -236,12 +289,12 @@ export async function mauditeTracks(signal: AbortSignal): Promise<ScSearch> {
     r = await fetch(`${PASSERELLE}/maudite`, { signal });
   } catch {
     if (signal.aborted) throw new DOMException('aborted', 'AbortError');
-    return { ok: false, reason: 'down' };
+    return { ok: true, tracks: [...CATALOG_TRACKS] };
   }
-  if (r.status === 503) return { ok: false, reason: 'off' };
-  if (!r.ok) return { ok: false, reason: 'down' };
+  if (r.status === 503 || !r.ok) return { ok: true, tracks: [...CATALOG_TRACKS] };
   const d = (await r.json()) as { tracks?: Raw[] };
-  return { ok: true, tracks: (d.tracks ?? []).map(toTrack) };
+  const rows = (d.tracks ?? []).map(toTrack);
+  return { ok: true, tracks: rows.length > 0 ? rows : [...CATALOG_TRACKS] };
 }
 
 /** Cherche (vide : des styles de club) ; 'off' tant que la cle n'est pas posee dans le Worker. */

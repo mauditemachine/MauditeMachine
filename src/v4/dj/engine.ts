@@ -20,6 +20,7 @@ import { synthPort } from '../audio/drums';
 import { GUARD_S, TICK_MS, horizon, registerScheduler, reserve } from '../audio/sched';
 import { decodeAudio } from './decode';
 import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, dubFeedback, dubSend, eqDb, gainDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
+import { buildStreamPeaks, deckScController } from './scDeck';
 import { DJ_CHANNELS_MAX, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
@@ -190,11 +191,17 @@ export class DjChannel {
   private filterOn = false;
   private filterOff = 0;
   private bands = { hi: 0, mid: 0, low: 0 };
+  private gainVal = 0.5;
+  private filterVal = 0;
+  private faderVal = 0.8;
   private fader: GainNode;
   private meter: StereoPeak;
   /** FX TO (2026-10-04) : la voie passe par les effets, ou tout droit au master */
   private toFx: GainNode;
   private toDry: GainNode;
+  /** Crete gauche et droite d'un flux SoundCloud pose sur la platine de cette voie (dj/scDeck.ts). */
+  streamLevel: (() => [number, number]) | null = null;
+  onControl: (() => void) | null = null;
 
   constructor(
     private ctx: AudioContext,
@@ -254,7 +261,9 @@ export class DjChannel {
   }
 
   setGain(v: number): void {
+    this.gainVal = v;
     glide(this.input.gain, dbToGain(gainDb(v)), this.ctx);
+    this.onControl?.();
   }
 
   setBand(band: 'hi' | 'mid' | 'low', v: number): void {
@@ -266,6 +275,7 @@ export class DjChannel {
     glide(this.eqPath.gain, flat ? 0 : 1, this.ctx);
     glide(this.eqDirect.gain, flat ? 1 : 0, this.ctx);
     if (flat) this.plugEq(false);
+    this.onControl?.();
   }
 
   /** Branche l'isolateur tout de suite, ou le debranche une fois son fondu fini. */
@@ -324,6 +334,7 @@ export class DjChannel {
 
   /** Plat au repos (et court-circuite) ; la resonance (4) seulement quand on le tourne. */
   setFilter(v: number): void {
+    this.filterVal = v;
     const f = filterOf(v);
     if (f.type !== 'none') this.plugFilter(true);
     glide(this.lp.frequency, f.type === 'low' ? f.freq : 20000, this.ctx);
@@ -333,16 +344,42 @@ export class DjChannel {
     glide(this.filterPath.gain, f.type === 'none' ? 0 : 1, this.ctx);
     glide(this.filterDirect.gain, f.type === 'none' ? 1 : 0, this.ctx);
     if (f.type === 'none') this.plugFilter(false);
+    this.onControl?.();
   }
 
   setFader(x: number): void {
+    this.faderVal = x;
     glide(this.fader.gain, faderGain(x), this.ctx);
+    this.onControl?.();
+  }
+
+  /** Gains par bande et gain apres fader de la voie (pour le VU et le volume d'un flux SoundCloud). */
+  bandMultipliers(): { low: number; mid: number; hi: number; post: number } {
+    const post = dbToGain(gainDb(this.gainVal)) * faderGain(this.faderVal) * this.xf.gain.value;
+    let low = bandGain(this.bands.low);
+    let mid = bandGain(this.bands.mid);
+    let hi = bandGain(this.bands.hi);
+    if (this.filterVal < -0.02) {
+      const t = -this.filterVal;
+      hi *= Math.max(0, 1 - t * 1.4);
+      mid *= Math.max(0.05, 1 - Math.max(0, t - 0.35) * 1.4);
+    } else if (this.filterVal > 0.02) {
+      const t = this.filterVal;
+      low *= Math.max(0, 1 - t * 1.4);
+      mid *= Math.max(0.05, 1 - Math.max(0, t - 0.35) * 1.4);
+    }
+    return { low, mid, hi, post };
+  }
+
+  streamPeaks(): [number, number] {
+    return this.streamLevel ? this.streamLevel() : [0, 0];
   }
 
   /** Crete lineaire apres le fader (le plus fort des deux canaux), pour le VU. */
   level(): number {
     const [l, r] = this.meter.peaks();
-    return Math.max(l, r);
+    const [sl, sr] = this.streamPeaks();
+    return Math.max(l, r, sl, sr);
   }
 
   /** Le VU se debranche s'il n'est plus lu (DjMixer.sleepMeters). */
@@ -1229,6 +1266,8 @@ export class DjMixer {
   readonly fx: DjFx;
   private master: GainNode;
   private meters: StereoPeak;
+  private masterGainVal = 1;
+  onMaster: (() => void) | null = null;
 
   constructor(
     readonly ctx: AudioContext,
@@ -1270,12 +1309,29 @@ export class DjMixer {
 
   /** MASTER : 1 a sa place par defaut (le son du site ne change pas), +2 dB tout en haut. */
   setMaster(x: number): void {
-    glide(this.master.gain, faderGain(x) / faderGain(MASTER_DEFAULT), this.ctx);
+    this.masterGainVal = faderGain(x) / faderGain(MASTER_DEFAULT);
+    glide(this.master.gain, this.masterGainVal, this.ctx);
+    this.onMaster?.();
+  }
+
+  get masterGain(): number {
+    return this.masterGainVal;
   }
 
   /** Cretes gauche et droite du master (lineaires, 1 = 0 dBFS). */
   masterLevels(): [number, number] {
-    return this.meters.peaks();
+    const [ml, mr] = this.meters.peaks();
+    let sl = 0;
+    let sr = 0;
+    for (const c of this.ch) {
+      const [cl, cr] = c.streamPeaks();
+      sl += cl;
+      sr += cr;
+    }
+    return [
+      Math.min(1, Math.max(ml, sl * this.masterGainVal)),
+      Math.min(1, Math.max(mr, sr * this.masterGainVal)),
+    ];
   }
 
   /** Le VU du master mesure la sortie du limiteur du site : jamais plus que ce qui sort vraiment. */
@@ -1304,6 +1360,8 @@ export const NUDGE_MAX = 0.003;
 
 export class DjPlayer {
   private buffer: AudioBuffer | null = null;
+  private stream: { url: string; duration: number; bpm: number } | null = null;
+  private streamTimer = 0;
   private source: AudioBufferSourceNode | null = null;
   /** le gain de la source du moment (ses fondus) et l'instant ou elle part */
   private env: GainNode | null = null;
@@ -1335,18 +1393,24 @@ export class DjPlayer {
   loadId = 0;
   playing = false;
   onEnd: (() => void) | null = null;
+  onDuration: ((durSec: number) => void) | null = null;
 
   constructor(
     private ctx: AudioContext,
-    private ch: DjChannel
-  ) {}
+    private ch: DjChannel,
+    private deckId: DjDeck = 'a',
+    private getMasterGain: () => number = () => 1
+  ) {
+    this.ch.streamLevel = () => this.measureStreamLevel();
+    this.ch.onControl = () => this.syncStreamVolume();
+  }
 
   get duration(): number {
-    return this.buffer?.duration ?? 0;
+    return this.buffer?.duration ?? this.stream?.duration ?? 0;
   }
 
   get loaded(): boolean {
-    return this.buffer !== null;
+    return this.buffer !== null || this.stream !== null;
   }
 
   /** Les echantillons (le BPM d'un fichier s'en estime). */
@@ -1378,6 +1442,8 @@ export class DjPlayer {
     this.pause();
     this.loopAB = null;
     this.buffer = null;
+    this.stream = null;
+    deckScController(this.deckId).unload();
     this.startPos = 0;
     // Le decodeur de repli (AIFF) et les formes d'onde tournent sur le fil principal : la musique des autres
     // machines est programmee d'avance (2026-10-05, audio/sched.ts), elle ne se coupe pas
@@ -1392,6 +1458,53 @@ export class DjPlayer {
     this.buffer = buffer;
     this.loadId += 1;
     void this.measureBands(chans, buffer.sampleRate, this.detail.length, this.loadId);
+  }
+
+  /** Pose un flux SoundCloud (track ou mixtape du catalogue) sur la platine avec forme d'onde 3 bandes. */
+  loadStream(url: string, meta: { duration: number; bpm: number }): void {
+    this.pause();
+    this.loopAB = null;
+    this.buffer = null;
+    this.startPos = 0;
+    const dur = Math.max(15, meta.duration || 210);
+    const bpm = Math.max(70, Math.min(180, meta.bpm || 124));
+    this.stream = { url, duration: dur, bpm };
+    const peaks = buildStreamPeaks(url, dur, bpm);
+    this.overview = peaks.overview;
+    this.detail = peaks.detail;
+    this.bands = peaks.bands;
+    this.loadId += 1;
+    const id = this.loadId;
+    const ctrl = deckScController(this.deckId);
+    ctrl.load(
+      url,
+      (realDur) => {
+        if (this.loadId !== id || !this.stream) return;
+        if (Math.abs(realDur - this.stream.duration) > 1) {
+          this.stream.duration = realDur;
+          const nextPeaks = buildStreamPeaks(url, realDur, bpm);
+          this.overview = nextPeaks.overview;
+          this.detail = nextPeaks.detail;
+          this.bands = nextPeaks.bands;
+          this.loadId += 1;
+          this.onDuration?.(realDur);
+          waveListeners.forEach((fn) => fn());
+        }
+      },
+      () => {
+        if (this.loadId !== id || !this.stream) return;
+        if (this.loopAB) {
+          this.seek(this.loopAB.a);
+          return;
+        }
+        this.stopStreamTimer();
+        this.startPos = this.duration;
+        this.playing = false;
+        this.onEnd?.();
+      }
+    );
+    this.syncStreamVolume();
+    waveListeners.forEach((fn) => fn());
   }
 
   /** Les trois bandes, par morceaux de BAND_SLICE_MS : abandonnees si un autre morceau arrive. */
@@ -1413,11 +1526,80 @@ export class DjPlayer {
     this.pause();
     this.loopAB = null;
     this.buffer = null;
+    this.stream = null;
+    deckScController(this.deckId).unload();
     this.startPos = 0;
     this.overview = new Float32Array(0);
     this.detail = new Float32Array(0);
     this.bands = null;
     this.loadId += 1;
+  }
+
+  private streamVol100(): number {
+    const m = this.ch.bandMultipliers();
+    const eqGain = Math.min(1.35, m.low * 0.42 + m.mid * 0.36 + m.hi * 0.22);
+    return Math.max(0, Math.min(100, Math.round(m.post * eqGain * this.getMasterGain() * 100)));
+  }
+
+  syncStreamVolume(): void {
+    if (!this.stream) return;
+    deckScController(this.deckId).setVolume(this.streamVol100());
+  }
+
+  private measureStreamLevel(): [number, number] {
+    if (!this.stream || !this.playing || !this.bands) return [0, 0];
+    const bd = this.bands.detail;
+    const totalSlices = Math.floor(bd.length / 3);
+    if (totalSlices <= 0) return [0, 0];
+    const p = this.position();
+    const idx = ((Math.floor(p * DETAIL_RATE) % totalSlices) + totalSlices) % totalSlices;
+    const lo = bd[idx * 3] ?? 0;
+    const mid = bd[idx * 3 + 1] ?? 0;
+    const hi = bd[idx * 3 + 2] ?? 0;
+    const m = this.ch.bandMultipliers();
+    const energyVal = (lo * m.low * 0.5 + mid * m.mid * 0.35 + hi * m.hi * 0.25) * m.post;
+    const wobble = Math.sin(p * 19.7) * 0.04;
+    const l = Math.max(0, Math.min(1, energyVal * (1 + wobble)));
+    const r = Math.max(0, Math.min(1, energyVal * (1 - wobble)));
+    return [l, r];
+  }
+
+  private startStreamTimer(): void {
+    this.stopStreamTimer();
+    let lastLoopWrap = 0;
+    this.streamTimer = window.setInterval(() => {
+      if (!this.stream || !this.playing) {
+        this.stopStreamTimer();
+        return;
+      }
+      const now = this.ctx.currentTime;
+      const raw = this.startPos + Math.max(0, now - this.startAt) * this.rate();
+      const L = this.loopAB;
+      if (L && raw >= L.b) {
+        const wrapped = L.a + ((raw - L.a) % Math.max(0.05, L.b - L.a));
+        this.startPos = wrapped;
+        this.startAt = now;
+        if (now - lastLoopWrap > 0.18) {
+          lastLoopWrap = now;
+          deckScController(this.deckId).seek(wrapped);
+        }
+        return;
+      }
+      if (!L && raw >= this.duration) {
+        this.stopStreamTimer();
+        this.startPos = this.duration;
+        this.playing = false;
+        deckScController(this.deckId).pause();
+        this.onEnd?.();
+      }
+    }, 60);
+  }
+
+  private stopStreamTimer(): void {
+    if (this.streamTimer) {
+      window.clearInterval(this.streamTimer);
+      this.streamTimer = 0;
+    }
   }
 
   private rate(): number {
@@ -1512,8 +1694,18 @@ export class DjPlayer {
    * par l'appelant (SYNC, un fondu croise) ; respecte a l'echantillon pres.
    */
   play(at = 0): void {
-    if (!this.buffer || this.playing) return;
+    if (!this.loaded || this.playing) return;
     if (this.startPos >= this.duration - 0.05) return;
+    if (this.stream) {
+      const when = at > 0 ? Math.max(this.ctx.currentTime, at) : this.ctx.currentTime;
+      this.startAt = when;
+      this.playing = true;
+      const ctrl = deckScController(this.deckId);
+      ctrl.play(this.startPos, this.streamVol100());
+      this.startStreamTimer();
+      return;
+    }
+    if (!this.buffer) return;
     const s = new AudioBufferSourceNode(this.ctx, { buffer: this.buffer, playbackRate: this.rate() });
     // Une boucle posee : la nouvelle source boucle aussi
     if (this.loopAB) {
@@ -1568,6 +1760,12 @@ export class DjPlayer {
     if (!this.playing) return;
     this.startPos = this.position();
     this.token += 1;
+    this.stopStreamTimer();
+    if (this.stream) {
+      deckScController(this.deckId).pause();
+      this.playing = false;
+      return;
+    }
     this.release(this.ctx.currentTime);
     this.playing = false;
   }
@@ -1582,6 +1780,12 @@ export class DjPlayer {
     const t = Math.max(0, Math.min(this.duration, seconds));
     // Aller hors de la boucle la quitte (un hot cue, la piste touchee, un recalage)
     if (this.loopAB && (t < this.loopAB.a || t >= this.loopAB.b)) this.loopAB = null;
+    if (this.stream) {
+      this.startPos = t;
+      this.startAt = at > 0 ? Math.max(this.ctx.currentTime, at) : this.ctx.currentTime;
+      deckScController(this.deckId).seek(t);
+      return;
+    }
     if (!this.playing) {
       this.startPos = t;
       return;
@@ -1630,8 +1834,13 @@ export class DjPlayer {
 
   /** Le jog en pause : le point se deplace et on entend un grain, pour poser un cue a l'oreille. */
   grain(seconds: number): void {
-    if (!this.buffer || this.playing) return;
+    if (!this.loaded || this.playing) return;
     this.startPos = Math.max(0, Math.min(this.duration, seconds));
+    if (this.stream) {
+      deckScController(this.deckId).seek(this.startPos);
+      return;
+    }
+    if (!this.buffer) return;
     const s = new AudioBufferSourceNode(this.ctx, { buffer: this.buffer });
     const env = new GainNode(this.ctx, { gain: 0 });
     const t = this.ctx.currentTime;
@@ -1701,7 +1910,10 @@ export function djEngine(): DjEngine | null {
   // Les quatre existent toujours sur desktop : poser C ou D ne touche pas au son en cours. Au telephone tenu
   // droit (2026-10-18, la table seule, theme.ts DJ_PLAYERS) aucune n'est creee ; un acces egare en cree une
   // a la demande (muette tant qu'on ne la charge pas), il ne casse rien
-  const p = (d: DjDeck): DjPlayer => (made[d] ??= new DjPlayer(port.ctx, mixer.ch[deckChannel(d)]));
+  const p = (d: DjDeck): DjPlayer => (made[d] ??= new DjPlayer(port.ctx, mixer.ch[deckChannel(d)], d, () => mixer.masterGain));
+  mixer.onMaster = () => {
+    for (const d of DJ_DECKS_ALL) made[d]?.syncStreamVolume();
+  };
   for (const d of DJ_PLAYERS) p(d);
   const decks = {} as Record<DjDeck, DjPlayer>;
   for (const d of DJ_DECKS_ALL) Object.defineProperty(decks, d, { get: () => p(d), enumerable: true });

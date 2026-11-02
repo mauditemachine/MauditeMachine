@@ -213,10 +213,10 @@
   }
 
   .dj-scr-tab {
-    min-height: 2em;
-    padding: 0 0.5em;
-    font-size: 0.64em;
-    letter-spacing: 0.06em;
+    min-height: 1.9em;
+    padding: 0 0.42em;
+    font-size: 0.58em;
+    letter-spacing: 0.05em;
   }
 }
 

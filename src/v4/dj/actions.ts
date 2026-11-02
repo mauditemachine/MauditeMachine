@@ -15,18 +15,21 @@ import { arp } from '../voyager/arp';
 import { anyPlaying, machinePlaying } from '../state/playLock';
 import { bassLoad } from '../state/bassload';
 import { focus, type MachineId } from '../state/focus';
+import { section } from '../state/section';
 import { lcdMessage } from '../state/lcdMessage';
 import { tempoSync } from '../state/tempoSync';
 import { voyMsg } from '../voyager/msg';
-import { routeMachines } from '../audio/drums';
+import { resume, routeMachines } from '../audio/drums';
 import { extraGrid } from '../audio/sched';
 import { sc } from '../audio/soundcloud';
 import { startRing } from '../sampler/ring';
 import { MASTER_DEFAULT, NUDGE_MAX, djEngine, djEngineIfAny, whenDjEngine, type DjEngine } from './engine';
+import { djBrowser } from './browser';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { analyseGrid, gridAnalyseMs } from './grid';
 import { KILL, dbToGain, eqDb, faderGain, filterOf, gainDb, phaseShift } from './math';
-import { soundcloudBytes } from './soundcloud';
+import { CATALOG_MIXTAPES, CATALOG_TRACKS, soundcloudBytes, v2TrackToDjTrack } from './soundcloud';
+import type { V2Track } from '../../v2/context/AudioPlayerContext';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjState, type DjTrack } from './state';
 import { DJ_CHANNELS, DJ_CH_NAMES, DJ_MACHINE_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
@@ -405,7 +408,8 @@ function saveCues(d: DjDeck): void {
  *   la platine part toute seule des qu'elle est prete ; un second appui desarme ;
  * - un cue retenu a la fin du morceau n'y gare plus la platine.
  */
-export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
+export async function djLoad(d: DjDeck, track: DjTrack, autoPlay = false): Promise<void> {
+  resume();
   const e = engine();
   if (!e) return;
   loads[d]?.abort();
@@ -424,8 +428,42 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   syncArmed.delete(d);
   if (keepSync) syncArmed.add(d);
   lastDeck = d;
-  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, loadStep: 'read', armed: false, error: null, beat: null, sync: false, loop: null });
+  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, loadStep: 'read', armed: autoPlay, error: null, beat: null, sync: false, loop: null });
+  const finishStream = (link: string): void => {
+    const p = e.decks[d];
+    const bpm = track.bpm ?? 124;
+    p.onDuration = (realDur) => {
+      const cur = djState.get().deck[d].track;
+      if (cur?.id === track.id) {
+        djState.setDeck(d, { track: { ...cur, duration: realDur } });
+      }
+    };
+    p.loadStream(link, { duration: track.duration, bpm });
+    const saved = savedCues(track.id);
+    const atEnd = saved.cue >= p.duration - END_S;
+    const cue = atEnd ? 0 : saved.cue;
+    const armed = djState.get().deck[d].armed;
+    djState.setDeck(d, {
+      loaded: true,
+      loading: null,
+      loadStep: null,
+      armed: false,
+      track: { ...track, bpm, duration: p.duration },
+      cue,
+      cues: saved.cues,
+      beat: 0,
+      sync: false,
+    });
+    if (atEnd) saveCues(d);
+    p.seek(cue);
+    if (syncArmed.delete(d)) djSync(d);
+    if (armed && !p.playing) djPlay(d);
+  };
   try {
+    if (track.source === 'soundcloud' && track.id.startsWith('mm:') && track.link) {
+      finishStream(track.link);
+      return;
+    }
     let bytes: ArrayBuffer;
     if (track.source === 'file') {
       // Un fichier de la caisse : copie, en memoire, ou relie (l'acces au dossier se redemande pendant ce clic)
@@ -433,8 +471,16 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
       if (!blob) throw new Error(track.relink ? 'drop the folder again' : 'folder access needed');
       bytes = await blob.arrayBuffer();
     } else {
-      // SoundCloud : le Worker de Sonaa ouvre le flux ; le son passe sans etre garde
-      bytes = await soundcloudBytes(track.id, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
+      // SoundCloud : le Worker de Sonaa ouvre le flux ; si le Worker est hors ligne mais qu'un lien SoundCloud existe, lecture via flux direct
+      try {
+        bytes = await soundcloudBytes(track.id, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
+      } catch (scErr) {
+        if (!ctl.signal.aborted && track.link) {
+          finishStream(track.link);
+          return;
+        }
+        throw scErr;
+      }
     }
     if (ctl.signal.aborted) return;
     djState.setDeck(d, { loadStep: 'decode' });
@@ -472,6 +518,26 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
     syncArmed.delete(d);
     djState.setDeck(d, { loading: null, loadStep: null, armed: false, loaded: false, error: err instanceof Error ? err.message : 'load failed' });
   }
+}
+
+/**
+ * Ouvre TRACKS ou MIXTAPES directement sur la table de mixage avec les platines (MM-DECKS) :
+ * - Ferme le panneau lateral et amene la camera sur MM-DECKS.
+ * - Pose et lance immediatement le morceau ou la mixtape sur le Deck A (avec sa forme d'onde 3 bandes, son jog et son VU).
+ * - Ouvre le navigateur du Deck B sur l'onglet correspondant (TRACKS ou MIXTAPES) pour enchainer ou mixer.
+ */
+export function djOpenCatalog(kind: 'tracks' | 'mixtapes', item?: V2Track): void {
+  resume();
+  section.set(null);
+  focus.set('dj');
+  djPauseAll();
+  const list = kind === 'mixtapes' ? CATALOG_MIXTAPES : CATALOG_TRACKS;
+  const target = item ? v2TrackToDjTrack(item, kind) : list[0];
+  if (!target) return;
+  djBrowser.openTab('a', kind);
+  djBrowser.close('a');
+  djBrowser.openTab('b', kind);
+  void djLoad('a', target, true);
 }
 
 /** La duree de la derniere analyse (ms, le calcul seul ; le debug, les tests). */

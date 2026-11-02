@@ -12,7 +12,9 @@ import { requestSample, sampleByKey, sampleLabel, samplePcm, sampleStatus, type 
 import { UserSampleError, userSamples } from '../audio/usersamples';
 import { VEL_GAIN, pattern, velocity } from '../audio/pattern';
 import { sc } from '../audio/soundcloud';
-import { focus } from '../state/focus';
+import { djLoad } from '../state/djload';
+import { DJ, focus } from '../state/focus';
+import { section } from '../state/section';
 import { lcdMessage } from '../state/lcdMessage';
 import { BROWSER_ARM_MS, BROWSER_ROWS, lcdSamples } from '../state/lcdSamples';
 import type { ShotId } from '../audio/shotsdsp';
@@ -22,7 +24,7 @@ import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
 import { dtFace } from '../state/dtFace';
 import { voices } from '../state/voices';
-import { DT2_FACE, LCD_DROP_NO_VOICE, LCD_NO_VOICE, POT_UI, type Inst } from '../theme';
+import { DT2_FACE, LCD_DROP_NO_VOICE, LCD_NO_VOICE, PORTRAIT, POT_UI, type Inst } from '../theme';
 import { KIT_FAMILIES } from '../audio/kitlaw';
 import { TRACK_NAMES, isLegacyTrack, sampleFamily, trackIndex, tracks, type TrackKey } from '../audio/tracks';
 import { dialSpecOf } from '../scene/screen/menus/registry';
@@ -37,8 +39,16 @@ import { browserClampTop, browserReveal } from './internal/browser';
 import { type VoiceSound, voiceSounds } from './kit';
 import { lockMode, stepPlays } from './locks';
 
-/** Ligne TRACKS ou MIXTAPES : lecture, pause ou reprise par le moteur SoundCloud. */
+/** Ligne TRACKS ou MIXTAPES : joue directement dans le MIXER avec les platines (MM-DECKS, demande de Mika 2026-11-02). */
 export function playItem(track: V2Track, queue: V2Track[]): void {
+  if (DJ && !PORTRAIT) {
+    resume();
+    section.set(null);
+    focus.set('dj');
+    void djLoad.load();
+    void import('../dj/actions').then((m) => m.djOpenCatalog(track.id.startsWith('mix-') ? 'mixtapes' : 'tracks', track));
+    return;
+  }
   sc.play(track, queue);
 }
 
