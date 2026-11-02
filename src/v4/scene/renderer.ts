@@ -159,6 +159,7 @@ import { dtFace } from '../state/dtFace';
 import { sceneCtl } from '../state/sceneCtl';
 import { muteLeds, trkLeds, type TrkLed } from '../rytm/stepLeds';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
+import { PAD_FACE } from '../theme/base';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -771,7 +772,7 @@ export class Stage {
 
     // Moitie droite : les 12 pads (ils projettent leur ombre sur mobile
     // aussi ; leur lumiere seule ne refait pas la carte d'ombre) ; plus de pads au desktop depuis la face V.4.0 (2026-10-27)
-    this.pads = PORTRAIT
+    this.pads = PORTRAIT || PAD_FACE
       ? new Pads({
           tweens: this.tweens,
           reduced: motion.reduced,
@@ -784,15 +785,15 @@ export class Stage {
     // legendes de la face V.4.0 du desktop (2026-10-27 ; V.4.2 : un mot par touche, les signes de RUN/STOP) aussi
     this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le crossfader
-    this.faceKeys = PORTRAIT ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
+    this.faceKeys = PORTRAIT || PAD_FACE ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
     // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs.
     // Le transport au telephone seulement depuis V.5.0 (2026-10-29 : au desktop, PLAY et STOP sont dans la rangee de faceKeys)
-    this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas, transport: PORTRAIT });
+    this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas, transport: PORTRAIT || PAD_FACE });
     // L'anneau de valeur de chaque potard (2026-10-27, la face V.4.0 du desktop)
-    this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT });
+    this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT && !PAD_FACE });
     // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09 ; au telephone
     // seulement depuis V.5.0 (2026-10-29 : au desktop, TRIG SRC FLTR AMP FX MOD sont dans la rangee de faceKeys)
-    this.pageKeys = PORTRAIT ? new RytmPageKeys({ mobile, atlas: this.keyAtlas }) : null;
+    this.pageKeys = PORTRAIT || PAD_FACE ? new RytmPageKeys({ mobile, atlas: this.keyAtlas }) : null;
     // La face DT2 (V.6.0, ?face=dt2, cahier 2.2) : MAIN VOLUME et LEVEL/DATA dans la colonne gauche
     this.sideKnobs = DT2_FACE ? new SideKnobs({ mobile, castShadow: !mobile }) : null;
     // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi

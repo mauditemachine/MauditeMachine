@@ -179,7 +179,7 @@ export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = 
   voice: ['voice', 'synth'],
   fltr: ['fltr'],
   env: ['env'],
-  fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxv'],
+  fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxg', 'fxv'],
   // V.5.1 (2026-10-29, l'etape D2) : TRIG 1/2 et 2/2, MOD 1/2 (LFO 1) et 2/2 (LFO 2) ; la touche rappuyee passe a l'onglet suivant
   trig: ['trig', 'trig2'],
   mod: ['mod', 'mod2'],
@@ -514,8 +514,8 @@ const ENV: readonly PageSlot[] = [
   { label: 'AMP ENV', target: null, scope: 'track', draw: 'bar', graph: 'ahd', w: 3 },
 ];
 
-/** Un FX de la voix (VOICE FX) : un grand bloc sur deux rangees, la voix en etiquette, verrouillable. */
-const voiceFx = (label: string, target: SlotTarget, lock: LockKey): PageSlot => ({ ...lockable(label, target, 'bar', lock), voiceTag: true, h: 2 });
+/** Un FX de la voix (VOICE FX) : un bloc normal sur la face DT2 (Mika : pas de bande etroite compressee), deux rangees ailleurs. */
+const voiceFx = (label: string, target: SlotTarget, lock: LockKey): PageSlot => ({ ...lockable(label, target, 'bar', lock), voiceTag: true, h: DT2_FACE ? 1 : 2 });
 const FXV: readonly PageSlot[] = [voiceFx('DIST', 'vdist', 'dist'), voiceFx('CHORUS', 'vchorus', 'chorus'), voiceFx('DELAY', 'vdelay', 'delay'), voiceFx('REVERB', 'vreverb', 'reverb')];
 
 /** GLOBAL FX : les huit encodeurs du desktop, dans le meme ordre (theme.ts GLOBAL_ENCODERS) ; jamais verrouilles. */

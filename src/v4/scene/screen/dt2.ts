@@ -98,7 +98,8 @@ export function paintDt2(screen: Screen, s: LcdState, now: number): number {
   if (!menu && lcdSamples.isOpen()) menu = screenMenu('sounds') ?? null;
   const sc = curScreen();
   const title = menu ? (menu.title?.() ?? menu.id.toUpperCase()) : SCREEN_TITLE[sc];
-  next = Math.max(next, paintHead(screen, title, ptn.cur, ptn.next >= 0, lockStep, now));
+  const headMore = paintHead(screen, title, ptn.cur, ptn.next >= 0, lockStep, now);
+  if (headMore > 0) next = next > 0 ? Math.min(next, headMore) : headMore;
   const info = { ...DT2_INFO_EMPTY, menu: menu ? menu.id : '' };
   const slots = menu ? (menu.slots?.() ?? null) : curSlots();
   if (slots) {

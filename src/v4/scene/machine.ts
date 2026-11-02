@@ -30,6 +30,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BACK, BODY, chassisTopY, DT2_FACE, FEET, GAIN, gainOf, LAYERS, OLED, PANEL, PANEL_TOP_Y, PCB_TURN, PORTRAIT, TILT, type Tone, TRAY, XFADE } from '../theme';
+import { PAD_FACE } from '../theme/base';
 import { albedo, makeChassisMaterial, makePanelMaterial, paintFaces, paintSolid } from './materials';
 
 /** Rectangle a coins arrondis centre, une suite d'arcs (three ajoute les cotes droits). */
@@ -387,7 +388,7 @@ function buildPanel(): BufferGeometry {
   paintSolid(bezel, 'oled', GAIN.parts);
   // La fente du crossfader (2026-10-27, la face V.4.0 du desktop, theme.ts XFADE) : noire comme le verre, bouts ronds ; la
   // face DT2 (V.6.0, ?face=dt2, cahier 2.2) n'en a plus (les scenes et le crossfader quittent la face, cahier 1.3)
-  const slot = PORTRAIT || DT2_FACE ? [] : slotParts();
+  const slot = PORTRAIT || DT2_FACE || PAD_FACE ? [] : slotParts();
   const merged = mergeGeometries([slab, bezel, ...slot], false);
   slab.dispose();
   bezel.dispose();

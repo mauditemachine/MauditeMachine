@@ -7,26 +7,12 @@
 import { fwText } from '../firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2StepRect, fpU, fpX, fpZ, rectCenter, stepRect } from '../rytm/faceplate';
 import type { Dt2KeyClass } from '../rytm/dtFaceIds';
-import { DT2_FACE, type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_KNOBS, FP_OPEN, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_PAGE_KEYS, SCENE_KEY, SILK, type SilkText } from './base';
+import { DT2_FACE, type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_KNOBS, FP_OPEN, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, PAD_FACE, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_FACE_VER, RYTM_PAGE_KEYS, SCENE_KEY, SILK, type SilkText } from './base';
 
 /** La face DT2 (V.6.0, ?face=dt2) : ses donnees en mm (rytm/faceplate.ts), lues seulement derriere DT2_FACE. */
 const DT2 = DT2_FACEPLATE;
 
-/**
- * Encodeurs noirs a repere blanc (spec 20.3.7 ; STRETCH a cote de TONE en
- * revision 5, DELAY et CHORUS le 2026-10-01) : corps legerement conique
- * (0.27 a la base, 0.256 en haut, 0.42 de haut), repere bone du centre
- * vers l'arriere, collerette a la base. Places : FACE_KNOBS (apres KEYS).
- * voiceScale : l'echelle de l'ancienne rangee VOICE (partie de la face le
- * 2026-10-08), gardee pour le repli SVG d'avant.
- */
-/*
- * La face V.4.0 du desktop (2026-10-27, Mika : "8 potards de 28 au pas de 32, chacun son anneau de valeur") : 28 mm est
- * la place du potard et de son anneau (KNOB_RING de 23.2 a 27.2) ; le capuchon (proposition, rytm/faceplate.ts
- * knobs.cap) fait 17 mm en bas, 16 en haut, 8 de haut : vu a l'arrivee (69 deg), sa silhouette ne cache jamais l'anneau
- * (0.4 + 0.4 / tan 69 = 0.554 < 0.58). Le telephone garde les siens.
- */
-export const ENCODER = PORTRAIT
+export const ENCODER = PORTRAIT || PAD_FACE
   ? ({
       r: 0.27,
       rTop: 0.256,
@@ -225,99 +211,66 @@ export const PAGE_LEDS = DT2_FACE
  * RUN/STOP) ; RUN/STOP garde son rouge.
  */
 export const TRANSPORT = {
-  w: PORTRAIT ? 1.14 : FACE_KEY.w,
-  d: PORTRAIT ? 0.44 : FACE_KEY.d,
-  h: PORTRAIT ? 0.1 : FACE_KEY.h,
-  radius: PORTRAIT ? 0.05 : FACE_KEY.radius,
-  z: PORTRAIT ? 3.56 : FACE_KEY.z,
-  hitD: PORTRAIT ? 0.84 : FACE_KEY.d,
+  w: PORTRAIT ? 1.14 : PAD_FACE ? 1.0 : FACE_KEY.w,
+  d: PORTRAIT ? 0.44 : PAD_FACE ? 0.38 : FACE_KEY.d,
+  h: PORTRAIT || PAD_FACE ? 0.1 : FACE_KEY.h,
+  radius: PORTRAIT || PAD_FACE ? 0.05 : FACE_KEY.radius,
+  z: PORTRAIT ? 3.56 : PAD_FACE ? 0.71 : FACE_KEY.z,
+  hitD: PORTRAIT ? 0.84 : PAD_FACE ? 0.38 : FACE_KEY.d,
   /** le temoin, celui des touches de page (a la largeur de la touche) */
-  led: PORTRAIT ? { w: 0.62, d: 0.05, back: 0.11 } : FACE_KEY.led,
-  run: { x: PORTRAIT ? -2.6 : faceKeyX(7) },
-  clear: { x: PORTRAIT ? -1.3 : faceKeyX(8) },
-  random: { x: PORTRAIT ? 0 : faceKeyX(9) },
-  mute: { x: PORTRAIT ? 1.3 : faceKeyX(10) },
-  solo: { x: PORTRAIT ? 2.6 : faceKeyX(11) },
+  led: PORTRAIT || PAD_FACE ? { w: 0.62, d: 0.05, back: 0.11 } : FACE_KEY.led,
+  run: { x: PORTRAIT ? -2.6 : PAD_FACE ? PAD.x0 : faceKeyX(7) },
+  clear: { x: PORTRAIT ? -1.3 : PAD_FACE ? PAD.x0 + PAD.pitch : faceKeyX(8) },
+  random: { x: PORTRAIT ? 0 : PAD_FACE ? PAD.x0 + 2 * PAD.pitch : faceKeyX(9) },
+  mute: { x: PORTRAIT ? 1.3 : PAD_FACE ? PAD.x0 + 3 * PAD.pitch : faceKeyX(10) },
+  solo: { x: PORTRAIT ? 2.6 : PAD_FACE ? PAD.x0 + 4 * PAD.pitch : faceKeyX(11) },
 } as const;
 export const KEYS = {
   count: 16,
-  x0: PORTRAIT ? -3.01 : fpX(FP_STEPS.x0 + FP_STEPS.w / 2),
-  pitch: PORTRAIT ? 0.86 : fpU(FP_STEPS.pitch),
-  /**
-   * desktop : 0.11 plus bas le 2026-10-02 (8 px a 1440 x 900, Mika : les pas touchaient GLOBAL FX / VOICE FX) ;
-   * encore 0.15 plus bas le 2026-10-08 (les touches de page et leurs noms au-dessus), 0.3 au telephone ;
-   * 0.17 de plus au desktop (revue de R1 : l'ecran plus grand, les potards et les touches de page plus bas).
-   * Telephone, 2026-10-19 : la premiere rangee un rien plus bas (4.36, 4.3 avant), la seconde remonte dans la place des LED
-   * parties (rowDz)
-   */
-  z: PORTRAIT ? 4.36 : fpZ(FP_STEPS.rows[0] + FP_STEPS.h / 2),
-  /** portrait : deux rangees de 8, la seconde rowDz plus bas (1.95 avant le 2026-10-08, 1.85 avant le 2026-10-19 et ses LED) ; le desktop aussi depuis le 2026-10-27 */
-  perRow: PORTRAIT ? 8 : FP_STEPS.perRow,
-  rowDz: PORTRAIT ? 1.52 : fpU(FP_STEPS.rows[1] - FP_STEPS.rows[0]),
-  /**
-   * Carrees depuis le 2026-10-05 (Mika : "je voudrais que les steps soient
-   * carres finalement") : 0.5 x 0.9 avant ; le centre remonte un peu, les
-   * numeros et les crochets suivent
-   */
-  w: PORTRAIT ? 0.7 : fpU(FP_STEPS.w),
-  d: PORTRAIT ? 0.7 : fpU(FP_STEPS.h),
+  x0: PORTRAIT ? -3.01 : PAD_FACE ? -5.625 : fpX(FP_STEPS.x0 + FP_STEPS.w / 2),
+  pitch: PORTRAIT ? 0.86 : PAD_FACE ? 0.75 : fpU(FP_STEPS.pitch),
+  z: PORTRAIT ? 4.36 : PAD_FACE ? 2.38 : fpZ(FP_STEPS.rows[0] + FP_STEPS.h / 2),
+  /** portrait : deux rangees de 8, la seconde rowDz plus bas ; V.1.0-V.3.0 : une rangee de 16 ; le desktop depuis V.4.0 : deux rangees de 8 */
+  perRow: PORTRAIT ? 8 : PAD_FACE ? 16 : FP_STEPS.perRow,
+  rowDz: PORTRAIT ? 1.52 : PAD_FACE ? 0 : fpU(FP_STEPS.rows[1] - FP_STEPS.rows[0]),
+  w: PORTRAIT ? 0.7 : PAD_FACE ? 0.62 : fpU(FP_STEPS.w),
+  d: PORTRAIT ? 0.7 : PAD_FACE ? 0.62 : fpU(FP_STEPS.h),
   // desktop : la hauteur, les coins, le cadre des temps et la marque des verrous depuis RYTM_FACEPLATE.steps (2026-10-27)
-  h: PORTRAIT ? 0.1 : fpU(FP_STEPS.capHeight),
-  radius: PORTRAIT ? 0.05 : fpU(FP_STEPS.corner),
+  h: PORTRAIT || PAD_FACE ? 0.1 : fpU(FP_STEPS.capHeight),
+  radius: PORTRAIT || PAD_FACE ? 0.05 : fpU(FP_STEPS.corner),
   /** V.4.2 (2026-10-27) : le chanfrein du dessus au desktop (scene/keyCap.ts ; le telephone garde ses touches arrondies) */
-  bevel: PORTRAIT ? 0 : fpU(FP_STEPS.bevel),
+  bevel: PORTRAIT || (PAD_FACE && RYTM_FACE_VER !== '3.0') ? 0 : fpU(FP_STEPS.bevel),
   segments: { desktop: 3, mobile: 2 },
   /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
-  frame: PORTRAIT ? { inset: 0.065, line: 0.022 } : { inset: fpU(FP_STEPS.beatFrame.inset), line: fpU(FP_STEPS.beatFrame.line) },
-  /**
-   * La marque des verrous (2026-10-19, a la place de la lueur orange pale : le dessus allume dit la velocite) : un
-   * trait clair sur le dessus, pres du bord arriere, dans le cadre des temps ; w x d, back : du bord a son centre
-   */
-  lockMark: PORTRAIT ? { w: 0.3, d: 0.05, back: 0.135 } : { w: fpU(FP_STEPS.lockMark.w), d: fpU(FP_STEPS.lockMark.h), back: fpU(FP_STEPS.lockMark.dy) },
-  numberZ: PORTRAIT ? 4.94 : 3.7,
-  bracketZ: PORTRAIT ? 5.11 : 3.45,
+  frame: PORTRAIT || PAD_FACE ? { inset: 0.065, line: 0.022 } : { inset: fpU(FP_STEPS.beatFrame.inset), line: fpU(FP_STEPS.beatFrame.line) },
+  lockMark: PORTRAIT || PAD_FACE ? { w: 0.3, d: 0.05, back: 0.135 } : { w: fpU(FP_STEPS.lockMark.w), d: fpU(FP_STEPS.lockMark.h), back: fpU(FP_STEPS.lockMark.dy) },
+  numberZ: PORTRAIT ? 4.94 : PAD_FACE ? 2.86 : 3.7,
+  bracketZ: PORTRAIT ? 5.11 : PAD_FACE ? 3.01 : 3.45,
   bracketTick: 0.06,
 } as const;
 /** x du pas i ; sa rangee le decale de keyDz en z (portrait : deux rangees de 8). */
 export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * (i % KEYS.perRow);
 export const keyDz = (i: number): number => KEYS.rowDz * Math.floor(i / KEYS.perRow);
 
-/**
- * Les encodeurs (z de leurs deux rangees), leur echelle, leur nom (nameDz
- * au-dessus du centre, son corps cap). Desktop : une seule rangee de huit
- * depuis le 2026-10-18 (Mika : "RYTM je voudrais un ecran plus grand") : le
- * verre plus haut descend jusqu'a -0.07, deux rangees n'avaient plus leur
- * place au-dessus des pas ; huit encodeurs a l'echelle 0.85 (s), au pas de 0.66
- * (pitch), centres sous le verre (pageKnobX), leur nom 0.39 au-dessus de leur
- * centre (a leur echelle). Les deux rangees du type ont le meme z.
- *
- * Telephone (2026-10-19) : deux rangees de quatre, une colonne sous chaque
- * touche de page (pageKnobX), a l'echelle 1.05 ; les rangees a 1.16 l'une de
- * l'autre, la hauteur de leur zone (hitD : 44 px de haut a 390 px de large,
- * toute la colonne en largeur), la premiere 0.72 sous le filet.
- */
-// cap au telephone 0.088 -> 0.1 (2026-10-22, audit SB-06 : 3.6 px de capitale, sous la moitie des 11 pt d'Apple)
-/*
- * La face V.4.0 du desktop (2026-10-27, Mika : "8 potards en 2 x 4, diametre 28, pas de 32, centres x 134 166 198 230,
- * y 24 et 56") : deux rangees de quatre a droite de l'ecran (rytm/faceplate.ts knobs), l'echelle 1, le nom a 6 h dans
- * la fente de l'anneau (nameDz 12.6 mm sous le centre, labelW la corde de la fente) ; hitR le rayon de la zone (le
- * potard et son anneau). Le telephone garde les siens (hitR 0, labelW sa colonne moins 0.2, comme avant).
- */
 export const PAGE_KNOBS = PORTRAIT
   ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78, hitR: 0, labelW: 1.78 - 0.2 } as const)
-  : // La face DT2 (V.6.0, ?face=dt2) : FP_KNOBS (24 d'emprise, au pas de 80 / 3, la lettre a 10.6 mm du centre)
-    ({
-      rowZ: [fpZ(FP_KNOBS.cy[0]), fpZ(FP_KNOBS.cy[1])],
-      s: 1,
-      pitch: fpU(FP_KNOBS.pitch),
-      cap: fpU(FP_KNOBS.label.cap),
-      nameDz: fpU(FP_KNOBS.label.r),
-      hitD: 0,
-      hitUp: 0,
-      hitW: 0,
-      hitR: fpU(FP_KNOBS.d / 2) - 0.02,
-      labelW: DT2_FACE ? 0.7 : 0.8,
-    } as const);
+  : PAD_FACE && RYTM_FACE_VER === '1.0'
+    ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.52, GLOBAL_FX_RULE.z + 1.34], s: 0.88, pitch: 0, cap: 0.072, nameDz: -0.42, hitD: 0.82, hitUp: 0.46, hitW: 1.25, hitR: 0, labelW: 1.05 } as const)
+    : PAD_FACE
+      ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.62, GLOBAL_FX_RULE.z + 0.62], s: 0.85, pitch: 0.66, cap: 0.065, nameDz: -0.39, hitD: 0.85, hitUp: 0.48, hitW: 0.66, hitR: 0, labelW: 0.62 } as const)
+      : // La face DT2 (V.6.0, ?face=dt2) : FP_KNOBS (24 d'emprise, au pas de 80 / 3, la lettre a 10.6 mm du centre)
+        ({
+          rowZ: [fpZ(FP_KNOBS.cy[0]), fpZ(FP_KNOBS.cy[1])],
+          s: 1,
+          pitch: fpU(FP_KNOBS.pitch),
+          cap: fpU(FP_KNOBS.label.cap),
+          nameDz: fpU(FP_KNOBS.label.r),
+          hitD: 0,
+          hitUp: 0,
+          hitW: 0,
+          hitR: fpU(FP_KNOBS.d / 2) - 0.02,
+          labelW: DT2_FACE ? 0.7 : 0.8,
+        } as const);
 
 /** Les encodeurs de la face, dans l'ordre A a H (le desktop et, depuis le 2026-10-19, le telephone). */
 export const FACE_KNOBS: readonly ({ id: FaceKnobId } & EncPlace)[] = PAGE_KNOB_IDS.map((id, k) => ({
@@ -327,30 +280,6 @@ export const FACE_KNOBS: readonly ({ id: FaceKnobId } & EncPlace)[] = PAGE_KNOB_
   labelZ: PAGE_KNOBS.rowZ[pageKnobRow(k)] + PAGE_KNOBS.nameDz,
   s: PAGE_KNOBS.s,
 }));
-/*
- * Quatre depuis le 2026-10-09 (l'etape 2, Mika : "je ne comprends pas TRIG ;
- * je veux merge SRC SMPL et TRIG ! ya la place pour mettre tous les
- * parametres dans un seul bouton donc dans l'ecran ; AMP doit s'appeler ENV") :
- * VOICE (TRIG, SRC et SMPL reunis), FLTR, ENV (l'ancien AMP), FX ; quatre
- * touches egales sur la largeur du verre. Les anciens noms restent des alias
- * (rytm/pages.ts PAGE_ALIAS : le MIDI rytm:page:trig, une page retenue).
- */
-/*
- * Revue du 2026-10-09 : au telephone la zone d'une touche (hitZ0 a hitZ1)
- * descend du bas du verre jusqu'a la zone de MASTER et TEMPO, son nom compris :
- * 44 px de haut (18 avant, la touche seule) ; depuis le 2026-10-19 jusqu'a celle
- * de la premiere rangee d'encodeurs (40 px). Au desktop le nom remonte vers sa
- * touche (-0.18 ; -0.09 avant, il touchait presque A B C D) et la zone reste la
- * touche (la souris).
- */
-/*
- * Le 2026-10-18 (Mika : "au lieu d'ecrire les choses en dessous des boutons je
- * voudrais que ce soit ecrit directement sur le bouton ; et quand c'est
- * selectionne que ce soit plus voyant") : le nom est imprime sur la touche
- * (KEY_LABELS), plus dessous ; la touche de la page montree s'allume en entier
- * (KEY_LIT). Au desktop, sous le verre plus haut (DESK_PKEY_Z), un peu plus
- * larges (1.15, le verre fait 5.3).
- */
 export const PAGE_KEYS = PORTRAIT
   ? ({
       // Quatre touches depuis le 2026-10-09 : plus larges (1.1 pour six), le meme air entre elles
@@ -363,27 +292,32 @@ export const PAGE_KEYS = PORTRAIT
       hitZ0: OLED.z + OLED.d / 2 + 0.002,
       hitZ1: PAGE_KNOBS.rowZ[0] - PAGE_KNOBS.hitUp,
     } as const)
-  : // La face V.4.0 du desktop (2026-10-27) : VOICE FLTR ENV FX sont les touches 2 a 5 de la rangee de la face
-    ({ w: FACE_KEY.w, d: FACE_KEY.d, h: FACE_KEY.h, radius: FACE_KEY.radius, z: FACE_KEY.z, led: FACE_KEY.led, hitZ0: FACE_KEY.z - FACE_KEY.d / 2, hitZ1: FACE_KEY.z + FACE_KEY.d / 2 } as const);
+  : PAD_FACE
+    ? ({
+        w: 1.15,
+        d: 0.38,
+        h: 0.1,
+        radius: 0.05,
+        z: OLED.z + OLED.bezel.d / 2 + 0.09 + 0.19,
+        led: { w: 0.72, d: 0.05, back: 0.11 },
+        hitZ0: OLED.z + OLED.bezel.d / 2 + 0.09,
+        hitZ1: OLED.z + OLED.bezel.d / 2 + 0.09 + 0.38,
+      } as const)
+    : // La face V.4.0 du desktop (2026-10-27) : VOICE FLTR ENV FX sont les touches 2 a 5 de la rangee de la face
+      ({ w: FACE_KEY.w, d: FACE_KEY.d, h: FACE_KEY.h, radius: FACE_KEY.radius, z: FACE_KEY.z, led: FACE_KEY.led, hitZ0: FACE_KEY.z - FACE_KEY.d / 2, hitZ1: FACE_KEY.z + FACE_KEY.d / 2 } as const);
 /**
  * x de la touche de page k (0 a 3) : quatre touches egales sur la largeur du verre de l'ecran (2026-10-09) ; au desktop
  * depuis le 2026-10-27, les touches 2 a 5 de la rangee de la face (faceKeyX).
  */
 export const pageKeyX = (k: number): number => {
   // V.5.0 (2026-10-29) : SRC FLTR AMP FX, les touches 8 a 11 de la rangee (scene/rytmFaceKeys.ts les porte au desktop)
-  if (!PORTRAIT) return faceKeyX(7 + k);
+  if (!PORTRAIT && !PAD_FACE) return faceKeyX(7 + k);
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS.w / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS.w / 2;
   return x0 + ((x1 - x0) * k) / (RYTM_PAGE_KEYS.length - 1);
 };
 
-/*
- * La face V.4.0 du desktop (2026-10-27) : les douze touches de la rangee portent leur legende (V.4.2, facon Digitakt,
- * rytm/faceplate.ts buttons.keys et buttons.legend : un mot, le meme corps pour les douze, un seul groupe ; RUN/STOP ses
- * signes), SCENE A et B leur lettre ; les ids des touches de page, du transport et de face (scene/rytmFaceKeys.ts) les
- * retrouvent.
- */
-export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT
+export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
   ? [
       ...RYTM_PAGE_KEYS.map((pk, k): KeyLabelSpec => ({ id: pk.id, text: pk.label, x: pageKeyX(k), z: PAGE_KEYS.z, w: PAGE_KEYS.w, d: PAGE_KEYS.d, group: 'pkey', rest: 'ink' })),
       ...(
@@ -544,44 +478,24 @@ export const SILK_TEXTS: readonly SilkText[] = DT2_FACE ? DT2_SILK_TEXTS() : [
   // VOICES au-dessus des pads (2026-10-09, sur la ligne des noms de MASTER et TEMPO ; ils sont dans l'ecran depuis le
   // 2026-10-19, VOICES garde sa place au desktop, juste au-dessus des pads au telephone) ; plus de pads au desktop
   // depuis la face V.4.0 (2026-10-27), plus de VOICES
-  ...(PORTRAIT ? [{ text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - PAD.size / 2 - 0.14, cap: 0.075, align: 'left' as const }] : []),
-  // Les encodeurs (2026-10-09 ; au telephone aussi depuis le 2026-10-19) : leur FX global a leur place, au-dessus d'eux (la
-  // lettre d'avant), et le titre GLOBAL FX au-dessus du bloc, comme VOICES au-dessus des pads
-  // Une rangee de huit au desktop depuis le 2026-10-18 : un nom plus court de place (le pas de 0.66), le meme corps pour
-  // tous (group) ; au telephone, la largeur de leur colonne
+  ...(PORTRAIT || PAD_FACE ? [{ text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - PAD.size / 2 - 0.14, cap: 0.075, align: 'left' as const }] : []),
   ...FACE_KNOBS.map((k, i) => ({
-    // Au desktop depuis le 2026-10-27 (les potards suivent la page) : leur lettre, A a H, l'ecran dit leur fonction
-    text: PORTRAIT ? GLOBAL_ENC_LABELS[i] : (RYTM_FACEPLATE.knobs.labels[i] ?? PAGE_KNOB_LETTERS[i]),
+    text: PORTRAIT || PAD_FACE ? GLOBAL_ENC_LABELS[i] : (RYTM_FACEPLATE.knobs.labels[i] ?? PAGE_KNOB_LETTERS[i]),
     x: k.x,
     z: k.labelZ,
     cap: PAGE_KNOBS.cap,
-    // La face V.4.0 du desktop (2026-10-27) : la corde de la fente de l'anneau (labelW) ; au telephone, sa colonne, comme avant
     maxW: PAGE_KNOBS.labelW,
     group: 'genc',
     weight: 700,
-    // 0.8 -> 0.9 (2026-10-22, audit SB-06)
     alpha: 0.9,
   })),
-  // Au telephone : GLOBAL FX au-dessus des huit potards ; plus au desktop depuis le 2026-10-27 (les potards suivent la page)
-  ...(PORTRAIT ? [{ text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }] : []),
-  // Les noms des touches de page et du transport sont sur elles depuis le 2026-10-18 (KEY_LABELS, scene/keyLabels.ts)
+  ...(PORTRAIT || PAD_FACE ? [{ text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }] : []),
   ...PADS.map(padLabel),
-  // Les numeros des pas plus lisibles au telephone (2026-10-22, audit SB-06 : 3 px de capitale a 0.075)
-  // La face V.4.0 du desktop (2026-10-27) : le numero est sur la touche (KEY_LABELS stepn), plus sous elle
-  ...(PORTRAIT ? Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.095, weight: 600 })) : []),
-  // Le geste des verrous sous les pas, comme le MM-BASS (revue de R2, Mika : "je ne comprends toujours pas comment
-  // mettre des parameter locks") ; au telephone le pied de l'ecran le dit (scene/screen.ts), la face n'a plus de place.
-  // Le geste d'une seule souris (revue du 2026-10-09) : tenir un pas met le P-LOCK, il reste au lacher, puis on glisse.
-  // 2026-10-19 : le glisser de la velocite (tenir un pas et monter ou descendre, la touche s'allume a sa velocite) s'y lit aussi
-  // 2026-10-27 (la phase 2) : TRK et un pas 1 a 8 choisissent la voix ; la ligne tient sous les deux rangees de pas
-  // V.5.0 (2026-10-29, la face facon Digitakt) : REC ecrit les pas ; sans REC, les pas 1 a 8 jouent les voix ; le P-LOCK ;
-  // FUNC et un pas 1 a 8, le mute rapide
-  ...(PORTRAIT
+  ...(PORTRAIT || PAD_FACE ? Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.095, weight: 600 })) : []),
+  ...(PORTRAIT || PAD_FACE
     ? []
     : [{ text: '\u25CF REC: WRITE STEPS \u00B7 WITHOUT REC: STEPS 1-8 PLAY THE VOICES \u00B7 HOLD A STEP + KNOB: P-LOCK \u00B7 FUNC + STEP 1-8: MUTE (REC: LOCK TRIG)', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8, maxW: fpU(RYTM_FACEPLATE.size.w - 16) }]),
-  // Les fonctions secondaires (V.5.0, 2026-10-29) : FUNC + la touche, en orange sur la face sous chaque touche (rytm/faceplate.ts
-  // buttons.alt), comme la Digitakt ; le meme corps pour toutes (le plus petit de leur groupe)
-  ...(PORTRAIT
+  ...(PORTRAIT || PAD_FACE || RYTM_FACE_VER === '4.0'
     ? []
     : RYTM_FACEPLATE.buttons.keys.flatMap((b, i) => {
         const A = RYTM_FACEPLATE.buttons.alt;

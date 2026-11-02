@@ -44,14 +44,32 @@ export const PORTRAIT: boolean = (() => {
  * navigateur (les tests de node). Lu au chargement, jamais retenu (un rechargement sans ?face=v5 rend la DT2). Tout ce qui
  * en depend se decide a l'evaluation des modules, comme PORTRAIT.
  */
-export const DT2_FACE: boolean = (() => {
-  if (PORTRAIT || typeof window === 'undefined') return false;
+export type RytmFaceVer = '1.0' | '2.0' | '3.0' | '4.0' | '5.0' | '6.0';
+export const RYTM_VERSIONS: readonly RytmFaceVer[] = ['1.0', '2.0', '3.0', '4.0', '5.0', '6.0'];
+
+/**
+ * Le selecteur de version du MM-RYTM (2026-11-02, Mika : "un selecteur de machine parmis les dernieres versions quand on
+ * clic sur open la machine.. version 1.0 2.0 etc.. pour pouvoir voir les evolutions et a chaque fois le site se rafraichi") :
+ * ?face=v1 a ?face=v6 dans l'URL (sans ?face= ou ?face=dt2 : 6.0). Au telephone et sous node (tests), 5.0.
+ */
+export const RYTM_FACE_VER: RytmFaceVer = (() => {
+  if (PORTRAIT || typeof window === 'undefined') return '5.0';
   try {
-    return new URLSearchParams(window.location.search).get('face') !== 'v5';
+    const f = new URLSearchParams(window.location.search).get('face');
+    if (f === 'v1' || f === '1' || f === '1.0') return '1.0';
+    if (f === 'v2' || f === '2' || f === '2.0') return '2.0';
+    if (f === 'v3' || f === '3' || f === '3.0') return '3.0';
+    if (f === 'v4' || f === '4' || f === '4.0') return '4.0';
+    if (f === 'v5' || f === '5' || f === '5.0') return '5.0';
+    return '6.0';
   } catch {
-    return true;
+    return '6.0';
   }
 })();
+
+export const DT2_FACE: boolean = !PORTRAIT && typeof window !== 'undefined' && RYTM_FACE_VER === '6.0';
+/** Les versions a 10 pads du desktop (V.1.0, V.2.0, V.3.0) : ecran a gauche, pads a droite, 16 pas en une rangee. */
+export const PAD_FACE: boolean = !PORTRAIT && typeof window !== 'undefined' && (RYTM_FACE_VER === '1.0' || RYTM_FACE_VER === '2.0' || RYTM_FACE_VER === '3.0');
 
 /** Les potards A a H de la face lue (la V.5.3 ou la DT2 : la meme forme, rytm/faceplate.ts knobs). */
 export const FP_KNOBS = DT2_FACE ? DT2_FACEPLATE.knobs : RYTM_FACEPLATE.knobs;
@@ -120,20 +138,24 @@ export const SILK = {
  * 1600 x 960 (scene/screen.ts) ; tex reste l'espace de reference, deux px par unite (640 x 384).
  */
 /** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 158 partout depuis le 2026-10-18 (120 au desktop avant) ; 192 au desktop depuis le 2026-10-27 (5:3). */
-export const OLED_UH = PORTRAIT ? 158 : 192;
+export const OLED_UH = PORTRAIT || RYTM_FACE_VER === '2.0' || RYTM_FACE_VER === '3.0' ? 158 : RYTM_FACE_VER === '1.0' ? 120 : 192;
 // La face DT2 (V.6.0, ?face=dt2) : le meme ecran, deplace (x 34 a 140) ; le dessin ne change pas (5:3)
 const FP_SCREEN = DT2_FACE ? DT2_FACEPLATE.screen : RYTM_FACEPLATE.screen;
 export const OLED = PORTRAIT
   ? ({ x: 0, z: -6.3 + (7.28 * OLED_UH) / 640, w: 7.28, d: (7.28 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 7.5, d: (7.28 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
-  : ({
-      x: fpX(FP_SCREEN.rect.x + FP_SCREEN.rect.w / 2),
-      z: fpZ(FP_SCREEN.rect.y + FP_SCREEN.rect.h / 2),
-      w: fpU(FP_SCREEN.active.w),
-      d: fpU(FP_SCREEN.active.h),
-      y: 0.025,
-      tex: [640, OLED_UH * 2],
-      bezel: { w: fpU(FP_SCREEN.rect.w), d: fpU(FP_SCREEN.rect.h), h: 0.02 },
-    } as const);
+  : PAD_FACE && RYTM_FACE_VER === '1.0'
+    ? ({ x: -3.25, z: -2.8175 + 1.875 / 2, w: 5.0, d: 1.875, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 5.2, d: 2.095, h: 0.02 } } as const)
+    : PAD_FACE
+      ? ({ x: -3.1, z: -2.8175 + ((5.3 * OLED_UH) / 320) / 2, w: 5.3, d: (5.3 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 5.5, d: (5.3 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
+      : ({
+          x: fpX(FP_SCREEN.rect.x + FP_SCREEN.rect.w / 2),
+          z: fpZ(FP_SCREEN.rect.y + FP_SCREEN.rect.h / 2),
+          w: fpU(FP_SCREEN.active.w),
+          d: fpU(FP_SCREEN.active.h),
+          y: 0.025,
+          tex: [640, OLED_UH * 2],
+          bezel: { w: fpU(FP_SCREEN.rect.w), d: fpU(FP_SCREEN.rect.h), h: 0.02 },
+        } as const);
 /** SCENE A et B (2026-10-27) : 12 x 12, plus larges que les touches de la rangee depuis V.5.0. */
 export const SCENE_KEY = { w: fpU(RYTM_FACEPLATE.scenes.a.rect.w), d: fpU(RYTM_FACEPLATE.scenes.a.rect.h) } as const;
 export const faceKeyX = (i: number): number => rectCenter(buttonRect(i)).x;
@@ -253,7 +275,7 @@ export const EDIT_KEY = 'E';
  * La face V.4.0 du desktop (2026-10-27, Mika : "les 10 grands pads disparaissent ; EDIT et OPEN sont dans la rangee des
  * pictogrammes") : plus de pads au desktop (EDIT et OPEN : scene/rytmFaceKeys.ts) ; le telephone garde les siens.
  */
-export const PADS: readonly PadSpec[] = !PORTRAIT ? [] : [
+export const PADS: readonly PadSpec[] = !PORTRAIT && !PAD_FACE ? [] : [
   // Huit voix (2026-10-05, Mika : "je veux finalement 8 VOICES dans RYTM, enleve RS et PC") :
   // le groove en haut (kick, caisse claire, les deux charleys), le reste dessous (clap, les deux toms, la cymbale)
   { id: 'BD', kind: 'voice', label: 'BD', key: VOICE_KEYS.BD, ...padAt(0, 0) },
@@ -356,14 +378,20 @@ export const GLOBAL_FX_RULE = PORTRAIT
  * k % 4, sous la touche de page du meme rang (pageKeyX).
  */
 export const pageKnobX = (k: number): number => {
+  if (PAD_FACE && RYTM_FACE_VER === '1.0') {
+    const x0 = OLED.x - OLED.w / 2 + 0.575;
+    const x1 = OLED.x + OLED.w / 2 - 0.575;
+    return x0 + ((x1 - x0) * (k % 4)) / 3;
+  }
+  if (PAD_FACE) return OLED.x + (k - 3.5) * 0.66;
   // La face V.4.0 du desktop (2026-10-27) : la colonne k % 4 de la grille de Mika
   if (!PORTRAIT) return fpX(FP_KNOBS.cx[k % 4]);
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS_PHONE_W / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS_PHONE_W / 2;
   return x0 + ((x1 - x0) * (k % 4)) / 3;
 };
-/** La rangee de l'encodeur k : k / 4 (au desktop aussi depuis la face V.4.0, 2026-10-27 ; une seule avant). */
-export const pageKnobRow = (k: number): number => k >> 2;
+/** La rangee de l'encodeur k : k / 4 (au desktop aussi depuis la face V.4.0, 2026-10-27 ; une seule en V.2.0 et V.3.0). */
+export const pageKnobRow = (k: number): number => (PAD_FACE && RYTM_FACE_VER !== '1.0' ? 0 : k >> 2);
 /** Leurs noms sur la face et a l'ecran. */
 export const GLOBAL_ENC_LABELS: readonly string[] = ['DIST', 'CHORUS', 'DELAY', 'REVERB', 'STRETCH', 'SWING', 'BIT', 'COMP'];
 
@@ -469,7 +497,9 @@ const FP_SILK = RYTM_FACEPLATE.silk;
 const DT2_SILK = DT2_FACEPLATE.silk;
 export const HEAD = PORTRAIT
   ? { word: { x: -3.75, z: -6.74, w: 3.0 }, model: { x: -0.55, z: -6.74, cap: 0.13, align: 'left' as const }, firmware: { x: 3.05, z: -6.74, cap: 0.06 }, mark: { x: 3.75, z: -6.74, h: 0.5 } }
-  : DT2_FACE
+  : PAD_FACE
+    ? { word: { x: -5.75, z: -3.35, w: 3.4 }, model: { x: -2.1, z: -3.35, cap: 0.14, align: 'left' as const }, firmware: { x: 5.0, z: -3.35, cap: 0.065 }, mark: { x: 5.75, z: -3.35, h: 0.56 } }
+    : DT2_FACE
     ? {
         word: { x: fpX(DT2_SILK.decal.wordmark.x), z: fpZ(DT2_SILK.decal.wordmark.cy), w: fpU(DT2_SILK.decal.wordmark.w) },
         model: { x: fpX(DT2_SILK.decal.model.x), z: fpZ(DT2_SILK.decal.model.cy), cap: fpU(DT2_SILK.decal.model.cap), align: 'right' as const },

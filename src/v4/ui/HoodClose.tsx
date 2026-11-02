@@ -20,10 +20,20 @@ import { bassExplode, explode, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
 import { VOY_CLOSE_KEY } from '../voyager/theme';
 import { BASS_CLOSE_KEY } from '../bass/theme';
+import { RYTM_FACE_VER, RYTM_VERSIONS, type RytmFaceVer } from '../theme/base';
 import { MachineKey } from './MachineKey';
 
 interface Props {
   getStage: () => Stage | null;
+}
+
+/** Choisir une version du MM-RYTM (V.1.0 a V.6.0) : ?face=v1..v6 dans l'URL et rechargement complet. */
+export function pickRytmVersion(v: RytmFaceVer): void {
+  const url = new URL(window.location.href);
+  if (v === '6.0') url.searchParams.delete('face');
+  else url.searchParams.set('face', `v${v[0]}`);
+  if (url.href === window.location.href) window.location.reload();
+  else window.location.assign(url.href);
 }
 
 export const HoodClose: React.FC<Props> = ({ getStage }) => {
@@ -34,18 +44,39 @@ export const HoodClose: React.FC<Props> = ({ getStage }) => {
   const m = hoodMachine();
   if ((f !== 'mm808' && f !== 'voy' && f !== 'bass') || hoodOf(m).get() !== 'open') return null;
   return (
-    <MachineKey
-      key={m}
-      getStage={getStage}
-      layer={(st) => (m === 'voy' ? st.voy?.tweaks.top : m === 'bass' ? st.bass?.tweaks.top : st.rytmTweaks.top)}
-      spot={m === 'voy' ? VOY_CLOSE_KEY : m === 'bass' ? BASS_CLOSE_KEY : RYTM_CLOSE_KEY}
-      className="v4-close-key"
-      label="Close the machine"
-      onClick={() => openToggle(getStage(), m)}
-    >
-      <span className="v4-close-led" aria-hidden="true" />
-      CLOSE
-    </MachineKey>
+    <>
+      <MachineKey
+        key={m}
+        getStage={getStage}
+        layer={(st) => (m === 'voy' ? st.voy?.tweaks.top : m === 'bass' ? st.bass?.tweaks.top : st.rytmTweaks.top)}
+        spot={m === 'voy' ? VOY_CLOSE_KEY : m === 'bass' ? BASS_CLOSE_KEY : RYTM_CLOSE_KEY}
+        className="v4-close-key"
+        label="Close the machine"
+        onClick={() => openToggle(getStage(), m)}
+      >
+        <span className="v4-close-led" aria-hidden="true" />
+        CLOSE
+      </MachineKey>
+      {m === 'mm808' && (
+        <div className="v4-ver-bar" role="group" aria-label="MM-RYTM version">
+          <span className="v4-ver-title">MM-RYTM VERSION</span>
+          <div className="v4-ver-list">
+            {RYTM_VERSIONS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className="v4-ver-btn"
+                aria-pressed={RYTM_FACE_VER === v}
+                onClick={() => pickRytmVersion(v)}
+              >
+                <span className="v4-ver-led" aria-hidden="true" />
+                V.{v}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

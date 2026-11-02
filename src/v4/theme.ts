@@ -15,7 +15,7 @@
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2TrackMuteDots, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
-import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAGE_KNOB_IDS, type PageId, type PageKnobId, PORTRAIT, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
+import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
 export { PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
@@ -105,7 +105,7 @@ export const COLOR = Object.fromEntries(
  * les temoins, la serigraphie, les LED du boitier ; sur la machine creme, les memes teintes plus sombres et lisibles, le
  * blanc devient l'encre sombre (applyAppearance).
  */
-export const DT_FACE: boolean = !PORTRAIT;
+export const DT_FACE: boolean = !PORTRAIT && !PAD_FACE && RYTM_FACE_VER !== '4.0';
 export type DtTone = 'red' | 'yellow' | 'white' | 'green' | 'magenta' | 'blue' | 'orange';
 /** La palette de la machine noire : aussi celle du boitier (hw/snapshot.ts, la revue de D1, R10 : le boitier n'a pas de creme). */
 export const DT_HEX_DARK: Readonly<Record<DtTone, string>> = { red: '#FF2B2B', yellow: '#FFD75E', white: '#F4F1EA', green: '#3DDC5A', magenta: '#E04DD8', blue: '#4DA3FF', orange: '#FF6A13' };
@@ -690,18 +690,18 @@ export interface RingTone {
  * pas). applyAppearance les relit.
  */
 export const RING_TONE: Record<KnobTone, RingTone> = {
-  base: { on: DT_HEX.white, k: 1 },
-  off: { on: DT_HEX.white, k: 0 },
+  base: { on: DT_FACE ? DT_HEX.white : HEX.orange, k: 1 },
+  off: { on: DT_FACE ? DT_HEX.white : HEX.orange, k: 0 },
   lock: { on: DT_HEX.yellow, k: 1 },
-  unlocked: { on: DT_HEX.white, k: 0.45 },
-  global: { on: DT_HEX.white, k: 0.3 },
+  unlocked: { on: DT_FACE ? DT_HEX.white : HEX.orange, k: 0.45 },
+  global: { on: DT_FACE ? DT_HEX.white : HEX.orange, k: 0.3 },
   // Une scene armee (2026-10-27, P2-19) : scene, le bleu des scenes depuis V.5.0 (l'os de la DA avant) ; dim, un bloc NO
   // SCENE (un choix de son)
-  scene: { on: DT_HEX.blue, k: 1 },
-  dim: { on: DT_HEX.white, k: 0.15 },
+  scene: { on: DT_FACE ? DT_HEX.blue : HEX.bone, k: 1 },
+  dim: { on: DT_FACE ? DT_HEX.white : HEX.orange, k: 0.15 },
 };
 /** La bande du crossfader des anneaux (V.5.0) : le bleu des scenes. */
-export const RING_BAND: { on: string } = { on: DT_HEX.blue };
+export const RING_BAND: { on: string } = { on: DT_FACE ? DT_HEX.blue : HEX.bone };
 
 /**
  * Dans l'ordre de lecture (2026-10-01) : MASTER au-dessus de TEMPO, a
@@ -912,7 +912,7 @@ export const PAGE_KNOBS_ON_FACE = true;
  * qui est cliquee, comme la DIGITAKT ; les knobs de droite doivent se refleter") : au desktop, le potard k tourne le bloc
  * pose dans la case k de l'ecran (rytm/pages.ts faceBlockOf, rytm:knob:k+1) ; le telephone garde ses FX globaux (phase 5).
  */
-export const FACE_FOLLOWS_PAGE: boolean = !PORTRAIT;
+export const FACE_FOLLOWS_PAGE: boolean = !PORTRAIT && !PAD_FACE;
 /**
  * Les capuchons des potards de la face vont a leur nouvelle valeur comme des potards motorises (2026-10-27) : une page,
  * une voix, l'entree ou la sortie du P-LOCK ; 60 ms plus 160 ms pour toute la course (d de 0 a 1), easeInOutCubic ; les
@@ -1087,7 +1087,7 @@ export const STEP_LIT = {
   lockTrig: 0.9,
 } as const;
 /** La teinte d'un pas mis (V.5.0) : le rouge de la Digitakt au desktop, l'orange de la machine au telephone. */
-export const STEP_TONE: KeyLitTone = PORTRAIT ? 'orange' : 'dred';
+export const STEP_TONE: KeyLitTone = !DT_FACE ? 'orange' : 'dred';
 
 /**
  * Tenir une touche (2026-10-27, la phase 2) : TRK, SCENE A et B ; plus court, c'est une tape (la touche se garde) ; la
@@ -1158,12 +1158,12 @@ export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: (DT_FACE 
  * (RYTM_FACEPLATE buttons.travel et steps.travel ; STEP_PRESS.depth au telephone).
  */
 export const KEY_RELIEF = {
-  on: !PORTRAIT,
+  on: !PORTRAIT && (!PAD_FACE || RYTM_FACE_VER === '3.0'),
   seg: 4,
   shade: { foot: 0.42, wall: 0.74, bevel: 1.16, top: 1, glow: { foot: 0.18, wall: 0.4, bevel: 0.85 } },
   skirt: { w: fpU(1.1), alpha: { dark: 0.62, light: 0.4 }, y: 0.0016 },
-  key: PORTRAIT ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.buttons.travel),
-  step: PORTRAIT ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.steps.travel),
+  key: PORTRAIT || PAD_FACE ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.buttons.travel),
+  step: PORTRAIT || PAD_FACE ? STEP_PRESS.depth : fpU(RYTM_FACEPLATE.steps.travel),
 } as const;
 
 /**
@@ -1464,18 +1464,18 @@ export const SILK_STROKES: readonly { pts: readonly number[]; ink: 'alt'; width:
 // La face V.4.0 du desktop (2026-10-27) : aucun filet (ni la colonne d'OPEN, ni le filet de GLOBAL FX, ni les crochets)
 export const SILK_LINES: readonly (readonly number[])[] = [
   // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
-  ...(PORTRAIT ? [[PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72]] : []),
+  ...(PORTRAIT || PAD_FACE ? [[PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72]] : []),
   // Revue du 2026-10-09 : un filet sous les noms des touches de page, de la largeur du verre ; les touches et l'ecran
   // d'un cote, les huit encodeurs de l'autre (les noms se lisaient comme ceux des potards) ; sous les touches elles-memes
   // depuis le 2026-10-18 (leurs noms sont dessus) ; au telephone aussi depuis le 2026-10-19 (les encodeurs y reviennent)
-  ...(PORTRAIT
+  ...(PORTRAIT || PAD_FACE
     ? [
         [OLED.x - OLED.w / 2, GLOBAL_FX_RULE.z, OLED.x - GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z],
         [OLED.x + GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z, OLED.x + OLED.w / 2, GLOBAL_FX_RULE.z],
       ]
     : []),
   // Plus de crochets au desktop depuis la face V.4.0 (2026-10-27) : le cadre des temps 1 5 9 13 les marque
-  ...(PORTRAIT
+  ...(PORTRAIT || PAD_FACE
     ? [0, 1, 2, 3].map((g) => {
         const a = keyX(4 * g) - KEYS.w / 2;
         const b = keyX(4 * g + 3) + KEYS.w / 2;
@@ -2209,13 +2209,14 @@ export function applyAppearance(a: Appearance): void {
   // La palette de la Digitakt (V.5.0, 2026-10-29) : plus sombre et lisible sur la machine creme
   Object.assign(DT_HEX, L ? DT_HEX_LIGHT : DT_HEX_DARK);
   // Les teintes des anneaux de la face (2026-10-27) : relues apres la palette ; V.5.0 : le blanc, le jaune, le bleu
-  RING_TONE.base.on = DT_HEX.white;
-  RING_TONE.off.on = DT_HEX.white;
+  const ringBase = DT_FACE ? DT_HEX.white : HEX.orange;
+  RING_TONE.base.on = ringBase;
+  RING_TONE.off.on = ringBase;
   RING_TONE.lock.on = L ? RING_LOCK_LIGHT : DT_HEX.yellow;
-  RING_TONE.unlocked.on = DT_HEX.white;
-  RING_TONE.global.on = DT_HEX.white;
-  RING_TONE.scene.on = DT_HEX.blue;
-  RING_TONE.dim.on = DT_HEX.white;
-  RING_BAND.on = DT_HEX.blue;
+  RING_TONE.unlocked.on = ringBase;
+  RING_TONE.global.on = ringBase;
+  RING_TONE.scene.on = DT_FACE ? DT_HEX.blue : HEX.bone;
+  RING_TONE.dim.on = ringBase;
+  RING_BAND.on = DT_FACE ? DT_HEX.blue : HEX.bone;
   APPEARANCE.current = a;
 }

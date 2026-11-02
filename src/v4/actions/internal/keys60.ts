@@ -40,7 +40,7 @@ import { rytmLock } from '../../state/rytmLock';
 import { activeTrack, trk } from '../../state/trk';
 import { undo } from '../../state/undo';
 import { voices } from '../../state/voices';
-import { isRytmPage, screensOf, type RytmPageId } from '../../rytm/pages';
+import { SCREEN_TITLE, isRytmPage, screensOf, type RytmPageId } from '../../rytm/pages';
 import { CHORDS, type Chord, type ChordEvent, type ChordGesture, type ChordKey } from '../chords';
 import { DT2_FACE, DT_GESTURE, PAD_DOUBLE_TAP_MS, type Inst } from '../../theme';
 import { st } from '../state';
@@ -786,9 +786,9 @@ export function subPage(dir: -1 | 1): void {
     return;
   }
   const cur = Math.max(0, tabs.indexOf(rytmPage.screen(inst)));
-  const next = Math.max(0, Math.min(tabs.length - 1, cur + dir));
+  const next = (cur + dir + tabs.length) % tabs.length;
   if (next !== cur) rytmPage.setTab(page, next, inst);
-  lcdMessage.show(`${tabs[next].toUpperCase()} ${next + 1}/${tabs.length}`, 900);
+  lcdMessage.show(`${(SCREEN_TITLE[tabs[next]] ?? tabs[next]).toUpperCase()} ${next + 1}/${tabs.length}`, 900);
 }
 
 /** TRIG tenu + LEFT / RIGHT (cahier 3.3, uTIME) : le pas tenu (ses voisins tenus aussi) recule ou avance d'un cran (1/384). */

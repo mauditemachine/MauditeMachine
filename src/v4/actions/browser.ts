@@ -20,8 +20,9 @@ import { editor } from '../state/editor';
 import { presetMode } from '../state/presetMode';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
+import { dtFace } from '../state/dtFace';
 import { voices } from '../state/voices';
-import { LCD_DROP_NO_VOICE, LCD_NO_VOICE, POT_UI, type Inst } from '../theme';
+import { DT2_FACE, LCD_DROP_NO_VOICE, LCD_NO_VOICE, POT_UI, type Inst } from '../theme';
 import { KIT_FAMILIES } from '../audio/kitlaw';
 import { TRACK_NAMES, isLegacyTrack, sampleFamily, trackIndex, tracks, type TrackKey } from '../audio/tracks';
 import { dialSpecOf } from '../scene/screen/menus/registry';
@@ -145,12 +146,15 @@ function browserCur(inst: Inst, list: readonly VoiceSound[], lock: number): numb
 /** La premiere ligne pour montrer i vers le haut de la liste (la troisieme ligne au desktop, la deuxieme au telephone). */
 const browserCenterTop = (i: number, len: number): number => browserClampTop(i - Math.floor((BROWSER_ROWS - 1) / 2), len);
 
+/** La touche SOUNDS de la face DT2 (V.6.0) : la liste reste ouverte meme si PTN est allume ou si le focus suit le clic. */
+const inSoundsMenu = (): boolean => DT2_FACE && dtFace.menu() === 'sounds';
+
 /** Le navigateur ouvert, tel que l'ecran le dessine ; null ferme (ou EDIT, les presets, pas de voix : ils ont l'ecran). */
 export function soundBrowserView(): SoundBrowserView | null {
   const st = lcdSamples.get();
   if (!st.open) return null;
   const inst = pattern.get().instrument;
-  if (!inst || editor.get() === 'mm808' || presetMode.on('mm808')) return null;
+  if (!inst || (!inSoundsMenu() && (editor.get() === 'mm808' || presetMode.on('mm808')))) return null;
   const lock = browserLockStep();
   const list = voiceSounds(inst, lock >= 0);
   const rows = browserStateRows(browserRows(list));
@@ -193,7 +197,9 @@ function watchBrowser(): void {
   const check = (): void => {
     if (!lcdSamples.isOpen()) return;
     const inst = pattern.get().instrument;
-    if (browserCloseKey() !== browserKeyAt || !inst || editor.get() === 'mm808' || presetMode.on('mm808')) {
+    if (inSoundsMenu() && inst) {
+      browserKeyAt = browserCloseKey();
+    } else if (browserCloseKey() !== browserKeyAt || !inst || editor.get() === 'mm808' || presetMode.on('mm808')) {
       lcdSamples.close();
       return;
     }
@@ -220,7 +226,7 @@ export function soundBrowserOpen(focusList = false): boolean {
     lcdMessage.show(LCD_NO_VOICE);
     return false;
   }
-  if (editor.get() === 'mm808' || presetMode.on('mm808')) return false;
+  if (!inSoundsMenu() && (editor.get() === 'mm808' || presetMode.on('mm808'))) return false;
   watchBrowser();
   if (lcdSamples.isOpen()) {
     lcdSamples.open(0, focusList);

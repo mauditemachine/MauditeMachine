@@ -65,7 +65,11 @@ function paintSounds(screen: Screen): number {
     paintHint(screen, 'UP/DOWN: SAMPLE   YES: CHOOSE   L/R: PREV NEXT   NO: EXIT');
     return 0;
   }
-  const v = soundBrowserView();
+  let v = soundBrowserView();
+  if (!v && screenTrack()) {
+    soundBrowserOpen(true);
+    v = soundBrowserView();
+  }
   if (!v) {
     const t = screenTrack();
     screen.text(t ? 'YES: SHOW THE SOUNDS' : 'PICK A TRACK: TRK + TRIG', 160, 100, 10, HALF, 600, 'center', 0.4);

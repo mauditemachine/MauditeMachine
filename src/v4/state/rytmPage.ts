@@ -142,6 +142,8 @@ function load(): RytmPageState {
           const t = (o.tabs as Record<string, unknown>)[pg.id];
           if (typeof t === 'number' && Number.isInteger(t) && t >= 0 && t < PAGE_TABS[pg.id].length) out.tabs[pg.id] = t;
         }
+        // Mika (2026-11-02) : "je voudrais que les fx ca soit les fx globaux directement au lieu des voices.. par defaut"
+        if (!PORTRAIT) out.tabs.fx = 0;
       }
       // La velocite des nouveaux pas n'est plus a l'ecran (2026-10-10, VEL fondu dans VOL) : plus relue, tout repart HIGH
       if (VEL_FROM_STORE && o.vel && typeof o.vel === 'object') {
@@ -226,11 +228,10 @@ export const rytmPage = {
    * VOICE FX, sa page sous la voix ; BIT et COMP n'en ont pas : GLOBAL.
    */
   openFx(d: FxDetailId, inst: Inst | null, voice = false): void {
-    // V.5.0 (2026-10-29) : au desktop sous SEND FX (GLOBAL) ou sous FX (la voix), chacune sa page a un onglet
-    if (!PORTRAIT) {
-      const pg: RytmPageId = voice && fxVoicePageOf(d) !== null ? 'fx' : 'sendfx';
-      if (state.page === pg && state.view === 'page' && state.detail === d) return;
-      set({ page: pg, view: 'page', echo: null, detail: d });
+    // V.5.0 (2026-10-29) : sous SEND FX (FUNC + FX), la page du FX global reste sur SEND FX ; sous FX, elle suit l'onglet (GLOBAL FX ou VOICE FX)
+    if (!PORTRAIT && state.page === 'sendfx' && !voice) {
+      if (state.view === 'page' && state.detail === d) return;
+      set({ page: 'sendfx', view: 'page', echo: null, detail: d });
       return;
     }
     const t = fxTab(voice && fxVoicePageOf(d) !== null, inst);

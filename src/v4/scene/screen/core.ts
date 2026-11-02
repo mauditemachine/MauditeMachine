@@ -43,6 +43,7 @@ import { screenDials, type ScreenDialId } from '../../state/screenDials';
 import { makeCanvasTexture, onFonts } from '../silk';
 import { tracks, type TrackKey } from '../../audio/tracks';
 import { DT2_INFO_EMPTY, paintDt2, type Dt2Info } from './dt2';
+import { PAD_FACE } from '../../theme/base';
 import { subscribeMenu } from './menus/open';
 import { subscribeNames } from './menus/names';
 // Les menus de la face DT2 (V.6.0) : chacun s'inscrit au registre a son chargement
@@ -151,6 +152,7 @@ export class Screen {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   timer = 0;
+  timerDue = Infinity;
   unsubs: (() => void)[] = [];
   /**
    * Libere (2026-10-21, audit RS-5) : plus aucun redessin. Avant, un appel tardif (la promesse des polices, resolue
@@ -253,7 +255,7 @@ export class Screen {
     this.mesh.position.set(OLED.x, OLED.y, OLED.z);
     // Le reflet du verre (2026-10-22, audit, amelioration 20) : il suit l'ecran, le raycast de l'ecran ne le voit pas ;
     // la face V.4.0 du desktop (2026-10-27) : sur tout le verre de 106 x 67, autour de la zone active (le meme centre)
-    this.sheen = PORTRAIT ? glassSheen(OLED.w, OLED.d) : glassSheen(OLED.bezel.w, OLED.bezel.d);
+    this.sheen = PORTRAIT || PAD_FACE ? glassSheen(OLED.w, OLED.d) : glassSheen(OLED.bezel.w, OLED.bezel.d);
     this.mesh.add(this.sheen);
     this.lastCur = patterns.get().cur;
     // La face DT2 (V.6.0, cahier 1.3) : HOME a quitte la navigation, la vue PAGE tout le temps
@@ -348,12 +350,22 @@ export class Screen {
 
   /** Un redessin bientot (au plus tous les MIN_GAP_MS ; pendant un geste du crossfader, tous les XFADE_UI.screenGapMs). */
   request(delay = 0): void {
-    if (this.timer !== 0 || this.disposed) return;
+    if (this.disposed) return;
+    const now0 = performance.now();
     const gap = sceneCtl.moving() ? Math.max(MIN_GAP_MS, XFADE_UI.screenGapMs) : MIN_GAP_MS;
     // Arrondi au-dessus : setTimeout tronque les fractions, l'ecart tombait a 59,5 ms au lieu de 60
-    const wait = Math.ceil(Math.max(delay, this.info.lastDrawAt + gap - performance.now(), 0));
+    const wait = Math.ceil(Math.max(delay, this.info.lastDrawAt + gap - now0, 0));
+    const due = now0 + wait;
+    // Un redessin immediat (une touche de page, un potard, un menu) devance un minuteur lointain (fin de message ou d'echo)
+    if (this.timer !== 0) {
+      if (due >= this.timerDue - 1) return;
+      window.clearTimeout(this.timer);
+      this.timer = 0;
+    }
+    this.timerDue = due;
     this.timer = window.setTimeout(() => {
       this.timer = 0;
+      this.timerDue = Infinity;
       const now = performance.now();
       const more = this.paint(lcd.get(), now);
       this.invalidate();
@@ -652,6 +664,7 @@ export class Screen {
     this.unsubs = [];
     if (this.timer !== 0) window.clearTimeout(this.timer);
     this.timer = 0;
+    this.timerDue = Infinity;
     window.clearTimeout(this.idleTimer);
     window.clearTimeout(this.echoTimer);
     disposeSheen(this.sheen);

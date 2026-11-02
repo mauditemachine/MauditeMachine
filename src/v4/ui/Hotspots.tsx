@@ -1977,7 +1977,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // ni un clic sur l'ecran lui-meme, inerte au desktop : 2026-10-27, la revue, une ligne cliquee fermait la liste)
         // V.5.0 au desktop (la revue de D1, G11) : hors REC, un pas 1 a 8 est le pad de sa voix, la liste suit la voix choisie
         const padStep = DT_FACE && d.kind === 'step' && d.index !== undefined && d.index < 8 && (!stepWrites() || liveOn()) && editor.get() !== 'mm808' && !muteView() && !trk.engaged();
-        if (tap && lcdSamples.isOpen() && d.kind !== 'sbrowse' && d.kind !== 'pad' && !padStep && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
+        if (tap && lcdSamples.isOpen() && !(DT2_FACE && dtFace.menu() === 'sounds') && d.kind !== 'sbrowse' && d.kind !== 'pad' && !padStep && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
         if (tap && d.id !== null) {
@@ -2533,7 +2533,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   // ouvert ; la liste des samples bouge (un ajout, un retrait), ses options aussi
   const sbState = useSyncExternalStore(lcdSamples.subscribe, lcdSamples.get, lcdSamples.get);
   useSyncExternalStore(samplesChanged.subscribe, samplesVersion, samplesVersion);
-  const sbView = sbState.open ? soundBrowserView() : null;
+  const sbView = sbState.open && !DT2_FACE ? soundBrowserView() : null;
   // MASTER et TEMPO a l'ecran (2026-10-19) : sur HOME et la vue PAGE, hors P-LOCK, EDIT, les presets et la liste des sons
   const dialsShown = (rp.view === 'home' || rp.view === 'page') && lockAt < 0 && !rytmEdit && !pm808 && !sbView;
   /** la derniere demande de focus vue (Entree sur le bloc SOUND), et si la liste avait le focus (Echap le rend au bloc SOUND) */

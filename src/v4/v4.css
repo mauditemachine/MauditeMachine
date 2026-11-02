@@ -5005,6 +5005,93 @@ html:has(body.v4-active.v4-light) {
   animation: none;
 }
 
+/* Selecteur de version du MM-RYTM dans OPEN (2026-11-02, Mika : "un selecteur de machine parmis
+   les dernieres versions quand on clic sur open la machine.. version 1.0 2.0 etc.. pour pouvoir
+   voir les evolutions et a chaque fois le site se rafraichi") */
+.v4-ver-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 52px;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(16, 16, 19, 0.92);
+  border: 1px solid rgba(246, 241, 231, 0.22);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(255, 106, 34, 0.14);
+  font-family: var(--font-display);
+  pointer-events: auto;
+  animation: v4-close-key-in 220ms ease-out both;
+}
+
+.v4-ver-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(246, 241, 231, 0.78);
+  white-space: nowrap;
+}
+
+.v4-ver-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.v4-ver-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 4px;
+  border: 1px solid rgba(246, 241, 231, 0.24);
+  background: rgba(28, 29, 33, 0.95);
+  color: #f6f1e7;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.v4-ver-btn:hover {
+  border-color: var(--orange);
+  background: rgba(60, 22, 4, 0.85);
+}
+
+.v4-ver-btn[aria-pressed='true'] {
+  border-color: var(--orange);
+  background: rgba(60, 22, 4, 0.92);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 106, 34, 0.4);
+}
+
+.v4-ver-led {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(246, 241, 231, 0.28);
+}
+
+.v4-ver-btn[aria-pressed='true'] .v4-ver-led {
+  background: var(--orange);
+  box-shadow: 0 0 6px var(--orange);
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-ver-bar {
+  animation: none;
+}
+
 /* Light : le panneau reste un ecran sombre, ses textes restent clairs (ils prenaient le gris fonce du theme) */
 .v4-root[data-v4-theme='light'] .v4-scope {
   --bone: #f6f1e7;

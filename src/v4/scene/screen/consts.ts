@@ -54,7 +54,7 @@ export const DY = OLED_DY;
  * unites au lieu de 320 x 158, 34 unites de plus ; 0 au telephone. Les blocs de la vue PAGE et les lignes du navigateur
  * des sons la prennent ; le reste (l'en-tete, le pied, HOME centre par DY) suit deja UH.
  */
-export const GROW = UH - 158;
+export const GROW = Math.max(0, UH - 158);
 
 /**
  * La touche i (R4, 2026-10-08), en unites : son centre, dans le coin en haut
