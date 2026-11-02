@@ -41,14 +41,8 @@ export const RAW_V60 = {
   'key:kbd': {
     section: 'KEYS',
     title: 'KEYBOARD',
-    text: "Le mode KEYBOARD de la Digitakt : les TRIG jouent la piste active en gamme, comme un clavier. La touche est dessinée à sa place ; elle arrive en V.6.1, avec FUNC + KEYBOARD (KB SETUP, les 36 gammes).",
+    text: "Le mode KEYBOARD de la Digitakt : les TRIG jouent la piste active en gamme, comme un clavier. UP et DOWN changent l'octave.",
     key: 'K',
-  },
-  'key:song': {
-    section: 'KEYS',
-    title: 'SONG',
-    text: "SONG : les songs de la Digitakt, des lignes de patterns qui s'enchaînent (16 songs). La touche est dessinée à sa place ; elle arrive en V.6.2, avec FUNC + SONG (SONG EDIT).",
-    key: 'N',
   },
   'key:arrows': {
     section: 'KEYS',
@@ -58,7 +52,7 @@ export const RAW_V60 = {
   'key:page': {
     section: 'KEYS',
     title: 'PAGE',
-    text: "PAGE et FILL, comme sur une Digitakt. Tiens PAGE pendant que ça joue : FILL dure tant que tu le tiens. YES puis PAGE : FILL pour un cycle. PAGE puis YES, en lâchant PAGE d'abord : FILL verrouillé, jusqu'à PAGE encore. Ses 8 LED montreront les pages du pattern quand il dépassera 16 pas (V.6.1).",
+    text: "PAGE : les pages du séquenceur (16, 32, 48 ou 64 pas). Tape PAGE pour afficher et choisir quelle page (1-16, 17-32, 33-48, 49-64) tu édites sur les 16 pas et ce qui joue (toutes les pages ou une page en boucle). FUNC + PAGE change le nombre de pas du séquenceur (16, 32, 48, 64). Tiens PAGE pendant que ça joue : FILL dure tant que tu le tiens.",
     key: 'G',
   },
   'key:mvol': {

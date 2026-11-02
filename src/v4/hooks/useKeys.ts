@@ -72,7 +72,7 @@ import { DT2_FACE, DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VO
  * fleches : toujours celles de la DT2. Sans le drapeau, le clavier de la V.5.3 ne change pas.
  */
 /** Les lettres des touches de la face DT2 tenues au clavier (code physique : Option change la lettre sur un Mac). */
-const DT2_HELD_KEYS: Readonly<Record<string, Dt2ButtonId>> = { KeyT: 'trk', KeyG: 'ptnpage', KeyN: 'song', KeyK: 'kbd', KeyY: 'tempo', KeyU: 'sounds', Comma: 'settings' };
+const DT2_HELD_KEYS: Readonly<Record<string, Dt2ButtonId>> = { KeyT: 'trk', KeyG: 'ptnpage', KeyK: 'kbd', KeyY: 'tempo', KeyU: 'sounds', Comma: 'settings' };
 /** Les TRIG 1 a 8 au clavier (code physique) ; Maj : 9 a 16. */
 const DT2_TRIG_CODES = ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyZ', 'KeyX', 'KeyC', 'KeyV'];
 const DT2_ARROWS: Readonly<Record<string, Dt2ButtonId>> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };

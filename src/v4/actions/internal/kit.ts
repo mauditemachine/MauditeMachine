@@ -5,7 +5,7 @@
 
 import { kitOverride, resume } from '../../audio/drums';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, kit, kitSteps, layerRange, layerSteps, mixLevels, type KitFamily, type KitKnob, type KitModel, type Layer, type Plays } from '../../audio/kit';
-import { TRACK_NAMES, TRACK_P_DEFAULT, normTrackKey, trackIndex, tracks, type TrackKey, type TrackParamId, type TrackSound } from '../../audio/tracks';
+import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, TRACK_P_DEFAULT, normTrackKey, trackIndex, tracks, type TrackKey, type TrackParamId, type TrackSound } from '../../audio/tracks';
 import { type StepLock } from '../../audio/locks';
 import { samplesOf, type SampleFail } from '../../audio/samples';
 import { VEL_MAX, pattern } from '../../audio/pattern';
@@ -294,7 +294,7 @@ export function tapVelDial(v: number): void {
  */
 
 /** Les reglages de piste que montrent les pages SRC de la face DT2 (et TRK LEV). */
-export const TRACK_DIALS = ['tune', 'fine', 'srev', 'sstart', 'slen', 'slev', 'stune', 'sfine', 'syn', 'snd', 'model', 'tlev', 'ktune', 'kattack', 'ksweep', 'kdecay', 'kdrive', 'snappy', 'sdtune', 'sddecay', 'sdtone', 'gate'] as const;
+export const TRACK_DIALS = ['tune', 'fine', 'srev', 'sstart', 'slen', 'slev', 'stune', 'sfine', 'syn', 'snd', 'mach', 'model', 'tlev', 'ktune', 'kattack', 'ksweep', 'kdecay', 'kdrive', 'snappy', 'sdtune', 'sddecay', 'sdtone', 'gate'] as const;
 export type TrackDial = (typeof TRACK_DIALS)[number];
 /** Le nom court d'un reglage de piste (4 lettres au plus, comme la DT2 ; le message le dit en entier). */
 export const TRACK_DIAL_LABEL: Readonly<Record<TrackDial, string>> = {
@@ -308,6 +308,7 @@ export const TRACK_DIAL_LABEL: Readonly<Record<TrackDial, string>> = {
   sfine: 'SFIN',
   syn: 'LEV',
   snd: 'SAMP',
+  mach: 'MACH',
   model: 'MODL',
   tlev: 'TRK LEV',
   ktune: 'PTCH',
@@ -349,9 +350,10 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
   const lp = LAYER_OF[d];
   const kn = KNOB_OF[d];
   const enc = ENC_OF[d];
-  const pid = d === 'snd' || d === 'model' ? null : (d as TrackParamId);
+  const pid = d === 'snd' || d === 'mach' || d === 'model' ? null : (d as TrackParamId);
   const range = (): readonly [number, number] => {
     if (d === 'snd') return [0, Math.max(1, trackSampleList().length - 1)];
+    if (d === 'mach') return [0, SRC_MACHINES.length - 1];
     if (d === 'model') return [0, KIT_MODELS.length - 1];
     if (lp) return layerSpan(lp);
     if (enc) return [potMin(enc), 1];
@@ -359,6 +361,7 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
   };
   const steps = (): number => {
     if (d === 'snd') return trackSampleList().length;
+    if (d === 'mach') return SRC_MACHINES.length;
     if (d === 'model') return KIT_MODELS.length;
     if (d === 'srev' || d === 'gate') return 2;
     if (lp) return layerNotches(lp);
@@ -371,11 +374,13 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
     if (!t) return 0;
     const tr = tracks.of(t);
     if (d === 'snd') return Math.max(0, trackSampleList().findIndex((s) => s.key === tr.snd));
+    if (d === 'mach') return Math.max(0, SRC_MACHINES.indexOf(tr.mach));
     if (d === 'model') return Math.max(0, KIT_MODELS.indexOf(tr.model));
     return pid ? tracks.param(t, pid) : 0;
   };
   const text = (v: number): string => {
     if (d === 'snd') return trackSampleList()[Math.max(0, Math.round(v))]?.label ?? 'OFF';
+    if (d === 'mach') return SRC_MACHINE_LABEL[SRC_MACHINES[Math.max(0, Math.min(SRC_MACHINES.length - 1, Math.round(v)))]];
     if (d === 'model') return KIT_MODEL_LABEL[KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(v)))]];
     if (d === 'srev') return v >= 0.5 ? 'REV' : 'FWD';
     if (d === 'gate') return v >= 0.5 ? 'ON' : 'OFF';
@@ -389,6 +394,7 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
       const s = trackSampleList()[Math.max(0, Math.round(v))];
       return s && s.key ? `${s.family.toUpperCase()}  ${Math.round(v)}/${n}` : `${n} SAMPLES`;
     }
+    if (d === 'mach') return 'ENGINE';
     if (d === 'model') return 'SYNTH';
     if (d === 'srev') return v >= 0.5 ? 'REVERSE' : 'FORWARD';
     if (lp) {
@@ -410,6 +416,7 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
     const [lo, hi] = range();
     const x = Math.max(lo, Math.min(hi, v));
     if (d === 'snd') tracks.sample(t, trackSampleList()[Math.round(x)]?.key ?? '');
+    else if (d === 'mach') tracks.machine(t, SRC_MACHINES[Math.round(x)]);
     else if (d === 'model') tracks.machine(t, tracks.of(t).mach, KIT_MODELS[Math.round(x)]);
     else if (pid) tracks.set(t, pid, d === 'srev' || d === 'gate' ? (x >= 0.5 ? 1 : 0) : x);
     const now = value();

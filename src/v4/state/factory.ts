@@ -100,6 +100,7 @@
 import { INSTRUMENTS, NEUTRAL_FX, type Fx, type Steps } from '../audio/pattern';
 import { VOICE_FX_DEFAULT, type VoiceFx } from '../audio/voicefx';
 import { KIT_FAMILIES, LAYER_DEFAULT, LAYER_TUNE_ST, resolveSample, type KitFamily, type KitKnob, type KitModel, type Layer } from '../audio/kit';
+import { TRACK_EMPTY, TRACK_KEYS, TRACK_P_DEFAULT, clampTrackParam, kit16FromLegacy, kit16ToStored, type SrcMachine, type StoredKit16, type TrackKey, type TrackParamId, type TrackSound } from '../audio/tracks';
 import { kickHz } from '../audio/shotsdsp';
 import { lenOfDecay } from '../audio/sampledsp';
 import type { Inst } from '../theme';
@@ -110,7 +111,7 @@ import type { BassRecipe, BassStep } from '../bass/state';
 
 /* ---------------- MM-RYTM ---------------- */
 
-/** Les samples de Mika (public/samples/rytm), par leur cle. */
+/** Les samples de Mika et la banque electronique synthetisee, par leur cle. */
 const KICK = {
   blueprint: 'bd/01 BluePrint.wav',
   vntm: 'bd/02 VNTM.wav',
@@ -118,16 +119,68 @@ const KICK = {
   carassi: 'bd/04 Carassi.wav',
   stein: 'bd/05 Stein.wav',
   affkt: 'bd/06 AFFKT.wav',
+  punch909: 'bd/90-909-Punch.wav',
+  sub808: 'bd/91-808-Sub-Boom.wav',
+  warehouse: 'bd/92-Warehouse-Rumble.wav',
+  hardgroove: 'bd/93-Hardgroove-Drive.wav',
+  industrial: 'bd/94-Industrial-Slam.wav',
+  deep: 'bd/95-Deep-House-Thump.wav',
 } as const;
 const SNARE = {
   psy02: 'sd/01 Psy 02.wav',
   psy12: 'sd/02 Psy 12.wav',
   psy26: 'sd/03 Psy 26.wav',
   s707: 'sd/04 707.wav',
+  crisp909: 'sd/90-909-Crisp-Snare.wav',
+  tight808: 'sd/91-808-Tight-Snare.wav',
+  linndrum: 'sd/92-Linndrum-Gated.wav',
+  amen: 'sd/93-Amen-Break-Snare.wav',
+  ukgRim: 'sd/94-UKG-Rim-Snap.wav',
+  ebmMetal: 'sd/95-EBM-Metal-Snare.wav',
+} as const;
+const EXTRA_SMP = {
+  ch909: 'ch/01-909-Closed-Hat.wav',
+  ch808: 'ch/02-808-Tick-Hat.wav',
+  chMicro: 'ch/03-Micro-Click-Hat.wav',
+  chAfro: 'ch/04-Afro-Shaker.wav',
+  chJungle: 'ch/05-Jungle-Ghost-Hat.wav',
+  oh909: 'oh/90-909-Open-Hat.wav',
+  oh808: 'oh/91-808-Sizzle-Hat.wav',
+  ohRide: 'oh/92-Rave-Ride-Bell.wav',
+  ohHouse: 'oh/93-House-Offbeat-Hat.wav',
+  cp909: 'cp/01-909-Studio-Clap.wav',
+  cp808: 'cp/02-808-Handclap.wav',
+  cpDisco: 'cp/03-Dark-Disco-Clap.wav',
+  cpSnap: 'cp/04-Minimal-Finger-Snap.wav',
+  cpWhip: 'cp/05-Industrial-Whip.wav',
+  tom909: 'tom/01-909-Low-Tom.wav',
+  tomConga: 'tom/02-808-Conga-Low.wav',
+  acid303: 'tom/03-Acid-303-Squelch.wav',
+  reese: 'tom/04-Reese-Sub-Bass.wav',
+  fmDonk: 'tom/05-Donk-FM-Bass.wav',
+  ebmBass: 'tom/06-EBM-Octave-Bass.wav',
+  ht909: 'ht/01-909-Hi-Tom.wav',
+  dubChord: 'ht/02-Dub-Techno-Chord.wav',
+  detroitStab: 'ht/03-Detroit-Minor-Stab.wav',
+  raveHoover: 'ht/04-Rave-Hoover-Stab.wav',
+  italoPluck: 'ht/05-Italo-Arp-Pluck.wav',
+  afroLog: 'ht/06-Afro-Wood-Log.wav',
+  cy909: 'cy/01-909-Crash-Cymbal.wav',
+  cowbell: 'cy/02-808-Cowbell.wav',
+  dubSiren: 'cy/03-Dub-Siren-FX.wav',
+  idmZap: 'cy/04-IDM-Glitch-Zap.wav',
+  tranceSaw: 'cy/05-Trance-Supersaw.wav',
 } as const;
 
 /** TUNE d'un kick sample en demi-tons (audio/sampledsp.ts : 24 demi-tons sur la course) : vers F#. */
 const st = (n: number): number => 0.5 + n / 24;
+
+interface ExtraTrackSpec {
+  mach?: SrcMachine;
+  model?: KitModel;
+  snd?: string;
+  p?: Partial<Record<TrackParamId, number>>;
+}
 
 interface RytmGenre {
   name: string;
@@ -145,6 +198,10 @@ interface RytmGenre {
   steps: Partial<Steps>;
   /** les effets de quelques voix (le reste neutre) */
   voices?: Partial<Record<Inst, Partial<VoiceFx>>>;
+  /** echantillons additionnels sur les familles 1 a 8 (en couche avec la synthese) */
+  extraSamples?: Partial<Record<KitFamily, string>>;
+  /** pistes 9 a 16 (synthese et samples dedies au style) */
+  extraTracks?: Partial<Record<TrackKey, ExtraTrackSpec>>;
 }
 
 const RYTM: readonly RytmGenre[] = [
@@ -164,8 +221,14 @@ const RYTM: readonly RytmGenre[] = [
       SD: '0000000000000304',
       CH: '7408740874087408',
       OH: '0080008000800080',
+      T9: '0750080607008507',
+      T10: '0000000000600000',
     },
     voices: { CP: { reverb: 0.15 }, OH: { decay: 0.8 } },
+    extraTracks: {
+      T9: { mach: 'tom', model: '909', snd: EXTRA_SMP.acid303, p: { syn: 0.45, slev: 0.9, cutoff: 0.72, res: 0.55, delay: 0.28, level: 0.72 } },
+      T10: { mach: 'oh', model: '909', snd: EXTRA_SMP.ohRide, p: { syn: 0.3, slev: 0.85, reverb: 0.25, level: 0.58 } },
+    },
   },
   {
     name: 'DARK DISCO',
@@ -185,8 +248,14 @@ const RYTM: readonly RytmGenre[] = [
       OH: '0080008000800080',
       TOM: '0000000000400000',
       HT: '0000000300000000',
+      T9: '8067806780678078',
+      T10: '0000700000007000',
     },
     voices: { SD: { reverb: 0.35 }, CP: { reverb: 0.2 }, OH: { decay: 0.7 }, TOM: { tone: -0.2 } },
+    extraTracks: {
+      T9: { mach: 'ht', model: '808', snd: EXTRA_SMP.italoPluck, p: { syn: 0.35, slev: 0.9, delay: 0.32, reverb: 0.22, level: 0.68 } },
+      T10: { mach: 'cp', model: '808', snd: EXTRA_SMP.cpDisco, p: { syn: 0.4, slev: 0.85, reverb: 0.35, level: 0.65 } },
+    },
   },
   {
     name: 'INDIE DANCE',
@@ -206,8 +275,14 @@ const RYTM: readonly RytmGenre[] = [
       OH: '0070007000700070',
       TOM: '0000000400000000',
       HT: '0004000000040000',
+      T9: '0070007000700680',
+      T10: '7000007000007000',
     },
     voices: { SD: { reverb: 0.18 }, HT: { tone: 0.3, decay: 0.5 }, TOM: { decay: 0.6 } },
+    extraTracks: {
+      T9: { mach: 'tom', model: 'mm', snd: EXTRA_SMP.ebmBass, p: { syn: 0.4, slev: 0.9, level: 0.72 } },
+      T10: { mach: 'ht', model: '909', snd: EXTRA_SMP.detroitStab, p: { syn: 0.3, slev: 0.85, delay: 0.3, reverb: 0.25, level: 0.64 } },
+    },
   },
   {
     name: 'MINIMAL',
@@ -227,12 +302,18 @@ const RYTM: readonly RytmGenre[] = [
       OH: '0000000000000050',
       TOM: '0000004000000004',
       HT: '0005000005000000',
+      T9: '0500005004000600',
+      T10: '0000000000700000',
     },
     voices: {
       CH: { decay: 0.55 },
       CP: { decay: 0.6, reverb: 0.12 },
       TOM: { tone: 0.35, decay: 0.35 },
       HT: { tone: 0.5, decay: 0.3, delay: 0.3 },
+    },
+    extraTracks: {
+      T9: { mach: 'ch', model: '808', snd: EXTRA_SMP.chMicro, p: { syn: 0.35, slev: 0.9, pan: -0.25, level: 0.64 } },
+      T10: { mach: 'ht', model: 'mm', snd: EXTRA_SMP.dubChord, p: { syn: 0.25, slev: 0.85, delay: 0.45, reverb: 0.35, level: 0.6 } },
     },
   },
   {
@@ -252,8 +333,14 @@ const RYTM: readonly RytmGenre[] = [
       SD: '0000500000005000',
       CH: '8507850785078507',
       OH: '0090009000900090',
+      T9: '0777077707770777',
+      T10: '0000008000000080',
     },
     voices: { CP: { reverb: 0.2 }, SD: { reverb: 0.12 } },
+    extraTracks: {
+      T9: { mach: 'tom', model: '909', snd: EXTRA_SMP.ebmBass, p: { syn: 0.4, slev: 0.9, decay: 0.42, level: 0.72 } },
+      T10: { mach: 'ht', model: '909', snd: EXTRA_SMP.raveHoover, p: { syn: 0.3, slev: 0.85, delay: 0.35, level: 0.6 } },
+    },
   },
   {
     name: 'TECHNO',
@@ -272,8 +359,14 @@ const RYTM: readonly RytmGenre[] = [
       CH: '7507750775077507',
       OH: '0090009000900090',
       TOM: '0000000004000400',
+      T9: '0065006500650065',
+      T10: '8000000000800000',
     },
     voices: { CP: { reverb: 0.25 }, OH: { decay: 0.75 }, TOM: { tone: -0.3, delay: 0.2 } },
+    extraTracks: {
+      T9: { mach: 'bd', model: '909', snd: KICK.warehouse, p: { syn: 0.25, slev: 0.9, cutoff: 0.35, reverb: 0.3, level: 0.66 } },
+      T10: { mach: 'ht', model: '909', snd: EXTRA_SMP.dubChord, p: { syn: 0.2, slev: 0.9, delay: 0.4, reverb: 0.35, level: 0.62 } },
+    },
   },
   {
     name: 'HOUSE',
@@ -293,8 +386,14 @@ const RYTM: readonly RytmGenre[] = [
       OH: '0080008000800080',
       TOM: '0000000400000400',
       HT: '0004000000040000',
+      T9: '8007008000708000',
+      T10: '0505050505050505',
     },
     voices: { CP: { reverb: 0.15 }, TOM: { tone: 0.25, decay: 0.5 }, HT: { tone: 0.4, decay: 0.45 } },
+    extraTracks: {
+      T9: { mach: 'ht', model: '808', snd: EXTRA_SMP.detroitStab, p: { syn: 0.25, slev: 0.9, delay: 0.28, reverb: 0.25, level: 0.66 } },
+      T10: { mach: 'ch', model: '909', snd: EXTRA_SMP.chAfro, p: { syn: 0.2, slev: 0.85, pan: 0.2, level: 0.58 } },
+    },
   },
   {
     name: 'ELECTRO',
@@ -313,8 +412,14 @@ const RYTM: readonly RytmGenre[] = [
       CH: '8585858585858500',
       TOM: '0000000000000060',
       HT: '0000000000000005',
+      T9: '8006008000700500',
+      T10: '0070000000700050',
     },
     voices: { SD: { reverb: 0.12 }, TOM: { tone: -0.15, delay: 0.25 } },
+    extraTracks: {
+      T9: { mach: 'tom', model: '808', snd: EXTRA_SMP.fmDonk, p: { syn: 0.5, slev: 0.85, level: 0.7 } },
+      T10: { mach: 'cy', model: '808', snd: EXTRA_SMP.cowbell, p: { syn: 0.35, slev: 0.9, delay: 0.22, level: 0.62 } },
+    },
   },
   {
     name: 'EBM',
@@ -332,8 +437,14 @@ const RYTM: readonly RytmGenre[] = [
       SD: '0000800000008000',
       CP: '0000600000006000',
       CH: '7070707070707070',
+      T9: '8789878987898789',
+      T10: '0000700000008000',
     },
     voices: { SD: { decay: 0.55, reverb: 0.15 }, CP: { decay: 0.7 }, CH: { tone: -0.1 } },
+    extraTracks: {
+      T9: { mach: 'tom', model: '909', snd: EXTRA_SMP.ebmBass, p: { syn: 0.45, slev: 0.95, drive: 0.4, level: 0.75 } },
+      T10: { mach: 'sd', model: '909', snd: SNARE.ebmMetal, p: { syn: 0.4, slev: 0.85, reverb: 0.25, level: 0.68 } },
+    },
   },
   {
     name: 'ITALO',
@@ -353,8 +464,418 @@ const RYTM: readonly RytmGenre[] = [
       OH: '0070007000700070',
       TOM: '0000000000000400',
       HT: '0000000000000040',
+      T9: '8686868686868686',
+      T10: '0000700000007000',
     },
     voices: { SD: { reverb: 0.25 }, TOM: { tone: 0.2 }, HT: { tone: 0.4 } },
+    extraTracks: {
+      T9: { mach: 'ht', model: '808', snd: EXTRA_SMP.italoPluck, p: { syn: 0.35, slev: 0.9, delay: 0.25, level: 0.7 } },
+      T10: { mach: 'sd', model: '808', snd: SNARE.linndrum, p: { syn: 0.3, slev: 0.85, reverb: 0.3, level: 0.66 } },
+    },
+  },
+  // 14 nouveaux styles electroniques (DETROIT, DUB TECHNO, HARDGROOVE, INDUSTRIAL, DEEP HOUSE, MICROHOUSE, AFRO HOUSE, SYNTHWAVE, BREAKBEAT, UK GARAGE, JUNGLE, DRUM N BASS, IDM, TRANCE)
+  {
+    name: 'DETROIT',
+    bpm: 131,
+    fx: { swing: 0.14, drive: 0.16, reverb: 0.22, delay: 0.18, chorus: 0.12 },
+    kick: { key: KICK.punch909, or: '909' },
+    snare: { key: SNARE.crisp909, or: '909' },
+    hh: '909',
+    cp: '909',
+    tom: '909',
+    kit: { tune: st(-1), attack: 0.6, decay: 0.48, drive: 0.3 },
+    steps: {
+      BD: '9000900090009005',
+      SD: '0000700300007000',
+      CP: '0000800000008000',
+      CH: '7468746874687468',
+      OH: '0080008000800080',
+      TOM: '0004000000400000',
+      HT: '0000004000000400',
+      T9: '8007008006008000',
+      T10: '0060006000600070',
+      T11: '0000000070000050',
+    },
+    voices: { CP: { reverb: 0.24 }, OH: { decay: 0.78 }, HT: { delay: 0.25 } },
+    extraSamples: { ch: EXTRA_SMP.ch909, oh: EXTRA_SMP.oh909, cp: EXTRA_SMP.cp909 },
+    extraTracks: {
+      T9: { mach: 'ht', model: '909', snd: EXTRA_SMP.detroitStab, p: { syn: 0.35, slev: 0.92, delay: 0.36, reverb: 0.3, level: 0.74 } },
+      T10: { mach: 'oh', model: '909', snd: EXTRA_SMP.ohRide, p: { syn: 0.4, slev: 0.85, level: 0.62 } },
+      T11: { mach: 'tom', model: '909', snd: EXTRA_SMP.acid303, p: { syn: 0.5, slev: 0.85, delay: 0.25, level: 0.68 } },
+    },
+  },
+  {
+    name: 'DUB TECHNO',
+    bpm: 122,
+    fx: { swing: 0.2, drive: 0.1, reverb: 0.38, delay: 0.42, chorus: 0.18 },
+    kick: { key: KICK.deep, or: '808' },
+    snare: { key: SNARE.tight808, or: '808' },
+    hh: '808',
+    cp: '808',
+    tom: '808',
+    kit: { tune: st(-2), attack: 0.42, decay: 0.52, drive: 0.22 },
+    steps: {
+      BD: '9000900090009000',
+      SD: '0000000300000004',
+      CP: '0000600000006000',
+      CH: '6357635763576357',
+      OH: '0070007000700070',
+      TOM: '0005000000050000',
+      T9: '9000008000007000',
+      T10: '0000000000700000',
+      T11: '0400050004000600',
+    },
+    voices: { CP: { reverb: 0.4, delay: 0.35 }, CH: { delay: 0.28 }, TOM: { tone: -0.25, delay: 0.38 } },
+    extraSamples: { ch: EXTRA_SMP.chMicro, cp: EXTRA_SMP.cpSnap },
+    extraTracks: {
+      T9: { mach: 'ht', model: 'mm', snd: EXTRA_SMP.dubChord, p: { syn: 0.3, slev: 0.95, delay: 0.55, reverb: 0.48, cutoff: 0.55, level: 0.78 } },
+      T10: { mach: 'cy', model: 'mm', snd: EXTRA_SMP.dubSiren, p: { syn: 0.2, slev: 0.85, delay: 0.6, reverb: 0.5, level: 0.56 } },
+      T11: { mach: 'tom', model: '808', snd: EXTRA_SMP.reese, p: { syn: 0.6, slev: 0.8, cutoff: 0.4, level: 0.7 } },
+    },
+  },
+  {
+    name: 'HARDGROOVE',
+    bpm: 140,
+    fx: { swing: 0.22, drive: 0.3, reverb: 0.14, delay: 0.1 },
+    kick: { key: KICK.hardgroove, or: '909' },
+    snare: { key: SNARE.crisp909, or: '909' },
+    hh: '909',
+    cp: '909',
+    tom: '909',
+    kit: { tune: st(0), attack: 0.72, decay: 0.42, drive: 0.48 },
+    steps: {
+      BD: '9006900090069000',
+      SD: '0040700500407006',
+      CP: '0000800000008000',
+      CH: '8678867886788678',
+      OH: '0090009000900090',
+      TOM: '0600007006000080',
+      HT: '0070050000700500',
+      T9: '7586758675867586',
+      T10: '0700807007008070',
+      T11: '8000008000800000',
+    },
+    voices: { TOM: { drive: 0.25 }, HT: { tone: 0.2 } },
+    extraSamples: { ch: EXTRA_SMP.ch909, oh: EXTRA_SMP.oh909, tom: EXTRA_SMP.tomConga, ht: EXTRA_SMP.afroLog },
+    extraTracks: {
+      T9: { mach: 'ch', model: '909', snd: EXTRA_SMP.chAfro, p: { syn: 0.35, slev: 0.9, level: 0.72 } },
+      T10: { mach: 'tom', model: '808', snd: EXTRA_SMP.tomConga, p: { syn: 0.55, slev: 0.9, level: 0.74 } },
+      T11: { mach: 'ht', model: '909', snd: EXTRA_SMP.detroitStab, p: { syn: 0.3, slev: 0.85, delay: 0.25, level: 0.66 } },
+    },
+  },
+  {
+    name: 'INDUSTRIAL',
+    bpm: 136,
+    fx: { swing: 0, drive: 0.52, reverb: 0.28, delay: 0.14 },
+    kick: { key: KICK.industrial, or: '909' },
+    snare: { key: SNARE.ebmMetal, or: '909' },
+    hh: '909',
+    cp: '909',
+    tom: '909',
+    kit: { tune: st(-2), attack: 0.8, decay: 0.5, drive: 0.72, gate: 1 },
+    steps: {
+      BD: '9000900090009060',
+      SD: '0000900000009000',
+      CP: '0000700000007040',
+      CH: '8060806080608080',
+      OH: '0080008000800090',
+      TOM: '0060000000600600',
+      T9: '0678067806780678',
+      T10: '0000800000009000',
+      T11: '8000000080006000',
+    },
+    voices: { SD: { drive: 0.45, reverb: 0.3 }, CP: { reverb: 0.28 } },
+    extraSamples: { cp: EXTRA_SMP.cpWhip, tom: EXTRA_SMP.tom909 },
+    extraTracks: {
+      T9: { mach: 'bd', model: '909', snd: KICK.warehouse, p: { syn: 0.45, slev: 0.9, drive: 0.5, level: 0.74 } },
+      T10: { mach: 'cp', model: '909', snd: EXTRA_SMP.cpWhip, p: { syn: 0.5, slev: 0.9, reverb: 0.35, level: 0.72 } },
+      T11: { mach: 'ht', model: '909', snd: EXTRA_SMP.raveHoover, p: { syn: 0.4, slev: 0.85, drive: 0.4, level: 0.66 } },
+    },
+  },
+  {
+    name: 'DEEP HOUSE',
+    bpm: 120,
+    fx: { swing: 0.42, drive: 0.06, reverb: 0.26, delay: 0.24, chorus: 0.2 },
+    kick: { key: KICK.deep, or: '909' },
+    snare: { key: SNARE.tight808, or: '808' },
+    hh: '909',
+    cp: '909',
+    tom: '808',
+    kit: { tune: st(-1), attack: 0.46, decay: 0.46, drive: 0.2 },
+    steps: {
+      BD: '9000900090009000',
+      CP: '0000800000008000',
+      SD: '0000000300000005',
+      CH: '6457645764576457',
+      OH: '0080008000800080',
+      TOM: '0005000000500000',
+      HT: '0000005000000500',
+      T9: '8000007000600000',
+      T10: '0060050000600500',
+    },
+    voices: { CP: { reverb: 0.25 }, OH: { decay: 0.65 }, TOM: { delay: 0.2 } },
+    extraSamples: { oh: EXTRA_SMP.ohHouse, cp: EXTRA_SMP.cp909 },
+    extraTracks: {
+      T9: { mach: 'ht', model: 'mm', snd: EXTRA_SMP.dubChord, p: { syn: 0.25, slev: 0.92, delay: 0.36, reverb: 0.35, level: 0.74 } },
+      T10: { mach: 'tom', model: '808', snd: EXTRA_SMP.tomConga, p: { syn: 0.5, slev: 0.85, level: 0.68 } },
+    },
+  },
+  {
+    name: 'MICROHOUSE',
+    bpm: 126,
+    fx: { swing: 0.48, drive: 0.05, reverb: 0.16, delay: 0.26 },
+    kick: { key: KICK.vntm, or: '808' },
+    snare: { key: SNARE.tight808, or: '808' },
+    hh: '808',
+    cp: '808',
+    tom: '808',
+    kit: { tune: st(0), attack: 0.44, decay: 0.36, drive: 0.18 },
+    steps: {
+      BD: '9000900090009004',
+      CP: '0000700000007000',
+      SD: '0030000400200005',
+      CH: '7465746574657465',
+      OH: '0060006000600070',
+      TOM: '0004005000040000',
+      HT: '0500000005000400',
+      T9: '6045060450604506',
+      T10: '0006000000700000',
+    },
+    voices: { CH: { decay: 0.4 }, CP: { decay: 0.45 }, HT: { delay: 0.32 } },
+    extraSamples: { ch: EXTRA_SMP.chMicro, cp: EXTRA_SMP.cpSnap },
+    extraTracks: {
+      T9: { mach: 'ch', model: '808', snd: EXTRA_SMP.chMicro, p: { syn: 0.4, slev: 0.9, pan: 0.3, level: 0.66 } },
+      T10: { mach: 'ht', model: '808', snd: EXTRA_SMP.afroLog, p: { syn: 0.45, slev: 0.85, delay: 0.35, level: 0.68 } },
+    },
+  },
+  {
+    name: 'AFRO HOUSE',
+    bpm: 122,
+    fx: { swing: 0.34, drive: 0.12, reverb: 0.22, delay: 0.18 },
+    kick: { key: KICK.deep, or: '909' },
+    snare: { key: SNARE.ukgRim, or: '808' },
+    hh: '909',
+    cp: '808',
+    tom: '808',
+    kit: { tune: st(-1), attack: 0.52, decay: 0.48, drive: 0.26 },
+    steps: {
+      BD: '9000900090009000',
+      SD: '0006007000060070',
+      CP: '0000600000006000',
+      CH: '7568756875687568',
+      OH: '0070007000700070',
+      TOM: '0070060000700800',
+      HT: '0600007006000050',
+      T9: '8576857685768576',
+      T10: '0080070006000800',
+      T11: '7000007000700000',
+    },
+    voices: { TOM: { reverb: 0.18 }, HT: { delay: 0.22 } },
+    extraSamples: { ch: EXTRA_SMP.chAfro, tom: EXTRA_SMP.tomConga, ht: EXTRA_SMP.afroLog },
+    extraTracks: {
+      T9: { mach: 'ch', model: 'mm', snd: EXTRA_SMP.chAfro, p: { syn: 0.25, slev: 0.95, level: 0.74 } },
+      T10: { mach: 'ht', model: '808', snd: EXTRA_SMP.afroLog, p: { syn: 0.5, slev: 0.9, reverb: 0.22, level: 0.74 } },
+      T11: { mach: 'tom', model: '808', snd: EXTRA_SMP.tomConga, p: { syn: 0.6, slev: 0.85, level: 0.72 } },
+    },
+  },
+  {
+    name: 'SYNTHWAVE',
+    bpm: 110,
+    fx: { swing: 0.05, drive: 0.14, reverb: 0.32, delay: 0.2, chorus: 0.25 },
+    kick: { key: KICK.punch909, or: '909' },
+    snare: { key: SNARE.linndrum, or: '909' },
+    hh: '808',
+    cp: '808',
+    tom: '808',
+    kit: { tune: st(-1), attack: 0.6, decay: 0.5, drive: 0.3, gate: 1 },
+    steps: {
+      BD: '9000900090009000',
+      SD: '0000900000009000',
+      CP: '0000700000007000',
+      CH: '7575757575757575',
+      OH: '0070007000700080',
+      TOM: '0000000000007600',
+      HT: '0000000000000087',
+      T9: '8787878787878787',
+      T10: '8000007080000070',
+    },
+    voices: { SD: { reverb: 0.42 }, CP: { reverb: 0.35 }, TOM: { reverb: 0.28 } },
+    extraSamples: { cp: EXTRA_SMP.cpDisco, tom: EXTRA_SMP.tom909 },
+    extraTracks: {
+      T9: { mach: 'ht', model: '808', snd: EXTRA_SMP.italoPluck, p: { syn: 0.35, slev: 0.92, delay: 0.28, level: 0.74 } },
+      T10: { mach: 'cy', model: 'mm', snd: EXTRA_SMP.tranceSaw, p: { syn: 0.2, slev: 0.9, reverb: 0.38, delay: 0.3, level: 0.66 } },
+    },
+  },
+  {
+    name: 'BREAKBEAT',
+    bpm: 130,
+    fx: { swing: 0.16, drive: 0.22, reverb: 0.18, delay: 0.16 },
+    kick: { key: KICK.punch909, or: '909' },
+    snare: { key: SNARE.amen, or: '909' },
+    hh: '909',
+    cp: '909',
+    tom: '909',
+    kit: { tune: st(-1), attack: 0.65, decay: 0.46, drive: 0.36 },
+    steps: {
+      BD: '9007008000900000',
+      SD: '0000900505009006',
+      CP: '0000700000007000',
+      CH: '8576857685768576',
+      OH: '0080008000800080',
+      TOM: '0000006000000600',
+      T9: '8000007000800600',
+      T10: '9000000000800000',
+      T11: '0070007000700080',
+    },
+    voices: { SD: { reverb: 0.2 } },
+    extraSamples: { ch: EXTRA_SMP.chJungle, oh: EXTRA_SMP.ohRide },
+    extraTracks: {
+      T9: { mach: 'tom', model: '808', snd: EXTRA_SMP.reese, p: { syn: 0.45, slev: 0.92, level: 0.76 } },
+      T10: { mach: 'ht', model: '909', snd: EXTRA_SMP.detroitStab, p: { syn: 0.3, slev: 0.9, delay: 0.35, reverb: 0.3, level: 0.68 } },
+      T11: { mach: 'oh', model: '909', snd: EXTRA_SMP.ohRide, p: { syn: 0.35, slev: 0.85, level: 0.62 } },
+    },
+  },
+  {
+    name: 'UK GARAGE',
+    bpm: 132,
+    fx: { swing: 0.54, drive: 0.1, reverb: 0.16, delay: 0.14 },
+    kick: { key: KICK.deep, or: '909' },
+    snare: { key: SNARE.ukgRim, or: '808' },
+    hh: '909',
+    cp: '909',
+    tom: '808',
+    kit: { tune: st(0), attack: 0.55, decay: 0.4, drive: 0.25 },
+    steps: {
+      BD: '9000000800800000',
+      SD: '0000900400009005',
+      CP: '0000700000007000',
+      CH: '7065706570657065',
+      OH: '0080008000800080',
+      HT: '0006000006000060',
+      T9: '0080070000800850',
+      T10: '8000007000008000',
+      T11: '0506050605060506',
+    },
+    voices: { SD: { reverb: 0.14 }, OH: { decay: 0.6 } },
+    extraSamples: { oh: EXTRA_SMP.ohHouse, cp: EXTRA_SMP.cpSnap },
+    extraTracks: {
+      T9: { mach: 'tom', model: '808', snd: EXTRA_SMP.fmDonk, p: { syn: 0.45, slev: 0.95, level: 0.78 } },
+      T10: { mach: 'ht', model: '808', snd: EXTRA_SMP.dubChord, p: { syn: 0.25, slev: 0.88, delay: 0.3, level: 0.66 } },
+      T11: { mach: 'ch', model: '909', snd: EXTRA_SMP.chAfro, p: { syn: 0.25, slev: 0.85, level: 0.6 } },
+    },
+  },
+  {
+    name: 'JUNGLE',
+    bpm: 165,
+    fx: { swing: 0.1, drive: 0.26, reverb: 0.2, delay: 0.18 },
+    kick: { key: KICK.sub808, or: '808' },
+    snare: { key: SNARE.amen, or: '909' },
+    hh: '909',
+    cp: '909',
+    tom: '808',
+    kit: { tune: st(-2), attack: 0.6, decay: 0.56, drive: 0.38 },
+    steps: {
+      BD: '9000000000900000',
+      SD: '0000900607009067',
+      CH: '8675867586758675',
+      OH: '0080008000800080',
+      T9: '9000008000700000',
+      T10: '0065007500650785',
+      T11: '8000000000007000',
+    },
+    voices: { SD: { reverb: 0.22 } },
+    extraSamples: { ch: EXTRA_SMP.chJungle, oh: EXTRA_SMP.ohRide },
+    extraTracks: {
+      T9: { mach: 'tom', model: '808', snd: EXTRA_SMP.reese, p: { syn: 0.55, slev: 0.95, level: 0.8 } },
+      T10: { mach: 'sd', model: '909', snd: SNARE.amen, p: { syn: 0.35, slev: 0.9, tune: 0.12, level: 0.74 } },
+      T11: { mach: 'cy', model: 'mm', snd: EXTRA_SMP.dubSiren, p: { syn: 0.2, slev: 0.85, delay: 0.5, reverb: 0.4, level: 0.6 } },
+    },
+  },
+  {
+    name: 'DRUM N BASS',
+    bpm: 174,
+    fx: { swing: 0.04, drive: 0.28, reverb: 0.15, delay: 0.12 },
+    kick: { key: KICK.punch909, or: '909' },
+    snare: { key: SNARE.amen, or: '909' },
+    hh: '909',
+    cp: '909',
+    tom: '808',
+    kit: { tune: st(0), attack: 0.72, decay: 0.42, drive: 0.42 },
+    steps: {
+      BD: '9000000000900000',
+      SD: '0000900000009004',
+      CP: '0000700000007000',
+      CH: '8576857685768576',
+      OH: '0080008000800080',
+      T9: '9007008000900760',
+      T10: '0060050007000560',
+      T11: '8000000080000000',
+    },
+    voices: { SD: { reverb: 0.16 } },
+    extraSamples: { ch: EXTRA_SMP.chJungle, oh: EXTRA_SMP.oh909 },
+    extraTracks: {
+      T9: { mach: 'tom', model: '808', snd: EXTRA_SMP.reese, p: { syn: 0.5, slev: 0.95, drive: 0.35, level: 0.8 } },
+      T10: { mach: 'ch', model: '909', snd: EXTRA_SMP.chJungle, p: { syn: 0.4, slev: 0.9, level: 0.68 } },
+      T11: { mach: 'ht', model: '909', snd: EXTRA_SMP.raveHoover, p: { syn: 0.35, slev: 0.85, delay: 0.3, level: 0.64 } },
+    },
+  },
+  {
+    name: 'IDM',
+    bpm: 142,
+    fx: { swing: 0.14, drive: 0.18, reverb: 0.24, delay: 0.32 },
+    kick: { key: KICK.vntm, or: '808' },
+    snare: { key: SNARE.ukgRim, or: '909' },
+    hh: '808',
+    cp: '808',
+    tom: '909',
+    kit: { tune: st(1), attack: 0.65, decay: 0.38, drive: 0.3 },
+    steps: {
+      BD: '9007000806009000',
+      SD: '0070900000800750',
+      CP: '0000600500007000',
+      CH: '8560740865078469',
+      OH: '0007000008000070',
+      TOM: '0600007000500800',
+      HT: '0050080006000070',
+      T9: '8060070580067050',
+      T10: '0700800600700805',
+      T11: '0008000070000600',
+    },
+    voices: { SD: { delay: 0.28 }, HT: { delay: 0.36 }, TOM: { reverb: 0.25 } },
+    extraSamples: { ch: EXTRA_SMP.chMicro, cp: EXTRA_SMP.cpSnap },
+    extraTracks: {
+      T9: { mach: 'cy', model: 'mm', snd: EXTRA_SMP.idmZap, p: { syn: 0.35, slev: 0.92, delay: 0.38, level: 0.72 } },
+      T10: { mach: 'tom', model: '909', snd: EXTRA_SMP.acid303, p: { syn: 0.45, slev: 0.9, cutoff: 0.68, res: 0.5, level: 0.72 } },
+      T11: { mach: 'ht', model: '808', snd: EXTRA_SMP.fmDonk, p: { syn: 0.4, slev: 0.85, delay: 0.3, level: 0.68 } },
+    },
+  },
+  {
+    name: 'TRANCE',
+    bpm: 138,
+    fx: { swing: 0.04, drive: 0.16, reverb: 0.28, delay: 0.26, chorus: 0.22 },
+    kick: { key: KICK.punch909, or: '909' },
+    snare: { key: SNARE.crisp909, or: '909' },
+    hh: '909',
+    cp: '909',
+    tom: '909',
+    kit: { tune: st(-1), attack: 0.68, decay: 0.44, drive: 0.34 },
+    steps: {
+      BD: '9000900090009000',
+      CP: '0000800000008000',
+      SD: '0000600000006035',
+      CH: '7575757575757575',
+      OH: '0090009000900090',
+      T9: '0789078907890789',
+      T10: '9007008090070080',
+      T11: '8000000000800000',
+    },
+    voices: { CP: { reverb: 0.28 }, OH: { decay: 0.8, reverb: 0.2 } },
+    extraSamples: { ch: EXTRA_SMP.ch909, oh: EXTRA_SMP.oh909, cp: EXTRA_SMP.cp909 },
+    extraTracks: {
+      T9: { mach: 'tom', model: '909', snd: EXTRA_SMP.ebmBass, p: { syn: 0.4, slev: 0.92, level: 0.76 } },
+      T10: { mach: 'cy', model: 'mm', snd: EXTRA_SMP.tranceSaw, p: { syn: 0.25, slev: 0.95, delay: 0.38, reverb: 0.35, level: 0.74 } },
+      T11: { mach: 'ht', model: '909', snd: EXTRA_SMP.raveHoover, p: { syn: 0.35, slev: 0.88, delay: 0.32, level: 0.66 } },
+    },
   },
 ];
 
@@ -371,6 +892,7 @@ export interface RytmFactory {
   samples: Partial<Record<KitFamily, string>>;
   layers: Partial<Record<KitFamily, Layer>>;
   knobs: Record<string, number>;
+  tracks?: StoredKit16;
 }
 
 const blank = '0000000000000000';
@@ -397,20 +919,61 @@ export function rytmFactory(): { name: string; data: RytmFactory }[] {
     const layers = Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT }])) as Record<KitFamily, Layer>;
     if (bd) layers.bd = { ...LAYER_DEFAULT, syn: 0, tune: sampleTune, len: lenOfDecay(g.kit.decay ?? KIT_BASE.decay) };
     if (sd) layers.sd = { ...LAYER_DEFAULT, syn: 0 };
+    const samples: Partial<Record<KitFamily, string>> = { ...(bd ? { bd } : {}), ...(sd ? { sd } : {}) };
+    if (g.extraSamples) {
+      for (const [f, key] of Object.entries(g.extraSamples) as [KitFamily, string][]) {
+        const resolved = resolveSample(f, key);
+        if (resolved) {
+          samples[f] = resolved;
+          layers[f] = { ...LAYER_DEFAULT, syn: 0.45, lev: 0.85 };
+        }
+      }
+    }
+    const voices = Object.fromEntries(INSTRUMENTS.map((k) => [k, { ...VOICE_FX_DEFAULT, ...(g.voices?.[k] ?? {}) }])) as Record<Inst, VoiceFx>;
+    const steps: Steps = Object.fromEntries(INSTRUMENTS.map((k) => [k, g.steps[k] ?? blank])) as Steps;
+    for (const tk of TRACK_KEYS.slice(8)) {
+      const row = g.steps[tk];
+      if (row && row !== blank) steps[tk] = row;
+    }
+    let storedTracks: StoredKit16 | undefined;
+    if (g.extraTracks) {
+      const baseK16 = kit16FromLegacy({ model: machines, knob: kitKnobs, sample: samples, layer: layers }, voices);
+      const nextTracks = baseK16.tracks.map((tr, idx) => {
+        const tk = TRACK_KEYS[idx];
+        const spec = g.extraTracks?.[tk];
+        if (!spec) return tr;
+        const p: Record<TrackParamId, number> = { ...(idx < 8 ? tr.p : TRACK_P_DEFAULT) };
+        if (spec.p) {
+          for (const [pid, val] of Object.entries(spec.p) as [TrackParamId, number][]) {
+            if (typeof val === 'number') p[pid] = clampTrackParam(pid, val, true);
+          }
+        }
+        const snd = spec.snd ? (sampleOf((spec.mach && spec.mach !== 'oneshot' ? spec.mach : 'bd') as KitFamily, { key: spec.snd }) ?? spec.snd) : tr.snd;
+        const nextTr: TrackSound = {
+          mach: spec.mach ?? tr.mach,
+          model: spec.model ?? tr.model,
+          snd,
+          p,
+        };
+        return nextTr;
+      });
+      storedTracks = kit16ToStored({ ...baseK16, tracks: nextTracks });
+    }
     return {
       name: g.name,
       data: {
-        steps: Object.fromEntries(INSTRUMENTS.map((k) => [k, g.steps[k] ?? blank])) as Steps,
+        steps,
         bpm: g.bpm,
         fx: { ...NEUTRAL_FX, ...g.fx },
         stretch: 0,
-        voices: Object.fromEntries(INSTRUMENTS.map((k) => [k, { ...VOICE_FX_DEFAULT, ...(g.voices?.[k] ?? {}) }])) as Record<Inst, VoiceFx>,
+        voices,
         kit: kitKnobs,
         sounds: Object.fromEntries(KIT_FAMILIES.map((f) => [f, families[f]])) as Partial<Record<KitFamily, string>>,
         machines,
-        samples: { ...(bd ? { bd } : {}), ...(sd ? { sd } : {}) },
+        samples,
         layers,
         knobs: kitKnobs,
+        ...(storedTracks ? { tracks: storedTracks } : {}),
       },
     };
   });

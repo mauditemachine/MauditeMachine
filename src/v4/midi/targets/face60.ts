@@ -141,14 +141,9 @@ const ACTION60 = {
     if (lcdSamples.isOpen()) soundBrowserClose();
     else soundBrowserOpen();
   },
-  // KEYBOARD et SONG, inertes en V.6.0 : la face DT2 dit BIENTOT comme sa touche (la table des accords)
   keyboard: (): void => {
     if (DT2_FACE) tap60('kbd');
     else soon('KEYBOARD', 'kbd', 'V.6.1');
-  },
-  song: (): void => {
-    if (DT2_FACE) tap60('song');
-    else soon('SONG', 'song', 'V.6.2');
   },
   // FUNC + TEMPO sur la face (l'eclair blanc a chaque tape) : le TAP, sans engager FUNC
   tap: (): void => {
@@ -200,8 +195,7 @@ export function face60Targets(out: MidiTarget[]): void {
     if (fill) fill.down = ACTION60.fillDown;
   }
   out.push({ id: 'rytm:data', scope: 'mm808', label: LABEL60.data, kind: 'relative', turn: ACTION60.data });
-  out.push(press('rytm:keyboard', 'mm808', 'KEYBOARD (SOON)', ACTION60.keyboard));
-  out.push(press('rytm:song', 'mm808', 'SONG (SOON)', ACTION60.song));
+  out.push(press('rytm:keyboard', 'mm808', 'KEYBOARD', ACTION60.keyboard));
   out.push(press('rytm:preset', 'mm808', LABEL60.preset, ACTION60.preset));
   out.push(press('rytm:settings', 'mm808', LABEL60.settings, ACTION60.settings));
   out.push(press('rytm:sounds', 'mm808', LABEL60.sounds, ACTION60.sounds));

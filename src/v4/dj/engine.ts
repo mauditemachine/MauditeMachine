@@ -1486,7 +1486,6 @@ export class DjPlayer {
           this.overview = nextPeaks.overview;
           this.detail = nextPeaks.detail;
           this.bands = nextPeaks.bands;
-          this.loadId += 1;
           this.onDuration?.(realDur);
           waveListeners.forEach((fn) => fn());
         }
@@ -1781,9 +1780,15 @@ export class DjPlayer {
     // Aller hors de la boucle la quitte (un hot cue, la piste touchee, un recalage)
     if (this.loopAB && (t < this.loopAB.a || t >= this.loopAB.b)) this.loopAB = null;
     if (this.stream) {
-      this.startPos = t;
+      const safeT = this.duration > 0.5 ? Math.min(this.duration - 0.25, t) : t;
+      this.startPos = Math.max(0, safeT);
       this.startAt = at > 0 ? Math.max(this.ctx.currentTime, at) : this.ctx.currentTime;
-      deckScController(this.deckId).seek(t);
+      const ctrl = deckScController(this.deckId);
+      ctrl.seek(this.startPos);
+      if (this.playing) {
+        this.syncStreamVolume();
+        this.startStreamTimer();
+      }
       return;
     }
     if (!this.playing) {

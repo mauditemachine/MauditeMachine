@@ -656,6 +656,7 @@ export function fxVoiceDetailOf(t: SlotTarget | string): FxVoiceDetailId | null 
 const tk = (label: string, d: string, draw: SlotDraw, lock?: LockKey): PageSlot => ({ label, target: `t:${d}` as SlotTarget, scope: 'track', draw, ...(lock ? { lock } : {}) });
 const SRC_TUNE = tk('TUNE', 'tune', 'barc', 'tune');
 const SRC_PLAY = tk('PLAY', 'srev', 'notch', 'srev');
+const SRC_MACH = tk('MACH', 'mach', 'notch');
 const SRC_SAMP = tk('SAMP', 'snd', 'sound', 'snd');
 const SRC_SND = tk('SND', 'snd', 'sound', 'snd');
 const SRC_STRT = tk('STRT', 'sstart', 'start', 'sstart');
@@ -671,7 +672,12 @@ const SRC_LOOP: PageSlot = { label: 'LOOP', target: null, scope: 'track', draw: 
 const MACHINE_KNOBS: Readonly<Partial<Record<string, readonly PageSlot[]>>> = {
   bd: [tk('DEC', 'kdecay', 'decay', 'kdecay'), tk('SWP', 'ksweep', 'bar', 'ksweep'), tk('DRV', 'kdrive', 'bar', 'kdrive'), tk('PTCH', 'ktune', 'barc', 'ktune'), tk('ATK', 'kattack', 'bar', 'kattack')],
   sd: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('SNAP', 'snappy', 'bar', 'snappy'), tk('TONE', 'sdtone', 'barc', 'sdtone'), tk('PTCH', 'sdtune', 'barc', 'sdtune'), tk('GATE', 'gate', 'notch', 'gate')],
-  cp: [tk('GATE', 'gate', 'notch', 'gate')],
+  ch: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('TONE', 'sdtone', 'barc', 'sdtone'), tk('PTCH', 'sdtune', 'barc', 'sdtune')],
+  oh: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('TONE', 'sdtone', 'barc', 'sdtone'), tk('PTCH', 'sdtune', 'barc', 'sdtune')],
+  cp: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('TONE', 'sdtone', 'barc', 'sdtone'), tk('GATE', 'gate', 'notch', 'gate')],
+  tom: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('SWP', 'ksweep', 'bar', 'ksweep'), tk('PTCH', 'sdtune', 'barc', 'sdtune'), tk('TONE', 'sdtone', 'barc', 'sdtone')],
+  ht: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('SWP', 'ksweep', 'bar', 'ksweep'), tk('PTCH', 'sdtune', 'barc', 'sdtune'), tk('TONE', 'sdtone', 'barc', 'sdtone')],
+  cy: [tk('DEC', 'sddecay', 'decay', 'sddecay'), tk('TONE', 'sdtone', 'barc', 'sdtone'), tk('PTCH', 'sdtune', 'barc', 'sdtune')],
 };
 const NONE: PageSlot = EMPTY;
 const DT2_SRC_CACHE = new Map<string, readonly PageSlot[]>();
@@ -682,7 +688,7 @@ export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
   const hit = DT2_SRC_CACHE.get(key);
   if (hit) return hit;
   let out: readonly PageSlot[];
-  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, NONE, SRC_SAMP, SRC_STRT, SRC_LEN, SRC_LOOP, SRC_SLEV] : [SRC_FINE];
+  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, SRC_LOOP, SRC_SLEV] : [SRC_FINE];
   else {
     const kn = MACHINE_KNOBS[mach] ?? [];
     // E F G : ses potards ; une machine qui en a moins y met la couche sample (STRT, LEN, SMP)
@@ -690,7 +696,7 @@ export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
     const used = new Set(efg.map((s) => s.target));
     const rest = [...kn.slice(3), NONE, NONE].slice(0, 2);
     const tail = [SRC_SMP, SRC_FINE, SRC_STRT, SRC_LEN].map((s) => (used.has(s.target) ? NONE : s));
-    out = sub === 0 ? [SRC_TUNE, SRC_PLAY, NONE, SRC_SND, ...efg, SRC_SYN] : [...rest, NONE, SRC_MODL, ...tail];
+    out = sub === 0 ? [SRC_TUNE, SRC_PLAY, SRC_MACH, SRC_SND, ...efg, SRC_SYN] : [...rest, NONE, SRC_MODL, ...tail];
   }
   DT2_SRC_CACHE.set(key, out);
   return out;

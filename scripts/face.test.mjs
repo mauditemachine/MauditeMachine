@@ -55,7 +55,6 @@ const GRID = {
   kbd: [19, 99.5, 'P'],
   trk: [19, 115, 'L'],
   ptn: [19, 129.7, 'L'],
-  song: [19, 144.4, 'L'],
   preset: [52, 83.5, 'P'],
   settings: [75.5, 83.5, 'P'],
   sounds: [99, 83.5, 'P'],
@@ -80,9 +79,9 @@ const GRID = {
 const SIZE = { P: [12, 11], L: [22, 11], G: [26, 11] };
 const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a} au lieu de ${b}`);
 
-test('les 25 touches a leur place et a leur taille (table 2.2)', () => {
+test('les 24 touches a leur place et a leur taille (table 2.2)', () => {
   const keys = F.DT2_FACEPLATE.buttons.keys;
-  assert.equal(keys.length, 25);
+  assert.equal(keys.length, 24);
   for (const k of keys) {
     const g = GRID[k.id];
     assert.ok(g, `${k.id}: absente de la table 2.2`);
@@ -137,15 +136,15 @@ test('les ids de zones gardes (2.6) et les nouveaux', () => {
   const by = Object.fromEntries(F.DT2_FACEPLATE.buttons.keys.map((k) => [k.id, k.hotspot]));
   const kept = { func: 'func', trk: 'trk', ptn: 'pad-edit', rec: 'rec', play: 'run', stop: 'stop', trig: 'pkey-trig', src: 'pkey-voice', fltr: 'pkey-fltr', amp: 'pkey-env', fx: 'pkey-fx', mod: 'pkey-mod', yes: 'yes', no: 'no' };
   for (const [id, h] of Object.entries(kept)) assert.equal(by[id], h, id);
-  for (const id of ['kbd', 'song', 'preset', 'settings', 'sounds', 'tempo', 'up', 'down', 'left', 'right', 'ptnpage']) assert.equal(by[id], id, id);
-  assert.equal(new Set(Object.values(by)).size, 25, 'un id de zone par touche');
+  for (const id of ['kbd', 'preset', 'settings', 'sounds', 'tempo', 'up', 'down', 'left', 'right', 'ptnpage']) assert.equal(by[id], id, id);
+  assert.equal(new Set(Object.values(by)).size, 24, 'un id de zone par touche');
   assert.equal(F.DT2_FACEPLATE.open.hotspot, 'pad-open');
 });
 
 test('la fonction orange de chaque touche (table 2.2) et KB OCT dans le cadre des fleches', () => {
   const alt = Object.fromEntries(F.DT2_FACEPLATE.buttons.keys.map((k) => [k.id, k.alt ?? '']));
   assert.deepEqual(alt, {
-    func: '', kbd: 'KB SETUP', trk: 'MUTE MODE', ptn: 'BANK', song: 'SONG EDIT', preset: 'PERFORM', settings: 'SAVE PROJ', sounds: 'SAMPLES', tempo: 'TAP TEMPO',
+    func: '', kbd: 'KB SETUP', trk: 'MUTE MODE', ptn: 'BANK', preset: 'PERFORM', settings: 'SAVE PROJ', sounds: 'SAMPLES', tempo: 'TAP TEMPO',
     rec: 'COPY', play: 'CLEAR', stop: 'PASTE', trig: 'QUANTIZE', src: 'MACHINE', fltr: 'SETUP', amp: 'SEQUENCER', fx: 'SEND FX', mod: 'MIXER',
     yes: 'SAVE', up: 'TRIG MODE', no: 'RELOAD', left: 'uTIME-', down: 'TRIG MODE', right: 'uTIME+', ptnpage: 'FILL/SETUP',
   });

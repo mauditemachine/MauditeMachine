@@ -27,6 +27,7 @@ interface ScWidget {
   seekTo: (ms: number) => void;
   setVolume: (vol: number) => void;
   getDuration: (cb: (ms: number) => void) => void;
+  isPaused?: (cb: (paused: boolean) => void) => void;
   bind: (event: string, cb: (data?: { currentPosition?: number }) => void) => void;
 }
 
@@ -199,8 +200,14 @@ export function buildStreamPeaks(seedKey: string, duration: number, bpm: number)
 export class DeckScController {
   private iframe: HTMLIFrameElement | null = null;
   private widget: ScWidget | null = null;
+  private widgetPromise: Promise<ScWidget> | null = null;
   private ready = false;
   private currentUrl: string | null = null;
+  private loadedUrl: string | null = null;
+  private hasPlayed = false;
+  private pendingPrePlaySeek = false;
+  private lastSeekMs = 0;
+  private seekTimer: number | null = null;
   private wantPlay = false;
   private wantPos = 0;
   private wantVol = 80;
@@ -209,10 +216,18 @@ export class DeckScController {
 
   constructor(private readonly deck: DjDeck) {}
 
+  private clearSeekTimer(): void {
+    if (this.seekTimer !== null && typeof window !== 'undefined') {
+      window.clearTimeout(this.seekTimer);
+      this.seekTimer = null;
+    }
+  }
+
   private ensureWidget(): Promise<ScWidget> | null {
     if (FLAGS.mute || typeof document === 'undefined') return null;
     if (this.widget && this.ready) return Promise.resolve(this.widget);
-    return ensureScApi().then((SC) => {
+    if (this.widgetPromise) return this.widgetPromise;
+    this.widgetPromise = ensureScApi().then((SC) => {
       if (this.widget && this.ready) return this.widget;
       return new Promise<ScWidget>((resolve) => {
         if (!this.iframe) {
@@ -224,6 +239,7 @@ export class DeckScController {
           el.tabIndex = -1;
           el.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;bottom:0;opacity:0;pointer-events:none;border:0;';
           const initial = this.currentUrl || 'https://soundcloud.com/mauditemachine/voodoo';
+          this.loadedUrl = initial;
           el.src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(initial)}&auto_play=false&visual=false&show_artwork=false&download=false&sharing=false`;
           document.body.appendChild(el);
           this.iframe = el;
@@ -238,9 +254,38 @@ export class DeckScController {
           resolve(w);
         });
         w.bind(E.PLAY, () => {
+          this.hasPlayed = true;
           w.setVolume(FLAGS.mute ? 0 : this.wantVol);
           this.queryDuration();
-          if (!this.wantPlay) w.pause();
+          if (!this.wantPlay) {
+            w.pause();
+            return;
+          }
+          if (this.pendingPrePlaySeek) {
+            this.pendingPrePlaySeek = false;
+            if (this.wantPos > 0.2) {
+              try {
+                w.seekTo(this.wantPos * 1000);
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+        });
+        w.bind(E.PAUSE, () => {
+          // Si SoundCloud met le flux en pause lors d'un seekTo alors que la platine tourne, relancer aussitot
+          if (this.wantPlay && this.hasPlayed && typeof window !== 'undefined') {
+            window.setTimeout(() => {
+              if (this.wantPlay && this.widget && this.ready) {
+                try {
+                  this.widget.setVolume(FLAGS.mute ? 0 : this.wantVol);
+                  this.widget.play();
+                } catch {
+                  /* ignore */
+                }
+              }
+            }, 35);
+          }
         });
         w.bind(E.FINISH, () => {
           this.wantPlay = false;
@@ -248,6 +293,7 @@ export class DeckScController {
         });
       });
     });
+    return this.widgetPromise;
   }
 
   private queryDuration(): void {
@@ -262,22 +308,71 @@ export class DeckScController {
     }
   }
 
+  private flushSeek(posSec: number): void {
+    const w = this.widget;
+    if (!w || !this.ready) return;
+    const ms = Math.max(0, Math.round(posSec * 1000));
+    if (!this.hasPlayed) {
+      this.pendingPrePlaySeek = posSec > 0.2;
+      if (this.wantPlay) {
+        try {
+          w.setVolume(FLAGS.mute ? 0 : this.wantVol);
+          w.play();
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
+    try {
+      w.seekTo(ms);
+      if (this.wantPlay) {
+        w.setVolume(FLAGS.mute ? 0 : this.wantVol);
+        w.play();
+        w.isPaused?.((paused) => {
+          if (paused && this.wantPlay) {
+            try {
+              w.setVolume(FLAGS.mute ? 0 : this.wantVol);
+              w.play();
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   load(url: string, onDuration: (durSec: number) => void, onEnd: () => void): void {
+    this.clearSeekTimer();
     this.onDurationCb = onDuration;
     this.onEndCb = onEnd;
     this.wantPlay = false;
     this.wantPos = 0;
-    const same = this.currentUrl === url;
+    this.pendingPrePlaySeek = false;
     this.currentUrl = url;
     if (FLAGS.mute || typeof document === 'undefined') return;
     void this.ensureWidget()?.then((w) => {
       if (this.currentUrl !== url) return;
-      if (same) {
-        w.pause();
-        w.seekTo(0);
+      if (this.loadedUrl === url) {
         this.queryDuration();
+        w.setVolume(FLAGS.mute ? 0 : this.wantVol);
+        if (this.wantPlay) {
+          if (this.hasPlayed && this.wantPos > 0.2) this.flushSeek(this.wantPos);
+          else {
+            if (this.wantPos > 0.2) this.pendingPrePlaySeek = true;
+            w.play();
+          }
+        } else if (this.hasPlayed) {
+          w.pause();
+          w.seekTo(0);
+        }
         return;
       }
+      this.loadedUrl = url;
+      this.hasPlayed = false;
       w.load(url, {
         auto_play: this.wantPlay,
         visual: false,
@@ -290,9 +385,10 @@ export class DeckScController {
         show_playcount: false,
         show_user: false,
         callback: () => {
+          if (this.currentUrl !== url) return;
           w.setVolume(FLAGS.mute ? 0 : this.wantVol);
           this.queryDuration();
-          if (this.wantPos > 0.2) w.seekTo(this.wantPos * 1000);
+          if (this.wantPos > 0.2) this.pendingPrePlaySeek = true;
           if (this.wantPlay) w.play();
           else w.pause();
         },
@@ -308,13 +404,19 @@ export class DeckScController {
     void this.ensureWidget()?.then((w) => {
       if (!this.wantPlay) return;
       w.setVolume(this.wantVol);
-      if (this.wantPos > 0.2) w.seekTo(this.wantPos * 1000);
-      w.play();
+      if (this.hasPlayed) {
+        if (this.wantPos > 0.2) this.flushSeek(this.wantPos);
+        else w.play();
+      } else {
+        this.pendingPrePlaySeek = this.wantPos > 0.2;
+        w.play();
+      }
     }).catch(() => undefined);
   }
 
   pause(): void {
     this.wantPlay = false;
+    this.clearSeekTimer();
     if (!this.widget || !this.ready) return;
     try {
       this.widget.pause();
@@ -325,11 +427,25 @@ export class DeckScController {
 
   seek(posSec: number): void {
     this.wantPos = Math.max(0, posSec);
-    if (!this.widget || !this.ready) return;
-    try {
-      this.widget.seekTo(this.wantPos * 1000);
-    } catch {
-      /* ignore */
+    if (FLAGS.mute || typeof window === 'undefined') return;
+    if (!this.widget || !this.ready) {
+      this.pendingPrePlaySeek = this.wantPos > 0.2;
+      return;
+    }
+    const now = performance.now();
+    const elapsed = now - this.lastSeekMs;
+    if (elapsed >= 120) {
+      this.clearSeekTimer();
+      this.lastSeekMs = now;
+      this.flushSeek(this.wantPos);
+      return;
+    }
+    if (this.seekTimer === null) {
+      this.seekTimer = window.setTimeout(() => {
+        this.seekTimer = null;
+        this.lastSeekMs = performance.now();
+        this.flushSeek(this.wantPos);
+      }, Math.max(20, 120 - elapsed));
     }
   }
 

@@ -59,7 +59,6 @@ function rows(n: Node): MenuRow[] {
     case 'root':
       return [
         { label: 'PROJECT', sub: true, dim: true, value: 'V.6.2' },
-        { label: 'SONG', sub: true, dim: true, value: 'V.6.2' },
         { label: 'PATTERN', sub: true },
         { label: 'MIDI CONFIG', sub: true, dim: true, value: 'V.6.2' },
         { label: 'AUDIO ROUTING', sub: true, dim: true, value: 'V.6.1' },
@@ -127,7 +126,7 @@ function choose(): void {
     lcdMessage.show(`${r.label}: BIENTOT ${r.value ?? ''}`.trim(), 1400);
     return;
   }
-  if (n === 'root') path.push(c === 2 ? 'pattern' : c === 5 ? 'personalize' : 'system');
+  if (n === 'root') path.push(c === 1 ? 'pattern' : c === 4 ? 'personalize' : 'system');
   else if (n === 'pattern') {
     if (c === 0) {
       const cur = patternName(patterns.get().cur);
@@ -214,7 +213,7 @@ registerScreenMenu({
   paint: (screen) => paint(screen),
   onOpen() {
     path = ['root'];
-    cursors.root = 2;
+    cursors.root = 1;
     top = 0;
     pop = null;
   },

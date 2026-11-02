@@ -616,10 +616,13 @@ export class DjGestures {
     if (g.zone !== 'detail') return;
     // La forme d'onde suit le doigt : vers la gauche, la piste avance
     const D = DECK_SCREEN.detail;
-    const win = djState.get().deck[g.deck].zoom;
-    const dur = djState.get().deck[g.deck].track?.duration ?? 0;
-    g.target = Math.max(0, Math.min(dur, g.v0 - ((uv.u - g.u0) / (D.u1 - D.u0)) * win));
-    djScrub(g.deck, g.target);
+    const d = djState.get().deck[g.deck];
+    const win = d.zoom;
+    const dur = d.track?.duration ?? 0;
+    const maxPos = dur > 0.5 ? dur - 0.25 : dur;
+    g.target = Math.max(0, Math.min(maxPos, g.v0 - ((uv.u - g.u0) / (D.u1 - D.u0)) * win));
+    if (d.playing) djSeek(g.deck, g.target);
+    else djScrub(g.deck, g.target);
     this.stage.repaint();
   }
 

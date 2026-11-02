@@ -14,7 +14,8 @@ import type { ShotId } from '../audio/shotsdsp';
 import { rytmPage } from '../state/rytmPage';
 import { type SlotTarget } from '../rytm/pages';
 import { encText, encUnit, kitUnit, layerText, v127Text, velTo127, velWord } from '../rytm/values';
-import { isBipolar, isVoiceEnc, potCourse, potMin, type EncId } from '../theme';
+import { DT2_FACE, isBipolar, isVoiceEnc, potCourse, potMin, type EncId } from '../theme';
+import { activeTrack } from '../state/trk';
 import { voyKnob, voyParams, voyReadout, voyValueText } from '../voyager/params';
 import { two } from './shared';
 import { sceneHint, sceneMark, sceneNative } from './internal/scenes';
@@ -349,14 +350,15 @@ export function dialReadout(id: DialId): string {
   if (mi) return `${mi} VOLUME ${dialValueText(id)}, ${dialUnit(id).toLowerCase()}`;
   const sd = seqDialOf(id);
   if (sd) {
-    const inst = pattern.get().instrument;
-    if (!inst) return 'TAP A VOICE';
+    const tk = pattern.get().instrument ?? (DT2_FACE ? activeTrack.get() : null);
+    if (!tk) return 'TAP A VOICE';
     const v = seqValue(sd);
-    return `${inst} ${seqName(sd)} ${seqText(sd, v)}, ${seqUnit(sd, v).toLowerCase()}`;
+    return `${tk} ${seqName(sd)} ${seqText(sd, v)}, ${seqUnit(sd, v).toLowerCase()}`;
   }
   if (id === 'tempo') return tempoSync.label(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
-  if (isVoiceEnc(e) && !pattern.get().instrument) return 'TAP A VOICE';
+  const activeTk = pattern.get().instrument ?? (DT2_FACE ? activeTrack.get() : null);
+  if (isVoiceEnc(e) && !activeTk) return 'TAP A VOICE';
   if (e === 'vsound') {
     const f = soundFamily();
     return f ? kit.readout(f) : `${pattern.get().instrument} HAS ONE SOUND`;
@@ -364,7 +366,7 @@ export function dialReadout(id: DialId): string {
   // Ce que montrent l'ecran et l'anneau (2026-10-27, revue B1, spec 10.3) : armee la scene, sinon ce qui joue, et le coin
   // de la scene ; sans scene, la base comme avant
   const sh = sceneNative(e, true);
-  return sh === null ? readout(e, dialValue(e), dialTarget(e)) : `${readout(e, sh, dialTarget(e))}${sceneMark(e)}`;
+  return sh === null ? readout(e, dialValue(e), (activeTk ?? dialTarget(e)) as never) : `${readout(e, sh, (activeTk ?? dialTarget(e)) as never)}${sceneMark(e)}`;
 }
 
 /**
@@ -379,6 +381,7 @@ export function dialValueText(id: DialId): string {
     const t = pageTarget(pk);
     if (t === null) return '--';
     const inst = pattern.get().instrument;
+    const tk = inst ?? (DT2_FACE ? activeTrack.get() : null);
     // En P-LOCK (2026-10-08) : la valeur verrouillee du pas, sinon celle de la voix ; la piste du P-LOCK (lockTrack : sur la
     // face DT2 la piste active, T9 a T16 compris, relecture de la V.6.0)
     const ls = lockReadStep();
@@ -388,7 +391,7 @@ export function dialValueText(id: DialId): string {
       // VEL en P-LOCK : le pas lui-meme (vide : OFF)
       if (t === 'step:vel') return 'OFF';
     }
-    if (t === 'step:vel') return inst ? String(velTo127(rytmPage.tapVel(inst))) : '--';
+    if (t === 'step:vel') return tk ? String(velTo127(rytmPage.tapVel(tk))) : '--';
     if (isDialV60(t)) return dialValueText(t as DialId);
     if (t === 'smpl:sample') return sampleText();
     if (t === 'voice:sound') return inst ? (soundFamily() || ls >= 0 ? voiceSoundText(inst, kit.playsWith(inst as ShotId, null)) : '--') : '--';
@@ -409,11 +412,12 @@ export function dialValueText(id: DialId): string {
     const v = dialShown(id);
     return encText('vol', v, v, false);
   }
+  const activeTk = pattern.get().instrument ?? (DT2_FACE ? activeTrack.get() : null);
   const sd = seqDialOf(id);
-  if (sd) return pattern.get().instrument ? seqText(sd, seqValue(sd)) : '--';
+  if (sd) return activeTk ? seqText(sd, seqValue(sd)) : '--';
   if (id === 'tempo') return tempoSync.text(pattern.get().bpm);
   const e = id as Exclude<EncId, 'tempo'>;
-  if (isVoiceEnc(e) && !pattern.get().instrument) return '--';
+  if (isVoiceEnc(e) && !activeTk) return '--';
   if (e === 'vsound') {
     const f = soundFamily();
     return f ? kit.valueText(f) : '--';
@@ -429,12 +433,13 @@ export function dialUnit(id: DialId): string {
   const pk = pageKnobOf(id);
   const ls = lockReadStep();
   const inst = pattern.get().instrument;
+  const activeTk = inst ?? (DT2_FACE ? activeTrack.get() : null);
   if (pk >= 0 && ls >= 0 && lockTrack()) {
     const lv = pageLockView(pk, ls);
     if (lv) return lv.unit;
     if (t === 'step:vel') return 'EMPTY STEP';
   }
-  if (t === 'step:vel') return inst ? `NEW STEPS ${velWord(rytmPage.tapVel(inst))}` : '';
+  if (t === 'step:vel') return activeTk ? `NEW STEPS ${velWord(rytmPage.tapVel(activeTk))}` : '';
   if (isDialV60(t)) {
     const sp = dialSpecOf(t);
     return !sp || (sp.live && !sp.live()) ? '' : sp.unit(dialShown(t as DialId));
@@ -457,9 +462,9 @@ export function dialUnit(id: DialId): string {
   const mi = mixerInst(t);
   if (mi) return encUnit('vol', dialShown(t));
   const sd = seqDialOf(t);
-  if (sd) return inst ? seqUnit(sd, seqValue(sd)) : '';
+  if (sd) return activeTk ? seqUnit(sd, seqValue(sd)) : '';
   const e = t as ContEnc;
-  if (isVoiceEnc(e) && !inst) return '';
+  if (isVoiceEnc(e) && !activeTk) return '';
   // DLY TIME : sa duree au tempo du moment ; ce qui se montre (2026-10-27 : la scene armee, ou ce qui joue)
   if (e === 'dtime') return `${Math.round(((60 / pattern.get().bpm / 4) * delayDiv(dialShown(e)).steps) * 1000)} MS`;
   return encUnit(e, dialShown(e));

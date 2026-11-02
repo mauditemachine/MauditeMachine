@@ -113,7 +113,7 @@ test('V.5.1 : les lock trigs et les pas a condition de la voix choisie, en jaune
 /* ---------------- V.6.0 : la face Digitakt II ---------------- */
 
 const FPAL = { ...PAL, orange: '#FF6A13', blue: '#4DA3FF', magenta: '#E04DD8' };
-const FREST = { func: 'off', trk: 'off', ptn: false, bank: false, keyboard: false, song: 'off', menu: null, perform: false, fill: 'off', rec: 'off', play: 'stop', page: 'voice', home: false };
+const FREST = { func: 'off', trk: 'off', ptn: false, bank: false, keyboard: false, menu: null, perform: false, fill: 'off', rec: 'off', play: 'stop', page: 'voice', home: false };
 const fat = (leds, id) => leds.find((l) => l.id === id);
 
 test('V.6.0 : les quatorze touches du boitier d aujourd hui gardent leur ordre et leurs notes (60 a 73)', () => {
@@ -129,11 +129,11 @@ test('V.6.0 : les quatorze touches du boitier d aujourd hui gardent leur ordre e
   assert.deepEqual(Object.entries(HW_KEY_NOTES).filter(([, n]) => n.confirmed).map(([id]) => id), ['trk']);
 });
 
-test('V.6.0 : 25 touches de la face DT2 dans l ordre de DT2_BUTTONS, chacune une note, aucune sur SCENE A et B (79, 80)', () => {
-  assert.equal(DT2_KEYS_HW.length, 25);
+test('V.6.0 : 24 touches de la face DT2 dans l ordre de DT2_BUTTONS, chacune une note, aucune sur SCENE A et B (79, 80)', () => {
+  assert.equal(DT2_KEYS_HW.length, 24);
   assert.deepEqual([...DT2_KEYS_HW], DT2_BUTTONS.map((b) => b.id));
   const notes = DT2_KEYS_HW.map((id) => HW_KEY_NOTES[id].note);
-  assert.equal(new Set(notes).size, 25);
+  assert.equal(new Set(notes).size, 24);
   assert.ok(!notes.includes(79) && !notes.includes(80));
   assert.ok(notes.every((n) => n >= 60 && n <= 86));
 });
@@ -161,9 +161,8 @@ test('V.6.0 : la face DT2 au repos, seule la page affichee (SRC) est allumee', (
   for (const x of l) if (x.id !== 'src') assert.deepEqual([x.color, x.level], ['', 0], x.id);
 });
 
-test('V.6.0 : KEYBOARD, SONG (EDIT clignote), les menus, PERFORM orange, PAGE en FILL (en attente clignote)', () => {
+test('V.6.0 : KEYBOARD, les menus, PERFORM orange, PAGE en FILL (en attente clignote)', () => {
   assert.equal(fat(faceLeds({ ...FREST, keyboard: true }, FPAL), 'kbd').level, 1);
-  assert.deepEqual(fat(faceLeds({ ...FREST, song: 'edit' }, FPAL), 'song'), { id: 'song', color: '#FF2B2B', level: 1, blink: true, double: false });
   for (const m of ['preset', 'settings', 'sounds', 'tempo']) {
     const l = faceLeds({ ...FREST, menu: m }, FPAL);
     assert.deepEqual([fat(l, m).color, fat(l, m).level], ['#FF2B2B', 1], m);

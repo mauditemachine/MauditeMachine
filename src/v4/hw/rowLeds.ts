@@ -152,10 +152,10 @@ export function ptnLeds(cur: number, next: number, chain: readonly number[], fil
 /* ---------------- V.6.0 (lane B6) : la face Digitakt II, ses notes, les 16 pistes ---------------- */
 
 /** Les touches de la face DT2 pour le boitier (rytm/dtFaceIds.ts DT2_BUTTONS, le meme ordre : celui de lecture de la face). */
-export type Dt2KeyHw = 'func' | 'kbd' | 'trk' | 'ptn' | 'song' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'rec' | 'play' | 'stop' | 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'mod' | 'yes' | 'up' | 'no' | 'left' | 'down' | 'right' | 'ptnpage';
+export type Dt2KeyHw = 'func' | 'kbd' | 'trk' | 'ptn' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'rec' | 'play' | 'stop' | 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'mod' | 'yes' | 'up' | 'no' | 'left' | 'down' | 'right' | 'ptnpage';
 
-/** Les 25 touches de la face DT2 (cahier dt2 2.2), dans l'ordre de DT2_BUTTONS (hw:test le verifie). */
-export const DT2_KEYS_HW: readonly Dt2KeyHw[] = ['func', 'kbd', 'trk', 'ptn', 'song', 'preset', 'settings', 'sounds', 'tempo', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'up', 'no', 'left', 'down', 'right', 'ptnpage'];
+/** Les 24 touches de la face DT2 (cahier dt2 2.2), dans l'ordre de DT2_BUTTONS (hw:test le verifie). */
+export const DT2_KEYS_HW: readonly Dt2KeyHw[] = ['func', 'kbd', 'trk', 'ptn', 'preset', 'settings', 'sounds', 'tempo', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'up', 'no', 'left', 'down', 'right', 'ptnpage'];
 
 /**
  * La note de chaque touche du boitier et la cible MIDI qu'elle pilote (cahier dt2 2.6). Les quatorze d'aujourd'hui gardent
@@ -188,7 +188,6 @@ export const HW_KEY_NOTES: Readonly<Record<Dt2KeyHw, HwKeyNote>> = {
   yes: { note: 72, target: 'rytm:yes', confirmed: false, today: true },
   no: { note: 73, target: 'rytm:no', confirmed: false, today: true },
   kbd: { note: 74, target: 'rytm:keyboard', confirmed: false, today: false },
-  song: { note: 75, target: 'rytm:song', confirmed: false, today: false },
   preset: { note: 76, target: 'rytm:preset', confirmed: false, today: false },
   settings: { note: 77, target: 'rytm:settings', confirmed: false, today: false },
   sounds: { note: 78, target: 'rytm:sounds', confirmed: false, today: false },
@@ -220,7 +219,6 @@ export interface FaceState {
   readonly ptn: boolean;
   readonly bank: boolean;
   readonly keyboard: boolean;
-  readonly song: 'off' | 'song' | 'edit';
   /** le menu ouvert de PRESET/KIT, SETTINGS, SOUNDS, TEMPO ; null aucun */
   readonly menu: 'preset' | 'settings' | 'sounds' | 'tempo' | null;
   readonly perform: boolean;
@@ -277,7 +275,6 @@ export function faceLeds(s: FaceState, pal: FacePalette): HwFaceLed[] {
       return led(id, pal.red, s.home ? ROW_HOME_LEVEL : 1);
     }
     if (id === 'kbd') return led(id, pal.red, s.keyboard ? 1 : 0);
-    if (id === 'song') return led(id, pal.red, s.song === 'off' ? 0 : 1, s.song === 'edit');
     if (id === 'preset' && s.perform) return led(id, pal.orange, 1);
     if (id === 'preset' || id === 'settings' || id === 'sounds' || id === 'tempo') return led(id, pal.red, s.menu === id ? 1 : 0);
     if (id === 'ptnpage') return led(id, pal.red, s.fill === 'off' ? 0 : 1, s.fill === 'armed');

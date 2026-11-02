@@ -10,3 +10,4 @@ import './preset';
 import './sounds60';
 import './settings';
 import './mixer16';
+import './pagesetup';

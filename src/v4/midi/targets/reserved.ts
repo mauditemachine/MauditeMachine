@@ -9,7 +9,7 @@ import type { MidiTarget } from './types';
 
 export const RESERVED_TARGET_IDS = {
   /** V.6.0, la face DT2 (2.6) : la touche PAGE prend rytm:ptnpage (rytm:page est la valeur de page) ; rytm:fill anime PAGE */
-  face60: ['rytm:data', 'rytm:keyboard', 'rytm:song', 'rytm:preset', 'rytm:settings', 'rytm:sounds', 'rytm:tap', 'rytm:up', 'rytm:down', 'rytm:left', 'rytm:right', 'rytm:ptnpage', 'rytm:tempo:bpm', 'rytm:tempo:swing'],
+  face60: ['rytm:data', 'rytm:keyboard', 'rytm:preset', 'rytm:settings', 'rytm:sounds', 'rytm:tap', 'rytm:up', 'rytm:down', 'rytm:left', 'rytm:right', 'rytm:ptnpage', 'rytm:tempo:bpm', 'rytm:tempo:swing'],
   /**
    * V.6.0, les 16 pistes : les reglages, mutes, pads, choix et pas du sequenceur du Roto de T9 a T16 (les memes formes que
    * BD..CY), TRK LEV sur les 16 ; rytm:voice:<K>:<reglage> pour chaque reglage de voix, de trig et de LFO d'aujourd'hui

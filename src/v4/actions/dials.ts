@@ -5,8 +5,10 @@
 
 import { mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
+import { tracks } from '../audio/tracks';
 import { kit } from '../audio/kit';
 import { BPM, DELAY_DIVS, fxSnap, isFxSetting, pattern } from '../audio/pattern';
+import { activeTrack } from '../state/trk';
 import { lcdMessage } from '../state/lcdMessage';
 import { lcdMix } from '../state/lcdMix';
 import { lcdSamples } from '../state/lcdSamples';
@@ -99,17 +101,19 @@ export function dial(id: EncId, v: number, popup = false): void {
   const p = voiceParam(id);
   if (p) {
     const inst = pattern.get().instrument;
-    if (!inst) {
+    const tk = inst ?? (DT2_FACE ? activeTrack.get() : null);
+    if (!tk) {
       lcdMessage.show(LCD_NO_VOICE);
       return;
     }
-    setVoiceFx(inst, p, v);
+    if (inst) setVoiceFx(inst, p, v);
+    else tracks.set(tk, p, v);
     // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron), sur l'ecran d'aujourd'hui
     // seulement (HOME, EDIT) ; en vue PAGE (2026-10-08) le bloc VOL de AMP montre la valeur, la ligne du bas la dit
     // Le navigateur des sons ouvert (2026-10-18) : il garde l'ecran, la valeur s'ecrit a son pied
-    if (id === 'vol' && screenHome() && !lcdSamples.isOpen()) lcdMix.show(inst);
+    if (inst && id === 'vol' && screenHome() && !lcdSamples.isOpen()) lcdMix.show(inst);
     else {
-      if (!sceneHideSay(id)) lcdMessage.show(readout(id as ContEnc, dialValue(id), inst), POT_UI.readoutMs, true);
+      if (!sceneHideSay(id)) lcdMessage.show(readout(id as ContEnc, dialValue(id), tk as Inst), POT_UI.readoutMs, true);
       touchPage(id, inst);
     }
     return;
@@ -302,7 +306,9 @@ export function dialValue(id: EncId): number {
   const p = voiceParam(id);
   if (p) {
     const inst = pattern.get().instrument;
-    return inst ? voiceFx.of(inst)[p] : VOICE_FX_DEFAULT[p];
+    if (inst) return voiceFx.of(inst)[p];
+    const tk = DT2_FACE ? activeTrack.get() : null;
+    return tk ? tracks.param(tk, p) : VOICE_FX_DEFAULT[p];
   }
   switch (id) {
     case 'tempo':

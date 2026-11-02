@@ -638,6 +638,13 @@ let fxState: Readonly<Fx> = validateFx(stored.raw);
 /** Les champs de V.6.1 et V.6.2 du motif courant (V.5.9) : recopies tels quels a chaque ecriture. */
 let moreState: StoredPatternMore | null = stored.legacy ? null : validateMore(stored.raw);
 let scenesState: SceneSet = stored.legacy ? NO_SCENES : validateScenes(stored.raw);
+const emptyPageSteps = (): Steps => Object.fromEntries(INSTRUMENTS.map((k) => [k, EMPTY_ROW])) as Steps;
+let pageCountVal: 1 | 2 | 3 | 4 = 1;
+let editPageIdx: 0 | 1 | 2 | 3 = 0;
+/** -1 : joue toutes les pages actives (1..pageCount) ; 0..3 : boucle uniquement la page choisie. */
+let loopPageIdx: -1 | 0 | 1 | 2 | 3 = -1;
+let pageSteps: [Steps, Steps, Steps, Steps] = [{ ...state.steps }, emptyPageSteps(), emptyPageSteps(), emptyPageSteps()];
+const pageHasHits = (s: Steps): boolean => TRACK_KEYS.some((k) => /[1-9]/.test(s[k] ?? ''));
 const listeners = new Set<() => void>();
 const fxListeners = new Set<() => void>();
 const sceneListeners = new Set<(at?: number) => void>();
@@ -664,6 +671,7 @@ function flush(): void {
 function commit(next: PatternState, persist: boolean): void {
   const steps = normSteps(next.steps);
   state = steps === next.steps ? next : { ...next, steps };
+  pageSteps[editPageIdx] = { ...state.steps };
   if (persist) scheduleSave();
   emit();
 }
@@ -781,6 +789,10 @@ export const pattern = {
   clear(): void {
     // Les pages, le setup et le kit de V.6.1 et V.6.2 partent avec le motif (relecture de V.5.9, R3)
     moreState = null;
+    pageCountVal = 1;
+    editPageIdx = 0;
+    loopPageIdx = -1;
+    pageSteps = [emptyPageSteps(), emptyPageSteps(), emptyPageSteps(), emptyPageSteps()];
     commit({ ...clearSteps(state), instrument: state.instrument, locks: NO_LOCKS, pmutes: state.pmutes, trigs: NO_TRIGS }, true);
   },
   /**
@@ -791,13 +803,82 @@ export const pattern = {
    * de V.5.9, R3 : ils s'attachaient au motif suivant).
    */
   replace(steps: Steps, locks: Readonly<Locks> | 'keep' = 'keep', opts?: { keepMore?: boolean }): void {
-    if (!opts?.keepMore) moreState = null;
+    if (!opts?.keepMore) {
+      moreState = null;
+      pageCountVal = 1;
+      editPageIdx = 0;
+      loopPageIdx = -1;
+      pageSteps = [emptyPageSteps(), emptyPageSteps(), emptyPageSteps(), emptyPageSteps()];
+    }
     const next = { ...state.steps };
     for (const inst of INSTRUMENTS) if (STEPS_RE.test(steps[inst])) next[inst] = steps[inst];
     // Les rangees 9 a 16 (V.5.9) : celles du motif pose ; absentes de lui (un pattern, un preset d'avant), vides
     for (const k of TRACK_KEYS) if (!isLegacyTrack(k)) delete next[k];
     Object.assign(next, extraRows(steps));
     commit({ ...state, steps: next, locks: noteLocks(locks === 'keep' ? state.locks : (cleanLocks(locks) ?? NO_LOCKS), next) }, true);
+  },
+  /** Nombre de pages de 16 pas du sequenceur : 1 (16 pas), 2 (32 pas), 3 (48 pas) ou 4 (64 pas). */
+  pageCount: (): 1 | 2 | 3 | 4 => pageCountVal,
+  setPageCount(n: 1 | 2 | 3 | 4): void {
+    const next = Math.max(1, Math.min(4, Math.round(n))) as 1 | 2 | 3 | 4;
+    if (next === pageCountVal) return;
+    pageSteps[editPageIdx] = { ...state.steps };
+    for (let p = 1; p < next; p += 1) {
+      if (!pageHasHits(pageSteps[p])) pageSteps[p] = { ...pageSteps[0] };
+    }
+    pageCountVal = next;
+    if (editPageIdx >= next) {
+      editPageIdx = (next - 1) as 0 | 1 | 2 | 3;
+      const steps = normSteps({ ...pageSteps[editPageIdx] });
+      state = { ...state, steps };
+    }
+    if (loopPageIdx >= next) loopPageIdx = -1;
+    emit();
+  },
+  /** Page editee sur les 16 boutons TRIG (0 = P1 1-16, 1 = P2 17-32, 2 = P3 33-48, 3 = P4 49-64). */
+  editPage: (): 0 | 1 | 2 | 3 => editPageIdx,
+  setEditPage(p: 0 | 1 | 2 | 3): void {
+    const next = Math.max(0, Math.min(3, Math.round(p))) as 0 | 1 | 2 | 3;
+    if (next >= pageCountVal) {
+      for (let i = 1; i <= next; i += 1) {
+        if (!pageHasHits(pageSteps[i])) pageSteps[i] = { ...pageSteps[0] };
+      }
+      pageCountVal = (next + 1) as 1 | 2 | 3 | 4;
+    }
+    if (next === editPageIdx) {
+      emit();
+      return;
+    }
+    pageSteps[editPageIdx] = { ...state.steps };
+    editPageIdx = next;
+    const steps = normSteps({ ...pageSteps[editPageIdx] });
+    state = { ...state, steps };
+    emit();
+  },
+  /** Mode de lecture des pages : -1 joue toutes les pages (1..pageCount), 0..3 boucle la page choisie. */
+  loopPage: (): -1 | 0 | 1 | 2 | 3 => loopPageIdx,
+  setLoopPage(p: -1 | 0 | 1 | 2 | 3): void {
+    const next = (p < 0 ? -1 : Math.min(pageCountVal - 1, Math.round(p))) as -1 | 0 | 1 | 2 | 3;
+    if (next === loopPageIdx) return;
+    loopPageIdx = next;
+    emit();
+  },
+  /** Les pas d'une page p (0..3) pour l'horloge et l'apercu a l'ecran. */
+  stepsOfPage(p: number): Steps {
+    const idx = Math.max(0, Math.min(3, Math.round(p))) as 0 | 1 | 2 | 3;
+    return idx === editPageIdx ? state.steps : pageSteps[idx];
+  },
+  /** Copie tous les pas d'une page vers une autre (ex. P1 -> P2). */
+  copyPageTo(from: 0 | 1 | 2 | 3, to: 0 | 1 | 2 | 3): void {
+    if (from === to) return;
+    pageSteps[editPageIdx] = { ...state.steps };
+    const src = { ...pageSteps[from] };
+    pageSteps[to] = src;
+    if (to === editPageIdx) {
+      const steps = normSteps({ ...src });
+      state = { ...state, steps };
+    }
+    emit();
   },
   /** Un verrou sur des pas d'une voix (2026-10-08, audio/locks.ts) : la valeur du domaine, ou le son (snd). */
   setLock(inst: TrackKey, steps: readonly number[], key: LockKey, v: number | string): void {

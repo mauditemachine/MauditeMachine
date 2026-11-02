@@ -5,13 +5,15 @@
 
 import { resume, setVoiceFx } from '../../audio/drums';
 import { lfoOf, voiceFx } from '../../audio/voicefx';
+import { tracks } from '../../audio/tracks';
 import { TRIG_DEF, isTrigParam, trigValue, type TrigParam } from '../../audio/trig';
 import { lfoDefault, lfoParts } from '../../audio/lfo';
 import { INSTRUMENTS, pattern } from '../../audio/pattern';
 import { lcdMessage } from '../../state/lcdMessage';
+import { activeTrack } from '../../state/trk';
 import { type SlotTarget } from '../../rytm/pages';
 import { encText, encUnit } from '../../rytm/values';
-import { LCD_NO_VOICE, POT_UI, type Inst } from '../../theme';
+import { DT2_FACE, LCD_NO_VOICE, POT_UI, type Inst } from '../../theme';
 import { touchPage } from './dials';
 import { LFO_KEY_NAMES } from './locks';
 import { sceneFollowId, sceneTakeId } from '../scenes';
@@ -45,22 +47,26 @@ export const seqDefault = (p: SeqDial): number => (isTrigParam(p) ? TRIG_DEF[p] 
 /** Sa valeur pour la voix choisie : le defaut de la voix dans le pattern (TRIG), son reglage de voix (MOD). */
 export function seqValue(p: SeqDial): number {
   const inst = pattern.get().instrument;
-  if (!inst) return seqDefault(p);
-  return isTrigParam(p) ? trigValue(pattern.get().trigs, inst, p) : lfoOf(voiceFx.of(inst), p);
+  if (inst) return isTrigParam(p) ? trigValue(pattern.get().trigs, inst, p) : lfoOf(voiceFx.of(inst), p);
+  const tk = DT2_FACE ? activeTrack.get() : null;
+  if (!tk) return seqDefault(p);
+  return isTrigParam(p) ? trigValue(pattern.get().trigs, tk, p) : tracks.param(tk, p);
 }
 /** Le potard tourne (hors P-LOCK) : le defaut de la voix dans le pattern (TRIG), son LFO (MOD) ; l'ecran le dit. */
 export function seqDial(p: SeqDial, v: number): void {
   resume();
   const inst = pattern.get().instrument;
-  if (!inst) {
+  const tk = inst ?? (DT2_FACE ? activeTrack.get() : null);
+  if (!tk) {
     lcdMessage.show(LCD_NO_VOICE);
     return;
   }
   const [lo, hi] = seqRange(p);
   const x = Math.max(lo, Math.min(hi, Math.round(v)));
-  if (isTrigParam(p)) pattern.setTrig(inst, p, x);
-  else voiceFx.setLfo(inst, p, x);
+  if (isTrigParam(p)) pattern.setTrig(tk, p, x);
+  else if (inst) voiceFx.setLfo(inst, p, x);
+  else tracks.set(tk, p, x);
   const now = seqValue(p);
-  lcdMessage.show(`${inst} ${seqName(p)} ${seqText(p, now)}  ${seqUnit(p, now)}`, POT_UI.readoutMs, true);
+  lcdMessage.show(`${tk} ${seqName(p)} ${seqText(p, now)}  ${seqUnit(p, now)}`, POT_UI.readoutMs, true);
   touchPage(`q:${p}` as SlotTarget, inst);
 }

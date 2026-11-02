@@ -832,16 +832,77 @@ export function subPage(dir: -1 | 1): void {
   lcdMessage.show(`${(SCREEN_TITLE[tabs[next]] ?? tabs[next]).toUpperCase()} ${next + 1}/${tabs.length}`, 900);
 }
 
-/** PAGE tapee (2026-11-02, Mika : "PAge aussi ne fait rien quandon touche dessus") : avance la page et les LED de PAGE. */
+/**
+ * PAGE tapee (2026-11-02, Mika : "le bouton Page sert pour le sequenceur... ca sert pour avoir 16 /32 ou plus de steps
+ * dans le sequenceur et a choisir ce qui joue") : ouvre ou parcourt les pages du sequenceur (16 / 32 / 48 / 64 pas, P1..P4).
+ */
 export function ptnPageTap(): void {
-  const nextLed = (dtFace.ptnPage() + 1) % 4;
-  dtFace.setPtnPage(nextLed);
-  if (menuOpen()) {
-    menuInput('down', 'down');
-    menuInput('down', 'up');
+  const open = dtFace.menu() === 'pagesetup';
+  if (!open) menuSet('pagesetup');
+  const cnt = pattern.pageCount();
+  const cur = pattern.editPage();
+  if (!open && cnt === 1) {
+    pattern.setPageCount(2);
+    pattern.setEditPage(1);
+  } else if (cur + 1 < cnt) {
+    pattern.setEditPage((cur + 1) as 0 | 1 | 2 | 3);
+  } else if (cnt < 4) {
+    const nextCnt = (cnt + 1) as 1 | 2 | 3 | 4;
+    pattern.setPageCount(nextCnt);
+    pattern.setEditPage((nextCnt - 1) as 0 | 1 | 2 | 3);
+  } else {
+    pattern.setPageCount(1);
+    pattern.setEditPage(0);
+  }
+  const newEdit = pattern.editPage();
+  const newCnt = pattern.pageCount();
+  dtFace.setPtnPage(newEdit);
+  lcdMessage.show(`SEQ ${newCnt * 16} STEPS · EDIT P${newEdit + 1}/${newCnt} (${newEdit * 16 + 1}-${(newEdit + 1) * 16})`, 1600, true);
+}
+
+/** FUNC + PAGE : ouvre ou ferme la configuration des pages du sequenceur (16 / 32 / 48 / 64 pas). */
+export function ptnPageSetup(): void {
+  if (fill.latched || fill.cycle !== 'off') {
+    fillUnlatch();
     return;
   }
-  subPage(1);
+  const open = dtFace.menu() === 'pagesetup';
+  menuSet(open ? null : 'pagesetup');
+  const cnt = pattern.pageCount();
+  const cur = pattern.editPage();
+  lcdMessage.show(open ? 'PAGE SETUP CLOSED' : `SEQ PAGES: ${cnt * 16} STEPS · EDIT P${cur + 1} · TRIG 1-4: PAGES`, 1600, true);
+}
+
+/**
+ * Dans PAGE SETUP, TRIG 1..4 choisit directement la page editee P1..P4 (et etend a 16/32/48/64 pas si besoin) ;
+ * TRIG 9..12 boucle uniquement P1..P4 ; TRIG 13 rejoue toutes les pages (ALL PAGES).
+ */
+export function trigPageSetup(i: number, stage: Stage | null): boolean {
+  if (dtFace.menu() !== 'pagesetup') return false;
+  stage?.pressStep(i);
+  if (i >= 0 && i < 4) {
+    const p = i as 0 | 1 | 2 | 3;
+    if (p + 1 > pattern.pageCount()) pattern.setPageCount((p + 1) as 1 | 2 | 3 | 4);
+    else if (p === pattern.editPage() && pattern.pageCount() > p + 1) pattern.setPageCount((p + 1) as 1 | 2 | 3 | 4);
+    pattern.setEditPage(p);
+    dtFace.setPtnPage(p);
+    lcdMessage.show(`EDIT P${p + 1}/${pattern.pageCount()} · ${pattern.pageCount() * 16} STEPS`, 1400, true);
+    return true;
+  }
+  if (i >= 8 && i < 12) {
+    const lp = (i - 8) as 0 | 1 | 2 | 3;
+    if (lp + 1 > pattern.pageCount()) pattern.setPageCount((lp + 1) as 1 | 2 | 3 | 4);
+    const nextLp = pattern.loopPage() === lp ? -1 : lp;
+    pattern.setLoopPage(nextLp);
+    lcdMessage.show(nextLp < 0 ? `PLAY ALL PAGES (1-${pattern.pageCount() * 16} STEPS)` : `LOOP PAGE ${nextLp + 1} ONLY`, 1400, true);
+    return true;
+  }
+  if (i === 12) {
+    pattern.setLoopPage(-1);
+    lcdMessage.show(`PLAY ALL PAGES (1-${pattern.pageCount() * 16} STEPS)`, 1400, true);
+    return true;
+  }
+  return false;
 }
 
 /** TRIG tenu + LEFT / RIGHT (cahier 3.3, uTIME) : le pas tenu (ses voisins tenus aussi) recule ou avance d'un cran (1/384). */

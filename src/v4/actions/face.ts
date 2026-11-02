@@ -854,7 +854,6 @@ export function faceKeyDown(id: Dt2ButtonId, src = 'at', stage: Stage | null = n
     case 'tempo':
     case 'preset':
     case 'kbd':
-    case 'song':
       gestureLayer.down(id, src, t);
       stage?.pressFaceKey(id);
       dispatch(id, 'press', sk, 0, t);
@@ -933,7 +932,6 @@ export function faceKeyUp(id: Dt2ButtonId, src = 'at', stage: Stage | null = nul
     case 'tempo':
     case 'preset':
     case 'kbd':
-    case 'song':
       gestureLayer.up(id, src, tap ? t : -1);
       return;
     case 'up':
@@ -1044,16 +1042,14 @@ export function dt2FaceSync(stage: Stage): () => void {
     if (fk.setFill(fill.mode)) ch = true;
     if (fk.setBank(dtFace.bank())) ch = true;
     if (fk.setKeyboard(dtFace.keyboard())) ch = true;
-    const sg = dtFace.song();
-    if (fk.setSong(sg === 'mode' ? 'song' : sg)) ch = true;
-    if (fk.setPatternPages(4, dtFace.ptnPage(), -1)) ch = true;
+    if (fk.setPatternPages(pattern.pageCount(), pattern.editPage(), clock.running ? clock.playingPage() : -1)) ch = true;
     const lk = rytmLock.get();
     if (fk.setPageLocks(dtFace.rec() && lk.step >= 0 ? lockPages(lk.step).map((pg) => pg.toLowerCase()) : [])) ch = true;
     // PERSONALIZE (relecture de la V.6.0, la lane ecran) : LED INTENSITY et LED BACKLIGHT sur la lueur de la face
     if (fk.setPersonal(dtFace.personal())) ch = true;
     if (ch) stage.repaint();
   };
-  const offs = [dtFace.subscribe(sync), fill.subscribe(sync), rytmLock.subscribe(sync), pattern.subscribe(sync)];
+  const offs = [dtFace.subscribe(sync), fill.subscribe(sync), rytmLock.subscribe(sync), pattern.subscribe(sync), clock.subscribe(sync), clock.onBar(() => sync())];
   sync();
   return () => {
     offs.forEach((o) => o());

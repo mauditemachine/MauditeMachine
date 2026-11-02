@@ -691,7 +691,7 @@ export const StaticMachine: React.FC = () => (
       {PORTRAIT
         ? 'A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.'
         : DT2_FACE
-          ? 'A black drum machine laid out like a Digitakt II: main volume and level knobs, the M logo, FUNC, KEYBOARD, TRK, PTN and SONG on the left; a 4.3 inch screen with PRESET, SETTINGS, SOUNDS, TEMPO and record, play, stop under it; eight knobs A to H, the six page keys, YES, NO, the four arrows, the eight page lights and PAGE on the right; sixteen trig keys in two rows.'
+          ? 'A black drum machine laid out like a Digitakt II: main volume and level knobs, the M logo, FUNC, KEYBOARD, TRK and PTN on the left; a 4.3 inch screen with PRESET, SETTINGS, SOUNDS, TEMPO and record, play, stop under it; eight knobs A to H, the six page keys, YES, NO, the four arrows, the eight page lights and PAGE on the right; sixteen trig keys in two rows.'
           : 'A black drum machine: a 4.3 inch screen, eight knobs A to H with value rings mirroring the eight screen values, a row of twelve keys with printed names (TRK VOICE FLTR ENV FX EDIT OPEN, play and stop, CLEAR RANDOM MUTE SOLO), scenes A and B with a crossfader, sixteen step keys in two rows.'}
     </desc>
     {DRAWING()}

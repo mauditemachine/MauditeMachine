@@ -18,7 +18,6 @@ export const TWINS_INPUT60: LaneTwins = { at: {} };
 /** La lettre de chaque touche nouvelle au clavier (cahier 2.7), dite par le jumeau. */
 export const TWIN_KEYS_60: Readonly<Partial<Record<Dt2ButtonId, string>>> = {
   kbd: 'K',
-  song: 'N',
   preset: 'P',
   settings: 'comma',
   sounds: 'U',

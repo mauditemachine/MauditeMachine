@@ -851,8 +851,10 @@ export const tracks = {
     const i = idx(t);
     const tr = K.tracks[i];
     const m = model !== undefined && isModel(model) ? model : tr.model;
-    if (tr.mach === mach && tr.model === m) return;
-    commit(withTrack(i, { ...tr, mach, model: m }));
+    const wakeSyn = mach !== 'oneshot' && tr.p.syn <= 0;
+    if (tr.mach === mach && tr.model === m && !wakeSyn) return;
+    const p = wakeSyn ? { ...tr.p, syn: 1 } : tr.p;
+    commit(withTrack(i, { ...tr, mach, model: m, p }));
   },
   /** Le sample d'une piste (n'importe quelle categorie, cahier 4.2) ; '' : OFF. Une cle inconnue ne change rien. */
   sample(t: TrackKey, key: string): void {

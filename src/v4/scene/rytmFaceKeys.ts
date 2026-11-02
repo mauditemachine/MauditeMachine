@@ -54,7 +54,6 @@ const SCN_A = at('scene-a');
 const SCN_B = at('scene-b');
 /** La face DT2 (V.6.0) : ses touches nouvelles (-1 sur la face de la V.5.3). */
 const KBD = at('kbd');
-const SONG = at('song');
 const PRESET = at('preset');
 const SETTINGS = at('settings');
 const SOUNDS = at('sounds');
@@ -319,7 +318,6 @@ export interface RytmFaceKeysInfo {
   classes: FaceKeyClass[];
   places: { x: number; z: number }[];
   keyboard: boolean;
-  song: 'off' | 'song' | 'edit';
   menu: FaceMenu | null;
   perform: boolean;
   fill: 'off' | 'on' | 'armed';
@@ -396,7 +394,6 @@ export class RytmFaceKeys {
   private capHot = false;
   /** La face DT2 (cahier 2.4) : ce que montrent les touches nouvelles, REC et la touche PAGE. */
   private keyboard = false;
-  private song: 'off' | 'song' | 'edit' = 'off';
   private menu: FaceMenu | null = null;
   private perform = false;
   private fillMode: 'off' | 'on' | 'armed' = 'off';
@@ -631,7 +628,6 @@ export class RytmFaceKeys {
     // La face DT2 (cahier 2.4) : KEYBOARD en mode clavier, SONG en SONG (clignote en SONG EDIT), PRESET/KIT, SETTINGS,
     // SOUNDS et TEMPO leur menu ouvert (PRESET/KIT orange en PERFORM KIT), PAGE en FILL (clignote en attente d'un cycle)
     if (i === KBD) return this.keyboard ? red : none;
-    if (i === SONG) return this.song === 'off' ? none : this.song === 'edit' ? { ...red, led: this.blinkLevel } : red;
     if (i === PRESET && this.perform) return { fill: 1, tone: 'dorange', glow: 1, led: 1, ledTone: 'orange' };
     if (this.menu !== null && i === MENU_KEY[this.menu]) return red;
     if (i === PTNPAGE) return this.fillMode === 'off' ? none : this.fillMode === 'armed' ? { ...red, led: this.blinkLevel } : red;
@@ -785,14 +781,6 @@ export class RytmFaceKeys {
     return true;
   }
 
-  /** SONG : rouge en SONG mode, clignotant en SONG EDIT ; true s'il faut une frame. */
-  setSong(mode: 'off' | 'song' | 'edit'): boolean {
-    if (SONG < 0 || mode === this.song) return false;
-    this.song = mode;
-    this.refresh(SONG);
-    return true;
-  }
-
   /** Le menu ouvert par sa touche (PRESET/KIT, SETTINGS, SOUNDS, TEMPO), null aucun : sa touche rouge ; true s'il faut une frame. */
   setMenu(menu: FaceMenu | null): boolean {
     if (!DT2_FACE || menu === this.menu) return false;
@@ -896,9 +884,9 @@ export class RytmFaceKeys {
   get blinking(): boolean {
     const v53 = this.trk === 'latched' || this.func === 'once' || this.func === 'locked' || this.play === 'pause' || this.armHow === 'latched' || (this.rec && this.live);
     if (!DT2_FACE) return v53;
-    // La face DT2 : la vue BANK, LIVE et STEP REC, SONG EDIT, un FILL en attente, la page qui joue (hors celle qu'on edite)
+    // La face DT2 : la vue BANK, LIVE et STEP REC, un FILL en attente, la page qui joue (hors celle qu'on edite)
     const P = this.pages;
-    return v53 || this.bank || this.recMode === 'live' || this.recMode === 'step' || this.song === 'edit' || this.fillMode === 'armed' || (P.playing >= 0 && P.playing !== P.shown && P.playing < P.count);
+    return v53 || this.bank || this.recMode === 'live' || this.recMode === 'step' || this.fillMode === 'armed' || (P.playing >= 0 && P.playing !== P.shown && P.playing < P.count);
   }
 
   /** Le clignotement (periodMs allume, periodMs a peine) des temoins et du cadre d'une scene gardee ; true si la phase a change. */
@@ -910,7 +898,7 @@ export class RytmFaceKeys {
       this.blinkOn = on;
       for (const i of [TRK, FUNC, PLAY, REC]) if (i >= 0) this.refresh(i);
       if (DT2_FACE) {
-        for (const i of [PTN, SONG, PTNPAGE]) if (i >= 0) this.refresh(i);
+        for (const i of [PTN, PTNPAGE]) if (i >= 0) this.refresh(i);
         this.paintPageLeds();
       }
       changed = true;
@@ -1113,7 +1101,6 @@ export class RytmFaceKeys {
       classes: FACE_KEYS.map((k) => k.cls),
       places: FACE_KEYS.map((k) => ({ x: +k.x.toFixed(4), z: +k.z.toFixed(4) })),
       keyboard: this.keyboard,
-      song: this.song,
       menu: this.menu,
       perform: this.perform,
       fill: this.fillMode,

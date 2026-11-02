@@ -385,7 +385,6 @@ const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: strin
   kbd: { title: 'Keyboard', hotspot: 'kbd' },
   trk: { title: 'Track', hotspot: 'trk' },
   ptn: { title: 'Pattern', hotspot: 'pad-edit' },
-  song: { title: 'Song', hotspot: 'song' },
   preset: { title: 'Presets and kits', hotspot: 'preset' },
   settings: { title: 'Settings', hotspot: 'settings' },
   sounds: { title: 'Sounds, your sample bank', hotspot: 'sounds' },
@@ -408,13 +407,13 @@ const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: strin
   ptnpage: { title: 'Pattern page', hotspot: 'ptnpage' },
 };
 
-/** Les quatorze touches de la V.5.3 (elles agissent) ; les onze autres attendent la lane B4. */
+/** Les quatorze touches de la V.5.3 (elles agissent) ; les dix autres sont branchees aussi. */
 const DT2_KEPT: ReadonlySet<Dt2ButtonId> = new Set<Dt2ButtonId>(['func', 'trk', 'ptn', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'no']);
 
 /** Le rectangle d'une touche de classe cls centree en (cx, cy). */
 const keyRect = (cls: Dt2KeyClass, cx: number, cy: number): FpRect => ({ x: cx - DT2_KEY_SIZE[cls].w / 2, y: cy - DT2_KEY_SIZE[cls].h / 2, w: DT2_KEY_SIZE[cls].w, h: DT2_KEY_SIZE[cls].h });
 
-/** Les 25 touches dans l'ordre de lecture de la face (celui de DT2_BUTTONS, l'ordre de tabulation des jumeaux en derive). */
+/** Les 24 touches dans l'ordre de lecture de la face (celui de DT2_BUTTONS, l'ordre de tabulation des jumeaux en derive). */
 const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.map((b) => ({
   id: b.id,
   cls: b.cls,
@@ -425,8 +424,8 @@ const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.map((b) => ({
   name: b.legend,
   title: DT2_KEY_MORE[b.id].title,
   hotspot: DT2_KEY_MORE[b.id].hotspot,
-  // V.6.0 (lane B4, 2026-11-01) : toutes branchees, sauf KEYBOARD et SONG (inertes, BIENTOT : V.6.1 et V.6.2)
-  phase: DT2_KEPT.has(b.id) || (b.id !== 'kbd' && b.id !== 'song') ? 1 : 2,
+  // V.6.0 (lane B4, 2026-11-01) : toutes branchees
+  phase: DT2_KEPT.has(b.id) || b.id !== 'kbd' ? 1 : 2,
 }));
 
 /** Un potard de la colonne gauche (2.2) : son centre, son emprise (d), son capuchon, sa jupe, son anneau, ses legendes. */

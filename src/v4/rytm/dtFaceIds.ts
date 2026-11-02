@@ -20,7 +20,6 @@ export const DT2_BUTTONS = [
   { id: 'kbd', cls: 'P', cx: 19, cy: 99.5, legend: 'KEYBOARD', func: 'KB SETUP' },
   { id: 'trk', cls: 'L', cx: 19, cy: 115, legend: 'TRK', func: 'MUTE MODE' },
   { id: 'ptn', cls: 'L', cx: 19, cy: 129.7, legend: 'PTN', func: 'BANK' },
-  { id: 'song', cls: 'L', cx: 19, cy: 144.4, legend: 'SONG', func: 'SONG EDIT' },
   { id: 'preset', cls: 'P', cx: 52, cy: 83.5, legend: 'PRESET', func: 'PERFORM' },
   { id: 'settings', cls: 'P', cx: 75.5, cy: 83.5, legend: 'SETTINGS', func: 'SAVE PROJ' },
   { id: 'sounds', cls: 'P', cx: 99, cy: 83.5, legend: 'SOUNDS', func: 'SAMPLES' },
@@ -65,7 +64,7 @@ export const KEPT_ZONE_IDS = ['func', 'trk', 'pad-edit', 'rec', 'run', 'stop', '
  * Les kinds des zones nouvelles (2.6). page est pris (les pads du site) et rytm:page aussi (la valeur de page) : la
  * touche PAGE prend la zone ptnpage, le kind pagekey. data est un kind nouveau, relatif (un encodeur sans butee).
  */
-export type Dt2ZoneKind = 'encoder' | 'data' | 'kbd' | 'song' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'arrow' | 'pagekey';
+export type Dt2ZoneKind = 'encoder' | 'data' | 'kbd' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'arrow' | 'pagekey';
 
 /**
  * Les zones nouvelles de la face DT2 (2.6), leur kind, leur cible MIDI (a la fin du groupe RYTM, midi/targets/face60.ts)
@@ -75,7 +74,6 @@ export const DT2_ZONES = [
   { id: 'mvol', kind: 'encoder', param: 'level', midi: ['rytm:enc:level'], hw: 'CC 29' },
   { id: 'data', kind: 'data', midi: ['rytm:data'], hw: 'CC 38' },
   { id: 'kbd', kind: 'kbd', midi: ['rytm:keyboard'], hw: 'note 74' },
-  { id: 'song', kind: 'song', midi: ['rytm:song'], hw: 'note 75' },
   { id: 'preset', kind: 'preset', midi: ['rytm:preset'], hw: 'note 76' },
   { id: 'settings', kind: 'settings', midi: ['rytm:settings'], hw: 'note 77' },
   { id: 'sounds', kind: 'sounds', midi: ['rytm:sounds'], hw: 'note 78' },

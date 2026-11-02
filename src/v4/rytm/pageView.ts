@@ -41,8 +41,9 @@ import { familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily } from
 import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import { rytmPage, screenOfState, type RytmPageState } from '../state/rytmPage';
+import { activeTrack } from '../state/trk';
 import { tempoSync } from '../state/tempoSync';
-import type { EncId, Inst } from '../theme';
+import { DT2_FACE, type EncId, type Inst } from '../theme';
 import { cellsOf, pageSlots, type PageSlot, type RytmScreenId, type SlotCell, type SlotDraw, type SlotGraph } from './pages';
 import { encText, encUnit, kitUnit, v127Text, velTo127, velWord } from './values';
 
@@ -250,18 +251,19 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     b.text = '';
     return b;
   }
+  const trk = inst ?? (DT2_FACE ? activeTrack.get() : null);
   // Un dessin (l'enveloppe, le filtre) : vivant des qu'une voix est choisie, sans valeur a lui
   if (slot.graph) {
-    b.state = inst ? 'live' : 'off';
+    b.state = trk ? 'live' : 'off';
     b.text = '';
     return b;
   }
   const fam: KitFamily | null = inst ? familyOf(inst as ShotId) : null;
   // BOTH : les deux couches ; MACHINE : un potard de la machine de synthese (plus de CH+OH ni TOM+HT depuis le
   // 2026-10-18 : chaque voix a ses couches a elle, audio/kit.ts)
-  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : slot.both && fam ? 'BOTH' : '';
+  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && trk ? trk : slot.both && fam ? 'BOTH' : '';
   // ALL des reglages de la machine sur la page d'un FX sous la voix (2026-10-10) : l'onglet allume est la voix, le bloc le dit
-  b.tagHeader = !slot.tagAlways && !b.noBd && (b.all || (!!slot.voiceTag && !!inst));
+  b.tagHeader = !slot.tagAlways && !b.noBd && (b.all || (!!slot.voiceTag && !!trk));
   const t = slot.target;
   if (t === null) {
     b.unit = 'SOON';
@@ -269,7 +271,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   }
   // Un reglage de voix sans voix : rien a lire. Un reglage de piste de la face DT2 (t:, la relecture de la V.6.0) lit la piste
   // active, T9 a T16 compris (le motif n'a alors plus de voix) : sa fiche dit s'il a une piste (dialValueText '--' plus bas)
-  if (slot.scope === 'track' && !inst && !(typeof t === 'string' && t.startsWith('t:'))) {
+  if (slot.scope === 'track' && !trk && !(typeof t === 'string' && t.startsWith('t:'))) {
     b.state = 'off';
     b.unit = 'PICK A VOICE';
     // Un demi-bloc (PITCH, FINE) : la forme courte, plutot que PICK A VOI. (2026-10-22, revue INT-4)
@@ -278,7 +280,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   }
   if (t === 'step:vel') {
     // VEL hors P-LOCK (2026-10-09) : la velocite des nouveaux pas de la voix (et de son pad) ; sans bloc depuis le 2026-10-10
-    const v = inst ? rytmPage.tapVel(inst) : 9;
+    const v = trk ? rytmPage.tapVel(trk) : 9;
     b.state = 'live';
     b.text = String(velTo127(v));
     b.unit = `NEW STEPS ${velWord(v)}`;
@@ -321,8 +323,8 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   const text = dialValueText(id);
   if (text === '--') {
     b.state = 'off';
-    b.unit = !inst ? 'PICK A VOICE' : layerIdOf(id) && layerIdOf(id) !== 'mach' ? '' : 'ONE SOUND';
-    if (!inst) b.unitShort = 'NO VOICE';
+    b.unit = !trk ? 'PICK A VOICE' : layerIdOf(id) && layerIdOf(id) !== 'mach' ? '' : 'ONE SOUND';
+    if (!trk) b.unitShort = 'NO VOICE';
     return b;
   }
   // Un reglage de couche (R3) : son nombre et son unite tels que actions.ts les ecrit (909, +5, 216 MS) ; un reglage de trig

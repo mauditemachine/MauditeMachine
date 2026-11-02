@@ -219,6 +219,8 @@ let resumeAbs = 0;
 /** Le compteur de passages du pattern (V.5.1) : 1 au lancement ; celui d'avant le dernier debut de mesure (unbar). */
 let passN = 1;
 let passBefore = 1;
+/** Page courante du sequenceur en lecture (0..3 pour les pages 1..4 de 16 pas). */
+let playingPageIdx = 0;
 /** La condition LST (V.5.1) : un changement de pattern est-il prevu a la fin de la mesure (state/patterns.ts) */
 let lastFn: (() => boolean) | null = null;
 /** L'emplacement du pattern qui joue (V.5.3, state/patterns.ts) : chaque pas programme le retient. */
@@ -315,6 +317,10 @@ function bar(): void {
   // Le passage suivant (V.5.1) ; un changement de pattern dans les ecouteurs le remet a 1 (resetPass)
   passBefore = passN;
   passN = first ? 1 : passN + 1;
+  const lp = pattern.loopPage();
+  const cnt = pattern.pageCount();
+  if (lp >= 0) playingPageIdx = Math.min(cnt - 1, lp);
+  else playingPageIdx = first ? 0 : (playingPageIdx + 1) % cnt;
   inBar = true;
   try {
     barListeners.forEach((fn) => fn(first));
@@ -331,7 +337,8 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   }
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
-  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks, scenes: pattern.scenes.get(), trigs: cur.trigs, pass: passN, last: lastFn ? lastFn() : false, slot: slotFn ? slotFn() : -1 };
+  const pageSteps = pattern.stepsOfPage(playingPageIdx);
+  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: pageSteps, locks: cur.locks, scenes: pattern.scenes.get(), trigs: cur.trigs, pass: passN, last: lastFn ? lastFn() : false, slot: slotFn ? slotFn() : -1 };
   const vs: Voice[] = [];
   let mask = 0;
   // Le mute du pattern (V.5.0, 2026-10-29) : coupee si la machine ou le pattern la coupe (le solo passe avant) ; au desktop
@@ -1202,7 +1209,10 @@ export const clock = {
   /** Un changement de pattern (V.5.1, state/patterns.ts) : le compteur de passages repart a 1. */
   resetPass(): void {
     passN = 1;
+    playingPageIdx = pattern.loopPage() >= 0 ? Math.min(pattern.pageCount() - 1, pattern.loopPage()) : 0;
   },
+  /** Page du sequenceur en cours de lecture (0..3). */
+  playingPage: (): number => (pattern.loopPage() >= 0 ? Math.min(pattern.pageCount() - 1, pattern.loopPage()) : Math.min(pattern.pageCount() - 1, playingPageIdx)),
   /** La condition LST (V.5.1) : state/patterns.ts dit si un changement de pattern est prevu a la fin de la mesure. */
   lastPass(fn: (() => boolean) | null): void {
     lastFn = fn;

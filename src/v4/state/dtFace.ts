@@ -37,7 +37,6 @@ export interface DtFaceState {
  */
 export interface DtFaceStateDt2 extends DtFaceState {
   readonly keyboard: boolean;
-  readonly song: 'off' | 'mode' | 'edit';
   readonly menu: ScreenMenuId | null;
   readonly ptnPage: number;
 }
@@ -64,7 +63,7 @@ export interface DtPersonal {
   readonly trkSelect: TrkSelect;
 }
 
-const INIT: DtFaceStateDt2 = { rec: false, mute: 'off', bank: false, live: false, keyboard: false, song: 'off', menu: null, ptnPage: 0 };
+const INIT: DtFaceStateDt2 = { rec: false, mute: 'off', bank: false, live: false, keyboard: false, menu: null, ptnPage: 0 };
 let state: DtFaceStateDt2 = INIT;
 let lastMute: Exclude<MuteView, 'off'> = 'global';
 let prepared: ReadonlyMap<TrackKey, Exclude<MuteView, 'off'>> = new Map();
@@ -79,7 +78,6 @@ function set(next: Partial<DtFaceStateDt2>): void {
     n.bank === state.bank &&
     n.live === state.live &&
     n.keyboard === state.keyboard &&
-    n.song === state.song &&
     n.menu === state.menu &&
     n.ptnPage === state.ptnPage
   )
@@ -116,10 +114,6 @@ export const dtFace = {
   keyboard: (): boolean => state.keyboard,
   setKeyboard(on: boolean): void {
     set({ keyboard: on });
-  },
-  song: (): DtFaceStateDt2['song'] => state.song,
-  setSong(m: DtFaceStateDt2['song']): void {
-    set({ song: m });
   },
   ptnPage: (): number => state.ptnPage,
   setPtnPage(p: number): void {

@@ -44,6 +44,7 @@ import {
   ptnBank,
   ptnBankStep,
   ptnHeldSlot,
+  ptnPageSetup,
   ptnSlotOp,
   ptnToggle,
   ptnView,
@@ -57,6 +58,7 @@ import {
   trigHeld,
   trigLockTrig,
   trigMute,
+  trigPageSetup,
   trigPlay,
   trigQuickMute,
   trigSettings,
@@ -99,7 +101,6 @@ const KEY_OF: Readonly<Partial<Record<ChordKey, string>>> = {
   sounds: 'U',
   tempo: 'Y',
   kbd: 'K',
-  song: 'N',
   ptnpage: 'G',
   up: 'Shift + Up',
   down: 'Shift + Down',
@@ -141,6 +142,7 @@ function trigChords(i: number): Chord[] {
     c({ id: `trig${i + 1}.trk`, key: k, gesture: 'press', mods: ['trk'], prio: 92, info, run: (e) => trigTrk(i, stageNow(), e.t) }),
     c({ id: `trig${i + 1}.func.rec`, key: k, gesture: 'press', mods: ['func'], prio: 90, info, when: () => recOpen() && !ptnView() && !bankView() && !muteOpen(), run: () => trigLockTrig(i, stageNow()) }),
     c({ id: `trig${i + 1}.func`, key: k, gesture: 'press', mods: ['func'], prio: 89, info, run: () => trigQuickMute(i, stageNow()) }),
+    c({ id: `trig${i + 1}.pagesetup`, key: k, gesture: 'press', mods: [], prio: 72, info, when: () => dtFace.menu() === 'pagesetup', run: () => trigPageSetup(i, stageNow()) }),
     c({ id: `trig${i + 1}.bank`, key: k, gesture: 'press', mods: [], prio: 70, info, when: () => bankView(), run: () => trigBank(i, stageNow()) }),
     c({ id: `trig${i + 1}.ptn`, key: k, gesture: 'press', mods: [], prio: 69, info, when: () => ptnView(), run: () => patternTap(i, stageNow()) }),
     c({ id: `trig${i + 1}.mute`, key: k, gesture: 'press', mods: [], prio: 68, info, when: () => muteOpen(), run: () => trigMute(i, stageNow()) }),
@@ -272,7 +274,7 @@ export const CHORDS_60: readonly Chord[] = [
   c({ id: 'ptn', key: 'ptn', gesture: 'press', mods: [], prio: 0, info: 'pad-edit', run: (e) => ptnToggle(stageNow(), e.t) }),
 
   /* ---------- PAGE et FILL ---------- */
-  c({ id: 'ptnpage.func', key: 'ptnpage', gesture: 'press', mods: ['func'], prio: 90, info: 'ptnpage', run: () => (fill.latched ? fillUnlatch() : fillLatch()) }),
+  c({ id: 'ptnpage.func', key: 'ptnpage', gesture: 'press', mods: ['func'], prio: 90, info: 'ptnpage', run: () => ptnPageSetup() }),
   // PAGE encore, FILL verrouille ou un cycle arme ou en cours : il se leve (1.4 : PAGE encore = fin)
   c({ id: 'ptnpage.unlatch', key: 'ptnpage', gesture: 'press', mods: [], prio: 86, info: 'ptnpage', when: () => fill.latched || fill.cycle !== 'off', run: () => fillUnlatch() }),
   // YES puis PAGE : un cycle
@@ -295,9 +297,8 @@ export const CHORDS_60: readonly Chord[] = [
   ...keyChords('sounds', 'sounds', () => menuToggle('samples'), () => menuToggle('sounds')),
   // SETTINGS : sa tape (au lacher) ouvre le menu ; tenue 1 s, elle garde pour un TRIG (trig.settings)
   ...keyChords('settings', 'settings', () => soon('6.2'), () => menuToggle('settings'), '6.2', '6.0', 'release'),
-  // KEYBOARD (2026-11-02, Mika : "Keyboard non plus..") : jeu chromatique sur TRIG 1-16 ; SONG : banques et patterns
+  // KEYBOARD (2026-11-02, Mika : "Keyboard non plus..") : jeu chromatique sur TRIG 1-16
   ...keyChords('kbd', 'kbd', () => kbdToggle(), () => kbdToggle()),
-  ...keyChords('song', 'song', () => ptnBank(stageNow()), () => ptnToggle(stageNow())),
 
   /* ---------- les touches de page ---------- */
   ...PAGE_KEYS.flatMap(pageChords),

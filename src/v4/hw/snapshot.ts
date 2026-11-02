@@ -190,7 +190,6 @@ function dt2Leds(ptnOpen: boolean, trkMode: FaceState['trk'], page: string, home
     ptn: ptnOpen,
     bank: fi?.bank ?? (ptnOpen && dtFace.bank()),
     keyboard: fi?.keyboard ?? false,
-    song: fi?.song ?? 'off',
     menu,
     perform: fi?.perform ?? false,
     fill: fi && fi.fill !== 'off' ? fi.fill : fill.on ? 'on' : 'off',

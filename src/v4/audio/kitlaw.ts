@@ -594,7 +594,10 @@ export function sigOf(f: KitFamily | null, v: KitView): string {
   if (synth) {
     if (f === 'bd') s += `~${k.tune}~${k.attack}~${k.decay}~${k.drive}~${k.sweep}`;
     else if (f === 'sd') s += `~${k.snappy}~${k.gate}~${k.sdtune}~${k.sddecay}~${k.sdtone}`;
-    else if (f === 'cp') s += `~${k.gate}`;
+    else {
+      if (f === 'cp') s += `~${k.gate}`;
+      if (k.sdtune !== 0.5 || k.sddecay !== 0.5 || k.sdtone !== 0.5 || k.sweep !== 0.5) s += `~${k.sdtune}~${k.sddecay}~${k.sdtone}~${k.sweep}`;
+    }
     if (L.syn !== 1) s += `~s${L.syn}`;
   }
   if (v.sample && L.lev > 0) {
@@ -628,7 +631,12 @@ export function synthFallback(id: ShotId, tw: Readonly<ShotTweak>): { tw: ShotTw
   let s: string = tw.model;
   if (f === 'bd') s += `~${tw.tune}~${tw.attack}~${tw.decay}~${tw.drive}~${tw.sweep}`;
   else if (f === 'sd') s += `~${tw.snappy}~${tw.gate ? 1 : 0}~${tw.sdTune}~${tw.sdDecay}~${tw.sdTone}`;
-  else if (f === 'cp') s += `~${tw.gate ? 1 : 0}`;
+  else {
+    if (f === 'cp') s += `~${tw.gate ? 1 : 0}`;
+    if ((tw.sdTune ?? 0.5) !== 0.5 || (tw.sdDecay ?? 0.5) !== 0.5 || (tw.sdTone ?? 0.5) !== 0.5 || (tw.sweep ?? 0.5) !== 0.5) {
+      s += `~${tw.sdTune ?? 0.5}~${tw.sdDecay ?? 0.5}~${tw.sdTone ?? 0.5}~${tw.sweep ?? 0.5}`;
+    }
+  }
   return { tw: out, sig: s };
 }
 

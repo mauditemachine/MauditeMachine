@@ -673,12 +673,14 @@ function gatedVerb(dl: Float32Array, dr: Float32Array, sr: number, ts: number): 
  * 2026-10-04 (moins sature, moins de bosse, moins de piece, 5.5 dB plus bas).
  * La piece seulement GATE ON (2026-10-04), les mains seules sinon.
  */
-function cp(sr: number, ts: number, r: () => number, gate = false): Shot {
+function cp(sr: number, ts: number, r: () => number, gate = false, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const fc = Math.max(0.5, Math.min(1.6, sdToneFactor(tw.sdTone)));
   const offs = [0, 0.0095, 0.019, 0.031].map((o, k) => (k === 0 ? 0 : o + (r() - 0.5) * 0.003));
   const lastT = offs[3];
-  const len = Math.round(fs * (lastT + Math.max(0.1, 0.3 * ts)));
-  const mk = (): { bp: Bq; hp: Bq; pkF: Bq } => ({ bp: new Bq('bp', 1250, 1.6, fs), hp: new Bq('hp', 600, 0.7, fs), pkF: new Bq('peak', 2600, 1, fs, 1.5) });
+  const len = Math.round(fs * (lastT + Math.max(0.1, 0.3 * td)));
+  const mk = (): { bp: Bq; hp: Bq; pkF: Bq } => ({ bp: new Bq('bp', 1250 * fc, 1.6, fs), hp: new Bq('hp', 600 * fc, 0.7, fs), pkF: new Bq('peak', 2600 * fc, 1, fs, 1.5) });
   const fl = mk();
   const fr = mk();
   const xl = new Float64Array(len);
@@ -690,7 +692,7 @@ function cp(sr: number, ts: number, r: () => number, gate = false): Shot {
       const u = t - offs[k];
       if (u < 0) continue;
       const a = 1 - Math.exp(-u / 0.0003);
-      e += k < 3 ? a * Math.exp(-u / 0.0045) : a * Math.exp(-u / (0.075 * ts));
+      e += k < 3 ? a * Math.exp(-u / 0.0045) : a * Math.exp(-u / (0.075 * td));
     }
     return e;
   };
@@ -730,27 +732,30 @@ const METAL_HZ = [205.3, 304.4, 369.6, 522.7, 540, 800] as const;
  * au-dessus de 16 kHz. decay : la tenue principale (s), tail : la queue
  * (part, s). L'open hat MM a sa propre voix depuis le 2026-10-18 (openHat).
  */
-function hat(sr: number, ts: number, r: () => number, decay: number, tail: [number, number], lenS: number, bpHz: number): Shot {
+function hat(sr: number, ts: number, r: () => number, decay: number, tail: [number, number], lenS: number, bpHz: number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.05, lenS * ts));
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const ft = sdTuneFactor(tw.sdTune);
+  const fc = Math.max(0.6, Math.min(1.35, sdToneFactor(tw.sdTone)));
+  const len = Math.round(fs * Math.max(0.05, lenS * td));
   const x = new Float64Array(len);
   const ph = METAL_HZ.map(() => r());
-  const bp1 = new Bq('bp', bpHz, 1, fs);
-  const bp2 = new Bq('bp', bpHz * 1.18, 1.2, fs);
-  const hp1 = new Bq('hp', 7000, 0.7, fs);
-  const hp2 = new Bq('hp', 7000, 0.7, fs);
-  const nhp = new Bq('hp', 8000, 0.7, fs);
+  const bp1 = new Bq('bp', bpHz * fc, 1, fs);
+  const bp2 = new Bq('bp', bpHz * 1.18 * fc, 1.2, fs);
+  const hp1 = new Bq('hp', 7000 * fc, 0.7, fs);
+  const hp2 = new Bq('hp', 7000 * fc, 0.7, fs);
+  const nhp = new Bq('hp', 8000 * fc, 0.7, fs);
   const air = new Bq('hshelf', 12000, 0.7, fs, 1.5);
   const top = new Bq('lp', 16000, 0.7, fs);
-  const d = decay * ts * (0.95 + 0.1 * r());
+  const d = decay * td * (0.95 + 0.1 * r());
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
     let m = 0;
-    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + (METAL_HZ[k] * t));
+    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + (METAL_HZ[k] * ft * t));
     m /= 6;
     const metal = hp2.run(hp1.run(0.6 * bp1.run(m) + 0.5 * bp2.run(m)));
     const noise = nhp.run(r() * 2 - 1);
-    const env = (1 - Math.exp(-t / 0.0002)) * ((1 - tail[0]) * Math.exp(-t / d) + tail[0] * Math.exp(-t / (tail[1] * ts)));
+    const env = (1 - Math.exp(-t / 0.0002)) * ((1 - tail[0]) * Math.exp(-t / d) + tail[0] * Math.exp(-t / (tail[1] * td)));
     x[i] = top.run(air.run(1.6 * metal + 0.3 * noise)) * env;
   }
   fadeOut(x, fs, Math.min(0.03, len / fs / 3));
@@ -803,32 +808,35 @@ function sqBl(ph: number, dt: number): number {
  * CHopen) gardent le leur (hat) : un charley ferme est clair (un vrai mesure
  * 13.4 kHz de centre), seul le repliement leur est commun.
  */
-function openHat(sr: number, ts: number, r: () => number): Shot {
+function openHat(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
-  const lenS = Math.max(0.3, 1.1 * ts);
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const ft = sdTuneFactor(tw.sdTune);
+  const fc = Math.max(0.6, Math.min(1.35, sdToneFactor(tw.sdTone)));
+  const lenS = Math.max(0.3, 1.1 * td);
   const len = Math.round(fs * lenS);
   const x = new Float64Array(len);
   const ph = METAL_HZ.map(() => r());
-  const dts = METAL_HZ.map((f) => f / fs);
-  const bpLo = new Bq('bp', 7800, 0.8, fs);
-  const bpHi = new Bq('bp', 10500, 1, fs);
-  const mhp = new Bq('hp', 5200, 0.7, fs);
-  const nbp = new Bq('bp', 8500, 0.6, fs);
-  const nhp = new Bq('hp', 6000, 0.7, fs);
+  const dts = METAL_HZ.map((f) => (f * ft) / fs);
+  const bpLo = new Bq('bp', 7800 * fc, 0.8, fs);
+  const bpHi = new Bq('bp', 10500 * fc, 1, fs);
+  const mhp = new Bq('hp', 5200 * fc, 0.7, fs);
+  const nbp = new Bq('bp', 8500 * fc, 0.6, fs);
+  const nhp = new Bq('hp', 6000 * fc, 0.7, fs);
   const top1 = new Bq('lp', 15000, 0.7, fs);
   const top2 = new Bq('lp', 15000, 0.7, fs);
-  const d = (0.95 + 0.1 * r()) * ts;
+  const d = (0.95 + 0.1 * r()) * td;
   let dark = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
     let m = 0;
-    for (let k = 0; k < 6; k += 1) m += sqBl(ph[k] + METAL_HZ[k] * t, dts[k]);
+    for (let k = 0; k < 6; k += 1) m += sqBl(ph[k] + METAL_HZ[k] * ft * t, dts[k]);
     m /= 6;
     const metal = mhp.run(0.7 * bpLo.run(m) + 0.6 * bpHi.run(m));
     const noise = nhp.run(nbp.run(r() * 2 - 1));
     const env = (1 - Math.exp(-t / 0.00025)) * (0.55 * Math.exp(-t / (0.045 * d)) + 0.45 * Math.exp(-t / (0.24 * d)));
     // Le dessus s'eteint avant le corps : un pole dont la coupure glisse de 16 kHz vers 7 kHz
-    const a = Math.exp((-TAU * (7000 + 9000 * Math.exp(-t / (0.2 * ts)))) / fs);
+    const a = Math.exp((-TAU * (7000 + 9000 * Math.exp(-t / (0.2 * td)))) / fs);
     dark = (1 - a) * (metal + 0.55 * noise) + a * dark;
     x[i] = top2.run(top1.run(dark)) * env;
   }
@@ -843,25 +851,28 @@ function openHat(sr: number, ts: number, r: () => number): Shot {
  * puis la nappe (550 ms). Gauche et droite ont leurs propres phases : la
  * cymbale est large.
  */
-function cy(sr: number, ts: number, r: () => number): Shot {
+function cy(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
-  const lenS = Math.min(6, Math.max(0.3, 1.6 * ts));
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const ft = sdTuneFactor(tw.sdTune);
+  const fc = Math.max(0.6, Math.min(1.4, sdToneFactor(tw.sdTone)));
+  const lenS = Math.min(6, Math.max(0.3, 1.6 * td));
   const len = Math.round(fs * lenS);
-  const freqs = [...METAL_HZ.map((f) => f * 2), ...METAL_HZ.map((f) => f * 2.73)];
+  const freqs = [...METAL_HZ.map((f) => f * 2 * ft), ...METAL_HZ.map((f) => f * 2.73 * ft)];
   const side = (): Float64Array => {
     const x = new Float64Array(len);
     const ph = freqs.map(() => r());
-    const bp = new Bq('bp', 6500, 0.7, fs);
-    const hp1 = new Bq('hp', 4200, 0.7, fs);
-    const hp2 = new Bq('hp', 4200, 0.7, fs);
-    const nhp = new Bq('hp', 6000, 0.7, fs);
+    const bp = new Bq('bp', 6500 * fc, 0.7, fs);
+    const hp1 = new Bq('hp', 4200 * fc, 0.7, fs);
+    const hp2 = new Bq('hp', 4200 * fc, 0.7, fs);
+    const nhp = new Bq('hp', 6000 * fc, 0.7, fs);
     const air = new Bq('hshelf', 11000, 0.7, fs, 3);
     for (let i = 0; i < len; i += 1) {
       const t = i / fs;
       let m = 0;
       for (let k = 0; k < freqs.length; k += 1) m += sq(ph[k] + freqs[k] * t);
       m /= freqs.length;
-      const env = (1 - Math.exp(-t / 0.001)) * (0.55 * Math.exp(-t / 0.05) + 0.45 * Math.exp(-t / (0.55 * ts)));
+      const env = (1 - Math.exp(-t / 0.001)) * (0.55 * Math.exp(-t / 0.05) + 0.45 * Math.exp(-t / (0.55 * td)));
       x[i] = air.run(hp2.run(hp1.run(bp.run(m))) * 2 + 0.35 * nhp.run(r() * 2 - 1)) * env;
     }
     fadeOut(x, fs, Math.min(0.15, lenS / 4));
@@ -874,11 +885,18 @@ function cy(sr: number, ts: number, r: () => number): Shot {
  * Toms : un sinus qui se pose (from -> to Hz), son second mode (x1.59,
  * bref), la frappe de la baguette (bruit vers 1.1 kHz, 4 ms), sature.
  */
-function tom(sr: number, ts: number, r: () => number, to: number, from: number, tau: number): Shot {
+function tom(sr: number, ts: number, r: () => number, to0: number, from0: number, tau0: number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.12, 0.45 * ts * (tau / 0.17)));
+  const ft = sdTuneFactor(tw.sdTune);
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const sw = sweepDepth(tw.sweep);
+  const fc = Math.max(0.5, Math.min(1.6, sdToneFactor(tw.sdTone)));
+  const to = to0 * ft;
+  const from = to + (from0 * ft - to) * sw;
+  const tau = tau0 * td;
+  const len = Math.round(fs * Math.max(0.12, 0.45 * td * (tau0 / 0.17)));
   const x = new Float64Array(len);
-  const bp = new Bq('bp', 1100, 1, fs);
+  const bp = new Bq('bp', 1100 * fc, 1, fs);
   let p1 = 0;
   let p2 = 0;
   for (let i = 0; i < len; i += 1) {
@@ -886,7 +904,7 @@ function tom(sr: number, ts: number, r: () => number, to: number, from: number, 
     const f = to + (from - to) * Math.exp(-t / 0.035);
     p1 += f / fs;
     p2 += (f * 1.59) / fs;
-    const a = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / (tau * ts));
+    const a = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tau);
     const v = Math.sin(TAU * p1) * a + 0.2 * Math.sin(TAU * p2) * Math.exp(-t / 0.03) + 0.3 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.004);
     x[i] = sat(v, 1.5);
   }
@@ -1040,22 +1058,25 @@ const HAT_KIND = { CH: 0, CHopen: 1, OH: 2 } as const;
  * grain des 6 bits (le signal arrondi au soixante-quatrieme) adouci
  * au-dessus de 15 kHz. Tenues : 35 ms, 120 ms, 320 ms.
  */
-function hat909(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | 'OH'): Shot {
+function hat909(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | 'OH', tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
   const kind = HAT_KIND[id];
-  const d = [0.035, 0.12, 0.32][kind] * ts * (0.95 + 0.1 * r());
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const ft = sdTuneFactor(tw.sdTune);
+  const fc = Math.max(0.6, Math.min(1.35, sdToneFactor(tw.sdTone)));
+  const d = [0.035, 0.12, 0.32][kind] * td * (0.95 + 0.1 * r());
   const len = Math.round(fs * Math.max(0.05, Math.min(1.5, 5 * d + 0.02)));
   const x = new Float64Array(len);
   const ph = METAL_HZ.map(() => r());
-  const bp = new Bq('bp', 11000, 0.8, fs);
-  const hp1 = new Bq('hp', 8000, 0.7, fs);
-  const hp2 = new Bq('hp', 8000, 0.7, fs);
-  const nhp = new Bq('hp', 9000, 0.7, fs);
+  const bp = new Bq('bp', 11000 * fc, 0.8, fs);
+  const hp1 = new Bq('hp', 8000 * fc, 0.7, fs);
+  const hp2 = new Bq('hp', 8000 * fc, 0.7, fs);
+  const nhp = new Bq('hp', 9000 * fc, 0.7, fs);
   const top = new Bq('lp', 15000, 0.7, fs);
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
     let m = 0;
-    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + METAL_HZ[k] * 1.47 * t);
+    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + METAL_HZ[k] * 1.47 * ft * t);
     m /= 6;
     const env = (1 - Math.exp(-t / 0.0002)) * Math.exp(-t / d);
     const v = (0.8 * hp2.run(hp1.run(bp.run(m))) + 0.7 * nhp.run(r() * 2 - 1)) * env;
@@ -1071,21 +1092,24 @@ function hat909(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | '
  * etroites (3.44 et 7.1 kHz) puis au-dessus de 6.6 kHz, un soupcon de
  * bruit. Tenues : 45 ms, 180 ms, 400 ms.
  */
-function hat808(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | 'OH'): Shot {
+function hat808(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | 'OH', tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
   const kind = HAT_KIND[id];
-  const d = [0.045, 0.18, 0.4][kind] * ts * (0.95 + 0.1 * r());
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const ft = sdTuneFactor(tw.sdTune);
+  const fc = Math.max(0.6, Math.min(1.35, sdToneFactor(tw.sdTone)));
+  const d = [0.045, 0.18, 0.4][kind] * td * (0.95 + 0.1 * r());
   const len = Math.round(fs * Math.max(0.05, Math.min(1.8, 5 * d + 0.02)));
   const x = new Float64Array(len);
   const ph = METAL_HZ.map(() => r());
-  const bp1 = new Bq('bp', 3440, 3, fs);
-  const bp2 = new Bq('bp', 7100, 3, fs);
-  const hp1 = new Bq('hp', 6600, 0.7, fs);
-  const hp2 = new Bq('hp', 6600, 0.7, fs);
+  const bp1 = new Bq('bp', 3440 * fc, 3, fs);
+  const bp2 = new Bq('bp', 7100 * fc, 3, fs);
+  const hp1 = new Bq('hp', 6600 * fc, 0.7, fs);
+  const hp2 = new Bq('hp', 6600 * fc, 0.7, fs);
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
     let m = 0;
-    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + METAL_HZ[k] * t);
+    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + METAL_HZ[k] * ft * t);
     m /= 6;
     const env = (1 - Math.exp(-t / 0.0002)) * Math.exp(-t / d);
     x[i] = hp2.run(hp1.run(bp1.run(m) + 1.2 * bp2.run(m) + 0.05 * (r() * 2 - 1))) * env * 2.2;
@@ -1101,17 +1125,19 @@ function hat808(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | '
  * quatre, 11 ms d'ecart, vers 1 kHz, une queue de 180 ms qui fait la piece).
  * La piece de la 909 seulement GATE ON (2026-10-04).
  */
-function cpModel(sr: number, ts: number, r: () => number, m: '909' | '808', gate = false): Shot {
+function cpModel(sr: number, ts: number, r: () => number, m: '909' | '808', gate = false, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
   const is909 = m === '909';
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const fc = Math.max(0.5, Math.min(1.6, sdToneFactor(tw.sdTone)));
   const n = is909 ? 3 : 4;
   const gap = is909 ? 0.008 : 0.011;
   const offs = Array.from({ length: n }, (_, k) => (k === 0 ? 0 : k * gap + (r() - 0.5) * 0.0015));
   const tailT = offs[n - 1];
-  const tailTau = (is909 ? 0.11 : 0.18) * ts;
+  const tailTau = (is909 ? 0.11 : 0.18) * td;
   const len = Math.round(fs * (tailT + Math.max(0.12, 5 * tailTau)));
-  const bp = new Bq('bp', is909 ? 1150 : 1000, is909 ? 2.2 : 1.8, fs);
-  const hp = new Bq('hp', is909 ? 700 : 500, 0.7, fs);
+  const bp = new Bq('bp', (is909 ? 1150 : 1000) * fc, is909 ? 2.2 : 1.8, fs);
+  const hp = new Bq('hp', (is909 ? 700 : 500) * fc, 0.7, fs);
   const x = new Float64Array(len);
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
@@ -1145,15 +1171,19 @@ function cpModel(sr: number, ts: number, r: () => number, m: '909' | '808', gate
  * pince qui se pose (de 1.5 fois la note, 50 ms) et du bruit a l'attaque ;
  * la 808, un sinus pur, a peine glisse, plus long.
  */
-function tomModel(sr: number, ts: number, r: () => number, m: '909' | '808', high: boolean): Shot {
+function tomModel(sr: number, ts: number, r: () => number, m: '909' | '808', high: boolean, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
   const is909 = m === '909';
-  const to = is909 ? (high ? 175 : 105) : high ? 160 : 90;
-  const from = to * (is909 ? 1.5 : 1.2);
-  const tau = (is909 ? (high ? 0.17 : 0.22) : high ? 0.25 : 0.35) * ts;
+  const ft = sdTuneFactor(tw.sdTune);
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const sw = sweepDepth(tw.sweep);
+  const fc = Math.max(0.5, Math.min(1.6, sdToneFactor(tw.sdTone)));
+  const to = (is909 ? (high ? 175 : 105) : high ? 160 : 90) * ft;
+  const from = to * (1 + ((is909 ? 1.5 : 1.2) - 1) * sw);
+  const tau = (is909 ? (high ? 0.17 : 0.22) : high ? 0.25 : 0.35) * td;
   const len = Math.round(fs * Math.max(0.12, Math.min(2, 5 * tau)));
   const x = new Float64Array(len);
-  const bp = new Bq('bp', 1500, 0.9, fs);
+  const bp = new Bq('bp', 1500 * fc, 0.9, fs);
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
@@ -1186,26 +1216,26 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
       s = m === '909' ? sd909(sr, ts, r, tw) : m === '808' ? sd808(sr, ts, r, tw) : sd(sr, ts, r, tw);
       break;
     case 'TOM':
-      s = m === 'mm' ? tom(sr, ts, r, 98, 168, 0.17) : tomModel(sr, ts, r, m, false);
+      s = m === 'mm' ? tom(sr, ts, r, 98, 168, 0.17, tw) : tomModel(sr, ts, r, m, false, tw);
       break;
     case 'HT':
-      s = m === 'mm' ? tom(sr, ts, r, 165, 260, 0.13) : tomModel(sr, ts, r, m, true);
+      s = m === 'mm' ? tom(sr, ts, r, 165, 260, 0.13, tw) : tomModel(sr, ts, r, m, true, tw);
       break;
     case 'CH':
-      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.016, [0.08, 0.05], 0.09, 9500);
+      s = m === '909' ? hat909(sr, ts, r, id, tw) : m === '808' ? hat808(sr, ts, r, id, tw) : hat(sr, ts, r, 0.016, [0.08, 0.05], 0.09, 9500, tw);
       break;
     case 'CHopen':
-      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.06, [0.25, 0.16], 0.32, 9200);
+      s = m === '909' ? hat909(sr, ts, r, id, tw) : m === '808' ? hat808(sr, ts, r, id, tw) : hat(sr, ts, r, 0.06, [0.25, 0.16], 0.32, 9200, tw);
       break;
     case 'OH':
-      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : openHat(sr, ts, r);
+      s = m === '909' ? hat909(sr, ts, r, id, tw) : m === '808' ? hat808(sr, ts, r, id, tw) : openHat(sr, ts, r, tw);
       break;
     case 'CP':
-      s = m === 'mm' ? cp(sr, ts, r, !!tw.gate) : cpModel(sr, ts, r, m, !!tw.gate);
+      s = m === 'mm' ? cp(sr, ts, r, !!tw.gate, tw) : cpModel(sr, ts, r, m, !!tw.gate, tw);
       break;
     default:
       // CY (2026-10-05 : plus de RS ni de PC, huit voix)
-      s = cy(sr, ts, r);
+      s = cy(sr, ts, r, tw);
   }
   if (Math.abs(stretch - 1) > 1e-3) {
     if (s.L === s.R) {

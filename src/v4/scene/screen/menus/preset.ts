@@ -9,25 +9,66 @@
  */
 
 import { presetKey, randomPattern } from '../../../actions';
+import { trigger } from '../../../audio/drums';
+import { TRACK_NAMES, trackIndex, tracks, type KitModel, type SrcMachine, type TrackParamId } from '../../../audio/tracks';
 import { lcdMessage } from '../../../state/lcdMessage';
 import { PRESET_SLOTS, presetMode, type PresetSlot } from '../../../state/presetMode';
 import type { Screen } from '../core';
 import { BLACK, HALF, INK } from '../consts';
 import { registerScreenMenu, type ScreenMenu } from './registry';
 import { DIM_TEXT, acting, paintHint, paintList, paintPanel, paintPopupBox, stepCursor, type MenuRow } from './frame';
-import { menuChanged } from './open';
+import { menuChanged, screenTrack } from './open';
 
 const M = 'mm808' as const;
-type Level = 'root' | 'kit' | 'ops';
+type Level = 'root' | 'kit' | 'ops' | 'sound';
 let level: Level = 'root';
 let cursor = 1;
+let soundCursor = 0;
 let opCursor = 0;
 let qCursor = 0;
 let body = '';
 
+interface TrackSoundPreset {
+  name: string;
+  tag: string;
+  mach: SrcMachine;
+  model: KitModel;
+  snd: string;
+  params: Partial<Record<TrackParamId, number>>;
+}
+
+const TRACK_SOUND_PRESETS: readonly TrackSoundPreset[] = [
+  { name: '909 PUNCH KICK', tag: 'BD', mach: 'bd', model: '909', snd: 'bd/90-909-Punch.wav', params: { syn: 0.65, slev: 0.85, kdecay: 0.48, kdrive: 0.35, kattack: 0.65 } },
+  { name: '808 SUB BOOM', tag: 'BD', mach: 'bd', model: '808', snd: 'bd/91-808-Sub-Boom.wav', params: { syn: 0.75, slev: 0.85, kdecay: 0.68, kdrive: 0.25, kattack: 0.45 } },
+  { name: 'WAREHOUSE RUMBLE', tag: 'BD', mach: 'bd', model: '909', snd: 'bd/92-Warehouse-Rumble.wav', params: { syn: 0.5, slev: 0.95, kdecay: 0.55, kdrive: 0.45, reverb: 0.22 } },
+  { name: 'HARDGROOVE KICK', tag: 'BD', mach: 'bd', model: '909', snd: 'bd/93-Hardgroove-Drive.wav', params: { syn: 0.6, slev: 0.9, kdecay: 0.42, kdrive: 0.5, kattack: 0.72 } },
+  { name: 'INDUSTRIAL SLAM', tag: 'BD', mach: 'bd', model: '909', snd: 'bd/94-Industrial-Slam.wav', params: { syn: 0.55, slev: 0.95, kdecay: 0.54, kdrive: 0.72, drive: 0.35 } },
+  { name: 'DEEP HOUSE THUMP', tag: 'BD', mach: 'bd', model: '808', snd: 'bd/95-Deep-House-Thump.wav', params: { syn: 0.5, slev: 0.9, kdecay: 0.44, kdrive: 0.2 } },
+  { name: '909 CRISP SNARE', tag: 'SD', mach: 'sd', model: '909', snd: 'sd/90-909-Crisp-Snare.wav', params: { syn: 0.6, slev: 0.85, snappy: 0.68, sddecay: 0.52 } },
+  { name: '808 TIGHT SNARE', tag: 'SD', mach: 'sd', model: '808', snd: 'sd/91-808-Tight-Snare.wav', params: { syn: 0.65, slev: 0.8, snappy: 0.55, sddecay: 0.44 } },
+  { name: 'LINNDRUM GATED', tag: 'SD', mach: 'sd', model: '909', snd: 'sd/92-Linndrum-Gated.wav', params: { syn: 0.4, slev: 0.95, gate: 1, reverb: 0.3 } },
+  { name: 'AMEN BREAK SNARE', tag: 'SD', mach: 'sd', model: '909', snd: 'sd/93-Amen-Break-Snare.wav', params: { syn: 0.35, slev: 0.95, snappy: 0.65, drive: 0.2 } },
+  { name: 'UKG RIM SNAP', tag: 'SD', mach: 'sd', model: '808', snd: 'sd/94-UKG-Rim-Snap.wav', params: { syn: 0.3, slev: 0.95, sddecay: 0.35 } },
+  { name: 'EBM METAL SNARE', tag: 'SD', mach: 'sd', model: '909', snd: 'sd/95-EBM-Metal-Snare.wav', params: { syn: 0.5, slev: 0.95, gate: 1, drive: 0.35, reverb: 0.25 } },
+  { name: '909 CLOSED HAT', tag: 'CH', mach: 'ch', model: '909', snd: 'ch/01-909-Closed-Hat.wav', params: { syn: 0.55, slev: 0.85, sddecay: 0.45 } },
+  { name: 'AFRO SHAKER', tag: 'CH', mach: 'ch', model: 'mm', snd: 'ch/04-Afro-Shaker.wav', params: { syn: 0.25, slev: 0.95, sddecay: 0.5 } },
+  { name: '909 OPEN HAT', tag: 'OH', mach: 'oh', model: '909', snd: 'oh/90-909-Open-Hat.wav', params: { syn: 0.5, slev: 0.9, sddecay: 0.55 } },
+  { name: 'RAVE RIDE BELL', tag: 'OH', mach: 'oh', model: '909', snd: 'oh/92-Rave-Ride-Bell.wav', params: { syn: 0.35, slev: 0.92, reverb: 0.2 } },
+  { name: 'DARK DISCO CLAP', tag: 'CP', mach: 'cp', model: '808', snd: 'cp/03-Dark-Disco-Clap.wav', params: { syn: 0.45, slev: 0.9, gate: 1, reverb: 0.28 } },
+  { name: 'ACID 303 SQUELCH', tag: 'SYN', mach: 'tom', model: '909', snd: 'tom/03-Acid-303-Squelch.wav', params: { syn: 0.4, slev: 0.95, cutoff: 0.72, res: 0.55, delay: 0.28 } },
+  { name: 'REESE SUB BASS', tag: 'SYN', mach: 'tom', model: '808', snd: 'tom/04-Reese-Sub-Bass.wav', params: { syn: 0.5, slev: 0.95, cutoff: 0.48, drive: 0.25 } },
+  { name: 'FM DONK BASS', tag: 'SYN', mach: 'tom', model: '808', snd: 'tom/05-Donk-FM-Bass.wav', params: { syn: 0.45, slev: 0.95, sddecay: 0.45 } },
+  { name: 'EBM OCTAVE BASS', tag: 'SYN', mach: 'tom', model: '909', snd: 'tom/06-EBM-Octave-Bass.wav', params: { syn: 0.45, slev: 0.95, drive: 0.35 } },
+  { name: 'DUB TECHNO CHORD', tag: 'SYN', mach: 'ht', model: 'mm', snd: 'ht/02-Dub-Techno-Chord.wav', params: { syn: 0.25, slev: 0.95, delay: 0.5, reverb: 0.42 } },
+  { name: 'DETROIT STAB', tag: 'SYN', mach: 'ht', model: '909', snd: 'ht/03-Detroit-Minor-Stab.wav', params: { syn: 0.3, slev: 0.95, delay: 0.35, reverb: 0.28 } },
+  { name: 'RAVE HOOVER STAB', tag: 'SYN', mach: 'ht', model: '909', snd: 'ht/04-Rave-Hoover-Stab.wav', params: { syn: 0.35, slev: 0.92, delay: 0.3, drive: 0.25 } },
+  { name: 'ITALO ARP PLUCK', tag: 'SYN', mach: 'ht', model: '808', snd: 'ht/05-Italo-Arp-Pluck.wav', params: { syn: 0.35, slev: 0.92, delay: 0.28 } },
+  { name: 'TRANCE SUPERSAW', tag: 'SYN', mach: 'cy', model: 'mm', snd: 'cy/05-Trance-Supersaw.wav', params: { syn: 0.2, slev: 0.95, delay: 0.38, reverb: 0.35 } },
+];
+
 const ROOT: readonly MenuRow[] = [
-  { label: 'PRESET', sub: true, dim: true, value: 'V.6.2' },
-  { label: 'KIT', sub: true },
+  { label: 'PRESET', sub: true, value: `${TRACK_SOUND_PRESETS.length} SOUNDS` },
+  { label: 'KIT', sub: true, value: '24 STYLES' },
   { label: 'RANDOM BEAT', value: 'YES' },
 ];
 /** Le panneau d'operations (RIGHT) : sa ligne et la touche du mode presets qu'elle presse. */
@@ -49,7 +90,31 @@ function questionKeys(): { slot: PresetSlot; label: string }[] {
   return v.keys.map((label, i) => ({ slot: PRESET_SLOTS[i], label })).filter((k) => k.label && k.slot !== 'exit');
 }
 
+function applyTrackPreset(idx: number): void {
+  const p = TRACK_SOUND_PRESETS[idx];
+  if (!p) return;
+  const tk = screenTrack() ?? 'BD';
+  const tName = TRACK_NAMES[trackIndex(tk)] ?? tk;
+  tracks.machine(tk, p.mach, p.model);
+  tracks.sample(tk, p.snd);
+  tracks.setMany(tk, p.params);
+  trigger(tk, undefined, false, undefined, 0.85);
+  lcdMessage.show(`${tName}: ${p.name} (${p.model.toUpperCase()} + SMP)`, 1500);
+}
+
 function paint(screen: Screen): number {
+  if (level === 'sound') {
+    const tk = screenTrack() ?? 'BD';
+    const tName = TRACK_NAMES[trackIndex(tk)] ?? tk;
+    const rows: MenuRow[] = TRACK_SOUND_PRESETS.map((p) => ({
+      label: p.name,
+      value: `${tName} ${p.tag}`,
+    }));
+    const sc = Math.max(0, Math.min(Math.max(0, rows.length - 5), soundCursor - 2));
+    body = paintList(screen, rows, soundCursor, sc);
+    paintHint(screen, 'UP/DOWN: SOUND   YES: LOAD ON TRK   NO: BACK');
+    return 0;
+  }
   // Les presets ouverts par un autre chemin (le clavier P, le MIDI) : la liste KIT
   if (level === 'root' && presetMode.on(M)) level = 'kit';
   if (level === 'root' || !presetMode.on(M)) {
@@ -111,14 +176,21 @@ function paintName(screen: Screen, text: string, at: number): string {
 function input(i: Parameters<NonNullable<ScreenMenu['onInput']>>[0]): boolean {
   if (!acting(i)) return true;
   const dir = i.kind === 'up' ? -1 : i.kind === 'down' ? 1 : i.kind === 'data' ? Math.sign(i.delta ?? 0) : 0;
+  if (level === 'sound') {
+    if (dir) soundCursor = stepCursor(soundCursor, TRACK_SOUND_PRESETS.length, dir, false);
+    else if (i.kind === 'yes') applyTrackPreset(soundCursor);
+    else if (i.kind === 'no' || i.kind === 'left') level = 'root';
+    menuChanged();
+    return true;
+  }
   // La racine
   if (level === 'root' || !presetMode.on(M)) {
     level = 'root';
     if (dir) cursor = stepCursor(cursor, ROOT.length, dir, false);
-    else if (i.kind === 'yes') {
-      if (cursor === 0) lcdMessage.show('PRESET (TRACK SOUND): BIENTOT V.6.2', 1400);
+    else if (i.kind === 'yes' || i.kind === 'right') {
+      if (cursor === 0) level = 'sound';
       else if (cursor === 1) enterKit();
-      else randomPattern(null);
+      else if (i.kind === 'yes') randomPattern(null);
     } else if (i.kind === 'no') return false;
     menuChanged();
     return true;
@@ -176,7 +248,7 @@ function menu(id: 'preset' | 'kit'): ScreenMenu {
   return {
     id,
     owner: 'B5',
-    title: () => (level === 'root' ? 'PRESET/KIT' : 'KIT'),
+    title: () => (level === 'root' ? 'PRESET/KIT' : level === 'sound' ? 'TRACK PRESET' : 'KIT'),
     paint: (screen) => paint(screen),
     onOpen() {
       opCursor = 0;

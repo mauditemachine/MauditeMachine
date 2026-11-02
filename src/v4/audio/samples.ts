@@ -30,6 +30,7 @@
 import FOUND from 'virtual:rytm-samples';
 import type { SamplePcm } from './sampledsp';
 import { sampleLabel } from './samplelabel';
+import { SYNTH_SAMPLES, isSynthSampleUrl, renderSynthSample } from './synthSamples';
 import { decodeAudio, userSamples } from './usersamples';
 
 /** Le nom court d'un fichier (audio/samplelabel.ts, partage avec l'admin) : sans extension, numero, "AT", ni le nom de la famille. */
@@ -57,18 +58,21 @@ export interface KitSample {
 /** Une cle de sample de Mika garde dans ce navigateur ('<famille>/u:<id>'), connue ou non. */
 export const isUserKey = (key: string): boolean => /^[a-z]+\/u:/.test(key);
 
-/** Les echantillons du site (le dossier public/samples/rytm), dans l'ordre des crans. */
-export const SAMPLES: readonly KitSample[] = FOUND.filter((x) => (FAMILY_DIRS as readonly string[]).includes(x.family))
-  .map(
-    (x): KitSample => ({
-      key: `${x.family}/${x.file}`,
-      family: x.family as SampleFamily,
-      file: x.file,
-      label: sampleLabel(x.file),
-      url: `${import.meta.env.BASE_URL}samples/rytm/${x.family}/${encodeURIComponent(x.file)}`,
-    })
-  )
-  .sort((a, b) => a.file.localeCompare(b.file, undefined, { numeric: true, sensitivity: 'base' }));
+/** Les echantillons du site (le dossier public/samples/rytm), suivis de la banque electronique synthetisee. */
+export const SAMPLES: readonly KitSample[] = [
+  ...FOUND.filter((x) => (FAMILY_DIRS as readonly string[]).includes(x.family))
+    .map(
+      (x): KitSample => ({
+        key: `${x.family}/${x.file}`,
+        family: x.family as SampleFamily,
+        file: x.file,
+        label: sampleLabel(x.file),
+        url: `${import.meta.env.BASE_URL}samples/rytm/${x.family}/${encodeURIComponent(x.file)}`,
+      })
+    )
+    .sort((a, b) => a.file.localeCompare(b.file, undefined, { numeric: true, sensitivity: 'base' })),
+  ...SYNTH_SAMPLES,
+];
 
 /* ---------------- les listes (le site, puis ce navigateur) ---------------- */
 
@@ -235,7 +239,19 @@ const emitDropped = (key: string, gone: boolean): void => droppedFns.forEach((fn
 
 /** L'echantillon decode, s'il est la (le plus recemment servi reste le plus longtemps). */
 export const samplePcm = (key: string): SamplePcm | undefined => {
-  const p = pcm.get(key);
+  let p = pcm.get(key);
+  if (!p) {
+    const gen = renderSynthSample(key);
+    if (gen) {
+      pcm.set(key, gen);
+      pcmBytes += pcmSize(gen);
+      const s = slotOf(key);
+      s.state = 'ready';
+      s.tries = 0;
+      s.why = undefined;
+      return gen;
+    }
+  }
   if (p) {
     pcm.delete(key);
     pcm.set(key, p);
@@ -363,7 +379,7 @@ function start(key: string, s: Slot): Promise<SamplePcm | null> {
     };
     arm();
     try {
-      let out: SamplePcm | undefined = smp.user ? userSamples.takePcm(key) : undefined;
+      let out: SamplePcm | undefined = smp.user ? userSamples.takePcm(key) : isSynthSampleUrl(smp.url) ? (renderSynthSample(key) ?? undefined) : undefined;
       if (!out) {
         let data: ArrayBuffer | null;
         if (smp.user) data = await userSamples.bytes(key);
