@@ -487,9 +487,15 @@ export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT ? [] : DESK_RU
  * sous-titre avant le logotype (FIRMWARE V.2.3 / 2026 : src/v4/firmware.json depuis le 2026-10-27, fwText).
  */
 export const VOY_HEAD = PORTRAIT
-  ? { z: -2.95, word: { x: -3.6, w: 2.3 }, model: { x: -1.08, cap: 0.12 }, mark: { x: 3.6, h: 0.4, z: -2.95 }, sub: null }
-  : // desktop : le logotype remonte et rapetisse (2026-10-03, Mika : il touchait OUTPUT)
-    { z: -1.98, word: { x: -5.9, w: 3.0 }, model: { x: -2.6, cap: 0.14 }, mark: { x: 5.9, h: 0.34, z: -2.05 }, sub: { x: 5.25, text: fwText('voy') } };
+  ? { z: -2.95, word: { x: -3.6, w: 2.3 }, model: { x: -1.08, cap: 0.12 }, mark: { x: 3.6, h: 0.4, z: -2.95, align: 'right' as const }, sub: null }
+  : {
+      z: -1.98,
+      word: { x: -5.9, w: 3.0 },
+      model: { x: -2.6, cap: 0.14 },
+      // desktop (Mika, 2026-11-02) : le logotype se place sous le potard de volume (OUTPUT)
+      mark: { x: DESK_OUT_X, h: 0.46, z: 1.35, align: 'center' as const },
+      sub: { x: 5.9, text: fwText('voy') },
+    };
 
 /* ---------- plateau (repere du capot, y = 0 : dessus du plateau) ---------- */
 

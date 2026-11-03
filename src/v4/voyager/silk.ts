@@ -327,7 +327,11 @@ export class VoySilk {
       if (mark) {
         const h = Math.round(VOY_HEAD.mark.h * PPU);
         const w = Math.max(1, Math.round((h * mark.naturalWidth) / mark.naturalHeight));
-        ctx.drawImage(this.tint(mark, w, h), Math.round(this.px(VOY_HEAD.mark.x) - w), Math.round(this.py(VOY_HEAD.mark.z) - h / 2));
+        const align = ('align' in VOY_HEAD.mark ? VOY_HEAD.mark.align : 'right') ?? 'right';
+        const x0 = align === 'center'
+          ? Math.round(this.px(VOY_HEAD.mark.x) - w / 2)
+          : Math.round(this.px(VOY_HEAD.mark.x) - w);
+        ctx.drawImage(this.tint(mark, w, h), x0, Math.round(this.py(VOY_HEAD.mark.z) - h / 2));
         this.logos = logoImage('wordmark') ? ['wordmark', 'mark'] : ['mark'];
       } else this.logos = img ? ['wordmark'] : [];
     } else {
