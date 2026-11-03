@@ -68,7 +68,8 @@ function loadRytm() {
     const keys = (block) => Object.fromEntries([...block.matchAll(/(\w+):\s*'([^']+)'/g)].map((m) => [m[1], m[2]]));
     const KICK = keys(src.match(/const KICK = \{([\s\S]*?)\} as const;/)?.[1] ?? '');
     const SNARE = keys(src.match(/const SNARE = \{([\s\S]*?)\} as const;/)?.[1] ?? '');
-    const list = new Function('KICK', 'SNARE', 'st', `return ${src.slice(open, close + 1)};`)(KICK, SNARE, (n) => 0.5 + n / 24);
+    const EXTRA_SMP = keys(src.match(/const EXTRA_SMP = \{([\s\S]*?)\} as const;/)?.[1] ?? '');
+    const list = new Function('KICK', 'SNARE', 'EXTRA_SMP', 'st', `return ${src.slice(open, close + 1)};`)(KICK, SNARE, EXTRA_SMP, (n) => 0.5 + n / 24);
     if (!Array.isArray(list)) return [];
     return list
       .map((g, i) => ({ ...g, index: i + 1, steps: Object.fromEntries(INSTS.map((k) => [k, /^[0-9]{16}$/.test(g.steps?.[k] ?? '') ? g.steps[k] : '0'.repeat(16)])) }))

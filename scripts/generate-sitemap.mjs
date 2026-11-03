@@ -47,6 +47,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { ROOT, SITE, OG_IMAGE, loadDisco, loadGoodies, coverOf, inPublic } from './seo-shared.mjs';
 import { MM_STUDIO_PAGES, MM_STUDIO_SHOTS, clusterOf } from './mm-studio-content.mjs';
+import { PATTERN_PAGES } from './mm-studio-patterns.mjs';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -204,8 +205,98 @@ ${urls}
 `;
 
 writeFileSync(join(ROOT, 'public', 'sitemap.xml'), xml, 'utf8');
+
+/* ---------- llms.txt dynamique (2026-11-03) ---------- */
+const disco = loadDisco();
+const patternEn = PATTERN_PAGES.filter((p) => p.lang === 'en' && p.path !== '/mm-studio/drum-patterns/');
+const llmsLines = [
+  '# Maudite Machine',
+  '',
+  '> Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.',
+  '',
+  'Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco with a psychedelic edge: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.',
+  '',
+  'He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.',
+  '',
+  'He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).',
+  '',
+  'The home page of the website is MM-STUDIO, a 3D studio played in the browser; every section of the site also has a plain HTML page.',
+  '',
+  '## MM-STUDIO',
+  '',
+  'MM-STUDIO by Maudite Machine is free in the browser, with no account and nothing to install. Mika designed and built every machine. The machines play in time with each other:',
+  '',
+  '- [MM-RYTM](https://mauditemachine.com/mm-studio/drum-machine/): drum machine, eight voices (BD, SD, CH, OH, CP, TOM, HT, CY), 16 steps, parameter locks, 16 patterns, a SYNTH or SAMPLE layer per voice, voice and global effects',
+  '- [MM-ARP](https://mauditemachine.com/mm-studio/synth/): synth with two oscillators and a sub, a ladder filter, an arpeggiator and eight chord pads in F# minor',
+  '- [MM-DECKS](https://mauditemachine.com/mm-studio/dj-decks/): two to four DJ decks and a mixer (GAIN -12 to +12 dB, three band EQ, VU meters) that also takes MM-RYTM and MM-ARP, with a sampler in each deck',
+  '- MIDI: every parameter can be assigned with MIDI LEARN (Web MIDI: Chrome, Edge, Opera, Firefox); ready-made setups for a Melbourne Instruments Roto-Control, downloaded from the MIDI panel and imported in ROTO-SETUP, with no MIDI LEARN needed',
+  '- UNDO and REDO, presets saved in the browser, Dark and Light appearances',
+  '- SHARE: the MM-RYTM beat as a link (https://mauditemachine.com/?m=rytm&b=...) that opens it, steps, sounds and effects included',
+  '- [Drum patterns](https://mauditemachine.com/mm-studio/drum-patterns/): ten styles (acid house, dark disco, indie dance, minimal, rolling techno, techno, house, electro, EBM, italo disco), each with its 16-step grid and velocities, a MIDI file and a link that plays it on MM-RYTM; also in [French](https://mauditemachine.com/fr/mm-studio/rythmes/) and [Spanish](https://mauditemachine.com/es/mm-studio/ritmos/)',
+  ...patternEn.map((p) => {
+    const fr = clusterOf(p.cluster).find((x) => x.lang === 'fr');
+    const es = clusterOf(p.cluster).find((x) => x.lang === 'es');
+    return `  - [${p.h1}](${SITE}${p.path})${fr ? ` · [FR](${SITE}${fr.path})` : ''}${es ? ` · [ES](${SITE}${es.path})` : ''}`;
+  }),
+  '- Requires WebGL 2 and the Web Audio API; a plain HTML version opens without WebGL 2',
+  '- Overview: [MM-STUDIO](https://mauditemachine.com/mm-studio/), also in [French](https://mauditemachine.com/fr/mm-studio/) and [Spanish](https://mauditemachine.com/es/mm-studio/)',
+  '',
+  '## Main pages',
+  '',
+  '- [Home](https://mauditemachine.com/): bio, upcoming shows, listening links, booking',
+  '- [MM-STUDIO](https://mauditemachine.com/mm-studio/): the drum machine, synth and DJ decks of the home page, playable in the browser',
+  '- [Accueil en français](https://mauditemachine.com/fr/)',
+  '- [Inicio en español](https://mauditemachine.com/es/)',
+  '- [Tracks and releases](https://mauditemachine.com/tracks/): every original track and remix, one page each',
+  '- [Mixtapes and DJ sets](https://mauditemachine.com/mixtapes/)',
+  '- [Shows and tour dates](https://mauditemachine.com/shows/)',
+  '- [Press kit 2027](https://mauditemachine.com/presskit/) and [PDF](https://mauditemachine.com/Presskit_Maudite_Machine_2027_generic.pdf)',
+  '- [Tech rider](https://mauditemachine.com/techrider/)',
+  '- [Contact and booking](https://mauditemachine.com/contact/)',
+  '- [Radar](https://mauditemachine.com/radar/): new releases picked by Maudite Machine',
+  '- [Press assets](https://mauditemachine.com/press/): photos, logo, artwork',
+  '',
+  '## Discography (Tracks and releases)',
+  '',
+  ...disco.map((t) => {
+    const year = t.releaseDate ? String(t.releaseDate).slice(0, 4) : t.year || '';
+    const label = t.label ? `, ${t.label}` : '';
+    const proj = t.project ? ` (${t.project})` : '';
+    return `- [${t.title}](${SITE}/tracks/${t.id}/)${proj}${year ? ` - ${year}` : ''}${label}`;
+  }),
+  '',
+  '## Facts',
+  '',
+  '- Genre: indie dance and dark disco with a psychedelic edge (short: Indie Dance, Dark Disco)',
+  '- Based in: Montpellier, south of France, after fifteen years in the Montréal underground',
+  '- Formats: DJ set (90 minutes to 4 hours) and hybrid live (60 to 75 minutes)',
+  '- Label: VRSTL Records (founder and A&R)',
+  '- Collective: member of 8day, Montréal',
+  '- Available for: club and festival dates across France, Spain and the rest of Europe, and still playing Canada',
+  '- Latest album: Limbos, VRSTL Records, October 2025 (9 tracks)',
+  '- Latest single: Voodoo, VRSTL Records, February 2026',
+  '- Played: Techno Parade Paris, OKAMI Festival, Piknic Électronik, SAT, Igloofest afters, Groove and Bass',
+  '- Shared bills: Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly, Damon Jee',
+  '',
+  '## Booking',
+  '',
+  '- International: vrstlrecords@gmail.com',
+  '- Canada and USA: mauditemachine@gmail.com',
+  '',
+  '## Listen',
+  '',
+  '- [Spotify](https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4)',
+  '- [Bandcamp](https://mauditemachine.bandcamp.com/)',
+  '- [Beatport](https://www.beatport.com/artist/maudite-machine/500537)',
+  '- [SoundCloud](https://soundcloud.com/mauditemachine)',
+  '',
+];
+const llmsTxt = llmsLines.join('\n');
+writeFileSync(join(ROOT, 'public', 'llms.txt'), llmsTxt, 'utf8');
+
 if (BUILT) {
   writeFileSync(join(DIST, 'sitemap.xml'), xml, 'utf8');
+  writeFileSync(join(DIST, 'llms.txt'), llmsTxt, 'utf8');
   writeFileSync(join(DIST, MANIFEST), `${JSON.stringify({ v: 1, built: TODAY, pages })}\n`, 'utf8');
   // Les adresses changees (ou nouvelles) : IndexNow apres le deploiement (pages.yml) ; aucune si le site en ligne n'a pas repondu
   // (tout serait "change" : on n'envoie pas 60 adresses inchangees)
