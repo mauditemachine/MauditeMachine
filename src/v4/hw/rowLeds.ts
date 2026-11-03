@@ -152,10 +152,10 @@ export function ptnLeds(cur: number, next: number, chain: readonly number[], fil
 /* ---------------- V.6.0 (lane B6) : la face Digitakt II, ses notes, les 16 pistes ---------------- */
 
 /** Les touches de la face DT2 pour le boitier (rytm/dtFaceIds.ts DT2_BUTTONS, le meme ordre : celui de lecture de la face). */
-export type Dt2KeyHw = 'func' | 'kbd' | 'trk' | 'ptn' | 'mute' | 'solo' | 'preset' | 'random' | 'settings' | 'sounds' | 'tempo' | 'rec' | 'play' | 'stop' | 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'mod' | 'yes' | 'up' | 'open' | 'no' | 'left' | 'down' | 'right' | 'ptnpage';
+export type Dt2KeyHw = 'func' | 'kbd' | 'trk' | 'ptn' | 'mute' | 'solo' | 'preset' | 'random' | 'settings' | 'sounds' | 'tempo' | 'open' | 'rec' | 'play' | 'stop' | 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'mod' | 'yes' | 'no' | 'ptnpage';
 
-/** Les 28 touches de la face DT2 (cahier dt2 2.2), dans l'ordre de DT2_BUTTONS (hw:test le verifie). */
-export const DT2_KEYS_HW: readonly Dt2KeyHw[] = ['func', 'kbd', 'trk', 'ptn', 'mute', 'solo', 'preset', 'random', 'settings', 'sounds', 'tempo', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'up', 'open', 'no', 'left', 'down', 'right', 'ptnpage'];
+/** Les 24 touches de la face DT2 (cahier dt2 2.2), dans l'ordre de DT2_BUTTONS (hw:test le verifie). */
+export const DT2_KEYS_HW: readonly Dt2KeyHw[] = ['func', 'kbd', 'trk', 'ptn', 'mute', 'solo', 'preset', 'random', 'settings', 'sounds', 'tempo', 'open', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'no', 'ptnpage'];
 
 /**
  * La note de chaque touche du boitier et la cible MIDI qu'elle pilote (cahier dt2 2.6). Les quatorze d'aujourd'hui gardent
@@ -193,14 +193,10 @@ export const HW_KEY_NOTES: Readonly<Record<Dt2KeyHw, HwKeyNote>> = {
   settings: { note: 77, target: 'rytm:settings', confirmed: false, today: false },
   sounds: { note: 78, target: 'rytm:sounds', confirmed: false, today: false },
   tempo: { note: 81, target: 'rytm:screen:tempo', alt: 'rytm:tap', confirmed: false, today: false },
-  up: { note: 82, target: 'rytm:up', confirmed: false, today: false },
-  down: { note: 83, target: 'rytm:down', confirmed: false, today: false },
-  left: { note: 84, target: 'rytm:left', confirmed: false, today: false },
-  right: { note: 85, target: 'rytm:right', confirmed: false, today: false },
+  open: { note: 82, target: 'rytm:open', confirmed: false, today: false },
   ptnpage: { note: 86, target: 'rytm:ptnpage', alt: 'rytm:fill', confirmed: false, today: false },
   mute: { note: 87, target: 'rytm:mute', confirmed: false, today: false },
   solo: { note: 88, target: 'rytm:solo', confirmed: false, today: false },
-  open: { note: 89, target: 'rytm:open', confirmed: false, today: false },
 };
 
 /** Les deux potards de gauche de la face DT2 : leur CC propose (a confirmer avec protocol.js), leur cible. data : relatif. */
@@ -271,7 +267,7 @@ export function faceLeds(s: FaceState, pal: FacePalette): HwFaceLed[] {
       return led(id, pal.red, s.rec === 'off' ? 0 : 1, s.rec === 'live', s.rec === 'step');
     }
     if (id === 'play') return led(id, pal.green, s.play === 'stop' ? 0 : 1, s.play === 'pause');
-    if (fl > 0 || id === 'stop' || id === 'yes' || id === 'no' || id === 'up' || id === 'down' || id === 'left' || id === 'right') return led(id, pal.white, fl);
+    if (fl > 0 || id === 'stop' || id === 'yes' || id === 'no' || id === 'open') return led(id, pal.white, fl);
     const pg = DT2_PAGE_OF[id];
     if (pg) {
       if (s.pageLocks && s.pageLocks.length > 0) return led(id, pal.red, s.pageLocks.includes(pg) ? 1 : 0);
@@ -281,7 +277,7 @@ export function faceLeds(s: FaceState, pal: FacePalette): HwFaceLed[] {
     if (id === 'kbd') return led(id, pal.red, s.keyboard ? 1 : 0);
     if (id === 'preset' && s.perform) return led(id, pal.orange, 1);
     if (id === 'random') return led(id, pal.white, s.flash === 'random' ? 1 : 0);
-    if (id === 'preset' || id === 'settings' || id === 'sounds' || id === 'tempo') return led(id, pal.red, s.menu === id ? 1 : 0);
+    if (id === 'preset' || id === 'settings' || id === 'sounds' || id === 'tempo' || id === 'open') return led(id, pal.red, s.menu === id ? 1 : 0);
     if (id === 'ptnpage') return led(id, pal.red, s.fill === 'off' ? 0 : 1, s.fill === 'armed');
     return led(id, pal.red, 0);
   });

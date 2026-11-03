@@ -22,11 +22,12 @@ export const DT2_BUTTONS = [
   { id: 'ptn', cls: 'L', cx: 19, cy: 112.5, legend: 'PTN', func: 'BANK' },
   { id: 'mute', cls: 'L', cx: 19, cy: 127.5, legend: 'MUTE', func: 'UNMUTE' },
   { id: 'solo', cls: 'L', cx: 19, cy: 142.5, legend: 'SOLO', func: 'UNSOLO' },
-  { id: 'preset', cls: 'P', cx: 46.5, cy: 82.5, legend: 'PRESET', func: 'PERFORM' },
-  { id: 'random', cls: 'P', cx: 66.5, cy: 82.5, legend: 'RANDOM', func: 'RND BEAT' },
-  { id: 'settings', cls: 'P', cx: 86.5, cy: 82.5, legend: 'SETTINGS', func: 'SAVE PROJ' },
-  { id: 'sounds', cls: 'P', cx: 106.5, cy: 82.5, legend: 'SOUNDS', func: 'SAMPLES' },
-  { id: 'tempo', cls: 'P', cx: 126.5, cy: 82.5, legend: 'TEMPO', func: 'TAP TEMPO' },
+  { id: 'preset', cls: 'P', cx: 42.5, cy: 82.5, legend: 'PRESET', func: 'PERFORM' },
+  { id: 'random', cls: 'P', cx: 60.5, cy: 82.5, legend: 'RANDOM', func: 'RND BEAT' },
+  { id: 'settings', cls: 'P', cx: 78.5, cy: 82.5, legend: 'SETTINGS', func: 'SAVE PROJ' },
+  { id: 'sounds', cls: 'P', cx: 96.5, cy: 82.5, legend: 'SOUNDS', func: 'SAMPLES' },
+  { id: 'tempo', cls: 'P', cx: 114.5, cy: 82.5, legend: 'TEMPO', func: 'TAP TEMPO' },
+  { id: 'open', cls: 'P', cx: 132.5, cy: 82.5, legend: 'OPEN', func: '+ SAMPLE' },
   { id: 'rec', cls: 'L', cx: 56.5, cy: 99.5, legend: 'REC', func: 'COPY' },
   { id: 'play', cls: 'L', cx: 87, cy: 99.5, legend: 'PLAY', func: 'CLEAR' },
   { id: 'stop', cls: 'L', cx: 117.5, cy: 99.5, legend: 'STOP', func: 'PASTE' },
@@ -37,12 +38,7 @@ export const DT2_BUTTONS = [
   { id: 'fx', cls: 'P', cx: 223.6, cy: 66.5, legend: 'FX', func: 'SEND FX' },
   { id: 'mod', cls: 'P', cx: 242, cy: 66.5, legend: 'MOD', func: 'MIXER' },
   { id: 'yes', cls: 'P', cx: 148, cy: 82.5, legend: 'YES', func: 'SAVE' },
-  { id: 'up', cls: 'A', cx: 173.5, cy: 82.8, legend: 'UP', func: 'TRIG MODE' },
-  { id: 'open', cls: 'A', cx: 184.5, cy: 82.8, legend: 'OPEN', func: '+ SAMPLE' },
   { id: 'no', cls: 'P', cx: 148, cy: 99.5, legend: 'NO', func: 'RELOAD' },
-  { id: 'left', cls: 'A', cx: 162.5, cy: 100.2, legend: 'LEFT', func: 'uTIME-' },
-  { id: 'down', cls: 'A', cx: 173.5, cy: 100.2, legend: 'DOWN', func: 'TRIG MODE' },
-  { id: 'right', cls: 'A', cx: 184.5, cy: 100.2, legend: 'RIGHT', func: 'uTIME+' },
   { id: 'ptnpage', cls: 'G', cx: 235, cy: 82.5, legend: 'PAGE', func: 'SETUP' },
 ] as const satisfies readonly { id: string; cls: Dt2KeyClass; cx: number; cy: number; legend: string; func: string }[];
 export type Dt2ButtonId = (typeof DT2_BUTTONS)[number]['id'];
@@ -68,11 +64,11 @@ export const KEPT_ZONE_IDS = ['func', 'trk', 'pad-edit', 'rec', 'run', 'stop', '
  * Les kinds des zones nouvelles (2.6). page est pris (les pads du site) et rytm:page aussi (la valeur de page) : la
  * touche PAGE prend la zone ptnpage, le kind pagekey. data est un kind nouveau, relatif (un encodeur sans butee).
  */
-export type Dt2ZoneKind = 'encoder' | 'data' | 'kbd' | 'mute' | 'solo' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'arrow' | 'pagekey';
+export type Dt2ZoneKind = 'encoder' | 'data' | 'kbd' | 'mute' | 'solo' | 'preset' | 'random' | 'settings' | 'sounds' | 'tempo' | 'pagekey';
 
 /**
  * Les zones nouvelles de la face DT2 (2.6), leur kind, leur cible MIDI (a la fin du groupe RYTM, midi/targets/face60.ts)
- * et la note ou le CC propose du boitier MMHW v2 (a confirmer avec protocol.js quand Mika le pousse). dir : la fleche.
+ * et la note ou le CC propose du boitier MMHW v2 (a confirmer avec protocol.js quand Mika le pousse).
  */
 export const DT2_ZONES = [
   { id: 'mvol', kind: 'encoder', param: 'level', midi: ['rytm:enc:level'], hw: 'CC 29' },
@@ -81,15 +77,12 @@ export const DT2_ZONES = [
   { id: 'mute', kind: 'mute', midi: ['rytm:mute'], hw: 'note 87' },
   { id: 'solo', kind: 'solo', midi: ['rytm:solo'], hw: 'note 88' },
   { id: 'preset', kind: 'preset', midi: ['rytm:preset'], hw: 'note 76' },
+  { id: 'random', kind: 'random', midi: ['rytm:random'], hw: 'note 75' },
   { id: 'settings', kind: 'settings', midi: ['rytm:settings'], hw: 'note 77' },
   { id: 'sounds', kind: 'sounds', midi: ['rytm:sounds'], hw: 'note 78' },
   { id: 'tempo', kind: 'tempo', midi: ['rytm:screen:tempo', 'rytm:tap'], hw: 'note 81' },
-  { id: 'up', kind: 'arrow', dir: 'up', midi: ['rytm:up'], hw: 'note 82' },
-  { id: 'down', kind: 'arrow', dir: 'down', midi: ['rytm:down'], hw: 'note 83' },
-  { id: 'left', kind: 'arrow', dir: 'left', midi: ['rytm:left'], hw: 'note 84' },
-  { id: 'right', kind: 'arrow', dir: 'right', midi: ['rytm:right'], hw: 'note 85' },
   { id: 'ptnpage', kind: 'pagekey', midi: ['rytm:ptnpage', 'rytm:fill'], hw: 'note 86' },
-] as const satisfies readonly { id: string; kind: Dt2ZoneKind; midi: readonly string[]; hw: string; dir?: 'up' | 'down' | 'left' | 'right'; param?: string }[];
+] as const satisfies readonly { id: string; kind: Dt2ZoneKind; midi: readonly string[]; hw: string; param?: string }[];
 export type Dt2ZoneId = (typeof DT2_ZONES)[number]['id'];
 
 /** Les 8 LED de page n'ont pas de zone : leur etat est lu par __v4.stage.faceKeys.info() et le snapshot du boitier. */

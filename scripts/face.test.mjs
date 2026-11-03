@@ -57,11 +57,12 @@ const GRID = {
   ptn: [19, 112.5, 'L'],
   mute: [19, 127.5, 'L'],
   solo: [19, 142.5, 'L'],
-  preset: [46.5, 82.5, 'P'],
-  random: [66.5, 82.5, 'P'],
-  settings: [86.5, 82.5, 'P'],
-  sounds: [106.5, 82.5, 'P'],
-  tempo: [126.5, 82.5, 'P'],
+  preset: [42.5, 82.5, 'P'],
+  random: [60.5, 82.5, 'P'],
+  settings: [78.5, 82.5, 'P'],
+  sounds: [96.5, 82.5, 'P'],
+  tempo: [114.5, 82.5, 'P'],
+  open: [132.5, 82.5, 'P'],
   rec: [56.5, 99.5, 'L'],
   play: [87, 99.5, 'L'],
   stop: [117.5, 99.5, 'L'],
@@ -72,20 +73,15 @@ const GRID = {
   fx: [223.6, 66.5, 'P'],
   mod: [242, 66.5, 'P'],
   yes: [148, 82.5, 'P'],
-  up: [173.5, 82.8, 'A'],
-  open: [184.5, 82.8, 'A'],
   no: [148, 99.5, 'P'],
-  left: [162.5, 100.2, 'A'],
-  down: [173.5, 100.2, 'A'],
-  right: [184.5, 100.2, 'A'],
   ptnpage: [235, 82.5, 'G'],
 };
 const SIZE = { P: [12, 11], L: [22, 11], G: [26, 11], A: [9.6, 9.6] };
 const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a} au lieu de ${b}`);
 
-test('les 28 touches a leur place et a leur taille (table 2.2)', () => {
+test('les 24 touches a leur place et a leur taille (table 2.2)', () => {
   const keys = F.DT2_FACEPLATE.buttons.keys;
-  assert.equal(keys.length, 28);
+  assert.equal(keys.length, 24);
   for (const k of keys) {
     const g = GRID[k.id];
     assert.ok(g, `${k.id}: absente de la table 2.2`);
@@ -113,8 +109,8 @@ test('les potards, l ecran, le bouton OPEN, les LED de page, les scenes et les T
   assert.ok(side.mvol.ring.outer <= side.mvol.d && side.data.ring.outer <= side.data.d, 'anneau dans l emprise');
   assert.deepEqual(D.screen.rect, { x: 34, y: 8, w: 106, h: 67 });
   const o = D.open.rect;
-  near(o.x + o.w / 2, 184.5, 1e-9, 'open cx');
-  near(o.y + o.h / 2, 82.8, 1e-9, 'open cy');
+  near(o.x + o.w / 2, 132.5, 1e-9, 'open cx');
+  near(o.y + o.h / 2, 82.5, 1e-9, 'open cy');
   assert.deepEqual(D.pageLeds.window, { x: 193, y: 77.5, w: 25, h: 10 });
   assert.deepEqual([...D.pageLeds.cx], [196.8, 202.6, 208.4, 214.2]);
   assert.deepEqual([...D.pageLeds.cy], [80, 85]);
@@ -134,7 +130,6 @@ test('les cadres de la section 2.3', () => {
   const fr = Object.fromEntries(F.DT2_FACEPLATE.frames.map((f) => [f.id, f.rect]));
   assert.deepEqual(fr.knobs, { x: 142, y: 6, w: 108, h: 53 });
   assert.deepEqual(fr.pages, { x: 142, y: 60, w: 108, h: 14.5 });
-  assert.deepEqual(fr.arrows, { x: 156, y: 76.5, w: 35, h: 30.5 });
   assert.deepEqual(fr.trigs, { x: 34, y: 109.5, w: 216, h: 44.5 });
 });
 
@@ -142,8 +137,8 @@ test('les ids de zones gardes (2.6) et les nouveaux', () => {
   const by = Object.fromEntries(F.DT2_FACEPLATE.buttons.keys.map((k) => [k.id, k.hotspot]));
   const kept = { func: 'func', trk: 'trk', ptn: 'pad-edit', rec: 'rec', play: 'run', stop: 'stop', trig: 'pkey-trig', src: 'pkey-voice', fltr: 'pkey-fltr', amp: 'pkey-env', fx: 'pkey-fx', mod: 'pkey-mod', yes: 'yes', no: 'no', open: 'pad-open', random: 'random' };
   for (const [id, h] of Object.entries(kept)) assert.equal(by[id], h, id);
-  for (const id of ['kbd', 'mute', 'solo', 'preset', 'settings', 'sounds', 'tempo', 'up', 'down', 'left', 'right', 'ptnpage']) assert.equal(by[id], id, id);
-  assert.equal(new Set(Object.values(by)).size, 28, 'un id de zone par touche');
+  for (const id of ['kbd', 'mute', 'solo', 'preset', 'settings', 'sounds', 'tempo', 'ptnpage']) assert.equal(by[id], id, id);
+  assert.equal(new Set(Object.values(by)).size, 24, 'un id de zone par touche');
   assert.equal(F.DT2_FACEPLATE.open.hotspot, 'pad-open');
 });
 
@@ -151,9 +146,9 @@ test('la fonction orange de chaque touche (table 2.2)', () => {
   const alt = Object.fromEntries(F.DT2_FACEPLATE.buttons.keys.map((k) => [k.id, k.alt ?? '']));
   assert.deepEqual(alt, {
     func: '', kbd: 'KB SETUP', trk: 'PTN MUTE', ptn: 'BANK', mute: 'UNMUTE', solo: 'UNSOLO',
-    preset: 'PERFORM', random: 'RND BEAT', settings: 'SAVE PROJ', sounds: 'SAMPLES', tempo: 'TAP TEMPO',
+    preset: 'PERFORM', random: 'RND BEAT', settings: 'SAVE PROJ', sounds: 'SAMPLES', tempo: 'TAP TEMPO', open: '+ SAMPLE',
     rec: 'COPY', play: 'CLEAR', stop: 'PASTE', trig: 'QUANTIZE', src: 'MACHINE', fltr: 'SETUP', amp: 'SEQUENCER', fx: 'SEND FX', mod: 'MIXER',
-    yes: 'SAVE', up: 'TRIG MODE', open: '+ SAMPLE', no: 'RELOAD', left: 'uTIME-', down: 'TRIG MODE', right: 'uTIME+', ptnpage: 'SETUP',
+    yes: 'SAVE', no: 'RELOAD', ptnpage: 'SETUP',
   });
 });
 

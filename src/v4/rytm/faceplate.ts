@@ -407,12 +407,8 @@ const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: strin
   fx: { title: 'Effects page of the track', hotspot: 'pkey-fx' },
   mod: { title: 'Modulation page', hotspot: 'pkey-mod' },
   yes: { title: 'Yes', hotspot: 'yes' },
-  up: { title: 'Up', hotspot: 'up', marks: ['up'] },
   open: { title: 'Open the machine', hotspot: 'pad-open' },
   no: { title: 'No, back', hotspot: 'no' },
-  left: { title: 'Left', hotspot: 'left', marks: ['left'] },
-  down: { title: 'Down', hotspot: 'down', marks: ['down'] },
-  right: { title: 'Right', hotspot: 'right', marks: ['right'] },
   ptnpage: { title: 'Pattern page', hotspot: 'ptnpage' },
 };
 
@@ -509,8 +505,8 @@ export const DT2_FACEPLATE = {
   },
   /** Les 8 LED de page (2.2, 2.4) : une fenetre sombre en creux (2.3), deux rangees de quatre, d 3.4, a gauche de PAGE. */
   pageLeds: { window: { x: 193, y: 77.5, w: 25, h: 10 }, corner: 1.6, d: 3.4, cx: [196.8, 202.6, 208.4, 214.2], cy: [80, 85] },
-  /** Le bouton OPEN sur la face (dans le bloc des fleches, a droite de UP). */
-  open: { rect: { x: 179.7, y: 78, w: 9.6, h: 9.6 }, title: 'Open the machine (OPEN); FUNC + OPEN: + SAMPLE', hotspot: 'pad-open' },
+  /** Le bouton OPEN sur la face (a droite de TEMPO). */
+  open: { rect: { x: 126.5, y: 77, w: 12, h: 11 }, title: 'Open the machine (OPEN); FUNC + OPEN: + SAMPLE', hotspot: 'pad-open' },
   /** SCENE A, le crossfader et SCENE B (facon Octatrack MKII x Digitakt II), sous les LED de page et PAGE. */
   scenes: {
     a: { rect: { x: 193, y: 94, w: 10, h: 11 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a', phase: 1 } as FpScene,
@@ -543,7 +539,6 @@ export const DT2_FACEPLATE = {
   frames: [
     { id: 'knobs', rect: { x: 142, y: 6, w: 108, h: 53 }, r: 2, members: ['knob-a', 'knob-b', 'knob-c', 'knob-d', 'knob-e', 'knob-f', 'knob-g', 'knob-h'] },
     { id: 'pages', rect: { x: 142, y: 60, w: 108, h: 14.5 }, r: 2, members: ['btn-trig', 'btn-src', 'btn-fltr', 'btn-amp', 'btn-fx', 'btn-mod'] },
-    { id: 'arrows', rect: { x: 156, y: 76.5, w: 35, h: 30.5 }, r: 2, members: ['btn-up', 'btn-open', 'btn-left', 'btn-down', 'btn-right'] },
     { id: 'trigs', rect: { x: 34, y: 109.5, w: 216, h: 44.5 }, r: 2, members: [...Array.from({ length: 16 }, (_, i) => `step-${i + 1}`), 'trackmute'] },
   ] as readonly { id: string; rect: FpRect; r: number; members: readonly string[] }[],
   silk: {

@@ -1,8 +1,8 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "6.2",
-    "fingerprint": "sha256:9e5c3e4209307159eadd64c897984630ed195e1de056db098949b0856801466e",
+    "version": "6.3",
+    "fingerprint": "sha256:d10bda954bbc3339405b3e3d0f6c5d673bb808c464e6080b8f9c577a99ea2ead",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -16,7 +16,8 @@
       { "version": "5.9", "date": "2026-10-30", "note": "le moteur a 16 pistes (invisible)", "sha": "67790b7" },
       { "version": "6.0", "date": "2026-11-01", "note": "la face Digitakt II et les 16 pistes libres", "sha": "0d6c752" },
       { "version": "6.1", "date": "2026-11-02", "note": "ecran debloque sur les touches de page et SOUNDS, FX sur GLOBAL FX par defaut, selecteur de version V.1.0 a V.6.0 dans OPEN", "sha": "d37115b9" },
-      { "version": "6.2", "date": "2026-11-02", "note": "OPEN, + SAMPLE, PAGE, KEYBOARD, SOUNDS, menu deploye a l'arrivee avec STUDIO", "sha": "cd0f7723" }
+      { "version": "6.2", "date": "2026-11-02", "note": "OPEN, + SAMPLE, PAGE, KEYBOARD, SOUNDS, menu deploye a l'arrivee avec STUDIO", "sha": "cd0f7723" },
+      { "version": "6.3", "date": "2026-11-02", "note": "Bouton OPEN a droite de TEMPO et suppression des 4 fleches de facade", "sha": "9b1ccb88" }
     ]
   },
   "voy": { "name": "MM-ARP", "version": "2.3", "fingerprint": "sha256:402d3079638809c404122b6a6b66423c5453788651ee4d84b5e255ddd6322b49", "history": [] },

@@ -422,7 +422,7 @@ const BLOCK_SWIPE_RATIO = 1.4;
  * La face DT2 (V.6.0, ?face=dt2, la lane B4) : les kinds des touches nouvelles (KEYBOARD, SONG, PRESET/KIT, SETTINGS, SOUNDS,
  * TEMPO, les fleches, PAGE), tenues par le pointeur de l'appui au lacher (actions/face.ts faceKeyDown, faceKeyUp).
  */
-const DT2_KEY_KINDS: ReadonlySet<HotspotKind> = new Set<HotspotKind>(['kbd', 'mute', 'solo', 'preset', 'random', 'settings', 'sounds', 'tempo', 'arrow', 'pagekey']);
+const DT2_KEY_KINDS: ReadonlySet<HotspotKind> = new Set<HotspotKind>(['kbd', 'mute', 'solo', 'preset', 'random', 'settings', 'sounds', 'tempo', 'pagekey']);
 const dt2KeyOf = (h: { kind: HotspotKind | null; id: string | null } | null): Dt2ButtonId | null =>
   DT2_FACE && h && h.id === 'pad-open' ? 'open' : DT2_FACE && h && h.kind && h.id && DT2_KEY_KINDS.has(h.kind) ? (h.id as Dt2ButtonId) : null;
 /** La page d'une touche de page de la face (pkey-<page>) et sa touche DT2. */

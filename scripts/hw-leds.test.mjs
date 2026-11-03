@@ -129,11 +129,11 @@ test('V.6.0 : les quatorze touches du boitier d aujourd hui gardent leur ordre e
   assert.deepEqual(Object.entries(HW_KEY_NOTES).filter(([, n]) => n.confirmed).map(([id]) => id), ['trk']);
 });
 
-test('V.6.0 : 28 touches de la face DT2 dans l ordre de DT2_BUTTONS, chacune une note, aucune sur SCENE A et B (79, 80)', () => {
-  assert.equal(DT2_KEYS_HW.length, 28);
+test('V.6.0 : 24 touches de la face DT2 dans l ordre de DT2_BUTTONS, chacune une note, aucune sur SCENE A et B (79, 80)', () => {
+  assert.equal(DT2_KEYS_HW.length, 24);
   assert.deepEqual([...DT2_KEYS_HW], DT2_BUTTONS.map((b) => b.id));
   const notes = DT2_KEYS_HW.map((id) => HW_KEY_NOTES[id].note);
-  assert.equal(new Set(notes).size, 28);
+  assert.equal(new Set(notes).size, 24);
   assert.ok(!notes.includes(79) && !notes.includes(80));
   assert.ok(notes.every((n) => n >= 60 && n <= 89));
 });
@@ -181,11 +181,11 @@ test('V.6.0 : REC GRID fixe, LIVE clignote, STEP double clignotement, euclidien 
   assert.deepEqual(fat(faceLeds({ ...FREST, ptn: true, bank: true }, FPAL), 'ptn'), { id: 'ptn', color: '#FF2B2B', level: 1, blink: true, double: false });
 });
 
-test('V.6.0 : l eclair blanc des fleches et de toute touche, un trig tenu allume ses pages a verrous', () => {
-  const l = faceLeds({ ...FREST, flash: { up: 1, preset: 0.5 } }, FPAL);
-  assert.deepEqual([fat(l, 'up').color, fat(l, 'up').level], ['#F4F1EA', 1]);
+test('V.6.0 : l eclair blanc d OPEN et de toute touche, un trig tenu allume ses pages a verrous', () => {
+  const l = faceLeds({ ...FREST, flash: { open: 1, preset: 0.5 } }, FPAL);
+  assert.deepEqual([fat(l, 'open').color, fat(l, 'open').level], ['#F4F1EA', 1]);
   assert.deepEqual([fat(l, 'preset').color, fat(l, 'preset').level], ['#F4F1EA', 0.5]);
-  assert.equal(fat(l, 'left').level, 0);
+  assert.equal(fat(l, 'tempo').level, 0);
   const pl = faceLeds({ ...FREST, pageLocks: ['fltr', 'fx'] }, FPAL);
   assert.deepEqual(['trig', 'src', 'fltr', 'amp', 'fx', 'mod'].map((id) => fat(pl, id).level), [0, 0, 1, 0, 1, 0]);
 });
