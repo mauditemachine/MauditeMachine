@@ -1413,6 +1413,10 @@ export class DjPlayer {
     return this.buffer !== null || this.stream !== null;
   }
 
+  get isStream(): boolean {
+    return this.stream !== null;
+  }
+
   /** Les echantillons (le BPM d'un fichier s'en estime). */
   get channel0(): Float32Array | null {
     return this.buffer ? this.buffer.getChannelData(0) : null;
@@ -1590,6 +1594,18 @@ export class DjPlayer {
         this.playing = false;
         deckScController(this.deckId).pause();
         this.onEnd?.();
+        return;
+      }
+      // Vitesse rate() modifiee (pitch fader, touches tempo, bend, sync) :
+      // recaler la position du flux SoundCloud des que l ecart depasse un demi-temps
+      const spb = 60 / (this.stream?.bpm || 120);
+      const theoretical = this.startPos + (now - this.startAt);
+      const drift = Math.abs(raw - theoretical);
+      if (Math.abs(this.rate() - 1) > 0.005 && drift >= spb * 0.75 && now - lastLoopWrap > 1.2) {
+        lastLoopWrap = now;
+        this.startPos = raw;
+        this.startAt = now;
+        deckScController(this.deckId).seek(raw);
       }
     }, 60);
   }

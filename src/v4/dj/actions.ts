@@ -729,6 +729,9 @@ export function djBend(d: DjDeck, dir: -1 | 0 | 1): void {
     return;
   }
   p.bend(dir * 0.04);
+  if (p.isStream && dir !== 0) {
+    p.seek(p.position() + dir * 0.08);
+  }
 }
 
 /**
@@ -744,6 +747,9 @@ export function djJog(d: DjDeck, dAngle: number, dt: number): void {
     touching[d] = true;
     const revPerS = dt > 0 ? dAngle / (2 * Math.PI) / dt : 0;
     p.bend(Math.max(-0.5, Math.min(0.5, revPerS * 0.25)));
+    if (p.isStream && Math.abs(dAngle) > 0.06) {
+      p.seek(p.position() + (dAngle / (2 * Math.PI)) * 0.5);
+    }
     return;
   }
   p.grain(p.position() + (dAngle / (2 * Math.PI)) * 1.8);
@@ -880,7 +886,18 @@ function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
       best = o;
     }
   }
-  return best;
+  if (best) return best;
+  // S il n y a pas de fader ouvert au-dessus de 0 : se caler sur la premiere autre platine qui joue
+  for (const o of DJ_DECKS_ALL) {
+    if (o === d) continue;
+    if (s.deck[o].playing && s.deck[o].track?.bpm) return o;
+  }
+  // Si aucune autre platine ne joue : se caler sur la premiere autre platine chargee avec un BPM
+  for (const o of DJ_DECKS_ALL) {
+    if (o === d) continue;
+    if (s.deck[o].loaded && s.deck[o].track?.bpm) return o;
+  }
+  return null;
 }
 
 /**
@@ -1048,7 +1065,7 @@ function matchTempo(d: DjDeck): boolean {
   if (!ref || !own) return false;
   const ratio = [ref, ref * 2, ref / 2].map((r) => r / own).reduce((a, b) => (Math.abs(b - 1) < Math.abs(a - 1) ? b : a));
   const pct = (ratio - 1) * 100;
-  const range = Math.abs(pct) <= 8 ? ds.range : Math.abs(pct) <= 16 ? 16 : 0;
+  const range = Math.abs(pct) <= 8 ? ds.range : Math.abs(pct) <= 16 ? 16 : Math.abs(pct) <= 50 ? 50 : 100;
   if (range === 0) return false;
   engine();
   djState.setDeck(d, { range, pitch: Math.max(-1, Math.min(1, pct / range)), sync: true });
