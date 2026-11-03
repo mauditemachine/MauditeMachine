@@ -642,7 +642,6 @@ export function dt2FaceplateLegends(): Dt2Legend[] {
   const T = D.silk.trackMute;
   out.push({ id: 'trackmute', text: T.text, cap: T.cap, ink: 'alt', rect: boxAt(T.text, T.cap, T.cx, T.cy) });
   const W = D.silk.decal;
-  out.push({ id: 'decal-wordmark', text: 'MAUDITE MACHINE', cap: W.wordmark.h, ink: 'decal', rect: { x: W.wordmark.x, y: W.wordmark.cy - W.wordmark.h / 2, w: W.wordmark.w, h: W.wordmark.h } });
   out.push({ id: 'decal-model', text: W.model.text, cap: W.model.cap, ink: 'decal', rect: boxAt(W.model.text, W.model.cap, W.model.x, W.model.cy, 'right') });
   out.push({ id: 'decal-firmware', text: W.firmware.text, cap: W.firmware.cap, ink: 'decal', rect: boxAt(W.firmware.text, W.firmware.cap, W.firmware.x, W.firmware.cy, 'right') });
   return out;

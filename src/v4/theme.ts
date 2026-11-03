@@ -1394,16 +1394,17 @@ export const LCD_TEXT = {
 } as const;
 
 const SILK_WORDMARK = { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.word.z, w: HEAD.word.w, align: 'left' } as const;
-// La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : le wordmark passe sur le decalque du cadre de l'ecran (DECAL_LOGOS), le M
-// reste sur la serigraphie, sur la zone du logo de la colonne gauche
+// La face DT2 (V.6.0, ?face=dt2) : le logotype se place sur la face a droite de l'ecran
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = DT2_FACE
-  ? []
+  ? [
+      { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(185), z: fpZ(91), h: fpU(22), align: 'right' },
+    ]
   : [
       SILK_WORDMARK,
       { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: HEAD.mark.x, z: HEAD.mark.z, h: HEAD.mark.h, align: 'right' },
     ];
-/** Les logos du decalque du cadre de l'ecran (V.6.0, la face DT2) : le wordmark ; vide sur la face de la V.5.3. */
-export const DECAL_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = DT2_FACE ? [SILK_WORDMARK] : [];
+/** Les logos du decalque du cadre de l'ecran (V.6.0, la face DT2) : vide (le wordmark sous l'ecran a ete retire a la demande de Mika). */
+export const DECAL_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [];
 /**
  * Le decalque du cadre de l'ecran (V.6.0, la face DT2, cahier 2.3, comme "Digitakt II") : la bande sous la zone active
  * (x, z son centre, w x d sa taille, en unites ; y juste au-dessus du cadre, OLED.bezel.h), ses textes (MM-RYTM, le
@@ -1427,7 +1428,7 @@ export const BEZEL_DECAL = DT2_FACE
           { text: D.model.text, x: fpX(D.model.x), z: fpZ(D.model.cy), cap: fpU(D.model.cap), align: 'right' as const, weight: SILK.strongWeight, alpha: 1 },
           { text: fwText('mm808'), x: fpX(D.firmware.x), z: fpZ(D.firmware.cy), cap: fpU(D.firmware.cap), align: 'right' as const, weight: SILK.weight, alpha: 0.6 },
         ] as readonly SilkText[],
-        fallback: { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.word.z, cap: fpU(D.wordmark.h) * 0.7, align: 'left' as const, weight: SILK.strongWeight, maxW: HEAD.word.w, fallbackFor: 'wordmark' as const } as SilkText,
+        fallback: { text: '', x: 0, z: 0, cap: 0, align: 'left' as const, fallbackFor: 'wordmark' as const } as SilkText,
       };
     })()
   : null;
