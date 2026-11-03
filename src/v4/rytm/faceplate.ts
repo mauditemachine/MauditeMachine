@@ -356,8 +356,13 @@ export function faceplateCheck(): string[] {
  * (PAGE) 26 x 11 ; TRIG 22 x 19 au pas de 190 / 7. Le relief, les coins, le temoin, les legendes : ceux de la V.5.3.
  */
 
-/** La taille des trois classes de touches (2.2) : P petite, L large, G la touche PAGE. */
-export const DT2_KEY_SIZE: Readonly<Record<Dt2KeyClass, { readonly w: number; readonly h: number }>> = { P: { w: 12, h: 11 }, L: { w: 22, h: 11 }, G: { w: 26, h: 11 } };
+/** La taille des quatre classes de touches (2.2) : P petite, L large, G la touche PAGE, A fleche/OPEN compacte. */
+export const DT2_KEY_SIZE: Readonly<Record<Dt2KeyClass, { readonly w: number; readonly h: number }>> = {
+  P: { w: 12, h: 11 },
+  L: { w: 22, h: 11 },
+  G: { w: 26, h: 11 },
+  A: { w: 9.6, h: 9.6 },
+};
 
 /** Une touche de la face DT2 : sa classe et son rectangle, ce qu'elle porte, sa zone (les ids d'avant gardes, 2.6). */
 export interface Dt2Key {
@@ -385,6 +390,8 @@ const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: strin
   kbd: { title: 'Keyboard', hotspot: 'kbd' },
   trk: { title: 'Track', hotspot: 'trk' },
   ptn: { title: 'Pattern', hotspot: 'pad-edit' },
+  mute: { title: 'Mute mode', hotspot: 'mute' },
+  solo: { title: 'Solo mode', hotspot: 'solo' },
   preset: { title: 'Presets and kits', hotspot: 'preset' },
   settings: { title: 'Settings', hotspot: 'settings' },
   sounds: { title: 'Sounds, your sample bank', hotspot: 'sounds' },
@@ -400,6 +407,7 @@ const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: strin
   mod: { title: 'Modulation page', hotspot: 'pkey-mod' },
   yes: { title: 'Yes', hotspot: 'yes' },
   up: { title: 'Up', hotspot: 'up', marks: ['up'] },
+  open: { title: 'Open the machine', hotspot: 'pad-open' },
   no: { title: 'No, back', hotspot: 'no' },
   left: { title: 'Left', hotspot: 'left', marks: ['left'] },
   down: { title: 'Down', hotspot: 'down', marks: ['down'] },
@@ -407,13 +415,13 @@ const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: strin
   ptnpage: { title: 'Pattern page', hotspot: 'ptnpage' },
 };
 
-/** Les quatorze touches de la V.5.3 (elles agissent) ; les dix autres sont branchees aussi. */
+/** Les quatorze touches de la V.5.3 (elles agissent) ; les autres sont branchees aussi. */
 const DT2_KEPT: ReadonlySet<Dt2ButtonId> = new Set<Dt2ButtonId>(['func', 'trk', 'ptn', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'no']);
 
 /** Le rectangle d'une touche de classe cls centree en (cx, cy). */
 const keyRect = (cls: Dt2KeyClass, cx: number, cy: number): FpRect => ({ x: cx - DT2_KEY_SIZE[cls].w / 2, y: cy - DT2_KEY_SIZE[cls].h / 2, w: DT2_KEY_SIZE[cls].w, h: DT2_KEY_SIZE[cls].h });
 
-/** Les 24 touches dans l'ordre de lecture de la face (celui de DT2_BUTTONS, l'ordre de tabulation des jumeaux en derive). */
+/** Les 27 touches dans l'ordre de lecture de la face (celui de DT2_BUTTONS, l'ordre de tabulation des jumeaux en derive). */
 const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.map((b) => ({
   id: b.id,
   cls: b.cls,
@@ -494,14 +502,21 @@ export const DT2_FACEPLATE = {
     /** la legende sur la touche : le corps de la V.5.3, la largeur de la touche moins margin de chaque cote */
     legend: { cap: RYTM_FACEPLATE.buttons.legend.cap, tracking: RYTM_FACEPLATE.buttons.legend.tracking, margin: 0.8, dy: RYTM_FACEPLATE.buttons.legend.dy },
     marks: RYTM_FACEPLATE.buttons.marks,
-    /** la fonction orange (2.2) : imprimee gap sous la touche (le haut des capitales), cap 1.25, au plus w de large */
+    /** la fonction orange (2.2) : affichee directement sur la touche quand FUNC est engagee */
     alt: { gap: 1.3, cap: 1.25, w: 17 },
     keys: DT2_KEYS,
   },
-  /** Les 8 LED de page (2.2, 2.4) : une fenetre sombre en creux (2.3), deux rangees de quatre, d 3.4. */
-  pageLeds: { window: { x: 222, y: 79, w: 26, h: 10 }, corner: 1.6, d: 3.4, cx: [226, 232, 238, 244], cy: [81.5, 86.5] },
-  /** Le logo M (OPEN) dans la colonne gauche, entre LEVEL/DATA et FUNC (2.2, corrige par la critique : cy 67). */
-  open: { rect: { x: 13.7, y: 62.5, w: 10.6, h: 9 }, title: RYTM_FACEPLATE.open.title, hotspot: RYTM_FACEPLATE.open.hotspot },
+  /** Les 8 LED de page (2.2, 2.4) : une fenetre sombre en creux (2.3), deux rangees de quatre, d 3.4, a gauche de PAGE. */
+  pageLeds: { window: { x: 193, y: 77.5, w: 25, h: 10 }, corner: 1.6, d: 3.4, cx: [196.8, 202.6, 208.4, 214.2], cy: [80, 85] },
+  /** Le bouton OPEN sur la face (dans le bloc des fleches, a droite de UP). */
+  open: { rect: { x: 179.7, y: 78, w: 9.6, h: 9.6 }, title: 'Open the machine (OPEN); FUNC + OPEN: + SAMPLE', hotspot: 'pad-open' },
+  /** SCENE A, le crossfader et SCENE B (facon Octatrack MKII x Digitakt II), sous les LED de page et PAGE. */
+  scenes: {
+    a: { rect: { x: 193, y: 94, w: 10, h: 11 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a', phase: 1 } as FpScene,
+    b: { rect: { x: 240, y: 94, w: 10, h: 11 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b', phase: 1 } as FpScene,
+    legend: { cap: 2.8, w: 5.5 },
+    xfade: { x0: 206, x1: 237, y: 99.5, slot: 2.4, cap: { w: 7.6, h: 11, z: 7 }, title: 'Crossfader, scene A to scene B', hotspot: 'xfade' },
+  },
   steps: {
     w: 22,
     h: 19,
@@ -522,12 +537,12 @@ export const DT2_FACEPLATE = {
   },
   /**
    * Les cadres (2.3) : des traits fins a coins arrondis, seulement autour des groupes de la DT2 (potards A a H, touches de
-   * page, fleches, TRIG 1 a 16 ; la fenetre des LED est une piece a part) ; members : ce qu'ils entourent, legendes comprises.
+   * page, fleches + OPEN, TRIG 1 a 16 ; la fenetre des LED est une piece a part) ; members : ce qu'ils entourent, legendes comprises.
    */
   frames: [
     { id: 'knobs', rect: { x: 142, y: 6, w: 108, h: 53 }, r: 2, members: ['knob-a', 'knob-b', 'knob-c', 'knob-d', 'knob-e', 'knob-f', 'knob-g', 'knob-h'] },
-    { id: 'pages', rect: { x: 142, y: 60, w: 108, h: 15.5 }, r: 2, members: ['btn-trig', 'btn-src', 'btn-fltr', 'btn-amp', 'btn-fx', 'btn-mod'] },
-    { id: 'arrows', rect: { x: 160, y: 76.5, w: 53, h: 32 }, r: 2, members: ['btn-up', 'btn-left', 'btn-down', 'btn-right', 'kboct'] },
+    { id: 'pages', rect: { x: 142, y: 60, w: 108, h: 14.5 }, r: 2, members: ['btn-trig', 'btn-src', 'btn-fltr', 'btn-amp', 'btn-fx', 'btn-mod'] },
+    { id: 'arrows', rect: { x: 156, y: 76.5, w: 35, h: 30.5 }, r: 2, members: ['btn-up', 'btn-open', 'btn-left', 'btn-down', 'btn-right'] },
     { id: 'trigs', rect: { x: 34, y: 109.5, w: 216, h: 44.5 }, r: 2, members: [...Array.from({ length: 16 }, (_, i) => `step-${i + 1}`), 'trackmute'] },
   ] as readonly { id: string; rect: FpRect; r: number; members: readonly string[] }[],
   silk: {
@@ -543,7 +558,7 @@ export const DT2_FACEPLATE = {
     },
     /** le M serigraphie sur la zone du logo (cale a droite, comme avant) */
     mark: { x: 24.3, cy: 67, h: 9 },
-    /** KB OCT a droite de UP, dans le cadre des fleches (2.2 : x 194 a 210 au plus), en orange */
+    /** KB OCT (garde pour compatibilite de structure) */
     kbOct: { text: '↕ KB OCT', x: 194, cy: 83.5, cap: 1.25, w: 16 },
     /** TRACK/MUTE entre les deux rangees de TRIG (2.3), en orange, et son accolade pointillee de TRIG 1 a TRIG 8 */
     trackMute: { text: 'TRACK/MUTE', cx: 142, cy: 131.5, cap: 1.25, x0: 47, x1: 237, gap: 2.5, dot: 0.35, dash: 0.9, tick: 0.8 },
@@ -567,8 +582,9 @@ export const dt2KnobCircle = (k: number): FpCircle => ({ cx: D.knobs.cx[k % 4], 
 export const dt2Key = (id: Dt2ButtonId): Dt2Key | undefined => D.buttons.keys.find((k) => k.id === id);
 
 const circleRect = (c: FpCircle): FpRect => ({ x: c.cx - c.d / 2, y: c.cy - c.d / 2, w: c.d, h: c.d });
+const dt2XfadeRect = (): FpRect => ({ x: D.scenes.xfade.x0, y: D.scenes.xfade.y - D.scenes.xfade.slot / 2, w: D.scenes.xfade.x1 - D.scenes.xfade.x0, h: D.scenes.xfade.slot });
 
-export type Dt2PartKind = 'screen' | 'knob' | 'side' | 'button' | 'logo' | 'leds' | 'step';
+export type Dt2PartKind = 'screen' | 'knob' | 'side' | 'button' | 'logo' | 'leds' | 'scene' | 'xfade' | 'step';
 
 /** Toutes les pieces de la face DT2 (decoupees ou posees) : la jupe d'ombre, l'export et le controle les lisent. */
 export function dt2FaceplateParts(): { id: string; kind: Dt2PartKind; rect: FpRect }[] {
@@ -576,9 +592,11 @@ export function dt2FaceplateParts(): { id: string; kind: Dt2PartKind; rect: FpRe
   out.push({ id: 'screen', kind: 'screen', rect: D.screen.rect });
   for (const s of D.side.knobs) out.push({ id: `side-${s.id}`, kind: 'side', rect: circleRect({ cx: s.cx, cy: s.cy, d: s.d }) });
   for (let k = 0; k < 8; k += 1) out.push({ id: `knob-${D.knobs.labels[k].toLowerCase()}`, kind: 'knob', rect: circleRect(dt2KnobCircle(k)) });
-  out.push({ id: 'logo', kind: 'logo', rect: D.open.rect });
   for (const b of D.buttons.keys) out.push({ id: `btn-${b.id}`, kind: 'button', rect: b.rect });
   out.push({ id: 'page-leds', kind: 'leds', rect: D.pageLeds.window });
+  out.push({ id: 'scene-a', kind: 'scene', rect: D.scenes.a.rect });
+  out.push({ id: 'xfade', kind: 'xfade', rect: dt2XfadeRect() });
+  out.push({ id: 'scene-b', kind: 'scene', rect: D.scenes.b.rect });
   for (let i = 0; i < 16; i += 1) out.push({ id: `step-${i + 1}`, kind: 'step', rect: dt2StepRect(i) });
   return out;
 }
@@ -610,12 +628,6 @@ const boxAt = (text: string, cap: number, cx: number, cy: number, align: 'center
 /** Toutes les legendes de la serigraphie de la face DT2 (hors celles imprimees sur les touches) et du decalque de l'ecran. */
 export function dt2FaceplateLegends(): Dt2Legend[] {
   const out: Dt2Legend[] = [];
-  const A = D.buttons.alt;
-  for (const b of D.buttons.keys) {
-    if (!b.alt) continue;
-    const cy = b.rect.y + b.rect.h + A.gap + A.cap / 2;
-    out.push({ id: `alt-${b.id}`, text: b.alt, cap: A.cap, ink: 'alt', rect: boxAt(b.alt, A.cap, b.rect.x + b.rect.w / 2, cy) });
-  }
   for (const s of D.side.knobs) {
     const L = D.side.legend;
     const cy = s.cy + s.d / 2 + L.gap + L.cap / 2;
@@ -631,8 +643,6 @@ export function dt2FaceplateLegends(): Dt2Legend[] {
     const l = D.knobs.labels[k];
     out.push({ id: `letter-${l.toLowerCase()}`, text: l, cap: D.knobs.label.cap, ink: 'silk', rect: boxAt(l, D.knobs.label.cap, c.cx, c.cy + D.knobs.label.r), owner: `knob-${l.toLowerCase()}` });
   }
-  const K = D.silk.kbOct;
-  out.push({ id: 'kboct', text: K.text, cap: K.cap, ink: 'alt', rect: boxAt(K.text, K.cap, K.x, K.cy, 'left') });
   const T = D.silk.trackMute;
   out.push({ id: 'trackmute', text: T.text, cap: T.cap, ink: 'alt', rect: boxAt(T.text, T.cap, T.cx, T.cy) });
   const W = D.silk.decal;

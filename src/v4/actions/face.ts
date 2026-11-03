@@ -766,7 +766,7 @@ export const muteView = (): boolean => DT_FACE && dtFace.mute() !== 'off';
 /** Les touches de page de la face DT2 et leur page. */
 const PAGE_OF_KEY: Readonly<Partial<Record<Dt2ButtonId, RytmPageId>>> = { trig: 'trig', src: 'voice', fltr: 'fltr', amp: 'env', fx: 'fx', mod: 'mod' };
 /** La zone (l'animation de la touche) d'une touche de la face DT2. */
-const HOTSPOT_OF_KEY: Readonly<Partial<Record<Dt2ButtonId, string>>> = { ptn: 'pad-edit', play: 'run', trig: 'pkey-trig', src: 'pkey-voice', fltr: 'pkey-fltr', amp: 'pkey-env', fx: 'pkey-fx', mod: 'pkey-mod' };
+const HOTSPOT_OF_KEY: Readonly<Partial<Record<Dt2ButtonId, string>>> = { ptn: 'pad-edit', play: 'run', open: 'pad-open', trig: 'pkey-trig', src: 'pkey-voice', fltr: 'pkey-fltr', amp: 'pkey-env', fx: 'pkey-fx', mod: 'pkey-mod' };
 export const faceKeyHotspot = (id: Dt2ButtonId): string => HOTSPOT_OF_KEY[id] ?? id;
 
 /** YES tenue plus longtemps sans servir (l'ancien FILL) : l'indice FILL: HOLD PAGE. */
@@ -854,8 +854,11 @@ export function faceKeyDown(id: Dt2ButtonId, src = 'at', stage: Stage | null = n
     case 'tempo':
     case 'preset':
     case 'kbd':
+    case 'mute':
+    case 'solo':
+    case 'open':
       gestureLayer.down(id, src, t);
-      stage?.pressFaceKey(id);
+      stage?.pressFaceKey(faceKeyHotspot(id));
       dispatch(id, 'press', sk, 0, t);
       return;
     case 'sounds':
@@ -932,6 +935,9 @@ export function faceKeyUp(id: Dt2ButtonId, src = 'at', stage: Stage | null = nul
     case 'tempo':
     case 'preset':
     case 'kbd':
+    case 'mute':
+    case 'solo':
+    case 'open':
       gestureLayer.up(id, src, tap ? t : -1);
       return;
     case 'up':
@@ -1042,6 +1048,8 @@ export function dt2FaceSync(stage: Stage): () => void {
     if (fk.setFill(fill.mode)) ch = true;
     if (fk.setBank(dtFace.bank())) ch = true;
     if (fk.setKeyboard(dtFace.keyboard())) ch = true;
+    if (fk.setMuteMode(dtFace.mute() !== 'off')) ch = true;
+    if (fk.setSoloMode(dtFace.solo() || voices.soloAll().length > 0)) ch = true;
     if (fk.setPatternPages(pattern.pageCount(), pattern.editPage(), clock.running ? clock.playingPage() : -1)) ch = true;
     const lk = rytmLock.get();
     if (fk.setPageLocks(dtFace.rec() && lk.step >= 0 ? lockPages(lk.step).map((pg) => pg.toLowerCase()) : [])) ch = true;
@@ -1049,7 +1057,7 @@ export function dt2FaceSync(stage: Stage): () => void {
     if (fk.setPersonal(dtFace.personal())) ch = true;
     if (ch) stage.repaint();
   };
-  const offs = [dtFace.subscribe(sync), fill.subscribe(sync), rytmLock.subscribe(sync), pattern.subscribe(sync), clock.subscribe(sync), clock.onBar(() => sync())];
+  const offs = [dtFace.subscribe(sync), voices.subscribe(sync), fill.subscribe(sync), rytmLock.subscribe(sync), pattern.subscribe(sync), clock.subscribe(sync), clock.onBar(() => sync())];
   sync();
   return () => {
     offs.forEach((o) => o());

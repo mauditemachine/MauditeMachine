@@ -54,6 +54,8 @@ import { lockMode, rytmLockTap } from '../locks';
 import { liveHit } from '../live';
 // Apres ../locks (qui l'evalue deja par ../anyDial) : l'ordre de chargement ne change pas
 import { faceKnobReset } from '../dials';
+import { openToggle } from '../nav';
+import { soundFilesPick } from '../browser';
 import { faceTouch } from '../../state/ctl';
 
 /* ---------------- les mots ---------------- */
@@ -217,6 +219,7 @@ export function srcKind(src: string, touch = false): ChordEvent['src'] {
 export const ptnView = (): boolean => DT2_FACE && editor.get() === 'mm808' && !dtFace.bank();
 export const bankView = (): boolean => DT2_FACE && dtFace.bank();
 export const muteOpen = (): boolean => DT2_FACE && dtFace.mute() !== 'off';
+export const soloOpen = (): boolean => DT2_FACE && dtFace.solo();
 export const liveOpen = (): boolean => DT2_FACE && dtFace.live();
 export const recOpen = (): boolean => DT2_FACE && dtFace.rec();
 /** Un TRIG tenu (le P-LOCK de toujours : un pas tenu, ou en LOCK) : son index, -1 aucun. */
@@ -357,13 +360,65 @@ export function trigMute(i: number, stage: Stage | null): void {
   trackMuteToggle(k);
 }
 
-/** Un TRIG tenu en mode MUTE : le SOLO de sa piste (16). */
+/** Un TRIG en mode SOLO (ou tenu en mode MUTE) : le SOLO de sa piste (16). */
 export function trigSolo(i: number, stage: Stage | null): void {
   const k = trackAt(i);
-  if (!k || dtFace.mute() === 'off') return;
+  if (!k || (dtFace.mute() === 'off' && !dtFace.solo())) return;
+  resume();
   stage?.pressStep(i);
   voices.toggleSolo(k);
   lcdMessage.show(voices.isSolo(k) ? `SOLO ${trackName(k)}` : `${trackName(k)} SOLO OFF`);
+}
+
+/** Touche MUTE directe en facade : active ou quitte le mode MUTE (TRIG 1-16 mutent/demutent les pistes T1-T16). */
+export function muteKeyTap(): void {
+  resume();
+  const next = dtFace.mute() === 'off' ? 'global' : 'off';
+  if (next !== 'off') {
+    trk.cancel();
+    if (editor.get() === 'mm808') editor.close();
+  }
+  dtFace.setMute(next);
+  lcdMessage.show(next === 'off' ? 'MUTE MODE OFF' : 'MUTE MODE: TAP TRIG 1-16 · FUNC + MUTE: UNMUTE ALL', 1600);
+}
+
+/** FUNC + MUTE : demute toutes les pistes d'un coup. */
+export function unmuteAllKey(): void {
+  resume();
+  voices.clearMutes();
+  pattern.setPmutes([]);
+  dtFace.setMute('off');
+  lcdMessage.show('ALL TRACKS UNMUTED', 1400);
+}
+
+/** Touche SOLO directe en facade : active ou quitte le mode SOLO (TRIG 1-16 mettent en solo les pistes T1-T16). */
+export function soloKeyTap(): void {
+  resume();
+  const next = !dtFace.solo();
+  if (next) {
+    trk.cancel();
+    if (editor.get() === 'mm808') editor.close();
+  }
+  dtFace.setSolo(next);
+  lcdMessage.show(next ? 'SOLO MODE: TAP TRIG 1-16 · FUNC + SOLO: UNSOLO ALL' : 'SOLO MODE OFF', 1600);
+}
+
+/** FUNC + SOLO : retire tous les solos d'un coup. */
+export function unsoloAllKey(): void {
+  resume();
+  voices.clearSolo();
+  dtFace.setSolo(false);
+  lcdMessage.show('ALL TRACKS UNSOLOED', 1400);
+}
+
+/** Touche OPEN en facade : ouvre ou referme le capot du MM-RYTM. */
+export function openKeyTap(stage: Stage | null): void {
+  openToggle(stage, 'mm808');
+}
+
+/** FUNC + OPEN (+ SAMPLE) : importer un fichier audio dans la piste active. */
+export function openSampleKey(): void {
+  soundFilesPick(activeTrack.get() ?? pattern.get().instrument ?? 'BD', false);
 }
 
 /** La piste a-t-elle un son qui sort (ni coupee ni dans le mute du pattern) ? */
@@ -525,7 +580,7 @@ const sticky = new Set<number>();
 
 /** Maj + clic sur un TRIG en GRID REC : il s'ajoute aux TRIG tenus (ou s'en retire) ; true si le clic est pris. */
 export function stepShiftHold(i: number): boolean {
-  if (!DT2_FACE || !recOpen() || liveOpen() || ptnView() || bankView() || muteOpen() || !activeTrack.get()) return false;
+  if (!DT2_FACE || !recOpen() || liveOpen() || ptnView() || bankView() || muteOpen() || soloOpen() || !activeTrack.get()) return false;
   if (!Number.isInteger(i) || i < 0 || i > 15) return false;
   if (sticky.has(i)) {
     sticky.delete(i);
@@ -587,6 +642,7 @@ export function ptnToggle(stage: Stage | null, t = performance.now()): void {
     return;
   }
   if (dtFace.mute() !== 'off') dtFace.setMute('off');
+  if (dtFace.solo()) dtFace.setSolo(false);
   if (editor.get() === 'mm808') {
     editor.close();
     // L'ancien geste (PTN deux fois = KIT) : l'indice, seulement si rien n'a servi entre les deux PTN (la relecture de la

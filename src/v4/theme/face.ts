@@ -123,17 +123,22 @@ export const FACE_KEY_CLASS: Readonly<Record<Dt2KeyClass, { readonly w: number; 
   P: { w: fpU(DT2.buttons.sizes.P.w), d: fpU(DT2.buttons.sizes.P.h) },
   L: { w: fpU(DT2.buttons.sizes.L.w), d: fpU(DT2.buttons.sizes.L.h) },
   G: { w: fpU(DT2.buttons.sizes.G.w), d: fpU(DT2.buttons.sizes.G.h) },
+  A: { w: fpU(DT2.buttons.sizes.A.w), d: fpU(DT2.buttons.sizes.A.h) },
 };
 /**
  * Les touches de la face, chacune sa place (x, z son centre, w x d sa taille, cls sa classe) et l'id de sa zone. V.5.3 :
  * les quatorze de la rangee (un z, la taille FACE_KEY), SCENE A et B (SCENE_KEY ; d : celui de la rangee, la meme). DT2
- * (V.6.0, ?face=dt2) : les 25 touches dans l'ordre de lecture de la face (rytm/dtFaceIds.ts DT2_BUTTONS), sans les scenes.
+ * (V.6.0, ?face=dt2) : les 27 touches dans l'ordre de lecture de la face (rytm/dtFaceIds.ts DT2_BUTTONS), plus SCENE A et B.
  */
 export const FACE_KEYS: readonly { id: FaceKeyId; x: number; z: number; w: number; d: number; cls: FaceKeyClass; hotspot: string }[] = DT2_FACE
-  ? DT2.buttons.keys.map((b) => {
-      const c = rectCenter(b.rect);
-      return { id: b.id, x: c.x, z: c.z, w: fpU(b.rect.w), d: fpU(b.rect.h), cls: b.cls, hotspot: b.hotspot };
-    })
+  ? [
+      ...DT2.buttons.keys.map((b) => {
+        const c = rectCenter(b.rect);
+        return { id: b.id, x: c.x, z: c.z, w: fpU(b.rect.w), d: fpU(b.rect.h), cls: b.cls, hotspot: b.hotspot };
+      }),
+      { id: 'scene-a', x: rectCenter(DT2.scenes.a.rect).x, z: rectCenter(DT2.scenes.a.rect).z, w: SCENE_KEY.w, d: SCENE_KEY.d, cls: 'scene', hotspot: DT2.scenes.a.hotspot },
+      { id: 'scene-b', x: rectCenter(DT2.scenes.b.rect).x, z: rectCenter(DT2.scenes.b.rect).z, w: SCENE_KEY.w, d: SCENE_KEY.d, cls: 'scene', hotspot: DT2.scenes.b.hotspot },
+    ]
   : [
       ...RYTM_FACEPLATE.buttons.keys.map((b, i) => ({ id: b.id as FaceKeyId, x: faceKeyX(i), z: FACE_KEY.z, w: FACE_KEY.w, d: FACE_KEY.d, cls: 'row' as const, hotspot: b.hotspot })),
       { id: 'scene-a', x: rectCenter(RYTM_FACEPLATE.scenes.a.rect).x, z: FACE_KEY.z, w: SCENE_KEY.w, d: FACE_KEY.d, cls: 'scene', hotspot: RYTM_FACEPLATE.scenes.a.hotspot },
@@ -333,8 +338,8 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
   : DT2_FACE
     ? [
         // La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : un mot sur chaque touche (Mika, V.4.2 : des mots plutot que des
-        // pictogrammes), le meme corps pour les 25 (un groupe), dans la largeur de sa touche moins une marge ; les signes du
-        // transport et les chevrons des fleches
+        // pictogrammes), le meme corps pour les 27 (un groupe), dans la largeur de sa touche moins une marge ; les signes du
+        // transport et les chevrons des fleches ; altText : le mot orange quand FUNC est engagee
         ...DT2.buttons.keys.map((b): KeyLabelSpec => {
           const L = DT2.buttons.legend;
           const c = rectCenter(b.rect);
@@ -347,9 +352,24 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
             d: fpU(b.rect.h),
             group: 'face',
             rest: 'ink',
+            ...(b.alt ? { altText: b.alt } : {}),
             ...(b.marks ? { marks: b.marks, dz: KEY_MARK.dz } : { cap: fpU(L.cap), qw: fpU(b.rect.w - 2 * L.margin), dz: fpU(L.dy), tracking: L.tracking }),
           };
         }),
+        ...(['a', 'b'] as const).map(
+          (k): KeyLabelSpec => ({
+            id: `scene-${k}`,
+            text: DT2.scenes[k].letter,
+            x: rectCenter(DT2.scenes[k].rect).x,
+            z: rectCenter(DT2.scenes[k].rect).z,
+            w: SCENE_KEY.w,
+            d: SCENE_KEY.d,
+            group: 'scene',
+            rest: 'ink',
+            cap: fpU(DT2.scenes.legend.cap),
+            qw: fpU(DT2.scenes.legend.w),
+          })
+        ),
         // Le numero seul sur chaque pas (16 pistes libres, cahier 2.2), en haut a gauche comme avant
         ...Array.from({ length: 16 }, (_, i): KeyLabelSpec => {
           const r = dt2StepRect(i);
@@ -371,6 +391,7 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
           group: 'face',
           // V.5.0 (2026-10-29) : plus de touche rouge (RUN/STOP) ; FUNC, orange, garde sa legende noire (rytmFaceKeys.ts)
           rest: 'ink',
+          ...(b.alt ? { altText: b.alt } : {}),
           ...(b.marks ? { marks: b.marks, dz: KEY_MARK.dz } : { cap: fpU(L.cap), qw: fpU(L.w), dz: fpU(L.dy), tracking: L.tracking }),
         };
       }),
@@ -416,14 +437,17 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
   ? {}
   : DT2_FACE
     ? {
-        // La face DT2 (V.6.0, ?face=dt2) : ses 25 touches (les onze nouvelles : coming soon, tant que la lane B4 ne les a pas
-        // branchees), MAIN VOLUME et LEVEL/DATA ; TRK, FUNC, le logo M et les potards gardent leur geste d'aujourd'hui
         ...Object.fromEntries(DT2.buttons.keys.map((b) => [b.hotspot, keyTitle(b)])),
-        trk: 'Track (TRK): hold, then a step 1-8 picks its voice; tap to latch; FUNC + TRK: MUTE mode',
-        func: 'Function (FUNC): tap, then a key for its orange function; hold it for a moment; tap twice to keep it (Alt key)',
+        trk: 'Track (TRK): hold, then a step 1-16 picks its track; tap to latch; FUNC + TRK: pattern mute mode',
+        func: 'Function (FUNC): hold or tap to see and trigger secondary functions on the buttons; tap twice to keep it (Alt key)',
+        mute: 'Mute mode (MUTE): tap to toggle mute mode (steps 1-16 mute tracks); FUNC + MUTE: unmute all tracks',
+        solo: 'Solo mode (SOLO): tap to toggle solo mode (steps 1-16 solo tracks); FUNC + SOLO: unsolo all tracks',
         [FP_OPEN.hotspot]: FP_OPEN.title,
+        [DT2.scenes.a.hotspot]: `${DT2.scenes.a.title}: hold or tap, then turn a knob to record it`,
+        [DT2.scenes.b.hotspot]: `${DT2.scenes.b.title}: hold or tap, then turn a knob to record it`,
+        [DT2.scenes.xfade.hotspot]: `${DT2.scenes.xfade.title}: drag the cap or scroll over it`,
         mvol: 'Main volume (MAIN VOLUME): drag or scroll; double-click: back to its start',
-        data: 'Level / data (LEVEL/DATA): the level of the track, scrolls the menus; FUNC + LEVEL/DATA: PRESET POOL, coming soon',
+        data: 'Level / data (LEVEL/DATA): the level of the track, scrolls the menus',
         ...Object.fromEntries(PAGE_KNOB_LETTERS.map((l, k) => [`penc-${k}`, `Knob ${l}: the function in the same place on the screen; click: what it opens there`])),
       }
     : {
@@ -445,12 +469,10 @@ export const FACE_TITLE: Readonly<Record<string, string>> = PORTRAIT
 
 /**
  * La serigraphie de la face DT2 (V.6.0, ?face=dt2, cahier 2.3) : les lettres A a H a 6 h dans la fente de l'anneau, MAIN
- * VOLUME et LEVEL/DATA sous leur potard et PRESET POOL en orange, la fonction orange sous chaque touche (gap sous la
- * touche, le meme corps pour toutes), KB OCT a droite de UP, TRACK/MUTE entre les deux rangees de TRIG. Le wordmark,
- * MM-RYTM et le firmware passent sur le decalque du cadre de l'ecran (scene/silk.ts BezelDecal) ; plus de ligne d'aide.
+ * VOLUME et LEVEL/DATA sous leur potard, TRACK/MUTE entre les deux rangees de TRIG. Les sous-titres orange des touches
+ * apparaissent directement sur les touches quand FUNC est engagee.
  */
 const DT2_SILK_TEXTS = (): SilkText[] => {
-  const A = DT2.buttons.alt;
   const S = DT2.side;
   const out: SilkText[] = FACE_KNOBS.map((k, i) => ({ text: FP_KNOBS.labels[i] ?? PAGE_KNOB_LETTERS[i], x: k.x, z: k.labelZ, cap: PAGE_KNOBS.cap, maxW: PAGE_KNOBS.labelW, group: 'genc', weight: 700, alpha: 0.9 }));
   for (const s of S.knobs) {
@@ -458,13 +480,6 @@ const DT2_SILK_TEXTS = (): SilkText[] => {
     out.push({ text: s.legend, x: fpX(s.cx), z: fpZ(cy), cap: fpU(S.legend.cap), maxW: fpU(21), group: 'side', weight: 700, alpha: 0.9 });
     if (s.alt) out.push({ text: s.alt, x: fpX(s.cx), z: fpZ(cy + S.legend.cap / 2 + S.alt.gap + S.alt.cap / 2), cap: fpU(S.alt.cap), maxW: fpU(21), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   }
-  for (const b of DT2.buttons.keys) {
-    if (!b.alt) continue;
-    const c = rectCenter(b.rect);
-    out.push({ text: b.alt, x: c.x, z: fpZ(b.rect.y + b.rect.h + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(A.w), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
-  }
-  // Le mot OPEN en orange sous le logo M (2026-11-02, Mika : "et je vois plus le bouton OPEN") ; plus de KB OCT a droite de UP
-  out.push({ text: 'OPEN', x: fpX(19), z: fpZ(74), cap: fpU(1.3), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   const T = DT2.silk.trackMute;
   out.push({ text: T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   return out;

@@ -129,13 +129,13 @@ test('V.6.0 : les quatorze touches du boitier d aujourd hui gardent leur ordre e
   assert.deepEqual(Object.entries(HW_KEY_NOTES).filter(([, n]) => n.confirmed).map(([id]) => id), ['trk']);
 });
 
-test('V.6.0 : 24 touches de la face DT2 dans l ordre de DT2_BUTTONS, chacune une note, aucune sur SCENE A et B (79, 80)', () => {
-  assert.equal(DT2_KEYS_HW.length, 24);
+test('V.6.0 : 27 touches de la face DT2 dans l ordre de DT2_BUTTONS, chacune une note, aucune sur SCENE A et B (79, 80)', () => {
+  assert.equal(DT2_KEYS_HW.length, 27);
   assert.deepEqual([...DT2_KEYS_HW], DT2_BUTTONS.map((b) => b.id));
   const notes = DT2_KEYS_HW.map((id) => HW_KEY_NOTES[id].note);
-  assert.equal(new Set(notes).size, 24);
+  assert.equal(new Set(notes).size, 27);
   assert.ok(!notes.includes(79) && !notes.includes(80));
-  assert.ok(notes.every((n) => n >= 60 && n <= 86));
+  assert.ok(notes.every((n) => n >= 60 && n <= 89));
 });
 
 test('V.6.0 : les notes proposees des touches nouvelles et les CC des potards de gauche sont ceux du contrat (DT2_ZONES)', () => {

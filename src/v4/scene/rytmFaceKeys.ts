@@ -54,13 +54,16 @@ const SCN_A = at('scene-a');
 const SCN_B = at('scene-b');
 /** La face DT2 (V.6.0) : ses touches nouvelles (-1 sur la face de la V.5.3). */
 const KBD = at('kbd');
+const MUTE = at('mute');
+const SOLO = at('solo');
+const OPEN = at('open');
 const PRESET = at('preset');
 const SETTINGS = at('settings');
 const SOUNDS = at('sounds');
 const TEMPO = at('tempo');
 const PTNPAGE = at('ptnpage');
 const ARROWS: readonly number[] = (['up', 'down', 'left', 'right'] as const).map(at).filter((i) => i >= 0);
-/** Les scenes et le crossfader sont-ils sur la face (la V.5.3 ; pas la face DT2, cahier 1.3) ? */
+/** Les scenes et le crossfader sont-ils sur la face ? */
 const HAS_SCENES = SCN_A >= 0 && SCN_B >= 0;
 /** Le rang des touches de page et leur page (theme.ts DT_PAGE_KEYS : TRIG, SRC la page voice, FLTR, AMP la page env, FX, MOD). */
 const PAGE_KEYS = DT_PAGE_KEYS.map((p) => ({ page: p.id as string, i: at(p.btn) }));
@@ -100,7 +103,7 @@ const sceneSlot = (i: number): number => (i === SCN_A ? 0 : i === SCN_B ? 1 : -1
  * Les maillages des touches et la place de chaque touche dans le sien. La V.5.3 : celui de la rangee porte les seize (SCENE
  * A et B a l'echelle 0), celui des scenes les deux scenes ; la face DT2 : un maillage par classe (P, L, G).
  */
-const CLASSES: readonly FaceKeyClass[] = DT2_FACE ? (['P', 'L', 'G'] as const).filter((c) => FACE_KEYS.some((k) => k.cls === c)) : ['row', 'scene'];
+const CLASSES: readonly FaceKeyClass[] = DT2_FACE ? (['P', 'L', 'G', 'A', 'scene'] as const).filter((c) => FACE_KEYS.some((k) => k.cls === c)) : ['row', 'scene'];
 /** La touche i : son maillage (le rang dans CLASSES) et son instance dans ce maillage. */
 const SLOT: readonly { m: number; j: number }[] = FACE_KEYS.map((k, i) => {
   if (!DT2_FACE) return sceneSlot(i) >= 0 ? { m: 1, j: sceneSlot(i) } : { m: 0, j: i };
@@ -134,7 +137,7 @@ const classSize = (c: FaceKeyClass): { w: number; d: number } => (c === 'row' ? 
  */
 function skirtGeometry(): BufferGeometry {
   const parts = DT2_FACE
-    ? dt2FaceplateParts().map((p) => ({ kind: p.kind === 'button' ? ('button' as const) : p.kind === 'step' ? ('step' as const) : null, rect: p.rect }))
+    ? dt2FaceplateParts().map((p) => ({ kind: p.kind === 'button' || p.kind === 'scene' ? ('button' as const) : p.kind === 'step' ? ('step' as const) : null, rect: p.rect }))
     : faceplateParts().map((p) => ({ kind: p.kind === 'button' || p.kind === 'scene' ? ('button' as const) : p.kind === 'step' ? ('step' as const) : null, rect: p.rect }));
   const corner = (k: 'button' | 'step'): number => (k === 'step' ? (DT2_FACE ? DT2_FACEPLATE.steps.corner : RYTM_FACEPLATE.steps.corner) : DT2_FACE ? DT2_FACEPLATE.buttons.corner : RYTM_FACEPLATE.buttons.corner);
   const keys = parts
@@ -394,6 +397,9 @@ export class RytmFaceKeys {
   private capHot = false;
   /** La face DT2 (cahier 2.4) : ce que montrent les touches nouvelles, REC et la touche PAGE. */
   private keyboard = false;
+  private muteMode = false;
+  private soloMode = false;
+  private openState = false;
   private menu: FaceMenu | null = null;
   private perform = false;
   private fillMode: 'off' | 'on' | 'armed' = 'off';
@@ -545,7 +551,7 @@ export class RytmFaceKeys {
   /** Les maillages a poser sur le plateau. */
   objects(): Object3D[] {
     if (!DT2_FACE) return [this.skirt, this.keys, ...(this.sceneKeys ? [this.sceneKeys] : []), this.leds, this.labels.mesh, ...(this.cap ? [this.cap] : []), ...(this.armRing ? [this.armRing] : []), this.logo];
-    return [this.skirt, ...this.classMeshes, this.leds, this.labels.mesh, this.logo, ...(this.pageWindow ? [this.pageWindow] : []), ...(this.pageLeds ? [this.pageLeds] : [])];
+    return [this.skirt, ...this.classMeshes, this.leds, this.labels.mesh, ...(this.cap ? [this.cap] : []), ...(this.armRing ? [this.armRing] : []), this.logo, ...(this.pageWindow ? [this.pageWindow] : []), ...(this.pageLeds ? [this.pageLeds] : [])];
   }
 
   /** Les deux cadres a leur touche, a l'echelle 0 sauf celui de la scene armee (allume, ou dans sa phase allumee). */
@@ -557,7 +563,7 @@ export class RytmFaceKeys {
       const k = FACE_KEYS[i];
       const show = on && this.armed === (j === 0 ? 'a' : 'b');
       m4.makeScale(show ? 1 : 0, show ? 1 : 0, show ? 1 : 0);
-      m4.setPosition(k ? k.x : 0, 0, FACE_KEY.z);
+      m4.setPosition(k ? k.x : 0, 0, k ? k.z : FACE_KEY.z);
       ring.setMatrixAt(j, m4);
     });
     ring.instanceMatrix.needsUpdate = true;
@@ -628,6 +634,9 @@ export class RytmFaceKeys {
     // La face DT2 (cahier 2.4) : KEYBOARD en mode clavier, SONG en SONG (clignote en SONG EDIT), PRESET/KIT, SETTINGS,
     // SOUNDS et TEMPO leur menu ouvert (PRESET/KIT orange en PERFORM KIT), PAGE en FILL (clignote en attente d'un cycle)
     if (i === KBD) return this.keyboard ? red : none;
+    if (i === MUTE) return this.muteMode ? { fill: 1, tone: 'dgreen', glow: 1, led: 1, ledTone: 'green' } : none;
+    if (i === SOLO) return this.soloMode ? { fill: 1, tone: 'dblue', glow: 1, led: 1, ledTone: 'blue' } : none;
+    if (i === OPEN) return this.openState ? { fill: 1, tone: 'dorange', glow: 1, led: 1, ledTone: 'orange' } : none;
     if (i === PRESET && this.perform) return { fill: 1, tone: 'dorange', glow: 1, led: 1, ledTone: 'orange' };
     if (this.menu !== null && i === MENU_KEY[this.menu]) return red;
     if (i === PTNPAGE) return this.fillMode === 'off' ? none : this.fillMode === 'armed' ? { ...red, led: this.blinkLevel } : red;
@@ -714,6 +723,7 @@ export class RytmFaceKeys {
   setFunc(mode: FuncMode): boolean {
     if (FUNC < 0 || mode === this.func) return false;
     this.func = mode;
+    this.labels.setFuncMode(mode !== 'off');
     this.refresh(FUNC);
     return true;
   }
@@ -778,6 +788,30 @@ export class RytmFaceKeys {
     if (KBD < 0 || on === this.keyboard) return false;
     this.keyboard = on;
     this.refresh(KBD);
+    return true;
+  }
+
+  /** MUTE : vert en mode mute ; true s'il faut une frame. */
+  setMuteMode(on: boolean): boolean {
+    if (MUTE < 0 || on === this.muteMode) return false;
+    this.muteMode = on;
+    this.refresh(MUTE);
+    return true;
+  }
+
+  /** SOLO : bleu en mode solo ; true s'il faut une frame. */
+  setSoloMode(on: boolean): boolean {
+    if (SOLO < 0 || on === this.soloMode) return false;
+    this.soloMode = on;
+    this.refresh(SOLO);
+    return true;
+  }
+
+  /** OPEN : orange quand le capot est ouvert ; true s'il faut une frame. */
+  setOpenState(on: boolean): boolean {
+    if (OPEN < 0 || on === this.openState) return false;
+    this.openState = on;
+    this.refresh(OPEN);
     return true;
   }
 
@@ -971,9 +1005,9 @@ export class RytmFaceKeys {
     return this.armHow === 'latched';
   }
 
-  /** Le capot ouvert : depuis V.5.0 le logo M l'ouvre, sans temoin ; rien a peindre. */
-  setOpen(_on: boolean): boolean {
-    return false;
+  /** Le capot ouvert : sur DT2_FACE la touche OPEN s'allume en orange. */
+  setOpen(on: boolean): boolean {
+    return this.setOpenState(on);
   }
 
   /** OPEN ne respire plus au desktop (V.5.0 : le logo M, sans temoin). */
@@ -1045,13 +1079,13 @@ export class RytmFaceKeys {
    */
   hotspots(layer: Object3D): HotspotDef[] {
     const K = FACE_KEY;
-    const KIND: Readonly<Partial<Record<FaceKeyId, HotspotKind>>> = { func: 'func', trk: 'trk', ptn: 'edit', rec: 'rec', play: 'run', stop: 'stop', yes: 'yes', no: 'no' };
+    const KIND: Readonly<Partial<Record<FaceKeyId, HotspotKind>>> = { func: 'func', trk: 'trk', ptn: 'edit', rec: 'rec', play: 'run', stop: 'stop', yes: 'yes', no: 'no', open: 'open' };
     const out: HotspotDef[] = [];
     FACE_KEYS.forEach((k, i) => {
       const scene = k.id === 'scene-a' ? 'a' : k.id === 'scene-b' ? 'b' : null;
       const pg = pageAt(i);
-      // La face DT2 : seulement les touches qui ont deja leur kind (les nouvelles : scene/zones/face60.ts)
-      if (DT2_FACE && !pg && KIND[k.id] === undefined) return;
+      // La face DT2 : les touches qui ont deja leur kind (et les scenes), les nouvelles : scene/zones/face60.ts
+      if (DT2_FACE && !scene && !pg && KIND[k.id] === undefined) return;
       const base = DT2_FACE
         ? { id: k.hotspot, layer, shape: 'box' as const, x: k.x, z: k.z, hx: k.w / 2, hz: k.d / 2, y0: 0, y1: K.h, enabled: true }
         : { id: k.hotspot, layer, shape: 'box' as const, x: k.x, z: K.z, hx: (scene ? SCENE_KEY.w : K.w) / 2, hz: (scene ? SCENE_KEY.d : K.d) / 2, y0: 0, y1: K.h, enabled: true };
@@ -1067,9 +1101,11 @@ export class RytmFaceKeys {
       }
       out.push({ ...base, kind: KIND[k.id] ?? 'trk' });
     });
-    // Le logo M (V.5.0) : OPEN, sur toute sa zone, a plat sur la face
-    const r = FP_OPEN.rect;
-    out.push({ id: FP_OPEN.hotspot, kind: 'open', layer, shape: 'box', x: fpX(r.x + r.w / 2), z: fpZ(r.y + r.h / 2), hx: fpU(r.w) / 2, hz: fpU(r.h) / 2, y0: 0, y1: 0.01, enabled: true });
+    // Le logo M (V.5.0) : OPEN, sur toute sa zone, a plat sur la face (sur DT2_FACE, la touche OPEN l'a deja emis)
+    if (!DT2_FACE) {
+      const r = FP_OPEN.rect;
+      out.push({ id: FP_OPEN.hotspot, kind: 'open', layer, shape: 'box', x: fpX(r.x + r.w / 2), z: fpZ(r.y + r.h / 2), hx: fpU(r.w) / 2, hz: fpU(r.h) / 2, y0: 0, y1: 0.01, enabled: true });
+    }
     return out;
   }
 

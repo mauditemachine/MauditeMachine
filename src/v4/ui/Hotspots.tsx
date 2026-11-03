@@ -422,9 +422,9 @@ const BLOCK_SWIPE_RATIO = 1.4;
  * La face DT2 (V.6.0, ?face=dt2, la lane B4) : les kinds des touches nouvelles (KEYBOARD, SONG, PRESET/KIT, SETTINGS, SOUNDS,
  * TEMPO, les fleches, PAGE), tenues par le pointeur de l'appui au lacher (actions/face.ts faceKeyDown, faceKeyUp).
  */
-const DT2_KEY_KINDS: ReadonlySet<HotspotKind> = new Set<HotspotKind>(['kbd', 'preset', 'settings', 'sounds', 'tempo', 'arrow', 'pagekey']);
+const DT2_KEY_KINDS: ReadonlySet<HotspotKind> = new Set<HotspotKind>(['kbd', 'mute', 'solo', 'preset', 'settings', 'sounds', 'tempo', 'arrow', 'pagekey']);
 const dt2KeyOf = (h: { kind: HotspotKind | null; id: string | null } | null): Dt2ButtonId | null =>
-  DT2_FACE && h && h.kind && h.id && DT2_KEY_KINDS.has(h.kind) ? (h.id as Dt2ButtonId) : null;
+  DT2_FACE && h && h.id === 'pad-open' ? 'open' : DT2_FACE && h && h.kind && h.id && DT2_KEY_KINDS.has(h.kind) ? (h.id as Dt2ButtonId) : null;
 /** La page d'une touche de page de la face (pkey-<page>) et sa touche DT2. */
 const DT2_PAGE_BTN: Readonly<Record<string, Dt2ButtonId>> = { trig: 'trig', voice: 'src', fltr: 'fltr', env: 'amp', fx: 'fx', mod: 'mod' };
 /** LEVEL/DATA glisse (la face DT2) : un cran tous les px (Maj : fin) ; Ctrl ou Cmd : huit crans d'un coup (presser et tourner). */
@@ -1614,7 +1614,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // MUTE ou SOLO tenu (2026-10-09) : MODE_HOLD_MS sans lacher, toutes les voix reviennent (le lacher ne fait rien de plus) ;
       // INFOS allume, au doigt, la tenue lit la carte et ne rend aucune voix (revue : comme la touche du Dock)
-      if (h && (h.kind === 'mute' || h.kind === 'solo') && !downs.get(e.pointerId)?.info) {
+      if (!DT2_FACE && h && (h.kind === 'mute' || h.kind === 'solo') && !downs.get(e.pointerId)?.info) {
         const pid = e.pointerId;
         const d0 = downs.get(pid);
         const k = h.kind;
@@ -2770,7 +2770,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       aria-label={OPEN_ARIA}
       title={FACE_TITLE['pad-open']}
       onKeyDown={noRepeat}
-      onClick={() => openToggle(stageRef.current, 'mm808')}
+      onClick={() => (DT2_FACE ? faceKeyTap('open', stageRef.current) : openToggle(stageRef.current, 'mm808'))}
     />
   );
 
@@ -3411,8 +3411,11 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   };
   const dt2Pressed = (id: Dt2ButtonId): boolean | undefined => {
     if (id === 'ptnpage') return fill60 !== 'off';
+    if (id === 'kbd') return dtFace.keyboard();
+    if (id === 'mute') return dtFace.mute() !== 'off';
+    if (id === 'solo') return dtFace.solo();
     if (id === 'tempo' || id === 'settings') return menu60 === id;
-    if (id === 'preset') return menu60 === 'preset' || menu60 === 'kit';
+    if (id === 'preset') return menu60 === 'preset' || menu60 === 'kit' || menu60 === 'perform';
     if (id === 'sounds') return menu60 === 'sounds' || menu60 === 'samples';
     return undefined;
   };
@@ -3435,6 +3438,14 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             return yesTwin;
           case 'no':
             return noTwin;
+          case 'open':
+            return (
+              <React.Fragment key="open">
+                {openTwin}
+                {chips}
+                {tweakTwins}
+              </React.Fragment>
+            );
           case 'trig':
           case 'src':
           case 'fltr':
@@ -3483,10 +3494,10 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           {knobTwins}
           {laneTwins('knobs', twinCtx)}
           {dt2Side}
-          {openTwin}
-          {chips}
-          {tweakTwins}
           {dt2Keys}
+          {sceneTwin('a')}
+          {xfadeTwin}
+          {sceneTwin('b')}
           {laneTwins('keys', twinCtx)}
           {stepTwins}
           {laneTwins('steps', twinCtx)}

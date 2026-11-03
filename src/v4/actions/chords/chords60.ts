@@ -36,7 +36,10 @@ import {
   menuSet,
   menuToggle,
   microTime,
+  muteKeyTap,
   muteOpen,
+  openKeyTap,
+  openSampleKey,
   pageArmed,
   pageFillDown,
   pageRandom,
@@ -49,6 +52,8 @@ import {
   ptnToggle,
   ptnView,
   recOpen,
+  soloKeyTap,
+  soloOpen,
   soon,
   srcNow,
   stageNow,
@@ -62,8 +67,11 @@ import {
   trigPlay,
   trigQuickMute,
   trigSettings,
+  trigSolo,
   trigTrk,
   trigWrite,
+  unmuteAllKey,
+  unsoloAllKey,
 } from '../internal/keys60';
 import { tapTempo } from '../internal/transport';
 import { dtPageKeyFirst } from '../internal/face';
@@ -101,6 +109,9 @@ const KEY_OF: Readonly<Partial<Record<ChordKey, string>>> = {
   sounds: 'U',
   tempo: 'Y',
   kbd: 'K',
+  mute: 'M',
+  solo: 'Shift + M',
+  open: 'O',
   ptnpage: 'G',
   up: 'Shift + Up',
   down: 'Shift + Down',
@@ -140,11 +151,12 @@ function trigChords(i: number): Chord[] {
   return [
     c({ id: `trig${i + 1}.settings`, key: k, gesture: 'press', mods: ['settings'], prio: 95, info, run: () => trigSettings(i, stageNow()) }),
     c({ id: `trig${i + 1}.trk`, key: k, gesture: 'press', mods: ['trk'], prio: 92, info, run: (e) => trigTrk(i, stageNow(), e.t) }),
-    c({ id: `trig${i + 1}.func.rec`, key: k, gesture: 'press', mods: ['func'], prio: 90, info, when: () => recOpen() && !ptnView() && !bankView() && !muteOpen(), run: () => trigLockTrig(i, stageNow()) }),
+    c({ id: `trig${i + 1}.func.rec`, key: k, gesture: 'press', mods: ['func'], prio: 90, info, when: () => recOpen() && !ptnView() && !bankView() && !muteOpen() && !soloOpen(), run: () => trigLockTrig(i, stageNow()) }),
     c({ id: `trig${i + 1}.func`, key: k, gesture: 'press', mods: ['func'], prio: 89, info, run: () => trigQuickMute(i, stageNow()) }),
     c({ id: `trig${i + 1}.pagesetup`, key: k, gesture: 'press', mods: [], prio: 72, info, when: () => dtFace.menu() === 'pagesetup', run: () => trigPageSetup(i, stageNow()) }),
     c({ id: `trig${i + 1}.bank`, key: k, gesture: 'press', mods: [], prio: 70, info, when: () => bankView(), run: () => trigBank(i, stageNow()) }),
     c({ id: `trig${i + 1}.ptn`, key: k, gesture: 'press', mods: [], prio: 69, info, when: () => ptnView(), run: () => patternTap(i, stageNow()) }),
+    c({ id: `trig${i + 1}.solo`, key: k, gesture: 'press', mods: [], prio: 68.5, info, when: () => soloOpen(), run: () => trigSolo(i, stageNow()) }),
     c({ id: `trig${i + 1}.mute`, key: k, gesture: 'press', mods: [], prio: 68, info, when: () => muteOpen(), run: () => trigMute(i, stageNow()) }),
     c({ id: `trig${i + 1}.live`, key: k, gesture: 'press', mods: [], prio: 67, info, when: () => liveOpen() && trigHeld() < 0, run: (e) => trigPlay(i, stageNow(), e.t) }),
     c({ id: `trig${i + 1}.rec`, key: k, gesture: 'press', mods: [], prio: 66, info, when: () => recOpen() && !dtFace.keyboard(), run: () => trigWrite(i, stageNow()) }),
@@ -293,12 +305,16 @@ export const CHORDS_60: readonly Chord[] = [
     },
     () => menuToggle('tempo'),
   ),
-  ...keyChords('preset', 'preset', () => soon('6.2'), () => menuToggle('preset'), '6.2'),
+  ...keyChords('preset', 'preset', () => menuToggle('perform'), () => menuToggle('preset')),
   ...keyChords('sounds', 'sounds', () => menuToggle('samples'), () => menuToggle('sounds')),
   // SETTINGS : sa tape (au lacher) ouvre le menu ; tenue 1 s, elle garde pour un TRIG (trig.settings)
   ...keyChords('settings', 'settings', () => soon('6.2'), () => menuToggle('settings'), '6.2', '6.0', 'release'),
   // KEYBOARD (2026-11-02, Mika : "Keyboard non plus..") : jeu chromatique sur TRIG 1-16
   ...keyChords('kbd', 'kbd', () => kbdToggle(), () => kbdToggle()),
+  // MUTE et SOLO directs en facade + OPEN / + SAMPLE
+  ...keyChords('mute', 'mute', () => unmuteAllKey(), () => muteKeyTap()),
+  ...keyChords('solo', 'solo', () => unsoloAllKey(), () => soloKeyTap()),
+  ...keyChords('open', 'pad-open', () => openSampleKey(), () => openKeyTap(stageNow())),
 
   /* ---------- les touches de page ---------- */
   ...PAGE_KEYS.flatMap(pageChords),

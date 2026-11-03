@@ -229,10 +229,15 @@ export function escape(fromNo = false): boolean {
     bankViewClose();
     return true;
   }
-  // Le mode MUTE (V.5.0, FUNC + TRK) : Echap en sort, les mutes restent
+  // Le mode MUTE (V.5.0, FUNC + TRK) ou SOLO (V.6.0) : Echap en sort, les mutes et solos restent
   if (DT_FACE && dtFace.mute() !== 'off' && focus.get() === 'mm808') {
     dtFace.setMute('off');
     lcdMessage.show('MUTE MODE OFF');
+    return true;
+  }
+  if (DT2_FACE && dtFace.solo() && focus.get() === 'mm808') {
+    dtFace.setSolo(false);
+    lcdMessage.show('SOLO MODE OFF');
     return true;
   }
   // Une scene gardee (2026-10-27) : Echap la desarme, avant le P-LOCK ; tenue, la main la lachera

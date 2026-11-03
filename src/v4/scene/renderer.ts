@@ -157,7 +157,7 @@ import { activeTrack, trk } from '../state/trk';
 import { func } from '../state/func';
 import { dtFace } from '../state/dtFace';
 import { sceneCtl } from '../state/sceneCtl';
-import { muteLeds, trkLeds, type TrkLed } from '../rytm/stepLeds';
+import { muteLeds, soloLeds, trkLeds, type TrkLed } from '../rytm/stepLeds';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { PAD_FACE } from '../theme/base';
 import { Explode, type ExplodeInfo } from './explode';
@@ -3382,14 +3382,18 @@ export class Stage {
     if (!fk || this.disposed) return;
     const m = trk.get().mode;
     let changed = fk.setTrk(m);
-    // V.5.0 (2026-10-29) : le mode MUTE de FUNC + TRK passe avant TRK sur les pas 1 a 8 (vert le global, magenta le pattern)
+    // V.5.0 (2026-10-29) : le mode MUTE de FUNC + TRK / MUTE et SOLO passent avant TRK sur les pas 1 a 16
     const mv = dtFace.mute();
-    if (m !== 'off' || mv !== 'off' || this.trkShown) {
+    const sv = dtFace.solo();
+    if (fk.setMuteMode(mv !== 'off')) changed = true;
+    if (fk.setSoloMode(sv || voices.soloAll().length > 0)) changed = true;
+    if (m !== 'off' || mv !== 'off' || sv || this.trkShown) {
       const v = voices.get();
       const pm = pattern.get().pmutes;
       let view: TrkLed[] | null = null;
       // La face DT2 (V.6.0, lane B4) : les 16 pistes sur les 16 TRIG, la piste active (1 a 16)
-      if (mv !== 'off') view = DT2_FACE ? muteLeds(mv, voices.mutedAll(), pm, voices.soloAll(), DT_HEX, true) : muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
+      if (sv) view = DT2_FACE ? soloLeds(voices.soloAll(), DT_HEX, true) : soloLeds(v.solo, DT_HEX);
+      else if (mv !== 'off') view = DT2_FACE ? muteLeds(mv, voices.mutedAll(), pm, voices.soloAll(), DT_HEX, true) : muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
       else if (m !== 'off' && DT2_FACE) view = trkLeds(activeTrack.get(), voices.mutedAll(), voices.soloAll(), KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT, DT_HEX, pm, true);
       else if (m !== 'off') view = trkLeds(pattern.get().instrument, v.muted, v.solo, KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT, DT_FACE ? DT_HEX : undefined, pm);
       this.trkShown = view !== null;

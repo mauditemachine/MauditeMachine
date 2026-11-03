@@ -152,10 +152,10 @@ export function ptnLeds(cur: number, next: number, chain: readonly number[], fil
 /* ---------------- V.6.0 (lane B6) : la face Digitakt II, ses notes, les 16 pistes ---------------- */
 
 /** Les touches de la face DT2 pour le boitier (rytm/dtFaceIds.ts DT2_BUTTONS, le meme ordre : celui de lecture de la face). */
-export type Dt2KeyHw = 'func' | 'kbd' | 'trk' | 'ptn' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'rec' | 'play' | 'stop' | 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'mod' | 'yes' | 'up' | 'no' | 'left' | 'down' | 'right' | 'ptnpage';
+export type Dt2KeyHw = 'func' | 'kbd' | 'trk' | 'ptn' | 'mute' | 'solo' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'rec' | 'play' | 'stop' | 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'mod' | 'yes' | 'up' | 'open' | 'no' | 'left' | 'down' | 'right' | 'ptnpage';
 
-/** Les 24 touches de la face DT2 (cahier dt2 2.2), dans l'ordre de DT2_BUTTONS (hw:test le verifie). */
-export const DT2_KEYS_HW: readonly Dt2KeyHw[] = ['func', 'kbd', 'trk', 'ptn', 'preset', 'settings', 'sounds', 'tempo', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'up', 'no', 'left', 'down', 'right', 'ptnpage'];
+/** Les 27 touches de la face DT2 (cahier dt2 2.2), dans l'ordre de DT2_BUTTONS (hw:test le verifie). */
+export const DT2_KEYS_HW: readonly Dt2KeyHw[] = ['func', 'kbd', 'trk', 'ptn', 'mute', 'solo', 'preset', 'settings', 'sounds', 'tempo', 'rec', 'play', 'stop', 'trig', 'src', 'fltr', 'amp', 'fx', 'mod', 'yes', 'up', 'open', 'no', 'left', 'down', 'right', 'ptnpage'];
 
 /**
  * La note de chaque touche du boitier et la cible MIDI qu'elle pilote (cahier dt2 2.6). Les quatorze d'aujourd'hui gardent
@@ -197,6 +197,9 @@ export const HW_KEY_NOTES: Readonly<Record<Dt2KeyHw, HwKeyNote>> = {
   left: { note: 84, target: 'rytm:left', confirmed: false, today: false },
   right: { note: 85, target: 'rytm:right', confirmed: false, today: false },
   ptnpage: { note: 86, target: 'rytm:ptnpage', alt: 'rytm:fill', confirmed: false, today: false },
+  mute: { note: 87, target: 'rytm:mute', confirmed: false, today: false },
+  solo: { note: 88, target: 'rytm:solo', confirmed: false, today: false },
+  open: { note: 89, target: 'rytm:open', confirmed: false, today: false },
 };
 
 /** Les deux potards de gauche de la face DT2 : leur CC propose (a confirmer avec protocol.js), leur cible. data : relatif. */

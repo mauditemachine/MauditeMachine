@@ -13,16 +13,14 @@
  */
 
 import React, { useSyncExternalStore } from 'react';
-import { hoodMachine, hoodOf, openToggle, soundFilesPick } from '../actions';
-import { pattern } from '../audio/pattern';
+import { hoodMachine, hoodOf, openToggle } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { RYTM_CLOSE_KEY } from '../scene/rytmTweaks';
 import { bassExplode, explode, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
-import { activeTrack } from '../state/trk';
 import { VOY_CLOSE_KEY } from '../voyager/theme';
 import { BASS_CLOSE_KEY } from '../bass/theme';
-import { PORTRAIT, RYTM_FACE_VER, RYTM_VERSIONS, type RytmFaceVer } from '../theme/base';
+import { type RytmFaceVer } from '../theme/base';
 import { MachineKey } from './MachineKey';
 
 interface Props {
@@ -47,60 +45,20 @@ export const HoodClose: React.FC<Props> = ({ getStage }) => {
   const m = hoodMachine();
   const state = hoodOf(m).get();
   const isOpen = state === 'open';
-  if (f !== 'mm808' && f !== 'voy' && f !== 'bass') return null;
-  if (!isOpen && (f !== 'mm808' || PORTRAIT)) return null;
+  if (!isOpen || (f !== 'mm808' && f !== 'voy' && f !== 'bass')) return null;
   return (
-    <>
-      {isOpen && (
-        <MachineKey
-          key={m}
-          getStage={getStage}
-          layer={(st) => (m === 'voy' ? st.voy?.tweaks.top : m === 'bass' ? st.bass?.tweaks.top : st.rytmTweaks.top)}
-          spot={m === 'voy' ? VOY_CLOSE_KEY : m === 'bass' ? BASS_CLOSE_KEY : RYTM_CLOSE_KEY}
-          className="v4-close-key"
-          label="Close the machine"
-          onClick={() => openToggle(getStage(), m)}
-        >
-          <span className="v4-close-led" aria-hidden="true" />
-          CLOSE
-        </MachineKey>
-      )}
-      {m === 'mm808' && (
-        <div className="v4-ver-bar" role="group" aria-label="MM-RYTM controls and versions">
-          <button
-            type="button"
-            className="v4-ver-btn v4-ver-open"
-            aria-pressed={isOpen}
-            onClick={() => openToggle(getStage(), 'mm808')}
-          >
-            <span className="v4-ver-led v4-ver-led-hot" aria-hidden="true" />
-            {isOpen ? 'CLOSE' : 'OPEN'}
-          </button>
-          <button
-            type="button"
-            className="v4-ver-btn v4-ver-sample"
-            onClick={() => soundFilesPick(activeTrack.get() ?? pattern.get().instrument ?? 'BD', false)}
-          >
-            + SAMPLE
-          </button>
-          <span className="v4-ver-title">VERSION</span>
-          <div className="v4-ver-list">
-            {RYTM_VERSIONS.map((v) => (
-              <button
-                key={v}
-                type="button"
-                className="v4-ver-btn"
-                aria-pressed={RYTM_FACE_VER === v}
-                onClick={() => pickRytmVersion(v)}
-              >
-                <span className="v4-ver-led" aria-hidden="true" />
-                V.{v}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </>
+    <MachineKey
+      key={m}
+      getStage={getStage}
+      layer={(st) => (m === 'voy' ? st.voy?.tweaks.top : m === 'bass' ? st.bass?.tweaks.top : st.rytmTweaks.top)}
+      spot={m === 'voy' ? VOY_CLOSE_KEY : m === 'bass' ? BASS_CLOSE_KEY : RYTM_CLOSE_KEY}
+      className="v4-close-key"
+      label="Close the machine"
+      onClick={() => openToggle(getStage(), m)}
+    >
+      <span className="v4-close-led" aria-hidden="true" />
+      CLOSE
+    </MachineKey>
   );
 };
 

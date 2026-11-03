@@ -777,11 +777,12 @@ export const DT_PAGE_KEYS = [
   { id: 'fx', btn: 'fx', label: 'FX' },
   { id: 'mod', btn: 'mod', label: 'MOD' },
 ] as const;
+const FP_SCENES_XF = DT2_FACE ? DT2_FACEPLATE.scenes : RYTM_FACEPLATE.scenes;
 export const XFADE = {
-  x: fpX((RYTM_FACEPLATE.scenes.xfade.x0 + RYTM_FACEPLATE.scenes.xfade.x1) / 2),
-  z: fpZ(RYTM_FACEPLATE.scenes.xfade.y),
-  slot: { w: fpU(RYTM_FACEPLATE.scenes.xfade.x1 - RYTM_FACEPLATE.scenes.xfade.x0), d: fpU(RYTM_FACEPLATE.scenes.xfade.slot), h: 0.005 },
-  cap: { w: fpU(RYTM_FACEPLATE.scenes.xfade.cap.w), d: fpU(RYTM_FACEPLATE.scenes.xfade.cap.h), h: fpU(RYTM_FACEPLATE.scenes.xfade.cap.z), radius: 0.05, mark: { w: 0.03, d: 0.5 } },
+  x: fpX((FP_SCENES_XF.xfade.x0 + FP_SCENES_XF.xfade.x1) / 2),
+  z: fpZ(FP_SCENES_XF.xfade.y),
+  slot: { w: fpU(FP_SCENES_XF.xfade.x1 - FP_SCENES_XF.xfade.x0), d: fpU(FP_SCENES_XF.xfade.slot), h: 0.005 },
+  cap: { w: fpU(FP_SCENES_XF.xfade.cap.w), d: fpU(FP_SCENES_XF.xfade.cap.h), h: fpU(FP_SCENES_XF.xfade.cap.z), radius: 0.05, mark: { w: 0.03, d: 0.5 } },
 } as const;
 /** Le centre du capuchon du crossfader a x (2026-10-27, P2-20 : 0 au bout de la scene A, 1 au bout de la scene B). */
 export const xfadeCapX = (x: number): number => XFADE.x + (Math.max(0, Math.min(1, x)) - 0.5) * (XFADE.slot.w - XFADE.cap.w);
@@ -1395,10 +1396,12 @@ export const LCD_TEXT = {
 const SILK_WORDMARK = { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.word.z, w: HEAD.word.w, align: 'left' } as const;
 // La face DT2 (V.6.0, ?face=dt2, cahier 2.3) : le wordmark passe sur le decalque du cadre de l'ecran (DECAL_LOGOS), le M
 // reste sur la serigraphie, sur la zone du logo de la colonne gauche
-export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [
-  ...(DT2_FACE ? [] : [SILK_WORDMARK]),
-  { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: HEAD.mark.x, z: HEAD.mark.z, h: HEAD.mark.h, align: 'right' },
-];
+export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = DT2_FACE
+  ? []
+  : [
+      SILK_WORDMARK,
+      { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: HEAD.mark.x, z: HEAD.mark.z, h: HEAD.mark.h, align: 'right' },
+    ];
 /** Les logos du decalque du cadre de l'ecran (V.6.0, la face DT2) : le wordmark ; vide sur la face de la V.5.3. */
 export const DECAL_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = DT2_FACE ? [SILK_WORDMARK] : [];
 /**

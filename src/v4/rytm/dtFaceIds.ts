@@ -7,23 +7,25 @@
 
 import type { FpButtonId } from './faceplate';
 
-/** La classe d'une touche (2.2) : P petite 12 x 11, L large 22 x 11, G PAGE 26 x 11 (mm). Les TRIG (22 x 19) sont des pas. */
-export type Dt2KeyClass = 'P' | 'L' | 'G';
+/** La classe d'une touche (2.2) : P petite 12 x 11, L large 22 x 11, G PAGE 26 x 11, A fleche/compacte 9.6 x 9.6 (mm). Les TRIG (22 x 19) sont des pas. */
+export type Dt2KeyClass = 'P' | 'L' | 'G' | 'A';
 
 /**
- * Toutes les touches de la face DT2 (hors les 16 TRIG et les potards), dans l'ordre de lecture de la face (colonne de
- * gauche, menus et transport, page, YES/NO et fleches). Ordre FIGE : l'ordre de tabulation des jumeaux en derive.
+ * Toutes les touches de la face DT2 (hors les 16 TRIG, les scenes et les potards), dans l'ordre de lecture de la face (colonne de
+ * gauche, menus et transport, page, YES/NO, fleches + OPEN, PAGE). Ordre FIGE : l'ordre de tabulation des jumeaux en derive.
  * cx, cy : le centre en mm sur la face de Mika (grille A, 2.2), func : la fonction orange (FUNC +), '' : aucune.
  */
 export const DT2_BUTTONS = [
-  { id: 'func', cls: 'L', cx: 19, cy: 83.5, legend: 'FUNC', func: '' },
-  { id: 'kbd', cls: 'P', cx: 19, cy: 99.5, legend: 'KEYBOARD', func: 'KB SETUP' },
-  { id: 'trk', cls: 'L', cx: 19, cy: 115, legend: 'TRK', func: 'MUTE MODE' },
-  { id: 'ptn', cls: 'L', cx: 19, cy: 129.7, legend: 'PTN', func: 'BANK' },
-  { id: 'preset', cls: 'P', cx: 52, cy: 83.5, legend: 'PRESET', func: 'PERFORM' },
-  { id: 'settings', cls: 'P', cx: 75.5, cy: 83.5, legend: 'SETTINGS', func: 'SAVE PROJ' },
-  { id: 'sounds', cls: 'P', cx: 99, cy: 83.5, legend: 'SOUNDS', func: 'SAMPLES' },
-  { id: 'tempo', cls: 'P', cx: 122.5, cy: 83.5, legend: 'TEMPO', func: 'TAP TEMPO' },
+  { id: 'func', cls: 'L', cx: 19, cy: 67.5, legend: 'FUNC', func: '' },
+  { id: 'kbd', cls: 'L', cx: 19, cy: 82.5, legend: 'KEYBOARD', func: 'KB SETUP' },
+  { id: 'trk', cls: 'L', cx: 19, cy: 97.5, legend: 'TRK', func: 'PTN MUTE' },
+  { id: 'ptn', cls: 'L', cx: 19, cy: 112.5, legend: 'PTN', func: 'BANK' },
+  { id: 'mute', cls: 'L', cx: 19, cy: 127.5, legend: 'MUTE', func: 'UNMUTE' },
+  { id: 'solo', cls: 'L', cx: 19, cy: 142.5, legend: 'SOLO', func: 'UNSOLO' },
+  { id: 'preset', cls: 'P', cx: 52, cy: 82.5, legend: 'PRESET', func: 'PERFORM' },
+  { id: 'settings', cls: 'P', cx: 75.5, cy: 82.5, legend: 'SETTINGS', func: 'SAVE PROJ' },
+  { id: 'sounds', cls: 'P', cx: 99, cy: 82.5, legend: 'SOUNDS', func: 'SAMPLES' },
+  { id: 'tempo', cls: 'P', cx: 122.5, cy: 82.5, legend: 'TEMPO', func: 'TAP TEMPO' },
   { id: 'rec', cls: 'L', cx: 56.5, cy: 99.5, legend: 'REC', func: 'COPY' },
   { id: 'play', cls: 'L', cx: 87, cy: 99.5, legend: 'PLAY', func: 'CLEAR' },
   { id: 'stop', cls: 'L', cx: 117.5, cy: 99.5, legend: 'STOP', func: 'PASTE' },
@@ -33,13 +35,14 @@ export const DT2_BUTTONS = [
   { id: 'amp', cls: 'P', cx: 205.2, cy: 66.5, legend: 'AMP', func: 'SEQUENCER' },
   { id: 'fx', cls: 'P', cx: 223.6, cy: 66.5, legend: 'FX', func: 'SEND FX' },
   { id: 'mod', cls: 'P', cx: 242, cy: 66.5, legend: 'MOD', func: 'MIXER' },
-  { id: 'yes', cls: 'P', cx: 150, cy: 83.5, legend: 'YES', func: 'SAVE' },
-  { id: 'up', cls: 'P', cx: 186.8, cy: 83.5, legend: 'UP', func: 'TRIG MODE' },
-  { id: 'no', cls: 'P', cx: 150, cy: 99.5, legend: 'NO', func: 'RELOAD' },
-  { id: 'left', cls: 'P', cx: 168.4, cy: 99.5, legend: 'LEFT', func: 'uTIME-' },
-  { id: 'down', cls: 'P', cx: 186.8, cy: 99.5, legend: 'DOWN', func: 'TRIG MODE' },
-  { id: 'right', cls: 'P', cx: 205.2, cy: 99.5, legend: 'RIGHT', func: 'uTIME+' },
-  { id: 'ptnpage', cls: 'G', cx: 235, cy: 99.5, legend: 'PAGE', func: 'FILL/SETUP' },
+  { id: 'yes', cls: 'P', cx: 148, cy: 82.5, legend: 'YES', func: 'SAVE' },
+  { id: 'up', cls: 'A', cx: 173.5, cy: 82.8, legend: 'UP', func: 'TRIG MODE' },
+  { id: 'open', cls: 'A', cx: 184.5, cy: 82.8, legend: 'OPEN', func: '+ SAMPLE' },
+  { id: 'no', cls: 'P', cx: 148, cy: 99.5, legend: 'NO', func: 'RELOAD' },
+  { id: 'left', cls: 'A', cx: 162.5, cy: 100.2, legend: 'LEFT', func: 'uTIME-' },
+  { id: 'down', cls: 'A', cx: 173.5, cy: 100.2, legend: 'DOWN', func: 'TRIG MODE' },
+  { id: 'right', cls: 'A', cx: 184.5, cy: 100.2, legend: 'RIGHT', func: 'uTIME+' },
+  { id: 'ptnpage', cls: 'G', cx: 235, cy: 82.5, legend: 'PAGE', func: 'SETUP' },
 ] as const satisfies readonly { id: string; cls: Dt2KeyClass; cx: number; cy: number; legend: string; func: string }[];
 export type Dt2ButtonId = (typeof DT2_BUTTONS)[number]['id'];
 
@@ -51,7 +54,7 @@ void FP_BUTTONS_KEPT;
 /** Les deux potards de la colonne gauche (2.2) : MAIN VOLUME (d 20) et LEVEL/DATA (d 22). */
 export const DT2_SIDE_KNOBS = [
   { id: 'mvol', cx: 19, cy: 19, d: 20, legend: 'MAIN VOLUME', func: '' },
-  { id: 'data', cx: 19, cy: 45, d: 22, legend: 'LEVEL/DATA', func: 'PRESET POOL' },
+  { id: 'data', cx: 19, cy: 44, d: 22, legend: 'LEVEL/DATA', func: '' },
 ] as const;
 
 /**
@@ -64,7 +67,7 @@ export const KEPT_ZONE_IDS = ['func', 'trk', 'pad-edit', 'rec', 'run', 'stop', '
  * Les kinds des zones nouvelles (2.6). page est pris (les pads du site) et rytm:page aussi (la valeur de page) : la
  * touche PAGE prend la zone ptnpage, le kind pagekey. data est un kind nouveau, relatif (un encodeur sans butee).
  */
-export type Dt2ZoneKind = 'encoder' | 'data' | 'kbd' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'arrow' | 'pagekey';
+export type Dt2ZoneKind = 'encoder' | 'data' | 'kbd' | 'mute' | 'solo' | 'preset' | 'settings' | 'sounds' | 'tempo' | 'arrow' | 'pagekey';
 
 /**
  * Les zones nouvelles de la face DT2 (2.6), leur kind, leur cible MIDI (a la fin du groupe RYTM, midi/targets/face60.ts)
@@ -74,6 +77,8 @@ export const DT2_ZONES = [
   { id: 'mvol', kind: 'encoder', param: 'level', midi: ['rytm:enc:level'], hw: 'CC 29' },
   { id: 'data', kind: 'data', midi: ['rytm:data'], hw: 'CC 38' },
   { id: 'kbd', kind: 'kbd', midi: ['rytm:keyboard'], hw: 'note 74' },
+  { id: 'mute', kind: 'mute', midi: ['rytm:mute'], hw: 'note 87' },
+  { id: 'solo', kind: 'solo', midi: ['rytm:solo'], hw: 'note 88' },
   { id: 'preset', kind: 'preset', midi: ['rytm:preset'], hw: 'note 76' },
   { id: 'settings', kind: 'settings', midi: ['rytm:settings'], hw: 'note 77' },
   { id: 'sounds', kind: 'sounds', midi: ['rytm:sounds'], hw: 'note 78' },

@@ -156,8 +156,9 @@ export const OLED = PORTRAIT
           tex: [640, OLED_UH * 2],
           bezel: { w: fpU(FP_SCREEN.rect.w), d: fpU(FP_SCREEN.rect.h), h: 0.02 },
         } as const);
-/** SCENE A et B (2026-10-27) : 12 x 12, plus larges que les touches de la rangee depuis V.5.0. */
-export const SCENE_KEY = { w: fpU(RYTM_FACEPLATE.scenes.a.rect.w), d: fpU(RYTM_FACEPLATE.scenes.a.rect.h) } as const;
+/** SCENE A et B (2026-10-27) : 12 x 12 en V.5.0, 10 x 11 en V.6.0 (DT2_FACE). */
+const FP_SCENES = DT2_FACE ? DT2_FACEPLATE.scenes : RYTM_FACEPLATE.scenes;
+export const SCENE_KEY = { w: fpU(FP_SCENES.a.rect.w), d: fpU(FP_SCENES.a.rect.h) } as const;
 export const faceKeyX = (i: number): number => rectCenter(buttonRect(i)).x;
 /**
  * Les touches de la face du desktop (scene/rytmFaceKeys.ts) : depuis V.5.0 (2026-10-29) les quatorze de la rangee (leurs
@@ -438,6 +439,8 @@ export interface KeyLabelSpec {
   align?: 'center' | 'left';
   tracking?: number;
   marks?: readonly FpMark[];
+  /** Le sous-titre dynamique sur la touche quand FUNC est engagee (Mika : "PRESET on appui sur FUNC et ca devient PERFORM") */
+  altText?: string;
 }
 
 /**

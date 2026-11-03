@@ -79,9 +79,8 @@ export function trkLeds(cur: TrackKey | null, muted: readonly TrackKey[], solo: 
 }
 
 /**
- * Le mode MUTE de la Digitakt (V.5.0, FUNC + TRK) sur les pas 1 a 8 : global, une voix qui joue en vert, coupee eteinte
+ * Le mode MUTE de la Digitakt (V.5.0, FUNC + TRK ou touche MUTE) : global, une voix qui joue en vert, coupee eteinte
  * (muted, les mutes de la machine) ; pattern, en magenta (pmuted, ceux du pattern) ; une voix en solo en blanc, pleine.
- * Les pas 9 a 16 : eteints.
  */
 export function muteLeds(kind: 'global' | 'pattern', muted: readonly TrackKey[], pmuted: readonly TrackKey[], solo: readonly TrackKey[], dt: DtLedColors, n16 = false): TrkLed[] {
   const voices: readonly TrackKey[] = n16 ? KEYS16 : (RYTM_FACEPLATE.steps.voices as readonly Inst[]);
@@ -99,6 +98,25 @@ export function muteLeds(kind: 'global' | 'pattern', muted: readonly TrackKey[],
     const cut = kind === 'global' ? muted.includes(inst) : pmuted.includes(inst);
     const tone: KeyLitTone = kind === 'global' ? 'dgreen' : 'dmagenta';
     out.push({ color: cut ? '' : kind === 'global' ? dt.green : dt.magenta, level: cut ? 0 : 1, bar: null, inst, tone });
+  }
+  return out;
+}
+
+/**
+ * Le mode SOLO (touche SOLO sur la face V.6.0) : chaque piste en solo s'allume en bleu plein (1) avec sa barre de solo,
+ * les autres en bleu doux (0.2) pour qu'on voie d'un coup d'oeil quelles pistes sont en solo ou pretes a etre isolees.
+ */
+export function soloLeds(solo: readonly TrackKey[], dt: DtLedColors & { readonly blue: string }, n16 = false): TrkLed[] {
+  const voices: readonly TrackKey[] = n16 ? KEYS16 : (RYTM_FACEPLATE.steps.voices as readonly Inst[]);
+  const out: TrkLed[] = [];
+  for (let i = 0; i < 16; i += 1) {
+    const inst = i < voices.length ? voices[i] : null;
+    if (!inst) {
+      out.push({ color: '', level: 0, bar: null, inst: null });
+      continue;
+    }
+    const on = solo.includes(inst);
+    out.push({ color: dt.blue, level: on ? 1 : 0.2, bar: on ? 'solo' : null, inst, tone: 'dblue' });
   }
   return out;
 }

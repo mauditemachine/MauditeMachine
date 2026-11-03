@@ -106,16 +106,16 @@ function data(delta: number, func: boolean): void {
   anyDial(id, Math.max(lo, Math.min(hi, anyDialValue(id) + n / 127)));
 }
 
-function menu(id: 'mixer' | 'scenes'): ScreenMenu {
+function menu(id: 'mixer' | 'scenes' | 'perform'): ScreenMenu {
   return {
     id,
     owner: 'B5',
-    title: () => `MIXER  ${MIXER_PAGES[page]}`,
+    title: () => (id === 'perform' ? 'PERFORM · SCENES A / B' : `MIXER  ${MIXER_PAGES[page]}`),
     slots: () => PAGE_SLOTS[page],
     pages: () => ({ n: MIXER_PAGES.length, cur: page }),
     paint: () => 0,
     onOpen() {
-      if (id === 'scenes') page = 2;
+      if (id === 'scenes' || id === 'perform') page = 2;
       else if (page === 2) page = 0;
     },
     knobPress(k) {
@@ -137,3 +137,4 @@ function menu(id: 'mixer' | 'scenes'): ScreenMenu {
 
 registerScreenMenu(menu('mixer'));
 registerScreenMenu(menu('scenes'));
+registerScreenMenu(menu('perform'));

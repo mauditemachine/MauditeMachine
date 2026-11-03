@@ -55,10 +55,14 @@ const BONE_INK = 'rgba(246, 241, 231, 0.92)';
 const MARK_AIR = 0.25;
 
 /** Le quad d'un nom sur sa touche, en unites : sa largeur (la touche moins l'air des deux bouts) et sa profondeur ; des signes, leur rangee et son air. */
-export const labelQuad = (s: KeyLabelSpec): { w: number; h: number } =>
-  s.marks
-    ? { w: marksW(s.marks) + 2 * MARK_AIR * KEY_MARK.h, h: KEY_MARK.h * (1 + 2 * MARK_AIR) }
-    : { w: s.qw ?? Math.max(0.1, s.w - 2 * KEY_LABEL.margin), h: (s.cap ?? KEY_LABEL.cap) * QUAD_CAPS };
+export const labelQuad = (s: KeyLabelSpec): { w: number; h: number } => {
+  const tw = s.qw ?? Math.max(0.1, s.w - 2 * KEY_LABEL.margin);
+  const th = (s.cap ?? KEY_LABEL.cap) * QUAD_CAPS;
+  if (!s.marks) return { w: tw, h: th };
+  const mw = marksW(s.marks) + 2 * MARK_AIR * KEY_MARK.h;
+  const mh = KEY_MARK.h * (1 + 2 * MARK_AIR);
+  return s.altText ? { w: Math.max(mw, tw), h: Math.max(mh, th) } : { w: mw, h: mh };
+};
 
 /** Les etageres de la face V.4.0 (2026-10-27) : la largeur du canvas, l'air entre deux cellules, les px par unite. */
 const SHELF_W = 2048;
@@ -125,15 +129,18 @@ export class KeyLabelAtlas {
         const q = labelQuad(s);
         const w = Math.ceil(q.w * SHELF_PPU);
         const h = Math.ceil(q.h * SHELF_PPU);
-        for (const lit of [false, true]) {
-          if (x + w > SHELF_W) {
-            x = 0;
-            y += row + SHELF_GAP;
-            row = 0;
+        const ids = s.altText ? [s.id, `${s.id}:alt`] : [s.id];
+        for (const id of ids) {
+          for (const lit of [false, true]) {
+            if (x + w > SHELF_W) {
+              x = 0;
+              y += row + SHELF_GAP;
+              row = 0;
+            }
+            this.cells.set(cellKey(id, lit), { x, y, w, h });
+            x += w + SHELF_GAP;
+            row = Math.max(row, h);
           }
-          this.cells.set(cellKey(s.id, lit), { x, y, w, h });
-          x += w + SHELF_GAP;
-          row = Math.max(row, h);
         }
       }
       this.canvas.width = SHELF_W;
@@ -248,6 +255,7 @@ export class KeyLabelAtlas {
     });
     const group = new Map<string, number>();
     this.specs.forEach((s, i) => group.set(s.group, Math.min(group.get(s.group) ?? 1, fit[i])));
+    const altOrange = APPEARANCE.current === 'light' ? '#D94E00' : '#FF781F';
     this.specs.forEach((s) => {
       for (const lit of [false, true]) {
         const c = this.cells.get(cellKey(s.id, lit));
@@ -255,15 +263,30 @@ export class KeyLabelAtlas {
         const ink = this.ink(s, lit);
         if (s.marks) {
           this.drawMarks(c, s.marks, ink);
-          continue;
+        } else {
+          const k = group.get(s.group) ?? 1;
+          const size = pxOf(s) * k;
+          const cap = (s.cap ?? KEY_LABEL.cap) * u * k;
+          const w = trackedWidth(ctx, s.text, size, weight, s.tracking);
+          const base = c.y + c.h / 2 + cap / 2;
+          ctx.fillStyle = ink;
+          drawTracked(ctx, s.text, c.x + (s.align === 'left' ? 0 : (c.w - w) / 2), base, size, weight, s.tracking);
         }
-        const k = group.get(s.group) ?? 1;
-        const size = pxOf(s) * k;
-        const cap = (s.cap ?? KEY_LABEL.cap) * u * k;
-        const w = trackedWidth(ctx, s.text, size, weight, s.tracking);
-        const base = c.y + c.h / 2 + cap / 2;
-        ctx.fillStyle = ink;
-        drawTracked(ctx, s.text, c.x + (s.align === 'left' ? 0 : (c.w - w) / 2), base, size, weight, s.tracking);
+        if (s.altText) {
+          const ca = this.cells.get(cellKey(`${s.id}:alt`, lit));
+          if (ca) {
+            const k0 = group.get(s.group) ?? 1;
+            const rawSize = pxOf(s) * k0;
+            const rawW = trackedWidth(ctx, s.altText, rawSize, weight, s.tracking);
+            const kAlt = rawW > ca.w * 0.94 ? (ca.w * 0.94) / rawW : 1;
+            const sizeAlt = rawSize * kAlt;
+            const capAlt = (s.cap ?? KEY_LABEL.cap) * u * k0 * kAlt;
+            const wAlt = trackedWidth(ctx, s.altText, sizeAlt, weight, s.tracking);
+            const baseAlt = ca.y + ca.h / 2 + capAlt / 2;
+            ctx.fillStyle = lit ? DARK_INK : altOrange;
+            drawTracked(ctx, s.altText, ca.x + (ca.w - wAlt) / 2, baseAlt, sizeAlt, weight, s.tracking);
+          }
+        }
       }
     });
     this.info.draws += 1;
@@ -297,6 +320,7 @@ export class KeyLabels {
   private pos: BufferAttribute;
   private uvs: BufferAttribute;
   private lit: boolean[];
+  private funcMode = false;
   /** le y du dessus des touches, au repos */
   private y: number;
 
@@ -354,9 +378,25 @@ export class KeyLabels {
   }
 
   private writeUv(i: number): void {
-    const r = this.atlas.uv(this.specs[i].id, this.lit[i]);
+    const s = this.specs[i];
+    const key = this.funcMode && s.altText ? `${s.id}:alt` : s.id;
+    const r = this.atlas.uv(key, this.lit[i]);
     this.uvs.set([r.u0, r.v0, r.u1, r.v0, r.u0, r.v1, r.u1, r.v1], i * 8);
     this.uvs.needsUpdate = true;
+  }
+
+  /** Quand FUNC est engagee (Mika : "PRESET on appui sur FUNC et ca devient PERFORM") : bascule tous les noms secondaires sur les touches. */
+  setFuncMode(on: boolean): boolean {
+    if (this.funcMode === on) return false;
+    this.funcMode = on;
+    let changed = false;
+    this.specs.forEach((s, i) => {
+      if (s.altText) {
+        this.writeUv(i);
+        changed = true;
+      }
+    });
+    return changed;
   }
 
   /** La variante du nom i : le noir sur une touche allumee ; true s'il a change. */
