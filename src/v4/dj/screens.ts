@@ -32,7 +32,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, PORTRAIT } from '../theme';
-import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_LIGHT, MIX, UNIT_X, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_LIGHT, DJ_UNITS_ON, MIX, UNIT_X, type DjDeck } from './theme';
 
 const W = 1024;
 /** L'air entre deux zones de l'atlas (px) : ce que les mipmaps melangent sans deborder sur la voisine (4 avant, sans mipmaps). */
@@ -220,8 +220,10 @@ export class DjScreens {
       parts.push(flat(ww, wd, x0 + T.wave.u0 * S.w + ww / 2, y, z0 + T.wave.v0 * S.d + wd / 2, WAVE_REGION[d]));
       jogs.push(disc(DECK.jog.center, UNIT_X[d] + DECK.jog.x, DECK.jog.platterH + 0.004, DECK.jog.z, JOG_REGION[d], mobile ? 40 : 64));
     }
-    parts.push(flat(MIX.screen.w, MIX.screen.d, UNIT_X.mix + MIX.screen.x, y, MIX.screen.z, REGION.fx));
-    glasses.push({ w: MIX.screen.w, d: MIX.screen.d, x: UNIT_X.mix + MIX.screen.x, y, z: MIX.screen.z });
+    if (DJ_UNITS_ON.includes('mix')) {
+      parts.push(flat(MIX.screen.w, MIX.screen.d, UNIT_X.mix + MIX.screen.x, y, MIX.screen.z, REGION.fx));
+      glasses.push({ w: MIX.screen.w, d: MIX.screen.d, x: UNIT_X.mix + MIX.screen.x, y, z: MIX.screen.z });
+    }
     const g = mergeGeometries(parts, false);
     for (const p of parts) p.dispose();
     if (!g) throw new Error('dj: screens merge failed');

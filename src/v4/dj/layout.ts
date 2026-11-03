@@ -12,7 +12,7 @@
  */
 
 import { PORTRAIT } from '../theme';
-import { DECK, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_MAX, DJ_DECKS_MIN, DJ_MIXER_ONLY, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DECK, DJ_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_MAX, DJ_DECKS_MIN, DJ_MIXER_ONLY, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, DJ_UNITS_ON, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /**
  * fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a
@@ -136,6 +136,7 @@ function fxAt(i: number): { x: number; z: number } {
 
 function buildKnobs(): DjKnobSpec[] {
   const knobs: DjKnobSpec[] = [];
+  if (!DJ_UNITS_ON.includes('mix')) return knobs;
   // Les colonnes des voies dessinees (DJ_SHOWN, 2026-10-10 : sans le MM-BASS cache) ; i : le numero de la voie
   MIX.cols.forEach((cx, j) => {
     const ch = DJ_SHOWN[j];
@@ -243,32 +244,34 @@ function buildKeys(): DjKeySpec[] {
       keys.push({ id: `dj-${d}-remove`, label: 'CLOSE', x: ux + R.x, z: R.z, w: R.w, d: R.d, round: false, flat: true, target: { kind: 'removedeck', deck: d } });
     }
   }
-  DJ_TIMES.forEach((t, i) => {
-    keys.push({
-      id: `dj-time${i + 1}`,
-      label: timeLabel(t),
-      x: UNIT_X.mix + MIX.times.x0 + i * MIX.times.pitch,
-      z: MIX.times.z,
-      w: MIX.times.w,
-      d: MIX.times.d,
-      round: false,
-      target: { kind: 'time', d: t },
+  if (DJ_UNITS_ON.includes('mix')) {
+    DJ_TIMES.forEach((t, i) => {
+      keys.push({
+        id: `dj-time${i + 1}`,
+        label: timeLabel(t),
+        x: UNIT_X.mix + MIX.times.x0 + i * MIX.times.pitch,
+        z: MIX.times.z,
+        w: MIX.times.w,
+        d: MIX.times.d,
+        round: false,
+        target: { kind: 'time', d: t },
+      });
     });
-  });
-  // PLAY/STOP des machines, sous le VU du master ; SYNC a sa droite (2026-10-27), sauf sur la table seule tenue droite
-  const P = MIX.play;
-  keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX + (DJ_MIXER_ONLY ? 0 : P.dx), z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
-  const S = MIX.machSync;
-  if (!DJ_MIXER_ONLY) keys.push({ id: 'dj-machsync', label: 'SYNC', x: UNIT_X.mix + MIX.masterX + S.dx, z: P.z, w: 2 * S.r, d: 2 * S.r, round: true, target: { kind: 'machsync' } });
-  // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place ;
-  // jamais sur la table seule du telephone tenu droit (2026-10-18, Mika : "En mobile je veux juste Mixer et pas de deck")
-  const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_SHOWN.length) / 2 - dx);
-  const A = MIX.add;
-  if (!DJ_MIXER_ONLY && DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
-  // REMOVE DECK a cote d'ADD DECK (2026-10-29) : la derniere platine ajoutee s'en va (deux appuis si elle joue), comme la
-  // touche de son en-tete ; tenu droit au telephone, la table est seule : rien
-  if (!DJ_MIXER_ONLY && !MIX.keysInMaster && DJ_DECKS.length > DJ_DECKS_MIN) {
-    keys.push({ id: 'dj-removedeck', label: 'REMOVE', x: rightX(MIX.remove.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'removedeck', deck: DJ_DECKS[DJ_DECKS.length - 1] } });
+    // PLAY/STOP des machines, sous le VU du master ; SYNC a sa droite (2026-10-27), sauf sur la table seule tenue droite
+    const P = MIX.play;
+    keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX + (DJ_MIXER_ONLY ? 0 : P.dx), z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
+    const S = MIX.machSync;
+    if (!DJ_MIXER_ONLY) keys.push({ id: 'dj-machsync', label: 'SYNC', x: UNIT_X.mix + MIX.masterX + S.dx, z: P.z, w: 2 * S.r, d: 2 * S.r, round: true, target: { kind: 'machsync' } });
+    // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place ;
+    // jamais sur la table seule du telephone tenu droit (2026-10-18, Mika : "En mobile je veux juste Mixer et pas de deck")
+    const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_SHOWN.length) / 2 - dx);
+    const A = MIX.add;
+    if (!DJ_MIXER_ONLY && DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
+    // REMOVE DECK a cote d'ADD DECK (2026-10-29) : la derniere platine ajoutee s'en va (deux appuis si elle joue), comme la
+    // touche de son en-tete ; tenu droit au telephone, la table est seule : rien
+    if (!DJ_MIXER_ONLY && !MIX.keysInMaster && DJ_DECKS.length > DJ_DECKS_MIN) {
+      keys.push({ id: 'dj-removedeck', label: 'REMOVE', x: rightX(MIX.remove.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'removedeck', deck: DJ_DECKS[DJ_DECKS.length - 1] } });
+    }
   }
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;

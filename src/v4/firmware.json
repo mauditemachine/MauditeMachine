@@ -1,8 +1,8 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "6.5",
-    "fingerprint": "sha256:276eadd89c087c28a76b831ef231002b4043894331ea993765ad6ac205b6da68",
+    "version": "6.6",
+    "fingerprint": "sha256:8b46f4e1925738d7cc0318781daee67d928b3d0ed04f65f2653ff83a642e972f",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -19,7 +19,8 @@
       { "version": "6.2", "date": "2026-11-02", "note": "OPEN, + SAMPLE, PAGE, KEYBOARD, SOUNDS, menu deploye a l'arrivee avec STUDIO", "sha": "cd0f7723" },
       { "version": "6.3", "date": "2026-11-02", "note": "Bouton OPEN a droite de TEMPO et suppression des 4 fleches de facade", "sha": "9b1ccb88" },
       { "version": "6.4", "date": "2026-11-02", "note": "Suppression du texte compresse sous l ecran et ajout du logotype sur la machine", "sha": "a23c97b4" },
-      { "version": "6.5", "date": "2026-11-02", "note": "filtre des samples par famille sur piste active", "sha": "c3926025" }
+      { "version": "6.5", "date": "2026-11-02", "note": "filtre des samples par famille sur piste active", "sha": "c3926025" },
+      { "version": "6.6", "date": "2026-11-02", "note": "support mobile Deck A", "sha": "4996343d" }
     ]
   },
   "voy": {

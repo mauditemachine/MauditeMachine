@@ -340,8 +340,10 @@ function buildBody(mobile: boolean): BufferGeometry {
     parts.push(bezel(x + DECK.screen.x, DECK.screen.z, DECK.screen.w, DECK.screen.d));
     parts.push(...slot(x + DECK.pitch.x, DECK.pitch.z0, DECK.pitch.z1));
   }
-  const mx = UNIT_X.mix;
-  parts.push(bezel(mx + MIX.screen.x, MIX.screen.z, MIX.screen.w, MIX.screen.d));
+  if (DJ_UNITS_ON.includes('mix')) {
+    const mx = UNIT_X.mix;
+    parts.push(bezel(mx + MIX.screen.x, MIX.screen.z, MIX.screen.w, MIX.screen.d));
+  }
   // Les fentes des faders de voie (tenu droit, le volume est un potard : pas de fente)
   for (const f of DJ_FADERS) if (f.target.kind === 'channel') parts.push(...slot(f.x, f.a, f.b));
   const g = mergeGeometries(parts, false);

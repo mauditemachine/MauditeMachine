@@ -74,13 +74,11 @@ export type DjUnit = DjDeck | 'mix' | 'mix1' | 'mix2' | 'mix3' | 'add';
 export const DJ_DECKS_MIN = 2;
 export const DJ_DECKS_MAX = 4;
 /**
- * La table seule, sans platine (2026-10-18, Mika : "En mobile je veux juste
- * Mixer et pas de deck ; en desktop oui") : le telephone tenu droit, decide
- * au chargement (theme.ts PORTRAIT). Le nombre de platines retenu
- * (mm.v4.dj.decks) y est ignore sans etre reecrit : il revient tel quel sur
- * desktop.
+ * Au telephone tenu droit (Mika, 2026-11-02 : un seul deck en mobile, pas de mixer) :
+ * Deck A seul, pas de table de mixage.
  */
-export const DJ_MIXER_ONLY = PORTRAIT;
+export const DJ_DECK_ONLY = PORTRAIT;
+export const DJ_MIXER_ONLY = false;
 /**
  * Les machines du site sur la table (2026-10-07, Mika : "avec MM-BASS, ca
  * fait trois machines, on devrait avoir trois tranches pour les machines et
@@ -92,23 +90,18 @@ export const DJ_MACHINE_CHANNELS = 3;
 export const deckChannel = (d: DjDeck): DjChannel => (DJ_MACHINE_CHANNELS + DJ_DECKS_ALL.indexOf(d)) as DjChannel;
 /**
  * Les platines qui ont un lecteur au moteur (dj/engine.ts) : les quatre sur
- * desktop (poser C ou D ne touche pas au son en cours), aucune au telephone
- * tenu droit (2026-10-18) ; les boucles du moteur (dj/actions.ts) ne passent
- * que par elles, aucun DjPlayer n'y est cree.
+ * desktop, Deck A seul au telephone tenu droit (2026-11-02, DJ_DECK_ONLY).
  */
-export const DJ_PLAYERS: readonly DjDeck[] = DJ_MIXER_ONLY ? [] : DJ_DECKS_ALL;
+export const DJ_PLAYERS: readonly DjDeck[] = DJ_DECK_ONLY ? ['a'] : DJ_DECKS_ALL;
 
-/** Les platines posees, de gauche a droite (A, B, puis C et D si ajoutees) ; aucune au telephone tenu droit (DJ_MIXER_ONLY). */
-export let DJ_DECKS: readonly DjDeck[] = ['a', 'b'];
-/** Les blocs poses (avec un corps), de gauche a droite ; la table seule au telephone tenu droit. */
-export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b'];
+/** Les platines posees, de gauche a droite (Deck A seul au telephone tenu droit). */
+export let DJ_DECKS: readonly DjDeck[] = DJ_DECK_ONLY ? ['a'] : ['a', 'b'];
+/** Les blocs poses (avec un corps), de gauche a droite ; Deck A seul au telephone tenu droit. */
+export let DJ_UNITS_ON: readonly DjUnit[] = DJ_DECK_ONLY ? ['a'] : ['a', 'mix', 'b'];
 /**
- * Les blocs qu'on fait defiler au telephone : les blocs poses (la table en
- * deux ou trois vues). Le bloc de fin (ADD DECK, REMOVE DECK) est parti le
- * 2026-10-05 : ADD DECK est une touche de la table, REMOVE DECK celle de la
- * derniere platine.
+ * Les blocs qu'on fait defiler au telephone : Deck A seul tenu droit.
  */
-export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b'];
+export let DJ_VIEW_UNITS: readonly DjUnit[] = DJ_DECK_ONLY ? ['a'] : ['a', 'mix', 'b'];
 /** Le nombre de voies de la table : le MM-RYTM, le MM-BASS, le MM-ARP, puis une par platine. */
 export let DJ_CHANNELS = 5;
 /**
@@ -165,9 +158,9 @@ export const DJ_FRAME = { fill: 0.92, h: 11.2, targetY: 1.3, radius: { closed: 0
 /* ---------- combien de platines ---------- */
 
 const DECKS_KEY = 'mm.v4.dj.decks';
-/** Le nombre retenu ; au telephone tenu droit, aucune platine (la cle reste telle quelle pour le desktop). */
+/** Le nombre retenu ; au telephone tenu droit, une platine seule (la cle reste telle quelle pour le desktop). */
 const readDecks = (): number => {
-  if (DJ_MIXER_ONLY) return 0;
+  if (DJ_DECK_ONLY) return 1;
   try {
     const n = Number(window.localStorage.getItem(DECKS_KEY));
     return Number.isInteger(n) && n >= DJ_DECKS_MIN && n <= DJ_DECKS_MAX ? n : DJ_DECKS_MIN;
@@ -176,17 +169,17 @@ const readDecks = (): number => {
   }
 };
 
-/** Les places (blocs, table, cadrage) pour n platines (0 : la table seule, au telephone tenu droit). */
+/** Les places (blocs, table, cadrage) pour n platines (1 platine seule au telephone tenu droit). */
 function place(n: number): void {
-  DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
-  DJ_CHANNELS = DJ_MACHINE_CHANNELS + n;
+  DJ_DECKS = DJ_DECKS_ALL.slice(0, DJ_DECK_ONLY ? 1 : n);
+  DJ_CHANNELS = DJ_MACHINE_CHANNELS + DJ_DECKS.length;
   DJ_SHOWN = djShownOf(DJ_CHANNELS);
-  // Sans platine (2026-10-18), la table seule : un bloc, une vue, les voies des machines
-  DJ_UNITS_ON = DJ_DECKS.length ? ['a', 'mix', ...DJ_DECKS.slice(1)] : ['mix'];
+  // Au telephone tenu droit (2026-11-02, Mika) : Deck A seul, pas de table/mixer
+  DJ_UNITS_ON = DJ_DECK_ONLY ? ['a'] : (DJ_DECKS.length ? ['a', 'mix', ...DJ_DECKS.slice(1)] : ['mix']);
   // Au telephone couche, la table se voit en deux ou trois vues, de gauche a droite ; tenu droit, en une
   mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_SHOWN.length) / MIX_VIEW)));
   const views: DjUnit[] = PORTRAIT ? ['mix'] : [...MIX_VIEWS.slice(0, mixViews)];
-  DJ_VIEW_UNITS = DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u]));
+  DJ_VIEW_UNITS = DJ_DECK_ONLY ? ['a'] : DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u]));
   const widths = DJ_UNITS_ON.map(unitW);
   DJ_W = widths.reduce((a, w) => a + w, 0) + (widths.length - 1) * DJ_UNIT.gap;
   for (const u of Object.keys(UNIT_X) as DjUnit[]) UNIT_X[u] = 0;
@@ -205,12 +198,12 @@ function place(n: number): void {
     UNIT_X[u] = UNIT_X.mix + (mixViews > 1 ? c0 + ((c1 - c0) * Math.min(i, mixViews - 1)) / (mixViews - 1) : 0);
   });
   DJ_X = DJ_LEFT + DJ_W / 2;
-  // La table seule (2026-10-18) est plus profonde que large : le rayon et l'ombre prennent la plus grande des deux
+  // La table ou le deck seul est plus profond que large : le rayon et l'ombre prennent la plus grande des deux
   const half = Math.max(DJ_W, DJ_UNIT.d) / 2;
   DJ_FRAME.radius.closed = half + 0.6;
   DJ_FRAME.radius.open = half + 0.6;
   DJ_FRAME.extent = half + 2;
-  placeMix(DJ_SHOWN.length);
+  if (DJ_UNITS_ON.includes('mix')) placeMix(DJ_SHOWN.length);
 }
 
 let decks = typeof window === 'undefined' ? DJ_DECKS_MIN : readDecks();

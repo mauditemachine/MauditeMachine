@@ -16,14 +16,11 @@ export type MachineId = 'mm808' | 'voy' | 'bass' | 'dj';
 export type Focus = 'all' | MachineId;
 
 /**
- * Le nom de la machine 'dj' (2026-10-18, Mika : "En mobile je veux juste
- * Mixer et pas de deck ; en desktop oui") : au telephone tenu droit
- * (theme.ts PORTRAIT, dj/theme.ts DJ_MIXER_ONLY), la table seule, MM-MIXER ;
- * ailleurs MM-DECKS. title et sub : les noms des machines (ui/MachineNav.tsx,
- * ui/MachineDrawer.tsx) ; aria : le nom lu.
+ * Le nom de la machine 'dj' (2026-11-02, Mika : en mobile un seul deck, pas de mixer) :
+ * au telephone tenu droit (theme.ts PORTRAIT), MM-DECK ; ailleurs MM-DECKS.
  */
 export const DJ_NAME: Readonly<{ title: string; sub: string; aria: string }> = PORTRAIT
-  ? { title: 'MM-MIXER', sub: 'MIXER OF THE MACHINES', aria: 'MM-MIXER, the mixer of the machines' }
+  ? { title: 'MM-DECK', sub: 'DJ DECK', aria: 'MM-DECK DJ deck player' }
   : { title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER', aria: 'MM-DECKS DJ decks and mixer' };
 
 /**

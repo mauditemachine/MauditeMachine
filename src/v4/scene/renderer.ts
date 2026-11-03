@@ -177,7 +177,7 @@ import { VoyagerRig } from '../voyager/rig';
 import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
-import { DJ_FRAME, DJ_MIXER_ONLY, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
+import { DJ_DECK_ONLY, DJ_FRAME, DJ_MIXER_ONLY, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
 import { djView } from '../dj/view';
 import type { BassRig } from '../bass/rig';
 import { bassLoad } from '../state/bassload';
@@ -2669,8 +2669,8 @@ export class Stage {
     const cam = new PerspectiveCamera(24, w / h, 0.1, 200);
     const cx = m === 'voy' ? VOY_X : m === 'dj' && dj ? dj.root.position.x : m === 'bass' && bs ? bs.root.position.x : 0;
     const ty = m === 'voy' ? VOY_FRAME.targetY : m === 'dj' ? DJ_FRAME.targetY : m === 'bass' ? BASS_FRAME.targetY : ORBIT.targetY;
-    // La table seule du telephone tenu droit (2026-10-18) est plus profonde que large : son rayon, comme le MM-BASS
-    const djR = DJ_MIXER_ONLY ? Math.hypot(DJ_W, DJ_UNIT.d) / 2 : (DJ_W / 2) * 0.82;
+    // La table ou le deck seul du telephone tenu droit est plus profond que large : son rayon, comme le MM-BASS
+    const djR = (DJ_DECK_ONLY || DJ_MIXER_ONLY) ? Math.hypot(DJ_W, DJ_UNIT.d) / 2 : (DJ_W / 2) * 0.82;
     const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? djR : m === 'bass' ? Math.hypot(BASS_W, BASS_D) / 2 : Math.hypot(BODY.w, BODY.d) / 2;
     const az = (26 * Math.PI) / 180;
     const el = (30 * Math.PI) / 180;
