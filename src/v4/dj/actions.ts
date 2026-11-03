@@ -28,7 +28,7 @@ import { djBrowser } from './browser';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { analyseGrid, gridAnalyseMs } from './grid';
 import { KILL, dbToGain, eqDb, faderGain, filterOf, gainDb, phaseShift } from './math';
-import { CATALOG_MIXTAPES, CATALOG_TRACKS, soundcloudBytes, v2TrackToDjTrack } from './soundcloud';
+import { CATALOG_MIXTAPES, CATALOG_TRACKS, isMixtapeTrack, soundcloudBytes, v2TrackToDjTrack } from './soundcloud';
 import type { V2Track } from '../../v2/context/AudioPlayerContext';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjState, type DjTrack } from './state';
 import { DJ_CHANNELS, DJ_CH_NAMES, DJ_MACHINE_CHANNELS, DJ_SHOWN, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, DJ_PLAYERS, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
@@ -416,29 +416,43 @@ export async function djLoad(d: DjDeck, track: DjTrack, autoPlay = false): Promi
   const ctl = new AbortController();
   loads[d] = ctl;
   /*
-   * SYNC reste engage d'un morceau a l'autre (relecture du 2026-10-08,
-   * BACK puis un autre morceau : la platine perdait SYNC et gardait le pitch
-   * de l'ancien, le nouveau partait au mauvais tempo) : comme sur une CDJ,
-   * le nouveau prend le tempo de la reference des qu'il est analyse.
+   * Demande de Mika (2026-11-02) : placer le pitch exactement a la valeur originale
+   * de la track quand on la rajoute dans le deck (sauf pour les mixtapes ou tout reste
+   * fige a l'original sans mixage).
+   * L'ancien morceau s'ejecte, le pitch revient a 0 (100% de la vitesse originale),
+   * et aucun SYNC n'est prolonge.
    */
-  const keepSync = djState.get().deck[d].sync || syncArmed.has(d);
-  // L'ancien morceau s'ejecte : ni PLAY, ni CUE, ni un hot cue ne peuvent le relancer pendant le chargement
   e.decks[d].unload();
+  e.decks[d].setPitch(0);
   previewing[d] = false;
   syncArmed.delete(d);
-  if (keepSync) syncArmed.add(d);
   lastDeck = d;
-  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, loadStep: 'read', armed: autoPlay, error: null, beat: null, sync: false, loop: null });
+  djState.setDeck(d, {
+    playing: false,
+    loaded: false,
+    track,
+    loading: 0,
+    loadStep: 'read',
+    armed: autoPlay,
+    error: null,
+    beat: null,
+    sync: false,
+    loop: null,
+    pitch: 0,
+    range: 8,
+  });
   const finishStream = (link: string): void => {
     const p = e.decks[d];
-    const bpm = track.bpm ?? 124;
+    const isMix = isMixtapeTrack(track);
+    const bpm = track.bpm ?? (isMix ? 122 : 124);
     p.onDuration = (realDur) => {
       const cur = djState.get().deck[d].track;
       if (cur?.id === track.id) {
         djState.setDeck(d, { track: { ...cur, duration: realDur } });
       }
     };
-    p.loadStream(link, { duration: track.duration, bpm });
+    p.loadStream(link, { duration: track.duration, bpm, isMixtape: isMix });
+    p.setPitch(0);
     const saved = savedCues(track.id);
     const atEnd = saved.cue >= p.duration - END_S;
     const cue = atEnd ? 0 : saved.cue;
@@ -453,10 +467,12 @@ export async function djLoad(d: DjDeck, track: DjTrack, autoPlay = false): Promi
       cues: saved.cues,
       beat: 0,
       sync: false,
+      pitch: 0,
+      range: 8,
+      loop: null,
     });
     if (atEnd) saveCues(d);
     p.seek(cue);
-    if (syncArmed.delete(d)) djSync(d);
     if (armed && !p.playing) djPlay(d);
   };
   try {
@@ -505,13 +521,25 @@ export async function djLoad(d: DjDeck, track: DjTrack, autoPlay = false): Promi
     const atEnd = saved.cue >= p.duration - END_S;
     const cue = atEnd ? 0 : saved.cue;
     const armed = djState.get().deck[d].armed;
-    djState.setDeck(d, { loaded: true, loading: null, loadStep: null, armed: false, track: { ...track, bpm, duration: p.duration }, cue, cues: saved.cues, beat: grid?.offset ?? null, sync: false });
+    p.setPitch(0);
+    djState.setDeck(d, {
+      loaded: true,
+      loading: null,
+      loadStep: null,
+      armed: false,
+      track: { ...track, bpm, duration: p.duration },
+      cue,
+      cues: saved.cues,
+      beat: grid?.offset ?? null,
+      sync: false,
+      pitch: 0,
+      range: 8,
+      loop: null,
+    });
     if (atEnd) saveCues(d);
     // La caisse apprend la duree et le BPM : le morceau n'a plus a etre analyse en fond
     if (track.source === 'file') void crateLearn(track.id, p.duration, bpm);
     p.seek(cue);
-    // SYNC puis PLAY armes pendant le chargement : SYNC d'abord, PLAY part alors sur un temps de la reference
-    if (syncArmed.delete(d)) djSync(d);
     if (armed && !p.playing) djPlay(d);
   } catch (err) {
     if (ctl.signal.aborted) return;
@@ -524,7 +552,7 @@ export async function djLoad(d: DjDeck, track: DjTrack, autoPlay = false): Promi
  * Ouvre TRACKS ou MIXTAPES directement sur la table de mixage avec les platines (MM-DECKS) :
  * - Ferme le panneau lateral et amene la camera sur MM-DECKS.
  * - Pose et lance immediatement le morceau ou la mixtape sur le Deck A (avec sa forme d'onde 3 bandes, son jog et son VU).
- * - Ouvre le navigateur du Deck B sur l'onglet correspondant (TRACKS ou MIXTAPES) pour enchainer ou mixer.
+ * - Ouvre le navigateur du Deck B sur TRACKS pour mixer (ferme pour les MIXTAPES).
  */
 export function djOpenCatalog(kind: 'tracks' | 'mixtapes', item?: V2Track): void {
   resume();
@@ -536,7 +564,11 @@ export function djOpenCatalog(kind: 'tracks' | 'mixtapes', item?: V2Track): void
   if (!target) return;
   djBrowser.openTab('a', kind);
   djBrowser.close('a');
-  djBrowser.openTab('b', kind);
+  if (kind === 'tracks') {
+    djBrowser.openTab('b', 'tracks');
+  } else {
+    djBrowser.close('b');
+  }
   void djLoad('a', target, true);
 }
 
@@ -720,7 +752,7 @@ export function djHotcueClear(d: DjDeck, n: number): void {
   saveCues(d);
 }
 
-/** BEND tenu : la platine accelere ou freine de 4 % (beatmatch a l'oreille). */
+/** BEND tenu : la platine accelere ou freine de 4 % (beatmatch a l'oreille, sauf mixtapes). */
 export function djBend(d: DjDeck, dir: -1 | 0 | 1): void {
   touching[d] = dir !== 0;
   const p = engine()?.decks[d];
@@ -728,6 +760,7 @@ export function djBend(d: DjDeck, dir: -1 | 0 | 1): void {
     p?.bend(0);
     return;
   }
+  if (isMixtapeTrack(djState.get().deck[d].track)) return;
   p.bend(dir * 0.04);
   if (p.isStream && dir !== 0) {
     p.seek(p.position() + dir * 0.08);
@@ -744,6 +777,7 @@ export function djJog(d: DjDeck, dAngle: number, dt: number): void {
   const p = engine()?.decks[d];
   if (!p || !p.loaded) return;
   if (p.playing) {
+    if (isMixtapeTrack(djState.get().deck[d].track)) return;
     touching[d] = true;
     const revPerS = dt > 0 ? dAngle / (2 * Math.PI) / dt : 0;
     p.bend(Math.max(-0.5, Math.min(0.5, revPerS * 0.25)));
@@ -821,8 +855,9 @@ export const TEMPO_STEP = 0.05;
  * sans chercher) ; sinon au centieme de pour cent (2026-10-05).
  */
 export function djSetPitch(d: DjDeck, v: number): void {
-  engine();
   const s0 = djState.get();
+  if (isMixtapeTrack(s0.deck[d].track)) return;
+  engine();
   if (machinesLead(s0)) freed.add(d);
   // La MASTER du SYNC des machines (2026-10-27) garde son SYNC : son tempo mene les machines et les platines calees
   const keep = masterDeck(s0) === d;
@@ -845,6 +880,7 @@ export function djSetPitch(d: DjDeck, v: number): void {
  */
 export function djTempoStep(d: DjDeck, dir: -1 | 1, step = TEMPO_STEP): void {
   const ds = djState.get().deck[d];
+  if (isMixtapeTrack(ds.track)) return;
   const bpm = ds.track?.bpm ?? null;
   let next: number;
   if (bpm) {
@@ -876,10 +912,12 @@ export const machinesLead = (s = djState.get()): boolean => machinesOn() && !s.m
  */
 function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
   if (machinesLead(s)) return null;
+  if (isMixtapeTrack(s.deck[d].track)) return null;
   let best: DjDeck | null = null;
   let w = 0;
   for (const o of DJ_DECKS_ALL) {
     if (o === d) continue;
+    if (isMixtapeTrack(s.deck[o].track)) continue;
     const k = heardWeight(s, o);
     if (k > w) {
       w = k;
@@ -890,11 +928,13 @@ function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
   // S il n y a pas de fader ouvert au-dessus de 0 : se caler sur la premiere autre platine qui joue
   for (const o of DJ_DECKS_ALL) {
     if (o === d) continue;
+    if (isMixtapeTrack(s.deck[o].track)) continue;
     if (s.deck[o].playing && s.deck[o].track?.bpm) return o;
   }
   // Si aucune autre platine ne joue : se caler sur la premiere autre platine chargee avec un BPM
   for (const o of DJ_DECKS_ALL) {
     if (o === d) continue;
+    if (isMixtapeTrack(s.deck[o].track)) continue;
     if (s.deck[o].loaded && s.deck[o].track?.bpm) return o;
   }
   return null;
@@ -1029,6 +1069,7 @@ function alignNow(d: DjDeck, e: DjEngine, gentle = false): void {
  * tant qu'on ne touche pas au pitch.
  */
 export function djSync(d: DjDeck): void {
+  if (isMixtapeTrack(djState.get().deck[d].track)) return;
   // En chargement : SYNC attend la platine (djLoad) ; un second appui le desarme
   if (djState.get().deck[d].loading !== null) {
     if (!syncArmed.delete(d)) syncArmed.add(d);
@@ -1050,6 +1091,7 @@ export function djSync(d: DjDeck): void {
 function soloMaster(d: DjDeck): boolean {
   const s = djState.get();
   const ds = s.deck[d];
+  if (isMixtapeTrack(ds.track)) return false;
   if (!s.machSync || syncBpm(d, s) !== null || !ds.track?.bpm || !ds.loaded) return false;
   engine();
   djState.setDeck(d, { sync: true });
@@ -1060,6 +1102,7 @@ function soloMaster(d: DjDeck): boolean {
 function matchTempo(d: DjDeck): boolean {
   const s = djState.get();
   const ds = s.deck[d];
+  if (isMixtapeTrack(ds.track)) return false;
   const ref = syncBpm(d, s);
   const own = ds.track?.bpm;
   if (!ref || !own) return false;
@@ -1541,6 +1584,7 @@ export function djLoop(d: DjDeck, beats: number): void {
   const p = e?.decks[d];
   if (!e || !p || !p.loaded) return;
   const ds = djState.get().deck[d];
+  if (isMixtapeTrack(ds.track)) return;
   if (p.loop && ds.loop === beats) {
     p.setLoop(null);
     djState.setDeck(d, { loop: null });

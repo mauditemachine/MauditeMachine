@@ -1360,7 +1360,7 @@ export const NUDGE_MAX = 0.003;
 
 export class DjPlayer {
   private buffer: AudioBuffer | null = null;
-  private stream: { url: string; duration: number; bpm: number } | null = null;
+  private stream: { url: string; duration: number; bpm: number; isMixtape?: boolean } | null = null;
   private streamTimer = 0;
   private source: AudioBufferSourceNode | null = null;
   /** le gain de la source du moment (ses fondus) et l'instant ou elle part */
@@ -1417,6 +1417,10 @@ export class DjPlayer {
     return this.stream !== null;
   }
 
+  get isMixtape(): boolean {
+    return !!this.stream?.isMixtape;
+  }
+
   /** Les echantillons (le BPM d'un fichier s'en estime). */
   get channel0(): Float32Array | null {
     return this.buffer ? this.buffer.getChannelData(0) : null;
@@ -1465,14 +1469,14 @@ export class DjPlayer {
   }
 
   /** Pose un flux SoundCloud (track ou mixtape du catalogue) sur la platine avec forme d'onde 3 bandes. */
-  loadStream(url: string, meta: { duration: number; bpm: number }): void {
+  loadStream(url: string, meta: { duration: number; bpm: number; isMixtape?: boolean }): void {
     this.pause();
     this.loopAB = null;
     this.buffer = null;
     this.startPos = 0;
     const dur = Math.max(15, meta.duration || 210);
     const bpm = Math.max(70, Math.min(180, meta.bpm || 124));
-    this.stream = { url, duration: dur, bpm };
+    this.stream = { url, duration: dur, bpm, isMixtape: !!meta.isMixtape };
     const peaks = buildStreamPeaks(url, dur, bpm);
     this.overview = peaks.overview;
     this.detail = peaks.detail;
@@ -1597,15 +1601,17 @@ export class DjPlayer {
         return;
       }
       // Vitesse rate() modifiee (pitch fader, touches tempo, bend, sync) :
-      // recaler la position du flux SoundCloud des que l ecart depasse un demi-temps
-      const spb = 60 / (this.stream?.bpm || 120);
-      const theoretical = this.startPos + (now - this.startAt);
-      const drift = Math.abs(raw - theoretical);
-      if (Math.abs(this.rate() - 1) > 0.005 && drift >= spb * 0.75 && now - lastLoopWrap > 1.2) {
-        lastLoopWrap = now;
-        this.startPos = raw;
-        this.startAt = now;
-        deckScController(this.deckId).seek(raw);
+      // recaler la position du flux SoundCloud des que l ecart depasse un demi-temps (sauf pour les mixtapes)
+      if (!this.isMixtape) {
+        const spb = 60 / (this.stream?.bpm || 120);
+        const theoretical = this.startPos + (now - this.startAt);
+        const drift = Math.abs(raw - theoretical);
+        if (Math.abs(this.rate() - 1) > 0.005 && drift >= spb * 0.75 && now - lastLoopWrap > 1.2) {
+          lastLoopWrap = now;
+          this.startPos = raw;
+          this.startAt = now;
+          deckScController(this.deckId).seek(raw);
+        }
       }
     }, 60);
   }
@@ -1618,6 +1624,7 @@ export class DjPlayer {
   }
 
   private rate(): number {
+    if (this.isMixtape) return 1.0;
     return speedOf(this.pitch) * (1 + this.bendF) * (1 + this.lockF);
   }
 
@@ -1833,19 +1840,20 @@ export class DjPlayer {
   /** Pitch en pour cent. */
   setPitch(pct: number): void {
     this.reanchor();
-    this.pitch = pct;
+    this.pitch = this.isMixtape ? 0 : pct;
     this.source?.playbackRate.setValueAtTime(this.rate(), this.ctx.currentTime);
   }
 
   /** Le jog ou les touches BEND en lecture : accelere ou freine un instant (-0.5 a 0.5). */
   bend(f: number): void {
     this.reanchor();
-    this.bendF = Math.max(-0.5, Math.min(0.5, f));
+    this.bendF = this.isMixtape ? 0 : Math.max(-0.5, Math.min(0.5, f));
     this.source?.playbackRate.setValueAtTime(this.rate(), this.ctx.currentTime);
   }
 
   /** Le rattrapage de phase de SYNC : un ecart de vitesse de NUDGE_MAX au plus (0 : aucun). */
   nudge(f: number): void {
+    if (this.isMixtape) return;
     const next = Math.max(-NUDGE_MAX, Math.min(NUDGE_MAX, f));
     if (next === this.lockF) return;
     this.reanchor();

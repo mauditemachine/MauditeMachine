@@ -26,6 +26,7 @@ export interface DjChannelState {
 export interface DjTrack {
   id: string;
   source: 'file' | 'soundcloud';
+  kind?: 'track' | 'mixtape';
   title: string;
   artist: string;
   bpm: number | null;

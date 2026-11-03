@@ -61,13 +61,14 @@ const seedHash = (s: string): number => {
 
 /** Convertit un morceau ou une mixtape du catalogue Maudite Machine en piste DjTrack pour les platines. */
 export function v2TrackToDjTrack(t: V2Track, kind?: 'tracks' | 'mixtapes', meta?: string): DjTrack {
-  const isMix = kind === 'mixtapes' || t.id.startsWith('mix-') || t.role === 'DJ Mix';
+  const isMix = kind === 'mixtapes' || t.id.startsWith('mix-') || t.id.startsWith('mixtape-') || t.role === 'DJ Mix' || t.title.toLowerCase().includes('mixtape');
   const h = seedHash(t.id + ':' + t.title);
   const bpm = isMix ? 122 + (h % 5) : 120 + (h % 9);
   const key = CAMELOT_KEYS[h % CAMELOT_KEYS.length];
   return {
     id: `mm:${t.id}`,
     source: 'soundcloud',
+    kind: isMix ? 'mixtape' : 'track',
     title: t.title,
     artist: meta || t.artist || 'Maudite Machine',
     bpm,
@@ -76,6 +77,18 @@ export function v2TrackToDjTrack(t: V2Track, kind?: 'tracks' | 'mixtapes', meta?
     link: t.soundcloudUrl || t.link,
     license: 'mauditemachine',
   };
+}
+
+/** Determine si une piste sur une platine est une mixtape complete (non mixable/pitchable). */
+export function isMixtapeTrack(t: DjTrack | null | undefined): boolean {
+  if (!t) return false;
+  return (
+    t.kind === 'mixtape' ||
+    t.id.startsWith('mm:mix-') ||
+    t.id.startsWith('mm:mixtape-') ||
+    t.title.toLowerCase().startsWith('mixtape') ||
+    CATALOG_MIXTAPES.some((m) => m.id === t.id)
+  );
 }
 
 /** Tous les morceaux de Maudite Machine (37 tracks), toujours disponibles sur les platines. */
