@@ -214,13 +214,13 @@ function slotLockView(slot: PageSlot, track: TrackKey, step: number, lockArg?: R
     const i = Math.max(0, KIT_MODELS.indexOf(l.mach as KitModel));
     return { text: KIT_MODEL_LABEL[KIT_MODELS[i]], unit: 'SYNTH', course: i / (KIT_MODELS.length - 1), value: i };
   }
-  // V.6.0 (la face DT2) : un reglage de piste (t:) se lit par sa fiche ; son sample lock, dans toute la banque
+  // V.6.0 (la face DT2) : un reglage de piste (t:) se lit par sa fiche ; son sample lock, dans la banque de la piste
   const sp60 = slot.target && isDialV60(slot.target) ? dialSpecOf(slot.target) : null;
   if (sp60) {
     if (slot.lock === 'snd') {
       if (!l.snd) return null;
       const ps = parseSnd(l.snd);
-      const list = trackSampleList();
+      const list = trackSampleList(inst);
       const i = ps ? list.findIndex((x) => x.key === ps.sound) : -1;
       const n = Math.max(1, list.length - 1);
       return { text: i > 0 ? list[i].label : 'OFF', unit: i > 0 ? `SAMPLE LOCK ${i}/${n}` : 'NO SAMPLE', course: Math.max(0, i) / n, value: Math.max(0, i) };

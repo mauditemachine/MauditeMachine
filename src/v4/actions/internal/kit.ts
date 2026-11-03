@@ -5,9 +5,9 @@
 
 import { kitOverride, resume } from '../../audio/drums';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, kit, kitSteps, layerRange, layerSteps, mixLevels, type KitFamily, type KitKnob, type KitModel, type Layer, type Plays } from '../../audio/kit';
-import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, TRACK_P_DEFAULT, normTrackKey, trackIndex, tracks, type TrackKey, type TrackParamId, type TrackSound } from '../../audio/tracks';
+import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, TRACK_P_DEFAULT, normTrackKey, sampleFamily, trackIndex, tracks, type TrackKey, type TrackParamId, type TrackSound } from '../../audio/tracks';
 import { type StepLock } from '../../audio/locks';
-import { samplesOf, type SampleFail } from '../../audio/samples';
+import { sampleByKey, samplesOf, type SampleFail } from '../../audio/samples';
 import { VEL_MAX, pattern } from '../../audio/pattern';
 import { lcdMessage } from '../../state/lcdMessage';
 import type { ShotId } from '../../audio/shotsdsp';
@@ -329,10 +329,35 @@ const KNOB_OF: Readonly<Partial<Record<TrackDial, KitKnob>>> = { ktune: 'tune', 
 type ContEncV60 = 'vtune' | 'vfine' | 'vol';
 const ENC_OF: Readonly<Partial<Record<TrackDial, ContEncV60>>> = { tune: 'vtune', fine: 'vfine', tlev: 'vol' };
 
-/** Le pool de samples d'une piste DT2 : OFF, puis toute la banque (les 8 dossiers du site et ceux de Mika), dans l'ordre. */
-export function trackSampleList(): readonly { key: string; label: string; family: string }[] {
-  const out: { key: string; label: string; family: string }[] = [{ key: '', label: 'OFF', family: '' }];
-  for (const f of KIT_FAMILIES) for (const s of samplesOf(f)) out.push({ key: s.key, label: s.label, family: s.family });
+/** La categorie d'une piste (bd pour la voix 1 BD, sd pour la voix 2 SD, etc.). */
+export function trackFamilyOf(t: TrackKey | null): KitFamily | null {
+  if (!t) return null;
+  const idx = trackIndex(t);
+  if (idx >= 0 && idx < 8) return KIT_FAMILIES[idx];
+  const tr = tracks.of(t);
+  if ((KIT_FAMILIES as readonly string[]).includes(tr.mach as KitFamily)) return tr.mach as KitFamily;
+  const f = tr.snd ? sampleFamily(tr.snd) : undefined;
+  if (f && (KIT_FAMILIES as readonly string[]).includes(f)) return f;
+  return null;
+}
+
+/** Le pool de samples d'une piste DT2 : OFF, puis les samples de sa categorie (bd pour la piste BD, etc.) ou toute la banque si non categorisee. */
+export function trackSampleList(track?: TrackKey | null): readonly { key: string; label: string; family: string }[] {
+  const t = track !== undefined ? track : screenTrack();
+  const f = trackFamilyOf(t);
+  const out: { key: string; label: string; family: string }[] = [{ key: '', label: 'OFF', family: f ?? '' }];
+  if (f) {
+    for (const s of samplesOf(f)) out.push({ key: s.key, label: s.label, family: s.family });
+  } else {
+    for (const fam of KIT_FAMILIES) for (const s of samplesOf(fam)) out.push({ key: s.key, label: s.label, family: s.family });
+  }
+  if (t) {
+    const curKey = tracks.of(t).snd;
+    if (curKey && !out.some((x) => x.key === curKey)) {
+      const s = sampleByKey(curKey);
+      if (s) out.push({ key: s.key, label: s.label, family: s.family });
+    }
+  }
   return out;
 }
 
@@ -352,7 +377,7 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
   const enc = ENC_OF[d];
   const pid = d === 'snd' || d === 'mach' || d === 'model' ? null : (d as TrackParamId);
   const range = (): readonly [number, number] => {
-    if (d === 'snd') return [0, Math.max(1, trackSampleList().length - 1)];
+    if (d === 'snd') return [0, Math.max(1, trackSampleList(pick()).length - 1)];
     if (d === 'mach') return [0, SRC_MACHINES.length - 1];
     if (d === 'model') return [0, KIT_MODELS.length - 1];
     if (lp) return layerSpan(lp);
@@ -360,7 +385,7 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
     return [0, 1];
   };
   const steps = (): number => {
-    if (d === 'snd') return trackSampleList().length;
+    if (d === 'snd') return trackSampleList(pick()).length;
     if (d === 'mach') return SRC_MACHINES.length;
     if (d === 'model') return KIT_MODELS.length;
     if (d === 'srev' || d === 'gate') return 2;
@@ -373,13 +398,13 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
     const t = pick();
     if (!t) return 0;
     const tr = tracks.of(t);
-    if (d === 'snd') return Math.max(0, trackSampleList().findIndex((s) => s.key === tr.snd));
+    if (d === 'snd') return Math.max(0, trackSampleList(t).findIndex((s) => s.key === tr.snd));
     if (d === 'mach') return Math.max(0, SRC_MACHINES.indexOf(tr.mach));
     if (d === 'model') return Math.max(0, KIT_MODELS.indexOf(tr.model));
     return pid ? tracks.param(t, pid) : 0;
   };
   const text = (v: number): string => {
-    if (d === 'snd') return trackSampleList()[Math.max(0, Math.round(v))]?.label ?? 'OFF';
+    if (d === 'snd') return trackSampleList(pick())[Math.max(0, Math.round(v))]?.label ?? 'OFF';
     if (d === 'mach') return SRC_MACHINE_LABEL[SRC_MACHINES[Math.max(0, Math.min(SRC_MACHINES.length - 1, Math.round(v)))]];
     if (d === 'model') return KIT_MODEL_LABEL[KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(v)))]];
     if (d === 'srev') return v >= 0.5 ? 'REV' : 'FWD';
@@ -390,8 +415,9 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
   };
   const unit = (v: number): string => {
     if (d === 'snd') {
-      const n = trackSampleList().length - 1;
-      const s = trackSampleList()[Math.max(0, Math.round(v))];
+      const list = trackSampleList(pick());
+      const n = list.length - 1;
+      const s = list[Math.max(0, Math.round(v))];
       return s && s.key ? `${s.family.toUpperCase()}  ${Math.round(v)}/${n}` : `${n} SAMPLES`;
     }
     if (d === 'mach') return 'ENGINE';
@@ -415,7 +441,7 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
     resume();
     const [lo, hi] = range();
     const x = Math.max(lo, Math.min(hi, v));
-    if (d === 'snd') tracks.sample(t, trackSampleList()[Math.round(x)]?.key ?? '');
+    if (d === 'snd') tracks.sample(t, trackSampleList(t)[Math.round(x)]?.key ?? '');
     else if (d === 'mach') tracks.machine(t, SRC_MACHINES[Math.round(x)]);
     else if (d === 'model') tracks.machine(t, tracks.of(t).mach, KIT_MODELS[Math.round(x)]);
     else if (pid) tracks.set(t, pid, d === 'srev' || d === 'gate' ? (x >= 0.5 ? 1 : 0) : x);

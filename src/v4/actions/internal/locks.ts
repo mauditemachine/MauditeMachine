@@ -68,7 +68,7 @@ export function lockDialValue(k: number): number | null {
     const lh = lockOf(pattern.get().locks, hi, step);
     if (slot.lock === 'snd') {
       const ps = lh?.snd ? parseSnd(lh.snd) : null;
-      const i = ps ? trackSampleList().findIndex((x) => x.key === ps.sound) : -1;
+      const i = ps ? trackSampleList(hi).findIndex((x) => x.key === ps.sound) : -1;
       return i >= 0 ? i : null;
     }
     if (slot.lock === 'mach') return null;
@@ -294,8 +294,8 @@ export function lockWrite(k: number, slot: PageSlot, v: number): void {
         return;
       }
     } else if (slot.lock === 'snd' && slot.target === 't:snd') {
-      // V.6.0 (la face DT2, SAMP de SRC) : le sample lock dans toute la banque (cahier 3.2 : depuis toute categorie)
-      const s = trackSampleList()[Math.max(0, Math.round(v))];
+      // V.6.0 (la face DT2, SAMP de SRC) : le sample lock dans la banque de la piste
+      const s = trackSampleList(inst)[Math.max(0, Math.round(v))];
       if (s && s.key) pattern.setLock(inst, steps, 'snd', `${s.family}:${s.key}`);
       else pattern.clearLock(inst, steps, 'snd');
     } else if (slot.lock === 'snd') {
@@ -362,7 +362,7 @@ function lockWriteHi(k: number, slot: PageSlot, v: number, t: TrackKey): void {
     // Un pas vide qu'on verrouille recoit un coup (la velocite des nouveaux pas), comme sur les voix 1 a 8
     for (const i of steps) if (velocity(pattern.get().steps, t, i) === 0 && !isLockTrig(pattern.get().locks, t, i)) pattern.set(t, i, TAP_VEL_DEFAULT);
     if (slot.lock === 'snd') {
-      const s = trackSampleList()[Math.max(0, Math.round(v))];
+      const s = trackSampleList(t)[Math.max(0, Math.round(v))];
       if (s && s.key) pattern.setLock(t, steps, 'snd', `${s.family}:${s.key}`);
       else pattern.clearLock(t, steps, 'snd');
     } else if (slot.lock === 'mach') {
