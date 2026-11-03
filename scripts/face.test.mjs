@@ -57,10 +57,11 @@ const GRID = {
   ptn: [19, 112.5, 'L'],
   mute: [19, 127.5, 'L'],
   solo: [19, 142.5, 'L'],
-  preset: [52, 82.5, 'P'],
-  settings: [75.5, 82.5, 'P'],
-  sounds: [99, 82.5, 'P'],
-  tempo: [122.5, 82.5, 'P'],
+  preset: [46.5, 82.5, 'P'],
+  random: [66.5, 82.5, 'P'],
+  settings: [86.5, 82.5, 'P'],
+  sounds: [106.5, 82.5, 'P'],
+  tempo: [126.5, 82.5, 'P'],
   rec: [56.5, 99.5, 'L'],
   play: [87, 99.5, 'L'],
   stop: [117.5, 99.5, 'L'],
@@ -82,9 +83,9 @@ const GRID = {
 const SIZE = { P: [12, 11], L: [22, 11], G: [26, 11], A: [9.6, 9.6] };
 const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a} au lieu de ${b}`);
 
-test('les 27 touches a leur place et a leur taille (table 2.2)', () => {
+test('les 28 touches a leur place et a leur taille (table 2.2)', () => {
   const keys = F.DT2_FACEPLATE.buttons.keys;
-  assert.equal(keys.length, 27);
+  assert.equal(keys.length, 28);
   for (const k of keys) {
     const g = GRID[k.id];
     assert.ok(g, `${k.id}: absente de la table 2.2`);
@@ -139,10 +140,10 @@ test('les cadres de la section 2.3', () => {
 
 test('les ids de zones gardes (2.6) et les nouveaux', () => {
   const by = Object.fromEntries(F.DT2_FACEPLATE.buttons.keys.map((k) => [k.id, k.hotspot]));
-  const kept = { func: 'func', trk: 'trk', ptn: 'pad-edit', rec: 'rec', play: 'run', stop: 'stop', trig: 'pkey-trig', src: 'pkey-voice', fltr: 'pkey-fltr', amp: 'pkey-env', fx: 'pkey-fx', mod: 'pkey-mod', yes: 'yes', no: 'no', open: 'pad-open' };
+  const kept = { func: 'func', trk: 'trk', ptn: 'pad-edit', rec: 'rec', play: 'run', stop: 'stop', trig: 'pkey-trig', src: 'pkey-voice', fltr: 'pkey-fltr', amp: 'pkey-env', fx: 'pkey-fx', mod: 'pkey-mod', yes: 'yes', no: 'no', open: 'pad-open', random: 'random' };
   for (const [id, h] of Object.entries(kept)) assert.equal(by[id], h, id);
   for (const id of ['kbd', 'mute', 'solo', 'preset', 'settings', 'sounds', 'tempo', 'up', 'down', 'left', 'right', 'ptnpage']) assert.equal(by[id], id, id);
-  assert.equal(new Set(Object.values(by)).size, 27, 'un id de zone par touche');
+  assert.equal(new Set(Object.values(by)).size, 28, 'un id de zone par touche');
   assert.equal(F.DT2_FACEPLATE.open.hotspot, 'pad-open');
 });
 
@@ -150,7 +151,7 @@ test('la fonction orange de chaque touche (table 2.2)', () => {
   const alt = Object.fromEntries(F.DT2_FACEPLATE.buttons.keys.map((k) => [k.id, k.alt ?? '']));
   assert.deepEqual(alt, {
     func: '', kbd: 'KB SETUP', trk: 'PTN MUTE', ptn: 'BANK', mute: 'UNMUTE', solo: 'UNSOLO',
-    preset: 'PERFORM', settings: 'SAVE PROJ', sounds: 'SAMPLES', tempo: 'TAP TEMPO',
+    preset: 'PERFORM', random: 'RND BEAT', settings: 'SAVE PROJ', sounds: 'SAMPLES', tempo: 'TAP TEMPO',
     rec: 'COPY', play: 'CLEAR', stop: 'PASTE', trig: 'QUANTIZE', src: 'MACHINE', fltr: 'SETUP', amp: 'SEQUENCER', fx: 'SEND FX', mod: 'MIXER',
     yes: 'SAVE', up: 'TRIG MODE', open: '+ SAMPLE', no: 'RELOAD', left: 'uTIME-', down: 'TRIG MODE', right: 'uTIME+', ptnpage: 'SETUP',
   });

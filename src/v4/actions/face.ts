@@ -853,6 +853,7 @@ export function faceKeyDown(id: Dt2ButtonId, src = 'at', stage: Stage | null = n
     }
     case 'tempo':
     case 'preset':
+    case 'random':
     case 'kbd':
     case 'mute':
     case 'solo':
@@ -934,6 +935,7 @@ export function faceKeyUp(id: Dt2ButtonId, src = 'at', stage: Stage | null = nul
     }
     case 'tempo':
     case 'preset':
+    case 'random':
     case 'kbd':
     case 'mute':
     case 'solo':

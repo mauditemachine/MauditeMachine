@@ -17,7 +17,7 @@ import type { Screen } from '../core';
 import { BLACK, HALF, INK } from '../consts';
 import { registerScreenMenu, type ScreenMenu } from './registry';
 import { DIM_TEXT, acting, paintHint, paintList, paintPanel, paintPopupBox, stepCursor, type MenuRow } from './frame';
-import { menuChanged, screenTrack } from './open';
+import { menuChanged, screenTrack, setOpenMenu } from './open';
 
 const M = 'mm808' as const;
 type Level = 'root' | 'kit' | 'ops' | 'sound';
@@ -115,13 +115,8 @@ function paint(screen: Screen): number {
     paintHint(screen, 'UP/DOWN: SOUND   YES: LOAD ON TRK   NO: BACK');
     return 0;
   }
-  // Les presets ouverts par un autre chemin (le clavier P, le MIDI) : la liste KIT
-  if (level === 'root' && presetMode.on(M)) level = 'kit';
-  if (level === 'root' || !presetMode.on(M)) {
-    body = paintList(screen, ROOT, cursor, 0);
-    paintHint(screen, 'UP/DOWN: CHOOSE   YES: OPEN   NO: EXIT');
-    return 0;
-  }
+  // Demande de Mika (2026-11-02) : quand on clic sur preset on arrive directement sur la liste de tous les presets
+  if (!presetMode.on(M) || level === 'root') enterKit();
   const v = presetMode.view(M);
   if (!v) return 0;
   // La liste : la ligne d'avant, le curseur en grand, celle d'apres ; le rang et le titre
@@ -238,7 +233,7 @@ function input(i: Parameters<NonNullable<ScreenMenu['onInput']>>[0]): boolean {
   } else if (i.kind === 'left') lcdMessage.show('SORT, FILTER, SEARCH: BIENTOT V.6.2', 1400);
   else if (i.kind === 'no') {
     presetMode.close();
-    level = 'root';
+    setOpenMenu(null);
   }
   menuChanged();
   return true;
@@ -248,20 +243,16 @@ function menu(id: 'preset' | 'kit'): ScreenMenu {
   return {
     id,
     owner: 'B5',
-    title: () => (level === 'root' ? 'PRESET/KIT' : level === 'sound' ? 'TRACK PRESET' : 'KIT'),
+    title: () => (level === 'sound' ? 'TRACK PRESET' : 'PRESETS'),
     paint: (screen) => paint(screen),
     onOpen() {
       opCursor = 0;
       qCursor = 0;
-      if (id === 'kit' || presetMode.on(M)) enterKit();
-      else {
-        level = 'root';
-        cursor = 1;
-      }
+      enterKit();
     },
     onClose() {
       if (presetMode.on(M)) presetMode.close();
-      level = 'root';
+      level = 'kit';
     },
     info: () => `${level}|${body}`,
     onInput: input,

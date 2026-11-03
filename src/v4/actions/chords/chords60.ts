@@ -76,7 +76,7 @@ import {
 import { tapTempo } from '../internal/transport';
 import { dtPageKeyFirst } from '../internal/face';
 import { clearKey, copyKey, muteModeKey, noBody, pasteKey, playBody, recBody, reloadKey, saveKey, stopBody, yesTap } from '../face';
-import { patternTap } from '../patterns';
+import { patternTap, randomPattern } from '../patterns';
 import { rytmPageKey } from '../pages';
 import { anyDial, anyDialValue } from '../anyDial';
 import { levelDataTurn } from '../mixer';
@@ -306,6 +306,7 @@ export const CHORDS_60: readonly Chord[] = [
     () => menuToggle('tempo'),
   ),
   ...keyChords('preset', 'preset', () => menuToggle('perform'), () => menuToggle('preset')),
+  ...keyChords('random', 'random', () => randomPattern(stageNow()), () => randomPattern(stageNow())),
   ...keyChords('sounds', 'sounds', () => menuToggle('samples'), () => menuToggle('sounds')),
   // SETTINGS : sa tape (au lacher) ouvre le menu ; tenue 1 s, elle garde pour un TRIG (trig.settings)
   ...keyChords('settings', 'settings', () => soon('6.2'), () => menuToggle('settings'), '6.2', '6.0', 'release'),

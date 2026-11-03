@@ -393,6 +393,7 @@ const DT2_KEY_MORE: Readonly<Record<Dt2ButtonId, { title: string; hotspot: strin
   mute: { title: 'Mute mode', hotspot: 'mute' },
   solo: { title: 'Solo mode', hotspot: 'solo' },
   preset: { title: 'Presets and kits', hotspot: 'preset' },
+  random: { title: 'Random pattern and sounds', hotspot: 'random' },
   settings: { title: 'Settings', hotspot: 'settings' },
   sounds: { title: 'Sounds, your sample bank', hotspot: 'sounds' },
   tempo: { title: 'Tempo', hotspot: 'tempo' },
