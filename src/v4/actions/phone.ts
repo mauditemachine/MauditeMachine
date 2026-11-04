@@ -11,6 +11,8 @@ import { VEL_GAIN, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import { tracks, type TrackKey } from '../audio/tracks';
 import { lcdMessage } from '../state/lcdMessage';
 import { TAP_VEL_DEFAULT } from '../state/rytmPage';
+import { dtFace } from '../state/dtFace';
+import { DT2_FACE } from '../theme';
 import { voices } from '../state/voices';
 import { HI_TRACKS, isLegacyTrack, padTrack, trackName, uses916 } from './internal/phone';
 import { funcDrop } from './face';
@@ -194,7 +196,7 @@ export function trackPlay(k: TrackKey, stage: Stage | null = null): void {
   gesture();
   const v = voices.get();
   // Les memes aides que les pads 1 a 8 (actions/internal/tracks.ts) : la cle T9 n'y sert qu'a des includes et a l'ecran
-  if (v.soloMode) soloVoice(k);
+  if (v.soloMode || (DT2_FACE && dtFace.solo())) soloVoice(k);
   else if (v.muteMode) muteVoice(k);
   else if (!clock.running && !voices.isMuted(k) && tracks.sounds(k)) {
     trigger(k, undefined, false, undefined, VEL_GAIN[TAP_VEL_DEFAULT] ?? 1);
@@ -315,7 +317,7 @@ export function phonePadTap(inst: string, stage: Stage | null, double = false): 
 export function phoneTrackSelect(k: TrackKey): void {
   gesture();
   const v = voices.get();
-  if (v.soloMode) soloVoice(k);
+  if (v.soloMode || (DT2_FACE && dtFace.solo())) soloVoice(k);
   else if (v.muteMode) muteVoice(k);
   else {
     phonePick(k);

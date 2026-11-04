@@ -10,7 +10,9 @@ import { sc } from '../audio/soundcloud';
 import type { Stage } from '../scene/renderer';
 import { lcdMessage } from '../state/lcdMessage';
 import { voices } from '../state/voices';
-import { LCD_MUTE_HINT, PORTRAIT } from '../theme';
+import { LCD_MUTE_HINT, PORTRAIT, DT2_FACE } from '../theme';
+import { dtFace } from '../state/dtFace';
+import { soloKeyTap } from './internal/keys60';
 import { gesture } from './shared';
 import { coarsePointer } from './internal/transport';
 
@@ -70,6 +72,10 @@ export function muteToggle(stage: Stage | null = null): boolean {
 export function soloToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('solo');
+  if (DT2_FACE) {
+    soloKeyTap();
+    return dtFace.solo();
+  }
   return modeTap('solo');
 }
 
@@ -103,6 +109,7 @@ function modeTap(k: 'mute' | 'solo'): boolean {
 export function modeHold(k: 'mute' | 'solo'): void {
   resume();
   voices.release(k);
+  if (k === 'solo' && DT2_FACE) dtFace.setSolo(false);
   lcdMessage.show(k === 'mute' ? 'ALL VOICES ON' : 'SOLO OFF: ALL VOICES', MODE_MSG_MS);
 }
 

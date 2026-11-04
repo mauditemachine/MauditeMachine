@@ -239,6 +239,12 @@ export function trigTrk(i: number, stage: Stage | null, t = performance.now()): 
   if (!k) return true;
   stage?.pressStep(i);
   const v = voices.get();
+  // En mode SOLO : la piste passe en solo (ou en sort) et devient la piste active
+  if (dtFace.solo() || v.soloMode) {
+    trigSolo(i, stage);
+    trk.use(t);
+    return true;
+  }
   if (!v.soloMode && !v.muteMode && st.trkLast && st.trkLast.i === i && t - st.trkLast.t <= PAD_DOUBLE_TAP_MS) {
     st.trkLast = null;
     ctlAllEnd();
@@ -363,10 +369,11 @@ export function trigMute(i: number, stage: Stage | null): void {
 /** Un TRIG en mode SOLO (ou tenu en mode MUTE) : le SOLO de sa piste (16). */
 export function trigSolo(i: number, stage: Stage | null): void {
   const k = trackAt(i);
-  if (!k || (dtFace.mute() === 'off' && !dtFace.solo())) return;
+  if (!k || (dtFace.mute() === 'off' && !dtFace.solo() && !voices.get().soloMode)) return;
   resume();
   stage?.pressStep(i);
   voices.toggleSolo(k);
+  trackSelect(k);
   lcdMessage.show(voices.isSolo(k) ? `SOLO ${trackName(k)}` : `${trackName(k)} SOLO OFF`);
 }
 
@@ -398,6 +405,9 @@ export function soloKeyTap(): void {
   if (next) {
     trk.cancel();
     if (editor.get() === 'mm808') editor.close();
+    voices.arm('solo', true);
+  } else {
+    voices.disarm('solo');
   }
   dtFace.setSolo(next);
   lcdMessage.show(next ? 'SOLO MODE: TAP TRIG 1-16 · FUNC + SOLO: UNSOLO ALL' : 'SOLO MODE OFF', 1600);
@@ -407,6 +417,7 @@ export function soloKeyTap(): void {
 export function unsoloAllKey(): void {
   resume();
   voices.clearSolo();
+  voices.disarm('solo');
   dtFace.setSolo(false);
   lcdMessage.show('ALL TRACKS UNSOLOED', 1400);
 }
@@ -642,7 +653,10 @@ export function ptnToggle(stage: Stage | null, t = performance.now()): void {
     return;
   }
   if (dtFace.mute() !== 'off') dtFace.setMute('off');
-  if (dtFace.solo()) dtFace.setSolo(false);
+  if (dtFace.solo()) {
+    dtFace.setSolo(false);
+    voices.disarm('solo');
+  }
   if (editor.get() === 'mm808') {
     editor.close();
     // L'ancien geste (PTN deux fois = KIT) : l'indice, seulement si rien n'a servi entre les deux PTN (la relecture de la

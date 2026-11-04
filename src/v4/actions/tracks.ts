@@ -36,7 +36,7 @@ import { liveHit } from './live';
 export function padHit(inst: Inst, stage: Stage | null): void {
   gesture();
   // Mode SOLO : le pad passe en solo (ou en sort), sans jouer
-  if (voices.get().soloMode) {
+  if (voices.get().soloMode || (DT2_FACE && dtFace.solo())) {
     soloVoice(inst);
     stage?.pressRytmPad(inst);
     return;
@@ -228,6 +228,10 @@ export const trkUp = (src: string, t = performance.now()): void => {
 export function voiceSelect(inst: Inst, src: CtlSrc = 'ui'): void {
   void src;
   resume();
+  if (voices.get().soloMode || (DT2_FACE && dtFace.solo())) {
+    soloVoice(inst);
+    return;
+  }
   if (pattern.get().instrument !== inst) pattern.select(inst);
   if (lcdSamples.isOpen()) lcdSamples.touch();
   else lcdMessage.show(`TRK ${inst}`);
