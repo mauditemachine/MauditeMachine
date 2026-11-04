@@ -232,6 +232,7 @@ export function escape(fromNo = false): boolean {
   // Le mode MUTE (V.5.0, FUNC + TRK) ou SOLO (V.6.0) : Echap en sort, les mutes et solos restent
   if (DT_FACE && dtFace.mute() !== 'off' && focus.get() === 'mm808') {
     dtFace.setMute('off');
+    voices.disarm('mute');
     lcdMessage.show('MUTE MODE OFF');
     return true;
   }

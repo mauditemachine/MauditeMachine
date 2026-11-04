@@ -1,8 +1,8 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "6.8",
-    "fingerprint": "sha256:34d36fd923c01f130342e1d80bca17d2481201886e6a7ab2d7ab0a9612c8c20c",
+    "version": "6.9",
+    "fingerprint": "sha256:d5caf78a308eab4d6f4de052f6667d12458921c3d82a96bc3e7c9b3126f2f2a4",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -22,7 +22,8 @@
       { "version": "6.5", "date": "2026-11-02", "note": "filtre des samples par famille sur piste active", "sha": "c3926025" },
       { "version": "6.6", "date": "2026-11-02", "note": "support mobile Deck A", "sha": "4996343d" },
       { "version": "6.7", "date": "2026-11-03", "note": "amelioration affichage et navigation presets 6 lignes et tempos", "sha": "f96ca4f1" },
-      { "version": "6.8", "date": "2026-11-03", "note": "Mode SOLO: activation directe, synchronisation d'etat et selection de piste en solo", "sha": "25d593cc" }
+      { "version": "6.8", "date": "2026-11-03", "note": "Mode SOLO: activation directe, synchronisation d'etat et selection de piste en solo", "sha": "25d593cc" },
+      { "version": "6.9", "date": "2026-11-03", "note": "Mode MUTE: activation directe, synchronisation d'etat et selection de piste en mute", "sha": "a24832bd" }
     ]
   },
   "voy": {

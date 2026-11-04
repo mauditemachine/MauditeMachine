@@ -42,7 +42,7 @@ export function padHit(inst: Inst, stage: Stage | null): void {
     return;
   }
   // Mode MUTE : le pad coupe sa voix (ou la rend), sans jouer
-  if (voices.get().muteMode) {
+  if (voices.get().muteMode || (DT2_FACE && dtFace.mute() !== 'off')) {
     muteVoice(inst);
     stage?.pressRytmPad(inst);
     return;
@@ -179,13 +179,13 @@ export function trkPick(inst: Inst, t: number): void {
   ctlAllEnd();
   resume();
   const v = voices.get();
-  if (v.soloMode) soloVoice(inst);
-  else if (v.muteMode) muteVoice(inst);
+  if (v.soloMode || (DT2_FACE && dtFace.solo())) soloVoice(inst);
+  else if (v.muteMode || (DT2_FACE && dtFace.mute() !== 'off')) muteVoice(inst);
   else {
     if (pattern.get().instrument !== inst) pattern.select(inst);
   }
   trk.use(t);
-  if (v.soloMode || v.muteMode) return;
+  if (v.soloMode || v.muteMode || (DT2_FACE && (dtFace.solo() || dtFace.mute() !== 'off'))) return;
   // Le navigateur des sons ouvert : il passe a la voix choisie (watchBrowser), son repos repart. TRK tenue : TRK SD reste
   // jusqu'au lacher ; gardee, elle se ferme : le message ordinaire
   if (lcdSamples.isOpen()) lcdSamples.touch();
@@ -230,6 +230,10 @@ export function voiceSelect(inst: Inst, src: CtlSrc = 'ui'): void {
   resume();
   if (voices.get().soloMode || (DT2_FACE && dtFace.solo())) {
     soloVoice(inst);
+    return;
+  }
+  if (voices.get().muteMode || (DT2_FACE && dtFace.mute() !== 'off')) {
+    muteVoice(inst);
     return;
   }
   if (pattern.get().instrument !== inst) pattern.select(inst);
