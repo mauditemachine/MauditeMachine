@@ -226,7 +226,8 @@ export class VoyagerRig {
     });
     const band = 0.72;
     const lcdDefs = [
-      lcdBox('open', 0, 1, 0, 1),
+      // Demande de Mika (2026-11-03) : seul le coin bas-droite (pastille PRESETS) ouvre les presets, pas tout l'ecran
+      lcdBox('open', 0.82, 1, 0.82, 1),
       lcdBox('prev', 0, 0.5, 0, band),
       lcdBox('next', 0.5, 1, 0, band),
       // Cinq touches depuis le 2026-10-27 (LOAD SAVE NAME DEL EXIT, leur nom suit l'etape) : des cinquiemes
@@ -442,6 +443,7 @@ export class VoyagerRig {
   /** Le grand ecran ; true s'il a ete redessine. Appele seul (un store), il demande la frame ; trop tot, l'animateur le refera. */
   private syncLcd = (paint: boolean | unknown = true): boolean => {
     this.bpm = pattern.get().bpm;
+    const presetBtnChanged = this.keys.setPreset(presetMode.on('voy'));
     const r = this.lcd.draw(this.screenState());
     if (r === 'wait') {
       // Trop tot : l'animateur le refera a la prochaine image, ou ce minuteur si aucune image ne vient
@@ -456,8 +458,8 @@ export class VoyagerRig {
       return false;
     }
     this.screenWait = false;
-    if (r === 'drawn' && paint !== false) this.opts.repaint();
-    return r === 'drawn';
+    if ((r === 'drawn' || presetBtnChanged) && paint !== false) this.opts.repaint();
+    return r === 'drawn' || presetBtnChanged;
   };
 
   private syncExplode = (): void => {

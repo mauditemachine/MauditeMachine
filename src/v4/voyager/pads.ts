@@ -59,6 +59,7 @@ const BTNS = VOY_BUTTONS.length;
 const OPEN_I = VOY_BUTTONS.findIndex((b) => b.id === 'open');
 const RUN_I = VOY_BUTTONS.findIndex((b) => b.id === 'run');
 const EDIT_I = VOY_BUTTONS.findIndex((b) => b.id === 'edit');
+const PRESET_I = VOY_BUTTONS.findIndex((b) => b.id === 'preset');
 /** Les boutons poussoirs (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12). */
 export const PUSH_KNOB_IDS: readonly VoyKnobId[] = VOY_FACE_KNOBS.filter((k) => isPush(k.id)).map((k) => k.id);
 const PUSH_IDS = PUSH_KNOB_IDS;
@@ -215,6 +216,7 @@ export class VoyKeys {
   private running = false;
   /** la suite de l'arpege ouverte (EDIT allume) */
   private editing = false;
+  private preset = false;
   private open = false;
   private hover = -1;
   private breath = 1;
@@ -396,6 +398,7 @@ export class VoyKeys {
   private btnRest(i: number): Glow {
     const b = VOY_BUTTONS[i];
     if (b.id === 'open') return this.open ? 'orangeDim' : 'orange';
+    if (b.id === 'preset') return this.preset ? 'orange' : PADS + i === this.hover ? 'hover' : 'off';
     if (b.id === 'edit' && this.editing) return 'active';
     return PADS + i === this.hover ? 'hover' : 'off';
   }
@@ -433,6 +436,14 @@ export class VoyKeys {
     if (on === this.running) return false;
     this.running = on;
     this.ledMat.color.copy(on ? this.ledOn : this.ledOff);
+    return true;
+  }
+
+  /** PRESET allume tant que le mode presets est ouvert ; true s'il faut une frame. */
+  setPreset(on: boolean): boolean {
+    if (on === this.preset) return false;
+    this.preset = on;
+    if (PRESET_I >= 0) this.refreshBtn(PRESET_I);
     return true;
   }
 
@@ -512,7 +523,7 @@ export class VoyKeys {
     this.flashPad(i, PAD_FX.flashMs, now);
   }
 
-  /** Appui sur un bouton : il s'enfonce ; CLEAR et RANDOM eclairent. */
+  /** Appui sur un bouton : il s'enfonce ; CLEAR, RANDOM et PRESET eclairent. */
   pressButton(id: VoyButtonId, now = performance.now()): void {
     const i = this.buttonIndex(id);
     if (i < 0) return;
@@ -520,7 +531,7 @@ export class VoyKeys {
       this.btnY[i] = v;
       this.placeButton(i);
     }, VOY_BUTTON.press, now);
-    if (id === 'clear' || id === 'random') this.flashBtn(i, now);
+    if (id === 'clear' || id === 'random' || id === 'preset') this.flashBtn(i, now);
     this.opts.repaint();
   }
 

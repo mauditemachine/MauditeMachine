@@ -65,7 +65,7 @@ export interface VoyDiagram {
 }
 
 /** Les commandes qui ont leur carte : chaque potard (face et TWEAKS), les pads, les touches, l'ecran et sa touche i. */
-export type VoyInfoId = VoyKnobId | 'pad' | 'run' | 'clear' | 'random' | 'edit' | 'open' | 'screen' | 'presets' | 'seq' | 'infos';
+export type VoyInfoId = VoyKnobId | 'pad' | 'run' | 'clear' | 'random' | 'edit' | 'open' | 'preset' | 'screen' | 'presets' | 'seq' | 'infos';
 
 /** Ce que lit un dessin : la valeur de la commande (0 a 1), toutes les valeurs, le tempo, l'accord regarde. */
 export interface VoyDiagramCtx {
@@ -1366,10 +1366,11 @@ export function voyDiagram(id: VoyInfoId, c: VoyDiagramCtx): VoyDiagram | null {
       return randomDiagram();
     case 'open':
       return openDiagram();
-    case 'screen':
-      return screenDiagram();
+    case 'preset':
     case 'presets':
       return presetsDiagram();
+    case 'screen':
+      return screenDiagram();
     case 'infos':
       return infosDiagram();
     default:

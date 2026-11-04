@@ -1,28 +1,43 @@
 User-agent: *
-Allow: /
-
 # Panneaux d'administration : contenu privé, aucun intérêt pour la recherche
+# (2026-10-11 : les Disallow avant Allow, pour les robots qui prennent la
+# premiere regle qui correspond ; Google prend la plus longue, meme resultat)
 Disallow: /ms-admin/
 Disallow: /v1
 Disallow: /mm-admin
+Allow: /
 
 # Bots IA autorisés : visibilité de l'artiste dans les réponses des assistants
+# (2026-10-03 : les robots de recherche des assistants aussi ; resume : /llms.txt)
+# 2026-10-11 : un seul groupe, avec les memes Disallow que le groupe * : un robot
+# ne suit que le groupe qui le nomme (RFC 9309), sans eux il ne voyait pas les
+# panneaux d'administration ni /v1 comme exclus.
 User-agent: GPTBot
-Allow: /
-
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
 User-agent: ClaudeBot
-Allow: /
-
+User-agent: Claude-SearchBot
 User-agent: PerplexityBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+Disallow: /ms-admin/
+Disallow: /v1
+Disallow: /mm-admin
 Allow: /
 
-# Crawlers SEO commerciaux agressifs : bloqués pour économiser la bande passante
+# 2026-10-21 (audit SEO F12) : AhrefsBot et SemrushBot ne sont plus bloques. Mika veut brancher Ahrefs ou Semrush
+# (audits, liens, mots-cles) : leurs robots doivent voir le site, avec les memes Disallow que le groupe *. La bande
+# passante n'est pas un sujet sur GitHub Pages pour un site de cette taille.
 User-agent: AhrefsBot
-Disallow: /
-
+User-agent: AhrefsSiteAudit
 User-agent: SemrushBot
-Disallow: /
+User-agent: SiteAuditBot
+Disallow: /ms-admin/
+Disallow: /v1
+Disallow: /mm-admin
+Allow: /
 
+# Robot de liens sans outil utile ici : toujours bloque
 User-agent: MJ12bot
 Disallow: /
 

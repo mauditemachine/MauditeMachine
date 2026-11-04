@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sintetizador online gratis con arpegiador | MM-ARP</title>
+    <meta name="description" content="MM-ARP, sintetizador gratis en el navegador: dos osciladores y un sub, filtro ladder, arpegiador, ocho pads de acordes en fa sostenido menor, efectos y MIDI." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://mauditemachine.com/es/mm-studio/sintetizador/" />
+    <link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/synth/" />
+    <link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/synthe/" />
+    <link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/sintetizador/" />
+    <link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/synth/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Maudite Machine" />
+    <meta property="og:title" content="Sintetizador online gratis con arpegiador | MM-ARP" />
+    <meta property="og:description" content="MM-ARP, sintetizador gratis en el navegador: dos osciladores y un sub, filtro ladder, arpegiador, ocho pads de acordes en fa sostenido menor, efectos y MIDI." />
+    <meta property="og:url" content="https://mauditemachine.com/es/mm-studio/sintetizador/" />
+    <meta property="og:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:alt" content="MM-STUDIO by Maudite Machine: una caja de ritmos, un sintetizador y platos DJ gratis, para tocar en el navegador" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:locale:alternate" content="fr_FR" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@mauditemachine" />
+    <meta name="twitter:title" content="Sintetizador online gratis con arpegiador | MM-ARP" />
+    <meta name="twitter:description" content="MM-ARP, sintetizador gratis en el navegador: dos osciladores y un sub, filtro ladder, arpegiador, ocho pads de acordes en fa sostenido menor, efectos y MIDI." />
+    <meta name="twitter:image" content="https://mauditemachine.com/press/mm-studio/og-mm-studio-card.jpg" />
+    <meta name="twitter:image:alt" content="MM-STUDIO by Maudite Machine: una caja de ritmos, un sintetizador y platos DJ gratis, para tocar en el navegador" />
+    <meta name="theme-color" content="#F6F1E7" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="preload" href="/fonts/SF-Pro-Display-Black.woff2" as="font" type="font/woff2" crossorigin />
+    <style>@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Semibold.woff2') format('woff2');font-weight:600;font-display:swap}
+@font-face{font-family:'SF Pro Display';src:url('/fonts/SF-Pro-Display-Black.woff2') format('woff2');font-weight:900;font-display:swap}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:#F6F1E7;color:#191919;font:400 17px/1.6 'SF Pro Display',system-ui,-apple-system,'Segoe UI',sans-serif}
+.top{display:flex;justify-content:space-between;align-items:center;max-width:780px;margin:0 auto;padding:20px 20px 0}
+.top img{display:block;height:24px;width:auto}
+.langs{font-size:13px;font-weight:600;letter-spacing:.12em}.langs a{margin-left:12px}.langs [aria-current]{color:#B04508;text-decoration:none}
+main{max-width:780px;margin:0 auto;padding:12px 20px 72px}
+h1{font-weight:900;font-size:clamp(40px,9vw,72px);line-height:1;letter-spacing:.01em;text-transform:uppercase;margin:40px 0 14px}
+.lead{color:#B04508;font-weight:600;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 28px}
+h2{font-size:13px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;margin:44px 0 12px;padding-top:18px;border-top:1px solid #DDD5C6}
+a{color:#191919;text-decoration-color:#FF6A13;text-underline-offset:3px}
+ul{padding-left:20px;margin:0}li{margin:6px 0}
+.cta{display:inline-block;margin-top:36px;background:#FF6A13;color:#191919;padding:15px 24px;border-radius:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;text-decoration:none}
+footer{max-width:780px;margin:0 auto;padding:0 20px 48px;font-size:13px;color:#6B655B}
+ol{padding-left:22px;margin:0}
+.crumbs{font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin:32px 0 0}.crumbs+h1{margin-top:12px}
+figure{margin:28px 0 0}figure img{display:block;width:100%;height:auto;border-radius:12px}
+h3{font-size:17px;font-weight:600;margin:22px 0 4px}h3+p{margin-top:0}
+.grid-wrap{overflow-x:auto;margin:8px 0 6px;-webkit-overflow-scrolling:touch}
+.grid{border-collapse:separate;border-spacing:2px;font-size:12px;font-variant-numeric:tabular-nums;min-width:520px}
+.grid-note{font-size:14px;color:#6B655B;margin:0 0 6px}
+.grid th{font-weight:600;font-size:11px;padding:2px 4px;white-space:nowrap;text-align:left;color:#6B655B}
+.grid thead th{text-align:center}.grid td{width:24px;height:24px;text-align:center;border-radius:4px;background:#ECE5D8;color:#191919;font-weight:600}
+.grid .b{box-shadow:inset 2px 0 0 #DDD5C6}
+.grid td[data-v="1"],.grid td[data-v="2"],.grid td[data-v="3"]{background:#F3C9A9}
+.grid td[data-v="4"],.grid td[data-v="5"],.grid td[data-v="6"]{background:#F79A5E}
+.grid td[data-v="7"],.grid td[data-v="8"],.grid td[data-v="9"]{background:#FF6A13}</style>
+    <script type="application/ld+json" id="ld-artist">[{"@context":"https://schema.org","@type":"MusicGroup","@id":"https://mauditemachine.com/#artist","name":"Maudite Machine","genre":["Dark Disco","Indie Dance","Indie Electronic"],"location":{"@type":"Place","name":"Montpellier, France","address":{"@type":"PostalAddress","addressLocality":"Montpellier","addressRegion":"Occitanie","addressCountry":"FR"}},"foundingLocation":{"@type":"Place","name":"Montreal, Canada"},"areaServed":["France","Spain","Europe","Canada"],"album":[{"@type":"MusicAlbum","@id":"https://mauditemachine.com/tracks/#limbos-album","name":"Limbos"},{"@type":"MusicAlbum","name":"Voodoo","albumReleaseType":"https://schema.org/SingleRelease","url":"https://mauditemachine.com/tracks/voodoo/"}],"description":"Indie dance and dark disco with a psychedelic edge. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France.","url":"https://mauditemachine.com","sameAs":["https://soundcloud.com/mauditemachine","https://mauditemachine.bandcamp.com","https://instagram.com/mauditemachine","https://facebook.com/MauditeMachine","https://youtube.com/@mauditemachine-official","https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4","https://www.deezer.com/fr/artist/8651600","https://www.mixcloud.com/mauditemachine/","https://www.tiktok.com/@mauditemachine","https://x.com/mauditemachine","https://music.apple.com/us/artist/maudite-machine/1028417516","https://www.beatport.com/artist/maudite-machine/500537","https://www.songkick.com/artists/10363218-maudite-machine","https://linktr.ee/mauditemachine","https://ra.co/dj/mauditemachine","https://www.discogs.com/artist/5831599-Maudite-Machine"]},{"@context":"https://schema.org","@type":"Organization","@id":"https://vrstlrecords.com/#organization","name":"VRSTL Records","url":"https://vrstlrecords.com","description":"Independent electronic music label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.","founder":{"@id":"https://mauditemachine.com/#artist"},"sameAs":["https://vrstlrecords.bandcamp.com","https://www.discogs.com/label/3752945-VRSTL-Records","https://soundcloud.com/vrstlrecords"],"email":"vrstlrecords@gmail.com","address":{"@type":"PostalAddress","addressLocality":"Montréal","addressRegion":"QC","addressCountry":"CA"}},{"@context":"https://schema.org","@type":"WebSite","@id":"https://mauditemachine.com/#website","name":"Maudite Machine","alternateName":"mauditemachine.com","url":"https://mauditemachine.com/","description":"Official website of Maudite Machine, DJ and producer","inLanguage":["en","fr","es"],"about":{"@id":"https://mauditemachine.com/#artist"},"publisher":{"@id":"https://mauditemachine.com/#artist"}}]</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","@id":"https://mauditemachine.com/es/mm-studio/sintetizador/#page","url":"https://mauditemachine.com/es/mm-studio/sintetizador/","name":"Sintetizador online gratis con arpegiador | MM-ARP","description":"MM-ARP, sintetizador gratis en el navegador: dos osciladores y un sub, filtro ladder, arpegiador, ocho pads de acordes en fa sostenido menor, efectos y MIDI.","inLanguage":"es","isPartOf":{"@id":"https://mauditemachine.com/#website"},"author":{"@id":"https://mauditemachine.com/#artist"},"mainEntity":{"@type":"WebApplication","@id":"https://mauditemachine.com/mm-studio/synth/#app","name":"MM-ARP","url":"https://mauditemachine.com/?m=arp","description":"MM-ARP is a free synth in your browser: two oscillators and a sub, a ladder filter, an arpeggiator, eight chord pads in F# minor, effects and MIDI.","applicationCategory":"MultimediaApplication","operatingSystem":"Web browser","browserRequirements":"Requires WebGL 2 and the Web Audio API","isAccessibleForFree":true,"offers":{"@type":"Offer","price":0,"priceCurrency":"EUR"},"creator":{"@id":"https://mauditemachine.com/#artist"},"author":{"@id":"https://mauditemachine.com/#artist"},"featureList":["Arpeggiator: RATE 1/4 to 1/32, UP, DOWN, UP/DN, RAND, one to three octaves","8 chord pads in F# minor","Two oscillators, sub oscillator, FM","Filter with four modes: 24 dB ladder low pass, 12 dB low pass, band pass, high pass","Filter and amp envelopes, LFO synced to the tempo","OVERDRIVE, CHORUS, DELAY, REVERB","SIDECHAIN on the MM-RYTM kick, oscilloscope","MIDI LEARN and a ready-made Roto-Control setup"],"isPartOf":{"@id":"https://mauditemachine.com/mm-studio/#app"},"screenshot":[{"@type":"ImageObject","url":"https://mauditemachine.com/press/mm-studio/mm-studio-arp.jpg","width":2400,"height":1500}]},"primaryImageOfPage":{"@type":"ImageObject","url":"https://mauditemachine.com/press/mm-studio/mm-studio-arp.jpg"}}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Maudite Machine","item":"https://mauditemachine.com/es/"},{"@type":"ListItem","position":2,"name":"MM-STUDIO","item":"https://mauditemachine.com/es/mm-studio/"},{"@type":"ListItem","position":3,"name":"MM-ARP","item":"https://mauditemachine.com/es/mm-studio/sintetizador/"}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","@id":"https://mauditemachine.com/es/mm-studio/sintetizador/#faq","inLanguage":"es","mainEntity":[{"@type":"Question","name":"¿MM-ARP es gratis?","acceptedAnswer":{"@type":"Answer","text":"Sí. MM-ARP es gratis, sin cuenta y sin nada que instalar: funciona en tu navegador, en un ordenador o en el móvil."}},{"@type":"Question","name":"¿Hace falta saber teoría musical?","acceptedAnswer":{"@type":"Answer","text":"No. Los ocho pads de acordes ya están en fa sostenido menor y el arpegiador los toca a tempo: tocas un pad y suena."}},{"@type":"Question","name":"¿Sigue a la caja de ritmos?","acceptedAnswer":{"@type":"Answer","text":"Sí. MM-ARP va al tempo de MM-STUDIO y su SIDECHAIN hace respirar el sintetizador con el bombo de MM-RYTM."}},{"@type":"Question","name":"¿Puedo usar un controlador MIDI?","acceptedAnswer":{"@type":"Answer","text":"Sí. Cada potenciómetro y cada pad se asigna con MIDI LEARN (Chrome, Edge, Opera o Firefox en un ordenador), y el panel MIDI tiene un setup de Roto-Control listo."}},{"@type":"Question","name":"¿Dónde se guardan mis sonidos?","acceptedAnswer":{"@type":"Answer","text":"En tu navegador. SAVE guarda el patch, el arpegio y los acordes como preset (hasta 99), y UNDO, en la cabecera, deshace tus cambios."}}]}</script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-HP92HGMNJT');</script>
+  </head>
+  <body>
+    <div class="top"><a href="https://mauditemachine.com/es/"><img src="/logo/mauditemachine-logo-ink.svg" alt="Maudite Machine" width="140" height="24" /></a><nav class="langs" aria-label="Idioma"><a href="https://mauditemachine.com/mm-studio/synth/" hreflang="en">EN</a><a href="https://mauditemachine.com/fr/mm-studio/synthe/" hreflang="fr">FR</a><a href="https://mauditemachine.com/es/mm-studio/sintetizador/" hreflang="es" aria-current="page">ES</a></nav></div>
+    <main>
+      <nav class="crumbs" aria-label="Ruta"><a href="https://mauditemachine.com/es/mm-studio/">MM-STUDIO</a> / MM-ARP</nav>
+      <h1>MM-ARP</h1>
+      <p class="lead">Sintetizador y arpegiador · MM-STUDIO by Maudite Machine</p>
+      <p>MM-ARP es el sintetizador de MM-STUDIO by Maudite Machine, un estudio en 3D gratis que se toca en el navegador, sin cuenta ni instalación. Construyes una progresión de acordes en ocho pads y el arpegiador la toca a tempo con MM-RYTM.</p>
+      <h2>Acordes y arpegiador</h2>
+      <p>Los ocho pads llevan ocho acordes de fa sostenido menor (F#m, D, E, C#m, Bm, A, F#m7, Dmaj7), así que cada nota queda en la tonalidad. Cada pad que tocas añade un compás a la progresión; si lo tocas otra vez, sale. RATE va de 1/4 a 1/32, MODE toca UP, DOWN, UP/DN o RAND, y RANGE cubre de una a tres octavas. EDIT abre una pantalla para dibujar tus propias notas.</p>
+      <h2>El sonido</h2>
+      <p>Dos osciladores pasan de la onda senoidal a la triangular, la de sierra, la cuadrada y la de pulso, con un sub una o dos octavas por debajo y FM en el primer oscilador. El filtro tiene cuatro modos (paso bajo ladder de 24 dB, paso bajo de 12 dB, paso banda, paso alto) y su propia envolvente. Una envolvente de volumen, un LFO sincronizado con el tempo y OVERDRIVE, CHORUS, DELAY y REVERB completan la voz.</p>
+      <h2>Bajo la tapa</h2>
+      <p>OPEN levanta la tapa sobre los TWEAKS (PHASE, DRIFT, WIDTH, BASS MONO, KEY TRACK, ACCENT, SYNC, SIDECHAIN, CHORD) y SCOPE, un osciloscopio. SIDECHAIN baja el sintetizador bajo cada bombo de MM-RYTM; CHORD convierte el arpegio en acordes encadenados, de la tríada a la oncena.</p>
+      <h2>Cómo tocar</h2>
+      <ol><li>Abre <a href="https://mauditemachine.com/?m=arp">MM-ARP</a>.</li><li>Toca algunos pads de acordes, o las teclas A S D F G H J K.</li><li>Pulsa RUN/STOP o la barra espaciadora; MM-RYTM puede sonar con él.</li><li>Gira CUTOFF y RES mientras suena y guarda el preset con SAVE.</li></ol>
+      <h2>MIDI, navegadores y accesibilidad</h2>
+      <p>Cada control se asigna con MIDI LEARN. La configuración de Roto-Control, que se descarga en el panel MIDI y se importa en ROTO-SETUP, pone los acordes en sus botones, sin MIDI LEARN. MM-ARP necesita WebGL 2 y la Web Audio API; Web MIDI funciona en Chrome, Edge, Opera y Firefox. Cada potenciómetro y cada pad tiene un gemelo HTML con nombre para el teclado y los lectores de pantalla.</p>
+      <h2>Preguntas frecuentes</h2>
+      <h3>¿MM-ARP es gratis?</h3><p>Sí. MM-ARP es gratis, sin cuenta y sin nada que instalar: funciona en tu navegador, en un ordenador o en el móvil.</p>
+      <h3>¿Hace falta saber teoría musical?</h3><p>No. Los ocho pads de acordes ya están en fa sostenido menor y el arpegiador los toca a tempo: tocas un pad y suena.</p>
+      <h3>¿Sigue a la caja de ritmos?</h3><p>Sí. MM-ARP va al tempo de MM-STUDIO y su SIDECHAIN hace respirar el sintetizador con el bombo de MM-RYTM.</p>
+      <h3>¿Puedo usar un controlador MIDI?</h3><p>Sí. Cada potenciómetro y cada pad se asigna con MIDI LEARN (Chrome, Edge, Opera o Firefox en un ordenador), y el panel MIDI tiene un setup de Roto-Control listo.</p>
+      <h3>¿Dónde se guardan mis sonidos?</h3><p>En tu navegador. SAVE guarda el patch, el arpegio y los acordes como preset (hasta 99), y UNDO, en la cabecera, deshace tus cambios.</p>
+      <h2>Quién lo hizo</h2>
+      <p>Mika diseñó y construyó MM-ARP y el resto de MM-STUDIO. Como Maudite Machine es DJ y productor, con base en Montpellier, y dirige VRSTL Records.</p>
+      <ul><li><a href="https://mauditemachine.com/es/mm-studio/">MM-STUDIO, vista general</a></li><li><a href="https://mauditemachine.com/es/mm-studio/caja-de-ritmos/">Caja de ritmos MM-RYTM</a></li><li><a href="https://mauditemachine.com/es/mm-studio/platos-dj/">Platos DJ MM-DECKS</a></li><li><a href="https://mauditemachine.com/press/">Material de prensa</a></li><li><a href="https://mauditemachine.com/contact/">Contacto</a></li><li><a href="https://mauditemachine.com/es/mm-studio/ritmos/">Ritmos de batería para 10 estilos, con archivos MIDI</a></li><li><a href="https://mauditemachine.com/tracks/">Escuchar los temas de Maudite Machine</a></li></ul>
+      <figure><img src="/press/mm-studio/mm-studio-arp.jpg" alt="El sintetizador MM-ARP de MM-STUDIO by Maudite Machine, en 3D" width="2400" height="1500" loading="lazy" /></figure>
+      <a class="cta" href="https://mauditemachine.com/?m=arp">Tocar MM-ARP</a>
+    </main>
+    <footer>MM-STUDIO by Maudite Machine · VRSTL Records</footer>
+  </body>
+</html>

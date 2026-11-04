@@ -14,9 +14,9 @@ import { TRACK_NAMES, trackIndex, tracks, type KitModel, type SrcMachine, type T
 import { lcdMessage } from '../../../state/lcdMessage';
 import { PRESET_SLOTS, presetMode, type PresetSlot } from '../../../state/presetMode';
 import type { Screen } from '../core';
-import { BLACK, HALF, INK } from '../consts';
+import { BLACK, FAINT, HALF, INK } from '../consts';
 import { registerScreenMenu, type ScreenMenu } from './registry';
-import { DIM_TEXT, acting, paintHint, paintList, paintPanel, paintPopupBox, stepCursor, type MenuRow } from './frame';
+import { DIM_TEXT, acting, paintHint, paintList, paintPanel, paintPopupBox, scrollTop, stepCursor, type MenuRow } from './frame';
 import { menuChanged, screenTrack, setOpenMenu } from './open';
 
 const M = 'mm808' as const;
@@ -55,15 +55,15 @@ const TRACK_SOUND_PRESETS: readonly TrackSoundPreset[] = [
   { name: '909 OPEN HAT', tag: 'OH', mach: 'oh', model: '909', snd: 'oh/90-909-Open-Hat.wav', params: { syn: 0.5, slev: 0.9, sddecay: 0.55 } },
   { name: 'RAVE RIDE BELL', tag: 'OH', mach: 'oh', model: '909', snd: 'oh/92-Rave-Ride-Bell.wav', params: { syn: 0.35, slev: 0.92, reverb: 0.2 } },
   { name: 'DARK DISCO CLAP', tag: 'CP', mach: 'cp', model: '808', snd: 'cp/03-Dark-Disco-Clap.wav', params: { syn: 0.45, slev: 0.9, gate: 1, reverb: 0.28 } },
-  { name: 'ACID 303 SQUELCH', tag: 'SYN', mach: 'tom', model: '909', snd: 'tom/03-Acid-303-Squelch.wav', params: { syn: 0.4, slev: 0.95, cutoff: 0.72, res: 0.55, delay: 0.28 } },
-  { name: 'REESE SUB BASS', tag: 'SYN', mach: 'tom', model: '808', snd: 'tom/04-Reese-Sub-Bass.wav', params: { syn: 0.5, slev: 0.95, cutoff: 0.48, drive: 0.25 } },
-  { name: 'FM DONK BASS', tag: 'SYN', mach: 'tom', model: '808', snd: 'tom/05-Donk-FM-Bass.wav', params: { syn: 0.45, slev: 0.95, sddecay: 0.45 } },
-  { name: 'EBM OCTAVE BASS', tag: 'SYN', mach: 'tom', model: '909', snd: 'tom/06-EBM-Octave-Bass.wav', params: { syn: 0.45, slev: 0.95, drive: 0.35 } },
-  { name: 'DUB TECHNO CHORD', tag: 'SYN', mach: 'ht', model: 'mm', snd: 'ht/02-Dub-Techno-Chord.wav', params: { syn: 0.25, slev: 0.95, delay: 0.5, reverb: 0.42 } },
-  { name: 'DETROIT STAB', tag: 'SYN', mach: 'ht', model: '909', snd: 'ht/03-Detroit-Minor-Stab.wav', params: { syn: 0.3, slev: 0.95, delay: 0.35, reverb: 0.28 } },
-  { name: 'RAVE HOOVER STAB', tag: 'SYN', mach: 'ht', model: '909', snd: 'ht/04-Rave-Hoover-Stab.wav', params: { syn: 0.35, slev: 0.92, delay: 0.3, drive: 0.25 } },
-  { name: 'ITALO ARP PLUCK', tag: 'SYN', mach: 'ht', model: '808', snd: 'ht/05-Italo-Arp-Pluck.wav', params: { syn: 0.35, slev: 0.92, delay: 0.28 } },
-  { name: 'TRANCE SUPERSAW', tag: 'SYN', mach: 'cy', model: 'mm', snd: 'cy/05-Trance-Supersaw.wav', params: { syn: 0.2, slev: 0.95, delay: 0.38, reverb: 0.35 } },
+  { name: '808 COWBELL', tag: 'CY', mach: 'cy', model: '808', snd: 'cy/02-808-Cowbell.wav', params: { syn: 0.5, slev: 0.9, delay: 0.22 } },
+  { name: '909 CRASH CYMBAL', tag: 'CY', mach: 'cy', model: '909', snd: 'cy/01-909-Crash-Cymbal.wav', params: { syn: 0.45, slev: 0.92, reverb: 0.28 } },
+  { name: '808 CONGA LOW', tag: 'TOM', mach: 'tom', model: '808', snd: 'tom/02-808-Conga-Low.wav', params: { syn: 0.6, slev: 0.9, sddecay: 0.48 } },
+  { name: 'AFRO WOOD LOG', tag: 'HT', mach: 'ht', model: 'mm', snd: 'ht/06-Afro-Wood-Log.wav', params: { syn: 0.5, slev: 0.9, reverb: 0.18 } },
+  { name: 'JUNGLE GHOST HAT', tag: 'CH', mach: 'ch', model: '909', snd: 'ch/05-Jungle-Ghost-Hat.wav', params: { syn: 0.45, slev: 0.9, sddecay: 0.38 } },
+  { name: '808 SIZZLE HAT', tag: 'OH', mach: 'oh', model: '808', snd: 'oh/91-808-Sizzle-Hat.wav', params: { syn: 0.5, slev: 0.9, sddecay: 0.52 } },
+  { name: 'MINIMAL FINGER SNAP', tag: 'CP', mach: 'cp', model: '808', snd: 'cp/04-Minimal-Finger-Snap.wav', params: { syn: 0.4, slev: 0.9, sddecay: 0.35 } },
+  { name: 'INDUSTRIAL WHIP', tag: 'CP', mach: 'cp', model: '909', snd: 'cp/05-Industrial-Whip.wav', params: { syn: 0.55, slev: 0.92, reverb: 0.32 } },
+  { name: '808 TICK HAT', tag: 'CH', mach: 'ch', model: '808', snd: 'ch/02-808-Tick-Hat.wav', params: { syn: 0.4, slev: 0.9, sddecay: 0.32 } },
 ];
 
 const ROOT: readonly MenuRow[] = [
@@ -102,6 +102,9 @@ function applyTrackPreset(idx: number): void {
   lcdMessage.show(`${tName}: ${p.name} (${p.model.toUpperCase()} + SMP)`, 1500);
 }
 
+const KIT_VISIBLE_ROWS = 11;
+let kitTop = 0;
+
 function paint(screen: Screen): number {
   if (level === 'sound') {
     const tk = screenTrack() ?? 'BD';
@@ -119,15 +122,77 @@ function paint(screen: Screen): number {
   if (!presetMode.on(M) || level === 'root') enterKit();
   const v = presetMode.view(M);
   if (!v) return 0;
-  // La liste : la ligne d'avant, le curseur en grand, celle d'apres ; le rang et le titre
-  screen.text(v.title, 8, 36, 8, HALF, 700, 'left', 0.6);
-  screen.text(`${v.group ? `${v.group}  ` : ''}${v.count}`, 312, 36, 8, HALF, 700, 'right', 0.5);
-  if (v.prev) screen.text(screen.fitText(v.prev, 296, 10, 0.4, 600), 12, 62, 10, DIM_TEXT, 600, 'left', 0.4);
-  screen.roundRect(4, 72, 306, 30, 4, INK);
-  const mark = v.mark === 'edited' ? ' *' : v.mark === 'loaded' ? '  (LOADED)' : '';
-  screen.text(screen.fitText(`${v.empty ? 'NO PRESETS' : v.name}${mark}`, 290, 15, 0.4, 600), 12, 92.5, 15, BLACK, 600, 'left', 0.4);
-  if (v.next) screen.text(screen.fitText(v.next, 296, 10, 0.4, 600), 12, 122, 10, DIM_TEXT, 600, 'left', 0.4);
-  body = `${v.stage}|${v.prev}|>${v.name}${mark}|${v.next}|${v.count}`;
+
+  if (v.list && v.list.length > 0) {
+    const curIdx = v.list.findIndex((item) => item.index === v.selectedIndex);
+    const sel = curIdx >= 0 ? curIdx : 0;
+    kitTop = scrollTop(kitTop, sel, v.list.length, KIT_VISIBLE_ROWS);
+
+    // Titre et compteur
+    screen.text(v.title === 'PRESETS' ? 'KIT LIBRARY' : v.title, 8, 33, 7.5, HALF, 700, 'left', 0.6);
+    screen.text(`${v.group ? `${v.group}  ` : ''}${v.count}`, 312, 33, 7.5, HALF, 700, 'right', 0.5);
+
+    const ROW_H = 12.2;
+    const START_Y = 37;
+    const LIST_W = 302;
+    const X0 = 6;
+
+    for (let r = 0; r < KIT_VISIBLE_ROWS && kitTop + r < v.list.length; r += 1) {
+      const item = v.list[kitTop + r];
+      const y = START_Y + r * ROW_H;
+      const isSel = item.index === v.selectedIndex;
+
+      if (isSel) {
+        screen.roundRect(X0, y + 0.4, LIST_W, ROW_H - 0.8, 2, INK);
+      }
+
+      // Rang 01..24
+      const numStr = String(item.index >= 0 ? item.index + 1 : item.index).padStart(2, '0');
+      screen.text(numStr, X0 + 5, y + 8.8, 7.0, isSel ? BLACK : HALF, 700, 'left', 0.3);
+
+      // Nom du preset/kit
+      const cleanName = item.name.replace(/\*+$/, '').trim();
+      screen.text(screen.fitText(cleanName, 185, 7.6, 0.4, 700), X0 + 24, y + 8.8, 7.6, isSel ? BLACK : INK, 700, 'left', 0.4);
+
+      // Metadonnees / Statut a droite (LOADED, EDITED *, BPM)
+      let rightText = '';
+      if (item.loaded) {
+        rightText = item.edited ? 'EDITED *' : 'LOADED';
+      } else if (item.bpm) {
+        rightText = `${item.bpm} BPM`;
+      }
+      if (rightText) {
+        const tagFg = isSel ? BLACK : item.loaded ? INK : HALF;
+        screen.text(rightText, X0 + LIST_W - 5, y + 8.8, 7.0, tagFg, 600, 'right', 0.3);
+      }
+    }
+
+    // Barre de defilement fine
+    if (v.list.length > KIT_VISIBLE_ROWS) {
+      const sbX = 314;
+      const sbY0 = START_Y + 1;
+      const sbY1 = START_Y + KIT_VISIBLE_ROWS * ROW_H - 2;
+      const sbH = sbY1 - sbY0;
+      screen.line([sbX, sbY0, sbX, sbY1], FAINT, 1);
+      const thumbH = Math.max(10, (sbH * KIT_VISIBLE_ROWS) / v.list.length);
+      const thumbY = sbY0 + ((sbH - thumbH) * kitTop) / Math.max(1, v.list.length - KIT_VISIBLE_ROWS);
+      screen.line([sbX, thumbY, sbX, thumbY + thumbH], INK, 2);
+    }
+
+    body = `${v.stage}|${v.list.map((it) => `${it.index === v.selectedIndex ? '>' : ''}${it.name}`).slice(kitTop, kitTop + KIT_VISIBLE_ROWS).join('|')}|${v.count}`;
+  } else {
+    // Repli de secours
+    screen.text(v.title, 8, 36, 8, HALF, 700, 'left', 0.6);
+    screen.text(`${v.group ? `${v.group}  ` : ''}${v.count}`, 312, 36, 8, HALF, 700, 'right', 0.5);
+    if (v.prev) screen.text(screen.fitText(v.prev, 296, 10, 0.4, 600), 12, 62, 10, DIM_TEXT, 600, 'left', 0.4);
+    screen.roundRect(4, 72, 306, 30, 4, INK);
+    const cleanName = v.name.replace(/\*+$/, '').trim();
+    const mark = v.mark === 'edited' ? ' *' : v.mark === 'loaded' ? '  (LOADED)' : '';
+    screen.text(screen.fitText(`${v.empty ? 'NO PRESETS' : cleanName}${mark}`, 290, 15, 0.4, 600), 12, 92.5, 15, BLACK, 600, 'left', 0.4);
+    if (v.next) screen.text(screen.fitText(v.next, 296, 10, 0.4, 600), 12, 122, 10, DIM_TEXT, 600, 'left', 0.4);
+    body = `${v.stage}|${v.prev}|>${cleanName}${mark}|${v.next}|${v.count}`;
+  }
+
   if (v.stage === 'name' && v.naming) {
     const n = v.naming;
     body += `|NAME ${n.text}@${n.at}`;
@@ -140,7 +205,7 @@ function paint(screen: Screen): number {
   } else if (level === 'ops') {
     body += `|${paintPanel(screen, 'right', 'OPERATIONS', OPS.map((o) => ({ label: o.label })), opCursor)}`;
   }
-  paintHint(screen, level === 'ops' ? 'UP/DOWN: CHOOSE   YES: DO IT   NO: BACK' : 'UP/DOWN: PRESET   YES: LOAD   RIGHT: OPERATIONS   NO: BACK');
+  paintHint(screen, level === 'ops' ? 'UP/DOWN: CHOOSE   YES: DO IT   NO: BACK' : 'DATA / WHEEL: SCROLL   YES: LOAD   RIGHT: OPS   NO: BACK');
   return 0;
 }
 

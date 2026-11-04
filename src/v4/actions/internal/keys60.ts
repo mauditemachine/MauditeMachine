@@ -894,26 +894,25 @@ export function subPage(dir: -1 | 1): void {
  */
 export function ptnPageTap(): void {
   const open = dtFace.menu() === 'pagesetup';
-  if (!open) menuSet('pagesetup');
+  if (!open) {
+    menuSet('pagesetup');
+    const totalSteps = pattern.stepCount?.() ?? (pattern.pageCount() * 16);
+    const cur = pattern.editPage();
+    const cnt = pattern.pageCount();
+    dtFace.setPtnPage(cur);
+    lcdMessage.show(`SEQ ${totalSteps} STEPS · EDIT P${cur + 1}/${cnt}`, 1400, true);
+    return;
+  }
   const cnt = pattern.pageCount();
   const cur = pattern.editPage();
-  if (!open && cnt === 1) {
-    pattern.setPageCount(2);
-    pattern.setEditPage(1);
-  } else if (cur + 1 < cnt) {
-    pattern.setEditPage((cur + 1) as 0 | 1 | 2 | 3);
-  } else if (cnt < 4) {
-    const nextCnt = (cnt + 1) as 1 | 2 | 3 | 4;
-    pattern.setPageCount(nextCnt);
-    pattern.setEditPage((nextCnt - 1) as 0 | 1 | 2 | 3);
-  } else {
-    pattern.setPageCount(1);
-    pattern.setEditPage(0);
+  if (cnt > 1) {
+    const nextEdit = ((cur + 1) % cnt) as 0 | 1 | 2 | 3;
+    pattern.setEditPage(nextEdit);
+    dtFace.setPtnPage(nextEdit);
   }
   const newEdit = pattern.editPage();
-  const newCnt = pattern.pageCount();
-  dtFace.setPtnPage(newEdit);
-  lcdMessage.show(`SEQ ${newCnt * 16} STEPS · EDIT P${newEdit + 1}/${newCnt} (${newEdit * 16 + 1}-${(newEdit + 1) * 16})`, 1600, true);
+  const totalSteps = pattern.stepCount?.() ?? (cnt * 16);
+  lcdMessage.show(`SEQ ${totalSteps} STEPS · EDIT P${newEdit + 1}/${cnt}`, 1400, true);
 }
 
 /** FUNC + PAGE : ouvre ou ferme la configuration des pages du sequenceur (16 / 32 / 48 / 64 pas). */

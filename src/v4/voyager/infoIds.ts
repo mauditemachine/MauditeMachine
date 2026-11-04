@@ -79,6 +79,7 @@ export const VOY_INFO_SECTION: Readonly<Record<VoyInfoId, string>> = {
   clear: 'TRANSPORT',
   random: 'TRANSPORT',
   edit: 'TRANSPORT',
+  preset: 'PRESETS',
   open: 'TRANSPORT',
   screen: 'SCREEN',
   presets: 'SCREEN',
@@ -95,10 +96,9 @@ export function voyInfoIdOf(hotspot: string): VoyInfoId | null {
   if (hotspot.startsWith('vpad-')) return 'pad';
   if (hotspot.startsWith('vbtn-')) {
     const id = hotspot.slice(5);
-    return id === 'run' || id === 'clear' || id === 'random' || id === 'edit' || id === 'open' ? id : null;
+    return id === 'run' || id === 'clear' || id === 'random' || id === 'edit' || id === 'open' || id === 'preset' ? id : null;
   }
-  if (hotspot === 'vlcd-open') return 'screen';
-  if (hotspot.startsWith('vlcd-')) return 'presets';
+  if (hotspot === 'vlcd-open' || hotspot.startsWith('vlcd-')) return 'presets';
   if (hotspot === 'vseq') return 'seq';
   if (hotspot === 'vinfo') return 'infos';
   return null;

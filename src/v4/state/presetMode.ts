@@ -292,6 +292,16 @@ function startNaming(m: PresetMachine, kind: 'new' | 'rename', id: string | null
   commit({ ...state, stage: 'name', naming: { kind, id, draft: { user: u, name, cursor }, problem: '', askUser, was }, note: '' });
 }
 
+export interface PresetRowItem {
+  index: number;
+  label: string;
+  name: string;
+  kind: 'draft' | 'user' | 'factory';
+  loaded: boolean;
+  edited: boolean;
+  bpm?: number;
+}
+
 /** Le texte de l'ecran en mode presets (20 colonnes ou plus, selon l'ecran). */
 export interface PresetView {
   stage: PresetStage;
@@ -318,6 +328,9 @@ export interface PresetView {
   kind: 'user' | 'factory' | 'draft' | 'none';
   /** stage name : la ligne USER/NAME et la case du curseur (potard B), ce que les regles reprochent */
   naming: { text: string; at: number; problem: string; kind: 'new' | 'rename' } | null;
+  /** tous les kits / presets de la liste pour affichage complet (6 lignes) */
+  list?: readonly PresetRowItem[];
+  selectedIndex?: number;
 }
 
 /** Les jumeaux (lecteurs d'ecran, clavier) : le nom des touches qui ne changent pas. */
@@ -560,6 +573,15 @@ export const presetMode = {
     if (id) last[m] = id;
     commit({ ...state, index: i, note: '' });
   },
+  /** Selectionner directement un rang de la liste (ex: clic, saut direct). */
+  select(m: PresetMachine, target: number): void {
+    if (state.machine !== m || state.stage !== 'browse') return;
+    const at = clampIndex(m, target);
+    if (at === state.index && !state.note) return;
+    const id = rowId(rowAt(m, at));
+    if (id) last[m] = id;
+    commit({ ...state, index: at, note: '' });
+  },
   /**
    * Un potard de la face du MM-RYTM tourne de d crans pendant le mode (2026-10-27, desktop : l'ecran ne se touche
    * pas) : sur la liste, il deplace le curseur (le potard A d'abord, l'ecran le dit, mais tous) ; sur le nom, A tourne la
@@ -649,7 +671,30 @@ export const presetMode = {
     const prev = state.stage === 'browse' && i - 1 >= lo ? rowLabel(rowAt(m, i - 1)) : '';
     const next = state.stage === 'browse' && i + 1 <= hi ? rowLabel(rowAt(m, i + 1)) : '';
     const line = m === 'bass' ? (r.kind === 'draft' ? bassLine({ id: r.draft.id, name: '', at: r.draft.at, data: r.draft.data }) : r.kind === 'none' ? null : bassLine(r.preset)) : null;
-    const base = { stage: state.stage, keys, aria, prev, next, mark, kind: r.kind, naming: null, ...(line && state.stage !== 'name' ? { line } : {}) } as const;
+    const listItems: PresetRowItem[] = [];
+    if (state.stage === 'browse') {
+      for (let idx = lo; idx <= hi; idx += 1) {
+        const rItem = rowAt(m, idx);
+        if (rItem.kind === 'none') continue;
+        const rowIdVal = rowId(rItem);
+        const isRowLoaded = !!loaded && rowIdVal === loaded.id;
+        const bpm =
+          (rItem.kind === 'factory' || rItem.kind === 'user') && rItem.preset.data && typeof (rItem.preset.data as { bpm?: number }).bpm === 'number'
+            ? (rItem.preset.data as { bpm?: number }).bpm
+            : undefined;
+        const rawName = rItem.kind === 'draft' ? rowLabel(rItem) : (rItem.preset.name || rowLabel(rItem));
+        listItems.push({
+          index: idx,
+          label: rowLabel(rItem),
+          name: rawName,
+          kind: rItem.kind,
+          loaded: isRowLoaded,
+          edited: isRowLoaded && !!loaded.edited,
+          bpm,
+        });
+      }
+    }
+    const base = { stage: state.stage, keys, aria, prev, next, mark, kind: r.kind, naming: null, list: listItems, selectedIndex: i, ...(line && state.stage !== 'name' ? { line } : {}) } as const;
     if (state.stage === 'name' && state.naming) {
       const nm = state.naming;
       const ln = draftLine(nm.draft);

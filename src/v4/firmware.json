@@ -1,8 +1,8 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "6.6",
-    "fingerprint": "sha256:8b46f4e1925738d7cc0318781daee67d928b3d0ed04f65f2653ff83a642e972f",
+    "version": "6.7",
+    "fingerprint": "sha256:1a5dcc566f2fb58946ef567f887f4bae9a5800b8e6f4a9a7972a03c768474350",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -20,15 +20,17 @@
       { "version": "6.3", "date": "2026-11-02", "note": "Bouton OPEN a droite de TEMPO et suppression des 4 fleches de facade", "sha": "9b1ccb88" },
       { "version": "6.4", "date": "2026-11-02", "note": "Suppression du texte compresse sous l ecran et ajout du logotype sur la machine", "sha": "a23c97b4" },
       { "version": "6.5", "date": "2026-11-02", "note": "filtre des samples par famille sur piste active", "sha": "c3926025" },
-      { "version": "6.6", "date": "2026-11-02", "note": "support mobile Deck A", "sha": "4996343d" }
+      { "version": "6.6", "date": "2026-11-02", "note": "support mobile Deck A", "sha": "4996343d" },
+      { "version": "6.7", "date": "2026-11-03", "note": "amelioration affichage et navigation presets 6 lignes et tempos", "sha": "f96ca4f1" }
     ]
   },
   "voy": {
     "name": "MM-ARP",
-    "version": "2.4",
-    "fingerprint": "sha256:2d2f78420f7db21d59e9e3c8c72baf61114e78c3aa347196f89ee1e1c48ad8d2",
+    "version": "2.5",
+    "fingerprint": "sha256:bebc295d3db7678b0fed12351496f7a011c9f098a3b98df73e1f58cdf71fec4a",
     "history": [
-      { "version": "2.4", "date": "2026-11-02", "note": "logotype sous le bouton volume", "sha": "f233efd9" }
+      { "version": "2.4", "date": "2026-11-02", "note": "logotype sous le bouton volume", "sha": "f233efd9" },
+      { "version": "2.5", "date": "2026-11-03", "note": "bouton dedie preset et liste presets", "sha": "f96ca4f1" }
     ]
   },
   "bass": { "name": "MM-BASS", "version": "3.0", "fingerprint": "sha256:4f3a80e5cde06693b4f8337b69ba811df385207e84d20ca93995295b1b97ea55", "history": [] }

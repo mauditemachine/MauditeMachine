@@ -515,39 +515,31 @@ export const voyPadAt = (i: number): { x: number; z: number } => ({
   z: VOY_PAD.zs[Math.floor(i / VOY_PAD.perRow)],
 });
 
-export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'open';
+export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'preset' | 'open';
 
 /**
  * Boutons du plateau (2026-10-03 : les pages sont passees sur la carte,
- * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM, EDIT (2026-10-04 : ouvre la suite
- * de l'arpege, state/editor.ts) et OPEN, a droite de l'ecran (desktop :
- * l'arpegiateur a sa gauche) ou en rangee sous lui (portrait).
- */
-/**
- * Desktop, depuis le grand ecran (2026-10-08) : deux rangees a droite de
- * l'ecran, en miroir de l'arpegiateur (ses quatre puis trois potards en
- * quinconce) : en haut CLEAR, RANDOM, EDIT ; en bas, entre elles, RUN/STOP
- * (le transport sous la main, comme sur les Elektron) et OPEN. Une rangee
- * de cinq a z 0.85 avant (x 2.5 a 5.65). L'ordre du tableau (pads.ts,
- * jumeaux) ne change pas.
+ * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM, EDIT, PRESET (demande de Mika 2026-11-03:
+ * bouton dedie aux presets sur le plateau) et OPEN.
  */
 const DESK_KEY_X = [3.55, 4.55, 5.55] as const;
 const DESK_KEY_Z = [0.8, 1.86] as const;
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
-  ? // Plus gros au telephone (2026-10-05, Mika : "trop difficile a attraper") : 1.15 x 0.6 avant ; 1.3 x 0.68 jusqu'au 2026-10-07 ; z 1.6 jusqu'au grand ecran
-    [
-      { id: 'run', label: 'RUN/STOP', x: -2.9, z: 2.38, w: 1.36, d: 0.78 },
-      { id: 'clear', label: 'CLEAR', x: -1.45, z: 2.38, w: 1.36, d: 0.78 },
-      { id: 'random', label: 'RANDOM', x: 0, z: 2.38, w: 1.36, d: 0.78 },
-      { id: 'edit', label: 'EDIT', x: 1.45, z: 2.38, w: 1.36, d: 0.78 },
-      { id: 'open', label: 'OPEN', x: 2.9, z: 2.38, w: 1.36, d: 0.78 },
+  ? [
+      { id: 'run', label: 'RUN/STOP', x: -2.75, z: 2.38, w: 1.02, d: 0.78 },
+      { id: 'clear', label: 'CLEAR', x: -1.65, z: 2.38, w: 1.02, d: 0.78 },
+      { id: 'random', label: 'RANDOM', x: -0.55, z: 2.38, w: 1.02, d: 0.78 },
+      { id: 'edit', label: 'EDIT', x: 0.55, z: 2.38, w: 1.02, d: 0.78 },
+      { id: 'preset', label: 'PRESET', x: 1.65, z: 2.38, w: 1.02, d: 0.78 },
+      { id: 'open', label: 'OPEN', x: 2.75, z: 2.38, w: 1.02, d: 0.78 },
     ]
   : [
-      { id: 'run', label: 'RUN/STOP', x: between(DESK_KEY_X[0], DESK_KEY_X[1]), z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
+      { id: 'run', label: 'RUN/STOP', x: DESK_KEY_X[0], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
       { id: 'clear', label: 'CLEAR', x: DESK_KEY_X[0], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
       { id: 'random', label: 'RANDOM', x: DESK_KEY_X[1], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
       { id: 'edit', label: 'EDIT', x: DESK_KEY_X[2], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
-      { id: 'open', label: 'OPEN', x: between(DESK_KEY_X[1], DESK_KEY_X[2]), z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
+      { id: 'preset', label: 'PRESET', x: DESK_KEY_X[1], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
+      { id: 'open', label: 'OPEN', x: DESK_KEY_X[2], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
