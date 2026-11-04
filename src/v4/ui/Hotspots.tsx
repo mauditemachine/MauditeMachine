@@ -1124,9 +1124,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // Appui long : il montrait la velocite (2026-10-05 ; il vidait le pas avant) ; une tape change le pas
         // (en LOCK, elle deplace le LOCK, actions.ts stepToggle) ; une tenue du LOCK (2026-10-08) a deja tout fait
         if (d.lockHold) return d.id;
-        // Le mode MUTE (V.5.0) : une tenue a deja mis le SOLO
+        // Le mode MUTE (V.5.0) ou SOLO (V.6.0) : une tenue a deja mis le SOLO
         if (d.holdFired) return d.id;
-        if (stage.orbit.lastTap.ms < STEP_HOLD_MS || (DT_FACE && muteView())) stepToggle(d.index, stage);
+        if (stage.orbit.lastTap.ms < STEP_HOLD_MS || (DT_FACE && (muteView() || dtFace.solo()))) stepToggle(d.index, stage);
       }
       // V.5.0 au desktop : PLAY (la pause, la reprise ; FUNC + PLAY : CLEAR), REC, STOP, YES, NO ; FUNC a agi a l'appui
       else if (d.kind === 'run') playKey(stage);
@@ -1654,7 +1654,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         }
         // V.5.0 au desktop : FUNC + un pas part a la tape (ni P-LOCK ni velocite) ; le mode MUTE, une tenue de
         // DT_GESTURE.muteHoldMs met la voix en SOLO ; hors REC, la tenue ne met pas de P-LOCK (stepHoldHint le dit)
-        if (DT_FACE && dt && !dt.info && editor.get() !== 'mm808' && (func.engaged() || muteView() || (DT2_FACE && gestureLayer.on('settings')))) {
+        if (DT_FACE && dt && !dt.info && editor.get() !== 'mm808' && (func.engaged() || muteView() || (DT2_FACE && dtFace.solo()) || (DT2_FACE && gestureLayer.on('settings')))) {
           if (!func.engaged()) {
             window.setTimeout(() => {
               const d = downs.get(pid);
@@ -1979,7 +1979,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // (V.4.2 : un potard de la face non plus quand l'ecran ne se touche pas : la tape du potard SOUND la tient ouverte, comme il la tourne ;
         // ni un clic sur l'ecran lui-meme, inerte au desktop : 2026-10-27, la revue, une ligne cliquee fermait la liste)
         // V.5.0 au desktop (la revue de D1, G11) : hors REC, un pas 1 a 8 est le pad de sa voix, la liste suit la voix choisie
-        const padStep = DT_FACE && d.kind === 'step' && d.index !== undefined && d.index < 8 && (!stepWrites() || liveOn()) && editor.get() !== 'mm808' && !muteView() && !trk.engaged();
+        const padStep = DT_FACE && d.kind === 'step' && d.index !== undefined && d.index < 8 && (!stepWrites() || liveOn()) && editor.get() !== 'mm808' && !muteView() && !dtFace.solo() && !trk.engaged();
         if (tap && lcdSamples.isOpen() && !(DT2_FACE && dtFace.menu() === 'sounds') && d.kind !== 'sbrowse' && d.kind !== 'pad' && !padStep && !(d.kind === 'penc' && !SCREEN_TOUCH) && !(!SCREEN_TOUCH && stage.hit.onScreen(mx, my))) soundBrowserClose();
         // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
         const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;

@@ -237,6 +237,7 @@ export function escape(fromNo = false): boolean {
   }
   if (DT2_FACE && dtFace.solo() && focus.get() === 'mm808') {
     dtFace.setSolo(false);
+    voices.disarm('solo');
     lcdMessage.show('SOLO MODE OFF');
     return true;
   }
