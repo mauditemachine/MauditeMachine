@@ -12,7 +12,7 @@ import { lcdMessage } from '../state/lcdMessage';
 import { voices } from '../state/voices';
 import { LCD_MUTE_HINT, PORTRAIT, DT2_FACE } from '../theme';
 import { dtFace } from '../state/dtFace';
-import { soloKeyTap } from './internal/keys60';
+import { muteKeyTap, soloKeyTap } from './internal/keys60';
 import { gesture } from './shared';
 import { coarsePointer } from './internal/transport';
 
@@ -53,8 +53,10 @@ export function runToggle(stage: Stage | null = null): boolean {
 export function muteToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('mute');
-  // 2026-10-10 (Mika : "quand je clique sur MUTE ca release tous les mutes que j'ai cliques") : MUTE rend toutes les
-  // voix ; on coupe une voix au pad (clic droit, double tape : padMute). Plus de mode a armer.
+  if (DT2_FACE) {
+    muteKeyTap();
+    return dtFace.mute() !== 'off';
+  }
   const v = voices.get();
   // La face V.4.0 du desktop (2026-10-27, la revue) n'a plus de pad a clic droit : MUTE y arme de nouveau la machine a
   // trois etats (modeTap, comme SOLO) tant qu'aucune voix n'est coupee, ou quand le mode est deja arme (ONE puis MULTI,
@@ -109,7 +111,10 @@ function modeTap(k: 'mute' | 'solo'): boolean {
 export function modeHold(k: 'mute' | 'solo'): void {
   resume();
   voices.release(k);
-  if (k === 'solo' && DT2_FACE) dtFace.setSolo(false);
+  if (DT2_FACE) {
+    if (k === 'solo') dtFace.setSolo(false);
+    else if (k === 'mute') dtFace.setMute('off');
+  }
   lcdMessage.show(k === 'mute' ? 'ALL VOICES ON' : 'SOLO OFF: ALL VOICES', MODE_MSG_MS);
 }
 

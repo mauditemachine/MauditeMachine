@@ -197,7 +197,7 @@ export function trackPlay(k: TrackKey, stage: Stage | null = null): void {
   const v = voices.get();
   // Les memes aides que les pads 1 a 8 (actions/internal/tracks.ts) : la cle T9 n'y sert qu'a des includes et a l'ecran
   if (v.soloMode || (DT2_FACE && dtFace.solo())) soloVoice(k);
-  else if (v.muteMode) muteVoice(k);
+  else if (v.muteMode || (DT2_FACE && dtFace.mute() !== 'off')) muteVoice(k);
   else if (!clock.running && !voices.isMuted(k) && tracks.sounds(k)) {
     trigger(k, undefined, false, undefined, VEL_GAIN[TAP_VEL_DEFAULT] ?? 1);
   }
@@ -318,7 +318,7 @@ export function phoneTrackSelect(k: TrackKey): void {
   gesture();
   const v = voices.get();
   if (v.soloMode || (DT2_FACE && dtFace.solo())) soloVoice(k);
-  else if (v.muteMode) muteVoice(k);
+  else if (v.muteMode || (DT2_FACE && dtFace.mute() !== 'off')) muteVoice(k);
   else {
     phonePick(k);
     lcdMessage.show(`KNOBS > ${trackName(k)}`);

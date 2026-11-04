@@ -245,6 +245,12 @@ export function trigTrk(i: number, stage: Stage | null, t = performance.now()): 
     trk.use(t);
     return true;
   }
+  // En mode MUTE : la piste se mute / demute et devient la piste active
+  if (dtFace.mute() !== 'off' || v.muteMode) {
+    trigMute(i, stage);
+    trk.use(t);
+    return true;
+  }
   if (!v.soloMode && !v.muteMode && st.trkLast && st.trkLast.i === i && t - st.trkLast.t <= PAD_DOUBLE_TAP_MS) {
     st.trkLast = null;
     ctlAllEnd();
@@ -353,6 +359,7 @@ export function trigMute(i: number, stage: Stage | null): void {
   stage?.pressStep(i);
   const k = trackAt(i);
   if (!k) return;
+  trackSelect(k);
   if (dtFace.mute() === 'pattern') {
     if (!isLegacy(k)) {
       lcdMessage.show('PATTERN MUTE: TRACKS 1-8', 1400);
@@ -384,6 +391,9 @@ export function muteKeyTap(): void {
   if (next !== 'off') {
     trk.cancel();
     if (editor.get() === 'mm808') editor.close();
+    voices.arm('mute', true);
+  } else {
+    voices.disarm('mute');
   }
   dtFace.setMute(next);
   lcdMessage.show(next === 'off' ? 'MUTE MODE OFF' : 'MUTE MODE: TAP TRIG 1-16 · FUNC + MUTE: UNMUTE ALL', 1600);
@@ -393,6 +403,7 @@ export function muteKeyTap(): void {
 export function unmuteAllKey(): void {
   resume();
   voices.clearMutes();
+  voices.disarm('mute');
   pattern.setPmutes([]);
   dtFace.setMute('off');
   lcdMessage.show('ALL TRACKS UNMUTED', 1400);
@@ -652,7 +663,10 @@ export function ptnToggle(stage: Stage | null, t = performance.now()): void {
     bankViewClose();
     return;
   }
-  if (dtFace.mute() !== 'off') dtFace.setMute('off');
+  if (dtFace.mute() !== 'off') {
+    dtFace.setMute('off');
+    voices.disarm('mute');
+  }
   if (dtFace.solo()) {
     dtFace.setSolo(false);
     voices.disarm('solo');
