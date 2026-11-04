@@ -228,12 +228,16 @@ const cueHeld = (d: DjDeck): boolean => cueDown[d];
 
 /* ---------------- pointeurs ---------------- */
 
-type ScreenZone = 'back' | 'text' | 'detail' | 'whole' | 'wave' | 'zoom';
+type ScreenZone = 'back' | 'text' | 'tempo' | 'detail' | 'whole' | 'wave' | 'zoom';
 
 /** La zone touchee ; back : la platine tient un morceau (sa touche BACK est dessinee). */
 function zoneOf(u: number, v: number, back: boolean): ScreenZone {
   const S = DECK_SCREEN;
-  if (v < S.detail.v0 - 0.01) return back && u <= S.back.u1 ? 'back' : 'text';
+  if (v < S.detail.v0 - 0.01) {
+    if (back && u <= S.back.u1) return 'back';
+    if (u >= 0.62) return 'tempo';
+    return 'text';
+  }
   if (v <= S.detail.v1 + 0.02) return 'detail';
   if (u >= S.zoom.u0 - 0.0075) return 'zoom';
   if (u >= S.wave.u0 - 0.01) return 'wave';
@@ -470,7 +474,8 @@ export class DjGestures {
         if (tap) djBrowse(g.deck);
       }
       // Toucher l'ecran (sans glisser) ouvre la playlist sur cette platine (Mika, 2026-10-04 : "pas besoin de bouton")
-      if ((g.zone === 'text' || g.zone === 'detail') && tap && g.pinch === 0) djBrowse(g.deck);
+      if (g.zone === 'tempo' && tap) djSetPitch(g.deck, 0);
+      else if ((g.zone === 'text' || g.zone === 'detail') && tap && g.pinch === 0) djBrowse(g.deck);
       this.stage.repaint();
       return null;
     }
@@ -495,10 +500,17 @@ export class DjGestures {
   }
 
 
-  /** Molette au-dessus d'un potard ou d'un fader ; true si elle est prise. */
-  wheel(h: HotspotView, deltaY: number, shift: boolean): boolean {
+  /** Molette au-dessus d'un potard, fader ou ecran ; true si elle est prise. */
+  wheel(h: HotspotView, deltaY: number, shift: boolean, x?: number, y?: number): boolean {
     if (h.kind === 'djscreen') {
       const d = deckOf(h.id);
+      if (x !== undefined && y !== undefined) {
+        const uv = quadToUnit(this.screenQuad(d), x, y);
+        if (uv && uv.u >= 0.62 && uv.v < DECK_SCREEN.detail.v0 - 0.01) {
+          djTempoStep(d, deltaY < 0 ? 1 : -1, shift ? 1 : TEMPO_STEP);
+          return true;
+        }
+      }
       // Molette vers le haut : plus pres (moins de secondes a l'ecran)
       djZoom(d, djState.get().deck[d].zoom * Math.exp(deltaY * (shift ? 0.0005 : 0.002)));
       return true;
@@ -575,7 +587,7 @@ export class DjGestures {
     djTouchDeck(g.deck);
     g.u0 = uv.u;
     g.target = djPosition(g.deck);
-    g.v0 = g.target;
+    g.v0 = g.zone === 'tempo' ? djState.get().deck[g.deck].pitch : g.target;
     if (g.zone === 'back') this.stage.dj?.pressKey(`dj-${g.deck}-back`, true);
     else if (g.zone === 'zoom') {
       const Z = DECK_SCREEN.zoom;
@@ -611,6 +623,13 @@ export class DjGestures {
     if (!uv) return;
     if (g.zone === 'whole') {
       this.seekWhole(g, uv.u);
+      return;
+    }
+    if (g.zone === 'tempo') {
+      const dy = g.y - g.y0;
+      const dp = (-dy / 150) * (g.fine ? FINE : 1);
+      djSetPitch(g.deck, Math.max(-1, Math.min(1, g.v0 + dp)));
+      this.stage.repaint();
       return;
     }
     if (g.zone !== 'detail') return;

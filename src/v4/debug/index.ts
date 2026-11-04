@@ -511,6 +511,9 @@ export function installDebug(src: DebugSource): () => void {
       get phaseErrMs() {
         return djLoad.get()?.djEngineIfAny()?.sync.errMs ?? null;
       },
+      dropTrack: (d: Parameters<DjModules['actions']['djDropTrack']>[0], file: File) => djLoad.get()?.actions.djDropTrack(d, file),
+      setPitch: (d: Parameters<DjModules['actions']['djSetPitch']>[0], v: number) => djLoad.get()?.actions.djSetPitch(d, v),
+      tempoStep: (d: Parameters<DjModules['actions']['djTempoStep']>[0], dir: -1 | 1, step?: number) => djLoad.get()?.actions.djTempoStep(d, dir, step),
     },
     sampler: (d) => djLoad.get()?.samplerOf(d) ?? null,
     bass: {

@@ -766,7 +766,7 @@ export class BassGestures {
    * tactile : ses petits pas s'additionnent, 2 au plus) ; un potard dedie (STYLE, DENSITY, la plaque) garde sa loi (2 %
    * par cran, plus vite aux grands pas, Maj : 0.2 %) ; un cran entier sur un reglage a crans ; true si elle est prise.
    */
-  wheel(h: HotspotView, delta: number, shift: boolean): boolean {
+  wheel(h: HotspotView, delta: number, shift: boolean, _x?: number, _y?: number): boolean {
     if (h.kind === 'basstrig') {
       if (bassEditing()) return true;
       const i = Number(h.id.slice('bass-trig-'.length)) - 1;

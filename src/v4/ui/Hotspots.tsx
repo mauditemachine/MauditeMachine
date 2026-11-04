@@ -206,6 +206,8 @@ import type { HotspotKind, HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djLoad, type DjModules } from '../state/djload';
+import { djDropTrack } from '../dj/actions';
+import type { DjDeck } from '../dj/theme';
 import { bassLoad, type BassModules } from '../state/bassload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
@@ -2073,7 +2075,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const g = gesturesOf(h);
       if (h && g) {
         const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
-        if (g.wheel(h, delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1), e.shiftKey)) {
+        if (g.wheel(h, delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1), e.shiftKey, e.clientX - rect.left, e.clientY - rect.top)) {
           e.preventDefault();
           return;
         }
@@ -2174,22 +2176,40 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
      * choisie (l'ecran dit DROP FOR BD).
      */
     const isFiles = (e: DragEvent): boolean => !!e.dataTransfer && Array.from(e.dataTransfer.types ?? []).includes('Files');
-    /** Sous le fichier : la voix d'un pad du MM-RYTM, 'pad' ailleurs sur lui, null hors de lui. */
-    const dropAt = (e: DragEvent): Inst | 'pad' | null => {
+    type DropTarget = { kind: 'rytm'; target: Inst | 'pad' } | { kind: 'dj'; deck: DjDeck } | null;
+
+    /** Sous le fichier : la voix d'un pad du MM-RYTM, un deck DJ, ou null hors d'eux. */
+    const dropAt = (e: DragEvent): DropTarget => {
       rect = el.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const h = stage.hit.pick(x, y, false);
-      if (h && h.kind === 'pad' && h.inst && (!h.machine || h.machine === 'mm808')) return h.inst;
-      if (h?.machine === 'mm808') return 'pad';
-      return stage.hit.machineAt(x, y) === 'mm808' ? 'pad' : null;
+      if (h && h.kind === 'pad' && h.inst && (!h.machine || h.machine === 'mm808')) return { kind: 'rytm', target: h.inst };
+      if (h && h.id && h.id.startsWith('dj-')) {
+        const m = /^dj-([a-d])/.exec(h.id);
+        const d = (m ? m[1] : 'a') as DjDeck;
+        return { kind: 'dj', deck: d };
+      }
+      if (h?.machine === 'mm808') return { kind: 'rytm', target: 'pad' };
+      const mach = stage.hit.machineAt(x, y);
+      if (mach === 'mm808') return { kind: 'rytm', target: 'pad' };
+      if (mach === 'dj') {
+        const box = stage.hit.machineBox('dj');
+        let d: DjDeck = 'a';
+        if (box) {
+          const rx = (x - box.x) / box.w;
+          d = rx > 0.5 ? 'b' : 'a';
+        }
+        return { kind: 'dj', deck: d };
+      }
+      return null;
     };
     const onDragOver = (e: DragEvent): void => {
       if (!isFiles(e)) return;
       e.preventDefault();
       const t = dropAt(e);
       if (e.dataTransfer) e.dataTransfer.dropEffect = t ? 'copy' : 'none';
-      lcdSamples.dragOver(t);
+      lcdSamples.dragOver(t?.kind === 'rytm' ? t.target : null);
     };
     const onDragLeave = (e: DragEvent): void => {
       if (!isFiles(e)) return;
@@ -2202,7 +2222,15 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const t = dropAt(e);
       lcdSamples.dragOver(null);
       if (!t) return;
-      soundDrop(Array.from(e.dataTransfer?.files ?? []), t === 'pad' ? null : t);
+      const rawFiles = Array.from(e.dataTransfer?.files ?? []);
+      if (t.kind === 'dj') {
+        const audioFile = rawFiles.find((f) => f.type.startsWith('audio/') || /\.(mp3|wav|aif|aiff|flac|m4a|ogg|aac)$/i.test(f.name)) ?? rawFiles[0];
+        if (audioFile) {
+          void djDropTrack(t.deck, audioFile);
+        }
+        return;
+      }
+      soundDrop(rawFiles, t.target === 'pad' ? null : t.target);
     };
     // Un fichier lache a cote de la couche de toucher (l'en-tete, une marge ; 2026-10-21, audit RS-14) : refuse, le
     // navigateur ne part pas vers lui ; ce qu'un autre element a deja pris (cette couche, le TrackBrowser du MM-DECKS)

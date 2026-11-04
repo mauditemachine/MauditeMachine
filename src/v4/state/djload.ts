@@ -18,6 +18,7 @@ export interface DjModules {
   samplersSounding: typeof import('../sampler/sampler').samplersSounding;
   /** le sampler d'une platine (le debug, les tests) */
   samplerOf: typeof import('../sampler/sampler').samplerOf;
+  actions: typeof import('../dj/actions');
 }
 
 let mods: DjModules | null = null;
@@ -31,8 +32,8 @@ export const djLoad = {
   load(): Promise<DjModules> | null {
     if (!DJ) return null;
     // dj/midi : ses cibles MIDI s'inscrivent (midi/targets.ts, 2026-10-05)
-    pending ??= Promise.all([import('../dj/rig'), import('../dj/gestures'), import('../dj/state'), import('../dj/engine'), import('../sampler/sampler'), import('../dj/midi')]).then(([rig, gestures, state, engine, sampler]) => {
-      mods = { DjRig: rig.DjRig, DjGestures: gestures.DjGestures, djState: state.djState, djEngineIfAny: engine.djEngineIfAny, samplersSounding: sampler.samplersSounding, samplerOf: sampler.samplerOf };
+    pending ??= Promise.all([import('../dj/rig'), import('../dj/gestures'), import('../dj/state'), import('../dj/engine'), import('../sampler/sampler'), import('../dj/midi'), import('../dj/actions')]).then(([rig, gestures, state, engine, sampler, _midi, actions]) => {
+      mods = { DjRig: rig.DjRig, DjGestures: gestures.DjGestures, djState: state.djState, djEngineIfAny: engine.djEngineIfAny, samplersSounding: sampler.samplersSounding, samplerOf: sampler.samplerOf, actions };
       listeners.forEach((fn) => fn());
       return mods;
     });

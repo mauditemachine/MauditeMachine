@@ -1688,5 +1688,26 @@ export function djZoomStep(d: DjDeck, dir: -1 | 1): void {
   if (next !== undefined) djZoom(d, next);
 }
 
+/**
+ * Pose et lance directement un fichier audio sur une platine (glisser-deposer).
+ * Decode les echantillons dans le moteur Web Audio avec reglage de pitch direct et audible.
+ */
+export async function djDropTrack(d: DjDeck, file: File): Promise<void> {
+  resume();
+  const name = file.name.replace(/\.[^/.]+$/, '');
+  const track: DjTrack = {
+    id: `file:${file.name}:${file.size}`,
+    source: 'file',
+    title: name,
+    artist: 'Moi',
+    bpm: null,
+    key: null,
+    duration: 0,
+    file,
+    license: 'mine',
+  };
+  await djLoad(d, track, true);
+}
+
 // En dernier : tout le module est pret quand le moteur se branche (un moteur deja cree se branche tout de suite)
 whenDjEngine(syncStore);
