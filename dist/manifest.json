@@ -1,21 +1,19 @@
 {
+  "id": "/",
   "name": "Maudite Machine",
-  "short_name": "MM",
-  "description": "Maudite Machine, DJ et producteur | Deep techno et indie dance",
+  "short_name": "Maudite",
+  "description": "Indie dance et dark disco, à tendance psychédélique. DJ, producteur, fondateur de VRSTL Records. Quinze ans dans l'underground montréalais, maintenant basé dans le Sud de la France.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "orientation": "any",
+  "background_color": "#0c0b09",
+  "theme_color": "#0c0b09",
+  "categories": ["music", "entertainment"],
   "icons": [
-    {
-      "src": "/logo/mauditemachine-logo.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    },
-    {
-      "src": "/logo/favicon.ico",
-      "sizes": "64x64",
-      "type": "image/x-icon"
-    }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
   ]
 }

@@ -1,34 +1,1031 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://mauditemachine.com/</loc>
-    <lastmod>2026-10-01</lastmod>
+    <lastmod>2026-11-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/og-maudite-machine.jpg</image:loc>
+    </image:image>
   </url>
   <url>
-    <loc>https://mauditemachine.com/radar</loc>
-    <lastmod>2026-10-01</lastmod>
+    <loc>https://mauditemachine.com/fr/</loc>
+    <lastmod>2026-11-01</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/</loc>
+    <lastmod>2026-11-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/press/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-booth-blue.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-cover-dj.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-crowd.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-portrait-bw.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-logo.png</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-01-bw.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-02-bw-wide.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-03-color.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-04-color.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-05-color.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/presskit/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://mauditemachine.com/techrider/</loc>
-    <lastmod>2026-10-01</lastmod>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>yearly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://mauditemachine.com/presskit/</loc>
-    <lastmod>2026-10-01</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.8</priority>
+    <loc>https://mauditemachine.com/shows/</loc>
+    <lastmod>2026-11-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://mauditemachine.com/press/</loc>
-    <lastmod>2026-10-01</lastmod>
+    <loc>https://mauditemachine.com/tracks/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-voodoo.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi2.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-kouklikou.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-syncbutton.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-anarchic.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-autopsynth.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-backontrack.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-nocturne.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-coagule.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-richie.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-dramaqueen.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-discowriders.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mixtapes/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/contact/</loc>
+    <lastmod>2026-10-23</lastmod>
     <changefreq>yearly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/goodies/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/merch/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/studio/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/radar/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-overview.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-overview.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-overview.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-machine/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-machine/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/boite-a-rythmes/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/caja-de-ritmos/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-machine/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-rytm.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/boite-a-rythmes/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-machine/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/boite-a-rythmes/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/caja-de-ritmos/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-machine/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-rytm.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/caja-de-ritmos/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-machine/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/boite-a-rythmes/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/caja-de-ritmos/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-machine/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-rytm.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/synth/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/synth/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/synthe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/sintetizador/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/synth/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-arp.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/synthe/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/synth/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/synthe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/sintetizador/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/synth/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-arp.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/sintetizador/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/synth/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/synthe/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/sintetizador/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/synth/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/mm-studio/mm-studio-arp.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/dj-decks/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/dj-decks/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/platines-dj/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/platos-dj/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/dj-decks/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/platines-dj/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/dj-decks/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/platines-dj/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/platos-dj/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/dj-decks/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/platos-dj/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/dj-decks/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/platines-dj/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/platos-dj/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/dj-decks/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/acid-house/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/acid-house/acid-house-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/dark-disco-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/indie-dance-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/minimal/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/minimal/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/minimal/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/minimal/minimal-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/rolling-techno-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/techno/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/techno/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/techno/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/techno/techno-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/house/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/house/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/house/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/house/house-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/electro/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/electro/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/electro/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/electro/electro-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/ebm/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/ebm/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/ebm/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/ebm/ebm-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/italo-disco-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/acid-house/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/acid-house/acid-house-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/dark-disco/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/dark-disco-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/indie-dance/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/indie-dance-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/minimal/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/minimal/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/minimal/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/minimal/minimal-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/rolling-techno/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/rolling-techno-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/techno/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/techno/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/techno/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/techno/techno-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/house/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/house/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/house/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/house/house-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/electro/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/electro/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/electro/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/electro/electro-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/ebm/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/ebm/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/ebm/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/ebm/ebm-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/fr/mm-studio/rythmes/italo-disco/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/italo-disco-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/</loc>
+    <lastmod>2026-11-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/" />
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/acid-house/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/acid-house/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/acid-house/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/acid-house/acid-house-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/dark-disco/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/dark-disco/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/dark-disco/dark-disco-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/indie-dance/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/indie-dance/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/indie-dance/indie-dance-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/minimal/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/minimal/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/minimal/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/minimal/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/minimal/minimal-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/rolling-techno/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/rolling-techno/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/rolling-techno/rolling-techno-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/techno/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/techno/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/techno/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/techno/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/techno/techno-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/house/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/house/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/house/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/house/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/house/house-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/electro/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/electro/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/electro/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/electro/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/electro/electro-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/ebm/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/ebm/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/ebm/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/ebm/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/ebm/ebm-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/es/mm-studio/ritmos/italo-disco/</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/mm-studio/rythmes/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/mm-studio/ritmos/italo-disco/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/mm-studio/drum-patterns/italo-disco/italo-disco-drum-pattern.jpg</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/voodoo/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-voodoo.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/abyss/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/cephal/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/limbos/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/reaper/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/nortkele/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/muld/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/simetra/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/zenith/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/chimie-electrique-emotional-remix/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/tati-cardi-ep/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi2.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/kouklikou/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-kouklikou.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/where-is-the-sync-button/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-syncbutton.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/anarchic/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-anarchic.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/autopsynth/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-autopsynth.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/back-on-track/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-backontrack.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/nocturne/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-nocturne.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/coagule/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-coagule.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/richie/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-richie.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/crush-on-you/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/drama-queen/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-dramaqueen.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/discowriders/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-discowriders.webp</image:loc>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/alan-parsons-remix/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/electrochimie-remix/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/montreal-calling/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/north-river/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/digital-ep/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/dvs1-plaid-remix/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/robots-remix/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/cupertino/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/origan/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/so-hard/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/timeout/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/laurent-garnier-remix/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/big-babou-remix/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/fuck-that/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://mauditemachine.com/tracks/strange-effect/</loc>
+    <lastmod>2026-10-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
   </url>
 </urlset>

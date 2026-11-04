@@ -825,39 +825,128 @@ export class VoyScreen {
   /* ---------- PRESETS ---------- */
 
   /**
-   * PRESETS, dans les bandes des zones de l'ecran (rig.ts : le haut, 72 %,
-   * gauche le precedent et droite le suivant ; le bas, cinq touches depuis le
-   * 2026-10-27, LOAD SAVE NAME DEL EXIT, OVERWRITE, YES, OK...).
+   * PRESETS : bibliothèque complète avec défilement, numérotation (01..N),
+   * état (LOADED, EDITED *, BPM), surbrillance de sélection, et 5 touches d'action
+   * (LOAD, SAVE, NAME, DEL, EXIT).
    */
+  private presetTop = 0;
+
   private drawPresets(p: PresetView): void {
     const c = this.ctx;
-    this.txt(p.title, 10, HY, FS.small + 1, INK, 700);
-    if (p.count) this.txt(p.count, INFO_I.x - INFO_I.r - 6, HY, FS.small, HALF, 600, 'right');
     const band = UH * 0.72;
-    const my = (HY + band) / 2 + 4;
-    // Les fleches : seulement sur la liste (2026-10-27 : pas pendant le nom, OVERWRITE / AS NEW ni DELETE?)
-    if (!p.empty && p.stage === 'browse') {
-      c.fillStyle = INK;
-      for (const [x, d] of [
-        [14, -1],
-        [UW - 14, 1],
-      ] as const) {
-        c.beginPath();
-        c.moveTo(x - d * 3.5, my - 7);
-        c.lineTo(x + d * 4.5, my - 1.5);
-        c.lineTo(x - d * 3.5, my + 4);
-        c.closePath();
-        c.fill();
+    const headerTitle = p.title === 'PRESETS' ? 'ARP PRESET LIBRARY' : p.title;
+    this.txt(headerTitle, 10, HY, FS.small + 1, INK, 700);
+    if (p.count) this.txt(p.count, INFO_I.x - INFO_I.r - 6, HY, FS.small, HALF, 600, 'right');
+
+    // Ligne de separation sous l'en-tete
+    c.fillStyle = FAINT;
+    c.fillRect(8, HY + 4, UW - 16, 0.6);
+
+    if (p.stage === 'browse') {
+      if (p.list && p.list.length > 0) {
+        const visibleRows = DESK ? 6 : 4;
+        const rowH = DESK ? 9.2 : 9.8;
+        const startY = DESK ? 24 : 21;
+        const listW = UW - 26;
+        const curIdx = p.list.findIndex((it) => it.index === p.selectedIndex);
+        const sel = curIdx >= 0 ? curIdx : 0;
+
+        if (sel < this.presetTop) this.presetTop = sel;
+        else if (sel >= this.presetTop + visibleRows) this.presetTop = sel - visibleRows + 1;
+        this.presetTop = Math.max(0, Math.min(this.presetTop, Math.max(0, p.list.length - visibleRows)));
+
+        for (let r = 0; r < visibleRows && this.presetTop + r < p.list.length; r += 1) {
+          const item = p.list[this.presetTop + r];
+          const y = startY + r * rowH;
+          const isSel = item.index === p.selectedIndex;
+          const x0 = 8;
+
+          if (isSel) {
+            this.box(x0, y + 0.4, listW, rowH - 0.8, INK, null, 1, 2);
+          }
+
+          // Rang 01..24
+          const numStr = String(item.index >= 0 ? item.index + 1 : item.index).padStart(2, '0');
+          this.txt(numStr, x0 + 4, y + rowH * 0.72, FS.tiny, isSel ? BLACK : HALF, 700, 'left');
+
+          // Nom du preset
+          const cleanName = item.name.replace(/\*+$/, '').trim();
+          const nameSize = DESK ? 7.6 : 7.2;
+          const maxNameW = listW - 85;
+          const fittedName = this.clip(cleanName, nameSize, 700, maxNameW);
+          this.txt(fittedName, x0 + 22, y + rowH * 0.72, nameSize, isSel ? BLACK : INK, 700, 'left');
+
+          // Metadonnees / Statut a droite (LOADED, EDITED *, BPM, FACTORY)
+          let meta = '';
+          if (item.loaded) {
+            meta = item.edited ? 'EDITED *' : 'LOADED';
+          } else if (item.bpm) {
+            meta = `${item.bpm} BPM`;
+          } else if (item.kind === 'factory') {
+            meta = 'FACTORY';
+          }
+          if (meta) {
+            const metaColor = isSel ? BLACK : item.loaded ? INK : HALF;
+            this.txt(meta, x0 + listW - 6, y + rowH * 0.72, FS.tiny, metaColor, 600, 'right');
+          }
+        }
+
+        // Barre de defilement fine
+        if (p.list.length > visibleRows) {
+          const sbX = UW - 12;
+          const sbY0 = startY + 1;
+          const sbY1 = startY + visibleRows * rowH - 2;
+          const sbH = sbY1 - sbY0;
+          c.fillStyle = FAINT;
+          c.fillRect(sbX - 0.5, sbY0, 1, sbH);
+          const thumbH = Math.max(8, (sbH * visibleRows) / p.list.length);
+          const thumbY = sbY0 + ((sbH - thumbH) * this.presetTop) / Math.max(1, p.list.length - visibleRows);
+          c.fillStyle = INK;
+          c.fillRect(sbX - 1, thumbY, 2, thumbH);
+        }
+      } else {
+        const my = (HY + band) / 2 + 4;
+        this.txt('NO PRESETS SAVED YET', UW / 2, my, FS.small, HALF, 600, 'center');
       }
+    } else if (p.stage === 'name') {
+      const my = (HY + band) / 2 + 2;
+      this.txt(p.naming?.kind === 'rename' ? 'RENAME PRESET' : 'SAVE PRESET AS', UW / 2, my - 14, FS.small, HALF, 600, 'center');
+      const boxW = Math.min(220, UW - 40);
+      const boxH = 22;
+      const boxX = (UW - boxW) / 2;
+      const boxY = my - 8;
+      c.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      c.fillRect(boxX, boxY, boxW, boxH);
+      c.strokeStyle = INK;
+      c.lineWidth = 1;
+      c.strokeRect(boxX, boxY, boxW, boxH);
+      const txt = p.name || '';
+      this.txt(txt, UW / 2, boxY + 15, DESK ? 14 : 12, INK, 600, 'center');
+      if (p.naming?.problem) {
+        this.txt(p.naming.problem, UW / 2, boxY + boxH + 11, FS.tiny, INK, 600, 'center');
+      }
+    } else if (p.stage === 'choice') {
+      const my = (HY + band) / 2 + 2;
+      this.txt('SAVE PRESET', UW / 2, my - 10, FS.head, INK, 700, 'center');
+      this.txt('OVERWRITE CURRENT OR SAVE AS NEW?', UW / 2, my + 6, FS.small, HALF, 600, 'center');
+    } else if (p.stage === 'confirm') {
+      const my = (HY + band) / 2 + 2;
+      this.txt('DELETE PRESET?', UW / 2, my - 10, FS.head, INK, 700, 'center');
+      this.txt(p.name, UW / 2, my + 6, FS.small, INK, 600, 'center');
     }
-    const size = this.fit(p.name, 400, DESK ? 22 : 20, UW - 64, 9);
-    this.txt(p.name, UW / 2, my + size * 0.35, size, INK, 400, 'center');
-    // Cinq touches depuis le 2026-10-27 (rig.ts : leurs zones en cinquiemes)
+
+    // Ligne au-dessus des touches d'action
+    c.fillStyle = FAINT;
+    c.fillRect(8, band + 1, UW - 16, 0.6);
+
+    // Cinq touches d'action en bas
     const kw = UW / p.keys.length;
     const ky = band + (UH - band) / 2 + 3;
     p.keys.forEach((k, i) => {
       if (!k) return;
-      this.pill(k, i * kw + kw / 2, ky, FS.small, k === 'EXIT', 'center');
+      const isExit = k === 'EXIT' || k === 'CANCEL' || k === 'NO';
+      const isAction = k === 'LOAD' || k === 'OVERWRITE' || k === 'YES' || k === 'OK';
+      this.pill(k, i * kw + kw / 2, ky, FS.small, isAction || isExit, 'center');
     });
   }
 

@@ -1,5 +1,37 @@
 [
   {
+    "id": 14,
+    "src": "/images/Merch_Hoodie-WAMM-Front.webp",
+    "alt": "Hoodie We Are Music Makers Front",
+    "caption": "Hoodie We Are Music Makers",
+    "price": "50$ CAD",
+    "category": "hoodie-wamm",
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": true,
+      "L": true,
+      "XL": true
+    },
+    "soldOut": false
+  },
+  {
+    "id": 15,
+    "src": "/images/Merch_Hoodie-WAMM-Back.webp",
+    "alt": "Hoodie We Are Music Makers Back",
+    "caption": "Hoodie We Are Music Makers",
+    "price": "50$ CAD",
+    "category": "hoodie-wamm",
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": true,
+      "L": true,
+      "XL": true
+    },
+    "soldOut": false
+  },
+  {
     "id": 1,
     "src": "/images/Merch_CrewNeck-Back.webp",
     "alt": "Sweatshirt Back",

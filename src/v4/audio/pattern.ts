@@ -639,7 +639,8 @@ let fxState: Readonly<Fx> = validateFx(stored.raw);
 let moreState: StoredPatternMore | null = stored.legacy ? null : validateMore(stored.raw);
 let scenesState: SceneSet = stored.legacy ? NO_SCENES : validateScenes(stored.raw);
 const emptyPageSteps = (): Steps => Object.fromEntries(INSTRUMENTS.map((k) => [k, EMPTY_ROW])) as Steps;
-let pageCountVal: 1 | 2 | 3 | 4 = 1;
+let stepCountVal = typeof moreState?.setup?.len === 'number' && moreState.setup.len >= 1 && moreState.setup.len <= 64 ? moreState.setup.len : 16;
+let pageCountVal: 1 | 2 | 3 | 4 = Math.ceil(stepCountVal / 16) as 1 | 2 | 3 | 4;
 let editPageIdx: 0 | 1 | 2 | 3 = 0;
 /** -1 : joue toutes les pages actives (1..pageCount) ; 0..3 : boucle uniquement la page choisie. */
 let loopPageIdx: -1 | 0 | 1 | 2 | 3 = -1;
@@ -789,6 +790,7 @@ export const pattern = {
   clear(): void {
     // Les pages, le setup et le kit de V.6.1 et V.6.2 partent avec le motif (relecture de V.5.9, R3)
     moreState = null;
+    stepCountVal = 16;
     pageCountVal = 1;
     editPageIdx = 0;
     loopPageIdx = -1;
@@ -805,10 +807,14 @@ export const pattern = {
   replace(steps: Steps, locks: Readonly<Locks> | 'keep' = 'keep', opts?: { keepMore?: boolean }): void {
     if (!opts?.keepMore) {
       moreState = null;
+      stepCountVal = 16;
       pageCountVal = 1;
       editPageIdx = 0;
       loopPageIdx = -1;
       pageSteps = [emptyPageSteps(), emptyPageSteps(), emptyPageSteps(), emptyPageSteps()];
+    } else if (typeof moreState?.setup?.len === 'number') {
+      stepCountVal = Math.max(1, Math.min(64, Math.round(moreState.setup.len)));
+      pageCountVal = Math.ceil(stepCountVal / 16) as 1 | 2 | 3 | 4;
     }
     const next = { ...state.steps };
     for (const inst of INSTRUMENTS) if (STEPS_RE.test(steps[inst])) next[inst] = steps[inst];
@@ -817,11 +823,36 @@ export const pattern = {
     Object.assign(next, extraRows(steps));
     commit({ ...state, steps: next, locks: noteLocks(locks === 'keep' ? state.locks : (cleanLocks(locks) ?? NO_LOCKS), next) }, true);
   },
+  /** Nombre total de pas du pattern (1 a 64 pas, 16 par defaut). */
+  stepCount: (): number => stepCountVal,
+  /** Regler le nombre total de pas (1 a 64 pas). */
+  setStepCount(s: number): void {
+    const next = Math.max(1, Math.min(64, Math.round(s)));
+    if (next === stepCountVal) return;
+    stepCountVal = next;
+    const nextPages = Math.ceil(next / 16) as 1 | 2 | 3 | 4;
+    pageSteps[editPageIdx] = { ...state.steps };
+    for (let p = 1; p < nextPages; p += 1) {
+      if (!pageHasHits(pageSteps[p])) pageSteps[p] = { ...pageSteps[0] };
+    }
+    pageCountVal = nextPages;
+    if (editPageIdx >= nextPages) {
+      editPageIdx = (nextPages - 1) as 0 | 1 | 2 | 3;
+      const steps = normSteps({ ...pageSteps[editPageIdx] });
+      state = { ...state, steps };
+    }
+    if (loopPageIdx >= nextPages) loopPageIdx = -1;
+    moreState = { ...(moreState ?? {}), setup: { ...(moreState?.setup ?? { mode: 'ptn' }), len: next } };
+    scheduleSave();
+    emit();
+  },
   /** Nombre de pages de 16 pas du sequenceur : 1 (16 pas), 2 (32 pas), 3 (48 pas) ou 4 (64 pas). */
   pageCount: (): 1 | 2 | 3 | 4 => pageCountVal,
   setPageCount(n: 1 | 2 | 3 | 4): void {
     const next = Math.max(1, Math.min(4, Math.round(n))) as 1 | 2 | 3 | 4;
-    if (next === pageCountVal) return;
+    const targetSteps = next * 16;
+    if (next === pageCountVal && stepCountVal === targetSteps) return;
+    stepCountVal = targetSteps;
     pageSteps[editPageIdx] = { ...state.steps };
     for (let p = 1; p < next; p += 1) {
       if (!pageHasHits(pageSteps[p])) pageSteps[p] = { ...pageSteps[0] };
@@ -833,6 +864,8 @@ export const pattern = {
       state = { ...state, steps };
     }
     if (loopPageIdx >= next) loopPageIdx = -1;
+    moreState = { ...(moreState ?? {}), setup: { ...(moreState?.setup ?? { mode: 'ptn' }), len: targetSteps } };
+    scheduleSave();
     emit();
   },
   /** Page editee sur les 16 boutons TRIG (0 = P1 1-16, 1 = P2 17-32, 2 = P3 33-48, 3 = P4 49-64). */

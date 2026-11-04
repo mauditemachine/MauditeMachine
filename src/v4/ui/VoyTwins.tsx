@@ -186,19 +186,23 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             ? a.running
               ? 'Stop the arpeggiator'
               : 'Run the arpeggiator'
-            : b.id === 'clear'
-              ? 'Clear the chords'
-              : b.id === 'edit'
-                ? 'Edit the arpeggio sequence'
-                : 'Random chord progression';
+            : b.id === 'preset'
+              ? 'Presets library: browse, load, save'
+              : b.id === 'clear'
+                ? 'Clear the chords'
+                : b.id === 'edit'
+                  ? 'Edit the arpeggio sequence'
+                  : 'Random chord progression';
         const act = (): void =>
           b.id === 'run'
             ? void voyRun(stageRef.current)
-            : b.id === 'clear'
-              ? voyClear(stageRef.current)
-              : b.id === 'edit'
-                ? editToggle('voy', stageRef.current)
-                : voyRandom(stageRef.current);
+            : b.id === 'preset'
+              ? presetKey('voy', pmVoy ? 'close' : 'open')
+              : b.id === 'clear'
+                ? voyClear(stageRef.current)
+                : b.id === 'edit'
+                  ? editToggle('voy', stageRef.current)
+                  : voyRandom(stageRef.current);
         return (
           <button
             key={id}
@@ -208,7 +212,7 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             data-twin="vbtn"
             data-hotspot={id}
             aria-label={label}
-            aria-pressed={b.id === 'run' ? a.running : b.id === 'edit' ? ed === 'voy' : undefined}
+            aria-pressed={b.id === 'run' ? a.running : b.id === 'edit' ? ed === 'voy' : b.id === 'preset' ? pmVoy : undefined}
             onKeyDown={noRepeat}
             onClick={act}
           />

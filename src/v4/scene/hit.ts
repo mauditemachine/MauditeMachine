@@ -146,7 +146,7 @@ export interface HotspotDef {
   machine?: MachineId;
   /** MM-VOYAGER : pad d'accord (0 a 7), bouton, potard */
   vpad?: number;
-  vbtn?: 'run' | 'clear' | 'random' | 'edit';
+  vbtn?: 'run' | 'clear' | 'random' | 'edit' | 'preset';
   /** une touche de l'ecran (mode presets) */
   lcd?: PresetKey;
   vknob?: VoyKnobId;
@@ -193,7 +193,7 @@ export interface HotspotView {
   chip?: ChipId;
   machine?: MachineId;
   vpad?: number;
-  vbtn?: 'run' | 'clear' | 'random' | 'edit';
+  vbtn?: 'run' | 'clear' | 'random' | 'edit' | 'preset';
   /** une touche de l'ecran (mode presets) */
   lcd?: PresetKey;
   vknob?: VoyKnobId;

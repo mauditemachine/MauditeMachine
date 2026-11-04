@@ -559,22 +559,23 @@ export interface Shot {
 function bd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
   // Le kit (2026-10-04) : TUNE deplace tout le balayage, DECAY la queue, ATTACK le clic, DRIVE la saturation (1.5 au depart)
-  const kf = kickHz('mm', tw.tune) / 52;
-  const tauA = kickDecayS('mm', tw.decay) * ts;
+  const m = tw.model ?? 'mm';
+  const kf = kickHz(m, tw.tune) / (m === '808' ? 49 : 52);
+  const tauA = kickDecayS(m, tw.decay) * ts;
   const len = Math.round(fs * Math.max(0.16, Math.min(2, 3.5 * tauA)));
   const x = new Float64Array(len);
   const bp = new Bq('bp', 1600, 0.8, fs);
   const k = 1.5 * (0.4 + 2.4 * tw.drive);
   const drive = Math.tanh(k);
-  const clickAmt = 0.36 * tw.attack;
+  const clickAmt = 0.42 * tw.attack;
   // SWEEP (2026-10-08, R3) : la profondeur de la descente, x1 au depart (le kick d'avant)
   const sw = sweepDepth(tw.sweep);
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    const f = (52 + 125 * sw * Math.exp(-t / 0.009) + 22 * sw * Math.exp(-t / 0.045)) * kf;
+    const f = (52 + 130 * sw * Math.exp(-t / 0.008) + 24 * sw * Math.exp(-t / 0.04)) * kf;
     ph += f / fs;
-    const amp = (1 - Math.exp(-t / 0.0008)) * Math.exp(-t / tauA) * (1 + 0.2 * Math.exp(-t / 0.02));
+    const amp = (1 - Math.exp(-t / 0.0006)) * Math.exp(-t / tauA) * (1 + 0.25 * Math.exp(-t / 0.02));
     const b = Math.sin(TAU * ph) * amp;
     const body = Math.tanh(k * b) / drive;
     const click = clickAmt * bp.run(r() * 2 - 1) * Math.exp(-t / 0.002);
@@ -939,17 +940,17 @@ function bd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const clickBp = new Bq('bp', 3200, 0.7, fs);
   const noiseLp = new Bq('lp', 5000, 0.7, fs);
   const k = 1.2 + 4 * tw.drive;
-  const amt = 2 * tw.attack;
+  const amt = 2.1 * tw.attack;
   // SWEEP (2026-10-08, R3) : la profondeur du balayage, x1 au depart
   const sw = sweepDepth(tw.sweep);
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    const f = f0 * (1 + 3.4 * sw * Math.exp(-t / 0.0045) + 0.45 * sw * Math.exp(-t / 0.03));
+    const f = f0 * (1 + 3.6 * sw * Math.exp(-t / 0.0042) + 0.5 * sw * Math.exp(-t / 0.028));
     ph += f / fs;
-    const osc = 0.85 * Math.sin(TAU * ph) + 0.15 * tri(ph + 0.25);
+    const osc = 0.88 * Math.sin(TAU * ph) + 0.12 * tri(ph + 0.25);
     const amp = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tau);
-    const click = amt * (0.9 * trigClick(clickBp, t) + 0.3 * noiseLp.run(r() * 2 - 1) * Math.exp(-t / 0.003));
+    const click = amt * (0.95 * trigClick(clickBp, t) + 0.3 * noiseLp.run(r() * 2 - 1) * Math.exp(-t / 0.003));
     x[i] = sat(osc * amp + click, k);
   }
   fadeOut(x, fs, Math.min(0.05, len / fs / 4));
@@ -972,14 +973,16 @@ function bd808(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const x = new Float64Array(len);
   const clickBp = new Bq('bp', 1100, 0.9, fs);
   const k = 0.6 + 3 * tw.drive;
-  const amt = 0.7 * tw.attack;
+  const amt = 0.75 * tw.attack;
   const sw = sweepDepth(tw.sweep);
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    ph += (f0 * (1 + 0.3 * sw * Math.exp(-t / 0.01))) / fs;
-    const amp = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / tau);
-    x[i] = sat(Math.sin(TAU * ph) * amp + amt * trigClick(clickBp, t) + 0.05 * amt * (r() * 2 - 1) * Math.exp(-t / 0.001), k);
+    ph += (f0 * (1 + 0.34 * sw * Math.exp(-t / 0.009))) / fs;
+    const amp = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tau);
+    const sWave = Math.sin(TAU * ph);
+    const warm = 0.93 * sWave + 0.07 * Math.sin(2 * TAU * ph);
+    x[i] = sat(warm * amp + amt * trigClick(clickBp, t) + 0.05 * amt * (r() * 2 - 1) * Math.exp(-t / 0.001), k);
   }
   fadeOut(x, fs, Math.min(0.08, len / fs / 4));
   const y = decimate(x);
@@ -1002,16 +1005,16 @@ function sd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const x = new Float64Array(len);
   const lp = new Bq('lp', 7000 * fc, 0.7, fs);
   const hp = new Bq('hp', 600 * fc, 0.7, fs);
-  const snap = 0.3 + 3.6 * tw.snappy * 0.5;
+  const snap = 0.35 + 3.6 * tw.snappy * 0.5;
   let p1 = 0;
   let p2 = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    p1 += (175 * ft * (1 + 0.6 * Math.exp(-t / 0.008))) / fs;
-    p2 += (330 * ft * (1 + 0.3 * Math.exp(-t / 0.006))) / fs;
-    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.06 * td)) + 0.6 * Math.sin(TAU * p2) * Math.exp(-t / (0.04 * td));
+    p1 += (180 * ft * (1 + 0.65 * Math.exp(-t / 0.007))) / fs;
+    p2 += (335 * ft * (1 + 0.32 * Math.exp(-t / 0.005))) / fs;
+    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.058 * td)) + 0.62 * Math.sin(TAU * p2) * Math.exp(-t / (0.038 * td));
     const nEnv = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / (0.11 * td));
-    x[i] = sat(0.9 * tone + snap * hp.run(lp.run(r() * 2 - 1)) * nEnv, 1.4);
+    x[i] = sat(0.92 * tone + snap * hp.run(lp.run(r() * 2 - 1)) * nEnv, 1.4);
   }
   fadeOut(x, fs, 0.03);
   const y = decimate(x);

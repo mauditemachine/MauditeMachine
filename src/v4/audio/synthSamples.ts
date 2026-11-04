@@ -1,9 +1,9 @@
 /**
  * Banque d'echantillons electroniques synthetises a la demande pour le MM-RYTM :
  * couvre les 8 familles (bd, sd, ch, oh, cp, tom, ht, cy) avec des sons de
- * batterie, de percussions, de basses (303, Reese, EBM, FM) et d'accords/stabs
- * (Dub Techno, Detroit, Rave, Italo, Trance, IDM) sans dependre de fichiers
- * externes volumineux.
+ * batterie, percussions et cymbales (kicks, caisses claires, charleys, claps,
+ * toms, congas, claves, woodblocks, tambourines, rides, cowbells, maracas,
+ * clanks) sans dependre de fichiers externes volumineux.
  */
 
 import type { SamplePcm } from './sampledsp';
@@ -625,7 +625,7 @@ const DEFS: readonly SynthSampleDef[] = [
     },
   },
 
-  // TOM : Low Toms & Bass Synths (303, Reese, Donk, EBM)
+  // TOM : Low Toms & Congas / Synth Drums
   {
     family: 'tom',
     file: '01-909-Low-Tom.wav',
@@ -665,107 +665,84 @@ const DEFS: readonly SynthSampleDef[] = [
   },
   {
     family: 'tom',
-    file: '03-Acid-303-Squelch.wav',
-    label: 'ACID 303 SQUELCH',
-    dur: 0.4,
+    file: '03-808-Conga-Hi.wav',
+    label: '808 CONGA HI',
+    dur: 0.28,
     gen(sr, len) {
       const L = new Float32Array(len);
       let ph = 0;
-      let y1 = 0;
-      let y2 = 0;
-      const f0 = 65.41; // C2
       for (let i = 0; i < len; i += 1) {
         const t = i / sr;
-        ph = (ph + f0 / sr) % 1;
-        const saw = ph * 2 - 1;
-        const cut = 260 + 2800 * Math.exp(-t / 0.065);
-        const g = Math.min(0.75, (TAU * cut) / sr);
-        const fb = 2.6 * (y1 - y2);
-        y1 += g * (tanh(saw - fb) - y1);
-        y2 += g * (y1 - y2);
-        const env = (1 - Math.exp(-t / 0.0015)) * Math.exp(-t / 0.18);
-        L[i] = tanh(y2 * env * 2.8);
+        const f = 245 + 95 * Math.exp(-t / 0.012);
+        ph += f / sr;
+        const env = (1 - Math.exp(-t / 0.001)) * Math.exp(-t / 0.11);
+        L[i] = tanh(Math.sin(TAU * ph) * env * 1.4);
       }
-      fadeEnd(L, sr);
+      fadeEnd(L, sr, 0.02);
       return normPeak(L, new Float32Array(L), 0.86);
     },
   },
   {
     family: 'tom',
-    file: '04-Reese-Sub-Bass.wav',
-    label: 'REESE SUB BASS',
-    dur: 0.65,
+    file: '04-808-Conga-Mid.wav',
+    label: '808 CONGA MID',
+    dur: 0.32,
     gen(sr, len) {
       const L = new Float32Array(len);
-      const R = new Float32Array(len);
-      let p1 = 0;
-      let p2 = 0.25;
-      let p3 = 0.5;
-      let lpL = 0;
-      let lpR = 0;
+      let ph = 0;
       for (let i = 0; i < len; i += 1) {
         const t = i / sr;
-        p1 = (p1 + 55 / sr) % 1;
-        p2 = (p2 + 55.45 / sr) % 1;
-        p3 = (p3 + 54.55 / sr) % 1;
-        const sL = (p1 * 2 - 1) + 0.7 * (p2 * 2 - 1) + 0.8 * Math.sin(TAU * p1);
-        const sR = (p1 * 2 - 1) + 0.7 * (p3 * 2 - 1) + 0.8 * Math.sin(TAU * p1);
-        lpL += 0.04 * (sL - lpL);
-        lpR += 0.04 * (sR - lpR);
-        const env = (1 - Math.exp(-t / 0.008)) * Math.exp(-t / 0.35);
-        L[i] = tanh(lpL * env * 1.9);
-        R[i] = tanh(lpR * env * 1.9);
+        const f = 185 + 65 * Math.exp(-t / 0.014);
+        ph += f / sr;
+        const env = (1 - Math.exp(-t / 0.001)) * Math.exp(-t / 0.13);
+        L[i] = tanh(Math.sin(TAU * ph) * env * 1.4);
       }
-      fadeEnd(L, sr, 0.04);
-      fadeEnd(R, sr, 0.04);
-      return normPeak(L, R, 0.86);
+      fadeEnd(L, sr, 0.02);
+      return normPeak(L, new Float32Array(L), 0.86);
     },
   },
   {
     family: 'tom',
-    file: '05-Donk-FM-Bass.wav',
-    label: 'FM DONK BASS',
-    dur: 0.32,
-    gen(sr, len) {
+    file: '05-707-Low-Tom.wav',
+    label: '707 LOW TOM',
+    dur: 0.35,
+    gen(sr, len, r) {
       const L = new Float32Array(len);
-      const fc = 65.41;
-      const fm = fc * 3;
+      let ph = 0;
       for (let i = 0; i < len; i += 1) {
         const t = i / sr;
-        const idx = 4.2 * Math.exp(-t / 0.045);
-        const mod = Math.sin(TAU * fm * t) * idx;
-        const env = (1 - Math.exp(-t / 0.001)) * Math.exp(-t / 0.14);
-        L[i] = tanh(Math.sin(TAU * fc * t + mod) * env * 1.7);
+        const f = 110 + 90 * Math.exp(-t / 0.028);
+        ph += f / sr;
+        const snap = (r() * 2 - 1) * Math.exp(-t / 0.004) * 0.3;
+        const env = (1 - Math.exp(-t / 0.002)) * Math.exp(-t / 0.15);
+        L[i] = tanh((Math.sin(TAU * ph) * env + snap) * 1.6);
       }
-      fadeEnd(L, sr);
+      fadeEnd(L, sr, 0.02);
       return normPeak(L, new Float32Array(L), 0.85);
     },
   },
   {
     family: 'tom',
-    file: '06-EBM-Octave-Bass.wav',
-    label: 'EBM OCTAVE BASS',
-    dur: 0.28,
-    gen(sr, len) {
+    file: '06-Simmons-Tom.wav',
+    label: 'SIMMONS TOM',
+    dur: 0.38,
+    gen(sr, len, r) {
       const L = new Float32Array(len);
       let ph = 0;
-      let lp = 0;
       for (let i = 0; i < len; i += 1) {
         const t = i / sr;
-        ph = (ph + 65.41 / sr) % 1;
-        const sq = ph < 0.42 ? 1 : -1;
-        const saw = ((ph * 2) % 1) * 2 - 1;
-        const g = 0.08 + 0.35 * Math.exp(-t / 0.04);
-        lp += g * (0.6 * sq + 0.5 * saw - lp);
-        const env = (1 - Math.exp(-t / 0.0008)) * Math.exp(-t / 0.12);
-        L[i] = tanh(lp * env * 2.2);
+        const f = 82 + 280 * Math.exp(-t / 0.038);
+        ph += f / sr;
+        const noise = (r() * 2 - 1) * Math.exp(-t / 0.018) * 0.22;
+        const env = Math.exp(-t / 0.17);
+        L[i] = tanh((Math.sin(TAU * ph) * env + noise) * 1.7);
       }
-      fadeEnd(L, sr);
-      return normPeak(L, new Float32Array(L), 0.86);
+      fadeEnd(L, sr, 0.025);
+      return normPeak(L, new Float32Array(L), 0.85);
     },
   },
 
-  // HT : Hi Toms, Chords & Stabs (Dub Techno, Detroit, Rave, Italo, Afro)
+  // HT : Hi Toms & Wood Percussions (Claves, Woodblock, Tambourine, Toms)
   {
     family: 'ht',
     file: '01-909-Hi-Tom.wav',
@@ -787,118 +764,81 @@ const DEFS: readonly SynthSampleDef[] = [
   },
   {
     family: 'ht',
-    file: '02-Dub-Techno-Chord.wav',
-    label: 'DUB TECHNO CHORD',
-    dur: 0.78,
+    file: '02-808-Claves.wav',
+    label: '808 CLAVES',
+    dur: 0.12,
+    gen(sr, len) {
+      const L = new Float32Array(len);
+      for (let i = 0; i < len; i += 1) {
+        const t = i / sr;
+        const env = Math.exp(-t / 0.015);
+        L[i] = tanh(Math.sin(TAU * 2480 * t) * env * 1.6);
+      }
+      fadeEnd(L, sr, 0.01);
+      return normPeak(L, new Float32Array(L), 0.85);
+    },
+  },
+  {
+    family: 'ht',
+    file: '03-Woodblock.wav',
+    label: 'WOODBLOCK',
+    dur: 0.14,
+    gen(sr, len) {
+      const L = new Float32Array(len);
+      for (let i = 0; i < len; i += 1) {
+        const t = i / sr;
+        const f1 = 820 * Math.exp(-t / 0.008) + 640;
+        const v = Math.sin(TAU * f1 * t) * Math.exp(-t / 0.022) + 0.4 * Math.sin(TAU * 1540 * t) * Math.exp(-t / 0.01);
+        L[i] = tanh(v * 1.8);
+      }
+      fadeEnd(L, sr, 0.01);
+      return normPeak(L, new Float32Array(L), 0.84);
+    },
+  },
+  {
+    family: 'ht',
+    file: '04-Tambourine.wav',
+    label: 'TAMBOURINE',
+    dur: 0.22,
     gen(sr, len, r) {
       const L = new Float32Array(len);
       const R = new Float32Array(len);
-      const notes = [261.63, 311.13, 392.0, 466.16, 587.33]; // Cm9
-      let lpL = 0;
-      let lpR = 0;
+      let pL = 0;
+      let pR = 0;
       for (let i = 0; i < len; i += 1) {
         const t = i / sr;
-        let sL = 0;
-        let sR = 0;
-        for (let k = 0; k < notes.length; k += 1) {
-          const p1 = (notes[k] * (1 + k * 0.0012) * t) % 1;
-          const p2 = (notes[k] * (1 - k * 0.0012) * t + 0.3) % 1;
-          sL += p1 * 2 - 1;
-          sR += p2 * 2 - 1;
-        }
-        const echo = Math.exp(-t / 0.28) * (0.65 + 0.35 * Math.cos(TAU * 3.5 * t));
-        const g = 0.035 + 0.12 * Math.exp(-t / 0.09);
-        lpL += g * ((sL / 5 + (r() * 2 - 1) * 0.05) * echo - lpL);
-        lpR += g * ((sR / 5 + (r() * 2 - 1) * 0.05) * echo - lpR);
-        L[i] = tanh(lpL * 1.9);
-        R[i] = tanh(lpR * 1.9);
+        const nL = r() * 2 - 1;
+        const nR = r() * 2 - 1;
+        const jingle = 0.5 * Math.sin(TAU * 5800 * t) + 0.3 * Math.sin(TAU * 8200 * t);
+        const env = (1 - Math.exp(-t / 0.003)) * Math.exp(-t / 0.065);
+        L[i] = ((nL - pL) * 0.7 + jingle) * env;
+        R[i] = ((nR - pR) * 0.7 - jingle) * env;
+        pL = nL;
+        pR = nR;
       }
-      fadeEnd(L, sr, 0.05);
-      fadeEnd(R, sr, 0.05);
-      return normPeak(L, R, 0.82);
+      fadeEnd(L, sr, 0.02);
+      fadeEnd(R, sr, 0.02);
+      return normPeak(L, R, 0.8);
     },
   },
   {
     family: 'ht',
-    file: '03-Detroit-Minor-Stab.wav',
-    label: 'DETROIT STAB',
-    dur: 0.46,
-    gen(sr, len) {
-      const L = new Float32Array(len);
-      const R = new Float32Array(len);
-      const notes = [293.66, 349.23, 440.0, 523.25]; // Dm7
-      let lpL = 0;
-      let lpR = 0;
-      for (let i = 0; i < len; i += 1) {
-        const t = i / sr;
-        let sL = 0;
-        let sR = 0;
-        for (let k = 0; k < notes.length; k += 1) {
-          const f = notes[k] * (1 + 0.015 * Math.exp(-t / 0.02));
-          sL += ((f * t) % 1) * 2 - 1;
-          sR += ((f * 1.003 * t + 0.2) % 1) * 2 - 1;
-        }
-        const g = 0.05 + 0.28 * Math.exp(-t / 0.055);
-        lpL += g * (sL / 4 - lpL);
-        lpR += g * (sR / 4 - lpR);
-        const env = (1 - Math.exp(-t / 0.002)) * Math.exp(-t / 0.18);
-        L[i] = tanh(lpL * env * 2.1);
-        R[i] = tanh(lpR * env * 2.1);
-      }
-      fadeEnd(L, sr);
-      fadeEnd(R, sr);
-      return normPeak(L, R, 0.84);
-    },
-  },
-  {
-    family: 'ht',
-    file: '04-Rave-Hoover-Stab.wav',
-    label: 'RAVE HOOVER',
-    dur: 0.5,
-    gen(sr, len) {
-      const L = new Float32Array(len);
-      const R = new Float32Array(len);
-      let p1 = 0;
-      let p2 = 0;
-      let p3 = 0;
-      for (let i = 0; i < len; i += 1) {
-        const t = i / sr;
-        const bend = 1 + 0.35 * Math.sin(Math.min(Math.PI, t * 14));
-        const f = 130.81 * bend;
-        p1 = (p1 + f / sr) % 1;
-        p2 = (p2 + (f * 1.009) / sr) % 1;
-        p3 = (p3 + (f * 1.994) / sr) % 1;
-        const pwm = 0.5 + 0.35 * Math.sin(TAU * 6 * t);
-        const w1 = (p1 < pwm ? 1 : -1) + (p2 * 2 - 1);
-        const w2 = (p2 < pwm ? 1 : -1) + (p3 * 2 - 1);
-        const env = (1 - Math.exp(-t / 0.004)) * Math.exp(-t / 0.24);
-        L[i] = tanh(w1 * env * 0.9);
-        R[i] = tanh(w2 * env * 0.9);
-      }
-      fadeEnd(L, sr);
-      fadeEnd(R, sr);
-      return normPeak(L, R, 0.84);
-    },
-  },
-  {
-    family: 'ht',
-    file: '05-Italo-Arp-Pluck.wav',
-    label: 'ITALO PLUCK',
-    dur: 0.26,
-    gen(sr, len) {
+    file: '05-707-Hi-Tom.wav',
+    label: '707 HI TOM',
+    dur: 0.3,
+    gen(sr, len, r) {
       const L = new Float32Array(len);
       let ph = 0;
-      let lp = 0;
       for (let i = 0; i < len; i += 1) {
         const t = i / sr;
-        ph = (ph + 261.63 / sr) % 1;
-        const raw = (ph < 0.28 ? 1 : -1) + 0.6 * (ph * 2 - 1);
-        const g = 0.06 + 0.4 * Math.exp(-t / 0.032);
-        lp += g * (raw - lp);
-        L[i] = tanh(lp * Math.exp(-t / 0.095) * 1.8);
+        const f = 190 + 130 * Math.exp(-t / 0.026);
+        ph += f / sr;
+        const snap = (r() * 2 - 1) * Math.exp(-t / 0.003) * 0.28;
+        const env = (1 - Math.exp(-t / 0.002)) * Math.exp(-t / 0.13);
+        L[i] = tanh((Math.sin(TAU * ph) * env + snap) * 1.6);
       }
-      fadeEnd(L, sr);
-      return normPeak(L, new Float32Array(L), 0.84);
+      fadeEnd(L, sr, 0.02);
+      return normPeak(L, new Float32Array(L), 0.85);
     },
   },
   {
@@ -918,7 +858,7 @@ const DEFS: readonly SynthSampleDef[] = [
     },
   },
 
-  // CY : Cymbals, Cowbell, Siren, Glitch & Trance Lead
+  // CY : Cymbals, Cowbell, Ride, Maracas & Industrial Clank
   {
     family: 'cy',
     file: '01-909-Crash-Cymbal.wav',
@@ -969,68 +909,69 @@ const DEFS: readonly SynthSampleDef[] = [
   },
   {
     family: 'cy',
-    file: '03-Dub-Siren-FX.wav',
-    label: 'DUB SIREN FX',
-    dur: 0.7,
-    gen(sr, len) {
-      const L = new Float32Array(len);
-      let ph = 0;
-      for (let i = 0; i < len; i += 1) {
-        const t = i / sr;
-        const f = 580 + 240 * (Math.sin(TAU * 5.5 * t) >= 0 ? 1 : -1);
-        ph += f / sr;
-        const env = (1 - Math.exp(-t / 0.005)) * Math.exp(-t / 0.38);
-        L[i] = tanh(Math.sin(TAU * ph) * env * 1.4);
-      }
-      fadeEnd(L, sr, 0.04);
-      return normPeak(L, new Float32Array(L), 0.76);
-    },
-  },
-  {
-    family: 'cy',
-    file: '04-IDM-Glitch-Zap.wav',
-    label: 'IDM GLITCH ZAP',
-    dur: 0.24,
-    gen(sr, len) {
-      const L = new Float32Array(len);
-      let ph = 0;
-      for (let i = 0; i < len; i += 1) {
-        const t = i / sr;
-        const step = Math.floor(t * 36);
-        const f = 220 * Math.pow(1.35, (step * 5) % 9) * Math.exp(-t / 0.09);
-        ph += f / sr;
-        const fm = Math.sin(TAU * f * 2.71 * t) * 2.5;
-        L[i] = tanh(Math.sin(TAU * ph + fm) * Math.exp(-t / 0.09) * 1.6);
-      }
-      fadeEnd(L, sr, 0.015);
-      return normPeak(L, new Float32Array(L), 0.8);
-    },
-  },
-  {
-    family: 'cy',
-    file: '05-Trance-Supersaw.wav',
-    label: 'TRANCE SUPERSAW',
-    dur: 0.55,
-    gen(sr, len) {
+    file: '03-909-Ride-Bell.wav',
+    label: '909 RIDE BELL',
+    dur: 0.6,
+    gen(sr, len, r) {
       const L = new Float32Array(len);
       const R = new Float32Array(len);
-      const det = [-0.018, -0.009, -0.003, 0, 0.003, 0.009, 0.018];
-      const notes = [220, 329.63, 440]; // A power chord
+      let pL = 0;
+      let pR = 0;
       for (let i = 0; i < len; i += 1) {
         const t = i / sr;
-        let sL = 0;
-        let sR = 0;
-        for (const f0 of notes) {
-          for (let d = 0; d < det.length; d += 1) {
-            const p = (f0 * (1 + det[d]) * t + d * 0.13) % 1;
-            const w = p * 2 - 1;
-            if (d % 2 === 0) sL += w;
-            else sR += w;
-          }
+        const ping = Math.sin(TAU * 830 * t) * 0.6 + Math.sin(TAU * 1245 * t) * 0.4;
+        const shimmer = (r() * 2 - 1) * 0.3;
+        const env = 0.5 * Math.exp(-t / 0.035) + 0.5 * Math.exp(-t / 0.28);
+        const s = (ping + shimmer) * env;
+        L[i] = s + 0.1 * (s - pL);
+        R[i] = s - 0.1 * (s - pR);
+        pL = s;
+        pR = s;
+      }
+      fadeEnd(L, sr, 0.04);
+      fadeEnd(R, sr, 0.04);
+      return normPeak(L, R, 0.78);
+    },
+  },
+  {
+    family: 'cy',
+    file: '04-808-Maracas.wav',
+    label: '808 MARACAS',
+    dur: 0.12,
+    gen(sr, len, r) {
+      const L = new Float32Array(len);
+      let p = 0;
+      for (let i = 0; i < len; i += 1) {
+        const t = i / sr;
+        const n = r() * 2 - 1;
+        const hp = n - p;
+        p = n;
+        const env = Math.exp(-t / 0.016);
+        L[i] = hp * env * 1.5;
+      }
+      fadeEnd(L, sr, 0.01);
+      return normPeak(L, new Float32Array(L), 0.74);
+    },
+  },
+  {
+    family: 'cy',
+    file: '05-Industrial-Clank.wav',
+    label: 'INDUSTRIAL CLANK',
+    dur: 0.42,
+    gen(sr, len, r) {
+      const L = new Float32Array(len);
+      const R = new Float32Array(len);
+      const tones = [460, 890, 1420, 2350];
+      for (let i = 0; i < len; i += 1) {
+        const t = i / sr;
+        let m = 0;
+        for (let k = 0; k < tones.length; k += 1) {
+          m += Math.sin(TAU * tones[k] * t) * Math.exp(-t / (0.04 + k * 0.03));
         }
-        const env = (1 - Math.exp(-t / 0.006)) * Math.exp(-t / 0.25);
-        L[i] = tanh((sL / 10) * env * 1.5);
-        R[i] = tanh((sR / 10) * env * 1.5);
+        const noise = (r() * 2 - 1) * Math.exp(-t / 0.012) * 0.6;
+        const sig = tanh((m * 0.4 + noise) * 2.2);
+        L[i] = sig;
+        R[i] = sig * (1 + 0.15 * Math.sin(TAU * 12 * t));
       }
       fadeEnd(L, sr, 0.03);
       fadeEnd(R, sr, 0.03);

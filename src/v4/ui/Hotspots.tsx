@@ -309,7 +309,7 @@ interface Down {
   chip?: ChipId;
   /** MM-VOYAGER : pad d'accord, CLEAR ou RANDOM */
   vpad?: number;
-  vbtn?: 'run' | 'clear' | 'random' | 'edit';
+  vbtn?: 'run' | 'clear' | 'random' | 'edit' | 'preset';
   /** MM-ARP : le reglage d'un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) */
   vknob?: VoyKnobId;
   lcd?: PresetKey;
@@ -817,6 +817,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     let wheelKind: DialId | null = null;
     /** la molette au-dessus du navigateur des sons (2026-10-18) : ses petits deltas s'accumulent */
     let sbWheel = 0;
+    let voyWheel = 0;
     /** l'instant du dernier cran de molette (l'acceleration, 2026-10-09) */
     let wheelAt = -Infinity;
     /** vue d'ensemble, ou le bout de la voisine : une machine sous la souris (curseur doigt, un clic zoome) */
@@ -1155,6 +1156,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'random') voyRandom(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'run') voyRun(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
+      else if (d.kind === 'vbtn' && d.vbtn === 'preset') presetKey('voy', presetMode.on('voy') ? 'close' : 'open');
       // Un bouton poussoir (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : le cran suivant, la touche s'enfonce
       else if (d.kind === 'vpush' && d.vknob) voyPush(d.vknob, stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
@@ -2029,8 +2031,33 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return;
       }
       sbWheel = 0;
+      // Au-dessus de l'ecran du MM-ARP quand les presets sont ouverts : la molette fait defiler la liste
+      if (presetMode.on('voy') && h && (h.kind === 'vlcd' || h.id?.startsWith('vlcd-'))) {
+        e.preventDefault();
+        const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
+        voyWheel += delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+        const n = Math.trunc(voyWheel / POT_UI.wheelPx);
+        if (n !== 0) {
+          voyWheel -= n * POT_UI.wheelPx;
+          presetMode.step('voy', n > 0 ? 1 : -1, true);
+        }
+        return;
+      }
+      voyWheel = 0;
       // Au-dessus de LEVEL/DATA (la face DT2, V.6.0) : un cran par cran de molette (vers soi : moins), Ctrl ou Cmd huit
       if (DT2_FACE && h && h.kind === 'data') {
+        e.preventDefault();
+        const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
+        dataWheel -= delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);
+        const n = Math.trunc(dataWheel / POT_UI.wheelPx);
+        if (n !== 0) {
+          dataWheel -= n * POT_UI.wheelPx;
+          dataTurn(n * (e.metaKey ? DATA_PX.coarse : 1), 'ptr', stage);
+        }
+        return;
+      }
+      // Au-dessus de l'ecran quand un menu DT2 est ouvert (presets, sounds...) : la molette le fait defiler
+      if (DT2_FACE && dtFace.menu() && stage.hit.onScreen(e.clientX - rect.left, e.clientY - rect.top)) {
         e.preventDefault();
         const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
         dataWheel -= delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1);

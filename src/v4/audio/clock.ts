@@ -308,6 +308,13 @@ function recent(i: number): StepEvent | undefined {
   return journal[journal.length - 1 - i];
 }
 
+/** Longueur effective de la boucle du pattern courant en pas (1 a 64 pas). */
+const curPatternLen = (): number => {
+  const lp = pattern.loopPage();
+  if (lp >= 0) return 16;
+  return typeof pattern.stepCount === 'function' ? pattern.stepCount() : STEP_COUNT;
+};
+
 /** Le debut d'une mesure : annonce une seule fois (meme re-programme, meme saute). */
 function bar(): void {
   if (abs <= barAbs) return;
@@ -317,10 +324,6 @@ function bar(): void {
   // Le passage suivant (V.5.1) ; un changement de pattern dans les ecouteurs le remet a 1 (resetPass)
   passBefore = passN;
   passN = first ? 1 : passN + 1;
-  const lp = pattern.loopPage();
-  const cnt = pattern.pageCount();
-  if (lp >= 0) playingPageIdx = Math.min(cnt - 1, lp);
-  else playingPageIdx = first ? 0 : (playingPageIdx + 1) % cnt;
   inBar = true;
   try {
     barListeners.forEach((fn) => fn(first));
@@ -330,11 +333,18 @@ function bar(): void {
 }
 
 /** Programme un pas : les voix a `when`, l'entree du journal, les ecouteurs. */
-function schedule(s: number, when: number, expected: number, now: number, off: number, grid: number): void {
-  if (s === 0) {
+function schedule(gStep: number, when: number, expected: number, now: number, off: number, grid: number): void {
+  const lp = pattern.loopPage();
+  if (lp >= 0) {
+    playingPageIdx = Math.min(pattern.pageCount() - 1, lp);
+  } else {
+    playingPageIdx = Math.min(pattern.pageCount() - 1, Math.floor(gStep / 16));
+  }
+  if (gStep === 0) {
     barTime = grid;
     bar();
   }
+  const s = gStep % 16;
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
   const cur = pattern.get();
   const pageSteps = pattern.stepsOfPage(playingPageIdx);
@@ -487,8 +497,9 @@ function tick(): void {
       anchor = nextTime;
       n = 0;
     }
+    const totalLen = curPatternLen();
     // La fin de la mesure se recale sur la platine qui mene (le SYNC du MIXER) ; le pas d'apres repasse par la boucle
-    if (lead && step === STEP_COUNT - 2 && leadRealign(now)) continue;
+    if (lead && step === totalLen - 2 && leadRealign(now)) continue;
     if (nextTime < now - DROP_AFTER_S) {
       stats.dropped += 1;
       // Saute, le debut de mesure compte quand meme : la chaine des patterns ne prend pas de retard
@@ -506,7 +517,7 @@ function tick(): void {
     n += 1;
     abs += 1;
     nextTime = anchor + n * stepDur;
-    step = (step + 1) % STEP_COUNT;
+    step = (step + 1) % totalLen;
   }
 }
 
@@ -670,7 +681,7 @@ function leadRealign(now: number): boolean {
   while (k > 0 && (b.time - k * dur < prev + 0.5 * dur || b.time - k * dur < edge)) k -= 1;
   // Les pas sautes comptent (la mesure, la chaine des patterns), comme un pas rate
   abs += 2 - k;
-  step = (step + 2 - k) % STEP_COUNT;
+  step = (step + 2 - k) % curPatternLen();
   stepDur = dur;
   pendingDur = 0;
   anchor = b.time - k * dur;
@@ -1039,7 +1050,7 @@ function pause(): boolean {
   if (!running) return false;
   const c = context();
   const e = c ? entryAt(c.currentTime) : null;
-  const at = e ? (e.step + 1) % STEP_COUNT : (plan[0]?.step ?? step);
+  const at = e ? (e.step + 1) % curPatternLen() : (plan[0]?.step ?? step);
   // Un pas 1 programme mais pas encore entendu : sa mesure est annoncee (bar), la chaine a avance pour rien
   const unheard = !!c && plan.some((p) => p.step === 0 && p.when > c.currentTime);
   // Le sequenceur des trigs du pas de la reprise (V.5.1) et le compteur de passages : la pause les garde
@@ -1092,9 +1103,10 @@ function entryAt(t: number): StepEvent | null {
  */
 function gridAfter(t: number): { time: number; step: number; dur: number } | null {
   if (!running) return null;
+  const totalLen = curPatternLen();
   if (pendingDur > 0 && t > nextTime) {
     const k = Math.ceil((t - nextTime) / pendingDur - 1e-9);
-    return { time: nextTime + k * pendingDur, step: (step + k) % STEP_COUNT, dur: pendingDur };
+    return { time: nextTime + k * pendingDur, step: (step + k) % totalLen, dur: pendingDur };
   }
   // Avant une fin de mesure recalee sur la platine qui mene (2026-10-27, leadRealign) : la grille d'avant, telle que ses
   // pas sont programmes (l'arpege qui s'y cale ne compte pas un pas fantome en arriere de la nouvelle ancre)
@@ -1103,7 +1115,7 @@ function gridAfter(t: number): { time: number; step: number; dur: number } | nul
     if (i >= 0 && plan[i].grid < anchor - 1e-9) return { time: plan[i].grid, step: plan[i].step, dur: (plan[i + 1]?.grid ?? anchor) - plan[i].grid };
   }
   const k = Math.ceil((t - anchor) / stepDur - 1e-9);
-  const idx = (((step + (k - n)) % STEP_COUNT) + STEP_COUNT) % STEP_COUNT;
+  const idx = (((step + (k - n)) % totalLen) + totalLen) % totalLen;
   return { time: anchor + k * stepDur, step: idx, dur: stepDur };
 }
 

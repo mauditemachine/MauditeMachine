@@ -151,7 +151,7 @@ function deckTexts(open: boolean): Text[] {
   out.push(...knobTexts('deck'), ...groupTexts('deck'));
   for (const b of VOY_BUTTONS) {
     const label = b.id === 'open' && open ? 'CLOSE' : b.label;
-    const nav = b.id === 'open';
+    const nav = b.id === 'open' || b.id === 'preset';
     out.push({
       text: label,
       x: b.x,
