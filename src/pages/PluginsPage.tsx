@@ -38,8 +38,11 @@ export default function PluginsPage() {
   }, [selectedCategory, searchQuery, onlyFavorites]);
 
   return (
-    <div className="min-h-screen bg-[#08080a] text-[#f2f2f2] font-sans selection:bg-[#ff2a5f] selection:text-white pb-32">
-      <style>{`#mm-boot { display: none !important; }`}</style>
+    <div id="plugins-page-root" className="min-h-screen bg-[#08080a] text-[#f2f2f2] font-sans selection:bg-[#ff2a5f] selection:text-white pb-32">
+      <style>{`
+        #mm-boot, #seo-static, .seo-static { display: none !important; }
+        html, body { overflow: auto !important; height: auto !important; background: #08080a !important; }
+      `}</style>
       {/* En-tete cyber-studio */}
       <header className="relative border-b border-white/10 bg-gradient-to-b from-[#111116] to-[#08080a] px-4 md:px-12 pt-16 pb-12 overflow-hidden">
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#ff2a5f]/10 rounded-full blur-[140px] pointer-events-none" />
