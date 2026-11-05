@@ -203,8 +203,25 @@ export const PLUGINS_DATA: PluginItem[] = [
     "image": "/images/plugins/korg-ms20.jpg"
   },
   {
-    "id": "serum-2","image": "/images/plugins/serum-2.jpg"
-  },
+  "id": "serum-2",
+  "name": "Xfer Serum 2",
+  "brand": "Xfer Records",
+  "category": "synths",
+  "formats": [
+    "AU",
+    "VST3"
+  ],
+  "role": "Synthétiseur à tables d'ondes de référence mondiale",
+  "description": "Le roi incontesté de la musique électronique moderne. Tables d'ondes éditables en temps réel, filtres spectraux, propreté audio exceptionnelle et flexibilité infinie.",
+  "mikaUsage": "Design de drops, leads futuristes, plucks hyper précis et basses modulées.",
+  "keyFeatures": [
+    "Moteur de rendu sans aliasing (interpolations haute résolution)",
+    "Générateur et importateur de tables d'ondes sur mesure",
+    "Matrice de modulation drag-and-drop ultra-visuelle"
+  ],
+  "isFavorite": true,
+  "image": "/images/plugins/serum-2.jpg"
+},
   {
     "id": "vital",
     "name": "Vital",
