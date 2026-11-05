@@ -27,6 +27,8 @@ const V3App = React.lazy(() => import('./v3/V3App'));
 const V4App = React.lazy(() => import('./v4/index'));
 // Panneau admin local (shell sidebar : dashboard, contenu, medias, publier)
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
+// Page cachee : inventaire complet des plugins et synthes studio de Mika
+const PluginsPage = React.lazy(() => import('./pages/PluginsPage'));
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
@@ -46,6 +48,11 @@ function StaticContentGuard() {
   const { pathname } = useLocation();
   const landing = useRef(pathname);
   useEffect(() => {
+    if (pathname === '/plugins') {
+      document.getElementById('seo-static')?.remove();
+      document.getElementById('mm-boot')?.remove();
+      return;
+    }
     if (pathname === landing.current) return;
     document.getElementById('seo-static')?.remove();
     // 2026-10-21 (src/v4/state/boot.ts) : la coquille de demarrage de la machine ne reste pas sur une autre page
@@ -87,6 +94,8 @@ export default function App() {
           <Route path="/goodies" element={lazyEl(<V4App />)} />
           <Route path="/merch" element={lazyEl(<V4App />)} />
           <Route path="/studio" element={lazyEl(<V4App />)} />
+          {/* Page studio cachee : inventaire et interfaces des plugins de Mika */}
+          <Route path="/plugins" element={lazyEl(<PluginsPage />)} />
 
           {/* ============ Redirections des anciennes URLs v1 ============ */}
           <Route path="/about" element={<Navigate to="/" replace />} />
