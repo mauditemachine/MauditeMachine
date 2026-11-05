@@ -217,7 +217,7 @@ export default function PluginsPage() {
 
                   {/* Formats badges */}
                   <div className="absolute bottom-2.5 left-3 flex gap-1">
-                    {plugin.formats.map(f => (
+                    {(plugin.formats || []).map(f => (
                       <span
                         key={f}
                         className="bg-black/80 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/70 px-1.5 py-0.5 rounded"
@@ -274,7 +274,7 @@ export default function PluginsPage() {
                       Points techniques clés :
                     </div>
                     <ul className="space-y-1">
-                      {plugin.keyFeatures.map((feat, idx) => (
+                      {(plugin.keyFeatures || []).map((feat, idx) => (
                         <li key={idx} className="text-[11px] text-white/60 flex items-start gap-1.5 leading-snug">
                           <span className="text-[#ff2a5f] font-mono">›</span>
                           <span>{feat}</span>
