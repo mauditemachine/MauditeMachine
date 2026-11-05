@@ -28,7 +28,7 @@ const V4App = React.lazy(() => import('./v4/index'));
 // Panneau admin local (shell sidebar : dashboard, contenu, medias, publier)
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 // Page cachee : inventaire complet des plugins et synthes studio de Mika
-const PluginsPage = React.lazy(() => import('./pages/PluginsPage'));
+import PluginsPage from './pages/PluginsPage';
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
@@ -95,7 +95,8 @@ export default function App() {
           <Route path="/merch" element={lazyEl(<V4App />)} />
           <Route path="/studio" element={lazyEl(<V4App />)} />
           {/* Page studio cachee : inventaire et interfaces des plugins de Mika */}
-          <Route path="/plugins" element={lazyEl(<PluginsPage />)} />
+          <Route path="/plugins" element={<PluginsPage />} />
+          <Route path="/plugins/*" element={<PluginsPage />} />
 
           {/* ============ Redirections des anciennes URLs v1 ============ */}
           <Route path="/about" element={<Navigate to="/" replace />} />

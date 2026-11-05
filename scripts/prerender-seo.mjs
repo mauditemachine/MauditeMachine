@@ -104,7 +104,7 @@ const STATIC_LANG = 'en';
 // (src/v4/state/sectionRoute.ts) et sa page statique, avec son contenu en
 // HTML lisible sans JavaScript (moteurs, reseaux sociaux, assistants IA).
 // 2026-10-04 : /radar/ (la page Radar de la v2), meme principe que /techrider/.
-const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/', '/contact/', '/goodies/', '/merch/', '/studio/', '/radar/'];
+const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/', '/contact/', '/goodies/', '/merch/', '/studio/', '/radar/', '/plugins/'];
 
 /**
  * Les pages React de la v2 (fiche technique, Radar) rendent leur propre
@@ -112,7 +112,7 @@ const ROUTES = ['/techrider/', '/presskit/', '/tracks/', '/mixtapes/', '/shows/'
  * montage. Toutes les autres adresses sont la machine (v4), dont le DOM
  * rendu est le meme partout : leur texte reste a cote de #root.
  */
-const REACT_PAGES = new Set(['/techrider/', '/radar/']);
+const REACT_PAGES = new Set(['/techrider/', '/radar/', '/plugins/']);
 
 const indexPath = join(DIST, 'index.html');
 if (!existsSync(indexPath)) {
