@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>404 - Not Found at KVR Audio</title>
+
+<link rel="preload" as="font" type="font/woff2" href="/static/fonts/open-sans-v18-latin-ext_latin-regular.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="/static/fonts/open-sans-v18-latin-ext_latin-700.woff2" crossorigin>
+<style>
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: local(''),
+       url('/static/fonts/open-sans-v18-latin-ext_latin-regular.woff2') format('woff2'),
+       url('/static/fonts/open-sans-v18-latin-ext_latin-regular.woff') format('woff');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 700;
+  src: local(''),
+       url('/static/fonts/open-sans-v18-latin-ext_latin-700.woff2') format('woff2'),
+       url('/static/fonts/open-sans-v18-latin-ext_latin-700.woff') format('woff');
+  font-display: swap;
+}
+</style>
+</head>
+<body style="text-align: center; background-color: #ccc; font-family: 'Open Sans'; font-size: 16px; color: #555;">
+  <div style="max-width: 320px; margin: 40px auto;">
+    <div style="padding: 20px; background-color: #f1f1f1; border-radius: 5px;">
+      <p><a href="/" title="KVR Audio"><img src="https://static.kvraudio.com/i/kvr-grey-135x54.png" alt="KVR" style="width: 135px; height: 54px;"></a></p>
+      <h1 style="font-size: 2rem; margin: 0.67em 0;">404 - Not Found</h1>
+      <p>A page with that name was not found at KVR Audio.</p>
+      <p>Please go to <a href="/" style="color: #36c;">www.kvraudio.com</a> to find what you seek.</p>
+    </div>
+  </div>
+
+</body>
+</html>
