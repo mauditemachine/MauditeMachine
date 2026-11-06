@@ -2,7 +2,7 @@
   "mm808": {
     "name": "MM-RYTM",
     "version": "6.9",
-    "fingerprint": "sha256:d5caf78a308eab4d6f4de052f6667d12458921c3d82a96bc3e7c9b3126f2f2a4",
+    "fingerprint": "sha256:54e04b3a750db3fb72825df4eed5e374e9b68ea70d4a0ad8debc7e8c2c38a9c6",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -35,5 +35,5 @@
       { "version": "2.5", "date": "2026-11-03", "note": "bouton dedie preset et liste presets", "sha": "f96ca4f1" }
     ]
   },
-  "bass": { "name": "MM-BASS", "version": "3.0", "fingerprint": "sha256:4f3a80e5cde06693b4f8337b69ba811df385207e84d20ca93995295b1b97ea55", "history": [] }
+  "bass": { "name": "MM-BASS", "version": "3.0", "fingerprint": "sha256:7d574b694a628af4f4001a08e03ca1a22d80e9106b0fdb946a51eb44df073ac7", "history": [] }
 }
