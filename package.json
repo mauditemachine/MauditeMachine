@@ -8,7 +8,7 @@
     "admin": "node scripts/dev-admin.mjs",
     "covers": "node scripts/fetch-covers.mjs",
     "build": "vite build",
-    "postbuild": "node scripts/prerender-seo.mjs && node scripts/generate-sitemap.mjs",
+    "postbuild": "node scripts/prerender-seo.mjs && node scripts/press-pages.mjs && node scripts/generate-sitemap.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "indexnow": "node scripts/indexnow.mjs",
     "preview": "vite preview --open",
@@ -25,7 +25,8 @@
     "firmware:bump": "node scripts/firmware.mjs bump",
     "firmware:stamp": "node scripts/firmware.mjs stamp",
     "presets:test": "node scripts/presets-name.test.mjs && node scripts/presets-bpm.test.mjs",
-    "face:test": "node scripts/face.test.mjs"
+    "face:test": "node scripts/face.test.mjs",
+    "press:pages": "node scripts/press-pages.mjs --public"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

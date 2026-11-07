@@ -11,6 +11,11 @@
     <meta name="description" content="Maudite Machine press assets: high resolution press photos, logos, release artwork and MM-STUDIO screenshots, free to use for articles, posters and festivals." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://mauditemachine.com/press/" />
+    <!-- 2026-11-07 : la page en francais et en espagnol (scripts/press-pages.mjs, ecrites au build) -->
+    <link rel="alternate" hreflang="en" href="https://mauditemachine.com/press/" />
+    <link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/press/" />
+    <link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/press/" />
+    <link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/press/" />
     <!-- 2026-10-11 : favicon.svg et favicon.ico (16 et 32 px) a la racine, comme tout le site -->
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -306,6 +311,34 @@
       figure.on-dark img { background: #0c0b09; border-color: #0c0b09; }
       figure.on-light img { background: #fff; }
 
+      /* 2026-11-07 (Mika) : le choix de langue, et la section Bio (trois blocs, un bouton Copy chacun) : sans filet
+         colore, sans contour 1 px, sans degrade ; le bouton est plein, a l'encre */
+      .langs { margin: 8px 0 0; }
+      .langs a { text-decoration: none; }
+      .langs a:hover, .langs a[aria-current] { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+      .bios { display: grid; gap: 44px; max-width: 900px; margin-top: 30px; }
+      .bio-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; }
+      .bio-head h3 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+      .bio-head .copy { margin-left: auto; }
+      .bio-text p { margin: 12px 0 0; max-width: 68ch; font-size: 17px; line-height: 1.6; overflow-wrap: anywhere; }
+      .copy {
+        min-width: 10ch;
+        padding: 9px 14px;
+        border: 0;
+        border-radius: 2px;
+        background: var(--ink);
+        color: var(--bg);
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: opacity 0.2s ease;
+      }
+      .copy:hover { opacity: 0.82; }
+      .copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+      .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
       footer {
         margin-top: 11vh;
         padding-top: 22px;
@@ -320,6 +353,7 @@
   <body>
     <header>
       <p class="label">Maudite Machine</p>
+      <!-- langs:start --><nav class="label langs" aria-label="Language"><a href="/press/" hreflang="en" lang="en" aria-current="page">EN</a> · <a href="/fr/press/" hreflang="fr" lang="fr">FR</a> · <a href="/es/press/" hreflang="es" lang="es">ES</a></nav><!-- langs:end -->
       <h1>Press assets</h1>
       <p class="intro">
         Photos, logo, artwork, press kit and tech rider, edition 2027.
@@ -341,6 +375,51 @@
         </a>
       </div>
     </header>
+
+    <!-- 2026-11-07 (Mika : "ajoute une section Bio avant les photos") : courte, longue et Instagram, chacune copiable -->
+    <!-- bio:start : rendue par scripts/press-pages.mjs depuis src/data/pressBio.json, ne pas editer a la main -->
+    <section id="bio">
+      <div class="head">
+        <h2>Bio</h2>
+        <span class="label">3 texts · copy and paste</span>
+      </div>
+      <div class="bios">
+        <article class="bio">
+          <div class="bio-head">
+            <h3>Short bio</h3>
+            <span class="label">EN</span>
+            <button class="copy" type="button" data-label="Copy" data-copied="Copied">Copy</button>
+          </div>
+          <div class="bio-text">
+            <p>Indie dance, dark disco. DJ, producer, founder of VRSTL Records. Fifteen years in the Montréal underground, now based in the south of France. Booking: mauditemachine@gmail.com</p>
+          </div>
+        </article>
+        <article class="bio">
+          <div class="bio-head">
+            <h3>Long bio</h3>
+            <span class="label">EN</span>
+            <button class="copy" type="button" data-label="Copy" data-copied="Copied">Copy</button>
+          </div>
+          <div class="bio-text">
+            <p>Maudite Machine is a DJ and producer based in Montpellier, in the south of France, after fifteen years in the Montréal underground. He plays indie dance and dark disco: rolling basslines, dark synths and long tension that builds over the set, as a DJ on CDJs or as a hybrid live with synths and grooveboxes.</p>
+            <p>He has played Techno Parade Paris, Okami Festival in France and Groove and Bass in Québec, and Montréal rooms from the SAT to Piknic Électronik, on bills with Popof, Christian Smith, Perc, Nick Curly, Damon Jee, John 00 Fleming, D-Nox and Perfect Stranger.</p>
+            <p>He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own releases include Limbos (2025) and Voodoo (2026).</p>
+          </div>
+        </article>
+        <article class="bio">
+          <div class="bio-head">
+            <h3>Instagram bio</h3>
+            <span class="label">EN · 150 characters max</span>
+            <button class="copy" type="button" data-label="Copy" data-copied="Copied">Copy</button>
+          </div>
+          <div class="bio-text">
+            <p>Indie dance, dark disco<br />DJ &amp; producer | VRSTL Records<br />Montpellier, south of France<br />mauditemachine.com</p>
+          </div>
+        </article>
+      </div>
+      <span class="sr-only" role="status" aria-live="polite" id="copy-status"></span>
+    </section>
+    <!-- bio:end -->
 
     <!-- 2026-10-11 : MM-STUDIO, la machine de l'accueil (faits relus dans le code, scripts/mm-studio-content.mjs) -->
     <section id="mm-studio">
@@ -556,6 +635,46 @@
           + '<img src="' + url + '" alt="' + name + ', artwork" loading="lazy" /></a>'
           + '<figcaption><span class="label">' + name + '</span></figcaption></figure>';
       }).join('');
+
+      // 2026-11-07 : Copy copie le texte brut du bloc (ses paragraphes separes d'une ligne vide), puis dit Copied 2 s
+      (function () {
+        function copyText(text) {
+          if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+          return new Promise(function (resolve, reject) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.top = '0';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            document.body.removeChild(ta);
+            if (ok) resolve(); else reject(new Error('copy'));
+          });
+        }
+        var status = document.getElementById('copy-status');
+        Array.prototype.forEach.call(document.querySelectorAll('.bio'), function (bio) {
+          var btn = bio.querySelector('.copy');
+          var timer = 0;
+          btn.addEventListener('click', function () {
+            var text = Array.prototype.map.call(bio.querySelectorAll('.bio-text p'), function (p) {
+              return p.innerText.replace(/[ \t]+\n/g, '\n').trim();
+            }).join('\n\n');
+            copyText(text).then(function () {
+              btn.textContent = btn.getAttribute('data-copied');
+              if (status) status.textContent = btn.getAttribute('data-copied');
+              clearTimeout(timer);
+              timer = setTimeout(function () {
+                btn.textContent = btn.getAttribute('data-label');
+                if (status) status.textContent = '';
+              }, 2000);
+            });
+          });
+        });
+      })();
     </script>
   </body>
 </html>

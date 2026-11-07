@@ -63,6 +63,9 @@ const ROUTES = [
   { path: '/fr/', changefreq: 'weekly' },
   { path: '/es/', changefreq: 'weekly' },
   { path: '/press/', changefreq: 'yearly' },
+  // 2026-11-07 : /press en francais et en espagnol (scripts/press-pages.mjs, ecrites au build)
+  { path: '/fr/press/', changefreq: 'yearly' },
+  { path: '/es/press/', changefreq: 'yearly' },
   { path: '/presskit/', changefreq: 'yearly' },
   { path: '/techrider/', changefreq: 'yearly' },
   // les sections de la machine (src/v4/state/sectionRoute.ts)
@@ -91,6 +94,9 @@ for (const page of MM_STUDIO_PAGES) {
  */
 const HOME_ALTERNATES = { en: `${SITE}/`, fr: `${SITE}/fr/`, es: `${SITE}/es/` };
 const ALT_GROUPS = new Map([['/', HOME_ALTERNATES], ['/fr/', HOME_ALTERNATES], ['/es/', HOME_ALTERNATES]]);
+// 2026-11-07 : /press et ses deux versions
+const PRESS_ALTERNATES = { en: `${SITE}/press/`, fr: `${SITE}/fr/press/`, es: `${SITE}/es/press/` };
+for (const p of ['/press/', '/fr/press/', '/es/press/']) ALT_GROUPS.set(p, PRESS_ALTERNATES);
 for (const page of MM_STUDIO_PAGES) {
   ALT_GROUPS.set(page.path, Object.fromEntries(clusterOf(page.cluster).map((p) => [p.lang, `${SITE}${p.path}`])));
 }

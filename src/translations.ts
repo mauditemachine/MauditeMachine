@@ -11,6 +11,19 @@
 
 export type Lang = 'en' | 'fr' | 'es';
 
+import PRESS_BIO from './data/pressBio.json';
+
+/**
+ * Les bios de la page /press et de ses versions /fr/press et /es/press (2026-11-07, Mika : section Bio avec un bouton
+ * Copy par bloc) : courte et longue dans la langue, Instagram en anglais partout. Une seule source,
+ * src/data/pressBio.json, que scripts/press-pages.mjs lit aussi pour les pages statiques.
+ */
+const pressBioOf = (l: Lang) => ({
+  short: PRESS_BIO[l].short,
+  long: PRESS_BIO[l].long.join('\n\n'),
+  instagram: PRESS_BIO.instagram.join('\n'),
+});
+
 export const translations = {
   en: {
     nav: {
@@ -163,6 +176,7 @@ export const translations = {
       success: 'Message sent successfully! We will get back to you soon.',
       error: 'Error sending message. Please try again or contact us directly.',
     },
+    pressBio: pressBioOf('en'),
     presskit: {
       title: 'Official Press Kit & Tech Rider',
       description: 'Complete press materials including high-resolution photos, artist bio, logos, and technical requirements for bookings and media coverage.',
@@ -452,6 +466,7 @@ export const translations = {
       success: 'Message envoyé avec succès ! Nous vous répondrons bientôt.',
       error: "Erreur lors de l'envoi. Réessayez ou contactez-nous directement.",
     },
+    pressBio: pressBioOf('fr'),
     presskit: {
       title: 'Press Kit & Tech Rider officiel',
       description: "Matériel presse complet incluant photos haute résolution, biographie, logos et fiche technique pour réservations et couverture médiatique.",
@@ -739,6 +754,7 @@ export const translations = {
       success: '¡Mensaje enviado con éxito! Te responderemos pronto.',
       error: 'Error al enviar el mensaje. Inténtalo de nuevo o contáctanos directamente.',
     },
+    pressBio: pressBioOf('es'),
     presskit: {
       title: 'Press Kit & Tech Rider oficial',
       description: 'Material de prensa completo con fotos en alta resolución, biografía, logos y requerimientos técnicos para bookings y cobertura mediática.',
