@@ -5,6 +5,7 @@
 // Regle temps reel : rien n'alloue, ne bloque ni ne libere dans process() / pushLive().
 #pragma once
 
+#include "Fx.h"
 #include "Program.h"
 
 #include <array>
@@ -35,6 +36,7 @@ struct PlayState {
     std::vector<std::shared_ptr<RenderedSound>> sounds; // aligne sur prog.sounds (nul : son impossible)
     std::array<std::vector<int>, kTracks> at;           // at[t][g] : indice du coup dans prog.tracks[t].hits, -1 sinon
     std::vector<std::string> keys;                      // la cle de chaque son (sounds : ceux du programme, puis ceux joues en direct)
+    std::shared_ptr<ReverbIR> reverbIR;                 // la reponse de la REVERB (rsize, rtone, rpre)
     std::atomic<int> users{0};
     double retiredAt = -1;
 };
@@ -79,6 +81,8 @@ public:
 
     // --- thread audio ---
     void process(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes = nullptr, int nNotes = 0);
+    // Sans les effets (les tests du moteur d'avant la phase 3 : la sortie des voix seules)
+    void setDry(bool on) { dry_ = on; }
     void allNotesOff();
 
     // --- retour vers la face (atomiques) ---
@@ -160,7 +164,16 @@ private:
     void pendPush(const Ev& e);
     uint32_t rngNext();
 
+    void processChunk(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes, int nNotes);
+    void applySlice(const PlayState& ps, int track, const ProgHit& h);
+
     double sr_ = 48000;
+    FxChain fx_;
+    const PlayState* fxState_ = nullptr;
+    double fxBpm_ = 0;
+    bool dry_ = false;
+    std::array<SliceFx, kTracks> sliceNow_{};
+    std::array<NoteEvent, 256> chunkNotes_{};
     std::array<std::array<Voice, kVoicesPerTrack>, kTracks> voices_{};
     std::atomic<PlayState*> current_{nullptr};
     uint32_t clock_ = 0;

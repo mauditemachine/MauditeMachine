@@ -2,6 +2,7 @@
 // La face calcule tout avec les fonctions du site (sons, verrous, hauteur, enveloppe, gain, PAN) ; le C++ joue.
 #pragma once
 
+#include "Fx.h"
 #include "Shots.h"
 
 #include <array>
@@ -51,6 +52,9 @@ struct ProgHit {
     int vfad = 0;      // VFAD, -64 a 63
     double rlen = 1;   // RLEN en pas ; -1 : INF (jusqu'au trig suivant)
     bool lt = false;   // un lock trig : aucun son, ses verrous vont au coup qui sonne
+    // La tranche de la piste a partir de ce coup (un verrou de TONE, DIST, CHORUS, DELAY ou REVERB) ; absente : rien ne change
+    bool hasSl = false;
+    SliceFx sl;
 };
 
 struct ProgTrack {
@@ -59,6 +63,8 @@ struct ProgTrack {
     bool mono = false;
     int choke = 0;
     bool gated = false;
+    bool kick = false; // la voie du kick (sans CHORUS ni envois globaux)
+    SliceFx sl;        // la tranche de la voix
     ProgHit live;
     std::vector<ProgHit> hits; // par pas croissant
 };
@@ -70,6 +76,7 @@ struct Program {
     double swing = 0; // retard des pas impairs, en part de pas
     std::vector<ProgSound> sounds;
     std::array<ProgTrack, kProgTracks> tracks;
+    GlobalFx fx;
 };
 
 bool shotFromSiteId(const std::string& s, ShotId& out);

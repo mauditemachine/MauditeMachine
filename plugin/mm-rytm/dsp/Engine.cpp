@@ -81,6 +81,19 @@ void Engine::prepare(double sampleRate) {
     sr_ = sampleRate;
     allNotesOff();
     seqReset(true);
+    fx_.prepare(sampleRate);
+    fxState_ = nullptr;
+}
+
+// La tranche d'une piste a partir d'un coup : ses verrous de TONE, DIST, CHORUS, DELAY, REVERB, ou ceux de la voix
+// (audio/drums.ts postSends, postInserts : l'etat de la tranche jusqu'au coup suivant de la voix)
+void Engine::applySlice(const PlayState& ps, int track, const ProgHit& h) {
+    const ProgTrack& pt = ps.prog.tracks[static_cast<size_t>(track)];
+    const SliceFx& s = h.hasSl ? h.sl : pt.sl;
+    SliceFx& now = sliceNow_[static_cast<size_t>(track)];
+    if (s.tone == now.tone && s.dist == now.dist && s.chorus == now.chorus && s.delay == now.delay && s.reverb == now.reverb) return;
+    now = s;
+    fx_.setSlice(track, s, pt.kick);
 }
 
 /* ---------------- thread du calcul ---------------- */
@@ -180,6 +193,7 @@ void Engine::fadeTrack(int track, int samples, int offset) {
 
 void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN) {
     if (!snd || snd->variants.empty()) return;
+    applySlice(ps, track, h);
     const ProgTrack& tr = ps.prog.tracks[static_cast<size_t>(track)];
     const bool gated = tr.choke > 0 && tr.gated;
     const bool mono = tr.mono && !gated;
@@ -442,8 +456,38 @@ void Engine::evalStep(const PlayState& ps, long G) {
 /* ---------------- le bloc ---------------- */
 
 void Engine::process(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes, int nNotes) {
+    // Par morceaux de FxChain::kMaxBlock (les tampons des tranches) ; la position et les notes suivent
+    for (int off = 0; off < n; off += FxChain::kMaxBlock) {
+        const int c = std::min(FxChain::kMaxBlock, n - off);
+        BlockTransport t2 = tr;
+        t2.ppq = tr.ppq + off * tr.ppqPerSample;
+        int nn = 0;
+        for (int k = 0; k < nNotes && nn < static_cast<int>(chunkNotes_.size()); ++k)
+            if (notes[k].offset >= off && notes[k].offset < off + c) {
+                chunkNotes_[static_cast<size_t>(nn)] = notes[k];
+                chunkNotes_[static_cast<size_t>(nn++)].offset -= off;
+            }
+        processChunk(t2, L + off, R + off, c, chunkNotes_.data(), nn);
+    }
+}
+
+void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes, int nNotes) {
     PlayState* ps = current_.load(std::memory_order_acquire);
     if (ps) ps->users.fetch_add(1, std::memory_order_acq_rel);
+    // Les effets du programme : un nouvel etat, ou un autre tempo (le temps du DELAY)
+    const double bpm = tr.ppqPerSample > 0 ? tr.ppqPerSample * 60 * sr_ : (ps ? ps->prog.bpm : 130);
+    if (ps && (ps != fxState_ || std::fabs(bpm - fxBpm_) > 0.01)) {
+        if (ps != fxState_)
+            for (int t = 0; t < kTracks; ++t) {
+                sliceNow_[static_cast<size_t>(t)] = ps->prog.tracks[static_cast<size_t>(t)].sl;
+                fx_.setSlice(t, sliceNow_[static_cast<size_t>(t)], ps->prog.tracks[static_cast<size_t>(t)].kick);
+            }
+        fx_.setGlobal(ps->prog.fx, bpm);
+        fx_.setReverbIR(ps->reverbIR.get());
+        fxState_ = ps;
+        fxBpm_ = bpm;
+    }
+    fx_.clearTracks(n);
     const double pps = tr.ppqPerSample;
     const double stepN = pps > 0 ? 0.25 / pps : 0; // echantillons par pas
     int ne = 0;
@@ -543,10 +587,14 @@ void Engine::process(const BlockTransport& tr, float* L, float* R, int n, const 
             else trigger(*ps, e.track, e.hit, e.vel, e.slice, e.snd, e.offset, e.lenSteps, e.rep, stepN);
         }
 
-    // Les voix
+    // Les voix, dans la tranche de leur piste (ou tout droit dans la sortie, sans effets)
     const int relN = std::max(1, static_cast<int>(LEN_REL_S * sr_));
     for (int t = 0; t < kTracks; ++t) {
+        float* TL = dry_ ? L : fx_.trackL(t);
+        float* TR = dry_ ? R : fx_.trackR(t);
+        bool any = false;
         for (auto& v : voices_[static_cast<size_t>(t)]) {
+            if (v.shot) any = true;
             if (!v.shot) continue;
             const std::vector<float>& sl = v.shot->L;
             const std::vector<float>& sr = v.shot->right();
@@ -603,14 +651,16 @@ void Engine::process(const BlockTransport& tr, float* L, float* R, int n, const 
                         b = static_cast<float>(yb);
                     }
                 }
-                L[i] += f * (v.gLL * a + v.gLR * b);
-                R[i] += f * (v.gRL * a + v.gRR * b);
+                TL[i] += f * (v.gLL * a + v.gLR * b);
+                TR[i] += f * (v.gRL * a + v.gRR * b);
                 ++v.pos;
                 v.t += 1;
             }
             if (done || v.pos >= len || v.fadeLeft == 0) release(v);
         }
+        if (any) fx_.markActive(t);
     }
+    if (!dry_) fx_.process(L, R, n);
 
     if (ps) ps->users.fetch_sub(1, std::memory_order_acq_rel);
 }

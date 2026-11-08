@@ -18,7 +18,10 @@
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
-import { liveHook, resolveHit, type HitParams } from '../audio/drums';
+import { liveHook, mix, resolveHit, type HitParams } from '../audio/drums';
+import { morph } from '../audio/morph';
+import type { StepLock } from '../audio/locks';
+import type { VoiceFx } from '../audio/voicefx';
 import { lockOf } from '../audio/locks';
 import { CONDS, trigNow } from '../audio/trig';
 import { pattern, VEL_GAIN, velocity } from '../audio/pattern';
@@ -84,6 +87,8 @@ export interface ProgHit {
   vfad?: number;
   rlen?: number;
   lt?: number;
+  /** la tranche de la piste a partir de ce coup (TONE, DIST, CHORUS, envois DELAY et REVERB : la voix, ses verrous) */
+  sl?: number[];
 }
 
 export interface ProgTrack {
@@ -95,6 +100,10 @@ export interface ProgTrack {
   mono: boolean;
   choke: number;
   gated: boolean;
+  /** la voie du kick (sans CHORUS ni envois globaux, audio/drums.ts kickBus) */
+  kick: boolean;
+  /** la tranche de la voix : TONE, DIST, CHORUS, DELAY, REVERB */
+  sl: number[];
   /** le coup du pad (sans verrou) : ce que joue un coup en direct */
   live: ProgHit;
   hits: ProgHit[];
@@ -110,7 +119,18 @@ export interface Program {
   swing: number;
   sounds: ProgSound[];
   tracks: ProgTrack[];
+  /** les effets globaux (pattern.fx et ses scenes, morph.fx) : DIST, CHORUS, DELAY, REVERB, BIT, COMP et leurs reglages */
+  fx: Record<string, number>;
 }
+
+/** La tranche d'une voix pour un coup : ses reglages, ses verrous de pas (audio/drums.ts postSends, postInserts). */
+const sliceOf = (fx: Readonly<VoiceFx>, lock: Readonly<StepLock> | null): number[] => [
+  r6(lock?.tone ?? fx.tone),
+  r6(lock?.dist ?? fx.dist),
+  r6(lock?.chorus ?? fx.chorus),
+  r6(lock?.delay ?? fx.delay),
+  r6(lock?.reverb ?? fx.reverb),
+];
 
 const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
 
@@ -175,6 +195,7 @@ function compile(): Program {
       if (v <= 0 && !lt) continue;
       const r = lock ? resolveHit(t, lock, scenes) : base;
       const h = hitOf(t, g, lt ? 0 : VEL_GAIN[Math.min(VEL_GAIN.length - 1, v)], r.hp);
+      if (lock) h.sl = sliceOf(r.fx, r.lock);
       const tn = trigNow(cur.trigs, t, lock);
       const c = CONDS[tn.cond] ?? CONDS[0];
       h.len = tn.len === null ? -1 : tn.len;
@@ -198,11 +219,17 @@ function compile(): Program {
       mono: vo.vmode === 'mono',
       choke: vo.choke,
       gated: vo.gated,
+      kick: tracks.family(t) === 'bd',
+      sl: sliceOf(base.fx, null),
       live: hitOf(t, -1, 1, base.hp),
       hits,
     });
   }
-  return { v: 1, bpm: cur.bpm, len, loop, swing: r6(pattern.fx.get().swing * SWING.maxDelay), sounds, tracks: out };
+  const gfx: Record<string, number> = {};
+  for (const [k, v] of Object.entries(morph.fx())) if (typeof v === 'number') gfx[k] = r6(v);
+  gfx.tone = r6(mix.tone);
+  gfx.level = r6(mix.level);
+  return { v: 1, bpm: cur.bpm, len, loop, swing: r6(pattern.fx.get().swing * SWING.maxDelay), sounds, tracks: out, fx: gfx };
 }
 
 /* ---------------- JUCE ---------------- */
@@ -350,6 +377,7 @@ export const bridge = {
         pan: Math.max(-1, Math.min(1, r.hp.pan)),
         start: r.hp.start > 0 ? Math.min(r.hp.start, 1) * START_MAX : 0,
         ...filterOf(r.hp),
+        sl: sliceOf(r.fx, r.lock),
       });
     });
     pattern.subscribe(changed);
@@ -361,6 +389,8 @@ export const bridge = {
     // Le crossfader (les scenes A et B) : le programme suit sa position
     sceneCtl.onX(() => changed());
     sceneCtl.subscribe(changed);
+    // TONE et LEVEL du mix, STRETCH
+    mix.subscribe(changed);
     // FILL (tenir PAGE ou YES) : les trigs a condition FILL jouent tant qu'il est tenu
     fill.subscribe(() => send('mm_fill', { on: fill.on }));
     send('mm_ready', {});

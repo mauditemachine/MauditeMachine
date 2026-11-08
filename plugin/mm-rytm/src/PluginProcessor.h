@@ -88,6 +88,9 @@ private:
     // Le cache des sons calcules (thread du calcul)
     std::map<std::string, std::shared_ptr<mm::RenderedSound>> cache_;
     std::vector<std::pair<std::string, std::shared_ptr<mm::RenderedSound>>> extras_;
+    // La reponse de la REVERB (sa forme : rsize, rtone, rpre, la frequence) : recalculee seulement quand elle change
+    std::shared_ptr<mm::ReverbIR> reverbIR_;
+    std::string reverbKey_;
     mm::Program current_;
     bool haveProgram_ = false;
     double builtSr_ = 0;

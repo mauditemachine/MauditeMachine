@@ -1812,10 +1812,10 @@ export function trigger(inst: TrackKey, when?: number, open = false, out?: Voice
  * etapes que trigger() (les scenes, le verrou du pas, la voix) : le pont le compile pour le C++, qui joue le son. slice :
  * le gain de la tranche de la voix (son LEVEL, son TRK LEV), que trigger() laisse a hitEntry.
  */
-export function resolveHit(inst: TrackKey, lock0: Readonly<StepLock> | null, scenes: SceneSet = pattern.scenes.get()): { hp: HitParams; slice: number } {
+export function resolveHit(inst: TrackKey, lock0: Readonly<StepLock> | null, scenes: SceneSet = pattern.scenes.get()): { hp: HitParams; slice: number; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } {
   const m = morph.hit(inst, lock0, scenes);
   const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
-  return { hp, slice: voiceGain(m.fx.level) * tracks.tlevGain(inst) };
+  return { hp, slice: voiceGain(m.fx.level) * tracks.tlevGain(inst), fx: m.fx, lock: m.lock };
 }
 
 /** Un stop() qui ne leve jamais (un navigateur qui refuse un second appel : le coup finit seul). */

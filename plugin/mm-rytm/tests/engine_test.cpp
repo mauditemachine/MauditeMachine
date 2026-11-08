@@ -77,6 +77,7 @@ int main() {
     {
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         auto ps = makeState(baseProgram());
         e.publish(ps);
         e.pushLive(live(*ps, 0));
@@ -95,6 +96,7 @@ int main() {
         }
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         e.publish(makeState(p));
         const double pps = 120.0 / 60.0 / SR; // noires par echantillon
         std::vector<int> steps;
@@ -163,6 +165,7 @@ int main() {
     {
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         mm::Program p = baseProgram();
         mm::ProgHit h0 = p.tracks[0].live;
         h0.g = 0;
@@ -172,6 +175,7 @@ int main() {
         e.publish(makeState(p));
         mm::Engine solo;
         solo.prepare(SR);
+    solo.setDry(true);
         mm::Program q = baseProgram();
         q.tracks[0].hits = {h1};
         solo.publish(makeState(q));
@@ -191,6 +195,7 @@ int main() {
     {
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         mm::Program p = baseProgram();
         p.tracks[2].slice = 0; // on n'ecoute que l'OH
         auto ps = makeState(p);
@@ -208,6 +213,7 @@ int main() {
     {
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         mm::Program p = baseProgram();
         p.tracks[1].live.tau = 0.005;
         p.tracks[1].live.hold = 0.004;
@@ -225,6 +231,7 @@ int main() {
     {
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         mm::Program p = baseProgram();
         p.tracks[1].live.pan = -1;
         auto ps = makeState(p);
@@ -239,6 +246,7 @@ int main() {
     {
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         e.publish(makeState(baseProgram()));
         const double pps = 120.0 / 60.0 / SR;
         e.process({true, 0, pps}, L.data(), R.data(), 512);
@@ -256,6 +264,7 @@ int main() {
     auto runPasses = [&](mm::Program p, int passes, bool fill = false, std::vector<float>* outL = nullptr) {
         mm::Engine e;
         e.prepare(SR);
+        e.setDry(true);
         e.setFill(fill);
         e.publish(makeState(p));
         const double pps = 120.0 / 60.0 / SR;
@@ -417,6 +426,7 @@ int main() {
         auto energyOf = [&](int track, int ft, double hz, double oct) {
             mm::Engine e;
             e.prepare(SR);
+        e.setDry(true);
             mm::Program p = baseProgram();
             p.tracks[static_cast<size_t>(track)].live.ft = ft;
             p.tracks[static_cast<size_t>(track)].live.fhz = hz;
@@ -434,6 +444,90 @@ int main() {
         const double ch = energyOf(2, 0, 0, 0), chLp = energyOf(2, 1, 300, 0), chLpEnv = energyOf(2, 1, 300, 5);
         const double bd = energyOf(0, 0, 0, 0), bdHp = energyOf(0, 2, 5000, 0);
         CHECK(chLp < 0.01 * ch && chLpEnv > chLp && bdHp < 0.05 * bd, "FLTR : passe-bas et passe-haut, l'enveloppe ouvre la coupure");
+    }
+
+    // ---------------- phase 3 : les effets (tranche, bus, envois, master) ----------------
+    {
+        // Un coup en direct passe par toute la chaine ; la sortie de 1 s (48000 echantillons)
+        auto runFx = [&](mm::Program p, int track, std::vector<float>& l, std::vector<float>& r) {
+            mm::Engine e;
+            e.prepare(SR);
+            auto ps = makeState(p);
+            ps->reverbIR = mm::ReverbIR::make(2.4, 3000, 0.02, SR);
+            e.publish(ps);
+            e.pushLive(live(*ps, track));
+            l.assign(48000, 0.f);
+            r.assign(48000, 0.f);
+            for (int off = 0; off < 48000; off += 480) e.process(stop, l.data() + off, r.data() + off, 480);
+        };
+        auto peakIn = [](const std::vector<float>& x, size_t a, size_t b) {
+            float pk = 0;
+            for (size_t i = a; i < b && i < x.size(); ++i) pk = std::max(pk, std::fabs(x[i]));
+            return pk;
+        };
+        mm::Program p0 = baseProgram();
+        std::vector<float> l, r, dl, dr;
+        // Le niveau du site : la caisse claire seule, LEVEL 0.8 (0.64) et la garniture 0.84
+        {
+            mm::Engine e;
+            e.prepare(SR);
+            e.setDry(true);
+            auto ps = makeState(p0);
+            e.publish(ps);
+            e.pushLive(live(*ps, 1));
+            dl.assign(48000, 0.f);
+            dr.assign(48000, 0.f);
+            for (int off = 0; off < 48000; off += 480) e.process(stop, dl.data() + off, dr.data() + off, 480);
+        }
+        runFx(p0, 1, l, r);
+        const double ratio = peakIn(l, 0, 48000) / peakIn(dl, 0, 48000);
+        CHECK(std::fabs(ratio - 0.64 * 0.84) < 0.01, "niveau : LEVEL 0.8 au carre et la garniture 0.84, comme le site");
+        // REVERB : une queue apres la caisse claire (0.3 s) ; le kick n'a pas d'envoi global
+        mm::Program pr = p0;
+        pr.fx.reverb = 0.6;
+        pr.tracks[0].kick = true; // BD sur la voie du kick (tracks.family 'bd')
+        runFx(pr, 1, l, r);
+        const float sdTail = peakIn(l, 24000, 48000);
+        // Le kick (1.35 s a lui seul) : avec ou sans REVERB globale, le meme son
+        runFx(pr, 0, l, r);
+        mm::Program pk = pr;
+        pk.fx.reverb = 0;
+        std::vector<float> lk, rk;
+        runFx(pk, 0, lk, rk);
+        double bdDiff = 0;
+        for (size_t i = 0; i < 48000; ++i) bdDiff = std::max(bdDiff, std::fabs(static_cast<double>(l[i]) - lk[i]));
+        // et la caisse claire seche s'est tue a 0.5 s : sa queue est la reverb
+        mm::Program ps0 = p0;
+        std::vector<float> ls, rs;
+        runFx(ps0, 1, ls, rs);
+        CHECK(sdTail > 1e-3f && peakIn(ls, 24000, 48000) < 1e-6f && bdDiff < 1e-7, "REVERB : l'envoi global des pads a sa queue, la voie du kick n'en a pas");
+        // DELAY de la piste : l'echo arrive au temps du DELAY (3 pas a 130 BPM = 0.346 s)
+        mm::Program pd = p0;
+        pd.tracks[2].sl.delay = 0.8;
+        pd.tracks[2].live.hasSl = false;
+        runFx(pd, 2, l, r);
+        const size_t at = static_cast<size_t>(mm::FxLaws::delaySeconds(0.4, 130) * SR);
+        CHECK(peakIn(l, at - 200, at + 2000) > 1e-3f && peakIn(l, 9000, at - 400) < 1e-4f, "DELAY : l'echo de la piste au temps du DELAY");
+        // DIST de la piste : le son change ; CHORUS global : la caisse claire mono s'ouvre en stereo
+        mm::Program px = p0;
+        px.tracks[1].sl.dist = 0.8;
+        runFx(px, 1, l, r);
+        std::vector<float> l2, r2;
+        runFx(p0, 1, l2, r2);
+        double diff = 0;
+        for (size_t i = 0; i < 20000; ++i) diff = std::max(diff, std::fabs(static_cast<double>(l[i]) - l2[i]));
+        mm::Program pc = p0;
+        pc.fx.chorus = 1;
+        runFx(pc, 1, l, r);
+        double side = 0;
+        for (size_t i = 0; i < 20000; ++i) side = std::max(side, std::fabs(static_cast<double>(l[i]) - r[i]));
+        CHECK(diff > 0.01 && side > 0.01, "DIST de la piste et CHORUS global : le son change, le chorus ouvre la stereo");
+        // Le LIMITEUR : jamais au-dessus de -0.3 dBFS, meme a LEVEL fort et DIST a fond
+        mm::Program pl = p0;
+        pl.fx.level = 1.0;
+        pl.tracks[0].slice = 4;
+        runFx(pl, 0, l, r);
+        CHECK(peakIn(l, 0, 48000) <= 0.9661f && peakIn(r, 0, 48000) <= 0.9661f, "LIMITEUR : plafond a -0.3 dBFS");
     }
 
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");

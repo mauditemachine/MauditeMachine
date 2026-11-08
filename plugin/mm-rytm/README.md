@@ -10,7 +10,7 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 - **L'etat** : les cles `mm.v4.*` du localStorage du site (motif, pistes, banques, presets...) sont gardees dans le projet Ableton avec le programme ; a l'ouverture de la fenetre, la face les reprend avant de se charger (`src/v4/plugin/restore.ts`).
 - **Le transport** : celui d'Ableton ; PLAY de la face lance l'horloge interne quand Ableton est arrete. La tete de lecture de la face suit le C++ (`src/v4/plugin/head.ts`).
 
-## Ce qui joue (phases 1 et 2)
+## Ce qui joue (phases 1 a 3)
 
 | | Etat |
 | --- | --- |
@@ -21,9 +21,13 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | MUTE, SOLO, mute du pattern | joue |
 | Pads, touches, notes MIDI GM d'Ableton | joue |
 | Conditions (FILL, PRE, NEI, 1ST, A:B, NOT), PROB, uTIME (en avance aussi), LEN, RTRG (RATE, VFAD, RLEN), lock trigs (VOL, PAN) | joue (phase 2, port de `audio/seq.ts`, `tests/engine_test.cpp`) |
-| Crossfader A / B (scenes) | joue sur ce que le coup lit (hauteur, DECAY, VOL, PAN, sons) ; les effets suivront |
-| LFO | phase 3 (avec les filtres et effets qu'ils modulent) |
-| FLTR, effets de piste (TONE, DIST, CHORUS), envois (DELAY, REVERB), compresseur, limiteur | phase 3 |
+| Crossfader A / B (scenes) | joue sur les coups et sur les effets (le programme suit le crossfader) |
+| FLTR du coup (passe-bas, passe-haut, passe-bande, enveloppe) | joue (formules du BiquadFilterNode) |
+| Tranche de piste : TONE, DIST, CHORUS (l'algorithme du worklet), envois DELAY et REVERB, leurs verrous | joue (`dsp/Fx.cpp`) |
+| Bus des pads (DIST, TONE, CHORUS, envois globaux) et du kick (DIST, TONE), LEVEL, garniture 0.84 | joue, au niveau du site |
+| DELAY (boucle LP / HP 180 Hz), REVERB (la reponse du site, identique bit a bit, convolution par blocs : 256 echantillons de latence sur le retour) | joue |
+| Master : GLUE (BIT, COMP et AUTO), LIMITEUR -0.3 dBFS | joue |
+| LFO (les deux par voix) | a faire (phase 3 bis) |
 | Chaines de patterns, SONG, samples perso du navigateur, multi-out | phase 4 |
 
 ## La face dans le plugin (plus simple qu'au site)

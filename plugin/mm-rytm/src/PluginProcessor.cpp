@@ -96,6 +96,40 @@ void parseHit(const juce::var& o, mm::ProgHit& h) {
     h.vfad = static_cast<int>(num(o, "vfad", 0));
     h.rlen = num(o, "rlen", 1);
     h.lt = num(o, "lt", 0) != 0;
+    if (const auto* sl = o.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5) {
+        h.hasSl = true;
+        h.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
+    }
+}
+
+// Les effets globaux du programme (pattern.fx par morph.fx, TONE et LEVEL du mix)
+void parseFx(const juce::var& o, mm::GlobalFx& g) {
+    if (!o.isObject()) return;
+    g.drive = num(o, "drive", g.drive);
+    g.reverb = num(o, "reverb", g.reverb);
+    g.delay = num(o, "delay", g.delay);
+    g.chorus = num(o, "chorus", g.chorus);
+    g.dtime = num(o, "dtime", g.dtime);
+    g.dfb = num(o, "dfb", g.dfb);
+    g.bits = num(o, "bits", g.bits);
+    g.comp = num(o, "comp", g.comp);
+    g.dtone = num(o, "dtone", g.dtone);
+    g.rsize = num(o, "rsize", g.rsize);
+    g.rtone = num(o, "rtone", g.rtone);
+    g.rpre = num(o, "rpre", g.rpre);
+    g.xtone = num(o, "xtone", g.xtone);
+    g.crate = num(o, "crate", g.crate);
+    g.cdepth = num(o, "cdepth", g.cdepth);
+    g.brate = num(o, "brate", g.brate);
+    g.catk = num(o, "catk", g.catk);
+    g.crel = num(o, "crel", g.crel);
+    g.cthr = num(o, "cthr", g.cthr);
+    g.cratio = num(o, "cratio", g.cratio);
+    g.cknee = num(o, "cknee", g.cknee);
+    g.cmake = num(o, "cmake", g.cmake);
+    g.chpf = num(o, "chpf", g.chpf);
+    g.tone = num(o, "tone", g.tone);
+    g.level = num(o, "level", g.level);
 }
 
 bool parseProgram(const juce::String& json, mm::Program& p) {
@@ -105,6 +139,7 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
     p.len = std::max(1, std::min(128, static_cast<int>(num(o, "len", 16))));
     p.loop = static_cast<int>(num(o, "loop", -1));
     p.swing = num(o, "swing", 0);
+    parseFx(o.getProperty("fx", juce::var()), p.fx);
     p.sounds.clear();
     if (const auto* arr = o.getProperty("sounds", juce::var()).getArray())
         for (const auto& sv : *arr) {
@@ -121,6 +156,9 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
             tr.mono = flag(tv, "mono");
             tr.choke = static_cast<int>(num(tv, "choke", 0));
             tr.gated = flag(tv, "gated");
+            tr.kick = flag(tv, "kick");
+            if (const auto* sl = tv.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5)
+                tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
             parseHit(tv.getProperty("live", juce::var()), tr.live);
             tr.hits.clear();
             if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
@@ -170,6 +208,14 @@ std::shared_ptr<mm::RenderedSound> MMRytmProcessor::soundFor(const mm::ProgSound
 std::shared_ptr<mm::PlayState> MMRytmProcessor::buildState(const mm::Program& prog, double sr) {
     auto ps = std::make_shared<mm::PlayState>();
     ps->prog = prog;
+    // La REVERB du site (fx.ts makeImpulse, identique bit a bit) : une nouvelle reponse seulement quand sa forme change
+    const double sec = mm::FxLaws::reverbSeconds(prog.fx.rsize), hi = mm::FxLaws::reverbHiEnd(prog.fx.rtone), pre = mm::FxLaws::reverbPre(prog.fx.rpre);
+    const std::string key = juce::String(sec, 6).toStdString() + "|" + juce::String(hi, 3).toStdString() + "|" + juce::String(pre, 6).toStdString() + "|" + juce::String(sr).toStdString();
+    if (!reverbIR_ || key != reverbKey_) {
+        reverbIR_ = mm::ReverbIR::make(sec, hi, pre, sr);
+        reverbKey_ = key;
+    }
+    ps->reverbIR = reverbIR_;
     for (const auto& s : prog.sounds) {
         ps->sounds.push_back(soundFor(s, sr));
         ps->keys.push_back(s.key());

@@ -10,7 +10,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS minimum")
 option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et ses tests)" ON)
 
 # --- le DSP, sans JUCE ---
-add_library(mm_dsp STATIC dsp/Shots.cpp dsp/Engine.cpp dsp/Program.cpp)
+add_library(mm_dsp STATIC dsp/Shots.cpp dsp/Engine.cpp dsp/Program.cpp dsp/Fx.cpp)
 target_include_directories(mm_dsp PUBLIC dsp)
 set_target_properties(mm_dsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
