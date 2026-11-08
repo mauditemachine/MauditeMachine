@@ -6,6 +6,7 @@
 #include "Lfo.h"
 #include "Shots.h"
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <vector>
@@ -82,6 +83,13 @@ struct ProgTrack {
     std::vector<ProgHit> hits; // par pas croissant
 };
 
+// Le programme a une position du crossfader (2026-11-08) : ce que les scenes changent (les effets globaux, les tranches, le
+// coup du pad, les coups : les memes, dans le meme ordre que ceux du programme).
+struct ProgX {
+    GlobalFx fx;
+    std::array<ProgTrack, kProgTracks> tracks;
+};
+
 struct Program {
     double bpm = 130;
     int len = 16;   // 1 a 64 pas
@@ -90,7 +98,22 @@ struct Program {
     std::vector<ProgSound> sounds;
     std::array<ProgTrack, kProgTracks> tracks;
     GlobalFx fx;
+    // Les scenes : le programme aux positions x = k / (xk.size() - 1) du crossfader ; vide sans scene
+    std::vector<ProgX> xk;
 };
+
+// Le crossfader : la position x (0 a 1) entre deux programmes voisins de xk (k, et f de 0 a 1 vers k + 1)
+inline void xkAt(const Program& p, double x, size_t& k, double& f) {
+    const double n = static_cast<double>(p.xk.size() - 1);
+    const double u = std::max(0.0, std::min(1.0, x)) * n;
+    k = std::min(p.xk.size() - 2, static_cast<size_t>(u));
+    f = u - static_cast<double>(k);
+}
+// Un coup, un effet, une tranche entre deux positions : lineaire ; logarithmique pour les grandeurs > 0 (coupure, Q, constantes
+// de temps : leurs lois sont exponentielles) ; le plus proche pour le reste (le son, le type de filtre, les drapeaux)
+ProgHit blendHit(const ProgHit& a, const ProgHit& b, double f);
+SliceFx blendSlice(const SliceFx& a, const SliceFx& b, double f);
+GlobalFx blendFx(const GlobalFx& a, const GlobalFx& b, double f);
 
 bool shotFromSiteId(const std::string& s, ShotId& out);
 

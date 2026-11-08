@@ -196,6 +196,33 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
                     tr.hits.push_back(h);
                 }
         }
+    // Les scenes : le programme aux positions du crossfader (les memes coups, dans le meme ordre ; sinon ignorees)
+    p.xk.clear();
+    if (const auto* xs = o.getProperty("xk", juce::var()).getArray(); xs && xs->size() >= 2) {
+        bool same = true;
+        for (const auto& xv : *xs) {
+            mm::ProgX x;
+            parseFx(xv.getProperty("fx", juce::var()), x.fx);
+            const auto* arr = xv.getProperty("tracks", juce::var()).getArray();
+            for (int t = 0; arr && t < std::min(mm::kProgTracks, arr->size()); ++t) {
+                const juce::var& tv = arr->getReference(t);
+                auto& tr = x.tracks[static_cast<size_t>(t)];
+                tr.slice = static_cast<float>(num(tv, "slice", 1));
+                if (const auto* sl = tv.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5)
+                    tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
+                parseHit(tv.getProperty("live", juce::var()), tr.live);
+                if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
+                    for (const auto& hv : *hs) {
+                        mm::ProgHit h;
+                        parseHit(hv, h);
+                        tr.hits.push_back(h);
+                    }
+                if (tr.hits.size() != p.tracks[static_cast<size_t>(t)].hits.size()) same = false;
+            }
+            p.xk.push_back(std::move(x));
+        }
+        if (!same) p.xk.clear();
+    }
     return true;
 }
 
@@ -236,14 +263,20 @@ std::shared_ptr<mm::RenderedSound> MMRytmProcessor::soundFor(const mm::ProgSound
 std::shared_ptr<mm::PlayState> MMRytmProcessor::buildState(const mm::Program& prog, double sr) {
     auto ps = std::make_shared<mm::PlayState>();
     ps->prog = prog;
-    // La REVERB du site (fx.ts makeImpulse, identique bit a bit) : une nouvelle reponse seulement quand sa forme change
-    const double sec = mm::FxLaws::reverbSeconds(prog.fx.rsize), hi = mm::FxLaws::reverbHiEnd(prog.fx.rtone), pre = mm::FxLaws::reverbPre(prog.fx.rpre);
-    const std::string key = juce::String(sec, 6).toStdString() + "|" + juce::String(hi, 3).toStdString() + "|" + juce::String(pre, 6).toStdString() + "|" + juce::String(sr).toStdString();
-    if (!reverbIR_ || key != reverbKey_) {
-        reverbIR_ = mm::ReverbIR::make(sec, hi, pre, sr);
-        reverbKey_ = key;
-    }
-    ps->reverbIR = reverbIR_;
+    // La REVERB du site (fx.ts makeImpulse, identique bit a bit) : une reponse par forme, gardee tant qu'un etat la joue ;
+    // les scenes : celle de chaque position du crossfader
+    std::map<std::string, std::shared_ptr<mm::ReverbIR>> used;
+    auto irFor = [&](const mm::GlobalFx& g) {
+        const double sec = mm::FxLaws::reverbSeconds(g.rsize), hi = mm::FxLaws::reverbHiEnd(g.rtone), pre = mm::FxLaws::reverbPre(g.rpre);
+        const std::string key = juce::String(sec, 6).toStdString() + "|" + juce::String(hi, 3).toStdString() + "|" + juce::String(pre, 6).toStdString() + "|" + juce::String(sr).toStdString();
+        auto it = irCache_.find(key);
+        std::shared_ptr<mm::ReverbIR> ir = it != irCache_.end() ? it->second : mm::ReverbIR::make(sec, hi, pre, sr);
+        used[key] = ir;
+        return ir;
+    };
+    ps->reverbIR = irFor(prog.fx);
+    for (const auto& x : prog.xk) ps->irK.push_back(irFor(x.fx));
+    irCache_ = std::move(used);
     for (const auto& s : prog.sounds) {
         ps->sounds.push_back(soundFor(s, sr));
         ps->keys.push_back(s.key());
@@ -311,12 +344,15 @@ void MMRytmProcessor::renderLoop() {
 juce::AudioProcessorValueTreeState::ParameterLayout MMRytmProcessor::makeLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"master", 1}, "Master", juce::NormalisableRange<float>(-60, 6, 0.1f, 2.5f), 0.f));
+    // Le crossfader des scenes (2026-11-08, Octatrack) : A a 0, B a 1 ; automatisable, mappable a un controleur dans Ableton
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"xfade", 1}, "Crossfader", juce::NormalisableRange<float>(0, 1), 0.f));
     return layout;
 }
 
 MMRytmProcessor::MMRytmProcessor()
     : AudioProcessor(BusesProperties().withOutput("Main", juce::AudioChannelSet::stereo(), true)), apvts(*this, nullptr, "MMRYTM", makeLayout()) {
     master_ = apvts.getRawParameterValue("master");
+    xfade_ = apvts.getRawParameterValue("xfade");
     renderer_ = std::make_unique<Renderer>(*this);
     renderer_->startThread(juce::Thread::Priority::normal);
 }
@@ -379,13 +415,22 @@ void MMRytmProcessor::faceHit(const juce::var& o) {
 
 void MMRytmProcessor::faceRun(bool on) { runInternal_.store(on); }
 
+void MMRytmProcessor::faceXf(float x) {
+    if (auto* prm = apvts.getParameter("xfade")) {
+        prm->beginChangeGesture();
+        prm->setValueNotifyingHost(juce::jlimit(0.f, 1.f, x));
+        prm->endChangeGesture();
+    }
+}
+
 MMRytmProcessor::Feedback MMRytmProcessor::feedback() const {
-    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load()};
+    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load())};
 }
 
 void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMRYTM2");
     state.setProperty("master", master_->load(), nullptr);
+    state.setProperty("xfade", xfade_->load(), nullptr);
     {
         std::lock_guard<std::mutex> lk(mx_);
         state.setProperty("program", programJson_, nullptr);
@@ -400,6 +445,8 @@ void MMRytmProcessor::setStateInformation(const void* data, int sizeInBytes) {
     const auto state = juce::ValueTree::fromXml(*xml);
     if (auto* prm = apvts.getParameter("master"))
         prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
+    if (auto* prm = apvts.getParameter("xfade"))
+        prm->setValueNotifyingHost(juce::jlimit(0.f, 1.f, static_cast<float>(static_cast<double>(state.getProperty("xfade", 0.0)))));
     {
         std::lock_guard<std::mutex> lk(mx_);
         lsJson_ = state.getProperty("ls", "").toString();
@@ -421,6 +468,8 @@ void MMRytmProcessor::prepareToPlay(double sampleRate, int) {
         sr_.store(sampleRate);
         renderer_->wake.signal();
     }
+    // L'avance du LIMITEUR (3 ms) : Ableton la compense, le MM-RYTM tombe pile avec les autres pistes
+    setLatencySamples(engine_.latency());
 }
 
 void MMRytmProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
@@ -466,6 +515,7 @@ void MMRytmProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     tr.ppqPerSample = bpm / 60.0 / sr;
     if (internal) internalPpq_ += n * tr.ppqPerSample;
 
+    engine_.setX(xfade_->load());
     engine_.process(tr, buffer.getWritePointer(0), buffer.getWritePointer(1), n, notes.data(), nn);
     buffer.applyGain(dbToGain(master_->load()));
 }

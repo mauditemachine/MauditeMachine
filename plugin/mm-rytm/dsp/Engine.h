@@ -37,6 +37,7 @@ struct PlayState {
     std::array<std::vector<int>, kTracks> at;           // at[t][g] : indice du coup dans prog.tracks[t].hits, -1 sinon
     std::vector<std::string> keys;                      // la cle de chaque son (sounds : ceux du programme, puis ceux joues en direct)
     std::shared_ptr<ReverbIR> reverbIR;                 // la reponse de la REVERB (rsize, rtone, rpre)
+    std::vector<std::shared_ptr<ReverbIR>> irK;         // les scenes : la reponse a chaque position du crossfader (prog.xk)
     std::atomic<int> users{0};
     double retiredAt = -1;
 };
@@ -78,6 +79,10 @@ public:
     bool pushLive(const LiveHit& h);
     // FILL tenu sur la face (les trigs a condition FILL jouent, !FILL se taisent)
     void setFill(bool on) { fill_.store(on, std::memory_order_relaxed); }
+    // --- n'importe quel thread : le crossfader (le parametre XFADE), 0 = A, 1 = B
+    void setX(float x) { x_.store(x, std::memory_order_relaxed); }
+    // La latence (echantillons) : l'avance du LIMITEUR
+    int latency() const { return fx_.latency(); }
 
     // --- thread audio ---
     void process(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes = nullptr, int nNotes = 0);
@@ -130,6 +135,7 @@ private:
         float gain0 = 1;       // le gain du depart (la base du VOL d'un lock trig)
         double vol = 0.8;      // le LEVEL du coup
         float vel = 1, slice = 1;
+        float sRatio = 1;      // le crossfader : la tranche du moment rapportee a celle du depart du coup (LEVEL, TRK LEV)
         // Les LFO du coup : leur position (en pas) au debut du coup, leur ancre, un pas en echantillons, la fin des courbes
         int nlfo = 0;
         Lfo lfo[2];
@@ -161,6 +167,7 @@ private:
         double lenSteps = -1;
         bool rep = false;  // une repetition de retrig : coupe le coup d'avant de la voix en 8 ms
         bool lt = false;   // un lock trig
+        int hi = -1;       // le coup du programme (son indice ; -2 : le coup du pad) : le crossfader le reprend a sa position
         double anchor = 0; // l'ancre des LFO du coup (en pas) ; un lock trig : la nouvelle si re
         bool re = false;
         ProgHit hit;
@@ -181,6 +188,7 @@ private:
         double lenSteps = -1;
         // Un lock trig qui relance les LFO pendant le retrig : les repetitions d'avant preUntil gardent preAnchor
         double preUntil = -INFINITY, preAnchor = 0;
+        int hi = -1;
         ProgHit hit;
         RenderedSound* snd = nullptr; // tenu (users) tant que le retrig dure
     };
@@ -190,7 +198,14 @@ private:
         Retrig rt;
     };
 
-    void trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor);
+    void trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor, int hi);
+    // Le crossfader : un coup (hi ; -2 le coup du pad), la tranche et le gain de tranche d'une piste, les effets globaux, a x
+    const ProgHit& hitAtX(const PlayState& ps, int t, int hi, const ProgHit& base, ProgHit& tmp) const;
+    SliceFx voiceSlAt(const PlayState& ps, int t) const;
+    float trackSliceAt(const PlayState& ps, int t) const;
+    GlobalFx globalAt(const PlayState& ps) const;
+    const ReverbIR* irAt(const PlayState& ps) const;
+    void followX(const PlayState& ps, double bpm, int n);
     void lockTrig(const ProgHit& h, int track, int offset, bool re, double anchor);
     void applyLock(Voice& v);
     void filterCoefs(Voice& v, double f, double q) const;
@@ -220,6 +235,15 @@ private:
     double fxBpm_ = 0;
     bool dry_ = false;
     std::array<SliceFx, kTracks> sliceNow_{};
+    // Le crossfader (thread audio) : x du bloc, programme a scenes ; d'ou vient la tranche de chaque piste (l'indice du coup,
+    // -1 la voix, -2 le coup du pad, -3 un coup en direct de la face : fixe) et l'ecart qu'un LFO pris au coup y a mis
+    std::atomic<float> x_{0};
+    double xNow_ = 0, xFx_ = -1;
+    bool xOn_ = false;
+    std::array<int, kTracks> sliceSrc_{};
+    std::array<SliceFx, kTracks> sliceLfoD_{};
+    const ReverbIR* irWant_ = nullptr;
+    int irStable_ = 0;
     std::array<NoteEvent, 256> chunkNotes_{};
     std::array<std::array<Voice, kVoicesPerTrack>, kTracks> voices_{};
     std::atomic<PlayState*> current_{nullptr};

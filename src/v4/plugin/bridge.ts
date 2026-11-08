@@ -13,8 +13,8 @@
  *
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
- *                 mm_log {where, msg}
- *   C++ -> face : mm_transport {playing, internal, step, seq, mask, bpm}
+ *                 mm_xf {x}, mm_log {where, msg}
+ *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf}
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
@@ -137,7 +137,22 @@ export interface Program {
   tracks: ProgTrack[];
   /** les effets globaux (pattern.fx et ses scenes, morph.fx) : DIST, CHORUS, DELAY, REVERB, BIT, COMP et leurs reglages */
   fx: Record<string, number>;
+  /**
+   * Les scenes (2026-11-08, le crossfader dans le C++) : le programme aux XK + 1 positions du crossfader (x = k / XK), ses
+   * valeurs seules (effets globaux, tranches, coups ; les memes coups dans le meme ordre) ; absent sans scene. Le C++
+   * interpole entre les deux positions voisines du x de l'hote (le parametre XFADE), fenetre fermee comprise.
+   */
+  xk?: ProgX[];
 }
+
+/** Un programme a une position du crossfader : ce que les scenes changent. */
+export interface ProgX {
+  fx: Record<string, number>;
+  tracks: Pick<ProgTrack, 'slice' | 'sl' | 'live' | 'hits'>[];
+}
+
+/** Les positions du crossfader compilees : 0, 1/8 ... 1 (le C++ interpole entre deux voisines). */
+const XK = 8;
 
 /** La tranche d'une voix pour un coup : ses reglages, ses verrous de pas (audio/drums.ts postSends, postInserts). */
 const sliceOf = (fx: Readonly<VoiceFx>, lock: Readonly<StepLock> | null): number[] => [
@@ -162,13 +177,33 @@ function filterOf(hp: HitParams): Partial<ProgHit> {
   return { ft, fhz: r6(f.hz), fq: r6(f.q), foct: r6(f.oct), fatk: r6(f.atk), ftau: r6(f.tau) };
 }
 
+/** La table des sons d'un programme : partagee par ses positions du crossfader (les indices restent les memes). */
+interface SoundTable {
+  sounds: ProgSound[];
+  index: Map<string, number>;
+}
+
+/**
+ * Le programme, et sans scene rien de plus ; avec des scenes, aussi ses valeurs aux XK + 1 positions du crossfader
+ * (morph.withX : le meme calcul que le son du site, a ce x).
+ */
 function compile(): Program {
+  const tab: SoundTable = { sounds: [], index: new Map() };
+  if (!morph.active()) return compileWith(tab);
+  const at: Program[] = [];
+  for (let k = 0; k <= XK; k += 1) at.push(morph.withX(k / XK, () => compileWith(tab)));
+  const p = at[0];
+  p.sounds = tab.sounds;
+  p.xk = at.map((q) => ({ fx: q.fx, tracks: q.tracks.map((t) => ({ slice: t.slice, sl: t.sl, live: t.live, hits: t.hits })) }));
+  return p;
+}
+
+function compileWith(tab: SoundTable): Program {
   const cur = pattern.get();
   const len = pattern.stepCount();
   const loop = pattern.loopPage();
   const scenes = pattern.scenes.get();
-  const sounds: ProgSound[] = [];
-  const index = new Map<string, number>();
+  const { sounds, index } = tab;
   const soundOf = (t: TrackKey, hp: HitParams): number => {
     const tw = hp.ov ? hp.ov.tw : tracks.tweakWith(t, null);
     const s: ProgSound = { id: hp.id, tw, ts: r6(hp.ts), pf: r6(hp.pf), variants: !hp.ov };
@@ -308,9 +343,14 @@ interface Transport {
   step: number;
   seq: number;
   mask: number;
+  /** le crossfader du plugin (le parametre XFADE d'Ableton) ; -1 : absent */
+  xf: number;
 }
 
-let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0 };
+let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1 };
+/** x pose par l'hote (la face ne le renvoie pas) ; l'heure du dernier x envoye par la face (l'hote ne le reprend pas aussitot) */
+let xfFromHost = false;
+let xfSentAt = -1e9;
 
 const external: ExternalTransport = {
   running: () => transport.playing,
@@ -328,9 +368,20 @@ function onTransport(o: unknown): void {
     step: typeof x.step === 'number' ? x.step : -1,
     seq: typeof x.seq === 'number' ? x.seq : -1,
     mask: typeof x.mask === 'number' ? x.mask : 0,
+    xf: typeof x.xf === 'number' ? x.xf : -1,
   };
   if (was !== transport.playing) clock.externalChanged();
   extHead.wake();
+  // Le crossfader mene par Ableton (son automation, un controleur MIDI mappe) : celui de la face le suit ; jamais pendant un
+  // geste de la face, ni juste apres (l'hote renvoie encore l'ancienne valeur)
+  if (transport.xf >= 0 && !sceneCtl.moving() && performance.now() - xfSentAt > 400 && Math.abs(transport.xf - sceneCtl.x()) > 1e-4) {
+    xfFromHost = true;
+    try {
+      sceneCtl.setX(transport.xf, 'hw');
+    } finally {
+      xfFromHost = false;
+    }
+  }
 }
 
 const headOf = (): HeadEntry | null => (transport.playing && transport.step >= 0 ? { seq: transport.seq, step: transport.step, mask: transport.mask } : null);
@@ -434,8 +485,13 @@ export const bridge = {
     tracks.subscribe(() => changed());
     voices.subscribe(changed);
     patterns.subscribe(changed);
-    // Le crossfader (les scenes A et B) : le programme suit sa position
-    sceneCtl.onX(() => changed());
+    // Le crossfader (les scenes A et B) : le programme porte toutes ses positions, le C++ joue celle du parametre XFADE ;
+    // la face lui envoie la sienne (Ableton l'enregistre en automation)
+    sceneCtl.onX((v) => {
+      if (xfFromHost) return;
+      xfSentAt = performance.now();
+      send('mm_xf', { x: v });
+    });
     sceneCtl.subscribe(changed);
     // TONE et LEVEL du mix, STRETCH
     mix.subscribe(changed);

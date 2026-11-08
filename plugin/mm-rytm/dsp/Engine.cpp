@@ -122,6 +122,96 @@ void Engine::applySlice(const PlayState& ps, int track, const SliceFx& s) {
     fx_.setSlice(track, s, pt.kick);
 }
 
+/* ---------------- le crossfader (les scenes, prog.xk) ---------------- */
+
+const ProgHit& Engine::hitAtX(const PlayState& ps, int t, int hi, const ProgHit& base, ProgHit& tmp) const {
+    const Program& p = ps.prog;
+    if (!xOn_ || hi < -2 || hi == -1) return base;
+    size_t k;
+    double f;
+    xkAt(p, xNow_, k, f);
+    const ProgTrack& a = p.xk[k].tracks[static_cast<size_t>(t)];
+    const ProgTrack& b = p.xk[k + 1].tracks[static_cast<size_t>(t)];
+    if (hi == -2) {
+        tmp = blendHit(a.live, b.live, f);
+        return tmp;
+    }
+    const size_t i = static_cast<size_t>(hi);
+    if (i >= a.hits.size() || i >= b.hits.size()) return base;
+    tmp = blendHit(a.hits[i], b.hits[i], f);
+    return tmp;
+}
+
+SliceFx Engine::voiceSlAt(const PlayState& ps, int t) const {
+    const Program& p = ps.prog;
+    if (!xOn_) return p.tracks[static_cast<size_t>(t)].sl;
+    size_t k;
+    double f;
+    xkAt(p, xNow_, k, f);
+    return blendSlice(p.xk[k].tracks[static_cast<size_t>(t)].sl, p.xk[k + 1].tracks[static_cast<size_t>(t)].sl, f);
+}
+
+float Engine::trackSliceAt(const PlayState& ps, int t) const {
+    const Program& p = ps.prog;
+    if (!xOn_) return p.tracks[static_cast<size_t>(t)].slice;
+    size_t k;
+    double f;
+    xkAt(p, xNow_, k, f);
+    const float a = p.xk[k].tracks[static_cast<size_t>(t)].slice, b = p.xk[k + 1].tracks[static_cast<size_t>(t)].slice;
+    return a + (b - a) * static_cast<float>(f);
+}
+
+GlobalFx Engine::globalAt(const PlayState& ps) const {
+    const Program& p = ps.prog;
+    if (!xOn_) return p.fx;
+    size_t k;
+    double f;
+    xkAt(p, xNow_, k, f);
+    return blendFx(p.xk[k].fx, p.xk[k + 1].fx, f);
+}
+
+// La REVERB a la position la plus proche (sa reponse se calcule hors du thread audio, une par forme)
+const ReverbIR* Engine::irAt(const PlayState& ps) const {
+    if (!xOn_ || ps.irK.size() != ps.prog.xk.size()) return ps.reverbIR.get();
+    const size_t k = static_cast<size_t>(std::lround(std::max(0.0, std::min(1.0, xNow_)) * static_cast<double>(ps.irK.size() - 1)));
+    return ps.irK[k] ? ps.irK[k].get() : ps.reverbIR.get();
+}
+
+// Le crossfader a bouge : les effets globaux et la tranche de chaque piste a sa position (les coups qui sonnent gardent leurs
+// reglages de coup, comme au site ; leur niveau de tranche suit, dans la boucle des voix). La forme de la REVERB change
+// quand x se pose (150 ms) : une nouvelle reponse coupe la queue en cours.
+void Engine::followX(const PlayState& ps, double bpm, int n) {
+    if (!xOn_) return;
+    if (std::fabs(xNow_ - xFx_) > 1e-4) {
+        xFx_ = xNow_;
+        fx_.setGlobal(globalAt(ps), bpm);
+        ProgHit tmp;
+        for (int t = 0; t < kTracks; ++t) {
+            const int src = sliceSrc_[static_cast<size_t>(t)];
+            if (src == -3) continue;
+            SliceFx s;
+            if (src == -1) s = voiceSlAt(ps, t);
+            else {
+                const ProgHit& base = src == -2 ? ps.prog.tracks[static_cast<size_t>(t)].live : (static_cast<size_t>(src) < ps.prog.tracks[static_cast<size_t>(t)].hits.size() ? ps.prog.tracks[static_cast<size_t>(t)].hits[static_cast<size_t>(src)] : ps.prog.tracks[static_cast<size_t>(t)].live);
+                const ProgHit& h = hitAtX(ps, t, src, base, tmp);
+                s = h.hasSl ? h.sl : voiceSlAt(ps, t);
+                if (h.lt) s.tone = sliceNow_[static_cast<size_t>(t)].tone; // un lock trig ne change pas TONE
+            }
+            const SliceFx& d = sliceLfoD_[static_cast<size_t>(t)];
+            s = {clamp11(s.tone + d.tone), clamp01(s.dist + d.dist), clamp01(s.chorus + d.chorus), clamp01(s.delay + d.delay), clamp01(s.reverb + d.reverb)};
+            applySlice(ps, t, s);
+        }
+    }
+    const ReverbIR* want = irAt(ps);
+    if (want != irWant_) {
+        irWant_ = want;
+        irStable_ = 0;
+    } else if (want != fx_.reverbIR()) {
+        irStable_ += n;
+        if (irStable_ >= static_cast<int>(0.15 * sr_)) fx_.setReverbIR(want);
+    }
+}
+
 /* ---------------- thread du calcul ---------------- */
 
 void Engine::publish(std::shared_ptr<PlayState> s) {
@@ -217,12 +307,13 @@ void Engine::fadeTrack(int track, int samples, int offset) {
     }
 }
 
-void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor) {
+void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor, int hi) {
     if (!snd || snd->variants.empty()) return;
     const ProgTrack& tr = ps.prog.tracks[static_cast<size_t>(track)];
     // Les LFO pris au moment du coup (audio/seqhit.ts lfoHitLock) : DIST, DELAY, REVERB, TONE dans la tranche (comme un
     // verrou du coup), DECAY dans son enveloppe ; sur les valeurs que le coup joue (la voix ou son verrou)
-    SliceFx sl = h.hasSl ? h.sl : tr.sl;
+    const SliceFx sl0 = h.hasSl ? h.sl : voiceSlAt(ps, track);
+    SliceFx sl = sl0;
     double tau = h.tau;
     for (int d = LD_DIST; d <= LD_DECAY && h.nlfo > 0; ++d) {
         double sum = 0;
@@ -240,6 +331,9 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
         else tau = decayTau(clamp01(h.lbDecay + sum));
     }
     applySlice(ps, track, sl);
+    // D'ou vient la tranche (le crossfader la reprend a sa position) et l'ecart des LFO pris au coup
+    sliceSrc_[static_cast<size_t>(track)] = h.hasSl ? (hi >= 0 || hi == -2 ? hi : -3) : -1;
+    sliceLfoD_[static_cast<size_t>(track)] = {sl.tone - sl0.tone, sl.dist - sl0.dist, sl.chorus - sl0.chorus, sl.delay - sl0.delay, sl.reverb - sl0.reverb};
     const bool gated = tr.choke > 0 && tr.gated;
     const bool mono = tr.mono && !gated;
     if (tr.choke > 0)
@@ -294,6 +388,7 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
     v.pos = static_cast<size_t>(std::max(0.0, std::min(1.0, h.start)) * static_cast<double>(shot.size()));
     v.vel = std::max(0.f, vel);
     v.slice = slice;
+    v.sRatio = 1;
     v.gain = static_cast<float>(v.vel * h.gain * slice);
     v.gainTo = v.gain;
     v.gain0 = v.gain;
@@ -598,6 +693,7 @@ bool Engine::repeats(int track, Retrig& rt, double from, double to, double befor
         e.lenSteps = rt.lenSteps;
         e.rep = true;
         e.anchor = rp < rt.preUntil - EPS ? rt.preAnchor : anchor;
+        e.hi = rt.hi;
         e.hit = rt.hit;
         e.snd = rt.snd;
         pendPush(e);
@@ -656,6 +752,7 @@ void Engine::evalStep(const PlayState& ps, long G) {
             e.track = t;
             e.slice = pt.slice;
             e.lt = true;
+            e.hi = hi;
             e.re = re;
             e.anchor = pos;
             e.hit = h;
@@ -679,6 +776,7 @@ void Engine::evalStep(const PlayState& ps, long G) {
         e.vel = h.vel;
         e.lenSteps = h.len;
         e.anchor = sv.anchor;
+        e.hi = hi;
         e.hit = h;
         e.snd = snd;
         pendPush(e);
@@ -696,6 +794,7 @@ void Engine::evalStep(const PlayState& ps, long G) {
             rt.lenSteps = h.len;
             rt.preUntil = -INF;
             rt.preAnchor = 0;
+            rt.hi = hi;
             rt.hit = h;
             rt.snd = snd;
             snd->users.fetch_add(1, std::memory_order_acq_rel);
@@ -726,19 +825,29 @@ void Engine::process(const BlockTransport& tr, float* L, float* R, int n, const 
 void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes, int nNotes) {
     PlayState* ps = current_.load(std::memory_order_acquire);
     if (ps) ps->users.fetch_add(1, std::memory_order_acq_rel);
+    // Le crossfader : x du bloc (le parametre XFADE), seulement pour un programme a scenes
+    xOn_ = ps && ps->prog.xk.size() >= 2;
+    xNow_ = static_cast<double>(x_.load(std::memory_order_relaxed));
     // Les effets du programme : un nouvel etat, ou un autre tempo (le temps du DELAY)
     const double bpm = tr.ppqPerSample > 0 ? tr.ppqPerSample * 60 * sr_ : (ps ? ps->prog.bpm : 130);
     if (ps && (ps != fxState_ || std::fabs(bpm - fxBpm_) > 0.01)) {
         if (ps != fxState_)
             for (int t = 0; t < kTracks; ++t) {
-                sliceNow_[static_cast<size_t>(t)] = ps->prog.tracks[static_cast<size_t>(t)].sl;
+                sliceNow_[static_cast<size_t>(t)] = voiceSlAt(*ps, t);
+                sliceSrc_[static_cast<size_t>(t)] = -1;
+                sliceLfoD_[static_cast<size_t>(t)] = SliceFx{};
                 fx_.setSlice(t, sliceNow_[static_cast<size_t>(t)], ps->prog.tracks[static_cast<size_t>(t)].kick);
             }
-        fx_.setGlobal(ps->prog.fx, bpm);
-        fx_.setReverbIR(ps->reverbIR.get());
+        fx_.setGlobal(globalAt(*ps), bpm);
+        if (ps != fxState_) {
+            irWant_ = irAt(*ps);
+            fx_.setReverbIR(irWant_);
+        }
         fxState_ = ps;
         fxBpm_ = bpm;
+        xFx_ = xNow_;
     }
+    if (ps) followX(*ps, bpm, n);
     fx_.clearTracks(n);
     const double pps = tr.ppqPerSample;
     const double stepN = pps > 0 ? 0.25 / pps : 0; // echantillons par pas
@@ -775,6 +884,7 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
             e.track = nt.track;
             e.slice = pt.slice;
             e.vel = nt.vel;
+            e.hi = -2;
             e.hit = pt.live;
             e.snd = soundOf(pt.live.snd);
             push(e);
@@ -837,14 +947,24 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
     if (ps)
         for (int k = 0; k < ne; ++k) {
             const Ev& e = ev_[static_cast<size_t>(k)];
+            // Le crossfader : le coup a la position du moment (ses reglages, son son, sa tranche)
+            ProgHit hx;
+            const ProgHit& h = hitAtX(*ps, e.track, e.hi, e.hit, hx);
+            const float slice = xOn_ && e.hi != -1 ? trackSliceAt(*ps, e.track) : e.slice;
+            RenderedSound* snd = e.snd;
+            if (&h != &e.hit && h.snd != e.hit.snd) snd = soundOf(h.snd);
             if (e.lt) {
                 // Ses envois et ses inserts vont a la tranche jusqu'au coup suivant de la voix (son TONE ne change rien)
-                SliceFx sl = e.hit.hasSl ? e.hit.sl : ps->prog.tracks[static_cast<size_t>(e.track)].sl;
+                SliceFx sl = h.hasSl ? h.sl : voiceSlAt(*ps, e.track);
                 sl.tone = sliceNow_[static_cast<size_t>(e.track)].tone;
                 applySlice(*ps, e.track, sl);
-                lockTrig(e.hit, e.track, e.offset, e.re, e.anchor);
+                if (h.hasSl) {
+                    sliceSrc_[static_cast<size_t>(e.track)] = e.hi >= 0 ? e.hi : -3;
+                    sliceLfoD_[static_cast<size_t>(e.track)] = SliceFx{};
+                }
+                lockTrig(h, e.track, e.offset, e.re, e.anchor);
             } else
-                trigger(*ps, e.track, e.hit, e.vel, e.slice, e.snd, e.offset, e.lenSteps, e.rep, stepN, e.ppq * 4, e.anchor);
+                trigger(*ps, e.track, h, e.vel, slice, snd, e.offset, e.lenSteps, e.rep, stepN, e.ppq * 4, e.anchor, e.hi);
         }
 
     // Les voix, dans la tranche de leur piste (ou tout droit dans la sortie, sans effets)
@@ -856,9 +976,13 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         float* TL = dry_ ? L : fx_.trackL(t);
         float* TR = dry_ ? R : fx_.trackR(t);
         bool any = false;
+        // Le crossfader : le niveau de tranche de la piste (LEVEL, TRK LEV) suit x pendant que ses coups sonnent
+        const float sNow = xOn_ && ps ? trackSliceAt(*ps, t) : 0.f;
         for (auto& v : voices_[static_cast<size_t>(t)]) {
             if (v.shot) any = true;
             if (!v.shot) continue;
+            const float rTo = xOn_ && v.slice > 0 ? sNow / v.slice : 1.f;
+            const float rStep = (rTo - v.sRatio) / static_cast<float>(n);
             const std::vector<float>& sl = v.shot->L;
             const std::vector<float>& sr = v.shot->right();
             const size_t len = sl.size();
@@ -889,7 +1013,8 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                     v.gain += (v.gainTo - v.gain) * kG;
                     if (std::fabs(v.gainTo - v.gain) < 1e-7f) v.gain = v.gainTo;
                 }
-                float f = v.gain * static_cast<float>(env);
+                if (rStep != 0) v.sRatio += rStep;
+                float f = v.gain * static_cast<float>(env) * v.sRatio;
                 const bool tick = (static_cast<long>(v.t) & 15) == 0;
                 if (v.anyCv) {
                     if (v.cv[CV_VOL].on) f *= static_cast<float>(curveAt(v, CV_VOL, v.t));
@@ -941,6 +1066,7 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                 else ++v.pos;
                 v.t += 1;
             }
+            v.sRatio = rTo; // la rampe finit pile sur sa cible (sans le reste des additions)
             if (done || (v.cv[CV_PITCH].on ? v.fpos >= static_cast<double>(len) : v.pos >= len) || v.fadeLeft == 0) release(v);
         }
         if (any) fx_.markActive(t);

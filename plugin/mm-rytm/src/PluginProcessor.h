@@ -46,6 +46,8 @@ public:
     void faceHit(const juce::var& hit);
     void faceRun(bool on);
     void faceFill(bool on) { engine_.setFill(on); }
+    // Le crossfader de la face : le parametre XFADE (Ableton l'enregistre en automation)
+    void faceXf(float x);
     // L'etat a rendre a la face a son ouverture (les cles mm.v4.* du site), "" sans etat.
     juce::String faceInitState() const;
 
@@ -55,6 +57,7 @@ public:
         int step;
         int seq;
         int mask;
+        double xf; // le crossfader (XFADE)
     };
     Feedback feedback() const;
 
@@ -76,6 +79,7 @@ private:
     std::atomic<double> progBpm_{130};
     double internalPpq_ = 0;
     std::atomic<float>* master_ = nullptr;
+    std::atomic<float>* xfade_ = nullptr;
 
     // Le programme et l'etat de la face (thread du message ; le calcul lit pending sous mutex)
     mutable std::mutex mx_;
@@ -89,8 +93,8 @@ private:
     std::map<std::string, std::shared_ptr<mm::RenderedSound>> cache_;
     std::vector<std::pair<std::string, std::shared_ptr<mm::RenderedSound>>> extras_;
     // La reponse de la REVERB (sa forme : rsize, rtone, rpre, la frequence) : recalculee seulement quand elle change
-    std::shared_ptr<mm::ReverbIR> reverbIR_;
-    std::string reverbKey_;
+    // Les reponses de la REVERB par forme (rsize, rtone, rpre ; une par position du crossfader au plus)
+    std::map<std::string, std::shared_ptr<mm::ReverbIR>> irCache_;
     mm::Program current_;
     bool haveProgram_ = false;
     double builtSr_ = 0;

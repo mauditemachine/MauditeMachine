@@ -665,6 +665,62 @@ int main() {
         CHECK(sameBefore && std::fabs(relaunched - 1.5625) < 0.005 && std::fabs(kept - 0.140625) < 0.002, "LFO TRG : un lock trig a LFO.T relance la forme a son heure");
     }
 
+    // ---------------- le crossfader dans le moteur (les scenes, prog.xk) ----------------
+    {
+        // Le motif a 120 BPM, sans effets ; x passe de x0 a x1 a l'echantillon at
+        auto runX = [&](const mm::Program& p, int total, float x0, float x1, int at, std::vector<float>& l) {
+            mm::Engine e;
+            e.prepare(SR);
+            e.setDry(true);
+            e.publish(makeState(p));
+            const double pps = 120.0 / 60.0 / SR;
+            const int block = 250;
+            l.assign(static_cast<size_t>(total), 0.f);
+            std::vector<float> r(static_cast<size_t>(total), 0.f);
+            double ppq = 0;
+            for (int off = 0; off < total; off += block) {
+                e.setX(off >= at ? x1 : x0);
+                e.process({true, ppq, pps}, l.data() + off, r.data() + off, block);
+                ppq += block * pps;
+            }
+        };
+        auto absSum = [](const std::vector<float>& x, int a, int b) {
+            double s = 0;
+            for (int i = a; i < b && i < static_cast<int>(x.size()); ++i) s += std::fabs(x[static_cast<size_t>(i)]);
+            return s;
+        };
+        // L'OH au pas 0 ; scene A : gain 1, scene B : gain 0.25 (deux positions)
+        mm::Program p = baseProgram();
+        mm::ProgHit h = p.tracks[3].live;
+        h.g = 0;
+        p.tracks[3].hits = {h};
+        mm::ProgX a, b;
+        a.fx = b.fx = p.fx;
+        a.tracks = b.tracks = p.tracks;
+        b.tracks[3].hits[0].gain = 0.25;
+        p.xk = {a, b};
+        std::vector<float> l0, l5, l1, ls;
+        runX(p, 12000, 0.f, 0.f, 0, l0);
+        runX(p, 12000, 0.5f, 0.5f, 0, l5);
+        runX(p, 12000, 1.f, 1.f, 0, l1);
+        const double ref = absSum(l0, 0, 12000);
+        const double r5 = absSum(l5, 0, 12000) / ref, r1 = absSum(l1, 0, 12000) / ref;
+        CHECK(ref > 1 && std::fabs(r5 - 0.625) < 1e-3 && std::fabs(r1 - 0.25) < 1e-3, "crossfader : le coup prend les reglages de sa position (A, milieu, B)");
+        // Le niveau de tranche (LEVEL) suit x pendant que le coup sonne : B a 0, x passe a 1 au milieu du son
+        mm::Program pt = p;
+        pt.xk[1].tracks[3].hits[0].gain = 1;
+        pt.xk[1].tracks[3].slice = 0;
+        runX(pt, 12000, 0.f, 1.f, 6000, ls);
+        CHECK(absSum(ls, 0, 6000) > 1 && absSum(ls, 6250, 12000) < 1e-6, "crossfader : le niveau de la piste suit x pendant que le coup sonne");
+        // Sans scene (xk vide) : x ne change rien
+        mm::Program pn = p;
+        pn.xk.clear();
+        std::vector<float> n0, n1;
+        runX(pn, 12000, 0.f, 0.f, 0, n0);
+        runX(pn, 12000, 1.f, 1.f, 0, n1);
+        CHECK(n0 == n1, "crossfader : sans scene, x ne change rien");
+    }
+
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }

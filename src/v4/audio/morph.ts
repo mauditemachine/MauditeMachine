@@ -341,6 +341,27 @@ export const morph = {
     out[1] = morph01(e.a, e.v, b01, 1);
     return true;
   },
+  /** les scenes du motif menent-elles au moins un reglage (le plugin : son programme suit alors le crossfader) */
+  active: (): boolean => live.all.length > 0,
+  /**
+   * fn calculee a un autre x (2026-11-08, le plugin : son programme aux positions du crossfader, plugin/bridge.ts) : x pose
+   * le temps de fn, puis rendu ; aucun ecouteur prevenu, aucun store ecrit (le meme chemin que le son, a ce x).
+   */
+  withX<T>(x0: number, fn: () => T): T {
+    const keep = x;
+    const dirty = (): void => {
+      fxDirty = true;
+      for (const i of VOICES) voiceDirty.add(i);
+    };
+    x = Math.max(0, Math.min(1, x0));
+    dirty();
+    try {
+      return fn();
+    } finally {
+      x = keep;
+      dirty();
+    }
+  },
   /** un reglage de fx est-il dans une scene du motif (drums.ts : ses changements de base passent par l'applicateur) */
   fxMorphed: (): boolean => live.fx.length > 0,
   /** un reglage de la voix est-il dans une scene du motif */

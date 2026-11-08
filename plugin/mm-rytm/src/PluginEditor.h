@@ -30,6 +30,7 @@ private:
     int lastSeq_ = -1;
     bool lastPlaying_ = false;
     bool lastInternal_ = false;
+    double lastXf_ = -1;
     int quietTicks_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MMRytmEditor)

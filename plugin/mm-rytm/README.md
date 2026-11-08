@@ -22,7 +22,8 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | Pads, touches, notes MIDI GM d'Ableton | joue |
 | Conditions (FILL, PRE, NEI, 1ST, A:B, NOT), PROB, uTIME (en avance aussi), LEN, RTRG (RATE, VFAD, RLEN) | joue (phase 2, port de `audio/seq.ts`, `tests/engine_test.cpp`) |
 | Lock trigs : VOL (rapporte au LEVEL du coup), PAN, FREQ, RESO du coup qui sonne, a l'echantillon pres, glissement 1 ms ; envois et inserts de la tranche ; LFO.T | joue (`audio/drums.ts` lockTrigOn) |
-| Crossfader A / B (scenes) | joue sur les coups et sur les effets (le programme suit le crossfader) |
+| Crossfader A / B (scenes, facon Octatrack) | joue dans le moteur, en temps reel et fenetre fermee : la face compile le programme a 9 positions (x = 0, 1/8 ... 1), le C++ interpole entre les deux voisines (coups, tranches, niveau des pistes qui sonnent, effets globaux ; la hauteur et le son : la position la plus proche ; la forme de la REVERB : quand x se pose). Parametre **Crossfader** d'Ableton : automatisable, mappable a un controleur ; la face le suit |
+| Latence | l'avance du LIMITEUR (3 ms) declaree a Ableton, qui la compense |
 | FLTR du coup (passe-bas, passe-haut, passe-bande, enveloppe) | joue (formules du BiquadFilterNode) |
 | Tranche de piste : TONE, DIST, CHORUS (l'algorithme du worklet), envois DELAY et REVERB, leurs verrous | joue (`dsp/Fx.cpp`) |
 | Bus des pads (DIST, TONE, CHORUS, envois globaux) et du kick (DIST, TONE), LEVEL, garniture 0.84 | joue, au niveau du site |

@@ -35,6 +35,7 @@ P=~/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3; [ -d "$P" ] || P=/Library/Audio/Pl
 - **MIDI** : un clip MIDI joue les pistes 1 a 8 en notes GM : 36 BD, 38 SD, 42 CH, 46 OH, 39 CP, 45 TOM, 50 HT, 49 CY (et leurs voisines GM). La velocite compte.
 - **Le projet** : tout ce que tu regles dans la face (pattern, sons, banques, presets) est sauve dans le projet Ableton, et le plugin joue meme fenetre fermee.
 - **La souris** : l'ecran se clique (un clic choisit une ligne, un second clic la valide, la molette defile, clic droit = NO) et ses valeurs se tirent. Clic droit sur une touche = FUNC + la touche.
+- **Le crossfader (scenes A / B)** : il joue dans le moteur, fenetre fermee comprise. Dans Ableton, c'est le parametre **Crossfader** du plugin : automatisable dans un clip ou l'arrangement, et mappable a ton APC mini ou ton Roto (bouton **Configure** de l'appareil, puis bouge le crossfader de la face ; ou MIDI Map). Quand Ableton le bouge, celui de la face suit.
 - **Le sequenceur des trigs** : conditions (FILL en tenant PAGE ou YES, PRE, NEI, 1ST, A:B), PROB, uTIME, LEN, RETRIG, lock trigs, et le crossfader A / B jouent.
 - **Le son** : filtres, effets (TONE, DIST, CHORUS, DELAY, REVERB, GLUE, LIMITEUR) et les deux LFO de chaque voix jouent comme au site.
 - **Pas encore dans le plugin** (la face les montre, ils ne sonnent pas encore) : chaines de patterns, SONG, multi-out. Voir README.md.

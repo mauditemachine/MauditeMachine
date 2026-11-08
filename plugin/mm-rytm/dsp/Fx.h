@@ -62,6 +62,9 @@ public:
     void prepare(double sr);
     // La reponse de la reverb a jouer (thread du calcul -> audio : un pointeur, lu au debut du bloc)
     void setReverbIR(const ReverbIR* ir) { nextIR_ = ir; }
+    const ReverbIR* reverbIR() const { return nextIR_; }
+    // La latence de la chaine : l'avance du LIMITEUR (Lw - 1 echantillons), a declarer a l'hote
+    int latency() const { return limiter_.Lw - 1; }
     // Les reglages (thread audio, au debut du bloc)
     void setGlobal(const GlobalFx& g, double bpm);
     void setSlice(int track, const SliceFx& s, bool kickLane);
