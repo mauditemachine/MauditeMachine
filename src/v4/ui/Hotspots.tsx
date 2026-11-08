@@ -256,6 +256,7 @@ import {
   FACE_FOLLOWS_PAGE,
   FACE_INERT,
   SCREEN_TOUCH,
+  PLUGIN,
   FACE_KNOBS,
   FACE_TITLE,
   GLOBAL_ENCODERS,
@@ -1375,6 +1376,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         if (hm && hm.kind === 'pad' && hm.inst && hm.enabled !== false) padMute(hm.inst, stage);
         // TRK engagee (2026-10-27) : un clic droit sur un pas 1 a 8 coupe sa voix ou la rend, sans la choisir
         else if (hm && hm.kind === 'step' && hm.index !== undefined) trkStepMute(hm.index, stage, e.timeStamp || performance.now());
+        else if (PLUGIN && hm && hm.enabled !== false) {
+          // Le plugin (2026-11-08, Mika : "touche Function ... un peu trop difficile a gerer avec un plugin") : un clic droit
+          // sur une touche fait FUNC + la touche (sa fonction orange), d'un seul geste : FUNC gardee pour une touche (une
+          // tape), puis le clic de la touche elle-meme
+          const t = e.timeStamp || performance.now();
+          funcDown('rc', t);
+          funcUp('rc', t + 1);
+          const init = { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId, pointerType: 'mouse', isPrimary: true, bubbles: true, cancelable: true };
+          el.dispatchEvent(new PointerEvent('pointerdown', { ...init, button: 0, buttons: 1 }));
+          el.dispatchEvent(new PointerEvent('pointerup', { ...init, button: 0, buttons: 0 }));
+        }
         return;
       }
       if (e.pointerType === 'mouse' && e.button !== 0) return;

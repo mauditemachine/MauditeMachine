@@ -57,6 +57,17 @@ export interface ScreenMenuInput {
   phase: 'down' | 'up';
 }
 
+/**
+ * La souris dans l'ecran (le plugin, 2026-11-08, plugin/ScreenMouse.tsx) : u, v en unites du dessin de l'ecran (0 a 320, 0 a
+ * UH) ; tap (un clic), dbl (un double clic), wheel (la molette, delta en crans, vers le bas positif).
+ */
+export interface ScreenPoint {
+  kind: 'tap' | 'dbl' | 'wheel';
+  u: number;
+  v: number;
+  delta?: number;
+}
+
 export interface ScreenMenu {
   id: ScreenMenuId;
   /** la lane qui le possede (cahier 5.1 a 5.3) : un seul proprietaire par menu */
@@ -70,6 +81,8 @@ export interface ScreenMenu {
    * null) ; une fleche non prise ne fait rien. Absent : le menu ne se navigue pas (B4 ne lui envoie rien, NO le ferme).
    */
   onInput?: (input: ScreenMenuInput) => boolean;
+  /** la souris dans l'ecran (le plugin) : true si le menu l'a prise ; absent : une liste peinte par paintList se clique seule */
+  onPoint?: (p: ScreenPoint) => boolean;
   /*
    * V.6.0 (lane B5, 2026-11-01), des ajouts facultatifs au contrat, aucun nom d'avant ne change :
    */

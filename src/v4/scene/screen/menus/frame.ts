@@ -42,9 +42,26 @@ export function scrollTop(top: number, cursor: number, n: number, rows = LIST_RO
  * Une liste : les lignes de top a top + rows, le curseur en negatif, la valeur a droite, ... d'un sous-menu, la barre de
  * defilement ; area : une autre zone (un panneau). Rend son texte (les sondes) : > devant le curseur, ~ une ligne a venir.
  */
+/**
+ * La derniere liste peinte (le plugin, 2026-11-08 : la souris dans l'ecran, plugin/ScreenMouse.tsx) : sa zone, sa premiere
+ * ligne, son nombre de lignes et son curseur ; une tape sur une ligne y amene le curseur (les fleches du menu), une tape
+ * sur la ligne du curseur fait YES. Un panneau peint apres la liste (RIGHT : les operations) la remplace : c'est lui
+ * qu'on touche.
+ */
+export const lastList: { area: { x0: number; x1: number; y0: number; y1: number }; rh: number; top: number; n: number; count: number; cursor: number; at: number } = {
+  area: { x0: 0, x1: 0, y0: 0, y1: 0 },
+  rh: 1,
+  top: 0,
+  n: 0,
+  count: 0,
+  cursor: 0,
+  at: 0,
+};
+
 export function paintList(screen: Screen, rows: readonly MenuRow[], cursor: number, top: number, area: { x0: number; x1: number; y0: number; y1: number; row?: number } = LIST): string {
   const rh = area.row ?? LIST.row;
   const n = Math.floor((area.y1 - area.y0) / rh);
+  Object.assign(lastList, { area: { x0: area.x0, x1: area.x1, y0: area.y0, y1: area.y1 }, rh, top, n, count: rows.length, cursor, at: performance.now() });
   const out: string[] = [];
   for (let i = 0; i < n && top + i < rows.length; i += 1) {
     const k = top + i;

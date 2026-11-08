@@ -24,6 +24,8 @@ import type { Dt2ButtonId } from '../rytm/dtFaceIds';
  */
 export const PORTRAIT: boolean = (() => {
   if (typeof window === 'undefined') return false;
+  // Le plugin (plus bas) : toujours la face du desktop, quelle que soit la largeur de sa fenetre
+  if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('portrait');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.portrait', q);
@@ -31,6 +33,22 @@ export const PORTRAIT: boolean = (() => {
     if (forced === '1') return true;
     if (forced === '0') return false;
     return window.matchMedia('(max-width: 767px)').matches;
+  } catch {
+    return false;
+  }
+})();
+
+/**
+ * Le plugin (2026-11-08, Mika : "lance la WebView avec ma vraie face", plugin/mm-rytm) : la face du MM-RYTM seule, dans
+ * la fenetre du VST3 (WebView JUCE), vue de dessus, sans le reste du site ; le son vient du plugin (C++), jamais du
+ * navigateur. Pose par la page du plugin (window.__MM_PLUGIN__, avant tout module) ou ?plugin=1 (essai dans un
+ * navigateur). Lu a l'evaluation des modules, comme PORTRAIT ; jamais retenu.
+ */
+export const PLUGIN: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
+    return new URLSearchParams(window.location.search).get('plugin') === '1';
   } catch {
     return false;
   }
@@ -54,16 +72,23 @@ export const RYTM_VERSIONS: readonly RytmFaceVer[] = ['1.0', '2.0', '3.0', '4.0'
  */
 export const RYTM_FACE_VER: RytmFaceVer = (() => {
   if (PORTRAIT || typeof window === 'undefined') return '5.0';
+  // Le plugin : toujours la machine complete (la face DT2), quelle que soit l'adresse
+  if (PLUGIN) return '6.0';
   try {
     const f = new URLSearchParams(window.location.search).get('face');
+    // 2026-11-08 (Mika : "sur internet met la version avant le crossfad qui etait trop complexe") : sur le site, la V.3.0 par
+    // defaut (8 pads de voix, EDIT et OPEN, GLOBAL FX, 16 pas : d'avant les scenes et le crossfader de la V.4.1 et la face
+    // facon Digitakt) ; les autres restent au selecteur de versions (?face=v4, v5, v6 ou dt2)
+    if (f === null || f === '') return '3.0';
+    if (f === 'v6' || f === '6' || f === '6.0' || f === 'dt2') return '6.0';
     if (f === 'v1' || f === '1' || f === '1.0') return '1.0';
     if (f === 'v2' || f === '2' || f === '2.0') return '2.0';
     if (f === 'v3' || f === '3' || f === '3.0') return '3.0';
     if (f === 'v4' || f === '4' || f === '4.0') return '4.0';
     if (f === 'v5' || f === '5' || f === '5.0') return '5.0';
-    return '6.0';
+    return '3.0';
   } catch {
-    return '6.0';
+    return '3.0';
   }
 })();
 

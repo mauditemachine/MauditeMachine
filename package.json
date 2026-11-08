@@ -26,7 +26,8 @@
     "firmware:stamp": "node scripts/firmware.mjs stamp",
     "presets:test": "node scripts/presets-name.test.mjs && node scripts/presets-bpm.test.mjs",
     "face:test": "node scripts/face.test.mjs",
-    "press:pages": "node scripts/press-pages.mjs --public"
+    "press:pages": "node scripts/press-pages.mjs --public",
+    "plugin:web": "vite build --config plugin/mm-rytm/web/vite.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

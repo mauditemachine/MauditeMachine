@@ -1753,7 +1753,20 @@ export function shotReady(inst: TrackKey, lock: Readonly<StepLock> | null, ms: n
  * `out` recoit la voix programmee (l'horloge, pour pouvoir l'annuler).
  * `vel` : la velocite du pas, en gain (1 fort, 0.6 moyen, 0.32 doux).
  */
+/**
+ * Le plugin (2026-11-08, plugin/bridge.ts) : un coup joue en direct (un pad, une touche, un apercu : sans heure ni liste de
+ * voix, jamais l'horloge) part aussi vers le C++, qui joue le son. null : le site.
+ */
+type LiveFn = (inst: TrackKey, vel: number, lock: Readonly<StepLock> | null) => void;
+let liveFn: LiveFn | null = null;
+export const liveHook = {
+  set(fn: LiveFn | null): void {
+    liveFn = fn;
+  },
+};
+
 export function trigger(inst: TrackKey, when?: number, open = false, out?: Voice[], vel = 1, lock0: Readonly<StepLock> | null = null, scenes: SceneSet = pattern.scenes.get(), sq?: HitSeq): boolean {
+  if (liveFn && when === undefined && out === undefined) liveFn(inst, vel, lock0);
   const g = graph;
   if (!g) return false;
   enforceMute(g);
@@ -1792,6 +1805,17 @@ export function trigger(inst: TrackKey, when?: number, open = false, out?: Voice
   triggers += 1;
   last = { inst, open: hp.id === 'CHopen', when: t, at: performance.now(), state: g.ctx.state as AudioContextState, lock, decay: hp.decay, gain, shot: hp.id, pf: hp.pf, pan: hp.pan, start: hp.start };
   return true;
+}
+
+/**
+ * Le plugin (2026-11-08, plugin/bridge.ts) : ce qu'un coup jouerait, sans le jouer ni toucher au graphe, avec les memes
+ * etapes que trigger() (les scenes, le verrou du pas, la voix) : le pont le compile pour le C++, qui joue le son. slice :
+ * le gain de la tranche de la voix (son LEVEL, son TRK LEV), que trigger() laisse a hitEntry.
+ */
+export function resolveHit(inst: TrackKey, lock0: Readonly<StepLock> | null, scenes: SceneSet = pattern.scenes.get()): { hp: HitParams; slice: number; fx: Readonly<VoiceFx>; lock: Readonly<StepLock> | null } {
+  const m = morph.hit(inst, lock0, scenes);
+  const hp = hitParams(inst, false, m.lock, tone, morph.stretch(), m.fx, m.kit, m.lazy);
+  return { hp, slice: voiceGain(m.fx.level) * tracks.tlevGain(inst), fx: m.fx, lock: m.lock };
 }
 
 /** Un stop() qui ne leve jamais (un navigateur qui refuse un second appel : le coup finit seul). */

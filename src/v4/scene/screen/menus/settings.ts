@@ -23,6 +23,7 @@ import { patterns, slotName } from '../../../state/patterns';
 import { undo } from '../../../state/undo';
 import type { Screen } from '../core';
 import { BLACK, HALF, INK } from '../consts';
+import { PLUGIN } from '../../../theme';
 import { registerScreenMenu } from './registry';
 import { acting, paintHint, paintList, paintPopupBox, scrollTop, stepCursor, type MenuRow } from './frame';
 import { menuChanged, setOpenMenu } from './open';
@@ -53,34 +54,64 @@ let body = '';
 const here = (): Node => path[path.length - 1];
 const onOff = (b: boolean): string => (b ? 'ON' : 'OFF');
 
-function rows(n: Node): MenuRow[] {
+/** Une ligne et ce qu'elle fait (l'id : YES la reconnait, quelle que soit sa place dans la liste). */
+type Row = MenuRow & { id: string };
+
+/**
+ * Le plugin (2026-11-08, Mika : "sous menus inutiles de settings") : dans la fenetre du VST3, SETTINGS ne montre que ce qui
+ * sert (le pattern, les reglages de la face, ABOUT) : ni les menus BIENTOT, ni les LED du boitier, ni le stockage du
+ * navigateur (le plugin garde tout dans le projet).
+ */
+const pluginKeeps = (r: Row): boolean => !r.dim && r.id !== 'led' && r.id !== 'backlight' && r.id !== 'storage' && r.id !== 'system';
+
+function rows(n: Node): Row[] {
+  const all = allRows(n);
+  if (!PLUGIN) return all;
+  const kept = all.filter(pluginKeeps);
+  // SYSTEM sans STORAGE : ABOUT monte a la racine
+  return n === 'root' ? [...kept, { id: 'about', label: 'ABOUT', sub: true }] : kept;
+}
+
+function allRows(n: Node): Row[] {
   const p = persLoad();
   switch (n) {
     case 'root':
       return [
-        { label: 'PROJECT', sub: true, dim: true, value: 'V.6.2' },
-        { label: 'PATTERN', sub: true },
-        { label: 'MIDI CONFIG', sub: true, dim: true, value: 'V.6.2' },
-        { label: 'AUDIO ROUTING', sub: true, dim: true, value: 'V.6.1' },
-        { label: 'PERSONALIZE', sub: true },
-        { label: 'SYSTEM', sub: true },
+        { id: 'project', label: 'PROJECT', sub: true, dim: true, value: 'V.6.2' },
+        { id: 'pattern', label: 'PATTERN', sub: true },
+        { id: 'midi', label: 'MIDI CONFIG', sub: true, dim: true, value: 'V.6.2' },
+        { id: 'routing', label: 'AUDIO ROUTING', sub: true, dim: true, value: 'V.6.1' },
+        { id: 'personalize', label: 'PERSONALIZE', sub: true },
+        { id: 'system', label: 'SYSTEM', sub: true },
       ];
     case 'pattern':
-      return [{ label: 'RENAME', value: patternName(patterns.get().cur) || slotName(patterns.get().cur) }, { label: 'CLEAR', sub: true }, { label: 'EDIT GRID', value: 'SHIFT+E' }];
+      return [
+        { id: 'rename', label: 'RENAME', value: patternName(patterns.get().cur) || slotName(patterns.get().cur) },
+        { id: 'clear', label: 'CLEAR', sub: true },
+        { id: 'grid', label: 'EDIT GRID', value: 'SHIFT+E' },
+      ];
     case 'clear':
-      return [{ label: 'WHOLE PATTERN' }, { label: 'SEQUENCE DATA' }, { label: 'CLEAR SOUNDS (ALL PATTERNS)' }];
+      return [
+        { id: 'whole', label: 'WHOLE PATTERN' },
+        { id: 'seq', label: 'SEQUENCE DATA' },
+        { id: 'sounds', label: 'CLEAR SOUNDS (ALL PATTERNS)' },
+      ];
     case 'personalize':
       return [
-        { label: 'LED INTENSITY', value: p.led.toUpperCase() },
-        { label: 'LED BACKLIGHT', value: onOff(p.backlight) },
-        { label: 'REMEMBER SUBPAGE', value: onOff(p.subpage) },
-        { label: 'TRK SELECT', value: p.trkSelect.toUpperCase() },
-        { label: 'U/D KEY MODE', dim: true, value: 'V.6.1' },
-        { label: 'PAGE AUTOCOPY', dim: true, value: 'V.6.1' },
-        { label: 'SCREEN SAVER', dim: true, value: 'V.6.1' },
+        { id: 'led', label: 'LED INTENSITY', value: p.led.toUpperCase() },
+        { id: 'backlight', label: 'LED BACKLIGHT', value: onOff(p.backlight) },
+        { id: 'subpage', label: 'REMEMBER SUBPAGE', value: onOff(p.subpage) },
+        { id: 'trk', label: 'TRK SELECT', value: p.trkSelect.toUpperCase() },
+        { id: 'udkey', label: 'U/D KEY MODE', dim: true, value: 'V.6.1' },
+        { id: 'autocopy', label: 'PAGE AUTOCOPY', dim: true, value: 'V.6.1' },
+        { id: 'saver', label: 'SCREEN SAVER', dim: true, value: 'V.6.1' },
       ];
     case 'system':
-      return [{ label: 'ABOUT', sub: true }, { label: 'STORAGE', sub: true }, { label: 'RESET, FORMAT', dim: true, value: 'V.6.2' }];
+      return [
+        { id: 'about', label: 'ABOUT', sub: true },
+        { id: 'storage', label: 'STORAGE', sub: true },
+        { id: 'reset', label: 'RESET, FORMAT', dim: true, value: 'V.6.2' },
+      ];
   }
 }
 
@@ -126,33 +157,52 @@ function choose(): void {
     lcdMessage.show(`${r.label}: BIENTOT ${r.value ?? ''}`.trim(), 1400);
     return;
   }
-  if (n === 'root') path.push(c === 1 ? 'pattern' : c === 4 ? 'personalize' : 'system');
-  else if (n === 'pattern') {
-    if (c === 0) {
+  const p = persLoad();
+  switch (r.id) {
+    case 'pattern':
+    case 'personalize':
+    case 'system':
+    case 'clear':
+      path.push(r.id);
+      break;
+    case 'rename': {
       const cur = patternName(patterns.get().cur);
       draft = [...cur.padEnd(NAME_MAX, ' ')].slice(0, NAME_MAX);
       at = 0;
       pop = { kind: 'rename' };
-    } else if (c === 1) path.push('clear');
-    else {
+      break;
+    }
+    case 'grid':
       // EDIT GRID (la grille de Mika posee sur les pas, Maj + E) : la saisie de B4 l'ouvre ou la ferme (l'integration)
       setOpenMenu(null);
       editGridToggle();
       return;
-    }
-  } else if (n === 'clear') pop = { kind: 'confirm', what: c === 2 ? 'sounds' : 'seq', n: c === 2 ? 2 : 1 };
-  else if (n === 'personalize') {
-    const p = persLoad();
-    if (c === 0) personalize.set({ led: LEDS[(LEDS.indexOf(p.led) + 1) % LEDS.length] });
-    else if (c === 1) personalize.set({ backlight: !p.backlight });
-    else if (c === 2) personalize.set({ subpage: !p.subpage });
-    else if (c === 3) personalize.set({ trkSelect: TRKS[(TRKS.indexOf(p.trkSelect) + 1) % TRKS.length] });
-  } else if (n === 'system') {
-    if (c === 0) pop = { kind: 'about' };
-    else {
+    case 'whole':
+    case 'seq':
+      pop = { kind: 'confirm', what: 'seq', n: 1 };
+      break;
+    case 'sounds':
+      pop = { kind: 'confirm', what: 'sounds', n: 2 };
+      break;
+    case 'led':
+      personalize.set({ led: LEDS[(LEDS.indexOf(p.led) + 1) % LEDS.length] });
+      break;
+    case 'backlight':
+      personalize.set({ backlight: !p.backlight });
+      break;
+    case 'subpage':
+      personalize.set({ subpage: !p.subpage });
+      break;
+    case 'trk':
+      personalize.set({ trkSelect: TRKS[(TRKS.indexOf(p.trkSelect) + 1) % TRKS.length] });
+      break;
+    case 'about':
+      pop = { kind: 'about' };
+      break;
+    case 'storage':
       pop = { kind: 'storage' };
       measure();
-    }
+      break;
   }
   top = 0;
 }

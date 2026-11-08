@@ -15,10 +15,10 @@
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2TrackMuteDots, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
-import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
+import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
-export { PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
+export { PLUGIN, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
 export type { FaceKeyId, Inst, PageId, VoicePad, PagePad, OpenPad, EditPad, PadSpec, PageKnobId, FaceKnobId, EncPlace, KeyLabelSpec, SilkText, SilkLogoId } from './theme/base';
 
 /* ---------- couleurs (spec 4.4 et 20.3) ---------- */
@@ -235,6 +235,8 @@ export const PANEL = {
 export const PANEL_D = PANEL.shapeD + 2 * PANEL.bevelSize;
 /** Centre du dessus du panneau, monde, machine fermee : 0.12 + (2.2 + 1.3) / 2. */
 export const PANEL_TOP_Y = BODY.feet + (BODY.back + BODY.front) / 2;
+/** Le panneau vu de face (le plugin, 2026-11-08) : sa largeur et sa longueur le long de la pente, chanfrein compris. */
+export const PLUGIN_FACE = { w: PANEL.shapeW + 2 * PANEL.bevelSize, d: PANEL_D } as const;
 /**
  * Dessus du chassis (= dessous du panneau) a la profondeur z (monde) :
  * y = PANEL_TOP_Y - epaisseur verticale du panneau - z tan(TILT).
@@ -982,7 +984,9 @@ export const REC_MARK_D = 1;
  * jumeaux HTML restent pour le clavier et les lecteurs d'ecran) ; vrai au telephone (sans potards, il se touche) ; le
  * futur kiosque ?hw=1 (l'ecran tactile du boitier) le voudra vrai. scene/hit.ts HitMap.screenTouch, ui/Hotspots.tsx.
  */
-export const SCREEN_TOUCH: boolean = PORTRAIT;
+// Le plugin (2026-11-08, Mika : "quand on cherche un preset je voudrais aussi le selectionner a la souris dans l'ecran") :
+// dans la fenetre du VST3, l'ecran se clique a la souris (les listes, les menus, les valeurs), en plus des potards
+export const SCREEN_TOUCH: boolean = PORTRAIT || PLUGIN;
 
 /**
  * Les commandes de la face visibles et inertes : curseur par defaut, rien ne part. Vide depuis P2-20 (2026-10-27) : TRK,
@@ -1543,10 +1547,11 @@ export const ORBIT = {
    * fait jamais sortir.
    */
   azDeg: 0,
-  elDeg: 69,
+  // Le plugin (2026-11-08) : la camera perpendiculaire au panneau (incline de TILT), la face vue comme une photo
+  elDeg: PLUGIN ? 90 - (TILT * 180) / Math.PI : 69,
   zoom: 1,
   elMinDeg: 18,
-  elMaxDeg: 78,
+  elMaxDeg: PLUGIN ? 90 : 78,
   zoomMin: 0.55,
   zoomMax: 2.4,
   damping: 0.08,
@@ -1569,7 +1574,8 @@ export const ORBIT = {
    * proportions se deformaient en tournant). Champ vertical de 30 deg, un
    * cadrage de photo produit : la perspective se voit sans deformer.
    */
-  fovDeg: 30,
+  // Le plugin : un champ etroit, de loin (la perspective ne se voit presque plus, la face reste plate)
+  fovDeg: PLUGIN ? 10 : 30,
   /**
    * near 0.1 jusqu'au 2026-10-05 : de loin (l'intro, la vue d'ensemble), la
    * profondeur n'etait plus assez fine pour les serigraphies et les LED
@@ -1580,7 +1586,8 @@ export const ORBIT = {
   far: 160,
   /** centre projete de la machine fermee a la vue d'arrivee (measure().fit.targetY : 1.216, machine compacte ; 1.269 en portrait) */
   // La face V.4.0 du desktop (2026-10-27) : la mesure ne bouge pas (1.269 avant et apres), la valeur non plus
-  targetY: PORTRAIT ? 1.269 : 1.216,
+  // Le plugin : le centre du panneau lui-meme (la face droite au milieu de la fenetre)
+  targetY: PLUGIN ? PANEL_TOP_Y : PORTRAIT ? 1.269 : 1.216,
 } as const;
 
 export const MOBILE_QUERY = '(max-width: 767px)';
