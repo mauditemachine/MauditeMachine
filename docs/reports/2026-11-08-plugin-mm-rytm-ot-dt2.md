@@ -81,6 +81,7 @@ Demande de Mika : « lance la passe sur la face ». Un tour de la face page par 
 - **SRC sans LOOP** : la case annoncait SOON ; elle est vide dans le plugin, comme MACH.
 - Garde : KEYBOARD (il joue la piste choisie en chromatique sur les pas ; le « NO VOICE » vu pendant le tour venait de la sequence du test, TRK puis NO) ; les placements des potards et des touches (la grille DT2 a 8 potards colle a l'ecran 2 x 4, rien n'y gene).
 - Verifie : le site construit a part, la page RYTM en V.3.0 identique au pixel pres a la capture d'avant ; la face V.6 du site garde ses machines et ses numeros seuls.
+- **Build vert du lot 3** (run 42535187785, 23:33 UTC), dans la release `mm-rytm-latest` (commit c60f4b2).
 
 ## 2. Decisions prises et pourquoi
 
