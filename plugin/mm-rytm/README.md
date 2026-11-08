@@ -30,7 +30,8 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | DELAY (boucle LP / HP 180 Hz), REVERB (la reponse du site, identique bit a bit, convolution par blocs : 256 echantillons de latence sur le retour) | joue |
 | Master : GLUE (BIT, COMP et AUTO), LIMITEUR -0.3 dBFS | joue |
 | LFO (les deux par voix) : SPD, MULT, FADE, 7 formes, 5 modes (FRE, TRG, HLD, ONE, HLF), LFO.T ; en continu PITCH, FREQ, RESO, VOL, PAN (les courbes du site : 24 points par cycle, 2 a 40 ms, 8 s, 512 rampes) ; au coup DIST, DELAY, REVERB, TONE, DECAY | joue (phase 3 bis, `dsp/Lfo.h` identique au site sur 4000 cas, `tests/engine_test.cpp`) |
-| Chaines de patterns, SONG, samples perso du navigateur, multi-out | phase 4 |
+| Patterns (128 emplacements, A01 a H16) | joues par le moteur, fenetre fermee comprise : la face compile chaque emplacement rempli ; le suivant (PTN puis TRIG), la chaine (des tapes dans les 2 s) et un **program change** d'Ableton (le Pgm d'un clip : 1 = A01, 17 = B01...) jouent a la fin du pattern en cours, tout de suite a l'arret ; la face suit le pattern que joue le moteur |
+| SONG, longueur par piste, samples perso du navigateur, multi-out | a venir |
 
 Ecarts connus des LFO : en mode FRE, le LFO suit la position du morceau d'Ableton (au site : depuis PLAY ; identique quand on lance au debut, et un export donne le meme son ou qu'il commence) ; TONE mene par un LFO passe par le TONE de la tranche (comme les verrous de TONE du plugin), pas par un nouveau calcul du coup.
 

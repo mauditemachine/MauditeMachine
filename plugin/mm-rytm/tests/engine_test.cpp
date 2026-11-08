@@ -2,6 +2,7 @@
 #include "../dsp/Engine.h"
 
 #include <cmath>
+#include <functional>
 #include <cstdio>
 #include <memory>
 #include <vector>
@@ -719,6 +720,71 @@ int main() {
         runX(pn, 12000, 0.f, 0.f, 0, n0);
         runX(pn, 12000, 1.f, 1.f, 0, n1);
         CHECK(n0 == n1, "crossfader : sans scene, x ne change rien");
+    }
+
+    // ---------------- les patterns : program change, chaine, fin de pattern ----------------
+    {
+        // Pattern A01 (emplacement 0) : CH au pas 0 ; A02 (emplacement 1) : SD au pas 8. 120 BPM : un pas = 6000 echantillons
+        mm::Program p = baseProgram();
+        p.slot = 0;
+        mm::ProgHit ch = p.tracks[2].live;
+        ch.g = 0;
+        p.tracks[2].hits = {ch};
+        mm::Program q = p;
+        q.slot = 1;
+        q.tracks[2].hits.clear();
+        mm::ProgHit sd = p.tracks[1].live;
+        sd.g = 8;
+        q.tracks[1].hits = {sd};
+        p.pats = {q};
+        const int STEP = 6000;
+        // steps pas joues ; action(e, bloc) avant chaque bloc ; pats : le pattern joue au debut de chaque pas
+        auto run = [&](int steps, const std::function<void(mm::Engine&, long)>& action, std::vector<float>& l, std::vector<int>& pats) {
+            mm::Engine e;
+            e.prepare(SR);
+            e.setDry(true);
+            e.publish(makeState(p));
+            const double pps = 120.0 / 60.0 / SR;
+            const int block = 250;
+            const long total = static_cast<long>(steps) * STEP;
+            l.assign(static_cast<size_t>(total), 0.f);
+            std::vector<float> r(static_cast<size_t>(total), 0.f);
+            pats.clear();
+            double ppq = 0;
+            for (long off = 0; off < total; off += block) {
+                action(e, off / block);
+                e.process({true, ppq, pps}, l.data() + off, r.data() + off, block);
+                if (off % STEP == 0) pats.push_back(e.fbPat.load());
+                ppq += block * pps;
+            }
+        };
+        auto energyStep = [&](const std::vector<float>& l, int step) {
+            double s = 0;
+            for (long i = static_cast<long>(step) * STEP; i < static_cast<long>(step + 1) * STEP && i < static_cast<long>(l.size()); ++i) s += std::fabs(l[static_cast<size_t>(i)]);
+            return s;
+        };
+        std::vector<float> l;
+        std::vector<int> pats;
+        // Un program change (2) au pas 5 : A01 finit ses 16 pas, A02 commence au pas 16 (pas de CH a 16, la SD a 24)
+        run(32, [](mm::Engine& e, long b) { if (b == 5 * 24) e.programChange(1); }, l, pats);
+        const bool pcOk = pats[4] == 0 && pats[15] == 0 && pats[17] == 1 && energyStep(l, 0) > 1 && energyStep(l, 16) < 1e-6 && energyStep(l, 24) > 1;
+        CHECK(pcOk, "patterns : un program change d'Ableton joue le pattern a la fin de celui qui joue");
+        // La chaine de la face (A01, A02) : les deux en alternance, un pattern chacun
+        const int chain[2] = {0, 1};
+        run(64, [&](mm::Engine& e, long b) { if (b == 0) e.queuePatterns(-1, chain, 2); }, l, pats);
+        const bool chainOk = pats[1] == 0 && pats[17] == 1 && pats[33] == 0 && pats[49] == 1 && energyStep(l, 32) > 1 && energyStep(l, 40) < 1e-6;
+        CHECK(chainOk, "patterns : la chaine de la face joue ses patterns l'un apres l'autre");
+        // A l'arret, un program change change le pattern tout de suite
+        mm::Engine e;
+        e.prepare(SR);
+        e.setDry(true);
+        e.publish(makeState(p));
+        std::vector<float> a(256), b(256);
+        e.process({}, a.data(), b.data(), 256);
+        const int seq0 = e.fbPatSeq.load();
+        e.programChange(1);
+        e.process({}, a.data(), b.data(), 256);
+        CHECK(e.fbPat.load() == 1 && e.fbPatSeq.load() == seq0 + 1, "patterns : a l'arret, un program change change le pattern tout de suite");
     }
 
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");

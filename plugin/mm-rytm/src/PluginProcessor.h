@@ -48,6 +48,8 @@ public:
     void faceFill(bool on) { engine_.setFill(on); }
     // Le crossfader de la face : le parametre XFADE (Ableton l'enregistre en automation)
     void faceXf(float x);
+    // Le pattern suivant et la chaine choisis sur la face : le moteur les joue a la fin du pattern
+    void facePtn(const juce::var& o);
     // L'etat a rendre a la face a son ouverture (les cles mm.v4.* du site), "" sans etat.
     juce::String faceInitState() const;
 
@@ -58,6 +60,8 @@ public:
         int seq;
         int mask;
         double xf; // le crossfader (XFADE)
+        int pat;    // le pattern joue
+        int patSeq; // +1 a chaque changement de pattern fait par le moteur
     };
     Feedback feedback() const;
 

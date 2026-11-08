@@ -72,6 +72,7 @@ juce::WebBrowserComponent::Options MMRytmEditor::options() {
                  .withEventListener("mm_run", [this](juce::var o) { proc_.faceRun(static_cast<bool>(o.getProperty("on", false))); })
                  .withEventListener("mm_fill", [this](juce::var o) { proc_.faceFill(static_cast<bool>(o.getProperty("on", false))); })
                  .withEventListener("mm_xf", [this](juce::var o) { proc_.faceXf(static_cast<float>(static_cast<double>(o.getProperty("x", 0.0)))); })
+                 .withEventListener("mm_ptn", [this](juce::var o) { proc_.facePtn(o); })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;
@@ -124,8 +125,9 @@ void MMRytmEditor::timerCallback() {
     const auto fb = proc_.feedback();
     ++quietTicks_;
     // Le crossfader mene par Ableton (automation, controleur) : la face le suit aussi a l'arret
-    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && std::abs(fb.xf - lastXf_) < 1e-4 && quietTicks_ < 30) return;
+    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && std::abs(fb.xf - lastXf_) < 1e-4 && fb.patSeq == lastPatSeq_ && quietTicks_ < 30) return;
     lastXf_ = fb.xf;
+    lastPatSeq_ = fb.patSeq;
     lastSeq_ = fb.seq;
     lastPlaying_ = fb.playing;
     lastInternal_ = fb.internal;
@@ -137,5 +139,7 @@ void MMRytmEditor::timerCallback() {
     o->setProperty("seq", fb.seq);
     o->setProperty("mask", fb.mask);
     o->setProperty("xf", fb.xf);
+    o->setProperty("pat", fb.pat);
+    o->setProperty("patSeq", fb.patSeq);
     browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
 }

@@ -13,8 +13,8 @@
  *
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
- *                 mm_xf {x}, mm_log {where, msg}
- *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf}
+ *                 mm_xf {x}, mm_ptn {next, chain}, mm_log {where, msg}
+ *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pat, patSeq}
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
@@ -22,12 +22,15 @@ import { liveHook, mix, resolveHit, type HitParams } from '../audio/drums';
 import { morph } from '../audio/morph';
 import type { StepLock } from '../audio/locks';
 import type { VoiceFx } from '../audio/voicefx';
-import { lockOf } from '../audio/locks';
+import { lockOf, type Locks } from '../audio/locks';
+import { type TrigSet } from '../audio/trig';
+import { NO_SCENES, type SceneSet } from '../rytm/sceneData';
+import { type Inst } from '../theme';
 import { CONDS, trigNow } from '../audio/trig';
 import { activeLfos, LFO_DESTS, LFO_MODES, LFO_WAVES } from '../audio/lfo';
 import { cutHz, filterIndex, resoQ } from '../audio/voicelaw';
 import { liveNeeds } from '../audio/seqhit';
-import { pattern, VEL_GAIN, velocity } from '../audio/pattern';
+import { pattern, VEL_GAIN, velocity, type Steps } from '../audio/pattern';
 import { tracks, TRACK_KEYS, type TrackKey } from '../audio/tracks';
 import { decayTau, START_MAX } from '../audio/voicelaw';
 import type { Stage } from '../scene/renderer';
@@ -127,6 +130,8 @@ export interface ProgTrack {
 
 export interface Program {
   v: 1;
+  /** l'emplacement du pattern (0 a 127, A01 a H16) */
+  slot: number;
   bpm: number;
   /** nombre de pas du pattern (1 a 64) ; loop : -1 toutes les pages, 0 a 3 la page bouclee */
   len: number;
@@ -142,6 +147,17 @@ export interface Program {
    * valeurs seules (effets globaux, tranches, coups ; les memes coups dans le meme ordre) ; absent sans scene. Le C++
    * interpole entre les deux positions voisines du x de l'hote (le parametre XFADE), fenetre fermee comprise.
    */
+  xk?: ProgX[];
+  /** les autres patterns remplis (2026-11-08) : leurs coups et leur mute ; le kit, les sons et les effets sont ceux d'ici */
+  pats?: ProgPat[];
+}
+
+/** Un autre pattern : son emplacement, sa longueur, ses coups et son mute par piste, ses scenes. */
+export interface ProgPat {
+  slot: number;
+  len: number;
+  loop: number;
+  tracks: Pick<ProgTrack, 'plays' | 'hits'>[];
   xk?: ProgX[];
 }
 
@@ -183,26 +199,87 @@ interface SoundTable {
   index: Map<string, number>;
 }
 
+/** Un pattern a compiler : ses pas (par page), sa longueur, ses verrous, ses reglages de trig, son mute, ses scenes. */
+interface PatSrc {
+  slot: number;
+  len: number;
+  loop: number;
+  pages: Steps[];
+  locks: Readonly<Locks> | null;
+  trigs: Readonly<TrigSet> | null;
+  pmutes: readonly Inst[];
+  scenes: SceneSet;
+}
+
+/** Le pattern courant : celui que la face edite (ses pages, sa longueur, sa page bouclee). */
+function curSrc(): PatSrc {
+  const cur = pattern.get();
+  return {
+    slot: patterns.get().cur,
+    len: pattern.stepCount(),
+    loop: pattern.loopPage(),
+    pages: [0, 1, 2, 3].map((p) => pattern.stepsOfPage(p)),
+    locks: cur.locks,
+    trigs: cur.trigs,
+    pmutes: cur.pmutes,
+    scenes: pattern.scenes.get(),
+  };
+}
+
+/** Un autre emplacement, tel qu'il sera pose (state/patterns.ts apply) : ses 16 pas, ses verrous, ses trigs, ses scenes. */
+function slotSrc(i: number): PatSrc {
+  const st = patterns.get();
+  const empty = patterns.stepsOf(-1);
+  return {
+    slot: i,
+    len: 16,
+    loop: -1,
+    pages: [patterns.stepsOf(i), empty, empty, empty],
+    locks: patterns.locksOf(i),
+    trigs: st.trigs[i] ?? null,
+    pmutes: st.pmutes[i] ?? [],
+    scenes: st.scenes[i] ?? NO_SCENES,
+  };
+}
+
 /**
- * Le programme, et sans scene rien de plus ; avec des scenes, aussi ses valeurs aux XK + 1 positions du crossfader
- * (morph.withX : le meme calcul que le son du site, a ce x).
+ * Le programme : le pattern courant, et (2026-11-08) chaque autre emplacement rempli dans pats, avec la meme table de sons :
+ * le C++ change de pattern a la fin du pattern (la face, un program change d'Ableton), fenetre fermee comprise.
  */
 function compile(): Program {
   const tab: SoundTable = { sounds: [], index: new Map() };
-  if (!morph.active()) return compileWith(tab);
-  const at: Program[] = [];
-  for (let k = 0; k <= XK; k += 1) at.push(morph.withX(k / XK, () => compileWith(tab)));
-  const p = at[0];
+  const p = compilePat(curSrc(), tab);
+  const pats: ProgPat[] = [];
+  const st = patterns.get();
+  for (let i = 0; i < st.slots.length; i += 1) {
+    if (i === st.cur || !patterns.filled(i)) continue;
+    const q = compilePat(slotSrc(i), tab);
+    pats.push({ slot: i, len: q.len, loop: q.loop, tracks: q.tracks.map((t) => ({ plays: t.plays, hits: t.hits })), ...(q.xk ? { xk: q.xk } : {}) });
+  }
   p.sounds = tab.sounds;
-  p.xk = at.map((q) => ({ fx: q.fx, tracks: q.tracks.map((t) => ({ slice: t.slice, sl: t.sl, live: t.live, hits: t.hits })) }));
+  if (pats.length > 0) p.pats = pats;
   return p;
 }
 
-function compileWith(tab: SoundTable): Program {
-  const cur = pattern.get();
-  const len = pattern.stepCount();
-  const loop = pattern.loopPage();
-  const scenes = pattern.scenes.get();
+/**
+ * Un pattern, et sans scene rien de plus ; avec des scenes, aussi ses valeurs aux XK + 1 positions du crossfader
+ * (morph.withScenes, morph.withX : le meme calcul que le son du site, a ce x).
+ */
+function compilePat(src: PatSrc, tab: SoundTable): Program {
+  return morph.withScenes(src.scenes, () => {
+    if (!morph.active()) return compileWith(src, tab);
+    const at: Program[] = [];
+    for (let k = 0; k <= XK; k += 1) at.push(morph.withX(k / XK, () => compileWith(src, tab)));
+    const p = at[0];
+    p.xk = at.map((q) => ({ fx: q.fx, tracks: q.tracks.map((t) => ({ slice: t.slice, sl: t.sl, live: t.live, hits: t.hits })) }));
+    return p;
+  });
+}
+
+function compileWith(src: PatSrc, tab: SoundTable): Program {
+  const len = src.len;
+  const loop = src.loop;
+  const scenes = src.scenes;
   const { sounds, index } = tab;
   const soundOf = (t: TrackKey, hp: HitParams): number => {
     const tw = hp.ov ? hp.ov.tw : tracks.tweakWith(t, null);
@@ -231,25 +308,25 @@ function compileWith(tab: SoundTable): Program {
       start: r6(hp.start > 0 ? Math.min(hp.start, 1) * START_MAX : 0),
     };
   };
-  const pages = [0, 1, 2, 3].map((p) => pattern.stepsOfPage(p));
+  const pages = src.pages;
   const out: ProgTrack[] = [];
   for (const t of TRACK_KEYS) {
     const vo = tracks.voiceOf(t);
     const base = resolveHit(t, null, scenes);
     // Ce que les lock trigs de la voix demandent en direct a ses coups (VOL, PAN, le filtre) ; null : aucun lock trig
-    const needs = liveNeeds(cur.locks, t);
+    const needs = liveNeeds(src.locks, t);
     const hits: ProgHit[] = [];
     for (let g = 0; g < len; g += 1) {
       const s = g % 16;
       const v = velocity(pages[Math.floor(g / 16)], t, s);
-      const lock = lockOf(cur.locks, t, s);
+      const lock = lockOf(src.locks, t, s);
       // Un lock trig (V.5.1) : un pas sans velocite dont le verrou ltrg vaut 1
       const lt = v <= 0 && lock?.ltrg === 1;
       if (v <= 0 && !lt) continue;
       const r = lock ? resolveHit(t, lock, scenes) : base;
       const h = hitOf(t, g, lt ? 0 : VEL_GAIN[Math.min(VEL_GAIN.length - 1, v)], r.hp);
       if (lock) h.sl = sliceOf(r.fx, r.lock);
-      const tn = trigNow(cur.trigs, t, lock);
+      const tn = trigNow(src.trigs, t, lock);
       const c = CONDS[tn.cond] ?? CONDS[0];
       h.len = tn.len === null ? -1 : tn.len;
       h.prob = tn.prob;
@@ -298,7 +375,7 @@ function compileWith(tab: SoundTable): Program {
     out.push({
       key: t,
       slice: r6(base.slice),
-      plays: voices.plays(t, cur.pmutes),
+      plays: voices.plays(t, src.pmutes),
       mono: vo.vmode === 'mono',
       choke: vo.choke,
       gated: vo.gated,
@@ -312,7 +389,7 @@ function compileWith(tab: SoundTable): Program {
   for (const [k, v] of Object.entries(morph.fx())) if (typeof v === 'number') gfx[k] = r6(v);
   gfx.tone = r6(mix.tone);
   gfx.level = r6(mix.level);
-  return { v: 1, bpm: cur.bpm, len, loop, swing: r6(pattern.fx.get().swing * SWING.maxDelay), sounds, tracks: out, fx: gfx };
+  return { v: 1, slot: src.slot, bpm: pattern.get().bpm, len, loop, swing: r6(pattern.fx.get().swing * SWING.maxDelay), sounds, tracks: out, fx: gfx };
 }
 
 /* ---------------- JUCE ---------------- */
@@ -345,9 +422,14 @@ interface Transport {
   mask: number;
   /** le crossfader du plugin (le parametre XFADE d'Ableton) ; -1 : absent */
   xf: number;
+  /** le pattern que le moteur joue (0 a 127) ; patSeq : +1 a chaque changement fait par le moteur (fin de pattern, program change) */
+  pat: number;
+  patSeq: number;
 }
 
-let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1 };
+let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pat: -1, patSeq: -1 };
+/** le dernier changement de pattern du moteur que la face a suivi (-2 : aucun message encore) */
+let patSeqSeen = -2;
 /** x pose par l'hote (la face ne le renvoie pas) ; l'heure du dernier x envoye par la face (l'hote ne le reprend pas aussitot) */
 let xfFromHost = false;
 let xfSentAt = -1e9;
@@ -369,9 +451,18 @@ function onTransport(o: unknown): void {
     seq: typeof x.seq === 'number' ? x.seq : -1,
     mask: typeof x.mask === 'number' ? x.mask : 0,
     xf: typeof x.xf === 'number' ? x.xf : -1,
+    pat: typeof x.pat === 'number' ? x.pat : -1,
+    patSeq: typeof x.patSeq === 'number' ? x.patSeq : -1,
   };
   if (was !== transport.playing) clock.externalChanged();
   extHead.wake();
+  // Le pattern que le moteur joue (2026-11-08) : il change a la fin du pattern (le suivant choisi, la chaine) ou sur un
+  // program change d'Ableton ; la face le suit (ses pas, ses verrous, ses scenes), a l'ouverture de la fenetre aussi
+  if (transport.pat >= 0 && transport.patSeq !== patSeqSeen) {
+    const first = patSeqSeen === -2;
+    patSeqSeen = transport.patSeq;
+    if (!first || transport.pat !== patterns.get().cur) patterns.follow(transport.pat);
+  }
   // Le crossfader mene par Ableton (son automation, un controleur MIDI mappe) : celui de la face le suit ; jamais pendant un
   // geste de la face, ni juste apres (l'hote renvoie encore l'ancienne valeur)
   if (transport.xf >= 0 && !sceneCtl.moving() && performance.now() - xfSentAt > 400 && Math.abs(transport.xf - sceneCtl.x()) > 1e-4) {
@@ -440,6 +531,17 @@ function sendState(): void {
   send('mm_state', { ls: JSON.stringify({ v: 1, ls: snapshotLs() }) });
 }
 
+/** Le pattern suivant et la chaine (PTN puis TRIG en lecture, des tapes dans les 2 s) : le moteur les joue a la fin du pattern. */
+let lastPtn = '';
+function sendPtn(): void {
+  const st = patterns.get();
+  const o = { next: st.next, chain: st.chain };
+  const j = JSON.stringify(o);
+  if (j === lastPtn) return;
+  lastPtn = j;
+  send('mm_ptn', o);
+}
+
 function changed(): void {
   if (!progTimer) progTimer = window.setTimeout(sendProgram, 50);
   if (stateTimer) window.clearTimeout(stateTimer);
@@ -484,7 +586,11 @@ export const bridge = {
     pattern.scenes.subscribe(() => changed());
     tracks.subscribe(() => changed());
     voices.subscribe(changed);
-    patterns.subscribe(changed);
+    // Les patterns : le suivant et la chaine vont au moteur (il change a la fin du pattern) ; le programme les porte tous
+    patterns.subscribe(() => {
+      sendPtn();
+      changed();
+    });
     // Le crossfader (les scenes A et B) : le programme porte toutes ses positions, le C++ joue celle du parametre XFADE ;
     // la face lui envoie la sienne (Ableton l'enregistre en automation)
     sceneCtl.onX((v) => {

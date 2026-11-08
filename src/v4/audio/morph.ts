@@ -362,6 +362,22 @@ export const morph = {
       dirty();
     }
   },
+  /**
+   * fn calculee avec les scenes d'un autre pattern (2026-11-08, le plugin : le programme de chaque pattern, plugin/bridge.ts) :
+   * ses scenes posees le temps de fn, puis rendues ; aucun ecouteur prevenu.
+   */
+  withScenes<T>(s: SceneSet, fn: () => T): T {
+    if (s === scenes) return fn();
+    const keep = scenes;
+    scenes = s;
+    rebuild();
+    try {
+      return fn();
+    } finally {
+      scenes = keep;
+      rebuild();
+    }
+  },
   /** un reglage de fx est-il dans une scene du motif (drums.ts : ses changements de base passent par l'applicateur) */
   fxMorphed: (): boolean => live.fx.length > 0,
   /** un reglage de la voix est-il dans une scene du motif */

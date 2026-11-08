@@ -30,14 +30,26 @@ struct RenderedSound {
     double retiredAt = -1;
 };
 
-// Ce que le thread audio joue : le programme, ses sons calcules, l'index pas -> coup de chaque piste.
+// Un pattern jouable : son programme, l'index pas -> coup de chaque piste, la reponse de la REVERB a chaque position du
+// crossfader (ses scenes).
+struct PatPlay {
+    const Program* prog = nullptr;
+    std::array<std::vector<int>, kTracks> at; // at[t][g] : indice du coup dans prog->tracks[t].hits, -1 sinon
+    std::vector<std::shared_ptr<ReverbIR>> irK;
+};
+
+// Ce que le thread audio joue : le programme (le pattern courant de la face et les autres patterns remplis), ses sons
+// calcules, l'index de chaque pattern.
 struct PlayState {
     Program prog;
     std::vector<std::shared_ptr<RenderedSound>> sounds; // aligne sur prog.sounds (nul : son impossible)
-    std::array<std::vector<int>, kTracks> at;           // at[t][g] : indice du coup dans prog.tracks[t].hits, -1 sinon
     std::vector<std::string> keys;                      // la cle de chaque son (sounds : ceux du programme, puis ceux joues en direct)
     std::shared_ptr<ReverbIR> reverbIR;                 // la reponse de la REVERB (rsize, rtone, rpre)
-    std::vector<std::shared_ptr<ReverbIR>> irK;         // les scenes : la reponse a chaque position du crossfader (prog.xk)
+    // Les reponses de chaque position du crossfader : irKs[0] pour prog, irKs[1 + j] pour prog.pats[j] (calculees hors du thread audio)
+    std::vector<std::vector<std::shared_ptr<ReverbIR>>> irKs;
+    std::vector<PatPlay> pats; // pats[0] : prog ; puis prog.pats (Engine::publish)
+    Program empty;             // un emplacement vide : le kit, aucun coup
+    PatPlay emptyPat;
     std::atomic<int> users{0};
     double retiredAt = -1;
 };
@@ -79,6 +91,11 @@ public:
     bool pushLive(const LiveHit& h);
     // FILL tenu sur la face (les trigs a condition FILL jouent, !FILL se taisent)
     void setFill(bool on) { fill_.store(on, std::memory_order_relaxed); }
+    // Le pattern suivant et la chaine choisis sur la face (PTN puis TRIG en lecture) : joues a la fin du pattern
+    void queuePatterns(int next, const int* chain, int n);
+
+    // --- thread audio, avant process() : un program change (un clip d'Ableton) choisit le pattern 0 a 127
+    void programChange(int slot) { pcIn_ = slot; }
     // --- n'importe quel thread : le crossfader (le parametre XFADE), 0 = A, 1 = B
     void setX(float x) { x_.store(x, std::memory_order_relaxed); }
     // La latence (echantillons) : l'avance du LIMITEUR
@@ -95,6 +112,8 @@ public:
     std::atomic<int> fbStep{-1};
     std::atomic<int> fbSeq{0};
     std::atomic<int> fbMask{0};
+    std::atomic<int> fbPat{-1};     // le pattern joue
+    std::atomic<int> fbPatSeq{0};   // +1 a chaque changement de pattern fait par le moteur
 
     // Le thread du calcul garde ses sons ici (toujours vivants tant qu'un etat ou une voix les tient).
     void own(const std::shared_ptr<RenderedSound>& s) { soundsOwned_.push_back(s); }
@@ -221,6 +240,9 @@ private:
     void release(Voice& v);
     void seqReset(bool full);
     void evalStep(const PlayState& ps, long G);
+    // Les patterns : celui d'un emplacement (vide : le kit sans coup), le passage a un autre (la fin du pattern, un program change)
+    const PatPlay& patOf(const PlayState& ps, int slot) const;
+    void usePattern(const PlayState& ps, int slot, long startG, bool byEngine);
     bool repeats(int track, Retrig& rt, double from, double to, double before, double anchor);
     void endRetrig(Retrig& rt);
     void pendPush(const Ev& e);
@@ -235,6 +257,23 @@ private:
     double fxBpm_ = 0;
     bool dry_ = false;
     std::array<SliceFx, kTracks> sliceNow_{};
+    // Le pattern joue (thread audio) : son emplacement, son programme, le seizieme ou il a commence ; le suivant, la chaine ;
+    // le program change recu ; le dernier emplacement courant de la face
+    int slot_ = -1, next_ = -1, pcIn_ = -1, faceSlot_ = -1;
+    const Program* P_ = nullptr;
+    const PatPlay* PA_ = nullptr;
+    long patStart_ = 0;
+    std::array<int, 64> chain_{};
+    int chainN_ = 0, chainPos_ = 0;
+    // Le pattern suivant et la chaine venus de la face : deux tampons, l'indice du dernier ecrit (thread du message -> audio)
+    struct PtnMsg {
+        int next = -1;
+        std::array<int, 64> chain{};
+        int n = 0;
+    };
+    std::array<PtnMsg, 2> ptnBuf_{};
+    std::atomic<int> ptnW_{0}, ptnSeq_{0};
+    int ptnSeen_ = 0;
     // Le crossfader (thread audio) : x du bloc, programme a scenes ; d'ou vient la tranche de chaque piste (l'indice du coup,
     // -1 la voix, -2 le coup du pad, -3 un coup en direct de la face : fixe) et l'ecart qu'un LFO pris au coup y a mis
     std::atomic<float> x_{0};
@@ -281,13 +320,14 @@ float rtrgGain(float vel, int vfad, double frac);
 // Le sequenceur (pur, pour les tests) : appelle hit(g, offset) pour chaque pas qui tombe dans le bloc.
 // Les pas impairs (g % 16) partent en retard de swing x un pas (audio/clock.ts).
 template <typename Fn>
-void forEachStep(const Program& p, int (*stepOf)(const Program&, long), double ppq0, double pps, int n, Fn&& hit) {
+void forEachStep(const Program& p, int (*stepOf)(const Program&, long), double ppq0, double pps, int n, Fn&& hit, long start = 0) {
     if (n <= 0 || pps <= 0) return;
     const double ppq1 = ppq0 + n * pps;
     const long G0 = static_cast<long>(std::floor(ppq0 * 4)) - 1;
     const long G1 = static_cast<long>(std::floor(ppq1 * 4));
     for (long G = std::max(0L, G0); G <= G1; ++G) {
-        const int g = stepOf(p, G);
+        if (G < start) continue;
+        const int g = stepOf(p, G - start);
         const double pos = G * 0.25 + (((g % 16) & 1) ? p.swing * 0.25 : 0.0);
         if (pos < ppq0 || pos >= ppq1) continue;
         const int off = std::min(n - 1, std::max(0, static_cast<int>((pos - ppq0) / pps)));

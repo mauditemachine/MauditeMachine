@@ -337,6 +337,16 @@ export const patterns = {
     return true;
   },
   /** La chaine redevient le pattern courant seul. */
+  /**
+   * Le plugin (2026-11-08) : son moteur joue les patterns (le changement a la fin du pattern, un program change d'Ableton) ;
+   * la face suit celui qu'il joue, comme au debut d'une mesure (ses pas, ses verrous, ses scenes posees), sans rien
+   * programmer.
+   */
+  follow(i: number): void {
+    if (i < 0 || i >= PATTERN_SLOTS || (i === state.cur && state.next < 0)) return;
+    const c = state.chain;
+    switchTo(i, Math.max(0, c.indexOf(i)));
+  },
   unchain(): void {
     if (state.chain.length === 1 && state.chain[0] === state.cur) return;
     setState({ ...state, chain: [state.cur], pos: 0, next: -1 });

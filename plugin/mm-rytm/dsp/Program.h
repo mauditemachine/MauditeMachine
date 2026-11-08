@@ -100,6 +100,10 @@ struct Program {
     GlobalFx fx;
     // Les scenes : le programme aux positions x = k / (xk.size() - 1) du crossfader ; vide sans scene
     std::vector<ProgX> xk;
+    // L'emplacement du pattern (0 a 127, A01 a H16) ; les autres patterns remplis (2026-11-08) : des programmes entiers
+    // (le kit, les sons et les effets d'ici, leurs coups, leur mute, leurs scenes), joues apres une fin de pattern
+    int slot = 0;
+    std::vector<Program> pats;
 };
 
 // Le crossfader : la position x (0 a 1) entre deux programmes voisins de xk (k, et f de 0 a 1 vers k + 1)

@@ -33,18 +33,42 @@ Demande de Mika : « ameliore le plugin vst3 au maximum de ce que tu penses [...
   - un x venu de l'hote (0.25) deplace le crossfader de la face, sans renvoi.
 - `plugin/mm-rytm/README.md`, `INSTALL.md` : le crossfader dans le moteur, le parametre d'Ableton, la latence.
 
+- **Build vert du lot 1** (run 42512742239, 19:07 UTC), dans la release `mm-rytm-latest`.
+
+### Lot 2a, les patterns joues par le moteur
+
+- **Bug trouve** : dans le plugin, un pattern choisi en lecture (PTN puis TRIG, une chaine) ne changeait jamais. L'horloge de la face ne tourne pas dans le plugin (le transport est celui du C++), donc la « fin de mesure » qui pose le pattern suivant (`clock.onBar`) n'arrivait pas.
+- `src/v4/plugin/bridge.ts` :
+  - le programme porte `slot` (l'emplacement du pattern courant) et `pats`, chaque autre emplacement rempli (ses 16 pas, ses verrous, ses trigs, son mute, ses scenes, compiles comme le courant) ;
+  - `mm_ptn {next, chain}` envoie au moteur le suivant et la chaine choisis sur la face ;
+  - le transport porte `pat` et `patSeq` : quand le moteur change de pattern, la face le suit (`patterns.follow`), a l'ouverture de la fenetre aussi.
+- `src/v4/audio/morph.ts` : `morph.withScenes(s, fn)` (les scenes d'un autre pattern le temps d'un calcul). `src/v4/state/patterns.ts` : `patterns.follow(i)` (la face suit le pattern du moteur, comme au debut d'une mesure). Rien ne change pour le site.
+- `plugin/mm-rytm/dsp/Program.h` : `slot`, `pats` (des programmes entiers : le kit d'ici, leurs coups).
+- `plugin/mm-rytm/dsp/Engine.{h,cpp}` :
+  - `PatPlay` par pattern (son index pas -> coup, ses reponses de REVERB) et un pattern vide (le kit sans coup) ;
+  - le pattern joue `slot_`, son debut `patStart_` : a la fin du pattern, le suivant choisi, sinon le pattern suivant de la chaine ; ses passages repartent de 1 (1ST, A:B) ;
+  - un program change : a la fin du pattern en lecture, tout de suite a l'arret ; au depart de la lecture, le pattern qui attendait ou le debut de la chaine ; un saut d'Ableton (sa boucle) garde le pattern ;
+  - la face qui pose un autre pattern courant : tout de suite a l'arret, a la fin du pattern en lecture.
+- `plugin/mm-rytm/src/` : le parseur lit `slot` et `pats` ; les reponses de REVERB de chaque pattern ; `mm_ptn` ; le program change MIDI ; `pat` et `patSeq` vers la face.
+- Tests : 38 (3 de plus) : un program change au pas 5 joue A02 au pas 16 ; la chaine A01, A02 alterne ; a l'arret, un program change change le pattern tout de suite.
+- Verifie dans Chromium : la face suit le moteur (A02), A01 est dans `pats` (25 coups) ; en lecture, A01 tape affiche « NEXT A01: AT THE BAR » et envoie `mm_ptn {next: 0}`.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
 - **Le son et la hauteur : la position la plus proche** : un son se calcule hors du thread audio ; 9 hauteurs par coup mene par une scene, c'est le « calcul le plus proche » du site (lazy).
 - **La REVERB change de forme quand x se pose** : une nouvelle reponse remet le convolueur a zero ; la changer a chaque bloc d'un geste couperait la queue en continu.
+- **Le moteur decide du pattern joue** (comme du transport) : c'est le seul a connaitre la fin du pattern a l'echantillon pres, et il doit jouer fenetre fermee. La face lui dit ce qu'elle veut (le suivant, la chaine) et suit ce qu'il joue.
+- **Program change plutot que des notes** : c'est ce qu'une Elektron recoit, et Ableton l'envoie de chaque clip (case Pgm) ; le changement tombe a la fin du pattern, comme une Digitakt.
+- **Les autres patterns : 16 pas** : un emplacement ne garde que sa premiere page (les pages et la longueur suivent le pattern courant, au site aussi) ; le plugin joue ce que le site poserait.
 - **Le crossfader de la face ne recompile plus rien** : avant, chaque mouvement recalculait tout le programme (50 ms de retard, des sons recalcules) ; maintenant il envoie sa position, et Ableton peut l'automatiser.
 
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
 - A l'oreille : un geste rapide du crossfader sur DIST ou CHORUS de piste (les reglages changent par bloc de 512 echantillons au plus).
-- Lot 2 et lot 3 (plan ci-dessus).
+- A l'oreille et dans Ableton : un clip par pattern (case Pgm), en session et en arrangement.
+- Lot 2b : la longueur et la vitesse par piste (polymetrie DT2 / OT) ; le lot 3 (la face).
 
 ## 4. Commandes utiles ajoutees
 

@@ -115,7 +115,7 @@ void Engine::prepare(double sampleRate) {
 // La tranche d'une piste a partir d'un coup : ses verrous de TONE, DIST, CHORUS, DELAY, REVERB, ou ceux de la voix
 // (audio/drums.ts postSends, postInserts : l'etat de la tranche jusqu'au coup suivant de la voix)
 void Engine::applySlice(const PlayState& ps, int track, const SliceFx& s) {
-    const ProgTrack& pt = ps.prog.tracks[static_cast<size_t>(track)];
+    const ProgTrack& pt = (P_ ? *P_ : ps.prog).tracks[static_cast<size_t>(track)];
     SliceFx& now = sliceNow_[static_cast<size_t>(track)];
     if (s.tone == now.tone && s.dist == now.dist && s.chorus == now.chorus && s.delay == now.delay && s.reverb == now.reverb) return;
     now = s;
@@ -125,7 +125,7 @@ void Engine::applySlice(const PlayState& ps, int track, const SliceFx& s) {
 /* ---------------- le crossfader (les scenes, prog.xk) ---------------- */
 
 const ProgHit& Engine::hitAtX(const PlayState& ps, int t, int hi, const ProgHit& base, ProgHit& tmp) const {
-    const Program& p = ps.prog;
+    const Program& p = P_ ? *P_ : ps.prog;
     if (!xOn_ || hi < -2 || hi == -1) return base;
     size_t k;
     double f;
@@ -143,7 +143,7 @@ const ProgHit& Engine::hitAtX(const PlayState& ps, int t, int hi, const ProgHit&
 }
 
 SliceFx Engine::voiceSlAt(const PlayState& ps, int t) const {
-    const Program& p = ps.prog;
+    const Program& p = P_ ? *P_ : ps.prog;
     if (!xOn_) return p.tracks[static_cast<size_t>(t)].sl;
     size_t k;
     double f;
@@ -152,7 +152,7 @@ SliceFx Engine::voiceSlAt(const PlayState& ps, int t) const {
 }
 
 float Engine::trackSliceAt(const PlayState& ps, int t) const {
-    const Program& p = ps.prog;
+    const Program& p = P_ ? *P_ : ps.prog;
     if (!xOn_) return p.tracks[static_cast<size_t>(t)].slice;
     size_t k;
     double f;
@@ -162,7 +162,7 @@ float Engine::trackSliceAt(const PlayState& ps, int t) const {
 }
 
 GlobalFx Engine::globalAt(const PlayState& ps) const {
-    const Program& p = ps.prog;
+    const Program& p = P_ ? *P_ : ps.prog;
     if (!xOn_) return p.fx;
     size_t k;
     double f;
@@ -172,9 +172,10 @@ GlobalFx Engine::globalAt(const PlayState& ps) const {
 
 // La REVERB a la position la plus proche (sa reponse se calcule hors du thread audio, une par forme)
 const ReverbIR* Engine::irAt(const PlayState& ps) const {
-    if (!xOn_ || ps.irK.size() != ps.prog.xk.size()) return ps.reverbIR.get();
-    const size_t k = static_cast<size_t>(std::lround(std::max(0.0, std::min(1.0, xNow_)) * static_cast<double>(ps.irK.size() - 1)));
-    return ps.irK[k] ? ps.irK[k].get() : ps.reverbIR.get();
+    if (!xOn_ || !PA_ || !P_ || PA_->irK.size() != P_->xk.size()) return ps.reverbIR.get();
+    const auto& irK = PA_->irK;
+    const size_t k = static_cast<size_t>(std::lround(std::max(0.0, std::min(1.0, xNow_)) * static_cast<double>(irK.size() - 1)));
+    return irK[k] ? irK[k].get() : ps.reverbIR.get();
 }
 
 // Le crossfader a bouge : les effets globaux et la tranche de chaque piste a sa position (les coups qui sonnent gardent leurs
@@ -192,7 +193,8 @@ void Engine::followX(const PlayState& ps, double bpm, int n) {
             SliceFx s;
             if (src == -1) s = voiceSlAt(ps, t);
             else {
-                const ProgHit& base = src == -2 ? ps.prog.tracks[static_cast<size_t>(t)].live : (static_cast<size_t>(src) < ps.prog.tracks[static_cast<size_t>(t)].hits.size() ? ps.prog.tracks[static_cast<size_t>(t)].hits[static_cast<size_t>(src)] : ps.prog.tracks[static_cast<size_t>(t)].live);
+                const ProgTrack& pt = P_->tracks[static_cast<size_t>(t)];
+                const ProgHit& base = src == -2 ? pt.live : (static_cast<size_t>(src) < pt.hits.size() ? pt.hits[static_cast<size_t>(src)] : pt.live);
                 const ProgHit& h = hitAtX(ps, t, src, base, tmp);
                 s = h.hasSl ? h.sl : voiceSlAt(ps, t);
                 if (h.lt) s.tone = sliceNow_[static_cast<size_t>(t)].tone; // un lock trig ne change pas TONE
@@ -216,13 +218,31 @@ void Engine::followX(const PlayState& ps, double bpm, int n) {
 
 void Engine::publish(std::shared_ptr<PlayState> s) {
     PlayState* raw = s.get();
-    for (int t = 0; t < kTracks; ++t) {
-        auto& at = s->at[static_cast<size_t>(t)];
-        at.assign(static_cast<size_t>(std::max(1, std::min(128, s->prog.len))), -1);
-        const auto& hits = s->prog.tracks[static_cast<size_t>(t)].hits;
-        for (size_t i = 0; i < hits.size(); ++i)
-            if (hits[i].g >= 0 && hits[i].g < static_cast<int>(at.size())) at[static_cast<size_t>(hits[i].g)] = static_cast<int>(i);
-    }
+    // Chaque pattern (le courant de la face, puis les autres) : son index pas -> coup, ses reponses de REVERB ; l'emplacement
+    // vide : le kit sans coup
+    auto index = [](PatPlay& pp, const Program& p) {
+        pp.prog = &p;
+        for (int t = 0; t < kTracks; ++t) {
+            auto& at = pp.at[static_cast<size_t>(t)];
+            at.assign(static_cast<size_t>(std::max(1, std::min(128, p.len))), -1);
+            const auto& hits = p.tracks[static_cast<size_t>(t)].hits;
+            for (size_t i = 0; i < hits.size(); ++i)
+                if (hits[i].g >= 0 && hits[i].g < static_cast<int>(at.size())) at[static_cast<size_t>(hits[i].g)] = static_cast<int>(i);
+        }
+    };
+    s->pats.assign(1 + s->prog.pats.size(), PatPlay{});
+    index(s->pats[0], s->prog);
+    for (size_t j = 0; j < s->prog.pats.size(); ++j) index(s->pats[1 + j], s->prog.pats[j]);
+    for (size_t j = 0; j < s->pats.size() && j < s->irKs.size(); ++j) s->pats[j].irK = s->irKs[j];
+    s->empty = s->prog;
+    s->empty.pats.clear();
+    s->empty.sounds.clear();
+    s->empty.xk.clear();
+    s->empty.slot = -1;
+    s->empty.len = 16;
+    s->empty.loop = -1;
+    for (auto& t : s->empty.tracks) t.hits.clear();
+    index(s->emptyPat, s->empty);
     states_.push_back(s);
     {
         std::lock_guard<std::mutex> lk(latestMx_);
@@ -267,6 +287,40 @@ void Engine::collect(double now) {
     }
 }
 
+/* ---------------- les patterns ---------------- */
+
+const PatPlay& Engine::patOf(const PlayState& ps, int slot) const {
+    for (const auto& pp : ps.pats)
+        if (pp.prog && pp.prog->slot == slot) return pp;
+    return ps.emptyPat;
+}
+
+// Le pattern d'un emplacement joue a partir du seizieme startG ; ses passages repartent de 1 (les conditions 1ST, A:B), les
+// tranches mises par ses coups d'avant restent comme elles sont jusqu'au coup suivant. byEngine : la face le suivra.
+void Engine::usePattern(const PlayState& ps, int slot, long startG, bool byEngine) {
+    slot_ = slot;
+    PA_ = &patOf(ps, slot);
+    P_ = PA_->prog;
+    patStart_ = startG;
+    passN_ = 1;
+    seenFirst_ = false;
+    for (auto& src : sliceSrc_)
+        if (src >= 0 || src == -2) src = -3;
+    xFx_ = -1;
+    if (byEngine) fbPatSeq.fetch_add(1, std::memory_order_release);
+    fbPat.store(slot, std::memory_order_relaxed);
+}
+
+void Engine::queuePatterns(int next, const int* chain, int n) {
+    const int w = 1 - ptnW_.load(std::memory_order_relaxed);
+    PtnMsg& m = ptnBuf_[static_cast<size_t>(w)];
+    m.next = next;
+    m.n = std::max(0, std::min(n, static_cast<int>(m.chain.size())));
+    for (int i = 0; i < m.n; ++i) m.chain[static_cast<size_t>(i)] = chain[i];
+    ptnW_.store(w, std::memory_order_release);
+    ptnSeq_.fetch_add(1, std::memory_order_release);
+}
+
 /* ---------------- thread du message ---------------- */
 
 bool Engine::pushLive(const LiveHit& h) {
@@ -309,7 +363,8 @@ void Engine::fadeTrack(int track, int samples, int offset) {
 
 void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor, int hi) {
     if (!snd || snd->variants.empty()) return;
-    const ProgTrack& tr = ps.prog.tracks[static_cast<size_t>(track)];
+    const Program& P = P_ ? *P_ : ps.prog;
+    const ProgTrack& tr = P.tracks[static_cast<size_t>(track)];
     // Les LFO pris au moment du coup (audio/seqhit.ts lfoHitLock) : DIST, DELAY, REVERB, TONE dans la tranche (comme un
     // verrou du coup), DECAY dans son enveloppe ; sur les valeurs que le coup joue (la voix ou son verrou)
     const SliceFx sl0 = h.hasSl ? h.sl : voiceSlAt(ps, track);
@@ -338,7 +393,7 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
     const bool mono = tr.mono && !gated;
     if (tr.choke > 0)
         for (int u = 0; u < kTracks; ++u) {
-            const ProgTrack& o = ps.prog.tracks[static_cast<size_t>(u)];
+            const ProgTrack& o = P.tracks[static_cast<size_t>(u)];
             if (o.choke == tr.choke && o.gated) fadeTrack(u, static_cast<int>(CHOKE_S * sr_), offset);
         }
     if (mono) fadeTrack(track, static_cast<int>(MONO_CUT_S * sr_), offset);
@@ -702,8 +757,27 @@ bool Engine::repeats(int track, Retrig& rt, double from, double to, double befor
 
 // Un pas (le seizieme G depuis le debut du morceau) : ses coups et ses lock trigs, voix par voix dans l'ordre des pads.
 void Engine::evalStep(const PlayState& ps, long G) {
-    const Program& p = ps.prog;
-    const int g = programStepOf(p, G);
+    if (G < patStart_) patStart_ = 0;
+    int g = programStepOf(*P_, G - patStart_);
+    // La fin du pattern (son premier pas revient) : le suivant choisi (la face, un program change), sinon la chaine
+    const int first = P_->loop >= 0 && P_->loop * 16 < std::max(1, P_->len) ? P_->loop * 16 : 0;
+    if (G > patStart_ && g == first) {
+        int to = -1;
+        if (next_ >= 0) {
+            to = next_;
+            next_ = -1;
+            for (int i = 0; i < chainN_; ++i)
+                if (chain_[static_cast<size_t>(i)] == to) chainPos_ = i;
+        } else if (chainN_ > 1) {
+            chainPos_ = (chainPos_ + 1) % chainN_;
+            to = chain_[static_cast<size_t>(chainPos_)];
+        }
+        if (to >= 0 && to != slot_) {
+            usePattern(ps, to, G, true);
+            g = programStepOf(*P_, 0);
+        }
+    }
+    const Program& p = *P_;
     // Le passage du pattern (les conditions A:B, 1ST) : 1 au lancement, +1 a chaque retour au premier pas
     if (g == 0) {
         if (seenFirst_) ++passN_;
@@ -719,7 +793,7 @@ void Engine::evalStep(const PlayState& ps, long G) {
         const int nei = t > 0 ? ts_[static_cast<size_t>(t - 1)].pre : -1;
         // Le mute de la voix arrete son retrig
         if (!pt.plays) endRetrig(sv.rt);
-        const auto& at = ps.at[static_cast<size_t>(t)];
+        const auto& at = PA_->at[static_cast<size_t>(t)];
         const int hi = g >= 0 && g < static_cast<int>(at.size()) ? at[static_cast<size_t>(g)] : -1;
         if (hi < 0) {
             if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF, sv.anchor)) endRetrig(sv.rt);
@@ -825,8 +899,47 @@ void Engine::process(const BlockTransport& tr, float* L, float* R, int n, const 
 void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes, int nNotes) {
     PlayState* ps = current_.load(std::memory_order_acquire);
     if (ps) ps->users.fetch_add(1, std::memory_order_acq_rel);
+    // Le pattern joue (2026-11-08). La face a pose un autre pattern courant : a l'arret il joue tout de suite, en lecture a la
+    // fin du pattern. Le pattern suivant et la chaine choisis sur la face. Un program change d'Ableton : en lecture a la fin
+    // du pattern, a l'arret tout de suite.
+    const bool playingNow = seqOn_ && tr.playing;
+    if (ps) {
+        if (ps->prog.slot != faceSlot_) {
+            faceSlot_ = ps->prog.slot;
+            if (!playingNow || slot_ < 0) slot_ = faceSlot_;
+            else if (slot_ != faceSlot_) next_ = faceSlot_;
+        }
+        if (slot_ < 0) slot_ = ps->prog.slot;
+        const int sq = ptnSeq_.load(std::memory_order_acquire);
+        if (sq != ptnSeen_) {
+            ptnSeen_ = sq;
+            const PtnMsg& m = ptnBuf_[static_cast<size_t>(ptnW_.load(std::memory_order_acquire))];
+            if (playingNow && m.next >= 0 && m.next != slot_) next_ = m.next;
+            chainN_ = m.n;
+            for (int i = 0; i < chainN_; ++i) chain_[static_cast<size_t>(i)] = m.chain[static_cast<size_t>(i)];
+            chainPos_ = 0;
+            for (int i = 0; i < chainN_; ++i)
+                if (chain_[static_cast<size_t>(i)] == slot_) chainPos_ = i;
+        }
+        if (pcIn_ >= 0) {
+            const int pc = std::min(127, pcIn_);
+            pcIn_ = -1;
+            chainN_ = 0;
+            if (playingNow) next_ = pc == slot_ ? -1 : pc;
+            else if (pc != slot_) {
+                slot_ = pc;
+                fbPatSeq.fetch_add(1, std::memory_order_release);
+            }
+        }
+        PA_ = &patOf(*ps, slot_);
+        P_ = PA_->prog;
+        fbPat.store(slot_, std::memory_order_relaxed);
+    } else {
+        PA_ = nullptr;
+        P_ = nullptr;
+    }
     // Le crossfader : x du bloc (le parametre XFADE), seulement pour un programme a scenes
-    xOn_ = ps && ps->prog.xk.size() >= 2;
+    xOn_ = P_ && P_->xk.size() >= 2;
     xNow_ = static_cast<double>(x_.load(std::memory_order_relaxed));
     // Les effets du programme : un nouvel etat, ou un autre tempo (le temps du DELAY)
     const double bpm = tr.ppqPerSample > 0 ? tr.ppqPerSample * 60 * sr_ : (ps ? ps->prog.bpm : 130);
@@ -878,7 +991,7 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         for (int k = 0; k < nNotes; ++k) {
             const NoteEvent& nt = notes[k];
             if (nt.track < 0 || nt.track >= kTracks) continue;
-            const ProgTrack& pt = ps->prog.tracks[static_cast<size_t>(nt.track)];
+            const ProgTrack& pt = P_->tracks[static_cast<size_t>(nt.track)];
             Ev e;
             e.offset = std::max(0, std::min(n - 1, nt.offset));
             e.track = nt.track;
@@ -902,12 +1015,25 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
             if (nextG_ < 0) nextG_ = 0;
             // Les LFO partent de PLAY (et d'un saut de l'hote : sa boucle, un clic sur la timeline)
             for (auto& t : ts_) t.anchor = static_cast<double>(nextG_);
+            // Le pattern cale sur la mesure du morceau ; au depart, celui qui attendait, ou le debut de la chaine (un saut de
+            // l'hote garde le pattern et ses passages)
+            if (start) {
+                int to = slot_;
+                if (next_ >= 0) to = next_;
+                else if (chainN_ > 1) {
+                    chainPos_ = 0;
+                    to = chain_[0];
+                }
+                next_ = -1;
+                usePattern(*ps, to, 0, to != slot_);
+            } else
+                patStart_ = 0;
         }
         seqOn_ = true;
         expectPpq_ = ppq1;
         // L'avance : le uTIME le plus negatif du programme (au plus 23/24 de pas), en noires
         double lead = 0;
-        for (const auto& pt : ps->prog.tracks)
+        for (const auto& pt : P_->tracks)
             for (const auto& h : pt.hits) lead = std::max(lead, -h.shift);
         lead *= 0.25;
         while (nextG_ * 0.25 - lead < ppq1) evalStep(*ps, nextG_++);
@@ -927,11 +1053,11 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         }
         npend_ = keep;
         // La tete de lecture : le pas dont la grille (swing compris) tombe dans le bloc
-        forEachStep(ps->prog, &programStepOf, ppq0, pps, n, [&](int g, int) {
+        forEachStep(*P_, &programStepOf, ppq0, pps, n, [&](int g, int) {
             fbStep.store(g, std::memory_order_relaxed);
             fbMask.store(maskAt_[static_cast<size_t>(g % 128)], std::memory_order_relaxed);
             fbSeq.store(++seq_, std::memory_order_release);
-        });
+        }, patStart_);
     } else if (seqOn_) {
         seqOn_ = false;
         seqReset(false);

@@ -160,6 +160,8 @@ void parseFx(const juce::var& o, mm::GlobalFx& g) {
     g.level = num(o, "level", g.level);
 }
 
+void parseXk(const juce::var& o, mm::Program& p);
+
 bool parseProgram(const juce::String& json, mm::Program& p) {
     const juce::var o = juce::JSON::parse(json);
     if (!o.isObject() || static_cast<int>(num(o, "v", 0)) != 1) return false;
@@ -196,7 +198,40 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
                     tr.hits.push_back(h);
                 }
         }
-    // Les scenes : le programme aux positions du crossfader (les memes coups, dans le meme ordre ; sinon ignorees)
+    parseXk(o, p);
+    p.slot = std::max(0, std::min(127, static_cast<int>(num(o, "slot", 0))));
+    // Les autres patterns remplis : le kit d'ici, leurs coups, leur mute, leurs scenes
+    p.pats.clear();
+    if (const auto* ps = o.getProperty("pats", juce::var()).getArray())
+        for (const auto& pv : *ps) {
+            mm::Program q = p;
+            q.sounds.clear();
+            q.pats.clear();
+            q.slot = std::max(0, std::min(127, static_cast<int>(num(pv, "slot", 0))));
+            if (q.slot == p.slot) continue;
+            q.len = std::max(1, std::min(128, static_cast<int>(num(pv, "len", 16))));
+            q.loop = static_cast<int>(num(pv, "loop", -1));
+            if (const auto* arr = pv.getProperty("tracks", juce::var()).getArray())
+                for (int t = 0; t < std::min(mm::kProgTracks, arr->size()); ++t) {
+                    const juce::var& tv = arr->getReference(t);
+                    auto& tr = q.tracks[static_cast<size_t>(t)];
+                    tr.plays = flag(tv, "plays");
+                    tr.hits.clear();
+                    if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
+                        for (const auto& hv : *hs) {
+                            mm::ProgHit h;
+                            parseHit(hv, h);
+                            tr.hits.push_back(h);
+                        }
+                }
+            parseXk(pv, q);
+            p.pats.push_back(std::move(q));
+        }
+    return true;
+}
+
+// Les scenes : le programme aux positions du crossfader (les memes coups, dans le meme ordre ; sinon ignorees)
+void parseXk(const juce::var& o, mm::Program& p) {
     p.xk.clear();
     if (const auto* xs = o.getProperty("xk", juce::var()).getArray(); xs && xs->size() >= 2) {
         bool same = true;
@@ -223,7 +258,6 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
         }
         if (!same) p.xk.clear();
     }
-    return true;
 }
 
 } // namespace
@@ -275,7 +309,13 @@ std::shared_ptr<mm::PlayState> MMRytmProcessor::buildState(const mm::Program& pr
         return ir;
     };
     ps->reverbIR = irFor(prog.fx);
-    for (const auto& x : prog.xk) ps->irK.push_back(irFor(x.fx));
+    auto irsOf = [&](const mm::Program& q) {
+        std::vector<std::shared_ptr<mm::ReverbIR>> v;
+        for (const auto& x : q.xk) v.push_back(irFor(x.fx));
+        return v;
+    };
+    ps->irKs.push_back(irsOf(prog));
+    for (const auto& q : prog.pats) ps->irKs.push_back(irsOf(q));
     irCache_ = std::move(used);
     for (const auto& s : prog.sounds) {
         ps->sounds.push_back(soundFor(s, sr));
@@ -415,6 +455,15 @@ void MMRytmProcessor::faceHit(const juce::var& o) {
 
 void MMRytmProcessor::faceRun(bool on) { runInternal_.store(on); }
 
+void MMRytmProcessor::facePtn(const juce::var& o) {
+    std::array<int, 64> chain{};
+    int n = 0;
+    if (const auto* arr = o.getProperty("chain", juce::var()).getArray())
+        for (const auto& v : *arr)
+            if (n < static_cast<int>(chain.size())) chain[static_cast<size_t>(n++)] = juce::jlimit(0, 127, static_cast<int>(v));
+    engine_.queuePatterns(static_cast<int>(num(o, "next", -1)), chain.data(), n);
+}
+
 void MMRytmProcessor::faceXf(float x) {
     if (auto* prm = apvts.getParameter("xfade")) {
         prm->beginChangeGesture();
@@ -424,7 +473,7 @@ void MMRytmProcessor::faceXf(float x) {
 }
 
 MMRytmProcessor::Feedback MMRytmProcessor::feedback() const {
-    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load())};
+    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load()), engine_.fbPat.load(), engine_.fbPatSeq.load()};
 }
 
 void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
@@ -486,6 +535,9 @@ void MMRytmProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         if (msg.isNoteOn() && nn < static_cast<int>(notes.size())) {
             const int t = trackOfNote(msg.getNoteNumber());
             if (t >= 0) notes[static_cast<size_t>(nn++)] = {t, msg.getFloatVelocity(), meta.samplePosition};
+        } else if (msg.isProgramChange()) {
+            // Un program change (le Pgm d'un clip d'Ableton) : le pattern 1 a 128 (A01 a H16), a la fin du pattern en lecture
+            engine_.programChange(msg.getProgramChangeNumber());
         } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
             engine_.allNotesOff();
         }
