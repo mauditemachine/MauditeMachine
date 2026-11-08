@@ -102,6 +102,12 @@ private:
         float vel = 1, slice = 1;
         double atkN = 0, holdEndN = 0, tauN = -1, stopN = -1;
         double cutN = -1;      // LEN : le relachement de 8 ms commence ici (-1 : INF)
+        // FLTR : le biquad du coup (formules du BiquadFilterNode), sa coupure menee par l'enveloppe
+        int ft = 0;
+        double f0 = 20000, fPeak = 20000, fq = 0.7071, fAtkN = 0, fTauN = 1;
+        bool fEnv = false;
+        double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0;
+        double zL1 = 0, zL2 = 0, zR1 = 0, zR2 = 0;
         int fadeLeft = -1, fadeLen = 1, fadeHold = 0;
         uint32_t age = 0;
     };
@@ -143,6 +149,8 @@ private:
 
     void trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN);
     void lockTrig(const ProgHit& h, int track, float slice, int offset);
+    void filterCoefs(Voice& v, double f) const;
+    double filterFreq(const Voice& v) const;
     void fadeTrack(int track, int samples, int offset);
     void release(Voice& v);
     void seqReset(bool full);

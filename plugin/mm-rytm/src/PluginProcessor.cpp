@@ -78,6 +78,12 @@ void parseHit(const juce::var& o, mm::ProgHit& h) {
     h.gain = num(o, "gain", 1);
     h.pan = num(o, "pan", 0);
     h.start = num(o, "start", 0);
+    h.ft = static_cast<int>(num(o, "ft", 0));
+    h.fhz = num(o, "fhz", 20000);
+    h.fq = std::max(1e-3, num(o, "fq", 0.7071));
+    h.foct = num(o, "foct", 0);
+    h.fatk = num(o, "fatk", 0);
+    h.ftau = std::max(1e-4, num(o, "ftau", 0.1));
     h.len = num(o, "len", -1);
     h.prob = static_cast<int>(num(o, "prob", 100));
     h.ck = static_cast<int>(num(o, "ck", 0));

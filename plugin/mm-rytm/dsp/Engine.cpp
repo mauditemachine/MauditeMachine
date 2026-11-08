@@ -244,6 +244,46 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
     v.tauN = h.tau > 0 ? h.tau * sr_ : -1;
     v.stopN = v.tauN > 0 ? v.holdEndN + 7 * v.tauN : -1;
     v.cutN = lenSteps > 0 && stepN > 0 ? lenSteps * stepN : -1;
+    // FLTR
+    v.ft = h.ft >= 1 && h.ft <= 3 ? h.ft : 0;
+    v.zL1 = v.zL2 = v.zR1 = v.zR2 = 0;
+    if (v.ft) {
+        const double top = std::min(20000.0, sr_ * 0.45);
+        v.f0 = std::max(20.0, std::min(top, h.fhz));
+        v.fq = h.fq;
+        v.fEnv = h.foct != 0;
+        v.fPeak = std::max(20.0, std::min(top, h.fhz * std::pow(2.0, h.foct)));
+        v.fAtkN = std::max(0.0, h.fatk) * sr_;
+        v.fTauN = std::max(1e-4, h.ftau) * sr_;
+        filterCoefs(v, filterFreq(v));
+    }
+}
+
+// Le biquad de Web Audio (le BiquadFilterNode : passe-bas et passe-haut avec Q en dB, ici deja ramene en lineaire par le
+// site, passe-bande a gain 0 dB au centre)
+void Engine::filterCoefs(Voice& v, double f) const {
+    const double top = std::min(20000.0, sr_ * 0.45);
+    f = std::max(20.0, std::min(top, f));
+    const double w0 = 2 * PI * f / sr_;
+    const double cw = std::cos(w0), sw = std::sin(w0);
+    const double alpha = sw / (2 * std::max(1e-3, v.fq));
+    double B0, B1, B2;
+    const double A0 = 1 + alpha, A1 = -2 * cw, A2 = 1 - alpha;
+    if (v.ft == 1) {
+        B0 = (1 - cw) / 2; B1 = 1 - cw; B2 = B0;
+    } else if (v.ft == 2) {
+        B0 = (1 + cw) / 2; B1 = -(1 + cw); B2 = B0;
+    } else {
+        B0 = alpha; B1 = 0; B2 = -alpha;
+    }
+    v.b0 = B0 / A0; v.b1 = B1 / A0; v.b2 = B2 / A0; v.a1 = A1 / A0; v.a2 = A2 / A0;
+}
+
+// La coupure au temps t de la voix (exponentialRampToValueAtTime puis setTargetAtTime, audio/drums.ts voice)
+double Engine::filterFreq(const Voice& v) const {
+    if (!v.fEnv) return v.f0;
+    if (v.fAtkN > 0 && v.t < v.fAtkN) return v.f0 * std::pow(v.fPeak / v.f0, v.t / v.fAtkN);
+    return v.f0 + (v.fPeak - v.f0) * std::exp(-(v.t - v.fAtkN) / v.fTauN);
 }
 
 void Engine::lockTrig(const ProgHit& h, int track, float slice, int offset) {
@@ -546,8 +586,23 @@ void Engine::process(const BlockTransport& tr, float* L, float* R, int n, const 
                         --v.fadeLeft;
                     }
                 }
-                const float a = sl[v.pos];
-                const float b = sr[v.pos];
+                float a = sl[v.pos];
+                float b = sr[v.pos];
+                if (v.ft) {
+                    // La coupure suit son enveloppe : les coefficients tous les 16 echantillons
+                    if (v.fEnv && (static_cast<long>(v.t) & 15) == 0) filterCoefs(v, filterFreq(v));
+                    const double ya = v.b0 * a + v.zL1;
+                    v.zL1 = v.b1 * a - v.a1 * ya + v.zL2;
+                    v.zL2 = v.b2 * a - v.a2 * ya;
+                    a = static_cast<float>(ya);
+                    if (v.shot->mono) b = a;
+                    else {
+                        const double yb = v.b0 * b + v.zR1;
+                        v.zR1 = v.b1 * b - v.a1 * yb + v.zR2;
+                        v.zR2 = v.b2 * b - v.a2 * yb;
+                        b = static_cast<float>(yb);
+                    }
+                }
                 L[i] += f * (v.gLL * a + v.gLR * b);
                 R[i] += f * (v.gRL * a + v.gRR * b);
                 ++v.pos;

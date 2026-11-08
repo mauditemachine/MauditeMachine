@@ -62,6 +62,16 @@ export interface ProgHit {
    * PROB (0 a 100), COND (ck : 0 NONE, 1 FILL, 2 PRE, 3 NEI, 4 1ST, 5 LST, 6 A:B ; cn : NOT ; ca:cb), uTIME en pas, RTRG,
    * RATE (every, en pas), VFAD ; lt : un lock trig (aucun son, ses verrous vont au coup qui sonne). Absents : le coup du pad.
    */
+  /**
+   * FLTR (audio/drums.ts hitFilter) : ft 0 aucun, 1 passe-bas, 2 passe-haut, 3 passe-bande ; fhz la coupure, fq la
+   * resonance (lineaire) ; l'enveloppe : la coupure monte de foct octaves en fatk s, puis redescend (constante ftau s)
+   */
+  ft?: number;
+  fhz?: number;
+  fq?: number;
+  foct?: number;
+  fatk?: number;
+  ftau?: number;
   len?: number;
   prob?: number;
   ck?: number;
@@ -107,6 +117,15 @@ const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
 /** Le genre d'une COND pour le C++ (dsp/Engine.cpp condTrue). */
 const COND_KIND: Readonly<Record<string, number>> = { none: 0, fill: 1, pre: 2, nei: 3, first: 4, last: 5, ab: 6 };
 
+/** Le filtre d'un coup pour le C++ (absent : aucun filtre, le son d'avant). */
+function filterOf(hp: HitParams): Partial<ProgHit> {
+  const f = hp.filter;
+  if (!f) return {};
+  const ft = f.type === 'lowpass' ? 1 : f.type === 'highpass' ? 2 : f.type === 'bandpass' ? 3 : 0;
+  if (!ft) return {};
+  return { ft, fhz: r6(f.hz), fq: r6(f.q), foct: r6(f.oct), fatk: r6(f.atk), ftau: r6(f.tau) };
+}
+
 function compile(): Program {
   const cur = pattern.get();
   const len = pattern.stepCount();
@@ -129,6 +148,7 @@ function compile(): Program {
   const hitOf = (t: TrackKey, g: number, vel: number, hp: HitParams): ProgHit => {
     const tau = decayTau(hp.decay);
     return {
+      ...filterOf(hp),
       g,
       vel: r6(vel),
       snd: soundOf(t, hp),
@@ -329,6 +349,7 @@ export const bridge = {
         gain: r.hp.gain,
         pan: Math.max(-1, Math.min(1, r.hp.pan)),
         start: r.hp.start > 0 ? Math.min(r.hp.start, 1) * START_MAX : 0,
+        ...filterOf(r.hp),
       });
     });
     pattern.subscribe(changed);

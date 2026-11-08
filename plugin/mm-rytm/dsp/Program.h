@@ -35,6 +35,10 @@ struct ProgHit {
     double gain = 1;   // gain du coup (VOL verrouille, loi du PAN) en plus de la velocite
     double pan = 0;
     double start = 0;  // part de la duree du son ou il commence
+    // FLTR (audio/drums.ts hitFilter) : 0 aucun, 1 passe-bas, 2 passe-haut, 3 passe-bande ; la coupure monte de foct octaves
+    // en fatk s, puis redescend vers fhz (constante ftau s)
+    int ft = 0;
+    double fhz = 20000, fq = 0.7071, foct = 0, fatk = 0, ftau = 0.1;
     // Le trig (audio/trig.ts trigNow) : rien d'autre que le coup au depart
     double len = -1;   // LEN en pas ; -1 : INF (rien ne coupe)
     int prob = 100;    // PROB, 0 a 100

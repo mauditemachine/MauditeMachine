@@ -412,6 +412,30 @@ int main() {
         CHECK(same && b > 0 && a < 0.2 * b, "lock trig : le VOL du coup qui sonne baisse au pas du lock trig");
     }
 
+    // ---------------- phase 3 : FLTR ----------------
+    {
+        auto energyOf = [&](int track, int ft, double hz, double oct) {
+            mm::Engine e;
+            e.prepare(SR);
+            mm::Program p = baseProgram();
+            p.tracks[static_cast<size_t>(track)].live.ft = ft;
+            p.tracks[static_cast<size_t>(track)].live.fhz = hz;
+            p.tracks[static_cast<size_t>(track)].live.fq = 0.7071;
+            p.tracks[static_cast<size_t>(track)].live.foct = oct;
+            p.tracks[static_cast<size_t>(track)].live.fatk = 0.002;
+            p.tracks[static_cast<size_t>(track)].live.ftau = 0.05;
+            auto ps = makeState(p);
+            e.publish(ps);
+            e.pushLive(live(*ps, track));
+            std::vector<float> l(n), r(n);
+            e.process(stop, l.data(), r.data(), n);
+            return energy(l, 0, n);
+        };
+        const double ch = energyOf(2, 0, 0, 0), chLp = energyOf(2, 1, 300, 0), chLpEnv = energyOf(2, 1, 300, 5);
+        const double bd = energyOf(0, 0, 0, 0), bdHp = energyOf(0, 2, 5000, 0);
+        CHECK(chLp < 0.01 * ch && chLpEnv > chLp && bdHp < 0.05 * bd, "FLTR : passe-bas et passe-haut, l'enveloppe ouvre la coupure");
+    }
+
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }
