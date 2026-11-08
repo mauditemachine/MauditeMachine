@@ -62,6 +62,8 @@ npm ci && npm run plugin:web
 cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j --target MM_RYTM_VST3
 ```
 
+Mettre a jour le plugin installe (sur le Mac, l'artefact du CI telecharge dans `~/Downloads`) : `update.sh` l'ecrase dans `/Library/Audio/Plug-Ins/VST3` et le re-signe (voir `INSTALL.md`).
+
 Sinon, GitHub Actions le construit a chaque push qui touche `plugin/`, `src/v4/` ou les samples (workflow `plugin.yml`) : voir `INSTALL.md`.
 
 ## Regles

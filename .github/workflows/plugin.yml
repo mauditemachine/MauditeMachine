@@ -65,7 +65,7 @@ jobs:
           codesign --force --deep --sign - "$B"
           codesign --verify --deep --strict "$B"
           ditto "$B" pkg/MM-RYTM/MM-RYTM.vst3
-          cp plugin/mm-rytm/INSTALL.md pkg/MM-RYTM/
+          cp plugin/mm-rytm/INSTALL.md plugin/mm-rytm/update.sh pkg/MM-RYTM/
           ditto -c -k --keepParent pkg/MM-RYTM MM-RYTM-macOS.zip
           unzip -l MM-RYTM-macOS.zip | tail -1
       - uses: actions/upload-artifact@v4
