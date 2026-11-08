@@ -61,7 +61,7 @@ import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { undo } from '../state/undo';
 import { INSTRUMENTS } from '../audio/pattern';
-import { DT2_FACE, DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VOICE_KEYS, type PageId } from '../theme';
+import { DT2_FACE, DT_FACE, EDIT_KEY, OPEN_KEY, PAGES, REC_KEY, SCREEN_TOUCH, VOICE_KEYS, type PageId, PLUGIN } from '../theme';
 
 /*
  * La face DT2 (V.6.0, 2026-11-01, ?face=dt2, la lane B4 ; cahier dt2 2.7), devant le MM-RYTM : A S D F Z X C V = TRIG 1 a 8,
@@ -398,6 +398,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
       const digit = DIGIT_KEYS.find((p) => p.key === e.key || e.code === `Digit${p.key}` || e.code === `Numpad${p.key}`);
+      // Le plugin (2026-11-08) : ni sections du site, ni capot, ni vue a remettre (la camera y est fixe)
+      if (PLUGIN && (digit || e.key === 'o' || e.key === 'O' || e.key === 'r' || e.key === 'R')) return;
       if (digit) {
         e.preventDefault();
         if (digit.page) page(digit.page, getStage());

@@ -1,25 +1,28 @@
 # MM-RYTM, le plugin
 
-La boite a rythmes du site (`src/v4`, le MM-RYTM) portee en C++ avec JUCE 8 : un VST3 pour macOS. Usage perso.
+La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vraie face du site. Usage perso.
 
-## Ce qui est porte
+## Architecture (2026-11-08)
 
-| Site (TypeScript) | Plugin (C++) | Etat |
-| --- | --- | --- |
-| `audio/shotsdsp.ts` : les 9 moteurs (BD SD CH CHopen OH CP TOM HT CY), modeles 909 / 808 / MM, GATE, sonie | `dsp/Shots.cpp` | identique bit a bit (29 cas testes) |
-| `audio/sampledsp.ts` : la couche SAMPLE (TUNE, START, LEN, REV, ATTACK, DRIVE, SNAPPY) | `dsp/Shots.cpp` | identique bit a bit |
-| `audio/stretch.ts` : STRETCH facon Impulse | `dsp/Shots.cpp` | identique bit a bit |
-| les voix (kick mono, choke CH/OH, polyphonie) | `dsp/Engine.cpp` | porte, teste |
-| le sequenceur 16 pas, swing | `dsp/Engine.h` | cale sur l'hote (ppq), teste |
-| les effets (DIST, TONE, CHORUS, REVERB, DELAY), les locks, les scenes, les presets, la face du site | - | pas encore |
+- **La face** : la machine du site elle-meme (scene three.js, touches, potards, ecran), seule, vue de dessus, dans une WebView JUCE. Entree `src/v4/plugin/` (mode `PLUGIN` de `src/v4/theme/base.ts`), page `plugin/mm-rytm/web/index.html`, build `npm run plugin:web` vers `plugin/mm-rytm/build-web` (zip embarque dans le VST3).
+- **Le son** : en C++ (`dsp/`), jamais dans la WebView. Le plugin joue fenetre fermee et pendant un export d'Ableton.
+- **Le pont** (`src/v4/plugin/bridge.ts`) : la face compile un *programme* avec les fonctions du site (`resolveHit` de `audio/drums.ts`, `tracks.tweakWith`) : les sons de chaque piste, chaque coup de chaque pas avec sa hauteur, son DECAY, son gain, son PAN, son START. Le C++ le joue sans rien interpreter (`dsp/Program.h`, `dsp/Engine.cpp`).
+- **L'etat** : les cles `mm.v4.*` du localStorage du site (motif, pistes, banques, presets...) sont gardees dans le projet Ableton avec le programme ; a l'ouverture de la fenetre, la face les reprend avant de se charger (`src/v4/plugin/restore.ts`).
+- **Le transport** : celui d'Ableton ; PLAY de la face lance l'horloge interne quand Ableton est arrete. La tete de lecture de la face suit le C++ (`src/v4/plugin/head.ts`).
 
-## Structure
+## Ce qui joue (phase 1)
 
-- `dsp/` : le DSP, C++17 pur, sans JUCE (testable seul).
-- `src/` : le plugin JUCE (parametres, MIDI, transport, interface, samples embarques).
-- `tests/render-ref.mjs` : fait tourner le vrai `shotsdsp.ts` du site (Node, `--experimental-strip-types`) sur `tests/cases.json`.
-- `tests/compare.cpp` : compare le C++ a cette reference (tolerance -80 dBFS ; aujourd'hui l'ecart est nul).
-- `tests/engine_test.cpp` : le moteur, verifie dans les buffers (aucune lecture audio).
+| | Etat |
+| --- | --- |
+| Sons : 9 moteurs, 909 / 808 / MM, GATE, couche SAMPLE (tes samples), STRETCH | identique bit a bit au site (`tests/compare.cpp`, 29 cas) |
+| 16 pistes, pas 1 a 64, pages, page bouclee, swing, velocites | joue |
+| Verrous de pas (hauteur, DECAY, VOL, PAN, START, son d'un autre kit) | joue (resolus par la face) |
+| ENV : ATK, HOLD, DECAY ; PAN ; kick mono ; choke CH / OH ; 4 voix par piste | joue (`tests/engine_test.cpp`) |
+| MUTE, SOLO, mute du pattern | joue |
+| Pads, touches, notes MIDI GM d'Ableton | joue |
+| Conditions, probabilite, microtiming, retrig, LEN, LFO | phase 2 (`audio/seq.ts`) |
+| FLTR, effets de piste (TONE, DIST, CHORUS), envois (DELAY, REVERB), compresseur, limiteur, scenes / crossfader | phase 3 |
+| Chaines de patterns, FILL, SONG, samples perso du navigateur | phase 4 |
 
 ## Commandes
 
@@ -33,14 +36,19 @@ cmake -S plugin/mm-rytm -B build-dsp -DMM_BUILD_PLUGIN=OFF && cmake --build buil
 ./build-dsp/mm_engine_test && node plugin/mm-rytm/tests/render-ref.mjs build-dsp/ref && ./build-dsp/mm_compare build-dsp/ref public/samples/rytm
 ```
 
-Le plugin sur un Mac (Xcode et CMake installes ; JUCE est telecharge par CMake) :
+La face, puis le plugin sur un Mac (Xcode et CMake installes ; JUCE est telecharge par CMake) :
+
+```bash
+npm ci && npm run plugin:web
+```
 
 ```bash
 cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j --target MM_RYTM_VST3
 ```
 
-Sinon, GitHub Actions le construit a chaque push qui touche `plugin/` (workflow `plugin.yml`) : voir `INSTALL.md`.
+Sinon, GitHub Actions le construit a chaque push qui touche `plugin/`, `src/v4/` ou les samples (workflow `plugin.yml`) : voir `INSTALL.md`.
 
-## Regle
+## Regles
 
-Un changement de son sur le site (`shotsdsp.ts`, `sampledsp.ts`, `stretch.ts`) relance le workflow : la comparaison echoue tant que `dsp/Shots.cpp` n'a pas suivi.
+- Un changement de son sur le site (`shotsdsp.ts`, `sampledsp.ts`, `stretch.ts`) relance le workflow : la comparaison echoue tant que `dsp/Shots.cpp` n'a pas suivi.
+- Le mode plugin du site ne s'active qu'avec `window.__MM_PLUGIN__` (la page du plugin) ou `?plugin=1` : le site ne change pas.

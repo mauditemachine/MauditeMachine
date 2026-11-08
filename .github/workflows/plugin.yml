@@ -7,9 +7,9 @@ on:
     paths:
       - 'plugin/**'
       - 'public/samples/rytm/**'
-      - 'src/v4/audio/shotsdsp.ts'
-      - 'src/v4/audio/sampledsp.ts'
-      - 'src/v4/audio/stretch.ts'
+      - 'src/v4/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/plugin.yml'
   workflow_dispatch:
 permissions:
@@ -43,6 +43,15 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+      # La face (2026-11-08) : la machine du site (src/v4/plugin), construite puis embarquee dans le VST3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: Construire la face
+        run: |
+          npm ci --no-audit --no-fund
+          npm run plugin:web
       - name: Configurer (universel arm64 + x86_64)
         run: cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
       - name: Construire

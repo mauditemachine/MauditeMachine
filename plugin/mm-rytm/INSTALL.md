@@ -15,8 +15,8 @@ P=~/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3; [ -d "$P" ] || P=/Library/Audio/Pl
 
 ## Utilisation
 
-- **Sequenceur** : 8 pistes x 16 pas, cale sur le transport d'Ableton. Clic sur un pas : on, accent, off (clic droit : off). STEPS regle la longueur (1 a 16), SWING de 50 a 80 %.
-- **MIDI** : un clip MIDI joue les pistes en notes GM : 36 BD, 38 SD, 42 CH, 46 OH, 39 CP, 45 TOM, 50 HT, 49 CY (et leurs voisines GM). La velocite compte.
-- **Sons** : la meme synthese que le MM-RYTM du site (909, 808, MM), bit a bit, plus tes samples (`public/samples/rytm`, embarques). Le kit de depart est celui du site : BD, SD et OH sur ton premier sample, les autres en synthese.
-- **Multi-out** : OUTPUT = Own envoie la piste sur sa propre sortie stereo (dans Ableton : active les sorties du plugin, puis route chaque piste).
-- **RUN** : l'horloge interne (BPM) quand l'hote ne joue pas.
+- **La face** : c'est ta machine du site, la meme (touches, potards, ecran, pages TRIG / SRC / FLTR / AMP / FX / MOD, presets, banques). Le son vient du plugin, jamais de la page.
+- **Lecture** : le transport d'Ableton fait jouer le pattern, cale a la mesure. Ableton arrete, PLAY de la face lance l'horloge interne (au tempo de TEMPO), STOP l'arrete.
+- **MIDI** : un clip MIDI joue les pistes 1 a 8 en notes GM : 36 BD, 38 SD, 42 CH, 46 OH, 39 CP, 45 TOM, 50 HT, 49 CY (et leurs voisines GM). La velocite compte.
+- **Le projet** : tout ce que tu regles dans la face (pattern, sons, banques, presets) est sauve dans le projet Ableton, et le plugin joue meme fenetre fermee.
+- **Pas encore dans le plugin** (la face les montre, ils ne sonnent pas encore) : conditions, probabilite, retrig, LEN, LFO, filtres, effets (DIST, CHORUS, DELAY, REVERB, COMP), scenes et crossfader, chaines de patterns. Voir README.md.

@@ -7,38 +7,113 @@
 
 namespace {
 
-using APF = juce::AudioParameterFloat;
-using APC = juce::AudioParameterChoice;
-using APB = juce::AudioParameterBool;
-using API = juce::AudioParameterInt;
-using NR = juce::NormalisableRange<float>;
-
-// Le kit de depart du site (audio/kitlaw.ts) : KICK en 909, les autres en MM ; BD, SD et OH jouent le premier
-// sample de leur famille, la synthese a 0 (SAMPLE_FIRST).
-bool sampleFirst(int t) { return t == mm::T_BD || t == mm::T_SD || t == mm::T_OH; }
-
-// GM : la note MIDI d'entree -> la piste (-1 : ignoree).
+// GM : la note MIDI d'entree -> la piste (-1 : ignoree). Les huit premieres pistes du site, dans l'ordre BD SD CH OH CP TOM HT CY.
 int trackOfNote(int note) {
     switch (note) {
-        case 35: case 36: return mm::T_BD;
-        case 38: case 40: return mm::T_SD;
-        case 42: case 44: return mm::T_CH;
-        case 46: return mm::T_OH;
-        case 39: return mm::T_CP;
-        case 41: case 43: case 45: return mm::T_TOM;
-        case 47: case 48: case 50: return mm::T_HT;
-        case 49: case 51: case 52: case 55: case 57: return mm::T_CY;
+        case 35: case 36: return 0;
+        case 38: case 40: return 1;
+        case 42: case 44: return 2;
+        case 46: return 3;
+        case 39: return 4;
+        case 41: case 43: case 45: return 5;
+        case 47: case 48: case 50: return 6;
+        case 49: case 51: case 52: case 55: case 57: return 7;
         default: return -1;
     }
 }
 
 float dbToGain(float db) { return db <= -59.9f ? 0.f : juce::Decibels::decibelsToGain(db); }
 
-struct Event {
-    int offset;
-    int track;
-    float vel;
-};
+double num(const juce::var& o, const char* k, double def) {
+    const juce::var v = o.getProperty(k, juce::var());
+    return v.isDouble() || v.isInt() || v.isInt64() ? static_cast<double>(v) : def;
+}
+
+bool flag(const juce::var& o, const char* k) {
+    const juce::var v = o.getProperty(k, juce::var());
+    return v.isBool() ? static_cast<bool>(v) : (v.isInt() || v.isDouble() ? static_cast<double>(v) != 0 : false);
+}
+
+// Un son du programme (src/v4/plugin/bridge.ts ProgSound) : le moteur, la recette du site, STRETCH, la hauteur.
+bool parseSound(const juce::var& o, mm::ProgSound& s) {
+    if (!o.isObject()) return false;
+    if (!mm::shotFromSiteId(o.getProperty("id", "").toString().toStdString(), s.id)) return false;
+    const juce::var tw = o.getProperty("tw", juce::var());
+    const juce::String model = tw.getProperty("model", "mm").toString();
+    s.tw.model = model == "909" ? mm::KitModel::K909 : model == "808" ? mm::KitModel::K808 : mm::KitModel::MM;
+    s.tw.tune = num(tw, "tune", 0.5);
+    s.tw.attack = num(tw, "attack", 0.5);
+    s.tw.decay = num(tw, "decay", 0.45);
+    s.tw.drive = num(tw, "drive", 0.25);
+    s.tw.snappy = num(tw, "snappy", 0.5);
+    s.tw.gate = flag(tw, "gate");
+    s.tw.sweep = num(tw, "sweep", 0.5);
+    s.tw.sdTune = num(tw, "sdTune", 0.5);
+    s.tw.sdDecay = num(tw, "sdDecay", 0.5);
+    s.tw.sdTone = num(tw, "sdTone", 0.5);
+    s.tw.syn = num(tw, "syn", 1.0);
+    const juce::var smpKey = tw.getProperty("sample", juce::var());
+    s.sample = smpKey.isString() ? smpKey.toString().toStdString() : std::string();
+    const juce::var smp = tw.getProperty("smp", juce::var());
+    if (smp.isObject()) {
+        s.tw.smp.lev = num(smp, "lev", 1);
+        s.tw.smp.st = num(smp, "st", 0);
+        s.tw.smp.start = num(smp, "start", 0);
+        s.tw.smp.len = num(smp, "len", 1);
+        s.tw.smp.rev = flag(smp, "rev");
+    }
+    s.ts = num(o, "ts", 1);
+    s.pf = std::max(1e-3, num(o, "pf", 1));
+    s.variants = flag(o, "variants");
+    return true;
+}
+
+void parseHit(const juce::var& o, mm::ProgHit& h) {
+    h.g = static_cast<int>(num(o, "g", -1));
+    h.vel = static_cast<float>(num(o, "vel", 1));
+    h.snd = static_cast<int>(num(o, "snd", -1));
+    h.tau = num(o, "tau", -1);
+    h.atk = num(o, "atk", 0);
+    h.hold = num(o, "hold", 0.004);
+    h.gain = num(o, "gain", 1);
+    h.pan = num(o, "pan", 0);
+    h.start = num(o, "start", 0);
+}
+
+bool parseProgram(const juce::String& json, mm::Program& p) {
+    const juce::var o = juce::JSON::parse(json);
+    if (!o.isObject() || static_cast<int>(num(o, "v", 0)) != 1) return false;
+    p.bpm = num(o, "bpm", 130);
+    p.len = std::max(1, std::min(128, static_cast<int>(num(o, "len", 16))));
+    p.loop = static_cast<int>(num(o, "loop", -1));
+    p.swing = num(o, "swing", 0);
+    p.sounds.clear();
+    if (const auto* arr = o.getProperty("sounds", juce::var()).getArray())
+        for (const auto& sv : *arr) {
+            mm::ProgSound s;
+            if (!parseSound(sv, s)) s = mm::ProgSound{}; // garde les indices alignes
+            p.sounds.push_back(s);
+        }
+    if (const auto* arr = o.getProperty("tracks", juce::var()).getArray())
+        for (int t = 0; t < std::min(mm::kProgTracks, arr->size()); ++t) {
+            const juce::var& tv = arr->getReference(t);
+            auto& tr = p.tracks[static_cast<size_t>(t)];
+            tr.slice = static_cast<float>(num(tv, "slice", 1));
+            tr.plays = flag(tv, "plays");
+            tr.mono = flag(tv, "mono");
+            tr.choke = static_cast<int>(num(tv, "choke", 0));
+            tr.gated = flag(tv, "gated");
+            parseHit(tv.getProperty("live", juce::var()), tr.live);
+            tr.hits.clear();
+            if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
+                for (const auto& hv : *hs) {
+                    mm::ProgHit h;
+                    parseHit(hv, h);
+                    tr.hits.push_back(h);
+                }
+        }
+    return true;
+}
 
 } // namespace
 
@@ -46,192 +121,213 @@ struct Event {
 
 struct MMRytmProcessor::Renderer : juce::Thread {
     MMRytmProcessor& p;
-    std::array<juce::String, mm::kTracks> done;    // signature du son publie
-    std::array<juce::String, mm::kTracks> seen;    // derniere signature lue
-    std::array<double, mm::kTracks> seenAt{};      // quand elle a change
-    std::atomic<int> ready{0};
-
+    juce::WaitableEvent wake;
     explicit Renderer(MMRytmProcessor& proc) : juce::Thread("MM-RYTM render"), p(proc) {}
-
     void run() override {
         while (!threadShouldExit()) {
-            const double sr = p.sr_.load();
-            const double now = juce::Time::getMillisecondCounterHiRes() / 1000.0;
-            if (sr > 0) {
-                int count = 0;
-                for (int t = 0; t < mm::kTracks; ++t) {
-                    const juce::String sig = p.signatureOf(t);
-                    if (sig != seen[t]) {
-                        seen[t] = sig;
-                        seenAt[t] = now;
-                    }
-                    // un potard qui tourne : on attend 40 ms de repos (sauf le tout premier calcul)
-                    const bool first = done[t].isEmpty();
-                    if (sig != done[t] && (first || now - seenAt[t] > 0.04)) {
-                        int smp = -1;
-                        double stretch = 1;
-                        const mm::ShotTweak tw = p.tweakOf(t, smp, stretch);
-                        const auto& bank = mm::SampleBank::get().of(t);
-                        const mm::SamplePcm* pcm = smp >= 0 && smp < static_cast<int>(bank.size()) ? &bank[static_cast<size_t>(smp)].pcm : nullptr;
-                        auto snd = std::make_shared<mm::TrackSound>();
-                        const mm::ShotId id = mm::shotOfTrack(t);
-                        // un sample joue toujours le meme fichier : une seule variante
-                        const int nv = tw.syn > 0 ? mm::variantsOf(id) : 1;
-                        for (int v = 0; v < nv; ++v) snd->variants.push_back(mm::renderLayers(id, sr, stretch, v, tw, pcm));
-                        p.engine_.publish(t, std::move(snd));
-                        done[t] = sig;
-                    }
-                    if (done[t].isNotEmpty()) ++count;
-                }
-                ready.store(count);
-                p.engine_.collect(now);
-            }
-            wait(25);
+            p.renderLoop();
+            wake.wait(100);
         }
     }
 };
 
-/* ---------------- les parametres ---------------- */
+std::shared_ptr<mm::RenderedSound> MMRytmProcessor::soundFor(const mm::ProgSound& s, double sr) {
+    const std::string key = s.key();
+    if (auto it = cache_.find(key); it != cache_.end()) return it->second;
+    auto r = std::make_shared<mm::RenderedSound>();
+    mm::ShotTweak tw = s.tw;
+    const mm::SamplePcm* pcm = nullptr;
+    if (!s.sample.empty())
+        if (const auto* b = mm::SampleBank::get().byKey(juce::String(s.sample))) pcm = &b->pcm;
+    // Un sample absent de la banque (un sample perso du navigateur, la banque synthetisee) : la couche SAMPLE se tait
+    tw.hasSample = pcm != nullptr;
+    const int nv = s.variants && tw.syn > 0 ? mm::variantsOf(s.id) : 1;
+    // Le son a sa hauteur : calcule a sr / pf, lu a vitesse 1 (audio/shots.ts)
+    for (int v = 0; v < nv; ++v) r->variants.push_back(mm::renderLayers(s.id, sr / s.pf, s.ts, v, tw, pcm));
+    cache_[key] = r;
+    engine_.own(r);
+    return r;
+}
 
-juce::String MMRytmProcessor::pid(int track, const char* key) { return "t" + juce::String(track + 1) + "_" + key; }
+std::shared_ptr<mm::PlayState> MMRytmProcessor::buildState(const mm::Program& prog, double sr) {
+    auto ps = std::make_shared<mm::PlayState>();
+    ps->prog = prog;
+    for (const auto& s : prog.sounds) {
+        ps->sounds.push_back(soundFor(s, sr));
+        ps->keys.push_back(s.key());
+    }
+    for (const auto& [k, r] : extras_) {
+        ps->sounds.push_back(r);
+        ps->keys.push_back(k);
+    }
+    return ps;
+}
+
+void MMRytmProcessor::renderLoop() {
+    const double sr = sr_.load();
+    if (sr <= 0) return;
+    std::unique_ptr<mm::Program> prog;
+    std::vector<std::pair<mm::ProgSound, mm::LiveHit>> live;
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        prog = std::move(pendingProgram_);
+        live.swap(pendingLive_);
+    }
+    bool rebuild = false;
+    if (sr != builtSr_) {
+        // Une autre frequence : tous les sons se recalculent
+        cache_.clear();
+        extras_.clear();
+        builtSr_ = sr;
+        rebuild = haveProgram_;
+    }
+    if (prog) {
+        current_ = *prog;
+        haveProgram_ = true;
+        rebuild = true;
+    }
+    // Les sons joues en direct que le programme n'avait pas (un apercu de SOUNDS) : calcules, gardes (64 au plus)
+    for (auto& [s, h] : live) {
+        auto r = soundFor(s, sr);
+        const std::string k = s.key();
+        if (std::none_of(extras_.begin(), extras_.end(), [&](const auto& e) { return e.first == k; })) {
+            extras_.emplace_back(k, r);
+            if (extras_.size() > 64) extras_.erase(extras_.begin());
+        }
+        h.snd = r.get();
+        rebuild = true;
+    }
+    if (rebuild && haveProgram_) {
+        auto ps = buildState(current_, sr);
+        // Le cache ne garde que les sons de l'etat publie (les autres partent avec leur dernier etat)
+        for (auto it = cache_.begin(); it != cache_.end();) {
+            if (std::find(ps->keys.begin(), ps->keys.end(), it->first) == ps->keys.end()) it = cache_.erase(it);
+            else ++it;
+        }
+        engine_.publish(ps);
+    }
+    // Les coups qui attendaient leur son : ils partent maintenant
+    for (auto& [s, h] : live) {
+        std::lock_guard<std::mutex> lk(pushMx_);
+        engine_.pushLive(h);
+    }
+    engine_.collect(juce::Time::getMillisecondCounterHiRes() / 1000.0);
+}
+
+/* ---------------- les parametres et l'etat ---------------- */
 
 juce::AudioProcessorValueTreeState::ParameterLayout MMRytmProcessor::makeLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
-    const juce::StringArray machines{"909", "808", "MM"};
-    for (int t = 0; t < mm::kTracks; ++t) {
-        const juce::String n = mm::trackName(t);
-        auto grp = std::make_unique<juce::AudioProcessorParameterGroup>("t" + juce::String(t + 1), n, "|");
-        auto add = [&](std::unique_ptr<juce::RangedAudioParameter> prm) { grp->addChild(std::move(prm)); };
-        const int ver = 1;
-        add(std::make_unique<APC>(juce::ParameterID{pid(t, "machine"), ver}, n + " Machine", machines, t == mm::T_BD ? 0 : 2));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "syn"), ver}, n + " Synth Level", NR(0, 1), sampleFirst(t) ? 0.f : 1.f));
-        juce::StringArray samples{"OFF"};
-        for (const auto& s : mm::SampleBank::get().of(t)) samples.add(s.name);
-        add(std::make_unique<APC>(juce::ParameterID{pid(t, "sample"), ver}, n + " Sample", samples, sampleFirst(t) && samples.size() > 1 ? 1 : 0));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "smpLev"), ver}, n + " Sample Level", NR(0, 1), 1.f));
-        add(std::make_unique<API>(juce::ParameterID{pid(t, "smpTune"), ver}, n + " Sample Tune", -24, 24, 0));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "smpStart"), ver}, n + " Sample Start", NR(0, 1), 0.f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "smpLen"), ver}, n + " Sample Length", NR(0, 1), 1.f));
-        add(std::make_unique<APB>(juce::ParameterID{pid(t, "smpRev"), ver}, n + " Sample Reverse", false));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "tune"), ver}, n + " Tune", NR(0, 1), 0.5f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "decay"), ver}, n + " Decay", NR(0, 1), t == mm::T_BD ? 0.45f : 0.5f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "attack"), ver}, n + " Attack", NR(0, 1), 0.5f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "drive"), ver}, n + " Drive", NR(0, 1), 0.25f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "snappy"), ver}, n + " Snappy", NR(0, 1), 0.5f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "sweep"), ver}, n + " Sweep", NR(0, 1), 0.5f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "tone"), ver}, n + " Tone", NR(0, 1), 0.5f));
-        add(std::make_unique<APB>(juce::ParameterID{pid(t, "gate"), ver}, n + " Gate", false));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "stretch"), ver}, n + " Stretch", NR(-1, 1), 0.f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "level"), ver}, n + " Level", NR(-60, 6, 0.1f, 2.5f), 0.f));
-        add(std::make_unique<APF>(juce::ParameterID{pid(t, "pan"), ver}, n + " Pan", NR(-1, 1), 0.f));
-        add(std::make_unique<APB>(juce::ParameterID{pid(t, "mute"), ver}, n + " Mute", false));
-        add(std::make_unique<APC>(juce::ParameterID{pid(t, "out"), ver}, n + " Output", juce::StringArray{"Main", "Own"}, 0));
-        layout.add(std::move(grp));
-    }
-    layout.add(std::make_unique<APF>(juce::ParameterID{"master", 1}, "Master", NR(-60, 6, 0.1f, 2.5f), 0.f));
-    layout.add(std::make_unique<APF>(juce::ParameterID{"swing", 1}, "Swing", NR(50, 80, 1), 50.f));
-    layout.add(std::make_unique<API>(juce::ParameterID{"length", 1}, "Length", 1, 16, 16));
-    layout.add(std::make_unique<APF>(juce::ParameterID{"bpm", 1}, "Internal BPM", NR(40, 240, 0.1f), 122.f));
-    layout.add(std::make_unique<APB>(juce::ParameterID{"run", 1}, "Internal Run", false));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"master", 1}, "Master", juce::NormalisableRange<float>(-60, 6, 0.1f, 2.5f), 0.f));
     return layout;
 }
 
 MMRytmProcessor::MMRytmProcessor()
-    : AudioProcessor([] {
-          BusesProperties b;
-          b = b.withOutput("Main", juce::AudioChannelSet::stereo(), true);
-          for (int t = 0; t < mm::kTracks; ++t) b = b.withOutput(mm::trackName(t), juce::AudioChannelSet::stereo(), false);
-          return b;
-      }()),
-      apvts(*this, nullptr, "MMRYTM", makeLayout()) {
-    for (int t = 0; t < mm::kTracks; ++t)
-        raw_[t] = {apvts.getRawParameterValue(pid(t, "level")), apvts.getRawParameterValue(pid(t, "pan")), apvts.getRawParameterValue(pid(t, "mute")),
-                   apvts.getRawParameterValue(pid(t, "out"))};
+    : AudioProcessor(BusesProperties().withOutput("Main", juce::AudioChannelSet::stereo(), true)), apvts(*this, nullptr, "MMRYTM", makeLayout()) {
     master_ = apvts.getRawParameterValue("master");
-    swing_ = apvts.getRawParameterValue("swing");
-    length_ = apvts.getRawParameterValue("length");
-    bpm_ = apvts.getRawParameterValue("bpm");
-    run_ = apvts.getRawParameterValue("run");
-    setDefaultPattern();
     renderer_ = std::make_unique<Renderer>(*this);
     renderer_->startThread(juce::Thread::Priority::normal);
 }
 
-MMRytmProcessor::~MMRytmProcessor() { renderer_->stopThread(2000); }
-
-void MMRytmProcessor::setDefaultPattern() {
-    // Un motif indie dance : le kick a la noire, le clap sur 2 et 4, le charley ferme en contretemps de double, l'OH au contretemps
-    auto set = [this](int t, std::initializer_list<int> s, uint8_t v = 1) {
-        for (int i : s) seq.steps[t][i].store(v);
-    };
-    for (auto& tr : seq.steps)
-        for (auto& s : tr) s.store(0);
-    set(mm::T_BD, {0, 4, 8, 12});
-    set(mm::T_CP, {4, 12});
-    set(mm::T_CH, {1, 3, 5, 7, 9, 11, 13, 15});
-    set(mm::T_OH, {2, 6, 10, 14});
+MMRytmProcessor::~MMRytmProcessor() {
+    renderer_->signalThreadShouldExit();
+    renderer_->wake.signal();
+    renderer_->stopThread(3000);
 }
 
-bool MMRytmProcessor::soundsReady() const { return renderer_ && renderer_->ready.load() == mm::kTracks; }
-
-mm::ShotTweak MMRytmProcessor::tweakOf(int t, int& sampleIndex, double& stretch) const {
-    auto v = [&](const char* k) { return static_cast<double>(apvts.getRawParameterValue(pid(t, k))->load()); };
-    mm::ShotTweak tw;
-    const int machine = static_cast<int>(v("machine"));
-    tw.model = machine == 0 ? mm::KitModel::K909 : machine == 1 ? mm::KitModel::K808 : mm::KitModel::MM;
-    const bool kick = t == mm::T_BD;
-    // TUNE et DECAY : ceux du kick sur BD, ceux de la caisse claire (sdTune, sdDecay) sur les autres voix
-    tw.tune = kick ? v("tune") : 0.5;
-    tw.sdTune = kick ? 0.5 : v("tune");
-    tw.decay = kick ? v("decay") : 0.45;
-    tw.sdDecay = kick ? 0.5 : v("decay");
-    tw.attack = v("attack");
-    tw.drive = v("drive");
-    tw.snappy = v("snappy");
-    tw.sweep = v("sweep");
-    tw.sdTone = v("tone");
-    tw.gate = v("gate") > 0.5;
-    tw.syn = v("syn");
-    sampleIndex = static_cast<int>(v("sample")) - 1;
-    tw.hasSample = sampleIndex >= 0;
-    tw.smp.lev = v("smpLev");
-    tw.smp.st = std::round(v("smpTune"));
-    tw.smp.start = v("smpStart");
-    tw.smp.len = v("smpLen");
-    tw.smp.rev = v("smpRev") > 0.5;
-    // STRETCH : 4^v, arrondi au huitieme (la cle du site, shotKey)
-    const double sv = std::round(v("stretch") * 8) / 8;
-    stretch = std::pow(4.0, sv);
-    return tw;
+void MMRytmProcessor::faceProgram(const juce::String& json) {
+    auto p = std::make_unique<mm::Program>();
+    if (!parseProgram(json, *p)) return;
+    progBpm_.store(p->bpm);
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        programJson_ = json;
+        pendingProgram_ = std::move(p);
+    }
+    renderer_->wake.signal();
 }
 
-juce::String MMRytmProcessor::signatureOf(int t) const {
-    int smp = -1;
-    double stretch = 1;
-    const mm::ShotTweak tw = tweakOf(t, smp, stretch);
-    auto q = [](double x) { return juce::String(std::round(x * 1000) / 1000, 3); };
-    juce::String s;
-    s << sr_.load() << "|" << static_cast<int>(tw.model) << "|" << q(tw.tune) << q(tw.sdTune) << q(tw.decay) << q(tw.sdDecay) << q(tw.attack) << q(tw.drive)
-      << q(tw.snappy) << q(tw.sweep) << q(tw.sdTone) << (tw.gate ? "g" : "-") << q(tw.syn) << "|" << smp << "|" << q(tw.smp.lev) << q(tw.smp.st)
-      << q(tw.smp.start) << q(tw.smp.len) << (tw.smp.rev ? "r" : "-") << q(stretch);
-    return s;
+void MMRytmProcessor::faceState(const juce::String& lsJson) {
+    std::lock_guard<std::mutex> lk(mx_);
+    lsJson_ = lsJson;
+}
+
+juce::String MMRytmProcessor::faceInitState() const {
+    std::lock_guard<std::mutex> lk(mx_);
+    return lsJson_;
+}
+
+void MMRytmProcessor::faceHit(const juce::var& o) {
+    mm::ProgSound s;
+    if (!parseSound(o.getProperty("sound", juce::var()), s)) return;
+    mm::LiveHit h;
+    h.track = static_cast<int>(num(o, "t", -1));
+    if (h.track < 0 || h.track >= mm::kTracks) return;
+    h.slice = static_cast<float>(num(o, "slice", 1));
+    parseHit(o, h.hit);
+    h.hit.vel = static_cast<float>(num(o, "vel", 1));
+    // Son deja calcule (le cas courant : le son du pad est dans le programme) : il part tout de suite
+    const std::string key = s.key();
+    if (auto ps = engine_.latest()) {
+        for (size_t i = 0; i < ps->keys.size(); ++i)
+            if (ps->keys[i] == key && ps->sounds[i]) {
+                h.snd = ps->sounds[i].get();
+                std::lock_guard<std::mutex> lk(pushMx_);
+                engine_.pushLive(h);
+                return;
+            }
+    }
+    // Sinon il se calcule, et le coup part juste apres
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        pendingLive_.emplace_back(s, h);
+    }
+    renderer_->wake.signal();
+}
+
+void MMRytmProcessor::faceRun(bool on) { runInternal_.store(on); }
+
+MMRytmProcessor::Feedback MMRytmProcessor::feedback() const {
+    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load()};
+}
+
+void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
+    juce::ValueTree state("MMRYTM2");
+    state.setProperty("master", master_->load(), nullptr);
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        state.setProperty("program", programJson_, nullptr);
+        state.setProperty("ls", lsJson_, nullptr);
+    }
+    if (auto xml = state.createXml()) copyXmlToBinary(*xml, destData);
+}
+
+void MMRytmProcessor::setStateInformation(const void* data, int sizeInBytes) {
+    auto xml = getXmlFromBinary(data, sizeInBytes);
+    if (!xml || !xml->hasTagName("MMRYTM2")) return;
+    const auto state = juce::ValueTree::fromXml(*xml);
+    if (auto* prm = apvts.getParameter("master"))
+        prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        lsJson_ = state.getProperty("ls", "").toString();
+    }
+    // Le programme garde : le plugin joue fenetre fermee des le chargement du projet
+    const juce::String prog = state.getProperty("program", "").toString();
+    if (prog.isNotEmpty()) faceProgram(prog);
 }
 
 /* ---------------- l'audio ---------------- */
 
 bool MMRytmProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo()) return false;
-    for (int i = 1; i < layouts.outputBuses.size(); ++i) {
-        const auto& set = layouts.outputBuses.getReference(i);
-        if (!set.isDisabled() && set != juce::AudioChannelSet::stereo()) return false;
-    }
-    return layouts.inputBuses.isEmpty();
+    return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo() && layouts.inputBuses.isEmpty();
 }
 
 void MMRytmProcessor::prepareToPlay(double sampleRate, int) {
     if (sampleRate != sr_.load()) {
         engine_.prepare(sampleRate);
         sr_.store(sampleRate);
+        renderer_->wake.signal();
     }
 }
 
@@ -241,112 +337,45 @@ void MMRytmProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     buffer.clear();
     const double sr = getSampleRate() > 0 ? getSampleRate() : sr_.load();
 
-    // le mix de chaque piste
-    for (int t = 0; t < mm::kTracks; ++t) {
-        mm::TrackMix m;
-        m.gain = dbToGain(raw_[t].level->load());
-        m.pan = raw_[t].pan->load();
-        m.mute = raw_[t].mute->load() > 0.5f;
-        m.ownOut = raw_[t].out->load() > 0.5f;
-        engine_.setMix(t, m);
-    }
-
-    // les coups du bloc (MIDI, sequenceur, ecoute depuis la face), joues dans l'ordre de leur offset
-    std::array<Event, 512> ev;
-    int ne = 0;
-    auto push = [&](int track, float vel, int off) {
-        if (ne < static_cast<int>(ev.size())) ev[static_cast<size_t>(ne++)] = {off, track, vel};
-    };
+    // Les notes MIDI (un clip d'Ableton) : GM vers les huit premieres pistes
+    std::array<mm::NoteEvent, 256> notes;
+    int nn = 0;
     for (const auto meta : midi) {
         const auto msg = meta.getMessage();
-        if (msg.isNoteOn()) {
+        if (msg.isNoteOn() && nn < static_cast<int>(notes.size())) {
             const int t = trackOfNote(msg.getNoteNumber());
-            if (t >= 0) push(t, msg.getFloatVelocity(), meta.samplePosition);
+            if (t >= 0) notes[static_cast<size_t>(nn++)] = {t, msg.getFloatVelocity(), meta.samplePosition};
         } else if (msg.isAllNotesOff() || msg.isAllSoundOff()) {
             engine_.allNotesOff();
         }
     }
-    const uint32_t aud = audition_.exchange(0, std::memory_order_relaxed);
-    for (int t = 0; t < mm::kTracks; ++t)
-        if (aud & (1u << t)) push(t, 1.f, 0);
 
-    // le transport : celui de l'hote s'il joue, sinon l'horloge interne (RUN)
-    bool playing = false;
-    double ppq = 0, bpm = bpm_->load();
-    if (auto* ph = getPlayHead()) {
-        if (auto pos = ph->getPosition()) {
+    // Le transport : celui de l'hote s'il joue, sinon l'horloge interne (RUN de la face)
+    mm::BlockTransport tr;
+    double bpm = progBpm_.load();
+    bool hostPlaying = false;
+    if (auto* ph = getPlayHead())
+        if (auto pos = ph->getPosition())
             if (pos->getIsPlaying() && pos->getPpqPosition()) {
-                playing = true;
-                ppq = *pos->getPpqPosition();
+                hostPlaying = true;
+                tr.ppq = *pos->getPpqPosition();
                 if (pos->getBpm()) bpm = *pos->getBpm();
-                internalPpq_ = ppq;
             }
-        }
+    bool internal = false;
+    if (!hostPlaying && runInternal_.load()) {
+        if (!internalPlaying_.load()) internalPpq_ = 0;
+        internal = true;
+        tr.ppq = internalPpq_;
     }
-    if (!playing && run_->load() > 0.5f) {
-        if (!wasPlaying_) internalPpq_ = 0;
-        playing = true;
-        ppq = internalPpq_;
-    }
-    if (playing) {
-        const double pps = bpm / 60.0 / sr;
-        const double swing = swing_->load() / 100.0;
-        const int length = juce::jlimit(1, 16, static_cast<int>(length_->load()));
-        seq.process(ppq, pps, n, swing, length, [&](int t, float vel, int off) { push(t, vel, off); });
-        internalPpq_ = ppq + n * pps;
-    } else if (wasPlaying_) {
-        seq.currentStep.store(-1, std::memory_order_relaxed);
-    }
-    wasPlaying_ = playing;
-    running_.store(playing, std::memory_order_relaxed);
+    // L'hote reprend la main : RUN s'eteint
+    if (hostPlaying && runInternal_.load()) runInternal_.store(false);
+    internalPlaying_.store(internal);
+    tr.playing = hostPlaying || internal;
+    tr.ppqPerSample = bpm / 60.0 / sr;
+    if (internal) internalPpq_ += n * tr.ppqPerSample;
 
-    std::sort(ev.begin(), ev.begin() + ne, [](const Event& a, const Event& b) { return a.offset < b.offset; });
-    for (int i = 0; i < ne; ++i) engine_.trigger(ev[static_cast<size_t>(i)].track, ev[static_cast<size_t>(i)].vel, ev[static_cast<size_t>(i)].offset);
-
-    // le rendu : le main, et les sorties separees actives
-    auto main = getBusBuffer(buffer, false, 0);
-    float* auxL[mm::kTracks] = {};
-    float* auxR[mm::kTracks] = {};
-    for (int t = 0; t < mm::kTracks; ++t) {
-        if (t + 1 < getBusCount(false) && getBus(false, t + 1)->isEnabled()) {
-            auto aux = getBusBuffer(buffer, false, t + 1);
-            if (aux.getNumChannels() >= 2) {
-                auxL[t] = aux.getWritePointer(0);
-                auxR[t] = aux.getWritePointer(1);
-            }
-        }
-    }
-    engine_.render(main.getWritePointer(0), main.getWritePointer(1), auxL, auxR, n);
+    engine_.process(tr, buffer.getWritePointer(0), buffer.getWritePointer(1), n, notes.data(), nn);
     buffer.applyGain(dbToGain(master_->load()));
-}
-
-/* ---------------- l'etat ---------------- */
-
-void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
-    auto state = apvts.copyState();
-    juce::ValueTree pat("PATTERN");
-    for (int t = 0; t < mm::kTracks; ++t) {
-        juce::String s;
-        for (int i = 0; i < mm::kSteps; ++i) s << static_cast<int>(seq.steps[t][i].load());
-        pat.setProperty(mm::trackName(t), s, nullptr);
-    }
-    state.removeChild(state.getChildWithName("PATTERN"), nullptr);
-    state.appendChild(pat, nullptr);
-    if (auto xml = state.createXml()) copyXmlToBinary(*xml, destData);
-}
-
-void MMRytmProcessor::setStateInformation(const void* data, int sizeInBytes) {
-    auto xml = getXmlFromBinary(data, sizeInBytes);
-    if (!xml || !xml->hasTagName(apvts.state.getType())) return;
-    auto state = juce::ValueTree::fromXml(*xml);
-    const auto pat = state.getChildWithName("PATTERN");
-    if (pat.isValid()) {
-        for (int t = 0; t < mm::kTracks; ++t) {
-            const juce::String s = pat.getProperty(mm::trackName(t)).toString();
-            for (int i = 0; i < mm::kSteps; ++i) seq.steps[t][i].store(i < s.length() ? static_cast<uint8_t>(juce::jlimit(0, 2, s[i] - '0')) : 0);
-        }
-    }
-    apvts.replaceState(state);
 }
 
 juce::AudioProcessorEditor* MMRytmProcessor::createEditor() { return new MMRytmEditor(*this); }

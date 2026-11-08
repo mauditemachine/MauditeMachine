@@ -10,7 +10,7 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS minimum")
 option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et ses tests)" ON)
 
 # --- le DSP, sans JUCE ---
-add_library(mm_dsp STATIC dsp/Shots.cpp dsp/Engine.cpp)
+add_library(mm_dsp STATIC dsp/Shots.cpp dsp/Engine.cpp dsp/Program.cpp)
 target_include_directories(mm_dsp PUBLIC dsp)
 set_target_properties(mm_dsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -46,7 +46,7 @@ juce_add_plugin(MM_RYTM
   NEEDS_MIDI_INPUT TRUE
   NEEDS_MIDI_OUTPUT FALSE
   IS_MIDI_EFFECT FALSE
-  EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+  EDITOR_WANTS_KEYBOARD_FOCUS TRUE
   VST3_CATEGORIES Instrument Drum
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
@@ -54,15 +54,29 @@ juce_add_plugin(MM_RYTM
 file(GLOB_RECURSE MM_SAMPLE_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../../public/samples/rytm/*.wav")
 juce_add_binary_data(mm_samples SOURCES ${MM_SAMPLE_FILES})
 
+# La face (2026-11-08) : le build de src/v4/plugin (npm run plugin:web -> build-web), en un zip dans le binaire
+set(MM_WEB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build-web")
+if(NOT EXISTS "${MM_WEB_DIR}/index.html")
+  message(FATAL_ERROR "La face n'est pas construite : lance `npm ci && npm run plugin:web` a la racine du depot")
+endif()
+set(MM_WEB_ZIP "${CMAKE_CURRENT_BINARY_DIR}/web.zip")
+file(REMOVE "${MM_WEB_ZIP}")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E tar cf "${MM_WEB_ZIP}" --format=zip .
+  WORKING_DIRECTORY "${MM_WEB_DIR}" RESULT_VARIABLE MM_ZIP_RES)
+if(NOT MM_ZIP_RES EQUAL 0)
+  message(FATAL_ERROR "Zip de la face impossible")
+endif()
+juce_add_binary_data(mm_web HEADER_NAME WebData.h NAMESPACE WebData SOURCES "${MM_WEB_ZIP}")
+
 target_sources(MM_RYTM PRIVATE src/PluginProcessor.cpp src/PluginEditor.cpp src/SampleBank.cpp)
 
 target_compile_definitions(MM_RYTM PUBLIC
-  JUCE_WEB_BROWSER=0
+  JUCE_WEB_BROWSER=1
   JUCE_USE_CURL=0
   JUCE_VST3_CAN_REPLACE_VST2=0
   JUCE_DISPLAY_SPLASH_SCREEN=0)
 
 target_link_libraries(MM_RYTM
-  PRIVATE mm_dsp mm_samples
-    juce::juce_audio_utils juce::juce_audio_processors
+  PRIVATE mm_dsp mm_samples mm_web
+    juce::juce_audio_utils juce::juce_audio_processors juce::juce_gui_extra
   PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_lto_flags juce::juce_recommended_warning_flags)

@@ -1134,20 +1134,53 @@ function drift(): Drift {
   };
 }
 
+/**
+ * Le plugin (2026-11-08, plugin/mm-rytm) : le transport est celui du C++ (l'hote, ou son horloge interne) ; l'horloge du
+ * navigateur ne joue jamais (le son vient du plugin). RUN, STOP, PLAY et PAUSE de la face lui sont demandes, running le
+ * lit. null : le site, l'horloge d'ici.
+ */
+export interface ExternalTransport {
+  running(): boolean;
+  start(): void;
+  stop(): void;
+}
+let ext: ExternalTransport | null = null;
+
 export const clock = {
   get running(): boolean {
-    return running;
+    return ext ? ext.running() : running;
+  },
+  /** Le plugin : le transport du C++ remplace celui-ci (null : le rendre). */
+  external(t: ExternalTransport | null): void {
+    if (t && running) stop();
+    ext = t;
+    runListeners.forEach((fn) => fn());
+  },
+  /** Le plugin : le transport du C++ a change (RUN ou STOP), les ecouteurs de RUN le relisent. */
+  externalChanged(): void {
+    runListeners.forEach((fn) => fn());
   },
   get bpm(): number {
     return bpm;
   },
   /** RUN : exige le contexte (cree par le geste qui appelle) ; false sinon. */
-  start: (): boolean => start(false),
-  stop,
-  /** PLAY en lecture (V.5.0) : la pause ; le pas de la reprise est retenu. */
-  pause,
+  start: (): boolean => {
+    if (!ext) return start(false);
+    ext.start();
+    return true;
+  },
+  stop: (): void => {
+    if (ext) ext.stop();
+    else stop();
+  },
+  /** PLAY en lecture (V.5.0) : la pause ; le pas de la reprise est retenu. Le plugin : un STOP du C++. */
+  pause: (): boolean => {
+    if (!ext) return pause();
+    ext.stop();
+    return true;
+  },
   /** PLAY en pause (V.5.0) : la reprise au pas de la pause ; false s'il n'y a pas de pause (ou deja en lecture). */
-  resume: (): boolean => (resumeAt >= 0 && !running ? start(true) : false),
+  resume: (): boolean => (ext ? false : resumeAt >= 0 && !running ? start(true) : false),
   /** En pause (V.5.0) : PLAY reprendra au pas de la pause, son temoin clignote. */
   get paused(): boolean {
     return resumeAt >= 0 && !running;
@@ -1178,6 +1211,11 @@ export const clock = {
   },
   /** RUN/STOP ; renvoie le nouvel etat (un RUN qui attend le son : un deuxieme appui l'annule). */
   toggle(): boolean {
+    if (ext) {
+      if (ext.running()) ext.stop();
+      else ext.start();
+      return ext.running();
+    }
     if (running) stop();
     else if (waitCtx) cancelWait();
     else start(false);

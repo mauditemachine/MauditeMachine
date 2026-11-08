@@ -47,6 +47,7 @@ import {
   type Texture,
 } from 'three';
 import { clock } from '../audio/clock';
+import { extHead } from '../plugin/head';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { INSTRUMENTS, VEL_MAX, pattern, velocity } from '../audio/pattern';
@@ -144,6 +145,8 @@ import {
   DT_FACE,
   DT_HEX,
   DT2_FACE,
+  PLUGIN,
+  PLUGIN_FACE,
 } from '../theme';
 import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
@@ -1250,7 +1253,10 @@ export class Stage {
     const offRun = clock.subscribe(this.syncRun);
     // Chaque pas programme reveille la boucle (la tete de lecture l'allume a son heure)
     const offStep = clock.onStep(() => this.kick());
+    // Le plugin : chaque position du C++ reveille aussi la boucle
+    const offHead = extHead.onWake(() => this.kick());
     this.unsubClock = () => {
+      offHead();
       offRun();
       offStep();
     };
@@ -1704,7 +1710,7 @@ export class Stage {
     const inset = Math.min(this.height * 0.7, insetPx);
     const head = Math.min(this.height * 0.2, headPx);
     const free = Math.max(1, this.height - inset - head);
-    const hwBase = Math.max(F.hw0, (F.h / FIT_H / 2) * (W / free));
+    const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free));
     const e = this.explodeFrame();
     // Ouvert (desktop, 2026-10-05) : l'interieur (la plaque et sa carte) remplit la vue ; sinon la pile entiere
     const inner = F.openW > 0;
@@ -1880,8 +1886,9 @@ export class Stage {
     const mob = this.layoutMobile;
     const m808: Frame = {
       cx: 0,
-      hw0: mob ? FRONT_W / 2 / FRAME_MOBILE : f === 'mm808' ? BODY.w / 2 / SINGLE_FILL : PLATEAU_W / 2 / FRAME_DESKTOP,
-      h: !mob && f === 'mm808' ? BODY.d + 0.5 : MACHINE_H,
+      // Le plugin (2026-11-08) : la face (PANEL_W x PANEL_D le long de la pente) remplit la fenetre, bord a bord
+      hw0: PLUGIN ? PLUGIN_FACE.w / 2 : mob ? FRONT_W / 2 / FRAME_MOBILE : f === 'mm808' ? BODY.w / 2 / SINGLE_FILL : PLATEAU_W / 2 / FRAME_DESKTOP,
+      h: PLUGIN ? PLUGIN_FACE.d : !mob && f === 'mm808' ? BODY.d + 0.5 : MACHINE_H,
       ty: ORBIT.targetY,
       explodeTy: EXPLODE.targetY,
       rClosed: SECTION_FRAME.radius.closed,
@@ -3513,6 +3520,23 @@ export class Stage {
    * deux pas, 'poll' garde la boucle sans rien rendre.
    */
   private pollPlayhead = (now: number): 'paint' | 'poll' | false => {
+    // Le plugin (2026-11-08) : la tete vient du C++ (plugin/head.ts), l'horloge du navigateur ne joue pas
+    if (extHead.active()) {
+      const x = extHead.get();
+      const xSeq = x ? x.seq : -1;
+      if (xSeq === this.headSeq) return x ? 'poll' : false;
+      this.headSeq = xSeq;
+      const xStep = x ? x.step : -1;
+      this.seq.setPlayhead(xStep);
+      playhead.set(xStep);
+      if (x && x.mask !== 0) {
+        for (let k = 0; k < INSTRUMENTS.length; k += 1) {
+          if (x.mask & (1 << k)) this.pads?.flash(INSTRUMENTS[k], PAD_FX.seqFlashMs, now);
+        }
+        if (this.trkShown) this.trkHits(x.mask, x.step, this.flashClock());
+      }
+      return 'paint';
+    }
     const c = context();
     const e = clock.running && c ? clock.entryAt(c.currentTime) : null;
     // En pause au desktop (V.5.0, la revue de D1, R6) : la tete reste sur le dernier pas entendu (la face seulement, l'ecran et

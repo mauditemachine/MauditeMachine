@@ -24,6 +24,8 @@ import type { Dt2ButtonId } from '../rytm/dtFaceIds';
  */
 export const PORTRAIT: boolean = (() => {
   if (typeof window === 'undefined') return false;
+  // Le plugin (plus bas) : toujours la face du desktop, quelle que soit la largeur de sa fenetre
+  if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('portrait');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.portrait', q);
@@ -31,6 +33,22 @@ export const PORTRAIT: boolean = (() => {
     if (forced === '1') return true;
     if (forced === '0') return false;
     return window.matchMedia('(max-width: 767px)').matches;
+  } catch {
+    return false;
+  }
+})();
+
+/**
+ * Le plugin (2026-11-08, Mika : "lance la WebView avec ma vraie face", plugin/mm-rytm) : la face du MM-RYTM seule, dans
+ * la fenetre du VST3 (WebView JUCE), vue de dessus, sans le reste du site ; le son vient du plugin (C++), jamais du
+ * navigateur. Pose par la page du plugin (window.__MM_PLUGIN__, avant tout module) ou ?plugin=1 (essai dans un
+ * navigateur). Lu a l'evaluation des modules, comme PORTRAIT ; jamais retenu.
+ */
+export const PLUGIN: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
+    return new URLSearchParams(window.location.search).get('plugin') === '1';
   } catch {
     return false;
   }

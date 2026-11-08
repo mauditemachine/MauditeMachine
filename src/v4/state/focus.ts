@@ -10,7 +10,7 @@
  * Sans le MM-VOYAGER (?voyager=0), la 808 seule : focus reste 'mm808'.
  */
 
-import { PORTRAIT } from '../theme';
+import { PLUGIN, PORTRAIT } from '../theme';
 
 export type MachineId = 'mm808' | 'voy' | 'bass' | 'dj';
 export type Focus = 'all' | MachineId;
@@ -30,6 +30,8 @@ export const DJ_NAME: Readonly<{ title: string; sub: string; aria: string }> = P
  */
 export const VOYAGER: boolean = (() => {
   if (typeof window === 'undefined') return true;
+  // Le plugin (2026-11-08) : la MM-RYTM seule
+  if (PLUGIN) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('voyager');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.voyager', q);

@@ -1,12 +1,14 @@
-// MM-RYTM, le processeur : parametres (APVTS), MIDI, transport de l'hote, calcul des sons hors du thread audio.
+// MM-RYTM, le processeur : le programme de la face (JSON) devient un etat de lecture (sons calcules hors du thread
+// audio), le transport de l'hote (ou l'horloge interne, RUN de la face), les notes MIDI, l'etat du projet.
 #pragma once
 
 #include "Engine.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-#include <array>
 #include <atomic>
+#include <map>
+#include <mutex>
 
 class MMRytmProcessor final : public juce::AudioProcessor {
 public:
@@ -38,48 +40,56 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // --- pour l'editeur ---
-    juce::AudioProcessorValueTreeState apvts;
-    mm::Sequencer seq;
-    void audition(int track) { audition_.fetch_or(1u << track, std::memory_order_relaxed); }
-    int playingStep() const { return seq.currentStep.load(std::memory_order_relaxed); }
-    bool isRunning() const { return running_.load(std::memory_order_relaxed); }
-    float takePeak(int track) { return engine_.takePeak(track); }
-    // Pret a jouer (le premier calcul des sons est fait).
-    bool soundsReady() const;
+    // --- la face (thread du message) ---
+    void faceProgram(const juce::String& json);
+    void faceState(const juce::String& lsJson);
+    void faceHit(const juce::var& hit);
+    void faceRun(bool on);
+    // L'etat a rendre a la face a son ouverture (les cles mm.v4.* du site), "" sans etat.
+    juce::String faceInitState() const;
 
-    static juce::String pid(int track, const char* key);
+    struct Feedback {
+        bool playing;
+        bool internal;
+        int step;
+        int seq;
+        int mask;
+    };
+    Feedback feedback() const;
+
+    juce::AudioProcessorValueTreeState apvts;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
-    void setDefaultPattern();
-    mm::ShotTweak tweakOf(int track, int& sampleIndex, double& stretch) const;
-    juce::String signatureOf(int track) const;
     void renderLoop();
+    std::shared_ptr<mm::PlayState> buildState(const mm::Program& p, double sr);
+    std::shared_ptr<mm::RenderedSound> soundFor(const mm::ProgSound& s, double sr);
 
     struct Renderer;
     std::unique_ptr<Renderer> renderer_;
 
     mm::Engine engine_;
     std::atomic<double> sr_{0};
-    std::atomic<uint32_t> audition_{0};
-    std::atomic<bool> running_{false};
+    std::atomic<bool> runInternal_{false};
+    std::atomic<bool> internalPlaying_{false};
+    std::atomic<double> progBpm_{130};
     double internalPpq_ = 0;
-    bool wasPlaying_ = false;
-
-    // Les parametres lus a chaque bloc (pointeurs stables de l'APVTS).
-    struct TrackRaw {
-        std::atomic<float>* level;
-        std::atomic<float>* pan;
-        std::atomic<float>* mute;
-        std::atomic<float>* out;
-    };
-    std::array<TrackRaw, mm::kTracks> raw_{};
     std::atomic<float>* master_ = nullptr;
-    std::atomic<float>* swing_ = nullptr;
-    std::atomic<float>* length_ = nullptr;
-    std::atomic<float>* bpm_ = nullptr;
-    std::atomic<float>* run_ = nullptr;
+
+    // Le programme et l'etat de la face (thread du message ; le calcul lit pending sous mutex)
+    mutable std::mutex mx_;
+    juce::String programJson_;
+    juce::String lsJson_;
+    std::unique_ptr<mm::Program> pendingProgram_;
+    std::vector<std::pair<mm::ProgSound, mm::LiveHit>> pendingLive_;
+    std::mutex pushMx_;
+
+    // Le cache des sons calcules (thread du calcul)
+    std::map<std::string, std::shared_ptr<mm::RenderedSound>> cache_;
+    std::vector<std::pair<std::string, std::shared_ptr<mm::RenderedSound>>> extras_;
+    mm::Program current_;
+    bool haveProgram_ = false;
+    double builtSr_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MMRytmProcessor)
 };
