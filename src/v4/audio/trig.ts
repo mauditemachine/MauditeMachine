@@ -10,9 +10,17 @@
 
 import { TRACK_KEYS, normTrackKey, type TrackKey } from './tracks';
 
-export type TrigParam = 'len' | 'prob' | 'cond' | 'utime' | 'lfot' | 'rtrg' | 'rate' | 'vfad' | 'rlen';
+export type TrigParam = 'len' | 'prob' | 'cond' | 'utime' | 'lfot' | 'rtrg' | 'rate' | 'vfad' | 'rlen' | 'tlen';
+/** Les reglages de trig d'un pas (verrouillables) : leur ordre entre dans SEQ_LOCK_IDS (audio/locks.ts) et la liste du MIDI. */
 export const TRIG_PARAMS: readonly TrigParam[] = ['len', 'prob', 'cond', 'utime', 'lfot', 'rtrg', 'rate', 'vfad', 'rlen'];
-export const isTrigParam = (v: unknown): v is TrigParam => typeof v === 'string' && (TRIG_PARAMS as readonly string[]).includes(v);
+/**
+ * tlen (2026-11-08, le plugin, Mika : "lance la longueur par piste") : la longueur de la piste, 0 (PTN) = celle du pattern,
+ * 1 a 64 pas = la sienne (la polymetrie de la Digitakt II, PER TRACK). Un reglage de la piste dans le pattern, jamais d'un pas :
+ * hors de TRIG_PARAMS (ni verrou, ni cible MIDI, aucun indice ne bouge), garde avec les autres reglages de trig du pattern ;
+ * le sequenceur du site l'ignore, le moteur du plugin le joue.
+ */
+export const TRIG_ROW_PARAMS: readonly TrigParam[] = [...TRIG_PARAMS, 'tlen'];
+export const isTrigParam = (v: unknown): v is TrigParam => typeof v === 'string' && (TRIG_ROW_PARAMS as readonly string[]).includes(v);
 
 /** Les longueurs de LEN et RLEN, en pas (une double croche) ; le dernier cran : INF (rien ne coupe). */
 export const LEN_STEPS: readonly (number | null)[] = [0.0625, 0.125, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 16, null];
@@ -56,7 +64,7 @@ export const CONDS: readonly Cond[] = buildConds();
 export const COND_MAX = CONDS.length - 1;
 
 /** Le depart de chaque reglage : LEN INF, PROB 100 %, COND NONE, uTIME 0, LFO.T ON, RTRG OFF, RATE 1/16, VFAD 0, RLEN 1 pas. */
-export const TRIG_DEF: Readonly<Record<TrigParam, number>> = { len: 12, prob: 100, cond: 0, utime: 0, lfot: 1, rtrg: 0, rate: 9, vfad: 0, rlen: 4 };
+export const TRIG_DEF: Readonly<Record<TrigParam, number>> = { len: 12, prob: 100, cond: 0, utime: 0, lfot: 1, rtrg: 0, rate: 9, vfad: 0, rlen: 4, tlen: 0 };
 /** La course de chaque reglage (son plus petit et son plus grand cran). */
 export const TRIG_RANGE: Readonly<Record<TrigParam, readonly [number, number]>> = {
   len: [0, LEN_STEPS.length - 1],
@@ -68,6 +76,7 @@ export const TRIG_RANGE: Readonly<Record<TrigParam, readonly [number, number]>> 
   rate: [0, RATE_DENS.length - 1],
   vfad: [VFAD_MIN, VFAD_MAX],
   rlen: [0, LEN_STEPS.length - 1],
+  tlen: [0, 64],
 };
 
 /** Une valeur posee sur son cran et bornee ; NaN : le depart. */
@@ -103,7 +112,7 @@ export function cleanTrigs(raw: unknown): TrigSet | null {
     const r = row as Record<string, unknown>;
     const o: TrigRow = {};
     let n = 0;
-    for (const p of TRIG_PARAMS) {
+    for (const p of TRIG_ROW_PARAMS) {
       const v = r[p];
       if (typeof v !== 'number' || !Number.isFinite(v)) continue;
       const c = clampTrig(p, v);
@@ -133,7 +142,7 @@ export function withTrig(t: Readonly<TrigSet>, inst: TrackKey, p: TrigParam, v: 
 
 /** Deux jeux egaux (le miroir des patterns n'ecrit pas pour rien). */
 export function sameTrigs(a: Readonly<TrigSet> | null | undefined, b: Readonly<TrigSet> | null | undefined): boolean {
-  const body = (x: Readonly<TrigSet> | null | undefined): string => JSON.stringify(INSTS.map((i) => (x?.[i] ? TRIG_PARAMS.map((p) => x[i]?.[p] ?? null) : null)));
+  const body = (x: Readonly<TrigSet> | null | undefined): string => JSON.stringify(INSTS.map((i) => (x?.[i] ? TRIG_ROW_PARAMS.map((p) => x[i]?.[p] ?? null) : null)));
   return body(a) === body(b);
 }
 export const anyTrigs = (t: Readonly<TrigSet> | null | undefined): boolean => !!t && INSTS.some((i) => !!t[i] && Object.keys(t[i] as object).length > 0);
@@ -234,6 +243,8 @@ export function trigText(p: TrigParam, v: number): string {
       return c ? 'ON' : 'OFF';
     case 'rate':
       return RATE_LABELS[c];
+    case 'tlen':
+      return c === 0 ? 'PTN' : String(c);
     default:
       return c > 0 ? `+${c}` : String(c);
   }
@@ -268,6 +279,8 @@ export function trigUnit(p: TrigParam, v: number, stepMs: number): string {
     }
     case 'lfot':
       return c ? 'RESTARTS' : 'LFO FREE';
+    case 'tlen':
+      return c === 0 ? 'PATTERN' : c === 1 ? '1 STEP' : `${c} STEPS`;
     case 'rtrg':
       return c ? 'REPEATS' : 'ONE HIT';
     case 'rate': {

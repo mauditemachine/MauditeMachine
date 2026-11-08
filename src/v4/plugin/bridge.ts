@@ -126,6 +126,8 @@ export interface ProgTrack {
   /** le coup du pad (sans verrou) : ce que joue un coup en direct */
   live: ProgHit;
   hits: ProgHit[];
+  /** la longueur de la piste (TLEN, 2026-11-08) : 0 = celle du pattern ; sinon 1 a len pas, qu'elle boucle sans repartir */
+  tlen?: number;
 }
 
 export interface Program {
@@ -157,7 +159,7 @@ export interface ProgPat {
   slot: number;
   len: number;
   loop: number;
-  tracks: Pick<ProgTrack, 'plays' | 'hits'>[];
+  tracks: Pick<ProgTrack, 'plays' | 'hits' | 'tlen'>[];
   xk?: ProgX[];
 }
 
@@ -254,7 +256,7 @@ function compile(): Program {
   for (let i = 0; i < st.slots.length; i += 1) {
     if (i === st.cur || !patterns.filled(i)) continue;
     const q = compilePat(slotSrc(i), tab);
-    pats.push({ slot: i, len: q.len, loop: q.loop, tracks: q.tracks.map((t) => ({ plays: t.plays, hits: t.hits })), ...(q.xk ? { xk: q.xk } : {}) });
+    pats.push({ slot: i, len: q.len, loop: q.loop, tracks: q.tracks.map((t) => ({ plays: t.plays, hits: t.hits, ...(t.tlen ? { tlen: t.tlen } : {}) })), ...(q.xk ? { xk: q.xk } : {}) });
   }
   p.sounds = tab.sounds;
   if (pats.length > 0) p.pats = pats;
@@ -315,6 +317,7 @@ function compileWith(src: PatSrc, tab: SoundTable): Program {
     const base = resolveHit(t, null, scenes);
     // Ce que les lock trigs de la voix demandent en direct a ses coups (VOL, PAN, le filtre) ; null : aucun lock trig
     const needs = liveNeeds(src.locks, t);
+    const tlen = Math.round(src.trigs?.[t]?.tlen ?? 0);
     const hits: ProgHit[] = [];
     for (let g = 0; g < len; g += 1) {
       const s = g % 16;
@@ -383,6 +386,8 @@ function compileWith(src: PatSrc, tab: SoundTable): Program {
       sl: sliceOf(base.fx, null),
       live: hitOf(t, -1, 1, base.hp),
       hits,
+      // TLEN : la longueur de la piste, au plus celle du pattern (ses pas sont ceux du pattern)
+      ...(tlen > 0 && tlen < len ? { tlen } : {}),
     });
   }
   const gfx: Record<string, number> = {};

@@ -787,6 +787,31 @@ int main() {
         CHECK(e.fbPat.load() == 1 && e.fbPatSeq.load() == seq0 + 1, "patterns : a l'arret, un program change change le pattern tout de suite");
     }
 
+    // ---------------- TLEN : la longueur par piste ----------------
+    {
+        // Un pattern de 16 pas ; le CH au pas 0 avec TLEN 3 : il joue aux pas 0, 3, 6 ... 15, puis 18, 21 (il ne repart pas a 16)
+        mm::Program p = baseProgram();
+        p.len = 16;
+        mm::ProgHit ch = p.tracks[2].live;
+        ch.g = 0;
+        p.tracks[2].hits = {ch};
+        p.tracks[2].tlen = 3;
+        const int STEP = 6000;
+        std::vector<float> l;
+        runPasses(p, 2, false, &l);
+        auto at = [&](int step) {
+            double s = 0;
+            for (long i = static_cast<long>(step) * STEP; i < static_cast<long>(step) * STEP + 1500 && i < static_cast<long>(l.size()); ++i) s += std::fabs(l[static_cast<size_t>(i)]);
+            return s;
+        };
+        bool ok = true;
+        for (int st = 0; st < 30; ++st) {
+            const bool want = st % 3 == 0;
+            ok = ok && (want ? at(st) > 0.1 : at(st) < 1e-6);
+        }
+        CHECK(ok, "TLEN : une piste de 3 pas boucle sur 3 pas a travers le pattern de 16 (polymetrie)");
+    }
+
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }

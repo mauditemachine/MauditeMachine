@@ -121,6 +121,7 @@ export const TRIG_LABEL: Readonly<Record<TrigParam, string>> = {
   rate: 'RETRIG RATE',
   vfad: 'RETRIG VELOCITY FADE',
   rlen: 'RETRIG LENGTH',
+  tlen: 'TRACK LENGTH',
 };
 export const LFO_LABEL: Readonly<Record<string, string>> = { spd: 'SPEED', mul: 'MULTIPLIER', fad: 'FADE', dst: 'DESTINATION', wav: 'WAVE', phs: 'PHASE', mod: 'MODE', dep: 'DEPTH' };
 

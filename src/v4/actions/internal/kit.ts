@@ -5,7 +5,7 @@
 
 import { kitOverride, resume } from '../../audio/drums';
 import { KIT_DEFAULT, KIT_FAMILIES, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, kit, kitSteps, layerRange, layerSteps, mixLevels, type KitFamily, type KitKnob, type KitModel, type Layer, type Plays } from '../../audio/kit';
-import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, TRACK_P_DEFAULT, normTrackKey, sampleFamily, trackIndex, tracks, type TrackKey, type TrackParamId, type TrackSound } from '../../audio/tracks';
+import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, TYPED_TRACKS, typedFamily, TRACK_P_DEFAULT, normTrackKey, sampleFamily, trackIndex, tracks, type TrackKey, type TrackParamId, type TrackSound } from '../../audio/tracks';
 import { type StepLock } from '../../audio/locks';
 import { sampleByKey, samplesOf, type SampleFail } from '../../audio/samples';
 import { VEL_MAX, pattern } from '../../audio/pattern';
@@ -334,6 +334,8 @@ export function trackFamilyOf(t: TrackKey | null): KitFamily | null {
   if (!t) return null;
   const idx = trackIndex(t);
   if (idx >= 0 && idx < 8) return KIT_FAMILIES[idx];
+  // Le plugin : les pistes 9 a 16 ont aussi leur type (BD2, SD2...)
+  if (TYPED_TRACKS && idx >= 0) return typedFamily(idx);
   const tr = tracks.of(t);
   if ((KIT_FAMILIES as readonly string[]).includes(tr.mach as KitFamily)) return tr.mach as KitFamily;
   const f = tr.snd ? sampleFamily(tr.snd) : undefined;
@@ -351,7 +353,7 @@ export function trackSampleList(track?: TrackKey | null): readonly { key: string
   } else {
     for (const fam of KIT_FAMILIES) for (const s of samplesOf(fam)) out.push({ key: s.key, label: s.label, family: s.family });
   }
-  if (t) {
+  if (t && !TYPED_TRACKS) {
     const curKey = tracks.of(t).snd;
     if (curKey && !out.some((x) => x.key === curKey)) {
       const s = sampleByKey(curKey);

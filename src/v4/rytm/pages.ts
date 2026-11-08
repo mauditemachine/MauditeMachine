@@ -72,7 +72,7 @@ import type { LockKey } from '../audio/locks';
 import { familyOf, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
-import { normTrackKey, tracks } from '../audio/tracks';
+import { TYPED_TRACKS, normTrackKey, tracks } from '../audio/tracks';
 import { activeTrack } from '../state/trk';
 import { DT2_FACE, DT_PAGE_KEYS, PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
 
@@ -557,7 +557,17 @@ const TRIG: readonly PageSlot[] = [
   trigSlot('μTIME', 'utime', 'barc', 'μTIME'),
   trigSlot('LFO.T', 'lfot', 'notch'),
 ];
-const TRIG2: readonly PageSlot[] = [trigSlot('RTRG', 'rtrg', 'notch'), trigSlot('RATE', 'rate', 'rate'), trigSlot('VFAD', 'vfad', 'vfad'), trigSlot('RLEN', 'rlen', 'decay')];
+/**
+ * TRIG 2/2, et dans le plugin (2026-11-08) E TLEN : la longueur de la piste (PTN = celle du pattern, 1 a 64 pas = la sienne,
+ * la polymetrie de la Digitakt II), un reglage de la piste dans le pattern, jamais verrouille.
+ */
+const TRIG2: readonly PageSlot[] = [
+  trigSlot('RTRG', 'rtrg', 'notch'),
+  trigSlot('RATE', 'rate', 'rate'),
+  trigSlot('VFAD', 'vfad', 'vfad'),
+  trigSlot('RLEN', 'rlen', 'decay'),
+  ...(TYPED_TRACKS ? [live('TLEN', 'q:tlen' as SlotTarget, 'bar')] : []),
+];
 /**
  * MOD 1/2 et 2/2 (V.5.1, audio/lfo.ts) : les deux LFO de la voix, A SPD, B MULT, C FADE, D DEST, E WAVE, F PHAS, G MODE, H
  * DEP ; des reglages de la voix (presets, UNDO), verrouillables, hors des scenes en D2.
@@ -688,7 +698,8 @@ export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
   const hit = DT2_SRC_CACHE.get(key);
   if (hit) return hit;
   let out: readonly PageSlot[];
-  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, SRC_LOOP, SRC_SLEV] : [SRC_FINE];
+  // Le plugin : la machine ne se change pas (une piste a son type, des samples seulement : audio/tracks.ts TYPED_TRACKS)
+  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, TYPED_TRACKS ? NONE : SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, SRC_LOOP, SRC_SLEV] : [SRC_FINE];
   else {
     const kn = MACHINE_KNOBS[mach] ?? [];
     // E F G : ses potards ; une machine qui en a moins y met la couche sample (STRT, LEN, SMP)

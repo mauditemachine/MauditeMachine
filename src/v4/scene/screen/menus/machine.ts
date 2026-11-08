@@ -6,7 +6,7 @@
  * LEGACY (le filtre d'aujourd'hui) ; MULTI-MODE, LOWPASS 4 et EQ arrivent en V.6.1.
  */
 
-import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, trackIndex, tracks, type SrcMachine, type TrackKey } from '../../../audio/tracks';
+import { SRC_MACHINES, SRC_MACHINE_LABEL, TRACK_NAMES, TYPED_TRACKS, trackIndex, tracks, typedFamily, type SrcMachine, type TrackKey } from '../../../audio/tracks';
 
 const trackLabel = (t: TrackKey): string => TRACK_NAMES[trackIndex(t)] ?? t;
 import { resume } from '../../../audio/drums';
@@ -32,6 +32,8 @@ function rows(): MenuRow[] {
   const t = screenTrack();
   if (cat === 1) return FLTR.map((f, i) => ({ label: f.label, ...(f.soon ? { dim: true, value: 'V.6.1' } : { on: i === 0 }) }));
   const cur = t ? tracks.of(t).mach : null;
+  // Le plugin : chaque piste a son type, des samples seulement (audio/tracks.ts TYPED_TRACKS)
+  if (TYPED_TRACKS) return [{ label: `ONESHOT  ${t ? typedFamily(trackIndex(t)).toUpperCase() : ''} SAMPLES`, on: true }];
   return SRC_MACHINES.map((m) => ({ label: SRC_MACHINE_LABEL[m], on: m === cur }));
 }
 
@@ -63,6 +65,10 @@ function set(): void {
     lcdMessage.show(cursor === 0 ? `${trackLabel(t)} FILTER: LEGACY` : 'FLTR MACHINES: BIENTOT V.6.1', 1400);
     return;
   }
+  if (TYPED_TRACKS) {
+    lcdMessage.show(`${trackLabel(t)} : ${typedFamily(trackIndex(t)).toUpperCase()} SAMPLES ONLY`, 1400);
+    return;
+  }
   const m: SrcMachine = SRC_MACHINES[cursor];
   resume();
   tracks.machine(t, m);
@@ -77,7 +83,7 @@ registerScreenMenu({
   onOpen() {
     cat = 0;
     const t = screenTrack();
-    cursor = t ? Math.max(0, SRC_MACHINES.indexOf(tracks.of(t).mach)) : 0;
+    cursor = t && !TYPED_TRACKS ? Math.max(0, SRC_MACHINES.indexOf(tracks.of(t).mach)) : 0;
     top = 0;
   },
   info: () => body,

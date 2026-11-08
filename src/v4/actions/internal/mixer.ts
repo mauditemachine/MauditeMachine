@@ -36,7 +36,7 @@ export function mixerDial(inst: Inst, v: number): void {
   setVoiceFx(inst, 'level', Math.max(0, Math.min(1, v)));
   lcdMessage.show(`${inst} VOL ${encText('vol', voiceFx.of(inst).level, voiceFx.of(inst).level, false)}  ${encUnit('vol', voiceFx.of(inst).level)}`, POT_UI.readoutMs, true);
 }
-const SEQ_NAME: Readonly<Record<TrigParam, string>> = { len: 'LEN', prob: 'PROB', cond: 'COND', utime: 'μTIME', lfot: 'LFO.T', rtrg: 'RTRG', rate: 'RATE', vfad: 'VFAD', rlen: 'RLEN' };
+const SEQ_NAME: Readonly<Record<TrigParam, string>> = { len: 'LEN', prob: 'PROB', cond: 'COND', utime: 'μTIME', lfot: 'LFO.T', rtrg: 'RTRG', rate: 'RATE', vfad: 'VFAD', rlen: 'RLEN', tlen: 'TLEN' };
 /** Son nom a l'ecran : LEN, LFO1 DEP. */
 export function seqName(p: SeqDial): string {
   if (isTrigParam(p)) return SEQ_NAME[p];

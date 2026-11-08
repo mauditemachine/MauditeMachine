@@ -31,7 +31,7 @@ import { LFO_PARAMS, clampLfo, lfoDefault } from './lfo';
 import type { TrigParam } from './trig';
 import type { VoiceFx, VoiceParam } from './voicelaw';
 import { VOICES_KEY, VOICE_FX_DEFAULT, VOICE_PARAMS, parseVoices, voiceClamp, voiceGain, voicesOut } from './voicelaw';
-import { sampleByKey, samplesChanged } from './samples';
+import { sampleByKey, samplesChanged, samplesOf } from './samples';
 import type { Inst } from '../theme';
 
 /* ---------------- les pistes ---------------- */
@@ -43,7 +43,24 @@ export type TrackKey = (typeof TRACK_KEYS)[number];
 /** Les 8 cles d'heritage (l'ancien Inst) : les vieilles donnees, le telephone tant qu'il reste a 8. */
 export const LEGACY_KEYS: readonly TrackKey[] = TRACK_KEYS.slice(0, 8);
 /** Le nom affiche d'une piste (ecran, libelles MIDI) : T1 a T16, suivi du nom du son ("T1 BLUEPRINT"). */
-export const TRACK_NAMES = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'] as const;
+/**
+ * Le plugin (2026-11-08, Mika : "un type de track genre bd c'est bd ! on peut pas mettre autre chose dans les track que ca
+ * et pas de machine de synthese juste des samples", plugin/mm-rytm) : chaque piste a un type, la famille de son rang (1 a 8
+ * : BD SD CH OH CP TOM HT CY ; 9 a 16 : les memes une seconde fois), et joue un sample de cette famille en ONESHOT, jamais
+ * une synthese. Pose par la page du plugin (window.__MM_PLUGIN__, comme theme/base.ts PLUGIN) ; le site ne change pas.
+ */
+export const TYPED_TRACKS: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
+    return new URLSearchParams(window.location.search).get('plugin') === '1';
+  } catch {
+    return false;
+  }
+})();
+const TYPED_NAMES = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY', 'BD2', 'SD2', 'CH2', 'OH2', 'CP2', 'TOM2', 'HT2', 'CY2'] as const;
+/** Les noms des pistes a l'ecran : T1 a T16 ; dans le plugin, leur type (BD, SD ... BD2, SD2 ...). */
+export const TRACK_NAMES: readonly string[] = TYPED_TRACKS ? TYPED_NAMES : ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15', 'T16'];
 export const trackIndex = (k: TrackKey): number => TRACK_KEYS.indexOf(k);
 
 /**
@@ -632,7 +649,39 @@ function load(): Kit16 {
   return { v: 1, tracks: [...legacy.tracks.slice(0, LEGACY_COUNT), ...full.tracks.slice(LEGACY_COUNT)], voice: full.voice, mix: full.mix };
 }
 
-let K: Kit16 = load();
+/** Le type d'une piste dans le plugin : la famille de son rang (BD pour les pistes 1 et 9, SD pour 2 et 10...). */
+export const typedFamily = (i: number): KitFamily => KIT_FAMILIES[((i % 8) + 8) % 8];
+
+/**
+ * Une piste du plugin a son type : ONESHOT, un sample de sa famille (le premier de la famille si elle jouait une synthese
+ * ou un sample d'ailleurs ; OFF reste OFF), le niveau du sample remis si la synthese le cachait. Telle quelle si rien ne change.
+ */
+function typedTrack(i: number, tr: Readonly<TrackSound>): Readonly<TrackSound> {
+  const f = typedFamily(i);
+  // Une piste jamais reglee (9 a 16 au depart) : le premier sample de son type plutot que OFF
+  if (tr === TRACK_EMPTY) {
+    const first = samplesOf(f)[0]?.key;
+    return first ? { ...tr, snd: first } : tr;
+  }
+  if (tr.mach === 'oneshot' && (!tr.snd || sampleFamily(tr.snd) === f)) return tr;
+  const snd = tr.snd && sampleFamily(tr.snd) === f ? tr.snd : (samplesOf(f)[0]?.key ?? '');
+  const p = tr.mach !== 'oneshot' && !(tr.p.slev > 0) ? { ...tr.p, slev: 1 } : tr.p;
+  return { ...tr, mach: 'oneshot', snd, p };
+}
+
+/** Le kit du plugin : chaque piste a son type (le chargement, chaque changement : preset, SOUNDS, MACHINE compris). */
+function typedKit(k: Kit16): Kit16 {
+  if (!TYPED_TRACKS) return k;
+  let changed = false;
+  const tracks = k.tracks.map((tr, i) => {
+    const n = typedTrack(i, tr);
+    if (n !== tr) changed = true;
+    return n;
+  });
+  return changed ? { ...k, tracks } : k;
+}
+
+let K: Kit16 = typedKit(load());
 let ver = 0;
 let saves = 0;
 const subs = new Set<(c: TracksChange) => void>();
@@ -703,7 +752,8 @@ const sameVoiceMode = (a: Readonly<TrackVoice>, b: Readonly<TrackVoice>): boolea
  * kitFams : les familles que la facade du kit annonce (celles de son geste, comme avant) ; absentes, celles des pistes
  * 1 a 8 dont le son a change.
  */
-function commit(next: Kit16, kitFams?: readonly KitFamily[]): boolean {
+function commit(next0: Kit16, kitFams?: readonly KitFamily[]): boolean {
+  const next = typedKit(next0);
   const tr: TrackKey[] = [];
   const sound: TrackKey[] = [];
   const voice: TrackKey[] = [];

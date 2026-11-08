@@ -778,6 +778,8 @@ void Engine::evalStep(const PlayState& ps, long G) {
         }
     }
     const Program& p = *P_;
+    // TLEN : une piste a sa longueur boucle depuis le debut du pattern, sans repartir avec lui (la polymetrie)
+    const long rel = G - patStart_;
     // Le passage du pattern (les conditions A:B, 1ST) : 1 au lancement, +1 a chaque retour au premier pas
     if (g == 0) {
         if (seenFirst_) ++passN_;
@@ -794,7 +796,8 @@ void Engine::evalStep(const PlayState& ps, long G) {
         // Le mute de la voix arrete son retrig
         if (!pt.plays) endRetrig(sv.rt);
         const auto& at = PA_->at[static_cast<size_t>(t)];
-        const int hi = g >= 0 && g < static_cast<int>(at.size()) ? at[static_cast<size_t>(g)] : -1;
+        const int gt = pt.tlen > 0 && p.loop < 0 ? static_cast<int>(rel % pt.tlen) : g;
+        const int hi = gt >= 0 && gt < static_cast<int>(at.size()) ? at[static_cast<size_t>(gt)] : -1;
         if (hi < 0) {
             if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF, sv.anchor)) endRetrig(sv.rt);
             continue;

@@ -79,6 +79,7 @@ struct ProgTrack {
     bool gated = false;
     bool kick = false; // la voie du kick (sans CHORUS ni envois globaux)
     SliceFx sl;        // la tranche de la voix
+    int tlen = 0;      // TLEN (2026-11-08) : la longueur de la piste en pas, qu'elle boucle depuis le debut du pattern ; 0 : celle du pattern
     ProgHit live;
     std::vector<ProgHit> hits; // par pas croissant
 };

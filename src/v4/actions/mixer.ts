@@ -57,6 +57,8 @@ export const seqDialOf = (id: DialId | SlotTarget | string | null): SeqDial | nu
   return isTrigParam(p) || isLfoParam(p) ? p : null;
 };
 export const seqRange = (p: SeqDial): [number, number] => {
+  // TLEN (le plugin) : au plus la longueur du pattern (une piste plus longue jouerait des pas qu'il n'a pas)
+  if (p === 'tlen') return [0, Math.max(1, pattern.stepCount())];
   const r = isTrigParam(p) ? TRIG_RANGE[p] : lfoRange(p);
   return [r[0], r[1]];
 };

@@ -187,6 +187,7 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
             tr.choke = static_cast<int>(num(tv, "choke", 0));
             tr.gated = flag(tv, "gated");
             tr.kick = flag(tv, "kick");
+            tr.tlen = std::max(0, std::min(128, static_cast<int>(num(tv, "tlen", 0))));
             if (const auto* sl = tv.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5)
                 tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
             parseHit(tv.getProperty("live", juce::var()), tr.live);
@@ -216,6 +217,7 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
                     const juce::var& tv = arr->getReference(t);
                     auto& tr = q.tracks[static_cast<size_t>(t)];
                     tr.plays = flag(tv, "plays");
+                    tr.tlen = std::max(0, std::min(128, static_cast<int>(num(tv, "tlen", 0))));
                     tr.hits.clear();
                     if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
                         for (const auto& hv : *hs) {
