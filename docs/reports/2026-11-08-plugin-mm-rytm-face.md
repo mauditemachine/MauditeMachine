@@ -51,7 +51,7 @@
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- Verifier le run du workflow (le premier avec la WebView).
+- **Build vert** (run 42458653008, 07:30 UTC) : tests DSP OK, face construite, VST3 universel compile du premier coup en 3 min 40 s. Artefact `MM-RYTM-macOS`, 17 Mo : https://github.com/mauditemachine/MauditeMachine/actions/runs/42458653008/artifacts/13608716718 (garde 30 jours).
 - **Mika** :
   - installer le nouveau VST3 (refaire la commande `xattr -cr` + `codesign` d'INSTALL.md) ;
   - verifier la face dans Ableton, le son des pads, la lecture calee sur Ableton, PLAY/STOP de la face Ableton arrete, la sauvegarde dans le projet.
