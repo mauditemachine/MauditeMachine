@@ -43,6 +43,10 @@ Demande de Mika : « lance les LFO oui sur le plugin non sur le site ». Le site
   - teste dans le conteneur (faux curl et faux outils macOS : la release, un artefact zippe deux fois, un chemin faux).
 
 - **Build vert** (run 42486748268, 13:53 UTC, LFO et `update.sh`) : artefact `MM-RYTM-macOS`, 17 Mo : https://github.com/mauditemachine/MauditeMachine/actions/runs/42486748268/artifacts/13619872707 (garde 30 jours). Le run 10 (LFO seuls) a ete annule par celui-ci, qui le contient.
+- **Build vert et release publiee** (run 42488775950, 14:20 UTC) : https://github.com/mauditemachine/MauditeMachine/releases/tag/mm-rytm-latest. Verifie depuis le conteneur sans compte GitHub :
+  - `update.sh` se telecharge, identique a celui du depot ;
+  - `MM-RYTM-macOS.zip` (17 Mo) contient `MM-RYTM.vst3` (Mach-O universel x86_64 + arm64), `BUILD.txt` (commit 3d02a58), `INSTALL.md` et `update.sh` ;
+  - le script de la release installe ce zip (faux outils macOS).
 
 ## 2. Decisions prises et pourquoi
 
