@@ -72,16 +72,22 @@ export const RYTM_VERSIONS: readonly RytmFaceVer[] = ['1.0', '2.0', '3.0', '4.0'
  */
 export const RYTM_FACE_VER: RytmFaceVer = (() => {
   if (PORTRAIT || typeof window === 'undefined') return '5.0';
+  // Le plugin : toujours la machine complete (la face DT2), quelle que soit l'adresse
+  if (PLUGIN) return '6.0';
   try {
     const f = new URLSearchParams(window.location.search).get('face');
+    // 2026-11-08 (Mika : "le plugin est fait pour etre complexe mais sur internet faut retourner vers quelque chose de simple
+    // en v1") : sur le site, la V.1.0 par defaut ; la V.6.0 (DT2) reste au selecteur de versions (?face=v6 ou ?face=dt2)
+    if (f === null || f === '') return '1.0';
+    if (f === 'v6' || f === '6' || f === '6.0' || f === 'dt2') return '6.0';
     if (f === 'v1' || f === '1' || f === '1.0') return '1.0';
     if (f === 'v2' || f === '2' || f === '2.0') return '2.0';
     if (f === 'v3' || f === '3' || f === '3.0') return '3.0';
     if (f === 'v4' || f === '4' || f === '4.0') return '4.0';
     if (f === 'v5' || f === '5' || f === '5.0') return '5.0';
-    return '6.0';
+    return '1.0';
   } catch {
-    return '6.0';
+    return '1.0';
   }
 })();
 

@@ -19,4 +19,6 @@ P=~/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3; [ -d "$P" ] || P=/Library/Audio/Pl
 - **Lecture** : le transport d'Ableton fait jouer le pattern, cale a la mesure. Ableton arrete, PLAY de la face lance l'horloge interne (au tempo de TEMPO), STOP l'arrete.
 - **MIDI** : un clip MIDI joue les pistes 1 a 8 en notes GM : 36 BD, 38 SD, 42 CH, 46 OH, 39 CP, 45 TOM, 50 HT, 49 CY (et leurs voisines GM). La velocite compte.
 - **Le projet** : tout ce que tu regles dans la face (pattern, sons, banques, presets) est sauve dans le projet Ableton, et le plugin joue meme fenetre fermee.
-- **Pas encore dans le plugin** (la face les montre, ils ne sonnent pas encore) : conditions, probabilite, retrig, LEN, LFO, filtres, effets (DIST, CHORUS, DELAY, REVERB, COMP), scenes et crossfader, chaines de patterns. Voir README.md.
+- **La souris** : l'ecran se clique (un clic choisit une ligne, un second clic la valide, la molette defile, clic droit = NO) et ses valeurs se tirent. Clic droit sur une touche = FUNC + la touche.
+- **Le sequenceur des trigs** : conditions (FILL en tenant PAGE ou YES, PRE, NEI, 1ST, A:B), PROB, uTIME, LEN, RETRIG, lock trigs, et le crossfader A / B jouent.
+- **Pas encore dans le plugin** (la face les montre, ils ne sonnent pas encore) : LFO, filtres, effets (DIST, CHORUS, DELAY, REVERB, COMP), chaines de patterns. Voir README.md.

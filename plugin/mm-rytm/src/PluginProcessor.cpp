@@ -78,6 +78,18 @@ void parseHit(const juce::var& o, mm::ProgHit& h) {
     h.gain = num(o, "gain", 1);
     h.pan = num(o, "pan", 0);
     h.start = num(o, "start", 0);
+    h.len = num(o, "len", -1);
+    h.prob = static_cast<int>(num(o, "prob", 100));
+    h.ck = static_cast<int>(num(o, "ck", 0));
+    h.cn = num(o, "cn", 0) != 0;
+    h.ca = static_cast<int>(num(o, "ca", 0));
+    h.cb = static_cast<int>(num(o, "cb", 0));
+    h.shift = num(o, "shift", 0);
+    h.rtrg = num(o, "rtrg", 0) != 0;
+    h.every = std::max(1.0 / 8, num(o, "every", 1));
+    h.vfad = static_cast<int>(num(o, "vfad", 0));
+    h.rlen = num(o, "rlen", 1);
+    h.lt = num(o, "lt", 0) != 0;
 }
 
 bool parseProgram(const juce::String& json, mm::Program& p) {

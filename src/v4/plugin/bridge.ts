@@ -12,19 +12,23 @@
  * external). Le son du navigateur est coupe (FLAGS.mute) ; un coup joue en direct (un pad, une touche) part vers le C++.
  *
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
- *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_log {where, msg}
+ *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
+ *                 mm_log {where, msg}
  *   C++ -> face : mm_transport {playing, internal, step, seq, mask, bpm}
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
 import { liveHook, resolveHit, type HitParams } from '../audio/drums';
 import { lockOf } from '../audio/locks';
+import { CONDS, trigNow } from '../audio/trig';
 import { pattern, VEL_GAIN, velocity } from '../audio/pattern';
 import { tracks, TRACK_KEYS, type TrackKey } from '../audio/tracks';
 import { decayTau, START_MAX } from '../audio/voicelaw';
 import type { Stage } from '../scene/renderer';
 import { FLAGS } from '../state/flags';
+import { fill } from '../state/fill';
 import { patterns } from '../state/patterns';
+import { sceneCtl } from '../state/sceneCtl';
 import { voices } from '../state/voices';
 import { SWING } from '../theme';
 import { extHead, type HeadEntry } from './head';
@@ -53,6 +57,23 @@ export interface ProgHit {
   pan: number;
   /** START, en part de la duree du son (0 a START_MAX) */
   start: number;
+  /**
+   * Le trig (V.5.1, audio/trig.ts trigNow, les reglages de la voix et les verrous du pas) : LEN et RLEN en pas (-1 : INF),
+   * PROB (0 a 100), COND (ck : 0 NONE, 1 FILL, 2 PRE, 3 NEI, 4 1ST, 5 LST, 6 A:B ; cn : NOT ; ca:cb), uTIME en pas, RTRG,
+   * RATE (every, en pas), VFAD ; lt : un lock trig (aucun son, ses verrous vont au coup qui sonne). Absents : le coup du pad.
+   */
+  len?: number;
+  prob?: number;
+  ck?: number;
+  cn?: number;
+  ca?: number;
+  cb?: number;
+  shift?: number;
+  rtrg?: number;
+  every?: number;
+  vfad?: number;
+  rlen?: number;
+  lt?: number;
 }
 
 export interface ProgTrack {
@@ -82,6 +103,9 @@ export interface Program {
 }
 
 const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
+
+/** Le genre d'une COND pour le C++ (dsp/Engine.cpp condTrue). */
+const COND_KIND: Readonly<Record<string, number>> = { none: 0, fill: 1, pre: 2, nei: 3, first: 4, last: 5, ab: 6 };
 
 function compile(): Program {
   const cur = pattern.get();
@@ -125,10 +149,27 @@ function compile(): Program {
     for (let g = 0; g < len; g += 1) {
       const s = g % 16;
       const v = velocity(pages[Math.floor(g / 16)], t, s);
-      if (v <= 0) continue;
       const lock = lockOf(cur.locks, t, s);
+      // Un lock trig (V.5.1) : un pas sans velocite dont le verrou ltrg vaut 1
+      const lt = v <= 0 && lock?.ltrg === 1;
+      if (v <= 0 && !lt) continue;
       const r = lock ? resolveHit(t, lock, scenes) : base;
-      hits.push(hitOf(t, g, VEL_GAIN[Math.min(VEL_GAIN.length - 1, v)], r.hp));
+      const h = hitOf(t, g, lt ? 0 : VEL_GAIN[Math.min(VEL_GAIN.length - 1, v)], r.hp);
+      const tn = trigNow(cur.trigs, t, lock);
+      const c = CONDS[tn.cond] ?? CONDS[0];
+      h.len = tn.len === null ? -1 : tn.len;
+      h.prob = tn.prob;
+      h.ck = COND_KIND[c.kind];
+      h.cn = c.not ? 1 : 0;
+      h.ca = c.a;
+      h.cb = c.b;
+      h.shift = r6(tn.shift);
+      h.rtrg = tn.rtrg ? 1 : 0;
+      h.every = r6(tn.every);
+      h.vfad = tn.vfad;
+      h.rlen = tn.rlen === null ? -1 : tn.rlen;
+      if (lt) h.lt = 1;
+      hits.push(h);
     }
     out.push({
       key: t,
@@ -296,6 +337,11 @@ export const bridge = {
     tracks.subscribe(() => changed());
     voices.subscribe(changed);
     patterns.subscribe(changed);
+    // Le crossfader (les scenes A et B) : le programme suit sa position
+    sceneCtl.onX(() => changed());
+    sceneCtl.subscribe(changed);
+    // FILL (tenir PAGE ou YES) : les trigs a condition FILL jouent tant qu'il est tenu
+    fill.subscribe(() => send('mm_fill', { on: fill.on }));
     send('mm_ready', {});
     sendProgram();
     sendState();

@@ -35,6 +35,18 @@ struct ProgHit {
     double gain = 1;   // gain du coup (VOL verrouille, loi du PAN) en plus de la velocite
     double pan = 0;
     double start = 0;  // part de la duree du son ou il commence
+    // Le trig (audio/trig.ts trigNow) : rien d'autre que le coup au depart
+    double len = -1;   // LEN en pas ; -1 : INF (rien ne coupe)
+    int prob = 100;    // PROB, 0 a 100
+    int ck = 0;        // COND : 0 NONE, 1 FILL, 2 PRE, 3 NEI, 4 1ST, 5 LST, 6 A:B
+    bool cn = false;   // NOT
+    int ca = 0, cb = 0;
+    double shift = 0;  // uTIME, en pas
+    bool rtrg = false; // RTRG
+    double every = 1;  // RATE : l'ecart des repetitions, en pas
+    int vfad = 0;      // VFAD, -64 a 63
+    double rlen = 1;   // RLEN en pas ; -1 : INF (jusqu'au trig suivant)
+    bool lt = false;   // un lock trig : aucun son, ses verrous vont au coup qui sonne
 };
 
 struct ProgTrack {

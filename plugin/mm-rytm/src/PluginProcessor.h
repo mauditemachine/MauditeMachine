@@ -45,6 +45,7 @@ public:
     void faceState(const juce::String& lsJson);
     void faceHit(const juce::var& hit);
     void faceRun(bool on);
+    void faceFill(bool on) { engine_.setFill(on); }
     // L'etat a rendre a la face a son ouverture (les cles mm.v4.* du site), "" sans etat.
     juce::String faceInitState() const;
 

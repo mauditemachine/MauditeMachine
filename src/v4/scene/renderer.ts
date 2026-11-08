@@ -3559,6 +3559,37 @@ export class Stage {
     return 'paint';
   };
 
+  /**
+   * Le plugin (2026-11-08, Mika : "quand on cherche un preset je voudrais le selectionner a la souris dans l'ecran") : le
+   * rectangle de la surface dessinee de l'ecran du MM-RYTM sur la page (px CSS), la vue fixe de dessus en fait un
+   * rectangle ; plugin/ScreenMouse.tsx y pose sa couche de souris. null : pas de machine.
+   */
+  screenRect(): { left: number; top: number; width: number; height: number } | null {
+    const plateau = this.machine?.plateau;
+    if (!plateau) return null;
+    plateau.updateMatrixWorld();
+    const r = this.canvas.getBoundingClientRect();
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const [dx, dz] of [
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, 1],
+    ] as const) {
+      const v = new Vector3(OLED.x + (dx * OLED.w) / 2, OLED.y, OLED.z + (dz * OLED.d) / 2).applyMatrix4(plateau.matrixWorld).project(this.camera);
+      const px = r.left + ((v.x + 1) / 2) * r.width;
+      const py = r.top + ((1 - v.y) / 2) * r.height;
+      x0 = Math.min(x0, px);
+      y0 = Math.min(y0, py);
+      x1 = Math.max(x1, px);
+      y1 = Math.max(y1, py);
+    }
+    return Number.isFinite(x0) ? { left: x0, top: y0, width: x1 - x0, height: y1 - y0 } : null;
+  }
+
   /** Les coups d'un pas en vue TRK : un eclair par voix du masque, a l'eclat de sa velocite (TRK_FLASH.velFloor a 1). */
   private trkHits(mask: number, step: number, at: number): void {
     const steps = pattern.get().steps;

@@ -247,6 +247,171 @@ int main() {
         CHECK(on && !e.fbPlaying.load() && e.fbStep.load() == -1, "retour : lecture, pas courant, arret");
     }
 
+    // ---------------- phase 2 : le sequenceur des trigs (audio/seq.ts) ----------------
+    // Un motif d'un pas par piste ; on compte les coups par pas sur plusieurs passages, sans son (on lit les voix jouees)
+    struct Run {
+        std::vector<int> hitsPerPass; // coups de la piste 1 (SD) par passage
+        std::vector<float> peaks;     // crete de chaque passage
+    };
+    auto runPasses = [&](mm::Program p, int passes, bool fill = false, std::vector<float>* outL = nullptr) {
+        mm::Engine e;
+        e.prepare(SR);
+        e.setFill(fill);
+        e.publish(makeState(p));
+        const double pps = 120.0 / 60.0 / SR;
+        const int block = 250; // divise un pas (6000 echantillons a 120 BPM, 48 kHz)
+        const int perPass = static_cast<int>(std::ceil(p.len * 0.25 / pps));
+        std::vector<float> l(block), r(block);
+        double ppq = 0;
+        Run out;
+        for (int k = 0; k < passes; ++k) {
+            float peak = 0;
+            for (int s = 0; s < perPass; s += block) {
+                std::fill(l.begin(), l.end(), 0.f);
+                std::fill(r.begin(), r.end(), 0.f);
+                e.process({true, ppq, pps}, l.data(), r.data(), block);
+                for (float x : l) peak = std::max(peak, std::fabs(x));
+                if (outL) outL->insert(outL->end(), l.begin(), l.end());
+                ppq += block * pps;
+            }
+            out.peaks.push_back(peak);
+        }
+        return out;
+    };
+    auto oneHit = [&](int ck, bool cn, int ca, int cb) {
+        mm::Program p = baseProgram();
+        p.len = 16;
+        mm::ProgHit h = p.tracks[1].live;
+        h.g = 0;
+        h.ck = ck;
+        h.cn = cn;
+        h.ca = ca;
+        h.cb = cb;
+        p.tracks[1].hits = {h};
+        return p;
+    };
+    {
+        // A:B 1:2 : passages 1, 3, 5 ; !1:2 : passages 2, 4
+        Run a = runPasses(oneHit(6, false, 1, 2), 4);
+        Run b = runPasses(oneHit(6, true, 1, 2), 4);
+        const bool okA = a.peaks[0] > 0.01f && a.peaks[1] < 1e-6f && a.peaks[2] > 0.01f && a.peaks[3] < 1e-6f;
+        const bool okB = b.peaks[0] < 1e-6f && b.peaks[1] > 0.01f && b.peaks[2] < 1e-6f && b.peaks[3] > 0.01f;
+        CHECK(okA && okB, "COND A:B : 1:2 joue aux passages impairs, !1:2 aux pairs");
+        Run c = runPasses(oneHit(4, false, 0, 0), 3);
+        CHECK(c.peaks[0] > 0.01f && c.peaks[1] < 1e-6f && c.peaks[2] < 1e-6f, "COND 1ST : seulement le premier passage");
+        Run f0 = runPasses(oneHit(1, false, 0, 0), 2, false);
+        Run f1 = runPasses(oneHit(1, false, 0, 0), 2, true);
+        CHECK(f0.peaks[0] < 1e-6f && f1.peaks[0] > 0.01f, "COND FILL : joue seulement FILL tenu");
+    }
+    {
+        // PROB 50 % sur 400 passages : entre 35 % et 65 % joues
+        mm::Program p = oneHit(0, false, 0, 0);
+        p.tracks[1].hits[0].prob = 50;
+        p.len = 4; // un passage (4 pas) plus long que la caisse claire : aucune queue d'un passage a l'autre
+        Run r = runPasses(p, 400);
+        int played = 0;
+        for (float pk : r.peaks) played += pk > 0.01f ? 1 : 0;
+        CHECK(played > 140 && played < 260, "PROB 50 % : environ un coup sur deux");
+        p.tracks[1].hits[0].prob = 0;
+        Run z = runPasses(p, 50);
+        bool none = true;
+        for (float pk : z.peaks) none = none && pk < 1e-6f;
+        CHECK(none, "PROB 0 % : jamais");
+    }
+    {
+        // PRE : la piste 2 (CH) a PRE apres la piste 1 a 1:2 ; NEI : la piste 2 suit le resultat de la piste 1 du meme pas
+        mm::Program p = oneHit(6, false, 1, 2);
+        mm::ProgHit h = p.tracks[2].live;
+        h.g = 0;
+        h.ck = 3; // NEI
+        p.tracks[1].slice = 0; // on n'ecoute que CH
+        p.tracks[2].hits = {h};
+        Run r = runPasses(p, 4);
+        CHECK(r.peaks[0] > 0.001f && r.peaks[1] < 1e-6f && r.peaks[2] > 0.001f && r.peaks[3] < 1e-6f, "COND NEI : suit la voix d'avant au meme pas");
+    }
+    {
+        // uTIME : +12/24 de pas, le coup part un demi-pas plus tard ; -12 un demi-pas plus tot (avance)
+        auto firstSample = [&](double shift) {
+            mm::Program p = baseProgram();
+            p.len = 16;
+            mm::ProgHit h = p.tracks[1].live;
+            h.g = 4;
+            h.shift = shift;
+            p.tracks[1].hits = {h};
+            std::vector<float> l;
+            runPasses(p, 1, false, &l);
+            for (size_t i = 0; i < l.size(); ++i)
+                if (std::fabs(l[i]) > 1e-7f) return static_cast<long>(i);
+            return -1L;
+        };
+        const long step = static_cast<long>(0.25 / (120.0 / 60.0 / SR)); // 6000
+        const long a = firstSample(0), b = firstSample(0.5), c = firstSample(-0.5);
+        CHECK(std::labs(a - 4 * step) <= 1 && std::labs(b - (4 * step + step / 2)) <= 1 && std::labs(c - (4 * step - step / 2)) <= 1, "uTIME : en retard et en avance, a l'echantillon pres");
+    }
+    {
+        // RTRG : RATE 1/32 (every 0.5), RLEN 1 pas : 2 coups (le trig et une repetition), VFAD -64 : la repetition plus faible
+        mm::Program p = baseProgram();
+        p.len = 16;
+        mm::ProgHit h = p.tracks[2].live; // CH (court)
+        h.g = 0;
+        h.rtrg = true;
+        h.every = 0.5;
+        h.rlen = 1;
+        h.vfad = -64;
+        p.tracks[2].hits = {h};
+        std::vector<float> l;
+        runPasses(p, 1, false, &l);
+        const long step = static_cast<long>(0.25 / (120.0 / 60.0 / SR));
+        auto peakIn = [&](long a, long b) {
+            float pk = 0;
+            for (long i = a; i < b && i < static_cast<long>(l.size()); ++i) pk = std::max(pk, std::fabs(l[static_cast<size_t>(i)]));
+            return pk;
+        };
+        // la repetition (a step / 2) dure 4320 echantillons : rien apres step + 1500
+        const float p0 = peakIn(0, step / 2), p1 = peakIn(step / 2, step), p2 = peakIn(step + 1500, 2 * step);
+        CHECK(p0 > 0.01f && p1 > 0.001f && p1 < p0 && p2 < 1e-6f, "RTRG : une repetition a 1/32, VFAD la fait descendre, RLEN l'arrete");
+    }
+    {
+        // LEN 1/4 de pas : plus rien apres 1/4 de pas + 8 ms (l'OH est long)
+        mm::Program p = baseProgram();
+        p.len = 16;
+        mm::ProgHit h = p.tracks[3].live;
+        h.g = 0;
+        h.len = 0.25;
+        p.tracks[3].hits = {h};
+        std::vector<float> l;
+        runPasses(p, 1, false, &l);
+        const long cut = static_cast<long>(0.25 * 0.25 / (120.0 / 60.0 / SR) + 0.008 * SR) + 2;
+        double after = 0, before = 0;
+        for (size_t i = 0; i < l.size(); ++i) (static_cast<long>(i) < cut ? before : after) += std::fabs(l[i]);
+        CHECK(before > 0 && after == 0, "LEN : le coup relache a la fin de LEN");
+    }
+    {
+        // Lock trig : un pas sans son qui baisse le VOL du coup qui sonne (gain 0.1)
+        mm::Program p = baseProgram();
+        p.len = 16;
+        mm::ProgHit h = p.tracks[3].live;
+        h.g = 0;
+        mm::ProgHit lt = h;
+        lt.g = 2;
+        lt.lt = true;
+        lt.gain = 0.1;
+        p.tracks[3].hits = {h, lt};
+        std::vector<float> withLt, without;
+        runPasses(p, 1, false, &withLt);
+        p.tracks[3].hits = {h};
+        runPasses(p, 1, false, &without);
+        const long step = static_cast<long>(0.25 / (120.0 / 60.0 / SR));
+        double a = 0, b = 0;
+        for (long i = 2 * step + 1000; i < 3 * step; ++i) {
+            a += std::fabs(withLt[static_cast<size_t>(i)]);
+            b += std::fabs(without[static_cast<size_t>(i)]);
+        }
+        bool same = true;
+        for (long i = 0; i < 2 * step; ++i) same = same && withLt[static_cast<size_t>(i)] == without[static_cast<size_t>(i)];
+        CHECK(same && b > 0 && a < 0.2 * b, "lock trig : le VOL du coup qui sonne baisse au pas du lock trig");
+    }
+
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }

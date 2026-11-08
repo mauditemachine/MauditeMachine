@@ -10,7 +10,7 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 - **L'etat** : les cles `mm.v4.*` du localStorage du site (motif, pistes, banques, presets...) sont gardees dans le projet Ableton avec le programme ; a l'ouverture de la fenetre, la face les reprend avant de se charger (`src/v4/plugin/restore.ts`).
 - **Le transport** : celui d'Ableton ; PLAY de la face lance l'horloge interne quand Ableton est arrete. La tete de lecture de la face suit le C++ (`src/v4/plugin/head.ts`).
 
-## Ce qui joue (phase 1)
+## Ce qui joue (phases 1 et 2)
 
 | | Etat |
 | --- | --- |
@@ -20,9 +20,18 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | ENV : ATK, HOLD, DECAY ; PAN ; kick mono ; choke CH / OH ; 4 voix par piste | joue (`tests/engine_test.cpp`) |
 | MUTE, SOLO, mute du pattern | joue |
 | Pads, touches, notes MIDI GM d'Ableton | joue |
-| Conditions, probabilite, microtiming, retrig, LEN, LFO | phase 2 (`audio/seq.ts`) |
-| FLTR, effets de piste (TONE, DIST, CHORUS), envois (DELAY, REVERB), compresseur, limiteur, scenes / crossfader | phase 3 |
-| Chaines de patterns, FILL, SONG, samples perso du navigateur | phase 4 |
+| Conditions (FILL, PRE, NEI, 1ST, A:B, NOT), PROB, uTIME (en avance aussi), LEN, RTRG (RATE, VFAD, RLEN), lock trigs (VOL, PAN) | joue (phase 2, port de `audio/seq.ts`, `tests/engine_test.cpp`) |
+| Crossfader A / B (scenes) | joue sur ce que le coup lit (hauteur, DECAY, VOL, PAN, sons) ; les effets suivront |
+| LFO | phase 3 (avec les filtres et effets qu'ils modulent) |
+| FLTR, effets de piste (TONE, DIST, CHORUS), envois (DELAY, REVERB), compresseur, limiteur | phase 3 |
+| Chaines de patterns, SONG, samples perso du navigateur, multi-out | phase 4 |
+
+## La face dans le plugin (plus simple qu'au site)
+
+- L'ecran se clique : les listes (presets, SETTINGS, SOUNDS...) a la souris, un clic choisit, un second clic (ou un double clic) valide, la molette defile, un clic droit revient (NO). Les valeurs de l'ecran se tirent a la souris.
+- Clic droit sur une touche = FUNC + la touche (sa fonction orange), sans tenir FUNCTION.
+- SETTINGS ne garde que PATTERN, PERSONALIZE et ABOUT.
+- Le site, lui, revient a la V.1.0 par defaut (la V.6.0 reste au selecteur de versions) ; le plugin est toujours en V.6.0.
 
 ## Commandes
 

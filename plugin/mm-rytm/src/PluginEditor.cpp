@@ -70,6 +70,7 @@ juce::WebBrowserComponent::Options MMRytmEditor::options() {
                  .withEventListener("mm_state", [this](juce::var o) { proc_.faceState(o.getProperty("ls", "").toString()); })
                  .withEventListener("mm_hit", [this](juce::var o) { proc_.faceHit(o); })
                  .withEventListener("mm_run", [this](juce::var o) { proc_.faceRun(static_cast<bool>(o.getProperty("on", false))); })
+                 .withEventListener("mm_fill", [this](juce::var o) { proc_.faceFill(static_cast<bool>(o.getProperty("on", false))); })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;

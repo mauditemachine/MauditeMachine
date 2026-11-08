@@ -15,7 +15,7 @@ import { lcdMessage } from '../../../state/lcdMessage';
 import { PRESET_SLOTS, presetMode, type PresetSlot } from '../../../state/presetMode';
 import type { Screen } from '../core';
 import { BLACK, FAINT, HALF, INK } from '../consts';
-import { registerScreenMenu, type ScreenMenu } from './registry';
+import { registerScreenMenu, type ScreenMenu, type ScreenPoint } from './registry';
 import { DIM_TEXT, acting, paintHint, paintList, paintPanel, paintPopupBox, scrollTop, stepCursor, type MenuRow } from './frame';
 import { menuChanged, screenTrack, setOpenMenu } from './open';
 
@@ -104,6 +104,42 @@ function applyTrackPreset(idx: number): void {
 
 const KIT_VISIBLE_ROWS = 11;
 let kitTop = 0;
+// La geometrie de la liste des kits (unites de l'ecran) : la peinture et la souris la partagent
+const ROW_H = 12.2;
+const START_Y = 37;
+const LIST_W = 302;
+const X0 = 6;
+
+/**
+ * La souris dans la liste (le plugin, 2026-11-08, Mika : "quand on cherche un preset je voudrais aussi le selectionner a la
+ * souris dans l'ecran") : un clic choisit la ligne, un clic sur la ligne choisie (ou un double clic) la charge, la molette
+ * fait defiler. Les questions, le nom et les operations restent aux touches.
+ */
+function point(p: ScreenPoint): boolean {
+  if (level === 'sound') {
+    if (p.kind === 'wheel') soundCursor = stepCursor(soundCursor, TRACK_SOUND_PRESETS.length, Math.sign(p.delta ?? 0), false);
+    else return false;
+    menuChanged();
+    return true;
+  }
+  const v = presetMode.view(M);
+  if (!v || v.stage !== 'browse' || level !== 'kit' || !v.list || v.list.length === 0) return false;
+  if (p.kind === 'wheel') {
+    presetMode.step(M, Math.sign(p.delta ?? 0), false);
+    menuChanged();
+    return true;
+  }
+  const r = Math.floor((p.v - START_Y) / ROW_H);
+  if (r < 0 || r >= KIT_VISIBLE_ROWS || p.u < X0 || p.u > X0 + LIST_W) return false;
+  const item = v.list[kitTop + r];
+  if (!item) return false;
+  if (item.index === v.selectedIndex || p.kind === 'dbl') {
+    if (item.index !== v.selectedIndex) presetMode.select(M, item.index);
+    presetKey(M, 'load');
+  } else presetMode.select(M, item.index);
+  menuChanged();
+  return true;
+}
 
 function paint(screen: Screen): number {
   if (level === 'sound') {
@@ -132,10 +168,6 @@ function paint(screen: Screen): number {
     screen.text(v.title === 'PRESETS' ? 'KIT LIBRARY' : v.title, 8, 33, 7.5, HALF, 700, 'left', 0.6);
     screen.text(`${v.group ? `${v.group}  ` : ''}${v.count}`, 312, 33, 7.5, HALF, 700, 'right', 0.5);
 
-    const ROW_H = 12.2;
-    const START_Y = 37;
-    const LIST_W = 302;
-    const X0 = 6;
 
     for (let r = 0; r < KIT_VISIBLE_ROWS && kitTop + r < v.list.length; r += 1) {
       const item = v.list[kitTop + r];
@@ -321,6 +353,7 @@ function menu(id: 'preset' | 'kit'): ScreenMenu {
     },
     info: () => `${level}|${body}`,
     onInput: input,
+    onPoint: point,
   };
 }
 

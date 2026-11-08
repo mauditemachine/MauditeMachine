@@ -984,7 +984,9 @@ export const REC_MARK_D = 1;
  * jumeaux HTML restent pour le clavier et les lecteurs d'ecran) ; vrai au telephone (sans potards, il se touche) ; le
  * futur kiosque ?hw=1 (l'ecran tactile du boitier) le voudra vrai. scene/hit.ts HitMap.screenTouch, ui/Hotspots.tsx.
  */
-export const SCREEN_TOUCH: boolean = PORTRAIT;
+// Le plugin (2026-11-08, Mika : "quand on cherche un preset je voudrais aussi le selectionner a la souris dans l'ecran") :
+// dans la fenetre du VST3, l'ecran se clique a la souris (les listes, les menus, les valeurs), en plus des potards
+export const SCREEN_TOUCH: boolean = PORTRAIT || PLUGIN;
 
 /**
  * Les commandes de la face visibles et inertes : curseur par defaut, rien ne part. Vide depuis P2-20 (2026-10-27) : TRK,
