@@ -67,6 +67,7 @@ Demande de Mika : « lance la longueur par piste ; fais juste adapter les tracks
 - `src/v4/plugin/bridge.ts` : `tlen` de chaque piste (pattern courant et `pats`) quand il est plus court que le pattern.
 - `plugin/mm-rytm/dsp/` : `ProgTrack::tlen` ; le sequenceur prend le pas `(G - debut du pattern) % tlen` de la piste : elle boucle sur sa longueur sans repartir avec le pattern ; le changement de pattern tombe toujours a la fin du pattern.
 - Tests : 39 (1 de plus) : un CH de TLEN 3 joue aux pas 0, 3, 6 ... 15, 18, 21 a travers un pattern de 16.
+- **Build vert du lot 2b** (run 42522236477, 21:02 UTC) ; la release `mm-rytm-latest` porte le commit cb3839e.
 - Verifie dans Chromium : les 16 pistes jouent un sample de leur type (synthese a 0), BD a BD2 ; SRC sans MACH, SAMP « BD 1/44 » ; le menu MACHINE ; TLEN sur TRIG 2/2, recu dans le programme. Le site, construit a part : la page RYTM toujours en V.3.0, rien ne change.
 
 ## 2. Decisions prises et pourquoi
