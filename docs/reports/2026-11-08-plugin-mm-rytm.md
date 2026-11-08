@@ -22,7 +22,8 @@
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- **Verifier le premier run du workflow** `Plugin MM-RYTM` dans GitHub Actions. Le job macOS n'a encore jamais tourne : un ajustement de CMake ou de compilation est possible au premier passage.
+- **Build vert** (run 42454020453, 2026-11-08 06:24 UTC) : tests DSP OK, job macOS OK en 7 min 40 s, artefact `MM-RYTM-macOS` (https://github.com/mauditemachine/MauditeMachine/actions/runs/42454020453/artifacts/13606968023, garde 30 jours). Le premier run sur `macos-14` avait ete annule sans runner : le job tourne maintenant sur `macos-latest`.
+- **Artefact lourd** : 404 Mo, bien plus que prevu (samples 7 Mo, binaires universels x 3 formats). A alleger : strip des binaires, ou arm64 seul si le Mac est Apple Silicon.
 - **Mika** : telecharger l'artefact, installer (voir `plugin/mm-rytm/INSTALL.md`, avec le `xattr` de quarantaine), puis tester a l'oreille dans Ableton (le son, la sync, le swing, les sorties separees).
 - **Pas encore porte** : les effets (DIST, TONE, CHORUS, REVERB, DELAY, le compresseur et le limiteur du site), les parameter locks, les LFO, les scenes, les presets, les 16 pistes, MM-BASS et la face du site.
 - Le workflow n'est pas sur `main` : il tourne sur la branche `claude/intelligent-ride-56tyeo` tant qu'elle n'est pas fusionnee.
