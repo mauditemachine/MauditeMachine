@@ -1,6 +1,6 @@
 # MM-RYTM, le plugin
 
-La boite a rythmes du site (`src/v4`, le MM-RYTM) portee en C++ avec JUCE 8 : VST3, AU et Standalone pour macOS. Usage perso.
+La boite a rythmes du site (`src/v4`, le MM-RYTM) portee en C++ avec JUCE 8 : un VST3 pour macOS. Usage perso.
 
 ## Ce qui est porte
 
@@ -36,7 +36,7 @@ cmake -S plugin/mm-rytm -B build-dsp -DMM_BUILD_PLUGIN=OFF && cmake --build buil
 Le plugin sur un Mac (Xcode et CMake installes ; JUCE est telecharge par CMake) :
 
 ```bash
-cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j --target MM_RYTM_VST3 MM_RYTM_AU MM_RYTM_Standalone
+cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j --target MM_RYTM_VST3
 ```
 
 Sinon, GitHub Actions le construit a chaque push qui touche `plugin/` (workflow `plugin.yml`) : voir `INSTALL.md`.

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-# MM-RYTM, la boite a rythmes du site en plugin (VST3, AU, Standalone). Usage perso.
+# MM-RYTM, la boite a rythmes du site en plugin VST3. Usage perso.
 project(MM_RYTM VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -41,14 +41,13 @@ juce_add_plugin(MM_RYTM
   PLUGIN_MANUFACTURER_CODE Mmch
   PLUGIN_CODE Mmry
   PRODUCT_NAME "MM-RYTM"
-  FORMATS VST3 AU Standalone
+  FORMATS VST3
   IS_SYNTH TRUE
   NEEDS_MIDI_INPUT TRUE
   NEEDS_MIDI_OUTPUT FALSE
   IS_MIDI_EFFECT FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS FALSE
   VST3_CATEGORIES Instrument Drum
-  AU_MAIN_TYPE kAudioUnitType_MusicDevice
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
 # Les samples de Mika (public/samples/rytm), embarques dans le binaire

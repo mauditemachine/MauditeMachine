@@ -1,7 +1,7 @@
 name: Plugin MM-RYTM
 # 2026-11-08 (Mika : "extrais le code de Rytm pour en faire un plugin VST3", usage perso) : le portage C++ du MM-RYTM
-# (plugin/mm-rytm). 1) le DSP compare au vrai shotsdsp.ts du site, sur Linux ; 2) le plugin macOS universel
-# (VST3, AU, Standalone), signe ad hoc, en artefact a telecharger. Rien ne touche au site ni a GitHub Pages.
+# (plugin/mm-rytm). 1) le DSP compare au vrai shotsdsp.ts du site, sur Linux ; 2) le VST3 macOS universel, signe
+# ad hoc, en artefact a telecharger (2026-11-08, Mika : "je veux juste vst 3"). Rien ne touche au site ni a GitHub Pages.
 on:
   push:
     paths:
@@ -38,7 +38,7 @@ jobs:
           ./build-dsp/mm_compare ref public/samples/rytm
 
   mac:
-    name: Plugin macOS (VST3, AU, Standalone)
+    name: Plugin macOS (VST3)
     needs: dsp
     runs-on: macos-latest
     steps:
@@ -46,17 +46,19 @@ jobs:
       - name: Configurer (universel arm64 + x86_64)
         run: cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
       - name: Construire
-        run: cmake --build build --config Release -j 4 --target MM_RYTM_VST3 MM_RYTM_AU MM_RYTM_Standalone
+        run: cmake --build build --config Release -j 4 --target MM_RYTM_VST3
+      # Le paquet dans pkg/, jamais dans dist/ : dist/ est le build du site commite dans le repo (886 fichiers), le
+      # premier artefact l'embarquait en entier (404 Mo)
       - name: Signer ad hoc et empaqueter
         run: |
-          OUT=build/MM_RYTM_artefacts/Release
-          mkdir -p dist
-          for b in "$OUT/VST3/MM-RYTM.vst3" "$OUT/AU/MM-RYTM.component" "$OUT/Standalone/MM-RYTM.app"; do
-            codesign --force --deep --sign - "$b"
-            ditto "$b" "dist/$(basename "$b")"
-          done
-          cp plugin/mm-rytm/INSTALL.md dist/
-          ditto -c -k --keepParent dist MM-RYTM-macOS.zip
+          rm -rf pkg && mkdir -p pkg/MM-RYTM
+          B=build/MM_RYTM_artefacts/Release/VST3/MM-RYTM.vst3
+          codesign --force --deep --sign - "$B"
+          codesign --verify --deep --strict "$B"
+          ditto "$B" pkg/MM-RYTM/MM-RYTM.vst3
+          cp plugin/mm-rytm/INSTALL.md pkg/MM-RYTM/
+          ditto -c -k --keepParent pkg/MM-RYTM MM-RYTM-macOS.zip
+          unzip -l MM-RYTM-macOS.zip | tail -1
       - uses: actions/upload-artifact@v4
         with:
           name: MM-RYTM-macOS
