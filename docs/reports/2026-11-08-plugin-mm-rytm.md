@@ -7,7 +7,7 @@
 - `plugin/mm-rytm/src/` (nouveau) : plugin JUCE 8.0.9, avec un processeur (environ 170 parametres automatisables, MIDI GM, transport de l'hote ou horloge interne RUN, 8 sorties stereo separees, motif sauve dans l'etat du projet), le calcul des sons dans un thread a part avec 40 ms de repos apres un potard, l'interface (grille 8 x 16, ecoute, mute, LED, panneau de la piste) et les 151 samples de `public/samples/rytm` embarques.
 - `plugin/mm-rytm/tests/` (nouveau) : `render-ref.mjs` fait tourner le vrai `shotsdsp.ts` sous Node, `compare.cpp` compare le C++ a cette reference (29 cas), et `engine_test.cpp` verifie le moteur dans les buffers (8 cas).
 - `plugin/mm-rytm/CMakeLists.txt`, `README.md`, `INSTALL.md`, `.gitignore` (nouveaux).
-- `.github/workflows/plugin.yml` (nouveau) : un job Linux (tests du DSP et comparaison au site), puis un job macOS 14 qui construit le binaire universel (VST3, AU, Standalone), le signe ad hoc et le publie en artefact `MM-RYTM-macOS`.
+- `.github/workflows/plugin.yml` (nouveau) : un job Linux (tests du DSP et comparaison au site), puis un job macOS (macos-latest) qui construit le binaire universel (VST3, AU, Standalone), le signe ad hoc et le publie en artefact `MM-RYTM-macOS`.
 
 ## 2. Decisions prises et pourquoi
 
