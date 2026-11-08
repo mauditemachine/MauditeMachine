@@ -1,0 +1,64 @@
+name: Plugin MM-RYTM
+# 2026-11-08 (Mika : "extrais le code de Rytm pour en faire un plugin VST3", usage perso) : le portage C++ du MM-RYTM
+# (plugin/mm-rytm). 1) le DSP compare au vrai shotsdsp.ts du site, sur Linux ; 2) le plugin macOS universel
+# (VST3, AU, Standalone), signe ad hoc, en artefact a telecharger. Rien ne touche au site ni a GitHub Pages.
+on:
+  push:
+    paths:
+      - 'plugin/**'
+      - 'public/samples/rytm/**'
+      - 'src/v4/audio/shotsdsp.ts'
+      - 'src/v4/audio/sampledsp.ts'
+      - 'src/v4/audio/stretch.ts'
+      - '.github/workflows/plugin.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugin-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dsp:
+    name: DSP identique au site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Construire le DSP et ses tests (sans JUCE)
+        run: |
+          cmake -S plugin/mm-rytm -B build-dsp -DMM_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dsp -j
+      - name: Moteur (voix, choke, multi-out, sequenceur)
+        run: ./build-dsp/mm_engine_test
+      - name: Comparaison au shotsdsp.ts du site
+        run: |
+          node plugin/mm-rytm/tests/render-ref.mjs ref
+          ./build-dsp/mm_compare ref public/samples/rytm
+
+  mac:
+    name: Plugin macOS (VST3, AU, Standalone)
+    needs: dsp
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurer (universel arm64 + x86_64)
+        run: cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+      - name: Construire
+        run: cmake --build build --config Release -j 4 --target MM_RYTM_VST3 MM_RYTM_AU MM_RYTM_Standalone
+      - name: Signer ad hoc et empaqueter
+        run: |
+          OUT=build/MM_RYTM_artefacts/Release
+          mkdir -p dist
+          for b in "$OUT/VST3/MM-RYTM.vst3" "$OUT/AU/MM-RYTM.component" "$OUT/Standalone/MM-RYTM.app"; do
+            codesign --force --deep --sign - "$b"
+            ditto "$b" "dist/$(basename "$b")"
+          done
+          cp plugin/mm-rytm/INSTALL.md dist/
+          ditto -c -k --keepParent dist MM-RYTM-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-RYTM-macOS
+          path: MM-RYTM-macOS.zip
+          retention-days: 30
