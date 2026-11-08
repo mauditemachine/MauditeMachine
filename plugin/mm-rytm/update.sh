@@ -1,28 +1,31 @@
 #!/bin/bash
-# MM-RYTM : installe un build par-dessus le plugin en place (2026-11-08, Mika : "tu peux ecraser
-# /Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3"). Le build : le zip donne en argument, sinon le plus recent de
-# ~/Downloads (l'artefact MM-RYTM-macOS du CI, zippe une ou deux fois, ou deja ouvert par Safari). La quarantaine est
-# retiree et la signature ad hoc refaite sur place, comme la commande d'INSTALL.md (sans passer par Gatekeeper).
+# MM-RYTM : installe le dernier build par-dessus le plugin en place (2026-11-08, Mika : "tu peux ecraser
+# /Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3", puis "vas-y pour la release"). Le build : la release mm-rytm-latest du
+# depot (le CI la remplace a chaque build vert), telechargee par curl, donc sans quarantaine ; ou le zip (ou le dossier)
+# donne en argument, l'artefact telecharge a la main. La quarantaine est retiree et la signature ad hoc refaite sur
+# place, comme la commande d'INSTALL.md (sans passer par Gatekeeper).
 #
-#   curl -fsSL https://raw.githubusercontent.com/mauditemachine/MauditeMachine/claude/intelligent-ride-56tyeo/plugin/mm-rytm/update.sh | bash
+#   curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-latest/update.sh | bash
 #   bash update.sh ~/Downloads/MM-RYTM-macOS.zip
 set -euo pipefail
 
+URL="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-latest/MM-RYTM-macOS.zip"
 SYS="/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3"
 USR="$HOME/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3"
 
 [ "$(uname)" = "Darwin" ] || { echo "Ce script est pour macOS."; exit 1; }
 
-# Le build : l'argument, sinon le plus recent des zips MM-RYTM et des MM-RYTM.vst3 deja ouverts de ~/Downloads
-IN="${1:-}"
-if [ -z "$IN" ]; then
-  IN="$( { ls -td "$HOME"/Downloads/MM-RYTM*.zip "$HOME"/Downloads/MM-RYTM*/MM-RYTM.vst3 "$HOME"/Downloads/MM-RYTM*/*/MM-RYTM.vst3 2>/dev/null || true; } | head -n 1)"
-fi
-[ -n "$IN" ] && [ -e "$IN" ] || { echo "Aucun build MM-RYTM dans ~/Downloads : telecharge d'abord l'artefact MM-RYTM-macOS du dernier build vert."; exit 1; }
-echo "Build : $IN ($(stat -f '%Sm' "$IN"))"
-
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+IN="${1:-}"
+if [ -z "$IN" ]; then
+  echo "MM-RYTM : telechargement du dernier build..."
+  curl -fL --progress-bar -o "$TMP/dl.zip" "$URL" || { echo "Telechargement impossible ($URL)."; exit 1; }
+  IN="$TMP/dl.zip"
+fi
+[ -e "$IN" ] || { echo "Introuvable : $IN"; exit 1; }
+
 VST=""
 if [ -d "$IN" ]; then
   case "$IN" in
@@ -43,6 +46,7 @@ else
   done
 fi
 [ -n "$VST" ] || { echo "MM-RYTM.vst3 introuvable dans $IN."; exit 1; }
+if [ -f "$(dirname "$VST")/BUILD.txt" ]; then echo "Build : $(cat "$(dirname "$VST")/BUILD.txt")"; fi
 
 # La ou il est deja installe (le dossier du systeme d'abord) ; sinon le dossier du systeme
 DEST="$SYS"
@@ -53,7 +57,7 @@ case "$DEST" in /Library/*) SUDO="sudo" ;; esac
 if pgrep -x Live >/dev/null 2>&1; then
   echo "Ableton est ouvert : il garde l'ancien plugin jusqu'a ce que tu le quittes et le rouvres."
 fi
-[ -n "$SUDO" ] && echo "Remplacement de $DEST (le mot de passe du Mac est demande)."
+if [ -n "$SUDO" ]; then echo "Remplacement de $DEST (le mot de passe du Mac est demande)."; fi
 $SUDO mkdir -p "$(dirname "$DEST")"
 $SUDO rm -rf "$DEST"
 $SUDO ditto "$VST" "$DEST"
