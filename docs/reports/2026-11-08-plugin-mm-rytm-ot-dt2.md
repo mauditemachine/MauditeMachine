@@ -52,6 +52,7 @@ Demande de Mika : « ameliore le plugin vst3 au maximum de ce que tu penses [...
 - `plugin/mm-rytm/src/` : le parseur lit `slot` et `pats` ; les reponses de REVERB de chaque pattern ; `mm_ptn` ; le program change MIDI ; `pat` et `patSeq` vers la face.
 - Tests : 38 (3 de plus) : un program change au pas 5 joue A02 au pas 16 ; la chaine A01, A02 alterne ; a l'arret, un program change change le pattern tout de suite.
 - Verifie dans Chromium : la face suit le moteur (A02), A01 est dans `pats` (25 coups) ; en lecture, A01 tape affiche « NEXT A01: AT THE BAR » et envoie `mm_ptn {next: 0}`.
+- **Build vert du lot 2a** (run 42513712126, 19:16 UTC), dans la release `mm-rytm-latest`.
 
 ## 2. Decisions prises et pourquoi
 
