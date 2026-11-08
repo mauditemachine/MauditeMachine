@@ -52,7 +52,7 @@
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- Verifier le run du workflow, le premier avec la phase 2.
+- **Build vert** (run 42479294782, 12:17 UTC) : artefact `MM-RYTM-macOS`, 17 Mo : https://github.com/mauditemachine/MauditeMachine/actions/runs/42479294782/artifacts/13617275333 (garde 30 jours).
 - **Mika** :
   - installer le nouveau VST3 (xattr + codesign, rescan) ;
   - tester a l'oreille les conditions, PROB, les retrigs et le crossfader ;
