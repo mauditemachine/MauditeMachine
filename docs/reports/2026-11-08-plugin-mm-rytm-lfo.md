@@ -63,6 +63,10 @@ Demande de Mika : « lance les LFO oui sur le plugin non sur le site ». Le site
 
 - Cote Mika : lancer la commande `update.sh` d'`INSTALL.md` (elle telecharge la release toute seule), puis rouvrir Ableton.
 - Le jour ou la branche est fusionnee dans main : rien a changer, l'adresse de la release ne depend pas de la branche.
+- **Mise en ligne de la V.3.0 du site** (Mika : « je veux la bonne version aussi sur le web avant ») :
+  - fait : main fusionne dans la branche (le snapshot des stats), build du site OK, la page RYTM sans `?face=` ouvre la V.3.0 (capture identique a celle validee) ;
+  - en attente : le push de la branche sur main (le deploiement) a ete refuse par la regle de securite de la session. Il faut l'accord de Mika : une PR a fusionner, ou une permission de pousser sur main.
+- Mika a installe la release avec `update.sh` : le plugin marche (2026-11-08). Il a des modifications a demander.
 - A l'oreille : un LFO PITCH sur un son tres long (au-dela de 8 s, la courbe se fige comme au site).
 - Phase 4 si Mika le veut : chaines de patterns, SONG, multi-out, automation Ableton des potards, latence du limiteur declaree a l'hote.
 
