@@ -37,6 +37,8 @@ Demande de Mika : « lance les LFO oui sur le plugin non sur le site ». Le site
   - teste dans le conteneur avec de faux outils macOS (double zip, dossier ouvert, rien a installer) ;
   - il est aussi dans l'artefact (`plugin.yml`), et `INSTALL.md` a une section « Mettre a jour ».
 
+- **Build vert** (run 42486748268, 13:53 UTC, LFO et `update.sh`) : artefact `MM-RYTM-macOS`, 17 Mo : https://github.com/mauditemachine/MauditeMachine/actions/runs/42486748268/artifacts/13619872707 (garde 30 jours). Le run 10 (LFO seuls) a ete annule par celui-ci, qui le contient.
+
 ## 2. Decisions prises et pourquoi
 
 - **Rien sur le site** : comme demande. Le pont ne tourne qu'en mode PLUGIN (`window.__MM_PLUGIN__`) ; `npx tsc` reste a 105 erreurs, toutes d'avant et hors de `src/v4/plugin`.
