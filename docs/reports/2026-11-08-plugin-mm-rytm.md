@@ -25,8 +25,9 @@
 - **Build vert** (run 42454020453, 2026-11-08 06:24 UTC) : tests DSP OK, job macOS OK en 7 min 40 s, artefact `MM-RYTM-macOS` (https://github.com/mauditemachine/MauditeMachine/actions/runs/42454020453/artifacts/13606968023, garde 30 jours). Le premier run sur `macos-14` avait ete annule sans runner : le job tourne maintenant sur `macos-latest`.
 - **Artefact de 404 Mo, corrige** : le paquet etait monte dans `dist/`, qui est le build du site commite dans le repo (886 fichiers) ; l'artefact embarquait donc tout le site autour du plugin. Le paquet passe dans `pkg/` et ne contient plus que `MM-RYTM.vst3` et `INSTALL.md`.
 - **VST3 seulement** (Mika : "je veux juste vst 3") : AU et Standalone retires du CMake et du workflow.
-- **Gatekeeper** : sur le Mac de Mika, "MM-RYTM.vst3 was blocked" et Open Anyway sans effet ; la marche a suivre (xattr, Option + Rescan) est dans `INSTALL.md`.
-- **Mika** : telecharger l'artefact, installer (voir `plugin/mm-rytm/INSTALL.md`, avec le `xattr` de quarantaine), puis tester a l'oreille dans Ableton (le son, la sync, le swing, les sorties separees).
+- **Gatekeeper** : sur le Mac de Mika, "MM-RYTM.vst3 was blocked" et Open Anyway sans effet ; resolu par `xattr -cr` + `codesign --sign -` sur le Mac lui-meme, puis Option + Rescan : le plugin s'ouvre dans Live (2026-11-08). Commande dans `INSTALL.md`. Artefact VST3 seul : 14,5 Mo (run 42455786022).
+- **Mika** : tester a l'oreille dans Ableton (le son, la sync, le swing, les sorties separees). Le plugin s'ouvre, le son n'a pas encore ete verifie.
+- **L'interface** : Mika attendait la face du site (la machine 3D de `src/v4`), pas la face JUCE simple de cette V1. Piste proposee : la face du site dans une WebView JUCE, le son reste en C++.
 - **Pas encore porte** : les effets (DIST, TONE, CHORUS, REVERB, DELAY, le compresseur et le limiteur du site), les parameter locks, les LFO, les scenes, les presets, les 16 pistes, MM-BASS et la face du site.
 - Le workflow n'est pas sur `main` : il tourne sur la branche `claude/intelligent-ride-56tyeo` tant qu'elle n'est pas fusionnee.
 

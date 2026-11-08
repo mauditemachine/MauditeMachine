@@ -2,15 +2,15 @@
 
 1. Sur GitHub : onglet **Actions**, workflow **Plugin MM-RYTM**, dernier run vert, artefact **MM-RYTM-macOS**. Dezippe-le, puis dezippe `MM-RYTM-macOS.zip` : tu obtiens un dossier `MM-RYTM` avec `MM-RYTM.vst3` et ce fichier.
 2. Copie `MM-RYTM.vst3` dans `~/Library/Audio/Plug-Ins/VST3/` (ou `/Library/Audio/Plug-Ins/VST3/`, a cote de tes autres VST3).
-3. Le plugin est signe "ad hoc", sans compte Apple Developer : macOS le bloque ("was blocked to protect your Mac"). Le bouton **Open Anyway** des Reglages ne fait rien de visible pour un plugin (ce n'est pas une app). Retire plutot la quarantaine dans le Terminal :
+3. Le plugin est signe "ad hoc", sans compte Apple Developer : macOS le bloque ("was blocked to protect your Mac"). Le bouton **Open Anyway** des Reglages ne fait rien pour un plugin, et ce message y reste affiche meme une fois le plugin debloque : ne t'y fie pas. Ce qui a marche sur le Mac de Mika (2026-11-08) : effacer tous les attributs du telechargement et re-signer le plugin sur le Mac lui-meme.
 
 ```bash
-sudo xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3 /Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3
+P=~/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3; [ -d "$P" ] || P=/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3; sudo xattr -cr "$P" && sudo codesign --force --deep --sign - "$P" && echo "OK : $P"
 ```
 
-   Le mot de passe demande est celui de ta session Mac. Une ligne "No such file" pour l'un des deux dossiers est normale : le plugin n'est que dans l'un des deux.
+   Le mot de passe demande est celui de ta session Mac. A refaire a chaque nouvelle version du plugin.
 
-4. Dans Ableton Live : Reglages > Plug-ins, "Use VST3 Plug-in System Folders" active, puis **Option + clic sur Rescan** (un rescan complet : Live oublie qu'il avait vu le plugin bloque).
+4. Quitte Ableton (Cmd + Q) et rouvre-le. Reglages > Plug-ins, "Use VST3 Plug-in System Folders" active, puis **Option + clic sur Rescan** (un rescan complet : Live oublie qu'il avait vu le plugin bloque).
 5. Dans le navigateur : **Plug-Ins > Maudite Machine > MM-RYTM** (le dossier du fabricant, rang M, au-dessus de Plugin Alliance). Glisse-le sur une piste MIDI.
 
 ## Utilisation
