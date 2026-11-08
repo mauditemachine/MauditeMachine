@@ -12,8 +12,8 @@ function rytmFaceVer(): string | null {
   if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return null;
   try {
     const f = new URLSearchParams(window.location.search).get('face');
-    // Le site sans ?face= : la V.1.0 depuis le 2026-11-08 (theme/base.ts RYTM_FACE_VER) ; ?face=v6 ou dt2 : la version du firmware
-    if (f === null || f === '') return '1.0';
+    // Le site sans ?face= : la V.3.0 depuis le 2026-11-08 (theme/base.ts RYTM_FACE_VER) ; ?face=v6 ou dt2 : la version du firmware
+    if (f === null || f === '') return '3.0';
     if (f === 'v1' || f === '1' || f === '1.0') return '1.0';
     if (f === 'v2' || f === '2' || f === '2.0') return '2.0';
     if (f === 'v3' || f === '3' || f === '3.0') return '3.0';

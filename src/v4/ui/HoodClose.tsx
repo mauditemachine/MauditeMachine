@@ -28,13 +28,13 @@ interface Props {
 }
 
 /**
- * Choisir une version du MM-RYTM (V.1.0 a V.6.0) : ?face=v2..v6 dans l'URL et rechargement complet ; la V.1.0 est celle du
+ * Choisir une version du MM-RYTM (V.1.0 a V.6.0) : ?face=v1..v6 dans l'URL et rechargement complet ; la V.3.0 est celle du
  * site sans ?face= depuis le 2026-11-08 (theme/base.ts RYTM_FACE_VER).
  */
 export function pickRytmVersion(v: RytmFaceVer): void {
   const url = new URL(window.location.href);
   url.searchParams.set('m', 'mm808');
-  if (v === '1.0') url.searchParams.delete('face');
+  if (v === '3.0') url.searchParams.delete('face');
   else url.searchParams.set('face', `v${v[0]}`);
   if (url.href === window.location.href) window.location.reload();
   else window.location.assign(url.href);

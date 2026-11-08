@@ -31,7 +31,7 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 - L'ecran se clique : les listes (presets, SETTINGS, SOUNDS...) a la souris, un clic choisit, un second clic (ou un double clic) valide, la molette defile, un clic droit revient (NO). Les valeurs de l'ecran se tirent a la souris.
 - Clic droit sur une touche = FUNC + la touche (sa fonction orange), sans tenir FUNCTION.
 - SETTINGS ne garde que PATTERN, PERSONALIZE et ABOUT.
-- Le site, lui, revient a la V.1.0 par defaut (la V.6.0 reste au selecteur de versions) ; le plugin est toujours en V.6.0.
+- Le site, lui, revient a la V.3.0 par defaut (la machine d'avant le crossfader ; les autres au selecteur de versions) ; le plugin est toujours en V.6.0.
 
 ## Commandes
 

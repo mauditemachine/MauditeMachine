@@ -31,7 +31,7 @@
 - `src/v4/theme.ts` : `SCREEN_TOUCH` vrai en plugin (les valeurs de l'ecran se tirent a la souris).
 - `src/v4/ui/Hotspots.tsx` : en plugin, un clic droit sur une touche fait FUNC + la touche.
 - `src/v4/scene/screen/menus/settings.ts` : les lignes ont un id (YES les reconnait quelle que soit leur place). En plugin, SETTINGS ne garde que PATTERN, PERSONALIZE et ABOUT.
-- `src/v4/theme/base.ts`, `src/v4/firmware.ts`, `src/v4/ui/HoodClose.tsx` : le site s'ouvre en V.1.0 par defaut (?face=v6 ou dt2 pour la V.6.0, le selecteur suit). Le plugin est toujours en V.6.0.
+- `src/v4/theme/base.ts`, `src/v4/firmware.ts`, `src/v4/ui/HoodClose.tsx` : le site s'ouvre en V.3.0 par defaut, la machine d'avant le crossfader (corrige apres coup, voir plus bas : d'abord V.1.0, puis V.4). Les autres versions sont au selecteur (?face=v4, v5, v6 ou dt2). Le plugin est toujours en V.6.0.
 - `plugin/mm-rytm/README.md`, `INSTALL.md` : ce qui joue, la souris, le site en V1.
 
 ## 2. Decisions prises et pourquoi
@@ -41,7 +41,7 @@
 - **Le crossfader passe par le calcul du site** (`morph.hit`) : le programme est recompile a chaque mouvement. La hauteur pendant le geste suit la grille du site (`hitTone`), ce qui limite les recalculs. Les effets morphes viendront avec la phase 3.
 - **L'ecran a la souris passe par une couche HTML** posee sur l'ecran, plutot que par les zones 3D. Ces zones ont ete pensees pour le telephone, et un clic au milieu y faisait PREV. Les menus gardent leur contrat de touches (UP, DOWN, YES, NO), la souris ne fait que le piloter.
 - **FUNC au clic droit** : Mika trouve FUNCTION trop dur a tenir avec un plugin. Un clic droit sur une touche fait les deux d'un geste. Les clics droits d'avant (mute d'un pad, d'un pas en TRK) ne changent pas.
-- **Le site en V1** : sa reponse, "le plugin est fait pour etre complexe mais sur internet faut retourner vers quelque chose de simple en v1". C'est la V.1.0 du selecteur, celle qui existait. Le telephone garde sa face. Rien n'est en ligne tant que la branche n'est pas fusionnee.
+- **Le site en V.3.0** : j'avais d'abord mis la V.1.0, mais Mika voulait la machine juste avant la Digitakt ("tu n'as pas respecte les versions"). Le selecteur rend la V.4 avec la rangee de 14 touches facon Digitakt, ajoutee plus tard dans le code, donc la V.4 d'origine n'est plus rendue telle quelle. Mika a choisi "la version avant le crossfader, qui etait trop complexe" : la V.3.0. Le telephone garde sa face. Rien n'est en ligne tant que la branche n'est pas fusionnee.
 - **Verifications faites sans lecture audio :**
   - moteur dans ses buffers, 20/20 ;
   - DSP compare au site, 29/29 identiques ;
@@ -58,7 +58,7 @@
   - tester a l'oreille les conditions, PROB, les retrigs et le crossfader ;
   - tester la souris dans l'ecran ;
   - dire s'il veut d'autres menus simplifies ou retires.
-- **Le site en V1 (a decider avant de fusionner)** : le press kit, les textes SEO et les captures parlent de la machine DT2. Il faudra peut-etre les aligner.
+- **Le site en V.3.0 (a decider avant de fusionner)** : le press kit, les textes SEO et les captures parlent de la machine DT2. Il faudra peut-etre les aligner.
 - **Phase 3** :
   - les LFO ;
   - FLTR (biquad avec enveloppe) ;
