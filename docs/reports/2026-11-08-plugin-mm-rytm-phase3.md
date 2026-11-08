@@ -48,7 +48,7 @@
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- Verifier le run du workflow (phase 3).
+- **Build vert** (run 42481481565, 12:48 UTC) : artefact `MM-RYTM-macOS`, 17 Mo : https://github.com/mauditemachine/MauditeMachine/actions/runs/42481481565/artifacts/13617158581 (garde 30 jours).
 - **Mika** : installer le nouveau VST3 et ecouter les effets (DIST, CHORUS, DELAY, REVERB, COMP, BIT), le niveau general, et la voie du kick sans reverb globale. Le plugin sonne maintenant au niveau du site : LEVEL 0.8 au carre et la garniture 0.84, donc environ 5,4 dB plus bas qu'avant.
 - **Phase 3 bis** : les LFO (deux par voix, ondes, vitesse au tempo, FADE, les destinations au coup et pendant le coup).
 - **Phase 4** :
