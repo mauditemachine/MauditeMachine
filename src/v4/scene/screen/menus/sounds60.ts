@@ -42,7 +42,7 @@ let hiTop = -1;
 let hiTrack: TrackKey | null = null;
 
 /** La liste d'une piste 9 a 16 telle que l'ecran la montre ; null : une voix 1 a 8, ou aucune piste. */
-function hiView(): { track: TrackKey; name: string; rows: MenuRow[]; keys: readonly (string | null)[]; cur: number; cursor: number } | null {
+function hiView(): { track: TrackKey; name: string; rows: MenuRow[]; keys: readonly (string | null)[]; cur: number; cursor: number; n: number } | null {
   const v = trackSoundList();
   if (!v) return null;
   if (v.track !== hiTrack) {
@@ -52,13 +52,15 @@ function hiView(): { track: TrackKey; name: string; rows: MenuRow[]; keys: reado
   }
   const rows: MenuRow[] = v.rows.map((r, i) => ({ label: r.label, value: r.key === null ? '' : i === v.cur ? 'NOW' : r.family.toUpperCase() }));
   const cursor = hiCursor >= 0 && hiCursor < rows.length ? hiCursor : v.cur;
-  return { track: v.track, name: v.name, rows, keys: v.rows.map((r) => r.key), cur: v.cur, cursor };
+  // n : les sons (sans la ligne + LOAD A FILE..., absente du plugin)
+  const n = v.rows.filter((r) => r.key !== null).length;
+  return { track: v.track, name: v.name, rows, keys: v.rows.map((r) => r.key), cur: v.cur, cursor, n };
 }
 
 function paintSounds(screen: Screen): number {
   const h = hiView();
   if (h) {
-    screen.text(`${h.cur + 1} / ${h.rows.length - 1}`, 312, 34, 7.5, HALF, 700, 'right', 0.5);
+    screen.text(`${h.cur + 1} / ${h.n}`, 312, 34, 7.5, HALF, 700, 'right', 0.5);
     hiTop = hiTop < 0 ? Math.max(0, h.cursor - 2) : hiTop;
     hiTop = scrollTop(hiTop, h.cursor, h.rows.length, LIST_N);
     soundsBody = `${h.name} SOUNDS|${paintList(screen, h.rows, h.cursor, hiTop, LIST_AREA)}`;
@@ -120,8 +122,8 @@ registerScreenMenu({
         trackSoundPick(h.cursor);
         if (h.keys[h.cursor] !== null) hiCursor = -1;
       } else if (i.kind === 'left' || i.kind === 'right') {
-        const n = Math.max(0, Math.min(last - 1, h.cur + (i.kind === 'left' ? -1 : 1)));
-        if (n === h.cur) lcdMessage.show(`${h.name} SOUNDS: ${i.kind === 'left' ? 'FIRST' : 'LAST'} OF ${last}`);
+        const n = Math.max(0, Math.min(h.n - 1, h.cur + (i.kind === 'left' ? -1 : 1)));
+        if (n === h.cur) lcdMessage.show(`${h.name} SOUNDS: ${i.kind === 'left' ? 'FIRST' : 'LAST'} OF ${h.n}`);
         else trackSoundPick(n);
         hiCursor = -1;
       }

@@ -70,6 +70,18 @@ Demande de Mika : « lance la longueur par piste ; fais juste adapter les tracks
 - **Build vert du lot 2b** (run 42522236477, 21:02 UTC) ; la release `mm-rytm-latest` porte le commit cb3839e.
 - Verifie dans Chromium : les 16 pistes jouent un sample de leur type (synthese a 0), BD a BD2 ; SRC sans MACH, SAMP « BD 1/44 » ; le menu MACHINE ; TLEN sur TRIG 2/2, recu dans le programme. Le site, construit a part : la page RYTM toujours en V.3.0, rien ne change.
 
+### Lot 3, la passe sur la face (plugin seulement)
+
+Demande de Mika : « lance la passe sur la face ». Un tour de la face page par page (Chromium, captures), puis ce qui genait :
+
+- **Les pas portent le type de leur piste** : BD ... CY, BD2 ... CY2 sous le numero (`theme/face.ts` legendes `stept-<n>` en mode plugin ; `scene/sequencer3d.ts` : les legendes sous les numeros vont jusqu'a 16, elles descendent et s'allument avec leur pas).
+- **La piste choisie a l'ecran** : la case en haut a gauche dit T1, BD en grand, et le sample (BD 1) ; avant, SMP et le numero (`scene/screen/dt2.ts`).
+- **SOUNDS sans synthese** : les 16 pistes ont la liste de SAMP (OFF puis les samples de leur type), sans 909, 808, MM ni + LOAD A FILE (le moteur ne lit pas les fichiers de ce navigateur) ; `actions/browser.ts`, `menus/sounds60.ts` (le compte des sons sans la ligne + LOAD).
+- **Les samples nommes par leur fichier** (BD 12, HT 4) dans SOUNDS et SAMP, plutot que leur numero seul (`actions/internal/kit.ts`).
+- **SRC sans LOOP** : la case annoncait SOON ; elle est vide dans le plugin, comme MACH.
+- Garde : KEYBOARD (il joue la piste choisie en chromatique sur les pas ; le « NO VOICE » vu pendant le tour venait de la sequence du test, TRK puis NO) ; les placements des potards et des touches (la grille DT2 a 8 potards colle a l'ecran 2 x 4, rien n'y gene).
+- Verifie : le site construit a part, la page RYTM en V.3.0 identique au pixel pres a la capture d'avant ; la face V.6 du site garde ses machines et ses numeros seuls.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -89,7 +101,8 @@ Demande de Mika : « lance la longueur par piste ; fais juste adapter les tracks
 - A l'oreille : un geste rapide du crossfader sur DIST ou CHORUS de piste (les reglages changent par bloc de 512 echantillons au plus).
 - A l'oreille et dans Ableton : un clip par pattern (case Pgm), en session et en arrangement.
 - A l'oreille : TLEN sur des hats (12) et une perc (7) ; les samples de chaque type.
-- Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; le lot 3 (la face).
+- Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; ses propres samples (glisser un fichier dans le plugin) ; le multi-out.
+- Ses retours sur la face apres usage (placements, gestes).
 
 ## 4. Commandes utiles ajoutees
 

@@ -42,6 +42,7 @@ Ecarts connus des LFO : en mode FRE, le LFO suit la position du morceau d'Ableto
 - L'ecran se clique : les listes (presets, SETTINGS, SOUNDS...) a la souris, un clic choisit, un second clic (ou un double clic) valide, la molette defile, un clic droit revient (NO). Les valeurs de l'ecran se tirent a la souris.
 - Clic droit sur une touche = FUNC + la touche (sa fonction orange), sans tenir FUNCTION.
 - SETTINGS ne garde que PATTERN, PERSONALIZE et ABOUT.
+- Les pistes typees se voient (2026-11-08) : chaque pas porte le type de sa piste sous son numero (BD ... CY, BD2 ... CY2) ; la case en haut a gauche de l'ecran dit la piste choisie (T1, BD, le sample) ; SOUNDS et SAMP ne listent que les samples du type, nommes par leur fichier (BD 12), sans synthese ni + LOAD A FILE ; SRC n'a ni MACH ni LOOP (pas encore joue).
 - Le site, lui, revient a la V.3.0 par defaut (la machine d'avant le crossfader ; les autres au selecteur de versions) ; le plugin est toujours en V.6.0.
 
 ## Commandes

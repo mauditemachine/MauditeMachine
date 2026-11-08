@@ -16,7 +16,7 @@
 
 import { clock } from '../../audio/clock';
 import { pattern } from '../../audio/pattern';
-import { TRACK_KEYS, tracks, trackIndex, type TrackKey } from '../../audio/tracks';
+import { TRACK_KEYS, TRACK_NAMES, TYPED_TRACKS, tracks, trackIndex, type TrackKey } from '../../audio/tracks';
 import { sampleByKey } from '../../audio/samples';
 import { curScreen, curSlots } from '../../actions';
 import { ctlAllState } from '../../state/trk';
@@ -66,6 +66,8 @@ export const DT2_INFO_EMPTY: Dt2Info = { menu: '', head: '', left: '', dots: '',
 /** Le type de son d'une piste (la colonne gauche) : SMP le sample seul (ONESHOT), SYN une machine de synthese. */
 export function trackTag(t: TrackKey | null): string {
   if (!t) return '--';
+  // Le plugin (pistes typees, des samples seulement) : le numero de la piste en tete, son type en grand (paintLeft)
+  if (TYPED_TRACKS) return `T${trackIndex(t) + 1}`;
   return tracks.of(t).mach === 'oneshot' ? 'SMP' : 'SYN';
 }
 
@@ -73,6 +75,8 @@ export function trackTag(t: TrackKey | null): string {
 export function trackSoundName(t: TrackKey | null): string {
   if (!t) return '';
   const tr = tracks.of(t);
+  // Le plugin : le nom du fichier (BD 12), plus parlant que son numero seul
+  if (TYPED_TRACKS) return tr.snd ? (tr.snd.split('/').pop() ?? '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : 'OFF';
   const smp = tr.snd ? sampleByKey(tr.snd)?.label ?? (tr.snd.split('/').pop() ?? '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : '';
   if (tr.mach === 'oneshot') return smp || 'OFF';
   return smp && tr.p.slev > 0 && tr.p.syn <= 0 ? smp : `${tr.mach.toUpperCase()} ${tr.model.toUpperCase()}`;
@@ -225,8 +229,10 @@ function paintLeft(screen: Screen, t: TrackKey | null, tag: string): string {
   const cx = 22;
   screen.roundRect(3.5, 24.5, 37, 34, 3, null, FRAME, 0.8);
   screen.text(tag, cx, 33.5, 7, HALF, 700, 'center', 0.6);
-  const num = t ? String(trackIndex(t) + 1) : '--';
-  screen.text(num, cx, 54, 19, t ? INK : DIM_TEXT, 300, 'center');
+  // Le plugin : le type de la piste (BD ... CY2) en grand, a la largeur de la case ; sinon son numero
+  const num = t ? (TYPED_TRACKS ? (TRACK_NAMES[trackIndex(t)] ?? String(trackIndex(t) + 1)) : String(trackIndex(t) + 1)) : '--';
+  const big = num.length <= 2 ? 19 : num.length === 3 ? 14 : 11;
+  screen.text(num, cx, 54 - (19 - big) * 0.35, big, t ? INK : DIM_TEXT, 300, 'center');
   const name = screen.fitText(trackSoundName(t), 40, 6.2, 0.2, 600);
   screen.text(name, cx, 69, 6.2, HALF, 600, 'center', 0.2);
   // Le fader LEV : son echelle pointillee, sa course pleine, son repere

@@ -698,8 +698,9 @@ export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
   const hit = DT2_SRC_CACHE.get(key);
   if (hit) return hit;
   let out: readonly PageSlot[];
-  // Le plugin : la machine ne se change pas (une piste a son type, des samples seulement : audio/tracks.ts TYPED_TRACKS)
-  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, TYPED_TRACKS ? NONE : SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, SRC_LOOP, SRC_SLEV] : [SRC_FINE];
+  // Le plugin : la machine ne se change pas (une piste a son type, des samples seulement : audio/tracks.ts TYPED_TRACKS) ;
+  // LOOP (pas encore joue) n'y est pas
+  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, TYPED_TRACKS ? NONE : SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, TYPED_TRACKS ? NONE : SRC_LOOP, SRC_SLEV] : [SRC_FINE];
   else {
     const kn = MACHINE_KNOBS[mach] ?? [];
     // E F G : ses potards ; une machine qui en a moins y met la couche sample (STRT, LEN, SMP)

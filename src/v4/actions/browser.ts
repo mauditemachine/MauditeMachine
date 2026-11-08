@@ -26,7 +26,7 @@ import { dtFace } from '../state/dtFace';
 import { voices } from '../state/voices';
 import { DT2_FACE, LCD_DROP_NO_VOICE, LCD_NO_VOICE, PORTRAIT, POT_UI, type Inst } from '../theme';
 import { KIT_FAMILIES } from '../audio/kitlaw';
-import { TRACK_NAMES, isLegacyTrack, sampleFamily, trackIndex, tracks, type TrackKey } from '../audio/tracks';
+import { TRACK_NAMES, TYPED_TRACKS, isLegacyTrack, sampleFamily, trackIndex, tracks, type TrackKey } from '../audio/tracks';
 import { dialSpecOf } from '../scene/screen/menus/registry';
 import { activeTrack } from '../state/trk';
 import { gesture, two } from './shared';
@@ -447,7 +447,8 @@ export function trackSoundList(): { track: TrackKey; name: string; rows: readonl
   const list = trackSampleList();
   const snd = tracks.of(t).snd;
   const rows: TrackSoundRow[] = list.map((x) => ({ key: x.key, label: x.label, family: x.family }));
-  rows.push({ key: null, label: BROWSER_LOAD_LABEL, family: '' });
+  // Le plugin : ses samples sont ceux du site (le moteur C++ ne lit pas les fichiers de ce navigateur), sans + LOAD
+  if (!TYPED_TRACKS) rows.push({ key: null, label: BROWSER_LOAD_LABEL, family: '' });
   return { track: t, name: TRACK_NAMES[trackIndex(t)] ?? t, rows, cur: Math.max(0, list.findIndex((x) => x.key === snd)) };
 }
 
@@ -466,7 +467,8 @@ export function trackSoundPick(i: number): void {
 /** La piste active quand c'est une piste 9 a 16 (la face DT2 ; sans elle, la piste active est la voix du motif) ; null sinon. */
 function activeHi(): TrackKey | null {
   const t = activeTrack.get();
-  return t && !isLegacyTrack(t) ? t : null;
+  // Le plugin (pistes typees, des samples seulement) : la liste de SAMP pour les 16 pistes, sans les machines de synthese
+  return t && (TYPED_TRACKS || !isLegacyTrack(t)) ? t : null;
 }
 
 /** La categorie des fichiers importes pour une piste 9 a 16 : celle de son sample, sinon de sa machine, sinon BD. */
