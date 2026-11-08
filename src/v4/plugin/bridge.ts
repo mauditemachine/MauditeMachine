@@ -24,6 +24,9 @@ import type { StepLock } from '../audio/locks';
 import type { VoiceFx } from '../audio/voicefx';
 import { lockOf } from '../audio/locks';
 import { CONDS, trigNow } from '../audio/trig';
+import { activeLfos, LFO_DESTS, LFO_MODES, LFO_WAVES } from '../audio/lfo';
+import { cutHz, filterIndex, resoQ } from '../audio/voicelaw';
+import { liveNeeds } from '../audio/seqhit';
 import { pattern, VEL_GAIN, velocity } from '../audio/pattern';
 import { tracks, TRACK_KEYS, type TrackKey } from '../audio/tracks';
 import { decayTau, START_MAX } from '../audio/voicelaw';
@@ -89,6 +92,19 @@ export interface ProgHit {
   lt?: number;
   /** la tranche de la piste a partir de ce coup (TONE, DIST, CHORUS, envois DELAY et REVERB : la voix, ses verrous) */
   sl?: number[];
+  /**
+   * Les LFO du coup (audio/lfo.ts activeLfos : la voix et les verrous du pas), chacun [n, spd, mult, fade, dest, wave,
+   * phase, mode, depth] aux rangs du site ; lfot : LFO.T (le trig relance les LFO) ; lb : les bases des lois [LEVEL, RESO,
+   * DECAY] (audio/drums.ts lfoLaw, seqhit.ts lfoHitLock)
+   */
+  lfo?: number[][];
+  lfot?: number;
+  lb?: number[];
+  /** le panoramique meme au centre (un LFO PAN, un lock trig PAN de la voix : le gain porte le x racine de 2) */
+  fp?: number;
+  /** un lock trig : ce qu'il verrouille (1 VOL, 2 PAN, 4 RESO, 8 FREQ) ; lc : sa coupure (Hz) */
+  lk?: number;
+  lc?: number;
 }
 
 export interface ProgTrack {
@@ -185,6 +201,8 @@ function compile(): Program {
   for (const t of TRACK_KEYS) {
     const vo = tracks.voiceOf(t);
     const base = resolveHit(t, null, scenes);
+    // Ce que les lock trigs de la voix demandent en direct a ses coups (VOL, PAN, le filtre) ; null : aucun lock trig
+    const needs = liveNeeds(cur.locks, t);
     const hits: ProgHit[] = [];
     for (let g = 0; g < len; g += 1) {
       const s = g % 16;
@@ -210,6 +228,36 @@ function compile(): Program {
       h.vfad = tn.vfad;
       h.rlen = tn.rlen === null ? -1 : tn.rlen;
       if (lt) h.lt = 1;
+      // Les LFO (V.5.1) : ceux de la voix, les verrous du pas les changent ; LFO.T relance leur ancre
+      const fxv = r.fx;
+      const lk = r.lock;
+      const lfos = activeLfos(fxv, lock);
+      h.lfot = tn.lfot ? 1 : 0;
+      if (lfos.length > 0) h.lfo = lfos.map((l) => [l.n, l.spd, l.mult, l.fade, LFO_DESTS.indexOf(l.dest), LFO_WAVES.indexOf(l.wave), l.phase, LFO_MODES.indexOf(l.mode), l.depth]);
+      // Les bases des lois des LFO et des lock trigs : LEVEL, RESO, DECAY du coup (audio/drums.ts lfoLaw, lockTrigOn)
+      if (lfos.length > 0 || needs) h.lb = [r6(lk?.level ?? fxv.level), r6(lk?.freso ?? fxv.freso), r6(lk?.decay ?? fxv.decay)];
+      // Un lock trig : ce qu'il verrouille de ce que le coup qui sonne change en direct (1 VOL, 2 PAN, 4 RESO, 8 FREQ)
+      if (lt && lk) {
+        h.lk = (lk.level !== undefined ? 1 : 0) | (lk.pan !== undefined ? 2 : 0) | (lk.freso !== undefined ? 4 : 0) | (lk.fcut !== undefined ? 8 : 0);
+        if (lk.fcut !== undefined) h.lc = r6(cutHz(lk.fcut));
+      }
+      // Le panoramique et le filtre en direct (audio/drums.ts seqExtra) : un LFO PAN ou un lock trig PAN de la voix, un coup
+      // au centre passe quand meme par le panoramique (x racine de 2) ; un LFO FREQ ou RESO, un lock trig FREQ ou RESO, un
+      // coup sans filtre en recoit un, ouvert, sans enveloppe
+      const needPan = !!needs?.pan || lfos.some((l) => l.dest === 'PAN');
+      if (needPan && r.hp.pan === 0) {
+        h.fp = 1;
+        h.gain = r6(h.gain * Math.SQRT2);
+      }
+      const needFilter = !!needs?.filter || lfos.some((l) => l.dest === 'FREQ' || l.dest === 'RESO');
+      if (needFilter && !h.ft) {
+        h.ft = filterIndex(lk?.ftype ?? fxv.ftype) + 1;
+        h.fhz = r6(cutHz(lk?.fcut ?? fxv.fcut));
+        h.fq = r6(resoQ(lk?.freso ?? fxv.freso));
+        h.foct = 0;
+        h.fatk = 0;
+        h.ftau = 0.1;
+      }
       hits.push(h);
     }
     out.push({

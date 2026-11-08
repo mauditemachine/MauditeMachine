@@ -404,7 +404,8 @@ int main() {
         mm::ProgHit lt = h;
         lt.g = 2;
         lt.lt = true;
-        lt.gain = 0.1;
+        lt.lk = 1;                         // il verrouille VOL
+        lt.lbLevel = 0.8 * std::sqrt(0.1); // voiceGain : 0.1 du LEVEL du coup
         p.tracks[3].hits = {h, lt};
         std::vector<float> withLt, without;
         runPasses(p, 1, false, &withLt);
@@ -528,6 +529,140 @@ int main() {
         pl.tracks[0].slice = 4;
         runFx(pl, 0, l, r);
         CHECK(peakIn(l, 0, 48000) <= 0.9661f && peakIn(r, 0, 48000) <= 0.9661f, "LIMITEUR : plafond a -0.3 dBFS");
+    }
+
+    // ---------------- phase 3 bis : les LFO ----------------
+    {
+        // Le motif joue a 120 BPM (un pas : 6000 echantillons), sans effets, gauche et droite
+        auto runLR = [&](const mm::Program& p, int steps, std::vector<float>& l, std::vector<float>& r) {
+            mm::Engine e;
+            e.prepare(SR);
+            e.setDry(true);
+            e.publish(makeState(p));
+            const double pps = 120.0 / 60.0 / SR;
+            const int block = 250;
+            const int total = steps * 6000;
+            l.assign(static_cast<size_t>(total), 0.f);
+            r.assign(static_cast<size_t>(total), 0.f);
+            double ppq = 0;
+            for (int off = 0; off < total; off += block) {
+                e.process({true, ppq, pps}, l.data() + off, r.data() + off, block);
+                ppq += block * pps;
+            }
+        };
+        auto absSum = [](const std::vector<float>& x, int a, int b) {
+            double s = 0;
+            for (int i = a; i < b && i < static_cast<int>(x.size()); ++i) s += std::fabs(x[static_cast<size_t>(i)]);
+            return s;
+        };
+        auto maxDiff = [](const std::vector<float>& a, const std::vector<float>& b) {
+            double d = 0;
+            for (size_t i = 0; i < a.size() && i < b.size(); ++i) d = std::max(d, std::fabs(static_cast<double>(a[i]) - b[i]));
+            return d;
+        };
+        auto lfo = [](int dest, int wave, int mode, double depth, int spd = 32) {
+            mm::Lfo l;
+            l.spd = spd;
+            l.dest = dest;
+            l.wave = wave;
+            l.mode = mode;
+            l.depth = depth;
+            return l;
+        };
+        auto oneHit = [&](int track, const mm::Lfo* l) {
+            mm::Program p = baseProgram();
+            mm::ProgHit h = p.tracks[static_cast<size_t>(track)].live;
+            h.g = 0;
+            if (l) {
+                h.nlfo = 1;
+                h.lfo[0] = *l;
+            }
+            p.tracks[static_cast<size_t>(track)].hits = {h};
+            return p;
+        };
+        std::vector<float> l0, r0, l1, r1;
+
+        // VOL, SQR, un cycle de 4 pas : +0.5 la premiere moitie (LEVEL 1 : x 1.5625), -0.5 la seconde (LEVEL 0.3 : x 0.1406)
+        const mm::Lfo vol = lfo(mm::LD_VOL, mm::LW_SQR, mm::LM_FRE, 0.5);
+        runLR(oneHit(3, nullptr), 4, l0, r0);
+        runLR(oneHit(3, &vol), 4, l1, r1);
+        const double up = absSum(l1, 2000, 10000) / absSum(l0, 2000, 10000);
+        const double down = absSum(l1, 14000, 22000) / absSum(l0, 14000, 22000);
+        CHECK(std::fabs(up - 1.5625) < 0.005 && std::fabs(down - 0.140625) < 0.002 && absSum(l0, 14000, 22000) > 1, "LFO VOL : la forme carree mene le gain du coup qui sonne (loi du LEVEL)");
+
+        // DECAY, pris au coup : -0.5 sur DECAY 1 (le son entier) donne la constante de temps de DECAY 0.5
+        mm::Lfo dec = lfo(mm::LD_DECAY, mm::LW_SQR, mm::LM_FRE, -0.5);
+        mm::Program pdec = oneHit(3, &dec);
+        pdec.tracks[3].hits[0].lbDecay = 1;
+        runLR(pdec, 4, l1, r1);
+        mm::Program ptau = oneHit(3, nullptr);
+        ptau.tracks[3].hits[0].tau = 0.012 * std::pow(60.0, 0.5);
+        runLR(ptau, 4, l0, r0);
+        CHECK(maxDiff(l0, l1) == 0 && absSum(l1, 0, 4000) > 1, "LFO DECAY : la valeur du LFO au coup donne son DECAY");
+
+        // PITCH : +0.5 tenu (HLD) = +6 demi-tons, la lecture a racine de 2 : le son finit racine de 2 fois plus tot
+        const mm::Lfo pit = lfo(mm::LD_PITCH, mm::LW_SQR, mm::LM_HLD, 0.5);
+        runLR(oneHit(1, nullptr), 4, l0, r0);
+        runLR(oneHit(1, &pit), 4, l1, r1);
+        auto lastNz = [](const std::vector<float>& x) {
+            long k = -1;
+            for (size_t i = 0; i < x.size(); ++i)
+                if (x[i] != 0) k = static_cast<long>(i);
+            return k;
+        };
+        const double ratio = static_cast<double>(lastNz(l0)) / static_cast<double>(lastNz(l1));
+        CHECK(lastNz(l0) > 1000 && std::fabs(ratio - std::sqrt(2.0)) < 0.01, "LFO PITCH : +6 demi-tons, le son lu racine de 2 fois plus vite");
+
+        // PAN : SQR a fond, un cycle de 2 pas : a droite la premiere moitie, a gauche la seconde (un son mono au centre)
+        const mm::Lfo pan = lfo(mm::LD_PAN, mm::LW_SQR, mm::LM_FRE, 1, 64);
+        runLR(oneHit(1, &pan), 2, l1, r1);
+        const bool right = absSum(r1, 600, 5400) > 1 && absSum(l1, 600, 5400) < 1e-3;
+        const bool left = absSum(l1, 6600, 11400) > 1e-2 && absSum(r1, 6600, 11400) < 1e-4;
+        CHECK(right && left, "LFO PAN : la forme carree passe le coup de droite a gauche");
+
+        // FREQ : +1 tenu sur un passe-bas a 632 Hz = +5 octaves, le filtre de 20 kHz ; RESO : +0.5 = le Q de RESO 0.5
+        const mm::Lfo frq = lfo(mm::LD_FREQ, mm::LW_SQR, mm::LM_HLD, 1);
+        mm::Program pf = oneHit(1, &frq);
+        pf.tracks[1].hits[0].ft = 1;
+        pf.tracks[1].hits[0].fhz = 632.455532;
+        runLR(pf, 2, l1, r1);
+        mm::Program pf0 = oneHit(1, nullptr);
+        pf0.tracks[1].hits[0].ft = 1;
+        pf0.tracks[1].hits[0].fhz = 20000;
+        runLR(pf0, 2, l0, r0);
+        const double dFreq = maxDiff(l0, l1);
+        const mm::Lfo rso = lfo(mm::LD_RESO, mm::LW_SQR, mm::LM_HLD, 0.5);
+        mm::Program pq = oneHit(1, &rso);
+        pq.tracks[1].hits[0].ft = 1;
+        pq.tracks[1].hits[0].fhz = 2000;
+        pq.tracks[1].hits[0].lbReso = 0;
+        runLR(pq, 2, l1, r1);
+        mm::Program pq0 = oneHit(1, nullptr);
+        pq0.tracks[1].hits[0].ft = 1;
+        pq0.tracks[1].hits[0].fhz = 2000;
+        pq0.tracks[1].hits[0].fq = 0.70710678118654752440 * (1 + 16 * std::pow(0.5, 1.5));
+        runLR(pq0, 2, l0, r0);
+        CHECK(dFreq < 1e-6 && maxDiff(l0, l1) < 1e-5 && absSum(l1, 0, 6000) > 1, "LFO FREQ et RESO : la coupure en octaves, le Q de la loi RESO");
+
+        // TRG et LFO.T : un lock trig au pas 1 relance le LFO VOL (TRG) du coup qui sonne ; sans LFO.T, rien ne change
+        const mm::Lfo trg = lfo(mm::LD_VOL, mm::LW_SQR, mm::LM_TRG, 0.5);
+        mm::Program pt = oneHit(3, &trg);
+        mm::ProgHit lt = pt.tracks[3].hits[0];
+        lt.g = 1;
+        lt.lt = true;
+        lt.lfot = true;
+        pt.tracks[3].hits.push_back(lt);
+        runLR(pt, 4, l1, r1);
+        mm::Program pt0 = pt;
+        pt0.tracks[3].hits[1].lfot = false;
+        std::vector<float> l2, r2;
+        runLR(pt0, 4, l2, r2);
+        runLR(oneHit(3, nullptr), 4, l0, r0);
+        const double relaunched = absSum(l1, 13000, 17000) / absSum(l0, 13000, 17000);
+        const double kept = absSum(l2, 13000, 17000) / absSum(l0, 13000, 17000);
+        bool sameBefore = true;
+        for (int i = 0; i < 6000; ++i) sameBefore = sameBefore && l1[static_cast<size_t>(i)] == l2[static_cast<size_t>(i)];
+        CHECK(sameBefore && std::fabs(relaunched - 1.5625) < 0.005 && std::fabs(kept - 0.140625) < 0.002, "LFO TRG : un lock trig a LFO.T relance la forme a son heure");
     }
 
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");

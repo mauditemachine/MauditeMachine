@@ -100,6 +100,34 @@ void parseHit(const juce::var& o, mm::ProgHit& h) {
         h.hasSl = true;
         h.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
     }
+    // Les LFO : [n, spd, mult, fade, dest, wave, phase, mode, depth] aux rangs du site (dsp/Lfo.h)
+    h.nlfo = 0;
+    if (const auto* ls = o.getProperty("lfo", juce::var()).getArray())
+        for (const auto& lv : *ls) {
+            const auto* a = lv.getArray();
+            if (!a || a->size() < 9 || h.nlfo >= 2) continue;
+            auto at = [&](int i) { return static_cast<double>((*a)[i]); };
+            mm::Lfo& l = h.lfo[h.nlfo];
+            l.n = static_cast<int>(at(0)) == 2 ? 2 : 1;
+            l.spd = juce::jlimit(-64, 63, static_cast<int>(at(1)));
+            l.mult = juce::jlimit(1, 128, static_cast<int>(at(2)));
+            l.fade = juce::jlimit(-64, 63, static_cast<int>(at(3)));
+            l.dest = juce::jlimit(0, static_cast<int>(mm::LD_DECAY), static_cast<int>(at(4)));
+            l.wave = juce::jlimit(0, static_cast<int>(mm::LW_RND), static_cast<int>(at(5)));
+            l.phase = juce::jlimit(0.0, 1.0, at(6));
+            l.mode = juce::jlimit(0, static_cast<int>(mm::LM_HLF), static_cast<int>(at(7)));
+            l.depth = juce::jlimit(-1.0, 1.0, at(8));
+            if (l.dest != mm::LD_OFF && l.depth != 0) ++h.nlfo;
+        }
+    h.lfot = num(o, "lfot", 1) != 0;
+    if (const auto* lb = o.getProperty("lb", juce::var()).getArray(); lb && lb->size() >= 3) {
+        h.lbLevel = static_cast<double>((*lb)[0]);
+        h.lbReso = static_cast<double>((*lb)[1]);
+        h.lbDecay = static_cast<double>((*lb)[2]);
+    }
+    h.fp = num(o, "fp", 0) != 0;
+    h.lk = static_cast<int>(num(o, "lk", 0));
+    h.lc = num(o, "lc", 20000);
 }
 
 // Les effets globaux du programme (pattern.fx par morph.fx, TONE et LEVEL du mix)

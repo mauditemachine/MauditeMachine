@@ -20,15 +20,18 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | ENV : ATK, HOLD, DECAY ; PAN ; kick mono ; choke CH / OH ; 4 voix par piste | joue (`tests/engine_test.cpp`) |
 | MUTE, SOLO, mute du pattern | joue |
 | Pads, touches, notes MIDI GM d'Ableton | joue |
-| Conditions (FILL, PRE, NEI, 1ST, A:B, NOT), PROB, uTIME (en avance aussi), LEN, RTRG (RATE, VFAD, RLEN), lock trigs (VOL, PAN) | joue (phase 2, port de `audio/seq.ts`, `tests/engine_test.cpp`) |
+| Conditions (FILL, PRE, NEI, 1ST, A:B, NOT), PROB, uTIME (en avance aussi), LEN, RTRG (RATE, VFAD, RLEN) | joue (phase 2, port de `audio/seq.ts`, `tests/engine_test.cpp`) |
+| Lock trigs : VOL (rapporte au LEVEL du coup), PAN, FREQ, RESO du coup qui sonne, a l'echantillon pres, glissement 1 ms ; envois et inserts de la tranche ; LFO.T | joue (`audio/drums.ts` lockTrigOn) |
 | Crossfader A / B (scenes) | joue sur les coups et sur les effets (le programme suit le crossfader) |
 | FLTR du coup (passe-bas, passe-haut, passe-bande, enveloppe) | joue (formules du BiquadFilterNode) |
 | Tranche de piste : TONE, DIST, CHORUS (l'algorithme du worklet), envois DELAY et REVERB, leurs verrous | joue (`dsp/Fx.cpp`) |
 | Bus des pads (DIST, TONE, CHORUS, envois globaux) et du kick (DIST, TONE), LEVEL, garniture 0.84 | joue, au niveau du site |
 | DELAY (boucle LP / HP 180 Hz), REVERB (la reponse du site, identique bit a bit, convolution par blocs : 256 echantillons de latence sur le retour) | joue |
 | Master : GLUE (BIT, COMP et AUTO), LIMITEUR -0.3 dBFS | joue |
-| LFO (les deux par voix) | a faire (phase 3 bis) |
+| LFO (les deux par voix) : SPD, MULT, FADE, 7 formes, 5 modes (FRE, TRG, HLD, ONE, HLF), LFO.T ; en continu PITCH, FREQ, RESO, VOL, PAN (les courbes du site : 24 points par cycle, 2 a 40 ms, 8 s, 512 rampes) ; au coup DIST, DELAY, REVERB, TONE, DECAY | joue (phase 3 bis, `dsp/Lfo.h` identique au site sur 4000 cas, `tests/engine_test.cpp`) |
 | Chaines de patterns, SONG, samples perso du navigateur, multi-out | phase 4 |
+
+Ecarts connus des LFO : en mode FRE, le LFO suit la position du morceau d'Ableton (au site : depuis PLAY ; identique quand on lance au debut, et un export donne le meme son ou qu'il commence) ; TONE mene par un LFO passe par le TONE de la tranche (comme les verrous de TONE du plugin), pas par un nouveau calcul du coup.
 
 ## La face dans le plugin (plus simple qu'au site)
 

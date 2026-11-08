@@ -95,15 +95,49 @@ public:
     void own(const std::shared_ptr<RenderedSound>& s) { soundsOwned_.push_back(s); }
 
 private:
+    // Une courbe de LFO continue d'un coup (audio/drums.ts lfoCurves) : des rampes lineaires entre des points (la valeur de
+    // l'AudioParam), de t0 a la fin du coup (au plus 8 s, 512 rampes) ; relancee par un lock trig : de gVal a gFrom, 3 ms
+    // de glissement vers la nouvelle courbe
+    struct Curve {
+        bool on = false;
+        double t0 = 0, seg = 1; // le premier point (echantillons de la voix) et l'ecart des points
+        int n = 0;              // le nombre de rampes ; 0 : une valeur fixe ; -1 : gVal tenue
+        long k = -1;            // la rampe en cours (a, b : ses bouts) ; n : la derniere valeur (a)
+        double a = 0, b = 0, p0 = 0;
+        double gFrom = -1, gVal = 0;
+    };
+    enum { CV_PITCH, CV_FREQ, CV_RESO, CV_VOL, CV_PAN, CV_N };
+    // Un lock trig qui attend son heure dans le bloc (le moment de la voix ou il tombe)
+    struct PendLock {
+        bool on = false;
+        double at = 0;
+        int lk = 0;
+        double level = 0.8, pan = 0, reso = 0, cut = 20000;
+        bool re = false; // LFO.T : les LFO du coup repartent de anchor
+        double anchor = 0;
+    };
     struct Voice {
         RenderedSound* snd = nullptr;
         const Shot* shot = nullptr;
         size_t pos = 0;
+        double fpos = 0;       // un LFO PITCH : la lecture a vitesse variable, interpolee (sinon pos, a vitesse 1)
         int delay = 0;
         double t = 0;          // echantillons joues depuis le debut (l'enveloppe)
         float gLL = 1, gRL = 0, gLR = 0, gRR = 1; // matrice du PAN (sortie <- entree)
-        float gain = 1, gainTo = 1, gainStep = 0; // un lock trig fait glisser le gain
+        bool panner = false;   // un panoramique (hors du centre, ou force : un LFO PAN, un lock trig PAN)
+        double panNow = 0, panTo = 0;
+        float gain = 1, gainTo = 1; // un lock trig fait glisser le gain (setTargetAtTime, 1 ms)
+        float gain0 = 1;       // le gain du depart (la base du VOL d'un lock trig)
+        double vol = 0.8;      // le LEVEL du coup
         float vel = 1, slice = 1;
+        // Les LFO du coup : leur position (en pas) au debut du coup, leur ancre, un pas en echantillons, la fin des courbes
+        int nlfo = 0;
+        Lfo lfo[2];
+        double lPos = 0, lAnchor = 0, lStepN = 1, lEndN = 0;
+        double baseLevel = 0.8, baseReso = 0, basePan = 0;
+        std::array<Curve, CV_N> cv{};
+        bool anyCv = false;
+        PendLock pl;
         double atkN = 0, holdEndN = 0, tauN = -1, stopN = -1;
         double cutN = -1;      // LEN : le relachement de 8 ms commence ici (-1 : INF)
         // FLTR : le biquad du coup (formules du BiquadFilterNode), sa coupure menee par l'enveloppe
@@ -127,6 +161,8 @@ private:
         double lenSteps = -1;
         bool rep = false;  // une repetition de retrig : coupe le coup d'avant de la voix en 8 ms
         bool lt = false;   // un lock trig
+        double anchor = 0; // l'ancre des LFO du coup (en pas) ; un lock trig : la nouvelle si re
+        bool re = false;
         ProgHit hit;
         RenderedSound* snd = nullptr;
     };
@@ -143,29 +179,40 @@ private:
         int vfad = 0;
         float vel = 1, slice = 1;
         double lenSteps = -1;
+        // Un lock trig qui relance les LFO pendant le retrig : les repetitions d'avant preUntil gardent preAnchor
+        double preUntil = -INFINITY, preAnchor = 0;
         ProgHit hit;
         RenderedSound* snd = nullptr; // tenu (users) tant que le retrig dure
     };
     struct TrackSeq {
         int pre = -1; // -1 : aucun resultat, 0 faux, 1 vrai
+        double anchor = 0; // l'ancre des LFO de la voix (en pas) : PLAY, puis le dernier trig a LFO.T
         Retrig rt;
     };
 
-    void trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN);
-    void lockTrig(const ProgHit& h, int track, float slice, int offset);
-    void filterCoefs(Voice& v, double f) const;
+    void trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor);
+    void lockTrig(const ProgHit& h, int track, int offset, bool re, double anchor);
+    void applyLock(Voice& v);
+    void filterCoefs(Voice& v, double f, double q) const;
     double filterFreq(const Voice& v) const;
+    void updateFilter(Voice& v);
+    void setPan(Voice& v, double pan);
+    // Les LFO continus : la somme d'une destination au temps t de la voix, sa loi, la courbe (depart, relance, valeur)
+    double lfoSumAt(const Voice& v, int dest, double t) const;
+    double lawOf(const Voice& v, int c, double s) const;
+    void curveStart(Voice& v, int c, double from, double held);
+    double curveAt(Voice& v, int c, double t) const;
     void fadeTrack(int track, int samples, int offset);
     void release(Voice& v);
     void seqReset(bool full);
     void evalStep(const PlayState& ps, long G);
-    bool repeats(int track, Retrig& rt, double from, double to, double before);
+    bool repeats(int track, Retrig& rt, double from, double to, double before, double anchor);
     void endRetrig(Retrig& rt);
     void pendPush(const Ev& e);
     uint32_t rngNext();
 
     void processChunk(const BlockTransport& tr, float* L, float* R, int n, const NoteEvent* notes, int nNotes);
-    void applySlice(const PlayState& ps, int track, const ProgHit& h);
+    void applySlice(const PlayState& ps, int track, const SliceFx& s);
 
     double sr_ = 48000;
     FxChain fx_;

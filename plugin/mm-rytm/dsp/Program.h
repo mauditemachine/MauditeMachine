@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Fx.h"
+#include "Lfo.h"
 #include "Shots.h"
 
 #include <array>
@@ -55,6 +56,18 @@ struct ProgHit {
     // La tranche de la piste a partir de ce coup (un verrou de TONE, DIST, CHORUS, DELAY ou REVERB) ; absente : rien ne change
     bool hasSl = false;
     SliceFx sl;
+    // Les LFO du coup (audio/lfo.ts activeLfos : la voix, les verrous du pas) ; lfot : LFO.T (le trig relance leur ancre)
+    int nlfo = 0;
+    Lfo lfo[2];
+    bool lfot = true;
+    // Les bases des lois (audio/drums.ts lfoLaw, seqhit.ts lfoHitLock) : LEVEL, RESO et DECAY du coup (la voix ou son verrou)
+    double lbLevel = 0.8, lbReso = 0, lbDecay = 1;
+    // Le panoramique meme au centre (un LFO PAN ou un lock trig PAN de la voix : audio/drums.ts seqExtra forcePan ; le gain
+    // porte deja le x racine de 2)
+    bool fp = false;
+    // Un lock trig : ce qu'il verrouille de ce que la voix change en direct (1 VOL, 2 PAN, 4 RESO, 8 FREQ ; lc : la coupure)
+    int lk = 0;
+    double lc = 20000;
 };
 
 struct ProgTrack {

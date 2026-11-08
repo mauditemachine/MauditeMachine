@@ -14,18 +14,29 @@ constexpr double MONO_CUT_S = 0.003;
 constexpr double CHOKE_S = 0.008;
 constexpr double STEAL_S = 0.008;
 constexpr double LEN_REL_S = 0.008;
-// Un lock trig fait glisser le gain du coup qui sonne (glideTo du site) en 10 ms.
-constexpr double GLIDE_S = 0.01;
+// Un lock trig mene le coup qui sonne vers ses valeurs (glideTo du site : setTargetAtTime, 1 ms) ; un LFO relance glisse
+// de sa valeur du moment vers sa nouvelle courbe en 3 ms (audio/drums.ts LIVE_TAU_S, LIVE_GLIDE_S).
+constexpr double LIVE_TAU_S = 0.001;
+constexpr double LIVE_GLIDE_S = 0.003;
+// Les courbes des LFO continus (audio/seqhit.ts lfoPoints) : 24 points par cycle du plus rapide, de 2 a 40 ms, sur au
+// plus 8 s, au plus 512 rampes ; PITCH +/-12 demi-tons, FREQ +/-5 octaves a DEP +/-64.
+constexpr double LFO_SPAN_S = 8;
+constexpr double SEG_MIN_S = 0.002;
+constexpr double SEG_MAX_S = 0.04;
+constexpr int SEG_COUNT = 512;
+constexpr double LFO_PITCH_CENTS = 1200;
+constexpr double LFO_FREQ_CENTS = 6000;
 // Un etat ou un son retire est libere 2 s apres, quand plus personne ne le lit.
 constexpr double RETIRE_S = 2.0;
 constexpr double EPS = 1e-9;
 constexpr double INF = std::numeric_limits<double>::infinity();
 
-// La matrice du PAN (audio/drums.ts voice) : au centre, le son tel quel ; un son mono a puissance constante (le x racine
-// de 2 est deja dans le gain du coup) ; un son stereo par le panoramique stereo de Web Audio puis x 1 / racine de 2.
-void panMatrix(double pan, bool mono, float& LL, float& LR, float& RL, float& RR) {
+// La matrice du PAN (audio/drums.ts voice) : au centre sans panoramique, le son tel quel ; un son mono a puissance
+// constante (le x racine de 2 est deja dans le gain du coup) ; un son stereo par le panoramique stereo de Web Audio puis
+// x 1 / racine de 2. force : le panoramique meme au centre (un LFO PAN, un lock trig PAN).
+void panMatrix(double pan, bool mono, bool force, float& LL, float& LR, float& RL, float& RR) {
     pan = std::max(-1.0, std::min(1.0, pan));
-    if (pan == 0) {
+    if (pan == 0 && !force) {
         LL = 1; LR = 0; RL = 0; RR = 1;
     } else if (mono) {
         const double x = (pan + 1) / 2;
@@ -44,6 +55,22 @@ void panMatrix(double pan, bool mono, float& LL, float& LR, float& RL, float& RR
             RL = static_cast<float>(c * std::sin(x * PI / 2)); RR = static_cast<float>(c);
         }
     }
+}
+
+// Les lois de la voix (audio/voicelaw.ts)
+double clamp01(double v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+double clamp11(double v) { return v < -1 ? -1 : v > 1 ? 1 : v; }
+double voiceGain(double level) { return (level / 0.8) * (level / 0.8); }
+double resoQ(double v) { return 0.70710678118654752440 * (1 + 16 * std::pow(clamp01(v), 1.5)); }
+double decayTau(double v) { return v >= 0.995 ? -1 : 0.012 * std::pow(60.0, std::max(0.0, v)); }
+double snapPan(double v) {
+    const double c = clamp11(v);
+    return std::fabs(c) < 0.02 ? 0 : std::round(c * 1000) / 1000;
+}
+// TONE mene par un LFO : au 1/32 (au plus 65 valeurs), sous 0.04 le centre (audio/seqhit.ts lfoHitLock, tone.ts snapTone)
+double lfoTone(double v) {
+    const double c = std::round(clamp11(v) * 32) / 32;
+    return std::fabs(c) < 0.04 ? 0 : c;
 }
 } // namespace
 
@@ -87,9 +114,8 @@ void Engine::prepare(double sampleRate) {
 
 // La tranche d'une piste a partir d'un coup : ses verrous de TONE, DIST, CHORUS, DELAY, REVERB, ou ceux de la voix
 // (audio/drums.ts postSends, postInserts : l'etat de la tranche jusqu'au coup suivant de la voix)
-void Engine::applySlice(const PlayState& ps, int track, const ProgHit& h) {
+void Engine::applySlice(const PlayState& ps, int track, const SliceFx& s) {
     const ProgTrack& pt = ps.prog.tracks[static_cast<size_t>(track)];
-    const SliceFx& s = h.hasSl ? h.sl : pt.sl;
     SliceFx& now = sliceNow_[static_cast<size_t>(track)];
     if (s.tone == now.tone && s.dist == now.dist && s.chorus == now.chorus && s.delay == now.delay && s.reverb == now.reverb) return;
     now = s;
@@ -191,10 +217,29 @@ void Engine::fadeTrack(int track, int samples, int offset) {
     }
 }
 
-void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN) {
+void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor) {
     if (!snd || snd->variants.empty()) return;
-    applySlice(ps, track, h);
     const ProgTrack& tr = ps.prog.tracks[static_cast<size_t>(track)];
+    // Les LFO pris au moment du coup (audio/seqhit.ts lfoHitLock) : DIST, DELAY, REVERB, TONE dans la tranche (comme un
+    // verrou du coup), DECAY dans son enveloppe ; sur les valeurs que le coup joue (la voix ou son verrou)
+    SliceFx sl = h.hasSl ? h.sl : tr.sl;
+    double tau = h.tau;
+    for (int d = LD_DIST; d <= LD_DECAY && h.nlfo > 0; ++d) {
+        double sum = 0;
+        bool any = false;
+        for (int i = 0; i < h.nlfo; ++i)
+            if (h.lfo[i].dest == d) {
+                sum += lfoValue(h.lfo[i], lpos, anchor);
+                any = true;
+            }
+        if (!any) continue;
+        if (d == LD_DIST) sl.dist = clamp01(sl.dist + sum);
+        else if (d == LD_DELAY) sl.delay = clamp01(sl.delay + sum);
+        else if (d == LD_REVERB) sl.reverb = clamp01(sl.reverb + sum);
+        else if (d == LD_TONE) sl.tone = lfoTone(sl.tone + sum);
+        else tau = decayTau(clamp01(h.lbDecay + sum));
+    }
+    applySlice(ps, track, sl);
     const bool gated = tr.choke > 0 && tr.gated;
     const bool mono = tr.mono && !gated;
     if (tr.choke > 0)
@@ -251,11 +296,14 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
     v.slice = slice;
     v.gain = static_cast<float>(v.vel * h.gain * slice);
     v.gainTo = v.gain;
-    v.gainStep = 0;
-    panMatrix(h.pan, shot.mono, v.gLL, v.gLR, v.gRL, v.gRR);
+    v.gain0 = v.gain;
+    v.vol = h.lbLevel;
+    v.panNow = v.panTo = std::max(-1.0, std::min(1.0, h.pan));
+    v.panner = h.pan != 0 || h.fp;
+    v.pl = PendLock{};
     v.atkN = std::max(0.0, h.atk) * sr_;
     v.holdEndN = (std::max(0.0, h.atk) + std::max(0.0, h.hold)) * sr_;
-    v.tauN = h.tau > 0 ? h.tau * sr_ : -1;
+    v.tauN = tau > 0 ? tau * sr_ : -1;
     v.stopN = v.tauN > 0 ? v.holdEndN + 7 * v.tauN : -1;
     v.cutN = lenSteps > 0 && stepN > 0 ? lenSteps * stepN : -1;
     // FLTR
@@ -269,18 +317,170 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
         v.fPeak = std::max(20.0, std::min(top, h.fhz * std::pow(2.0, h.foct)));
         v.fAtkN = std::max(0.0, h.fatk) * sr_;
         v.fTauN = std::max(1e-4, h.ftau) * sr_;
-        filterCoefs(v, filterFreq(v));
     }
+    // Les LFO continus (PITCH, FREQ, RESO, VOL, PAN : audio/drums.ts lfoCurves) : des courbes sur la duree du coup
+    v.nlfo = 0;
+    v.anyCv = false;
+    for (auto& c : v.cv) c = Curve{};
+    if (h.nlfo > 0 && stepN > 0) {
+        v.nlfo = std::min(2, h.nlfo);
+        for (int i = 0; i < v.nlfo; ++i) v.lfo[i] = h.lfo[i];
+        v.lPos = lpos;
+        v.lAnchor = anchor;
+        v.lStepN = stepN;
+        v.baseLevel = h.lbLevel;
+        v.baseReso = h.lbReso;
+        v.basePan = v.panNow;
+        // La fin du coup (son echantillon, son DECAY, LEN), au plus 8 s
+        double endN = static_cast<double>(shot.size() - std::min(shot.size(), v.pos));
+        if (v.stopN >= 0) endN = std::min(endN, v.stopN);
+        if (v.cutN >= 0) endN = std::min(endN, v.cutN + (LEN_REL_S + 0.002) * sr_);
+        v.lEndN = std::min(endN, LFO_SPAN_S * sr_);
+        for (int i = 0; i < v.nlfo; ++i) {
+            const int c = v.lfo[i].dest - LD_PITCH;
+            if (c < 0 || c >= CV_N) continue;
+            if ((c == CV_FREQ || c == CV_RESO) && !v.ft) continue; // sans filtre (la face en pose un) : rien a mener
+            v.cv[static_cast<size_t>(c)].on = true;
+            v.anyCv = true;
+        }
+        // Un LFO PAN au centre : le panoramique quand meme, au niveau du centre (seqExtra : x racine de 2)
+        if (v.cv[CV_PAN].on && !v.panner) {
+            v.panner = true;
+            v.gain = v.gainTo = v.gain0 = static_cast<float>(v.gain * std::sqrt(2.0));
+        }
+        for (int c = 0; c < CV_N; ++c)
+            if (v.cv[static_cast<size_t>(c)].on) curveStart(v, c, 0, 0);
+        if (v.cv[CV_PITCH].on) v.fpos = static_cast<double>(v.pos);
+        if (v.cv[CV_PAN].on) v.panNow = v.panTo = curveAt(v, CV_PAN, 0);
+    }
+    panMatrix(v.panNow, shot.mono, v.panner, v.gLL, v.gLR, v.gRL, v.gRR);
+    if (v.ft) updateFilter(v);
+}
+
+/* ---------------- les LFO continus (audio/drums.ts lfoLaw, lfoCurves ; seqhit.ts lfoPoints) ---------------- */
+
+double Engine::lfoSumAt(const Voice& v, int dest, double t) const {
+    const double pos = v.lPos + t / v.lStepN;
+    double s = 0;
+    for (int i = 0; i < v.nlfo; ++i)
+        if (v.lfo[i].dest == dest) s += lfoValue(v.lfo[i], pos, v.lAnchor);
+    return s;
+}
+
+// La loi d'une destination continue : la valeur de l'AudioParam du site pour une valeur s des LFO (PITCH et FREQ : le
+// detune en cents ; RESO : le Q, en dB hors du passe-bande ; VOL : le gain rapporte au LEVEL ; PAN : le panoramique)
+double Engine::lawOf(const Voice& v, int c, double s) const {
+    switch (c) {
+        case CV_PITCH: return s * LFO_PITCH_CENTS;
+        case CV_FREQ: return s * LFO_FREQ_CENTS;
+        case CV_RESO: {
+            const double q = resoQ(clamp01(v.baseReso + s));
+            return v.ft == 3 ? q : 20 * std::log10(q);
+        }
+        case CV_VOL: {
+            const double b = voiceGain(v.baseLevel);
+            return b > 1e-6 ? voiceGain(clamp01(v.baseLevel + s)) / b : 1;
+        }
+        default: return clamp11(v.basePan + s);
+    }
+}
+
+// Une courbe depuis from (echantillons de la voix) : 0 au depart du coup ; plus tard (un lock trig), la valeur held tenue
+// a from, puis 3 ms vers la nouvelle courbe. Des points tous les seg (24 par cycle du plus rapide, 2 a 40 ms) jusqu'a la
+// fin du coup, au plus 512 rampes (au-dela, la courbe s'arrete plus tot) ; un LFO immobile (HLD ou SPD 0, sans FADE) : un point.
+void Engine::curveStart(Voice& v, int c, double from, double held) {
+    Curve& cv = v.cv[static_cast<size_t>(c)];
+    const double t1 = v.lEndN;
+    double t0 = std::max(0.0, from);
+    if (from > 0) {
+        if (t0 >= t1) return; // le coup a fini sa courbe : il garde sa derniere valeur
+        cv.gFrom = t0;
+        cv.gVal = held;
+        t0 += LIVE_GLIDE_S * sr_;
+        if (t0 >= t1) {
+            cv.n = -1;
+            return;
+        }
+    } else {
+        cv.gFrom = -1;
+    }
+    cv.t0 = t0;
+    cv.k = -1;
+    const int dest = c + LD_PITCH;
+    bool still = true;
+    double cyc = INF;
+    for (int i = 0; i < v.nlfo; ++i) {
+        const Lfo& l = v.lfo[i];
+        if (l.dest != dest) continue;
+        const double lc = lfoCycle(l);
+        if (!((l.mode == LM_HLD || !std::isfinite(lc)) && l.fade == 0)) still = false;
+        cyc = std::min(cyc, lc * v.lStepN);
+    }
+    if (still || !(t1 > t0)) {
+        cv.n = 0;
+        cv.seg = 1;
+    } else {
+        double seg = std::max(SEG_MIN_S * sr_, std::min(SEG_MAX_S * sr_, std::isfinite(cyc) ? cyc / 24 : SEG_MAX_S * sr_));
+        long n = std::max(1L, static_cast<long>(std::ceil((t1 - t0) / seg)));
+        if (n > SEG_COUNT) n = SEG_COUNT;
+        else seg = (t1 - t0) / static_cast<double>(n);
+        cv.n = static_cast<int>(n);
+        cv.seg = seg;
+    }
+    cv.p0 = lawOf(v, c, lfoSumAt(v, dest, cv.t0));
+}
+
+// La valeur de la courbe au temps t de la voix (les rampes lineaires d'AudioParam entre ses points)
+double Engine::curveAt(Voice& v, int c, double t) const {
+    Curve& cv = v.cv[static_cast<size_t>(c)];
+    if (cv.n < 0) return cv.gVal;
+    if (t < cv.t0) {
+        if (cv.gFrom < 0 || t <= cv.gFrom) return cv.gFrom < 0 ? cv.p0 : cv.gVal;
+        return cv.gVal + (cv.p0 - cv.gVal) * (t - cv.gFrom) / (cv.t0 - cv.gFrom);
+    }
+    const int dest = c + LD_PITCH;
+    const long k = cv.n == 0 ? 0 : std::min(static_cast<long>(cv.n), static_cast<long>(std::floor((t - cv.t0) / cv.seg)));
+    if (k >= cv.n) {
+        if (cv.k != cv.n) {
+            cv.a = cv.n == 0 ? cv.p0 : lawOf(v, c, lfoSumAt(v, dest, cv.t0 + cv.n * cv.seg));
+            cv.k = cv.n;
+        }
+        return cv.a;
+    }
+    if (k != cv.k) {
+        cv.a = k == 0 ? cv.p0 : (k == cv.k + 1 ? cv.b : lawOf(v, c, lfoSumAt(v, dest, cv.t0 + static_cast<double>(k) * cv.seg)));
+        cv.b = lawOf(v, c, lfoSumAt(v, dest, cv.t0 + static_cast<double>(k + 1) * cv.seg));
+        cv.k = k;
+    }
+    const double fr = (t - (cv.t0 + static_cast<double>(k) * cv.seg)) / cv.seg;
+    return cv.a + (cv.b - cv.a) * fr;
+}
+
+void Engine::setPan(Voice& v, double pan) {
+    v.panNow = pan;
+    panMatrix(pan, v.shot && v.shot->mono, v.panner, v.gLL, v.gLR, v.gRL, v.gRR);
+}
+
+// Le filtre du moment : la coupure de l'enveloppe (et le detune d'un LFO FREQ), le Q (celui d'un LFO RESO)
+void Engine::updateFilter(Voice& v) {
+    double f = filterFreq(v);
+    if (v.cv[CV_FREQ].on) f *= std::exp2(curveAt(v, CV_FREQ, v.t) / 1200);
+    double q = v.fq;
+    if (v.cv[CV_RESO].on) {
+        const double x = curveAt(v, CV_RESO, v.t);
+        q = v.ft == 3 ? x : std::pow(10.0, x / 20);
+    }
+    filterCoefs(v, f, q);
 }
 
 // Le biquad de Web Audio (le BiquadFilterNode : passe-bas et passe-haut avec Q en dB, ici deja ramene en lineaire par le
 // site, passe-bande a gain 0 dB au centre)
-void Engine::filterCoefs(Voice& v, double f) const {
+void Engine::filterCoefs(Voice& v, double f, double q) const {
     const double top = std::min(20000.0, sr_ * 0.45);
     f = std::max(20.0, std::min(top, f));
     const double w0 = 2 * PI * f / sr_;
     const double cw = std::cos(w0), sw = std::sin(w0);
-    const double alpha = sw / (2 * std::max(1e-3, v.fq));
+    const double alpha = sw / (2 * std::max(1e-3, q));
     double B0, B1, B2;
     const double A0 = 1 + alpha, A1 = -2 * cw, A2 = 1 - alpha;
     if (v.ft == 1) {
@@ -300,16 +500,54 @@ double Engine::filterFreq(const Voice& v) const {
     return v.f0 + (v.fPeak - v.f0) * std::exp(-(v.t - v.fAtkN) / v.fTauN);
 }
 
-void Engine::lockTrig(const ProgHit& h, int track, float slice, int offset) {
-    // Le coup qui sonne de la voix (le plus recent) : son VOL et son PAN prennent ceux du lock trig, en glissant
+// Un lock trig (audio/drums.ts lockTrigOn) : le coup qui sonne de la voix (le plus recent) le prend a son heure
+void Engine::lockTrig(const ProgHit& h, int track, int offset, bool re, double anchor) {
     Voice* last = nullptr;
     for (auto& v : voices_[static_cast<size_t>(track)])
         if (v.shot && v.fadeLeft < 0 && v.delay <= offset && (!last || v.age > last->age)) last = &v;
     if (!last) return;
-    last->gainTo = static_cast<float>(last->vel * h.gain * slice);
-    const int n = std::max(1, static_cast<int>(GLIDE_S * sr_));
-    last->gainStep = (last->gainTo - last->gain) / static_cast<float>(n);
-    panMatrix(h.pan, last->shot->mono, last->gLL, last->gLR, last->gRL, last->gRR);
+    if (last->pl.on) applyLock(*last); // un lock trig d'avant dans le meme bloc passe d'abord
+    PendLock& p = last->pl;
+    p.on = true;
+    p.at = last->t + std::max(0, offset - last->delay);
+    p.lk = h.lk;
+    p.level = h.lbLevel;
+    p.pan = h.pan;
+    p.reso = h.lbReso;
+    p.cut = h.lc;
+    p.re = re;
+    p.anchor = anchor;
+}
+
+// Ce que le lock trig change du coup qui sonne : VOL (rapporte au LEVEL du coup), PAN, la coupure et la RESO du filtre,
+// en glissant (1 ms) ; LFO.T : l'ancre de ses LFO ; ses LFO continus repartent de la (une base ou l'ancre a change)
+void Engine::applyLock(Voice& v) {
+    PendLock p = v.pl;
+    v.pl.on = false;
+    std::array<double, CV_N> held{};
+    for (int c = 0; c < CV_N; ++c)
+        if (v.cv[static_cast<size_t>(c)].on) held[static_cast<size_t>(c)] = lawOf(v, c, lfoSumAt(v, c + LD_PITCH, v.t));
+    if (p.lk & 1) {
+        const double b = voiceGain(v.vol);
+        v.gainTo = static_cast<float>(v.gain0 * (b > 1e-6 ? voiceGain(p.level) / b : 1));
+        v.baseLevel = p.level;
+    }
+    if ((p.lk & 2) && v.panner) {
+        v.basePan = snapPan(p.pan);
+        if (!v.cv[CV_PAN].on) v.panTo = v.basePan;
+    }
+    if ((p.lk & 8) && v.ft) {
+        v.fEnv = false;
+        v.f0 = std::max(20.0, std::min(std::min(20000.0, sr_ * 0.45), p.cut));
+    }
+    if ((p.lk & 4) && v.ft) {
+        v.baseReso = p.reso;
+        if (!v.cv[CV_RESO].on) v.fq = resoQ(p.reso);
+    }
+    if (p.re) v.lAnchor = p.anchor;
+    for (int c = 0; c < CV_N; ++c)
+        if (v.cv[static_cast<size_t>(c)].on) curveStart(v, c, std::max(1e-9, v.t), held[static_cast<size_t>(c)]);
+    if (v.ft) updateFilter(v);
 }
 
 /* ---------------- le sequenceur des trigs (audio/seq.ts seqStep) ---------------- */
@@ -346,7 +584,7 @@ void Engine::pendPush(const Ev& e) {
 }
 
 // Les repetitions du retrig dans la fenetre [from, to) (en pas), avant `before` ; false : il est fini (RLEN atteint).
-bool Engine::repeats(int track, Retrig& rt, double from, double to, double before) {
+bool Engine::repeats(int track, Retrig& rt, double from, double to, double before, double anchor) {
     long k = std::max(1L, static_cast<long>(std::ceil((from - rt.pos) / rt.every - EPS)));
     for (;; ++k) {
         const double rp = rt.pos + k * rt.every;
@@ -359,6 +597,7 @@ bool Engine::repeats(int track, Retrig& rt, double from, double to, double befor
         e.vel = rtrgGain(rt.vel, rt.vfad, (rp - rt.pos) / rt.span);
         e.lenSteps = rt.lenSteps;
         e.rep = true;
+        e.anchor = rp < rt.preUntil - EPS ? rt.preAnchor : anchor;
         e.hit = rt.hit;
         e.snd = rt.snd;
         pendPush(e);
@@ -387,7 +626,7 @@ void Engine::evalStep(const PlayState& ps, long G) {
         const auto& at = ps.at[static_cast<size_t>(t)];
         const int hi = g >= 0 && g < static_cast<int>(at.size()) ? at[static_cast<size_t>(g)] : -1;
         if (hi < 0) {
-            if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF)) endRetrig(sv.rt);
+            if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF, sv.anchor)) endRetrig(sv.rt);
             continue;
         }
         const ProgHit& h = pt.hits[static_cast<size_t>(hi)];
@@ -403,32 +642,43 @@ void Engine::evalStep(const PlayState& ps, long G) {
         const double pos = static_cast<double>(G) + swingFrac + h.shift;
         RenderedSound* snd = h.snd >= 0 && h.snd < static_cast<int>(ps.sounds.size()) ? ps.sounds[static_cast<size_t>(h.snd)].get() : nullptr;
         if (h.lt) {
-            if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF)) endRetrig(sv.rt);
+            // LFO.T : les LFO repartent du lock trig ; les repetitions d'un retrig en cours d'avant lui gardent l'ancre d'avant
+            const bool re = ok && h.lfot;
+            if (sv.rt.on && re) {
+                sv.rt.preUntil = pos;
+                sv.rt.preAnchor = sv.anchor;
+            }
+            if (re) sv.anchor = pos;
+            if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF, sv.anchor)) endRetrig(sv.rt);
             if (!ok) continue;
             Ev e;
             e.ppq = pos * 0.25;
             e.track = t;
             e.slice = pt.slice;
             e.lt = true;
+            e.re = re;
+            e.anchor = pos;
             e.hit = h;
             pendPush(e);
             continue;
         }
         if (!ok || !pt.plays) {
-            if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF)) endRetrig(sv.rt);
+            if (sv.rt.on && !repeats(t, sv.rt, static_cast<double>(G), stepEnd, INF, sv.anchor)) endRetrig(sv.rt);
             continue;
         }
         // Le trig joue : le retrig d'avant s'arrete a son heure (ses repetitions d'avant lui partent)
         if (sv.rt.on) {
-            repeats(t, sv.rt, static_cast<double>(G), stepEnd, pos);
+            repeats(t, sv.rt, static_cast<double>(G), stepEnd, pos, sv.anchor);
             endRetrig(sv.rt);
         }
+        if (h.lfot) sv.anchor = pos;
         Ev e;
         e.ppq = pos * 0.25;
         e.track = t;
         e.slice = pt.slice;
         e.vel = h.vel;
         e.lenSteps = h.len;
+        e.anchor = sv.anchor;
         e.hit = h;
         e.snd = snd;
         pendPush(e);
@@ -444,10 +694,12 @@ void Engine::evalStep(const PlayState& ps, long G) {
             rt.vel = h.vel;
             rt.slice = pt.slice;
             rt.lenSteps = h.len;
+            rt.preUntil = -INF;
+            rt.preAnchor = 0;
             rt.hit = h;
             rt.snd = snd;
             snd->users.fetch_add(1, std::memory_order_acq_rel);
-            if (!repeats(t, rt, pos, stepEnd, INF)) endRetrig(rt);
+            if (!repeats(t, rt, pos, stepEnd, INF, sv.anchor)) endRetrig(rt);
         }
     }
     maskAt_[static_cast<size_t>(g % 128)] = mask;
@@ -538,6 +790,8 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
             seqReset(start);
             nextG_ = static_cast<long>(std::ceil(ppq0 * 4 - 1e-9));
             if (nextG_ < 0) nextG_ = 0;
+            // Les LFO partent de PLAY (et d'un saut de l'hote : sa boucle, un clic sur la timeline)
+            for (auto& t : ts_) t.anchor = static_cast<double>(nextG_);
         }
         seqOn_ = true;
         expectPpq_ = ppq1;
@@ -583,12 +837,21 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
     if (ps)
         for (int k = 0; k < ne; ++k) {
             const Ev& e = ev_[static_cast<size_t>(k)];
-            if (e.lt) lockTrig(e.hit, e.track, e.slice, e.offset);
-            else trigger(*ps, e.track, e.hit, e.vel, e.slice, e.snd, e.offset, e.lenSteps, e.rep, stepN);
+            if (e.lt) {
+                // Ses envois et ses inserts vont a la tranche jusqu'au coup suivant de la voix (son TONE ne change rien)
+                SliceFx sl = e.hit.hasSl ? e.hit.sl : ps->prog.tracks[static_cast<size_t>(e.track)].sl;
+                sl.tone = sliceNow_[static_cast<size_t>(e.track)].tone;
+                applySlice(*ps, e.track, sl);
+                lockTrig(e.hit, e.track, e.offset, e.re, e.anchor);
+            } else
+                trigger(*ps, e.track, e.hit, e.vel, e.slice, e.snd, e.offset, e.lenSteps, e.rep, stepN, e.ppq * 4, e.anchor);
         }
 
     // Les voix, dans la tranche de leur piste (ou tout droit dans la sortie, sans effets)
     const int relN = std::max(1, static_cast<int>(LEN_REL_S * sr_));
+    // Le glissement d'un lock trig (setTargetAtTime, 1 ms) : par echantillon pour le gain, par 16 pour le PAN
+    const float kG = static_cast<float>(1 - std::exp(-1.0 / (LIVE_TAU_S * sr_)));
+    const double kP = 1 - std::exp(-16.0 / (LIVE_TAU_S * sr_));
     for (int t = 0; t < kTracks; ++t) {
         float* TL = dry_ ? L : fx_.trackL(t);
         float* TR = dry_ ? R : fx_.trackR(t);
@@ -606,7 +869,10 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
             }
             bool done = false;
             for (; i < n; ++i) {
-                if (v.pos >= len || v.fadeLeft == 0 || (v.stopN >= 0 && v.t >= v.stopN)) {
+                // Un lock trig a son heure
+                if (v.pl.on && v.t >= v.pl.at) applyLock(v);
+                const bool pitched = v.cv[CV_PITCH].on;
+                if ((pitched ? v.fpos >= static_cast<double>(len) : v.pos >= len) || v.fadeLeft == 0 || (v.stopN >= 0 && v.t >= v.stopN)) {
                     done = true;
                     break;
                 }
@@ -619,14 +885,22 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                 double env = 1;
                 if (v.atkN > 0 && v.t < v.atkN) env = v.t / v.atkN;
                 if (v.tauN > 0 && v.t > v.holdEndN) env *= std::exp(-(v.t - v.holdEndN) / v.tauN);
-                if (v.gainStep != 0) {
-                    v.gain += v.gainStep;
-                    if ((v.gainStep > 0 && v.gain >= v.gainTo) || (v.gainStep < 0 && v.gain <= v.gainTo)) {
-                        v.gain = v.gainTo;
-                        v.gainStep = 0;
-                    }
+                if (v.gain != v.gainTo) {
+                    v.gain += (v.gainTo - v.gain) * kG;
+                    if (std::fabs(v.gainTo - v.gain) < 1e-7f) v.gain = v.gainTo;
                 }
                 float f = v.gain * static_cast<float>(env);
+                const bool tick = (static_cast<long>(v.t) & 15) == 0;
+                if (v.anyCv) {
+                    if (v.cv[CV_VOL].on) f *= static_cast<float>(curveAt(v, CV_VOL, v.t));
+                    if (tick && v.cv[CV_PAN].on) setPan(v, curveAt(v, CV_PAN, v.t));
+                }
+                // Un lock trig PAN : le panoramique glisse
+                if (tick && v.panNow != v.panTo && !v.cv[CV_PAN].on) {
+                    double pn = v.panNow + (v.panTo - v.panNow) * kP;
+                    if (std::fabs(v.panTo - pn) < 1e-6) pn = v.panTo;
+                    setPan(v, pn);
+                }
                 if (v.fadeLeft > 0) {
                     if (v.fadeHold > 0) --v.fadeHold;
                     else {
@@ -634,11 +908,21 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                         --v.fadeLeft;
                     }
                 }
-                float a = sl[v.pos];
-                float b = sr[v.pos];
+                float a, b;
+                if (pitched) {
+                    // Un LFO PITCH : la lecture a la vitesse 2^(cents / 1200), interpolee (la source a playbackRate du site)
+                    const size_t i0 = static_cast<size_t>(v.fpos);
+                    const size_t i1 = std::min(i0 + 1, len - 1);
+                    const float fr = static_cast<float>(v.fpos - static_cast<double>(i0));
+                    a = sl[i0] + (sl[i1] - sl[i0]) * fr;
+                    b = sr[i0] + (sr[i1] - sr[i0]) * fr;
+                } else {
+                    a = sl[v.pos];
+                    b = sr[v.pos];
+                }
                 if (v.ft) {
-                    // La coupure suit son enveloppe : les coefficients tous les 16 echantillons
-                    if (v.fEnv && (static_cast<long>(v.t) & 15) == 0) filterCoefs(v, filterFreq(v));
+                    // La coupure suit son enveloppe (et les LFO FREQ, RESO) : les coefficients tous les 16 echantillons
+                    if (tick && (v.fEnv || v.cv[CV_FREQ].on || v.cv[CV_RESO].on)) updateFilter(v);
                     const double ya = v.b0 * a + v.zL1;
                     v.zL1 = v.b1 * a - v.a1 * ya + v.zL2;
                     v.zL2 = v.b2 * a - v.a2 * ya;
@@ -653,10 +937,11 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                 }
                 TL[i] += f * (v.gLL * a + v.gLR * b);
                 TR[i] += f * (v.gRL * a + v.gRR * b);
-                ++v.pos;
+                if (pitched) v.fpos += std::exp2(curveAt(v, CV_PITCH, v.t) / 1200);
+                else ++v.pos;
                 v.t += 1;
             }
-            if (done || v.pos >= len || v.fadeLeft == 0) release(v);
+            if (done || (v.cv[CV_PITCH].on ? v.fpos >= static_cast<double>(len) : v.pos >= len) || v.fadeLeft == 0) release(v);
         }
         if (any) fx_.markActive(t);
     }
