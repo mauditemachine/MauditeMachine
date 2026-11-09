@@ -113,6 +113,7 @@ Demande de Mika (capture d'une version d'avant : pas de BD sur les pas) : « je 
   - `audio/tracks.ts` : un TRK LEV d'avant passe dans le VOL au chargement, au meme gain (VOL x TRK LEV / 0.8), TRK LEV revient a 0 dB ;
   - le moteur n'a pas change : le niveau entre dans la tranche des 9 positions du crossfader (lot 1).
 - Verifie dans Chromium : MIXER 1-8 (BD a CY), le potard A baisse le BD (tranche 1 -> 0.444), une scene B tapee + potard A vers le haut donne au BD 9 positions de 0.444 a 1.361 ; LEVEL/DATA baisse le BD hors du MIXER (la scene B garde sa valeur) ; FUNC montre MIXER sous MOD. Le site ne change pas (TRK LEV, `k:` ; `m:` limite aux 8 voix).
+- **Build vert du lot 5** (run 42549267733, 02:13 UTC le 2026-11-09), dans la release `mm-rytm-latest` (commit ae22cbf).
 
 ## 2. Decisions prises et pourquoi
 
