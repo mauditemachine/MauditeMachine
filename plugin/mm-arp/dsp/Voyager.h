@@ -5,9 +5,10 @@
 // aussi : l'arrondi en float se fait aux memes endroits. Le hasard : mulberry32 a graine, la meme suite que le JS.
 // Verifie contre le vrai worklet par plugin/mm-arp/tests/voyager-ref.mjs + tests/voyager_compare.cpp.
 //
-// IMPORTANT (identite au bit pres) : compiler SANS contraction FMA ni fast-math (-ffp-contract=off, pas de
-// -ffast-math / -Ofast). Sur Apple clang (arm64) la contraction est active par defaut : Voyager.cpp la coupe par
-// pragma, mais garder -ffp-contract=off dans le CMake.
+// Les fonctions de Math sont celles de V8 (son fdlibm, Voyager.fdlibm.inc) : la libm du systeme differe d'un ulp sur
+// 1 a 10 % des valeurs. IMPORTANT (identite au bit pres) : pas de contraction FMA ni de fast-math. Voyager.cpp coupe
+// la contraction par pragma (clang : fp contract(off), GCC : optimize("fp-contract=off"), verifie avec -march=native
+// et -ffp-contract=fast/on) ; garder quand meme -ffp-contract=off dans le CMake, et jamais -ffast-math / -Ofast.
 //
 // ----------------------------------------------------------------------------------------------------------------
 // API (tout est en "temps du contexte" : secondes depuis la frame 0 du moteur ; frame = round(t * sampleRate),

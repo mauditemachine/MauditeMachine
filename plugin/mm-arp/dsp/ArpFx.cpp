@@ -183,6 +183,7 @@ void Param::rampTo(double t1s, double t2s, float to, double rate) {
     sF = static_cast<long>(std::ceil(t1s * rate - 1e-6));
     eF = static_cast<long>(std::ceil(t2s * rate - 1e-6));
     ramp = true;
+    cq = -1;
 }
 
 float Param::serial(long cf) const {
@@ -217,6 +218,17 @@ void Param::run(long cf, int len, float* out) const {
 }
 
 void Param::fill(long k0, int n, float* out) {
+    const long q0 = k0 - k0 % 128;
+    if (cq != q0) {
+        // le bloc entier depuis ici (les echantillons deja rendus ne sont plus lus) : la rampe part de max(debut, sF)
+        compute(k0, static_cast<int>(q0 + 128 - k0), cache.data() + (k0 - q0));
+        cq = q0;
+    }
+    std::memcpy(out, cache.data() + (k0 - q0), sizeof(float) * static_cast<size_t>(n));
+    if (n > 0) last = out[n - 1];
+}
+
+void Param::compute(long k0, int n, float* out) {
     int i = 0;
     while (i < n) {
         const long k = k0 + i;
@@ -238,7 +250,6 @@ void Param::fill(long k0, int n, float* out) {
         run(k, len, out + i);
         i += len;
     }
-    if (n > 0) last = out[n - 1];
 }
 
 float Param::at(long k) {

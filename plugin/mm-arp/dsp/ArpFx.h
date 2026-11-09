@@ -87,6 +87,7 @@ struct Param {
     void setNow(float v) {
         ramp = false;
         v0 = v1 = last = v;
+        cq = -1;
     }
     // setValueAtTime(p.value, now) [setValueAtTime(p.value, t1)] linearRampToValueAtTime(to, t2)
     void rampTo(double t1s, double t2s, float to, double rate);
@@ -98,8 +99,12 @@ struct Param {
     bool moving() const { return ramp; }
 
 private:
+    void compute(long k0, int n, float* out);
     void run(long cf, int len, float* out) const;
     float serial(long cf) const;
+    // les valeurs du bloc de rendu en cours (calculees d'un coup, quelle que soit la taille des blocs de l'hote)
+    std::array<float, 128> cache{};
+    long cq = -1;
 };
 
 // Le BiquadFilterNode de Chromium (Linux) : coefficients de l'Audio EQ Cookbook, Q en dB pour lowpass / highpass,

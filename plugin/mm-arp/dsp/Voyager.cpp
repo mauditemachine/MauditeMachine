@@ -7,8 +7,11 @@
 #include <limits>
 #include <random>
 
+// Pas de contraction en FMA (le JS n'en fait pas ; mesure : avec, un cas sur 85 tombe a -6 dB, la resonance diverge)
 #if defined(__clang__)
 #pragma clang fp contract(off)
+#elif defined(__GNUC__)
+#pragma GCC optimize("fp-contract=off")
 #endif
 #if defined(_MSC_VER)
 #pragma fp_contract(off)
@@ -23,18 +26,24 @@ namespace {
 // Les fonctions de Math du JS. Toutes passent par ici : le fdlibm de V8 (Voyager.fdlibm.inc), celui de Math.* dans
 // Node 22 et Chromium (la libm du systeme differe d'un ulp sur 1 a 10 % des valeurs : mesure, tests/voyager_compare).
 // sqrt, floor et fabs sont exacts partout (IEEE 754), ceux de <cmath>.
+// MMARP_VOYAGER_SYSTEM_LIBM : la libm du systeme a la place (mesure, diagnostic ; plus identique au bit pres au JS).
+#if defined(MMARP_VOYAGER_SYSTEM_LIBM)
+namespace fdlibm_or_std = std;
+#else
+namespace fdlibm_or_std = fdlibm;
+#endif
 namespace jsm {
-inline double sin(double x) { return fdlibm::sin(x); }
-inline double cos(double x) { return fdlibm::cos(x); }
-inline double tan(double x) { return fdlibm::tan(x); }
-inline double exp(double x) { return fdlibm::exp(x); }
-inline double log(double x) { return fdlibm::log(x); }
-inline double pow(double x, double y) { return fdlibm::pow(x, y); }
-inline double tanh(double x) { return fdlibm::tanh(x); }
-inline double sinh(double x) { return fdlibm::sinh(x); }
-inline double cosh(double x) { return fdlibm::cosh(x); }
-inline double asinh(double x) { return fdlibm::asinh(x); }
-inline double log1p(double x) { return fdlibm::log1p(x); }
+inline double sin(double x) { return fdlibm_or_std::sin(x); }
+inline double cos(double x) { return fdlibm_or_std::cos(x); }
+inline double tan(double x) { return fdlibm_or_std::tan(x); }
+inline double exp(double x) { return fdlibm_or_std::exp(x); }
+inline double log(double x) { return fdlibm_or_std::log(x); }
+inline double pow(double x, double y) { return fdlibm_or_std::pow(x, y); }
+inline double tanh(double x) { return fdlibm_or_std::tanh(x); }
+inline double sinh(double x) { return fdlibm_or_std::sinh(x); }
+inline double cosh(double x) { return fdlibm_or_std::cosh(x); }
+inline double asinh(double x) { return fdlibm_or_std::asinh(x); }
+inline double log1p(double x) { return fdlibm_or_std::log1p(x); }
 inline double sqrt(double x) { return std::sqrt(x); }
 inline double floor(double x) { return std::floor(x); }
 inline double abs(double x) { return std::fabs(x); }

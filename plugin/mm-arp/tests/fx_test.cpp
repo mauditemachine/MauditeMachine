@@ -104,6 +104,9 @@ int main(int argc, char** argv) {
     }
     const double sr = 48000;
     int fails = 0;
+    // la chaine rendue plusieurs fois (<cas>.rN) : le meilleur et le pire rendu de Chromium
+    std::map<std::string, std::pair<double, double>> runs;
+    std::map<std::string, double> limits;
     std::printf("%-18s %8s %10s %10s %8s\n", "cas", "bloc", "crete dB", "RMS dB", "seuil");
     for (const std::string& name : files) {
         Arrays a;
@@ -165,6 +168,22 @@ int main(int argc, char** argv) {
             run(n);
         }
         const Err r = compare(oL, oR, a["outL"], a["outR"]);
+        // FX_TEST_SAVE=<dossier> : la sortie du C++ en float32 (gauche puis droite), <cas>.f32
+        if (const char* sv = std::getenv("FX_TEST_SAVE")) {
+            std::ofstream o(std::string(sv) + "/" + name.substr(0, name.size() - 5) + ".f32", std::ios::binary);
+            o.write(reinterpret_cast<const char*>(oL.data()), static_cast<std::streamsize>(oL.size() * 4));
+            o.write(reinterpret_cast<const char*>(oR.data()), static_cast<std::streamsize>(oR.size() * 4));
+        }
+        // FX_TEST_DUMP=<cas>:<debut>:<n> : les echantillons (C++, reference) gauche et droite
+        if (const char* dump = std::getenv("FX_TEST_DUMP")) {
+            const std::string ds = dump;
+            const size_t c1 = ds.find(':'), c2 = ds.rfind(':');
+            if (c1 != std::string::npos && name.find(ds.substr(0, c1)) == 0) {
+                const int a0 = std::atoi(ds.c_str() + c1 + 1), cnt = std::atoi(ds.c_str() + c2 + 1);
+                for (int i = a0; i < std::min(n, a0 + cnt); ++i)
+                    std::printf("  %d  L %+.7f %+.7f  R %+.7f %+.7f\n", i, oL[static_cast<size_t>(i)], a["outL"][static_cast<size_t>(i)], oR[static_cast<size_t>(i)], a["outR"][static_cast<size_t>(i)]);
+            }
+        }
         // FX_TEST_PROFILE=<cas> : l'ecart crete par tranche de 2048 echantillons (pour trouver ou il est)
         if (const char* prof = std::getenv("FX_TEST_PROFILE"))
             if (name.find(prof) == 0)
@@ -182,8 +201,23 @@ int main(int argc, char** argv) {
                     std::printf("  %7d  %8.1f dB  (a %d ; crete locale %.3f)\n", s0, e > 0 ? 20 * std::log10(e / r.refPeak) : -999.0, at, pk);
                 }
         const bool ok = r.peakDb <= limit && std::isfinite(r.peakDb);
-        if (!ok) ++fails;
+        const size_t dot = name.find(".r");
+        if (kind == 2 && dot != std::string::npos) {
+            const std::string base = name.substr(0, dot);
+            auto it = runs.find(base);
+            if (it == runs.end()) runs[base] = {r.peakDb, r.peakDb};
+            else it->second = {std::min(it->second.first, r.peakDb), std::max(it->second.second, r.peakDb)};
+            limits[base] = limit;
+        } else if (!ok) ++fails;
         std::printf("%-18s %8d %10.1f %10.1f %8.0f %s\n", name.substr(0, name.size() - 5).c_str(), block, r.peakDb, r.rmsDb, limit, ok ? "ok" : "ECHEC");
+    }
+    if (!runs.empty()) {
+        std::printf("\nchaine, plusieurs rendus de Chromium : meilleur / pire (le cas passe si son meilleur rendu passe)\n");
+        for (const auto& [base, mm] : runs) {
+            const bool ok = mm.first <= limits[base];
+            if (!ok) ++fails;
+            std::printf("%-18s %10.1f %10.1f %s\n", base.c_str(), mm.first, mm.second, ok ? "ok" : "ECHEC");
+        }
     }
     return fails ? 1 : 0;
 }

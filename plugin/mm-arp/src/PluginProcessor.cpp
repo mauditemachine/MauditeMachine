@@ -34,7 +34,8 @@ bool parseProgram(const juce::String& json, MMArpProgram& p) {
             if (!std::isfinite(d)) continue;
             const std::string key = kv.name.toString().toStdString();
             if (key == "bpm") continue; // le tempo est celui de l'hote
-            p.engine.emplace_back(key, d);
+            const int id = mmarp::Voyager::paramIndex(key);
+            if (id >= 0) p.engine.push_back({id, d});
         }
     const juce::var fx = o.getProperty("fx", juce::var());
     p.fx.chorus = juce::jlimit(0, 2, static_cast<int>(num(fx, "chorus", 0)));
@@ -78,7 +79,7 @@ bool parseProgram(const juce::String& json, MMArpProgram& p) {
 struct VoySink final : mmarp::ArpSink {
     mmarp::Voyager& v;
     explicit VoySink(mmarp::Voyager& voy) : v(voy) {}
-    void note(double t, int midi, double gate, double acc, double from) override { v.note(t, midi, gate, acc, from); }
+    void note(double t, int midi, double gate, double acc, double from) override { v.note(t, static_cast<double>(midi), gate, acc, from); }
     void beat(double t, double b, double bpm, bool run) override { v.beat(t, b, bpm, run); }
     void cancel(double t) override { v.cancel(t); }
 };
@@ -101,6 +102,7 @@ MMArpProcessor::MMArpProcessor()
     seed_ = static_cast<uint32_t>(juce::Random::getSystemRandom().nextInt());
     live_.reserve(64);
     kv_.reserve(128);
+    bpmId_ = mmarp::Voyager::paramIndex("bpm");
     liveAudio_.reserve(64);
 }
 
@@ -192,8 +194,8 @@ void MMArpProcessor::applyProgram(const MMArpProgram& p, double bpm, bool now) {
     // (kv_ reserve d'avance, des cles courtes : pas d'allocation sur le thread audio)
     kv_.clear();
     for (const auto& e : p.engine) kv_.push_back(e);
-    kv_.emplace_back("bpm", bpm);
-    voy_->params(kv_);
+    kv_.push_back({bpmId_, bpm});
+    voy_->params(kv_.data(), static_cast<int>(kv_.size()));
     fx_.set(fxFor(p, bpm), now);
     arp_.setProgram(&p.arp);
 }
@@ -211,6 +213,13 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     arp_.setProgram(nullptr);
     dryL_.assign(static_cast<size_t>(std::max(samplesPerBlock, kChunk)), 0.f);
     dryR_.assign(static_cast<size_t>(std::max(samplesPerBlock, kChunk)), 0.f);
+    fifoReserve(static_cast<size_t>(std::max(samplesPerBlock, kChunk)) + 2 * kChunk);
+    // 128 echantillons de silence d'avance : le retard fixe de la file
+    fifoHead_ = 0;
+    fifoSize_ = kChunk;
+    std::fill(fifoL_.begin(), fifoL_.end(), 0.f);
+    std::fill(fifoR_.begin(), fifoR_.end(), 0.f);
+    engFrames_ = 0;
     fresh_ = true;
     lastBpm_ = 0;
     wasPlaying_ = false;
@@ -222,7 +231,21 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
         if (!pending_ && current_) pending_ = current_;
         current_.reset();
     }
-    setLatencySamples(voy_->latencySamples() + fx_.latencySamples());
+    setLatencySamples(kChunk + voy_->latencySamples() + fx_.latencySamples());
+}
+
+void MMArpProcessor::fifoReserve(size_t cap) {
+    if (fifoL_.size() >= cap) return;
+    // Agrandie en gardant l'ordre (prepareToPlay, ou un hote qui depasse le bloc annonce : rare)
+    std::vector<float> l(cap, 0.f), r(cap, 0.f);
+    for (size_t i = 0; i < fifoSize_; ++i) {
+        const size_t j = (fifoHead_ + i) % fifoL_.size();
+        l[i] = fifoL_[j];
+        r[i] = fifoR_[j];
+    }
+    fifoL_.swap(l);
+    fifoR_.swap(r);
+    fifoHead_ = 0;
 }
 
 void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
@@ -273,9 +296,8 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     }
     // Le tempo change : le LFO libre et le DELAY le suivent
     if (current_ && bpm != lastBpm_) {
-        kv_.clear();
-        kv_.emplace_back("bpm", bpm);
-        voy_->params(kv_);
+        const mmarp::ParamKV b{bpmId_, bpm};
+        voy_->params(&b, 1);
         fx_.set(fxFor(*current_, bpm), false);
         lastBpm_ = bpm;
     }
@@ -321,18 +343,33 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         }
     }
 
-    // Le moteur par morceaux de 128 au plus, puis sa chaine (BASS MONO, CHORUS, DELAY, TAPE, REVERB, VOLUME)
+    // Le moteur par blocs de 128 exactement (tout ce que ce bloc a mis dans sa file est connu), dans la file ; la sortie
+    // en reprend n, 128 echantillons plus tard ; puis la chaine (BASS MONO, CHORUS, DELAY, TAPE, REVERB, VOLUME)
     float* outL = buffer.getWritePointer(0);
     float* outR = buffer.getWritePointer(1);
     if (static_cast<int>(dryL_.size()) < n) {
-        // un hote qui depasse le bloc annonce (rare) : agrandi une fois
         dryL_.resize(static_cast<size_t>(n));
         dryR_.resize(static_cast<size_t>(n));
     }
-    for (int i = 0; i < n; i += kChunk) {
-        const int m = std::min(kChunk, n - i);
-        voy_->process(dryL_.data() + i, dryR_.data() + i, m);
+    fifoReserve(static_cast<size_t>(n) + 2 * kChunk + fifoSize_);
+    const size_t cap = fifoL_.size();
+    float bl[kChunk], br[kChunk];
+    while (engFrames_ + kChunk <= f0 + n) {
+        voy_->process(bl, br, kChunk);
+        for (int i = 0; i < kChunk; ++i) {
+            const size_t j = (fifoHead_ + fifoSize_ + static_cast<size_t>(i)) % cap;
+            fifoL_[j] = bl[i];
+            fifoR_[j] = br[i];
+        }
+        fifoSize_ += kChunk;
+        engFrames_ += kChunk;
     }
+    for (int i = 0; i < n; ++i) {
+        dryL_[static_cast<size_t>(i)] = fifoL_[fifoHead_];
+        dryR_[static_cast<size_t>(i)] = fifoR_[fifoHead_];
+        fifoHead_ = (fifoHead_ + 1) % cap;
+    }
+    fifoSize_ -= static_cast<size_t>(n);
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;

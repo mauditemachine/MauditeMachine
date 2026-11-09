@@ -13,11 +13,15 @@ option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et s
 add_library(mmarp_dsp STATIC dsp/Voyager.cpp dsp/ArpFx.cpp dsp/Arp.cpp)
 target_include_directories(mmarp_dsp PUBLIC dsp)
 set_target_properties(mmarp_dsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# Le moteur est identique au bit pres au site (fdlibm de V8, dsp/Voyager.fdlibm.inc) : jamais de FMA, jamais de -ffast-math
+target_compile_options(mmarp_dsp PRIVATE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-ffp-contract=off> $<$<CXX_COMPILER_ID:MSVC>:/fp:precise>)
 
 enable_testing()
 add_executable(mmarp_arp_test tests/arp_test.cpp)
 target_link_libraries(mmarp_arp_test PRIVATE mmarp_dsp)
 add_test(NAME arp COMMAND mmarp_arp_test)
+add_executable(mmarp_voyager_compare tests/voyager_compare.cpp)
+target_link_libraries(mmarp_voyager_compare PRIVATE mmarp_dsp)
 #@TESTS@
 
 if(NOT MM_BUILD_PLUGIN)

@@ -32,6 +32,11 @@ jobs:
           cmake --build build-dsp -j
       - name: Arpegiateur
         run: ./build-dsp/mmarp_arp_test
+      - name: Moteur compare au moog.worklet.js du site (85 cas, au bit pres)
+        run: |
+          node plugin/mm-arp/tests/voyager-ref.mjs ref-voy
+          ./build-dsp/mmarp_voyager_compare ref-voy
+          ./build-dsp/mmarp_voyager_compare ref-voy --blocks
       #@CI_TESTS@
 
   mac:

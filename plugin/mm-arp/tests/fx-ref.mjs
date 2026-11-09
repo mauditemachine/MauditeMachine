@@ -18,7 +18,9 @@ import { createRequire } from 'node:module';
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../../..');
 const out = resolve(process.argv[2] ?? join(here, '.fxref'));
-const want = process.argv.slice(3);
+const want = process.argv.slice(3).filter((a) => !a.startsWith('runs='));
+// runs=N : la chaine rendue N fois (Chromium n'est pas deterministe juste apres un changement du graphe : voir fx_test)
+const RUNS = Number((process.argv.find((a) => a.startsWith('runs=')) ?? 'runs=3').slice(5)) || 1;
 const doWorklet = want.length === 0 || want.includes('worklet');
 const doChain = want.length === 0 || want.includes('chain');
 const SR = 48000;
@@ -251,6 +253,10 @@ const CASES = [
   { name: 'c_tape', seconds: 4, seed: 36, p: { delay: 0.7, tape: 0.6, dlyTime: 0.5 } },
   { name: 'c_reverb', seconds: 4, seed: 37, p: { reverb: 0.7 } },
   { name: 'c_all', seconds: 4, seed: 38, bpm: 128, p: { chorus: 0.5, delay: 0.4, tape: 0.3, reverb: 0.4, monoLow: 0.3, volume: 0.75 } },
+  // les changements un par un (pour situer un ecart)
+  { name: 'c_ev_vol', seconds: 3, seed: 40, p: { delay: 0.5 }, ev: [[Q * 300, { volume: 0.5 }]] },
+  { name: 'c_ev_chorus', seconds: 3, seed: 41, p: { chorus: 0.5 }, ev: [[Q * 150, { chorus: 0 }], [Q * 300, { chorus: 0.5 }], [Q * 400, { chorus: 1 }]] },
+  { name: 'c_ev_chdelay', seconds: 3, seed: 42, p: { chorus: 0, delay: 0.3 }, ev: [[Q * 300, { chorus: 0.5 }]] },
   {
     name: 'c_changes',
     seconds: 6,
@@ -301,6 +307,7 @@ async function chain() {
     page.on('console', (m) => console.log('[page]', m.text()));
     page.on('pageerror', (e) => console.log('[page error]', e.message));
     await page.goto(`http://127.0.0.1:${srv.address().port}/`);
+    for (let run = 1; run <= RUNS; run += 1)
     for (const c of CASES) {
       const n = Math.round((c.seconds * SR) / Q) * Q;
       const { L, R } = signal(n, c.seed, 'mix');
@@ -345,8 +352,9 @@ async function chain() {
                 const t = m.delayS(P, g.bpm);
                 if (t !== g.delayAt) m.retimeAll(g, t);
               } else m.applyFx(g, P);
-              // les messages et les noeuds neufs du worklet arrivent avant la reprise
-              await wait(30);
+              // les messages et les noeuds neufs du worklet arrivent avant la reprise ; un CHORUS OFF : moins de 60 ms
+              // (sinon la minuterie de l'insert, en temps reel, demonte la branche ici meme, avant son fondu)
+              await wait(pp.chorus === 0 ? 20 : 120);
               oc.resume();
             });
             if (pp.chorus === 0) {
@@ -382,8 +390,8 @@ async function chain() {
         }
         for (const k of KEYS) evArr.push(P[k]);
       }
-      writeCase(c.name, { kind: [2], init: [bpm, ...KEYS.map((k) => p0[k])], ev: evArr, inL: L, inR: R, outL: f.slice(0, n), outR: f.slice(n) });
-      console.log(`chaine : ${c.name}`);
+      writeCase(RUNS > 1 ? `${c.name}.r${run}` : c.name, { kind: [2], init: [bpm, ...KEYS.map((k) => p0[k])], ev: evArr, inL: L, inR: R, outL: f.slice(0, n), outR: f.slice(n) });
+      console.log(`chaine : ${c.name}${RUNS > 1 ? ` (rendu ${run})` : ''}`);
     }
   } finally {
     await browser.close();

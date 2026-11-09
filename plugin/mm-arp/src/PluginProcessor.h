@@ -20,7 +20,7 @@
 // Le programme de la face, pret a jouer (construit sur le thread du message, lu par le thread audio)
 struct MMArpProgram {
     double bpm = 120;
-    std::vector<std::pair<std::string, double>> engine;
+    std::vector<mmarp::ParamKV> engine; // les reglages du moteur, par id (Voyager::paramIndex)
     mmarp::ArpFxSettings fx;
     double dly16 = 3; // DLY TIME en doubles croches (le temps se calcule au tempo de l'hote)
     mmarp::ArpProgram arp;
@@ -90,7 +90,14 @@ private:
     int64_t frame_ = 0;
     uint32_t seed_ = 0;
     std::vector<float> dryL_, dryR_;
-    std::vector<std::pair<std::string, double>> kv_;
+    std::vector<mmarp::ParamKV> kv_;
+    // Le moteur rend par blocs de 128 exactement (le son du site au bit pres, comme l'AudioWorklet) : sa sortie passe
+    // par une file, 128 echantillons de retard declares a l'hote
+    std::vector<float> fifoL_, fifoR_;
+    size_t fifoHead_ = 0, fifoSize_ = 0;
+    int64_t engFrames_ = 0;
+    int bpmId_ = -1;
+    void fifoReserve(size_t cap);
 
     // Le programme : publie par le thread du message, pris par le thread audio au bloc suivant
     juce::SpinLock progLock_;
