@@ -37,6 +37,11 @@ jobs:
           node plugin/mm-arp/tests/voyager-ref.mjs ref-voy
           ./build-dsp/mmarp_voyager_compare ref-voy
           ./build-dsp/mmarp_voyager_compare ref-voy --blocks
+      - name: Potards (lois de params.ts, chords.ts, seq.ts) compares au site
+        run: |
+          node plugin/mm-arp/tests/params-gen.mjs --check
+          node plugin/mm-arp/tests/params-ref.mjs ref-params
+          ./build-dsp/mmarp_params_test ref-params
       - name: Chorus Juno et TAPE compares a chorus.worklet.js du site
         run: |
           node plugin/mm-arp/tests/fx-ref.mjs ref-fx worklet

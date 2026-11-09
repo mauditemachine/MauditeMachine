@@ -6,7 +6,8 @@
  *
  * Le capot ne s'ouvre pas : OPEN ouvre a la place, sous la machine, le tiroir des gros potards (ui/KnobPanel.tsx, toutes
  * les sections, les TWEAKS de la carte compris : ACCENT, DRIFT, STACK, GLUE, DLY TIME...). La machine remonte au-dessus
- * (Stage.setInset).
+ * (Stage.setInset). A droite des potards, la colonne DISK (2026-11-09) : SAVE TO DISK, OPEN FROM DISK et la liste du dossier
+ * des presets (DiskPresets.tsx).
  */
 
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
@@ -25,6 +26,7 @@ import { VoyTwins } from '../../ui/VoyTwins';
 import { VoyInfosCard } from '../../voyager/InfosCard';
 import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
+import { DiskNameDialog, DiskPresets } from './DiskPresets';
 import { arpDrawer } from './drawer';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
@@ -73,6 +75,7 @@ const Drawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   return (
     <section ref={ref} className="mm-arp-drawer" style={{ position: 'fixed' }} aria-label="MM-ARP knobs">
       <KnobPanel machine="voy" />
+      <DiskPresets />
       <button type="button" className="mm-arp-drawer-close" aria-label="Close the knobs" onClick={() => arpDrawer.set(false)}>
         CLOSE
       </button>
@@ -175,6 +178,7 @@ const ArpFace: React.FC = () => {
       <Boundary onError={onError}>
         <VoyInfosCard stage={stage} />
         <PresetNameDialog mobile={false} />
+        <DiskNameDialog />
         <Drawer stage={stage} />
       </Boundary>
       {error && (

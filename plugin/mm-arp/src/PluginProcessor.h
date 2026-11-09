@@ -119,6 +119,7 @@ private:
     std::array<std::atomic<float>*, mmarp::kKnobs> knobRaw_{};
     std::array<juce::RangedAudioParameter*, mmarp::kKnobs> knobParams_{};
     std::array<double, mmarp::kKnobs> knobs_{};
+    std::array<float, mmarp::kKnobs> knobRawLast_{};
     std::array<mmarp::ParamKV, 96> kv_{};
     mmarp::ArpProgram arpBuf_[2];
     int arpCur_ = 0;

@@ -256,8 +256,9 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         mmarp::fxSettings(knobs_.data(), fx, dly16);
         // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
         fx.delaySeconds = std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
-        const bool same = !fresh_ && fx.chorus == fxNow_.chorus && fx.delay == fxNow_.delay && fx.reverb == fxNow_.reverb && fx.tape == fxNow_.tape &&
-                          fx.delaySeconds == fxNow_.delaySeconds && fx.monoLowHz == fxNow_.monoLowHz && fx.volume == fxNow_.volume;
+        auto eq = [](double a, double b) { return !(a < b || a > b); };
+        const bool same = !fresh_ && fx.chorus == fxNow_.chorus && eq(fx.delay, fxNow_.delay) && eq(fx.reverb, fxNow_.reverb) && eq(fx.tape, fxNow_.tape) &&
+                          eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume);
         if (!same) fx_.set(fx, fresh_);
         fxNow_ = fx;
         dly16_ = dly16;
@@ -296,7 +297,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     fresh_ = true;
     lastBpm_ = 0;
     // tous les potards relus au premier bloc
-    for (auto& k : knobs_) k = -1;
+    for (auto& k : knobRawLast_) k = -1.f;
     wasPlaying_ = false;
     held_.fill(false);
     lastLiveMidi_ = -1;
@@ -371,9 +372,11 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // Les potards (automation, MIDI Map, la face)
     bool knobsChanged = false;
     for (size_t i = 0; i < knobs_.size(); ++i) {
-        const double v = static_cast<double>(knobRaw_[i]->load());
-        if (v != knobs_[i]) {
-            knobs_[i] = v;
+        const float r = knobRaw_[i]->load();
+        if (r < knobRawLast_[i] || r > knobRawLast_[i]) {
+            knobRawLast_[i] = r;
+            // arrondi comme voyParams.set du site (un float de l'hote rend la valeur exacte d'un reglage du site)
+            knobs_[i] = mmarp::knobClean(static_cast<int>(i), static_cast<double>(r));
             knobsChanged = true;
         }
     }

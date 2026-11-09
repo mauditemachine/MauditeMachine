@@ -135,7 +135,7 @@ void MMArpEditor::timerCallback() {
             auto* prm = proc_.knobParam(i);
             if (!prm) continue;
             const float v = prm->getValue();
-            if (v == sent_[static_cast<size_t>(i)]) continue;
+            if (!(v < sent_[static_cast<size_t>(i)] || v > sent_[static_cast<size_t>(i)])) continue;
             sent_[static_cast<size_t>(i)] = v;
             changed->setProperty(mmarp::kKnobDefs[i].id, static_cast<double>(v));
             ++count;

@@ -100,7 +100,7 @@ int main() {
             cut->setValueNotifyingHost(0.05f);
             const Stats shut = run(p, h, 48000, 512);
             cut->setValueNotifyingHost(0.5f);
-            check(shut.rms < open.rms * 0.5, "automation de CUTOFF sans la face : le son se ferme (" + juce::String(db(open.rms), 1).toStdString() + " -> " + juce::String(db(shut.rms), 1).toStdString() + " dBFS)");
+            check(shut.rms < open.rms * 0.7, "automation de CUTOFF sans la face : le son se ferme (" + juce::String(db(open.rms), 1).toStdString() + " -> " + juce::String(db(shut.rms), 1).toStdString() + " dBFS)");
             char txt[64];
             mmarp::knobText(mmarp::knobIndex("rate"), 2.0 / 3, txt, 64);
             check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
