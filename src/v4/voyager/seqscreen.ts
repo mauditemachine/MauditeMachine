@@ -33,12 +33,11 @@
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { gesture } from '../actions';
-import { context } from '../audio/drums';
 import type { HotspotDef } from '../scene/hit';
 import { albedo } from '../scene/materials';
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, GAIN, HEX } from '../theme';
-import { arp } from './arp';
+import { arp, arpNow } from './arp';
 import { CHORDS, chordTones, degreeName } from './chords';
 import { chordType, voyParams } from './params';
 import { SEQ_MAX, SEQ_MIN, SEQ_TOP, seq, type SeqStep } from './seq';
@@ -214,8 +213,8 @@ export class VoySeqScreen {
     if (!this.group.visible) return changed ? 'paint' : false;
     if (now - this.polledAt >= POLL_MS) {
       this.polledAt = now;
-      const c = context();
-      const e = arp.get().running && c ? arp.posAt(c.currentTime) : null;
+      const at = arpNow();
+      const e = arp.get().running && at !== null ? arp.posAt(at) : null;
       this.ph = { pos: e ? e.pos : -1, chord: e ? e.chord : -1 };
     }
     if (this.draw()) changed = true;

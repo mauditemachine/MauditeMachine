@@ -9,7 +9,8 @@ export type FirmwareId = 'mm808' | 'voy' | 'bass';
 function rytmFaceVer(): string | null {
   if (typeof window === 'undefined') return null;
   // Le plugin : la machine complete, la version du firmware
-  if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return null;
+  const pf = (window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__;
+  if (pf === true || pf === 'arp') return null;
   try {
     const f = new URLSearchParams(window.location.search).get('face');
     // Le site sans ?face= : la V.3.0 depuis le 2026-11-08 (theme/base.ts RYTM_FACE_VER) ; ?face=v6 ou dt2 : la version du firmware

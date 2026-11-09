@@ -89,6 +89,30 @@ export interface ArpPos {
 }
 
 let state: ArpState = { prog: [], running: false };
+
+/**
+ * Le plugin MM-ARP (2026-11-09, plugin/mm-arp) : le C++ joue l'arpege (fenetre fermee, export d'Ableton) ; ici rien ne se
+ * programme. RUN/STOP, le premier accord, CLEAR, RANDOM demandent au C++ de partir ou de s'arreter (run) ; running et la
+ * tete de lecture (posAt, noteAt : l'ecran, les pads, la suite) viennent de sa position (plugin/arp/bridge.ts
+ * mm_transport). Sans source (le site) : l'arpege du navigateur, comme avant.
+ */
+export interface ArpExternal {
+  run(on: boolean): void;
+}
+
+/** La position du C++ (mm_transport) : seq croit a chaque note ; -1 : rien. */
+export interface ArpExtHead {
+  playing: boolean;
+  seq: number;
+  slot: number;
+  pos: number;
+  len: number;
+  chord: number;
+  midi: number;
+}
+
+let ext: ArpExternal | null = null;
+let extPos: ArpExtHead = { playing: false, seq: -1, slot: -1, pos: -1, len: 0, chord: -1, midi: -1 };
 const listeners = new Set<() => void>();
 const emit = (): void => listeners.forEach((fn) => fn());
 
@@ -253,7 +277,7 @@ function advance(): void {
 }
 
 function tick(): void {
-  if (!state.running) return;
+  if (ext || !state.running) return;
   const c = context();
   if (!c) return;
   const now = c.currentTime;
@@ -273,7 +297,7 @@ function tick(): void {
 
 /** Un changement : les pas pas encore partis (au-dela de GUARD_S) sont oublies du moteur et refaits. */
 function reschedule(): void {
-  if (!state.running) return;
+  if (ext || !state.running) return;
   const c = context();
   if (!c) return;
   const edge = c.currentTime + GUARD_S;
@@ -330,6 +354,10 @@ pattern.fx.subscribe(() => {
 });
 
 function start(): boolean {
+  if (ext) {
+    ext.run(true);
+    return true;
+  }
   if (state.running) return true;
   const c = context();
   if (!c || c.state === 'closed') return false;
@@ -360,6 +388,10 @@ function start(): boolean {
 }
 
 function stop(): void {
+  if (ext) {
+    ext.run(false);
+    return;
+  }
   if (!state.running) return;
   window.clearInterval(timer);
   timer = 0;
@@ -391,7 +423,7 @@ function setProg(prog: number[], go = false): void {
  * quand on la lance (clock.follow).
  */
 function gridAfter(t: number): { time: number; step: number } | null {
-  if (!state.running || clock.running) return null;
+  if (ext || !state.running || clock.running) return null;
   const k = Math.ceil((t - nextTime) / stepDur - 1e-9);
   return { time: nextTime + k * stepDur, step: (((stepIdx + k) % 16) + 16) % 16 };
 }
@@ -430,6 +462,13 @@ export const arp = {
   },
   /** RUN/STOP : arrete ou relance ; sans progression, part sur F#m. Renvoie l'etat. */
   toggleRun(): boolean {
+    // Le plugin : la demande part au C++, l'etat suivra sa position ; on rend celui demande
+    if (ext) {
+      const want = !state.running;
+      if (want && state.prog.length === 0) setProg([0], true);
+      else ext.run(want);
+      return want;
+    }
     if (state.running) stop();
     else if (state.prog.length === 0) setProg([0], true);
     else start();
@@ -445,6 +484,7 @@ export const arp = {
   /** Le pas de la suite qui joue a t (temps du contexte) ; null a l'arret. */
   posAt(t: number): ArpPos | null {
     if (!state.running) return null;
+    if (ext) return extPos.pos >= 0 && extPos.chord >= 0 ? { when: t, pos: extPos.pos, len: extPos.len, chord: extPos.chord, slot: extPos.slot } : null;
     let best: ArpPos | null = null;
     for (const e of posRing) if (e.when <= t && (!best || e.when > best.when)) best = e;
     return best;
@@ -452,9 +492,40 @@ export const arp = {
   /** L'accord qui sonne a t (temps du contexte), et sa note ; null a l'arret. */
   noteAt(t: number): ArpNote | null {
     if (!state.running) return null;
+    if (ext) return extPos.midi >= 0 && extPos.chord >= 0 ? { seq: extPos.seq, when: t, chord: extPos.chord, midi: extPos.midi } : null;
     let best: ArpNote | null = null;
     for (const e of ring) if (e.when <= t && (!best || e.seq > best.seq)) best = e;
     return best;
+  },
+};
+
+/**
+ * L'heure a laquelle lire posAt et noteAt : celle du contexte audio (null sans lui), ou 0 avec le plugin (la position du
+ * C++ ne depend pas de l'heure).
+ */
+export const arpNow = (): number | null => (ext ? 0 : (context()?.currentTime ?? null));
+
+/** Le plugin MM-ARP (plugin/arp/bridge.ts) : le C++ joue ; l'arpege du navigateur s'arrete et ne programme plus rien. */
+export const arpExternal = {
+  active: (): boolean => ext !== null,
+  set(e: ArpExternal | null): void {
+    if (e && !ext && state.running) stop();
+    ext = e;
+  },
+  /** Une position du C++ : running la suit ; en RAND, la note tiree s'affiche dans la suite (seq.noteLive). */
+  head(h: ArpExtHead): void {
+    const prev = extPos;
+    extPos = h;
+    if (h.playing && h.midi >= 0 && h.chord >= 0 && h.pos >= 0 && h.seq !== prev.seq && seq.steps(h.chord) === null) {
+      const p = voyParams.get();
+      const shift = 12 * octaveShift(p.octave);
+      const d = poolSteps(h.chord, p, 0).find((x) => degreeMidi(h.chord, x) + shift === h.midi);
+      if (d !== undefined) seq.noteLive(h.pos, d);
+    }
+    if (h.playing !== state.running) setState({ ...state, running: h.playing });
+  },
+  get headState(): ArpExtHead {
+    return extPos;
   },
 };
 

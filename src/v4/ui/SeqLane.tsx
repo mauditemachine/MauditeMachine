@@ -22,10 +22,9 @@
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { gesture } from '../actions';
-import { context } from '../audio/drums';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
-import { arp } from '../voyager/arp';
+import { arp, arpNow } from '../voyager/arp';
 import { CHORDS, chordTones, degreeName } from '../voyager/chords';
 import { chordType, stepIndex, voyParams } from '../voyager/params';
 import { SEQ_MAX, SEQ_MIN, SEQ_TOP, seq, type SeqStep } from '../voyager/seq';
@@ -43,8 +42,8 @@ function usePlayhead(): { pos: number; chord: number } {
   const [ph, setPh] = useState({ pos: -1, chord: -1, tick: 0 });
   useEffect(() => {
     const t = window.setInterval(() => {
-      const c = context();
-      const e = c ? arp.posAt(c.currentTime) : null;
+      const at = arpNow();
+      const e = at !== null ? arp.posAt(at) : null;
       const pos = e ? e.pos : -1;
       const chord = e ? e.chord : -1;
       // RAND : les notes tirees changent sans que la suite change ; un redessin par pas

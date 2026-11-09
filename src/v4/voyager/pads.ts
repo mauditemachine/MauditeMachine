@@ -49,7 +49,7 @@ import type { HotspotDef } from '../scene/hit';
 import { albedo, withInstanceEmissive } from '../scene/materials';
 import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
-import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PORTRAIT, gainOf } from '../theme';
+import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PLUGIN_ARP, PORTRAIT, gainOf } from '../theme';
 import { CHORDS } from './chords';
 import { VOY_FACE_KNOBS, voyKnob, type VoyKnobId } from './params';
 import { VOY_BUTTON, VOY_BUTTONS, VOY_KNOB, VOY_PAD, VOY_PUSH, isPush, voyKnobPlace, voyPadAt, voyPushLeds, type VoyButtonId, type VoyWhere } from './theme';
@@ -397,7 +397,9 @@ export class VoyKeys {
 
   private btnRest(i: number): Glow {
     const b = VOY_BUTTONS[i];
-    if (b.id === 'open') return this.open ? 'orangeDim' : 'orange';
+    // Le plugin MM-ARP (2026-11-09) : pas de capot, OPEN ouvre le tiroir des potards (plugin/arp/drawer.ts) : allume tant qu'il
+    // est ouvert, eteint sinon (jamais la respiration du site)
+    if (b.id === 'open') return PLUGIN_ARP ? (this.open ? 'orange' : 'off') : this.open ? 'orangeDim' : 'orange';
     if (b.id === 'preset') return this.preset ? 'orange' : PADS + i === this.hover ? 'hover' : 'off';
     if (b.id === 'edit' && this.editing) return 'active';
     return PADS + i === this.hover ? 'hover' : 'off';

@@ -335,13 +335,19 @@ function retimeAll(g: SynthGraph, t: number): void {
 }
 
 /** Le gain de VOLUME apres le moteur (le sec et le bas de BASS MONO), DELAY et REVERB repris. */
-const volGain = (p: Readonly<VoyValues>): number => (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);
+export const volGain = (p: Readonly<VoyValues>): number => (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);
 
 /**
  * Les reglages du moteur, et le tempo (le LFO de MOD est cale dessus, 2026-10-04) ; outLevel (2026-10-21) : le gain de
  * VOLUME, pour que l'ecreteur doux du moteur (audit F7) parte a -6 dBFS de la sortie, quel que soit VOLUME.
  */
 const engineMsg = (v: Readonly<VoyValues>, bpm: number = pattern.get().bpm): Record<string, number> => ({ ...engineParams(v), bpm, outLevel: volGain(v) });
+
+/**
+ * Les reglages du moteur tels que engineMsg les envoie, sans le tempo (2026-11-09, le plugin MM-ARP : plugin/arp/bridge.ts
+ * les met dans son programme ; le C++ prend le tempo d'Ableton ou celui du programme).
+ */
+export const engineState = (v: Readonly<VoyValues>): Record<string, number> => ({ ...engineParams(v), outLevel: volGain(v) });
 
 voyParams.subscribe(() => {
   if (!sg) return;

@@ -1,0 +1,87 @@
+name: Plugin MM-ARP
+# 2026-11-09 (Mika : "fais la meme chose pour ARP, en plugin VST3 pour l'installer et l'utiliser avec Ableton") : le
+# portage C++ du MM-ARP (plugin/mm-arp), comme plugin.yml pour le MM-RYTM. 1) le DSP compare au vrai moog.worklet.js et
+# chorus.worklet.js du site, sur Linux ; 2) le VST3 macOS universel, signe ad hoc, en artefact et dans la release
+# mm-arp-latest. Rien ne touche au site ni a GitHub Pages.
+on:
+  push:
+    paths:
+      - 'plugin/mm-arp/**'
+      - 'src/v4/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/plugin-arp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugin-arp-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dsp:
+    name: DSP identique au site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Construire le DSP et ses tests (sans JUCE)
+        run: |
+          cmake -S plugin/mm-arp -B build-dsp -DMM_BUILD_PLUGIN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-dsp -j
+      - name: Arpegiateur
+        run: ./build-dsp/mmarp_arp_test
+      #@CI_TESTS@
+
+  mac:
+    name: Plugin macOS (VST3)
+    needs: dsp
+    runs-on: macos-latest
+    # La release mm-arp-latest (ci-dessous) : le seul droit d'ecriture du workflow
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - name: Construire la face
+        run: |
+          npm ci --no-audit --no-fund
+          npm run plugin:arp:web
+      - name: Configurer (universel arm64 + x86_64)
+        run: cmake -S plugin/mm-arp -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+      - name: Construire
+        run: cmake --build build --config Release -j 4 --target MM_ARP_VST3
+      # Le paquet dans pkg/, jamais dans dist/ (le build du site commite dans le repo)
+      - name: Signer ad hoc et empaqueter
+        run: |
+          rm -rf pkg && mkdir -p pkg/MM-ARP
+          B=build/MM_ARP_artefacts/Release/VST3/MM-ARP.vst3
+          codesign --force --deep --sign - "$B"
+          codesign --verify --deep --strict "$B"
+          ditto "$B" pkg/MM-ARP/MM-ARP.vst3
+          cp plugin/mm-arp/INSTALL.md plugin/mm-arp/update.sh pkg/MM-ARP/
+          printf 'commit %s, branche %s, %s\n' "${GITHUB_SHA::7}" "$GITHUB_REF_NAME" "$(date -u '+%Y-%m-%d %H:%M UTC')" > pkg/MM-ARP/BUILD.txt
+          ditto -c -k --keepParent pkg/MM-ARP MM-ARP-macOS.zip
+          unzip -l MM-ARP-macOS.zip | tail -1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MM-ARP-macOS
+          path: MM-ARP-macOS.zip
+          retention-days: 30
+      # Le dernier build aussi en release mm-arp-latest, a une adresse fixe : plugin/mm-arp/update.sh la telecharge et
+      # l'installe par-dessus l'ancien. Ses fichiers sont remplaces, son etiquette avance au commit construit.
+      - name: Publier le dernier build (release mm-arp-latest)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view mm-arp-latest >/dev/null 2>&1; then
+            gh release create mm-arp-latest --prerelease --target "$GITHUB_SHA" --title "MM-ARP (dernier build)" --notes "Le VST3 macOS du dernier build."
+          fi
+          gh release upload mm-arp-latest MM-ARP-macOS.zip plugin/mm-arp/update.sh --clobber
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-arp-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          gh release edit mm-arp-latest --notes "MM-ARP, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}. Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-arp-latest/update.sh | bash"

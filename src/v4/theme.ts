@@ -15,10 +15,10 @@
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2TrackMuteDots, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
-import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
+import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PLUGIN_ARP, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
-export { PLUGIN, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
+export { PLUGIN, PLUGIN_ARP, PLUGIN_KIND, type PluginKind, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
 export type { FaceKeyId, Inst, PageId, VoicePad, PagePad, OpenPad, EditPad, PadSpec, PageKnobId, FaceKnobId, EncPlace, KeyLabelSpec, SilkText, SilkLogoId } from './theme/base';
 
 /* ---------- couleurs (spec 4.4 et 20.3) ---------- */
@@ -1548,7 +1548,9 @@ export const ORBIT = {
    */
   azDeg: 0,
   // Le plugin (2026-11-08) : la camera perpendiculaire au panneau (incline de TILT), la face vue comme une photo
-  elDeg: PLUGIN ? 90 - (TILT * 180) / Math.PI : 69,
+  // Le plugin MM-ARP (2026-11-09) : son plateau (plat) et son panneau (pente de VOY_PANEL.angle, 26.5 deg) vus d'aussi pres
+  // de la perpendiculaire l'un que l'autre, la camera a mi-pente (voyager/theme.ts VOY_PLUGIN_EL, le meme calcul)
+  elDeg: PLUGIN_ARP ? 90 - (Math.atan2(3.36 - 1.32, 0.15 + 3.95) * 90) / Math.PI : PLUGIN ? 90 - (TILT * 180) / Math.PI : 69,
   zoom: 1,
   elMinDeg: 18,
   elMaxDeg: PLUGIN ? 90 : 78,

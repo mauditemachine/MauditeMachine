@@ -10,7 +10,7 @@
  * Sans le MM-VOYAGER (?voyager=0), la 808 seule : focus reste 'mm808'.
  */
 
-import { PLUGIN, PORTRAIT } from '../theme';
+import { PLUGIN, PLUGIN_ARP, PORTRAIT } from '../theme';
 
 export type MachineId = 'mm808' | 'voy' | 'bass' | 'dj';
 export type Focus = 'all' | MachineId;
@@ -30,7 +30,8 @@ export const DJ_NAME: Readonly<{ title: string; sub: string; aria: string }> = P
  */
 export const VOYAGER: boolean = (() => {
   if (typeof window === 'undefined') return true;
-  // Le plugin (2026-11-08) : la MM-RYTM seule
+  // Le plugin (2026-11-08) : la MM-RYTM seule ; le plugin MM-ARP (2026-11-09) : le MM-ARP seul (focus toujours 'voy')
+  if (PLUGIN_ARP) return true;
   if (PLUGIN) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('voyager');
@@ -48,7 +49,7 @@ export const VOYAGER: boolean = (() => {
  * remet. Il suppose le MM-VOYAGER sur la table.
  */
 export const DJ: boolean = (() => {
-  if (typeof window === 'undefined' || !VOYAGER) return false;
+  if (typeof window === 'undefined' || !VOYAGER || PLUGIN) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('dj');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.dj', q);
@@ -67,7 +68,7 @@ export const DJ: boolean = (() => {
  * ?bass=0 le recache. Il suppose le MM-VOYAGER sur la table.
  */
 export const BASS: boolean = (() => {
-  if (typeof window === 'undefined' || !VOYAGER) return false;
+  if (typeof window === 'undefined' || !VOYAGER || PLUGIN) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('bass');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.bass', q);
@@ -119,6 +120,8 @@ let start: MachineId | null = (() => {
   const params = new URLSearchParams(window.location.search);
   const q = params.get('m');
   const id = q ? START_ALIASES[q.trim().toLowerCase()] : undefined;
+  // Le plugin MM-ARP : toujours lui
+  if (PLUGIN_ARP) return 'voy';
   if (id && MACHINES.includes(id)) return id;
   // 2026-10-21 (state/share.ts) : un lien de beat partage (?b=) sans ?m= ouvre le MM-RYTM, qui le joue
   return params.has('b') ? 'mm808' : null;
@@ -142,6 +145,8 @@ const readLast = (): MachineId | null => {
   }
 };
 const writeLast = (m: MachineId): void => {
+  // Le plugin MM-ARP ne change pas la machine d'arrivee du site (le meme stockage)
+  if (PLUGIN_ARP) return;
   try {
     window.localStorage.setItem(LAST_KEY, m);
   } catch {
@@ -177,7 +182,8 @@ export const startMachine = {
 };
 let deferred: MachineId | null = null;
 
-let current: Focus = 'mm808';
+// Le plugin MM-ARP (2026-11-09) : le MM-ARP des le depart, et jamais une autre cible (focus.set)
+let current: Focus = PLUGIN_ARP ? 'voy' : 'mm808';
 /** le cadrage est arrive (false pendant le zoom d'une machine a l'autre) */
 let settled = true;
 let changes = 0;
@@ -189,7 +195,7 @@ export const focus = {
   settled: (): boolean => settled,
   /** Nouvelle cible ; une machine absente de la table : la 808. */
   set(f: Focus): void {
-    const next: Focus = f === 'all' || MACHINES.includes(f) ? (VOYAGER ? f : 'mm808') : 'mm808';
+    const next: Focus = PLUGIN_ARP ? 'voy' : f === 'all' || MACHINES.includes(f) ? (VOYAGER ? f : 'mm808') : 'mm808';
     if (next === current) return;
     current = next;
     settled = false;

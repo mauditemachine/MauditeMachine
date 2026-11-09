@@ -22,10 +22,31 @@ import type { Dt2ButtonId } from '../rytm/dtFaceIds';
  * desktop ne change pas. Changer de largeur ensuite ne la change pas :
  * recharger.
  */
+/**
+ * Le genre de plugin demande (2026-11-09, plugin/mm-arp) : window.__MM_PLUGIN__ = true (la page du MM-RYTM, plugin/mm-rytm)
+ * ou 'arp' (la page du MM-ARP, plugin/mm-arp), sinon ?plugin=1 (RYTM) ou ?plugin=arp (ARP) dans l'adresse (essai dans un
+ * navigateur). Lu une fois, a l'evaluation, avant PORTRAIT ; jamais retenu.
+ */
+export type PluginKind = 'rytm' | 'arp';
+const pluginFlag = (): PluginKind | 'rytm-url' | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const f = (window as unknown as { __MM_PLUGIN__?: unknown }).__MM_PLUGIN__;
+    if (f === true) return 'rytm';
+    if (f === 'arp') return 'arp';
+    const q = new URLSearchParams(window.location.search).get('plugin');
+    if (q === 'arp') return 'arp';
+    return q === '1' ? 'rytm-url' : null;
+  } catch {
+    return null;
+  }
+};
+const PLUGIN_FLAG = pluginFlag();
+
 export const PORTRAIT: boolean = (() => {
   if (typeof window === 'undefined') return false;
   // Le plugin (plus bas) : toujours la face du desktop, quelle que soit la largeur de sa fenetre
-  if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return false;
+  if (PLUGIN_FLAG === 'rytm' || PLUGIN_FLAG === 'arp') return false;
   try {
     const q = new URLSearchParams(window.location.search).get('portrait');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.portrait', q);
@@ -44,15 +65,16 @@ export const PORTRAIT: boolean = (() => {
  * navigateur. Pose par la page du plugin (window.__MM_PLUGIN__, avant tout module) ou ?plugin=1 (essai dans un
  * navigateur). Lu a l'evaluation des modules, comme PORTRAIT ; jamais retenu.
  */
-export const PLUGIN: boolean = (() => {
-  if (typeof window === 'undefined') return false;
-  try {
-    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
-    return new URLSearchParams(window.location.search).get('plugin') === '1';
-  } catch {
-    return false;
-  }
-})();
+export const PLUGIN: boolean = PLUGIN_FLAG !== null;
+
+/**
+ * Quelle machine le plugin montre (2026-11-09) : 'rytm' (plugin/mm-rytm, window.__MM_PLUGIN__ = true, ?plugin=1), 'arp'
+ * (plugin/mm-arp, window.__MM_PLUGIN__ = 'arp', ?plugin=arp : le MM-ARP seul, vu de dessus), null hors du plugin (le site).
+ * PLUGIN est vrai pour les deux.
+ */
+export const PLUGIN_KIND: PluginKind | null = PLUGIN_FLAG === null ? null : PLUGIN_FLAG === 'arp' ? 'arp' : 'rytm';
+/** Le plugin MM-ARP (raccourci de PLUGIN_KIND === 'arp'). */
+export const PLUGIN_ARP: boolean = PLUGIN_KIND === 'arp';
 
 /**
  * La face Digitakt II de la V.6.0 (2026-10-30, docs/v4/dt2/dt2-master-spec.md 2 et 5.1, la lane B3) : depuis l'integration
