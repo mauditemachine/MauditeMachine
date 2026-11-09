@@ -426,13 +426,18 @@ const DT2_KEPT: ReadonlySet<Dt2ButtonId> = new Set<Dt2ButtonId>(['func', 'trk', 
 const keyRect = (cls: Dt2KeyClass, cx: number, cy: number): FpRect => ({ x: cx - DT2_KEY_SIZE[cls].w / 2, y: cy - DT2_KEY_SIZE[cls].h / 2, w: DT2_KEY_SIZE[cls].w, h: DT2_KEY_SIZE[cls].h });
 
 /**
- * Le plugin (2026-11-09, la face facon Digitakt II) : PAGE sous la fenetre des LED, comme la DT2 (les LED au-dessus, PAGE
- * dessous) ; le crossfader et ses scenes prennent la place des fleches (DT2_FACEPLATE.scenes).
+ * Le plugin (2026-11-09, la face facon Digitakt II ; Mika : "Keyboard supprime tout ce qui a trait a keyboard", "je ne
+ * comprends pas le bouton PAGE, une page = 16 steps c'est tout") : ni KEYBOARD ni PAGE (ni ses LED) ; la colonne gauche
+ * (FUNC TRK PTN MUTE SOLO) se cale sur les rangees de la face : les touches de page, celles sous l'ecran, le transport, les
+ * deux rangees de TRIG. Le crossfader et ses scenes prennent la place des fleches et de PAGE (DT2_FACEPLATE.scenes).
  */
-const PLUGIN_KEY_AT: Partial<Record<Dt2ButtonId, { cx: number; cy: number }>> = IN_PLUGIN ? { ptnpage: { cx: 235, cy: 98.5 } } : {};
+export const PLUGIN_GONE: ReadonlySet<Dt2ButtonId> = new Set<Dt2ButtonId>(IN_PLUGIN ? ['kbd', 'ptnpage'] : []);
+const PLUGIN_KEY_AT: Partial<Record<Dt2ButtonId, { cx: number; cy: number }>> = IN_PLUGIN
+  ? { trk: { cx: 19, cy: 82.5 }, ptn: { cx: 19, cy: 99.5 }, mute: { cx: 19, cy: 120.5 }, solo: { cx: 19, cy: 142.5 } }
+  : {};
 
 /** Les 27 touches dans l'ordre de lecture de la face (celui de DT2_BUTTONS, l'ordre de tabulation des jumeaux en derive). */
-const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.map((b) => ({
+const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.filter((b) => !PLUGIN_GONE.has(b.id)).map((b) => ({
   id: b.id,
   cls: b.cls,
   rect: keyRect(b.cls, PLUGIN_KEY_AT[b.id]?.cx ?? b.cx, PLUGIN_KEY_AT[b.id]?.cy ?? b.cy),
@@ -443,8 +448,7 @@ const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.map((b) => ({
   title: DT2_KEY_MORE[b.id].title,
   hotspot: DT2_KEY_MORE[b.id].hotspot,
   // V.6.0 (lane B4, 2026-11-01) : toutes branchees
-  // le plugin (2026-11-09) : KEYBOARD agit (actions/internal/keys60.ts kbdToggle, le coup part au moteur avec sa hauteur)
-  phase: IN_PLUGIN || DT2_KEPT.has(b.id) || b.id !== 'kbd' ? 1 : 2,
+  phase: DT2_KEPT.has(b.id) || b.id !== 'kbd' ? 1 : 2,
 }));
 
 /** Un potard de la colonne gauche (2.2) : son centre, son emprise (d), son capuchon, sa jupe, son anneau, ses legendes. */
@@ -518,10 +522,8 @@ export const DT2_FACEPLATE = {
     keys: DT2_KEYS,
   },
   /** Les 8 LED de page (2.2, 2.4) : une fenetre sombre en creux (2.3), deux rangees de quatre, d 3.4, a gauche de PAGE. */
-  // Le plugin (2026-11-09) : a droite, au-dessus de PAGE, comme la DT2
-  pageLeds: IN_PLUGIN
-    ? { window: { x: 222.5, y: 77.5, w: 25, h: 10 }, corner: 1.6, d: 3.4, cx: [226.3, 232.1, 237.9, 243.7], cy: [80, 85] }
-    : { window: { x: 193, y: 77.5, w: 25, h: 10 }, corner: 1.6, d: 3.4, cx: [196.8, 202.6, 208.4, 214.2], cy: [80, 85] },
+  // (le plugin n'en a pas : theme/face.ts PAGE_LEDS)
+  pageLeds: { window: { x: 193, y: 77.5, w: 25, h: 10 }, corner: 1.6, d: 3.4, cx: [196.8, 202.6, 208.4, 214.2], cy: [80, 85] },
   /** Le bouton OPEN sur la face (a droite de TEMPO). */
   open: { rect: { x: 126.5, y: 77, w: 12, h: 11 }, title: 'Open the machine (OPEN); FUNC + OPEN: + SAMPLE', hotspot: 'pad-open' },
   /** SCENE A, le crossfader et SCENE B (facon Octatrack MKII x Digitakt II), sous les LED de page et PAGE. */
@@ -529,9 +531,9 @@ export const DT2_FACEPLATE = {
   // fleches, dans leur cadre (frames, xfade), le logo M au-dessus
   scenes: {
     a: { rect: IN_PLUGIN ? { x: 160, y: 93, w: 10, h: 11 } : { x: 193, y: 94, w: 10, h: 11 }, letter: 'A', title: 'Scene A', hotspot: 'scene-a', phase: 1 } as FpScene,
-    b: { rect: IN_PLUGIN ? { x: 204, y: 93, w: 10, h: 11 } : { x: 240, y: 94, w: 10, h: 11 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b', phase: 1 } as FpScene,
+    b: { rect: IN_PLUGIN ? { x: 237, y: 93, w: 10, h: 11 } : { x: 240, y: 94, w: 10, h: 11 }, letter: 'B', title: 'Scene B', hotspot: 'scene-b', phase: 1 } as FpScene,
     legend: { cap: 2.8, w: 5.5 },
-    xfade: { x0: IN_PLUGIN ? 173 : 206, x1: IN_PLUGIN ? 201 : 237, y: IN_PLUGIN ? 98.5 : 99.5, slot: 2.4, cap: { w: 7.6, h: 11, z: 7 }, title: 'Crossfader, scene A to scene B', hotspot: 'xfade' },
+    xfade: { x0: IN_PLUGIN ? 174 : 206, x1: IN_PLUGIN ? 233 : 237, y: IN_PLUGIN ? 98.5 : 99.5, slot: 2.4, cap: { w: 7.6, h: 11, z: 7 }, title: 'Crossfader, scene A to scene B', hotspot: 'xfade' },
   },
   steps: {
     w: 22,
@@ -559,7 +561,7 @@ export const DT2_FACEPLATE = {
     { id: 'knobs', rect: { x: 142, y: 6, w: 108, h: 53 }, r: 2, members: ['knob-a', 'knob-b', 'knob-c', 'knob-d', 'knob-e', 'knob-f', 'knob-g', 'knob-h'] },
     // Le plugin (2026-11-09) : le cadre des touches de page descend de 1.5 pour leurs fonctions imprimees dessous
     { id: 'pages', rect: { x: 142, y: 60, w: 108, h: IN_PLUGIN ? 16 : 14.5 }, r: 2, members: ['btn-trig', 'btn-src', 'btn-fltr', 'btn-amp', 'btn-fx', 'btn-mod'] },
-    ...(IN_PLUGIN ? [{ id: 'xfade', rect: { x: 157, y: 77, w: 60, h: 30.5 }, r: 2, members: ['scene-a', 'xfade', 'scene-b'] }] : []),
+    ...(IN_PLUGIN ? [{ id: 'xfade', rect: { x: 157, y: 77, w: 93, h: 30.5 }, r: 2, members: ['scene-a', 'xfade', 'scene-b'] }] : []),
     { id: 'trigs', rect: { x: 34, y: 109.5, w: 216, h: 44.5 }, r: 2, members: [...Array.from({ length: 16 }, (_, i) => `step-${i + 1}`), 'trackmute'] },
   ] as readonly { id: string; rect: FpRect; r: number; members: readonly string[] }[],
   silk: {

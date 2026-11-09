@@ -36,6 +36,7 @@
  */
 
 import type { Inst } from '../theme';
+import { IN_PLUGIN } from '../pluginMode';
 import { TRACK_KEYS, isLegacyTrack, type PatternSetup, type StoredPatternMore, type TrackKey } from './tracks';
 import { anyLocks, cleanLocks, NO_LOCKS, withLock, withoutLock, type LockKey, type Locks } from './locks';
 import { NO_SCENES, cleanScenes, clearScene, sameScenes, toStored, withScene, withoutScene, type SceneId, type SceneSet, type StoredScenes } from '../rytm/sceneData';
@@ -639,7 +640,13 @@ let fxState: Readonly<Fx> = validateFx(stored.raw);
 let moreState: StoredPatternMore | null = stored.legacy ? null : validateMore(stored.raw);
 let scenesState: SceneSet = stored.legacy ? NO_SCENES : validateScenes(stored.raw);
 const emptyPageSteps = (): Steps => Object.fromEntries(INSTRUMENTS.map((k) => [k, EMPTY_ROW])) as Steps;
-let stepCountVal = typeof moreState?.setup?.len === 'number' && moreState.setup.len >= 1 && moreState.setup.len <= 64 ? moreState.setup.len : 16;
+/**
+ * Le plugin (2026-11-09, Mika : "une page = 16 steps c'est tout") : un pattern de 16 pas au plus, une seule page ; un
+ * pattern plus long d'avant se lit sur ses 16 premiers pas. Le site garde ses 64 pas et ses quatre pages.
+ */
+const MAX_STEPS = IN_PLUGIN ? 16 : 64;
+const MAX_PAGES = IN_PLUGIN ? 1 : 4;
+let stepCountVal = typeof moreState?.setup?.len === 'number' && moreState.setup.len >= 1 && moreState.setup.len <= 64 ? Math.min(MAX_STEPS, Math.round(moreState.setup.len)) : 16;
 let pageCountVal: 1 | 2 | 3 | 4 = Math.ceil(stepCountVal / 16) as 1 | 2 | 3 | 4;
 let editPageIdx: 0 | 1 | 2 | 3 = 0;
 /** -1 : joue toutes les pages actives (1..pageCount) ; 0..3 : boucle uniquement la page choisie. */
@@ -813,7 +820,7 @@ export const pattern = {
       loopPageIdx = -1;
       pageSteps = [emptyPageSteps(), emptyPageSteps(), emptyPageSteps(), emptyPageSteps()];
     } else if (typeof moreState?.setup?.len === 'number') {
-      stepCountVal = Math.max(1, Math.min(64, Math.round(moreState.setup.len)));
+      stepCountVal = Math.max(1, Math.min(MAX_STEPS, Math.round(moreState.setup.len)));
       pageCountVal = Math.ceil(stepCountVal / 16) as 1 | 2 | 3 | 4;
     }
     const next = { ...state.steps };
@@ -827,7 +834,7 @@ export const pattern = {
   stepCount: (): number => stepCountVal,
   /** Regler le nombre total de pas (1 a 64 pas). */
   setStepCount(s: number): void {
-    const next = Math.max(1, Math.min(64, Math.round(s)));
+    const next = Math.max(1, Math.min(MAX_STEPS, Math.round(s)));
     if (next === stepCountVal) return;
     stepCountVal = next;
     const nextPages = Math.ceil(next / 16) as 1 | 2 | 3 | 4;
@@ -849,7 +856,7 @@ export const pattern = {
   /** Nombre de pages de 16 pas du sequenceur : 1 (16 pas), 2 (32 pas), 3 (48 pas) ou 4 (64 pas). */
   pageCount: (): 1 | 2 | 3 | 4 => pageCountVal,
   setPageCount(n: 1 | 2 | 3 | 4): void {
-    const next = Math.max(1, Math.min(4, Math.round(n))) as 1 | 2 | 3 | 4;
+    const next = Math.max(1, Math.min(MAX_PAGES, Math.round(n))) as 1 | 2 | 3 | 4;
     const targetSteps = next * 16;
     if (next === pageCountVal && stepCountVal === targetSteps) return;
     stepCountVal = targetSteps;
@@ -871,7 +878,7 @@ export const pattern = {
   /** Page editee sur les 16 boutons TRIG (0 = P1 1-16, 1 = P2 17-32, 2 = P3 33-48, 3 = P4 49-64). */
   editPage: (): 0 | 1 | 2 | 3 => editPageIdx,
   setEditPage(p: 0 | 1 | 2 | 3): void {
-    const next = Math.max(0, Math.min(3, Math.round(p))) as 0 | 1 | 2 | 3;
+    const next = Math.max(0, Math.min(MAX_PAGES - 1, Math.round(p))) as 0 | 1 | 2 | 3;
     if (next >= pageCountVal) {
       for (let i = 1; i <= next; i += 1) {
         if (!pageHasHits(pageSteps[i])) pageSteps[i] = { ...pageSteps[0] };

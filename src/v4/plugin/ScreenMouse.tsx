@@ -11,8 +11,8 @@
  * Les fleches (2026-11-09, Mika : "a la place des fleches je veux le crossfade A et B" ; "je veux pouvoir toucher l'ecran
  * avec la souris pour voir l'utilisation des fleches parce que c'est un plugin") : la face n'a plus de fleches, quatre
  * touches cliquables dans la bande du cadre sous l'ecran (a gauche, la place du nom de la DT2) font ce que font les fleches
- * du clavier du Mac (useKeys : faceKeyDown) : la sous-page, une ligne d'une liste, l'octave du mode KEYBOARD, la banque en
- * PTN. Tenues, elles se repetent.
+ * du clavier du Mac (useKeys : faceKeyDown) : la sous-page, une ligne d'une liste, la banque en PTN. Tenues, elles se
+ * repetent.
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -71,22 +71,22 @@ type Arrow = 'left' | 'up' | 'down' | 'right';
 const ARROWS: readonly { d: Arrow; title: string; path: string }[] = [
   {
     d: 'left',
-    title: 'Left (keyboard Left): previous sub-page; in PTN, the bank; KEYBOARD: octave down',
+    title: 'Left (keyboard Left): previous sub-page; in PTN, the bank',
     path: 'M14 5 L8 12 L14 19',
   },
   {
     d: 'up',
-    title: 'Up (keyboard Up): previous sub-page; in a list, up; KEYBOARD: octave up',
+    title: 'Up (keyboard Up): previous sub-page; in a list, up',
     path: 'M5 15 L12 9 L19 15',
   },
   {
     d: 'down',
-    title: 'Down (keyboard Down): next sub-page; in a list, down; KEYBOARD: octave down',
+    title: 'Down (keyboard Down): next sub-page; in a list, down',
     path: 'M5 9 L12 15 L19 9',
   },
   {
     d: 'right',
-    title: 'Right (keyboard Right): next sub-page; in PTN, the bank; KEYBOARD: octave up',
+    title: 'Right (keyboard Right): next sub-page; in PTN, the bank',
     path: 'M10 5 L16 12 L10 19',
   },
 ];

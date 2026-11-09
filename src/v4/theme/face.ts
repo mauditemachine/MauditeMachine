@@ -19,13 +19,11 @@ const PLUGIN_ICONS: Readonly<Partial<Record<string, readonly FpMark[]>>> = {
   settings: ['gear'],
   sounds: ['wave'],
   tempo: ['metro'],
-  kbd: ['piano'],
   rec: ['recO'],
   play: ['playO'],
   stop: ['stopO'],
 };
 const PLUGIN_SILK: Readonly<Record<string, string>> = {
-  kbd: 'KB Setup',
   trk: 'Ptn Mute',
   ptn: 'Bank',
   mute: 'Unmute',
@@ -47,7 +45,6 @@ const PLUGIN_SILK: Readonly<Record<string, string>> = {
   mod: 'Mixer',
   yes: 'Save',
   no: 'Reload',
-  ptnpage: 'Fill/Setup',
 };
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2StepRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpMark } from '../rytm/faceplate';
 import type { Dt2KeyClass } from '../rytm/dtFaceIds';
@@ -220,7 +217,8 @@ export const SIDE_KNOBS: readonly SideKnobSpec[] = DT2_FACE
  * Les 8 LED de page de la face DT2 (V.6.0, ?face=dt2, cahier 2.2 et 2.4) en unites : la fenetre sombre (son centre, sa
  * taille, ses coins) et chaque LED (x, z, rayon), 1 a 4 en haut, 5 a 8 dessous. null : la face de la V.5.3.
  */
-export const PAGE_LEDS = DT2_FACE
+// Le plugin (2026-11-09) : ni PAGE ni ses LED (une page de 16 pas, rytm/faceplate.ts PLUGIN_GONE)
+export const PAGE_LEDS = DT2_FACE && !PLUGIN
   ? {
       window: { x: fpX(DT2.pageLeds.window.x + DT2.pageLeds.window.w / 2), z: fpZ(DT2.pageLeds.window.y + DT2.pageLeds.window.h / 2), w: fpU(DT2.pageLeds.window.w), d: fpU(DT2.pageLeds.window.h), r: fpU(DT2.pageLeds.corner) },
       r: fpU(DT2.pageLeds.d / 2),

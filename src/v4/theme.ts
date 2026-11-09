@@ -1425,7 +1425,7 @@ export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: n
   ? [
       // Le plugin (2026-11-09) : au-dessus du crossfader, dans le cadre des fleches de la DT2 (le M fait 1891 x 1612, centre en x 187)
       PLUGIN
-        ? { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(187 + (11 * 1891) / 1612 / 2), z: fpZ(85), h: fpU(11), align: 'right' }
+        ? { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(203.5 + (11 * 1891) / 1612 / 2), z: fpZ(85), h: fpU(11), align: 'right' }
         : { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(185), z: fpZ(91), h: fpU(22), align: 'right' },
     ]
   : [

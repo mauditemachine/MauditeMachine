@@ -409,6 +409,24 @@ export function rytmLockTap(i: number): void {
   rytmLockEnter(i, true);
 }
 
+/**
+ * Le plugin (2026-11-09) : un clic droit sur un pas. Le P-LOCK sur lui, garde, sans REC (une souris ne tient pas un pas en
+ * tournant un potard) : les potards, la souris dans l'ecran et le panneau OPEN y ecrivent leurs verrous ; un clic droit sur
+ * le meme pas, NO ou Echap en sortent, un clic droit sur un autre pas y passe.
+ */
+export function stepLockRight(i: number): void {
+  if (rytmLock.get().step === i) {
+    rytmLock.leave();
+    lcdMessage.show('P-LOCK OFF');
+    return;
+  }
+  if (rytmLockEnter(i, true, true)) {
+    const inst = lockTrack();
+    const n = lockCountOf(i);
+    lcdMessage.show(`P-LOCK STEP ${two(i + 1)} ${inst ?? ''}${n > 0 ? ` (${n})` : ''} · TURN A KNOB · RIGHT CLICK: EXIT`, 2600, true);
+  }
+}
+
 /** L, rytm:lock : le P-LOCK sur ce pas (le pas choisi par defaut), ou hors P-LOCK s'il y est deja. */
 export function rytmLockToggle(i: number = rytmPage.get().sel, dock = false): void {
   const s = rytmLock.get();

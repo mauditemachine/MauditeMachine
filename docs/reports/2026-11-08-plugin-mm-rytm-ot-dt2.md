@@ -143,6 +143,17 @@ Demande de Mika (avec la face avant de la Digitakt II) : « j'aimerais avoir le 
   - C++ : `PluginEditor.cpp` compile avec les en-tetes de JUCE (`-fsyntax-only`) ; le Finder se verifie sur le Mac.
 - **Build vert du lot 6** (run 42552384707, 02:48 UTC le 2026-11-09), dans la release `mm-rytm-latest` (commit 4b15a9d).
 
+### Lot 7, les retours de Mika sur le lot 6 (2026-11-09)
+
+Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je souhaitais, je voulais tous les parametres super intenses en sampling ou alors les settings ; je ne sais pas comment faire un parameter lock ; je ne comprends pas le bouton PAGE, une page = 16 steps c'est tout ; l'ecran doit etre imperativement de meilleure qualite, des graphismes super cool en noir et blanc (j'aime l'effet SWING) ; la 3D doit fonctionner a merveille, presque du realisme, un peu plus de hauteur ; le clic droit pour un parameter lock ? ; KEYBOARD : supprime tout ». Ses choix : le relief 3D (pas la fenetre), OPEN = un editeur de sample + SETTINGS, rien a la place de PAGE.
+
+7a. KEYBOARD, PAGE, le P-LOCK au clic droit :
+- `rytm/faceplate.ts` PLUGIN_GONE : ni KEYBOARD ni PAGE (ni ses 8 LED, `theme/face.ts` PAGE_LEDS) ; la colonne gauche FUNC TRK PTN MUTE SOLO calee sur les rangees de la face ; le crossfader et ses scenes prennent toute la place (A a gauche, B a droite, 59 mm de course), le logo M au-dessus ; `ui/Hotspots.tsx` sans leurs jumeaux ;
+- `audio/pattern.ts` MAX_STEPS, MAX_PAGES : 16 pas et une page dans le plugin (un pattern plus long d'avant se lit sur ses 16 premiers pas) ; `menus/pagesetup.ts` : STEPS de 1 a 16 ;
+- `actions/internal/keys60.ts` : KEYBOARD ne fait rien dans le plugin ; les infobulles des fleches ne le citent plus ;
+- `actions/locks.ts` stepLockRight, `ui/Hotspots.tsx` : un clic droit sur un pas (hors TRK) le met en P-LOCK garde, sans REC ; les potards y ecrivent leurs verrous ; clic droit encore, Echap : sortie ;
+- verifie dans Chromium : clic droit sur le pas 5, potard A : le coup du BD du pas 5 prend son propre son (TUNE +15, snd 1 dans le programme), le pas 5 jaune, LOCK a l'ecran, le bloc TUNE en negatif avec son P ; clic droit encore : P-LOCK OFF ; sur un pas vide, tourner un potard y pose le coup avec son verrou.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.

@@ -147,6 +147,7 @@ import {
   trkDown,
   trkStep,
   trkStepMute,
+  stepLockRight,
   trkUp,
   dialEdit,
   sceneDown,
@@ -182,6 +183,7 @@ import {
   type DialId,
 } from '../actions';
 import { DT2_BUTTONS, type Dt2ButtonId } from '../rytm/dtFaceIds';
+import { PLUGIN_GONE } from '../rytm/faceplate';
 import { TRACK_KEYS, tracks, type TrackKey } from '../audio/tracks';
 import { FaceKeyTwin, SideKnobTwin } from './twins/input60';
 import { gesture as gestureLayer } from '../state/gesture';
@@ -1375,7 +1377,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const hm = pickAt(e, false);
         if (hm && hm.kind === 'pad' && hm.inst && hm.enabled !== false) padMute(hm.inst, stage);
         // TRK engagee (2026-10-27) : un clic droit sur un pas 1 a 8 coupe sa voix ou la rend, sans la choisir
-        else if (hm && hm.kind === 'step' && hm.index !== undefined) trkStepMute(hm.index, stage, e.timeStamp || performance.now());
+        else if (hm && hm.kind === 'step' && hm.index !== undefined) {
+          // Le plugin (2026-11-09, Mika : "je ne sais pas comment faire un parameter lock... le clic droit pour ca ?") : hors
+          // TRK, un clic droit sur un pas le met en P-LOCK (les potards y ecrivent leurs verrous), encore : il en sort
+          if (!trkStepMute(hm.index, stage, e.timeStamp || performance.now()) && PLUGIN) stepLockRight(hm.index);
+        }
         else if (PLUGIN && hm && hm.enabled !== false) {
           // Le plugin (2026-11-08, Mika : "touche Function ... un peu trop difficile a gerer avec un plugin") : un clic droit
           // sur une touche fait FUNC + la touche (sa fonction orange), d'un seul geste : FUNC gardee pour une touche (une
@@ -3487,7 +3493,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     return undefined;
   };
   const dt2Keys = DT2_FACE
-    ? DT2_BUTTONS.map((b): React.ReactNode => {
+    ? DT2_BUTTONS.filter((b) => !PLUGIN_GONE.has(b.id)).map((b): React.ReactNode => {
         switch (b.id) {
           case 'func':
             return funcTwin;

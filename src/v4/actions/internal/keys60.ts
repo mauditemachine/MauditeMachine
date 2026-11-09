@@ -15,6 +15,7 @@
  * Jamais exportees par le baril : actions/face.ts en exporte l'API publique.
  */
 
+import { IN_PLUGIN } from '../../pluginMode';
 import { clock } from '../../audio/clock';
 import { resume, trigger } from '../../audio/drums';
 import { isLockTrig, type Locks } from '../../audio/locks';
@@ -458,6 +459,8 @@ function kbdNoteName(semi: number): string {
 
 /** KEYBOARD (2026-11-02, Mika : "Keyboard non plus..") : active ou coupe le jeu chromatique sur TRIG 1 a 16. */
 export function kbdToggle(): void {
+  // Le plugin (2026-11-09, Mika : "Keyboard supprime tout ce qui a trait a keyboard") : ni touche ni mode
+  if (IN_PLUGIN) return;
   const on = !dtFace.keyboard();
   dtFace.setKeyboard(on);
   lcdMessage.show(on ? 'KEYBOARD ON · TRIG 1-16 PLAY NOTES' : 'KEYBOARD OFF', 1400);

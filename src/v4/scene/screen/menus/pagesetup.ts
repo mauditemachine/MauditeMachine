@@ -9,6 +9,7 @@
  */
 
 import { clock } from '../../../audio/clock';
+import { IN_PLUGIN } from '../../../pluginMode';
 import { pattern, velocity } from '../../../audio/pattern';
 import { resume } from '../../../audio/drums';
 import { dtFace } from '../../../state/dtFace';
@@ -39,7 +40,7 @@ let copyTarget: 0 | 1 | 2 | 3 = 1;
 
 function setStepLength(n: number): void {
   resume();
-  const s = Math.max(1, Math.min(64, Math.round(n)));
+  const s = Math.max(1, Math.min(STEPS_MAX, Math.round(n)));
   pattern.setStepCount(s);
   dtFace.setPtnPage(pattern.editPage());
   const pg = pattern.pageCount();
@@ -76,14 +77,17 @@ function setPlayMode(v: number): void {
   menuChanged();
 }
 
+// Le plugin (2026-11-09) : 16 pas au plus (audio/pattern.ts MAX_STEPS)
+const STEPS_MAX = IN_PLUGIN ? 16 : 64;
 registerDialSpec('z:pg:len', {
   value: () => pattern.stepCount(),
   set: (v) => setStepLength(v),
-  range: () => [1, 64],
-  steps: () => 64,
-  text: (v) => `${Math.max(1, Math.min(64, Math.round(v)))}`,
+  range: () => [1, STEPS_MAX],
+  steps: () => STEPS_MAX,
+  text: (v) => `${Math.max(1, Math.min(STEPS_MAX, Math.round(v)))}`,
   unit: (v) => {
-    const s = Math.max(1, Math.min(64, Math.round(v)));
+    const s = Math.max(1, Math.min(STEPS_MAX, Math.round(v)));
+    if (IN_PLUGIN) return s === 16 ? 'FULL' : `${s}/16`;
     const pg = Math.ceil(s / 16);
     return s % 16 === 0 ? `${pg} PG` : `${s % 16}/16`;
   },
