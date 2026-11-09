@@ -257,6 +257,7 @@ import {
   FACE_INERT,
   SCREEN_TOUCH,
   PLUGIN,
+  PLUGIN_ARP,
   FACE_KNOBS,
   FACE_TITLE,
   GLOBAL_ENCODERS,
@@ -1376,7 +1377,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         if (hm && hm.kind === 'pad' && hm.inst && hm.enabled !== false) padMute(hm.inst, stage);
         // TRK engagee (2026-10-27) : un clic droit sur un pas 1 a 8 coupe sa voix ou la rend, sans la choisir
         else if (hm && hm.kind === 'step' && hm.index !== undefined) trkStepMute(hm.index, stage, e.timeStamp || performance.now());
-        else if (PLUGIN && hm && hm.enabled !== false) {
+        // (le MM-RYTM seulement : le MM-ARP n'a pas de FUNC)
+        else if (PLUGIN && !PLUGIN_ARP && hm && hm.enabled !== false) {
           // Le plugin (2026-11-08, Mika : "touche Function ... un peu trop difficile a gerer avec un plugin") : un clic droit
           // sur une touche fait FUNC + la touche (sa fonction orange), d'un seul geste : FUNC gardee pour une touche (une
           // tape), puis le clic de la touche elle-meme

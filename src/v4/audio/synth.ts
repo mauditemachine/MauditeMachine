@@ -33,6 +33,7 @@ import { glide } from './glide';
 import { pattern } from './pattern';
 import type { Send } from './sends';
 import { voyMsg } from '../voyager/msg';
+import { PLUGIN_ARP } from '../theme/base';
 
 /**
  * Surechantillonnage du moteur (2026-10-03, qualite) : 4 sur ordinateur,
@@ -403,6 +404,8 @@ function engineTrouble(): void {
  * une note apres RETRY_MS.
  */
 export function prepareSynth(user = true): void {
+  // Le plugin MM-ARP (2026-11-09) : le son vient du C++, le moteur du navigateur ne se charge jamais
+  if (PLUGIN_ARP) return;
   if (sg || loading) return;
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
   if (failures > 0 && (user ? now - lastTry < RETRY_TAP_MS : now < retryAt)) return;

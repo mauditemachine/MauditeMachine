@@ -29,7 +29,7 @@
  * rejoint la rangee de l'arpegiateur (son crochet OUTPUT).
  */
 
-import { PCB, PORTRAIT, TEMPO_UI } from '../theme';
+import { ORBIT, PCB, PORTRAIT, TEMPO_UI } from '../theme';
 import { BASS } from '../state/focus';
 import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
@@ -962,6 +962,24 @@ export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; sw: boolea
 export const VOY_FRAME = PORTRAIT
   ? { plate: VOY_BODY.w, h: VOY_BODY.d, targetY: 1.6, radius: { closed: 9.0, open: 11.0 }, fitHalfH: 12.4, explodeTargetY: 4.2 }
   : { plate: Math.SQRT1_2 * (VOY_BODY.w + VOY_BODY.d), h: 9.4, targetY: 1.6, radius: { closed: 8.1, open: 9.6 }, fitHalfH: 8.6, explodeTargetY: 5.9 };
+
+/**
+ * La face du plugin MM-ARP (2026-11-09, plugin/mm-arp) : la machine vue de dessus, la camera a ORBIT.elDeg (mi-pente du
+ * panneau, theme.ts), bord a bord. Dans le plan de l'image, la hauteur va du bord avant du plateau (avec un filet de la
+ * face avant) au haut des joues de noyer, derriere le panneau ; la largeur, celle des joues. ty : le pivot (sur z = 0)
+ * qui centre ce cadre ; w et h : sa taille (unites de la scene), d'ou la proportion conseillee de la fenetre.
+ */
+export const VOY_PLUGIN_FACE = (() => {
+  const B = VOY_BODY;
+  const el = (ORBIT.elDeg * Math.PI) / 180;
+  // La coordonnee verticale de l'image d'un point (y, z) de la machine
+  const sv = (y: number, z: number): number => y * Math.cos(el) - z * Math.sin(el);
+  const lo = sv(B.deckY - 0.18, B.d / 2);
+  const top = B.topY + VOY_CHEEK.above;
+  const hi = Math.max(sv(top, B.backZ), sv(top - VOY_CHEEK.backR, -B.d / 2));
+  const margin = 1.02;
+  return { w: B.w * margin, h: (hi - lo) * margin, ty: (hi + lo) / 2 / Math.cos(el) };
+})();
 
 
 /**

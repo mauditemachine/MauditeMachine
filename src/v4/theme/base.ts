@@ -94,8 +94,9 @@ export const RYTM_VERSIONS: readonly RytmFaceVer[] = ['1.0', '2.0', '3.0', '4.0'
  */
 export const RYTM_FACE_VER: RytmFaceVer = (() => {
   if (PORTRAIT || typeof window === 'undefined') return '5.0';
-  // Le plugin : toujours la machine complete (la face DT2), quelle que soit l'adresse
-  if (PLUGIN) return '6.0';
+  // Le plugin : toujours la machine complete (la face DT2), quelle que soit l'adresse ; le plugin MM-ARP (2026-11-09) ne
+  // montre pas le MM-RYTM : celui du site (la serigraphie partagee, SILK_LOGOS, reste celle du site : wordmark et logotype)
+  if (PLUGIN_KIND === 'rytm') return '6.0';
   try {
     const f = new URLSearchParams(window.location.search).get('face');
     // 2026-11-08 (Mika : "sur internet met la version avant le crossfad qui etait trop complexe") : sur le site, la V.3.0 par

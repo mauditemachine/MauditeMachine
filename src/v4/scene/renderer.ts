@@ -146,6 +146,7 @@ import {
   DT_HEX,
   DT2_FACE,
   PLUGIN,
+  PLUGIN_ARP,
   PLUGIN_FACE,
 } from '../theme';
 import { Encoders } from './encoders';
@@ -177,7 +178,7 @@ import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { BezelDecal, PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
-import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
+import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_PLUGIN_FACE, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_DECK_ONLY, DJ_FRAME, DJ_MIXER_ONLY, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
@@ -1915,6 +1916,9 @@ export class Stage {
       openY: VOY_OPEN_FRAME.y,
       openZ: VOY_OPEN_FRAME.z,
     };
+    // Le plugin MM-ARP (2026-11-09) : sa face vue de dessus remplit la fenetre, bord a bord (voyager/theme.ts VOY_PLUGIN_FACE) ;
+    // jamais de capot ouvert (openW 0)
+    if (PLUGIN_ARP) return { ...voy, hw0: VOY_PLUGIN_FACE.w / 2, h: VOY_PLUGIN_FACE.h, ty: VOY_PLUGIN_FACE.ty, explodeTy: VOY_PLUGIN_FACE.ty, openW: 0, openY: VOY_PLUGIN_FACE.ty, openZ: 0 };
     if (f === 'voy') return voy;
     // Le MM-DECKS : l'ensemble de face (deux platines, la table) ; au telephone, un bloc a la fois. Tenu droit
     // (2026-10-18, la table seule) : un seul bloc, 'mix', centre sur DJ_X (son ombre, unitW / 2 + 3, couvre ses 11 de profondeur)
@@ -2020,7 +2024,8 @@ export class Stage {
     if (!voy) return;
     // Desktop, vue par defaut : la voisine reste, au bord (le bout qui depasse) ;
     // la vue tournee, elle se cache (elle passerait devant)
-    const peek = !this.layoutMobile && !view.get();
+    // (jamais dans le plugin : la machine seule)
+    const peek = !PLUGIN && !this.layoutMobile && !view.get();
     const dj = this.dj;
     const bs = this.bass;
     // Les voisines immediates seulement, dans l'ordre de la scene (state/focus.ts MACHINES :
