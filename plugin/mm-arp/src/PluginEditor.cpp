@@ -7,8 +7,8 @@
 namespace {
 
 // La taille de la fenetre : les proportions de la face du MM-ARP (src/v4/plugin/arp)
-constexpr int kW = 1200;
-constexpr int kH = 600;
+constexpr int kW = 1100;
+constexpr int kH = 704;
 
 // Les fichiers de la face (le zip de plugin/mm-arp/build-web), lus une fois.
 const std::map<juce::String, std::vector<std::byte>>& webFiles() {
