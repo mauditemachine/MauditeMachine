@@ -104,7 +104,7 @@ int main() {
             char txt[64];
             mmarp::knobText(mmarp::knobIndex("rate"), 2.0 / 3, txt, 64);
             check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
-            check(p.getParameters().size() == mmarp::kKnobs + 2, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
+            check(p.getParameters().size() == mmarp::kKnobs + 3, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
         }
         // DRAG MIDI : l'arpege en clip (F#m D, 2 mesures, 1/16 : 16 pas par mesure, 2 silences sur 8 dans la suite)
         {
@@ -132,6 +132,35 @@ int main() {
             const juce::File f = p.arpMidiFile(1);
             check(f.existsAsFile() && f.getSize() > 100, "le fichier MIDI a glisser : " + f.getFileName().toStdString());
             f.deleteFile();
+        }
+        // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
+        {
+            p.learn("cutoff");
+            juce::MidiBuffer cc;
+            cc.addEvent(juce::MidiMessage::controllerEvent(2, 74, 0), 0);
+            run(p, h, 512, 512, &cc);
+            const juce::var map = p.midiMap();
+            const juce::var list = map.getProperty("items", juce::var());
+            const auto* items = list.getArray();
+            const bool mapped = items && items->size() == 1 && static_cast<int>((*items)[0].getProperty("cc", -1)) == 74 && static_cast<int>((*items)[0].getProperty("ch", -1)) == 2;
+            juce::MidiBuffer cc2;
+            cc2.addEvent(juce::MidiMessage::controllerEvent(2, 74, 127), 0);
+            run(p, h, 512, 512, &cc2);
+            check(mapped && std::fabs(p.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 1.f) < 1e-6f && p.midiMap().getProperty("learn", "x").toString().isEmpty(), "MIDI LEARN : CC 74 canal 2 -> CUTOFF");
+            p.unmapAll();
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.5f);
+        }
+        // Le clip a le dessus : une note MIDI fait taire l'arpege, il reprend une mesure apres la derniere note
+        {
+            juce::MidiBuffer on1;
+            on1.addEvent(juce::MidiMessage::noteOn(1, 60, static_cast<juce::uint8>(100)), 0);
+            run(p, h, 512, 512, &on1);
+            const bool quiet = p.clipActive();
+            juce::MidiBuffer off1;
+            off1.addEvent(juce::MidiMessage::noteOff(1, 60), 0);
+            run(p, h, 512, 512, &off1);
+            run(p, h, 48000 * 3, 512);
+            check(quiet && !p.clipActive(), "Clip Priority : l'arpege se tait pendant le clip, reprend apres une mesure");
         }
         // STOP : la queue s'eteint (reverb comprise) sous -80 dB en 4 s
         h.playing = false;

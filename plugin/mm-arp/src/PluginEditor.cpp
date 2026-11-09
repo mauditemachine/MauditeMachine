@@ -9,9 +9,7 @@ namespace {
 // La taille de la fenetre : les proportions de la face du MM-ARP (src/v4/plugin/arp)
 constexpr int kW = 1100;
 constexpr int kH = 704;
-// La bande sous la face (DRAG MIDI)
-constexpr int kStrip = 34;
-const juce::Colour kInk(0xff0b0b0c), kOrange(0xffff6a13), kGrey(0xff9a9a9a);
+const juce::Colour kInk(0xff0b0b0c);
 
 // Les fichiers de la face (le zip de plugin/mm-arp/build-web), lus une fois.
 const std::map<juce::String, std::vector<std::byte>>& webFiles() {
@@ -84,6 +82,19 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                  .withEventListener("mm_preset_open", [this](juce::var) { presetOpen(); })
                  .withEventListener("mm_preset_list", [this](juce::var) { presetList(); })
                  .withEventListener("mm_preset_load", [this](juce::var o) { presetLoad(juce::File(o.getProperty("path", "").toString())); })
+                 // DRAG MIDI depuis le capot : le glisser natif part de l'evenement souris en cours (le bouton est encore enfonce)
+                 .withEventListener("mm_drag_midi", [this](juce::var o) { dragMidi(juce::jlimit(1, 8, static_cast<int>(o.getProperty("cycles", 1)))); })
+                 .withEventListener("mm_save_mid", [this](juce::var o) {
+                     cycles_ = juce::jlimit(1, 8, static_cast<int>(o.getProperty("cycles", 1)));
+                     saveMidi();
+                 })
+                 // MIDI LEARN
+                 .withEventListener("mm_learn", [this](juce::var o) { proc_.learn(o.getProperty("id", "").toString()); })
+                 .withEventListener("mm_unmap", [this](juce::var o) {
+                     proc_.unmap(static_cast<int>(o.getProperty("ch", 0)) - 1, static_cast<int>(o.getProperty("cc", -1)));
+                 })
+                 .withEventListener("mm_unmap_all", [this](juce::var) { proc_.unmapAll(); })
+                 .withEventListener("mm_midimap_get", [this](juce::var) { browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap()); })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;
@@ -116,32 +127,7 @@ std::optional<juce::WebBrowserComponent::Resource> MMArpEditor::resource(const j
 MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
-    // La bande : DRAG MIDI (glisser sur une piste), la longueur, SAVE .MID
-    drag_.makeFile = [this] { return proc_.arpMidiFile(cycles_); };
-    drag_.status = [this](const juce::String& m) { setHint(m); };
-    addAndMakeVisible(drag_);
-    auto styleBtn = [](juce::TextButton& b) {
-        b.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1c1c1e));
-        b.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        b.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff3a3a3c));
-    };
-    styleBtn(lenBtn_);
-    styleBtn(saveMidBtn_);
-    lenBtn_.setButtonText("x1");
-    lenBtn_.setTooltip("La longueur du clip : la progression 1, 2 ou 4 fois");
-    lenBtn_.onClick = [this] {
-        cycles_ = cycles_ == 1 ? 2 : cycles_ == 2 ? 4 : 1;
-        lenBtn_.setButtonText("x" + juce::String(cycles_));
-    };
-    saveMidBtn_.setButtonText("SAVE .MID");
-    saveMidBtn_.onClick = [this] { saveMidi(); };
-    addAndMakeVisible(lenBtn_);
-    addAndMakeVisible(saveMidBtn_);
-    hint_.setColour(juce::Label::textColourId, kGrey);
-    hint_.setFont(juce::FontOptions(12.f));
-    addAndMakeVisible(hint_);
-    setHint("Glisse DRAG MIDI sur une piste ou un emplacement de clip : l'arpege devient un clip (coupe Arpeggiator pour ne pas doubler)");
-    setSize(kW, kH + kStrip);
+    setSize(kW, kH);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
@@ -151,19 +137,26 @@ MMArpEditor::~MMArpEditor() { stopTimer(); }
 void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 
 void MMArpEditor::resized() {
-    auto r = getLocalBounds();
-    auto strip = r.removeFromBottom(kStrip).reduced(6, 4);
-    if (browser_) browser_->setBounds(r);
-    drag_.setBounds(strip.removeFromLeft(150));
-    strip.removeFromLeft(6);
-    lenBtn_.setBounds(strip.removeFromLeft(44));
-    strip.removeFromLeft(6);
-    saveMidBtn_.setBounds(strip.removeFromLeft(90));
-    strip.removeFromLeft(10);
-    hint_.setBounds(strip);
+    if (browser_) browser_->setBounds(getLocalBounds());
 }
 
-void MMArpEditor::setHint(const juce::String& m) { hint_.setText(m, juce::dontSendNotification); }
+void MMArpEditor::setHint(const juce::String& m) {
+    auto* o = new juce::DynamicObject();
+    o->setProperty("ok", !m.startsWith("Aucun") && !m.startsWith("Impossible"));
+    o->setProperty("msg", m);
+    browser_->emitEventIfBrowserIsVisible("mm_drag_status", juce::var(o));
+}
+
+void MMArpEditor::dragMidi(int cycles) {
+    const juce::File f = proc_.arpMidiFile(cycles);
+    if (!f.existsAsFile()) {
+        setHint("Aucun accord : touche des pads pour faire une progression");
+        return;
+    }
+    // Le glisser du Mac, depuis l'evenement souris courant (celui du bouton DRAG MIDI tenu dans la face)
+    const bool ok = juce::DragAndDropContainer::performExternalDragDropOfFiles({f.getFullPathName()}, false, this);
+    setHint(ok ? "Depose sur une piste ou un emplacement de clip" : "Glisser impossible : SAVE .MID enregistre le clip");
+}
 
 void MMArpEditor::saveMidi() {
     int bars = 0;
@@ -185,79 +178,6 @@ void MMArpEditor::saveMidi() {
                               const bool ok = out.openedOk() && mf.writeTo(out, 1);
                               setHint(ok ? "Clip MIDI enregistre : " + f.getFullPathName() : "Impossible d'ecrire " + f.getFullPathName());
                           });
-}
-
-/* ---------------- DRAG MIDI ---------------- */
-
-void MMArpDragMidi::paint(juce::Graphics& g) {
-    const auto r = getLocalBounds().toFloat().reduced(0.5f);
-    const bool over = isMouseOver(true);
-    g.setColour(over ? kOrange : juce::Colour(0xff1c1c1e));
-    g.fillRoundedRectangle(r, 5.f);
-    g.setColour(kOrange);
-    g.drawRoundedRectangle(r, 5.f, 1.2f);
-    g.setColour(over ? kInk : juce::Colours::white);
-    g.setFont(juce::FontOptions(13.f, juce::Font::bold));
-    g.drawText(juce::String::fromUTF8("\xe2\x87\xa3 DRAG MIDI"), getLocalBounds(), juce::Justification::centred);
-}
-
-void MMArpDragMidi::mouseDrag(const juce::MouseEvent& e) {
-    if (dragging_ || e.getDistanceFromDragStart() < 4 || !makeFile) return;
-    dragging_ = true;
-    const juce::File f = makeFile();
-    if (!f.existsAsFile()) {
-        if (status) status("Aucun accord : touche des pads pour faire une progression");
-        return;
-    }
-    if (status) status("Depose sur une piste MIDI ou un emplacement de clip (" + f.getFileName() + ")");
-    performExternalDragDropOfFiles({f.getFullPathName()}, false, this);
-}
-
-void MMArpDragMidi::mouseUp(const juce::MouseEvent&) {
-    dragging_ = false;
-    repaint();
-}
-
-void MMArpEditor::timerCallback() {
-    // Les potards que l'hote a changes (automation, MIDI Map, le triangle d'Ableton) vers la face
-    if (ready_) {
-        auto* changed = new juce::DynamicObject();
-        int count = 0;
-        for (int i = 0; i < mmarp::kKnobs; ++i) {
-            auto* prm = proc_.knobParam(i);
-            if (!prm) continue;
-            const float v = prm->getValue();
-            if (!(v < sent_[static_cast<size_t>(i)] || v > sent_[static_cast<size_t>(i)])) continue;
-            sent_[static_cast<size_t>(i)] = v;
-            changed->setProperty(mmarp::kKnobDefs[i].id, static_cast<double>(v));
-            ++count;
-        }
-        if (count > 0) {
-            auto* o = new juce::DynamicObject();
-            o->setProperty("values", juce::var(changed));
-            browser_->emitEventIfBrowserIsVisible("mm_knobs", juce::var(o));
-        } else {
-            delete changed;
-        }
-    }
-    // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
-    const auto fb = proc_.feedback();
-    ++quietTicks_;
-    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && quietTicks_ < 30) return;
-    lastSeq_ = fb.seq;
-    lastPlaying_ = fb.playing;
-    lastInternal_ = fb.internal;
-    quietTicks_ = 0;
-    auto* o = new juce::DynamicObject();
-    o->setProperty("playing", fb.playing);
-    o->setProperty("internal", fb.internal);
-    o->setProperty("seq", fb.seq);
-    o->setProperty("slot", fb.playing ? fb.slot : -1);
-    o->setProperty("pos", fb.pos);
-    o->setProperty("len", fb.len);
-    o->setProperty("chord", fb.playing ? fb.chord : -1);
-    o->setProperty("midi", fb.playing ? fb.midi : -1);
-    browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
 }
 
 /* ---------------- les presets sur le disque (~/Music/Maudite Machine/MM-ARP Presets, fichiers .mmarp) ---------------- */

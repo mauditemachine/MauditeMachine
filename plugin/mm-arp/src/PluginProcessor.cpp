@@ -83,6 +83,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMArpProcessor::makeLayout()
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"arp", 1}, "Arpeggiator", true));
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"master", 1}, "Master", juce::NormalisableRange<float>(-60, 6, 0.1f, 2.5f), 0.f));
+    // Le clip a le dessus (2026-11-09, Mika) : des notes MIDI qui arrivent (un clip, un clavier) font taire l'arpege interne
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"prio", 1}, "Clip Priority", true));
     // Les potards du site, dans l'ordre de la face (voyager/params.ts VOY_KNOBS), leur texte comme a l'ecran
     for (int i = 0; i < mmarp::kKnobs; ++i) {
         const auto& d = mmarp::kKnobDefs[i];
@@ -102,6 +104,8 @@ MMArpProcessor::MMArpProcessor()
     : AudioProcessor(BusesProperties().withOutput("Main", juce::AudioChannelSet::stereo(), true)), apvts(*this, nullptr, "MMARP", makeLayout()) {
     master_ = apvts.getRawParameterValue("master");
     arpOn_ = apvts.getRawParameterValue("arp");
+    prio_ = apvts.getRawParameterValue("prio");
+    for (auto& c : ccMap_) c.store(-1);
     for (int i = 0; i < mmarp::kKnobs; ++i) {
         knobRaw_[static_cast<size_t>(i)] = apvts.getRawParameterValue(mmarp::kKnobDefs[i].id);
         knobParams_[static_cast<size_t>(i)] = apvts.getParameter(mmarp::kKnobDefs[i].id);
@@ -260,6 +264,58 @@ juce::File MMArpProcessor::arpMidiFile(int cycles) const {
     return f;
 }
 
+/* ---------------- MIDI LEARN ---------------- */
+
+void MMArpProcessor::onCC(int ch, int cc, int value) {
+    if (ch < 0 || ch > 15 || cc < 0 || cc > 127) return;
+    const size_t k = static_cast<size_t>(ch * 128 + cc);
+    const int learn = learn_.load();
+    if (learn >= 0) {
+        // Un seul CC par potard : l'ancien part
+        for (auto& c : ccMap_)
+            if (c.load() == learn) c.store(-1);
+        ccMap_[k].store(learn);
+        learn_.store(-1);
+        mapChanged_.store(true);
+    }
+    const int i = ccMap_[k].load();
+    if (i >= 0 && i < mmarp::kKnobs)
+        if (auto* prm = knobParams_[static_cast<size_t>(i)]) prm->setValueNotifyingHost(static_cast<float>(value) / 127.f);
+}
+
+void MMArpProcessor::learn(const juce::String& id) {
+    learn_.store(id.isEmpty() ? -1 : mmarp::knobIndex(id.toRawUTF8()));
+    mapChanged_.store(true);
+}
+
+void MMArpProcessor::unmap(int ch, int cc) {
+    if (ch >= 0 && ch < 16 && cc >= 0 && cc < 128) ccMap_[static_cast<size_t>(ch * 128 + cc)].store(-1);
+    mapChanged_.store(true);
+}
+
+void MMArpProcessor::unmapAll() {
+    for (auto& c : ccMap_) c.store(-1);
+    mapChanged_.store(true);
+}
+
+juce::var MMArpProcessor::midiMap() const {
+    juce::Array<juce::var> items;
+    for (int k = 0; k < 16 * 128; ++k) {
+        const int i = ccMap_[static_cast<size_t>(k)].load();
+        if (i < 0 || i >= mmarp::kKnobs) continue;
+        auto* e = new juce::DynamicObject();
+        e->setProperty("cc", k % 128);
+        e->setProperty("ch", k / 128 + 1);
+        e->setProperty("id", juce::String(mmarp::kKnobDefs[i].id));
+        items.add(juce::var(e));
+    }
+    auto* o = new juce::DynamicObject();
+    o->setProperty("items", items);
+    const int l = learn_.load();
+    o->setProperty("learn", l >= 0 && l < mmarp::kKnobs ? juce::String(mmarp::kKnobDefs[l].id) : juce::String());
+    return juce::var(o);
+}
+
 juce::File MMArpProcessor::presetDir() {
     return juce::File::getSpecialLocation(juce::File::userMusicDirectory).getChildFile("Maudite Machine").getChildFile("MM-ARP Presets");
 }
@@ -286,6 +342,18 @@ void MMArpProcessor::getStateInformation(juce::MemoryBlock& destData) {
     state.setProperty("seed", static_cast<juce::int64>(seed_), nullptr);
     // Les parametres (les potards, Master, Arpeggiator)
     state.appendChild(apvts.copyState(), nullptr);
+    // MIDI LEARN : les CC assignes
+    juce::ValueTree mm("MIDIMAP");
+    for (int k = 0; k < 16 * 128; ++k) {
+        const int i = ccMap_[static_cast<size_t>(k)].load();
+        if (i < 0 || i >= mmarp::kKnobs) continue;
+        juce::ValueTree e("CC");
+        e.setProperty("ch", k / 128, nullptr);
+        e.setProperty("cc", k % 128, nullptr);
+        e.setProperty("id", juce::String(mmarp::kKnobDefs[i].id), nullptr);
+        mm.appendChild(e, nullptr);
+    }
+    state.appendChild(mm, nullptr);
     {
         std::lock_guard<std::mutex> lk(mx_);
         state.setProperty("program", programJson_, nullptr);
@@ -305,6 +373,15 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         std::lock_guard<std::mutex> lk(mx_);
         lsJson_ = ls;
     }
+    for (auto& c : ccMap_) c.store(-1);
+    const auto mm = state.getChildWithName("MIDIMAP");
+    for (int j = 0; j < mm.getNumChildren(); ++j) {
+        const auto e = mm.getChild(j);
+        const int ch = static_cast<int>(e.getProperty("ch", -1)), cc = static_cast<int>(e.getProperty("cc", -1));
+        const int i = mmarp::knobIndex(e.getProperty("id", "").toString().toRawUTF8());
+        if (ch >= 0 && ch < 16 && cc >= 0 && cc < 128 && i >= 0) ccMap_[static_cast<size_t>(ch * 128 + cc)].store(i);
+    }
+    mapChanged_.store(true);
     const auto params = state.getChildWithName(apvts.state.getType());
     if (params.isValid()) {
         apvts.replaceState(params);
@@ -385,6 +462,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     wasPlaying_ = false;
     held_.fill(false);
     lastLiveMidi_ = -1;
+    lastNoteFrame_ = -1;
     // Le programme courant rejoue sur le nouveau moteur
     {
         const juce::SpinLock::ScopedLockType sl(progLock_);
@@ -478,8 +556,23 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (wasPlaying_ && !playing) voy_->stop(at(0));
     wasPlaying_ = playing;
 
+    // Les notes MIDI de ce bloc (un clip, un clavier) et les CC (MIDI LEARN) : d'abord lus, l'arpege en depend
+    bool noteIn = false;
+    for (const auto meta : midi) {
+        const auto msg = meta.getMessage();
+        if (msg.isNoteOn()) noteIn = true;
+        else if (msg.isController()) onCC(msg.getChannel() - 1, msg.getControllerNumber(), msg.getControllerValue());
+    }
+    if (noteIn) lastNoteFrame_ = f0;
+    // Le clip a le dessus : des notes tenues, ou arrivees il y a moins d'une mesure, et l'arpege interne se tait
+    bool anyHeld = false;
+    for (bool h : held_) anyHeld = anyHeld || h;
+    const double barSamples = 4.0 * 60.0 / bpm * sr;
+    const bool clipWins = prio_->load() > 0.5f && (noteIn || anyHeld || (lastNoteFrame_ >= 0 && static_cast<double>(f0 - lastNoteFrame_) < barSamples));
+    clipActive_.store(clipWins);
+
     // L'arpege : les pas de ce bloc partent vers le moteur (a l'echantillon pres, dans sa file)
-    const bool arpOn = arpOn_->load() > 0.5f;
+    const bool arpOn = arpOn_->load() > 0.5f && !clipWins;
     VoySink sink(*voy_);
     arp_.process(sink, f0, n, playing && arpOn, ppq, pps, seed_);
 
@@ -504,6 +597,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
                     held_[static_cast<size_t>(m)] = false;
                 }
         }
+        if (msg.isNoteOff() || msg.isNoteOn()) lastNoteFrame_ = f0 + pos;
     }
 
     // Le moteur par blocs de 128 exactement (tout ce que ce bloc a mis dans sa file est connu), dans la file ; la sortie

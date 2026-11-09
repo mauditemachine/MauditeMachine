@@ -94,6 +94,16 @@ public:
     // Le meme, ecrit dans ~/Music/Maudite Machine/MM-ARP Clips (un fichier par glisser) ; File() sans accord
     juce::File arpMidiFile(int cycles) const;
 
+    // MIDI LEARN (thread du message) : arme un potard (id vide : annule), retire une assignation (canal 1..16 cote face)
+    void learn(const juce::String& id);
+    void unmap(int ch, int cc);
+    void unmapAll();
+    // {items: [{cc, ch (1..16), id}], learn: id arme ou ""}
+    juce::var midiMap() const;
+    bool takeMapChanged() { return mapChanged_.exchange(false); }
+    // Le clip a le dessus en ce moment (l'arpege interne se tait)
+    bool clipActive() const { return clipActive_.load(); }
+
     // Le dossier des presets sur le disque : ~/Music/Maudite Machine/MM-ARP Presets
     static juce::File presetDir();
 
@@ -154,6 +164,16 @@ private:
     // Les parametres de l'hote (en plus des potards)
     std::atomic<float>* master_ = nullptr;
     std::atomic<float>* arpOn_ = nullptr;
+    std::atomic<float>* prio_ = nullptr;
+
+    // MIDI LEARN : canal x 128 + CC -> potard (-1 : rien) ; le potard arme
+    std::array<std::atomic<int>, 16 * 128> ccMap_{};
+    std::atomic<int> learn_{-1};
+    std::atomic<bool> mapChanged_{true};
+    void onCC(int ch, int cc, int value);
+    // Le clip a le dessus : la derniere note MIDI recue (frame)
+    int64_t lastNoteFrame_ = -1;
+    std::atomic<bool> clipActive_{false};
 
     // Le retour vers la face
     std::atomic<bool> fbPlaying_{false};
