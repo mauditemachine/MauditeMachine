@@ -39,6 +39,7 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | Plugin sans KEYBOARD ni PAGE (2026-11-09) | un pattern de 16 pas, une page (`audio/pattern.ts` MAX_STEPS) ; la colonne gauche FUNC TRK PTN MUTE SOLO calee sur les rangees ; le crossfader prend toute la largeur |
 | P-LOCK au clic droit (2026-11-09) | clic droit sur un pas : P-LOCK garde sur lui (sans REC), les potards y ecrivent leurs verrous ; encore : il en sort (`actions/locks.ts` stepLockRight) |
 | L'ecran du plugin (2026-11-09) | `scene/screen/pluginGfx.ts` : un dessin par reglage (forme d'onde reelle du sample, DIST, CHORUS, DELAY, REVERB, BIT, COMP, TUNE, FINE, PAN, LFO, uTIME, LFO.T, TLEN, NOTE, BPM, MASTER) ; les cases libres en grand dessin (le sample, la chaine des effets, les pas de la piste, le swing) |
+| La 3D du plugin (2026-11-09) | camera penchee de 16 deg, champ de 20 deg (`theme.ts` PLUGIN_VIEW) ; touches, pas et potards plus hauts (`rytm/faceplate.ts` RELIEF) ; les clics dans l'ecran par le rayon de la camera (`renderer.ts` screenUV) |
 | OPEN (2026-11-09) | un panneau de reglages fins par-dessus la face (`src/v4/plugin/OpenPanel.tsx`) : TRACK (tous les reglages de la piste, sa voix, son sample), GLOBAL (niveaux, FX, MASTER, pattern), SAMPLES (tous tes samples, IMPORT, Finder, RESCAN), HELP ; CLOSE, Echap ou OPEN le ferment. Maj + glisser : le reglage fin. FUNC + OPEN : + Sample ; FUNC + SOUNDS : Samples (tes samples) |
 | SONG (hors des clips d'Ableton), multi-out | a venir |
 

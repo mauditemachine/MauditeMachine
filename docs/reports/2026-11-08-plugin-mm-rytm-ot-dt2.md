@@ -164,6 +164,12 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - `screen/dt2.ts` paintGrid, `screen/grid.ts` paintBlock : les branchements ; `rytm/pageView.ts` : le bloc porte sa cible ;
 - verifie dans Chromium sur les 12 ecrans (captures).
 
+7c. La 3D (plugin seulement) :
+- `theme.ts` PLUGIN_VIEW : la camera penchee de 16 deg vers soi, un champ de 20 deg (10 avant : la face restait plate), un rien d'air (fit 1.04) et le pivot avance vers le bord avant (la perspective grandit l'avant) ; `scene/renderer.ts` updateCamera ;
+- `rytm/faceplate.ts` RELIEF : touches et pas 1.55 fois plus hauts, potards 1.35 fois : leurs flancs se voient, la caisse aussi ;
+- `scene/renderer.ts` screenUV, `plugin/ScreenMouse.tsx` toScreen : l'ecran vu de biais est un trapeze, un clic y passe par le rayon de la camera (la ligne sous la souris, verifie : la 3e ligne de SOUNDS cliquee = BD 4) ;
+- verifie dans Chromium : pages, P-LOCK au clic droit, SOUNDS a la souris, scene A, crossfader (x = 1), OPEN, fleches.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.

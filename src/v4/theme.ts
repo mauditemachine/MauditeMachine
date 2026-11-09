@@ -1563,6 +1563,11 @@ export const FIT_H = 0.86;
  * defaut (mesure sur les sommets reels) ; la vue eclatee la monte vers
  * EXPLODE.targetY.
  */
+/** La vue du plugin (2026-11-09) : penchee de leanDeg vers soi, un champ de fovDeg (un peu de perspective, pas de deformation). */
+// fit : la demi-largeur cadree en fois celle de la face (un rien d'air) ; dz : le pivot avance vers le bord avant, le long du
+// panneau (la perspective grandit l'avant : sans lui, le bas de la face sortait de la fenetre)
+export const PLUGIN_VIEW = { leanDeg: 16, fovDeg: 20, fit: 1.04, dz: 0.3 } as const;
+
 export const ORBIT = {
   /**
    * Vue d'arrivee (2026-10-01) : la machine de face, droite, vue de haut
@@ -1572,8 +1577,10 @@ export const ORBIT = {
    * fait jamais sortir.
    */
   azDeg: 0,
-  // Le plugin (2026-11-08) : la camera perpendiculaire au panneau (incline de TILT), la face vue comme une photo
-  elDeg: PLUGIN ? 90 - (TILT * 180) / Math.PI : 69,
+  // Le plugin (2026-11-08) : la camera perpendiculaire au panneau (incline de TILT), la face vue comme une photo ; 2026-11-09
+  // (Mika : "je veux que la 3D fonctionne a merveille, presque du realisme") : un peu penchee vers soi (PLUGIN_VIEW.leanDeg),
+  // le relief des touches et des potards se voit, comme une machine posee sur le bureau
+  elDeg: PLUGIN ? 90 - (TILT * 180) / Math.PI - PLUGIN_VIEW.leanDeg : 69,
   zoom: 1,
   elMinDeg: 18,
   elMaxDeg: PLUGIN ? 90 : 78,
@@ -1600,7 +1607,7 @@ export const ORBIT = {
    * cadrage de photo produit : la perspective se voit sans deformer.
    */
   // Le plugin : un champ etroit, de loin (la perspective ne se voit presque plus, la face reste plate)
-  fovDeg: PLUGIN ? 10 : 30,
+  fovDeg: PLUGIN ? PLUGIN_VIEW.fovDeg : 30,
   /**
    * near 0.1 jusqu'au 2026-10-05 : de loin (l'intro, la vue d'ensemble), la
    * profondeur n'etait plus assez fine pour les serigraphies et les LED

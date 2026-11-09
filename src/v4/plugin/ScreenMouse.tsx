@@ -67,6 +67,18 @@ function point(p: ScreenPoint): void {
   if (p.kind === 'dbl') press('yes');
 }
 
+/**
+ * Le point de l'ecran (unites UW x UH) sous la souris : par le rayon de la camera (la vue penchee du plugin fait de l'ecran
+ * un trapeze, 2026-11-09), sinon par la boite ; null hors de l'ecran.
+ */
+function toScreen(stage: Stage | null, el: HTMLElement, x: number, y: number): { u: number; v: number } | null {
+  const hit = stage?.screenUV(x, y);
+  if (hit) return { u: hit.u * UW, v: hit.v * UH };
+  if (stage) return null;
+  const r = el.getBoundingClientRect();
+  return { u: ((x - r.left) / r.width) * UW, v: ((y - r.top) / r.height) * UH };
+}
+
 type Arrow = 'left' | 'up' | 'down' | 'right';
 const ARROWS: readonly { d: Arrow; title: string; path: string }[] = [
   {
@@ -194,18 +206,15 @@ export const ScreenMouse: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const onWheel = (e: WheelEvent): void => {
       if (!menu || !box) return;
       e.preventDefault();
-      const r = el.getBoundingClientRect();
-      point({ kind: 'wheel', u: ((e.clientX - r.left) / r.width) * UW, v: ((e.clientY - r.top) / r.height) * UH, delta: e.deltaY > 0 ? 1 : -1 });
+      const p = toScreen(stage, el, e.clientX, e.clientY);
+      if (p) point({ kind: 'wheel', ...p, delta: e.deltaY > 0 ? 1 : -1 });
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [menu, box]);
+  }, [menu, box, stage]);
 
   if (!box) return null;
-  const at = (e: React.MouseEvent<HTMLDivElement>): { u: number; v: number } => {
-    const r = e.currentTarget.getBoundingClientRect();
-    return { u: ((e.clientX - r.left) / r.width) * UW, v: ((e.clientY - r.top) / r.height) * UH };
-  };
+  const at = (e: React.MouseEvent<HTMLDivElement>): { u: number; v: number } => toScreen(stage, e.currentTarget, e.clientX, e.clientY) ?? { u: -1, v: -1 };
   return (
     <>
       <ArrowPad box={box} stage={stage} />

@@ -147,6 +147,7 @@ import {
   DT2_FACE,
   PLUGIN,
   PLUGIN_FACE,
+  PLUGIN_VIEW,
 } from '../theme';
 import { Encoders } from './encoders';
 import { KeyLabelAtlas } from './keyLabels';
@@ -1549,6 +1550,19 @@ export class Stage {
     return sc.seek((px - b.x0) / (b.x1 - b.x0));
   }
 
+  /**
+   * Le point de l'ecran sous la souris (le plugin, 2026-11-09 : la vue penchee fait de l'ecran un trapeze, la boite de
+   * screenRect ne suffit plus) : u de gauche a droite, v de haut en bas (0 a 1, la texture de l'ecran) ; null hors de l'ecran.
+   */
+  screenUV(clientX: number, clientY: number): { u: number; v: number } | null {
+    const rect = this.canvas.getBoundingClientRect();
+    const ndc = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, 1 - ((clientY - rect.top) / rect.height) * 2);
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const hit = this.raycaster.intersectObject(this.screen.mesh, false)[0];
+    if (!hit || !hit.uv) return null;
+    return { u: hit.uv.x, v: 1 - hit.uv.y };
+  }
+
   /** Alias du contrat debug (spec 14.1). */
   requestRender(): void {
     this.invalidate();
@@ -1710,7 +1724,7 @@ export class Stage {
     const inset = Math.min(this.height * 0.7, insetPx);
     const head = Math.min(this.height * 0.2, headPx);
     const free = Math.max(1, this.height - inset - head);
-    const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free));
+    const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free)) * (PLUGIN ? PLUGIN_VIEW.fit : 1);
     const e = this.explodeFrame();
     // Ouvert (desktop, 2026-10-05) : l'interieur (la plaque et sa carte) remplit la vue ; sinon la pile entiere
     const inner = F.openW > 0;
@@ -1744,8 +1758,10 @@ export class Stage {
     // Distance : la demi-hauteur hh tient dans le champ vertical, au pivot
     const D = hh / Math.tan((ORBIT.fovDeg * Math.PI) / 360);
     // Le pivot monte avec la pile eclatee : la camera suit
-    const ty = F.ty + ((inner ? F.openY : F.explodeTy) - F.ty) * e;
-    const tz = inner ? F.openZ * e : 0;
+    // Le plugin (2026-11-09, la vue penchee) : le pivot avance de PLUGIN_VIEW.dz le long du panneau
+    const pdz = PLUGIN && !inner ? PLUGIN_VIEW.dz : 0;
+    const ty = F.ty + ((inner ? F.openY : F.explodeTy) - F.ty) * e - pdz * Math.tan(TILT);
+    const tz = (inner ? F.openZ * e : 0) + pdz;
     if (this.orbit.target.y !== ty || this.orbit.target.z !== tz || this.orbit.distance !== D || this.orbit.target.x !== F.cx) {
       this.orbit.target.x = F.cx;
       this.orbit.target.y = ty;

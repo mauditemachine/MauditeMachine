@@ -471,9 +471,15 @@ export interface Dt2SideKnob {
  * MAIN VOLUME et LEVEL/DATA : les tailles des potards A a H ramenees a leur emprise (20 / 24 et 22 / 24) ; MAIN VOLUME a
  * un anneau fin (2.2 : "pot d 20, repere, anneau fin"), LEVEL/DATA l'anneau des autres.
  */
+/**
+ * Le relief du plugin (2026-11-09, Mika : "presque du realisme, tu peux augmenter un peu la taille en hauteur") : les
+ * touches, les pas et les potards plus hauts (en fois ceux de la face du site), vus par la camera penchee du plugin.
+ */
+const RELIEF = IN_PLUGIN ? { key: 1.55, knob: 1.35 } : { key: 1, knob: 1 };
+
 const SIDE_MORE: Readonly<Record<'mvol' | 'data', Omit<Dt2SideKnob, 'id' | 'cx' | 'cy' | 'd' | 'legend' | 'alt'>>> = {
-  mvol: { cap: { d: 12.1, top: 11.3, h: 5.8 }, skirt: { d: 13.2, h: 0.8 }, ring: { inner: 17.6, outer: 19.2, segments: 27, airDeg: 3 }, mark: true, title: 'Main volume' },
-  data: { cap: { d: 13.3, top: 12.5, h: 6.4 }, skirt: { d: 14.5, h: 0.8 }, ring: { inner: 18.2, outer: 21.3, segments: 27, airDeg: 3 }, mark: false, title: 'Level / data: the level of the track, scrolls the menus' },
+  mvol: { cap: { d: 12.1, top: 11.3, h: 5.8 * RELIEF.knob }, skirt: { d: 13.2, h: 0.8 }, ring: { inner: 17.6, outer: 19.2, segments: 27, airDeg: 3 }, mark: true, title: 'Main volume' },
+  data: { cap: { d: 13.3, top: 12.5, h: 6.4 * RELIEF.knob }, skirt: { d: 14.5, h: 0.8 }, ring: { inner: 18.2, outer: 21.3, segments: 27, airDeg: 3 }, mark: false, title: 'Level / data: the level of the track, scrolls the menus' },
 };
 
 export const DT2_FACEPLATE = {
@@ -496,7 +502,7 @@ export const DT2_FACEPLATE = {
     fx: RYTM_FACEPLATE.knobs.fx,
     labels: RYTM_FACEPLATE.knobs.labels,
     /** inv-mm-face 8 : 6.8 + 7 / tan 69 = 9.5 < 9.9, le bord interieur de l'anneau reste visible a l'arrivee */
-    cap: { d: 14.5, top: 13.6, h: 7 },
+    cap: { d: 14.5, top: 13.6, h: 7 * RELIEF.knob },
     skirt: { d: 15.8, h: 0.8 },
     ring: { inner: 19.8, outer: 23.2, sweepDeg: 270, segments: 27, airDeg: 3 },
     label: { r: 10.6, cap: 1.8 },
@@ -509,7 +515,7 @@ export const DT2_FACEPLATE = {
   },
   buttons: {
     sizes: DT2_KEY_SIZE,
-    capHeight: RYTM_FACEPLATE.buttons.capHeight,
+    capHeight: RYTM_FACEPLATE.buttons.capHeight * RELIEF.key,
     corner: RYTM_FACEPLATE.buttons.corner,
     bevel: RYTM_FACEPLATE.buttons.bevel,
     travel: RYTM_FACEPLATE.buttons.travel,
@@ -545,7 +551,7 @@ export const DT2_FACEPLATE = {
     /** 16 pistes libres (2.2) : les pas ne portent que leur numero */
     voices: [] as readonly FpVoice[],
     legend: { num: RYTM_FACEPLATE.steps.legend.num },
-    capHeight: RYTM_FACEPLATE.steps.capHeight,
+    capHeight: RYTM_FACEPLATE.steps.capHeight * RELIEF.key,
     corner: RYTM_FACEPLATE.steps.corner,
     bevel: RYTM_FACEPLATE.steps.bevel,
     travel: RYTM_FACEPLATE.steps.travel,
