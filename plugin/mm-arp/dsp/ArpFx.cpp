@@ -172,6 +172,84 @@ double ArpFxLaws::volGain(double volume, double delay, double reverb) {
 
 namespace detail {
 
+/* ---------------- AudioParam (Blink audio_param_timeline.cc) ---------------- */
+
+void Param::rampTo(double t1s, double t2s, float to, double rate) {
+    sr = rate;
+    v0 = last;
+    v1 = to;
+    t1 = t1s;
+    t2 = t2s;
+    sF = static_cast<long>(std::ceil(t1s * rate - 1e-6));
+    eF = static_cast<long>(std::ceil(t2s * rate - 1e-6));
+    ramp = true;
+}
+
+float Param::serial(long cf) const {
+    const float srf = static_cast<float>(sr);
+    const double dt = t2 - t1;
+    const float k = dt > 0 ? static_cast<float>(1 / dt) : 0.f;
+    const float vd = v1 - v0;
+    const float x = static_cast<float>((static_cast<double>(static_cast<float>(cf) / srf) - t1) * static_cast<double>(k));
+    return v0 + x * vd;
+}
+
+void Param::run(long cf, int len, float* out) const {
+    const float srf = static_cast<float>(sr);
+    const double dt = t2 - t1;
+    const float k = dt > 0 ? static_cast<float>(1 / dt) : 0.f;
+    const float vd = v1 - v0;
+    const int tr = (len / 4) * 4;
+    if (tr > 0) {
+        const float inv = 1 / srf;
+        const float base = static_cast<float>(static_cast<double>(static_cast<float>(cf) / srf) - t1);
+        const float kv = k * vd;
+        float lane[4];
+        for (int j = 0; j < 4; ++j) lane[j] = ((inv * static_cast<float>(j)) + base) * kv + v0;
+        const float inc = ((4 / srf) * k) * vd;
+        for (int g = 0; g < tr; g += 4)
+            for (int j = 0; j < 4; ++j) {
+                out[g + j] = lane[j];
+                lane[j] += inc;
+            }
+    }
+    for (int i = tr; i < len; ++i) out[i] = serial(cf + i);
+}
+
+void Param::fill(long k0, int n, float* out) {
+    int i = 0;
+    while (i < n) {
+        const long k = k0 + i;
+        if (ramp && k >= eF) {
+            v0 = v1;
+            ramp = false;
+        }
+        if (!ramp) {
+            for (; i < n; ++i) out[i] = v0;
+            break;
+        }
+        if (k < sF) {
+            const int len = static_cast<int>(std::min<long>(n - i, sF - k));
+            for (int j = 0; j < len; ++j) out[i + j] = v0;
+            i += len;
+            continue;
+        }
+        const int len = static_cast<int>(std::min<long>(n - i, eF - k));
+        run(k, len, out + i);
+        i += len;
+    }
+    if (n > 0) last = out[n - 1];
+}
+
+float Param::at(long k) {
+    if (ramp && k >= eF) {
+        v0 = v1;
+        ramp = false;
+    }
+    last = !ramp || k < sF ? v0 : serial(k);
+    return last;
+}
+
 /* ---------------- BiquadFilterNode (Blink biquad.cc) ---------------- */
 
 void WebBiquad::set(bool lowpass, float hz, float qDb, double sr) {
@@ -590,24 +668,24 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
 }
 
 void ArpFx::glide(detail::Param& p, double target) {
-    const double now = static_cast<double>(frame_);
-    p.rampTo(now, now + GLIDE_S * sr_, static_cast<float>(target));
+    const double now = static_cast<double>(frame_) / sr_;
+    p.rampTo(now, now + GLIDE_S, static_cast<float>(target), sr_);
 }
 
 void ArpFx::retime(detail::Param& p, double t) {
-    const double now = static_cast<double>(frame_);
+    const double now = static_cast<double>(frame_) / sr_;
     const double from = p.value();
-    p.rampTo(now, now + std::max(PP_RETIME_S, std::fabs(t - from) / PP_RETIME_RATE) * sr_, static_cast<float>(t));
+    p.rampTo(now, now + std::max(PP_RETIME_S, std::fabs(t - from) / PP_RETIME_RATE), static_cast<float>(t), sr_);
 }
 
 // insert.ts ramp : 20 ms, ou tenue jusqu'a notBefore (la branche neuve se remplit) puis 20 ms
 void ArpFx::insertRamp(detail::Param& p, float v) {
-    const double now = static_cast<double>(frame_);
+    const double now = static_cast<double>(frame_) / sr_;
     if (notBefore_ <= now) {
         glide(p, v);
         return;
     }
-    p.rampTo(notBefore_, notBefore_ + GLIDE_S * sr_, v);
+    p.rampTo(notBefore_, notBefore_ + GLIDE_S, v, sr_);
 }
 
 void ArpFx::insertEngage(float dry, float wet) {
@@ -627,7 +705,7 @@ void ArpFx::insertRelease() {
     notBefore_ = 0;
     glide(dry_, 1);
     glide(wet_, 0);
-    teardownAt_ = static_cast<double>(frame_) + UNLINK_S * sr_;
+    teardownAt_ = static_cast<double>(frame_) / sr_ + UNLINK_S;
 }
 
 // chorus.ts buildJunoChorus set
@@ -646,7 +724,7 @@ void ArpFx::chorusSet(int v) {
         juno_.start(JUNO_DMIN - JUNO_FILTER_DELAY, JUNO_DMAX - JUNO_FILTER_DELAY, rate);
         pendingRate_ = 0;
         branch_ = true;
-        notBefore_ = static_cast<double>(frame_) + JUNO_PREROLL_S * sr_;
+        notBefore_ = static_cast<double>(frame_) / sr_ + JUNO_PREROLL_S;
     }
     if (was == 0) insertEngage(static_cast<float>(JUNO_TRIM), static_cast<float>(JUNO_TRIM * JUNO_WET));
 }
@@ -784,7 +862,7 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     const bool qStart = frame_ % Q == 0;
     const bool qEnd = (frame_ + n) % Q == 0;
     // Le CHORUS revenu au repos depuis 60 ms : la branche part (insert.ts toDirect)
-    if (teardownAt_ >= 0 && static_cast<double>(frame_) >= teardownAt_) {
+    if (teardownAt_ >= 0 && static_cast<double>(frame_) / sr_ >= teardownAt_) {
         direct_ = true;
         branch_ = false;
         teardownAt_ = -1;
@@ -801,13 +879,25 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         qFb_ = tFb_.at(frame_);
         qTape_ = tAmt_.at(frame_);
     }
+    splitHz_.fill(frame_, n, aSplit_.data());
+    low_.fill(frame_, n, aLow_.data());
+    vol_.fill(frame_, n, aVol_.data());
+    dSend_.fill(frame_, n, aDs_.data());
+    fb_.fill(frame_, n, aFb_.data());
+    dTime_.fill(frame_, n, aDt_.data());
+    tSend_.fill(frame_, n, aTs_.data());
+    tTime_.fill(frame_, n, aTt_.data());
+    rSend_.fill(frame_, n, aRs_.data());
+    if (!direct_) {
+        dry_.fill(frame_, n, aDry_.data());
+        wet_.fill(frame_, n, aWet_.data());
+    }
     float* hiL = bHiL_.data();
     float* hiR = bHiR_.data();
     float* lo = bRoL_.data(); // le bas, avant son gain (tampon partage avec la reverb : relu avant elle)
     // 1. BASS MONO : le haut (stereo), le bas en mono (L + R) / 2
     for (int i = 0; i < n; ++i) {
-        const long k = frame_ + i;
-        splitCoefs(splitHz_.at(k));
+        splitCoefs(aSplit_[static_cast<size_t>(i)]);
         hiL[i] = hp2_[0].run(hp1_[0].run(inL[i]));
         hiR[i] = hp2_[1].run(hp1_[1].run(inR[i]));
         const float m = 0.5f * (inL[i] + inR[i]);
@@ -826,29 +916,28 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     float* rinL = bRL_.data();
     float* rinR = bRR_.data();
     for (int i = 0; i < n; ++i) {
-        const long k = frame_ + i;
         float cL, cR;
         if (direct_) {
             cL = hiL[i];
             cR = hiR[i];
         } else {
-            const float dg = dry_.at(k), wg = wet_.at(k);
+            const float dg = aDry_[static_cast<size_t>(i)], wg = aWet_[static_cast<size_t>(i)];
             const float jL = branch_ ? bJL_[static_cast<size_t>(i)] : 0.f;
             const float jR = branch_ ? bJR_[static_cast<size_t>(i)] : 0.f;
             cL = hiL[i] * dg + jL * wg;
             cR = hiR[i] * dg + jR * wg;
         }
-        const float v = vol_.at(k);
+        const float v = aVol_[static_cast<size_t>(i)];
         const float vL = cL * v, vR = cR * v;
-        const float lg = lo[i] * low_.at(k);
+        const float lg = lo[i] * aLow_[static_cast<size_t>(i)];
         dL[i] = vL + lg;
         dR[i] = vR + lg;
         // DELAY : l'envoi, le passe-haut, gauche <-> droite (la droite lit le passe-bas gauche du bloc d'avant)
-        const float ds = dSend_.at(k);
+        const float ds = aDs_[static_cast<size_t>(i)];
         const float sm = 0.5f * (vL * ds + vR * ds);
         const float h = dHp_.run(sm);
-        const float fbv = fb_.at(k);
-        const float dt = dTime_.at(k);
+        const float fbv = aFb_[static_cast<size_t>(i)];
+        const float dt = std::max(0.f, std::min(static_cast<float>(PP_MAX_S), aDt_[static_cast<size_t>(i)]));
         const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
         const float lpRo = lpR_.run(dr_.run(rIn, dt, sr_));
         const float lIn = h + fbv * lpRo;
@@ -858,12 +947,12 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         mL[i] = lpLo;
         mR[i] = lpRo;
         // TAPE : son envoi, son temps (a-rate)
-        const float ts = tSend_.at(k);
+        const float ts = aTs_[static_cast<size_t>(i)];
         tinL[i] = vL * ts;
         tinR[i] = vR * ts;
-        times[i] = std::max(0.001f, std::min(4.f, tTime_.at(k)));
+        times[i] = std::max(0.001f, std::min(4.f, aTt_[static_cast<size_t>(i)]));
         // REVERB : x1.25 puis l'envoi
-        const float rs = rSend_.at(k);
+        const float rs = aRs_[static_cast<size_t>(i)];
         rinL[i] = (vL * REVERB_BOOST) * rs;
         rinR[i] = (vR * REVERB_BOOST) * rs;
     }

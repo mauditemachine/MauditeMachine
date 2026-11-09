@@ -76,38 +76,30 @@ struct ArpFxLaws {
 namespace detail {
 
 // Un AudioParam : valeur en float, une rampe lineaire au plus (toutes celles du site partent de "maintenant" apres
-// cancelScheduledValues) : v0 tenu jusqu'a s, puis droite jusqu'a v1 en e (en echantillons du contexte).
+// cancelScheduledValues) : v0 tenu jusqu'a t1, puis droite jusqu'a v1 en t2 (secondes du contexte). Les valeurs de la
+// rampe sont calculees comme Chromium (audio_param_timeline.cc ProcessLinearRamp, x86) : en float, par paquets de 4
+// avec increment, le calcul repartant au debut de chaque bloc de rendu ; a k-rate, la formule serie.
 struct Param {
     float v0 = 0, v1 = 0, last = 0;
-    double s = 0, e = 0;
+    double t1 = 0, t2 = 0, sr = 48000;
+    long sF = 0, eF = 0;
     bool ramp = false;
     void setNow(float v) {
         ramp = false;
         v0 = v1 = last = v;
     }
-    // setValueAtTime(p.value, now) [setValueAtTime(p.value, hold)] linearRampToValueAtTime(to, end)
-    void rampTo(double holdUntil, double end, float to) {
-        const float from = last;
-        v0 = from;
-        v1 = to;
-        s = holdUntil;
-        e = end;
-        ramp = true;
-    }
+    // setValueAtTime(p.value, now) [setValueAtTime(p.value, t1)] linearRampToValueAtTime(to, t2)
+    void rampTo(double t1s, double t2s, float to, double rate);
     float value() const { return last; }
-    float at(long k) {
-        float x;
-        if (!ramp) x = v0;
-        else if (static_cast<double>(k) >= e) {
-            x = v1;
-            v0 = v1;
-            ramp = false;
-        } else if (static_cast<double>(k) < s) x = v0;
-        else x = static_cast<float>(v0 + (static_cast<double>(v1) - v0) * ((static_cast<double>(k) - s) / (e - s)));
-        last = x;
-        return x;
-    }
+    // les valeurs a-rate de n echantillons a partir de k0 (dans un meme bloc de rendu)
+    void fill(long k0, int n, float* out);
+    // la valeur k-rate du bloc qui commence en k
+    float at(long k);
     bool moving() const { return ramp; }
+
+private:
+    void run(long cf, int len, float* out) const;
+    float serial(long cf) const;
 };
 
 // Le BiquadFilterNode de Chromium (Linux) : coefficients de l'Audio EQ Cookbook, Q en dB pour lowpass / highpass,
@@ -251,6 +243,8 @@ private:
 
     // BASS MONO
     detail::Param splitHz_, low_;
+    // les valeurs a-rate du morceau en cours
+    std::array<float, Q> aSplit_{}, aLow_{}, aDry_{}, aWet_{}, aVol_{}, aDs_{}, aFb_{}, aDt_{}, aTs_{}, aTt_{}, aRs_{};
     detail::WebBiquad hp1_[2], hp2_[2], lp1_, lp2_;
     float splitAt_ = -1;
     // CHORUS (insert)
