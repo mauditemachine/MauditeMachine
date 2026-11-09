@@ -25,6 +25,7 @@ import { HitLayer, Twins } from '../ui/Hotspots';
 import { Lcd } from '../ui/Lcd';
 import { PresetNameDialog } from '../ui/PresetNameDialog';
 import { bridge } from './bridge';
+import { OpenPanel } from './OpenPanel';
 import { ScreenMouse } from './ScreenMouse';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
@@ -151,6 +152,7 @@ const PluginFace: React.FC = () => {
         <ScreenMouse stage={stage} />
         <Lcd />
         <PresetNameDialog mobile={false} />
+        <OpenPanel />
       </Boundary>
       {error && (
         <p className="mm-plugin-error" role="alert">

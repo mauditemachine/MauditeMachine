@@ -27,6 +27,7 @@
  * d'actions.ts se refont, le kit lache un sample retire).
  */
 
+import { IN_PLUGIN as IN_PLUGIN_MODE } from '../pluginMode';
 import FOUND from 'virtual:rytm-samples';
 import type { SamplePcm } from './sampledsp';
 import { sampleLabel } from './samplelabel';
@@ -81,15 +82,7 @@ export const SAMPLES: readonly KitSample[] = [
  * banque du site et le dossier ~/Music/MM-RYTM Samples/<famille>/ du Mac (cle "<famille>/~<fichier>", servie par le plugin
  * comme ceux du site) ; la banque synthetisee (JS) n'y joue pas : elle n'y est pas. Le site ne change pas.
  */
-const IN_PLUGIN: boolean = (() => {
-  if (typeof window === 'undefined') return false;
-  try {
-    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
-    return new URLSearchParams(window.location.search).get('plugin') === '1';
-  } catch {
-    return false;
-  }
-})();
+const IN_PLUGIN = IN_PLUGIN_MODE;
 
 /** Un sample perso du plugin, tel que le moteur le donne : sa famille, son fichier. */
 export interface PluginSampleRef {
@@ -112,6 +105,9 @@ let pluginUser: KitSample[] = (() => {
     return [];
   }
 })();
+
+/** Les samples perso du plugin (2026-11-09, le menu SAMPLES, OPEN) : dans l'ordre du moteur (famille, puis nom). */
+export const pluginSamples = (): readonly KitSample[] => pluginUser;
 
 /* ---------------- les listes (le site, puis ce navigateur) ---------------- */
 

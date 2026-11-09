@@ -7,6 +7,7 @@
 
 import { DT2_FACEPLATE, RYTM_FACEPLATE, buttonRect, fpU, fpX, fpZ, rectCenter, type FpMark } from '../rytm/faceplate';
 import type { Dt2ButtonId } from '../rytm/dtFaceIds';
+import { IN_PLUGIN } from '../pluginMode';
 
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
@@ -44,15 +45,7 @@ export const PORTRAIT: boolean = (() => {
  * navigateur. Pose par la page du plugin (window.__MM_PLUGIN__, avant tout module) ou ?plugin=1 (essai dans un
  * navigateur). Lu a l'evaluation des modules, comme PORTRAIT ; jamais retenu.
  */
-export const PLUGIN: boolean = (() => {
-  if (typeof window === 'undefined') return false;
-  try {
-    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
-    return new URLSearchParams(window.location.search).get('plugin') === '1';
-  } catch {
-    return false;
-  }
-})();
+export const PLUGIN: boolean = IN_PLUGIN;
 
 /**
  * La face Digitakt II de la V.6.0 (2026-10-30, docs/v4/dt2/dt2-master-spec.md 2 et 5.1, la lane B3) : depuis l'integration
@@ -466,6 +459,8 @@ export interface KeyLabelSpec {
   marks?: readonly FpMark[];
   /** Le sous-titre dynamique sur la touche quand FUNC est engagee (Mika : "PRESET on appui sur FUNC et ca devient PERFORM") */
   altText?: string;
+  /** Le texte souligne (le numero d'un pas du plugin, facon Digitakt II, 2026-11-09) */
+  underline?: boolean;
 }
 
 /**

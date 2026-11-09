@@ -7,9 +7,18 @@
  * liste des presets) ; sinon, dans une liste peinte par paintList (menus/frame.ts lastList), le curseur va a la ligne
  * cliquee (UP / DOWN), un clic sur la ligne du curseur fait YES ; la molette fait LEVEL/DATA. Un clic droit fait NO
  * (revenir d'un cran). Hors menu, la couche laisse passer le pointeur (l'ecran et la face comme avant).
+ *
+ * Les fleches (2026-11-09, Mika : "a la place des fleches je veux le crossfade A et B" ; "je veux pouvoir toucher l'ecran
+ * avec la souris pour voir l'utilisation des fleches parce que c'est un plugin") : la face n'a plus de fleches, quatre
+ * touches cliquables dans la bande du cadre sous l'ecran (a gauche, la place du nom de la DT2) font ce que font les fleches
+ * du clavier du Mac (useKeys : faceKeyDown) : la sous-page, une ligne d'une liste, l'octave du mode KEYBOARD, la banque en
+ * PTN. Tenues, elles se repetent.
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { faceKeyTap } from '../actions/face';
+import type { Dt2ButtonId } from '../rytm/dtFaceIds';
+import { DT2_FACEPLATE } from '../rytm/faceplate';
 import type { Stage } from '../scene/renderer';
 import { UH, UW } from '../scene/screen/consts';
 import { lastList } from '../scene/screen/menus/frame';
@@ -58,6 +67,108 @@ function point(p: ScreenPoint): void {
   if (p.kind === 'dbl') press('yes');
 }
 
+type Arrow = 'left' | 'up' | 'down' | 'right';
+const ARROWS: readonly { d: Arrow; title: string; path: string }[] = [
+  {
+    d: 'left',
+    title: 'Left (keyboard Left): previous sub-page; in PTN, the bank; KEYBOARD: octave down',
+    path: 'M14 5 L8 12 L14 19',
+  },
+  {
+    d: 'up',
+    title: 'Up (keyboard Up): previous sub-page; in a list, up; KEYBOARD: octave up',
+    path: 'M5 15 L12 9 L19 15',
+  },
+  {
+    d: 'down',
+    title: 'Down (keyboard Down): next sub-page; in a list, down; KEYBOARD: octave down',
+    path: 'M5 9 L12 15 L19 9',
+  },
+  {
+    d: 'right',
+    title: 'Right (keyboard Right): next sub-page; in PTN, the bank; KEYBOARD: octave up',
+    path: 'M10 5 L16 12 L10 19',
+  },
+];
+
+/** La bande du cadre sous la zone active de l'ecran, en mm de la face : sa hauteur ; les touches, leur taille et leur jeu. */
+const SCR = DT2_FACEPLATE.screen;
+const BAND = (SCR.rect.h - SCR.active.h) / 2;
+const PAD = { w: 6.4, h: 4, gap: 1.1 } as const;
+
+/** Les quatre fleches sous l'ecran : un appui, puis la repetition tant qu'elles sont tenues. */
+const ArrowPad: React.FC<{ box: Box; stage: Stage | null }> = ({ box, stage }) => {
+  const [on, setOn] = useState<Arrow | null>(null);
+  const timer = useRef<{ t: number; i: number }>({ t: 0, i: 0 });
+  const stop = (): void => {
+    window.clearTimeout(timer.current.t);
+    window.clearInterval(timer.current.i);
+    timer.current = { t: 0, i: 0 };
+    setOn(null);
+  };
+  useEffect(() => stop, []);
+  const fire = (d: Arrow): void => faceKeyTap(d as unknown as Dt2ButtonId, stage, 'key');
+  const mm = box.width / SCR.active.w;
+  const top = box.top + box.height + ((BAND - PAD.h) / 2) * mm;
+  return (
+    <div
+      className="mm-arrow-pad"
+      style={{
+        position: 'fixed',
+        left: box.left,
+        top,
+        height: PAD.h * mm,
+        display: 'flex',
+        gap: PAD.gap * mm,
+        zIndex: 6,
+      }}
+    >
+      {ARROWS.map((a) => (
+        <button
+          key={a.d}
+          type="button"
+          title={a.title}
+          aria-label={a.title}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            stop();
+            setOn(a.d);
+            fire(a.d);
+            timer.current.t = window.setTimeout(() => {
+              timer.current.i = window.setInterval(() => fire(a.d), 90);
+            }, 380);
+          }}
+          onPointerUp={(e) => {
+            e.stopPropagation();
+            stop();
+          }}
+          onPointerLeave={stop}
+          onPointerCancel={stop}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            width: PAD.w * mm,
+            height: PAD.h * mm,
+            padding: 0,
+            margin: 0,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 0.9 * mm,
+            border: '1px solid rgba(246, 241, 231, 0.22)',
+            background: on === a.d ? 'rgba(255, 120, 31, 0.22)' : 'rgba(246, 241, 231, 0.05)',
+            cursor: 'pointer',
+            outline: 'none',
+          }}
+        >
+          <svg viewBox="0 0 24 24" width={PAD.h * mm * 0.95} height={PAD.h * mm * 0.95} aria-hidden="true">
+            <path d={a.path} fill="none" stroke={on === a.d ? '#FF781F' : 'rgba(246, 241, 231, 0.85)'} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      ))}
+    </div>
+  );
+};
+
 export const ScreenMouse: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const menu = useSyncExternalStore(subscribeMenu, openMenuId, openMenuId);
   const [box, setBox] = useState<Box | null>(null);
@@ -96,38 +207,41 @@ export const ScreenMouse: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     return { u: ((e.clientX - r.left) / r.width) * UW, v: ((e.clientY - r.top) / r.height) * UH };
   };
   return (
-    <div
-      ref={ref}
-      className="mm-screen-mouse"
-      aria-hidden="true"
-      style={{
-        position: 'fixed',
-        left: box.left,
-        top: box.top,
-        width: box.width,
-        height: box.height,
-        zIndex: 5,
-        pointerEvents: menu ? 'auto' : 'none',
-        cursor: menu ? 'pointer' : 'default',
-      }}
-      onPointerDown={(e) => {
-        // Le premier geste reste un geste de la page (le contexte audio du site), sans rien d'autre
-        e.stopPropagation();
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (e.detail > 1) return;
-        point({ kind: 'tap', ...at(e) });
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        point({ kind: 'dbl', ...at(e) });
-      }}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        press('no');
-      }}
-    />
+    <>
+      <ArrowPad box={box} stage={stage} />
+      <div
+        ref={ref}
+        className="mm-screen-mouse"
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          left: box.left,
+          top: box.top,
+          width: box.width,
+          height: box.height,
+          zIndex: 5,
+          pointerEvents: menu ? 'auto' : 'none',
+          cursor: menu ? 'pointer' : 'default',
+        }}
+        onPointerDown={(e) => {
+          // Le premier geste reste un geste de la page (le contexte audio du site), sans rien d'autre
+          e.stopPropagation();
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (e.detail > 1) return;
+          point({ kind: 'tap', ...at(e) });
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          point({ kind: 'dbl', ...at(e) });
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          press('no');
+        }}
+      />
+    </>
   );
 };

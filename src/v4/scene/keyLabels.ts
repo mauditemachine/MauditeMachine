@@ -38,7 +38,7 @@
 
 import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, type CanvasTexture } from 'three';
 import type { FpMark } from '../rytm/faceplate';
-import { APPEARANCE, FONT_DISPLAY, KEY_LABEL, KEY_MARK, SILK, marksW, type KeyLabelSpec } from '../theme';
+import { APPEARANCE, FONT_DISPLAY, ICON_LINE, KEY_LABEL, KEY_MARK, MARK_ICON, SILK, markW, marksH, marksW, type KeyLabelSpec } from '../theme';
 import { drawTracked, makeCanvasTexture, trackedWidth } from './silk';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
@@ -59,8 +59,10 @@ export const labelQuad = (s: KeyLabelSpec): { w: number; h: number } => {
   const tw = s.qw ?? Math.max(0.1, s.w - 2 * KEY_LABEL.margin);
   const th = (s.cap ?? KEY_LABEL.cap) * QUAD_CAPS;
   if (!s.marks) return { w: tw, h: th };
-  const mw = marksW(s.marks) + 2 * MARK_AIR * KEY_MARK.h;
-  const mh = KEY_MARK.h * (1 + 2 * MARK_AIR);
+  // Les pictogrammes du plugin (2026-11-09) : la rangee prend la hauteur du plus grand
+  const hh = marksH(s.marks);
+  const mw = marksW(s.marks) + 2 * MARK_AIR * hh;
+  const mh = hh * (1 + 2 * MARK_AIR);
   return s.altText ? { w: Math.max(mw, tw), h: Math.max(mh, th) } : { w: mw, h: mh };
 };
 
@@ -170,6 +172,14 @@ export class KeyLabelAtlas {
     ctx.fillStyle = ink;
     marks.forEach((m, i) => {
       if (i > 0) x += KEY_MARK.gap * u;
+      // Les pictogrammes du plugin (2026-11-09, facon Digitakt II) : leur boite (centree en hauteur), un trait
+      if (MARK_ICON[m]) {
+        const iw = markW(m) * u;
+        const ih = (MARK_ICON[m]?.s ?? 1) * h;
+        this.drawIcon(m, x, c.y + (c.h - ih) / 2, iw, ih, ink);
+        x += iw;
+        return;
+      }
       // Les chevrons des fleches (V.6.0, la face DT2, cahier 2.3) : un trait, pas une forme pleine ; < et > etroits, ^ et v
       // de la largeur des autres signes et moins hauts, le trait dans la cellule (l'inset d'un demi-trait)
       if (m === 'up' || m === 'down' || m === 'left' || m === 'right') {
@@ -238,6 +248,113 @@ export class KeyLabelAtlas {
     });
   }
 
+  /**
+   * Un pictogramme du plugin (2026-11-09, la face facon Digitakt II) dans sa boite (x, y, w, h en px du canvas) : des traits
+   * ronds a l'encre du nom, comme les icones de la DT2 ; les touches noires du clavier, les points du de et la note pleins.
+   */
+  private drawIcon(m: FpMark, x: number, y: number, w: number, h: number, ink: string): void {
+    const ctx = this.ctx;
+    const lw = ICON_LINE * h;
+    const k = lw / 2;
+    ctx.save();
+    ctx.strokeStyle = ink;
+    ctx.fillStyle = ink;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const rrect = (rx: number, ry: number, rw: number, rh: number, r: number): void => {
+      ctx.beginPath();
+      ctx.moveTo(rx + r, ry);
+      ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, r);
+      ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, r);
+      ctx.arcTo(rx, ry + rh, rx, ry, r);
+      ctx.arcTo(rx, ry, rx + rw, ry, r);
+      ctx.closePath();
+    };
+    const line = (x0: number, y0: number, x1: number, y1: number): void => {
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    };
+    if (m === 'recO') {
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h / 2, h / 2 - k, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (m === 'playO') {
+      ctx.beginPath();
+      ctx.moveTo(x + k, y + k);
+      ctx.lineTo(x + w - k, y + h / 2);
+      ctx.lineTo(x + k, y + h - k);
+      ctx.closePath();
+      ctx.stroke();
+    } else if (m === 'stopO') {
+      rrect(x + k, y + k, w - lw, h - lw, 0.2 * h);
+      ctx.stroke();
+    } else if (m === 'list') {
+      // PRESET (la DT2 : PERFORM) : une note et trois lignes
+      for (let j = 0; j < 3; j += 1) line(x + 0.5 * w, y + k + j * 0.3 * h, x + w - k, y + k + j * 0.3 * h);
+      line(x + 0.5 * w, y + h - k, x + w - k, y + h - k);
+      ctx.beginPath();
+      ctx.ellipse(x + 0.2 * w, y + 0.8 * h, 0.17 * w, 0.13 * h, -0.35, 0, Math.PI * 2);
+      ctx.fill();
+      line(x + 0.35 * w, y + 0.78 * h, x + 0.35 * w, y + k);
+      line(x + 0.35 * w, y + k, x + 0.42 * w, y + 0.12 * h);
+    } else if (m === 'dice') {
+      rrect(x + k, y + k, w - lw, h - lw, 0.22 * h);
+      ctx.stroke();
+      const r = 0.075 * h;
+      for (const [px, py] of [[0.3, 0.3], [0.7, 0.3], [0.5, 0.5], [0.3, 0.7], [0.7, 0.7]]) {
+        ctx.beginPath();
+        ctx.arc(x + px * w, y + py * h, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (m === 'gear') {
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      const R = h / 2 - k;
+      const r = R * 0.74;
+      ctx.beginPath();
+      for (let t = 0; t < 8; t += 1) {
+        const a = (t * Math.PI) / 4;
+        const pts: [number, number][] = [[r, a - 0.36], [R, a - 0.19], [R, a + 0.19], [r, a + 0.36]];
+        pts.forEach(([rr, aa], j) => (t === 0 && j === 0 ? ctx.moveTo(cx + rr * Math.cos(aa), cy + rr * Math.sin(aa)) : ctx.lineTo(cx + rr * Math.cos(aa), cy + rr * Math.sin(aa))));
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.32, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (m === 'wave') {
+      // SOUNDS (la DT2 : SAMPLES) : des barres verticales d'une forme d'onde
+      const hs = [0.32, 0.66, 1, 0.5, 0.82, 0.42, 0.2];
+      const step = (w - lw) / (hs.length - 1);
+      hs.forEach((v, j) => {
+        const half = Math.max(lw, (h - lw) * v) / 2;
+        line(x + k + j * step, y + h / 2 - half + k / 2, x + k + j * step, y + h / 2 + half - k / 2);
+      });
+    } else if (m === 'metro') {
+      // TEMPO : le metronome (un trapeze, son balancier)
+      ctx.beginPath();
+      ctx.moveTo(x + 0.36 * w, y + k);
+      ctx.lineTo(x + 0.64 * w, y + k);
+      ctx.lineTo(x + w - k, y + h - k);
+      ctx.lineTo(x + k, y + h - k);
+      ctx.closePath();
+      ctx.stroke();
+      line(x + 0.5 * w, y + 0.74 * h, x + 0.86 * w, y + 0.12 * h);
+      line(x + 0.22 * w, y + 0.74 * h, x + 0.78 * w, y + 0.74 * h);
+    } else if (m === 'piano') {
+      // KEYBOARD : un clavier, trois touches noires
+      rrect(x + k, y + k, w - lw, h - lw, 0.16 * h);
+      ctx.stroke();
+      const bw = 0.13 * w;
+      for (const f of [0.3, 0.5, 0.7]) ctx.fillRect(x + f * w - bw / 2, y + k, bw, 0.58 * h);
+      for (const f of [0.3, 0.5, 0.7]) line(x + f * w, y + 0.58 * h, x + f * w, y + h - k);
+    }
+    ctx.restore();
+  }
+
   /** Redessine tous les noms (les polices du site arrivees) et marque la texture. */
   draw(): void {
     const ctx = this.ctx;
@@ -271,6 +388,12 @@ export class KeyLabelAtlas {
           const base = c.y + c.h / 2 + cap / 2;
           ctx.fillStyle = ink;
           drawTracked(ctx, s.text, c.x + (s.align === 'left' ? 0 : (c.w - w) / 2), base, size, weight, s.tracking);
+          // Le numero souligne d'un pas (le plugin, 2026-11-09, facon Digitakt II)
+          if (s.underline) {
+            const uw = Math.max(w, cap * 0.9) * 1.15;
+            const x0 = c.x + (s.align === 'left' ? w / 2 : c.w / 2) - uw / 2;
+            ctx.fillRect(x0, base + cap * 0.3, uw, cap * 0.13);
+          }
         }
         if (s.altText) {
           const ca = this.cells.get(cellKey(`${s.id}:alt`, lit));

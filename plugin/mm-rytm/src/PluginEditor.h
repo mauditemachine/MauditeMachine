@@ -22,6 +22,7 @@ private:
     static juce::String userList();
     void sendUserList();
     void importFiles(int family, int track);
+    void revealSamples(const juce::String& family);
 
     struct Browser : juce::WebBrowserComponent {
         using juce::WebBrowserComponent::WebBrowserComponent;

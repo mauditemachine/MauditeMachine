@@ -115,6 +115,33 @@ Demande de Mika (capture d'une version d'avant : pas de BD sur les pas) : « je 
 - Verifie dans Chromium : MIXER 1-8 (BD a CY), le potard A baisse le BD (tranche 1 -> 0.444), une scene B tapee + potard A vers le haut donne au BD 9 positions de 0.444 a 1.361 ; LEVEL/DATA baisse le BD hors du MIXER (la scene B garde sa valeur) ; FUNC montre MIXER sous MOD. Le site ne change pas (TRK LEV, `k:` ; `m:` limite aux 8 voix).
 - **Build vert du lot 5** (run 42549267733, 02:13 UTC le 2026-11-09), dans la release `mm-rytm-latest` (commit ae22cbf).
 
+### Lot 6, la face facon Digitakt II, les fleches, OPEN, les samples (2026-11-09)
+
+Demande de Mika (avec la face avant de la Digitakt II) : « j'aimerais avoir le meme design ! mais en MM-RYTM ! fait un gros travail de graphisme ! et je veux que ca fonctionne absolument parfaitement ! a la place des fleches je veux le crossfade A et B comme Octatrack et je veux mes samples et la possibilite d'en rajouter et je veux pouvoir toucher l'ecran avec la souris pour voir l'utilisation des fleches parce que c'est un plugin ! Je veux garder le bouton OPEN (et je veux pouvoir fermer aussi pour avoir la facade avant). Dans OPEN je veux tous les settings et les choses plus pointues, le fine tuning ».
+
+- Le graphisme (plugin seulement) :
+  - `src/v4/pluginMode.ts` (nouveau) : la detection du plugin, partagee (`theme/base.ts` PLUGIN, `rytm/faceplate.ts`, `audio/samples.ts`) ;
+  - `rytm/faceplate.ts` : le crossfader et ses scenes A / B la ou la DT2 a ses fleches, dans leur cadre ; les 8 LED au-dessus de PAGE, a droite, comme la DT2 ; le cadre des touches de page agrandi pour leurs fonctions ; KEYBOARD n'est plus « coming soon » (il joue) ; `FpIcon`, les pictogrammes ;
+  - `theme/face.ts` : la fonction FUNC de chaque touche imprimee dessous, en orange et en minuscules comme la DT2 (Quantize, Machine, Perform, Save Proj, Samples, Tap Tempo, + Sample, Copy, Clear, Paste, Save, Reload, Fill/Setup, KB Setup, Ptn Mute, Bank, Unmute, Unsolo) ; Scene A, Crossfade, Scene B ; Main Volume, Level/Data, Track/Mute ; les touches a icones (liste PRESET, de RANDOM, engrenage SETTINGS, onde SOUNDS, metronome TEMPO, clavier KEYBOARD ; le transport en contour) ; les pas : le numero grand, centre, souligne, le type dessous ;
+  - `scene/keyLabels.ts`, `theme.ts` : le dessin des pictogrammes et du soulignement (`drawIcon`, `MARK_ICON`, `marksH`) ; le logo M au-dessus du crossfader.
+- Les fleches a la souris : `plugin/ScreenMouse.tsx`, quatre touches dans la bande du cadre sous l'ecran (a gauche), les memes gestes que les fleches du clavier du Mac (`faceKeyTap` : la sous-page, une ligne d'une liste, l'octave de KEYBOARD, la banque en PTN), repetees quand on les tient.
+- OPEN :
+  - `state/pluginPanel.ts` (nouveau) ; `actions/nav.ts` : dans le plugin, OPEN (touche, clavier) ouvre et ferme le panneau au lieu du capot du site ;
+  - `plugin/OpenPanel.tsx` (nouveau) : TRACK (les 16 pistes ; SRC, FLTR, AMP, FX, TRIG, LFO 1, LFO 2 en potards sur les cibles des pages de la face ; VOICE : MONO / POLY, CHOKE, GATED, MUTE ; SAMPLE : son nom, IMPORT, son dossier), GLOBAL (les 16 niveaux, SEND FX, DIST, CHORUS, DELAY, REVERB, BIT, COMP, MASTER, PATTERN), SAMPLES (tous les samples par type, un clic les pose ; IMPORT, FOLDER, OPEN FOLDER, RESCAN), HELP ; CLOSE, Echap ou OPEN le ferment ;
+  - `ui/KnobPanel.tsx` : Maj + glisser = le reglage fin (au dixieme) sur les potards.
+- Les samples :
+  - FUNC + OPEN (+ Sample) passe par le choix de fichiers du plugin (`actions/browser.ts` soundFilesPick) ;
+  - FUNC + SOUNDS (Samples) dans le plugin (`menus/sounds60.ts`) : IMPORT FILES, OPEN FOLDER IN FINDER, RESCAN FOLDER, puis tes samples ; YES en pose un sur la piste (de son type) ;
+  - `audio/samples.ts` pluginSamples ; `plugin/bridge.ts` mm_reveal, mm_rescan ; `src/PluginEditor.{h,cpp}` : revealSamples (le dossier, ou celui d'un type, ouvert dans le Finder, cree s'il manque), relecture du dossier.
+- Verifie dans Chromium (faux `__JUCE__`) :
+  - les zones suivent la geometrie : survol de Scene A, Scene B, crossfader, PAGE, OPEN ; le crossfader tire de A vers B envoie x de 0.93 puis 1 ;
+  - FUNC montre les fonctions sur les touches a icones ;
+  - fleche DOWN puis UP : SRC 2/2 puis 1/2 ; en mode KEYBOARD, TRIG 5 envoie un coup a -3 demi-tons (pf 0.8409) ;
+  - FUNC + SOUNDS, trois fleches DOWN, YES : MY KICK sur le BD (le programme porte `bd/~My Kick.wav`) ; OPEN FOLDER envoie mm_reveal ; FUNC + OPEN envoie mm_import {family 0, track 0} sans ouvrir le panneau ;
+  - OPEN : FINE du BD a +34 (pf 1.0198 dans le programme), CHOKE 2 (choke 2 dans le programme), le sample perso pose depuis SAMPLES, OPEN FOLDER et RESCAN envoyes ; CLOSE, OPEN, Echap ;
+  - le site ne change pas : V.3.0 par defaut et V.6.0 (?face=dt2) identiques au pixel avant et apres (1440 x 900) ; `npx tsc` : 105 erreurs, celles d'avant ;
+  - C++ : `PluginEditor.cpp` compile avec les en-tetes de JUCE (`-fsyntax-only`) ; le Finder se verifie sur le Mac.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -131,6 +158,12 @@ Demande de Mika (capture d'une version d'avant : pas de BD sur les pas) : « je 
 - **Les autres patterns : 16 pas** : un emplacement ne garde que sa premiere page (les pages et la longueur suivent le pattern courant, au site aussi) ; le plugin joue ce que le site poserait.
 - **Le crossfader de la face ne recompile plus rien** : avant, chaque mouvement recalculait tout le programme (50 ms de retard, des sons recalcules) ; maintenant il envoie sa position, et Ableton peut l'automatiser.
 
+- **Le crossfader dans le cadre des fleches, les LED au-dessus de PAGE** : c'est la place des fleches sur la DT2 (Mika : « a la place des fleches ») ; le logo M, qui y etait, passe au-dessus du crossfader, dans le cadre. La geometrie change seulement dans le plugin (`pluginMode.ts`, sans cycle d'imports) : le site garde sa V.6.0 telle quelle.
+- **Les fleches sous l'ecran, pas dedans** : dans l'ecran, elles cacheraient des cases ; la bande du cadre sous l'ecran est vide a gauche (la place du nom de la DT2). Elles font exactement ce que font les fleches du clavier (le meme chemin, `faceKeyTap`).
+- **Les fonctions FUNC imprimees, et toujours sur la touche avec FUNC** : la DT2 les imprime ; la touche qui change de mot quand FUNC est engagee reste la confirmation du mode.
+- **OPEN : les memes cibles que la face** : chaque potard du panneau est le reglage d'un bloc des pages (anyDial) : la meme loi, les memes scenes, le meme programme vers le moteur ; rien de nouveau a porter en C++. Le reglage fin est Maj + glisser (au dixieme) ; FINE donne le cent.
+- **SAMPLES du plugin : pas de suppression** : retirer un fichier du disque depuis la face serait risque ; OPEN FOLDER ouvre le dossier dans le Finder pour ranger et effacer, RESCAN le relit.
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -140,6 +173,7 @@ Demande de Mika (capture d'une version d'avant : pas de BD sur les pas) : « je 
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 6) : `update.sh`, puis dire si la face facon DT2 lui va (icones, fonctions imprimees, crossfader a la place des fleches), si OPEN contient ce qu'il attend, et si OPEN FOLDER ouvre bien le Finder depuis Ableton.
 
 ## 4. Commandes utiles ajoutees
 

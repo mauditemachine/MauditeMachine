@@ -10,8 +10,9 @@
  */
 
 import { userSamples } from '../../../audio/usersamples';
-import { samplesChanged } from '../../../audio/samples';
-import { soundBrowserClose, soundBrowserCursor, soundBrowserOpen, soundBrowserPick, soundBrowserStep, soundBrowserView, soundFilesPick, trackSoundList, trackSoundPick } from '../../../actions';
+import { pluginSamples, samplesChanged } from '../../../audio/samples';
+import { IN_PLUGIN } from '../../../pluginMode';
+import { fileImport, soundBrowserClose, soundBrowserCursor, soundBrowserOpen, soundBrowserPick, soundBrowserStep, soundBrowserView, soundFilesPick, trackSoundList, trackSoundPick } from '../../../actions';
 import { lcdMessage } from '../../../state/lcdMessage';
 import { lcdSamples } from '../../../state/lcdSamples';
 import { activeTrack } from '../../../state/trk';
@@ -20,7 +21,7 @@ import { HALF } from '../consts';
 import { registerScreenMenu } from './registry';
 import { acting, LIST_ROWS, paintHint, paintList, scrollTop, stepCursor, type MenuRow } from './frame';
 import { menuChanged, openMenuId, screenTrack } from './open';
-import { TRACK_NAMES, isLegacyTrack, trackIndex, type TrackKey } from '../../../audio/tracks';
+import { TRACK_NAMES, isLegacyTrack, trackIndex, tracks, typedFamily, type TrackKey } from '../../../audio/tracks';
 
 /* ---------------- SOUNDS ---------------- */
 
@@ -155,8 +156,55 @@ let top = 0;
 let arm = -1;
 let samplesBody = '';
 
+/**
+ * Le plugin (2026-11-09, Mika : "je veux mes samples et la possibilite d'en rajouter") : IMPORT FILES (le choix de fichiers du
+ * Mac, dans le dossier du type de la piste), OPEN FOLDER (le dossier ~/Music/MM-RYTM Samples dans le Finder, ou les ranger),
+ * RESCAN (le relire), puis tes samples ; YES sur l'un d'eux le pose sur la piste active s'il est de son type.
+ */
+const PLUGIN_ACTIONS = 3;
+const fileName = (file: string): string => file.replace(/^~/, '').replace(/\.[a-z0-9]+$/i, '').toUpperCase();
+function pluginSampleRows(): MenuRow[] {
+  const t = screenTrack();
+  const cur = t ? tracks.of(t).snd : '';
+  return [
+    { label: 'IMPORT FILES', sub: true },
+    { label: 'OPEN FOLDER IN FINDER', sub: true },
+    { label: 'RESCAN FOLDER', sub: true },
+    // le nom du fichier (comme SOUNDS) : sampleLabel couperait "My Kick" en MY
+    ...pluginSamples().map((s) => ({ label: fileName(s.file), value: s.key === cur ? 'NOW' : s.family.toUpperCase() })),
+  ];
+}
+
+function pluginSampleYes(): void {
+  const t = screenTrack();
+  if (cursor === 0) {
+    soundFilesPick(t, false);
+    return;
+  }
+  if (cursor === 1) {
+    fileImport.reveal?.(null);
+    lcdMessage.show('MM-RYTM SAMPLES: OPEN IN THE FINDER', 1800);
+    return;
+  }
+  if (cursor === 2) {
+    fileImport.rescan?.();
+    lcdMessage.show('SAMPLES FOLDER: READ AGAIN', 1400);
+    return;
+  }
+  const smp = pluginSamples()[cursor - PLUGIN_ACTIONS];
+  if (!smp || !t) return;
+  const fam = typedFamily(trackIndex(t));
+  if (smp.family !== fam) {
+    lcdMessage.show(`${smp.family.toUpperCase()} SAMPLE: CHOOSE A ${smp.family.toUpperCase()} TRACK`, 1800);
+    return;
+  }
+  tracks.sample(t, smp.key);
+  lcdMessage.show(`${TRACK_NAMES[trackIndex(t)]} SAMPLE ${fileName(smp.file)}`, 1400);
+}
+
 /** Les lignes : IMPORT FILES..., puis tes samples (leur categorie a droite). */
 function sampleRows(): MenuRow[] {
+  if (IN_PLUGIN) return pluginSampleRows();
   const mine = userSamples.all();
   return [{ label: 'IMPORT FILES', sub: true }, ...mine.map((s, i) => ({ label: `${i + 1 === arm ? 'REMOVE? ' : ''}${s.label}`, value: s.family.toUpperCase() }))];
 }
@@ -165,9 +213,9 @@ function paintSamples(screen: Screen): number {
   const rows = sampleRows();
   cursor = Math.min(cursor, rows.length - 1);
   top = scrollTop(top, cursor, rows.length, LIST_ROWS - 1);
-  screen.text(`${rows.length - 1} FILES`, 312, 34, 7.5, HALF, 700, 'right', 0.5);
+  screen.text(`${rows.length - (IN_PLUGIN ? PLUGIN_ACTIONS : 1)} FILES`, 312, 34, 7.5, HALF, 700, 'right', 0.5);
   samplesBody = paintList(screen, rows, cursor, top, { x0: 4, x1: 316, y0: 41, y1: 170 });
-  paintHint(screen, arm >= 0 ? 'YES AGAIN: REMOVE   NO: KEEP' : 'YES: IMPORT OR REMOVE   NO: EXIT');
+  paintHint(screen, IN_PLUGIN ? 'YES: DO IT OR LOAD ON THE TRACK   NO: EXIT' : arm >= 0 ? 'YES AGAIN: REMOVE   NO: KEEP' : 'YES: IMPORT OR REMOVE   NO: EXIT');
   return 0;
 }
 
@@ -197,6 +245,8 @@ registerScreenMenu({
       const dir = i.kind === 'up' ? -1 : i.kind === 'down' ? 1 : Math.round(i.delta ?? 0);
       cursor = stepCursor(cursor, rows.length, dir, i.func && i.kind !== 'data', LIST_ROWS - 1);
       arm = -1;
+    } else if (i.kind === 'yes' && IN_PLUGIN) {
+      pluginSampleYes();
     } else if (i.kind === 'yes') {
       // La piste active, T9 a T16 compris (relecture de la V.6.0 : le motif n'a alors plus de voix)
       if (cursor === 0) soundFilesPick(screenTrack(), false);

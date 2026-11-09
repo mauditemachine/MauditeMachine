@@ -452,7 +452,12 @@ export function trackSoundList(): { track: TrackKey; name: string; rows: readonl
 }
 
 /** + LOAD A FILE... dans le plugin (plugin/bridge.ts) : le moteur ouvre le choix de fichiers du Mac ; null au site. */
-export const fileImport: { plugin: ((t: TrackKey) => void) | null } = { plugin: null };
+export const fileImport: {
+  plugin: ((t: TrackKey) => void) | null;
+  /** le plugin (2026-11-09) : le dossier des samples perso dans le Finder (une famille : son sous-dossier), le relire */
+  reveal: ((family: string | null) => void) | null;
+  rescan: (() => void) | null;
+} = { plugin: null, reveal: null, rescan: null };
 
 /** Le sample i de la liste pour la piste active 9 a 16 (par le potard D, sa fiche t:snd) ; + LOAD A FILE... : tes fichiers. */
 export function trackSoundPick(i: number): void {
@@ -530,6 +535,11 @@ let fileInput: HTMLInputElement | null = null;
 export function soundFilesPick(inst: TrackKey | null = pattern.get().instrument ?? (DT2_FACE ? (activeTrack.get() ?? 'BD') : null), fromList = false): void {
   if (!inst) {
     lcdMessage.show(LCD_NO_VOICE);
+    return;
+  }
+  // Le plugin (2026-11-09, FUNC + OPEN : + SAMPLE ; SAMPLES : IMPORT FILES) : le choix de fichiers du Mac, pas le navigateur
+  if (fileImport.plugin) {
+    fileImport.plugin(inst);
     return;
   }
   if (typeof document === 'undefined') return;

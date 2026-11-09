@@ -224,7 +224,8 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
   const tapNext = detents && spec.selector !== false && !spec.lockState;
   const k = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
   const bipolar = spec.bipolar;
-  const drag = useRef<{ y: number; x: number; k0: number; moved: boolean } | null>(null);
+  // acc : la course cumulee, au dixieme avec Maj (le plugin, 2026-11-09 : le reglage fin d'OPEN) ; lx, ly : le dernier point
+  const drag = useRef<{ y: number; x: number; k0: number; moved: boolean; acc: number; lx: number; ly: number } | null>(null);
   const lastTap = useRef(0);
 
   /** Une position 0 a 1 -> la valeur du potard (au cran pres pour un selecteur, au BPM pres pour TEMPO). */
@@ -247,16 +248,19 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
     } catch {
       /* pas de capture : le geste reste sur le potard tant qu'on y est */
     }
-    drag.current = { y: ev.clientY, x: ev.clientX, k0: k, moved: false };
+    drag.current = { y: ev.clientY, x: ev.clientX, k0: k, moved: false, acc: 0, lx: ev.clientX, ly: ev.clientY };
     spec.info?.();
   };
   const onMove = (ev: React.PointerEvent<HTMLDivElement>): void => {
     const d = drag.current;
     if (!d) return;
     const travel = d.y - ev.clientY + (ev.clientX - d.x);
+    d.acc += (d.ly - ev.clientY + (ev.clientX - d.lx)) * (ev.shiftKey ? 0.1 : 1);
+    d.lx = ev.clientX;
+    d.ly = ev.clientY;
     if (!d.moved && Math.abs(travel) < 4) return;
     d.moved = true;
-    setAt(d.k0 + travel / POT_UI.pxRange, true);
+    setAt(d.k0 + d.acc / POT_UI.pxRange, true);
   };
   const onUp = (): void => {
     const d = drag.current;

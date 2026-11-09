@@ -3,6 +3,8 @@
  * actions.ts (le baril) en exporte tout. Ses aides utilisees par d'autres modules : actions/internal/nav.ts.
  */
 
+import { IN_PLUGIN } from '../pluginMode';
+import { pluginPanel } from '../state/pluginPanel';
 import { resume } from '../audio/drums';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
@@ -149,6 +151,11 @@ export function openToggle(stage: Stage | null = null, which: MachineId = hoodMa
   resume();
   // Le logo M (V.5.0) : FUNC s'en va (la revue de D1, G2)
   if (which === 'mm808') funcDrop();
+  // Le plugin (2026-11-09) : OPEN ouvre et ferme le panneau des reglages fins (plugin/OpenPanel.tsx), pas le capot
+  if (IN_PLUGIN && which === 'mm808') {
+    pluginPanel.toggle();
+    return true;
+  }
   const ok = hoodOf(which).toggle();
   if (ok) {
     if (which === 'voy') stage?.voy?.keys.pressButton('open');

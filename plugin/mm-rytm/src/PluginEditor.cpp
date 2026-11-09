@@ -80,6 +80,12 @@ juce::WebBrowserComponent::Options MMRytmEditor::options() {
                  .withEventListener("mm_ptn", [this](juce::var o) { proc_.facePtn(o); })
                  // + LOAD A FILE... de SOUNDS : le choix de fichiers du Mac, copies dans le dossier du type de la piste
                  .withEventListener("mm_import", [this](juce::var o) { importFiles(static_cast<int>(o.getProperty("family", -1)), static_cast<int>(o.getProperty("track", -1))); })
+                 // SAMPLES et OPEN (2026-11-09) : le dossier des samples perso dans le Finder (cree s'il manque), sa relecture
+                 .withEventListener("mm_reveal", [this](juce::var o) { revealSamples(o.getProperty("family", "").toString()); })
+                 .withEventListener("mm_rescan", [this](juce::var) {
+                     mm::UserLibrary::get().rescan();
+                     sendUserList();
+                 })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;
@@ -125,6 +131,19 @@ void MMRytmEditor::sendUserList() {
     auto* o = new juce::DynamicObject();
     o->setProperty("list", juce::JSON::parse(userList()));
     browser_->emitEventIfBrowserIsVisible("mm_user", juce::var(o));
+}
+
+void MMRytmEditor::revealSamples(const juce::String& family) {
+    juce::File dir = mm::UserLibrary::get().root();
+    for (int f = 0; f < 8; ++f) {
+        const juce::File sub = dir.getChildFile(mm::SampleBank::kFamilies[f]);
+        if (!sub.isDirectory()) sub.createDirectory();
+    }
+    if (family.isNotEmpty()) {
+        for (int f = 0; f < 8; ++f)
+            if (family == mm::SampleBank::kFamilies[f]) dir = dir.getChildFile(family);
+    }
+    if (dir.isDirectory()) dir.startAsProcess();
 }
 
 void MMRytmEditor::importFiles(int family, int track) {

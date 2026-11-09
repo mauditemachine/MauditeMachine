@@ -973,8 +973,30 @@ export const KEY_LABEL = PORTRAIT
   : ({ cap: 0.062, dz: 0.024, margin: 0.08, weight: 700, inkRest: { dark: 'rgba(246, 241, 231, 0.96)', light: 'rgba(38, 38, 41, 0.96)' } } as const);
 /** La largeur des signes d'une legende (en unites) : chacun sa largeur, l'air entre eux. */
 // Les chevrons (V.6.0, la face DT2) : < et > etroits (KEY_MARK.chevron.narrow), ^ et v de la largeur des autres signes
-export const markW = (k: FpMark): number => (k === 'play' ? KEY_MARK.h * KEY_MARK.playW : k === 'left' || k === 'right' ? KEY_MARK.h * KEY_MARK.chevron.narrow : KEY_MARK.h);
+/**
+ * Les pictogrammes du plugin (2026-11-09, la face facon Digitakt II, rytm/faceplate.ts FpIcon) : s, leur hauteur en fois
+ * celle des signes (KEY_MARK.h) ; a, leur largeur en fois leur hauteur ; line, leur trait en fois leur hauteur.
+ */
+export const MARK_ICON: Readonly<Partial<Record<FpMark, { s: number; a: number }>>> = {
+  list: { s: 1.85, a: 1.05 },
+  dice: { s: 1.75, a: 1 },
+  gear: { s: 1.9, a: 1 },
+  wave: { s: 1.85, a: 1.1 },
+  metro: { s: 1.9, a: 0.95 },
+  piano: { s: 1.85, a: 1.2 },
+  recO: { s: 1.9, a: 1 },
+  playO: { s: 1.9, a: 0.92 },
+  stopO: { s: 1.75, a: 1 },
+};
+export const ICON_LINE = 0.09;
+export const markW = (k: FpMark): number => {
+  const I = MARK_ICON[k];
+  if (I) return KEY_MARK.h * I.s * I.a;
+  return k === 'play' ? KEY_MARK.h * KEY_MARK.playW : k === 'left' || k === 'right' ? KEY_MARK.h * KEY_MARK.chevron.narrow : KEY_MARK.h;
+};
 export const marksW = (m: readonly FpMark[]): number => m.reduce((w, k, i) => w + markW(k) + (i > 0 ? KEY_MARK.gap : 0), 0);
+/** La hauteur d'une rangee de signes : celle des signes, ou celle du plus grand pictogramme. */
+export const marksH = (m: readonly FpMark[]): number => KEY_MARK.h * Math.max(1, ...m.map((k) => MARK_ICON[k]?.s ?? 1));
 /** Le rond de REC (V.5.0, 2026-10-29) : son diametre, en part de la hauteur des signes (le carre de STOP en fait 1). */
 export const REC_MARK_D = 1;
 /**
@@ -1401,7 +1423,10 @@ const SILK_WORDMARK = { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.
 // La face DT2 (V.6.0, ?face=dt2) : le logotype se place sur la face a droite de l'ecran
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = DT2_FACE
   ? [
-      { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(185), z: fpZ(91), h: fpU(22), align: 'right' },
+      // Le plugin (2026-11-09) : au-dessus du crossfader, dans le cadre des fleches de la DT2 (le M fait 1891 x 1612, centre en x 187)
+      PLUGIN
+        ? { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(187 + (11 * 1891) / 1612 / 2), z: fpZ(85), h: fpU(11), align: 'right' }
+        : { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(185), z: fpZ(91), h: fpU(22), align: 'right' },
     ]
   : [
       SILK_WORDMARK,

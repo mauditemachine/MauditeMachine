@@ -7,7 +7,49 @@
 import { fwText } from '../firmware';
 /** Les types des pistes du plugin (audio/tracks.ts typedFamily), dans l'ordre des pas. */
 const PLUGIN_TRACK_TYPES = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as const;
-import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2StepRect, fpU, fpX, fpZ, rectCenter, stepRect } from '../rytm/faceplate';
+
+/**
+ * La face du plugin facon Digitakt II (2026-11-09, Mika : "j'aimerais avoir le meme design ! mais en MM-RYTM") : les
+ * pictogrammes des touches (la DT2 : la liste, l'engrenage, la forme d'onde, le metronome, le clavier, le transport en
+ * contour ; le de de RANDOM en plus) ; les fonctions FUNC imprimees sous les touches, en capitales et minuscules comme la DT2.
+ */
+const PLUGIN_ICONS: Readonly<Partial<Record<string, readonly FpMark[]>>> = {
+  preset: ['list'],
+  random: ['dice'],
+  settings: ['gear'],
+  sounds: ['wave'],
+  tempo: ['metro'],
+  kbd: ['piano'],
+  rec: ['recO'],
+  play: ['playO'],
+  stop: ['stopO'],
+};
+const PLUGIN_SILK: Readonly<Record<string, string>> = {
+  kbd: 'KB Setup',
+  trk: 'Ptn Mute',
+  ptn: 'Bank',
+  mute: 'Unmute',
+  solo: 'Unsolo',
+  preset: 'Perform',
+  random: 'Rnd Beat',
+  settings: 'Save Proj',
+  sounds: 'Samples',
+  tempo: 'Tap Tempo',
+  open: '+ Sample',
+  rec: 'Copy',
+  play: 'Clear',
+  stop: 'Paste',
+  trig: 'Quantize',
+  src: 'Machine',
+  fltr: 'Setup',
+  amp: 'Sequencer',
+  fx: 'Send FX',
+  mod: 'Mixer',
+  yes: 'Save',
+  no: 'Reload',
+  ptnpage: 'Fill/Setup',
+};
+import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2StepRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpMark } from '../rytm/faceplate';
 import type { Dt2KeyClass } from '../rytm/dtFaceIds';
 import { DT2_FACE, PLUGIN, type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_KNOBS, FP_OPEN, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, PAD_FACE, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_FACE_VER, RYTM_PAGE_KEYS, SCENE_KEY, SILK, type SilkText } from './base';
 
@@ -355,7 +397,14 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
             group: 'face',
             rest: 'ink',
             ...(b.alt ? { altText: b.alt } : {}),
-            ...(b.marks ? { marks: b.marks, dz: KEY_MARK.dz } : { cap: fpU(L.cap), qw: fpU(b.rect.w - 2 * L.margin), dz: fpU(L.dy), tracking: L.tracking }),
+            ...((PLUGIN && PLUGIN_ICONS[b.id]) || b.marks
+              ? {
+                  marks: (PLUGIN && PLUGIN_ICONS[b.id]) || b.marks,
+                  dz: KEY_MARK.dz,
+                  // le plugin : la fonction FUNC sur la touche au corps des autres (sinon le quad d'un signe la reduit)
+                  ...(PLUGIN ? { cap: fpU(L.cap), qw: fpU(b.rect.w - 2 * L.margin), tracking: L.tracking } : {}),
+                }
+              : { cap: fpU(L.cap), qw: fpU(b.rect.w - 2 * L.margin), dz: fpU(L.dy), tracking: L.tracking }),
           };
         }),
         ...(['a', 'b'] as const).map(
@@ -372,9 +421,11 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
             qw: fpU(DT2.scenes.legend.w),
           })
         ),
-        // Le numero seul sur chaque pas (16 pistes libres, cahier 2.2), en haut a gauche comme avant
+        // Le numero seul sur chaque pas (16 pistes libres, cahier 2.2), en haut a gauche comme avant ; le plugin (2026-11-09,
+        // facon Digitakt II) : grand, centre, souligne
         ...Array.from({ length: 16 }, (_, i): KeyLabelSpec => {
           const r = dt2StepRect(i);
+          if (PLUGIN) return { id: `stepn-${i + 1}`, text: String(i + 1), x: fpX(r.x + r.w / 2), z: fpZ(r.y + 7.6), w: fpU(r.w), d: fpU(r.h), group: 'stepn', rest: 'ink', cap: fpU(3), qw: fpU(9), dz: 0, underline: true };
           const L = DT2.steps.legend.num;
           const qw = fpU(L.w);
           return { id: `stepn-${i + 1}`, text: String(i + 1), x: fpX(r.x + L.dx) + qw / 2, z: fpZ(r.y + L.dy + L.cap / 2), w: fpU(r.w), d: fpU(r.h), group: 'stepn', rest: 'ink', cap: fpU(L.cap), qw, dz: 0, align: 'left' };
@@ -386,7 +437,7 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
               const r = dt2StepRect(i);
               const L = RYTM_FACEPLATE.steps.legend.voice;
               const text = `${PLUGIN_TRACK_TYPES[i % 8]}${i >= 8 ? '2' : ''}`;
-              return { id: `stept-${i + 1}`, text, x: fpX(r.x + r.w / 2), z: fpZ(r.y + r.h - 4.4), w: fpU(r.w), d: fpU(r.h), group: 'stepv', rest: 'ink', cap: fpU(L.cap), qw: fpU(L.w), dz: 0 };
+              return { id: `stept-${i + 1}`, text, x: fpX(r.x + r.w / 2), z: fpZ(r.y + r.h - 4), w: fpU(r.w), d: fpU(r.h), group: 'stepv', rest: 'ink', cap: fpU(L.cap), qw: fpU(L.w), dz: 0 };
             })
           : []),
       ]
@@ -489,11 +540,28 @@ const DT2_SILK_TEXTS = (): SilkText[] => {
   const out: SilkText[] = FACE_KNOBS.map((k, i) => ({ text: FP_KNOBS.labels[i] ?? PAGE_KNOB_LETTERS[i], x: k.x, z: k.labelZ, cap: PAGE_KNOBS.cap, maxW: PAGE_KNOBS.labelW, group: 'genc', weight: 700, alpha: 0.9 }));
   for (const s of S.knobs) {
     const cy = s.cy + s.d / 2 + S.legend.gap + S.legend.cap / 2;
-    out.push({ text: s.legend, x: fpX(s.cx), z: fpZ(cy), cap: fpU(S.legend.cap), maxW: fpU(21), group: 'side', weight: 700, alpha: 0.9 });
+    // Le plugin (2026-11-09) : Main Volume, Level/Data, comme la DT2
+    const legend = PLUGIN ? (s.id === 'mvol' ? 'Main Volume' : 'Level/Data') : s.legend;
+    out.push({ text: legend, x: fpX(s.cx), z: fpZ(cy), cap: fpU(S.legend.cap), maxW: fpU(21), group: 'side', weight: 700, alpha: 0.9 });
     if (s.alt) out.push({ text: s.alt, x: fpX(s.cx), z: fpZ(cy + S.legend.cap / 2 + S.alt.gap + S.alt.cap / 2), cap: fpU(S.alt.cap), maxW: fpU(21), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   }
   const T = DT2.silk.trackMute;
-  out.push({ text: T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  out.push({ text: PLUGIN ? 'Track/Mute' : T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  if (PLUGIN) {
+    // La fonction FUNC de chaque touche imprimee dessous, en orange (la DT2 : Quantize sous TRIG...), 1 sous la touche
+    const A = { gap: 1, cap: 1.3 };
+    const under = (text: string, cx: number, bottom: number, maxW: number): SilkText => ({ text, x: fpX(cx), z: fpZ(bottom + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(maxW), group: 'funcAlt', weight: 600, ink: 'alt', alpha: 1 });
+    for (const b of DT2.buttons.keys) {
+      const t = PLUGIN_SILK[b.id];
+      if (t) out.push(under(t, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h, b.cls === 'P' ? 16.5 : 21));
+    }
+    // Les scenes et le crossfader (a la place des fleches de la DT2) : leurs noms dessous, en blanc
+    const Sc = DT2.scenes;
+    const name = (text: string, cx: number, bottom: number): SilkText => ({ text, x: fpX(cx), z: fpZ(bottom + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(14), group: 'funcAlt', weight: 600, alpha: 0.9 });
+    out.push(name('Scene A', Sc.a.rect.x + Sc.a.rect.w / 2, Sc.a.rect.y + Sc.a.rect.h));
+    out.push(name('Crossfade', (Sc.xfade.x0 + Sc.xfade.x1) / 2, Sc.a.rect.y + Sc.a.rect.h));
+    out.push(name('Scene B', Sc.b.rect.x + Sc.b.rect.w / 2, Sc.b.rect.y + Sc.b.rect.h));
+  }
   return out;
 };
 

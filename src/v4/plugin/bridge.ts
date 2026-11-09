@@ -620,6 +620,9 @@ export const bridge = {
       lcdMessage.show(`${TRACK_NAMES[i]} : CHOOSE FILES ON THE MAC`, 2400);
       send('mm_import', { family: KIT_FAMILIES.indexOf(typedFamily(i)), track: i });
     };
+    // Le dossier dans le Finder (une famille : son sous-dossier) et sa relecture (2026-11-09 : SAMPLES, OPEN)
+    fileImport.reveal = (family) => send('mm_reveal', { family: family ?? '' });
+    fileImport.rescan = () => send('mm_rescan', {});
     backend()?.addEventListener('mm_user', (o: unknown) => setPluginSamples((o as { list?: unknown } | null)?.list));
     backend()?.addEventListener('mm_imported', (o: unknown) => {
       const x = o as { track?: unknown; key?: unknown } | null;
