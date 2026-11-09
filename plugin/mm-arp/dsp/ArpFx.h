@@ -41,7 +41,13 @@
 //   fx.retimeDelay(seconds);                    // un changement de tempo seul (pattern.subscribe du site)
 //   fx.process(inL, inR, outL, outR, n);        // entree : la sortie du moteur ; sortie : la prise ARP (remplacee)
 //   fx.reset();                                 // lignes et filtres a zero, reglages poses sans rampe
-//   fx.latencySamples();                        // 0
+//   fx.latencySamples();                        // 0 (a toute frequence >= 12.8 kHz)
+// Independant de la taille des blocs de l'hote (au bit pres) : tout est calcule par blocs de rendu de 128 comme le Web
+// Audio (valeurs des rampes, parametres k-rate, messages au worklet, sommeil de la bande).
+// Ecarts connus au site (mesures, plugin/mm-arp/tests/fx_test.cpp) : les biquads de Chromium different d'un ulp float
+// par endroits (le passe-haut a 10 Hz de BASS MONO l'amplifie : -81 dB) ; juste apres un changement du graphe (le
+// CHORUS qui s'engage ou se coupe), Chromium rend parfois quelques blocs du DELAY autrement (non deterministe d'un
+// rendu a l'autre, jusqu'a -40 dB sur l'echo de ces blocs) : non porte, ce n'est pas le son voulu du site.
 // Comme au site, set(.., false) repart de la valeur courante a chaque appel : l'appeler quand un reglage change (le
 // site l'appelle a chaque changement de voyParams), pas a chaque bloc.
 #pragma once
@@ -148,9 +154,10 @@ class TapeDelay {
 public:
     void prepare(double sr, double maxS);
     void reset();
-    // n echantillons d'un bloc de 128 ; times : le temps (s) par echantillon (float, a-rate) ; fb et tape : les valeurs
-    // k-rate du bloc ; inL null : pas d'entree
-    void process(const float* inL, const float* inR, const float* times, float fb, float tape, float* oL, float* oR, int n);
+    // n echantillons d'un bloc de 128 (qStart / qEnd : le morceau ouvre / ferme le bloc) ; times : le temps (s) par
+    // echantillon (float, a-rate) ; fb et tape : les valeurs k-rate du bloc ; inL null : pas d'entree. Le sommeil se
+    // decide par bloc de 128, comme le worklet, quelle que soit la taille des morceaux.
+    void process(const float* inL, const float* inR, const float* times, float fb, float tape, float* oL, float* oR, int n, bool qStart = true, bool qEnd = true);
 
 private:
     struct Bq {
@@ -169,7 +176,8 @@ private:
     Bq hpIn_, hpL_, hpR_, lpL_, lpR_;
     double lpTape_ = -1, phW_ = 0, phF_ = 0.25;
     long quiet_ = 0;
-    bool asleep_ = false;
+    bool asleep_ = false, qQuiet_ = true;
+    int skipped_ = 0;
 };
 
 // Le DelayNode : ligne en float, lecture en interpolation lineaire a delayTime x sr echantillons.
@@ -223,7 +231,7 @@ public:
     void retimeDelay(double seconds);
     void process(const float* inL, const float* inR, float* outL, float* outR, int n);
     void reset();
-    int latencySamples() const { return 0; }
+    int latencySamples() const { return conv_.latency(); } // 0 des 12.8 kHz (le pre-delai de 20 ms absorbe le bloc)
 
     // Pour les tests et l'interface
     int chorusMode() const { return mode_; }

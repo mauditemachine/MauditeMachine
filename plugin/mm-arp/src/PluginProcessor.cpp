@@ -1,6 +1,8 @@
 #include "PluginProcessor.h"
 
+#if !MMARP_HEADLESS
 #include "PluginEditor.h"
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -298,7 +300,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (current_ && bpm != lastBpm_) {
         const mmarp::ParamKV b{bpmId_, bpm};
         voy_->params(&b, 1);
-        fx_.set(fxFor(*current_, bpm), false);
+        fx_.retimeDelay(fxFor(*current_, bpm).delaySeconds);
         lastBpm_ = bpm;
     }
 
@@ -388,6 +390,11 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     }
 }
 
+#if MMARP_HEADLESS
+// Le banc sans fenetre (tests/host_test.cpp, Linux) : le meme processeur, sans la WebView
+juce::AudioProcessorEditor* MMArpProcessor::createEditor() { return nullptr; }
+#else
 juce::AudioProcessorEditor* MMArpProcessor::createEditor() { return new MMArpEditor(*this); }
+#endif
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new MMArpProcessor(); }

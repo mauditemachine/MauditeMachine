@@ -137,8 +137,13 @@ int main(int argc, char** argv) {
             t.prepare(sr, a["init"][0]);
             const std::vector<float> time = f32(a["time"]), fb = f32(a["fb"]), tp = f32(a["tape"]);
             for (int q = 0; q * 128 < n; ++q) {
-                const size_t o = static_cast<size_t>(q * 128);
-                t.process(&inL[o], &inR[o], &time[o], fb[static_cast<size_t>(q)], tp[static_cast<size_t>(q)], &oL[o], &oR[o], 128);
+                int done = 0;
+                while (done < 128) {
+                    const int len = std::min(128 - done, block % 128 == 0 ? 128 : block);
+                    const size_t o = static_cast<size_t>(q * 128 + done);
+                    t.process(&inL[o], &inR[o], &time[o], fb[static_cast<size_t>(q)], tp[static_cast<size_t>(q)], &oL[o], &oR[o], len, done == 0, done + len == 128);
+                    done += len;
+                }
             }
         } else {
             limit = -60;

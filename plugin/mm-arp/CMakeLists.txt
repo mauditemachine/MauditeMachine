@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS minimum")
 
 option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et ses tests)" ON)
+option(MM_HOST_TEST "Le banc du processeur sans fenetre (tests/host_test.cpp, Linux ou Mac), a la place du plugin" OFF)
 
 # --- le DSP, sans JUCE ---
 add_library(mmarp_dsp STATIC dsp/Voyager.cpp dsp/ArpFx.cpp dsp/Arp.cpp)
@@ -22,7 +23,8 @@ target_link_libraries(mmarp_arp_test PRIVATE mmarp_dsp)
 add_test(NAME arp COMMAND mmarp_arp_test)
 add_executable(mmarp_voyager_compare tests/voyager_compare.cpp)
 target_link_libraries(mmarp_voyager_compare PRIVATE mmarp_dsp)
-#@TESTS@
+add_executable(mmarp_fx_test tests/fx_test.cpp)
+target_link_libraries(mmarp_fx_test PRIVATE mmarp_dsp)
 
 if(NOT MM_BUILD_PLUGIN)
   return()
@@ -36,6 +38,17 @@ else()
   include(FetchContent)
   FetchContent_Declare(JUCE GIT_REPOSITORY https://github.com/juce-framework/JUCE.git GIT_TAG 8.0.9 GIT_SHALLOW TRUE)
   FetchContent_MakeAvailable(JUCE)
+endif()
+
+# Le banc du processeur : le vrai MMArpProcessor sans la WebView, joue comme sous Ableton (aucun son, des buffers)
+if(MM_HOST_TEST)
+  juce_add_console_app(mmarp_host_test PRODUCT_NAME "mmarp_host_test")
+  target_sources(mmarp_host_test PRIVATE src/PluginProcessor.cpp tests/host_test.cpp)
+  target_include_directories(mmarp_host_test PRIVATE src)
+  target_compile_definitions(mmarp_host_test PRIVATE MMARP_HEADLESS=1 JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
+  target_link_libraries(mmarp_host_test PRIVATE mmarp_dsp juce::juce_audio_processors juce::juce_audio_utils
+    PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+  return()
 endif()
 
 juce_add_plugin(MM_ARP

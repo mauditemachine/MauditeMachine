@@ -401,6 +401,10 @@ void TapeDelay::Bq::make(bool lp, double hz, double sr, double q) {
     a2 = (1 - al) / a0;
 }
 
+namespace {
+constexpr int Q_ = 128;
+}
+
 void TapeDelay::prepare(double sr, double maxS) {
     sr_ = sr;
     const double m = maxS > 0 ? std::min(4.0, maxS) : 2;
@@ -427,12 +431,18 @@ void TapeDelay::reset() {
     phF_ = 0.25;
     quiet_ = 0;
     asleep_ = false;
+    qQuiet_ = true;
+    skipped_ = 0;
 }
 
-void TapeDelay::process(const float* inL, const float* inR, const float* times, float fbF, float tapeF, float* oL, float* oR, int N) {
+void TapeDelay::process(const float* inL, const float* inR, const float* times, float fbF, float tapeF, float* oL, float* oR, int N, bool qStart, bool qEnd) {
     float* bL = bL_.data();
     float* bR = bR_.data();
     const int n = static_cast<int>(bL_.size());
+    if (qStart) {
+        qQuiet_ = true;
+        skipped_ = 0;
+    }
     double loud = 0;
     if (inL)
         for (int i = 0; i < N; ++i) loud = std::max(loud, std::max(std::fabs(static_cast<double>(inL[i])), std::fabs(static_cast<double>(inR[i]))));
@@ -440,10 +450,23 @@ void TapeDelay::process(const float* inL, const float* inR, const float* times, 
         if (loud < 1e-9) {
             std::memset(oL, 0, sizeof(float) * static_cast<size_t>(N));
             std::memset(oR, 0, sizeof(float) * static_cast<size_t>(N));
+            skipped_ += N;
             return;
         }
         asleep_ = false;
         quiet_ = 0;
+        // Le worklet aurait calcule tout le bloc : les echantillons sautes de ce bloc (lignes et filtres a zero, sorties
+        // nulles) font seulement avancer les tetes et la ligne
+        for (int i = 0; i < skipped_; ++i) {
+            phW_ += TAPE_WOW_HZ / sr_;
+            if (phW_ >= 1) phW_ -= 1;
+            phF_ += TAPE_FLUTTER_HZ / sr_;
+            if (phF_ >= 1) phF_ -= 1;
+            bL[w_] = 0;
+            bR[w_] = 0;
+            if (++w_ == n) w_ = 0;
+        }
+        skipped_ = 0;
     }
     const double sr = sr_;
     const double fb = fbF;
@@ -489,8 +512,10 @@ void TapeDelay::process(const float* inL, const float* inR, const float* times, 
         if (++w == n) w = 0;
     }
     w_ = w;
-    if (loud < 1e-9 && peak < 1e-7) {
-        quiet_ += N;
+    if (!(loud < 1e-9 && peak < 1e-7)) qQuiet_ = false;
+    if (!qEnd) return;
+    if (qQuiet_) {
+        quiet_ += Q_;
         if (quiet_ > n) {
             std::fill(bL_.begin(), bL_.end(), 0.f);
             std::fill(bR_.begin(), bR_.end(), 0.f);
@@ -970,7 +995,7 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     // 4. la bande
     float* toL = bHiL_.data(); // le haut n'est plus lu
     float* toR = bHiR_.data();
-    tape_.process(tinL, tinR, times, qFb_, qTape_, toL, toR, n);
+    tape_.process(tinL, tinR, times, qFb_, qTape_, toL, toR, n, qStart, qEnd);
     // 5. la reverb
     float* roL = bRoL_.data();
     float* roR = bRoR_.data();

@@ -37,7 +37,10 @@ jobs:
           node plugin/mm-arp/tests/voyager-ref.mjs ref-voy
           ./build-dsp/mmarp_voyager_compare ref-voy
           ./build-dsp/mmarp_voyager_compare ref-voy --blocks
-      #@CI_TESTS@
+      - name: Chorus Juno et TAPE compares a chorus.worklet.js du site
+        run: |
+          node plugin/mm-arp/tests/fx-ref.mjs ref-fx worklet
+          ./build-dsp/mmarp_fx_test ref-fx
 
   mac:
     name: Plugin macOS (VST3)
