@@ -119,6 +119,10 @@ MMArpProcessor::~MMArpProcessor() = default;
 
 void MMArpProcessor::publish(std::shared_ptr<const MMArpProgram> p) {
     progBpm_.store(p->bpm);
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        lastProgram_ = p;
+    }
     std::shared_ptr<const MMArpProgram> old;
     {
         const juce::SpinLock::ScopedLockType sl(progLock_);
@@ -174,6 +178,86 @@ juce::String MMArpProcessor::faceInitState() const {
 
 MMArpProcessor::Feedback MMArpProcessor::feedback() const {
     return {fbPlaying_.load(), internalPlaying_.load(), fbSeq_.load(), fbSlot_.load(), fbPos_.load(), fbLen_.load(), fbChord_.load(), fbMidi_.load()};
+}
+
+/* ---------------- l'arpege en clip MIDI (le bouton DRAG MIDI de la fenetre) ---------------- */
+
+namespace {
+// Les notes de l'arpegiateur, en temps du contexte (le meme code que la lecture)
+struct Collect final : mmarp::ArpSink {
+    struct N {
+        double t, gate, acc;
+        int midi;
+    };
+    std::vector<N> notes;
+    void note(double t, int midi, double gate, double acc, double) override { notes.push_back({t, gate, acc, midi}); }
+    void beat(double, double, double, bool) override {}
+    void cancel(double) override {}
+};
+} // namespace
+
+juce::MidiFile MMArpProcessor::arpMidi(int cycles, int& bars) const {
+    juce::MidiFile mf;
+    bars = 0;
+    std::shared_ptr<const MMArpProgram> p;
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        p = lastProgram_;
+    }
+    if (!p || p->nProg <= 0) return mf;
+    // Les potards tels que le son les joue (l'arrondi du site), la suite, la progression, le swing de la face
+    std::array<double, mmarp::kKnobs> k{};
+    for (int i = 0; i < mmarp::kKnobs; ++i)
+        k[static_cast<size_t>(i)] = knobParams_[static_cast<size_t>(i)] ? mmarp::knobClean(i, static_cast<double>(knobParams_[static_cast<size_t>(i)]->getValue())) : mmarp::kKnobDefs[i].def;
+    mmarp::ArpProgram ap;
+    mmarp::reserveArp(ap);
+    mmarp::arpProgram(k.data(), p->seq, p->prog.data(), p->nProg, ap);
+    ap.swing = p->swing;
+    // La progression entiere (une mesure par accord), repetee cycles fois, depuis la mesure 1 : les memes notes que la
+    // lecture d'Ableton depuis le debut du morceau (meme graine)
+    bars = p->nProg * std::max(1, cycles);
+    const double sr = 48000, bpm = 120, pps = bpm / 60.0 / sr;
+    const double endPpq = bars * 4.0;
+    mmarp::Arp a;
+    a.prepare(sr);
+    a.setProgram(&ap);
+    Collect c;
+    const int block = 4096;
+    for (int64_t f = 0; static_cast<double>(f) * pps < endPpq; f += block) a.process(c, f, block, true, static_cast<double>(f) * pps, pps, seed_);
+    const int tpq = 960;
+    juce::MidiMessageSequence seq;
+    seq.addEvent(juce::MidiMessage::textMetaEvent(3, "MM-ARP"), 0);
+    seq.addEvent(juce::MidiMessage::tempoMetaEvent(static_cast<int>(60000000.0 / std::max(20.0, p->bpm))), 0);
+    seq.addEvent(juce::MidiMessage::timeSignatureMetaEvent(4, 4), 0);
+    const double endTick = endPpq * tpq;
+    for (const auto& n : c.notes) {
+        const double on = n.t * bpm / 60.0 * tpq;
+        if (on >= endTick - 0.5) continue;
+        // la porte, sans deborder de la fin du clip (la boucle de Live reste propre)
+        const double off = std::min(endTick, on + std::max(1.0, n.gate * bpm / 60.0 * tpq));
+        // la force : l'inverse de la velocite des notes MIDI du plugin (100 = l'accent 1)
+        const auto vel = static_cast<juce::uint8>(juce::jlimit(1, 127, static_cast<int>(std::lround(n.acc * 100.0))));
+        seq.addEvent(juce::MidiMessage::noteOn(1, n.midi, vel), std::round(on));
+        seq.addEvent(juce::MidiMessage::noteOff(1, n.midi), std::round(off));
+    }
+    seq.updateMatchedPairs();
+    mf.setTicksPerQuarterNote(tpq);
+    mf.addTrack(seq);
+    return mf;
+}
+
+juce::File MMArpProcessor::arpMidiFile(int cycles) const {
+    int bars = 0;
+    const juce::MidiFile mf = arpMidi(cycles, bars);
+    if (bars <= 0) return {};
+    const juce::File dir = juce::File::getSpecialLocation(juce::File::userMusicDirectory).getChildFile("Maudite Machine").getChildFile("MM-ARP Clips");
+    dir.createDirectory();
+    const juce::File f = dir.getChildFile("MM-ARP " + juce::Time::getCurrentTime().formatted("%Y-%m-%d %H-%M-%S") + " (" + juce::String(bars) + " bars).mid");
+    juce::FileOutputStream out(f);
+    if (!out.openedOk()) return {};
+    mf.writeTo(out, 1);
+    out.flush();
+    return f;
 }
 
 juce::File MMArpProcessor::presetDir() {

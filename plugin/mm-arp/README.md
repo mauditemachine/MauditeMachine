@@ -38,6 +38,7 @@ architecture que `plugin/mm-rytm`.
 | Notes MIDI d'Ableton : le synthe joue directement (velocite 100 = accent 1) | joue |
 | Parametres de l'hote : Arpeggiator, Master, et les 62 potards du site (face + TWEAKS, `dsp/Params.cpp` : les lois de params.ts / chords.ts / seq.ts, 0 ecart sur 3000 cas) : automation, MIDI Map, le triangle d'Ableton, fenetre fermee comprise | joue |
 | Presets sur le disque (`~/Music/Maudite Machine/MM-ARP Presets/*.mmarp`) : SAVE TO DISK / OPEN FROM DISK et la liste, dans le tiroir OPEN | joue |
+| DRAG MIDI : l'arpege en clip MIDI a glisser sur une piste (x1, x2, x4 la progression), SAVE .MID ; `~/Music/Maudite Machine/MM-ARP Clips` | joue (`src/PluginEditor.cpp`, `MMArpProcessor::arpMidi` : le meme arpegiateur et la meme graine que la lecture) |
 | SIDECHAIN, sortie MIDI des notes de l'arpege | plus tard |
 
 Ecarts connus avec le site : la progression est calee sur les mesures d'Ableton (au site : depuis RUN), et la suite

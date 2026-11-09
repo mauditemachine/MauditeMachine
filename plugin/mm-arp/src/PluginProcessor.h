@@ -88,6 +88,12 @@ public:
     };
     Feedback feedback() const;
 
+    // L'arpege en clip MIDI : la progression entiere, cycles fois, avec les reglages du moment (thread du message).
+    // bars : le nombre de mesures (0 sans accord).
+    juce::MidiFile arpMidi(int cycles, int& bars) const;
+    // Le meme, ecrit dans ~/Music/Maudite Machine/MM-ARP Clips (un fichier par glisser) ; File() sans accord
+    juce::File arpMidiFile(int cycles) const;
+
     // Le dossier des presets sur le disque : ~/Music/Maudite Machine/MM-ARP Presets
     static juce::File presetDir();
 
@@ -158,6 +164,7 @@ private:
     mutable std::mutex mx_;
     juce::String programJson_;
     juce::String lsJson_;
+    std::shared_ptr<const MMArpProgram> lastProgram_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MMArpProcessor)
 };

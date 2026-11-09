@@ -105,3 +105,19 @@ Demande de Mika : « tous les parametres disponibles en MIDI », « quand j'appu
 - Mika : mettre a jour avec `update.sh`, puis verifier le triangle, MIDI Map, l'automation (potards qui bougent dans la face) et SAVE / OPEN.
 - Tourner MODE, RANGE ou NOTES depuis Ableton ne repasse pas la suite EDIT en AUTO, contrairement a la face du site.
 - L'automation appliquee a la face entre dans son UNDO.
+
+## Suite : DRAG MIDI (l'arpege en clip)
+
+Demande de Mika : « un bouton pour transferer les notes dans un clip MIDI automatiquement dans la piste ou on a le plugin ».
+
+### 1. Ce qui a ete fait
+- `src/PluginProcessor.cpp` : `arpMidi(cycles)` construit le fichier MIDI de la progression entiere (une mesure par accord, 1, 2 ou 4 fois). Il passe par le meme `mmarp::Arp`, la meme graine et les potards arrondis comme le son. Les accents deviennent des velocites (100 = accent 1), la porte devient la duree. Le fichier est a 960 ticks par noire, au tempo de la face. `arpMidiFile` l'ecrit dans `~/Music/Maudite Machine/MM-ARP Clips`.
+- `src/PluginEditor.{h,cpp}` : une bande native de 34 px sous la face, avec la poignee DRAG MIDI (`performExternalDragDropOfFiles`), x1 / x2 / x4, SAVE .MID (boite du Mac) et une ligne d'aide.
+- `tests/host_test.cpp` : 3 cas de plus (notes, mesures, fichier).
+
+### 2. Decisions
+- **Un VST3 ne peut pas creer de clip dans Live** (aucune API) : le geste standard est de glisser un fichier MIDI depuis le plugin, comme Scaler ou Captain Chords. Live cree le clip a l'endroit du depot.
+- **Une bande native, pas un bouton dans la face** : un glisser vers Ableton doit partir d'une vue native (la WebView garde la souris). La fenetre passe donc a 1100 x 738.
+
+### 3. En suspens
+- Mika : essayer le glisser dans Ableton, sur une piste et dans l'Arrangement. Couper Arpeggiator pour jouer le clip.

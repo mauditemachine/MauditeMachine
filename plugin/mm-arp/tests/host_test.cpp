@@ -106,6 +106,33 @@ int main() {
             check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
             check(p.getParameters().size() == mmarp::kKnobs + 2, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
         }
+        // DRAG MIDI : l'arpege en clip (F#m D, 2 mesures, 1/16 : 16 pas par mesure, 2 silences sur 8 dans la suite)
+        {
+            int bars = 0;
+            const juce::MidiFile mf = p.arpMidi(1, bars);
+            const auto* tr = mf.getNumTracks() > 0 ? mf.getTrack(0) : nullptr;
+            int ons = 0, offs = 0, maxEnd = 0, firstNote = -1;
+            bool velOk = true;
+            if (tr)
+                for (const auto* ev : *tr) {
+                    if (ev->message.isNoteOn()) {
+                        if (firstNote < 0) firstNote = ev->message.getNoteNumber();
+                        ++ons;
+                        velOk = velOk && ev->message.getVelocity() >= 1;
+                    }
+                    if (ev->message.isNoteOff()) {
+                        ++offs;
+                        maxEnd = std::max(maxEnd, static_cast<int>(ev->message.getTimeStamp()));
+                    }
+                }
+            check(bars == 2 && ons > 20 && ons == offs && velOk && maxEnd <= 2 * 4 * 960, "DRAG MIDI : " + juce::String(ons).toStdString() + " notes sur " + juce::String(bars).toStdString() + " mesures, dans le clip");
+            int bars4 = 0;
+            const juce::MidiFile m4 = p.arpMidi(4, bars4);
+            check(bars4 == 8 && m4.getNumTracks() == 1 && m4.getTrack(0)->getNumEvents() > tr->getNumEvents() * 3, "DRAG MIDI x4 : la progression 4 fois");
+            const juce::File f = p.arpMidiFile(1);
+            check(f.existsAsFile() && f.getSize() > 100, "le fichier MIDI a glisser : " + f.getFileName().toStdString());
+            f.deleteFile();
+        }
         // STOP : la queue s'eteint (reverb comprise) sous -80 dB en 4 s
         h.playing = false;
         run(p, h, 48000 * 4, 512);

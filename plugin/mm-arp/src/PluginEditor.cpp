@@ -9,6 +9,9 @@ namespace {
 // La taille de la fenetre : les proportions de la face du MM-ARP (src/v4/plugin/arp)
 constexpr int kW = 1100;
 constexpr int kH = 704;
+// La bande sous la face (DRAG MIDI)
+constexpr int kStrip = 34;
+const juce::Colour kInk(0xff0b0b0c), kOrange(0xffff6a13), kGrey(0xff9a9a9a);
 
 // Les fichiers de la face (le zip de plugin/mm-arp/build-web), lus une fois.
 const std::map<juce::String, std::vector<std::byte>>& webFiles() {
@@ -113,17 +116,106 @@ std::optional<juce::WebBrowserComponent::Resource> MMArpEditor::resource(const j
 MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
-    setSize(kW, kH);
+    // La bande : DRAG MIDI (glisser sur une piste), la longueur, SAVE .MID
+    drag_.makeFile = [this] { return proc_.arpMidiFile(cycles_); };
+    drag_.status = [this](const juce::String& m) { setHint(m); };
+    addAndMakeVisible(drag_);
+    auto styleBtn = [](juce::TextButton& b) {
+        b.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1c1c1e));
+        b.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        b.setColour(juce::ComboBox::outlineColourId, juce::Colour(0xff3a3a3c));
+    };
+    styleBtn(lenBtn_);
+    styleBtn(saveMidBtn_);
+    lenBtn_.setButtonText("x1");
+    lenBtn_.setTooltip("La longueur du clip : la progression 1, 2 ou 4 fois");
+    lenBtn_.onClick = [this] {
+        cycles_ = cycles_ == 1 ? 2 : cycles_ == 2 ? 4 : 1;
+        lenBtn_.setButtonText("x" + juce::String(cycles_));
+    };
+    saveMidBtn_.setButtonText("SAVE .MID");
+    saveMidBtn_.onClick = [this] { saveMidi(); };
+    addAndMakeVisible(lenBtn_);
+    addAndMakeVisible(saveMidBtn_);
+    hint_.setColour(juce::Label::textColourId, kGrey);
+    hint_.setFont(juce::FontOptions(12.f));
+    addAndMakeVisible(hint_);
+    setHint("Glisse DRAG MIDI sur une piste ou un emplacement de clip : l'arpege devient un clip (coupe Arpeggiator pour ne pas doubler)");
+    setSize(kW, kH + kStrip);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
 
 MMArpEditor::~MMArpEditor() { stopTimer(); }
 
-void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(juce::Colour(0xff0b0b0c)); }
+void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 
 void MMArpEditor::resized() {
-    if (browser_) browser_->setBounds(getLocalBounds());
+    auto r = getLocalBounds();
+    auto strip = r.removeFromBottom(kStrip).reduced(6, 4);
+    if (browser_) browser_->setBounds(r);
+    drag_.setBounds(strip.removeFromLeft(150));
+    strip.removeFromLeft(6);
+    lenBtn_.setBounds(strip.removeFromLeft(44));
+    strip.removeFromLeft(6);
+    saveMidBtn_.setBounds(strip.removeFromLeft(90));
+    strip.removeFromLeft(10);
+    hint_.setBounds(strip);
+}
+
+void MMArpEditor::setHint(const juce::String& m) { hint_.setText(m, juce::dontSendNotification); }
+
+void MMArpEditor::saveMidi() {
+    int bars = 0;
+    const juce::MidiFile mf = proc_.arpMidi(cycles_, bars);
+    if (bars <= 0) {
+        setHint("Aucun accord : touche des pads pour faire une progression");
+        return;
+    }
+    const juce::File dir = juce::File::getSpecialLocation(juce::File::userMusicDirectory).getChildFile("Maudite Machine").getChildFile("MM-ARP Clips");
+    dir.createDirectory();
+    chooser_ = std::make_unique<juce::FileChooser>("Enregistrer le clip MIDI", dir.getChildFile("MM-ARP " + juce::String(bars) + " bars.mid"), "*.mid");
+    chooser_->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
+                          [this, mf](const juce::FileChooser& fc) {
+                              juce::File f = fc.getResult();
+                              if (f == juce::File()) return;
+                              if (!f.hasFileExtension("mid")) f = f.withFileExtension("mid");
+                              f.deleteFile();
+                              juce::FileOutputStream out(f);
+                              const bool ok = out.openedOk() && mf.writeTo(out, 1);
+                              setHint(ok ? "Clip MIDI enregistre : " + f.getFullPathName() : "Impossible d'ecrire " + f.getFullPathName());
+                          });
+}
+
+/* ---------------- DRAG MIDI ---------------- */
+
+void MMArpDragMidi::paint(juce::Graphics& g) {
+    const auto r = getLocalBounds().toFloat().reduced(0.5f);
+    const bool over = isMouseOver(true);
+    g.setColour(over ? kOrange : juce::Colour(0xff1c1c1e));
+    g.fillRoundedRectangle(r, 5.f);
+    g.setColour(kOrange);
+    g.drawRoundedRectangle(r, 5.f, 1.2f);
+    g.setColour(over ? kInk : juce::Colours::white);
+    g.setFont(juce::FontOptions(13.f, juce::Font::bold));
+    g.drawText(juce::String::fromUTF8("\xe2\x87\xa3 DRAG MIDI"), getLocalBounds(), juce::Justification::centred);
+}
+
+void MMArpDragMidi::mouseDrag(const juce::MouseEvent& e) {
+    if (dragging_ || e.getDistanceFromDragStart() < 4 || !makeFile) return;
+    dragging_ = true;
+    const juce::File f = makeFile();
+    if (!f.existsAsFile()) {
+        if (status) status("Aucun accord : touche des pads pour faire une progression");
+        return;
+    }
+    if (status) status("Depose sur une piste MIDI ou un emplacement de clip (" + f.getFileName() + ")");
+    performExternalDragDropOfFiles({f.getFullPathName()}, false, this);
+}
+
+void MMArpDragMidi::mouseUp(const juce::MouseEvent&) {
+    dragging_ = false;
+    repaint();
 }
 
 void MMArpEditor::timerCallback() {
