@@ -12,7 +12,7 @@ import { playhead } from '../../state/playhead';
 import { type RytmPageState } from '../../state/rytmPage';
 import { voices } from '../../state/voices';
 import { type TrackKey } from '../../audio/tracks';
-import { DT2_FACE, type Inst } from '../../theme';
+import { DT2_FACE, PLUGIN, type Inst } from '../../theme';
 import { FACE_PAGES, freeCells, pageSlots, type PageSlot } from '../../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../../rytm/pageView';
 import { fill } from '../../state/fill';
@@ -132,13 +132,14 @@ function blockMode(this: Screen, inst: TrackKey | null, lockStep: number, now: n
  * seul bloc sur un ecran noir, la grille disparaissait) : un cadre en
  * pointilles a peine marque, sauf la ou le panneau des verrous a pris la place.
  */
-function paintGhosts(this: Screen, slots: readonly PageSlot[], panel: PanelArea | null): void {
+function paintGhosts(this: Screen, slots: readonly PageSlot[], panel: PanelArea | null, took: ReadonlySet<string> | null = null): void {
   const M = MATRIX;
   const c = this.ctx;
   c.save();
   c.setLineDash([2.4, 2.2]);
   for (const f of freeCells(slots)) {
     if (panel && f.c >= panel.c0 && f.c < panel.c0 + panel.n && f.r >= panel.r0 && f.r < panel.r0 + panel.rows) continue;
+    if (took?.has(`${f.c},${f.r}`)) continue;
     this.roundRect(M.x0 + M.pitch * f.c + 0.5, M.rows[f.r] + 0.5, M.w - 1, M.h - 1, M.r, null, FRAME_DIM, 0.7);
   }
   c.restore();
@@ -310,6 +311,8 @@ function paintBlock(this: Screen, b: Block): void {
     r = { x0: bx + B.padX + 2, y0: top, x1: bx + bw - B.padX - 2, y1: by + bh - (TALL ? 7 : 5) };
   } else if (wide) r = { x0: bx + bw - B.padX - drawW, y0: by + B.draw.dy0, x1: bx + bw - B.padX, y1: by + B.draw.dy1 };
   else r = { x0: bx + B.draw.dx0, y0: by + B.draw.dy0, x1: bx + B.draw.dx1, y1: by + B.draw.dy1 };
+  // Le plugin (2026-11-09, scene/screen/pluginGfx.ts) : le dessin du reglage lui-meme (la forme d'onde, les effets, les LFO...)
+  if (PLUGIN && !strip && this.pluginGraph(r, b)) return;
   if (strip) {
     // La bande du pied (2026-10-27) : de la ligne d'unite au bas du bloc, cinq unites
     const sr: Rect = { x0: bx + B.padX, y0: by + bh - FACE_STRIP.up, x1: bx + bw - B.padX, y1: by + bh - FACE_STRIP.down };

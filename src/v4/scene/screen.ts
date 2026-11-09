@@ -162,6 +162,7 @@ import './screen/home';
 import './screen/head';
 import './screen/dials';
 import './screen/grid';
+import './screen/pluginGfx';
 import './screen/glyphs';
 import './screen/foot';
 import './screen/popups';

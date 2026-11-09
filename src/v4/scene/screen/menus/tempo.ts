@@ -10,6 +10,7 @@
  * la face V.5.3) garde sa course de 100 a 150.
  */
 
+import { IN_PLUGIN } from '../../../pluginMode';
 import { BPM_RANGE, SWING_MAX, clampSwing, pattern } from '../../../audio/pattern';
 import { resume } from '../../../audio/drums';
 import { lcdMessage } from '../../../state/lcdMessage';
@@ -22,7 +23,10 @@ const soon = (label: string): PageSlot => ({ label, target: null, scope: 'all', 
 const EMPTY: PageSlot = { label: '', target: null, scope: 'all', draw: 'bar' };
 
 /** Les huit potards du menu TEMPO (cahier 3.3, la DT2) ; le metronome a venir. */
-export const TEMPO_SLOTS: readonly PageSlot[] = [live('BPM', 'z:bpm' as SlotTarget, 'bar'), live('FINE', 'z:bpmf' as SlotTarget, 'bar'), EMPTY, live('SWNG', 'z:swing' as SlotTarget, 'swing'), soon('METR'), soon('SIG.'), soon('PRRL'), soon('VOL')];
+// Le plugin (2026-11-09) : la rangee du bas (METR SIG. PRRL VOL, a venir) laisse la place au grand swing (screen/pluginGfx.ts)
+export const TEMPO_SLOTS: readonly PageSlot[] = IN_PLUGIN
+  ? [live('BPM', 'z:bpm' as SlotTarget, 'bar'), live('FINE', 'z:bpmf' as SlotTarget, 'bar'), EMPTY, live('SWNG', 'z:swing' as SlotTarget, 'swing'), EMPTY, EMPTY, EMPTY, EMPTY]
+  : [live('BPM', 'z:bpm' as SlotTarget, 'bar'), live('FINE', 'z:bpmf' as SlotTarget, 'bar'), EMPTY, live('SWNG', 'z:swing' as SlotTarget, 'swing'), soon('METR'), soon('SIG.'), soon('PRRL'), soon('VOL')];
 
 /** Le tempo au dixieme, dans les bornes de la DT2 (30 a 300) ; l'ecran le dit. */
 function bpmSet(b: number): void {

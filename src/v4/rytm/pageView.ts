@@ -64,6 +64,8 @@ export type BlockMode = { kind: 'lock'; step: number } | { kind: 'flash'; step: 
 export interface Block {
   k: number;
   label: string;
+  /** la cible du reglage (t:tune, vpan...) : le plugin choisit son dessin (scene/screen/pluginGfx.ts) */
+  target?: string;
   /** la valeur en grand : 0 a 127, ou le nom du cran */
   text: string;
   /** la ligne d'unite (216 MS, -3.2 DB, STEP 05) */
@@ -226,6 +228,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   const b: Block = {
     k,
     label: slot.label,
+    ...(slot.target ? { target: slot.target } : {}),
     text: '--',
     unit: '',
     state: 'soon',

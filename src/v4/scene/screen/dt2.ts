@@ -34,6 +34,7 @@ import { voices } from '../../state/voices';
 import { SCREEN_PAGE, SCREEN_TITLE, cellsOf, screensOf, type PageSlot } from '../../rytm/pages';
 import { slotBlock, type BlockMode } from '../../rytm/pageView';
 import { type LcdState } from '../../state/lcd';
+import { PLUGIN } from '../../theme';
 import { BLACK, cellRect, FAINT, FAINT_TEXT, FRAME, HALF, INK, METER_MS, pmutesNow } from './consts';
 import type { Screen } from './core';
 import { openMenu, screenTrack } from './menus/open';
@@ -272,7 +273,11 @@ function paintGrid(screen: Screen, slots: readonly PageSlot[], inst: ReturnType<
   const ik = screen.infoKnob();
   if (ik >= 0 && blocks[ik] && blocks[ik].state !== 'empty') screen.infoMarks(blocks[ik].cell, ik);
   const panel = mode && mode.kind !== 'scene' ? screen.paintLockPanel(slots, mode.step, mode.kind === 'flash' ? mode.lock : undefined) : null;
-  screen.paintGhosts(slots, panel);
+  // Le plugin (2026-11-09, screen/pluginGfx.ts) : hors menu et hors P-LOCK, les cases libres font un grand dessin (le sample,
+  // la chaine des effets, les pas de la piste, le swing)
+  const panelOf = lockStep !== null ? sc : openMenu()?.id === 'tempo' ? 'tempo' : null;
+  const took = PLUGIN && panelOf && !panel ? screen.pluginPanel(panelOf, slots, blocks) : null;
+  screen.paintGhosts(slots, panel, took);
   screen.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
   screen.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
   screen.info.cells = blocks.map((b) => `${b.cell.c},${b.cell.r},${b.cell.w},${b.cell.h}`);

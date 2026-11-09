@@ -154,6 +154,16 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - `actions/locks.ts` stepLockRight, `ui/Hotspots.tsx` : un clic droit sur un pas (hors TRK) le met en P-LOCK garde, sans REC ; les potards y ecrivent leurs verrous ; clic droit encore, Echap : sortie ;
 - verifie dans Chromium : clic droit sur le pas 5, potard A : le coup du BD du pas 5 prend son propre son (TUNE +15, snd 1 dans le programme), le pas 5 jaune, LOCK a l'ecran, le bloc TUNE en negatif avec son P ; clic droit encore : P-LOCK OFF ; sur un pas vide, tourner un potard y pose le coup avec son verrou.
 
+7b. L'ecran (plugin seulement) :
+- `scene/screen/pluginGfx.ts` (nouveau) : un dessin noir et blanc par reglage a la place du petit potard generique :
+  - la vraie forme d'onde du sample de la piste dans STRT et LEN (les cretes du PCM decode, ce qui ne joue pas a peine) ;
+  - DIST (une onde qui sature), CHORUS (deux ondes), DELAY (les echos), REVERB (la queue), BIT (l'escalier), COMP (la courbe) ;
+  - TUNE (l'onde plus ou moins serree), FINE (une regle de cents), PAN (l'arc L-R), NOTE (une octave de clavier), BPM, MASTER, ENV ;
+  - les LFO (SPD, DEP, FADE, PHAS, LFO.T), uTIME (le coup decale sur la grille), TLEN (les pas joues) ;
+- les cases libres d'un ecran en grand dessin : le sample en grand avec START, la fin, sa duree (SRC 2/2), la chaine des effets de la piste (FX 2/2), les 16 pas de la piste et sa longueur (TRIG 2/2), le swing sur une mesure (TEMPO, la rangee METR SIG. PRRL VOL a venir retiree dans le plugin) ;
+- `screen/dt2.ts` paintGrid, `screen/grid.ts` paintBlock : les branchements ; `rytm/pageView.ts` : le bloc porte sa cible ;
+- verifie dans Chromium sur les 12 ecrans (captures).
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
