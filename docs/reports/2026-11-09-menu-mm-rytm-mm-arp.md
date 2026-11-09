@@ -19,3 +19,11 @@
 ## 4. Commandes utiles ajoutees
 
 - Aucune. Liens directs : `https://mauditemachine.com/?m=mm-rytm` et `https://mauditemachine.com/?m=mm-arp`.
+
+## Suite (meme jour) : les autres "Studio" retires
+
+- `src/v4/ui/Header.tsx` : pastille Studio retiree de "Under the hood" (`HOOD_LINKS`) ; bouton STUDIO retire du selecteur de machines de l'en-tete desktop (reste RYTM, ARP, DECKS).
+- `src/v4/ui/MachineDrawer.tsx` : entree MM-STUDIO / ALL THE MACHINES retiree du volet des machines.
+- `src/v4/ui/MenuSheet.tsx` : lien "How MM-STUDIO works" retire du pied du menu (la page /mm-studio/ reste en ligne pour le referencement).
+- `src/v4/midi/targets/nav.ts` : libelle MIDI "ALL THE MACHINES" (l'id `nav:all` ne change pas).
+- La vue d'ensemble reste accessible au logo et aux fleches gauche/droite. La section Studio (setup, cours, impression) reste sur /studio et sur la puce STUDIO de la carte quand la machine est ouverte (3D, non touchee).

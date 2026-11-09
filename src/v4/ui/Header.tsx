@@ -75,10 +75,10 @@ export function initialMenuOpen(): boolean {
   return true;
 }
 
+/** Under the hood. Plus de Studio (2026-11-09, Mika : "enlève aussi les autres studio") : la section reste sur /studio. */
 export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
   { id: 'goodies', label: 'Goodies' },
   { id: 'merch', label: 'Merch' },
-  { id: 'studio', label: 'Studio' },
 ];
 
 /**
@@ -201,7 +201,8 @@ const SHORT: Record<MachineId, { label: string; aria: string }> = {
 
 const HeaderMachines: React.FC<{ onPick?: () => void }> = ({ onPick }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  const items: readonly { id: Focus; label: string; aria: string }[] = [{ id: 'all', label: 'STUDIO', aria: 'MM-STUDIO, all the machines' }, ...MACHINES.map((id) => ({ id, ...SHORT[id] }))];
+  // Plus de bouton STUDIO (2026-11-09, Mika) : la vue d'ensemble reste au logo et aux fleches
+  const items: readonly { id: Focus; label: string; aria: string }[] = MACHINES.map((id) => ({ id, ...SHORT[id] }));
   return (
     <nav className="v4-hmachines" aria-label="Machines">
       {items.map((it) => (
