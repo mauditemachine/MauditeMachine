@@ -194,6 +194,15 @@ Demande de Mika : « je voudrais un bouton pour tout transferer directement la p
 - C++ de la fenetre : compile avec les en-tetes de JUCE (`-fsyntax-only`) ; le glisser vers Ableton se verifie sur le Mac.
 - **Build vert du lot 8** (run 42564463325, 05:01 UTC) ; 4 minutes plus tard, le workflow d'une autre branche (le MM-ARP, sans le garde-fou du lot 7e) a remis un MM-RYTM ancien dans `mm-rytm-latest` ; relance a la main (workflow_dispatch) : la release porte de nouveau 0e309b3 (05:15 UTC).
 
+### Lot 9, NEW et CLEAR, la release reservee (2026-11-09)
+
+Mika : « je veux un bouton CLEAR ou NEW preset vierge » ; puis « il est ou le nouveau design ?! » (il avait installe pendant que la release etait ecrasee par la branche du MM-ARP : le bon zip n'avait jamais ete telecharge).
+
+- `actions/patterns.ts` pluginNew (pattern vide, scenes vides, FX globaux a zero, STRETCH au centre, le kit de depart des 16 pistes : `kit16FromLegacy(defaultKit())`, aucun mute ni solo) et pluginClear (le pattern vide, les sons restent) ; une etape d'UNDO chacun ; `plugin/bridge.ts` : `mm_cmd`.
+- `src/PluginEditor.{h,cpp}` MidiBar : NEW et CLEAR, une boite de confirmation du plugin (AlertWindow, NEW / CLEAR = 1, CANCEL = 0), puis `mm_cmd` vers la face.
+- Verifie dans Chromium : un autre sample sur le BD, CLEAR : 0 coup, le sample reste ; Cmd+Z : les 25 coups reviennent ; NEW : 0 coup, BD 1, swing 0 ; Cmd+Z : tout revient (BD 5, swing, coups). C++ : compile avec les en-tetes de JUCE.
+- `.github/workflows/plugin.yml` : la release **mm-rytm**, que seule cette version du workflow ecrit (avec la garde plugin-time) ; mm-rytm-latest suit encore, au mieux. `update.sh` telecharge mm-rytm ; INSTALL et README donnent la nouvelle commande.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -227,6 +236,9 @@ Demande de Mika : « je voudrais un bouton pour tout transferer directement la p
 - **La velocite : le gain du pas x 127** : c'est ce que l'entree MIDI relit (velocite / 127 = le gain) ; HIGH donne 127, MID 89, LOW 51.
 - **PROB et les conditions : une realisation** : un clip MIDI d'un fichier ne porte pas de probabilite ; le cycle exporte est un tirage, le meme a chaque export (la graine du moteur).
 
+- **Une release reservee plutot que la PR vers main** : la PR protegerait les branches futures, pas les copies deja ecrites du workflow (le MM-ARP a ecrase mm-rytm-latest deux fois dans la nuit). mm-rytm n'est ecrite que par ce workflow ; c'est la meme publication que celle que Mika a acceptee (« vas-y pour la release »), a une autre adresse.
+- **NEW et CLEAR dans la barre native, avec une confirmation** : ce sont des gestes qui effacent ; la barre est toujours visible, la boite evite un clic de trop, et Cmd+Z reste la (une etape d'UNDO).
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -236,6 +248,7 @@ Demande de Mika : « je voudrais un bouton pour tout transferer directement la p
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 9) : la nouvelle commande (release mm-rytm), quitter Ableton, le rouvrir ; verifier la ligne Build ; essayer NEW et CLEAR.
 - Cote Mika (lot 8) : `update.sh`, puis glisser DRAG MIDI sur une piste MIDI (avec un Drum Rack, ou la piste du MM-RYTM en coupant son pattern) ; dire si la fenetre plus haute de 34 px lui va.
 - **La release et main** : tant que main n'a pas ce workflow, un push sur main ou sur une autre branche peut remettre un MM-RYTM ancien dans `mm-rytm-latest` ; `update.sh` affiche le build (commit, branche) : il doit dire claude/intelligent-ride-56tyeo. Le remede : fusionner cette branche dans main (une PR, a la demande de Mika).
 - Cote Mika (lot 7) : `update.sh`, puis : le P-LOCK au clic droit, l'ecran (SRC 2/2, FX 2/2, TRIG 2/2, TEMPO), la vue 3D penchee (dire si 16 deg est juste), l'editeur de sample d'OPEN (LISTEN joue la piste par le plugin).

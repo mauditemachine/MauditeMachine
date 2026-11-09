@@ -35,6 +35,7 @@ import { tracks, TRACK_KEYS, TRACK_NAMES, typedFamily, type TrackKey } from '../
 import { KIT_FAMILIES } from '../audio/kitlaw';
 import { setPluginSamples } from '../audio/samples';
 import { fileImport } from '../actions/browser';
+import { pluginClear, pluginNew } from '../actions/patterns';
 import { lcdMessage } from '../state/lcdMessage';
 import { decayTau, START_MAX } from '../audio/voicelaw';
 import type { Stage } from '../scene/renderer';
@@ -620,6 +621,12 @@ export const bridge = {
       lcdMessage.show(`${TRACK_NAMES[i]} : CHOOSE FILES ON THE MAC`, 2400);
       send('mm_import', { family: KIT_FAMILIES.indexOf(typedFamily(i)), track: i });
     };
+    // NEW et CLEAR de la barre sous la machine (2026-11-09, confirmes par le plugin) : un preset vierge, le pattern vide
+    backend()?.addEventListener('mm_cmd', (o: unknown) => {
+      const cmd = (o as { cmd?: unknown } | null)?.cmd;
+      if (cmd === 'new') pluginNew();
+      else if (cmd === 'clear') pluginClear();
+    });
     // Le dossier dans le Finder (une famille : son sous-dossier) et sa relecture (2026-11-09 : SAMPLES, OPEN)
     fileImport.reveal = (family) => send('mm_reveal', { family: family ?? '' });
     fileImport.rescan = () => send('mm_rescan', {});

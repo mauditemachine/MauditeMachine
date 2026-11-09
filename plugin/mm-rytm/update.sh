@@ -1,15 +1,15 @@
 #!/bin/bash
 # MM-RYTM : installe le dernier build par-dessus le plugin en place (2026-11-08, Mika : "tu peux ecraser
-# /Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3", puis "vas-y pour la release"). Le build : la release mm-rytm-latest du
+# /Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3", puis "vas-y pour la release"). Le build : la release mm-rytm du
 # depot (le CI la remplace a chaque build vert), telechargee par curl, donc sans quarantaine ; ou le zip (ou le dossier)
 # donne en argument, l'artefact telecharge a la main. La quarantaine est retiree et la signature ad hoc refaite sur
 # place, comme la commande d'INSTALL.md (sans passer par Gatekeeper).
 #
-#   curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-latest/update.sh | bash
+#   curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm/update.sh | bash
 #   bash update.sh ~/Downloads/MM-RYTM-macOS.zip
 set -euo pipefail
 
-URL="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-latest/MM-RYTM-macOS.zip"
+URL="https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm/MM-RYTM-macOS.zip"
 SYS="/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3"
 USR="$HOME/Library/Audio/Plug-Ins/VST3/MM-RYTM.vst3"
 

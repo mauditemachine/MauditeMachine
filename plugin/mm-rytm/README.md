@@ -42,6 +42,7 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | La 3D du plugin (2026-11-09) | camera penchee de 16 deg, champ de 20 deg (`theme.ts` PLUGIN_VIEW) ; touches, pas et potards plus hauts (`rytm/faceplate.ts` RELIEF) ; les clics dans l'ecran par le rayon de la camera (`renderer.ts` screenUV) |
 | OPEN (2026-11-09) | l'editeur de sample et les reglages, par-dessus la face (`src/v4/plugin/OpenPanel.tsx`) : SAMPLE (la forme d'onde du sample de la piste, START et END a la souris, zoom, REVERSE, l'enveloppe AMP dessinee, le sample d'avant ou d'apres, LISTEN, IMPORT ; les reglages SAMPLE, AMP, FILTER) ; SETTINGS (STEPS, BPM, SWING, MASTER, PERSONALIZE, le dossier, l'aide) ; CLOSE, Echap ou OPEN le ferment. FUNC + OPEN : + Sample ; FUNC + SOUNDS : Samples |
 | DRAG MIDI (2026-11-09) | la barre native sous la face (`src/PluginEditor.cpp` MidiBar) : le pattern qui joue glisse vers Ableton en fichier MIDI (format 0, 960 ticks), rejoue par `dsp/MidiExport.cpp` comme le moteur (velocites, swing, uTIME, LEN, RTRG, TLEN, conditions et PROB tirees, mute, lock trigs sans note), un cycle entier en mesures ; les notes sur les 16 pads d'un Drum Rack (C1 a D#2, GM pour les huit premieres), la meme table pour l'entree MIDI ; un clic : SAVE dans ~/Music/MM-RYTM MIDI |
+| NEW et CLEAR (2026-11-09) | dans la barre native sous la face, confirmes par une boite du plugin, faits par la face (`mm_cmd`, `actions/patterns.ts` pluginNew, pluginClear) : un preset vierge (pattern vide, kit de depart des 16 pistes, FX globaux a zero, sans scene ni mute) ou le pattern vide (les sons restent) ; une etape d'UNDO (Cmd+Z) |
 | SONG (hors des clips d'Ableton), multi-out | a venir |
 
 Ecarts connus des LFO : en mode FRE, le LFO suit la position du morceau d'Ableton (au site : depuis PLAY ; identique quand on lance au debut, et un export donne le meme son ou qu'il commence) ; TONE mene par un LFO passe par le TONE de la tranche (comme les verrous de TONE du plugin), pas par un nouveau calcul du coup.
@@ -76,13 +77,13 @@ npm ci && npm run plugin:web
 cmake -S plugin/mm-rytm -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j --target MM_RYTM_VST3
 ```
 
-Mettre a jour le plugin installe, sur le Mac : `update.sh` telecharge le dernier build (la release `mm-rytm-latest`, remplacee par le CI a chaque build vert), l'ecrase dans `/Library/Audio/Plug-Ins/VST3` et le re-signe (voir `INSTALL.md`) :
+Mettre a jour le plugin installe, sur le Mac : `update.sh` telecharge le dernier build (la release `mm-rytm`, remplacee par le CI a chaque build vert ; `mm-rytm-latest` peut etre ecrasee par une autre branche), l'ecrase dans `/Library/Audio/Plug-Ins/VST3` et le re-signe (voir `INSTALL.md`) :
 
 ```bash
-curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-latest/update.sh | bash
+curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm/update.sh | bash
 ```
 
-Sinon, GitHub Actions le construit a chaque push qui touche `plugin/`, `src/v4/` ou les samples (workflow `plugin.yml`), en artefact et dans la release `mm-rytm-latest` : voir `INSTALL.md`.
+Sinon, GitHub Actions le construit a chaque push qui touche `plugin/`, `src/v4/` ou les samples (workflow `plugin.yml`), en artefact et dans les releases `mm-rytm` et `mm-rytm-latest` : voir `INSTALL.md`.
 
 ## Regles
 

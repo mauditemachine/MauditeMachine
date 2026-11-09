@@ -16,6 +16,8 @@ class MidiBar final : public juce::Component, private juce::Timer {
 public:
     static constexpr int kHeight = 34;
     explicit MidiBar(MMRytmProcessor& p);
+    // NEW et CLEAR (2026-11-09, Mika : "je veux un bouton CLEAR ou NEW preset vierge") : confirmes ici, faits par la face
+    std::function<void(const juce::String&)> onCommand;
     ~MidiBar() override;
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -32,12 +34,13 @@ private:
     juce::File writeFile(bool keep);
 
     MMRytmProcessor& proc_;
-    juce::Rectangle<int> drag_, save_;
+    void ask(const juce::String& cmd);
+    juce::Rectangle<int> drag_, save_, new_, clear_;
     juce::String info_ = "the playing pattern";
     int ver_ = -1;
     int slot_ = -2;
     int notes_ = 0;
-    bool hotDrag_ = false, hotSave_ = false, dragging_ = false, downOnDrag_ = false;
+    bool hotDrag_ = false, hotSave_ = false, hotNew_ = false, hotClear_ = false, dragging_ = false, downOnDrag_ = false;
     juce::String flash_;
     double flashUntil_ = 0;
 };

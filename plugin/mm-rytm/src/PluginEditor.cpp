@@ -170,6 +170,11 @@ MMRytmEditor::MMRytmEditor(MMRytmProcessor& p) : AudioProcessorEditor(&p), proc_
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
     midiBar_ = std::make_unique<MidiBar>(p);
+    midiBar_->onCommand = [this](const juce::String& cmd) {
+        auto* o = new juce::DynamicObject();
+        o->setProperty("cmd", cmd);
+        browser_->emitEventIfBrowserIsVisible("mm_cmd", juce::var(o));
+    };
     addAndMakeVisible(*midiBar_);
     setSize(kW, kH + MidiBar::kHeight);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
@@ -204,6 +209,34 @@ void MidiBar::resized() {
     auto r = getLocalBounds().reduced(8, 5);
     drag_ = r.removeFromLeft(150);
     save_ = r.removeFromRight(104);
+    r.removeFromRight(6);
+    clear_ = r.removeFromRight(78);
+    r.removeFromRight(6);
+    new_ = r.removeFromRight(78);
+}
+
+void MidiBar::ask(const juce::String& cmd) {
+    const bool isNew = cmd == "new";
+    const juce::String title = isNew ? "NEW: a blank preset?" : "CLEAR the pattern?";
+    const juce::String text = isNew ? "The playing pattern starts from zero: no steps, the 16 tracks on the first sample of their type with their start settings, "
+                                      "the global FX off, no scene, no mute.\n\nCmd+Z in the machine undoes it."
+                                    : "The steps, their P-LOCKs and the trig settings of the pattern go away; the sounds, the FX and the scenes stay.\n\nCmd+Z in "
+                                      "the machine undoes it.";
+    juce::Component::SafePointer<MidiBar> safe(this);
+    juce::AlertWindow::showAsync(juce::MessageBoxOptions()
+                                     .withIconType(juce::MessageBoxIconType::QuestionIcon)
+                                     .withTitle(title)
+                                     .withMessage(text)
+                                     .withButton(isNew ? "NEW" : "CLEAR")
+                                     .withButton("CANCEL")
+                                     .withAssociatedComponent(this),
+                                 [safe, cmd](int result) {
+                                     if (!safe || result != 1) return;
+                                     if (safe->onCommand) safe->onCommand(cmd);
+                                     safe->flash_ = cmd == "new" ? "NEW: blank preset (Cmd+Z in the machine: undo)" : "CLEARED: the steps of the pattern (Cmd+Z in the machine: undo)";
+                                     safe->flashUntil_ = juce::Time::getMillisecondCounterHiRes() + 3000;
+                                     safe->repaint();
+                                 });
 }
 
 void MidiBar::refresh(bool force) {
@@ -278,8 +311,18 @@ void MidiBar::paint(juce::Graphics& g) {
     g.setColour(can ? kBone : kBone.withAlpha(0.4f));
     g.setFont(juce::Font(juce::FontOptions(12.f, juce::Font::bold)));
     g.drawText("SAVE .MID", save_, juce::Justification::centred);
+    // NEW et CLEAR : des touches sobres, toujours actives
+    for (const auto& [rc, word, hotK] : {std::tuple<juce::Rectangle<int>, const char*, bool>{new_, "NEW", hotNew_}, {clear_, "CLEAR", hotClear_}}) {
+        const auto rf = rc.toFloat();
+        g.setColour(kBone.withAlpha(hotK ? 0.14f : 0.05f));
+        g.fillRoundedRectangle(rf, 6.f);
+        g.setColour(kBone.withAlpha(0.35f));
+        g.drawRoundedRectangle(rf.reduced(0.5f), 6.f, 1.f);
+        g.setColour(kBone);
+        g.drawText(word, rc, juce::Justification::centred);
+    }
     // Ce qui part : le pattern, sa longueur, ses notes (ou le message du moment)
-    auto mid = getLocalBounds().reduced(8, 0).withTrimmedLeft(drag_.getRight() + 6).withTrimmedRight(getWidth() - save_.getX() + 6);
+    auto mid = getLocalBounds().reduced(8, 0).withTrimmedLeft(drag_.getRight() + 6).withTrimmedRight(getWidth() - new_.getX() + 6);
     g.setColour(flash_.isNotEmpty() ? kOrange : kBone.withAlpha(0.75f));
     g.setFont(juce::Font(juce::FontOptions(12.5f, juce::Font::plain)));
     g.drawFittedText(flash_.isNotEmpty() ? flash_ : info_, mid, juce::Justification::centredLeft, 1, 0.9f);
@@ -288,17 +331,21 @@ void MidiBar::paint(juce::Graphics& g) {
 void MidiBar::mouseMove(const juce::MouseEvent& e) {
     const bool a = drag_.contains(e.getPosition());
     const bool b = save_.contains(e.getPosition());
-    if (a != hotDrag_ || b != hotSave_) {
+    const bool c = new_.contains(e.getPosition());
+    const bool d = clear_.contains(e.getPosition());
+    if (a != hotDrag_ || b != hotSave_ || c != hotNew_ || d != hotClear_) {
         hotDrag_ = a;
         hotSave_ = b;
-        setMouseCursor(a && notes_ > 0 ? juce::MouseCursor::DraggingHandCursor : b && notes_ > 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+        hotNew_ = c;
+        hotClear_ = d;
+        setMouseCursor(a && notes_ > 0 ? juce::MouseCursor::DraggingHandCursor : (b && notes_ > 0) || c || d ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
         if (a || b) refresh(false);
         repaint();
     }
 }
 
 void MidiBar::mouseExit(const juce::MouseEvent&) {
-    hotDrag_ = hotSave_ = false;
+    hotDrag_ = hotSave_ = hotNew_ = hotClear_ = false;
     setMouseCursor(juce::MouseCursor::NormalCursor);
     repaint();
 }
@@ -331,6 +378,14 @@ void MidiBar::mouseUp(const juce::MouseEvent& e) {
     const bool wasDrag = e.getDistanceFromDragStart() >= 5;
     downOnDrag_ = false;
     if (wasDrag) return;
+    if (new_.contains(e.getPosition())) {
+        ask("new");
+        return;
+    }
+    if (clear_.contains(e.getPosition())) {
+        ask("clear");
+        return;
+    }
     if (save_.contains(e.getPosition()) || drag_.contains(e.getPosition())) {
         // Un clic (DRAG MIDI ou SAVE .MID) : le fichier garde dans ~/Music/MM-RYTM MIDI, montre dans le Finder
         const juce::File f = writeFile(true);

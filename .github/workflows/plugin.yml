@@ -84,23 +84,27 @@ jobs:
       # 2026-11-08 (Mika : "vas-y pour la release") : le dernier build aussi en release mm-rytm-latest, a une adresse fixe
       # sans compte GitHub ; plugin/mm-rytm/update.sh (publie avec) le telecharge et l'installe par-dessus l'ancien. La
       # release suit le dernier build vert : ses fichiers sont remplaces, son etiquette avance au commit construit.
-      - name: Publier le dernier build (release mm-rytm-latest)
+      # 2026-11-09 : la release mm-rytm, que seul ce workflow (cette version, avec la garde) ecrit : les copies plus anciennes de
+      # ce fichier sur d'autres branches (le site, le MM-ARP) ecrasaient mm-rytm-latest avec un MM-RYTM ancien. update.sh
+      # telecharge mm-rytm ; mm-rytm-latest suit encore, au mieux.
+      - name: Publier le dernier build (releases mm-rytm et mm-rytm-latest)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          # 2026-11-09 : d'autres branches (le site, le MM-ARP) font aussi tourner ce workflow avec un plugin plus ancien ;
-          # la release ne prend un build que si le plugin y est au moins aussi recent (la date du dernier commit qui touche
+          # La release ne prend un build que si son plugin est au moins aussi recent (la date du dernier commit qui touche
           # plugin/mm-rytm ou src/v4/plugin, gardee dans ses notes : plugin-time)
           T=$(git log -1 --format=%ct -- plugin/mm-rytm src/v4/plugin)
-          CUR=$(gh release view mm-rytm-latest --json body -q .body 2>/dev/null | sed -n 's/.*plugin-time \([0-9]*\).*/\1/p')
-          if [ -n "$CUR" ] && [ -n "$T" ] && [ "$T" -lt "$CUR" ]; then
-            echo "La release a un plugin plus recent (plugin-time $CUR > $T) : pas de publication."
-            exit 0
-          fi
-          if ! gh release view mm-rytm-latest >/dev/null 2>&1; then
-            gh release create mm-rytm-latest --prerelease --target "$GITHUB_SHA" --title "MM-RYTM (dernier build)" --notes "Le VST3 macOS du dernier build."
-          fi
-          gh release upload mm-rytm-latest MM-RYTM-macOS.zip plugin/mm-rytm/update.sh --clobber
-          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-rytm-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
-          gh release edit mm-rytm-latest --notes "MM-RYTM, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME} (plugin-time ${T}). Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-rytm-latest/update.sh | bash"
+          for TAG in mm-rytm mm-rytm-latest; do
+            CUR=$(gh release view "$TAG" --json body -q .body 2>/dev/null | sed -n 's/.*plugin-time \([0-9]*\).*/\1/p')
+            if [ -n "$CUR" ] && [ -n "$T" ] && [ "$T" -lt "$CUR" ]; then
+              echo "$TAG a un plugin plus recent (plugin-time $CUR > $T) : pas de publication."
+              continue
+            fi
+            if ! gh release view "$TAG" >/dev/null 2>&1; then
+              gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "MM-RYTM (dernier build)" --notes "Le VST3 macOS du dernier build."
+            fi
+            gh release upload "$TAG" MM-RYTM-macOS.zip plugin/mm-rytm/update.sh --clobber
+            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$TAG" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+            gh release edit "$TAG" --notes "MM-RYTM, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME} (plugin-time ${T}). Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-rytm/update.sh | bash"
+          done

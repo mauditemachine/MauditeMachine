@@ -23,6 +23,10 @@ import { st } from './state';
 import { SCENE_WORD } from './internal/scenes';
 import { randomVoiceSounds } from './internal/patterns';
 import { rytmLockClear } from './locks';
+import { kit16FromLegacy, tracks } from '../audio/tracks';
+import { defaultKit } from '../audio/kitlaw';
+import { parseVoices } from '../audio/voicelaw';
+import { voices } from '../state/voices';
 
 /* ---------------- les patterns du MM-RYTM (EDIT, 2026-10-05) ---------------- */
 
@@ -142,6 +146,39 @@ export function clearPattern(stage: Stage | null = null): void {
   ) as typeof k.layer;
   kit.replace({ ...k, knob: { ...KIT_DEFAULT.knob }, sample, layer });
   lcdMessage.show(hadScenes ? 'CLEARED · VOICES RESET · FX OFF · SCENES EMPTY' : 'CLEARED · VOICES RESET · FX OFF');
+}
+
+/**
+ * Le plugin (2026-11-09, Mika : "je veux un bouton CLEAR ou NEW preset vierge"), les boutons de la barre sous la machine
+ * (plugin/mm-rytm src/PluginEditor.cpp, confirmes la-bas) ; une etape d'UNDO chacun (Cmd+Z), la lecture continue.
+ * CLEAR : le pattern se vide (ses pas, leurs verrous, les reglages de trig), les sons, les FX et les scenes restent.
+ */
+export function pluginClear(): void {
+  undo.boundary('mm808', 'step');
+  resume();
+  rytmLock.leave();
+  pattern.clear();
+  lcdMessage.show(`${slotName(patterns.get().cur)} CLEARED · SOUNDS KEPT · CMD+Z: UNDO`, 2200);
+}
+
+/**
+ * NEW : un preset vierge sur le pattern courant : aucun pas, les 16 pistes sur le premier sample de leur type avec leurs
+ * reglages de depart (niveaux, enveloppes, filtres, LFO, effets de piste), les FX globaux a zero (SWING droit, STRETCH au
+ * centre), aucune scene, aucun mute.
+ */
+export function pluginNew(): void {
+  undo.boundary('mm808', 'step');
+  resume();
+  rytmLock.leave();
+  sceneCtl.cancel();
+  pattern.clear();
+  pattern.scenes.replace(NO_SCENES);
+  pattern.fx.set({ drive: 0, chorus: 0, delay: 0, reverb: 0, swing: 0, bits: 0, comp: 0 });
+  setStretch(0);
+  tracks.replace(kit16FromLegacy(defaultKit(), parseVoices(null)));
+  voices.clearMutes();
+  voices.clearSolo();
+  lcdMessage.show(`${slotName(patterns.get().cur)} NEW · EMPTY, FIRST SOUNDS, FX OFF · CMD+Z: UNDO`, 2600);
 }
 
 /** Le dernier style tire par RANDOM : le suivant en change. */
