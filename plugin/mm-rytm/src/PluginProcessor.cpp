@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 
+#include "MidiExport.h"
 #include "PluginEditor.h"
 #include "SampleBank.h"
 
@@ -7,20 +8,9 @@
 
 namespace {
 
-// GM : la note MIDI d'entree -> la piste (-1 : ignoree). Les huit premieres pistes du site, dans l'ordre BD SD CH OH CP TOM HT CY.
-int trackOfNote(int note) {
-    switch (note) {
-        case 35: case 36: return 0;
-        case 38: case 40: return 1;
-        case 42: case 44: return 2;
-        case 46: return 3;
-        case 39: return 4;
-        case 41: case 43: case 45: return 5;
-        case 47: case 48: case 50: return 6;
-        case 49: case 51: case 52: case 55: case 57: return 7;
-        default: return -1;
-    }
-}
+// La note MIDI d'entree -> la piste (-1 : ignoree) : les 16 pads d'un Drum Rack (C1 a D#2), les huit premieres pistes sur
+// leurs notes GM ; la meme table que l'export MIDI (dsp/MidiExport.h kTrackNote, 2026-11-09) : un clip exporte rejoue le plugin.
+int trackOfNote(int note) { return mm::trackOfMidiNote(note); }
 
 float dbToGain(float db) { return db <= -59.9f ? 0.f : juce::Decibels::decibelsToGain(db); }
 
@@ -418,7 +408,41 @@ void MMRytmProcessor::faceProgram(const juce::String& json) {
         programJson_ = json;
         pendingProgram_ = std::move(p);
     }
+    progVer_.fetch_add(1, std::memory_order_relaxed);
     renderer_->wake.signal();
+}
+
+// L'export MIDI (2026-11-09) : le pattern que joue le moteur (son emplacement, celui de la face ou l'un des autres du
+// programme), rejoue par dsp/MidiExport.cpp ; un emplacement vide : aucune note.
+MMRytmProcessor::MidiExport MMRytmProcessor::exportMidi() const {
+    MidiExport out;
+    juce::String json;
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        json = programJson_;
+    }
+    mm::Program p;
+    if (json.isEmpty() || !parseProgram(json, p)) return out;
+    const int playing = engine_.fbPat.load();
+    const mm::Program* use = &p;
+    if (playing >= 0 && playing != p.slot) {
+        use = nullptr;
+        for (const auto& q : p.pats)
+            if (q.slot == playing) use = &q;
+    }
+    out.slot = use ? use->slot : (playing >= 0 ? playing : p.slot);
+    out.name = "MM-RYTM " + juce::String(mm::slotName(out.slot));
+    if (!use) {
+        out.ok = true;
+        return out;
+    }
+    const auto r = mm::exportPattern(*use);
+    out.ok = true;
+    out.steps = r.steps;
+    out.notes = static_cast<int>(r.notes.size());
+    out.capped = r.capped;
+    out.bytes = mm::writeSmf(r, p.bpm, out.name.toStdString());
+    return out;
 }
 
 void MMRytmProcessor::faceState(const juce::String& lsJson) {

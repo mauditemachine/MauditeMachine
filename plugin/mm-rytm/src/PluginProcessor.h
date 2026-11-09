@@ -53,6 +53,19 @@ public:
     // L'etat a rendre a la face a son ouverture (les cles mm.v4.* du site), "" sans etat.
     juce::String faceInitState() const;
 
+    // L'export MIDI (2026-11-09) : le pattern qui joue, en fichier MIDI (format 0) ; programVersion monte a chaque programme
+    struct MidiExport {
+        bool ok = false;
+        int slot = 0;
+        juce::String name;   // MM-RYTM A01
+        long steps = 16;     // la longueur du clip, en pas
+        int notes = 0;
+        bool capped = false;
+        std::vector<uint8_t> bytes;
+    };
+    MidiExport exportMidi() const;
+    int programVersion() const { return progVer_.load(std::memory_order_relaxed); }
+
     struct Feedback {
         bool playing;
         bool internal;
@@ -81,6 +94,7 @@ private:
     std::atomic<bool> runInternal_{false};
     std::atomic<bool> internalPlaying_{false};
     std::atomic<double> progBpm_{130};
+    std::atomic<int> progVer_{0};
     double internalPpq_ = 0;
     std::atomic<float>* master_ = nullptr;
     std::atomic<float>* xfade_ = nullptr;

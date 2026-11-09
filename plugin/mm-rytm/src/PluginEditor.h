@@ -6,6 +6,42 @@
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
+/**
+ * La barre MIDI (2026-11-09, Mika : "un bouton pour tout transferer directement la pattern qui joue dans un clip MIDI, avec
+ * les bonnes velocites, comme un Drum Rack") : sous la face, un composant JUCE natif (un glisser vers Ableton ne part
+ * surement que d'un composant natif, pas de la WebView). DRAG MIDI : le pattern qui joue, glisse sur une piste MIDI ou un Drum
+ * Rack, devient un clip ; SAVE .MID : le fichier dans ~/Music/MM-RYTM MIDI, montre dans le Finder.
+ */
+class MidiBar final : public juce::Component, private juce::Timer {
+public:
+    static constexpr int kHeight = 34;
+    explicit MidiBar(MMRytmProcessor& p);
+    ~MidiBar() override;
+    void paint(juce::Graphics&) override;
+    void resized() override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseUp(const juce::MouseEvent&) override;
+
+private:
+    void timerCallback() override;
+    void refresh(bool force);
+    // Le fichier du pattern qui joue : dans le dossier temporaire (le glisser) ou dans ~/Music/MM-RYTM MIDI (SAVE) ; nul : rien
+    juce::File writeFile(bool keep);
+
+    MMRytmProcessor& proc_;
+    juce::Rectangle<int> drag_, save_;
+    juce::String info_ = "the playing pattern";
+    int ver_ = -1;
+    int slot_ = -2;
+    int notes_ = 0;
+    bool hotDrag_ = false, hotSave_ = false, dragging_ = false, downOnDrag_ = false;
+    juce::String flash_;
+    double flashUntil_ = 0;
+};
+
 class MMRytmEditor final : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     explicit MMRytmEditor(MMRytmProcessor&);
@@ -32,6 +68,7 @@ private:
 
     MMRytmProcessor& proc_;
     std::unique_ptr<Browser> browser_;
+    std::unique_ptr<MidiBar> midiBar_;
     std::unique_ptr<juce::FileChooser> chooser_;
     int lastSeq_ = -1;
     bool lastPlaying_ = false;

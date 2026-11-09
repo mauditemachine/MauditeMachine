@@ -1,6 +1,8 @@
 // Tests du moteur temps reel, sans hote ni carte son : tout se lit dans les buffers (jamais de lecture audio).
 #include "../dsp/Engine.h"
+#include "../dsp/MidiExport.h"
 
+#include <array>
 #include <cmath>
 #include <functional>
 #include <cstdio>
@@ -810,6 +812,149 @@ int main() {
             ok = ok && (want ? at(st) > 0.1 : at(st) < 1e-6);
         }
         CHECK(ok, "TLEN : une piste de 3 pas boucle sur 3 pas a travers le pattern de 16 (polymetrie)");
+    }
+
+    // ---------------- l'export MIDI (la pattern qui joue en clip) ----------------
+    {
+        auto hitAt = [](int g, float vel) {
+            mm::ProgHit h;
+            h.g = g;
+            h.vel = vel;
+            h.snd = 0;
+            return h;
+        };
+        auto notesOf = [](const mm::ExportResult& r, int note) {
+            std::vector<long> out;
+            for (const auto& n : r.notes)
+                if (n.note == note) out.push_back(n.tick);
+            return out;
+        };
+        // Les notes : BD sur les noires, SD aux pas 4 et 12 a mi-velocite ; une mesure, les velocites justes
+        mm::Program p;
+        p.len = 16;
+        p.tracks[0].hits = {hitAt(0, 1.f), hitAt(4, 1.f), hitAt(8, 1.f), hitAt(12, 1.f)};
+        p.tracks[1].hits = {hitAt(4, 0.5f), hitAt(12, 0.5f)};
+        auto r = mm::exportPattern(p);
+        bool ok = r.steps == 16 && r.notes.size() == 6 && notesOf(r, 36) == std::vector<long>{0, 960, 1920, 2880} && notesOf(r, 38) == std::vector<long>{960, 2880};
+        for (const auto& n : r.notes) ok = ok && n.vel == (n.note == 36 ? 127 : 64) && n.len == 240;
+        CHECK(ok, "MIDI : BD sur les noires (note 36, velocite 127), SD aux pas 5 et 13 (note 38, velocite 64), une mesure, des notes d'un pas");
+
+        // Le swing (les pas impairs en retard) et uTIME (le pas 1 en avance : a la fin du clip)
+        mm::Program q;
+        q.len = 16;
+        q.swing = 0.5;
+        mm::ProgHit early = hitAt(0, 1.f);
+        early.shift = -0.25;
+        q.tracks[2].hits = {early, hitAt(1, 1.f), hitAt(2, 1.f)};
+        r = mm::exportPattern(q);
+        CHECK(notesOf(r, 42) == (std::vector<long>{240 + 120, 480, 3840 - 60}), "MIDI : le swing retarde les pas impairs, uTIME avance le premier pas a la fin du clip");
+
+        // TLEN : une piste de 3 pas dans un pattern de 16 : 3 mesures (48 pas), 16 notes
+        mm::Program t3;
+        t3.len = 16;
+        t3.tracks[2].hits = {hitAt(0, 1.f)};
+        t3.tracks[2].tlen = 3;
+        t3.tracks[0].hits = {hitAt(0, 1.f)};
+        r = mm::exportPattern(t3);
+        auto ch = notesOf(r, 42);
+        ok = r.steps == 48 && ch.size() == 16;
+        for (size_t i = 0; i < ch.size(); ++i) ok = ok && ch[i] == static_cast<long>(i) * 3 * 240;
+        CHECK(ok && notesOf(r, 36).size() == 3, "MIDI : TLEN 3 dans 16 pas : un clip de 3 mesures, la piste sur ses 3 pas");
+
+        // A:B : 1:2 ne joue qu'un passage sur deux : 2 mesures, la note dans la premiere ; 2:2 dans la seconde
+        mm::Program ab;
+        ab.len = 16;
+        mm::ProgHit c1 = hitAt(0, 1.f);
+        c1.ck = 6;
+        c1.ca = 1;
+        c1.cb = 2;
+        mm::ProgHit c2 = hitAt(0, 1.f);
+        c2.ck = 6;
+        c2.ca = 2;
+        c2.cb = 2;
+        ab.tracks[0].hits = {c1};
+        ab.tracks[1].hits = {c2};
+        r = mm::exportPattern(ab);
+        CHECK(r.steps == 32 && notesOf(r, 36) == std::vector<long>{0} && notesOf(r, 38) == std::vector<long>{3840}, "MIDI : A:B 1:2 et 2:2, deux mesures, chaque note dans son passage");
+
+        // RTRG : un pas de 2 repetitions par pas (RATE 1/2 pas), RLEN 2 pas, VFAD -64 : 4 notes qui descendent
+        mm::Program rt;
+        rt.len = 16;
+        mm::ProgHit rh = hitAt(0, 1.f);
+        rh.rtrg = true;
+        rh.every = 0.5;
+        rh.rlen = 2;
+        rh.vfad = -64;
+        rt.tracks[3].hits = {rh};
+        r = mm::exportPattern(rt);
+        auto oh = notesOf(r, 46);
+        ok = oh == (std::vector<long>{0, 120, 240, 360});
+        int lastVel = 128;
+        for (size_t k = 0; k < r.notes.size(); ++k) {
+            const auto& n = r.notes[k];
+            ok = ok && n.vel < lastVel && n.len == (k + 1 < r.notes.size() ? 119 : 240);
+            lastVel = n.vel;
+        }
+        CHECK(ok, "MIDI : RTRG, 4 repetitions qui descendent (VFAD), sans chevauchement");
+
+        // Le mute, le lock trig, LEN ; la piste 16 sur son pad (D#2, 51)
+        mm::Program m;
+        m.len = 16;
+        m.tracks[0].hits = {hitAt(0, 1.f)};
+        m.tracks[0].plays = false;
+        mm::ProgHit lt = hitAt(4, 1.f);
+        lt.lt = true;
+        m.tracks[1].hits = {lt};
+        mm::ProgHit ln = hitAt(8, 0.8f);
+        ln.len = 2;
+        m.tracks[15].hits = {ln};
+        r = mm::exportPattern(m);
+        CHECK(r.notes.size() == 1 && r.notes[0].note == 51 && r.notes[0].tick == 1920 && r.notes[0].len == 480 && r.notes[0].vel == 102, "MIDI : une piste coupee et un lock trig sans note, LEN 2 pas, CY2 sur D#2 (51)");
+
+        // La table des notes : 16 pistes, 16 pads de C1 a D#2, chacun une fois ; l'entree MIDI du plugin les relit
+        bool table = true;
+        std::array<int, 128> seen{};
+        for (int k = 0; k < mm::kProgTracks; ++k) {
+            const int nn = mm::kTrackNote[static_cast<size_t>(k)];
+            table = table && nn >= 36 && nn <= 51 && ++seen[static_cast<size_t>(nn)] == 1 && mm::trackOfMidiNote(nn) == k;
+        }
+        CHECK(table && mm::trackOfMidiNote(35) == 0 && mm::trackOfMidiNote(60) == -1, "MIDI : les 16 pistes sur les 16 pads (C1 a D#2), relues par l'entree MIDI");
+
+        // Le fichier : MThd format 0, 960 ticks, une piste ; autant de note-on que de notes, la fin au bout des 4 noires
+        r = mm::exportPattern(p);
+        const auto f = mm::writeSmf(r, 130, "MM-RYTM A01");
+        ok = f.size() > 22 && f[0] == 'M' && f[1] == 'T' && f[2] == 'h' && f[3] == 'd' && f[9] == 0 && f[11] == 1 && ((f[12] << 8) | f[13]) == 960 && f[14] == 'M' && f[17] == 'k';
+        const size_t trkLen = (static_cast<size_t>(f[18]) << 24) | (static_cast<size_t>(f[19]) << 16) | (static_cast<size_t>(f[20]) << 8) | f[21];
+        ok = ok && trkLen + 22 == f.size();
+        // Relire : les delta-times, les note-on, le tick de la fin
+        size_t i = 22;
+        long tick = 0;
+        int ons = 0;
+        long endTick = -1;
+        uint8_t status = 0;
+        while (ok && i < f.size()) {
+            uint32_t d = 0;
+            for (;;) {
+                const uint8_t b = f[i++];
+                d = (d << 7) | (b & 0x7f);
+                if (!(b & 0x80)) break;
+            }
+            tick += d;
+            if (f[i] == 0xff) {
+                const uint8_t ty = f[i + 1];
+                const uint8_t l = f[i + 2];
+                if (ty == 0x2f) endTick = tick;
+                i += 3 + l;
+                continue;
+            }
+            status = f[i++];
+            const uint8_t a = f[i++];
+            const uint8_t b = f[i++];
+            if ((status & 0xf0) == 0x90 && b > 0) ++ons;
+            (void)a;
+        }
+        CHECK(ok && ons == 6 && endTick == 3840, "MIDI : le fichier se relit (format 0, 960 ticks, 6 notes, la fin a 4 noires)");
+        CHECK(mm::slotName(0) == "A01" && mm::slotName(17) == "B02" && mm::slotName(127) == "H16", "MIDI : le nom de l'emplacement (A01, B02, H16)");
     }
 
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");

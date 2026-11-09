@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 
+#include "MidiExport.h"
 #include "SampleBank.h"
 #include "WebData.h"
 
@@ -168,7 +169,9 @@ void MMRytmEditor::importFiles(int family, int track) {
 MMRytmEditor::MMRytmEditor(MMRytmProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
-    setSize(kW, kH);
+    midiBar_ = std::make_unique<MidiBar>(p);
+    addAndMakeVisible(*midiBar_);
+    setSize(kW, kH + MidiBar::kHeight);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
@@ -178,7 +181,166 @@ MMRytmEditor::~MMRytmEditor() { stopTimer(); }
 void MMRytmEditor::paint(juce::Graphics& g) { g.fillAll(juce::Colour(0xff0b0b0c)); }
 
 void MMRytmEditor::resized() {
-    if (browser_) browser_->setBounds(getLocalBounds());
+    auto r = getLocalBounds();
+    if (midiBar_) midiBar_->setBounds(r.removeFromBottom(MidiBar::kHeight));
+    if (browser_) browser_->setBounds(r);
+}
+
+/* ---------------- la barre MIDI ---------------- */
+
+namespace {
+const juce::Colour kBarBg(0xff111113), kBarLine(0x22f6f1e7), kBone(0xfff6f1e7), kOrange(0xffff781f);
+}
+
+MidiBar::MidiBar(MMRytmProcessor& p) : proc_(p) {
+    setMouseCursor(juce::MouseCursor::NormalCursor);
+    refresh(true);
+    startTimerHz(2);
+}
+
+MidiBar::~MidiBar() { stopTimer(); }
+
+void MidiBar::resized() {
+    auto r = getLocalBounds().reduced(8, 5);
+    drag_ = r.removeFromLeft(150);
+    save_ = r.removeFromRight(104);
+}
+
+void MidiBar::refresh(bool force) {
+    const int ver = proc_.programVersion();
+    const int slot = proc_.feedback().pat;
+    if (!force && ver == ver_ && slot == slot_) return;
+    ver_ = ver;
+    slot_ = slot;
+    const auto x = proc_.exportMidi();
+    notes_ = x.notes;
+    if (!x.ok) info_ = "the playing pattern (no program yet)";
+    else {
+        const long bars = std::max(1L, x.steps / 16);
+        info_ = juce::String(mm::slotName(x.slot)) + "   /   " + juce::String(bars) + (bars > 1 ? " BARS" : " BAR") + "   /   " + juce::String(x.notes) + (x.notes == 1 ? " NOTE" : " NOTES") +
+                (x.capped ? "   /   CUT AT 64 BARS" : "") + "      drop it on a MIDI track or a Drum Rack (16 pads, C1 to D#2)";
+        if (x.notes == 0) info_ = juce::String(mm::slotName(x.slot)) + "   /   EMPTY PATTERN, nothing to drag";
+    }
+    repaint();
+}
+
+void MidiBar::timerCallback() {
+    refresh(false);
+    if (flashUntil_ > 0 && juce::Time::getMillisecondCounterHiRes() > flashUntil_) {
+        flashUntil_ = 0;
+        flash_.clear();
+        repaint();
+    }
+}
+
+juce::File MidiBar::writeFile(bool keep) {
+    const auto x = proc_.exportMidi();
+    if (!x.ok || x.notes == 0 || x.bytes.empty()) return {};
+    juce::File f;
+    if (keep) {
+        const juce::File dir = juce::File::getSpecialLocation(juce::File::userMusicDirectory).getChildFile("MM-RYTM MIDI");
+        if (!dir.isDirectory() && !dir.createDirectory()) return {};
+        f = dir.getChildFile(x.name + ".mid").getNonexistentSibling(true);
+    } else {
+        const juce::File dir = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("MM-RYTM MIDI");
+        if (!dir.isDirectory() && !dir.createDirectory()) return {};
+        f = dir.getChildFile(x.name + ".mid");
+        f.deleteFile();
+    }
+    if (!f.replaceWithData(x.bytes.data(), x.bytes.size())) return {};
+    return f;
+}
+
+void MidiBar::paint(juce::Graphics& g) {
+    g.fillAll(kBarBg);
+    g.setColour(kBarLine);
+    g.fillRect(0, 0, getWidth(), 1);
+    const bool can = notes_ > 0;
+    // DRAG MIDI : la poignee (six points), le mot ; orange au survol et pendant le glisser
+    const auto d = drag_.toFloat();
+    const bool hot = (hotDrag_ || dragging_) && can;
+    g.setColour(hot ? kOrange : kOrange.withAlpha(can ? 0.16f : 0.06f));
+    g.fillRoundedRectangle(d, 6.f);
+    g.setColour(kOrange.withAlpha(can ? 1.f : 0.35f));
+    g.drawRoundedRectangle(d.reduced(0.5f), 6.f, 1.f);
+    const juce::Colour ink = hot ? kBarBg : (can ? kBone : kBone.withAlpha(0.4f));
+    g.setColour(ink);
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 2; ++j) g.fillEllipse(d.getX() + 12.f + j * 5.f, d.getCentreY() - 6.f + i * 5.f, 2.6f, 2.6f);
+    g.setFont(juce::Font(juce::FontOptions(13.f, juce::Font::bold)));
+    g.drawText(dragging_ ? "DROP IN ABLETON" : "DRAG MIDI", drag_.withTrimmedLeft(26), juce::Justification::centredLeft);
+    // SAVE .MID
+    const auto s = save_.toFloat();
+    g.setColour(kBone.withAlpha(hotSave_ && can ? 0.14f : 0.05f));
+    g.fillRoundedRectangle(s, 6.f);
+    g.setColour(kBone.withAlpha(can ? 0.35f : 0.15f));
+    g.drawRoundedRectangle(s.reduced(0.5f), 6.f, 1.f);
+    g.setColour(can ? kBone : kBone.withAlpha(0.4f));
+    g.setFont(juce::Font(juce::FontOptions(12.f, juce::Font::bold)));
+    g.drawText("SAVE .MID", save_, juce::Justification::centred);
+    // Ce qui part : le pattern, sa longueur, ses notes (ou le message du moment)
+    auto mid = getLocalBounds().reduced(8, 0).withTrimmedLeft(drag_.getRight() + 6).withTrimmedRight(getWidth() - save_.getX() + 6);
+    g.setColour(flash_.isNotEmpty() ? kOrange : kBone.withAlpha(0.75f));
+    g.setFont(juce::Font(juce::FontOptions(12.5f, juce::Font::plain)));
+    g.drawFittedText(flash_.isNotEmpty() ? flash_ : info_, mid, juce::Justification::centredLeft, 1, 0.9f);
+}
+
+void MidiBar::mouseMove(const juce::MouseEvent& e) {
+    const bool a = drag_.contains(e.getPosition());
+    const bool b = save_.contains(e.getPosition());
+    if (a != hotDrag_ || b != hotSave_) {
+        hotDrag_ = a;
+        hotSave_ = b;
+        setMouseCursor(a && notes_ > 0 ? juce::MouseCursor::DraggingHandCursor : b && notes_ > 0 ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+        if (a || b) refresh(false);
+        repaint();
+    }
+}
+
+void MidiBar::mouseExit(const juce::MouseEvent&) {
+    hotDrag_ = hotSave_ = false;
+    setMouseCursor(juce::MouseCursor::NormalCursor);
+    repaint();
+}
+
+void MidiBar::mouseDown(const juce::MouseEvent& e) {
+    downOnDrag_ = drag_.contains(e.getMouseDownPosition());
+    if (downOnDrag_) refresh(true);
+}
+
+void MidiBar::mouseDrag(const juce::MouseEvent& e) {
+    if (!downOnDrag_ || dragging_ || e.getDistanceFromDragStart() < 5) return;
+    const juce::File f = writeFile(false);
+    if (!f.existsAsFile()) {
+        flash_ = "Nothing to drag: the playing pattern has no notes";
+        flashUntil_ = juce::Time::getMillisecondCounterHiRes() + 2500;
+        repaint();
+        return;
+    }
+    dragging_ = true;
+    repaint();
+    juce::Component::SafePointer<MidiBar> safe(this);
+    juce::DragAndDropContainer::performExternalDragDropOfFiles({f.getFullPathName()}, false, this, [safe] {
+        if (!safe) return;
+        safe->dragging_ = false;
+        safe->repaint();
+    });
+}
+
+void MidiBar::mouseUp(const juce::MouseEvent& e) {
+    const bool wasDrag = e.getDistanceFromDragStart() >= 5;
+    downOnDrag_ = false;
+    if (wasDrag) return;
+    if (save_.contains(e.getPosition()) || drag_.contains(e.getPosition())) {
+        // Un clic (DRAG MIDI ou SAVE .MID) : le fichier garde dans ~/Music/MM-RYTM MIDI, montre dans le Finder
+        const juce::File f = writeFile(true);
+        if (f.existsAsFile()) {
+            f.revealToUser();
+            flash_ = "Saved: Music / MM-RYTM MIDI / " + f.getFileName() + "  (drag it from the Finder, or drag DRAG MIDI directly)";
+        } else flash_ = "Nothing to save: the playing pattern has no notes";
+        flashUntil_ = juce::Time::getMillisecondCounterHiRes() + 4000;
+        repaint();
+    }
 }
 
 void MMRytmEditor::timerCallback() {

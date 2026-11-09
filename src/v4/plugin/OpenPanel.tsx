@@ -421,6 +421,7 @@ const HELP: readonly [string, string][] = [
   ['Knobs', 'drag; Shift + drag: fine; double click: back to the start value'],
   ['Scenes A / B', 'tap A or B, turn knobs, tap again: the crossfader goes from A to B'],
   ['Ableton', 'Crossfader parameter (map, automate); a clip Pgm picks A01 to H16'],
+  ['DRAG MIDI (under the machine)', 'drag the playing pattern onto a MIDI track or a Drum Rack: a clip (16 pads, C1 to D#2); a click saves the .mid'],
 ];
 
 const SettingsTab: React.FC = () => {

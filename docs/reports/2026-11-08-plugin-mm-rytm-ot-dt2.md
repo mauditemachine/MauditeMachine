@@ -179,6 +179,20 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 
 7e. La release protegee : d'autres sessions poussent sur main et sur leurs branches (le menu du site, le MM-ARP) ; ce workflow y tourne aussi et publiait leur build, avec un MM-RYTM plus ancien (vu : main a 03:41 UTC, puis une autre branche a 03:43, avant que les builds du lot 7 reprennent la release). `.github/workflows/plugin.yml` : l'historique sans les fichiers (fetch-depth 0, blob:none) ; la release ne prend un build que si son plugin est au moins aussi recent (la date du dernier commit qui touche plugin/mm-rytm ou src/v4/plugin, ecrite dans ses notes : plugin-time). Limite : les branches qui n'ont pas encore ce workflow (main compris) publient toujours sans garde, jusqu'a ce que main le recoive.
 
+### Lot 8, la pattern en clip MIDI (DRAG MIDI, 2026-11-09)
+
+Demande de Mika : « je voudrais un bouton pour tout transferer directement la pattern qui joue encore dans Rytm dans un clip MIDI, avec les bonnes velocites etc., comme un Drum Rack par exemple ».
+
+- `plugin/mm-rytm/dsp/MidiExport.{h,cpp}` (nouveau, sans JUCE) :
+  - exportPattern rejoue les trigs comme `Engine::evalStep` : velocite du coup (le gain du pas, x 127 : un clip rejoue le MM-RYTM au meme niveau), swing, uTIME (une avance du premier pas tombe a la fin du clip), LEN (INF : un pas), RTRG (RATE, VFAD, RLEN), TLEN, conditions (A:B, PRE, NEI) et PROB (le tirage du moteur, une realisation), mute, lock trigs sans note ; FILL ne joue pas ;
+  - le clip fait un cycle entier, en mesures de 4/4 : A:B (le PPCM des B), TLEN (le PPCM des longueurs), 64 mesures au plus ; le deuxieme de trois cycles simules (les retrigs et les PRE d'avant lui compris) ;
+  - deux notes de meme hauteur ne se chevauchent pas ; writeSmf : format 0, 960 ticks, nom, 4/4, tempo, canal 10, la fin au bout du clip ;
+  - kTrackNote : les 16 pistes sur les 16 pads d'un Drum Rack (C1 36 a D#2 51), chacun une fois, les huit premieres en GM (BD 36, SD 38, CH 42, OH 46, CP 39, TOM 45, HT 50, CY 49), puis BD2 37, SD2 40, CH2 44, OH2 47, CP2 43, TOM2 41, HT2 48, CY2 51 ; trackOfMidiNote, la table inverse (plus 35 BD et 52, 55, 57 CY).
+- `src/PluginProcessor.{h,cpp}` : exportMidi (le programme en JSON relu, le pattern que joue le moteur : fbPat, celui de la face ou l'un des autres), programVersion ; l'entree MIDI lit la meme table (16 pistes au lieu de 8 : un clip exporte, pose sur la piste du MM-RYTM, le rejoue).
+- `src/PluginEditor.{h,cpp}` MidiBar : une barre native de 34 px sous la face (la fenetre passe a 1200 x 765) : DRAG MIDI (glisser : le fichier dans le dossier temporaire, `performExternalDragDropOfFiles` ; un clic : SAVE), ce qui part (A01, 1 BAR, 23 NOTES), SAVE .MID (~/Music/MM-RYTM MIDI, montre dans le Finder).
+- `tests/engine_test.cpp` : 9 tests (les notes et velocites, swing et uTIME, TLEN 3 dans 16 = 3 mesures, A:B 1:2 et 2:2, RTRG et VFAD, mute, lock trig, LEN, la table des 16 pads relue par l'entree, le fichier relu, les noms A01 a H16) : 48 tests, tout est OK sur Linux.
+- C++ de la fenetre : compile avec les en-tetes de JUCE (`-fsyntax-only`) ; le glisser vers Ableton se verifie sur le Mac.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -207,6 +221,11 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - **La 3D : penchee de 16 deg, pas une orbite** : assez pour voir les flancs et la caisse, sans que les potards du haut se cachent ; la souris garde sa justesse (zones par rayon, l'ecran par screenUV).
 - **OPEN : sur les memes reglages que la face** : START et END de l'editeur sont t:sstart et t:slen, ecrits avec les lois du moteur ; rien a porter en C++, et ce qu'on regle dans OPEN se voit sur la face et s'enregistre dans une scene armee.
 
+- **DRAG MIDI : une barre native, pas un bouton de la face** : un glisser de fichier vers Ableton part d'un evenement souris natif (JUCE performExternalDragDropOfFiles, sur macOS) ; depuis la WebView, il n'est pas sur de partir. Un plugin ne peut pas creer un clip lui-meme : le glisser-deposer est la voie (comme les plugins de patterns du commerce). Un clic garde le fichier, au cas ou.
+- **Les notes : les 16 pads d'un Drum Rack, GM pour les huit premieres** : un clip exporte joue un kit d'Ableton a sa place (kick, snare, clap, hats, toms, cymbale en GM) et les 16 pistes tiennent les 16 pads visibles ; la meme table en entree : le clip rejoue le MM-RYTM. Ecart : 40, 41, 43, 44, 47, 48 et 51 menaient avant a SD, TOM, CH, HT et CY ; ils menent maintenant a leurs pistes 9 a 16 (SD2, TOM2, CP2, CH2, OH2, HT2, CY2).
+- **La velocite : le gain du pas x 127** : c'est ce que l'entree MIDI relit (velocite / 127 = le gain) ; HIGH donne 127, MID 89, LOW 51.
+- **PROB et les conditions : une realisation** : un clip MIDI d'un fichier ne porte pas de probabilite ; le cycle exporte est un tirage, le meme a chaque export (la graine du moteur).
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -216,6 +235,7 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 8) : `update.sh`, puis glisser DRAG MIDI sur une piste MIDI (avec un Drum Rack, ou la piste du MM-RYTM en coupant son pattern) ; dire si la fenetre plus haute de 34 px lui va.
 - **La release et main** : tant que main n'a pas ce workflow, un push sur main ou sur une autre branche peut remettre un MM-RYTM ancien dans `mm-rytm-latest` ; `update.sh` affiche le build (commit, branche) : il doit dire claude/intelligent-ride-56tyeo. Le remede : fusionner cette branche dans main (une PR, a la demande de Mika).
 - Cote Mika (lot 7) : `update.sh`, puis : le P-LOCK au clic droit, l'ecran (SRC 2/2, FX 2/2, TRIG 2/2, TEMPO), la vue 3D penchee (dire si 16 deg est juste), l'editeur de sample d'OPEN (LISTEN joue la piste par le plugin).
 - Cote Mika (lot 6) : `update.sh`, puis dire si la face facon DT2 lui va (icones, fonctions imprimees, crossfader a la place des fleches), si OPEN contient ce qu'il attend, et si OPEN FOLDER ouvre bien le Finder depuis Ableton.
