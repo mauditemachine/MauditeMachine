@@ -84,3 +84,24 @@ dans mon disque et l'utiliser avec Ableton ». Meme recette que le MM-RYTM (`plu
 ```bash
 curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-arp-latest/update.sh | bash
 ```
+
+## Suite (meme jour) : les potards en parametres de l'hote, les presets sur le disque
+
+Demande de Mika : « tous les parametres disponibles en MIDI », « quand j'appuie sur la fleche du plugin voir les fonctions », « enregistrer un preset directement sur mon disque dur en le nommant ».
+
+### 1. Ce qui a ete fait
+- `plugin/mm-arp/dsp/Params.{h,cpp}`, `ParamTable.inc` (genere par `tests/params-gen.mjs`), `tests/params-ref.mjs`, `tests/params_test.cpp` : les lois de `voyager/params.ts` (engineParams, textes), `chords.ts`, `seq.ts` et des effets en C++. 3000 cas, 0 ecart (moteur au bit pres, notes, textes), aucune allocation temps reel.
+- `plugin/mm-arp/src/` : les 62 potards (44 de la face, 18 TWEAKS) en parametres de l'hote, plus Arpeggiator et Master. Le moteur, la chaine et l'arpege en sont tires sur le thread audio. Le programme v2 de la face ne porte plus que la suite, la progression, le tempo et le swing. Les gestes vont a l'hote, la synchro marche dans les deux sens sans echo, et les presets passent par les boites de dialogue du Mac.
+- Les projets de la premiere version : leurs potards, leur suite et leur progression sont repris de l'etat de la face.
+- `src/v4/plugin/arp/` : `bridge.ts` (protocole v2), `disk.ts` et `DiskPresets.tsx` (la colonne DISK du tiroir, le dialogue du nom), `ArpFace.tsx`, `face.css`.
+- `tests/host_test.cpp` : 20 cas (automation sans la face, parametres dans le projet, projet de la premiere version).
+
+### 2. Decisions
+- **Le C++ porte les lois du site** : sinon l'automation ne ferait rien fenetre fermee. Les valeurs de l'hote passent par `knobClean` (l'arrondi de voyParams.set), pour qu'un reglage sonne exactement comme sur le site.
+- **Les presets** sont des fichiers `.mmarp` (le JSON des presets du site : potards, suite, progression), dans `~/Music/Maudite Machine/MM-ARP Presets`. Le nom se tape dans la face, puis la fenetre du Mac permet de choisir l'endroit.
+- **Une instance neuve** prend les potards de sa face au premier programme. Ensuite, ce sont les parametres de l'hote qui font foi.
+
+### 3. En suspens
+- Mika : mettre a jour avec `update.sh`, puis verifier le triangle, MIDI Map, l'automation (potards qui bougent dans la face) et SAVE / OPEN.
+- Tourner MODE, RANGE ou NOTES depuis Ableton ne repasse pas la suite EDIT en AUTO, contrairement a la face du site.
+- L'automation appliquee a la face entre dans son UNDO.

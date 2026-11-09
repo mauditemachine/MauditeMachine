@@ -24,7 +24,7 @@
  *                 mm_log {where, msg}, mm_preset_save {name, preset}, mm_preset_open {}, mm_preset_list {},
  *                 mm_preset_load {path}
  *   C++ -> face : mm_transport {playing, internal, seq, slot, pos, len, chord, midi}, mm_knobs {values},
- *                 mm_preset {name, preset}, mm_presets {items}, mm_saved {ok, name, path?}
+ *                 mm_preset {name, preset}, mm_presets {items}, mm_saved {ok, name, path?, cancelled?}
  * (pas de mm_note : la face du MM-ARP ne joue aucune note en direct, un pad ajoute ou retire un accord de la progression)
  */
 
@@ -330,7 +330,7 @@ function onSaved(o: unknown): void {
     voyMsg.show(`SAVED TO DISK ${name}`.trim(), 1800);
     if (typeof x.path === 'string') arpDisk.set({ current: x.path });
     send('mm_preset_list', {});
-  } else voyMsg.show(`NOT SAVED ${name}`.trim(), 2400);
+  } else if (x.cancelled !== true) voyMsg.show(`NOT SAVED ${name}`.trim(), 2400);
 }
 
 /* ---------------- le pont ---------------- */

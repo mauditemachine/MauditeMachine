@@ -18,9 +18,12 @@ architecture que `plugin/mm-rytm`.
     REVERB de l'ARP (IR_DEFAULT de `fx.ts`), VOLUME. Les worklets identiques au bit pres ; la chaine complete sous -60 dB
     face a Chromium hors ligne (`tests/fx-ref.mjs` + `fx_test.cpp`). Le SIDECHAIN (vers le kick du RYTM) n'est pas porte.
   - `dsp/Arp.{h,cpp}` : la mise en temps de `voyager/arp.ts`, sur la position d'Ableton (`tests/arp_test.cpp`).
-- **Le pont** (`src/v4/plugin/arp/bridge.ts`) : la face compile un *programme* avec les fonctions du site : les reglages
-  du moteur (`engineParams`), des effets, et les notes de chaque accord deja resolues (suite EDIT ou AUTO, ou le
-  reservoir de RAND). Le C++ ne fait que la mise en temps.
+- **Les potards** sont des parametres de l'hote ; le C++ en tire le moteur, les effets et les notes (`dsp/Params.cpp`,
+  table generee `dsp/ParamTable.inc` par `tests/params-gen.mjs`). La face envoie `mm_param` / `mm_gesture` quand on
+  tourne un potard, recoit `mm_knobs` quand Ableton les change.
+- **Le pont** (`src/v4/plugin/arp/bridge.ts`) : le programme v2 (la suite EDIT, la progression, le tempo et le swing
+  de la face), l'etat, RUN, et les presets du disque (`mm_preset_save`, `mm_preset_open`, `mm_preset_list`,
+  `mm_preset_load` ; `mm_preset`, `mm_presets`, `mm_saved`).
 - **L'etat** : les cles `mm.v4.*` du localStorage du site, la progression et le programme, dans le projet Ableton, avec
   la graine du hasard.
 
@@ -33,8 +36,9 @@ architecture que `plugin/mm-rytm`.
 | Arpege : progression (une mesure par accord, calee sur les mesures du morceau), RATE, GATE, OCTAVE, MODE, RANGE, NOTES, CHORD, suite EDIT, silences, ACCENT, DRIFT, SWING | joue |
 | Transport d'Ableton ; RUN de la face (horloge interne) quand Ableton est arrete | joue |
 | Notes MIDI d'Ableton : le synthe joue directement (velocite 100 = accent 1) | joue |
-| Parametres de l'hote : Master (dB), Arpeggiator (on / off) | joue |
-| SIDECHAIN, sortie MIDI des notes de l'arpege, automation des potards de la face | plus tard |
+| Parametres de l'hote : Arpeggiator, Master, et les 62 potards du site (face + TWEAKS, `dsp/Params.cpp` : les lois de params.ts / chords.ts / seq.ts, 0 ecart sur 3000 cas) : automation, MIDI Map, le triangle d'Ableton, fenetre fermee comprise | joue |
+| Presets sur le disque (`~/Music/Maudite Machine/MM-ARP Presets/*.mmarp`) : SAVE TO DISK / OPEN FROM DISK et la liste, dans le tiroir OPEN | joue |
+| SIDECHAIN, sortie MIDI des notes de l'arpege | plus tard |
 
 Ecarts connus avec le site : la progression est calee sur les mesures d'Ableton (au site : depuis RUN), et la suite
 repart de sa premiere note au debut de chaque suite de mesures du meme accord, quel que soit le point de lecture : une
@@ -50,6 +54,10 @@ cmake -S plugin/mm-arp -B build-dsp -DMM_BUILD_PLUGIN=OFF && cmake --build build
 
 ```bash
 node plugin/mm-arp/tests/voyager-ref.mjs build-dsp/ref-voy && ./build-dsp/mmarp_voyager_compare build-dsp/ref-voy
+```
+
+```bash
+node plugin/mm-arp/tests/params-gen.mjs --check && node plugin/mm-arp/tests/params-ref.mjs build-dsp/ref-params && ./build-dsp/mmarp_params_test build-dsp/ref-params
 ```
 
 ```bash

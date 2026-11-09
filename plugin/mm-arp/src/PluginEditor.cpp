@@ -189,7 +189,9 @@ void MMArpEditor::presetSave(const juce::String& name, const juce::String& prese
                               auto* o = new juce::DynamicObject();
                               o->setProperty("name", name);
                               if (f == juce::File()) {
+                                  // annule dans la boite du Mac : la face ne dit rien
                                   o->setProperty("ok", false);
+                                  o->setProperty("cancelled", true);
                                   browser_->emitEventIfBrowserIsVisible("mm_saved", juce::var(o));
                                   return;
                               }
@@ -220,6 +222,7 @@ void MMArpEditor::presetLoad(const juce::File& f) {
     auto* o = new juce::DynamicObject();
     o->setProperty("name", f.getFileNameWithoutExtension());
     o->setProperty("preset", text);
+    o->setProperty("path", f.getFullPathName());
     browser_->emitEventIfBrowserIsVisible("mm_preset", juce::var(o));
 }
 
