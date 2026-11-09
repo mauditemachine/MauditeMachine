@@ -170,6 +170,12 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - `scene/renderer.ts` screenUV, `plugin/ScreenMouse.tsx` toScreen : l'ecran vu de biais est un trapeze, un clic y passe par le rayon de la camera (la ligne sous la souris, verifie : la 3e ligne de SOUNDS cliquee = BD 4) ;
 - verifie dans Chromium : pages, P-LOCK au clic droit, SOUNDS a la souris, scene A, crossfader (x = 1), OPEN, fleches.
 
+7d. OPEN = l'editeur de sample et les SETTINGS (`plugin/OpenPanel.tsx` reecrit) :
+- SAMPLE : la forme d'onde du sample de la piste choisie (min et max par colonne, a l'envers en REVERSE), START et END a tirer (Maj : au dixieme ; ecrits dans t:sstart et t:slen avec les lois du moteur, SAMPLE_START_MAX et sampleLenPart), la molette zoome, un glisser deplace la vue, un double clic la remet ; ce qui ne joue pas en retrait, le fondu de LEN (sampleLenFadeS), l'enveloppe AMP (resolveHit, decayTau) a l'echelle du temps du coup (TUNE et FINE compris) ; la regle des ms ; ◀ ▶ le sample du type d'avant ou d'apres, LISTEN (le moteur joue la piste : trigger, liveHook), REVERSE, RESET, IMPORT, FOLDER ; les potards SAMPLE (STRT LEN TUNE FINE LEV PLAY), AMP (ATK HOLD DEC PAN), FILTER (FREQ RESO TYPE ENV) ;
+- SETTINGS : STEPS, BPM, SWING, MASTER ; PERSONALIZE (TRK SELECT, LED, BACKLIGHT, SUBPAGE : state/personal.ts, garde) ; le dossier des samples ; la souris et les touches ; la version ;
+- verifie dans Chromium : S tire a droite : start 0.118 dans le programme ; E tire a gauche : len 0.559 ; REVERSE : rev true ; ▶ : bd/Bd 4.wav ; RESET : start 0, len 1 ; TRK SELECT SILENT garde dans le stockage ; le zoom (captures).
+- Le site : V.3.0 par defaut et V.6.0 (?face=dt2) identiques au pixel avant et apres le lot 7 ; `npx tsc` : 105 erreurs, celles d'avant.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -192,6 +198,12 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - **OPEN : les memes cibles que la face** : chaque potard du panneau est le reglage d'un bloc des pages (anyDial) : la meme loi, les memes scenes, le meme programme vers le moteur ; rien de nouveau a porter en C++. Le reglage fin est Maj + glisser (au dixieme) ; FINE donne le cent.
 - **SAMPLES du plugin : pas de suppression** : retirer un fichier du disque depuis la face serait risque ; OPEN FOLDER ouvre le dossier dans le Finder pour ranger et effacer, RESCAN le relit.
 
+- **Le P-LOCK au clic droit, garde** : une souris ne tient pas un pas en tournant un potard ; le clic droit le met en P-LOCK et l'y laisse (comme L au clavier), sans REC. Le clic droit sur une touche reste FUNC + la touche. Sur un pas vide, le verrou pose aussi le coup (la regle de la face).
+- **16 pas, une page** : la demande de Mika ; les pages restent au site. Un pattern plus long d'avant se lit sur ses 16 premiers pas, sans perte tant qu'il n'est pas resauve.
+- **L'ecran : des dessins plutot que plus de pixels** : la texture de l'ecran fait deja 1600 px pour environ 900 px affiches ; ce qui manquait, c'etait de quoi regarder (l'effet SWING que Mika aime). Chaque reglage a son dessin, et la vraie forme d'onde du sample apparait des la page SRC.
+- **La 3D : penchee de 16 deg, pas une orbite** : assez pour voir les flancs et la caisse, sans que les potards du haut se cachent ; la souris garde sa justesse (zones par rayon, l'ecran par screenUV).
+- **OPEN : sur les memes reglages que la face** : START et END de l'editeur sont t:sstart et t:slen, ecrits avec les lois du moteur ; rien a porter en C++, et ce qu'on regle dans OPEN se voit sur la face et s'enregistre dans une scene armee.
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -201,6 +213,7 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 7) : `update.sh`, puis : le P-LOCK au clic droit, l'ecran (SRC 2/2, FX 2/2, TRIG 2/2, TEMPO), la vue 3D penchee (dire si 16 deg est juste), l'editeur de sample d'OPEN (LISTEN joue la piste par le plugin).
 - Cote Mika (lot 6) : `update.sh`, puis dire si la face facon DT2 lui va (icones, fonctions imprimees, crossfader a la place des fleches), si OPEN contient ce qu'il attend, et si OPEN FOLDER ouvre bien le Finder depuis Ableton.
 
 ## 4. Commandes utiles ajoutees
