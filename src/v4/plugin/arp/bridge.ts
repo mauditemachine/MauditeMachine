@@ -12,7 +12,7 @@
  * mm_gesture (debut et fin d'un geste : Ableton enregistre l'automation proprement). Les potards que bougent
  * l'automation ou le MIDI d'Ableton reviennent par mm_knobs, appliques sans echo.
  *
- * Les gestes, sans toucher au code des potards (le tiroir, les potards 3D, la molette, le clavier) : un potard qui change
+ * Les gestes, sans toucher au code des potards (les potards 3D de la face et de la carte, la molette, le clavier) : un potard qui change
  * pendant qu'un pointeur est enfonce ouvre son geste, le pointeur relache le ferme ; sans pointeur (clavier, molette,
  * RANDOM, un preset, UNDO), le geste se ferme 350 ms apres son dernier changement.
  *
@@ -23,12 +23,21 @@
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_param {id, v}, mm_gesture {id, on}, mm_state {ls}, mm_run {on},
  *                 mm_log {where, msg}, mm_preset_save {name, preset}, mm_preset_open {}, mm_preset_list {},
  *                 mm_preset_load {path}
+ *                 mm_drag_midi {cycles}, mm_save_mid {cycles}, mm_learn {id}, mm_unmap {cc, ch}, mm_unmap_all {},
+ *                 mm_midimap_get {}
  *   C++ -> face : mm_transport {playing, internal, seq, slot, pos, len, chord, midi}, mm_knobs {values},
- *                 mm_preset {name, preset}, mm_presets {items}, mm_saved {ok, name, path?, cancelled?}
+ *                 mm_preset {name, preset}, mm_presets {items}, mm_saved {ok, name, path?, cancelled?},
+ *                 mm_drag_status {ok, msg}, mm_midimap {items: {cc, ch, id}[], learn}
+ *
+ * Le capot (2026-11-09, plugin/arp/HoodPanel.tsx) : DRAG MIDI (mm_drag_midi part une fois, des que le pointeur enfonce sur
+ * la poignee a bouge de 4 px : le C++ lance le glisser natif du fichier depuis l'evenement souris en cours), SAVE .MID, et
+ * MIDI LEARN (plugin/arp/midimap.ts) : le mode LEARN du site (midi/midi.ts learnToggle) fait choisir un potard d'un clic
+ * (ui/Hotspots.tsx : il ne bouge pas), le pont l'arme chez le C++ (mm_learn) ; LEARN ou Echap l'eteint (mm_learn {id: ''}).
  * (pas de mm_note : la face du MM-ARP ne joue aucune note en direct, un pad ajoute ou retire un accord de la progression)
  */
 
 import { pattern } from '../../audio/pattern';
+import { learnPick, learnToggle, midi } from '../../midi/midi';
 import { FLAGS } from '../../state/flags';
 import { apply, capture, presets } from '../../state/presets';
 import { undo } from '../../state/undo';
@@ -41,6 +50,7 @@ import { seq, type SeqStep } from '../../voyager/seq';
 import { extHead } from '../head';
 import { STATE_PREFIX } from '../restore';
 import { arpDisk, DISK_FORMAT, type DiskItem } from './disk';
+import { arpMidi, type MidiMapItem } from './midimap';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
 
@@ -333,6 +343,65 @@ function onSaved(o: unknown): void {
   } else if (x.cancelled !== true) voyMsg.show(`NOT SAVED ${name}`.trim(), 2400);
 }
 
+/* ---------------- le capot : DRAG MIDI, MIDI LEARN ---------------- */
+
+/** Le temps de lire un message de DRAG MIDI ou SAVE .MID. */
+const STATUS_MS = 3200;
+let statusTimer = 0;
+
+function onDragStatus(o: unknown): void {
+  if (!o || typeof o !== 'object') return;
+  const x = o as Record<string, unknown>;
+  const msg = str(x.msg);
+  if (!msg) return;
+  if (statusTimer) window.clearTimeout(statusTimer);
+  arpMidi.set({ status: { ok: x.ok === true, msg } });
+  statusTimer = window.setTimeout(() => {
+    statusTimer = 0;
+    arpMidi.set({ status: null });
+  }, STATUS_MS);
+}
+
+function onMidimap(o: unknown): void {
+  if (!o || typeof o !== 'object') return;
+  const x = o as Record<string, unknown>;
+  const items: MidiMapItem[] = Array.isArray(x.items)
+    ? x.items
+        .filter((i): i is MidiMapItem => !!i && typeof i === 'object' && typeof (i as MidiMapItem).cc === 'number' && typeof (i as MidiMapItem).ch === 'number' && typeof (i as MidiMapItem).id === 'string')
+        .map((i) => ({ cc: i.cc, ch: i.ch, id: i.id }))
+    : [];
+  arpMidi.set({ items, armed: str(x.learn) });
+}
+
+/** Le mode LEARN (la face) : allume, un clic sur un potard l'arme ; eteint, le potard arme ne l'est plus. */
+function learnMode(on: boolean): void {
+  const s = arpMidi.get();
+  if (on === s.learning) return;
+  arpMidi.set({ learning: on, armed: '' });
+  if (midi.get().learn !== on) learnToggle(on);
+  if (!on || s.armed) send('mm_learn', { id: '' });
+}
+
+/** Le potard choisi en LEARN (ui/Hotspots.tsx learnPick) : arme chez le C++ ; le choix se vide, pour le prochain clic. */
+function onLearnPick(): void {
+  const m = midi.get();
+  if (!m.learn && arpMidi.get().learning) {
+    learnMode(false);
+    return;
+  }
+  const pick = m.pick;
+  if (!pick) return;
+  learnPick(null);
+  if (!arpMidi.get().learning) return;
+  const id = pick.startsWith('voy:knob:') ? pick.slice('voy:knob:'.length) : '';
+  if (!isKnob(id)) {
+    voyMsg.show('MIDI LEARN : KNOBS ONLY', 1600);
+    return;
+  }
+  arpMidi.set({ armed: id });
+  send('mm_learn', { id });
+}
+
 /* ---------------- le pont ---------------- */
 
 let started = false;
@@ -400,6 +469,20 @@ export const arpBridge = {
     be?.addEventListener('mm_preset', onPreset);
     be?.addEventListener('mm_presets', onPresets);
     be?.addEventListener('mm_saved', onSaved);
+    be?.addEventListener('mm_drag_status', onDragStatus);
+    be?.addEventListener('mm_midimap', onMidimap);
+    midi.subscribe(onLearnPick);
+    // Echap eteint MIDI LEARN d'abord (avant hooks/useKeys : le capot reste ouvert), sauf pendant le nom d'un preset
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || !arpMidi.get().learning || arpDisk.get().naming !== null) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        learnMode(false);
+      },
+      true
+    );
     // Les potards : mm_param (et l'etat, pour la fenetre suivante) ; ils ne relancent plus le programme
     voyParams.subscribe(knobsChanged);
     voyParams.subscribe(stateChanged);
@@ -454,6 +537,27 @@ export const arpBridge = {
   diskLoad(path: string): void {
     arpDisk.set({ current: path });
     send('mm_preset_load', { path });
+  },
+  /** DRAG MIDI : le glisser natif du clip (le C++, depuis l'evenement souris en cours ; reponse mm_drag_status). */
+  dragMidi(cycles: number): void {
+    send('mm_drag_midi', { cycles });
+  },
+  /** SAVE .MID : la boite de dialogue du systeme (le C++ ; reponse mm_drag_status). */
+  saveMid(cycles: number): void {
+    send('mm_save_mid', { cycles });
+  },
+  /** MIDI LEARN : le mode (LEARN, Echap). */
+  learnMode,
+  /** Une assignation de moins ; toutes (CLEAR ALL). La table revient par mm_midimap. */
+  unmap(cc: number, ch: number): void {
+    send('mm_unmap', { cc, ch });
+  },
+  unmapAll(): void {
+    send('mm_unmap_all', {});
+  },
+  /** La table des CC (reponse mm_midimap). */
+  midimapGet(): void {
+    send('mm_midimap_get', {});
   },
   /** Pour les essais (Chromium) : le programme tel qu'il partirait, et le preset tel que SAVE l'enverrait. */
   compile,

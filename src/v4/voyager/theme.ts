@@ -981,6 +981,19 @@ export const VOY_PLUGIN_FACE = (() => {
   return { w: B.w * margin, h: (hi - lo) * margin, ty: (hi + lo) / 2 / Math.cos(el) };
 })();
 
+/**
+ * Le capot ouvert du plugin MM-ARP (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
+ * imprime, comme avant") : la carte et ses TWEAKS remplissent la place que laisse le panneau du capot (plugin/arp/
+ * HoodPanel.tsx, Stage.setInset), vue de dessus a ORBIT.elDeg. w et h : la carte projetee (sa profondeur le long de la vue,
+ * plus la hauteur des potards soudes), avec un filet ; z : le pivot, un peu plus en avant qu'au site (VOY_OPEN_FRAME.z),
+ * pour centrer la carte dans la place libre (mesure dans Chromium, 1100 x 704).
+ */
+export const VOY_PLUGIN_OPEN = (() => {
+  const el = (ORBIT.elDeg * Math.PI) / 180;
+  const margin = 1.07;
+  return { w: PCB.w * margin, h: (PCB.d * Math.sin(el) + 0.5 * Math.cos(el)) * margin, z: 0.05 };
+})();
+
 
 /**
  * Le nom de la machine (2026-10-03, Mika : "le titre c'est MM-808 et

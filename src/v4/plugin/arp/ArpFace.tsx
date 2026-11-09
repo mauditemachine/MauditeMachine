@@ -4,10 +4,9 @@
  * VST3. Comme la face du MM-RYTM (plugin/PluginFace.tsx) : rien du site (en-tete, Dock, sections, autres machines, intro,
  * capot). Le son vient du plugin (plugin/arp/bridge.ts).
  *
- * Le capot ne s'ouvre pas : OPEN ouvre a la place, sous la machine, le tiroir des gros potards (ui/KnobPanel.tsx, toutes
- * les sections, les TWEAKS de la carte compris : ACCENT, DRIFT, STACK, GLUE, DLY TIME...). La machine remonte au-dessus
- * (Stage.setInset). A droite des potards, la colonne DISK (2026-11-09) : SAVE TO DISK, OPEN FROM DISK et la liste du dossier
- * des presets (DiskPresets.tsx).
+ * OPEN ouvre le vrai capot du site (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
+ * imprime, comme avant") : la carte et ses TWEAKS jouables, cadres au-dessus du panneau du capot (HoodPanel.tsx : DRAG MIDI,
+ * DISK, MIDI LEARN, CLOSE). OPEN, CLOSE, Echap ou O le referment, comme au site.
  */
 
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
@@ -20,14 +19,13 @@ import { Stage } from '../../scene/renderer';
 import { appearance } from '../../state/appearance';
 import { applyAppearance } from '../../theme';
 import { HitLayer } from '../../ui/Hotspots';
-import { KnobPanel } from '../../ui/KnobPanel';
 import { PresetNameDialog } from '../../ui/PresetNameDialog';
 import { VoyTwins } from '../../ui/VoyTwins';
 import { VoyInfosCard } from '../../voyager/InfosCard';
 import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
-import { DiskNameDialog, DiskPresets } from './DiskPresets';
-import { arpDrawer } from './drawer';
+import { DiskNameDialog } from './DiskPresets';
+import { HoodPanel, LearnMarks } from './HoodPanel';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -44,44 +42,6 @@ class Boundary extends Component<{ children: React.ReactNode; onError: (m: strin
     return this.state.failed ? null : this.props.children;
   }
 }
-
-/** La section ouverte la premiere fois : TWEAKS (ce qui n'est nulle part ailleurs sur la face). */
-const TAB_KEY = 'mm.v4.knobtab.voy';
-
-/** Le tiroir d'OPEN : les gros potards, la machine au-dessus. */
-const Drawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
-  const open = useSyncExternalStore(arpDrawer.subscribe, arpDrawer.get, arpDrawer.get);
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    try {
-      if (window.localStorage.getItem(TAB_KEY) === null) window.localStorage.setItem(TAB_KEY, 'tweaks');
-    } catch {
-      /* rien de retenu : la premiere section */
-    }
-  }, []);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!stage || !el || !open) return undefined;
-    const apply = (): void => stage.setInset('voy', el.offsetHeight, 0);
-    apply();
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply);
-    ro?.observe(el);
-    return () => {
-      ro?.disconnect();
-      stage.setInset('voy', 0);
-    };
-  }, [stage, open]);
-  if (!open) return null;
-  return (
-    <section ref={ref} className="mm-arp-drawer" style={{ position: 'fixed' }} aria-label="MM-ARP knobs">
-      <KnobPanel machine="voy" />
-      <DiskPresets />
-      <button type="button" className="mm-arp-drawer-close" aria-label="Close the knobs" onClick={() => arpDrawer.set(false)}>
-        CLOSE
-      </button>
-    </section>
-  );
-};
 
 const ArpFace: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -179,7 +139,8 @@ const ArpFace: React.FC = () => {
         <VoyInfosCard stage={stage} />
         <PresetNameDialog mobile={false} />
         <DiskNameDialog />
-        <Drawer stage={stage} />
+        <HoodPanel stage={stage} />
+        <LearnMarks />
       </Boundary>
       {error && (
         <p className="mm-plugin-error" role="alert">

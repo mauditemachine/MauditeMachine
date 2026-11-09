@@ -178,7 +178,7 @@ import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { BezelDecal, PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
-import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_PLUGIN_FACE, VOY_X } from '../voyager/theme';
+import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_PLUGIN_FACE, VOY_PLUGIN_OPEN, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_DECK_ONLY, DJ_FRAME, DJ_MIXER_ONLY, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
@@ -1715,7 +1715,12 @@ export class Stage {
     const e = this.explodeFrame();
     // Ouvert (desktop, 2026-10-05) : l'interieur (la plaque et sa carte) remplit la vue ; sinon la pile entiere
     const inner = F.openW > 0;
-    const hwOpen = inner ? Math.max(F.openW / 2 / OPEN_VIEW.fill, (OPEN_VIEW.h / FIT_H / 2) * (W / free)) : Math.max(hwBase, F.fitHalfH * aspect);
+    // Le plugin MM-ARP (2026-11-09) : la carte seule, au plus pres, au-dessus du panneau du capot (voyager/theme.ts VOY_PLUGIN_OPEN)
+    const hwOpen = !inner
+      ? Math.max(hwBase, F.fitHalfH * aspect)
+      : PLUGIN_ARP
+        ? Math.max(VOY_PLUGIN_OPEN.w / 2, (VOY_PLUGIN_OPEN.h / 2) * (W / free))
+        : Math.max(F.openW / 2 / OPEN_VIEW.fill, (OPEN_VIEW.h / FIT_H / 2) * (W / free));
     let hw = hwBase + (hwOpen - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;
     // Decalage du centre de la machine vers la gauche, en px (cadrage de section)
@@ -1917,8 +1922,8 @@ export class Stage {
       openZ: VOY_OPEN_FRAME.z,
     };
     // Le plugin MM-ARP (2026-11-09) : sa face vue de dessus remplit la fenetre, bord a bord (voyager/theme.ts VOY_PLUGIN_FACE) ;
-    // jamais de capot ouvert (openW 0)
-    if (PLUGIN_ARP) return { ...voy, hw0: VOY_PLUGIN_FACE.w / 2, h: VOY_PLUGIN_FACE.h, ty: VOY_PLUGIN_FACE.ty, explodeTy: VOY_PLUGIN_FACE.ty, openW: 0, openY: VOY_PLUGIN_FACE.ty, openZ: 0 };
+    // ouvert, la carte et ses TWEAKS, comme au site (VOY_OPEN_FRAME)
+    if (PLUGIN_ARP) return { ...voy, hw0: VOY_PLUGIN_FACE.w / 2, h: VOY_PLUGIN_FACE.h, ty: VOY_PLUGIN_FACE.ty, openZ: VOY_PLUGIN_OPEN.z };
     if (f === 'voy') return voy;
     // Le MM-DECKS : l'ensemble de face (deux platines, la table) ; au telephone, un bloc a la fois. Tenu droit
     // (2026-10-18, la table seule) : un seul bloc, 'mix', centre sur DJ_X (son ombre, unitW / 2 + 3, couvre ses 11 de profondeur)

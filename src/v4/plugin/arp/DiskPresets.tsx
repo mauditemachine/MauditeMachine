@@ -1,6 +1,6 @@
 /**
- * Les presets sur le disque, dans le tiroir d'OPEN du plugin MM-ARP (2026-11-09, Mika : "enregistrer un preset sur mon
- * disque dur en le nommant, et le rouvrir") : une colonne DISK a droite des gros potards, avant CLOSE.
+ * Les presets sur le disque, dans le panneau du capot du plugin MM-ARP (2026-11-09, Mika : "enregistrer un preset sur mon
+ * disque dur en le nommant, et le rouvrir") : la colonne DISK, entre DRAG MIDI et MIDI (HoodPanel.tsx).
  * - SAVE TO DISK : le nom (DiskNameDialog, le dialogue des noms du site : la meme langue, ui/presetName.css), puis le
  *   C++ ecrit le preset dans le dossier des presets (mm_preset_save ; mm_saved : l'ecran le dit).
  * - OPEN FROM DISK : la boite de dialogue du systeme (le C++), pour un preset ailleurs que dans le dossier.
@@ -25,13 +25,13 @@ const cleanDiskName = (raw: string): string => typeChars(raw.replace(/\s+/g, ' '
 
 export function DiskPresets() {
   const st = useSyncExternalStore(arpDisk.subscribe, arpDisk.get, arpDisk.get);
-  // Le tiroir s'ouvre : la liste du dossier, a jour
+  // Le capot s'ouvre : la liste du dossier, a jour
   useEffect(() => {
     arpBridge.diskList();
   }, []);
   return (
-    <section className="mm-arp-disk" aria-label="Presets on disk">
-      <p className="mm-arp-disk-title">DISK</p>
+    <section className="mm-arp-col mm-arp-disk" aria-label="Presets on disk">
+      <p className="mm-arp-col-title">DISK</p>
       <div className="mm-arp-disk-keys">
         <button type="button" className="mm-arp-disk-key" onClick={() => arpDisk.set({ naming: proposedName() })}>
           SAVE TO DISK

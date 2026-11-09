@@ -397,8 +397,7 @@ export class VoyKeys {
 
   private btnRest(i: number): Glow {
     const b = VOY_BUTTONS[i];
-    // Le plugin MM-ARP (2026-11-09) : pas de capot, OPEN ouvre le tiroir des potards (plugin/arp/drawer.ts) : allume tant qu'il
-    // est ouvert, eteint sinon (jamais la respiration du site)
+    // Le plugin MM-ARP (2026-11-09) : allume tant que le capot est ouvert, eteint sinon (jamais la respiration du site)
     if (b.id === 'open') return PLUGIN_ARP ? (this.open ? 'orange' : 'off') : this.open ? 'orangeDim' : 'orange';
     if (b.id === 'preset') return this.preset ? 'orange' : PADS + i === this.hover ? 'hover' : 'off';
     if (b.id === 'edit' && this.editing) return 'active';

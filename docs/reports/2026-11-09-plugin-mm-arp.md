@@ -121,3 +121,27 @@ Demande de Mika : « un bouton pour transferer les notes dans un clip MIDI autom
 
 ### 3. En suspens
 - Mika : essayer le glisser dans Ableton, sur une piste et dans l'Arrangement. Couper Arpeggiator pour jouer le clip.
+
+## Suite : le capot 3D, la gestion MIDI, le clip qui a le dessus
+
+Demande de Mika : « quand je clique dans OPEN je dois voir l'interieur, le circuit imprime, comme avant ; la doit y avoir le DRAG MIDI et la gestion MIDI » ; « quand je drag le clip MIDI c'est lui qui a le dessus ».
+
+### 1. Ce qui a ete fait
+- La face (`src/v4/plugin/arp/`, `scene/renderer.ts`, `voyager/theme.ts`, `actions/nav.ts`, `voyager/rig.ts`) :
+  - OPEN ouvre le vrai capot du site, avec le PCB et les 18 TWEAKS jouables, cadre pour la fenetre (`VOY_PLUGIN_OPEN`) ;
+  - le tiroir 2D est retire ;
+  - un bandeau sous la carte (`HoodPanel.tsx`) regroupe DRAG MIDI (x1 / x2 / x4, SAVE .MID), DISK, MIDI LEARN (LEARN, la table des CC, les croix, CLEAR ALL) et CLOSE ;
+  - le potard arme est cerne d'orange.
+- Le C++ :
+  - `mm_drag_midi` lance le glisser natif du fichier MIDI depuis l'evenement souris courant (`performExternalDragDropOfFiles`). La bande native sous la face est retiree, la fenetre revient a 1100 x 704 ;
+  - MIDI LEARN : `ccMap_` (canal x CC vers potard), le premier CC recu apres l'armement, un CC par potard, le potard pilote par le CC (setValueNotifyingHost). L'etat est garde dans le projet (`MIDIMAP`) ;
+  - Clip Priority (parametre `prio`, actif par defaut) : des notes MIDI tenues ou arrivees il y a moins d'une mesure font taire l'arpege interne.
+- `tests/host_test.cpp` : 25 cas (MIDI LEARN, Clip Priority en plus).
+
+### 2. Decisions
+- **Le glisser part de la face** : JUCE prend l'evenement souris courant de la fenetre, donc le message est envoye pendant que le bouton est tenu. A verifier dans Live. Si le glisser ne part pas, SAVE .MID enregistre le meme clip.
+- **Le clip a le dessus sans rien couper** : plus besoin de couper Arpeggiator pour jouer un clip. Clip Priority a OFF rend l'ancien comportement (les deux ensemble).
+
+### 3. En suspens
+- Mika : DRAG MIDI depuis le capot (le glisser natif depuis la WebView), MIDI LEARN avec son controleur, et un clip qui joue avec l'arpege qui se tait.
+- Capot ouvert, la face est relevee : pour apprendre un potard de la face, LEARN, puis fermer le capot, puis cliquer le potard.

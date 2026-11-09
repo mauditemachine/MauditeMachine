@@ -1,8 +1,8 @@
 /**
  * Les presets sur le disque du plugin MM-ARP (2026-11-09, Mika : "enregistrer un preset sur mon disque dur en le nommant,
  * et le rouvrir") : l'etat de la face seulement (la liste du dossier, le nom en cours, le dernier SAVE). Le pont
- * (plugin/arp/bridge.ts) parle au C++ ; le tiroir d'OPEN (ArpFace.tsx, DiskPresets.tsx) montre et demande. Sans
- * dependance, comme drawer.ts.
+ * (plugin/arp/bridge.ts) parle au C++ ; le panneau du capot (HoodPanel.tsx, DiskPresets.tsx) montre et demande. Sans
+ * dependance, comme midimap.ts.
  *
  * Un preset sur le disque : le format du site (state/presets.ts capture('voy') : knobs, seq, prog), marque
  *   { format: 'mm-arp-preset', v: 1, name, user?, at, knobs, seq, prog }

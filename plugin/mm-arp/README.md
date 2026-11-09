@@ -8,7 +8,7 @@ architecture que `plugin/mm-rytm`.
 - **La face** : la machine du site elle-meme (scene three.js, potards, pads d'accords, ecran, suite EDIT), seule, vue de
   dessus, dans une WebView JUCE. Mode `PLUGIN_ARP` (`window.__MM_PLUGIN__ = 'arp'`, `src/v4/theme/base.ts`), entree
   `src/v4/plugin/arp/`, page `plugin/mm-arp/web/index.html`, build `npm run plugin:arp:web` vers `plugin/mm-arp/build-web`
-  (zip embarque dans le VST3). OPEN ouvre un tiroir avec tous les potards (TWEAKS compris) au lieu du capot.
+  (zip embarque dans le VST3). OPEN ouvre le capot 3D du site (la carte et ses TWEAKS jouables), avec en bande dessous DRAG MIDI, DISK et MIDI LEARN.
 - **Le son** : en C++ (`dsp/`), jamais dans la WebView. Le plugin joue fenetre fermee et pendant un export d'Ableton.
   - `dsp/Voyager.{h,cpp}` : le port ligne a ligne de `src/v4/audio/moog.worklet.js` (12 voix, x4, tous les filtres,
     STACK, WIDE, GLUE...). **Identique au bit pres au site** sur 85 cas (`tests/voyager-ref.mjs` + `voyager_compare.cpp`) :
@@ -37,7 +37,7 @@ architecture que `plugin/mm-rytm`.
 | Transport d'Ableton ; RUN de la face (horloge interne) quand Ableton est arrete | joue |
 | Notes MIDI d'Ableton : le synthe joue directement (velocite 100 = accent 1) | joue |
 | Parametres de l'hote : Arpeggiator, Master, et les 62 potards du site (face + TWEAKS, `dsp/Params.cpp` : les lois de params.ts / chords.ts / seq.ts, 0 ecart sur 3000 cas) : automation, MIDI Map, le triangle d'Ableton, fenetre fermee comprise | joue |
-| Presets sur le disque (`~/Music/Maudite Machine/MM-ARP Presets/*.mmarp`) : SAVE TO DISK / OPEN FROM DISK et la liste, dans le tiroir OPEN | joue |
+| Presets sur le disque (`~/Music/Maudite Machine/MM-ARP Presets/*.mmarp`) : SAVE TO DISK / OPEN FROM DISK et la liste, dans le capot (OPEN) | joue |
 | DRAG MIDI : l'arpege en clip MIDI a glisser sur une piste (x1, x2, x4 la progression), SAVE .MID ; `~/Music/Maudite Machine/MM-ARP Clips` | joue (`src/PluginEditor.cpp`, `MMArpProcessor::arpMidi` : le meme arpegiateur et la meme graine que la lecture) |
 | SIDECHAIN, sortie MIDI des notes de l'arpege | plus tard |
 

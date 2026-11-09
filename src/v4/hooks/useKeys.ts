@@ -399,7 +399,7 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
       const digit = DIGIT_KEYS.find((p) => p.key === e.key || e.code === `Digit${p.key}` || e.code === `Numpad${p.key}`);
       // Le plugin (2026-11-08) : ni sections du site, ni capot, ni vue a remettre (la camera y est fixe)
-      // (le plugin MM-ARP garde O : OPEN y ouvre le tiroir des potards, plugin/arp/drawer.ts)
+      // (le plugin MM-ARP garde O : OPEN y ouvre le capot, comme au site)
       if (PLUGIN && (digit || (!PLUGIN_ARP && (e.key === 'o' || e.key === 'O')) || e.key === 'r' || e.key === 'R')) return;
       if (digit) {
         e.preventDefault();
