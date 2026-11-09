@@ -99,6 +99,7 @@ Demande de Mika : « lance les samples perso dans le plugin ».
 - `src/v4/actions/browser.ts` : `fileImport.plugin`, + LOAD A FILE... de SOUNDS passe par le plugin ; `menus/sounds60.ts` : USER a droite d'un sample perso ; les noms sans le `~`.
 - `src/v4/plugin/bridge.ts` : `mm_import`, `mm_user`, `mm_imported` (le premier fichier importe devient le sample de la piste).
 - Verifie dans Chromium (faux `__JUCE__` avec un sample perso « My Kick ») : SOUNDS BD = OFF, les 38 BD du site, MY KICK (USER), + LOAD A FILE... ; plus de sons synthetises ; YES sur + LOAD envoie `mm_import {family: 0, track: 0}` ; la reponse du plugin pose NEW KICK sur la piste, le programme porte `bd/~New Kick.wav`, la face recoit le fichier (200). C++ : verifie a la compilation (en-tetes de JUCE) ; le dossier, le choix de fichiers et le decodage se verifient sur le Mac.
+- **Build vert du lot 4** (run 42545264897, 01:26 UTC le 2026-11-09), dans la release `mm-rytm-latest` (commit a4b75ce).
 
 ## 2. Decisions prises et pourquoi
 
