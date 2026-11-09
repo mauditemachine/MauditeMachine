@@ -27,8 +27,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { isRytmPage } from '../rytm/pages';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
-import { arpDrawer } from '../plugin/arp/drawer';
-import { BOARD_CHIPS, DT2_FACE, DT_FACE, MOBILE_QUERY, PLUGIN_ARP, PORTRAIT, isPage, type ChipId, type Inst, type PageId, type SectionId } from '../theme';
+import { BOARD_CHIPS, DT2_FACE, DT_FACE, MOBILE_QUERY, PORTRAIT, isPage, type ChipId, type Inst, type PageId, type SectionId } from '../theme';
 import { ctlAllUndo } from './ctlall';
 import { muteVoice, selectVoice, soloVoice } from './internal/tracks';
 import { bankViewClose } from './internal/patterns';
@@ -147,12 +146,6 @@ export function closeSection(): void {
 export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
   // Le MM-DECKS n'a pas de capot ; le MM-BASS a le sien depuis le 2026-10-08 (sa touche OPEN est sur sa face)
   if (which === 'dj') return false;
-  // Le plugin MM-ARP (2026-11-09) : pas de capot ; OPEN ouvre ou ferme le tiroir des potards (plugin/arp/drawer.ts)
-  if (PLUGIN_ARP && which === 'voy') {
-    arpDrawer.toggle();
-    stage?.voy?.keys.pressButton('open');
-    return true;
-  }
   resume();
   // Le logo M (V.5.0) : FUNC s'en va (la revue de D1, G2)
   if (which === 'mm808') funcDrop();

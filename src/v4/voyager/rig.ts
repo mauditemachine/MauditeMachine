@@ -33,8 +33,7 @@ import { Pcb } from '../scene/pcb';
 import { fontsReady, onFonts } from '../scene/silk';
 import type { Tweens } from '../scene/tween';
 import { voyExplode } from '../state/explode';
-import { EXPLODE, PCB, PCB_TURN, PLUGIN_ARP, PORTRAIT, type SectionId } from '../theme';
-import { arpDrawer } from '../plugin/arp/drawer';
+import { EXPLODE, PCB, PCB_TURN, PORTRAIT, type SectionId } from '../theme';
 import { VoySeqScreen } from './seqscreen';
 import { arp, arpNow } from './arp';
 import { VoyBackPlate } from './backplate';
@@ -306,16 +305,6 @@ export class VoyagerRig {
     this.unsubs.push(voyInfos.subscribe(this.syncLcd));
     this.unsubs.push(voyPatch.subscribe(this.syncLcd));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
-    // Le plugin MM-ARP (2026-11-09) : OPEN ouvre le tiroir des potards (plugin/arp/drawer.ts), sa touche et son nom le suivent
-    if (PLUGIN_ARP) {
-      const onDrawer = (): void => {
-        const on = arpDrawer.get();
-        let changed = this.keys.setOpen(on);
-        if (this.deckSilk.setOpen(on)) changed = true;
-        if (changed) this.opts.invalidate();
-      };
-      this.unsubs.push(arpDrawer.subscribe(onDrawer));
-    }
     // 2026-10-22 (audit SB-01) : les polices pas encore la, la serigraphie et les deux ecrans se redessinent a leur
     // arrivee (avant, l'ecran restait dans la police de repli jusqu'au premier potard ou accord touche)
     if (!fontsReady()) {
