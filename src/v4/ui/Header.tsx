@@ -27,17 +27,37 @@ import { MenuSheet } from './MenuSheet';
 import { MidiButton } from './MidiPanel';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
-export type PageLinkId = PageId | 'mmstudio';
+export type PageLinkId = PageId | 'rytm' | 'arp';
 
-/** Les liens du menu, partages avec l'en-tete mobile (ui/MobileHeader.tsx). */
+/**
+ * Les liens du menu (ui/MenuSheet.tsx). 2026-11-09, Mika : "au lieu de studio yé marqué MM-RYTM et MM-ARP dans le
+ * menu ! avec des liens directs.. je veux pas voir studio" : l'entree Studio (la vue d'ensemble) laisse la place aux
+ * deux machines, chacune un vrai lien (MACHINE_LINKS).
+ */
 export const PAGE_LINKS: readonly { id: PageLinkId; label: string }[] = [
   { id: 'tracks', label: 'Tracks' },
   { id: 'mixtapes', label: 'Mixtapes' },
-  { id: 'mmstudio', label: 'Studio' },
+  { id: 'rytm', label: 'MM-RYTM' },
+  { id: 'arp', label: 'MM-ARP' },
   { id: 'shows', label: 'Shows' },
   { id: 'press', label: 'Press' },
   { id: 'contact', label: 'Contact' },
 ];
+
+/**
+ * Les machines du menu : l'adresse directe (?m=, state/focus.ts : le site arrive sur la machine, menu ferme), et au
+ * clic la machine cadree sans recharger. Le MM-ARP n'existe qu'avec VOYAGER (?voyager=0 : la 808 seule).
+ */
+export const MACHINE_LINKS: Readonly<Partial<Record<PageLinkId, { machine: MachineId; href: string }>>> = {
+  rytm: { machine: 'mm808', href: '/?m=mm-rytm' },
+  arp: { machine: 'voy', href: '/?m=mm-arp' },
+};
+
+/** Une machine du menu : les sections fermees, la machine cadree. */
+export function goMachine(m: MachineId): void {
+  closeSection();
+  focusMachine(m);
+}
 
 /**
  * Menu ouvert a l'arrivee sur le site (2026-11-02, Mika : "Quand on arrive sur le site je veux qu'on arrive avec le

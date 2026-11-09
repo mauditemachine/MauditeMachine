@@ -1538,6 +1538,12 @@ html:has(body.v4-active) {
   text-decoration: none;
 }
 
+/* MM-RYTM et MM-ARP (2026-11-09) : des liens dans la liste des pages, la meme ligne que les boutons */
+.v4-root a.v4-mm-page {
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
 /* Desktop (2026-10-04, 2026-10-09) : l'interrupteur Dark / Light en haut a
    gauche, les pages dessous en tres grand ; a droite le mot de Mika en
    haut, puis le hoodie et le reste (capot, reseaux, pied). Deux colonnes

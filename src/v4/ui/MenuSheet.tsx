@@ -33,7 +33,9 @@ import { section } from '../state/section';
 import { AMark } from './AMark';
 import { AppearanceToggle } from './AppearanceToggle';
 import { ExternalLink } from './ExternalLink';
-import { HOOD_LINKS, PAGE_LINKS, goHome, openHood } from './Header';
+import { HOOD_LINKS, MACHINE_LINKS, PAGE_LINKS, goMachine, openHood } from './Header';
+import { VOYAGER } from '../state/focus';
+import type { PageId } from '../theme';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
 import { boot } from '../state/boot';
 import { BandcampIcon, SOCIAL_ICONS } from './icons';
@@ -146,7 +148,9 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
 
   /** SHOP et l'encart : MERCH, ouverte (jamais refermee comme le fait sa pastille deja allumee). */
   const shop = pick(() => openSection('merch'));
-  const n = PAGE_LINKS.length;
+  // Le MM-ARP n'est sur la table qu'avec VOYAGER
+  const links = VOYAGER ? PAGE_LINKS : PAGE_LINKS.filter((l) => l.id !== 'arp');
+  const n = links.length;
 
   return (
     <nav ref={ref} id="v4-mmenu" className="v4-mmenu" data-variant={variant} aria-label="Main" hidden={!open}>
@@ -154,24 +158,46 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
         <AppearanceToggle />
       </div>
       <ol className="v4-mm-pages">
-        {PAGE_LINKS.map((l, i) => {
-          const isStudio = l.id === 'mmstudio';
+        {links.map((l, i) => {
+          const inner = (
+            <>
+              <span className="v4-mm-num" aria-hidden="true">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <span className="v4-mm-label">{l.label}</span>
+              <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
+            </>
+          );
+          const m = MACHINE_LINKS[l.id];
           return (
             <li key={l.id} style={{ '--i': i + 1 } as React.CSSProperties}>
-              <button
-                type="button"
-                className="v4-mm-page"
-                data-active={!isStudio && opened === l.id ? '1' : '0'}
-                aria-expanded={!isStudio ? opened === l.id : undefined}
-                aria-controls={!isStudio ? `v4-section-${l.id}` : undefined}
-                onClick={pick(() => (l.id === 'mmstudio' ? goHome(getStage()) : page(l.id, getStage())))}
-              >
-                <span className="v4-mm-num" aria-hidden="true">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="v4-mm-label">{l.label}</span>
-                <FaIcon name="fa-solid fa-arrow-right" className="v4-mm-go" />
-              </button>
+              {m ? (
+                // Un vrai lien (nouvel onglet, copier l'adresse) ; un clic simple cadre la machine sans recharger
+                <a
+                  className="v4-mm-page"
+                  href={m.href}
+                  data-active="0"
+                  onClick={(e) => {
+                    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    onClose(false);
+                    goMachine(m.machine);
+                  }}
+                >
+                  {inner}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className="v4-mm-page"
+                  data-active={opened === l.id ? '1' : '0'}
+                  aria-expanded={opened === l.id}
+                  aria-controls={`v4-section-${l.id}`}
+                  onClick={pick(() => page(l.id as PageId, getStage()))}
+                >
+                  {inner}
+                </button>
+              )}
             </li>
           );
         })}
