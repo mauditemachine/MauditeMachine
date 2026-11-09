@@ -1,10 +1,15 @@
-// MM-ARP, le processeur (2026-11-09) : le programme de la face (JSON : les reglages du moteur, des effets et les
-// notes de l'arpege resolues par le site) joue sur le transport de l'hote (ou l'horloge interne, RUN de la face) ; les
-// notes MIDI d'Ableton jouent le synthe directement ; l'etat du projet garde le programme et la face.
+// MM-ARP, le processeur (2026-11-09) :
+// - les 53 potards du site (voyager/params.ts VOY_KNOBS) sont des parametres de l'hote (automation, MIDI Map, le triangle
+//   d'Ableton) ; le C++ en tire lui-meme le moteur, les effets et les notes de l'arpege (dsp/Params.cpp, les lois du
+//   site) : tout marche fenetre fermee ;
+// - la face envoie le reste (la suite EDIT, la progression, le tempo de son horloge, le swing) et ses gestes sur les
+//   potards ;
+// - les notes MIDI d'Ableton jouent le synthe ; l'etat du projet garde les parametres, la face et la graine.
 #pragma once
 
 #include "Arp.h"
 #include "ArpFx.h"
+#include "Params.h"
 #include "Voyager.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -17,13 +22,16 @@
 #include <utility>
 #include <vector>
 
-// Le programme de la face, pret a jouer (construit sur le thread du message, lu par le thread audio)
+// Ce que la face envoie en plus des potards (programme v2, src/v4/plugin/arp/bridge.ts)
 struct MMArpProgram {
     double bpm = 120;
-    std::vector<mmarp::ParamKV> engine; // les reglages du moteur, par id (Voyager::paramIndex)
-    mmarp::ArpFxSettings fx;
-    double dly16 = 3; // DLY TIME en doubles croches (le temps se calcule au tempo de l'hote)
-    mmarp::ArpProgram arp;
+    double swing = 0;
+    mmarp::SeqStateC seq;
+    std::array<int, 8> prog{};
+    int nProg = 0;
+    // les potards de la face (le premier programme d'une instance neuve ou d'un projet d'avant les parametres)
+    bool hasKnobs = false;
+    std::array<double, mmarp::kKnobs> knobs{};
 };
 
 class MMArpProcessor final : public juce::AudioProcessor {
@@ -60,8 +68,13 @@ public:
     void faceProgram(const juce::String& json);
     void faceState(const juce::String& lsJson);
     void faceRun(bool on) { runInternal_.store(on); }
-    void faceNote(int midi, double gateSec, double accent);
+    void faceParam(const juce::String& id, double v);
+    void faceGesture(const juce::String& id, bool on);
     juce::String faceInitState() const;
+    // Les potards sont-ils connus du plugin (projet, automation) ? Sinon la face donne les siens au premier programme
+    bool knobsKnown() const { return knobsKnown_.load(); }
+    // Le parametre d'un potard (0..1), nullptr si inconnu
+    juce::RangedAudioParameter* knobParam(int i) const { return knobParams_[static_cast<size_t>(i)]; }
 
     struct Feedback {
         bool playing;
@@ -75,12 +88,17 @@ public:
     };
     Feedback feedback() const;
 
+    // Le dossier des presets sur le disque : ~/Music/Maudite Machine/MM-ARP Presets
+    static juce::File presetDir();
+
     juce::AudioProcessorValueTreeState apvts;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
-    void applyProgram(const MMArpProgram& p, double bpm, bool now);
-    mmarp::ArpFxSettings fxFor(const MMArpProgram& p, double bpm) const;
+    void publish(std::shared_ptr<const MMArpProgram> p);
+    void setKnobsFrom(const std::array<double, mmarp::kKnobs>& k);
+    bool legacyFromLs(const juce::String& lsJson);
+    void update(double bpm, bool knobsChanged, bool progChanged);
 
     // Le moteur et sa chaine (thread audio, recrees par prepareToPlay)
     std::unique_ptr<mmarp::Voyager> voy_;
@@ -90,32 +108,32 @@ private:
     int64_t frame_ = 0;
     uint32_t seed_ = 0;
     std::vector<float> dryL_, dryR_;
-    std::vector<mmarp::ParamKV> kv_;
     // Le moteur rend par blocs de 128 exactement (le son du site au bit pres, comme l'AudioWorklet) : sa sortie passe
     // par une file, 128 echantillons de retard declares a l'hote
     std::vector<float> fifoL_, fifoR_;
     size_t fifoHead_ = 0, fifoSize_ = 0;
     int64_t engFrames_ = 0;
-    int bpmId_ = -1;
     void fifoReserve(size_t cap);
+
+    // Les potards sur le thread audio : leurs valeurs, ce qui en est tire
+    std::array<std::atomic<float>*, mmarp::kKnobs> knobRaw_{};
+    std::array<juce::RangedAudioParameter*, mmarp::kKnobs> knobParams_{};
+    std::array<double, mmarp::kKnobs> knobs_{};
+    std::array<mmarp::ParamKV, 96> kv_{};
+    mmarp::ArpProgram arpBuf_[2];
+    int arpCur_ = 0;
+    mmarp::ArpFxSettings fxNow_;
+    double dly16_ = 3;
+    int bpmId_ = -1;
+    bool fresh_ = true;
+    double lastBpm_ = 0;
 
     // Le programme : publie par le thread du message, pris par le thread audio au bloc suivant
     juce::SpinLock progLock_;
     std::shared_ptr<const MMArpProgram> pending_;
     std::shared_ptr<const MMArpProgram> retired_;
     std::shared_ptr<const MMArpProgram> current_;
-    bool fresh_ = true;
-    double lastBpm_ = 0;
-
-    // Les notes jouees par la face (apercus) : vers le thread audio
-    struct LiveNote {
-        int midi;
-        double gate;
-        double accent;
-    };
-    juce::SpinLock liveLock_;
-    std::vector<LiveNote> live_;
-    std::vector<LiveNote> liveAudio_;
+    std::atomic<bool> knobsKnown_{false};
 
     // Le transport
     std::atomic<bool> runInternal_{false};
@@ -126,7 +144,7 @@ private:
     int lastLiveMidi_ = -1;
     std::array<bool, 128> held_{};
 
-    // Les parametres de l'hote
+    // Les parametres de l'hote (en plus des potards)
     std::atomic<float>* master_ = nullptr;
     std::atomic<float>* arpOn_ = nullptr;
 

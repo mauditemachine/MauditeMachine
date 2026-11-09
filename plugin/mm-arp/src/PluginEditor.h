@@ -17,6 +17,10 @@ public:
 private:
     void timerCallback() override;
     std::optional<juce::WebBrowserComponent::Resource> resource(const juce::String& url);
+    void presetSave(const juce::String& name, const juce::String& preset);
+    void presetOpen();
+    void presetLoad(const juce::File& f);
+    void presetList();
     juce::WebBrowserComponent::Options options();
 
     struct Browser : juce::WebBrowserComponent {
@@ -31,6 +35,10 @@ private:
     bool lastPlaying_ = false;
     bool lastInternal_ = false;
     int quietTicks_ = 0;
+    bool ready_ = false;
+    // La derniere valeur de chaque potard connue de la face (-1 : a envoyer)
+    std::array<float, mmarp::kKnobs> sent_{};
+    std::unique_ptr<juce::FileChooser> chooser_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MMArpEditor)
 };

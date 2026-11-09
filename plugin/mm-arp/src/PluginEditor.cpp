@@ -68,12 +68,30 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                  .withEventListener("mm_program", [this](juce::var o) { proc_.faceProgram(o.getProperty("program", "").toString()); })
                  .withEventListener("mm_state", [this](juce::var o) { proc_.faceState(o.getProperty("ls", "").toString()); })
                  .withEventListener("mm_run", [this](juce::var o) { proc_.faceRun(static_cast<bool>(o.getProperty("on", false))); })
-                 .withEventListener("mm_note", [this](juce::var o) {
-                     proc_.faceNote(static_cast<int>(o.getProperty("midi", -1)), static_cast<double>(o.getProperty("gate", 0.2)), static_cast<double>(o.getProperty("accent", 1.0)));
+                 // Un potard tourne dans la face : le parametre de l'hote suit (sans retour vers la face)
+                 .withEventListener("mm_param", [this](juce::var o) {
+                     const juce::String id = o.getProperty("id", "").toString();
+                     const double v = static_cast<double>(o.getProperty("v", -1.0));
+                     proc_.faceParam(id, v);
+                     const int i = mmarp::knobIndex(id.toRawUTF8());
+                     if (i >= 0 && v >= 0 && v <= 1) sent_[static_cast<size_t>(i)] = static_cast<float>(v);
                  })
+                 .withEventListener("mm_gesture", [this](juce::var o) { proc_.faceGesture(o.getProperty("id", "").toString(), static_cast<bool>(o.getProperty("on", false))); })
+                 .withEventListener("mm_preset_save", [this](juce::var o) { presetSave(o.getProperty("name", "").toString(), o.getProperty("preset", "").toString()); })
+                 .withEventListener("mm_preset_open", [this](juce::var) { presetOpen(); })
+                 .withEventListener("mm_preset_list", [this](juce::var) { presetList(); })
+                 .withEventListener("mm_preset_load", [this](juce::var o) { presetLoad(juce::File(o.getProperty("path", "").toString())); })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;
+                     ready_ = true;
+                     // Tous les potards vers la face (s'ils sont connus : sinon c'est la face qui donne les siens)
+                     sent_.fill(-1.f);
+                     if (!proc_.knobsKnown()) {
+                         for (int i = 0; i < mmarp::kKnobs; ++i)
+                             if (auto* prm = proc_.knobParam(i)) sent_[static_cast<size_t>(i)] = prm->getValue();
+                     }
+                     presetList();
                  })
                  .withEventListener("mm_log", [](juce::var o) {
                      juce::ignoreUnused(o);
@@ -109,6 +127,27 @@ void MMArpEditor::resized() {
 }
 
 void MMArpEditor::timerCallback() {
+    // Les potards que l'hote a changes (automation, MIDI Map, le triangle d'Ableton) vers la face
+    if (ready_) {
+        auto* changed = new juce::DynamicObject();
+        int count = 0;
+        for (int i = 0; i < mmarp::kKnobs; ++i) {
+            auto* prm = proc_.knobParam(i);
+            if (!prm) continue;
+            const float v = prm->getValue();
+            if (v == sent_[static_cast<size_t>(i)]) continue;
+            sent_[static_cast<size_t>(i)] = v;
+            changed->setProperty(mmarp::kKnobDefs[i].id, static_cast<double>(v));
+            ++count;
+        }
+        if (count > 0) {
+            auto* o = new juce::DynamicObject();
+            o->setProperty("values", juce::var(changed));
+            browser_->emitEventIfBrowserIsVisible("mm_knobs", juce::var(o));
+        } else {
+            delete changed;
+        }
+    }
     // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
     const auto fb = proc_.feedback();
     ++quietTicks_;
@@ -127,4 +166,76 @@ void MMArpEditor::timerCallback() {
     o->setProperty("chord", fb.playing ? fb.chord : -1);
     o->setProperty("midi", fb.playing ? fb.midi : -1);
     browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
+}
+
+/* ---------------- les presets sur le disque (~/Music/Maudite Machine/MM-ARP Presets, fichiers .mmarp) ---------------- */
+
+namespace {
+juce::String safeName(const juce::String& n) {
+    juce::String s = juce::File::createLegalFileName(n.trim());
+    return s.isEmpty() ? juce::String("MM-ARP preset") : s;
+}
+} // namespace
+
+void MMArpEditor::presetSave(const juce::String& name, const juce::String& preset) {
+    if (preset.isEmpty()) return;
+    const juce::File dir = MMArpProcessor::presetDir();
+    dir.createDirectory();
+    // La boite de dialogue du Mac, le nom donne dans la face deja ecrit, dans le dossier des presets
+    chooser_ = std::make_unique<juce::FileChooser>("Enregistrer le preset MM-ARP", dir.getChildFile(safeName(name) + ".mmarp"), "*.mmarp");
+    chooser_->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
+                          [this, preset, name](const juce::FileChooser& fc) {
+                              juce::File f = fc.getResult();
+                              auto* o = new juce::DynamicObject();
+                              o->setProperty("name", name);
+                              if (f == juce::File()) {
+                                  o->setProperty("ok", false);
+                                  browser_->emitEventIfBrowserIsVisible("mm_saved", juce::var(o));
+                                  return;
+                              }
+                              if (!f.hasFileExtension("mmarp")) f = f.withFileExtension("mmarp");
+                              const bool ok = f.replaceWithText(preset);
+                              o->setProperty("ok", ok);
+                              o->setProperty("name", f.getFileNameWithoutExtension());
+                              o->setProperty("path", f.getFullPathName());
+                              browser_->emitEventIfBrowserIsVisible("mm_saved", juce::var(o));
+                              presetList();
+                          });
+}
+
+void MMArpEditor::presetOpen() {
+    const juce::File dir = MMArpProcessor::presetDir();
+    dir.createDirectory();
+    chooser_ = std::make_unique<juce::FileChooser>("Ouvrir un preset MM-ARP", dir, "*.mmarp;*.json");
+    chooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [this](const juce::FileChooser& fc) {
+        const juce::File f = fc.getResult();
+        if (f.existsAsFile()) presetLoad(f);
+    });
+}
+
+void MMArpEditor::presetLoad(const juce::File& f) {
+    if (!f.existsAsFile() || f.getSize() > 1024 * 1024) return;
+    const juce::String text = f.loadFileAsString();
+    if (!juce::JSON::parse(text).isObject()) return;
+    auto* o = new juce::DynamicObject();
+    o->setProperty("name", f.getFileNameWithoutExtension());
+    o->setProperty("preset", text);
+    browser_->emitEventIfBrowserIsVisible("mm_preset", juce::var(o));
+}
+
+void MMArpEditor::presetList() {
+    juce::Array<juce::var> items;
+    const juce::File dir = MMArpProcessor::presetDir();
+    auto files = dir.findChildFiles(juce::File::findFiles, false, "*.mmarp");
+    files.sort();
+    for (const auto& f : files) {
+        auto* it = new juce::DynamicObject();
+        it->setProperty("name", f.getFileNameWithoutExtension());
+        it->setProperty("path", f.getFullPathName());
+        items.add(juce::var(it));
+    }
+    auto* o = new juce::DynamicObject();
+    o->setProperty("items", items);
+    o->setProperty("dir", dir.getFullPathName());
+    browser_->emitEventIfBrowserIsVisible("mm_presets", juce::var(o));
 }

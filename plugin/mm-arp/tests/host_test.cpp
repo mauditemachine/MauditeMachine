@@ -28,18 +28,11 @@ struct Head final : juce::AudioPlayHead {
     }
 };
 
-// Le programme de la face (src/v4/plugin/arp/bridge.ts) : INIT du site (les reglages du moteur du banc voyager-ref),
-// une progression F#m D, la suite AUTO resolue en midi
-juce::String program(const char* prog = "[0,5]", double delay = 0.25, double reverb = 0.2, int chorus = 1) {
-    return juce::String(R"({"v":1,"kind":"arp","bpm":123,"swing":0,
- "engine":{"wave1":2,"wave2":2,"tune1":0,"tune2":-12,"fine1":-8,"fine2":8,"osc1":0.620928,"osc2":0.620928,"sub":0,"subOct":1,
-  "subWave":0,"fm":0,"ratio":1,"glide":0,"cutoff":753.2,"res":0.35,"envOct":3,"noise":0,"fmode":0,"fA":0.001,"fD":0.03017,
-  "fS":0.2,"fR":0.03407,"aA":0.001,"aD":0.0407,"aS":0.6,"aR":0.03407,"drive":0,"lfoBeats":4,"lfoShape":0,"lfoDest":0,
-  "lfoAmt":0,"phase":-1,"drift":1,"width":0.22,"keyTrack":0.5,"sync":0,"accFlt":0.5,"stack":0,"wide":0,"glue":0.35,"load":0,
-  "space":0,"fpol":0,"outLevel":0.306,"bpm":999},
- "fx":{"chorus":)") + juce::String(chorus) + R"(,"delay":)" + juce::String(delay) + R"(,"reverb":)" + juce::String(reverb) + R"(,"tape":0,"dly16":3,"monoHz":120,"volume":0.8},
- "arp":{"spn":1,"gate":0.5,"accent":0.5,"drift":0.2,"gateMin":0.005,"accents":[1,0.8,0.92,1.12],"prog":)" + prog + R"(,
-  "chords":[{"c":0,"steps":[54,57,61,null,66,61]},{"c":5,"steps":[50,54,57,62]}]}})";
+// Le programme v2 de la face (src/v4/plugin/arp/bridge.ts) : la suite AUTO, une progression F#m D, les potards du site
+// par defaut (seulement pris par une instance neuve)
+juce::String program(const char* prog = "[0,5]", const char* knobs = "{}") {
+    return juce::String(R"({"v":2,"kind":"arp","bpm":123,"swing":0,"seq":{"edit":false,"len":8,"buf":[0,2,4,null,7,4,2,0,0,0,0,0,0,0,0,0]},"prog":)") + prog +
+           R"(,"knobs":)" + knobs + "}";
 }
 
 struct Stats {
@@ -89,7 +82,8 @@ int main() {
         // Sans programme, transport arrete : silence
         Stats s = run(p, h, 48000, 512);
         check(s.finite && s.peak <= 0, "sans programme : silence");
-        p.faceProgram(program());
+        p.faceProgram(program("[0,5]", R"({"cutoff":0.5,"delay":0.3,"reverb":0.25,"chorus":0.5})"));
+        check(p.knobsKnown() && std::fabs(p.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 0.5f) < 1e-6f, "instance neuve : les potards de la face deviennent les parametres");
         s = run(p, h, 24000, 512);
         check(s.finite && s.peak <= 0, "programme, Ableton arrete : silence (pas de RUN)");
         // Ableton joue : l'arpege
@@ -99,6 +93,19 @@ int main() {
         check(s.finite && s.peak > 0.01 && s.peak < 1.0, "Ableton joue : l'arpege sonne (crete " + juce::String(db(s.peak), 1).toStdString() + " dBFS, rms " + juce::String(db(s.rms), 1).toStdString() + " dBFS)");
         const auto fb = p.feedback();
         check(fb.playing && fb.chord >= 0 && fb.len > 0 && fb.seq > 0, "la face recoit la note jouee (accord " + juce::String(fb.chord).toStdString() + ", pas " + juce::String(fb.pos).toStdString() + "/" + juce::String(fb.len).toStdString() + ")");
+        // L'automation d'un potard (fenetre fermee) change le son : CUTOFF ferme
+        {
+            auto* cut = p.knobParam(mmarp::knobIndex("cutoff"));
+            const Stats open = run(p, h, 48000, 512);
+            cut->setValueNotifyingHost(0.05f);
+            const Stats shut = run(p, h, 48000, 512);
+            cut->setValueNotifyingHost(0.5f);
+            check(shut.rms < open.rms * 0.5, "automation de CUTOFF sans la face : le son se ferme (" + juce::String(db(open.rms), 1).toStdString() + " -> " + juce::String(db(shut.rms), 1).toStdString() + " dBFS)");
+            char txt[64];
+            mmarp::knobText(mmarp::knobIndex("rate"), 2.0 / 3, txt, 64);
+            check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
+            check(p.getParameters().size() == mmarp::kKnobs + 2, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
+        }
         // STOP : la queue s'eteint (reverb comprise) sous -80 dB en 4 s
         h.playing = false;
         run(p, h, 48000 * 4, 512);
@@ -134,9 +141,36 @@ int main() {
         q.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
         q.prepareToPlay(48000, 256);
         check(q.faceInitState().contains("mm.v4.voyager.1"), "l'etat de la face revient a la face");
+        check(q.knobsKnown() && std::fabs(q.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 0.5f) < 1e-6f, "les parametres reviennent avec le projet");
         h2.playing = true;
         s = run(q, h2, 48000 * 2, 256);
         check(s.peak > 0.01, "projet recharge : il joue fenetre fermee");
+    }
+    {
+        // Un projet de la premiere version (sans parametres) : les potards, la suite et la progression de l'etat de la face
+        juce::ValueTree st("MMARP1");
+        st.setProperty("master", 0.0, nullptr);
+        st.setProperty("arp", true, nullptr);
+        st.setProperty("seed", 7, nullptr);
+        const juce::String vk = R"({"v":1,"knobs":{"cutoff":0.3,"rate":0.34}})";
+        juce::DynamicObject::Ptr lso = new juce::DynamicObject();
+        lso->setProperty("mm.v4.voyager.1", vk);
+        lso->setProperty("mm.v4.plugin.arp.prog", "[2]");
+        juce::DynamicObject::Ptr top = new juce::DynamicObject();
+        top->setProperty("ls", juce::var(lso.get()));
+        st.setProperty("ls", juce::JSON::toString(juce::var(top.get())), nullptr);
+        juce::MemoryBlock mb;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), mb);
+        MMArpProcessor p;
+        Head h;
+        p.setPlayHead(&h);
+        p.setStateInformation(mb.getData(), static_cast<int>(mb.getSize()));
+        p.prepareToPlay(48000, 512);
+        check(std::fabs(p.knobParam(mmarp::knobIndex("cutoff"))->getValue() - 0.3f) < 1e-6f && std::fabs(p.knobParam(mmarp::knobIndex("rate"))->getValue() - 0.34f) < 1e-6f,
+              "projet de la premiere version : ses potards repris");
+        h.playing = true;
+        const Stats s = run(p, h, 48000 * 2, 512);
+        check(s.peak > 0.01, "projet de la premiere version : sa progression joue");
     }
     {
         // Le meme passage joue deux fois (une boucle d'Ableton, un export) : le meme son, quels que soient les blocs

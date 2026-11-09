@@ -19,63 +19,50 @@ double num(const juce::var& o, const char* k, double def) {
     return v.isDouble() || v.isInt() || v.isInt64() ? static_cast<double>(v) : def;
 }
 
+bool isNum(const juce::var& v) { return v.isDouble() || v.isInt() || v.isInt64(); }
+
 // La force d'une note MIDI : velocite 100 = l'accent 1 du site (0.3 a 2, les bornes du moteur)
 double accentOf(float vel) { return juce::jlimit(0.3, 2.0, static_cast<double>(vel) * 127.0 / 100.0); }
 
-// Le programme de la face (src/v4/plugin/arp/bridge.ts) : voir plugin/mm-arp/README.md
+// La suite (voyager/seq.ts SeqState : edit, len, buf de 16 degres ou null)
+void parseSeq(const juce::var& o, mmarp::SeqStateC& s) {
+    s.edit = static_cast<bool>(o.getProperty("edit", false));
+    s.len = juce::jlimit(1, 16, static_cast<int>(num(o, "len", 8)));
+    for (int i = 0; i < 16; ++i) s.buf[i] = 0;
+    if (const auto* b = o.getProperty("buf", juce::var()).getArray())
+        for (int i = 0; i < std::min(16, b->size()); ++i) {
+            const juce::var& d = b->getReference(i);
+            s.buf[i] = isNum(d) ? juce::jlimit(-7, 24, static_cast<int>(d)) : mmarp::kSeqRest;
+        }
+}
+
+void parseProg(const juce::var& arr, MMArpProgram& p) {
+    p.nProg = 0;
+    if (const auto* pr = arr.getArray())
+        for (const auto& c : *pr)
+            if (isNum(c) && p.nProg < 8 && static_cast<int>(c) >= 0 && static_cast<int>(c) < 8) p.prog[static_cast<size_t>(p.nProg++)] = static_cast<int>(c);
+}
+
+bool parseKnobs(const juce::var& o, std::array<double, mmarp::kKnobs>& k) {
+    auto* d = o.getDynamicObject();
+    if (!d) return false;
+    for (int i = 0; i < mmarp::kKnobs; ++i) k[static_cast<size_t>(i)] = mmarp::kKnobDefs[i].def;
+    for (const auto& kv : d->getProperties()) {
+        const int i = mmarp::knobIndex(kv.name.toString().toRawUTF8());
+        if (i >= 0 && isNum(kv.value)) k[static_cast<size_t>(i)] = juce::jlimit(0.0, 1.0, static_cast<double>(kv.value));
+    }
+    return true;
+}
+
+// Le programme v2 de la face (src/v4/plugin/arp/bridge.ts) : voir plugin/mm-arp/README.md
 bool parseProgram(const juce::String& json, MMArpProgram& p) {
     const juce::var o = juce::JSON::parse(json);
-    if (!o.isObject() || static_cast<int>(num(o, "v", 0)) != 1) return false;
+    if (!o.isObject() || static_cast<int>(num(o, "v", 0)) != 2) return false;
     p.bpm = juce::jlimit(20.0, 400.0, num(o, "bpm", 120));
-    p.arp.swing = juce::jlimit(0.0, 0.5, num(o, "swing", 0));
-    if (auto* eng = o.getProperty("engine", juce::var()).getDynamicObject())
-        for (const auto& kv : eng->getProperties()) {
-            const juce::var& v = kv.value;
-            if (!(v.isDouble() || v.isInt() || v.isInt64())) continue;
-            const double d = static_cast<double>(v);
-            if (!std::isfinite(d)) continue;
-            const std::string key = kv.name.toString().toStdString();
-            if (key == "bpm") continue; // le tempo est celui de l'hote
-            const int id = mmarp::Voyager::paramIndex(key);
-            if (id >= 0) p.engine.push_back({id, d});
-        }
-    const juce::var fx = o.getProperty("fx", juce::var());
-    p.fx.chorus = juce::jlimit(0, 2, static_cast<int>(num(fx, "chorus", 0)));
-    p.fx.delay = juce::jlimit(0.0, 1.0, num(fx, "delay", 0));
-    p.fx.reverb = juce::jlimit(0.0, 1.0, num(fx, "reverb", 0));
-    p.fx.tape = juce::jlimit(0.0, 1.0, num(fx, "tape", 0));
-    p.dly16 = juce::jlimit(1.0, 16.0, num(fx, "dly16", 3));
-    p.fx.monoLowHz = juce::jlimit(0.0, 1000.0, num(fx, "monoHz", 0));
-    p.fx.volume = juce::jlimit(0.0, 1.0, num(fx, "volume", 0.8));
-    const juce::var a = o.getProperty("arp", juce::var());
-    p.arp.spn = num(a, "spn", 1);
-    // 4, 2, 1 ou 0.5 (1/4, 1/8, 1/16, 1/32)
-    const double spn = p.arp.spn;
-    p.arp.spn = spn > 3 ? 4 : spn > 1.5 ? 2 : spn > 0.75 ? 1 : 0.5;
-    p.arp.gate = juce::jlimit(0.0, 1.0, num(a, "gate", 0.5));
-    p.arp.accent = juce::jlimit(0.0, 1.0, num(a, "accent", 0.5));
-    p.arp.drift = juce::jlimit(0.0, 1.0, num(a, "drift", 0));
-    p.arp.prog.clear();
-    if (const auto* pr = a.getProperty("prog", juce::var()).getArray())
-        for (const auto& c : *pr)
-            if ((c.isInt() || c.isDouble() || c.isInt64()) && p.arp.prog.size() < 8) p.arp.prog.push_back(static_cast<int>(c));
-    p.arp.chords.clear();
-    if (const auto* cs = a.getProperty("chords", juce::var()).getArray())
-        for (const auto& cv : *cs) {
-            mmarp::ArpChord ch;
-            ch.c = static_cast<int>(num(cv, "c", -1));
-            const juce::var pool = cv.getProperty("pool", juce::var());
-            const juce::var steps = cv.getProperty("steps", juce::var());
-            const juce::Array<juce::var>* arr = pool.getArray();
-            ch.rand = arr != nullptr;
-            if (!arr) arr = steps.getArray();
-            if (arr)
-                for (const auto& m : *arr) {
-                    if (m.isInt() || m.isDouble() || m.isInt64()) ch.midi.push_back(juce::jlimit(0, 127, static_cast<int>(m)));
-                    else if (!ch.rand) ch.midi.push_back(mmarp::kRest);
-                }
-            p.arp.chords.push_back(std::move(ch));
-        }
+    p.swing = juce::jlimit(0.0, 0.5, num(o, "swing", 0));
+    parseSeq(o.getProperty("seq", juce::var()), p.seq);
+    parseProg(o.getProperty("prog", juce::var()), p);
+    p.hasKnobs = parseKnobs(o.getProperty("knobs", juce::var()), p.knobs);
     return true;
 }
 
@@ -94,8 +81,20 @@ struct VoySink final : mmarp::ArpSink {
 
 juce::AudioProcessorValueTreeState::ParameterLayout MMArpProcessor::makeLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
-    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"master", 1}, "Master", juce::NormalisableRange<float>(-60, 6, 0.1f, 2.5f), 0.f));
     layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"arp", 1}, "Arpeggiator", true));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"master", 1}, "Master", juce::NormalisableRange<float>(-60, 6, 0.1f, 2.5f), 0.f));
+    // Les potards du site, dans l'ordre de la face (voyager/params.ts VOY_KNOBS), leur texte comme a l'ecran
+    for (int i = 0; i < mmarp::kKnobs; ++i) {
+        const auto& d = mmarp::kKnobDefs[i];
+        auto attr = juce::AudioParameterFloatAttributes()
+                        .withStringFromValueFunction([i](float v, int) {
+                            char buf[64];
+                            mmarp::knobText(i, static_cast<double>(v), buf, static_cast<int>(sizeof(buf)));
+                            return juce::String(buf);
+                        })
+                        .withLabel("");
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, juce::String(d.label), juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
+    }
     return layout;
 }
 
@@ -103,29 +102,63 @@ MMArpProcessor::MMArpProcessor()
     : AudioProcessor(BusesProperties().withOutput("Main", juce::AudioChannelSet::stereo(), true)), apvts(*this, nullptr, "MMARP", makeLayout()) {
     master_ = apvts.getRawParameterValue("master");
     arpOn_ = apvts.getRawParameterValue("arp");
+    for (int i = 0; i < mmarp::kKnobs; ++i) {
+        knobRaw_[static_cast<size_t>(i)] = apvts.getRawParameterValue(mmarp::kKnobDefs[i].id);
+        knobParams_[static_cast<size_t>(i)] = apvts.getParameter(mmarp::kKnobDefs[i].id);
+        knobs_[static_cast<size_t>(i)] = mmarp::kKnobDefs[i].def;
+    }
     seed_ = static_cast<uint32_t>(juce::Random::getSystemRandom().nextInt());
-    live_.reserve(64);
-    kv_.reserve(128);
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
-    liveAudio_.reserve(64);
+    mmarp::reserveArp(arpBuf_[0]);
+    mmarp::reserveArp(arpBuf_[1]);
+    // Le programme de depart : sans accord, la suite AUTO
+    publish(std::make_shared<MMArpProgram>());
 }
 
 MMArpProcessor::~MMArpProcessor() = default;
 
-void MMArpProcessor::faceProgram(const juce::String& json) {
-    auto p = std::make_shared<MMArpProgram>();
-    if (!parseProgram(json, *p)) return;
+void MMArpProcessor::publish(std::shared_ptr<const MMArpProgram> p) {
     progBpm_.store(p->bpm);
-    {
-        std::lock_guard<std::mutex> lk(mx_);
-        programJson_ = json;
-    }
     std::shared_ptr<const MMArpProgram> old;
     {
         const juce::SpinLock::ScopedLockType sl(progLock_);
         pending_ = std::move(p);
         // Le programme que le thread audio a quitte : libere ici, jamais sur le thread audio
         old = std::move(retired_);
+    }
+}
+
+void MMArpProcessor::setKnobsFrom(const std::array<double, mmarp::kKnobs>& k) {
+    for (int i = 0; i < mmarp::kKnobs; ++i)
+        if (auto* prm = knobParams_[static_cast<size_t>(i)]) prm->setValueNotifyingHost(static_cast<float>(k[static_cast<size_t>(i)]));
+    knobsKnown_.store(true);
+}
+
+void MMArpProcessor::faceProgram(const juce::String& json) {
+    auto p = std::make_shared<MMArpProgram>();
+    if (!parseProgram(json, *p)) return;
+    // Une instance neuve (ou un projet d'avant les parametres) : les potards de la face deviennent ceux du plugin
+    if (p->hasKnobs && !knobsKnown_.load()) setKnobsFrom(p->knobs);
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        programJson_ = json;
+    }
+    publish(std::move(p));
+}
+
+void MMArpProcessor::faceParam(const juce::String& id, double v) {
+    const int i = mmarp::knobIndex(id.toRawUTF8());
+    if (i < 0 || !std::isfinite(v)) return;
+    if (auto* prm = knobParams_[static_cast<size_t>(i)]) prm->setValueNotifyingHost(static_cast<float>(juce::jlimit(0.0, 1.0, v)));
+    knobsKnown_.store(true);
+}
+
+void MMArpProcessor::faceGesture(const juce::String& id, bool on) {
+    const int i = mmarp::knobIndex(id.toRawUTF8());
+    if (i < 0) return;
+    if (auto* prm = knobParams_[static_cast<size_t>(i)]) {
+        if (on) prm->beginChangeGesture();
+        else prm->endChangeGesture();
     }
 }
 
@@ -139,21 +172,36 @@ juce::String MMArpProcessor::faceInitState() const {
     return lsJson_;
 }
 
-void MMArpProcessor::faceNote(int midi, double gateSec, double accent) {
-    if (midi < 0 || midi > 127 || !(gateSec > 0)) return;
-    const juce::SpinLock::ScopedLockType sl(liveLock_);
-    if (live_.size() < 64) live_.push_back({midi, std::min(gateSec, 8.0), juce::jlimit(0.3, 2.0, accent)});
-}
-
 MMArpProcessor::Feedback MMArpProcessor::feedback() const {
     return {fbPlaying_.load(), internalPlaying_.load(), fbSeq_.load(), fbSlot_.load(), fbPos_.load(), fbLen_.load(), fbChord_.load(), fbMidi_.load()};
 }
 
+juce::File MMArpProcessor::presetDir() {
+    return juce::File::getSpecialLocation(juce::File::userMusicDirectory).getChildFile("Maudite Machine").getChildFile("MM-ARP Presets");
+}
+
+// Un projet d'avant les parametres (2026-11-09, la premiere version) : les potards, la suite et la progression sont dans
+// l'etat de la face (les cles mm.v4.* du site)
+bool MMArpProcessor::legacyFromLs(const juce::String& lsJson) {
+    const juce::var st = juce::JSON::parse(lsJson);
+    const juce::var ls = st.getProperty("ls", juce::var());
+    if (!ls.isObject()) return false;
+    auto p = std::make_shared<MMArpProgram>();
+    const juce::var knobs = juce::JSON::parse(ls.getProperty("mm.v4.voyager.1", "").toString());
+    if (!parseKnobs(knobs.getProperty("knobs", juce::var()), p->knobs)) return false;
+    parseSeq(juce::JSON::parse(ls.getProperty("mm.v4.voyager.seq.1", "").toString()), p->seq);
+    parseProg(juce::JSON::parse(ls.getProperty("mm.v4.plugin.arp.prog", "").toString()), *p);
+    setKnobsFrom(p->knobs);
+    publish(std::move(p));
+    return true;
+}
+
 void MMArpProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMARP1");
-    state.setProperty("master", master_->load(), nullptr);
-    state.setProperty("arp", arpOn_->load() > 0.5f, nullptr);
+    state.setProperty("v", 2, nullptr);
     state.setProperty("seed", static_cast<juce::int64>(seed_), nullptr);
+    // Les parametres (les potards, Master, Arpeggiator)
+    state.appendChild(apvts.copyState(), nullptr);
     {
         std::lock_guard<std::mutex> lk(mx_);
         state.setProperty("program", programJson_, nullptr);
@@ -166,18 +214,27 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     auto xml = getXmlFromBinary(data, sizeInBytes);
     if (!xml || !xml->hasTagName("MMARP1")) return;
     const auto state = juce::ValueTree::fromXml(*xml);
+    // La graine du projet : le hasard du moteur et de l'arpege (RAND, DRIFT) rejoue pareil a chaque ouverture et a l'export
+    if (state.hasProperty("seed")) seed_ = static_cast<uint32_t>(static_cast<juce::int64>(state.getProperty("seed")));
+    const juce::String ls = state.getProperty("ls", "").toString();
+    {
+        std::lock_guard<std::mutex> lk(mx_);
+        lsJson_ = ls;
+    }
+    const auto params = state.getChildWithName(apvts.state.getType());
+    if (params.isValid()) {
+        apvts.replaceState(params);
+        knobsKnown_.store(true);
+        // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
+        const juce::String prog = state.getProperty("program", "").toString();
+        if (prog.isNotEmpty()) faceProgram(prog);
+        return;
+    }
+    // Un projet de la premiere version : Master et Arpeggiator a part, le reste dans l'etat de la face
     if (auto* prm = apvts.getParameter("master"))
         prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
     if (auto* prm = apvts.getParameter("arp")) prm->setValueNotifyingHost(static_cast<bool>(state.getProperty("arp", true)) ? 1.f : 0.f);
-    // La graine du projet : le hasard du moteur et de l'arpege (RAND, DRIFT) rejoue pareil a chaque ouverture et a l'export
-    if (state.hasProperty("seed")) seed_ = static_cast<uint32_t>(static_cast<juce::int64>(state.getProperty("seed")));
-    {
-        std::lock_guard<std::mutex> lk(mx_);
-        lsJson_ = state.getProperty("ls", "").toString();
-    }
-    // Le programme garde : le plugin joue fenetre fermee des le chargement du projet
-    const juce::String prog = state.getProperty("program", "").toString();
-    if (prog.isNotEmpty()) faceProgram(prog);
+    legacyFromLs(ls);
 }
 
 /* ---------------- l'audio ---------------- */
@@ -186,22 +243,34 @@ bool MMArpProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo() && layouts.inputBuses.isEmpty();
 }
 
-mmarp::ArpFxSettings MMArpProcessor::fxFor(const MMArpProgram& p, double bpm) const {
-    mmarp::ArpFxSettings s = p.fx;
-    // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
-    s.delaySeconds = std::min(2.0, p.dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
-    return s;
-}
-
-void MMArpProcessor::applyProgram(const MMArpProgram& p, double bpm, bool now) {
-    // Un message 'params' du site : tous les reglages du moteur, et le tempo
-    // (kv_ reserve d'avance, des cles courtes : pas d'allocation sur le thread audio)
-    kv_.clear();
-    for (const auto& e : p.engine) kv_.push_back(e);
-    kv_.push_back({bpmId_, bpm});
-    voy_->params(kv_.data(), static_cast<int>(kv_.size()));
-    fx_.set(fxFor(p, bpm), now);
-    arp_.setProgram(&p.arp);
+// Les potards ou le programme ont change : le moteur, la chaine et l'arpege en sont tires (thread audio, sans allocation)
+void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
+    const MMArpProgram& p = *current_;
+    if (knobsChanged || fresh_) {
+        // Un message 'params' du site : tous les reglages du moteur, et le tempo
+        int n = mmarp::engineParams(knobs_.data(), kv_.data(), static_cast<int>(kv_.size()) - 1);
+        kv_[static_cast<size_t>(n++)] = {bpmId_, bpm};
+        voy_->params(kv_.data(), n);
+        mmarp::ArpFxSettings fx;
+        double dly16 = 3;
+        mmarp::fxSettings(knobs_.data(), fx, dly16);
+        // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
+        fx.delaySeconds = std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
+        const bool same = !fresh_ && fx.chorus == fxNow_.chorus && fx.delay == fxNow_.delay && fx.reverb == fxNow_.reverb && fx.tape == fxNow_.tape &&
+                          fx.delaySeconds == fxNow_.delaySeconds && fx.monoLowHz == fxNow_.monoLowHz && fx.volume == fxNow_.volume;
+        if (!same) fx_.set(fx, fresh_);
+        fxNow_ = fx;
+        dly16_ = dly16;
+        lastBpm_ = bpm;
+    }
+    // L'arpege dans le tampon libre, puis echange (l'arpegiateur garde son pointeur jusque-la)
+    const int next = 1 - arpCur_;
+    mmarp::arpProgram(knobs_.data(), p.seq, p.prog.data(), p.nProg, arpBuf_[next]);
+    arpBuf_[next].swing = p.swing;
+    arp_.setProgram(&arpBuf_[next]);
+    arpCur_ = next;
+    juce::ignoreUnused(progChanged);
+    fresh_ = false;
 }
 
 void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
@@ -226,6 +295,8 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     engFrames_ = 0;
     fresh_ = true;
     lastBpm_ = 0;
+    // tous les potards relus au premier bloc
+    for (auto& k : knobs_) k = -1;
     wasPlaying_ = false;
     held_.fill(false);
     lastLiveMidi_ = -1;
@@ -287,22 +358,32 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     const double pps = bpm / 60.0 / sr;
     if (internal) internalPpq_ += n * pps;
 
-    // Un nouveau programme de la face
+    // Un nouveau programme de la face (la suite, la progression)
+    bool progChanged = false;
     if (progLock_.tryEnter()) {
         if (pending_) {
             retired_ = std::move(current_);
             current_ = std::move(pending_);
-            applyProgram(*current_, bpm, fresh_);
-            fresh_ = false;
-            lastBpm_ = bpm;
+            progChanged = true;
         }
         progLock_.exit();
     }
+    // Les potards (automation, MIDI Map, la face)
+    bool knobsChanged = false;
+    for (size_t i = 0; i < knobs_.size(); ++i) {
+        const double v = static_cast<double>(knobRaw_[i]->load());
+        if (v != knobs_[i]) {
+            knobs_[i] = v;
+            knobsChanged = true;
+        }
+    }
+    if (current_ && (progChanged || knobsChanged || fresh_)) update(bpm, knobsChanged, progChanged);
     // Le tempo change : le LFO libre et le DELAY le suivent
     if (current_ && std::fabs(bpm - lastBpm_) > 1e-9) {
         const mmarp::ParamKV b{bpmId_, bpm};
         voy_->params(&b, 1);
-        fx_.retimeDelay(fxFor(*current_, bpm).delaySeconds);
+        fx_.retimeDelay(std::min(2.0, dly16_ * 60.0 / std::max(20.0, bpm) / 4.0));
+        fxNow_.delaySeconds = std::min(2.0, dly16_ * 60.0 / std::max(20.0, bpm) / 4.0);
         lastBpm_ = bpm;
     }
 
@@ -314,15 +395,6 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     const bool arpOn = arpOn_->load() > 0.5f;
     VoySink sink(*voy_);
     arp_.process(sink, f0, n, playing && arpOn, ppq, pps, seed_);
-
-    // Les notes de la face (apercus)
-    if (liveLock_.tryEnter()) {
-        liveAudio_.swap(live_);
-        live_.clear();
-        liveLock_.exit();
-    }
-    for (const auto& ln : liveAudio_) voy_->note(at(0), ln.midi, ln.gate, ln.accent, std::numeric_limits<double>::quiet_NaN());
-    liveAudio_.clear();
 
     // Les notes MIDI (un clip, un clavier) : le synthe joue, la duree au note-off
     for (const auto meta : midi) {
