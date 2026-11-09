@@ -180,6 +180,50 @@ void MMArpEditor::saveMidi() {
                           });
 }
 
+void MMArpEditor::timerCallback() {
+    // MIDI LEARN : la liste des CC a chaque changement
+    if (ready_ && proc_.takeMapChanged()) browser_->emitEventIfBrowserIsVisible("mm_midimap", proc_.midiMap());
+    // Les potards que l'hote a changes (automation, MIDI Map, le triangle d'Ableton) vers la face
+    if (ready_) {
+        auto* changed = new juce::DynamicObject();
+        int count = 0;
+        for (int i = 0; i < mmarp::kKnobs; ++i) {
+            auto* prm = proc_.knobParam(i);
+            if (!prm) continue;
+            const float v = prm->getValue();
+            if (!(v < sent_[static_cast<size_t>(i)] || v > sent_[static_cast<size_t>(i)])) continue;
+            sent_[static_cast<size_t>(i)] = v;
+            changed->setProperty(mmarp::kKnobDefs[i].id, static_cast<double>(v));
+            ++count;
+        }
+        if (count > 0) {
+            auto* o = new juce::DynamicObject();
+            o->setProperty("values", juce::var(changed));
+            browser_->emitEventIfBrowserIsVisible("mm_knobs", juce::var(o));
+        } else {
+            delete changed;
+        }
+    }
+    // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
+    const auto fb = proc_.feedback();
+    ++quietTicks_;
+    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && quietTicks_ < 30) return;
+    lastSeq_ = fb.seq;
+    lastPlaying_ = fb.playing;
+    lastInternal_ = fb.internal;
+    quietTicks_ = 0;
+    auto* o = new juce::DynamicObject();
+    o->setProperty("playing", fb.playing);
+    o->setProperty("internal", fb.internal);
+    o->setProperty("seq", fb.seq);
+    o->setProperty("slot", fb.playing ? fb.slot : -1);
+    o->setProperty("pos", fb.pos);
+    o->setProperty("len", fb.len);
+    o->setProperty("chord", fb.playing ? fb.chord : -1);
+    o->setProperty("midi", fb.playing ? fb.midi : -1);
+    browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
+}
+
 /* ---------------- les presets sur le disque (~/Music/Maudite Machine/MM-ARP Presets, fichiers .mmarp) ---------------- */
 
 namespace {
