@@ -175,6 +175,9 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - SETTINGS : STEPS, BPM, SWING, MASTER ; PERSONALIZE (TRK SELECT, LED, BACKLIGHT, SUBPAGE : state/personal.ts, garde) ; le dossier des samples ; la souris et les touches ; la version ;
 - verifie dans Chromium : S tire a droite : start 0.118 dans le programme ; E tire a gauche : len 0.559 ; REVERSE : rev true ; ▶ : bd/Bd 4.wav ; RESET : start 0, len 1 ; TRK SELECT SILENT garde dans le stockage ; le zoom (captures).
 - Le site : V.3.0 par defaut et V.6.0 (?face=dt2) identiques au pixel avant et apres le lot 7 ; `npx tsc` : 105 erreurs, celles d'avant.
+- **Builds verts du lot 7** : 7a run 42556440981, 7b run 42557403048, 7c run 42557907899, 7d run 42558551923 (03:53 UTC) ; la release `mm-rytm-latest` porte le commit 5d54827.
+
+7e. La release protegee : d'autres sessions poussent sur main et sur leurs branches (le menu du site, le MM-ARP) ; ce workflow y tourne aussi et publiait leur build, avec un MM-RYTM plus ancien (vu : main a 03:41 UTC, puis une autre branche a 03:43, avant que les builds du lot 7 reprennent la release). `.github/workflows/plugin.yml` : l'historique sans les fichiers (fetch-depth 0, blob:none) ; la release ne prend un build que si son plugin est au moins aussi recent (la date du dernier commit qui touche plugin/mm-rytm ou src/v4/plugin, ecrite dans ses notes : plugin-time). Limite : les branches qui n'ont pas encore ce workflow (main compris) publient toujours sans garde, jusqu'a ce que main le recoive.
 
 ## 2. Decisions prises et pourquoi
 
@@ -213,6 +216,7 @@ Mika (apres l'installation) : « le bouton OPEN c'est vraiment pas ce que je sou
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- **La release et main** : tant que main n'a pas ce workflow, un push sur main ou sur une autre branche peut remettre un MM-RYTM ancien dans `mm-rytm-latest` ; `update.sh` affiche le build (commit, branche) : il doit dire claude/intelligent-ride-56tyeo. Le remede : fusionner cette branche dans main (une PR, a la demande de Mika).
 - Cote Mika (lot 7) : `update.sh`, puis : le P-LOCK au clic droit, l'ecran (SRC 2/2, FX 2/2, TRIG 2/2, TEMPO), la vue 3D penchee (dire si 16 deg est juste), l'editeur de sample d'OPEN (LISTEN joue la piste par le plugin).
 - Cote Mika (lot 6) : `update.sh`, puis dire si la face facon DT2 lui va (icones, fonctions imprimees, crossfader a la place des fleches), si OPEN contient ce qu'il attend, et si OPEN FOLDER ouvre bien le Finder depuis Ableton.
 

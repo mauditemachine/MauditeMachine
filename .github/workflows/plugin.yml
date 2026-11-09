@@ -45,7 +45,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # L'historique (sans les fichiers) : la date du dernier changement du plugin decide de la publication (ci-dessous)
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
       # La face (2026-11-08) : la machine du site (src/v4/plugin), construite puis embarquee dans le VST3
       - uses: actions/setup-node@v4
         with:
@@ -85,9 +89,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # 2026-11-09 : d'autres branches (le site, le MM-ARP) font aussi tourner ce workflow avec un plugin plus ancien ;
+          # la release ne prend un build que si le plugin y est au moins aussi recent (la date du dernier commit qui touche
+          # plugin/mm-rytm ou src/v4/plugin, gardee dans ses notes : plugin-time)
+          T=$(git log -1 --format=%ct -- plugin/mm-rytm src/v4/plugin)
+          CUR=$(gh release view mm-rytm-latest --json body -q .body 2>/dev/null | sed -n 's/.*plugin-time \([0-9]*\).*/\1/p')
+          if [ -n "$CUR" ] && [ -n "$T" ] && [ "$T" -lt "$CUR" ]; then
+            echo "La release a un plugin plus recent (plugin-time $CUR > $T) : pas de publication."
+            exit 0
+          fi
           if ! gh release view mm-rytm-latest >/dev/null 2>&1; then
             gh release create mm-rytm-latest --prerelease --target "$GITHUB_SHA" --title "MM-RYTM (dernier build)" --notes "Le VST3 macOS du dernier build."
           fi
           gh release upload mm-rytm-latest MM-RYTM-macOS.zip plugin/mm-rytm/update.sh --clobber
           gh api -X PATCH "repos/$GH_REPO/git/refs/tags/mm-rytm-latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
-          gh release edit mm-rytm-latest --notes "MM-RYTM, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}. Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-rytm-latest/update.sh | bash"
+          gh release edit mm-rytm-latest --notes "MM-RYTM, le VST3 macOS (universel, signe ad hoc) du commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME} (plugin-time ${T}). Usage perso. Pour l'installer par-dessus l'ancien, dans le Terminal : curl -fsSL https://github.com/${GH_REPO}/releases/download/mm-rytm-latest/update.sh | bash"
