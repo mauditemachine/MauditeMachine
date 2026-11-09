@@ -8,7 +8,8 @@ import { type StepLock } from '../audio/locks';
 import { TRIG_RANGE, isTrigParam, trigText, trigUnit, type TrigParam } from '../audio/trig';
 import { LFO_MULTS, isLfoParam, lfoDefault, lfoParts, lfoRange, lfoText, lfoUnit, type LfoParam } from '../audio/lfo';
 import { pattern } from '../audio/pattern';
-import { tracks } from '../audio/tracks';
+import { TYPED_TRACKS, tracks } from '../audio/tracks';
+import { dialShown } from './scenes';
 import { type SlotTarget } from '../rytm/pages';
 import { lcdMessage } from '../state/lcdMessage';
 import { DT2_FACE } from '../theme';
@@ -44,6 +45,8 @@ export function levelDataTurn(delta: number, func = false): boolean {
 export function levelDataView(): { t: number; live: boolean } {
   if (!DT2_FACE) return { t: 0, live: false };
   const t = screenTrack();
+  // Le plugin : le niveau du MIXER (celui que les scenes menent), tel qu'on l'entend
+  if (t && TYPED_TRACKS) return { t: dialShown(`m:${t}` as DialId), live: true };
   return t ? { t: tracks.param(t, 'tlev'), live: true } : { t: 0, live: false };
 }
 

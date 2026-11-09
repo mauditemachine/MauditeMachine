@@ -9,7 +9,7 @@
  * LEVEL/DATA sur les pages INTERNAL : le TRK LEV de la piste active (le VOL du pattern arrive en V.6.1).
  */
 
-import { TRACK_KEYS, TRACK_NAMES } from '../../../audio/tracks';
+import { TRACK_KEYS, TRACK_NAMES, TYPED_TRACKS } from '../../../audio/tracks';
 import { pattern } from '../../../audio/pattern';
 import { sceneCount, type SceneId } from '../../../rytm/sceneData';
 import { anyDial, anyDialValue, dialRange, sceneDown, sceneUp, xfadeSet } from '../../../actions';
@@ -23,7 +23,9 @@ import { menuChanged, screenTrack } from './open';
 export const MIXER_PAGES = ['INTERNAL 1-8', 'INTERNAL 9-16', 'SCENES'] as const;
 let page = 0;
 
-const trkSlot = (i: number): PageSlot => ({ label: TRACK_NAMES[i], target: `k:${TRACK_KEYS[i]}` as SlotTarget, scope: 'all', draw: 'level' });
+// Le plugin (2026-11-08) : le niveau de chaque piste est celui de LEVEL/DATA, le VOL (m:<piste>) que les scenes A et B gardent
+// et que le crossfader mene ; au site, TRK LEV (k:<piste>)
+const trkSlot = (i: number): PageSlot => ({ label: TRACK_NAMES[i], target: `${TYPED_TRACKS ? 'm' : 'k'}:${TRACK_KEYS[i]}` as SlotTarget, scope: 'all', draw: 'level' });
 const EMPTY: PageSlot = { label: '', target: null, scope: 'all', draw: 'bar' };
 const PAGE_SLOTS: readonly (readonly PageSlot[])[] = [
   Array.from({ length: 8 }, (_, i) => trkSlot(i)),

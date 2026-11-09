@@ -22,7 +22,7 @@ import { sceneHint, sceneMark, sceneNative } from './internal/scenes';
 import { type ContEnc, kitReadout, pageDial, readout } from './internal/dials';
 import { layerDial, layerNotches, layerReadout, layerReset, layerSpan, layerUnitNow, layerValue, sampleCount, sampleText, sampleUnit, sampleValue, voiceSoundValue, voyId } from './internal/kit';
 import { lockDialValue, lockSampleList, lockSoundsOf, lockTrack } from './internal/locks';
-import { mixerDial, mixerInst, seqDefault, seqDial, seqName, seqValue } from './internal/mixer';
+import { mixerBaseSet, mixerDial, mixerInst, mixerLevel, seqDefault, seqDial, seqName, seqValue } from './internal/mixer';
 import { dialEdit, dialShown, sceneTake } from './scenes';
 import { dial, dialReset, dialTarget, dialValue } from './dials';
 import { type DialId, kitDial, kitIdOf, layerIdOf, mixText, mixUnit, mixValueOf, pageKnobOf, pageSlotOf, pageTarget, soundFamily, voiceSounds, voiceSoundText, voiceSoundUnit, voyDial } from './kit';
@@ -130,7 +130,7 @@ export function anyDialValue(id: DialId): number {
   const lp = layerIdOf(t);
   if (lp) return layerValue(lp);
   const mi = mixerInst(t);
-  if (mi) return voiceFx.of(mi).level;
+  if (mi) return mixerLevel(mi);
   const sd = seqDialOf(t);
   if (sd) return seqValue(sd);
   const k = voyId(t);
@@ -172,7 +172,7 @@ export function anyDialReset(id: DialId): number {
   if (lp) return layerReset(lp);
   const mi = mixerInst(t);
   if (mi) {
-    setVoiceFx(mi, 'level', VOICE_FX_DEFAULT.level);
+    mixerBaseSet(mi, VOICE_FX_DEFAULT.level);
     return VOICE_FX_DEFAULT.level;
   }
   const sd = seqDialOf(t);

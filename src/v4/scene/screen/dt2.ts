@@ -17,6 +17,7 @@
 import { clock } from '../../audio/clock';
 import { pattern } from '../../audio/pattern';
 import { TRACK_KEYS, TRACK_NAMES, TYPED_TRACKS, tracks, trackIndex, type TrackKey } from '../../audio/tracks';
+import { morph } from '../../audio/morph';
 import { sampleByKey } from '../../audio/samples';
 import { curScreen, curSlots } from '../../actions';
 import { ctlAllState } from '../../state/trk';
@@ -238,7 +239,8 @@ function paintLeft(screen: Screen, t: TrackKey | null, tag: string): string {
   // Le fader LEV : son echelle pointillee, sa course pleine, son repere
   const y0 = 78;
   const y1 = 172;
-  const lev = t ? tracks.param(t, 'tlev') : 0;
+  // Le plugin : le niveau du MIXER tel qu'on l'entend (le crossfader le fait bouger) ; au site, TRK LEV
+  const lev = t ? (TYPED_TRACKS ? morph.voice(t).level : tracks.param(t, 'tlev')) : 0;
   for (let y = y0; y <= y1; y += 7.8) screen.line([cx - 9, y, cx - 6, y], FAINT, 0.7);
   screen.roundRect(cx - 3, y0, 6, y1 - y0, 2, null, FRAME, 0.8);
   const top = y1 - (y1 - y0) * Math.max(0, Math.min(1, lev));

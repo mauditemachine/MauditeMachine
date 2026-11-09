@@ -673,13 +673,24 @@ function typedTrack(i: number, tr: Readonly<TrackSound>): Readonly<TrackSound> {
 function typedKit(k: Kit16): Kit16 {
   if (!TYPED_TRACKS) return k;
   let changed = false;
+  let tlev: number[] | null = null;
   const tracks = k.tracks.map((tr, i) => {
-    const n = typedTrack(i, tr);
+    let n = typedTrack(i, tr);
+    // Le niveau d'une piste du plugin est son VOL (le MIXER, LEVEL/DATA, les scenes) : un TRK LEV d'avant y passe, au meme
+    // gain ((v / 0.8)^2 des deux : VOL x TRK LEV / 0.8), et TRK LEV revient a 0 dB
+    const tl = k.mix.tlev[i];
+    if (typeof tl === 'number' && tl !== TLEV_UNITY) {
+      const lv = Math.max(0, Math.min(1, Math.round(((n.p.level * tl) / TLEV_UNITY) * 1000) / 1000));
+      n = { ...n, p: { ...n.p, level: lv } };
+      (tlev ??= [...k.mix.tlev])[i] = TLEV_UNITY;
+    }
     if (n !== tr) changed = true;
     return n;
   });
-  return changed ? { ...k, tracks } : k;
+  return changed ? { ...k, tracks, ...(tlev ? { mix: { ...k.mix, tlev } } : {}) } : k;
 }
+/** TRK LEV a 0 dB (KIT_MIX_DEFAULT). */
+const TLEV_UNITY = 0.8;
 
 let K: Kit16 = typedKit(load());
 let ver = 0;

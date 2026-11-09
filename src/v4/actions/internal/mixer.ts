@@ -5,7 +5,7 @@
 
 import { resume, setVoiceFx } from '../../audio/drums';
 import { lfoOf, voiceFx } from '../../audio/voicefx';
-import { tracks } from '../../audio/tracks';
+import { TRACK_KEYS, TRACK_NAMES, TYPED_TRACKS, isLegacyTrack, trackIndex, tracks, type TrackKey } from '../../audio/tracks';
 import { TRIG_DEF, isTrigParam, trigValue, type TrigParam } from '../../audio/trig';
 import { lfoDefault, lfoParts } from '../../audio/lfo';
 import { INSTRUMENTS, pattern } from '../../audio/pattern';
@@ -22,19 +22,37 @@ import { type SeqDial, seqRange, seqText, seqUnit } from '../mixer';
 
 /* ---------- le MIXER (FUNC + MOD) : le VOL de chaque voix ---------- */
 
-export const mixerInst = (id: DialId | SlotTarget | string): Inst | null => (typeof id === 'string' && id.startsWith('m:') && (INSTRUMENTS as readonly string[]).includes(id.slice(2)) ? (id.slice(2) as Inst) : null);
+/**
+ * m:<voix> : le VOL d'une voix du MIXER ; le plugin (2026-11-08, Mika : "voir le level de tout [...] et le moduler avec le
+ * crossfade") : les 16 pistes (m:T9 ... m:T16), le niveau de LEVEL/DATA et du MIXER, gardable dans les scenes A et B.
+ */
+export const mixerInst = (id: DialId | SlotTarget | string): TrackKey | null => {
+  if (typeof id !== 'string' || !id.startsWith('m:')) return null;
+  const k = id.slice(2);
+  if ((INSTRUMENTS as readonly string[]).includes(k)) return k as Inst;
+  return TYPED_TRACKS && (TRACK_KEYS as readonly string[]).includes(k) ? (k as TrackKey) : null;
+};
+/** Le VOL d'une piste (0 a 1, 0.8 = 0 dB). */
+export const mixerLevel = (t: TrackKey): number => (isLegacyTrack(t) ? voiceFx.of(t as Inst).level : tracks.vfx(t).level);
+/** Pose le VOL d'une piste (hors scenes) : les voix 1 a 8 par voiceFx (le moteur du site), les pistes 9 a 16 par le store. */
+export function mixerBaseSet(t: TrackKey, v: number): void {
+  const x = Math.max(0, Math.min(1, v));
+  if (isLegacyTrack(t)) setVoiceFx(t as Inst, 'level', x);
+  else tracks.set(t, 'level', x);
+}
 /** Le VOL d'une voix du MIXER (0 a 1) : une scene armee le prend, une scene qui le fait entendre suit la main. */
-export function mixerSet(inst: Inst, v: number): void {
+export function mixerSet(inst: TrackKey, v: number): void {
   const id = `rytm:voice:${inst}:level`;
   const x = Math.max(0, Math.min(1, v));
   if (sceneTakeId(id, x)) return;
-  if (!sceneFollowId(id, x, voiceFx.of(inst).level, (w) => setVoiceFx(inst, 'level', w))) setVoiceFx(inst, 'level', x);
+  if (!sceneFollowId(id, x, mixerLevel(inst), (w) => mixerBaseSet(inst, w))) mixerBaseSet(inst, x);
 }
 /** Le potard d'un bloc du MIXER, apres les scenes (anyDial les a deja servies) : le VOL de la voix, et l'ecran le dit. */
-export function mixerDial(inst: Inst, v: number): void {
+export function mixerDial(inst: TrackKey, v: number): void {
   resume();
-  setVoiceFx(inst, 'level', Math.max(0, Math.min(1, v)));
-  lcdMessage.show(`${inst} VOL ${encText('vol', voiceFx.of(inst).level, voiceFx.of(inst).level, false)}  ${encUnit('vol', voiceFx.of(inst).level)}`, POT_UI.readoutMs, true);
+  mixerBaseSet(inst, v);
+  const l = mixerLevel(inst);
+  lcdMessage.show(`${TRACK_NAMES[trackIndex(inst)] ?? inst} VOL ${encText('vol', l, l, false)}  ${encUnit('vol', l)}`, POT_UI.readoutMs, true);
 }
 const SEQ_NAME: Readonly<Record<TrigParam, string>> = { len: 'LEN', prob: 'PROB', cond: 'COND', utime: 'μTIME', lfot: 'LFO.T', rtrg: 'RTRG', rate: 'RATE', vfad: 'VFAD', rlen: 'RLEN', tlen: 'TLEN' };
 /** Son nom a l'ecran : LEN, LFO1 DEP. */

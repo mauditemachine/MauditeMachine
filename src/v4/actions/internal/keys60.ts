@@ -20,7 +20,10 @@ import { resume, trigger } from '../../audio/drums';
 import { isLockTrig, type Locks } from '../../audio/locks';
 import { STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from '../../audio/pattern';
 import { defaultKit } from '../../audio/kitlaw';
-import { TRACK_KEYS, kit16FromLegacy, tracks, type Kit16, type TrackKey } from '../../audio/tracks';
+import { TRACK_KEYS, TYPED_TRACKS, kit16FromLegacy, tracks, type Kit16, type TrackKey } from '../../audio/tracks';
+import { anyDial } from '../anyDial';
+import { dialEdit } from '../scenes';
+import type { DialId } from '../kit';
 import type { VoiceFx } from '../../audio/voicefx';
 import type { Stage } from '../../scene/renderer';
 import type { FaceMenu } from '../../scene/rytmFaceKeys';
@@ -1014,6 +1017,13 @@ export function trackLevelTurn(delta: number): void {
   const k = activeTrack.get();
   if (!k) {
     lcdMessage.show(NO_TRACK);
+    return;
+  }
+  // Le plugin (2026-11-08) : le niveau de la piste est celui du MIXER (m:<piste>), que les scenes A et B gardent et que le
+  // crossfader mene ; une scene armee l'enregistre
+  if (TYPED_TRACKS) {
+    const id = `m:${k}` as DialId;
+    anyDial(id, Math.max(0, Math.min(1, Math.round((dialEdit(id) + delta / 127) * 1000) / 1000)));
     return;
   }
   const v0 = tracks.param(k, 'tlev');

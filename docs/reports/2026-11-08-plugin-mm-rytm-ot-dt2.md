@@ -101,6 +101,19 @@ Demande de Mika : « lance les samples perso dans le plugin ».
 - Verifie dans Chromium (faux `__JUCE__` avec un sample perso « My Kick ») : SOUNDS BD = OFF, les 38 BD du site, MY KICK (USER), + LOAD A FILE... ; plus de sons synthetises ; YES sur + LOAD envoie `mm_import {family: 0, track: 0}` ; la reponse du plugin pose NEW KICK sur la piste, le programme porte `bd/~New Kick.wav`, la face recoit le fichier (200). C++ : verifie a la compilation (en-tetes de JUCE) ; le dossier, le choix de fichiers et le decodage se verifient sur le Mac.
 - **Build vert du lot 4** (run 42545264897, 01:26 UTC le 2026-11-09), dans la release `mm-rytm-latest` (commit a4b75ce).
 
+### Lot 5, le mixer et les niveaux au crossfader (2026-11-09)
+
+Demande de Mika (capture d'une version d'avant : pas de BD sur les pas) : « je peux diriger le level de chaque track ; je voudrais voir le mixer comme sur n'importe quelle Digitakt pour voir le level de tout, et pouvoir le moduler avec le crossfade ; si je peux deja, explique-moi ; ca doit etre intuitif ».
+
+- Deja la : le MIXER (FUNC + MOD, pistes 1-8, 9-16, SCENES) ; FUNC tape une fois montre les fonctions orange (MIXER sous MOD).
+- Ce qui manquait : son niveau etait TRK LEV, que les scenes ne gardent pas. Dans le plugin, le niveau d'une piste devient son VOL (`m:<piste>`, `rytm:voice:<piste>:level`, une cible de scene qui existait) :
+  - `actions/internal/mixer.ts` : `mixerInst` accepte les 16 pistes dans le plugin ; `mixerLevel`, `mixerBaseSet` (les pistes 9 a 16 par le store) ; `anyDial.ts` les utilise ;
+  - `menus/mixer16.ts` : les potards du MIXER reglent `m:<piste>` dans le plugin (TRK LEV au site) ;
+  - `internal/keys60.ts` : LEVEL/DATA regle le meme niveau par `anyDial` (une scene armee l'enregistre) ; `actions/mixer.ts` : son anneau ; `screen/dt2.ts` : la case de l'ecran le montre tel qu'on l'entend (`morph.voice`) ;
+  - `audio/tracks.ts` : un TRK LEV d'avant passe dans le VOL au chargement, au meme gain (VOL x TRK LEV / 0.8), TRK LEV revient a 0 dB ;
+  - le moteur n'a pas change : le niveau entre dans la tranche des 9 positions du crossfader (lot 1).
+- Verifie dans Chromium : MIXER 1-8 (BD a CY), le potard A baisse le BD (tranche 1 -> 0.444), une scene B tapee + potard A vers le haut donne au BD 9 positions de 0.444 a 1.361 ; LEVEL/DATA baisse le BD hors du MIXER (la scene B garde sa valeur) ; FUNC montre MIXER sous MOD. Le site ne change pas (TRK LEV, `k:` ; `m:` limite aux 8 voix).
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -113,6 +126,7 @@ Demande de Mika : « lance les samples perso dans le plugin ».
 - **TLEN hors des verrous** : la liste des verrous (et la liste du MIDI) est construite sur l'ordre des reglages de trig, et cet ordre entre dans les liens SHARE ; y glisser TLEN aurait decale les LFO.
 - **Les samples perso : un dossier du Mac plutot que le projet ou le navigateur** : le moteur les lit fenetre fermee ; ils servent a tous les projets ; Mika les range au Finder. Les mettre dans le projet Ableton l'aurait alourdi a chaque sauvegarde ; le stockage du navigateur de la WebView n'est pas lisible par le moteur.
 - **La banque synthetisee masquee dans le plugin** : 43 sons calcules en JS par le site, que le moteur C++ ne sait pas calculer ; ils sonnaient muets. A reprendre si Mika les veut (la face les calculerait et les donnerait au moteur).
+- **Le niveau d'une piste = son VOL dans le plugin** : c'est deja une cible de scene (morph, programme aux 9 positions, moteur) ; rendre TRK LEV morphable aurait demande une nouvelle sorte de cible dans le morph du site. Un seul niveau par piste, partout (MIXER, LEVEL/DATA, ecran, scenes) ; le TRK LEV d'avant y passe sans changer le son.
 - **Les autres patterns : 16 pas** : un emplacement ne garde que sa premiere page (les pages et la longueur suivent le pattern courant, au site aussi) ; le plugin joue ce que le site poserait.
 - **Le crossfader de la face ne recompile plus rien** : avant, chaque mouvement recalculait tout le programme (50 ms de retard, des sons recalcules) ; maintenant il envoie sa position, et Ableton peut l'automatiser.
 
