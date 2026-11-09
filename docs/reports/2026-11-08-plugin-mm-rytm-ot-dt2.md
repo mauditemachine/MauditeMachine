@@ -192,6 +192,7 @@ Demande de Mika : « je voudrais un bouton pour tout transferer directement la p
 - `src/PluginEditor.{h,cpp}` MidiBar : une barre native de 34 px sous la face (la fenetre passe a 1200 x 765) : DRAG MIDI (glisser : le fichier dans le dossier temporaire, `performExternalDragDropOfFiles` ; un clic : SAVE), ce qui part (A01, 1 BAR, 23 NOTES), SAVE .MID (~/Music/MM-RYTM MIDI, montre dans le Finder).
 - `tests/engine_test.cpp` : 9 tests (les notes et velocites, swing et uTIME, TLEN 3 dans 16 = 3 mesures, A:B 1:2 et 2:2, RTRG et VFAD, mute, lock trig, LEN, la table des 16 pads relue par l'entree, le fichier relu, les noms A01 a H16) : 48 tests, tout est OK sur Linux.
 - C++ de la fenetre : compile avec les en-tetes de JUCE (`-fsyntax-only`) ; le glisser vers Ableton se verifie sur le Mac.
+- **Build vert du lot 8** (run 42564463325, 05:01 UTC) ; 4 minutes plus tard, le workflow d'une autre branche (le MM-ARP, sans le garde-fou du lot 7e) a remis un MM-RYTM ancien dans `mm-rytm-latest` ; relance a la main (workflow_dispatch) : la release porte de nouveau 0e309b3 (05:15 UTC).
 
 ## 2. Decisions prises et pourquoi
 
