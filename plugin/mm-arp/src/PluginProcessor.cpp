@@ -49,7 +49,9 @@ bool parseProgram(const juce::String& json, MMArpProgram& p) {
     p.fx.volume = juce::jlimit(0.0, 1.0, num(fx, "volume", 0.8));
     const juce::var a = o.getProperty("arp", juce::var());
     p.arp.spn = num(a, "spn", 1);
-    if (!(p.arp.spn == 4 || p.arp.spn == 2 || p.arp.spn == 1 || p.arp.spn == 0.5)) p.arp.spn = 1;
+    // 4, 2, 1 ou 0.5 (1/4, 1/8, 1/16, 1/32)
+    const double spn = p.arp.spn;
+    p.arp.spn = spn > 3 ? 4 : spn > 1.5 ? 2 : spn > 0.75 ? 1 : 0.5;
     p.arp.gate = juce::jlimit(0.0, 1.0, num(a, "gate", 0.5));
     p.arp.accent = juce::jlimit(0.0, 1.0, num(a, "accent", 0.5));
     p.arp.drift = juce::jlimit(0.0, 1.0, num(a, "drift", 0));
@@ -297,7 +299,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         progLock_.exit();
     }
     // Le tempo change : le LFO libre et le DELAY le suivent
-    if (current_ && bpm != lastBpm_) {
+    if (current_ && std::fabs(bpm - lastBpm_) > 1e-9) {
         const mmarp::ParamKV b{bpmId_, bpm};
         voy_->params(&b, 1);
         fx_.retimeDelay(fxFor(*current_, bpm).delaySeconds);

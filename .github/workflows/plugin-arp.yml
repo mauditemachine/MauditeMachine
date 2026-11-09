@@ -42,9 +42,23 @@ jobs:
           node plugin/mm-arp/tests/fx-ref.mjs ref-fx worklet
           ./build-dsp/mmarp_fx_test ref-fx
 
+  host:
+    name: Processeur JUCE sans fenetre (comme sous Ableton)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependances de JUCE (Linux)
+        run: sudo apt-get update -q && sudo apt-get install -y -q libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev libxcomposite-dev libasound2-dev libfreetype-dev libfontconfig1-dev
+      - name: Construire le banc
+        run: |
+          cmake -S plugin/mm-arp -B build-host -DMM_HOST_TEST=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-host -j 4 --target mmarp_host_test
+      - name: Transport, programme, MIDI, etat du projet, reproductibilite
+        run: ./build-host/mmarp_host_test_artefacts/Release/mmarp_host_test
+
   mac:
     name: Plugin macOS (VST3)
-    needs: dsp
+    needs: [dsp, host]
     runs-on: macos-latest
     # La release mm-arp-latest (ci-dessous) : le seul droit d'ecriture du workflow
     permissions:

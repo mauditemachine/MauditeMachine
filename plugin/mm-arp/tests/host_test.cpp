@@ -88,10 +88,10 @@ int main() {
         check(p.getLatencySamples() >= 128 + 19, "latence declaree (blocs de 128 + decimateurs) : " + juce::String(p.getLatencySamples()).toStdString());
         // Sans programme, transport arrete : silence
         Stats s = run(p, h, 48000, 512);
-        check(s.finite && s.peak == 0, "sans programme : silence");
+        check(s.finite && s.peak <= 0, "sans programme : silence");
         p.faceProgram(program());
         s = run(p, h, 24000, 512);
-        check(s.finite && s.peak == 0, "programme, Ableton arrete : silence (pas de RUN)");
+        check(s.finite && s.peak <= 0, "programme, Ableton arrete : silence (pas de RUN)");
         // Ableton joue : l'arpege
         h.playing = true;
         h.ppq = 0;
@@ -165,7 +165,7 @@ int main() {
             d2 = std::max(d2, static_cast<double>(std::fabs(a[i] - b[i])));
             pk = std::max(pk, static_cast<double>(std::fabs(a[i])));
         }
-        check(pk > 0.01 && d1 == 0, "meme graine, meme passage : identique au bit pres");
+        check(pk > 0.01 && d1 <= 0, "meme graine, meme passage : identique au bit pres");
         check(db(d2 / pk) < -100, "blocs de 512 contre 77 : ecart " + juce::String(db(d2 / pk), 1).toStdString() + " dB");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
