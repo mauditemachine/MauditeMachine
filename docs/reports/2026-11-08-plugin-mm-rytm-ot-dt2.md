@@ -202,6 +202,7 @@ Mika : « je veux un bouton CLEAR ou NEW preset vierge » ; puis « il est ou le
 - `src/PluginEditor.{h,cpp}` MidiBar : NEW et CLEAR, une boite de confirmation du plugin (AlertWindow, NEW / CLEAR = 1, CANCEL = 0), puis `mm_cmd` vers la face.
 - Verifie dans Chromium : un autre sample sur le BD, CLEAR : 0 coup, le sample reste ; Cmd+Z : les 25 coups reviennent ; NEW : 0 coup, BD 1, swing 0 ; Cmd+Z : tout revient (BD 5, swing, coups). C++ : compile avec les en-tetes de JUCE.
 - `.github/workflows/plugin.yml` : la release **mm-rytm**, que seule cette version du workflow ecrit (avec la garde plugin-time) ; mm-rytm-latest suit encore, au mieux. `update.sh` telecharge mm-rytm ; INSTALL et README donnent la nouvelle commande.
+- **Build vert du lot 9**, la release **mm-rytm** creee (05:46 UTC, commit 6ee6721) ; verifie depuis le conteneur sans compte GitHub : son `update.sh` telecharge mm-rytm, son zip porte `BUILD.txt` = commit 6ee6721, branche claude/intelligent-ride-56tyeo.
 
 ## 2. Decisions prises et pourquoi
 
