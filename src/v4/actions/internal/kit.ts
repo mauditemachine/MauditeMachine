@@ -350,7 +350,7 @@ export function trackSampleList(track?: TrackKey | null): readonly { key: string
   const out: { key: string; label: string; family: string }[] = [{ key: '', label: 'OFF', family: f ?? '' }];
   if (f) {
     // Le plugin : le nom du fichier (BD 12) plutot que son numero seul
-    const named = (key: string, label: string): string => (TYPED_TRACKS ? (key.split('/').pop() ?? label).replace(/\.[a-z0-9]+$/i, '').toUpperCase() : label);
+    const named = (key: string, label: string): string => (TYPED_TRACKS ? (key.split('/').pop() ?? label).replace(/^~/, '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : label);
     for (const s of samplesOf(f)) out.push({ key: s.key, label: named(s.key, s.label), family: s.family });
   } else {
     for (const fam of KIT_FAMILIES) for (const s of samplesOf(fam)) out.push({ key: s.key, label: s.label, family: s.family });

@@ -447,10 +447,12 @@ export function trackSoundList(): { track: TrackKey; name: string; rows: readonl
   const list = trackSampleList();
   const snd = tracks.of(t).snd;
   const rows: TrackSoundRow[] = list.map((x) => ({ key: x.key, label: x.label, family: x.family }));
-  // Le plugin : ses samples sont ceux du site (le moteur C++ ne lit pas les fichiers de ce navigateur), sans + LOAD
-  if (!TYPED_TRACKS) rows.push({ key: null, label: BROWSER_LOAD_LABEL, family: '' });
+  rows.push({ key: null, label: BROWSER_LOAD_LABEL, family: '' });
   return { track: t, name: TRACK_NAMES[trackIndex(t)] ?? t, rows, cur: Math.max(0, list.findIndex((x) => x.key === snd)) };
 }
+
+/** + LOAD A FILE... dans le plugin (plugin/bridge.ts) : le moteur ouvre le choix de fichiers du Mac ; null au site. */
+export const fileImport: { plugin: ((t: TrackKey) => void) | null } = { plugin: null };
 
 /** Le sample i de la liste pour la piste active 9 a 16 (par le potard D, sa fiche t:snd) ; + LOAD A FILE... : tes fichiers. */
 export function trackSoundPick(i: number): void {
@@ -458,7 +460,9 @@ export function trackSoundPick(i: number): void {
   const row = v?.rows[i];
   if (!v || !row) return;
   if (row.key === null) {
-    soundFilesPick(v.track, true);
+    // Le plugin : le choix de fichiers du Mac, copies dans le dossier de samples perso du type de la piste
+    if (fileImport.plugin) fileImport.plugin(v.track);
+    else soundFilesPick(v.track, true);
     return;
   }
   dialSpecOf('t:snd')?.set(i);

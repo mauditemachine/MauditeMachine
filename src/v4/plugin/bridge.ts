@@ -13,8 +13,8 @@
  *
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
- *                 mm_xf {x}, mm_ptn {next, chain}, mm_log {where, msg}
- *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pat, patSeq}
+ *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}
+ *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pat, patSeq}, mm_user {list}, mm_imported {track, key}
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
@@ -31,7 +31,11 @@ import { activeLfos, LFO_DESTS, LFO_MODES, LFO_WAVES } from '../audio/lfo';
 import { cutHz, filterIndex, resoQ } from '../audio/voicelaw';
 import { liveNeeds } from '../audio/seqhit';
 import { pattern, VEL_GAIN, velocity, type Steps } from '../audio/pattern';
-import { tracks, TRACK_KEYS, type TrackKey } from '../audio/tracks';
+import { tracks, TRACK_KEYS, TRACK_NAMES, typedFamily, type TrackKey } from '../audio/tracks';
+import { KIT_FAMILIES } from '../audio/kitlaw';
+import { setPluginSamples } from '../audio/samples';
+import { fileImport } from '../actions/browser';
+import { lcdMessage } from '../state/lcdMessage';
 import { decayTau, START_MAX } from '../audio/voicelaw';
 import type { Stage } from '../scene/renderer';
 import { FLAGS } from '../state/flags';
@@ -608,6 +612,23 @@ export const bridge = {
     mix.subscribe(changed);
     // FILL (tenir PAGE ou YES) : les trigs a condition FILL jouent tant qu'il est tenu
     fill.subscribe(() => send('mm_fill', { on: fill.on }));
+    // Les samples perso (2026-11-08) : le dossier ~/Music/MM-RYTM Samples du Mac, que le plugin lit ; + LOAD A FILE... de
+    // SOUNDS ouvre son choix de fichiers (copies dans le dossier du type de la piste), le premier devient le sample de la piste
+    fileImport.plugin = (t) => {
+      const i = TRACK_KEYS.indexOf(t);
+      if (i < 0) return;
+      lcdMessage.show(`${TRACK_NAMES[i]} : CHOOSE FILES ON THE MAC`, 2400);
+      send('mm_import', { family: KIT_FAMILIES.indexOf(typedFamily(i)), track: i });
+    };
+    backend()?.addEventListener('mm_user', (o: unknown) => setPluginSamples((o as { list?: unknown } | null)?.list));
+    backend()?.addEventListener('mm_imported', (o: unknown) => {
+      const x = o as { track?: unknown; key?: unknown } | null;
+      const i = typeof x?.track === 'number' ? x.track : -1;
+      const key = typeof x?.key === 'string' ? x.key : '';
+      if (i < 0 || i >= TRACK_KEYS.length || !key) return;
+      tracks.sample(TRACK_KEYS[i], key);
+      lcdMessage.show(`${TRACK_NAMES[i]} SAMPLE ${key.split('/~').pop()?.replace(/\.[a-z0-9]+$/i, '').toUpperCase() ?? ''}`, 2400);
+    });
     send('mm_ready', {});
     sendProgram();
     sendState();

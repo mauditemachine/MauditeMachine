@@ -18,6 +18,10 @@ private:
     void timerCallback() override;
     std::optional<juce::WebBrowserComponent::Resource> resource(const juce::String& url);
     juce::WebBrowserComponent::Options options();
+    // Les samples perso : la liste du dossier (JSON), son envoi a la face, l'import de fichiers choisis au Mac
+    static juce::String userList();
+    void sendUserList();
+    void importFiles(int family, int track);
 
     struct Browser : juce::WebBrowserComponent {
         using juce::WebBrowserComponent::WebBrowserComponent;
@@ -27,6 +31,7 @@ private:
 
     MMRytmProcessor& proc_;
     std::unique_ptr<Browser> browser_;
+    std::unique_ptr<juce::FileChooser> chooser_;
     int lastSeq_ = -1;
     bool lastPlaying_ = false;
     bool lastInternal_ = false;

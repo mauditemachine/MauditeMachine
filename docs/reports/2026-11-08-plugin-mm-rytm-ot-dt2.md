@@ -83,6 +83,23 @@ Demande de Mika : « lance la passe sur la face ». Un tour de la face page par 
 - Verifie : le site construit a part, la page RYTM en V.3.0 identique au pixel pres a la capture d'avant ; la face V.6 du site garde ses machines et ses numeros seuls.
 - **Build vert du lot 3** (run 42535187785, 23:33 UTC), dans la release `mm-rytm-latest` (commit c60f4b2).
 
+### Lot 4, les samples perso dans le plugin
+
+Demande de Mika : « lance les samples perso dans le plugin ».
+
+- `plugin/mm-rytm/src/SampleBank.{h,cpp}` : `UserLibrary`, le dossier `~/Music/MM-RYTM Samples/<famille>/` (cree au premier lancement) :
+  - `rescan()` liste WAV, AIFF, FLAC, MP3 par famille (ordre naturel des noms) ;
+  - `byKey()` decode a la demande avec JUCE (30 s au plus, mono ou stereo) et garde les octets du fichier pour la face ;
+  - `import()` copie des fichiers dans le dossier d'une famille (le meme fichier : rien ; un autre du meme nom : un nom libre) et rend la cle du premier.
+- Cle d'un sample perso : `<famille>/~<fichier>`. `PluginProcessor.cpp` : le calcul d'un son prend le sample perso ou celui de la banque. `PluginEditor.cpp` :
+  - la liste du dossier dans `initialisationData` (`mmUser`, la face la connait avant de lire son kit), puis `mm_user` a chaque `mm_ready` et apres un import ;
+  - `mm_import {family, track}` ouvre le choix de fichiers du Mac (plusieurs a la fois) ; apres la copie, `mm_imported {track, key}` ;
+  - `/samples/rytm/<famille>/~<fichier>` sert le fichier a la face (son dessin, sa duree).
+- `src/v4/audio/samples.ts` (plugin seulement) : les samples perso apres ceux du site (`setPluginSamples`), servis par le plugin comme ceux du site ; la banque synthetisee du site (JS, 43 sons) n'est pas listee dans le plugin (son moteur ne la joue pas : elle y sonnait muette) ; ni les samples IndexedDB du navigateur.
+- `src/v4/actions/browser.ts` : `fileImport.plugin`, + LOAD A FILE... de SOUNDS passe par le plugin ; `menus/sounds60.ts` : USER a droite d'un sample perso ; les noms sans le `~`.
+- `src/v4/plugin/bridge.ts` : `mm_import`, `mm_user`, `mm_imported` (le premier fichier importe devient le sample de la piste).
+- Verifie dans Chromium (faux `__JUCE__` avec un sample perso « My Kick ») : SOUNDS BD = OFF, les 38 BD du site, MY KICK (USER), + LOAD A FILE... ; plus de sons synthetises ; YES sur + LOAD envoie `mm_import {family: 0, track: 0}` ; la reponse du plugin pose NEW KICK sur la piste, le programme porte `bd/~New Kick.wav`, la face recoit le fichier (200). C++ : verifie a la compilation (en-tetes de JUCE) ; le dossier, le choix de fichiers et le decodage se verifient sur le Mac.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -93,6 +110,8 @@ Demande de Mika : « lance la passe sur la face ». Un tour de la face page par 
 - **Pistes typees : une regle dans le store** plutot que des interdits dans chaque menu : un preset, SOUNDS ou MACHINE qui poserait une synthese ou un autre type est ramene a la regle au meme endroit. Les pistes 9 a 16 reprennent les 8 types (deux BD, deux SD...) : 8 dossiers de samples, 16 pistes.
 - **TLEN sans repartir avec le pattern** : une piste de 7 pas qui repartirait tous les 16 pas ferait 7 + 7 + 2 ; la polymetrie voulue (minimale hypnotique) demande qu'elle tourne en continu. Le pattern garde sa longueur pour changer de pattern.
 - **TLEN hors des verrous** : la liste des verrous (et la liste du MIDI) est construite sur l'ordre des reglages de trig, et cet ordre entre dans les liens SHARE ; y glisser TLEN aurait decale les LFO.
+- **Les samples perso : un dossier du Mac plutot que le projet ou le navigateur** : le moteur les lit fenetre fermee ; ils servent a tous les projets ; Mika les range au Finder. Les mettre dans le projet Ableton l'aurait alourdi a chaque sauvegarde ; le stockage du navigateur de la WebView n'est pas lisible par le moteur.
+- **La banque synthetisee masquee dans le plugin** : 43 sons calcules en JS par le site, que le moteur C++ ne sait pas calculer ; ils sonnaient muets. A reprendre si Mika les veut (la face les calculerait et les donnerait au moteur).
 - **Les autres patterns : 16 pas** : un emplacement ne garde que sa premiere page (les pages et la longueur suivent le pattern courant, au site aussi) ; le plugin joue ce que le site poserait.
 - **Le crossfader de la face ne recompile plus rien** : avant, chaque mouvement recalculait tout le programme (50 ms de retard, des sons recalcules) ; maintenant il envoie sa position, et Ableton peut l'automatiser.
 
@@ -102,7 +121,8 @@ Demande de Mika : « lance la passe sur la face ». Un tour de la face page par 
 - A l'oreille : un geste rapide du crossfader sur DIST ou CHORUS de piste (les reglages changent par bloc de 512 echantillons au plus).
 - A l'oreille et dans Ableton : un clip par pattern (case Pgm), en session et en arrangement.
 - A l'oreille : TLEN sur des hats (12) et une perc (7) ; les samples de chaque type.
-- Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; ses propres samples (glisser un fichier dans le plugin) ; le multi-out.
+- Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
+- Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
 
 ## 4. Commandes utiles ajoutees

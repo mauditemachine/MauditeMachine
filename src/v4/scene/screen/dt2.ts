@@ -76,7 +76,7 @@ export function trackSoundName(t: TrackKey | null): string {
   if (!t) return '';
   const tr = tracks.of(t);
   // Le plugin : le nom du fichier (BD 12), plus parlant que son numero seul
-  if (TYPED_TRACKS) return tr.snd ? (tr.snd.split('/').pop() ?? '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : 'OFF';
+  if (TYPED_TRACKS) return tr.snd ? (tr.snd.split('/').pop() ?? '').replace(/^~/, '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : 'OFF';
   const smp = tr.snd ? sampleByKey(tr.snd)?.label ?? (tr.snd.split('/').pop() ?? '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : '';
   if (tr.mach === 'oneshot') return smp || 'OFF';
   return smp && tr.p.slev > 0 && tr.p.syn <= 0 ? smp : `${tr.mach.toUpperCase()} ${tr.model.toUpperCase()}`;

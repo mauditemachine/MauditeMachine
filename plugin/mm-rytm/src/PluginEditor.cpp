@@ -49,7 +49,10 @@ juce::String mimeOf(const juce::String& path) {
     if (ext == "woff") return "font/woff";
     if (ext == "ttf") return "font/ttf";
     if (ext == "otf") return "font/otf";
-    if (ext == "wav") return "audio/wav";
+    if (ext == "wav" || ext == "wave") return "audio/wav";
+    if (ext == "aif" || ext == "aiff") return "audio/aiff";
+    if (ext == "flac") return "audio/flac";
+    if (ext == "mp3") return "audio/mpeg";
     if (ext == "wasm") return "application/wasm";
     return "application/octet-stream";
 }
@@ -66,6 +69,8 @@ juce::WebBrowserComponent::Options MMRytmEditor::options() {
                  .withResourceProvider([this](const juce::String& url) { return resource(url); })
                  // L'etat de la machine garde dans le projet : la face le pose dans son localStorage avant de se charger
                  .withInitialisationData("mmState", proc_.faceInitState())
+                 // Les samples perso (le dossier ~/Music/MM-RYTM Samples, relu a l'ouverture) : connus de la face avant son kit
+                 .withInitialisationData("mmUser", userList())
                  .withEventListener("mm_program", [this](juce::var o) { proc_.faceProgram(o.getProperty("program", "").toString()); })
                  .withEventListener("mm_state", [this](juce::var o) { proc_.faceState(o.getProperty("ls", "").toString()); })
                  .withEventListener("mm_hit", [this](juce::var o) { proc_.faceHit(o); })
@@ -73,9 +78,12 @@ juce::WebBrowserComponent::Options MMRytmEditor::options() {
                  .withEventListener("mm_fill", [this](juce::var o) { proc_.faceFill(static_cast<bool>(o.getProperty("on", false))); })
                  .withEventListener("mm_xf", [this](juce::var o) { proc_.faceXf(static_cast<float>(static_cast<double>(o.getProperty("x", 0.0)))); })
                  .withEventListener("mm_ptn", [this](juce::var o) { proc_.facePtn(o); })
+                 // + LOAD A FILE... de SOUNDS : le choix de fichiers du Mac, copies dans le dossier du type de la piste
+                 .withEventListener("mm_import", [this](juce::var o) { importFiles(static_cast<int>(o.getProperty("family", -1)), static_cast<int>(o.getProperty("track", -1))); })
                  .withEventListener("mm_ready", [this](juce::var) {
                      lastSeq_ = -1;
                      quietTicks_ = 1000;
+                     sendUserList();
                  })
                  .withEventListener("mm_log", [](juce::var o) {
                      juce::ignoreUnused(o);
@@ -88,13 +96,15 @@ std::optional<juce::WebBrowserComponent::Resource> MMRytmEditor::resource(const 
     juce::String path = url.upToFirstOccurrenceOf("?", false, false).upToFirstOccurrenceOf("#", false, false);
     if (path.isEmpty() || path == "/") path = "/index.html";
     path = urlDecode(path);
-    // Les samples de Mika : servis depuis la banque du plugin (les memes octets que public/samples/rytm)
+    // Les samples de Mika : servis depuis la banque du plugin (les memes octets que public/samples/rytm), ses samples
+    // perso depuis son dossier
     if (path.startsWith("/samples/rytm/")) {
         const juce::String key = path.fromFirstOccurrenceOf("/samples/rytm/", false, false);
-        if (const auto* b = mm::SampleBank::get().byKey(key)) {
+        const auto* b = mm::UserLibrary::isUserKey(key) ? mm::UserLibrary::get().byKey(key) : mm::SampleBank::get().byKey(key);
+        if (b && b->data) {
             std::vector<std::byte> bytes(static_cast<size_t>(b->size));
             std::memcpy(bytes.data(), b->data, static_cast<size_t>(b->size));
-            return juce::WebBrowserComponent::Resource{std::move(bytes), "audio/wav"};
+            return juce::WebBrowserComponent::Resource{std::move(bytes), mimeOf(key)};
         }
         return std::nullopt;
     }
@@ -102,6 +112,38 @@ std::optional<juce::WebBrowserComponent::Resource> MMRytmEditor::resource(const 
     const auto it = files.find(path.substring(1));
     if (it == files.end()) return std::nullopt;
     return juce::WebBrowserComponent::Resource{it->second, mimeOf(path)};
+}
+
+/* ---------------- les samples perso ---------------- */
+
+juce::String MMRytmEditor::userList() {
+    mm::UserLibrary::get().rescan();
+    return mm::UserLibrary::get().listJson();
+}
+
+void MMRytmEditor::sendUserList() {
+    auto* o = new juce::DynamicObject();
+    o->setProperty("list", juce::JSON::parse(userList()));
+    browser_->emitEventIfBrowserIsVisible("mm_user", juce::var(o));
+}
+
+void MMRytmEditor::importFiles(int family, int track) {
+    if (family < 0 || family >= 8) return;
+    chooser_ = std::make_unique<juce::FileChooser>(juce::String("MM-RYTM : samples ") + juce::String(mm::SampleBank::kFamilies[family]).toUpperCase(),
+                                                   juce::File::getSpecialLocation(juce::File::userMusicDirectory), "*.wav;*.wave;*.aif;*.aiff;*.flac;*.mp3");
+    const auto flags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectMultipleItems;
+    juce::Component::SafePointer<MMRytmEditor> safe(this);
+    chooser_->launchAsync(flags, [safe, family, track](const juce::FileChooser& fc) {
+        if (!safe) return;
+        const juce::String key = mm::UserLibrary::get().import(fc.getResults(), family);
+        safe->sendUserList();
+        if (key.isNotEmpty()) {
+            auto* o = new juce::DynamicObject();
+            o->setProperty("track", track);
+            o->setProperty("key", key);
+            safe->browser_->emitEventIfBrowserIsVisible("mm_imported", juce::var(o));
+        }
+    });
 }
 
 MMRytmEditor::MMRytmEditor(MMRytmProcessor& p) : AudioProcessorEditor(&p), proc_(p) {

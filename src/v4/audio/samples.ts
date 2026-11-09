@@ -74,6 +74,45 @@ export const SAMPLES: readonly KitSample[] = [
   ...SYNTH_SAMPLES,
 ];
 
+/* ---------------- le plugin : ses samples perso (2026-11-08) ---------------- */
+
+/**
+ * Le plugin (plugin/mm-rytm, Mika : "lance les samples perso dans le plugin") : ses samples sont ceux de son moteur C++, la
+ * banque du site et le dossier ~/Music/MM-RYTM Samples/<famille>/ du Mac (cle "<famille>/~<fichier>", servie par le plugin
+ * comme ceux du site) ; la banque synthetisee (JS) n'y joue pas : elle n'y est pas. Le site ne change pas.
+ */
+const IN_PLUGIN: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((window as unknown as { __MM_PLUGIN__?: boolean }).__MM_PLUGIN__ === true) return true;
+    return new URLSearchParams(window.location.search).get('plugin') === '1';
+  } catch {
+    return false;
+  }
+})();
+
+/** Un sample perso du plugin, tel que le moteur le donne : sa famille, son fichier. */
+export interface PluginSampleRef {
+  family: string;
+  file: string;
+}
+const pluginSample = (r: PluginSampleRef): KitSample | null => {
+  if (!isSampleFamily(r.family) || typeof r.file !== 'string' || !r.file || r.file.includes('/')) return null;
+  const file = `~${r.file}`;
+  return { key: `${r.family}/${file}`, family: r.family, file, label: sampleLabel(r.file), url: `${import.meta.env.BASE_URL}samples/rytm/${r.family}/${encodeURIComponent(file)}` };
+};
+const pluginList = (raw: unknown): KitSample[] => (Array.isArray(raw) ? raw.map((r) => pluginSample(r as PluginSampleRef)).filter((x): x is KitSample => x !== null) : []);
+/** Les samples perso au chargement de la face : ceux que le plugin donne avant tout module (window.__JUCE__.initialisationData.mmUser) */
+let pluginUser: KitSample[] = (() => {
+  if (!IN_PLUGIN) return [];
+  try {
+    const raw = (window as unknown as { __JUCE__?: { initialisationData?: Record<string, unknown[]> } }).__JUCE__?.initialisationData?.mmUser?.[0];
+    return typeof raw === 'string' ? pluginList(JSON.parse(raw)) : [];
+  } catch {
+    return [];
+  }
+})();
+
 /* ---------------- les listes (le site, puis ce navigateur) ---------------- */
 
 const byFamily = new Map<string, KitSample[]>();
@@ -92,9 +131,21 @@ function index(): void {
     byFamily.set(s.family, list);
     byKey.set(s.key, s);
   };
-  for (const s of SAMPLES) put(s);
+  for (const s of SAMPLES) if (!IN_PLUGIN || !isSynthSampleUrl(s.url)) put(s);
+  // Le plugin : ses samples perso apres ceux du site
+  for (const s of pluginUser) put(s);
   // Les samples de Mika de ce navigateur apres ceux du site, dans l'ordre d'arrivee (audio/usersamples.ts)
-  for (const f of FAMILY_DIRS) for (const s of userSamples.list(f)) put(s);
+  if (!IN_PLUGIN) for (const f of FAMILY_DIRS) for (const s of userSamples.list(f)) put(s);
+}
+
+/** Le plugin : la liste de ses samples perso a change (un import, le dossier relu) ; les listes qui en dependent se refont. */
+export function setPluginSamples(raw: unknown): void {
+  if (!IN_PLUGIN) return;
+  pluginUser = pluginList(raw);
+  if (!indexed) return;
+  index();
+  version += 1;
+  changeListeners.forEach((fn) => fn());
 }
 
 /**

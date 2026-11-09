@@ -284,8 +284,12 @@ std::shared_ptr<mm::RenderedSound> MMRytmProcessor::soundFor(const mm::ProgSound
     auto r = std::make_shared<mm::RenderedSound>();
     mm::ShotTweak tw = s.tw;
     const mm::SamplePcm* pcm = nullptr;
-    if (!s.sample.empty())
-        if (const auto* b = mm::SampleBank::get().byKey(juce::String(s.sample))) pcm = &b->pcm;
+    if (!s.sample.empty()) {
+        const juce::String skey(s.sample);
+        // Un sample perso (le dossier ~/Music/MM-RYTM Samples) ou un sample de la banque
+        const auto* b = mm::UserLibrary::isUserKey(skey) ? mm::UserLibrary::get().byKey(skey) : mm::SampleBank::get().byKey(skey);
+        if (b) pcm = &b->pcm;
+    }
     // Un sample absent de la banque (un sample perso du navigateur, la banque synthetisee) : la couche SAMPLE se tait
     tw.hasSample = pcm != nullptr;
     const int nv = s.variants && tw.syn > 0 ? mm::variantsOf(s.id) : 1;

@@ -50,7 +50,8 @@ function hiView(): { track: TrackKey; name: string; rows: MenuRow[]; keys: reado
     hiCursor = -1;
     hiTop = -1;
   }
-  const rows: MenuRow[] = v.rows.map((r, i) => ({ label: r.label, value: r.key === null ? '' : i === v.cur ? 'NOW' : r.family.toUpperCase() }));
+  // Un sample perso du plugin (sa cle "<famille>/~<fichier>") : USER
+  const rows: MenuRow[] = v.rows.map((r, i) => ({ label: r.label, value: r.key === null ? '' : i === v.cur ? 'NOW' : r.key.includes('/~') ? 'USER' : r.family.toUpperCase() }));
   const cursor = hiCursor >= 0 && hiCursor < rows.length ? hiCursor : v.cur;
   // n : les sons (sans la ligne + LOAD A FILE..., absente du plugin)
   const n = v.rows.filter((r) => r.key !== null).length;
