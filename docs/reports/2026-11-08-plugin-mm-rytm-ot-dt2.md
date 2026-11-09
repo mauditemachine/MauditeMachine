@@ -141,6 +141,7 @@ Demande de Mika (avec la face avant de la Digitakt II) : « j'aimerais avoir le 
   - OPEN : FINE du BD a +34 (pf 1.0198 dans le programme), CHOKE 2 (choke 2 dans le programme), le sample perso pose depuis SAMPLES, OPEN FOLDER et RESCAN envoyes ; CLOSE, OPEN, Echap ;
   - le site ne change pas : V.3.0 par defaut et V.6.0 (?face=dt2) identiques au pixel avant et apres (1440 x 900) ; `npx tsc` : 105 erreurs, celles d'avant ;
   - C++ : `PluginEditor.cpp` compile avec les en-tetes de JUCE (`-fsyntax-only`) ; le Finder se verifie sur le Mac.
+- **Build vert du lot 6** (run 42552384707, 02:48 UTC le 2026-11-09), dans la release `mm-rytm-latest` (commit 4b15a9d).
 
 ## 2. Decisions prises et pourquoi
 
