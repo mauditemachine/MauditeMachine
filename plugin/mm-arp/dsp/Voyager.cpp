@@ -81,6 +81,10 @@ constexpr double CLIP_CEIL = 0.71;
 constexpr double CLIP_POST = 0.66;
 constexpr double PAN_S = 0.004;
 constexpr int OS_DEFAULT = 4;
+// La demi-bande x8 -> x4 (plugin, 2026-11-10) : la meme famille Kaiser que les deux autres (31 / beta 9 et 63 / beta 8),
+// 23 coefficients, beta 10 : -100 dB des 0.395 x le taux x8 (151 kHz a 48 kHz : rien ne se replie sous 41 kHz).
+constexpr int D8_TAPS = 23;
+constexpr double D8_BETA = 10;
 constexpr int MAX_STACK = 3;
 const double STACK_OFF[3][3] = {{0, 0, 0}, {-0.7, 0.7, 0}, {-1, 0, 1}};
 const double STACK_PAN[3][3] = {{0, 0, 0}, {-1, 1, 0}, {-1, 0, 1}};
@@ -224,6 +228,40 @@ constexpr double PRE_OD1 = 0.65;
 constexpr double PRE_OD_HZ = 14000;
 constexpr double TRACK_ROOT = 54;
 
+// ---------------------------------------------------------------------------------------------------------------
+// Les extensions du plugin (2026-11-10, hors du site : QUALITY x8, LFO 1 seconde destination, LFO 2). Voir Voyager.h.
+// Les destinations etendues (xl1Dest 1..10 ; l2Dest 5..14) et leur profondeur a amt = 1 :
+enum { E_OFF = 0, E_RES, E_AMP, E_PAN, E_O2PITCH, E_OSCMIX, E_NOISE, E_SUB, E_DRIVE, E_STACK, E_ENV, E_COUNT };
+constexpr double X_RES = 0.35;        // RES +/-0.35, bornee a 0..1 (la course du potard du site)
+constexpr double X_O2_CENTS = 1200;   // OSC 2 PITCH +/-12 demi-tons
+constexpr double X_NOISE = 1;         // NOISE +/-1 autour du potard, borne a 0..1
+constexpr double X_SUB = 0.88;        // SUB +/-0.88 (le plein niveau du site), borne a 0..0.88
+constexpr double X_DRIVE = 0.5;       // DRIVE +/-0.5, borne a 0..1
+constexpr double X_STACK = 15;        // STACK +/-15 cents, borne a 0..30 (la course du site)
+constexpr double X_ENV = 3;           // ENV AMT +/-3 octaves, borne a 0..6
+constexpr double X_STACK_MAX = 30;
+constexpr double X_ENV_MAX = 6;
+constexpr int X_ANCHOR = 64;          // le hasard du LFO 2 : une chaine de 64 cycles a partir d'une ancre tiree par position
+/** Le hasard du LFO 2 : une valeur 0..1 par (graine, cycle), sans etat (splitmix64) : jamais le generateur du moteur. */
+inline double hashU(uint32_t seed, int64_t c) {
+  uint64_t z = static_cast<uint64_t>(c) * 0x9E3779B97F4A7C15ull + (static_cast<uint64_t>(seed) << 1 | 1u);
+  z ^= z >> 30;
+  z *= 0xBF58476D1CE4E5B9ull;
+  z ^= z >> 27;
+  z *= 0x94D049BB133111EBull;
+  z ^= z >> 31;
+  return static_cast<double>(z >> 11) * (1.0 / 9007199254740992.0);
+}
+/** nextRandom du LFO 1 (un saut d'au moins LFO_MIN_JUMP), le tirage u donne. */
+inline double nextRandomU(double a, double u) {
+  const double lo = jsm::max(0, a - LFO_MIN_JUMP + 1);
+  const double hi = jsm::max(0, 1 - a - LFO_MIN_JUMP);
+  const double r = u * (lo + hi);
+  return r < lo ? -1 + r : a + LFO_MIN_JUMP + (r - lo);
+}
+/** exp(x) pour |x| < 0.05 (le desaccord de STACK module, par echantillon) : Taylor d'ordre 5, erreur < 1e-11. */
+inline double expSmall(double x) { return 1 + x * (1 + (x / 2) * (1 + (x / 3) * (1 + (x / 4) * (1 + x / 5)))); }
+
 enum {
   KS_ODGAIN = 0, KS_ODMIX, KS_ODTRIM, KS_CLIPT, KS_CLIPW, KS_VSC, KS_GLUE, KS_SIZE
 };
@@ -301,7 +339,9 @@ enum PId {
   P_wave1, P_wave2, P_tune1, P_tune2, P_fine1, P_fine2, P_osc1, P_osc2, P_fm, P_ratio, P_glide, P_noise, P_fmode,
   P_lfoBeats, P_lfoShape, P_lfoDest, P_lfoAmt, P_bpm, P_cutoff, P_res, P_envOct, P_fA, P_fD, P_fS, P_fR, P_aA, P_aD,
   P_aS, P_aR, P_drive, P_phase, P_drift, P_width, P_keyTrack, P_sync, P_sub, P_subOct, P_subWave, P_accFlt, P_outLevel,
-  P_stack, P_wide, P_load, P_space, P_fpol, P_glue, P_COUNT
+  P_stack, P_wide, P_load, P_space, P_fpol, P_glue,
+  // les extensions du plugin (jamais envoyees par le site ; leurs defauts : rien ne change, au bit pres)
+  P_xl1Dest, P_xl1Amt, P_l2Beats, P_l2Shape, P_l2Dest, P_l2Amt, P_COUNT
 };
 struct PDef {
   const char* name;
@@ -326,6 +366,8 @@ const PDef PDEFS[P_COUNT] = {
     {"outLevel", 0, 1.5, false, 0},  {"stack", 0, 45, false, 0},      {"wide", 0, 1.5, false, 0},
     {"load", 0, 1, false, 0},        {"space", 0, 1, false, 0},       {"fpol", 0, 1, true, 0},
     {"glue", 0, 1.5, false, 0},
+    {"xl1Dest", 0, 10, true, 0},     {"xl1Amt", 0, 1, false, 0},      {"l2Beats", 0.125, 32, false, 4},
+    {"l2Shape", 0, 6, true, 0},      {"l2Dest", 0, 14, true, 0},      {"l2Amt", 0, 1, false, 0},
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -336,7 +378,7 @@ struct Decimator {
   int nIdx = 0;
   int T = 0;
   std::vector<float> buf;
-  void init(int taps, double beta) {
+  void init(int taps, double beta, int maxIn = 4 * Voyager::kMaxBlock) {
     const double c = (taps - 1) / 2.0;
     const double i0b = besselI0(beta);
     double sum = 0;
@@ -353,7 +395,7 @@ struct Decimator {
     for (int k = 0; k < taps; k += 1)
       if (jsm::abs(h[k]) > 1e-12) idx[nIdx++] = k;
     T = taps - 1;
-    buf.assign(T + 4 * Voyager::kMaxBlock, 0.0f);
+    buf.assign(static_cast<size_t>(T + maxIn), 0.0f);
   }
   void run(const float* input, int n2, float* out) {
     float* b = buf.data();
@@ -583,9 +625,21 @@ struct Voyager::Impl {
   int64_t age = 0;
   int os = 4;
   double sr2;
-  std::vector<float> raw, rawR, mid, midR;
-  Decimator d4, d2, d4R, d2R;
-  bool hasD4 = false, hasD2 = false;
+  std::vector<float> raw, rawR, mid, midR, mid8, mid8R;
+  Decimator d8, d4, d2, d8R, d4R, d2R;
+  bool hasD8 = false, hasD4 = false, hasD2 = false;
+  // QUALITY (setOs) : le taux demande (0 : rien en attente), les echantillons sans voix et ceux depuis la demande
+  int osWant = 0;
+  int64_t osQuiet = 0, osWait = 0;
+  // LFO 1 seconde destination et LFO 2 : les destinations en cours, les quantites lissees, le LFO 2 et son hasard
+  struct Ext {
+    int d1 = 0, d2 = 0;
+    double a1 = 0, a2 = 0;
+    double lfo2 = 0, raw2 = 0, idx2 = QNAN, rA2 = 0, rB2 = 0;
+    double drv = 0, panL = 1, panR = 1;
+    bool panOn = false, stackDirty = false;
+    uint32_t seed = 0;
+  } xs;
   double od[OD_SIZE];
   double odHp, odLp, odDc;
   double dc[4];
@@ -650,55 +704,39 @@ struct Voyager::Impl {
     glc[2] = glR;
     glc[3] = glAvg;
     age = 0;
-    os = o.os == 1 || o.os == 2 || o.os == 4 ? o.os : OS_DEFAULT;
-    sr2 = sampleRate * os;
-    raw.assign(4 * Voyager::kMaxBlock, 0.0f);
-    rawR.assign(4 * Voyager::kMaxBlock, 0.0f);
+    os = o.os == 1 || o.os == 2 || o.os == 4 || o.os == 8 ? o.os : OS_DEFAULT;
+    // Tout est alloue pour x8 (setOs change de taux sur le thread audio, sans allocation) ; les trois demi-bandes
+    // existent toujours, celles que le taux n'utilise pas dorment.
+    raw.assign(8 * Voyager::kMaxBlock, 0.0f);
+    rawR.assign(8 * Voyager::kMaxBlock, 0.0f);
+    mid8.assign(4 * Voyager::kMaxBlock, 0.0f);
+    mid8R.assign(4 * Voyager::kMaxBlock, 0.0f);
     mid.assign(2 * Voyager::kMaxBlock, 0.0f);
     midR.assign(2 * Voyager::kMaxBlock, 0.0f);
-    hasD4 = os == 4;
-    hasD2 = os >= 2;
-    if (hasD4) {
-      d4.init(31, 9);
-      d4R.init(31, 9);
-    }
-    if (hasD2) {
-      d2.init(63, 8);
-      d2R.init(63, 8);
-    }
+    d8.init(D8_TAPS, D8_BETA, 8 * Voyager::kMaxBlock);
+    d8R.init(D8_TAPS, D8_BETA, 8 * Voyager::kMaxBlock);
+    d4.init(31, 9);
+    d4R.init(31, 9);
+    d2.init(63, 8);
+    d2R.init(63, 8);
     for (double& x : od) x = 0;
-    odHp = jsm::exp((-2 * JS_PI * OD_HP_HZ) / sr2);
-    odLp = 1 - jsm::exp((-2 * JS_PI * OD_TONE_HZ) / sr2);
-    odDc = jsm::exp((-2 * JS_PI * OD_DC_HZ) / sr2);
     for (double& x : dc) x = 0;
     for (double& x : vsc) x = 0;
-    dcK = jsm::exp((-2 * JS_PI * OUT_DC_HZ) / sr2);
-    ldDc = jsm::exp((-2 * JS_PI * LD_DC_HZ) / sr2);
     ldLast = -1;
     ldMk = 1;
     ldYb = 0;
     spLast = -1;
     spF = 1;
     spI = 1;
-    panK = coef(PAN_S, sr2);
-    const double pg = jsm::tan((JS_PI * PRE_HZ) / sr2);
-    preG = pg;
-    preA1 = 1 / PRE_Q[0] + pg;
-    preH1 = 1 / (1 + pg / PRE_Q[0] + pg * pg);
-    preA2 = 1 / PRE_Q[1] + pg;
-    preH2 = 1 / (1 + pg / PRE_Q[1] + pg * pg);
-    preFc = PRE_HZ;
-    stK = coef(STACK_S, sr2);
+    setRates();
     outDrive = -1;
     outNorm = 1;
     flip = false;
     wm[0] = 1;
     wm[1] = wm[2] = wm[3] = wm[4] = 0;
     lfoOut = 0;
-    lfoK = coef(0.002, sr2);
     for (int i = 0; i < P_COUNT; i += 1) p[i] = PDEFS[i].def;
     sm = {2, 2, 0.62, 0.62, 0, 0, 0, 0, -8, 8, 800, 0.3, 3, 0, 0, 0, 0};
-    smK = coef(0.015, sr2);
     std::vector<ParamKV> kv;
     for (const auto& e : init) {
       const int id = Voyager::paramIndex(e.first);
@@ -721,7 +759,6 @@ struct Voyager::Impl {
       rP[i] = 0;
       rOld[i] = 0;
     }
-    smKr = coef(RAMP_SM_S, sr2);
     stD = p[P_stack];
     gl[GL_G] = p[P_glue];
     coefs();
@@ -731,6 +768,146 @@ struct Voyager::Impl {
     rA = rnd.next() * 2 - 1;
     rB = nextRandom(rA, rnd);
     for (int j = 0; j < 3; j += 1) walkC[j][0] = walkC[j][1] = 0;
+    // Les extensions : posees a leurs valeurs (comme sm), le hasard du LFO 2 d'une graine derivee (aucun tirage de rnd)
+    xs.seed = (o.seed ^ 0x4C464F32u) * 0x9E3779B1u + rnd.st;
+    xs.d1 = static_cast<int>(p[P_xl1Dest]);
+    xs.d2 = static_cast<int>(p[P_l2Dest]);
+    xs.a1 = xs.d1 != 0 ? p[P_xl1Amt] : 0;
+    xs.a2 = xs.d2 != 0 ? p[P_l2Amt] : 0;
+  }
+
+  /** Tout ce qui depend du taux interne (sampleRate x os) : le constructeur et setOs. coefs() a part (les reglages). */
+  void setRates() {
+    sr2 = sampleRate * os;
+    hasD8 = os == 8;
+    hasD4 = os >= 4;
+    hasD2 = os >= 2;
+    odHp = jsm::exp((-2 * JS_PI * OD_HP_HZ) / sr2);
+    odLp = 1 - jsm::exp((-2 * JS_PI * OD_TONE_HZ) / sr2);
+    odDc = jsm::exp((-2 * JS_PI * OD_DC_HZ) / sr2);
+    dcK = jsm::exp((-2 * JS_PI * OUT_DC_HZ) / sr2);
+    ldDc = jsm::exp((-2 * JS_PI * LD_DC_HZ) / sr2);
+    panK = coef(PAN_S, sr2);
+    const double pg = jsm::tan((JS_PI * PRE_HZ) / sr2);
+    preG = pg;
+    preA1 = 1 / PRE_Q[0] + pg;
+    preH1 = 1 / (1 + pg / PRE_Q[0] + pg * pg);
+    preA2 = 1 / PRE_Q[1] + pg;
+    preH2 = 1 / (1 + pg / PRE_Q[1] + pg * pg);
+    preFc = PRE_HZ;
+    stK = coef(STACK_S, sr2);
+    lfoK = coef(0.002, sr2);
+    smK = coef(0.015, sr2);
+    smKr = coef(RAMP_SM_S, sr2);
+  }
+
+  // ------------------------------------------------------------------ QUALITY : le changement de taux (setOs)
+  void requestOs(int want) {
+    if (!(want == 1 || want == 2 || want == 4 || want == 8)) return;
+    if (want == os) {
+      osWant = 0;
+      return;
+    }
+    if (osWant == 0) {
+      osQuiet = 0;
+      osWait = 0;
+    }
+    osWant = want;
+    // Les voix se taisent comme sur un stop (12 ms) ; le taux change quand elles sont eteintes
+    for (int i = 0; i < nv; i += 1) {
+      Voice& v = voices[i];
+      if (!v.on) continue;
+      v.aStage = 3;
+      v.fStage = 3;
+      v.quick = true;
+    }
+  }
+  /** Au debut d'un bloc de N : le taux change si les voix sont eteintes depuis 64 echantillons (ou 0.3 s passees). */
+  void osTick(int N) {
+    bool any = false;
+    for (int i = 0; i < nv; i += 1)
+      if (voices[i].on) any = true;
+    const bool dcSmall = jsm::abs(dc[0]) + jsm::abs(dc[1]) + jsm::abs(dc[2]) + jsm::abs(dc[3]) <= 1e-4;
+    if ((!any && dcSmall && osQuiet >= 64) || osWait >= 0.3 * sampleRate) {
+      applyOs();
+      return;
+    }
+    osQuiet = any ? 0 : osQuiet + N;
+    osWait += N;
+  }
+  void applyOs() {
+    os = osWant;
+    osWant = 0;
+    for (int i = 0; i < nv; i += 1) {
+      Voice& v = voices[i];
+      v.on = false;
+      v.aV = 0;
+      v.fV = 0;
+      rest(v);
+    }
+    setRates();
+    coefs();
+    restBus();
+    acc[0] = acc[1] = 0;
+    d8.clear();
+    d8R.clear();
+    d4.clear();
+    d4R.clear();
+    d2.clear();
+    d2R.clear();
+    static const int RK[3] = {P_cutoff, P_res, P_envOct};
+    for (int i = 0; i < 3; i += 1) {
+      rT[i] = p[RK[i]];
+      rS[i] = 0;
+      rN[i] = 0;
+      rF[i] = -1e9;
+      rI[i] = 0;
+      rM[i] = 0;
+      rP[i] = 0;
+    }
+    outDrive = -1;
+    xs.panL = xs.panR = 1;
+    // La file : les notes a venir restent ; celles dont l'heure est passee pendant le silence partent maintenant
+    // si leur gate court encore (raccourci d'autant), sinon elles sont retirees
+    const double now = static_cast<double>(cf);
+    const double sr = sampleRate;
+    queue.keepIf([now, sr](NoteEv& e) {
+      if (e.frame >= now) return true;
+      const double end = e.frame + jsm::max(64, jsm::round(e.gate * sr));
+      if (!(end > now + 64)) return false;
+      e.gate = (end - now) / sr;
+      e.frame = now;
+      return true;
+    });
+  }
+  /** Le LFO 2 entre dans le cycle c : ses deux valeurs au hasard (S&H, RND), par position. */
+  void l2Cycle(double c2) {
+    xs.idx2 = c2;
+    const int64_t c = c2 > -9e15 && c2 < 9e15 ? static_cast<int64_t>(c2) : 0;
+    int64_t a = c / X_ANCHOR * X_ANCHOR;
+    if (a > c) a -= X_ANCHOR;
+    double v = hashU(xs.seed, a) * 2 - 1;
+    for (int64_t i = a + 1; i <= c; i += 1) v = nextRandomU(v, hashU(xs.seed, i));
+    xs.rA2 = v;
+    xs.rB2 = c + 1 == a + X_ANCHOR ? hashU(xs.seed, c + 1) * 2 - 1 : nextRandomU(v, hashU(xs.seed, c + 1));
+  }
+  static inline double lfo2Raw(double ph, int shape, double rA, double rB) {
+    switch (shape) {
+      case 1:
+        return 1 - 4 * jsm::abs(ph - 0.5);
+      case 2:
+        return 1 - 2 * ph;
+      case 3:
+        return 2 * ph - 1;
+      case 4:
+        return ph < 0.5 ? 1 : -1;
+      case 5:
+        return rA;
+      case 6:
+        return rA + (rB - rA) * ph * ph * (3 - 2 * ph);
+      default:
+        return -jsm::cos(TAU * ph);
+    }
   }
 
   // ------------------------------------------------------------------ messages
@@ -1209,6 +1386,10 @@ struct Voyager::Impl {
       yr = clipT + clipW * jsm::tanh((yr - clipT) / clipW);
     else if (yr < -clipT)
       yr = -clipT - clipW * jsm::tanh((-yr - clipT) / clipW);
+    if (xs.panOn) {
+      yl *= xs.panL;
+      yr *= xs.panR;
+    }
     if (!(yl - yl == 0 && yr - yr == 0)) {
       restBus();
       heals += 1;
@@ -1255,6 +1436,7 @@ struct Voyager::Impl {
     tiny(sm.envOct);
     for (int m = 0; m < 5; m += 1) tiny(wm[m]);
     tiny(lfoOut);
+    tiny(xs.lfo2);
     for (int i = 0; i < nv; i += 1) {
       Voice& v = voices[i];
       if (!v.on) continue;
@@ -1347,6 +1529,29 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
   const double t0 = static_cast<double>(cf);
   auto& q = queue;
   const double lfoBeats = jsm::max(0.0625, p[P_lfoBeats]);
+  if (osWant != 0) osTick(N);
+  const bool osHold = osWant != 0;
+  // Les extensions (LFO 1 seconde destination, LFO 2) : rien de tout cela ne tourne tant qu'elles sont a 0
+  const int x1Want = static_cast<int>(p[P_xl1Dest]);
+  const int l2Want = static_cast<int>(p[P_l2Dest]);
+  const bool ext = x1Want != 0 || l2Want != 0 || xs.d1 != 0 || xs.d2 != 0 || xs.a1 != 0 || xs.a2 != 0;
+  const double l2Beats = jsm::max(0.125, p[P_l2Beats]);
+  const int l2Shape = static_cast<int>(p[P_l2Shape]);
+  if (xs.stackDirty && xs.d1 != E_STACK && xs.d2 - 4 != E_STACK) {
+    // STACK n'est plus module : les rapports exacts du moteur (la meme formule que stackOn)
+    xs.stackDirty = false;
+    for (int vi = 0; vi < nv; vi += 1) {
+      Voice& v = voices[vi];
+      for (int j = 0; j < MAX_STACK; j += 1) {
+        StackPair& P = v.pr[j];
+        P.r = P.off == 0 ? 1 : jsm::pow(2, (P.off * stD) / 1200);
+      }
+    }
+  }
+  if (!ext && xs.panOn) {
+    xs.panOn = false;
+    xs.panL = xs.panR = 1;
+  }
   bool active = false;
   for (int i = 0; i < nv; i += 1)
     if (voices[i].on) active = true;
@@ -1359,6 +1564,10 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     if (gl[GL_ENV] > 0) gl[GL_ENV] = gl[GL_ENV] < 1e-15 ? 0 : gl[GL_ENV] * jsm::pow(1 - glR, N);
     for (double& x : glX) x = 0;
     flushTiny();
+    if (hasD8) {
+      d8.clear();
+      d8R.clear();
+    }
     if (hasD4) {
       d4.clear();
       d4R.clear();
@@ -1370,13 +1579,28 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     const double x = t0 + N - 1;
     dueBeats(x);
     lfoOut = lfoRaw(beatAt(x) / lfoBeats, static_cast<int>(p[P_lfoShape]));
+    if (ext) {
+      // En silence : les destinations et les quantites posees, le LFO 2 a sa valeur de fin de bloc (comme le LFO 1)
+      xs.d1 = x1Want;
+      xs.d2 = l2Want;
+      xs.a1 = x1Want != 0 ? p[P_xl1Amt] : 0;
+      xs.a2 = l2Want != 0 ? p[P_l2Amt] : 0;
+      if (l2Want != 0) {
+        const double cyc2 = beatAt(x) / l2Beats;
+        const double c2 = jsm::floor(cyc2);
+        if (c2 != xs.idx2) l2Cycle(c2);
+        xs.raw2 = lfo2Raw(cyc2 - c2, l2Shape, xs.rA2, xs.rB2);
+        xs.lfo2 = xs.raw2;
+      } else
+        xs.lfo2 = 0;
+    }
     return;
   }
   driftStep(N);
   const Coefs& cc = c;
   const double K = smK;
   const double nyq = sampleRate * 0.45;
-  const double fcMax35 = jsm::min(nyq, os == 4 ? MS_FC_MAX4 : MS_FC_MAX2);
+  const double fcMax35 = jsm::min(nyq, os >= 4 ? MS_FC_MAX4 : MS_FC_MAX2);
   const int OS = os;
   float* rawL = raw.data();
   float* rawRp = rawR.data();
@@ -1463,7 +1687,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
   for (int i2 = 0; i2 < OS * N; i2 += 1) {
     const int i = i2 / OS;
     const double fr = t0 + i;
-    if (i2 % OS == 0)
+    if (i2 % OS == 0 && !osHold)
       while (q.size() > 0 && q.at(0).frame <= fr) {
         const NoteEv ne = q.shift();
         noteOn(ne, fr);
@@ -1493,17 +1717,118 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     lfoOut += (lraw - lfoOut) * lfoK;
     sm.lfoAmt += (p[P_lfoAmt] - sm.lfoAmt) * K;
     const double lfo = lfoOut * sm.lfoAmt;
-    const double waveMod = dest == 0 ? 2 * lfo : dest == 4 ? lfo : 0;
-    const double cutMod = dest == 1 ? 3 * lfo : dest == 4 ? 1.5 * lfo : 0;
-    const double pitchMod = dest == 3 ? 100 * lfo : 0;
+    double waveMod = dest == 0 ? 2 * lfo : dest == 4 ? lfo : 0;
+    double cutMod = dest == 1 ? 3 * lfo : dest == 4 ? 1.5 * lfo : 0;
+    double pitchMod = dest == 3 ? 100 * lfo : 0;
+    const bool newNoise = i2 % OS == 0;
+    // Les extensions : xmask, les destinations etendues modulees a cet echantillon (bit E_*), xm leur somme (les deux
+    // LFO s'additionnent), en unites de LFO x quantite ; ampG le gain du tremolo. A 0 : rien de ce bloc ne tourne.
+    int xmask = 0;
+    double xm[E_COUNT];
+    double ampG = 1;
+    double fm2 = 0;
+    bool fm2On = false;
+    if (ext) {
+      {
+        const double tgt = xs.d1 == x1Want && x1Want != 0 ? p[P_xl1Amt] : 0;
+        xs.a1 += (tgt - xs.a1) * K;
+        if (tgt == 0 && xs.a1 < 1e-5) {
+          // une destination ne change que quand sa quantite est revenue a 0 (aucun saut), au rythme du contexte
+          xs.a1 = 0;
+          if (newNoise) xs.d1 = x1Want;
+        }
+      }
+      {
+        const double tgt = xs.d2 == l2Want && l2Want != 0 ? p[P_l2Amt] : 0;
+        xs.a2 += (tgt - xs.a2) * K;
+        if (tgt == 0 && xs.a2 < 1e-5) {
+          xs.a2 = 0;
+          if (newNoise) xs.d2 = l2Want;
+        }
+      }
+      for (int e = 0; e < E_COUNT; e += 1) xm[e] = 0;
+      const int e1 = xs.d1;
+      const int e2 = xs.d2 >= 5 ? xs.d2 - 4 : 0;
+      xm[e1] += lfoOut * xs.a1;
+      double depthAmp = e1 == E_AMP ? xs.a1 : 0;
+      if (xs.d2 != 0) {
+        // Le LFO 2 : sa forme au rythme du contexte (tenue), lissee 2 ms au taux interne comme le LFO 1
+        if (newNoise) {
+          const double cyc2 = pos / l2Beats;
+          const double c2 = jsm::floor(cyc2);
+          if (c2 != xs.idx2) l2Cycle(c2);
+          xs.raw2 = lfo2Raw(cyc2 - c2, l2Shape, xs.rA2, xs.rB2);
+        }
+        xs.lfo2 += (xs.raw2 - xs.lfo2) * lfoK;
+        const double l2 = xs.lfo2 * xs.a2;
+        switch (xs.d2) {
+          case 1:
+            waveMod += 2 * l2;
+            break;
+          case 2:
+            cutMod += 3 * l2;
+            break;
+          case 3:
+            fm2 = 0.6 * l2;
+            fm2On = true;
+            break;
+          case 4:
+            pitchMod += 100 * l2;
+            break;
+          default:
+            xm[e2] += l2;
+            if (e2 == E_AMP) depthAmp += xs.a2;
+            break;
+        }
+      }
+      xmask = ((1 << e1) | (1 << e2)) & ~1;
+      if (xmask & (1 << E_AMP)) {
+        // AMP : un tremolo, du plein niveau (LFO en haut) jusqu'a -100 % (LFO en bas, quantite 1)
+        const double gA = 1 - 0.5 * depthAmp + 0.5 * xm[E_AMP];
+        ampG = gA < 0 ? 0 : gA > 1 ? 1 : gA;
+      }
+      if (newNoise) {
+        if (xmask & (1 << E_PAN)) {
+          // PAN : a puissance constante (la loi des voix : 1 au centre, 0 et racine de 2 aux bords)
+          const double pv = xm[E_PAN] < -1 ? -1 : xm[E_PAN] > 1 ? 1 : xm[E_PAN];
+          xs.panL = jsm::cos(((pv + 1) * JS_PI) / 4) * JS_SQRT2;
+          xs.panR = jsm::sin(((pv + 1) * JS_PI) / 4) * JS_SQRT2;
+          xs.panOn = true;
+        } else if (xs.panOn) {
+          xs.panOn = false;
+          xs.panL = xs.panR = 1;
+        }
+      }
+    }
+    const bool xAmp = (xmask & (1 << E_AMP)) != 0;
+    const bool xStack = (xmask & (1 << E_STACK)) != 0;
+    const double pitchMod2 = (xmask & (1 << E_O2PITCH)) != 0 ? pitchMod + X_O2_CENTS * xm[E_O2PITCH] : pitchMod;
+    double stackX = 0;
+    if (xStack && newNoise) {
+      const double sv = stD + X_STACK * xm[E_STACK];
+      const double hi = stD > X_STACK_MAX ? stD : X_STACK_MAX;
+      stackX = ((sv < 0 ? 0 : sv > hi ? hi : sv) * JS_LN2) / 1200;
+      xs.stackDirty = true;
+    }
     sm.fm += (p[P_fm] - sm.fm) * K;
-    const double fmEff = dest == 2 ? jsm::min(1, jsm::max(0, sm.fm + 0.6 * lfo)) : sm.fm;
+    double fmEff = dest == 2 ? jsm::min(1, jsm::max(0, sm.fm + 0.6 * lfo)) : sm.fm;
+    if (fm2On) fmEff = jsm::min(1, jsm::max(0, (dest == 2 ? sm.fm + 0.6 * lfo : sm.fm) + fm2));
     const double fmDepth = fmEff * fmEff * FM_MAX;
     sm.noise += (p[P_noise] - sm.noise) * K;
-    const double nGain = sm.noise * sm.noise * NOISE_MAX;
+    double nGain = sm.noise * sm.noise * NOISE_MAX;
+    if (xmask & (1 << E_NOISE)) {
+      const double nv2 = sm.noise + X_NOISE * xm[E_NOISE];
+      const double hi = sm.noise > 1 ? sm.noise : 1;
+      const double nc = nv2 < 0 ? 0 : nv2 > hi ? hi : nv2;
+      nGain = nc * nc * NOISE_MAX;
+    }
     sm.sub += (p[P_sub] - sm.sub) * K;
-    const double g3 = sm.sub;
-    const bool newNoise = i2 % OS == 0;
+    double g3 = sm.sub;
+    if (xmask & (1 << E_SUB)) {
+      const double sv = sm.sub + X_SUB * xm[E_SUB];
+      const double hi = sm.sub > X_SUB ? sm.sub : X_SUB;
+      g3 = sv < 0 ? 0 : sv > hi ? hi : sv;
+    }
     for (int m = 0; m < 5; m += 1) wm[m] += ((m == fmode ? 1 : 0) - wm[m]) * K;
     sm.w1 += (p[P_wave1] - sm.w1) * K;
     sm.w2 += (p[P_wave2] - sm.w2) * K;
@@ -1519,8 +1844,16 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     const double pwd2 = pwm2 ? pwOf(3, f2m) : 0.5;
     sm.o1 += (p[P_osc1] - sm.o1) * K;
     sm.o2 += (p[P_osc2] - sm.o2) * K;
-    const double g1 = sm.o1;
-    const double g2 = sm.o2;
+    double g1 = sm.o1;
+    double g2 = sm.o2;
+    if (xmask & (1 << E_OSCMIX)) {
+      // OSC MIX : la balance (LFO en haut : OSC 2 seul ; en bas : OSC 1 seul ; aucun des deux ne monte)
+      const double b = xm[E_OSCMIX] < -1 ? -1 : xm[E_OSCMIX] > 1 ? 1 : xm[E_OSCMIX];
+      if (b > 0)
+        g1 *= 1 - b;
+      else
+        g2 *= 1 + b;
+    }
     sm.f1 += (p[P_fine1] - sm.f1) * K;
     sm.f2 += (p[P_fine2] - sm.f2) * K;
     const double fine1 = sm.f1;
@@ -1550,6 +1883,28 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     sm.res += (rT[1] - sm.res) * (rP[1] != 0 ? Kr : K);
     sm.envOct += (rT[2] - sm.envOct) * (rP[2] != 0 ? Kr : K);
     sm.drive += (p[P_drive] - sm.drive) * K;
+    double resV = sm.res;
+    if (xmask & (1 << E_RES)) {
+      const double rv = sm.res + X_RES * xm[E_RES];
+      const double hi = sm.res > 1 ? sm.res : 1;
+      resV = rv < 0 ? 0 : rv > hi ? hi : rv;
+    }
+    double envV = sm.envOct;
+    if (xmask & (1 << E_ENV)) {
+      const double ev = sm.envOct + X_ENV * xm[E_ENV];
+      const double hi = sm.envOct > X_ENV_MAX ? sm.envOct : X_ENV_MAX;
+      envV = ev < 0 ? 0 : ev > hi ? hi : ev;
+    }
+    double drv = sm.drive;
+    if (xmask & (1 << E_DRIVE)) {
+      // DRIVE : au rythme du contexte (une puissance par valeur)
+      if (newNoise) {
+        const double dv2 = sm.drive + X_DRIVE * xm[E_DRIVE];
+        const double hi = sm.drive > 1 ? sm.drive : 1;
+        xs.drv = dv2 < 0 ? 0 : dv2 > hi ? hi : dv2;
+      }
+      drv = xs.drv;
+    }
     if (sm.wide != p[P_wide]) {
       sm.wide += (p[P_wide] - sm.wide) * K;
       if (p[P_wide] == 0 && sm.wide < 1e-4) sm.wide = 0;
@@ -1609,22 +1964,22 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
       } else
         pn1 = pn2 = pn2w = 0;
     }
-    const double k = resK(sm.res);
+    const double k = resK(resV);
     const double kTune = k > 4 ? (K_COMP * (k - 4)) / 1200 : 0;
-    const double driveIn = 1 + 2.5 * sm.drive;
-    const double driveOut = 1 + 1.5 * sm.drive;
-    if (sm.drive != outDrive) {
-      outDrive = sm.drive;
+    const double driveIn = 1 + 2.5 * drv;
+    const double driveOut = 1 + 1.5 * drv;
+    if (drv != outDrive) {
+      outDrive = drv;
       outNorm = 1 / jsm::pow(driveOut, 0.82);
     }
     const double outNormv = outNorm;
     const double dO = ldOn ? driveOut * ldRel : driveOut;
     const double oN = ldOn ? outNormv / ldRel : outNormv;
-    const double odGain = 1 + OD_GAIN * sm.drive * sm.drive;
-    const double odMix = OD_MIX * jsm::min(1, sm.drive * 4);
+    const double odGain = 1 + OD_GAIN * drv * drv;
+    const double odMix = OD_MIX * jsm::min(1, drv * 4);
     double odTrim = 1;
     if (odMix > 1e-4) {
-      const double dv = sm.drive;
+      const double dv = drv;
       double oc = 1;
       if (dv > 0) {
         oc = OD_COMP[5];
@@ -1636,7 +1991,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
           }
         }
       }
-      odTrim = oc / (1 + OD_TRIM * sm.drive);
+      odTrim = oc / (1 + OD_TRIM * drv);
     }
     const double keep = 1 + k * BASS_KEEP;
     const double w0 = wm[0] > 1e-4 ? wm[0] * keep : 0;
@@ -1649,7 +2004,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     double c35o = 0;
     double sB7 = 1;
     if (w4 != 0) {
-      const double rr = sm.res;
+      const double rr = resV;
       if (rr >= 1)
         kap = MS_KAPPA[7];
       else if (rr > 0) {
@@ -1712,9 +2067,14 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
       if (newNoise || v.d1 == 0) {
         const double f = jsm::exp(v.logf);
         v.d1 = (f * ratio1 * jsm::pow(2, ((v.drift[0] + v.calT[0]) * drift + fine1 + v.vTune + pitchMod) / 1200)) / sr;
-        v.d2 = (f * ratio2 * jsm::pow(2, ((v.drift[1] + v.calT[1]) * drift + fine2 + v.vTune + pitchMod) / 1200)) / sr;
+        v.d2 = (f * ratio2 * jsm::pow(2, ((v.drift[1] + v.calT[1]) * drift + fine2 + v.vTune + pitchMod2) / 1200)) / sr;
         v.d3 = (v.d1 * subDiv) / ratio1;
       }
+      if (xStack && newNoise)
+        for (int j = 0; j < v.nLoop; j += 1) {
+          StackPair& P = v.pr[j];
+          P.r = P.off == 0 ? 1 : expSmall(P.off * stackX);
+        }
       const double d1v = v.d1;
       const double d2v = v.d2;
       const int nl = v.nLoop;
@@ -2238,7 +2598,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
       } else if (X[VX_LON] != 0)
         X[VX_LON] = 0;
       if (newNoise || (ladOn ? v.g == 0 || (spW && v.gS == 0) : X[VX_G35] == 0 || (spW && X[VX_G35R] == 0))) {
-        double env = sm.envOct * v.fV * (0.8 + 0.2 * v.accent) * v.envAcc;
+        double env = envV * v.fV * (0.8 + 0.2 * v.accent) * v.envAcc;
         if (fpolNeg) env = -env;
         if (ladOn) {
           double fc = sm.cutoff * v.vCut * jsm::pow(2, cutMod + env + v.cutAcc + v.calC * drift + (keyTrack * (v.midi - TRACK_ROOT)) / 12 + kTune);
@@ -2437,6 +2797,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         yo = 0;
       }
       double a = yo * v.aV * v.ampAcc;
+      if (xAmp) a *= ampG;
       if (ldOn) a *= ldMkv;
       const double zs = a * dO;
       const double zp = X[VX_TZL];
@@ -2512,6 +2873,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         yoR = 0;
       }
       double aR = yoR * v.aV * v.ampAcc;
+      if (xAmp) aR *= ampG;
       if (ldOn) aR *= ldMkv;
       const double zsR = aR * dO;
       if (startR) {
@@ -2561,7 +2923,16 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
   }
   flushTiny();
   // Retour a la frequence du contexte : les demi-bandes en cascade, un canal chacune
-  if (OS == 4) {
+  if (OS == 8) {
+    d8.run(rawL, 8 * N, mid8.data());
+    d4.run(mid8.data(), 4 * N, mid.data());
+    d2.run(mid.data(), 2 * N, L);
+    if (R) {
+      d8R.run(rawRp, 8 * N, mid8R.data());
+      d4R.run(mid8R.data(), 4 * N, midR.data());
+      d2R.run(midR.data(), 2 * N, R);
+    }
+  } else if (OS == 4) {
     d4.run(rawL, 4 * N, mid.data());
     d2.run(mid.data(), 2 * N, L);
     if (R) {
@@ -2649,7 +3020,9 @@ void Voyager::process(float* L, float* R, int n) {
 int64_t Voyager::currentFrame() const { return m_->cf; }
 int Voyager::latencySamples() const {
   // Les demi-bandes (31 coefficients au rythme x4 : 15 / 4 ; 63 au rythme x2 : 31 / 2), en echantillons du contexte
-  const double d = m_->os == 4 ? 15.0 / 4 + 31.0 / 2 : m_->os == 2 ? 31.0 / 2 : 0;
+  // (x8 : 23 coefficients de plus au rythme x8, 11 / 8 : 20.625 -> 21)
+  const int os = m_->os;
+  const double d = os == 8 ? 11.0 / 8 + 15.0 / 4 + 31.0 / 2 : os == 4 ? 15.0 / 4 + 31.0 / 2 : os == 2 ? 31.0 / 2 : 0;
   return static_cast<int>(jsm::round(d));
 }
 double Voyager::param(int id) const { return id >= 0 && id < P_COUNT ? m_->p[id] : QNAN; }
@@ -2660,17 +3033,22 @@ int Voyager::activeVoices() const {
   return a;
 }
 int Voyager::heals() const { return m_->heals; }
+void Voyager::setOs(int os) { m_->requestOs(os); }
+int Voyager::os() const { return m_->os; }
+bool Voyager::osPending() const { return m_->osWant != 0; }
 
 // Diagnostic (tests/voyager_compare.cpp seulement, pas dans Voyager.h) : les tables du module, pour les comparer a
-// celles du JS. which : 0 LNC, 1 K35_T, 2 K35_S, 3 demi-bande 31, 4 demi-bande 63, 5 {MS_SO, OD_TANH_BIAS}.
+// celles du JS. which : 0 LNC, 1 K35_T, 2 K35_S, 3 demi-bande 31, 4 demi-bande 63, 5 {MS_SO, OD_TANH_BIAS},
+// 6 la demi-bande x8 du plugin (tests/hq_test.cpp).
 namespace detail {
 const double* voyagerTable(int which, int* n) {
-  static Decimator h31, h63;
+  static Decimator h31, h63, h8;
   static double consts[2];
   static bool init = false;
   if (!init) {
     h31.init(31, 9);
     h63.init(63, 8);
+    h8.init(D8_TAPS, D8_BETA);
     consts[0] = tables().MS_SO;
     consts[1] = tables().OD_TANH_BIAS;
     init = true;
@@ -2681,6 +3059,7 @@ const double* voyagerTable(int which, int* n) {
     case 2: *n = K35_N + 1; return tables().K35_S;
     case 3: *n = 31; return h31.h;
     case 4: *n = 63; return h63.h;
+    case 6: *n = D8_TAPS; return h8.h;
     default: *n = 2; return consts;
   }
 }

@@ -9,6 +9,7 @@
 
 #include "Arp.h"
 #include "ArpFx.h"
+#include "ExtraParams.h"
 #include "Params.h"
 #include "Voyager.h"
 
@@ -133,7 +134,11 @@ private:
 
     // Les potards sur le thread audio : leurs valeurs, ce qui en est tire
     std::array<std::atomic<float>*, mmarp::kKnobs> knobRaw_{};
-    std::array<juce::RangedAudioParameter*, mmarp::kKnobs> knobParams_{};
+    // les potards du site puis les reglages du VST3 seul (ExtraParams.h)
+    std::array<juce::RangedAudioParameter*, mmx::kAll> knobParams_{};
+    std::array<std::atomic<float>*, mmx::kExtra> exRaw_{};
+    std::array<float, mmx::kExtra> exLast_{};
+    std::array<double, mmx::kExtra> ex_{};
     std::array<double, mmarp::kKnobs> knobs_{};
     std::array<float, mmarp::kKnobs> knobRawLast_{};
     std::array<mmarp::ParamKV, 96> kv_{};

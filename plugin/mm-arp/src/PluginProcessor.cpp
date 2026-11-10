@@ -97,6 +97,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMArpProcessor::makeLayout()
                         .withLabel("");
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, juce::String(d.label), juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
     }
+    // Les reglages du VST3 seul (SOUND+ : QUALITY, LFO, reverb, master)
+    for (int e = 0; e < mmx::kExtra; ++e) {
+        const auto& d = mmx::kExtraDefs[e];
+        auto attr = juce::AudioParameterFloatAttributes()
+                        .withStringFromValueFunction([e](float v, int) {
+                            char buf[64];
+                            mmx::exText(e, static_cast<double>(v), buf, static_cast<int>(sizeof(buf)));
+                            return juce::String(buf);
+                        })
+                        .withLabel("");
+        const juce::String name = juce::String(d.section).toUpperCase() + " " + d.label;
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, name, juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
+    }
     return layout;
 }
 
@@ -110,6 +123,12 @@ MMArpProcessor::MMArpProcessor()
         knobRaw_[static_cast<size_t>(i)] = apvts.getRawParameterValue(mmarp::kKnobDefs[i].id);
         knobParams_[static_cast<size_t>(i)] = apvts.getParameter(mmarp::kKnobDefs[i].id);
         knobs_[static_cast<size_t>(i)] = mmarp::kKnobDefs[i].def;
+    }
+    for (int e = 0; e < mmx::kExtra; ++e) {
+        exRaw_[static_cast<size_t>(e)] = apvts.getRawParameterValue(mmx::kExtraDefs[e].id);
+        knobParams_[static_cast<size_t>(mmarp::kKnobs + e)] = apvts.getParameter(mmx::kExtraDefs[e].id);
+        ex_[static_cast<size_t>(e)] = mmx::kExtraDefs[e].def;
+        exLast_[static_cast<size_t>(e)] = -1.f;
     }
     seed_ = static_cast<uint32_t>(juce::Random::getSystemRandom().nextInt());
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
@@ -155,14 +174,14 @@ void MMArpProcessor::faceProgram(const juce::String& json) {
 }
 
 void MMArpProcessor::faceParam(const juce::String& id, double v) {
-    const int i = mmarp::knobIndex(id.toRawUTF8());
+    const int i = mmx::allIndex(id.toRawUTF8());
     if (i < 0 || !std::isfinite(v)) return;
     if (auto* prm = knobParams_[static_cast<size_t>(i)]) prm->setValueNotifyingHost(static_cast<float>(juce::jlimit(0.0, 1.0, v)));
     knobsKnown_.store(true);
 }
 
 void MMArpProcessor::faceGesture(const juce::String& id, bool on) {
-    const int i = mmarp::knobIndex(id.toRawUTF8());
+    const int i = mmx::allIndex(id.toRawUTF8());
     if (i < 0) return;
     if (auto* prm = knobParams_[static_cast<size_t>(i)]) {
         if (on) prm->beginChangeGesture();
@@ -279,12 +298,12 @@ void MMArpProcessor::onCC(int ch, int cc, int value) {
         mapChanged_.store(true);
     }
     const int i = ccMap_[k].load();
-    if (i >= 0 && i < mmarp::kKnobs)
+    if (i >= 0 && i < mmx::kAll)
         if (auto* prm = knobParams_[static_cast<size_t>(i)]) prm->setValueNotifyingHost(static_cast<float>(value) / 127.f);
 }
 
 void MMArpProcessor::learn(const juce::String& id) {
-    learn_.store(id.isEmpty() ? -1 : mmarp::knobIndex(id.toRawUTF8()));
+    learn_.store(id.isEmpty() ? -1 : mmx::allIndex(id.toRawUTF8()));
     mapChanged_.store(true);
 }
 
@@ -302,17 +321,17 @@ juce::var MMArpProcessor::midiMap() const {
     juce::Array<juce::var> items;
     for (int k = 0; k < 16 * 128; ++k) {
         const int i = ccMap_[static_cast<size_t>(k)].load();
-        if (i < 0 || i >= mmarp::kKnobs) continue;
+        if (i < 0 || i >= mmx::kAll) continue;
         auto* e = new juce::DynamicObject();
         e->setProperty("cc", k % 128);
         e->setProperty("ch", k / 128 + 1);
-        e->setProperty("id", juce::String(mmarp::kKnobDefs[i].id));
+        e->setProperty("id", juce::String(mmx::allId(i)));
         items.add(juce::var(e));
     }
     auto* o = new juce::DynamicObject();
     o->setProperty("items", items);
     const int l = learn_.load();
-    o->setProperty("learn", l >= 0 && l < mmarp::kKnobs ? juce::String(mmarp::kKnobDefs[l].id) : juce::String());
+    o->setProperty("learn", l >= 0 && l < mmx::kAll ? juce::String(mmx::allId(l)) : juce::String());
     return juce::var(o);
 }
 
@@ -346,11 +365,11 @@ void MMArpProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree mm("MIDIMAP");
     for (int k = 0; k < 16 * 128; ++k) {
         const int i = ccMap_[static_cast<size_t>(k)].load();
-        if (i < 0 || i >= mmarp::kKnobs) continue;
+        if (i < 0 || i >= mmx::kAll) continue;
         juce::ValueTree e("CC");
         e.setProperty("ch", k / 128, nullptr);
         e.setProperty("cc", k % 128, nullptr);
-        e.setProperty("id", juce::String(mmarp::kKnobDefs[i].id), nullptr);
+        e.setProperty("id", juce::String(mmx::allId(i)), nullptr);
         mm.appendChild(e, nullptr);
     }
     state.appendChild(mm, nullptr);
@@ -378,7 +397,7 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     for (int j = 0; j < mm.getNumChildren(); ++j) {
         const auto e = mm.getChild(j);
         const int ch = static_cast<int>(e.getProperty("ch", -1)), cc = static_cast<int>(e.getProperty("cc", -1));
-        const int i = mmarp::knobIndex(e.getProperty("id", "").toString().toRawUTF8());
+        const int i = mmx::allIndex(e.getProperty("id", "").toString().toRawUTF8());
         if (ch >= 0 && ch < 16 && cc >= 0 && cc < 128 && i >= 0) ccMap_[static_cast<size_t>(ch * 128 + cc)].store(i);
     }
     mapChanged_.store(true);

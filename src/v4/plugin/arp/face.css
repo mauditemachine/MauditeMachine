@@ -404,16 +404,262 @@
   white-space: nowrap;
 }
 
-/* ---------- CLOSE ---------- */
+/* ---------- Le rail de droite : CLOSE, LEARN (sur SOUND+), les onglets TOOLS / SOUND+ ---------- */
+.mm-plugin-arp .mm-arp-rail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 98px;
+  margin: 0 0 0 12px;
+}
+
 .mm-plugin-arp .mm-arp-close {
   flex: none;
-  align-self: flex-start;
-  margin: 0 0 0 12px;
   height: 34px;
   padding: 0 14px;
   border-radius: 17px;
   color: #f6f1e7;
   letter-spacing: 0.2em;
+}
+
+.mm-plugin-arp .mm-arp-rail-learn {
+  flex: none;
+}
+
+.mm-plugin-arp .mm-arp-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.mm-plugin-arp .mm-arp-tab {
+  height: 26px;
+  padding: 0 0 0 11px;
+  border: 0;
+  border-left: 2px solid rgba(246, 241, 231, 0.14);
+  border-radius: 0 7px 7px 0;
+  background: transparent;
+  color: rgba(246, 241, 231, 0.55);
+  font-family: 'Robot Radicals', 'SF Pro Display', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-arp-tab:hover {
+  color: #f6f1e7;
+  background: rgba(246, 241, 231, 0.05);
+}
+
+.mm-plugin-arp .mm-arp-tab[data-on='1'] {
+  border-left-color: #ff6a13;
+  background: rgba(255, 106, 19, 0.12);
+  color: #ff6a13;
+}
+
+.mm-plugin-arp .mm-arp-tab:focus-visible,
+.mm-plugin-arp .mm-arp-x:focus-visible,
+.mm-plugin-arp .mm-arp-x-sw-key:focus-visible,
+.mm-plugin-arp .mm-arp-soundplus:focus-visible {
+  outline: 2px solid var(--yellow, #ffd23f);
+  outline-offset: 2px;
+}
+
+/* ---------- SOUND+ (SoundPlus.tsx) : cinq blocs de potards, la meme hauteur que TOOLS ---------- */
+.mm-plugin-arp .mm-arp-sound {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.mm-plugin-arp .mm-arp-xgroup {
+  flex: 1 1 0;
+  gap: 0;
+  padding: 0 10px;
+}
+
+.mm-plugin-arp .mm-arp-xrow {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 2px;
+}
+
+.mm-plugin-arp .mm-arp-x {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 2px;
+  border-radius: 10px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.mm-plugin-arp .mm-arp-x[data-learning='1'] {
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-arp-x[data-mm-learn='armed'] {
+  background: rgba(255, 106, 19, 0.12);
+  box-shadow: inset 0 0 0 1px #ff6a13;
+  animation: mm-arp-blink 0.9s ease-in-out infinite;
+}
+
+.mm-plugin-arp .mm-arp-x-label {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 11px;
+  letter-spacing: 0.12em;
+  color: rgba(246, 241, 231, 0.72);
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-arp-x-dial {
+  display: block;
+  flex: none;
+  overflow: visible;
+}
+
+.mm-plugin-arp .mm-arp-x-track,
+.mm-plugin-arp .mm-arp-x-arc {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.mm-plugin-arp .mm-arp-x-track {
+  stroke: rgba(246, 241, 231, 0.13);
+}
+
+.mm-plugin-arp .mm-arp-x-arc {
+  stroke: #ff6a13;
+}
+
+.mm-plugin-arp .mm-arp-x-center {
+  fill: rgba(246, 241, 231, 0.55);
+}
+
+.mm-plugin-arp .mm-arp-x-skirt {
+  fill: #060606;
+  stroke: rgba(246, 241, 231, 0.1);
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-arp-x-cap {
+  fill: #1c1c1e;
+  stroke: #2e2e31;
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-arp-x:hover .mm-arp-x-cap {
+  fill: #242427;
+}
+
+.mm-plugin-arp .mm-arp-x-mark {
+  stroke: #f6f1e7;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.mm-plugin-arp .mm-arp-x-value {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 22px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 11px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: #ff6a13;
+  font-variant-numeric: tabular-nums;
+}
+
+/* QUALITY : l'interrupteur STD / HQ (HQ en haut) */
+.mm-plugin-arp .mm-arp-x-switch {
+  cursor: default;
+}
+
+.mm-plugin-arp .mm-arp-x-sw {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 58px;
+  height: 48px;
+}
+
+.mm-plugin-arp .mm-arp-x-sw-key {
+  flex: 1;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 106, 19, 0.4);
+  background: transparent;
+  color: rgba(246, 241, 231, 0.55);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-arp-x-sw-key .mm-arp-led {
+  margin-right: 6px;
+}
+
+.mm-plugin-arp .mm-arp-x-sw-key[data-on='1'] {
+  border-color: #ff6a13;
+  background: rgba(255, 106, 19, 0.2);
+  color: #ffb27f;
+}
+
+.mm-plugin-arp .mm-arp-x-sw-key[data-on='1'] .mm-arp-led {
+  background: #ff6a13;
+  box-shadow: 0 0 6px rgba(255, 106, 19, 0.8);
+}
+
+.mm-plugin-arp .mm-arp-x-switch .mm-arp-x-value {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: rgba(246, 241, 231, 0.5);
+}
+
+/* ---------- Capot ferme : la serigraphie SOUND+ de la face (ouvre le capot sur son onglet) ---------- */
+.mm-plugin-arp .mm-arp-soundplus {
+  right: 6.6%;
+  bottom: 12.6%;
+  z-index: 20;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 106, 19, 0.55);
+  background: rgba(10, 10, 11, 0.35);
+  color: #ff6a13;
+  font-family: 'SF Pro Display', system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-arp-soundplus:hover {
+  border-color: #ff6a13;
+  background: rgba(255, 106, 19, 0.16);
+}
+
+.mm-plugin-arp .mm-arp-soundplus .mm-arp-led[data-on='1'] {
+  background: #ff6a13;
+  box-shadow: 0 0 6px rgba(255, 106, 19, 0.8);
 }
 
 /* ---------- MIDI LEARN : le potard arme, la pastille capot ferme ---------- */

@@ -10,6 +10,9 @@
  * - MIDI : MIDI LEARN (LEARN, un clic sur un potard, le prochain CC), la table des CC du plugin, une croix par ligne,
  *   CLEAR ALL ;
  * - CLOSE : referme le capot (comme OPEN, Echap ou la touche O).
+ * Deux onglets (2026-11-10, tab.ts) : TOOLS (ces trois blocs) et SOUND+ (SoundPlus.tsx : les reglages du VST3 seul). Le
+ * rail de droite porte CLOSE, LEARN (sur SOUND+ : le mode MIDI LEARN sans changer d'onglet) et les onglets ; le panneau a
+ * la meme hauteur sur les deux (face.css), la carte ne bouge pas.
  * LearnMarks (toujours monte) : le potard arme cerne d'orange sur la machine (son jumeau, ui/VoyTwins.tsx), et capot ferme,
  * une pastille MIDI LEARN (le mode survit a la fermeture : les potards de la face s'apprennent capot ferme).
  */
@@ -21,7 +24,10 @@ import { voyExplode } from '../../state/explode';
 import { VOY_KNOBS } from '../../voyager/params';
 import { arpBridge } from './bridge';
 import { DiskPresets } from './DiskPresets';
+import { extraParam } from './extra';
 import { arpMidi, type ArpMidiState } from './midimap';
+import { SoundPlus } from './SoundPlus';
+import { hoodTab, type HoodTab } from './tab';
 
 /** Le glisser part apres ce deplacement (px), le bouton tenu. */
 const DRAG_PX = 4;
@@ -30,13 +36,77 @@ const CYCLES: readonly ArpMidiState['cycles'][] = [1, 2, 4];
 /** Les parametres du plugin qui ne sont pas des potards de la face (plugin/mm-arp/src/PluginProcessor.cpp). */
 const EXTRA_LABELS: Record<string, string> = { arp: 'ARPEGGIATOR', master: 'MASTER', prio: 'CLIP PRIORITY' };
 
-/** Le nom d'un parametre : le label du potard (voyager/params.ts), sinon son id. */
+/** Le bloc d'un reglage SOUND+ devant son label (SPEED, TARGET, DEPTH existent aussi sur la face). */
+const X_PREFIX: Record<string, string> = { engine: '', lfo1: 'LFO 1 ', lfo2: 'LFO 2 ', reverb: 'REVERB ', master: 'MASTER ' };
+
+/** Le nom d'un parametre : le label du potard (voyager/params.ts) ou du reglage SOUND+ (extra.ts), sinon son id. */
 export function paramLabel(id: string): string {
-  return VOY_KNOBS.find((k) => k.id === id)?.label ?? EXTRA_LABELS[id] ?? id.toUpperCase();
+  const knob = VOY_KNOBS.find((k) => k.id === id);
+  if (knob) return knob.label;
+  const x = extraParam(id);
+  if (x) return `${X_PREFIX[x.section] ?? ''}${x.label}`;
+  return EXTRA_LABELS[id] ?? id.toUpperCase();
 }
 
 const useHood = () => useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
 const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, arpMidi.get);
+const useTab = () => useSyncExternalStore(hoodTab.subscribe, hoodTab.get, hoodTab.get);
+
+const TABS: readonly { id: HoodTab; label: string }[] = [
+  { id: 'tools', label: 'TOOLS' },
+  { id: 'sound', label: 'SOUND+' },
+];
+
+/** Le rail de droite : CLOSE, LEARN (sur SOUND+), les onglets. */
+const Rail: React.FC<{ tab: HoodTab; onClose: () => void }> = ({ tab, onClose }) => {
+  const st = useArpMidi();
+  return (
+    <div className="mm-arp-rail">
+      <button type="button" className="mm-arp-close" aria-label="Close the machine" onClick={onClose}>
+        <span className="mm-arp-led" aria-hidden="true" />
+        CLOSE
+      </button>
+      {tab === 'sound' && (
+        <button
+          type="button"
+          className="mm-arp-learn mm-arp-rail-learn"
+          aria-pressed={st.learning}
+          data-on={st.learning ? '1' : undefined}
+          title={st.learning ? (st.armed ? `Waiting CC for ${paramLabel(st.armed)}` : 'Click a knob') : 'MIDI learn'}
+          onClick={() => arpBridge.learnMode(!st.learning)}
+        >
+          <span className="mm-arp-led" aria-hidden="true" />
+          LEARN
+        </button>
+      )}
+      <div className="mm-arp-tabs" role="tablist" aria-label="Hood panel" aria-orientation="vertical">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`mm-arp-tab-${t.id}`}
+            aria-selected={tab === t.id}
+            tabIndex={tab === t.id ? 0 : -1}
+            className="mm-arp-tab"
+            data-on={tab === t.id ? '1' : undefined}
+            onClick={() => hoodTab.set(t.id)}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+              e.preventDefault();
+              e.stopPropagation();
+              const next = t.id === 'tools' ? 'sound' : 'tools';
+              hoodTab.set(next);
+              document.getElementById(`mm-arp-tab-${next}`)?.focus();
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 /** DRAG MIDI : la poignee, x1 / x2 / x4, SAVE .MID, le message du C++. */
 const DragMidi: React.FC = () => {
@@ -160,6 +230,7 @@ const MidiMap: React.FC = () => {
 export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const hood = useHood();
   const open = hood === 'opening' || hood === 'open';
+  const tab = useTab();
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
@@ -179,14 +250,17 @@ export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   }, [open]);
   if (!open) return null;
   return (
-    <section ref={ref} className="mm-arp-hood" style={{ position: 'fixed' }} aria-label="MM-ARP hood">
-      <DragMidi />
-      <DiskPresets />
-      <MidiMap />
-      <button type="button" className="mm-arp-close" aria-label="Close the machine" onClick={() => openToggle(stage, 'voy')}>
-        <span className="mm-arp-led" aria-hidden="true" />
-        CLOSE
-      </button>
+    <section ref={ref} className="mm-arp-hood" style={{ position: 'fixed' }} data-tab={tab} aria-label="MM-ARP hood">
+      {tab === 'sound' ? (
+        <SoundPlus />
+      ) : (
+        <>
+          <DragMidi />
+          <DiskPresets />
+          <MidiMap />
+        </>
+      )}
+      <Rail tab={tab} onClose={() => openToggle(stage, 'voy')} />
     </section>
   );
 };

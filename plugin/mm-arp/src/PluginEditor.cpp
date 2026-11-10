@@ -74,7 +74,7 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                      const juce::String id = o.getProperty("id", "").toString();
                      const double v = static_cast<double>(o.getProperty("v", -1.0));
                      proc_.faceParam(id, v);
-                     const int i = mmarp::knobIndex(id.toRawUTF8());
+                     const int i = mmx::allIndex(id.toRawUTF8());
                      if (i >= 0 && v >= 0 && v <= 1) sent_[static_cast<size_t>(i)] = static_cast<float>(v);
                  })
                  .withEventListener("mm_gesture", [this](juce::var o) { proc_.faceGesture(o.getProperty("id", "").toString(), static_cast<bool>(o.getProperty("on", false))); })
@@ -102,7 +102,7 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                      // Tous les potards vers la face (s'ils sont connus : sinon c'est la face qui donne les siens)
                      sent_.fill(-1.f);
                      if (!proc_.knobsKnown()) {
-                         for (int i = 0; i < mmarp::kKnobs; ++i)
+                         for (int i = 0; i < mmx::kAll; ++i)
                              if (auto* prm = proc_.knobParam(i)) sent_[static_cast<size_t>(i)] = prm->getValue();
                      }
                      presetList();
@@ -187,13 +187,13 @@ void MMArpEditor::timerCallback() {
     if (ready_) {
         auto* changed = new juce::DynamicObject();
         int count = 0;
-        for (int i = 0; i < mmarp::kKnobs; ++i) {
+        for (int i = 0; i < mmx::kAll; ++i) {
             auto* prm = proc_.knobParam(i);
             if (!prm) continue;
             const float v = prm->getValue();
             if (!(v < sent_[static_cast<size_t>(i)] || v > sent_[static_cast<size_t>(i)])) continue;
             sent_[static_cast<size_t>(i)] = v;
-            changed->setProperty(mmarp::kKnobDefs[i].id, static_cast<double>(v));
+            changed->setProperty(mmx::allId(i), static_cast<double>(v));
             ++count;
         }
         if (count > 0) {

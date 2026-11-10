@@ -7,6 +7,8 @@
  * OPEN ouvre le vrai capot du site (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
  * imprime, comme avant") : la carte et ses TWEAKS jouables, cadres au-dessus du panneau du capot (HoodPanel.tsx : DRAG MIDI,
  * DISK, MIDI LEARN, CLOSE). OPEN, CLOSE, Echap ou O le referment, comme au site.
+ * SOUND+ (2026-11-10, SoundPlus.tsx) : les reglages du VST3 seul, le second onglet du panneau ; capot ferme, la petite
+ * serigraphie SOUND+ de la face ouvre le capot sur cet onglet.
  */
 
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
@@ -26,6 +28,7 @@ import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
 import { HoodPanel, LearnMarks } from './HoodPanel';
+import { SoundPlusButton } from './SoundPlus';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -141,6 +144,7 @@ const ArpFace: React.FC = () => {
         <DiskNameDialog />
         <HoodPanel stage={stage} />
         <LearnMarks />
+        <SoundPlusButton stage={stage} />
       </Boundary>
       {error && (
         <p className="mm-plugin-error" role="alert">
