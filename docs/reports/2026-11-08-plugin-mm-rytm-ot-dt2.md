@@ -251,6 +251,7 @@ Mika, sur le lot 12 (capture : scene B armee, page SRC, le bloc LEV dit NO SCENE
   - OPEN (SAMPLE, LEV) suit : c'est le meme bloc.
 - Verifie dans Chromium : un projet d'avant (BD sample a 86, SD VOL 0.6 et sample a 0.5) : les memes gains (tranche du BD 0.459, du SD 0.141, comme attendu), le sample a 0 dB ; scene B armee + LEV vers le bas : la scene garde `rytm:voice:BD:level`, le programme a ses 9 positions (tranche du BD de 0.459 a 0.032), le SD ne bouge pas, le bloc LEV se montre en negatif avec son B ; le crossfader envoie sa position ; clic droit sur le pas 3 + LEV : le verrou `level` du pas (gain du coup 0.149, les autres a 1) ; piste 9 (BD2) + scene A : ses 9 positions (0.25 a 1) ; OPEN montre LEV 102, 0.0 dB ; la vue de dessus (capture), toutes les zones de souris repondent. Ancien projet + transport : aucune erreur ; NEW, CLEAR, Cmd+Z. Le site : identique au pixel (V.3.0, ?face=dt2 noire et claire). tsc a 105.
 
+- **Build vert du lot 13** (run 42881909772), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 34a4def, branche claude/intelligent-ride-56tyeo, 2026-11-10 19:16 UTC.
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
