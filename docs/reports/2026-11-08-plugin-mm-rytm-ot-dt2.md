@@ -204,6 +204,15 @@ Mika : « je veux un bouton CLEAR ou NEW preset vierge » ; puis « il est ou le
 - `.github/workflows/plugin.yml` : la release **mm-rytm**, que seule cette version du workflow ecrit (avec la garde plugin-time) ; mm-rytm-latest suit encore, au mieux. `update.sh` telecharge mm-rytm ; INSTALL et README donnent la nouvelle commande.
 - **Build vert du lot 9**, la release **mm-rytm** creee (05:46 UTC, commit 6ee6721) ; verifie depuis le conteneur sans compte GitHub : son `update.sh` telecharge mm-rytm, son zip porte `BUILD.txt` = commit 6ee6721, branche claude/intelligent-ride-56tyeo.
 
+### Lot 10, un stockage par instance (2026-11-10)
+
+Mika : « J'ai des erreurs quand je load le plugin ca part dans tout les sens ! corrige ca rapidement ».
+
+- Cause : toutes les WebViews d'Ableton ont la meme origine (`juce://juce.backend`), donc le meme localStorage. Deux MM-RYTM, ou un MM-RYTM et le MM-ARP (meme `restore.ts`), dans un projet : chacun effacait les cles mm.v4.* des autres en se restaurant, lisait l'etat de l'autre au chargement de ses modules, gardait dans le projet les cles de l'autre et recevait ses evenements `storage` (la liste des presets se rechargeait).
+- Le build installe etait bien le bon (release mm-rytm, 6ee6721 ; le zip de mm-rytm-latest, de la branche MM-ARP, n'a jamais ete telecharge).
+- `src/v4/plugin/restore.ts` : dans la page du plugin, `window.localStorage` devient un stockage en memoire, a l'instance seule, rempli par l'etat du projet. Le vrai stockage ne garde que la bibliotheque commune (presets, nom d'utilisateur, PERSONALIZE, apparence) et les cles hors mm.v4.* ; une instance neuve part de la machine de depart (plus de l'etat de la derniere instance). Les evenements `storage` des autres pages s'arretent, sauf une nouvelle valeur de la bibliotheque (un preset garde dans un autre projet apparait). Plafond de 5 M caracteres comme un navigateur (presets.ts sait ceder). Si la page refusait un autre localStorage : l'ancienne facon.
+- Verifie dans Chromium (meme contexte = meme stockage, comme la WebView) : avant, une instance B (pattern videe) chargee avec A ouvrait avec la pattern de A (11,2,12,4,0,3) ; apres, A garde 11,2,12,4,0,3, B garde 0, une instance ajoutee ensuite a la pattern de depart, un faux MM-ARP qui efface et ecrit en boucle ne change rien ; un preset garde par A arrive chez B et dans le vrai stockage, la pattern de A n'y va jamais ; un ancien projet (lot 6) avec le transport d'Ableton : aucune erreur ; NEW, CLEAR et Cmd+Z identiques ; tsc a 105 (la base).
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -240,6 +249,8 @@ Mika : « je veux un bouton CLEAR ou NEW preset vierge » ; puis « il est ou le
 - **Une release reservee plutot que la PR vers main** : la PR protegerait les branches futures, pas les copies deja ecrites du workflow (le MM-ARP a ecrase mm-rytm-latest deux fois dans la nuit). mm-rytm n'est ecrite que par ce workflow ; c'est la meme publication que celle que Mika a acceptee (« vas-y pour la release »), a une autre adresse.
 - **NEW et CLEAR dans la barre native, avec une confirmation** : ce sont des gestes qui effacent ; la barre est toujours visible, la boite evite un clic de trop, et Cmd+Z reste la (une etape d'UNDO).
 
+- **Un stockage par instance plutot qu'un prefixe par instance** : un prefixe demanderait de changer chaque store du site ; remplacer `window.localStorage` avant le premier module ne touche a rien d'autre, et le projet Ableton reste la seule memoire de l'etat d'une instance (ce qu'il etait deja). La bibliotheque (presets, personnalisation) reste commune, comme au site.
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -249,6 +260,8 @@ Mika : « je veux un bouton CLEAR ou NEW preset vierge » ; puis « il est ou le
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 10) : la commande mm-rytm, quitter Ableton, le rouvrir, recharger le projet qui partait dans tous les sens ; si une erreur reste, une capture de l'ecran (le message rouge MM-RYTM ou la fenetre d'Ableton).
+- Branche du MM-ARP : sa face appelle le meme `restore.ts` ; tant qu'elle n'a pas ce correctif, son build efface encore les cles du vrai stockage a son chargement (sans toucher aux instances du MM-RYTM, qui n'y lisent plus que la bibliotheque).
 - Cote Mika (lot 9) : la nouvelle commande (release mm-rytm), quitter Ableton, le rouvrir ; verifier la ligne Build ; essayer NEW et CLEAR.
 - Cote Mika (lot 8) : `update.sh`, puis glisser DRAG MIDI sur une piste MIDI (avec un Drum Rack, ou la piste du MM-RYTM en coupant son pattern) ; dire si la fenetre plus haute de 34 px lui va.
 - **La release et main** : tant que main n'a pas ce workflow, un push sur main ou sur une autre branche peut remettre un MM-RYTM ancien dans `mm-rytm-latest` ; `update.sh` affiche le build (commit, branche) : il doit dire claude/intelligent-ride-56tyeo. Le remede : fusionner cette branche dans main (une PR, a la demande de Mika).
@@ -257,8 +270,8 @@ Mika : « je veux un bouton CLEAR ou NEW preset vierge » ; puis « il est ou le
 
 ## 4. Commandes utiles ajoutees
 
-Aucune nouvelle commande ; la mise a jour du plugin reste :
+Aucune nouvelle commande ; la mise a jour du plugin (release mm-rytm depuis le lot 9) :
 
 ```bash
-curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm-latest/update.sh | bash
+curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm/update.sh | bash
 ```
