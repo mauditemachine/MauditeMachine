@@ -104,7 +104,7 @@ int main() {
             char txt[64];
             mmarp::knobText(mmarp::knobIndex("rate"), 2.0 / 3, txt, 64);
             check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
-            check(p.getParameters().size() == mmarp::kKnobs + 3, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
+            check(p.getParameters().size() == mmx::kAll + 3, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
         }
         // DRAG MIDI : l'arpege en clip (F#m D, 2 mesures, 1/16 : 16 pas par mesure, 2 silences sur 8 dans la suite)
         {
@@ -132,6 +132,47 @@ int main() {
             const juce::File f = p.arpMidiFile(1);
             check(f.existsAsFile() && f.getSize() > 100, "le fichier MIDI a glisser : " + f.getFileName().toStdString());
             f.deleteFile();
+        }
+        // SOUND+ (le VST3 seul) : QUALITY STD / HQ, le LFO 2, le master
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            const Stats hq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(0.f);
+            run(p, h, 24000, 512);
+            const Stats stdq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(1.f);
+            run(p, h, 24000, 512);
+            check(hq.finite && stdq.finite && std::fabs(db(hq.rms) - db(stdq.rms)) < 1.5, "QUALITY : HQ (x8) et STD (x4) au meme niveau (" + juce::String(db(hq.rms), 1).toStdString() + " / " + juce::String(db(stdq.rms), 1).toStdString() + " dBFS)");
+            // LFO 2 sur AMP, plein : le niveau baisse (tremolo)
+            X("xLfo2Dest")->setValueNotifyingHost(6.f / 14.f);
+            X("xLfo2Depth")->setValueNotifyingHost(1.f);
+            run(p, h, 4800, 512);
+            const Stats trem = run(p, h, 48000, 512);
+            X("xLfo2Dest")->setValueNotifyingHost(0.f);
+            run(p, h, 4800, 512);
+            check(trem.finite && trem.rms < hq.rms * 0.9, "LFO 2 sur AMP : tremolo (" + juce::String(db(hq.rms), 1).toStdString() + " -> " + juce::String(db(trem.rms), 1).toStdString() + " dBFS)");
+            // WIDTH a 0 : mono
+            X("xWidth")->setValueNotifyingHost(0.f);
+            run(p, h, 9600, 512);
+            juce::AudioBuffer<float> b(2, 512);
+            juce::MidiBuffer mb;
+            double diff = 0;
+            for (int k = 0; k < 40; ++k) {
+                p.processBlock(b, mb);
+                h.ppq += 512 * h.bpm / 60.0 / 48000.0;
+                for (int i = 0; i < 512; ++i) diff = std::max(diff, static_cast<double>(std::fabs(b.getSample(0, i) - b.getSample(1, i))));
+            }
+            X("xWidth")->setValueNotifyingHost(0.5f);
+            X("xWarmth")->setValueNotifyingHost(1.f);
+            X("xBass")->setValueNotifyingHost(1.f);
+            X("xAir")->setValueNotifyingHost(1.f);
+            const Stats m = run(p, h, 48000, 512);
+            X("xWarmth")->setValueNotifyingHost(0.f);
+            X("xBass")->setValueNotifyingHost(0.5f);
+            X("xAir")->setValueNotifyingHost(0.5f);
+            run(p, h, 9600, 512);
+            check(diff < 1e-5 && m.finite && m.peak < 1.5, "MASTER : WIDTH 0 = mono, WARMTH + BASS + AIR sans debordement");
+            check(X("xRevSize")->getText(0.5f, 32) == "2.4 s" && X("xLfo2Rate")->getText(8.f / 13.f, 32) == "1/4", "le texte des reglages SOUND+");
         }
         // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
         {

@@ -33,9 +33,10 @@ struct MMArpProgram {
     // les potards de la face (le premier programme d'une instance neuve ou d'un projet d'avant les parametres)
     bool hasKnobs = false;
     std::array<double, mmarp::kKnobs> knobs{};
+    std::array<double, mmx::kExtra> extra{};
 };
 
-class MMArpProcessor final : public juce::AudioProcessor {
+class MMArpProcessor final : public juce::AudioProcessor, private juce::Timer {
 public:
     MMArpProcessor();
     ~MMArpProcessor() override;
@@ -147,6 +148,14 @@ private:
     mmarp::ArpFxSettings fxNow_;
     double dly16_ = 3;
     int bpmId_ = -1;
+    // QUALITY et la reverb du VST3 (ExtraParams.h)
+    std::array<int, 6> xId_{};
+    int osAsked_ = 4;
+    static int osFor(double sr, double quality);
+    void timerCallback() override;
+    juce::SpinLock revLock_;
+    std::shared_ptr<const mmarp::ReverbIR> revWanted_, revPending_;
+    std::array<double, 4> revKey_{-1, -1, -1, -1};
     bool fresh_ = true;
     double lastBpm_ = 0;
 

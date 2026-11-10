@@ -153,3 +153,47 @@ Demande de Mika : « c'est dommage d'avoir les barres noires autour, ca casse le
 - `src/v4/voyager/theme.ts` (`VOY_PLUGIN_FACE`) : la marge de 2 % autour de la machine devient un leger debord (0.985). Les joues de bois touchent les bords de la fenetre, le haut et le bas sont pleins. Verifie par une capture Chromium a 1100 x 704.
 - La bande noire DRAG MIDI du bas, visible sur la capture de Mika, etait deja retiree dans la version du capot (`56555d4`).
 - Ne touche que le mode plugin ARP : le site ne change pas.
+
+## Suite (2026-11-10) : SOUND+, la qualite du VST3 seul
+
+Demande de Mika : « une qualite absolument fantastique, seulement le VST3 ; rajouter des knobs, ameliorer les LFO, plus de destinations dans Target ; quitte a prendre plus de processeur ; le plugin du site, on n'y touche pas ».
+
+### 1. Ce qui a ete fait
+- `plugin/mm-arp/extra-params.json` : les 14 reglages du VST3 seul, source unique pour la face et pour le C++ (`tests/extra-gen.mjs` genere `src/ExtraTable.inc`, lu par `src/ExtraParams.h`).
+- `dsp/Voyager.{h,cpp}` :
+  - surechantillonnage x8, avec un demi-bande Kaiser de plus et `setOs` sans allocation ;
+  - LFO 1 seconde destination (`xl1Dest`, `xl1Amt`) ;
+  - LFO 2 (`l2Beats`, `l2Shape`, `l2Dest`, `l2Amt`), avec un hasard sans etat ;
+  - 10 destinations nouvelles : RES, AMP, PAN, OSC 2 PITCH, OSC MIX, NOISE, SUB, DRIVE, STACK, ENV AMT.
+- `dsp/ArpFx.{h,cpp}` :
+  - reverb reglable (`makeReverb`, `setReverb`, `takeRetiredReverb`) ;
+  - convolution a partitions non uniformes, latence 0 ;
+  - master : WARMTH (tanh asymetrique, x4 local), BASS, AIR, WIDTH.
+- `src/PluginProcessor.{h,cpp}` :
+  - les 14 parametres de l'hote ;
+  - QUALITY par `setOs` ;
+  - la reverb calculee par un timer du thread du message et echangee sur le thread audio ;
+  - MIDI LEARN et la synchro face etendus aux reglages `x*`.
+- La face (`src/v4/plugin/arp/` : `extra.ts`, `SoundPlus.tsx`, `tab.ts`, `HoodPanel.tsx`, `bridge.ts`) : l'onglet SOUND+ du capot, la pastille SOUND+ sur la face, le champ `extra` du programme et des presets disque.
+- Tests : `tests/hq_test.cpp` (87 controles), `host_test.cpp` (29 cas).
+
+### 2. Decisions et mesures
+- **Le site ne change pas.** Les reglages ne sont pas dans `voyager/params.ts`, et chacun, a son neutre, rend le son du site : les 85 cas restent au bit pres. Seul QUALITY part sur HQ.
+- **Repliement x4 contre x8** (plus forte raie repliee sous 20 kHz) :
+
+| Cas | x4 | x8 |
+| --- | --- | --- |
+| Scie C7, filtre ouvert | -89.7 dBc | -109.1 dBc |
+| Scie C7, OVERDRIVE plein | -70.0 dBc | -81.1 dBc |
+| MS-10 RES 0.95 + OVERDRIVE | -100.9 dBc | -118.2 dBc |
+
+  La sonie est identique a 0.01 dB pres.
+- **CPU du moteur** (machine de test lente, reglage le plus lourd) : 1 voix 6.8 % puis 11.1 %, 12 voix 49.5 % puis 94.1 %. A surveiller sur le Mac ; STD reste la.
+- **Reverb** : la nouvelle convolution coute 2.2 % au lieu de 9.1 % a 2.4 s, et 2.4 % a 9.6 s. Elle est a -128 dB de l'ancienne.
+- **Un preset disque** garde ses reglages SOUND+. Un preset sans eux les remet au neutre, sauf QUALITY.
+
+### 3. En suspens
+- Mika : ecouter HQ, le LFO 2, les destinations, la reverb longue, le master ; surveiller le CPU en HQ.
+- UNDO, RANDOM et les presets de l'ecran de la machine ne touchent pas a SOUND+.
+- Changer QUALITY en cours de jeu fait un trou d'environ 0.1 s.
+- WARMTH engagee retarde la sortie de 39 echantillons, non declares a l'hote.

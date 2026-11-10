@@ -42,6 +42,10 @@ jobs:
           node plugin/mm-arp/tests/params-gen.mjs --check
           node plugin/mm-arp/tests/params-ref.mjs ref-params
           ./build-dsp/mmarp_params_test ref-params
+      - name: Reglages du VST3 seul (x8, LFO, reverb, master) au neutre = le site, et mesures
+        run: |
+          node plugin/mm-arp/tests/extra-gen.mjs --check
+          ./build-dsp/mmarp_hq_test
       - name: Chorus Juno et TAPE compares a chorus.worklet.js du site
         run: |
           node plugin/mm-arp/tests/fx-ref.mjs ref-fx worklet

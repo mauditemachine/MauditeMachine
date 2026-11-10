@@ -1674,7 +1674,8 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
   const double ratio2 = jsm::pow(2, p[P_tune2] / 12);
   const double drift = p[P_drift];
   const bool sync = p[P_sync] == 1;
-  const double fmB = os == 2 ? FM_B_PHONE : 0.4;
+  // (x8 : la meme largeur de bande absolue qu'en x4, 0.4 x 192 kHz : la FM garde le son du site, sans indice de plus)
+  const double fmB = os == 2 ? FM_B_PHONE : os == 8 ? 0.2 : 0.4;
   const double pRatio = p[P_ratio];
   const double pAS = p[P_aS];
   const double pFS = p[P_fS];

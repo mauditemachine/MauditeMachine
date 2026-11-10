@@ -39,7 +39,8 @@
 // 1. QUALITY HQ : os = 8 (surechantillonnage x8). Une demi-bande de plus x8 -> x4 (Kaiser, 23 coefficients, beta 10 :
 //    -100 dB), puis les deux du site. Tout le moteur suit le taux interne (coefficients, lissages, rampes, ADAA) ; le
 //    rythme du contexte reste le meme (bruit, coupure, hauteur, GLUE : une valeur par echantillon du contexte) ; le
-//    MS-10 garde son plafond de 16 kHz et ne double ses pas qu'en x2, comme au site. latencySamples() : 21 en x8.
+//    MS-10 garde son plafond de 16 kHz et ne double ses pas qu'en x2, comme au site ; la FM garde la largeur de
+//    bande du x4 (76.8 kHz a 48 kHz) : le meme son, sans le repliement. latencySamples() : 21 en x8.
 //      v.setOs(8);      // thread audio, AUCUNE allocation (tout est alloue pour x8 au constructeur)
 //      v.os();          // le taux en cours ; v.osPending() : un changement attend
 //    setOs ne coupe rien net : les voix qui sonnent partent en 12 ms (comme stop) et le taux change au debut du

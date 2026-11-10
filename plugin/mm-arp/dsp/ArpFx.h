@@ -23,8 +23,8 @@
 // - REVERB : la reverbe a lui du MM-ARP (drums.ts arpReverb = buildReverbBus(c, arpOut) : toujours IR_DEFAULT,
 //   2.4 s, coupure 9 kHz -> 3 kHz, pre-delai 20 ms, graines 808 / 909, energie 1 par canal), fx.ts makeImpulse au bit
 //   pres, ConvolverNode normalize = false (canal gauche par la reponse gauche, droit par la droite, sans latence).
-//   La convolution FFT par blocs de 256 de plugin/mm-rytm/dsp/Fx.cpp, sans sa latence : les 256 premiers echantillons
-//   de la reponse sont nuls (le pre-delai), ils sont retires.
+//   La convolution : FFT a partitions non uniformes, sans latence (2026-11-10, voir LES EXTENSIONS DU PLUGIN plus
+//   bas ; avant : les blocs de 256 de plugin/mm-rytm/dsp/Fx.cpp seuls, memes echantillons a -128 dB).
 // - VOLUME : volGain = volume^2 x 0.66 / (1 + 0.35 delay + 0.5 reverb), le meme sur le bas de BASS MONO.
 // - AudioParam : valeurs en float, rampes lineaires (glide.ts : 20 ms depuis la valeur du dernier echantillon rendu),
 //   retime (au moins 0.2 s, au plus 0.25 s de retard par seconde), coefficients des biquads recalcules a chaque
@@ -41,7 +41,7 @@
 //   fx.retimeDelay(seconds);                    // un changement de tempo seul (pattern.subscribe du site)
 //   fx.process(inL, inR, outL, outR, n);        // entree : la sortie du moteur ; sortie : la prise ARP (remplacee)
 //   fx.reset();                                 // lignes et filtres a zero, reglages poses sans rampe
-//   fx.latencySamples();                        // 0 (a toute frequence >= 12.8 kHz)
+//   fx.latencySamples();                        // 0 (a toute frequence d'echantillonnage)
 // Independant de la taille des blocs de l'hote (au bit pres) : tout est calcule par blocs de rendu de 128 comme le Web
 // Audio (valeurs des rampes, parametres k-rate, messages au worklet, sommeil de la bande).
 // Ecarts connus au site (mesures, plugin/mm-arp/tests/fx_test.cpp) : les biquads de Chromium different d'un ulp float
@@ -79,16 +79,21 @@
 //    qu'a prepare() ; a l'appelant de lancer makeReverb quand ils bougent (reverb() rend la reponse en place).
 //    La convolution : a partitions non uniformes, sans latence a toute frequence d'echantillonnage et pour tout
 //    pre-delai (une tete directe de 256 points, sautee quand elle est nulle ; des blocs de 256 pour 256..4096, de
-//    2048 pour 4096..32768, de 16384 au-dela ; le calcul des grands blocs est etale sur les blocs de 256, sans
-//    pointe). Contre la convolution d'avant (blocs de 256 seuls), reponse par defaut : voir hq_test.
+//    2048 pour 4096..32768, de 16384 au-dela ; le calcul des grands blocs est etale a cout egal sur les blocs de
+//    256, sans pointe). Mesures (2026-11-10, 48 kHz) : contre la convolution d'avant (blocs de 256 seuls), reponse
+//    par defaut, toute la chaine : -128 dB crete, -149 dB RMS ; contre la convolution directe : -133 dB (hq_test) ;
+//    cout a 2.4 s : 9.1 % -> 2.2 % d'un coeur ; a 9.6 s : 37.6 % -> 2.4 % (hq_test --cpu).
 //
-// 2. MASTER (apres tout le reste, dans cet ordre ; chacun contourne EXACTEMENT a son neutre, rampes de 20 ms) :
+// 2. MASTER (apres tout le reste, dans cet ordre ; chacun contourne EXACTEMENT a son neutre : process ne touche
+//    pas la sortie ; sinon des rampes de 20 ms en S, sans saut ni coude ; revenu au neutre, un reglage est de
+//    nouveau contourne au bit pres des la fin de sa rampe) :
 //      warmth 0..1 (0 : contournee)  une saturation douce facon transfo / bande : tanh a peine asymetrique
 //             (biais 0.06 : un peu d'harmonique 2), entree x 2 warmth, gain unite aux petits signaux et compensee
 //             en niveau (sinus de 0.3 : meme RMS) ; seule la part non lineaire passe par le surechantillonnage
 //             local x4 (demi-bandes Kaiser 63 et 31 points) et un bloqueur de continu a 5 Hz, le signal lui-meme
 //             n'est que retarde : aucun filtre sur le son direct. Engagee, elle retarde la sortie de
-//             masterLatencySamples() = 39 echantillons (0 quand warmth = 0) ; le fondu de 20 ms couvre le passage.
+//             masterLatencySamples() = 39 echantillons (0 quand warmth = 0) ; ses lignes se remplissent 64
+//             echantillons puis le fondu de 20 ms couvre le passage. THD (sinus 1 kHz de 0.5) : 7 % a 1, 2.4 % a 0.5.
 //      bass   0..1 (0.5 neutre)      plateau grave a 120 Hz, -6 .. +6 dB (12 x (v - 0.5)), second ordre, Q 0.707
 //      air    0..1 (0.5 neutre)      plateau aigu a 10 kHz, -6 .. +6 dB
 //      width  0..1 (0.5 neutre)      0 : mono ; 1 : le cote x2 ; au-dessus de 0.5 seul le cote au-dessus de 150 Hz
@@ -309,7 +314,7 @@ public:
 private:
     struct Op {
         uint8_t op, ch, ir;
-        int32_t arg;
+        int32_t arg, cost;
     };
     struct Stage {
         int B = 0, N = 0, K = 0, bits = 0, ticks = 1, cap = 0, head = 0;
@@ -321,6 +326,7 @@ private:
         int cur = 0;                                // le tampon lu
         std::vector<Op> ops;                        // le travail du bloc en cours
         int nOps = 0, done = 0, ticksLeft = 0;
+        long long costLeft = 0;
         long long T = 0;                            // l'instant ou le bloc en cours a commence
         const ReverbIR* a = nullptr;
         const ReverbIR* b = nullptr;
@@ -329,7 +335,7 @@ private:
     };
     void tick();
     void startJob(int s);
-    void runOps(Stage& st, int count);
+    void runOps(Stage& st, long long budget);
     void promote();
     void retire();
     bool pushRetired(std::shared_ptr<const ReverbIR>& p);
@@ -358,23 +364,24 @@ public:
     bool bypassed() const { return !wActive_ && !bActive_ && !aActive_ && !sActive_; }
 
 private:
-    struct Glide { // une rampe lineaire de 20 ms
-        double v = 0, target = 0, step = 0;
-        int left = 0;
+    struct Glide { // une rampe de 20 ms, en S (pente nulle aux deux bouts : ni saut ni coude)
+        double v = 0, target = 0, from = 0;
+        int left = 0, len = 1;
         void setNow(double x) {
-            v = target = x;
+            v = target = from = x;
             left = 0;
         }
         void to(double x, int n) {
-            if (x == target) return;
+            if (!(x < target || x > target)) return;
             target = x;
-            left = n > 0 ? n : 1;
-            step = (x - v) / left;
+            from = v;
+            len = left = n > 0 ? n : 1;
         }
         double next() {
             if (left > 0) {
-                v += step;
-                if (--left == 0) v = target;
+                --left;
+                const double t = 1.0 - static_cast<double>(left) / len;
+                v = left == 0 ? target : from + (target - from) * (t * t * (3 - 2 * t));
             }
             return v;
         }
@@ -406,14 +413,14 @@ private:
         std::array<double, 64> dnB{}, dnA{};   // les entrees des deux decimateurs (au rythme x4, x2)
         double dcX = 0, dcY = 0;
     } wc_[2];
-    int wI_ = 0, wIb_ = 0, wJb_ = 0, wJa_ = 0;
+    int wI_ = 0, wIb_ = 0, wJb_ = 0, wJa_ = 0, wHold_ = 0;
     // BASS, AIR
     Glide bDb_, aDb_;
     bool bActive_ = false, aActive_ = false;
     Svf bF_, aF_;
     double bG0_ = 0, aG0_ = 0;
     // WIDTH
-    Glide sW_ = {1, 1, 0, 0}; // le gain du cote : 2 x width
+    Glide sW_ = {1, 1, 1, 0, 1}; // le gain du cote : 2 x width
     bool sActive_ = false;
     Svf sF_;
 };

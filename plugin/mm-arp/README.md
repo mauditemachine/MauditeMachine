@@ -39,6 +39,7 @@ architecture que `plugin/mm-rytm`.
 | Parametres de l'hote : Arpeggiator, Master, et les 62 potards du site (face + TWEAKS, `dsp/Params.cpp` : les lois de params.ts / chords.ts / seq.ts, 0 ecart sur 3000 cas) : automation, MIDI Map, le triangle d'Ableton, fenetre fermee comprise | joue |
 | Presets sur le disque (`~/Music/Maudite Machine/MM-ARP Presets/*.mmarp`) : SAVE TO DISK / OPEN FROM DISK et la liste, dans le capot (OPEN) | joue |
 | DRAG MIDI : l'arpege en clip MIDI a glisser sur une piste (x1, x2, x4 la progression), SAVE .MID ; `~/Music/Maudite Machine/MM-ARP Clips` | joue (`src/PluginEditor.cpp`, `MMArpProcessor::arpMidi` : le meme arpegiateur et la meme graine que la lecture) |
+| SOUND+ (le VST3 seul, jamais le site ; `extra-params.json`, 14 parametres) : QUALITY HQ (x8), LFO 1 TARGET 2 / DEPTH 2, LFO 2 (SPEED, SHAPE, TARGET, DEPTH ; 15 destinations), REVERB SIZE / TONE / PRE DELAY (convolution non uniforme sans latence), MASTER WARMTH / BASS / AIR / WIDTH | joue ; chaque reglage au neutre rend le son du site (85 cas au bit pres, `tests/hq_test.cpp` 87 controles) |
 | SIDECHAIN, sortie MIDI des notes de l'arpege | plus tard |
 
 Ecarts connus avec le site : la progression est calee sur les mesures d'Ableton (au site : depuis RUN), et la suite

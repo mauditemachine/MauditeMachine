@@ -63,6 +63,12 @@ bool parseProgram(const juce::String& json, MMArpProgram& p) {
     parseSeq(o.getProperty("seq", juce::var()), p.seq);
     parseProg(o.getProperty("prog", juce::var()), p);
     p.hasKnobs = parseKnobs(o.getProperty("knobs", juce::var()), p.knobs);
+    for (int e = 0; e < mmx::kExtra; ++e) p.extra[static_cast<size_t>(e)] = mmx::kExtraDefs[e].def;
+    if (auto* x = o.getProperty("extra", juce::var()).getDynamicObject())
+        for (const auto& kv : x->getProperties()) {
+            const int i = mmx::allIndex(kv.name.toString().toRawUTF8()) - mmarp::kKnobs;
+            if (i >= 0 && i < mmx::kExtra && isNum(kv.value)) p.extra[static_cast<size_t>(i)] = juce::jlimit(0.0, 1.0, static_cast<double>(kv.value));
+        }
     return true;
 }
 
@@ -132,13 +138,16 @@ MMArpProcessor::MMArpProcessor()
     }
     seed_ = static_cast<uint32_t>(juce::Random::getSystemRandom().nextInt());
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
+    const char* xk[6] = {"xl1Dest", "xl1Amt", "l2Beats", "l2Shape", "l2Dest", "l2Amt"};
+    for (size_t i = 0; i < 6; ++i) xId_[i] = mmarp::Voyager::paramIndex(xk[i]);
+    startTimerHz(15);
     mmarp::reserveArp(arpBuf_[0]);
     mmarp::reserveArp(arpBuf_[1]);
     // Le programme de depart : sans accord, la suite AUTO
     publish(std::make_shared<MMArpProgram>());
 }
 
-MMArpProcessor::~MMArpProcessor() = default;
+MMArpProcessor::~MMArpProcessor() { stopTimer(); }
 
 void MMArpProcessor::publish(std::shared_ptr<const MMArpProgram> p) {
     progBpm_.store(p->bpm);
@@ -165,7 +174,11 @@ void MMArpProcessor::faceProgram(const juce::String& json) {
     auto p = std::make_shared<MMArpProgram>();
     if (!parseProgram(json, *p)) return;
     // Une instance neuve (ou un projet d'avant les parametres) : les potards de la face deviennent ceux du plugin
-    if (p->hasKnobs && !knobsKnown_.load()) setKnobsFrom(p->knobs);
+    if (p->hasKnobs && !knobsKnown_.load()) {
+        for (int e = 0; e < mmx::kExtra; ++e)
+            if (auto* prm = knobParams_[static_cast<size_t>(mmarp::kKnobs + e)]) prm->setValueNotifyingHost(static_cast<float>(p->extra[static_cast<size_t>(e)]));
+        setKnobsFrom(p->knobs);
+    }
     {
         std::lock_guard<std::mutex> lk(mx_);
         programJson_ = json;
@@ -281,6 +294,35 @@ juce::File MMArpProcessor::arpMidiFile(int cycles) const {
     mf.writeTo(out, 1);
     out.flush();
     return f;
+}
+
+/* ---------------- QUALITY, la reverb du VST3 ---------------- */
+
+int MMArpProcessor::osFor(double sr, double quality) {
+    const bool hq = quality >= 0.5;
+    return sr > 60000 ? (hq ? 4 : 2) : (hq ? 8 : 4);
+}
+
+// Thread du message (il tourne fenetre fermee) : SIZE, TONE ou PRE DELAY ont bouge, une nouvelle reponse se calcule
+// ici et part vers le thread audio ; les anciennes sont liberees ici aussi
+void MMArpProcessor::timerCallback() {
+    while (fx_.takeRetiredReverb()) {}
+    const double sr = sr_;
+    if (sr <= 0) return;
+    const std::array<double, 4> key{static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
+                                    static_cast<double>(exRaw_[mmx::ex_xRevPre]->load()), sr};
+    bool same = true;
+    for (size_t i = 0; i < 4; ++i) same = same && std::fabs(key[i] - revKey_[i]) < 1e-9;
+    if (same) return;
+    auto ir = mmarp::ArpFx::makeReverb(sr, key[0], key[1], key[2]);
+    std::shared_ptr<const mmarp::ReverbIR> old;
+    {
+        const juce::SpinLock::ScopedLockType sl(revLock_);
+        old = std::move(revWanted_);
+        revWanted_ = ir;
+        revPending_ = std::move(ir);
+        revKey_ = key;
+    }
 }
 
 /* ---------------- MIDI LEARN ---------------- */
@@ -430,15 +472,31 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         // Un message 'params' du site : tous les reglages du moteur, et le tempo
         int n = mmarp::engineParams(knobs_.data(), kv_.data(), static_cast<int>(kv_.size()) - 1);
         kv_[static_cast<size_t>(n++)] = {bpmId_, bpm};
+        // Le VST3 seul : la seconde destination du LFO 1, le LFO 2
+        kv_[static_cast<size_t>(n++)] = {xId_[0], static_cast<double>(mmx::exStep(mmx::ex_xLfo1Dest2, ex_[mmx::ex_xLfo1Dest2]))};
+        kv_[static_cast<size_t>(n++)] = {xId_[1], ex_[mmx::ex_xLfo1Depth2]};
+        kv_[static_cast<size_t>(n++)] = {xId_[2], mmx::kExBeats_xLfo2Rate[mmx::exStep(mmx::ex_xLfo2Rate, ex_[mmx::ex_xLfo2Rate])]};
+        kv_[static_cast<size_t>(n++)] = {xId_[3], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Shape, ex_[mmx::ex_xLfo2Shape]))};
+        kv_[static_cast<size_t>(n++)] = {xId_[4], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Dest, ex_[mmx::ex_xLfo2Dest]))};
+        kv_[static_cast<size_t>(n++)] = {xId_[5], ex_[mmx::ex_xLfo2Depth]};
         voy_->params(kv_.data(), n);
         mmarp::ArpFxSettings fx;
         double dly16 = 3;
         mmarp::fxSettings(knobs_.data(), fx, dly16);
+        // Le master du VST3 (la reverb SIZE / TONE / PRE passe par makeReverb, hors du thread audio : timerCallback)
+        fx.warmth = ex_[mmx::ex_xWarmth];
+        fx.bass = ex_[mmx::ex_xBass];
+        fx.air = ex_[mmx::ex_xAir];
+        fx.width = ex_[mmx::ex_xWidth];
+        fx.revSize = ex_[mmx::ex_xRevSize];
+        fx.revTone = ex_[mmx::ex_xRevTone];
+        fx.revPre = ex_[mmx::ex_xRevPre];
         // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
         fx.delaySeconds = std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
         auto eq = [](double a, double b) { return !(a < b || a > b); };
         const bool same = !fresh_ && fx.chorus == fxNow_.chorus && eq(fx.delay, fxNow_.delay) && eq(fx.reverb, fxNow_.reverb) && eq(fx.tape, fxNow_.tape) &&
-                          eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume);
+                          eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume) &&
+                          eq(fx.warmth, fxNow_.warmth) && eq(fx.bass, fxNow_.bass) && eq(fx.air, fxNow_.air) && eq(fx.width, fxNow_.width);
         if (!same) fx_.set(fx, fresh_);
         fxNow_ = fx;
         dly16_ = dly16;
@@ -459,10 +517,22 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     frame_ = 0;
     mmarp::VoyagerOptions o;
     o.sampleRate = sampleRate;
-    o.os = sampleRate > 60000 ? 2 : 4;
+    o.os = osFor(sampleRate, static_cast<double>(exRaw_[mmx::ex_xQuality]->load()));
+    osAsked_ = o.os;
     o.seed = seed_ == 0 ? 808u : seed_;
     voy_ = std::make_unique<mmarp::Voyager>(o);
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
+    // La reverb des reglages du projet, tout de suite (rien ne joue encore) ; ensuite le timer suit SIZE, TONE, PRE DELAY
+    {
+        const double rs = static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), rt = static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
+                     rp = static_cast<double>(exRaw_[mmx::ex_xRevPre]->load());
+        const juce::SpinLock::ScopedLockType sl(revLock_);
+        revWanted_ = mmarp::ArpFx::makeReverb(sampleRate, rs, rt, rp);
+        revPending_.reset();
+        fx_.setReverb(revWanted_);
+        revKey_ = {rs, rt, rp, sampleRate};
+    }
+    while (fx_.takeRetiredReverb()) {}
     arp_.prepare(sampleRate);
     arp_.setProgram(nullptr);
     dryL_.assign(static_cast<size_t>(std::max(samplesPerBlock, kChunk)), 0.f);
@@ -478,6 +548,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     lastBpm_ = 0;
     // tous les potards relus au premier bloc
     for (auto& k : knobRawLast_) k = -1.f;
+    for (auto& k : exLast_) k = -1.f;
     wasPlaying_ = false;
     held_.fill(false);
     lastLiveMidi_ = -1;
@@ -560,6 +631,27 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
             knobs_[i] = mmarp::knobClean(static_cast<int>(i), static_cast<double>(r));
             knobsChanged = true;
         }
+    }
+    for (size_t e = 0; e < ex_.size(); ++e) {
+        const float r = exRaw_[e]->load();
+        if (r < exLast_[e] || r > exLast_[e]) {
+            exLast_[e] = r;
+            ex_[e] = static_cast<double>(r);
+            knobsChanged = true;
+        }
+    }
+    // QUALITY : x8 en HQ (x4 au-dela de 60 kHz), le taux du site en STD ; le moteur change sans allocation (setOs)
+    {
+        const int os = osFor(sr, ex_[mmx::ex_xQuality]);
+        if (os != osAsked_) {
+            voy_->setOs(os);
+            osAsked_ = os;
+        }
+    }
+    // Une nouvelle reponse de reverb (SIZE, TONE, PRE DELAY), calculee par le thread du message
+    if (revLock_.tryEnter()) {
+        if (revPending_ && fx_.setReverb(revPending_)) revPending_.reset();
+        revLock_.exit();
     }
     if (current_ && (progChanged || knobsChanged || fresh_)) update(bpm, knobsChanged, progChanged);
     // Le tempo change : le LFO libre et le DELAY le suivent

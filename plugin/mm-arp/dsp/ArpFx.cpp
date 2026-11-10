@@ -700,7 +700,7 @@ void Convolver::prepare(double sr, std::shared_ptr<const ReverbIR> ir) {
         st.wRe.assign(static_cast<size_t>(st.N), 0.f);
         st.wIm.assign(static_cast<size_t>(st.N), 0.f);
         // le plus long travail d'un bloc : deux canaux, l'aller (bits + 2), deux reponses (cap + bits + 2 chacune)
-        st.ops.assign(static_cast<size_t>(2 * (st.bits + 2) + 4 * (st.cap + st.bits + 2) + 8), Op{0, 0, 0, 0});
+        st.ops.assign(static_cast<size_t>(2 * (st.bits + 2) + 4 * (st.cap + st.bits + 2) + 8), Op{0, 0, 0, 0, 0});
     }
     // hors du thread audio : les reponses d'avant sont liberees ici
     cur_ = std::move(ir);
@@ -724,6 +724,7 @@ void Convolver::reset() {
         st.cur = 0;
         st.head = 0;
         st.nOps = st.done = st.ticksLeft = 0;
+        st.costLeft = 0;
         st.a = st.b = nullptr;
         st.fade0 = st.fadePos = 0;
         st.xf = 0;
@@ -817,7 +818,27 @@ void Convolver::startJob(int s) {
     const bool skipOut = need == 0 || lastNZ_ < n_ - static_cast<long long>(need + 1) * st.B;
     int n = 0;
     Op* o = st.ops.data();
-    auto push = [&](uint8_t op, int ch, int ir, int arg) { o[n++] = Op{op, static_cast<uint8_t>(ch), static_cast<uint8_t>(ir), arg}; };
+    // chaque operation avec son cout (le nombre de valeurs touchees, a peu pres) : le travail s'etale a cout egal
+    long long cost = 0;
+    const int N = st.N, K = st.K;
+    auto push = [&](uint8_t op, int ch, int ir, int arg) {
+        int c = 1;
+        switch (op) {
+            case OP_LOAD: c = 3 * N; break;
+            case OP_MIRROR: c = 3 * N; break;
+            case OP_FPASS:
+            case OP_IPASS: c = arg <= 2 ? 2 * N : N; break;
+            case OP_MAC0:
+            case OP_MAC: c = 2 * K; break;
+            case OP_STORE: c = K; break;
+            case OP_FIN:
+            case OP_MIX:
+            case OP_MIX0: c = st.B; break;
+            default: c = K / 4; break;
+        }
+        cost += c;
+        o[n++] = Op{op, static_cast<uint8_t>(ch), static_cast<uint8_t>(ir), arg, c};
+    };
     for (int c = 0; c < 2; ++c) {
         if (skipFwd) push(OP_ZSLOT, c, 0, 0);
         else {
@@ -851,17 +872,20 @@ void Convolver::startJob(int s) {
     st.nOps = n;
     st.done = 0;
     st.ticksLeft = st.ticks;
+    st.costLeft = cost;
     st.zero[static_cast<size_t>(1 - st.cur)] = skipOut || (pa == 0 && !st.b);
 }
 
-void Convolver::runOps(Stage& st, int count) {
+// Les operations suivantes du bloc en cours, jusqu'a depenser budget (au moins une)
+void Convolver::runOps(Stage& st, long long budget) {
     const int s = static_cast<int>(&st - st_.data());
     const int K = st.K, N = st.N, Bs = st.B;
     float* wr = st.wRe.data();
     float* wi = st.wIm.data();
-    const int end = std::min(st.nOps, st.done + count);
-    for (; st.done < end; ++st.done) {
+    for (long long spent = 0; st.done < st.nOps && spent < budget; ++st.done) {
         const Op op = st.ops[static_cast<size_t>(st.done)];
+        spent += op.cost;
+        st.costLeft -= op.cost;
         const size_t c = op.ch;
         float* out = st.out[static_cast<size_t>(1 - st.cur)][c].data();
         switch (op.op) {
@@ -947,15 +971,15 @@ void Convolver::tick() {
         if (n_ % st.B == 0) {
             if (s > 0) {
                 // le bloc d'avant est pret (son dernier tick l'a fini) : il sort maintenant
-                if (st.done < st.nOps) runOps(st, st.nOps - st.done);
+                if (st.done < st.nOps) runOps(st, st.costLeft + 1);
                 st.cur = 1 - st.cur;
             }
             startJob(s);
         }
         if (st.done < st.nOps) {
-            const int left = st.nOps - st.done;
+            // une part egale du cout qui reste a chacun des ticks qui restent (le dernier finit tout)
             const int tl = std::max(1, st.ticksLeft);
-            runOps(st, (left + tl - 1) / tl);
+            runOps(st, tl == 1 ? st.costLeft + 1 : (st.costLeft + tl - 1) / tl);
             if (st.ticksLeft > 0) --st.ticksLeft;
         }
         if (s == 0) st.cur = 1 - st.cur; // les blocs de 256 sortent tout de suite
@@ -1137,6 +1161,7 @@ void Master::set(double warmth, double bass, double air, double width, bool now)
     if (now) {
         // poses : comme reset pour ce qui change (une section qui s'engage part d'etats a zero)
         if ((w > 0) != wActive_ || wAmt_.moving() || wOn_.moving()) warmClear();
+        wHold_ = 0;
         wAmt_.setNow(w);
         wOn_.setNow(w > 0 ? 1 : 0);
         wActive_ = w > 0;
@@ -1155,9 +1180,11 @@ void Master::set(double warmth, double bass, double air, double width, bool now)
         return;
     }
     if (w > 0 && !wActive_) {
+        // elle s'engage : ses lignes se remplissent d'abord (64 echantillons, sortie inchangee), puis le fondu
         warmClear();
         wActive_ = true;
         wAt_ = -1;
+        wHold_ = 64;
     }
     wAmt_.to(w, rampN_);
     wOn_.to(w > 0 ? 1 : 0, rampN_);
@@ -1217,9 +1244,11 @@ void Master::process(float* L, float* R, int n) {
         // 1. WARMTH : y = K (x retarde + la part non lineaire, surechantillonnee x4), fondue avec le sec
         if (wActive_) {
             const double a = wAmt_.next();
-            const double on = wOn_.next();
+            double on = 0;
+            if (wHold_ > 0) --wHold_;
+            else on = wOn_.next();
             warmCoefs(a);
-            const double ms = on >= 1 ? 1 : on * on * (3 - 2 * on);
+            const double ms = on;
             const double* eA = hbA_.h.data();
             const double* eB = hbB_.h.data();
             for (int c = 0; c < 2; ++c) {
@@ -1312,6 +1341,12 @@ void Master::process(float* L, float* R, int n) {
         io[0][i] = static_cast<float>(x[0]);
         io[1][i] = static_cast<float>(x[1]);
     }
+    // les etats des filtres qui s'eteignent : jamais de sous-normaux (comme le rincage des biquads du site)
+    for (Svf* f : {&bF_, &aF_, &sF_})
+        for (int c = 0; c < 2; ++c) {
+            if (std::fabs(f->ic1[c]) < 1e-20) f->ic1[c] = 0;
+            if (std::fabs(f->ic2[c]) < 1e-20) f->ic2[c] = 0;
+        }
 }
 
 } // namespace detail

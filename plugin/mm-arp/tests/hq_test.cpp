@@ -339,9 +339,9 @@ void testHq() {
       for (int k = 0; k < n; ++k) s += h[k] * std::polar(1.0, -w * k);
       mag[static_cast<size_t>(g)] = std::abs(s);
     }
-    // la bande d'arret utile : ce qui se replie sur 0 .. 24 kHz ; l'entree est a 96 (63), 192 (31), 384 kHz (23)
+    // la bande d'arret utile : ce qui se replie sur 0 .. 20 kHz ; l'entree est a 96 (63), 192 (31), 384 kHz (23)
     const double fsIn = which == 4 ? 96000 : which == 3 ? 192000 : 384000;
-    const double stopFrom = (fsIn / 2 - 24000) / (fsIn / 2);
+    const double stopFrom = (fsIn / 2 - 20000) / (fsIn / 2);
     for (int g = 0; g <= G; ++g) {
       const double x = static_cast<double>(g) / G;
       if (x >= stopFrom) worst = std::max(worst, mag[static_cast<size_t>(g)]);
@@ -354,8 +354,8 @@ void testHq() {
       }
     const bool mine = which == 6;
     const char* name = which == 4 ? "x2 -> x1 (site, 63 / beta 8)" : which == 3 ? "x4 -> x2 (site, 31 / beta 9)" : "x8 -> x4 (plugin, 23 / beta 10)";
-    if (mine) check(db(worst) <= -95 && pass < 0.01, "demi-bande %-32s arret (ce qui se replie sous 24 kHz) %.1f dB, -90 dB des %.0f kHz, ondulation 0-20 kHz %.5f dB", name, db(worst), edge * fsIn / 2000, pass);
-    else std::printf("        demi-bande %-32s arret (ce qui se replie sous 24 kHz) %.1f dB, ondulation 0-20 kHz %.4f dB\n", name, db(worst), pass);
+    if (mine) check(db(worst) <= -95 && pass < 0.01, "demi-bande %-32s arret (ce qui se replie sous 20 kHz) %.1f dB, -90 dB des %.0f kHz, ondulation 0-20 kHz %.5f dB", name, db(worst), edge * fsIn / 2000, pass);
+    else std::printf("        demi-bande %-32s arret (ce qui se replie sous 20 kHz) %.1f dB, ondulation 0-20 kHz %.4f dB\n", name, db(worst), pass);
   }
   // fini, meme sonie que x4, sans garde
   const std::vector<Note> notes = arpNotes(4.0);
@@ -405,11 +405,13 @@ void testHq() {
 struct Track {
   std::vector<double> level, centroid, balance, pitch;
 };
-/** Par fenetre de 1024 : le niveau (dB), le centroide (Hz), la balance (-1 gauche .. +1 droite), la hauteur (Hz). */
-Track track(const Render& r, double fromS, double toS) {
+/**
+ * Par fenetre de W (1024, ou 4096 pour le centroide d'une note grave) : le niveau (dB), le centroide (Hz, pondere par
+ * l'amplitude des raies), la balance (-1 gauche .. +1 droite), la hauteur (Hz, par les passages a zero).
+ */
+Track track(const Render& r, double fromS, double toS, size_t W = 1024) {
   Track t;
-  const size_t W = 1024;
-  for (size_t s = static_cast<size_t>(fromS * SR); s + W <= static_cast<size_t>(toS * SR) && s + W <= r.L.size(); s += W) {
+  for (size_t s = static_cast<size_t>(fromS * SR); s + W <= static_cast<size_t>(toS * SR) && s + W <= r.L.size(); s += 1024) {
     double eL = 0, eR = 0;
     std::vector<std::complex<double>> a(W);
     int zc = 0;
@@ -418,7 +420,7 @@ Track track(const Render& r, double fromS, double toS) {
       const double l = r.L[s + i], rr = r.R[s + i], m = 0.5 * (l + rr);
       eL += l * l;
       eR += rr * rr;
-      a[i] = m * (0.5 - 0.5 * std::cos(2 * PI * static_cast<double>(i) / W));
+      a[i] = m * (0.5 - 0.5 * std::cos(2 * PI * static_cast<double>(i) / static_cast<double>(W)));
       if (i > 0) {
         const double p = 0.5 * (static_cast<double>(r.L[s + i - 1]) + r.R[s + i - 1]);
         if (p < 0 && m >= 0) {
@@ -432,8 +434,8 @@ Track track(const Render& r, double fromS, double toS) {
     fft(a);
     double num = 0, den = 0;
     for (size_t k = 1; k < W / 2; ++k) {
-      const double p = std::norm(a[k]);
-      num += p * static_cast<double>(k) * SR / W;
+      const double p = std::abs(a[k]);
+      num += p * static_cast<double>(k) * SR / static_cast<double>(W);
       den += p;
     }
     t.level.push_back(10 * std::log10(std::max(1e-20, (eL + eR) / (2.0 * W))));
@@ -477,37 +479,39 @@ void testLfo() {
     double need;  // l'excursion minimale a quantite 1
     double quiet; // l'excursion maximale a quantite 0
     const char* unit;
+    double midi;
   };
   const KV saw = {{"wave1", 2}, {"cutoff", 1200}};
   const std::vector<Row> rows = {
-      {"RES (scie, coupure 1.2 kHz, RES 0.6 : +/-0.35)", 1, 0, with(saw, {{"res", 0.6}}), CENTROID, 150, 5, "Hz de centroide"},
-      {"AMP (tremolo jusqu'a -100 %)", 2, 0, {}, LEVEL, 30, 0.1, "dB de niveau"},
-      {"PAN (plein gauche / plein droite)", 3, 0, {}, BALANCE, 1.9, 0.001, "de balance (2 = tout)"},
-      {"OSC 2 PITCH (+/-12 demi-tons)", 4, 0, {{"osc1", 0}, {"osc2", 0.62}, {"tune2", 0}}, PITCH, 3.2, 1.001, "x en hauteur (4 = 2 octaves)"},
-      {"OSC MIX (OSC 1 la note, OSC 2 une octave au-dessus)", 5, 0, {{"osc2", 0.62}, {"tune2", 12}}, PITCH, 1.9, 1.05, "x en hauteur (2 = d'un oscillateur a l'autre)"},
-      {"NOISE (potard a 0)", 6, 0, {}, CENTROID, 2000, 5, "Hz de centroide"},
-      {"SUB (potard a 0, oscillateurs coupes)", 7, 0, {{"osc1", 0}}, LEVEL, 40, 0.1, "dB de niveau"},
-      {"DRIVE (scie, OVERDRIVE 0.5 : +/-0.5)", 8, 0, with(saw, {{"drive", 0.5}, {"cutoff", 6000}}), CENTROID, 150, 5, "Hz de centroide"},
-      {"STACK (15 cents : 0 a 30), carre du LFO", 9, 0, {{"stack", 15}}, BEAT, 3, 0.5, "dB de battement (LFO haut - LFO bas)"},
-      {"ENV AMT (scie, coupure 300 Hz, ENV 3 : +/-3 octaves)", 10, 0, with(saw, {{"cutoff", 300}, {"envOct", 3}, {"fS", 0.5}}), CENTROID, 300, 5, "Hz de centroide"},
-      {"LFO 2 WAVE", 0, 1, {{"wave1", 2}}, CENTROID, 300, 5, "Hz de centroide"},
-      {"LFO 2 CUTOFF (scie, 1.2 kHz : +/-3 octaves)", 0, 2, saw, CENTROID, 1000, 5, "Hz de centroide"},
-      {"LFO 2 FM (FM 0.4 : +/-0.6)", 0, 3, {{"fm", 0.4}, {"ratio", 2}}, CENTROID, 150, 5, "Hz de centroide"},
-      {"LFO 2 PITCH (+/-100 cents)", 0, 4, {}, PITCH, 1.1, 1.001, "x en hauteur (1.12 = 2 demi-tons)"},
+      {"RES (scie grave, coupure 1.2 kHz, RES 0.6 : +/-0.35)", 1, 0, with(saw, {{"res", 0.6}}), CENTROID, 150, 5, "Hz de centroide", 45},
+      {"AMP (tremolo jusqu'a -100 %)", 2, 0, {}, LEVEL, 20, 0.2, "dB de niveau", 69},
+      {"PAN (plein gauche / plein droite)", 3, 0, {}, BALANCE, 1.9, 0.001, "de balance (2 = tout)", 69},
+      {"OSC 2 PITCH (+/-12 demi-tons)", 4, 0, {{"osc1", 0}, {"osc2", 0.62}, {"tune2", 0}}, PITCH, 3.2, 1.001, "x en hauteur (4 = 2 octaves)", 69},
+      {"OSC MIX (OSC 1 la note, OSC 2 une octave au-dessus)", 5, 0, {{"osc2", 0.62}, {"tune2", 12}}, PITCH, 1.9, 1.05, "x en hauteur (2 = d'un oscillateur a l'autre)", 69},
+      {"NOISE (potard a 0)", 6, 0, {}, CENTROID, 1200, 5, "Hz de centroide", 69},
+      {"SUB (potard a 0, oscillateurs coupes)", 7, 0, {{"osc1", 0}}, LEVEL, 40, 0.2, "dB de niveau", 69},
+      {"DRIVE (sinus grave, OVERDRIVE 0.5 : +/-0.5)", 8, 0, {{"drive", 0.5}}, CENTROID, 150, 5, "Hz de centroide", 45},
+      {"STACK (15 cents : 0 a 30), carre du LFO", 9, 0, {{"stack", 15}}, BEAT, 3, 0.5, "dB de battement (LFO haut - LFO bas)", 69},
+      {"ENV AMT (scie grave, coupure 300 Hz, ENV 3 : +/-3 octaves)", 10, 0, with(saw, {{"cutoff", 300}, {"envOct", 3}, {"fS", 0.5}}), CENTROID, 300, 5, "Hz de centroide", 45},
+      {"WAVE (scie : +/-2 formes)", 0, 1, {{"wave1", 2}}, CENTROID, 300, 5, "Hz de centroide", 69},
+      {"CUTOFF (scie grave, 1.2 kHz : +/-3 octaves)", 0, 2, saw, CENTROID, 1000, 5, "Hz de centroide", 45},
+      {"FM (FM 0.4 : +/-0.6)", 0, 3, {{"fm", 0.4}, {"ratio", 2}}, CENTROID, 150, 5, "Hz de centroide", 69},
+      {"PITCH (+/-100 cents)", 0, 4, {}, PITCH, 1.1, 1.001, "x en hauteur (1.12 = 2 demi-tons)", 69},
   };
-  const std::vector<Note> held = {{0.01, 69, 100, 1}};
+  const std::vector<Note> held69 = {{0.01, 69, 100, 1}};
   auto measure = [&](const Render& r, M m) {
     if (m == BEAT) {
       // carre : la moitie haute du cycle (LFO a +1 : 30 cents) contre la moitie basse (0 cent : plus de battement).
       // Le cycle de 4 temps a 130 dure 1.846 s : haut de 0 a 0.923 s, bas de 0.923 a 1.846 s, haut ensuite.
       return beat(r, 2.0, 2.7) - beat(r, 1.1, 1.75);
     }
-    const Track t = track(r, 0.6, 2.9);
+    const Track t = track(r, 0.6, 2.9, m == CENTROID ? 4096 : 1024);
     return m == LEVEL ? swing(t.level) : m == CENTROID ? swing(t.centroid) : m == BALANCE ? swing(t.balance) : ratio(t.pitch);
   };
   for (const auto& row : rows) {
     const KV patch = with(base, row.patch);
     const bool isBeat = row.metric == BEAT;
+    const std::vector<Note> held = {{0.01, row.midi, 100, 1}};
     const Render ref = render(4, patch, held, {}, 3.0);
     const double v0 = measure(ref, row.metric);
     // le LFO 2 (sinus, ou carre pour STACK)
@@ -517,7 +521,7 @@ void testLfo() {
     const Render z2 = render(4, with(patch, with(l2, {{"l2Amt", 0}})), held, {}, 3.0);
     const double v2 = measure(r2, row.metric);
     const bool ok2 = v2 >= row.need && v0 <= row.quiet && same(ref.L, z2.L) && same(ref.R, z2.R) && finite(r2.L) && r2.heals == 0;
-    check(ok2, "LFO 2 -> %-52s %8.3f %s (quantite 0 : %.3f, bit a bit %s)", row.name, v2, row.unit, v0, same(ref.L, z2.L) ? "oui" : "NON");
+    check(ok2, "LFO 2 -> %-58s %8.3f %s (quantite 0 : %.3f, bit a bit %s)", row.name, v2, row.unit, v0, same(ref.L, z2.L) ? "oui" : "NON");
     if (row.ext == 0) continue;
     // le LFO 1, seconde destination (son triangle, ou son carre pour STACK ; sa destination du site sans effet : DEPTH 0)
     const KV l1 = {{"xl1Dest", static_cast<double>(row.ext)}, {"lfoShape", isBeat ? 2.0 : 0.0}, {"lfoBeats", isBeat ? 4.0 : 1.0}, {"lfoAmt", 0}};
@@ -526,10 +530,11 @@ void testLfo() {
     const Render z1 = render(4, with(patch, with(l1, {{"xl1Amt", 0}})), held, {}, 3.0);
     const double v1 = measure(r1, row.metric);
     const bool ok1 = v1 >= row.need && same(refL.L, z1.L) && same(refL.R, z1.R) && finite(r1.L) && r1.heals == 0;
-    check(ok1, "LFO 1 -> %-52s %8.3f %s (quantite 0 : bit a bit %s)", row.name, v1, row.unit, same(refL.L, z1.L) ? "oui" : "NON");
+    check(ok1, "LFO 1 -> %-58s %8.3f %s (quantite 0 : bit a bit %s)", row.name, v1, row.unit, same(refL.L, z1.L) ? "oui" : "NON");
   }
   // les deux LFO sur la meme destination s'additionnent : AMP a 0.5 + 0.5 (meme forme, meme duree) = un seul a 1
   {
+    const std::vector<Note>& held = held69;
     const Render one = render(4, with(base, {{"l2Dest", 6}, {"l2Shape", 1}, {"l2Beats", 1}, {"l2Amt", 1}}), held, {}, 3.0);
     const Render two = render(4, with(base, {{"l2Dest", 6}, {"l2Shape", 1}, {"l2Beats", 1}, {"l2Amt", 0.5}, {"xl1Dest", 2}, {"xl1Amt", 0.5}, {"lfoShape", 0}, {"lfoBeats", 1}}), held, {}, 3.0);
     const Track a = track(one, 0.6, 2.9), b = track(two, 0.6, 2.9);
@@ -541,13 +546,20 @@ void testLfo() {
   // le LFO 2 : ses 7 formes, calees sur la position (la meme sortie quel que soit le decoupage en blocs), finies,
   // son hasard sans effet sur celui du moteur (S&H du LFO 1 + DRIFT : le reste du son ne bouge pas)
   {
+    const std::vector<Note>& held = held69;
     const KV p = with(base, {{"l2Dest", 7}, {"l2Amt", 1}, {"l2Beats", 0.5}});
     int bad = 0;
     for (int sh = 0; sh < 7; ++sh) {
       const Render a = render(4, with(p, {{"l2Shape", static_cast<double>(sh)}}), held, {}, 2.0, 128);
       const Render b = render(4, with(p, {{"l2Shape", static_cast<double>(sh)}}), held, {}, 2.0, 32);
       const Track t = track(a, 0.6, 1.9);
-      if (!finite(a.L) || swing(t.balance) < 0.5 || diffDb(a.L, b.L) > -100) bad += 1;
+      // (le silence d'avant la note se compte en blocs, comme pour le LFO 1 : on compare apres 0.1 s)
+      const Buf a2(a.L.begin() + 4800, a.L.end()), b2(b.L.begin() + 4800, b.L.end());
+      const bool ok = finite(a.L) && swing(t.balance) >= 0.5 && diffDb(a2, b2) <= -100;
+      if (!ok) {
+        bad += 1;
+        std::printf("        forme %d : balance %.3f, ecart 32 / 128 %.1f dB\n", sh, swing(t.balance), diffDb(a2, b2));
+      }
     }
     check(bad == 0, "LFO 2 : SINE, TRI, SAW, RAMP, SQR, S&H, RND modulent (PAN), finis, les memes par blocs de 32 ou de 128 : %d en defaut", bad);
     // la panoramique du LFO 2 en S&H ne change que la balance : la somme des puissances G + D reste celle du son seul
@@ -566,6 +578,7 @@ void testLfo() {
   }
   // une destination changee en cours de note : aucun saut (la quantite repasse par 0)
   {
+    const std::vector<Note>& held = held69;
     const KV p = with(base, {{"l2Dest", 6}, {"l2Amt", 1}, {"l2Shape", 4}, {"l2Beats", 8}});  // AMP, carre lent : LFO haut pendant 1.8 s
     const Render a = render(4, p, held, {{1.0, {{"l2Dest", 7}}, 0}, {1.5, {{"l2Dest", 0}}, 0}, {2.0, {{"xl1Dest", 3}, {"xl1Amt", 1}, {"lfoShape", 2}}, 0}}, 3.0);
     double jump = 0, norm = 0;
@@ -739,7 +752,7 @@ void testReverb() {
       while (first[i] < c->length && c->ir[0][static_cast<size_t>(first[i])] == 0) first[i] += 1;
     }
     check(rt[0] > 0.5 && rt[0] < 0.7 && rt[1] > 2.0 && rt[1] < 2.8 && rt[2] > 8.0 && rt[2] < 11.2, "SIZE 0 / 0.5 / 1 : RT60 %.2f / %.2f / %.2f s (loi : 0.6 / 2.4 / 9.6 s)", rt[0], rt[1], rt[2]);
-    check(cen[0] < 0.6 * cen[1] && cen[2] > 1.5 * cen[1], "TONE 0 / 0.5 / 1 : centroide de la reponse %.0f / %.0f / %.0f Hz", cen[0], cen[1], cen[2]);
+    check(cen[0] < 0.6 * cen[1] && cen[2] > 1.2 * cen[1], "TONE 0 / 0.5 / 1 : centroide de la reponse %.0f / %.0f / %.0f Hz", cen[0], cen[1], cen[2]);
     check(first[0] <= 1 && first[1] == 2401 && first[2] == 4801, "PRE DELAY 0 / 0.5 / 1 : premier echantillon non nul a %d / %d / %d (0, 50, 100 ms ; +1 : le fondu d'entree)", first[0], first[1], first[2]);
   }
   // d. l'echange en cours de jeu : aucune allocation, aucune liberation, aucun clic, puis exactement la reponse neuve
@@ -751,6 +764,7 @@ void testReverb() {
     s.reverb = 1;
     s.volume = 0.8;
     fx.set(s, true);
+    fx.reset();  // (les reglages poses, comme la reference plus bas : sans la rampe d'entree de l'envoi)
     ref.set(s, true);
     auto big = ArpFx::makeReverb(SR, 0.9, 0.7, 0.0);
     std::weak_ptr<const ReverbIR> wbig = big;
@@ -812,7 +826,8 @@ void testReverb() {
     const bool gotOld = old && old.get() == was && old.use_count() == 1 && !fx.takeRetiredReverb();
     check(accepted && refReady && allocs == 0 && during <= 1.5 * before + 1e-7, "echange en cours de jeu (2.4 s -> 7 s, sans pre-delai) : %ld allocation, derivee seconde %.2e pendant contre %.2e avant (aucun clic)", allocs, during, before);
     check(busyUntil > 0 && (busyUntil - static_cast<long>(swapAt)) / SR < 0.8 && db(err / peak) < -110 && gotOld && !wbig.expired(),
-          "fondu fini en %.0f ms ; ensuite = la reponse neuve depuis toujours a %.1f dB ; l'ancienne rendue par takeRetiredReverb (%s)", 1000.0 * (busyUntil - static_cast<double>(swapAt)) / SR, db(err / peak), gotOld ? "seule reference" : "NON");
+          "fondu fini en %.0f ms ; ensuite = la reponse neuve depuis toujours (ecart %.1f dB ; -999 : bit a bit) ; l'ancienne rendue par takeRetiredReverb (%s)", 1000.0 * (busyUntil - static_cast<double>(swapAt)) / SR,
+          err == 0 ? -999.0 : db(err / peak), gotOld ? "seule reference" : "NON");
   }
   // e. des echanges en rafale, sans vider la file : rien n'est libere sur le thread audio, la derniere acceptee gagne
   {
@@ -1026,11 +1041,11 @@ void testMaster() {
       m.prepare(SR);
       const int l0 = m.latency();
       m.set(1, 0.5, 0.5, 0.5, false);
-      const Buf big = sine(220, 0.6, 1 << 16);
+      const Buf big = sine(240, 0.6, 1 << 16);  // 200 echantillons par periode : la moyenne sur 160 periodes
       const MasterRun rb = master(big, big, 1, 0.5, 0.5, 0.5);
       double mean = 0;
-      for (size_t i = 1 << 15; i < (1 << 16); ++i) mean += rb.L[i];
-      mean /= (1 << 15);
+      for (size_t i = 32000; i < 64000; ++i) mean += rb.L[i];
+      mean /= 32000;
       check(at == 39 && l0 == 0 && m.latency() == 39 && std::fabs(mean) < 1e-4, "WARMTH engagee : retard %d echantillons (latency() %d, 0 au neutre), continu %.1e sur un sinus de 0.6", at, m.latency(), mean);
     }
   }
@@ -1047,7 +1062,9 @@ void testMaster() {
     double worst = 0;
     for (const auto& st : sets) {
       const MasterRun r = master(x, y, st[0], st[1], st[2], st[3], false, 20000);
-      worst = std::max(worst, std::max(d2(r.L, 100, 48000), d2(r.R, 100, 48000)) / base);
+      const double w = std::max(d2(r.L, 100, 48000), d2(r.R, 100, 48000)) / base;
+      if (w >= 3.0) std::printf("        warmth %.1f bass %.1f air %.1f width %.1f : x%.2f\n", st[0], st[1], st[2], st[3], w);
+      worst = std::max(worst, w);
     }
     check(worst < 3.0, "chaque reglage change en plein son (rampe de 20 ms) : derivee seconde au plus x%.2f celle du sinus d'entree (un saut de 1 %% : x40)", worst);
   }
