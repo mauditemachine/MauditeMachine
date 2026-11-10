@@ -673,6 +673,9 @@ const SRC_STRT = tk('STRT', 'sstart', 'start', 'sstart');
 const SRC_LEN = tk('LEN', 'slen', 'decay', 'slen');
 const SRC_SLEV = tk('LEV', 'slev', 'level', 'slev');
 const SRC_SMP = tk('SMP', 'slev', 'level', 'slev');
+// Le plugin (2026-11-10) : H LEV regle le niveau de la piste (t:vol, son VOL : les scenes A et B le gardent, le crossfader le
+// mene ; son verrou : celui de VOL) ; le niveau du sample d'avant y est passe (audio/tracks.ts typedKit)
+const SRC_VOL = tk('LEV', 'vol', 'level', 'level');
 const SRC_SYN = tk('LEV', 'syn', 'level', 'syn');
 const SRC_FINE = tk('FINE', 'fine', 'barc', 'fine');
 const SRC_MODL = tk('MODL', 'model', 'notch', 'mach');
@@ -700,7 +703,7 @@ export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
   let out: readonly PageSlot[];
   // Le plugin : la machine ne se change pas (une piste a son type, des samples seulement : audio/tracks.ts TYPED_TRACKS) ;
   // LOOP (pas encore joue) n'y est pas
-  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, TYPED_TRACKS ? NONE : SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, TYPED_TRACKS ? NONE : SRC_LOOP, SRC_SLEV] : [SRC_FINE];
+  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, TYPED_TRACKS ? NONE : SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, TYPED_TRACKS ? NONE : SRC_LOOP, TYPED_TRACKS ? SRC_VOL : SRC_SLEV] : [SRC_FINE];
   else {
     const kn = MACHINE_KNOBS[mach] ?? [];
     // E F G : ses potards ; une machine qui en a moins y met la couche sample (STRT, LEN, SMP)

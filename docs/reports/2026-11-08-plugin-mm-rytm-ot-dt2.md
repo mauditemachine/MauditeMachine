@@ -240,6 +240,17 @@ Mika, sur le lot 11 installe : « ca devrait etre plat et j'aimais bien les coul
 - Verifie dans Chromium : la face (les couleurs et le logo d'avant, les touches plus basses), OPEN (les niveaux animes, le glisser, SAVE, NEW confirme), aucune erreur ; au repos 0 dessin. Le site : les seules differences avec le lot 10 sont dans le plugin (RELIEF du plugin, OPEN, le pont, deux modules du plugin). tsc a 105.
 
 - **Build vert du lot 12** (run 42875630076), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit a404a62, branche claude/intelligent-ride-56tyeo, 2026-11-10 18:37 UTC.
+### Lot 13, la vue de dessus, LEV au crossfader (2026-11-10)
+
+Mika, sur le lot 12 (capture : scene B armee, page SRC, le bloc LEV dit NO SCENE) : « Je voudrais que ce soit vu du dessus, la machine parait un peu inclinee ; je voudrais pouvoir changer le level de la piste avec le crossfader, la ce n'est pas assignable ».
+
+- **La vue de dessus** : `theme.ts` PLUGIN_VIEW { leanDeg 0, fovDeg 10, fit 1, dz 0 } : la camera perpendiculaire au panneau, de loin (le cadrage du lot 6), bord a bord ; plus de vue penchee (lot 7).
+- **LEV de la page SRC = le niveau de la piste** (plugin seulement) : ce bloc reglait le niveau du sample (slev), un reglage « lourd » que les scenes ne gardent pas (NO SCENE). Il regle maintenant le VOL de la piste active (`t:vol`), le meme niveau que LEVEL/DATA et le MIXER (lot 5), deja une cible de scene que le moteur mene en temps reel :
+  - `rytm/pages.ts` SRC_VOL a la place de SRC_SLEV quand les pistes sont typees ; `actions/internal/kit.ts` : le reglage de piste `vol` (lit et ecrit `level`, les textes de VOL) ; `actions/scenes.ts` trackSceneId : `rytm:voice:<piste>:level` sur les 16 pistes ; `actions/ctlall.ts` (CONTROL ALL comme avant) ; `rytm/infoIds.ts` (la carte de VOL) ;
+  - `audio/tracks.ts` typedKit : le niveau du sample d'avant passe dans le VOL au meme gain (slev^2 x (VOL / 0.8)^2 : VOL x slev), slev revient a 0 dB ; ce qui s'entend ne change pas ;
+  - OPEN (SAMPLE, LEV) suit : c'est le meme bloc.
+- Verifie dans Chromium : un projet d'avant (BD sample a 86, SD VOL 0.6 et sample a 0.5) : les memes gains (tranche du BD 0.459, du SD 0.141, comme attendu), le sample a 0 dB ; scene B armee + LEV vers le bas : la scene garde `rytm:voice:BD:level`, le programme a ses 9 positions (tranche du BD de 0.459 a 0.032), le SD ne bouge pas, le bloc LEV se montre en negatif avec son B ; le crossfader envoie sa position ; clic droit sur le pas 3 + LEV : le verrou `level` du pas (gain du coup 0.149, les autres a 1) ; piste 9 (BD2) + scene A : ses 9 positions (0.25 a 1) ; OPEN montre LEV 102, 0.0 dB ; la vue de dessus (capture), toutes les zones de souris repondent. Ancien projet + transport : aucune erreur ; NEW, CLEAR, Cmd+Z. Le site : identique au pixel (V.3.0, ?face=dt2 noire et claire). tsc a 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -286,6 +297,8 @@ Mika, sur le lot 11 installe : « ca devrait etre plat et j'aimais bien les coul
 
 - **Lot 12 : les VU dans OPEN plutot que supprimes** : Mika ne veut plus du mini ecran sur la face, mais il a choisi les VU-metres et veut ce genre d'information dans OPEN ; le moteur les envoie deja.
 
+- **LEV = le VOL de la piste plutot que le niveau du sample rendu « assignable »** : sur une piste de samples seuls, les deux font le meme gain ; le VOL est deja mene en temps reel par le crossfader (la tranche, lot 1) et verrouillable par pas, alors que le niveau du sample demande de recalculer le son. Un seul niveau par piste, partout (la decision du lot 5). Limites : un P-LOCK d'avant sur le niveau du sample (slev) reste dans le pattern et s'entend encore, sans bloc pour le montrer (CLEAR en P-LOCK l'enleve) ; une scene d'avant qui tenait deja le VOL d'une piste dont le sample etait baisse ne compte plus cette baisse a sa position.
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -295,6 +308,7 @@ Mika, sur le lot 11 installe : « ca devrait etre plat et j'aimais bien les coul
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 13) : la commande mm-rytm ; la vue de dessus ; page SRC, Scene B, tourner LEV, relacher Scene B, bouger le crossfader (le niveau de la piste suit, a l'oreille et dans OPEN LEVELS).
 - Cote Mika (lot 12) : la commande mm-rytm ; dire si les touches a 0.8 sont assez plates (0.6 plus plat, 1 comme le site) ; les niveaux dans OPEN pendant la lecture ; DRAG MIDI depuis OPEN.
 - Cote Mika (lot 11) : la commande mm-rytm, rouvrir Ableton ; dire si le gris blanc, le rouge et le jaune orange lui vont ; le mini ecran pendant la lecture (les VU bougent avec le son) ; tirer le coin de la fenetre ; OPEN en blanc ; **DRAG MIDI depuis OPEN** : glisser la poignee jaune sur une piste MIDI (si le glisser ne part pas, le message le dit et SAVE .MID garde le fichier).
 - Cote Mika (lot 10) : la commande mm-rytm, quitter Ableton, le rouvrir, recharger le projet qui partait dans tous les sens ; si une erreur reste, une capture de l'ecran (le message rouge MM-RYTM ou la fenetre d'Ableton).

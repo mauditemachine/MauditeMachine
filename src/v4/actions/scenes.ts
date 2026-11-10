@@ -90,6 +90,11 @@ export function sceneIdOfDial(dial: DialId): string | null {
  * autres (les potards de la machine et les couches, lourds : NO SCENE comme avant ; T9 a T16 ; TRK LEV ; les menus) : null.
  */
 function trackSceneId(t: string): string | null {
+  // Le plugin (2026-11-10) : LEV de SRC (t:vol) est le VOL de la piste, la cible de scene du MIXER, sur les 16 pistes
+  if (t === 't:vol') {
+    const tv = activeTrack.get();
+    return tv ? `rytm:voice:${tv}:level` : null;
+  }
   if (t !== 't:tune' && t !== 't:fine') return null;
   const k = activeTrack.get();
   return k && isLegacyTrack(k) ? `rytm:voice:${k}:${t.slice(2)}` : null;

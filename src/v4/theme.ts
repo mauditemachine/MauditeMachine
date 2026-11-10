@@ -1566,7 +1566,9 @@ export const FIT_H = 0.86;
 /** La vue du plugin (2026-11-09) : penchee de leanDeg vers soi, un champ de fovDeg (un peu de perspective, pas de deformation). */
 // fit : la demi-largeur cadree en fois celle de la face (un rien d'air) ; dz : le pivot avance vers le bord avant, le long du
 // panneau (la perspective grandit l'avant : sans lui, le bas de la face sortait de la fenetre)
-export const PLUGIN_VIEW = { leanDeg: 16, fovDeg: 20, fit: 1.04, dz: 0.3 } as const;
+// 2026-11-10 (Mika : "je voudrais que ce soit vu du dessus, la machine parait un peu inclinee") : droit au-dessus du
+// panneau, de loin (le champ etroit d'avant : la face reste plate), cadree bord a bord
+export const PLUGIN_VIEW = { leanDeg: 0, fovDeg: 10, fit: 1, dz: 0 } as const;
 
 export const ORBIT = {
   /**

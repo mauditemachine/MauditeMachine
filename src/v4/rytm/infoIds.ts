@@ -315,6 +315,7 @@ export function voiceGroup(v: Inst): RytmVoiceGroup {
 
 /** Les cibles de actions.ts (pageTarget) qui ont une carte d'un autre nom : les couches de R3. */
 const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
+  't:vol': 'vol',
   'l:mach': 'r3:machine',
   'l:syn': 'r3:synlevel',
   'r:sweep': 'r3:sweep',

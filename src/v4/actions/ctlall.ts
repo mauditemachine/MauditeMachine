@@ -42,7 +42,8 @@ function ctlTracks(active: TrackKey): readonly TrackKey[] {
 export function ctlAllKeyOf(t: SlotTarget): CtlAllKey | null {
   // Un reglage de piste (t:) : les crans de son, de sample et de machine restent a la piste choisie (ils different d'un son a l'autre)
   if (t.startsWith('t:')) {
-    const d = t.slice(2);
+    // t:vol (le plugin, LEV de SRC) : le VOL de la piste
+    const d = t === 't:vol' ? 'level' : t.slice(2);
     return isTrackParam(d) && d !== 'tlev' ? { kind: 'trk', p: d } : null;
   }
   const sd = seqDialOf(t);

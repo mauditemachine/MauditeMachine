@@ -684,6 +684,12 @@ function typedKit(k: Kit16): Kit16 {
       n = { ...n, p: { ...n.p, level: lv } };
       (tlev ??= [...k.mix.tlev])[i] = TLEV_UNITY;
     }
+    // LEV de SRC est le niveau de la piste (2026-11-10) : le niveau du sample d'avant (slev, gain v^2) passe dans le VOL
+    // (gain (v / 0.8)^2 : VOL x slev), et revient a 0 dB ; ce qui s'entend ne change pas
+    if (n.p.slev !== 1) {
+      const lv = Math.max(0, Math.min(1, Math.round(n.p.level * Math.max(0, n.p.slev) * 1000) / 1000));
+      n = { ...n, p: { ...n.p, level: lv, slev: 1 } };
+    }
     if (n !== tr) changed = true;
     return n;
   });

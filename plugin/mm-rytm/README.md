@@ -46,6 +46,8 @@ La boite a rythmes du site (`src/v4`, le MM-RYTM) en VST3 pour macOS, avec la vr
 | VU-metres (2026-11-10) | les cretes du moteur par piste (`dsp/Fx.cpp` takePeak, `Engine::fbPeak`) et de la sortie (`PluginProcessor::takeMeters`, apres MAIN VOLUME), `mm_meter` a 30 Hz tant que ca sonne ; la balistique dans `src/v4/plugin/meters.ts` ; montres dans OPEN (PATTERN · MIDI, LEVELS) |
 | Fenetre agrandissable (2026-11-10) | `setResizable` + proportions fixes (840 a 2400 px de large), la largeur gardee dans l'etat (`uiW`) |
 | Touches plus plates (2026-11-10) | `rytm/faceplate.ts` RELIEF.key 0.8 dans le plugin (1.55 avant) ; les couleurs de la face DT2 et le logo M au-dessus du crossfader restent ; OPEN en blanc |
+| LEV de SRC = le niveau de la piste (2026-11-10) | `rytm/pages.ts` SRC_VOL (`t:vol`), `actions/internal/kit.ts` (le VOL de la piste active), `actions/scenes.ts` trackSceneId (`rytm:voice:<piste>:level`, les 16) : une scene armee l'enregistre, le crossfader le mene (la tranche des 9 positions), son P-LOCK est celui de VOL ; `audio/tracks.ts` typedKit : le niveau du sample d'avant (slev) passe dans le VOL au meme gain |
+| Vue de dessus (2026-11-10) | `theme.ts` PLUGIN_VIEW : la camera perpendiculaire au panneau, champ de 10 deg, cadree bord a bord (plus de vue penchee) |
 | Un stockage par instance (2026-11-10) | `src/v4/plugin/restore.ts` : `window.localStorage` en memoire par instance, rempli par l'etat du projet ; la bibliotheque (presets, PERSONALIZE) reste commune |
 | SONG (hors des clips d'Ableton), multi-out | a venir |
 

@@ -294,10 +294,13 @@ export function tapVelDial(v: number): void {
  */
 
 /** Les reglages de piste que montrent les pages SRC de la face DT2 (et TRK LEV). */
-export const TRACK_DIALS = ['tune', 'fine', 'srev', 'sstart', 'slen', 'slev', 'stune', 'sfine', 'syn', 'snd', 'mach', 'model', 'tlev', 'ktune', 'kattack', 'ksweep', 'kdecay', 'kdrive', 'snappy', 'sdtune', 'sddecay', 'sdtone', 'gate'] as const;
+export const TRACK_DIALS = ['vol', 'tune', 'fine', 'srev', 'sstart', 'slen', 'slev', 'stune', 'sfine', 'syn', 'snd', 'mach', 'model', 'tlev', 'ktune', 'kattack', 'ksweep', 'kdecay', 'kdrive', 'snappy', 'sdtune', 'sddecay', 'sdtone', 'gate'] as const;
 export type TrackDial = (typeof TRACK_DIALS)[number];
 /** Le nom court d'un reglage de piste (4 lettres au plus, comme la DT2 ; le message le dit en entier). */
 export const TRACK_DIAL_LABEL: Readonly<Record<TrackDial, string>> = {
+  // Le plugin (2026-11-10, Mika : "je voudrais pouvoir changer le level de la piste avec le crossfader") : LEV de SRC est le
+  // niveau de la piste (son VOL : le meme que LEVEL/DATA et le MIXER, une cible de scene), plus celui du sample
+  vol: 'LEV',
   tune: 'TUNE',
   fine: 'FINE',
   srev: 'PLAY',
@@ -327,7 +330,7 @@ const LAYER_OF: Readonly<Partial<Record<TrackDial, LayerDial>>> = { srev: 'rev',
 const KNOB_OF: Readonly<Partial<Record<TrackDial, KitKnob>>> = { ktune: 'tune', kattack: 'attack', ksweep: 'sweep', kdecay: 'decay', kdrive: 'drive', snappy: 'snappy', sdtune: 'sdtune', sddecay: 'sddecay', sdtone: 'sdtone', gate: 'gate' };
 /** Le potard d'avant qui regle le meme reglage de voix (ses textes et ses crans : PITCH au demi-ton, FINE au cent). */
 type ContEncV60 = 'vtune' | 'vfine' | 'vol';
-const ENC_OF: Readonly<Partial<Record<TrackDial, ContEncV60>>> = { tune: 'vtune', fine: 'vfine', tlev: 'vol' };
+const ENC_OF: Readonly<Partial<Record<TrackDial, ContEncV60>>> = { tune: 'vtune', fine: 'vfine', tlev: 'vol', vol: 'vol' };
 
 /** La categorie d'une piste (bd pour la voix 1 BD, sd pour la voix 2 SD, etc.). */
 export function trackFamilyOf(t: TrackKey | null): KitFamily | null {
@@ -379,7 +382,7 @@ function trackSpec(d: TrackDial, pick: () => TrackKey | null): DialSpec {
   const lp = LAYER_OF[d];
   const kn = KNOB_OF[d];
   const enc = ENC_OF[d];
-  const pid = d === 'snd' || d === 'mach' || d === 'model' ? null : (d as TrackParamId);
+  const pid = d === 'snd' || d === 'mach' || d === 'model' ? null : d === 'vol' ? ('level' as TrackParamId) : (d as TrackParamId);
   const range = (): readonly [number, number] => {
     if (d === 'snd') return [0, Math.max(1, trackSampleList(pick()).length - 1)];
     if (d === 'mach') return [0, SRC_MACHINES.length - 1];
