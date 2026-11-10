@@ -239,6 +239,7 @@ Mika, sur le lot 11 installe : « ca devrait etre plat et j'aimais bien les coul
 - Restent du lot 11 : la fenetre agrandissable, OPEN en blanc, DRAG MIDI, SAVE .MID, NEW et CLEAR dans OPEN, la barre du bas retiree.
 - Verifie dans Chromium : la face (les couleurs et le logo d'avant, les touches plus basses), OPEN (les niveaux animes, le glisser, SAVE, NEW confirme), aucune erreur ; au repos 0 dessin. Le site : les seules differences avec le lot 10 sont dans le plugin (RELIEF du plugin, OPEN, le pont, deux modules du plugin). tsc a 105.
 
+- **Build vert du lot 12** (run 42875630076), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit a404a62, branche claude/intelligent-ride-56tyeo, 2026-11-10 18:37 UTC.
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
