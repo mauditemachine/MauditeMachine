@@ -62,8 +62,8 @@ export const PLUGIN: boolean = (() => {
  * navigateur (les tests de node). Lu au chargement, jamais retenu (un rechargement sans ?face=v5 rend la DT2). Tout ce qui
  * en depend se decide a l'evaluation des modules, comme PORTRAIT.
  */
-export type RytmFaceVer = '1.0' | '2.0' | '3.0' | '4.0' | '5.0' | '6.0';
-export const RYTM_VERSIONS: readonly RytmFaceVer[] = ['1.0', '2.0', '3.0', '4.0', '5.0', '6.0'];
+export type RytmFaceVer = '1.0' | '2.0' | '3.0' | '4.0' | '5.0' | '6.0' | '7.0';
+export const RYTM_VERSIONS: readonly RytmFaceVer[] = ['1.0', '2.0', '3.0', '4.0', '5.0', '6.0', '7.0'];
 
 /**
  * Le selecteur de version du MM-RYTM (2026-11-02, Mika : "un selecteur de machine parmis les dernieres versions quand on
@@ -79,22 +79,34 @@ export const RYTM_FACE_VER: RytmFaceVer = (() => {
     // 2026-11-08 (Mika : "sur internet met la version avant le crossfad qui etait trop complexe") : sur le site, la V.3.0 par
     // defaut (8 pads de voix, EDIT et OPEN, GLOBAL FX, 16 pas : d'avant les scenes et le crossfader de la V.4.1 et la face
     // facon Digitakt) ; les autres restent au selecteur de versions (?face=v4, v5, v6 ou dt2)
-    if (f === null || f === '') return '3.0';
+    // 2026-11-10 (Mika : "les knobs a droite et les voices en bas avec la gestion des knobs directement a droite, un petit peu
+    // comme avant", "changer les FX directement dans l'ecran") : la V.7.0 par defaut (SIDE_FACE), la V.3.0 au selecteur
+    if (f === null || f === '') return '7.0';
+    if (f === 'v7' || f === '7' || f === '7.0') return '7.0';
     if (f === 'v6' || f === '6' || f === '6.0' || f === 'dt2') return '6.0';
     if (f === 'v1' || f === '1' || f === '1.0') return '1.0';
     if (f === 'v2' || f === '2' || f === '2.0') return '2.0';
     if (f === 'v3' || f === '3' || f === '3.0') return '3.0';
     if (f === 'v4' || f === '4' || f === '4.0') return '4.0';
     if (f === 'v5' || f === '5' || f === '5.0') return '5.0';
-    return '3.0';
+    return '7.0';
   } catch {
-    return '3.0';
+    return '7.0';
   }
 })();
 
 export const DT2_FACE: boolean = !PORTRAIT && typeof window !== 'undefined' && RYTM_FACE_VER === '6.0';
-/** Les versions a 10 pads du desktop (V.1.0, V.2.0, V.3.0) : ecran a gauche, pads a droite, 16 pas en une rangee. */
-export const PAD_FACE: boolean = !PORTRAIT && typeof window !== 'undefined' && (RYTM_FACE_VER === '1.0' || RYTM_FACE_VER === '2.0' || RYTM_FACE_VER === '3.0');
+/** Les versions a 10 pads du desktop (V.1.0, V.2.0, V.3.0, V.7.0) : ecran a gauche, les pads, 16 pas en une rangee. */
+export const PAD_FACE: boolean = !PORTRAIT && typeof window !== 'undefined' && (RYTM_FACE_VER === '1.0' || RYTM_FACE_VER === '2.0' || RYTM_FACE_VER === '3.0' || RYTM_FACE_VER === '7.0');
+/**
+ * La face V.7.0 du site (2026-11-10, Mika : "les knobs a droite et les voices en bas avec la gestion des knobs directement
+ * a droite, un petit peu comme avant", puis son choix "voix et pas separes") : une face a pads (PAD_FACE, ses quatre pages
+ * VOICE FLTR ENV FX, son transport), l'ecran a gauche (il se touche a la souris, theme.ts SCREEN_TOUCH), les huit potards
+ * A a H de la V.4 a sa droite en deux rangees de quatre (ils suivent la page, theme.ts FACE_FOLLOWS_PAGE), dessous une
+ * rangee de touches (les pages sous l'ecran, le transport sous les potards), puis les huit voix, EDIT et OPEN en une
+ * rangee, et les 16 pas en une rangee. Le telephone garde sa face.
+ */
+export const SIDE_FACE: boolean = PAD_FACE && RYTM_FACE_VER === '7.0';
 
 /** Les potards A a H de la face lue (la V.5.3 ou la DT2 : la meme forme, rytm/faceplate.ts knobs). */
 export const FP_KNOBS = DT2_FACE ? DT2_FACEPLATE.knobs : RYTM_FACEPLATE.knobs;
@@ -163,7 +175,7 @@ export const SILK = {
  * 1600 x 960 (scene/screen.ts) ; tex reste l'espace de reference, deux px par unite (640 x 384).
  */
 /** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 158 partout depuis le 2026-10-18 (120 au desktop avant) ; 192 au desktop depuis le 2026-10-27 (5:3). */
-export const OLED_UH = PORTRAIT || RYTM_FACE_VER === '2.0' || RYTM_FACE_VER === '3.0' ? 158 : RYTM_FACE_VER === '1.0' ? 120 : 192;
+export const OLED_UH = PORTRAIT || RYTM_FACE_VER === '2.0' || RYTM_FACE_VER === '3.0' || RYTM_FACE_VER === '7.0' ? 158 : RYTM_FACE_VER === '1.0' ? 120 : 192;
 // La face DT2 (V.6.0, ?face=dt2) : le meme ecran, deplace (x 34 a 140) ; le dessin ne change pas (5:3)
 const FP_SCREEN = DT2_FACE ? DT2_FACEPLATE.screen : RYTM_FACEPLATE.screen;
 export const OLED = PORTRAIT
@@ -223,15 +235,16 @@ export const PAD = {
   domeSegments: 6,
   /** hauteur du plan du dome, un soupcon au-dessus du dessus plat (pas de z-fight) */
   domeY: 0.222,
-  x0: PORTRAIT ? -2.8 : 0.37,
+  // V.7.0 (SIDE_FACE) : les huit voix en une rangee sur la largeur de la face, depuis le bord gauche du verre
+  x0: PORTRAIT ? -2.8 : SIDE_FACE ? -5.36 : 0.37,
   // Huit voix (2026-10-05) : quatre colonnes et EDIT/OPEN sur la largeur des six d'avant, des pads un peu plus grands
-  pitch: PORTRAIT ? 1.4 : 1.25,
+  pitch: PORTRAIT ? 1.4 : SIDE_FACE ? 1.15 : 1.25,
   // Portrait : plus bas le 2026-10-08 (l'ecran plus grand, les potards et les touches de page au-dessus),
   // encore un peu (revue de R1 : les noms des touches de page touchaient les pads, 39 px entre leurs centres) ;
   // desktop : 0.25 plus bas le 2026-10-09 (Mika : "Master et Tempo des knobs differents au dessus des voices"),
   // la bande sous l'en-tete leur revient (dans l'ecran depuis le 2026-10-19, les pads restent) ;
   // portrait : 1.02 plus bas le 2026-10-19, les deux rangees d'encodeurs GLOBAL FX au-dessus (FACE_KNOBS)
-  rowZ: PORTRAIT ? [1.22, 2.48] : [-1.8, -0.5],
+  rowZ: PORTRAIT ? [1.22, 2.48] : SIDE_FACE ? [1.28, 1.28] : [-1.8, -0.5],
   /** serigraphie sous chaque pad (portrait : un rien plus pres, la rangee du bas garde son jour sur le transport) */
   labelDz: PORTRAIT ? 0.6 : 0.64,
   press: 0.06,
@@ -277,8 +290,16 @@ export type PadSpec = VoicePad | PagePad | OpenPad | EditPad;
 /** Les colonnes des voix (2026-10-05 : quatre, huit voix) ; EDIT et OPEN dans la suivante. */
 export const VOICE_COLS = 4;
 
-/** Un pad de la grille : colonne 0 a 4 (4 : EDIT et OPEN), rangee 0 ou 1. */
-const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * col, z: PAD.rowZ[row] });
+/** V.7.0 (SIDE_FACE) : EDIT et OPEN au bout de la rangee des voix, OPEN cale sur le bord droit de la face, un jour avant EDIT. */
+export const SIDE_PADS = { openX: 5.36, editX: 4.21, ruleX: 3.45 } as const;
+/**
+ * Un pad de la grille : colonne 0 a 4 (4 : EDIT et OPEN), rangee 0 ou 1. V.7.0 (SIDE_FACE) : une seule rangee, la rangee
+ * du bas a la suite de celle du haut (BD SD CH OH CP TOM HT CY), puis EDIT et OPEN.
+ */
+const padAt = (col: number, row: 0 | 1): { x: number; z: number } =>
+  SIDE_FACE
+    ? { x: col >= VOICE_COLS ? (row === 0 ? SIDE_PADS.editX : SIDE_PADS.openX) : PAD.x0 + PAD.pitch * (col + VOICE_COLS * row), z: PAD.rowZ[0] }
+    : { x: PAD.x0 + PAD.pitch * col, z: PAD.rowZ[row] };
 
 /**
  * Les 11 pads (2026-10-03) : dix voix sur deux rangees, BD SD TOM CH OH en
@@ -403,7 +424,10 @@ export const GLOBAL_FX_RULE = PORTRAIT
  * au pas PAGE_KNOBS.pitch (2026-10-18). Telephone (2026-10-19) : la colonne
  * k % 4, sous la touche de page du meme rang (pageKeyX).
  */
+/** V.7.0 (SIDE_FACE) : les huit potards a droite de l'ecran, deux rangees de quatre sur la hauteur du verre. */
+export const SIDE_KNOBS_AT = { x0: 0.69, pitch: 1.45, rowZ: [-2.21, -0.77] } as const;
 export const pageKnobX = (k: number): number => {
+  if (SIDE_FACE) return SIDE_KNOBS_AT.x0 + SIDE_KNOBS_AT.pitch * (k % 4);
   if (PAD_FACE && RYTM_FACE_VER === '1.0') {
     const x0 = OLED.x - OLED.w / 2 + 0.575;
     const x1 = OLED.x + OLED.w / 2 - 0.575;
@@ -417,7 +441,7 @@ export const pageKnobX = (k: number): number => {
   return x0 + ((x1 - x0) * (k % 4)) / 3;
 };
 /** La rangee de l'encodeur k : k / 4 (au desktop aussi depuis la face V.4.0, 2026-10-27 ; une seule en V.2.0 et V.3.0). */
-export const pageKnobRow = (k: number): number => (PAD_FACE && RYTM_FACE_VER !== '1.0' ? 0 : k >> 2);
+export const pageKnobRow = (k: number): number => (PAD_FACE && RYTM_FACE_VER !== '1.0' && !SIDE_FACE ? 0 : k >> 2);
 /** Leurs noms sur la face et a l'ecran. */
 export const GLOBAL_ENC_LABELS: readonly string[] = ['DIST', 'CHORUS', 'DELAY', 'REVERB', 'STRETCH', 'SWING', 'BIT', 'COMP'];
 

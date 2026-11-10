@@ -162,7 +162,8 @@ import { dtFace } from '../state/dtFace';
 import { sceneCtl } from '../state/sceneCtl';
 import { muteLeds, soloLeds, trkLeds, type TrkLed } from '../rytm/stepLeds';
 import { FX_DETAILS, FX_VOICE_DETAILS, HOME_MENU, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
-import { PAD_FACE } from '../theme/base';
+import { PAD_FACE, SIDE_FACE } from '../theme/base';
+import { IOS_BAR_LIFT, IOS_FLOATING_BAR } from '../state/iosBar';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -793,7 +794,8 @@ export class Stage {
     // Le transport au telephone seulement depuis V.5.0 (2026-10-29 : au desktop, PLAY et STOP sont dans la rangee de faceKeys)
     this.seq = new Sequencer3D({ mobile, atlas: this.keyAtlas, transport: PORTRAIT || PAD_FACE });
     // L'anneau de valeur de chaque potard (2026-10-27, la face V.4.0 du desktop)
-    this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT && !PAD_FACE });
+    // V.7.0 (SIDE_FACE) : les potards de la V.4 a droite de l'ecran, avec leur anneau de valeur
+    this.encoders = new Encoders({ mobile, castShadow: !mobile, rings: !PORTRAIT && (!PAD_FACE || SIDE_FACE) });
     // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09 ; au telephone
     // seulement depuis V.5.0 (2026-10-29 : au desktop, TRIG SRC FLTR AMP FX MOD sont dans la rangee de faceKeys)
     this.pageKeys = PORTRAIT || PAD_FACE ? new RytmPageKeys({ mobile, atlas: this.keyAtlas }) : null;
@@ -1707,8 +1709,10 @@ export class Stage {
       insetPx += this.insets[id].cur * w;
       headPx += this.insets[id].top * w;
     }
-    const inset = Math.min(this.height * 0.7, insetPx);
-    const head = Math.min(this.height * 0.2, headPx);
+    // Safari 26 sur iPhone (2026-11-10, state/iosBar.ts) : au repos, la machine tient entre le selecteur et la languette du Dock
+    const rest = this.layoutMobile && IOS_FLOATING_BAR;
+    const inset = Math.min(this.height * 0.7, Math.max(insetPx, rest ? IOS_BAR_LIFT.bottom : 0));
+    const head = Math.min(this.height * 0.2, Math.max(headPx, rest ? IOS_BAR_LIFT.top : 0));
     const free = Math.max(1, this.height - inset - head);
     const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free));
     const e = this.explodeFrame();

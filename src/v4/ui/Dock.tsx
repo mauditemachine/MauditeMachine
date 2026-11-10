@@ -276,6 +276,9 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         onClick={() => setShown((o) => !o)}
       >
         <Icon name={shown ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'} />
+        {/* 2026-11-10 (Mika : "quelque chose d'ergonomique et de facile a utiliser en mobile") : repliee, la languette dit ce
+            qu'elle ouvre (les grandes touches et les potards au doigt) ; avant, une fleche seule, que personne ne voyait */}
+        {!shown && <span className="v4-dock-tab-label">Touch controls</span>}
       </button>
       <div ref={dockRef} id="v4-dock" className="v4-dock" data-open={shown ? '1' : '0'} data-mode={cur ? 'edit' : 'union'} data-page={page}>
         <DockPages

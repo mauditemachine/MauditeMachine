@@ -7,12 +7,13 @@
 import { fwText } from '../firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2StepRect, fpU, fpX, fpZ, rectCenter, stepRect } from '../rytm/faceplate';
 import type { Dt2KeyClass } from '../rytm/dtFaceIds';
-import { DT2_FACE, type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_KNOBS, FP_OPEN, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, PAD_FACE, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_FACE_VER, RYTM_PAGE_KEYS, SCENE_KEY, SILK, type SilkText } from './base';
+import { DT2_FACE, type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_KNOBS, FP_OPEN, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, PAD_FACE, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_FACE_VER, RYTM_PAGE_KEYS, SCENE_KEY, SIDE_FACE, SIDE_KNOBS_AT, SILK, type SilkText } from './base';
 
 /** La face DT2 (V.6.0, ?face=dt2) : ses donnees en mm (rytm/faceplate.ts), lues seulement derriere DT2_FACE. */
 const DT2 = DT2_FACEPLATE;
 
-export const ENCODER = PORTRAIT || PAD_FACE
+// V.7.0 (SIDE_FACE, 2026-11-10) : les grands potards de la V.4 et leur anneau, a droite de l'ecran
+export const ENCODER = PORTRAIT || (PAD_FACE && !SIDE_FACE)
   ? ({
       r: 0.27,
       rTop: 0.256,
@@ -215,26 +216,32 @@ export const PAGE_LEDS = DT2_FACE
  * faceKeyX 7 a 11), 12 x 12 mm, leur legende dessus (KEY_LABELS ; V.4.2 : leur nom, les signes PLAY et STOP sur
  * RUN/STOP) ; RUN/STOP garde son rouge.
  */
+/** V.7.0 (SIDE_FACE) : la ligne des touches, 0.09 sous le cadre du verre (celle des touches de page des faces a pads). */
+const SIDE_KEY_Z = OLED.z + OLED.bezel.d / 2 + 0.09 + 0.19;
+/** V.7.0 : les cinq touches du transport sous les potards, de leur bord gauche au bord droit de la face. */
+const sideTrX = (i: number): number => 0.45 + 1.225 * i;
 export const TRANSPORT = {
   w: PORTRAIT ? 1.14 : PAD_FACE ? 1.0 : FACE_KEY.w,
   d: PORTRAIT ? 0.44 : PAD_FACE ? 0.38 : FACE_KEY.d,
   h: PORTRAIT || PAD_FACE ? 0.1 : FACE_KEY.h,
   radius: PORTRAIT || PAD_FACE ? 0.05 : FACE_KEY.radius,
-  z: PORTRAIT ? 3.56 : PAD_FACE ? 0.71 : FACE_KEY.z,
+  // V.7.0 (SIDE_FACE) : sur la ligne des touches de page (sous l'ecran), sous les potards
+  z: PORTRAIT ? 3.56 : SIDE_FACE ? SIDE_KEY_Z : PAD_FACE ? 0.71 : FACE_KEY.z,
   hitD: PORTRAIT ? 0.84 : PAD_FACE ? 0.38 : FACE_KEY.d,
   /** le temoin, celui des touches de page (a la largeur de la touche) */
   led: PORTRAIT || PAD_FACE ? { w: 0.62, d: 0.05, back: 0.11 } : FACE_KEY.led,
-  run: { x: PORTRAIT ? -2.6 : PAD_FACE ? PAD.x0 : faceKeyX(7) },
-  clear: { x: PORTRAIT ? -1.3 : PAD_FACE ? PAD.x0 + PAD.pitch : faceKeyX(8) },
-  random: { x: PORTRAIT ? 0 : PAD_FACE ? PAD.x0 + 2 * PAD.pitch : faceKeyX(9) },
-  mute: { x: PORTRAIT ? 1.3 : PAD_FACE ? PAD.x0 + 3 * PAD.pitch : faceKeyX(10) },
-  solo: { x: PORTRAIT ? 2.6 : PAD_FACE ? PAD.x0 + 4 * PAD.pitch : faceKeyX(11) },
+  run: { x: PORTRAIT ? -2.6 : SIDE_FACE ? sideTrX(0) : PAD_FACE ? PAD.x0 : faceKeyX(7) },
+  clear: { x: PORTRAIT ? -1.3 : SIDE_FACE ? sideTrX(1) : PAD_FACE ? PAD.x0 + PAD.pitch : faceKeyX(8) },
+  random: { x: PORTRAIT ? 0 : SIDE_FACE ? sideTrX(2) : PAD_FACE ? PAD.x0 + 2 * PAD.pitch : faceKeyX(9) },
+  mute: { x: PORTRAIT ? 1.3 : SIDE_FACE ? sideTrX(3) : PAD_FACE ? PAD.x0 + 3 * PAD.pitch : faceKeyX(10) },
+  solo: { x: PORTRAIT ? 2.6 : SIDE_FACE ? sideTrX(4) : PAD_FACE ? PAD.x0 + 4 * PAD.pitch : faceKeyX(11) },
 } as const;
 export const KEYS = {
   count: 16,
   x0: PORTRAIT ? -3.01 : PAD_FACE ? -5.625 : fpX(FP_STEPS.x0 + FP_STEPS.w / 2),
   pitch: PORTRAIT ? 0.86 : PAD_FACE ? 0.75 : fpU(FP_STEPS.pitch),
-  z: PORTRAIT ? 4.36 : PAD_FACE ? 2.38 : fpZ(FP_STEPS.rows[0] + FP_STEPS.h / 2),
+  // V.7.0 (SIDE_FACE) : sous la rangee des voix
+  z: PORTRAIT ? 4.36 : SIDE_FACE ? 2.72 : PAD_FACE ? 2.38 : fpZ(FP_STEPS.rows[0] + FP_STEPS.h / 2),
   /** portrait : deux rangees de 8, la seconde rowDz plus bas ; V.1.0-V.3.0 : une rangee de 16 ; le desktop depuis V.4.0 : deux rangees de 8 */
   perRow: PORTRAIT ? 8 : PAD_FACE ? 16 : FP_STEPS.perRow,
   rowDz: PORTRAIT ? 1.52 : PAD_FACE ? 0 : fpU(FP_STEPS.rows[1] - FP_STEPS.rows[0]),
@@ -244,13 +251,13 @@ export const KEYS = {
   h: PORTRAIT || PAD_FACE ? 0.1 : fpU(FP_STEPS.capHeight),
   radius: PORTRAIT || PAD_FACE ? 0.05 : fpU(FP_STEPS.corner),
   /** V.4.2 (2026-10-27) : le chanfrein du dessus au desktop (scene/keyCap.ts ; le telephone garde ses touches arrondies) */
-  bevel: PORTRAIT || (PAD_FACE && RYTM_FACE_VER !== '3.0') ? 0 : fpU(FP_STEPS.bevel),
+  bevel: PORTRAIT || (PAD_FACE && RYTM_FACE_VER !== '3.0' && !SIDE_FACE) ? 0 : fpU(FP_STEPS.bevel),
   segments: { desktop: 3, mobile: 2 },
   /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
   frame: PORTRAIT || PAD_FACE ? { inset: 0.065, line: 0.022 } : { inset: fpU(FP_STEPS.beatFrame.inset), line: fpU(FP_STEPS.beatFrame.line) },
   lockMark: PORTRAIT || PAD_FACE ? { w: 0.3, d: 0.05, back: 0.135 } : { w: fpU(FP_STEPS.lockMark.w), d: fpU(FP_STEPS.lockMark.h), back: fpU(FP_STEPS.lockMark.dy) },
-  numberZ: PORTRAIT ? 4.94 : PAD_FACE ? 2.86 : 3.7,
-  bracketZ: PORTRAIT ? 5.11 : PAD_FACE ? 3.01 : 3.45,
+  numberZ: PORTRAIT ? 4.94 : SIDE_FACE ? 3.2 : PAD_FACE ? 2.86 : 3.7,
+  bracketZ: PORTRAIT ? 5.11 : SIDE_FACE ? 3.35 : PAD_FACE ? 3.01 : 3.45,
   bracketTick: 0.06,
 } as const;
 /** x du pas i ; sa rangee le decale de keyDz en z (portrait : deux rangees de 8). */
@@ -261,6 +268,20 @@ export const PAGE_KNOBS = PORTRAIT
   ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78, hitR: 0, labelW: 1.78 - 0.2 } as const)
   : PAD_FACE && RYTM_FACE_VER === '1.0'
     ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.52, GLOBAL_FX_RULE.z + 1.34], s: 0.88, pitch: 0, cap: 0.072, nameDz: -0.42, hitD: 0.82, hitUp: 0.46, hitW: 1.25, hitR: 0, labelW: 1.05 } as const)
+    : SIDE_FACE
+      ? // V.7.0 (2026-11-10) : les potards de la V.4 (28 d'emprise, la lettre a 6 h dans la fente de l'anneau), a droite de l'ecran
+        ({
+          rowZ: [SIDE_KNOBS_AT.rowZ[0], SIDE_KNOBS_AT.rowZ[1]],
+          s: 1,
+          pitch: SIDE_KNOBS_AT.pitch,
+          cap: fpU(FP_KNOBS.label.cap),
+          nameDz: fpU(FP_KNOBS.label.r),
+          hitD: 0,
+          hitUp: 0,
+          hitW: 0,
+          hitR: fpU(FP_KNOBS.d / 2) - 0.02,
+          labelW: 0.8,
+        } as const)
     : PAD_FACE
       ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.62, GLOBAL_FX_RULE.z + 0.62], s: 0.85, pitch: 0.66, cap: 0.065, nameDz: -0.39, hitD: 0.85, hitUp: 0.48, hitW: 0.66, hitR: 0, labelW: 0.62 } as const)
       : // La face DT2 (V.6.0, ?face=dt2) : FP_KNOBS (24 d'emprise, au pas de 80 / 3, la lettre a 10.6 mm du centre)
@@ -495,7 +516,8 @@ export const SILK_TEXTS: readonly SilkText[] = DT2_FACE ? DT2_SILK_TEXTS() : [
   // depuis la face V.4.0 (2026-10-27), plus de VOICES
   ...(PORTRAIT || PAD_FACE ? [{ text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - PAD.size / 2 - 0.14, cap: 0.075, align: 'left' as const }] : []),
   ...FACE_KNOBS.map((k, i) => ({
-    text: PORTRAIT || PAD_FACE ? GLOBAL_ENC_LABELS[i] : (RYTM_FACEPLATE.knobs.labels[i] ?? PAGE_KNOB_LETTERS[i]),
+    // V.7.0 (SIDE_FACE) : les lettres A a H, les potards suivent la page
+    text: PORTRAIT || (PAD_FACE && !SIDE_FACE) ? GLOBAL_ENC_LABELS[i] : (RYTM_FACEPLATE.knobs.labels[i] ?? PAGE_KNOB_LETTERS[i]),
     x: k.x,
     z: k.labelZ,
     cap: PAGE_KNOBS.cap,
@@ -504,7 +526,7 @@ export const SILK_TEXTS: readonly SilkText[] = DT2_FACE ? DT2_SILK_TEXTS() : [
     weight: 700,
     alpha: 0.9,
   })),
-  ...(PORTRAIT || PAD_FACE ? [{ text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }] : []),
+  ...(PORTRAIT || (PAD_FACE && !SIDE_FACE) ? [{ text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }] : []),
   ...PADS.map(padLabel),
   ...(PORTRAIT || PAD_FACE ? Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.095, weight: 600 })) : []),
   ...(PORTRAIT || PAD_FACE

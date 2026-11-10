@@ -1736,6 +1736,22 @@ html:has(body.v4-active) {
     font-size: 13px;
   }
 
+  /* Repliee (2026-11-10) : la fleche et son nom, TOUCH CONTROLS ; la largeur suit le texte */
+  .v4-root .v4-dock-tab[data-open='0'] {
+    width: auto;
+    gap: 8px;
+    padding: 0 14px 0 12px;
+  }
+
+  .v4-dock-tab-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
   /* 44 px de haut au doigt (2026-10-22, audit SB-14), le dessin garde ses 30 */
   .v4-root .v4-dock-tab::after {
     content: '';

@@ -15,7 +15,7 @@
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2TrackMuteDots, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
-import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
+import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PORTRAIT, RYTM_FACE_VER, SIDE_FACE, SIDE_PADS, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
 export { PLUGIN, PORTRAIT, SILK, OLED_UH, OLED, SCENE_KEY, faceKeyX, PAD, VOICE_COLS, VOICE_KEYS, OPEN_KEY, EDIT_KEY, PADS, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, GLOBAL_FX_RULE, pageKnobX, GLOBAL_ENC_LABELS, RYTM_PAGE_KEYS, KEY_MARK, DT2_FACE, FP_OPEN } from './theme/base';
@@ -915,7 +915,8 @@ export const PAGE_KNOBS_ON_FACE = true;
  * qui est cliquee, comme la DIGITAKT ; les knobs de droite doivent se refleter") : au desktop, le potard k tourne le bloc
  * pose dans la case k de l'ecran (rytm/pages.ts faceBlockOf, rytm:knob:k+1) ; le telephone garde ses FX globaux (phase 5).
  */
-export const FACE_FOLLOWS_PAGE: boolean = !PORTRAIT && !PAD_FACE;
+// V.7.0 (SIDE_FACE, 2026-11-10, Mika : "la gestion des knobs directement a droite, un petit peu comme avant") : ses potards aussi
+export const FACE_FOLLOWS_PAGE: boolean = !PORTRAIT && (!PAD_FACE || SIDE_FACE);
 /**
  * Les capuchons des potards de la face vont a leur nouvelle valeur comme des potards motorises (2026-10-27) : une page,
  * une voix, l'entree ou la sortie du P-LOCK ; 60 ms plus 160 ms pour toute la course (d de 0 a 1), easeInOutCubic ; les
@@ -986,7 +987,9 @@ export const REC_MARK_D = 1;
  */
 // Le plugin (2026-11-08, Mika : "quand on cherche un preset je voudrais aussi le selectionner a la souris dans l'ecran") :
 // dans la fenetre du VST3, l'ecran se clique a la souris (les listes, les menus, les valeurs), en plus des potards
-export const SCREEN_TOUCH: boolean = PORTRAIT || PLUGIN;
+// V.7.0 (SIDE_FACE, 2026-11-10, Mika : "je ne peux pas changer les FX directement dans l'ecran, c'est exactement ce que je
+// voudrais faire") : sur le site, l'ecran se touche de nouveau a la souris, en plus des potards
+export const SCREEN_TOUCH: boolean = PORTRAIT || PLUGIN || SIDE_FACE;
 
 /**
  * Les commandes de la face visibles et inertes : curseur par defaut, rien ne part. Vide depuis P2-20 (2026-10-27) : TRK,
@@ -1163,7 +1166,7 @@ export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: (DT_FACE 
  * (RYTM_FACEPLATE buttons.travel et steps.travel ; STEP_PRESS.depth au telephone).
  */
 export const KEY_RELIEF = {
-  on: !PORTRAIT && (!PAD_FACE || RYTM_FACE_VER === '3.0'),
+  on: !PORTRAIT && (!PAD_FACE || RYTM_FACE_VER === '3.0' || SIDE_FACE),
   seg: 4,
   shade: { foot: 0.42, wall: 0.74, bevel: 1.16, top: 1, glow: { foot: 0.18, wall: 0.4, bevel: 0.85 } },
   skirt: { w: fpU(1.1), alpha: { dark: 0.62, light: 0.4 }, y: 0.0016 },
@@ -1472,11 +1475,12 @@ export const SILK_STROKES: readonly { pts: readonly number[]; ink: 'alt'; width:
 // La face V.4.0 du desktop (2026-10-27) : aucun filet (ni la colonne d'OPEN, ni le filet de GLOBAL FX, ni les crochets)
 export const SILK_LINES: readonly (readonly number[])[] = [
   // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
-  ...(PORTRAIT || PAD_FACE ? [[PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72]] : []),
+  // V.7.0 (SIDE_FACE) : entre CY et EDIT, sur la rangee des voix
+  ...(SIDE_FACE ? [[SIDE_PADS.ruleX, PAD.rowZ[0] - 0.5, SIDE_PADS.ruleX, PAD.rowZ[0] + 0.72]] : PORTRAIT || PAD_FACE ? [[PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72]] : []),
   // Revue du 2026-10-09 : un filet sous les noms des touches de page, de la largeur du verre ; les touches et l'ecran
   // d'un cote, les huit encodeurs de l'autre (les noms se lisaient comme ceux des potards) ; sous les touches elles-memes
   // depuis le 2026-10-18 (leurs noms sont dessus) ; au telephone aussi depuis le 2026-10-19 (les encodeurs y reviennent)
-  ...(PORTRAIT || PAD_FACE
+  ...(PORTRAIT || (PAD_FACE && !SIDE_FACE)
     ? [
         [OLED.x - OLED.w / 2, GLOBAL_FX_RULE.z, OLED.x - GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z],
         [OLED.x + GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z, OLED.x + OLED.w / 2, GLOBAL_FX_RULE.z],

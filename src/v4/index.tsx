@@ -18,6 +18,7 @@
  * debug. Tout est rendu tel quel au demontage.
  */
 
+import { IOS_FLOATING_BAR } from './state/iosBar';
 import React, {
   Component,
   Suspense,
@@ -812,20 +813,7 @@ const V4Shell: React.FC = () => {
  * EngineBridge le consomme, le reste lit le pont (audio/soundcloud.ts) :
  * aucun re-render de la page a chaque progression du widget.
  */
-/**
- * Safari 26 et plus sur iPhone, hors ecran d'accueil (2026-10-01) : sa
- * barre d'onglets flotte par-dessus le bas de la page, sans zone sure
- * annoncee ; le Dock se pose au-dessus (v4.css, --ios-bar). Les autres
- * navigateurs iOS (CriOS, FxiOS, EdgiOS) ont leur propre barre.
- */
-const IOS_FLOATING_BAR = ((): boolean => {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  if (!/iPhone|iPod/.test(ua) || /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return false;
-  if ((navigator as Navigator & { standalone?: boolean }).standalone) return false;
-  const m = /Version\/(\d+)/.exec(ua);
-  return m !== null && Number(m[1]) >= 26;
-})();
+// IOS_FLOATING_BAR : state/iosBar.ts (2026-11-10, la scene le lit aussi pour son cadrage)
 
 const V4App: React.FC = () => {
   // Drapeaux relus a chaque montage (navigation SPA comprise)

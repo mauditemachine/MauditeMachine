@@ -8,6 +8,7 @@ import { PRESET_SLOTS } from '../../../state/presetMode';
 import { softKeyName } from '../../../rytm/presetKeys';
 import { FAINT_TEXT, fit, HALF, INK, PAGE_HEAD, PRESET_LAYOUT, presetKeySpot, UW } from '../consts';
 import { Screen } from '../core';
+import { SIDE_FACE } from '../../../theme/base';
 import { defineMethods } from '../proto';
 
 declare module '../core' {
@@ -30,7 +31,9 @@ function paintPresets(this: Screen, s: LcdState): void {
   const c = this.ctx;
   c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
   const L = PRESET_LAYOUT;
-  const desk = !this.mobile;
+  // V.7.0 du site (SIDE_FACE) : l'ecran se clique, les cinq pastilles comme au telephone (pas de potards qui feuillettent)
+  const phone = this.mobile || SIDE_FACE;
+  const desk = !phone;
   this.text(fit(v.title, 24), 10, L.head, 9, v.naming?.problem && !v.title.startsWith('SAVE') ? INK : HALF, 700, 'left', 0.9);
   const right = PAGE_HEAD.right;
   const rw = v.count ? this.text(v.count, right, L.head, 9, HALF, 600, 'right') : 0;
@@ -72,12 +75,12 @@ function paintPresets(this: Screen, s: LcdState): void {
     if (!k) return;
     const spot = presetKeySpot(i, this.mobile);
     const cx = spot.u * UW;
-    const w = this.textWidth(k, L.keyFont, 700, 0.8) + (this.mobile ? 16 : 12);
+    const w = this.textWidth(k, L.keyFont, 700, 0.8) + (phone ? 16 : 12);
     this.pill(cx - w / 2, L.keyY - L.keyH / 2, w, L.keyH, null, INK, 1.2);
     this.text(k, cx, L.keyY + L.keyFont * 0.36, L.keyFont, INK, 700, 'center', 0.8);
     // Au desktop (la revue de D1, K1) : le nom de la touche de la face qui la fait (SRC LOAD, FLTR SAVE, AMP NAME, FX DEL, PTN
     // EXIT) ; FLTR, AMP et FX sont sous les potards, leurs pastilles rangees a droite de l'ecran
-    if (!this.mobile) this.text(softKeyName(PRESET_SLOTS[i]), cx, L.keyY - L.keyH / 2 - 3.2, 6, FAINT_TEXT, 700, 'center', 0.8);
+    if (desk) this.text(softKeyName(PRESET_SLOTS[i]), cx, L.keyY - L.keyH / 2 - 3.2, 6, FAINT_TEXT, 700, 'center', 0.8);
   });
 }
 

@@ -13,7 +13,7 @@ import { BANKS, BANK_SIZE, bankName, bankOf, patterns, slotName } from '../../st
 import { playhead } from '../../state/playhead';
 import { voices } from '../../state/voices';
 import { dtFace } from '../../state/dtFace';
-import { DT_FACE, OLED_BAR, SCREEN_TOUCH, type Inst } from '../../theme';
+import { DT_FACE, OLED_BAR, PORTRAIT, SCREEN_TOUCH, type Inst } from '../../theme';
 import { HOME_MENU, HOME_MENU_LABEL } from '../../rytm/pages';
 import { v127Text } from '../../rytm/values';
 import { CONDS, RATE_DENS, rtrgGain } from '../../audio/trig';
@@ -461,7 +461,7 @@ function paintLine(this: Screen, s: LcdState, rytmEdit: boolean): void {
   if (rytmEdit) this.text(DT_FACE && dtFace.bank() ? 'STEPS 1-8: BANKS A-H   PTN: BACK' : 'TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT_TEXT, 700, 'left', 0.6);
   else if (this.paintMode(x0, x1)) return;
   // Les presets (V.4.2 : au desktop l'ecran ne se touche plus, EDIT pressee deux fois les ouvre)
-  else if (s.tag) this.text(SCREEN_TOUCH ? 'TOUCH: PRESETS' : DT_FACE ? 'PTN 2X: KIT' : 'EDIT 2X: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
+  else if (s.tag) this.text(SCREEN_TOUCH ? (PORTRAIT ? 'TOUCH: PRESETS' : 'CLICK: PRESETS') : DT_FACE ? 'PTN 2X: KIT' : 'EDIT 2X: PRESETS', x1, LINE.y, 6.5, FAINT_TEXT, 700, 'right', 0.8);
 }
 
 /**

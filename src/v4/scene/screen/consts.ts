@@ -12,6 +12,7 @@ import { BROWSER_ROWS } from '../../state/lcdSamples';
 import { voices } from '../../state/voices';
 import { dtFace } from '../../state/dtFace';
 import { DT2_FACE, DT_FACE, FONT_DISPLAY, HEX, OLED, OLED_DY, OLED_UH, PORTRAIT, SCREEN_TOUCH, type EncId, type Inst } from '../../theme';
+import { SIDE_FACE } from '../../theme/base';
 import { PRESET_SLOTS } from '../../state/presetMode';
 import { softKeyPitchU, softKeyU } from '../../rytm/presetKeys';
 import { pageLabel, type RytmPageId, type RytmScreenId, type SlotCell } from '../../rytm/pages';
@@ -72,7 +73,8 @@ export const GROW = Math.max(0, UH - 158);
  * touches (keyY, son centre ; keyH, la hauteur d'une pastille). Au desktop les pastilles sont au-dessus des touches de la
  * face qu'elles nomment (rytm/presetKeys.ts) ; au telephone, en cinquiemes, assez grandes pour le doigt.
  */
-export const PRESET_LAYOUT = PORTRAIT
+// V.7.0 du site (SIDE_FACE, 2026-11-10) : son ecran de 158 se clique, les presets y ont la mise en page du telephone
+export const PRESET_LAYOUT = PORTRAIT || SIDE_FACE
   ? { head: 17, rows: [44, 74, 99], sub: 99, hint: 112, keyY: 133, keyH: 20, keyFont: 9.5 }
   : { head: 20, rows: [56, 92, 122], sub: 122, hint: 142, keyY: 172, keyH: 16, keyFont: 8 };
 
@@ -81,7 +83,7 @@ export const PRESET_LAYOUT = PORTRAIT
  * Au desktop, au-dessus de la touche de la face qu'elle nomme ; au telephone, le cinquieme de la largeur.
  */
 export function presetKeySpot(i: number, mobile: boolean = PORTRAIT): { u: number; u0: number; u1: number } {
-  if (mobile) return { u: (i + 0.5) / 5, u0: i / 5, u1: (i + 1) / 5 };
+  if (mobile || SIDE_FACE) return { u: (i + 0.5) / 5, u0: i / 5, u1: (i + 1) / 5 };
   const u = softKeyU(PRESET_SLOTS[i]);
   const half = softKeyPitchU() / 2;
   return { u, u0: Math.max(0, u - half), u1: Math.min(1, u + half) };
