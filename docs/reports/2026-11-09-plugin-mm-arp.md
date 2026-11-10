@@ -197,3 +197,27 @@ Demande de Mika : « une qualite absolument fantastique, seulement le VST3 ; raj
 - UNDO, RANDOM et les presets de l'ecran de la machine ne touchent pas a SOUND+.
 - Changer QUALITY en cours de jeu fait un trou d'environ 0.1 s.
 - WARMTH engagee retarde la sortie de 39 echantillons, non declares a l'hote.
+
+## Suite (2026-11-10) : bois droit, design de la face avant, tout dans OPEN, banque d'usine
+
+Demandes de Mika :
+- « mets le bois droit sur les bords » ;
+- « le design des rajouts est mauvais, fais-les par rapport au design de la face avant » ;
+- « tout dans OPEN, pas melange » (et enrichir le capot) ;
+- « les presets pourraient etre meilleurs, plus de disco a la Donna Summer ou de trucs hypnotiques ».
+
+### 1. Ce qui a ete fait
+- **Le bois droit** (`src/v4/theme.ts`, `scene/renderer.ts`, plugin ARP seulement) : une camera presque orthographique (champ 0.1 deg, de tres loin). Les joues de bois sont verticales et symetriques au pixel pres (40 px de bois de chaque cote).
+- **La face fermee** : aucun ajout, la pastille SOUND+ est retiree.
+- **Le capot OPEN** (`src/v4/plugin/arp/` : HoodPanel, SoundPlus, Library (nouveau), DiskPresets, face.css, tab.ts, bridge.ts) : un panneau d'extension dessine comme la face avant (couleurs relevees sur le rendu : panneau #211F1D, serigraphie #D2CDC3 / #B7B2A9, LED VOY_LED). Il a trois pages, choisies par des touches a LED : SOUND+, LIBRARY, TOOLS (CLIP, DISK, MIDI). Une colonne fixe porte un afficheur, LEARN et CLOSE. Les potards sont en SVG facon face, avec leurs legendes de butee comme sur le PCB.
+- **La banque d'usine** (`plugin/mm-arp/presets/` : `build.mjs`, `factory.json`, `factory/*.mmarp`) : 32 presets (10 DISCO, 10 HYPNOTIC, 6 DARK, 6 TEXTURE), dans la page LIBRARY.
+  - Ils sont verifies par rendu hors ligne avec le DSP du plugin (`tests/presets-render.sh`) : cretes, sonie calee a -23 LUFS, diversite.
+  - Les rendus MP3 ont ete envoyes a Mika.
+
+### 2. Decisions
+- **Des pages plutot que tout a plat** : a la hauteur fixe du bandeau (172 px), tout ne tenait pas lisiblement. Les pages sont des touches de la machine.
+- **Les presets du site restent tels quels.** La mesure montre que cinq d'entre eux (ACID, MINIMAL, ROLLING, HYPNO LOOP, MS HYPNO) jouent le meme motif.
+
+### 3. En suspens
+- Mika : ecouter les presets et dire lesquels refaire.
+- Le nom d'un preset d'usine ne reste pas dans l'en-tete de l'ecran de la machine.

@@ -10,13 +10,14 @@
  * - MIDI : MIDI LEARN (LEARN, un clic sur un potard, le prochain CC), la table des CC du plugin, une croix par ligne,
  *   CLEAR ALL ;
  * - CLOSE : referme le capot (comme OPEN, Echap ou la touche O).
- * Deux pages (2026-11-10, tab.ts) : TOOLS (CLIP, DISK, MIDI) et SOUND+ (SoundPlus.tsx : les reglages du VST3 seul).
+ * Trois pages (2026-11-10, tab.ts) : SOUND+ (SoundPlus.tsx : les reglages du VST3 seul), LIBRARY (Library.tsx : la
+ * banque d'usine du VST3) et TOOLS (CLIP, DISK, MIDI).
  * Le dessin (2026-11-10, Mika : "fais ces rajouts par rapport au design de la face avant, la c'est noir et orange" ; "je
  * veux que tout se retrouve dans OPEN, pas melange") : un panneau de la machine, le meme gris anthracite que la face, des
  * sections titrees et separees de filets comme OSCILLATORS / FILTER EG, des touches noires en relief avec leur legende
  * dessous (en orange pour les fonctions, comme PRESET et OPEN), les LED rouges de CHORUS et SUB OCT pour les etats, des
  * fenetres de verre noir comme l'ecran pour les listes. La colonne de droite porte l'afficheur (le reglage touche, MIDI
- * LEARN, les messages du clip), les touches de page SOUND+ et TOOLS, LEARN et CLOSE. Le panneau garde sa hauteur sur les
+ * LEARN, les messages du clip), les touches de page SOUND+, LIBRARY et TOOLS, LEARN et CLOSE. Le panneau garde sa hauteur sur les
  * deux pages (face.css), la carte ne bouge pas. Plus rien sur la face fermee (Mika : "tout dans OPEN").
  * LearnMarks (toujours monte) : le potard arme cerne d'orange sur la machine (son jumeau, ui/VoyTwins.tsx), et capot ferme,
  * une pastille MIDI LEARN (le mode survit a la fermeture : les potards de la face s'apprennent capot ferme).
@@ -29,6 +30,7 @@ import { voyExplode } from '../../state/explode';
 import { VOY_KNOBS } from '../../voyager/params';
 import { arpBridge } from './bridge';
 import { DiskPresets } from './DiskPresets';
+import { Library } from './Library';
 import { arpExtra, extraParam } from './extra';
 import { arpMidi, type ArpMidiState } from './midimap';
 import { sectionPrefix, SoundPlus, xTouch } from './SoundPlus';
@@ -59,6 +61,7 @@ const useTab = () => useSyncExternalStore(hoodTab.subscribe, hoodTab.get, hoodTa
 
 const TABS: readonly { id: HoodTab; label: string }[] = [
   { id: 'sound', label: 'SOUND+' },
+  { id: 'library', label: 'LIBRARY' },
   { id: 'tools', label: 'TOOLS' },
 ];
 
@@ -107,6 +110,9 @@ const Lcd: React.FC<{ tab: HoodTab }> = ({ tab }) => {
     head = `${sectionPrefix(p)}${p.label}`;
     line = arpExtra.text(p.id, extra[p.id]);
     mode = t.active ? 'gesture' : 'touch';
+  } else if (tab === 'library') {
+    head = 'LIBRARY · VST3';
+    line = 'FACTORY SOUNDS';
   } else if (tab === 'sound') {
     head = 'SOUND+ · VST3';
     line = (extra.xQuality ?? 0) >= 0.5 ? 'HQ · x8' : 'STD · x4';
@@ -149,7 +155,8 @@ const Rail: React.FC<{ tab: HoodTab; onClose: () => void }> = ({ tab, onClose })
                 if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
                 e.preventDefault();
                 e.stopPropagation();
-                const next = t.id === 'tools' ? 'sound' : 'tools';
+                const i = TABS.findIndex((x) => x.id === t.id);
+                const next = TABS[(i + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? TABS.length - 1 : 1)) % TABS.length].id;
                 hoodTab.set(next);
                 document.getElementById(`mm-arp-tab-${next}`)?.focus();
               }}
@@ -336,6 +343,8 @@ export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     <section ref={ref} className="mm-arp-hood" style={{ position: 'fixed' }} data-tab={tab} aria-label="MM-ARP hood">
       {tab === 'sound' ? (
         <SoundPlus />
+      ) : tab === 'library' ? (
+        <Library />
       ) : (
         <div className="mm-arp-page mm-arp-tools" role="tabpanel" id="mm-arp-panel-tools" aria-labelledby="mm-arp-tab-tools">
           <DragMidi />

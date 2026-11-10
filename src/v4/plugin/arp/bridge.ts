@@ -594,6 +594,18 @@ export const arpBridge = {
     arpDisk.set({ current: path });
     send('mm_preset_load', { path });
   },
+  /**
+   * Un preset de la banque d'usine du VST3 (LIBRARY, Library.tsx ; plugin/mm-arp/presets/factory.json) : applique
+   * exactement comme un mm_preset venu du disque (potards, suite, progression, SOUND+ ; une etape d'UNDO, mm_param vers le
+   * C++), sauf QUALITY qui garde la valeur du moment.
+   */
+  factoryLoad(p: { name: string; knobs: unknown; seq: unknown; prog: unknown; extra?: unknown }): boolean {
+    const extra = p.extra && typeof p.extra === 'object' && !Array.isArray(p.extra) ? { ...(p.extra as Record<string, unknown>) } : {};
+    delete extra.xQuality;
+    const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, extra }));
+    if (ok) arpDisk.set({ current: null });
+    return ok;
+  },
   /** DRAG MIDI : le glisser natif du clip (le C++, depuis l'evenement souris en cours ; reponse mm_drag_status). */
   dragMidi(cycles: number): void {
     send('mm_drag_midi', { cycles });

@@ -1,9 +1,10 @@
 /**
- * L'onglet du panneau du capot du plugin MM-ARP (2026-11-10) : TOOLS (DRAG MIDI, DISK, MIDI) ou SOUND+ (les reglages
- * du VST3 seul, SoundPlus.tsx). Garde le temps de la fenetre : OPEN rouvre la derniere page. Sans dependance, comme disk.ts et midimap.ts.
+ * La page du panneau du capot du plugin MM-ARP (2026-11-10) : SOUND+ (les reglages du VST3 seul, SoundPlus.tsx),
+ * LIBRARY (la banque d'usine du VST3, Library.tsx) ou TOOLS (CLIP, DISK, MIDI). Garde le temps de la fenetre : OPEN
+ * rouvre la derniere page. Sans dependance, comme disk.ts et midimap.ts.
  */
 
-export type HoodTab = 'tools' | 'sound';
+export type HoodTab = 'tools' | 'sound' | 'library';
 
 let tab: HoodTab = 'tools';
 const listeners = new Set<() => void>();
