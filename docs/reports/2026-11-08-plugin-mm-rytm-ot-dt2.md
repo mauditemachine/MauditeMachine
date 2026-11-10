@@ -214,6 +214,19 @@ Mika : « J'ai des erreurs quand je load le plugin ca part dans tout les sens ! 
 - Verifie dans Chromium (meme contexte = meme stockage, comme la WebView) : avant, une instance B (pattern videe) chargee avec A ouvrait avec la pattern de A (11,2,12,4,0,3) ; apres, A garde 11,2,12,4,0,3, B garde 0, une instance ajoutee ensuite a la pattern de depart, un faux MM-ARP qui efface et ecrit en boucle ne change rien ; un preset garde par A arrive chez B et dans le vrai stockage, la pattern de A n'y va jamais ; un ancien projet (lot 6) avec le transport d'Ableton : aucune erreur ; NEW, CLEAR et Cmd+Z identiques ; tsc a 105 (la base).
 - **Build vert du lot 10** (run 42726280274), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 952fe37, branche claude/intelligent-ride-56tyeo, 2026-11-10 00:17 UTC.
 
+### Lot 11, le meilleur ami : look, mini ecran, VU, fenetre, OPEN en blanc (2026-11-10)
+
+Mika : « vas-y la met-y du stock je veux que MM-RYTM soit mon meilleur ami » ; ses choix : le mini ecran a la place du logo, les VU-metres, la fenetre agrandissable ; « fais un melange des deux mais je prefere mes couleurs ! le rouge et du jaune orange pour la 2e couleur et gris blanc pour les boutons ; quand on clique sur OPEN je veux passer en white mode totale » ; puis « j'aime pas trop en dessous DRAG MIDI etc., la barre, je prefere que ce soit dans OPEN ».
+
+- **Look** (plugin seulement, `theme.ts` applyAppearance) : la machine noire, les touches et les pads gris blanc de la machine claire (KEYS_LIGHT, PLUGIN_KEYS : teinte, matiere, lueurs, encre des legendes, temoins) ; le rouge des pas et de la page ; le jaune orange (PLUGIN_AMBER) pour FUNC, PLAY, MUTE, OPEN, les fonctions imprimees, le pointille Track/Mute et la tete de lecture (`scene/rytmFaceKeys.ts` GO_TONE, `scene/keyLabels.ts`).
+- **Mini ecran** (`scene/miniScreen.ts`, `rytm/faceplate.ts` PLUGIN_MINI, le logo M retire du plugin) : le pattern qui joue, PLAY ou STOP, le suivant, les 16 pas et la tete, le niveau de chaque piste avec un pic tenu, les scenes A et B (EMPTY ou le nombre de reglages) et le crossfader, la sortie L et R, CLIP. Repeint seulement quand il change, 30 fois par seconde au plus.
+- **VU-metres reels** : `dsp/Fx.cpp` la crete de chaque tranche (apres TONE, DIST, CHORUS, a LEVEL), `Engine::fbPeak` ; `PluginProcessor::takeMeters` (et la sortie apres MAIN VOLUME) ; `mm_meter` a 30 Hz tant que ca sonne, puis un zero ; `src/v4/plugin/meters.ts` : la montee tout de suite, la descente a 20 dB/s, le pic tenu 1 s, l'echelle de -48 a 0 dB.
+- **Fenetre agrandissable** : `setResizable`, proportions fixes, de 840 a 2400 px de large ; la largeur gardee dans l'etat du projet (`uiW`).
+- **La barre native retiree** : DRAG MIDI, SAVE .MID, NEW et CLEAR passent dans OPEN (onglet PATTERN · MIDI, la poignee DRAG MIDI aussi dans l'en-tete de chaque onglet) ; le glisser part de la face (`mm_drag_midi` : `performExternalDragDropOfFiles` avec l'evenement souris courant, la voie du MM-ARP) ; l'etat du clip (`mm_midi_info`) et les messages (`mm_midi_status`) ; NEW et CLEAR confirmes dans le panneau ; un clic sur la poignee garde le .mid.
+- **OPEN en blanc total** : tout le panneau (et toute la fenetre, plus de bord) en clair : fond blanc casse, encre #191919, le rouge des choix, le jaune orange des titres, de la poignee et de l'enveloppe ; la forme d'onde en noir sur blanc, S et E en rouge.
+- **START, END, PLAYS** (l'ecart vu sur la capture de Mika : LEN 123 ms, PLAYS 130,4 ms) : START et END sont des places dans le fichier, PLAYS la part jouee du fichier (comme LEN) ; avec TUNE ou FINE, HEARD AT THIS TUNE donne la duree entendue (PLAYS et la duree entendue divisaient tout par la hauteur, et LEN ne la compte pas).
+- Verifie dans Chromium : la face (captures), le mini ecran avec des niveaux simules, OPEN SAMPLE et PATTERN en blanc, le glisser (un `mm_drag_midi` par geste), un clic (`mm_save_midi`), NEW confirme (32 coups, puis 0), Echap ferme ; la fenetre a 1680 px ; un ancien projet avec le transport : aucune erreur ; NEW, CLEAR, Cmd+Z ; au repos la boucle de rendu dort (0 dessin en 4 s), elle se rendort apres le son. Le site : identique au pixel (V.3.0 par defaut, ?face=dt2 noire et claire). C++ : compile avec les en-tetes de JUCE ; tests du moteur 50 OK (2 nouveaux : la crete du SD monte, celle du BD reste a 0, la lecture la remet a 0). tsc a 105 (la base).
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -252,6 +265,12 @@ Mika : « J'ai des erreurs quand je load le plugin ca part dans tout les sens ! 
 
 - **Un stockage par instance plutot qu'un prefixe par instance** : un prefixe demanderait de changer chaque store du site ; remplacer `window.localStorage` avant le premier module ne touche a rien d'autre, et le projet Ableton reste la seule memoire de l'etat d'une instance (ce qu'il etait deja). La bibliotheque (presets, personnalisation) reste commune, comme au site.
 
+- **Les touches claires sur la machine noire, par l'apparence claire du site** : la machine claire du site sait deja peindre des touches gris blanc (teintes, matieres, encre, lueurs, temoins) ; le plugin les prend sans le chassis, la lumiere ni l'exposition de la creme. Le site garde ses deux apparences telles quelles.
+- **PLAY au jaune orange, pas au vert** : Mika veut deux couleurs (le rouge, le jaune orange) ; le vert de la DT2 reste au site.
+- **Le mini ecran en noir et blanc** : le meme langage que l'ecran principal (Mika aime ses graphismes noir et blanc) ; le rouge seulement pour le 0 dB.
+- **Les VU apres les effets de tranche, a MAIN VOLUME** : ce qu'on entend de chaque piste, a l'echelle de la sortie ; le bus (DIST, TONE globaux) et les retours ne sont pas dans les pistes, ils sont dans L et R.
+- **DRAG MIDI depuis la face** : Mika ne veut plus de barre ; une barre native ne peut pas se poser sur la WebView (elle passe dessous). Le glisser part donc de la face, comme sur le MM-ARP ; si le Mac refuse, le message le dit et SAVE .MID (ou un clic sur la poignee) garde le fichier, a glisser depuis le Finder.
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -261,6 +280,7 @@ Mika : « J'ai des erreurs quand je load le plugin ca part dans tout les sens ! 
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 11) : la commande mm-rytm, rouvrir Ableton ; dire si le gris blanc, le rouge et le jaune orange lui vont ; le mini ecran pendant la lecture (les VU bougent avec le son) ; tirer le coin de la fenetre ; OPEN en blanc ; **DRAG MIDI depuis OPEN** : glisser la poignee jaune sur une piste MIDI (si le glisser ne part pas, le message le dit et SAVE .MID garde le fichier).
 - Cote Mika (lot 10) : la commande mm-rytm, quitter Ableton, le rouvrir, recharger le projet qui partait dans tous les sens ; si une erreur reste, une capture de l'ecran (le message rouge MM-RYTM ou la fenetre d'Ableton).
 - Branche du MM-ARP : sa face appelle le meme `restore.ts` ; tant qu'elle n'a pas ce correctif, son build efface encore les cles du vrai stockage a son chargement (sans toucher aux instances du MM-RYTM, qui n'y lisent plus que la bibliotheque).
 - Cote Mika (lot 9) : la nouvelle commande (release mm-rytm), quitter Ableton, le rouvrir ; verifier la ligne Build ; essayer NEW et CLEAR.

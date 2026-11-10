@@ -114,6 +114,8 @@ public:
     std::atomic<int> fbMask{0};
     std::atomic<int> fbPat{-1};     // le pattern joue
     std::atomic<int> fbPatSeq{0};   // +1 a chaque changement de pattern fait par le moteur
+    // Les VU-metres (2026-11-10) : la crete de chaque piste depuis la derniere lecture (le thread du message la remet a 0)
+    std::array<std::atomic<float>, kTracks> fbPeak{};
 
     // Le thread du calcul garde ses sons ici (toujours vivants tant qu'un etat ou une voix les tient).
     void own(const std::shared_ptr<RenderedSound>& s) { soundsOwned_.push_back(s); }

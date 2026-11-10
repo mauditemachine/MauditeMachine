@@ -490,6 +490,8 @@ const headOf = (): HeadEntry | null => (transport.playing && transport.step >= 0
 /* ---------------- l'etat (les cles du site) ---------------- */
 
 import { STATE_PREFIX } from './restore';
+import { meters } from './meters';
+import { pluginMidi, type MidiInfo } from '../state/pluginMidi';
 
 /** Les cles mm.v4.* du localStorage : toute la persistance du site (motif, pistes, banques, presets...). */
 function snapshotLs(): Record<string, string> {
@@ -631,6 +633,25 @@ export const bridge = {
     fileImport.reveal = (family) => send('mm_reveal', { family: family ?? '' });
     fileImport.rescan = () => send('mm_rescan', {});
     backend()?.addEventListener('mm_user', (o: unknown) => setPluginSamples((o as { list?: unknown } | null)?.list));
+    // Le MIDI de la pattern, dans OPEN (2026-11-10) : DRAG MIDI part du glisser de la face, SAVE .MID, l'etat du clip
+    pluginMidi.drag = () => send('mm_drag_midi', {});
+    pluginMidi.save = () => send('mm_save_midi', {});
+    pluginMidi.request = () => send('mm_midi_info', {});
+    backend()?.addEventListener('mm_midi_info', (o: unknown) => {
+      const x = o as Partial<MidiInfo> | null;
+      if (!x) return;
+      pluginMidi.setInfo({ ok: !!x.ok, slot: String(x.slot ?? ''), bars: Number(x.bars) || 1, notes: Number(x.notes) || 0, capped: !!x.capped });
+    });
+    backend()?.addEventListener('mm_midi_status', (o: unknown) => {
+      const x = o as { ok?: unknown; msg?: unknown } | null;
+      if (x && typeof x.msg === 'string') pluginMidi.setStatus(!!x.ok, x.msg);
+    });
+    // Les niveaux du moteur (2026-11-10, VU-metres) : 30 fois par seconde tant que le son sonne
+    backend()?.addEventListener('mm_meter', (o: unknown) => {
+      const x = o as { t?: unknown; l?: unknown; r?: unknown } | null;
+      if (!x || !Array.isArray(x.t)) return;
+      meters.push(x.t as number[], Number(x.l) || 0, Number(x.r) || 0);
+    });
     backend()?.addEventListener('mm_imported', (o: unknown) => {
       const x = o as { track?: unknown; key?: unknown } | null;
       const i = typeof x?.track === 'number' ? x.track : -1;

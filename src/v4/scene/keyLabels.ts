@@ -38,7 +38,7 @@
 
 import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, type CanvasTexture } from 'three';
 import type { FpMark } from '../rytm/faceplate';
-import { APPEARANCE, FONT_DISPLAY, ICON_LINE, KEY_LABEL, KEY_MARK, MARK_ICON, SILK, markW, marksH, marksW, type KeyLabelSpec } from '../theme';
+import { APPEARANCE, FONT_DISPLAY, KEYS_LIGHT, PLUGIN, PLUGIN_AMBER, ICON_LINE, KEY_LABEL, KEY_MARK, MARK_ICON, SILK, markW, marksH, marksW, type KeyLabelSpec } from '../theme';
 import { drawTracked, makeCanvasTexture, trackedWidth } from './silk';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
@@ -159,7 +159,7 @@ export class KeyLabelAtlas {
   /** L'encre d'un nom : le noir sur une touche allumee, l'os de RUN/STOP, sinon celle de la serigraphie de l'apparence. */
   private ink(s: KeyLabelSpec, lit: boolean): string {
     // L'encre au repos (2026-10-22, audit SB-06) : pleine, plus celle de la serigraphie a 85 %
-    return lit ? DARK_INK : s.rest === 'bone' ? BONE_INK : KEY_LABEL.inkRest[APPEARANCE.current === 'light' ? 'light' : 'dark'];
+    return lit ? DARK_INK : s.rest === 'bone' ? BONE_INK : KEY_LABEL.inkRest[KEYS_LIGHT.on ? 'light' : 'dark'];
   }
 
   /** Les signes de RUN/STOP dans leur cellule (V.4.2, 2026-10-27) : le triangle PLAY, le carre STOP, des formes pleines, centres. */
@@ -372,7 +372,7 @@ export class KeyLabelAtlas {
     });
     const group = new Map<string, number>();
     this.specs.forEach((s, i) => group.set(s.group, Math.min(group.get(s.group) ?? 1, fit[i])));
-    const altOrange = APPEARANCE.current === 'light' ? '#D94E00' : '#FF781F';
+    const altOrange = APPEARANCE.current === 'light' ? '#D94E00' : PLUGIN ? PLUGIN_AMBER : '#FF781F';
     this.specs.forEach((s) => {
       for (const lit of [false, true]) {
         const c = this.cells.get(cellKey(s.id, lit));

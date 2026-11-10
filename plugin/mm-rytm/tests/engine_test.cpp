@@ -957,6 +957,24 @@ int main() {
         CHECK(mm::slotName(0) == "A01" && mm::slotName(17) == "B02" && mm::slotName(127) == "H16", "MIDI : le nom de l'emplacement (A01, B02, H16)");
     }
 
+    // VU-metres (2026-11-10) : un coup du SD en direct, avec les effets : la crete du SD monte, celle du BD reste a 0 ; la
+    // lecture la remet a 0
+    {
+        mm::Engine e;
+        e.prepare(SR);
+        auto ps = makeState(baseProgram());
+        e.publish(ps);
+        e.pushLive(live(*ps, 1));
+        for (int k = 0; k < 10; ++k) {
+            clear();
+            e.process(stop, L.data(), R.data(), 480);
+        }
+        const float sd = e.fbPeak[1].exchange(0.f);
+        const float bd = e.fbPeak[0].exchange(0.f);
+        CHECK(sd > 0.01f && bd == 0.f, "VU : le SD frappe, sa crete monte, le BD reste a zero");
+        CHECK(e.fbPeak[1].load() == 0.f, "VU : la lecture remet la crete a zero");
+    }
+
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }

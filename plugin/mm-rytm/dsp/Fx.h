@@ -74,6 +74,12 @@ public:
     float* trackR(int t) { return tr_[static_cast<size_t>(t)].data(); }
     void clearTracks(int n);
     void markActive(int t) { active_[static_cast<size_t>(t)] = true; }
+    // Les VU-metres (2026-11-10) : la crete de chaque tranche depuis la derniere lecture (apres TONE, DIST, CHORUS, a LEVEL)
+    float takePeak(int t) {
+        const float p = peak_[static_cast<size_t>(t)];
+        peak_[static_cast<size_t>(t)] = 0.f;
+        return p;
+    }
     void process(float* outL, float* outR, int n);
     void reset();
 
@@ -169,6 +175,7 @@ private:
     GlobalFx g_;
     std::array<std::vector<float>, kTracks> tl_, tr_;
     std::array<bool, kTracks> active_{};
+    std::array<float, kTracks> peak_{};
     std::array<SliceFx, kTracks> slice_{};
     std::array<bool, kTracks> kick_{};
     std::array<Tone, kTracks> sTone_;

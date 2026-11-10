@@ -510,6 +510,7 @@ void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMRYTM2");
     state.setProperty("master", master_->load(), nullptr);
     state.setProperty("xfade", xfade_->load(), nullptr);
+    if (uiW_.load() > 0) state.setProperty("uiW", uiW_.load(), nullptr);
     {
         std::lock_guard<std::mutex> lk(mx_);
         state.setProperty("program", programJson_, nullptr);
@@ -526,6 +527,7 @@ void MMRytmProcessor::setStateInformation(const void* data, int sizeInBytes) {
         prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
     if (auto* prm = apvts.getParameter("xfade"))
         prm->setValueNotifyingHost(juce::jlimit(0.f, 1.f, static_cast<float>(static_cast<double>(state.getProperty("xfade", 0.0)))));
+    uiW_.store(static_cast<int>(state.getProperty("uiW", 0)));
     {
         std::lock_guard<std::mutex> lk(mx_);
         lsJson_ = state.getProperty("ls", "").toString();
@@ -600,6 +602,23 @@ void MMRytmProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     engine_.setX(xfade_->load());
     engine_.process(tr, buffer.getWritePointer(0), buffer.getWritePointer(1), n, notes.data(), nn);
     buffer.applyGain(dbToGain(master_->load()));
+    // Les VU-metres : la crete de la sortie (apres MAIN VOLUME)
+    for (int ch = 0; ch < 2; ++ch) {
+        const float p = buffer.getMagnitude(ch, 0, n);
+        if (p > outPk_[ch].load(std::memory_order_relaxed)) outPk_[ch].store(p, std::memory_order_relaxed);
+    }
+}
+
+bool MMRytmProcessor::takeMeters(float* tracks16, float& l, float& r) {
+    const float g = dbToGain(master_->load());
+    bool any = false;
+    for (int t = 0; t < 16; ++t) {
+        tracks16[t] = engine_.fbPeak[static_cast<size_t>(t)].exchange(0.f, std::memory_order_relaxed) * g;
+        any = any || tracks16[t] > 1e-5f;
+    }
+    l = outPk_[0].exchange(0.f, std::memory_order_relaxed);
+    r = outPk_[1].exchange(0.f, std::memory_order_relaxed);
+    return any || l > 1e-5f || r > 1e-5f;
 }
 
 juce::AudioProcessorEditor* MMRytmProcessor::createEditor() { return new MMRytmEditor(*this); }

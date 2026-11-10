@@ -1200,7 +1200,14 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         }
         if (any) fx_.markActive(t);
     }
-    if (!dry_) fx_.process(L, R, n);
+    if (!dry_) {
+        fx_.process(L, R, n);
+        for (int t = 0; t < kTracks; ++t) {
+            const float p = fx_.takePeak(t);
+            auto& a = fbPeak[static_cast<size_t>(t)];
+            if (p > a.load(std::memory_order_relaxed)) a.store(p, std::memory_order_relaxed);
+        }
+    }
 
     if (ps) ps->users.fetch_sub(1, std::memory_order_acq_rel);
 }

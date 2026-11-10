@@ -77,6 +77,12 @@ public:
         int patSeq; // +1 a chaque changement de pattern fait par le moteur
     };
     Feedback feedback() const;
+    // Les VU-metres (2026-11-10) : les cretes depuis la derniere lecture (thread du message), 16 pistes et la sortie L, R,
+    // lineaires apres MAIN VOLUME ; remises a 0. false : rien n'a sonne.
+    bool takeMeters(float* tracks16, float& l, float& r);
+    // La taille de la fenetre (2026-11-10, fenetre agrandissable) : gardee dans le projet, 0 = celle de depart
+    int uiWidth() const { return uiW_.load(std::memory_order_relaxed); }
+    void setUiWidth(int w) { uiW_.store(w, std::memory_order_relaxed); }
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -98,6 +104,8 @@ private:
     double internalPpq_ = 0;
     std::atomic<float>* master_ = nullptr;
     std::atomic<float>* xfade_ = nullptr;
+    std::atomic<float> outPk_[2] = {{0.f}, {0.f}};
+    std::atomic<int> uiW_{0};
 
     // Le programme et l'etat de la face (thread du message ; le calcul lit pending sous mutex)
     mutable std::mutex mx_;

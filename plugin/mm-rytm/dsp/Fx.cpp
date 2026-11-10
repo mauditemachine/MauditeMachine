@@ -643,9 +643,11 @@ void FxChain::process(float* outL, float* outR, int n) {
         float* bL = kick_[ti] ? kickL_.data() : padsL_.data();
         float* bR = kick_[ti] ? kickR_.data() : padsR_.data();
         const double rs = s.reverb * REVERB_SEND * lv, ds = s.delay * DELAY_SEND * lv;
+        float pk = 0.f;
         for (int i = 0; i < n; ++i) {
             bL[i] += L[i];
             bR[i] += R[i];
+            pk = std::max(pk, std::max(std::fabs(L[i]), std::fabs(R[i])));
             if (rs > 0) {
                 revL_[static_cast<size_t>(i)] += static_cast<float>(L[i] * rs);
                 revR_[static_cast<size_t>(i)] += static_cast<float>(R[i] * rs);
@@ -655,6 +657,7 @@ void FxChain::process(float* outL, float* outR, int n) {
                 delR_[static_cast<size_t>(i)] += static_cast<float>(R[i] * ds);
             }
         }
+        peak_[ti] = std::max(peak_[ti], static_cast<float>(pk * lv));
     }
     // Le bus des pads : DIST, TONE, CHORUS globaux ; ses envois globaux ; le bus du kick : DIST et TONE seulement
     padsDist_.process(padsL_.data(), padsR_.data(), n);
