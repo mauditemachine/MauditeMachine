@@ -84,6 +84,37 @@ const AUTO_SLOW_REL = 1.2;
 const DB20 = 8.685889638065035;
 const DB_TO_LN = 0.11512925464970229;
 const TINY = 1e-15;
+/**
+ * COMP pousse (2026-11-10, Mika : "la compression ne fait pas grand chose de notable") : le potard COMP n'est plus
+ * seulement le MIX. Mesure hors ligne sur une boucle (kick, caisse claire, charleys, une queue douce), aux reglages de
+ * depart : a 100 % le facteur de crete MONTAIT de 4.7 dB (la frappe passait les 10 ms d'attaque avec le rattrapage, le
+ * corps baissait de 11 dB) et le niveau moyen baissait de 2 dB : plus de claquement, moins de corps, rien d'une
+ * compression qu'on entend. Desormais COMP pousse aussi le signal dans le compresseur, comme l'INPUT d'un 1176 :
+ * - le detecteur lit PUSH_DB x COMP de plus (le seuil regle reste celui de la page, il est atteint plus tot) ;
+ * - le rattrapage rend cette poussee et un peu plus (slope x poussee x PUSH_MAKE) : le corps garde son niveau, tout ce
+ *   qui est sous le seuil monte (les queues, la salle, les charleys) : le son se densifie et pompe ;
+ * - le son compresse est plafonne a 0 dBFS avant le melange (ceil1, plus bas) : aucune crete au-dessus de l'entree.
+ * Mesure sur la meme boucle (entree a 0 dBFS de crete) : a 50 % le niveau moyen monte de 1.7 dB et les queues de 8 dB ;
+ * a 100 %, +4.6 dB de niveau moyen, 4.6 dB de facteur de crete en moins, les queues +14 dB, la crete toujours a 0 dBFS.
+ * Les memes constantes dans audio/pattern.ts COMP_PUSH (les cartes) et plugin/mm-rytm/dsp/Fx.cpp (le plugin).
+ * - le MIX suit 1 - (1 - COMP)^2 : a mi-course deja les trois quarts du son compresse.
+ * COMP a 0 : le son tel quel au bit pres, comme avant.
+ */
+const PUSH_DB = 14;
+const PUSH_MAKE = 1.45;
+/**
+ * Le plafond du son compresse (2026-11-10) : la frappe qui passe l'attaque (10 ms au depart) sortait avec tout le
+ * rattrapage, jusqu'a +15 dB au-dessus de son niveau (mesure : des cretes a +9 dBFS a 100 %, tout pour le limiteur de
+ * sortie). Le son compresse est arrondi avant le melange : tel quel sous CEIL_KNEE, puis il rejoint 1 (0 dBFS, ou crete
+ * l'entree) en douceur ; la frappe est rabotee, le corps et les queues gardent leur gain. Le sec du melange n'y passe pas.
+ */
+const CEIL_KNEE = 0.6;
+function ceil1(v) {
+  const a = v < 0 ? -v : v;
+  if (a <= CEIL_KNEE) return v;
+  const y = CEIL_KNEE + (1 - CEIL_KNEE) * Math.tanh((a - CEIL_KNEE) / (1 - CEIL_KNEE));
+  return v < 0 ? -y : y;
+}
 
 /** Une valeur finie bornee, sinon d. */
 function fin(v, lo, hi, d) {
@@ -285,8 +316,9 @@ class MMGlue extends AudioWorkletProcessor {
         this.pk = e > this.pk ? e : this.pk * this.pkRel;
         // Leurs dB meles (PEAK_W de la crete) : le niveau lu, en dB
         const lv = DB20 * (PEAK_W * Math.log(this.pk + 1e-15) + (0.5 - 0.5 * PEAK_W) * Math.log(2 * this.ms + 1e-30));
-        // La courbe : la reduction voulue (dB, >= 0), genou doux de largeur kneeS
-        const o = lv - this.thrS;
+        // La courbe : la reduction voulue (dB, >= 0), genou doux de largeur kneeS ; COMP pousse le niveau lu (PUSH_DB)
+        const push = PUSH_DB * this.mixC;
+        const o = lv + push - this.thrS;
         const w = this.kneeS;
         let t = 0;
         if (w > 0.01 && 2 * o > -w && 2 * o < w) {
@@ -307,11 +339,12 @@ class MMGlue extends AudioWorkletProcessor {
           g = this.gr;
         }
         if (g > blockMax) blockMax = g;
-        // Le gain (la reduction et le rattrapage), mele au sec par le MIX
-        const lin = Math.exp((this.makeS - g) * DB_TO_LN);
-        const gm = 1 + (lin - 1) * this.mixC;
-        l *= gm;
-        r *= gm;
+        // Le gain (la reduction, le rattrapage et la poussee rendue), mele au sec par le MIX (1 - (1 - COMP)^2)
+        const lin = Math.exp((this.makeS + this.slopeS * push * PUSH_MAKE - g) * DB_TO_LN);
+        const dryC = 1 - this.mixC;
+        const mix = 1 - dryC * dryC;
+        l += (ceil1(l * lin) - l) * mix;
+        r += (ceil1(r * lin) - r) * mix;
       } else if (this.gr !== 0 || this.ms !== 0) this.rest();
       oL[i] = Number.isFinite(l) ? l : 0;
       if (oR) oR[i] = Number.isFinite(r) ? r : 0;

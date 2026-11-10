@@ -203,6 +203,12 @@ void FxChain::Bq::highpass(double f, double sr) {
     b0 = (1 + cw) / 2 / a0; b1 = -(1 + cw) / a0; b2 = b0; a1 = -2 * cw / a0; a2 = (1 - alpha) / a0;
 }
 
+void FxChain::Bq::peaking(double f, double q, double gainDb, double sr) {
+    f = clampd(f, 20, sr / 2 * 0.999);
+    const double A = std::pow(10.0, gainDb / 40), w = 2 * PI * f / sr, cw = std::cos(w), alpha = std::sin(w) / (2 * q), a0 = 1 + alpha / A;
+    b0 = (1 + alpha * A) / a0; b1 = -2 * cw / a0; b2 = (1 - alpha * A) / a0; a1 = -2 * cw / a0; a2 = (1 - alpha / A) / a0;
+}
+
 // TONE (tone.ts) : a 0, rien ; sinon un passe-haut puis un passe-bas de Butterworth
 void FxChain::Tone::set(double tone, double sr) {
     double t = clampd(tone, -1, 1);
@@ -225,13 +231,29 @@ void FxChain::Tone::process(float* L, float* R, int n) {
     }
 }
 
-// DIST (fx.ts) : dry k (1 - m), wet k m, la courbe tanh(8 u) bornee, le passe-bas DIST TONE (ouvert a 16 kHz)
+// DIST (fx.ts, la loi du 2026-11-10, "du gros hardcore sale") : le gain 10^(40 d / 20), le melange 1 - (1 - d)^2, dry
+// k (1 - m), wet k m (k : le TRIM du bus), la courbe distShape bornee a +/-4, le mordant (une cloche a 2.5 kHz, 8 d^1.5
+// dB), puis le passe-bas DIST TONE (ouvert a 16 kHz)
+static inline double distShape(double x) {
+    if (x >= 0) {
+        if (x <= 1) return x - x * x * x / 3;
+        if (x < 2) return 0.5 + (2.0 / 3 - 0.5) * 0.5 * (1 + std::cos(PI * (x - 1)));
+        return 0.5;
+    }
+    return -0.5 * std::tanh(-x / 0.5);
+}
 void FxChain::Dist::set(double drive, double xtoneHz, double sr) {
+    const double was = d;
     d = clampd(drive, 0, 1);
-    const double m = 0.85 * d, k = std::pow(10.0, -9 * d / 20);
+    const double m = 1 - (1 - d) * (1 - d), k = std::pow(10.0, -trimDb * d / 20);
     dry = k * (1 - m);
     wet = k * m;
-    pre = (1 + 12 * d) / 8;
+    pre = std::pow(10.0, 40 * d / 20);
+    const double bdb = 8 * std::pow(d, 1.5);
+    if (bdb != biteDb || d != was) {
+        biteDb = bdb;
+        bite.peaking(2500, 0.9, biteDb, sr);
+    }
     lpOn = xtoneHz < 16000;
     if (lpOn && xtoneHz != x) lp.lowpass(clampd(xtoneHz, 20, sr / 2), sr);
     x = xtoneHz;
@@ -239,8 +261,8 @@ void FxChain::Dist::set(double drive, double xtoneHz, double sr) {
 void FxChain::Dist::process(float* L, float* R, int n) {
     if (d <= 0) return;
     for (int i = 0; i < n; ++i) {
-        float sl = static_cast<float>(std::tanh(8 * clampd(pre * L[i], -1, 1)));
-        float sr = static_cast<float>(std::tanh(8 * clampd(pre * R[i], -1, 1)));
+        float sl = bite.run(0, static_cast<float>(distShape(clampd(pre * L[i], -4, 4))));
+        float sr = bite.run(1, static_cast<float>(distShape(clampd(pre * R[i], -4, 4))));
         if (lpOn) {
             sl = lp.run(0, sl);
             sr = lp.run(1, sr);
@@ -431,7 +453,17 @@ void FxChain::Convolver::process(const float* inL, const float* inR, float* outL
     }
 }
 
+// Le plafond du son compresse (glue.worklet.js ceil1, 2026-11-10) : tel quel sous 0.6, puis il rejoint 1
+static inline double glueCeil(double v) {
+    const double a = std::fabs(v);
+    if (a <= 0.6) return v;
+    const double y = 0.6 + 0.4 * std::tanh((a - 0.6) / 0.4);
+    return v < 0 ? -y : y;
+}
+
 // GLUE (glue.worklet.js) : BIT (repli d'echantillonnage et de bits) puis COMP (detecteur crete et RMS, genou, AUTO)
+// COMP pousse (2026-11-10) : le niveau lu monte de 14 dB x COMP, le rattrapage rend slope x poussee x 1.45, le son compresse
+// est plafonne a 0 dBFS, le MIX suit 1 - (1 - COMP)^2
 void FxChain::Glue::process(float* L, float* R, int n, const GlobalFx& g, double sr) {
     const double bits = clampd(g.bits, 0, 1), comp = clampd(g.comp, 0, 1);
     if (bits <= 0 && comp <= 0 && mixB < 1e-4 && mixC < 1e-4) {
@@ -497,7 +529,8 @@ void FxChain::Glue::process(float* L, float* R, int n, const GlobalFx& g, double
             ms += (e * e - ms) * kr;
             pk = e > pk ? e : pk * pkRel;
             const double lv = 8.685889638 * (0.75 * std::log(pk + 1e-15) + 0.125 * std::log(2 * ms + 1e-30));
-            const double o = lv - thrS;
+            const double push = 14 * mixC;
+            const double o = lv + push - thrS;
             const double W = kneeS;
             double t;
             if (W > 0.01 && std::fabs(2 * o) < W) t = slopeS * (o + W / 2) * (o + W / 2) / (2 * W);
@@ -510,9 +543,10 @@ void FxChain::Glue::process(float* L, float* R, int n, const GlobalFx& g, double
                 gr = t > gr ? atk * gr + (1 - atk) * t : rel * gr + (1 - rel) * t;
                 slow = gr;
             }
-            const double gm = 1 + (std::exp((makeS - gr) * 0.115129255) - 1) * mixC;
-            xs[0] *= gm;
-            xs[1] *= gm;
+            const double lin = std::exp((makeS + slopeS * push * 1.45 - gr) * 0.115129255);
+            const double mix = 1 - (1 - mixC) * (1 - mixC);
+            xs[0] += (glueCeil(xs[0] * lin) - xs[0]) * mix;
+            xs[1] += (glueCeil(xs[1] * lin) - xs[1]) * mix;
         } else if (gr != 0 || ms != 0) {
             gr = slow = ms = pk = 0;
             for (int c = 0; c < 2; ++c) hx1[c] = hx2[c] = hy1[c] = hy2[c] = 0;
@@ -574,13 +608,13 @@ void FxChain::prepare(double sr) {
         tr_[static_cast<size_t>(t)].assign(kMaxBlock, 0.f);
         sChorus_[static_cast<size_t>(t)].prepare(sr);
         sTone_[static_cast<size_t>(t)] = Tone{};
-        sDist_[static_cast<size_t>(t)] = Dist{};
+        sDist_[static_cast<size_t>(t)] = Dist{5};
     }
     padsChorus_.prepare(sr);
     padsTone_ = Tone{};
     kickTone_ = Tone{};
-    padsDist_ = Dist{};
-    kickDist_ = Dist{};
+    padsDist_ = Dist{8};
+    kickDist_ = Dist{2};
     delay_.prepare(sr);
     reverb_.prepare(sr);
     glue_ = Glue{};

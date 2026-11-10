@@ -258,6 +258,20 @@ export function compAutoMakeup(thrDb: number, ratio: number): number {
   const over = MAKEUP_SOFT_DB * (x > 30 ? x : Math.log1p(Math.exp(x)));
   return Math.min(CMAKE_MAX_DB, slope * over);
 }
+/**
+ * COMP pousse (2026-11-10, Mika : "la compression ne fait pas grand chose de notable") : les constantes du worklet
+ * (audio/glue.worklet.js PUSH_DB, PUSH_MAKE, CEIL_KNEE : il ne peut rien importer, les memes valeurs ici pour les cartes).
+ * COMP pousse le niveau lu de db x COMP, le rattrapage rend slope x poussee x make, le son compresse est plafonne a 0 dBFS
+ * (arrondi a partir de ceilKnee) et le MIX suit compMix.
+ */
+export const COMP_PUSH = { db: 14, make: 1.45, ceilKnee: 0.6 } as const;
+/** Le MIX du COMP pour un reglage c (0 a 1) : 1 - (1 - c)^2. */
+export const compMix = (c: number): number => {
+  const t = Math.min(1, Math.max(0, c));
+  return 1 - (1 - t) * (1 - t);
+};
+/** Le plafond du son compresse (lineaire, >= 0) : tel quel sous ceilKnee, puis il rejoint 1. */
+export const compCeil = (a: number): number => (a <= COMP_PUSH.ceilKnee ? a : COMP_PUSH.ceilKnee + (1 - COMP_PUSH.ceilKnee) * Math.tanh((a - COMP_PUSH.ceilKnee) / (1 - COMP_PUSH.ceilKnee)));
 /** Le rattrapage (dB) de ces reglages : AUTO (de la courbe) ou celui de la main. */
 export function compMakeup(f: Readonly<Pick<Fx, 'cthr' | 'cratio' | 'cmake'>>): number {
   return compMakeAuto(f.cmake) ? compAutoMakeup(fxLaw.cthr(f.cthr), fxLaw.cratio(f.cratio)) : fxLaw.cmake(f.cmake);

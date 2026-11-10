@@ -26,7 +26,8 @@
  */
 
 import type { BassDiagram } from '../bass/diagrams';
-import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, compMakeAuto, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, type Fx } from '../audio/pattern';
+import { BPM, COMP_PUSH, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, compCeil, compMakeAuto, compMakeup, compMix, compRelAuto, delayDiv, delayFb, fxLaw, type Fx } from '../audio/pattern';
+import { distLaw, distShape } from '../audio/fx';
 import { SAMPLE_LEN_FADE, sampleLenPart } from '../audio/sampledsp';
 import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
@@ -207,8 +208,6 @@ const stepS = (bpm: number | undefined): number => 60 / clamp(bpm ?? BPM.initial
 
 /* ---------------- les lois recopiees (ces modules ne les exportent pas) ---------------- */
 
-/** audio/fx.ts DRIVE : la copie saturee tanh((1 + 12 d) x), melangee a 0.85 d. */
-const DRIVE = { gain: 12, mix: 0.85 } as const;
 /**
  * audio/sends.ts DELAY : envoi 0.9 a fond, entre 180 Hz et 4.5 kHz ; depuis le
  * 2026-10-09 son temps (DLY TIME, une division calee sur le tempo) et son
@@ -893,17 +892,19 @@ const drawPan: Draw = (_c, v) => {
   return p.value(n === 0 ? 'CENTER' : `${n}% ${pan < 0 ? 'LEFT' : 'RIGHT'}`).done();
 };
 
-/** DIST (de la voix ou du bus) : une sinusoide, sa copie saturee tanh((1 + 12 d) x) melangee a 0.85 d (fx.ts). */
+/**
+ * DIST (de la voix ou du bus) : une sinusoide, sa copie ecretee distShape(D x) melangee a m (fx.ts distLaw, 2026-11-10 :
+ * jusqu'a 40 dB de gain, l'ecretage dur et sa corne) ; la copie est dessinee a la hauteur du sec (son plateau vaut 0.5).
+ */
 const drawDist: Draw = (_c, v) => {
   const p = new Pic();
   const d = clamp(v, 0, 1);
-  const D = 1 + DRIVE.gain * d;
-  const m = DRIVE.mix * d;
+  const { gain: D, mix: m } = distLaw(d);
   const yc = 60;
   p.p(seg(X0, yc, X1, yc), 'grid');
   p.p(poly(shaped((x) => x, yc, 30)), 'ghost');
-  p.p(poly(shaped((x) => (1 - m) * x + m * Math.tanh(D * x), yc, 30)), 'hot');
-  p.label(`DRIVE X${D.toFixed(1)}`, X0, TOP);
+  p.p(poly(shaped((x) => (1 - m) * x + m * 1.5 * distShape(D * x), yc, 30)), 'hot');
+  p.label(`DRIVE +${Math.round(20 * Math.log10(D))} DB`, X0, TOP);
   // Le sec baisse d'autant que le sature monte (fx.ts : sec 1 - m, sature m)
   p.label(`WET ${Math.round(m * 100)}%  DRY ${Math.round((1 - m) * 100)}%`, X0, BOT);
   return p.value(`${Math.round(d * 100)}%`).done();
@@ -1058,7 +1059,14 @@ const compCurvePic =
     const lo = -48;
     const tx = (db: number): number => X0 + ((db - lo) / -lo) * (X1 - X0);
     const ty = (db: number): number => Y1 - ((Math.max(lo, Math.min(0, db)) - lo) / -lo) * (Y1 - Y0);
-    const out = (db: number): number => db + 20 * Math.log10(1 - mixv + mixv * Math.pow(10, (make - compGrDb(db, thr, slope, knee)) / 20));
+    // 2026-11-10 (COMP pousse, pattern.ts COMP_PUSH) : le niveau lu monte de la poussee, le rattrapage la rend, le son
+    // compresse est plafonne a 0 dBFS, le MIX suit compMix
+    const push = COMP_PUSH.db * mixv;
+    const mixw = compMix(mixv);
+    const out = (db: number): number => {
+      const wet = compCeil(Math.pow(10, (db + make + slope * push * COMP_PUSH.make - compGrDb(db + push, thr, slope, knee)) / 20));
+      return 20 * Math.log10((1 - mixw) * Math.pow(10, db / 20) + mixw * wet);
+    };
     p.p(seg(X0, Y1, X1, Y1), 'grid');
     p.p(seg(tx(lo), ty(lo), tx(0), ty(0)), 'ghost');
     p.p(seg(tx(thr), Y0, tx(thr), Y1), hot === 'cthr' ? 'dash' : 'grid');
@@ -1073,7 +1081,7 @@ const compCurvePic =
     const mk = compMakeAuto(k.cmake) ? `MAKEUP AUTO ${signedDb(make)}` : `MAKEUP ${signedDb(make)}`;
     if (hot === 'comp') {
       p.label(k.comp > 0 ? `THRESH ${Math.round(thr)} DB  RATIO ${ratioWord(ratio)}  ${mk}` : 'COMP AT 0: THE SOUND PASSES AS IS', X0, TOP);
-      p.label(k.comp > 0 ? `MIX ${Math.round(k.comp * 100)} %: COMPRESSED UNDER THE DRY` : 'IN, LOW TO LOUD', X0, BOT);
+      p.label(k.comp > 0 ? `PUSH +${Math.round(push)} DB  MIX ${Math.round(mixw * 100)} %` : 'IN, LOW TO LOUD', X0, BOT);
       return p.value(k.comp > 0 ? `${Math.round(k.comp * 100)}%` : 'OFF').done();
     }
     p.label(`THRESH ${Math.round(thr)} DB  RATIO ${ratioWord(ratio)}  KNEE ${Math.round(knee)} DB`, X0, TOP);

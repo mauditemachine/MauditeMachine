@@ -83,6 +83,8 @@ private:
         double z1[2] = {0, 0}, z2[2] = {0, 0};
         void lowpass(double f, double sr);
         void highpass(double f, double sr);
+        // La cloche du mordant de la DIST (fx.ts BITE, le peaking du BiquadFilter du navigateur)
+        void peaking(double f, double q, double gainDb, double sr);
         float run(int c, float x) {
             const double y = b0 * x + z1[c];
             z1[c] = b1 * x - a1 * y + z2[c];
@@ -97,11 +99,14 @@ private:
         void set(double tone, double sr);
         void process(float* L, float* R, int n);
     };
+    // DIST (fx.ts, la loi du 2026-11-10) : trimDb, le TRIM de ce bus (fx.ts DIST_TRIM : kick 2, pads 8, voix 5)
     struct Dist {
+        double trimDb = 2;
         double d = 0, x = 16000;
-        double dry = 1, wet = 0, pre = 0.125;
+        double dry = 1, wet = 0, pre = 1, biteDb = 0;
         bool lpOn = false;
-        Bq lp;
+        Bq lp, bite;
+        explicit Dist(double trim = 2) : trimDb(trim) {}
         void set(double drive, double xtoneHz, double sr);
         void process(float* L, float* R, int n);
     };
@@ -173,7 +178,7 @@ private:
     std::array<Chorus, kTracks> sChorus_;
     std::array<int, kTracks> tail_{}; // blocs de queue a calculer encore (chorus)
     Tone padsTone_, kickTone_;
-    Dist padsDist_, kickDist_;
+    Dist padsDist_{8}, kickDist_{2};
     Chorus padsChorus_;
     DelayUnit delay_;
     Convolver reverb_;

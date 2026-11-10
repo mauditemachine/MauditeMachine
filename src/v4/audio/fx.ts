@@ -27,6 +27,17 @@
  * avec DIST (le rapport entre eux ne change pas : a 100 %, une voix
  * sortait 8 a 9 dB plus fort) ; la DIST d'une voix (buildDrive) a le meme
  * passe-bas que celle du bus, regle par le meme DIST TONE.
+ *
+ * 2026-11-10 (Mika : "la disto doit faire comme si c'etait du gros hardcore sale") : la loi refaite, DRIVE plus bas. Le
+ * gain monte en dB (jusqu'a 40 dB, x100, contre 22 dB : la queue d'un kick, 40 dB sous sa crete, ecrete encore, elle
+ * tient comme une onde carree, le kick du gabber), la courbe n'est plus un tanh propre (distShape : un ecretage dur, une
+ * corne sur le front qui monte, un cote arrondi et l'autre non, des harmoniques paires et impaires), et le mouille prend
+ * toute la place en haut de course (1 - (1 - d)^2, contre 0.85 d). Apres l'ecretage, le MORDANT (BITE) : une cloche a
+ * 2.5 kHz qui monte avec DIST (jusqu'a +8 dB), le medium aigu qui racle d'un kick de hardcore ; DIST TONE, apres, la
+ * retient si on veut. Le TRIM par bus (DIST_TRIM) : 2 dB sur la voie du kick, 8 sur le bus des autres voix (un son
+ * bref et aigu gagne bien plus de niveau a etre ecrete qu'un kick), 5 pour la DIST d'une voix seule.
+ *
+ *   bus -> pre (D / K) -> WaveShaper -> mordant -> passe-bas -> mouille (m) -> TONE
  */
 
 import { glide, pointAt } from './glide';
@@ -34,22 +45,65 @@ import { Insert, UNLINK_MS, type InsertInfo } from './insert';
 
 export { GLIDE_S, glide } from './glide';
 
-/** DIST : D = 1 + gain x d, melange m = mix x d, courbe tanh(k u) sur `points` valeurs (nombre impair : 0 exact au centre). */
-const DRIVE = { gain: 12, mix: 0.85, k: 8, points: 2049 } as const;
 /**
- * TRIM de la DIST (2026-10-21, audit F5) : sec et mouille x 10^(-9 x d / 20), exactement 1 a DIST 0 (le rapport entre
- * eux, le caractere, ne change pas). Mesure (un coup, RMS 40-500 ms, sans limiteur) : a 100 %, le kick et la caisse
- * claire restent a 0.3 dB de leur niveau sans DIST (+8 a +9 dB avant) ; un son plus doux, que la saturation tient
- * davantage (toms, charleys, clap, cymbale), sort 3 a 8 dB plus fort (+11 a +17 dB avant).
+ * DIST (2026-11-10) : le gain D = 10^(maxDb x d / 20), le melange m = 1 - (1 - d)^mixPow, la courbe distShape(k u) sur
+ * `points` valeurs (nombre impair : 0 exact au centre) ; k : l'etendue de la courbe (au-dela, le WaveShaper tient sa
+ * derniere valeur, le plateau). top et plateau : la crete de la corne et le niveau tenu de l'ecretage.
  */
-const DIST_TRIM_DB = 9;
-const distTrim = (d: number): number => (d > 0 ? Math.pow(10, (-DIST_TRIM_DB * d) / 20) : 1);
-/** Le sec, l'entree de la saturation et le mouille d'un reglage d (0 a 1). */
-const driveMix = (d: number): { dry: number; pre: number; wet: number } => {
-  const m = DRIVE.mix * d;
-  const k = distTrim(d);
-  return { dry: k * (1 - m), pre: (1 + DRIVE.gain * d) / DRIVE.k, wet: k * m };
+const DRIVE = { maxDb: 40, mixPow: 2, k: 4, points: 8193, top: 2 / 3, plateau: 0.5 } as const;
+/**
+ * La courbe de la DIST (2026-11-10), gain 1 autour de 0 des deux cotes. Cote positif : x - x^3 / 3 jusqu'a 1 (la crete,
+ * 2 / 3), puis elle REDESCEND vers le plateau (0.5 a partir de 2) : un son pousse loin garde une corne a chaque front
+ * montant, le grain sale. Cote negatif : un tanh qui rejoint -0.5 sans corne. Les deux plateaux egaux : pas de continu
+ * dans un son ecrete a fond ; les deux cotes differents : des harmoniques paires en plus des impaires.
+ */
+export function distShape(x: number): number {
+  if (x >= 0) {
+    if (x <= 1) return x - (x * x * x) / 3;
+    if (x < 2) return DRIVE.plateau + (DRIVE.top - DRIVE.plateau) * 0.5 * (1 + Math.cos(Math.PI * (x - 1)));
+    return DRIVE.plateau;
+  }
+  return -DRIVE.plateau * Math.tanh(-x / DRIVE.plateau);
+}
+/** La loi de la DIST pour un reglage d (0 a 1) : le gain d'entree (x), le melange (0 a 1) ; l'ecran et les cartes la lisent. */
+export const distLaw = (d: number): { gain: number; mix: number } => {
+  const t = Math.min(1, Math.max(0, d));
+  return { gain: Math.pow(10, (DRIVE.maxDb * t) / 20), mix: 1 - Math.pow(1 - t, DRIVE.mixPow) };
 };
+/**
+ * TRIM de la DIST (2026-10-21, audit F5) : sec et mouille x 10^(-TRIM x d / 20), exactement 1 a DIST 0 (le rapport entre
+ * eux, le caractere, ne change pas). 2026-11-10 (la loi du gros hardcore) : un TRIM par bus (9 dB partout avant), cale
+ * sur le vrai moteur (renderOffline, un coup seul du kit de depart, sans limiteur, fenetres de 50 a 350 ms) : a 100 %,
+ * avec 6 et 10 dB le corps du kick sortait 2.2 dB SOUS son niveau sec et celui de la caisse claire 3 dB sous le sien.
+ * Avec 2 dB (kick) et 8 dB (pads) : le corps du kick 2 dB au-dessus du sec et sa queue 8 dB au-dessus, la caisse claire
+ * a son niveau avec une queue 14 dB plus haute, les charleys et le clap 6 a 8 dB plus fort. C'est voulu : la DIST a fond
+ * doit s'entendre, le kick devant.
+ */
+export const DIST_TRIM = { kick: 2, pads: 8, voice: 5 } as const;
+const distTrim = (d: number, trimDb: number): number => (d > 0 ? Math.pow(10, (-trimDb * d) / 20) : 1);
+/**
+ * Le MORDANT (2026-11-10) : une cloche (peaking) apres l'ecretage, a hz, de largeur q, son gain db x d^pow (rien en bas
+ * de course, +8 dB a fond). Mesure sur un kick a 100 % : la part au-dessus de 2 kHz passe de -20.8 dB (l'ancienne loi)
+ * a -13.9 dB, au-dessus de 5 kHz de -30 a -20 dB.
+ */
+const BITE = { hz: 2500, q: 0.9, db: 8, pow: 1.5 } as const;
+/** Le gain du mordant (dB) pour un reglage d (0 a 1) ; le plugin a la meme loi (plugin/mm-rytm/dsp/Fx.cpp). */
+export const distBiteDb = (d: number): number => BITE.db * Math.pow(Math.min(1, Math.max(0, d)), BITE.pow);
+/** Le sec, l'entree de la saturation, le mouille et le mordant (dB) d'un reglage d (0 a 1). */
+const driveMix = (d: number, trimDb: number): { dry: number; pre: number; wet: number; bite: number } => {
+  const { gain, mix: m } = distLaw(d);
+  const k = distTrim(d, trimDb);
+  return { dry: k * (1 - m), pre: gain / DRIVE.k, wet: k * m, bite: distBiteDb(d) };
+};
+/** La cloche du mordant, a plat (gain 0 : elle laisse tout passer). */
+function biteFilter(c: BaseAudioContext): BiquadFilterNode {
+  const f = c.createBiquadFilter();
+  f.type = 'peaking';
+  f.frequency.value = BITE.hz;
+  f.Q.value = BITE.q;
+  f.gain.value = 0;
+  return f;
+}
 
 /** REVERB : longueur de la reponse (s), pre-delai, entree en fondu, passe-bas du bruit (Hz) du debut a la fin de la queue, graines. */
 const REVERB = { seconds: 2.4, preDelay: 0.02, fadeIn: 0.003, hiStart: 9000, hiEnd: 3000, seeds: [808, 909] } as const;
@@ -80,11 +134,11 @@ function prng(seed: number): () => number {
   };
 }
 
-/** tanh(k u) pour u de -1 a 1 : l'entree du WaveShaper est pre-divisee par k. */
+/** distShape(k u) pour u de -1 a 1 : l'entree du WaveShaper est pre-divisee par k (au-dela de 1, il tient le plateau). */
 export function driveCurve(): Float32Array {
   const n = DRIVE.points;
   const c = new Float32Array(n);
-  for (let i = 0; i < n; i += 1) c[i] = Math.tanh(DRIVE.k * ((i / (n - 1)) * 2 - 1));
+  for (let i = 0; i < n; i += 1) c[i] = distShape(DRIVE.k * ((i / (n - 1)) * 2 - 1));
   return c;
 }
 
@@ -167,7 +221,7 @@ export interface FxPorts {
 }
 
 /** Branche DIST (parallele) sur le graphe de drums.ts, a sa valeur de depart (0 a 1), et son TONE (Hz, ouvert par defaut). */
-export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0: number = DIST_OPEN_HZ): FxChain {
+export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0: number = DIST_OPEN_HZ, trimDb: number = DIST_TRIM.kick): FxChain {
   const dry = c.createGain();
   dry.gain.value = 1;
   const pre = c.createGain();
@@ -192,10 +246,13 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
   lp.type = 'lowpass';
   lp.Q.value = 20 * Math.log10(Math.SQRT1_2);
   lp.frequency.value = toneHz;
+  // Le mordant (2026-11-10) : entre l'ecretage et DIST TONE
+  const bite = biteFilter(c);
   io.bus.connect(dry);
   dry.connect(io.tone);
   pre.connect(shaper);
-  shaper.connect(lp);
+  shaper.connect(bite);
+  bite.connect(lp);
   lp.connect(wet);
   wet.connect(io.tone);
 
@@ -216,10 +273,11 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0:
         driveOn = true;
       }
     }
-    const m = driveMix(d);
+    const m = driveMix(d, trimDb);
     glide(dry.gain, m.dry, c);
     glide(pre.gain, m.pre, c);
     glide(wet.gain, m.wet, c);
+    glide(bite.gain, m.bite, c);
     if (d > 0 || !driveOn || held) return;
     unlinkLater();
   };
@@ -284,7 +342,7 @@ export interface DriveStage {
   insert(): InsertInfo & { held: boolean };
 }
 
-export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = DIST_OPEN_HZ): DriveStage {
+export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = DIST_OPEN_HZ, trimDb: number = DIST_TRIM.voice): DriveStage {
   const input = c.createGain();
   input.gain.value = 1;
   const pre = c.createGain();
@@ -293,13 +351,16 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = 
   shaper.curve = driveCurve();
   shaper.oversample = 'none';
   pre.connect(shaper);
+  // Le mordant (2026-11-10), comme buildFx
+  const bite = biteFilter(c);
   // DIST TONE (2026-10-21) : le passe-bas apres la saturation, comme buildFx ; ouvert (Nyquist) il vaut exactement 1
   let toneHz = distToneHz(c, tone0);
   const lp = c.createBiquadFilter();
   lp.type = 'lowpass';
   lp.Q.value = 20 * Math.log10(Math.SQRT1_2);
   lp.frequency.value = toneHz;
-  shaper.connect(lp);
+  shaper.connect(bite);
+  bite.connect(lp);
   const insert = new Insert(c, input, out);
   insert.setBranch(pre, lp);
   let drive = 0;
@@ -320,8 +381,9 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = 
       drive = t;
       if (t === 0) insert.release();
       else {
-        const m = driveMix(t);
+        const m = driveMix(t, trimDb);
         glide(pre.gain, m.pre, c);
+        glide(bite.gain, m.bite, c);
         toneNow();
         insert.engage(m.dry, m.wet);
       }
@@ -333,20 +395,30 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode, tone0: number = 
       if (on) toneNow();
       insert.hold(on);
       // Lache (le dernier verrou DIST retire, revue du 2026-10-09) : l'entree revient a celle de la voix, les points s'effacent
-      if (!on) glide(pre.gain, driveMix(drive).pre, c);
+      if (!on) {
+        const m = driveMix(drive, trimDb);
+        glide(pre.gain, m.pre, c);
+        glide(bite.gain, m.bite, c);
+      }
     },
     lockAt(when: number, d: number, prev?: number) {
       const t = Number.isFinite(d) ? Math.min(1, Math.max(0, d)) : 0;
-      const m = driveMix(t);
-      const p = prev === undefined || !Number.isFinite(prev) ? null : driveMix(Math.min(1, Math.max(0, prev)));
+      const m = driveMix(t, trimDb);
+      const p = prev === undefined || !Number.isFinite(prev) ? null : driveMix(Math.min(1, Math.max(0, prev)), trimDb);
       if (!insert.at(when, m.dry, m.wet, p ?? undefined)) return;
       const at = Math.max(when, c.currentTime);
-      if (p) pointAt(pre.gain, p.pre, m.pre, at, c);
-      else pre.gain.setValueAtTime(m.pre, at);
+      if (p) {
+        pointAt(pre.gain, p.pre, m.pre, at, c);
+        pointAt(bite.gain, p.bite, m.bite, at, c);
+      } else {
+        pre.gain.setValueAtTime(m.pre, at);
+        bite.gain.setValueAtTime(m.bite, at);
+      }
     },
     lockClear(t: number) {
       insert.clearFrom(t);
       pre.gain.cancelScheduledValues(Math.max(t, c.currentTime));
+      bite.gain.cancelScheduledValues(Math.max(t, c.currentTime));
     },
     setTone(hz: number) {
       const v = distToneHz(c, hz);
