@@ -458,9 +458,13 @@ const useMidi = (): ReturnType<typeof pluginMidi.get> => useSyncExternalStore(pl
 const DragMidi: React.FC<{ big?: boolean }> = ({ big }) => {
   const { info } = useMidi();
   const press = useRef<{ id: number; x: number; y: number; sent: boolean } | null>(null);
+  const off = useRef<(() => void) | null>(null);
+  useEffect(() => () => off.current?.(), []);
   const can = !!info && info.ok && info.notes > 0;
   const onDown = (e: React.PointerEvent<HTMLButtonElement>): void => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // Le geste d'avant (le glisser du Mac avale son relacher) : ses ecoutes partent
+    off.current?.();
     press.current = { id: e.pointerId, x: e.clientX, y: e.clientY, sent: false };
     const move = (ev: PointerEvent): void => {
       const p = press.current;
@@ -470,15 +474,20 @@ const DragMidi: React.FC<{ big?: boolean }> = ({ big }) => {
       p.sent = true;
       pluginMidi.drag?.();
     };
+    const clean = (): void => {
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup', end, true);
+      window.removeEventListener('pointercancel', end, true);
+      off.current = null;
+    };
     const end = (ev: PointerEvent): void => {
       const p = press.current;
       if (!p || ev.pointerId !== p.id) return;
       press.current = null;
-      window.removeEventListener('pointermove', move, true);
-      window.removeEventListener('pointerup', end, true);
-      window.removeEventListener('pointercancel', end, true);
+      clean();
       if (!p.sent && ev.type === 'pointerup') pluginMidi.save?.();
     };
+    off.current = clean;
     window.addEventListener('pointermove', move, true);
     window.addEventListener('pointerup', end, true);
     window.addEventListener('pointercancel', end, true);

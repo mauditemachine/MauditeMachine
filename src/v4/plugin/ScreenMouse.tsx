@@ -24,6 +24,10 @@ import { UH, UW } from '../scene/screen/consts';
 import { lastList } from '../scene/screen/menus/frame';
 import { menuInput, openMenu, openMenuId, subscribeMenu } from '../scene/screen/menus/open';
 import type { ScreenMenuInputKind, ScreenPoint } from '../scene/screen/menus/registry';
+import { curScreen, lockMode, subscribeDials } from '../actions';
+import { srcWave, srcWaveDrag } from '../scene/screen/pluginGfx';
+import { rytmPage } from '../state/rytmPage';
+import { activeTrack } from '../state/trk';
 
 interface Box {
   left: number;
@@ -181,6 +185,82 @@ const ArrowPad: React.FC<{ box: Box; stage: Stage | null }> = ({ box, stage }) =
   );
 };
 
+/**
+ * S et E du sample en grand (SRC 2/2, 2026-11-10, Mika : "je ne sais pas comment modifier le start ou le end") : une zone
+ * posee sur la forme d'onde de l'ecran (screen/pluginGfx.ts srcWave) ; on y tire le repere le plus proche (S : START, E : la
+ * fin), Maj pour le reglage fin, un clic loin des deux y amene le plus proche, un double clic rend le sample entier.
+ * Seulement quand cette page est a l'ecran, sans menu ni P-LOCK.
+ */
+const waveShown = (): boolean => curScreen() === 'synth' && !openMenuId() && !lockMode();
+const subscribeWave = (fn: () => void): (() => void) => {
+  const offs = [rytmPage.subscribe(fn), subscribeMenu(fn), subscribeDials(fn), activeTrack.subscribe(fn)];
+  return () => offs.forEach((off) => off());
+};
+/** px autour de la forme d'onde ou la souris prend encore (les reperes sont au bord quand le sample joue en entier). */
+const WAVE_PAD = 8;
+const GRAB_PX = 14;
+
+const WaveDrag: React.FC<{ box: Box }> = ({ box }) => {
+  const show = useSyncExternalStore(subscribeWave, waveShown, waveShown);
+  const drag = useRef<{ which: 'start' | 'end'; x0: number; f0: number } | null>(null);
+  if (!show) return null;
+  const { rect } = srcWave();
+  const left = box.left + (rect.x0 / UW) * box.width;
+  const top = box.top + (rect.y0 / UH) * box.height;
+  const width = ((rect.x1 - rect.x0) / UW) * box.width;
+  const height = ((rect.y1 - rect.y0) / UH) * box.height;
+  const fAt = (clientX: number): number => (clientX - left) / Math.max(1, width);
+  const nearest = (clientX: number): { which: 'start' | 'end'; px: number; f: number } => {
+    const w = srcWave();
+    const f = fAt(clientX);
+    const ds = Math.abs(f - w.s) * width;
+    const de = Math.abs(f - w.e) * width;
+    return ds <= de ? { which: 'start', px: ds, f: w.s } : { which: 'end', px: de, f: w.e };
+  };
+  return (
+    <div
+      className="mm-wave-drag"
+      title="Drag S (start) and E (end); Shift: fine; double click: the whole sample"
+      style={{ position: 'fixed', left: left - WAVE_PAD, top, width: width + 2 * WAVE_PAD, height, zIndex: 5, cursor: 'ew-resize', touchAction: 'none' }}
+      onPointerDown={(e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const n = nearest(e.clientX);
+        const f = Math.max(0, Math.min(1, fAt(e.clientX)));
+        // Loin des deux reperes : le plus proche vient sous la souris
+        const jump = n.px > GRAB_PX;
+        if (jump) srcWaveDrag(n.which, f);
+        drag.current = { which: n.which, x0: e.clientX, f0: jump ? f : n.f };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        e.stopPropagation();
+        srcWaveDrag(d.which, d.f0 + ((e.clientX - d.x0) / Math.max(1, width)) * (e.shiftKey ? 0.1 : 1));
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        drag.current = null;
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        srcWaveDrag('start', 0);
+        srcWaveDrag('end', 1);
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    />
+  );
+};
+
 export const ScreenMouse: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const menu = useSyncExternalStore(subscribeMenu, openMenuId, openMenuId);
   const [box, setBox] = useState<Box | null>(null);
@@ -218,6 +298,7 @@ export const ScreenMouse: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   return (
     <>
       <ArrowPad box={box} stage={stage} />
+      <WaveDrag box={box} />
       <div
         ref={ref}
         className="mm-screen-mouse"

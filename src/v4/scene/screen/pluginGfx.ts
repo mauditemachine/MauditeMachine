@@ -11,7 +11,8 @@
  * Plugin seulement (le site garde ses ecrans). Rien n'est retenu ici que les cretes des samples (un calcul par sample).
  */
 
-import { dialRange, dialShown, type DialId } from '../../actions';
+import { anyDial, dialRange, dialShown, type DialId } from '../../actions';
+import { SAMPLE_START_MAX, sampleLenPart } from '../../audio/sampledsp';
 import { pattern, velocity } from '../../audio/pattern';
 import { requestSample, sampleByKey, samplePcm } from '../../audio/samples';
 import { TRACK_NAMES, trackIndex, tracks, type TrackKey } from '../../audio/tracks';
@@ -366,6 +367,33 @@ const allFree = (free: Set<string>, c0: number, c1: number, r0: number, r1: numb
 };
 
 /**
+ * Le sample en grand de SRC 2/2 (2026-11-10, Mika : "je ne sais pas comment modifier le start ou le end") : la zone de la
+ * forme d'onde (unites de l'ecran), et ce que joue la piste en part du fichier, par les lois du moteur (START au plus a 90 %
+ * du fichier, la fin par LEN : 12 % a 100 % de ce qui reste). La souris y tire S et E (plugin/ScreenMouse.tsx).
+ */
+export function srcWave(): { rect: Rect; s: number; e: number } {
+  const R = cellsRect(1, 3, 0, 1);
+  const s = Math.min(1, courseOf('t:sstart')) * SAMPLE_START_MAX;
+  const e = Math.min(1, s + (1 - s) * sampleLenPart(courseOf('t:slen')));
+  return { rect: { x0: R.x0 + 5, y0: R.y0 + 16, x1: R.x1 - 5, y1: R.y1 - 14 }, s, e };
+}
+/** S ou E tire a la part f du fichier (0 a 1) : START, ou la fin (LEN) depuis START. */
+export function srcWaveDrag(which: 'start' | 'end', f: number): void {
+  const x = Math.max(0, Math.min(1, f));
+  const set = (id: string, c: number): void => {
+    const [lo, hi] = dialRange(id as DialId);
+    anyDial(id as DialId, Math.round((lo + Math.max(0, Math.min(1, c)) * (hi - lo)) * 10000) / 10000);
+  };
+  if (which === 'start') {
+    set('t:sstart', x / SAMPLE_START_MAX);
+    return;
+  }
+  const s = Math.min(1, courseOf('t:sstart')) * SAMPLE_START_MAX;
+  const part = (x - s) / Math.max(1e-6, 1 - s);
+  set('t:slen', part >= 0.999 ? 1 : (part - 0.12) / 0.88);
+}
+
+/**
  * Les cases libres d'un ecran du plugin : un grand dessin, son cadre plein. Rend les cases qu'il a prises (leurs pointilles
  * ne se dessinent pas) ; un ecran sans rien a montrer : aucune.
  */
@@ -395,14 +423,15 @@ function pluginPanel(this: Screen, screen: RytmScreenId, slots: readonly PageSlo
     const name = smp ? (key.includes('/~') ? smp.file.replace(/^~/, '').replace(/\.[a-z0-9]+$/i, '').toUpperCase() : `${smp.family.toUpperCase()} ${smp.label}`) : 'OFF';
     const ms = lengthMs(key);
     title(R, `${TRACK_NAMES[trackIndex(trackNow())]} · ${name}`, ms > 0 ? `${Math.round(ms)} MS` : '');
-    const W: Rect = { x0: R.x0 + 5, y0: R.y0 + 16, x1: R.x1 - 5, y1: R.y1 - 14 };
+    const sw = srcWave();
+    const W: Rect = sw.rect;
     const pk = peaksOf(key);
     if (!pk) {
       this.text(key ? 'LOADING…' : 'NO SAMPLE', (W.x0 + W.x1) / 2, (W.y0 + W.y1) / 2 + 3, 7, P.half, 700, 'center', 0.6);
       return took;
     }
-    const st = courseOf('t:sstart') * 0.98;
-    const end = Math.min(1, st + (1 - st) * Math.max(0.02, courseOf('t:slen')));
+    const st = sw.s;
+    const end = sw.e;
     const rev = dialShown('t:srev' as DialId) >= 0.5;
     this.line([W.x0, (W.y0 + W.y1) / 2, W.x1, (W.y0 + W.y1) / 2], P.faint, 0.6);
     this.waveIn(W, pk, st, end, rev, 1.1);
@@ -414,6 +443,7 @@ function pluginPanel(this: Screen, screen: RytmScreenId, slots: readonly PageSlo
     this.text('E', xe - 1.5, W.y0 + 2, 5, P.ink, 800, 'right');
     const foot = `START ${Math.round(st * 100)}%   END ${Math.round(end * 100)}%${rev ? '   REVERSE' : ''}`;
     this.text(foot, R.x0 + 4, R.y1 - 4, 5.6, P.half, 700, 'left', 0.5);
+    this.text('DRAG S AND E', R.x1 - 4, R.y1 - 4, 5.6, P.faint, 700, 'right', 0.5);
     return took;
   }
 

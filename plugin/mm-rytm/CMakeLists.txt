@@ -69,6 +69,12 @@ endif()
 juce_add_binary_data(mm_web HEADER_NAME WebData.h NAMESPACE WebData SOURCES "${MM_WEB_ZIP}")
 
 target_sources(MM_RYTM PRIVATE src/PluginProcessor.cpp src/PluginEditor.cpp src/SampleBank.cpp)
+# Le glisser d'un fichier vers Ableton (macOS, Objective-C++ : src/MacFileDrag.mm)
+if(APPLE)
+  enable_language(OBJCXX)
+  target_sources(MM_RYTM PRIVATE src/MacFileDrag.mm)
+  target_link_libraries(MM_RYTM PRIVATE "-framework AppKit")
+endif()
 
 target_compile_definitions(MM_RYTM PUBLIC
   JUCE_WEB_BROWSER=1

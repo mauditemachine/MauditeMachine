@@ -51,7 +51,7 @@ private:
     int midiSlot_ = -2;
     int midiTick_ = 0;
     bool meterAny_ = false;
-    bool dragging_ = false;
+    double lastDragMs_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MMRytmEditor)
 };

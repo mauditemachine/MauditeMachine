@@ -248,7 +248,7 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
 const GFX = PORTRAIT ? 'GLOBAL FX' : 'SEND FX';
 export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
   voice: PORTRAIT ? 'VOICE' : 'SRC',
-  synth: PORTRAIT ? 'VOICE SYNTH' : 'SRC SYNTH',
+  synth: PORTRAIT ? 'VOICE SYNTH' : TYPED_TRACKS ? 'SRC SAMPLE' : 'SRC SYNTH',
   fltr: 'FLTR',
   env: PORTRAIT ? 'ENV' : 'AMP',
   fxv: 'VOICE FX',
@@ -676,6 +676,10 @@ const SRC_SMP = tk('SMP', 'slev', 'level', 'slev');
 // Le plugin (2026-11-10) : H LEV regle le niveau de la piste (t:vol, son VOL : les scenes A et B le gardent, le crossfader le
 // mene ; son verrou : celui de VOL) ; le niveau du sample d'avant y est passe (audio/tracks.ts typedKit)
 const SRC_VOL = tk('LEV', 'vol', 'level', 'level');
+// Le plugin (2026-11-10, Mika, sur SRC 2/2 : "je ne sais pas comment modifier le start ou le end") : la 2/2 est la page du
+// sample en grand, A STRT et E END (la fin : le meme reglage que LEN) a gauche du dessin, S et E se tirent a la souris
+// (plugin/ScreenMouse.tsx) ; FINE passe sur la 1/2 (C, la case de MACH)
+const SRC_END = tk('END', 'slen', 'decay', 'slen');
 const SRC_SYN = tk('LEV', 'syn', 'level', 'syn');
 const SRC_FINE = tk('FINE', 'fine', 'barc', 'fine');
 const SRC_MODL = tk('MODL', 'model', 'notch', 'mach');
@@ -703,7 +707,8 @@ export function dt2SrcPage(mach: string, sub: 0 | 1): readonly PageSlot[] {
   let out: readonly PageSlot[];
   // Le plugin : la machine ne se change pas (une piste a son type, des samples seulement : audio/tracks.ts TYPED_TRACKS) ;
   // LOOP (pas encore joue) n'y est pas
-  if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, TYPED_TRACKS ? NONE : SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, TYPED_TRACKS ? NONE : SRC_LOOP, TYPED_TRACKS ? SRC_VOL : SRC_SLEV] : [SRC_FINE];
+  if (mach === 'oneshot' && TYPED_TRACKS) out = sub === 0 ? [SRC_TUNE, SRC_PLAY, SRC_FINE, SRC_SAMP, SRC_STRT, SRC_LEN, NONE, SRC_VOL] : [SRC_STRT, NONE, NONE, NONE, SRC_END];
+  else if (mach === 'oneshot') out = sub === 0 ? [SRC_TUNE, SRC_PLAY, SRC_MACH, SRC_SAMP, SRC_STRT, SRC_LEN, SRC_LOOP, SRC_SLEV] : [SRC_FINE];
   else {
     const kn = MACHINE_KNOBS[mach] ?? [];
     // E F G : ses potards ; une machine qui en a moins y met la couche sample (STRT, LEN, SMP)

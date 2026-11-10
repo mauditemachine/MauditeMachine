@@ -4,6 +4,10 @@
 #include "SampleBank.h"
 #include "WebData.h"
 
+#if JUCE_MAC
+ #include "MacFileDrag.h"
+#endif
+
 #include <map>
 
 namespace {
@@ -228,21 +232,26 @@ void MMRytmEditor::midiStatus(const juce::String& msg, bool ok) {
 }
 
 void MMRytmEditor::dragMidi() {
-    if (dragging_) return;
+    // Une demande par geste (la face) ; deux demandes collees n'en font qu'une
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    if (now - lastDragMs_ < 300.0) return;
+    lastDragMs_ = now;
     juce::String why;
     const juce::File f = writeMidiFile(false, why);
     if (!f.existsAsFile()) {
         midiStatus(why, false);
         return;
     }
-    // Le glisser du Mac part de l'evenement souris courant : celui de la poignee DRAG MIDI tenue dans OPEN
-    dragging_ = true;
-    juce::Component::SafePointer<MMRytmEditor> safe(this);
-    const bool ok = juce::DragAndDropContainer::performExternalDragDropOfFiles({f.getFullPathName()}, false, this, [safe] {
-        if (safe) safe->dragging_ = false;
-    });
-    if (!ok) dragging_ = false;
-    midiStatus(ok ? "Drop it on a MIDI track or a Drum Rack in Ableton" : "The drag did not start: SAVE .MID writes the clip, drag it from the Finder", ok);
+#if JUCE_MAC
+    // Le glisser du Mac, par MacFileDrag (2026-11-10) : jamais performExternalDragDropOfFiles de JUCE ici, qui prend l'evenement
+    // en cours de la fenetre (depuis la WebView, pas toujours un evenement souris : AppKit leve une exception, l'hote tombe)
+    auto* peer = getPeer();
+    const std::string err = peer != nullptr ? mm::startFileDrag(peer->getNativeHandle(), f.getFullPathName().toStdString(), [] {}) : std::string("no window");
+    if (err.empty()) midiStatus("Drop it on a MIDI track or a Drum Rack in Ableton", true);
+    else midiStatus("The drag did not start (" + juce::String(err) + "): SAVE .MID writes the clip, drag it from the Finder", false);
+#else
+    midiStatus("SAVE .MID writes the clip: drag it from the file manager", false);
+#endif
 }
 
 void MMRytmEditor::saveMidi() {
