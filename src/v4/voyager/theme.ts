@@ -977,8 +977,11 @@ export const VOY_PLUGIN_FACE = (() => {
   const lo = sv(B.deckY - 0.18, B.d / 2);
   const top = B.topY + VOY_CHEEK.above;
   const hi = Math.max(sv(top, B.backZ), sv(top - VOY_CHEEK.backR, -B.d / 2));
-  const margin = 1.02;
-  return { w: B.w * margin, h: (hi - lo) * margin, ty: (hi + lo) / 2 / Math.cos(el) };
+  // 2026-11-10 (Mika : "c'est dommage d'avoir les barres noires autour, ca casse le design") : plus de marge, la machine
+  // deborde d'un rien de la fenetre (les joues de bois touchent les bords, le haut et le bas sont pleins)
+  const mw = 0.985;
+  const mh = 0.985;
+  return { w: B.w * mw, h: (hi - lo) * mh, ty: (hi + lo) / 2 / Math.cos(el) };
 })();
 
 /**

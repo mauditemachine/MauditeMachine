@@ -145,3 +145,11 @@ Demande de Mika : « quand je clique dans OPEN je dois voir l'interieur, le circ
 ### 3. En suspens
 - Mika : DRAG MIDI depuis le capot (le glisser natif depuis la WebView), MIDI LEARN avec son controleur, et un clip qui joue avec l'arpege qui se tait.
 - Capot ouvert, la face est relevee : pour apprendre un potard de la face, LEARN, puis fermer le capot, puis cliquer le potard.
+
+## Suite (2026-11-10) : la face bord a bord
+
+Demande de Mika : « c'est dommage d'avoir les barres noires autour, ca casse le design ».
+
+- `src/v4/voyager/theme.ts` (`VOY_PLUGIN_FACE`) : la marge de 2 % autour de la machine devient un leger debord (0.985). Les joues de bois touchent les bords de la fenetre, le haut et le bas sont pleins. Verifie par une capture Chromium a 1100 x 704.
+- La bande noire DRAG MIDI du bas, visible sur la capture de Mika, etait deja retiree dans la version du capot (`56555d4`).
+- Ne touche que le mode plugin ARP : le site ne change pas.
