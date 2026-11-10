@@ -10,9 +10,14 @@
  * - MIDI : MIDI LEARN (LEARN, un clic sur un potard, le prochain CC), la table des CC du plugin, une croix par ligne,
  *   CLEAR ALL ;
  * - CLOSE : referme le capot (comme OPEN, Echap ou la touche O).
- * Deux onglets (2026-11-10, tab.ts) : TOOLS (ces trois blocs) et SOUND+ (SoundPlus.tsx : les reglages du VST3 seul). Le
- * rail de droite porte CLOSE, LEARN (sur SOUND+ : le mode MIDI LEARN sans changer d'onglet) et les onglets ; le panneau a
- * la meme hauteur sur les deux (face.css), la carte ne bouge pas.
+ * Deux pages (2026-11-10, tab.ts) : TOOLS (CLIP, DISK, MIDI) et SOUND+ (SoundPlus.tsx : les reglages du VST3 seul).
+ * Le dessin (2026-11-10, Mika : "fais ces rajouts par rapport au design de la face avant, la c'est noir et orange" ; "je
+ * veux que tout se retrouve dans OPEN, pas melange") : un panneau de la machine, le meme gris anthracite que la face, des
+ * sections titrees et separees de filets comme OSCILLATORS / FILTER EG, des touches noires en relief avec leur legende
+ * dessous (en orange pour les fonctions, comme PRESET et OPEN), les LED rouges de CHORUS et SUB OCT pour les etats, des
+ * fenetres de verre noir comme l'ecran pour les listes. La colonne de droite porte l'afficheur (le reglage touche, MIDI
+ * LEARN, les messages du clip), les touches de page SOUND+ et TOOLS, LEARN et CLOSE. Le panneau garde sa hauteur sur les
+ * deux pages (face.css), la carte ne bouge pas. Plus rien sur la face fermee (Mika : "tout dans OPEN").
  * LearnMarks (toujours monte) : le potard arme cerne d'orange sur la machine (son jumeau, ui/VoyTwins.tsx), et capot ferme,
  * une pastille MIDI LEARN (le mode survit a la fermeture : les potards de la face s'apprennent capot ferme).
  */
@@ -24,9 +29,9 @@ import { voyExplode } from '../../state/explode';
 import { VOY_KNOBS } from '../../voyager/params';
 import { arpBridge } from './bridge';
 import { DiskPresets } from './DiskPresets';
-import { extraParam } from './extra';
+import { arpExtra, extraParam } from './extra';
 import { arpMidi, type ArpMidiState } from './midimap';
-import { SoundPlus } from './SoundPlus';
+import { sectionPrefix, SoundPlus, xTouch } from './SoundPlus';
 import { hoodTab, type HoodTab } from './tab';
 
 /** Le glisser part apres ce deplacement (px), le bouton tenu. */
@@ -53,62 +58,127 @@ const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, ar
 const useTab = () => useSyncExternalStore(hoodTab.subscribe, hoodTab.get, hoodTab.get);
 
 const TABS: readonly { id: HoodTab; label: string }[] = [
-  { id: 'tools', label: 'TOOLS' },
   { id: 'sound', label: 'SOUND+' },
+  { id: 'tools', label: 'TOOLS' },
 ];
 
-/** Le rail de droite : CLOSE, LEARN (sur SOUND+), les onglets. */
-const Rail: React.FC<{ tab: HoodTab; onClose: () => void }> = ({ tab, onClose }) => {
+/**
+ * Une touche de la machine (CLEAR, RANDOM, EDIT) : le carre noir mat en relief, une LED au-dessus si elle a un etat, la
+ * legende serigraphiee dessous (orange : une fonction, comme PRESET et OPEN). Le bouton entier (LED, touche, legende)
+ * se clique.
+ */
+type KeyProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
+  legend: React.ReactNode;
+  led?: boolean | 'blink';
+  fn?: boolean;
+  size?: 's' | 'm' | 'w';
+  sub?: string;
+};
+const Key: React.FC<KeyProps> = ({ legend, led, fn, size = 'm', sub, className, ...rest }) => (
+  <button type="button" className={`mm-arp-kb${className ? ` ${className}` : ''}`} data-size={size} data-fn={fn ? '1' : undefined} {...rest}>
+    {led !== undefined && <span className="mm-arp-led" data-on={led ? '1' : undefined} data-blink={led === 'blink' ? '1' : undefined} aria-hidden="true" />}
+    <span className="mm-arp-k" aria-hidden="true" />
+    <span className="mm-arp-legend">{legend}</span>
+    {sub && <span className="mm-arp-legend-sub">{sub}</span>}
+  </button>
+);
+
+const useTouch = () => useSyncExternalStore(xTouch.subscribe, xTouch.get, xTouch.get);
+const useExtra = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
+
+/** L'afficheur du panneau (le verre de l'ecran de la machine) : MIDI LEARN, le message du clip, le reglage touche, sinon la page. */
+const Lcd: React.FC<{ tab: HoodTab }> = ({ tab }) => {
   const st = useArpMidi();
+  const t = useTouch();
+  const extra = useExtra();
+  let head: string;
+  let line: string;
+  let mode = 'idle';
+  if (st.learning) {
+    head = 'MIDI LEARN';
+    line = st.armed ? `CC → ${paramLabel(st.armed)}` : 'CLICK A KNOB';
+    mode = 'learn';
+  } else if (st.status) {
+    head = st.status.ok ? 'CLIP' : 'CLIP · ERROR';
+    line = st.status.msg;
+    mode = 'status';
+  } else if (t && extraParam(t.id)) {
+    const p = extraParam(t.id) as NonNullable<ReturnType<typeof extraParam>>;
+    head = `${sectionPrefix(p)}${p.label}`;
+    line = arpExtra.text(p.id, extra[p.id]);
+    mode = t.active ? 'gesture' : 'touch';
+  } else if (tab === 'sound') {
+    head = 'SOUND+ · VST3';
+    line = (extra.xQuality ?? 0) >= 0.5 ? 'HQ · x8' : 'STD · x4';
+  } else {
+    const n = st.items?.length ?? 0;
+    head = 'TOOLS';
+    line = `x${st.cycles} · ${n} CC MAPPED`;
+  }
   return (
-    <div className="mm-arp-rail">
-      <button type="button" className="mm-arp-close" aria-label="Close the machine" onClick={onClose}>
-        <span className="mm-arp-led" aria-hidden="true" />
-        CLOSE
-      </button>
-      {tab === 'sound' && (
-        <button
-          type="button"
-          className="mm-arp-learn mm-arp-rail-learn"
-          aria-pressed={st.learning}
-          data-on={st.learning ? '1' : undefined}
-          title={st.learning ? (st.armed ? `Waiting CC for ${paramLabel(st.armed)}` : 'Click a knob') : 'MIDI learn'}
-          onClick={() => arpBridge.learnMode(!st.learning)}
-        >
-          <span className="mm-arp-led" aria-hidden="true" />
-          LEARN
-        </button>
-      )}
-      <div className="mm-arp-tabs" role="tablist" aria-label="Hood panel" aria-orientation="vertical">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`mm-arp-tab-${t.id}`}
-            aria-selected={tab === t.id}
-            tabIndex={tab === t.id ? 0 : -1}
-            className="mm-arp-tab"
-            data-on={tab === t.id ? '1' : undefined}
-            onClick={() => hoodTab.set(t.id)}
-            onKeyDown={(e) => {
-              if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-              e.preventDefault();
-              e.stopPropagation();
-              const next = t.id === 'tools' ? 'sound' : 'tools';
-              hoodTab.set(next);
-              document.getElementById(`mm-arp-tab-${next}`)?.focus();
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+    <div className="mm-arp-lcd" data-mode={mode} role="status" aria-live="polite">
+      <span className="mm-arp-lcd-head">{head}</span>
+      <span className="mm-arp-lcd-line">{line}</span>
     </div>
   );
 };
 
-/** DRAG MIDI : la poignee, x1 / x2 / x4, SAVE .MID, le message du C++. */
+/** La colonne de droite : l'afficheur, les touches de page (SOUND+, TOOLS), LEARN, CLOSE. */
+const Rail: React.FC<{ tab: HoodTab; onClose: () => void }> = ({ tab, onClose }) => {
+  const st = useArpMidi();
+  return (
+    <div className="mm-arp-rail">
+      <Lcd tab={tab} />
+      <div className="mm-arp-rail-keys">
+        <div className="mm-arp-tabs" role="tablist" aria-label="Hood page">
+          {TABS.map((t) => (
+            <Key
+              key={t.id}
+              role="tab"
+              id={`mm-arp-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`mm-arp-panel-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
+              className="mm-arp-tab"
+              data-on={tab === t.id ? '1' : undefined}
+              size="s"
+              led={tab === t.id}
+              legend={t.label}
+              onClick={() => hoodTab.set(t.id)}
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                e.preventDefault();
+                e.stopPropagation();
+                const next = t.id === 'tools' ? 'sound' : 'tools';
+                hoodTab.set(next);
+                document.getElementById(`mm-arp-tab-${next}`)?.focus();
+              }}
+            />
+          ))}
+          <span className="mm-arp-bracket" aria-hidden="true">
+            <span>PAGE</span>
+          </span>
+        </div>
+        <Key
+          className="mm-arp-learn mm-arp-rail-learn"
+          size="s"
+          aria-pressed={st.learning}
+          data-on={st.learning ? '1' : undefined}
+          led={st.learning ? 'blink' : false}
+          legend="LEARN"
+          title={st.learning ? (st.armed ? `Waiting CC for ${paramLabel(st.armed)}` : 'Click a knob') : 'MIDI learn'}
+          onClick={() => arpBridge.learnMode(!st.learning)}
+        />
+        <Key className="mm-arp-close" size="s" fn legend="CLOSE" aria-label="Close the machine" onClick={onClose} />
+      </div>
+      <p className="mm-arp-rev" aria-hidden="true">
+        VST3 EXPANSION · REV 1.1 / 2026
+      </p>
+    </div>
+  );
+};
+
+/** CLIP : DRAG MIDI (la poignee), x1 / x2 / x4, SAVE .MID. */
 const DragMidi: React.FC = () => {
   const st = useArpMidi();
   const press = useRef<{ id: number; x: number; y: number; sent: boolean } | null>(null);
@@ -149,78 +219,91 @@ const DragMidi: React.FC = () => {
   };
 
   return (
-    <section className="mm-arp-col mm-arp-drag" aria-label="Drag MIDI">
-      <p className="mm-arp-col-title">DRAG MIDI</p>
-      <button
-        type="button"
-        className="mm-arp-drag-handle"
-        draggable={false}
-        title="Drag the arpeggio onto an Ableton track"
-        aria-label={`Drag MIDI, ${st.cycles} times the progression, onto an Ableton track`}
-        onPointerDown={onPointerDown}
-        onDragStart={(e) => e.preventDefault()}
-        onMouseDown={(e) => e.preventDefault()}
-      >
-        <svg className="mm-arp-drag-grip" viewBox="0 0 12 18" aria-hidden="true">
-          {[3, 9].map((x) => [3, 9, 15].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}
-        </svg>
-        <span className="mm-arp-drag-text">
-          <span className="mm-arp-drag-name">DRAG MIDI</span>
-          <span className="mm-arp-drag-sub">ONTO A TRACK</span>
-        </span>
-      </button>
-      <div className="mm-arp-seg" role="radiogroup" aria-label="Times the progression">
-        {CYCLES.map((c) => (
-          <button key={c} type="button" role="radio" aria-checked={st.cycles === c} className="mm-arp-seg-key" data-on={st.cycles === c ? '1' : undefined} onClick={() => arpMidi.set({ cycles: c })}>
-            x{c}
-          </button>
-        ))}
+    <section className="mm-arp-col mm-arp-drag" aria-label="Clip">
+      <p className="mm-arp-col-title">CLIP</p>
+      <div className="mm-arp-clip">
+        <button
+          type="button"
+          className="mm-arp-kb mm-arp-drag-handle"
+          data-fn="1"
+          draggable={false}
+          title="Drag the arpeggio onto an Ableton track"
+          aria-label={`Drag MIDI, ${st.cycles} times the progression, onto an Ableton track`}
+          onPointerDown={onPointerDown}
+          onDragStart={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <span className="mm-arp-k mm-arp-drag-k" aria-hidden="true">
+            <svg className="mm-arp-drag-grip" viewBox="0 0 40 14" aria-hidden="true">
+              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                <line key={i} x1={5 + i * 5} y1="2" x2={5 + i * 5} y2="12" />
+              ))}
+            </svg>
+          </span>
+          <span className="mm-arp-legend">DRAG MIDI</span>
+          <span className="mm-arp-legend-sub">ONTO A TRACK</span>
+        </button>
+        <div className="mm-arp-clip-side">
+          <div className="mm-arp-seg" role="radiogroup" aria-label="Times the progression">
+            {CYCLES.map((c) => (
+              <Key
+                key={c}
+                role="radio"
+                aria-checked={st.cycles === c}
+                className="mm-arp-seg-key"
+                data-on={st.cycles === c ? '1' : undefined}
+                size="s"
+                led={st.cycles === c}
+                legend={`x${c}`}
+                onClick={() => arpMidi.set({ cycles: c })}
+              />
+            ))}
+            <span className="mm-arp-bracket" aria-hidden="true">
+              <span>LENGTH</span>
+            </span>
+          </div>
+          <Key className="mm-arp-key mm-arp-savemid" size="s" legend="SAVE .MID" onClick={() => arpBridge.saveMid(arpMidi.get().cycles)} />
+        </div>
       </div>
-      <button type="button" className="mm-arp-key" onClick={() => arpBridge.saveMid(arpMidi.get().cycles)}>
-        SAVE .MID
-      </button>
-      <p className="mm-arp-status" role="status" data-ok={st.status ? (st.status.ok ? '1' : '0') : undefined}>
-        {st.status?.msg ?? ''}
-      </p>
     </section>
   );
 };
 
-/** MIDI : LEARN, la table des CC, CLEAR ALL. */
+/** MIDI : la table des CC (LEARN est dans la colonne de droite), CLEAR ALL. */
 const MidiMap: React.FC = () => {
   const st = useArpMidi();
   const items = st.items ?? [];
   const line = st.learning ? (st.armed ? `WAITING CC FOR ${paramLabel(st.armed)}` : 'CLICK A KNOB') : st.items === null ? '…' : items.length === 0 ? 'NO CC MAPPED' : `${items.length} CC MAPPED`;
   return (
     <section className="mm-arp-col mm-arp-midi" aria-label="MIDI mapping">
-      <div className="mm-arp-col-head">
-        <p className="mm-arp-col-title">MIDI</p>
-        <button type="button" className="mm-arp-learn" aria-pressed={st.learning} data-on={st.learning ? '1' : undefined} onClick={() => arpBridge.learnMode(!st.learning)}>
-          <span className="mm-arp-led" aria-hidden="true" />
-          LEARN
-        </button>
-      </div>
-      <p className="mm-arp-midi-line" data-on={st.learning ? '1' : undefined} role="status">
-        {line}
-      </p>
-      <ul className="mm-arp-list mm-arp-map" aria-label="MIDI CC map">
-        {items.map((it) => (
-          <li key={`${it.ch}-${it.cc}`} className="mm-arp-map-row" data-armed={it.id === st.armed ? '1' : undefined}>
-            <span className="mm-arp-map-name">{paramLabel(it.id)}</span>
-            <span className="mm-arp-map-cc">
-              CC {it.cc} · CH {it.ch}
-            </span>
-            <button type="button" className="mm-arp-map-x" aria-label={`Unmap ${paramLabel(it.id)}, CC ${it.cc} channel ${it.ch}`} onClick={() => arpBridge.unmap(it.cc, it.ch)}>
-              ×
-            </button>
-          </li>
-        ))}
-      </ul>
-      <div className="mm-arp-midi-foot">
-        <button type="button" className="mm-arp-key mm-arp-key-small" disabled={items.length === 0} onClick={() => arpBridge.unmapAll()}>
-          CLEAR ALL
-        </button>
-        <p className="mm-arp-help">Ableton : Cmd + M marche aussi</p>
+      <p className="mm-arp-col-title">MIDI</p>
+      <div className="mm-arp-midi-body">
+        <div className="mm-arp-glass">
+          <p className="mm-arp-glass-head mm-arp-midi-line" data-on={st.learning ? '1' : undefined} role="status">
+            {line}
+          </p>
+          <ul className="mm-arp-list mm-arp-map" aria-label="MIDI CC map">
+            {items.map((it) => (
+              <li key={`${it.ch}-${it.cc}`} className="mm-arp-map-row" data-armed={it.id === st.armed ? '1' : undefined}>
+                <span className="mm-arp-map-name">{paramLabel(it.id)}</span>
+                <span className="mm-arp-map-cc">
+                  CC {it.cc} · CH {it.ch}
+                </span>
+                <button type="button" className="mm-arp-map-x" aria-label={`Unmap ${paramLabel(it.id)}, CC ${it.cc} channel ${it.ch}`} onClick={() => arpBridge.unmap(it.cc, it.ch)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="mm-arp-midi-side">
+          <Key className="mm-arp-key mm-arp-clearall" size="s" legend="CLEAR ALL" disabled={items.length === 0} onClick={() => arpBridge.unmapAll()} />
+          <p className="mm-arp-help">
+            ALSO IN ABLETON
+            <br />
+            CMD + M
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -254,11 +337,11 @@ export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       {tab === 'sound' ? (
         <SoundPlus />
       ) : (
-        <>
+        <div className="mm-arp-page mm-arp-tools" role="tabpanel" id="mm-arp-panel-tools" aria-labelledby="mm-arp-tab-tools">
           <DragMidi />
           <DiskPresets />
           <MidiMap />
-        </>
+        </div>
       )}
       <Rail tab={tab} onClose={() => openToggle(stage, 'voy')} />
     </section>

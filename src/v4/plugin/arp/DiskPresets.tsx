@@ -1,6 +1,7 @@
 /**
  * Les presets sur le disque, dans le panneau du capot du plugin MM-ARP (2026-11-09, Mika : "enregistrer un preset sur mon
- * disque dur en le nommant, et le rouvrir") : la colonne DISK, entre DRAG MIDI et MIDI (HoodPanel.tsx).
+ * disque dur en le nommant, et le rouvrir") : la section DISK, entre CLIP et MIDI (HoodPanel.tsx) : deux touches de la
+ * machine, la liste dans une fenetre de verre comme l'ecran (2026-11-10).
  * - SAVE TO DISK : le nom (DiskNameDialog, le dialogue des noms du site : la meme langue, ui/presetName.css), puis le
  *   C++ ecrit le preset dans le dossier des presets (mm_preset_save ; mm_saved : l'ecran le dit).
  * - OPEN FROM DISK : la boite de dialogue du systeme (le C++), pour un preset ailleurs que dans le dossier.
@@ -32,25 +33,34 @@ export function DiskPresets() {
   return (
     <section className="mm-arp-col mm-arp-disk" aria-label="Presets on disk">
       <p className="mm-arp-col-title">DISK</p>
-      <div className="mm-arp-disk-keys">
-        <button type="button" className="mm-arp-disk-key" onClick={() => arpDisk.set({ naming: proposedName() })}>
-          SAVE TO DISK
-        </button>
-        <button type="button" className="mm-arp-disk-key" onClick={() => arpBridge.diskOpen()}>
-          OPEN FROM DISK
-        </button>
+      <div className="mm-arp-disk-body">
+        <div className="mm-arp-disk-keys">
+          <button type="button" className="mm-arp-kb mm-arp-disk-key" data-size="s" data-fn="1" onClick={() => arpDisk.set({ naming: proposedName() })}>
+            <span className="mm-arp-k" aria-hidden="true" />
+            <span className="mm-arp-legend">SAVE TO DISK</span>
+          </button>
+          <button type="button" className="mm-arp-kb mm-arp-disk-key" data-size="s" data-fn="1" onClick={() => arpBridge.diskOpen()}>
+            <span className="mm-arp-k" aria-hidden="true" />
+            <span className="mm-arp-legend">OPEN FROM DISK</span>
+          </button>
+        </div>
+        <div className="mm-arp-glass">
+          <p className="mm-arp-glass-head" aria-hidden="true">
+            MM-ARP PRESETS
+          </p>
+          <ul className="mm-arp-disk-list" aria-label="Presets folder">
+            {st.items === null ? <li className="mm-arp-disk-none">…</li> : null}
+            {st.items !== null && st.items.length === 0 ? <li className="mm-arp-disk-none">NO PRESET YET</li> : null}
+            {(st.items ?? []).map((it) => (
+              <li key={it.path}>
+                <button type="button" className="mm-arp-disk-item" data-on={it.path === st.current ? '1' : undefined} title={it.path} onClick={() => arpBridge.diskLoad(it.path)}>
+                  {it.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-      <ul className="mm-arp-disk-list" aria-label="Presets folder">
-        {st.items === null ? <li className="mm-arp-disk-none">…</li> : null}
-        {st.items !== null && st.items.length === 0 ? <li className="mm-arp-disk-none">NO PRESET YET</li> : null}
-        {(st.items ?? []).map((it) => (
-          <li key={it.path}>
-            <button type="button" className="mm-arp-disk-item" data-on={it.path === st.current ? '1' : undefined} title={it.path} onClick={() => arpBridge.diskLoad(it.path)}>
-              {it.name}
-            </button>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

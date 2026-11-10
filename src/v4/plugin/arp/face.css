@@ -1,6 +1,23 @@
-/* La face du plugin MM-ARP (2026-11-09) : le panneau du capot (HoodPanel.tsx), une bande sous la carte ouverte :
-   DRAG MIDI, DISK, MIDI, CLOSE. Noir, orange #ff6a13, SF Pro Display ; les titres en Robot Radicals. */
+/* La face du plugin MM-ARP (2026-11-09) : le panneau du capot (HoodPanel.tsx), une bande sous la carte ouverte.
+   2026-11-10 (Mika : "fais ces rajouts par rapport au design de la face avant, la c'est noir et orange") : un panneau de
+   la machine. Les couleurs sont celles de la face telle qu'elle s'affiche (lues sur une capture Chromium a 1100 x 704 de
+   la scene : voyPanel #131315 de theme.ts sous la lumiere et la courbe de tons ACES donne #211F1D) : le gris anthracite
+   du panneau, la serigraphie os (titres #D2CDC3, noms #B7B2A9), les filets de section, le noir mat des touches CLEAR /
+   RANDOM / EDIT, la LED rouge de CHORUS et SUB OCT (VOY_LED #ff3b2f), l'orange des legendes de fonction (PRESET, OPEN).
+   SF Pro Display, capitales espacees de 0.2 em (SILK, theme/base.ts). */
 .mm-plugin-arp .mm-arp-hood {
+  --mm-panel: #211f1d;
+  --mm-panel-hi: #272523;
+  --mm-panel-lo: #1c1a19;
+  --mm-silk: #d2cdc3;
+  --mm-silk-2: #b7b2a9;
+  --mm-silk-3: #8e8a84;
+  --mm-silk-4: #6b6762;
+  --mm-rule: #4c4843;
+  --mm-tick: #67635e;
+  --mm-fn: #f7923c;
+  --mm-led: #ff3b2f;
+  --mm-glass: #060607;
   left: 0;
   right: 0;
   bottom: 0;
@@ -9,12 +26,13 @@
   box-sizing: border-box;
   display: flex;
   align-items: stretch;
-  gap: 0;
-  padding: 10px 12px 12px;
-  background: linear-gradient(#0d0d0e, #070708);
-  border-top: 1px solid rgba(255, 106, 19, 0.45);
-  box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.45);
-  color: #f6f1e7;
+  padding: 10px 12px 10px;
+  background: linear-gradient(180deg, var(--mm-panel-hi) 0, var(--mm-panel) 18px, var(--mm-panel-lo) 100%);
+  border-top: 1px solid #3b3835;
+  box-shadow:
+    0 -1px 0 #0a0909,
+    0 -10px 22px rgba(0, 0, 0, 0.5);
+  color: var(--mm-silk);
   font-family: 'SF Pro Display', system-ui, sans-serif;
   -webkit-user-select: none;
   user-select: none;
@@ -34,13 +52,20 @@
   }
 }
 
+.mm-plugin-arp .mm-arp-page {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+/* Une section : son titre centre en haut, un filet a gauche (comme entre FILTER et FILTER EG) */
 .mm-plugin-arp .mm-arp-col {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   min-width: 0;
-  padding: 0 14px;
-  border-left: 1px solid rgba(246, 241, 231, 0.1);
+  padding: 0 10px;
+  border-left: 1px solid var(--mm-rule);
 }
 
 .mm-plugin-arp .mm-arp-col:first-child {
@@ -48,201 +73,219 @@
   border-left: 0;
 }
 
-.mm-plugin-arp .mm-arp-col-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .mm-plugin-arp .mm-arp-col-title {
-  margin: 0;
-  font-family: 'Robot Radicals', 'SF Pro Display', system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  color: #ff6a13;
-  line-height: 18px;
-}
-
-/* Les touches : le filet orange de la machine */
-.mm-plugin-arp .mm-arp-key,
-.mm-plugin-arp .mm-arp-seg-key,
-.mm-plugin-arp .mm-arp-learn,
-.mm-plugin-arp .mm-arp-close {
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 106, 19, 0.8);
-  background: rgba(255, 106, 19, 0.08);
-  color: #ff6a13;
-  font: inherit;
+  margin: 2px 0 7px;
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  cursor: pointer;
+  font-weight: 700;
+  line-height: 13px;
+  letter-spacing: 0.2em;
+  text-align: center;
+  color: var(--mm-silk);
+  white-space: nowrap;
 }
 
-.mm-plugin-arp .mm-arp-key:hover,
-.mm-plugin-arp .mm-arp-seg-key:hover,
-.mm-plugin-arp .mm-arp-learn:hover,
-.mm-plugin-arp .mm-arp-close:hover {
-  background: rgba(255, 106, 19, 0.18);
-}
-
-.mm-plugin-arp .mm-arp-key:disabled {
-  opacity: 0.35;
-  cursor: default;
-  background: transparent;
-}
-
-.mm-plugin-arp .mm-arp-key:focus-visible,
-.mm-plugin-arp .mm-arp-seg-key:focus-visible,
-.mm-plugin-arp .mm-arp-learn:focus-visible,
-.mm-plugin-arp .mm-arp-close:focus-visible,
-.mm-plugin-arp .mm-arp-drag-handle:focus-visible,
-.mm-plugin-arp .mm-arp-map-x:focus-visible,
-.mm-plugin-arp .mm-arp-disk-item:focus-visible {
-  outline: 2px solid var(--yellow, #ffd23f);
-  outline-offset: 2px;
-}
-
-.mm-plugin-arp .mm-arp-key-small {
-  height: 24px;
-  padding: 0 9px;
-  font-size: 9px;
-}
-
-/* La LED des touches a etat (LEARN, CLOSE) */
-.mm-plugin-arp .mm-arp-led {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: #3a2414;
-  vertical-align: 1px;
-}
-
-/* ---------- DRAG MIDI ---------- */
-.mm-plugin-arp .mm-arp-drag {
-  flex: 0 0 214px;
-}
-
-.mm-plugin-arp .mm-arp-drag-handle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 46px;
-  padding: 0 12px;
-  border-radius: 11px;
-  border: 1px solid #ff6a13;
-  background: #ff6a13;
-  color: #0b0b0c;
-  font: inherit;
-  text-align: left;
-  cursor: grab;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-user-drag: none;
-  box-shadow:
-    0 0 14px rgba(255, 106, 19, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-.mm-plugin-arp .mm-arp-drag-handle:active {
-  cursor: grabbing;
-  transform: scale(0.98);
-}
-
-.mm-plugin-arp .mm-arp-drag-grip {
+/* ---------- Les touches de la machine (CLEAR, RANDOM, EDIT) : LED au-dessus, legende dessous ---------- */
+.mm-plugin-arp .mm-arp-kb {
   flex: none;
-  width: 10px;
-  height: 16px;
-  fill: currentColor;
-  opacity: 0.7;
-}
-
-.mm-plugin-arp .mm-arp-drag-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mm-silk-2);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.mm-plugin-arp .mm-arp-k {
+  display: block;
+  width: 44px;
+  height: 28px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #1b1918 0%, #131211 55%, #0f0e0d 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 2px 0 #0a0909,
+    0 4px 8px rgba(0, 0, 0, 0.55);
+  transition:
+    transform 60ms ease-out,
+    box-shadow 60ms ease-out,
+    background-color 120ms;
+}
+
+.mm-plugin-arp .mm-arp-kb[data-size='s'] .mm-arp-k {
+  width: 32px;
+  height: 21px;
+}
+
+.mm-plugin-arp .mm-arp-kb:hover .mm-arp-k {
+  background: linear-gradient(180deg, #211f1e 0%, #171615 55%, #121110 100%);
+}
+
+.mm-plugin-arp .mm-arp-kb:active .mm-arp-k {
+  transform: translateY(1.5px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 0.5px 0 #0a0909,
+    0 2px 4px rgba(0, 0, 0, 0.55);
+}
+
+.mm-plugin-arp .mm-arp-kb:disabled {
+  cursor: default;
+}
+
+.mm-plugin-arp .mm-arp-kb:disabled .mm-arp-k {
+  transform: none;
+  background: linear-gradient(180deg, #181716 0%, #121110 100%);
+}
+
+.mm-plugin-arp .mm-arp-kb:disabled .mm-arp-legend {
+  color: var(--mm-silk-4);
+}
+
+.mm-plugin-arp .mm-arp-legend {
+  font-size: 7.5px;
+  font-weight: 500;
+  line-height: 9px;
+  letter-spacing: 0.16em;
+  color: var(--mm-silk-2);
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-arp-kb[data-fn='1'] .mm-arp-legend {
+  font-weight: 600;
+  color: var(--mm-fn);
+}
+
+.mm-plugin-arp .mm-arp-legend-sub {
+  margin-top: -3px;
+  font-size: 6.5px;
+  font-weight: 500;
+  line-height: 8px;
+  letter-spacing: 0.18em;
+  color: var(--mm-silk-3);
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-arp-kb:focus-visible,
+.mm-plugin-arp .mm-arp-map-x:focus-visible,
+.mm-plugin-arp .mm-arp-disk-item:focus-visible,
+.mm-plugin-arp .mm-arp-x:focus-visible,
+.mm-plugin-arp .mm-arp-x-sw-led:focus-visible {
+  outline: 2px solid var(--yellow, #ffd23f);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* La LED rouge de CHORUS et SUB OCT (VOY_LED) : sombre eteinte, allumee avec son halo */
+.mm-plugin-arp .mm-arp-led {
+  display: inline-block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #57231f 0, #3a1714 55%, #240e0c 100%);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.6),
+    0 0.5px 0 rgba(255, 255, 255, 0.05);
+}
+
+.mm-plugin-arp .mm-arp-led[data-on='1'] {
+  background: radial-gradient(circle at 40% 35%, #ffd2c4 0, #ff6a4b 32%, #ff3b2f 60%, #c8231a 100%);
+  box-shadow:
+    0 0 5px 1px rgba(255, 59, 47, 0.6),
+    0 0 12px rgba(255, 59, 47, 0.28);
+}
+
+.mm-plugin-arp .mm-arp-led[data-blink='1'] {
+  animation: mm-arp-blink 0.9s steps(2, jump-none) infinite;
+}
+
+@keyframes mm-arp-blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* Un crochet sous un groupe de touches, son nom coupe au milieu (comme ARPEGGIATOR, CHORDS) */
+.mm-plugin-arp .mm-arp-tabs,
+.mm-plugin-arp .mm-arp-seg {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  padding-bottom: 13px;
+}
+
+.mm-plugin-arp .mm-arp-bracket {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  height: 5px;
+  border: 1px solid var(--mm-rule);
+  border-top: 0;
+  display: flex;
+  justify-content: center;
   pointer-events: none;
 }
 
-.mm-plugin-arp .mm-arp-drag-name {
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-}
-
-.mm-plugin-arp .mm-arp-drag-sub {
-  font-size: 9px;
+.mm-plugin-arp .mm-arp-bracket > span {
+  margin-top: 0;
+  transform: translateY(50%);
+  padding: 0 4px;
+  background: var(--mm-panel);
+  font-size: 6.5px;
   font-weight: 700;
-  letter-spacing: 0.16em;
-  opacity: 0.7;
+  line-height: 8px;
+  letter-spacing: 0.2em;
+  color: var(--mm-silk);
 }
 
-.mm-plugin-arp .mm-arp-seg {
+/* Les fenetres de verre (les listes, l'afficheur) : le verre noir de l'ecran de la machine dans son cadre */
+.mm-plugin-arp .mm-arp-glass,
+.mm-plugin-arp .mm-arp-lcd {
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #0a0a0b 0, var(--mm-glass) 40%);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.9),
+    0 0 0 2px #121110,
+    0 0 0 3px #2e2b29,
+    0 1px 0 3px rgba(255, 255, 255, 0.03);
+}
+
+.mm-plugin-arp .mm-arp-glass {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  padding: 5px 0 4px;
 }
 
-.mm-plugin-arp .mm-arp-seg-key {
-  flex: 1;
-  padding: 0;
-  border-color: rgba(255, 106, 19, 0.45);
-  background: transparent;
-}
-
-.mm-plugin-arp .mm-arp-seg-key[data-on='1'] {
-  border-color: #ff6a13;
-  background: rgba(255, 106, 19, 0.22);
-  color: #ffb27f;
-}
-
-.mm-plugin-arp .mm-arp-status {
-  margin: 0;
-  min-height: 24px;
-  font-size: 10px;
-  line-height: 12px;
-  letter-spacing: 0.04em;
-  color: rgba(246, 241, 231, 0.75);
+.mm-plugin-arp .mm-arp-glass-head {
+  flex: none;
+  margin: 0 8px 3px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(246, 241, 231, 0.08);
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 9px;
+  letter-spacing: 0.18em;
+  color: var(--mm-silk-3);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.mm-plugin-arp .mm-arp-status[data-ok='0'] {
-  color: #ff8a4a;
-}
-
-/* ---------- DISK (DiskPresets.tsx) ---------- */
-.mm-plugin-arp .mm-arp-disk {
-  flex: 0 0 236px;
-}
-
-.mm-plugin-arp .mm-arp-disk-keys {
-  display: flex;
-  gap: 5px;
-}
-
-.mm-plugin-arp .mm-arp-disk-key {
-  flex: 1;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 106, 19, 0.8);
-  background: rgba(255, 106, 19, 0.08);
-  color: #ff6a13;
-  font: inherit;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-}
-
-.mm-plugin-arp .mm-arp-disk-key:hover {
-  background: rgba(255, 106, 19, 0.18);
+.mm-plugin-arp .mm-arp-glass-head[data-on='1'] {
+  color: #ff6a4b;
 }
 
 .mm-plugin-arp .mm-arp-disk-list,
@@ -253,28 +296,119 @@
   padding: 0;
   list-style: none;
   overflow-y: auto;
-  border-radius: 8px;
-  background: #030303;
-  border: 1px solid rgba(246, 241, 231, 0.06);
+  scrollbar-width: thin;
+  scrollbar-color: #3a3734 transparent;
+}
+
+/* ---------- CLIP (DRAG MIDI) ---------- */
+.mm-plugin-arp .mm-arp-drag {
+  flex: 0 0 236px;
+}
+
+.mm-plugin-arp .mm-arp-clip {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 4px 4px 0 6px;
+}
+
+.mm-plugin-arp .mm-arp-drag-handle {
+  gap: 7px;
+  padding-top: 11px;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-drag: none;
+}
+
+.mm-plugin-arp .mm-arp-drag-handle:active {
+  cursor: grabbing;
+}
+
+.mm-plugin-arp .mm-arp-drag-k {
+  width: 104px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mm-plugin-arp .mm-arp-drag-grip {
+  width: 40px;
+  height: 14px;
+  stroke: #050505;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.07));
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-arp-drag-handle .mm-arp-legend {
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+}
+
+.mm-plugin-arp .mm-arp-clip-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+
+.mm-plugin-arp .mm-arp-seg .mm-arp-kb {
+  gap: 4px;
+}
+
+.mm-plugin-arp .mm-arp-seg .mm-arp-k {
+  width: 24px;
+  height: 18px;
+}
+
+/* ---------- DISK (DiskPresets.tsx) ---------- */
+.mm-plugin-arp .mm-arp-disk {
+  flex: 0 0 278px;
+}
+
+.mm-plugin-arp .mm-arp-disk-body,
+.mm-plugin-arp .mm-arp-midi-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding: 2px 4px 4px;
+}
+
+.mm-plugin-arp .mm-arp-disk-keys {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+  padding-top: 6px;
+  width: 76px;
 }
 
 .mm-plugin-arp .mm-arp-disk-none {
-  padding: 6px 8px;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  opacity: 0.5;
+  padding: 4px 8px;
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  color: var(--mm-silk-4);
 }
 
 .mm-plugin-arp .mm-arp-disk-item {
+  position: relative;
   display: block;
   width: 100%;
-  padding: 5px 8px;
+  padding: 3px 8px 3px 16px;
   border: 0;
   background: transparent;
-  color: #f6f1e7;
+  color: #e9e5dd;
   font: inherit;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 12px;
+  letter-spacing: 0.1em;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -283,11 +417,26 @@
 }
 
 .mm-plugin-arp .mm-arp-disk-item:hover {
-  background: rgba(246, 241, 231, 0.08);
+  background: rgba(246, 241, 231, 0.06);
 }
 
 .mm-plugin-arp .mm-arp-disk-item[data-on='1'] {
-  color: #ff6a13;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Le preset ouvert : un point de LED devant lui */
+.mm-plugin-arp .mm-arp-disk-item[data-on='1']::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: var(--mm-led);
+  box-shadow: 0 0 4px rgba(255, 59, 47, 0.7);
 }
 
 /* ---------- MIDI ---------- */
@@ -295,55 +444,26 @@
   flex: 1 1 auto;
 }
 
-.mm-plugin-arp .mm-arp-learn {
-  height: 24px;
-  padding: 0 10px;
-}
-
-.mm-plugin-arp .mm-arp-learn[data-on='1'] {
-  background: #ff6a13;
-  color: #0b0b0c;
-}
-
-.mm-plugin-arp .mm-arp-learn[data-on='1'] .mm-arp-led {
-  background: #0b0b0c;
-  animation: mm-arp-blink 0.9s steps(2, jump-none) infinite;
-}
-
-.mm-plugin-arp .mm-arp-close .mm-arp-led {
-  background: #ff6a13;
-  box-shadow: 0 0 6px rgba(255, 106, 19, 0.8);
-}
-
-@keyframes mm-arp-blink {
-  50% {
-    opacity: 0.2;
-  }
-}
-
-.mm-plugin-arp .mm-arp-midi-line {
-  margin: 0;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: rgba(246, 241, 231, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mm-plugin-arp .mm-arp-midi-line[data-on='1'] {
-  color: #ff6a13;
+.mm-plugin-arp .mm-arp-midi-side {
+  flex: none;
+  width: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
 }
 
 .mm-plugin-arp .mm-arp-map-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 18px;
   padding: 0 4px 0 8px;
-  height: 22px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: #e9e5dd;
 }
 
 .mm-plugin-arp .mm-arp-map-row + .mm-arp-map-row {
@@ -351,7 +471,7 @@
 }
 
 .mm-plugin-arp .mm-arp-map-row[data-armed='1'] {
-  color: #ff6a13;
+  color: #ff6a4b;
 }
 
 .mm-plugin-arp .mm-arp-map-name {
@@ -365,131 +485,152 @@
 
 .mm-plugin-arp .mm-arp-map-cc {
   flex: none;
-  color: rgba(246, 241, 231, 0.6);
+  color: var(--mm-silk-3);
   font-variant-numeric: tabular-nums;
 }
 
 .mm-plugin-arp .mm-arp-map-x {
   flex: none;
-  width: 20px;
-  height: 18px;
+  width: 18px;
+  height: 16px;
   padding: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: 3px;
   background: transparent;
-  color: rgba(246, 241, 231, 0.55);
+  color: var(--mm-silk-3);
   font: inherit;
-  font-size: 14px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 16px;
   cursor: pointer;
 }
 
 .mm-plugin-arp .mm-arp-map-x:hover {
-  background: rgba(255, 106, 19, 0.18);
-  color: #ff6a13;
-}
-
-.mm-plugin-arp .mm-arp-midi-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  background: rgba(246, 241, 231, 0.08);
+  color: #fff;
 }
 
 .mm-plugin-arp .mm-arp-help {
   margin: 0;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: rgba(246, 241, 231, 0.5);
-  white-space: nowrap;
+  font-size: 6.5px;
+  font-weight: 500;
+  line-height: 9px;
+  letter-spacing: 0.16em;
+  text-align: center;
+  color: var(--mm-silk-4);
 }
 
-/* ---------- Le rail de droite : CLOSE, LEARN (sur SOUND+), les onglets TOOLS / SOUND+ ---------- */
+/* ---------- La colonne de droite : l'afficheur, SOUND+ / TOOLS (PAGE), LEARN, CLOSE ---------- */
 .mm-plugin-arp .mm-arp-rail {
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
-  width: 98px;
-  margin: 0 0 0 12px;
+  width: 172px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--mm-rule);
+}
+
+.mm-plugin-arp .mm-arp-lcd {
+  flex: none;
+  height: 42px;
+  margin: 3px 3px 0;
+  padding: 6px 9px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.mm-plugin-arp .mm-arp-lcd-head {
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 9px;
+  letter-spacing: 0.18em;
+  color: var(--mm-silk-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-plugin-arp .mm-arp-lcd-line {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 17px;
+  letter-spacing: 0.03em;
+  color: #f1ede6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-plugin-arp .mm-arp-lcd[data-mode='learn'] .mm-arp-lcd-head,
+.mm-plugin-arp .mm-arp-lcd[data-mode='status'] .mm-arp-lcd-head {
+  color: #ff6a4b;
+}
+
+.mm-plugin-arp .mm-arp-lcd[data-mode='status'] .mm-arp-lcd-line {
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 0.06em;
+  white-space: normal;
+}
+
+.mm-plugin-arp .mm-arp-rail-keys {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.mm-plugin-arp .mm-arp-rail-keys .mm-arp-kb {
+  width: 34px;
 }
 
 .mm-plugin-arp .mm-arp-close {
-  flex: none;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 17px;
-  color: #f6f1e7;
-  letter-spacing: 0.2em;
-}
-
-.mm-plugin-arp .mm-arp-rail-learn {
-  flex: none;
+  padding-top: 11px;
 }
 
 .mm-plugin-arp .mm-arp-tabs {
-  display: flex;
-  flex-direction: column;
   gap: 4px;
-  margin-top: auto;
 }
 
-.mm-plugin-arp .mm-arp-tab {
-  height: 26px;
-  padding: 0 0 0 11px;
-  border: 0;
-  border-left: 2px solid rgba(246, 241, 231, 0.14);
-  border-radius: 0 7px 7px 0;
-  background: transparent;
-  color: rgba(246, 241, 231, 0.55);
-  font-family: 'Robot Radicals', 'SF Pro Display', system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  text-align: left;
-  cursor: pointer;
+.mm-plugin-arp .mm-arp-tab[data-on='1'] .mm-arp-legend {
+  color: var(--mm-silk);
+  font-weight: 700;
 }
 
-.mm-plugin-arp .mm-arp-tab:hover {
-  color: #f6f1e7;
-  background: rgba(246, 241, 231, 0.05);
+.mm-plugin-arp .mm-arp-rev {
+  margin: auto 0 0;
+  font-size: 6px;
+  font-weight: 500;
+  line-height: 8px;
+  letter-spacing: 0.22em;
+  text-align: right;
+  color: var(--mm-silk-4);
+  white-space: nowrap;
 }
 
-.mm-plugin-arp .mm-arp-tab[data-on='1'] {
-  border-left-color: #ff6a13;
-  background: rgba(255, 106, 19, 0.12);
-  color: #ff6a13;
-}
-
-.mm-plugin-arp .mm-arp-tab:focus-visible,
-.mm-plugin-arp .mm-arp-x:focus-visible,
-.mm-plugin-arp .mm-arp-x-sw-key:focus-visible,
-.mm-plugin-arp .mm-arp-soundplus:focus-visible {
-  outline: 2px solid var(--yellow, #ffd23f);
-  outline-offset: 2px;
-}
-
-/* ---------- SOUND+ (SoundPlus.tsx) : cinq blocs de potards, la meme hauteur que TOOLS ---------- */
-.mm-plugin-arp .mm-arp-sound {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
+/* ---------- SOUND+ (SoundPlus.tsx) : cinq sections de potards de la face ---------- */
+.mm-plugin-arp .mm-arp-x-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 
 .mm-plugin-arp .mm-arp-xgroup {
   flex: 1 1 0;
-  gap: 0;
-  padding: 0 10px;
+  padding: 0 6px;
 }
 
 .mm-plugin-arp .mm-arp-xrow {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  padding-top: 6px;
   justify-content: space-around;
-  gap: 2px;
 }
 
 .mm-plugin-arp .mm-arp-x {
@@ -498,9 +639,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0 2px;
-  border-radius: 10px;
+  gap: 2px;
+  padding: 0 0 2px;
+  border-radius: 4px;
   cursor: ns-resize;
   touch-action: none;
 }
@@ -509,157 +650,127 @@
   cursor: pointer;
 }
 
-.mm-plugin-arp .mm-arp-x[data-mm-learn='armed'] {
-  background: rgba(255, 106, 19, 0.12);
-  box-shadow: inset 0 0 0 1px #ff6a13;
-  animation: mm-arp-blink 0.9s ease-in-out infinite;
-}
-
-.mm-plugin-arp .mm-arp-x-label {
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 11px;
-  letter-spacing: 0.12em;
-  color: rgba(246, 241, 231, 0.72);
-  white-space: nowrap;
-}
-
 .mm-plugin-arp .mm-arp-x-dial {
   display: block;
   flex: none;
   overflow: visible;
 }
 
-.mm-plugin-arp .mm-arp-x-track,
-.mm-plugin-arp .mm-arp-x-arc {
-  fill: none;
-  stroke-width: 2.5;
+.mm-plugin-arp .mm-arp-x-tick {
+  stroke: var(--mm-tick);
+  stroke-width: 1.1;
   stroke-linecap: round;
 }
 
-.mm-plugin-arp .mm-arp-x-track {
-  stroke: rgba(246, 241, 231, 0.13);
+.mm-plugin-arp .mm-arp-x-tick-mid {
+  stroke: var(--mm-silk-2);
 }
 
-.mm-plugin-arp .mm-arp-x-arc {
-  stroke: #ff6a13;
+.mm-plugin-arp .mm-arp-x-end {
+  fill: var(--mm-silk-3);
+  font-size: 5.6px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 
-.mm-plugin-arp .mm-arp-x-center {
-  fill: rgba(246, 241, 231, 0.55);
+.mm-plugin-arp .mm-arp-x-top {
+  opacity: 0;
 }
 
-.mm-plugin-arp .mm-arp-x-skirt {
-  fill: #060606;
-  stroke: rgba(246, 241, 231, 0.1);
-  stroke-width: 1;
+.mm-plugin-arp .mm-arp-x:hover .mm-arp-x-top {
+  opacity: 0.05;
 }
 
-.mm-plugin-arp .mm-arp-x-cap {
-  fill: #1c1c1e;
-  stroke: #2e2e31;
-  stroke-width: 1;
-}
-
-.mm-plugin-arp .mm-arp-x:hover .mm-arp-x-cap {
-  fill: #242427;
-}
-
-.mm-plugin-arp .mm-arp-x-mark {
-  stroke: #f6f1e7;
-  stroke-width: 2.2;
-  stroke-linecap: round;
+.mm-plugin-arp .mm-arp-x-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 7.5px;
+  font-weight: 500;
+  line-height: 10px;
+  letter-spacing: 0.18em;
+  color: var(--mm-silk-2);
+  white-space: nowrap;
 }
 
 .mm-plugin-arp .mm-arp-x-value {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  height: 22px;
-  font-size: 9.5px;
-  font-weight: 700;
-  line-height: 11px;
-  letter-spacing: 0.04em;
+  height: 10px;
+  font-size: 7.5px;
+  font-weight: 500;
+  line-height: 10px;
+  letter-spacing: 0.08em;
   text-align: center;
-  color: #ff6a13;
+  color: var(--mm-silk-4);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  transition: color 120ms;
 }
 
-/* QUALITY : l'interrupteur STD / HQ (HQ en haut) */
+.mm-plugin-arp .mm-arp-x:hover .mm-arp-x-value,
+.mm-plugin-arp .mm-arp-x:active .mm-arp-x-value,
+.mm-plugin-arp .mm-arp-x:focus-visible .mm-arp-x-value {
+  color: var(--mm-silk);
+}
+
+.mm-plugin-arp .mm-arp-x[data-mm-learn='armed'] .mm-arp-x-label {
+  color: #fff;
+}
+
+.mm-plugin-arp .mm-arp-x[data-mm-learn='armed'] .mm-arp-x-tick {
+  stroke: #ff6a4b;
+}
+
+/* QUALITY : la touche de CHORUS, ses LED STD et HQ au-dessus */
 .mm-plugin-arp .mm-arp-x-switch {
   cursor: default;
+  gap: 4px;
+  padding-top: 3px;
 }
 
 .mm-plugin-arp .mm-arp-x-sw {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 58px;
-  height: 48px;
+  gap: 10px;
+}
+
+.mm-plugin-arp .mm-arp-x-sw-led {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--mm-silk-3);
+  font: inherit;
+  font-size: 7px;
+  font-weight: 600;
+  line-height: 8px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-arp-x-sw-led[data-on='1'] {
+  color: var(--mm-silk);
 }
 
 .mm-plugin-arp .mm-arp-x-sw-key {
-  flex: 1;
+  display: block;
+  width: 42px;
+  height: 26px;
+  margin: 2px 0 5px;
   padding: 0;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 106, 19, 0.4);
-  background: transparent;
-  color: rgba(246, 241, 231, 0.55);
-  font: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  border: 0;
   cursor: pointer;
 }
 
-.mm-plugin-arp .mm-arp-x-sw-key .mm-arp-led {
-  margin-right: 6px;
-}
-
-.mm-plugin-arp .mm-arp-x-sw-key[data-on='1'] {
-  border-color: #ff6a13;
-  background: rgba(255, 106, 19, 0.2);
-  color: #ffb27f;
-}
-
-.mm-plugin-arp .mm-arp-x-sw-key[data-on='1'] .mm-arp-led {
-  background: #ff6a13;
-  box-shadow: 0 0 6px rgba(255, 106, 19, 0.8);
+.mm-plugin-arp .mm-arp-x-sw-key:active {
+  transform: translateY(1.5px);
 }
 
 .mm-plugin-arp .mm-arp-x-switch .mm-arp-x-value {
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  color: rgba(246, 241, 231, 0.5);
-}
-
-/* ---------- Capot ferme : la serigraphie SOUND+ de la face (ouvre le capot sur son onglet) ---------- */
-.mm-plugin-arp .mm-arp-soundplus {
-  right: 6.6%;
-  bottom: 12.6%;
-  z-index: 20;
-  height: 22px;
-  padding: 0 9px;
-  border-radius: 11px;
-  border: 1px solid rgba(255, 106, 19, 0.55);
-  background: rgba(10, 10, 11, 0.35);
-  color: #ff6a13;
-  font-family: 'SF Pro Display', system-ui, sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.mm-plugin-arp .mm-arp-soundplus:hover {
-  border-color: #ff6a13;
-  background: rgba(255, 106, 19, 0.16);
-}
-
-.mm-plugin-arp .mm-arp-soundplus .mm-arp-led[data-on='1'] {
-  background: #ff6a13;
-  box-shadow: 0 0 6px rgba(255, 106, 19, 0.8);
+  font-size: 6.5px;
+  letter-spacing: 0.14em;
 }
 
 /* ---------- MIDI LEARN : le potard arme, la pastille capot ferme ---------- */
@@ -692,6 +803,8 @@
 }
 
 .mm-plugin-arp .mm-arp-learn-pill .mm-arp-led {
+  margin-right: 7px;
+  vertical-align: 1px;
   background: #ff6a13;
   animation: mm-arp-blink 0.9s steps(2, jump-none) infinite;
 }

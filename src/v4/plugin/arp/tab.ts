@@ -1,7 +1,6 @@
 /**
  * L'onglet du panneau du capot du plugin MM-ARP (2026-11-10) : TOOLS (DRAG MIDI, DISK, MIDI) ou SOUND+ (les reglages
- * du VST3 seul, SoundPlus.tsx). Garde le temps de la fenetre : OPEN rouvre le dernier onglet, le bouton SOUND+ de la
- * face ouvre le capot sur le sien. Sans dependance, comme disk.ts et midimap.ts.
+ * du VST3 seul, SoundPlus.tsx). Garde le temps de la fenetre : OPEN rouvre la derniere page. Sans dependance, comme disk.ts et midimap.ts.
  */
 
 export type HoodTab = 'tools' | 'sound';

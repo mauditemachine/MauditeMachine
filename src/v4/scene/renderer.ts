@@ -1749,6 +1749,12 @@ export class Stage {
     this.ppu = (W * z) / (2 * hw);
     // Distance : la demi-hauteur hh tient dans le champ vertical, au pivot
     const D = hh / Math.tan((ORBIT.fovDeg * Math.PI) / 360);
+    // Le plugin MM-ARP (2026-11-10) : la camera presque orthographique est a des milliers d'unites ; near et far l'encadrent
+    if (PLUGIN_ARP && (c.near !== D - 80 || c.far !== D + 80)) {
+      c.near = D - 80;
+      c.far = D + 80;
+      c.updateProjectionMatrix();
+    }
     // Le pivot monte avec la pile eclatee : la camera suit
     const ty = F.ty + ((inner ? F.openY : F.explodeTy) - F.ty) * e;
     const tz = inner ? F.openZ * e : 0;
