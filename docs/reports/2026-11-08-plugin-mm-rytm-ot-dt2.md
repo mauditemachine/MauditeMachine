@@ -228,6 +228,17 @@ Mika : « vas-y la met-y du stock je veux que MM-RYTM soit mon meilleur ami » ;
 - Verifie dans Chromium : la face (captures), le mini ecran avec des niveaux simules, OPEN SAMPLE et PATTERN en blanc, le glisser (un `mm_drag_midi` par geste), un clic (`mm_save_midi`), NEW confirme (32 coups, puis 0), Echap ferme ; la fenetre a 1680 px ; un ancien projet avec le transport : aucune erreur ; NEW, CLEAR, Cmd+Z ; au repos la boucle de rendu dort (0 dessin en 4 s), elle se rendort apres le son. Le site : identique au pixel (V.3.0 par defaut, ?face=dt2 noire et claire). C++ : compile avec les en-tetes de JUCE ; tests du moteur 50 OK (2 nouveaux : la crete du SD monte, celle du BD reste a 0, la lecture la remet a 0). tsc a 105 (la base).
 
 - **Build vert du lot 11** (run 42745537872), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit e2f4bba, branche claude/intelligent-ride-56tyeo, 2026-11-10 02:54 UTC.
+### Lot 12, retour aux couleurs, le logo, des touches plates (2026-11-10)
+
+Mika, sur le lot 11 installe : « ca devrait etre plat et j'aimais bien les couleurs d'avant, je n'aime pas [le mini ecran], je veux mon gros logotype en face avant » ; « plat » : les touches (sa reponse).
+
+- Les couleurs d'avant (touches noires, FUNC orange, PLAY vert, la tete de lecture d'avant) : `theme.ts`, `scene/keyLabels.ts`, `scene/rytmFaceKeys.ts` remis tels qu'au lot 10.
+- Le mini ecran retire (`scene/miniScreen.ts` supprime, `rytm/faceplate.ts` PLUGIN_MINI, `scene/renderer.ts`) ; le logo M revient au-dessus du crossfader, comme avant.
+- Les touches et les pas plus plats : `RELIEF.key` 0.8 dans le plugin (1.55 depuis le lot 7 ; le site : 1) ; les potards gardent leur hauteur.
+- Les VU-metres du moteur restent, dans OPEN (onglet PATTERN · MIDI, LEVELS : 16 pistes avec leur nom, L et R, un pic tenu, CLIP) ; leurs envois ne reveillent plus le rendu 3D.
+- Restent du lot 11 : la fenetre agrandissable, OPEN en blanc, DRAG MIDI, SAVE .MID, NEW et CLEAR dans OPEN, la barre du bas retiree.
+- Verifie dans Chromium : la face (les couleurs et le logo d'avant, les touches plus basses), OPEN (les niveaux animes, le glisser, SAVE, NEW confirme), aucune erreur ; au repos 0 dessin. Le site : les seules differences avec le lot 10 sont dans le plugin (RELIEF du plugin, OPEN, le pont, deux modules du plugin). tsc a 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -272,6 +283,8 @@ Mika : « vas-y la met-y du stock je veux que MM-RYTM soit mon meilleur ami » ;
 - **Les VU apres les effets de tranche, a MAIN VOLUME** : ce qu'on entend de chaque piste, a l'echelle de la sortie ; le bus (DIST, TONE globaux) et les retours ne sont pas dans les pistes, ils sont dans L et R.
 - **DRAG MIDI depuis la face** : Mika ne veut plus de barre ; une barre native ne peut pas se poser sur la WebView (elle passe dessous). Le glisser part donc de la face, comme sur le MM-ARP ; si le Mac refuse, le message le dit et SAVE .MID (ou un clic sur la poignee) garde le fichier, a glisser depuis le Finder.
 
+- **Lot 12 : les VU dans OPEN plutot que supprimes** : Mika ne veut plus du mini ecran sur la face, mais il a choisi les VU-metres et veut ce genre d'information dans OPEN ; le moteur les envoie deja.
+
 ## 3. Ce qui reste a faire / points en suspens
 
 - Cote Mika : `update.sh` quand le build est vert ; dans Ableton, mapper le parametre **Crossfader** a l'APC mini ou au Roto, et l'automatiser.
@@ -281,6 +294,7 @@ Mika : « vas-y la met-y du stock je veux que MM-RYTM soit mon meilleur ami » ;
 - Cote Mika : mettre ses samples dans `~/Music/MM-RYTM Samples/<type>/` ou + LOAD A FILE... ; dire si le choix de fichiers s'ouvre bien dans Ableton.
 - Plus tard si Mika le veut : la vitesse par piste (DT2 PER TRACK SPEED) ; LOOP des samples ; glisser un fichier sur la face ; la banque synthetisee du site dans le plugin ; le multi-out.
 - Ses retours sur la face apres usage (placements, gestes).
+- Cote Mika (lot 12) : la commande mm-rytm ; dire si les touches a 0.8 sont assez plates (0.6 plus plat, 1 comme le site) ; les niveaux dans OPEN pendant la lecture ; DRAG MIDI depuis OPEN.
 - Cote Mika (lot 11) : la commande mm-rytm, rouvrir Ableton ; dire si le gris blanc, le rouge et le jaune orange lui vont ; le mini ecran pendant la lecture (les VU bougent avec le son) ; tirer le coin de la fenetre ; OPEN en blanc ; **DRAG MIDI depuis OPEN** : glisser la poignee jaune sur une piste MIDI (si le glisser ne part pas, le message le dit et SAVE .MID garde le fichier).
 - Cote Mika (lot 10) : la commande mm-rytm, quitter Ableton, le rouvrir, recharger le projet qui partait dans tous les sens ; si une erreur reste, une capture de l'ecran (le message rouge MM-RYTM ou la fenetre d'Ableton).
 - Branche du MM-ARP : sa face appelle le meme `restore.ts` ; tant qu'elle n'a pas ce correctif, son build efface encore les cles du vrai stockage a son chargement (sans toucher aux instances du MM-RYTM, qui n'y lisent plus que la bibliotheque).

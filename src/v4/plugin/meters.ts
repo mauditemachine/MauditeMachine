@@ -2,10 +2,8 @@
  * Les niveaux du moteur (2026-11-10, Mika : "VU-metres", le niveau de sortie reel) : le C++ envoie a 30 Hz la crete de
  * chaque piste (apres ses effets de tranche, a LEVEL) et celle de la sortie L et R (mm_meter, plugin/bridge.ts) ; ici, la
  * balistique d'un VU de console : l'aiguille monte tout de suite et redescend en ~300 ms, un pic tenu 1 s. Les valeurs
- * montrees sont en part de l'echelle (-48 dB a 0 dB). Module sans dependance (le renderer et le mini ecran le lisent).
+ * montrees sont en part de l'echelle (-48 dB a 0 dB). Module sans dependance (OPEN le lit, plugin/OpenPanel.tsx Levels).
  */
-
-import { extHead } from './head';
 
 const N = 16;
 /** La descente : 20 dB par seconde, comme un PPM doux. */
@@ -72,7 +70,6 @@ export const meters = {
     hit(master[0], l, now);
     hit(master[1], r, now);
     seen = true;
-    extHead.wake();
   },
   /** Le C++ a envoye des niveaux (le plugin) : sans eux, le mini ecran n'en montre pas. */
   seen: (): boolean => seen,

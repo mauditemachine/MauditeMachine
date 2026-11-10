@@ -1424,8 +1424,9 @@ const SILK_WORDMARK = { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = DT2_FACE
   ? [
       // Le plugin (2026-11-09) : au-dessus du crossfader, dans le cadre des fleches de la DT2 (le M fait 1891 x 1612, centre en x 187)
-      // 2026-11-10 : le mini ecran des infos live prend sa place (scene/miniScreen.ts)
-      ...(PLUGIN ? [] : [{ id: 'mark' as SilkLogoId, src: '/logo/mauditemachine-logotype.svg', x: fpX(185), z: fpZ(91), h: fpU(22), align: 'right' as const }]),
+      PLUGIN
+        ? { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(203.5 + (11 * 1891) / 1612 / 2), z: fpZ(85), h: fpU(11), align: 'right' }
+        : { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: fpX(185), z: fpZ(91), h: fpU(22), align: 'right' },
     ]
   : [
       SILK_WORDMARK,
@@ -2190,22 +2191,6 @@ export const OPEN_TINT: number[] = [1, 1, 1];
  */
 export const PRESS_TINT: { rgb: number[] | null } = { rgb: null };
 
-/**
- * Les touches claires du plugin (2026-11-10) : true quand les touches et les pads sont ceux de la machine claire (la machine
- * claire, ou le plugin sur la machine noire) ; l'encre des legendes et les temoins des touches le lisent (scene/keyLabels.ts,
- * scene/rytmFaceKeys.ts).
- */
-export const KEYS_LIGHT: { on: boolean } = { on: false };
-/** Le jaune orange, 2e couleur du plugin (Mika : "le rouge et du jaune orange pour la 2e couleur"). */
-export const PLUGIN_AMBER = '#FFA51E';
-/** Les touches gris blanc du plugin sur la machine noire : un peu plus grises que la creme (sous les lumieres de la noire). */
-const PLUGIN_KEYS = {
-  hex: { key: '#D9D6CF', pad: '#D6D3CC', ledHover: '#8E8A83' } as Partial<Record<Tone, string>>,
-  gain: { pad: 1.05 } as Partial<Record<Tone, number>>,
-  // FUNC, OPEN (dorange) et PLAY, MUTE (dgreen) : le jaune orange
-  keyLit: { dorange: [1.0, 0.42, 0.012], dgreen: [1.0, 0.42, 0.012] } as Partial<Record<KeyLitTone, number[]>>,
-};
-
 /** L'etat sombre d'origine, copie au chargement pour pouvoir y revenir. */
 const DARK = {
   hex: { ...HEX },
@@ -2230,29 +2215,21 @@ const DARK = {
  */
 export function applyAppearance(a: Appearance): void {
   const L = a === 'light';
-  // Le plugin (2026-11-10, Mika : "fais un melange des deux mais je prefere mes couleurs ! le rouge et du jaune orange pour la
-  // 2e couleur et gris blanc pour les boutons") : la machine noire, les touches et les pads de la machine claire (K) ; le
-  // rouge des pas, le jaune orange de FUNC, PLAY, OPEN et des fonctions imprimees (PLUGIN_AMBER)
-  const K = L || PLUGIN;
-  KEYS_LIGHT.on = K;
   const hex = HEX as Record<Tone, string>;
   Object.assign(hex, DARK.hex, L ? LIGHT.hex : {});
-  if (K && !L) Object.assign(hex, PLUGIN_KEYS.hex);
   const color = COLOR as Record<Tone, number>;
   for (const k of Object.keys(hex) as Tone[]) color[k] = parseInt(hex[k].slice(1), 16);
   const gain = GAIN as Record<string, number>;
   for (const k of Object.keys(gain)) delete gain[k];
   Object.assign(gain, DARK.gain, L ? LIGHT.gain : {});
-  if (K && !L) Object.assign(gain, PLUGIN_KEYS.gain);
-  for (const [k, v] of Object.entries(DARK.lit)) Object.assign((LIT as unknown as Record<string, number[]>)[k], K && LIGHT.lit[k] ? LIGHT.lit[k] : v);
+  for (const [k, v] of Object.entries(DARK.lit)) Object.assign((LIT as unknown as Record<string, number[]>)[k], L && LIGHT.lit[k] ? LIGHT.lit[k] : v);
   const mat = MATERIAL as unknown as Mutable<typeof MATERIAL>;
   for (const k of Object.keys(DARK.material) as (keyof typeof MATERIAL)[]) {
-    const keyish = k === 'key' || k === 'pad';
-    Object.assign(mat[k], DARK.material[k], L || (K && keyish) ? (LIGHT.material as Record<string, object>)[k] ?? {} : {});
+    Object.assign(mat[k], DARK.material[k], L ? (LIGHT.material as Record<string, object>)[k] ?? {} : {});
   }
-  for (const k of ['selected', 'active', 'flash', 'orange', 'orangeDim', 'muted'] as const) Object.assign(PAD_GLOW[k] as unknown as number[], K ? LIGHT.glow[k] : DARK.glow[k]);
-  FLASH_TINT.rgb = K ? [...LIGHT.flashTint] : null;
-  Object.assign(STEP_PRESS.glow as unknown as number[], K ? (DT_FACE ? DT_PRESS.light.glow : LIGHT.press) : DARK.press);
+  for (const k of ['selected', 'active', 'flash', 'orange', 'orangeDim', 'muted'] as const) Object.assign(PAD_GLOW[k] as unknown as number[], L ? LIGHT.glow[k] : DARK.glow[k]);
+  FLASH_TINT.rgb = L ? [...LIGHT.flashTint] : null;
+  Object.assign(STEP_PRESS.glow as unknown as number[], L ? (DT_FACE ? DT_PRESS.light.glow : LIGHT.press) : DARK.press);
   const floor = FLOOR as unknown as { haloHex: string; shadow: number; contact: { opacity: number } };
   floor.haloHex = L ? LIGHT.floor.haloHex : DARK.floor.haloHex;
   floor.shadow = L ? LIGHT.floor.shadow : DARK.floor.shadow;
@@ -2265,19 +2242,15 @@ export function applyAppearance(a: Appearance): void {
   (LIGHT_RIM as unknown as { intensity: number }).intensity = L ? LIGHT.rim : DARK.rim;
   INK.silk.splice(0, 3, ...(L ? LIGHT.silk : DARK.silk));
   EXPOSURE.value = L ? LIGHT.exposure : 1;
-  OPEN_TINT.splice(0, 3, ...(K ? LIGHT.openTint : [1, 1, 1]));
-  PRESS_TINT.rgb = K ? (DT_FACE ? [...DT_PRESS.light.tint] : [1.0, 0.24, 0.035]) : null;
-  // Une touche allumee sur la machine claire (2026-10-18) : sa teinte, l'emissif plus doux ; le plugin : le jaune orange
-  KEY_LIT_LIGHT.tint = K ? (L ? LIGHT.keyLit : { ...LIGHT.keyLit, ...PLUGIN_KEYS.keyLit }) : null;
-  KEY_LIT_LIGHT.glow = K ? LIGHT.keyLitGlow : 1;
+  OPEN_TINT.splice(0, 3, ...(L ? LIGHT.openTint : [1, 1, 1]));
+  PRESS_TINT.rgb = L ? (DT_FACE ? [...DT_PRESS.light.tint] : [1.0, 0.24, 0.035]) : null;
+  // Une touche allumee sur la machine claire (2026-10-18) : sa teinte, l'emissif plus doux
+  KEY_LIT_LIGHT.tint = L ? LIGHT.keyLit : null;
+  KEY_LIT_LIGHT.glow = L ? LIGHT.keyLitGlow : 1;
   BACKDROP.transparent = !L;
-  Object.assign(VOICE_TINT, K ? LIGHT.voiceTint : DARK.voiceTint);
+  Object.assign(VOICE_TINT, L ? LIGHT.voiceTint : DARK.voiceTint);
   // La palette de la Digitakt (V.5.0, 2026-10-29) : plus sombre et lisible sur la machine creme
   Object.assign(DT_HEX, L ? DT_HEX_LIGHT : DT_HEX_DARK);
-  // Le plugin : les fonctions imprimees, le pointille Track/Mute et le temoin d'OPEN au jaune orange
-  if (PLUGIN && !L) DT_HEX.orange = PLUGIN_AMBER;
-  // La tete de lecture sur les touches claires du plugin : le jaune chaud (celui du telephone), pas l'encre de la creme
-  if (PLUGIN) (STEP_LIT.headLight as unknown as number[]).splice(0, 3, ...(L ? [0.012, 0.012, 0.012] : [1.0, 0.5, 0.04]));
   // Les teintes des anneaux de la face (2026-10-27) : relues apres la palette ; V.5.0 : le blanc, le jaune, le bleu
   const ringBase = DT_FACE ? DT_HEX.white : HEX.orange;
   RING_TONE.base.on = ringBase;

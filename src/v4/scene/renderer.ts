@@ -175,8 +175,6 @@ import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen, infoKeySpot, presetKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
-import { MiniScreen } from './miniScreen';
-import { PLUGIN_MINI } from '../rytm/faceplate';
 import { BezelDecal, PanelSilk, fontsReady, makeBrushTexture, onFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
@@ -436,7 +434,6 @@ export class Stage {
   /** la face DT2 (V.6.0, ?face=dt2) : MAIN VOLUME et LEVEL/DATA (scene/sideKnobs.ts), le decalque du cadre de l'ecran ; null sinon */
   readonly sideKnobs: SideKnobs | null;
   readonly bezelDecal: BezelDecal | null;
-  readonly miniScreen: MiniScreen | null;
   /** touches trig, RUN/STOP, CLEAR et les 16 LED */
   readonly seq: Sequencer3D;
   /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
@@ -772,9 +769,6 @@ export class Stage {
     // un petit plan au-dessus du cadre ; la face de la V.5.3 n'en a pas
     this.bezelDecal = DT2_FACE ? new BezelDecal(aniso) : null;
     if (this.bezelDecal) plateau.add(this.bezelDecal.mesh);
-    // Le plugin (2026-11-10) : le mini ecran des infos live, a la place du logo M au-dessus du crossfader
-    this.miniScreen = PLUGIN_MINI ? new MiniScreen() : null;
-    if (this.miniScreen) plateau.add(this.miniScreen.group);
     this.floor = new Floor();
     // Le sol est a la scene (2026-10-03) : il reste quand la vue cache une machine
     this.scene.add(this.floor.mesh);
@@ -1103,7 +1097,6 @@ export class Stage {
       this.stepExplode,
       (now) => this.pads?.update(now) ?? false,
       this.pollPlayhead,
-      (now) => this.miniScreen?.step(now) ?? false,
       this.stepBreathe,
       this.stepLockBlink,
       this.modeBlink,
@@ -3784,7 +3777,6 @@ export class Stage {
     this.faceKeys?.dispose();
     this.sideKnobs?.dispose();
     this.bezelDecal?.dispose();
-    this.miniScreen?.dispose();
     this.seq.dispose();
     this.encoders.dispose();
     this.pageKeys?.dispose();

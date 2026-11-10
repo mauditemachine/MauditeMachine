@@ -431,11 +431,6 @@ const keyRect = (cls: Dt2KeyClass, cx: number, cy: number): FpRect => ({ x: cx -
  * (FUNC TRK PTN MUTE SOLO) se cale sur les rangees de la face : les touches de page, celles sous l'ecran, le transport, les
  * deux rangees de TRIG. Le crossfader et ses scenes prennent la place des fleches et de PAGE (DT2_FACEPLATE.scenes).
  */
-/**
- * Le mini ecran du plugin (2026-11-10, Mika : "Logo -> infos live") : a la place du logo M, en haut du cadre du crossfader
- * (frames, xfade : 157 a 250, 77 a 107.5) ; mm de la face. scene/miniScreen.ts.
- */
-export const PLUGIN_MINI: { x: number; y: number; w: number; h: number } | null = IN_PLUGIN ? { x: 160, y: 79.2, w: 87, h: 12 } : null;
 export const PLUGIN_GONE: ReadonlySet<Dt2ButtonId> = new Set<Dt2ButtonId>(IN_PLUGIN ? ['kbd', 'ptnpage'] : []);
 const PLUGIN_KEY_AT: Partial<Record<Dt2ButtonId, { cx: number; cy: number }>> = IN_PLUGIN
   ? { trk: { cx: 19, cy: 82.5 }, ptn: { cx: 19, cy: 99.5 }, mute: { cx: 19, cy: 120.5 }, solo: { cx: 19, cy: 142.5 } }
@@ -480,7 +475,9 @@ export interface Dt2SideKnob {
  * Le relief du plugin (2026-11-09, Mika : "presque du realisme, tu peux augmenter un peu la taille en hauteur") : les
  * touches, les pas et les potards plus hauts (en fois ceux de la face du site), vus par la camera penchee du plugin.
  */
-const RELIEF = IN_PLUGIN ? { key: 1.55, knob: 1.35 } : { key: 1, knob: 1 };
+// 2026-11-10 (Mika : "ca devrait etre plat", les touches) : les touches et les pas plus plats que ceux du site ; les potards
+// gardent leur hauteur
+const RELIEF = IN_PLUGIN ? { key: 0.8, knob: 1.35 } : { key: 1, knob: 1 };
 
 const SIDE_MORE: Readonly<Record<'mvol' | 'data', Omit<Dt2SideKnob, 'id' | 'cx' | 'cy' | 'd' | 'legend' | 'alt'>>> = {
   mvol: { cap: { d: 12.1, top: 11.3, h: 5.8 * RELIEF.knob }, skirt: { d: 13.2, h: 0.8 }, ring: { inner: 17.6, outer: 19.2, segments: 27, airDeg: 3 }, mark: true, title: 'Main volume' },

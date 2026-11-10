@@ -32,6 +32,7 @@ import { lcdMessage } from '../state/lcdMessage';
 import { LEDS, TRKS, personalize } from '../state/personal';
 import { pluginPanel } from '../state/pluginPanel';
 import { pluginMidi } from '../state/pluginMidi';
+import { meters } from './meters';
 import { pluginClear, pluginNew } from '../actions/patterns';
 import { activeTrack } from '../state/trk';
 import { pattern } from '../audio/pattern';
@@ -442,7 +443,7 @@ const HELP: readonly [string, string][] = [
   ['Scenes A / B', 'tap A or B, turn knobs, tap again: the crossfader goes from A to B'],
   ['Ableton', 'Crossfader parameter (map, automate); a clip Pgm picks A01 to H16'],
   ['DRAG MIDI (OPEN, at the top)', 'drag the playing pattern onto a MIDI track or a Drum Rack: a clip (16 pads, C1 to D#2); a click saves the .mid'],
-  ['Mini screen (above the crossfader)', 'the playing pattern, the next one, the 16 steps, the level of each track, scenes A and B, the output L and R'],
+  ['Levels (OPEN, PATTERN · MIDI)', 'the real level of each track and of the output L and R, from the engine'],
   ['Window', 'drag its corner: the machine grows with your screen (kept with the project)'],
 ];
 
@@ -504,6 +505,81 @@ const DragMidi: React.FC<{ big?: boolean }> = ({ big }) => {
   );
 };
 
+/**
+ * Les niveaux (2026-11-10, Mika : les VU-metres, "ce genre d'information dans OPEN") : la crete reelle de chaque piste et de la
+ * sortie, du moteur (plugin/meters.ts) ; une barre par piste avec son nom, L et R, un pic tenu, rouge au 0 dB. Anime tant que
+ * le panneau est ouvert.
+ */
+const Levels: React.FC = () => {
+  const cv = useRef<HTMLCanvasElement>(null);
+  const [w, setW] = useState(1000);
+  const H = 150;
+  useEffect(() => {
+    const el = cv.current?.parentElement;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(() => setW(Math.max(300, Math.floor(el.clientWidth))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    let raf = 0;
+    const draw = (): void => {
+      raf = window.requestAnimationFrame(draw);
+      const c = cv.current;
+      const g = c?.getContext('2d');
+      if (!c || !g) return;
+      const dpr = Math.min(3, window.devicePixelRatio || 1);
+      if (c.width !== Math.round(w * dpr)) {
+        c.width = Math.round(w * dpr);
+        c.height = Math.round(H * dpr);
+      }
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, w, H);
+      const mv = meters.view();
+      const cols = 16 + 3;
+      const pitch = w / cols;
+      const bw = Math.max(6, Math.round(pitch * 0.55));
+      const top = 8;
+      const bot = H - 24;
+      const mh = bot - top;
+      const bar = (i: number, v: number, p: number, name: string, strong: boolean): void => {
+        const x = Math.round(i * pitch + (pitch - bw) / 2);
+        g.fillStyle = '#efeee9';
+        g.fillRect(x, top, bw, mh);
+        if (v > 0) {
+          g.fillStyle = strong ? W_INK : '#3a3a3d';
+          g.fillRect(x, bot - Math.round(v * mh), bw, Math.round(v * mh));
+        }
+        if (p > 0.02) {
+          g.fillStyle = p > 0.97 ? W_RED : W_AMBER;
+          g.fillRect(x, bot - Math.round(p * mh) - 2, bw, 3);
+        }
+        g.fillStyle = 'rgba(25,25,25,0.65)';
+        g.font = `700 10px ${FONT_DISPLAY}`;
+        g.textAlign = 'center';
+        g.fillText(name, x + bw / 2, H - 8);
+      };
+      for (let t = 0; t < 16; t += 1) bar(t, mv.t[t], mv.tp[t], TRACK_NAMES[t], false);
+      bar(17, mv.l, mv.lp, 'L', true);
+      bar(18, mv.r, mv.rp, 'R', true);
+      if (mv.clip) {
+        g.fillStyle = W_RED;
+        g.font = `800 11px ${FONT_DISPLAY}`;
+        g.textAlign = 'right';
+        g.fillText('CLIP', w - 4, 12);
+      }
+    };
+    raf = window.requestAnimationFrame(draw);
+    return () => window.cancelAnimationFrame(raf);
+  }, [w]);
+  return (
+    <div className="mm-open-wave">
+      <canvas ref={cv} style={{ width: w, height: H, display: 'block' }} aria-label="Levels of the 16 tracks and of the output, from the engine" />
+    </div>
+  );
+};
+
 const PatternTab: React.FC = () => {
   const { info, status } = useMidi();
   const [ask, setAsk] = useState<null | 'new' | 'clear'>(null);
@@ -549,6 +625,10 @@ const PatternTab: React.FC = () => {
             SAVE .MID
           </button>
         </div>
+      </section>
+      <section className="mm-open-card mm-open-wide">
+        <h3>LEVELS · THE ENGINE, LIVE (-48 TO 0 DB)</h3>
+        <Levels />
       </section>
       <section className="mm-open-card">
         <h3>NEW</h3>

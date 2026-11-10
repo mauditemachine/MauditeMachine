@@ -30,7 +30,7 @@
 import { BoxGeometry, CircleGeometry, Color, DoubleSide, DynamicDrawUsage, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Path, PlaneGeometry, Shape, ShapeGeometry, type BufferGeometry, type Object3D } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { APPEARANCE, COLOR, KEYS_LIGHT, PLUGIN, DT2_FACE, DT_HEX, DT_HEX_DARK, DT_PAGE_KEYS, FACE_KEY, FACE_KEY_CLASS, FACE_KEYS, FP_OPEN, GAIN, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PAGE_LED_TONE, PAGE_LEDS, PRESS_TINT, RING_TONE, SCENE_KEY, STEP_PRESS, XFADE, xfadeCapX, type DtTone, type FaceKeyClass, type FaceKeyId, type KeyLitTone } from '../theme';
+import { APPEARANCE, COLOR, DT2_FACE, DT_HEX, DT_HEX_DARK, DT_PAGE_KEYS, FACE_KEY, FACE_KEY_CLASS, FACE_KEYS, FP_OPEN, GAIN, HOVER_LIGHT, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PAGE_LED_TONE, PAGE_LEDS, PRESS_TINT, RING_TONE, SCENE_KEY, STEP_PRESS, XFADE, xfadeCapX, type DtTone, type FaceKeyClass, type FaceKeyId, type KeyLitTone } from '../theme';
 import { DT2_FACEPLATE, dt2FaceplateParts, faceplateParts, fpU, fpX, fpZ, rectCenter, RYTM_FACEPLATE } from '../rytm/faceplate';
 import { keyCapGeometry, keySkirtGeometry } from './keyCap';
 import type { HoldMode } from '../state/holdLatch';
@@ -43,9 +43,6 @@ import { paintLinear, paintSolid, withInstanceEmissive } from './materials';
 const N = FACE_KEYS.length;
 const at = (id: FaceKeyId): number => FACE_KEYS.findIndex((k) => k.id === id);
 const FUNC = at('func');
-// Le plugin (2026-11-10, Mika : le rouge et le jaune orange) : PLAY et MUTE au jaune orange, le vert de la DT2 sur le site
-const GO_TONE: KeyLitTone = PLUGIN ? 'dorange' : 'dgreen';
-const GO_LED: DtTone = PLUGIN ? 'orange' : 'green';
 const TRK = at('trk');
 const PTN = at('ptn');
 const REC = at('rec');
@@ -609,12 +606,12 @@ export class RytmFaceKeys {
       return this.live ? { fill: 1, tone: 'dred', glow: 1, led: this.blinkLevel, ledTone: 'red' } : { fill: 1, tone: 'dred', glow: 1, led: 1, ledTone: 'red' };
     }
     if (i === PLAY) {
-      if (this.play === 'run') return { fill: 1, tone: GO_TONE, glow: 1, led: 1, ledTone: GO_LED };
+      if (this.play === 'run') return { fill: 1, tone: 'dgreen', glow: 1, led: 1, ledTone: 'green' };
       if (this.play === 'pause') {
         const b = this.blinkOn ? 1 : 0;
-        return { fill: b, tone: GO_TONE, glow: b, led: this.blinkLevel, ledTone: GO_LED };
+        return { fill: b, tone: 'dgreen', glow: b, led: this.blinkLevel, ledTone: 'green' };
       }
-      return { ...none, ledTone: GO_LED };
+      return { ...none, ledTone: 'green' };
     }
     if (FLASHED.has(i)) {
       const f = this.flashV[i];
@@ -637,7 +634,7 @@ export class RytmFaceKeys {
     // La face DT2 (cahier 2.4) : KEYBOARD en mode clavier, SONG en SONG (clignote en SONG EDIT), PRESET/KIT, SETTINGS,
     // SOUNDS et TEMPO leur menu ouvert (PRESET/KIT orange en PERFORM KIT), PAGE en FILL (clignote en attente d'un cycle)
     if (i === KBD) return this.keyboard ? red : none;
-    if (i === MUTE) return this.muteMode ? { fill: 1, tone: GO_TONE, glow: 1, led: 1, ledTone: GO_LED } : none;
+    if (i === MUTE) return this.muteMode ? { fill: 1, tone: 'dgreen', glow: 1, led: 1, ledTone: 'green' } : none;
     if (i === SOLO) return this.soloMode ? { fill: 1, tone: 'dblue', glow: 1, led: 1, ledTone: 'blue' } : none;
     if (i === OPEN) return this.openState ? { fill: 1, tone: 'dorange', glow: 1, led: 1, ledTone: 'orange' } : none;
     if (i === PRESET && this.perform) return { fill: 1, tone: 'dorange', glow: 1, led: 1, ledTone: 'orange' };
@@ -714,9 +711,9 @@ export class RytmFaceKeys {
     // sa couleur, et sur une touche allumee tiree vers le blanc a la mesure de son eclat (il reste l'accent, la phase basse d'un
     // clignotement reste basse) ; sur la creme, une touche allumee a une lentille sombre eteinte et du vrai blanc allume
     // (LED_LIT_KEY_LIGHT : l'encre sombre du blanc de la creme grisait FUNC tenue), sans tirage vers le blanc
-    const light = KEYS_LIGHT.on && f > 0;
+    const light = APPEARANCE.current === 'light' && f > 0;
     col.copy(light ? this.offLit : this.off).lerp(light && s.ledTone === 'white' ? WHITE : this.ledColor(s.ledTone), s.led);
-    if (f > 0 && s.led > 0 && !(s.ledTone === 'white' && KEYS_LIGHT.on)) col.lerp(WHITE, KEY_LIT.ledWhite * f * s.led);
+    if (f > 0 && s.led > 0 && !(s.ledTone === 'white' && APPEARANCE.current === 'light')) col.lerp(WHITE, KEY_LIT.ledWhite * f * s.led);
     this.leds.setColorAt(i, col);
     if (this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
     this.labels.setLit(i, f > KEY_LIT.dark);
