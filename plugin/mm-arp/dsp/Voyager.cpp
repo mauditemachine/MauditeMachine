@@ -1724,7 +1724,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     // Les extensions : xmask, les destinations etendues modulees a cet echantillon (bit E_*), xm leur somme (les deux
     // LFO s'additionnent), en unites de LFO x quantite ; ampG le gain du tremolo. A 0 : rien de ce bloc ne tourne.
     int xmask = 0;
-    double xm[E_COUNT];
+    double xm[E_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     double ampG = 1;
     double fm2 = 0;
     bool fm2On = false;
@@ -1746,7 +1746,6 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
           if (newNoise) xs.d2 = l2Want;
         }
       }
-      for (int e = 0; e < E_COUNT; e += 1) xm[e] = 0;
       const int e1 = xs.d1;
       const int e2 = xs.d2 >= 5 ? xs.d2 - 4 : 0;
       xm[e1] += lfoOut * xs.a1;
@@ -1791,9 +1790,9 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         if (xmask & (1 << E_PAN)) {
           // PAN : a puissance constante (la loi des voix : 1 au centre, 0 et racine de 2 aux bords)
           const double pv = xm[E_PAN] < -1 ? -1 : xm[E_PAN] > 1 ? 1 : xm[E_PAN];
-          xs.panL = jsm::cos(((pv + 1) * JS_PI) / 4) * JS_SQRT2;
-          xs.panR = jsm::sin(((pv + 1) * JS_PI) / 4) * JS_SQRT2;
-          xs.panOn = true;
+          xs.panL = pv == 0 ? 1 : jsm::cos(((pv + 1) * JS_PI) / 4) * JS_SQRT2;
+          xs.panR = pv == 0 ? 1 : jsm::sin(((pv + 1) * JS_PI) / 4) * JS_SQRT2;
+          xs.panOn = pv != 0;
         } else if (xs.panOn) {
           xs.panOn = false;
           xs.panL = xs.panR = 1;
@@ -1803,16 +1802,24 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     const bool xAmp = (xmask & (1 << E_AMP)) != 0;
     const bool xStack = (xmask & (1 << E_STACK)) != 0;
     const double pitchMod2 = (xmask & (1 << E_O2PITCH)) != 0 ? pitchMod + X_O2_CENTS * xm[E_O2PITCH] : pitchMod;
+    // STACK : 1 les rapports modules (exp rapide), 2 retour aux rapports exacts (la modulation passe par 0)
+    int stackMode = 0;
     double stackX = 0;
     if (xStack && newNoise) {
-      const double sv = stD + X_STACK * xm[E_STACK];
-      const double hi = stD > X_STACK_MAX ? stD : X_STACK_MAX;
-      stackX = ((sv < 0 ? 0 : sv > hi ? hi : sv) * JS_LN2) / 1200;
-      xs.stackDirty = true;
+      if (xm[E_STACK] != 0) {
+        const double sv = stD + X_STACK * xm[E_STACK];
+        const double hi = stD > X_STACK_MAX ? stD : X_STACK_MAX;
+        stackX = ((sv < 0 ? 0 : sv > hi ? hi : sv) * JS_LN2) / 1200;
+        stackMode = 1;
+        xs.stackDirty = true;
+      } else if (xs.stackDirty) {
+        stackMode = 2;
+        xs.stackDirty = false;
+      }
     }
     sm.fm += (p[P_fm] - sm.fm) * K;
     double fmEff = dest == 2 ? jsm::min(1, jsm::max(0, sm.fm + 0.6 * lfo)) : sm.fm;
-    if (fm2On) fmEff = jsm::min(1, jsm::max(0, (dest == 2 ? sm.fm + 0.6 * lfo : sm.fm) + fm2));
+    if (fm2On && fm2 != 0) fmEff = jsm::min(1, jsm::max(0, (dest == 2 ? sm.fm + 0.6 * lfo : sm.fm) + fm2));
     const double fmDepth = fmEff * fmEff * FM_MAX;
     sm.noise += (p[P_noise] - sm.noise) * K;
     double nGain = sm.noise * sm.noise * NOISE_MAX;
@@ -1897,13 +1904,13 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     }
     double drv = sm.drive;
     if (xmask & (1 << E_DRIVE)) {
-      // DRIVE : au rythme du contexte (une puissance par valeur)
-      if (newNoise) {
-        const double dv2 = sm.drive + X_DRIVE * xm[E_DRIVE];
+      // DRIVE : l'ecart au rythme du contexte (tenu : une puissance par valeur, pas par echantillon interne)
+      if (newNoise) xs.drv = X_DRIVE * xm[E_DRIVE];
+      if (xs.drv != 0) {
+        const double dv2 = sm.drive + xs.drv;
         const double hi = sm.drive > 1 ? sm.drive : 1;
-        xs.drv = dv2 < 0 ? 0 : dv2 > hi ? hi : dv2;
+        drv = dv2 < 0 ? 0 : dv2 > hi ? hi : dv2;
       }
-      drv = xs.drv;
     }
     if (sm.wide != p[P_wide]) {
       sm.wide += (p[P_wide] - sm.wide) * K;
@@ -2070,10 +2077,10 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         v.d2 = (f * ratio2 * jsm::pow(2, ((v.drift[1] + v.calT[1]) * drift + fine2 + v.vTune + pitchMod2) / 1200)) / sr;
         v.d3 = (v.d1 * subDiv) / ratio1;
       }
-      if (xStack && newNoise)
+      if (stackMode != 0)
         for (int j = 0; j < v.nLoop; j += 1) {
           StackPair& P = v.pr[j];
-          P.r = P.off == 0 ? 1 : expSmall(P.off * stackX);
+          P.r = P.off == 0 ? 1 : stackMode == 1 ? expSmall(P.off * stackX) : jsm::pow(2, (P.off * stD) / 1200);
         }
       const double d1v = v.d1;
       const double d2v = v.d2;
