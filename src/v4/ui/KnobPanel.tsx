@@ -215,6 +215,33 @@ export interface KnobSpec {
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
 /** Le nombre de segments de l'anneau d'un potard en relief (un tous les 10 degres). */
 const RELIEF_SEGS = 27;
+/**
+ * Le potard en relief, facon Moog (2026-11-11, Mika, une photo : "ce type de knob, le dessus en chrome fonce ; adapte pour
+ * les petits knobs dans OPEN") : la jupe noire a quatorze cannelures (son contour, autour du centre), le capuchon de metal
+ * au milieu. Les memes proportions que les potards de la face (scene/encoders.ts MOOG).
+ */
+const MOOG_R = 21.6;
+const MOOG_CAP = 12.4;
+const MOOG_SKIRT: string = (() => {
+  const n = 14 * 12;
+  let d = '';
+  for (let i = 0; i < n; i += 1) {
+    const a = (i / n) * Math.PI * 2;
+    const r = MOOG_R * (1 - 0.075 * Math.pow(0.5 + 0.5 * Math.cos(a * 14), 3));
+    d += `${i === 0 ? 'M' : 'L'}${(C + r * Math.cos(a)).toFixed(2)} ${(C + r * Math.sin(a)).toFixed(2)}`;
+  }
+  return `${d}Z`;
+})();
+/** Le dessus du capuchon : 48 secteurs, leur gris suit l'angle (deux lobes clairs opposes, en haut a gauche et en bas a droite). */
+const MOOG_TOP: readonly { d: string; fill: string }[] = Array.from({ length: 48 }, (_, i) => {
+  const a0 = (i / 48) * Math.PI * 2;
+  const a1 = ((i + 1) / 48) * Math.PI * 2 + 0.01;
+  const mid = (a0 + a1) / 2 + (135 * Math.PI) / 180;
+  const k = Math.pow(Math.abs(Math.cos(mid)), 5) + 0.2 * Math.pow(Math.abs(Math.sin(mid)), 8);
+  const g = Math.round(20 + 150 * Math.min(1, k));
+  const r = MOOG_CAP - 0.9;
+  return { d: `M${C} ${C}L${(C + r * Math.cos(a0)).toFixed(2)} ${(C + r * Math.sin(a0)).toFixed(2)}A${r} ${r} 0 0 1 ${(C + r * Math.cos(a1)).toFixed(2)} ${(C + r * Math.sin(a1)).toFixed(2)}Z`, fill: `rgb(${g},${g},${Math.min(255, g + 4)})` };
+});
 
 /**
  * relief (2026-11-11, le plugin, Mika devant OPEN : "les knobs devraient etre en 3D aussi ici") : le potard dessine comme
@@ -346,11 +373,22 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean; relief?: bo
             const [x1, y1] = pt(a, R_ARC + 5.4);
             return <line key={i} className={lit ? 'v4-knob-seg v4-knob-seg-on' : 'v4-knob-seg'} x1={x0} y1={y0} x2={x1} y2={y1} />;
           })}
-          <ellipse className="v4-knob-shadow" cx={C + 1.2} cy={C + 3.4} rx={21} ry={20.5} />
-          <circle className="v4-knob-skirt" cx={C} cy={C} r={21.4} />
-          <circle className="v4-knob-cap" cx={C} cy={C} r={17.6} />
-          <ellipse className="v4-knob-shine" cx={C - 3.5} cy={C - 6.5} rx={9.5} ry={5.5} />
-          <line className="v4-knob-mark" x1={pt(at, 4)[0]} y1={pt(at, 4)[1]} x2={pt(at, 16.2)[0]} y2={pt(at, 16.2)[1]} />
+          <ellipse className="v4-knob-shadow" cx={C + 1.2} cy={C + 3.4} rx={21.6} ry={21} />
+          {/* La jupe cannelee et son repere tournent avec la valeur ; le dessus du capuchon (le reflet) ne tourne pas */}
+          <g transform={`rotate(${at.toFixed(2)} ${C} ${C})`}>
+            <path className="v4-knob-skirt" d={MOOG_SKIRT} />
+            <line className="v4-knob-mark" x1={C + MOOG_CAP + 1.2} y1={C} x2={C + MOOG_R - 1.6} y2={C} />
+          </g>
+          <circle className="v4-knob-shoulder" cx={C} cy={C} r={MOOG_CAP + 3.2} />
+          <circle className="v4-knob-cap" cx={C} cy={C} r={MOOG_CAP} />
+          <g className="v4-knob-top">
+            {MOOG_TOP.map((w, i) => (
+              <path key={i} d={w.d} fill={w.fill} />
+            ))}
+          </g>
+          <circle className="v4-knob-rim" cx={C} cy={C} r={MOOG_CAP - 0.5} />
+          {/* Le repere repasse sur l'epaule (elle le couvrait pres du capuchon) */}
+          <line className="v4-knob-mark" x1={pt(at, MOOG_CAP + 1.2)[0]} y1={pt(at, MOOG_CAP + 1.2)[1]} x2={pt(at, MOOG_R - 1.6)[0]} y2={pt(at, MOOG_R - 1.6)[1]} />
         </svg>
       ) : (
         <svg className="v4-knob-dial" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true">

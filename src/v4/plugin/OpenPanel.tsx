@@ -815,12 +815,15 @@ const CSS = `
 .mm-open .v4-knob-seg{stroke:rgba(244,241,234,.16);stroke-width:2.5;stroke-linecap:butt}
 .mm-open .v4-knob-seg-on{stroke:${W_INK}}
 .mm-open .v4-knob-shadow{fill:rgba(0,0,0,.85);filter:blur(1.6px)}
-.mm-open .v4-knob-skirt{fill:url(#mm-knob-skirt);stroke:rgba(0,0,0,.9);stroke-width:.5}
-.mm-open .v4-knob-cap{fill:url(#mm-knob-cap);stroke:rgba(255,255,255,.1);stroke-width:.5}
-.mm-open .v4-knob-shine{fill:url(#mm-knob-shine);pointer-events:none}
-.mm-open .v4-knob-mark{stroke:${W_INK};stroke-width:2.6;stroke-linecap:round}
+.mm-open .v4-knob-skirt{fill:url(#mm-knob-skirt);stroke:rgba(244,241,234,.2);stroke-width:.45}
+.mm-open .v4-knob-shoulder{fill:url(#mm-knob-shoulder);stroke:none}
+.mm-open .v4-knob-cap{fill:#0b0b0d;stroke:rgba(0,0,0,.9);stroke-width:.6}
+.mm-open .v4-knob-top{filter:blur(.55px)}
+.mm-open .v4-knob-rim{fill:none;stroke:rgba(214,216,222,.5);stroke-width:.7}
+.mm-open .v4-knob-mark{stroke:${W_INK};stroke-width:2.1;stroke-linecap:butt}
 .mm-open .v4-knob:hover .v4-knob-seg-on{stroke:#fff}
 .mm-open .v4-knob:active .v4-knob-mark{stroke:${W_RED}}
+.mm-open .v4-knob:hover .v4-knob-rim{stroke:rgba(255,255,255,.8)}
 .mm-open-knobs .v4-knob-unit{font-size:.78em;color:rgba(244,241,234,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .mm-open-note{font-size:1.05em;color:rgba(244,241,234,.7);margin:.25em 0 .5em}
 .mm-open-big{font-size:1.6em;letter-spacing:.06em;margin:.1em 0 .2em}
@@ -917,23 +920,19 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       )}
     <div className="mm-open-mod" style={{ left: box.left + pad, top: box.top + pad, width, height, fontSize: em }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       <style>{CSS}</style>
-      {/* Les matieres des potards en relief (ui/KnobPanel.tsx relief) : la jupe, le capuchon bombe, son reflet */}
+      {/* Les matieres des potards en relief, facon Moog (ui/KnobPanel.tsx relief) : la jupe cannelee, son epaule */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
-          <radialGradient id="mm-knob-skirt" cx="50%" cy="42%" r="62%">
-            <stop offset="0%" stopColor="#2c2d31" />
-            <stop offset="78%" stopColor="#141518" />
-            <stop offset="100%" stopColor="#050506" />
+          <radialGradient id="mm-knob-skirt" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#3a3b40" />
+            <stop offset="70%" stopColor="#2b2c30" />
+            <stop offset="100%" stopColor="#1a1b1e" />
           </radialGradient>
-          <radialGradient id="mm-knob-cap" cx="40%" cy="30%" r="80%">
-            <stop offset="0%" stopColor="#3b3c41" />
-            <stop offset="45%" stopColor="#1c1d20" />
-            <stop offset="100%" stopColor="#0a0a0c" />
+          {/* L'epaule : elle remonte de la jupe au capuchon, plus claire en haut de la pente */}
+          <radialGradient id="mm-knob-shoulder" cx="50%" cy="50%" r="50%">
+            <stop offset="76%" stopColor="#1a1b1e" />
+            <stop offset="100%" stopColor="#35363b" />
           </radialGradient>
-          <linearGradient id="mm-knob-shine" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(255,255,255,.22)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </linearGradient>
         </defs>
       </svg>
       {(

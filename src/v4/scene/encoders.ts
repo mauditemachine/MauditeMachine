@@ -37,11 +37,12 @@
  * chacun depuis rytm/faceKnobs.ts ; setValue reste celui du telephone (ses FX globaux).
  */
 
-import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, InstancedMesh, LatheGeometry, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, RingGeometry, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
+import { BoxGeometry, CircleGeometry, Color, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, InstancedMesh, LatheGeometry, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion, RingGeometry, Vector2, Vector3, BufferGeometry, type Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { COLOR, DT_FACE, DT_HEX, ENCODER, FACE_KNOBS, GLOBAL_ENCODERS, HOVER_LIGHT, KNOB_RING, LIT, MATERIAL, PAGE_KNOBS, PORTRAIT, RING_BAND, RING_TONE, TEMPO_UI, gainOf, isBipolar, pageKnobIndex, ringLit, type FaceKnobId, type KnobTone } from '../theme';
 import type { HotspotDef } from './hit';
-import { paintLinear, paintSolid } from './materials';
+import { albedoRgb, paintLinear, paintSolid } from './materials';
+import { IN_PLUGIN } from '../pluginMode';
 
 const DEG = Math.PI / 180;
 const AXIS_Y = new Vector3(0, 1, 0);
@@ -120,8 +121,126 @@ function bodyParts(seg: number, E: EncoderDims = ENCODER): BufferGeometry[] {
   return [wall, chamfer, top];
 }
 
+/* ---------------- le potard du plugin, facon Moog (2026-11-11) ---------------- */
+
+/**
+ * Mika, une photo d'un potard a jupe cannelee et capuchon de metal brosse : "pourrais-tu mettre ce type de knob, mais le
+ * dessus, au lieu de chrome, mets chrome fonce, plus noir ; mets ca sur tous les knobs". Dans le plugin, chaque potard de la
+ * face (A a H, MAIN VOLUME, LEVEL/DATA) prend cette forme, vue de dessus :
+ * - une jupe noire large a douze cannelures (des gorges etroites entre des lobes ronds), son epaule qui remonte vers le
+ *   capuchon, et le repere blanc pose sur l'epaule, du capuchon au bord : elle tourne avec la valeur ;
+ * - un capuchon de metal au centre, plus haut ; son dessus est a part et ne tourne pas (encoderSkirtGeometry, le maillage
+ *   immobile) : le reflet d'un metal brosse reste face a la lumiere quand on tourne le potard. Il est peint en chrome
+ *   fonce : deux lobes clairs opposes (en haut a gauche, en bas a droite) sur un fond presque noir.
+ * Le site garde ses capuchons (IN_PLUGIN).
+ */
+const MOOG = { lobes: 14, depth: 0.075, cap: 0.58, base: 0.44, shoulder: 0.6, groove: 3 } as const;
+interface MoogDims {
+  /** le rayon de la jupe, celui du capuchon */
+  R: number;
+  rc: number;
+  /** le haut du flanc de la jupe, le pied du capuchon, son dessus, son chanfrein */
+  hb: number;
+  hs: number;
+  hc: number;
+  c: number;
+  seg: number;
+}
+function moogDims(mobile: boolean, E: EncoderDims): MoogDims {
+  const R = Math.max(E.r, E.skirt.r);
+  return { R, rc: R * MOOG.cap, hb: E.h * MOOG.base, hs: E.h * MOOG.shoulder, hc: E.h, c: E.chamfer * 0.55, seg: Math.max(MOOG.lobes * (mobile ? 6 : 10), mobile ? E.segments.mobile : E.segments.desktop) };
+}
+/** Les cannelures : la part de rayon que garde un point a l'angle a, a la distance r de l'axe (rien au capuchon, tout au bord). */
+function fluteAt(a: number, r: number, D: MoogDims): number {
+  const out = Math.max(0, Math.min(1, (r - D.rc) / (D.R - D.rc)));
+  return 1 - MOOG.depth * out * Math.pow(0.5 + 0.5 * Math.cos(a * MOOG.lobes), MOOG.groove);
+}
+function flute(g: BufferGeometry, D: MoogDims): void {
+  const p = g.getAttribute('position');
+  for (let i = 0; i < p.count; i += 1) {
+    const x = p.getX(i);
+    const z = p.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const k = fluteAt(Math.atan2(z, x), r, D);
+    p.setX(i, x * k);
+    p.setZ(i, z * k);
+  }
+  g.computeVertexNormals();
+}
+/** La jupe cannelee, l'epaule, le flanc du capuchon, son chanfrein, le repere : ce qui tourne. */
+function moogGeometry(mobile: boolean, E: EncoderDims): BufferGeometry {
+  const D = moogDims(mobile, E);
+  const wall = new LatheGeometry([new Vector2(D.R, 0), new Vector2(D.R, D.hb)], D.seg);
+  flute(wall, D);
+  // L'epaule : du bord cannele au pied du capuchon, en trois pas (les cannelures s'y effacent)
+  const sh = [0, 0.34, 0.67, 1].map((t) => new Vector2(D.R + (D.rc * 1.02 - D.R) * t, D.hb + (D.hs - D.hb) * t));
+  const shoulder = new LatheGeometry(sh, D.seg);
+  flute(shoulder, D);
+  const capWall = new LatheGeometry([new Vector2(D.rc, D.hs), new Vector2(D.rc, D.hc - D.c)], D.seg);
+  const chamfer = new LatheGeometry([new Vector2(D.rc, D.hc - D.c), new Vector2(D.rc - D.c, D.hc)], D.seg);
+  const parts: BufferGeometry[] = [wall, shoulder, capWall, chamfer];
+  const mk = E.mark;
+  if (mk) {
+    // Le repere blanc sur l'epaule, du capuchon au bord (vers l'arriere, -z : midi), couche sur sa pente
+    const r0 = D.rc * 1.06;
+    const r1 = D.R * (1 - MOOG.depth * 0.4);
+    const len = Math.hypot(r1 - r0, D.hs - D.hb);
+    const mark = new BoxGeometry(mk.w * 0.85, mk.h, len);
+    mark.rotateX(-Math.atan2(D.hs - D.hb, D.R - D.rc));
+    mark.translate(0, (D.hb + D.hs) / 2 + mk.h * 0.9, -(r0 + r1) / 2);
+    parts.push(mark);
+  }
+  const flatParts = parts.map(flat);
+  const body = albedoRgb('encoder', gainOf('encoder'));
+  paintSolid(flatParts[0], 'encoder');
+  paintLinear(flatParts[1], body.map((v) => v * 1.35));
+  // Le flanc du capuchon : le metal dans l'ombre ; son chanfrein accroche la lumiere
+  paintLinear(flatParts[2], body.map((v) => v * 2.4));
+  paintLinear(flatParts[3], body.map((v) => v * 16));
+  if (flatParts[4]) paintLinear(flatParts[4], LIT.mark);
+  const g = mergeGeometries(flatParts, false);
+  for (const q of flatParts) q.dispose();
+  if (!g) throw new Error('encoders: merge failed');
+  return g;
+}
+/**
+ * Le dessus du capuchon, immobile : un disque de metal brosse en chrome fonce. Sa teinte suit l'angle (deux lobes clairs
+ * opposes, deux plus faibles en travers), des anneaux le foncent vers le bord : le reflet d'un tournage fin.
+ */
+function moogTopGeometry(mobile: boolean, E: EncoderDims): BufferGeometry {
+  const D = moogDims(mobile, E);
+  const r = D.rc - D.c;
+  const g = new RingGeometry(0, r, mobile ? 48 : 96, 6);
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, D.hc, 0);
+  const out = flat(g);
+  const body = albedoRgb('encoder', gainOf('encoder'));
+  const p = out.getAttribute('position');
+  const col = new Float32Array(p.count * 3);
+  // Les lobes clairs : en haut a gauche et en bas a droite de la face (x a droite, z vers soi)
+  const a0 = (-135 * Math.PI) / 180;
+  for (let i = 0; i < p.count; i += 1) {
+    const x = p.getX(i);
+    const z = p.getZ(i);
+    const rr = Math.hypot(x, z) / r;
+    const a = Math.atan2(z, x) - a0;
+    const lobe = Math.pow(Math.abs(Math.cos(a)), 5);
+    const cross = Math.pow(Math.abs(Math.sin(a)), 8);
+    // Au centre les lobes se rejoignent (un gris moyen), au bord le disque fonce un peu
+    const k = 1.1 + (lobe * 34 + cross * 7) * Math.min(1, rr * 1.5) + 9 * Math.max(0, 1 - rr * 1.5);
+    const v = k * (1 - 0.25 * rr * rr);
+    col[i * 3] = body[0] * v;
+    col[i * 3 + 1] = body[1] * v;
+    col[i * 3 + 2] = body[2] * v * 1.04;
+  }
+  out.setAttribute('color', new Float32BufferAttribute(col, 3));
+  return out;
+}
+
 /** Le capuchon (le corps, son chanfrein, son dessus, son repere s'il en a un) : une geometrie fusionnee a couleurs de sommets. */
 export function encoderGeometry(mobile: boolean, E: EncoderDims = ENCODER): BufferGeometry {
+  if (IN_PLUGIN) return moogGeometry(mobile, E);
   const seg = mobile ? E.segments.mobile : E.segments.desktop;
   const mk = E.mark;
   const mark = mk ? new BoxGeometry(mk.w, mk.h, mk.d) : null;
@@ -140,6 +259,8 @@ export function encoderGeometry(mobile: boolean, E: EncoderDims = ENCODER): Buff
 
 /** La jupe d'aluminium : un disque biseaute a la base de l'encodeur. */
 export function encoderSkirtGeometry(mobile: boolean, E: EncoderDims = ENCODER): BufferGeometry {
+  // Le plugin : le maillage immobile porte le dessus du capuchon (son reflet ne tourne pas), plus de collerette
+  if (IN_PLUGIN) return moogTopGeometry(mobile, E);
   const C = E.skirt;
   const g = new CylinderGeometry(C.rTop, C.r, C.h, mobile ? E.segments.mobile + 12 : E.segments.desktop + 16);
   g.translate(0, C.h / 2, 0);

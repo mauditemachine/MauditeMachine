@@ -295,6 +295,14 @@ Mika, sur le lot 15 : « image 1 bien ! mais doit prendre vraiment plus de place
 
 - **Build vert du lot 16** (run 42956463058 : le moteur et le plugin macOS), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit e1fe45c, branche claude/intelligent-ride-56tyeo, 2026-11-11 04:08 UTC, et l'INSTALL.md du lot 16.
 
+### Lot 17, les potards facon Moog en chrome fonce (2026-11-11)
+
+Mika, avec la photo d'un potard a jupe cannelee et capuchon de metal brosse : « pourrais-tu mettre ce type de knob, mais le dessus, au lieu de chrome, mets chrome fonce, plus noir quoi ; mets ca sur tous les knobs que tu vois et adapte pour les petits knobs dans OPEN ».
+
+- **Les potards de la face** (A a H, MAIN VOLUME, LEVEL/DATA), plugin seulement : `scene/encoders.ts` (moogGeometry, moogTopGeometry, derriere IN_PLUGIN ; `scene/sideKnobs.ts` passe par les memes fonctions). Une jupe noire large a quatorze cannelures, son epaule qui remonte, le repere blanc fin pose sur l'epaule (du capuchon au bord), un capuchon de metal au centre et son filet clair. Le dessus du capuchon est sur le maillage immobile (l'ancienne collerette) : le reflet du metal brosse ne tourne pas avec la valeur, comme sur un vrai potard. Il est peint par sommet en chrome fonce : deux lobes clairs opposes (en haut a gauche, en bas a droite), deux plus faibles en travers, sur un fond presque noir. LEVEL/DATA, un encodeur sans fin, reste sans repere. Les anneaux de valeur ne changent pas.
+- **Les petits potards d'OPEN** : `ui/KnobPanel.tsx` (le dessin `relief`) : le meme potard en SVG, la jupe cannelee et son repere qui tournent, le dessus en 48 secteurs de gris (le meme reflet, immobile), son filet ; `plugin/OpenPanel.tsx` (les matieres). L'anneau de 27 segments reste.
+- Verifie dans Chromium : la face et la colonne gauche (captures x2), un potard tourne (le repere suit, le reflet reste), OPEN (14 potards, un potard tourne : TUNE 0 puis +10, rien ne deborde). Site : les 4 vues identiques au pixel pres, ses 7 tests de face passent. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -360,8 +368,12 @@ Mika, sur le lot 15 : « image 1 bien ! mais doit prendre vraiment plus de place
 - **Des presets d'usine propres au plugin** : ceux du site reposent sur la synthese, que le plugin n'a pas. Douze styles (ceux de Mika d'abord), trois variations qui gardent le kit du style et changent le kick, la caisse et le clap pour un cousin. Les samples sont choisis par mesure (duree, decroissance, centre spectral, fondamentale, RMS), pas a l'oreille : a valider par Mika.
 - **Le nom jusqu'a 16 lettres dans le plugin** : sans USER/ devant, la place est la, et « INDIE DANCE 2 » ne tient pas en 10.
 
+- **Lot 17 : le dessus du capuchon ne tourne pas** : sur un metal brosse le reflet reste face a la lumiere ; seuls la jupe et son repere tournent. Les anneaux de valeur restent a la place de l'echelle 0 a 10 de la photo : ils disent la valeur, la bande des scenes et la teinte de la page.
+- **Le chrome fonce peint par sommet, pas une matiere metallique** : sans carte d'environnement un metal de three sort noir ; le reflet est dessine (deux lobes), il est donc le meme sur toutes les machines et dans le rendu logiciel des tests.
+
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 17)** : dire si le chrome fonce est assez noir (ou trop gris), si les cannelures et la taille du capuchon vont, et si les petits potards d'OPEN se lisent bien.
 - **Cote Mika (lot 16)** : la commande mm-rytm, quitter et rouvrir Ableton. A l'oreille : les 36 presets (les samples sont choisis par mesure : dire lesquels remplacer, quels niveaux bouger) ; LIVE REC (double clic sur REC pendant la lecture, tourner CUTOFF ou TUNE, reecouter) ; PERFORM avec une scene et le crossfader. A l'oeil : la taille de l'ecran d'OPEN, le bord du capot, les potards en relief ; le champ du nom dans l'ecran (le clavier d'Ableton y ecrit-il bien ?).
 - LIVE REC, la suite possible : les effets de toute la machine par pas (un chemin a ajouter dans le moteur C++), une frappe au pas le plus proche (il faut l'heure du moteur cote face), un geste pour effacer une automation seule (aujourd'hui : NO tenue + la touche de pas pendant la lecture, ou CLEAR).
 - `Ch 14.wav` et `Ch 16.wav` de la banque sont vides, plusieurs kicks sont en double (Bd 11 = 27, 16 = 28, 24 = 29...) : a nettoyer un jour.
