@@ -30,10 +30,13 @@ import { intro } from '../state/intro';
 import { useReducedMotion } from '../state/motion';
 import { presskit } from '../state/presskit';
 import { section } from '../state/section';
+import { arrival } from '../state/arrival';
 import { COARSE_QUERY } from '../theme';
 
 /** Apres la fin de l'intro (ms) : la machine se montre d'abord. */
 const DELAY_MS = 4000;
+/** Apres l'arrivee du site (le logo, le menu, le MM-RYTM qui se pose) : plus tard, la machine d'abord. */
+const DELAY_AFTER_ARRIVAL_MS = 14000;
 /** Le fondu de sortie (ms), v4.css v4-install-out. */
 const LEAVE_MS = 200;
 /** L'air entre la machine et la carte, comme ui/editorPanel.ts ; l'en-tete si le selecteur des machines manque. */
@@ -148,7 +151,8 @@ export const InstallPrompt: React.FC<Props> = ({ stage, mobile }) => {
   // Quelques secondes apres la fin de l'intro (le Stage la remet en attente des sa creation : le compte repart)
   useEffect(() => {
     if (!wanted || introState !== 'done') return undefined;
-    const t = window.setTimeout(() => setReady(true), DELAY_MS);
+    // Apres l'arrivee du site (2026-11-11, state/arrival.ts) : la machine vient de se poser, la carte lui laisse le temps
+    const t = window.setTimeout(() => setReady(true), arrival.played() ? DELAY_AFTER_ARRIVAL_MS : DELAY_MS);
     return () => window.clearTimeout(t);
   }, [wanted, introState]);
 

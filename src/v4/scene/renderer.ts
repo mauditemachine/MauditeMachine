@@ -103,6 +103,7 @@ import {
   FRAME_MOBILE,
   FRONT_W,
   INTRO,
+  ARRIVAL_CAM,
   OLED,
   OLED_BAR,
   OLED_BAR_PAGE,
@@ -306,6 +307,12 @@ export interface StageOpts {
    * telephone, ?m= respecte), a la difference de skipIntro qui garde la machine en cours.
    */
   noIntro?: boolean;
+  /**
+   * L'arrivee du site (2026-11-11, state/arrival.ts) : pas d'assemblage ; le MM-RYTM, ferme, attend vu de tres pres que
+   * l'arrivee mene la camera (arrivalCamera), puis la rende (finishArrival). Vrai tant que l'arrivee est en cours, meme
+   * a une reconstruction (un changement d'apparence depuis le menu).
+   */
+  arrival?: boolean;
 }
 
 export interface StageStats {
@@ -593,6 +600,8 @@ export class Stage {
   private introSign = 1;
   /** la machine de la visite d'avant sans capot (MM-BASS, MM-DECKS) : on y va a la fin de l'intro (2026-10-18) */
   private introLand: MachineId | null = null;
+  /** l'arrivee du site (2026-11-11) : la camera est menee de dehors (arrivalCamera), l'intro ne compte pas le temps */
+  private arrivalOn = false;
   /** le MM-DECKS arrive pendant l'intro : pose a sa fin (pas de saccade, pas de saut de cadrage) */
   private pendingDj: typeof DjRig | null = null;
   private pendingBass: typeof BassRig | null = null;
@@ -1132,7 +1141,22 @@ export class Stage {
     const st = startMachine.take();
     const last = st === null && focus.changes === 0 ? startMachine.remembered() : null;
     const hood: readonly MachineId[] = this.voy ? ['mm808', 'voy'] : ['mm808'];
-    if (!motion.reduced() && !opts.skipIntro && !opts.noIntro && (st === null || hood.includes(st))) {
+    if (opts.arrival && !motion.reduced()) {
+      // L'arrivee du site (2026-11-11, arrival/Arrival.tsx) : le MM-RYTM ferme, vu de tres pres ; la camera attend
+      // d'etre menee (arrivalCamera), l'intro reste "en cours" pour tout ce qui l'attend (intro 'pending')
+      this.introOn = true;
+      this.arrivalOn = true;
+      this.introPick = 'mm808';
+      this.introLand = null;
+      startMachine.remember('mm808');
+      if (this.voy) {
+        focus.set('mm808');
+        this.snapFocus();
+      }
+      this.arrivalCamera(0);
+      this.syncCasters();
+      intro.set('pending');
+    } else if (!motion.reduced() && !opts.skipIntro && !opts.noIntro && (st === null || hood.includes(st))) {
       this.introOn = true;
       this.introPick = st ?? (last && hood.includes(last) ? last : hood[Math.floor(Math.random() * hood.length)]);
       this.introLand = last && !hood.includes(last) && this.voy ? last : null;
@@ -2427,6 +2451,8 @@ export class Stage {
    */
   private stepIntro = (now: number): boolean => {
     if (!this.introOn) return false;
+    // L'arrivee du site : sa camera est menee de dehors, rien ne s'anime ici
+    if (this.arrivalOn) return false;
     this.introClock += this.introLast < 0 ? 0 : Math.min(INTRO.maxStepMs, Math.max(0, now - this.introLast));
     this.introLast = now;
     const t = this.introClock;
@@ -2468,9 +2494,44 @@ export class Stage {
     this.orbit.apply();
   }
 
+  /**
+   * La camera de l'arrivee du site (2026-11-11, Mika : "RYTM qui arrive de super zoome a directement la fenetre") : u de 0
+   * (tres pres : ARRIVAL_CAM.zoomFrom fois le cadrage, basse et tournee, la face en gros plan) a 1 (la vue par defaut).
+   * Le zoom s'interpole en log (un recul regulier a l'oeil) ; l'appelant adoucit u. Posee directement, comme introCamera.
+   */
+  arrivalCamera(u: number): void {
+    if (!this.arrivalOn || this.disposed) return;
+    const k = Math.min(1, Math.max(0, u));
+    const deg = Math.PI / 180;
+    const A = ARRIVAL_CAM;
+    // L'angle rejoint la vue par defaut un peu avant le zoom (angleEnd) : la fin du recul se fait de face, sans roulis
+    const ka = Math.min(1, k / A.angleEnd);
+    const sa = ka * ka * (3 - 2 * ka);
+    const az = (ORBIT.azDeg + A.azFromDeg * (1 - sa)) * deg;
+    this.orbit.elevation = (A.elFromDeg + (ORBIT.elDeg - A.elFromDeg) * sa) * deg;
+    this.orbit.azimuth = ((az % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    this.orbit.zoom = ORBIT.zoom * Math.exp(Math.log(A.zoomFrom) * (1 - k));
+    this.orbit.apply();
+    this.updateCamera();
+    this.syncCasters();
+    this.shadowDirty = true;
+    this.invalidate();
+  }
+
+  /** La fin de l'arrivee du site : la vue par defaut, l'intro finie (tout ce qui l'attendait part). */
+  finishArrival(): void {
+    if (!this.arrivalOn) return;
+    this.arrivalOn = false;
+    this.finishIntro();
+    this.invalidate();
+  }
+
   /** Fin de l'intro, tout de suite (premier geste, fin du temps, reduced motion, demontage). */
   finishIntro(): void {
     if (!this.introOn) return;
+    // L'arrivee du site (2026-11-11) : un premier geste (un clic, un doigt, une touche) ne la finit pas, elle seule rend
+    // la camera (finishArrival)
+    if (this.arrivalOn) return;
     this.introOn = false;
     // Assemblee d'un coup (premier geste, fin du temps, demontage), a la vue par defaut
     this.explode.snap(explodeState.get() === 'open');
@@ -3713,7 +3774,9 @@ export class Stage {
     this.animators.length = 0;
     this.stats.loopActive = false;
     this.introOn = false;
-    intro.set('done');
+    // L'arrivee du site en cours (une reconstruction depuis le menu) : la scene suivante la reprend, l'intro reste en attente
+    if (!this.arrivalOn) intro.set('done');
+    this.arrivalOn = false;
     this.ro.disconnect();
     this.io?.disconnect();
     this.unsubMotion();

@@ -12,20 +12,26 @@ import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
 import { ShareButton, UndoButton, goHome, initialMenuOpen } from './Header';
 import { MenuSheet } from './MenuSheet';
+import { arrival } from '../state/arrival';
+import { useArrivalMenu } from './Header';
 
 interface Props {
   getStage: () => Stage | null;
 }
 
 export const MobileHeader: React.FC<Props> = ({ getStage }) => {
-  const [menu, setMenu] = useState(initialMenuOpen);
+  const [menu, setMenuRaw] = useState(() => initialMenuOpen() && !arrival.active());
+  const setMenu = useArrivalMenu(setMenuRaw);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const burgerRef = useRef<HTMLButtonElement>(null);
 
-  const close = useCallback((refocus: boolean): void => {
-    setMenu(false);
-    if (refocus) burgerRef.current?.focus({ preventScroll: true });
-  }, []);
+  const close = useCallback(
+    (refocus: boolean): void => {
+      setMenu(false);
+      if (refocus) burgerRef.current?.focus({ preventScroll: true });
+    },
+    [setMenu]
+  );
 
   return (
     <>

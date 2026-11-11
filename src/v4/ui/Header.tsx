@@ -24,6 +24,7 @@ import { UNDO_MACHINE_NAME, undo } from '../state/undo';
 import { shareBeat } from '../state/share';
 import { COARSE_QUERY, MOBILE_QUERY, PRESSKIT_ROUTE, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
+import { arrival } from '../state/arrival';
 import { MidiButton } from './MidiPanel';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
@@ -76,6 +77,27 @@ export function initialMenuOpen(): boolean {
 }
 
 /** Under the hood. Plus de Studio (2026-11-09, Mika : "enlève aussi les autres studio") : la section reste sur /studio. */
+/**
+ * Le menu et l'arrivee du site (2026-11-11, state/arrival.ts) : l'arrivee l'ouvre a son deuxieme tableau et le referme
+ * quand le MM-RYTM arrive ; un geste de la personne sur le menu pendant ce tableau (une page choisie, MENU, CLOSE, le
+ * logo) finit l'arrivee. Rend le setMenu a utiliser a la place du brut : il previent l'arrivee.
+ */
+export function useArrivalMenu(setMenuRaw: React.Dispatch<React.SetStateAction<boolean>>): (v: boolean | ((m: boolean) => boolean)) => void {
+  const phase = useSyncExternalStore(arrival.subscribe, arrival.get, arrival.get);
+  useEffect(() => {
+    if (phase === 'menu') setMenuRaw(true);
+    else if (phase === 'machine' || phase === 'logo') setMenuRaw(false);
+  }, [phase, setMenuRaw]);
+  return useCallback(
+    (v) => {
+      // Un geste sur le menu pendant l'arrivee : elle s'arrete la, le site reprend la main
+      if (arrival.active()) arrival.set('done');
+      setMenuRaw(v);
+    },
+    [setMenuRaw]
+  );
+}
+
 export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
   { id: 'goodies', label: 'Goodies' },
   { id: 'merch', label: 'Merch' },
@@ -226,14 +248,18 @@ const HeaderMachines: React.FC<{ onPick?: () => void }> = ({ onPick }) => {
 };
 
 export const Header: React.FC<Props> = ({ getStage }) => {
-  const [menu, setMenu] = useState(initialMenuOpen);
+  const [menu, setMenuRaw] = useState(() => initialMenuOpen() && !arrival.active());
+  const setMenu = useArrivalMenu(setMenuRaw);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  const close = useCallback((refocus: boolean): void => {
-    setMenu(false);
-    if (refocus) btnRef.current?.focus({ preventScroll: true });
-  }, []);
+  const close = useCallback(
+    (refocus: boolean): void => {
+      setMenu(false);
+      if (refocus) btnRef.current?.focus({ preventScroll: true });
+    },
+    [setMenu]
+  );
 
   const onHome = (e: React.MouseEvent): void => {
     e.preventDefault();

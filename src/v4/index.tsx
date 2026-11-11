@@ -58,6 +58,8 @@ import { VoyInfosKey } from './ui/VoyInfosKey';
 import { BASS, DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
+import { arrival as arrivalSeq } from './state/arrival';
+import { Arrival } from './arrival/Arrival';
 import { lcd } from './state/lcd';
 import { appearance } from './state/appearance';
 import { djDecks } from './dj/theme';
@@ -574,6 +576,8 @@ const V4Shell: React.FC = () => {
         skipIntro: builtOnce.current,
         // Arrivee par /tracks/, /shows/... (2026-10-11) : le premier Stage sans intro, le panneau tout de suite
         noIntro: !builtOnce.current && arrival.current !== null,
+        // L'arrivee du site (2026-11-11, state/arrival.ts) : la scene attend, vue de tres pres, que l'arrivee mene sa camera
+        arrival: arrivalSeq.active(),
         host,
         input,
         // Palier de qualite par classe d'appareil, pas par largeur : un
@@ -796,6 +800,8 @@ const V4Shell: React.FC = () => {
       <PresskitHost getStage={getStage} />
       {/* L'ecran d'accueil (2026-10-04, Mika : "Il est important de proposer d'avoir mauditemachine.com en icone sur iPhone.. par defaut") : repli compris */}
       <InstallPrompt stage={gl === 'webgl' ? stage : null} mobile={mobile} />
+      {/* L'arrivee du site (2026-11-11) : le logo en relief, le menu, puis le MM-RYTM qui arrive de tres pres */}
+      {arrivalSeq.played() && <Arrival stage={gl === 'webgl' ? stage : null} getStage={getStage} ok={gl === 'webgl'} />}
       {gl === 'fallback' && <NoWebGL />}
       {IS_DEV && devErrors.length > 0 && (
         <ul className="v4-devlog" aria-hidden="true">

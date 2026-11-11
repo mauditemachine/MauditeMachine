@@ -35,6 +35,7 @@ import { AppearanceToggle } from './AppearanceToggle';
 import { ExternalLink } from './ExternalLink';
 import { HOOD_LINKS, MACHINE_LINKS, PAGE_LINKS, goMachine, openHood } from './Header';
 import { VOYAGER } from '../state/focus';
+import { arrival } from '../state/arrival';
 import type { PageId } from '../theme';
 import { HoodieFeature, useFeaturedMerch } from './HoodieFeature';
 import { boot } from '../state/boot';
@@ -127,7 +128,8 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
     const first = !didMount.current;
     didMount.current = true;
     if (!open) return undefined;
-    if (!first) ref.current?.querySelector<HTMLElement>('.v4-mm-page')?.focus({ preventScroll: true });
+    // 2026-11-11 : ouvert par l'arrivee du site (state/arrival.ts), pas de focus non plus (le meme cadre jaune)
+    if (!first && !arrival.active()) ref.current?.querySelector<HTMLElement>('.v4-mm-page')?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return;
       e.stopPropagation();

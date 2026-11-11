@@ -1701,6 +1701,13 @@ export const INTRO = {
   ledMs: 400,
 } as const;
 
+/**
+ * La camera de l'arrivee du site (2026-11-11, scene/renderer.ts arrivalCamera, arrival/Arrival.tsx) : le MM-RYTM part vu
+ * zoomFrom fois plus pres que son cadrage (un gros plan de sa face), plus bas (elFromDeg, la vue par defaut est a 69) et
+ * tourne de azFromDeg, et recule jusqu'a la vue par defaut ; l'angle arrive a angleEnd du trajet, le reste se fait de face.
+ */
+export const ARRIVAL_CAM = { zoomFrom: 9, elFromDeg: 30, azFromDeg: -34, angleEnd: 0.82 } as const;
+
 /* ---------- textes ---------- */
 
 /** Les titres des pages statiques (src/data/seo-meta.json, la source du prerender), en anglais. */
