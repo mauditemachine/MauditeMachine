@@ -98,6 +98,40 @@
 //      air    0..1 (0.5 neutre)      plateau aigu a 10 kHz, -6 .. +6 dB
 //      width  0..1 (0.5 neutre)      0 : mono ; 1 : le cote x2 ; au-dessus de 0.5 seul le cote au-dessus de 150 Hz
 //             s'elargit (passe-haut Butterworth d'ordre 2 sur la part ajoutee) : les graves restent ou ils sont.
+//
+// 3. LE RACK D'EFFETS (2026-11-11, Mika : "le top du top" ; le plugin seul). L'ordre :
+//      moteur -> CRUSH -> PHASER -> FLANGER -> [la chaine du site : BASS MONO, CHORUS, DELAY / TAPE, REVERB (+ SHIMMER)]
+//             -> PUMP -> master
+//    Chacun, a son neutre, est contourne AU BIT PRES (process ne le traverse pas) ; engage ou regle en cours de
+//    jeu : des rampes de 20 ms en S, aucun clic ; revenu au neutre, de nouveau contourne des la fin de sa rampe.
+//    Aucune allocation dans process / set / setTransport. Les champs d'ArpFxSettings (0..1 sauf mention ; lois :
+//    ArpFxLaws) :
+//      crushBits  0 : absent ; sinon 16 -> 4 bits (16 - 12 v, continu) ; la dose entre sur les 5 premiers % de la course
+//      crushRate  0 : absent ; sinon l'echantillonnage descend de sr a 2 kHz (sr x (2000 / sr)^v), echantillonneur
+//                 bloqueur a l'instant exact, precede d'un passe-bas du 4e ordre a la moitie du taux vise (le
+//                 repliement des aigus de l'entree est attenue ; les marches et leurs images restent : le caractere)
+//      phMix      0 : absent ; PHASER 6 etages passe-tout par canal, la droite 90 degres apres la gauche
+//      phRate     0.05 a 8 Hz (0.05 x 160^v) ; phDepth : le balayage, +/-2.5 octaves x v autour de 800 Hz ;
+//                 phFb 0..1 : la reinjection (x0.85)
+//      flMix      0 : absent ; FLANGER stereo a travers zero : le sec retarde de 2.5 ms, le mouille (ligne a retard
+//                 interpolee, Lagrange d'ordre 3) balaie autour ; engage, il retarde donc la sortie de
+//                 flangerLatencySamples() (2.5 ms, non declares a l'hote ; 0 quand il est contourne)
+//      flRate     0.03 a 5 Hz ; flDepth : 1 = le balayage complet (0 a 5 ms, deux passages par zero par cycle), 0 = un
+//                 peigne fixe a 1.25 ms ; flFb -1..1 (0 : aucune ; x0.8)
+//      pumpDepth  0 : absent ; sinon le niveau plonge de 24 dB x v a chaque temps (la position : setTransport)
+//      pumpRate   0 croche, 1 noire, 2 blanche ; pumpShape : la remontee, de 15 % a 95 % de la periode
+//                 La courbe : la plongee se fait dans les 2 ms qui precedent le temps (au temps, le niveau est en
+//                 bas), puis remonte en S ; un saut de l'hote (boucle, clic dans la timeline) est lisse (0.5 ms) ; a
+//                 l'arret (playing faux, ou setTransport jamais appele) : pas de pompage.
+//      dlyMode    0 PING PONG (le delay du site, au bit pres) ; 1 STEREO : deux lignes paralleles G / D (chaque canal
+//                 son echo, meme temps) ; 2 WIDE : la gauche a 3/4 du temps, la droite au temps (croche pointee /
+//                 noire quand DELAY TIME est a la noire). Un changement de mode : le mouille du delay descend en
+//                 20 ms, les lignes sont videes, il remonte. TAPE (tape > 0) garde sa propre ligne : le mode n'y fait rien.
+//      shimmer    0 : absent ; sinon la sortie de la reverb, une octave au-dessus (deux tetes de lecture en fondu sur
+//                 90 ms, passe-bas avant la lecture x2), revient dans l'entree de la reverb (x0.75 v, 128 echantillons
+//                 plus tard) : chaque tour monte d'une octave, jusqu'au passe-bas.
+//    void setTransport(double ppq, double ppqPerSample, bool playing) : la position du premier echantillon du prochain
+//    process (avant chaque process ; sans appel, la position continue d'elle-meme).
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
 
@@ -126,6 +160,22 @@ struct ArpFxSettings {
     double bass = 0.5;          // MASTER BASS (0.5 : contourne)
     double air = 0.5;           // MASTER AIR (0.5 : contourne)
     double width = 0.5;         // MASTER WIDTH (0.5 : contournee)
+    // --- le rack d'effets du 2026-11-11 (voir en tete, 3.) ; a ces defauts : contournes au bit pres ---
+    double phMix = 0;           // PHASER (0 : contourne)
+    double phRate = 0.3;        // 0.05 a 8 Hz
+    double phDepth = 0.6;
+    double phFb = 0.4;          // 0..1
+    double flMix = 0;           // FLANGER (0 : contourne)
+    double flRate = 0.25;       // 0.03 a 5 Hz
+    double flDepth = 0.6;
+    double flFb = 0;            // -1..1 (xFlFb du plugin : 2 v - 1)
+    double pumpDepth = 0;       // PUMP (0 : contourne), jusqu'a -24 dB
+    int pumpRate = 1;           // 0 croche, 1 noire, 2 blanche
+    double pumpShape = 0.5;     // la remontee, courte a longue
+    double crushBits = 0;       // CRUSH (0 : contourne), 16 a 4 bits
+    double crushRate = 0;       // DOWNSAMPLE (0 : contourne), jusqu'a 2 kHz
+    int dlyMode = 0;            // 0 PING PONG (le site), 1 STEREO, 2 WIDE
+    double shimmer = 0;         // SHIMMER (0 : contourne)
 };
 
 /**
@@ -159,6 +209,13 @@ struct ArpFxLaws {
     static double revToneFactor(double v);    // 4^(2v - 1) (x 9 kHz -> 3 kHz, 18 kHz au plus)
     static double revPreSeconds(double v);    // v / 10
     static double shelfDb(double v);          // 12 x (v - 0.5)
+    // le rack d'effets du 2026-11-11
+    static double phaserHz(double v);         // 0.05 x 160^v
+    static double flangerHz(double v);        // 0.03 x (5 / 0.03)^v
+    static double crushBitDepth(double v);    // 16 - 12 v
+    static double crushHz(double v, double sr); // sr x (2000 / sr)^v
+    static double pumpDb(double v);           // -24 v
+    static double pumpBeats(int rate);        // 0.5, 1, 2 temps
 };
 
 namespace detail {
@@ -425,6 +482,114 @@ private:
     Svf sF_;
 };
 
+// ---------------- le rack d'effets du 2026-11-11 (voir en tete, 3.) ----------------
+
+// Une rampe de 20 ms en S (pente nulle aux deux bouts : ni saut ni coude), comme celles de la section master
+struct Ramp {
+    double v = 0, target = 0, from = 0;
+    int left = 0, len = 1;
+    void setNow(double x) {
+        v = target = from = x;
+        left = 0;
+    }
+    void to(double x, int n) {
+        if (!(x < target || x > target)) return;
+        target = x;
+        from = v;
+        len = left = n > 0 ? n : 1;
+    }
+    double next() {
+        if (left > 0) {
+            --left;
+            const double t = 1.0 - static_cast<double>(left) / len;
+            v = left == 0 ? target : from + (target - from) * (t * t * (3 - 2 * t));
+        }
+        return v;
+    }
+    bool moving() const { return left > 0; }
+};
+
+// CRUSH -> PHASER -> FLANGER, en place, avant la chaine du site
+class PreFx {
+public:
+    static constexpr int kPhStages = 6, kCtl = 16;
+    void prepare(double sr);
+    void reset();
+    void set(const ArpFxSettings& s, bool now);
+    void process(float* L, float* R, int n);
+    bool bypassed() const { return !crOn_ && !phOn_ && !flOn_; }
+    int latency() const { return flOn_ ? flD0_ : 0; }
+
+private:
+    struct Svf {
+        double a1 = 1, a2 = 0, a3 = 0, ic1[2] = {0, 0}, ic2[2] = {0, 0};
+    };
+    void crushCoefs(double vr, double vb);
+    double sr_ = 48000;
+    int rampN_ = 960;
+    // CRUSH
+    bool crOn_ = false;
+    Ramp crBits_, crRate_;
+    double crRateAt_ = -1, crBitsAt_ = -1, crInc_ = 1, crQ_ = 32768, crPhase_ = 0;
+    Svf crLp_[2];
+    double crPrev_[2] = {0, 0}, crHold_[2] = {0, 0};
+    // PHASER
+    bool phOn_ = false;
+    Ramp phMix_, phDepth_, phFb_;
+    double phHz_ = 0.3, phPhase_ = 0, phA_[2] = {0, 0}, phDa_[2] = {0, 0}, phZ_[2][kPhStages] = {}, phLast_[2] = {0, 0};
+    int phCtl_ = 0;
+    // FLANGER
+    bool flOn_ = false;
+    Ramp flOnR_, flMix_, flDepth_, flFb_;
+    double flHz_ = 0.25, flPhase_ = 0, flLast_[2] = {0, 0};
+    int flD0_ = 120, flMask_ = 0, flW_ = 0;
+    unsigned tick_ = 0;
+    std::vector<float> flDry_[2], flWet_[2];
+};
+
+// PUMP : le pompage cale au tempo, en place, apres la chaine du site
+class Pump {
+public:
+    void prepare(double sr);
+    void reset();
+    void set(double depth, int rate, double shape, bool now);
+    void process(float* L, float* R, int n, double ppq, double ppqPerSample, bool playing);
+    bool bypassed() const { return !on_; }
+
+private:
+    double sr_ = 48000, beats_ = 1, shape_ = 0.5, g_ = 1, k_ = 1;
+    int rampN_ = 960;
+    bool on_ = false;
+    Ramp depth_;
+};
+
+// SHIMMER : la sortie de la reverb une octave au-dessus, rendue 128 echantillons plus tard a son entree
+class Shimmer {
+public:
+    static constexpr int Q = 128;
+    void prepare(double sr);
+    void reset();
+    void set(double amount, bool now);
+    bool bypassed() const { return !on_; }
+    // ce qui revient a l'entree de la reverb pour l'echantillon q du bloc de 128 (0 quand il est contourne)
+    float backL(int q) const { return hist_[0][static_cast<size_t>(q)]; }
+    float backR(int q) const { return hist_[1][static_cast<size_t>(q)]; }
+    // la sortie de la reverb pour les echantillons q0 .. q0 + n - 1 du bloc de 128
+    void process(const float* revL, const float* revR, int q0, int n);
+
+private:
+    struct Svf {
+        double a1 = 1, a2 = 0, a3 = 0, k = 1.4142135623730951, ic1[2] = {0, 0}, ic2[2] = {0, 0};
+    };
+    double sr_ = 48000, postK_ = 1, post_[2] = {0, 0};
+    int rampN_ = 960, W_ = 4320, mask_ = 0, w_ = 0, k_ = 0, drain_ = 0;
+    bool on_ = false;
+    Ramp gain_;
+    Svf lp1_, lp2_, hp_;
+    std::vector<float> buf_[2], win_;
+    std::array<float, Q> hist_[2]{};
+};
+
 } // namespace detail
 
 class ArpFx {
@@ -449,6 +614,15 @@ public:
     bool reverbBusy() const { return conv_.busy(); }
     /** Le retard de la section master : 39 echantillons quand WARMTH est engagee, 0 sinon. */
     int masterLatencySamples() const { return master_.latency(); }
+    /** Le rack du 2026-11-11 : la position de l'hote au premier echantillon du prochain process (PUMP). Thread audio. */
+    void setTransport(double ppq, double ppqPerSample, bool playing) {
+        ppq_ = ppq;
+        pps_ = ppqPerSample;
+        playing_ = playing;
+    }
+    /** Le retard du FLANGER engage (le sec retarde de 2.5 ms pour le passage par zero), 0 quand il est contourne. */
+    int flangerLatencySamples() const { return pre_.latency(); }
+    int delayMode() const { return dMode_; }
 
     // Pour les tests et l'interface
     int chorusMode() const { return mode_; }
@@ -502,9 +676,21 @@ private:
     detail::Convolver conv_;
     // MASTER
     detail::Master master_;
+    // Le rack du 2026-11-11 : CRUSH / PHASER / FLANGER avant la chaine, PUMP apres, SHIMMER autour de la reverb,
+    // les modes du DELAY (le mouille descend, les lignes sont videes, il remonte)
+    detail::PreFx pre_;
+    detail::Pump pump_;
+    detail::Shimmer shim_;
+    double ppq_ = 0, pps_ = 0;
+    bool playing_ = false;
+    int dMode_ = 0, dWant_ = 0;
+    detail::Ramp dXf_ = {1, 1, 1, 0, 1};
+    detail::WebBiquad dHpR_;
+    float dFbL_ = 0, dFbR_ = 0;
+    void delayClear();
 
     // tampons (prepare)
-    std::vector<float> bHiL_, bHiR_, bJL_, bJR_, bTL_, bTR_, bTo_L_, bTo_R_, bTime_, bRL_, bRR_, bRoL_, bRoR_;
+    std::vector<float> bHiL_, bHiR_, bJL_, bJR_, bTL_, bTR_, bTo_L_, bTo_R_, bTime_, bRL_, bRR_, bRoL_, bRoR_, bPreL_, bPreR_;
 };
 
 } // namespace mmarp

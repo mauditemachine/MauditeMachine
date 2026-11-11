@@ -37,6 +37,7 @@ import { arpMidi, type ArpMidiState } from './midimap';
 import { sectionPrefix, SoundPlus, xTouch } from './SoundPlus';
 import { ARP_BUILD } from '../../firmware';
 import { uiScale } from './scale';
+import { arpSteps, STEP_TRACKS, stepName } from './steps';
 import { hoodTab, type HoodTab } from './tab';
 
 /** Le glisser part apres ce deplacement (px), le bouton tenu. */
@@ -54,7 +55,8 @@ export function paramLabel(id: string): string {
   const knob = VOY_KNOBS.find((k) => k.id === id);
   if (knob) return knob.label;
   const x = extraParam(id);
-  if (x) return `${X_PREFIX[x.section] ?? ''}${x.label}`;
+  // Les reglages du module avant (FrontModule.tsx) : PHASER RATE, FLANGER DEPTH... (sectionPrefix)
+  if (x) return x.section in X_PREFIX ? `${X_PREFIX[x.section]}${x.label}` : `${sectionPrefix(x)}${x.label}`;
   return EXTRA_LABELS[id] ?? id.toUpperCase();
 }
 
@@ -97,6 +99,7 @@ const Lcd: React.FC<{ tab: HoodTab }> = ({ tab }) => {
   const st = useArpMidi();
   const t = useTouch();
   const extra = useExtra();
+  const steps = useSyncExternalStore(arpSteps.subscribe, arpSteps.get, arpSteps.get);
   let head: string;
   let line: string;
   let mode = 'idle';
@@ -112,6 +115,13 @@ const Lcd: React.FC<{ tab: HoodTab }> = ({ tab }) => {
     const p = extraParam(t.id) as NonNullable<ReturnType<typeof extraParam>>;
     head = `${sectionPrefix(p)}${p.label}`;
     line = arpExtra.text(p.id, extra[p.id]);
+    mode = t.active ? 'gesture' : 'touch';
+  } else if (t && t.id.startsWith('step:')) {
+    // Un pas du STEP SEQUENCER du module avant (FrontModule.tsx) : sa piste et son numero, son etat
+    const [, track, i] = t.id.split(':');
+    const spec = STEP_TRACKS.find((x) => x.id === track);
+    head = `STEP ${Number(i) + 1} · ${spec?.label ?? ''}`;
+    line = spec ? stepName(spec.id, steps[spec.id][Number(i)]) : '';
     mode = t.active ? 'gesture' : 'touch';
   } else if (tab === 'library') {
     head = 'LIBRARY · VST3';

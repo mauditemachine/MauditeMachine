@@ -11,7 +11,12 @@
 
 import spec from '../../../../plugin/mm-arp/extra-params.json';
 
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master';
+/**
+ * Les blocs du JSON. Les cinq premiers : la page SOUND+ du capot (SoundPlus.tsx). Les autres (2026-11-11) : le module
+ * d'extension de la face avant (FrontModule.tsx) : seq (SWING), osc et filter (OSC / FILTER +), phaser, flanger, pump,
+ * crush et space (FX RACK).
+ */
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space';
 
 export interface ExtraParam {
   id: string;
@@ -27,7 +32,7 @@ export const EXTRA_STORAGE_KEY = 'mm.v4.plugin.arp.extra';
 export const EXTRA_PARAMS: readonly ExtraParam[] = (spec.params as readonly ExtraParam[]).map((p) => ({ id: p.id, label: p.label, section: p.section, def: p.def, steps: p.steps, help: p.help }));
 export const EXTRA_IDS: readonly string[] = EXTRA_PARAMS.map((p) => p.id);
 
-/** Les blocs, dans l'ordre de l'ecran. */
+/** Les blocs de la page SOUND+, dans l'ordre de l'ecran (ceux du module avant : FrontModule.tsx). */
 export const EXTRA_SECTIONS: readonly { id: ExtraSection; title: string }[] = [
   { id: 'engine', title: 'ENGINE' },
   { id: 'lfo1', title: 'LFO 1' },
@@ -97,6 +102,26 @@ export const shelfDb = (v: number): number => (v - 0.5) * 12;
 /** WIDTH : 0 mono, 100 % celle du site, 200 % le double du cote. */
 export const widthPct = (v: number): number => 200 * v;
 
+/* Le module avant (2026-11-11). Les lois sont celles que disent les help du JSON, exponentielles entre leurs bornes. */
+const expo = (lo: number, hi: number, v: number): number => lo * Math.pow(hi / lo, v);
+/** PHASER RATE : 0.05 a 8 Hz. */
+export const phRateHz = (v: number): number => expo(0.05, 8, v);
+/** FLANGER RATE : 0.03 a 5 Hz. */
+export const flRateHz = (v: number): number => expo(0.03, 5, v);
+/** HIGH PASS : 20 Hz a 2 kHz (0 : absent). */
+export const hpfHz = (v: number): number => expo(20, 2000, v);
+/** CRUSH : 16 a 4 bits (0 : contourne). */
+export const crushBits = (v: number): number => 16 - 12 * v;
+/** DOWNSAMPLE : de 48 kHz a 2 kHz (0 : contourne). */
+export const crushHz = (v: number): number => expo(48000, 2000, v);
+
+const hz = (f: number): string => (f >= 1000 ? `${(f / 1000).toFixed(f >= 10000 ? 0 : 1)} kHz` : f >= 100 ? `${Math.round(f)} Hz` : f >= 10 ? `${f.toFixed(1)} Hz` : `${f.toFixed(2)} Hz`);
+const pct = (v: number): string => `${Math.round(v * 100)} %`;
+/** Une dose : OFF a zero. */
+const dose = (v: number): string => (v <= 0 ? 'OFF' : pct(v));
+/** Un reglage a zero au centre : -100 a +100 %. */
+const bipolar = (v: number): string => `${signed((v - 0.5) * 200, 0)} %`;
+
 function text(id: string, v: number): string {
   const p = BY_ID.get(id);
   if (!p) return '';
@@ -113,6 +138,29 @@ function text(id: string, v: number): string {
       return `${signed(shelfDb(v), 1)} dB`;
     case 'xWidth':
       return v <= 0 ? 'MONO' : `${Math.round(widthPct(v))} %`;
+    case 'xRing':
+    case 'xFold':
+    case 'xComb':
+    case 'xPhMix':
+    case 'xFlMix':
+    case 'xPumpDepth':
+    case 'xShimmer':
+      return dose(v);
+    case 'xNoiseColor':
+      return v === 0.5 ? 'WHITE' : bipolar(v);
+    case 'xCombFb':
+    case 'xFlFb':
+      return bipolar(v);
+    case 'xHpf':
+      return v <= 0 ? 'OFF' : hz(hpfHz(v));
+    case 'xPhRate':
+      return hz(phRateHz(v));
+    case 'xFlRate':
+      return hz(flRateHz(v));
+    case 'xCrushBits':
+      return v <= 0 ? 'OFF' : `${crushBits(v).toFixed(1)} BIT`;
+    case 'xCrushRate':
+      return v <= 0 ? 'OFF' : hz(crushHz(v));
     default:
       return `${Math.round(v * 100)} %`;
   }

@@ -135,6 +135,13 @@ double ArpFxLaws::revSeconds(double v) { return IR_SECONDS * std::pow(4.0, 2 * c
 double ArpFxLaws::revToneFactor(double v) { return std::pow(4.0, 2 * clampd(v, 0, 1) - 1); }
 double ArpFxLaws::revPreSeconds(double v) { return clampd(v, 0, 1) / 10; }
 double ArpFxLaws::shelfDb(double v) { return 12 * (clampd(v, 0, 1) - 0.5); }
+// Le rack d'effets du 2026-11-11
+double ArpFxLaws::phaserHz(double v) { return 0.05 * std::pow(160.0, clampd(v, 0, 1)); }
+double ArpFxLaws::flangerHz(double v) { return 0.03 * std::pow(5 / 0.03, clampd(v, 0, 1)); }
+double ArpFxLaws::crushBitDepth(double v) { return 16 - 12 * clampd(v, 0, 1); }
+double ArpFxLaws::crushHz(double v, double sr) { return sr * std::pow(std::min(1.0, 2000 / sr), clampd(v, 0, 1)); }
+double ArpFxLaws::pumpDb(double v) { return -24 * clampd(v, 0, 1); }
+double ArpFxLaws::pumpBeats(int rate) { return rate <= 0 ? 0.5 : rate == 1 ? 1 : 2; }
 
 namespace detail {
 
@@ -1349,6 +1356,448 @@ void Master::process(float* L, float* R, int n) {
         }
 }
 
+/* ---------------- le rack d'effets du 2026-11-11 : CRUSH, PHASER, FLANGER ---------------- */
+
+namespace {
+constexpr double CRUSH_IN = 20;        // la dose de CRUSH / DOWNSAMPLE entre sur 1 / 20 de la course
+constexpr double PH_HZ = 800, PH_OCT = 2.5, PH_FB = 0.85;
+constexpr double FL_D0_S = 0.0025, FL_FB = 0.8;
+constexpr double PUMP_ATK_S = 0.002, PUMP_SLEW_S = 0.0005;
+constexpr double SH_WIN_S = 0.09, SH_GAIN = 0.75, SH_LP = 0.2, SH_HP_HZ = 250, SH_POST_HZ = 7000, SH_MAX = 8;
+inline double fin01(double v, double def) { return std::isfinite(v) ? clampd(v, 0, 1) : def; }
+inline bool isZero(double v) { return !(v < 0 || v > 0); }
+inline double flush(double v) { return std::fabs(v) < 1e-20 ? 0 : v; }
+// Lagrange d'ordre 3 : la ligne b (masque m) lue d echantillons avant w (d >= 1)
+inline double readLag3(const float* b, int m, int w, double d) {
+    const int di = static_cast<int>(d);
+    const double f = d - di + 1;
+    const double c0 = -((f - 1) * (f - 2) * (f - 3)) / 6, c1 = (f * (f - 2) * (f - 3)) / 2, c2 = -(f * (f - 1) * (f - 3)) / 2, c3 = (f * (f - 1) * (f - 2)) / 6;
+    return c0 * b[(w - di + 1) & m] + c1 * b[(w - di) & m] + c2 * b[(w - di - 1) & m] + c3 * b[(w - di - 2) & m];
+}
+} // namespace
+
+void PreFx::prepare(double sr) {
+    sr_ = sr;
+    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
+    flD0_ = std::max(8, static_cast<int>(jsRound(FL_D0_S * sr)));
+    int len = 64;
+    while (len < 2 * flD0_ + 16) len *= 2;
+    flMask_ = len - 1;
+    for (int c = 0; c < 2; ++c) {
+        flDry_[c].assign(static_cast<size_t>(len), 0.f);
+        flWet_[c].assign(static_cast<size_t>(len), 0.f);
+    }
+    reset();
+}
+
+// les etats a zero, les reglages poses sans rampe
+void PreFx::reset() {
+    for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_}) r->setNow(r->target);
+    crOn_ = crBits_.v > 0 || crRate_.v > 0;
+    phOn_ = phMix_.v > 0;
+    flOn_ = flMix_.v > 0;
+    flOnR_.setNow(flOn_ ? 1 : 0);
+    crRateAt_ = crBitsAt_ = -1;
+    crPhase_ = 0;
+    for (Svf& f : crLp_) f.ic1[0] = f.ic1[1] = f.ic2[0] = f.ic2[1] = 0;
+    crPrev_[0] = crPrev_[1] = crHold_[0] = crHold_[1] = 0;
+    phPhase_ = 0;
+    phCtl_ = -1;
+    for (int c = 0; c < 2; ++c) {
+        phLast_[c] = flLast_[c] = 0;
+        for (double& z : phZ_[c]) z = 0;
+        std::fill(flDry_[c].begin(), flDry_[c].end(), 0.f);
+        std::fill(flWet_[c].begin(), flWet_[c].end(), 0.f);
+    }
+    flPhase_ = 0;
+    flW_ = 0;
+    tick_ = 0;
+}
+
+void PreFx::set(const ArpFxSettings& s, bool now) {
+    const double cb = fin01(s.crushBits, 0), cr = fin01(s.crushRate, 0);
+    const double pm = fin01(s.phMix, 0), pd = fin01(s.phDepth, 0.6), pf = PH_FB * fin01(s.phFb, 0.4);
+    const double fm = fin01(s.flMix, 0), fd = fin01(s.flDepth, 0.6);
+    const double ff = FL_FB * (std::isfinite(s.flFb) ? clampd(s.flFb, -1, 1) : 0);
+    phHz_ = ArpFxLaws::phaserHz(fin01(s.phRate, 0.3));
+    flHz_ = ArpFxLaws::flangerHz(fin01(s.flRate, 0.25));
+    if (now) {
+        // poses : une section qui s'engage part d'etats a zero
+        const bool was[3] = {crOn_, phOn_, flOn_};
+        crBits_.target = cb;
+        crRate_.target = cr;
+        phMix_.target = pm;
+        phDepth_.target = pd;
+        phFb_.target = pf;
+        flMix_.target = fm;
+        flDepth_.target = fd;
+        flFb_.target = ff;
+        const double phase[2] = {phPhase_, flPhase_};
+        const bool keep = (was[0] || !(cb > 0 || cr > 0)) && (was[1] || !(pm > 0)) && (was[2] || !(fm > 0));
+        if (keep) {
+            // rien ne s'engage : les etats restent (un reglage pose en cours de jeu)
+            for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_}) r->setNow(r->target);
+            crOn_ = cb > 0 || cr > 0;
+            phOn_ = pm > 0;
+            flOn_ = fm > 0;
+            flOnR_.setNow(flOn_ ? 1 : 0);
+        } else {
+            reset();
+            phPhase_ = phase[0];
+            flPhase_ = phase[1];
+        }
+        return;
+    }
+    // CRUSH : les etats du reducteur repartent de zero quand il s'engage
+    if (cr > 0 && isZero(crRate_.v) && !crRate_.moving()) {
+        for (Svf& f : crLp_) f.ic1[0] = f.ic1[1] = f.ic2[0] = f.ic2[1] = 0;
+        crPrev_[0] = crPrev_[1] = crHold_[0] = crHold_[1] = 0;
+        crPhase_ = 0;
+        crRateAt_ = -1;
+    }
+    if (cb > 0 || cr > 0) crOn_ = true;
+    crBits_.to(cb, rampN_);
+    crRate_.to(cr, rampN_);
+    // PHASER
+    if (pm > 0 && !phOn_) {
+        for (int c = 0; c < 2; ++c) {
+            phLast_[c] = 0;
+            for (double& z : phZ_[c]) z = 0;
+        }
+        phCtl_ = -1;
+        phOn_ = true;
+        phDepth_.setNow(pd);
+        phFb_.setNow(pf);
+    }
+    phMix_.to(pm, rampN_);
+    phDepth_.to(pd, rampN_);
+    phFb_.to(pf, rampN_);
+    // FLANGER : il s'engage par un fondu vers sa chaine (le sec y est retarde), la dose a sa valeur d'emblee
+    if (fm > 0 && !flOn_) {
+        for (int c = 0; c < 2; ++c) {
+            flLast_[c] = 0;
+            std::fill(flDry_[c].begin(), flDry_[c].end(), 0.f);
+            std::fill(flWet_[c].begin(), flWet_[c].end(), 0.f);
+        }
+        flOn_ = true;
+        flOnR_.setNow(0);
+        flMix_.setNow(fm);
+        flDepth_.setNow(fd);
+        flFb_.setNow(ff);
+    }
+    if (fm > 0) {
+        flOnR_.to(1, rampN_);
+        flMix_.to(fm, rampN_);
+    } else
+        flOnR_.to(0, rampN_);
+    flDepth_.to(fd, rampN_);
+    flFb_.to(ff, rampN_);
+}
+
+void PreFx::crushCoefs(double vr, double vb) {
+    if (vr < crRateAt_ || vr > crRateAt_) {
+        crRateAt_ = vr;
+        const double fs = ArpFxLaws::crushHz(vr, sr_);
+        crInc_ = std::min(1.0, fs / sr_);
+        // le passe-bas d'avant : 4e ordre (deux etages Q 0.707) a la moitie du taux vise
+        const double g = std::tan(PI * std::min(0.5 * fs, 0.45 * sr_) / sr_);
+        for (Svf& f : crLp_) {
+            f.a1 = 1 / (1 + g * (g + 1.4142135623730951));
+            f.a2 = g * f.a1;
+            f.a3 = g * f.a2;
+        }
+    }
+    if (vb < crBitsAt_ || vb > crBitsAt_) {
+        crBitsAt_ = vb;
+        crQ_ = std::pow(2.0, ArpFxLaws::crushBitDepth(vb) - 1);
+    }
+}
+
+void PreFx::process(float* L, float* R, int n) {
+    if (bypassed()) return; // tout au neutre : l'entree, au bit pres
+    for (int i = 0; i < n; ++i) {
+        double x[2] = {L[i], R[i]};
+        // 1. CRUSH : l'echantillonnage (passe-bas, bloqueur a l'instant exact) puis les bits
+        if (crOn_) {
+            const double vr = crRate_.next(), vb = crBits_.next();
+            crushCoefs(vr, vb);
+            if (vr > 0) {
+                const double w = std::min(1.0, vr * CRUSH_IN);
+                crPhase_ += crInc_;
+                const bool tick = crPhase_ >= 1;
+                if (tick) crPhase_ -= 1;
+                const double back = tick ? crPhase_ / crInc_ : 0; // depuis l'instant de la prise, en echantillons
+                for (int c = 0; c < 2; ++c) {
+                    double v = x[c];
+                    for (Svf& f : crLp_) {
+                        const double v3 = v - f.ic2[c];
+                        const double v1 = f.a1 * f.ic1[c] + f.a2 * v3;
+                        const double v2 = f.ic2[c] + f.a2 * f.ic1[c] + f.a3 * v3;
+                        f.ic1[c] = 2 * v1 - f.ic1[c];
+                        f.ic2[c] = 2 * v2 - f.ic2[c];
+                        v = v2;
+                    }
+                    if (tick) crHold_[c] = v - (v - crPrev_[c]) * back;
+                    crPrev_[c] = v;
+                    x[c] += w * (crHold_[c] - x[c]);
+                }
+            }
+            if (vb > 0) {
+                const double w = std::min(1.0, vb * CRUSH_IN);
+                for (int c = 0; c < 2; ++c) x[c] += w * (std::floor(x[c] * crQ_ + 0.5) / crQ_ - x[c]);
+            }
+            if (!crRate_.moving() && !crBits_.moving() && isZero(crRate_.v) && isZero(crBits_.v)) crOn_ = false;
+        }
+        // 2. PHASER : six passe-tout du premier ordre par canal, la droite un quart de cycle apres
+        if (phOn_) {
+            const double m = phMix_.next(), dep = phDepth_.next(), fb = phFb_.next();
+            if (phCtl_ <= 0) {
+                // le balayage, toutes les 16 echantillons (le coefficient glisse entre deux)
+                const bool first = phCtl_ < 0;
+                phCtl_ = kCtl;
+                phPhase_ += kCtl * phHz_ / sr_;
+                phPhase_ -= std::floor(phPhase_);
+                for (int c = 0; c < 2; ++c) {
+                    const double lfo = std::sin(TAU * (phPhase_ + 0.25 * c));
+                    const double hz = std::min(0.4 * sr_, PH_HZ * std::pow(2.0, PH_OCT * dep * lfo));
+                    const double t = std::tan(PI * hz / sr_);
+                    const double a = (t - 1) / (t + 1);
+                    if (first) phA_[c] = a;
+                    phDa_[c] = (a - phA_[c]) / kCtl;
+                }
+            }
+            --phCtl_;
+            for (int c = 0; c < 2; ++c) {
+                phA_[c] += phDa_[c];
+                const double a = phA_[c];
+                double y = x[c] + fb * phLast_[c];
+                for (double& z : phZ_[c]) {
+                    const double o = a * y + z;
+                    z = y - a * o;
+                    y = o;
+                }
+                phLast_[c] = y;
+                x[c] += 0.5 * m * (y - x[c]);
+            }
+            if (!phMix_.moving() && isZero(phMix_.v)) phOn_ = false;
+        }
+        // 3. FLANGER a travers zero : le sec retarde de D0, le mouille balaie de 0 a 2 D0
+        if (flOn_) {
+            const double on = flOnR_.next(), m = flMix_.next(), dep = flDepth_.next(), fb = flFb_.next();
+            flPhase_ += flHz_ / sr_;
+            flPhase_ -= std::floor(flPhase_);
+            const double afb = std::fabs(fb);
+            for (int c = 0; c < 2; ++c) {
+                const double lfo = std::sin(TAU * (flPhase_ + 0.25 * c));
+                const double d = std::max(1.0, flD0_ * (1 + (1 - dep) * 0.5 + dep * lfo));
+                flDry_[c][static_cast<size_t>(flW_)] = static_cast<float>(x[c]);
+                flWet_[c][static_cast<size_t>(flW_)] = static_cast<float>(flush(x[c] + fb * flLast_[c]));
+                const double dry = flDry_[c][static_cast<size_t>((flW_ - flD0_) & flMask_)];
+                const double wet = readLag3(flWet_[c].data(), flMask_, flW_, d);
+                flLast_[c] = wet;
+                const double y = (dry + m * wet * (1 - 0.45 * afb)) / (1 + 0.3 * m);
+                x[c] += on * (y - x[c]);
+            }
+            flW_ = (flW_ + 1) & flMask_;
+            if (!flOnR_.moving() && isZero(flOnR_.v)) flOn_ = false;
+        }
+        L[i] = static_cast<float>(x[0]);
+        R[i] = static_cast<float>(x[1]);
+        // jamais de sous-normaux dans les etats qui s'eteignent : rinces tous les 128 echantillons (a son propre
+        // compte : le resultat ne depend pas de la taille des blocs)
+        if ((++tick_ & 127) == 0)
+            for (int c = 0; c < 2; ++c) {
+                for (Svf& f : crLp_) {
+                    f.ic1[c] = flush(f.ic1[c]);
+                    f.ic2[c] = flush(f.ic2[c]);
+                }
+                for (double& z : phZ_[c]) z = flush(z);
+                phLast_[c] = flush(phLast_[c]);
+                flLast_[c] = flush(flLast_[c]);
+            }
+    }
+}
+
+/* ---------------- PUMP ---------------- */
+
+void Pump::prepare(double sr) {
+    sr_ = sr;
+    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
+    k_ = 1 - std::exp(-1 / (PUMP_SLEW_S * sr));
+    reset();
+}
+
+void Pump::reset() {
+    depth_.setNow(depth_.target);
+    on_ = depth_.v > 0;
+    g_ = 1;
+}
+
+void Pump::set(double depth, int rate, double shape, bool now) {
+    const double d = fin01(depth, 0);
+    beats_ = ArpFxLaws::pumpBeats(rate);
+    shape_ = fin01(shape, 0.5);
+    if (now) {
+        depth_.setNow(d);
+        if (!(d > 0)) g_ = 1;
+        on_ = d > 0;
+        return;
+    }
+    if (d > 0 && !on_) {
+        on_ = true;
+        g_ = 1;
+    }
+    depth_.to(d, rampN_);
+}
+
+void Pump::process(float* L, float* R, int n, double ppq, double pps, bool playing) {
+    if (!on_) return; // au neutre : la sortie d'avant, au bit pres
+    const bool run = playing && pps > 0 && std::isfinite(ppq);
+    const double per = run ? beats_ / pps : 1;          // la periode, en echantillons
+    const double atk = std::min(PUMP_ATK_S * sr_, 0.25 * per);
+    const double rel = std::max(atk, std::min((0.15 + 0.8 * shape_) * per, per - atk));
+    for (int i = 0; i < n; ++i) {
+        const double dep = depth_.next();
+        double env = 0;
+        if (run) {
+            const double c = (ppq + i * pps) / beats_;
+            const double ph = c - std::floor(c);
+            const double since = ph * per, until = per - since;
+            if (until < atk) {
+                // la plongee, dans les 2 ms qui precedent le temps
+                env = 0.5 - 0.5 * std::cos(PI * (1 - until / atk));
+            } else if (since < rel) {
+                const double u = since / rel;
+                env = (1 - u) * (1 - u) * (1 + 2 * u);
+            }
+        }
+        const double tgt = env > 0 && dep > 0 ? std::exp(ArpFxLaws::pumpDb(dep) * env * 0.11512925464970229) : 1;
+        g_ += (tgt - g_) * k_;
+        if (std::fabs(1 - g_) < 1e-9) g_ = 1;
+        L[i] = static_cast<float>(L[i] * g_);
+        R[i] = static_cast<float>(R[i] * g_);
+        if (!depth_.moving() && isZero(depth_.v) && !(g_ < 1 || g_ > 1)) {
+            on_ = false;
+            return;
+        }
+    }
+}
+
+/* ---------------- SHIMMER ---------------- */
+
+void Shimmer::prepare(double sr) {
+    sr_ = sr;
+    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
+    W_ = 2 * std::max(64, static_cast<int>(jsRound(0.5 * SH_WIN_S * sr)));
+    int len = 256;
+    while (len < W_ + 8) len *= 2;
+    mask_ = len - 1;
+    for (auto& b : buf_) b.assign(static_cast<size_t>(len), 0.f);
+    win_.assign(static_cast<size_t>(W_), 0.f);
+    for (int k = 0; k < W_; ++k) {
+        const double sn = std::sin(PI * k / W_);
+        win_[static_cast<size_t>(k)] = static_cast<float>(sn * sn);
+    }
+    // avant la lecture a vitesse double : un passe-bas du 4e ordre a 0.2 x sr, un passe-haut a 250 Hz
+    const double g = std::tan(PI * SH_LP);
+    for (Svf* f : {&lp1_, &lp2_}) {
+        f->a1 = 1 / (1 + g * (g + f->k));
+        f->a2 = g * f->a1;
+        f->a3 = g * f->a2;
+    }
+    const double gh = std::tan(PI * std::min(SH_HP_HZ, 0.4 * sr) / sr);
+    hp_.a1 = 1 / (1 + gh * (gh + hp_.k));
+    hp_.a2 = gh * hp_.a1;
+    hp_.a3 = gh * hp_.a2;
+    postK_ = 1 - std::exp(-TAU * std::min(SH_POST_HZ, 0.4 * sr) / sr);
+    reset();
+}
+
+void Shimmer::reset() {
+    gain_.setNow(gain_.target);
+    on_ = gain_.v > 0;
+    for (int c = 0; c < 2; ++c) {
+        std::fill(buf_[c].begin(), buf_[c].end(), 0.f);
+        hist_[c].fill(0.f);
+        post_[c] = 0;
+    }
+    for (Svf* f : {&lp1_, &lp2_, &hp_}) f->ic1[0] = f->ic1[1] = f->ic2[0] = f->ic2[1] = 0;
+    w_ = 0;
+    k_ = 0;
+    drain_ = 0;
+}
+
+void Shimmer::set(double amount, bool now) {
+    const double g = SH_GAIN * fin01(amount, 0);
+    if (now) {
+        const bool was = on_;
+        gain_.target = g;
+        if (g > 0 && !was) reset();
+        gain_.setNow(g);
+        on_ = g > 0;
+        if (!on_) reset();
+        return;
+    }
+    if (g > 0 && !on_) {
+        gain_.setNow(0);
+        reset();
+        on_ = true;
+    }
+    gain_.to(g, rampN_);
+}
+
+void Shimmer::process(const float* revL, const float* revR, int q0, int n) {
+    if (!on_) return;
+    const float* in[2] = {revL, revR};
+    const int half = W_ / 2;
+    for (int i = 0; i < n; ++i) {
+        const double gv = gain_.next();
+        const int k2 = k_ + half < W_ ? k_ + half : k_ + half - W_;
+        const double w1 = win_[static_cast<size_t>(k_)], w2 = 1 - w1;
+        for (int c = 0; c < 2; ++c) {
+            double v = in[c][i];
+            for (Svf* f : {&lp1_, &lp2_}) {
+                const double v3 = v - f->ic2[c];
+                const double v1 = f->a1 * f->ic1[c] + f->a2 * v3;
+                const double v2 = f->ic2[c] + f->a2 * f->ic1[c] + f->a3 * v3;
+                f->ic1[c] = 2 * v1 - f->ic1[c];
+                f->ic2[c] = 2 * v2 - f->ic2[c];
+                v = v2;
+            }
+            {
+                const double v3 = v - hp_.ic2[c];
+                const double v1 = hp_.a1 * hp_.ic1[c] + hp_.a2 * v3;
+                const double v2 = hp_.ic2[c] + hp_.a2 * hp_.ic1[c] + hp_.a3 * v3;
+                hp_.ic1[c] = 2 * v1 - hp_.ic1[c];
+                hp_.ic2[c] = 2 * v2 - hp_.ic2[c];
+                v = v - hp_.k * v1 - v2;
+            }
+            float* b = buf_[c].data();
+            b[w_] = static_cast<float>(flush(v));
+            // deux tetes a vitesse double (le retard descend d'un echantillon par echantillon), en fondu
+            const double o = w1 * b[(w_ - (W_ - k_)) & mask_] + w2 * b[(w_ - (W_ - k2)) & mask_];
+            post_[c] = flush(post_[c] + (o - post_[c]) * postK_);
+            hist_[c][static_cast<size_t>(q0 + i)] = static_cast<float>(clampd(gv * post_[c], -SH_MAX, SH_MAX));
+        }
+        w_ = (w_ + 1) & mask_;
+        if (++k_ == W_) k_ = 0;
+        if ((w_ & 127) == 0)
+            for (Svf* f : {&lp1_, &lp2_, &hp_})
+                for (int c = 0; c < 2; ++c) {
+                    f->ic1[c] = flush(f->ic1[c]);
+                    f->ic2[c] = flush(f->ic2[c]);
+                }
+        // coupe : il s'eteint quand tout son retour (128 echantillons) est a zero, ou que tombe la fin du bloc
+        if (!gain_.moving() && isZero(gain_.v)) {
+            if (++drain_ >= Q) {
+                on_ = false;
+                return;
+            }
+        } else
+            drain_ = 0;
+    }
+}
+
 } // namespace detail
 
 /* ---------------- ArpFx ---------------- */
@@ -1357,7 +1806,10 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     sr_ = sampleRate;
     maxBlock_ = std::max(1, maxBlock);
     const size_t q = Q;
-    for (auto* b : {&bHiL_, &bHiR_, &bJL_, &bJR_, &bTL_, &bTR_, &bTo_L_, &bTo_R_, &bTime_, &bRL_, &bRR_, &bRoL_, &bRoR_}) b->assign(q, 0.f);
+    for (auto* b : {&bHiL_, &bHiR_, &bJL_, &bJR_, &bTL_, &bTR_, &bTo_L_, &bTo_R_, &bTime_, &bRL_, &bRR_, &bRoL_, &bRoR_, &bPreL_, &bPreR_}) b->assign(q, 0.f);
+    pre_.prepare(sr_);
+    pump_.prepare(sr_);
+    shim_.prepare(sr_);
     juno_.prepare(sr_);
     tape_.prepare(sr_, PP_MAX_S);
     dl_.prepare(PP_MAX_S, sr_);
@@ -1367,6 +1819,10 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     dHp_.set(false, PP_HIGHPASS, static_cast<float>(WEB_Q_DEFAULT), sr_);
     lpL_.set(true, PP_LOWPASS, static_cast<float>(WEB_Q_DEFAULT), sr_);
     lpR_ = lpL_;
+    dHpR_ = dHp_;
+    dMode_ = dWant_ = have_ ? std::min(2, std::max(0, cur_.dlyMode)) : 0;
+    dXf_.setNow(1);
+    dFbL_ = dFbR_ = 0;
     // Le graphe tel que build() le pose avant applyFx : tout a 0, la separation a 10 Hz, le CHORUS en lien direct
     frame_ = 0;
     const double t0 = have_ ? cur_.delaySeconds : 0.375;
@@ -1396,6 +1852,7 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     lp1_.clear();
     lp2_.clear();
     dHp_.clear();
+    dHpR_.clear();
     lpL_.clear();
     lpR_.clear();
     lpHist_.fill(0);
@@ -1505,6 +1962,23 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
         glide(tAmt_, tamt);
     }
     master_.set(s.warmth, s.bass, s.air, s.width, now);
+    // Le rack du 2026-11-11
+    pre_.set(s, now);
+    pump_.set(s.pumpDepth, s.pumpRate, s.pumpShape, now);
+    shim_.set(s.shimmer, now);
+    const int dm = std::min(2, std::max(0, s.dlyMode));
+    if (now) {
+        if (dm != dMode_) {
+            delayClear();
+            dMode_ = dm;
+        }
+        dWant_ = dm;
+        dXf_.setNow(1);
+    } else if (dm != dWant_) {
+        // le mouille du delay descend (20 ms), les lignes sont videes, il remonte dans le mode neuf
+        dWant_ = dm;
+        dXf_.to(dm != dMode_ ? 0 : 1, std::max(1, static_cast<int>(jsRound(GLIDE_S * sr_))));
+    }
     const double t = std::min(PP_MAX_S, std::max(0.001, s.delaySeconds));
     if (now) {
         dTime_.setNow(static_cast<float>(t));
@@ -1523,7 +1997,24 @@ void ArpFx::retimeDelay(double seconds) {
     retime(tTime_, t);
 }
 
+void ArpFx::delayClear() {
+    std::fill(dl_.buf.begin(), dl_.buf.end(), 0.f);
+    std::fill(dr_.buf.begin(), dr_.buf.end(), 0.f);
+    dHp_.clear();
+    dHpR_.clear();
+    lpL_.clear();
+    lpR_.clear();
+    lpHist_.fill(0);
+    dFbL_ = dFbR_ = 0;
+}
+
 void ArpFx::reset() {
+    pre_.reset();
+    pump_.reset();
+    shim_.reset();
+    dHpR_.clear();
+    dFbL_ = dFbR_ = 0;
+    dXf_.setNow(1);
     tape_.reset();
     std::fill(dl_.buf.begin(), dl_.buf.end(), 0.f);
     std::fill(dr_.buf.begin(), dr_.buf.end(), 0.f);
@@ -1592,9 +2083,21 @@ void ArpFx::process(const float* inL, const float* inR, float* outL, float* outR
     while (done < n) {
         const int left = Q - static_cast<int>(frame_ % Q);
         const int len = std::min(n - done, left);
-        processPiece(inL + done, inR + done, outL + done, outR + done, len);
+        const float* pL = inL + done;
+        const float* pR = inR + done;
+        if (!pre_.bypassed()) {
+            // CRUSH, PHASER, FLANGER : sur une copie de l'entree (au neutre : l'entree elle-meme)
+            std::copy(pL, pL + len, bPreL_.data());
+            std::copy(pR, pR + len, bPreR_.data());
+            pre_.process(bPreL_.data(), bPreR_.data(), len);
+            pL = bPreL_.data();
+            pR = bPreR_.data();
+        }
+        processPiece(pL, pR, outL + done, outR + done, len);
+        if (!pump_.bypassed()) pump_.process(outL + done, outR + done, len, ppq_ + done * pps_, pps_, playing_);
         done += len;
     }
+    ppq_ += n * pps_; // (sans setTransport avant le prochain bloc : la position continue)
     // la section master du plugin, apres tout le reste (contournee au neutre)
     master_.process(outL, outR, n);
 }
@@ -1663,6 +2166,9 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     float* times = bTime_.data();
     float* rinL = bRL_.data();
     float* rinR = bRR_.data();
+    bool dXf = dMode_ != dWant_ || dXf_.moving();
+    const bool shOn = !shim_.bypassed();
+    const int q0 = static_cast<int>(frame_ % Q);
     for (int i = 0; i < n; ++i) {
         float cL, cR;
         if (direct_) {
@@ -1682,16 +2188,41 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         dR[i] = vR + lg;
         // DELAY : l'envoi, le passe-haut, gauche <-> droite (la droite lit le passe-bas gauche du bloc d'avant)
         const float ds = aDs_[static_cast<size_t>(i)];
-        const float sm = 0.5f * (vL * ds + vR * ds);
-        const float h = dHp_.run(sm);
         const float fbv = aFb_[static_cast<size_t>(i)];
         const float dt = std::max(0.f, std::min(static_cast<float>(PP_MAX_S), aDt_[static_cast<size_t>(i)]));
-        const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
-        const float lpRo = lpR_.run(dr_.run(rIn, dt, sr_));
-        const float lIn = h + fbv * lpRo;
-        const float lpLo = lpL_.run(dl_.run(lIn, dt, sr_));
-        lpHist_[static_cast<size_t>(lpHistI_)] = lpLo;
-        if (++lpHistI_ == Q) lpHistI_ = 0;
+        float lpLo, lpRo;
+        if (dMode_ == 0) {
+            const float sm = 0.5f * (vL * ds + vR * ds);
+            const float h = dHp_.run(sm);
+            const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
+            lpRo = lpR_.run(dr_.run(rIn, dt, sr_));
+            const float lIn = h + fbv * lpRo;
+            lpLo = lpL_.run(dl_.run(lIn, dt, sr_));
+            lpHist_[static_cast<size_t>(lpHistI_)] = lpLo;
+            if (++lpHistI_ == Q) lpHistI_ = 0;
+        } else {
+            // STEREO / WIDE (le plugin seul) : deux lignes paralleles, chacune sa reinjection ; WIDE : la gauche a 3/4
+            const float hL = dHp_.run(vL * ds);
+            const float hR = dHpR_.run(vR * ds);
+            lpLo = lpL_.run(dl_.run(hL + fbv * dFbL_, dMode_ == 2 ? dt * 0.75f : dt, sr_));
+            lpRo = lpR_.run(dr_.run(hR + fbv * dFbR_, dt, sr_));
+            dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
+            dFbR_ = std::fabs(lpRo) < 1e-20f ? 0.f : lpRo;
+        }
+        if (dXf) {
+            // un changement de mode en cours
+            const float g = static_cast<float>(dXf_.next());
+            lpLo *= g;
+            lpRo *= g;
+            if (!dXf_.moving()) {
+                if (dMode_ != dWant_) {
+                    delayClear();
+                    dMode_ = dWant_;
+                    dXf_.to(1, std::max(1, static_cast<int>(jsRound(GLIDE_S * sr_))));
+                } else
+                    dXf = false;
+            }
+        }
         mL[i] = lpLo;
         mR[i] = lpRo;
         // TAPE : son envoi, son temps (a-rate)
@@ -1703,6 +2234,11 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         const float rs = aRs_[static_cast<size_t>(i)];
         rinL[i] = (vL * REVERB_BOOST) * rs;
         rinR[i] = (vR * REVERB_BOOST) * rs;
+        if (shOn) {
+            // SHIMMER : la reverb d'il y a 128 echantillons, une octave au-dessus
+            rinL[i] += shim_.backL(q0 + i);
+            rinR[i] += shim_.backR(q0 + i);
+        }
     }
     // 4. la bande
     float* toL = bHiL_.data(); // le haut n'est plus lu
@@ -1712,6 +2248,7 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     float* roL = bRoL_.data();
     float* roR = bRoR_.data();
     conv_.process(rinL, rinR, roL, roR, n);
+    if (shOn) shim_.process(roL, roR, q0, n);
     // 6. la prise : sec + bas, wet x 0.8 (le merge et la bande), la reverb
     for (int i = 0; i < n; ++i) {
         outL[i] = (dL[i] + (mL[i] + toL[i]) * PP_WET) + roL[i];
@@ -1723,6 +2260,7 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         lp1_.endQuantum();
         lp2_.endQuantum();
         dHp_.endQuantum();
+        if (dMode_ != 0) dHpR_.endQuantum();
         lpL_.endQuantum();
         lpR_.endQuantum();
     }

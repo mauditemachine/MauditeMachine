@@ -89,7 +89,7 @@ constexpr int MAX_STACK = 3;
 const double STACK_OFF[3][3] = {{0, 0, 0}, {-0.7, 0.7, 0}, {-1, 0, 1}};
 const double STACK_PAN[3][3] = {{0, 0, 0}, {-1, 1, 0}, {-1, 0, 1}};
 const double STACK_PAN1[2] = {-0.8, 0.8};
-const double STACK_PAN2[3] = {0.64, 1, 2.0 / 3};
+const double STACK_PAN2[7] = {0.64, 1, 2.0 / 3, 0, 0.5, 0, 3.089 / 7};  // (5 et 7 : UNISON, le plugin seul)
 const double WAVE_POW[6] = {0.5, 1.0 / 3, 1.0 / 3, 1, 4 * 0.14 * 0.86, 0.5};
 constexpr double STACK_S = 0.005;
 constexpr double STACK_D_S = 0.03;
@@ -262,6 +262,95 @@ inline double nextRandomU(double a, double u) {
 /** exp(x) pour |x| < 0.05 (le desaccord de STACK module, par echantillon) : Taylor d'ordre 5, erreur < 1e-11. */
 inline double expSmall(double x) { return 1 + x * (1 + (x / 2) * (1 + (x / 3) * (1 + (x / 4) * (1 + x / 5)))); }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Les extensions du 2026-11-11 (le plugin seul : RING, FOLD, NOISE COLOR, UNISON, HIGH PASS, COMB, le glissement par
+// note). Voir Voyager.h. Chaque cle a son neutre : aucun de ces chemins ne tourne, le moteur du site au bit pres.
+constexpr int MAX_UNI = 7;  // les exemplaires par oscillateur (STACK : 3 au plus ; UNISON : 5 ou 7)
+// UNISON : les ecarts (x le reglage STACK, en cents) et les places stereo (x WIDE). Ecarts inegaux (pas de
+// battement regulier), les places alternent autour du centre ; la moyenne des carres des places : STACK_PAN2.
+const double UNI5_OFF[MAX_UNI] = {-1, -0.42, 0, 0.44, 0.97, 0, 0};
+const double UNI5_PAN[MAX_UNI] = {-1, 0.5, 0, -0.5, 1, 0, 0};
+const double UNI7_OFF[MAX_UNI] = {-1, -0.5716, -0.1775, 0, 0.181, 0.5651, 0.9768};
+const double UNI7_PAN[MAX_UNI] = {-1, 0.66, -0.33, 0, 0.33, -0.66, 1};
+constexpr double X_HPF_MIN = 20, X_HPF_MAX = 2000;
+constexpr double X_HPF_K = JS_SQRT2;        // 1 / Q : Butterworth, 12 dB par octave
+constexpr double X_COMB_FB = 0.97;          // la reinjection a xCombFb = +/-1
+constexpr double X_COMB_DAMP_HZ = 10000;    // l'amortissement de la boucle (un pole)
+constexpr double X_COMB_MIN_HZ = 27.5;      // la ligne est allouee pour cette note (au-dessous : une octave plus haut)
+constexpr double X_COMB_S = 0.002;          // le retard glisse (GLIDE, SLIDE) : 2 ms
+constexpr double X_FOLD_A = 8;              // la phase du repliement a FOLD = 1, pour une entree de 1 (2.5 plis)
+constexpr int X_SIN_N = 4096;               // la table du sinus du repliement (Hermite : erreur < 2e-14)
+constexpr double X_RED_HZ = 100;            // NOISE COLOR, le bruit rouge : -6 dB par octave au-dessus
+// NOISE COLOR : les couleurs ramenees a la sonie du blanc a la sortie d'une voix (mesure a 48 kHz, tests/hq2_test)
+constexpr double NC_PINK = 0.245, NC_RED = 0.67, NC_BLUE = 1.1;
+/** a != b sans -Wfloat-equal (les comparaisons exactes des chemins neufs). */
+inline bool differs(double a, double b) { return a < b || a > b; }
+struct SinTab {
+  double s[X_SIN_N + 1], c[X_SIN_N + 1];
+  SinTab() {
+    for (int i = 0; i <= X_SIN_N; i += 1) {
+      s[i] = jsm::sin((TAU * i) / X_SIN_N);
+      c[i] = jsm::cos((TAU * i) / X_SIN_N) * (TAU / X_SIN_N);
+    }
+    s[0] = 0;
+    s[X_SIN_N] = 0;
+    s[X_SIN_N / 2] = 0;
+  }
+};
+const SinTab& sinTab() {
+  static const SinTab t;
+  return t;
+}
+/** sin(x) par la table (x en radians, quelconque). */
+inline double sinT(const SinTab& T, double x) {
+  // (|x| reste petit devant 2^31 pas de table : la phase du repliement, bornee par le niveau des oscillateurs)
+  const double q = x * (X_SIN_N / TAU);
+  int k = static_cast<int>(q);
+  double t = q - k;
+  if (t < 0) {
+    t += 1;
+    k -= 1;
+  }
+  const int i = k & (X_SIN_N - 1);
+  const double y0 = T.s[i], y1 = T.s[i + 1], d0 = T.c[i], d1 = T.c[i + 1];
+  return y0 + t * (d0 + t * ((3 * (y1 - y0) - 2 * d0 - d1) + t * (2 * (y0 - y1) + d0 + d1)));
+}
+/**
+ * FOLD : y = s sin(a x), antirepliement par les primitives (ADAA d'ordre 2, Parker / Zavalishin / Le Bivic 2016), en
+ * phase t = a x. Avec F1 = -cos, F2 = -sin, la difference divisee de F2 a une forme exacte, sans difference de grands
+ * nombres : D(u, v) = (F2(u) - F2(v)) / (u - v) = -cos((u + v) / 2) sinc((u - v) / 2).
+ *   y = 2 (D(t0, t1) - D(t1, t2)) / (t0 - t2)
+ * et, quand t0 et t2 se confondent (un sommet de l'onde, un signal tres faible) : tm = (t0 + t2) / 2, d = tm - t1,
+ *   y = 2 (F1(tm) - D(tm, t1)) / d        ou sin((tm + t1) / 2) si d est petit lui aussi.
+ */
+inline double foldD(const SinTab& T, double u, double v) {
+  const double h = 0.5 * (u - v);
+  const double sc = h < 1e-3 && h > -1e-3 ? 1 - (h * h) / 6 : sinT(T, h) / h;
+  return -sinT(T, 0.5 * (u + v) + JS_PI / 2) * sc;
+}
+/** st : {x1, x2, D(t1, t2)} ; fresh : D est a recalculer (a a change, la voix repart). */
+inline double foldAdaa2(const SinTab& T, double x0, double* st, double a, bool fresh) {
+  const double t0 = a * x0, t1 = a * st[0], t2 = a * st[1];
+  const double d12 = fresh ? foldD(T, t1, t2) : st[2];
+  const double d01 = foldD(T, t0, t1);
+  const double dt = t0 - t2;
+  double y;
+  if (dt > 1e-3 || dt < -1e-3)
+    y = (2 * (d01 - d12)) / dt;
+  else {
+    const double tm = 0.5 * (t0 + t2);
+    const double d = tm - t1;
+    if (d > 1e-3 || d < -1e-3)
+      y = (2 * (-sinT(T, tm + JS_PI / 2) - foldD(T, tm, t1))) / d;
+    else
+      y = sinT(T, 0.5 * (tm + t1));
+  }
+  st[1] = st[0];
+  st[0] = x0;
+  st[2] = d01;
+  return y;
+}
+
 enum {
   KS_ODGAIN = 0, KS_ODMIX, KS_ODTRIM, KS_CLIPT, KS_CLIPW, KS_VSC, KS_GLUE, KS_SIZE
 };
@@ -341,7 +430,9 @@ enum PId {
   P_aS, P_aR, P_drive, P_phase, P_drift, P_width, P_keyTrack, P_sync, P_sub, P_subOct, P_subWave, P_accFlt, P_outLevel,
   P_stack, P_wide, P_load, P_space, P_fpol, P_glue,
   // les extensions du plugin (jamais envoyees par le site ; leurs defauts : rien ne change, au bit pres)
-  P_xl1Dest, P_xl1Amt, P_l2Beats, P_l2Shape, P_l2Dest, P_l2Amt, P_COUNT
+  P_xl1Dest, P_xl1Amt, P_l2Beats, P_l2Shape, P_l2Dest, P_l2Amt,
+  // 2026-11-11
+  P_xRing, P_xFold, P_xNoiseCol, P_xUnison, P_xHpf, P_xComb, P_xCombFb, P_COUNT
 };
 struct PDef {
   const char* name;
@@ -368,6 +459,9 @@ const PDef PDEFS[P_COUNT] = {
     {"glue", 0, 1.5, false, 0},
     {"xl1Dest", 0, 10, true, 0},     {"xl1Amt", 0, 1, false, 0},      {"l2Beats", 0.125, 32, false, 4},
     {"l2Shape", 0, 6, true, 0},      {"l2Dest", 0, 14, true, 0},      {"l2Amt", 0, 1, false, 0},
+    {"xRing", 0, 1, false, 0},       {"xFold", 0, 1, false, 0},       {"xNoiseCol", 0, 1, false, 0.5},
+    {"xUnison", 0, 7, true, 0},      {"xHpf", 0, X_HPF_MAX, false, 0}, {"xComb", 0, 1, false, 0},
+    {"xCombFb", -1, 1, false, 0},
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -431,7 +525,7 @@ struct Voice {
   bool on = false;
   double midi = 60;
   double logf = 0, logT = 0;
-  StackPair pr[MAX_STACK];
+  StackPair pr[MAX_UNI];
   double subPh = 0;
   int n = 1, nLoop = 1;
   LadderR fr;
@@ -455,6 +549,20 @@ struct Voice {
   double gL = 1, gR = 1, tL = 1, tR = 1;
   double envAcc = 1, cutAcc = 0, fdm = 1, ampAcc = 1;
   double pu = 0, d1 = 0, d2 = 0, d3 = 0, g = 0, gS = 0;
+  // 2026-11-11 (le plugin seul). gK : le glissement propre de la note (0 : le GLIDE du patch) ; fx : l'entree
+  // precedente du repliement (G, D) ; nc : NOISE COLOR (rose x3, rouge, le blanc d'avant), nzc le bruit colore ;
+  // hp : HIGH PASS (ic1, ic2 x G, D) ; le peigne : ses lignes (G, D), leur place d'ecriture, ce qu'elles ont recu
+  // depuis le repos, le retard en cours et sa cible, l'amortissement de la boucle (G, D)
+  double gK = 0;
+  double fx[2][3] = {{0, 0, 0}, {0, 0, 0}};
+  double fxA = -1;
+  double nc[5] = {0, 0, 0, 0, 0};
+  double nzc = 0;
+  double hp[4] = {0, 0, 0, 0};
+  float* cb[2] = {nullptr, nullptr};
+  int cw = 0, cVal = 0;
+  double cD = 0, cDt = 0;
+  double cLp[2] = {0, 0};
 
   void init(Rnd& rnd) {
     logf = jsm::log(261.6);
@@ -463,7 +571,7 @@ struct Voice {
     const double b0 = rnd.next();
     const double m0 = rnd.next();
     pr[0].init(a0, b0, m0, true);
-    for (int j = 1; j < MAX_STACK; j += 1) pr[j].init(0, 0, 0, false);
+    for (int j = 1; j < MAX_UNI; j += 1) pr[j].init(0, 0, 0, false);
     subPh = rnd.next();
     for (int j = 0; j < VX_SIZE; j += 1) x[j] = 0;
     seed = static_cast<int32_t>(rnd.next() * 0x7fffffff) | 1;
@@ -476,6 +584,31 @@ struct Voice {
     calC = (rnd.next() - 0.5) * 2 * DRIFT_CAL_CUT;
   }
 };
+
+/**
+ * COMB : un echantillon d'une ligne (ch 0 gauche, 1 droite). Lecture avant ecriture : quatre points de Lagrange aux
+ * retards cdi - 1 .. cdi + 2 (ce que la ligne n'a pas encore recu depuis le repos vaut 0), l'amortissement, la
+ * reinjection ; rend la sortie de la ligne (la sortie du peigne : entree + ligne, x le niveau).
+ */
+inline double combTick(Voice& v, int ch, double x, int cwi, int cdi, int mask, double l0, double l1, double l2, double l3, double damp, double fb) {
+  float* b = v.cb[ch];
+  double y;
+  if (v.cVal >= cdi + 2)
+    y = l0 * b[(cwi - cdi + 1) & mask] + l1 * b[(cwi - cdi) & mask] + l2 * b[(cwi - cdi - 1) & mask] + l3 * b[(cwi - cdi - 2) & mask];
+  else {
+    y = 0;
+    if (v.cVal >= cdi - 1) y += l0 * b[(cwi - cdi + 1) & mask];
+    if (v.cVal >= cdi) y += l1 * b[(cwi - cdi) & mask];
+    if (v.cVal >= cdi + 1) y += l2 * b[(cwi - cdi - 1) & mask];
+  }
+  double lp = v.cLp[ch];
+  lp += (y - lp) * damp;
+  v.cLp[ch] = lp;
+  double w = x + fb * lp;
+  if (w < 1e-18 && w > -1e-18) w = 0;
+  b[cwi] = static_cast<float>(w);
+  return lp;
+}
 
 /** L'echelle de droite (ladderR du JS). */
 inline void ladderR(LadderR& st) {
@@ -557,6 +690,7 @@ inline double lncSlope(const double* LNC, double am) {
 struct NoteEv {
   double frame, midi, gate, accent, from;
   bool hasFrom;
+  double glide;  // le glissement propre de la note, en s (0 : le GLIDE du patch)
 };
 struct BeatEv {
   double f, b, k;
@@ -640,6 +774,18 @@ struct Voyager::Impl {
     bool panOn = false, stackDirty = false;
     uint32_t seed = 0;
   } xs;
+  // 2026-11-11 : les quantites lissees (15 ms) et ce qui en decoule, une valeur par echantillon du contexte
+  struct Ext2 {
+    double ring = 0, fold = 0, ncol = 0.5, comb = 0, combFb = 0, hpMix = 0, hpHz = X_HPF_MIN;
+    double fa = 0, fs = 1;                    // FOLD : la phase et le niveau
+    double hpAt = -1, h1 = 0, h2 = 0, h3 = 0; // HIGH PASS : les coefficients (et la frequence ou ils sont calcules)
+    double fbI = 0, fbAt = 2, norm = 0.5, sign = 1; // COMB : la reinjection, le niveau du peigne, le signe de la ligne
+    double damp = 1, dampD = 0, combK = 1;    // (taux interne) l'amortissement, son retard, le glissement du retard
+    double cw[5] = {1, 0, 0, 0, 0};           // NOISE COLOR : blanc, rose, rouge, bleu
+    double redR = 0, redN = 1;
+    int cbMask = 0;
+    std::vector<float> cbuf;
+  } xq;
   double od[OD_SIZE];
   double odHp, odLp, odDc;
   double dc[4];
@@ -681,6 +827,17 @@ struct Voyager::Impl {
     for (double& x : rndBuf) x = 0;
     nv = o.maxVoices >= 1 && o.maxVoices <= MAX_VOICES ? o.maxVoices : MAX_VOICES;
     for (int i = 0; i < nv; i += 1) voices[i].init(rnd);
+    {
+      // COMB : deux lignes par voix (G, D), pour la note la plus grave au taux x8 (une puissance de 2 : un masque)
+      int len = 64;
+      while (len < (8 * sampleRate) / X_COMB_MIN_HZ + 8) len *= 2;
+      xq.cbMask = len - 1;
+      xq.cbuf.assign(static_cast<size_t>(len) * 2 * static_cast<size_t>(nv), 0.0f);
+      for (int i = 0; i < nv; i += 1)
+        for (int ch = 0; ch < 2; ch += 1) voices[i].cb[ch] = xq.cbuf.data() + static_cast<size_t>(len) * static_cast<size_t>(2 * i + ch);
+      xq.redR = jsm::exp((-2 * JS_PI * X_RED_HZ) / sampleRate);
+      xq.redN = jsm::sqrt(1 - xq.redR * xq.redR);
+    }
     maxStack = o.maxStack >= 1 && o.maxStack <= MAX_STACK ? o.maxStack : MAX_STACK;
     wideVoices = o.wideVoices >= 0 ? o.wideVoices : MAX_VOICES;
     stD = 0;
@@ -774,6 +931,13 @@ struct Voyager::Impl {
     xs.d2 = static_cast<int>(p[P_l2Dest]);
     xs.a1 = xs.d1 != 0 ? p[P_xl1Amt] : 0;
     xs.a2 = xs.d2 != 0 ? p[P_l2Amt] : 0;
+    xq.ring = p[P_xRing];
+    xq.fold = p[P_xFold];
+    xq.ncol = p[P_xNoiseCol];
+    xq.comb = p[P_xComb];
+    xq.combFb = p[P_xCombFb];
+    xq.hpMix = p[P_xHpf] > 0 ? 1 : 0;
+    xq.hpHz = p[P_xHpf] > X_HPF_MIN ? p[P_xHpf] : X_HPF_MIN;
   }
 
   /** Tout ce qui depend du taux interne (sampleRate x os) : le constructeur et setOs. coefs() a part (les reglages). */
@@ -799,6 +963,10 @@ struct Voyager::Impl {
     lfoK = coef(0.002, sr2);
     smK = coef(0.015, sr2);
     smKr = coef(RAMP_SM_S, sr2);
+    xq.damp = 1 - jsm::exp((-2 * JS_PI * X_COMB_DAMP_HZ) / sr2);
+    xq.dampD = (1 - xq.damp) / xq.damp;
+    xq.combK = coef(X_COMB_S, sr2);
+    xq.hpAt = -1;
   }
 
   // ------------------------------------------------------------------ QUALITY : le changement de taux (setOs)
@@ -965,7 +1133,7 @@ struct Voyager::Impl {
     c.quick = coef(0.012, sr);
     c.glide = p[P_glide] > 0 ? coef(p[P_glide] / 3, sr) : 1;
   }
-  void add(double time, double midi, double gate, double accent, double from) {
+  void add(double time, double midi, double gate, double accent, double from, double glide) {
     if (!jsm::isFinite(midi) || !jsm::isFinite(time) || !(gate > 0)) return;
     const double ac = (accent == 0 || accent != accent) ? 1 : accent;  // n.accent || 1
     if (!jsm::isFinite(ac)) return;
@@ -973,7 +1141,7 @@ struct Voyager::Impl {
     int i = queue.size();
     while (i > 0 && queue.at(i - 1).frame > frame) i -= 1;
     const bool hf = jsm::isFinite(from);
-    queue.insertAt(i, {frame, midi, gate, ac < 0 ? 0 : ac > 2 ? 2 : ac, hf ? from : 0, hf});
+    queue.insertAt(i, {frame, midi, gate, ac < 0 ? 0 : ac > 2 ? 2 : ac, hf ? from : 0, hf, hf && glide > 0 && jsm::isFinite(glide) ? glide : 0});
   }
   bool setParams(const ParamKV* src, int n) {
     bool bpm = false;
@@ -1082,17 +1250,19 @@ struct Voyager::Impl {
       v->fV = 0;
       LadderR& fr = v->fr;
       fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = 0;
-      for (int j = 0; j < MAX_STACK; j += 1) v->pr[j].sb = v->pr[j].sf = 0;
+      for (int j = 0; j < MAX_UNI; j += 1) v->pr[j].sb = v->pr[j].sf = 0;
       for (int j = 0; j < VX_SIZE; j += 1) v->x[j] = 0;
     }
     v->g = 0;
-    for (int j = 0; j < MAX_STACK; j += 1) {
+    for (int j = 0; j < MAX_UNI; j += 1) {
       v->pr[j].q1 = QNAN;
       v->pr[j].q2 = QNAN;
     }
     const double target = jsm::log(midiHz(n.midi));
     v->logT = target;
-    v->logf = p[P_glide] > 0 && n.hasFrom ? jsm::log(midiHz(n.from)) : target;
+    v->logf = (p[P_glide] > 0 || n.glide > 0) && n.hasFrom ? jsm::log(midiHz(n.from)) : target;
+    // le glissement propre de la note (SLIDE de l'arpegiateur) : son temps a la place de GLIDE, pour cette voix
+    v->gK = n.glide > 0 ? coef(n.glide / 3, sr2) : 0;
     v->midi = n.midi;
     v->d1 = 0;
     v->on = true;
@@ -1136,7 +1306,8 @@ struct Voyager::Impl {
       v->gL = v->tL;
       v->gR = v->tR;
     }
-    stackOn(*v, p[P_stack] > 0 ? maxStack : 1, quiet, phase);
+    const double uni = p[P_xUnison];
+    stackOn(*v, uni >= 6 ? 7 : uni >= 3 ? 5 : p[P_stack] > 0 ? maxStack : 1, quiet, phase);
     if (quiet) {
       if (sm.wide == 0 && sm.space == 0) v->wl = false;
       int busy = 0;
@@ -1151,10 +1322,10 @@ struct Voyager::Impl {
   void stackOn(Voice& v, int n, bool quiet, double phase) {
     v.n = n;
     const double gt = n == 1 ? 1 : 1 / jsm::sqrt(n);
-    const double* offs = STACK_OFF[n - 1];
-    const double* pans = STACK_PAN[n - 1];
+    const double* offs = n == 7 ? UNI7_OFF : n == 5 ? UNI5_OFF : STACK_OFF[n - 1];
+    const double* pans = n == 7 ? UNI7_PAN : n == 5 ? UNI5_PAN : STACK_PAN[n - 1];
     int loop = 1;
-    for (int j = 0; j < MAX_STACK; j += 1) {
+    for (int j = 0; j < MAX_UNI; j += 1) {
       StackPair& P = v.pr[j];
       if (j < n) {
         if (!P.live) {
@@ -1404,8 +1575,14 @@ struct Voyager::Impl {
     v.pu = v.s1 = v.s2 = v.s3 = v.s4 = 0;
     LadderR& fr = v.fr;
     fr.pu = fr.s1 = fr.s2 = fr.s3 = fr.s4 = fr.u = fr.y1 = fr.y2 = fr.y = 0;
-    for (int j = 0; j < MAX_STACK; j += 1) v.pr[j].sb = v.pr[j].sf = 0;
+    for (int j = 0; j < MAX_UNI; j += 1) v.pr[j].sb = v.pr[j].sf = 0;
     for (int j = 0; j < VX_SIZE; j += 1) v.x[j] = 0;
+    for (int j = 0; j < 3; j += 1) v.fx[0][j] = v.fx[1][j] = 0;
+    v.fxA = -1;
+    v.hp[0] = v.hp[1] = v.hp[2] = v.hp[3] = 0;
+    v.cVal = 0;
+    v.cD = 0;
+    v.cLp[0] = v.cLp[1] = 0;
   }
   void restBus() {
     od[OD_HPL] = od[OD_XL] = od[OD_LPL] = od[OD_HPR] = od[OD_XR] = od[OD_LPR] = od[OD_DL] = od[OD_DXL] = od[OD_DR] = od[OD_DXR] = 0;
@@ -1457,6 +1634,9 @@ struct Voyager::Impl {
       tiny(fr.y1);
       tiny(fr.y2);
       for (int j = 0; j < VX_SIZE; j += 1) tiny(v.x[j]);
+      for (int j = 0; j < 4; j += 1) tiny(v.hp[j]);
+      tiny(v.cLp[0]);
+      tiny(v.cLp[1]);
     }
     tiny(od[OD_HPL]);
     tiny(od[OD_XL]);
@@ -1542,7 +1722,7 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     xs.stackDirty = false;
     for (int vi = 0; vi < nv; vi += 1) {
       Voice& v = voices[vi];
-      for (int j = 0; j < MAX_STACK; j += 1) {
+      for (int j = 0; j < MAX_UNI; j += 1) {
         StackPair& P = v.pr[j];
         P.r = P.off == 0 ? 1 : jsm::pow(2, (P.off * stD) / 1200);
       }
@@ -1579,6 +1759,14 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
     const double x = t0 + N - 1;
     dueBeats(x);
     lfoOut = lfoRaw(beatAt(x) / lfoBeats, static_cast<int>(p[P_lfoShape]));
+    // En silence : les quantites du 2026-11-11 posees (comme celles des LFO)
+    xq.ring = p[P_xRing];
+    xq.fold = p[P_xFold];
+    xq.ncol = p[P_xNoiseCol];
+    xq.comb = p[P_xComb];
+    xq.combFb = p[P_xCombFb];
+    xq.hpMix = p[P_xHpf] > 0 ? 1 : 0;
+    if (p[P_xHpf] > 0) xq.hpHz = p[P_xHpf] > X_HPF_MIN ? p[P_xHpf] : X_HPF_MIN;
     if (ext) {
       // En silence : les destinations et les quantites posees, le LFO 2 a sa valeur de fin de bloc (comme le LFO 1)
       xs.d1 = x1Want;
@@ -1685,6 +1873,32 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
   ks[KS_CLIPW] = clipW;
   ki[KI_GLUEON] = glueOn ? 1 : 0;
   ks[KS_GLUE] = p[P_glue];
+  // 2026-11-11 : ce qui tourne dans ce bloc (une quantite a son neutre et arrivee : son chemin ne tourne pas)
+  const SinTab& ST = sinTab();
+  const double pRing = p[P_xRing];
+  const double pFold = p[P_xFold];
+  const double pNcol = p[P_xNoiseCol];
+  const double pComb = p[P_xComb];
+  const double pCombFb = p[P_xCombFb];
+  const double pHpf = p[P_xHpf] > 0 ? (p[P_xHpf] > X_HPF_MIN ? p[P_xHpf] : X_HPF_MIN) : 0;
+  const bool ringBlk = pRing > 0 || xq.ring > 0;
+  const bool foldBlk = pFold > 0 || xq.fold > 0;
+  const bool ncolBlk = differs(pNcol, 0.5) || differs(xq.ncol, 0.5);
+  const bool combBlk = pComb > 0 || xq.comb > 0;
+  const bool hpBlk = pHpf > 0 || xq.hpMix > 0;
+  const int cbMask = xq.cbMask;
+  const double combMaxD = cbMask - 4;
+  if (!combBlk) {
+    // le peigne au repos : ses lignes repartiront vides
+    xq.combFb = pCombFb;
+    for (int vi = 0; vi < nv; vi += 1) {
+      Voice& v = voices[vi];
+      v.cVal = 0;
+      v.cD = 0;
+      v.cLp[0] = v.cLp[1] = 0;
+    }
+  }
+  if (hpBlk && !(xq.hpMix > 0)) xq.hpHz = pHpf;  // il s'engage : a sa frequence d'emblee (la dose part de 0)
   for (int i2 = 0; i2 < OS * N; i2 += 1) {
     const int i = i2 / OS;
     const double fr = t0 + i;
@@ -1818,6 +2032,91 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         xs.stackDirty = false;
       }
     }
+    // 2026-11-11 : les quantites glissent (15 ms) ; le reste a chaque echantillon du contexte
+    double gRing = 0;
+    if (ringBlk) {
+      xq.ring += (pRing - xq.ring) * K;
+      if (!(pRing > 0) && xq.ring < 1e-4) xq.ring = 0;
+      gRing = xq.ring;
+    }
+    bool foldOn = false;
+    if (foldBlk) {
+      xq.fold += (pFold - xq.fold) * K;
+      if (!(pFold > 0) && xq.fold < 1e-3) xq.fold = 0;
+      foldOn = xq.fold > 0;
+      if (newNoise && foldOn) {
+        const double a = X_FOLD_A * xq.fold * jsm::sqrt(xq.fold);
+        xq.fa = a;
+        xq.fs = a <= 1 ? 1 / a : jsm::pow(a, -0.3);
+      }
+    }
+    const double foldA = xq.fa;
+    const double foldS = xq.fs;
+    bool ncolOn = false;
+    if (ncolBlk) {
+      xq.ncol += (pNcol - xq.ncol) * K;
+      const double dn = xq.ncol - 0.5;
+      if (!differs(pNcol, 0.5) && dn < 1e-4 && dn > -1e-4) xq.ncol = 0.5;
+      ncolOn = differs(xq.ncol, 0.5);
+      if (newNoise && ncolOn) {
+        // sombre : blanc -> rose (a 0.25) -> rouge (a 0) ; brillant : blanc -> bleu (a 1) ; a sonie egale
+        const double t = 2 * dn;
+        double* w = xq.cw;
+        w[0] = w[1] = w[2] = w[3] = 0;
+        if (t >= 0) {
+          w[0] = 1 - t;
+          w[3] = t * NC_BLUE;
+        } else if (t > -0.5) {
+          w[0] = 1 + 2 * t;
+          w[1] = -2 * t * NC_PINK;
+        } else {
+          w[1] = (2 + 2 * t) * NC_PINK;
+          w[2] = (-1 - 2 * t) * xq.redN * NC_RED;
+        }
+      }
+    }
+    double gComb = 0;
+    if (combBlk) {
+      xq.comb += (pComb - xq.comb) * K;
+      if (!(pComb > 0) && xq.comb < 1e-4) xq.comb = 0;
+      xq.combFb += (pCombFb - xq.combFb) * K;
+      gComb = xq.comb;
+      if (newNoise && differs(xq.combFb, xq.fbAt)) {
+        xq.fbAt = xq.combFb;
+        xq.fbI = X_COMB_FB * xq.combFb;
+        const double af = xq.fbI < 0 ? -xq.fbI : xq.fbI;
+        // Le peigne : entree + ligne (reinjection positive : les bosses sur les harmoniques de la note) ou entree -
+        // ligne (negative : entre eux) ; le signe glisse de +1 a -1 entre 0 et -0.2 (aucun saut quand la
+        // reinjection traverse 0). Le niveau : la crete 1 + |signe| / (1 - |g|), ramenee a crete^0.7 (positive : les
+        // harmoniques de la note sont sur les bosses) ou crete^0.35 (negative : ils sont dans les creux)
+        const double sg = xq.fbI >= 0 ? 1 : xq.fbI <= -0.2 ? -1 : 1 + 10 * xq.fbI;
+        const double asg = sg < 0 ? -sg : sg;
+        xq.sign = sg;
+        xq.norm = jsm::pow(1 + asg / (1 - af), sg >= 0 ? -0.7 : -0.7 + 0.35 * asg);
+      }
+    }
+    const bool combOn = gComb > 0;
+    const double combFb = xq.fbI;
+    const double combDry = 1 - gComb + gComb * xq.norm;
+    const double combWet = gComb * xq.norm * xq.sign;
+    double hpMix = 0;
+    if (hpBlk) {
+      xq.hpMix += ((pHpf > 0 ? 1 : 0) - xq.hpMix) * K;
+      if (!(pHpf > 0) && xq.hpMix < 1e-4) xq.hpMix = 0;
+      if (pHpf > 0) xq.hpHz += (pHpf - xq.hpHz) * K;
+      hpMix = xq.hpMix;
+      if (newNoise && differs(xq.hpHz, xq.hpAt)) {
+        xq.hpAt = xq.hpHz;
+        const double hg = jsm::tan((JS_PI * (xq.hpHz < nyq ? xq.hpHz : nyq)) / sr);
+        xq.h1 = 1 / (1 + hg * (hg + X_HPF_K));
+        xq.h2 = hg * xq.h1;
+        xq.h3 = hg * xq.h2;
+      }
+    }
+    const bool hpOn = hpMix > 0;
+    const double hpA1 = xq.h1;
+    const double hpA2 = xq.h2;
+    const double hpA3 = xq.h3;
     sm.fm += (p[P_fm] - sm.fm) * K;
     double fmEff = dest == 2 ? jsm::min(1, jsm::max(0, sm.fm + 0.6 * lfo)) : sm.fm;
     if (fm2On && fm2 != 0) fmEff = jsm::min(1, jsm::max(0, (dest == 2 ? sm.fm + 0.6 * lfo : sm.fm) + fm2));
@@ -2071,9 +2370,15 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         v.fV += (pFS - v.fV) * jsm::min(1, cc.fDec * ve * v.fdm);
       else
         v.fV -= v.fV * cc.fRel * ve;
-      v.logf += (v.logT - v.logf) * cc.glide;
+      v.logf += (v.logT - v.logf) * (v.gK > 0 ? v.gK : cc.glide);
       if (newNoise || v.d1 == 0) {
         const double f = jsm::exp(v.logf);
+        if (combOn) {
+          // COMB : une periode de la note jouee (son glissement compris), moins le retard de l'amortissement
+          double cd = sr / f - xq.dampD;
+          while (cd > combMaxD) cd *= 0.5;
+          v.cDt = cd < 2 ? 2 : cd;
+        }
         v.d1 = (f * ratio1 * jsm::pow(2, ((v.drift[0] + v.calT[0]) * drift + fine1 + v.vTune + pitchMod) / 1200)) / sr;
         v.d2 = (f * ratio2 * jsm::pow(2, ((v.drift[1] + v.calT[1]) * drift + fine2 + v.vTune + pitchMod2) / 1200)) / sr;
         v.d3 = (v.d1 * subDiv) / ratio1;
@@ -2409,6 +2714,15 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
           o = gj == 1 ? g1 * o1 + g2 * o2 : gj * (g1 * o1 + g2 * o2);
         else
           o += gj * (g1 * o1 + g2 * o2);
+        if (gRing > 0) {
+          // RING : OSC 1 x OSC 2 de cet exemplaire, au centre
+          const double rg = gRing * (o1 * o2) * gj;
+          if (differs(wide, 0)) {
+            o += rg * wn;
+            oR += rg * wn;
+          } else
+            o += rg;
+        }
       }
       if (nl > 1 && pr[nl - 1].gt == 0 && pr[nl - 1].g == 0) v.nLoop = nl - 1;
       if (g3 > 1e-6) {
@@ -2482,9 +2796,37 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
           xr ^= xr << 5;
           v.seed = static_cast<int32_t>(xr);
           v.nz = static_cast<double>(v.seed) / 2147483648.0;
+          if (ncolOn) {
+            // NOISE COLOR, au rythme du bruit : rose (Kellett, trois poles), rouge (un pole), bleu (la difference)
+            const double wn0 = v.nz;
+            double* c = v.nc;
+            c[0] = 0.99765 * c[0] + wn0 * 0.099046;
+            c[1] = 0.963 * c[1] + wn0 * 0.2965164;
+            c[2] = 0.57 * c[2] + wn0 * 1.0526913;
+            c[3] = xq.redR * c[3] + wn0;
+            const double* w = xq.cw;
+            v.nzc = w[0] * wn0 + w[1] * (c[0] + c[1] + c[2] + wn0 * 0.1848) + w[2] * c[3] + w[3] * (wn0 - c[4]);
+            c[4] = wn0;
+          }
         }
-        o += nGain * v.nz;
-        oR += nGain * v.nz;
+        const double nzv = ncolOn ? v.nzc : v.nz;
+        o += nGain * nzv;
+        oR += nGain * nzv;
+      }
+      if (foldOn) {
+        // FOLD : le melange (oscillateurs, RING, SUB, bruit) replie avant le filtre
+        const bool fresh = differs(v.fxA, foldA);
+        v.fxA = foldA;
+        const bool wasMono = !differs(v.fx[1][0], v.fx[0][0]) && !differs(v.fx[1][1], v.fx[0][1]);
+        const double xl = o;
+        o = foldAdaa2(ST, xl, v.fx[0], foldA, fresh) * foldS;
+        if (differs(wide, 0))
+          oR = foldAdaa2(ST, oR, v.fx[1], foldA, fresh || wasMono) * foldS;
+        else {
+          // (la droite suit la gauche tant que WIDE ne l'en separe pas)
+          v.fx[1][0] = v.fx[0][0];
+          v.fx[1][1] = v.fx[0][1];
+        }
       }
       double* X = v.x;
       double hp = (o - preA1v * X[VX_P1A] - X[VX_P1B]) * preH1v;
@@ -2799,6 +3141,34 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         X[VX_KXR] = 0;
         X[VX_KON] = 0;
       }
+      // 2026-11-11 : COMB puis HIGH PASS, apres le filtre de la voix
+      int cwi = 0;
+      int cdi = 2;
+      double cl0 = 0, cl1 = 0, cl2 = 0, cl3 = 0;
+      if (combOn) {
+        const double cdt = v.cDt < 2 ? 2 : v.cDt;
+        if (!(v.cD > 0)) v.cD = cdt;
+        v.cD += (cdt - v.cD) * xq.combK;
+        cwi = v.cw;
+        v.cw = (cwi + 1) & cbMask;
+        cdi = static_cast<int>(v.cD);
+        const double d = v.cD - cdi + 1;
+        // Lagrange d'ordre 3 sur quatre points (retards cdi - 1 .. cdi + 2)
+        cl0 = -((d - 1) * (d - 2) * (d - 3)) / 6;
+        cl1 = (d * (d - 2) * (d - 3)) / 2;
+        cl2 = -(d * (d - 1) * (d - 3)) / 2;
+        cl3 = (d * (d - 1) * (d - 2)) / 6;
+        yo = combDry * yo + combWet * combTick(v, 0, yo, cwi, cdi, cbMask, cl0, cl1, cl2, cl3, xq.damp, combFb);
+        if (v.cVal <= cbMask) v.cVal += 1;
+      }
+      if (hpOn) {
+        const double v3 = yo - v.hp[1];
+        const double v1 = hpA1 * v.hp[0] + hpA2 * v3;
+        const double v2 = v.hp[1] + hpA2 * v.hp[0] + hpA3 * v3;
+        v.hp[0] = 2 * v1 - v.hp[0];
+        v.hp[1] = 2 * v2 - v.hp[1];
+        yo -= hpMix * (X_HPF_K * v1 + v2);
+      }
       if (!(yo > -VOICE_GUARD && yo < VOICE_GUARD)) {
         rest(v);
         heals += 1;
@@ -2874,6 +3244,30 @@ void Voyager::Impl::processBlock(float* L, float* R, int N) {
         const double g35 = k35x2 ? g35R2 : g35R1;
         k35(VX_KCR, VX_KXR, g35, xdR * driveIn);
         yoR += w4 * X[VX_KYR];
+      }
+      if (startR && (combOn || hpOn)) yoR = yo;  // la droite part de la gauche, etats et sortie
+      if (combOn) {
+        if (startR) {
+          std::memcpy(v.cb[1], v.cb[0], sizeof(float) * (static_cast<size_t>(cbMask) + 1));
+          v.cLp[1] = v.cLp[0];
+        } else if (v.cVal > 0) {
+          v.cVal -= 1;  // (la gauche vient de compter cet echantillon : les deux lignes ont le meme age)
+          yoR = combDry * yoR + combWet * combTick(v, 1, yoR, cwi, cdi, cbMask, cl0, cl1, cl2, cl3, xq.damp, combFb);
+          v.cVal += 1;
+        }
+      }
+      if (hpOn) {
+        if (startR) {
+          v.hp[2] = v.hp[0];
+          v.hp[3] = v.hp[1];
+        } else {
+          const double v3 = yoR - v.hp[3];
+          const double v1 = hpA1 * v.hp[2] + hpA2 * v3;
+          const double v2 = v.hp[3] + hpA2 * v.hp[2] + hpA3 * v3;
+          v.hp[2] = 2 * v1 - v.hp[2];
+          v.hp[3] = 2 * v2 - v.hp[3];
+          yoR -= hpMix * (X_HPF_K * v1 + v2);
+        }
       }
       if (!(yoR > -VOICE_GUARD && yoR < VOICE_GUARD)) {
         rest(v);
@@ -3005,8 +3399,8 @@ void Voyager::params(const std::vector<std::pair<std::string, double>>& kv) {
   m_->msgParams(tmp, n);
 }
 void Voyager::params(const ParamKV* kv, int n) { m_->msgParams(kv, n); }
-void Voyager::note(double timeSec, double midi, double gateSec, double accent, double fromMidi) {
-  m_->add(timeSec, midi, gateSec, accent, fromMidi);
+void Voyager::note(double timeSec, double midi, double gateSec, double accent, double fromMidi, double glideSec) {
+  m_->add(timeSec, midi, gateSec, accent, fromMidi, glideSec);
 }
 void Voyager::beat(double timeSec, double b, double bpm, bool run) { m_->addBeat(timeSec, b, bpm, run); }
 void Voyager::noteOff(double midi, double timeSec) { m_->msgNoteOff(midi, timeSec); }

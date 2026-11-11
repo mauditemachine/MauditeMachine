@@ -221,3 +221,27 @@ Demandes de Mika :
 ### 3. En suspens
 - Mika : ecouter les presets et dire lesquels refaire.
 - Le nom d'un preset d'usine ne reste pas dans l'en-tete de l'ecran de la machine.
+
+## Suite (2026-11-11) : le module d'extension de la face avant
+
+Demande de Mika : « sur le VST je voulais encore d'autres fonctions sur le panneau AVANT, donc agrandis la taille generale et fais en sorte de placer plus de choses pour un rendu vraiment hors du commun » (sequenceur par pas, rack d'effets, oscillateurs et filtre).
+
+### 1. Ce qui a ete fait
+- **La fenetre** : 1100 x 880 par defaut (5 / 4, proportion 1.25), `src/v4/plugin/arp/scale.ts` (`UI_W`, `UI_H`, `FACE_H`, `MODULE_H`, `UI_ASPECT`). La scene 3D garde le haut (64 % de la largeur, `face.css` `.v4-stage`), a son cadre d'avant.
+- **Le module avant** (`FrontModule.tsx`, `face.css`) : toujours visible sous la face, 1100 x 176 dans le repere de la couche a l'echelle. Le panneau anthracite continue, les joues de noyer sont prolongees par une texture tiree du rendu (`wood-l.jpg`, `wood-r.jpg`, raccord en miroir). Trois zones : STEP SEQUENCER, OSC / FILTER +, FX RACK.
+- **Les pistes** (`steps.ts`) : `{ acc, slide, gate, rat, prob }`, 16 pas chacune, sous `mm.v4.plugin.arp.steps`, dans `mm_program` (`steps`), dans les presets disque et d'usine (champ `steps`, defauts sinon).
+- **Les 23 reglages nouveaux** de `extra-params.json` : memes evenements que SOUND+ ; leurs textes de valeur dans `extra.ts` (Hz, bits, OFF, pourcentages signes).
+- `SoundPlus.tsx` : `XKnob` exporte, variante `compact` ; `HoodPanel.tsx` : l'afficheur montre aussi le potard ou le pas touche dans le module.
+
+### 2. Decisions
+- **1100 x 880 et pas plus large** : a largeur egale la face prend 64 % de la largeur en hauteur ; plus large, il ne reste plus de place pour le module sous 880 px (MacBook Pro 14 pouces). La face garde donc sa taille, la fenetre grandit vers le bas.
+- **Le bois en CSS** plutot que le corps 3D agrandi : la geometrie du corps sert aussi au site ; la texture vient du rendu lui-meme, le raccord est invisible.
+- **Les lois d'affichage** (a tenir par le C++) : RATE du phaser 0.05 x 160^v Hz, du flanger 0.03 x (5 / 0.03)^v Hz, HIGH PASS 20 x 100^v Hz, CRUSH 16 - 12 v bits, DOWNSAMPLE 48 kHz x (2 / 48)^v.
+
+### 3. En suspens
+- C++ (`plugin/mm-arp/src/PluginEditor.cpp`) : `kW 1100`, `kH 880`, proportion 1.25 ; lire `steps` dans `mm_program`.
+- UNDO et RANDOM de la machine ne touchent ni aux pistes ni aux reglages du module (comme SOUND+).
+- Une suite AUTO de plus de 16 notes : les pistes bouclent (pas = position modulo 16).
+
+### 4. Commandes
+- Aucune nouvelle. Essai : `npm run dev`, `/plugin/mm-arp/web/index.html?mute=1`, fenetre de 1100 x 880.

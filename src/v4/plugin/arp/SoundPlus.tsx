@@ -26,7 +26,7 @@ const CENTER_DETENT = 0.02;
 const WHEEL_STEP = 40;
 
 /** Les potards dont le centre est le son du site : l'arc part du milieu. */
-const BIPOLAR: ReadonlySet<string> = new Set(['xRevSize', 'xRevTone', 'xBass', 'xAir', 'xWidth']);
+const BIPOLAR: ReadonlySet<string> = new Set(['xRevSize', 'xRevTone', 'xBass', 'xAir', 'xWidth', 'xNoiseColor', 'xCombFb', 'xFlFb']);
 /** Sous l'interrupteur QUALITY : le surechantillonnage de chaque position. */
 const QUALITY_SUB = ['x4 OVERSAMPLING', 'x8 OVERSAMPLING'];
 
@@ -51,6 +51,9 @@ const ENDS: Record<string, readonly [string, string]> = {
 /* Le potard dessine : la boite SVG, le centre, le capuchon (VOY_KNOB : capuchon cannele noir, index blanc) */
 const VW = 58;
 const VH = 66;
+/* En petit (le module avant) : la boite sans la ligne des legendes de butee, dessinee a 40 px de large */
+const VH_COMPACT = 56;
+const VW_COMPACT = 40;
 const CX = VW / 2;
 const CY = 29;
 const A0 = -135;
@@ -73,8 +76,25 @@ const useValue = (id: string): number =>
   );
 const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, arpMidi.get);
 
-const SECTION_NAME: Record<string, string> = { engine: 'Engine', lfo1: 'LFO 1', lfo2: 'LFO 2', reverb: 'Reverb', master: 'Master' };
-const ariaName = (p: ExtraParam): string => `${SECTION_NAME[p.section]} ${p.label.toLowerCase()}`;
+const SECTION_NAME: Record<string, string> = {
+  engine: 'Engine',
+  lfo1: 'LFO 1',
+  lfo2: 'LFO 2',
+  reverb: 'Reverb',
+  master: 'Master',
+  // Le module avant (FrontModule.tsx)
+  seq: 'Sequencer',
+  osc: 'Osc',
+  filter: 'Filter',
+  phaser: 'Phaser',
+  flanger: 'Flanger',
+  pump: 'Pump',
+  crush: 'Crush',
+  space: 'Space',
+};
+/** Les reglages qui portent deja le nom de leur bloc (la dose PHASER du bloc phaser...) : sans prefixe. */
+const OWN_NAME: ReadonlySet<string> = new Set(['xSwing', 'xRing', 'xFold', 'xNoiseColor', 'xUnison', 'xHpf', 'xComb', 'xCombFb', 'xPhMix', 'xFlMix', 'xPumpDepth', 'xCrushBits', 'xCrushRate', 'xDlyMode', 'xShimmer']);
+const ariaName = (p: ExtraParam): string => (OWN_NAME.has(p.id) ? p.label.charAt(0) + p.label.slice(1).toLowerCase() : `${SECTION_NAME[p.section]} ${p.label.toLowerCase()}`);
 
 /**
  * Le reglage touche en dernier (survol, geste, molette, clavier) : l'afficheur du panneau (HoodPanel.tsx) montre son nom
@@ -108,10 +128,10 @@ export const xTouch = {
     };
   },
 };
-export const sectionPrefix = (p: ExtraParam): string => (p.section === 'engine' ? '' : `${SECTION_NAME[p.section].toUpperCase()} `);
+export const sectionPrefix = (p: ExtraParam): string => (p.section === 'engine' || OWN_NAME.has(p.id) ? '' : `${SECTION_NAME[p.section].toUpperCase()} `);
 
 /** Les degrades du capuchon, une fois pour tout le panneau (references par id dans chaque potard). */
-const KnobDefs: React.FC = () => (
+export const KnobDefs: React.FC = () => (
   <svg className="mm-arp-x-defs" width="0" height="0" aria-hidden="true" focusable="false">
     <defs>
       <radialGradient id="mmx-skirt" cx="50%" cy="38%" r="62%">
@@ -164,8 +184,11 @@ const Scale: React.FC<{ n: number; bipolar: boolean }> = ({ n, bipolar }) => {
   return <g>{ticks}</g>;
 };
 
-/** Un potard SOUND+. */
-const XKnob: React.FC<{ p: ExtraParam }> = ({ p }) => {
+/**
+ * Un potard SOUND+. Le module avant (FrontModule.tsx) reprend le meme, en petit (compact : sans les legendes de butee,
+ * dessine a 40 px ; face.css) et parfois sous un autre nom (label : MIX pour la dose d'un effet titre a part).
+ */
+export const XKnob: React.FC<{ p: ExtraParam; compact?: boolean; label?: string }> = ({ p, compact = false, label }) => {
   const v = useValue(p.id);
   const midi = useArpMidi();
   const ref = useRef<HTMLDivElement>(null);
@@ -241,7 +264,7 @@ const XKnob: React.FC<{ p: ExtraParam }> = ({ p }) => {
   };
 
   const text = arpExtra.text(p.id, v);
-  const ends = ENDS[p.id];
+  const ends = compact ? undefined : ENDS[p.id];
   const [lx, ly] = pt(A0, R_TICK[1] + 1);
   const [rx] = pt(A0 + SWEEP, R_TICK[1] + 1);
   return (
@@ -250,6 +273,7 @@ const XKnob: React.FC<{ p: ExtraParam }> = ({ p }) => {
       className="mm-arp-x"
       data-x={p.id}
       data-steps={n > 1 ? '1' : undefined}
+      data-compact={compact ? '1' : undefined}
       data-mm-learn={armed ? 'armed' : undefined}
       data-learning={midi.learning ? '1' : undefined}
       role="slider"
@@ -273,7 +297,7 @@ const XKnob: React.FC<{ p: ExtraParam }> = ({ p }) => {
       }}
       onKeyDown={onKey}
     >
-      <svg className="mm-arp-x-dial" viewBox={`0 0 ${VW} ${VH}`} width={VW} height={VH} aria-hidden="true">
+      <svg className="mm-arp-x-dial" viewBox={compact ? `0 0 ${VW} ${VH_COMPACT}` : `0 0 ${VW} ${VH}`} width={compact ? VW_COMPACT : VW} height={compact ? (VW_COMPACT * VH_COMPACT) / VW : VH} aria-hidden="true">
         <Scale n={n} bipolar={bipolar} />
         {ends && (
           <>
@@ -289,7 +313,7 @@ const XKnob: React.FC<{ p: ExtraParam }> = ({ p }) => {
       </svg>
       <span className="mm-arp-x-label">
         {armed && <span className="mm-arp-led" data-on="1" data-blink="1" aria-hidden="true" />}
-        {p.label}
+        {label ?? p.label}
       </span>
       <span className="mm-arp-x-value">{text}</span>
     </div>
@@ -344,7 +368,6 @@ const XSwitch: React.FC<{ p: ExtraParam }> = ({ p }) => {
 /** La page SOUND+ : les cinq sections, titrees et separees par un filet comme celles de la face. */
 export const SoundPlus: React.FC = () => (
   <div className="mm-arp-page mm-arp-sound" role="tabpanel" id="mm-arp-panel-sound" aria-labelledby="mm-arp-tab-sound">
-    <KnobDefs />
     {EXTRA_SECTIONS.map((sec) => {
       const list = EXTRA_PARAMS.filter((p) => p.section === sec.id);
       return (

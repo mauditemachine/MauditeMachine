@@ -93,6 +93,8 @@ ArpProgram simple() {
 }
 
 bool near(double a, double b, double eps = 1e-9) { return std::fabs(a - b) <= eps; }
+// exactement la meme valeur
+bool same(double a, double b) { return !(a < b) && !(a > b); }
 
 } // namespace
 
@@ -213,8 +215,8 @@ int main() {
         for (size_t i = 0; same && i < a.notes.size(); ++i) {
             const auto& x = a.notes[i];
             const auto& y = b.notes[i];
-            same = x.t == y.t && x.midi == y.midi && x.gate == y.gate && x.acc == y.acc && ((std::isnan(x.from) && std::isnan(y.from)) || x.from == y.from);
-            glide |= y.glide != 0;
+            same = ::same(x.t, y.t) && x.midi == y.midi && ::same(x.gate, y.gate) && ::same(x.acc, y.acc) && ((std::isnan(x.from) && std::isnan(y.from)) || ::same(x.from, y.from));
+            glide |= !::same(y.glide, 0);
         }
         check(same && !glide, "pistes aux defauts : noteGlide recoit les notes d'avant, glissement 0 (le GLIDE du patch)");
         // ... et ArpSink::note seule (un pont d'avant) les recoit toutes, pistes engagees comprises
@@ -249,7 +251,7 @@ int main() {
         p.stepSlide[2] = 1;
         const Rec2 r = play2(p, 0, static_cast<int>(STEP * 8), 512);
         bool ok = r.notes.size() == 8;
-        ok = ok && near(r.notes[2].glide, kSlideSec) && r.notes[2].from == 63 && r.notes[0].glide == 0 && r.notes[1].glide == 0 && r.notes[3].glide == 0;
+        ok = ok && near(r.notes[2].glide, kSlideSec) && ::same(r.notes[2].from, 63) && ::same(r.notes[0].glide, 0) && ::same(r.notes[1].glide, 0) && ::same(r.notes[3].glide, 0);
         ok = ok && near(r.notes[1].gate, STEP_S) && near(r.notes[0].gate, 0.5 * STEP_S) && near(r.notes[2].gate, 0.5 * STEP_S) && near(r.notes[6].glide, kSlideSec) && near(r.notes[5].gate, STEP_S);
         check(ok, "SLIDE : glissement de 60 ms depuis la precedente, tenue jusqu'a elle (legato)");
         // la premiere note d'une lecture ne glisse de nulle part ; apres un silence : depuis la derniere note, sans tenue
@@ -259,7 +261,7 @@ int main() {
         q.chords = {{0, false, {60, kRest, 64}}};
         q.stepSlide[0] = q.stepSlide[2] = 1;
         const Rec2 s = play2(q, 0, static_cast<int>(STEP * 3), 512);
-        check(s.notes.size() == 2 && s.notes[0].glide == 0 && std::isnan(s.notes[0].from) && near(s.notes[1].glide, kSlideSec) && s.notes[1].from == 60 && near(s.notes[0].gate, 0.5 * STEP_S),
+        check(s.notes.size() == 2 && ::same(s.notes[0].glide, 0) && std::isnan(s.notes[0].from) && near(s.notes[1].glide, kSlideSec) && ::same(s.notes[1].from, 60) && near(s.notes[0].gate, 0.5 * STEP_S),
               "SLIDE : rien a la premiere note ; apres un silence, depuis la derniere note");
         // avec du swing : la tenue va jusqu'a l'heure reelle de la note suivante
         ArpProgram w = simple();
@@ -293,7 +295,7 @@ int main() {
         bool ok = r.notes.size() == 1 + 2 + 3 + 4;
         // le pas 1 : deux notes a un demi-pas, portes de la moitie, la seconde a x0.8, sans glissement
         ok = ok && near(r.notes[1].t, STEP_S) && near(r.notes[2].t, 1.5 * STEP_S) && near(r.notes[1].gate, 0.25 * STEP_S) && near(r.notes[2].gate, 0.25 * STEP_S);
-        ok = ok && near(r.notes[1].acc, 0.8) && near(r.notes[2].acc, 0.64) && r.notes[2].midi == 63 && r.notes[2].from == 63 && r.notes[2].glide == 0;
+        ok = ok && near(r.notes[1].acc, 0.8) && near(r.notes[2].acc, 0.64) && r.notes[2].midi == 63 && ::same(r.notes[2].from, 63) && ::same(r.notes[2].glide, 0);
         ok = ok && near(r.notes[3].t, 2 * STEP_S) && near(r.notes[5].t, (2 + 2.0 / 3) * STEP_S) && near(r.notes[9].t, 3.75 * STEP_S) && near(r.notes[9].gate, 0.125 * STEP_S);
         check(ok, "RATCHET : 2, 3, 4 notes dans le pas (%d notes), portes divisees, la premiere appuyee", static_cast<int>(r.notes.size()));
         ArpProgram q = simple();
@@ -306,7 +308,7 @@ int main() {
         w.stepGate[1] = 3;
         w.stepSlide[1] = 1;
         const Rec2 x = play2(w, 0, static_cast<int>(STEP * 4), 512);
-        check(x.notes.size() == 5 && near(x.notes[1].gate, 0.5 * STEP_S) && near(x.notes[2].gate, 0.5 * STEP_S) && near(x.notes[1].glide, kSlideSec) && x.notes[2].glide == 0 && near(x.notes[0].gate, STEP_S),
+        check(x.notes.size() == 5 && near(x.notes[1].gate, 0.5 * STEP_S) && near(x.notes[2].gate, 0.5 * STEP_S) && near(x.notes[1].glide, kSlideSec) && ::same(x.notes[2].glide, 0) && near(x.notes[0].gate, STEP_S),
               "RATCHET + lie + SLIDE");
     }
     {
@@ -390,13 +392,13 @@ int main() {
         p.stepGate[9] = 3;
         p.swingOwn = 0.4;
         const Rec2 a = play2(p, 0, static_cast<int>(STEP * 40), 4096), b = play2(p, 0, static_cast<int>(STEP * 40), 61);
-        bool same = a.notes.size() == b.notes.size() && a.notes.size() == 40 + 3; // les positions 5, 21 (= 5) et 25 (= 5 + 20)
+        bool same = a.notes.size() == b.notes.size() && a.notes.size() == 40 + 2; // la position 5 des deux tours
         for (size_t i = 0; same && i < a.notes.size(); ++i)
-            same = near(a.notes[i].t, b.notes[i].t) && a.notes[i].midi == b.notes[i].midi && near(a.notes[i].gate, b.notes[i].gate) && near(a.notes[i].acc, b.notes[i].acc) && a.notes[i].glide == b.notes[i].glide;
+            same = near(a.notes[i].t, b.notes[i].t) && a.notes[i].midi == b.notes[i].midi && near(a.notes[i].gate, b.notes[i].gate) && near(a.notes[i].acc, b.notes[i].acc) && ::same(a.notes[i].glide, b.notes[i].glide);
         int hard = 0;
         for (const auto& n : a.notes)
             if (n.midi == 48 + 3 || n.midi == 48 + 19) hard += n.acc > 1.3 ? 1 : 0;
-        check(same && hard == 3, "pistes : position modulo 16 (suite de 20 notes), taille des blocs sans effet");
+        check(same && hard == 4, "pistes : position modulo 16 (suite de 20 notes), taille des blocs sans effet");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

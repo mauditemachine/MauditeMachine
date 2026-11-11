@@ -40,6 +40,11 @@
  * {values} dans l'autre sens (sans echo). mm_program porte extra: { [id]: v } (comme knobs : pour une instance neuve) ;
  * le preset du disque aussi (un preset sans extra remet leurs valeurs de depart, sauf xQuality qui reste). MIDI LEARN :
  * un clic sur un reglage SOUND+ l'arme (learnArm : mm_learn {id}).
+ *
+ * Le module avant (2026-11-11, plugin/arp/FrontModule.tsx) : ses potards sont des reglages de extra.ts comme ceux de
+ * SOUND+ (memes evenements). Les pistes du STEP SEQUENCER (plugin/arp/steps.ts) partent dans mm_program sous
+ * steps: { acc, slide, gate, rat, prob } (cinq tableaux de 16 entiers ; un changement relance le programme, comme la
+ * suite), et dans le preset du disque (champ steps ; un preset sans steps remet les valeurs de depart).
  */
 
 import { pattern } from '../../audio/pattern';
@@ -58,6 +63,7 @@ import { STATE_PREFIX } from '../restore';
 import { arpDisk, DISK_FORMAT, type DiskItem } from './disk';
 import { arpExtra, EXTRA_IDS, isExtra } from './extra';
 import { arpMidi, type MidiMapItem } from './midimap';
+import { arpSteps } from './steps';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
 
@@ -76,6 +82,12 @@ export interface ArpProgram {
   knobs: Record<string, number>;
   /** les reglages du VST3 seul (plugin/arp/extra.ts, 0 a 1), comme knobs : ils vivent dans les parametres du plugin */
   extra: Record<string, number>;
+  /**
+   * les pistes du STEP SEQUENCER du module avant (plugin/arp/steps.ts), 16 pas chacune, un pas par position de la suite :
+   * acc 0 doux / 1 normal / 2 appuye, slide 0 / 1, gate 0 court / 1 normal / 2 long / 3 lie, rat 1 a 4 coups,
+   * prob 100 / 75 / 50 / 25 / 0 %
+   */
+  steps: { acc: number[]; slide: number[]; gate: number[]; rat: number[]; prob: number[] };
 }
 
 const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
@@ -91,6 +103,7 @@ function compile(): ArpProgram {
     prog: [...arp.get().prog],
     knobs: { ...voyParams.get() },
     extra: { ...arpExtra.get() },
+    steps: arpSteps.plain(),
   };
 }
 
@@ -310,7 +323,7 @@ const str = (x: unknown): string => (typeof x === 'string' ? x : '');
 function diskPreset(name: string): string {
   const d = capture('voy') as { knobs: Record<string, number>; seq: unknown; prog: number[] };
   const user = presets.user();
-  return JSON.stringify({ format: DISK_FORMAT, v: 1, name, ...(user ? { user } : {}), at: Date.now(), knobs: d.knobs, seq: d.seq, prog: d.prog, extra: { ...arpExtra.get() } });
+  return JSON.stringify({ format: DISK_FORMAT, v: 1, name, ...(user ? { user } : {}), at: Date.now(), knobs: d.knobs, seq: d.seq, prog: d.prog, extra: { ...arpExtra.get() }, steps: arpSteps.plain() });
 }
 
 /**
@@ -353,6 +366,8 @@ function applyDiskPreset(name: string, text: string): boolean {
   undo.boundary('voy', 'preset');
   apply('voy', data);
   applyExtra(d.extra);
+  // Les pistes du STEP SEQUENCER : celles du preset, sinon leurs valeurs de depart
+  arpSteps.load(d.steps);
   voyMsg.show(`LOADED ${(name || str(top.name) || 'PRESET').toUpperCase()}`, 1800);
   return true;
 }
@@ -492,6 +507,7 @@ function sendState(): void {
   }
   saveProg();
   arpExtra.flush();
+  arpSteps.flush();
   send('mm_state', { ls: JSON.stringify({ v: 1, ls: snapshotLs() }) });
 }
 
@@ -543,6 +559,8 @@ export const arpBridge = {
     arpExtra.subscribe(extraChanged);
     arpExtra.subscribe(stateChanged);
     seq.subscribe(changed);
+    // Les pistes du module avant : dans le programme, comme la suite
+    arpSteps.subscribe(changed);
     // La progression (running aussi passe par la : le programme identique ne repart pas)
     arp.subscribe(() => {
       const k = JSON.stringify(arp.get().prog);
@@ -599,10 +617,10 @@ export const arpBridge = {
    * exactement comme un mm_preset venu du disque (potards, suite, progression, SOUND+ ; une etape d'UNDO, mm_param vers le
    * C++), sauf QUALITY qui garde la valeur du moment.
    */
-  factoryLoad(p: { name: string; knobs: unknown; seq: unknown; prog: unknown; extra?: unknown }): boolean {
+  factoryLoad(p: { name: string; knobs: unknown; seq: unknown; prog: unknown; extra?: unknown; steps?: unknown }): boolean {
     const extra = p.extra && typeof p.extra === 'object' && !Array.isArray(p.extra) ? { ...(p.extra as Record<string, unknown>) } : {};
     delete extra.xQuality;
-    const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, extra }));
+    const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, extra, ...(p.steps ? { steps: p.steps } : {}) }));
     if (ok) arpDisk.set({ current: null });
     return ok;
   },

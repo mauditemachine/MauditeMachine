@@ -24,6 +24,8 @@ interface FactoryPreset {
   seq: unknown;
   prog: number[];
   extra?: Record<string, number>;
+  /** les pistes du STEP SEQUENCER du module avant (steps.ts), si le preset en porte */
+  steps?: unknown;
 }
 
 const PRESETS = (bank as { presets: FactoryPreset[] }).presets;

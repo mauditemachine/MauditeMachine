@@ -127,7 +127,8 @@ class Voyager {
 
   void params(const std::vector<std::pair<std::string, double>>& kv);
   void params(const ParamKV* kv, int n);
-  void note(double timeSec, double midi, double gateSec, double accent, double fromMidi);
+  /** glideSec (le plugin seul) : le glissement propre de la note depuis fromMidi (0 : le GLIDE du patch). */
+  void note(double timeSec, double midi, double gateSec, double accent, double fromMidi, double glideSec = 0);
   void beat(double timeSec, double beat, double bpm, bool run);
   void noteOff(double midi, double timeSec);
   void cancel(double timeSec);

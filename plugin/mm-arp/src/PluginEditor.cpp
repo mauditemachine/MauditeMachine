@@ -8,7 +8,7 @@ namespace {
 
 // La taille de la fenetre : les proportions de la face du MM-ARP (src/v4/plugin/arp)
 constexpr int kW = 1100;
-constexpr int kH = 704;
+constexpr int kH = 880;
 const juce::Colour kInk(0xff0b0b0c);
 
 // Les fichiers de la face (le zip de plugin/mm-arp/build-web), lus une fois.

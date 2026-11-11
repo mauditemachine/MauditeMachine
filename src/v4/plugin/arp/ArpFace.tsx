@@ -11,6 +11,9 @@
  * exactement celle du site (Mika : "je veux que tout se retrouve dans OPEN", la pastille SOUND+ de la face est retiree).
  * La fenetre se redimensionne (2026-11-11) : la scene suit seule ; le panneau du capot, les dialogues et la pastille
  * MIDI LEARN vivent dans une couche de UI_W px de large mise a l'echelle de la fenetre (.mm-arp-ui, scale.ts).
+ * Le module avant (2026-11-11, FrontModule.tsx) : la fenetre passe a 1100 x 880 ; la scene garde le haut (64 % de la
+ * largeur, face.css .v4-stage), le module d'extension toujours visible (STEP SEQUENCER, OSC / FILTER +, FX RACK) prend
+ * le bas, dans la meme couche a l'echelle.
  */
 
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
@@ -29,8 +32,10 @@ import { VoyInfosCard } from '../../voyager/InfosCard';
 import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
+import { FrontModule } from './FrontModule';
 import { HoodPanel, LearnMarks } from './HoodPanel';
 import { UI_W, uiScale } from './scale';
+import { KnobDefs } from './SoundPlus';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -145,6 +150,9 @@ const ArpFace: React.FC = () => {
         <VoyInfosCard stage={stage} />
         {/* Les couches HTML, dessinees pour 1100 px de large et mises a l'echelle de la fenetre (scale.ts) */}
         <div className="mm-arp-ui" style={{ position: 'fixed', left: 0, top: 0, width: UI_W, height: `${100 / scale}vh`, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
+          {/* Les degrades des potards SVG (SOUND+, le module avant), une fois */}
+          <KnobDefs />
+          <FrontModule />
           <PresetNameDialog mobile={false} />
           <DiskNameDialog />
           <HoodPanel stage={stage} />
