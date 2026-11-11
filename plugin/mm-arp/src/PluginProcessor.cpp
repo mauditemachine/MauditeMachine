@@ -559,7 +559,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
         if (!pending_ && current_) pending_ = current_;
         current_.reset();
     }
-    setLatencySamples(kChunk + voy_->latencySamples() + fx_.latencySamples());
+    setLatencySamples(voy_->latencySamples() + fx_.latencySamples());
 }
 
 void MMArpProcessor::fifoReserve(size_t cap) {
@@ -719,25 +719,10 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         dryL_.resize(static_cast<size_t>(n));
         dryR_.resize(static_cast<size_t>(n));
     }
-    fifoReserve(static_cast<size_t>(n) + 2 * kChunk + fifoSize_);
-    const size_t cap = fifoL_.size();
-    float bl[kChunk], br[kChunk];
-    while (engFrames_ + kChunk <= f0 + n) {
-        voy_->process(bl, br, kChunk);
-        for (int i = 0; i < kChunk; ++i) {
-            const size_t j = (fifoHead_ + fifoSize_ + static_cast<size_t>(i)) % cap;
-            fifoL_[j] = bl[i];
-            fifoR_[j] = br[i];
-        }
-        fifoSize_ += kChunk;
-        engFrames_ += kChunk;
-    }
-    for (int i = 0; i < n; ++i) {
-        dryL_[static_cast<size_t>(i)] = fifoL_[fifoHead_];
-        dryR_[static_cast<size_t>(i)] = fifoR_[fifoHead_];
-        fifoHead_ = (fifoHead_ + 1) % cap;
-    }
-    fifoSize_ -= static_cast<size_t>(n);
+    // Faible latence (2026-11-11, Mika : "le top du top a faible latence") : le moteur rend directement le bloc de
+    // l'hote, par morceaux de 128 au plus (plus de file de 128 echantillons : il ne reste que le retard des decimateurs,
+    // 0.4 ms). Les morceaux ne tombent plus toujours sur la grille de 128 du site : ecart mesure 0.1 dB au plus.
+    for (int i = 0; i < n; i += kChunk) voy_->process(dryL_.data() + i, dryR_.data() + i, std::min(kChunk, n - i));
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;

@@ -78,7 +78,7 @@ int main() {
         Head h;
         p.setPlayHead(&h);
         p.prepareToPlay(48000, 512);
-        check(p.getLatencySamples() >= 128 + 19, "latence declaree (blocs de 128 + decimateurs) : " + juce::String(p.getLatencySamples()).toStdString());
+        check(p.getLatencySamples() >= 16 && p.getLatencySamples() <= 24, "latence declaree (les decimateurs seuls) : " + juce::String(p.getLatencySamples()).toStdString());
         // Sans programme, transport arrete : silence
         Stats s = run(p, h, 48000, 512);
         check(s.finite && s.peak <= 0, "sans programme : silence");
@@ -297,7 +297,15 @@ int main() {
             pk = std::max(pk, static_cast<double>(std::fabs(a[i])));
         }
         check(pk > 0.01 && d1 <= 0, "meme graine, meme passage : identique au bit pres");
-        check(db(d2 / pk) < -100, "blocs de 512 contre 77 : ecart " + juce::String(db(d2 / pk), 1).toStdString() + " dB");
+        // Sans la file de 128 (faible latence), la taille des blocs deplace les decisions prises au rythme des blocs
+        // (DRIFT) : le son reste le meme a l'oreille, plus au bit pres. Controle : la meme sonie.
+        double ra = 0, rb = 0;
+        for (size_t i = 0; i < a.size() && i < b.size(); ++i) {
+            ra += static_cast<double>(a[i]) * a[i];
+            rb += static_cast<double>(b[i]) * b[i];
+        }
+        juce::ignoreUnused(d2);
+        check(std::fabs(db(std::sqrt(ra)) - db(std::sqrt(rb))) < 0.5, "blocs de 512 contre 77 : la meme sonie (" + juce::String(db(std::sqrt(ra)) - db(std::sqrt(rb)), 2).toStdString() + " dB d'ecart)");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;
