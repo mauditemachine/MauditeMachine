@@ -16,7 +16,8 @@ const PLUGIN_TRACK_TYPES = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as 
 const PLUGIN_ICONS: Readonly<Partial<Record<string, readonly FpMark[]>>> = {
   preset: ['list'],
   random: ['dice'],
-  settings: ['gear'],
+  // 2026-11-11 : la touche des presets (une disquette), plus les reglages
+  settings: ['disk'],
   sounds: ['wave'],
   tempo: ['metro'],
   rec: ['recO'],
@@ -30,7 +31,7 @@ const PLUGIN_SILK: Readonly<Record<string, string>> = {
   solo: 'Unsolo',
   preset: 'Perform',
   random: 'Rnd Beat',
-  settings: 'Save Proj',
+  settings: 'Save Preset',
   sounds: 'Samples',
   tempo: 'Tap Tempo',
   open: '+ Sample',
@@ -540,22 +541,24 @@ const DT2_SILK_TEXTS = (): SilkText[] => {
     const cy = s.cy + s.d / 2 + S.legend.gap + S.legend.cap / 2;
     // Le plugin (2026-11-09) : Main Volume, Level/Data, comme la DT2
     const legend = PLUGIN ? (s.id === 'mvol' ? 'Main Volume' : 'Level/Data') : s.legend;
-    out.push({ text: legend, x: fpX(s.cx), z: fpZ(cy), cap: fpU(S.legend.cap), maxW: fpU(21), group: 'side', weight: 700, alpha: 0.9 });
+    out.push({ text: legend, x: fpX(s.cx), z: fpZ(cy), cap: fpU(S.legend.cap), maxW: fpU(21), group: 'side', weight: PLUGIN ? 500 : 700, alpha: PLUGIN ? 0.75 : 0.9, ...(PLUGIN ? { tracking: 0.06 } : {}) });
     if (s.alt) out.push({ text: s.alt, x: fpX(s.cx), z: fpZ(cy + S.legend.cap / 2 + S.alt.gap + S.alt.cap / 2), cap: fpU(S.alt.cap), maxW: fpU(21), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   }
   const T = DT2.silk.trackMute;
-  out.push({ text: PLUGIN ? 'Track/Mute' : T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
+  out.push({ text: PLUGIN ? 'Track/Mute' : T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: PLUGIN ? 400 : 700, ink: 'alt', alpha: PLUGIN ? 0.72 : 1, ...(PLUGIN ? { tracking: 0.04 } : {}) });
   if (PLUGIN) {
     // La fonction FUNC de chaque touche imprimee dessous, en orange (la DT2 : Quantize sous TRIG...), 1 sous la touche
-    const A = { gap: 1, cap: 1.3 };
-    const under = (text: string, cx: number, bottom: number, maxW: number): SilkText => ({ text, x: fpX(cx), z: fpZ(bottom + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(maxW), group: 'funcAlt', weight: 600, ink: 'alt', alpha: 1 });
+    // 2026-11-11 (Mika : "les ecritures sous les boutons doivent etre plus discretes, regarde la Digitakt") : plus petites,
+    // fines, serrees (l'interlettrage d'un texte courant), l'orange attenue
+    const A = { gap: 0.9, cap: 1.16 };
+    const under = (text: string, cx: number, bottom: number, maxW: number): SilkText => ({ text, x: fpX(cx), z: fpZ(bottom + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(maxW), group: 'funcAlt', weight: 400, ink: 'alt', alpha: 0.82, tracking: 0.04 });
     for (const b of DT2.buttons.keys) {
       const t = PLUGIN_SILK[b.id];
       if (t) out.push(under(t, b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h, b.cls === 'P' ? 16.5 : 21));
     }
     // Les scenes et le crossfader (a la place des fleches de la DT2) : leurs noms dessous, en blanc
     const Sc = DT2.scenes;
-    const name = (text: string, cx: number, bottom: number): SilkText => ({ text, x: fpX(cx), z: fpZ(bottom + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(14), group: 'funcAlt', weight: 600, alpha: 0.9 });
+    const name = (text: string, cx: number, bottom: number): SilkText => ({ text, x: fpX(cx), z: fpZ(bottom + A.gap + A.cap / 2), cap: fpU(A.cap), maxW: fpU(14), group: 'funcAlt', weight: 400, alpha: 0.68, tracking: 0.04 });
     out.push(name('Scene A', Sc.a.rect.x + Sc.a.rect.w / 2, Sc.a.rect.y + Sc.a.rect.h));
     out.push(name('Crossfade', (Sc.xfade.x0 + Sc.xfade.x1) / 2, Sc.a.rect.y + Sc.a.rect.h));
     out.push(name('Scene B', Sc.b.rect.x + Sc.b.rect.w / 2, Sc.b.rect.y + Sc.b.rect.h));

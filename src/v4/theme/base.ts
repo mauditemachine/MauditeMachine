@@ -491,6 +491,8 @@ export interface SilkText {
    * secondaires de la Digitakt (DT_HEX.orange, plus sombre sur la machine creme)
    */
   ink?: 'bone' | 'orange' | 'alt';
+  /** l'interlettrage en em (SILK.tracking sinon) ; avec l'encre alt, alpha attenue l'orange (le plugin, 2026-11-11) */
+  tracking?: number;
   /** texte de repli d'un logo : dessine seulement si l'image du logo n'a pas pu se charger */
   fallbackFor?: SilkLogoId;
 }

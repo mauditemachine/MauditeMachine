@@ -152,7 +152,7 @@ const PluginFace: React.FC = () => {
         <ScreenMouse stage={stage} />
         <Lcd />
         <PresetNameDialog mobile={false} />
-        <OpenPanel />
+        <OpenPanel stage={stage} />
       </Boundary>
       {error && (
         <p className="mm-plugin-error" role="alert">

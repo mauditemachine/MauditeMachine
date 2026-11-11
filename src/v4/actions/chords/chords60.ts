@@ -11,6 +11,8 @@
  */
 
 import type { Dt2ButtonId } from '../../rytm/dtFaceIds';
+import { IN_PLUGIN } from '../../pluginMode';
+import { presetKey } from '../presets';
 import { dtFace } from '../../state/dtFace';
 import { func } from '../../state/func';
 import { fill } from '../../state/fill';
@@ -218,6 +220,12 @@ function pageChords(p: keyof typeof PAGE_OF): Chord[] {
 }
 
 /** Une touche nouvelle : FUNC + la touche, puis la touche seule. */
+/** SAVE PRESET (le plugin) : les presets s'ouvrent s'ils ne le sont pas, puis SAVE (OVERWRITE ou AS NEW, puis le nom). */
+function presetSaveKey(): void {
+  if (dtFace.menu() !== 'preset') menuSet('preset');
+  presetKey('mm808', 'save');
+}
+
 function keyChords(k: Dt2ButtonId, info: string, funcRun: () => void, run: () => void, funcV: Chord['version'] = '6.0', v: Chord['version'] = '6.0', g: Chord['gesture'] = 'press'): Chord[] {
   return [
     c({ id: `${k}.func`, key: k, gesture: 'press', mods: ['func'], prio: 90, info, version: funcV, run: funcRun }),
@@ -309,7 +317,10 @@ export const CHORDS_60: readonly Chord[] = [
   ...keyChords('random', 'random', () => randomPattern(stageNow()), () => randomPattern(stageNow())),
   ...keyChords('sounds', 'sounds', () => menuToggle('samples'), () => menuToggle('sounds')),
   // SETTINGS : sa tape (au lacher) ouvre le menu ; tenue 1 s, elle garde pour un TRIG (trig.settings)
-  ...keyChords('settings', 'settings', () => soon('6.2'), () => menuToggle('settings'), '6.2', '6.0', 'release'),
+  // Le plugin (2026-11-11) : la touche des presets : sa tape ouvre la liste (charger), sa fonction (clic droit) garde un preset
+  ...(IN_PLUGIN
+    ? keyChords('settings', 'settings', () => presetSaveKey(), () => menuToggle('preset'), '6.0', '6.0', 'release')
+    : keyChords('settings', 'settings', () => soon('6.2'), () => menuToggle('settings'), '6.2', '6.0', 'release')),
   // KEYBOARD (2026-11-02, Mika : "Keyboard non plus..") : jeu chromatique sur TRIG 1-16
   ...keyChords('kbd', 'kbd', () => kbdToggle(), () => kbdToggle()),
   // MUTE et SOLO directs en facade + OPEN / + SAMPLE

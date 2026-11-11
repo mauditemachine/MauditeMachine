@@ -30,7 +30,8 @@ import { fwVersion } from '../firmware';
 import { pageSlots, type PageSlot, type RytmScreenId } from '../rytm/pages';
 import { lcdMessage } from '../state/lcdMessage';
 import { LEDS, TRKS, personalize } from '../state/personal';
-import { pluginPanel } from '../state/pluginPanel';
+import { explode } from '../state/explode';
+import { openToggle } from '../actions';
 import { pluginMidi } from '../state/pluginMidi';
 import { meters } from './meters';
 import { pluginClear, pluginNew } from '../actions/patterns';
@@ -38,6 +39,7 @@ import { activeTrack } from '../state/trk';
 import { pattern } from '../audio/pattern';
 import { FONT_DISPLAY } from '../theme';
 import { KnobView, type KnobSpec } from '../ui/KnobPanel';
+import type { Stage } from '../scene/renderer';
 
 type Tab = 'sample' | 'pattern' | 'settings';
 const TABS: readonly { id: Tab; label: string }[] = [
@@ -46,10 +48,16 @@ const TABS: readonly { id: Tab; label: string }[] = [
   { id: 'settings', label: 'SETTINGS' },
 ];
 
-/** Le blanc d'OPEN : l'encre, le rouge (1re couleur), le jaune orange (2e couleur). */
-const W_INK = '#191919';
-const W_RED = '#E5352B';
-const W_AMBER = '#F29A00';
+/**
+ * L'ecran de la carte (2026-11-11, Mika : "je n'aime pas le OPEN [blanc], je veux que ca se retrouve quand meme dans un PCB,
+ * avec un ecran a l'interieur") : le noir et l'encre de l'ecran de la machine, le rouge de ses pas, l'orange de sa face.
+ */
+const S_BG = '#050506';
+const W_INK = '#F4F1EA';
+const W_RED = '#F0463C';
+const W_AMBER = '#FF8A1F';
+const S_DIM = 'rgba(244,241,234,0.5)';
+const S_FAINT = 'rgba(244,241,234,0.14)';
 
 /** Tout ce qui change ce que le panneau montre : les reglages, le store des 16 pistes, la piste active, les samples. */
 function subscribeAll(fn: () => void): () => void {
@@ -141,15 +149,16 @@ function playWindow(): { s: number; e: number; rev: boolean; ratio: number } {
 
 const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, skey, rev: changes }) => {
   const cv = useRef<HTMLCanvasElement>(null);
-  const [w, setW] = useState(1100);
+  const [{ w, h: H }, setSize] = useState({ w: 800, h: 180 });
   const [view, setView] = useState<View>({ a: 0, b: 1 });
   const drag = useRef<{ kind: 'start' | 'end' | 'pan'; x0: number; v0: View; f0: number } | null>(null);
-  const H = 260;
   useEffect(() => setView({ a: 0, b: 1 }), [skey]);
   useEffect(() => {
     const el = cv.current?.parentElement;
     if (!el) return undefined;
-    const ro = new ResizeObserver(() => setW(Math.max(300, Math.floor(el.clientWidth))));
+    const fit = (): void => setSize({ w: Math.max(200, Math.floor(el.clientWidth)), h: Math.max(80, Math.floor(el.clientHeight)) });
+    fit();
+    const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -169,21 +178,21 @@ const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, ske
     const g = c.getContext('2d');
     if (!g) return;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.fillStyle = '#ffffff';
+    g.fillStyle = S_BG;
     g.fillRect(0, 0, w, H);
     const top = 18;
     const bot = H - 22;
     const mid = (top + bot) / 2;
     const amp = (bot - top) / 2;
     const X = (f: number): number => ((f - view.a) / (view.b - view.a)) * w;
-    g.strokeStyle = 'rgba(25,25,25,0.12)';
+    g.strokeStyle = S_FAINT;
     g.lineWidth = 1;
     g.beginPath();
     g.moveTo(0, mid);
     g.lineTo(w, mid);
     g.stroke();
     if (!pcm) {
-      g.fillStyle = 'rgba(25,25,25,0.55)';
+      g.fillStyle = S_DIM;
       g.font = `700 14px ${FONT_DISPLAY}`;
       g.textAlign = 'center';
       g.fillText(skey ? 'LOADING…' : 'NO SAMPLE ON THIS TRACK', w / 2, mid + 5);
@@ -208,14 +217,14 @@ const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, ske
         if (v > hi) hi = v;
       }
       const on = f0 >= pw.s - 1e-9 && f0 <= pw.e + 1e-9;
-      g.strokeStyle = on ? W_INK : 'rgba(25,25,25,0.2)';
+      g.strokeStyle = on ? W_INK : 'rgba(244,241,234,0.24)';
       g.beginPath();
       g.moveTo(x + 0.5, mid - Math.max(0.5, hi * amp));
       g.lineTo(x + 0.5, mid - Math.min(-0.5, lo * amp));
       g.stroke();
     }
     // Ce qui ne joue pas : un voile
-    g.fillStyle = 'rgba(255,255,255,0.4)';
+    g.fillStyle = 'rgba(5,5,6,0.45)';
     g.fillRect(0, top, Math.max(0, X(pw.s)), bot - top);
     g.fillRect(X(pw.e), top, Math.max(0, w - X(pw.e)), bot - top);
     // Le fondu de la fin (LEN < 1)
@@ -256,7 +265,7 @@ const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, ske
       g.stroke();
       g.fillStyle = W_RED;
       g.fillRect(label === 'S' ? x : x - 14, top - 16, 14, 13);
-      g.fillStyle = '#ffffff';
+      g.fillStyle = S_BG;
       g.font = `800 10px ${FONT_DISPLAY}`;
       g.textAlign = 'center';
       g.fillText(label, label === 'S' ? x + 7 : x - 7, top - 6);
@@ -267,7 +276,7 @@ const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, ske
     const totalMs = (n / pcm.sr) * 1000;
     const spanMs = totalMs * (view.b - view.a);
     const stepMs = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].find((m) => spanMs / m <= 10) ?? 10000;
-    g.fillStyle = 'rgba(25,25,25,0.5)';
+    g.fillStyle = S_DIM;
     g.font = `600 10px ${FONT_DISPLAY}`;
     g.textAlign = 'left';
     for (let m = Math.ceil((view.a * totalMs) / stepMs) * stepMs; m <= view.b * totalMs; m += stepMs) {
@@ -275,7 +284,7 @@ const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, ske
       g.fillRect(x, bot + 4, 1, 5);
       g.fillText(`${m >= 1000 ? `${(m / 1000).toFixed(m % 1000 ? 1 : 0)} S` : `${m} MS`}`, x + 3, bot + 17);
     }
-  }, [w, view, pcm, skey, t, changes]);
+  }, [w, H, view, pcm, skey, t, changes]);
 
   const fAt = (clientX: number): number => {
     const r = cv.current?.getBoundingClientRect();
@@ -330,7 +339,7 @@ const Waveform: React.FC<{ t: TrackKey; skey: string; rev: number }> = ({ t, ske
   };
   return (
     <div className="mm-open-wave">
-      <canvas ref={cv} style={{ width: w, height: H, display: 'block', touchAction: 'none' }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel} onDoubleClick={() => setView({ a: 0, b: 1 })} />
+      <canvas ref={cv} style={{ position: 'absolute', left: 0, top: 0, width: w, height: H, display: 'block', touchAction: 'none' }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel} onDoubleClick={() => setView({ a: 0, b: 1 })} />
     </div>
   );
 };
@@ -409,7 +418,7 @@ const SampleTab: React.FC<{ t: TrackKey; changes: number }> = ({ t, changes }) =
         <span>{pcm ? `${pcm.R ? 'STEREO' : 'MONO'} · ${(pcm.sr / 1000).toFixed(1)} KHZ · ${((pcm.L.length / pcm.sr) * 1000).toFixed(0)} MS` : ''}</span>
         <span className="mm-open-hint">drag S and E · Shift: fine · wheel: zoom · double click: whole sample · yellow: the AMP envelope</span>
       </div>
-      <div className="mm-open-grid3">
+      <div className="mm-open-knobrow">
         <KnobGroup title="SAMPLE" k={`s${t}`} slots={slotsByLabel(['voice', 'synth'], ['STRT', 'LEN', 'TUNE', 'FINE', 'LEV', 'PLAY'])} />
         <KnobGroup title="AMP ENVELOPE" k={`a${t}`} slots={slotsByLabel(['env'], ['ATK', 'HOLD', 'DEC', 'PAN'])} />
         <KnobGroup title="FILTER" k={`f${t}`} slots={slotsByLabel(['fltr'], ['FREQ', 'RESO', 'TYPE', 'ENV'])} />
@@ -521,12 +530,13 @@ const DragMidi: React.FC<{ big?: boolean }> = ({ big }) => {
  */
 const Levels: React.FC = () => {
   const cv = useRef<HTMLCanvasElement>(null);
-  const [w, setW] = useState(1000);
-  const H = 150;
+  const [{ w, h: H }, setSize] = useState({ w: 800, h: 150 });
   useEffect(() => {
     const el = cv.current?.parentElement;
     if (!el) return undefined;
-    const ro = new ResizeObserver(() => setW(Math.max(300, Math.floor(el.clientWidth))));
+    const fit = (): void => setSize({ w: Math.max(200, Math.floor(el.clientWidth)), h: Math.max(70, Math.floor(el.clientHeight)) });
+    fit();
+    const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -538,12 +548,12 @@ const Levels: React.FC = () => {
       const g = c?.getContext('2d');
       if (!c || !g) return;
       const dpr = Math.min(3, window.devicePixelRatio || 1);
-      if (c.width !== Math.round(w * dpr)) {
+      if (c.width !== Math.round(w * dpr) || c.height !== Math.round(H * dpr)) {
         c.width = Math.round(w * dpr);
         c.height = Math.round(H * dpr);
       }
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      g.fillStyle = '#ffffff';
+      g.fillStyle = S_BG;
       g.fillRect(0, 0, w, H);
       const mv = meters.view();
       const cols = 16 + 3;
@@ -554,17 +564,17 @@ const Levels: React.FC = () => {
       const mh = bot - top;
       const bar = (i: number, v: number, p: number, name: string, strong: boolean): void => {
         const x = Math.round(i * pitch + (pitch - bw) / 2);
-        g.fillStyle = '#efeee9';
+        g.fillStyle = 'rgba(244,241,234,0.08)';
         g.fillRect(x, top, bw, mh);
         if (v > 0) {
-          g.fillStyle = strong ? W_INK : '#3a3a3d';
+          g.fillStyle = strong ? W_INK : 'rgba(244,241,234,0.82)';
           g.fillRect(x, bot - Math.round(v * mh), bw, Math.round(v * mh));
         }
         if (p > 0.02) {
           g.fillStyle = p > 0.97 ? W_RED : W_AMBER;
           g.fillRect(x, bot - Math.round(p * mh) - 2, bw, 3);
         }
-        g.fillStyle = 'rgba(25,25,25,0.65)';
+        g.fillStyle = S_DIM;
         g.font = `700 10px ${FONT_DISPLAY}`;
         g.textAlign = 'center';
         g.fillText(name, x + bw / 2, H - 8);
@@ -581,10 +591,10 @@ const Levels: React.FC = () => {
     };
     raf = window.requestAnimationFrame(draw);
     return () => window.cancelAnimationFrame(raf);
-  }, [w]);
+  }, [w, H]);
   return (
     <div className="mm-open-wave">
-      <canvas ref={cv} style={{ width: w, height: H, display: 'block' }} aria-label="Levels of the 16 tracks and of the output, from the engine" />
+      <canvas ref={cv} style={{ position: 'absolute', left: 0, top: 0, width: w, height: H, display: 'block' }} aria-label="Levels of the 16 tracks and of the output, from the engine" />
     </div>
   );
 };
@@ -611,8 +621,8 @@ const PatternTab: React.FC = () => {
     setAsk(null);
   };
   return (
-    <div className="mm-open-grid2">
-      <section className="mm-open-card mm-open-wide">
+    <div className="mm-open-pat">
+      <section className="mm-open-card">
         <h3>THE PLAYING PATTERN AS A MIDI CLIP</h3>
         <div className="mm-open-midirow">
           <DragMidi big />
@@ -627,37 +637,33 @@ const PatternTab: React.FC = () => {
                 'Waiting for the plugin…'
               )}
             </p>
-            <p className="mm-open-note">Drag it onto a MIDI track or a Drum Rack (16 pads, C1 to D#2), with the velocities of the steps. A click saves the file.</p>
-            {fresh && <p className={fresh.ok ? 'mm-open-status' : 'mm-open-status mm-open-status-ko'}>{fresh.msg}</p>}
+            <p className="mm-open-note">{fresh ? <span className={fresh.ok ? 'mm-open-status' : 'mm-open-status mm-open-status-ko'}>{fresh.msg}</span> : 'Drag it onto a MIDI track or a Drum Rack (16 pads, C1 to D#2). A click saves the file.'}</p>
           </div>
           <button type="button" className="mm-open-btn" onClick={() => pluginMidi.save?.()} title="Save the .mid in Music / MM-RYTM MIDI and show it in the Finder">
             SAVE .MID
           </button>
+          <button type="button" className="mm-open-btn" onClick={() => setAsk('new')} title="A blank preset: no steps, the 16 tracks on the first sample of their type, the global FX off, no scene, no mute">
+            NEW…
+          </button>
+          <button type="button" className="mm-open-btn" onClick={() => setAsk('clear')} title="The steps, their P-LOCKs and trig settings go; the sounds, the FX and the scenes stay">
+            CLEAR…
+          </button>
         </div>
       </section>
-      <section className="mm-open-card mm-open-wide">
+      <section className="mm-open-card mm-open-grow">
         <h3>LEVELS · THE ENGINE, LIVE (-48 TO 0 DB)</h3>
         <Levels />
-      </section>
-      <section className="mm-open-card">
-        <h3>NEW</h3>
-        <p className="mm-open-note">A blank preset: no steps, the 16 tracks on the first sample of their type, the global FX off, no scene, no mute.</p>
-        <button type="button" className="mm-open-btn" onClick={() => setAsk('new')}>
-          NEW…
-        </button>
-      </section>
-      <section className="mm-open-card">
-        <h3>CLEAR</h3>
-        <p className="mm-open-note">The steps, their P-LOCKs and trig settings go; the sounds, the FX and the scenes stay.</p>
-        <button type="button" className="mm-open-btn" onClick={() => setAsk('clear')}>
-          CLEAR…
-        </button>
       </section>
       {ask && (
         <div className="mm-open-confirm" role="alertdialog" aria-label={ask === 'new' ? 'New blank preset?' : 'Clear the pattern?'}>
           <div>
             <h4>{ask === 'new' ? 'NEW: a blank preset?' : 'CLEAR the pattern?'}</h4>
-            <p>{ask === 'new' ? 'The playing pattern starts from zero.' : 'The steps of the playing pattern go away.'} Cmd+Z in the machine undoes it.</p>
+            <p>
+              {ask === 'new'
+                ? 'No steps, the 16 tracks on the first sample of their type, the global FX off, no scene, no mute.'
+                : 'The steps, their P-LOCKs and trig settings go; the sounds, the FX and the scenes stay.'}{' '}
+              Cmd+Z in the machine undoes it.
+            </p>
             <div className="mm-open-row">
               <button type="button" className="mm-open-btn mm-open-btn-red" onClick={doIt}>
                 {ask === 'new' ? 'NEW' : 'CLEAR'}
@@ -729,7 +735,7 @@ const SettingsTab: React.FC = () => {
           </button>
         </div>
       </section>
-      <section className="mm-open-card">
+      <section className="mm-open-card mm-open-wide">
         <h3>MOUSE AND KEYS</h3>
         <div className="mm-open-help">
           {HELP.map(([k, v]) => (
@@ -740,142 +746,196 @@ const SettingsTab: React.FC = () => {
           ))}
         </div>
       </section>
-      <section className="mm-open-card mm-open-wide">
-        <h3>ABOUT</h3>
-        <p className="mm-open-note">MM-RYTM VST3 · firmware V.{fwVersion('mm808')} · Maudite Machine, personal use.</p>
-      </section>
+      <p className="mm-open-about mm-open-wide">MM-RYTM VST3 · firmware V.{fwVersion('mm808')} · Maudite Machine, personal use.</p>
     </div>
   );
 };
 
 const CSS = `
-.mm-open{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:#f7f6f2;color:${W_INK};font-family:${FONT_DISPLAY};overflow:hidden}
+.mm-open-mod{position:fixed;z-index:40;box-sizing:border-box;padding:1em;border-radius:1.1em;background:linear-gradient(#141416,#0b0b0d);border:.12em solid #2b2b30;box-shadow:0 .1em 0 rgba(244,241,234,.06) inset,0 1em 2.6em rgba(0,0,0,.75);font-family:${FONT_DISPLAY};color:${W_INK};animation:mm-open-in .32s ease-out both}
+@keyframes mm-open-in{0%{opacity:0}35%{opacity:1;filter:brightness(1.9)}100%{opacity:1;filter:none}}
+.mm-open-screw{position:absolute;width:.56em;height:.56em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#d9dadd,#7c7e84 60%,#3b3c40);box-shadow:0 0 0 .08em rgba(0,0,0,.6)}
+.mm-open-screw::after{content:'';position:absolute;left:18%;right:18%;top:44%;height:12%;background:rgba(0,0,0,.55);transform:rotate(35deg)}
+.mm-open-tag{position:absolute;right:2.2em;bottom:.18em;font-size:.62em;font-weight:700;letter-spacing:.22em;color:rgba(244,241,234,.38)}
+.mm-open{position:relative;width:100%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;background:${S_BG};border-radius:.5em;box-shadow:0 0 0 .1em #000,inset 0 0 4em rgba(244,241,234,.035);overflow:hidden}
 .mm-open button{font:inherit;color:inherit;cursor:pointer}
-.mm-open-head{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(25,25,25,.1);background:#ffffff}
-.mm-open-title{font-weight:800;letter-spacing:.14em;font-size:13px;white-space:nowrap}
-.mm-open-title i{font-style:normal;color:${W_RED}}
-.mm-open-tabs{display:flex;gap:4px}
-.mm-open-tabs button,.mm-open-close,.mm-open-tracks button,.mm-open-row button,.mm-open-choice button,.mm-open-btn{background:#ecebe6;border:1px solid rgba(25,25,25,.14);border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;letter-spacing:.1em;color:${W_INK}}
-.mm-open-tabs button[aria-pressed=true],.mm-open-tracks button[aria-pressed=true],.mm-open-choice button[aria-pressed=true],.mm-open-row button[aria-pressed=true]{background:${W_RED};border-color:${W_RED};color:#fff}
-.mm-open-close{padding:7px 14px;font-size:12px}
-.mm-open-close:hover,.mm-open-tabs button:hover,.mm-open-row button:hover,.mm-open-btn:hover,.mm-open-tracks button:hover{border-color:${W_RED}}
-.mm-open-btn{padding:9px 16px;font-size:12px}
-.mm-open .mm-open-btn-red,.mm-open-row .mm-open-btn-red{background:${W_RED};border-color:${W_RED};color:#fff}
-.mm-open-drag{margin-left:auto;display:flex;align-items:center;gap:8px;background:${W_AMBER};border:1px solid ${W_AMBER};border-radius:8px;padding:6px 12px;color:${W_INK};cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.mm-open-head{display:flex;align-items:center;gap:1em;padding:.6em .9em;border-bottom:1px solid rgba(244,241,234,.12)}
+.mm-open-title{font-weight:800;letter-spacing:.14em;font-size:1.15em;white-space:nowrap}
+.mm-open-title i{font-style:normal;color:${W_AMBER}}
+.mm-open-tabs{display:flex;gap:.35em}
+.mm-open-tabs button,.mm-open-close,.mm-open-tracks button,.mm-open-row button,.mm-open-choice button,.mm-open-btn{background:rgba(244,241,234,.06);border:1px solid rgba(244,241,234,.2);border-radius:.5em;padding:.45em .8em;font-size:1em;font-weight:700;letter-spacing:.1em;color:${W_INK};white-space:nowrap}
+.mm-open-tabs button[aria-pressed=true],.mm-open-tracks button[aria-pressed=true],.mm-open-choice button[aria-pressed=true],.mm-open-row button[aria-pressed=true]{background:${W_RED};border-color:${W_RED};color:#0b0b0c}
+.mm-open-close:hover,.mm-open-tabs button:hover,.mm-open-row button:hover,.mm-open-btn:hover,.mm-open-tracks button:hover,.mm-open-choice button:hover{border-color:${W_AMBER}}
+.mm-open-btn{padding:.6em 1em}
+.mm-open .mm-open-btn-red{background:${W_RED};border-color:${W_RED};color:#0b0b0c}
+.mm-open-drag{margin-left:auto;display:flex;align-items:center;gap:.6em;background:${W_AMBER};border:1px solid ${W_AMBER};border-radius:.5em;padding:.4em .9em;color:#0b0b0c !important;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .mm-open-drag:active{cursor:grabbing}
 .mm-open-drag[data-can='0']{opacity:.5}
-.mm-open-drag svg{width:9px;height:14px;fill:currentColor}
-.mm-open-drag span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1}
-.mm-open-drag b{font-size:12px;font-weight:800;letter-spacing:.1em}
-.mm-open-drag small{font-size:10px;font-weight:600;letter-spacing:.06em;opacity:.8}
-.mm-open-drag-big{margin-left:0;padding:16px 22px;border-radius:12px}
-.mm-open-drag-big svg{width:12px;height:18px}
-.mm-open-drag-big b{font-size:16px}
-.mm-open-tracks{display:grid;grid-template-columns:repeat(16,1fr);gap:4px;padding:8px 16px;border-bottom:1px solid rgba(25,25,25,.08);background:#ffffff}
-.mm-open-tracks button{padding:5px 0}
-.mm-open-body{flex:1;overflow:auto;padding:10px 16px 16px}
-.mm-open-sampletab{display:flex;flex-direction:column;gap:8px}
-.mm-open-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.mm-open-now{font-size:12px;letter-spacing:.08em;margin-right:auto;display:flex;align-items:baseline;gap:8px}
-.mm-open-now b{color:${W_RED};font-size:15px}
-.mm-open-now small{color:rgba(25,25,25,.5);font-size:10px;letter-spacing:.1em}
-.mm-open-wave{border:1px solid rgba(25,25,25,.12);border-radius:10px;overflow:hidden;background:#fff}
-.mm-open-wavefoot{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;letter-spacing:.08em;color:rgba(25,25,25,.6)}
+.mm-open-drag svg{width:.75em;height:1.15em;fill:currentColor}
+.mm-open-drag span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}
+.mm-open-drag b{font-size:1em;font-weight:800;letter-spacing:.1em}
+.mm-open-drag small{font-size:.85em;font-weight:600;letter-spacing:.06em;opacity:.8}
+.mm-open-drag-big{margin-left:0;padding:1em 1.5em;border-radius:.7em}
+.mm-open-drag-big svg{width:1em;height:1.5em}
+.mm-open-drag-big b{font-size:1.4em}
+.mm-open-tracks{display:grid;grid-template-columns:repeat(16,1fr);gap:.3em;padding:.5em .9em;border-bottom:1px solid rgba(244,241,234,.08)}
+.mm-open-tracks button{padding:.35em 0;font-size:.92em}
+.mm-open-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:.6em .9em .8em;overflow:hidden}
+.mm-open-sampletab,.mm-open-pat{flex:1;min-height:0;display:flex;flex-direction:column;gap:.55em;position:relative}
+.mm-open-row{display:flex;align-items:center;gap:.45em;flex-wrap:wrap}
+.mm-open-now{font-size:1.05em;letter-spacing:.08em;margin-right:auto;display:flex;align-items:baseline;gap:.6em}
+.mm-open-now b{color:${W_RED};font-size:1.3em}
+.mm-open-now small{color:rgba(244,241,234,.5);font-size:.9em;letter-spacing:.1em}
+.mm-open-wave{position:relative;flex:1;min-height:7em;border:1px solid rgba(244,241,234,.14);border-radius:.6em;overflow:hidden;background:${S_BG}}
+.mm-open-wavefoot{display:flex;gap:1.3em;flex-wrap:nowrap;font-size:.95em;letter-spacing:.08em;color:rgba(244,241,234,.55);white-space:nowrap;overflow:hidden}
 .mm-open-wavefoot b{color:${W_INK};font-weight:700}
-.mm-open-hint{margin-left:auto;color:rgba(25,25,25,.45)}
-.mm-open-grid3{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px}
-.mm-open-grid2{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.mm-open-card{background:#ffffff;border:1px solid rgba(25,25,25,.09);border-radius:12px;padding:8px 10px 10px}
+.mm-open-hint{margin-left:auto;color:rgba(244,241,234,.35);overflow:hidden;text-overflow:ellipsis}
+.mm-open-knobrow{display:flex;gap:.55em}
+.mm-open-knobrow .mm-open-card:nth-child(1){flex:6}
+.mm-open-knobrow .mm-open-card:nth-child(2){flex:4}
+.mm-open-knobrow .mm-open-card:nth-child(3){flex:4}
+.mm-open-grid2{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:1.05fr 1.35fr .9fr;gap:.6em;align-content:start}
+.mm-open-card{min-width:0;background:rgba(244,241,234,.03);border:1px solid rgba(244,241,234,.11);border-radius:.7em;padding:.45em .6em .55em}
+.mm-open-grow{flex:1;min-height:0;display:flex;flex-direction:column}
 .mm-open-wide{grid-column:1 / -1}
-.mm-open-card h3{margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.16em;color:#c97f00}
-.mm-open-knobs{display:flex;flex-wrap:wrap;gap:4px}
-.mm-open-knobs .v4-knob{width:74px;padding:4px 2px;background:#f3f2ee}
-.mm-open-knobs .v4-knob-dial{width:44px;height:44px}
-.mm-open .v4-knob-label{color:rgba(25,25,25,.7)}
-.mm-open .v4-knob-value{color:${W_INK}}
-.mm-open .v4-knob-track{stroke:rgba(25,25,25,.12)}
+.mm-open-card h3{margin:0 0 .35em;font-size:.88em;font-weight:800;letter-spacing:.16em;color:${W_AMBER}}
+.mm-open-knobs{display:flex;gap:.2em}
+.mm-open-knobs .v4-knob{flex:1;min-width:0;width:auto;padding:.15em .05em .1em;background:transparent;gap:.05em}
+.mm-open-knobs .v4-knob-dial{width:3.3em;height:3.3em}
+.mm-open .v4-knob-label{font-size:.85em;color:rgba(244,241,234,.7)}
+.mm-open .v4-knob-page .v4-knob-value{font-size:1.5em;color:${W_INK}}
+.mm-open .v4-knob-track{stroke:rgba(244,241,234,.14)}
 .mm-open .v4-knob-arc{stroke:${W_RED}}
-.mm-open .v4-knob-tick{stroke:rgba(25,25,25,.35)}
-.mm-open .v4-knob-cap{fill:#ffffff;stroke:rgba(25,25,25,.25)}
+.mm-open .v4-knob-tick{stroke:rgba(244,241,234,.4)}
+.mm-open .v4-knob-cap{fill:#17181b;stroke:rgba(244,241,234,.22)}
 .mm-open .v4-knob-mark{stroke:${W_INK}}
-.mm-open-knobs .v4-knob-unit{font-size:9px;color:rgba(25,25,25,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.mm-open-note{font-size:12px;color:rgba(25,25,25,.7);margin:4px 0 8px}
-.mm-open-big{font-size:18px;letter-spacing:.06em;margin:2px 0 4px}
+.mm-open-knobs .v4-knob-unit{font-size:.78em;color:rgba(244,241,234,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.mm-open-note{font-size:1.05em;color:rgba(244,241,234,.7);margin:.25em 0 .5em}
+.mm-open-big{font-size:1.6em;letter-spacing:.06em;margin:.1em 0 .2em}
 .mm-open-big b{color:${W_RED}}
-.mm-open-midirow{display:flex;align-items:center;gap:18px}
+.mm-open-midirow{display:flex;align-items:center;gap:1em}
 .mm-open-midiinfo{flex:1;min-width:0}
-.mm-open-status{font-size:12px;font-weight:700;color:#1f7a3a;margin:0}
+.mm-open-midiinfo .mm-open-note{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mm-open-status{font-weight:700;color:#5fd08a}
 .mm-open-status-ko{color:${W_RED}}
-.mm-open-confirm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(247,246,242,.85);border-radius:12px}
-.mm-open-confirm>div{background:#fff;border:1px solid rgba(25,25,25,.15);border-radius:14px;padding:18px 22px;box-shadow:0 18px 50px rgba(0,0,0,.18);max-width:420px}
-.mm-open-confirm h4{margin:0 0 6px;font-size:14px;letter-spacing:.12em}
-.mm-open-confirm p{margin:0 0 14px;font-size:13px;color:rgba(25,25,25,.75)}
-.mm-open-choices{display:flex;flex-direction:column;gap:8px}
-.mm-open-choice{display:flex;align-items:center;gap:10px}
-.mm-open-choice>span{width:84px;font-size:10px;font-weight:800;letter-spacing:.14em;color:rgba(25,25,25,.7)}
-.mm-open-choice>div{display:flex;gap:4px;flex-wrap:wrap}
-.mm-open-help{display:flex;flex-direction:column;gap:6px}
-.mm-open-help p{margin:0;display:flex;gap:10px;font-size:12px}
-.mm-open-help b{min-width:180px;font-size:11px;letter-spacing:.1em;color:#c97f00}
-.mm-open-help span{color:rgba(25,25,25,.85)}
+.mm-open-confirm{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;background:rgba(5,5,6,.82);border-radius:.6em}
+.mm-open-confirm>div{background:#111214;border:1px solid rgba(244,241,234,.22);border-radius:.9em;padding:1.3em 1.6em;box-shadow:0 1.2em 3em rgba(0,0,0,.6);max-width:36em}
+.mm-open-confirm h4{margin:0 0 .5em;font-size:1.3em;letter-spacing:.12em}
+.mm-open-confirm p{margin:0 0 1em;font-size:1.1em;color:rgba(244,241,234,.75)}
+.mm-open-choices{display:flex;flex-direction:column;gap:.5em}
+.mm-open-choice{display:flex;align-items:center;gap:.8em}
+.mm-open-choice>span{width:7.5em;font-size:.9em;font-weight:800;letter-spacing:.14em;color:rgba(244,241,234,.7)}
+.mm-open-choice>div{display:flex;gap:.3em;flex-wrap:wrap}
+.mm-open-help{columns:2;column-gap:1.6em}
+.mm-open-help p{margin:0 0 .3em;display:flex;gap:.7em;font-size:.95em;break-inside:avoid}
+.mm-open-help b{flex:0 0 12.5em;font-size:.9em;letter-spacing:.08em;color:${W_AMBER}}
+.mm-open-help span{color:rgba(244,241,234,.8)}
+.mm-open-about{margin:0;font-size:.9em;letter-spacing:.08em;color:rgba(244,241,234,.4)}
 `;
 
-export const OpenPanel: React.FC = () => {
-  const open = useSyncExternalStore(pluginPanel.subscribe, pluginPanel.get, pluginPanel.get);
+interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
+  const hood = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
+  const open = hood === 'open';
   const [tab, setTab] = useState<Tab>('sample');
+  const [box, setBox] = useState<Box | null>(null);
   const changes = useRev();
   const t = activeTrack.get() ?? 'BD';
 
-  // Echap ferme le panneau (avant les raccourcis de la face)
+  // La place de l'ecran sur la carte (la vue ouverte est fixe : a l'ouverture, puis quand la fenetre change de taille)
+  useEffect(() => {
+    if (!open || !stage) {
+      setBox(null);
+      return undefined;
+    }
+    const place = (): void => setBox(stage.pcbScreenRect());
+    place();
+    const timers = [window.setTimeout(place, 120), window.setTimeout(place, 500)];
+    const onResize = (): void => {
+      timers.push(window.setTimeout(place, 60), window.setTimeout(place, 400));
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id));
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open, stage]);
+
+  // Echap referme le capot (avant les raccourcis de la face)
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return;
       e.preventDefault();
       e.stopPropagation();
-      pluginPanel.set(false);
+      openToggle(stage);
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [open]);
+  }, [open, stage]);
 
   useEffect(() => {
     if (open) pluginMidi.request?.();
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !box || box.width < 50) return null;
+  // Une marge dans la zone degagee de la carte ; tout le panneau en em : 1 em = sa largeur / 88 (10 px a la taille de depart)
+  const pad = box.width * 0.012;
+  const width = box.width - 2 * pad;
+  const height = box.height - 2 * pad;
   return (
-    <div className="mm-open" role="dialog" aria-label="MM-RYTM open: sample editor and settings" onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+    <div className="mm-open-mod" style={{ left: box.left + pad, top: box.top + pad, width, height, fontSize: width / 88 }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       <style>{CSS}</style>
-      <div className="mm-open-head">
-        <span className="mm-open-title">
-          MM-RYTM <i>OPEN</i>
-        </span>
-        <div className="mm-open-tabs" role="tablist">
-          {TABS.map((x) => (
-            <button key={x.id} type="button" role="tab" aria-pressed={tab === x.id} aria-selected={tab === x.id} onClick={() => setTab(x.id)}>
-              {x.label}
-            </button>
-          ))}
+      {(
+        [
+          { left: '.22em', top: '.22em' },
+          { right: '.22em', top: '.22em' },
+          { left: '.22em', bottom: '.22em' },
+          { right: '.22em', bottom: '.22em' },
+        ] as const
+      ).map((at, i) => (
+        <i key={i} className="mm-open-screw" style={at} aria-hidden="true" />
+      ))}
+      <span className="mm-open-tag" aria-hidden="true">
+        LCD1 · MM-RYTM
+      </span>
+      <div className="mm-open" role="dialog" aria-label="MM-RYTM open: sample editor, pattern and settings">
+        <div className="mm-open-head">
+          <span className="mm-open-title">
+            MM-RYTM <i>OPEN</i>
+          </span>
+          <div className="mm-open-tabs" role="tablist">
+            {TABS.map((x) => (
+              <button key={x.id} type="button" role="tab" aria-pressed={tab === x.id} aria-selected={tab === x.id} onClick={() => setTab(x.id)}>
+                {x.label}
+              </button>
+            ))}
+          </div>
+          <DragMidi />
+          <button type="button" className="mm-open-close" onClick={() => openToggle(stage)} title="Close (Esc): the lid comes back, the front panel">
+            CLOSE ✕
+          </button>
         </div>
-        <DragMidi />
-        <button type="button" className="mm-open-close" onClick={() => pluginPanel.set(false)} title="Close (OPEN, Esc): back to the front panel">
-          CLOSE ✕
-        </button>
-      </div>
-      {tab === 'sample' && (
-        <div className="mm-open-tracks" role="group" aria-label="Track">
-          {TRACK_KEYS.map((k, i) => (
-            <button key={k} type="button" aria-pressed={k === t} onClick={() => trackSelect(k)}>
-              {TRACK_NAMES[i]}
-            </button>
-          ))}
+        {tab === 'sample' && (
+          <div className="mm-open-tracks" role="group" aria-label="Track">
+            {TRACK_KEYS.map((k, i) => (
+              <button key={k} type="button" aria-pressed={k === t} onClick={() => trackSelect(k)}>
+                {TRACK_NAMES[i]}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="mm-open-body">
+          {tab === 'sample' && <SampleTab t={t} changes={changes} />}
+          {tab === 'pattern' && <PatternTab />}
+          {tab === 'settings' && <SettingsTab />}
         </div>
-      )}
-      <div className="mm-open-body">
-        {tab === 'sample' && <SampleTab t={t} changes={changes} />}
-        {tab === 'pattern' && <PatternTab />}
-        {tab === 'settings' && <SettingsTab />}
       </div>
     </div>
   );

@@ -325,6 +325,24 @@ export class KeyLabelAtlas {
       ctx.beginPath();
       ctx.arc(cx, cy, R * 0.32, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (m === 'disk') {
+      // Les presets (le plugin) : une disquette (le corps au coin coupe, le volet, l'etiquette)
+      const x0 = x + k;
+      const y0 = y + k;
+      const W = w - lw;
+      const H = h - lw;
+      const cut = 0.24 * W;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x0 + W - cut, y0);
+      ctx.lineTo(x0 + W, y0 + cut);
+      ctx.lineTo(x0 + W, y0 + H);
+      ctx.lineTo(x0, y0 + H);
+      ctx.closePath();
+      ctx.stroke();
+      // le volet (en haut) et l'etiquette (en bas)
+      ctx.strokeRect(x0 + 0.24 * W, y0, 0.42 * W, 0.3 * H);
+      ctx.strokeRect(x0 + 0.2 * W, y0 + 0.56 * H, 0.6 * W, 0.44 * H);
     } else if (m === 'wave') {
       // SOUNDS (la DT2 : SAMPLES) : des barres verticales d'une forme d'onde
       const hs = [0.32, 0.66, 1, 0.5, 0.82, 0.42, 0.2];

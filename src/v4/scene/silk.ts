@@ -379,7 +379,7 @@ export class PanelSilk {
     const u = this.ppu;
     const fit = items.map((it) => {
       if (!it.maxW) return 1;
-      const w = trackedWidth(ctx, it.text, (it.cap / SILK.capRatio) * u, it.weight ?? SILK.weight) / u;
+      const w = trackedWidth(ctx, it.text, (it.cap / SILK.capRatio) * u, it.weight ?? SILK.weight, it.tracking ?? SILK.tracking) / u;
       return w > it.maxW ? it.maxW / w : 1;
     });
     const groupMin = new Map<string, number>();
@@ -471,12 +471,17 @@ export class PanelSilk {
       const cap = it.cap * scales[i];
       const fontPx = (cap / SILK.capRatio) * u;
       const weight = it.weight ?? SILK.weight;
-      const w = trackedWidth(ctx, it.text, fontPx, weight);
+      const tracking = it.tracking ?? SILK.tracking;
+      const w = trackedWidth(ctx, it.text, fontPx, weight, tracking);
       const cx = this.px(it.x);
       const x0 = it.align === 'right' ? cx - w : it.align === 'left' ? cx : cx - w / 2;
       // V.5.0 (2026-10-29) : les fonctions secondaires, l'orange de la Digitakt (DT_HEX, plus sombre sur la machine creme)
       ctx.fillStyle = it.ink === 'orange' ? HEX.orange : it.ink === 'alt' ? DT_HEX.orange : silkA(it.alpha ?? SILK.alpha);
-      drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * u) / 2, fontPx, weight);
+      // L'encre alt attenuee (le plugin : les fonctions sous les touches, discretes)
+      const dim = it.ink === 'alt' && it.alpha !== undefined && it.alpha < 1;
+      if (dim) ctx.globalAlpha = it.alpha as number;
+      drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * u) / 2, fontPx, weight, tracking);
+      if (dim) ctx.globalAlpha = 1;
     });
 
     this.info.draws += 1;

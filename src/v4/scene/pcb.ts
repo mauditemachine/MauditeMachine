@@ -57,6 +57,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_TYPE, PORTRAIT, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedoRgb, litCss } from './materials';
+import { IN_PLUGIN } from '../pluginMode';
 import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
 import { reserve } from '../audio/sched';
 
@@ -83,11 +84,13 @@ const css = (hex: number, gain = 1): string => `#${tmpC.setHex(hex).multiplyScal
  * lumiere chaude mange son bleu).
  */
 const BOARD_GAIN = [1.47, 1.94, 2.57] as const;
+// Le plugin (2026-11-11, Mika : "au lieu du PCB vert je veux PCB noir") : un vernis noir mat, ses pistes a peine plus claires
+// dessous (comme une vraie carte noire), l'or des pastilles et le blanc de la serigraphie ressortent
 const TEX = {
-  board: litCss('pcb', BOARD_GAIN),
+  board: IN_PLUGIN ? '#0a0b0f' : litCss('pcb', BOARD_GAIN),
   copper: css(0xc98a55, 1),
   /** piste et plan de masse sous le vernis (2026-10-01) : un vert plus clair */
-  trace: litCss('pcbTrace', BOARD_GAIN),
+  trace: IN_PLUGIN ? '#1e1e23' : litCss('pcbTrace', BOARD_GAIN),
   /** pastilles en or (finition ENIG) */
   gold: css(0xd9b45e, 1),
   hole: '#070807',
@@ -1883,9 +1886,9 @@ export class Pcb {
       return canvas;
     };
     ctx.globalAlpha = 0.07;
-    ctx.drawImage(tintOf(lo, '#3d6b4a'), 0, 0, W, H);
+    ctx.drawImage(tintOf(lo, IN_PLUGIN ? '#2c2c31' : '#3d6b4a'), 0, 0, W, H);
     ctx.globalAlpha = 0.1;
-    ctx.drawImage(tintOf(hi, '#040a06'), 0, 0, W, H);
+    ctx.drawImage(tintOf(hi, IN_PLUGIN ? '#000000' : '#040a06'), 0, 0, W, H);
     ctx.globalAlpha = 1;
     orm.globalAlpha = 0.45;
     orm.drawImage(tintOf(lo, 'rgb(255, 214, 13)'), 0, 0, W, H);

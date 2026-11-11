@@ -981,6 +981,7 @@ export const MARK_ICON: Readonly<Partial<Record<FpMark, { s: number; a: number }
   list: { s: 1.85, a: 1.05 },
   dice: { s: 1.75, a: 1 },
   gear: { s: 1.9, a: 1 },
+  disk: { s: 1.8, a: 1 },
   wave: { s: 1.85, a: 1.1 },
   metro: { s: 1.9, a: 0.95 },
   piano: { s: 1.85, a: 1.2 },
@@ -1120,7 +1121,10 @@ export const STEP_TONE: KeyLitTone = !DT_FACE ? 'orange' : 'dred';
  * Tenir une touche (2026-10-27, la phase 2) : TRK, SCENE A et B ; plus court, c'est une tape (la touche se garde) ; la
  * valeur de LOCK_HOLD_MS (ui/Hotspots.tsx) et de HOLD_MS (midi/seqlink.ts), qui gardent leur constante.
  */
-export const FACE_HOLD_MS = 350;
+// Le plugin (2026-11-11, Mika : "quand j'appuie sur TRK ca disparait trop rapidement, j'ai pas le temps de selectionner la
+// track") : une souris ne tient pas une touche en cliquant ailleurs ; tout clic, meme lent, garde la touche (TRK jusqu'au choix
+// d'une piste, une scene jusqu'a la tape suivante, FUNC pour la touche suivante)
+export const FACE_HOLD_MS = PLUGIN ? Number.POSITIVE_INFINITY : 350;
 
 /**
  * Les gestes de la face facon Digitakt (V.5.0, 2026-10-29, docs/v4/digitakt-d1-spec.md section 3), en ms : FUNC tapee deux
@@ -1781,7 +1785,9 @@ export const EXPLODE = {
   ms: 900,
   staggerMs: 80,
   /** desktop (2026-10-03) : plus haut et plus loin, la rangee des pages au milieu de la carte se voit en entier */
-  lift: PORTRAIT ? 7.5 : 5.0,
+  // Le plugin (2026-11-11, OPEN rouvre le capot : la carte noire et son ecran) : vu de dessus, le capot se souleve a peine et
+  // part vers le haut de la fenetre, a plat, tout entier hors du cadre
+  lift: PORTRAIT ? 7.5 : PLUGIN ? 1.2 : 5.0,
   /**
    * 2026-10-08 (revue de l'OPEN moins zoome) : le capot leve sort tout entier
    * du cadre ouvert, au-dessus du haut de l'ecran (desktop 1440 x 900 : 84 px
@@ -1790,8 +1796,8 @@ export const EXPLODE = {
    * 7.5 / -7.4 ; desktop -3.9 -> -6.4. Ses commandes ne repondent plus
    * capot ouvert (renderer.ts syncChips).
    */
-  slideZ: PORTRAIT ? -7.4 : -6.4,
-  tiltOpenDeg: PORTRAIT ? -60 : -24,
+  slideZ: PORTRAIT ? -7.4 : PLUGIN ? -12.5 : -6.4,
+  tiltOpenDeg: PORTRAIT ? -60 : PLUGIN ? 0 : -24,
   pcbRise: 0.9,
   /**
    * Ouverture du 2026-10-01 (plus grande) : la pile fait 11.30 de haut a la
@@ -1836,10 +1842,18 @@ export const EXPLODE = {
  * (y, z du monde, l'open* de chaque machine).
  */
 export const OPEN_VIEW = {
-  fill: PORTRAIT ? 0.86 : 0.7,
+  // Le plugin (2026-11-11) : la carte remplit la fenetre (ses bords et ses vis juste dedans)
+  fill: PORTRAIT ? 0.86 : PLUGIN ? 0.965 : 0.7,
   margin: 0,
   h: PORTRAIT ? 10.9 : 7.6,
 } as const;
+/**
+ * L'ecran de la carte du plugin (2026-11-11, Mika : "je veux que ca se retrouve quand meme dans un PCB, eventuellement encore
+ * avec un ecran a l'interieur ; au lieu du PCB vert je veux PCB noir avec quelques composants ca et la mais plus visible") :
+ * sa zone sur la carte (repere de la carte, x a droite, z vers soi), a la place des TWEAKS du site ; aucun composant ni piste
+ * ne la traverse (scene/pcb.ts clear) ; le panneau d'OPEN s'y pose (plugin/OpenPanel.tsx, Stage.pcbScreenRect).
+ */
+export const PLUGIN_PCB_SCREEN = { x0: -5.28, x1: 3.3, z0: -1.42, z1: 3.12 } as const;
 
 /**
  * Puce cliquable d'une carte : GOODIES, MERCH et STUDIO sur la 808 ; sur

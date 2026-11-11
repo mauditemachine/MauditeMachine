@@ -26,6 +26,7 @@ import { menuInput, openMenu, openMenuId, subscribeMenu } from '../scene/screen/
 import type { ScreenMenuInputKind, ScreenPoint } from '../scene/screen/menus/registry';
 import { curScreen, lockMode, subscribeDials } from '../actions';
 import { srcWave, srcWaveDrag } from '../scene/screen/pluginGfx';
+import { explode } from '../state/explode';
 import { rytmPage } from '../state/rytmPage';
 import { activeTrack } from '../state/trk';
 
@@ -263,6 +264,7 @@ const WaveDrag: React.FC<{ box: Box }> = ({ box }) => {
 
 export const ScreenMouse: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const menu = useSyncExternalStore(subscribeMenu, openMenuId, openMenuId);
+  const hood = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const [box, setBox] = useState<Box | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -293,7 +295,8 @@ export const ScreenMouse: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     return () => el.removeEventListener('wheel', onWheel);
   }, [menu, box, stage]);
 
-  if (!box) return null;
+  // Capot ouvert (2026-11-11, OPEN : la carte) : l'ecran de la face n'est plus la, ses couches non plus
+  if (!box || hood !== 'closed') return null;
   const at = (e: React.MouseEvent<HTMLDivElement>): { u: number; v: number } => toScreen(stage, e.currentTarget, e.clientX, e.clientY) ?? { u: -1, v: -1 };
   return (
     <>

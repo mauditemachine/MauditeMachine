@@ -35,6 +35,7 @@ import { DT2_FACEPLATE, dt2FaceplateParts, faceplateParts, fpU, fpX, fpZ, rectCe
 import { keyCapGeometry, keySkirtGeometry } from './keyCap';
 import type { HoldMode } from '../state/holdLatch';
 import type { FuncMode } from '../state/func';
+import { IN_PLUGIN } from '../pluginMode';
 import type { LedIntensity } from '../state/dtFace';
 import type { HotspotDef, HotspotKind } from './hit';
 import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
@@ -639,6 +640,8 @@ export class RytmFaceKeys {
     if (i === OPEN) return this.openState ? { fill: 1, tone: 'dorange', glow: 1, led: 1, ledTone: 'orange' } : none;
     if (i === PRESET && this.perform) return { fill: 1, tone: 'dorange', glow: 1, led: 1, ledTone: 'orange' };
     if (this.menu !== null && i === MENU_KEY[this.menu]) return red;
+    // Le plugin (2026-11-11) : la touche des presets (la disquette, l'ancienne SETTINGS) ouvre la meme liste : allumee avec elle
+    if (IN_PLUGIN && this.menu === 'preset' && i === SETTINGS) return red;
     if (i === PTNPAGE) return this.fillMode === 'off' ? none : this.fillMode === 'armed' ? { ...red, led: this.blinkLevel } : red;
     return none;
   }
@@ -822,6 +825,7 @@ export class RytmFaceKeys {
     this.menu = menu;
     if (was) this.refresh(MENU_KEY[was]);
     if (menu) this.refresh(MENU_KEY[menu]);
+    if (IN_PLUGIN && (was === 'preset' || menu === 'preset') && SETTINGS >= 0) this.refresh(SETTINGS);
     return true;
   }
 

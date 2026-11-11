@@ -9,7 +9,7 @@
 
 import { pattern } from '../audio/pattern';
 import { TRACK_KEYS, type TrackKey } from '../audio/tracks';
-import { DT2_FACE, DT_GESTURE, FACE_HOLD_MS, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import { DT2_FACE, DT_GESTURE, FACE_HOLD_MS, PAD_DOUBLE_TAP_MS, PLUGIN, type Inst } from '../theme';
 import { faceTouch } from './ctl';
 import { focus } from './focus';
 import { holdLatch } from './holdLatch';
@@ -135,6 +135,12 @@ export function trkFresh(now = performance.now()): boolean {
 }
 
 const KNOB_IDS = [0, 1, 2, 3, 4, 5, 6, 7];
+/**
+ * La duree de la garde de TRK tapee. Le plugin (2026-11-11, Mika : "quand j'appuie sur le bouton TRK ca disparait trop
+ * rapidement, j'ai pas le temps de selectionner la track") : 8 s, le temps d'aller a la souris jusqu'au pas de la piste ; TRK
+ * ne modifie REC, PLAY et STOP que ses 1,5 premieres secondes (trkFresh), comme avant.
+ */
+const LATCH_MS = PLUGIN ? 8000 : DT_GESTURE.pageArmMs;
 /** La minuterie de la fin de la garde (0 : aucune). */
 let latchTimer = 0;
 
@@ -148,7 +154,7 @@ function armLatch(): void {
     return;
   }
   if (latchTimer) return;
-  latchTimer = window.setTimeout(latchFire, Math.max(0, s.since + DT_GESTURE.pageArmMs - performance.now()) + 1);
+  latchTimer = window.setTimeout(latchFire, Math.max(0, s.since + LATCH_MS - performance.now()) + 1);
 }
 
 function latchFire(): void {
@@ -157,7 +163,7 @@ function latchFire(): void {
   if (s.mode !== 'latched') return;
   const now = performance.now();
   const busy = faceTouch.anyHeld() || KNOB_IDS.some((k) => faceTouch.recent(k, DT_GESTURE.pageArmMs, now));
-  if (busy || now - s.since < DT_GESTURE.pageArmMs) {
+  if (busy || now - s.since < LATCH_MS) {
     latchTimer = window.setTimeout(latchFire, HELD_RETRY_MS);
     return;
   }

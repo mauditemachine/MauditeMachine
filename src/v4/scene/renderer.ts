@@ -147,6 +147,7 @@ import {
   DT2_FACE,
   PLUGIN,
   PLUGIN_FACE,
+  PLUGIN_PCB_SCREEN,
   PLUGIN_VIEW,
 } from '../theme';
 import { Encoders } from './encoders';
@@ -823,10 +824,13 @@ export class Stage {
     // PCB : la carte et ses composants, dans le chassis. Plus de puces de pages
     // (2026-10-04, Mika : "a la place des liens de mauditemachine qui sont deja dans
     // le header") : la plaque des TWEAKS du kit, qui pousse avec les composants
-    this.pcb = new Pcb(mobile, aniso, { chips: false, clear: rytmTweakClear() });
+    // Le plugin (2026-11-11) : la zone de l'ecran d'OPEN (PLUGIN_PCB_SCREEN) a la place des TWEAKS, qui n'y sont pas (des
+    // pistes de samples seulement)
+    this.pcb = new Pcb(mobile, aniso, { chips: false, clear: PLUGIN ? { ...PLUGIN_PCB_SCREEN } : rytmTweakClear() });
     this.machine.pcb.add(this.pcb.board, this.pcb.parts);
     this.rytmTweaks = new RytmTweaks({ mobile, anisotropy: aniso });
-    this.pcb.parts.add(this.rytmTweaks.group);
+    if (PLUGIN) this.rytmTweaks.group.visible = false;
+    else this.pcb.parts.add(this.rytmTweaks.group);
     this.explode = new Explode({ plateau, pcb: this.machine.pcb, parts: this.pcb.parts }, (open) => explodeState.settle(open));
     // Une seule boite relue a chaque frame par le picking (aucune allocation)
     const sizeBox = { w: 1, h: 1 };
@@ -850,7 +854,7 @@ export class Stage {
     this.chipDefs = this.pcb.hotspots(this.machine.pcb);
     this.hit.add(this.chipDefs);
     // Les TWEAKS juste apres OPEN qui les decouvre
-    this.tweakDefs = this.rytmTweaks.hotspots();
+    this.tweakDefs = PLUGIN ? [] : this.rytmTweaks.hotspots();
     this.hit.add(this.tweakDefs);
     // MASTER, TEMPO, puis les potards de page A a H et les touches de page (2026-10-08)
     const encDefs = [...FACE_KNOBS.map((e) => this.encoders.hotspot(e.id, plateau)), ...(this.pageKeys?.hotspots(plateau) ?? [])];
@@ -1728,7 +1732,8 @@ export class Stage {
     const e = this.explodeFrame();
     // Ouvert (desktop, 2026-10-05) : l'interieur (la plaque et sa carte) remplit la vue ; sinon la pile entiere
     const inner = F.openW > 0;
-    const hwOpen = inner ? Math.max(F.openW / 2 / OPEN_VIEW.fill, (OPEN_VIEW.h / FIT_H / 2) * (W / free)) : Math.max(hwBase, F.fitHalfH * aspect);
+    // Le plugin (2026-11-11) : la carte seule, vue de dessus, bord a bord (sa largeur ou sa profondeur, la plus juste)
+    const hwOpen = !inner ? Math.max(hwBase, F.fitHalfH * aspect) : PLUGIN ? Math.max(F.openW / 2 / OPEN_VIEW.fill, ((PCB.d / OPEN_VIEW.fill) / 2) * (W / free)) : Math.max(F.openW / 2 / OPEN_VIEW.fill, (OPEN_VIEW.h / FIT_H / 2) * (W / free));
     let hw = hwBase + (hwOpen - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;
     // Decalage du centre de la machine vers la gauche, en px (cadrage de section)
@@ -3441,7 +3446,8 @@ export class Stage {
     if (fk.setSceneLeds(hasKeys(s.a), hasKeys(s.b), sceneCtl.x())) changed = true;
     // Le capuchon du crossfader (P2-20) : a x ; il projette une ombre, refaite une fois a la fin du geste (onGesture)
     const cap = fk.setXfade(sceneCtl.x());
-    if (cap && !sceneCtl.moving()) this.invalidate();
+    // Le plugin (2026-11-11, Mika : "quand je bouge le crossfader l'ombre ne suit pas directement") : l'ombre a chaque pas du geste
+    if (cap && (PLUGIN || !sceneCtl.moving())) this.invalidate();
     else if (changed || cap) this.repaint();
     if (a.how === 'latched') this.kick();
   };
@@ -3580,6 +3586,37 @@ export class Stage {
    * rectangle de la surface dessinee de l'ecran du MM-RYTM sur la page (px CSS), la vue fixe de dessus en fait un
    * rectangle ; plugin/ScreenMouse.tsx y pose sa couche de souris. null : pas de machine.
    */
+  /**
+   * Le plugin (2026-11-11) : le rectangle, sur la page (px CSS), de la zone de l'ecran de la carte (PLUGIN_PCB_SCREEN), capot
+   * ouvert ; la vue de dessus en fait un rectangle. plugin/OpenPanel.tsx s'y pose. null : pas de carte.
+   */
+  pcbScreenRect(): { left: number; top: number; width: number; height: number } | null {
+    const g = this.machine?.pcb;
+    if (!g) return null;
+    g.updateMatrixWorld();
+    const r = this.canvas.getBoundingClientRect();
+    const S = PLUGIN_PCB_SCREEN;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const [x, z] of [
+      [S.x0, S.z0],
+      [S.x1, S.z0],
+      [S.x0, S.z1],
+      [S.x1, S.z1],
+    ] as const) {
+      const v = new Vector3(x, PCB.h, z).applyMatrix4(g.matrixWorld).project(this.camera);
+      const px = r.left + ((v.x + 1) / 2) * r.width;
+      const py = r.top + ((1 - v.y) / 2) * r.height;
+      x0 = Math.min(x0, px);
+      y0 = Math.min(y0, py);
+      x1 = Math.max(x1, px);
+      y1 = Math.max(y1, py);
+    }
+    return Number.isFinite(x0) ? { left: x0, top: y0, width: x1 - x0, height: y1 - y0 } : null;
+  }
+
   screenRect(): { left: number; top: number; width: number; height: number } | null {
     const plateau = this.machine?.plateau;
     if (!plateau) return null;
