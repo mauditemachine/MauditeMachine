@@ -304,7 +304,7 @@ Mika, avec la photo d'un potard : « pourrais-tu mettre ce type de knob, mais le
 - **Les petits potards d'OPEN** : `ui/KnobPanel.tsx` (le dessin `relief`) : le meme potard en SVG, aux memes cotes : la base ronde, la prise a six lobes et son repere epais qui tournent, le dessus en 120 secteurs de gris (le meme reflet, immobile), son filet ; `plugin/OpenPanel.tsx` (les matieres). L'anneau de 27 segments reste.
 - Verifie dans Chromium : une planche cote a cote avec la photo (la face, la colonne gauche, OPEN), un potard tourne (le repere et les lobes suivent, le reflet reste), OPEN (14 potards, TUNE 0 puis +10, rien ne deborde). Site : les 4 vues identiques au pixel pres, ses 7 tests de face passent. tsc : 105.
 
-- **Build vert du lot 17** (run with), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 0b9df1e, branche claude/intelligent-ride-56tyeo, 2026-11-11 05:10 UTC.
+- **Build vert du lot 17** (run 42963128891), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 0b9df1e, branche claude/intelligent-ride-56tyeo, 2026-11-11 05:10 UTC.
 
 ## 2. Decisions prises et pourquoi
 
