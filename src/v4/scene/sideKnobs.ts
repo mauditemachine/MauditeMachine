@@ -15,6 +15,7 @@
 import { Color, DynamicDrawUsage, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Vector3, type Object3D } from 'three';
 import { COLOR, DT_HEX, ENCODER, HOVER_LIGHT, KNOB_RING, MATERIAL, RING_TONE, ringLit, SIDE_KNOBS, type KnobTone, type SideKnobSpec } from '../theme';
 import { encoderGeometry, encoderSkirtGeometry, potAngle, ringSegmentGeometry, type EncoderDims } from './encoders';
+import { IN_PLUGIN } from '../pluginMode';
 
 const DEG = Math.PI / 180;
 const AXIS_Y = new Vector3(0, 1, 0);
@@ -96,7 +97,9 @@ export class SideKnobs {
       const skirt = new Mesh(encoderSkirtGeometry(opts.mobile, E), i === 0 ? this.skirtMat : this.skirtMat.clone());
       skirt.name = `sideKnobSkirt-${s.id}`;
       skirt.position.set(s.x, 0, s.z);
-      skirt.receiveShadow = true;
+      // Le plugin : la base du potard (scene/encoders.ts moogTopGeometry) fait son ombre sur le panneau, sans en recevoir
+      skirt.receiveShadow = !IN_PLUGIN;
+      skirt.castShadow = IN_PLUGIN && opts.castShadow;
       this.skirts.push(skirt);
       const S = s.ring.segments;
       const ring = new InstancedMesh(ringSegmentGeometry({ ...s.ring, y: KNOB_RING.y }), this.ringMat, S);

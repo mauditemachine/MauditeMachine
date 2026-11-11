@@ -814,16 +814,15 @@ const CSS = `
 .mm-open .v4-knob-page .v4-knob-value{font-size:1.5em;color:${W_INK}}
 .mm-open .v4-knob-seg{stroke:rgba(244,241,234,.16);stroke-width:2.5;stroke-linecap:butt}
 .mm-open .v4-knob-seg-on{stroke:${W_INK}}
-.mm-open .v4-knob-shadow{fill:rgba(0,0,0,.85);filter:blur(1.6px)}
-.mm-open .v4-knob-skirt{fill:url(#mm-knob-skirt);stroke:rgba(244,241,234,.2);stroke-width:.45}
-.mm-open .v4-knob-shoulder{fill:url(#mm-knob-shoulder);stroke:none}
-.mm-open .v4-knob-cap{fill:#0b0b0d;stroke:rgba(0,0,0,.9);stroke-width:.6}
-.mm-open .v4-knob-top{filter:blur(.55px)}
-.mm-open .v4-knob-rim{fill:none;stroke:rgba(214,216,222,.5);stroke-width:.7}
-.mm-open .v4-knob-mark{stroke:${W_INK};stroke-width:2.1;stroke-linecap:butt}
+.mm-open .v4-knob-shadow{fill:rgba(0,0,0,.8);filter:blur(1.5px)}
+.mm-open .v4-knob-base{fill:url(#mm-knob-base);stroke:rgba(0,0,0,.75);stroke-width:.5}
+.mm-open .v4-knob-grip{fill:#121214;stroke:#35363a;stroke-width:.55;filter:drop-shadow(.5px .9px .7px rgba(0,0,0,.75))}
+.mm-open .v4-knob-cap{fill:#08080a;stroke:rgba(0,0,0,.9);stroke-width:.7}
+.mm-open .v4-knob-top{filter:blur(.28px)}
+.mm-open .v4-knob-rim{fill:none;stroke:url(#mm-knob-rim);stroke-width:.7}
+.mm-open .v4-knob-mark{fill:${W_INK};stroke:rgba(0,0,0,.35);stroke-width:.25}
 .mm-open .v4-knob:hover .v4-knob-seg-on{stroke:#fff}
-.mm-open .v4-knob:active .v4-knob-mark{stroke:${W_RED}}
-.mm-open .v4-knob:hover .v4-knob-rim{stroke:rgba(255,255,255,.8)}
+.mm-open .v4-knob:active .v4-knob-mark{fill:${W_RED}}
 .mm-open-knobs .v4-knob-unit{font-size:.78em;color:rgba(244,241,234,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .mm-open-note{font-size:1.05em;color:rgba(244,241,234,.7);margin:.25em 0 .5em}
 .mm-open-big{font-size:1.6em;letter-spacing:.06em;margin:.1em 0 .2em}
@@ -920,19 +919,18 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       )}
     <div className="mm-open-mod" style={{ left: box.left + pad, top: box.top + pad, width, height, fontSize: em }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       <style>{CSS}</style>
-      {/* Les matieres des potards en relief, facon Moog (ui/KnobPanel.tsx relief) : la jupe cannelee, son epaule */}
+      {/* Les matieres des potards en relief, d'apres la photo de Mika (ui/KnobPanel.tsx relief) : la base, le filet du capuchon */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
-          <radialGradient id="mm-knob-skirt" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#3a3b40" />
-            <stop offset="70%" stopColor="#2b2c30" />
-            <stop offset="100%" stopColor="#1a1b1e" />
-          </radialGradient>
-          {/* L'epaule : elle remonte de la jupe au capuchon, plus claire en haut de la pente */}
-          <radialGradient id="mm-knob-shoulder" cx="50%" cy="50%" r="50%">
-            <stop offset="76%" stopColor="#1a1b1e" />
-            <stop offset="100%" stopColor="#35363b" />
-          </radialGradient>
+          <linearGradient id="mm-knob-base" x1="0.15" y1="0.15" x2="0.85" y2="0.85">
+            <stop offset="0%" stopColor="#6a6b70" />
+            <stop offset="55%" stopColor="#3d3e42" />
+            <stop offset="100%" stopColor="#232427" />
+          </linearGradient>
+          <linearGradient id="mm-knob-rim" x1="0.15" y1="0.15" x2="0.85" y2="0.85">
+            <stop offset="0%" stopColor="rgba(235,236,240,.75)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,.6)" />
+          </linearGradient>
         </defs>
       </svg>
       {(

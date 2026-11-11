@@ -121,121 +121,175 @@ function bodyParts(seg: number, E: EncoderDims = ENCODER): BufferGeometry[] {
   return [wall, chamfer, top];
 }
 
-/* ---------------- le potard du plugin, facon Moog (2026-11-11) ---------------- */
+/* ---------------- le potard du plugin, d'apres la photo de Mika (2026-11-11) ---------------- */
 
 /**
- * Mika, une photo d'un potard a jupe cannelee et capuchon de metal brosse : "pourrais-tu mettre ce type de knob, mais le
- * dessus, au lieu de chrome, mets chrome fonce, plus noir ; mets ca sur tous les knobs". Dans le plugin, chaque potard de la
- * face (A a H, MAIN VOLUME, LEVEL/DATA) prend cette forme, vue de dessus :
- * - une jupe noire large a douze cannelures (des gorges etroites entre des lobes ronds), son epaule qui remonte vers le
- *   capuchon, et le repere blanc pose sur l'epaule, du capuchon au bord : elle tourne avec la valeur ;
- * - un capuchon de metal au centre, plus haut ; son dessus est a part et ne tourne pas (encoderSkirtGeometry, le maillage
- *   immobile) : le reflet d'un metal brosse reste face a la lumiere quand on tourne le potard. Il est peint en chrome
- *   fonce : deux lobes clairs opposes (en haut a gauche, en bas a droite) sur un fond presque noir.
+ * Mika, une photo d'un potard : "pourrais-tu mettre ce type de knob, mais le dessus, au lieu de chrome, mets chrome fonce,
+ * plus noir ; mets ca sur tous les knobs". Puis, devant un premier essai (quatorze petites cannelures, un petit capuchon
+ * terne, un repere fin) : "ca ne va pas du tout, pourquoi tu peux pas faire comme ce que je t'ai envoye ?". La photo,
+ * mesuree : de dehors en dedans,
+ * - une base ronde et lisse, gris sombre, plus claire en haut a gauche (la lumiere) qu'en bas a droite : rayon 1 ;
+ * - une prise noire a six lobes larges, des encoches courtes entre eux : 0.85 aux lobes, 0.74 aux encoches ;
+ * - un grand capuchon de metal brosse : 0.63 ; deux reflets francs opposes (10 h 30, large ; 4 h 30, etroit), le plus
+ *   sombre a 7 h 30, des stries fines ;
+ * - un repere blanc epais, du bord du capuchon presque au bord de la base (0.95), large de 0.13.
+ * Ici le meme, le metal en chrome fonce (les memes reflets sur un fond presque noir). Deux maillages : ce qui tourne (la
+ * prise, le repere, le flanc du capuchon : moogGeometry) et ce qui ne tourne pas (la base et le dessus du capuchon, dont
+ * l'eclairage reste face a la lumiere : moogTopGeometry, le maillage immobile de l'ancienne collerette). Les faces peintes
+ * sont a plat (vues de dessus) : la lumiere de la scene les multiplie toutes pareil, le dessin reste celui-ci.
  * Le site garde ses capuchons (IN_PLUGIN).
  */
-const MOOG = { lobes: 14, depth: 0.075, cap: 0.58, base: 0.44, shoulder: 0.6, groove: 3 } as const;
+const MOOG = { lobes: 6, lobe: 0.85, notch: 0.74, cap: 0.63, base: 1.1, markEnd: 0.95, markW: 0.13, hBase: 0.22, hGrip: 0.6 } as const;
 interface MoogDims {
-  /** le rayon de la jupe, celui du capuchon */
+  /** le rayon de la base, celui du capuchon */
   R: number;
   rc: number;
-  /** le haut du flanc de la jupe, le pied du capuchon, son dessus, son chanfrein */
-  hb: number;
-  hs: number;
-  hc: number;
-  c: number;
+  /** le dessus de la base, celui de la prise, celui du capuchon ; le chanfrein de la prise */
+  h1: number;
+  h2: number;
+  h3: number;
+  b: number;
   seg: number;
 }
 function moogDims(mobile: boolean, E: EncoderDims): MoogDims {
-  const R = Math.max(E.r, E.skirt.r);
-  return { R, rc: R * MOOG.cap, hb: E.h * MOOG.base, hs: E.h * MOOG.shoulder, hc: E.h, c: E.chamfer * 0.55, seg: Math.max(MOOG.lobes * (mobile ? 6 : 10), mobile ? E.segments.mobile : E.segments.desktop) };
+  const R = Math.max(E.r, E.skirt.r) * MOOG.base;
+  return { R, rc: R * MOOG.cap, h1: E.h * MOOG.hBase, h2: E.h * MOOG.hGrip, h3: E.h, b: R * 0.035, seg: mobile ? 96 : 144 };
 }
-/** Les cannelures : la part de rayon que garde un point a l'angle a, a la distance r de l'axe (rien au capuchon, tout au bord). */
-function fluteAt(a: number, r: number, D: MoogDims): number {
-  const out = Math.max(0, Math.min(1, (r - D.rc) / (D.R - D.rc)));
-  return 1 - MOOG.depth * out * Math.pow(0.5 + 0.5 * Math.cos(a * MOOG.lobes), MOOG.groove);
+/** Le rayon de la prise a l'angle a (rad, 0 : le repere, vers l'arriere) : un lobe sous le repere, six en tout. */
+function gripR(a: number, D: MoogDims): number {
+  const notch = Math.pow(0.5 - 0.5 * Math.cos(a * MOOG.lobes), 3);
+  return D.R * (MOOG.lobe - (MOOG.lobe - MOOG.notch) * notch);
 }
-function flute(g: BufferGeometry, D: MoogDims): void {
+/** Un tour de revolution (son bord au rayon des lobes) deforme en prise a six lobes : tout au bord, rien au pied du capuchon. */
+function lobed(g: BufferGeometry, D: MoogDims): void {
+  const rl = D.R * MOOG.lobe;
   const p = g.getAttribute('position');
   for (let i = 0; i < p.count; i += 1) {
     const x = p.getX(i);
     const z = p.getZ(i);
     const r = Math.hypot(x, z);
     if (r < 1e-4) continue;
-    const k = fluteAt(Math.atan2(z, x), r, D);
-    p.setX(i, x * k);
-    p.setZ(i, z * k);
+    // 0 au repere (-z), sens horaire vu de dessus
+    const a = Math.atan2(x, -z);
+    const out = Math.max(0, Math.min(1, (r - D.rc) / (rl - D.rc)));
+    const f = 1 + (gripR(a, D) / rl - 1) * out;
+    p.setX(i, x * f);
+    p.setZ(i, z * f);
   }
   g.computeVertexNormals();
 }
-/** La jupe cannelee, l'epaule, le flanc du capuchon, son chanfrein, le repere : ce qui tourne. */
+/** La prise a six lobes, son chanfrein, son dessus, le flanc du capuchon, le repere : ce qui tourne. */
 function moogGeometry(mobile: boolean, E: EncoderDims): BufferGeometry {
   const D = moogDims(mobile, E);
-  const wall = new LatheGeometry([new Vector2(D.R, 0), new Vector2(D.R, D.hb)], D.seg);
-  flute(wall, D);
-  // L'epaule : du bord cannele au pied du capuchon, en trois pas (les cannelures s'y effacent)
-  const sh = [0, 0.34, 0.67, 1].map((t) => new Vector2(D.R + (D.rc * 1.02 - D.R) * t, D.hb + (D.hs - D.hb) * t));
-  const shoulder = new LatheGeometry(sh, D.seg);
-  flute(shoulder, D);
-  const capWall = new LatheGeometry([new Vector2(D.rc, D.hs), new Vector2(D.rc, D.hc - D.c)], D.seg);
-  const chamfer = new LatheGeometry([new Vector2(D.rc, D.hc - D.c), new Vector2(D.rc - D.c, D.hc)], D.seg);
-  const parts: BufferGeometry[] = [wall, shoulder, capWall, chamfer];
+  const rl = D.R * MOOG.lobe;
+  const wall = new LatheGeometry([new Vector2(rl, D.h1 * 0.5), new Vector2(rl, D.h2 - D.b)], D.seg);
+  lobed(wall, D);
+  const bevel = new LatheGeometry([new Vector2(rl, D.h2 - D.b), new Vector2(rl - D.b, D.h2)], D.seg);
+  lobed(bevel, D);
+  const top = new LatheGeometry([new Vector2(rl - D.b, D.h2), new Vector2((rl - D.b + D.rc) / 2, D.h2), new Vector2(D.rc, D.h2)], D.seg);
+  lobed(top, D);
+  const capWall = new LatheGeometry([new Vector2(D.rc, D.h2), new Vector2(D.rc, D.h3)], D.seg);
+  const parts: BufferGeometry[] = [wall, bevel, top, capWall];
   const mk = E.mark;
   if (mk) {
-    // Le repere blanc sur l'epaule, du capuchon au bord (vers l'arriere, -z : midi), couche sur sa pente
-    const r0 = D.rc * 1.06;
-    const r1 = D.R * (1 - MOOG.depth * 0.4);
-    const len = Math.hypot(r1 - r0, D.hs - D.hb);
-    const mark = new BoxGeometry(mk.w * 0.85, mk.h, len);
-    mark.rotateX(-Math.atan2(D.hs - D.hb, D.R - D.rc));
-    mark.translate(0, (D.hb + D.hs) / 2 + mk.h * 0.9, -(r0 + r1) / 2);
+    // Le repere blanc epais, du bord du capuchon presque au bord de la base (vers l'arriere, -z : midi)
+    const r0 = D.rc * 0.99;
+    const r1 = D.R * MOOG.markEnd;
+    const mark = new BoxGeometry(D.R * MOOG.markW, mk.h * 1.5, r1 - r0);
+    mark.translate(0, D.h2 + mk.h * 0.75, -(r0 + r1) / 2);
     parts.push(mark);
   }
   const flatParts = parts.map(flat);
   const body = albedoRgb('encoder', gainOf('encoder'));
-  paintSolid(flatParts[0], 'encoder');
-  paintLinear(flatParts[1], body.map((v) => v * 1.35));
-  // Le flanc du capuchon : le metal dans l'ombre ; son chanfrein accroche la lumiere
-  paintLinear(flatParts[2], body.map((v) => v * 2.4));
-  paintLinear(flatParts[3], body.map((v) => v * 16));
+  paintLinear(flatParts[0], body.map((v) => v * 0.55));
+  paintLinear(flatParts[1], body.map((v) => v * 1.5));
+  paintLinear(flatParts[2], body.map((v) => v * 0.42));
+  paintLinear(flatParts[3], body.map((v) => v * 0.5));
   if (flatParts[4]) paintLinear(flatParts[4], LIT.mark);
   const g = mergeGeometries(flatParts, false);
   for (const q of flatParts) q.dispose();
   if (!g) throw new Error('encoders: merge failed');
   return g;
 }
+/** Le gris voulu a l'ecran (0 a 255) d'une face a plat du maillage immobile -> le facteur de l'albedo du capuchon (mesure). */
+const moogF = (srgb: number): number => Math.pow(Math.max(4, srgb) / 36.7, 2.54);
+/** Un bruit fixe par angle (les stries du metal brosse) : -1 a 1. */
+const streak = (i: number): number => {
+  const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+  return (x - Math.floor(x)) * 2 - 1;
+};
+/** La difference d'angle ramenee a -pi..pi. */
+const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
 /**
- * Le dessus du capuchon, immobile : un disque de metal brosse en chrome fonce. Sa teinte suit l'angle (deux lobes clairs
- * opposes, deux plus faibles en travers), des anneaux le foncent vers le bord : le reflet d'un tournage fin.
+ * Le gris du dessus du capuchon (0 a 255) a l'angle a (rad, atan2(z, x) : 0 a droite, 90 deg vers soi), en chrome fonce :
+ * le fond va de 24 (7 h 30) a 68 (1 h), deux reflets francs (10 h 30, large ; 4 h 30, etroit), un filet a 1 h 30.
+ */
+export function moogCapGrey(a: number): number {
+  const D2R = Math.PI / 180;
+  const bell = (c: number, w: number): number => Math.exp(-Math.pow(wrap(a - c * D2R) / (w * D2R), 2));
+  return 46 + 22 * Math.cos(a + 60 * D2R) + 172 * bell(-135, 23) + 165 * bell(45, 13) + 18 * bell(-45, 7) + 12 * bell(165, 9);
+}
+/**
+ * Ce qui ne tourne pas : la base ronde (plus claire en haut a gauche, son bord arrondi, l'ombre de la prise) et le dessus
+ * du capuchon (le chrome fonce, ses stries, son filet).
  */
 function moogTopGeometry(mobile: boolean, E: EncoderDims): BufferGeometry {
   const D = moogDims(mobile, E);
-  const r = D.rc - D.c;
-  const g = new RingGeometry(0, r, mobile ? 48 : 96, 6);
-  g.rotateX(-Math.PI / 2);
-  g.translate(0, D.hc, 0);
-  const out = flat(g);
   const body = albedoRgb('encoder', gainOf('encoder'));
-  const p = out.getAttribute('position');
-  const col = new Float32Array(p.count * 3);
-  // Les lobes clairs : en haut a gauche et en bas a droite de la face (x a droite, z vers soi)
-  const a0 = (-135 * Math.PI) / 180;
-  for (let i = 0; i < p.count; i += 1) {
-    const x = p.getX(i);
-    const z = p.getZ(i);
+  const paint = (g: BufferGeometry, grey: (x: number, z: number) => number): void => {
+    const p = g.getAttribute('position');
+    const col = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i += 1) {
+      const f = moogF(grey(p.getX(i), p.getZ(i)));
+      col[i * 3] = body[0] * f;
+      col[i * 3 + 1] = body[1] * f;
+      col[i * 3 + 2] = body[2] * f * 1.03;
+    }
+    g.setAttribute('color', new Float32BufferAttribute(col, 3));
+  };
+  // La lumiere vient d'en haut a gauche (x a droite, z vers soi)
+  const lit = (x: number, z: number, r: number): number => 0.5 - (0.5 * (x + z)) / (Math.SQRT2 * r);
+  // La base : son dessus a plat, jusqu'au bord
+  const base = new RingGeometry(D.R * (MOOG.notch - 0.04), D.R, mobile ? 64 : 120, 8);
+  base.rotateX(-Math.PI / 2);
+  base.translate(0, D.h1, 0);
+  const baseFlat = flat(base);
+  paint(baseFlat, (x, z) => {
+    const rr = Math.hypot(x, z) / D.R;
+    const t = lit(x, z, D.R * Math.max(0.3, rr));
+    // Le bord arrondi : il s'eclaire cote lumiere, s'assombrit a l'oppose ; l'ombre de la prise pres d'elle
+    const edge = Math.max(0, (rr - 0.9) / 0.1);
+    const round = 1 + edge * edge * (t - 0.62) * 0.9;
+    const ao = 0.62 + 0.38 * Math.min(1, Math.max(0, (rr - 0.8) / 0.1));
+    return (48 + 54 * t) * round * ao;
+  });
+  const side = flat(new LatheGeometry([new Vector2(D.R, 0), new Vector2(D.R, D.h1)], mobile ? 64 : 120));
+  paintLinear(side, body.map((v) => v * 0.3));
+  // Le dessus du capuchon : un disque, sa teinte par angle (moogCapGrey), ses stries, son filet au bord
+  const r = D.rc * 0.985;
+  const N = mobile ? 180 : 360;
+  const cap = new RingGeometry(0, r, N, 5);
+  cap.rotateX(-Math.PI / 2);
+  cap.translate(0, D.h3, 0);
+  const capFlat = flat(cap);
+  let mean = 0;
+  for (let i = 0; i < 72; i += 1) mean += moogCapGrey((i / 72) * Math.PI * 2) / 72;
+  paint(capFlat, (x, z) => {
     const rr = Math.hypot(x, z) / r;
-    const a = Math.atan2(z, x) - a0;
-    const lobe = Math.pow(Math.abs(Math.cos(a)), 5);
-    const cross = Math.pow(Math.abs(Math.sin(a)), 8);
-    // Au centre les lobes se rejoignent (un gris moyen), au bord le disque fonce un peu
-    const k = 1.1 + (lobe * 34 + cross * 7) * Math.min(1, rr * 1.5) + 9 * Math.max(0, 1 - rr * 1.5);
-    const v = k * (1 - 0.25 * rr * rr);
-    col[i * 3] = body[0] * v;
-    col[i * 3 + 1] = body[1] * v;
-    col[i * 3 + 2] = body[2] * v * 1.04;
-  }
-  out.setAttribute('color', new Float32BufferAttribute(col, 3));
-  return out;
+    const a = Math.atan2(z, x);
+    const k = Math.round(((a + Math.PI) / (2 * Math.PI)) * N);
+    let g = moogCapGrey(a) * (1 + 0.045 * streak(k) + 0.03 * streak(k * 7 + 3));
+    // Au centre les secteurs se rejoignent ; au bord, le filet : clair cote lumiere, sombre a l'oppose
+    if (rr < 0.1) g = mean + (g - mean) * (rr / 0.1);
+    if (rr > 0.9) g *= 0.55 + 0.9 * lit(x, z, r * rr);
+    return g;
+  });
+  const g = mergeGeometries([baseFlat, side, capFlat], false);
+  baseFlat.dispose();
+  side.dispose();
+  capFlat.dispose();
+  if (!g) throw new Error('encoders: merge failed');
+  return g;
 }
 
 /** Le capuchon (le corps, son chanfrein, son dessus, son repere s'il en a un) : une geometrie fusionnee a couleurs de sommets. */
@@ -343,7 +397,10 @@ export class Encoders {
     this.skirtMat.name = 'encoderSkirt';
     this.skirts = new InstancedMesh(encoderSkirtGeometry(opts.mobile), this.skirtMat, n);
     this.skirts.name = 'encoderSkirts';
-    this.skirts.receiveShadow = true;
+    // Le plugin : le maillage immobile porte la base du potard, qui fait son ombre sur le panneau ; elle n'en recoit pas
+    // (l'ombre de la prise la noircissait toute : la sienne est peinte, moogTopGeometry)
+    this.skirts.receiveShadow = !IN_PLUGIN;
+    this.skirts.castShadow = IN_PLUGIN && opts.castShadow;
     for (let i = 0; i < n; i += 1) {
       const p = FACE_KNOBS[i];
       this.skirts.setMatrixAt(i, m4.compose(pos.set(p.x, 0, p.z), quat.identity(), scl.setScalar(p.s)));
