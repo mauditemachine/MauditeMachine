@@ -48,6 +48,7 @@
  * savent pas encore montrer une piste 9 a 16 (B5).
  */
 
+import { KNOB_LOOK, baseGrey, capGrey, gripRadius, streak } from '../rytm/knobLook';
 import React, { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import {
   anyDial,
@@ -216,42 +217,43 @@ export interface KnobSpec {
 /** Le nombre de segments de l'anneau d'un potard en relief (un tous les 10 degres). */
 const RELIEF_SEGS = 27;
 /**
- * Le potard en relief, d'apres la photo de Mika (2026-11-11 : "ce type de knob, le dessus en chrome fonce ; adapte pour les
- * petits knobs dans OPEN" ; puis, devant un premier essai a petites cannelures : "pourquoi tu peux pas faire comme ce que
- * je t'ai envoye ?"). Les memes cotes que les potards de la face (scene/encoders.ts MOOG) : une base ronde (rayon 1), une
- * prise noire a six lobes (0.85 aux lobes, 0.74 aux encoches), un grand capuchon (0.63), un repere blanc epais du capuchon
- * presque au bord (0.95).
+ * Le potard en relief, d'apres la photo de Mika (rytm/knobLook.ts : ses cotes et ses gris, mesures sur la photo ; "fais-les
+ * chrome alors, les boutons exactement comme sur l'image"). Le meme que les potards de la face (scene/encoders.ts) : une
+ * base ronde, une prise a six lobes, un grand capuchon chrome, un repere blanc epais.
  */
 const MOOG_R = 22.6;
-const MOOG_CAP = MOOG_R * 0.63;
+const MOOG_CAP = MOOG_R * KNOB_LOOK.cap;
 /** Le contour de la prise : six lobes, un lobe sous le repere (a droite, 0 deg : le groupe tourne a l'angle de la valeur). */
 const MOOG_GRIP: string = (() => {
   const n = 180;
   let d = '';
   for (let i = 0; i < n; i += 1) {
     const a = (i / n) * Math.PI * 2;
-    const r = MOOG_R * (0.85 - 0.11 * Math.pow(0.5 - 0.5 * Math.cos(a * 6), 3));
+    const r = MOOG_R * gripRadius(a);
     d += `${i === 0 ? 'M' : 'L'}${(C + r * Math.cos(a)).toFixed(2)} ${(C + r * Math.sin(a)).toFixed(2)}`;
   }
   return `${d}Z`;
 })();
-/**
- * Le dessus du capuchon en chrome fonce : 120 secteurs, leur gris suit l'angle comme sur la face (scene/encoders.ts
- * moogCapGrey : deux reflets francs a 10 h 30 et 4 h 30, le plus sombre a 7 h 30), des stries.
- */
-const MOOG_TOP: readonly { d: string; fill: string }[] = Array.from({ length: 120 }, (_, i) => {
-  const D2R = Math.PI / 180;
-  const a0 = (i / 120) * Math.PI * 2;
-  const a1 = ((i + 1) / 120) * Math.PI * 2 + 0.012;
-  const a = (a0 + a1) / 2;
-  const wrap = (x: number): number => Math.atan2(Math.sin(x), Math.cos(x));
-  const bell = (c: number, w: number): number => Math.exp(-Math.pow(wrap(a - c * D2R) / (w * D2R), 2));
-  const n = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-  const streak = (n - Math.floor(n)) * 2 - 1;
-  const grey = (46 + 22 * Math.cos(a + 60 * D2R) + 172 * bell(-135, 23) + 165 * bell(45, 13) + 18 * bell(-45, 7) + 12 * bell(165, 9)) * (1 + 0.05 * streak);
-  const g = Math.round(Math.max(8, Math.min(245, grey)));
-  const r = MOOG_CAP - 0.5;
-  return { d: `M${C} ${C}L${(C + r * Math.cos(a0)).toFixed(2)} ${(C + r * Math.sin(a0)).toFixed(2)}A${r} ${r} 0 0 1 ${(C + r * Math.cos(a1)).toFixed(2)} ${(C + r * Math.sin(a1)).toFixed(2)}Z`, fill: `rgb(${g},${g},${Math.min(255, g + 3)})` };
+/** Un secteur de disque de a0 a a1 (rad), de r0 a r1. */
+const wedge = (a0: number, a1: number, r0: number, r1: number): string => {
+  const p = (a: number, r: number): string => `${(C + r * Math.cos(a)).toFixed(2)} ${(C + r * Math.sin(a)).toFixed(2)}`;
+  return r0 <= 0 ? `M${C} ${C}L${p(a0, r1)}A${r1} ${r1} 0 0 1 ${p(a1, r1)}Z` : `M${p(a0, r0)}L${p(a0, r1)}A${r1} ${r1} 0 0 1 ${p(a1, r1)}L${p(a1, r0)}A${r0} ${r0} 0 0 0 ${p(a0, r0)}Z`;
+};
+const greyFill = (g: number): string => {
+  const v = Math.round(Math.max(6, Math.min(255, g)));
+  return `rgb(${v},${v},${v})`;
+};
+/** Le dessus du capuchon : 144 secteurs, le chrome de la photo par angle (capGrey), ses stries. */
+const MOOG_TOP: readonly { d: string; fill: string }[] = Array.from({ length: 144 }, (_, i) => {
+  const a0 = (i / 144) * Math.PI * 2;
+  const a1 = ((i + 1) / 144) * Math.PI * 2 + 0.012;
+  return { d: wedge(a0, a1, 0, MOOG_CAP - 0.5), fill: greyFill(capGrey((a0 + a1) / 2) * (1 + 0.04 * streak(i))) };
+});
+/** Le dessus de la base : 72 secteurs, presque noirs, son large reflet en haut a gauche (baseGrey). */
+const MOOG_BASE: readonly { d: string; fill: string }[] = Array.from({ length: 72 }, (_, i) => {
+  const a0 = (i / 72) * Math.PI * 2;
+  const a1 = ((i + 1) / 72) * Math.PI * 2 + 0.02;
+  return { d: wedge(a0, a1, MOOG_R * 0.7, MOOG_R), fill: greyFill(baseGrey((a0 + a1) / 2)) };
 });
 /**
  * relief (2026-11-11, le plugin, Mika devant OPEN : "les knobs devraient etre en 3D aussi ici") : le potard dessine comme
@@ -384,8 +386,13 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean; relief?: bo
             return <line key={i} className={lit ? 'v4-knob-seg v4-knob-seg-on' : 'v4-knob-seg'} x1={x0} y1={y0} x2={x1} y2={y1} />;
           })}
           <ellipse className="v4-knob-shadow" cx={C + 1.4} cy={C + 3.2} rx={MOOG_R + 0.6} ry={MOOG_R} />
-          {/* La base ronde : elle ne tourne pas (plus claire en haut a gauche, la lumiere) */}
+          {/* La base ronde : elle ne tourne pas (presque noire, son reflet en haut a gauche) */}
           <circle className="v4-knob-base" cx={C} cy={C} r={MOOG_R} />
+          <g className="v4-knob-baselit">
+            {MOOG_BASE.map((w, i) => (
+              <path key={i} d={w.d} fill={w.fill} />
+            ))}
+          </g>
           {/* La prise a six lobes et son repere tournent avec la valeur */}
           <g transform={`rotate(${at.toFixed(2)} ${C} ${C})`}>
             <path className="v4-knob-grip" d={MOOG_GRIP} />

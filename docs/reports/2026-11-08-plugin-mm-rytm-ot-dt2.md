@@ -306,6 +306,15 @@ Mika, avec la photo d'un potard : « pourrais-tu mettre ce type de knob, mais le
 
 - **Build vert du lot 17** (run 42963128891), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 0b9df1e, branche claude/intelligent-ride-56tyeo, 2026-11-11 05:10 UTC.
 
+### Lot 18, les potards en chrome, exactement comme la photo (2026-11-11)
+
+Mika, devant le chrome fonce du lot 17 : « fais-les chrome alors, les boutons exactement comme sur l'image ».
+
+- **Les gris de la photo, mesures** : `src/v4/rytm/knobLook.ts` (nouveau, sans import, partage par la face 3D et OPEN). Le capuchon releve tous les 10 degres autour de son centre : le fond 104 +/- 14, deux reflets satures (10 h 20, large ; 4 h 40, etroit), deux bandes sombres en travers (90), deux filets faibles ; la base presque noire (26) avec un large reflet en haut a gauche (jusqu'a 124) ; la prise a 38 ; le repere a 215. Les cotes : prise 0.85 / 0.74, capuchon 0.62, repere jusqu'a 0.95, large de 0.13.
+- **La face** (`scene/encoders.ts`, `scene/sideKnobs.ts`, plugin seulement) : le dessus immobile du potard (la base et le capuchon) est maintenant une image peinte pixel par pixel (moogTexture, 512 px, une pour tous les potards) posee sur deux faces a plat, a la place des couleurs de sommets : celles-ci laissaient une ligne pointillee au flanc des reflets (la diagonale des triangles) et pas de stries fines. La prise et le repere restent en geometrie et tournent. La prise ne recoit plus l'ombre du capuchon (elle la noircissait d'un cote : sur la photo elle est d'un gris egal).
+- **OPEN** (`ui/KnobPanel.tsx`, `plugin/OpenPanel.tsx`) : les petits potards lisent le meme module : le capuchon chrome en 144 secteurs, la base et son reflet en 72 secteurs.
+- Verifie dans Chromium, chiffres a l'appui : le capuchon rendu contre la photo, tous les 30 degres : 95 137 229 117 85 86 106 231 245 125 92 94 pour 106 152 228 119 114 91 112 195 255 121 119 99 ; la base : 94 et 125 au reflet pour 95 et 124, 18 a 36 ailleurs pour 23 a 28. Une planche cote a cote avec la photo. OPEN : 14 potards, un potard tourne. Site : les 4 vues identiques au pixel pres, 7 tests de face sur 7. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -375,9 +384,12 @@ Mika, avec la photo d'un potard : « pourrais-tu mettre ce type de knob, mais le
 - **Le dessus du capuchon et la base ne tournent pas** : sur un metal brosse le reflet reste face a la lumiere, et la base est eclairee d'en haut a gauche ; seuls la prise et son repere tournent. Les anneaux de valeur restent a la place des graduations 0 a 10 de la photo : ils disent la valeur, la bande des scenes et la teinte de la page.
 - **Le chrome fonce peint par sommet, pas une matiere metallique** : sans carte d'environnement un metal de three sort noir ; le reflet est dessine sur des faces a plat (la lumiere de la scene les multiplie toutes pareil), il est donc le meme sur toutes les machines et dans le rendu logiciel des tests.
 
+- **Lot 18 : une image plutot que des couleurs de sommets pour le metal** : une image se filtre proprement a toute taille de fenetre, porte de vraies stries, et n'a pas de couture ; les gris voulus a l'ecran passent par la courbe mesuree du rendu (36.7 x f^0.394).
+- **Les anneaux de valeur gardes** : la photo a des graduations 0 a 10 autour du potard ; ici les anneaux de segments tiennent cette place (la valeur, la bande des scenes, la teinte de la page). A changer si Mika veut les graduations.
+
 ## 3. Ce qui reste a faire / points en suspens
 
-- **Cote Mika (lot 17)** : dire si les potards sont maintenant ceux de la photo ; si le chrome fonce est assez noir (ou trop) ; s'il veut aussi les graduations 0 a 10 autour, a la place ou en plus des anneaux.
+- **Cote Mika (lot 18)** : dire si les potards chrome sont ceux de la photo ; s'il veut aussi les graduations 0 a 10 autour, a la place ou en plus des anneaux de segments.
 - **Cote Mika (lot 16)** : la commande mm-rytm, quitter et rouvrir Ableton. A l'oreille : les 36 presets (les samples sont choisis par mesure : dire lesquels remplacer, quels niveaux bouger) ; LIVE REC (double clic sur REC pendant la lecture, tourner CUTOFF ou TUNE, reecouter) ; PERFORM avec une scene et le crossfader. A l'oeil : la taille de l'ecran d'OPEN, le bord du capot, les potards en relief ; le champ du nom dans l'ecran (le clavier d'Ableton y ecrit-il bien ?).
 - LIVE REC, la suite possible : les effets de toute la machine par pas (un chemin a ajouter dans le moteur C++), une frappe au pas le plus proche (il faut l'heure du moteur cote face), un geste pour effacer une automation seule (aujourd'hui : NO tenue + la touche de pas pendant la lecture, ou CLEAR).
 - `Ch 14.wav` et `Ch 16.wav` de la banque sont vides, plusieurs kicks sont en double (Bd 11 = 27, 16 = 28, 24 = 29...) : a nettoyer un jour.

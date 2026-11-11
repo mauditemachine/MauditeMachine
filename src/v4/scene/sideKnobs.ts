@@ -14,7 +14,7 @@
 
 import { Color, DynamicDrawUsage, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Vector3, type Object3D } from 'three';
 import { COLOR, DT_HEX, ENCODER, HOVER_LIGHT, KNOB_RING, MATERIAL, RING_TONE, ringLit, SIDE_KNOBS, type KnobTone, type SideKnobSpec } from '../theme';
-import { encoderGeometry, encoderSkirtGeometry, potAngle, ringSegmentGeometry, type EncoderDims } from './encoders';
+import { encoderGeometry, encoderSkirtGeometry, moogTexture, potAngle, ringSegmentGeometry, type EncoderDims } from './encoders';
 import { IN_PLUGIN } from '../pluginMode';
 
 const DEG = Math.PI / 180;
@@ -79,6 +79,8 @@ export class SideKnobs {
     this.capMat.name = 'sideKnob';
     this.skirtMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.skirtMat.name = 'sideKnobSkirt';
+    // Le plugin : l'image de la base et du capuchon (scene/encoders.ts moogTexture), avant les copies de la matiere
+    if (IN_PLUGIN) this.skirtMat.map = moogTexture();
     this.ringMat = new MeshBasicMaterial({ toneMapped: false });
     this.ringMat.name = 'sideKnobRing';
     this.ringOff.setHex(COLOR.line);
@@ -92,7 +94,8 @@ export class SideKnobs {
       cap.name = `sideKnob-${s.id}`;
       cap.position.set(s.x, 0, s.z);
       cap.castShadow = opts.castShadow;
-      cap.receiveShadow = true;
+      // Le plugin : la prise ne recoit pas l'ombre du capuchon (scene/encoders.ts)
+      cap.receiveShadow = !IN_PLUGIN;
       this.caps.push(cap);
       const skirt = new Mesh(encoderSkirtGeometry(opts.mobile, E), i === 0 ? this.skirtMat : this.skirtMat.clone());
       skirt.name = `sideKnobSkirt-${s.id}`;

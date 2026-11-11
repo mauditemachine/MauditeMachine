@@ -815,12 +815,13 @@ const CSS = `
 .mm-open .v4-knob-seg{stroke:rgba(244,241,234,.16);stroke-width:2.5;stroke-linecap:butt}
 .mm-open .v4-knob-seg-on{stroke:${W_INK}}
 .mm-open .v4-knob-shadow{fill:rgba(0,0,0,.8);filter:blur(1.5px)}
-.mm-open .v4-knob-base{fill:url(#mm-knob-base);stroke:rgba(0,0,0,.75);stroke-width:.5}
-.mm-open .v4-knob-grip{fill:#121214;stroke:#35363a;stroke-width:.55;filter:drop-shadow(.5px .9px .7px rgba(0,0,0,.75))}
-.mm-open .v4-knob-cap{fill:#08080a;stroke:rgba(0,0,0,.9);stroke-width:.7}
+.mm-open .v4-knob-base{fill:#1c1c1c;stroke:rgba(0,0,0,.8);stroke-width:.5}
+.mm-open .v4-knob-baselit{filter:blur(.5px)}
+.mm-open .v4-knob-grip{fill:#262626;stroke:#454545;stroke-width:.5;filter:drop-shadow(.5px .9px .7px rgba(0,0,0,.8))}
+.mm-open .v4-knob-cap{fill:#3f3f3f;stroke:rgba(0,0,0,.9);stroke-width:.7}
 .mm-open .v4-knob-top{filter:blur(.28px)}
-.mm-open .v4-knob-rim{fill:none;stroke:url(#mm-knob-rim);stroke-width:.7}
-.mm-open .v4-knob-mark{fill:${W_INK};stroke:rgba(0,0,0,.35);stroke-width:.25}
+.mm-open .v4-knob-rim{fill:none;stroke:url(#mm-knob-rim);stroke-width:.6}
+.mm-open .v4-knob-mark{fill:#d9d7d5;stroke:rgba(0,0,0,.35);stroke-width:.25}
 .mm-open .v4-knob:hover .v4-knob-seg-on{stroke:#fff}
 .mm-open .v4-knob:active .v4-knob-mark{fill:${W_RED}}
 .mm-open-knobs .v4-knob-unit{font-size:.78em;color:rgba(244,241,234,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -919,17 +920,12 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       )}
     <div className="mm-open-mod" style={{ left: box.left + pad, top: box.top + pad, width, height, fontSize: em }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       <style>{CSS}</style>
-      {/* Les matieres des potards en relief, d'apres la photo de Mika (ui/KnobPanel.tsx relief) : la base, le filet du capuchon */}
+      {/* Les matieres des potards en relief, d'apres la photo de Mika (ui/KnobPanel.tsx relief) : le filet du capuchon */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
-          <linearGradient id="mm-knob-base" x1="0.15" y1="0.15" x2="0.85" y2="0.85">
-            <stop offset="0%" stopColor="#6a6b70" />
-            <stop offset="55%" stopColor="#3d3e42" />
-            <stop offset="100%" stopColor="#232427" />
-          </linearGradient>
           <linearGradient id="mm-knob-rim" x1="0.15" y1="0.15" x2="0.85" y2="0.85">
-            <stop offset="0%" stopColor="rgba(235,236,240,.75)" />
-            <stop offset="100%" stopColor="rgba(0,0,0,.6)" />
+            <stop offset="0%" stopColor="rgba(255,255,255,.55)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,.65)" />
           </linearGradient>
         </defs>
       </svg>
