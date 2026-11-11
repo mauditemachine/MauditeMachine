@@ -14,9 +14,10 @@ import spec from '../../../../plugin/mm-arp/extra-params.json';
 /**
  * Les blocs du JSON. Les cinq premiers : la page SOUND+ du capot (SoundPlus.tsx). Les autres (2026-11-11) : le module
  * d'extension de la face avant (FrontModule.tsx) : seq (SWING), osc et filter (OSC / FILTER +), phaser, flanger, pump,
- * crush et space (FX RACK).
+ * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
+ * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist';
 
 export interface ExtraParam {
   id: string;
@@ -116,6 +117,15 @@ export const crushBits = (v: number): number => 16 - 12 * v;
 export const crushHz = (v: number): number => expo(48000, 2000, v);
 
 const hz = (f: number): string => (f >= 1000 ? `${(f / 1000).toFixed(f >= 10000 ? 0 : 1)} kHz` : f >= 100 ? `${Math.round(f)} Hz` : f >= 10 ? `${f.toFixed(1)} Hz` : `${f.toFixed(2)} Hz`);
+/** L'EQ : LOW, MID, HIGH de -12 a +12 dB ; AIR BAND de -10 a +10 dB. */
+export const eqDb = (v: number): number => (v - 0.5) * 24;
+export const eqAirDb = (v: number): number => (v - 0.5) * 20;
+/** La quantite d'une ligne de la matrice : -100 a +100 %. */
+export const matrixPct = (v: number): number => (v - 0.5) * 200;
+/** Les lignes de la matrice de modulation (xM1Src, xM1Dst, xM1Amt ... xM6). */
+export const MATRIX_ROWS = 6;
+const MATRIX_AMT = /^xM\dAmt$/;
+
 const pct = (v: number): string => `${Math.round(v * 100)} %`;
 /** Une dose : OFF a zero. */
 const dose = (v: number): string => (v <= 0 ? 'OFF' : pct(v));
@@ -125,8 +135,19 @@ const bipolar = (v: number): string => `${signed((v - 0.5) * 200, 0)} %`;
 function text(id: string, v: number): string {
   const p = BY_ID.get(id);
   if (!p) return '';
+  if (id === 'xPbRange' && p.steps) return `${p.steps[extraStepIndex(id, v)]} ST`;
   if (p.steps) return p.steps[extraStepIndex(id, v)];
+  if (MATRIX_AMT.test(id)) return `${signed(matrixPct(v), 0)} %`;
   switch (id) {
+    case 'xEqLow':
+    case 'xEqMid':
+    case 'xEqHigh':
+      return `${signed(eqDb(v), 1)} dB`;
+    case 'xEqAir':
+      return `${signed(eqAirDb(v), 1)} dB`;
+    case 'xFeedback':
+    case 'xDist':
+      return dose(v);
     case 'xRevSize': {
       const s = revSizeS(v);
       return `${s < 1 ? s.toFixed(2) : s.toFixed(1)} s`;

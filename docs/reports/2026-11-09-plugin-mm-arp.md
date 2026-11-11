@@ -299,3 +299,31 @@ Demande de Mika : « carre c'est pas bon, plus en largeur », des potards a capu
 ### 3. En suspens
 - Mika : le rendu dans Ableton (teinte du noir 3D contre le HTML sur le GPU du Mac), le glisser DRAG MIDI, la taille de la fenetre.
 - La carte INFOS de la machine est decalee d'environ 20 px.
+
+## Suite (2026-11-11) : matrice de modulation, controleurs, modes de voix, EQ, distorsion ; OPEN en trois pages
+
+Demande de Mika, en montrant un synthe analogique du commerce : « je veux pas le meme mais je veux toutes les fonctions possibles ».
+
+### 1. Ce qui a ete fait
+- `extra-params.json` : 65 reglages du VST3 seul (28 nouveaux : sections matrix, voice, amp, eq, dist). Le plugin expose 130 parametres a l'hote.
+- `dsp/Voyager.{h,cpp}` :
+  - `pitchBend`, `modWheel`, `aftertouch`, et la velocite comme source ;
+  - la matrice de 6 lignes (12 sources, 20 destinations), cles `mNSrc` / `mNDst` / `mNAmt` ;
+  - `pbRange`, `voiceMode` (POLY, MONO, LEGATO), `xFeedback`, `ampMode` (CLEAN, TRIODE, PENTODE, SATURATED).
+- `dsp/ArpFx.{h,cpp}` : DISTORTION (x4 local + ADAA) et EQ 4 bandes (LOW, MID, HIGH, AIR).
+- `src/PluginProcessor.cpp` : le raccord des 22 cles du moteur et des champs de la chaine. Le pitch bend, le CC 1 et la pression de canal vont au moteur ; la velocite accompagne les notes MIDI.
+- La face (`src/v4/plugin/arp/` : Matrix.tsx (nouveau), HoodPanel, Header, SoundPlus, extra.ts, face.css) : OPEN en trois pages par onglets.
+  - OPTIONS : 36 reglages, dont VOICE, AMP, DISTORTION, EQ.
+  - MODULATION : la matrice avec ses selecteurs, LFO 1, LFO 2, le bloc SOURCES.
+  - LIBRARY : CLIP, MIDI, LIBRARY, DISK.
+- La banque d'usine est regeneree avec les 65 cles, les nouvelles au neutre.
+- Tests : `hq3_test` (56 controles), `host_test` (34 cas).
+
+### 2. Decisions
+- **Non repris du synthe de reference** : les entrees CV externes et le traitement mid / side du filtre, sans objet ici.
+- **Le retour a la note tenue ne redeclenche pas** en MONO et en LEGATO.
+
+### 3. En suspens
+- Mika : essayer la matrice (molette, aftertouch, velocite), MONO / LEGATO au clavier, la charge du processeur avec 6 lignes par voix (+50 % mesures).
+- DISTORTION, WARMTH et FLANGER engages retardent la sortie (39 a 120 echantillons), non declares a l'hote.
+- Les presets d'usine n'utilisent pas encore la matrice ni les modes de voix.

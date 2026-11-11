@@ -35,9 +35,11 @@ const CENTER_DETENT = 0.02;
 const WHEEL_STEP = 40;
 
 /** Les potards dont le centre est le son du site : gradues de -5 a +5. */
-const BIPOLAR: ReadonlySet<string> = new Set(['xRevSize', 'xRevTone', 'xBass', 'xAir', 'xWidth', 'xNoiseColor', 'xCombFb', 'xFlFb']);
+const BIPOLAR: ReadonlySet<string> = new Set(['xRevSize', 'xRevTone', 'xBass', 'xAir', 'xWidth', 'xNoiseColor', 'xCombFb', 'xFlFb', 'xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir', 'xM1Amt', 'xM2Amt', 'xM3Amt', 'xM4Amt', 'xM5Amt', 'xM6Amt']);
 /** Sous l'interrupteur QUALITY : le surechantillonnage de chaque position. */
 const SWITCH_SUB: Record<string, readonly string[]> = { xQuality: ['x4 OVERSAMPLING', 'x8 OVERSAMPLING'], xUnison: ['STACK', '5 VOICES', '7 VOICES'] };
+/** Au-dessus des LED d'un interrupteur dont les noms sont trop longs : un nom court par position (le nom entier : la valeur lue dessous). */
+const SWITCH_SHORT: Record<string, readonly string[]> = { xAmpMode: ['CLN', 'TRI', 'PEN', 'SAT'] };
 
 /**
  * Les noms ecrits autour d'un potard a crans, quand ceux du JSON sont trop longs pour tenir a leur trait ('' : le trait
@@ -50,6 +52,7 @@ const STEP_NAMES: Record<string, readonly string[]> = {
   xLfo2Dest: ['OFF', '', '', '', '', '', '', '', '', '', '', '', '', '', 'ENV'],
   xLfo2Rate: ['1/32', '', '1/16', '', '', '1/8', '', '', '1/4', '', '1', '', '', '8'],
   xLfo2Shape: ['SIN', 'TRI', 'SAW', 'RMP', 'SQR', 'S&H', 'RND'],
+  xPbRange: ['1', '2', '3', '5', '7', '12', '24'],
   chord: ['BASIC', 'TRIAD', '7TH', '9TH', '11TH'],
 };
 
@@ -269,10 +272,15 @@ const SECTION_NAME: Record<string, string> = {
   pump: 'Pump',
   crush: 'Crush',
   space: 'Space',
+  matrix: 'Matrix',
+  voice: 'Voice',
+  amp: 'Amp',
+  eq: 'EQ',
+  dist: 'Distortion',
 };
 /** Les reglages qui portent deja le nom de leur bloc (la dose PHASER du bloc phaser...) : sans prefixe. */
-const OWN_NAME: ReadonlySet<string> = new Set(['xSwing', 'xRing', 'xFold', 'xNoiseColor', 'xUnison', 'xHpf', 'xComb', 'xCombFb', 'xPhMix', 'xFlMix', 'xPumpDepth', 'xCrushBits', 'xCrushRate', 'xDlyMode', 'xShimmer']);
-const ariaName = (p: ExtraParam): string => (OWN_NAME.has(p.id) ? p.label.charAt(0) + p.label.slice(1).toLowerCase() : `${SECTION_NAME[p.section]} ${p.label.toLowerCase()}`);
+const OWN_NAME: ReadonlySet<string> = new Set(['xSwing', 'xRing', 'xFold', 'xNoiseColor', 'xUnison', 'xHpf', 'xComb', 'xCombFb', 'xPhMix', 'xFlMix', 'xPumpDepth', 'xCrushBits', 'xCrushRate', 'xDlyMode', 'xShimmer', 'xVoiceMode', 'xPbRange', 'xAmpMode', 'xDist']);
+export const ariaName = (p: ExtraParam): string => (OWN_NAME.has(p.id) ? p.label.charAt(0) + p.label.slice(1).toLowerCase() : `${SECTION_NAME[p.section]} ${p.label.toLowerCase()}`);
 export const sectionPrefix = (p: ExtraParam): string => (p.section === 'engine' || OWN_NAME.has(p.id) ? '' : `${SECTION_NAME[p.section].toUpperCase()} `);
 
 const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, arpMidi.get);
@@ -421,7 +429,7 @@ const Dial: React.FC<DialProps> = ({ id, look, value: v, def, steps, bipolar = f
 
 /* ---------------- un reglage du VST3 seul (extra.ts) ---------------- */
 
-const useExtra = (id: string): number =>
+export const useExtra = (id: string): number =>
   useSyncExternalStore(
     arpExtra.subscribe,
     () => arpExtra.of(id),
@@ -429,9 +437,9 @@ const useExtra = (id: string): number =>
   );
 
 /** Un potard d'un reglage du VST3 seul ; label : un autre nom (MIX pour la dose d'un effet titre a part). */
-export const XKnob: React.FC<{ p: ExtraParam; look?: KnobLook; label?: string }> = ({ p, look = 'metal', label }) => {
+export const XKnob: React.FC<{ p: ExtraParam; look?: KnobLook; label?: string; aria?: string }> = ({ p, look = 'metal', label, aria }) => {
   const v = useExtra(p.id);
-  return <Dial id={p.id} look={look} value={v} def={arpExtra.def(p.id)} steps={p.steps} bipolar={BIPOLAR.has(p.id)} label={label ?? p.label} text={arpExtra.text(p.id, v)} aria={ariaName(p)} help={p.help} set={(t) => arpExtra.set(p.id, t)} />;
+  return <Dial id={p.id} look={look} value={v} def={arpExtra.def(p.id)} steps={p.steps} bipolar={BIPOLAR.has(p.id)} label={label ?? p.label} text={arpExtra.text(p.id, v)} aria={aria ?? ariaName(p)} help={p.help} set={(t) => arpExtra.set(p.id, t)} />;
 };
 
 /* ---------------- un TWEAK du site (voyager/params.ts) ---------------- */
@@ -455,6 +463,8 @@ export const VKnob: React.FC<{ id: VoyKnobId; look?: KnobLook }> = ({ id, look =
 interface SwitchProps {
   id: string;
   steps: readonly string[];
+  /** les noms ecrits au-dessus des LED, s'ils different des crans (trop longs) */
+  names?: readonly string[];
   idx: number;
   label: string;
   sub?: string;
@@ -464,7 +474,7 @@ interface SwitchProps {
 }
 
 /** La touche de CHORUS et de SUB OCT, ses LED au-dessus (une par position) ; chaque appui passe a la suivante. */
-const Switch: React.FC<SwitchProps> = ({ id, steps, idx, label, sub, aria, help, pick }) => {
+const Switch: React.FC<SwitchProps> = ({ id, steps, names, idx, label, sub, aria, help, pick }) => {
   const midi = useArpMidi();
   const last = Math.max(1, steps.length - 1);
   const armed = midi.learning && midi.armed === id;
@@ -485,11 +495,11 @@ const Switch: React.FC<SwitchProps> = ({ id, steps, idx, label, sub, aria, help,
     if (!arpMidi.get().learning) go(i);
   };
   return (
-    <div className="mm-arp-x mm-arp-x-switch" data-x={id} data-mm-learn={armed ? 'armed' : undefined} data-learning={midi.learning ? '1' : undefined} title={help} onPointerEnter={() => xTouch.set(id, false)}>
+    <div className="mm-arp-x mm-arp-x-switch" data-x={id} data-n={steps.length} data-mm-learn={armed ? 'armed' : undefined} data-learning={midi.learning ? '1' : undefined} title={help} onPointerEnter={() => xTouch.set(id, false)}>
       <div className="mm-arp-x-sw" role="radiogroup" aria-label={aria} onKeyDown={onKey}>
         {steps.map((s, i) => (
-          <button key={s} type="button" role="radio" aria-checked={i === idx} tabIndex={i === idx ? 0 : -1} className="mm-arp-x-sw-led" data-on={i === idx ? '1' : undefined} onClick={() => go(i)}>
-            {s}
+          <button key={s} type="button" role="radio" aria-checked={i === idx} tabIndex={i === idx ? 0 : -1} className="mm-arp-x-sw-led" data-on={i === idx ? '1' : undefined} aria-label={names ? s : undefined} onClick={() => go(i)}>
+            {names?.[i] ?? s}
             <span className="mm-arp-led" data-on={i === idx ? '1' : undefined} aria-hidden="true" />
           </button>
         ))}
@@ -509,7 +519,7 @@ export const XSwitch: React.FC<{ p: ExtraParam }> = ({ p }) => {
   const v = useExtra(p.id);
   const steps = p.steps ?? [];
   const idx = extraStepIndex(p.id, v);
-  return <Switch id={p.id} steps={steps} idx={idx} label={p.label} sub={SWITCH_SUB[p.id]?.[idx]} aria={ariaName(p)} help={p.help} pick={(i) => arpExtra.set(p.id, i / Math.max(1, steps.length - 1))} />;
+  return <Switch id={p.id} steps={steps} names={SWITCH_SHORT[p.id]} idx={idx} label={p.label} sub={SWITCH_SUB[p.id]?.[idx] ?? (SWITCH_SHORT[p.id] ? steps[idx] : undefined)} aria={ariaName(p)} help={p.help} pick={(i) => arpExtra.set(p.id, i / Math.max(1, steps.length - 1))} />;
 };
 
 /** SYNC, POLARITY : un TWEAK a deux positions du site. */
