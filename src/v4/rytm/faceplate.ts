@@ -83,7 +83,7 @@ export type FpMark = 'play' | 'stop' | 'rec' | 'up' | 'down' | 'left' | 'right' 
  * (RANDOM), l'engrenage (SETTINGS), la forme d'onde (SOUNDS), le metronome (TEMPO), le clavier (KEYBOARD) ; le rond, le
  * triangle et le carre du transport en contour (recO, playO, stopO), comme la DT2.
  */
-export type FpIcon = 'list' | 'dice' | 'gear' | 'disk' | 'wave' | 'metro' | 'piano' | 'recO' | 'playO' | 'stopO';
+export type FpIcon = 'list' | 'perf' | 'dice' | 'gear' | 'disk' | 'wave' | 'metro' | 'piano' | 'recO' | 'playO' | 'stopO';
 
 export interface FpButton {
   readonly id: FpButtonId;
@@ -440,14 +440,22 @@ const PLUGIN_KEY_AT: Partial<Record<Dt2ButtonId, { cx: number; cy: number }>> = 
 // Le plugin (2026-11-11, Mika : "le bouton Save Project ne sert a rien, je veux plutot que ce soit le meme bouton mais pour
 // preset au lieu de settings") : la touche SETTINGS y est la touche des presets (la liste ; sa fonction : SAVE PRESET) ; les
 // reglages sont dans OPEN
-const PLUGIN_KEY_WORDS: Partial<Record<Dt2ButtonId, { legend: string; func: string; title: string }>> = IN_PLUGIN ? { settings: { legend: 'PRESETS', func: 'SAVE PRESET', title: 'Presets: load, save' } } : {};
+// 2026-11-11 (la suite) : la premiere touche est PERFORM (sa fonction : la liste des presets) ; PTN n'a plus de banque
+// (func '' : aucune fonction)
+const PLUGIN_KEY_WORDS: Partial<Record<Dt2ButtonId, { legend: string; func: string; title: string }>> = IN_PLUGIN
+  ? {
+      settings: { legend: 'PRESETS', func: 'SAVE PRESET', title: 'Presets: load, save' },
+      preset: { legend: 'PERFORM', func: 'PRESETS', title: 'Perform: the live page, the effects of the whole machine and the crossfader' },
+      ptn: { legend: 'PTN', func: '', title: 'Pattern (PTN): the 16 patterns on the steps' },
+    }
+  : {};
 const DT2_KEYS: readonly Dt2Key[] = DT2_BUTTONS.filter((b) => !PLUGIN_GONE.has(b.id)).map((b) => ({
   id: b.id,
   cls: b.cls,
   rect: keyRect(b.cls, PLUGIN_KEY_AT[b.id]?.cx ?? b.cx, PLUGIN_KEY_AT[b.id]?.cy ?? b.cy),
   legend: PLUGIN_KEY_WORDS[b.id]?.legend ?? b.legend,
   ...(DT2_KEY_MORE[b.id].marks ? { marks: DT2_KEY_MORE[b.id].marks } : {}),
-  ...(b.func ? { alt: PLUGIN_KEY_WORDS[b.id]?.func ?? b.func } : {}),
+  ...((PLUGIN_KEY_WORDS[b.id]?.func ?? b.func) ? { alt: PLUGIN_KEY_WORDS[b.id]?.func ?? b.func } : {}),
   name: PLUGIN_KEY_WORDS[b.id]?.legend ?? b.legend,
   title: PLUGIN_KEY_WORDS[b.id]?.title ?? DT2_KEY_MORE[b.id].title,
   hotspot: DT2_KEY_MORE[b.id].hotspot,

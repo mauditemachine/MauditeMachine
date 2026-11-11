@@ -11,6 +11,13 @@ export interface HeadEntry {
   step: number;
   /** les voix qui ont frappe a ce pas, bit k : INSTRUMENTS[k] (les huit premieres pistes) */
   mask: number;
+  /** le pattern que le moteur joue (LIVE REC ecrit dans lui) ; absent ou -1 : inconnu */
+  pat?: number;
+  /**
+   * le nombre de pas depuis le debut du pattern, sans repartir avec lui (une piste a sa longueur, TLEN, joue le pas
+   * rel modulo TLEN) ; absent ou -1 : un plugin d'avant le 2026-11-11
+   */
+  rel?: number;
 }
 
 type Source = () => HeadEntry | null;

@@ -23,6 +23,7 @@ import { hiLockable, lockTrack, slotDomain } from './locks';
 import { noHolders } from './face';
 import { curScreen, layerIdOf, soundFamily } from '../kit';
 import { liveOn } from '../live';
+import { extHead } from '../../plugin/head';
 
 export const liveRunning = (): boolean => liveOn() && clock.running;
 
@@ -41,6 +42,34 @@ export function heardNow(ts = -1): number | null {
   if (!c) return null;
   const age = ts >= 0 ? Math.max(0, Math.min(0.25, (performance.now() - ts) / 1000)) : 0;
   return c.currentTime - ((c.outputLatency || 0) + (c.baseLatency || 0)) - age;
+}
+
+/**
+ * Le pas entendu maintenant. Au site : le journal de l'horloge a l'heure entendue. Dans le plugin (2026-11-11, Mika : "en
+ * cliquant deux fois dans REC je veux pouvoir faire des enregistrements d'automations en live") : le moteur C++ joue, son
+ * horloge n'a pas de journal ici ; le pas est celui de sa tete de lecture (plugin/head.ts, mm_transport), le pattern celui
+ * qu'il joue. null : a l'arret.
+ */
+export function heardEntry(ts = -1): StepEvent | null {
+  if (extHead.active()) {
+    const h = extHead.get();
+    if (!h) return null;
+    return { seq: h.seq, step: ((h.step % 16) + 16) % 16, when: 0, expected: 0, at: 0, mask: h.mask, off: 0, abs: h.seq, slot: typeof h.pat === 'number' ? h.pat : -1 };
+  }
+  const t = heardNow(ts);
+  return t === null ? null : clock.entryAt(t);
+}
+
+/**
+ * Le pas d'une piste au pas entendu e. Au site, celui du motif. Dans le plugin, une piste a sa longueur (TLEN) boucle
+ * depuis le debut du pattern sans repartir avec lui (Engine.cpp : rel modulo TLEN) : son pas a elle, pas celui du pattern.
+ */
+export function liveStepOf(e: StepEvent, inst: TrackKey): number {
+  if (!extHead.active() || !liveCur(e.slot)) return e.step;
+  const h = extHead.get();
+  const tlen = Math.round(pattern.get().trigs?.[inst]?.tlen ?? 0);
+  if (!h || typeof h.rel !== 'number' || h.rel < 0 || tlen <= 0 || tlen >= pattern.stepCount()) return e.step;
+  return (h.rel % tlen) % 16;
 }
 
 let liveTimer = 0;
@@ -144,7 +173,7 @@ function liveLockable(slot: PageSlot, t: TrackKey): boolean {
  * locks and add lock trigs where needed") : un pas sans trig de la voix recoit un lock trig.
  */
 function liveLockAt(k: LiveKnob, e: StepEvent): void {
-  const s = e.step;
+  const s = liveStepOf(e, k.inst);
   const id = k.slot.lock as LockId;
   const v = k.v;
   const val = id === 'pan' || id === 'fenv' ? (Math.abs(v) < 0.02 ? 0 : v) : id === 'tune' ? Math.round(v * 24) / 24 : v;
@@ -169,10 +198,13 @@ function liveLockAt(k: LiveKnob, e: StepEvent): void {
 export function liveKnobTurn(slot: PageSlot, v: number, screen: RytmScreenId): void {
   // La piste du P-LOCK (la face DT2 : la piste active, T9 a T16 comprises ; sinon la voix du motif)
   const inst = lockTrack();
-  if (!inst || !liveLockable(slot, inst)) return;
+  if (!inst || !liveLockable(slot, inst)) {
+    // Le plugin : un reglage de toute la machine (PERFORM, la page FX globale) ne s'ecrit pas sur des pas, l'ecran le dit
+    if (extHead.active() && slot.scope === 'all' && slot.label) lcdMessage.show(`${slot.label} IS GLOBAL: NOT RECORDED (TRACK KNOBS ARE)`, 1600);
+    return;
+  }
   st.liveKnob = { slot, v, inst, screen, face: st.liveFace, at: performance.now() };
-  const t = heardNow();
-  const e = t === null ? null : clock.entryAt(t);
+  const e = heardEntry();
   if (e) liveLockAt(st.liveKnob, e);
 }
 
@@ -184,7 +216,7 @@ function liveKnobOn(k: LiveKnob): boolean {
 
 /** Efface la voix au pas entendu e (son trig et ses verrous), dans le pattern qu'on entend. */
 export function liveEraseAt(inst: TrackKey, e: StepEvent): void {
-  const s = e.step;
+  const s = liveStepOf(e, inst);
   if (liveCur(e.slot)) {
     const p = pattern.get();
     if (velocity(p.steps, inst, s) > 0) pattern.clearStep(inst, s);
@@ -203,8 +235,7 @@ function livePoll(): void {
     liveAbs = -1;
     return;
   }
-  const t = heardNow();
-  const e = t === null ? null : clock.entryAt(t);
+  const e = heardEntry();
   if (!e || e.abs === liveAbs) return;
   liveAbs = e.abs;
   // L'effacement : seulement tant que NO est tenue (la revue de D3b R15)

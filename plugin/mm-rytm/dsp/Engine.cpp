@@ -1056,9 +1056,10 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         }
         npend_ = keep;
         // La tete de lecture : le pas dont la grille (swing compris) tombe dans le bloc
-        forEachStep(*P_, &programStepOf, ppq0, pps, n, [&](int g, int) {
+        forEachStepRel(*P_, &programStepOf, ppq0, pps, n, [&](int g, int, long rel) {
             fbStep.store(g, std::memory_order_relaxed);
             fbMask.store(maskAt_[static_cast<size_t>(g % 128)], std::memory_order_relaxed);
+            fbRel.store(static_cast<int>(rel % 1048576L), std::memory_order_relaxed);
             fbSeq.store(++seq_, std::memory_order_release);
         }, patStart_);
     } else if (seqOn_) {
@@ -1067,7 +1068,10 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
     }
     if (tr.playing != wasPlaying_) {
         wasPlaying_ = tr.playing;
-        if (!tr.playing) fbStep.store(-1, std::memory_order_relaxed);
+        if (!tr.playing) {
+            fbStep.store(-1, std::memory_order_relaxed);
+            fbRel.store(-1, std::memory_order_relaxed);
+        }
         fbPlaying.store(tr.playing, std::memory_order_release);
     }
 

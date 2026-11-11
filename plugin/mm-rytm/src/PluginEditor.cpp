@@ -323,5 +323,6 @@ void MMRytmEditor::timerCallback() {
     o->setProperty("xf", fb.xf);
     o->setProperty("pat", fb.pat);
     o->setProperty("patSeq", fb.patSeq);
+    o->setProperty("rel", fb.playing ? fb.rel : -1);
     browser_->emitEventIfBrowserIsVisible("mm_transport", juce::var(o));
 }

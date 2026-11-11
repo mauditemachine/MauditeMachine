@@ -103,6 +103,7 @@ int main() {
         e.publish(makeState(p));
         const double pps = 120.0 / 60.0 / SR; // noires par echantillon
         std::vector<int> steps;
+        std::vector<int> rels;
         double ppq = 0;
         int lastSeq = 0;
         // 4 s a 120 BPM : 8 noires, 32 seiziemes
@@ -113,12 +114,21 @@ int main() {
             if (e.fbSeq.load() != lastSeq) {
                 lastSeq = e.fbSeq.load();
                 steps.push_back(e.fbStep.load());
+                rels.push_back(e.fbRel.load());
             }
             ppq += 160 * pps;
         }
         bool ok = steps.size() >= 32;
         for (size_t i = 0; i < steps.size() && i < 32; ++i) ok = ok && steps[i] == static_cast<int>(i % 16);
         CHECK(ok, "sequenceur : les pas 0 a 15 dans l'ordre, cale sur la position de l'hote");
+        // LIVE REC (2026-11-11) : les pas depuis le debut du pattern ne repartent pas avec lui (le pas d'une piste a sa
+        // longueur, TLEN, est rel modulo TLEN)
+        bool okRel = rels.size() >= 32;
+        for (size_t i = 0; i < rels.size() && i < 32; ++i) okRel = okRel && rels[i] == static_cast<int>(i);
+        CHECK(okRel, "tete de lecture : rel compte les pas depuis le debut du pattern, sans repartir (0, 1 ... 31)");
+        clear();
+        e.process(stop, L.data(), R.data(), 160);
+        CHECK(e.fbRel.load() == -1, "tete de lecture : rel a -1 a l'arret");
     }
 
     // 3. le swing : le pas 1 part a 0.25 + swing x 0.25 noire

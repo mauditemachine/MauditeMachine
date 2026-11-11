@@ -181,7 +181,8 @@ function arrowChords(d: 'up' | 'down' | 'left' | 'right'): Chord[] {
       // FUNC + LEFT / RIGHT : decaler tous les trigs (6.1)
       c({ id: `${d}.func`, key: d, gesture: 'press', mods: ['func'], prio: 90, info: d, version: '6.1', run: () => soon('6.1') }),
       // PTN + LEFT / RIGHT : la banque (cahier 1.4)
-      c({ id: `${d}.ptn`, key: d, gesture: 'press', mods: [], prio: 80, info: d, when: () => ptnView() || bankView(), run: () => ptnBankStep(dir as -1 | 1) }),
+      // Le plugin (2026-11-11, Mika : "je veux pas de bank, j'ai une liste de presets") : pas de banque
+      c({ id: `${d}.ptn`, key: d, gesture: 'press', mods: [], prio: 80, info: d, when: () => !IN_PLUGIN && (ptnView() || bankView()), run: () => ptnBankStep(dir as -1 | 1) }),
       c({ id: d, key: d, gesture: 'press', mods: [], prio: 0, info: d, run: () => (dtFace.keyboard() ? kbdOctStep(dir as -1 | 1) : subPage(dir as -1 | 1)) }),
     );
   } else {
@@ -290,7 +291,8 @@ export const CHORDS_60: readonly Chord[] = [
   /* ---------- TRK, PTN ---------- */
   // FUNC + TRK : le mode MUTE (le dernier retenu, cahier 3.4)
   c({ id: 'trk.func', key: 'trk', gesture: 'press', mods: ['func'], prio: 90, info: 'trk', run: () => muteModeKey() }),
-  c({ id: 'ptn.func', key: 'ptn', gesture: 'press', mods: ['func'], prio: 90, info: 'pad-edit', run: () => ptnBank(stageNow()) }),
+  // Le plugin : pas de banque (FUNC + PTN, le clic droit, fait comme PTN)
+  c({ id: 'ptn.func', key: 'ptn', gesture: 'press', mods: ['func'], prio: 90, info: 'pad-edit', run: (e) => (IN_PLUGIN ? ptnToggle(stageNow(), e.t) : ptnBank(stageNow())) }),
   c({ id: 'ptn', key: 'ptn', gesture: 'press', mods: [], prio: 0, info: 'pad-edit', run: (e) => ptnToggle(stageNow(), e.t) }),
 
   /* ---------- PAGE et FILL ---------- */
@@ -313,7 +315,9 @@ export const CHORDS_60: readonly Chord[] = [
     },
     () => menuToggle('tempo'),
   ),
-  ...keyChords('preset', 'preset', () => menuToggle('perform'), () => menuToggle('preset')),
+  // Le plugin (2026-11-11, Mika : "le bouton par defaut c'est presets, donc mets par defaut PERFORM, pour pouvoir faire des
+  // choses en live") : la tape ouvre PERFORM (les effets de toute la machine, le crossfader), sa fonction la liste des presets
+  ...(IN_PLUGIN ? keyChords('preset', 'preset', () => menuToggle('preset'), () => menuToggle('perform')) : keyChords('preset', 'preset', () => menuToggle('perform'), () => menuToggle('preset'))),
   ...keyChords('random', 'random', () => randomPattern(stageNow()), () => randomPattern(stageNow())),
   ...keyChords('sounds', 'sounds', () => menuToggle('samples'), () => menuToggle('sounds')),
   // SETTINGS : sa tape (au lacher) ouvre le menu ; tenue 1 s, elle garde pour un TRIG (trig.settings)

@@ -14,7 +14,7 @@
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
  *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}
- *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pat, patSeq}, mm_user {list}, mm_imported {track, key}
+ *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pat, patSeq, rel}, mm_user {list}, mm_imported {track, key}
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
@@ -435,9 +435,11 @@ interface Transport {
   /** le pattern que le moteur joue (0 a 127) ; patSeq : +1 a chaque changement fait par le moteur (fin de pattern, program change) */
   pat: number;
   patSeq: number;
+  /** les pas depuis le debut du pattern (les pistes a leur longueur, TLEN) ; -1 : absent */
+  rel: number;
 }
 
-let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pat: -1, patSeq: -1 };
+let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pat: -1, patSeq: -1, rel: -1 };
 /** le dernier changement de pattern du moteur que la face a suivi (-2 : aucun message encore) */
 let patSeqSeen = -2;
 /** x pose par l'hote (la face ne le renvoie pas) ; l'heure du dernier x envoye par la face (l'hote ne le reprend pas aussitot) */
@@ -463,6 +465,7 @@ function onTransport(o: unknown): void {
     xf: typeof x.xf === 'number' ? x.xf : -1,
     pat: typeof x.pat === 'number' ? x.pat : -1,
     patSeq: typeof x.patSeq === 'number' ? x.patSeq : -1,
+    rel: typeof x.rel === 'number' ? x.rel : -1,
   };
   if (was !== transport.playing) clock.externalChanged();
   extHead.wake();
@@ -485,7 +488,7 @@ function onTransport(o: unknown): void {
   }
 }
 
-const headOf = (): HeadEntry | null => (transport.playing && transport.step >= 0 ? { seq: transport.seq, step: transport.step, mask: transport.mask } : null);
+const headOf = (): HeadEntry | null => (transport.playing && transport.step >= 0 ? { seq: transport.seq, step: transport.step, mask: transport.mask, pat: transport.pat, rel: transport.rel } : null);
 
 /* ---------------- l'etat (les cles du site) ---------------- */
 

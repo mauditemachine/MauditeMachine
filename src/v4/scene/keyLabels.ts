@@ -300,6 +300,16 @@ export class KeyLabelAtlas {
       ctx.fill();
       line(x + 0.35 * w, y + 0.78 * h, x + 0.35 * w, y + k);
       line(x + 0.35 * w, y + k, x + 0.42 * w, y + 0.12 * h);
+    } else if (m === 'perf') {
+      // PERFORM (le plugin) : trois curseurs a des hauteurs differentes
+      const at = [0.34, 0.7, 0.48];
+      at.forEach((v, j) => {
+        const cx = x + k + ((w - lw) * (j + 0.5)) / 3;
+        line(cx, y + k, cx, y + h - k);
+        const cy = y + k + (h - lw) * v;
+        const hw = 0.13 * w;
+        ctx.fillRect(cx - hw, cy - 0.085 * h, 2 * hw, 0.17 * h);
+      });
     } else if (m === 'dice') {
       rrect(x + k, y + k, w - lw, h - lw, 0.22 * h);
       ctx.stroke();

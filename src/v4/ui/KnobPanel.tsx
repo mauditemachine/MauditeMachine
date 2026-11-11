@@ -213,7 +213,15 @@ export interface KnobSpec {
 }
 
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
-export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec, compact = false }) => {
+/** Le nombre de segments de l'anneau d'un potard en relief (un tous les 10 degres). */
+const RELIEF_SEGS = 27;
+
+/**
+ * relief (2026-11-11, le plugin, Mika devant OPEN : "les knobs devraient etre en 3D aussi ici") : le potard dessine comme
+ * ceux de la face vus de dessus : une ombre portee, une jupe, un capuchon bombe, son reflet, et un anneau de segments (ceux
+ * de la valeur allumes) a la place de l'arc. Le site ne le demande pas : son dessin ne change pas.
+ */
+export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean; relief?: boolean }> = ({ spec, compact = false, relief = false }) => {
   const value = useSyncExternalStore(spec.subscribe, spec.get, spec.get);
   const [lo, hi] = spec.range;
   const steps = spec.steps;
@@ -329,18 +337,35 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
         {spec.letter && <span className="v4-knob-letter">{spec.letter}</span>}
         {spec.label}
       </span>
-      <svg className="v4-knob-dial" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true">
-        <path className="v4-knob-track" d={arc(A0, A0 + SWEEP, R_ARC)} />
-        {Math.abs(at - from) > 0.5 && <path className="v4-knob-arc" d={from < at ? arc(from, at, R_ARC) : arc(at, from, R_ARC)} />}
-        {detents &&
-          Array.from({ length: steps }, (_, i) => {
-            const [x0, y0] = pt(A0 + (i / (steps - 1)) * SWEEP, R_ARC + 3.5);
-            const [x1, y1] = pt(A0 + (i / (steps - 1)) * SWEEP, R_ARC + 6.5);
-            return <line key={i} className="v4-knob-tick" x1={x0} y1={y0} x2={x1} y2={y1} />;
+      {relief ? (
+        <svg className="v4-knob-dial v4-knob-relief" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true">
+          {Array.from({ length: RELIEF_SEGS }, (_, i) => {
+            const a = A0 + ((i + 0.5) / RELIEF_SEGS) * SWEEP;
+            const lit = Math.abs(at - from) > 0.5 && a >= Math.min(from, at) - 0.01 && a <= Math.max(from, at) + 0.01;
+            const [x0, y0] = pt(a, R_ARC + 0.2);
+            const [x1, y1] = pt(a, R_ARC + 5.4);
+            return <line key={i} className={lit ? 'v4-knob-seg v4-knob-seg-on' : 'v4-knob-seg'} x1={x0} y1={y0} x2={x1} y2={y1} />;
           })}
-        <circle className="v4-knob-cap" cx={C} cy={C} r={19} />
-        <line className="v4-knob-mark" x1={qx} y1={qy} x2={px} y2={py} />
-      </svg>
+          <ellipse className="v4-knob-shadow" cx={C + 1.2} cy={C + 3.4} rx={21} ry={20.5} />
+          <circle className="v4-knob-skirt" cx={C} cy={C} r={21.4} />
+          <circle className="v4-knob-cap" cx={C} cy={C} r={17.6} />
+          <ellipse className="v4-knob-shine" cx={C - 3.5} cy={C - 6.5} rx={9.5} ry={5.5} />
+          <line className="v4-knob-mark" x1={pt(at, 4)[0]} y1={pt(at, 4)[1]} x2={pt(at, 16.2)[0]} y2={pt(at, 16.2)[1]} />
+        </svg>
+      ) : (
+        <svg className="v4-knob-dial" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true">
+          <path className="v4-knob-track" d={arc(A0, A0 + SWEEP, R_ARC)} />
+          {Math.abs(at - from) > 0.5 && <path className="v4-knob-arc" d={from < at ? arc(from, at, R_ARC) : arc(at, from, R_ARC)} />}
+          {detents &&
+            Array.from({ length: steps }, (_, i) => {
+              const [x0, y0] = pt(A0 + (i / (steps - 1)) * SWEEP, R_ARC + 3.5);
+              const [x1, y1] = pt(A0 + (i / (steps - 1)) * SWEEP, R_ARC + 6.5);
+              return <line key={i} className="v4-knob-tick" x1={x0} y1={y0} x2={x1} y2={y1} />;
+            })}
+          <circle className="v4-knob-cap" cx={C} cy={C} r={19} />
+          <line className="v4-knob-mark" x1={qx} y1={qy} x2={px} y2={py} />
+        </svg>
+      )}
       <span className="v4-knob-value">{spec.valueText()}</span>
       {spec.unit && (
         <span className="v4-knob-unit">

@@ -149,6 +149,9 @@ export function menuInput(kind: ScreenMenuInputKind, phase: 'down' | 'up', delta
 
 /** La touche de la face qui porte un menu (sa LED rouge, cahier 2.4). */
 export function faceMenuOf(id: ScreenMenuId | null): FaceMenu | null {
+  // Le plugin (2026-11-11) : la premiere touche est PERFORM ; la liste des presets est sur la touche a la disquette
+  // (l'ancienne SETTINGS)
+  if (IN_PLUGIN && (id === 'preset' || id === 'kit')) return 'settings';
   if (id === 'preset' || id === 'kit' || id === 'perform') return 'preset';
   if (id === 'settings') return 'settings';
   if (id === 'sounds' || id === 'samples') return 'sounds';

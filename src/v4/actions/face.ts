@@ -30,6 +30,7 @@ import { isRytmPage, type RytmPageId } from '../rytm/pages';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import { DT2_FACE, DT_FACE, DT_GESTURE, LCD_NO_VOICE, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import { IN_PLUGIN } from '../pluginMode';
 import type { Dt2ButtonId } from '../rytm/dtFaceIds';
 import { gesture as gestureLayer } from '../state/gesture';
 import { activeTrack } from '../state/trk';
@@ -150,6 +151,9 @@ export function recKey(stage: Stage | null = null, mouse = false): void {
   recBody(stage, mouse);
 }
 
+/** Le double clic de REC dans le plugin (ms). */
+const REC_DOUBLE_MS = 600;
+
 /** ● seule (V.5.3, sans FUNC) : REC, ● deux fois a la souris LIVE REC, ● en LIVE REC le GRID REC. */
 export function recBody(stage: Stage | null, mouse: boolean): void {
   resume();
@@ -157,7 +161,9 @@ export function recBody(stage: Stage | null, mouse: boolean): void {
   // ● tapee deux fois vite a la souris (V.5.3, la souris ne tient pas deux touches) : LIVE REC ; seulement si la premiere
   // tape a allume REC depuis REC eteint (la revue de D3b R5 : jamais en sortant de LIVE REC, ni par W ou le MIDI)
   const t = eventAt();
-  const dbl = mouse && t - st.recTapAt < PAD_DOUBLE_TAP_MS && dtFace.rec() && !dtFace.live();
+  // Le plugin (2026-11-11, Mika : "en cliquant deux fois dans REC") : deux clics en REC_DOUBLE_MS, que REC soit allume ou
+  // non au premier (un double clic de souris est plus lent que deux tapes, et le premier eteint un GRID REC allume)
+  const dbl = IN_PLUGIN ? mouse && t - st.recTapAt < REC_DOUBLE_MS && !dtFace.live() : mouse && t - st.recTapAt < PAD_DOUBLE_TAP_MS && dtFace.rec() && !dtFace.live();
   st.recTapAt = -Infinity;
   if (dbl) {
     liveEnter();
@@ -172,7 +178,7 @@ export function recBody(stage: Stage | null, mouse: boolean): void {
   }
   const on = !dtFace.rec();
   dtFace.setRec(on);
-  if (on && mouse) st.recTapAt = t;
+  if ((on || IN_PLUGIN) && mouse) st.recTapAt = t;
   st.recHinted = false;
   // REC eteint : plus rien ne s'ecrit, le P-LOCK en cours s'en va aussi (la revue de D1, G10)
   if (!on) rytmLock.leave();

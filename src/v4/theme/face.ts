@@ -14,7 +14,8 @@ const PLUGIN_TRACK_TYPES = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as 
  * contour ; le de de RANDOM en plus) ; les fonctions FUNC imprimees sous les touches, en capitales et minuscules comme la DT2.
  */
 const PLUGIN_ICONS: Readonly<Partial<Record<string, readonly FpMark[]>>> = {
-  preset: ['list'],
+  // 2026-11-11 : PERFORM (des curseurs), plus la liste
+  preset: ['perf'],
   random: ['dice'],
   // 2026-11-11 : la touche des presets (une disquette), plus les reglages
   settings: ['disk'],
@@ -26,10 +27,9 @@ const PLUGIN_ICONS: Readonly<Partial<Record<string, readonly FpMark[]>>> = {
 };
 const PLUGIN_SILK: Readonly<Record<string, string>> = {
   trk: 'Ptn Mute',
-  ptn: 'Bank',
   mute: 'Unmute',
   solo: 'Unsolo',
-  preset: 'Perform',
+  preset: 'Presets',
   random: 'Rnd Beat',
   settings: 'Save Preset',
   sounds: 'Samples',

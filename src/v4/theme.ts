@@ -979,6 +979,7 @@ export const KEY_LABEL = PORTRAIT
  */
 export const MARK_ICON: Readonly<Partial<Record<FpMark, { s: number; a: number }>>> = {
   list: { s: 1.85, a: 1.05 },
+  perf: { s: 1.85, a: 1.05 },
   dice: { s: 1.75, a: 1 },
   gear: { s: 1.9, a: 1 },
   disk: { s: 1.8, a: 1 },
@@ -1781,6 +1782,8 @@ export const COPY = {
  * 7.2 (1 - cos 60)) ; glisse vers l'arriere comme sur desktop, il cachait
  * la carte, plus longue que large, sauf sa bande avant.
  */
+/** Le recul du capot ouvert du plugin (unites) : son bord avant affleure le haut de la carte. */
+const PLUGIN_LID_SLIDE = -7.18;
 export const EXPLODE = {
   ms: 900,
   staggerMs: 80,
@@ -1796,7 +1799,10 @@ export const EXPLODE = {
    * 7.5 / -7.4 ; desktop -3.9 -> -6.4. Ses commandes ne repondent plus
    * capot ouvert (renderer.ts syncChips).
    */
-  slideZ: PORTRAIT ? -7.4 : PLUGIN ? -12.5 : -6.4,
+  // Le plugin (2026-11-11, la suite, Mika : "j'aimerais que le dessus soit visible pour que les gens pensent qu'ils peuvent
+  // rabaisser le capot, mais a peine visible pour pas gener") : le capot ne sort plus tout entier, son bord avant reste en
+  // haut de la fenetre (une bande, plugin/OpenPanel.tsx y pose un clic : fermer) ; avant : -12.5, hors du cadre
+  slideZ: PORTRAIT ? -7.4 : PLUGIN ? PLUGIN_LID_SLIDE : -6.4,
   tiltOpenDeg: PORTRAIT ? -60 : PLUGIN ? 0 : -24,
   pcbRise: 0.9,
   /**
@@ -1853,7 +1859,9 @@ export const OPEN_VIEW = {
  * sa zone sur la carte (repere de la carte, x a droite, z vers soi), a la place des TWEAKS du site ; aucun composant ni piste
  * ne la traverse (scene/pcb.ts clear) ; le panneau d'OPEN s'y pose (plugin/OpenPanel.tsx, Stage.pcbScreenRect).
  */
-export const PLUGIN_PCB_SCREEN = { x0: -5.28, x1: 3.3, z0: -1.42, z1: 3.12 } as const;
+// 2026-11-11 (la suite, Mika : "bien ! mais doit prendre vraiment plus de place") : presque toute la carte (ses quatre vis
+// et une bande de composants en haut restent visibles) ; avant : x 3.3 au plus, z -1.42 au moins.
+export const PLUGIN_PCB_SCREEN = { x0: -5.0, x1: 5.0, z0: -2.45, z1: 3.16 } as const;
 
 /**
  * Puce cliquable d'une carte : GOODIES, MERCH et STUDIO sur la 808 ; sur
@@ -1978,7 +1986,7 @@ export const BOARD_CHIPS: readonly ChipSpec[] = [...CHIPS, ...PAGE_CHIPS];
  * (z 0 a 3.9) et la bande droite (x > 4.4) se voient depuis la vue par
  * defaut, le reste passe sous le panneau leve.
  */
-export const PCB_PARTS = {
+const PCB_PARTS_SITE = {
   small: [pcbAt(-5.3, 2.6), pcbAt(5.3, 2.6), { x: 4.45, z: -2.75 }, pcbAt(-2.7, -2.9)],
   /** references serigraphiees en blanc sur le dessus des petites puces */
   smallRefs: ['TL072', 'NE555', '74HC595', 'LM386'],
@@ -2035,6 +2043,35 @@ export const PCB_PARTS = {
   ceramic3: { w: 0.26, h: 0.12, d: 0.14 },
   crystal3: { r: 0.12, l: 0.5 },
 } as const;
+
+/**
+ * La carte du plugin (2026-11-11, Mika : l'ecran d'OPEN "doit prendre vraiment plus de place", et "PCB noir avec quelques
+ * composants ca et la mais plus visible") : l'ecran prend presque toute la carte (PLUGIN_PCB_SCREEN), ses composants se
+ * rangent autour : une bande en haut (le regulateur, trois condensateurs, deux puces, le connecteur, le bornier, quelques
+ * CMS) et des CMS le long des deux bords. Les memes tableaux, aux memes longueurs (les references R1, C1, U1 suivent leur
+ * rang) ; une piece a OFF est dans l'ecran : la carte ne la pose pas (scene/pcb.ts clear).
+ */
+const PB = -2.95;
+const OFF = { x: 0, z: 0.4 } as const;
+const PLUGIN_PCB_PARTS = {
+  ...PCB_PARTS_SITE,
+  small: [{ x: -2.3, z: PB }, { x: 2.1, z: PB }, OFF, OFF],
+  caps: [{ x: -3.3, z: PB }, { x: -0.3, z: PB }, OFF, OFF, OFF, OFF],
+  resistors: [
+    { x: -1.5, z: -3.15 },
+    { x: -1.05, z: -3.15 },
+    ...[-2.0, -1.5, -1.0, 1.6, 2.0, 2.4].map((z) => ({ x: 5.31, z })),
+    ...[-2.0, -1.0, 1.6, 2.4].map((z) => ({ x: -5.31, z })),
+    ...Array.from({ length: 7 }, () => OFF),
+  ],
+  ceramics: [{ x: -1.5, z: -2.74 }, { x: -1.05, z: -2.74 }, { x: -5.31, z: -1.5 }, { x: -5.31, z: 2.0 }, ...Array.from({ length: 10 }, () => OFF)],
+  crystals: [OFF, OFF],
+  regulator: { x: -4.35, z: -2.8 },
+  header: { x: 0.9, z: PB, cols: 8 },
+  terminal: { x: 3.25, z: PB, n: 3 },
+  led: { x: 4.15, z: -3.02 },
+};
+export const PCB_PARTS: typeof PCB_PARTS_SITE = PLUGIN ? (PLUGIN_PCB_PARTS as unknown as typeof PCB_PARTS_SITE) : PCB_PARTS_SITE;
 
 
 /* ---------- jumeaux HTML et clavier (spec 6.1, 6.3, 13 et 20.7) ---------- */

@@ -503,7 +503,7 @@ void MMRytmProcessor::faceXf(float x) {
 }
 
 MMRytmProcessor::Feedback MMRytmProcessor::feedback() const {
-    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load()), engine_.fbPat.load(), engine_.fbPatSeq.load()};
+    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load()), engine_.fbPat.load(), engine_.fbPatSeq.load(), engine_.fbRel.load()};
 }
 
 void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {

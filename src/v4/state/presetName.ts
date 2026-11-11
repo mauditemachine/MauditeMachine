@@ -23,7 +23,21 @@
 
 /** Les caracteres permis, dans l'ordre du potard A (l'espace d'abord, comme une case vide). */
 export const NAME_CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';
-export const NAME_MAX = 10;
+/**
+ * Le plugin (2026-11-11, Mika : "je veux pas de User quelque chose, je veux juste le nom du preset et pouvoir ecrire") : pas
+ * d'utilisateur (le libelle est le nom seul, state/presetMode.ts le fixe a USER sans le demander) et un nom jusqu'a 16
+ * lettres (INDIE DANCE 2 y tient). Lu ici sans import (ce module reste pur : pluginMode.ts dit la meme chose).
+ */
+export const NAMES_PLUGIN: boolean = (() => {
+  try {
+    const w = globalThis as unknown as { __MM_PLUGIN__?: boolean; location?: { search?: string } };
+    if (w.__MM_PLUGIN__ === true) return true;
+    return typeof w.location?.search === 'string' && new URLSearchParams(w.location.search).get('plugin') === '1';
+  } catch {
+    return false;
+  }
+})();
+export const NAME_MAX = NAMES_PLUGIN ? 16 : 10;
 export const USER_LEN = 4;
 /** L'utilisateur d'un preset d'avant les noms, tant que ce navigateur n'en a pas choisi. */
 export const USER_DEFAULT = 'USER';
@@ -71,8 +85,10 @@ export function userProblem(s: string): string {
   if (userOk(s)) return '';
   return 'USER: 4 CHARACTERS';
 }
+/** Ce que l'ecran dit d'un nom hors des regles. */
+export const NAME_RULE = `NAME: 1 TO ${NAME_MAX} CHARACTERS`;
 export function nameProblem(raw: string): string {
-  return nameOk(cleanName(raw)) ? '' : 'NAME: 1 TO 10 CHARACTERS';
+  return nameOk(cleanName(raw)) ? '' : NAME_RULE;
 }
 /** Le meme USER/NAME qu'un autre preset a toi de la machine (2026-10-27, la revue : deux MIKA/TWO dans la liste). */
 export const NAME_TAKEN = 'NAME TAKEN';
@@ -90,7 +106,7 @@ export interface Named {
  */
 export function presetLabel(p: Named, browserUser: string | null = null): string {
   const name = String(p.name ?? '').toUpperCase();
-  if (p.factory) return name;
+  if (p.factory || NAMES_PLUGIN) return name;
   const user = userOk(p.user) ? p.user : userOk(browserUser) ? browserUser : USER_DEFAULT;
   return `${user}/${name}`;
 }

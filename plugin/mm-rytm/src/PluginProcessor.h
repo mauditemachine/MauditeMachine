@@ -75,6 +75,7 @@ public:
         double xf; // le crossfader (XFADE)
         int pat;    // le pattern joue
         int patSeq; // +1 a chaque changement de pattern fait par le moteur
+        int rel;    // les pas depuis le debut du pattern (LIVE REC : le pas d'une piste a sa longueur, TLEN) ; -1 a l'arret
     };
     Feedback feedback() const;
     // Les VU-metres (2026-11-10) : les cretes depuis la derniere lecture (thread du message), 16 pistes et la sortie L, R,

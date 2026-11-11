@@ -14,7 +14,8 @@ import { dtFace } from '../state/dtFace';
 import { DT_FACE, type Inst } from '../theme';
 import { two } from './shared';
 import { noHolders, noUsed } from './internal/face';
-import { heardNow, liveCur, liveEnter, liveErase, liveEraseAt, liveExit, liveRow, liveRunning, liveWrite, stepAt } from './internal/live';
+import { heardEntry, heardNow, liveCur, liveEnter, liveErase, liveEraseAt, liveExit, liveRow, liveRunning, liveStepOf, liveWrite, stepAt } from './internal/live';
+import { extHead } from '../plugin/head';
 
 /** LIVE REC allume (arme ou en lecture), et en lecture. */
 export const liveOn = (): boolean => DT_FACE && dtFace.live();
@@ -50,10 +51,15 @@ function liveTarget(t: number): StepEvent | null {
  */
 export function liveHit(inst: TrackKey, vel = VEL_MAX, at?: number): 'play' | 'quiet' | null {
   if (!liveRunning()) return null;
-  const t = at ?? heardNow();
+  // Le plugin (2026-11-11) : le pas sous la tete du moteur (pas d'heure entendue ici : la frappe va au pas qui joue, jamais
+  // au suivant, que le moteur rejouerait)
+  const ext = extHead.active();
+  const t = ext ? 0 : (at ?? heardNow());
   if (t === null) return null;
-  const e = liveTarget(t);
-  if (!e) return null;
+  const e0 = ext ? heardEntry() : liveTarget(t);
+  if (!e0) return null;
+  // Une piste a sa longueur (TLEN) : son pas a elle
+  const e = ext ? { ...e0, step: liveStepOf(e0, inst) } : e0;
   // Le pas joue deja la voix a ce passage (le journal : programme, ou parti)
   const plays = (e.mask & (1 << TRACK_KEYS.indexOf(inst))) !== 0;
   if (e.when > t && !plays) clock.skipHit(inst, e.abs);
@@ -77,8 +83,7 @@ export function liveEraseDown(inst: TrackKey): boolean {
   if (!liveRunning() || noHolders.size === 0) return false;
   for (const s of noHolders) noUsed.add(s);
   liveErase.add(inst);
-  const t = heardNow();
-  const e = t === null ? null : clock.entryAt(t);
+  const e = heardEntry();
   if (e) liveEraseAt(inst, e);
   lcdMessage.show(`LIVE ERASE ${inst}`, 1200);
   return true;

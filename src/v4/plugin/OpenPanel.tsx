@@ -91,7 +91,7 @@ const DialKnob: React.FC<{ id: DialId; label: string }> = ({ id, label }) => {
       subscribe: subscribeAll,
     };
   }, [id, label]);
-  return <KnobView spec={spec} compact />;
+  return <KnobView spec={spec} compact relief />;
 };
 
 /** Les reglages vivants d'ecrans de la face, par leur nom (dans l'ordre demande). */
@@ -446,10 +446,12 @@ function Choice<T extends string | boolean>({ label, options, value, onPick }: {
 const HELP: readonly [string, string][] = [
   ['Right click on a step', 'P-LOCK that step: the knobs lock their value on it; again: out'],
   ['Right click on a key', 'FUNC + that key (its orange function printed under it)'],
-  ['Arrows under the screen', 'sub-page, list up / down, the bank in PTN'],
+  ['Arrows under the screen', 'sub-page, list up / down'],
   ['In the screen', 'click a line: pick; again: YES; right click: NO; wheel: LEVEL/DATA'],
   ['Knobs', 'drag; Shift + drag: fine; double click: back to the start value'],
   ['Scenes A / B', 'tap A or B, turn knobs, tap again: the crossfader goes from A to B'],
+  ['PERFORM (first key)', 'the live page: DIST, BIT, CHORUS, DELAY, REVERB, COMP, MASTER and the crossfader; right click: the presets'],
+  ['REC twice (double click)', 'LIVE REC: while it plays, a knob you turn is recorded on the steps it crosses (P-LOCKs), a trig key writes its hit; REC again: out'],
   ['Ableton', 'Crossfader parameter (map, automate); a clip Pgm picks A01 to H16'],
   ['DRAG MIDI (OPEN, at the top)', 'drag the playing pattern onto a MIDI track or a Drum Rack: a clip (16 pads, C1 to D#2); a click saves the .mid'],
   ['Levels (OPEN, PATTERN · MIDI)', 'the real level of each track and of the output L and R, from the engine'],
@@ -767,6 +769,12 @@ const CSS = `
 .mm-open-tabs button[aria-pressed=true],.mm-open-tracks button[aria-pressed=true],.mm-open-choice button[aria-pressed=true],.mm-open-row button[aria-pressed=true]{background:${W_RED};border-color:${W_RED};color:#0b0b0c}
 .mm-open-close:hover,.mm-open-tabs button:hover,.mm-open-row button:hover,.mm-open-btn:hover,.mm-open-tracks button:hover,.mm-open-choice button:hover{border-color:${W_AMBER}}
 .mm-open-btn{padding:.6em 1em}
+.mm-open .mm-open-close{display:flex;align-items:center;gap:.55em;background:${W_RED};border-color:${W_RED};color:#0b0b0c;font-weight:800;font-size:1.08em;padding:.5em 1em;box-shadow:0 0 0 .18em rgba(240,70,60,.22)}
+.mm-open .mm-open-close:hover{background:#ff5a4f;border-color:#fff}
+.mm-open-close kbd{font:inherit;font-size:.72em;font-weight:800;letter-spacing:.08em;padding:.12em .4em;border-radius:.3em;background:rgba(11,11,12,.22)}
+.mm-lid{position:fixed;left:0;right:0;top:0;z-index:41;display:flex;align-items:flex-end;justify-content:center;padding:0;border:0;background:linear-gradient(rgba(5,5,6,0),rgba(5,5,6,.28));cursor:pointer;font-family:${FONT_DISPLAY};animation:mm-open-in .32s ease-out both}
+.mm-lid span{margin-bottom:.35em;padding:.2em .9em;border-radius:1em;background:rgba(5,5,6,.72);border:1px solid rgba(244,241,234,.2);font-size:.8em;font-weight:800;letter-spacing:.2em;color:rgba(244,241,234,.6);white-space:nowrap;transition:color .12s,border-color .12s,background .12s}
+.mm-lid:hover span,.mm-lid:focus-visible span{color:#0b0b0c;background:${W_AMBER};border-color:${W_AMBER}}
 .mm-open .mm-open-btn-red{background:${W_RED};border-color:${W_RED};color:#0b0b0c}
 .mm-open-drag{margin-left:auto;display:flex;align-items:center;gap:.6em;background:${W_AMBER};border:1px solid ${W_AMBER};border-radius:.5em;padding:.4em .9em;color:#0b0b0c !important;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .mm-open-drag:active{cursor:grabbing}
@@ -790,7 +798,7 @@ const CSS = `
 .mm-open-wavefoot{display:flex;gap:1.3em;flex-wrap:nowrap;font-size:.95em;letter-spacing:.08em;color:rgba(244,241,234,.55);white-space:nowrap;overflow:hidden}
 .mm-open-wavefoot b{color:${W_INK};font-weight:700}
 .mm-open-hint{margin-left:auto;color:rgba(244,241,234,.35);overflow:hidden;text-overflow:ellipsis}
-.mm-open-knobrow{display:flex;gap:.55em}
+.mm-open-knobrow{display:flex;gap:.55em;flex:0 0 auto}
 .mm-open-knobrow .mm-open-card:nth-child(1){flex:6}
 .mm-open-knobrow .mm-open-card:nth-child(2){flex:4}
 .mm-open-knobrow .mm-open-card:nth-child(3){flex:4}
@@ -800,15 +808,19 @@ const CSS = `
 .mm-open-wide{grid-column:1 / -1}
 .mm-open-card h3{margin:0 0 .35em;font-size:.88em;font-weight:800;letter-spacing:.16em;color:${W_AMBER}}
 .mm-open-knobs{display:flex;gap:.2em}
-.mm-open-knobs .v4-knob{flex:1;min-width:0;width:auto;padding:.15em .05em .1em;background:transparent;gap:.05em}
-.mm-open-knobs .v4-knob-dial{width:3.3em;height:3.3em}
+.mm-open-knobs .v4-knob{flex:1;min-width:0;width:auto;padding:.15em .05em .1em;background:transparent;gap:.05em;cursor:ns-resize}
+.mm-open-knobs .v4-knob-dial{width:5.4em;height:5.4em;overflow:visible}
 .mm-open .v4-knob-label{font-size:.85em;color:rgba(244,241,234,.7)}
 .mm-open .v4-knob-page .v4-knob-value{font-size:1.5em;color:${W_INK}}
-.mm-open .v4-knob-track{stroke:rgba(244,241,234,.14)}
-.mm-open .v4-knob-arc{stroke:${W_RED}}
-.mm-open .v4-knob-tick{stroke:rgba(244,241,234,.4)}
-.mm-open .v4-knob-cap{fill:#17181b;stroke:rgba(244,241,234,.22)}
-.mm-open .v4-knob-mark{stroke:${W_INK}}
+.mm-open .v4-knob-seg{stroke:rgba(244,241,234,.16);stroke-width:2.5;stroke-linecap:butt}
+.mm-open .v4-knob-seg-on{stroke:${W_INK}}
+.mm-open .v4-knob-shadow{fill:rgba(0,0,0,.85);filter:blur(1.6px)}
+.mm-open .v4-knob-skirt{fill:url(#mm-knob-skirt);stroke:rgba(0,0,0,.9);stroke-width:.5}
+.mm-open .v4-knob-cap{fill:url(#mm-knob-cap);stroke:rgba(255,255,255,.1);stroke-width:.5}
+.mm-open .v4-knob-shine{fill:url(#mm-knob-shine);pointer-events:none}
+.mm-open .v4-knob-mark{stroke:${W_INK};stroke-width:2.6;stroke-linecap:round}
+.mm-open .v4-knob:hover .v4-knob-seg-on{stroke:#fff}
+.mm-open .v4-knob:active .v4-knob-mark{stroke:${W_RED}}
 .mm-open-knobs .v4-knob-unit{font-size:.78em;color:rgba(244,241,234,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .mm-open-note{font-size:1.05em;color:rgba(244,241,234,.7);margin:.25em 0 .5em}
 .mm-open-big{font-size:1.6em;letter-spacing:.06em;margin:.1em 0 .2em}
@@ -845,6 +857,8 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const open = hood === 'open';
   const [tab, setTab] = useState<Tab>('sample');
   const [box, setBox] = useState<Box | null>(null);
+  // Le bas du capot ouvert (son bord avant reste en haut de la fenetre) : la bande qui le referme
+  const [lid, setLid] = useState<number | null>(null);
   const changes = useRev();
   const t = activeTrack.get() ?? 'BD';
 
@@ -852,9 +866,13 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useEffect(() => {
     if (!open || !stage) {
       setBox(null);
+      setLid(null);
       return undefined;
     }
-    const place = (): void => setBox(stage.pcbScreenRect());
+    const place = (): void => {
+      setBox(stage.pcbScreenRect());
+      setLid(stage.lidEdgeY());
+    };
     place();
     const timers = [window.setTimeout(place, 120), window.setTimeout(place, 500)];
     const onResize = (): void => {
@@ -885,13 +903,39 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   }, [open]);
 
   if (!open || !box || box.width < 50) return null;
-  // Une marge dans la zone degagee de la carte ; tout le panneau en em : 1 em = sa largeur / 88 (10 px a la taille de depart)
-  const pad = box.width * 0.012;
+  // Une marge dans la zone degagee de la carte ; tout le panneau en em : 1 em = sa largeur / 98 (10 px a la taille de depart)
+  const pad = box.width * 0.006;
   const width = box.width - 2 * pad;
   const height = box.height - 2 * pad;
+  const em = width / 98;
   return (
-    <div className="mm-open-mod" style={{ left: box.left + pad, top: box.top + pad, width, height, fontSize: width / 88 }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+    <>
+      {lid !== null && lid > 6 && (
+        <button type="button" className="mm-lid" style={{ height: lid, fontSize: em }} onClick={() => openToggle(stage)} onPointerDown={(e) => e.stopPropagation()} title="The lid: click to close it (Esc)" aria-label="Close the lid: back to the front panel">
+          <span>▼ CLOSE THE LID</span>
+        </button>
+      )}
+    <div className="mm-open-mod" style={{ left: box.left + pad, top: box.top + pad, width, height, fontSize: em }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       <style>{CSS}</style>
+      {/* Les matieres des potards en relief (ui/KnobPanel.tsx relief) : la jupe, le capuchon bombe, son reflet */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <radialGradient id="mm-knob-skirt" cx="50%" cy="42%" r="62%">
+            <stop offset="0%" stopColor="#2c2d31" />
+            <stop offset="78%" stopColor="#141518" />
+            <stop offset="100%" stopColor="#050506" />
+          </radialGradient>
+          <radialGradient id="mm-knob-cap" cx="40%" cy="30%" r="80%">
+            <stop offset="0%" stopColor="#3b3c41" />
+            <stop offset="45%" stopColor="#1c1d20" />
+            <stop offset="100%" stopColor="#0a0a0c" />
+          </radialGradient>
+          <linearGradient id="mm-knob-shine" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,.22)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </linearGradient>
+        </defs>
+      </svg>
       {(
         [
           { left: '.22em', top: '.22em' },
@@ -919,7 +963,7 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           </div>
           <DragMidi />
           <button type="button" className="mm-open-close" onClick={() => openToggle(stage)} title="Close (Esc): the lid comes back, the front panel">
-            CLOSE ✕
+            ✕ CLOSE <kbd>ESC</kbd>
           </button>
         </div>
         {tab === 'sample' && (
@@ -938,5 +982,6 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };

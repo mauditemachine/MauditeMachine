@@ -112,6 +112,9 @@ public:
     std::atomic<int> fbStep{-1};
     std::atomic<int> fbSeq{0};
     std::atomic<int> fbMask{0};
+    // Les pas depuis le debut du pattern, sans repartir avec lui (2026-11-11, LIVE REC : une piste a sa longueur, TLEN, joue
+    // le pas fbRel modulo TLEN ; la face ecrit ses verrous sur ce pas-la)
+    std::atomic<int> fbRel{-1};
     std::atomic<int> fbPat{-1};     // le pattern joue
     std::atomic<int> fbPatSeq{0};   // +1 a chaque changement de pattern fait par le moteur
     // Les VU-metres (2026-11-10) : la crete de chaque piste depuis la derniere lecture (le thread du message la remet a 0)
@@ -321,8 +324,9 @@ float rtrgGain(float vel, int vfad, double frac);
 
 // Le sequenceur (pur, pour les tests) : appelle hit(g, offset) pour chaque pas qui tombe dans le bloc.
 // Les pas impairs (g % 16) partent en retard de swing x un pas (audio/clock.ts).
+// forEachStepRel : hit(g, offset, rel), rel le nombre de pas depuis start (le debut du pattern).
 template <typename Fn>
-void forEachStep(const Program& p, int (*stepOf)(const Program&, long), double ppq0, double pps, int n, Fn&& hit, long start = 0) {
+void forEachStepRel(const Program& p, int (*stepOf)(const Program&, long), double ppq0, double pps, int n, Fn&& hit, long start = 0) {
     if (n <= 0 || pps <= 0) return;
     const double ppq1 = ppq0 + n * pps;
     const long G0 = static_cast<long>(std::floor(ppq0 * 4)) - 1;
@@ -333,8 +337,12 @@ void forEachStep(const Program& p, int (*stepOf)(const Program&, long), double p
         const double pos = G * 0.25 + (((g % 16) & 1) ? p.swing * 0.25 : 0.0);
         if (pos < ppq0 || pos >= ppq1) continue;
         const int off = std::min(n - 1, std::max(0, static_cast<int>((pos - ppq0) / pps)));
-        hit(g, off);
+        hit(g, off, G - start);
     }
+}
+template <typename Fn>
+void forEachStep(const Program& p, int (*stepOf)(const Program&, long), double ppq0, double pps, int n, Fn&& hit, long start = 0) {
+    forEachStepRel(p, stepOf, ppq0, pps, n, [&hit](int g, int off, long) { hit(g, off); }, start);
 }
 
 // Le pas du motif pour le seizieme G depuis le debut du morceau (len pas, ou la page bouclee).

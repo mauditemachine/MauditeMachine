@@ -17,6 +17,7 @@ import { lcdMessage } from '../../../state/lcdMessage';
 import { sceneCtl } from '../../../state/sceneCtl';
 import type { PageSlot, SlotTarget } from '../../../rytm/pages';
 import { registerDialSpec, registerScreenMenu, type ScreenMenu } from './registry';
+import { IN_PLUGIN } from '../../../pluginMode';
 import { acting } from './frame';
 import { menuChanged, screenTrack } from './open';
 
@@ -41,6 +42,23 @@ const PAGE_SLOTS: readonly (readonly PageSlot[])[] = [
     { label: 'XFADE', target: 'z:xf', scope: 'all', draw: 'barc' },
   ],
 ];
+
+/**
+ * PERFORM dans le plugin (2026-11-11, Mika : "a quoi sert le bouton PERFORM ? mets par defaut PERFORM, pour pouvoir faire des
+ * choses en live") : une seule page, ce qu'on tourne en jouant : les six effets de toute la machine (ceux de la page FX
+ * globale), MASTER et le crossfader. Une scene armee (SCENE A ou B, ou LEFT / RIGHT ici) les garde : le crossfader les mene.
+ */
+const PERFORM_SLOTS: readonly PageSlot[] = [
+  { label: 'DIST', target: 'dist', scope: 'all', draw: 'bar' },
+  { label: 'BIT', target: 'bits', scope: 'all', draw: 'bar' },
+  { label: 'CHORUS', target: 'chorus', scope: 'all', draw: 'bar', noBd: true },
+  { label: 'DELAY', target: 'delay', scope: 'all', draw: 'bar', noBd: true },
+  { label: 'REVERB', target: 'reverb', scope: 'all', draw: 'bar', noBd: true },
+  { label: 'COMP', target: 'comp', scope: 'all', draw: 'bar' },
+  { label: 'MASTER', target: 'level', scope: 'all', draw: 'level' },
+  { label: 'XFADE', target: 'z:xf', scope: 'all', draw: 'barc' },
+];
+const LIVE_PERFORM = (id: string): boolean => IN_PLUGIN && id === 'perform';
 
 /** Une scene armee ou desarmee par une tape (le potard presse, YES) : comme SCENE A ou B tapee aujourd'hui. */
 function tapScene(w: SceneId): void {
@@ -112,15 +130,16 @@ function menu(id: 'mixer' | 'scenes' | 'perform'): ScreenMenu {
   return {
     id,
     owner: 'B5',
-    title: () => (id === 'perform' ? 'PERFORM · SCENES A / B' : `MIXER  ${MIXER_PAGES[page]}`),
-    slots: () => PAGE_SLOTS[page],
-    pages: () => ({ n: MIXER_PAGES.length, cur: page }),
+    title: () => (LIVE_PERFORM(id) ? 'PERFORM · LIVE FX' : id === 'perform' ? 'PERFORM · SCENES A / B' : `MIXER  ${MIXER_PAGES[page]}`),
+    slots: () => (LIVE_PERFORM(id) ? PERFORM_SLOTS : PAGE_SLOTS[page]),
+    pages: () => (LIVE_PERFORM(id) ? { n: 1, cur: 0 } : { n: MIXER_PAGES.length, cur: page }),
     paint: () => 0,
     onOpen() {
       if (id === 'scenes' || id === 'perform') page = 2;
       else if (page === 2) page = 0;
     },
     knobPress(k) {
+      if (LIVE_PERFORM(id)) return false;
       if (page !== 2 || (k !== 0 && k !== 1)) return false;
       tapScene(k === 0 ? 'a' : 'b');
       return true;
@@ -128,6 +147,13 @@ function menu(id: 'mixer' | 'scenes' | 'perform'): ScreenMenu {
     info: () => `${page + 1}/${MIXER_PAGES.length} ${MIXER_PAGES[page]}|A ${armed('a') ? 'ARMED' : 'off'} ${keysOf('a')}|B ${armed('b') ? 'ARMED' : 'off'} ${keysOf('b')}|X ${sceneCtl.x().toFixed(2)}`,
     onInput(i) {
       if (!acting(i)) return true;
+      // PERFORM du plugin : une page ; LEVEL/DATA le crossfader, LEFT / RIGHT arment SCENE A / B
+      if (LIVE_PERFORM(id)) {
+        if (i.kind === 'data') xfadeSet(Math.max(0, Math.min(1, sceneCtl.x() + ((i.delta ?? 0) * (i.func ? 8 : 1)) / 127)), 'ui');
+        else if (i.kind === 'left' || i.kind === 'right') tapScene(i.kind === 'left' ? 'a' : 'b');
+        else return i.kind !== 'no';
+        return true;
+      }
       if (i.kind === 'up' || i.kind === 'down') mixerPage(i.kind === 'up' ? -1 : 1);
       else if (i.kind === 'data') data(i.delta ?? 0, i.func);
       else if (page === 2 && (i.kind === 'left' || i.kind === 'right')) tapScene(i.kind === 'left' ? 'a' : 'b');

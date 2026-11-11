@@ -92,6 +92,8 @@ import { stepsOut } from '../audio/pattern';
 import { patterns } from './patterns';
 import { analytics, track } from './analytics';
 import { cleanUser, migrateNames, presetLabel, userOk } from './presetName';
+import { IN_PLUGIN } from '../pluginMode';
+import { pluginRytmFactory } from './pluginFactory';
 import { bpmForSig, bpmToKeep } from './presetBpm';
 import { tempoSync } from './tempoSync';
 
@@ -299,13 +301,44 @@ function refresh(): void {
   if (st && corrupt === null) all = merged(st);
 }
 
+/**
+ * Le plugin (2026-11-11) : l'empreinte du son juste apres le chargement d'un preset d'usine. Ses donnees ne sont pas la
+ * forme que capture() rend (elles ne portent que les 16 pistes, pas le kit d'avant) : compare a elles, un preset tout juste
+ * charge se disait retouche (EDITED *). Garde avec le projet (une cle mm.v4.), en condense.
+ */
+const AS_LOADED_KEY = 'mm.v4.presets.asloaded.1';
+const digest = (t: string): string => {
+  let h = 5381;
+  for (let i = 0; i < t.length; i += 1) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return `${t.length}:${h >>> 0}`;
+};
+let asLoaded: { id: string; h: string } | null = (() => {
+  if (!IN_PLUGIN || typeof window === 'undefined') return null;
+  try {
+    const o = JSON.parse(window.localStorage.getItem(AS_LOADED_KEY) ?? 'null') as { id?: unknown; h?: unknown } | null;
+    return o && typeof o.id === 'string' && typeof o.h === 'string' ? { id: o.id, h: o.h } : null;
+  } catch {
+    return null;
+  }
+})();
+function setAsLoaded(v: { id: string; h: string } | null): void {
+  asLoaded = v;
+  try {
+    if (v) window.localStorage.setItem(AS_LOADED_KEY, JSON.stringify(v));
+    else window.localStorage.removeItem(AS_LOADED_KEY);
+  } catch {
+    // le stockage refuse : la marque ne tient que cette session
+  }
+}
+
 /** Les presets d'usine, faits a la premiere demande. */
 let factory: All | null = null;
 function factoryOf(m: PresetMachine): readonly Preset[] {
   if (!factory) {
     const mk = (prefix: string, list: { name: string; data: Preset['data'] }[]): Preset[] => list.map((x, i) => ({ id: `factory-${prefix}-${i}`, name: x.name, at: 0, data: x.data, factory: true }));
     factory = {
-      mm808: mk('rytm', rytmFactory() as { name: string; data: Preset['data'] }[]),
+      // Le plugin (2026-11-11) : ses presets d'usine a lui, sur la banque de samples (state/pluginFactory.ts)
+      mm808: mk('rytm', (IN_PLUGIN ? pluginRytmFactory() : rytmFactory()) as { name: string; data: Preset['data'] }[]),
       voy: mk('arp', arpFactory(SEQ_MAX) as { name: string; data: Preset['data'] }[]),
       bass: mk('bass', bassFactory()),
     };
@@ -1027,6 +1060,7 @@ export const presets = {
     settle(m);
     setCur(m, p.id);
     keepDrafts();
+    if (IN_PLUGIN && m === 'mm808') setAsLoaded(p.factory ? { id: p.id, h: digest(sig(m, capture(m), skipOf(m, true))) } : null);
     // 2026-10-21 (audit SEO IMP4) : quel preset sert ; le nom des presets d'usine seulement (ceux de Mika ont un nom au hasard)
     track('preset_load', { machine: m === 'mm808' ? 'rytm' : m === 'voy' ? 'arp' : 'bass', factory: !!p.factory, preset: p.factory ? p.name : 'user' });
     // Une ligne illisible ne s'est pas chargee : la ligne d'avant joue, ce n'est pas ce preset
@@ -1112,7 +1146,10 @@ export const presets = {
     if (!p) return null;
     const skip = skipOf(m, true);
     const now = sig(m, capture(m), skip);
-    const edited = now !== sig(m, p.data, skip);
+    // Le plugin : un preset d'usine se compare au son juste apres son chargement (asLoaded) ; une chaine en lecture ne
+    // compte pas (ses pas changent a chaque mesure)
+    const own = IN_PLUGIN && m === 'mm808' && !!p.factory && asLoaded?.id === p.id;
+    const edited = own ? !chaining(m) && digest(now) !== asLoaded?.h : now !== sig(m, p.data, skip);
     // UNDO d'un LOAD rend lui-meme le preset charge d'avant (recall, 2026-10-27, revue SEAM-1) : plus rien a deviner par
     // egalite avec un son mis de cote (le tempo suivi qui bougeait laissait le nom du preset defait, OVERWRITE l'ecrasait)
     return { id: p.id, label: labelOf(p), factory: !!p.factory, edited };

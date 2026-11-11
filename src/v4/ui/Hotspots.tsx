@@ -290,6 +290,7 @@ import {
   type Inst,
   type SectionId,
 } from '../theme';
+import { IN_PLUGIN } from '../pluginMode';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
 /** Un abonnement qui n'ecoute rien (les stores de la face DT2, sans le drapeau). */
@@ -2824,7 +2825,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       className="v4-twin"
       data-twin="edit"
       data-hotspot="pad-edit"
-      aria-label={PORTRAIT ? 'Edit the pattern and its velocities, key E' : DT2_FACE ? 'Pattern (PTN): the trig keys pick a pattern, left and right the bank; FUNC + PTN: banks on trig 9 to 16; key E (Shift + E: the edit grid)' : TWIN_ARIA.ptn}
+      aria-label={PORTRAIT ? 'Edit the pattern and its velocities, key E' : IN_PLUGIN ? 'Pattern (PTN): the trig keys pick one of the 16 patterns; key E' : DT2_FACE ? 'Pattern (PTN): the trig keys pick a pattern, left and right the bank; FUNC + PTN: banks on trig 9 to 16; key E (Shift + E: the edit grid)' : TWIN_ARIA.ptn}
       aria-pressed={edOpen === 'mm808'}
       title={FACE_TITLE['pad-edit']}
       onKeyDown={noRepeat}

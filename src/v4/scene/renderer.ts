@@ -3590,6 +3590,23 @@ export class Stage {
    * Le plugin (2026-11-11) : le rectangle, sur la page (px CSS), de la zone de l'ecran de la carte (PLUGIN_PCB_SCREEN), capot
    * ouvert ; la vue de dessus en fait un rectangle. plugin/OpenPanel.tsx s'y pose. null : pas de carte.
    */
+  /**
+   * Le plugin (2026-11-11) : le bas du capot ouvert sur la page (px CSS), son bord avant qui reste en haut de la fenetre
+   * (EXPLODE.slideZ) : plugin/OpenPanel.tsx y pose la bande qui le referme. null : pas de machine.
+   */
+  lidEdgeY(): number | null {
+    const g = this.machine?.plateau;
+    if (!g) return null;
+    g.updateMatrixWorld();
+    const r = this.canvas.getBoundingClientRect();
+    let y = -Infinity;
+    for (const x of [-PANEL.shapeW / 2, 0, PANEL.shapeW / 2]) {
+      const v = new Vector3(x, 0, PANEL.shapeD / 2).applyMatrix4(g.matrixWorld).project(this.camera);
+      y = Math.max(y, r.top + ((1 - v.y) / 2) * r.height);
+    }
+    return Number.isFinite(y) ? y : null;
+  }
+
   pcbScreenRect(): { left: number; top: number; width: number; height: number } | null {
     const g = this.machine?.pcb;
     if (!g) return null;

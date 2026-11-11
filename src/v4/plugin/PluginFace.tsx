@@ -23,7 +23,7 @@ import { lcd } from '../state/lcd';
 import { applyAppearance } from '../theme';
 import { HitLayer, Twins } from '../ui/Hotspots';
 import { Lcd } from '../ui/Lcd';
-import { PresetNameDialog } from '../ui/PresetNameDialog';
+import { NameDialog } from './NameDialog';
 import { bridge } from './bridge';
 import { OpenPanel } from './OpenPanel';
 import { ScreenMouse } from './ScreenMouse';
@@ -151,7 +151,7 @@ const PluginFace: React.FC = () => {
       <Boundary onError={onError}>
         <ScreenMouse stage={stage} />
         <Lcd />
-        <PresetNameDialog mobile={false} />
+        <NameDialog stage={stage} />
         <OpenPanel stage={stage} />
       </Boundary>
       {error && (

@@ -88,7 +88,7 @@ type Arrow = 'left' | 'up' | 'down' | 'right';
 const ARROWS: readonly { d: Arrow; title: string; path: string }[] = [
   {
     d: 'left',
-    title: 'Left (keyboard Left): previous sub-page; in PTN, the bank',
+    title: 'Left (keyboard Left): previous sub-page',
     path: 'M14 5 L8 12 L14 19',
   },
   {
@@ -103,7 +103,7 @@ const ARROWS: readonly { d: Arrow; title: string; path: string }[] = [
   },
   {
     d: 'right',
-    title: 'Right (keyboard Right): next sub-page; in PTN, the bank',
+    title: 'Right (keyboard Right): next sub-page',
     path: 'M10 5 L16 12 L10 19',
   },
 ];

@@ -39,7 +39,7 @@ import { BASS_SCALES, BASS_STYLES, SCALE_TONES, stepOf } from '../bass/params';
 import { cleanSteps } from '../bass/state';
 import { focus } from './focus';
 import { PRESET_MAX, presets, type Draft, type Preset, type PresetMachine, type StoreFail } from './presets';
-import { draftLine, draftResult, moveCursor, nameOk, nextName, suggestName, turnChar, typeChars, userOk, NAME_MAX, NAME_TAKEN, USER_LEN, type NameDraft } from './presetName';
+import { draftLine, draftResult, moveCursor, nameOk, nextName, suggestName, turnChar, typeChars, userOk, NAMES_PLUGIN, NAME_MAX, NAME_RULE, NAME_TAKEN, USER_DEFAULT, USER_LEN, type NameDraft } from './presetName';
 
 /**
  * Le style d'un preset d'usine du MM-BASS (2026-10-09 : 35 presets ranges par style, Mika : "une bonne grosse
@@ -283,8 +283,9 @@ const takenNames = (m: PresetMachine): Set<string> => new Set(presets.of(m).map(
 
 /** Le nom commence : un nouveau preset (base : le nom propose) ou celui qu'on renomme (was : son nom d'avant la migration). */
 function startNaming(m: PresetMachine, kind: 'new' | 'rename', id: string | null, base: string, user: string | null, was = ''): void {
-  const known = presets.user();
-  const u = typeChars(user ?? known ?? '', USER_LEN);
+  // Le plugin : pas d'utilisateur (le nom seul) ; il est fixe, jamais demande
+  const known = NAMES_PLUGIN ? USER_DEFAULT : presets.user();
+  const u = NAMES_PLUGIN ? USER_DEFAULT : typeChars(user ?? known ?? '', USER_LEN);
   const name = typeChars(base, NAME_MAX);
   const askUser = !known;
   // Le curseur du potard B : sur l'utilisateur s'il manque, sinon au bout du nom
@@ -596,7 +597,9 @@ export const presetMode = {
       return true;
     }
     if (state.stage === 'name' && state.naming && (k === 0 || k === 1)) {
-      const draft = k === 0 ? turnChar(state.naming.draft, d) : moveCursor(state.naming.draft, d);
+      let draft = k === 0 ? turnChar(state.naming.draft, d) : moveCursor(state.naming.draft, d);
+      // Le plugin : le curseur ne va jamais sur l'utilisateur (il n'y en a pas)
+      if (NAMES_PLUGIN && draft.cursor < USER_LEN) draft = { ...draft, cursor: USER_LEN };
       commit({ ...state, naming: { ...state.naming, draft, problem: '' } });
       return true;
     }
@@ -619,7 +622,7 @@ export const presetMode = {
     const nm = state.naming;
     const r = draftResult(nm.draft);
     if (r.problem || !nameOk(r.name)) {
-      commit({ ...state, naming: { ...nm, problem: r.problem || 'NAME: 1 TO 10 CHARACTERS' } });
+      commit({ ...state, naming: { ...nm, problem: r.problem || NAME_RULE } });
       return;
     }
     // Jamais deux presets au meme USER/NAME sur une machine (2026-10-27, la revue : deux MIKA/TWO, sans un mot) ; un preset
@@ -704,9 +707,10 @@ export const presetMode = {
         count: '',
         group: '',
         // Les cases vides de l'utilisateur soulignees (____/DEEP KICK), comme l'ecran du MM-RYTM les dessine
-        name: `${ln.text.slice(0, USER_LEN).replace(/ /g, '_')}${ln.text.slice(USER_LEN)}`.trimEnd(),
+        name: NAMES_PLUGIN ? ln.text.slice(USER_LEN + 1).trimEnd() : `${ln.text.slice(0, USER_LEN).replace(/ /g, '_')}${ln.text.slice(USER_LEN)}`.trimEnd(),
         empty: false,
-        naming: { text: ln.text, at: ln.at, problem: nm.problem, kind: nm.kind },
+        // Le plugin : le nom seul (sans USER/), le curseur a sa place dans le nom
+        naming: NAMES_PLUGIN ? { text: ln.text.slice(USER_LEN + 1) || ' ', at: Math.max(0, ln.at - USER_LEN - 1), problem: nm.problem, kind: nm.kind } : { text: ln.text, at: ln.at, problem: nm.problem, kind: nm.kind },
       };
     }
     const label = rowLabel(r);
