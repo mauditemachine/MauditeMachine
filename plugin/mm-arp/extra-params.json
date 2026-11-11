@@ -340,6 +340,425 @@
       "section": "space",
       "def": 0,
       "help": "une octave au-dessus reinjectee dans la reverb ; 0 : absent"
+    },
+    {
+      "id": "xM1Src",
+      "label": "SOURCE 1",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM1Dst",
+      "label": "DEST 1",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM1Amt",
+      "label": "AMOUNT 1",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM2Src",
+      "label": "SOURCE 2",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM2Dst",
+      "label": "DEST 2",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM2Amt",
+      "label": "AMOUNT 2",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM3Src",
+      "label": "SOURCE 3",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM3Dst",
+      "label": "DEST 3",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM3Amt",
+      "label": "AMOUNT 3",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM4Src",
+      "label": "SOURCE 4",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM4Dst",
+      "label": "DEST 4",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM4Amt",
+      "label": "AMOUNT 4",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM5Src",
+      "label": "SOURCE 5",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM5Dst",
+      "label": "DEST 5",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM5Amt",
+      "label": "AMOUNT 5",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM6Src",
+      "label": "SOURCE 6",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM6Dst",
+      "label": "DEST 6",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM6Amt",
+      "label": "AMOUNT 6",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xVoiceMode",
+      "label": "VOICE MODE",
+      "section": "voice",
+      "def": 0,
+      "steps": [
+        "POLY",
+        "MONO",
+        "LEGATO"
+      ],
+      "help": "POLY : le site ; MONO : une voix, chaque note redeclenche ; LEGATO : une voix, les notes liees glissent sans redeclencher"
+    },
+    {
+      "id": "xPbRange",
+      "label": "BEND RANGE",
+      "section": "voice",
+      "def": 0.16666666666666666,
+      "steps": [
+        "1",
+        "2",
+        "3",
+        "5",
+        "7",
+        "12",
+        "24"
+      ],
+      "help": "demi-tons du pitch bend"
+    },
+    {
+      "id": "xFeedback",
+      "label": "FEEDBACK",
+      "section": "amp",
+      "def": 0,
+      "help": "la sortie de la voix reinjectee dans son filtre ; 0 : absent"
+    },
+    {
+      "id": "xAmpMode",
+      "label": "AMP MODE",
+      "section": "amp",
+      "def": 0,
+      "steps": [
+        "CLEAN",
+        "TRIODE",
+        "PENTODE",
+        "SATURATED"
+      ],
+      "help": "l'etage de sortie : CLEAN = le site"
+    },
+    {
+      "id": "xEqLow",
+      "label": "LOW",
+      "section": "eq",
+      "def": 0.5,
+      "help": "plateau 100 Hz, -12 a +12 dB"
+    },
+    {
+      "id": "xEqMid",
+      "label": "MID",
+      "section": "eq",
+      "def": 0.5,
+      "help": "cloche 900 Hz, -12 a +12 dB"
+    },
+    {
+      "id": "xEqHigh",
+      "label": "HIGH",
+      "section": "eq",
+      "def": 0.5,
+      "help": "plateau 5 kHz, -12 a +12 dB"
+    },
+    {
+      "id": "xEqAir",
+      "label": "AIR BAND",
+      "section": "eq",
+      "def": 0.5,
+      "help": "plateau tres haut 20 kHz large, 0 a +10 dB au-dessus de 0.5"
+    },
+    {
+      "id": "xDist",
+      "label": "DISTORTION",
+      "section": "dist",
+      "def": 0,
+      "help": "pedale de distorsion, surechantillonnee ; 0 : contournee"
+    },
+    {
+      "id": "xDistTone",
+      "label": "TONE",
+      "section": "dist",
+      "def": 0.5
     }
   ]
 }
