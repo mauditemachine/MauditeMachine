@@ -152,7 +152,7 @@ export function recKey(stage: Stage | null = null, mouse = false): void {
 }
 
 /** Le double clic de REC dans le plugin (ms). */
-const REC_DOUBLE_MS = 600;
+const REC_DOUBLE_MS = 750;
 
 /** ● seule (V.5.3, sans FUNC) : REC, ● deux fois a la souris LIVE REC, ● en LIVE REC le GRID REC. */
 export function recBody(stage: Stage | null, mouse: boolean): void {
@@ -183,7 +183,9 @@ export function recBody(stage: Stage | null, mouse: boolean): void {
   // REC eteint : plus rien ne s'ecrit, le P-LOCK en cours s'en va aussi (la revue de D1, G10)
   if (!on) rytmLock.leave();
   // La face DT2 (la relecture de la V.6.0) : les 16 TRIG jouent les 16 pistes
-  lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : DT2_FACE ? 'REC OFF: TRIG 1-16 PLAY THE TRACKS' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
+  // Le plugin : le message dit le double clic (l'en-tete de l'ecran montre 26 lettres)
+  if (IN_PLUGIN) lcdMessage.show(on ? '● REC · 2 CLICKS: LIVE REC' : 'REC OFF', 1600);
+  else lcdMessage.show(on ? '● REC: TAP STEPS TO WRITE, HOLD: P-LOCK' : DT2_FACE ? 'REC OFF: TRIG 1-16 PLAY THE TRACKS' : 'REC OFF: STEPS 1-8 PLAY THE VOICES', 1600);
 }
 
 /* ---------- PLAY, STOP ---------- */

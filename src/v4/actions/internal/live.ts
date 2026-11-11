@@ -108,7 +108,9 @@ export function liveEnter(): void {
   window.clearInterval(liveTimer);
   liveTimer = window.setInterval(livePoll, 15);
   // La face DT2 (la relecture de la V.6.0) : les 16 TRIG jouent et s'ecrivent
-  lcdMessage.show(clock.running ? (DT2_FACE ? 'LIVE REC: PLAY TRIG 1-16, TURN A KNOB' : 'LIVE REC: PLAY STEPS 1-8, TURN A KNOB') : 'LIVE REC ARMED · PLAY: GO', 2000);
+  // Le plugin : l'en-tete de l'ecran montre 26 lettres, des messages courts
+  if (extHead.active()) lcdMessage.show(clock.running ? '● LIVE REC: TURN A KNOB' : 'LIVE REC ARMED: PRESS PLAY', 2400);
+  else lcdMessage.show(clock.running ? (DT2_FACE ? 'LIVE REC: PLAY TRIG 1-16, TURN A KNOB' : 'LIVE REC: PLAY STEPS 1-8, TURN A KNOB') : 'LIVE REC ARMED · PLAY: GO', 2000);
 }
 
 /** Sortir de LIVE REC ; rec : le grid rec reste allume (● en LIVE REC), sinon tout l'enregistrement s'eteint. */
@@ -181,6 +183,8 @@ function liveLockAt(k: LiveKnob, e: StepEvent): void {
   const x = Math.max(lo, Math.min(hi, val));
   const p = liveRow(e.slot);
   const trig = velocity(p.steps, k.inst, s) === 0 && !isLockTrig(p.locks, k.inst, s);
+  // Le plugin : l'ecran dit ce qui s'ecrit et sur quel pas (Mika : "ca ne fait rien" : rien ne le montrait)
+  if (extHead.active()) lcdMessage.show(`● REC ${k.slot.lockName ?? k.slot.label} > STEP ${String(s + 1).padStart(2, '0')}`, 900);
   if (liveCur(e.slot)) {
     if (trig) pattern.setLock(k.inst, [s], 'ltrg', 1);
     pattern.setLock(k.inst, [s], id, x);
@@ -199,8 +203,13 @@ export function liveKnobTurn(slot: PageSlot, v: number, screen: RytmScreenId): v
   // La piste du P-LOCK (la face DT2 : la piste active, T9 a T16 comprises ; sinon la voix du motif)
   const inst = lockTrack();
   if (!inst || !liveLockable(slot, inst)) {
-    // Le plugin : un reglage de toute la machine (PERFORM, la page FX globale) ne s'ecrit pas sur des pas, l'ecran le dit
-    if (extHead.active() && slot.scope === 'all' && slot.label) lcdMessage.show(`${slot.label} IS GLOBAL: NOT RECORDED (TRACK KNOBS ARE)`, 1600);
+    // Le plugin : jamais un geste qui ne fait rien en silence. Un reglage de toute la machine (PERFORM, la page FX globale)
+    // ne s'ecrit pas sur des pas ; sans piste choisie, ou un bloc sans verrou (le sample, la machine) : l'ecran le dit
+    if (extHead.active() && slot.label) {
+      if (!inst) lcdMessage.show('LIVE REC: PICK A TRACK', 1600);
+      else if (slot.scope === 'all') lcdMessage.show(`${slot.label}: GLOBAL, NO REC`, 1600);
+      else lcdMessage.show(`${slot.label}: NOT RECORDED`, 1400);
+    }
     return;
   }
   st.liveKnob = { slot, v, inst, screen, face: st.liveFace, at: performance.now() };

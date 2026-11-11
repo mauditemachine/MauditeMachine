@@ -3332,9 +3332,13 @@ export class Stage {
     const p = pattern.get();
     const step = ed ? -1 : rytmLock.get().step;
     const blink = step >= 0 && Math.floor(now / Stage.LOCK_BLINK_MS) % 2 === 0;
-    const a = this.seq.setLocks(ed ? 0 : lockMask(p.locks, p.instrument), step, blink);
+    // Le plugin (2026-11-11) : la piste choisie, 9 a 16 comprises : ses verrous et ses lock trigs se voient sur les pas comme
+    // ceux des pistes 1 a 8 (une automation de LIVE REC sur BD2 ne laissait aucune trace) ; une rangee absente : vide
+    const who = PLUGIN ? activeTrack.get() : p.instrument;
+    const row = who ? (p.steps[who] ?? (PLUGIN ? '0000000000000000' : undefined)) : undefined;
+    const a = this.seq.setLocks(ed ? 0 : lockMask(p.locks, who), step, blink);
     // Les lock trigs en jaune et le point des conditions (V.5.1, au desktop ; le telephone n'en montre rien)
-    const m = DT_FACE && !ed ? trigMarks(p.instrument ? p.steps[p.instrument] : undefined, p.locks, p.trigs, p.instrument) : NO_MARKS;
+    const m = DT_FACE && !ed ? trigMarks(row, p.locks, p.trigs, who as Parameters<typeof trigMarks>[3]) : NO_MARKS;
     const b = this.seq.setTrigMarks(m.ltrg, m.cond);
     return a || b;
   }

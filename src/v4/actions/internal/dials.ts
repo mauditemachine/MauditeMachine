@@ -24,6 +24,7 @@ import { sceneTake } from '../scenes';
 import { anyDial, pageKnobLive } from '../anyDial';
 import { curScreen, type DialId, pageSlotOf } from '../kit';
 import { lockMode, rytmLockEnter } from '../locks';
+import { IN_PLUGIN } from '../../pluginMode';
 import { liveOn } from '../live';
 
 /**
@@ -111,6 +112,8 @@ export function pageDial(k: number, v: number): void {
   // LIVE REC en lecture (V.5.3) : le reglage s'enregistre en P-LOCK sur les pas que traverse la tete de lecture ; TRK tenue
   // (CONTROL ALL) gagne, rien ne s'ecrit
   else if (liveRunning() && !ctlAllOn()) liveKnobTurn(slot, v, screen);
+  // Le plugin : LIVE REC arme mais rien ne joue, ou TRK gardee (CONTROL ALL) : l'ecran dit pourquoi rien ne s'ecrit
+  else if (IN_PLUGIN && liveOn()) lcdMessage.show(ctlAllOn() ? 'TRK IS ON: NOT RECORDED' : 'LIVE REC: PRESS PLAY', 1500);
   sceneHint(`p:${k}` as DialId);
   // Rien a regler (pas de voix choisie, une voix a un seul son) : le message suffit, pas de contour
   if (!pageKnobLive(k)) return;

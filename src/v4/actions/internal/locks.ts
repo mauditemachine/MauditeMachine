@@ -13,7 +13,7 @@ import { rytmPage } from '../../state/rytmPage';
 import { rytmLock } from '../../state/rytmLock';
 import { type PageSlot } from '../../rytm/pages';
 import { DT2_FACE, LCD_NO_VOICE, POT_UI, potMin, type EncId, type Inst } from '../../theme';
-import { isLegacyTrack, type TrackKey } from '../../audio/tracks';
+import { TYPED_TRACKS, isLegacyTrack, type TrackKey } from '../../audio/tracks';
 import { activeTrack } from '../../state/trk';
 import { TAP_VEL_DEFAULT } from '../../state/rytmPage';
 import { dialSpecOf, isDialV60 } from '../../scene/screen/menus/registry';
@@ -36,8 +36,15 @@ export function lockHi(): TrackKey | null {
   const t = lockTrack();
   return t && !isLegacyTrack(t) ? t : null;
 }
-/** Un bloc qu'une piste 9 a 16 verrouille : VEL, ou un reglage de piste (t:) qui a sa cle de verrou. */
-export const hiLockable = (slot: PageSlot): boolean => slot.lock === 'vel' || (!!slot.lock && !!slot.target && isDialV60(slot.target) && slot.target.startsWith('t:'));
+/**
+ * Un bloc qu'une piste 9 a 16 verrouille : VEL, ou un reglage de piste (t:) qui a sa cle de verrou. Le plugin (2026-11-11,
+ * Mika : "l'enregistrement live ne fonctionne pas, j'ai essaye sur une track avec TONE") : ses 16 pistes sont les memes,
+ * tout bloc de piste qui a sa cle de verrou s'y verrouille (FLTR et son TONE, AMP, FX, TRIG, MOD) ; avant, sur BD2 a CY2,
+ * seule la page SRC le faisait, et LIVE REC n'y ecrivait rien sans le dire. Le moteur lit deja ces verrous pour toute piste
+ * (audio/drums.ts resolveHit).
+ */
+export const hiLockable = (slot: PageSlot): boolean =>
+  slot.lock === 'vel' || (!!slot.lock && !!slot.target && (TYPED_TRACKS ? slot.scope !== 'all' && !slot.graph : isDialV60(slot.target) && slot.target.startsWith('t:')));
 
 /** Les familles dans l'ordre de la liste (celle de la voix d'abord) : une par voix, dans l'ordre des pads (2026-10-18) ; et leur nom court. */
 export const LOCK_FAMS: readonly KitFamily[] = KIT_FAMILIES;
@@ -369,7 +376,8 @@ function lockWriteHi(k: number, slot: PageSlot, v: number, t: TrackKey): void {
       pattern.setLock(t, steps, 'mach', KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(v)))]);
     } else {
       const id: LockId = slot.lock;
-      const val = id === 'tune' ? Math.round(v * 24) / 24 : v;
+      // PAN et l'ENV du filtre collent au centre, TUNE au demi-ton, comme sur une piste 1 a 8
+      const val = id === 'pan' || id === 'fenv' ? (Math.abs(v) < 0.02 ? 0 : v) : id === 'tune' ? Math.round(v * 24) / 24 : v;
       const [lo, hi] = slotDomain(slot);
       pattern.setLock(t, steps, id, Math.max(lo, Math.min(hi, val)));
     }

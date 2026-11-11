@@ -24,8 +24,12 @@ import { rand, two } from '../shared';
 import { randomVoiceSounds } from './patterns';
 import { mixerSet } from './mixer';
 import { sceneTakeId } from '../scenes';
-import { anyDial } from '../anyDial';
+import { anyDial, anyDialReset } from '../anyDial';
 import { curScreen } from '../kit';
+import { lockOf } from '../../audio/locks';
+import { TRACK_NAMES, trackIndex } from '../../audio/tracks';
+import { pageSlots } from '../../rytm/pages';
+import { lockTrack } from './locks';
 
 /**
  * EDIT ou le mode presets du MM-RYTM tiennent-ils l'ecran ? Une touche de
@@ -191,6 +195,53 @@ export function randomPage(pg: RytmPageId): void {
   }
   if (pg === 'voice') randomVoiceSounds([inst]);
   lcdMessage.show(`${inst} ${pageLabel(pg)} RANDOM`);
+}
+
+/**
+ * Une page remise a zero (le plugin, 2026-11-11, Mika : "il faut avoir la possibilite, quand on triple clic un bouton genre
+ * FX ou MOD, qu'on clear tout a 0") : tous les reglages de piste de la page (ses sous-pages comprises) reviennent a leur
+ * depart pour la piste choisie, et leurs verrous de pas s'en vont de tout le pattern (une automation de LIVE REC, un
+ * P-LOCK), avec les lock trigs qui ne verrouillent plus rien. Le sample et la velocite des pas restent. Les reglages de
+ * toute la machine (une sous-page GLOBAL) ne bougent pas : ils valent pour les 16 pistes. Une etape d'UNDO.
+ */
+export function resetPage(pg: RytmPageId): void {
+  const t = lockTrack();
+  if (!t) {
+    lcdMessage.show(LCD_NO_VOICE);
+    return;
+  }
+  const inst = pattern.get().instrument;
+  undo.boundary('mm808', 'step');
+  const locks = new Set<string>();
+  let n = 0;
+  for (const sc of screensOf(pg, inst)) {
+    for (const slot of pageSlots(sc, inst)) {
+      const tg = slot.target;
+      if (!tg || !slot.label || slot.graph || slot.scope === 'all') continue;
+      // Le sample, la machine et la velocite des pas ne sont pas des reglages a remettre a zero
+      if (slot.lock === 'snd' || slot.lock === 'mach' || slot.lock === 'vel') continue;
+      if (tg === 'step:vel' || tg === 'smpl:sample' || tg === 'voice:sound' || tg === 'voice:mix') continue;
+      if (slot.lock) locks.add(slot.lock);
+      anyDial(tg, anyDialReset(tg));
+      n += 1;
+    }
+  }
+  const all = Array.from({ length: 16 }, (_, i) => i);
+  let cleared = 0;
+  for (const id of locks) {
+    const had = all.filter((i) => (lockOf(pattern.get().locks, t, i) as Record<string, unknown> | null)?.[id] !== undefined);
+    if (had.length === 0) continue;
+    pattern.clearLock(t, had, id as Parameters<typeof pattern.clearLock>[2]);
+    cleared += had.length;
+  }
+  // Un lock trig qui ne verrouille plus rien s'en va
+  const empty = all.filter((i) => {
+    const l = lockOf(pattern.get().locks, t, i) as Record<string, unknown> | null;
+    return !!l && l.ltrg === 1 && Object.keys(l).length === 1;
+  });
+  if (empty.length > 0) pattern.clearLock(t, empty, 'ltrg');
+  const name = TRACK_NAMES[trackIndex(t)] ?? t;
+  lcdMessage.show(n === 0 ? `${name} ${pageLabel(pg)}: NOTHING` : `${name} ${pageLabel(pg)} RESET${cleared > 0 ? ' + AUTOM.' : ''}`, 2200);
 }
 
 /**

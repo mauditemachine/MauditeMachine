@@ -80,6 +80,7 @@ import { dtPageKeyFirst } from '../internal/face';
 import { clearKey, copyKey, muteModeKey, noBody, pasteKey, playBody, recBody, reloadKey, saveKey, stopBody, yesTap } from '../face';
 import { patternTap, randomPattern } from '../patterns';
 import { rytmPageKey } from '../pages';
+import { resetPage } from '../internal/pages';
 import { anyDial, anyDialValue } from '../anyDial';
 import { levelDataTurn } from '../mixer';
 import type { RytmPageId } from '../../rytm/pages';
@@ -196,6 +197,21 @@ function arrowChords(d: 'up' | 'down' | 'left' | 'right'): Chord[] {
   return out;
 }
 
+/** Le triple clic d'une touche de page (le plugin) : le troisieme appui au plus tard TRIPLE_MS apres le premier. */
+const TRIPLE_MS = 800;
+const pagePresses: { key: string; at: number[] } = { key: '', at: [] };
+function pageTriple(key: string, t: number): boolean {
+  const now = Number.isFinite(t) && t > 0 ? t : performance.now();
+  if (pagePresses.key !== key) {
+    pagePresses.key = key;
+    pagePresses.at = [];
+  }
+  pagePresses.at = [...pagePresses.at.filter((x) => now - x <= TRIPLE_MS), now];
+  if (pagePresses.at.length < 3) return false;
+  pagePresses.at = [];
+  return true;
+}
+
 /** Les touches de page : FUNC + la touche (sa fonction orange), puis la page (le chemin de toujours, sans HOME : B5). */
 function pageChords(p: keyof typeof PAGE_OF): Chord[] {
   const pg = PAGE_OF[p];
@@ -209,12 +225,15 @@ function pageChords(p: keyof typeof PAGE_OF): Chord[] {
       mods: [],
       prio: 0,
       info,
-      run: () => {
+      run: (e) => {
         // Une touche de page ferme le menu ouvert et montre sa page (la DT2)
         if (menuOpen()) menuSet(null);
         if (lcdSamples.isOpen()) lcdSamples.close();
         if (dtFace.bank()) dtFace.setBank(false);
         rytmPageKey(pg, stageNow());
+        // Le plugin (2026-11-11, Mika : "quand on triple clic un bouton genre FX ou MOD, on clear tout a 0") : trois appuis
+        // de la meme touche de page en TRIPLE_MS remettent ses reglages a zero pour la piste choisie
+        if (IN_PLUGIN && pageTriple(p, e.t)) resetPage(pg);
       },
     }),
   ];
