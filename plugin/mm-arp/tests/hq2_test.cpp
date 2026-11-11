@@ -1436,6 +1436,14 @@ int cpu() {
       {"UNISON 7 + WIDE 0.6", {{"stack", 16}, {"xUnison", 7}, {"wide", 0.6}}},
       {"tout : RING, FOLD, COLOR, HPF, COMB, UNISON 7, WIDE", {{"xRing", 1}, {"xFold", 1}, {"xNoiseCol", 0}, {"xHpf", 500}, {"xComb", 1}, {"xCombFb", 0.8}, {"stack", 16}, {"xUnison", 7}, {"wide", 0.6}}},
   };
+  {
+    // (la machine se met en route : un tour pour rien)
+    VoyagerOptions o;
+    Voyager v(o, base);
+    for (int i = 0; i < 12; ++i) v.note(0, 42 + 3 * i, 100, 1, QNAN);
+    float L[128], R[128];
+    for (int b = 0; b < 1500; ++b) v.process(L, R, 128);
+  }
   double ref[2] = {0, 0};
   for (const auto& row : rows) {
     double us[2] = {0, 0};

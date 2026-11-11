@@ -29,6 +29,15 @@ struct MMArpProgram {
     double swing = 0;
     mmarp::SeqStateC seq;
     std::array<int, 8> prog{};
+    // Les pistes du sequenceur par pas (16 pas ; defauts : la suite telle que le site la joue)
+    std::array<uint8_t, 16> stAcc{}, stSlide{}, stGate{}, stRat{}, stProb{};
+    MMArpProgram() {
+        stAcc.fill(1);
+        stSlide.fill(0);
+        stGate.fill(1);
+        stRat.fill(1);
+        stProb.fill(100);
+    }
     int nProg = 0;
     // les potards de la face (le premier programme d'une instance neuve ou d'un projet d'avant les parametres)
     bool hasKnobs = false;
@@ -153,7 +162,8 @@ private:
     double dly16_ = 3;
     int bpmId_ = -1;
     // QUALITY et la reverb du VST3 (ExtraParams.h)
-    std::array<int, 6> xId_{};
+    std::array<int, 13> xId_{};
+    void applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const;
     int osAsked_ = 4;
     static int osFor(double sr, double quality);
     void timerCallback() override;

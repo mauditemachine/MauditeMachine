@@ -128,7 +128,7 @@
 //                 noire quand DELAY TIME est a la noire). Un changement de mode : le mouille du delay descend en
 //                 20 ms, les lignes sont videes, il remonte. TAPE (tape > 0) garde sa propre ligne : le mode n'y fait rien.
 //      shimmer    0 : absent ; sinon la sortie de la reverb, une octave au-dessus (deux tetes de lecture en fondu sur
-//                 90 ms, passe-bas avant la lecture x2), revient dans l'entree de la reverb (x0.75 v, 128 echantillons
+//                 90 ms, passe-bas avant la lecture x2), revient dans l'entree de la reverb (x0.65 v, 128 echantillons
 //                 plus tard) : chaque tour monte d'une octave, jusqu'au passe-bas.
 //    void setTransport(double ppq, double ppqPerSample, bool playing) : la position du premier echantillon du prochain
 //    process (avant chaque process ; sans appel, la position continue d'elle-meme).

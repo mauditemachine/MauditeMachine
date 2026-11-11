@@ -1363,7 +1363,7 @@ constexpr double CRUSH_IN = 20;        // la dose de CRUSH / DOWNSAMPLE entre su
 constexpr double PH_HZ = 800, PH_OCT = 2.5, PH_FB = 0.85;
 constexpr double FL_D0_S = 0.0025, FL_FB = 0.8;
 constexpr double PUMP_ATK_S = 0.002, PUMP_SLEW_S = 0.0005;
-constexpr double SH_WIN_S = 0.09, SH_GAIN = 0.75, SH_LP = 0.2, SH_HP_HZ = 250, SH_POST_HZ = 7000, SH_MAX = 8;
+constexpr double SH_WIN_S = 0.09, SH_GAIN = 0.65, SH_LP = 0.2, SH_HP_HZ = 250, SH_POST_HZ = 7000, SH_MAX = 8;
 inline double fin01(double v, double def) { return std::isfinite(v) ? clampd(v, 0, 1) : def; }
 inline bool isZero(double v) { return !(v < 0 || v > 0); }
 inline double flush(double v) { return std::fabs(v) < 1e-20 ? 0 : v; }

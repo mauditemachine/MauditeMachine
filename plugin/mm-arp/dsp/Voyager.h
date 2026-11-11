@@ -21,6 +21,7 @@
 //   v.params({{"cutoff", 1200}});       // message 'params' partiel (cles inconnues ou non finies ignorees, bornees)
 //   v.params(kv, n);                    // la meme chose sans chaine (ids : Voyager::paramIndex("cutoff")), temps reel
 //   v.note(t, midi, gate, accent, from) // gate en s (+inf : jusqu'au noteOff), accent 0/NaN -> 1, from NaN = null
+//                                       // (+ glideSec, le plugin seul : voir LES EXTENSIONS DU 2026-11-11)
 //   v.beat(t, beat, bpm, run)           // ancre du transport (LFO MOD cale) ; bpm NaN ou <= 0 -> le bpm des params
 //   v.noteOff(midi, t)                  // t NaN = maintenant
 //   v.cancel(t); v.stop(t);             // t NaN = 0 (comme "m.time || 0" du JS)
@@ -82,6 +83,48 @@
 //    destination ne change que quand sa quantite est revenue a 0, et la modulation se calcule la ou le moteur calcule
 //    deja la sienne (LFO et quantite a chaque echantillon interne ; hauteur, coupure, PAN, DRIVE, STACK a chaque
 //    echantillon du contexte).
+//
+// ----------------------------------------------------------------------------------------------------------------
+// LES EXTENSIONS DU 2026-11-11 (Mika : "le top du top", "pas assez de fonctions" ; le plugin seul). Meme regle :
+// chaque cle a son neutre rend le moteur du site AU BIT PRES, sans un tirage de hasard de plus (aucun de ces chemins
+// ne tourne) ; verifie par tests/hq2_test.cpp (empreintes du moteur d'avant, 85 cas de voyager_compare). Engagees ou
+// reglees en cours de jeu, les quantites glissent (15 ms) : aucun clic. Aucune allocation apres le constructeur.
+//
+// 4. LE GLISSEMENT PAR NOTE : v.note(t, midi, gate, accent, from, glideSec). glideSec > 0 (et from fini) : la note
+//    glisse depuis from en glideSec (la loi de GLIDE : l'ecart decroit en exp(-3 t / glideSec), 95 % du chemin en
+//    glideSec), meme si GLIDE est a 0, et a la place de GLIDE pour cette voix. 0 : le GLIDE du patch (le site).
+//    L'arpegiateur s'en sert pour SLIDE (dsp/Arp.h : ArpSink::noteGlide, kSlideSec = 0.06).
+//
+// 5. Les cles (params) :
+//      xRing      0..1 (0 : absent)    OSC 1 x OSC 2 (de chaque exemplaire de STACK / UNISON), ajoute au melange, au
+//                                      centre ; independant des niveaux OSC 1 / OSC 2 (les deux a 0 : le produit seul)
+//      xFold      0..1 (0 : absent)    repliement d'onde du melange (oscillateurs, RING, SUB, bruit) avant le filtre :
+//                                      y = s sin(a x), a = 8 fold^1.5 (a 1 : 2.5 plis pour une entree de 1), s = 1 / a
+//                                      sous a = 1 (petit FOLD : le son d'origine a peine arrondi) puis a^-0.3 (sonie
+//                                      tenue). Antirepliement : ADAA d'ordre 2 au taux interne (x4 / x8). Mesure
+//                                      (hq2_test) : scie do 5 repliee a fond -64 dBc en x4, -72 en x8 ; sinus : -130.
+//      xNoiseCol  0..1 (0.5 : neutre)  la couleur du bruit : 0 rouge (-6 dB / octave au-dessus de 100 Hz), 0.25 rose
+//                                      (-3 dB / octave), 0.5 le blanc du site, 1 bleu (+6 dB / octave) ; a sonie egale
+//      xUnison    0, 5 ou 7            5 ou 7 exemplaires desaccordes par oscillateur au lieu des 3 de STACK (toute
+//                                      autre valeur : 0 sous 3, 5 de 3 a 5, 7 au-dessus). La logique de STACK : gain
+//                                      1 / racine(n), ecart = le reglage STACK (cents ; ecarts inegaux, pas de
+//                                      battement regulier), repartition stereo par WIDE. S'engage meme si STACK est a
+//                                      0 (les exemplaires sont alors a l'unisson, phases a part : mettre STACK > 0).
+//                                      Pris a la note suivante, comme STACK. Les exemplaires neufs tirent leur phase
+//                                      du hasard du moteur (comme ceux de STACK).
+//      xHpf       0 ou 20..2000 Hz     (0 : absent ; sous 20 : 20) un passe-haut 12 dB / octave (Butterworth) par
+//                                      voix apres le filtre et le peigne, avant le VCA ; pas de suivi du clavier
+//      xComb      0..1 (0 : absent)    la dose d'un peigne accorde sur la note jouee (sa periode, GLIDE et SLIDE
+//                                      compris ; pas TUNE ni FINE), apres le filtre de la voix : une ligne a retard
+//                                      par voix et par canal au taux interne, lue en Lagrange d'ordre 3, la boucle
+//                                      amortie a 10 kHz ; sous 27.5 Hz, une octave plus haut
+//      xCombFb    -1..1 (0 : aucune)   sa reinjection (x0.97). 0 : entree + ligne (un peigne simple, bosses sur les
+//                                      harmoniques de la note) ; positive : les bosses se resserrent et resonnent
+//                                      (du bruit devient la note) ; negative (sous -0.2) : entree - ligne, les bosses
+//                                      entre les harmoniques (creux, une octave dessous). Sans xComb : rien.
+//    Le cout (12 voix, une machine lente ; hq2_test --cpu) : RING, NOISE COLOR, HIGH PASS, COMB : 0 a 2 % d'un
+//    coeur ; FOLD : +10 % en x4, +13 % en x8 ; UNISON 5 / 7 : +16 / +21 % en x4, +34 / +47 % en x8 (STACK 3 :
+//    +7 / +19 %).
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
 

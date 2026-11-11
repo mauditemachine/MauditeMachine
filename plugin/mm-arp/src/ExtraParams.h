@@ -55,6 +55,11 @@ inline void exText(int e, double v, char* out, int max) {
     else if (e == ex_xRevSize) std::snprintf(out, static_cast<size_t>(max), "%.1f s", revSeconds(v));
     else if (e == ex_xRevPre) std::snprintf(out, static_cast<size_t>(max), "%d ms", static_cast<int>(std::lround(v * 100)));
     else if (e == ex_xBass || e == ex_xAir) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", (v - 0.5) * 12);
+    else if (e == ex_xPhRate) std::snprintf(out, static_cast<size_t>(max), "%.2f Hz", 0.05 * std::pow(160.0, v));
+    else if (e == ex_xFlRate) std::snprintf(out, static_cast<size_t>(max), "%.2f Hz", 0.03 * std::pow(5.0 / 0.03, v));
+    else if (e == ex_xHpf) { if (v > 0) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(20.0 * std::pow(100.0, v)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
+    else if (e == ex_xCrushBits) { if (v > 0) std::snprintf(out, static_cast<size_t>(max), "%.1f bit", 16 - 12 * v); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
+    else if (e == ex_xNoiseColor || e == ex_xCombFb || e == ex_xFlFb) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
     else if (e == ex_xWidth) std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 200)));
     else std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 100)));
 }

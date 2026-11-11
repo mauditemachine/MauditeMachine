@@ -174,6 +174,29 @@ int main() {
             check(diff < 1e-5 && m.finite && m.peak < 1.5, "MASTER : WIDTH 0 = mono, WARMTH + BASS + AIR sans debordement");
             check(X("xRevSize")->getText(0.5f, 32) == "2.4 s" && X("xLfo2Rate")->getText(8.f / 13.f, 32) == "1/4", "le texte des reglages SOUND+");
         }
+        // Le module avant : sequenceur par pas (RATCHET x4 = plus de notes dans le clip), FX RACK, OSC / FILTER +
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            int bars = 0;
+            const int base = p.arpMidi(1, bars).getTrack(0)->getNumEvents();
+            p.faceProgram(juce::String(R"({"v":2,"kind":"arp","bpm":123,"swing":0,"seq":{"edit":false,"len":8,"buf":[0,2,4,null,7,4,2,0,0,0,0,0,0,0,0,0]},"prog":[0,5],"knobs":{},)") +
+                          R"("steps":{"acc":[2,1,1,1,2,1,1,1,2,1,1,1,2,1,1,1],"slide":[0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0],"gate":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"rat":[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],"prob":[100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100]}})");
+            const int rat = p.arpMidi(1, bars).getTrack(0)->getNumEvents();
+            check(rat > base * 3, "STEP SEQUENCER : RATCHET x4 (" + juce::String(base).toStdString() + " -> " + juce::String(rat).toStdString() + " evenements dans le clip)");
+            const char* on[] = {"xPhMix", "xFlMix", "xPumpDepth", "xCrushBits", "xCrushRate", "xShimmer", "xRing", "xFold", "xComb", "xHpf"};
+            for (const char* id : on) X(id)->setValueNotifyingHost(0.8f);
+            X("xUnison")->setValueNotifyingHost(1.f);
+            X("xDlyMode")->setValueNotifyingHost(1.f);
+            run(p, h, 9600, 512);
+            const Stats all = run(p, h, 48000 * 2, 512);
+            for (const char* id : on) X(id)->setValueNotifyingHost(0.f);
+            X("xUnison")->setValueNotifyingHost(0.f);
+            X("xDlyMode")->setValueNotifyingHost(0.f);
+            p.faceProgram(program("[0,5]"));
+            run(p, h, 48000, 512);
+            check(all.finite && all.peak > 0.001 && all.peak < 2.0, "FX RACK + OSC / FILTER + tous engages : fini, sans debordement (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+            check(X("xHpf")->getText(0.f, 32) == "OFF" && X("xPumpRate")->getText(0.5f, 32) == "1/4", "le texte des reglages du module avant");
+        }
         // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
         {
             p.learn("cutoff");

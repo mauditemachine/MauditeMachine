@@ -46,6 +46,8 @@ jobs:
         run: |
           node plugin/mm-arp/tests/extra-gen.mjs --check
           ./build-dsp/mmarp_hq_test
+      - name: Sequenceur par pas, moteur et rack du VST3 seul (neutre = le site, mesures)
+        run: ./build-dsp/mmarp_hq2_test
       - name: Chorus Juno et TAPE compares a chorus.worklet.js du site
         run: |
           node plugin/mm-arp/tests/fx-ref.mjs ref-fx worklet
