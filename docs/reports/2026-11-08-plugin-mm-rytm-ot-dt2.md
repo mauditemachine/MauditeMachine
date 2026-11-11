@@ -277,6 +277,7 @@ Mika, sur le lot 14 : « je n'aime pas le OPEN [blanc]. Je veux que ca se retrou
 - **L'ombre du crossfader** : elle n'etait refaite qu'a la fin du geste ; dans le plugin, a chaque pas (`scene/renderer.ts` syncScene).
 - Verifie dans Chromium : OPEN (le capot, l'ecran a 866 x 448 px sur la carte, rien ne deborde), la piste 9, PATTERN (l'etat du clip, un `mm_drag_midi` par geste, SAVE, les niveaux, NEW confirme : 32 coups puis 0, Cmd+Z : 32), SETTINGS sans defilement, CLOSE (la face et ses fleches reviennent), Echap ; la touche des presets (la liste ; clic droit : SAVE AS et le nom) ; TRK apres un clic de 600 ms et 3 s : allumee, « TRK: PICK A TRACK » ; l'ombre : l'image tenue = l'image relachee ; les lots 13 et 14 (LEV en scene, P-LOCK, SRC SAMPLE) ; ancien projet + transport : aucune erreur ; au repos 0 dessin. Le site : identique au pixel (V.3.0, ?face=dt2, et son capot ouvert : la carte verte). tsc a 105.
 
+- **Build vert du lot 15** (run 42944359127), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 1fa6da8, branche claude/intelligent-ride-56tyeo, 2026-11-11 02:21 UTC.
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
