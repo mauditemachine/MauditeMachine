@@ -9,6 +9,8 @@
  * DISK, MIDI LEARN, CLOSE). OPEN, CLOSE, Echap ou O le referment, comme au site.
  * SOUND+ (2026-11-10, SoundPlus.tsx) : les reglages du VST3 seul, une page du panneau du capot. La face fermee reste
  * exactement celle du site (Mika : "je veux que tout se retrouve dans OPEN", la pastille SOUND+ de la face est retiree).
+ * La fenetre se redimensionne (2026-11-11) : la scene suit seule ; le panneau du capot, les dialogues et la pastille
+ * MIDI LEARN vivent dans une couche de UI_W px de large mise a l'echelle de la fenetre (.mm-arp-ui, scale.ts).
  */
 
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
@@ -28,6 +30,7 @@ import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
 import { HoodPanel, LearnMarks } from './HoodPanel';
+import { UI_W, uiScale } from './scale';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -54,6 +57,7 @@ const ArpFace: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const running = useSyncExternalStore(arp.subscribe, () => arp.get().running);
+  const scale = useSyncExternalStore(uiScale.subscribe, uiScale.get, uiScale.get);
 
   const onError = useCallback((m: string) => {
     setError(m);
@@ -139,10 +143,13 @@ const ArpFace: React.FC = () => {
       </div>
       <Boundary onError={onError}>
         <VoyInfosCard stage={stage} />
-        <PresetNameDialog mobile={false} />
-        <DiskNameDialog />
-        <HoodPanel stage={stage} />
-        <LearnMarks />
+        {/* Les couches HTML, dessinees pour 1100 px de large et mises a l'echelle de la fenetre (scale.ts) */}
+        <div className="mm-arp-ui" style={{ position: 'fixed', left: 0, top: 0, width: UI_W, height: `${100 / scale}vh`, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
+          <PresetNameDialog mobile={false} />
+          <DiskNameDialog />
+          <HoodPanel stage={stage} />
+          <LearnMarks />
+        </div>
       </Boundary>
       {error && (
         <p className="mm-plugin-error" role="alert">

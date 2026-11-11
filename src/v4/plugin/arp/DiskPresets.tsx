@@ -121,7 +121,8 @@ export function DiskNameDialog() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="mm-arp-disk-pn-title"
-      style={{ position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', width: 420 }}
+      // Sous le panneau du capot (en haut depuis le 2026-11-11, 172 px), dans la couche a l'echelle (.mm-arp-ui)
+      style={{ position: 'absolute', top: 196, left: '50%', transform: 'translateX(-50%)', width: 420 }}
       onKeyDown={onKeyDown}
     >
       <p id="mm-arp-disk-pn-title" className="v4-pn-title">

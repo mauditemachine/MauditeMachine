@@ -1,10 +1,37 @@
-/* La face du plugin MM-ARP (2026-11-09) : le panneau du capot (HoodPanel.tsx), une bande sous la carte ouverte.
+/* La face du plugin MM-ARP (2026-11-09) : le panneau du capot (HoodPanel.tsx), une bande au-dessus de la carte ouverte
+   (2026-11-11, Mika : "je veux que ca se retrouve EN HAUT" ; sous elle avant).
    2026-11-10 (Mika : "fais ces rajouts par rapport au design de la face avant, la c'est noir et orange") : un panneau de
    la machine. Les couleurs sont celles de la face telle qu'elle s'affiche (lues sur une capture Chromium a 1100 x 704 de
    la scene : voyPanel #131315 de theme.ts sous la lumiere et la courbe de tons ACES donne #211F1D) : le gris anthracite
    du panneau, la serigraphie os (titres #D2CDC3, noms #B7B2A9), les filets de section, le noir mat des touches CLEAR /
    RANDOM / EDIT, la LED rouge de CHORUS et SUB OCT (VOY_LED #ff3b2f), l'orange des legendes de fonction (PRESET, OPEN).
    SF Pro Display, capitales espacees de 0.2 em (SILK, theme/base.ts). */
+
+/* La couche des ajouts HTML (2026-11-11, ArpFace.tsx, scale.ts) : 1100 px de large dans son repere, mise a l'echelle de
+   la fenetre (transform en ligne). Elle ne prend aucun pointeur : ses enfants, si. */
+.mm-plugin-arp .mm-arp-ui {
+  z-index: 30;
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-arp-ui > * {
+  pointer-events: auto;
+}
+
+/* La fenetre du plugin se redimensionne : jamais la mise en page du telephone du site (v4.css, max-width 767px) */
+@media (max-width: 767px) {
+  .mm-plugin-arp .v4-stage {
+    height: 100%;
+  }
+}
+
+/* La carte INFOS et sa pastille (voyager/InfosCard.tsx) : a l'echelle de la fenetre depuis leur coin, le texte net */
+.mm-plugin-arp .v4-binfo,
+.mm-plugin-arp .v4-binfo-chip {
+  transform-origin: 0 0;
+  will-change: auto;
+}
+
 .mm-plugin-arp .mm-arp-hood {
   --mm-panel: #211f1d;
   --mm-panel-hi: #272523;
@@ -20,7 +47,7 @@
   --mm-glass: #060607;
   left: 0;
   right: 0;
-  bottom: 0;
+  top: 0;
   z-index: 30;
   height: 172px;
   box-sizing: border-box;
@@ -28,10 +55,10 @@
   align-items: stretch;
   padding: 10px 12px 10px;
   background: linear-gradient(180deg, var(--mm-panel-hi) 0, var(--mm-panel) 18px, var(--mm-panel-lo) 100%);
-  border-top: 1px solid #3b3835;
+  border-bottom: 1px solid #3b3835;
   box-shadow:
-    0 -1px 0 #0a0909,
-    0 -10px 22px rgba(0, 0, 0, 0.5);
+    0 1px 0 #0a0909,
+    0 10px 22px rgba(0, 0, 0, 0.5);
   color: var(--mm-silk);
   font-family: 'SF Pro Display', system-ui, sans-serif;
   -webkit-user-select: none;
@@ -41,7 +68,7 @@
 
 @keyframes mm-arp-hood-in {
   from {
-    transform: translateY(12px);
+    transform: translateY(-12px);
     opacity: 0;
   }
 }
@@ -52,9 +79,11 @@
   }
 }
 
+/* La page : toute la place que laisse la colonne de droite, jamais plus (elle retrecit, la colonne non) */
 .mm-plugin-arp .mm-arp-page {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
   display: flex;
   align-items: stretch;
 }
@@ -519,13 +548,19 @@
   color: var(--mm-silk-4);
 }
 
-/* ---------- La colonne de droite : l'afficheur, SOUND+ / TOOLS (PAGE), LEARN, CLOSE ---------- */
+/* ---------- La colonne de droite : l'afficheur, SOUND+ / LIBRARY / TOOLS (PAGE), LEARN, CLOSE ----------
+   2026-11-11 (Mika : "je n'ai plus de bouton CLOSE") : la colonne ne retrecit jamais et ne deborde jamais. Sa largeur
+   est fixe (192 px du repere de 1100 px de la couche, scale.ts), ses cinq touches tiennent dans une grille de cinq
+   colonnes egales (aucune largeur ne depend d'un texte ou d'une police : les legendes sont centrees sur leur touche et
+   ne comptent pas dans la mise en page), CLOSE est la derniere, sous sa LED orange. */
 .mm-plugin-arp .mm-arp-rail {
-  flex: none;
+  flex: 0 0 192px;
+  box-sizing: content-box;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   width: 192px;
+  min-width: 192px;
   margin-left: 6px;
   padding-left: 11px;
   border-left: 1px solid var(--mm-rule);
@@ -577,15 +612,40 @@
   white-space: normal;
 }
 
+/* Cinq colonnes egales de 36 px : SOUND+, LIBRARY, TOOLS (le groupe PAGE, display contents : ses touches sont des
+   cellules de la grille), LEARN, CLOSE. Marges et non gap : rien qu'une vieille WebView ne sache pas faire */
 .mm-plugin-arp .mm-arp-rail-keys {
-  display: flex;
-  align-items: flex-start;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 36px);
   justify-content: space-between;
-  margin-top: 14px;
+  align-items: start;
+  width: 186px;
+  margin: 14px 3px 0;
+  padding-bottom: 13px;
+}
+
+.mm-plugin-arp .mm-arp-rail-keys .mm-arp-tabs {
+  display: contents;
 }
 
 .mm-plugin-arp .mm-arp-rail-keys .mm-arp-kb {
-  width: 34px;
+  width: 36px;
+  min-width: 0;
+  gap: 0;
+  overflow: visible;
+}
+
+.mm-plugin-arp .mm-arp-rail-keys .mm-arp-kb > * {
+  flex: none;
+}
+
+.mm-plugin-arp .mm-arp-rail-keys .mm-arp-kb .mm-arp-k {
+  margin-top: 5px;
+}
+
+.mm-plugin-arp .mm-arp-rail-keys .mm-arp-kb .mm-arp-legend {
+  margin-top: 5px;
 }
 
 .mm-plugin-arp .mm-arp-rail-keys .mm-arp-legend {
@@ -593,12 +653,24 @@
   letter-spacing: 0.1em;
 }
 
-.mm-plugin-arp .mm-arp-close {
-  padding-top: 11px;
+/* Le crochet PAGE : sous les trois premieres colonnes */
+.mm-plugin-arp .mm-arp-rail-keys .mm-arp-bracket {
+  left: 2px;
+  right: auto;
+  width: 107px;
 }
 
-.mm-plugin-arp .mm-arp-tabs {
-  gap: 2px;
+/* CLOSE : sa LED orange (la couleur des legendes de fonction), sa legende plus forte */
+.mm-plugin-arp .mm-arp-close .mm-arp-led[data-on='1'] {
+  background: radial-gradient(circle at 40% 35%, #ffe3c2 0, #ffae5c 32%, #f7923c 60%, #b8611a 100%);
+  box-shadow:
+    0 0 5px 1px rgba(247, 146, 60, 0.6),
+    0 0 12px rgba(247, 146, 60, 0.28);
+}
+
+.mm-plugin-arp .mm-arp-rail-keys .mm-arp-close .mm-arp-legend {
+  font-size: 7.5px;
+  font-weight: 700;
 }
 
 .mm-plugin-arp .mm-arp-tab[data-on='1'] .mm-arp-legend {
@@ -606,15 +678,19 @@
   font-weight: 700;
 }
 
+/* La version du build (firmware.ts ARP_BUILD) : une ligne, jamais plus large que la colonne */
 .mm-plugin-arp .mm-arp-rev {
   margin: auto 0 0;
+  max-width: 192px;
   font-size: 6px;
   font-weight: 500;
   line-height: 8px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.14em;
   text-align: right;
-  color: var(--mm-silk-4);
+  color: var(--mm-silk-3);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- SOUND+ (SoundPlus.tsx) : cinq sections de potards de la face ---------- */

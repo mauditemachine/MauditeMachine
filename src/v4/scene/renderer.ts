@@ -263,6 +263,8 @@ const PEEK = { px: 52, hoverPx: 40, ms: 180, gap: 0.6, openPx: 140 } as const;
  */
 const SINGLE_FILL = 0.8;
 const OVERVIEW_FILL = { desktop: 0.88, mobile: 0.92 } as const;
+/** Le budget de pixels du rendu du plugin MM-ARP (dprCap) : 1650 x 1056 a 2 dppx. */
+const PLUGIN_ARP_PIXELS = 1650 * 1056 * 4;
 /** Au telephone, d'un bloc du MM-DECKS a l'autre (ms). */
 const DJ_UNIT_MS = 420;
 /**
@@ -628,11 +630,11 @@ export class Stage {
    * suite du MM-ARP) : sa hauteur (px CSS), courante et visee, et celle de
    * l'en-tete au-dessus ; le cadrage de la machine tient entre les deux.
    */
-  private insets: Record<MachineId, { cur: number; goal: number; top: number }> = {
-    mm808: { cur: 0, goal: 0, top: 0 },
-    voy: { cur: 0, goal: 0, top: 0 },
-    bass: { cur: 0, goal: 0, top: 0 },
-    dj: { cur: 0, goal: 0, top: 0 },
+  private insets: Record<MachineId, { cur: number; goal: number; top: number; topGoal: number }> = {
+    mm808: { cur: 0, goal: 0, top: 0, topGoal: 0 },
+    voy: { cur: 0, goal: 0, top: 0, topGoal: 0 },
+    bass: { cur: 0, goal: 0, top: 0, topGoal: 0 },
+    dj: { cur: 0, goal: 0, top: 0, topGoal: 0 },
   };
 
   static create(opts: StageOpts): Stage | null {
@@ -681,7 +683,8 @@ export class Stage {
     const mobile = opts.mobile;
     this.layoutMql = window.matchMedia(MOBILE_QUERY);
     this.coarseMql = window.matchMedia(COARSE_QUERY);
-    this.layoutMobile = this.layoutMql.matches;
+    // Le plugin MM-ARP (2026-11-11, sa fenetre se redimensionne) : jamais la mise en page du telephone, meme tres etroite
+    this.layoutMobile = PLUGIN_ARP ? false : this.layoutMql.matches;
     // Cadrage de depart : la cible du store (la 808 seule sans le MM-VOYAGER)
     this.fTo = this.fFrom = VOYAGER ? focus.get() : 'mm808';
     this.fr = this.frameOf(this.fTo);
@@ -1709,7 +1712,8 @@ export class Stage {
       headPx += this.insets[id].top * w;
     }
     const inset = Math.min(this.height * 0.7, insetPx);
-    const head = Math.min(this.height * 0.2, headPx);
+    // Le plugin MM-ARP (2026-11-11) : le panneau du capot est en haut (plugin/arp/HoodPanel.tsx), la carte tient dessous
+    const head = Math.min(this.height * (PLUGIN_ARP ? 0.7 : 0.2), headPx);
     const free = Math.max(1, this.height - inset - head);
     const hwBase = Math.max(F.hw0, (F.h / (PLUGIN ? 1 : FIT_H) / 2) * (W / free));
     const e = this.explodeFrame();
@@ -1840,7 +1844,8 @@ export class Stage {
     const st = this.insets[id];
     const goal = Math.max(0, Math.round(px));
     const t = Math.max(0, Math.round(top));
-    if (t !== st.top) {
+    // Le plugin MM-ARP : la place du haut est celle du panneau du capot (setHead), jamais un en-tete
+    if (!PLUGIN_ARP && t !== st.top) {
       st.top = t;
       this.updateCamera();
       this.invalidate();
@@ -1856,6 +1861,32 @@ export class Stage {
       st.cur,
       goal,
       motion.reduced() ? 0 : 200,
+      easeOutCubic,
+      performance.now()
+    );
+    this.invalidate();
+  }
+
+  /**
+   * Le plugin MM-ARP (2026-11-11, Mika : "je veux que ca se retrouve EN HAUT") : la hauteur (px CSS) du panneau du capot,
+   * pose en haut de la fenetre (plugin/arp/HoodPanel.tsx) ; la carte se cadre dessous, en 200 ms comme pour un panneau
+   * du bas. snap : sans transition (la fenetre du plugin qu'on redimensionne).
+   */
+  setHead(id: MachineId, px: number, snap = false): void {
+    if (this.disposed) return;
+    const st = this.insets[id];
+    const t = Math.max(0, Math.round(px));
+    if (t === st.topGoal) return;
+    st.topGoal = t;
+    this.tweens.run(
+      `inset.top.${id}`,
+      (v) => {
+        st.top = v;
+        this.updateCamera();
+      },
+      st.top,
+      t,
+      motion.reduced() || snap ? 0 : 200,
       easeOutCubic,
       performance.now()
     );
@@ -2153,16 +2184,20 @@ export class Stage {
     this.invalidate();
   };
 
-  private dprCap(): number {
+  private dprCap(w = this.width, h = this.height): number {
     const dpr = window.devicePixelRatio || 1;
     if (this.opts.mobile) return Math.min(dpr, DPR_MAX.mobile);
-    return Math.min(Math.max(dpr, DPR_MIN_DESKTOP), DPR_MAX.desktop);
+    const cap = Math.min(Math.max(dpr, DPR_MIN_DESKTOP), DPR_MAX.desktop);
+    // Le plugin MM-ARP (2026-11-11, sa fenetre s'agrandit jusqu'a 2200 px de large) : un budget de pixels, le rendu ne
+    // depasse pas celui d'une fenetre de 1650 x 1056 a 2 dppx (jamais sous 1 dppx)
+    if (PLUGIN_ARP && w > 0 && h > 0) return Math.min(cap, Math.max(1, Math.sqrt(PLUGIN_ARP_PIXELS / (w * h))));
+    return cap;
   }
 
   /** Taille du canvas ; rendu synchrone pour ne jamais montrer un tampon vide. */
   resize(w: number, h: number): void {
     if (this.disposed || w < 1 || h < 1) return;
-    const dpr = this.dprCap();
+    const dpr = this.dprCap(w, h);
     if (w === this.width && h === this.height && dpr === this.renderer.getPixelRatio()) return;
     this.width = w;
     this.height = h;
@@ -2826,7 +2861,7 @@ export class Stage {
   };
 
   private onLayout = (): void => {
-    const m = this.layoutMql.matches;
+    const m = PLUGIN_ARP ? false : this.layoutMql.matches;
     if (m === this.layoutMobile) return;
     this.layoutMobile = m;
     // Le cadrage de section n'existe que sur desktop : coupe franche au changement

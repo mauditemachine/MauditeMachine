@@ -54,7 +54,7 @@ import {
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_TYPE, PORTRAIT, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
+import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_TYPE, PLUGIN_ARP, PORTRAIT, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedoRgb, litCss } from './materials';
 import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
@@ -83,7 +83,13 @@ const css = (hex: number, gain = 1): string => `#${tmpC.setHex(hex).multiplyScal
  * lumiere chaude mange son bleu).
  */
 const BOARD_GAIN = [1.47, 1.94, 2.57] as const;
-const TEX = {
+/**
+ * La carte noire du plugin MM-ARP (2026-11-11, Mika : "au lieu du PCB vert je veux un PCB NOIR avec quelques composants
+ * ca et la, mais plus visibles") : masque de soudure noir mat, pistes de cuivre sombre qui se devinent dessous, pastilles
+ * dorees, serigraphie blanche ; peu de composants, plus gros (NOIR_PARTS). Le site garde sa carte verte.
+ */
+const NOIR = PLUGIN_ARP;
+const TEX_GREEN = {
   board: litCss('pcb', BOARD_GAIN),
   copper: css(0xc98a55, 1),
   /** piste et plan de masse sous le vernis (2026-10-01) : un vert plus clair */
@@ -98,9 +104,22 @@ const TEX = {
   lit: litCss('yellow', 1.2),
   nav: litCss('orange', 1.2),
 } as const;
+const TEX: Record<keyof typeof TEX_GREEN, string> = NOIR
+  ? {
+      ...TEX_GREEN,
+      /** masque de soudure noir mat */
+      board: '#0b0b0c',
+      /** le cuivre sous le masque noir : un bronze sombre, discret mais lisible */
+      trace: '#4d3a22',
+      gold: css(0xe0b860, 1),
+      /** serigraphie blanche */
+      silk: 'rgba(255, 255, 255, 0.96)',
+      fiber: '#4a4844',
+    }
+  : TEX_GREEN;
 
 /** Carte ORM : occlusion (rouge), rugosite (vert), metal (bleu). */
-const ORM = {
+const ORM_GREEN = {
   /** vernis satine (2026-10-01 : rugosite 0.55 au lieu de 0.75, il accroche la lumiere) */
   board: 'rgb(255, 140, 13)',
   /** piste sous le vernis : un peu plus lisse, jamais metallique */
@@ -110,6 +129,8 @@ const ORM = {
   hole: 'rgb(150, 235, 0)',
   fiber: 'rgb(255, 217, 0)',
 } as const;
+/** La carte noire : un masque mat (rugosite 0.8), le cuivre dessous un peu plus lisse et a peine metallique */
+const ORM: Record<keyof typeof ORM_GREEN, string> = NOIR ? { ...ORM_GREEN, board: 'rgb(255, 205, 0)', trace: 'rgb(255, 150, 70)' } : ORM_GREEN;
 
 /** Carte de hauteur (gris) : vernis, piste dessous, pastille, serigraphie, trou, etiquette. */
 const HEIGHT = {
@@ -413,6 +434,7 @@ function offOf(clear: PcbClear | null): (kind: keyof typeof EXTENT | ExtraKind, 
 }
 
 function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbClear | null = null): Footprint[] {
+  if (NOIR && variant === 'voy') return footprintsNoir(clear);
   // La zone degagee (buildParts) : pas d'empreinte vide sous les TWEAKS
   const off = offOf(clear);
   const out: Footprint[] = [];
@@ -544,6 +566,89 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
 /** Hauteur du corps de chaque piece de plus (unites, buildParts). */
 const EXTRA_H: Record<ExtraKind, number> = { trim: 0.24, film: 0.34, to92: 0.32, dip: 0.2, sot: 0.08, tp: 0, fid: 0 };
 
+/* ---------------- la carte noire du plugin MM-ARP : ses composants ---------------- */
+
+/** Designateurs et contours serigraphies (px de la texture de reference) : plus forts sur la carte noire. */
+const DESIGNATOR_PX = NOIR ? 13 : PCB.designatorPx;
+const OUTLINE_PX = NOIR ? 1.6 : PCB.outline;
+
+/**
+ * Les composants de la carte noire (2026-11-11) : peu, plus gros que ceux du site (k : leur echelle), poses ca et la
+ * dans la bande du haut, hors de la zone des TWEAKS et du cartouche : deux amplis-op DIP, trois condensateurs
+ * electrolytiques, les quatre trimmers bleus, deux condensateurs film rouges ; la LED PWR (NOIR_LED_K) et les vis.
+ */
+type NoirKind = 'dip' | 'ecap' | 'trim' | 'film';
+interface NoirPart {
+  kind: NoirKind;
+  x: number;
+  z: number;
+  k: number;
+  ref: string;
+  label?: string;
+  tall?: boolean;
+}
+const NOIR_PARTS: readonly NoirPart[] = [
+  { kind: 'dip', x: -3.55, z: -2.3, k: 1.9, ref: 'U1', label: 'LM13700' },
+  { kind: 'dip', x: 3.95, z: -2.45, k: 1.9, ref: 'U2', label: 'TL074' },
+  { kind: 'ecap', x: -1.55, z: -2.35, k: 1.6, ref: 'C1', tall: true },
+  { kind: 'ecap', x: 2.5, z: -2.5, k: 1.45, ref: 'C2', tall: false },
+  { kind: 'ecap', x: -4.95, z: -2.3, k: 1.2, ref: 'C3', tall: false },
+  ...[-0.4, 0.32, 1.04, 1.76].map((x, n) => ({ kind: 'trim' as const, x, z: -1.2, k: 1.6, ref: `RV${n + 1}` })),
+  { kind: 'film', x: 0.1, z: -2.6, k: 1.7, ref: 'C4', label: 'MKS2' },
+  { kind: 'film', x: 1.1, z: -2.6, k: 1.7, ref: 'C5', label: 'MKS2' },
+];
+const NOIR_LED_K = 1.6;
+/** Demi-etendues du corps d'un composant de la carte noire. */
+const noirSize = (p: NoirPart): { hx: number; hz: number; h: number } => {
+  if (p.kind === 'dip') return { hx: 0.45 * p.k, hz: 0.17 * p.k, h: 0.2 * p.k };
+  if (p.kind === 'ecap') return { hx: 0.28 * p.k, hz: 0.28 * p.k, h: (p.tall ? 0.6 : 0.4) * p.k };
+  if (p.kind === 'trim') return { hx: 0.18 * p.k, hz: 0.18 * p.k, h: 0.24 * p.k };
+  return { hx: 0.22 * p.k, hz: 0.09 * p.k, h: 0.34 * p.k };
+};
+
+/** Les empreintes de la carte noire : contours, designateurs, pastilles, ombres (comme footprints). */
+function footprintsNoir(clear: PcbClear | null): Footprint[] {
+  const out: Footprint[] = [];
+  for (const p of NOIR_PARTS) {
+    const S = noirSize(p);
+    const k = p.k;
+    const pads: Footprint['pads'] = [];
+    if (p.kind === 'dip') for (const sd of [-1, 1]) for (let j = 0; j < 7; j += 1) pads.push({ x: p.x + (-0.36 + j * 0.12) * k, z: p.z + sd * (S.hz + 0.05 * k), w: 0.07 * k, d: 0.07 * k, round: true });
+    else if (p.kind === 'trim') for (const j of [-1, 0, 1]) pads.push({ x: p.x + j * 0.1 * k, z: p.z + S.hz + 0.04 * k, w: 0.07 * k, d: 0.07 * k, round: true });
+    else if (p.kind === 'film') for (const j of [-1, 1]) pads.push({ x: p.x + j * (S.hx + 0.07 * k), z: p.z, w: 0.09 * k, d: 0.09 * k, round: true });
+    const round = p.kind === 'ecap';
+    const m = round ? 0.05 : 0.05;
+    out.push({
+      x: p.x,
+      z: p.z,
+      hx: S.hx + m,
+      hz: S.hz + m,
+      round,
+      frame: false,
+      ref: p.ref,
+      refX: round ? p.x + S.hx + 0.14 : p.x,
+      refZ: round ? p.z : p.z - S.hz - 0.2,
+      refAlign: round ? 'left' : 'center',
+      axis: p.kind === 'film' ? 'x' : p.kind === 'ecap' ? 'x' : 'z',
+      outline: true,
+      pads,
+      shadow: { x: p.x, z: p.z, hx: S.hx, hz: S.hz, round },
+      h: S.h,
+    });
+  }
+  {
+    const l = P.led;
+    const k = NOIR_LED_K;
+    const pads = [-1, 1].map((sd) => ({ x: l.x + sd * 0.06 * k, z: l.z, w: 0.06 * k, d: 0.09 * k }));
+    out.push({ x: l.x, z: l.z, hx: 0.12 * k, hz: 0.12 * k, round: true, frame: false, ref: 'D1', refX: l.x + 0.2 * k, refZ: l.z - 0.11, refAlign: 'left', axis: 'x', outline: true, pads, shadow: { x: l.x, z: l.z, hx: 0.08 * k, hz: 0.08 * k, round: true }, h: 0.1 * k });
+  }
+  for (const h of P.holes) {
+    out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true }, h: 0 });
+  }
+  placeRefs(out, clear);
+  return out;
+}
+
 /**
  * Part de la hauteur d'une piece cachee derriere elle sur la carte (vue
  * ouverte : la camera plonge a 68 deg environ, 1 / tan 68 = 0.4).
@@ -564,14 +669,14 @@ const BEHIND = 0.4;
  * de la largeur du texte (sans police : la meme a chaque construction).
  */
 function placeRefs(prints: Footprint[], clear: PcbClear | null): void {
-  const size = (PCB.designatorPx / PX_REF) * PCB.w;
+  const size = (DESIGNATOR_PX / PX_REF) * PCB.w;
   const capH = size * SILK.capRatio;
   const widthOf = (t: string, px: number): number => {
     const s = (px / PX_REF) * PCB.w;
     return (t.length * 0.68 + Math.max(0, t.length - 1) * PCB_TYPE.tracking) * s * 1.1;
   };
   type R = { x0: number; x1: number; z0: number; z1: number };
-  const rectAt = (t: string, x: number, z: number, align: Footprint['refAlign'], px: number = PCB.designatorPx): R => {
+  const rectAt = (t: string, x: number, z: number, align: Footprint['refAlign'], px: number = DESIGNATOR_PX): R => {
     const w = widthOf(t, px);
     const h = (px / PX_REF) * PCB.w * SILK.capRatio;
     const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
@@ -759,7 +864,97 @@ const RGB_EXTRA = {
 
 const SMALL_REFS_VOY = ['TL072', 'CA3046', 'LM13700', 'LM324'] as const;
 
+/** Teintes des composants de la carte noire : des boitiers graphite (le noir du site s'y perdrait), des gaines bleu nuit. */
+const RGB_NOIR = {
+  chip: lin(0x2e2e33, 3),
+  notch: lin(0x0c0c0e, 3),
+  capBody: lin(0x1a2238, 3.4),
+  capBand: lin(0xd4d7dc, 1.5),
+  trim: lin(0x1d5fb8, 2.4),
+  rotor: lin(0xe6e2d8, 1.4),
+  film: lin(0xb3122a, 2.6),
+} as const;
+
+/** Les composants de la carte noire du plugin MM-ARP (NOIR_PARTS) : les memes dessins que buildParts, a l'echelle k. */
+function buildPartsNoir(mobile: boolean): Built {
+  const seg = mobile ? 16 : 28;
+  const parts = new Bucket();
+  const metal = new Bucket();
+  const labels = new Bucket();
+  const led = new Bucket();
+  const atlas: AtlasEntry[] = [];
+  for (const p of NOIR_PARTS) {
+    const S = noirSize(p);
+    const k = p.k;
+    if (p.kind === 'dip') {
+      // Ampli-op DIP-14 : corps graphite sur ses pattes, encoche, marquage
+      parts.add(box(S.hx * 2, 0.15 * k, S.hz * 2, p.x, 0.125 * k, p.z, RGB_NOIR.chip));
+      parts.add(cyl(0.05 * k, 0.004, 12, p.x - S.hx + 0.02 * k, 0.2 * k, p.z, RGB_NOIR.notch, { thetaStart: 0, thetaLength: Math.PI }));
+      for (const sd of [-1, 1]) {
+        for (let j = 0; j < 7; j += 1) {
+          const lx = p.x + (-0.36 + j * 0.12) * k;
+          metal.add(box(0.05 * k, 0.03 * k, 0.08 * k, lx, 0.11 * k, p.z + sd * (S.hz + 0.01 * k), METAL.leg));
+          metal.add(box(0.03 * k, 0.1 * k, 0.03 * k, lx, 0.05 * k, p.z + sd * (S.hz + 0.04 * k), METAL.leg));
+        }
+      }
+      const cell = atlas.length;
+      atlas.push({ lines: [p.label ?? 'IC', 'VRSTL 2026'], weight: 600 });
+      labels.add(labelQuad(cell, 0.7 * k, 0.2 * k, p.x + 0.04 * k, 0.2 * k + 0.003, p.z));
+    } else if (p.kind === 'ecap') {
+      // Condensateur electrolytique : gaine, bande de polarite, dessus en aluminium et sa croix
+      const r = S.hx;
+      parts.add(cyl(r, S.h, seg, p.x, 0, p.z, RGB_NOIR.capBody));
+      parts.add(cyl(r * 1.012, S.h * 0.9, 5, p.x, S.h * 0.04, p.z, RGB_NOIR.capBand, { open: true, thetaStart: Math.PI * 1.15, thetaLength: 0.75 }));
+      metal.add(cyl(r * 0.93, 0.014, seg, p.x, S.h, p.z, METAL.capTop));
+      metal.add(box(r * 1.3, 0.016, 0.026 * k, p.x, S.h + 0.014 + 0.008, p.z, METAL.capCross));
+      metal.add(box(0.026 * k, 0.016, r * 1.3, p.x, S.h + 0.014 + 0.008, p.z, METAL.capCross));
+    } else if (p.kind === 'trim') {
+      // Trimmer : boitier carre bleu, rotor clair et sa fente en croix
+      parts.add(box(S.hx * 2, 0.2 * k, S.hz * 2, p.x, 0.1 * k, p.z, RGB_NOIR.trim));
+      parts.add(cyl(0.12 * k, 0.03 * k, seg, p.x, 0.2 * k, p.z, RGB_NOIR.rotor));
+      metal.add(box(0.17 * k, 0.012, 0.03 * k, p.x, 0.23 * k + 0.006, p.z, METAL.recess));
+      metal.add(box(0.03 * k, 0.012, 0.17 * k, p.x, 0.23 * k + 0.006, p.z, METAL.recess));
+      for (const j of [-1, 0, 1]) metal.add(box(0.03 * k, 0.05 * k, 0.03 * k, p.x + j * 0.1 * k, 0.025 * k, p.z + S.hz + 0.02 * k, METAL.leg));
+    } else {
+      // Condensateur film : bloc rouge, deux pattes, marquage
+      parts.add(box(S.hx * 2, S.h, S.hz * 2, p.x, S.h / 2, p.z, RGB_NOIR.film));
+      for (const j of [-1, 1]) metal.add(box(0.03 * k, 0.05 * k, 0.03 * k, p.x + j * (S.hx + 0.05 * k), 0.025 * k, p.z, METAL.leg));
+      const cell = atlas.length;
+      atlas.push({ lines: [p.label ?? 'MKS2', '.1 63V'], weight: 600 });
+      labels.add(labelQuad(cell, 0.4 * k, 0.13 * k, p.x, S.h + 0.003, p.z));
+    }
+  }
+  // Vis cruciformes des trous de fixation
+  for (const h of P.holes) {
+    metal.add(cyl(0.15, 0.045, seg, h.x, 0, h.z, METAL.screw));
+    metal.add(box(0.17, 0.012, 0.03, h.x, 0.045 + 0.004, h.z, METAL.recess));
+    metal.add(box(0.03, 0.012, 0.17, h.x, 0.045 + 0.004, h.z, METAL.recess));
+  }
+  // LED allumee : son dome, et sa lueur couchee sur le cuivre
+  {
+    const l = P.led;
+    const k = NOIR_LED_K;
+    const body = new CylinderGeometry(0.07 * k, 0.075 * k, 0.06 * k, 16);
+    body.translate(l.x, 0.03 * k, l.z);
+    const dome = new SphereGeometry(0.07 * k, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    dome.translate(l.x, 0.06 * k, l.z);
+    for (const g of [body, dome]) {
+      const uv = g.getAttribute('uv');
+      for (let i = 0; i < uv.count; i += 1) uv.setXY(i, 0.5, 0.5);
+      paint(g, LED_RGB.dome);
+      led.add(g);
+    }
+    const glow = new PlaneGeometry(1.4, 1.4);
+    glow.rotateX(-Math.PI / 2);
+    glow.translate(l.x, 0.004, l.z);
+    paint(glow, LED_RGB.glow);
+    led.add(glow);
+  }
+  return { parts: parts.build('parts'), metal: metal.build('metal'), labels: labels.build('labels'), led: led.build('led'), ranges: [], atlas };
+}
+
 function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbClear | null = null): Built {
+  if (NOIR && variant === 'voy') return buildPartsNoir(mobile);
   const seg = mobile ? 12 : 16;
   // La zone degagee (2026-10-04 ; 2026-10-08 : l'emprise entiere, les TWEAKS y sont soudes) : aucun composant ne la touche
   const off = offOf(clear);
@@ -1247,8 +1442,9 @@ export class Pcb {
       envMapIntensity: 1,
       normalMap: this.normalTex,
       normalScale: new Vector2(0.9, 0.9),
-      clearcoat: 0.9,
-      clearcoatRoughness: 0.16,
+      // La carte noire du plugin MM-ARP : un masque mat, a peine de vernis
+      clearcoat: NOIR ? 0.18 : 0.9,
+      clearcoatRoughness: NOIR ? 0.6 : 0.16,
       clearcoatNormalMap: this.normalTex,
       clearcoatNormalScale: new Vector2(0.45, 0.45),
     });
@@ -1370,12 +1566,16 @@ export class Pcb {
       const reserve = c.href ? CHIP.extGapPx + D.labelPx * SILK.capRatio : 0;
       out.push({ text: c.silk, x: c.x, z: c.z + D.labelDz, px: D.labelPx, align: 'center', reserve, nav: true });
     }
-    for (const f of this.prints) if (f.ref) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
-    out.push({ text: 'PWR', x: P.led.x + 0.2, z: P.led.z + 0.12, px: 10, align: 'left', reserve: 0 });
+    const noir = NOIR && this.variant === 'voy';
+    for (const f of this.prints) if (f.ref) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: DESIGNATOR_PX, align: f.refAlign, reserve: 0 });
+    if (noir) out.push({ text: 'PWR', x: P.led.x + 0.2 * NOIR_LED_K, z: P.led.z + 0.07, px: DESIGNATOR_PX, align: 'left', reserve: 0 });
+    else out.push({ text: 'PWR', x: P.led.x + 0.2, z: P.led.z + 0.12, px: 10, align: 'left', reserve: 0 });
     out.push({ text: 'GND', x: this.pour.x0 + 0.25, z: this.pour.z1 - 0.2, px: 12, align: 'left', reserve: 0 });
     // Le + des condensateurs presents seulement (2026-10-08 : ceux de la zone des TWEAKS sont partis)
     const off = offOf(this.clear);
-    for (const c of P.caps) if (!off('cap', c.x, c.z)) out.push({ text: '+', x: c.x - P.cap3.r - 0.1, z: c.z, px: 12, align: 'center', reserve: 0 });
+    if (noir) {
+      for (const p of NOIR_PARTS) if (p.kind === 'ecap') out.push({ text: '+', x: p.x - 0.28 * p.k - 0.14, z: p.z, px: 16, align: 'center', reserve: 0 });
+    } else for (const c of P.caps) if (!off('cap', c.x, c.z)) out.push({ text: '+', x: c.x - P.cap3.r - 0.1, z: c.z, px: 12, align: 'center', reserve: 0 });
     // La zone des TWEAKS : aucun texte de la carte n'y tombe (son cartouche porte le nom et la revision)
     const Z = rectsOf(this.clear);
     if (Z.length === 0) return out;
@@ -1883,9 +2083,9 @@ export class Pcb {
       return canvas;
     };
     ctx.globalAlpha = 0.07;
-    ctx.drawImage(tintOf(lo, '#3d6b4a'), 0, 0, W, H);
+    ctx.drawImage(tintOf(lo, NOIR ? '#3a3a3e' : '#3d6b4a'), 0, 0, W, H);
     ctx.globalAlpha = 0.1;
-    ctx.drawImage(tintOf(hi, '#040a06'), 0, 0, W, H);
+    ctx.drawImage(tintOf(hi, NOIR ? '#000000' : '#040a06'), 0, 0, W, H);
     ctx.globalAlpha = 1;
     orm.globalAlpha = 0.45;
     orm.drawImage(tintOf(lo, 'rgb(255, 214, 13)'), 0, 0, W, H);
@@ -1910,6 +2110,30 @@ export class Pcb {
     this.holes(orm, ORM.hole);
     this.holes(hc, HEIGHT.hole);
 
+    // La carte noire du plugin MM-ARP : un filet dore le long du bord, qui detache la carte du fond noir
+    if (NOIR) {
+      for (const [c, ink] of [
+        [ctx, 'rgba(214, 172, 92, 0.7)'],
+        [orm, ORM.copper],
+      ] as const) {
+        this.units(c);
+        c.strokeStyle = ink;
+        c.lineWidth = 0.03;
+        const hx = PCB.w / 2 - 0.1;
+        const hz = PCB.d / 2 - 0.1;
+        const r = 0.14;
+        c.beginPath();
+        c.moveTo(-hx + r, -hz);
+        c.arcTo(hx, -hz, hx, hz, r);
+        c.arcTo(hx, hz, -hx, hz, r);
+        c.arcTo(-hx, hz, -hx, -hz, r);
+        c.arcTo(-hx, -hz, hx, -hz, r);
+        c.closePath();
+        c.stroke();
+        c.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+
     // Serigraphie : contours (blancs, les puces cliquables aussi depuis le 2026-10-01), textes
     for (const [c, ink, frame] of [
       [ctx, TEX.silk, TEX.silk],
@@ -1920,7 +2144,7 @@ export class Pcb {
       for (const f of this.prints) {
         if (!f.outline) continue;
         c.strokeStyle = f.frame ? frame : ink;
-        c.lineWidth = Math.max(1, (f.frame ? PCB.chipFrame : PCB.outline) * k);
+        c.lineWidth = Math.max(1, (f.frame ? PCB.chipFrame : OUTLINE_PX) * k);
         c.beginPath();
         if (f.round) c.ellipse(this.px(f.x), this.py(f.z), f.hx * this.ux, f.hz * this.uz, 0, 0, Math.PI * 2);
         else c.rect(this.px(f.x - f.hx), this.py(f.z - f.hz), f.hx * 2 * this.ux, f.hz * 2 * this.uz);

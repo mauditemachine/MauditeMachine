@@ -1,8 +1,9 @@
 /**
  * Le panneau du capot du plugin MM-ARP (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
  * imprime, comme avant ! Et la doit y avoir le DRAG MIDI et la gestion MIDI") : OPEN ouvre le vrai capot du site (la carte
- * et ses TWEAKS, state/explode.ts voyExplode) ; ce panneau se pose en bande sous la carte (Stage.setInset : la carte tient
- * au-dessus, rien ne la cache), le temps que le capot est ouvert. Quatre blocs :
+ * et ses TWEAKS, state/explode.ts voyExplode) ; ce panneau se pose en bande au-dessus de la carte (2026-11-11, Mika : "je
+ * veux que ca se retrouve EN HAUT" ; Stage.setHead : la carte tient dessous, rien ne la cache ; sous elle avant), le
+ * temps que le capot est ouvert. Quatre blocs :
  * - DRAG MIDI : la poignee a glisser vers une piste d'Ableton (mm_drag_midi, une fois, des que le pointeur enfonce a bouge
  *   de 4 px : le C++ lance le glisser natif depuis l'evenement souris en cours), x1 / x2 / x4, SAVE .MID (mm_save_mid) ;
  *   le message du C++ (mm_drag_status) s'affiche un moment ;
@@ -34,6 +35,8 @@ import { Library } from './Library';
 import { arpExtra, extraParam } from './extra';
 import { arpMidi, type ArpMidiState } from './midimap';
 import { sectionPrefix, SoundPlus, xTouch } from './SoundPlus';
+import { ARP_BUILD } from '../../firmware';
+import { uiScale } from './scale';
 import { hoodTab, type HoodTab } from './tab';
 
 /** Le glisser part apres ce deplacement (px), le bouton tenu. */
@@ -176,10 +179,12 @@ const Rail: React.FC<{ tab: HoodTab; onClose: () => void }> = ({ tab, onClose })
           title={st.learning ? (st.armed ? `Waiting CC for ${paramLabel(st.armed)}` : 'Click a knob') : 'MIDI learn'}
           onClick={() => arpBridge.learnMode(!st.learning)}
         />
-        <Key className="mm-arp-close" size="s" fn legend="CLOSE" aria-label="Close the machine" onClick={onClose} />
+        {/* CLOSE (2026-11-11, Mika : "je n'ai plus de bouton CLOSE") : sa LED orange, toujours allumee capot ouvert */}
+        <Key className="mm-arp-close" size="s" fn led legend="CLOSE" aria-label="Close the machine" title="Close the hood (Esc)" onClick={onClose} />
       </div>
-      <p className="mm-arp-rev" aria-hidden="true">
-        VST3 EXPANSION · REV 1.1 / 2026
+      {/* La version du build (2026-11-11) : la meme chaine que la serigraphie de la face (firmware.ts ARP_BUILD) */}
+      <p className="mm-arp-rev" title={ARP_BUILD}>
+        {ARP_BUILD}
       </p>
     </div>
   );
@@ -322,16 +327,24 @@ export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const open = hood === 'opening' || hood === 'open';
   const tab = useTab();
   const ref = useRef<HTMLDivElement>(null);
+  // Le panneau est en haut (2026-11-11) : la carte se cadre dessous (Stage.setHead). Sa hauteur a l'ecran : celle de son
+  // repere (offsetHeight, 172 px) fois l'echelle de la couche (scale.ts) ; la fenetre redimensionnee : sans transition
   useLayoutEffect(() => {
     const el = ref.current;
     if (!stage || !el || !open) return undefined;
-    const apply = (): void => stage.setInset('voy', el.offsetHeight, 0);
+    let first = true;
+    const apply = (): void => {
+      stage.setHead('voy', el.offsetHeight * uiScale.get(), !first);
+      first = false;
+    };
     apply();
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply);
     ro?.observe(el);
+    const off = uiScale.subscribe(apply);
     return () => {
       ro?.disconnect();
-      stage.setInset('voy', 0);
+      off();
+      stage.setHead('voy', 0);
     };
   }, [stage, open]);
   // Le capot s'ouvre : la table des CC a jour (la liste des presets : DiskPresets)
@@ -340,7 +353,7 @@ export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   }, [open]);
   if (!open) return null;
   return (
-    <section ref={ref} className="mm-arp-hood" style={{ position: 'fixed' }} data-tab={tab} aria-label="MM-ARP hood">
+    <section ref={ref} className="mm-arp-hood" style={{ position: 'absolute' }} data-tab={tab} aria-label="MM-ARP hood">
       {tab === 'sound' ? (
         <SoundPlus />
       ) : tab === 'library' ? (
@@ -382,7 +395,7 @@ export const LearnMarks: React.FC = () => {
   }, [st.learning, st.armed]);
   if (!st.learning || hood === 'open' || hood === 'opening') return null;
   return (
-    <button type="button" className="mm-arp-learn-pill" style={{ position: 'fixed' }} onClick={() => arpBridge.learnMode(false)} aria-label="Stop MIDI learn">
+    <button type="button" className="mm-arp-learn-pill" style={{ position: 'absolute' }} onClick={() => arpBridge.learnMode(false)} aria-label="Stop MIDI learn">
       <span className="mm-arp-led" aria-hidden="true" />
       MIDI LEARN · {st.armed ? `WAITING CC FOR ${paramLabel(st.armed)}` : 'CLICK A KNOB'} · ESC
     </button>
