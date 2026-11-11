@@ -336,6 +336,8 @@ Mika : « fais attention, le plugin se retrecit tout seul sans que je fasse rien
 - **Le mute tenu** (plugin) : `state/muteHold.ts` (nouveau), `actions/internal/keys60.ts` trigMuteHold et muteHoldRelease, `ui/Hotspots.tsx` (Maj + un pas en mode MUTE), `scene/renderer.ts` (le pas en violet). En mode MUTE global, Maj + un pas bascule sa piste tant que Maj reste tenue : une piste qui joue se coupe, une piste coupee revient ; son pas passe en violet. Maj relachee, chaque piste retrouve son etat d'avant. Maj + le meme pas encore : il revient tout de suite. Le relacher est pris par la touche ; si la fenetre n'a pas le clavier, par le premier geste de souris sans Maj ; quitter le mode MUTE ou perdre la fenetre rend tout aussi. Un clic sans Maj reste un mute ordinaire.
 - Verifie dans Chromium : SD coupee d'un clic, puis Maj tenue + CH, CP et SD : CH et CP se coupent, SD revient, les trois pas en violet ; Maj relachee : CH et CP rejouent, SD est de nouveau coupee. Le filet de la souris et la sortie du mode MUTE rendent bien les pistes. Site : les 4 vues identiques au pixel pres. Moteur : 52 tests. tsc : 105.
 
+- **Build vert du lot 20** (run 43061499948), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 527849b, branche claude/intelligent-ride-56tyeo, 2026-11-11 16:54 UTC.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
