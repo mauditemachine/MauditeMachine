@@ -401,6 +401,7 @@ void MMArpProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMARP1");
     state.setProperty("v", 2, nullptr);
     state.setProperty("seed", static_cast<juce::int64>(seed_), nullptr);
+    state.setProperty("editorW", editorW_.load(), nullptr);
     // Les parametres (les potards, Master, Arpeggiator)
     state.appendChild(apvts.copyState(), nullptr);
     // MIDI LEARN : les CC assignes
@@ -429,6 +430,7 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     const auto state = juce::ValueTree::fromXml(*xml);
     // La graine du projet : le hasard du moteur et de l'arpege (RAND, DRIFT) rejoue pareil a chaque ouverture et a l'export
     if (state.hasProperty("seed")) seed_ = static_cast<uint32_t>(static_cast<juce::int64>(state.getProperty("seed")));
+    editorW_.store(juce::jlimit(880, 2200, static_cast<int>(state.getProperty("editorW", 1100))));
     const juce::String ls = state.getProperty("ls", "").toString();
     {
         std::lock_guard<std::mutex> lk(mx_);

@@ -127,7 +127,13 @@ std::optional<juce::WebBrowserComponent::Resource> MMArpEditor::resource(const j
 MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
-    setSize(kW, kH);
+    // Redimensionnable a proportions fixes (2026-11-11, Mika : "je ne peux pas agrandir le plugin") : 880 a 2200 de large,
+    // la face suit seule (src/v4/plugin/arp/scale.ts) ; la taille choisie est gardee dans le projet
+    setResizable(true, true);
+    getConstrainer()->setFixedAspectRatio(static_cast<double>(kW) / kH);
+    setResizeLimits(880, 880 * kH / kW, 2200, 2200 * kH / kW);
+    const int w = juce::jlimit(880, 2200, proc_.editorWidth());
+    setSize(w, w * kH / kW);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
@@ -138,6 +144,7 @@ void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 
 void MMArpEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
+    proc_.setEditorWidth(getWidth());
 }
 
 void MMArpEditor::setHint(const juce::String& m) {

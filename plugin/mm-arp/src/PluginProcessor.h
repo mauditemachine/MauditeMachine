@@ -106,6 +106,10 @@ public:
     // Le clip a le dessus en ce moment (l'arpege interne se tait)
     bool clipActive() const { return clipActive_.load(); }
 
+    // La largeur de la fenetre choisie par Mika (gardee dans le projet)
+    int editorWidth() const { return editorW_.load(); }
+    void setEditorWidth(int w) { editorW_.store(w); }
+
     // Le dossier des presets sur le disque : ~/Music/Maudite Machine/MM-ARP Presets
     static juce::File presetDir();
 
@@ -165,6 +169,7 @@ private:
     std::shared_ptr<const MMArpProgram> retired_;
     std::shared_ptr<const MMArpProgram> current_;
     std::atomic<bool> knobsKnown_{false};
+    std::atomic<int> editorW_{1100};
 
     // Le transport
     std::atomic<bool> runInternal_{false};

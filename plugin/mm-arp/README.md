@@ -8,7 +8,7 @@ architecture que `plugin/mm-rytm`.
 - **La face** : la machine du site elle-meme (scene three.js, potards, pads d'accords, ecran, suite EDIT), seule, vue de
   dessus, dans une WebView JUCE. Mode `PLUGIN_ARP` (`window.__MM_PLUGIN__ = 'arp'`, `src/v4/theme/base.ts`), entree
   `src/v4/plugin/arp/`, page `plugin/mm-arp/web/index.html`, build `npm run plugin:arp:web` vers `plugin/mm-arp/build-web`
-  (zip embarque dans le VST3). OPEN ouvre le capot 3D du site (la carte et ses TWEAKS jouables), avec en bande dessous DRAG MIDI, DISK et MIDI LEARN.
+  (zip embarque dans le VST3). OPEN ouvre le capot 3D (la carte, noire dans le plugin, et ses TWEAKS jouables), avec en bande au-dessus le panneau d'extension (SOUND+, LIBRARY, TOOLS, LEARN, CLOSE). La fenetre se redimensionne : la scene se recadre, les couches HTML suivent a l'echelle largeur / 1100 (`src/v4/plugin/arp/scale.ts`). La version du build (« VST3 · BUILD 11 NOV 14:32 · a1b2c3d », date UTC et commit) est serigraphiee en haut a droite de la face et ecrite dans `build-web/version.txt`.
 - **Le son** : en C++ (`dsp/`), jamais dans la WebView. Le plugin joue fenetre fermee et pendant un export d'Ableton.
   - `dsp/Voyager.{h,cpp}` : le port ligne a ligne de `src/v4/audio/moog.worklet.js` (12 voix, x4, tous les filtres,
     STACK, WIDE, GLUE...). **Identique au bit pres au site** sur 85 cas (`tests/voyager-ref.mjs` + `voyager_compare.cpp`) :

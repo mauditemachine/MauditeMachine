@@ -26,7 +26,7 @@
 
 import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
-import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
+import { APPEARANCE, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
 import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
@@ -135,7 +135,8 @@ function groupTexts(where: VoySilkKind): Text[] {
 function panelTexts(): Text[] {
   const out: Text[] = [];
   out.push({ text: VOY_COPY.model, x: VOY_HEAD.model.x, z: VOY_HEAD.z, cap: VOY_HEAD.model.cap, align: 'left', weight: SILK.strongWeight });
-  if (VOY_HEAD.sub) out.push({ text: VOY_HEAD.sub.text, x: VOY_HEAD.sub.x, z: VOY_HEAD.z, cap: 0.065, align: 'right', alpha: 0.45 });
+  // Le plugin MM-ARP (2026-11-11) : la version du build (firmware.ts ARP_BUILD), un peu plus forte pour se lire d'un coup d'oeil
+  if (VOY_HEAD.sub) out.push({ text: VOY_HEAD.sub.text, x: VOY_HEAD.sub.x, z: VOY_HEAD.z, cap: PLUGIN_ARP ? 0.072 : 0.065, align: 'right', alpha: PLUGIN_ARP ? 0.72 : 0.45 });
   out.push({ text: 'MAUDITE MACHINE', x: VOY_HEAD.word.x, z: VOY_HEAD.z, cap: 0.18, align: 'left', weight: SILK.strongWeight, group: 'fallback' });
   for (const s of VOY_SECTIONS) out.push({ text: s.text, x: s.x, z: s.z, cap: 0.075 * K, weight: 700, alpha: 1 });
   out.push(...knobTexts('panel'), ...groupTexts('panel'));
