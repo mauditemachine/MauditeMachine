@@ -293,6 +293,8 @@ Mika, sur le lot 15 : « image 1 bien ! mais doit prendre vraiment plus de place
 - Verifie dans Chromium : OPEN (1022 x 568, 14 potards en relief, un potard tourne, les trois onglets sans debordement, la bande du capot referme ; a 1800 x 1097 aussi) ; PERFORM (la tape, DIST change le programme ; le clic droit : la liste) ; Save Preset (le champ sur l'ecran, un seul, « INDIE DANCE 2 XX » garde et affiche sans USER/) ; PTN sans banque ; LIVE REC (la tete simulee a 100 ms par pas, double clic sur REC, un potard tourne puis tenu : des P-LOCK de TUNE sur les 16 pas, des lock trigs sur les pas vides) ; les 36 presets charges un par un : le bon sample sur chacune des 16 pistes, le tempo, aucun fichier manquant, aucun « edited », aucune erreur. Moteur : 52 tests (2 de plus : rel compte sans repartir, -1 a l'arret). Site : les 4 vues (V.3.0, face DT2, DT2 claire, OPEN) identiques au pixel pres ; ses tests de noms, de face et de BPM passent. tsc : 105, comme avant.
 - Jamais de lecture audio pendant les tests : les presets sont juges sur leur programme, pas a l'oreille.
 
+- **Build vert du lot 16** (run 42956463058 : le moteur et le plugin macOS), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit e1fe45c, branche claude/intelligent-ride-56tyeo, 2026-11-11 04:08 UTC, et l'INSTALL.md du lot 16.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
