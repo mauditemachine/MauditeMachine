@@ -364,6 +364,18 @@ html:has(body.v4-active) {
   background: #737373;
 }
 
+/*
+ * 2026-11-11 (Mika : "le logotype et le logo maudite machine sont compresses en hauteur, faudrait les etirer de 5 px en
+ * hauteur mais garder l'emplacement") : etires en hauteur seulement, 26 -> 31 px (23 -> 28 au telephone), par une
+ * transformation : la largeur, la place dans l'en-tete et le centre ne bougent pas (2.5 px de plus en haut et en bas).
+ * Un <img> SVG ne s'etire pas par ses dimensions (son viewBox garde ses proportions), d'ou scaleY.
+ */
+.v4-logo img,
+.v4-logo .v4-logotype {
+  transform: scaleY(calc(31 / 26));
+  transform-origin: center;
+}
+
 /* Les machines en haut a droite (2026-10-05), a gauche de MENU : une pastille comme le selecteur du telephone */
 .v4-root .v4-header-end {
   display: flex;
@@ -1234,6 +1246,12 @@ html:has(body.v4-active) {
 .v4-mhead .v4-logo .v4-logotype {
   height: 23px;
   margin-right: 8px;
+}
+
+/* 2026-11-11 : les memes 5 px de plus en hauteur au telephone (23 -> 28) */
+.v4-mhead .v4-logo img,
+.v4-mhead .v4-logo .v4-logotype {
+  transform: scaleY(calc(28 / 23));
 }
 
 .v4-root .v4-burger {
