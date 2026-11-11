@@ -326,6 +326,8 @@ Mika : « l'enregistrement live ne fonctionne pas, il faut que ca fonctionne abs
 - Verifie dans Chromium (la tete du moteur simulee) : piste 1 (BD), page FLTR : FREQ ecrit fcut, TONE ecrit tone. Piste 9 (BD2) : FLTR FREQ et TONE, AMP ATK et START, TRIG NOTE et PROB s'ecrivent ; les coups de la piste dans le programme du moteur portent des frequences de filtre differentes par pas (2518, 13214, 8730, 5768, 3811 Hz) ; les lock trigs sont jaunes sur les pas. Le triple clic sur FLTR : les verrous a zero, les reglages au depart, les pas intacts ; Cmd+Z les rend ; un double clic ne remet rien a zero. Site : les 4 vues identiques au pixel pres, ses tests passent. tsc : 105.
 - Limite de mes essais : le rendu logiciel repeint l'ecran avec plus d'une seconde de retard, je n'ai donc pas pu capturer les messages de l'en-tete au bon moment ; une trace montre qu'ils y arrivent bien. Rien n'est teste dans Ableton.
 
+- **Build vert des lots 18 et 19** (run 42972428296), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 948b4ca, branche claude/intelligent-ride-56tyeo, 2026-11-11 06:31 UTC, et l'INSTALL.md des lots 18 et 19. Le build du lot 18 seul (commit 68c188b) etait vert aussi.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
