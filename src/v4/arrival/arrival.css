@@ -124,6 +124,13 @@
   pointer-events: none;
 }
 
+/* Au telephone, pendant le recul du MM-RYTM, la languette TOUCH CONTROLS du site est dessous : SCROLL se tient au-dessus */
+@media (max-width: 767px) {
+  .v4-arr-hint {
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px) + var(--ios-bar, 0px));
+  }
+}
+
 .v4-arr-hint i {
   position: relative;
   display: block;

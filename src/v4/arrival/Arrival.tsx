@@ -46,10 +46,27 @@ const START = { READY_MS: 260, CALM: 5, CALM_MS: 34, CALM_MAX_MS: 2200, LATEST_M
 const WHEEL_K = 1 / 520;
 const SNAP = 0.1;
 const IDLE_MS = 170;
-/** Le suivi de la position (s) : vers le menu, vers la machine (un recul plus ample). */
-const SMOOTH = { menu: 0.3, machine: 0.5 } as const;
+/** Le suivi de la position (s) : vers le menu, vers la machine (le recul suit le geste, sans a-coup entre deux crans). */
+const SMOOTH = { menu: 0.3, machine: 0.4 } as const;
 /** Le fond qui retombe entre le menu et la machine : opaque de DIP.full a DIP.hold, leve a DIP.clear (parts du trajet). */
-const DIP = { full: 0.1, hold: 0.16, clear: 0.44 } as const;
+const DIP = { full: 0.05, hold: 0.08, clear: 0.24 } as const;
+/**
+ * Le recul du MM-RYTM suit le geste (2026-11-11, Mika : "je voudrais que le dezoom de rytm se fasse aussi avec le
+ * scroll") : la molette et le doigt menent la camera, elle s'arrete ou le geste s'arrete et revient s'il remonte. Seul
+ * le passage du menu a la machine (le fond qui retombe puis se leve, jusqu'a DIP.clear) se joue d'un trait : on ne reste
+ * jamais sur un fond plein.
+ *   WHEEL_K     la molette : 900 px pour tout le trajet (apres le passage, 7 crans de souris environ)
+ *   NUDGE       du menu, le geste qui lance le passage ; END : si pres du bout (la machine presque cadree), le recul se
+ *               finit seul et le site reprend la main (on ne reste pas a un cheveu du cadrage, la couche encore dessus)
+ *   DONE_AT     la position ou le site reprend la main (la camera est posee a l'oeil, le suivi finit dessous)
+ *   VEIL_SPEED  la vitesse plafond dans le passage (positions par seconde) : le fond a le temps de retomber et de se lever
+ *   THROW       l'elan du doigt lache en plein recul : la vitesse gardee (ms), plafonnee (position), au-dessus de MIN (px/ms)
+ */
+const SCRUB = { WHEEL_K: 1 / 900, NUDGE: 0.02, END: 0.2, DONE_AT: 1.985, VEIL_SPEED: 0.45, THROW_MS: 240, THROW_MAX: 0.4, THROW_MIN: 0.25 } as const;
+/** Le doigt : la part de la hauteur d'ecran qui fait un tableau (vers le menu, puis le recul, plus long). */
+const TOUCH = { menu: 0.5, machine: 1.1 } as const;
+/** L'elan de la molette apres la fin (un pave tactile) : avale tant qu'il coule (GAP_MS entre deux crans), MAX_MS au plus. */
+const TAIL = { GAP_MS: 220, MAX_MS: 1800 } as const;
 
 const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? b : v);
 const smooth = (a: number, b: number, v: number): number => {
@@ -58,6 +75,49 @@ const smooth = (a: number, b: number, v: number): number => {
 };
 const easeInOutCubic = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const mix = (a: Rect, b: Rect, t: number): Rect => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, w: a.w + (b.w - a.w) * t, h: a.h + (b.h - a.h) * t });
+
+/**
+ * Ou le geste fini laisse la position : a un arret (le logo 0, le menu 1, la machine 2), ou la ou elle est en plein recul
+ * (au-dela du passage, avant le bout). from : d'ou le geste est parti (son sens decide dans le passage).
+ */
+function settle(goal: number, from: number): number {
+  const fwd = goal >= from;
+  if (goal <= 1) {
+    if (goal <= 0) return 0;
+    if (goal >= 1) return 1;
+    return fwd ? (goal > SNAP ? 1 : 0) : goal < 1 - SNAP ? 0 : 1;
+  }
+  if (goal >= 2 - SCRUB.END) return 2;
+  if (goal >= 1 + DIP.clear) return goal;
+  return fwd && goal - 1 > SCRUB.NUDGE ? 1 + DIP.clear : 1;
+}
+
+/**
+ * L'elan de la molette apres la fin de l'arrivee : le geste qui a mene le recul coule encore (un pave tactile), il ne
+ * doit pas zoomer la machine (scene/orbit.ts) ni tourner un potard. Avale jusqu'au premier silence.
+ */
+function swallowWheelTail(lastAt: number): void {
+  const t0 = performance.now();
+  if (t0 - lastAt > TAIL.GAP_MS) return;
+  let last = lastAt;
+  let timer = 0;
+  const off = (): void => {
+    window.removeEventListener('wheel', onWheel, { capture: true });
+    window.clearTimeout(timer);
+  };
+  const onWheel = (e: WheelEvent): void => {
+    const now = performance.now();
+    if (now - last > TAIL.GAP_MS || now - t0 > TAIL.MAX_MS) {
+      off();
+      return;
+    }
+    last = now;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+  timer = window.setTimeout(off, TAIL.MAX_MS);
+}
 
 /** Un suivi amorti (la position rejoint sa cible sans a-coup, depart et arrivee doux). */
 function damp(cur: number, goal: number, vel: number, time: number, dt: number): [number, number] {
@@ -134,7 +194,7 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
   const fadeRef = useRef<HTMLDivElement>(null);
   const skipRef = useRef<HTMLButtonElement>(null);
   /** L'etat de l'animation, hors de React (une image, pas un rendu) */
-  const st = useRef({ pos: 0, vel: 0, goal: 0, stop: 0, a: 0, t0: -1, hold: null as number | null, started: false, landed: false, lastInput: 0, speed: 1, cam: -1, camStage: null as Stage | null });
+  const st = useRef({ pos: 0, vel: 0, goal: 0, stop: 0, from: 0, lo: 0, hi: 1, lastWheel: -1e9, a: 0, t0: -1, hold: null as number | null, started: false, landed: false, lastInput: 0, speed: 1, cam: -1, camStage: null as Stage | null });
   const [gone, setGone] = useState(false);
   const stageRef = useRef(stage);
   stageRef.current = stage;
@@ -147,6 +207,7 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
   // La fin, d'ou qu'elle vienne (le bout du trajet, SKIP, une touche du menu) : la camera rendue, la couche partie
   useEffect(() => {
     if (phase !== 'done') return;
+    swallowWheelTail(st.current.lastWheel);
     getStage()?.finishArrival();
     const root = rootRef.current?.parentElement;
     if (root) delete root.dataset.v4Arrival;
@@ -279,14 +340,21 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
           window.setTimeout(dropLogo, 120);
         }
       }
-      // 2. La position suit sa cible ; le geste fini, elle rejoint un arret
+      // 2. La position suit sa cible ; le geste fini, elle rejoint un arret, ou reste ou elle est en plein recul (settle)
       if (s.lastInput > 0 && now - s.lastInput > IDLE_MS) {
-        const d = s.goal - s.stop;
-        s.goal = d > SNAP ? Math.min(2, s.stop + 1) : d < -SNAP ? Math.max(0, s.stop - 1) : s.stop;
+        s.goal = settle(s.goal, s.from);
         s.lastInput = 0;
       }
       const time = s.goal > 1 || s.pos > 1.001 ? SMOOTH.machine : SMOOTH.menu;
+      const prev = s.pos;
       [s.pos, s.vel] = damp(s.pos, s.goal, s.vel, time, dt / 1000);
+      // Le passage du menu a la machine ne se traverse pas plus vite que VEIL_SPEED, meme d'un grand geste : le fond a le
+      // temps de retomber, le menu de se fermer dessous, le fond de se lever
+      const step = (SCRUB.VEIL_SPEED * dt) / 1000;
+      if (Math.min(prev, s.pos) < 1 + DIP.clear && Math.max(prev, s.pos) > 1 && Math.abs(s.pos - prev) > step) {
+        s.pos = prev + Math.sign(s.pos - prev) * step;
+        s.vel = Math.sign(s.vel) * Math.min(Math.abs(s.vel), SCRUB.VEIL_SPEED);
+      }
       if (Math.abs(s.pos - s.goal) < 0.0015 && Math.abs(s.vel) < 0.01) {
         s.pos = s.goal;
         s.vel = 0;
@@ -316,8 +384,10 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
       // Au menu, a l'arret : la couche laisse passer les gestes (le menu se joue) ; ailleurs elle les garde
       const rest = s.pos === 1 && s.goal === 1;
       root.dataset.rest = rest ? '1' : '0';
-      if (hintRef.current) hintRef.current.style.opacity = (s.landed ? 1 - smooth(0, 0.12, p1) : 0).toFixed(3);
-      const nextO = smooth(0.9, 1, p1) * (1 - smooth(0, 0.06, p2));
+      // SCROLL : sous le logo pose, puis de nouveau pendant le recul (il se mene au geste, il faut le dire)
+      const hintO = s.landed ? Math.max(1 - smooth(0, 0.12, p1), smooth(DIP.clear - 0.08, DIP.clear, p2) * (1 - smooth(0.7, 1 - SCRUB.END, p2))) : 0;
+      if (hintRef.current) hintRef.current.style.opacity = hintO.toFixed(3);
+      const nextO = smooth(0.9, 1, p1) * (1 - smooth(0, DIP.full, p2));
       show(nextRef.current, nextO);
       if (fadeRef.current) fadeRef.current.style.opacity = nextO.toFixed(3);
       show(skipRef.current, 1 - smooth(0.1, 0.5, p1));
@@ -330,7 +400,7 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
         sg.arrivalCamera(u);
       }
       // 7. Le bout du trajet
-      if (s.pos >= 2 && s.goal >= 2) arrival.set('done');
+      if (s.pos >= SCRUB.DONE_AT && s.goal >= 2) arrival.set('done');
     };
     raf = requestAnimationFrame(tick);
 
@@ -345,13 +415,22 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
       if (dy > 0) return m.scrollTop + m.clientHeight < m.scrollHeight - 1;
       return m.scrollTop > 0;
     };
-    const push = (d: number, now: number): void => {
+    /** Le geste commence : d'ou il part, jusqu'ou il peut mener (un tableau au plus : le menu ne se saute jamais). */
+    const begin = (): void => {
+      s.from = s.goal;
+      s.lo = s.pos > 1.001 || s.goal > 1 ? 1 : 0;
+      s.hi = s.pos < 0.999 || s.goal < 1 ? 1 : 2;
+    };
+    /** Le geste avance de px (vers le bas : positif) ; une position par px vers le menu (perMenu), dans le recul (perMachine). */
+    const push = (px: number, now: number, perMenu: number, perMachine: number, fresh: boolean): void => {
       // Pendant l'entree : le geste la presse, il ne la saute pas
       if (!s.landed) {
         s.speed = 3.2;
         return;
       }
-      s.goal = clamp(s.goal + d, Math.max(0, s.stop - 1), Math.min(2, s.stop + 1));
+      if (fresh || s.lastInput === 0) begin();
+      const machine = s.goal > 1 || (s.goal === 1 && px > 0 && s.hi > 1);
+      s.goal = clamp(s.goal + px * (machine ? perMachine : perMenu), s.lo, s.hi);
       s.lastInput = now;
     };
     const onWheel = (e: WheelEvent): void => {
@@ -361,15 +440,17 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
       const dy = e.deltaY * unit;
       if (menuTakes(e.target, dy)) return;
       e.preventDefault();
-      push(dy * WHEEL_K, performance.now());
+      const now = performance.now();
+      s.lastWheel = now;
+      push(dy, now, WHEEL_K, SCRUB.WHEEL_K, false);
     };
-    let touch: { id: number; y: number; goal: number; ours: boolean | null } | null = null;
+    let touch: { id: number; y: number; t: number; v: number; ours: boolean | null; fresh: boolean } | null = null;
     const onTouchStart = (e: TouchEvent): void => {
       if (!arrival.active() || e.touches.length !== 1) {
         touch = null;
         return;
       }
-      touch = { id: e.touches[0].identifier, y: e.touches[0].clientY, goal: s.goal, ours: null };
+      touch = { id: e.touches[0].identifier, y: e.touches[0].clientY, t: performance.now(), v: 0, ours: null, fresh: true };
     };
     const onTouchMove = (e: TouchEvent): void => {
       if (!touch || !arrival.active()) return;
@@ -381,19 +462,27 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
         if (Math.abs(dy) < 6) return;
         touch.ours = !menuTakes(e.target, dy);
         touch.y = t.clientY;
+        touch.t = performance.now();
         return;
       }
       if (!touch.ours) return;
       if (e.cancelable) e.preventDefault();
-      if (!s.landed) {
-        s.speed = 3.2;
-        return;
-      }
-      s.goal = clamp(touch.goal + (touch.y - t.clientY) / (H * 0.5), Math.max(0, s.stop - 1), Math.min(2, s.stop + 1));
-      s.lastInput = performance.now();
+      const now = performance.now();
+      // La vitesse du doigt (px/ms, lissee) : son elan au lacher
+      if (now > touch.t) touch.v = 0.6 * touch.v + (0.4 * dy) / (now - touch.t);
+      touch.y = t.clientY;
+      touch.t = now;
+      push(dy, now, 1 / (H * TOUCH.menu), 1 / (H * TOUCH.machine), touch.fresh);
+      touch.fresh = false;
     };
     const onTouchEnd = (): void => {
-      if (touch?.ours && s.lastInput > 0) s.lastInput = 1;
+      if (touch?.ours && s.lastInput > 0) {
+        // En plein recul, le doigt lache en mouvement : la camera continue un peu sur sa lancee
+        if (s.goal > 1 + DIP.clear && s.goal < 2 && Math.abs(touch.v) > SCRUB.THROW_MIN && performance.now() - touch.t < 90) {
+          s.goal = clamp(s.goal + clamp((touch.v * SCRUB.THROW_MS) / (H * TOUCH.machine), -SCRUB.THROW_MAX, SCRUB.THROW_MAX), s.lo, s.hi);
+        }
+        s.lastInput = 1;
+      }
       touch = null;
     };
     const onKey = (e: KeyboardEvent): void => {
@@ -410,7 +499,8 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
         e.preventDefault();
         e.stopPropagation();
         if (!s.landed) s.speed = 3.2;
-        else go(Math.round(s.goal) + (down ? 1 : -1));
+        // Les fleches ne menent pas le recul cran par cran : elles vont d'un arret a l'autre (du recul, vers le menu)
+        else go(down ? Math.floor(s.goal + 1e-6) + 1 : s.goal > 1 ? 1 : Math.ceil(s.goal - 1e-6) - 1);
       }
     };
     window.addEventListener('wheel', onWheel, { passive: false, capture: true });
@@ -454,10 +544,11 @@ export const Arrival: React.FC<Props> = ({ stage, getStage, ok }) => {
         role="region"
         aria-label="Maudite Machine, intro"
         onClick={(e) => {
-          // Un clic sur la couche (pas sur ses boutons) : le tableau d'apres
+          // Un clic sur la couche (pas sur ses boutons) : le tableau d'apres ; en plein recul, il le finit
           if ((e.target as HTMLElement).closest('button')) return;
           const s = st.current;
           if (!s.landed) s.speed = 3.2;
+          else if (s.pos > 1 && s.goal > 1) go(2);
           else if (s.stop === 0) go(1);
         }}
       >
