@@ -26,24 +26,29 @@
 
 import {
   BoxGeometry,
+  CircleGeometry,
   Euler,
   CylinderGeometry,
   DynamicDrawUsage,
   InstancedMesh,
   Matrix4,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   Quaternion,
   Vector3,
   type BufferGeometry,
+  type CanvasTexture,
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
-import { LIT, PORTRAIT, TEMPO_UI } from '../theme';
+import { makeCanvasTexture } from '../scene/silk';
+import { LIT, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
+import { capTile } from './skin';
 import { VOY_FACE_KNOBS, type VoyKnobId } from './params';
-import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
+import { VOY_KNOB, VOY_PANEL, VOY_PLUGIN_KNOB, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -92,15 +97,20 @@ export function buildKnobGeometry(mobile: boolean): BufferGeometry {
   }
   cap.computeVertexNormals();
   cap.translate(0, K.skirt.h + K.h / 2, 0);
-  const mark = new BoxGeometry(K.mark.w, K.mark.h, K.mark.d);
-  mark.translate(0, K.skirt.h + K.h + K.mark.h / 2 - 0.002, -K.mark.d / 2 - 0.02);
+  // Le plugin MM-ARP (2026-11-11, l'habillage) : l'index blanc court sur la jupe noire, du bord du disque de metal au
+  // bord du potard (VOY_PLUGIN_KNOB ; le disque, lui, ne tourne pas : VoyKnobs.tops)
+  const PK = VOY_PLUGIN_KNOB;
+  const mark = PLUGIN_ARP ? new BoxGeometry(PK.mark.w, K.mark.h, PK.mark.r1 - PK.mark.r0) : new BoxGeometry(K.mark.w, K.mark.h, K.mark.d);
+  if (PLUGIN_ARP) mark.translate(0, K.skirt.h + K.h + K.mark.h / 2 - 0.002, -(PK.mark.r0 + PK.mark.r1) / 2);
+  else mark.translate(0, K.skirt.h + K.h + K.mark.h / 2 - 0.002, -K.mark.d / 2 - 0.02);
   const parts = [skirt, cap, mark].map((g) => {
     const out = g.toNonIndexed();
     g.dispose();
     out.deleteAttribute('uv');
     return out;
   });
-  paintSolid(parts[0], 'voySkirt');
+  // Le plugin MM-ARP : la jupe noire, comme le capuchon (l'aluminium du site ailleurs)
+  paintSolid(parts[0], PLUGIN_ARP ? 'voyKnob' : 'voySkirt');
   paintSolid(parts[1], 'voyKnob');
   paintLinear(parts[2], LIT.mark);
   const g = mergeGeometries(parts, false);
@@ -111,6 +121,14 @@ export function buildKnobGeometry(mobile: boolean): BufferGeometry {
 
 export class VoyKnobs {
   readonly mesh: InstancedMesh;
+  /**
+   * Le plugin MM-ARP (2026-11-11) : le dessus de chaque capuchon, un disque de metal brosse (voyager/skin.ts capTile, son
+   * reflet conique peint), pose juste au-dessus du capuchon. Il ne tourne pas avec le potard : le reflet reste face a la
+   * lumiere, seul l'index tourne. Sans eclairage ni courbe de tons : les memes couleurs que le potard HTML de la face
+   * (plugin/arp/Knob.tsx). null hors du plugin.
+   */
+  readonly tops: InstancedMesh | null = null;
+  private topTexture: CanvasTexture | null = null;
   private material: MeshStandardMaterial;
   private angle = new Map<VoyKnobId, number>();
 
@@ -124,6 +142,24 @@ export class VoyKnobs {
     this.mesh.receiveShadow = true;
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     for (const k of DIALS) this.place(k.id);
+    if (PLUGIN_ARP) {
+      const K = VOY_KNOB;
+      const g = new CircleGeometry(VOY_PLUGIN_KNOB.capR, opts.mobile ? 32 : 64);
+      g.rotateX(-Math.PI / 2);
+      g.translate(0, K.skirt.h + K.h + K.mark.h + 0.003, 0);
+      this.topTexture = makeCanvasTexture(capTile(), 8);
+      const mat = new MeshBasicMaterial({ map: this.topTexture, transparent: true, toneMapped: false });
+      mat.name = 'voyKnobTop';
+      this.tops = new InstancedMesh(g, mat, DIALS.length);
+      this.tops.name = 'voyKnobTops';
+      DIALS.forEach((k, i) => {
+        const pl = voyKnobPlace(k.id);
+        m4.compose(pos.set(pl.x, 0, pl.z), quat.identity(), scl.setScalar(pl.s));
+        if (pl.where === 'panel') m4.premultiply(PANEL_M);
+        this.tops?.setMatrixAt(i, m4);
+      });
+      this.tops.instanceMatrix.needsUpdate = true;
+    }
   }
 
   private place(id: VoyKnobId): void {
@@ -190,5 +226,11 @@ export class VoyKnobs {
     this.mesh.geometry.dispose();
     this.mesh.dispose();
     this.material.dispose();
+    if (this.tops) {
+      this.tops.geometry.dispose();
+      (this.tops.material as MeshBasicMaterial).dispose();
+      this.tops.dispose();
+      this.topTexture?.dispose();
+    }
   }
 }

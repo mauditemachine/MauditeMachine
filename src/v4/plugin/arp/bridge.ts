@@ -464,7 +464,8 @@ function onLearnPick(): void {
 
 /** Un reglage SOUND+ clique en LEARN (SoundPlus.tsx) : arme chez le C++, comme un potard. false : le mode est eteint. */
 function learnArm(id: string): boolean {
-  if (!arpMidi.get().learning || !isExtra(id)) return false;
+  // Un reglage du VST3 seul, ou un TWEAK du site dessine en HTML dans le panneau d'OPEN (2026-11-11, SoundPlus.tsx VKnob)
+  if (!arpMidi.get().learning || !(isExtra(id) || isKnob(id))) return false;
   arpMidi.set({ armed: id });
   send('mm_learn', { id });
   return true;

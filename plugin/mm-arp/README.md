@@ -8,7 +8,25 @@ architecture que `plugin/mm-rytm`.
 - **La face** : la machine du site elle-meme (scene three.js, potards, pads d'accords, ecran, suite EDIT), seule, vue de
   dessus, dans une WebView JUCE. Mode `PLUGIN_ARP` (`window.__MM_PLUGIN__ = 'arp'`, `src/v4/theme/base.ts`), entree
   `src/v4/plugin/arp/`, page `plugin/mm-arp/web/index.html`, build `npm run plugin:arp:web` vers `plugin/mm-arp/build-web`
-  (zip embarque dans le VST3). OPEN ouvre le capot 3D (la carte, noire dans le plugin, et ses TWEAKS jouables), avec en bande au-dessus le panneau d'extension (SOUND+, LIBRARY, TOOLS, LEARN, CLOSE). La fenetre se redimensionne : la scene se recadre, les couches HTML suivent a l'echelle largeur / 1100 (`src/v4/plugin/arp/scale.ts`). Le module avant (2026-11-11, `src/v4/plugin/arp/FrontModule.tsx`) : la fenetre fait 1100 x 880 par defaut (proportion 5 / 4 ; la face 3D garde le haut, 1100 x 704), et sous la face un module d'extension toujours visible, dessine comme elle entre les joues de noyer : STEP SEQUENCER (16 pas ; ACCENT, SLIDE, GATE, RATCHET, PROB ; `steps.ts`, envoye dans `mm_program` sous `steps`), OSC / FILTER + et FX RACK (les 23 reglages `seq`, `osc`, `filter`, `phaser`, `flanger`, `pump`, `crush`, `space` de `extra-params.json`). La version du build (« VST3 · BUILD 11 NOV 14:32 · a1b2c3d », date UTC et commit) est serigraphiee en haut a droite de la face et ecrite dans `build-web/version.txt`.
+  (zip embarque dans le VST3).
+  **Le format large (2026-11-11)** : la fenetre fait **1440 x 810 par defaut, proportion 16 / 9 (1.7778)**, a garder par le
+  C++ (`PluginEditor` : kW 1440, kH 810, `setFixedAspectRatio (16.0 / 9.0)`) ; elle se redimensionne a proportions fixes
+  (la scene 3D se recadre, les couches HTML suivent a l'echelle largeur / 1440 : `src/v4/plugin/arp/scale.ts`, qui porte
+  aussi le plan de la fenetre). Un seul instrument entre deux joues de noyer :
+  - le bandeau du haut (`Header.tsx`) : le logotype, l'afficheur (le preset d'usine et ses fleches, le reglage touche,
+    MIDI LEARN), la version du build (« VST3 · BUILD 11 NOV 14:32 · a1b2c3d », aussi dans `build-web/version.txt`) et la
+    touche OPEN / CLOSE ;
+  - la machine 3D a gauche, a l'echelle de sa fenetre d'avant (rognee de ses joues et de son en-tete) ;
+  - le rack a droite (`FrontModule.tsx` : OSC +, FILTER +, PHASER, FLANGER, PUMP, CRUSH, SPACE : les 22 reglages `osc`,
+    `filter`, `phaser`, `flanger`, `pump`, `crush`, `space` de `extra-params.json`) ;
+  - le STEP SEQUENCER sous la machine (16 pas ; ACCENT, SLIDE, GATE, RATCHET, PROB ; `steps.ts`, envoye dans `mm_program`
+    sous `steps` ; SWING, INIT).
+  L'habillage (plugin seul, `src/v4/voyager/skin.ts`, tout procedural) : simili noir a grain fin, un bandeau de metal
+  brosse par section, des graduations chiffrees, des potards a capuchon de metal brosse et jupe noire (3D et HTML).
+  **OPEN bascule toute la fenetre** sur le panneau d'options (`HoodPanel.tsx`, une seule page, potards noirs a index
+  blanc) : les 18 TWEAKS du site (a leurs ids du site), ENGINE, LFO 1, LFO 2, REVERB, MASTER, CLIP (DRAG MIDI), MIDI
+  (LEARN), LIBRARY (les 40 presets visibles) et DISK ; CLOSE, OPEN, O ou Echap reviennent. La scene 3D ne s'ouvre plus dans
+  le plugin (la carte n'est plus montree).
 - **Le son** : en C++ (`dsp/`), jamais dans la WebView. Le plugin joue fenetre fermee et pendant un export d'Ableton.
   - `dsp/Voyager.{h,cpp}` : le port ligne a ligne de `src/v4/audio/moog.worklet.js` (12 voix, x4, tous les filtres,
     STACK, WIDE, GLUE...). **Identique au bit pres au site** sur 85 cas (`tests/voyager-ref.mjs` + `voyager_compare.cpp`) :

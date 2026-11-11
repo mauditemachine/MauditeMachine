@@ -99,6 +99,13 @@ export const VOY_KNOB = {
 } as const;
 
 /**
+ * Le potard de la face du plugin MM-ARP (2026-11-11, Mika : "capuchon metal brosse, jupe noire cannelee, le dessus plus
+ * fonce, pas trop") : la meme geometrie, la jupe noire, un disque de metal brosse pose sur le capuchon (capR, en unites
+ * du potard ; voyager/knobs.ts VoyKnobs.tops) et l'index blanc sur la couronne noire, du disque au bord (r0 a r1).
+ */
+export const VOY_PLUGIN_KNOB = { capR: 0.176, mark: { w: 0.036, r0: 0.17, r1: 0.272 } } as const;
+
+/**
  * Selecteurs de forme (WAVE 1, WAVE 2, 2026-10-03, Mika : "les formes
  * d'onde dessinees autour du knob, quelque chose de type Typhon") : autour
  * du potard, un arc jaune par cran (un jour entre eux) et le dessin de sa
@@ -982,6 +989,79 @@ export const VOY_PLUGIN_FACE = (() => {
   const mw = 0.985;
   const mh = 0.985;
   return { w: B.w * mw, h: (hi - lo) * mh, ty: (hi + lo) / 2 / Math.cos(el) };
+})();
+
+/**
+ * L'habillage de la face du plugin MM-ARP (2026-11-11, Mika : "je veux le meilleur synthe de l'histoire" ; voyager/skin.ts,
+ * voyager/silk.ts skinBase et pluginScales) : le simili noir, un bandeau de metal brosse par section du panneau (a la
+ * place des titres serigraphies), des filets de cadre entre elles, AMP EG et MOD entre deux filets, et les graduations
+ * chiffrees de chaque potard.
+ * - columns : les cinq sections (entre les filets DESK_RULES_X, du bord au bord du capot) ; band : la hauteur du bandeau ;
+ * - gain : la clarte des tuiles dans la scene (sa lumiere et sa courbe de tons passent dessus), calee sur une capture
+ *   pour que le panneau 3D et les couches HTML aient le meme noir ;
+ * - scales : 'all' (0 a 10, chaque chiffre : CUTOFF), 'full' (les pairs), 'compact' (0, 5, 10 : les rangees serrees),
+ *   { nums } (onze traits, ces chiffres seuls : un voisin prend la place des autres), une liste (les vraies valeurs d'un
+ *   potard a crans) ou 'ticks' (un trait par cran, sans nom : la place manque).
+ */
+export type VoyPluginScale = 'all' | 'full' | 'compact' | 'ticks' | readonly string[] | { readonly nums: readonly number[] };
+export const VOY_PLUGIN_SKIN = (() => {
+  const half = VOY_LID_W / 2;
+  const xs = [-half, ...DESK_RULES_X, half];
+  const names = ['OSCILLATORS', 'FILTER', 'FILTER EG', 'EFFECTS', 'OUTPUT'];
+  const gap = 0.03;
+  const eg = (DESK_EG[0] + DESK_EG[3]) / 2;
+  const scales: Partial<Record<VoyKnobId, VoyPluginScale>> = {
+    cutoff: 'all',
+    volume: 'full',
+    osc1: 'compact',
+    // WAVEFORM (la rangee 2) passe juste au-dessus de OSC 2 : pas de 5
+    osc2: { nums: [0, 10] },
+    noise: 'compact',
+    sub: 'compact',
+    subWave: 'ticks',
+    // FINE ecrit son +50 a gauche du 0 de FM
+    fm: { nums: [5, 10] },
+    ratio: 'ticks',
+    res: 'compact',
+    envAmt: 'compact',
+    fA: 'compact',
+    fD: 'compact',
+    fS: 'compact',
+    fR: 'compact',
+    aA: 'compact',
+    aD: 'compact',
+    aS: 'compact',
+    aR: 'compact',
+    lfoRate: 'ticks',
+    lfoShape: 'ticks',
+    lfoDest: 'ticks',
+    lfoAmt: 'compact',
+    dist: 'compact',
+    delay: 'compact',
+    reverb: 'compact',
+    rate: ['1/4', '1/8', '1/16', '1/32'],
+    mode: ['UP', 'DN', 'U/D', 'RND'],
+    range: ['1', '2', '3'],
+    notes: ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'],
+    gate: 'compact',
+    octave: ['-2', '-1', '0', '+1', '+2'],
+    glide: 'compact',
+  };
+  const band = { z0: DESK_TITLE_Z - 0.12, z1: DESK_TITLE_Z + 0.11, cap: 0.09 };
+  return {
+    columns: names.map((text, i) => ({ text, x0: xs[i] + (i === 0 ? 0 : gap), x1: xs[i + 1] - (i === names.length - 1 ? 0 : gap) })),
+    band,
+    rules: DESK_RULES_X,
+    bottom: VOY_PANEL.len / 2,
+    sub: { cap: 0.072 },
+    subs: [
+      { text: 'AMP EG', x: eg, z: betweenRows(0), x0: DESK_RULES_X[1] + 0.16, x1: DESK_RULES_X[2] - 0.16 },
+      { text: 'MOD', x: eg, z: betweenRows(1), x0: DESK_RULES_X[1] + 0.16, x1: DESK_RULES_X[2] - 0.16 },
+    ],
+    deckRules: [] as readonly (readonly number[])[],
+    gain: { leather: { panel: 1.56, deck: 1.42 }, tint: [1, 1.1, 1.26] as readonly [number, number, number], relief: 1.3, band: 1.09, bandTint: [1, 1.036, 1.115] as readonly [number, number, number], ink: { panel: 1, deck: 0.9 } },
+    scales,
+  };
 })();
 
 /**

@@ -31,8 +31,10 @@ export function DiskPresets() {
     arpBridge.diskList();
   }, []);
   return (
-    <section className="mm-arp-col mm-arp-disk" aria-label="Presets on disk">
-      <p className="mm-arp-col-title">DISK</p>
+    <section className="mm-arp-sec mm-arp-disk" data-sec="disk" aria-label="Presets on disk">
+      <p className="mm-arp-band">
+        <span>DISK</span>
+      </p>
       <div className="mm-arp-disk-body">
         <div className="mm-arp-disk-keys">
           <button type="button" className="mm-arp-kb mm-arp-disk-key" data-size="s" data-fn="1" onClick={() => arpDisk.set({ naming: proposedName() })}>
@@ -121,8 +123,8 @@ export function DiskNameDialog() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="mm-arp-disk-pn-title"
-      // Sous le panneau du capot (en haut depuis le 2026-11-11, 172 px), dans la couche a l'echelle (.mm-arp-ui)
-      style={{ position: 'absolute', top: 196, left: '50%', transform: 'translateX(-50%)', width: 420 }}
+      // Au milieu de la fenetre, dans la couche a l'echelle (.mm-arp-ui, 1440 x 810)
+      style={{ position: 'absolute', top: 250, left: '50%', transform: 'translateX(-50%)', width: 420 }}
       onKeyDown={onKeyDown}
     >
       <p id="mm-arp-disk-pn-title" className="v4-pn-title">

@@ -1,48 +1,38 @@
 /**
- * Le module d'extension de la face avant du plugin MM-ARP (2026-11-11, Mika : "sur le VST je voulais encore d'autres
- * fonctions sur le panneau AVANT, donc agrandis la taille generale et fais en sorte de placer plus de choses pour un
- * rendu vraiment hors du commun"). TOUJOURS visible, sous la face 3D (la fenetre passe de 1100 x 704 a 1100 x 880,
- * scale.ts), jamais dans OPEN : le meme panneau anthracite qui continue entre les joues de noyer (prolongees par une
- * texture tiree du rendu de la scene, wood-l.jpg et wood-r.jpg : le bas des joues, raccorde en miroir), la meme
- * serigraphie, les potards SVG, les touches et les LED du panneau d'OPEN (SoundPlus.tsx, face.css). Trois zones :
+ * Les modules HTML de la face avant du plugin MM-ARP (2026-11-11 ; refaits le meme jour pour le format large, Mika :
+ * "carre c'est pas bon, essaie de faire un peu plus en largeur ... fais quelque chose de design, je veux le meilleur
+ * synthe de l'histoire"). Autour de la machine 3D (scale.ts : le plan de la fenetre), dans le meme habillage qu'elle
+ * (voyager/skin.ts : le simili noir, un bandeau de metal brosse par section, des filets de cadre, les potards a capuchon
+ * de metal et leurs graduations chiffrees) :
  *
- * - STEP SEQUENCER : 16 pas, cinq pistes (steps.ts : ACCENT, SLIDE, GATE, RATCHET, PROB), des touches a temoin. Clic :
- *   l'etat suivant ; clic droit ou Maj + clic : le precedent ; glisser : peindre la piste avec l'etat pose. La tete de
- *   lecture court sur la rangee de LED (mm_transport pos, voyager/arp.ts arpExternal.headState) ; les pas au-dela de la
- *   longueur de la suite sont grises. Le potard SWING (xSwing) et INIT (toutes les pistes a leurs valeurs de depart).
- * - OSC / FILTER + : RING MOD, FOLD, NOISE COLOR, UNISON (OFF / 5 / 7), HIGH PASS, COMB, COMB FB.
- * - FX RACK : PHASER, FLANGER, PUMP, CRUSH, SPACE ; une LED par effet, allumee quand il agit.
+ * - Rack, a DROITE de la machine, sur toute la hauteur : six rangees a bandeau, OSC +, FILTER +, PHASER, FLANGER, PUMP,
+ *   CRUSH et SPACE (les 22 reglages osc, filter, phaser, flanger, pump, crush et space de extra-params.json) ; une LED
+ *   rouge dans le bandeau de chaque effet, allumee quand il agit.
+ * - StepStrip, SOUS la machine, sur sa largeur : STEP SEQUENCER, 16 pas larges, cinq pistes (steps.ts : ACCENT, SLIDE,
+ *   GATE, RATCHET, PROB), des touches a temoin. Clic : l'etat suivant ; clic droit ou Maj + clic : le precedent ;
+ *   glisser : peindre la piste avec l'etat pose. La tete de lecture court sur la rangee de LED (mm_transport pos,
+ *   voyager/arp.ts arpExternal.headState) ; les pas au-dela de la longueur de la suite sont grises. A droite : le potard
+ *   SWING (xSwing) et INIT (toutes les pistes a leurs valeurs de depart).
+ * - Cheeks : les joues de noyer, aux deux bords de la fenetre (le noyer fume de voyager/skin.ts woodTile, face.css).
  *
- * Les potards sont des reglages de extra.ts (plugin/mm-arp/extra-params.json), comme ceux de SOUND+ : memes evenements
- * (mm_param, mm_gesture, mm_knobs sans echo ; un clic en MIDI LEARN arme le reglage). Les pistes partent dans
- * mm_program (bridge.ts). Le VST3 seul : le site ne monte jamais ce module.
+ * Les potards sont des reglages de extra.ts, comme ceux du panneau d'OPEN : memes evenements (mm_param, mm_gesture,
+ * mm_knobs sans echo ; un clic en MIDI LEARN arme le reglage). Les pistes partent dans mm_program (bridge.ts). Le VST3
+ * seul : le site ne monte jamais ces modules.
  */
 
 import React, { useRef, useSyncExternalStore } from 'react';
-import { voyExplode } from '../../state/explode';
 import { arp, arpExternal } from '../../voyager/arp';
 import { voyParams } from '../../voyager/params';
 import { seq } from '../../voyager/seq';
 import { extHead } from '../head';
-import { arpBridge } from './bridge';
-import { arpExtra, extraParam, extraStepIndex, type ExtraParam } from './extra';
-import { arpMidi } from './midimap';
-import { FACE_H, MODULE_H } from './scale';
-import { XKnob, xTouch } from './SoundPlus';
+import { arpExtra, extraParam, type ExtraParam } from './extra';
+import { CHEEK_W, RACK, SEQ, UI_H } from './scale';
+import { XKnob, XSwitch, xTouch } from './SoundPlus';
 import { arpSteps, STEP_TRACKS, stepName, STEPS_N, type StepTrack } from './steps';
-import woodL from './wood-l.jpg';
-import woodR from './wood-r.jpg';
 
 const P = (id: string): ExtraParam => extraParam(id) as ExtraParam;
 
-const useExtra = (id: string): number =>
-  useSyncExternalStore(
-    arpExtra.subscribe,
-    () => arpExtra.of(id),
-    () => arpExtra.of(id)
-  );
 const useSteps = () => useSyncExternalStore(arpSteps.subscribe, arpSteps.get, arpSteps.get);
-const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, arpMidi.get);
 
 /* ---------------- la tete de lecture et la longueur de la suite ---------------- */
 
@@ -165,8 +155,10 @@ const StepSeq: React.FC = () => {
   };
 
   return (
-    <section className="mm-arp-col mm-arp-fz mm-arp-fz-seq" aria-label="Step sequencer">
-      <p className="mm-arp-col-title">STEP SEQUENCER</p>
+    <section className="mm-arp-sec mm-arp-strip" style={{ position: 'absolute', left: SEQ.x, top: SEQ.y, width: SEQ.w, height: SEQ.h }} aria-label="Step sequencer">
+      <p className="mm-arp-band">
+        <span>STEP SEQUENCER</span>
+      </p>
       <div className="mm-arp-seq">
         <div
           ref={grid}
@@ -180,8 +172,10 @@ const StepSeq: React.FC = () => {
           onContextMenu={(e) => e.preventDefault()}
           onKeyDown={onKey}
         >
-          {/* La rangee de la tete : une LED par pas, son numero dessous */}
-          <span className="mm-arp-st-name" aria-hidden="true" />
+          {/* La rangee de la tete : une LED par pas, son numero a cote */}
+          <span className="mm-arp-st-name mm-arp-st-name-head" aria-hidden="true">
+            STEP
+          </span>
           <div className="mm-arp-st-row mm-arp-st-heads" aria-hidden="true">
             {Array.from({ length: STEPS_N }, (_, i) => (
               <span key={i} className="mm-arp-st-head" data-i={i} data-off={i >= len ? '1' : undefined} data-beat={i % 4 === 0 ? '1' : undefined}>
@@ -222,7 +216,7 @@ const StepSeq: React.FC = () => {
           ))}
         </div>
         <div className="mm-arp-seq-side">
-          <XKnob p={P('xSwing')} compact />
+          <XKnob p={P('xSwing')} />
           <button type="button" className="mm-arp-kb mm-arp-seq-init" data-size="s" disabled={arpSteps.isDefault()} title="All step tracks back to their defaults" onClick={() => arpSteps.reset()}>
             <span className="mm-arp-k" aria-hidden="true" />
             <span className="mm-arp-legend">INIT</span>
@@ -233,72 +227,27 @@ const StepSeq: React.FC = () => {
   );
 };
 
-/* ---------------- OSC / FILTER + et FX RACK ---------------- */
+/* ---------------- le rack : OSC +, FILTER +, PHASER, FLANGER, PUMP, CRUSH, SPACE ---------------- */
 
-/** UNISON : la touche de CHORUS en petit, ses LED OFF / 5 / 7 au-dessus ; chaque appui passe au cran suivant. */
-const Selector: React.FC<{ p: ExtraParam }> = ({ p }) => {
-  const v = useExtra(p.id);
-  const midi = useArpMidi();
-  const steps = p.steps ?? [];
-  const idx = extraStepIndex(p.id, v);
-  const last = Math.max(1, steps.length - 1);
-  const armed = midi.learning && midi.armed === p.id;
-  const pick = (i: number): void => {
-    if (arpBridge.learnArm(p.id)) return;
-    arpExtra.set(p.id, Math.min(last, Math.max(0, i)) / last);
-    xTouch.set(p.id, false);
-  };
-  const onKey = (e: React.KeyboardEvent<HTMLDivElement>): void => {
-    let i = idx;
-    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') i += 1;
-    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') i -= 1;
-    else if (e.key === 'Home') i = 0;
-    else if (e.key === 'End') i = last;
-    else return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (!arpMidi.get().learning) pick(i);
-  };
-  return (
-    <div className="mm-arp-x mm-arp-x-switch mm-arp-fsel" data-x={p.id} data-compact="1" data-mm-learn={armed ? 'armed' : undefined} data-learning={midi.learning ? '1' : undefined} title={p.help} onPointerEnter={() => xTouch.set(p.id, false)}>
-      <div className="mm-arp-x-sw" role="radiogroup" aria-label={p.label.charAt(0) + p.label.slice(1).toLowerCase()} onKeyDown={onKey}>
-        {steps.map((s, i) => (
-          <button key={s} type="button" role="radio" aria-checked={i === idx} tabIndex={i === idx ? 0 : -1} className="mm-arp-x-sw-led" data-on={i === idx ? '1' : undefined} onClick={() => pick(i)}>
-            <span className="mm-arp-led" data-on={i === idx ? '1' : undefined} aria-hidden="true" />
-            {s}
-          </button>
-        ))}
-      </div>
-      <button type="button" className="mm-arp-k mm-arp-x-sw-key" tabIndex={-1} aria-hidden="true" onClick={() => pick(idx >= last ? 0 : idx + 1)} />
-      <span className="mm-arp-x-label">
-        {armed && <span className="mm-arp-led" data-on="1" data-blink="1" aria-hidden="true" />}
-        {p.label}
-      </span>
-      <span className="mm-arp-x-value">{idx === 0 ? 'STACK' : `${steps[idx]} VOICES`}</span>
-    </div>
-  );
-};
-
-/** Les noms des potards dans le module quand le bloc porte deja celui du JSON (la dose de PHASER : MIX). */
+/** Les noms des potards quand le bandeau porte deja celui du JSON (la dose de PHASER : MIX). */
 const LABELS: Record<string, string> = { xPhMix: 'MIX', xFlMix: 'MIX', xPumpDepth: 'DEPTH', xCrushBits: 'BITS', xCrushRate: 'DOWNSAMPLE', xDlyMode: 'DELAY MODE' };
 
 interface Group {
   id: string;
   title: string;
   ids: readonly string[];
-  /** l'effet agit (sa LED) ; sans : pas de LED (OSC, FILTER) */
+  /** l'effet agit (sa LED) ; sans : pas de LED (OSC +, FILTER +) */
   on?: (v: Readonly<Record<string, number>>) => boolean;
 }
 
-const OSC_ROWS: readonly (readonly Group[])[] = [[{ id: 'osc', title: 'OSC', ids: ['xRing', 'xFold', 'xNoiseColor', 'xUnison'] }], [{ id: 'filter', title: 'FILTER', ids: ['xHpf', 'xComb', 'xCombFb'] }]];
-
-const FX_ROWS: readonly (readonly Group[])[] = [
+/** Les rangees du rack, de haut en bas ; la derniere porte deux sections cote a cote. */
+const RACK_ROWS: readonly (readonly Group[])[] = [
+  [{ id: 'osc', title: 'OSC +', ids: ['xRing', 'xFold', 'xNoiseColor', 'xUnison'] }],
+  [{ id: 'filter', title: 'FILTER +', ids: ['xHpf', 'xComb', 'xCombFb'] }],
+  [{ id: 'phaser', title: 'PHASER', ids: ['xPhMix', 'xPhRate', 'xPhDepth', 'xPhFb'], on: (v) => v.xPhMix > 0 }],
+  [{ id: 'flanger', title: 'FLANGER', ids: ['xFlMix', 'xFlRate', 'xFlDepth', 'xFlFb'], on: (v) => v.xFlMix > 0 }],
+  [{ id: 'pump', title: 'PUMP', ids: ['xPumpDepth', 'xPumpRate', 'xPumpShape'], on: (v) => v.xPumpDepth > 0 }],
   [
-    { id: 'phaser', title: 'PHASER', ids: ['xPhMix', 'xPhRate', 'xPhDepth', 'xPhFb'], on: (v) => v.xPhMix > 0 },
-    { id: 'flanger', title: 'FLANGER', ids: ['xFlMix', 'xFlRate', 'xFlDepth', 'xFlFb'], on: (v) => v.xFlMix > 0 },
-  ],
-  [
-    { id: 'pump', title: 'PUMP', ids: ['xPumpDepth', 'xPumpRate', 'xPumpShape'], on: (v) => v.xPumpDepth > 0 },
     { id: 'crush', title: 'CRUSH', ids: ['xCrushBits', 'xCrushRate'], on: (v) => v.xCrushBits > 0 || v.xCrushRate > 0 },
     { id: 'space', title: 'SPACE', ids: ['xDlyMode', 'xShimmer'], on: (v) => v.xDlyMode > 0 || v.xShimmer > 0 },
   ],
@@ -308,48 +257,36 @@ const GroupBox: React.FC<{ g: Group }> = ({ g }) => {
   const values = useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
   const lit = g.on ? g.on(values) : false;
   return (
-    <div className="mm-arp-fg" data-fx={g.id} data-on={lit ? '1' : undefined} style={{ flexGrow: g.ids.length }} role="group" aria-label={g.title}>
-      <p className="mm-arp-fg-title">
-        <span>
-          {g.on && <span className="mm-arp-led" data-on={lit ? '1' : undefined} aria-hidden="true" />}
-          {g.title}
-        </span>
+    <div className="mm-arp-sec mm-arp-fg" data-fx={g.id} data-on={lit ? '1' : undefined} style={{ flexGrow: g.ids.length }} role="group" aria-label={g.title}>
+      <p className="mm-arp-band">
+        {g.on && <span className="mm-arp-led mm-arp-band-led" data-on={lit ? '1' : undefined} aria-hidden="true" />}
+        <span>{g.title}</span>
       </p>
-      <div className="mm-arp-fg-row">{g.ids.map((id) => (id === 'xUnison' ? <Selector key={id} p={P(id)} /> : <XKnob key={id} p={P(id)} compact label={LABELS[id]} />))}</div>
+      <div className="mm-arp-fg-row">{g.ids.map((id) => (id === 'xUnison' ? <XSwitch key={id} p={P(id)} /> : <XKnob key={id} p={P(id)} label={LABELS[id]} />))}</div>
     </div>
   );
 };
 
-const Zone: React.FC<{ id: string; title: string; rows: readonly (readonly Group[])[] }> = ({ id, title, rows }) => (
-  <section className={`mm-arp-col mm-arp-fz mm-arp-fz-${id}`} aria-label={title}>
-    <p className="mm-arp-col-title">{title}</p>
-    <div className="mm-arp-fz-rows">
-      {rows.map((row, i) => (
-        <div key={i} className="mm-arp-fz-row">
-          {row.map((g) => (
-            <GroupBox key={g.id} g={g} />
-          ))}
-        </div>
-      ))}
-    </div>
+/** Le rack, a droite de la machine. */
+export const Rack: React.FC = () => (
+  <section className="mm-arp-rack" style={{ position: 'absolute', left: RACK.x, top: RACK.y, width: RACK.w, height: RACK.h }} aria-label="MM-ARP expander rack">
+    {RACK_ROWS.map((row, i) => (
+      <div key={i} className="mm-arp-rack-row">
+        {row.map((g) => (
+          <GroupBox key={g.id} g={g} />
+        ))}
+      </div>
+    ))}
   </section>
 );
 
-/* ---------------- le module ---------------- */
+/** Le sequenceur par pas, sous la machine. */
+export const StepStrip = StepSeq;
 
-/** Le module avant, pose sous la face 3D dans la couche a l'echelle (.mm-arp-ui, ArpFace.tsx). */
-export const FrontModule: React.FC = () => {
-  const hood = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
-  return (
-    <section className="mm-arp-front" style={{ position: 'absolute', top: FACE_H, height: MODULE_H }} data-hood={hood === 'closed' ? undefined : '1'} aria-label="MM-ARP expander">
-      {/* Les joues de noyer, prolongees : elles recouvrent le bout des joues de la scene (capot ferme) */}
-      <span className="mm-arp-front-wood" data-side="l" style={{ backgroundImage: `url(${woodL})` }} aria-hidden="true" />
-      <span className="mm-arp-front-wood" data-side="r" style={{ backgroundImage: `url(${woodR})` }} aria-hidden="true" />
-      <div className="mm-arp-front-panel">
-        <StepSeq />
-        <Zone id="osc" title="OSC / FILTER +" rows={OSC_ROWS} />
-        <Zone id="fx" title="FX RACK" rows={FX_ROWS} />
-      </div>
-    </section>
-  );
-};
+/** Les joues de noyer, aux deux bords de la fenetre, sur toute sa hauteur. */
+export const Cheeks: React.FC = () => (
+  <>
+    <span className="mm-arp-cheek" data-side="l" style={{ position: 'absolute', left: 0, top: 0, width: CHEEK_W, height: UI_H }} aria-hidden="true" />
+    <span className="mm-arp-cheek" data-side="r" style={{ position: 'absolute', right: 0, top: 0, width: CHEEK_W, height: UI_H }} aria-hidden="true" />
+  </>
+);

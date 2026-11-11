@@ -33,7 +33,7 @@ import { Pcb } from '../scene/pcb';
 import { fontsReady, onFonts } from '../scene/silk';
 import type { Tweens } from '../scene/tween';
 import { voyExplode } from '../state/explode';
-import { EXPLODE, PCB, PCB_TURN, PORTRAIT, type SectionId } from '../theme';
+import { EXPLODE, PCB, PCB_TURN, PLUGIN_ARP, PORTRAIT, type SectionId } from '../theme';
 import { VoySeqScreen } from './seqscreen';
 import { arp, arpNow } from './arp';
 import { VoyBackPlate } from './backplate';
@@ -178,6 +178,7 @@ export class VoyagerRig {
     this.lid.add(this.keys.pushes.deck);
     this.knobs = new VoyKnobs({ mobile: opts.mobile, castShadow: !opts.mobile });
     this.lid.add(this.knobs.mesh);
+    if (this.knobs.tops) this.lid.add(this.knobs.tops);
     this.lcd = new VoyScreen(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
     this.seqScreen = !PORTRAIT && !opts.mobile ? new VoySeqScreen(opts.anisotropy) : null;
@@ -469,6 +470,17 @@ export class VoyagerRig {
     const s = voyExplode.get();
     const goal = s === 'opening' || s === 'open';
     let changed = false;
+    // Le plugin MM-ARP (2026-11-11) : OPEN bascule la fenetre sur le panneau d'options HTML (plugin/arp/HoodPanel.tsx), la
+    // machine 3D reste fermee dessous. L'etat du capot suit (la touche OPEN s'allume, sa legende dit CLOSE), sans
+    // animation, sans carte et sans TWEAKS 3D (ils sont dessines en HTML dans le panneau)
+    if (PLUGIN_ARP) {
+      this.explodeGoal = goal;
+      if (s === 'opening' || s === 'closing') voyExplode.settle(goal);
+      if (this.keys.setOpen(goal)) changed = true;
+      if (this.deckSilk.setOpen(goal)) changed = true;
+      if (changed) this.opts.invalidate();
+      return;
+    }
     if (instant) {
       this.explodeGoal = goal;
       if (goal) this.pcb.prepare();

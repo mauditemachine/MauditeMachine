@@ -1,44 +1,40 @@
 /**
- * Le panneau du capot du plugin MM-ARP (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
- * imprime, comme avant ! Et la doit y avoir le DRAG MIDI et la gestion MIDI") : OPEN ouvre le vrai capot du site (la carte
- * et ses TWEAKS, state/explode.ts voyExplode) ; ce panneau se pose en bande au-dessus de la carte (2026-11-11, Mika : "je
- * veux que ca se retrouve EN HAUT" ; Stage.setHead : la carte tient dessous, rien ne la cache ; sous elle avant), le
- * temps que le capot est ouvert. Quatre blocs :
- * - DRAG MIDI : la poignee a glisser vers une piste d'Ableton (mm_drag_midi, une fois, des que le pointeur enfonce a bouge
- *   de 4 px : le C++ lance le glisser natif depuis l'evenement souris en cours), x1 / x2 / x4, SAVE .MID (mm_save_mid) ;
- *   le message du C++ (mm_drag_status) s'affiche un moment ;
- * - DISK : les presets sur le disque (DiskPresets.tsx) ;
- * - MIDI : MIDI LEARN (LEARN, un clic sur un potard, le prochain CC), la table des CC du plugin, une croix par ligne,
- *   CLEAR ALL ;
- * - CLOSE : referme le capot (comme OPEN, Echap ou la touche O).
- * Trois pages (2026-11-10, tab.ts) : SOUND+ (SoundPlus.tsx : les reglages du VST3 seul), LIBRARY (Library.tsx : la
- * banque d'usine du VST3) et TOOLS (CLIP, DISK, MIDI).
- * Le dessin (2026-11-10, Mika : "fais ces rajouts par rapport au design de la face avant, la c'est noir et orange" ; "je
- * veux que tout se retrouve dans OPEN, pas melange") : un panneau de la machine, le meme gris anthracite que la face, des
- * sections titrees et separees de filets comme OSCILLATORS / FILTER EG, des touches noires en relief avec leur legende
- * dessous (en orange pour les fonctions, comme PRESET et OPEN), les LED rouges de CHORUS et SUB OCT pour les etats, des
- * fenetres de verre noir comme l'ecran pour les listes. La colonne de droite porte l'afficheur (le reglage touche, MIDI
- * LEARN, les messages du clip), les touches de page SOUND+, LIBRARY et TOOLS, LEARN et CLOSE. Le panneau garde sa hauteur sur les
- * deux pages (face.css), la carte ne bouge pas. Plus rien sur la face fermee (Mika : "tout dans OPEN").
+ * Le panneau d'OPEN du plugin MM-ARP (2026-11-09 : un panneau au-dessus de la carte ouverte ; refait le 2026-11-11, Mika :
+ * "sur ce synthe, quand on clique sur le titre on a une autre interface : moi je veux le bouton OPEN pour ca, et avoir
+ * encore tout un tas d'interfaces ; pour le OPEN je veux ces knobs-la (bouton noir a index blanc, graduations
+ * chiffrees)"). OPEN (la touche de la machine, celle du bandeau, la touche O) bascule TOUTE la fenetre sur ce second
+ * panneau, dans le meme habillage que la face (le simili noir, un bandeau de metal brosse par section, des filets de
+ * cadre) ; CLOSE (le bandeau), OPEN, O ou Echap reviennent a la face. Le bandeau du haut reste (Header.tsx) : son titre
+ * dit OPTIONS PANEL, sa touche devient CLOSE. La scene 3D ne s'ouvre plus dans le plugin (voyager/rig.ts) : l'etat du
+ * capot (state/explode.ts voyExplode) reste la source, la face 3D attend dessous.
+ *
+ * Une seule page, tout est visible :
+ * - rangee 1, les TWEAKS du site (les potards de la carte, voyager/params.ts section tweak, a leurs ids du site) :
+ *   OSC TWEAKS (PHASE, DRIFT, STACK, SYNC), OUTPUT TWEAKS (WIDTH, WIDE, BASS MONO, GLUE, SIDECHAIN), FILTER TWEAKS (LOAD,
+ *   SPACE, POLARITY), DELAY TWEAKS (DLY TIME, TAPE) ;
+ * - rangee 2 : PERFORMANCE (KEY TRACK, ACCENT, ACC FILTER, CHORD : des TWEAKS aussi), puis les reglages du VST3 seul
+ *   (extra.ts) : ENGINE (QUALITY), LFO 1 (TARGET 2, DEPTH 2), LFO 2, REVERB ;
+ * - le bas : MASTER, CLIP (DRAG MIDI, x1 / x2 / x4, SAVE .MID) et MIDI (LEARN, la table des CC, CLEAR ALL) a gauche ;
+ *   LIBRARY au milieu (Library.tsx : les 40 presets d'usine, quatre categories cote a cote) ; DISK a droite
+ *   (DiskPresets.tsx).
+ * Les potards : le bouton noir a index blanc et ses graduations chiffrees (SoundPlus.tsx, look 'black').
+ *
+ * DRAG MIDI : la poignee a glisser vers une piste d'Ableton (mm_drag_midi, une fois, des que le pointeur enfonce a bouge
+ * de 4 px : le C++ lance le glisser natif depuis l'evenement souris en cours).
  * LearnMarks (toujours monte) : le potard arme cerne d'orange sur la machine (son jumeau, ui/VoyTwins.tsx), et capot ferme,
  * une pastille MIDI LEARN (le mode survit a la fermeture : les potards de la face s'apprennent capot ferme).
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { openToggle } from '../../actions';
-import type { Stage } from '../../scene/renderer';
+import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import { voyExplode } from '../../state/explode';
-import { VOY_KNOBS } from '../../voyager/params';
+import { VOY_KNOBS, type VoyKnobId } from '../../voyager/params';
 import { arpBridge } from './bridge';
 import { DiskPresets } from './DiskPresets';
-import { Library } from './Library';
-import { arpExtra, extraParam } from './extra';
+import { LibraryBank } from './Library';
+import { EXTRA_PARAMS, extraParam, type ExtraSection } from './extra';
 import { arpMidi, type ArpMidiState } from './midimap';
-import { sectionPrefix, SoundPlus, xTouch } from './SoundPlus';
-import { ARP_BUILD } from '../../firmware';
-import { uiScale } from './scale';
-import { arpSteps, STEP_TRACKS, stepName } from './steps';
-import { hoodTab, type HoodTab } from './tab';
+import { CHEEK_W, HEAD_H, UI_H, UI_W } from './scale';
+import { sectionPrefix, VKnob, VSwitch, XKnob, XSwitch } from './SoundPlus';
 
 /** Le glisser part apres ce deplacement (px), le bouton tenu. */
 const DRAG_PX = 4;
@@ -62,14 +58,6 @@ export function paramLabel(id: string): string {
 
 const useHood = () => useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
 const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, arpMidi.get);
-const useTab = () => useSyncExternalStore(hoodTab.subscribe, hoodTab.get, hoodTab.get);
-
-const TABS: readonly { id: HoodTab; label: string }[] = [
-  { id: 'sound', label: 'SOUND+' },
-  { id: 'library', label: 'LIBRARY' },
-  { id: 'tools', label: 'TOOLS' },
-];
-
 /**
  * Une touche de la machine (CLEAR, RANDOM, EDIT) : le carre noir mat en relief, une LED au-dessus si elle a un etat, la
  * legende serigraphiee dessous (orange : une fonction, comme PRESET et OPEN). Le bouton entier (LED, touche, legende)
@@ -82,7 +70,7 @@ type KeyProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> 
   size?: 's' | 'm' | 'w';
   sub?: string;
 };
-const Key: React.FC<KeyProps> = ({ legend, led, fn, size = 'm', sub, className, ...rest }) => (
+export const Key: React.FC<KeyProps> = ({ legend, led, fn, size = 'm', sub, className, ...rest }) => (
   <button type="button" className={`mm-arp-kb${className ? ` ${className}` : ''}`} data-size={size} data-fn={fn ? '1' : undefined} {...rest}>
     {led !== undefined && <span className="mm-arp-led" data-on={led ? '1' : undefined} data-blink={led === 'blink' ? '1' : undefined} aria-hidden="true" />}
     <span className="mm-arp-k" aria-hidden="true" />
@@ -91,114 +79,16 @@ const Key: React.FC<KeyProps> = ({ legend, led, fn, size = 'm', sub, className, 
   </button>
 );
 
-const useTouch = () => useSyncExternalStore(xTouch.subscribe, xTouch.get, xTouch.get);
-const useExtra = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
-
-/** L'afficheur du panneau (le verre de l'ecran de la machine) : MIDI LEARN, le message du clip, le reglage touche, sinon la page. */
-const Lcd: React.FC<{ tab: HoodTab }> = ({ tab }) => {
-  const st = useArpMidi();
-  const t = useTouch();
-  const extra = useExtra();
-  const steps = useSyncExternalStore(arpSteps.subscribe, arpSteps.get, arpSteps.get);
-  let head: string;
-  let line: string;
-  let mode = 'idle';
-  if (st.learning) {
-    head = 'MIDI LEARN';
-    line = st.armed ? `CC → ${paramLabel(st.armed)}` : 'CLICK A KNOB';
-    mode = 'learn';
-  } else if (st.status) {
-    head = st.status.ok ? 'CLIP' : 'CLIP · ERROR';
-    line = st.status.msg;
-    mode = 'status';
-  } else if (t && extraParam(t.id)) {
-    const p = extraParam(t.id) as NonNullable<ReturnType<typeof extraParam>>;
-    head = `${sectionPrefix(p)}${p.label}`;
-    line = arpExtra.text(p.id, extra[p.id]);
-    mode = t.active ? 'gesture' : 'touch';
-  } else if (t && t.id.startsWith('step:')) {
-    // Un pas du STEP SEQUENCER du module avant (FrontModule.tsx) : sa piste et son numero, son etat
-    const [, track, i] = t.id.split(':');
-    const spec = STEP_TRACKS.find((x) => x.id === track);
-    head = `STEP ${Number(i) + 1} · ${spec?.label ?? ''}`;
-    line = spec ? stepName(spec.id, steps[spec.id][Number(i)]) : '';
-    mode = t.active ? 'gesture' : 'touch';
-  } else if (tab === 'library') {
-    head = 'LIBRARY · VST3';
-    line = 'FACTORY SOUNDS';
-  } else if (tab === 'sound') {
-    head = 'SOUND+ · VST3';
-    line = (extra.xQuality ?? 0) >= 0.5 ? 'HQ · x8' : 'STD · x4';
-  } else {
-    const n = st.items?.length ?? 0;
-    head = 'TOOLS';
-    line = `x${st.cycles} · ${n} CC MAPPED`;
-  }
-  return (
-    <div className="mm-arp-lcd" data-mode={mode} role="status" aria-live="polite">
-      <span className="mm-arp-lcd-head">{head}</span>
-      <span className="mm-arp-lcd-line">{line}</span>
-    </div>
-  );
-};
-
-/** La colonne de droite : l'afficheur, les touches de page (SOUND+, TOOLS), LEARN, CLOSE. */
-const Rail: React.FC<{ tab: HoodTab; onClose: () => void }> = ({ tab, onClose }) => {
-  const st = useArpMidi();
-  return (
-    <div className="mm-arp-rail">
-      <Lcd tab={tab} />
-      <div className="mm-arp-rail-keys">
-        <div className="mm-arp-tabs" role="tablist" aria-label="Hood page">
-          {TABS.map((t) => (
-            <Key
-              key={t.id}
-              role="tab"
-              id={`mm-arp-tab-${t.id}`}
-              aria-selected={tab === t.id}
-              aria-controls={`mm-arp-panel-${t.id}`}
-              tabIndex={tab === t.id ? 0 : -1}
-              className="mm-arp-tab"
-              data-on={tab === t.id ? '1' : undefined}
-              size="s"
-              led={tab === t.id}
-              legend={t.label}
-              onClick={() => hoodTab.set(t.id)}
-              onKeyDown={(e) => {
-                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-                e.preventDefault();
-                e.stopPropagation();
-                const i = TABS.findIndex((x) => x.id === t.id);
-                const next = TABS[(i + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? TABS.length - 1 : 1)) % TABS.length].id;
-                hoodTab.set(next);
-                document.getElementById(`mm-arp-tab-${next}`)?.focus();
-              }}
-            />
-          ))}
-          <span className="mm-arp-bracket" aria-hidden="true">
-            <span>PAGE</span>
-          </span>
-        </div>
-        <Key
-          className="mm-arp-learn mm-arp-rail-learn"
-          size="s"
-          aria-pressed={st.learning}
-          data-on={st.learning ? '1' : undefined}
-          led={st.learning ? 'blink' : false}
-          legend="LEARN"
-          title={st.learning ? (st.armed ? `Waiting CC for ${paramLabel(st.armed)}` : 'Click a knob') : 'MIDI learn'}
-          onClick={() => arpBridge.learnMode(!st.learning)}
-        />
-        {/* CLOSE (2026-11-11, Mika : "je n'ai plus de bouton CLOSE") : sa LED orange, toujours allumee capot ouvert */}
-        <Key className="mm-arp-close" size="s" fn led legend="CLOSE" aria-label="Close the machine" title="Close the hood (Esc)" onClick={onClose} />
-      </div>
-      {/* La version du build (2026-11-11) : la meme chaine que la serigraphie de la face (firmware.ts ARP_BUILD) */}
-      <p className="mm-arp-rev" title={ARP_BUILD}>
-        {ARP_BUILD}
-      </p>
-    </div>
-  );
-};
+/** Une section du panneau : son bandeau de metal brosse (une LED dedans si elle a un etat), son contenu dessous. */
+const Sec: React.FC<{ id: string; title: string; className?: string; grow?: number; led?: boolean | 'blink'; children: React.ReactNode }> = ({ id, title, className, grow, led, children }) => (
+  <section className={`mm-arp-sec${className ? ` ${className}` : ''}`} data-sec={id} style={grow ? { flex: `${grow} 1 0` } : undefined} aria-label={title}>
+    <p className="mm-arp-band">
+      {led !== undefined && <span className="mm-arp-led mm-arp-band-led" data-on={led ? '1' : undefined} data-blink={led === 'blink' ? '1' : undefined} aria-hidden="true" />}
+      <span>{title}</span>
+    </p>
+    {children}
+  </section>
+);
 
 /** CLIP : DRAG MIDI (la poignee), x1 / x2 / x4, SAVE .MID. */
 const DragMidi: React.FC = () => {
@@ -241,8 +131,7 @@ const DragMidi: React.FC = () => {
   };
 
   return (
-    <section className="mm-arp-col mm-arp-drag" aria-label="Clip">
-      <p className="mm-arp-col-title">CLIP</p>
+    <Sec id="clip" title="CLIP" className="mm-arp-drag">
       <div className="mm-arp-clip">
         <button
           type="button"
@@ -287,18 +176,17 @@ const DragMidi: React.FC = () => {
           <Key className="mm-arp-key mm-arp-savemid" size="s" legend="SAVE .MID" onClick={() => arpBridge.saveMid(arpMidi.get().cycles)} />
         </div>
       </div>
-    </section>
+    </Sec>
   );
 };
 
-/** MIDI : la table des CC (LEARN est dans la colonne de droite), CLEAR ALL. */
+/** MIDI : LEARN, la table des CC, CLEAR ALL. */
 const MidiMap: React.FC = () => {
   const st = useArpMidi();
   const items = st.items ?? [];
   const line = st.learning ? (st.armed ? `WAITING CC FOR ${paramLabel(st.armed)}` : 'CLICK A KNOB') : st.items === null ? '…' : items.length === 0 ? 'NO CC MAPPED' : `${items.length} CC MAPPED`;
   return (
-    <section className="mm-arp-col mm-arp-midi" aria-label="MIDI mapping">
-      <p className="mm-arp-col-title">MIDI</p>
+    <Sec id="midi" title="MIDI" className="mm-arp-midi" led={st.learning ? 'blink' : false}>
       <div className="mm-arp-midi-body">
         <div className="mm-arp-glass">
           <p className="mm-arp-glass-head mm-arp-midi-line" data-on={st.learning ? '1' : undefined} role="status">
@@ -319,6 +207,16 @@ const MidiMap: React.FC = () => {
           </ul>
         </div>
         <div className="mm-arp-midi-side">
+          <Key
+            className="mm-arp-learn mm-arp-rail-learn"
+            size="s"
+            aria-pressed={st.learning}
+            data-on={st.learning ? '1' : undefined}
+            led={st.learning ? 'blink' : false}
+            legend="LEARN"
+            title={st.learning ? (st.armed ? `Waiting CC for ${paramLabel(st.armed)}` : 'Click a knob') : 'MIDI learn'}
+            onClick={() => arpBridge.learnMode(!st.learning)}
+          />
           <Key className="mm-arp-key mm-arp-clearall" size="s" legend="CLEAR ALL" disabled={items.length === 0} onClick={() => arpBridge.unmapAll()} />
           <p className="mm-arp-help">
             ALSO IN ABLETON
@@ -327,55 +225,72 @@ const MidiMap: React.FC = () => {
           </p>
         </div>
       </div>
-    </section>
+    </Sec>
   );
 };
 
-/** Le panneau, capot ouvert (ou qui s'ouvre) : la carte remonte au-dessus de lui. */
-export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
+/* ---------------- les sections de potards ---------------- */
+
+/** Les TWEAKS du site, par bloc (ceux de la carte : voyager/theme.ts VT.groups) ; sw : un commutateur a deux positions. */
+const TWEAKS: readonly { id: string; title: string; ids: readonly VoyKnobId[] }[] = [
+  { id: 'tw-osc', title: 'OSC TWEAKS', ids: ['phase', 'drift', 'stack', 'sync'] },
+  { id: 'tw-out', title: 'OUTPUT TWEAKS', ids: ['width', 'wide', 'monoLow', 'glue', 'duck'] },
+  { id: 'tw-filter', title: 'FILTER TWEAKS', ids: ['load', 'space', 'fpol'] },
+  { id: 'tw-delay', title: 'DELAY TWEAKS', ids: ['dlyTime', 'tape'] },
+];
+const PERFORMANCE: readonly VoyKnobId[] = ['keyTrack', 'accent', 'accFlt', 'chord'];
+const V_SWITCH: ReadonlySet<VoyKnobId> = new Set<VoyKnobId>(['sync', 'fpol']);
+
+const Tweaks: React.FC<{ id: string; title: string; ids: readonly VoyKnobId[] }> = ({ id, title, ids }) => (
+  <Sec id={id} title={title} grow={ids.length}>
+    <div className="mm-arp-xrow">{ids.map((k) => (V_SWITCH.has(k) ? <VSwitch key={k} id={k} /> : <VKnob key={k} id={k} />))}</div>
+  </Sec>
+);
+
+/** Une section des reglages du VST3 seul (extra.ts) : ENGINE, LFO 1, LFO 2, REVERB, MASTER. */
+const Extra: React.FC<{ id: ExtraSection; title: string; fixed?: boolean }> = ({ id, title, fixed }) => {
+  const list = EXTRA_PARAMS.filter((p) => p.section === id);
+  return (
+    <Sec id={id} title={title} grow={fixed ? undefined : list.length}>
+      <div className="mm-arp-xrow">{list.map((p) => (p.id === 'xQuality' ? <XSwitch key={p.id} p={p} /> : <XKnob key={p.id} p={p} look="black" />))}</div>
+    </Sec>
+  );
+};
+
+/** Le panneau, capot ouvert (ou qui s'ouvre) : il prend toute la fenetre sous le bandeau. */
+export const HoodPanel: React.FC = () => {
   const hood = useHood();
   const open = hood === 'opening' || hood === 'open';
-  const tab = useTab();
-  const ref = useRef<HTMLDivElement>(null);
-  // Le panneau est en haut (2026-11-11) : la carte se cadre dessous (Stage.setHead). Sa hauteur a l'ecran : celle de son
-  // repere (offsetHeight, 172 px) fois l'echelle de la couche (scale.ts) ; la fenetre redimensionnee : sans transition
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!stage || !el || !open) return undefined;
-    let first = true;
-    const apply = (): void => {
-      stage.setHead('voy', el.offsetHeight * uiScale.get(), !first);
-      first = false;
-    };
-    apply();
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply);
-    ro?.observe(el);
-    const off = uiScale.subscribe(apply);
-    return () => {
-      ro?.disconnect();
-      off();
-      stage.setHead('voy', 0);
-    };
-  }, [stage, open]);
   // Le capot s'ouvre : la table des CC a jour (la liste des presets : DiskPresets)
   useEffect(() => {
     if (open) arpBridge.midimapGet();
   }, [open]);
   if (!open) return null;
   return (
-    <section ref={ref} className="mm-arp-hood" style={{ position: 'absolute' }} data-tab={tab} aria-label="MM-ARP hood">
-      {tab === 'sound' ? (
-        <SoundPlus />
-      ) : tab === 'library' ? (
-        <Library />
-      ) : (
-        <div className="mm-arp-page mm-arp-tools" role="tabpanel" id="mm-arp-panel-tools" aria-labelledby="mm-arp-tab-tools">
+    <section className="mm-arp-open" style={{ position: 'absolute', left: CHEEK_W, top: HEAD_H, width: UI_W - 2 * CHEEK_W, height: UI_H - HEAD_H }} aria-label="MM-ARP options panel">
+      <div className="mm-arp-open-row" data-row="tweaks">
+        {TWEAKS.map((t) => (
+          <Tweaks key={t.id} {...t} />
+        ))}
+      </div>
+      <div className="mm-arp-open-row" data-row="sound">
+        <Tweaks id="tw-perf" title="PERFORMANCE" ids={PERFORMANCE} />
+        <Extra id="engine" title="ENGINE" />
+        <Extra id="lfo1" title="LFO 1" />
+        <Extra id="lfo2" title="LFO 2" />
+        <Extra id="reverb" title="REVERB" />
+      </div>
+      <div className="mm-arp-open-row" data-row="tools">
+        <div className="mm-arp-open-col" data-col="left">
+          <Extra id="master" title="MASTER" fixed />
           <DragMidi />
-          <DiskPresets />
           <MidiMap />
         </div>
-      )}
-      <Rail tab={tab} onClose={() => openToggle(stage, 'voy')} />
+        <Sec id="library" title="LIBRARY" className="mm-arp-open-lib">
+          <LibraryBank />
+        </Sec>
+        <DiskPresets />
+      </div>
     </section>
   );
 };
@@ -403,6 +318,7 @@ export const LearnMarks: React.FC = () => {
       el?.removeAttribute('data-mm-learn');
     };
   }, [st.learning, st.armed]);
+  // Capot ouvert : la section MIDI du panneau dit le mode (sa LED, sa ligne) ; capot ferme : la pastille
   if (!st.learning || hood === 'open' || hood === 'opening') return null;
   return (
     <button type="button" className="mm-arp-learn-pill" style={{ position: 'absolute' }} onClick={() => arpBridge.learnMode(false)} aria-label="Stop MIDI learn">
