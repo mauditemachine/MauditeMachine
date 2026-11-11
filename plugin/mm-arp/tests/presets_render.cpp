@@ -59,6 +59,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <chrono>
 #include <thread>
 #include <atomic>
 #include <vector>
@@ -419,6 +420,7 @@ struct Stats {
   // les descripteurs de caractere (voir en tete)
   double env[kEnv] = {};
   double crest = 0, cSlow = 0, cFast = 0, ioiCv = 0, barRepeat = 1;
+  double cpu = 0;  // le temps de rendu / la duree rendue (%, un coeur ; les rendus en parallele se genent un peu)
   double rhythm[kRh] = {};
 };
 
@@ -626,10 +628,10 @@ constexpr double kUnit[kTerms] = {
     0.25,  // irregularite : 0.25 de coefficient de variation
     0.30,  // rythme : 1 - cosinus des histogrammes
     0.30,  // repetition d'une mesure a l'autre
-    0.50,  // motif : 1 - part commune
+    1.00,  // motif : 1 - part commune (deux presets n'ont presque jamais les memes notes : le terme pese 1 au plus)
 };
 // Les seuils : aucun preset a moins de kMinD d'un autre (le tout), ni a moins de kMinDS par le son seul
-constexpr double kMinD = 3.0, kMinDS = 1.6;
+constexpr double kMinD = 2.7, kMinDS = 2.0;
 
 struct Dist {
   double t[kTerms] = {};
@@ -741,8 +743,11 @@ int main(int argc, char** argv) {
         const size_t q = next.fetch_add(1);
         if (q >= todo.size()) return;
         const size_t i = todo[q];
+        const auto t0 = std::chrono::steady_clock::now();
         const Render r = render(ps[i], os);
+        const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         st[i] = measure(r, ps[i].bpm);
+        st[i].cpu = 100 * took / (static_cast<double>(r.L.size()) / SR);
         if (showNotes) {
           // les notes des deux premieres mesures : la double croche de la note, son nom et son octave
           static const char* nm[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
@@ -812,12 +817,12 @@ int main(int argc, char** argv) {
   }
 
   // Les descripteurs de caractere
-  std::printf("\nDescripteurs (ENV : dB sous la plus forte tranche, 0-5 / 5-10 / 10-20 / 20-40 / 40-80 / 80-160 / 160-320 / 320-640 ms ; BANDES : dB, octaves de 22 Hz a 22 kHz)\n");
-  std::printf("%-3s %-24s %5s %5s %5s %5s %5s  %-39s  %s\n", "#", "NOM", "CRETE", "CLENT", "CVITE", "IRREG", "REPET", "ENV", "BANDES");
+  std::printf("\nDescripteurs (CPU : temps de rendu / duree, un coeur de cette machine ; ENV : dB sous la plus forte tranche, 0-5 / 5-10 / 10-20 / 20-40 / 40-80 / 80-160 / 160-320 / 320-640 ms ; BANDES : dB, octaves de 22 Hz a 22 kHz)\n");
+  std::printf("%-3s %-24s %5s %5s %5s %5s %5s %5s  %-39s  %s\n", "#", "NOM", "CPU", "CRETE", "CLENT", "CVITE", "IRREG", "REPET", "ENV", "BANDES");
   for (size_t i = 0; i < ps.size(); ++i) {
     if (!done[i]) continue;
     const Stats& s = st[i];
-    std::printf("%-3zu %-24s %5.1f %5.2f %5.2f %5.2f %5.2f ", i + 1, ps[i].name.c_str(), s.crest, s.cSlow, s.cFast, s.ioiCv, s.barRepeat);
+    std::printf("%-3zu %-24s %4.0f%% %5.1f %5.2f %5.2f %5.2f %5.2f ", i + 1, ps[i].name.c_str(), s.cpu, s.crest, s.cSlow, s.cFast, s.ioiCv, s.barRepeat);
     for (int k = 0; k < kEnv; ++k) std::printf(" %4.0f", s.env[k]);
     std::printf("  ");
     for (int k = 0; k < kBands; ++k) std::printf(" %4.0f", std::max(s.band[k], -99.0));

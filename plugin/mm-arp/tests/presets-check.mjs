@@ -4,12 +4,16 @@
  * sans son. Contre les vraies regles du site et du plugin :
  * - les 62 potards de src/v4/voyager/params.ts, tous presents, 0..1, chacun egal a son arrondi (clean de voyParams.set :
  *   un cran sur i / (n - 1), un continu au millieme) ;
- * - les 14 reglages de plugin/mm-arp/extra-params.json, tous presents, 0..1, les crans sur i / (n - 1) ;
+ * - les 37 reglages de plugin/mm-arp/extra-params.json, tous presents, 0..1, les crans sur i / (n - 1), QUALITY a HQ ;
+ * - les pistes par pas (steps, src/v4/plugin/arp/steps.ts) : acc, slide, gate, rat, prob, 16 pas chacune, des valeurs
+ *   de leur piste (acc 0..2, slide 0..1, gate 0..3, rat 1..4, prob 100 / 75 / 50 / 25 / 0) ;
+ * - UNISON 7 avec WIDE (le reglage le plus lourd en HQ) : 3 presets au plus ;
  * - la suite : edit et has booleens, 16 pas (degres entiers -7..24 ou null), len 1..16 ; en EDIT, au moins une note ;
  * - la progression : 1 a 8 indices entiers 0..7 ;
- * - nom : 24 caracteres au plus, les caracteres des noms du site (A-Z 0-9 espace tiret), unique ; cat, desc, bpm ;
+ * - nom : 24 caracteres au plus, les caracteres des noms du site (A-Z 0-9 espace tiret), unique ; cat, bpm ; desc : une
+ *   phrase en anglais (ASCII, sans tiret cadratin) ;
  * - chaque .mmarp : NN NOM.mmarp, format mm-arp-preset v1, le meme contenu que factory.json ;
- * - la repartition demandee : 10 DISCO, 10 HYPNOTIC, 6 DARK, 6 TEXTURE.
+ * - la repartition demandee : 12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE (40 presets).
  *
  *   node plugin/mm-arp/tests/presets-check.mjs
  */
@@ -37,6 +41,8 @@ const okNum = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v 
 if (bank.v !== 1 || !Array.isArray(bank.presets)) err('factory.json', 'pas de { v: 1, presets: [] }');
 const names = new Set();
 const cats = {};
+const heavy = [];
+const STEP_OK = { acc: [0, 1, 2], slide: [0, 1], gate: [0, 1, 2, 3], rat: [1, 2, 3, 4], prob: [100, 75, 50, 25, 0] };
 for (const p of bank.presets ?? []) {
   const who = p.name ?? '?';
   if (typeof p.name !== 'string' || !/^[A-Z0-9-][A-Z0-9 -]{0,23}$/.test(p.name) || p.name.endsWith(' ') || p.name.includes('  ')) err(who, 'nom invalide');
@@ -45,7 +51,8 @@ for (const p of bank.presets ?? []) {
   if (!['DISCO', 'HYPNOTIC', 'DARK', 'TEXTURE'].includes(p.cat)) err(who, `cat ${p.cat}`);
   cats[p.cat] = (cats[p.cat] ?? 0) + 1;
   if (typeof p.desc !== 'string' || p.desc.length < 20) err(who, 'desc manquante');
-  if (/[—À-ſ]/.test(p.desc ?? '')) err(who, 'desc : accent ou tiret cadratin');
+  if (/[^\x20-\x7e]/.test(p.desc ?? '')) err(who, 'desc : accent, tiret cadratin ou caractere hors ASCII');
+  if (/\b(le|la|les|des|une|qui|sur|dans|avec)\b/i.test(p.desc ?? '')) err(who, 'desc : en anglais');
   if (!(p.bpm >= 60 && p.bpm <= 180)) err(who, `bpm ${p.bpm}`);
   const kn = p.knobs ?? {};
   for (const k of VOY_KNOBS) {
@@ -61,6 +68,14 @@ for (const p of bank.presets ?? []) {
     else if (exClean(e, v) !== v) err(who, `reglage ${e.id} = ${v} pas sur son cran`);
   }
   for (const id of Object.keys(ex)) if (!EXTRA.some((e) => e.id === id)) err(who, `reglage inconnu ${id}`);
+  if (ex.xQuality !== 1) err(who, 'QUALITY doit rester a HQ');
+  if (ex.xUnison === 1 && (kn.wide ?? 0) >= 0.02) heavy.push(who);
+  const st = p.steps ?? {};
+  for (const [id, ok] of Object.entries(STEP_OK)) {
+    const a = st[id];
+    if (!Array.isArray(a) || a.length !== 16 || !a.every((v) => ok.includes(v))) err(who, `steps.${id}`);
+  }
+  for (const id of Object.keys(st)) if (!(id in STEP_OK)) err(who, `piste inconnue ${id}`);
   const s = p.seq ?? {};
   if (typeof s.edit !== 'boolean' || typeof s.has !== 'boolean') err(who, 'seq.edit / seq.has');
   if (!Array.isArray(s.buf) || s.buf.length !== 16 || !s.buf.every((d) => d === null || (Number.isInteger(d) && d >= -7 && d <= 24))) err(who, 'seq.buf');
@@ -69,7 +84,8 @@ for (const p of bank.presets ?? []) {
   if (s.edit && !s.has) err(who, 'EDIT sans has');
   if (!Array.isArray(p.prog) || p.prog.length < 1 || p.prog.length > 8 || !p.prog.every((c) => Number.isInteger(c) && c >= 0 && c <= 7)) err(who, 'prog');
 }
-const want = { DISCO: 10, HYPNOTIC: 10, DARK: 6, TEXTURE: 6 };
+const want = { DISCO: 12, HYPNOTIC: 12, DARK: 8, TEXTURE: 8 };
+if (heavy.length > 3) err('CPU', `UNISON 7 avec WIDE dans ${heavy.length} presets (3 au plus) : ${heavy.join(', ')}`);
 for (const [c, n] of Object.entries(want)) if (cats[c] !== n) err('repartition', `${c} : ${cats[c] ?? 0} au lieu de ${n}`);
 
 // Les fichiers du disque : le meme contenu
@@ -80,7 +96,7 @@ if (files.length !== (bank.presets ?? []).length) err('factory/', `${files.lengt
   if (!files.includes(f)) return err(p.name, `fichier ${f} absent`);
   const d = JSON.parse(readFileSync(join(PRESETS, 'factory', f), 'utf8'));
   if (d.format !== 'mm-arp-preset' || d.v !== 1 || d.name !== p.name) err(f, 'en-tete du format disque');
-  for (const key of ['knobs', 'seq', 'prog', 'extra', 'bpm', 'cat', 'desc'])
+  for (const key of ['knobs', 'seq', 'prog', 'extra', 'steps', 'bpm', 'cat', 'desc'])
     if (JSON.stringify(d[key]) !== JSON.stringify(p[key])) err(f, `${key} differe de factory.json`);
 });
 
