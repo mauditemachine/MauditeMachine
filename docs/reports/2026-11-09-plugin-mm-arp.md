@@ -277,3 +277,25 @@ Demande de Mika : « sur le VST je voulais encore d'autres fonctions sur le pann
 - Mesures : distance minimale 2.73 entre deux presets, contre 1.91 pour l'ancienne banque, qui avait 15 paires sous les seuils. La sonie est calee a -23 LUFS (TEXTURE a -25).
 - Les rendus MP3 sont envoyes a Mika. A verifier a l'oreille en priorite : SINGING COMB, CRYSTAL MIST, GHOST RATCHETS, SYN TOM FALL, OFFBEAT BELL.
 - Ce build n'est parti qu'apres une relance a la main : le push de `0cea0d5` n'avait lance aucun run.
+
+## Suite (2026-11-11) : la refonte de la face (format large, potards metal, OPEN plein cadre)
+
+Demande de Mika : « carre c'est pas bon, plus en largeur », des potards a capuchon metal et graduations chiffrees, un design inspire d'un synthe du commerce qu'il admire, et OPEN qui bascule sur une autre interface complete.
+
+### 1. Ce qui a ete fait
+- **Fenetre 1440 x 810 (16 / 9)**, redimensionnable de 1100 a 2560 (`PluginEditor.cpp`, `scale.ts`).
+- **Face avant** (`src/v4/plugin/arp/` : Header (nouveau), FrontModule, SoundPlus, face.css ; `src/v4/voyager/` : skin.ts (nouveau), silk.ts, knobs.ts, rig.ts, theme.ts) :
+  - un bandeau en haut : logotype, afficheur de la banque avec fleches, version du build, OPEN ;
+  - la machine 3D a gauche, memes emplacements et meme echelle ;
+  - le rack a droite : OSC +, FILTER +, PHASER, FLANGER, PUMP, CRUSH, SPACE ;
+  - le STEP SEQUENCER dessous ;
+  - l'habillage : simili noir a grain, bandeaux de section en metal brosse, potards a capuchon gunmetal avec graduations chiffrees, les memes en 3D et en HTML. Les matieres sont procedurales.
+- **OPEN** : un second panneau plein cadre, sur une seule page. Il regroupe les 18 TWEAKS en vrais potards (noirs a index blanc), ENGINE, LFO 1, LFO 2, REVERB, MASTER, CLIP, MIDI, LIBRARY (les 40 presets visibles) et DISK. La carte PCB n'est plus montree dans le plugin.
+
+### 2. Decisions
+- **Inspire, pas copie** : l'esprit (cuir noir, bandeaux metal, graduations) vient du synthe de reference. La disposition, le logotype, les textes et l'orange des legendes restent ceux de Maudite Machine.
+- **Une forme en L** (rack a droite, sequenceur dessous) : une colonne seule etait trop etroite pour les trois modules a cette proportion.
+
+### 3. En suspens
+- Mika : le rendu dans Ableton (teinte du noir 3D contre le HTML sur le GPU du Mac), le glisser DRAG MIDI, la taille de la fenetre.
+- La carte INFOS de la machine est decalee d'environ 20 px.

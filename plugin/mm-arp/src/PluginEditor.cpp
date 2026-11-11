@@ -7,8 +7,8 @@
 namespace {
 
 // La taille de la fenetre : les proportions de la face du MM-ARP (src/v4/plugin/arp)
-constexpr int kW = 1100;
-constexpr int kH = 880;
+constexpr int kW = 1440;
+constexpr int kH = 810;
 const juce::Colour kInk(0xff0b0b0c);
 
 // Les fichiers de la face (le zip de plugin/mm-arp/build-web), lus une fois.
@@ -131,8 +131,8 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
     // la face suit seule (src/v4/plugin/arp/scale.ts) ; la taille choisie est gardee dans le projet
     setResizable(true, true);
     getConstrainer()->setFixedAspectRatio(static_cast<double>(kW) / kH);
-    setResizeLimits(880, 880 * kH / kW, 2200, 2200 * kH / kW);
-    const int w = juce::jlimit(880, 2200, proc_.editorWidth());
+    setResizeLimits(1100, 1100 * kH / kW, 2560, 2560 * kH / kW);
+    const int w = juce::jlimit(1100, 2560, proc_.editorWidth());
     setSize(w, w * kH / kW);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
