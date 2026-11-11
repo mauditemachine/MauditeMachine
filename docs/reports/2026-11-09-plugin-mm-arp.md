@@ -269,3 +269,11 @@ Demande de Mika : « sur le VST je voulais encore d'autres fonctions sur le pann
 - Mika : charge du processeur avec UNISON 7 + WIDE en HQ.
 - FLANGER engage retarde la sortie de 2.5 ms, non declares a l'hote.
 - La banque de presets est en cours de refonte.
+
+## Suite (2026-11-11) : la banque d'usine refaite (40 presets)
+
+- `plugin/mm-arp/presets/` (`build.mjs`, `volumes.json`, `calibrate.sh`, `factory.json`, `factory/*.mmarp`) : 40 presets (12 DISCO, 12 HYPNOTIC, 8 DARK, 8 TEXTURE). Chacun est complet : 62 potards, 37 reglages, suite, progression et pistes par pas. Ils utilisent les nouvelles fonctions (PUMP, PHASER, FLANGER, SLIDE, ACCENT, RATCHET, PROB, COMB, SHIMMER, FOLD, RING, CRUSH, UNISON).
+- `tests/presets_render.cpp`, `presets-check.mjs`, `presets-render.sh` : le rendu suit le chemin du processeur, en x4 et en x8. Le controle de diversite repose sur 12 descripteurs et une distance entre presets.
+- Mesures : distance minimale 2.73 entre deux presets, contre 1.91 pour l'ancienne banque, qui avait 15 paires sous les seuils. La sonie est calee a -23 LUFS (TEXTURE a -25).
+- Les rendus MP3 sont envoyes a Mika. A verifier a l'oreille en priorite : SINGING COMB, CRYSTAL MIST, GHOST RATCHETS, SYN TOM FALL, OFFBEAT BELL.
+- Ce build n'est parti qu'apres une relance a la main : le push de `0cea0d5` n'avait lance aucun run.
