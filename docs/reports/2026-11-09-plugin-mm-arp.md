@@ -245,3 +245,27 @@ Demande de Mika : « sur le VST je voulais encore d'autres fonctions sur le pann
 
 ### 4. Commandes
 - Aucune nouvelle. Essai : `npm run dev`, `/plugin/mm-arp/web/index.html?mute=1`, fenetre de 1100 x 880.
+
+## Suite (2026-11-11) : le son des trois ensembles, faible latence, raccord au processeur
+
+### 1. Ce qui a ete fait
+- `dsp/Arp.{h,cpp}` : les pistes par pas (`stepAcc`, `stepSlide`, `stepGate`, `stepRat`, `stepProb`), `swingOwn`, `ArpSink::noteGlide`.
+- `dsp/Voyager.{h,cpp}` : le glissement par note (SLIDE), `xRing`, `xFold` (ADAA), `xNoiseCol`, `xUnison` (5 ou 7), `xHpf`, `xComb` / `xCombFb`.
+- `dsp/ArpFx.{h,cpp}` : CRUSH, PHASER 6 etages, FLANGER, PUMP cale au ppq (`setTransport`), `dlyMode` (STEREO, WIDE), SHIMMER.
+- `src/PluginProcessor.{h,cpp}` :
+  - 37 reglages du VST3 seul (`extra-params.json`), soit 102 parametres de l'hote ;
+  - les pistes lues dans `mm_program.steps` ;
+  - le clip DRAG MIDI suit les pistes ;
+  - la fenetre passe a 1100 x 880, redimensionnable (880 a 2200), sa taille gardee dans le projet.
+- **Faible latence** : le moteur rend le bloc de l'hote sans la file de 128. La latence declaree passe de 149 a 21 echantillons (0.4 ms). L'ecart de sonie selon la taille des blocs est de 0.04 dB.
+- Tests : `hq2_test` (54 controles), `arp_test` (42 cas), `host_test` (32 cas).
+
+### 2. Decisions
+- **La file de 128 est retiree.** Mika veut la latence la plus basse. Le son n'est plus au bit pres du site selon la taille des blocs de l'hote, mais il l'est toujours dans les tests, en blocs de 128.
+- **FOLD remplace la table d'ondes** annoncee a Mika, dit a Mika.
+- **Les presets sortent a part** : la banque de 40 presets, refaite avec ces fonctions, part dans une seconde mise a jour.
+
+### 3. En suspens
+- Mika : charge du processeur avec UNISON 7 + WIDE en HQ.
+- FLANGER engage retarde la sortie de 2.5 ms, non declares a l'hote.
+- La banque de presets est en cours de refonte.
