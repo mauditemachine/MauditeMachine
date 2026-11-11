@@ -452,6 +452,7 @@ const HELP: readonly [string, string][] = [
   ['Scenes A / B', 'tap A or B, turn knobs, tap again: the crossfader goes from A to B'],
   ['PERFORM (first key)', 'the live page: DIST, BIT, CHORUS, DELAY, REVERB, COMP, MASTER and the crossfader; right click: the presets'],
   ['REC twice (double click)', 'LIVE REC: while it plays, a track knob you turn is recorded on the steps it crosses (P-LOCKs), on any of the 16 tracks; REC again: out'],
+  ['Shift + a step in MUTE', 'a held mute: the track flips while Shift is down (its step turns violet), and comes back when you let go'],
   ['Page key three times', 'triple click TRIG, SRC, FLTR, AMP, FX or MOD: that page back to its start values for the track, its automation cleared; Cmd+Z undoes'],
   ['Ableton', 'Crossfader parameter (map, automate); a clip Pgm picks A01 to H16'],
   ['DRAG MIDI (OPEN, at the top)', 'drag the playing pattern onto a MIDI track or a Drum Rack: a clip (16 pads, C1 to D#2); a click saves the .mid'],

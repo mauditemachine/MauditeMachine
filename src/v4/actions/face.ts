@@ -44,6 +44,7 @@ import {
   knobClick60,
   knobNo,
   stepShiftHold as stepShiftHold60,
+  trigMuteHold,
   faceMenuOf,
   menuInput,
   menuLog,
@@ -1034,6 +1035,12 @@ export const activeTrackKey = (): TrackKey | null => activeTrack.get();
 export function faceKnobPress(k: number): boolean {
   if (!DT2_FACE) return false;
   return knobClick60(k);
+}
+
+/** Maj + clic sur un TRIG en mode MUTE (le plugin) : sa piste basculee tant que Maj reste tenue ; true si pris. */
+export function stepMuteHold(i: number, stage: Stage | null): boolean {
+  if (!DT2_FACE) return false;
+  return trigMuteHold(i, stage);
 }
 
 /** Maj + clic sur un TRIG (la face DT2, GRID REC, cahier 2.7) : un TRIG tenu de plus (ou de moins) ; true si pris. */

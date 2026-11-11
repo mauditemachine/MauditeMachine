@@ -159,6 +159,7 @@ import { dialEdit, dialRange, knobBlock, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { activeTrack, trk } from '../state/trk';
+import { muteHold } from '../state/muteHold';
 import { func } from '../state/func';
 import { dtFace } from '../state/dtFace';
 import { sceneCtl } from '../state/sceneCtl';
@@ -1206,7 +1207,7 @@ export class Stage {
     // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 allumes (une seule couleur, V.4.2)
     if (this.faceKeys) {
       // V.5.0 (2026-10-29, la face facon Digitakt) : FUNC, REC et le mode MUTE (FUNC + TRK) suivent leurs stores
-      const offTrk = [trk.subscribe(this.syncTrk), func.subscribe(this.syncFunc), dtFace.subscribe(this.syncDt), pattern.subscribe(this.syncTrk), ...(DT2_FACE ? [activeTrack.subscribe(this.syncPattern)] : [])];
+      const offTrk = [trk.subscribe(this.syncTrk), func.subscribe(this.syncFunc), dtFace.subscribe(this.syncDt), pattern.subscribe(this.syncTrk), ...(DT2_FACE ? [activeTrack.subscribe(this.syncPattern)] : []), ...(PLUGIN ? [muteHold.subscribe(this.syncTrk)] : [])];
       this.unsubTrk = () => offTrk.forEach((o) => o());
       this.syncTrk();
       this.syncFunc();
@@ -3425,7 +3426,11 @@ export class Stage {
       let view: TrkLed[] | null = null;
       // La face DT2 (V.6.0, lane B4) : les 16 pistes sur les 16 TRIG, la piste active (1 a 16)
       if (sv) view = DT2_FACE ? soloLeds(voices.soloAll(), DT_HEX, true) : soloLeds(v.solo, DT_HEX);
-      else if (mv !== 'off') view = DT2_FACE ? muteLeds(mv, voices.mutedAll(), pm, voices.soloAll(), DT_HEX, true) : muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
+      else if (mv !== 'off') {
+        view = DT2_FACE ? muteLeds(mv, voices.mutedAll(), pm, voices.soloAll(), DT_HEX, true) : muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
+        // Le plugin (2026-11-11) : une piste tenue par Maj (state/muteHold.ts) a son pas en violet, plein
+        if (PLUGIN && muteHold.size() > 0) view = view.map((l) => (l.inst && muteHold.has(l.inst) ? { ...l, color: DT_HEX.magenta, level: 1, tone: 'dmagenta' as const } : l));
+      }
       else if (m !== 'off' && DT2_FACE) view = trkLeds(activeTrack.get(), voices.mutedAll(), voices.soloAll(), KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT, DT_HEX, pm, true);
       else if (m !== 'off') view = trkLeds(pattern.get().instrument, v.muted, v.solo, KEY_LIT_LIGHT.tint ? TRK_LIT_LIGHT : TRK_LIT, DT_FACE ? DT_HEX : undefined, pm);
       this.trkShown = view !== null;

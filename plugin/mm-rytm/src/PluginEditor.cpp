@@ -174,6 +174,11 @@ void MMRytmEditor::importFiles(int family, int track) {
 }
 
 MMRytmEditor::MMRytmEditor(MMRytmProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
+    // La largeur gardee, lue avant tout (2026-11-11, Mika : "le plugin se retrecit tout seul quand je change de piste et que
+    // je reviens, je veux qu'il garde sa taille") : setResizeLimits pose deja une taille a la fenetre encore vide, la plus
+    // petite permise, et passe par resized(), qui l'enregistrait a la place de la largeur choisie ; relue juste apres, la
+    // fenetre rouvrait donc a sa plus petite taille a chaque fois que Live refaisait l'editeur
+    const int saved = proc_.uiWidth();
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
     // La fenetre agrandissable (2026-11-10, Mika : "fenetre agrandissable") : le coin tire, les proportions de la face gardees ;
@@ -181,9 +186,11 @@ MMRytmEditor::MMRytmEditor(MMRytmProcessor& p) : AudioProcessorEditor(&p), proc_
     setResizable(true, true);
     setResizeLimits(kW * 7 / 10, kH * 7 / 10, kW * 2, kH * 2);
     if (auto* c = getConstrainer()) c->setFixedAspectRatio(static_cast<double>(kW) / static_cast<double>(kH));
-    const int w = proc_.uiWidth();
-    if (w >= kW * 7 / 10 && w <= kW * 2) setSize(w, juce::roundToInt(w * static_cast<double>(kH) / kW));
+    if (saved >= kW * 7 / 10 && saved <= kW * 2) setSize(saved, juce::roundToInt(saved * static_cast<double>(kH) / kW));
     else setSize(kW, kH);
+    // A partir d'ici seulement, une taille de la fenetre est un choix (le coin tire) et se garde
+    sizeReady_ = true;
+    proc_.setUiWidth(getWidth() == kW ? 0 : getWidth());
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
@@ -194,7 +201,7 @@ void MMRytmEditor::paint(juce::Graphics& g) { g.fillAll(juce::Colour(0xff0b0b0c)
 
 void MMRytmEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
-    if (getWidth() > 0) proc_.setUiWidth(getWidth() == kW ? 0 : getWidth());
+    if (sizeReady_ && getWidth() > 0) proc_.setUiWidth(getWidth() == kW ? 0 : getWidth());
 }
 
 /* ---------------- le MIDI de la pattern (OPEN) ---------------- */

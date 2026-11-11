@@ -52,6 +52,8 @@ private:
     int midiTick_ = 0;
     bool meterAny_ = false;
     double lastDragMs_ = 0;
+    // La fenetre est posee a sa taille (la fin du constructeur) : avant, resized() ne garde rien (PluginEditor.cpp)
+    bool sizeReady_ = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MMRytmEditor)
 };

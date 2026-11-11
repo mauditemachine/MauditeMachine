@@ -74,6 +74,7 @@ import {
   pageKnobReset,
   screenKnobPress,
   faceKnobPress,
+  stepMuteHold,
   stepShiftHold,
   rytmLockEnter,
   rytmLockToggle,
@@ -1669,6 +1670,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const ev: TrackKey | null = DT_FACE && dt && !dt.info ? (DT2_FACE ? (TRACK_KEYS[idx] ?? null) : idx < INSTRUMENTS.length ? INSTRUMENTS[idx] : null) : null;
         if (ev && dt && liveEraseDown(ev)) {
           dt.erase = ev;
+          dt.trk = true;
+          e.preventDefault();
+          return;
+        }
+        // Le plugin (2026-11-11, Mika : le mute tenu) : en mode MUTE, Maj + un pas bascule sa piste tant que Maj reste tenue
+        // (state/muteHold.ts) ; le clic est pris, ni tape ni tenue au lacher
+        if (IN_PLUGIN && e.shiftKey && dt && !dt.info && muteView() && stepMuteHold(idx, stage)) {
           dt.trk = true;
           e.preventDefault();
           return;

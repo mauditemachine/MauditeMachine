@@ -16,6 +16,7 @@
  */
 
 import { IN_PLUGIN } from '../../pluginMode';
+import { muteHold } from '../../state/muteHold';
 import { clock } from '../../audio/clock';
 import { resume, trigger } from '../../audio/drums';
 import { isLockTrig, type Locks } from '../../audio/locks';
@@ -378,6 +379,51 @@ export function trigMute(i: number, stage: Stage | null): void {
     return;
   }
   trackMuteToggle(k);
+}
+
+/**
+ * Maj + un TRIG en mode MUTE (le plugin, state/muteHold.ts) : la piste bascule tant que Maj reste tenue, son pas en violet ;
+ * encore Maj + ce pas : elle retrouve son etat tout de suite. true : le clic est pris. Le mute global seulement (en mode MUTE
+ * du pattern, Maj ne change rien : le clic suit son chemin).
+ */
+export function trigMuteHold(i: number, stage: Stage | null): boolean {
+  if (!IN_PLUGIN || dtFace.mute() !== 'global') return false;
+  const k = trackAt(i);
+  if (!k) return false;
+  resume();
+  stage?.pressStep(i);
+  const was = muteHold.take(k);
+  if (was !== undefined) {
+    if (voices.isMuted(k) !== was) voices.toggleMute(k);
+    lcdMessage.show(`${trackName(k)} BACK`, 1000);
+    return true;
+  }
+  muteHold.add(k, voices.isMuted(k));
+  voices.toggleMute(k);
+  lcdMessage.show(`${trackName(k)} HELD · RELEASE SHIFT`, 1600);
+  return true;
+}
+/** Maj relachee (ou le mode MUTE quitte, la fenetre qui perd la souris) : chaque piste tenue retrouve son etat d'avant. */
+export function muteHoldRelease(): void {
+  const all = muteHold.takeAll();
+  if (all.length === 0) return;
+  for (const [k, was] of all) if (voices.isMuted(k as TrackKey) !== was) voices.toggleMute(k as TrackKey);
+  lcdMessage.show(all.length === 1 ? `${trackName(all[0][0] as TrackKey)} BACK` : `${all.length} TRACKS BACK`, 1200);
+}
+if (IN_PLUGIN && typeof window !== 'undefined') {
+  // Maj relachee : la touche (si la fenetre a le clavier), sinon le premier geste de souris sans Maj ; le mode MUTE quitte
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift') muteHoldRelease();
+  });
+  window.addEventListener('blur', () => muteHoldRelease());
+  const onPointer = (e: PointerEvent): void => {
+    if (muteHold.size() > 0 && !e.shiftKey) muteHoldRelease();
+  };
+  window.addEventListener('pointermove', onPointer, true);
+  window.addEventListener('pointerdown', onPointer, true);
+  dtFace.subscribe(() => {
+    if (muteHold.size() > 0 && dtFace.mute() !== 'global') muteHoldRelease();
+  });
 }
 
 /** Un TRIG en mode SOLO (ou tenu en mode MUTE) : le SOLO de sa piste (16). */

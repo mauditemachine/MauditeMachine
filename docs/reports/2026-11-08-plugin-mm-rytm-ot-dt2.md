@@ -328,6 +328,14 @@ Mika : « l'enregistrement live ne fonctionne pas, il faut que ca fonctionne abs
 
 - **Build vert des lots 18 et 19** (run 42972428296), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 948b4ca, branche claude/intelligent-ride-56tyeo, 2026-11-11 06:31 UTC, et l'INSTALL.md des lots 18 et 19. Le build du lot 18 seul (commit 68c188b) etait vert aussi.
 
+### Lot 20, la fenetre garde sa taille, le mute tenu avec Maj (2026-11-11)
+
+Mika : « fais attention, le plugin se retrecit tout seul sans que je fasse rien quand je change de piste et que je reviens sur la piste ou il est, je veux qu'il garde sa taille que j'ai choisie » ; « quand je suis sous MUTE et que j'appuie sur les touches pour muter des tracks, si j'appuie sur SHIFT en meme temps ca fait juste se mettre en violet, et quand je release SHIFT le son repart sans que je unmute : petit trick pour le live ».
+
+- **La fenetre** (`plugin/mm-rytm/src/PluginEditor.cpp`, `.h`) : un defaut du lot 11. Quand Live refait l'editeur (on change de piste et on revient), le constructeur appelait setResizeLimits avant de relire la largeur gardee. Or setResizeLimits de JUCE finit par setBoundsConstrained sur la fenetre encore vide : elle recoit la plus petite taille permise (840 px), resized() l'enregistrait comme la largeur choisie, et la ligne suivante relisait donc 840. La largeur gardee est maintenant lue en premier, et resized() ne garde une taille qu'une fois la fenetre posee (sizeReady_). Verifie par la lecture du code de JUCE 8.0.9 et la compilation ; pas executable ici.
+- **Le mute tenu** (plugin) : `state/muteHold.ts` (nouveau), `actions/internal/keys60.ts` trigMuteHold et muteHoldRelease, `ui/Hotspots.tsx` (Maj + un pas en mode MUTE), `scene/renderer.ts` (le pas en violet). En mode MUTE global, Maj + un pas bascule sa piste tant que Maj reste tenue : une piste qui joue se coupe, une piste coupee revient ; son pas passe en violet. Maj relachee, chaque piste retrouve son etat d'avant. Maj + le meme pas encore : il revient tout de suite. Le relacher est pris par la touche ; si la fenetre n'a pas le clavier, par le premier geste de souris sans Maj ; quitter le mode MUTE ou perdre la fenetre rend tout aussi. Un clic sans Maj reste un mute ordinaire.
+- Verifie dans Chromium : SD coupee d'un clic, puis Maj tenue + CH, CP et SD : CH et CP se coupent, SD revient, les trois pas en violet ; Maj relachee : CH et CP rejouent, SD est de nouveau coupee. Le filet de la souris et la sortie du mode MUTE rendent bien les pistes. Site : les 4 vues identiques au pixel pres. Moteur : 52 tests. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -404,8 +412,12 @@ Mika : « l'enregistrement live ne fonctionne pas, il faut que ca fonctionne abs
 - **Le triple clic ne touche que la piste choisie** : remettre a zero des reglages de toute la machine (le SWING, le tempo, les effets globaux) depuis une touche de page toucherait les 16 pistes d'un geste ; a ajouter sur PERFORM si Mika le veut.
 - **Le triple clic efface aussi les automations de la page** : « clear tout a 0 » apres un LIVE REC rate veut dire repartir propre ; Cmd+Z rend le tout.
 
+- **Lot 20 : j'ai lu la phrase sur Maj comme une demande** : Maj en mode MUTE ne faisait rien de particulier (verifie), et aucune touche n'etait violette dans ce mode ; le comportement decrit est donc cree. Si Mika decrivait autre chose, a reprendre.
+- **Le mute tenu bascule, il ne fait pas que couper** : Maj + une piste deja coupee la fait revenir le temps de Maj (un « punch in »), le meme geste dans les deux sens.
+
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 20)** : dire si la fenetre garde sa taille quand il change de piste et revient (non testable ici) ; essayer Maj + des pas en mode MUTE.
 - **Cote Mika (lot 19), important** : refaire l'essai de LIVE REC et me dire, si rien ne s'ecrit encore : sur quelle piste (1 a 8 ou 9 a 16), si le mot LIVE s'affiche en haut de l'ecran apres le double clic, si Ableton jouait, et ce que dit l'en-tete de l'ecran quand il tourne TONE. Essayer le triple clic sur FLTR, FX, MOD.
 - Sur une piste 9 a 16, la case du dessin du filtre (page FLTR, en bas a droite) dit encore « PICK A VOICE » : un reste du site, a corriger.
 - **Cote Mika (lot 18)** : dire si les potards chrome sont ceux de la photo ; s'il veut aussi les graduations 0 a 10 autour, a la place ou en plus des anneaux de segments.
