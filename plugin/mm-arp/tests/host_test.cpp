@@ -197,6 +197,45 @@ int main() {
             check(all.finite && all.peak > 0.001 && all.peak < 2.0, "FX RACK + OSC / FILTER + tous engages : fini, sans debordement (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
             check(X("xHpf")->getText(0.f, 32) == "OFF" && X("xPumpRate")->getText(0.5f, 32) == "1/4", "le texte des reglages du module avant");
         }
+        // La matrice : MOD WHEEL -> CUTOFF (la molette ouvre le filtre), le pitch bend, MONO
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            X("xM1Src")->setValueNotifyingHost(2.f / 11.f);
+            X("xM1Dst")->setValueNotifyingHost(10.f / 19.f);
+            X("xM1Amt")->setValueNotifyingHost(1.f);
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.15f);
+            run(p, h, 24000, 512);
+            const Stats shut = run(p, h, 48000, 512);
+            juce::MidiBuffer mw;
+            mw.addEvent(juce::MidiMessage::controllerEvent(1, 1, 127), 0);
+            mw.addEvent(juce::MidiMessage::pitchWheel(1, 16383), 1);
+            mw.addEvent(juce::MidiMessage::channelPressureChange(1, 100), 2);
+            run(p, h, 4800, 512, &mw);
+            const Stats open = run(p, h, 48000, 512);
+            juce::MidiBuffer mw0;
+            mw0.addEvent(juce::MidiMessage::controllerEvent(1, 1, 0), 0);
+            mw0.addEvent(juce::MidiMessage::pitchWheel(1, 8192), 1);
+            mw0.addEvent(juce::MidiMessage::channelPressureChange(1, 0), 2);
+            run(p, h, 4800, 512, &mw0);
+            X("xM1Src")->setValueNotifyingHost(0.f);
+            X("xM1Dst")->setValueNotifyingHost(0.f);
+            X("xM1Amt")->setValueNotifyingHost(0.5f);
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.5f);
+            check(open.finite && open.rms > shut.rms * 1.3, "MATRICE : MOD WHEEL -> CUTOFF ouvre le filtre (" + juce::String(db(shut.rms), 1).toStdString() + " -> " + juce::String(db(open.rms), 1).toStdString() + " dBFS)");
+            const char* on[] = {"xFeedback", "xDist", "xEqLow", "xEqHigh", "xEqAir"};
+            for (const char* id : on) X(id)->setValueNotifyingHost(1.f);
+            X("xVoiceMode")->setValueNotifyingHost(1.f);
+            X("xAmpMode")->setValueNotifyingHost(1.f);
+            run(p, h, 9600, 512);
+            const Stats all = run(p, h, 48000, 512);
+            X("xFeedback")->setValueNotifyingHost(0.f);
+            X("xDist")->setValueNotifyingHost(0.f);
+            for (const char* id : {"xEqLow", "xEqHigh", "xEqAir"}) X(id)->setValueNotifyingHost(0.5f);
+            X("xVoiceMode")->setValueNotifyingHost(0.f);
+            X("xAmpMode")->setValueNotifyingHost(0.f);
+            run(p, h, 48000, 512);
+            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTORTION + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+        }
         // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
         {
             p.learn("cutoff");

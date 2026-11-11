@@ -142,6 +142,12 @@ double ArpFxLaws::crushBitDepth(double v) { return 16 - 12 * clampd(v, 0, 1); }
 double ArpFxLaws::crushHz(double v, double sr) { return sr * std::pow(std::min(1.0, 2000 / sr), clampd(v, 0, 1)); }
 double ArpFxLaws::pumpDb(double v) { return -24 * clampd(v, 0, 1); }
 double ArpFxLaws::pumpBeats(int rate) { return rate <= 0 ? 0.5 : rate == 1 ? 1 : 2; }
+// 2026-11-11, suite
+double ArpFxLaws::distDb(double v) { return 36 * clampd(v, 0, 1); }
+double ArpFxLaws::distToneHz(double v) { return 700 * std::pow(18000.0 / 700, clampd(v, 0, 1)); }
+double ArpFxLaws::distPresenceDb(double v) { return 12 * std::max(0.0, clampd(v, 0, 1) - 0.5); }
+double ArpFxLaws::eqDb(double v) { return 24 * (clampd(v, 0, 1) - 0.5); }
+double ArpFxLaws::eqAirDb(double v) { return 20 * (clampd(v, 0, 1) - 0.5); }
 
 namespace detail {
 
@@ -1364,6 +1370,26 @@ constexpr double PH_HZ = 800, PH_OCT = 2.5, PH_FB = 0.85;
 constexpr double FL_D0_S = 0.0025, FL_FB = 0.8;
 constexpr double PUMP_ATK_S = 0.002, PUMP_SLEW_S = 0.0005;
 constexpr double SH_WIN_S = 0.09, SH_GAIN = 0.65, SH_LP = 0.2, SH_HP_HZ = 250, SH_POST_HZ = 7000, SH_MAX = 8;
+// DISTORTION : la dose entre sur 1 / 20 de la course ; l'ecreteur (droit jusqu'a DS_K, arrondi sur 2 DS_W, plat a
+// DS_K + DS_W) ; la compensation garde le RMS d'un sinus de DS_REF ; presence a 3.5 kHz ; continu coupe a 20 Hz
+constexpr double DS_IN = 20, DS_K = 0.9, DS_W = 0.3, DS_REF = 0.5, DS_PRES_HZ = 3500, DS_PRES_Q = 0.8, DS_DC_HZ = 20;
+inline double dsClip(double x) {
+    const double a = std::fabs(x);
+    if (a <= DS_K) return x;
+    const double u = a - DS_K;
+    const double y = u < 2 * DS_W ? DS_K + u - (u * u) / (4 * DS_W) : DS_K + DS_W;
+    return x < 0 ? -y : y;
+}
+// sa primitive (l'ADAA d'ordre 1)
+inline double dsClipF(double x) {
+    const double a = std::fabs(x);
+    if (a <= DS_K) return 0.5 * x * x;
+    const double u = a - DS_K;
+    if (u < 2 * DS_W) return 0.5 * DS_K * DS_K + DS_K * u + 0.5 * u * u - (u * u * u) / (12 * DS_W);
+    return 0.5 * DS_K * DS_K + 2 * DS_K * DS_W + (4.0 / 3) * DS_W * DS_W + (DS_K + DS_W) * (u - 2 * DS_W);
+}
+// EQ
+constexpr double EQ_LOW_HZ = 100, EQ_MID_HZ = 900, EQ_MID_Q = 0.9, EQ_HIGH_HZ = 5000, EQ_AIR_HZ = 20000;
 inline double fin01(double v, double def) { return std::isfinite(v) ? clampd(v, 0, 1) : def; }
 inline bool isZero(double v) { return !(v < 0 || v > 0); }
 inline double flush(double v) { return std::fabs(v) < 1e-20 ? 0 : v; }
@@ -1387,16 +1413,67 @@ void PreFx::prepare(double sr) {
         flDry_[c].assign(static_cast<size_t>(len), 0.f);
         flWet_[c].assign(static_cast<size_t>(len), 0.f);
     }
+    // DISTORTION : les demi-bandes du x4 local (celles de WARMTH), la table de compensation (un sinus de DS_REF garde
+    // son RMS apres l'ecretage, a chaque dose), le bloqueur de continu de l'entree
+    halfband(63, 8, dsEA_);
+    halfband(31, 9, dsEB_);
+    dsDcR_ = std::exp(-2 * PI * DS_DC_HZ / sr);
+    for (int i = 0; i <= 64; ++i) {
+        const double g = std::pow(10.0, ArpFxLaws::distDb(i / 64.0) / 20);
+        double e = 0;
+        const int n = 512;
+        for (int k = 0; k < n; ++k) {
+            const double y = dsClip(g * DS_REF * std::sin(TAU * (k + 0.5) / n));
+            e += y * y;
+        }
+        dsKtab_[static_cast<size_t>(i)] = (DS_REF / std::sqrt(2.0)) / std::sqrt(std::max(1e-30, e / n));
+    }
     reset();
+}
+
+void PreFx::distClear() {
+    for (DistCh& c : ds_) c = DistCh();
+    dsI_ = dsIb_ = dsJb_ = dsJa_ = 0;
+}
+
+void PreFx::distCoefs(double amt, double tone) {
+    if (amt < dsAmtAt_ || amt > dsAmtAt_) {
+        dsAmtAt_ = amt;
+        dsG_ = std::pow(10.0, ArpFxLaws::distDb(amt) / 20);
+        const double t = clampd(amt, 0, 1) * 64;
+        const int i = std::min(63, static_cast<int>(t));
+        dsK_ = dsKtab_[static_cast<size_t>(i)] + (t - i) * (dsKtab_[static_cast<size_t>(i + 1)] - dsKtab_[static_cast<size_t>(i)]);
+        dsMix_ = std::min(1.0, amt * DS_IN);
+    }
+    if (tone < dsToneAt_ || tone > dsToneAt_) {
+        dsToneAt_ = tone;
+        // le passe-bas (12 dB par octave, Butterworth) puis la cloche de presence (au-dessus de 0.5)
+        const double g = std::tan(PI * std::min(ArpFxLaws::distToneHz(tone), 0.45 * sr_) / sr_);
+        dsL1_ = 1 / (1 + g * (g + 1.4142135623730951));
+        dsL2_ = g * dsL1_;
+        dsL3_ = g * dsL2_;
+        const double A = std::pow(10.0, ArpFxLaws::distPresenceDb(tone) / 40);
+        const double gp = std::tan(PI * std::min(DS_PRES_HZ, 0.45 * sr_) / sr_);
+        dsPk_ = 1 / (DS_PRES_Q * A);
+        dsP1_ = 1 / (1 + gp * (gp + dsPk_));
+        dsP2_ = gp * dsP1_;
+        dsP3_ = gp * dsP2_;
+        dsPm_ = dsPk_ * (A * A - 1);
+    }
 }
 
 // les etats a zero, les reglages poses sans rampe
 void PreFx::reset() {
-    for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_}) r->setNow(r->target);
+    for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_, &dsAmt_, &dsTone_}) r->setNow(r->target);
     crOn_ = crBits_.v > 0 || crRate_.v > 0;
     phOn_ = phMix_.v > 0;
     flOn_ = flMix_.v > 0;
     flOnR_.setNow(flOn_ ? 1 : 0);
+    dsOn_ = dsAmt_.v > 0 && dsOnR_.target > 0;
+    dsOnR_.setNow(dsOn_ ? 1 : 0);
+    dsHold_ = 0;
+    dsAmtAt_ = dsToneAt_ = -1;
+    distClear();
     crRateAt_ = crBitsAt_ = -1;
     crPhase_ = 0;
     for (Svf& f : crLp_) f.ic1[0] = f.ic1[1] = f.ic2[0] = f.ic2[1] = 0;
@@ -1421,9 +1498,14 @@ void PreFx::set(const ArpFxSettings& s, bool now) {
     const double ff = FL_FB * (std::isfinite(s.flFb) ? clampd(s.flFb, -1, 1) : 0);
     phHz_ = ArpFxLaws::phaserHz(fin01(s.phRate, 0.3));
     flHz_ = ArpFxLaws::flangerHz(fin01(s.flRate, 0.25));
+    const double da = fin01(s.dist, 0), dt = fin01(s.distTone, 0.5);
     if (now) {
         // poses : une section qui s'engage part d'etats a zero
         const bool was[3] = {crOn_, phOn_, flOn_};
+        const bool dsKeep = dsOn_ || !(da > 0);
+        dsAmt_.target = da;
+        dsOnR_.target = da > 0 ? 1 : 0;
+        dsTone_.target = dt;
         crBits_.target = cb;
         crRate_.target = cr;
         phMix_.target = pm;
@@ -1433,14 +1515,17 @@ void PreFx::set(const ArpFxSettings& s, bool now) {
         flDepth_.target = fd;
         flFb_.target = ff;
         const double phase[2] = {phPhase_, flPhase_};
-        const bool keep = (was[0] || !(cb > 0 || cr > 0)) && (was[1] || !(pm > 0)) && (was[2] || !(fm > 0));
+        const bool keep = (was[0] || !(cb > 0 || cr > 0)) && (was[1] || !(pm > 0)) && (was[2] || !(fm > 0)) && dsKeep;
         if (keep) {
             // rien ne s'engage : les etats restent (un reglage pose en cours de jeu)
-            for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_}) r->setNow(r->target);
+            for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_, &dsAmt_, &dsTone_}) r->setNow(r->target);
             crOn_ = cb > 0 || cr > 0;
             phOn_ = pm > 0;
             flOn_ = fm > 0;
             flOnR_.setNow(flOn_ ? 1 : 0);
+            dsOn_ = da > 0;
+            dsOnR_.setNow(dsOn_ ? 1 : 0);
+            dsHold_ = 0;
         } else {
             reset();
             phPhase_ = phase[0];
@@ -1458,6 +1543,23 @@ void PreFx::set(const ArpFxSettings& s, bool now) {
     if (cb > 0 || cr > 0) crOn_ = true;
     crBits_.to(cb, rampN_);
     crRate_.to(cr, rampN_);
+    // DISTORTION : elle s'engage comme WARMTH (ses lignes se remplissent 64 echantillons, sortie inchangee, puis un
+    // fondu de 20 ms vers sa chaine, retardee de 39), a sa dose et a sa couleur d'emblee
+    if (da > 0 && !dsOn_) {
+        distClear();
+        dsOn_ = true;
+        dsHold_ = 64;
+        dsOnR_.setNow(0);
+        dsAmt_.setNow(da);
+        dsTone_.setNow(dt);
+        dsAmtAt_ = dsToneAt_ = -1;
+    }
+    if (da > 0) {
+        dsAmt_.to(da, rampN_);
+        dsOnR_.to(1, rampN_);
+    } else
+        dsOnR_.to(0, rampN_); // (elle sort a la dose ou elle est : le fondu seul)
+    dsTone_.to(dt, rampN_);
     // PHASER
     if (pm > 0 && !phOn_) {
         for (int c = 0; c < 2; ++c) {
@@ -1548,6 +1650,88 @@ void PreFx::process(float* L, float* R, int n) {
             }
             if (!crRate_.moving() && !crBits_.moving() && isZero(crRate_.v) && isZero(crBits_.v)) crOn_ = false;
         }
+        // 1 bis. DISTORTION : bloqueur de continu, gain, ecretage (x4 local, par sa primitive), TONE, compensation
+        if (dsOn_) {
+            const double amt = dsAmt_.next(), tone = dsTone_.next();
+            double on = 0;
+            if (dsHold_ > 0) --dsHold_;
+            else on = dsOnR_.next();
+            distCoefs(amt, tone);
+            const double* eA = dsEA_.data();
+            const double* eB = dsEB_.data();
+            for (int c = 0; c < 2; ++c) {
+                DistCh& w = ds_[c];
+                const double xin = x[c];
+                w.dry[static_cast<size_t>(dsI_ & 63)] = xin;
+                const double hd = xin - w.dcX + dsDcR_ * w.dcY;
+                w.dcX = xin;
+                w.dcY = hd;
+                w.upA[static_cast<size_t>(dsI_ & 63)] = hd;
+                // 1x -> 2x : le point pair (les 32 points pairs de la demi-bande), le point impair (un retard de 15)
+                double a2[2];
+                double acc = 0;
+                for (int j = 0; j < 32; ++j) acc += eA[j] * w.upA[static_cast<size_t>((dsI_ - j) & 63)];
+                a2[0] = 2 * acc;
+                a2[1] = w.upA[static_cast<size_t>((dsI_ - 15) & 63)];
+                double y1 = 0;
+                for (int q = 0; q < 2; ++q) {
+                    const int ib = dsIb_ + q;
+                    w.upB[static_cast<size_t>(ib & 31)] = a2[q];
+                    // 2x -> 4x
+                    double b4[2];
+                    acc = 0;
+                    for (int j = 0; j < 16; ++j) acc += eB[j] * w.upB[static_cast<size_t>((ib - j) & 31)];
+                    b4[0] = 2 * acc;
+                    b4[1] = w.upB[static_cast<size_t>((ib - 7) & 31)];
+                    for (int r = 0; r < 2; ++r) {
+                        // l'ecretage : (F(u) - F(u')) / (u - u'), ou la courbe au milieu quand u bouge a peine
+                        const double u = dsG_ * b4[r];
+                        const double F = dsClipF(u);
+                        const double du = u - w.x1;
+                        const double hv = du > 1e-6 || du < -1e-6 ? (F - w.F1) / du : dsClip(0.5 * (u + w.x1));
+                        w.x1 = u;
+                        w.F1 = F;
+                        const int jb = dsJb_ + 2 * q + r;
+                        w.dnB[static_cast<size_t>(jb & 63)] = hv;
+                        if (r == 0) {
+                            // 4x -> 2x (apres 2 echantillons de plus : le retard total tombe sur un entier, 39)
+                            acc = 0.5 * w.dnB[static_cast<size_t>((jb - 2 - 15) & 63)];
+                            for (int j = 0; j < 16; ++j) acc += eB[j] * w.dnB[static_cast<size_t>((jb - 2 - 2 * j) & 63)];
+                            const int ja = dsJa_ + q;
+                            w.dnA[static_cast<size_t>(ja & 63)] = acc;
+                            if (q == 0) {
+                                // 2x -> 1x
+                                y1 = 0.5 * w.dnA[static_cast<size_t>((ja - 31) & 63)];
+                                for (int j = 0; j < 32; ++j) y1 += eA[j] * w.dnA[static_cast<size_t>((ja - 2 * j) & 63)];
+                            }
+                        }
+                    }
+                }
+                // TONE : le passe-bas, puis la presence
+                double v3 = y1 - w.l2;
+                double v1 = dsL1_ * w.l1 + dsL2_ * v3;
+                double v2 = w.l2 + dsL2_ * w.l1 + dsL3_ * v3;
+                w.l1 = 2 * v1 - w.l1;
+                w.l2 = 2 * v2 - w.l2;
+                double y = v2;
+                if (dsPm_ > 0) {
+                    v3 = y - w.p2;
+                    v1 = dsP1_ * w.p1 + dsP2_ * v3;
+                    v2 = w.p2 + dsP2_ * w.p1 + dsP3_ * v3;
+                    w.p1 = 2 * v1 - w.p1;
+                    w.p2 = 2 * v2 - w.p2;
+                    y += dsPm_ * v1;
+                }
+                const double dry = w.dry[static_cast<size_t>((dsI_ - kDistLatency) & 63)];
+                y = dry + dsMix_ * (dsK_ * y - dry);
+                x[c] = on >= 1 ? y : xin + on * (y - xin);
+            }
+            dsI_ += 1;
+            dsIb_ += 2;
+            dsJb_ += 4;
+            dsJa_ += 2;
+            if (!dsOnR_.moving() && isZero(dsOnR_.v) && dsHold_ == 0) dsOn_ = false;
+        }
         // 2. PHASER : six passe-tout du premier ordre par canal, la droite un quart de cycle apres
         if (phOn_) {
             const double m = phMix_.next(), dep = phDepth_.next(), fb = phFb_.next();
@@ -1614,8 +1798,142 @@ void PreFx::process(float* L, float* R, int n) {
                 for (double& z : phZ_[c]) z = flush(z);
                 phLast_[c] = flush(phLast_[c]);
                 flLast_[c] = flush(flLast_[c]);
+                DistCh& w = ds_[c];
+                w.dcY = flush(w.dcY);
+                w.l1 = flush(w.l1);
+                w.l2 = flush(w.l2);
+                w.p1 = flush(w.p1);
+                w.p2 = flush(w.p2);
             }
     }
+}
+
+/* ---------------- EQ 4 bandes (2026-11-11, suite) ---------------- */
+
+void Eq::prepare(double sr) {
+    sr_ = sr;
+    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
+    b_[0].g0 = std::tan(PI * std::min(EQ_LOW_HZ, 0.45 * sr) / sr);
+    b_[1].g0 = std::tan(PI * std::min(EQ_MID_HZ, 0.45 * sr) / sr);
+    b_[2].g0 = std::tan(PI * std::min(EQ_HIGH_HZ, 0.45 * sr) / sr);
+    // AIR : un plateau du premier ordre dont le milieu (la moitie du gain en dB) est a 20 kHz ; le coefficient est
+    // cale sur le modele analogique a 10 kHz (pas a 20 kHz : le repli de la transformee bilineaire pres de Nyquist
+    // ne laisserait rien dans la bande audible), d'ou le facteur 2
+    b_[3].g0 = 2 * std::tan(PI * std::min(0.5 * EQ_AIR_HZ, 0.225 * sr) / sr);
+    reset();
+}
+
+// les etats a zero, les reglages poses sans rampe
+void Eq::reset() {
+    for (int i = 0; i < kBands; ++i) {
+        Band& b = b_[i];
+        b.ic1[0] = b.ic1[1] = b.ic2[0] = b.ic2[1] = 0;
+        b.db.setNow(b.db.target);
+        b.act = !isZero(b.db.v);
+        if (b.act) coefs(i, b.db.v);
+    }
+}
+
+void Eq::set(double low, double mid, double high, double air, bool now) {
+    const double want[kBands] = {
+        std::isfinite(low) ? ArpFxLaws::eqDb(low) : 0, std::isfinite(mid) ? ArpFxLaws::eqDb(mid) : 0,
+        std::isfinite(high) ? ArpFxLaws::eqDb(high) : 0, std::isfinite(air) ? ArpFxLaws::eqAirDb(air) : 0};
+    for (int i = 0; i < kBands; ++i) {
+        Band& b = b_[i];
+        const double d = want[i];
+        if (now) {
+            // posee : une bande qui s'engage part d'etats a zero
+            if (!b.act) b.ic1[0] = b.ic1[1] = b.ic2[0] = b.ic2[1] = 0;
+            b.db.setNow(d);
+            b.act = !isZero(d);
+            if (b.act) coefs(i, d);
+            continue;
+        }
+        if (!isZero(d) && !b.act) {
+            b.ic1[0] = b.ic1[1] = b.ic2[0] = b.ic2[1] = 0;
+            b.act = true;
+            coefs(i, b.db.v);
+        }
+        b.db.to(d, rampN_);
+    }
+}
+
+// Les plateaux et la cloche du second ordre de Simper (a 0 dB : m0 = 1, m1 = m2 = 0, la sortie est l'entree) ; AIR :
+// un passe-bas du premier ordre, y = x + (A - 1) (x - bas)
+void Eq::coefs(int i, double db) {
+    Band& b = b_[i];
+    if (i == 3) {
+        const double A = std::pow(10.0, db / 20);
+        const double g = b.g0 * std::sqrt(A);
+        b.a1 = g / (1 + g);
+        b.m0 = A - 1;
+        return;
+    }
+    const double A = std::pow(10.0, db / 40);
+    if (i == 1) {
+        b.k = 1 / (EQ_MID_Q * A);
+        const double g = b.g0;
+        b.a1 = 1 / (1 + g * (g + b.k));
+        b.a2 = g * b.a1;
+        b.a3 = g * b.a2;
+        b.m0 = 1;
+        b.m1 = b.k * (A * A - 1);
+        b.m2 = 0;
+        return;
+    }
+    const bool high = i == 2;
+    const double g = high ? b.g0 * std::sqrt(A) : b.g0 / std::sqrt(A);
+    b.k = SHELF_K;
+    b.a1 = 1 / (1 + g * (g + b.k));
+    b.a2 = g * b.a1;
+    b.a3 = g * b.a2;
+    if (high) {
+        b.m0 = A * A;
+        b.m1 = b.k * (1 - A) * A;
+        b.m2 = 1 - A * A;
+    } else {
+        b.m0 = 1;
+        b.m1 = b.k * (A - 1);
+        b.m2 = A * A - 1;
+    }
+}
+
+void Eq::process(float* L, float* R, int n) {
+    if (bypassed()) return; // tout au neutre : la sortie d'avant, au bit pres
+    for (int i = 0; i < n; ++i) {
+        double x[2] = {L[i], R[i]};
+        for (int e = 0; e < kBands; ++e) {
+            Band& b = b_[e];
+            if (!b.act) continue;
+            if (b.db.moving()) coefs(e, b.db.next());
+            if (e == 3) {
+                for (int c = 0; c < 2; ++c) {
+                    const double v = (x[c] - b.ic1[c]) * b.a1;
+                    const double lp = v + b.ic1[c];
+                    b.ic1[c] = lp + v;
+                    x[c] += b.m0 * (x[c] - lp);
+                }
+            } else {
+                for (int c = 0; c < 2; ++c) {
+                    const double v0 = x[c];
+                    const double v3 = v0 - b.ic2[c];
+                    const double v1 = b.a1 * b.ic1[c] + b.a2 * v3;
+                    const double v2 = b.ic2[c] + b.a2 * b.ic1[c] + b.a3 * v3;
+                    b.ic1[c] = 2 * v1 - b.ic1[c];
+                    b.ic2[c] = 2 * v2 - b.ic2[c];
+                    x[c] = b.m0 * v0 + b.m1 * v1 + b.m2 * v2;
+                }
+            }
+            if (!b.db.moving() && isZero(b.db.v)) b.act = false; // 0 dB : la sortie etait deja l'entree, exactement
+        }
+        L[i] = static_cast<float>(x[0]);
+        R[i] = static_cast<float>(x[1]);
+    }
+    for (Band& b : b_)
+        for (int c = 0; c < 2; ++c) {
+            b.ic1[c] = flush(b.ic1[c]);
+            b.ic2[c] = flush(b.ic2[c]);
+        }
 }
 
 /* ---------------- PUMP ---------------- */
@@ -1810,6 +2128,7 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     pre_.prepare(sr_);
     pump_.prepare(sr_);
     shim_.prepare(sr_);
+    eq_.prepare(sr_);
     juno_.prepare(sr_);
     tape_.prepare(sr_, PP_MAX_S);
     dl_.prepare(PP_MAX_S, sr_);
@@ -1966,6 +2285,7 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
     pre_.set(s, now);
     pump_.set(s.pumpDepth, s.pumpRate, s.pumpShape, now);
     shim_.set(s.shimmer, now);
+    eq_.set(s.eqLow, s.eqMid, s.eqHigh, s.eqAir, now);
     const int dm = std::min(2, std::max(0, s.dlyMode));
     if (now) {
         if (dm != dMode_) {
@@ -2012,6 +2332,7 @@ void ArpFx::reset() {
     pre_.reset();
     pump_.reset();
     shim_.reset();
+    eq_.reset();
     dHpR_.clear();
     dFbL_ = dFbR_ = 0;
     dXf_.setNow(1);
@@ -2098,7 +2419,8 @@ void ArpFx::process(const float* inL, const float* inR, float* outL, float* outR
         done += len;
     }
     ppq_ += n * pps_; // (sans setTransport avant le prochain bloc : la position continue)
-    // la section master du plugin, apres tout le reste (contournee au neutre)
+    // l'EQ 4 bandes puis la section master du plugin, apres tout le reste (contournees au neutre)
+    eq_.process(outL, outR, n);
     master_.process(outL, outR, n);
 }
 

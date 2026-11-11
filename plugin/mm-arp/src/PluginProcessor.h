@@ -163,6 +163,7 @@ private:
     int bpmId_ = -1;
     // QUALITY et la reverb du VST3 (ExtraParams.h)
     std::array<int, 13> xId_{};
+    std::array<int, 22> mId_{};
     void applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const;
     int osAsked_ = 4;
     static int osFor(double sr, double quality);

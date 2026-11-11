@@ -156,6 +156,17 @@ MMArpProcessor::MMArpProcessor()
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
     const char* xk[13] = {"xl1Dest", "xl1Amt", "l2Beats", "l2Shape", "l2Dest", "l2Amt", "xRing", "xFold", "xNoiseCol", "xUnison", "xHpf", "xComb", "xCombFb"};
     for (size_t i = 0; i < 13; ++i) xId_[i] = mmarp::Voyager::paramIndex(xk[i]);
+    // La matrice (6 lignes : source, destination, quantite), puis pbRange, voiceMode, xFeedback, ampMode
+    for (int l = 0; l < 6; ++l) {
+        const std::string n = std::to_string(l + 1);
+        mId_[static_cast<size_t>(l * 3)] = mmarp::Voyager::paramIndex("m" + n + "Src");
+        mId_[static_cast<size_t>(l * 3 + 1)] = mmarp::Voyager::paramIndex("m" + n + "Dst");
+        mId_[static_cast<size_t>(l * 3 + 2)] = mmarp::Voyager::paramIndex("m" + n + "Amt");
+    }
+    mId_[18] = mmarp::Voyager::paramIndex("pbRange");
+    mId_[19] = mmarp::Voyager::paramIndex("voiceMode");
+    mId_[20] = mmarp::Voyager::paramIndex("xFeedback");
+    mId_[21] = mmarp::Voyager::paramIndex("ampMode");
     startTimerHz(15);
     mmarp::reserveArp(arpBuf_[0]);
     mmarp::reserveArp(arpBuf_[1]);
@@ -526,6 +537,20 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
             kv_[static_cast<size_t>(n++)] = {xId_[11], ex_[mmx::ex_xComb]};
             kv_[static_cast<size_t>(n++)] = {xId_[12], 2 * ex_[mmx::ex_xCombFb] - 1};
         }
+        // La matrice de modulation, les modes de voix, FEEDBACK, AMP MODE
+        {
+            for (int l = 0; l < 6; ++l) {
+                const int e = mmx::ex_xM1Src + l * 3;
+                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3)], static_cast<double>(mmx::exStep(e, ex_[static_cast<size_t>(e)]))};
+                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 1)], static_cast<double>(mmx::exStep(e + 1, ex_[static_cast<size_t>(e + 1)]))};
+                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 2)], 2 * ex_[static_cast<size_t>(e + 2)] - 1};
+            }
+            static const double kPb[7] = {1, 2, 3, 5, 7, 12, 24};
+            kv_[static_cast<size_t>(n++)] = {mId_[18], kPb[mmx::exStep(mmx::ex_xPbRange, ex_[mmx::ex_xPbRange])]};
+            kv_[static_cast<size_t>(n++)] = {mId_[19], static_cast<double>(mmx::exStep(mmx::ex_xVoiceMode, ex_[mmx::ex_xVoiceMode]))};
+            kv_[static_cast<size_t>(n++)] = {mId_[20], ex_[mmx::ex_xFeedback]};
+            kv_[static_cast<size_t>(n++)] = {mId_[21], static_cast<double>(mmx::exStep(mmx::ex_xAmpMode, ex_[mmx::ex_xAmpMode]))};
+        }
         voy_->params(kv_.data(), n);
         mmarp::ArpFxSettings fx;
         double dly16 = 3;
@@ -554,6 +579,12 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         fx.crushRate = ex_[mmx::ex_xCrushRate];
         fx.dlyMode = mmx::exStep(mmx::ex_xDlyMode, ex_[mmx::ex_xDlyMode]);
         fx.shimmer = ex_[mmx::ex_xShimmer];
+        fx.dist = ex_[mmx::ex_xDist];
+        fx.distTone = ex_[mmx::ex_xDistTone];
+        fx.eqLow = ex_[mmx::ex_xEqLow];
+        fx.eqMid = ex_[mmx::ex_xEqMid];
+        fx.eqHigh = ex_[mmx::ex_xEqHigh];
+        fx.eqAir = ex_[mmx::ex_xEqAir];
         // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
         fx.delaySeconds = std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
         auto eq = [](double a, double b) { return !(a < b || a > b); };
@@ -563,7 +594,9 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
                           eq(fx.phMix, fxNow_.phMix) && eq(fx.phRate, fxNow_.phRate) && eq(fx.phDepth, fxNow_.phDepth) && eq(fx.phFb, fxNow_.phFb) &&
                           eq(fx.flMix, fxNow_.flMix) && eq(fx.flRate, fxNow_.flRate) && eq(fx.flDepth, fxNow_.flDepth) && eq(fx.flFb, fxNow_.flFb) &&
                           eq(fx.pumpDepth, fxNow_.pumpDepth) && fx.pumpRate == fxNow_.pumpRate && eq(fx.pumpShape, fxNow_.pumpShape) &&
-                          eq(fx.crushBits, fxNow_.crushBits) && eq(fx.crushRate, fxNow_.crushRate) && fx.dlyMode == fxNow_.dlyMode && eq(fx.shimmer, fxNow_.shimmer);
+                          eq(fx.crushBits, fxNow_.crushBits) && eq(fx.crushRate, fxNow_.crushRate) && fx.dlyMode == fxNow_.dlyMode && eq(fx.shimmer, fxNow_.shimmer) &&
+                          eq(fx.dist, fxNow_.dist) && eq(fx.distTone, fxNow_.distTone) && eq(fx.eqLow, fxNow_.eqLow) && eq(fx.eqMid, fxNow_.eqMid) &&
+                          eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir);
         if (!same) fx_.set(fx, fresh_);
         fxNow_ = fx;
         dly16_ = dly16;
@@ -740,7 +773,12 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     for (const auto meta : midi) {
         const auto msg = meta.getMessage();
         if (msg.isNoteOn()) noteIn = true;
-        else if (msg.isController()) onCC(msg.getChannel() - 1, msg.getControllerNumber(), msg.getControllerValue());
+        else if (msg.isController()) {
+            onCC(msg.getChannel() - 1, msg.getControllerNumber(), msg.getControllerValue());
+            // la molette de modulation (CC 1) : une source de la matrice
+            if (msg.getControllerNumber() == 1) voy_->modWheel(msg.getControllerValue() / 127.0);
+        } else if (msg.isPitchWheel()) voy_->pitchBend((msg.getPitchWheelValue() - 8192) / 8192.0);
+        else if (msg.isChannelPressure()) voy_->aftertouch(msg.getChannelPressureValue() / 127.0);
     }
     if (noteIn) lastNoteFrame_ = f0;
     // Le clip a le dessus : des notes tenues, ou arrivees il y a moins d'une mesure, et l'arpege interne se tait
@@ -762,7 +800,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         if (msg.isNoteOn()) {
             const int m = msg.getNoteNumber();
             const double from = lastLiveMidi_ >= 0 ? static_cast<double>(lastLiveMidi_) : std::numeric_limits<double>::quiet_NaN();
-            voy_->note(at(pos), m, std::numeric_limits<double>::infinity(), accentOf(msg.getFloatVelocity()), from);
+            voy_->note(at(pos), m, std::numeric_limits<double>::infinity(), accentOf(msg.getFloatVelocity()), from, 0.0, static_cast<double>(msg.getFloatVelocity()));
             held_[static_cast<size_t>(m)] = true;
             lastLiveMidi_ = m;
         } else if (msg.isNoteOff()) {

@@ -101,7 +101,7 @@
 //
 // 3. LE RACK D'EFFETS (2026-11-11, Mika : "le top du top" ; le plugin seul). L'ordre :
 //      moteur -> CRUSH -> PHASER -> FLANGER -> [la chaine du site : BASS MONO, CHORUS, DELAY / TAPE, REVERB (+ SHIMMER)]
-//             -> PUMP -> master
+//             -> PUMP -> master                      (depuis : DISTORTION apres CRUSH, EQ avant le master, voir 4.)
 //    Chacun, a son neutre, est contourne AU BIT PRES (process ne le traverse pas) ; engage ou regle en cours de
 //    jeu : des rampes de 20 ms en S, aucun clic ; revenu au neutre, de nouveau contourne des la fin de sa rampe.
 //    Aucune allocation dans process / set / setTransport. Les champs d'ArpFxSettings (0..1 sauf mention ; lois :
@@ -132,6 +132,27 @@
 //                 plus tard) : chaque tour monte d'une octave, jusqu'au passe-bas.
 //    void setTransport(double ppq, double ppqPerSample, bool playing) : la position du premier echantillon du prochain
 //    process (avant chaque process ; sans appel, la position continue d'elle-meme).
+//
+// 4. DISTORTION ET EQ (2026-11-11, suite ; le plugin seul). L'ordre complet :
+//      moteur -> CRUSH -> DISTORTION -> PHASER -> FLANGER -> [la chaine du site] -> PUMP -> EQ -> master
+//    Meme regle : au neutre, contournes AU BIT PRES ; des rampes de 20 ms en S ; aucune allocation. Les champs :
+//      dist       0 : contournee ; sinon une pedale de distorsion franche : un bloqueur de continu (20 Hz), un gain
+//                 d'entree de 0 a +36 dB (36 v), un ecretage dur adouci (droit jusqu'a 0.9, arrondi jusqu'a 1.2, plat
+//                 au-dela ; symetrique : harmoniques impaires) dans un surechantillonnage local x4 (les demi-bandes
+//                 Kaiser 63 et 31 points de WARMTH) ET par sa primitive (ADAA d'ordre 1), puis TONE, puis la
+//                 compensation de niveau (un sinus de crete 0.5 garde son RMS a toute dose). La dose entre sur les 5
+//                 premiers % de la course. Engagee, elle retarde la sortie de distLatencySamples() = 39 echantillons
+//                 (0 quand elle est contournee ; non declares a l'hote, comme WARMTH et le FLANGER) ; elle s'engage et
+//                 se coupe par un fondu de 20 ms (ses lignes se remplissent d'abord 64 echantillons).
+//      distTone   0..1 (0.5 : le defaut) : un passe-bas 12 dB / octave a 700 x (18000 / 700)^v Hz (700 Hz, 3.5 kHz,
+//                 18 kHz) puis, au-dessus de 0.5, une cloche de presence a 3.5 kHz (Q 0.8) jusqu'a +6 dB
+//      eqLow      0..1 (0.5 neutre) : plateau grave a 100 Hz, -12 .. +12 dB (24 x (v - 0.5)), second ordre, Q 0.707
+//      eqMid      cloche a 900 Hz, Q 0.9, -12 .. +12 dB
+//      eqHigh     plateau aigu a 5 kHz, -12 .. +12 dB
+//      eqAir      plateau du premier ordre, tres haut et large : le milieu de sa course (en dB) a 20 kHz, -10 .. +10 dB
+//                 (20 x (v - 0.5)) ; il commence a monter vers 5 kHz (+0.6 dB a fond), +2.2 dB a 10 kHz, +4.9 a
+//                 15 kHz, +8.4 a 20 kHz a 48 kHz (son coefficient est cale sur le modele analogique a 10 kHz : a
+//                 20 kHz la transformee bilineaire le replierait sur Nyquist et il ne resterait rien dans la bande)
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
 
@@ -176,6 +197,13 @@ struct ArpFxSettings {
     double crushRate = 0;       // DOWNSAMPLE (0 : contourne), jusqu'a 2 kHz
     int dlyMode = 0;            // 0 PING PONG (le site), 1 STEREO, 2 WIDE
     double shimmer = 0;         // SHIMMER (0 : contourne)
+    // --- 2026-11-11, suite (voir en tete, 4.) ; a ces defauts : contournes au bit pres ---
+    double dist = 0;            // DISTORTION (0 : contournee), le gain d'entree jusqu'a +36 dB
+    double distTone = 0.5;      // sa couleur apres l'ecretage : sombre a brillante
+    double eqLow = 0.5;         // EQ LOW, plateau 100 Hz, -12 .. +12 dB (0.5 : contourne)
+    double eqMid = 0.5;         // EQ MID, cloche 900 Hz Q 0.9, -12 .. +12 dB
+    double eqHigh = 0.5;        // EQ HIGH, plateau 5 kHz, -12 .. +12 dB
+    double eqAir = 0.5;         // EQ AIR, plateau tres haut et large (20 kHz), -10 .. +10 dB
 };
 
 /**
@@ -216,6 +244,12 @@ struct ArpFxLaws {
     static double crushHz(double v, double sr); // sr x (2000 / sr)^v
     static double pumpDb(double v);           // -24 v
     static double pumpBeats(int rate);        // 0.5, 1, 2 temps
+    // 2026-11-11, suite
+    static double distDb(double v);           // le gain d'entree de la DISTORTION : 36 v dB
+    static double distToneHz(double v);       // son passe-bas : 700 x (18000 / 700)^v Hz
+    static double distPresenceDb(double v);   // sa presence (3.5 kHz) : 0 jusqu'a 0.5, puis 12 (v - 0.5) dB
+    static double eqDb(double v);             // LOW, MID, HIGH : 24 x (v - 0.5)
+    static double eqAirDb(double v);          // AIR : 20 x (v - 0.5)
 };
 
 namespace detail {
@@ -517,8 +551,10 @@ public:
     void reset();
     void set(const ArpFxSettings& s, bool now);
     void process(float* L, float* R, int n);
-    bool bypassed() const { return !crOn_ && !phOn_ && !flOn_; }
+    bool bypassed() const { return !crOn_ && !phOn_ && !flOn_ && !dsOn_; }
     int latency() const { return flOn_ ? flD0_ : 0; }
+    static constexpr int kDistLatency = 39; // le retard de la DISTORTION engagee (les quatre demi-bandes du x4 local)
+    int distLatency() const { return dsOnR_.target > 0 ? kDistLatency : 0; }
 
 private:
     struct Svf {
@@ -545,6 +581,46 @@ private:
     int flD0_ = 120, flMask_ = 0, flW_ = 0;
     unsigned tick_ = 0;
     std::vector<float> flDry_[2], flWet_[2];
+    // DISTORTION (entre CRUSH et PHASER) : x4 local (les demi-bandes de WARMTH), ecretage par sa primitive (ADAA)
+    void distCoefs(double amt, double tone);
+    void distClear();
+    bool dsOn_ = false;
+    Ramp dsAmt_, dsOnR_, dsTone_ = {0.5, 0.5, 0.5, 0, 1};
+    int dsHold_ = 0, dsI_ = 0, dsIb_ = 0, dsJb_ = 0, dsJa_ = 0;
+    double dsAmtAt_ = -1, dsToneAt_ = -1, dsG_ = 1, dsK_ = 1, dsMix_ = 0, dsDcR_ = 0;
+    double dsL1_ = 1, dsL2_ = 0, dsL3_ = 0;                 // le passe-bas de TONE
+    double dsP1_ = 1, dsP2_ = 0, dsP3_ = 0, dsPk_ = 1, dsPm_ = 0; // la cloche de presence
+    std::array<double, 32> dsEA_{}, dsEB_{};
+    std::array<double, 65> dsKtab_{};
+    struct DistCh {
+        std::array<double, 64> dry{}, upA{}, dnB{}, dnA{};
+        std::array<double, 32> upB{};
+        double dcX = 0, dcY = 0, x1 = 0, F1 = 0, l1 = 0, l2 = 0, p1 = 0, p2 = 0;
+    } ds_[2];
+};
+
+// EQ 4 bandes, en place, apres PUMP et avant la section master : LOW (plateau 100 Hz), MID (cloche 900 Hz), HIGH
+// (plateau 5 kHz), AIR (plateau du premier ordre, tres haut et large) ; chacune contournee a son neutre
+class Eq {
+public:
+    static constexpr int kBands = 4;
+    void prepare(double sr);
+    void reset();
+    void set(double low, double mid, double high, double air, bool now);
+    void process(float* L, float* R, int n);
+    bool bypassed() const { return !b_[0].act && !b_[1].act && !b_[2].act && !b_[3].act; }
+
+private:
+    struct Band {
+        Ramp db;
+        bool act = false;
+        double g0 = 0, a1 = 1, a2 = 0, a3 = 0, k = 1, m0 = 1, m1 = 0, m2 = 0;
+        double ic1[2] = {0, 0}, ic2[2] = {0, 0};
+    };
+    void coefs(int b, double db);
+    double sr_ = 48000;
+    int rampN_ = 960;
+    Band b_[kBands];
 };
 
 // PUMP : le pompage cale au tempo, en place, apres la chaine du site
@@ -622,6 +698,8 @@ public:
     }
     /** Le retard du FLANGER engage (le sec retarde de 2.5 ms pour le passage par zero), 0 quand il est contourne. */
     int flangerLatencySamples() const { return pre_.latency(); }
+    /** Le retard de la DISTORTION engagee (39 echantillons : son surechantillonnage local), 0 quand elle est contournee. */
+    int distLatencySamples() const { return pre_.distLatency(); }
     int delayMode() const { return dMode_; }
 
     // Pour les tests et l'interface
@@ -681,6 +759,7 @@ private:
     detail::PreFx pre_;
     detail::Pump pump_;
     detail::Shimmer shim_;
+    detail::Eq eq_;
     double ppq_ = 0, pps_ = 0;
     bool playing_ = false;
     int dMode_ = 0, dWant_ = 0;

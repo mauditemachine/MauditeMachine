@@ -21,7 +21,8 @@
 //   v.params({{"cutoff", 1200}});       // message 'params' partiel (cles inconnues ou non finies ignorees, bornees)
 //   v.params(kv, n);                    // la meme chose sans chaine (ids : Voyager::paramIndex("cutoff")), temps reel
 //   v.note(t, midi, gate, accent, from) // gate en s (+inf : jusqu'au noteOff), accent 0/NaN -> 1, from NaN = null
-//                                       // (+ glideSec, le plugin seul : voir LES EXTENSIONS DU 2026-11-11)
+//                                       // (+ glideSec, velocity, le plugin seul : voir LES EXTENSIONS DU 2026-11-11)
+//   v.pitchBend(x); v.modWheel(x); v.aftertouch(x);   // le plugin seul (LES EXTENSIONS DU 2026-11-11, SUITE)
 //   v.beat(t, beat, bpm, run)           // ancre du transport (LFO MOD cale) ; bpm NaN ou <= 0 -> le bpm des params
 //   v.noteOff(midi, t)                  // t NaN = maintenant
 //   v.cancel(t); v.stop(t);             // t NaN = 0 (comme "m.time || 0" du JS)
@@ -125,6 +126,107 @@
 //    Le cout (12 voix, une machine lente ; hq2_test --cpu) : RING, NOISE COLOR, HIGH PASS, COMB : 0 a 2 % d'un
 //    coeur ; FOLD : +10 % en x4, +13 % en x8 ; UNISON 5 / 7 : +16 / +21 % en x4, +34 / +47 % en x8 (STACK 3 :
 //    +7 / +19 %).
+//
+// ----------------------------------------------------------------------------------------------------------------
+// LES EXTENSIONS DU 2026-11-11, SUITE (Mika : "toutes les fonctions possibles", a la maniere des grands synthes
+// analogiques modulaires ; le plugin seul). Meme regle : chaque cle a son neutre, les controleurs a 0 (ou tournes
+// sans ligne qui les lise) et la velocite donnee ou non rendent le moteur d'avant AU BIT PRES, sans un tirage de
+// hasard de plus ; verifie par tests/hq3_test.cpp (les empreintes de hq2_test, les 85 cas de voyager_compare).
+//
+// 6. LES CONTROLEURS (entre deux process(), comme les messages ; lisses 5 ms au taux interne, aucun clic) :
+//      v.pitchBend(x)    -1..1 ; il deplace TOUJOURS la hauteur de toutes les voix (OSC 1, OSC 2, SUB, COMB) de
+//                        x fois pbRange demi-tons, et il est la source PITCH BEND de la matrice
+//      v.modWheel(x)     0..1, la source MOD WHEEL     v.aftertouch(x)   0..1, la source AFTERTOUCH (de canal)
+//    cle pbRange 1..24 demi-tons (defaut 2 ; continu).
+//    La velocite : v.note(t, midi, gate, accent, from, glideSec, velocity). velocity 0..1 est la source VELOCITY, par
+//    voix ; negative ou NaN (le defaut) : accent x 100 / 127 (borne a 1). Elle ne touche a rien d'autre (le niveau et
+//    le filtre suivent accent, comme avant).
+//
+// 7. LA MATRICE DE MODULATION, 6 lignes : cles mNSrc, mNDst, mNAmt (N = 1..6 ; amt -1..1). Une ligne est neutre si
+//    sa source ou sa destination est a 0 ou sa quantite a 0.
+//    Sources (mNSrc) :
+//       0 OFF
+//       1 VELOCITY     0..1, par voix (la velocite brute de la note)
+//       2 MOD WHEEL    0..1                  3 AFTERTOUCH   0..1                  4 PITCH BEND   -1..1
+//       5 KEY          par voix : la hauteur de la note (son glissement compris), 0 au do central (midi 60), +/-1 a
+//                      +/-2 octaves ((midi - 60) / 24), bornee a +/-2.5
+//       6 LFO 1        -1..1 : la forme du LFO MOD de la face, quelle que soit sa profondeur (lfoAmt) et sa destination
+//       7 LFO 2        -1..1 : la forme du LFO 2 ; il tourne pour la matrice meme si l2Dest est a OFF
+//       8 FILTER ENV   0..1, par voix        9 AMP ENV      0..1, par voix
+//      10 S&H          -1..1, par voix : un tirage par note jouee (une note liee en LEGATO tire aussi), tenu ; tire
+//                      de (graine derivee, position de la note en 1/96 de temps, numero de la note) : jamais du
+//                      generateur du moteur ; une boucle ou un export rejouent les memes tirages
+//      11 RANDOM       -1..1, par voix : un bruit lisse lent, une valeur par temps (decale par voix) reliee a la
+//                      suivante en S ; tire de (graine derivee, voix, position) : meme regle
+//    Destinations (mNDst) et leur course a amt = 1 pour une source a +/-1 (les lois et les bornes des destinations
+//    de LFO) :
+//       0 OFF
+//       1 PITCH        +/-12 demi-tons (OSC 1, OSC 2, SUB)          2 OSC 2 PITCH  +/-12 demi-tons, OSC 2 seul
+//       3 WAVE         +/-2 formes d'onde (OSC 2 : x0.8)            4 FM           +/-0.6, borne a 0..1
+//       5 OSC MIX      la balance (+1 : OSC 2 seul, -1 : OSC 1 seul)
+//       6 NOISE        +/-1, borne a 0..1                           7 SUB          +/-0.88, borne a 0..0.88
+//       8 RING         +/-1 autour de xRing, borne a 0..1           9 FOLD         +/-1 autour de xFold, borne a 0..1
+//      10 CUTOFF       +/-4 octaves                                11 RES          +/-0.35, borne a 0..1
+//      12 ENV AMT      +/-3 octaves, borne a 0..6
+//      13 DRIVE        +/-0.5, borne a 0..1. Une source commune pousse tout OVERDRIVE (l'etage du bus compris,
+//                      comme la destination de LFO) ; une source par voix pousse l'entree du filtre et le VCA de sa
+//                      voix, l'etage du bus reste celui du potard
+//      14 AMP          un VCA par voix : gain = 1 + somme, borne a 0..1, ou une ligne compte amt x (u - 1) si amt > 0
+//                      (plein niveau quand la source est en haut, -100 % en bas a amt 1) et amt x u si amt < 0 (la
+//                      source en haut : moins fort) ; u = la source ramenee a 0..1 (une source a deux signes : (s + 1) / 2)
+//      15 PAN          par voix : +/-1 autour de la place de la note (WIDTH), borne aux bords, a puissance constante
+//      16 STACK        +/-15 cents autour de l'ecart, borne a 0..30 (si STACK ou UNISON est engage a la note)
+//      17 LFO 1 DEPTH  multiplie la profondeur du LFO 1 (sa destination de la face ET sa seconde destination) par
+//                      1 + somme, borne a 0..1, avec la loi d'AMP : MOD WHEEL -> LFO 1 DEPTH a +1 : la molette dose
+//                      le vibrato de 0 a la profondeur du potard. La source LFO 1 de la matrice n'est pas touchee.
+//      18 LFO 2 DEPTH  de meme pour le LFO 2
+//      19 COMB         +/-1 autour de xComb, borne a 0..1 (le peigne tourne alors meme si xComb est a 0)
+//    Plusieurs lignes vers la meme destination s'additionnent, et avec les LFO, avant la borne. Une source par voix
+//    module par voix (deux notes, deux velocites : deux coupures) ; tout est calcule la ou le moteur calcule deja ses
+//    modulations : les sommes a chaque echantillon interne, la hauteur, la coupure, RES, DRIVE, FOLD, PAN, STACK a
+//    chaque echantillon du contexte. Rien ne clique : la quantite d'une ligne glisse (15 ms), une ligne ne change de
+//    source ou de destination que quand sa quantite est revenue a 0 ; la velocite et S&H sont posees a l'attaque (et
+//    lissees 5 ms sur une note liee) ; PAN est pose au debut de la note.
+//    Limites : LFO 1 / 2 DEPTH, d'une source par voix, prennent la valeur de la voix la plus recente (les LFO sont
+//    communs a toutes les voix).
+//
+// 8. VOICE MODE : cle voiceMode 0 POLY (le site), 1 MONO, 2 LEGATO. Le mode est lu au depart de chaque note.
+//      MONO    une seule voix : une note neuve reprend la voix, redeclenche les enveloppes (depuis leur niveau : pas de
+//              clic) et fait taire en 12 ms ce qui restait de POLY ; avec GLIDE (ou un glissement propre), la hauteur
+//              part d'ou elle est.
+//      LEGATO  une seule voix : une note jouee pendant qu'une autre est tenue ne redeclenche rien, la hauteur glisse
+//              vers elle (le glissement propre de la note, sinon GLIDE, 60 ms au moins) ; sinon comme MONO.
+//    Dans les deux : quand la note en cours finit (sa duree, ou noteOff), la voix revient a la derniere note encore
+//    tenue (priorite a la derniere ; 24 notes retenues), sans redeclencher (MONO : la hauteur saute, ou suit GLIDE ;
+//    LEGATO : elle glisse). "Tenue" vaut pour les notes a duree connue de l'arpegiateur comme pour celles du clavier
+//    (duree infinie + noteOff) : des pas dont le GATE depasse le pas se chevauchent, donc se lient en LEGATO et se
+//    coupent en MONO. stop() et setOs() vident la pile. MONO / LEGATO consomment le hasard du moteur autrement que
+//    POLY (moins de voix, pas de tirage sur une note liee) : revenu a POLY, le moteur est celui du site, pas la meme
+//    suite de DRIFT.
+//
+// 9. FEEDBACK : cle xFeedback 0..1 (0 : absent). La sortie de chaque voix (apres son VCA, un echantillon interne plus
+//    tot), sans son continu (25 Hz), revient a l'entree de son filtre (apres LOAD) a travers une tanh, x xFeedback. La
+//    boucle est bornee deux fois (la tanh, le VCA qui est lui-meme une tanh) : elle ne s'emballe jamais, et elle se
+//    tait avec la note (son gain suit l'enveloppe). Par canal quand la voix est large (WIDE, SPACE).
+//
+// 10. AMP MODE : cle ampMode 0 CLEAN (le site), 1 TRIODE, 2 PENTODE, 3 SATURATED. Un etage de sortie du bus, au taux
+//    interne (apres GLUE, avant l'ecreteur de VOLUME), par sa primitive (ADAA d'ordre 1), suivi d'un bloqueur de
+//    continu (8 Hz) :
+//      TRIODE     (tanh(0.5 u + 0.35) - tanh 0.35), asymetrique doux : harmoniques paires (H2 3 % a 6 %)
+//      PENTODE    z - z^3 / 3 puis plat (z = 1.5 u) : impaires, genou plus dur
+//      SATURATED  tanh(5 u) : l'ecrasement franc
+//    chacune a gain unite aux petits signaux, puis COMPENSEE EN NIVEAU : le gain de sortie suit le rapport des
+//    energies d'entree et de sortie (moyennes de 0.35 s, mesurees sous 10 kHz, borne a -12 .. +15.6 dB ; au depart : la
+//    valeur mesuree sur l'arpege du patch par defaut). Le niveau moyen est donc celui de CLEAN quel que soit le son ;
+//    c'est la dynamique courte (les attaques) qui est ecrasee. Changer de mode : la dose descend (15 ms), le mode
+//    change, elle remonte.
+//
+//    Le cout. Le moteur est compile en deux exemplaires (Voyager.cpp, processBlockT<MX>) : sans controleur, sans ligne
+//    et sans FEEDBACK, c'est le code d'avant, au meme cout (instructions comptees : -0.1 %, 1 et 12 voix, x4 et x8).
+//    Engages, 12 voix tenues, en instructions (x4 / x8 ; au chronometre, hq3_test --cpu, memes ordres de grandeur a 3
+//    points d'un coeur pres sur la machine de test) : les controleurs seuls ou une ligne commune (MOD WHEEL -> LFO 1
+//    DEPTH) +3 % ; une ligne par voix (VELOCITY -> CUTOFF) +9 / +10 % ; 6 lignes legeres (CUTOFF, PAN, AMP, PITCH,
+//    ENV AMT, OSC MIX) +24 / +26 % ; 6 lignes par voix dont WAVE et RES +46 / +50 % ; FEEDBACK +6 % ; AMP MODE +1 %.
 // ----------------------------------------------------------------------------------------------------------------
 #pragma once
 
@@ -170,8 +272,16 @@ class Voyager {
 
   void params(const std::vector<std::pair<std::string, double>>& kv);
   void params(const ParamKV* kv, int n);
-  /** glideSec (le plugin seul) : le glissement propre de la note depuis fromMidi (0 : le GLIDE du patch). */
-  void note(double timeSec, double midi, double gateSec, double accent, double fromMidi, double glideSec = 0);
+  /**
+   * glideSec (le plugin seul) : le glissement propre de la note depuis fromMidi (0 : le GLIDE du patch).
+   * velocity (le plugin seul) : la velocite brute 0..1, la source VELOCITY de la matrice ; negative ou NaN (le
+   * defaut) : celle que dit l'accent (accent x 100 / 127, bornee a 1). Elle ne change rien d'autre au son.
+   */
+  void note(double timeSec, double midi, double gateSec, double accent, double fromMidi, double glideSec = 0, double velocity = -1);
+  /** Les controleurs (le plugin seul ; entre deux process(), lisses 5 ms) : bend -1..1, molette et aftertouch 0..1. */
+  void pitchBend(double v);
+  void modWheel(double v);
+  void aftertouch(double v);
   void beat(double timeSec, double beat, double bpm, bool run);
   void noteOff(double midi, double timeSec);
   void cancel(double timeSec);
