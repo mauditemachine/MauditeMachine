@@ -369,6 +369,8 @@ Mika, avec une capture (TRIG 2/2, TLEN 3) : « la longueur de steps, je devrais 
 - **Un clic hors de la longueur** (`actions/internal/keys60.ts` outOfTrack) : en GRID REC, la frappe d'un pas et le lock trig ne posent rien sur une touche eteinte ; l'ecran dit « STEP 05 OFF: BD2 = 3 STEPS ».
 - Verifie dans Chromium, sans son : piste 9 (BD2) avec des coups sur 1 2 6 10 12 15, TLEN monte a 3 par le potard E de TRIG 2/2 : touches [0, 3), 13 eteintes, seuls 1 et 2 allumes ; la tete simulee donne 0 1 2 0 1 sur les touches ; le pas 5 refuse (6 coups avant et apres) ; la vue TRK : rien d'eteint ; la piste 1 (sans TLEN) : les 16. Captures a x2. Site : les 4 vues identiques au pixel pres. tsc : 105.
 
+- **Build vert du lot 22** (run 43160587380), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 07557ac, branche claude/intelligent-ride-56tyeo, 2026-11-12 05:25 UTC.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
