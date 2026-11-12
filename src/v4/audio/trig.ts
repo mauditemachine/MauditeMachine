@@ -10,7 +10,16 @@
 
 import { TRACK_KEYS, normTrackKey, type TrackKey } from './tracks';
 
-export type TrigParam = 'len' | 'prob' | 'cond' | 'utime' | 'lfot' | 'rtrg' | 'rate' | 'vfad' | 'rlen' | 'tlen';
+export type TrigParam = 'len' | 'prob' | 'cond' | 'utime' | 'lfot' | 'rtrg' | 'rate' | 'vfad' | 'rlen' | 'tlen' | VarParam;
+/**
+ * VAR, MOD 3/3 (2026-11-12, le plugin, Mika : "la sous-page de MOD... quelque chose qui fait varier le son") : chaque coup de
+ * la piste tire au sort un ecart, dans ces profondeurs (0 a 100 %) : TUNE (+/- 12 demi-tons), FREQ (+/- 3 octaves du filtre),
+ * LEV (jusqu'au silence), PAN (+/- tout), DEC (x / 4), START (jusqu'a la moitie du son) ; CHNC, la part des coups qui
+ * varient ; SEED : 0 un nouveau tirage a chaque coup, 1 a 99 le meme tirage a chaque tour du pattern (une variation qui se
+ * rejoue). Des reglages de la piste dans le pattern, comme TLEN : ni verrou, ni cible MIDI ; le moteur du plugin les joue.
+ */
+export type VarParam = 'vtun' | 'vflt' | 'vlev' | 'vpan' | 'vdec' | 'vsta' | 'vchn' | 'vsed';
+export const VAR_PARAMS: readonly VarParam[] = ['vtun', 'vflt', 'vlev', 'vpan', 'vdec', 'vsta', 'vchn', 'vsed'];
 /** Les reglages de trig d'un pas (verrouillables) : leur ordre entre dans SEQ_LOCK_IDS (audio/locks.ts) et la liste du MIDI. */
 export const TRIG_PARAMS: readonly TrigParam[] = ['len', 'prob', 'cond', 'utime', 'lfot', 'rtrg', 'rate', 'vfad', 'rlen'];
 /**
@@ -19,7 +28,7 @@ export const TRIG_PARAMS: readonly TrigParam[] = ['len', 'prob', 'cond', 'utime'
  * hors de TRIG_PARAMS (ni verrou, ni cible MIDI, aucun indice ne bouge), garde avec les autres reglages de trig du pattern ;
  * le sequenceur du site l'ignore, le moteur du plugin le joue.
  */
-export const TRIG_ROW_PARAMS: readonly TrigParam[] = [...TRIG_PARAMS, 'tlen'];
+export const TRIG_ROW_PARAMS: readonly TrigParam[] = [...TRIG_PARAMS, 'tlen', ...VAR_PARAMS];
 export const isTrigParam = (v: unknown): v is TrigParam => typeof v === 'string' && (TRIG_ROW_PARAMS as readonly string[]).includes(v);
 
 /** Les longueurs de LEN et RLEN, en pas (une double croche) ; le dernier cran : INF (rien ne coupe). */
@@ -64,7 +73,7 @@ export const CONDS: readonly Cond[] = buildConds();
 export const COND_MAX = CONDS.length - 1;
 
 /** Le depart de chaque reglage : LEN INF, PROB 100 %, COND NONE, uTIME 0, LFO.T ON, RTRG OFF, RATE 1/16, VFAD 0, RLEN 1 pas. */
-export const TRIG_DEF: Readonly<Record<TrigParam, number>> = { len: 12, prob: 100, cond: 0, utime: 0, lfot: 1, rtrg: 0, rate: 9, vfad: 0, rlen: 4, tlen: 0 };
+export const TRIG_DEF: Readonly<Record<TrigParam, number>> = { len: 12, prob: 100, cond: 0, utime: 0, lfot: 1, rtrg: 0, rate: 9, vfad: 0, rlen: 4, tlen: 0, vtun: 0, vflt: 0, vlev: 0, vpan: 0, vdec: 0, vsta: 0, vchn: 100, vsed: 0 };
 /** La course de chaque reglage (son plus petit et son plus grand cran). */
 export const TRIG_RANGE: Readonly<Record<TrigParam, readonly [number, number]>> = {
   len: [0, LEN_STEPS.length - 1],
@@ -77,6 +86,14 @@ export const TRIG_RANGE: Readonly<Record<TrigParam, readonly [number, number]>> 
   vfad: [VFAD_MIN, VFAD_MAX],
   rlen: [0, LEN_STEPS.length - 1],
   tlen: [0, 64],
+  vtun: [0, 100],
+  vflt: [0, 100],
+  vlev: [0, 100],
+  vpan: [0, 100],
+  vdec: [0, 100],
+  vsta: [0, 100],
+  vchn: [0, 100],
+  vsed: [0, 99],
 };
 
 /** Une valeur posee sur son cran et bornee ; NaN : le depart. */
@@ -245,6 +262,22 @@ export function trigText(p: TrigParam, v: number): string {
       return RATE_LABELS[c];
     case 'tlen':
       return c === 0 ? 'PTN' : String(c);
+    // VAR : la profondeur dans l'unite du reglage, OFF a 0
+    case 'vtun':
+      return c === 0 ? 'OFF' : `±${((c * 12) / 100).toFixed(1)}`;
+    case 'vflt':
+      return c === 0 ? 'OFF' : `±${((c * 3) / 100).toFixed(1)}`;
+    case 'vlev':
+      return c === 0 ? 'OFF' : `-${c}%`;
+    case 'vpan':
+    case 'vdec':
+      return c === 0 ? 'OFF' : `±${c}`;
+    case 'vsta':
+      return c === 0 ? 'OFF' : `${Math.round(c / 2)}%`;
+    case 'vchn':
+      return `${c}%`;
+    case 'vsed':
+      return c === 0 ? 'FREE' : String(c);
     default:
       return c > 0 ? `+${c}` : String(c);
   }
@@ -281,6 +314,22 @@ export function trigUnit(p: TrigParam, v: number, stepMs: number): string {
       return c ? 'RESTARTS' : 'LFO FREE';
     case 'tlen':
       return c === 0 ? 'PATTERN' : c === 1 ? '1 STEP' : `${c} STEPS`;
+    case 'vtun':
+      return 'SEMITONES';
+    case 'vflt':
+      return 'OCTAVES';
+    case 'vlev':
+      return 'LEVEL';
+    case 'vpan':
+      return 'PAN';
+    case 'vdec':
+      return 'DECAY';
+    case 'vsta':
+      return 'START';
+    case 'vchn':
+      return c >= 100 ? 'EVERY HIT' : c <= 0 ? 'NO HIT' : 'OF HITS';
+    case 'vsed':
+      return c === 0 ? 'EACH HIT' : 'EACH LOOP';
     case 'rtrg':
       return c ? 'REPEATS' : 'ONE HIT';
     case 'rate': {

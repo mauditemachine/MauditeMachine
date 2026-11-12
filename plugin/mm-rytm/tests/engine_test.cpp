@@ -590,6 +590,67 @@ int main() {
         CHECK(ref > 1e-4 && late > 0.05 * ref && early < 0.25 * late, "glissement : la DIST de la tranche change pendant le pas");
     }
 
+    // ---------------- VAR, MOD 3/3 (2026-11-12) : chaque coup tire au sort ses ecarts ----------------
+    {
+        mm::Program p = baseProgram();
+        for (int g = 0; g < 16; g += 2) {
+            mm::ProgHit h = p.tracks[1].live;
+            h.g = g;
+            p.tracks[1].hits.push_back(h);
+        }
+        auto passes = [&](const mm::Program& q) {
+            std::vector<float> l;
+            runPasses(q, 2, false, &l);
+            return l;
+        };
+        const std::vector<float> ref = passes(p);
+        const size_t half = ref.size() / 2;
+        auto same = [&](const std::vector<float>& x, size_t a0, size_t b0, size_t n) {
+            for (size_t i = 0; i < n; ++i)
+                if (x[a0 + i] != x[b0 + i]) return false;
+            return true;
+        };
+        auto diff = [&](const std::vector<float>& x, const std::vector<float>& y) {
+            double d = 0;
+            for (size_t i = 0; i < x.size() && i < y.size(); ++i) d = std::max(d, std::fabs(static_cast<double>(x[i]) - y[i]));
+            return d;
+        };
+        // La graine : la meme variation a chaque tour ; le libre : une autre
+        mm::Program ps = p;
+        ps.tracks[1].var.on = true;
+        ps.tracks[1].var.tune = 7;
+        ps.tracks[1].var.lev = 0.8;
+        ps.tracks[1].var.seed = 12;
+        const std::vector<float> seeded = passes(ps);
+        mm::Program pf = ps;
+        pf.tracks[1].var.seed = 0;
+        const std::vector<float> freeV = passes(pf);
+        // Sans VAR, les deux tours sont identiques (refLoops) : avec la graine aussi ; en libre, ils different
+        const size_t cmp = half - 6000;
+        const bool refLoops = same(ref, 3000, half + 3000, cmp - 3000);
+        CHECK(diff(seeded, ref) > 0.01 && (!refLoops || same(seeded, 3000, half + 3000, cmp - 3000)) && !same(freeV, 3000, half + 3000, cmp - 3000),
+              "VAR : la graine rejoue la meme variation a chaque tour, le libre en tire une autre");
+        // CHNC 0 : rien ne varie
+        mm::Program p0 = ps;
+        p0.tracks[1].var.chance = 0;
+        CHECK(diff(passes(p0), ref) == 0, "VAR : CHNC 0, le son de toujours a l'echantillon pres");
+        // LEV : les coups n'ont plus tous la meme crete
+        mm::Program pl = p;
+        pl.tracks[1].var.on = true;
+        pl.tracks[1].var.lev = 0.9;
+        pl.tracks[1].var.seed = 3;
+        const std::vector<float> lv = passes(pl);
+        float lo = 1e9f, hi = 0;
+        for (int k = 0; k < 8; ++k) {
+            float pk = 0;
+            for (size_t i = static_cast<size_t>(k) * 12000; i < static_cast<size_t>(k) * 12000 + 3000 && i < lv.size(); ++i) pk = std::max(pk, std::fabs(lv[i]));
+            lo = std::min(lo, pk);
+            hi = std::max(hi, pk);
+        }
+        if (std::getenv("MM_TEST_VERBOSE")) std::printf("   var lev : cretes de %.3f a %.3f (ref loops %d)\n", lo, hi, refLoops ? 1 : 0);
+        CHECK(hi > 0 && lo < 0.7f * hi, "VAR : LEV, les coups n'ont plus le meme niveau");
+    }
+
     // ---------------- PERFORM, le live (2026-11-12) : cuts, low cut, FILTER, beat repeat, tape stop, throws ----------------
     {
         const double pps = 120.0 / 60.0 / SR; // un pas : 6000 echantillons

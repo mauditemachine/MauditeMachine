@@ -54,7 +54,7 @@ export function mixerDial(inst: TrackKey, v: number): void {
   const l = mixerLevel(inst);
   lcdMessage.show(`${TRACK_NAMES[trackIndex(inst)] ?? inst} VOL ${encText('vol', l, l, false)}  ${encUnit('vol', l)}`, POT_UI.readoutMs, true);
 }
-const SEQ_NAME: Readonly<Record<TrigParam, string>> = { len: 'LEN', prob: 'PROB', cond: 'COND', utime: 'μTIME', lfot: 'LFO.T', rtrg: 'RTRG', rate: 'RATE', vfad: 'VFAD', rlen: 'RLEN', tlen: 'TLEN' };
+const SEQ_NAME: Readonly<Record<TrigParam, string>> = { len: 'LEN', prob: 'PROB', cond: 'COND', utime: 'μTIME', lfot: 'LFO.T', rtrg: 'RTRG', rate: 'RATE', vfad: 'VFAD', rlen: 'RLEN', tlen: 'TLEN', vtun: 'VAR TUNE', vflt: 'VAR FREQ', vlev: 'VAR LEV', vpan: 'VAR PAN', vdec: 'VAR DEC', vsta: 'VAR START', vchn: 'VAR CHANCE', vsed: 'VAR SEED' };
 /** Son nom a l'ecran : LEN, LFO1 DEP. */
 export function seqName(p: SeqDial): string {
   if (isTrigParam(p)) return SEQ_NAME[p];

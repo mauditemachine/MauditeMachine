@@ -78,8 +78,23 @@ struct ProgHit {
     SliceFx sdSl;
 };
 
+// VAR, MOD 3/3 (2026-11-12) : chaque coup de la piste tire au sort un ecart dans ces profondeurs ; chance, la part des coups
+// qui varient ; seed 0 : un tirage neuf a chaque coup, sinon le meme a chaque tour (il depend du pas)
+struct VarSet {
+    bool on = false;
+    double tune = 0;   // demi-tons (+/-)
+    double flt = 0;    // octaves de la coupure (+/-)
+    double lev = 0;    // part du niveau retiree (0 a 1)
+    double pan = 0;    // ecart du PAN (+/-, 0 a 1)
+    double dec = 0;    // octaves du DECAY (+/-)
+    double start = 0;  // part du son sautee au depart (0 a 0.5)
+    double chance = 1; // 0 a 1
+    int seed = 0;
+};
+
 struct ProgTrack {
     float slice = 1.f; // gain de la tranche (LEVEL, TRK LEV)
+    VarSet var;        // VAR (MOD 3/3)
     bool plays = true; // MUTE, SOLO, mute du pattern
     bool mono = false;
     int choke = 0;

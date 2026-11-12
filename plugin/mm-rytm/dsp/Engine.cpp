@@ -386,6 +386,10 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
         else tau = decayTau(clamp01(h.lbDecay + sum));
     }
     applySlice(ps, track, sl);
+    // VAR (MOD 3/3) : le coup tire au sort ses ecarts (CHNC : s'il varie) ; DEC tout de suite (l'enveloppe en depend)
+    const VarSet& vs = tr.var;
+    const bool varied = vs.on && (vs.chance >= 1 || (varDraw(vs, track, h.g, 6) + 1) / 2 < vs.chance);
+    if (varied && vs.dec > 0 && tau > 0) tau *= std::exp2(vs.dec * varDraw(vs, track, h.g, 4));
     // D'ou vient la tranche (le crossfader la reprend a sa position) et l'ecart des LFO pris au coup
     sliceSrc_[static_cast<size_t>(track)] = h.hasSl ? (hi >= 0 || hi == -2 ? hi : -3) : -1;
     sliceLfoD_[static_cast<size_t>(track)] = {sl.tone - sl0.tone, sl.dist - sl0.dist, sl.chorus - sl0.chorus, sl.delay - sl0.delay, sl.reverb - sl0.reverb};
@@ -455,6 +459,7 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
     v.sdLeft = 0;
     v.rateOn = false;
     v.rate = 1;
+    v.varRate = 1;
     v.pf0 = h.snd >= 0 && h.snd < static_cast<int>(ps.prog.sounds.size()) ? std::max(1e-3, ps.prog.sounds[static_cast<size_t>(h.snd)].pf) : 1;
     v.atkN = std::max(0.0, h.atk) * sr_;
     v.holdEndN = (std::max(0.0, h.atk) + std::max(0.0, h.hold)) * sr_;
@@ -507,6 +512,36 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
             if (v.cv[static_cast<size_t>(c)].on) curveStart(v, c, 0, 0);
         if (v.cv[CV_PITCH].on) v.fpos = static_cast<double>(v.pos);
         if (v.cv[CV_PAN].on) v.panNow = v.panTo = curveAt(v, CV_PAN, 0);
+    }
+    // VAR : le niveau, le depart dans le son, le PAN, la coupure et la hauteur de ce coup
+    if (varied) {
+        if (vs.lev > 0) {
+            const float k = static_cast<float>(1 - vs.lev * (varDraw(vs, track, h.g, 2) + 1) / 2);
+            v.gain *= k;
+            v.gainTo = v.gain;
+            v.gain0 = v.gain;
+        }
+        if (vs.start > 0) {
+            const double sk = vs.start * (varDraw(vs, track, h.g, 5) + 1) / 2 * static_cast<double>(shot.size());
+            v.pos = std::min(shot.size() > 0 ? shot.size() - 1 : 0, v.pos + static_cast<size_t>(sk));
+            if (v.cv[CV_PITCH].on) v.fpos = static_cast<double>(v.pos);
+        }
+        if (vs.pan > 0 && v.panner && !v.cv[CV_PAN].on) {
+            v.panNow = v.panTo = std::max(-1.0, std::min(1.0, v.panNow + vs.pan * varDraw(vs, track, h.g, 3)));
+            v.basePan = v.panNow;
+        }
+        if (vs.flt > 0 && v.ft) {
+            const double top = std::min(20000.0, sr_ * 0.45);
+            const double k = std::exp2(vs.flt * varDraw(vs, track, h.g, 1));
+            v.f0 = std::max(20.0, std::min(top, v.f0 * k));
+            v.fPeak = std::max(20.0, std::min(top, v.fPeak * k));
+        }
+        if (vs.tune > 0) {
+            v.varRate = std::exp2(vs.tune * varDraw(vs, track, h.g, 0) / 12);
+            v.rate = v.varRate;
+            if (!v.cv[CV_PITCH].on) v.fpos = static_cast<double>(v.pos);
+            v.rateOn = true;
+        }
     }
     panMatrix(v.panNow, shot.mono, v.panner, v.gLL, v.gLR, v.gRL, v.gRR);
     if (v.ft) updateFilter(v);
@@ -718,6 +753,24 @@ void Engine::applyLock(Voice& v) {
     if (p.sd) startSlide(v, p.sd, p.sdLevel, p.sdPan, p.sdReso, p.sdCut, p.sdPf, p.sdN);
 }
 
+/* ---------------- VAR, MOD 3/3 (2026-11-12) ---------------- */
+
+// Un tirage dans [-1, 1]. SEED 0 : le hasard du moteur (un tirage neuf a chaque coup) ; sinon un melange fixe de la graine,
+// de la piste, du pas et de la dimension : le meme pas tire la meme chose a chaque tour du pattern
+double Engine::varDraw(const VarSet& vs, int track, int g, int d) {
+    uint32_t x;
+    if (vs.seed <= 0 || g < 0) x = rngNext();
+    else {
+        x = static_cast<uint32_t>(vs.seed) * 0x9E3779B9u ^ static_cast<uint32_t>(track + 1) * 0x85EBCA6Bu ^ static_cast<uint32_t>(g + 1) * 0xC2B2AE35u ^ static_cast<uint32_t>(d + 1) * 0x27D4EB2Fu;
+        x ^= x >> 16;
+        x *= 0x7FEB352Du;
+        x ^= x >> 15;
+        x *= 0x846CA68Bu;
+        x ^= x >> 16;
+    }
+    return (static_cast<double>(x) / 4294967295.0) * 2 - 1;
+}
+
 /* ---------------- le glissement vers le pas suivant (LIVE REC, 2026-11-12) ---------------- */
 
 // Mika : "quand je bouge des knobs ca doit etre fluide apres". Un geste enregistre pose une valeur par pas ; entre deux pas
@@ -750,7 +803,7 @@ void Engine::startSlide(Voice& v, int bits, double level, double pan, double res
         b |= 8;
     }
     if ((bits & 256) && pf > 0) {
-        v.sdRate = std::max(1.0 / 16, std::min(16.0, pf / v.pf0));
+        v.sdRate = std::max(1.0 / 16, std::min(16.0, pf / v.pf0 * v.varRate));
         // La lecture interpolee part de la ou en est la lecture (un LFO PITCH l'a deja)
         if (!v.cv[CV_PITCH].on && !v.rateOn) v.fpos = static_cast<double>(v.pos);
         v.rateOn = true;

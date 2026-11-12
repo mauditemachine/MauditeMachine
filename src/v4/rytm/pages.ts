@@ -133,11 +133,12 @@ export function fxScopeTabs(s: RytmScreenId): { global: FxDetailId; voice: FxVoi
 }
 
 /** Les ecrans : une page, ou l'un de ses onglets (VOICE et SYNTH ; VOICE FX et GLOBAL FX), ou la page d'un FX (GLOBAL ou VOICE). */
-export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg' | FxDetailId | FxVoiceDetailId | 'fxm' | 'trig' | 'mod' | 'tempo' | 'mixer' | 'trig2' | 'mod2';
+export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg' | FxDetailId | FxVoiceDetailId | 'fxm' | 'trig' | 'mod' | 'tempo' | 'mixer' | 'trig2' | 'mod2' | 'mod3';
 // fxm a la fin (V.4.2, 2026-10-27) : les ids MIDI d'avant (rytm:screen:<ecran>) gardent leur ordre, le sien s'ajoute ; ceux de
 // V.5.0 (TRIG, MOD, TEMPO, MIXER LEVELS) apres lui, de meme ; V.5.1 (2026-10-29) : TRIG 2/2 et MOD 2/2 au bout (leurs cibles
 // MIDI s'ajoutent a la fin de la liste, midi/targets.ts)
-export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg', ...FX_DETAILS, ...FX_VOICE_DETAILS, 'fxm', 'trig', 'mod', 'tempo', 'mixer', 'trig2', 'mod2'];
+// Le plugin (2026-11-12) : MOD 3/3 (VAR) au bout ; le site ne l'a pas (ni page, ni cible MIDI de plus)
+export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg', ...FX_DETAILS, ...FX_VOICE_DETAILS, 'fxm', 'trig', 'mod', 'tempo', 'mixer', 'trig2', 'mod2', ...(TYPED_TRACKS ? ['mod3' as const] : [])];
 /** Les ecrans de V.5.1 (TRIG 2/2, MOD 2/2) : leurs cibles MIDI rytm:screen:<ecran> viennent apres toutes celles d'avant. */
 export const D2_SCREENS: readonly RytmScreenId[] = ['trig2', 'mod2'];
 export const isRytmScreen = (v: unknown): v is RytmScreenId => typeof v === 'string' && (RYTM_SCREENS as readonly string[]).includes(v);
@@ -182,7 +183,8 @@ export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = 
   fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxg', 'fxv'],
   // V.5.1 (2026-10-29, l'etape D2) : TRIG 1/2 et 2/2, MOD 1/2 (LFO 1) et 2/2 (LFO 2) ; la touche rappuyee passe a l'onglet suivant
   trig: ['trig', 'trig2'],
-  mod: ['mod', 'mod2'],
+  // Le plugin (2026-11-12) : MOD 3/3, VAR (la variation de chaque coup)
+  mod: TYPED_TRACKS ? ['mod', 'mod2', 'mod3'] : ['mod', 'mod2'],
   tempo: ['tempo'],
   sendfx: ['fxg'],
   mixer: ['mixer', 'fxm'],
@@ -214,6 +216,7 @@ export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = {
   mixer: 'mixer',
   trig2: 'trig',
   mod2: 'mod',
+  mod3: 'mod',
 };
 /** Le nom d'un onglet (l'en-tete, ses pastilles) ; celui d'une page sans onglet est le sien ; la page d'un FX, son nom. */
 export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
@@ -242,6 +245,7 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
   mixer: 'LEVELS',
   trig2: '2/2',
   mod2: 'LFO 2',
+  mod3: 'VAR',
 };
 /** Le titre d'un ecran, en toutes lettres (le pied, l'en-tete du P-LOCK, l'ecran du MIDI) : VOICE, VOICE SYNTH, GLOBAL FX, GLOBAL FX · DELAY, VOICE FX · DELAY. */
 // V.5.0 (2026-10-29) : au desktop les noms de la face facon Digitakt (SRC, AMP, SEND FX, MIXER) ; le telephone garde les siens
@@ -265,11 +269,12 @@ export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
   fxvreverb: 'VOICE FX · REVERB',
   fxm: PORTRAIT ? 'MASTER' : 'MIXER MASTER',
   trig: 'TRIG 1/2',
-  mod: 'MOD 1/2',
+  mod: TYPED_TRACKS ? 'MOD 1/3' : 'MOD 1/2',
   tempo: 'TEMPO',
   mixer: 'MIXER LEVELS',
   trig2: 'TRIG 2/2',
-  mod2: 'MOD 2/2',
+  mod2: TYPED_TRACKS ? 'MOD 2/3' : 'MOD 2/2',
+  mod3: 'MOD 3/3',
 };
 
 /**
@@ -578,6 +583,21 @@ const lfoSlots = (n: 1 | 2): readonly PageSlot[] => {
 };
 const MOD: readonly PageSlot[] = lfoSlots(1);
 const MOD2: readonly PageSlot[] = lfoSlots(2);
+/**
+ * MOD 3/3, VAR (le plugin, 2026-11-12, Mika : "quelque chose qui fait varier le son") : chaque coup de la piste tire au sort
+ * un ecart (audio/trig.ts VarParam) ; A TUNE, B FREQ, C LEV, D PAN, E DEC, F START, G CHNC, H SEED. Des reglages de la piste
+ * dans le pattern, comme TLEN : jamais verrouilles.
+ */
+const VAR_SLOTS: readonly PageSlot[] = [
+  live('TUNE', 'q:vtun' as SlotTarget, 'bar'),
+  live('FREQ', 'q:vflt' as SlotTarget, 'bar'),
+  live('LEV', 'q:vlev' as SlotTarget, 'bar'),
+  live('PAN', 'q:vpan' as SlotTarget, 'bar'),
+  live('DEC', 'q:vdec' as SlotTarget, 'bar'),
+  live('START', 'q:vsta' as SlotTarget, 'bar'),
+  live('CHNC', 'q:vchn' as SlotTarget, 'level'),
+  live('SEED', 'q:vsed' as SlotTarget, 'notch'),
+];
 /** TEMPO (FUNC + TRIG) : A BPM (le TEMPO de toujours, le SYNC du MIXER compris), B SWING ; jamais verrouilles. */
 const TEMPO: readonly PageSlot[] = [live('BPM', 'tempo', 'bar', 'all'), live('SWING', 'swing', 'swing', 'all')];
 /** MIXER 1/2 LEVELS (FUNC + MOD) : A a H, le VOL de BD SD CH OH CP TOM HT CY (m:<voix>, rytm:voice:<voix>:level). */
@@ -775,6 +795,9 @@ export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly Pag
       break;
     case 'mod2':
       out = MOD2;
+      break;
+    case 'mod3':
+      out = VAR_SLOTS;
       break;
     case 'tempo':
       out = TEMPO;

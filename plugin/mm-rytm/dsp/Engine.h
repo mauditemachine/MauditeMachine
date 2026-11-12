@@ -190,6 +190,7 @@ private:
         // son du coup (pf0) ; rateOn : la lecture interpolee (fpos), comme sous un LFO PITCH
         bool rateOn = false;
         double rate = 1, sdRate = 1, pf0 = 1;
+        double varRate = 1; // VAR : la hauteur tiree au sort pour ce coup (un glissement de hauteur la garde)
         double atkN = 0, holdEndN = 0, tauN = -1, stopN = -1;
         double cutN = -1;      // LEN : le relachement de 8 ms commence ici (-1 : INF)
         // FLTR : le biquad du coup (formules du BiquadFilterNode), sa coupure menee par l'enveloppe
@@ -259,6 +260,8 @@ private:
     void startSlide(Voice& v, int bits, double level, double pan, double reso, double cut, double pf, double N);
     bool slideTick(Voice& v);
     void slideTrack(const PlayState& ps, int n);
+    // VAR (MOD 3/3) : un tirage dans [-1, 1] (d : la dimension) ; seed 0 : libre, sinon fixe par piste, pas et graine
+    double varDraw(const VarSet& vs, int track, int g, int d);
     void filterCoefs(Voice& v, double f, double q) const;
     double filterFreq(const Voice& v) const;
     void updateFilter(Voice& v);

@@ -26,7 +26,7 @@ import { lockOf, SLIDE_IDS, type Locks } from '../audio/locks';
 import { type TrigSet } from '../audio/trig';
 import { NO_SCENES, type SceneSet } from '../rytm/sceneData';
 import { type Inst } from '../theme';
-import { CONDS, trigNow } from '../audio/trig';
+import { CONDS, TRIG_DEF, clampTrig, trigNow, type TrigParam } from '../audio/trig';
 import { activeLfos, LFO_DESTS, LFO_MODES, LFO_WAVES } from '../audio/lfo';
 import { cutHz, filterIndex, resoQ } from '../audio/voicelaw';
 import { liveNeeds } from '../audio/seqhit';
@@ -142,6 +142,11 @@ export interface ProgTrack {
   hits: ProgHit[];
   /** la longueur de la piste (TLEN, 2026-11-08) : 0 = celle du pattern ; sinon 1 a len pas, qu'elle boucle sans repartir */
   tlen?: number;
+  /**
+   * VAR, MOD 3/3 (2026-11-12) : [TUNE en demi-tons, FREQ en octaves, LEV, PAN, DEC en octaves, START, CHANCE, SEED] ; chaque
+   * coup de la piste tire au sort ses ecarts (dsp/Engine.cpp varDraw) ; absent : aucun
+   */
+  vr?: number[];
 }
 
 export interface Program {
@@ -173,7 +178,7 @@ export interface ProgPat {
   slot: number;
   len: number;
   loop: number;
-  tracks: Pick<ProgTrack, 'plays' | 'hits' | 'tlen'>[];
+  tracks: Pick<ProgTrack, 'plays' | 'hits' | 'tlen' | 'vr'>[];
   xk?: ProgX[];
 }
 
@@ -196,6 +201,16 @@ const sliceOf = (fx: Readonly<VoiceFx>, lock: Readonly<StepLock> | null): number
 ];
 
 const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
+
+/** VAR (MOD 3/3) d'une piste : ses profondeurs dans les unites du moteur ; null si rien ne varie. */
+function varOf(row: Readonly<Partial<Record<TrigParam, number>>> | undefined): number[] | null {
+  if (!row) return null;
+  const v = (p: TrigParam): number => clampTrig(p, row[p] ?? TRIG_DEF[p]);
+  const depths = [v('vtun'), v('vflt'), v('vlev'), v('vpan'), v('vdec'), v('vsta')];
+  const chance = v('vchn');
+  if (chance <= 0 || depths.every((d) => d <= 0)) return null;
+  return [r6((depths[0] * 12) / 100), r6((depths[1] * 3) / 100), r6(depths[2] / 100), r6(depths[3] / 100), r6((depths[4] * 2) / 100), r6((depths[5] * 0.5) / 100), r6(chance / 100), v('vsed')];
+}
 
 /** Le genre d'une COND pour le C++ (dsp/Engine.cpp condTrue). */
 const COND_KIND: Readonly<Record<string, number>> = { none: 0, fill: 1, pre: 2, nei: 3, first: 4, last: 5, ab: 6 };
@@ -270,7 +285,7 @@ function compile(): Program {
   for (let i = 0; i < st.slots.length; i += 1) {
     if (i === st.cur || !patterns.filled(i)) continue;
     const q = compilePat(slotSrc(i), tab);
-    pats.push({ slot: i, len: q.len, loop: q.loop, tracks: q.tracks.map((t) => ({ plays: t.plays, hits: t.hits, ...(t.tlen ? { tlen: t.tlen } : {}) })), ...(q.xk ? { xk: q.xk } : {}) });
+    pats.push({ slot: i, len: q.len, loop: q.loop, tracks: q.tracks.map((t) => ({ plays: t.plays, hits: t.hits, ...(t.tlen ? { tlen: t.tlen } : {}), ...(t.vr ? { vr: t.vr } : {}) })), ...(q.xk ? { xk: q.xk } : {}) });
   }
   p.sounds = tab.sounds;
   if (pats.length > 0) p.pats = pats;
@@ -332,6 +347,8 @@ function compileWith(src: PatSrc, tab: SoundTable): Program {
     // Ce que les lock trigs de la voix demandent en direct a ses coups (VOL, PAN, le filtre) ; null : aucun lock trig
     const needs = liveNeeds(src.locks, t);
     const tlen = Math.round(src.trigs?.[t]?.tlen ?? 0);
+    // VAR (MOD 3/3) : les profondeurs de la piste ; FREQ demande un filtre a chaque coup, PAN le panoramique
+    const vr = varOf(src.trigs?.[t]);
     const hits: ProgHit[] = [];
     for (let g = 0; g < len; g += 1) {
       const s = g % 16;
@@ -392,12 +409,12 @@ function compileWith(src: PatSrc, tab: SoundTable): Program {
       // Le panoramique et le filtre en direct (audio/drums.ts seqExtra) : un LFO PAN ou un lock trig PAN de la voix, un coup
       // au centre passe quand meme par le panoramique (x racine de 2) ; un LFO FREQ ou RESO, un lock trig FREQ ou RESO, un
       // coup sans filtre en recoit un, ouvert, sans enveloppe
-      const needPan = !!needs?.pan || (sd & 2) !== 0 || lfos.some((l) => l.dest === 'PAN');
+      const needPan = !!needs?.pan || (sd & 2) !== 0 || (!!vr && vr[3] > 0) || lfos.some((l) => l.dest === 'PAN');
       if (needPan && r.hp.pan === 0) {
         h.fp = 1;
         h.gain = r6(h.gain * Math.SQRT2);
       }
-      const needFilter = !!needs?.filter || (sd & 12) !== 0 || lfos.some((l) => l.dest === 'FREQ' || l.dest === 'RESO');
+      const needFilter = !!needs?.filter || (sd & 12) !== 0 || (!!vr && vr[1] > 0) || lfos.some((l) => l.dest === 'FREQ' || l.dest === 'RESO');
       if (needFilter && !h.ft) {
         h.ft = filterIndex(lk?.ftype ?? fxv.ftype) + 1;
         h.fhz = r6(cutHz(lk?.fcut ?? fxv.fcut));
@@ -421,6 +438,7 @@ function compileWith(src: PatSrc, tab: SoundTable): Program {
       hits,
       // TLEN : la longueur de la piste, au plus celle du pattern (ses pas sont ceux du pattern)
       ...(tlen > 0 && tlen < len ? { tlen } : {}),
+      ...(vr ? { vr } : {}),
     });
   }
   const gfx: Record<string, number> = {};

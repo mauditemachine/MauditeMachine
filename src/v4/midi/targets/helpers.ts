@@ -122,6 +122,14 @@ export const TRIG_LABEL: Readonly<Record<TrigParam, string>> = {
   vfad: 'RETRIG VELOCITY FADE',
   rlen: 'RETRIG LENGTH',
   tlen: 'TRACK LENGTH',
+  vtun: 'VARIATION TUNE',
+  vflt: 'VARIATION FILTER',
+  vlev: 'VARIATION LEVEL',
+  vpan: 'VARIATION PAN',
+  vdec: 'VARIATION DECAY',
+  vsta: 'VARIATION START',
+  vchn: 'VARIATION CHANCE',
+  vsed: 'VARIATION SEED',
 };
 export const LFO_LABEL: Readonly<Record<string, string>> = { spd: 'SPEED', mul: 'MULTIPLIER', fad: 'FADE', dst: 'DESTINATION', wav: 'WAVE', phs: 'PHASE', mod: 'MODE', dep: 'DEPTH' };
 

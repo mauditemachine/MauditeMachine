@@ -140,6 +140,23 @@ void parseHit(const juce::var& o, mm::ProgHit& h) {
     }
 }
 
+// VAR (MOD 3/3) : [TUNE en demi-tons, FREQ en octaves, LEV, PAN, DEC en octaves, START, CHANCE, SEED] ; absent : aucun
+void parseVar(const juce::var& tv, mm::VarSet& v) {
+    v = mm::VarSet{};
+    const auto* a = tv.getProperty("vr", juce::var()).getArray();
+    if (!a || a->size() < 8) return;
+    auto at = [&](int i) { return static_cast<double>((*a)[i]); };
+    v.tune = juce::jlimit(0.0, 24.0, at(0));
+    v.flt = juce::jlimit(0.0, 6.0, at(1));
+    v.lev = juce::jlimit(0.0, 1.0, at(2));
+    v.pan = juce::jlimit(0.0, 1.0, at(3));
+    v.dec = juce::jlimit(0.0, 4.0, at(4));
+    v.start = juce::jlimit(0.0, 0.9, at(5));
+    v.chance = juce::jlimit(0.0, 1.0, at(6));
+    v.seed = juce::jlimit(0, 999, static_cast<int>(at(7)));
+    v.on = v.chance > 0 && (v.tune > 0 || v.flt > 0 || v.lev > 0 || v.pan > 0 || v.dec > 0 || v.start > 0);
+}
+
 // Les effets globaux du programme (pattern.fx par morph.fx, TONE et LEVEL du mix)
 void parseFx(const juce::var& o, mm::GlobalFx& g) {
     if (!o.isObject()) return;
@@ -198,6 +215,7 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
             tr.gated = flag(tv, "gated");
             tr.kick = flag(tv, "kick");
             tr.tlen = std::max(0, std::min(128, static_cast<int>(num(tv, "tlen", 0))));
+            parseVar(tv, tr.var);
             if (const auto* sl = tv.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5)
                 tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
             parseHit(tv.getProperty("live", juce::var()), tr.live);
@@ -228,6 +246,7 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
                     auto& tr = q.tracks[static_cast<size_t>(t)];
                     tr.plays = flag(tv, "plays");
                     tr.tlen = std::max(0, std::min(128, static_cast<int>(num(tv, "tlen", 0))));
+                    parseVar(tv, tr.var);
                     tr.hits.clear();
                     if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
                         for (const auto& hv : *hs) {

@@ -392,6 +392,18 @@ Mika, avec une capture de la premiere touche : « le bouton PERFORM, j'aimerais 
 - `plugin/mm-rytm/tests/engine_test.cpp` : 5 tests de plus (63) : CUT (la piste se tait, revient a 1 % pres) ; LOW CUT (l'energie du kick a 0,7 %) et FILTER (passe-haut et passe-bas fermes : moins de 0,05 %) ; REPEAT 1/8 (le premier tour identique au direct a l'echantillon pres, puis la boucle : correlation 1,000) ; TAPE STOP (70 % au depart, le silence a la fin, le direct revient) ; DELAY THROW et REVERB WASH (l'echo et la queue d'un coup sans envoi).
 - Verifie dans Chromium, sans son : PERFORM s'ouvre sur LIVE FX (FILTER en A), les pads s'allument ; CUT BD tenu envoie `cut 257` (BD et BD2), relache `0` ; LOW CUT garde par Maj + clic (`flags 8`), RPT 1/8 tenu par-dessus (`10`), relache (`8`) ; FILTER tourne (`mm_pf -0.533`) ; l'automation d'Ableton (`pf 0.6`) ramene l'anneau ; les fleches : MIXER 1-8 puis 9-16 ; fermer PERFORM : tout relache. Captures.
 
+- **Build vert de PERFORM** (run 43163400753), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit ee979b9, branche claude/intelligent-ride-56tyeo, 2026-11-12 05:51 UTC.
+
+### Lot 23 bis, MOD 3/3 : VAR, le son qui varie (2026-11-12)
+
+La deuxieme moitie de la demande : « la sous-page de MOD ce serait un MOD 2 encore... quelque chose qui fait varier le son ». MOD 1/2 et 2/2 etaient deux LFO pareils ; le plugin gagne une troisieme sous-page qui fait autre chose.
+
+- **VAR** (`src/v4/audio/trig.ts` VarParam, `rytm/pages.ts` mod3 et VAR_SLOTS) : chaque coup de la piste tire au sort un ecart dans les profondeurs de A TUNE (+/- 12 demi-tons a 100 %), B FREQ (+/- 3 octaves de la coupure), C LEV (jusqu'au silence), D PAN, E DEC (x / 4), F START (jusqu'a la moitie du son), G CHNC (la part des coups qui varient), H SEED (FREE : un tirage neuf a chaque coup ; 1 a 99 : le meme tirage a chaque tour du pattern, une variation qui se rejoue). Des reglages de la piste dans le pattern, comme TLEN (ni verrou, ni cible MIDI, aucun indice ne bouge) ; le site ne les a pas (ni page, ni cible). MOD devient 1/3 (LFO 1), 2/3 (LFO 2), 3/3 (VAR) dans le plugin.
+- **Le programme** (`plugin/bridge.ts` varOf) : `vr` par piste (aussi dans les autres patterns) ; FREQ pose un filtre ouvert sur chaque coup qui n'en a pas, PAN le panoramique.
+- **Le moteur** (`dsp/Program.h` VarSet, `dsp/Engine.cpp` varDraw, trigger ; `src/PluginProcessor.cpp` parseVar) : le tirage d'un coup, libre (le hasard du moteur) ou fixe (un melange de la graine, de la piste, du pas et de la dimension) ; DEC change l'enveloppe, LEV le gain, START le depart, PAN le panoramique, FREQ la coupure et son enveloppe, TUNE la vitesse de lecture (interpolee, comme le glissement du lot 21, qui la garde). Les notes MIDI d'Ableton varient aussi (en libre).
+- `plugin/mm-rytm/tests/engine_test.cpp` : 3 tests de plus (66) : avec une graine, les deux tours du pattern identiques a l'echantillon pres, en libre differents ; CHNC 0 : le son de toujours a l'echantillon pres ; LEV : les cretes des coups vont de 0,095 a 0,595.
+- Verifie dans Chromium : MOD tapee trois fois : MOD 1/3, 2/3, 3/3 et ses huit potards (TUNE ... SEED) ; sur BD2, TUNE, LEV et SEED tournes : le programme porte `vr` = [3.24, 0, 0.4, 0, 0, 0, 1, 20] pour la piste 9 et rien pour la piste 1 ; FREQ ajoute 0.81 octave ; le triple clic sur MOD remet VAR a zero (`BD2 MOD RESET`, plus de `vr`). L'ecran : TUNE +/-3.2 SEMITONES, LEV -40 %, CHNC 100 % EVERY HIT, SEED 20 EACH LOOP. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -482,11 +494,14 @@ Mika, avec une capture de la premiere touche : « le bouton PERFORM, j'aimerais 
 - **Les effets de performance dans le moteur, pas dans la face** : un pad doit partir au bloc audio suivant (un programme recompile prendrait 50 ms et plus). Le beat repeat et le tape stop jouent le mix deja fait (un tampon de 4 s), ils prennent donc aussi les retours de DELAY et REVERB.
 - **Un FILTER DJ neuf plutot que le TONE global** : TONE change aussi la hauteur des sons ; un filtre DJ ne doit faire que filtrer. Il est un parametre du plugin pour qu'Ableton l'automatise et qu'un controleur le prenne.
 - **Les pads ne s'enregistrent pas** (ni en P-LOCK, ni dans le projet) : ce sont des gestes de live ; FILTER, lui, est garde comme le crossfader.
+- **Lot 23 bis : VAR en troisieme sous-page, LFO 2 garde** : on aurait pu remplacer LFO 2, mais des patterns s'en servent peut-etre ; ajouter MOD 3/3 ne casse rien. VAR est un reglage de la piste dans le pattern (comme TLEN) : il voyage avec le pattern et les presets, sans toucher aux verrous ni au MIDI.
+- **SEED** : un hasard pur change a chaque tour (vivant) ; une graine rend la variation rejouable (comme un pattern de plus), ce qu'un LFO RND ne fait pas.
 
 ## 3. Ce qui reste a faire / points en suspens
 
 - **Cote Mika (lot 23)** : la commande mm-rytm, quitter et rouvrir Ableton. A l'oreille : chaque pad (surtout RPT, TAPE, LOW CUT) et le FILTER ; mapper le parametre **Filter** au Roto ou a l'APC. Dire si la liste des pads lui va (on peut en changer sans toucher au moteur) et si les durees (tape 0,7 s) sont bonnes. Rien n'a pu etre ecoute ici.
-- Lot 23, la suite possible : les pads au clavier et en MIDI (notes) ; un MOD 3/3 qui fait varier le son (le lot suivant).
+- Lot 23, la suite possible : les pads au clavier et en MIDI (notes).
+- **Cote Mika (lot 23 bis)** : MOD 3/3 sur une piste de hats (TUNE et LEV bas, SEED FREE, puis une graine) et dire a l'oreille si les profondeurs sont bonnes (100 % de TUNE = +/- 12 demi-tons, peut-etre trop).
 - **Cote Mika (lot 22)** : la commande mm-rytm ; TRIG 2/2, tourner TLEN (potard E) et dire si la limite se voit assez sur les touches (le dessus et les legendes peuvent foncer plus ou moins : `theme.ts` STEP_OUT).
 - **Cote Mika (lot 21)** : la commande mm-rytm, quitter et rouvrir Ableton. Refaire un geste en LIVE REC (les automations d'avant restent en escalier ; triple clic sur la touche de la page pour repartir de zero), puis dire a l'oreille si FREQ, TONE, TUNE et LEV sont fluides, et a l'oeil si les anneaux bougent comme le geste. Rien de cela n'a pu etre ecoute ici (verifie par des tests chiffres seulement).
 - Lot 21, la suite possible : l'ecran (les valeurs de la page) ne bouge pas en relecture, seuls les anneaux ; DEC, ATK et START pourraient glisser aussi ; un LFO sur PAN ou RESO bloque le glissement de ce reglage ; un geste plus fin que le pas (plusieurs points par pas) si une ligne droite par pas ne suffit pas a tempo lent.
