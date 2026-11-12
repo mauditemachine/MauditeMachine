@@ -115,6 +115,45 @@ struct M32 {
     }
 };
 
+// FFT complexe radix 2 en place (plugin/mm-rytm/dsp/Fx.cpp)
+struct Fft {
+    int n;
+    std::vector<std::complex<float>> tw;
+    std::vector<int> rev;
+    explicit Fft(int size) : n(size), tw(static_cast<size_t>(size / 2)), rev(static_cast<size_t>(size)) {
+        for (int k = 0; k < n / 2; ++k) tw[static_cast<size_t>(k)] = std::polar(1.0f, static_cast<float>(-2 * PI * k / n));
+        int bits = 0;
+        while ((1 << bits) < n) ++bits;
+        for (int i = 0; i < n; ++i) {
+            int r = 0;
+            for (int b = 0; b < bits; ++b)
+                if (i & (1 << b)) r |= 1 << (bits - 1 - b);
+            rev[static_cast<size_t>(i)] = r;
+        }
+    }
+    void run(std::complex<float>* a, bool inverse) const {
+        for (int i = 0; i < n; ++i)
+            if (i < rev[static_cast<size_t>(i)]) std::swap(a[i], a[rev[static_cast<size_t>(i)]]);
+        for (int len = 2; len <= n; len <<= 1) {
+            const int step = n / len;
+            for (int i = 0; i < n; i += len)
+                for (int j = 0; j < len / 2; ++j) {
+                    std::complex<float> w = tw[static_cast<size_t>(j * step)];
+                    if (inverse) w = std::conj(w);
+                    const std::complex<float> u = a[i + j];
+                    const std::complex<float> v = a[i + j + len / 2] * w;
+                    a[i + j] = u + v;
+                    a[i + j + len / 2] = u - v;
+                }
+        }
+        if (inverse)
+            for (int i = 0; i < n; ++i) a[i] /= static_cast<float>(n);
+    }
+};
+const Fft& fft() {
+    static const Fft f(detail::Convolver::N);
+    return f;
+}
 } // namespace
 
 /* ---------------- les lois (params.ts, synth.ts) ---------------- */
@@ -130,24 +169,6 @@ double ArpFxLaws::delaySeconds(double dlyTime, double bpm) { return std::min(PP_
 double ArpFxLaws::volGain(double volume, double delay, double reverb) {
     return (volume * volume * VOLUME_K) / (1 + MAKEUP_DELAY * delay + MAKEUP_REVERB * reverb);
 }
-// Le plugin seul (extra-params.json) ; aux defauts : exactement IR_SECONDS, x1, IR_PRE
-double ArpFxLaws::revSeconds(double v) { return IR_SECONDS * std::pow(4.0, 2 * clampd(v, 0, 1) - 1); }
-double ArpFxLaws::revToneFactor(double v) { return std::pow(4.0, 2 * clampd(v, 0, 1) - 1); }
-double ArpFxLaws::revPreSeconds(double v) { return clampd(v, 0, 1) / 10; }
-double ArpFxLaws::shelfDb(double v) { return 12 * (clampd(v, 0, 1) - 0.5); }
-// Le rack d'effets du 2026-11-11
-double ArpFxLaws::phaserHz(double v) { return 0.05 * std::pow(160.0, clampd(v, 0, 1)); }
-double ArpFxLaws::flangerHz(double v) { return 0.03 * std::pow(5 / 0.03, clampd(v, 0, 1)); }
-double ArpFxLaws::crushBitDepth(double v) { return 16 - 12 * clampd(v, 0, 1); }
-double ArpFxLaws::crushHz(double v, double sr) { return sr * std::pow(std::min(1.0, 2000 / sr), clampd(v, 0, 1)); }
-double ArpFxLaws::pumpDb(double v) { return -24 * clampd(v, 0, 1); }
-double ArpFxLaws::pumpBeats(int rate) { return rate <= 0 ? 0.5 : rate == 1 ? 1 : 2; }
-// 2026-11-11, suite
-double ArpFxLaws::distDb(double v) { return 36 * clampd(v, 0, 1); }
-double ArpFxLaws::distToneHz(double v) { return 700 * std::pow(18000.0 / 700, clampd(v, 0, 1)); }
-double ArpFxLaws::distPresenceDb(double v) { return 12 * std::max(0.0, clampd(v, 0, 1) - 0.5); }
-double ArpFxLaws::eqDb(double v) { return 24 * (clampd(v, 0, 1) - 0.5); }
-double ArpFxLaws::eqAirDb(double v) { return 20 * (clampd(v, 0, 1) - 0.5); }
 
 namespace detail {
 
@@ -506,108 +527,11 @@ void TapeDelay::process(const float* inL, const float* inR, const float* times, 
 
 /* ---------------- la reverb ---------------- */
 
-// Une FFT complexe radix 2, parties reelles et imaginaires a part, que l'on peut faire passe par passe (le travail
-// des grands blocs de la convolution est etale) ; les rotations de chaque passe sont rangees a la suite.
-struct PFft {
-    int n = 0, bits = 0;
-    std::vector<int> rev;
-    std::vector<float> wr, wi; // la passe de demi-longueur h : [h - 1, 2h - 1)
-    explicit PFft(int size) : n(size), rev(static_cast<size_t>(size)), wr(static_cast<size_t>(size)), wi(static_cast<size_t>(size)) {
-        while ((1 << bits) < n) ++bits;
-        for (int i = 0; i < n; ++i) {
-            int r = 0;
-            for (int b = 0; b < bits; ++b)
-                if (i & (1 << b)) r |= 1 << (bits - 1 - b);
-            rev[static_cast<size_t>(i)] = r;
-        }
-        for (int h = 1; h < n; h <<= 1)
-            for (int j = 0; j < h; ++j) {
-                const double a = -PI * j / h;
-                wr[static_cast<size_t>(h - 1 + j)] = static_cast<float>(std::cos(a));
-                wi[static_cast<size_t>(h - 1 + j)] = static_cast<float>(std::sin(a));
-            }
-    }
-    void permute(float* re, float* im) const {
-        for (int i = 0; i < n; ++i) {
-            const int r = rev[static_cast<size_t>(i)];
-            if (i < r) {
-                std::swap(re[i], re[r]);
-                std::swap(im[i], im[r]);
-            }
-        }
-    }
-    // la passe de demi-longueur h (1, 2, 4... n / 2) ; inverse : les rotations conjuguees (sans le 1 / n)
-    void pass(float* re, float* im, int h, bool inverse) const {
-        const float* cr = &wr[static_cast<size_t>(h - 1)];
-        const float* ci = &wi[static_cast<size_t>(h - 1)];
-        const float sg = inverse ? -1.f : 1.f;
-        for (int i = 0; i < n; i += 2 * h) {
-            float* ar = re + i;
-            float* ai = im + i;
-            float* br = ar + h;
-            float* bi = ai + h;
-            for (int j = 0; j < h; ++j) {
-                const float c = cr[j], d = sg * ci[j];
-                const float xr = br[j] * c - bi[j] * d;
-                const float xi = br[j] * d + bi[j] * c;
-                const float ur = ar[j], ui = ai[j];
-                ar[j] = ur + xr;
-                ai[j] = ui + xi;
-                br[j] = ur - xr;
-                bi[j] = ui - xi;
-            }
-        }
-    }
-    void forward(float* re, float* im) const {
-        permute(re, im);
-        for (int h = 1; h < n; h <<= 1) pass(re, im, h, false);
-    }
-};
-
-namespace {
-const PFft& pfft(int stage) {
-    static const PFft f0(2 * ReverbIR::kBlock[0]), f1(2 * ReverbIR::kBlock[1]), f2(2 * ReverbIR::kBlock[2]);
-    return stage == 0 ? f0 : stage == 1 ? f1 : f2;
-}
-// le nombre de blocs d'un etage pour une reponse de len echantillons
-int stageParts(int s, long len) {
-    const long from = ReverbIR::kFrom[s];
-    const long to = s + 1 < ReverbIR::kStages ? std::min<long>(len, ReverbIR::kFrom[s + 1]) : len;
-    return to > from ? static_cast<int>((to - from + ReverbIR::kBlock[s] - 1) / ReverbIR::kBlock[s]) : 0;
-}
-long irLength(double seconds, double preDelay, double sr) {
-    const long pre = static_cast<long>(jsRound(preDelay * sr));
-    return std::max(pre + 2, static_cast<long>(jsRound(seconds * sr)) + pre - static_cast<long>(jsRound(IR_PRE * sr)));
-}
-// le fondu enchaine de deux reponses (40 ms)
-constexpr double XFADE_S = 0.04;
-inline float fadeGain(long long pos, int len) {
-    if (pos >= len) return 1.f;
-    if (pos <= 0) return 0.f;
-    const float t = static_cast<float>(pos) / static_cast<float>(len);
-    return t * t * (3.f - 2.f * t);
-}
-// le produit scalaire de la tete (huit sommes en parallele : les compilateurs le vectorisent sans -ffast-math)
-inline float dot(const float* a, const float* b, int n) {
-    float acc[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    int i = 0;
-    for (; i + 8 <= n; i += 8)
-        for (int j = 0; j < 8; ++j) acc[j] += a[i + j] * b[i + j];
-    float y = ((acc[0] + acc[1]) + (acc[2] + acc[3])) + ((acc[4] + acc[5]) + (acc[6] + acc[7]));
-    for (; i < n; ++i) y += a[i] * b[i];
-    return y;
-}
-enum : uint8_t { OP_ZSLOT, OP_LOAD, OP_FPASS, OP_STORE, OP_ZOUT, OP_MAC0, OP_MAC, OP_MIRROR, OP_IPASS, OP_FIN, OP_MIX, OP_MIX0 };
-} // namespace
-
 void Convolver::impulse(double seconds, double hiEnd, double preDelay, double sr, std::vector<float>& L, std::vector<float>& R) {
-    impulse(seconds, std::max(9000.0, hiEnd), hiEnd, preDelay, sr, L, R);
-}
-
-void Convolver::impulse(double seconds, double hiStart, double hiEnd, double preDelay, double sr, std::vector<float>& L, std::vector<float>& R) {
     const long pre = static_cast<long>(jsRound(preDelay * sr));
-    const long n = irLength(seconds, preDelay, sr);
+    const long n = std::max(pre + 2, static_cast<long>(jsRound(seconds * sr)) + pre - static_cast<long>(jsRound(IR_PRE * sr)));
     const long len = n - pre;
+    const double hiStart = std::max(9000.0, hiEnd);
     const long fade = std::max(1L, static_cast<long>(jsRound(0.003 * sr)));
     const double decay = std::exp(std::log(0.001) / static_cast<double>(len));
     const uint32_t seeds[2] = {808, 909};
@@ -632,1487 +556,95 @@ void Convolver::impulse(double seconds, double hiStart, double hiEnd, double pre
     }
 }
 
-// Thread du message : la reponse et ses spectres
-std::shared_ptr<const ReverbIR> Convolver::make(double sr, double size, double tone, double pre) {
-    auto r = std::make_shared<ReverbIR>();
-    r->sampleRate = sr;
-    r->size = std::isfinite(size) ? clampd(size, 0, 1) : 0.5;
-    r->tone = std::isfinite(tone) ? clampd(tone, 0, 1) : 0.5;
-    r->pre = std::isfinite(pre) ? clampd(pre, 0, 1) : 0.2;
-    const double f = ArpFxLaws::revToneFactor(r->tone);
-    r->seconds = ArpFxLaws::revSeconds(r->size);
-    r->hiStart = std::min(18000.0, 9000.0 * f);
-    r->hiEnd = std::min(18000.0, IR_HI_END * f);
-    r->preSeconds = ArpFxLaws::revPreSeconds(r->pre);
-    impulse(r->seconds, r->hiStart, r->hiEnd, r->preSeconds, sr, r->ir[0], r->ir[1]);
-    const long len = static_cast<long>(r->ir[0].size());
-    r->length = static_cast<int>(len);
-    // la tete : les B premiers points, a l'envers, sans ses zeros de tete (le pre-delai)
-    int from = B;
-    for (int c = 0; c < 2; ++c)
-        for (int i = 0; i < B && i < len; ++i)
-            if (r->ir[static_cast<size_t>(c)][static_cast<size_t>(i)] != 0) {
-                from = std::min(from, i);
-                break;
-            }
-    r->headFrom = from;
-    for (int c = 0; c < 2; ++c) {
-        auto& h = r->head[static_cast<size_t>(c)];
-        h.assign(static_cast<size_t>(B - from), 0.f);
-        for (int k = 0; k < B - from; ++k) {
-            const long i = B - 1 - k;
-            h[static_cast<size_t>(k)] = i < len ? r->ir[static_cast<size_t>(c)][static_cast<size_t>(i)] : 0.f;
+void Convolver::prepare(double sr) {
+    std::vector<float> L, R;
+    impulse(IR_SECONDS, IR_HI_END, IR_PRE, sr, L, R);
+    // Le pre-delai (au moins B echantillons nuls) absorbe la latence d'un bloc de la convolution
+    const long pre = static_cast<long>(jsRound(IR_PRE * sr));
+    const int skip = static_cast<int>(std::min<long>(B, pre));
+    latency_ = B - skip;
+    const int len = static_cast<int>(L.size()) - skip;
+    parts_ = std::max(1, (len + B - 1) / B);
+    std::vector<std::complex<float>> a(static_cast<size_t>(N));
+    for (int ch = 0; ch < 2; ++ch) {
+        const std::vector<float>& src = ch == 0 ? L : R;
+        auto& H = H_[static_cast<size_t>(ch)];
+        H.assign(static_cast<size_t>(parts_ * K), {0, 0});
+        for (int p = 0; p < parts_; ++p) {
+            std::fill(a.begin(), a.end(), std::complex<float>(0, 0));
+            for (int i = 0; i < B && p * B + i < len; ++i) a[static_cast<size_t>(i)] = src[static_cast<size_t>(skip + p * B + i)];
+            fft().run(a.data(), false);
+            for (int k = 0; k < K; ++k) H[static_cast<size_t>(p * K + k)] = a[static_cast<size_t>(k)];
         }
+        fdl_[static_cast<size_t>(ch)].assign(static_cast<size_t>(parts_ * K), {0, 0});
+        in_[static_cast<size_t>(ch)].assign(N, 0.f);
+        out_[static_cast<size_t>(ch)].assign(B, 0.f);
     }
-    for (int s = 0; s < ReverbIR::kStages; ++s) {
-        const int Bs = ReverbIR::kBlock[s], N = 2 * Bs, K = Bs + 1;
-        const int P = stageParts(s, len);
-        r->parts[static_cast<size_t>(s)] = P;
-        std::vector<float> wr(static_cast<size_t>(N)), wi(static_cast<size_t>(N));
-        for (int c = 0; c < 2; ++c) {
-            const auto& src = r->ir[static_cast<size_t>(c)];
-            auto& re = r->re[static_cast<size_t>(s)][static_cast<size_t>(c)];
-            auto& im = r->im[static_cast<size_t>(s)][static_cast<size_t>(c)];
-            re.assign(static_cast<size_t>(P) * static_cast<size_t>(K), 0.f);
-            im.assign(static_cast<size_t>(P) * static_cast<size_t>(K), 0.f);
-            const long to = s + 1 < ReverbIR::kStages ? std::min<long>(len, ReverbIR::kFrom[s + 1]) : len;
-            for (int q = 0; q < P; ++q) {
-                std::fill(wr.begin(), wr.end(), 0.f);
-                std::fill(wi.begin(), wi.end(), 0.f);
-                const long o = ReverbIR::kFrom[s] + static_cast<long>(q) * Bs;
-                for (int i = 0; i < Bs && o + i < to; ++i) wr[static_cast<size_t>(i)] = src[static_cast<size_t>(o + i)];
-                pfft(s).forward(wr.data(), wi.data());
-                std::copy(wr.begin(), wr.begin() + K, re.begin() + static_cast<long>(q) * K);
-                std::copy(wi.begin(), wi.begin() + K, im.begin() + static_cast<long>(q) * K);
-            }
-        }
-    }
-    return r;
-}
-
-void Convolver::prepare(double sr, std::shared_ptr<const ReverbIR> ir) {
-    sr_ = sr;
-    fadeLen_ = std::max(B, static_cast<int>(jsRound(XFADE_S * sr)));
-    // la plus longue reponse : SIZE 1, PRE DELAY 1
-    const long maxLen = std::max<long>(irLength(ArpFxLaws::revSeconds(1), ArpFxLaws::revPreSeconds(1), sr), ir ? ir->length : 0);
-    for (int c = 0; c < 2; ++c) ring_[static_cast<size_t>(c)].assign(2 * RING, 0.f);
-    for (int s = 0; s < ReverbIR::kStages; ++s) {
-        Stage& st = st_[static_cast<size_t>(s)];
-        st.B = ReverbIR::kBlock[s];
-        st.N = 2 * st.B;
-        st.K = st.B + 1;
-        st.fft = &pfft(s);
-        st.bits = st.fft->bits;
-        st.ticks = s == 0 ? 1 : st.B / B;
-        st.cap = std::max(1, stageParts(s, maxLen));
-        for (int c = 0; c < 2; ++c) {
-            st.fRe[static_cast<size_t>(c)].assign(static_cast<size_t>(st.cap) * static_cast<size_t>(st.K), 0.f);
-            st.fIm[static_cast<size_t>(c)].assign(static_cast<size_t>(st.cap) * static_cast<size_t>(st.K), 0.f);
-            for (int b = 0; b < 2; ++b) st.out[static_cast<size_t>(b)][static_cast<size_t>(c)].assign(static_cast<size_t>(st.B), 0.f);
-        }
-        st.wRe.assign(static_cast<size_t>(st.N), 0.f);
-        st.wIm.assign(static_cast<size_t>(st.N), 0.f);
-        // le plus long travail d'un bloc : deux canaux, l'aller (bits + 2), deux reponses (cap + bits + 2 chacune)
-        st.ops.assign(static_cast<size_t>(2 * (st.bits + 2) + 4 * (st.cap + st.bits + 2) + 8), Op{0, 0, 0, 0, 0});
-    }
-    // hors du thread audio : les reponses d'avant sont liberees ici
-    cur_ = std::move(ir);
-    next_.reset();
-    want_.reset();
-    while (takeRetired()) {}
+    tmp_.assign(N, {0, 0});
+    acc_.assign(N, {0, 0});
     reset();
 }
 
 void Convolver::reset() {
-    for (int c = 0; c < 2; ++c) std::fill(ring_[static_cast<size_t>(c)].begin(), ring_[static_cast<size_t>(c)].end(), 0.f);
-    // un fondu en cours : la reponse neuve prend la place d'un coup (l'ancienne est rangee, jamais liberee ici)
-    if (next_ && pushRetired(cur_)) cur_ = std::move(next_);
-    for (Stage& st : st_) {
-        for (int c = 0; c < 2; ++c) {
-            std::fill(st.fRe[static_cast<size_t>(c)].begin(), st.fRe[static_cast<size_t>(c)].end(), 0.f);
-            std::fill(st.fIm[static_cast<size_t>(c)].begin(), st.fIm[static_cast<size_t>(c)].end(), 0.f);
-            for (int b = 0; b < 2; ++b) std::fill(st.out[static_cast<size_t>(b)][static_cast<size_t>(c)].begin(), st.out[static_cast<size_t>(b)][static_cast<size_t>(c)].end(), 0.f);
-        }
-        st.zero = {{true, true}};
-        st.cur = 0;
-        st.head = 0;
-        st.nOps = st.done = st.ticksLeft = 0;
-        st.costLeft = 0;
-        st.a = st.b = nullptr;
-        st.fade0 = st.fadePos = 0;
-        st.xf = 0;
-        st.T = 0;
+    for (int c = 0; c < 2; ++c) {
+        std::fill(in_[static_cast<size_t>(c)].begin(), in_[static_cast<size_t>(c)].end(), 0.f);
+        std::fill(out_[static_cast<size_t>(c)].begin(), out_[static_cast<size_t>(c)].end(), 0.f);
+        std::fill(fdl_[static_cast<size_t>(c)].begin(), fdl_[static_cast<size_t>(c)].end(), std::complex<float>(0, 0));
     }
-    headXf_ = next_ ? 1 : 0;
-    headFade_ = 0;
-    n_ = 0;
-    lastNZ_ = -(1LL << 60);
     fill_ = 0;
-    rpos_ = 0;
+    head_ = 0;
+    idle_ = 1 << 20;
 }
 
-bool Convolver::pushRetired(std::shared_ptr<const ReverbIR>& p) {
-    if (!p) return true;
-    const unsigned w = retW_.load(std::memory_order_relaxed);
-    if (w - retR_.load(std::memory_order_acquire) >= static_cast<unsigned>(kRetired)) return false;
-    ret_[w % kRetired] = std::move(p);
-    retW_.store(w + 1, std::memory_order_release);
-    return true;
-}
-
-std::shared_ptr<const ReverbIR> Convolver::takeRetired() {
-    const unsigned r = retR_.load(std::memory_order_relaxed);
-    if (r == retW_.load(std::memory_order_acquire)) return nullptr;
-    std::shared_ptr<const ReverbIR> p = std::move(ret_[r % kRetired]);
-    retR_.store(r + 1, std::memory_order_release);
-    return p;
-}
-
-bool Convolver::set(std::shared_ptr<const ReverbIR>& ir) {
-    if (!ir || ir->sampleRate != sr_) return false;
-    for (int s = 0; s < ReverbIR::kStages; ++s)
-        if (ir->parts[static_cast<size_t>(s)] > st_[static_cast<size_t>(s)].cap) return false;
-    // une demande attendait deja : elle est rangee (jamais liberee ici), la derniere gagne
-    if (want_ && !pushRetired(want_)) return false;
-    want_ = std::move(ir);
-    return true;
-}
-
-// La demande en attente entre en fondu des que le precedent est fini
-void Convolver::promote() {
-    if (!want_ || next_) return;
-    next_ = std::move(want_);
-    for (int s = 0; s < ReverbIR::kStages; ++s) {
-        Stage& st = st_[static_cast<size_t>(s)];
-        st.fadePos = 0;
-        // un etage ou ni l'une ni l'autre n'a de bloc n'a rien a fondre
-        st.xf = cur_->parts[static_cast<size_t>(s)] == 0 && next_->parts[static_cast<size_t>(s)] == 0 ? 2 : 0;
-    }
-    headXf_ = 1;
-    headFade_ = 0;
-}
-
-// Tous les etages sont passes a la neuve : l'ancienne est rangee pour l'autre thread
-void Convolver::retire() {
-    if (!next_ || headXf_ != 2) return;
-    for (const Stage& st : st_)
-        if (st.xf != 2 || (st.b != nullptr && st.done < st.nOps)) return;
-    if (!pushRetired(cur_)) return; // la file est pleine : au prochain bloc
-    cur_ = std::move(next_);
-    for (Stage& st : st_) {
-        st.xf = 0;
-        st.b = nullptr;
-    }
-    headXf_ = 0;
-}
-
-// Un bloc de l'etage s commence (n_ est un multiple de sa taille) : son travail, etale sur ses ticks
-void Convolver::startJob(int s) {
-    Stage& st = st_[static_cast<size_t>(s)];
-    st.T = n_;
-    st.head = (st.head + 1) % st.cap;
-    if (next_ && st.xf == 0) {
-        st.xf = 1;
-        st.fadePos = 0;
-    }
-    st.a = st.xf == 2 && next_ ? next_.get() : cur_.get();
-    st.b = nullptr;
-    if (st.xf == 1) {
-        st.b = next_.get();
-        st.fade0 = st.fadePos;
-        st.fadePos += st.B;
-        if (st.fadePos >= fadeLen_) st.xf = 2;
-    }
-    const int pa = st.a->parts[static_cast<size_t>(s)];
-    const int pb = st.b ? st.b->parts[static_cast<size_t>(s)] : 0;
-    const int need = std::max(pa, pb);
-    // le silence : la trame de 2 B est nulle ; tout ce que l'etage convolue est nul
-    const bool skipFwd = lastNZ_ < n_ - 2LL * st.B;
-    const bool skipOut = need == 0 || lastNZ_ < n_ - static_cast<long long>(need + 1) * st.B;
-    int n = 0;
-    Op* o = st.ops.data();
-    // chaque operation avec son cout (le nombre de valeurs touchees, a peu pres) : le travail s'etale a cout egal
-    long long cost = 0;
-    const int N = st.N, K = st.K;
-    auto push = [&](uint8_t op, int ch, int ir, int arg) {
-        int c = 1;
-        switch (op) {
-            case OP_LOAD: c = 3 * N; break;
-            case OP_MIRROR: c = 3 * N; break;
-            case OP_FPASS:
-            case OP_IPASS: c = arg <= 2 ? 2 * N : N; break;
-            case OP_MAC0:
-            case OP_MAC: c = 2 * K; break;
-            case OP_STORE: c = K; break;
-            case OP_FIN:
-            case OP_MIX:
-            case OP_MIX0: c = st.B; break;
-            default: c = K / 4; break;
-        }
-        cost += c;
-        o[n++] = Op{op, static_cast<uint8_t>(ch), static_cast<uint8_t>(ir), arg, c};
-    };
+void Convolver::block() {
+    bool silent = true;
+    for (int c = 0; c < 2 && silent; ++c)
+        for (int i = B; i < N; ++i)
+            if (in_[static_cast<size_t>(c)][static_cast<size_t>(i)] != 0) {
+                silent = false;
+                break;
+            }
+    idle_ = silent ? std::min(idle_ + 1, 1 << 20) : 0;
+    head_ = (head_ + 1) % parts_;
     for (int c = 0; c < 2; ++c) {
-        if (skipFwd) push(OP_ZSLOT, c, 0, 0);
-        else {
-            push(OP_LOAD, c, 0, 0);
-            for (int h = 1; h < st.N; h <<= 1) push(OP_FPASS, c, 0, h);
-            push(OP_STORE, c, 0, 0);
+        auto& in = in_[static_cast<size_t>(c)];
+        auto& F = fdl_[static_cast<size_t>(c)];
+        auto& out = out_[static_cast<size_t>(c)];
+        if (idle_ > parts_ + 1) {
+            // Rien depuis plus que la longueur de la reponse : la queue est finie
+            std::fill(F.begin() + head_ * K, F.begin() + (head_ + 1) * K, std::complex<float>(0, 0));
+            std::fill(out.begin(), out.end(), 0.f);
+        } else {
+            for (int i = 0; i < N; ++i) tmp_[static_cast<size_t>(i)] = in[static_cast<size_t>(i)];
+            fft().run(tmp_.data(), false);
+            for (int k = 0; k < K; ++k) F[static_cast<size_t>(head_ * K + k)] = tmp_[static_cast<size_t>(k)];
+            const auto& H = H_[static_cast<size_t>(c)];
+            std::fill(acc_.begin(), acc_.end(), std::complex<float>(0, 0));
+            for (int p = 0; p < parts_; ++p) {
+                const int slot = ((head_ - p) % parts_ + parts_) % parts_;
+                const std::complex<float>* x = &F[static_cast<size_t>(slot * K)];
+                const std::complex<float>* h = &H[static_cast<size_t>(p * K)];
+                std::complex<float>* o = acc_.data();
+                for (int k = 0; k < K; ++k) o[k] += x[k] * h[k];
+            }
+            for (int k = 1; k < N / 2; ++k) acc_[static_cast<size_t>(N - k)] = std::conj(acc_[static_cast<size_t>(k)]);
+            fft().run(acc_.data(), true);
+            for (int i = 0; i < B; ++i) out[static_cast<size_t>(i)] = acc_[static_cast<size_t>(B + i)].real();
         }
+        std::memmove(in.data(), in.data() + B, sizeof(float) * B);
     }
-    for (int c = 0; c < 2; ++c) {
-        if (skipOut) {
-            push(OP_ZOUT, c, 0, 0);
-            continue;
-        }
-        if (pa == 0) push(OP_ZOUT, c, 0, 0);
-        else {
-            for (int q = 0; q < pa; ++q) push(q == 0 ? OP_MAC0 : OP_MAC, c, 0, q);
-            push(OP_MIRROR, c, 0, 0);
-            for (int h = 1; h < st.N; h <<= 1) push(OP_IPASS, c, 0, h);
-            push(OP_FIN, c, 0, 0);
-        }
-        if (st.b) {
-            if (pb == 0) push(OP_MIX0, c, 1, 0);
-            else {
-                for (int q = 0; q < pb; ++q) push(q == 0 ? OP_MAC0 : OP_MAC, c, 1, q);
-                push(OP_MIRROR, c, 1, 0);
-                for (int h = 1; h < st.N; h <<= 1) push(OP_IPASS, c, 1, h);
-                push(OP_MIX, c, 1, 0);
-            }
-        }
-    }
-    st.nOps = n;
-    st.done = 0;
-    st.ticksLeft = st.ticks;
-    st.costLeft = cost;
-    st.zero[static_cast<size_t>(1 - st.cur)] = skipOut || (pa == 0 && !st.b);
-}
-
-// Les operations suivantes du bloc en cours, jusqu'a depenser budget (au moins une)
-void Convolver::runOps(Stage& st, long long budget) {
-    const int s = static_cast<int>(&st - st_.data());
-    const int K = st.K, N = st.N, Bs = st.B;
-    float* wr = st.wRe.data();
-    float* wi = st.wIm.data();
-    for (long long spent = 0; st.done < st.nOps && spent < budget; ++st.done) {
-        const Op op = st.ops[static_cast<size_t>(st.done)];
-        spent += op.cost;
-        st.costLeft -= op.cost;
-        const size_t c = op.ch;
-        float* out = st.out[static_cast<size_t>(1 - st.cur)][c].data();
-        switch (op.op) {
-            case OP_ZSLOT:
-                std::fill_n(st.fRe[c].begin() + static_cast<long>(st.head) * K, K, 0.f);
-                std::fill_n(st.fIm[c].begin() + static_cast<long>(st.head) * K, K, 0.f);
-                break;
-            case OP_LOAD: {
-                // la trame : les 2 B echantillons qui finissent a l'instant T (l'anneau a avance depuis)
-                const float* x = ring_[c].data() + (rpos_ + RING - static_cast<int>(n_ - st.T) - N);
-                const int* rev = st.fft->rev.data();
-                for (int i = 0; i < N; ++i) wr[rev[i]] = x[i];
-                std::fill_n(wi, N, 0.f);
-                break;
-            }
-            case OP_FPASS:
-                st.fft->pass(wr, wi, op.arg, false);
-                break;
-            case OP_STORE:
-                std::copy_n(wr, K, st.fRe[c].begin() + static_cast<long>(st.head) * K);
-                std::copy_n(wi, K, st.fIm[c].begin() + static_cast<long>(st.head) * K);
-                break;
-            case OP_ZOUT:
-                std::fill_n(out, Bs, 0.f);
-                break;
-            case OP_MAC0:
-            case OP_MAC: {
-                const ReverbIR* ir = op.ir ? st.b : st.a;
-                const int slot = ((st.head - op.arg) % st.cap + st.cap) % st.cap;
-                const float* xr = st.fRe[c].data() + static_cast<size_t>(slot) * static_cast<size_t>(K);
-                const float* xi = st.fIm[c].data() + static_cast<size_t>(slot) * static_cast<size_t>(K);
-                const float* hr = ir->re[static_cast<size_t>(s)][c].data() + static_cast<size_t>(op.arg) * static_cast<size_t>(K);
-                const float* hi = ir->im[static_cast<size_t>(s)][c].data() + static_cast<size_t>(op.arg) * static_cast<size_t>(K);
-                if (op.op == OP_MAC0)
-                    for (int k = 0; k < K; ++k) {
-                        wr[k] = xr[k] * hr[k] - xi[k] * hi[k];
-                        wi[k] = xr[k] * hi[k] + xi[k] * hr[k];
-                    }
-                else
-                    for (int k = 0; k < K; ++k) {
-                        wr[k] += xr[k] * hr[k] - xi[k] * hi[k];
-                        wi[k] += xr[k] * hi[k] + xi[k] * hr[k];
-                    }
-                break;
-            }
-            case OP_MIRROR:
-                for (int k = 1; k < N / 2; ++k) {
-                    wr[N - k] = wr[k];
-                    wi[N - k] = -wi[k];
-                }
-                st.fft->permute(wr, wi);
-                break;
-            case OP_IPASS:
-                st.fft->pass(wr, wi, op.arg, true);
-                break;
-            case OP_FIN: {
-                const float g = 1.f / static_cast<float>(N);
-                for (int i = 0; i < Bs; ++i) out[i] = wr[Bs + i] * g;
-                break;
-            }
-            case OP_MIX: {
-                const float g = 1.f / static_cast<float>(N);
-                for (int i = 0; i < Bs; ++i) {
-                    const float y = wr[Bs + i] * g;
-                    out[i] += fadeGain(st.fade0 + i, fadeLen_) * (y - out[i]);
-                }
-                break;
-            }
-            case OP_MIX0:
-                for (int i = 0; i < Bs; ++i) out[i] -= fadeGain(st.fade0 + i, fadeLen_) * out[i];
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-// Tous les 256 echantillons : les blocs qui commencent, une part du travail des grands blocs
-void Convolver::tick() {
-    promote();
-    for (int s = 0; s < ReverbIR::kStages; ++s) {
-        Stage& st = st_[static_cast<size_t>(s)];
-        if (n_ % st.B == 0) {
-            if (s > 0) {
-                // le bloc d'avant est pret (son dernier tick l'a fini) : il sort maintenant
-                if (st.done < st.nOps) runOps(st, st.costLeft + 1);
-                st.cur = 1 - st.cur;
-            }
-            startJob(s);
-        }
-        if (st.done < st.nOps) {
-            // une part egale du cout qui reste a chacun des ticks qui restent (le dernier finit tout)
-            const int tl = std::max(1, st.ticksLeft);
-            runOps(st, tl == 1 ? st.costLeft + 1 : (st.costLeft + tl - 1) / tl);
-            if (st.ticksLeft > 0) --st.ticksLeft;
-        }
-        if (s == 0) st.cur = 1 - st.cur; // les blocs de 256 sortent tout de suite
-    }
-    retire();
 }
 
 void Convolver::process(const float* inL, const float* inR, float* outL, float* outR, int n) {
-    const float* in[2] = {inL, inR};
-    float* out[2] = {outL, outR};
-    int done = 0;
-    while (done < n) {
-        const int m = std::min(n - done, B - fill_);
-        // l'entree dans l'anneau (deux fois : une fenetre toujours contigue)
-        bool nz = false;
-        for (int c = 0; c < 2; ++c) {
-            float* r = ring_[static_cast<size_t>(c)].data();
-            const float* x = in[c] + done;
-            for (int i = 0; i < m; ++i) {
-                const int p = (rpos_ + i) & (RING - 1);
-                r[p] = x[i];
-                r[p + RING] = x[i];
-                if (x[i] != 0) nz = true;
-            }
-        }
-        if (nz) lastNZ_ = n_ + m - 1; // au bloc pres : le silence se compte en blocs
-        // la sortie : les etages
-        bool first = true;
-        for (int s = 0; s < ReverbIR::kStages; ++s) {
-            const Stage& st = st_[static_cast<size_t>(s)];
-            if (st.zero[static_cast<size_t>(st.cur)]) continue;
-            const int at = static_cast<int>(n_ & (st.B - 1));
-            for (int c = 0; c < 2; ++c) {
-                const float* y = st.out[static_cast<size_t>(st.cur)][static_cast<size_t>(c)].data() + at;
-                float* o = out[c] + done;
-                if (first)
-                    for (int i = 0; i < m; ++i) o[i] = y[i];
-                else
-                    for (int i = 0; i < m; ++i) o[i] += y[i];
-            }
-            first = false;
-        }
-        if (first)
-            for (int c = 0; c < 2; ++c) std::fill_n(out[c] + done, m, 0.f);
-        // la tete, directe (sautee quand elle est nulle ou que rien n'est entre depuis 256 echantillons)
-        const ReverbIR* ha = cur_.get();
-        const ReverbIR* hb = headXf_ == 1 ? next_.get() : nullptr;
-        if (headXf_ == 2 && next_) ha = next_.get();
-        const bool headLive = (ha->headFrom < B || (hb && hb->headFrom < B)) && lastNZ_ > n_ - B;
-        if (headLive) {
-            for (int c = 0; c < 2; ++c) {
-                const float* r = ring_[static_cast<size_t>(c)].data();
-                float* o = out[c] + done;
-                const int la = B - ha->headFrom;
-                const int lb = hb ? B - hb->headFrom : 0;
-                for (int i = 0; i < m; ++i) {
-                    // x[n - 255 .. n], contigu dans la seconde copie de l'anneau
-                    const float* x = r + ((rpos_ + i) & (RING - 1)) + RING - (B - 1);
-                    float y = la > 0 ? dot(ha->head[static_cast<size_t>(c)].data(), x, la) : 0.f;
-                    if (hb) {
-                        const float yb = lb > 0 ? dot(hb->head[static_cast<size_t>(c)].data(), x, lb) : 0.f;
-                        y += fadeGain(headFade_ + i, fadeLen_) * (yb - y);
-                    }
-                    o[i] += y;
-                }
-            }
-        }
-        if (headXf_ == 1) {
-            headFade_ += m;
-            if (headFade_ >= fadeLen_) headXf_ = 2;
-        }
-        rpos_ = (rpos_ + m) & (RING - 1);
-        fill_ += m;
-        n_ += m;
-        done += m;
-        if (fill_ == B) {
+    for (int i = 0; i < n; ++i) {
+        outL[i] = out_[0][static_cast<size_t>(fill_)];
+        outR[i] = out_[1][static_cast<size_t>(fill_)];
+        in_[0][static_cast<size_t>(B + fill_)] = inL[i];
+        in_[1][static_cast<size_t>(B + fill_)] = inR[i];
+        if (++fill_ == B) {
+            block();
             fill_ = 0;
-            tick();
         }
-    }
-}
-
-/* ---------------- la section master du plugin ---------------- */
-
-namespace {
-constexpr double RAMP_S = 0.02;
-constexpr double BASS_HZ = 120, AIR_HZ = 10000, WIDTH_HZ = 150, SHELF_K = 1.4142135623730951; // 1 / Q, Q = 0.7071
-constexpr double WARM_BIAS = 0.06, WARM_GAIN = 2, WARM_REF = 0.3, WARM_DC_HZ = 5;
-// la courbe de WARMTH : tanh a peine decalee, gain unite a l'origine, sans son continu a l'origine
-inline double warmCurve(double x, double g, double inv, double tb) { return (std::tanh(g * x + WARM_BIAS) - tb) * inv; }
-// Une demi-bande de Kaiser (la famille des decimateurs du moteur) : ses points pairs, le centre vaut 1/2 ; les
-// points pairs sont normalises a 1/2 (gain 1 au continu, a l'aller comme au retour)
-void halfband(int taps, double beta, std::array<double, 32>& even) {
-    const double c = (taps - 1) / 2.0, i0b = besselI0(beta);
-    double sum = 0;
-    const int half = (taps + 1) / 2;
-    for (int j = 0; j < half; ++j) {
-        const double n = 2 * j - c;
-        const double r = n / c;
-        const double w = besselI0(beta * std::sqrt(std::max(0.0, 1 - r * r))) / i0b;
-        even[static_cast<size_t>(j)] = std::sin(PI * n / 2) / (PI * n) * w;
-        sum += even[static_cast<size_t>(j)];
-    }
-    for (int j = 0; j < half; ++j) even[static_cast<size_t>(j)] *= 0.5 / sum;
-}
-} // namespace
-
-void Master::prepare(double sr) {
-    sr_ = sr;
-    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
-    hbA_.taps = 63;
-    hbA_.half = 32;
-    hbA_.c = 31;
-    halfband(63, 8, hbA_.h);
-    hbB_.taps = 31;
-    hbB_.half = 16;
-    hbB_.c = 15;
-    halfband(31, 9, hbB_.h);
-    wTb_ = std::tanh(WARM_BIAS);
-    dcR_ = std::exp(-2 * PI * WARM_DC_HZ / sr);
-    // la compensation de niveau : un sinus de 0.3 garde son RMS (le continu de la courbe retire, comme le bloqueur)
-    for (int i = 0; i <= 64; ++i) {
-        const double g = WARM_GAIN * i / 64.0;
-        if (i == 0) {
-            wKtab_[0] = 1;
-            continue;
-        }
-        const double inv = 1 / (g * (1 - wTb_ * wTb_));
-        double m = 0, e = 0;
-        const int n = 512;
-        for (int k = 0; k < n; ++k) {
-            const double y = warmCurve(WARM_REF * std::sin(TAU * (k + 0.5) / n), g, inv, wTb_);
-            m += y;
-            e += y * y;
-        }
-        m /= n;
-        wKtab_[static_cast<size_t>(i)] = (WARM_REF / std::sqrt(2.0)) / std::sqrt(std::max(1e-30, e / n - m * m));
-    }
-    bG0_ = std::tan(PI * std::min(BASS_HZ, 0.45 * sr) / sr);
-    aG0_ = std::tan(PI * std::min(AIR_HZ, 0.45 * sr) / sr);
-    const double g = std::tan(PI * std::min(WIDTH_HZ, 0.45 * sr) / sr);
-    sF_.k = SHELF_K;
-    sF_.a1 = 1 / (1 + g * (g + sF_.k));
-    sF_.a2 = g * sF_.a1;
-    sF_.a3 = g * sF_.a2;
-    reset();
-}
-
-void Master::warmClear() {
-    for (WarmCh& c : wc_) c = WarmCh();
-    wI_ = wIb_ = wJb_ = wJa_ = 0;
-}
-
-// les etats a zero, les reglages poses sans rampe
-void Master::reset() {
-    warmClear();
-    bF_.clear();
-    aF_.clear();
-    sF_.clear();
-    wAmt_.setNow(wAmt_.target);
-    wOn_.setNow(wAmt_.target > 0 ? 1 : 0);
-    bDb_.setNow(bDb_.target);
-    aDb_.setNow(aDb_.target);
-    sW_.setNow(sW_.target);
-    wActive_ = wAmt_.v > 0;
-    bActive_ = bDb_.v != 0;
-    aActive_ = aDb_.v != 0;
-    sActive_ = sW_.v != 1;
-    wAt_ = -1;
-    if (bActive_) shelf(bF_, false, bDb_.v, bG0_);
-    if (aActive_) shelf(aF_, true, aDb_.v, aG0_);
-}
-
-void Master::set(double warmth, double bass, double air, double width, bool now) {
-    const double w = std::isfinite(warmth) ? clampd(warmth, 0, 1) : 0;
-    const double bd = std::isfinite(bass) ? ArpFxLaws::shelfDb(bass) : 0;
-    const double ad = std::isfinite(air) ? ArpFxLaws::shelfDb(air) : 0;
-    const double sw = std::isfinite(width) ? 2 * clampd(width, 0, 1) : 1;
-    if (now) {
-        // poses : comme reset pour ce qui change (une section qui s'engage part d'etats a zero)
-        if ((w > 0) != wActive_ || wAmt_.moving() || wOn_.moving()) warmClear();
-        wHold_ = 0;
-        wAmt_.setNow(w);
-        wOn_.setNow(w > 0 ? 1 : 0);
-        wActive_ = w > 0;
-        wAt_ = -1;
-        if (!bActive_) bF_.clear();
-        bDb_.setNow(bd);
-        bActive_ = bd != 0;
-        if (bActive_) shelf(bF_, false, bd, bG0_);
-        if (!aActive_) aF_.clear();
-        aDb_.setNow(ad);
-        aActive_ = ad != 0;
-        if (aActive_) shelf(aF_, true, ad, aG0_);
-        if (!sActive_) sF_.clear();
-        sW_.setNow(sw);
-        sActive_ = sw != 1;
-        return;
-    }
-    if (w > 0 && !wActive_) {
-        // elle s'engage : ses lignes se remplissent d'abord (64 echantillons, sortie inchangee), puis le fondu
-        warmClear();
-        wActive_ = true;
-        wAt_ = -1;
-        wHold_ = 64;
-    }
-    wAmt_.to(w, rampN_);
-    wOn_.to(w > 0 ? 1 : 0, rampN_);
-    if (bd != 0 && !bActive_) {
-        bF_.clear();
-        bActive_ = true;
-        shelf(bF_, false, bDb_.v, bG0_);
-    }
-    bDb_.to(bd, rampN_);
-    if (ad != 0 && !aActive_) {
-        aF_.clear();
-        aActive_ = true;
-        shelf(aF_, true, aDb_.v, aG0_);
-    }
-    aDb_.to(ad, rampN_);
-    if (sw != 1 && !sActive_) {
-        sF_.clear();
-        sActive_ = true;
-    }
-    sW_.to(sw, rampN_);
-}
-
-// Un plateau du second ordre (Simper, "SVF linear trapezoidal") : a 0 dB, m0 = 1 et m1 = m2 = 0 : la sortie est l'entree
-void Master::shelf(Svf& f, bool high, double db, double g0) {
-    const double A = std::pow(10.0, db / 40);
-    const double g = high ? g0 * std::sqrt(A) : g0 / std::sqrt(A);
-    f.k = SHELF_K;
-    f.a1 = 1 / (1 + g * (g + f.k));
-    f.a2 = g * f.a1;
-    f.a3 = g * f.a2;
-    if (high) {
-        f.m0 = A * A;
-        f.m1 = f.k * (1 - A) * A;
-        f.m2 = 1 - A * A;
-    } else {
-        f.m0 = 1;
-        f.m1 = f.k * (A - 1);
-        f.m2 = A * A - 1;
-    }
-}
-
-void Master::warmCoefs(double a) {
-    if (a == wAt_) return;
-    wAt_ = a;
-    wG_ = WARM_GAIN * a;
-    wInv_ = wG_ > 1e-6 ? 1 / (wG_ * (1 - wTb_ * wTb_)) : 0;
-    const double t = clampd(a, 0, 1) * 64;
-    const int i = std::min(63, static_cast<int>(t));
-    wK_ = wKtab_[static_cast<size_t>(i)] + (t - i) * (wKtab_[static_cast<size_t>(i + 1)] - wKtab_[static_cast<size_t>(i)]);
-}
-
-void Master::process(float* L, float* R, int n) {
-    if (bypassed()) return; // tout au neutre : la sortie d'avant, au bit pres
-    float* io[2] = {L, R};
-    for (int i = 0; i < n; ++i) {
-        double x[2] = {L[i], R[i]};
-        // 1. WARMTH : y = K (x retarde + la part non lineaire, surechantillonnee x4), fondue avec le sec
-        if (wActive_) {
-            const double a = wAmt_.next();
-            double on = 0;
-            if (wHold_ > 0) --wHold_;
-            else on = wOn_.next();
-            warmCoefs(a);
-            const double ms = on;
-            const double* eA = hbA_.h.data();
-            const double* eB = hbB_.h.data();
-            for (int c = 0; c < 2; ++c) {
-                WarmCh& w = wc_[c];
-                const double xin = x[c];
-                w.dry[static_cast<size_t>(wI_ & 63)] = xin;
-                w.upA[static_cast<size_t>(wI_ & 63)] = xin;
-                // 1x -> 2x : le point pair (les 32 points pairs de la demi-bande), le point impair (un retard de 15)
-                double a2[2];
-                double acc = 0;
-                for (int j = 0; j < 32; ++j) acc += eA[j] * w.upA[static_cast<size_t>((wI_ - j) & 63)];
-                a2[0] = 2 * acc;
-                a2[1] = w.upA[static_cast<size_t>((wI_ - 15) & 63)];
-                double y1 = 0;
-                for (int q = 0; q < 2; ++q) {
-                    const int ib = wIb_ + q;
-                    w.upB[static_cast<size_t>(ib & 31)] = a2[q];
-                    // 2x -> 4x
-                    double b4[2];
-                    acc = 0;
-                    for (int j = 0; j < 16; ++j) acc += eB[j] * w.upB[static_cast<size_t>((ib - j) & 31)];
-                    b4[0] = 2 * acc;
-                    b4[1] = w.upB[static_cast<size_t>((ib - 7) & 31)];
-                    for (int r = 0; r < 2; ++r) {
-                        // la part non lineaire seule : la courbe moins l'entree
-                        const double v = b4[r];
-                        const double hv = wInv_ != 0 ? warmCurve(v, wG_, wInv_, wTb_) - v : 0;
-                        const int jb = wJb_ + 2 * q + r;
-                        w.dnB[static_cast<size_t>(jb & 63)] = hv;
-                        if (r == 0) {
-                            // 4x -> 2x (apres 2 echantillons de plus : le retard total tombe sur un entier, 39)
-                            acc = 0.5 * w.dnB[static_cast<size_t>((jb - 2 - 15) & 63)];
-                            for (int j = 0; j < 16; ++j) acc += eB[j] * w.dnB[static_cast<size_t>((jb - 2 - 2 * j) & 63)];
-                            const int ja = wJa_ + q;
-                            w.dnA[static_cast<size_t>(ja & 63)] = acc;
-                            if (q == 0) {
-                                // 2x -> 1x
-                                y1 = 0.5 * w.dnA[static_cast<size_t>((ja - 31) & 63)];
-                                for (int j = 0; j < 32; ++j) y1 += eA[j] * w.dnA[static_cast<size_t>((ja - 2 * j) & 63)];
-                            }
-                        }
-                    }
-                }
-                // le bloqueur de continu, sur la part non lineaire seule
-                const double hd = y1 - w.dcX + dcR_ * w.dcY;
-                w.dcX = y1;
-                w.dcY = std::fabs(hd) < 1e-30 ? 0 : hd;
-                const double y = wK_ * (w.dry[static_cast<size_t>((wI_ - kLatency) & 63)] + w.dcY);
-                x[c] = ms >= 1 ? y : xin + ms * (y - xin);
-            }
-            wI_ += 1;
-            wIb_ += 2;
-            wJb_ += 4;
-            wJa_ += 2;
-            if (!wAmt_.moving() && !wOn_.moving() && wAmt_.v == 0) wActive_ = false;
-        }
-        // 2. BASS, 3. AIR
-        for (int e = 0; e < 2; ++e) {
-            bool& act = e == 0 ? bActive_ : aActive_;
-            if (!act) continue;
-            Glide& gl = e == 0 ? bDb_ : aDb_;
-            Svf& f = e == 0 ? bF_ : aF_;
-            if (gl.moving()) shelf(f, e == 1, gl.next(), e == 0 ? bG0_ : aG0_);
-            for (int c = 0; c < 2; ++c) {
-                const double v0 = x[c];
-                const double v3 = v0 - f.ic2[c];
-                const double v1 = f.a1 * f.ic1[c] + f.a2 * v3;
-                const double v2 = f.ic2[c] + f.a2 * f.ic1[c] + f.a3 * v3;
-                f.ic1[c] = 2 * v1 - f.ic1[c];
-                f.ic2[c] = 2 * v2 - f.ic2[c];
-                x[c] = f.m0 * v0 + f.m1 * v1 + f.m2 * v2;
-            }
-            if (!gl.moving() && gl.v == 0) act = false; // 0 dB : la sortie etait deja l'entree, exactement
-        }
-        // 4. WIDTH : le cote x w (w <= 1), ou le cote + (w - 1) x son passe-haut a 150 Hz (w > 1)
-        if (sActive_) {
-            const double w = sW_.next();
-            const double M = 0.5 * (x[0] + x[1]), S = 0.5 * (x[0] - x[1]);
-            const double v3 = S - sF_.ic2[0];
-            const double v1 = sF_.a1 * sF_.ic1[0] + sF_.a2 * v3;
-            const double v2 = sF_.ic2[0] + sF_.a2 * sF_.ic1[0] + sF_.a3 * v3;
-            sF_.ic1[0] = 2 * v1 - sF_.ic1[0];
-            sF_.ic2[0] = 2 * v2 - sF_.ic2[0];
-            const double hp = S - sF_.k * v1 - v2;
-            const double S2 = w <= 1 ? w * S : S + (w - 1) * hp;
-            x[0] = M + S2;
-            x[1] = M - S2;
-            if (!sW_.moving() && sW_.v == 1) sActive_ = false;
-        }
-        io[0][i] = static_cast<float>(x[0]);
-        io[1][i] = static_cast<float>(x[1]);
-    }
-    // les etats des filtres qui s'eteignent : jamais de sous-normaux (comme le rincage des biquads du site)
-    for (Svf* f : {&bF_, &aF_, &sF_})
-        for (int c = 0; c < 2; ++c) {
-            if (std::fabs(f->ic1[c]) < 1e-20) f->ic1[c] = 0;
-            if (std::fabs(f->ic2[c]) < 1e-20) f->ic2[c] = 0;
-        }
-}
-
-/* ---------------- le rack d'effets du 2026-11-11 : CRUSH, PHASER, FLANGER ---------------- */
-
-namespace {
-constexpr double CRUSH_IN = 20;        // la dose de CRUSH / DOWNSAMPLE entre sur 1 / 20 de la course
-constexpr double PH_HZ = 800, PH_OCT = 2.5, PH_FB = 0.85;
-constexpr double FL_D0_S = 0.0025, FL_FB = 0.8;
-constexpr double PUMP_ATK_S = 0.002, PUMP_SLEW_S = 0.0005;
-constexpr double SH_WIN_S = 0.09, SH_GAIN = 0.65, SH_LP = 0.2, SH_HP_HZ = 250, SH_POST_HZ = 7000, SH_MAX = 8;
-// DISTORTION : la dose entre sur 1 / 20 de la course ; l'ecreteur (droit jusqu'a DS_K, arrondi sur 2 DS_W, plat a
-// DS_K + DS_W) ; la compensation garde le RMS d'un sinus de DS_REF ; presence a 3.5 kHz ; continu coupe a 20 Hz
-constexpr double DS_IN = 20, DS_K = 0.9, DS_W = 0.3, DS_REF = 0.5, DS_PRES_HZ = 3500, DS_PRES_Q = 0.8, DS_DC_HZ = 20;
-inline double dsClip(double x) {
-    const double a = std::fabs(x);
-    if (a <= DS_K) return x;
-    const double u = a - DS_K;
-    const double y = u < 2 * DS_W ? DS_K + u - (u * u) / (4 * DS_W) : DS_K + DS_W;
-    return x < 0 ? -y : y;
-}
-// sa primitive (l'ADAA d'ordre 1)
-inline double dsClipF(double x) {
-    const double a = std::fabs(x);
-    if (a <= DS_K) return 0.5 * x * x;
-    const double u = a - DS_K;
-    if (u < 2 * DS_W) return 0.5 * DS_K * DS_K + DS_K * u + 0.5 * u * u - (u * u * u) / (12 * DS_W);
-    return 0.5 * DS_K * DS_K + 2 * DS_K * DS_W + (4.0 / 3) * DS_W * DS_W + (DS_K + DS_W) * (u - 2 * DS_W);
-}
-// EQ
-constexpr double EQ_LOW_HZ = 100, EQ_MID_HZ = 900, EQ_MID_Q = 0.9, EQ_HIGH_HZ = 5000, EQ_AIR_HZ = 20000;
-inline double fin01(double v, double def) { return std::isfinite(v) ? clampd(v, 0, 1) : def; }
-inline bool isZero(double v) { return !(v < 0 || v > 0); }
-inline double flush(double v) { return std::fabs(v) < 1e-20 ? 0 : v; }
-// Lagrange d'ordre 3 : la ligne b (masque m) lue d echantillons avant w (d >= 1)
-inline double readLag3(const float* b, int m, int w, double d) {
-    const int di = static_cast<int>(d);
-    const double f = d - di + 1;
-    const double c0 = -((f - 1) * (f - 2) * (f - 3)) / 6, c1 = (f * (f - 2) * (f - 3)) / 2, c2 = -(f * (f - 1) * (f - 3)) / 2, c3 = (f * (f - 1) * (f - 2)) / 6;
-    return c0 * b[(w - di + 1) & m] + c1 * b[(w - di) & m] + c2 * b[(w - di - 1) & m] + c3 * b[(w - di - 2) & m];
-}
-} // namespace
-
-void PreFx::prepare(double sr) {
-    sr_ = sr;
-    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
-    flD0_ = std::max(8, static_cast<int>(jsRound(FL_D0_S * sr)));
-    int len = 64;
-    while (len < 2 * flD0_ + 16) len *= 2;
-    flMask_ = len - 1;
-    for (int c = 0; c < 2; ++c) {
-        flDry_[c].assign(static_cast<size_t>(len), 0.f);
-        flWet_[c].assign(static_cast<size_t>(len), 0.f);
-    }
-    // DISTORTION : les demi-bandes du x4 local (celles de WARMTH), la table de compensation (un sinus de DS_REF garde
-    // son RMS apres l'ecretage, a chaque dose), le bloqueur de continu de l'entree
-    halfband(63, 8, dsEA_);
-    halfband(31, 9, dsEB_);
-    dsDcR_ = std::exp(-2 * PI * DS_DC_HZ / sr);
-    for (int i = 0; i <= 64; ++i) {
-        const double g = std::pow(10.0, ArpFxLaws::distDb(i / 64.0) / 20);
-        double e = 0;
-        const int n = 512;
-        for (int k = 0; k < n; ++k) {
-            const double y = dsClip(g * DS_REF * std::sin(TAU * (k + 0.5) / n));
-            e += y * y;
-        }
-        dsKtab_[static_cast<size_t>(i)] = (DS_REF / std::sqrt(2.0)) / std::sqrt(std::max(1e-30, e / n));
-    }
-    reset();
-}
-
-void PreFx::distClear() {
-    for (DistCh& c : ds_) c = DistCh();
-    dsI_ = dsIb_ = dsJb_ = dsJa_ = 0;
-}
-
-void PreFx::distCoefs(double amt, double tone) {
-    if (amt < dsAmtAt_ || amt > dsAmtAt_) {
-        dsAmtAt_ = amt;
-        dsG_ = std::pow(10.0, ArpFxLaws::distDb(amt) / 20);
-        const double t = clampd(amt, 0, 1) * 64;
-        const int i = std::min(63, static_cast<int>(t));
-        dsK_ = dsKtab_[static_cast<size_t>(i)] + (t - i) * (dsKtab_[static_cast<size_t>(i + 1)] - dsKtab_[static_cast<size_t>(i)]);
-        dsMix_ = std::min(1.0, amt * DS_IN);
-    }
-    if (tone < dsToneAt_ || tone > dsToneAt_) {
-        dsToneAt_ = tone;
-        // le passe-bas (12 dB par octave, Butterworth) puis la cloche de presence (au-dessus de 0.5)
-        const double g = std::tan(PI * std::min(ArpFxLaws::distToneHz(tone), 0.45 * sr_) / sr_);
-        dsL1_ = 1 / (1 + g * (g + 1.4142135623730951));
-        dsL2_ = g * dsL1_;
-        dsL3_ = g * dsL2_;
-        const double A = std::pow(10.0, ArpFxLaws::distPresenceDb(tone) / 40);
-        const double gp = std::tan(PI * std::min(DS_PRES_HZ, 0.45 * sr_) / sr_);
-        dsPk_ = 1 / (DS_PRES_Q * A);
-        dsP1_ = 1 / (1 + gp * (gp + dsPk_));
-        dsP2_ = gp * dsP1_;
-        dsP3_ = gp * dsP2_;
-        dsPm_ = dsPk_ * (A * A - 1);
-    }
-}
-
-// les etats a zero, les reglages poses sans rampe
-void PreFx::reset() {
-    for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_, &dsAmt_, &dsTone_}) r->setNow(r->target);
-    crOn_ = crBits_.v > 0 || crRate_.v > 0;
-    phOn_ = phMix_.v > 0;
-    flOn_ = flMix_.v > 0;
-    flOnR_.setNow(flOn_ ? 1 : 0);
-    dsOn_ = dsAmt_.v > 0 && dsOnR_.target > 0;
-    dsOnR_.setNow(dsOn_ ? 1 : 0);
-    dsHold_ = 0;
-    dsAmtAt_ = dsToneAt_ = -1;
-    distClear();
-    crRateAt_ = crBitsAt_ = -1;
-    crPhase_ = 0;
-    for (Svf& f : crLp_) f.ic1[0] = f.ic1[1] = f.ic2[0] = f.ic2[1] = 0;
-    crPrev_[0] = crPrev_[1] = crHold_[0] = crHold_[1] = 0;
-    phPhase_ = 0;
-    phCtl_ = -1;
-    for (int c = 0; c < 2; ++c) {
-        phLast_[c] = flLast_[c] = 0;
-        for (double& z : phZ_[c]) z = 0;
-        std::fill(flDry_[c].begin(), flDry_[c].end(), 0.f);
-        std::fill(flWet_[c].begin(), flWet_[c].end(), 0.f);
-    }
-    flPhase_ = 0;
-    flW_ = 0;
-    tick_ = 0;
-}
-
-void PreFx::set(const ArpFxSettings& s, bool now) {
-    const double cb = fin01(s.crushBits, 0), cr = fin01(s.crushRate, 0);
-    const double pm = fin01(s.phMix, 0), pd = fin01(s.phDepth, 0.6), pf = PH_FB * fin01(s.phFb, 0.4);
-    const double fm = fin01(s.flMix, 0), fd = fin01(s.flDepth, 0.6);
-    const double ff = FL_FB * (std::isfinite(s.flFb) ? clampd(s.flFb, -1, 1) : 0);
-    phHz_ = ArpFxLaws::phaserHz(fin01(s.phRate, 0.3));
-    flHz_ = ArpFxLaws::flangerHz(fin01(s.flRate, 0.25));
-    const double da = fin01(s.dist, 0), dt = fin01(s.distTone, 0.5);
-    if (now) {
-        // poses : une section qui s'engage part d'etats a zero
-        const bool was[3] = {crOn_, phOn_, flOn_};
-        const bool dsKeep = dsOn_ || !(da > 0);
-        dsAmt_.target = da;
-        dsOnR_.target = da > 0 ? 1 : 0;
-        dsTone_.target = dt;
-        crBits_.target = cb;
-        crRate_.target = cr;
-        phMix_.target = pm;
-        phDepth_.target = pd;
-        phFb_.target = pf;
-        flMix_.target = fm;
-        flDepth_.target = fd;
-        flFb_.target = ff;
-        const double phase[2] = {phPhase_, flPhase_};
-        const bool keep = (was[0] || !(cb > 0 || cr > 0)) && (was[1] || !(pm > 0)) && (was[2] || !(fm > 0)) && dsKeep;
-        if (keep) {
-            // rien ne s'engage : les etats restent (un reglage pose en cours de jeu)
-            for (Ramp* r : {&crBits_, &crRate_, &phMix_, &phDepth_, &phFb_, &flMix_, &flDepth_, &flFb_, &dsAmt_, &dsTone_}) r->setNow(r->target);
-            crOn_ = cb > 0 || cr > 0;
-            phOn_ = pm > 0;
-            flOn_ = fm > 0;
-            flOnR_.setNow(flOn_ ? 1 : 0);
-            dsOn_ = da > 0;
-            dsOnR_.setNow(dsOn_ ? 1 : 0);
-            dsHold_ = 0;
-        } else {
-            reset();
-            phPhase_ = phase[0];
-            flPhase_ = phase[1];
-        }
-        return;
-    }
-    // CRUSH : les etats du reducteur repartent de zero quand il s'engage
-    if (cr > 0 && isZero(crRate_.v) && !crRate_.moving()) {
-        for (Svf& f : crLp_) f.ic1[0] = f.ic1[1] = f.ic2[0] = f.ic2[1] = 0;
-        crPrev_[0] = crPrev_[1] = crHold_[0] = crHold_[1] = 0;
-        crPhase_ = 0;
-        crRateAt_ = -1;
-    }
-    if (cb > 0 || cr > 0) crOn_ = true;
-    crBits_.to(cb, rampN_);
-    crRate_.to(cr, rampN_);
-    // DISTORTION : elle s'engage comme WARMTH (ses lignes se remplissent 64 echantillons, sortie inchangee, puis un
-    // fondu de 20 ms vers sa chaine, retardee de 39), a sa dose et a sa couleur d'emblee
-    if (da > 0 && !dsOn_) {
-        distClear();
-        dsOn_ = true;
-        dsHold_ = 64;
-        dsOnR_.setNow(0);
-        dsAmt_.setNow(da);
-        dsTone_.setNow(dt);
-        dsAmtAt_ = dsToneAt_ = -1;
-    }
-    if (da > 0) {
-        dsAmt_.to(da, rampN_);
-        dsOnR_.to(1, rampN_);
-    } else
-        dsOnR_.to(0, rampN_); // (elle sort a la dose ou elle est : le fondu seul)
-    dsTone_.to(dt, rampN_);
-    // PHASER
-    if (pm > 0 && !phOn_) {
-        for (int c = 0; c < 2; ++c) {
-            phLast_[c] = 0;
-            for (double& z : phZ_[c]) z = 0;
-        }
-        phCtl_ = -1;
-        phOn_ = true;
-        phDepth_.setNow(pd);
-        phFb_.setNow(pf);
-    }
-    phMix_.to(pm, rampN_);
-    phDepth_.to(pd, rampN_);
-    phFb_.to(pf, rampN_);
-    // FLANGER : il s'engage par un fondu vers sa chaine (le sec y est retarde), la dose a sa valeur d'emblee
-    if (fm > 0 && !flOn_) {
-        for (int c = 0; c < 2; ++c) {
-            flLast_[c] = 0;
-            std::fill(flDry_[c].begin(), flDry_[c].end(), 0.f);
-            std::fill(flWet_[c].begin(), flWet_[c].end(), 0.f);
-        }
-        flOn_ = true;
-        flOnR_.setNow(0);
-        flMix_.setNow(fm);
-        flDepth_.setNow(fd);
-        flFb_.setNow(ff);
-    }
-    if (fm > 0) {
-        flOnR_.to(1, rampN_);
-        flMix_.to(fm, rampN_);
-    } else
-        flOnR_.to(0, rampN_);
-    flDepth_.to(fd, rampN_);
-    flFb_.to(ff, rampN_);
-}
-
-void PreFx::crushCoefs(double vr, double vb) {
-    if (vr < crRateAt_ || vr > crRateAt_) {
-        crRateAt_ = vr;
-        const double fs = ArpFxLaws::crushHz(vr, sr_);
-        crInc_ = std::min(1.0, fs / sr_);
-        // le passe-bas d'avant : 4e ordre (deux etages Q 0.707) a la moitie du taux vise
-        const double g = std::tan(PI * std::min(0.5 * fs, 0.45 * sr_) / sr_);
-        for (Svf& f : crLp_) {
-            f.a1 = 1 / (1 + g * (g + 1.4142135623730951));
-            f.a2 = g * f.a1;
-            f.a3 = g * f.a2;
-        }
-    }
-    if (vb < crBitsAt_ || vb > crBitsAt_) {
-        crBitsAt_ = vb;
-        crQ_ = std::pow(2.0, ArpFxLaws::crushBitDepth(vb) - 1);
-    }
-}
-
-void PreFx::process(float* L, float* R, int n) {
-    if (bypassed()) return; // tout au neutre : l'entree, au bit pres
-    for (int i = 0; i < n; ++i) {
-        double x[2] = {L[i], R[i]};
-        // 1. CRUSH : l'echantillonnage (passe-bas, bloqueur a l'instant exact) puis les bits
-        if (crOn_) {
-            const double vr = crRate_.next(), vb = crBits_.next();
-            crushCoefs(vr, vb);
-            if (vr > 0) {
-                const double w = std::min(1.0, vr * CRUSH_IN);
-                crPhase_ += crInc_;
-                const bool tick = crPhase_ >= 1;
-                if (tick) crPhase_ -= 1;
-                const double back = tick ? crPhase_ / crInc_ : 0; // depuis l'instant de la prise, en echantillons
-                for (int c = 0; c < 2; ++c) {
-                    double v = x[c];
-                    for (Svf& f : crLp_) {
-                        const double v3 = v - f.ic2[c];
-                        const double v1 = f.a1 * f.ic1[c] + f.a2 * v3;
-                        const double v2 = f.ic2[c] + f.a2 * f.ic1[c] + f.a3 * v3;
-                        f.ic1[c] = 2 * v1 - f.ic1[c];
-                        f.ic2[c] = 2 * v2 - f.ic2[c];
-                        v = v2;
-                    }
-                    if (tick) crHold_[c] = v - (v - crPrev_[c]) * back;
-                    crPrev_[c] = v;
-                    x[c] += w * (crHold_[c] - x[c]);
-                }
-            }
-            if (vb > 0) {
-                const double w = std::min(1.0, vb * CRUSH_IN);
-                for (int c = 0; c < 2; ++c) x[c] += w * (std::floor(x[c] * crQ_ + 0.5) / crQ_ - x[c]);
-            }
-            if (!crRate_.moving() && !crBits_.moving() && isZero(crRate_.v) && isZero(crBits_.v)) crOn_ = false;
-        }
-        // 1 bis. DISTORTION : bloqueur de continu, gain, ecretage (x4 local, par sa primitive), TONE, compensation
-        if (dsOn_) {
-            const double amt = dsAmt_.next(), tone = dsTone_.next();
-            double on = 0;
-            if (dsHold_ > 0) --dsHold_;
-            else on = dsOnR_.next();
-            distCoefs(amt, tone);
-            const double* eA = dsEA_.data();
-            const double* eB = dsEB_.data();
-            for (int c = 0; c < 2; ++c) {
-                DistCh& w = ds_[c];
-                const double xin = x[c];
-                w.dry[static_cast<size_t>(dsI_ & 63)] = xin;
-                const double hd = xin - w.dcX + dsDcR_ * w.dcY;
-                w.dcX = xin;
-                w.dcY = hd;
-                w.upA[static_cast<size_t>(dsI_ & 63)] = hd;
-                // 1x -> 2x : le point pair (les 32 points pairs de la demi-bande), le point impair (un retard de 15)
-                double a2[2];
-                double acc = 0;
-                for (int j = 0; j < 32; ++j) acc += eA[j] * w.upA[static_cast<size_t>((dsI_ - j) & 63)];
-                a2[0] = 2 * acc;
-                a2[1] = w.upA[static_cast<size_t>((dsI_ - 15) & 63)];
-                double y1 = 0;
-                for (int q = 0; q < 2; ++q) {
-                    const int ib = dsIb_ + q;
-                    w.upB[static_cast<size_t>(ib & 31)] = a2[q];
-                    // 2x -> 4x
-                    double b4[2];
-                    acc = 0;
-                    for (int j = 0; j < 16; ++j) acc += eB[j] * w.upB[static_cast<size_t>((ib - j) & 31)];
-                    b4[0] = 2 * acc;
-                    b4[1] = w.upB[static_cast<size_t>((ib - 7) & 31)];
-                    for (int r = 0; r < 2; ++r) {
-                        // l'ecretage : (F(u) - F(u')) / (u - u'), ou la courbe au milieu quand u bouge a peine
-                        const double u = dsG_ * b4[r];
-                        const double F = dsClipF(u);
-                        const double du = u - w.x1;
-                        const double hv = du > 1e-6 || du < -1e-6 ? (F - w.F1) / du : dsClip(0.5 * (u + w.x1));
-                        w.x1 = u;
-                        w.F1 = F;
-                        const int jb = dsJb_ + 2 * q + r;
-                        w.dnB[static_cast<size_t>(jb & 63)] = hv;
-                        if (r == 0) {
-                            // 4x -> 2x (apres 2 echantillons de plus : le retard total tombe sur un entier, 39)
-                            acc = 0.5 * w.dnB[static_cast<size_t>((jb - 2 - 15) & 63)];
-                            for (int j = 0; j < 16; ++j) acc += eB[j] * w.dnB[static_cast<size_t>((jb - 2 - 2 * j) & 63)];
-                            const int ja = dsJa_ + q;
-                            w.dnA[static_cast<size_t>(ja & 63)] = acc;
-                            if (q == 0) {
-                                // 2x -> 1x
-                                y1 = 0.5 * w.dnA[static_cast<size_t>((ja - 31) & 63)];
-                                for (int j = 0; j < 32; ++j) y1 += eA[j] * w.dnA[static_cast<size_t>((ja - 2 * j) & 63)];
-                            }
-                        }
-                    }
-                }
-                // TONE : le passe-bas, puis la presence
-                double v3 = y1 - w.l2;
-                double v1 = dsL1_ * w.l1 + dsL2_ * v3;
-                double v2 = w.l2 + dsL2_ * w.l1 + dsL3_ * v3;
-                w.l1 = 2 * v1 - w.l1;
-                w.l2 = 2 * v2 - w.l2;
-                double y = v2;
-                if (dsPm_ > 0) {
-                    v3 = y - w.p2;
-                    v1 = dsP1_ * w.p1 + dsP2_ * v3;
-                    v2 = w.p2 + dsP2_ * w.p1 + dsP3_ * v3;
-                    w.p1 = 2 * v1 - w.p1;
-                    w.p2 = 2 * v2 - w.p2;
-                    y += dsPm_ * v1;
-                }
-                const double dry = w.dry[static_cast<size_t>((dsI_ - kDistLatency) & 63)];
-                y = dry + dsMix_ * (dsK_ * y - dry);
-                x[c] = on >= 1 ? y : xin + on * (y - xin);
-            }
-            dsI_ += 1;
-            dsIb_ += 2;
-            dsJb_ += 4;
-            dsJa_ += 2;
-            if (!dsOnR_.moving() && isZero(dsOnR_.v) && dsHold_ == 0) dsOn_ = false;
-        }
-        // 2. PHASER : six passe-tout du premier ordre par canal, la droite un quart de cycle apres
-        if (phOn_) {
-            const double m = phMix_.next(), dep = phDepth_.next(), fb = phFb_.next();
-            if (phCtl_ <= 0) {
-                // le balayage, toutes les 16 echantillons (le coefficient glisse entre deux)
-                const bool first = phCtl_ < 0;
-                phCtl_ = kCtl;
-                phPhase_ += kCtl * phHz_ / sr_;
-                phPhase_ -= std::floor(phPhase_);
-                for (int c = 0; c < 2; ++c) {
-                    const double lfo = std::sin(TAU * (phPhase_ + 0.25 * c));
-                    const double hz = std::min(0.4 * sr_, PH_HZ * std::pow(2.0, PH_OCT * dep * lfo));
-                    const double t = std::tan(PI * hz / sr_);
-                    const double a = (t - 1) / (t + 1);
-                    if (first) phA_[c] = a;
-                    phDa_[c] = (a - phA_[c]) / kCtl;
-                }
-            }
-            --phCtl_;
-            for (int c = 0; c < 2; ++c) {
-                phA_[c] += phDa_[c];
-                const double a = phA_[c];
-                double y = x[c] + fb * phLast_[c];
-                for (double& z : phZ_[c]) {
-                    const double o = a * y + z;
-                    z = y - a * o;
-                    y = o;
-                }
-                phLast_[c] = y;
-                x[c] += 0.5 * m * (y - x[c]);
-            }
-            if (!phMix_.moving() && isZero(phMix_.v)) phOn_ = false;
-        }
-        // 3. FLANGER a travers zero : le sec retarde de D0, le mouille balaie de 0 a 2 D0
-        if (flOn_) {
-            const double on = flOnR_.next(), m = flMix_.next(), dep = flDepth_.next(), fb = flFb_.next();
-            flPhase_ += flHz_ / sr_;
-            flPhase_ -= std::floor(flPhase_);
-            const double afb = std::fabs(fb);
-            for (int c = 0; c < 2; ++c) {
-                const double lfo = std::sin(TAU * (flPhase_ + 0.25 * c));
-                const double d = std::max(1.0, flD0_ * (1 + (1 - dep) * 0.5 + dep * lfo));
-                flDry_[c][static_cast<size_t>(flW_)] = static_cast<float>(x[c]);
-                flWet_[c][static_cast<size_t>(flW_)] = static_cast<float>(flush(x[c] + fb * flLast_[c]));
-                const double dry = flDry_[c][static_cast<size_t>((flW_ - flD0_) & flMask_)];
-                const double wet = readLag3(flWet_[c].data(), flMask_, flW_, d);
-                flLast_[c] = wet;
-                const double y = (dry + m * wet * (1 - 0.45 * afb)) / (1 + 0.3 * m);
-                x[c] += on * (y - x[c]);
-            }
-            flW_ = (flW_ + 1) & flMask_;
-            if (!flOnR_.moving() && isZero(flOnR_.v)) flOn_ = false;
-        }
-        L[i] = static_cast<float>(x[0]);
-        R[i] = static_cast<float>(x[1]);
-        // jamais de sous-normaux dans les etats qui s'eteignent : rinces tous les 128 echantillons (a son propre
-        // compte : le resultat ne depend pas de la taille des blocs)
-        if ((++tick_ & 127) == 0)
-            for (int c = 0; c < 2; ++c) {
-                for (Svf& f : crLp_) {
-                    f.ic1[c] = flush(f.ic1[c]);
-                    f.ic2[c] = flush(f.ic2[c]);
-                }
-                for (double& z : phZ_[c]) z = flush(z);
-                phLast_[c] = flush(phLast_[c]);
-                flLast_[c] = flush(flLast_[c]);
-                DistCh& w = ds_[c];
-                w.dcY = flush(w.dcY);
-                w.l1 = flush(w.l1);
-                w.l2 = flush(w.l2);
-                w.p1 = flush(w.p1);
-                w.p2 = flush(w.p2);
-            }
-    }
-}
-
-/* ---------------- EQ 4 bandes (2026-11-11, suite) ---------------- */
-
-void Eq::prepare(double sr) {
-    sr_ = sr;
-    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
-    b_[0].g0 = std::tan(PI * std::min(EQ_LOW_HZ, 0.45 * sr) / sr);
-    b_[1].g0 = std::tan(PI * std::min(EQ_MID_HZ, 0.45 * sr) / sr);
-    b_[2].g0 = std::tan(PI * std::min(EQ_HIGH_HZ, 0.45 * sr) / sr);
-    // AIR : un plateau du premier ordre dont le milieu (la moitie du gain en dB) est a 20 kHz ; le coefficient est
-    // cale sur le modele analogique a 10 kHz (pas a 20 kHz : le repli de la transformee bilineaire pres de Nyquist
-    // ne laisserait rien dans la bande audible), d'ou le facteur 2
-    b_[3].g0 = 2 * std::tan(PI * std::min(0.5 * EQ_AIR_HZ, 0.225 * sr) / sr);
-    reset();
-}
-
-// les etats a zero, les reglages poses sans rampe
-void Eq::reset() {
-    for (int i = 0; i < kBands; ++i) {
-        Band& b = b_[i];
-        b.ic1[0] = b.ic1[1] = b.ic2[0] = b.ic2[1] = 0;
-        b.db.setNow(b.db.target);
-        b.act = !isZero(b.db.v);
-        if (b.act) coefs(i, b.db.v);
-    }
-}
-
-void Eq::set(double low, double mid, double high, double air, bool now) {
-    const double want[kBands] = {
-        std::isfinite(low) ? ArpFxLaws::eqDb(low) : 0, std::isfinite(mid) ? ArpFxLaws::eqDb(mid) : 0,
-        std::isfinite(high) ? ArpFxLaws::eqDb(high) : 0, std::isfinite(air) ? ArpFxLaws::eqAirDb(air) : 0};
-    for (int i = 0; i < kBands; ++i) {
-        Band& b = b_[i];
-        const double d = want[i];
-        if (now) {
-            // posee : une bande qui s'engage part d'etats a zero
-            if (!b.act) b.ic1[0] = b.ic1[1] = b.ic2[0] = b.ic2[1] = 0;
-            b.db.setNow(d);
-            b.act = !isZero(d);
-            if (b.act) coefs(i, d);
-            continue;
-        }
-        if (!isZero(d) && !b.act) {
-            b.ic1[0] = b.ic1[1] = b.ic2[0] = b.ic2[1] = 0;
-            b.act = true;
-            coefs(i, b.db.v);
-        }
-        b.db.to(d, rampN_);
-    }
-}
-
-// Les plateaux et la cloche du second ordre de Simper (a 0 dB : m0 = 1, m1 = m2 = 0, la sortie est l'entree) ; AIR :
-// un passe-bas du premier ordre, y = x + (A - 1) (x - bas)
-void Eq::coefs(int i, double db) {
-    Band& b = b_[i];
-    if (i == 3) {
-        const double A = std::pow(10.0, db / 20);
-        const double g = b.g0 * std::sqrt(A);
-        b.a1 = g / (1 + g);
-        b.m0 = A - 1;
-        return;
-    }
-    const double A = std::pow(10.0, db / 40);
-    if (i == 1) {
-        b.k = 1 / (EQ_MID_Q * A);
-        const double g = b.g0;
-        b.a1 = 1 / (1 + g * (g + b.k));
-        b.a2 = g * b.a1;
-        b.a3 = g * b.a2;
-        b.m0 = 1;
-        b.m1 = b.k * (A * A - 1);
-        b.m2 = 0;
-        return;
-    }
-    const bool high = i == 2;
-    const double g = high ? b.g0 * std::sqrt(A) : b.g0 / std::sqrt(A);
-    b.k = SHELF_K;
-    b.a1 = 1 / (1 + g * (g + b.k));
-    b.a2 = g * b.a1;
-    b.a3 = g * b.a2;
-    if (high) {
-        b.m0 = A * A;
-        b.m1 = b.k * (1 - A) * A;
-        b.m2 = 1 - A * A;
-    } else {
-        b.m0 = 1;
-        b.m1 = b.k * (A - 1);
-        b.m2 = A * A - 1;
-    }
-}
-
-void Eq::process(float* L, float* R, int n) {
-    if (bypassed()) return; // tout au neutre : la sortie d'avant, au bit pres
-    for (int i = 0; i < n; ++i) {
-        double x[2] = {L[i], R[i]};
-        for (int e = 0; e < kBands; ++e) {
-            Band& b = b_[e];
-            if (!b.act) continue;
-            if (b.db.moving()) coefs(e, b.db.next());
-            if (e == 3) {
-                for (int c = 0; c < 2; ++c) {
-                    const double v = (x[c] - b.ic1[c]) * b.a1;
-                    const double lp = v + b.ic1[c];
-                    b.ic1[c] = lp + v;
-                    x[c] += b.m0 * (x[c] - lp);
-                }
-            } else {
-                for (int c = 0; c < 2; ++c) {
-                    const double v0 = x[c];
-                    const double v3 = v0 - b.ic2[c];
-                    const double v1 = b.a1 * b.ic1[c] + b.a2 * v3;
-                    const double v2 = b.ic2[c] + b.a2 * b.ic1[c] + b.a3 * v3;
-                    b.ic1[c] = 2 * v1 - b.ic1[c];
-                    b.ic2[c] = 2 * v2 - b.ic2[c];
-                    x[c] = b.m0 * v0 + b.m1 * v1 + b.m2 * v2;
-                }
-            }
-            if (!b.db.moving() && isZero(b.db.v)) b.act = false; // 0 dB : la sortie etait deja l'entree, exactement
-        }
-        L[i] = static_cast<float>(x[0]);
-        R[i] = static_cast<float>(x[1]);
-    }
-    for (Band& b : b_)
-        for (int c = 0; c < 2; ++c) {
-            b.ic1[c] = flush(b.ic1[c]);
-            b.ic2[c] = flush(b.ic2[c]);
-        }
-}
-
-/* ---------------- PUMP ---------------- */
-
-void Pump::prepare(double sr) {
-    sr_ = sr;
-    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
-    k_ = 1 - std::exp(-1 / (PUMP_SLEW_S * sr));
-    reset();
-}
-
-void Pump::reset() {
-    depth_.setNow(depth_.target);
-    on_ = depth_.v > 0;
-    g_ = 1;
-}
-
-void Pump::set(double depth, int rate, double shape, bool now) {
-    const double d = fin01(depth, 0);
-    beats_ = ArpFxLaws::pumpBeats(rate);
-    shape_ = fin01(shape, 0.5);
-    if (now) {
-        depth_.setNow(d);
-        if (!(d > 0)) g_ = 1;
-        on_ = d > 0;
-        return;
-    }
-    if (d > 0 && !on_) {
-        on_ = true;
-        g_ = 1;
-    }
-    depth_.to(d, rampN_);
-}
-
-void Pump::process(float* L, float* R, int n, double ppq, double pps, bool playing) {
-    if (!on_) return; // au neutre : la sortie d'avant, au bit pres
-    const bool run = playing && pps > 0 && std::isfinite(ppq);
-    const double per = run ? beats_ / pps : 1;          // la periode, en echantillons
-    const double atk = std::min(PUMP_ATK_S * sr_, 0.25 * per);
-    const double rel = std::max(atk, std::min((0.15 + 0.8 * shape_) * per, per - atk));
-    for (int i = 0; i < n; ++i) {
-        const double dep = depth_.next();
-        double env = 0;
-        if (run) {
-            const double c = (ppq + i * pps) / beats_;
-            const double ph = c - std::floor(c);
-            const double since = ph * per, until = per - since;
-            if (until < atk) {
-                // la plongee, dans les 2 ms qui precedent le temps
-                env = 0.5 - 0.5 * std::cos(PI * (1 - until / atk));
-            } else if (since < rel) {
-                const double u = since / rel;
-                env = (1 - u) * (1 - u) * (1 + 2 * u);
-            }
-        }
-        const double tgt = env > 0 && dep > 0 ? std::exp(ArpFxLaws::pumpDb(dep) * env * 0.11512925464970229) : 1;
-        g_ += (tgt - g_) * k_;
-        if (std::fabs(1 - g_) < 1e-9) g_ = 1;
-        L[i] = static_cast<float>(L[i] * g_);
-        R[i] = static_cast<float>(R[i] * g_);
-        if (!depth_.moving() && isZero(depth_.v) && !(g_ < 1 || g_ > 1)) {
-            on_ = false;
-            return;
-        }
-    }
-}
-
-/* ---------------- SHIMMER ---------------- */
-
-void Shimmer::prepare(double sr) {
-    sr_ = sr;
-    rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
-    W_ = 2 * std::max(64, static_cast<int>(jsRound(0.5 * SH_WIN_S * sr)));
-    int len = 256;
-    while (len < W_ + 8) len *= 2;
-    mask_ = len - 1;
-    for (auto& b : buf_) b.assign(static_cast<size_t>(len), 0.f);
-    win_.assign(static_cast<size_t>(W_), 0.f);
-    for (int k = 0; k < W_; ++k) {
-        const double sn = std::sin(PI * k / W_);
-        win_[static_cast<size_t>(k)] = static_cast<float>(sn * sn);
-    }
-    // avant la lecture a vitesse double : un passe-bas du 4e ordre a 0.2 x sr, un passe-haut a 250 Hz
-    const double g = std::tan(PI * SH_LP);
-    for (Svf* f : {&lp1_, &lp2_}) {
-        f->a1 = 1 / (1 + g * (g + f->k));
-        f->a2 = g * f->a1;
-        f->a3 = g * f->a2;
-    }
-    const double gh = std::tan(PI * std::min(SH_HP_HZ, 0.4 * sr) / sr);
-    hp_.a1 = 1 / (1 + gh * (gh + hp_.k));
-    hp_.a2 = gh * hp_.a1;
-    hp_.a3 = gh * hp_.a2;
-    postK_ = 1 - std::exp(-TAU * std::min(SH_POST_HZ, 0.4 * sr) / sr);
-    reset();
-}
-
-void Shimmer::reset() {
-    gain_.setNow(gain_.target);
-    on_ = gain_.v > 0;
-    for (int c = 0; c < 2; ++c) {
-        std::fill(buf_[c].begin(), buf_[c].end(), 0.f);
-        hist_[c].fill(0.f);
-        post_[c] = 0;
-    }
-    for (Svf* f : {&lp1_, &lp2_, &hp_}) f->ic1[0] = f->ic1[1] = f->ic2[0] = f->ic2[1] = 0;
-    w_ = 0;
-    k_ = 0;
-    drain_ = 0;
-}
-
-void Shimmer::set(double amount, bool now) {
-    const double g = SH_GAIN * fin01(amount, 0);
-    if (now) {
-        const bool was = on_;
-        gain_.target = g;
-        if (g > 0 && !was) reset();
-        gain_.setNow(g);
-        on_ = g > 0;
-        if (!on_) reset();
-        return;
-    }
-    if (g > 0 && !on_) {
-        gain_.setNow(0);
-        reset();
-        on_ = true;
-    }
-    gain_.to(g, rampN_);
-}
-
-void Shimmer::process(const float* revL, const float* revR, int q0, int n) {
-    if (!on_) return;
-    const float* in[2] = {revL, revR};
-    const int half = W_ / 2;
-    for (int i = 0; i < n; ++i) {
-        const double gv = gain_.next();
-        const int k2 = k_ + half < W_ ? k_ + half : k_ + half - W_;
-        const double w1 = win_[static_cast<size_t>(k_)], w2 = 1 - w1;
-        for (int c = 0; c < 2; ++c) {
-            double v = in[c][i];
-            for (Svf* f : {&lp1_, &lp2_}) {
-                const double v3 = v - f->ic2[c];
-                const double v1 = f->a1 * f->ic1[c] + f->a2 * v3;
-                const double v2 = f->ic2[c] + f->a2 * f->ic1[c] + f->a3 * v3;
-                f->ic1[c] = 2 * v1 - f->ic1[c];
-                f->ic2[c] = 2 * v2 - f->ic2[c];
-                v = v2;
-            }
-            {
-                const double v3 = v - hp_.ic2[c];
-                const double v1 = hp_.a1 * hp_.ic1[c] + hp_.a2 * v3;
-                const double v2 = hp_.ic2[c] + hp_.a2 * hp_.ic1[c] + hp_.a3 * v3;
-                hp_.ic1[c] = 2 * v1 - hp_.ic1[c];
-                hp_.ic2[c] = 2 * v2 - hp_.ic2[c];
-                v = v - hp_.k * v1 - v2;
-            }
-            float* b = buf_[c].data();
-            b[w_] = static_cast<float>(flush(v));
-            // deux tetes a vitesse double (le retard descend d'un echantillon par echantillon), en fondu
-            const double o = w1 * b[(w_ - (W_ - k_)) & mask_] + w2 * b[(w_ - (W_ - k2)) & mask_];
-            post_[c] = flush(post_[c] + (o - post_[c]) * postK_);
-            hist_[c][static_cast<size_t>(q0 + i)] = static_cast<float>(clampd(gv * post_[c], -SH_MAX, SH_MAX));
-        }
-        w_ = (w_ + 1) & mask_;
-        if (++k_ == W_) k_ = 0;
-        if ((w_ & 127) == 0)
-            for (Svf* f : {&lp1_, &lp2_, &hp_})
-                for (int c = 0; c < 2; ++c) {
-                    f->ic1[c] = flush(f->ic1[c]);
-                    f->ic2[c] = flush(f->ic2[c]);
-                }
-        // coupe : il s'eteint quand tout son retour (128 echantillons) est a zero, ou que tombe la fin du bloc
-        if (!gain_.moving() && isZero(gain_.v)) {
-            if (++drain_ >= Q) {
-                on_ = false;
-                return;
-            }
-        } else
-            drain_ = 0;
     }
 }
 
@@ -2124,24 +656,15 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     sr_ = sampleRate;
     maxBlock_ = std::max(1, maxBlock);
     const size_t q = Q;
-    for (auto* b : {&bHiL_, &bHiR_, &bJL_, &bJR_, &bTL_, &bTR_, &bTo_L_, &bTo_R_, &bTime_, &bRL_, &bRR_, &bRoL_, &bRoR_, &bPreL_, &bPreR_}) b->assign(q, 0.f);
-    pre_.prepare(sr_);
-    pump_.prepare(sr_);
-    shim_.prepare(sr_);
-    eq_.prepare(sr_);
+    for (auto* b : {&bHiL_, &bHiR_, &bJL_, &bJR_, &bTL_, &bTR_, &bTo_L_, &bTo_R_, &bTime_, &bRL_, &bRR_, &bRoL_, &bRoR_}) b->assign(q, 0.f);
     juno_.prepare(sr_);
     tape_.prepare(sr_, PP_MAX_S);
     dl_.prepare(PP_MAX_S, sr_);
     dr_.prepare(PP_MAX_S, sr_);
-    conv_.prepare(sr_, detail::Convolver::make(sr_, have_ ? cur_.revSize : 0.5, have_ ? cur_.revTone : 0.5, have_ ? cur_.revPre : 0.2));
-    master_.prepare(sr_);
+    conv_.prepare(sr_);
     dHp_.set(false, PP_HIGHPASS, static_cast<float>(WEB_Q_DEFAULT), sr_);
     lpL_.set(true, PP_LOWPASS, static_cast<float>(WEB_Q_DEFAULT), sr_);
     lpR_ = lpL_;
-    dHpR_ = dHp_;
-    dMode_ = dWant_ = have_ ? std::min(2, std::max(0, cur_.dlyMode)) : 0;
-    dXf_.setNow(1);
-    dFbL_ = dFbR_ = 0;
     // Le graphe tel que build() le pose avant applyFx : tout a 0, la separation a 10 Hz, le CHORUS en lien direct
     frame_ = 0;
     const double t0 = have_ ? cur_.delaySeconds : 0.375;
@@ -2171,7 +694,6 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     lp1_.clear();
     lp2_.clear();
     dHp_.clear();
-    dHpR_.clear();
     lpL_.clear();
     lpR_.clear();
     lpHist_.fill(0);
@@ -2280,25 +802,6 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
         glide(tFb_, tfb);
         glide(tAmt_, tamt);
     }
-    master_.set(s.warmth, s.bass, s.air, s.width, now);
-    // Le rack du 2026-11-11
-    pre_.set(s, now);
-    pump_.set(s.pumpDepth, s.pumpRate, s.pumpShape, now);
-    shim_.set(s.shimmer, now);
-    eq_.set(s.eqLow, s.eqMid, s.eqHigh, s.eqAir, now);
-    const int dm = std::min(2, std::max(0, s.dlyMode));
-    if (now) {
-        if (dm != dMode_) {
-            delayClear();
-            dMode_ = dm;
-        }
-        dWant_ = dm;
-        dXf_.setNow(1);
-    } else if (dm != dWant_) {
-        // le mouille du delay descend (20 ms), les lignes sont videes, il remonte dans le mode neuf
-        dWant_ = dm;
-        dXf_.to(dm != dMode_ ? 0 : 1, std::max(1, static_cast<int>(jsRound(GLIDE_S * sr_))));
-    }
     const double t = std::min(PP_MAX_S, std::max(0.001, s.delaySeconds));
     if (now) {
         dTime_.setNow(static_cast<float>(t));
@@ -2317,31 +820,12 @@ void ArpFx::retimeDelay(double seconds) {
     retime(tTime_, t);
 }
 
-void ArpFx::delayClear() {
-    std::fill(dl_.buf.begin(), dl_.buf.end(), 0.f);
-    std::fill(dr_.buf.begin(), dr_.buf.end(), 0.f);
-    dHp_.clear();
-    dHpR_.clear();
-    lpL_.clear();
-    lpR_.clear();
-    lpHist_.fill(0);
-    dFbL_ = dFbR_ = 0;
-}
-
 void ArpFx::reset() {
-    pre_.reset();
-    pump_.reset();
-    shim_.reset();
-    eq_.reset();
-    dHpR_.clear();
-    dFbL_ = dFbR_ = 0;
-    dXf_.setNow(1);
     tape_.reset();
     std::fill(dl_.buf.begin(), dl_.buf.end(), 0.f);
     std::fill(dr_.buf.begin(), dr_.buf.end(), 0.f);
     dl_.w = dr_.w = 0;
     conv_.reset();
-    master_.reset();
     for (auto& f : hp1_) f.clear();
     for (auto& f : hp2_) f.clear();
     lp1_.clear();
@@ -2404,31 +888,10 @@ void ArpFx::process(const float* inL, const float* inR, float* outL, float* outR
     while (done < n) {
         const int left = Q - static_cast<int>(frame_ % Q);
         const int len = std::min(n - done, left);
-        const float* pL = inL + done;
-        const float* pR = inR + done;
-        if (!pre_.bypassed()) {
-            // CRUSH, PHASER, FLANGER : sur une copie de l'entree (au neutre : l'entree elle-meme)
-            std::copy(pL, pL + len, bPreL_.data());
-            std::copy(pR, pR + len, bPreR_.data());
-            pre_.process(bPreL_.data(), bPreR_.data(), len);
-            pL = bPreL_.data();
-            pR = bPreR_.data();
-        }
-        processPiece(pL, pR, outL + done, outR + done, len);
-        if (!pump_.bypassed()) pump_.process(outL + done, outR + done, len, ppq_ + done * pps_, pps_, playing_);
+        processPiece(inL + done, inR + done, outL + done, outR + done, len);
         done += len;
     }
-    ppq_ += n * pps_; // (sans setTransport avant le prochain bloc : la position continue)
-    // l'EQ 4 bandes puis la section master du plugin, apres tout le reste (contournees au neutre)
-    eq_.process(outL, outR, n);
-    master_.process(outL, outR, n);
 }
-
-std::shared_ptr<const ReverbIR> ArpFx::makeReverb(double sampleRate, double size, double tone, double pre) {
-    return detail::Convolver::make(sampleRate, size, tone, pre);
-}
-
-bool ArpFx::setReverb(std::shared_ptr<const ReverbIR> ir) { return conv_.set(ir); }
 
 // Un morceau d'un bloc de rendu de 128 (jamais a cheval sur deux)
 void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float* outR, int n) {
@@ -2488,9 +951,6 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     float* times = bTime_.data();
     float* rinL = bRL_.data();
     float* rinR = bRR_.data();
-    bool dXf = dMode_ != dWant_ || dXf_.moving();
-    const bool shOn = !shim_.bypassed();
-    const int q0 = static_cast<int>(frame_ % Q);
     for (int i = 0; i < n; ++i) {
         float cL, cR;
         if (direct_) {
@@ -2510,41 +970,16 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         dR[i] = vR + lg;
         // DELAY : l'envoi, le passe-haut, gauche <-> droite (la droite lit le passe-bas gauche du bloc d'avant)
         const float ds = aDs_[static_cast<size_t>(i)];
+        const float sm = 0.5f * (vL * ds + vR * ds);
+        const float h = dHp_.run(sm);
         const float fbv = aFb_[static_cast<size_t>(i)];
         const float dt = std::max(0.f, std::min(static_cast<float>(PP_MAX_S), aDt_[static_cast<size_t>(i)]));
-        float lpLo, lpRo;
-        if (dMode_ == 0) {
-            const float sm = 0.5f * (vL * ds + vR * ds);
-            const float h = dHp_.run(sm);
-            const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
-            lpRo = lpR_.run(dr_.run(rIn, dt, sr_));
-            const float lIn = h + fbv * lpRo;
-            lpLo = lpL_.run(dl_.run(lIn, dt, sr_));
-            lpHist_[static_cast<size_t>(lpHistI_)] = lpLo;
-            if (++lpHistI_ == Q) lpHistI_ = 0;
-        } else {
-            // STEREO / WIDE (le plugin seul) : deux lignes paralleles, chacune sa reinjection ; WIDE : la gauche a 3/4
-            const float hL = dHp_.run(vL * ds);
-            const float hR = dHpR_.run(vR * ds);
-            lpLo = lpL_.run(dl_.run(hL + fbv * dFbL_, dMode_ == 2 ? dt * 0.75f : dt, sr_));
-            lpRo = lpR_.run(dr_.run(hR + fbv * dFbR_, dt, sr_));
-            dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
-            dFbR_ = std::fabs(lpRo) < 1e-20f ? 0.f : lpRo;
-        }
-        if (dXf) {
-            // un changement de mode en cours
-            const float g = static_cast<float>(dXf_.next());
-            lpLo *= g;
-            lpRo *= g;
-            if (!dXf_.moving()) {
-                if (dMode_ != dWant_) {
-                    delayClear();
-                    dMode_ = dWant_;
-                    dXf_.to(1, std::max(1, static_cast<int>(jsRound(GLIDE_S * sr_))));
-                } else
-                    dXf = false;
-            }
-        }
+        const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
+        const float lpRo = lpR_.run(dr_.run(rIn, dt, sr_));
+        const float lIn = h + fbv * lpRo;
+        const float lpLo = lpL_.run(dl_.run(lIn, dt, sr_));
+        lpHist_[static_cast<size_t>(lpHistI_)] = lpLo;
+        if (++lpHistI_ == Q) lpHistI_ = 0;
         mL[i] = lpLo;
         mR[i] = lpRo;
         // TAPE : son envoi, son temps (a-rate)
@@ -2556,11 +991,6 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         const float rs = aRs_[static_cast<size_t>(i)];
         rinL[i] = (vL * REVERB_BOOST) * rs;
         rinR[i] = (vR * REVERB_BOOST) * rs;
-        if (shOn) {
-            // SHIMMER : la reverb d'il y a 128 echantillons, une octave au-dessus
-            rinL[i] += shim_.backL(q0 + i);
-            rinR[i] += shim_.backR(q0 + i);
-        }
     }
     // 4. la bande
     float* toL = bHiL_.data(); // le haut n'est plus lu
@@ -2570,7 +1000,6 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     float* roL = bRoL_.data();
     float* roR = bRoR_.data();
     conv_.process(rinL, rinR, roL, roR, n);
-    if (shOn) shim_.process(roL, roR, q0, n);
     // 6. la prise : sec + bas, wet x 0.8 (le merge et la bande), la reverb
     for (int i = 0; i < n; ++i) {
         outL[i] = (dL[i] + (mL[i] + toL[i]) * PP_WET) + roL[i];
@@ -2582,7 +1011,6 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         lp1_.endQuantum();
         lp2_.endQuantum();
         dHp_.endQuantum();
-        if (dMode_ != 0) dHpR_.endQuantum();
         lpL_.endQuantum();
         lpR_.endQuantum();
     }

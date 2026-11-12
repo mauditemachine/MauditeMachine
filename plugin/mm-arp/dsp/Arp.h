@@ -16,19 +16,6 @@
 //   d'Ableton donnent toujours les memes notes au meme endroit ;
 // - le hasard (RAND, DRIFT) tire d'une graine par position : le meme a chaque lecture ;
 // - chaque pas dit au moteur sa place en temps (beat = ppq) : le LFO de MOD y lit sa phase (synthBeat du site).
-//
-// LE SEQUENCEUR PAR PAS (2026-11-11, le plugin seul : le site ne le connait pas). Cinq pistes de 16 pas, indexees par
-// la position pos de la note dans la suite (pos modulo 16 si la suite est plus longue ; en RAND : la place de la
-// note dans le tour, pas la note tiree), et un swing propre. Aux defauts : les notes d'avant, exactement.
-//   stepAcc   0 doux (x0.7), 1 normal, 2 appuye (x1.35) : multiplie l'accent du site, borne a 0.3..2
-//   stepSlide 1 : la note glisse depuis la precedente (kSlideSec, meme si GLIDE est a 0 : ArpSink::noteGlide) et la
-//             note d'avant, si elle a joue, est tenue jusqu'a elle (legato)
-//   stepGate  0 court (x0.5), 1 normal, 2 long (x1.5, sans depasser la note suivante), 3 lie (jusqu'a la suivante)
-//   stepRat   1 a 4 notes dans la duree de la note (jusqu'a la suivante, swing compris) : les portes sont celles de
-//             la duree divisee, la premiere garde l'accent, les autres x0.8 ; SLIDE ne touche que la premiere
-//   stepProb  0..100 % : la note joue ou non ; un tirage par position du morceau et par graine (le meme a chaque
-//             lecture), a part de celui de RAND / DRIFT (qui ne bouge pas) ; une note qui ne joue pas est un silence
-//   swingOwn  0..1 : jusqu'a un tiers de pas en plus de swing (la somme bornee a 0.75 pas)
 #pragma once
 
 #include <cstdint>
@@ -37,8 +24,6 @@
 namespace mmarp {
 
 constexpr int kRest = -1000;
-// Le glissement d'une note SLIDE (le temps de Voyager::note : 95 % du chemin)
-constexpr double kSlideSec = 0.06;
 
 struct ArpChord {
     int c = -1;
@@ -53,14 +38,6 @@ struct ArpProgram {
     double accent = 0.5; // ACCENT (TWEAKS) : 0.5 la profondeur d'origine
     double drift = 0;    // DRIFT
     double swing = 0;    // la fraction du pas des doubles croches impaires
-    // --- le sequenceur par pas du plugin (voir en tete) ; a ces defauts : les notes d'avant ---
-    static constexpr int kSteps = 16;
-    uint8_t stepAcc[kSteps] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    uint8_t stepSlide[kSteps] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    uint8_t stepGate[kSteps] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    uint8_t stepRat[kSteps] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    uint8_t stepProb[kSteps] = {100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100};
-    double swingOwn = 0;
     std::vector<int> prog;        // indices des accords, dans l'ordre
     std::vector<ArpChord> chords; // un par accord distinct de prog
     const ArpChord* chord(int c) const {
@@ -74,13 +51,6 @@ struct ArpProgram {
 struct ArpSink {
     virtual ~ArpSink() = default;
     virtual void note(double timeSec, int midi, double gateSec, double accent, double fromMidi /* NaN : sans */) = 0;
-    // La meme, avec le glissement propre de la note (SLIDE du sequenceur par pas) : glideSec 0 = le GLIDE du patch,
-    // sinon ce temps-la depuis fromMidi (Voyager::note, dernier argument). L'arpegiateur n'appelle QUE noteGlide ;
-    // sans surcharge, elle rend la main a note() (le glissement propre est perdu, le reste est joue).
-    virtual void noteGlide(double timeSec, int midi, double gateSec, double accent, double fromMidi, double glideSec) {
-        (void)glideSec;
-        note(timeSec, midi, gateSec, accent, fromMidi);
-    }
     virtual void beat(double timeSec, double beat, double bpm, bool run) = 0;
     virtual void cancel(double timeSec) = 0;
 };
@@ -113,17 +83,6 @@ public:
 
 private:
     void step(ArpSink& sink, int64_t k, double frame, double stepSamples, uint32_t seed);
-    // Une place de note (le pas k, sa note kk) : son heure depuis le debut du pas k0, sa position dans la suite, si
-    // elle joue (ni silence ni PROB) ; sans etat
-    struct Slot {
-        double rel = 0;
-        int pos = 0, len = 0, c = -1;
-        const ArpChord* ch = nullptr;
-        bool plays = false;
-    };
-    bool slotAt(int64_t k, int kk, int64_t k0, double stepSec, uint32_t seed, Slot& out) const;
-    int64_t runStartOf(int64_t bar, int c) const;
-    double swingOf(int s, double stepSec) const;
     int slotsInBar(double spn) const;
     int slotsBefore(int stepInBar, double spn) const;
     int chordAt(int64_t bar) const;

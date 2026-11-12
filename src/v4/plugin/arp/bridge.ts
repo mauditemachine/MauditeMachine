@@ -34,17 +34,6 @@
  * MIDI LEARN (plugin/arp/midimap.ts) : le mode LEARN du site (midi/midi.ts learnToggle) fait choisir un potard d'un clic
  * (ui/Hotspots.tsx : il ne bouge pas), le pont l'arme chez le C++ (mm_learn) ; LEARN ou Echap l'eteint (mm_learn {id: ''}).
  * (pas de mm_note : la face du MM-ARP ne joue aucune note en direct, un pad ajoute ou retire un accord de la progression)
- *
- * SOUND+ (2026-11-10, plugin/arp/extra.ts : les 14 reglages du VST3 seul, plugin/mm-arp/extra-params.json) : les MEMES
- * evenements que les potards, a leurs ids (xQuality, xLfo2Rate...) : mm_param {id, v}, mm_gesture {id, on}, et mm_knobs
- * {values} dans l'autre sens (sans echo). mm_program porte extra: { [id]: v } (comme knobs : pour une instance neuve) ;
- * le preset du disque aussi (un preset sans extra remet leurs valeurs de depart, sauf xQuality qui reste). MIDI LEARN :
- * un clic sur un reglage SOUND+ l'arme (learnArm : mm_learn {id}).
- *
- * Le module avant (2026-11-11, plugin/arp/FrontModule.tsx) : ses potards sont des reglages de extra.ts comme ceux de
- * SOUND+ (memes evenements). Les pistes du STEP SEQUENCER (plugin/arp/steps.ts) partent dans mm_program sous
- * steps: { acc, slide, gate, rat, prob } (cinq tableaux de 16 entiers ; un changement relance le programme, comme la
- * suite), et dans le preset du disque (champ steps ; un preset sans steps remet les valeurs de depart).
  */
 
 import { pattern } from '../../audio/pattern';
@@ -61,9 +50,7 @@ import { seq, type SeqStep } from '../../voyager/seq';
 import { extHead } from '../head';
 import { STATE_PREFIX } from '../restore';
 import { arpDisk, DISK_FORMAT, type DiskItem } from './disk';
-import { arpExtra, EXTRA_IDS, isExtra } from './extra';
 import { arpMidi, type MidiMapItem } from './midimap';
-import { arpSteps } from './steps';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
 
@@ -80,14 +67,6 @@ export interface ArpProgram {
   prog: number[];
   /** tous les potards (0 a 1), pour la compatibilite : ils vivent dans les parametres du plugin (mm_param, mm_knobs) */
   knobs: Record<string, number>;
-  /** les reglages du VST3 seul (plugin/arp/extra.ts, 0 a 1), comme knobs : ils vivent dans les parametres du plugin */
-  extra: Record<string, number>;
-  /**
-   * les pistes du STEP SEQUENCER du module avant (plugin/arp/steps.ts), 16 pas chacune, un pas par position de la suite :
-   * acc 0 doux / 1 normal / 2 appuye, slide 0 / 1, gate 0 court / 1 normal / 2 long / 3 lie, rat 1 a 4 coups,
-   * prob 100 / 75 / 50 / 25 / 0 %
-   */
-  steps: { acc: number[]; slide: number[]; gate: number[]; rat: number[]; prob: number[] };
 }
 
 const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
@@ -102,8 +81,6 @@ function compile(): ArpProgram {
     seq: { edit: s.edit, len: s.len, buf: [...s.buf] },
     prog: [...arp.get().prog],
     knobs: { ...voyParams.get() },
-    extra: { ...arpExtra.get() },
-    steps: arpSteps.plain(),
   };
 }
 
@@ -212,14 +189,9 @@ const pending = new Map<string, number>();
 const gestures = new Map<string, number>();
 let pointerHeld = false;
 
-/** La valeur du moment d'un parametre : un potard du site, ou un reglage SOUND+. */
-const valueOf = (id: string): number | null => (isKnob(id) ? voyParams.of(id) : isExtra(id) ? arpExtra.of(id) : null);
-
-function sendParam(id: string): void {
-  const v = valueOf(id);
-  if (v === null) return;
+function sendParam(id: VoyKnobId): void {
   lastSent.set(id, performance.now());
-  send('mm_param', { id, v });
+  send('mm_param', { id, v: voyParams.of(id) });
 }
 
 function flushParam(id: string): void {
@@ -227,7 +199,7 @@ function flushParam(id: string): void {
   if (t === undefined) return;
   window.clearTimeout(t);
   pending.delete(id);
-  sendParam(id);
+  if (isKnob(id)) sendParam(id);
 }
 
 function endGesture(id: string): void {
@@ -244,14 +216,14 @@ function endAllGestures(): void {
   for (const id of [...gestures.keys()]) endGesture(id);
 }
 
-function touchGesture(id: string): void {
+function touchGesture(id: VoyKnobId): void {
   const t = gestures.get(id);
   if (t === undefined) send('mm_gesture', { id, on: true });
   else if (t) window.clearTimeout(t);
   gestures.set(id, pointerHeld ? 0 : window.setTimeout(() => endGesture(id), GESTURE_IDLE_MS));
 }
 
-function paramOut(id: string): void {
+function paramOut(id: VoyKnobId): void {
   touchGesture(id);
   if (pending.has(id)) return;
   const wait = PARAM_MS - (performance.now() - (lastSent.get(id) ?? -1e9));
@@ -276,16 +248,6 @@ function knobsChanged(): void {
   }
 }
 
-/** Les reglages SOUND+ (plugin/arp/extra.ts) : comme les potards. */
-function extraChanged(): void {
-  const v = arpExtra.get();
-  for (const id of EXTRA_IDS) {
-    if (v[id] === known[id]) continue;
-    known[id] = v[id];
-    if (!fromHost) paramOut(id);
-  }
-}
-
 /** mm_knobs : l'automation ou le MIDI d'Ableton (ou toutes les valeurs, au mm_ready). */
 function onKnobs(o: unknown): void {
   const values = o && typeof o === 'object' ? (o as { values?: unknown }).values : null;
@@ -293,21 +255,15 @@ function onKnobs(o: unknown): void {
   fromHost += 1;
   try {
     for (const [id, v] of Object.entries(values as Record<string, unknown>)) {
-      const knob = isKnob(id);
-      if ((!knob && !isExtra(id)) || typeof v !== 'number' || !Number.isFinite(v)) continue;
+      if (!isKnob(id) || typeof v !== 'number' || !Number.isFinite(v)) continue;
       // Une valeur de la face en attente ne doit pas ecraser celle d'Ableton
       const t = pending.get(id);
       if (t !== undefined) {
         window.clearTimeout(t);
         pending.delete(id);
       }
-      if (knob) {
-        voyParams.set(id, v);
-        known[id] = voyParams.of(id);
-      } else {
-        arpExtra.set(id, v);
-        known[id] = arpExtra.of(id);
-      }
+      voyParams.set(id, v);
+      known[id] = voyParams.of(id);
     }
   } finally {
     fromHost -= 1;
@@ -323,20 +279,7 @@ const str = (x: unknown): string => (typeof x === 'string' ? x : '');
 function diskPreset(name: string): string {
   const d = capture('voy') as { knobs: Record<string, number>; seq: unknown; prog: number[] };
   const user = presets.user();
-  return JSON.stringify({ format: DISK_FORMAT, v: 1, name, ...(user ? { user } : {}), at: Date.now(), knobs: d.knobs, seq: d.seq, prog: d.prog, extra: { ...arpExtra.get() }, steps: arpSteps.plain() });
-}
-
-/**
- * Les reglages SOUND+ d'un preset : ceux qu'il porte ; ceux qu'il ne porte pas (un preset du site, ou d'avant) reviennent
- * a leur valeur de depart (le son du site), sauf xQuality qui reste ou il est.
- */
-function applyExtra(raw: unknown): void {
-  const x = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  for (const id of EXTRA_IDS) {
-    const v = x[id];
-    if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);
-    else if (id !== 'xQuality') arpExtra.set(id, arpExtra.def(id));
-  }
+  return JSON.stringify({ format: DISK_FORMAT, v: 1, name, ...(user ? { user } : {}), at: Date.now(), knobs: d.knobs, seq: d.seq, prog: d.prog });
 }
 
 /**
@@ -365,9 +308,6 @@ function applyDiskPreset(name: string, text: string): boolean {
   presets.setAside('voy');
   undo.boundary('voy', 'preset');
   apply('voy', data);
-  applyExtra(d.extra);
-  // Les pistes du STEP SEQUENCER : celles du preset, sinon leurs valeurs de depart
-  arpSteps.load(d.steps);
   voyMsg.show(`LOADED ${(name || str(top.name) || 'PRESET').toUpperCase()}`, 1800);
   return true;
 }
@@ -462,15 +402,6 @@ function onLearnPick(): void {
   send('mm_learn', { id });
 }
 
-/** Un reglage SOUND+ clique en LEARN (SoundPlus.tsx) : arme chez le C++, comme un potard. false : le mode est eteint. */
-function learnArm(id: string): boolean {
-  // Un reglage du VST3 seul, ou un TWEAK du site dessine en HTML dans le panneau d'OPEN (2026-11-11, SoundPlus.tsx VKnob)
-  if (!arpMidi.get().learning || !(isExtra(id) || isKnob(id))) return false;
-  arpMidi.set({ armed: id });
-  send('mm_learn', { id });
-  return true;
-}
-
 /* ---------------- le pont ---------------- */
 
 let started = false;
@@ -487,7 +418,7 @@ function sendProgram(): void {
     const p = compile();
     json = JSON.stringify(p);
     // Les potards ne relancent pas le programme (ils passent par mm_param) : la cle les laisse de cote
-    key = JSON.stringify({ ...p, knobs: null, extra: null });
+    key = JSON.stringify({ ...p, knobs: null });
   } catch (err) {
     arpBridge.log('compile', String(err));
     return;
@@ -507,8 +438,6 @@ function sendState(): void {
     /* rien */
   }
   saveProg();
-  arpExtra.flush();
-  arpSteps.flush();
   send('mm_state', { ls: JSON.stringify({ v: 1, ls: snapshotLs() }) });
 }
 
@@ -533,7 +462,7 @@ export const arpBridge = {
     arpExternal.set({ run: (on) => send('mm_run', { on }) });
     loadProg();
     lastProg = JSON.stringify(arp.get().prog);
-    known = { ...voyParams.get(), ...arpExtra.get() };
+    known = { ...voyParams.get() };
     const be = backend();
     be?.addEventListener('mm_transport', onTransport);
     be?.addEventListener('mm_knobs', onKnobs);
@@ -557,11 +486,7 @@ export const arpBridge = {
     // Les potards : mm_param (et l'etat, pour la fenetre suivante) ; ils ne relancent plus le programme
     voyParams.subscribe(knobsChanged);
     voyParams.subscribe(stateChanged);
-    arpExtra.subscribe(extraChanged);
-    arpExtra.subscribe(stateChanged);
     seq.subscribe(changed);
-    // Les pistes du module avant : dans le programme, comme la suite
-    arpSteps.subscribe(changed);
     // La progression (running aussi passe par la : le programme identique ne repart pas)
     arp.subscribe(() => {
       const k = JSON.stringify(arp.get().prog);
@@ -613,18 +538,6 @@ export const arpBridge = {
     arpDisk.set({ current: path });
     send('mm_preset_load', { path });
   },
-  /**
-   * Un preset de la banque d'usine du VST3 (LIBRARY, Library.tsx ; plugin/mm-arp/presets/factory.json) : applique
-   * exactement comme un mm_preset venu du disque (potards, suite, progression, SOUND+ ; une etape d'UNDO, mm_param vers le
-   * C++), sauf QUALITY qui garde la valeur du moment.
-   */
-  factoryLoad(p: { name: string; knobs: unknown; seq: unknown; prog: unknown; extra?: unknown; steps?: unknown }): boolean {
-    const extra = p.extra && typeof p.extra === 'object' && !Array.isArray(p.extra) ? { ...(p.extra as Record<string, unknown>) } : {};
-    delete extra.xQuality;
-    const ok = applyDiskPreset(p.name, JSON.stringify({ name: p.name, knobs: p.knobs, seq: p.seq, prog: p.prog, extra, ...(p.steps ? { steps: p.steps } : {}) }));
-    if (ok) arpDisk.set({ current: null });
-    return ok;
-  },
   /** DRAG MIDI : le glisser natif du clip (le C++, depuis l'evenement souris en cours ; reponse mm_drag_status). */
   dragMidi(cycles: number): void {
     send('mm_drag_midi', { cycles });
@@ -635,8 +548,6 @@ export const arpBridge = {
   },
   /** MIDI LEARN : le mode (LEARN, Echap). */
   learnMode,
-  /** MIDI LEARN : un reglage SOUND+ arme (mm_learn {id}). */
-  learnArm,
   /** Une assignation de moins ; toutes (CLEAR ALL). La table revient par mm_midimap. */
   unmap(cc: number, ch: number): void {
     send('mm_unmap', { cc, ch });

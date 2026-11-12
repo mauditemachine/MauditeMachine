@@ -9,7 +9,6 @@
 
 #include "Arp.h"
 #include "ArpFx.h"
-#include "ExtraParams.h"
 #include "Params.h"
 #include "Voyager.h"
 
@@ -29,23 +28,13 @@ struct MMArpProgram {
     double swing = 0;
     mmarp::SeqStateC seq;
     std::array<int, 8> prog{};
-    // Les pistes du sequenceur par pas (16 pas ; defauts : la suite telle que le site la joue)
-    std::array<uint8_t, 16> stAcc{}, stSlide{}, stGate{}, stRat{}, stProb{};
-    MMArpProgram() {
-        stAcc.fill(1);
-        stSlide.fill(0);
-        stGate.fill(1);
-        stRat.fill(1);
-        stProb.fill(100);
-    }
     int nProg = 0;
     // les potards de la face (le premier programme d'une instance neuve ou d'un projet d'avant les parametres)
     bool hasKnobs = false;
     std::array<double, mmarp::kKnobs> knobs{};
-    std::array<double, mmx::kExtra> extra{};
 };
 
-class MMArpProcessor final : public juce::AudioProcessor, private juce::Timer {
+class MMArpProcessor final : public juce::AudioProcessor {
 public:
     MMArpProcessor();
     ~MMArpProcessor() override;
@@ -115,10 +104,6 @@ public:
     // Le clip a le dessus en ce moment (l'arpege interne se tait)
     bool clipActive() const { return clipActive_.load(); }
 
-    // La largeur de la fenetre choisie par Mika (gardee dans le projet)
-    int editorWidth() const { return editorW_.load(); }
-    void setEditorWidth(int w) { editorW_.store(w); }
-
     // Le dossier des presets sur le disque : ~/Music/Maudite Machine/MM-ARP Presets
     static juce::File presetDir();
 
@@ -148,11 +133,7 @@ private:
 
     // Les potards sur le thread audio : leurs valeurs, ce qui en est tire
     std::array<std::atomic<float>*, mmarp::kKnobs> knobRaw_{};
-    // les potards du site puis les reglages du VST3 seul (ExtraParams.h)
-    std::array<juce::RangedAudioParameter*, mmx::kAll> knobParams_{};
-    std::array<std::atomic<float>*, mmx::kExtra> exRaw_{};
-    std::array<float, mmx::kExtra> exLast_{};
-    std::array<double, mmx::kExtra> ex_{};
+    std::array<juce::RangedAudioParameter*, mmarp::kKnobs> knobParams_{};
     std::array<double, mmarp::kKnobs> knobs_{};
     std::array<float, mmarp::kKnobs> knobRawLast_{};
     std::array<mmarp::ParamKV, 96> kv_{};
@@ -161,16 +142,6 @@ private:
     mmarp::ArpFxSettings fxNow_;
     double dly16_ = 3;
     int bpmId_ = -1;
-    // QUALITY et la reverb du VST3 (ExtraParams.h)
-    std::array<int, 13> xId_{};
-    std::array<int, 22> mId_{};
-    void applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const;
-    int osAsked_ = 4;
-    static int osFor(double sr, double quality);
-    void timerCallback() override;
-    juce::SpinLock revLock_;
-    std::shared_ptr<const mmarp::ReverbIR> revWanted_, revPending_;
-    std::array<double, 4> revKey_{-1, -1, -1, -1};
     bool fresh_ = true;
     double lastBpm_ = 0;
 
@@ -180,7 +151,6 @@ private:
     std::shared_ptr<const MMArpProgram> retired_;
     std::shared_ptr<const MMArpProgram> current_;
     std::atomic<bool> knobsKnown_{false};
-    std::atomic<int> editorW_{1440};
 
     // Le transport
     std::atomic<bool> runInternal_{false};

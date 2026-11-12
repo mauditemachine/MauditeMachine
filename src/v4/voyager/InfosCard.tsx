@@ -30,8 +30,7 @@ import { useMedia } from '../hooks/useMedia';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { voyInfos } from '../state/voyInfos';
-import { MOBILE_QUERY, PLUGIN_ARP } from '../theme';
-import { uiScale } from '../plugin/arp/scale';
+import { MOBILE_QUERY } from '../theme';
 import { arp } from './arp';
 import { CHORDS } from './chords';
 import { voyDiagram, type VoyDiagram, type VoyInfoId } from './diagrams';
@@ -117,16 +116,12 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
     const el = ref.current;
     if (!el || sheet || !stage) return undefined;
     const i = stage.hit.ids().indexOf(hotspot);
-    let cw0 = el.offsetWidth;
-    let ch0 = el.offsetHeight;
+    let cw = el.offsetWidth;
+    let ch = el.offsetHeight;
     let last = '';
     const place = (): void => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // Le plugin MM-ARP (2026-11-11) : la carte a l'echelle de la fenetre (plugin/arp/scale.ts ; 1 au site)
-      const k = uiScale.get();
-      const cw = cw0 * k;
-      const ch = ch0 * k;
       let t = 'translate(-9999px, 0)';
       if (i >= 0) {
         const r = stage.hit.rects();
@@ -150,7 +145,7 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
               left = clamp(left, EDGE, vw - cw - EDGE);
             }
           }
-          t = `translate(${Math.round(left)}px, ${Math.round(top)}px)${k === 1 ? '' : ` scale(${k})`}`;
+          t = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
           el.dataset.side = side;
         }
       }
@@ -161,8 +156,8 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
     };
     place();
     const ro = new ResizeObserver(() => {
-      cw0 = el.offsetWidth;
-      ch0 = el.offsetHeight;
+      cw = el.offsetWidth;
+      ch = el.offsetHeight;
       place();
     });
     ro.observe(el);
@@ -285,9 +280,7 @@ const Chip: React.FC<{ stage: Stage | null; sheet: boolean }> = ({ stage, sheet 
       const b = stage.hit.machineBox('voy');
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // Le plugin MM-ARP : la pastille a l'echelle de la fenetre (1 au site)
-      const k = uiScale.get();
-      const t = (b ? `translate(${Math.round(clamp(b.x + 8, EDGE, vw - el.offsetWidth * k - EDGE))}px, ${Math.round(clamp(b.y - 44 * k, TOP_EDGE, vh - 44 * k))}px)` : `translate(${EDGE}px, ${TOP_EDGE}px)`) + (k === 1 ? '' : ` scale(${k})`);
+      const t = b ? `translate(${Math.round(clamp(b.x + 8, EDGE, vw - el.offsetWidth - EDGE))}px, ${Math.round(clamp(b.y - 44, TOP_EDGE, vh - 44))}px)` : `translate(${EDGE}px, ${TOP_EDGE}px)`;
       if (t !== last) {
         el.style.transform = t;
         last = t;
@@ -319,8 +312,7 @@ const Chip: React.FC<{ stage: Stage | null; sheet: boolean }> = ({ stage, sheet 
 export const VoyInfosCard: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const st = useSyncExternalStore(voyInfos.subscribe, voyInfos.get, voyInfos.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  // Le plugin MM-ARP : jamais la feuille du telephone, meme dans une fenetre etroite
-  const sheet = useMedia(MOBILE_QUERY) && !PLUGIN_ARP;
+  const sheet = useMedia(MOBILE_QUERY);
   const want = st.on && st.id && voyInfoIdOf(st.id) ? st.id : null;
   const [shown, setShown] = useState<string | null>(null);
   const shownRef = useRef<string | null>(null);

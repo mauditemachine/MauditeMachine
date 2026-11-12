@@ -37,7 +37,7 @@ private:
     int quietTicks_ = 0;
     bool ready_ = false;
     // La derniere valeur de chaque potard connue de la face (-1 : a envoyer)
-    std::array<float, mmx::kAll> sent_{};
+    std::array<float, mmarp::kKnobs> sent_{};
     std::unique_ptr<juce::FileChooser> chooser_;
     // DRAG MIDI et SAVE .MID (les boutons sont dans le capot de la face)
     int cycles_ = 1;

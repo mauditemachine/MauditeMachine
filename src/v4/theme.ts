@@ -1577,10 +1577,7 @@ export const ORBIT = {
    * cadrage de photo produit : la perspective se voit sans deformer.
    */
   // Le plugin : un champ etroit, de loin (la perspective ne se voit presque plus, la face reste plate)
-  // Le plugin MM-ARP (2026-11-10, Mika : "mets le bois DROIT sur les bords de l'ARP") : un champ d'un dixieme de degre, de
-  // tres loin (scene/renderer.ts updateCamera : near et far suivent la distance) ; la projection est alors orthographique a
-  // moins d'un quart de pixel pres : les joues (x constant) tombent en droites verticales, leurs flancs ne se voient plus
-  fovDeg: PLUGIN_ARP ? 0.1 : PLUGIN ? 10 : 30,
+  fovDeg: PLUGIN ? 10 : 30,
   /**
    * near 0.1 jusqu'au 2026-10-05 : de loin (l'intro, la vue d'ensemble), la
    * profondeur n'etait plus assez fine pour les serigraphies et les LED

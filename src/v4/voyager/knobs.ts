@@ -30,11 +30,9 @@ import {
   CylinderGeometry,
   DynamicDrawUsage,
   InstancedMesh,
-  LatheGeometry,
   Matrix4,
   MeshStandardMaterial,
   Quaternion,
-  Vector2,
   Vector3,
   type BufferGeometry,
   type Object3D,
@@ -43,9 +41,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
-import { LIT, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
+import { LIT, PORTRAIT, TEMPO_UI } from '../theme';
 import { VOY_FACE_KNOBS, type VoyKnobId } from './params';
-import { VOY_KNOB, VOY_PANEL, VOY_PLUGIN_KNOB, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
+import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -80,8 +78,6 @@ export function buildKnobGeometry(mobile: boolean): BufferGeometry {
   const skirt = new CylinderGeometry(K.skirt.rTop, K.skirt.r, K.skirt.h, seg);
   skirt.translate(0, K.skirt.h / 2, 0);
   // Capuchon cannele : le rayon module par les cannelures (un creux par cannelure)
-  // Le plugin MM-ARP (2026-11-12) : des cannelures un peu plus creuses, elles accrochent la lumiere
-  const fluteDepth = PLUGIN_ARP ? VOY_PLUGIN_KNOB.fluteDepth : K.fluteDepth;
   const cap = new CylinderGeometry(K.rTop, K.r, K.h, seg, 1);
   const p = cap.getAttribute('position');
   for (let i = 0; i < p.count; i += 1) {
@@ -90,60 +86,23 @@ export function buildKnobGeometry(mobile: boolean): BufferGeometry {
     const r = Math.hypot(x, z);
     if (r < 1e-4) continue;
     const a = Math.atan2(z, x);
-    const k = 1 - (fluteDepth / r) * Math.max(0, Math.cos(a * K.flutes)) ** 2;
+    const k = 1 - (K.fluteDepth / r) * Math.max(0, Math.cos(a * K.flutes)) ** 2;
     p.setX(i, x * k);
     p.setZ(i, z * k);
   }
   cap.computeVertexNormals();
   cap.translate(0, K.skirt.h + K.h / 2, 0);
-  // Le plugin MM-ARP (2026-11-12, Mika : "les knobs NOIRS, mais au moins en 3D") : le potard tout noir du site, un dessus
-  // BOMBE (un dome tourne, pose sur le capuchon : il prend la lumiere en degrade) et un index blanc net, du centre au
-  // bord, couche sur la pente du dome (VOY_PLUGIN_KNOB)
-  const PK = VOY_PLUGIN_KNOB;
-  const top = K.skirt.h + K.h;
-  let dome: BufferGeometry | null = null;
-  let mark: BufferGeometry;
-  if (PLUGIN_ARP) {
-    const D = PK.dome;
-    // Le profil, du bord au centre : un chanfrein, puis la calotte
-    const pts: Vector2[] = [new Vector2(K.rTop - fluteDepth, -0.004), new Vector2(D.r, 0.008)];
-    for (let i = 1; i <= 6; i += 1) {
-      const a = (i / 6) * (Math.PI / 2);
-      pts.push(new Vector2(D.r * Math.cos(a), 0.008 + (D.rise - 0.008) * Math.sin(a)));
-    }
-    const lathe = new LatheGeometry(pts, seg);
-    lathe.translate(0, top, 0);
-    dome = lathe;
-    // L'index suit la pente moyenne du dome entre ses deux bouts
-    const yAt = (r: number): number => 0.008 + (D.rise - 0.008) * Math.sin(Math.acos(Math.min(1, r / D.r)));
-    const len = PK.mark.r1 - PK.mark.r0;
-    const slope = Math.atan2(yAt(PK.mark.r0) - yAt(PK.mark.r1), len);
-    const box = new BoxGeometry(PK.mark.w, K.mark.h, len);
-    box.rotateX(-slope);
-    box.translate(0, top + (yAt(PK.mark.r0) + yAt(PK.mark.r1)) / 2 + K.mark.h / 2 + 0.002, -(PK.mark.r0 + PK.mark.r1) / 2);
-    mark = box;
-  } else {
-    mark = new BoxGeometry(K.mark.w, K.mark.h, K.mark.d);
-    mark.translate(0, top + K.mark.h / 2 - 0.002, -K.mark.d / 2 - 0.02);
-  }
-  const src = dome ? [skirt, cap, mark, dome] : [skirt, cap, mark];
-  const parts = src.map((g) => {
+  const mark = new BoxGeometry(K.mark.w, K.mark.h, K.mark.d);
+  mark.translate(0, K.skirt.h + K.h + K.mark.h / 2 - 0.002, -K.mark.d / 2 - 0.02);
+  const parts = [skirt, cap, mark].map((g) => {
     const out = g.toNonIndexed();
     g.dispose();
     out.deleteAttribute('uv');
     return out;
   });
-  // Le plugin MM-ARP : la jupe noire, comme le capuchon (l'aluminium du site ailleurs)
-  // et, sur le panneau noir du plugin, un noir un peu plus clair que le panneau : le potard s'en detache par sa lumiere
-  if (PLUGIN_ARP) {
-    paintSolid(parts[0], 'voyKnob', VOY_PLUGIN_KNOB.gain.skirt);
-    paintSolid(parts[1], 'voyKnob', VOY_PLUGIN_KNOB.gain.body);
-  } else {
-    paintSolid(parts[0], 'voySkirt');
-    paintSolid(parts[1], 'voyKnob');
-  }
+  paintSolid(parts[0], 'voySkirt');
+  paintSolid(parts[1], 'voyKnob');
   paintLinear(parts[2], LIT.mark);
-  if (parts[3]) paintSolid(parts[3], 'voyKnob', VOY_PLUGIN_KNOB.gain.top);
   const g = mergeGeometries(parts, false);
   for (const q of parts) q.dispose();
   if (!g) throw new Error('voyager: knobs merge failed');
@@ -157,7 +116,7 @@ export class VoyKnobs {
 
   constructor(opts: { mobile: boolean; castShadow: boolean }) {
     // Un peu de metal : la jupe d'aluminium accroche la lumiere, le capuchon reste mat
-    this.material = new MeshStandardMaterial({ vertexColors: true, roughness: PLUGIN_ARP ? 0.4 : 0.42, metalness: PLUGIN_ARP ? 0.22 : 0.28 });
+    this.material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.material.name = 'voyKnob';
     this.mesh = new InstancedMesh(buildKnobGeometry(opts.mobile), this.material, DIALS.length);
     this.mesh.name = 'voyKnobs';

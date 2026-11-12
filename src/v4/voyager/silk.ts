@@ -26,11 +26,10 @@
 
 import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
-import { APPEARANCE, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
+import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
 import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
-import { leatherTile } from './skin';
 import {
   VOY_BODY,
   VOY_BUTTONS,
@@ -46,7 +45,6 @@ import {
   VOY_OSC_BADGES,
   VOY_PAD,
   VOY_PANEL,
-  VOY_PLUGIN_SKIN,
   VOY_RULES,
   VOY_SECTIONS,
   VOY_SEL,
@@ -103,8 +101,7 @@ function knobTexts(where: VoySilkKind): Text[] {
     if (p.where !== where) continue;
     // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE) ; SUB OCT et SUB WAVE en entier,
     // partout depuis le 2026-10-11 (desktop : OCT et WAVE avant, la rangee du bas au pas de 0.62 ; elle est au pas de 0.9)
-    // Le plugin MM-ARP (2026-11-12, moins de signes) : la couronne d'un selecteur de forme dit ce qu'il est, sans nom dessous
-    const name = PLUGIN_ARP && isSelector(k.id) ? '' : (k.face ?? k.label);
+    const name = k.face ?? k.label;
     // Au telephone tenu droit (2026-10-05, Mika : "trop difficile a lire") : des noms plus gros, un corps par rangee
     if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: PORTRAIT ? 0.1 : 0.068, maxW: PORTRAIT ? 0.84 : 0.76, group: PORTRAIT ? `knob${Math.round(p.labelZ * 4)}` : 'knob' });
     // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP)
@@ -137,15 +134,8 @@ function groupTexts(where: VoySilkKind): Text[] {
 
 function panelTexts(): Text[] {
   const out: Text[] = [];
-  // Le plugin MM-ARP (2026-11-11, l'habillage) : l'en-tete est dans le bandeau HTML de la fenetre (plugin/arp/Header.tsx),
-  // les titres des sections sont graves sur leurs bandeaux de metal (VoySilk.skinBase)
-  if (PLUGIN_ARP) {
-    out.push(...knobTexts('panel'));
-    return out;
-  }
   out.push({ text: VOY_COPY.model, x: VOY_HEAD.model.x, z: VOY_HEAD.z, cap: VOY_HEAD.model.cap, align: 'left', weight: SILK.strongWeight });
-  // Le plugin MM-ARP (2026-11-11) : la version du build (firmware.ts ARP_BUILD), un peu plus forte pour se lire d'un coup d'oeil
-  if (VOY_HEAD.sub) out.push({ text: VOY_HEAD.sub.text, x: VOY_HEAD.sub.x, z: VOY_HEAD.z, cap: PLUGIN_ARP ? 0.072 : 0.065, align: 'right', alpha: PLUGIN_ARP ? 0.72 : 0.45 });
+  if (VOY_HEAD.sub) out.push({ text: VOY_HEAD.sub.text, x: VOY_HEAD.sub.x, z: VOY_HEAD.z, cap: 0.065, align: 'right', alpha: 0.45 });
   out.push({ text: 'MAUDITE MACHINE', x: VOY_HEAD.word.x, z: VOY_HEAD.z, cap: 0.18, align: 'left', weight: SILK.strongWeight, group: 'fallback' });
   for (const s of VOY_SECTIONS) out.push({ text: s.text, x: s.x, z: s.z, cap: 0.075 * K, weight: 700, alpha: 1 });
   out.push(...knobTexts('panel'), ...groupTexts('panel'));
@@ -156,9 +146,9 @@ function deckTexts(open: boolean): Text[] {
   const out: Text[] = [];
   CHORDS.forEach((c, i) => {
     const p = voyPadAt(i);
-    out.push({ text: c.label, x: p.x, z: p.z + VOY_PAD.labelDz, cap: (PLUGIN_ARP ? 0.086 : 0.1) * K, weight: 600, maxW: VOY_PAD.size, group: 'pads' });
+    out.push({ text: c.label, x: p.x, z: p.z + VOY_PAD.labelDz, cap: 0.1 * K, weight: 600, maxW: VOY_PAD.size, group: 'pads' });
   });
-  out.push(...knobTexts('deck'), ...(PLUGIN_ARP ? [] : groupTexts('deck')));
+  out.push(...knobTexts('deck'), ...groupTexts('deck'));
   for (const b of VOY_BUTTONS) {
     const label = b.id === 'open' && open ? 'CLOSE' : b.label;
     const nav = b.id === 'open' || b.id === 'preset';
@@ -219,11 +209,9 @@ export class VoySilk {
       polygonOffset: true,
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
-      // Le plugin MM-ARP : le plan porte tout le simili noir (skinBase) : mat, sans reflet du studio, pour un noir profond
-      roughness: PLUGIN_ARP ? 1 : 0.7,
+      roughness: 0.7,
       metalness: 0,
     });
-    if (PLUGIN_ARP) mat.envMapIntensity = 0;
     mat.name = 'voySilk';
     // Les noms orange luisent un peu, comme sur la 808
     mat.onBeforeCompile = (shader) => {
@@ -268,12 +256,10 @@ export class VoySilk {
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
     let items: Text[];
-    // Le plugin MM-ARP : le simili noir, les filets et les titres des sections d'abord (tout le reste s'imprime dessus)
-    if (PLUGIN_ARP) this.skinBase();
     // Filets entre les sections (desktop), crochets des groupes
     ctx.strokeStyle = silkA(SILK.lineAlpha);
     ctx.lineWidth = Math.max(1, SILK.lineWidth * PPU);
-    if (this.kind === 'panel' && !PLUGIN_ARP) {
+    if (this.kind === 'panel') {
       for (const l of VOY_RULES) {
         ctx.beginPath();
         ctx.moveTo(this.px(l[0]), this.py(l[1]));
@@ -282,12 +268,10 @@ export class VoySilk {
       }
     }
     this.brackets();
-    // Le plugin MM-ARP : des graduations fines autour de chaque potard, sans chiffre
-    if (PLUGIN_ARP) this.pluginTicks();
     // Graduations 0 a 10 autour des gros potards (CUTOFF, VOLUME), facon Moog
     ctx.strokeStyle = silkA(0.6);
     for (const k of VOY_FACE_KNOBS) {
-      if (!isBigKnob(k.id) || PLUGIN_ARP) continue;
+      if (!isBigKnob(k.id)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const r0 = VOY_KNOB.skirt.r * p.s + 0.05;
@@ -309,8 +293,7 @@ export class VoySilk {
     ctx.lineWidth = Math.max(1, 0.016 * PPU);
     for (const k of VOY_FACE_KNOBS) {
       const steps = k.steps;
-      // (le plugin MM-ARP : pluginTicks les a deja traces, comme ceux de tous les potards)
-      if (!isSwitch(k.id) || !steps || PLUGIN_ARP) continue;
+      if (!isSwitch(k.id) || !steps) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const r0 = VOY_KNOB.skirt.r * p.s + VOY_SWITCH.tick.r0;
@@ -326,12 +309,12 @@ export class VoySilk {
     // Plus d'arcs imprimes autour des potards (2026-10-04, Mika : "les contours des knobs, enleve ca") : seules les couronnes de WAVE 1 et WAVE 2 restent
     this.selectors();
     // Les rangees d'oscillateurs facon Mini V : echelles, numeros ; les LED des boutons poussoirs
-    if (!PLUGIN_ARP) this.oscScales();
+    this.oscScales();
     this.badges();
     this.leds();
     if (this.kind === 'panel') {
       // Wordmark a gauche, logotype a droite (comme la 808)
-      const img = PLUGIN_ARP ? undefined : logoImage('wordmark');
+      const img = logoImage('wordmark');
       items = panelTexts();
       if (img) {
         const ratio = img.naturalWidth / img.naturalHeight;
@@ -362,8 +345,7 @@ export class VoySilk {
       const w = trackedWidth(ctx, it.text, fontPx, weight);
       const cx = this.px(it.x);
       const x0 = it.align === 'right' ? cx - w : it.align === 'left' ? cx : cx - w / 2;
-      // Le plugin MM-ARP : l'encre un peu plus forte sur le panneau incline (moins eclaire que le plateau), pour un meme blanc
-      ctx.fillStyle = it.ink === 'orange' ? HEX.orange : silkA(PLUGIN_ARP ? VOY_PLUGIN_SKIN.gain.ink[this.kind] : (it.alpha ?? SILK.alpha));
+      ctx.fillStyle = it.ink === 'orange' ? HEX.orange : silkA(it.alpha ?? SILK.alpha);
       drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * PPU) / 2, fontPx, weight);
     });
     this.draws += 1;
@@ -442,61 +424,6 @@ export class VoySilk {
         this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * PPU, S.glyph.h * p.s * PPU, Math.max(1, S.glyph.stroke * p.s * PPU), color(alpha, on));
         ctx.globalAlpha = 1;
       });
-    }
-  }
-
-  /* ---------------- l'habillage du plugin MM-ARP (2026-11-11, epure le 2026-11-12) ---------------- */
-
-  /**
-   * Le fond de la face du plugin : le simili noir a grain fin sur tout le plan, puis les sections (VOY_PLUGIN_SKIN.titles) :
-   * le titre a gauche, en petites capitales espacees, gris clair, et un filet fin a sa suite. Aucun aplat clair, aucun cadre.
-   */
-  private skinBase(): void {
-    const ctx = this.ctx;
-    const S = VOY_PLUGIN_SKIN;
-    const pat = ctx.createPattern(leatherTile(S.gain.leather[this.kind], S.gain.tint, S.gain.relief), 'repeat');
-    if (pat) {
-      ctx.fillStyle = pat;
-      ctx.fillRect(0, 0, this.W, this.H);
-    }
-    const T = S.title;
-    const fontPx = (T.cap / SILK.capRatio) * PPU;
-    const h = Math.max(1, Math.round(T.ruleW * PPU));
-    for (const t of S.titles) {
-      if (t.where !== this.kind) continue;
-      const X0 = Math.round(this.px(t.x0));
-      const X1 = Math.round(this.px(t.x1));
-      const y = this.py(t.z);
-      ctx.fillStyle = silkA(T.alpha);
-      drawTracked(ctx, t.text, X0, y + (T.cap * PPU) / 2, fontPx, T.weight);
-      const xr = X0 + Math.round(trackedWidth(ctx, t.text, fontPx, T.weight) + T.gap * PPU);
-      ctx.fillStyle = silkA(T.rule);
-      ctx.fillRect(xr, Math.round(y - h / 2), X1 - xr, h);
-    }
-  }
-
-  /**
-   * Les graduations du plugin, autour de chaque potard de ce plan (sauf les selecteurs de forme, qui ont leur couronne) :
-   * des traits courts et gris, onze pour un potard continu, un par cran pour un potard a crans. Aucun chiffre : la valeur
-   * se lit dans l'afficheur du bandeau (plugin/arp/Header.tsx). MODE du filtre garde les noms de ses crans (knobTexts).
-   */
-  private pluginTicks(): void {
-    const ctx = this.ctx;
-    const T = VOY_PLUGIN_SKIN.tick;
-    ctx.strokeStyle = silkA(T.alpha);
-    ctx.lineWidth = Math.max(1, T.w * PPU);
-    for (const k of VOY_FACE_KNOBS) {
-      if (isPush(k.id) || isSelector(k.id)) continue;
-      const p = voyKnobPlace(k.id);
-      if (p.where !== this.kind) continue;
-      const r0 = VOY_KNOB.skirt.r * p.s + T.r0;
-      const n = k.steps?.length ?? 0;
-      if (n > 1) {
-        const throwDeg = knobThrowDeg(k.id, n);
-        for (let i = 0; i < n; i += 1) this.tick(p.x, p.z, stepDeg(i, n, throwDeg), r0, r0 + T.len);
-      } else {
-        for (let t = 0; t <= 10; t += 1) this.tick(p.x, p.z, 225 - 27 * t, r0, r0 + T.len);
-      }
     }
   }
 

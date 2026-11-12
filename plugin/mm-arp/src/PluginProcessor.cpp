@@ -63,26 +63,6 @@ bool parseProgram(const juce::String& json, MMArpProgram& p) {
     parseSeq(o.getProperty("seq", juce::var()), p.seq);
     parseProg(o.getProperty("prog", juce::var()), p);
     p.hasKnobs = parseKnobs(o.getProperty("knobs", juce::var()), p.knobs);
-    // Les pistes par pas (src/v4/plugin/arp/steps.ts)
-    {
-        const juce::var st = o.getProperty("steps", juce::var());
-        auto lane = [&](const char* key, std::array<uint8_t, 16>& dst, int lo, int hi) {
-            if (const auto* a = st.getProperty(key, juce::var()).getArray())
-                for (int i = 0; i < std::min(16, a->size()); ++i)
-                    if (isNum(a->getReference(i))) dst[static_cast<size_t>(i)] = static_cast<uint8_t>(juce::jlimit(lo, hi, static_cast<int>(a->getReference(i))));
-        };
-        lane("acc", p.stAcc, 0, 2);
-        lane("slide", p.stSlide, 0, 1);
-        lane("gate", p.stGate, 0, 3);
-        lane("rat", p.stRat, 1, 4);
-        lane("prob", p.stProb, 0, 100);
-    }
-    for (int e = 0; e < mmx::kExtra; ++e) p.extra[static_cast<size_t>(e)] = mmx::kExtraDefs[e].def;
-    if (auto* x = o.getProperty("extra", juce::var()).getDynamicObject())
-        for (const auto& kv : x->getProperties()) {
-            const int i = mmx::allIndex(kv.name.toString().toRawUTF8()) - mmarp::kKnobs;
-            if (i >= 0 && i < mmx::kExtra && isNum(kv.value)) p.extra[static_cast<size_t>(i)] = juce::jlimit(0.0, 1.0, static_cast<double>(kv.value));
-        }
     return true;
 }
 
@@ -91,8 +71,6 @@ struct VoySink final : mmarp::ArpSink {
     mmarp::Voyager& v;
     explicit VoySink(mmarp::Voyager& voy) : v(voy) {}
     void note(double t, int midi, double gate, double acc, double from) override { v.note(t, static_cast<double>(midi), gate, acc, from); }
-    // SLIDE du sequenceur : la note glisse depuis la precedente (glideSec), meme si GLIDE est a 0
-    void noteGlide(double t, int midi, double gate, double acc, double from, double glideSec) override { v.note(t, static_cast<double>(midi), gate, acc, from, glideSec); }
     void beat(double t, double b, double bpm, bool run) override { v.beat(t, b, bpm, run); }
     void cancel(double t) override { v.cancel(t); }
 };
@@ -119,19 +97,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMArpProcessor::makeLayout()
                         .withLabel("");
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, juce::String(d.label), juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
     }
-    // Les reglages du VST3 seul (SOUND+ : QUALITY, LFO, reverb, master)
-    for (int e = 0; e < mmx::kExtra; ++e) {
-        const auto& d = mmx::kExtraDefs[e];
-        auto attr = juce::AudioParameterFloatAttributes()
-                        .withStringFromValueFunction([e](float v, int) {
-                            char buf[64];
-                            mmx::exText(e, static_cast<double>(v), buf, static_cast<int>(sizeof(buf)));
-                            return juce::String(buf);
-                        })
-                        .withLabel("");
-        const juce::String name = juce::String(d.section).toUpperCase() + " " + d.label;
-        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, name, juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
-    }
     return layout;
 }
 
@@ -146,35 +111,15 @@ MMArpProcessor::MMArpProcessor()
         knobParams_[static_cast<size_t>(i)] = apvts.getParameter(mmarp::kKnobDefs[i].id);
         knobs_[static_cast<size_t>(i)] = mmarp::kKnobDefs[i].def;
     }
-    for (int e = 0; e < mmx::kExtra; ++e) {
-        exRaw_[static_cast<size_t>(e)] = apvts.getRawParameterValue(mmx::kExtraDefs[e].id);
-        knobParams_[static_cast<size_t>(mmarp::kKnobs + e)] = apvts.getParameter(mmx::kExtraDefs[e].id);
-        ex_[static_cast<size_t>(e)] = mmx::kExtraDefs[e].def;
-        exLast_[static_cast<size_t>(e)] = -1.f;
-    }
     seed_ = static_cast<uint32_t>(juce::Random::getSystemRandom().nextInt());
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
-    const char* xk[13] = {"xl1Dest", "xl1Amt", "l2Beats", "l2Shape", "l2Dest", "l2Amt", "xRing", "xFold", "xNoiseCol", "xUnison", "xHpf", "xComb", "xCombFb"};
-    for (size_t i = 0; i < 13; ++i) xId_[i] = mmarp::Voyager::paramIndex(xk[i]);
-    // La matrice (6 lignes : source, destination, quantite), puis pbRange, voiceMode, xFeedback, ampMode
-    for (int l = 0; l < 6; ++l) {
-        const std::string n = std::to_string(l + 1);
-        mId_[static_cast<size_t>(l * 3)] = mmarp::Voyager::paramIndex("m" + n + "Src");
-        mId_[static_cast<size_t>(l * 3 + 1)] = mmarp::Voyager::paramIndex("m" + n + "Dst");
-        mId_[static_cast<size_t>(l * 3 + 2)] = mmarp::Voyager::paramIndex("m" + n + "Amt");
-    }
-    mId_[18] = mmarp::Voyager::paramIndex("pbRange");
-    mId_[19] = mmarp::Voyager::paramIndex("voiceMode");
-    mId_[20] = mmarp::Voyager::paramIndex("xFeedback");
-    mId_[21] = mmarp::Voyager::paramIndex("ampMode");
-    startTimerHz(15);
     mmarp::reserveArp(arpBuf_[0]);
     mmarp::reserveArp(arpBuf_[1]);
     // Le programme de depart : sans accord, la suite AUTO
     publish(std::make_shared<MMArpProgram>());
 }
 
-MMArpProcessor::~MMArpProcessor() { stopTimer(); }
+MMArpProcessor::~MMArpProcessor() = default;
 
 void MMArpProcessor::publish(std::shared_ptr<const MMArpProgram> p) {
     progBpm_.store(p->bpm);
@@ -201,11 +146,7 @@ void MMArpProcessor::faceProgram(const juce::String& json) {
     auto p = std::make_shared<MMArpProgram>();
     if (!parseProgram(json, *p)) return;
     // Une instance neuve (ou un projet d'avant les parametres) : les potards de la face deviennent ceux du plugin
-    if (p->hasKnobs && !knobsKnown_.load()) {
-        for (int e = 0; e < mmx::kExtra; ++e)
-            if (auto* prm = knobParams_[static_cast<size_t>(mmarp::kKnobs + e)]) prm->setValueNotifyingHost(static_cast<float>(p->extra[static_cast<size_t>(e)]));
-        setKnobsFrom(p->knobs);
-    }
+    if (p->hasKnobs && !knobsKnown_.load()) setKnobsFrom(p->knobs);
     {
         std::lock_guard<std::mutex> lk(mx_);
         programJson_ = json;
@@ -214,14 +155,14 @@ void MMArpProcessor::faceProgram(const juce::String& json) {
 }
 
 void MMArpProcessor::faceParam(const juce::String& id, double v) {
-    const int i = mmx::allIndex(id.toRawUTF8());
+    const int i = mmarp::knobIndex(id.toRawUTF8());
     if (i < 0 || !std::isfinite(v)) return;
     if (auto* prm = knobParams_[static_cast<size_t>(i)]) prm->setValueNotifyingHost(static_cast<float>(juce::jlimit(0.0, 1.0, v)));
     knobsKnown_.store(true);
 }
 
 void MMArpProcessor::faceGesture(const juce::String& id, bool on) {
-    const int i = mmx::allIndex(id.toRawUTF8());
+    const int i = mmarp::knobIndex(id.toRawUTF8());
     if (i < 0) return;
     if (auto* prm = knobParams_[static_cast<size_t>(i)]) {
         if (on) prm->beginChangeGesture();
@@ -276,7 +217,6 @@ juce::MidiFile MMArpProcessor::arpMidi(int cycles, int& bars) const {
     mmarp::reserveArp(ap);
     mmarp::arpProgram(k.data(), p->seq, p->prog.data(), p->nProg, ap);
     ap.swing = p->swing;
-    applySteps(*p, ap, knobParams_[static_cast<size_t>(mmarp::kKnobs + mmx::ex_xSwing)] ? static_cast<double>(knobParams_[static_cast<size_t>(mmarp::kKnobs + mmx::ex_xSwing)]->getValue()) : 0.0);
     // La progression entiere (une mesure par accord), repetee cycles fois, depuis la mesure 1 : les memes notes que la
     // lecture d'Ableton depuis le debut du morceau (meme graine)
     bars = p->nProg * std::max(1, cycles);
@@ -324,35 +264,6 @@ juce::File MMArpProcessor::arpMidiFile(int cycles) const {
     return f;
 }
 
-/* ---------------- QUALITY, la reverb du VST3 ---------------- */
-
-int MMArpProcessor::osFor(double sr, double quality) {
-    const bool hq = quality >= 0.5;
-    return sr > 60000 ? (hq ? 4 : 2) : (hq ? 8 : 4);
-}
-
-// Thread du message (il tourne fenetre fermee) : SIZE, TONE ou PRE DELAY ont bouge, une nouvelle reponse se calcule
-// ici et part vers le thread audio ; les anciennes sont liberees ici aussi
-void MMArpProcessor::timerCallback() {
-    while (fx_.takeRetiredReverb()) {}
-    const double sr = sr_;
-    if (sr <= 0) return;
-    const std::array<double, 4> key{static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
-                                    static_cast<double>(exRaw_[mmx::ex_xRevPre]->load()), sr};
-    bool same = true;
-    for (size_t i = 0; i < 4; ++i) same = same && std::fabs(key[i] - revKey_[i]) < 1e-9;
-    if (same) return;
-    auto ir = mmarp::ArpFx::makeReverb(sr, key[0], key[1], key[2]);
-    std::shared_ptr<const mmarp::ReverbIR> old;
-    {
-        const juce::SpinLock::ScopedLockType sl(revLock_);
-        old = std::move(revWanted_);
-        revWanted_ = ir;
-        revPending_ = std::move(ir);
-        revKey_ = key;
-    }
-}
-
 /* ---------------- MIDI LEARN ---------------- */
 
 void MMArpProcessor::onCC(int ch, int cc, int value) {
@@ -368,12 +279,12 @@ void MMArpProcessor::onCC(int ch, int cc, int value) {
         mapChanged_.store(true);
     }
     const int i = ccMap_[k].load();
-    if (i >= 0 && i < mmx::kAll)
+    if (i >= 0 && i < mmarp::kKnobs)
         if (auto* prm = knobParams_[static_cast<size_t>(i)]) prm->setValueNotifyingHost(static_cast<float>(value) / 127.f);
 }
 
 void MMArpProcessor::learn(const juce::String& id) {
-    learn_.store(id.isEmpty() ? -1 : mmx::allIndex(id.toRawUTF8()));
+    learn_.store(id.isEmpty() ? -1 : mmarp::knobIndex(id.toRawUTF8()));
     mapChanged_.store(true);
 }
 
@@ -391,17 +302,17 @@ juce::var MMArpProcessor::midiMap() const {
     juce::Array<juce::var> items;
     for (int k = 0; k < 16 * 128; ++k) {
         const int i = ccMap_[static_cast<size_t>(k)].load();
-        if (i < 0 || i >= mmx::kAll) continue;
+        if (i < 0 || i >= mmarp::kKnobs) continue;
         auto* e = new juce::DynamicObject();
         e->setProperty("cc", k % 128);
         e->setProperty("ch", k / 128 + 1);
-        e->setProperty("id", juce::String(mmx::allId(i)));
+        e->setProperty("id", juce::String(mmarp::kKnobDefs[i].id));
         items.add(juce::var(e));
     }
     auto* o = new juce::DynamicObject();
     o->setProperty("items", items);
     const int l = learn_.load();
-    o->setProperty("learn", l >= 0 && l < mmx::kAll ? juce::String(mmx::allId(l)) : juce::String());
+    o->setProperty("learn", l >= 0 && l < mmarp::kKnobs ? juce::String(mmarp::kKnobDefs[l].id) : juce::String());
     return juce::var(o);
 }
 
@@ -429,18 +340,17 @@ void MMArpProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMARP1");
     state.setProperty("v", 2, nullptr);
     state.setProperty("seed", static_cast<juce::int64>(seed_), nullptr);
-    state.setProperty("editorW2", editorW_.load(), nullptr);
     // Les parametres (les potards, Master, Arpeggiator)
     state.appendChild(apvts.copyState(), nullptr);
     // MIDI LEARN : les CC assignes
     juce::ValueTree mm("MIDIMAP");
     for (int k = 0; k < 16 * 128; ++k) {
         const int i = ccMap_[static_cast<size_t>(k)].load();
-        if (i < 0 || i >= mmx::kAll) continue;
+        if (i < 0 || i >= mmarp::kKnobs) continue;
         juce::ValueTree e("CC");
         e.setProperty("ch", k / 128, nullptr);
         e.setProperty("cc", k % 128, nullptr);
-        e.setProperty("id", juce::String(mmx::allId(i)), nullptr);
+        e.setProperty("id", juce::String(mmarp::kKnobDefs[i].id), nullptr);
         mm.appendChild(e, nullptr);
     }
     state.appendChild(mm, nullptr);
@@ -458,11 +368,6 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     const auto state = juce::ValueTree::fromXml(*xml);
     // La graine du projet : le hasard du moteur et de l'arpege (RAND, DRIFT) rejoue pareil a chaque ouverture et a l'export
     if (state.hasProperty("seed")) seed_ = static_cast<uint32_t>(static_cast<juce::int64>(state.getProperty("seed")));
-    // (un projet d'avant le format large gardait 1100 : il rouvre a la taille par defaut)
-    {
-        const int w = static_cast<int>(state.getProperty("editorW2", 1440));
-        editorW_.store(juce::jlimit(1100, 2560, w));
-    }
     const juce::String ls = state.getProperty("ls", "").toString();
     {
         std::lock_guard<std::mutex> lk(mx_);
@@ -473,7 +378,7 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     for (int j = 0; j < mm.getNumChildren(); ++j) {
         const auto e = mm.getChild(j);
         const int ch = static_cast<int>(e.getProperty("ch", -1)), cc = static_cast<int>(e.getProperty("cc", -1));
-        const int i = mmx::allIndex(e.getProperty("id", "").toString().toRawUTF8());
+        const int i = mmarp::knobIndex(e.getProperty("id", "").toString().toRawUTF8());
         if (ch >= 0 && ch < 16 && cc >= 0 && cc < 128 && i >= 0) ccMap_[static_cast<size_t>(ch * 128 + cc)].store(i);
     }
     mapChanged_.store(true);
@@ -499,18 +404,6 @@ bool MMArpProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo() && layouts.inputBuses.isEmpty();
 }
 
-// Les pistes du sequenceur par pas et le swing propre de l'arpege, poses apres arpProgram()
-void MMArpProcessor::applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const {
-    for (size_t i = 0; i < 16; ++i) {
-        out.stepAcc[i] = p.stAcc[i];
-        out.stepSlide[i] = p.stSlide[i];
-        out.stepGate[i] = p.stGate[i];
-        out.stepRat[i] = p.stRat[i];
-        out.stepProb[i] = p.stProb[i];
-    }
-    out.swingOwn = swingOwn;
-}
-
 // Les potards ou le programme ont change : le moteur, la chaine et l'arpege en sont tires (thread audio, sans allocation)
 void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
     const MMArpProgram& p = *current_;
@@ -518,85 +411,15 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         // Un message 'params' du site : tous les reglages du moteur, et le tempo
         int n = mmarp::engineParams(knobs_.data(), kv_.data(), static_cast<int>(kv_.size()) - 1);
         kv_[static_cast<size_t>(n++)] = {bpmId_, bpm};
-        // Le VST3 seul : la seconde destination du LFO 1, le LFO 2
-        kv_[static_cast<size_t>(n++)] = {xId_[0], static_cast<double>(mmx::exStep(mmx::ex_xLfo1Dest2, ex_[mmx::ex_xLfo1Dest2]))};
-        kv_[static_cast<size_t>(n++)] = {xId_[1], ex_[mmx::ex_xLfo1Depth2]};
-        kv_[static_cast<size_t>(n++)] = {xId_[2], mmx::kExBeats_xLfo2Rate[mmx::exStep(mmx::ex_xLfo2Rate, ex_[mmx::ex_xLfo2Rate])]};
-        kv_[static_cast<size_t>(n++)] = {xId_[3], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Shape, ex_[mmx::ex_xLfo2Shape]))};
-        kv_[static_cast<size_t>(n++)] = {xId_[4], static_cast<double>(mmx::exStep(mmx::ex_xLfo2Dest, ex_[mmx::ex_xLfo2Dest]))};
-        kv_[static_cast<size_t>(n++)] = {xId_[5], ex_[mmx::ex_xLfo2Depth]};
-        // OSC / FILTER + du module avant
-        {
-            const double hp = ex_[mmx::ex_xHpf];
-            static const double kUni[3] = {0, 5, 7};
-            kv_[static_cast<size_t>(n++)] = {xId_[6], ex_[mmx::ex_xRing]};
-            kv_[static_cast<size_t>(n++)] = {xId_[7], ex_[mmx::ex_xFold]};
-            kv_[static_cast<size_t>(n++)] = {xId_[8], ex_[mmx::ex_xNoiseColor]};
-            kv_[static_cast<size_t>(n++)] = {xId_[9], kUni[mmx::exStep(mmx::ex_xUnison, ex_[mmx::ex_xUnison])]};
-            kv_[static_cast<size_t>(n++)] = {xId_[10], hp > 0 ? 20.0 * std::pow(100.0, hp) : 0.0};
-            kv_[static_cast<size_t>(n++)] = {xId_[11], ex_[mmx::ex_xComb]};
-            kv_[static_cast<size_t>(n++)] = {xId_[12], 2 * ex_[mmx::ex_xCombFb] - 1};
-        }
-        // La matrice de modulation, les modes de voix, FEEDBACK, AMP MODE
-        {
-            for (int l = 0; l < 6; ++l) {
-                const int e = mmx::ex_xM1Src + l * 3;
-                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3)], static_cast<double>(mmx::exStep(e, ex_[static_cast<size_t>(e)]))};
-                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 1)], static_cast<double>(mmx::exStep(e + 1, ex_[static_cast<size_t>(e + 1)]))};
-                kv_[static_cast<size_t>(n++)] = {mId_[static_cast<size_t>(l * 3 + 2)], 2 * ex_[static_cast<size_t>(e + 2)] - 1};
-            }
-            static const double kPb[7] = {1, 2, 3, 5, 7, 12, 24};
-            kv_[static_cast<size_t>(n++)] = {mId_[18], kPb[mmx::exStep(mmx::ex_xPbRange, ex_[mmx::ex_xPbRange])]};
-            kv_[static_cast<size_t>(n++)] = {mId_[19], static_cast<double>(mmx::exStep(mmx::ex_xVoiceMode, ex_[mmx::ex_xVoiceMode]))};
-            kv_[static_cast<size_t>(n++)] = {mId_[20], ex_[mmx::ex_xFeedback]};
-            kv_[static_cast<size_t>(n++)] = {mId_[21], static_cast<double>(mmx::exStep(mmx::ex_xAmpMode, ex_[mmx::ex_xAmpMode]))};
-        }
         voy_->params(kv_.data(), n);
         mmarp::ArpFxSettings fx;
         double dly16 = 3;
         mmarp::fxSettings(knobs_.data(), fx, dly16);
-        // Le master du VST3 (la reverb SIZE / TONE / PRE passe par makeReverb, hors du thread audio : timerCallback)
-        fx.warmth = ex_[mmx::ex_xWarmth];
-        fx.bass = ex_[mmx::ex_xBass];
-        fx.air = ex_[mmx::ex_xAir];
-        fx.width = ex_[mmx::ex_xWidth];
-        fx.revSize = ex_[mmx::ex_xRevSize];
-        fx.revTone = ex_[mmx::ex_xRevTone];
-        fx.revPre = ex_[mmx::ex_xRevPre];
-        // FX RACK du module avant
-        fx.phMix = ex_[mmx::ex_xPhMix];
-        fx.phRate = ex_[mmx::ex_xPhRate];
-        fx.phDepth = ex_[mmx::ex_xPhDepth];
-        fx.phFb = ex_[mmx::ex_xPhFb];
-        fx.flMix = ex_[mmx::ex_xFlMix];
-        fx.flRate = ex_[mmx::ex_xFlRate];
-        fx.flDepth = ex_[mmx::ex_xFlDepth];
-        fx.flFb = 2 * ex_[mmx::ex_xFlFb] - 1;
-        fx.pumpDepth = ex_[mmx::ex_xPumpDepth];
-        fx.pumpRate = mmx::exStep(mmx::ex_xPumpRate, ex_[mmx::ex_xPumpRate]);
-        fx.pumpShape = ex_[mmx::ex_xPumpShape];
-        fx.crushBits = ex_[mmx::ex_xCrushBits];
-        fx.crushRate = ex_[mmx::ex_xCrushRate];
-        fx.dlyMode = mmx::exStep(mmx::ex_xDlyMode, ex_[mmx::ex_xDlyMode]);
-        fx.shimmer = ex_[mmx::ex_xShimmer];
-        fx.dist = ex_[mmx::ex_xDist];
-        fx.distTone = ex_[mmx::ex_xDistTone];
-        fx.eqLow = ex_[mmx::ex_xEqLow];
-        fx.eqMid = ex_[mmx::ex_xEqMid];
-        fx.eqHigh = ex_[mmx::ex_xEqHigh];
-        fx.eqAir = ex_[mmx::ex_xEqAir];
         // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
         fx.delaySeconds = std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
         auto eq = [](double a, double b) { return !(a < b || a > b); };
         const bool same = !fresh_ && fx.chorus == fxNow_.chorus && eq(fx.delay, fxNow_.delay) && eq(fx.reverb, fxNow_.reverb) && eq(fx.tape, fxNow_.tape) &&
-                          eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume) &&
-                          eq(fx.warmth, fxNow_.warmth) && eq(fx.bass, fxNow_.bass) && eq(fx.air, fxNow_.air) && eq(fx.width, fxNow_.width) &&
-                          eq(fx.phMix, fxNow_.phMix) && eq(fx.phRate, fxNow_.phRate) && eq(fx.phDepth, fxNow_.phDepth) && eq(fx.phFb, fxNow_.phFb) &&
-                          eq(fx.flMix, fxNow_.flMix) && eq(fx.flRate, fxNow_.flRate) && eq(fx.flDepth, fxNow_.flDepth) && eq(fx.flFb, fxNow_.flFb) &&
-                          eq(fx.pumpDepth, fxNow_.pumpDepth) && fx.pumpRate == fxNow_.pumpRate && eq(fx.pumpShape, fxNow_.pumpShape) &&
-                          eq(fx.crushBits, fxNow_.crushBits) && eq(fx.crushRate, fxNow_.crushRate) && fx.dlyMode == fxNow_.dlyMode && eq(fx.shimmer, fxNow_.shimmer) &&
-                          eq(fx.dist, fxNow_.dist) && eq(fx.distTone, fxNow_.distTone) && eq(fx.eqLow, fxNow_.eqLow) && eq(fx.eqMid, fxNow_.eqMid) &&
-                          eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir);
+                          eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume);
         if (!same) fx_.set(fx, fresh_);
         fxNow_ = fx;
         dly16_ = dly16;
@@ -606,7 +429,6 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
     const int next = 1 - arpCur_;
     mmarp::arpProgram(knobs_.data(), p.seq, p.prog.data(), p.nProg, arpBuf_[next]);
     arpBuf_[next].swing = p.swing;
-    applySteps(p, arpBuf_[next], ex_[mmx::ex_xSwing]);
     arp_.setProgram(&arpBuf_[next]);
     arpCur_ = next;
     juce::ignoreUnused(progChanged);
@@ -618,22 +440,10 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     frame_ = 0;
     mmarp::VoyagerOptions o;
     o.sampleRate = sampleRate;
-    o.os = osFor(sampleRate, static_cast<double>(exRaw_[mmx::ex_xQuality]->load()));
-    osAsked_ = o.os;
+    o.os = sampleRate > 60000 ? 2 : 4;
     o.seed = seed_ == 0 ? 808u : seed_;
     voy_ = std::make_unique<mmarp::Voyager>(o);
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
-    // La reverb des reglages du projet, tout de suite (rien ne joue encore) ; ensuite le timer suit SIZE, TONE, PRE DELAY
-    {
-        const double rs = static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), rt = static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
-                     rp = static_cast<double>(exRaw_[mmx::ex_xRevPre]->load());
-        const juce::SpinLock::ScopedLockType sl(revLock_);
-        revWanted_ = mmarp::ArpFx::makeReverb(sampleRate, rs, rt, rp);
-        revPending_.reset();
-        fx_.setReverb(revWanted_);
-        revKey_ = {rs, rt, rp, sampleRate};
-    }
-    while (fx_.takeRetiredReverb()) {}
     arp_.prepare(sampleRate);
     arp_.setProgram(nullptr);
     dryL_.assign(static_cast<size_t>(std::max(samplesPerBlock, kChunk)), 0.f);
@@ -649,7 +459,6 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     lastBpm_ = 0;
     // tous les potards relus au premier bloc
     for (auto& k : knobRawLast_) k = -1.f;
-    for (auto& k : exLast_) k = -1.f;
     wasPlaying_ = false;
     held_.fill(false);
     lastLiveMidi_ = -1;
@@ -660,7 +469,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
         if (!pending_ && current_) pending_ = current_;
         current_.reset();
     }
-    setLatencySamples(voy_->latencySamples() + fx_.latencySamples());
+    setLatencySamples(kChunk + voy_->latencySamples() + fx_.latencySamples());
 }
 
 void MMArpProcessor::fifoReserve(size_t cap) {
@@ -733,27 +542,6 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
             knobsChanged = true;
         }
     }
-    for (size_t e = 0; e < ex_.size(); ++e) {
-        const float r = exRaw_[e]->load();
-        if (r < exLast_[e] || r > exLast_[e]) {
-            exLast_[e] = r;
-            ex_[e] = static_cast<double>(r);
-            knobsChanged = true;
-        }
-    }
-    // QUALITY : x8 en HQ (x4 au-dela de 60 kHz), le taux du site en STD ; le moteur change sans allocation (setOs)
-    {
-        const int os = osFor(sr, ex_[mmx::ex_xQuality]);
-        if (os != osAsked_) {
-            voy_->setOs(os);
-            osAsked_ = os;
-        }
-    }
-    // Une nouvelle reponse de reverb (SIZE, TONE, PRE DELAY), calculee par le thread du message
-    if (revLock_.tryEnter()) {
-        if (revPending_ && fx_.setReverb(revPending_)) revPending_.reset();
-        revLock_.exit();
-    }
     if (current_ && (progChanged || knobsChanged || fresh_)) update(bpm, knobsChanged, progChanged);
     // Le tempo change : le LFO libre et le DELAY le suivent
     if (current_ && std::fabs(bpm - lastBpm_) > 1e-9) {
@@ -773,12 +561,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     for (const auto meta : midi) {
         const auto msg = meta.getMessage();
         if (msg.isNoteOn()) noteIn = true;
-        else if (msg.isController()) {
-            onCC(msg.getChannel() - 1, msg.getControllerNumber(), msg.getControllerValue());
-            // la molette de modulation (CC 1) : une source de la matrice
-            if (msg.getControllerNumber() == 1) voy_->modWheel(msg.getControllerValue() / 127.0);
-        } else if (msg.isPitchWheel()) voy_->pitchBend((msg.getPitchWheelValue() - 8192) / 8192.0);
-        else if (msg.isChannelPressure()) voy_->aftertouch(msg.getChannelPressureValue() / 127.0);
+        else if (msg.isController()) onCC(msg.getChannel() - 1, msg.getControllerNumber(), msg.getControllerValue());
     }
     if (noteIn) lastNoteFrame_ = f0;
     // Le clip a le dessus : des notes tenues, ou arrivees il y a moins d'une mesure, et l'arpege interne se tait
@@ -800,7 +583,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         if (msg.isNoteOn()) {
             const int m = msg.getNoteNumber();
             const double from = lastLiveMidi_ >= 0 ? static_cast<double>(lastLiveMidi_) : std::numeric_limits<double>::quiet_NaN();
-            voy_->note(at(pos), m, std::numeric_limits<double>::infinity(), accentOf(msg.getFloatVelocity()), from, 0.0, static_cast<double>(msg.getFloatVelocity()));
+            voy_->note(at(pos), m, std::numeric_limits<double>::infinity(), accentOf(msg.getFloatVelocity()), from);
             held_[static_cast<size_t>(m)] = true;
             lastLiveMidi_ = m;
         } else if (msg.isNoteOff()) {
@@ -825,12 +608,25 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         dryL_.resize(static_cast<size_t>(n));
         dryR_.resize(static_cast<size_t>(n));
     }
-    // Faible latence (2026-11-11, Mika : "le top du top a faible latence") : le moteur rend directement le bloc de
-    // l'hote, par morceaux de 128 au plus (plus de file de 128 echantillons : il ne reste que le retard des decimateurs,
-    // 0.4 ms). Les morceaux ne tombent plus toujours sur la grille de 128 du site : ecart mesure 0.1 dB au plus.
-    for (int i = 0; i < n; i += kChunk) voy_->process(dryL_.data() + i, dryR_.data() + i, std::min(kChunk, n - i));
-    // PUMP suit la position du morceau
-    fx_.setTransport(ppq, pps, playing);
+    fifoReserve(static_cast<size_t>(n) + 2 * kChunk + fifoSize_);
+    const size_t cap = fifoL_.size();
+    float bl[kChunk], br[kChunk];
+    while (engFrames_ + kChunk <= f0 + n) {
+        voy_->process(bl, br, kChunk);
+        for (int i = 0; i < kChunk; ++i) {
+            const size_t j = (fifoHead_ + fifoSize_ + static_cast<size_t>(i)) % cap;
+            fifoL_[j] = bl[i];
+            fifoR_[j] = br[i];
+        }
+        fifoSize_ += kChunk;
+        engFrames_ += kChunk;
+    }
+    for (int i = 0; i < n; ++i) {
+        dryL_[static_cast<size_t>(i)] = fifoL_[fifoHead_];
+        dryR_[static_cast<size_t>(i)] = fifoR_[fifoHead_];
+        fifoHead_ = (fifoHead_ + 1) % cap;
+    }
+    fifoSize_ -= static_cast<size_t>(n);
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;

@@ -1,6 +1,6 @@
 # MM-ARP, le plugin
 
-Le synthe arpegiateur du site (`src/v4`, le MM-ARP) en VST3 pour macOS, avec la vraie face du site et SOUND+. Usage perso. Meme
+Le synthe arpegiateur du site (`src/v4`, le MM-ARP) en VST3 pour macOS, avec la vraie face du site. Usage perso. Meme
 architecture que `plugin/mm-rytm`.
 
 ## Architecture (2026-11-09)
@@ -8,33 +8,7 @@ architecture que `plugin/mm-rytm`.
 - **La face** : la machine du site elle-meme (scene three.js, potards, pads d'accords, ecran, suite EDIT), seule, vue de
   dessus, dans une WebView JUCE. Mode `PLUGIN_ARP` (`window.__MM_PLUGIN__ = 'arp'`, `src/v4/theme/base.ts`), entree
   `src/v4/plugin/arp/`, page `plugin/mm-arp/web/index.html`, build `npm run plugin:arp:web` vers `plugin/mm-arp/build-web`
-  (zip embarque dans le VST3).
-  **Le format large (2026-11-11)** : la fenetre fait **1440 x 810 par defaut, proportion 16 / 9 (1.7778)**, a garder par le
-  C++ (`PluginEditor` : kW 1440, kH 810, `setFixedAspectRatio (16.0 / 9.0)`) ; elle se redimensionne a proportions fixes
-  (la scene 3D se recadre, les couches HTML suivent a l'echelle largeur / 1440 : `src/v4/plugin/arp/scale.ts`, qui porte
-  aussi le plan de la fenetre). Un seul instrument entre deux joues de noyer :
-  - le bandeau du haut (`Header.tsx`) : le logotype, l'afficheur (le preset d'usine et ses fleches, le reglage touche,
-    MIDI LEARN), la version du build (« VST3 · BUILD 11 NOV 14:32 · a1b2c3d », aussi dans `build-web/version.txt`) et la
-    touche OPEN / CLOSE ;
-  - la machine 3D a gauche, a l'echelle de sa fenetre d'avant (rognee de ses joues et de son en-tete) ;
-  - le rack a droite (`FrontModule.tsx` : OSC +, FILTER +, PHASER, FLANGER, PUMP, CRUSH, SPACE : les 22 reglages `osc`,
-    `filter`, `phaser`, `flanger`, `pump`, `crush`, `space` de `extra-params.json`) ;
-  - le STEP SEQUENCER sous la machine (16 pas ; ACCENT, SLIDE, GATE, RATCHET, PROB ; `steps.ts`, envoye dans `mm_program`
-    sous `steps` ; SWING, INIT).
-  **La grille et l'habillage (2026-11-12, « plus EPUREE ou au moins DROITE », puis « les knobs NOIRS, mais au moins en
-  3D »)** : UNE grille pour toute la fenetre (`src/v4/plugin/arp/scale.ts` `GRID`, `src/v4/voyager/theme.ts`
-  `VOY_PLUGIN_GRID`) : des colonnes de 63.5 px (16 sous la machine, 6 sous le rack), des rangees de 100 px (six pour la
-  machine et le rack, sur les memes lignes, la septieme pour le STEP SEQUENCER, sur toute la largeur). Les potards de la
-  machine 3D sont reposes sur cette grille dans le plugin seul (le site garde ses places) ; deux tailles (normale 42 px,
-  grande 63 px pour CUTOFF et VOLUME). Les titres : de petites capitales grises suivies d'un filet fin (plus de bandeau de
-  metal, plus de cadre). Les potards : noirs, canneles, dessus bombe, index blanc ; ceux des couches HTML sont l'IMAGE du
-  potard 3D (`src/v4/plugin/arp/knob.png`, rendue par la scene, `knob.ts`). Plus de chiffres autour des potards ni de
-  valeur dessous : la valeur se lit dans l'afficheur du bandeau, au survol et pendant le geste. Plus aucune infobulle
-  systeme. Le simili : `src/v4/voyager/skin.ts`, procedural, a grain tres fin.
-  **OPEN bascule toute la fenetre** sur le panneau d'options (`HoodPanel.tsx`, trois pages sur la meme grille, six
-  rangees de 125 px) : les 18 TWEAKS du site (a leurs ids du site), ENGINE, LFO 1, LFO 2, REVERB, MASTER, CLIP (DRAG MIDI), MIDI
-  (LEARN), LIBRARY (les 40 presets visibles) et DISK ; CLOSE, OPEN, O ou Echap reviennent. La scene 3D ne s'ouvre plus dans
-  le plugin (la carte n'est plus montree).
+  (zip embarque dans le VST3). OPEN ouvre le capot 3D du site (la carte et ses TWEAKS jouables), avec en bande dessous DRAG MIDI, DISK et MIDI LEARN.
 - **Le son** : en C++ (`dsp/`), jamais dans la WebView. Le plugin joue fenetre fermee et pendant un export d'Ableton.
   - `dsp/Voyager.{h,cpp}` : le port ligne a ligne de `src/v4/audio/moog.worklet.js` (12 voix, x4, tous les filtres,
     STACK, WIDE, GLUE...). **Identique au bit pres au site** sur 85 cas (`tests/voyager-ref.mjs` + `voyager_compare.cpp`) :
@@ -65,7 +39,6 @@ architecture que `plugin/mm-rytm`.
 | Parametres de l'hote : Arpeggiator, Master, et les 62 potards du site (face + TWEAKS, `dsp/Params.cpp` : les lois de params.ts / chords.ts / seq.ts, 0 ecart sur 3000 cas) : automation, MIDI Map, le triangle d'Ableton, fenetre fermee comprise | joue |
 | Presets sur le disque (`~/Music/Maudite Machine/MM-ARP Presets/*.mmarp`) : SAVE TO DISK / OPEN FROM DISK et la liste, dans le capot (OPEN) | joue |
 | DRAG MIDI : l'arpege en clip MIDI a glisser sur une piste (x1, x2, x4 la progression), SAVE .MID ; `~/Music/Maudite Machine/MM-ARP Clips` | joue (`src/PluginEditor.cpp`, `MMArpProcessor::arpMidi` : le meme arpegiateur et la meme graine que la lecture) |
-| SOUND+ (le VST3 seul, jamais le site ; `extra-params.json`, 37 parametres) : QUALITY HQ (x8), LFO 1 TARGET 2 / DEPTH 2, LFO 2 (SPEED, SHAPE, TARGET, DEPTH ; 15 destinations), REVERB SIZE / TONE / PRE DELAY (convolution non uniforme sans latence), MASTER WARMTH / BASS / AIR / WIDTH | joue ; chaque reglage au neutre rend le son du site (85 cas au bit pres, `tests/hq_test.cpp` 87 controles) |
 | SIDECHAIN, sortie MIDI des notes de l'arpege | plus tard |
 
 Ecarts connus avec le site : la progression est calee sur les mesures d'Ableton (au site : depuis RUN), et la suite

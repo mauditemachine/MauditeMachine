@@ -1,7 +1,6 @@
 /**
  * Les presets sur le disque, dans le panneau du capot du plugin MM-ARP (2026-11-09, Mika : "enregistrer un preset sur mon
- * disque dur en le nommant, et le rouvrir") : la section DISK, entre CLIP et MIDI (HoodPanel.tsx) : deux touches de la
- * machine, la liste dans une fenetre de verre comme l'ecran (2026-11-10).
+ * disque dur en le nommant, et le rouvrir") : la colonne DISK, entre DRAG MIDI et MIDI (HoodPanel.tsx).
  * - SAVE TO DISK : le nom (DiskNameDialog, le dialogue des noms du site : la meme langue, ui/presetName.css), puis le
  *   C++ ecrit le preset dans le dossier des presets (mm_preset_save ; mm_saved : l'ecran le dit).
  * - OPEN FROM DISK : la boite de dialogue du systeme (le C++), pour un preset ailleurs que dans le dossier.
@@ -13,7 +12,6 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { presets } from '../../state/presets';
 import { suggestName, typeChars } from '../../state/presetName';
 import { arpBridge } from './bridge';
-import { Sec } from './SoundPlus';
 import { arpDisk, DISK_NAME_MAX } from './disk';
 
 /** Le nom propose : celui du preset charge (sans l'utilisateur), sinon un nom du site. */
@@ -32,33 +30,28 @@ export function DiskPresets() {
     arpBridge.diskList();
   }, []);
   return (
-    <>
-      <Sec id="disk" title="DISK" className="mm-arp-disk" col={18} span={4} row={0}>
-        <div className="mm-arp-cells mm-arp-disk-keys">
-          <button type="button" className="mm-arp-kb mm-arp-disk-key" data-size="s" data-fn="1" onClick={() => arpDisk.set({ naming: proposedName() })}>
-            <span className="mm-arp-k" aria-hidden="true" />
-            <span className="mm-arp-legend">SAVE TO DISK</span>
-          </button>
-          <button type="button" className="mm-arp-kb mm-arp-disk-key" data-size="s" data-fn="1" onClick={() => arpBridge.diskOpen()}>
-            <span className="mm-arp-k" aria-hidden="true" />
-            <span className="mm-arp-legend">OPEN FROM DISK</span>
-          </button>
-        </div>
-      </Sec>
-      <Sec id="disk-list" title="MM-ARP PRESETS" className="mm-arp-disk-body" col={18} span={4} row={1} fill>
-        <ul className="mm-arp-disk-list" aria-label="Presets folder">
-          {st.items === null ? <li className="mm-arp-disk-none">…</li> : null}
-          {st.items !== null && st.items.length === 0 ? <li className="mm-arp-disk-none">NO PRESET YET</li> : null}
-          {(st.items ?? []).map((it) => (
-            <li key={it.path}>
-              <button type="button" className="mm-arp-disk-item" data-on={it.path === st.current ? '1' : undefined} onClick={() => arpBridge.diskLoad(it.path)}>
-                {it.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Sec>
-    </>
+    <section className="mm-arp-col mm-arp-disk" aria-label="Presets on disk">
+      <p className="mm-arp-col-title">DISK</p>
+      <div className="mm-arp-disk-keys">
+        <button type="button" className="mm-arp-disk-key" onClick={() => arpDisk.set({ naming: proposedName() })}>
+          SAVE TO DISK
+        </button>
+        <button type="button" className="mm-arp-disk-key" onClick={() => arpBridge.diskOpen()}>
+          OPEN FROM DISK
+        </button>
+      </div>
+      <ul className="mm-arp-disk-list" aria-label="Presets folder">
+        {st.items === null ? <li className="mm-arp-disk-none">…</li> : null}
+        {st.items !== null && st.items.length === 0 ? <li className="mm-arp-disk-none">NO PRESET YET</li> : null}
+        {(st.items ?? []).map((it) => (
+          <li key={it.path}>
+            <button type="button" className="mm-arp-disk-item" data-on={it.path === st.current ? '1' : undefined} title={it.path} onClick={() => arpBridge.diskLoad(it.path)}>
+              {it.name}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -118,8 +111,7 @@ export function DiskNameDialog() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="mm-arp-disk-pn-title"
-      // Au milieu de la fenetre, dans la couche a l'echelle (.mm-arp-ui, 1440 x 810)
-      style={{ position: 'absolute', top: 250, left: '50%', transform: 'translateX(-50%)', width: 420 }}
+      style={{ position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', width: 420 }}
       onKeyDown={onKeyDown}
     >
       <p id="mm-arp-disk-pn-title" className="v4-pn-title">

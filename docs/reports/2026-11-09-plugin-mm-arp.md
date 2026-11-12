@@ -343,3 +343,17 @@ Demande de Mika, en montrant un synthe analogique du commerce : « je veux pas l
 
 ### Reste à faire
 - Mika : essai dans Ableton (teinte du noir sur le GPU du Mac), dire s'il veut les noms des crans de RANGE.
+
+## Suite 2026-11-12 : retour à la version de base (demande de Mika)
+
+Mika : « retourne à la version de base avant que nous décidions de rajouter plein de choses, le plugin est complètement détruit, illisible ».
+
+### Ce qui a été fait
+- `plugin/mm-arp/`, `src/v4/` et `.github/workflows/plugin-arp.yml` remis à l'état du commit `a447e5a` (2026-11-10 18:23) : face du site bord à bord sans barres noires, 62 potards en paramètres VST3, presets sur le disque, OPEN ouvre le capot PCB avec DRAG MIDI, DISK et MIDI LEARN, le clip a le dessus.
+- Retirés : SOUND+ / HQ x8, LFO 2, matrice, rack d'effets, séquenceur par pas, banque de 40 presets, format large 1440 x 810, face épurée. Tout reste dans l'historique git (dernier état : `c5c85cd`).
+
+### Décisions
+- Retour complet plutôt que partiel : Mika veut retrouver le plugin tel qu'il l'aimait.
+
+### Reste à faire
+- Mika : réinstaller et vérifier. Les projets Ableton enregistrés avec les versions SOUND+ et suivantes peuvent perdre les réglages ajoutés depuis.
