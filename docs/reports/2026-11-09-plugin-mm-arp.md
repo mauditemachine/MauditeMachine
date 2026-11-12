@@ -357,3 +357,17 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Reste à faire
 - Mika : réinstaller et vérifier. Les projets Ableton enregistrés avec les versions SOUND+ et suivantes peuvent perdre les réglages ajoutés depuis.
+
+## Suite 2026-11-12 (soir) : page 2 d'OPEN, PCB noir
+
+### Ce qui a été fait
+- Moteur complet remis sous la face de base (C++ et DSP de `c5c85cd`) : 65 réglages du VST3 seul, matrice, séquenceur par pas, 40 presets. Fenêtre 1100 x 704, redimensionnable de 880 à 2200 (`editorW3`).
+- Face avant et page 1 d'OPEN (PCB vert) inchangées, à part un bouton « PAGE 2 › » sous CLOSE.
+- Page 2 : PCB noir sobre, mêmes pièces que la page 1 (`src/v4/plugin/arp/Page2.tsx`, `pcbui.tsx`, `page2.css`, `hoodPage.ts`, `library.ts`, `extra.ts`, `steps.ts`, `bridge.ts` v2). Cinq onglets : SOUND, FX, MOD, STEPS, LIBRARY. L'écran reste à sa place (capot levé sans son écran, effet de découpe) et affiche le réglage touché.
+
+### Décisions
+- Mika valide désormais sur captures avant chaque publication.
+- Pas de découpe sur la page 1 : l'écran y masquerait les TWEAKS.
+
+### Reste à faire
+- Mika : essai dans Ableton, surtout l'écran qui reste en place dans la WebView du Mac.
