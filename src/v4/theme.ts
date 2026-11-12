@@ -1729,7 +1729,7 @@ export const PRESSKIT_ROUTE = {
 
 export const COPY = {
   // 2026-10-21 (audit SEO F3) : l'accueil est MM-STUDIO, son titre le dit (src/data/seo-meta.json, le meme que dist/index.html)
-  title: SEO_TITLES['/'] ?? 'MM-STUDIO by Maudite Machine: Free Drum Machine & Synth',
+  title: SEO_TITLES['/'] ?? 'Maudite Machine | Dark Disco DJ & Free Online Drum Machine',
   wordmark: 'MAUDITE MACHINE',
   model: 'MM-RYTM',
 } as const;

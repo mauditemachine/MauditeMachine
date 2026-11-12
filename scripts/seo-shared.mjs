@@ -106,7 +106,7 @@ export function loadSocials() {
  * (brief B2 du 2026-10-10), "Maudite Machine | DJ & Producer Dark Disco | VRSTL Records".
  */
 export const SEO_META = readJson('src/data/seo-meta.json', {});
-export const SEO_TITLE = SEO_META.en?.['/']?.title ?? 'MM-STUDIO by Maudite Machine: Free Drum Machine & Synth';
+export const SEO_TITLE = SEO_META.en?.['/']?.title ?? 'Maudite Machine | Dark Disco DJ & Free Online Drum Machine';
 
 /** L'image d'apercu de partage : la photo booth-blue du press kit recadree en 1200 x 630. */
 export const OG_IMAGE = {
