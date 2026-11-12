@@ -14,6 +14,7 @@ import '../v4.css';
 import { gesture } from '../actions';
 import { dtFace } from '../state/dtFace';
 import { presetMode } from '../state/presetMode';
+import { presets } from '../state/presets';
 import { clock } from '../audio/clock';
 import { pattern } from '../audio/pattern';
 import { resume } from '../audio/drums';
@@ -122,6 +123,12 @@ const PluginFace: React.FC = () => {
       (window as unknown as { __mmStage?: Stage }).__mmStage = built;
       // Les tests : le menu ouvert et le curseur des presets
       (window as unknown as { __mmMenu?: () => unknown }).__mmMenu = () => ({ menu: dtFace.menu(), preset: presetMode.get() });
+      // Les tests : la liste des presets, en charger un par son id, ce que dit la liste (LOADED, EDITED *)
+      (window as unknown as { __mmPresets?: unknown }).__mmPresets = {
+        list: () => presets.list('mm808').map((p) => ({ id: p.id, name: p.name, factory: !!p.factory })),
+        load: (id: string) => presets.load('mm808', id)?.name ?? null,
+        loaded: () => presets.loaded('mm808'),
+      };
     }
     return () => {
       bridge.attachStage(null);
