@@ -598,24 +598,25 @@ int main() {
             h.g = g;
             p.tracks[1].hits.push_back(h);
         }
+        // Trois tours : on compare le deuxieme et le troisieme (chacun a recu les queues du tour d'avant) ; a 1e-5 pres (l'ordre
+        // des voix dans la somme peut changer d'un tour a l'autre selon la machine)
         auto passes = [&](const mm::Program& q) {
             std::vector<float> l;
-            runPasses(q, 2, false, &l);
+            runPasses(q, 3, false, &l);
             return l;
         };
-        const std::vector<float> ref = passes(p);
-        const size_t half = ref.size() / 2;
-        auto same = [&](const std::vector<float>& x, size_t a0, size_t b0, size_t n) {
-            for (size_t i = 0; i < n; ++i)
-                if (x[a0 + i] != x[b0 + i]) return false;
-            return true;
+        auto tourDiff = [](const std::vector<float>& x) {
+            const size_t n = x.size() / 3;
+            double d = 0;
+            for (size_t i = 0; i < n; ++i) d = std::max(d, std::fabs(static_cast<double>(x[n + i]) - x[2 * n + i]));
+            return d;
         };
-        auto diff = [&](const std::vector<float>& x, const std::vector<float>& y) {
+        auto diff = [](const std::vector<float>& x, const std::vector<float>& y) {
             double d = 0;
             for (size_t i = 0; i < x.size() && i < y.size(); ++i) d = std::max(d, std::fabs(static_cast<double>(x[i]) - y[i]));
             return d;
         };
-        // La graine : la meme variation a chaque tour ; le libre : une autre
+        const std::vector<float> ref = passes(p);
         mm::Program ps = p;
         ps.tracks[1].var.on = true;
         ps.tracks[1].var.tune = 7;
@@ -625,11 +626,10 @@ int main() {
         mm::Program pf = ps;
         pf.tracks[1].var.seed = 0;
         const std::vector<float> freeV = passes(pf);
-        // Sans VAR, les deux tours sont identiques (refLoops) : avec la graine aussi ; en libre, ils different
-        const size_t cmp = half - 6000;
-        const bool refLoops = same(ref, 3000, half + 3000, cmp - 3000);
-        CHECK(diff(seeded, ref) > 0.01 && (!refLoops || same(seeded, 3000, half + 3000, cmp - 3000)) && !same(freeV, 3000, half + 3000, cmp - 3000),
-              "VAR : la graine rejoue la meme variation a chaque tour, le libre en tire une autre");
+        const double dRef = tourDiff(ref), dSeed = tourDiff(seeded), dFree = tourDiff(freeV), dVar = diff(seeded, ref);
+        const bool okSeed = dVar > 0.01 && dSeed < 1e-5 && dFree > 1e-3;
+        if (std::getenv("MM_TEST_VERBOSE") || !okSeed) std::printf("   var : tours ref %.2g, graine %.2g, libre %.2g ; ecart a la ref %.3g\n", dRef, dSeed, dFree, dVar);
+        CHECK(okSeed, "VAR : la graine rejoue la meme variation a chaque tour, le libre en tire une autre");
         // CHNC 0 : rien ne varie
         mm::Program p0 = ps;
         p0.tracks[1].var.chance = 0;
@@ -647,7 +647,7 @@ int main() {
             lo = std::min(lo, pk);
             hi = std::max(hi, pk);
         }
-        if (std::getenv("MM_TEST_VERBOSE")) std::printf("   var lev : cretes de %.3f a %.3f (ref loops %d)\n", lo, hi, refLoops ? 1 : 0);
+        if (std::getenv("MM_TEST_VERBOSE")) std::printf("   var lev : cretes de %.3f a %.3f\n", lo, hi);
         CHECK(hi > 0 && lo < 0.7f * hi, "VAR : LEV, les coups n'ont plus le meme niveau");
     }
 
