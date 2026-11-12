@@ -436,6 +436,8 @@ Mika : « quand je clique sur SOLO et que je selectionne les tracks, je veux que
 - `actions/face.ts` stepSoloPick, `ui/Hotspots.tsx` : le pas choisit a l'appui (plus au lacher), Maj lue au clic ; aucun coup ne part.
 - Verifie dans Chromium : SOLO, clic sur 2 : seule SD joue ; clic sur 5 : seule CP ; Maj + 9 : CP et BD2 ; Maj + 5 : BD2 ; clic sur 9 : plus de solo, les 16 jouent ; aucun `mm_hit` (aucun son). Site : les 4 vues identiques au pixel pres. tsc : 105.
 
+- **Build vert des lots 25 et 26** (run 43255096938 ; celui du lot 25 a ete annule par le suivant, qui le contient), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 913a029, branche claude/intelligent-ride-56tyeo, 2026-11-12 16:21 UTC.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
