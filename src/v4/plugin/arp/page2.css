@@ -28,7 +28,7 @@
 
 /* Le capot se leve derriere : la carte arrive pendant qu'il monte, l'ecran ne bouge pas */
 .mm-plugin-arp .mm-p2[data-enter='lift'] .mm-p2-fade {
-  animation: mm-p2-in 620ms ease-out 360ms both;
+  animation: mm-p2-in 300ms ease-out 600ms both;
 }
 
 .mm-plugin-arp .mm-p2[data-enter='swap'] .mm-p2-fade {

@@ -558,32 +558,34 @@ const BoardArt: React.FC = () => (
 
 /** L'ecran de la machine, vu par la decoupe : la copie du canevas du LCD 3D, a chaque dessin. */
 const LcdWindow: React.FC<{ stage: Stage | null }> = ({ stage }) => {
-  const ref = useRef<HTMLCanvasElement>(null);
+  const ref = useRef<HTMLImageElement>(null);
   useEffect(() => {
     const out = ref.current;
-    const ctx = out?.getContext('2d');
-    if (!out || !ctx) return undefined;
+    if (!out) return undefined;
     let raf = 0;
     let last = -1;
-    const tick = (): void => {
+    let at = 0;
+    // Une image, pas un canevas : un canevas recopie (drawImage) se compose de travers sous Chromium pendant que le capot
+    // 3D bouge (un rectangle noir au-dessus de l'ecran). Au plus une copie toutes les 60 ms.
+    const tick = (now: number): void => {
       raf = window.requestAnimationFrame(tick);
       const lcd = stage?.voy?.lcd;
       const src = lcd?.texture.image as HTMLCanvasElement | undefined;
-      if (!lcd || !src || !src.width) return;
-      if (lcd.info.draws === last && out.width === src.width) return;
+      if (!lcd || !src || !src.width || lcd.info.draws === last || now - at < 60) return;
       last = lcd.info.draws;
-      if (out.width !== src.width || out.height !== src.height) {
-        out.width = src.width;
-        out.height = src.height;
+      at = now;
+      try {
+        out.src = src.toDataURL('image/png');
+      } catch {
+        /* rien */
       }
-      ctx.drawImage(src, 0, 0);
     };
-    tick();
+    raf = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(raf);
   }, [stage]);
   return (
     <div className="mm-p2-lcd" style={{ left: LCD_BEZEL.x, top: LCD_BEZEL.y, width: LCD_BEZEL.w, height: LCD_BEZEL.h }} aria-hidden="true">
-      <canvas ref={ref} className="mm-p2-lcd-glass" style={{ left: LCD_GLASS.x - LCD_BEZEL.x, top: LCD_GLASS.y - LCD_BEZEL.y, width: LCD_GLASS.w, height: LCD_GLASS.h }} />
+      <img ref={ref} alt="" className="mm-p2-lcd-glass" draggable={false} style={{ left: LCD_GLASS.x - LCD_BEZEL.x, top: LCD_GLASS.y - LCD_BEZEL.y, width: LCD_GLASS.w, height: LCD_GLASS.h }} />
     </div>
   );
 };
@@ -637,6 +639,19 @@ const Page2Body: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const scale = useScale();
   // Montee capot qui s'ouvre : la carte vient avec le capot qui se leve ; montee capot ouvert : on vient de la page 1
   const [enter] = useState(() => (voyExplode.get() === 'open' ? 'swap' : 'lift'));
+  // La decoupe : le capot 3D se leve sans son ecran (l'ecran reste en place, LcdWindow) ; il le retrouve, capot pose
+  useEffect(() => {
+    const lcd = stage?.voy?.lcd;
+    if (!stage || !lcd) return undefined;
+    lcd.glass.visible = false;
+    lcd.bezel.visible = false;
+    stage.invalidate();
+    return () => {
+      lcd.glass.visible = true;
+      lcd.bezel.visible = true;
+      stage.invalidate();
+    };
+  }, [stage]);
   return (
     <div className="mm-p2" style={{ position: 'fixed' }} data-phase={hood} data-enter={enter} aria-label="MM-ARP hood, page 2">
       <div className="mm-p2-page" style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}>

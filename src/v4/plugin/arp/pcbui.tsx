@@ -66,7 +66,7 @@ export const fullName = (id: string): string => FULL[id] ?? extraParam(id)?.labe
 
 /** Le reglage sur l'ecran de la machine : son nom et sa valeur. */
 function say(id: string): void {
-  voyMsg.show(`${fullName(id)} ${arpExtra.text(id)}`, 1600);
+  voyMsg.show(`${fullName(id)} ${arpExtra.text(id)}`, 2400);
 }
 
 function setValue(id: string, v: number, hold = false): void {
