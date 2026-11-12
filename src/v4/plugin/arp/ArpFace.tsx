@@ -26,6 +26,7 @@ import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
 import { HoodPanel, LearnMarks } from './HoodPanel';
+import { Page2 } from './Page2';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -140,6 +141,7 @@ const ArpFace: React.FC = () => {
         <PresetNameDialog mobile={false} />
         <DiskNameDialog />
         <HoodPanel stage={stage} />
+        <Page2 stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (

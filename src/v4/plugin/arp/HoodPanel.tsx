@@ -21,7 +21,10 @@ import { voyExplode } from '../../state/explode';
 import { VOY_KNOBS } from '../../voyager/params';
 import { arpBridge } from './bridge';
 import { DiskPresets } from './DiskPresets';
+import { extraParam } from './extra';
+import { hoodPage } from './hoodPage';
 import { arpMidi, type ArpMidiState } from './midimap';
+import { fullName } from './pcbui';
 
 /** Le glisser part apres ce deplacement (px), le bouton tenu. */
 const DRAG_PX = 4;
@@ -32,7 +35,8 @@ const EXTRA_LABELS: Record<string, string> = { arp: 'ARPEGGIATOR', master: 'MAST
 
 /** Le nom d'un parametre : le label du potard (voyager/params.ts), sinon son id. */
 export function paramLabel(id: string): string {
-  return VOY_KNOBS.find((k) => k.id === id)?.label ?? EXTRA_LABELS[id] ?? id.toUpperCase();
+  // Un reglage du VST3 seul (page 2) : son nom complet (PHASER RATE, MATRIX 3 DEST...)
+  return VOY_KNOBS.find((k) => k.id === id)?.label ?? EXTRA_LABELS[id] ?? (extraParam(id) ? fullName(id) : id.toUpperCase());
 }
 
 const useHood = () => useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
@@ -160,6 +164,8 @@ const MidiMap: React.FC = () => {
 export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const hood = useHood();
   const open = hood === 'opening' || hood === 'open';
+  // La page 2 (Page2.tsx) passe par-dessus : le bandeau reste en place (la carte 3D garde son cadrage), cache
+  const page = useSyncExternalStore(hoodPage.subscribe, () => hoodPage.get().page);
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
@@ -179,14 +185,19 @@ export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   }, [open]);
   if (!open) return null;
   return (
-    <section ref={ref} className="mm-arp-hood" style={{ position: 'fixed' }} aria-label="MM-ARP hood">
+    <section ref={ref} className="mm-arp-hood" style={{ position: 'fixed', visibility: page === 2 ? 'hidden' : undefined }} aria-label="MM-ARP hood" aria-hidden={page === 2 ? true : undefined}>
       <DragMidi />
       <DiskPresets />
       <MidiMap />
-      <button type="button" className="mm-arp-close" aria-label="Close the machine" onClick={() => openToggle(stage, 'voy')}>
-        <span className="mm-arp-led" aria-hidden="true" />
-        CLOSE
-      </button>
+      <div className="mm-arp-side">
+        <button type="button" className="mm-arp-close" aria-label="Close the machine" onClick={() => openToggle(stage, 'voy')}>
+          <span className="mm-arp-led" aria-hidden="true" />
+          CLOSE
+        </button>
+        <button type="button" className="mm-arp-page2" aria-label="Page 2: sound, effects, modulation, steps, library" onClick={() => hoodPage.set({ page: 2 })}>
+          PAGE 2 ›
+        </button>
+      </div>
     </section>
   );
 };
