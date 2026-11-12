@@ -120,6 +120,10 @@ export const voices = {
   toggleSolo(inst: TrackKey): void {
     commit(isLegacy(inst) ? { ...state, solo: toggled(state.solo, inst) } : { ...state, hiSolo: hiToggled(state.hiSolo, inst) });
   },
+  /** Le plugin (2026-11-12) : cette piste seule en solo (les autres en sortent), en un changement. */
+  soloOnly(inst: TrackKey): void {
+    commit(isLegacy(inst) ? { ...state, solo: [inst], hiSolo: [] } : { ...state, solo: [], hiSolo: [inst] });
+  },
   /** V.6.0 : les pistes coupees (en solo), les 16 dans l'ordre des pistes 1 a 8 puis 9 a 16. */
   mutedAll: (): TrackKey[] => [...state.muted, ...state.hiMuted],
   soloAll: (): TrackKey[] => [...state.solo, ...state.hiSolo],

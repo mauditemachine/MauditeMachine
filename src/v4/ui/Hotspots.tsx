@@ -78,6 +78,7 @@ import {
   perfPadDown,
   perfPadUp,
   dataPress,
+  stepSoloPick,
   stepShiftHold,
   rytmLockEnter,
   rytmLockToggle,
@@ -1687,6 +1688,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // Le plugin (2026-11-12) : PERFORM ouvert, le pas est un pad tenu (Maj + clic : garde) ; ni tape ni tenue au lacher
         if (IN_PLUGIN && dt && !dt.info && perfPadDown(idx, stage, e.shiftKey)) {
           if (!e.shiftKey) dt.perfPad = idx;
+          dt.trk = true;
+          e.preventDefault();
+          return;
+        }
+        // Le plugin (2026-11-12) : en mode SOLO, le pas choisit sa piste a l'appui (Maj : en plus), sans son ; ni tape ni tenue
+        if (IN_PLUGIN && dt && !dt.info && stepSoloPick(idx, stage, e.shiftKey)) {
           dt.trk = true;
           e.preventDefault();
           return;

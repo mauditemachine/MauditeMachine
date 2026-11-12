@@ -428,6 +428,14 @@ Mika, sur la liste des presets : « je tourne avec le LEVEL, je voudrais cliquer
 - `plugin/PluginFace.tsx` : avec `?debug=1` seulement, `window.__mmMenu` (le menu ouvert et le curseur des presets) pour les tests.
 - Verifie dans Chromium : sans menu, un clic ne change rien ; PRESETS ouvert par la disquette, LEVEL/DATA tourne (10 crans au glisser, 3 au clavier) : le curseur va a 14/36, un clic sur LEVEL/DATA charge « EBM 2 » (`LOADED 14/36`, un programme part au moteur). Site : les 4 vues identiques au pixel pres. tsc : 105.
 
+### Lot 26, SOLO qui bascule, Maj pour plusieurs (2026-11-12)
+
+Mika : « quand je clique sur SOLO et que je selectionne les tracks, je veux que ca switche directement : la track sur laquelle j'appuie devient solo a son tour ; si je maintiens Shift enfonce, je peux selectionner plusieurs tracks en solo ; quand j'appuie sur Shift + une track, je ne la fais pas jouer ».
+
+- `src/v4/actions/internal/keys60.ts` trigSolo, `state/voices.ts` soloOnly : dans le plugin, en mode SOLO, un clic met cette piste seule en solo (celle d'avant en sort) ; un clic sur la seule piste en solo arrete le solo ; Maj + clic l'ajoute au solo ou l'en retire (avant : chaque clic ajoutait ou retirait). Les messages : « SOLO SD · SHIFT: ADD MORE », « SOLO + BD2 (2 TRACKS) », « CP SOLO OFF (1 LEFT) ». Le site garde le cumul.
+- `actions/face.ts` stepSoloPick, `ui/Hotspots.tsx` : le pas choisit a l'appui (plus au lacher), Maj lue au clic ; aucun coup ne part.
+- Verifie dans Chromium : SOLO, clic sur 2 : seule SD joue ; clic sur 5 : seule CP ; Maj + 9 : CP et BD2 ; Maj + 5 : BD2 ; clic sur 9 : plus de solo, les 16 jouent ; aucun `mm_hit` (aucun son). Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -526,6 +534,7 @@ Mika, sur la liste des presets : « je tourne avec le LEVEL, je voudrais cliquer
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 26)** : SOLO puis des clics (ca bascule), Maj + clics (plusieurs).
 - **Cote Mika (lot 25)** : dans PRESETS, tourner LEVEL/DATA puis cliquer dessus.
 - **Cote Mika (lot 23)** : la commande mm-rytm, quitter et rouvrir Ableton. A l'oreille : chaque pad (surtout RPT, TAPE, LOW CUT) et le FILTER ; mapper le parametre **Filter** au Roto ou a l'APC. Dire si la liste des pads lui va (on peut en changer sans toucher au moteur) et si les durees (tape 0,7 s) sont bonnes. Rien n'a pu etre ecoute ici.
 - Lot 23, la suite possible : les pads au clavier et en MIDI (notes).

@@ -428,14 +428,32 @@ if (IN_PLUGIN && typeof window !== 'undefined') {
 }
 
 /** Un TRIG en mode SOLO (ou tenu en mode MUTE) : le SOLO de sa piste (16). */
-export function trigSolo(i: number, stage: Stage | null): void {
+export function trigSolo(i: number, stage: Stage | null, add = false): void {
   const k = trackAt(i);
   if (!k || (dtFace.mute() === 'off' && !dtFace.solo() && !voices.get().soloMode)) return;
   resume();
   stage?.pressStep(i);
+  // Le plugin (2026-11-12, Mika : "quand je clique sur SOLO et que je selectionne les tracks, je veux que ca switche
+  // directement : la track sur laquelle j'appuie devient solo a son tour ; si je maintiens Maj, plusieurs tracks en solo") :
+  // un clic, cette piste seule en solo (encore un clic sur elle, seule : plus de solo) ; Maj + clic, elle s'ajoute ou sort.
+  // Aucun son ne part (un choix, pas un coup). Le site garde le cumul.
+  const name = TRACK_NAMES[TRACK_KEYS.indexOf(k)] ?? trackName(k);
+  if (IN_PLUGIN && !add) {
+    const all = voices.soloAll();
+    if (all.length === 1 && all[0] === k) {
+      voices.toggleSolo(k);
+      lcdMessage.show(`${name} SOLO OFF`);
+    } else {
+      voices.soloOnly(k);
+      trackSelect(k);
+      lcdMessage.show(`SOLO ${name} · SHIFT: ADD MORE`, 1600);
+    }
+    return;
+  }
   voices.toggleSolo(k);
-  trackSelect(k);
-  lcdMessage.show(voices.isSolo(k) ? `SOLO ${trackName(k)}` : `${trackName(k)} SOLO OFF`);
+  if (!IN_PLUGIN || voices.isSolo(k)) trackSelect(k);
+  const n = voices.soloAll().length;
+  lcdMessage.show(voices.isSolo(k) ? (IN_PLUGIN ? `SOLO + ${name} (${n} TRACKS)` : `SOLO ${trackName(k)}`) : IN_PLUGIN ? `${name} SOLO OFF (${n} LEFT)` : `${trackName(k)} SOLO OFF`);
 }
 
 /** Touche MUTE directe en facade : active ou quitte le mode MUTE (TRIG 1-16 mutent/demutent les pistes T1-T16). */

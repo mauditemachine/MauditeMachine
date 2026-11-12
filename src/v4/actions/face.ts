@@ -1055,6 +1055,16 @@ export function faceKnobPress(k: number): boolean {
 }
 
 /** Maj + clic sur un TRIG en mode MUTE (le plugin) : sa piste basculee tant que Maj reste tenue ; true si pris. */
+/**
+ * Le plugin (2026-11-12) : en mode SOLO, un pas est un choix de piste a l'appui (sans son) ; add (Maj) : elle s'ajoute au
+ * solo ou en sort, sinon elle seule passe en solo. true si pris.
+ */
+export function stepSoloPick(i: number, stage: Stage | null, add: boolean): boolean {
+  if (!IN_PLUGIN || !DT2_FACE || !dtFace.solo() || func.engaged()) return false;
+  trigSolo(i, stage, add);
+  return true;
+}
+
 export function stepMuteHold(i: number, stage: Stage | null): boolean {
   if (!DT2_FACE) return false;
   return trigMuteHold(i, stage);
