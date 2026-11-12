@@ -19,6 +19,7 @@ export * from './actions/anyDial';
 export * from './actions/kit';
 export * from './actions/pages';
 export * from './actions/locks';
+export * from './actions/autoRing';
 export * from './actions/browser';
 export * from './actions/face';
 export * from './actions/live';

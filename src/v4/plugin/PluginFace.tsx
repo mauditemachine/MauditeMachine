@@ -8,6 +8,7 @@
  * de saisie (HitLayer), les jumeaux (Twins), l'ecran accessible (Lcd), le dialogue des noms de presets.
  */
 
+import { FLAGS } from '../state/flags';
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
 import '../v4.css';
 import { gesture } from '../actions';
@@ -114,6 +115,8 @@ const PluginFace: React.FC = () => {
     stageRef.current = built;
     setStage(built);
     bridge.attachStage(built);
+    // Les tests (?debug=1 seulement, jamais dans le plugin) lisent l'etat de la scene : les anneaux des potards
+    if (FLAGS.debug) (window as unknown as { __mmStage?: Stage }).__mmStage = built;
     return () => {
       bridge.attachStage(null);
       stageRef.current = null;

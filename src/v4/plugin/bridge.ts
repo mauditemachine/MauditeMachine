@@ -22,7 +22,7 @@ import { liveHook, mix, resolveHit, type HitParams } from '../audio/drums';
 import { morph } from '../audio/morph';
 import type { StepLock } from '../audio/locks';
 import type { VoiceFx } from '../audio/voicefx';
-import { lockOf, type Locks } from '../audio/locks';
+import { lockOf, SLIDE_IDS, type Locks } from '../audio/locks';
 import { type TrigSet } from '../audio/trig';
 import { NO_SCENES, type SceneSet } from '../rytm/sceneData';
 import { type Inst } from '../theme';
@@ -45,7 +45,7 @@ import { patterns } from '../state/patterns';
 import { sceneCtl } from '../state/sceneCtl';
 import { voices } from '../state/voices';
 import { SWING } from '../theme';
-import { extHead, type HeadEntry } from './head';
+import { extHead, nextProgStep, type HeadEntry } from './head';
 
 /* ---------------- le programme (lu par plugin/mm-rytm/dsp/Program.cpp) ---------------- */
 
@@ -113,6 +113,14 @@ export interface ProgHit {
   /** un lock trig : ce qu'il verrouille (1 VOL, 2 PAN, 4 RESO, 8 FREQ) ; lc : sa coupure (Hz) */
   lk?: number;
   lc?: number;
+  /**
+   * Le glissement vers le pas suivant (2026-11-12, LIVE REC, audio/locks.ts sld) : sd, ce qui glisse (1 VOL, 2 PAN, 4 RESO,
+   * 8 FREQ, 16 DIST, 32 CHORUS, 64 DELAY, 128 REVERB, 256 la hauteur : TUNE, FINE ou TONE, 512 le filtre de TONE) ; sv, les
+   * valeurs du pas suivant [LEVEL, PAN, RESO, la coupure en Hz, DIST, CHORUS, DELAY, REVERB, la hauteur (pf), TONE]. Le
+   * moteur y mene le coup qui sonne et la tranche sur la duree du pas.
+   */
+  sd?: number;
+  sv?: number[];
 }
 
 export interface ProgTrack {
@@ -354,8 +362,27 @@ function compileWith(src: PatSrc, tab: SoundTable): Program {
       const lfos = activeLfos(fxv, lock);
       h.lfot = tn.lfot ? 1 : 0;
       if (lfos.length > 0) h.lfo = lfos.map((l) => [l.n, l.spd, l.mult, l.fade, LFO_DESTS.indexOf(l.dest), LFO_WAVES.indexOf(l.wave), l.phase, LFO_MODES.indexOf(l.mode), l.depth]);
+      // Le glissement (LIVE REC, sld) : ce que ce pas et le suivant verrouillent tous les deux, si le suivant joue (un trig
+      // ou un lock trig) ; ses valeurs, lues comme celles d'un coup du pas suivant
+      let sd = 0;
+      const sldBits = lock?.sld ?? 0;
+      if (sldBits && lock) {
+        const gn = nextProgStep(g, len, loop, tlen);
+        const ln = gn === g ? null : lockOf(src.locks, t, gn % 16);
+        const plays = !!ln && (velocity(pages[Math.floor(gn / 16)], t, gn % 16) > 0 || ln.ltrg === 1);
+        if (ln && plays) {
+          for (let i = 0; i < SLIDE_IDS.length; i += 1) if ((sldBits >> i) & 1 && lock[SLIDE_IDS[i]] !== undefined && ln[SLIDE_IDS[i]] !== undefined) sd |= 1 << i;
+          if (sd) {
+            const rn = resolveHit(t, ln, scenes);
+            const sn = sliceOf(rn.fx, rn.lock);
+            // Les bits du moteur : les huit premiers tels quels ; TUNE, FINE, TONE (8, 9, 10) : la hauteur (256) ; TONE : son filtre (512)
+            h.sd = (sd & 255) | (sd & 0x700 ? 256 : 0) | (sd & 0x400 ? 512 : 0);
+            h.sv = [r6(rn.lock?.level ?? rn.fx.level), r6(Math.max(-1, Math.min(1, rn.hp.pan))), r6(rn.lock?.freso ?? rn.fx.freso), r6(cutHz(rn.lock?.fcut ?? rn.fx.fcut)), sn[1], sn[2], sn[3], sn[4], r6(rn.hp.pf), sn[0]];
+          }
+        }
+      }
       // Les bases des lois des LFO et des lock trigs : LEVEL, RESO, DECAY du coup (audio/drums.ts lfoLaw, lockTrigOn)
-      if (lfos.length > 0 || needs) h.lb = [r6(lk?.level ?? fxv.level), r6(lk?.freso ?? fxv.freso), r6(lk?.decay ?? fxv.decay)];
+      if (lfos.length > 0 || needs || sd) h.lb = [r6(lk?.level ?? fxv.level), r6(lk?.freso ?? fxv.freso), r6(lk?.decay ?? fxv.decay)];
       // Un lock trig : ce qu'il verrouille de ce que le coup qui sonne change en direct (1 VOL, 2 PAN, 4 RESO, 8 FREQ)
       if (lt && lk) {
         h.lk = (lk.level !== undefined ? 1 : 0) | (lk.pan !== undefined ? 2 : 0) | (lk.freso !== undefined ? 4 : 0) | (lk.fcut !== undefined ? 8 : 0);
@@ -364,12 +391,12 @@ function compileWith(src: PatSrc, tab: SoundTable): Program {
       // Le panoramique et le filtre en direct (audio/drums.ts seqExtra) : un LFO PAN ou un lock trig PAN de la voix, un coup
       // au centre passe quand meme par le panoramique (x racine de 2) ; un LFO FREQ ou RESO, un lock trig FREQ ou RESO, un
       // coup sans filtre en recoit un, ouvert, sans enveloppe
-      const needPan = !!needs?.pan || lfos.some((l) => l.dest === 'PAN');
+      const needPan = !!needs?.pan || (sd & 2) !== 0 || lfos.some((l) => l.dest === 'PAN');
       if (needPan && r.hp.pan === 0) {
         h.fp = 1;
         h.gain = r6(h.gain * Math.SQRT2);
       }
-      const needFilter = !!needs?.filter || lfos.some((l) => l.dest === 'FREQ' || l.dest === 'RESO');
+      const needFilter = !!needs?.filter || (sd & 12) !== 0 || lfos.some((l) => l.dest === 'FREQ' || l.dest === 'RESO');
       if (needFilter && !h.ft) {
         h.ft = filterIndex(lk?.ftype ?? fxv.ftype) + 1;
         h.fhz = r6(cutHz(lk?.fcut ?? fxv.fcut));

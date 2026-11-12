@@ -144,6 +144,9 @@ private:
         double level = 0.8, pan = 0, reso = 0, cut = 20000;
         bool re = false; // LFO.T : les LFO du coup repartent de anchor
         double anchor = 0;
+        // Le glissement vers le pas suivant, apres ses valeurs : ce qui glisse, les cibles, la duree (echantillons)
+        int sd = 0;
+        double sdLevel = 0.8, sdPan = 0, sdReso = 0, sdCut = 20000, sdPf = 1, sdN = 0;
     };
     struct Voice {
         RenderedSound* snd = nullptr;
@@ -168,6 +171,16 @@ private:
         std::array<Curve, CV_N> cv{};
         bool anyCv = false;
         PendLock pl;
+        // Le glissement vers le pas suivant (LIVE REC, 2026-11-12) : ce qui glisse (1 VOL, 2 PAN, 4 RESO, 8 FREQ), ce qu'il
+        // reste a parcourir (echantillons), les cibles (le gain, le PAN, le Q, la coupure) et leurs bases (LEVEL, RESO)
+        int sdBits = 0;
+        double sdLeft = 0;
+        float sdGain = 1;
+        double sdPan = 0, sdQ = 0.7071, sdCut = 20000, sdLevel = 0.8, sdReso = 0;
+        // La hauteur qui glisse (256 : TUNE, FINE, TONE) : la vitesse de lecture du moment et sa cible, rapportees au pf du
+        // son du coup (pf0) ; rateOn : la lecture interpolee (fpos), comme sous un LFO PITCH
+        bool rateOn = false;
+        double rate = 1, sdRate = 1, pf0 = 1;
         double atkN = 0, holdEndN = 0, tauN = -1, stopN = -1;
         double cutN = -1;      // LEN : le relachement de 8 ms commence ici (-1 : INF)
         // FLTR : le biquad du coup (formules du BiquadFilterNode), sa coupure menee par l'enveloppe
@@ -194,6 +207,7 @@ private:
         int hi = -1;       // le coup du programme (son indice ; -2 : le coup du pad) : le crossfader le reprend a sa position
         double anchor = 0; // l'ancre des LFO du coup (en pas) ; un lock trig : la nouvelle si re
         bool re = false;
+        double sdSteps = 0; // le glissement vers le pas suivant : sa duree en pas (0 : aucun)
         ProgHit hit;
         RenderedSound* snd = nullptr;
     };
@@ -222,7 +236,7 @@ private:
         Retrig rt;
     };
 
-    void trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor, int hi);
+    void trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor, int hi, double sdN = 0);
     // Le crossfader : un coup (hi ; -2 le coup du pad), la tranche et le gain de tranche d'une piste, les effets globaux, a x
     const ProgHit& hitAtX(const PlayState& ps, int t, int hi, const ProgHit& base, ProgHit& tmp) const;
     SliceFx voiceSlAt(const PlayState& ps, int t) const;
@@ -230,8 +244,12 @@ private:
     GlobalFx globalAt(const PlayState& ps) const;
     const ReverbIR* irAt(const PlayState& ps) const;
     void followX(const PlayState& ps, double bpm, int n);
-    void lockTrig(const ProgHit& h, int track, int offset, bool re, double anchor);
+    void lockTrig(const ProgHit& h, int track, int offset, bool re, double anchor, double sdN);
     void applyLock(Voice& v);
+    // Le glissement d'un coup vers les valeurs du pas suivant, en N echantillons ; son avance (16 echantillons) ; sa fin
+    void startSlide(Voice& v, int bits, double level, double pan, double reso, double cut, double pf, double N);
+    bool slideTick(Voice& v);
+    void slideTrack(const PlayState& ps, int n);
     void filterCoefs(Voice& v, double f, double q) const;
     double filterFreq(const Voice& v) const;
     void updateFilter(Voice& v);
@@ -262,6 +280,14 @@ private:
     double fxBpm_ = 0;
     bool dry_ = false;
     std::array<SliceFx, kTracks> sliceNow_{};
+    // Le glissement de la tranche d'une piste vers celle du pas suivant (DIST, CHORUS, DELAY, REVERB) : ce qu'il reste
+    // (echantillons), ce qui glisse (16, 32, 64, 128 ; 512 : TONE), la cible
+    struct SliceSlide {
+        double left = 0;
+        int bits = 0;
+        SliceFx to;
+    };
+    std::array<SliceSlide, kTracks> slSd_{};
     // Le pattern joue (thread audio) : son emplacement, son programme, le seizieme ou il a commence ; le suivant, la chaine ;
     // le program change recu ; le dernier emplacement courant de la face
     int slot_ = -1, next_ = -1, pcIn_ = -1, faceSlot_ = -1;

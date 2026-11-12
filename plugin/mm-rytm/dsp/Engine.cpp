@@ -361,7 +361,7 @@ void Engine::fadeTrack(int track, int samples, int offset) {
     }
 }
 
-void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor, int hi) {
+void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel, float slice, RenderedSound* snd, int offset, double lenSteps, bool rep, double stepN, double lpos, double anchor, int hi, double sdN) {
     if (!snd || snd->variants.empty()) return;
     const Program& P = P_ ? *P_ : ps.prog;
     const ProgTrack& tr = P.tracks[static_cast<size_t>(track)];
@@ -451,6 +451,11 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
     v.panNow = v.panTo = std::max(-1.0, std::min(1.0, h.pan));
     v.panner = h.pan != 0 || h.fp;
     v.pl = PendLock{};
+    v.sdBits = 0;
+    v.sdLeft = 0;
+    v.rateOn = false;
+    v.rate = 1;
+    v.pf0 = h.snd >= 0 && h.snd < static_cast<int>(ps.prog.sounds.size()) ? std::max(1e-3, ps.prog.sounds[static_cast<size_t>(h.snd)].pf) : 1;
     v.atkN = std::max(0.0, h.atk) * sr_;
     v.holdEndN = (std::max(0.0, h.atk) + std::max(0.0, h.hold)) * sr_;
     v.tauN = tau > 0 ? tau * sr_ : -1;
@@ -505,6 +510,8 @@ void Engine::trigger(const PlayState& ps, int track, const ProgHit& h, float vel
     }
     panMatrix(v.panNow, shot.mono, v.panner, v.gLL, v.gLR, v.gRL, v.gRR);
     if (v.ft) updateFilter(v);
+    // Le pas glisse vers le suivant (LIVE REC) : le coup part de ses valeurs et va a celles du pas suivant
+    if (h.sd && sdN > 0) startSlide(v, h.sd, h.sdLevel, h.sdPan, h.sdReso, h.sdCut, h.sdPf, sdN);
 }
 
 /* ---------------- les LFO continus (audio/drums.ts lfoLaw, lfoCurves ; seqhit.ts lfoPoints) ---------------- */
@@ -651,7 +658,7 @@ double Engine::filterFreq(const Voice& v) const {
 }
 
 // Un lock trig (audio/drums.ts lockTrigOn) : le coup qui sonne de la voix (le plus recent) le prend a son heure
-void Engine::lockTrig(const ProgHit& h, int track, int offset, bool re, double anchor) {
+void Engine::lockTrig(const ProgHit& h, int track, int offset, bool re, double anchor, double sdN) {
     Voice* last = nullptr;
     for (auto& v : voices_[static_cast<size_t>(track)])
         if (v.shot && v.fadeLeft < 0 && v.delay <= offset && (!last || v.age > last->age)) last = &v;
@@ -667,6 +674,13 @@ void Engine::lockTrig(const ProgHit& h, int track, int offset, bool re, double a
     p.cut = h.lc;
     p.re = re;
     p.anchor = anchor;
+    p.sd = sdN > 0 ? h.sd : 0;
+    p.sdLevel = h.sdLevel;
+    p.sdPan = h.sdPan;
+    p.sdReso = h.sdReso;
+    p.sdCut = h.sdCut;
+    p.sdPf = h.sdPf;
+    p.sdN = sdN;
 }
 
 // Ce que le lock trig change du coup qui sonne : VOL (rapporte au LEVEL du coup), PAN, la coupure et la RESO du filtre,
@@ -674,6 +688,9 @@ void Engine::lockTrig(const ProgHit& h, int track, int offset, bool re, double a
 void Engine::applyLock(Voice& v) {
     PendLock p = v.pl;
     v.pl.on = false;
+    // Un glissement en cours s'arrete ou il est : ce lock trig pose ses valeurs (la ou il arrivait), puis repart s'il glisse
+    v.sdBits = 0;
+    v.sdLeft = 0;
     std::array<double, CV_N> held{};
     for (int c = 0; c < CV_N; ++c)
         if (v.cv[static_cast<size_t>(c)].on) held[static_cast<size_t>(c)] = lawOf(v, c, lfoSumAt(v, c + LD_PITCH, v.t));
@@ -698,6 +715,92 @@ void Engine::applyLock(Voice& v) {
     for (int c = 0; c < CV_N; ++c)
         if (v.cv[static_cast<size_t>(c)].on) curveStart(v, c, std::max(1e-9, v.t), held[static_cast<size_t>(c)]);
     if (v.ft) updateFilter(v);
+    if (p.sd) startSlide(v, p.sd, p.sdLevel, p.sdPan, p.sdReso, p.sdCut, p.sdPf, p.sdN);
+}
+
+/* ---------------- le glissement vers le pas suivant (LIVE REC, 2026-11-12) ---------------- */
+
+// Mika : "quand je bouge des knobs ca doit etre fluide apres". Un geste enregistre pose une valeur par pas ; entre deux pas
+// du geste (le verrou sld de la face), le coup qui sonne va de l'une a l'autre sur la duree du pas : VOL en ligne droite,
+// la coupure et le Q en octaves, le PAN en ligne droite. Un LFO continu sur PAN ou RESO garde la main (sa courbe est
+// calculee sur ses bases du depart). La hauteur (TUNE, FINE, TONE : un autre son calcule au coup suivant) : la lecture du
+// coup qui sonne accelere ou ralentit, en octaves, jusqu'a la hauteur du pas suivant (son pf rapporte a celui du coup).
+void Engine::startSlide(Voice& v, int bits, double level, double pan, double reso, double cut, double pf, double N) {
+    v.sdBits = 0;
+    v.sdLeft = 0;
+    if (N < 1) return;
+    int b = 0;
+    if (bits & 1) {
+        const double base = voiceGain(v.vol);
+        v.sdGain = static_cast<float>(v.gain0 * (base > 1e-6 ? voiceGain(level) / base : 1));
+        v.sdLevel = level;
+        b |= 1;
+    }
+    if ((bits & 2) && v.panner && !v.cv[CV_PAN].on) {
+        v.sdPan = snapPan(pan);
+        b |= 2;
+    }
+    if ((bits & 4) && v.ft && !v.cv[CV_RESO].on) {
+        v.sdQ = resoQ(reso);
+        v.sdReso = reso;
+        b |= 4;
+    }
+    if ((bits & 8) && v.ft) {
+        v.sdCut = std::max(20.0, std::min(std::min(20000.0, sr_ * 0.45), cut));
+        b |= 8;
+    }
+    if ((bits & 256) && pf > 0) {
+        v.sdRate = std::max(1.0 / 16, std::min(16.0, pf / v.pf0));
+        // La lecture interpolee part de la ou en est la lecture (un LFO PITCH l'a deja)
+        if (!v.cv[CV_PITCH].on && !v.rateOn) v.fpos = static_cast<double>(v.pos);
+        v.rateOn = true;
+        b |= 256;
+    }
+    v.sdBits = b;
+    v.sdLeft = b ? N : 0;
+}
+
+// Un pas du glissement (tous les 16 echantillons) : le PAN, le Q et la coupure avancent de 16 / ce qu'il reste ; a la fin,
+// les cibles exactes. true : le filtre a change (ses coefficients sont a refaire).
+bool Engine::slideTick(Voice& v) {
+    const double fr = v.sdLeft <= 16 ? 1.0 : 16.0 / v.sdLeft;
+    bool filter = false;
+    if (v.sdBits & 2) {
+        v.panTo += (v.sdPan - v.panTo) * fr;
+        v.basePan = v.panTo;
+    }
+    if (v.sdBits & 4) {
+        v.fq = fr >= 1 ? v.sdQ : v.fq * std::pow(v.sdQ / std::max(1e-6, v.fq), fr);
+        if (fr >= 1) v.baseReso = v.sdReso;
+        filter = true;
+    }
+    if (v.sdBits & 8) {
+        // L'enveloppe du filtre garde sa hauteur (en octaves) : son sommet suit la coupure
+        const double top = std::min(20000.0, sr_ * 0.45);
+        const double r = fr >= 1 ? v.sdCut / v.f0 : std::pow(v.sdCut / v.f0, fr);
+        v.f0 = std::max(20.0, std::min(top, v.f0 * r));
+        v.fPeak = std::max(20.0, std::min(top, v.fPeak * r));
+        filter = true;
+    }
+    if (v.sdBits & 256) v.rate = fr >= 1 ? v.sdRate : v.rate * std::pow(v.sdRate / v.rate, fr);
+    return filter;
+}
+
+// Les tranches qui glissent (DIST, CHORUS, DELAY, REVERB) : une avance par bloc, de n / ce qu'il reste
+void Engine::slideTrack(const PlayState& ps, int n) {
+    for (int t = 0; t < kTracks; ++t) {
+        SliceSlide& s = slSd_[static_cast<size_t>(t)];
+        if (s.left <= 0) continue;
+        const double fr = s.left <= n ? 1.0 : static_cast<double>(n) / s.left;
+        SliceFx now = sliceNow_[static_cast<size_t>(t)];
+        if (s.bits & 16) now.dist += (s.to.dist - now.dist) * fr;
+        if (s.bits & 32) now.chorus += (s.to.chorus - now.chorus) * fr;
+        if (s.bits & 64) now.delay += (s.to.delay - now.delay) * fr;
+        if (s.bits & 128) now.reverb += (s.to.reverb - now.reverb) * fr;
+        if (s.bits & 512) now.tone += (s.to.tone - now.tone) * fr;
+        s.left -= n;
+        applySlice(ps, t, now);
+    }
 }
 
 /* ---------------- le sequenceur des trigs (audio/seq.ts seqStep) ---------------- */
@@ -718,6 +821,7 @@ void Engine::endRetrig(Retrig& rt) {
 
 void Engine::seqReset(bool full) {
     npend_ = 0;
+    for (auto& s : slSd_) s.left = 0;
     for (auto& t : ts_) {
         endRetrig(t.rt);
         if (full) t.pre = -1;
@@ -788,6 +892,9 @@ void Engine::evalStep(const PlayState& ps, long G) {
     const bool fill = fill_.load(std::memory_order_relaxed);
     const double swingFrac = ((g % 16) & 1) ? p.swing : 0.0;
     const double stepEnd = static_cast<double>(G) + 1;
+    // Le glissement d'un coup vers le pas suivant : du coup (son swing, son uTIME) a la grille du pas suivant (son swing)
+    const double swingNext = (((g + 1) % 16) & 1) ? p.swing : 0.0;
+    auto sdSteps = [&](const ProgHit& h) { return std::max(0.05, std::min(2.0, 1 + swingNext - swingFrac - h.shift)); };
     int mask = 0;
     for (int t = 0; t < kTracks; ++t) {
         const ProgTrack& pt = p.tracks[static_cast<size_t>(t)];
@@ -832,6 +939,7 @@ void Engine::evalStep(const PlayState& ps, long G) {
             e.hi = hi;
             e.re = re;
             e.anchor = pos;
+            e.sdSteps = h.sd ? sdSteps(h) : 0;
             e.hit = h;
             pendPush(e);
             continue;
@@ -854,6 +962,7 @@ void Engine::evalStep(const PlayState& ps, long G) {
         e.lenSteps = h.len;
         e.anchor = sv.anchor;
         e.hi = hi;
+        e.sdSteps = h.sd ? sdSteps(h) : 0;
         e.hit = h;
         e.snd = snd;
         pendPush(e);
@@ -1095,10 +1204,20 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                     sliceSrc_[static_cast<size_t>(e.track)] = e.hi >= 0 ? e.hi : -3;
                     sliceLfoD_[static_cast<size_t>(e.track)] = SliceFx{};
                 }
-                lockTrig(h, e.track, e.offset, e.re, e.anchor);
+                lockTrig(h, e.track, e.offset, e.re, e.anchor, e.sdSteps * stepN);
             } else
-                trigger(*ps, e.track, h, e.vel, slice, snd, e.offset, e.lenSteps, e.rep, stepN, e.ppq * 4, e.anchor, e.hi);
+                trigger(*ps, e.track, h, e.vel, slice, snd, e.offset, e.lenSteps, e.rep, stepN, e.ppq * 4, e.anchor, e.hi, e.sdSteps * stepN);
+            // La tranche glisse vers celle du pas suivant ; un coup sans glissement arrete celui d'avant
+            SliceSlide& ss = slSd_[static_cast<size_t>(e.track)];
+            const double sdN = e.sdSteps * stepN;
+            if ((h.sd & 0x2F0) && sdN >= 1) {
+                ss.left = sdN + e.offset;
+                ss.bits = h.sd & 0x2F0;
+                ss.to = h.sdSl;
+            } else
+                ss.left = 0;
         }
+    if (ps) slideTrack(*ps, n);
 
     // Les voix, dans la tranche de leur piste (ou tout droit dans la sortie, sans effets)
     const int relN = std::max(1, static_cast<int>(LEN_REL_S * sr_));
@@ -1128,7 +1247,17 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
             for (; i < n; ++i) {
                 // Un lock trig a son heure
                 if (v.pl.on && v.t >= v.pl.at) applyLock(v);
-                const bool pitched = v.cv[CV_PITCH].on;
+                // Le glissement vers le pas suivant : la cible du gain avance a chaque echantillon (le 1 ms d'un lock trig suit)
+                bool slid = false;
+                if (v.sdLeft > 0) {
+                    if (v.sdBits & 1) {
+                        v.gainTo = v.sdLeft <= 1 ? v.sdGain : v.gainTo + (v.sdGain - v.gainTo) / static_cast<float>(v.sdLeft);
+                        if (v.sdLeft <= 1) v.baseLevel = v.sdLevel;
+                    }
+                    if ((static_cast<long>(v.t) & 15) == 0 || v.sdLeft <= 1) slid = slideTick(v);
+                    v.sdLeft -= 1;
+                }
+                const bool pitched = v.cv[CV_PITCH].on || v.rateOn;
                 if ((pitched ? v.fpos >= static_cast<double>(len) : v.pos >= len) || v.fadeLeft == 0 || (v.stopN >= 0 && v.t >= v.stopN)) {
                     done = true;
                     break;
@@ -1180,7 +1309,7 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                 }
                 if (v.ft) {
                     // La coupure suit son enveloppe (et les LFO FREQ, RESO) : les coefficients tous les 16 echantillons
-                    if (tick && (v.fEnv || v.cv[CV_FREQ].on || v.cv[CV_RESO].on)) updateFilter(v);
+                    if (slid || (tick && (v.fEnv || v.cv[CV_FREQ].on || v.cv[CV_RESO].on))) updateFilter(v);
                     const double ya = v.b0 * a + v.zL1;
                     v.zL1 = v.b1 * a - v.a1 * ya + v.zL2;
                     v.zL2 = v.b2 * a - v.a2 * ya;
@@ -1195,12 +1324,12 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
                 }
                 TL[i] += f * (v.gLL * a + v.gLR * b);
                 TR[i] += f * (v.gRL * a + v.gRR * b);
-                if (pitched) v.fpos += std::exp2(curveAt(v, CV_PITCH, v.t) / 1200);
+                if (pitched) v.fpos += (v.cv[CV_PITCH].on ? std::exp2(curveAt(v, CV_PITCH, v.t) / 1200) : 1.0) * v.rate;
                 else ++v.pos;
                 v.t += 1;
             }
             v.sRatio = rTo; // la rampe finit pile sur sa cible (sans le reste des additions)
-            if (done || (v.cv[CV_PITCH].on ? v.fpos >= static_cast<double>(len) : v.pos >= len) || v.fadeLeft == 0) release(v);
+            if (done || (v.cv[CV_PITCH].on || v.rateOn ? v.fpos >= static_cast<double>(len) : v.pos >= len) || v.fadeLeft == 0) release(v);
         }
         if (any) fx_.markActive(t);
     }

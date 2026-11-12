@@ -155,7 +155,7 @@ import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
 import { SideKnobs } from './sideKnobs';
-import { dialEdit, dialRange, knobBlock, type DialId } from '../actions';
+import { autoRingPlan, dialEdit, dialRange, knobBlock, type AutoRing, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { activeTrack, trk } from '../state/trk';
@@ -1102,6 +1102,7 @@ export class Stage {
       this.stepExplode,
       (now) => this.pads?.update(now) ?? false,
       this.pollPlayhead,
+      this.stepAutoRings,
       this.stepBreathe,
       this.stepLockBlink,
       this.modeBlink,
@@ -3188,6 +3189,86 @@ export class Stage {
   };
 
   private ringArg: { t: number; bipolar: boolean; tone: KnobTone; band: readonly [number, number] | null } = { t: 0, bipolar: false, tone: 'off', band: null };
+
+  /* Les anneaux suivent l'automation en lecture (le plugin, 2026-11-12) */
+  private autoKeep: AutoRing[] = Array.from({ length: 8 }, () => ({ c0: 0, c1: 0 }));
+  private autoPlan: (AutoRing | null)[] = Array.from({ length: 8 }, () => null);
+  private autoOn: boolean[] = Array.from({ length: 8 }, () => false);
+  private autoArg: { t: number; bipolar: boolean; tone: KnobTone; band: readonly [number, number] | null } = { t: 0, bipolar: false, tone: 'off', band: null };
+  private autoSeq = -1;
+  private autoVer = -1;
+  private autoLocks: unknown = null;
+  private autoAny = false;
+  /** l'heure du pas sous la tete (son arrivee ici) et la duree d'un pas, lissee sur les derniers pas */
+  private autoT0 = 0;
+  private autoDur = 125;
+
+  /**
+   * Mika (2026-11-12) : "ce sont les petits carres autour des knobs qui doivent bouger au rythme de ce que nous avons bouge
+   * avec l'enregistrement". En lecture, l'anneau de chaque potard de la page montre ce que l'automation de la piste active
+   * joue au pas sous la tete (actions/autoRing.ts) ; entre deux pas d'un geste enregistre il va de l'un a l'autre, comme le
+   * son. Le capuchon reste sur la valeur de base. Jamais sous la main (un potard tenu ou tourne a l'instant), ni en P-LOCK
+   * (l'anneau montre le pas tenu), ni scene armee. Le plan se refait a chaque pas ; chaque image ne fait qu'interpoler.
+   */
+  private stepAutoRings = (now: number): 'paint' | 'poll' | false => {
+    if (!PLUGIN) return false;
+    const e = this.encoders;
+    const head = extHead.get();
+    const views = faceKnobs.get();
+    const ra = this.autoArg;
+    let painted = false;
+    const base = (k: number): void => {
+      if (!this.autoOn[k]) return;
+      this.autoOn[k] = false;
+      const v = views[k];
+      ra.t = v.state === 'live' ? v.pos : 0;
+      ra.bipolar = v.bipolar;
+      ra.tone = v.tone;
+      ra.band = v.state === 'live' ? v.band : null;
+      if (e.setRing(k, ra)) painted = true;
+    };
+    if (!head || rytmLock.active() || sceneCtl.get().armed) {
+      for (let k = 0; k < 8; k += 1) base(k);
+      this.autoSeq = -1;
+      this.autoAny = false;
+      return painted ? 'paint' : false;
+    }
+    // Un nouveau pas : son heure, la duree du pas d'avant (la tete arrive 30 fois par seconde : lissee), le plan
+    if (head.seq !== this.autoSeq) {
+      if (this.autoSeq >= 0 && head.seq === this.autoSeq + 1) {
+        const d = now - this.autoT0;
+        if (d > 20 && d < 2000) this.autoDur += (d - this.autoDur) * 0.35;
+      }
+      // Le premier pas : la duree d'un pas au tempo du motif (celui de l'hote, s'il differe, la corrige en quelques pas)
+      else if (this.autoSeq < 0) this.autoDur = 15000 / Math.max(30, pattern.get().bpm);
+      this.autoSeq = head.seq;
+      this.autoT0 = now;
+      this.autoVer = -1;
+    }
+    const locks = pattern.get().locks;
+    const ver = faceKnobs.version();
+    if (ver !== this.autoVer || locks !== this.autoLocks) {
+      this.autoVer = ver;
+      this.autoLocks = locks;
+      this.autoAny = autoRingPlan(this.autoPlan, this.autoKeep);
+    }
+    const frac = Math.max(0, Math.min(1, (now - this.autoT0) / Math.max(20, this.autoDur)));
+    for (let k = 0; k < 8; k += 1) {
+      const p = this.autoPlan[k];
+      const v = views[k];
+      if (!p || v.state !== 'live' || faceTouch.held(k) || faceTouch.recent(k, 350, now)) {
+        base(k);
+        continue;
+      }
+      this.autoOn[k] = true;
+      ra.t = p.c0 + (p.c1 - p.c0) * frac;
+      ra.bipolar = v.bipolar;
+      ra.tone = v.tone;
+      ra.band = null;
+      if (e.setRing(k, ra)) painted = true;
+    }
+    return painted ? 'paint' : this.autoAny ? 'poll' : false;
+  };
 
   /** Les capuchons des potards en route (le moteur d'une page, d'une voix, du P-LOCK ou d'une scene) : les tests. */
   get knobMotors(): number {

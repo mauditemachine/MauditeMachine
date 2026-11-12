@@ -20,6 +20,19 @@ export interface HeadEntry {
   rel?: number;
 }
 
+/**
+ * Le pas joue apres g (dsp/Engine.cpp programStepOf, TLEN) : dans la page bouclee, sur la longueur de la piste (tlen, 0 :
+ * celle du pattern), sinon sur celle du pattern. Le glissement d'un pas va vers ce pas-la (plugin/bridge.ts, actions/autoRing.ts).
+ */
+export function nextProgStep(g: number, len: number, loop: number, tlen: number): number {
+  if (loop >= 0 && loop * 16 < len) {
+    const p0 = loop * 16;
+    const pl = Math.min(16, len - p0);
+    return g >= p0 && g < p0 + pl ? p0 + ((g - p0 + 1) % pl) : (g + 1) % len;
+  }
+  return tlen > 0 && tlen < len && g < tlen ? (g + 1) % tlen : (g + 1) % len;
+}
+
 type Source = () => HeadEntry | null;
 
 let source: Source | null = null;

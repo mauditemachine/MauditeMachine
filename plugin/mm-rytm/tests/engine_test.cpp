@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <functional>
 #include <cstdio>
 #include <memory>
@@ -433,6 +434,160 @@ int main() {
         bool same = true;
         for (long i = 0; i < 2 * step; ++i) same = same && withLt[static_cast<size_t>(i)] == without[static_cast<size_t>(i)];
         CHECK(same && b > 0 && a < 0.2 * b, "lock trig : le VOL du coup qui sonne baisse au pas du lock trig");
+    }
+
+    // ---------------- le glissement vers le pas suivant (LIVE REC, 2026-11-12) ----------------
+    {
+        const long step = 6000; // 120 BPM, 48 kHz
+        // VOL : le coup du pas 0 glisse vers le LEVEL du pas suivant (gain x 0.1) sur la duree du pas, en ligne droite
+        mm::Program p = baseProgram();
+        mm::ProgHit h = p.tracks[3].live;
+        h.g = 0;
+        mm::ProgHit hs = h;
+        hs.sd = 1;
+        hs.sdLevel = 0.8 * std::sqrt(0.1);
+        std::vector<float> plain, slide;
+        p.tracks[3].hits = {h};
+        runPasses(p, 1, false, &plain);
+        p.tracks[3].hits = {hs};
+        runPasses(p, 1, false, &slide);
+        auto ratio = [&](long a, long b) {
+            double x = 0, y = 0;
+            for (long i = a; i < b; ++i) {
+                x += std::fabs(slide[static_cast<size_t>(i)]);
+                y += std::fabs(plain[static_cast<size_t>(i)]);
+            }
+            return y > 0 ? x / y : -1;
+        };
+        const double r0 = ratio(0, 200), rq = ratio(step / 4 - 100, step / 4 + 100), rm = ratio(step / 2 - 100, step / 2 + 100), re = ratio(step + 400, step + 2000);
+        CHECK(r0 > 0.97 && std::fabs(rq - 0.775) < 0.02 && std::fabs(rm - 0.55) < 0.02 && std::fabs(re - 0.1) < 0.005,
+              "glissement : le VOL va en ligne droite a la valeur du pas suivant, puis y reste");
+        // Sans le drapeau (sd 0), les cibles ne changent rien : le coup d'avant, a l'echantillon pres
+        mm::ProgHit hn = hs;
+        hn.sd = 0;
+        std::vector<float> none;
+        p.tracks[3].hits = {hn};
+        runPasses(p, 1, false, &none);
+        bool same = none.size() == plain.size();
+        for (size_t i = 0; same && i < plain.size(); ++i) same = none[i] == plain[i];
+        CHECK(same, "glissement : sans le drapeau, le coup ne change pas");
+        // FREQ, par des lock trigs : passe-bas a 200 Hz au pas 0 ; le lock trig du pas 1 glisse vers les 8 kHz du pas 2.
+        // En escalier (sans sd), le pas 1 reste sourd ; avec le glissement, il s'ouvre pendant le pas ; au pas 2, pareil.
+        mm::ProgHit f0 = p.tracks[3].live;
+        f0.g = 0;
+        f0.ft = 1;
+        f0.fhz = 200;
+        f0.fq = 0.7071;
+        mm::ProgHit l1 = f0, l2 = f0;
+        l1.g = 1;
+        l1.lt = true;
+        l1.lk = 8;
+        l1.lc = 200;
+        l2.g = 2;
+        l2.lt = true;
+        l2.lk = 8;
+        l2.lc = 8000;
+        mm::ProgHit l1s = l1;
+        l1s.sd = 8;
+        l1s.sdCut = 8000;
+        std::vector<float> stairs, glide;
+        p.tracks[3].hits = {f0, l1, l2};
+        runPasses(p, 1, false, &stairs);
+        p.tracks[3].hits = {f0, l1s, l2};
+        runPasses(p, 1, false, &glide);
+        const double sEarly = energy(stairs, static_cast<int>(step), static_cast<int>(step + step / 8)), gEarly = energy(glide, static_cast<int>(step), static_cast<int>(step + step / 8));
+        const double sLate = energy(stairs, static_cast<int>(step + step / 2), static_cast<int>(2 * step - 50)), gLate = energy(glide, static_cast<int>(step + step / 2), static_cast<int>(2 * step - 50));
+        const double sAfter = energy(stairs, static_cast<int>(2 * step + 500), static_cast<int>(3 * step)), gAfter = energy(glide, static_cast<int>(2 * step + 500), static_cast<int>(3 * step));
+        bool before = true;
+        for (long i = 0; i < step; ++i) before = before && stairs[static_cast<size_t>(i)] == glide[static_cast<size_t>(i)];
+        CHECK(before && sLate > 0 && gLate > 4 * sLate && gEarly < 3 * sEarly + 1e-9 && sAfter > 0 && std::fabs(gAfter / sAfter - 1) < 0.1,
+              "glissement : la coupure d'un lock trig s'ouvre pendant le pas, et arrive a la valeur du pas suivant");
+        // Le swing : le glissement dure jusqu'a la grille du pas suivant (un pas impair part en retard)
+        mm::Program pw = baseProgram();
+        pw.swing = 0.2;
+        pw.tracks[3].hits = {hs};
+        std::vector<float> sw;
+        runPasses(pw, 1, false, &sw);
+        double x = 0, y = 0;
+        const long mid = static_cast<long>(0.6 * step); // le milieu d'un glissement de 1.2 pas
+        for (long i = mid - 100; i < mid + 100; ++i) {
+            x += std::fabs(sw[static_cast<size_t>(i)]);
+            y += std::fabs(plain[static_cast<size_t>(i)]);
+        }
+        CHECK(y > 0 && std::fabs(x / y - 0.55) < 0.02, "glissement : avec du swing, il dure jusqu'au pas suivant");
+    }
+    {
+        // La hauteur (TUNE, FINE, TONE) : le kick du pas 0 glisse vers un son deux fois plus haut (pf x 2) ; la lecture
+        // accelere pendant le pas : apres lui, le kick sonne une octave plus haut (deux fois plus de passages par zero),
+        // et son debut est celui du coup sans glissement
+        mm::Program p = baseProgram();
+        mm::ProgHit h = p.tracks[0].live;
+        h.g = 0;
+        mm::ProgHit hs = h;
+        hs.sd = 256;
+        hs.sdPf = 2 * p.sounds[0].pf;
+        std::vector<float> plain, slide;
+        p.tracks[0].hits = {h};
+        runPasses(p, 1, false, &plain);
+        p.tracks[0].hits = {hs};
+        runPasses(p, 1, false, &slide);
+        auto crossings = [](const std::vector<float>& x, size_t a, size_t b) {
+            int n = 0;
+            for (size_t i = a + 1; i < b; ++i)
+                if ((x[i - 1] < 0) != (x[i] < 0)) ++n;
+            return n;
+        };
+        const int zp = crossings(plain, 6000, 12000), zs = crossings(slide, 6000, 12000);
+        double d0 = 0, ref = 0;
+        for (size_t i = 0; i < 64; ++i) {
+            d0 = std::max(d0, std::fabs(static_cast<double>(slide[i]) - plain[i]));
+            ref = std::max(ref, std::fabs(static_cast<double>(plain[i])));
+        }
+        if (std::getenv("MM_TEST_VERBOSE")) std::printf("   hauteur : passages %d -> %d, depart %.5f / %.5f\n", zp, zs, d0, ref);
+        CHECK(zp >= 4 && zs > 1.6 * zp && zs < 2.6 * zp && ref > 0 && d0 < 0.2 * ref, "glissement : la hauteur monte d'une octave pendant le pas, sans saut au depart");
+    }
+    {
+        // La tranche : DIST du pas 0 (0) glisse vers celle du pas suivant (0.8). En escalier, le pas 0 est celui d'une piste
+        // sans DIST ; avec le glissement, le son a deja change a la moitie du pas, pas encore a son debut.
+        auto runSlice = [&](const mm::Program& p, std::vector<float>& l) {
+            mm::Engine e;
+            e.prepare(SR);
+            e.publish(makeState(p));
+            const double pps = 120.0 / 60.0 / SR;
+            const int block = 250;
+            std::vector<float> a(block), b(block);
+            l.clear();
+            double ppq = 0;
+            for (int s = 0; s < 3 * 6000; s += block) {
+                std::fill(a.begin(), a.end(), 0.f);
+                std::fill(b.begin(), b.end(), 0.f);
+                e.process({true, ppq, pps}, a.data(), b.data(), block);
+                l.insert(l.end(), a.begin(), a.end());
+                ppq += block * pps;
+            }
+        };
+        mm::Program p = baseProgram();
+        mm::ProgHit h = p.tracks[1].live;
+        h.g = 0;
+        h.hasSl = true;
+        h.sl = mm::SliceFx{};
+        mm::ProgHit hs = h;
+        hs.sd = 16;
+        hs.sdSl = h.sl;
+        hs.sdSl.dist = 0.8;
+        std::vector<float> flat, glide;
+        p.tracks[1].hits = {h};
+        runSlice(p, flat);
+        p.tracks[1].hits = {hs};
+        runSlice(p, glide);
+        const int lat = 600; // l'avance du limiteur, large
+        double early = 0, late = 0, ref = 0;
+        for (int i = lat; i < lat + 250; ++i) early = std::max(early, std::fabs(static_cast<double>(glide[static_cast<size_t>(i)]) - flat[static_cast<size_t>(i)]));
+        for (int i = 3000 + lat; i < 6000; ++i) {
+            late = std::max(late, std::fabs(static_cast<double>(glide[static_cast<size_t>(i)]) - flat[static_cast<size_t>(i)]));
+            ref = std::max(ref, std::fabs(static_cast<double>(flat[static_cast<size_t>(i)])));
+        }
+        CHECK(ref > 1e-4 && late > 0.05 * ref && early < 0.25 * late, "glissement : la DIST de la tranche change pendant le pas");
     }
 
     // ---------------- phase 3 : FLTR ----------------

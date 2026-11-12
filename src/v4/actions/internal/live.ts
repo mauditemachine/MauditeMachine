@@ -5,7 +5,7 @@
 
 import { clock, type StepEvent } from '../../audio/clock';
 import { context as audioCtx } from '../../audio/drums';
-import { isLockTrig, lockOf, sameLocks, withLock, withoutLock, type LockId, type Locks } from '../../audio/locks';
+import { isLockTrig, lockOf, sameLocks, slideBit, withLock, withoutLock, type LockId, type Locks } from '../../audio/locks';
 import { VEL_MAX, pattern, velocity, type Steps } from '../../audio/pattern';
 import { lcdMessage } from '../../state/lcdMessage';
 import { lcdSamples } from '../../state/lcdSamples';
@@ -87,7 +87,22 @@ export interface LiveKnob {
   screen: RytmScreenId;
   face: number;
   at: number;
+  /**
+   * Le plugin (2026-11-12, le geste fluide) : le dernier pas que ce geste a ecrit (sa position depuis PLAY, son pas de
+   * piste, son emplacement ; -1 : aucun), et dirty : il a tourne depuis, le pas suivant prendra sa valeur meme s'il ne
+   * tourne plus.
+   */
+  abs?: number;
+  step?: number;
+  pat?: number;
+  dirty?: boolean;
 }
+/**
+ * Le plugin : les gestes en cours, un par reglage (pageDial remet st.liveKnob a null a chaque cran ; eux disent si ce cran
+ * continue un geste). Un geste vit tant que son potard tourne, est tenu, ou attend le pas suivant (dirty).
+ */
+const gestures = new Map<string, LiveKnob>();
+const gestureKey = (slot: PageSlot, inst: TrackKey, screen: RytmScreenId): string => `${inst}|${screen}|${slot.lock ?? ''}`;
 /** Tourne il y a moins de ce temps (ou tenu) : le potard ecrit encore sur le pas qui arrive. */
 const LIVE_KNOB_MS = 220;
 /** Les voix qu'on efface (NO tenue + leur pad). */
@@ -105,6 +120,7 @@ export function liveEnter(): void {
   dtFace.setRec(true);
   dtFace.setLive(true);
   liveAbs = -1;
+  gestures.clear();
   window.clearInterval(liveTimer);
   liveTimer = window.setInterval(livePoll, 15);
   // La face DT2 (la relecture de la V.6.0) : les 16 TRIG jouent et s'ecrivent
@@ -122,6 +138,7 @@ export function liveExit(rec: boolean): void {
   liveTimer = 0;
   liveErase.clear();
   st.liveKnob = null;
+  gestures.clear();
   // Sortir n'arme jamais le double appui (la revue de D3b R5)
   st.recTapAt = -Infinity;
   undo.hold('mm808', false);
@@ -174,7 +191,7 @@ function liveLockable(slot: PageSlot, t: TrackKey): boolean {
  * Le verrou du potard sur le pas s (le manuel [M1] 10.2.3 et 10.9.1 : en LIVE RECORDING, les reglages "are recorded as parameter
  * locks and add lock trigs where needed") : un pas sans trig de la voix recoit un lock trig.
  */
-function liveLockAt(k: LiveKnob, e: StepEvent): void {
+function liveLockAt(k: LiveKnob, e: StepEvent, from = -1): void {
   const s = liveStepOf(e, k.inst);
   const id = k.slot.lock as LockId;
   const v = k.v;
@@ -185,14 +202,35 @@ function liveLockAt(k: LiveKnob, e: StepEvent): void {
   const trig = velocity(p.steps, k.inst, s) === 0 && !isLockTrig(p.locks, k.inst, s);
   // Le plugin : l'ecran dit ce qui s'ecrit et sur quel pas (Mika : "ca ne fait rien" : rien ne le montrait)
   if (extHead.active()) lcdMessage.show(`● REC ${k.slot.lockName ?? k.slot.label} > STEP ${String(s + 1).padStart(2, '0')}`, 900);
+  // Le plugin (le geste fluide) : le pas d'avant du meme geste (from) GLISSE vers celui-ci (audio/locks.ts sld)
+  const bit = from >= 0 && from !== s ? slideBit(id) : 0;
+  const sldOf = (locks: Readonly<Locks>): number => (lockOf(locks, k.inst, from)?.sld ?? 0) | bit;
   if (liveCur(e.slot)) {
     if (trig) pattern.setLock(k.inst, [s], 'ltrg', 1);
     pattern.setLock(k.inst, [s], id, x);
+    if (bit) pattern.setLock(k.inst, [from], 'sld', sldOf(pattern.get().locks));
     return;
   }
   // Le pattern qu'on entend n'est plus le courant (la revue de D3b R9) : son emplacement
-  const l = withLock(trig ? withLock(p.locks, k.inst, [s], 'ltrg', 1) : p.locks, k.inst, [s], id, x);
+  let l = withLock(trig ? withLock(p.locks, k.inst, [s], 'ltrg', 1) : p.locks, k.inst, [s], id, x);
+  if (bit) l = withLock(l, k.inst, [from], 'sld', sldOf(l));
   liveWrite(e.slot, p.steps, l);
+}
+
+/**
+ * Le plugin (2026-11-12, Mika : "je voudrais que ce soit encore plus fin, quand je bouge des knobs ca doit etre fluide") :
+ * un geste ecrit UNE valeur par pas, celle du potard quand la tete y entre (ce que le pas a joue pendant la prise), et le
+ * pas d'avant du geste glisse vers elle (sld) : a la relecture le moteur va d'une valeur a la suivante sur la duree du
+ * pas, au lieu d'un escalier. Le premier pas d'un geste prend sa premiere valeur ; le dernier, celle ou le potard s'arrete.
+ */
+function liveStepWrite(k: LiveKnob, e: StepEvent): void {
+  const s = liveStepOf(e, k.inst);
+  const link = (k.abs ?? -1) >= 0 && e.abs === (k.abs as number) + 1 && k.pat === e.slot;
+  liveLockAt(k, e, link ? (k.step ?? -1) : -1);
+  k.abs = e.abs;
+  k.step = s;
+  k.pat = e.slot;
+  k.dirty = false;
 }
 
 /**
@@ -212,7 +250,26 @@ export function liveKnobTurn(slot: PageSlot, v: number, screen: RytmScreenId): v
     }
     return;
   }
-  st.liveKnob = { slot, v, inst, screen, face: st.liveFace, at: performance.now() };
+  const now = performance.now();
+  if (extHead.active()) {
+    // Le plugin : ce cran continue-t-il le geste (le meme potard, la meme piste, la meme page, sans pause) ?
+    const key = gestureKey(slot, inst, screen);
+    const g = gestures.get(key);
+    const cont = !!g && g.face === st.liveFace && (now - g.at < LIVE_KNOB_MS || (g.face >= 0 && faceTouch.held(g.face)) || g.dirty === true);
+    const k: LiveKnob = cont && g ? g : { slot, v, inst, screen, face: st.liveFace, at: now, abs: -1, step: -1, pat: -1, dirty: false };
+    k.slot = slot;
+    k.v = v;
+    k.at = now;
+    gestures.set(key, k);
+    st.liveKnob = k;
+    const e = heardEntry();
+    if (!e) return;
+    // Le pas deja ecrit par ce geste garde sa valeur d'entree : celle-ci ira au pas suivant
+    if (cont && e.abs === k.abs) k.dirty = true;
+    else liveStepWrite(k, e);
+    return;
+  }
+  st.liveKnob = { slot, v, inst, screen, face: st.liveFace, at: now };
   const e = heardEntry();
   if (e) liveLockAt(st.liveKnob, e);
 }
@@ -220,7 +277,7 @@ export function liveKnobTurn(slot: PageSlot, v: number, screen: RytmScreenId): v
 /** Le potard d'avant ecrit-il encore (la revue de D3b R2 R11) : lui, tourne il y a moins de LIVE_KNOB_MS ou tenu, sur sa page et sa voix, hors CONTROL ALL. */
 function liveKnobOn(k: LiveKnob): boolean {
   if (ctlAllOn() || lockTrack() !== k.inst || curScreen() !== k.screen) return false;
-  return performance.now() - k.at < LIVE_KNOB_MS || (k.face >= 0 && faceTouch.held(k.face));
+  return performance.now() - k.at < LIVE_KNOB_MS || (k.face >= 0 && faceTouch.held(k.face)) || k.dirty === true;
 }
 
 /** Efface la voix au pas entendu e (son trig et ses verrous), dans le pattern qu'on entend. */
@@ -242,6 +299,7 @@ export function liveEraseAt(inst: TrackKey, e: StepEvent): void {
 function livePoll(): void {
   if (!liveRunning()) {
     liveAbs = -1;
+    if (gestures.size > 0) gestures.clear();
     return;
   }
   const e = heardEntry();
@@ -250,6 +308,15 @@ function livePoll(): void {
   // L'effacement : seulement tant que NO est tenue (la revue de D3b R15)
   if (noHolders.size === 0) liveErase.clear();
   for (const inst of liveErase) liveEraseAt(inst, e);
+  // Le plugin : chaque geste en cours ecrit la valeur de son potard a l'entree du pas (pageDial vide st.liveKnob a chaque
+  // cran, les gestes restent) ; un geste fini s'en va
+  if (extHead.active()) {
+    for (const [key, g] of gestures) {
+      if (liveKnobOn(g)) liveStepWrite(g, e);
+      else gestures.delete(key);
+    }
+    return;
+  }
   const k = st.liveKnob;
   if (k && liveKnobOn(k)) liveLockAt(k, e);
 }

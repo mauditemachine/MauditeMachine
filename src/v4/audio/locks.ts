@@ -89,7 +89,38 @@ export const VOICE_LOCK_IDS: readonly VoiceLockId[] = ['atk', 'hold', 'fine', 'f
  * LFO de la voix (audio/lfo.ts : l1spd... l2dep), des entiers, et ltrg (1 : le pas est un lock trig, il ne joue pas, ses
  * verrous s'appliquent au coup de la voix qui sonne encore). Une revision d'avant les ignore (cleanStep ne lit que ses cles).
  */
-export type SeqLockId = TrigParam | LfoParam | 'ltrg';
+export type SeqLockId = TrigParam | LfoParam | 'ltrg' | 'sld';
+/**
+ * sld (2026-11-12, le plugin, Mika : "quand je bouge des knobs ca doit etre fluide apres") : les reglages du pas qui
+ * GLISSENT vers leur valeur du pas suivant au lieu d'y sauter, un masque (bit i : SLIDE_IDS[i]). LIVE REC le pose entre deux
+ * pas d'un meme geste ; un verrou pose a la main (GRID REC) reste un saut, comme sur une Elektron. Ce qui glisse : ce que le
+ * moteur change sur un coup qui sonne (VOL, PAN, le filtre), les envois et inserts de la tranche, et la hauteur du coup
+ * (TUNE, FINE, TONE : la lecture accelere ou ralentit ; TONE aussi son filtre de tranche). Un bit sans son verrou sur le
+ * pas ne veut rien dire : il s'en va (slideClean). Le site ne le lit pas. Des ids ajoutes A LA FIN (les bits gardes restent justes).
+ */
+export const SLIDE_IDS = ['level', 'pan', 'freso', 'fcut', 'dist', 'chorus', 'delay', 'reverb', 'tune', 'fine', 'tone'] as const;
+export type SlideId = (typeof SLIDE_IDS)[number];
+/** Le bit d'un reglage dans sld ; 0 : il ne glisse pas (un reglage coup par coup : TUNE, DEC, START...). */
+export const slideBit = (id: string | null | undefined): number => {
+  const i = (SLIDE_IDS as readonly string[]).indexOf(id ?? '');
+  return i < 0 ? 0 : 1 << i;
+};
+/** Les bits de sld dont le verrou est sur le pas. */
+function slideKept(l: Readonly<StepLock>): number {
+  let m = 0;
+  const bits = typeof l.sld === 'number' ? l.sld : 0;
+  for (let i = 0; i < SLIDE_IDS.length; i += 1) if ((bits >> i) & 1 && l[SLIDE_IDS[i]] !== undefined) m |= 1 << i;
+  return m;
+}
+/** sld sans les bits de verrous absents (sur place) ; true s'il a change. */
+function slideClean(l: StepLock): boolean {
+  if (l.sld === undefined) return false;
+  const m = slideKept(l);
+  if (m === l.sld) return false;
+  if (m === 0) delete l.sld;
+  else l.sld = m;
+  return true;
+}
 export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | LayerLockId | 'delay' | 'reverb' | VoiceLockId | SeqLockId;
 /** Les potards de la machine (SRC) : le coup se calcule avec eux (revue de R2 ; SWEEP et la caisse claire depuis R3). */
 export type KitLockId = 'ktune' | 'kattack' | 'kdecay' | 'kdrive' | 'snappy' | 'gate' | 'ksweep' | 'sdtune' | 'sddecay' | 'sdtone';
@@ -97,7 +128,7 @@ export const KIT_LOCK_IDS: readonly KitLockId[] = ['ktune', 'kattack', 'kdecay',
 /** Les reglages des couches (R3) : les deux niveaux, la couche SAMPLE. */
 export type LayerLockId = 'syn' | 'slev' | 'stune' | 'sfine' | 'sstart' | 'slen' | 'srev';
 export const LAYER_LOCK_IDS: readonly LayerLockId[] = ['syn', 'slev', 'stune', 'sfine', 'sstart', 'slen', 'srev'];
-export const SEQ_LOCK_IDS: readonly SeqLockId[] = [...TRIG_PARAMS, ...LFO_PARAMS, 'ltrg'];
+export const SEQ_LOCK_IDS: readonly SeqLockId[] = [...TRIG_PARAMS, ...LFO_PARAMS, 'ltrg', 'sld'];
 export const isSeqLock = (v: unknown): v is SeqLockId => typeof v === 'string' && (SEQ_LOCK_IDS as readonly string[]).includes(v);
 export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, ...LAYER_LOCK_IDS, 'delay', 'reverb', ...VOICE_LOCK_IDS, ...SEQ_LOCK_IDS];
 export const isLockId = (v: unknown): v is LockId => typeof v === 'string' && (LOCK_IDS as readonly string[]).includes(v);
@@ -192,6 +223,7 @@ export function clampLock(id: LockId, v: number, exact = false): number {
   if (isTrigParam(id)) return clampTrig(id, v);
   if (isLfoParam(id)) return clampLfo(id, v);
   if (id === 'ltrg') return 1;
+  if (id === 'sld') return Number.isFinite(v) ? Math.max(0, Math.min((1 << SLIDE_IDS.length) - 1, Math.round(v))) : 0;
   if (!Number.isFinite(v)) return id === 'decay' ? 1 : id === 'level' ? 0.8 : 0;
   if (id === 'tune' || id === 'stune') return Math.max(-24, Math.min(24, Math.round(v * 24))) / 24;
   if (id === 'sfine' || id === 'fine') return Math.max(-64, Math.min(64, Math.round(v * 64))) / 64;
@@ -268,6 +300,8 @@ function cleanStep(o: unknown, inst: TrackKey, r2: boolean): StepLock | null {
       n += 1;
     }
   }
+  // sld : seulement les bits des verrous du pas
+  if (out.sld !== undefined && slideClean(out) && out.sld === undefined) n -= 1;
   // Un son d'avant le 2026-10-18 (hh:...) se lit dans sa famille d'aujourd'hui (ch:...) ; rs: ne se lit plus
   const snd = sndNow(x.snd, inst);
   if (snd && !oldModelSnd(snd)) {
@@ -359,7 +393,8 @@ export const hasLock = (l: Readonly<Locks> | null | undefined, inst: TrackKey, s
 /** Combien de verrous sur ce pas. */
 export function lockCount(l: Readonly<Locks> | null | undefined, inst: TrackKey, step: number): number {
   const s = lockOf(l, inst, step);
-  return s ? Object.keys(s).length : 0;
+  // sld (le glissement) n'est pas un verrou de plus : il dit comment ceux du pas vont au suivant
+  return s ? Object.keys(s).length - (s.sld !== undefined ? 1 : 0) : 0;
 }
 
 /** Les pas d'une voix qui portent des verrous : un masque de 16 bits (bit i : le pas i). */
@@ -395,8 +430,11 @@ export function withLock(l: Readonly<Locks>, inst: TrackKey, steps: readonly num
     } else {
       if (typeof v !== 'number') continue;
       cur[key] = clampLock(key, v);
+      // sld : seulement les bits des verrous du pas ; aucun : il s'en va
+      if (key === 'sld') slideClean(cur);
     }
-    row[k] = cur;
+    if (Object.keys(cur).length === 0) delete row[k];
+    else row[k] = cur;
   }
   return { ...l, [inst]: row, v: LOCKS_V };
 }
@@ -419,6 +457,8 @@ export function withoutLock(l: Readonly<Locks>, inst: TrackKey, steps: readonly 
     if (!(key in cur)) continue;
     const next: StepLock = { ...cur };
     delete next[key];
+    // Le verrou parti ne glisse plus
+    slideClean(next);
     if (Object.keys(next).length === 0) delete row[k];
     else row[k] = next;
     changed = true;

@@ -118,6 +118,26 @@ void parseHit(const juce::var& o, mm::ProgHit& h) {
     h.fp = num(o, "fp", 0) != 0;
     h.lk = static_cast<int>(num(o, "lk", 0));
     h.lc = num(o, "lc", 20000);
+    // Le glissement vers le pas suivant : [LEVEL, PAN, RESO, la coupure, DIST, CHORUS, DELAY, REVERB]
+    h.sd = 0;
+    if (const auto* sv = o.getProperty("sv", juce::var()).getArray(); sv && sv->size() >= 8) {
+        auto at = [&](int i) { return static_cast<double>((*sv)[i]); };
+        // La hauteur et TONE (256, 512) : avec leurs deux valeurs seulement
+        h.sd = static_cast<int>(num(o, "sd", 0)) & (sv->size() >= 10 ? 1023 : 255);
+        h.sdLevel = juce::jlimit(0.0, 1.0, at(0));
+        h.sdPan = juce::jlimit(-1.0, 1.0, at(1));
+        h.sdReso = juce::jlimit(0.0, 1.0, at(2));
+        h.sdCut = juce::jlimit(20.0, 20000.0, at(3));
+        h.sdSl = h.hasSl ? h.sl : mm::SliceFx{};
+        h.sdSl.dist = juce::jlimit(0.0, 1.0, at(4));
+        h.sdSl.chorus = juce::jlimit(0.0, 1.0, at(5));
+        h.sdSl.delay = juce::jlimit(0.0, 1.0, at(6));
+        h.sdSl.reverb = juce::jlimit(0.0, 1.0, at(7));
+        if (sv->size() >= 10) {
+            h.sdPf = juce::jlimit(0.01, 100.0, at(8));
+            h.sdSl.tone = juce::jlimit(-1.0, 1.0, at(9));
+        }
+    }
 }
 
 // Les effets globaux du programme (pattern.fx par morph.fx, TONE et LEVEL du mix)

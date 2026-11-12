@@ -46,6 +46,15 @@ ProgHit blendHit(const ProgHit& a, const ProgHit& b, double f) {
     h.lbReso = lin(a.lbReso, b.lbReso, f);
     h.lbDecay = lin(a.lbDecay, b.lbDecay, f);
     h.lc = logl(a.lc, b.lc, f);
+    // Le glissement : ses cibles suivent le crossfader comme les valeurs du coup
+    if (a.sd && b.sd) {
+        h.sdLevel = lin(a.sdLevel, b.sdLevel, f);
+        h.sdPan = lin(a.sdPan, b.sdPan, f);
+        h.sdReso = lin(a.sdReso, b.sdReso, f);
+        h.sdCut = logl(a.sdCut, b.sdCut, f);
+        h.sdPf = logl(a.sdPf, b.sdPf, f);
+        h.sdSl = blendSlice(a.sdSl, b.sdSl, f);
+    }
     return h;
 }
 

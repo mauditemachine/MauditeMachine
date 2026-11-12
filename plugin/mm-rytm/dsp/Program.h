@@ -69,6 +69,13 @@ struct ProgHit {
     // Un lock trig : ce qu'il verrouille de ce que la voix change en direct (1 VOL, 2 PAN, 4 RESO, 8 FREQ ; lc : la coupure)
     int lk = 0;
     double lc = 20000;
+    // Le glissement vers le pas suivant (2026-11-12, LIVE REC : un geste de potard rejoue sans escalier) : sd, ce qui glisse
+    // (1 VOL, 2 PAN, 4 RESO, 8 FREQ sur le coup qui sonne ; 16 DIST, 32 CHORUS, 64 DELAY, 128 REVERB sur la tranche ; 256 la
+    // hauteur du coup : sdPf, le pf du son du pas suivant, la lecture y accelere ou ralentit ; 512 TONE de la tranche) ;
+    // les valeurs du pas suivant, atteintes a son heure
+    int sd = 0;
+    double sdLevel = 0.8, sdPan = 0, sdReso = 0, sdCut = 20000, sdPf = 1;
+    SliceFx sdSl;
 };
 
 struct ProgTrack {
