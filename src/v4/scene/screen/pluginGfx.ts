@@ -11,7 +11,7 @@
  * Plugin seulement (le site garde ses ecrans). Rien n'est retenu ici que les cretes des samples (un calcul par sample).
  */
 
-import { anyDial, dialRange, dialShown, type DialId } from '../../actions';
+import { anyDial, dialRange, dialShown, trackStepNow, type DialId } from '../../actions';
 import { SAMPLE_START_MAX, sampleLenPart } from '../../audio/sampledsp';
 import { pattern, velocity } from '../../audio/pattern';
 import { requestSample, sampleByKey, samplePcm } from '../../audio/samples';
@@ -487,7 +487,9 @@ function pluginPanel(this: Screen, screen: RytmScreenId, slots: readonly PageSlo
     const gap = 1.6;
     const d = (R.x1 - R.x0 - 10 - gap * (n - 1)) / n;
     const y = (R.y0 + R.y1) / 2 + 3;
-    const head = clock.running ? playhead.get() : -1;
+    // La tete : le pas que joue la piste (TLEN : elle boucle sur sa longueur), comme sur les touches
+    const g = clock.running ? trackStepNow(t) : -1;
+    const head = g >= 0 ? g - pattern.editPage() * 16 : clock.running ? playhead.get() : -1;
     for (let k = 0; k < n; k += 1) {
       const x = R.x0 + 5 + k * (d + gap);
       const on = velocity(steps, t, k) > 0;

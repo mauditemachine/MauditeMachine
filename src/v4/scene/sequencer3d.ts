@@ -61,7 +61,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, DT_FACE, DT_HEX, FACE_KEY, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PRESS_TINT, STEP_LIT, STEP_PRESS, STEP_TONE, TRANSPORT, TRK_FLASH, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
+import { BTN_LED, COLOR, DT_FACE, DT_HEX, FACE_KEY, HOVER_LIGHT, INK, KEYS, KEY_LABELS, KEY_LIT, KEY_LIT_LIGHT, KEY_RELIEF, LIT, MATERIAL, PLUGIN, PRESS_TINT, STEP_LIT, STEP_OUT, STEP_PRESS, STEP_TONE, TRANSPORT, TRK_FLASH, keyDz, keyX, type Inst, type KeyLitTone } from '../theme';
 import { keyCapGeometry } from './keyCap';
 import { RYTM_FACEPLATE } from '../rytm/faceplate';
 import type { TrkLed } from '../rytm/stepLeds';
@@ -214,6 +214,9 @@ export interface SequencerInfo {
   /** V.5.1 : les lock trigs de la voix choisie (masque) et le point des conditions montre sur chaque pas ('1' : montre) */
   ltrgMask: number;
   condDots: string;
+  /** le plugin : les touches que la piste joue [lo, hi), et celles eteintes (1) */
+  span: [number, number];
+  out: string;
   /** velocite de chaque pas (0 vide a 9 la plus forte, 127 a l'ecran) */
   programmed: string;
   /** V.5.0 : la teinte de chaque pas (KEY_LIT : dred les coups, dwhite un pattern plein, dgreen et dmagenta le mode MUTE) */
@@ -318,6 +321,14 @@ export class Sequencer3D {
   private condMask = 0;
   readonly condDots: InstancedMesh;
   private condShown = new Uint8Array(STEP_COUNT);
+  /**
+   * Le plugin (2026-11-12, Mika : "la longueur de steps, je devrais pouvoir la voir directement sur la machine") : les
+   * touches que la piste joue, [spanLo, spanHi) ; les autres s'eteignent et foncent (STEP_OUT), dans la vue du motif
+   * seulement. 0 a 16 par defaut : rien ne change ailleurs.
+   */
+  private spanLo = 0;
+  private spanHi = STEP_COUNT;
+  private outShown = new Uint8Array(STEP_COUNT);
 
   constructor(opts: { mobile: boolean; atlas: KeyLabelAtlas; transport?: boolean }) {
     const transport = opts.transport ?? true;
@@ -396,7 +407,8 @@ export class Sequencer3D {
     this.stepVoices = under.length > 0;
     this.voiceN = under.length;
     const stepSpecs = [...nums, ...under];
-    this.stepLabels = nums.length === STEP_COUNT ? new KeyLabels(opts.atlas, stepSpecs, KEYS.h, 'step') : null;
+    // Le plugin : les legendes d'un pas hors de la longueur de la piste s'eteignent (dimmable)
+    this.stepLabels = nums.length === STEP_COUNT ? new KeyLabels(opts.atlas, stepSpecs, KEYS.h, 'step', PLUGIN) : null;
 
     this.ledMat.name = 'led';
     void FACE_KEY;
@@ -638,9 +650,26 @@ export class Sequencer3D {
    * (STEP_LIT.ramp, 0 vide) ; EDIT : le pattern courant plein, celui qui attend
    * la mesure, ceux de la chaine, un pattern plein.
    */
+  /** La touche i est-elle hors de ce que la piste joue (le plugin, la vue du motif) ? */
+  private outAt(i: number): boolean {
+    return !this.patView && !this.trkView && (i < this.spanLo || i >= this.spanHi);
+  }
+
+  /** Les touches que la piste joue (le plugin) : [lo, hi) de 0 a 16 ; true s'il faut une frame. */
+  setSpan(lo: number, hi: number): boolean {
+    const a = Math.max(0, Math.min(STEP_COUNT, Math.round(lo)));
+    const b = Math.max(a, Math.min(STEP_COUNT, Math.round(hi)));
+    if (a === this.spanLo && b === this.spanHi) return false;
+    this.spanLo = a;
+    this.spanHi = b;
+    return this.refresh(true);
+  }
+
   private litOf(i: number): number {
     // TRK (2026-10-27) : l'intensite de la voix du pas
     if (this.trkView) return this.trkView[i]?.level ?? 0;
+    // Le plugin : un pas que la piste ne joue pas reste eteint (ses coups ne sonnent pas)
+    if (this.outAt(i)) return 0;
     // Un lock trig (V.5.1) : allume en jaune a sa part, sans velocite
     if (!this.patView && this.lockTrigAt(i)) return STEP_LIT.lockTrig;
     const v = this.patView;
@@ -686,7 +715,7 @@ export class Sequencer3D {
 
   /** Le pas i est-il un lock trig montre (V.5.1 : la vue du motif, sans note) ? */
   private lockTrigAt(i: number): boolean {
-    return this.lockShown && ((this.ltrgMask >> i) & 1) === 1 && this.programmed(i) === 0;
+    return this.lockShown && ((this.ltrgMask >> i) & 1) === 1 && this.programmed(i) === 0 && !this.outAt(i);
   }
 
   /**
@@ -717,7 +746,7 @@ export class Sequencer3D {
 
   /** Le pas j est-il sous la tete de lecture (ou le test de l'intro) ? Jamais dans EDIT. */
   private isHead(j: number): boolean {
-    return !this.patView && !this.trkView && (j === this.playhead || j === this.introLed);
+    return !this.patView && !this.trkView && (j === this.playhead || j === this.introLed) && !this.outAt(j);
   }
 
   /** Les verrous se lisent sur les touches (hors EDIT et hors TRK). */
@@ -736,8 +765,9 @@ export class Sequencer3D {
     // elle rendait rose) ; sur la creme, l'encre (writeKeyColor) et l'eclat d'un pas vide
     const over = head && f > 0 && DT_FACE;
     const add = head ? (f > 0 && !over ? STEP_LIT.head : STEP_LIT.headEmpty) : null;
-    const locked = this.lockShown && ((this.lockMask >> j) & 1) === 1;
-    const floor = this.lockShown && j === this.lockStep ? (this.lockBlink ? STEP_LIT.lock : STEP_LIT.lockDim) : locked && f === 0 ? STEP_LIT.locks : !this.trkView && j === this.hover && f === 0 ? STEP_LIT.hover : null;
+    const out = this.outAt(j);
+    const locked = this.lockShown && !out && ((this.lockMask >> j) & 1) === 1;
+    const floor = out ? null : this.lockShown && j === this.lockStep ? (this.lockBlink ? STEP_LIT.lock : STEP_LIT.lockDim) : locked && f === 0 ? STEP_LIT.locks : !this.trkView && j === this.hover && f === 0 ? STEP_LIT.hover : null;
     // TRK (2026-10-27) : la lueur du pas a l'intensite de sa voix, l'orange de la machine pour les huit (V.4.2) ; l'eclair
     // d'un coup s'y ajoute (TRK_FLASH)
     if (this.trkView) {
@@ -763,6 +793,8 @@ export class Sequencer3D {
    */
   private writeKeyColor(j: number): void {
     const c = this.pressedColor(LIT.key, this.keyPress[j]);
+    // Le plugin : un pas que la piste ne joue pas fonce (STEP_OUT.key)
+    if (this.outAt(j)) c.multiplyScalar(STEP_OUT.key);
     const f = this.litPart[j];
     // TRK (2026-10-27), la machine claire : le dessus tire vers l'orange (V.4.2 : le meme pour les huit), a son intensite ;
     // l'eclair d'un coup fonce et sature vers l'orange profond de TRK_FLASH.lightTint (la revue : vers le jaune de la tete de
@@ -834,9 +866,25 @@ export class Sequencer3D {
         this.stepLabels?.setLit(i, dark);
         if (this.stepVoices && i < this.voiceN) this.stepLabels?.setLit(STEP_COUNT + i, dark);
       }
+      // Le plugin : un pas qui entre ou sort de la longueur de la piste, sa teinte et ses legendes
+      const out = this.outAt(i) ? 1 : 0;
+      const outMoved = out !== this.outShown[i];
+      if (outMoved) {
+        this.outShown[i] = out;
+        const d = out ? STEP_OUT.label : 1;
+        this.stepLabels?.setDim(i, d);
+        if (this.stepVoices && i < this.voiceN) this.stepLabels?.setDim(STEP_COUNT + i, d);
+        // Le cadre des temps (1, 5, 9, 13) s'eteint avec sa touche
+        const fr = FRAMED.indexOf(i as (typeof FRAMED)[number]);
+        if (fr >= 0) {
+          this.frames.setColorAt(fr, col.setScalar(d));
+          if (this.frames.instanceColor) this.frames.instanceColor.needsUpdate = true;
+        }
+        changed = true;
+      }
       // La machine claire : la teinte suit aussi la tete de lecture (force)
-      if (KEY_LIT_LIGHT.tint && (part || force)) this.writeKeyColor(i);
-      const locked = this.lockShown && ((this.lockMask >> i) & 1) === 1;
+      if ((KEY_LIT_LIGHT.tint && (part || force)) || outMoved) this.writeKeyColor(i);
+      const locked = this.lockShown && !out && ((this.lockMask >> i) & 1) === 1;
       // Sombre sur une touche allumee, et sur le pas en LOCK quand il s'allume en jaune
       const bright = f >= MARK_DARK_AT || (i === this.lockStep && this.lockBlink);
       // TRK (2026-10-27) : la marque devient la barre de MUTE (3) ou de SOLO (4) de la voix du pas
@@ -858,7 +906,7 @@ export class Sequencer3D {
     // Le point des conditions (V.5.1) : seulement dans la vue du motif ; il suit l'enfoncement de sa touche
     let dots = false;
     for (let i = 0; i < STEP_COUNT; i += 1) {
-      const on = this.lockShown && ((this.condMask >> i) & 1) === 1 ? 1 : 0;
+      const on = this.lockShown && !this.outAt(i) && ((this.condMask >> i) & 1) === 1 ? 1 : 0;
       if (on === this.condShown[i] && !force) continue;
       this.condShown[i] = on;
       this.placeDot(i);
@@ -1064,6 +1112,8 @@ export class Sequencer3D {
       lockBlink: this.lockBlink,
       ltrgMask: this.ltrgMask,
       condDots: Array.from(this.condShown, String).join(''),
+      span: [this.spanLo, this.spanHi],
+      out: Array.from(this.outShown, String).join(''),
       programmed,
       instrument: this.instrument,
     };

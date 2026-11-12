@@ -9,7 +9,7 @@
 
 import { lockOf, slideBit, type LockId } from '../audio/locks';
 import { pattern, velocity } from '../audio/pattern';
-import { extHead, nextProgStep } from '../plugin/head';
+import { extHead, nextProgStep, trackStepAt } from '../plugin/head';
 import { patterns } from '../state/patterns';
 import { knobBlock } from './dials';
 import { lockTrack } from './internal/locks';
@@ -33,7 +33,7 @@ export function autoRingPlan(out: (AutoRing | null)[], keep: AutoRing[]): boolea
   const loop = pattern.loopPage();
   const tl = Math.round(p.trigs?.[inst]?.tlen ?? 0);
   // Le pas de la piste : le sien si elle a sa longueur (TLEN, Engine.cpp : rel modulo TLEN, hors page bouclee)
-  const g = tl > 0 && tl < len && loop < 0 && typeof h.rel === 'number' && h.rel >= 0 ? h.rel % tl : h.step;
+  const g = trackStepAt(h, len, loop, tl);
   const s = ((g % 16) + 16) % 16;
   const lock = lockOf(p.locks, inst, s);
   if (!lock) return false;

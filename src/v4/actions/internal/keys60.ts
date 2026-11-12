@@ -16,13 +16,14 @@
  */
 
 import { IN_PLUGIN } from '../../pluginMode';
+import { trackKeyOn, trackKeySpan } from '../trackSpan';
 import { muteHold } from '../../state/muteHold';
 import { clock } from '../../audio/clock';
 import { resume, trigger } from '../../audio/drums';
 import { isLockTrig, type Locks } from '../../audio/locks';
 import { STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from '../../audio/pattern';
 import { defaultKit } from '../../audio/kitlaw';
-import { TRACK_KEYS, TYPED_TRACKS, kit16FromLegacy, tracks, type Kit16, type TrackKey } from '../../audio/tracks';
+import { TRACK_KEYS, TRACK_NAMES, TYPED_TRACKS, kit16FromLegacy, tracks, type Kit16, type TrackKey } from '../../audio/tracks';
 import { anyDial } from '../anyDial';
 import { dialEdit } from '../scenes';
 import type { DialId } from '../kit';
@@ -581,6 +582,7 @@ export function trigWrite(i: number, stage: Stage | null): boolean {
     rytmLockTap(i);
     return true;
   }
+  if (outOfTrack(k, i)) return true;
   const p = pattern.get();
   if (velocity(p.steps, k, i) === 0 && isLockTrig(p.locks, k, i)) {
     pattern.clearLock(k, [i]);
@@ -595,6 +597,18 @@ export function trigWrite(i: number, stage: Stage | null): boolean {
   return true;
 }
 
+/**
+ * Le plugin (2026-11-12) : un pas que la piste ne joue pas (au-dela de sa longueur TLEN ou du pattern) ne recoit rien, sa
+ * touche est eteinte : l'ecran le dit au lieu d'ecrire un coup muet. true : le pas est hors de la piste.
+ */
+function outOfTrack(k: TrackKey, i: number): boolean {
+  if (!IN_PLUGIN || trackKeyOn(k, i)) return false;
+  const [, hi] = trackKeySpan(k);
+  // Le nom imprime sur la touche (BD2, le plugin)
+  lcdMessage.show(`STEP ${two(i + 1)} OFF: ${TRACK_NAMES[TRACK_KEYS.indexOf(k)] ?? trackName(k)} = ${hi} STEPS`, 1600);
+  return true;
+}
+
 /** FUNC + TRIG en GRID REC (le lock trig, V.5.1) : sur la piste active (16). */
 export function trigLockTrig(i: number, stage: Stage | null): void {
   resume();
@@ -604,6 +618,7 @@ export function trigLockTrig(i: number, stage: Stage | null): void {
     lcdMessage.show(NO_TRACK);
     return;
   }
+  if (outOfTrack(k, i)) return;
   const p = pattern.get();
   const vel = velocity(p.steps, k, i);
   if (vel === 0 && isLockTrig(p.locks, k, i)) {

@@ -33,6 +33,24 @@ export function nextProgStep(g: number, len: number, loop: number, tlen: number)
   return tlen > 0 && tlen < len && g < tlen ? (g + 1) % tlen : (g + 1) % len;
 }
 
+/**
+ * Le pas que joue une piste sous la tete h (dsp/Engine.cpp evalStep) : le sien si elle a sa longueur (TLEN : rel modulo
+ * TLEN, hors page bouclee), sinon celui du pattern.
+ */
+export function trackStepAt(h: HeadEntry, len: number, loop: number, tlen: number): number {
+  return tlen > 0 && tlen < len && loop < 0 && typeof h.rel === 'number' && h.rel >= 0 ? h.rel % tlen : h.step;
+}
+
+/**
+ * Les pas qu'une piste joue (2026-11-12, Mika : "la longueur de steps, je devrais pouvoir la voir directement sur la
+ * machine") : [debut, fin) en pas du pattern. La page bouclee ; sinon TLEN si elle est plus courte que le pattern ; sinon
+ * tout le pattern.
+ */
+export function trackSpan(len: number, loop: number, tlen: number): [number, number] {
+  if (loop >= 0 && loop * 16 < len) return [loop * 16, loop * 16 + Math.min(16, len - loop * 16)];
+  return [0, tlen > 0 && tlen < len ? tlen : len];
+}
+
 type Source = () => HeadEntry | null;
 
 let source: Source | null = null;

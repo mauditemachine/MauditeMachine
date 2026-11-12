@@ -36,7 +36,7 @@
  * etageres sur 2048 de large, a SHELF_PPU px l'unite.
  */
 
-import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, type CanvasTexture } from 'three';
+import { BufferAttribute, BufferGeometry, DynamicDrawUsage, Mesh, MeshStandardMaterial, type CanvasTexture } from 'three';
 import type { FpMark } from '../rytm/faceplate';
 import { APPEARANCE, FONT_DISPLAY, ICON_LINE, KEY_LABEL, KEY_MARK, MARK_ICON, SILK, markW, marksH, marksW, type KeyLabelSpec } from '../theme';
 import { drawTracked, makeCanvasTexture, trackedWidth } from './silk';
@@ -472,6 +472,8 @@ export class KeyLabels {
   private uvs: BufferAttribute;
   private lit: boolean[];
   private funcMode = false;
+  /** l'encre de chaque nom, a sa part (dimmable : une couleur par sommet ; null sans) */
+  private dims: BufferAttribute | null = null;
   /** le y du dessus des touches, au repos */
   private y: number;
 
@@ -479,7 +481,8 @@ export class KeyLabels {
     private atlas: KeyLabelAtlas,
     private specs: readonly KeyLabelSpec[],
     keyH: number,
-    name: string
+    name: string,
+    dimmable = false
   ) {
     const n = specs.length;
     this.y = keyH + 0.003;
@@ -508,6 +511,12 @@ export class KeyLabels {
     this.geo.setAttribute('normal', new BufferAttribute(nrm, 3));
     this.geo.setAttribute('uv', this.uvs);
     this.geo.setIndex(idx);
+    // Des noms qui s'eteignent (les pas hors de la longueur de la piste, le plugin) : une couleur par sommet, 1 au depart
+    if (dimmable) {
+      this.dims = new BufferAttribute(new Float32Array(n * 12).fill(1), 3);
+      this.dims.setUsage(DynamicDrawUsage);
+      this.geo.setAttribute('color', this.dims);
+    }
     specs.forEach((_, i) => this.writeUv(i));
     this.geo.computeBoundingSphere();
     this.mat = new MeshStandardMaterial({
@@ -519,6 +528,7 @@ export class KeyLabels {
       polygonOffsetUnits: -2,
       roughness: 0.7,
       metalness: 0,
+      vertexColors: dimmable,
     });
     this.mat.name = `${name}Labels`;
     this.mesh = new Mesh(this.geo, this.mat);
@@ -555,6 +565,17 @@ export class KeyLabels {
     if (i < 0 || i >= this.lit.length || this.lit[i] === on) return false;
     this.lit[i] = on;
     this.writeUv(i);
+    return true;
+  }
+
+  /** L'encre du nom i a la part f (0 a 1 ; seulement dimmable) ; true si elle a change. */
+  setDim(i: number, f: number): boolean {
+    const d = this.dims;
+    if (!d || i < 0 || i >= this.lit.length) return false;
+    const a = d.array as Float32Array;
+    if (a[i * 12] === f) return false;
+    a.fill(f, i * 12, i * 12 + 12);
+    d.needsUpdate = true;
     return true;
   }
 

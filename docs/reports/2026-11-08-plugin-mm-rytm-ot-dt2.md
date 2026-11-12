@@ -358,6 +358,17 @@ Mika, apres l'installation du lot 20 : « super ca fonctionne pour l'enregistrem
 
 - **Build vert du lot 21** (run 43153114267), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 9b9b5a5, branche claude/intelligent-ride-56tyeo, 2026-11-12 04:18 UTC.
 
+### Lot 22, la longueur de la piste sur les touches de pas (2026-11-12)
+
+Mika, avec une capture (TRIG 2/2, TLEN 3) : « la longueur de steps, je devrais pouvoir la voir directement sur la machine, la on voit toujours les 16 meme quand on change ».
+
+- **Le constat** : TLEN n'etait lu que par le moteur et le graphe de l'ecran ; les 16 touches montraient tous les coups de la piste, et la tete de lecture (touches et ecran) suivait le pas du pattern : dans la capture, elle etait au pas 9 d'une piste de 3 pas.
+- **La loi, en un seul endroit** (`src/v4/plugin/head.ts`) : trackStepAt (le pas que joue une piste : rel modulo TLEN hors page bouclee, comme `Engine.cpp` evalStep) et trackSpan (les pas qu'elle joue : la page bouclee, TLEN, le pattern). `actions/trackSpan.ts` (nouveau) : trackKeySpan (les touches de la page affichee), trackKeyOn, trackStepNow. LIVE REC (`liveStepOf`) et les anneaux du lot 21 (`autoRing.ts`) passent par elle (liveStepOf oubliait la page bouclee).
+- **Les touches** (`src/v4/scene/sequencer3d.ts` setSpan, `theme.ts` STEP_OUT) : hors de ce que joue la piste active, une touche s'eteint (ni coup, ni lock trig, ni marque de verrou, ni point de condition, ni tete), son dessus fonce (x 0.42), ses legendes et le cadre des temps aussi (x 0.3 ; `scene/keyLabels.ts` setDim, une couleur par sommet, seulement dans le plugin). Seulement dans la vue du motif : TRK et PTN ne changent pas. Les coups au-dela restent dans le pattern.
+- **La tete de lecture** (`scene/renderer.ts` keyHead) : sur les touches, le pas de la piste active ; le graphe TRACK STEPS de l'ecran (`scene/screen/pluginGfx.ts`) aussi.
+- **Un clic hors de la longueur** (`actions/internal/keys60.ts` outOfTrack) : en GRID REC, la frappe d'un pas et le lock trig ne posent rien sur une touche eteinte ; l'ecran dit « STEP 05 OFF: BD2 = 3 STEPS ».
+- Verifie dans Chromium, sans son : piste 9 (BD2) avec des coups sur 1 2 6 10 12 15, TLEN monte a 3 par le potard E de TRIG 2/2 : touches [0, 3), 13 eteintes, seuls 1 et 2 allumes ; la tete simulee donne 0 1 2 0 1 sur les touches ; le pas 5 refuse (6 coups avant et apres) ; la vue TRK : rien d'eteint ; la piste 1 (sans TLEN) : les 16. Captures a x2. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -442,9 +453,12 @@ Mika, apres l'installation du lot 20 : « super ca fonctionne pour l'enregistrem
 - **TUNE et TONE glissent aussi** : ils changent la hauteur, un autre son au coup suivant ; le moteur fait donc monter ou descendre le coup qui sonne (la vitesse de lecture) jusqu'a la hauteur du pas suivant. Sans cela le premier essai de Mika (TONE) serait reste en escalier.
 - **L'anneau bouge, pas le capuchon** : Mika parle des « petits carres autour des knobs ». Le potard reste donc sur la valeur de base (celle qu'il regle), l'anneau montre ce qui joue ; la main garde toujours la priorite.
 - **En LIVE REC le potard regle toujours aussi la base** (comme avant, comme au site) : hors du geste, les pas jouent la valeur ou le potard s'est arrete.
+- **Lot 22 : eteindre et foncer plutot que cacher les touches** : une machine physique garde ses 16 touches ; celles que la piste ne joue pas s'eteignent comme sur une Elektron, et leur dessus et leurs legendes foncent pour que la limite se voie meme sans coup. Les coups au-dela restent gardes (remonter TLEN les rend), comme sur la Digitakt.
+- **Un clic sur une touche eteinte ne pose rien** : un coup pose la serait muet et invisible ; l'ecran dit pourquoi.
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 22)** : la commande mm-rytm ; TRIG 2/2, tourner TLEN (potard E) et dire si la limite se voit assez sur les touches (le dessus et les legendes peuvent foncer plus ou moins : `theme.ts` STEP_OUT).
 - **Cote Mika (lot 21)** : la commande mm-rytm, quitter et rouvrir Ableton. Refaire un geste en LIVE REC (les automations d'avant restent en escalier ; triple clic sur la touche de la page pour repartir de zero), puis dire a l'oreille si FREQ, TONE, TUNE et LEV sont fluides, et a l'oeil si les anneaux bougent comme le geste. Rien de cela n'a pu etre ecoute ici (verifie par des tests chiffres seulement).
 - Lot 21, la suite possible : l'ecran (les valeurs de la page) ne bouge pas en relecture, seuls les anneaux ; DEC, ATK et START pourraient glisser aussi ; un LFO sur PAN ou RESO bloque le glissement de ce reglage ; un geste plus fin que le pas (plusieurs points par pas) si une ligne droite par pas ne suffit pas a tempo lent.
 - **Cote Mika (lot 20)** : dire si la fenetre garde sa taille quand il change de piste et revient (non testable ici) ; essayer Maj + des pas en mode MUTE.

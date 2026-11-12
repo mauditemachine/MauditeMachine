@@ -155,7 +155,7 @@ import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
 import { SideKnobs } from './sideKnobs';
-import { autoRingPlan, dialEdit, dialRange, knobBlock, type AutoRing, type DialId } from '../actions';
+import { autoRingPlan, dialEdit, dialRange, knobBlock, trackKeySpan, trackStepNow, type AutoRing, type DialId } from '../actions';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { activeTrack, trk } from '../state/trk';
@@ -3190,6 +3190,19 @@ export class Stage {
 
   private ringArg: { t: number; bipolar: boolean; tone: KnobTone; band: readonly [number, number] | null } = { t: 0, bipolar: false, tone: 'off', band: null };
 
+  /**
+   * Le plugin : la touche sous la tete de lecture pour la piste active, son pas a elle (TLEN : rel modulo sa longueur), sur
+   * la page affichee ; -1 a l'arret ou hors de la page.
+   */
+  private keyHead(): number {
+    const at = activeTrack.get();
+    const x = extHead.get();
+    if (!x) return -1;
+    const g = at ? trackStepNow(at) : x.step;
+    const k = g - pattern.editPage() * 16;
+    return g >= 0 && k >= 0 && k < 16 ? k : -1;
+  }
+
   /* Les anneaux suivent l'automation en lecture (le plugin, 2026-11-12) */
   private autoKeep: AutoRing[] = Array.from({ length: 8 }, () => ({ c0: 0, c1: 0 }));
   private autoPlan: (AutoRing | null)[] = Array.from({ length: 8 }, () => null);
@@ -3447,6 +3460,13 @@ export class Stage {
     let lit = this.pads?.setSelected(p.instrument) ?? false;
     // La face DT2 (V.6.0, lane B4) : les TRIG montrent la piste active (1 a 16)
     if (this.seq.setPattern(p.steps, DT2_FACE ? activeTrack.get() : p.instrument)) lit = true;
+    // Le plugin (2026-11-12) : les touches que la piste active joue (sa longueur TLEN, celle du pattern) ; la tete aussi
+    if (PLUGIN) {
+      const at = activeTrack.get();
+      const [lo, hi] = at ? trackKeySpan(at) : [0, 16];
+      if (this.seq.setSpan(lo, hi)) lit = true;
+      if (this.seq.setPlayhead(this.keyHead())) lit = true;
+    }
     // Les verrous suivent le motif et la voix choisie (2026-10-08)
     if (this.lockLeds(performance.now())) lit = true;
     if (this.syncVoiceKeys()) lit = true;
@@ -3639,7 +3659,8 @@ export class Stage {
       if (xSeq === this.headSeq) return x ? 'poll' : false;
       this.headSeq = xSeq;
       const xStep = x ? x.step : -1;
-      this.seq.setPlayhead(xStep);
+      // Le plugin (2026-11-12) : sur les touches, le pas que joue la piste active (TLEN : elle boucle sur sa longueur)
+      this.seq.setPlayhead(PLUGIN ? this.keyHead() : xStep);
       playhead.set(xStep);
       if (x && x.mask !== 0) {
         for (let k = 0; k < INSTRUMENTS.length; k += 1) {

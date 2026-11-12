@@ -1115,6 +1115,11 @@ export const STEP_LIT = {
   /** un lock trig (V.5.1, au desktop) : le pas allume en jaune (dyellow), a cette part ; sans velocite, il ne joue pas */
   lockTrig: 0.9,
 } as const;
+/**
+ * Un pas que la piste ne joue pas (2026-11-12, le plugin : au-dela de sa longueur TLEN, ou du pattern) : sa touche s'eteint
+ * (ni coup, ni verrou, ni tete de lecture), son dessus fonce a key de sa teinte et ses legendes a label de leur encre.
+ */
+export const STEP_OUT = { key: 0.42, label: 0.3 } as const;
 /** La teinte d'un pas mis (V.5.0) : le rouge de la Digitakt au desktop, l'orange de la machine au telephone. */
 export const STEP_TONE: KeyLitTone = !DT_FACE ? 'orange' : 'dred';
 

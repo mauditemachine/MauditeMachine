@@ -23,7 +23,7 @@ import { hiLockable, lockTrack, slotDomain } from './locks';
 import { noHolders } from './face';
 import { curScreen, layerIdOf, soundFamily } from '../kit';
 import { liveOn } from '../live';
-import { extHead } from '../../plugin/head';
+import { extHead, trackStepAt } from '../../plugin/head';
 
 export const liveRunning = (): boolean => liveOn() && clock.running;
 
@@ -67,9 +67,9 @@ export function heardEntry(ts = -1): StepEvent | null {
 export function liveStepOf(e: StepEvent, inst: TrackKey): number {
   if (!extHead.active() || !liveCur(e.slot)) return e.step;
   const h = extHead.get();
+  if (!h) return e.step;
   const tlen = Math.round(pattern.get().trigs?.[inst]?.tlen ?? 0);
-  if (!h || typeof h.rel !== 'number' || h.rel < 0 || tlen <= 0 || tlen >= pattern.stepCount()) return e.step;
-  return (h.rel % tlen) % 16;
+  return trackStepAt(h, pattern.stepCount(), pattern.loopPage(), tlen) % 16;
 }
 
 let liveTimer = 0;
