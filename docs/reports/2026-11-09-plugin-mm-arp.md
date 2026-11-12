@@ -327,3 +327,19 @@ Demande de Mika, en montrant un synthe analogique du commerce : « je veux pas l
 - Mika : essayer la matrice (molette, aftertouch, velocite), MONO / LEGATO au clavier, la charge du processeur avec 6 lignes par voix (+50 % mesures).
 - DISTORTION, WARMTH et FLANGER engages retardent la sortie (39 a 120 echantillons), non declares a l'hote.
 - Les presets d'usine n'utilisent pas encore la matrice ni les modes de voix.
+
+## Suite 2026-11-12 : face épurée et droite (retour « horrible, le bordel partout, lignes blanches »)
+
+### Ce qui a été fait
+- Grille unique (colonnes 63,5 px, rangées 100 px) pour la machine 3D (plugin seul, gardé par `PLUGIN_ARP`), le rack et OPEN : `src/v4/plugin/arp/scale.ts`, `src/v4/voyager/theme.ts`, `rig.ts`, `silk.ts`.
+- Bandeaux métal clairs, plaques, cadres, chiffres autour des potards et infobulles supprimés ; titres en petites capitales grises avec filet fin.
+- Potards noirs en relief : 3D (`voyager/knobs.ts`) et HTML (image du potard 3D, `plugin/arp/knob.png` + `knob.ts`). Deux tailles seulement.
+- Valeur affichée dans l'afficheur du bandeau au survol et pendant le geste (`Header.tsx`).
+- STEP SEQUENCER sur toute la largeur ; OPEN (OPTIONS, MODULATION, LIBRARY) sur la même grille.
+
+### Décisions
+- Sélecteurs à crans sans noms (place) : valeur dans l'afficheur.
+- Site et RYTM inchangés au pixel ; tsc 105 erreurs comme avant.
+
+### Reste à faire
+- Mika : essai dans Ableton (teinte du noir sur le GPU du Mac), dire s'il veut les noms des crans de RANGE.
