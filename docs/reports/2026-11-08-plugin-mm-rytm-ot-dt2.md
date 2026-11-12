@@ -417,6 +417,8 @@ Mika, avec trois captures : « je voudrais que le DEC commence a 124, donc la ba
 - `plugin/mm-rytm/tests/engine_test.cpp` : 1 test de plus (67) : SIDECHAIN (la voie du kick identique a l'echantillon pres ; les hats a 0,5 % au debut du temps, 100 % a la fin).
 - Verifie dans Chromium : BD2 page AMP : DEC = 124 ; LIVE REC sur DELAY de VOICE FX, puis la lecture : les blocs identiques d'un pas a l'autre, la case AUTOMATION (DELAY) dessinee ; PERFORM : B SIDECH envoie `mm_ps 0.333` ; MOD 1/2 : L1 DEST ... L2 WAVE, L1 RATE de 1/4 a 1/8 ; MOD 2/2 : VAR. Captures. Site : les 4 vues identiques au pixel pres. tsc : 105.
 
+- **Build vert du lot 24** (run 43167412848), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit f8b77b0, branche claude/intelligent-ride-56tyeo, 2026-11-12 06:28 UTC.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
