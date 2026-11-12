@@ -30,7 +30,7 @@ import { APPEARANCE, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
 import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
-import { SKIN, bandTile, leatherTile } from './skin';
+import { leatherTile } from './skin';
 import {
   VOY_BODY,
   VOY_BUTTONS,
@@ -103,7 +103,8 @@ function knobTexts(where: VoySilkKind): Text[] {
     if (p.where !== where) continue;
     // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE) ; SUB OCT et SUB WAVE en entier,
     // partout depuis le 2026-10-11 (desktop : OCT et WAVE avant, la rangee du bas au pas de 0.62 ; elle est au pas de 0.9)
-    const name = k.face ?? k.label;
+    // Le plugin MM-ARP (2026-11-12, moins de signes) : la couronne d'un selecteur de forme dit ce qu'il est, sans nom dessous
+    const name = PLUGIN_ARP && isSelector(k.id) ? '' : (k.face ?? k.label);
     // Au telephone tenu droit (2026-10-05, Mika : "trop difficile a lire") : des noms plus gros, un corps par rangee
     if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: PORTRAIT ? 0.1 : 0.068, maxW: PORTRAIT ? 0.84 : 0.76, group: PORTRAIT ? `knob${Math.round(p.labelZ * 4)}` : 'knob' });
     // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP)
@@ -155,7 +156,7 @@ function deckTexts(open: boolean): Text[] {
   const out: Text[] = [];
   CHORDS.forEach((c, i) => {
     const p = voyPadAt(i);
-    out.push({ text: c.label, x: p.x, z: p.z + VOY_PAD.labelDz, cap: 0.1 * K, weight: 600, maxW: VOY_PAD.size, group: 'pads' });
+    out.push({ text: c.label, x: p.x, z: p.z + VOY_PAD.labelDz, cap: (PLUGIN_ARP ? 0.086 : 0.1) * K, weight: 600, maxW: VOY_PAD.size, group: 'pads' });
   });
   out.push(...knobTexts('deck'), ...(PLUGIN_ARP ? [] : groupTexts('deck')));
   for (const b of VOY_BUTTONS) {
@@ -267,7 +268,7 @@ export class VoySilk {
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
     let items: Text[];
-    // Le plugin MM-ARP : le simili noir, les cadres et les bandeaux de metal d'abord (tout le reste s'imprime dessus)
+    // Le plugin MM-ARP : le simili noir, les filets et les titres des sections d'abord (tout le reste s'imprime dessus)
     if (PLUGIN_ARP) this.skinBase();
     // Filets entre les sections (desktop), crochets des groupes
     ctx.strokeStyle = silkA(SILK.lineAlpha);
@@ -281,8 +282,8 @@ export class VoySilk {
       }
     }
     this.brackets();
-    // Le plugin MM-ARP : des graduations chiffrees autour de chaque potard
-    if (PLUGIN_ARP) this.pluginScales();
+    // Le plugin MM-ARP : des graduations fines autour de chaque potard, sans chiffre
+    if (PLUGIN_ARP) this.pluginTicks();
     // Graduations 0 a 10 autour des gros potards (CUTOFF, VOLUME), facon Moog
     ctx.strokeStyle = silkA(0.6);
     for (const k of VOY_FACE_KNOBS) {
@@ -308,7 +309,8 @@ export class VoySilk {
     ctx.lineWidth = Math.max(1, 0.016 * PPU);
     for (const k of VOY_FACE_KNOBS) {
       const steps = k.steps;
-      if (!isSwitch(k.id) || !steps) continue;
+      // (le plugin MM-ARP : pluginTicks les a deja traces, comme ceux de tous les potards)
+      if (!isSwitch(k.id) || !steps || PLUGIN_ARP) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const r0 = VOY_KNOB.skirt.r * p.s + VOY_SWITCH.tick.r0;
@@ -324,7 +326,7 @@ export class VoySilk {
     // Plus d'arcs imprimes autour des potards (2026-10-04, Mika : "les contours des knobs, enleve ca") : seules les couronnes de WAVE 1 et WAVE 2 restent
     this.selectors();
     // Les rangees d'oscillateurs facon Mini V : echelles, numeros ; les LED des boutons poussoirs
-    this.oscScales();
+    if (!PLUGIN_ARP) this.oscScales();
     this.badges();
     this.leds();
     if (this.kind === 'panel') {
@@ -382,8 +384,6 @@ export class VoySilk {
       const mid = (g.x0 + g.x1) / 2;
       const half = trackedWidth(ctx, g.text, fontPx, T.weight) / PPU / 2 + T.pad;
       const t = g.z - T.tick;
-      // Le plugin MM-ARP : le nom du groupe grave sur une plaque de metal, au milieu de son crochet
-      if (PLUGIN_ARP) this.plate(g.text, mid, g.z, half + 0.04, 0.2, T.cap);
       for (const l of [
         [g.x0, t, g.x0, g.z, mid - half, g.z],
         [mid + half, g.z, g.x1, g.z, g.x1, t],
@@ -445,72 +445,11 @@ export class VoySilk {
     }
   }
 
-  /* ---------------- l'habillage du plugin MM-ARP (2026-11-11) ---------------- */
-
-  /** Un bandeau de metal brosse (x0 a x1, de z0 a z1) : la tuile repetee en largeur, etiree sur sa hauteur. */
-  private metal(x0: number, z0: number, x1: number, z1: number): void {
-    const ctx = this.ctx;
-    const tile = bandTile(VOY_PLUGIN_SKIN.gain.band, VOY_PLUGIN_SKIN.gain.bandTint);
-    const X = Math.round(this.px(x0));
-    const Y = Math.round(this.py(z0));
-    const W = Math.round(this.px(x1)) - X;
-    const H = Math.round(this.py(z1)) - Y;
-    // La largeur d'une tuile : son grain garde ses proportions (la tuile fait 40 px de haut)
-    const tw = Math.round((tile.width * H) / tile.height) * 2;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(X, Y, W, H);
-    ctx.clip();
-    for (let x = X - ((X * 7) % tw); x < X + W; x += tw) ctx.drawImage(tile, x, Y, tw, H);
-    ctx.restore();
-    // L'ombre du bandeau sur le simili, dessous
-    const sh = ctx.createLinearGradient(0, Y + H, 0, Y + H + 0.05 * PPU);
-    sh.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
-    sh.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = sh;
-    ctx.fillRect(X, Y + H, W, 0.05 * PPU);
-  }
-
-  /** Le texte grave d'un bandeau ou d'une plaque : sombre, son arete claire dessous. */
-  private engraved(text: string, x: number, z: number, cap: number): void {
-    const ctx = this.ctx;
-    const fontPx = (cap / SILK.capRatio) * PPU;
-    const w = trackedWidth(ctx, text, fontPx, 700);
-    const x0 = this.px(x) - w / 2;
-    const y = this.py(z) + (cap * PPU) / 2;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    drawTracked(ctx, text, x0, y + Math.max(1, 0.006 * PPU), fontPx, 700);
-    ctx.fillStyle = SKIN.bandInk;
-    drawTracked(ctx, text, x0, y, fontPx, 700);
-  }
-
-  /** Une plaque de metal centree en (x, z), son nom grave. */
-  private plate(text: string, x: number, z: number, half: number, h: number, cap: number): void {
-    this.metal(x - half, z - h / 2, x + half, z + h / 2);
-    this.engraved(text, x, z, cap);
-  }
-
-  /** Un filet de cadre : un creux sombre, son arete claire a droite ou dessous. */
-  private groove(x0: number, z0: number, x1: number, z1: number): void {
-    const ctx = this.ctx;
-    const w = Math.max(2, Math.round(0.014 * PPU));
-    const X0 = Math.round(this.px(x0));
-    const Y0 = Math.round(this.py(z0));
-    const X1 = Math.round(this.px(x1));
-    const Y1 = Math.round(this.py(z1));
-    const vert = X0 === X1;
-    ctx.fillStyle = SKIN.frameLo;
-    if (vert) ctx.fillRect(X0 - w / 2, Y0, w, Y1 - Y0);
-    else ctx.fillRect(X0, Y0 - w / 2, X1 - X0, w);
-    ctx.fillStyle = SKIN.frameHi;
-    if (vert) ctx.fillRect(X0 + w / 2, Y0, Math.max(1, w / 2), Y1 - Y0);
-    else ctx.fillRect(X0, Y0 + w / 2, X1 - X0, Math.max(1, w / 2));
-  }
+  /* ---------------- l'habillage du plugin MM-ARP (2026-11-11, epure le 2026-11-12) ---------------- */
 
   /**
-   * Le fond de la face du plugin : le simili noir sur tout le plan, puis, sur le panneau, un cadre et un bandeau de metal
-   * par section (OSCILLATORS, FILTER, FILTER EG, EFFECTS, OUTPUT), AMP EG et MOD entre deux filets ; sur le plateau, un
-   * filet au pli et un au-dessus des pads.
+   * Le fond de la face du plugin : le simili noir a grain fin sur tout le plan, puis les sections (VOY_PLUGIN_SKIN.titles) :
+   * le titre a gauche, en petites capitales espacees, gris clair, et un filet fin a sa suite. Aucun aplat clair, aucun cadre.
    */
   private skinBase(): void {
     const ctx = this.ctx;
@@ -520,82 +459,43 @@ export class VoySilk {
       ctx.fillStyle = pat;
       ctx.fillRect(0, 0, this.W, this.H);
     }
-    if (this.kind === 'panel') {
-      for (const c of S.columns) {
-        this.metal(c.x0, S.band.z0, c.x1, S.band.z1);
-        this.engraved(c.text, (c.x0 + c.x1) / 2, (S.band.z0 + S.band.z1) / 2, S.band.cap);
-      }
-      for (const x of S.rules) this.groove(x, S.band.z0, x, S.bottom);
-      // AMP EG, MOD : le nom entre deux filets, sur la largeur de sa colonne
-      ctx.strokeStyle = silkA(0.32);
-      ctx.lineWidth = Math.max(1, 0.012 * PPU);
-      const fontPx = (S.sub.cap / SILK.capRatio) * PPU;
-      for (const t of S.subs) {
-        const half = trackedWidth(ctx, t.text, fontPx, 700) / PPU / 2 + 0.1;
-        for (const [a, b] of [
-          [t.x0, t.x - half],
-          [t.x + half, t.x1],
-        ]) {
-          ctx.beginPath();
-          ctx.moveTo(this.px(a), this.py(t.z));
-          ctx.lineTo(this.px(b), this.py(t.z));
-          ctx.stroke();
-        }
-        this.mini(t.text, t.x, t.z, S.sub.cap, 0.95, 700);
-      }
-    } else {
-      for (const l of S.deckRules) this.groove(l[0], l[1], l[2], l[3]);
+    const T = S.title;
+    const fontPx = (T.cap / SILK.capRatio) * PPU;
+    const h = Math.max(1, Math.round(T.ruleW * PPU));
+    for (const t of S.titles) {
+      if (t.where !== this.kind) continue;
+      const X0 = Math.round(this.px(t.x0));
+      const X1 = Math.round(this.px(t.x1));
+      const y = this.py(t.z);
+      ctx.fillStyle = silkA(T.alpha);
+      drawTracked(ctx, t.text, X0, y + (T.cap * PPU) / 2, fontPx, T.weight);
+      const xr = X0 + Math.round(trackedWidth(ctx, t.text, fontPx, T.weight) + T.gap * PPU);
+      ctx.fillStyle = silkA(T.rule);
+      ctx.fillRect(xr, Math.round(y - h / 2), X1 - xr, h);
     }
   }
 
   /**
-   * Les graduations chiffrees du plugin, autour de chaque potard de ce plan (sauf les selecteurs de forme, RANGE, SEMI,
-   * FINE et MODE du filtre, qui ont deja les leurs) : onze traits de 0 a 10, les chiffres pairs ecrits la ou la rangee
-   * laisse la place (VOY_PLUGIN_SKIN.scales : 'full'), sinon 0, 5 et 10 ('compact') ; un potard a crans : un trait par
-   * cran et ses vraies valeurs (une liste), ou les traits seuls ('ticks').
+   * Les graduations du plugin, autour de chaque potard de ce plan (sauf les selecteurs de forme, qui ont leur couronne) :
+   * des traits courts et gris, onze pour un potard continu, un par cran pour un potard a crans. Aucun chiffre : la valeur
+   * se lit dans l'afficheur du bandeau (plugin/arp/Header.tsx). MODE du filtre garde les noms de ses crans (knobTexts).
    */
-  private pluginScales(): void {
+  private pluginTicks(): void {
     const ctx = this.ctx;
-    const S = VOY_PLUGIN_SKIN;
+    const T = VOY_PLUGIN_SKIN.tick;
+    ctx.strokeStyle = silkA(T.alpha);
+    ctx.lineWidth = Math.max(1, T.w * PPU);
     for (const k of VOY_FACE_KNOBS) {
-      const spec = S.scales[k.id];
-      if (!spec) continue;
+      if (isPush(k.id) || isSelector(k.id)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
-      const rs = VOY_KNOB.skirt.r * p.s;
-      const big = isBigKnob(k.id);
-      const r0 = rs + (big ? 0.045 : 0.03);
-      const len = big ? 0.065 : 0.045;
-      const cap = big ? 0.066 : 0.054;
-      const rt = r0 + len + (big ? 0.085 : 0.066);
-      const at = (deg: number, r: number): [number, number] => [p.x + Math.cos((deg * Math.PI) / 180) * r, p.z - Math.sin((deg * Math.PI) / 180) * r];
-      ctx.strokeStyle = silkA(0.78);
-      if (typeof spec === 'string' ? spec !== 'ticks' : 'nums' in spec) {
-        const nums = typeof spec === 'string' ? null : (spec as { nums: readonly number[] }).nums;
-        for (let t = 0; t <= 10; t += 1) {
-          const deg = 225 - 27 * t;
-          const major = spec === 'all' || (spec === 'full' ? t % 2 === 0 : t % 5 === 0);
-          ctx.lineWidth = Math.max(1, (major ? 0.02 : 0.012) * PPU);
-          this.tick(p.x, p.z, deg, r0, r0 + (major ? len : len * 0.62));
-          if (nums ? !nums.includes(t) : !major) continue;
-          const [x, z] = at(deg, rt);
-          this.mini(String(t), x, z, cap, 0.92, 600);
-        }
-        continue;
-      }
-      if (typeof spec !== 'string' && 'nums' in spec) continue;
-      const steps = k.steps ?? [];
-      const n = steps.length;
-      const throwDeg = knobThrowDeg(k.id, n);
-      for (let i = 0; i < n; i += 1) {
-        const deg = stepDeg(i, n, throwDeg);
-        ctx.lineWidth = Math.max(1, 0.016 * PPU);
-        this.tick(p.x, p.z, deg, r0, r0 + len);
-        if (spec === 'ticks') continue;
-        const name = (spec as readonly string[])[i];
-        if (!name) continue;
-        const [x, z] = at(deg, rt + (name.length > 2 ? 0.02 : 0));
-        this.mini(name, x, z, cap * 0.92, 0.92, 600);
+      const r0 = VOY_KNOB.skirt.r * p.s + T.r0;
+      const n = k.steps?.length ?? 0;
+      if (n > 1) {
+        const throwDeg = knobThrowDeg(k.id, n);
+        for (let i = 0; i < n; i += 1) this.tick(p.x, p.z, stepDeg(i, n, throwDeg), r0, r0 + T.len);
+      } else {
+        for (let t = 0; t <= 10; t += 1) this.tick(p.x, p.z, 225 - 27 * t, r0, r0 + T.len);
       }
     }
   }

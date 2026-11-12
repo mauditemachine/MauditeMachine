@@ -15,11 +15,15 @@
  *   | j  |  BANDEAU (logo, afficheur, OPEN)                    | j  |
  *   | o  +--------------------------------+--------------------+ o  |  46
  *   | u  |                                |  RACK              | u  |
- *   | e  |  LA MACHINE 3D (1016 x 624)    |  OSC +, FILTER +,  | e  |
- *   |    |                                |  PHASER, FLANGER,  |    |
- *   |    +--------------------------------+  PUMP, CRUSH,      |    | 670
- *   |    |  STEP SEQUENCER (1016 x 140)   |  SPACE             |    |
- *   +----+--------------------------------+--------------------+----+ 810
+ *   | e  |  LA MACHINE 3D (1016 x 604)    |  OSC +, FILTER +,  | e  |
+ *   |    |  six rangees                   |  PHASER, FLANGER,  |    |
+ *   |    |                                |  PUMP, CRUSH, SPACE|    |
+ *   |    +--------------------------------+--------------------+    | 650
+ *   |    |  STEP SEQUENCER (1400 x 160)                        |    |
+ *   +----+-----------------------------------------------------+----+ 810
+ *
+ * UNE grille pour toute la fenetre (2026-11-12, Mika : "c'est le bordel partout ... plus EPUREE ou au moins DROITE") :
+ * GRID, plus bas ; la machine 3D pose ses potards sur la meme (voyager/theme.ts VOY_PLUGIN_GRID porte les memes cotes).
  *
  * La machine 3D garde l'echelle de sa fenetre d'avant (1100 x 704 : chaque potard a la meme taille a l'ecran), rognee
  * de ses joues de bois (elles passent aux bords de la fenetre, en HTML) et de son en-tete serigraphie (il passe dans le
@@ -39,13 +43,39 @@ export const HEAD_H = 46;
 /** La vue de la scene 3D (la machine entiere, joues comprises, cadree bord a bord : voyager/theme.ts VOY_PLUGIN_FACE). */
 export const VIEW = { w: 1100, h: 704 } as const;
 /** Ce qu'on montre de la vue : le capot entre les joues, des bandeaux de section au bord avant du plateau. */
-export const CROP = { x: 42, y: 63, w: 1016, h: 624 } as const;
+export const CROP = { x: 42, y: 63, w: 1016, h: 604 } as const;
 /** La machine dans la fenetre. */
 export const FACE = { x: CHEEK_W, y: HEAD_H, w: CROP.w, h: CROP.h } as const;
-/** Le rack, a droite de la machine, sur toute la hauteur sous le bandeau. */
-export const RACK = { x: FACE.x + FACE.w, y: HEAD_H, w: UI_W - CHEEK_W - (FACE.x + FACE.w), h: UI_H - HEAD_H } as const;
-/** Le sequenceur par pas, sous la machine. */
-export const SEQ = { x: FACE.x, y: FACE.y + FACE.h, w: FACE.w, h: UI_H - (FACE.y + FACE.h) } as const;
+/** Le rack, a droite de la machine, sur sa hauteur. */
+export const RACK = { x: FACE.x + FACE.w, y: HEAD_H, w: UI_W - CHEEK_W - (FACE.x + FACE.w), h: FACE.h } as const;
+/** Le sequenceur par pas, sous la machine et le rack, sur toute la largeur. */
+export const SEQ = { x: CHEEK_W, y: FACE.y + FACE.h, w: UI_W - 2 * CHEEK_W, h: UI_H - (FACE.y + FACE.h) } as const;
+
+/**
+ * La grille de la fenetre (les memes cotes que voyager/theme.ts VOY_PLUGIN_GRID, qui y pose les potards de la machine) :
+ * 22 colonnes de 63.5 px depuis la joue gauche (16 sous la machine, 6 sous le rack) ; des rangees de 100 px, la ligne de
+ * la premiere a 110 px du haut (sept sur la face : six pour la machine et le rack, la septieme pour le sequenceur). Une
+ * rangee va de 60 px au-dessus de sa ligne a 40 dessous : le titre de sa section a -50, son filet a sa suite sur la meme
+ * ligne, les potards sur la ligne, leurs noms a +30. Un potard normal fait 42.4 px (R = 21.2), comme ceux de la machine.
+ */
+export const GRID = {
+  left: CHEEK_W,
+  col: 63.5,
+  cols: 22,
+  row: 100,
+  y0: 110,
+  /** du haut d'une rangee a sa ligne */
+  above: 60,
+  title: -50,
+  label: 30,
+  /** le bord d'un potard normal dans sa colonne */
+  inset: 10.5,
+  knobR: 21.2,
+} as const;
+/** Le centre de la colonne c (0.5 : a cheval sur les colonnes 0 et 1), en px de la fenetre. */
+export const colX = (c: number): number => GRID.left + GRID.col * (c + 0.5);
+/** La ligne de la rangee k, en px de la fenetre. */
+export const rowY = (k: number): number => GRID.y0 + GRID.row * k;
 
 const read = (): number => {
   if (!PLUGIN_ARP || typeof window === 'undefined') return 1;
@@ -74,3 +104,11 @@ export const uiScale = {
     };
   },
 };
+
+/**
+ * Les pages d'OPEN : la meme grille (les colonnes, le titre a -50, la ligne, les noms a +30), six rangees sur toute la
+ * hauteur sous le bandeau, au pas de 125 px (la face en a sept de 100).
+ */
+export const OPEN_ROW = 125;
+/** Le haut de la rangee k d'une page d'OPEN, dans le repere du panneau (sous le bandeau). */
+export const openTop = (k: number): number => GRID.y0 - GRID.above - HEAD_H + OPEN_ROW * k;

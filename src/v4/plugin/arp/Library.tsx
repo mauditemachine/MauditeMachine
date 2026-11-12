@@ -13,6 +13,7 @@
 import React, { useSyncExternalStore } from 'react';
 import bank from '../../../../plugin/mm-arp/presets/factory.json';
 import { arpBridge } from './bridge';
+import { Sec } from './SoundPlus';
 
 export type LibCat = 'DISCO' | 'HYPNOTIC' | 'DARK' | 'TEXTURE';
 
@@ -93,68 +94,61 @@ export const LibraryBank: React.FC = () => {
   const st = useLib();
   const cur = libCurrent();
   return (
-    <div className="mm-arp-lib">
-      <div
-        className="mm-arp-glass mm-arp-lib-bank"
-        onKeyDown={(e) => {
-          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-          e.preventDefault();
-          e.stopPropagation();
-          libStep(e.key === 'ArrowDown' ? 1 : -1);
-          window.setTimeout(() => document.querySelector<HTMLElement>('.mm-arp-lib-item[data-on="1"]')?.focus(), 0);
-        }}
-      >
-        {CATS.map((c) => {
-          const list = ofCat(c);
-          return (
-            <div key={c} className="mm-arp-lib-col" data-cat={c}>
-              <p className="mm-arp-glass-head" aria-hidden="true">
-                <span>{c}</span>
-                <span>{list.length}</span>
-              </p>
-              <ul className="mm-arp-list" aria-label={`${c} presets`}>
-                {list.map((p) => (
-                  <li key={p.name}>
-                    <button type="button" className="mm-arp-disk-item mm-arp-lib-item" data-name={p.name} data-on={p.name === st.current ? '1' : undefined} aria-current={p.name === st.current ? 'true' : undefined} title={p.desc} onClick={() => load(p)}>
-                      <span className="mm-arp-lib-t">{p.name}</span>
-                      <span className="mm-arp-lib-bpm">{p.bpm}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mm-arp-lib-now">
-        <div className="mm-arp-glass mm-arp-lib-screen" role="status" aria-live="polite">
-          {cur ? (
-            <>
-              <p className="mm-arp-glass-head">
-                <span>
-                  {cur.preset.cat} · {String(cur.at + 1).padStart(2, '0')} / {String(cur.of).padStart(2, '0')}
-                </span>
-                <span className="mm-arp-lib-tempo">{cur.preset.bpm} BPM</span>
-              </p>
-              <p className="mm-arp-lib-name">{cur.preset.name}</p>
-              <p className="mm-arp-lib-desc">{cur.preset.desc}</p>
-            </>
-          ) : (
-            <>
-              <p className="mm-arp-glass-head">
-                <span>FACTORY LIBRARY · VST3</span>
-                <span className="mm-arp-lib-tempo">{PRESETS.length} SOUNDS</span>
-              </p>
-              <p className="mm-arp-lib-name">NO PRESET LOADED</p>
-              <p className="mm-arp-lib-desc">Pick a preset: it loads at once (UNDO brings back your sound). The tempo shown is the one it was made at.</p>
-            </>
-          )}
+    <>
+      <Sec id="library" title="LIBRARY" className="mm-arp-lib" col={7} span={10} row={0} side={`${PRESETS.length} SOUNDS`}>
+        <div
+          className="mm-arp-lib-bank"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+            e.preventDefault();
+            e.stopPropagation();
+            libStep(e.key === 'ArrowDown' ? 1 : -1);
+            window.setTimeout(() => document.querySelector<HTMLElement>('.mm-arp-lib-item[data-on="1"]')?.focus(), 0);
+          }}
+        >
+          {CATS.map((c) => {
+            const list = ofCat(c);
+            return (
+              <div key={c} className="mm-arp-lib-col" data-cat={c}>
+                <p className="mm-arp-lib-cat" aria-hidden="true">
+                  <span>{c}</span>
+                  <span>{list.length}</span>
+                </p>
+                <ul className="mm-arp-list" aria-label={`${c} presets`}>
+                  {list.map((p) => (
+                    <li key={p.name}>
+                      <button type="button" className="mm-arp-disk-item mm-arp-lib-item" data-name={p.name} data-on={p.name === st.current ? '1' : undefined} aria-current={p.name === st.current ? 'true' : undefined} onClick={() => load(p)}>
+                        <span className="mm-arp-lib-t">{p.name}</span>
+                        <span className="mm-arp-lib-bpm">{p.bpm}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
-        <div className="mm-arp-lib-nav">
+      </Sec>
+      {/* Le preset charge, sur la quatrieme rangee : son nom, ce qu'il est ; PREV et NEXT au bout, sur la ligne */}
+      <Sec
+        id="library-now"
+        title={cur ? `${cur.preset.cat} · ${String(cur.at + 1).padStart(2, '0')} / ${String(cur.of).padStart(2, '0')}` : 'NO PRESET LOADED'}
+        className="mm-arp-lib-now"
+        col={7}
+        span={10}
+        row={3}
+        fill
+        side={cur ? <span className="mm-arp-lib-tempo">{cur.preset.bpm} BPM</span> : undefined}
+      >
+        <div className="mm-arp-lib-screen" role="status" aria-live="polite">
+          <p className="mm-arp-lib-name">{cur ? cur.preset.name : 'PICK A PRESET'}</p>
+          <p className="mm-arp-lib-desc">{cur ? cur.preset.desc : 'It loads at once (UNDO brings back your sound). The tempo shown is the one it was made at.'}</p>
+        </div>
+        <div className="mm-arp-cells mm-arp-lib-nav" style={{ position: 'absolute', right: 0, top: 0 }}>
           <Key className="mm-arp-lib-prev" legend="PREV" glyph="◀" label="Previous preset" onClick={() => libStep(-1)} />
           <Key className="mm-arp-lib-next" legend="NEXT" glyph="▶" label="Next preset" onClick={() => libStep(1)} />
         </div>
-      </div>
-    </div>
+      </Sec>
+    </>
   );
 };

@@ -13,6 +13,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import { presets } from '../../state/presets';
 import { suggestName, typeChars } from '../../state/presetName';
 import { arpBridge } from './bridge';
+import { Sec } from './SoundPlus';
 import { arpDisk, DISK_NAME_MAX } from './disk';
 
 /** Le nom propose : celui du preset charge (sans l'utilisateur), sinon un nom du site. */
@@ -31,12 +32,9 @@ export function DiskPresets() {
     arpBridge.diskList();
   }, []);
   return (
-    <section className="mm-arp-sec mm-arp-disk" data-sec="disk" aria-label="Presets on disk">
-      <p className="mm-arp-band">
-        <span>DISK</span>
-      </p>
-      <div className="mm-arp-disk-body">
-        <div className="mm-arp-disk-keys">
+    <>
+      <Sec id="disk" title="DISK" className="mm-arp-disk" col={18} span={4} row={0}>
+        <div className="mm-arp-cells mm-arp-disk-keys">
           <button type="button" className="mm-arp-kb mm-arp-disk-key" data-size="s" data-fn="1" onClick={() => arpDisk.set({ naming: proposedName() })}>
             <span className="mm-arp-k" aria-hidden="true" />
             <span className="mm-arp-legend">SAVE TO DISK</span>
@@ -46,24 +44,21 @@ export function DiskPresets() {
             <span className="mm-arp-legend">OPEN FROM DISK</span>
           </button>
         </div>
-        <div className="mm-arp-glass">
-          <p className="mm-arp-glass-head" aria-hidden="true">
-            MM-ARP PRESETS
-          </p>
-          <ul className="mm-arp-disk-list" aria-label="Presets folder">
-            {st.items === null ? <li className="mm-arp-disk-none">…</li> : null}
-            {st.items !== null && st.items.length === 0 ? <li className="mm-arp-disk-none">NO PRESET YET</li> : null}
-            {(st.items ?? []).map((it) => (
-              <li key={it.path}>
-                <button type="button" className="mm-arp-disk-item" data-on={it.path === st.current ? '1' : undefined} title={it.path} onClick={() => arpBridge.diskLoad(it.path)}>
-                  {it.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </section>
+      </Sec>
+      <Sec id="disk-list" title="MM-ARP PRESETS" className="mm-arp-disk-body" col={18} span={4} row={1} fill>
+        <ul className="mm-arp-disk-list" aria-label="Presets folder">
+          {st.items === null ? <li className="mm-arp-disk-none">…</li> : null}
+          {st.items !== null && st.items.length === 0 ? <li className="mm-arp-disk-none">NO PRESET YET</li> : null}
+          {(st.items ?? []).map((it) => (
+            <li key={it.path}>
+              <button type="button" className="mm-arp-disk-item" data-on={it.path === st.current ? '1' : undefined} onClick={() => arpBridge.diskLoad(it.path)}>
+                {it.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Sec>
+    </>
   );
 }
 

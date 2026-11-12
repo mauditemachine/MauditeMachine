@@ -44,7 +44,6 @@ import { Cheeks, Rack, StepStrip } from './FrontModule';
 import { Header } from './Header';
 import { HoodPanel, LearnMarks } from './HoodPanel';
 import { UI_W, uiScale } from './scale';
-import { KnobDefs } from './SoundPlus';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -76,7 +75,7 @@ const ArpFace: React.FC = () => {
   const hood = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
   const open = hood === 'opening' || hood === 'open';
   // Les tuiles de l'habillage (voyager/skin.ts), calculees une fois : les fonds des couches HTML (face.css)
-  const skin = useMemo(() => ({ '--mm-leather': `url(${skinUrl('leather')})`, '--mm-band': `url(${skinUrl('band')})`, '--mm-wood': `url(${skinUrl('wood')})` }) as React.CSSProperties, []);
+  const skin = useMemo(() => ({ '--mm-leather': `url(${skinUrl('leather')})`, '--mm-wood': `url(${skinUrl('wood')})` }) as React.CSSProperties, []);
 
   const onError = useCallback((m: string) => {
     setError(m);
@@ -130,6 +129,8 @@ const ArpFace: React.FC = () => {
       return undefined;
     }
     built.orbit.lock = () => true;
+    // En developpement seulement : la scene, pour les sondes (le releve d'alignement, l'image du potard : plugin/arp/knob.ts)
+    if (import.meta.env.DEV) (window as unknown as { __mmStage?: Stage }).__mmStage = built;
     stageRef.current = built;
     setStage(built);
     return () => {
@@ -173,8 +174,6 @@ const ArpFace: React.FC = () => {
         <VoyInfosCard stage={stage} />
         {/* Les couches HTML, dessinees pour 1440 px de large et mises a l'echelle de la fenetre (scale.ts) */}
         <div className="mm-arp-ui" style={{ position: 'fixed', left: 0, top: 0, width: UI_W, height: `${100 / scale}vh`, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
-          {/* Les degrades des potards SVG, une fois */}
-          <KnobDefs />
           <Cheeks />
           <Header stage={stage} />
           <Rack />

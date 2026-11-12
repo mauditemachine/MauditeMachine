@@ -29,7 +29,7 @@
  * rejoint la rangee de l'arpegiateur (son crochet OUTPUT).
  */
 
-import { ORBIT, PCB, PORTRAIT, TEMPO_UI } from '../theme';
+import { ORBIT, PCB, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
 import { BASS } from '../state/focus';
 import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
@@ -99,11 +99,57 @@ export const VOY_KNOB = {
 } as const;
 
 /**
- * Le potard de la face du plugin MM-ARP (2026-11-11, Mika : "capuchon metal brosse, jupe noire cannelee, le dessus plus
- * fonce, pas trop") : la meme geometrie, la jupe noire, un disque de metal brosse pose sur le capuchon (capR, en unites
- * du potard ; voyager/knobs.ts VoyKnobs.tops) et l'index blanc sur la couronne noire, du disque au bord (r0 a r1).
+ * Le potard de la face du plugin MM-ARP (2026-11-12, Mika : "peut-etre que je preferais les knobs NOIRS, mais au moins
+ * en 3D") : la geometrie du site (jupe, flanc cannele), toute noire, un dessus bombe (dome : sa fleche, son rayon) et un
+ * index blanc net du centre au bord (mark : sa largeur, de r0 a r1). Le capuchon de metal brosse du 2026-11-11 est parti.
  */
-export const VOY_PLUGIN_KNOB = { capR: 0.176, mark: { w: 0.036, r0: 0.17, r1: 0.272 } } as const;
+export const VOY_PLUGIN_KNOB = { dome: { rise: 0.034, r: 0.214 }, fluteDepth: 0.017, mark: { w: 0.04, r0: 0.035, r1: 0.205 }, gain: { skirt: 4.2, body: 6, top: 7 } } as const;
+
+/**
+ * La grille de la face du plugin MM-ARP (2026-11-12, Mika : "c'est le bordel partout ... l'interface doit etre plus
+ * epuree ou au moins DROITE") : UNE grille pour toute la fenetre de 1440 x 810 (plugin/arp/scale.ts GRID porte les memes
+ * cotes pour les couches HTML) : des colonnes de 63.5 px depuis la joue gauche (16 sur la machine, 6 sur le rack), des
+ * rangees de 100 px (la premiere a 110 px du haut de la fenetre). Chaque potard est au centre d'une colonne (les grands,
+ * les selecteurs de forme et les pads : a cheval sur deux), sur la ligne de sa rangee ; son nom a 30 px dessous ; le
+ * titre d'une section a 50 px au-dessus, son filet a sa suite, sur la meme ligne (une rangee va de 60 px au-dessus de sa
+ * ligne a 40 dessous).
+ * view : la vue de la scene dans la fenetre (mesuree : la camera presque orthographique de scene/renderer.ts, a mi-pente
+ * du panneau) : px par unite en largeur (ppu) et le long des deux plans (sy), le x du centre, le y du z = 0 du panneau et
+ * du plateau. Le releve d'alignement de la face (les centres des potards, au pixel) verifie ces cotes.
+ */
+export const VOY_PLUGIN_GRID = (() => {
+  const view = { ppu: 80.975, x0: 528, sy: 78.86, panelY0: 181.57, deckY0: 349.7 };
+  const left = 20;
+  const col = 63.5;
+  const row = 100;
+  const y0 = 110;
+  /** px de la fenetre -> x (unites) */
+  const ux = (px: number): number => (px - view.x0) / view.ppu;
+  /** le centre de la colonne c (0.5 : a cheval sur les colonnes 0 et 1) */
+  const cx = (c: number): number => ux(left + col * (c + 0.5));
+  /** px de la fenetre -> z (unites) sur un plan */
+  const uz = (where: 'panel' | 'deck', py: number): number => (py - (where === 'panel' ? view.panelY0 : view.deckY0)) / view.sy;
+  /** la ligne de la rangee k (0 a 2 : le panneau ; 3 a 5 : le plateau), en z sur son plan */
+  const rz = (k: number): number => uz(k < 3 ? 'panel' : 'deck', y0 + row * k);
+  return {
+    view,
+    left,
+    col,
+    row,
+    y0,
+    ux,
+    cx,
+    uz,
+    rz,
+    /** le bord d'un potard normal dans sa colonne (px) : les filets et les titres s'y alignent */
+    inset: 10.5,
+    /** du centre d'une rangee a ses noms, a son filet, a son titre (unites) */
+    labelDz: 30 / view.sy,
+    /** un point de la fenetre (px) sur son plan : le pli est a 361.6 px */
+    at: (py: number): { where: 'panel' | 'deck'; z: number } => (py < 361.6 ? { where: 'panel', z: uz('panel', py) } : { where: 'deck', z: uz('deck', py) }),
+    titlePx: -50,
+  };
+})();
 
 /**
  * Selecteurs de forme (WAVE 1, WAVE 2, 2026-10-03, Mika : "les formes
@@ -113,12 +159,13 @@ export const VOY_PLUGIN_KNOB = { capR: 0.176, mark: { w: 0.036, r0: 0.17, r1: 0.
  * unites du potard (multipliees par son echelle) : arc a arcR, epaisseur
  * arcW, dessins centres a glyphR (boite glyph), libelle a labelR du centre.
  */
+// Le plugin MM-ARP (2026-11-12, la grille) : la couronne resserree, elle tient dans sa rangee (36 px au-dessus du centre)
 export const VOY_SEL = {
-  arcR: 0.36,
-  arcW: 0.045,
+  arcR: PLUGIN_ARP ? 0.335 : 0.36,
+  arcW: PLUGIN_ARP ? 0.036 : 0.045,
   gapDeg: 7,
-  glyphR: 0.55,
-  glyph: { w: 0.2, h: 0.1, stroke: 0.018 },
+  glyphR: PLUGIN_ARP ? 0.455 : 0.55,
+  glyph: PLUGIN_ARP ? { w: 0.16, h: 0.085, stroke: 0.017 } : { w: 0.2, h: 0.1, stroke: 0.018 },
   labelR: 0.79,
   /** encre : jaune Typhon sur la machine noire ; sur la claire l'encre de la serigraphie, le cran choisi en orange ; les autres crans a dim */
   dim: { dark: 0.42, light: 0.5 },
@@ -156,9 +203,14 @@ export type KnobSize = 'xl' | 'l' | 'm' | 's' | 'sw' | 'sel';
 // xl 1.5, l 1.18, m 1, s 0.8, sw 0.62, sel 0.85 avant
 // Au telephone, plus gros le 2026-10-07 (Mika : "en mobile, MM-ARP, je trouve les boutons petits") :
 // xl 1.6, l 1.15, m 0.95, s 0.8, sel 0.8 avant (le plateau a 1.36, le panneau a 1.2 : les selecteurs et XL a peine plus gros) ; les rangees de huit tiennent encore (pas de 0.88)
-const SIZE_SCALE: Readonly<Record<KnobSize, number>> = PORTRAIT
-  ? { xl: 1.5, l: 1.1, m: 1.08, s: 0.98, sw: 0.62, sel: 0.76 }
-  : { xl: 1.6, l: 1.28, m: 1.1, s: 0.9, sw: 0.68, sel: 0.92 };
+// Le plugin MM-ARP (2026-11-12, Mika : "c'est le bordel partout") : DEUX tailles, une normale (0.92 : 42 px a l'ecran,
+// celle des potards HTML du rack) et une grande pour CUTOFF et VOLUME (1.3 : 60 px ; ses graduations restent sous le
+// filet de sa section)
+const SIZE_SCALE: Readonly<Record<KnobSize, number>> = PLUGIN_ARP
+  ? { xl: 1.3, l: 1.3, m: 0.92, s: 0.92, sw: 0.92, sel: 0.92 }
+  : PORTRAIT
+    ? { xl: 1.5, l: 1.1, m: 1.08, s: 0.98, sw: 0.62, sel: 0.76 }
+    : { xl: 1.6, l: 1.28, m: 1.1, s: 0.9, sw: 0.68, sel: 0.92 };
 
 /** Une place : x, z, taille ; plateau (deck) ou panneau. */
 type Spot = readonly [number, number, KnobSize];
@@ -264,6 +316,79 @@ const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
 };
 
 /**
+ * Le plugin MM-ARP (2026-11-12, VOY_PLUGIN_GRID) : les memes groupes, dans le meme ordre, sur la grille. Chaque place :
+ * le centre de sa colonne, la ligne de sa rangee (sur son plan), sa taille. Le panneau, seize colonnes :
+ *   0 a 5  OSC 1 (rangee 0), OSC 2 (rangee 1) : WAVEFORM a cheval sur 0 et 1, RANGE, SEMI, FINE, puis FM
+ *          ou RATIO ; MIXER (rangee 2) : OSC 1, OSC 2, NOISE, SUB, SUB WAVE, SUB OCT ;
+ *   6, 7   FILTER : CUTOFF (grand, a cheval), RES et ENV AMT, MODE (a cheval) ;
+ *   8 a 11 FILTER EG, AMP EG, MOD ;
+ *   12, 13 EFFECTS : OVERDRIVE, CHORUS, puis DELAY, REVERB ;
+ *   14, 15 OUTPUT : VOLUME (grand, a cheval).
+ * Le plateau : l'arpegiateur sur les colonnes 0 a 3 (RATE MODE RANGE NOTES, puis GATE OCTAVE GLIDE dessous, plus de
+ * quinconce), l'ecran sur les colonnes 4 a 11, les touches sur les colonnes 12 a 15, les pads a cheval sur deux colonnes.
+ */
+const G = VOY_PLUGIN_GRID;
+const PLUG_PANEL: Partial<Record<VoyKnobId, Spot>> = {
+  wave1: [G.cx(0.5), G.rz(0), 'sel'],
+  range1: [G.cx(2), G.rz(0), 's'],
+  semi1: [G.cx(3), G.rz(0), 's'],
+  fine1: [G.cx(4), G.rz(0), 's'],
+  fm: [G.cx(5), G.rz(0), 's'],
+  wave2: [G.cx(0.5), G.rz(1), 'sel'],
+  range2: [G.cx(2), G.rz(1), 's'],
+  semi2: [G.cx(3), G.rz(1), 's'],
+  fine2: [G.cx(4), G.rz(1), 's'],
+  ratio: [G.cx(5), G.rz(1), 's'],
+  osc1: [G.cx(0), G.rz(2), 's'],
+  osc2: [G.cx(1), G.rz(2), 's'],
+  noise: [G.cx(2), G.rz(2), 's'],
+  sub: [G.cx(3), G.rz(2), 's'],
+  subWave: [G.cx(4), G.rz(2), 's'],
+  subOct: [G.cx(5), G.rz(2), 's'],
+  cutoff: [G.cx(6.5), G.rz(0), 'xl'],
+  res: [G.cx(6), G.rz(1), 's'],
+  envAmt: [G.cx(7), G.rz(1), 's'],
+  fmode: [G.cx(6.5), G.rz(2), 'sw'],
+  fA: [G.cx(8), G.rz(0), 's'],
+  fD: [G.cx(9), G.rz(0), 's'],
+  fS: [G.cx(10), G.rz(0), 's'],
+  fR: [G.cx(11), G.rz(0), 's'],
+  aA: [G.cx(8), G.rz(1), 's'],
+  aD: [G.cx(9), G.rz(1), 's'],
+  aS: [G.cx(10), G.rz(1), 's'],
+  aR: [G.cx(11), G.rz(1), 's'],
+  lfoRate: [G.cx(8), G.rz(2), 's'],
+  lfoShape: [G.cx(9), G.rz(2), 's'],
+  lfoDest: [G.cx(10), G.rz(2), 's'],
+  lfoAmt: [G.cx(11), G.rz(2), 's'],
+  dist: [G.cx(12), G.rz(0), 's'],
+  chorus: [G.cx(13), G.rz(0), 's'],
+  delay: [G.cx(12), G.rz(1), 's'],
+  reverb: [G.cx(13), G.rz(1), 's'],
+  volume: [G.cx(14.5), G.rz(0), 'l'],
+};
+const PLUG_DECK: Partial<Record<VoyKnobId, Spot>> = {
+  rate: [G.cx(0), G.rz(3), 's'],
+  mode: [G.cx(1), G.rz(3), 's'],
+  range: [G.cx(2), G.rz(3), 's'],
+  notes: [G.cx(3), G.rz(3), 's'],
+  gate: [G.cx(0), G.rz(4), 's'],
+  octave: [G.cx(1), G.rz(4), 's'],
+  glide: [G.cx(2), G.rz(4), 's'],
+};
+/** Les places du desktop : celles du site, ou la grille du plugin MM-ARP. */
+const WIDE_PANEL = PLUGIN_ARP ? PLUG_PANEL : DESK_PANEL;
+const WIDE_DECK = PLUGIN_ARP ? PLUG_DECK : DESK_DECK;
+/**
+ * Un potard, pose debout sur son plan, penche a l'ecran (la camera du plugin est a mi-pente : le panneau s'incline d'un
+ * cote, le plateau de l'autre) : son capuchon glisse de 7 px vers le bas sur le panneau, vers le haut sur le plateau. Sa
+ * jupe, plus large, tient presque toute la silhouette : le centre VU du potard (le milieu de sa silhouette, mesure sur
+ * son image : plugin/arp/knob.ts) n'est qu'a PLUG_LEAN x son echelle de son pied. On le recule d'autant : c'est ce centre
+ * qui tombe sur la ligne de sa rangee.
+ */
+const PLUG_LEAN = 0.009;
+
+/**
  * Portrait : trois zones :
  *   OSCILLATORS (2026-10-04, facon Mini V) : une rangee par oscillateur,
  *     son numero a gauche, WAVEFORM, RANGE, SEMI, FINE, puis FM (rangee 1)
@@ -351,7 +476,7 @@ const PORT_DECK: Partial<Record<VoyKnobId, Spot>> = {
 
 /** La taille d'un potard (m par defaut). */
 export function knobSize(id: VoyKnobId): KnobSize {
-  const d = PORTRAIT ? PORT_DECK[id] ?? PORT_PANEL[id] : DESK_DECK[id] ?? DESK_PANEL[id];
+  const d = PORTRAIT ? PORT_DECK[id] ?? PORT_PANEL[id] : WIDE_DECK[id] ?? WIDE_PANEL[id];
   return d ? d[2] : 'm';
 }
 /** Les gros potards (xl et l, hors selecteurs) portent des graduations 0 a 10. */
@@ -384,7 +509,10 @@ export const knobThrowDeg = (id: VoyKnobId, n: number): number => (isSwitch(id) 
 export const stepDeg = (i: number, n: number, throwDeg: number): number => 90 + throwDeg / 2 - (throwDeg * i) / Math.max(1, n - 1);
 /** Le numero de chaque rangee d'oscillateur : un onglet a l'encre, le chiffre en creux (Mini V). */
 export const VOY_BADGE = { w: 0.22, h: 0.3, r: 0.045, cap: 0.15 } as const;
-export const VOY_OSC_BADGES: readonly { text: string; x: number; z: number }[] = PORTRAIT
+// Le plugin MM-ARP (2026-11-12) : plus d'onglets, chaque rangee porte son titre (OSC 1, OSC 2, MIXER)
+export const VOY_OSC_BADGES: readonly { text: string; x: number; z: number }[] = PLUGIN_ARP
+  ? []
+  : PORTRAIT
   ? [
       { text: '1', x: PORT_OSC.badge, z: PORT_O1 },
       { text: '2', x: PORT_OSC.badge, z: PORT_O2 },
@@ -432,10 +560,20 @@ const labelBelow = (id: VoyKnobId, s: number): number => {
 };
 
 export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
-  const deck = PORTRAIT ? PORT_DECK[id] : DESK_DECK[id];
-  const panel = PORTRAIT ? PORT_PANEL[id] : DESK_PANEL[id];
+  const deck = PORTRAIT ? PORT_DECK[id] : WIDE_DECK[id];
+  const panel = PORTRAIT ? PORT_PANEL[id] : WIDE_PANEL[id];
   const spot = deck ?? panel ?? ([0, 0, 'm'] as Spot);
   const where: VoyWhere = deck ? 'deck' : 'panel';
+  // Le plugin MM-ARP (2026-11-12, VOY_PLUGIN_GRID) : sur la ligne de sa rangee, son nom sur la ligne des noms. Un grand
+  // (CUTOFF, VOLUME) remonte de la difference des rayons : il pose son bord bas sur celui des autres, son nom reste sur
+  // la ligne. Une touche (SUB OCT, CHORUS) est centree sur la ligne
+  if (PLUGIN_ARP) {
+    const s = SIZE_SCALE[spot[2]];
+    const labelZ = spot[1] + VOY_PLUGIN_GRID.labelDz;
+    if (isPush(id)) return { id, where, x: spot[0], z: spot[1], s, labelZ };
+    const lift = VOY_KNOB.skirt.r * (s - SIZE_SCALE.m) * 1.05;
+    return { id, where, x: spot[0], z: spot[1] + (where === 'panel' ? -1 : 1) * PLUG_LEAN * s - lift, s, labelZ };
+  }
   const base = where === 'deck' ? VOY_KNOB.scale : VOY_KNOB.panelScale;
   const s = base * SIZE_SCALE[spot[2]];
   // Un bouton poussoir (2026-10-11) : son nom ou serait celui d'un potard de sa taille, la touche juste au-dessus (z : son centre)
@@ -500,7 +638,8 @@ export const VOY_HEAD = PORTRAIT
       word: { x: -5.9, w: 3.0 },
       model: { x: -2.6, cap: 0.14 },
       // desktop (Mika, 2026-11-02) : le logotype se place sous le potard de volume (OUTPUT)
-      mark: { x: DESK_OUT_X, h: 0.46, z: 1.35, align: 'center' as const },
+      // le plugin MM-ARP (2026-11-12, la grille) : sous VOLUME, a cheval sur les colonnes 14 et 15, sur la ligne de la rangee 2
+      mark: PLUGIN_ARP ? { x: G.cx(14.5), h: 0.4, z: G.rz(2), align: 'center' as const } : { x: DESK_OUT_X, h: 0.46, z: 1.35, align: 'center' as const },
       sub: { x: 5.9, text: fwText('voy') },
     };
 
@@ -513,7 +652,11 @@ export const VOY_HEAD = PORTRAIT
  * aux knobs" ; deux rangees de quatre de 1.1 avant).
  */
 // Plus minces le 2026-10-08 (le grand ecran) : depth, la profondeur, plus courte que la largeur (size) ; carres de 0.86 et 0.98 avant (labelDz 0.62 et 0.72)
-export const VOY_PAD = PORTRAIT
+// Le plugin MM-ARP (2026-11-12, la grille) : chaque pad a cheval sur deux colonnes (127 px), sur la ligne de la rangee 5,
+// son nom sur la ligne des noms
+export const VOY_PAD = PLUGIN_ARP
+  ? { size: 1.3, depth: 0.56, height: 0.22, radius: 0.08, dome: 0.04, xs: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => G.cx(2 * i + 0.5)), zs: [G.rz(5) + 0.025], perRow: 8, labelDz: G.labelDz - 0.025 }
+  : PORTRAIT
   ? { size: 0.86, depth: 0.66, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [6.72], perRow: 8, labelDz: 0.57 }
   : { size: 0.98, depth: 0.7, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [3.16], perRow: 8, labelDz: 0.55 };
 
@@ -529,8 +672,10 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'preset' | 'open
  * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM, EDIT, PRESET (demande de Mika 2026-11-03:
  * bouton dedie aux presets sur le plateau) et OPEN.
  */
-const DESK_KEY_X = [3.55, 4.55, 5.55] as const;
-const DESK_KEY_Z = [0.8, 1.86] as const;
+// Le plugin MM-ARP (2026-11-12, la grille) : trois touches reparties sur les colonnes 12 a 15 (un tiers chacune), sur
+// les lignes des rangees 3 et 4 (une touche est basse : son centre vu est 0.011 au-dessus de son pied)
+const DESK_KEY_X = PLUGIN_ARP ? ([0, 1, 2].map((i) => G.ux(G.left + G.col * (12 + (4 * (i + 0.5)) / 3))) as unknown as readonly [number, number, number]) : ([3.55, 4.55, 5.55] as const);
+const DESK_KEY_Z = PLUGIN_ARP ? ([G.rz(3) + 0.011, G.rz(4) + 0.011] as const) : ([0.8, 1.86] as const);
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
   ? [
       { id: 'run', label: 'RUN/STOP', x: -2.75, z: 2.38, w: 1.02, d: 0.78 },
@@ -548,7 +693,8 @@ export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; 
       { id: 'preset', label: 'PRESET', x: DESK_KEY_X[1], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
       { id: 'open', label: 'OPEN', x: DESK_KEY_X[2], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
     ];
-export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
+// labelGap, le plugin MM-ARP : la legende sur la ligne des noms de la rangee (34 px sous sa ligne)
+export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: PLUGIN_ARP ? G.labelDz - 0.011 - 0.26 : 0.2, press: 0.04 } as const;
 
 /**
  * L'ecran du plateau (verre, cadre fusionne au capot). Le grand ecran
@@ -624,7 +770,10 @@ const padGroup = (): VoyGroup => ({
   z: VOY_PAD.zs[VOY_PAD.zs.length - 1] + VOY_PAD.labelDz + VOY_GROUP_TYPE.dz,
 });
 
-export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
+// Le plugin MM-ARP (2026-11-12) : plus de crochets, ARPEGGIATOR et CHORDS sont des titres comme les autres (VOY_PLUGIN_SKIN)
+export const VOY_GROUPS: readonly VoyGroup[] = PLUGIN_ARP
+  ? []
+  : PORTRAIT
   ? [
       knobGroup('FILTER', ['cutoff', 'res', 'envAmt', 'fmode'], ['osc1']),
       knobGroup('MIXER', ['osc1', 'osc2', 'noise', 'sub'], ['cutoff']),
@@ -992,75 +1141,52 @@ export const VOY_PLUGIN_FACE = (() => {
 })();
 
 /**
- * L'habillage de la face du plugin MM-ARP (2026-11-11, Mika : "je veux le meilleur synthe de l'histoire" ; voyager/skin.ts,
- * voyager/silk.ts skinBase et pluginScales) : le simili noir, un bandeau de metal brosse par section du panneau (a la
- * place des titres serigraphies), des filets de cadre entre elles, AMP EG et MOD entre deux filets, et les graduations
- * chiffrees de chaque potard.
- * - columns : les cinq sections (entre les filets DESK_RULES_X, du bord au bord du capot) ; band : la hauteur du bandeau ;
- * - gain : la clarte des tuiles dans la scene (sa lumiere et sa courbe de tons passent dessus), calee sur une capture
- *   pour que le panneau 3D et les couches HTML aient le meme noir ;
- * - scales : 'all' (0 a 10, chaque chiffre : CUTOFF), 'full' (les pairs), 'compact' (0, 5, 10 : les rangees serrees),
- *   { nums } (onze traits, ces chiffres seuls : un voisin prend la place des autres), une liste (les vraies valeurs d'un
- *   potard a crans) ou 'ticks' (un trait par cran, sans nom : la place manque).
+ * L'habillage de la face du plugin MM-ARP (voyager/skin.ts, voyager/silk.ts skinBase et pluginTicks). Refait le
+ * 2026-11-12 (Mika : "j'ai rarement vu quelque chose d'aussi horrible. C'est le bordel partout ... plus EPUREE ou au
+ * moins DROITE. Je trouve les lignes blanches pourries") : plus de bandeaux de metal clair, plus de cadres, plus de
+ * chiffres autour des potards.
+ * - titles : un titre par section et par rangee, en petites capitales espacees, gris clair, suivi d'un filet fin (du
+ *   bord gauche du premier potard au bord droit du dernier) : les memes dans les couches HTML (plugin/arp/face.css) ;
+ * - tick : les graduations, des traits courts et gris (onze pour un potard continu, un par cran pour un potard a
+ *   crans), sans chiffre : la valeur se lit dans l'afficheur du bandeau, au survol et pendant le geste ;
+ * - gain : la clarte de la tuile de simili dans la scene (sa lumiere et sa courbe de tons passent dessus), calee sur
+ *   une capture pour que le panneau 3D et les couches HTML aient le meme noir ; relief, cells : un grain fin et calme.
  */
-export type VoyPluginScale = 'all' | 'full' | 'compact' | 'ticks' | readonly string[] | { readonly nums: readonly number[] };
+export interface VoyPluginTitle {
+  text: string;
+  /** de x0 a x1, a la hauteur z de son plan : le titre a gauche, le filet a sa suite */
+  where: VoyWhere;
+  x0: number;
+  x1: number;
+  z: number;
+}
 export const VOY_PLUGIN_SKIN = (() => {
-  const half = VOY_LID_W / 2;
-  const xs = [-half, ...DESK_RULES_X, half];
-  const names = ['OSCILLATORS', 'FILTER', 'FILTER EG', 'EFFECTS', 'OUTPUT'];
-  const gap = 0.03;
-  const eg = (DESK_EG[0] + DESK_EG[3]) / 2;
-  const scales: Partial<Record<VoyKnobId, VoyPluginScale>> = {
-    cutoff: 'all',
-    volume: 'full',
-    osc1: 'compact',
-    // WAVEFORM (la rangee 2) passe juste au-dessus de OSC 2 : pas de 5
-    osc2: { nums: [0, 10] },
-    noise: 'compact',
-    sub: 'compact',
-    subWave: 'ticks',
-    // FINE ecrit son +50 a gauche du 0 de FM
-    fm: { nums: [5, 10] },
-    ratio: 'ticks',
-    res: 'compact',
-    envAmt: 'compact',
-    fA: 'compact',
-    fD: 'compact',
-    fS: 'compact',
-    fR: 'compact',
-    aA: 'compact',
-    aD: 'compact',
-    aS: 'compact',
-    aR: 'compact',
-    lfoRate: 'ticks',
-    lfoShape: 'ticks',
-    lfoDest: 'ticks',
-    lfoAmt: 'compact',
-    dist: 'compact',
-    delay: 'compact',
-    reverb: 'compact',
-    rate: ['1/4', '1/8', '1/16', '1/32'],
-    mode: ['UP', 'DN', 'U/D', 'RND'],
-    range: ['1', '2', '3'],
-    notes: ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'],
-    gate: 'compact',
-    octave: ['-2', '-1', '0', '+1', '+2'],
-    glide: 'compact',
-  };
-  const band = { z0: DESK_TITLE_Z - 0.12, z1: DESK_TITLE_Z + 0.11, cap: 0.09 };
+  const GR = VOY_PLUGIN_GRID;
+  /** un titre sur les colonnes a a b (comprises) de la rangee k */
+  const t = (text: string, k: number, a: number, b: number): VoyPluginTitle => ({
+    text,
+    x0: GR.ux(GR.left + GR.col * a + GR.inset),
+    x1: GR.ux(GR.left + GR.col * (b + 1) - GR.inset),
+    ...GR.at(GR.y0 + GR.row * k + GR.titlePx),
+  });
+  const titles: readonly VoyPluginTitle[] = [
+    t('OSC 1', 0, 0, 5),
+    t('FILTER', 0, 6, 7),
+    t('FILTER EG', 0, 8, 11),
+    t('EFFECTS', 0, 12, 13),
+    t('OUTPUT', 0, 14, 15),
+    t('OSC 2', 1, 0, 5),
+    t('AMP EG', 1, 8, 11),
+    t('MIXER', 2, 0, 5),
+    t('MOD', 2, 8, 11),
+    t('ARPEGGIATOR', 3, 0, 3),
+    t('CHORDS  F# MINOR', 5, 0, 15),
+  ];
   return {
-    columns: names.map((text, i) => ({ text, x0: xs[i] + (i === 0 ? 0 : gap), x1: xs[i + 1] - (i === names.length - 1 ? 0 : gap) })),
-    band,
-    rules: DESK_RULES_X,
-    bottom: VOY_PANEL.len / 2,
-    sub: { cap: 0.072 },
-    subs: [
-      { text: 'AMP EG', x: eg, z: betweenRows(0), x0: DESK_RULES_X[1] + 0.16, x1: DESK_RULES_X[2] - 0.16 },
-      { text: 'MOD', x: eg, z: betweenRows(1), x0: DESK_RULES_X[1] + 0.16, x1: DESK_RULES_X[2] - 0.16 },
-    ],
-    deckRules: [] as readonly (readonly number[])[],
-    gain: { leather: { panel: 1.56, deck: 1.42 }, tint: [1, 1.1, 1.26] as readonly [number, number, number], relief: 1.3, band: 1.09, bandTint: [1, 1.036, 1.115] as readonly [number, number, number], ink: { panel: 1, deck: 0.9 } },
-    scales,
+    titles,
+    title: { cap: 0.074, weight: 600, alpha: 0.62, rule: 0.2, ruleW: 0.0125, gap: 0.1 },
+    tick: { r0: 0.04, len: 0.04, w: 0.0125, alpha: 0.36 },
+    gain: { leather: { panel: 1.5, deck: 1.38 }, tint: [1, 1.1, 1.26] as readonly [number, number, number], relief: 0.42, ink: { panel: 1, deck: 0.9 } },
   };
 })();
 

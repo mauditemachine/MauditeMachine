@@ -21,10 +21,18 @@ architecture que `plugin/mm-rytm`.
     `filter`, `phaser`, `flanger`, `pump`, `crush`, `space` de `extra-params.json`) ;
   - le STEP SEQUENCER sous la machine (16 pas ; ACCENT, SLIDE, GATE, RATCHET, PROB ; `steps.ts`, envoye dans `mm_program`
     sous `steps` ; SWING, INIT).
-  L'habillage (plugin seul, `src/v4/voyager/skin.ts`, tout procedural) : simili noir a grain fin, un bandeau de metal
-  brosse par section, des graduations chiffrees, des potards a capuchon de metal brosse et jupe noire (3D et HTML).
-  **OPEN bascule toute la fenetre** sur le panneau d'options (`HoodPanel.tsx`, une seule page, potards noirs a index
-  blanc) : les 18 TWEAKS du site (a leurs ids du site), ENGINE, LFO 1, LFO 2, REVERB, MASTER, CLIP (DRAG MIDI), MIDI
+  **La grille et l'habillage (2026-11-12, « plus EPUREE ou au moins DROITE », puis « les knobs NOIRS, mais au moins en
+  3D »)** : UNE grille pour toute la fenetre (`src/v4/plugin/arp/scale.ts` `GRID`, `src/v4/voyager/theme.ts`
+  `VOY_PLUGIN_GRID`) : des colonnes de 63.5 px (16 sous la machine, 6 sous le rack), des rangees de 100 px (six pour la
+  machine et le rack, sur les memes lignes, la septieme pour le STEP SEQUENCER, sur toute la largeur). Les potards de la
+  machine 3D sont reposes sur cette grille dans le plugin seul (le site garde ses places) ; deux tailles (normale 42 px,
+  grande 63 px pour CUTOFF et VOLUME). Les titres : de petites capitales grises suivies d'un filet fin (plus de bandeau de
+  metal, plus de cadre). Les potards : noirs, canneles, dessus bombe, index blanc ; ceux des couches HTML sont l'IMAGE du
+  potard 3D (`src/v4/plugin/arp/knob.png`, rendue par la scene, `knob.ts`). Plus de chiffres autour des potards ni de
+  valeur dessous : la valeur se lit dans l'afficheur du bandeau, au survol et pendant le geste. Plus aucune infobulle
+  systeme. Le simili : `src/v4/voyager/skin.ts`, procedural, a grain tres fin.
+  **OPEN bascule toute la fenetre** sur le panneau d'options (`HoodPanel.tsx`, trois pages sur la meme grille, six
+  rangees de 125 px) : les 18 TWEAKS du site (a leurs ids du site), ENGINE, LFO 1, LFO 2, REVERB, MASTER, CLIP (DRAG MIDI), MIDI
   (LEARN), LIBRARY (les 40 presets visibles) et DISK ; CLOSE, OPEN, O ou Echap reviennent. La scene 3D ne s'ouvre plus dans
   le plugin (la carte n'est plus montree).
 - **Le son** : en C++ (`dsp/`), jamais dans la WebView. Le plugin joue fenetre fermee et pendant un export d'Ableton.

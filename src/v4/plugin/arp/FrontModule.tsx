@@ -1,23 +1,25 @@
 /**
- * Les modules HTML de la face avant du plugin MM-ARP (2026-11-11 ; refaits le meme jour pour le format large, Mika :
- * "carre c'est pas bon, essaie de faire un peu plus en largeur ... fais quelque chose de design, je veux le meilleur
- * synthe de l'histoire"). Autour de la machine 3D (scale.ts : le plan de la fenetre), dans le meme habillage qu'elle
- * (voyager/skin.ts : le simili noir, un bandeau de metal brosse par section, des filets de cadre, les potards a capuchon
- * de metal et leurs graduations chiffrees) :
+ * Les modules HTML de la face avant du plugin MM-ARP (2026-11-11 ; redresses le 2026-11-12, Mika : "c'est le bordel
+ * partout ... l'interface doit etre plus EPUREE ou au moins DROITE"). Autour de la machine 3D, sur la MEME grille qu'elle
+ * (scale.ts GRID : les rangees de 100 px, leurs lignes, le titre et son filet a -50, les noms a +30) et dans le meme
+ * habillage (le simili noir, des titres en petites capitales suivis d'un filet fin, le potard noir de la machine) :
  *
- * - Rack, a DROITE de la machine, sur toute la hauteur : six rangees a bandeau, OSC +, FILTER +, PHASER, FLANGER, PUMP,
- *   CRUSH et SPACE (les 22 reglages osc, filter, phaser, flanger, pump, crush et space de extra-params.json) ; une LED
- *   rouge dans le bandeau de chaque effet, allumee quand il agit.
- * - StepStrip, SOUS la machine, sur sa largeur : STEP SEQUENCER, 16 pas larges, cinq pistes (steps.ts : ACCENT, SLIDE,
- *   GATE, RATCHET, PROB), des touches a temoin. Clic : l'etat suivant ; clic droit ou Maj + clic : le precedent ;
- *   glisser : peindre la piste avec l'etat pose. La tete de lecture court sur la rangee de LED (mm_transport pos,
- *   voyager/arp.ts arpExternal.headState) ; les pas au-dela de la longueur de la suite sont grises. A droite : le potard
- *   SWING (xSwing) et INIT (toutes les pistes a leurs valeurs de depart).
+ * - Rack, a DROITE de la machine, sur sa hauteur : six rangees, une par rangee de la machine, sur les memes lignes : OSC +,
+ *   FILTER +, PHASER, FLANGER, PUMP, puis CRUSH et SPACE (les 22 reglages osc, filter, phaser, flanger, pump, crush et space
+ *   de extra-params.json), sur quatre colonnes de 95.25 px (les six colonnes de la grille partagees en quatre) ; une LED
+ *   rouge au bout du filet de chaque effet, allumee quand il agit.
+ * - StepStrip, SOUS la machine et le rack, sur toute la largeur (la septieme rangee de la grille) : STEP SEQUENCER, 16 pas,
+ *   un par colonne de la grille (les colonnes 2 a 17), cinq pistes (steps.ts : ACCENT, SLIDE, GATE, RATCHET, PROB). Clic :
+ *   l'etat suivant ; clic droit ou Maj + clic : le precedent ; glisser : peindre la piste avec l'etat pose. La tete de
+ *   lecture court sur la rangee de LED (mm_transport pos, voyager/arp.ts arpExternal.headState) ; les pas au-dela de la
+ *   longueur de la suite sont grises. A droite, sous les deux dernieres colonnes du rack : le potard SWING (xSwing) et
+ *   INIT (toutes les pistes a leurs valeurs de depart).
  * - Cheeks : les joues de noyer, aux deux bords de la fenetre (le noyer fume de voyager/skin.ts woodTile, face.css).
  *
  * Les potards sont des reglages de extra.ts, comme ceux du panneau d'OPEN : memes evenements (mm_param, mm_gesture,
  * mm_knobs sans echo ; un clic en MIDI LEARN arme le reglage). Les pistes partent dans mm_program (bridge.ts). Le VST3
- * seul : le site ne monte jamais ces modules.
+ * seul : le site ne monte jamais ces modules. Aucune infobulle systeme : le pas ou le reglage touche se lit dans
+ * l'afficheur du bandeau (Header.tsx).
  */
 
 import React, { useRef, useSyncExternalStore } from 'react';
@@ -26,11 +28,14 @@ import { voyParams } from '../../voyager/params';
 import { seq } from '../../voyager/seq';
 import { extHead } from '../head';
 import { arpExtra, extraParam, type ExtraParam } from './extra';
-import { CHEEK_W, RACK, SEQ, UI_H } from './scale';
-import { XKnob, XSwitch, xTouch } from './SoundPlus';
+import { CHEEK_W, GRID, RACK, SEQ, UI_H } from './scale';
+import { SecTitle, XKnob, XSwitch, xTouch } from './SoundPlus';
 import { arpSteps, STEP_TRACKS, stepName, STEPS_N, type StepTrack } from './steps';
 
 const P = (id: string): ExtraParam => extraParam(id) as ExtraParam;
+
+/** Le pas des potards du rack : ses six colonnes de la grille partagees en quatre. */
+const RACK_PITCH = (GRID.col * 6) / 4;
 
 const useSteps = () => useSyncExternalStore(arpSteps.subscribe, arpSteps.get, arpSteps.get);
 
@@ -156,10 +161,7 @@ const StepSeq: React.FC = () => {
 
   return (
     <section className="mm-arp-sec mm-arp-strip" style={{ position: 'absolute', left: SEQ.x, top: SEQ.y, width: SEQ.w, height: SEQ.h }} aria-label="Step sequencer">
-      <p className="mm-arp-band">
-        <span>STEP SEQUENCER</span>
-      </p>
-      <div className="mm-arp-seq">
+      <SecTitle text="STEP SEQUENCER" />
         <div
           ref={grid}
           className="mm-arp-st-grid"
@@ -186,7 +188,7 @@ const StepSeq: React.FC = () => {
           </div>
           {STEP_TRACKS.map((t, ti) => (
             <React.Fragment key={t.id}>
-              <span className="mm-arp-st-name" id={`mm-arp-st-${t.id}`} title={`${t.label} : ${t.names.join(' / ')}`}>
+              <span className="mm-arp-st-name" id={`mm-arp-st-${t.id}`}>
                 {t.label}
               </span>
               <div className="mm-arp-st-row" role="group" aria-labelledby={`mm-arp-st-${t.id}`} data-track={t.id}>
@@ -202,7 +204,6 @@ const StepSeq: React.FC = () => {
                     data-off={i >= len ? '1' : undefined}
                     data-head={i === at ? '1' : undefined}
                     tabIndex={ti === 0 && i === 0 ? 0 : -1}
-                    title={`${t.label} ${i + 1} : ${stepName(t.id, v)}`}
                     aria-label={`${t.label.charAt(0)}${t.label.slice(1).toLowerCase()} step ${i + 1}, ${stepName(t.id, v).toLowerCase()}`}
                     onPointerEnter={() => {
                       if (!paint.current) touch(t.id, i, false);
@@ -215,21 +216,21 @@ const StepSeq: React.FC = () => {
             </React.Fragment>
           ))}
         </div>
-        <div className="mm-arp-seq-side">
+        {/* SWING et INIT, sous les deux dernieres colonnes du rack */}
+        <div className="mm-arp-cells mm-arp-seq-side" style={{ position: 'absolute', left: RACK.x - SEQ.x + 2 * RACK_PITCH, top: 0 }}>
           <XKnob p={P('xSwing')} />
-          <button type="button" className="mm-arp-kb mm-arp-seq-init" data-size="s" disabled={arpSteps.isDefault()} title="All step tracks back to their defaults" onClick={() => arpSteps.reset()}>
+          <button type="button" className="mm-arp-kb mm-arp-seq-init" data-size="s" disabled={arpSteps.isDefault()} aria-label="Init: all step tracks back to their defaults" onClick={() => arpSteps.reset()}>
             <span className="mm-arp-k" aria-hidden="true" />
             <span className="mm-arp-legend">INIT</span>
           </button>
         </div>
-      </div>
     </section>
   );
 };
 
 /* ---------------- le rack : OSC +, FILTER +, PHASER, FLANGER, PUMP, CRUSH, SPACE ---------------- */
 
-/** Les noms des potards quand le bandeau porte deja celui du JSON (la dose de PHASER : MIX). */
+/** Les noms des potards quand le titre de la section porte deja celui du JSON (la dose de PHASER : MIX). */
 const LABELS: Record<string, string> = { xPhMix: 'MIX', xFlMix: 'MIX', xPumpDepth: 'DEPTH', xCrushBits: 'BITS', xCrushRate: 'DOWNSAMPLE', xDlyMode: 'DELAY MODE' };
 
 interface Group {
@@ -240,7 +241,7 @@ interface Group {
   on?: (v: Readonly<Record<string, number>>) => boolean;
 }
 
-/** Les rangees du rack, de haut en bas ; la derniere porte deux sections cote a cote. */
+/** Les rangees du rack, de haut en bas (celles de la machine) ; la derniere porte deux sections cote a cote. */
 const RACK_ROWS: readonly (readonly Group[])[] = [
   [{ id: 'osc', title: 'OSC +', ids: ['xRing', 'xFold', 'xNoiseColor', 'xUnison'] }],
   [{ id: 'filter', title: 'FILTER +', ids: ['xHpf', 'xComb', 'xCombFb'] }],
@@ -253,34 +254,31 @@ const RACK_ROWS: readonly (readonly Group[])[] = [
   ],
 ];
 
-const GroupBox: React.FC<{ g: Group }> = ({ g }) => {
+const GroupBox: React.FC<{ g: Group; span: number }> = ({ g, span }) => {
   const values = useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
   const lit = g.on ? g.on(values) : false;
   return (
-    <div className="mm-arp-sec mm-arp-fg" data-fx={g.id} data-on={lit ? '1' : undefined} style={{ flexGrow: g.ids.length }} role="group" aria-label={g.title}>
-      <p className="mm-arp-band">
-        {g.on && <span className="mm-arp-led mm-arp-band-led" data-on={lit ? '1' : undefined} aria-hidden="true" />}
-        <span>{g.title}</span>
-      </p>
-      <div className="mm-arp-fg-row">{g.ids.map((id) => (id === 'xUnison' ? <XSwitch key={id} p={P(id)} /> : <XKnob key={id} p={P(id)} label={LABELS[id]} />))}</div>
+    <div className="mm-arp-sec mm-arp-fg" data-fx={g.id} data-on={lit ? '1' : undefined} style={{ width: span * RACK_PITCH }} role="group" aria-label={g.title}>
+      <SecTitle text={g.title} led={g.on ? lit : undefined} />
+      <div className="mm-arp-cells">{g.ids.map((id) => (id === 'xUnison' ? <XSwitch key={id} p={P(id)} /> : <XKnob key={id} p={P(id)} label={LABELS[id]} />))}</div>
     </div>
   );
 };
 
-/** Le rack, a droite de la machine. */
+/** Le rack, a droite de la machine : une rangee par rangee de la machine, sur les memes lignes. */
 export const Rack: React.FC = () => (
-  <section className="mm-arp-rack" style={{ position: 'absolute', left: RACK.x, top: RACK.y, width: RACK.w, height: RACK.h }} aria-label="MM-ARP expander rack">
+  <section className="mm-arp-rack" style={{ position: 'absolute', left: RACK.x, top: RACK.y, width: RACK.w, height: RACK.h, ['--pitch' as string]: `${RACK_PITCH}px` }} aria-label="MM-ARP expander rack">
     {RACK_ROWS.map((row, i) => (
-      <div key={i} className="mm-arp-rack-row">
+      <div key={i} className="mm-arp-row">
         {row.map((g) => (
-          <GroupBox key={g.id} g={g} />
+          <GroupBox key={g.id} g={g} span={row.length > 1 ? g.ids.length : 4} />
         ))}
       </div>
     ))}
   </section>
 );
 
-/** Le sequenceur par pas, sous la machine. */
+/** Le sequenceur par pas, sous la machine et le rack. */
 export const StepStrip = StepSeq;
 
 /** Les joues de noyer, aux deux bords de la fenetre, sur toute sa hauteur. */

@@ -1,27 +1,16 @@
 /**
- * L'habillage de la face du plugin MM-ARP (2026-11-11, Mika : "je veux le meilleur synthe de l'histoire, il doit etre
- * magnifique") : un panneau noir a grain fin de simili, des bandeaux de titre en metal brosse clair, des capuchons de
- * potard en metal brosse un peu fonce (reflet conique). Tout est PROCEDURAL (aucune image du commerce) : trois dessins
- * calcules une fois, pixel par pixel, sur un canvas, et partages par la scene 3D (voyager/silk.ts, voyager/knobs.ts) et
- * par les couches HTML de la face (plugin/arp/face.css, par des variables CSS posees par plugin/arp/ArpFace.tsx) : la 3D
- * et le HTML portent la meme matiere.
+ * L'habillage de la face du plugin MM-ARP (2026-11-11 ; epure le 2026-11-12, Mika : "je trouve les lignes blanches
+ * pourries", puis "peut-etre que je preferais les knobs NOIRS") : un panneau noir mat a grain tres fin de simili, et le
+ * noyer des joues. Plus de bandeau de metal brosse ni de capuchon de metal : les titres sont des filets fins
+ * (voyager/silk.ts skinBase, plugin/arp/face.css), les potards sont noirs (voyager/knobs.ts ; leur image pour les couches
+ * HTML : plugin/arp/knob.ts). Tout est PROCEDURAL (aucune image du commerce) : deux dessins calcules une fois, pixel par
+ * pixel, sur un canvas, et partages par la scene 3D (voyager/silk.ts) et par les couches HTML de la face (plugin/arp/
+ * face.css, par des variables CSS posees par plugin/arp/ArpFace.tsx) : la 3D et le HTML portent la meme matiere.
  *
  * Le plugin MM-ARP seul (PLUGIN_ARP) : le site et le MM-RYTM n'appellent jamais ces fonctions.
  */
 
 import { mulberry32 } from '../scene/silk';
-
-/** Les teintes de l'habillage (CSS), telles qu'elles s'affichent. */
-export const SKIN = {
-  /** l'encre de la serigraphie sur le simili noir */
-  ink: '#e4e1da',
-  inkDim: '#a9a6a0',
-  /** le texte grave des bandeaux de metal */
-  bandInk: '#161617',
-  /** le filet des cadres de section : un creux sombre, son arete claire */
-  frameLo: '#050505',
-  frameHi: 'rgba(255, 255, 255, 0.085)',
-} as const;
 
 const clamp = (x: number): number => (x < 0 ? 0 : x > 255 ? 255 : x);
 
@@ -94,94 +83,6 @@ function leather(size: number, cells: number, gain: number, tint: readonly [numb
       d[o + 1] = clamp(l * tint[1]);
       d[o + 2] = clamp(l * tint[2]);
       d[o + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return c;
-}
-
-/**
- * Le metal brosse d'un bandeau de titre : l'aluminium clair, brosse dans la longueur (des rayures fines, chacune d'une
- * longueur au hasard), une arete claire en haut, une ombre en bas. Se repete en largeur.
- */
-function band(w: number, h: number, gain: number, tint: readonly [number, number, number], seed: number): HTMLCanvasElement {
-  const { c, ctx, img } = make(w, h);
-  const rnd = mulberry32(seed);
-  const d = img.data;
-  for (let y = 0; y < h; y += 1) {
-    const t = y / (h - 1);
-    // Le corps : clair en haut, un rien plus sombre vers le bas
-    let base = 205 - 34 * t - 10 * Math.sin(t * Math.PI);
-    if (y === 0) base = 242;
-    else if (y === 1) base = 226;
-    else if (y >= h - 1) base = 92;
-    else if (y >= h - 2) base = 142;
-    let x = 0;
-    while (x < w) {
-      const run = 6 + Math.floor(rnd() * rnd() * 150);
-      const off = (rnd() - 0.5) * 17;
-      for (let i = 0; i < run && x < w; i += 1, x += 1) {
-        const l = (base + off + (rnd() - 0.5) * 4) * gain;
-        const o = (y * w + x) * 4;
-        d[o] = clamp(l * tint[0]);
-        d[o + 1] = clamp(l * tint[1]);
-        d[o + 2] = clamp(l * tint[2]);
-        d[o + 3] = 255;
-      }
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return c;
-}
-
-/**
- * Le dessus d'un capuchon de potard : un disque de metal tourne (des stries concentriques), son reflet conique (deux
- * plages claires face a face, deux sombres entre elles), un chanfrein au bord. "Le dessus plus fonce, pas trop" (Mika) :
- * un gunmetal clair, jamais un chrome blanc. Le reflet ne tourne pas avec le potard (la lumiere ne bouge pas) : seul
- * l'index tourne. Transparent hors du disque.
- */
-function cap(size: number, seed: number): HTMLCanvasElement {
-  const { c, ctx, img } = make(size, size);
-  const rnd = mulberry32(seed);
-  const R = size / 2;
-  // Les stries du tournage : une clarte par rayon
-  const rings = new Float32Array(Math.ceil(R) + 2);
-  for (let i = 0; i < rings.length; i += 1) rings[i] = (rnd() - 0.5) * 2;
-  const d = img.data;
-  const th0 = (-52 * Math.PI) / 180;
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const dx = x + 0.5 - R;
-      const dy = y + 0.5 - R;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      const o = (y * size + x) * 4;
-      const edge = R - 0.75 - r;
-      if (edge <= -1) {
-        d[o + 3] = 0;
-        continue;
-      }
-      const th = Math.atan2(dy, dx);
-      const k = Math.cos(2 * (th - th0));
-      // Le reflet conique : la plage claire etroite, la sombre plus large
-      let l = k > 0 ? 104 + 108 * Math.pow(k, 1.7) : 104 - 60 * Math.pow(-k, 1.15);
-      // Un second reflet, plus fin, decale : le metal brosse n'a jamais un seul eclat
-      l += 16 * Math.pow(Math.max(0, Math.cos(2 * (th - th0) - 0.5)), 14);
-      const rr = r / R;
-      const ri = Math.min(rings.length - 2, Math.floor(r));
-      const ring = rings[ri] + (rings[ri + 1] - rings[ri]) * (r - Math.floor(r));
-      l += ring * (5 + 6 * rr) + (rnd() - 0.5) * 3;
-      // Le centre : les stries se resserrent, le reflet s'y fond
-      if (rr < 0.12) l = l + (118 - l) * (1 - rr / 0.12) * 0.75;
-      // Le chanfrein : une arete claire en haut a gauche, sombre en bas a droite
-      if (rr > 0.9) {
-        const b = (rr - 0.9) / 0.1;
-        const dir = -(dx + dy) / (r * Math.SQRT2 || 1);
-        l = l * (1 - 0.55 * b) + (60 + 120 * Math.max(0, dir)) * 0.55 * b;
-      }
-      d[o] = clamp(l * 0.975);
-      d[o + 1] = clamp(l * 0.99);
-      d[o + 2] = clamp(l * 1.03);
-      d[o + 3] = clamp(255 * Math.min(1, edge + 1));
     }
   }
   ctx.putImageData(img, 0, 0);
@@ -262,25 +163,25 @@ function once(key: string, build: () => HTMLCanvasElement): HTMLCanvasElement {
 }
 
 const NEUTRAL = [1, 1, 1.01] as const;
+/** Le relief du grain dans les couches HTML : a peine un fremissement (0.8 avant le 2026-11-12 : "trop de textures a la fois"). */
+export const SKIN_RELIEF = 0.3;
 /**
- * La tuile de simili (256 px, a afficher sur 128 px CSS : nette sur un ecran Retina). gain et tint : pour la scene 3D,
- * dont la lumiere chaude et la courbe de tons passent sur la tuile (voyager/theme.ts VOY_PLUGIN_SKIN.gain).
+ * La tuile de simili (256 px, a afficher sur 128 px CSS : nette sur un ecran Retina) : 60 galets de cote, un grain fin
+ * (38 avant le 2026-11-12). gain et tint : pour la scene 3D, dont la lumiere chaude et la courbe de tons passent sur la
+ * tuile (voyager/theme.ts VOY_PLUGIN_SKIN.gain).
  */
-export const leatherTile = (gain = 1, tint: readonly [number, number, number] = NEUTRAL, relief = 0.8): HTMLCanvasElement =>
-  once(`leather:${gain}:${tint.join()}:${relief}`, () => leather(256, 38, gain, tint, relief, 0x4d4d4152));
-/** La tuile de metal brosse d'un bandeau (512 x 40 px, a afficher sur la hauteur du bandeau). */
-export const bandTile = (gain = 1, tint: readonly [number, number, number] = [1, 1, 1.012]): HTMLCanvasElement => once(`band:${gain}:${tint.join()}`, () => band(512, 40, gain, tint, 0x42414e44));
-/** Le dessus d'un capuchon (256 px). */
-export const capTile = (): HTMLCanvasElement => once('cap', () => cap(256, 0x4b4e4f42));
+export const leatherTile = (gain = 1, tint: readonly [number, number, number] = NEUTRAL, relief = SKIN_RELIEF): HTMLCanvasElement =>
+  once(`leather:${gain}:${tint.join()}:${relief}`, () => leather(256, 60, gain, tint, relief, 0x4d4d4152));
 /** La tuile de noyer des joues (80 x 640 px, a afficher sur 40 x 320 px CSS ; se repete en hauteur). */
 export const woodTile = (): HTMLCanvasElement => once('wood', () => wood(80, 640, 0x574f4f44));
 
 const urls = new Map<string, string>();
 /** Une tuile en url de donnees (les fonds CSS des couches HTML). */
-export function skinUrl(which: 'leather' | 'band' | 'cap' | 'wood'): string {
+export function skinUrl(which: 'leather' | 'wood'): string {
   let u = urls.get(which);
   if (!u) {
-    const c = which === 'leather' ? leatherTile() : which === 'band' ? bandTile() : which === 'wood' ? woodTile() : capTile();
+    // 0.815 : le noir que rend la scene 3D avec sa propre tuile (mesure sur une capture : 14.5 sur 255 des deux cotes)
+    const c = which === 'leather' ? leatherTile(0.815) : woodTile();
     u = c.toDataURL('image/png');
     urls.set(which, u);
   }

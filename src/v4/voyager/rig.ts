@@ -178,7 +178,6 @@ export class VoyagerRig {
     this.lid.add(this.keys.pushes.deck);
     this.knobs = new VoyKnobs({ mobile: opts.mobile, castShadow: !opts.mobile });
     this.lid.add(this.knobs.mesh);
-    if (this.knobs.tops) this.lid.add(this.knobs.tops);
     this.lcd = new VoyScreen(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
     this.seqScreen = !PORTRAIT && !opts.mobile ? new VoySeqScreen(opts.anisotropy) : null;

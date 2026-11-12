@@ -1,14 +1,13 @@
 /**
- * Les potards et les commutateurs HTML de la face du plugin MM-ARP (2026-11-10 : SOUND+ ; refaits le 2026-11-11, Mika :
- * "j'aime ce type de knobs : capuchon metal brosse, jupe noire cannelee, graduations chiffrees 0 2 4 6 8 10, mais le
- * dessus plus fonce, pas trop" ; "pour le OPEN je veux ces knobs-la : bouton noir a index blanc, graduations chiffrees").
- * Deux dessins, un seul composant (Dial) :
- * - look 'metal' (la face avant : FrontModule.tsx) : le potard de la machine 3D, trait pour trait (voyager/knobs.ts :
- *   la jupe noire, le flanc cannele, le disque de metal brosse de voyager/skin.ts capTile, qui ne tourne pas, l'index
- *   blanc sur la couronne noire), pour que 3D et HTML ne se distinguent pas ;
- * - look 'black' (le panneau d'OPEN : HoodPanel.tsx) : le bouton noir cannele, son long index blanc.
- * Autour : onze traits, les chiffres pairs de 0 a 10 ; un reglage a zero au centre : -5 a +5 ; un reglage a crans : un
- * trait par cran et ses vraies valeurs (scaleOf). Dessous : le nom, puis la valeur lue.
+ * Les potards et les commutateurs HTML de la face du plugin MM-ARP (2026-11-10 : SOUND+). Refaits le 2026-11-12 (Mika :
+ * "j'ai rarement vu quelque chose d'aussi horrible ... plus EPUREE ou au moins DROITE", puis "peut-etre que je preferais
+ * les knobs NOIRS, mais au moins en 3D") : UN potard, celui de la machine 3D (knob.ts : son image rendue par la scene,
+ * noir, cannele, bombe, son ombre portee ; l'index blanc tourne en CSS), a UNE taille, partout (rack, sequenceur, OPEN).
+ * Autour : des graduations fines et grises, sans chiffre (onze traits, ou un par cran). Dessous : son nom. Sa valeur ne
+ * s'ecrit plus sous lui : elle se lit dans l'afficheur du bandeau (Header.tsx) au survol et pendant le geste (xTouch) ;
+ * elle reste dans le DOM (.mm-arp-x-value, cachee : les lecteurs d'ecran ont aria-valuetext, les sondes la lisent).
+ * Chaque potard est une case de sa rangee (face.css .mm-arp-x) : son centre sur la ligne de la rangee, son nom 30 px
+ * dessous (scale.ts GRID). Plus aucune infobulle systeme (attribut title).
  *
  * Deux sources de valeurs, memes gestes :
  * - XKnob, XSwitch : un reglage du VST3 seul (extra.ts, plugin/mm-arp/extra-params.json) ;
@@ -17,14 +16,15 @@
  * Le pont envoie tout seul mm_param et mm_gesture quand un store change (bridge.ts) ; mm_knobs les met a jour sans echo.
  *
  * Un potard : glisser vertical (Maj : fin), molette, double-clic = la valeur de depart, fleches (Maj : x10), Debut et
- * Fin. Un potard a crans montre le nom de son cran. En MIDI LEARN, un clic l'arme (il ne bouge pas : sa LED clignote).
+ * Fin. En MIDI LEARN, un clic l'arme (il ne bouge pas : sa LED clignote).
  */
 
 import React, { useEffect, useRef, useSyncExternalStore } from 'react';
-import { skinUrl } from '../../voyager/skin';
 import { stepIndex, voyKnob, voyParams, voyValueText, type VoyKnobId } from '../../voyager/params';
 import { arpBridge } from './bridge';
 import { arpExtra, extraStepIndex, type ExtraParam } from './extra';
+import { KNOB } from './knob';
+import { GRID, HEAD_H, openTop, UI_H } from './scale';
 import { arpMidi } from './midimap';
 
 /** La course d'un glisser (px) pour tout le potard. */
@@ -34,193 +34,94 @@ const CENTER_DETENT = 0.02;
 /** La molette : ce deltaY fait un pas. */
 const WHEEL_STEP = 40;
 
-/** Les potards dont le centre est le son du site : gradues de -5 a +5. */
+/** Les potards dont le centre est le son du site : un cran au centre pendant le glisser. */
 const BIPOLAR: ReadonlySet<string> = new Set(['xRevSize', 'xRevTone', 'xBass', 'xAir', 'xWidth', 'xNoiseColor', 'xCombFb', 'xFlFb', 'xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir', 'xM1Amt', 'xM2Amt', 'xM3Amt', 'xM4Amt', 'xM5Amt', 'xM6Amt']);
 /** Sous l'interrupteur QUALITY : le surechantillonnage de chaque position. */
 const SWITCH_SUB: Record<string, readonly string[]> = { xQuality: ['x4 OVERSAMPLING', 'x8 OVERSAMPLING'], xUnison: ['STACK', '5 VOICES', '7 VOICES'] };
 /** Au-dessus des LED d'un interrupteur dont les noms sont trop longs : un nom court par position (le nom entier : la valeur lue dessous). */
 const SWITCH_SHORT: Record<string, readonly string[]> = { xAmpMode: ['CLN', 'TRI', 'PEN', 'SAT'] };
 
-/**
- * Les noms ecrits autour d'un potard a crans, quand ceux du JSON sont trop longs pour tenir a leur trait ('' : le trait
- * seul). Sans entree : les noms du reglage s'ils sont courts (six crans au plus, quatre lettres), sinon le premier et le
- * dernier.
- */
-const STEP_NAMES: Record<string, readonly string[]> = {
-  xDlyMode: ['PING', 'ST', 'WIDE'],
-  xLfo1Dest2: ['OFF', '', '', '', '', '', '', '', '', '', 'ENV'],
-  xLfo2Dest: ['OFF', '', '', '', '', '', '', '', '', '', '', '', '', '', 'ENV'],
-  xLfo2Rate: ['1/32', '', '1/16', '', '', '1/8', '', '', '1/4', '', '1', '', '', '8'],
-  xLfo2Shape: ['SIN', 'TRI', 'SAW', 'RMP', 'SQR', 'S&H', 'RND'],
-  xPbRange: ['1', '2', '3', '5', '7', '12', '24'],
-  chord: ['BASIC', 'TRIAD', '7TH', '9TH', '11TH'],
-};
-
-/* ---------------- la geometrie des deux dessins ---------------- */
-
-interface Geo {
-  /** la boite SVG, le centre */
-  w: number;
-  h: number;
-  cx: number;
-  cy: number;
-  /** la jupe, le flanc cannele, le dessus du capuchon, le disque de metal */
-  skirt: number;
-  flank: number;
-  top: number;
-  cap: number;
-  flutes: number;
-  depth: number;
-  /** les traits (de r0 a r0 + len), les chiffres (a rt), leur corps */
-  r0: number;
-  len: number;
-  rt: number;
-  font: number;
-  /** l'index : de m0 a m1, sa largeur */
-  m0: number;
-  m1: number;
-  mw: number;
-}
-
-/** Le potard de la machine 3D (un petit : 0.9 x VOY_KNOB a 82 px par unite) : jupe 21 px, flanc 18.5, disque 13. */
-const METAL: Geo = { w: 80, h: 66, cx: 40, cy: 37, skirt: 21, flank: 18.5, top: 16.2, cap: 13, flutes: 24, depth: 0.85, r0: 23.2, len: 3.9, rt: 32.4, font: 7, m0: 12.6, m1: 20.1, mw: 2.9 };
-/** Le bouton noir du panneau d'OPEN : plus gros, dix cannelures larges, l'index du centre au bord. */
-const BLACK: Geo = { w: 92, h: 76, cx: 46, cy: 43, skirt: 23, flank: 21.6, top: 15.4, cap: 0, flutes: 10, depth: 2.3, r0: 26, len: 4.6, rt: 37, font: 8, m0: 3.2, m1: 19.4, mw: 2.9 };
+/* ---------------- le dessin ---------------- */
 
 const A0 = -135;
 const SWEEP = 270;
 
-const pt = (g: Geo, deg: number, r: number): [number, number] => {
-  const a = ((deg - 90) * Math.PI) / 180;
-  return [g.cx + r * Math.cos(a), g.cy + r * Math.sin(a)];
-};
-
-/** Le contour cannele du flanc : n creux autour du rayon r. */
-function flutePath(g: Geo): string {
-  const n = g.flutes * 12;
-  let d = '';
-  for (let i = 0; i < n; i += 1) {
-    const a = (i / n) * Math.PI * 2;
-    const k = Math.max(0, Math.cos((a * g.flutes) / 2)) ** 2;
-    const r = g.flank - g.depth * k;
-    d += `${i === 0 ? 'M' : 'L'}${(g.cx + r * Math.cos(a)).toFixed(2)} ${(g.cy + r * Math.sin(a)).toFixed(2)}`;
-  }
-  return `${d}Z`;
-}
-const FLUTES = { metal: flutePath(METAL), black: flutePath(BLACK) };
-
-/** Les degrades des potards, une fois pour toute la face (references par id dans chaque potard). */
-export const KnobDefs: React.FC = () => (
-  <svg className="mm-arp-x-defs" width="0" height="0" aria-hidden="true" focusable="false">
-    <defs>
-      <radialGradient id="mmx-shadow">
-        <stop offset="0.55" stopColor="#000" stopOpacity="0.85" />
-        <stop offset="1" stopColor="#000" stopOpacity="0" />
-      </radialGradient>
-      <linearGradient id="mmx-skirt" x1="0.15" y1="0.1" x2="0.85" y2="0.9">
-        <stop offset="0" stopColor="#1f1f21" />
-        <stop offset="0.45" stopColor="#0c0c0d" />
-        <stop offset="1" stopColor="#030303" />
-      </linearGradient>
-      <linearGradient id="mmx-flank" x1="0.2" y1="0.1" x2="0.8" y2="0.9">
-        <stop offset="0" stopColor="#343436" />
-        <stop offset="0.5" stopColor="#141415" />
-        <stop offset="1" stopColor="#060606" />
-      </linearGradient>
-      <linearGradient id="mmx-top" x1="0.2" y1="0.1" x2="0.8" y2="0.9">
-        <stop offset="0" stopColor="#2a2a2c" />
-        <stop offset="1" stopColor="#0d0d0e" />
-      </linearGradient>
-      <radialGradient id="mmx-dome" cx="38%" cy="30%" r="80%">
-        <stop offset="0" stopColor="#3a3a3d" />
-        <stop offset="0.5" stopColor="#1a1a1c" />
-        <stop offset="1" stopColor="#0a0a0b" />
-      </radialGradient>
-      <linearGradient id="mmx-rim" x1="0.15" y1="0.1" x2="0.85" y2="0.9">
-        <stop offset="0" stopColor="#fff" stopOpacity="0.32" />
-        <stop offset="0.5" stopColor="#fff" stopOpacity="0.03" />
-        <stop offset="1" stopColor="#000" stopOpacity="0.5" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-/** Le potard dessine : l'ombre, la jupe, le flanc cannele, le dessus (le disque de metal, fixe), l'index qui tourne. */
-const Cap: React.FC<{ g: Geo; look: 'metal' | 'black'; deg: number }> = ({ g, look, deg }) => {
-  const [mx0, my0] = pt(g, 0, g.m0);
-  const [mx1, my1] = pt(g, 0, g.m1);
+/** Les graduations : n traits fins repartis sur la course (onze pour un potard continu, un par cran sinon), autour du pied. */
+const Ticks: React.FC<{ n: number }> = ({ n }) => {
+  const T = KNOB.tick;
+  const half = KNOB.box / 2;
   return (
-    <g className="mm-arp-x-cap">
-      <circle cx={g.cx + 0.6} cy={g.cy + 2.6} r={g.skirt + 5} fill="url(#mmx-shadow)" />
-      <circle cx={g.cx} cy={g.cy} r={g.skirt} fill="url(#mmx-skirt)" />
-      <circle cx={g.cx} cy={g.cy} r={g.skirt - 0.4} fill="none" stroke="url(#mmx-rim)" strokeWidth="0.8" />
-      <path d={FLUTES[look]} fill="url(#mmx-flank)" />
-      {look === 'metal' ? (
-        <>
-          <circle cx={g.cx} cy={g.cy} r={g.top} fill="url(#mmx-top)" />
-          <image href={skinUrl('cap')} x={g.cx - g.cap} y={g.cy - g.cap} width={g.cap * 2} height={g.cap * 2} preserveAspectRatio="none" />
-          <circle cx={g.cx} cy={g.cy} r={g.cap} fill="none" stroke="#000" strokeOpacity="0.55" strokeWidth="0.7" />
-        </>
-      ) : (
-        <>
-          <circle cx={g.cx} cy={g.cy} r={g.top} fill="url(#mmx-dome)" />
-          <circle cx={g.cx} cy={g.cy} r={g.top - 0.3} fill="none" stroke="url(#mmx-rim)" strokeWidth="0.7" />
-        </>
-      )}
-      <circle className="mm-arp-x-top" cx={g.cx} cy={g.cy} r={g.skirt} fill="#fff" />
-      <line className="mm-arp-x-index" x1={mx0} y1={my0} x2={mx1} y2={my1} stroke="#f4f2ee" strokeWidth={g.mw} strokeLinecap={look === 'metal' ? 'butt' : 'round'} transform={`rotate(${deg.toFixed(2)} ${g.cx} ${g.cy})`} />
-    </g>
+    <svg className="mm-arp-x-ticks" viewBox={`${-half} ${-half} ${KNOB.box} ${KNOB.box}`} width={KNOB.box} height={KNOB.box} aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => {
+        const a = ((A0 + (SWEEP * i) / (n - 1) - 90) * Math.PI) / 180;
+        const c = Math.cos(a);
+        const sn = Math.sin(a);
+        return <line key={i} x1={(c * T.r0).toFixed(2)} y1={(KNOB.footY + sn * T.r0).toFixed(2)} x2={(c * T.r1).toFixed(2)} y2={(KNOB.footY + sn * T.r1).toFixed(2)} />;
+      })}
+    </svg>
   );
 };
 
-/** Ce qui s'ecrit autour d'un potard : la place (0 a 1) et le texte de chaque trait ('' : un trait sans texte ; minor : un trait court). */
-interface Mark {
-  t: number;
-  text: string;
-  minor?: boolean;
-  mid?: boolean;
-}
+/** Le potard dessine : ses graduations, l'image du potard 3D (fixe : la lumiere ne tourne pas), l'index qui tourne. */
+const Cap: React.FC<{ n: number; deg: number }> = ({ n, deg }) => (
+  <span className="mm-arp-x-dial">
+    <Ticks n={n > 1 ? n : 11} />
+    <img className="mm-arp-x-body" src={KNOB.url} width={KNOB.box} height={KNOB.box} alt="" draggable={false} />
+    <span className="mm-arp-x-idx" style={{ transform: `scaleY(0.973) rotate(${deg.toFixed(2)}deg)` }} aria-hidden="true">
+      <i />
+    </span>
+  </span>
+);
 
-function scaleOf(id: string, steps: readonly string[] | undefined, bipolar: boolean): Mark[] {
-  const n = steps?.length ?? 0;
-  if (n > 1 && steps) {
-    const named = STEP_NAMES[id];
-    const short = n <= 6 && steps.every((s) => s.length <= 4);
-    return steps.map((s, i) => ({ t: i / (n - 1), text: named ? (named[i] ?? '') : short || i === 0 || i === n - 1 ? s : '' }));
-  }
-  const out: Mark[] = [];
-  for (let i = 0; i <= 10; i += 1) {
-    const v = i - 5;
-    // De 0 a 10 : les pairs ecrits. A zero au centre : -5, -3, 0, +3, +5, le zero plus long
-    const text = bipolar ? (v === 0 ? '0' : Math.abs(v) === 3 || Math.abs(v) === 5 ? `${v > 0 ? '+' : ''}${v}` : '') : i % 2 === 0 ? String(i) : '';
-    out.push({ t: i / 10, text, minor: text === '', mid: bipolar && v === 0 });
-  }
-  return out;
-}
+/* ---------------- le titre d'une section ---------------- */
 
-const Scale: React.FC<{ g: Geo; marks: readonly Mark[] }> = ({ g, marks }) => (
-  <g>
-    {marks.map((m, i) => {
-      const deg = A0 + SWEEP * m.t;
-      const [x0, y0] = pt(g, deg, m.mid ? g.r0 - 1.2 : g.r0);
-      const [x1, y1] = pt(g, deg, g.r0 + (m.minor ? g.len * 0.62 : g.len));
-      const [tx, ty] = pt(g, deg, g.rt);
-      // Un nom long s'ancre du cote du potard : il ne revient jamais sur le capuchon
-      const long = m.text.length > 2;
-      const anchor = !long || Math.abs(tx - g.cx) < 6 ? 'middle' : tx < g.cx ? 'end' : 'start';
-      const dx = anchor === 'end' ? g.font * 0.55 : anchor === 'start' ? -g.font * 0.55 : 0;
-      return (
-        <React.Fragment key={i}>
-          <line className={m.minor ? 'mm-arp-x-tick mm-arp-x-tick-minor' : 'mm-arp-x-tick'} x1={x0.toFixed(2)} y1={y0.toFixed(2)} x2={x1.toFixed(2)} y2={y1.toFixed(2)} />
-          {m.text && (
-            <text className="mm-arp-x-num" x={(tx + dx).toFixed(2)} y={(ty + g.font * 0.36).toFixed(2)} textAnchor={anchor} fontSize={long ? g.font * 0.88 : g.font}>
-              {m.text}
-            </text>
-          )}
-        </React.Fragment>
-      );
-    })}
-  </g>
+/**
+ * Le titre d'une section, le meme partout (machine 3D : voyager/silk.ts skinBase ; rack, sequenceur, OPEN : ici) : de
+ * petites capitales espacees, gris clair, a gauche, un filet fin a leur suite ; side : un etat ecrit au bout du filet ;
+ * led : la LED rouge de la section (un effet qui agit, MIDI LEARN) au bout du filet.
+ */
+export const SecTitle: React.FC<{ text: string; led?: boolean | 'blink'; side?: React.ReactNode; sideOn?: boolean }> = ({ text, led, side, sideOn }) => (
+  <p className="mm-arp-title">
+    <span className="mm-arp-title-t">{text}</span>
+    <i className="mm-arp-title-rule" aria-hidden="true" />
+    {side !== undefined && (
+      <span className="mm-arp-title-side" data-on={sideOn ? '1' : undefined}>
+        {side}
+      </span>
+    )}
+    {led !== undefined && <span className="mm-arp-led" data-on={led ? '1' : undefined} data-blink={led === 'blink' ? '1' : undefined} aria-hidden="true" />}
+  </p>
+);
+
+/**
+ * Une section d'une page d'OPEN (HoodPanel.tsx), posee sur la grille : de la colonne col, sur span colonnes, dans la rangee row (rows : sa
+ * hauteur en rangees ; fill : jusqu'au bas du panneau). Son titre et son filet (SecTitle), son contenu.
+ * pitch : le pas de ses potards (le titre part du bord gauche du premier).
+ */
+interface SecProps {
+  id: string;
+  title: string;
+  col: number;
+  span: number;
+  row: number;
+  fill?: boolean;
+  pitch?: number;
+  className?: string;
+  led?: boolean | 'blink';
+  side?: React.ReactNode;
+  sideOn?: boolean;
+  children?: React.ReactNode;
+}
+export const Sec: React.FC<SecProps> = ({ id, title, col, span, row, fill, pitch = GRID.col, className, led, side, sideOn, children }) => (
+  <section
+    className={`mm-arp-sec${className ? ` ${className}` : ''}`}
+    data-sec={id}
+    style={{ position: 'absolute', left: GRID.col * col, top: openTop(row), width: GRID.col * span, height: fill ? UI_H - HEAD_H - openTop(row) : GRID.row, ['--pitch' as string]: `${pitch}px` }}
+    aria-label={title}
+  >
+    <SecTitle text={title} led={led} side={side} sideOn={sideOn} />
+    {children}
+  </section>
 );
 
 /* ---------------- le reglage touche en dernier ---------------- */
@@ -287,11 +188,12 @@ const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, ar
 
 /* ---------------- le potard ---------------- */
 
+/** (le dessin d'avant le 2026-11-12 : deux allures ; il n'y en a plus qu'une, l'option reste acceptee) */
 export type KnobLook = 'metal' | 'black';
 
 interface DialProps {
   id: string;
-  look: KnobLook;
+  look?: KnobLook;
   value: number;
   def: number;
   steps?: readonly string[];
@@ -299,12 +201,11 @@ interface DialProps {
   label: string;
   text: string;
   aria: string;
-  help?: string;
   set: (v: number) => void;
 }
 
-/** Un potard : le dessin, ses graduations chiffrees, son nom et sa valeur ; les gestes ; MIDI LEARN. */
-const Dial: React.FC<DialProps> = ({ id, look, value: v, def, steps, bipolar = false, label, text, aria, help, set }) => {
+/** Un potard : le dessin, son nom (sa valeur, cachee) ; les gestes ; MIDI LEARN. */
+const Dial: React.FC<DialProps> = ({ id, value: v, def, steps, bipolar = false, label, text, aria, set }) => {
   const midi = useArpMidi();
   const ref = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; raw: number; moved: boolean } | null>(null);
@@ -312,7 +213,6 @@ const Dial: React.FC<DialProps> = ({ id, look, value: v, def, steps, bipolar = f
   cur.current = v;
   const n = steps?.length ?? 0;
   const armed = midi.learning && midi.armed === id;
-  const g = look === 'metal' ? METAL : BLACK;
 
   // La molette (non passive : la page ne defile pas) : un cran, ou 1 % (Maj : 0.1 %)
   useEffect(() => {
@@ -389,13 +289,11 @@ const Dial: React.FC<DialProps> = ({ id, look, value: v, def, steps, bipolar = f
       ref={ref}
       className="mm-arp-x"
       data-x={id}
-      data-look={look}
       data-steps={n > 1 ? '1' : undefined}
       data-mm-learn={armed ? 'armed' : undefined}
       data-learning={midi.learning ? '1' : undefined}
       role="slider"
       tabIndex={0}
-      title={help}
       aria-label={aria}
       aria-valuemin={0}
       aria-valuemax={n > 1 ? n - 1 : 100}
@@ -414,10 +312,7 @@ const Dial: React.FC<DialProps> = ({ id, look, value: v, def, steps, bipolar = f
       }}
       onKeyDown={onKey}
     >
-      <svg className="mm-arp-x-dial" viewBox={`0 0 ${g.w} ${g.h}`} width={g.w} height={g.h} aria-hidden="true">
-        <Scale g={g} marks={scaleOf(id, steps, bipolar)} />
-        <Cap g={g} look={look} deg={A0 + v * SWEEP} />
-      </svg>
+      <Cap n={n} deg={A0 + v * SWEEP} />
       <span className="mm-arp-x-label">
         {armed && <span className="mm-arp-led" data-on="1" data-blink="1" aria-hidden="true" />}
         {label}
@@ -439,7 +334,7 @@ export const useExtra = (id: string): number =>
 /** Un potard d'un reglage du VST3 seul ; label : un autre nom (MIX pour la dose d'un effet titre a part). */
 export const XKnob: React.FC<{ p: ExtraParam; look?: KnobLook; label?: string; aria?: string }> = ({ p, look = 'metal', label, aria }) => {
   const v = useExtra(p.id);
-  return <Dial id={p.id} look={look} value={v} def={arpExtra.def(p.id)} steps={p.steps} bipolar={BIPOLAR.has(p.id)} label={label ?? p.label} text={arpExtra.text(p.id, v)} aria={aria ?? ariaName(p)} help={p.help} set={(t) => arpExtra.set(p.id, t)} />;
+  return <Dial id={p.id} look={look} value={v} def={arpExtra.def(p.id)} steps={p.steps} bipolar={BIPOLAR.has(p.id)} label={label ?? p.label} text={arpExtra.text(p.id, v)} aria={aria ?? ariaName(p)} set={(t) => arpExtra.set(p.id, t)} />;
 };
 
 /* ---------------- un TWEAK du site (voyager/params.ts) ---------------- */
@@ -455,7 +350,7 @@ const useVoy = (id: VoyKnobId): number =>
 export const VKnob: React.FC<{ id: VoyKnobId; look?: KnobLook }> = ({ id, look = 'black' }) => {
   const v = useVoy(id);
   const k = voyKnob(id);
-  return <Dial id={id} look={look} value={v} def={voyParams.def(id)} steps={k.steps} label={k.label} text={voyValueText(id, v)} aria={k.aria} help={k.aria} set={(t) => voyParams.set(id, t)} />;
+  return <Dial id={id} look={look} value={v} def={voyParams.def(id)} steps={k.steps} label={k.label} text={voyValueText(id, v)} aria={k.aria} set={(t) => voyParams.set(id, t)} />;
 };
 
 /* ---------------- les commutateurs : une touche de la machine, une LED par position ---------------- */
@@ -469,12 +364,11 @@ interface SwitchProps {
   label: string;
   sub?: string;
   aria: string;
-  help?: string;
   pick: (i: number) => void;
 }
 
 /** La touche de CHORUS et de SUB OCT, ses LED au-dessus (une par position) ; chaque appui passe a la suivante. */
-const Switch: React.FC<SwitchProps> = ({ id, steps, names, idx, label, sub, aria, help, pick }) => {
+const Switch: React.FC<SwitchProps> = ({ id, steps, names, idx, label, sub, aria, pick }) => {
   const midi = useArpMidi();
   const last = Math.max(1, steps.length - 1);
   const armed = midi.learning && midi.armed === id;
@@ -495,7 +389,7 @@ const Switch: React.FC<SwitchProps> = ({ id, steps, names, idx, label, sub, aria
     if (!arpMidi.get().learning) go(i);
   };
   return (
-    <div className="mm-arp-x mm-arp-x-switch" data-x={id} data-n={steps.length} data-mm-learn={armed ? 'armed' : undefined} data-learning={midi.learning ? '1' : undefined} title={help} onPointerEnter={() => xTouch.set(id, false)}>
+    <div className="mm-arp-x mm-arp-x-switch" data-x={id} data-n={steps.length} data-mm-learn={armed ? 'armed' : undefined} data-learning={midi.learning ? '1' : undefined} onPointerEnter={() => xTouch.set(id, false)}>
       <div className="mm-arp-x-sw" role="radiogroup" aria-label={aria} onKeyDown={onKey}>
         {steps.map((s, i) => (
           <button key={s} type="button" role="radio" aria-checked={i === idx} tabIndex={i === idx ? 0 : -1} className="mm-arp-x-sw-led" data-on={i === idx ? '1' : undefined} aria-label={names ? s : undefined} onClick={() => go(i)}>
@@ -519,7 +413,7 @@ export const XSwitch: React.FC<{ p: ExtraParam }> = ({ p }) => {
   const v = useExtra(p.id);
   const steps = p.steps ?? [];
   const idx = extraStepIndex(p.id, v);
-  return <Switch id={p.id} steps={steps} names={SWITCH_SHORT[p.id]} idx={idx} label={p.label} sub={SWITCH_SUB[p.id]?.[idx] ?? (SWITCH_SHORT[p.id] ? steps[idx] : undefined)} aria={ariaName(p)} help={p.help} pick={(i) => arpExtra.set(p.id, i / Math.max(1, steps.length - 1))} />;
+  return <Switch id={p.id} steps={steps} names={SWITCH_SHORT[p.id]} idx={idx} label={p.label} sub={SWITCH_SUB[p.id]?.[idx] ?? (SWITCH_SHORT[p.id] ? steps[idx] : undefined)} aria={ariaName(p)} pick={(i) => arpExtra.set(p.id, i / Math.max(1, steps.length - 1))} />;
 };
 
 /** SYNC, POLARITY : un TWEAK a deux positions du site. */
@@ -527,5 +421,5 @@ export const VSwitch: React.FC<{ id: VoyKnobId }> = ({ id }) => {
   const v = useVoy(id);
   const k = voyKnob(id);
   const steps = k.steps ?? [];
-  return <Switch id={id} steps={steps} idx={stepIndex(id, v)} label={k.label} aria={k.aria} help={k.aria} pick={(i) => voyParams.set(id, i / Math.max(1, steps.length - 1))} />;
+  return <Switch id={id} steps={steps} idx={stepIndex(id, v)} label={k.label} aria={k.aria} pick={(i) => voyParams.set(id, i / Math.max(1, steps.length - 1))} />;
 };

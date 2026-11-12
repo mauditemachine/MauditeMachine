@@ -18,7 +18,8 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { arpBridge } from './bridge';
 import { arpExtra, extraParam, extraStepIndex, MATRIX_ROWS, type ExtraParam } from './extra';
 import { arpMidi } from './midimap';
-import { useExtra, XKnob, xTouch } from './SoundPlus';
+import { GRID, openTop } from './scale';
+import { Sec, useExtra, XKnob, xTouch } from './SoundPlus';
 
 const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, arpMidi.get);
 const useExtraAll = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
@@ -123,7 +124,6 @@ export const XSelect: React.FC<SelectProps> = ({ p, aria, cols, up }) => {
       data-open={open ? '1' : undefined}
       data-mm-learn={armed ? 'armed' : undefined}
       data-learning={midi.learning ? '1' : undefined}
-      title={p.help}
       onKeyDown={onKey}
       onPointerEnter={() => xTouch.set(p.id, false)}
     >
@@ -187,33 +187,25 @@ const MatrixRow: React.FC<{ n: number }> = ({ n }) => {
   // Les trois lignes du bas deroulent leur menu vers le haut : il reste dans le panneau
   const up = n > MATRIX_ROWS / 2;
   return (
-    <div className="mm-arp-mx-row" data-row={n} data-on={on ? '1' : undefined} role="group" aria-label={`Modulation ${n}${on ? ', active' : ''}`}>
+    <div className="mm-arp-mx-row" data-row={n} data-on={on ? '1' : undefined} style={{ position: 'absolute', left: 0, top: openTop(n - 1), width: GRID.col * 10, height: GRID.row }} role="group" aria-label={`Modulation ${n}${on ? ', active' : ''}`}>
       <span className="mm-arp-mx-slot">
         <span className="mm-arp-led" data-on={on ? '1' : undefined} aria-hidden="true" />
         <span className="mm-arp-mx-n">{n}</span>
       </span>
       <XSelect p={param(`xM${n}Src`)} aria={`Matrix ${n} source`} cols={2} up={up} />
-      <span className="mm-arp-mx-wire" aria-hidden="true" />
-      <XKnob p={param(`xM${n}Amt`)} look="black" label="AMOUNT" aria={`Matrix ${n} amount`} />
-      <span className="mm-arp-mx-wire" data-arrow="1" aria-hidden="true" />
+      <XKnob p={param(`xM${n}Amt`)} label="AMOUNT" aria={`Matrix ${n} amount`} />
       <XSelect p={param(`xM${n}Dst`)} aria={`Matrix ${n} destination`} cols={2} up={up} />
     </div>
   );
 };
 
-/** Les six lignes sous leurs titres de colonne. */
+/** Les six lignes, une par rangee de la grille : le numero (colonne 0), SOURCE (1 a 4), AMOUNT (5), DESTINATION (6 a 9). */
 export const Matrix: React.FC = () => (
-  <div className="mm-arp-mx">
-    <p className="mm-arp-mx-head" aria-hidden="true">
-      <span>SLOT</span>
-      <span>SOURCE</span>
-      <span>AMOUNT</span>
-      <span>DESTINATION</span>
-    </p>
+  <>
     {ROWS.map((n) => (
       <MatrixRow key={n} n={n} />
     ))}
-  </div>
+  </>
 );
 
 /* ---------------- le rappel des sources ---------------- */
@@ -247,12 +239,14 @@ export const ModSources: React.FC = () => {
     for (const n of ROWS) for (const k of ['Src', 'Dst', 'Amt']) arpExtra.set(`xM${n}${k}`, arpExtra.def(`xM${n}${k}`));
   };
   return (
-    <div className="mm-arp-src">
-      <div className="mm-arp-glass mm-arp-src-glass">
-        <p className="mm-arp-glass-head" role="status">
-          <span>{routes.length === 0 ? 'NO ROUTE ACTIVE' : `${routes.length} / ${MATRIX_ROWS} ROUTES ACTIVE`}</span>
-          <span>→ DESTINATIONS</span>
-        </p>
+    <>
+      <div className="mm-arp-cells" style={{ position: 'absolute', left: GRID.col * 20, top: openTop(0) }}>
+        <button type="button" className="mm-arp-kb mm-arp-mx-clear" data-size="s" disabled={!used} onClick={clear}>
+          <span className="mm-arp-k" aria-hidden="true" />
+          <span className="mm-arp-legend">CLEAR MATRIX</span>
+        </button>
+      </div>
+      <Sec id="sources" title="SOURCES" className="mm-arp-src" col={11} span={11} row={1} fill side={<span role="status">{routes.length === 0 ? 'NO ROUTE ACTIVE' : `${routes.length} / ${MATRIX_ROWS} ROUTES ACTIVE`}</span>}>
         <ul className="mm-arp-list mm-arp-src-list" aria-label="Modulation sources">
           {sources.map((s, i) => {
             const mine = routes.filter((r) => r.src === i + 1);
@@ -276,18 +270,7 @@ export const ModSources: React.FC = () => {
             );
           })}
         </ul>
-      </div>
-      <div className="mm-arp-src-side">
-        <button type="button" className="mm-arp-kb mm-arp-mx-clear" data-size="s" disabled={!used} onClick={clear}>
-          <span className="mm-arp-k" aria-hidden="true" />
-          <span className="mm-arp-legend">CLEAR MATRIX</span>
-        </button>
-        <p className="mm-arp-help">
-          A ROUTE IS LIVE
-          <br />
-          WHEN ITS LED IS ON
-        </p>
-      </div>
-    </div>
+      </Sec>
+    </>
   );
 };

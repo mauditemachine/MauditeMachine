@@ -3,13 +3,14 @@
  * "sur ce synthe, quand on clique sur le titre on a une autre interface : moi je veux le bouton OPEN pour ca, et avoir
  * encore tout un tas d'interfaces ; pour le OPEN je veux ces knobs-la (bouton noir a index blanc, graduations
  * chiffrees)"). OPEN (la touche de la machine, celle du bandeau, la touche O) bascule TOUTE la fenetre sur ce second
- * panneau, dans le meme habillage que la face (le simili noir, un bandeau de metal brosse par section, des filets de
- * cadre) ; CLOSE (le bandeau), OPEN, O ou Echap reviennent a la face. Le bandeau du haut reste (Header.tsx) : son titre
+ * panneau, dans le meme habillage que la face (le simili noir, les titres en petites capitales et leur filet fin : plus
+ * de bandeau de metal ni de cadre depuis le 2026-11-12), sur la MEME grille (scale.ts GRID, OPEN_ROW : six rangees) ;
+ * CLOSE (le bandeau), OPEN, O ou Echap reviennent a la face. Le bandeau du haut reste (Header.tsx) : son titre
  * dit OPTIONS PANEL, sa touche devient CLOSE. La scene 3D ne s'ouvre plus dans le plugin (voyager/rig.ts) : l'etat du
  * capot (state/explode.ts voyExplode) reste la source, la face 3D attend dessous.
  *
  * Trois pages (2026-11-11, Mika : "je veux toutes les fonctions possibles ... avoir encore tout un tas d'interfaces"),
- * choisies par les onglets du bandeau (Header.tsx : les plaques de metal grave ; openPage, la page ouverte est retenue) :
+ * choisies par les onglets du bandeau (Header.tsx ; openPage, la page ouverte est retenue) :
  * - OPTIONS : le son. Les TWEAKS du site (les potards de la carte, voyager/params.ts section tweak, a leurs ids du site :
  *   OSC, FILTER, DELAY, OUTPUT TWEAKS, PERFORMANCE), puis les reglages du VST3 seul (extra.ts) : ENGINE (QUALITY), VOICE
  *   (VOICE MODE, BEND RANGE), AMP (FEEDBACK, AMP MODE), DISTORTION, REVERB, EQ, MASTER ;
@@ -17,7 +18,7 @@
  *   sources et de ce qu'elles modulent ;
  * - LIBRARY : CLIP (DRAG MIDI, x1 / x2 / x4, SAVE .MID) et MIDI (LEARN, la table des CC, CLEAR ALL) a gauche ; LIBRARY au
  *   milieu (Library.tsx : les 40 presets d'usine, quatre categories cote a cote) ; DISK a droite (DiskPresets.tsx).
- * Les potards : le bouton noir a index blanc et ses graduations chiffrees (SoundPlus.tsx, look 'black').
+ * Les potards : celui de la machine, noir a index blanc (SoundPlus.tsx, knob.ts), sur les colonnes de la grille.
  *
  * DRAG MIDI : la poignee a glisser vers une piste d'Ableton (mm_drag_midi, une fois, des que le pointeur enfonce a bouge
  * de 4 px : le C++ lance le glisser natif depuis l'evenement souris en cours).
@@ -34,8 +35,8 @@ import { LibraryBank } from './Library';
 import { EXTRA_PARAMS, extraParam, type ExtraSection } from './extra';
 import { Matrix, ModSources } from './Matrix';
 import { arpMidi, type ArpMidiState } from './midimap';
-import { CHEEK_W, HEAD_H, UI_H, UI_W } from './scale';
-import { sectionPrefix, VKnob, VSwitch, XKnob, XSwitch } from './SoundPlus';
+import { CHEEK_W, GRID, HEAD_H, UI_H, UI_W } from './scale';
+import { Sec, sectionPrefix, VKnob, VSwitch, XKnob, XSwitch } from './SoundPlus';
 
 /* ---------------- les pages du panneau ---------------- */
 
@@ -125,17 +126,6 @@ export const Key: React.FC<KeyProps> = ({ legend, led, fn, size = 'm', sub, clas
   </button>
 );
 
-/** Une section du panneau : son bandeau de metal brosse (une LED dedans si elle a un etat), son contenu dessous. */
-const Sec: React.FC<{ id: string; title: string; className?: string; grow?: number; led?: boolean | 'blink'; children: React.ReactNode }> = ({ id, title, className, grow, led, children }) => (
-  <section className={`mm-arp-sec${className ? ` ${className}` : ''}`} data-sec={id} style={grow ? { flex: `${grow} 1 0` } : undefined} aria-label={title}>
-    <p className="mm-arp-band">
-      {led !== undefined && <span className="mm-arp-led mm-arp-band-led" data-on={led ? '1' : undefined} data-blink={led === 'blink' ? '1' : undefined} aria-hidden="true" />}
-      <span>{title}</span>
-    </p>
-    {children}
-  </section>
-);
-
 /** CLIP : DRAG MIDI (la poignee), x1 / x2 / x4, SAVE .MID. */
 const DragMidi: React.FC = () => {
   const st = useArpMidi();
@@ -177,14 +167,13 @@ const DragMidi: React.FC = () => {
   };
 
   return (
-    <Sec id="clip" title="CLIP" className="mm-arp-drag">
-      <div className="mm-arp-clip">
+    <Sec id="clip" title="CLIP" className="mm-arp-drag" col={0} span={6} row={0}>
+      <div className="mm-arp-cells">
         <button
           type="button"
           className="mm-arp-kb mm-arp-drag-handle"
           data-fn="1"
           draggable={false}
-          title="Drag the arpeggio onto an Ableton track"
           aria-label={`Drag MIDI, ${st.cycles} times the progression, onto an Ableton track`}
           onPointerDown={onPointerDown}
           onDragStart={(e) => e.preventDefault()}
@@ -198,29 +187,13 @@ const DragMidi: React.FC = () => {
             </svg>
           </span>
           <span className="mm-arp-legend">DRAG MIDI</span>
-          <span className="mm-arp-legend-sub">ONTO A TRACK</span>
         </button>
-        <div className="mm-arp-clip-side">
-          <div className="mm-arp-seg" role="radiogroup" aria-label="Times the progression">
-            {CYCLES.map((c) => (
-              <Key
-                key={c}
-                role="radio"
-                aria-checked={st.cycles === c}
-                className="mm-arp-seg-key"
-                data-on={st.cycles === c ? '1' : undefined}
-                size="s"
-                led={st.cycles === c}
-                legend={`x${c}`}
-                onClick={() => arpMidi.set({ cycles: c })}
-              />
-            ))}
-            <span className="mm-arp-bracket" aria-hidden="true">
-              <span>LENGTH</span>
-            </span>
-          </div>
-          <Key className="mm-arp-key mm-arp-savemid" size="s" legend="SAVE .MID" onClick={() => arpBridge.saveMid(arpMidi.get().cycles)} />
+        <div className="mm-arp-seg mm-arp-cells" role="radiogroup" aria-label="Times the progression">
+          {CYCLES.map((c) => (
+            <Key key={c} role="radio" aria-checked={st.cycles === c} className="mm-arp-seg-key" data-on={st.cycles === c ? '1' : undefined} size="s" led={st.cycles === c} legend={`x${c}`} onClick={() => arpMidi.set({ cycles: c })} />
+          ))}
         </div>
+        <Key className="mm-arp-key mm-arp-savemid" size="s" legend="SAVE .MID" onClick={() => arpBridge.saveMid(arpMidi.get().cycles)} />
       </div>
     </Sec>
   );
@@ -232,45 +205,33 @@ const MidiMap: React.FC = () => {
   const items = st.items ?? [];
   const line = st.learning ? (st.armed ? `WAITING CC FOR ${paramLabel(st.armed)}` : 'CLICK A KNOB') : st.items === null ? '…' : items.length === 0 ? 'NO CC MAPPED' : `${items.length} CC MAPPED`;
   return (
-    <Sec id="midi" title="MIDI" className="mm-arp-midi" led={st.learning ? 'blink' : false}>
-      <div className="mm-arp-midi-body">
-        <div className="mm-arp-glass">
-          <p className="mm-arp-glass-head mm-arp-midi-line" data-on={st.learning ? '1' : undefined} role="status">
-            {line}
-          </p>
-          <ul className="mm-arp-list mm-arp-map" aria-label="MIDI CC map">
-            {items.map((it) => (
-              <li key={`${it.ch}-${it.cc}`} className="mm-arp-map-row" data-armed={it.id === st.armed ? '1' : undefined}>
-                <span className="mm-arp-map-name">{paramLabel(it.id)}</span>
-                <span className="mm-arp-map-cc">
-                  CC {it.cc} · CH {it.ch}
-                </span>
-                <button type="button" className="mm-arp-map-x" aria-label={`Unmap ${paramLabel(it.id)}, CC ${it.cc} channel ${it.ch}`} onClick={() => arpBridge.unmap(it.cc, it.ch)}>
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="mm-arp-midi-side">
-          <Key
-            className="mm-arp-learn mm-arp-rail-learn"
-            size="s"
-            aria-pressed={st.learning}
-            data-on={st.learning ? '1' : undefined}
-            led={st.learning ? 'blink' : false}
-            legend="LEARN"
-            title={st.learning ? (st.armed ? `Waiting CC for ${paramLabel(st.armed)}` : 'Click a knob') : 'MIDI learn'}
-            onClick={() => arpBridge.learnMode(!st.learning)}
-          />
-          <Key className="mm-arp-key mm-arp-clearall" size="s" legend="CLEAR ALL" disabled={items.length === 0} onClick={() => arpBridge.unmapAll()} />
-          <p className="mm-arp-help">
-            ALSO IN ABLETON
-            <br />
-            CMD + M
-          </p>
-        </div>
+    <Sec id="midi" title="MIDI" className="mm-arp-midi" col={0} span={6} row={1} fill led={st.learning ? 'blink' : false} side={<span className="mm-arp-midi-line" role="status">{line}</span>} sideOn={st.learning}>
+      <div className="mm-arp-cells">
+        <Key
+          className="mm-arp-learn mm-arp-rail-learn"
+          size="s"
+          aria-pressed={st.learning}
+          data-on={st.learning ? '1' : undefined}
+          led={st.learning ? 'blink' : false}
+          legend="LEARN"
+          aria-label={st.learning ? (st.armed ? `MIDI learn: waiting CC for ${paramLabel(st.armed)}` : 'MIDI learn: click a knob') : 'MIDI learn'}
+          onClick={() => arpBridge.learnMode(!st.learning)}
+        />
+        <Key className="mm-arp-key mm-arp-clearall" size="s" legend="CLEAR ALL" disabled={items.length === 0} onClick={() => arpBridge.unmapAll()} />
       </div>
+      <ul className="mm-arp-list mm-arp-map" aria-label="MIDI CC map">
+        {items.map((it) => (
+          <li key={`${it.ch}-${it.cc}`} className="mm-arp-map-row" data-armed={it.id === st.armed ? '1' : undefined}>
+            <span className="mm-arp-map-name">{paramLabel(it.id)}</span>
+            <span className="mm-arp-map-cc">
+              CC {it.cc} · CH {it.ch}
+            </span>
+            <button type="button" className="mm-arp-map-x" aria-label={`Unmap ${paramLabel(it.id)}, CC ${it.cc} channel ${it.ch}`} onClick={() => arpBridge.unmap(it.cc, it.ch)}>
+              ×
+            </button>
+          </li>
+        ))}
+      </ul>
     </Sec>
   );
 };
@@ -285,78 +246,76 @@ const TW_DELAY = { id: 'tw-delay', title: 'DELAY TWEAKS', ids: ['dlyTime', 'tape
 const TW_PERF = { id: 'tw-perf', title: 'PERFORMANCE', ids: ['keyTrack', 'accent', 'accFlt', 'chord'] } as const;
 const V_SWITCH: ReadonlySet<VoyKnobId> = new Set<VoyKnobId>(['sync', 'fpol']);
 
-const Tweaks: React.FC<{ id: string; title: string; ids: readonly VoyKnobId[] }> = ({ id, title, ids }) => (
-  <Sec id={id} title={title} grow={ids.length}>
-    <div className="mm-arp-xrow">{ids.map((k) => (V_SWITCH.has(k) ? <VSwitch key={k} id={k} /> : <VKnob key={k} id={k} />))}</div>
+/** Ou se pose une section de potards : sa premiere colonne, sa rangee, le pas de ses potards (en colonnes). */
+interface At {
+  col: number;
+  row: number;
+  step: number;
+}
+
+const Tweaks: React.FC<{ id: string; title: string; ids: readonly VoyKnobId[]; at: At }> = ({ id, title, ids, at }) => (
+  <Sec id={id} title={title} col={at.col} span={at.step * ids.length} row={at.row} pitch={GRID.col * at.step}>
+    <div className="mm-arp-cells">{ids.map((k) => (V_SWITCH.has(k) ? <VSwitch key={k} id={k} /> : <VKnob key={k} id={k} />))}</div>
   </Sec>
 );
 
 /** Une section des reglages du VST3 seul (extra.ts) : ENGINE, VOICE, AMP, DISTORTION, REVERB, EQ, MASTER, LFO 1, LFO 2. */
-const Extra: React.FC<{ id: ExtraSection; title: string; fixed?: boolean }> = ({ id, title, fixed }) => {
+const Extra: React.FC<{ id: ExtraSection; title: string; at: At }> = ({ id, title, at }) => {
   const list = EXTRA_PARAMS.filter((p) => p.section === id);
   return (
-    <Sec id={id} title={title} grow={fixed ? undefined : list.length}>
-      <div className="mm-arp-xrow">{list.map((p) => (X_SWITCH.has(p.id) ? <XSwitch key={p.id} p={p} /> : <XKnob key={p.id} p={p} look="black" label={X_LABEL[p.id]} />))}</div>
+    <Sec id={id} title={title} col={at.col} span={at.step * list.length} row={at.row} pitch={GRID.col * at.step}>
+      <div className="mm-arp-cells">{list.map((p) => (X_SWITCH.has(p.id) ? <XSwitch key={p.id} p={p} /> : <XKnob key={p.id} p={p} label={X_LABEL[p.id]} />))}</div>
     </Sec>
   );
 };
 
-/** OPTIONS : quatre rangees de potards, neuf ou dix par rangee. */
+/**
+ * OPTIONS : six rangees de six reglages, un toutes les trois colonnes (les colonnes 3, 6, 9, 12, 15 et 18 de la grille),
+ * chaque rangee pleine : une grande section a gauche, une petite a droite.
+ */
+const L = (row: number): At => ({ col: 2, row, step: 3 });
+const R = (row: number, n: number): At => ({ col: 2 + 3 * (6 - n), row, step: 3 });
 const SoundPage: React.FC = () => (
   <>
-    <div className="mm-arp-open-row">
-      <Tweaks {...TW_OSC} />
-      <Tweaks {...TW_FILTER} />
-      <Tweaks {...TW_DELAY} />
-    </div>
-    <div className="mm-arp-open-row">
-      <Tweaks {...TW_OUT} />
-      <Tweaks {...TW_PERF} />
-    </div>
-    <div className="mm-arp-open-row">
-      <Extra id="engine" title="ENGINE" />
-      <Extra id="voice" title="VOICE" />
-      <Extra id="amp" title="AMP" />
-      <Extra id="dist" title="DISTORTION" />
-      <Extra id="reverb" title="REVERB" />
-    </div>
-    <div className="mm-arp-open-row">
-      <Extra id="eq" title="EQ" />
-      <Extra id="master" title="MASTER" />
-    </div>
+    <Tweaks {...TW_OSC} at={L(0)} />
+    <Tweaks {...TW_DELAY} at={R(0, 2)} />
+    <Tweaks {...TW_FILTER} at={L(1)} />
+    <Extra id="reverb" title="REVERB" at={R(1, 3)} />
+    <Tweaks {...TW_OUT} at={L(2)} />
+    <Extra id="engine" title="ENGINE" at={R(2, 1)} />
+    <Tweaks {...TW_PERF} at={L(3)} />
+    <Extra id="voice" title="VOICE" at={R(3, 2)} />
+    <Extra id="eq" title="EQ" at={L(4)} />
+    <Extra id="amp" title="AMP" at={R(4, 2)} />
+    <Extra id="master" title="MASTER" at={L(5)} />
+    <Extra id="dist" title="DISTORTION" at={R(5, 2)} />
   </>
 );
 
-/** MODULATION : la matrice a gauche ; a droite LFO 1 et LFO 2, puis le rappel des sources. */
+/**
+ * MODULATION : la matrice sur les colonnes 0 a 9 (une ligne par rangee de la grille) ; a droite LFO 1 (colonnes 11, 12),
+ * LFO 2 (14 a 17) et CLEAR MATRIX (20) sur la premiere rangee, puis le rappel des sources.
+ */
 const ModPage: React.FC = () => (
-  <div className="mm-arp-open-row" data-row="fill">
-    <Sec id="matrix" title="MODULATION MATRIX" className="mm-arp-open-mx">
-      <Matrix />
-    </Sec>
-    <div className="mm-arp-open-col" data-col="mod">
-      <div className="mm-arp-open-row">
-        <Extra id="lfo1" title="LFO 1" />
-        <Extra id="lfo2" title="LFO 2" />
-      </div>
-      <Sec id="sources" title="SOURCES" className="mm-arp-open-src">
-        <ModSources />
-      </Sec>
-    </div>
-  </div>
+  <>
+    <Sec id="matrix-src" title="SOURCE" col={1} span={4} row={0} />
+    <Sec id="matrix-amt" title="AMOUNT" col={5} span={1} row={0} />
+    <Sec id="matrix-dst" title="DESTINATION" col={6} span={4} row={0} />
+    <Matrix />
+    <Extra id="lfo1" title="LFO 1" at={{ col: 11, row: 0, step: 1 }} />
+    <Extra id="lfo2" title="LFO 2" at={{ col: 14, row: 0, step: 1 }} />
+    <ModSources />
+  </>
 );
 
-/** LIBRARY : CLIP et MIDI a gauche, la banque d'usine au milieu, les presets du disque a droite. */
+/** LIBRARY : CLIP et MIDI a gauche (colonnes 0 a 5), la banque d'usine au milieu (7 a 16), les presets du disque a droite (18 a 21). */
 const LibPage: React.FC = () => (
-  <div className="mm-arp-open-row" data-row="fill">
-    <div className="mm-arp-open-col" data-col="tools">
-      <DragMidi />
-      <MidiMap />
-    </div>
-    <Sec id="library" title="LIBRARY" className="mm-arp-open-lib">
-      <LibraryBank />
-    </Sec>
+  <>
+    <DragMidi />
+    <MidiMap />
+    <LibraryBank />
     <DiskPresets />
-  </div>
+  </>
 );
 
 /** Le panneau, capot ouvert (ou qui s'ouvre) : il prend toute la fenetre sous le bandeau ; une page a la fois. */
