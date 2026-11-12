@@ -78,7 +78,7 @@ int main() {
         Head h;
         p.setPlayHead(&h);
         p.prepareToPlay(48000, 512);
-        check(p.getLatencySamples() >= 128 + 19, "latence declaree (blocs de 128 + decimateurs) : " + juce::String(p.getLatencySamples()).toStdString());
+        check(p.getLatencySamples() >= 16 && p.getLatencySamples() <= 24, "latence declaree (les decimateurs seuls) : " + juce::String(p.getLatencySamples()).toStdString());
         // Sans programme, transport arrete : silence
         Stats s = run(p, h, 48000, 512);
         check(s.finite && s.peak <= 0, "sans programme : silence");
@@ -104,7 +104,7 @@ int main() {
             char txt[64];
             mmarp::knobText(mmarp::knobIndex("rate"), 2.0 / 3, txt, 64);
             check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
-            check(p.getParameters().size() == mmarp::kKnobs + 3, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
+            check(p.getParameters().size() == mmx::kAll + 3, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
         }
         // DRAG MIDI : l'arpege en clip (F#m D, 2 mesures, 1/16 : 16 pas par mesure, 2 silences sur 8 dans la suite)
         {
@@ -132,6 +132,109 @@ int main() {
             const juce::File f = p.arpMidiFile(1);
             check(f.existsAsFile() && f.getSize() > 100, "le fichier MIDI a glisser : " + f.getFileName().toStdString());
             f.deleteFile();
+        }
+        // SOUND+ (le VST3 seul) : QUALITY STD / HQ, le LFO 2, le master
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            const Stats hq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(0.f);
+            run(p, h, 24000, 512);
+            const Stats stdq = run(p, h, 48000, 512);
+            X("xQuality")->setValueNotifyingHost(1.f);
+            run(p, h, 24000, 512);
+            check(hq.finite && stdq.finite && std::fabs(db(hq.rms) - db(stdq.rms)) < 1.5, "QUALITY : HQ (x8) et STD (x4) au meme niveau (" + juce::String(db(hq.rms), 1).toStdString() + " / " + juce::String(db(stdq.rms), 1).toStdString() + " dBFS)");
+            // LFO 2 sur AMP, plein : le niveau baisse (tremolo)
+            X("xLfo2Dest")->setValueNotifyingHost(6.f / 14.f);
+            X("xLfo2Depth")->setValueNotifyingHost(1.f);
+            run(p, h, 4800, 512);
+            const Stats trem = run(p, h, 48000, 512);
+            X("xLfo2Dest")->setValueNotifyingHost(0.f);
+            run(p, h, 4800, 512);
+            check(trem.finite && trem.rms < hq.rms * 0.9, "LFO 2 sur AMP : tremolo (" + juce::String(db(hq.rms), 1).toStdString() + " -> " + juce::String(db(trem.rms), 1).toStdString() + " dBFS)");
+            // WIDTH a 0 : mono
+            X("xWidth")->setValueNotifyingHost(0.f);
+            run(p, h, 9600, 512);
+            juce::AudioBuffer<float> b(2, 512);
+            juce::MidiBuffer mb;
+            double diff = 0;
+            for (int k = 0; k < 40; ++k) {
+                p.processBlock(b, mb);
+                h.ppq += 512 * h.bpm / 60.0 / 48000.0;
+                for (int i = 0; i < 512; ++i) diff = std::max(diff, static_cast<double>(std::fabs(b.getSample(0, i) - b.getSample(1, i))));
+            }
+            X("xWidth")->setValueNotifyingHost(0.5f);
+            X("xWarmth")->setValueNotifyingHost(1.f);
+            X("xBass")->setValueNotifyingHost(1.f);
+            X("xAir")->setValueNotifyingHost(1.f);
+            const Stats m = run(p, h, 48000, 512);
+            X("xWarmth")->setValueNotifyingHost(0.f);
+            X("xBass")->setValueNotifyingHost(0.5f);
+            X("xAir")->setValueNotifyingHost(0.5f);
+            run(p, h, 9600, 512);
+            check(diff < 1e-5 && m.finite && m.peak < 1.5, "MASTER : WIDTH 0 = mono, WARMTH + BASS + AIR sans debordement");
+            check(X("xRevSize")->getText(0.5f, 32) == "2.4 s" && X("xLfo2Rate")->getText(8.f / 13.f, 32) == "1/4", "le texte des reglages SOUND+");
+        }
+        // Le module avant : sequenceur par pas (RATCHET x4 = plus de notes dans le clip), FX RACK, OSC / FILTER +
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            int bars = 0;
+            const int base = p.arpMidi(1, bars).getTrack(0)->getNumEvents();
+            p.faceProgram(juce::String(R"({"v":2,"kind":"arp","bpm":123,"swing":0,"seq":{"edit":false,"len":8,"buf":[0,2,4,null,7,4,2,0,0,0,0,0,0,0,0,0]},"prog":[0,5],"knobs":{},)") +
+                          R"("steps":{"acc":[2,1,1,1,2,1,1,1,2,1,1,1,2,1,1,1],"slide":[0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0],"gate":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],"rat":[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],"prob":[100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100]}})");
+            const int rat = p.arpMidi(1, bars).getTrack(0)->getNumEvents();
+            check(rat > base * 3, "STEP SEQUENCER : RATCHET x4 (" + juce::String(base).toStdString() + " -> " + juce::String(rat).toStdString() + " evenements dans le clip)");
+            const char* on[] = {"xPhMix", "xFlMix", "xPumpDepth", "xCrushBits", "xCrushRate", "xShimmer", "xRing", "xFold", "xComb", "xHpf"};
+            for (const char* id : on) X(id)->setValueNotifyingHost(0.8f);
+            X("xUnison")->setValueNotifyingHost(1.f);
+            X("xDlyMode")->setValueNotifyingHost(1.f);
+            run(p, h, 9600, 512);
+            const Stats all = run(p, h, 48000 * 2, 512);
+            for (const char* id : on) X(id)->setValueNotifyingHost(0.f);
+            X("xUnison")->setValueNotifyingHost(0.f);
+            X("xDlyMode")->setValueNotifyingHost(0.f);
+            p.faceProgram(program("[0,5]"));
+            run(p, h, 48000, 512);
+            check(all.finite && all.peak > 0.001 && all.peak < 2.0, "FX RACK + OSC / FILTER + tous engages : fini, sans debordement (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+            check(X("xHpf")->getText(0.f, 32) == "OFF" && X("xPumpRate")->getText(0.5f, 32) == "1/4", "le texte des reglages du module avant");
+        }
+        // La matrice : MOD WHEEL -> CUTOFF (la molette ouvre le filtre), le pitch bend, MONO
+        {
+            auto X = [&](const char* id) { return p.knobParam(mmx::allIndex(id)); };
+            X("xM1Src")->setValueNotifyingHost(2.f / 11.f);
+            X("xM1Dst")->setValueNotifyingHost(10.f / 19.f);
+            X("xM1Amt")->setValueNotifyingHost(1.f);
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.15f);
+            run(p, h, 24000, 512);
+            const Stats shut = run(p, h, 48000, 512);
+            juce::MidiBuffer mw;
+            mw.addEvent(juce::MidiMessage::controllerEvent(1, 1, 127), 0);
+            mw.addEvent(juce::MidiMessage::pitchWheel(1, 16383), 1);
+            mw.addEvent(juce::MidiMessage::channelPressureChange(1, 100), 2);
+            run(p, h, 4800, 512, &mw);
+            const Stats open = run(p, h, 48000, 512);
+            juce::MidiBuffer mw0;
+            mw0.addEvent(juce::MidiMessage::controllerEvent(1, 1, 0), 0);
+            mw0.addEvent(juce::MidiMessage::pitchWheel(1, 8192), 1);
+            mw0.addEvent(juce::MidiMessage::channelPressureChange(1, 0), 2);
+            run(p, h, 4800, 512, &mw0);
+            X("xM1Src")->setValueNotifyingHost(0.f);
+            X("xM1Dst")->setValueNotifyingHost(0.f);
+            X("xM1Amt")->setValueNotifyingHost(0.5f);
+            p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.5f);
+            check(open.finite && open.rms > shut.rms * 1.3, "MATRICE : MOD WHEEL -> CUTOFF ouvre le filtre (" + juce::String(db(shut.rms), 1).toStdString() + " -> " + juce::String(db(open.rms), 1).toStdString() + " dBFS)");
+            const char* on[] = {"xFeedback", "xDist", "xEqLow", "xEqHigh", "xEqAir"};
+            for (const char* id : on) X(id)->setValueNotifyingHost(1.f);
+            X("xVoiceMode")->setValueNotifyingHost(1.f);
+            X("xAmpMode")->setValueNotifyingHost(1.f);
+            run(p, h, 9600, 512);
+            const Stats all = run(p, h, 48000, 512);
+            X("xFeedback")->setValueNotifyingHost(0.f);
+            X("xDist")->setValueNotifyingHost(0.f);
+            for (const char* id : {"xEqLow", "xEqHigh", "xEqAir"}) X(id)->setValueNotifyingHost(0.5f);
+            X("xVoiceMode")->setValueNotifyingHost(0.f);
+            X("xAmpMode")->setValueNotifyingHost(0.f);
+            run(p, h, 48000, 512);
+            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTORTION + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
         }
         // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
         {
@@ -256,7 +359,15 @@ int main() {
             pk = std::max(pk, static_cast<double>(std::fabs(a[i])));
         }
         check(pk > 0.01 && d1 <= 0, "meme graine, meme passage : identique au bit pres");
-        check(db(d2 / pk) < -100, "blocs de 512 contre 77 : ecart " + juce::String(db(d2 / pk), 1).toStdString() + " dB");
+        // Sans la file de 128 (faible latence), la taille des blocs deplace les decisions prises au rythme des blocs
+        // (DRIFT) : le son reste le meme a l'oreille, plus au bit pres. Controle : la meme sonie.
+        double ra = 0, rb = 0;
+        for (size_t i = 0; i < a.size() && i < b.size(); ++i) {
+            ra += static_cast<double>(a[i]) * a[i];
+            rb += static_cast<double>(b[i]) * b[i];
+        }
+        juce::ignoreUnused(d2);
+        check(std::fabs(db(std::sqrt(ra)) - db(std::sqrt(rb))) < 0.5, "blocs de 512 contre 77 : la meme sonie (" + juce::String(db(std::sqrt(ra)) - db(std::sqrt(rb)), 2).toStdString() + " dB d'ecart)");
     }
     std::printf(failures ? "%d echec(s)\n" : "tout passe\n", failures);
     return failures ? 1 : 0;

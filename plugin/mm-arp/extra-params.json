@@ -1,0 +1,764 @@
+{
+  "_doc": "Les reglages du plugin VST3 seul (2026-11-10, Mika : 'une qualite eblouissante, seulement le VST3, le site on n'y touche pas'). Jamais dans voyager/params.ts : le site ne les connait pas. Valeurs 0..1 comme les potards du site ; steps : crans. Chaque def (sauf xQuality) rend le son du site au bit pres.",
+  "params": [
+    {
+      "id": "xQuality",
+      "label": "QUALITY",
+      "section": "engine",
+      "def": 1,
+      "steps": [
+        "STD",
+        "HQ"
+      ],
+      "help": "STD : le moteur du site (x4). HQ : surechantillonnage x8."
+    },
+    {
+      "id": "xLfo1Dest2",
+      "label": "TARGET 2",
+      "section": "lfo1",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "RES",
+        "AMP",
+        "PAN",
+        "OSC 2 PITCH",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "DRIVE",
+        "STACK",
+        "ENV AMT"
+      ],
+      "help": "Une seconde destination pour le LFO MOD de la face."
+    },
+    {
+      "id": "xLfo1Depth2",
+      "label": "DEPTH 2",
+      "section": "lfo1",
+      "def": 0.5
+    },
+    {
+      "id": "xLfo2Rate",
+      "label": "SPEED",
+      "section": "lfo2",
+      "def": 0.6153846153846154,
+      "steps": [
+        "1/32",
+        "1/16T",
+        "1/16",
+        "1/8T",
+        "1/16.",
+        "1/8",
+        "1/4T",
+        "1/8.",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR",
+        "4 BAR",
+        "8 BAR"
+      ],
+      "beats": [
+        0.125,
+        0.16666666666666666,
+        0.25,
+        0.3333333333333333,
+        0.375,
+        0.5,
+        0.6666666666666666,
+        0.75,
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "xLfo2Shape",
+      "label": "SHAPE",
+      "section": "lfo2",
+      "def": 0,
+      "steps": [
+        "SINE",
+        "TRI",
+        "SAW",
+        "RAMP",
+        "SQR",
+        "S&H",
+        "RND"
+      ]
+    },
+    {
+      "id": "xLfo2Dest",
+      "label": "TARGET",
+      "section": "lfo2",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "WAVE",
+        "CUTOFF",
+        "FM",
+        "PITCH",
+        "RES",
+        "AMP",
+        "PAN",
+        "OSC 2 PITCH",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "DRIVE",
+        "STACK",
+        "ENV AMT"
+      ]
+    },
+    {
+      "id": "xLfo2Depth",
+      "label": "DEPTH",
+      "section": "lfo2",
+      "def": 0.5
+    },
+    {
+      "id": "xRevSize",
+      "label": "SIZE",
+      "section": "reverb",
+      "def": 0.5,
+      "help": "0.6 s a 9.6 s (2.4 s au centre, celle du site) : 2.4 * 4^(2v-1)"
+    },
+    {
+      "id": "xRevTone",
+      "label": "TONE",
+      "section": "reverb",
+      "def": 0.5,
+      "help": "sombre a brillante ; au centre celle du site (9 kHz vers 3 kHz) : x 4^(2v-1), 18 kHz au plus"
+    },
+    {
+      "id": "xRevPre",
+      "label": "PRE DELAY",
+      "section": "reverb",
+      "def": 0.2,
+      "help": "0 a 100 ms (20 ms : celle du site)"
+    },
+    {
+      "id": "xWarmth",
+      "label": "WARMTH",
+      "section": "master",
+      "def": 0,
+      "help": "saturation douce de sortie (transfo / bande), sans repliement"
+    },
+    {
+      "id": "xBass",
+      "label": "BASS",
+      "section": "master",
+      "def": 0.5,
+      "help": "plateau grave 120 Hz, -6 a +6 dB"
+    },
+    {
+      "id": "xAir",
+      "label": "AIR",
+      "section": "master",
+      "def": 0.5,
+      "help": "plateau aigu 10 kHz, -6 a +6 dB"
+    },
+    {
+      "id": "xWidth",
+      "label": "WIDTH",
+      "section": "master",
+      "def": 0.5,
+      "help": "largeur stereo : 0 mono, 0.5 celle du site, 1 le double du cote (les graves sous 150 Hz restent au centre)"
+    },
+    {
+      "id": "xSwing",
+      "label": "SWING",
+      "section": "seq",
+      "def": 0,
+      "help": "le swing propre de l'arpege : les doubles croches impaires retardees jusqu'a un tiers de pas, ajoute au swing de la face"
+    },
+    {
+      "id": "xRing",
+      "label": "RING MOD",
+      "section": "osc",
+      "def": 0,
+      "help": "OSC 1 x OSC 2, dose ; 0 : absent"
+    },
+    {
+      "id": "xFold",
+      "label": "FOLD",
+      "section": "osc",
+      "def": 0,
+      "help": "repliement d'onde (wavefolder) apres le melange des oscillateurs, sans repliement spectral ; 0 : absent"
+    },
+    {
+      "id": "xNoiseColor",
+      "label": "NOISE COLOR",
+      "section": "osc",
+      "def": 0.5,
+      "help": "sombre a brillant ; 0.5 : le bruit blanc du site"
+    },
+    {
+      "id": "xUnison",
+      "label": "UNISON",
+      "section": "osc",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "5",
+        "7"
+      ],
+      "help": "OFF : STACK du site (3 au plus) ; 5 ou 7 exemplaires par oscillateur"
+    },
+    {
+      "id": "xHpf",
+      "label": "HIGH PASS",
+      "section": "filter",
+      "def": 0,
+      "help": "un passe-haut 12 dB apres le filtre de chaque voix, 20 Hz a 2 kHz ; 0 : absent"
+    },
+    {
+      "id": "xComb",
+      "label": "COMB",
+      "section": "filter",
+      "def": 0,
+      "help": "filtre en peigne accorde sur la note, dose ; 0 : absent"
+    },
+    {
+      "id": "xCombFb",
+      "label": "COMB FB",
+      "section": "filter",
+      "def": 0.5,
+      "help": "reinjection du peigne, negative a positive ; 0.5 : aucune"
+    },
+    {
+      "id": "xPhMix",
+      "label": "PHASER",
+      "section": "phaser",
+      "def": 0,
+      "help": "dose du phaser 6 etages ; 0 : contourne"
+    },
+    {
+      "id": "xPhRate",
+      "label": "RATE",
+      "section": "phaser",
+      "def": 0.3,
+      "help": "0.05 a 8 Hz"
+    },
+    {
+      "id": "xPhDepth",
+      "label": "DEPTH",
+      "section": "phaser",
+      "def": 0.6
+    },
+    {
+      "id": "xPhFb",
+      "label": "FEEDBACK",
+      "section": "phaser",
+      "def": 0.4
+    },
+    {
+      "id": "xFlMix",
+      "label": "FLANGER",
+      "section": "flanger",
+      "def": 0,
+      "help": "dose du flanger ; 0 : contourne"
+    },
+    {
+      "id": "xFlRate",
+      "label": "RATE",
+      "section": "flanger",
+      "def": 0.25,
+      "help": "0.03 a 5 Hz"
+    },
+    {
+      "id": "xFlDepth",
+      "label": "DEPTH",
+      "section": "flanger",
+      "def": 0.6
+    },
+    {
+      "id": "xFlFb",
+      "label": "FEEDBACK",
+      "section": "flanger",
+      "def": 0.5,
+      "help": "negative a positive ; 0.5 : aucune"
+    },
+    {
+      "id": "xPumpDepth",
+      "label": "PUMP",
+      "section": "pump",
+      "def": 0,
+      "help": "pompage facon sidechain cale au tempo : le niveau plonge a chaque temps ; 0 : absent"
+    },
+    {
+      "id": "xPumpRate",
+      "label": "RATE",
+      "section": "pump",
+      "def": 0.5,
+      "steps": [
+        "1/8",
+        "1/4",
+        "1/2"
+      ]
+    },
+    {
+      "id": "xPumpShape",
+      "label": "RELEASE",
+      "section": "pump",
+      "def": 0.5,
+      "help": "la remontee : courte a longue"
+    },
+    {
+      "id": "xCrushBits",
+      "label": "CRUSH",
+      "section": "crush",
+      "def": 0,
+      "help": "reduction de bits, 16 a 4 ; 0 : contourne"
+    },
+    {
+      "id": "xCrushRate",
+      "label": "DOWNSAMPLE",
+      "section": "crush",
+      "def": 0,
+      "help": "reduction de la frequence d'echantillonnage, jusqu'a 2 kHz ; 0 : contourne"
+    },
+    {
+      "id": "xDlyMode",
+      "label": "DELAY MODE",
+      "section": "space",
+      "def": 0,
+      "steps": [
+        "PING PONG",
+        "STEREO",
+        "WIDE"
+      ],
+      "help": "PING PONG : le delay du site"
+    },
+    {
+      "id": "xShimmer",
+      "label": "SHIMMER",
+      "section": "space",
+      "def": 0,
+      "help": "une octave au-dessus reinjectee dans la reverb ; 0 : absent"
+    },
+    {
+      "id": "xM1Src",
+      "label": "SOURCE 1",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM1Dst",
+      "label": "DEST 1",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM1Amt",
+      "label": "AMOUNT 1",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM2Src",
+      "label": "SOURCE 2",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM2Dst",
+      "label": "DEST 2",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM2Amt",
+      "label": "AMOUNT 2",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM3Src",
+      "label": "SOURCE 3",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM3Dst",
+      "label": "DEST 3",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM3Amt",
+      "label": "AMOUNT 3",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM4Src",
+      "label": "SOURCE 4",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM4Dst",
+      "label": "DEST 4",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM4Amt",
+      "label": "AMOUNT 4",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM5Src",
+      "label": "SOURCE 5",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM5Dst",
+      "label": "DEST 5",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM5Amt",
+      "label": "AMOUNT 5",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xM6Src",
+      "label": "SOURCE 6",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "VELOCITY",
+        "MOD WHEEL",
+        "AFTERTOUCH",
+        "PITCH BEND",
+        "KEY",
+        "LFO 1",
+        "LFO 2",
+        "FILTER ENV",
+        "AMP ENV",
+        "S&H",
+        "RANDOM"
+      ]
+    },
+    {
+      "id": "xM6Dst",
+      "label": "DEST 6",
+      "section": "matrix",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "PITCH",
+        "OSC 2 PITCH",
+        "WAVE",
+        "FM",
+        "OSC MIX",
+        "NOISE",
+        "SUB",
+        "RING",
+        "FOLD",
+        "CUTOFF",
+        "RES",
+        "ENV AMT",
+        "DRIVE",
+        "AMP",
+        "PAN",
+        "STACK",
+        "LFO 1 DEPTH",
+        "LFO 2 DEPTH",
+        "COMB"
+      ]
+    },
+    {
+      "id": "xM6Amt",
+      "label": "AMOUNT 6",
+      "section": "matrix",
+      "def": 0.5,
+      "help": "-100 a +100 % ; 0.5 : rien"
+    },
+    {
+      "id": "xVoiceMode",
+      "label": "VOICE MODE",
+      "section": "voice",
+      "def": 0,
+      "steps": [
+        "POLY",
+        "MONO",
+        "LEGATO"
+      ],
+      "help": "POLY : le site ; MONO : une voix, chaque note redeclenche ; LEGATO : une voix, les notes liees glissent sans redeclencher"
+    },
+    {
+      "id": "xPbRange",
+      "label": "BEND RANGE",
+      "section": "voice",
+      "def": 0.16666666666666666,
+      "steps": [
+        "1",
+        "2",
+        "3",
+        "5",
+        "7",
+        "12",
+        "24"
+      ],
+      "help": "demi-tons du pitch bend"
+    },
+    {
+      "id": "xFeedback",
+      "label": "FEEDBACK",
+      "section": "amp",
+      "def": 0,
+      "help": "la sortie de la voix reinjectee dans son filtre ; 0 : absent"
+    },
+    {
+      "id": "xAmpMode",
+      "label": "AMP MODE",
+      "section": "amp",
+      "def": 0,
+      "steps": [
+        "CLEAN",
+        "TRIODE",
+        "PENTODE",
+        "SATURATED"
+      ],
+      "help": "l'etage de sortie : CLEAN = le site"
+    },
+    {
+      "id": "xEqLow",
+      "label": "LOW",
+      "section": "eq",
+      "def": 0.5,
+      "help": "plateau 100 Hz, -12 a +12 dB"
+    },
+    {
+      "id": "xEqMid",
+      "label": "MID",
+      "section": "eq",
+      "def": 0.5,
+      "help": "cloche 900 Hz, -12 a +12 dB"
+    },
+    {
+      "id": "xEqHigh",
+      "label": "HIGH",
+      "section": "eq",
+      "def": 0.5,
+      "help": "plateau 5 kHz, -12 a +12 dB"
+    },
+    {
+      "id": "xEqAir",
+      "label": "AIR BAND",
+      "section": "eq",
+      "def": 0.5,
+      "help": "plateau tres haut 20 kHz large, 0 a +10 dB au-dessus de 0.5"
+    },
+    {
+      "id": "xDist",
+      "label": "DISTORTION",
+      "section": "dist",
+      "def": 0,
+      "help": "pedale de distorsion, surechantillonnee ; 0 : contournee"
+    },
+    {
+      "id": "xDistTone",
+      "label": "TONE",
+      "section": "dist",
+      "def": 0.5
+    }
+  ]
+}

@@ -74,7 +74,7 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                      const juce::String id = o.getProperty("id", "").toString();
                      const double v = static_cast<double>(o.getProperty("v", -1.0));
                      proc_.faceParam(id, v);
-                     const int i = mmarp::knobIndex(id.toRawUTF8());
+                     const int i = mmx::allIndex(id.toRawUTF8());
                      if (i >= 0 && v >= 0 && v <= 1) sent_[static_cast<size_t>(i)] = static_cast<float>(v);
                  })
                  .withEventListener("mm_gesture", [this](juce::var o) { proc_.faceGesture(o.getProperty("id", "").toString(), static_cast<bool>(o.getProperty("on", false))); })
@@ -102,7 +102,7 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                      // Tous les potards vers la face (s'ils sont connus : sinon c'est la face qui donne les siens)
                      sent_.fill(-1.f);
                      if (!proc_.knobsKnown()) {
-                         for (int i = 0; i < mmarp::kKnobs; ++i)
+                         for (int i = 0; i < mmx::kAll; ++i)
                              if (auto* prm = proc_.knobParam(i)) sent_[static_cast<size_t>(i)] = prm->getValue();
                      }
                      presetList();
@@ -127,7 +127,13 @@ std::optional<juce::WebBrowserComponent::Resource> MMArpEditor::resource(const j
 MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
-    setSize(kW, kH);
+    // Redimensionnable a proportions fixes (2026-11-11, Mika : "je ne peux pas agrandir le plugin") : 880 a 2200 de large,
+    // la face suit seule (src/v4/plugin/arp/scale.ts) ; la taille choisie est gardee dans le projet
+    setResizable(true, true);
+    getConstrainer()->setFixedAspectRatio(static_cast<double>(kW) / kH);
+    setResizeLimits(880, 880 * kH / kW, 2200, 2200 * kH / kW);
+    const int w = juce::jlimit(880, 2200, proc_.editorWidth());
+    setSize(w, w * kH / kW);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
@@ -138,6 +144,7 @@ void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 
 void MMArpEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
+    proc_.setEditorWidth(getWidth());
 }
 
 void MMArpEditor::setHint(const juce::String& m) {
@@ -187,13 +194,13 @@ void MMArpEditor::timerCallback() {
     if (ready_) {
         auto* changed = new juce::DynamicObject();
         int count = 0;
-        for (int i = 0; i < mmarp::kKnobs; ++i) {
+        for (int i = 0; i < mmx::kAll; ++i) {
             auto* prm = proc_.knobParam(i);
             if (!prm) continue;
             const float v = prm->getValue();
             if (!(v < sent_[static_cast<size_t>(i)] || v > sent_[static_cast<size_t>(i)])) continue;
             sent_[static_cast<size_t>(i)] = v;
-            changed->setProperty(mmarp::kKnobDefs[i].id, static_cast<double>(v));
+            changed->setProperty(mmx::allId(i), static_cast<double>(v));
             ++count;
         }
         if (count > 0) {
