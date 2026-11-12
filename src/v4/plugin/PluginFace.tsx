@@ -12,6 +12,8 @@ import { FLAGS } from '../state/flags';
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
 import '../v4.css';
 import { gesture } from '../actions';
+import { dtFace } from '../state/dtFace';
+import { presetMode } from '../state/presetMode';
 import { clock } from '../audio/clock';
 import { pattern } from '../audio/pattern';
 import { resume } from '../audio/drums';
@@ -116,7 +118,11 @@ const PluginFace: React.FC = () => {
     setStage(built);
     bridge.attachStage(built);
     // Les tests (?debug=1 seulement, jamais dans le plugin) lisent l'etat de la scene : les anneaux des potards
-    if (FLAGS.debug) (window as unknown as { __mmStage?: Stage }).__mmStage = built;
+    if (FLAGS.debug) {
+      (window as unknown as { __mmStage?: Stage }).__mmStage = built;
+      // Les tests : le menu ouvert et le curseur des presets
+      (window as unknown as { __mmMenu?: () => unknown }).__mmMenu = () => ({ menu: dtFace.menu(), preset: presetMode.get() });
+    }
     return () => {
       bridge.attachStage(null);
       stageRef.current = null;

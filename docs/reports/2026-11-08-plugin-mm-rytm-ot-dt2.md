@@ -419,6 +419,15 @@ Mika, avec trois captures : « je voudrais que le DEC commence a 124, donc la ba
 
 - **Build vert du lot 24** (run 43167412848), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit f8b77b0, branche claude/intelligent-ride-56tyeo, 2026-11-12 06:28 UTC.
 
+### Lot 25, LEVEL/DATA valide d'un clic (2026-11-12)
+
+Mika, sur la liste des presets : « je tourne avec le LEVEL, je voudrais cliquer sur le knob pour valider quand je selectionne un preset ».
+
+- `src/v4/actions/face.ts` dataPress, `ui/Hotspots.tsx` : un clic sur LEVEL/DATA sans le tourner, un menu ou une liste ouverts (PRESETS, SOUNDS...), vaut YES (la ligne choisie se charge), comme le poussoir d'un encodeur ; hors des menus, rien (avant : rien partout). Le plugin seulement.
+- **Un defaut trouve en testant** : la liste des presets ouverte par sa touche (la disquette, presetMode) n'est pas un menu de la face ; LEVEL/DATA y reglait le niveau de la piste au lieu de la faire defiler (par FUNC + PERFORM, elle defilait). `dataTurn` la donne maintenant au menu PRESETS dans les deux cas.
+- `plugin/PluginFace.tsx` : avec `?debug=1` seulement, `window.__mmMenu` (le menu ouvert et le curseur des presets) pour les tests.
+- Verifie dans Chromium : sans menu, un clic ne change rien ; PRESETS ouvert par la disquette, LEVEL/DATA tourne (10 crans au glisser, 3 au clavier) : le curseur va a 14/36, un clic sur LEVEL/DATA charge « EBM 2 » (`LOADED 14/36`, un programme part au moteur). Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -517,6 +526,7 @@ Mika, avec trois captures : « je voudrais que le DEC commence a 124, donc la ba
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 25)** : dans PRESETS, tourner LEVEL/DATA puis cliquer dessus.
 - **Cote Mika (lot 23)** : la commande mm-rytm, quitter et rouvrir Ableton. A l'oreille : chaque pad (surtout RPT, TAPE, LOW CUT) et le FILTER ; mapper le parametre **Filter** au Roto ou a l'APC. Dire si la liste des pads lui va (on peut en changer sans toucher au moteur) et si les durees (tape 0,7 s) sont bonnes. Rien n'a pu etre ecoute ici.
 - Lot 23, la suite possible : les pads au clavier et en MIDI (notes).
 - **Cote Mika (lot 24)** : la commande mm-rytm ; dire si DEC 124 est la bonne longueur, si la case AUTOMATION est claire, regler SIDECH a l'oreille (et le mapper : parametre **Sidechain**) ; MOD 1/2 : un LFO sur FREQ a 1 BAR, puis VAR.

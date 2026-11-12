@@ -30,6 +30,7 @@ import { isRytmPage, type RytmPageId } from '../rytm/pages';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import { DT2_FACE, DT_FACE, DT_GESTURE, LCD_NO_VOICE, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
+import { screenMenu } from '../scene/screen/menus/registry';
 import { IN_PLUGIN } from '../pluginMode';
 import { PERF_PADS, perform } from '../state/perform';
 import type { Dt2ButtonId } from '../rytm/dtFaceIds';
@@ -985,13 +986,28 @@ export function dataTurn(delta: number, src = 'at', stage: Stage | null = null):
   if (!DT2_FACE || !Number.isFinite(delta) || delta === 0) return;
   stageSet(stage);
   srcSet(src);
-  dispatch('data', 'turn', srcKind(src), Math.round(delta));
+  // Le plugin (2026-11-12) : la liste des presets ouverte par la touche des presets (presetMode, sans menu de la face) defile
+  // aussi (avant, LEVEL/DATA y reglait le niveau de la piste) ; le menu PRESETS la prend comme s'il etait ouvert
+  const pm = IN_PLUGIN && !dtFace.menu() && presetMode.on('mm808') ? screenMenu('preset') : undefined;
+  if (!(pm?.onInput?.({ kind: 'data', phase: 'down', delta: Math.round(delta), func: false }) ?? false)) dispatch('data', 'turn', srcKind(src), Math.round(delta));
   // Le capuchon de LEVEL/DATA tourne avec ses crans (un encodeur sans butee : un tour pour DATA_TURN crans) ; son anneau dit
   // la valeur reglee (la lane B5)
   dataCap = (((dataCap + Math.round(delta) / DATA_TURN) % 1) + 1) % 1;
   const s = stage ?? stageNowFace();
   if (s?.sideKnobs?.setCap('data', dataCap)) s.invalidate();
 }
+/**
+ * LEVEL/DATA presse (le plugin, 2026-11-12, Mika : "je tourne avec le LEVEL, je voudrais cliquer sur le knob pour valider
+ * quand je selectionne un preset") : un clic sans le tourner, un menu ou une liste ouverts (PRESETS, SOUNDS...), vaut YES
+ * (la ligne choisie se charge) ; comme le poussoir d'un encodeur. Sans menu, rien. true si pris.
+ */
+export function dataPress(stage: Stage | null = null): boolean {
+  if (!IN_PLUGIN || !DT2_FACE) return false;
+  if (!dtFace.menu() && !presetMode.on('mm808') && !lcdSamples.isOpen()) return false;
+  faceKeyTap('yes', stage);
+  return true;
+}
+
 /** Les crans d'un tour du capuchon de LEVEL/DATA, et sa course du moment (0 a 1). */
 const DATA_TURN = 48;
 let dataCap = 0.5;

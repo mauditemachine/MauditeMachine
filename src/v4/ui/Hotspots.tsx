@@ -77,6 +77,7 @@ import {
   stepMuteHold,
   perfPadDown,
   perfPadUp,
+  dataPress,
   stepShiftHold,
   rytmLockEnter,
   rytmLockToggle,
@@ -1107,8 +1108,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return d.id;
       }
       // La face DT2 (V.6.0, la lane B4) : les touches nouvelles ont agi a l'appui et au lacher (faceKeyDown, faceKeyUp) ;
-      // LEVEL/DATA tape : rien (tourne, il regle) ; PTN et les touches de page passent par la table des accords
-      if (d.faceKey || (DT2_FACE && d.kind === 'data')) return d.id;
+      // LEVEL/DATA tape : rien (tourne, il regle) ; dans le plugin, un menu ouvert : il valide, comme YES (actions/face.ts
+      // dataPress) ; PTN et les touches de page passent par la table des accords
+      if (DT2_FACE && d.kind === 'data') {
+        if (!d.turning) dataPress(stage);
+        return d.id;
+      }
+      if (d.faceKey) return d.id;
       if (DT2_FACE && d.kind === 'edit') {
         faceKeyTap('ptn', stage);
         return d.id;
