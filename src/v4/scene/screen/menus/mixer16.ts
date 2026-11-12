@@ -53,9 +53,10 @@ const PAGE_SLOTS: readonly (readonly PageSlot[])[] = [
  */
 const PERFORM_SLOTS: readonly PageSlot[] = [
   { label: 'FILTER', target: 'z:pfilt' as SlotTarget, scope: 'all', draw: 'barc' },
+  // Le SIDECHAIN (2026-11-12) : CHORUS lui laisse sa place (il reste sur SEND FX)
+  { label: 'SIDECH', target: 'z:pside' as SlotTarget, scope: 'all', draw: 'bar' },
   { label: 'DIST', target: 'dist', scope: 'all', draw: 'bar' },
   { label: 'BIT', target: 'bits', scope: 'all', draw: 'bar' },
-  { label: 'CHORUS', target: 'chorus', scope: 'all', draw: 'bar', noBd: true },
   { label: 'DELAY', target: 'delay', scope: 'all', draw: 'bar', noBd: true },
   { label: 'REVERB', target: 'reverb', scope: 'all', draw: 'bar', noBd: true },
   { label: 'COMP', target: 'comp', scope: 'all', draw: 'bar' },
@@ -78,6 +79,16 @@ registerDialSpec('z:pfilt', {
   steps: () => 0,
   text: (v) => (Math.abs(v) < 0.02 ? 'OFF' : `${v < 0 ? 'LP' : 'HP'} ${hzText(filterHz(v))}`),
   unit: (v) => (Math.abs(v) < 0.02 ? 'OPEN' : v < 0 ? 'LOW PASS' : 'HIGH PASS'),
+  reset: () => 0,
+});
+/** Le SIDECHAIN (le parametre SIDECHAIN) : le mix, sauf la voie du kick, pompe a chaque temps de la profondeur choisie. */
+registerDialSpec('z:pside', {
+  value: () => perform.side(),
+  set: (v) => perform.setSide(v),
+  range: () => [0, 1],
+  steps: () => 0,
+  text: (v) => (v < 0.005 ? 'OFF' : `${Math.round(v * 100)}%`),
+  unit: (v) => (v < 0.005 ? 'NO PUMP' : 'PUMP / BEAT'),
   reset: () => 0,
 });
 // Le FILTER mene par Ableton : les potards et l'ecran de PERFORM le suivent

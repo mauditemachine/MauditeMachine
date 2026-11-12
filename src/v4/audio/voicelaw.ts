@@ -29,6 +29,7 @@
 
 import type { Inst } from '../theme';
 import { snapTone } from './tone';
+import { IN_PLUGIN } from '../pluginMode';
 import { LFO_PARAMS, clampLfo, lfoDefault, type LfoParam } from './lfo';
 
 /*
@@ -77,9 +78,16 @@ export type VoiceFx = Record<VoiceParam, number> & Partial<Record<LfoParam, numb
 /** Un LFO de la voix : sa valeur, le depart quand il est absent. */
 export const lfoOf = (v: Readonly<VoiceFx>, p: LfoParam): number => v[p] ?? lfoDefault(p);
 
+/**
+ * Le DEC de depart dans le plugin (2026-11-12, Mika : "je voudrais que le DEC commence a 124, la barre est longue dans le
+ * dessin mais pas droite") : 124 sur 127, une longue decroissance (un peu plus de 4 s) plutot que le son entier ; le site
+ * garde 1 (la queue entiere).
+ */
+export const DECAY_START = IN_PLUGIN ? Math.round((124 / 127) * 1000) / 1000 : 1;
+
 export const VOICE_FX_DEFAULT: Readonly<VoiceFx> = {
   tone: 0,
-  decay: 1,
+  decay: DECAY_START,
   level: 0.8,
   dist: 0,
   reverb: 0,

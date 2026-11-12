@@ -601,6 +601,8 @@ void FxChain::prepare(double sr) {
     perfFx_.prepare(sr);
     cutG_.fill(1.f);
     throwD_ = throwR_ = 0;
+    sideNow_ = 0;
+    duck_.assign(kMaxBlock, 1.f);
     perf_ = PerfState{};
 }
 
@@ -894,6 +896,29 @@ void FxChain::process(float* outL, float* outR, int n) {
     const double thStep = 1.0 / std::max(1.0, THROW_S * sr_);
     const double thDTo = perf_.throwDelay ? 1 : 0, thRTo = perf_.throwReverb ? 1 : 0;
     const bool throwing = throwD_ > 0 || throwR_ > 0 || thDTo > 0 || thRTo > 0;
+    // Le SIDECHAIN (2026-11-12, Mika : "dans PERFORM mets un sidechain, pas qui vient de quelque part, juste un sidechain
+    // normal") : a chaque temps (une noire de la grille), le gain plonge en 3 ms de la profondeur choisie, puis remonte en
+    // courbe sur un demi-temps ; sur tout sauf la voie du kick (les pads et les retours de DELAY et REVERB). A l'arret, rien.
+    const double sideTo = perfPlaying_ && perfPps_ > 0 ? std::max(0.0, std::min(1.0, perf_.side)) : 0.0;
+    sideNow_ += (sideTo - sideNow_) * 0.5;
+    if (std::fabs(sideTo - sideNow_) < 1e-4) sideNow_ = sideTo;
+    const bool ducking = sideNow_ > 0;
+    if (ducking) {
+        const double beatN = 1.0 / perfPps_;           // echantillons par temps
+        const double att = std::max(1.0, 0.003 * sr_);
+        const double rel = std::max(att + 1, 0.5 * beatN);
+        for (int i = 0; i < n; ++i) {
+            const double ph = std::fmod(std::max(0.0, perfPpq_ + i * perfPps_), 1.0);
+            const double s = ph * beatN;
+            double e;
+            if (s < att) e = s / att;
+            else {
+                const double x = std::max(0.0, 1 - (s - att) / rel);
+                e = x * x;
+            }
+            duck_[static_cast<size_t>(i)] = static_cast<float>(1 - sideNow_ * e);
+        }
+    }
     for (int i = 0; i < n; ++i) {
         const size_t ii = static_cast<size_t>(i);
         if (throwing) {
@@ -917,19 +942,22 @@ void FxChain::process(float* outL, float* outR, int n) {
             delL_[ii] += static_cast<float>(padsL_[ii] * gd);
             delR_[ii] += static_cast<float>(padsR_[ii] * gd);
         }
-        mL_[ii] = static_cast<float>((padsL_[ii] + kickL_[ii]) * lv);
-        mR_[ii] = static_cast<float>((padsR_[ii] + kickR_[ii]) * lv);
+        const float dk = ducking ? duck_[ii] : 1.f;
+        mL_[ii] = static_cast<float>((padsL_[ii] * dk + kickL_[ii]) * lv);
+        mR_[ii] = static_cast<float>((padsR_[ii] * dk + kickR_[ii]) * lv);
     }
     // Les retours (sans LEVEL : il est deja sur les prises)
     delay_.process(delL_.data(), delR_.data(), wetL_.data(), wetR_.data(), n, sr_);
     for (int i = 0; i < n; ++i) {
-        mL_[static_cast<size_t>(i)] += wetL_[static_cast<size_t>(i)];
-        mR_[static_cast<size_t>(i)] += wetR_[static_cast<size_t>(i)];
+        const float dk = ducking ? duck_[static_cast<size_t>(i)] : 1.f;
+        mL_[static_cast<size_t>(i)] += wetL_[static_cast<size_t>(i)] * dk;
+        mR_[static_cast<size_t>(i)] += wetR_[static_cast<size_t>(i)] * dk;
     }
     reverb_.process(revL_.data(), revR_.data(), wetL_.data(), wetR_.data(), n);
     for (int i = 0; i < n; ++i) {
-        mL_[static_cast<size_t>(i)] += wetL_[static_cast<size_t>(i)];
-        mR_[static_cast<size_t>(i)] += wetR_[static_cast<size_t>(i)];
+        const float dk = ducking ? duck_[static_cast<size_t>(i)] : 1.f;
+        mL_[static_cast<size_t>(i)] += wetL_[static_cast<size_t>(i)] * dk;
+        mR_[static_cast<size_t>(i)] += wetR_[static_cast<size_t>(i)] * dk;
     }
     // PERFORM : le beat repeat, le tape stop, le low cut et le filtre DJ, avant le GLUE et le LIMITEUR
     perfFx_.process(mL_.data(), mR_.data(), n, perf_, perfPpq_, perfPps_, perfPlaying_, sr_);

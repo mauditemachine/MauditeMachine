@@ -46,6 +46,7 @@ private:
     bool lastInternal_ = false;
     double lastXf_ = -1;
     double lastPf_ = 9;
+    double lastPs_ = 9;
     int lastPatSeq_ = -1;
     int quietTicks_ = 0;
     int midiVer_ = -1;

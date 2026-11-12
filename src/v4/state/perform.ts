@@ -44,6 +44,7 @@ export const PERF_FLAG = { lowcut: 8, throwD: 16, throwR: 32, tape: 64 } as cons
 let held: number[] = [];
 const latched = new Set<number>();
 let filterV = 0;
+let sideV = 0;
 const listeners = new Set<() => void>();
 const emit = (): void => listeners.forEach((fn) => fn());
 
@@ -103,6 +104,22 @@ export const perform = {
     filterHook?.(snapped);
     emit();
   },
+  /** le SIDECHAIN (2026-11-12) : 0 a 1, le mix (sauf le kick) pompe a chaque temps */
+  side: (): number => sideV,
+  setSide(v: number): void {
+    const x = Math.round(Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0)) * 1000) / 1000;
+    if (x === sideV) return;
+    sideV = x;
+    sideHook?.(x);
+    emit();
+  },
+  /** le SIDECHAIN mene par Ableton : la face le suit sans le renvoyer */
+  hostSide(v: number): void {
+    const x = Math.max(0, Math.min(1, v));
+    if (Math.abs(x - sideV) < 1e-4) return;
+    sideV = x;
+    emit();
+  },
   /** le FILTER mene par Ableton (son automation) : la face le suit sans le renvoyer */
   hostFilter(v: number): void {
     const x = Math.max(-1, Math.min(1, v));
@@ -122,4 +139,9 @@ export const perform = {
 let filterHook: ((v: number) => void) | null = null;
 export function setFilterHook(fn: ((v: number) => void) | null): void {
   filterHook = fn;
+}
+/** Le pont : le SIDECHAIN tourne sur la face, il part au parametre SIDECHAIN du plugin. */
+let sideHook: ((v: number) => void) | null = null;
+export function setSideHook(fn: ((v: number) => void) | null): void {
+  sideHook = fn;
 }

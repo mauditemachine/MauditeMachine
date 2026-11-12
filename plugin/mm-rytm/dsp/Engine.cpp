@@ -1397,6 +1397,7 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         pf.throwReverb = (fl & PERF_THROW_R) != 0;
         pf.tape = (fl & PERF_TAPE) != 0;
         pf.filter = static_cast<double>(perfFilter_.load(std::memory_order_relaxed));
+        pf.side = static_cast<double>(perfSide_.load(std::memory_order_relaxed));
         fx_.setPerf(pf, tr.ppq, tr.ppqPerSample, tr.playing && seqOn_);
         fx_.process(L, R, n);
         for (int t = 0; t < kTracks; ++t) {

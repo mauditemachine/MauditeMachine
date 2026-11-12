@@ -183,8 +183,9 @@ export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = 
   fx: PORTRAIT ? ['fxv', 'fxg'] : ['fxg', 'fxv'],
   // V.5.1 (2026-10-29, l'etape D2) : TRIG 1/2 et 2/2, MOD 1/2 (LFO 1) et 2/2 (LFO 2) ; la touche rappuyee passe a l'onglet suivant
   trig: ['trig', 'trig2'],
-  // Le plugin (2026-11-12) : MOD 3/3, VAR (la variation de chaque coup)
-  mod: TYPED_TRACKS ? ['mod', 'mod2', 'mod3'] : ['mod', 'mod2'],
+  // Le plugin (2026-11-12, Mika : "MOD est vraiment trop complexe") : MOD 1/2 les deux LFO en quatre potards chacun, MOD 2/2
+  // VAR (la variation de chaque coup) ; LFO 2 n'a plus sa page a lui
+  mod: TYPED_TRACKS ? ['mod', 'mod3'] : ['mod', 'mod2'],
   tempo: ['tempo'],
   sendfx: ['fxg'],
   mixer: ['mixer', 'fxm'],
@@ -240,7 +241,7 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
   // V.5.1 : TRIG 1/2 (le coup) et 2/2 (le retrig) a la Digitakt, MOD 1/2 et 2/2 (un LFO chacun) ; un nom qui est deja un
   // rang (1/2) se dit par son titre dans les messages (actions.ts pageKeyBody)
   trig: '1/2',
-  mod: 'LFO 1',
+  mod: TYPED_TRACKS ? 'LFO' : 'LFO 1',
   tempo: 'TEMPO',
   mixer: 'LEVELS',
   trig2: '2/2',
@@ -269,12 +270,12 @@ export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
   fxvreverb: 'VOICE FX · REVERB',
   fxm: PORTRAIT ? 'MASTER' : 'MIXER MASTER',
   trig: 'TRIG 1/2',
-  mod: TYPED_TRACKS ? 'MOD 1/3' : 'MOD 1/2',
+  mod: 'MOD 1/2',
   tempo: 'TEMPO',
   mixer: 'MIXER LEVELS',
   trig2: 'TRIG 2/2',
-  mod2: TYPED_TRACKS ? 'MOD 2/3' : 'MOD 2/2',
-  mod3: 'MOD 3/3',
+  mod2: 'MOD 2/2',
+  mod3: 'MOD 2/2',
 };
 
 /**
@@ -581,10 +582,21 @@ const lfoSlots = (n: 1 | 2): readonly PageSlot[] => {
   const s = (label: string, k: string, draw: SlotDraw): PageSlot => trigSlot(label, `l${n}${k}`, draw, `L${n} ${label}`);
   return [s('SPD', 'spd', 'barc'), s('MULT', 'mul', 'notch'), s('FADE', 'fad', 'barc'), s('DEST', 'dst', 'notch'), s('WAVE', 'wav', 'wave'), s('PHAS', 'phs', 'bar'), s('MODE', 'mod', 'notch'), s('DEP', 'dep', 'barc')];
 };
-const MOD: readonly PageSlot[] = lfoSlots(1);
+/**
+ * MOD 1/2 du plugin (2026-11-12, Mika : "MOD est vraiment trop complexe") : les deux LFO, quatre potards chacun : DEST (ce
+ * qu'il fait bouger), RATE (sa vitesse en valeurs musicales, actions/lfoRate.ts), DEPTH, WAVE. MULT, FADE, PHAS et MODE
+ * gardent ce qu'ils avaient. DEST, DEPTH et WAVE se verrouillent comme avant ; RATE non.
+ */
+const lfoSimple = (n: 1 | 2): PageSlot[] => [
+  trigSlot(`L${n} DEST`, `l${n}dst`, 'notch', `L${n} DEST`),
+  live(`L${n} RATE`, `z:l${n}rate` as SlotTarget, 'notch'),
+  trigSlot(`L${n} DEPTH`, `l${n}dep`, 'barc', `L${n} DEP`),
+  trigSlot(`L${n} WAVE`, `l${n}wav`, 'wave', `L${n} WAVE`),
+];
+const MOD: readonly PageSlot[] = TYPED_TRACKS ? [...lfoSimple(1), ...lfoSimple(2)] : lfoSlots(1);
 const MOD2: readonly PageSlot[] = lfoSlots(2);
 /**
- * MOD 3/3, VAR (le plugin, 2026-11-12, Mika : "quelque chose qui fait varier le son") : chaque coup de la piste tire au sort
+ * MOD 2/2, VAR (le plugin, 2026-11-12, Mika : "quelque chose qui fait varier le son") : chaque coup de la piste tire au sort
  * un ecart (audio/trig.ts VarParam) ; A TUNE, B FREQ, C LEV, D PAN, E DEC, F START, G CHNC, H SEED. Des reglages de la piste
  * dans le pattern, comme TLEN : jamais verrouilles.
  */

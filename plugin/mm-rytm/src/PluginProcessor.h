@@ -50,6 +50,8 @@ public:
     void faceXf(float x);
     // PERFORM (2026-11-12) : le FILTER de la face, le parametre FILTER (automatisable) ; les pads tenus (cut, flags)
     void faceFilter(float v);
+    // Le SIDECHAIN de PERFORM : le parametre SIDECHAIN (automatisable)
+    void faceSide(float v);
     void facePerf(const juce::var& o);
     // Le pattern suivant et la chaine choisis sur la face : le moteur les joue a la fin du pattern
     void facePtn(const juce::var& o);
@@ -77,6 +79,7 @@ public:
         int mask;
         double xf; // le crossfader (XFADE)
         double pf; // le FILTER de PERFORM (-1 a 1)
+        double ps; // le SIDECHAIN de PERFORM (0 a 1)
         int pat;    // le pattern joue
         int patSeq; // +1 a chaque changement de pattern fait par le moteur
         int rel;    // les pas depuis le debut du pattern (LIVE REC : le pas d'une piste a sa longueur, TLEN) ; -1 a l'arret
@@ -110,6 +113,7 @@ private:
     std::atomic<float>* master_ = nullptr;
     std::atomic<float>* xfade_ = nullptr;
     std::atomic<float>* filter_ = nullptr;
+    std::atomic<float>* side_ = nullptr;
     std::atomic<float> outPk_[2] = {{0.f}, {0.f}};
     std::atomic<int> uiW_{0};
 

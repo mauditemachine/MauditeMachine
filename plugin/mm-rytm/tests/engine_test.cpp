@@ -756,6 +756,31 @@ int main() {
             if (std::getenv("MM_TEST_VERBOSE")) std::printf("   tape : debut %.3f, fin %.6f, retour %.3f\n", early, end, back);
             CHECK(early > 0.3 && end < 1e-4 && back > 0.95 && back < 1.05, "PERFORM TAPE STOP : la bande ralentit jusqu'au silence, puis le direct revient");
         }
+        // SIDECHAIN : le kick (sa voie) ne bouge pas ; les hats plongent au debut de chaque temps et remontent ensuite
+        {
+            mm::Program kick = every(0, 4);
+            kick.tracks[0].kick = true; // la voie du kick (plugin/bridge.ts : la famille bd)
+            const mm::Program hats = every(2, 1);
+            std::vector<float> k0, k1, h0, h1;
+            runPerf(kick, 8 * 6000, none, k0, &lat);
+            runPerf(kick, 8 * 6000, [](mm::Engine& e, long) { e.setSide(1.f); }, k1, nullptr);
+            runPerf(hats, 8 * 6000, none, h0, nullptr);
+            runPerf(hats, 8 * 6000, [](mm::Engine& e, long) { e.setSide(1.f); }, h1, nullptr);
+            double kd = 0;
+            for (size_t i = 0; i < k0.size(); ++i) kd = std::max(kd, std::fabs(static_cast<double>(k0[i]) - k1[i]));
+            // Par temps (24000 echantillons) : le debut (de 3 a 30 ms) et la fin (le dernier quart)
+            double early0 = 0, early1 = 0, late0 = 0, late1 = 0;
+            for (int bt = 1; bt < 2; ++bt) {
+                const long b0 = bt * 24000 + lat;
+                early0 += en(h0, b0 + 150, b0 + 1440);
+                early1 += en(h1, b0 + 150, b0 + 1440);
+                late0 += en(h0, b0 + 18000, b0 + 24000);
+                late1 += en(h1, b0 + 18000, b0 + 24000);
+            }
+            const double dip = early1 / std::max(1e-12, early0), rest = late1 / std::max(1e-12, late0);
+            if (std::getenv("MM_TEST_VERBOSE")) std::printf("   sidechain : kick %.2g, debut du temps %.3f, fin %.3f\n", kd, dip, rest);
+            CHECK(kd == 0 && dip < 0.1 && rest > 0.9, "PERFORM SIDECHAIN : le kick reste, le reste plonge a chaque temps puis remonte");
+        }
         // DELAY THROW et REVERB WASH : la caisse claire au pas 0, sans envoi ; jetee le temps du coup, son echo et sa queue
         {
             mm::Program p = baseProgram();

@@ -11,7 +11,8 @@
  * Plugin seulement (le site garde ses ecrans). Rien n'est retenu ici que les cretes des samples (un calcul par sample).
  */
 
-import { anyDial, dialRange, dialShown, trackStepNow, type DialId } from '../../actions';
+import { anyDial, dialRange, dialShown, pageLockView, trackKeySpan, trackStepNow, type DialId } from '../../actions';
+import { lockOf, slideBit, type LockId } from '../../audio/locks';
 import { SAMPLE_START_MAX, sampleLenPart } from '../../audio/sampledsp';
 import { pattern, velocity } from '../../audio/pattern';
 import { requestSample, sampleByKey, samplePcm } from '../../audio/samples';
@@ -30,6 +31,7 @@ declare module './core' {
     pluginGraph: typeof pluginGraph;
     pluginPanel: typeof pluginPanel;
     waveIn: typeof waveIn;
+    autoLanes: typeof autoLanes;
   }
 }
 
@@ -533,4 +535,89 @@ function pluginPanel(this: Screen, screen: RytmScreenId, slots: readonly PageSlo
   return took;
 }
 
-defineMethods(Screen, { pluginGraph, pluginPanel, waveIn });
+/**
+ * Les automations de la page en lecture (le plugin, 2026-11-12, Mika : "quand on a des automations ca change rapidement,
+ * comme ca flash, je voudrais que tu decides de quelque chose de plus interessant") : a la place de la liste des verrous du
+ * pas qui joue (elle changeait a chaque pas), une ligne par reglage de la page automatise sur la piste : ses 16 pas en
+ * barres (la hauteur : la valeur), les pas qui glissent relies (LIVE REC), ceux que la piste ne joue pas (TLEN) a peine,
+ * la colonne de la tete de lecture. Rien ne saute : seule la colonne avance. Dans la plus grande place libre ; null : rien a
+ * montrer (aucun reglage de la page n'a d'automation, ou pas de place).
+ */
+function autoLanes(this: Screen, slots: readonly PageSlot[], track: TrackKey): { rect: Rect; took: Set<string> } | null {
+  const row = pattern.get().locks?.[track];
+  if (!row) return null;
+  // Les reglages de la page qui ont au moins un verrou sur la piste (dans l'ordre des potards)
+  const lanes: { k: number; id: string; name: string }[] = [];
+  slots.forEach((s, k) => {
+    if (!s.lock || s.lock === 'vel' || s.lock === 'snd' || s.lock === 'mach' || s.graph) return;
+    const id = s.lock;
+    for (const l of Object.values(row)) {
+      if (typeof (l as Record<string, unknown>)[id] === 'number') {
+        lanes.push({ k, id, name: (s.lockName ?? s.label).replace(/^F\./, '') });
+        return;
+      }
+    }
+  });
+  if (lanes.length === 0) return null;
+  // La plus grande place libre : deux rangees, puis une ; au moins deux cases de large
+  const free = freeSet(slots);
+  let area: { c0: number; c1: number; r0: number; r1: number } | null = null;
+  for (const [r0, r1] of [
+    [0, 1],
+    [1, 1],
+    [0, 0],
+  ] as const) {
+    for (let w = 4; w >= 2 && !area; w -= 1) for (let c0 = 0; c0 + w <= 4 && !area; c0 += 1) if (allFree(free, c0, c0 + w - 1, r0, r1)) area = { c0, c1: c0 + w - 1, r0, r1 };
+    if (area) break;
+  }
+  if (!area) return null;
+  const took = new Set<string>();
+  for (let r = area.r0; r <= area.r1; r += 1) for (let c = area.c0; c <= area.c1; c += 1) took.add(`${c},${r}`);
+  const R = cellsRect(area.c0, area.c1, area.r0, area.r1);
+  const P = this.pal;
+  this.roundRect(R.x0, R.y0, R.x1 - R.x0, R.y1 - R.y0, MATRIX.r, null, P.faint, 0.7);
+  const top = R.y0 + 13;
+  const laneH = Math.max(11, Math.min(40, (R.y1 - top - 3) / lanes.length));
+  const shown = Math.max(1, Math.min(lanes.length, Math.floor((R.y1 - top - 3) / laneH)));
+  this.text('AUTOMATION', R.x0 + 4, R.y0 + 9, 6.2, P.half, 700, 'left', 0.7);
+  this.text(lanes.length > shown ? `${TRACK_NAMES[trackIndex(track)]} · +${lanes.length - shown}` : TRACK_NAMES[trackIndex(track)], R.x1 - 4, R.y0 + 9, 6.2, P.half, 700, 'right', 0.5);
+  const p0 = pattern.editPage() * 16;
+  const [lo, hi] = trackKeySpan(track);
+  const g = clock.running ? trackStepNow(track) : -1;
+  const head = g >= 0 ? g - p0 : -1;
+  const labW = 26;
+  const x0 = R.x0 + 4 + labW;
+  const cw = (R.x1 - 4 - x0) / 16;
+  // La colonne de la tete de lecture, sur toutes les lignes
+  if (head >= 0 && head < 16) this.roundRect(x0 + head * cw + 0.3, top - 1, cw - 0.6, laneH * shown + 1, 1, null, P.half, 0.6);
+  for (let i = 0; i < shown; i += 1) {
+    const ln = lanes[i];
+    const y1 = top + laneH * (i + 1) - 2;
+    const h = laneH - 4;
+    this.text(this.fitText(ln.name, labW - 3, 5.4, 0.5, 700), R.x0 + 4, y1 - h / 2 + 2, 5.4, P.half, 700, 'left', 0.5);
+    this.line([x0, y1 + 0.5, R.x1 - 4, y1 + 0.5], P.faint, 0.5);
+    let prevTop: [number, number] | null = null;
+    for (let s = 0; s < 16; s += 1) {
+      const lock = lockOf(pattern.get().locks, track, p0 + s);
+      const v = lock ? pageLockView(ln.k, p0 + s, lock) : null;
+      const has = !!lock && typeof (lock as Record<string, unknown>)[ln.id] === 'number' && !!v;
+      const out = s < lo || s >= hi;
+      const xc = x0 + s * cw + cw / 2;
+      if (!has || !v) {
+        prevTop = null;
+        continue;
+      }
+      const yt = y1 - Math.max(0.6, clamp01(v.course) * h);
+      const col = out ? P.faint : s === head ? P.ink : P.half;
+      this.line([xc, y1, xc, yt], col, Math.max(0.8, cw * 0.3));
+      // Un pas qui glisse vers le suivant (LIVE REC) : relie au sommet du suivant
+      const sld = typeof lock?.sld === 'number' ? lock.sld : 0;
+      if (prevTop) this.line([prevTop[0], prevTop[1], xc, yt], P.half, 0.7);
+      prevTop = sld & slideBit(ln.id as LockId) ? [xc, yt] : null;
+    }
+  }
+  this.info.panel = lanes.slice(0, shown).map((l) => `AUTO ${l.name}`);
+  return { rect: R, took };
+}
+
+defineMethods(Screen, { pluginGraph, pluginPanel, waveIn, autoLanes });

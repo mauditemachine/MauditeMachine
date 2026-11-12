@@ -13,8 +13,8 @@
  *
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
- *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}, mm_pf {v}, mm_perf {cut, flags}
- *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pf, pat, patSeq, rel}, mm_user {list}, mm_imported {track, key}
+ *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}, mm_pf {v}, mm_ps {v}, mm_perf {cut, flags}
+ *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pf, ps, pat, patSeq, rel}, mm_user {list}, mm_imported {track, key}
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
@@ -46,7 +46,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { voices } from '../state/voices';
 import { SWING } from '../theme';
 import { extHead, nextProgStep, type HeadEntry } from './head';
-import { perform, setFilterHook } from '../state/perform';
+import { perform, setFilterHook, setSideHook } from '../state/perform';
 
 /* ---------------- le programme (lu par plugin/mm-rytm/dsp/Program.cpp) ---------------- */
 
@@ -480,6 +480,8 @@ interface Transport {
   xf: number;
   /** le FILTER de PERFORM (le parametre FILTER d'Ableton) ; absent : 0 */
   pf: number;
+  /** le SIDECHAIN de PERFORM (le parametre SIDECHAIN) ; absent : 0 */
+  ps: number;
   /** le pattern que le moteur joue (0 a 127) ; patSeq : +1 a chaque changement fait par le moteur (fin de pattern, program change) */
   pat: number;
   patSeq: number;
@@ -487,9 +489,10 @@ interface Transport {
   rel: number;
 }
 
-let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pf: 0, pat: -1, patSeq: -1, rel: -1 };
-/** le FILTER envoye par la face (l'hote ne le reprend pas aussitot) */
+let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pf: 0, ps: 0, pat: -1, patSeq: -1, rel: -1 };
+/** le FILTER et le SIDECHAIN envoyes par la face (l'hote ne les reprend pas aussitot) */
 let pfSentAt = -1e9;
+let psSentAt = -1e9;
 /** le dernier changement de pattern du moteur que la face a suivi (-2 : aucun message encore) */
 let patSeqSeen = -2;
 /** x pose par l'hote (la face ne le renvoie pas) ; l'heure du dernier x envoye par la face (l'hote ne le reprend pas aussitot) */
@@ -514,6 +517,7 @@ function onTransport(o: unknown): void {
     mask: typeof x.mask === 'number' ? x.mask : 0,
     xf: typeof x.xf === 'number' ? x.xf : -1,
     pf: typeof x.pf === 'number' ? x.pf : 0,
+    ps: typeof x.ps === 'number' ? x.ps : 0,
     pat: typeof x.pat === 'number' ? x.pat : -1,
     patSeq: typeof x.patSeq === 'number' ? x.patSeq : -1,
     rel: typeof x.rel === 'number' ? x.rel : -1,
@@ -539,6 +543,7 @@ function onTransport(o: unknown): void {
   }
   // Le FILTER mene par Ableton : celui de la face le suit (jamais juste apres un geste de la face)
   if (performance.now() - pfSentAt > 400 && Math.abs(transport.pf - perform.filter()) > 1e-4) perform.hostFilter(transport.pf);
+  if (performance.now() - psSentAt > 400 && Math.abs(transport.ps - perform.side()) > 1e-4) perform.hostSide(transport.ps);
 }
 
 const headOf = (): HeadEntry | null => (transport.playing && transport.step >= 0 ? { seq: transport.seq, step: transport.step, mask: transport.mask, pat: transport.pat, rel: transport.rel } : null);
@@ -683,6 +688,10 @@ export const bridge = {
     setFilterHook((v) => {
       pfSentAt = performance.now();
       send('mm_pf', { v });
+    });
+    setSideHook((v) => {
+      psSentAt = performance.now();
+      send('mm_ps', { v });
     });
     // Les samples perso (2026-11-08) : le dossier ~/Music/MM-RYTM Samples du Mac, que le plugin lit ; + LOAD A FILE... de
     // SOUNDS ouvre son choix de fichiers (copies dans le dossier du type de la piste), le premier devient le sample de la piste

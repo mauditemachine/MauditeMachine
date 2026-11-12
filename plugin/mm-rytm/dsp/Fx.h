@@ -33,6 +33,7 @@ struct PerfState {
     bool throwReverb = false;  // tout le mix part dans la REVERB
     bool tape = false;         // le tape stop (la bande ralentit jusqu'a l'arret)
     double filter = 0;         // le filtre DJ : -1 passe-bas ferme ... 0 ouvert ... 1 passe-haut ferme
+    double side = 0;           // le SIDECHAIN : 0 a 1, le mix (sauf la voie du kick) pompe a chaque temps
 };
 
 // La tranche d'une piste (audio/voicelaw.ts VoiceFx) : TONE -1 a 1, DIST, CHORUS, envois DELAY et REVERB 0 a 1.
@@ -242,6 +243,9 @@ private:
     Perf perfFx_;
     std::array<float, kTracks> cutG_{};
     double throwD_ = 0, throwR_ = 0;
+    // Le SIDECHAIN : sa profondeur lissee, le gain de chaque echantillon du bloc
+    double sideNow_ = 0;
+    std::vector<float> duck_;
     std::vector<float> padsL_, padsR_, kickL_, kickR_, revL_, revR_, delL_, delR_, wetL_, wetR_, mL_, mR_;
 };
 

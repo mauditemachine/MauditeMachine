@@ -263,7 +263,10 @@ function paintGrid(screen: Screen, slots: readonly PageSlot[], inst: ReturnType<
   const sc = curScreen();
   // Les verrous (P-LOCK, le flash du pas qui joue) : ceux de la piste active, T9 a T16 compris (relecture de la V.6.0 ;
   // inst, la voix du motif, est nulle sur ces pistes)
-  const mode: BlockMode | null = lockStep === null ? null : screen.blockMode(track, lockStep, now);
+  const mode0: BlockMode | null = lockStep === null ? null : screen.blockMode(track, lockStep, now);
+  // Le plugin (2026-11-12) : en lecture, les blocs gardent leur valeur (les verrous du pas qui joue ne les font plus sauter) ;
+  // les automations se voient dans les anneaux des potards et dans les lignes d'AUTOMATION (pluginGfx.ts autoLanes)
+  const mode: BlockMode | null = PLUGIN && mode0 && mode0.kind === 'flash' ? null : mode0;
   const echoK = rp.echo && rp.echo.page === sc && now < rp.echo.until ? rp.echo.k : -1;
   const cells = cellsOf(slots);
   const blocks = slots.map((slot, k) => slotBlock(slot, k, inst, k === echoK || k === rp.held, mode, cells[k], k === rp.hover));
@@ -273,10 +276,12 @@ function paintGrid(screen: Screen, slots: readonly PageSlot[], inst: ReturnType<
   const ik = screen.infoKnob();
   if (ik >= 0 && blocks[ik] && blocks[ik].state !== 'empty') screen.infoMarks(blocks[ik].cell, ik);
   const panel = mode && mode.kind !== 'scene' ? screen.paintLockPanel(slots, mode.step, mode.kind === 'flash' ? mode.lock : undefined) : null;
+  // Le plugin (2026-11-12) : en lecture, sur une page (hors P-LOCK, hors scene armee), les automations de ses reglages
+  const lanes = PLUGIN && clock.running && lockStep !== null && !mode && track ? screen.autoLanes(slots, track) : null;
   // Le plugin (2026-11-09, screen/pluginGfx.ts) : hors menu et hors P-LOCK, les cases libres font un grand dessin (le sample,
   // la chaine des effets, les pas de la piste, le swing)
   const panelOf = lockStep !== null ? sc : openMenu()?.id === 'tempo' ? 'tempo' : null;
-  const took = PLUGIN && panelOf && !panel ? screen.pluginPanel(panelOf, slots, blocks) : null;
+  const took = lanes ? lanes.took : PLUGIN && panelOf && !panel ? screen.pluginPanel(panelOf, slots, blocks) : null;
   screen.paintGhosts(slots, panel, took);
   screen.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
   screen.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
@@ -288,7 +293,7 @@ function paintGrid(screen: Screen, slots: readonly PageSlot[], inst: ReturnType<
   if (echo && rp.echo && rp.echo.page === sc && now < rp.echo.until) next = Math.max(1, rp.echo.until - now + 1);
   if (screen.meterLive) next = next > 0 ? Math.min(next, METER_MS) : METER_MS;
   // La lecture qui montre les verrous du pas (le flash) : la tete de lecture redessine
-  if (mode && mode.kind === 'flash' && clock.running) next = next > 0 ? Math.min(next, 60) : 60;
+  if (((mode && mode.kind === 'flash') || lanes) && clock.running) next = next > 0 ? Math.min(next, 60) : 60;
   return next;
 }
 

@@ -107,6 +107,8 @@ public:
         perfFlags_.store(flags, std::memory_order_relaxed);
     }
     void setFilter(float v) { perfFilter_.store(v, std::memory_order_relaxed); }
+    // --- n'importe quel thread : le SIDECHAIN de PERFORM (le parametre SIDECHAIN), 0 a 1
+    void setSide(float v) { perfSide_.store(v, std::memory_order_relaxed); }
     // La latence (echantillons) : l'avance du LIMITEUR
     int latency() const { return fx_.latency(); }
 
@@ -324,6 +326,7 @@ private:
     std::atomic<uint32_t> perfCut_{0};
     std::atomic<int> perfFlags_{0};
     std::atomic<float> perfFilter_{0};
+    std::atomic<float> perfSide_{0};
     double xNow_ = 0, xFx_ = -1;
     bool xOn_ = false;
     std::array<int, kTracks> sliceSrc_{};

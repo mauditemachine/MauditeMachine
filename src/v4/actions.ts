@@ -21,6 +21,7 @@ export * from './actions/pages';
 export * from './actions/locks';
 export * from './actions/autoRing';
 export * from './actions/trackSpan';
+export * from './actions/lfoRate';
 export * from './actions/browser';
 export * from './actions/face';
 export * from './actions/live';
