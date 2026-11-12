@@ -590,6 +590,129 @@ int main() {
         CHECK(ref > 1e-4 && late > 0.05 * ref && early < 0.25 * late, "glissement : la DIST de la tranche change pendant le pas");
     }
 
+    // ---------------- PERFORM, le live (2026-11-12) : cuts, low cut, FILTER, beat repeat, tape stop, throws ----------------
+    {
+        const double pps = 120.0 / 60.0 / SR; // un pas : 6000 echantillons
+        auto runPerf = [&](const mm::Program& p, long total, const std::function<void(mm::Engine&, long)>& at, std::vector<float>& l, int* lat) {
+            mm::Engine e;
+            e.prepare(SR);
+            auto ps = makeState(p);
+            ps->reverbIR = mm::ReverbIR::make(2.4, 3000, 0.02, SR);
+            e.publish(ps);
+            if (lat) *lat = e.latency();
+            const int block = 250;
+            std::vector<float> a(block), b(block);
+            l.clear();
+            double ppq = 0;
+            for (long s = 0; s < total; s += block) {
+                if (at) at(e, s);
+                std::fill(a.begin(), a.end(), 0.f);
+                std::fill(b.begin(), b.end(), 0.f);
+                e.process({true, ppq, pps}, a.data(), b.data(), block);
+                l.insert(l.end(), a.begin(), a.end());
+                ppq += block * pps;
+            }
+        };
+        auto en = [](const std::vector<float>& x, long a, long b) {
+            double s = 0;
+            for (long i = std::max(0L, a); i < b && i < static_cast<long>(x.size()); ++i) s += static_cast<double>(x[static_cast<size_t>(i)]) * x[static_cast<size_t>(i)];
+            return s;
+        };
+        auto every = [&](int track, int stride) {
+            mm::Program p = baseProgram();
+            for (int g = 0; g < 16; g += stride) {
+                mm::ProgHit h = p.tracks[static_cast<size_t>(track)].live;
+                h.g = g;
+                p.tracks[static_cast<size_t>(track)].hits.push_back(h);
+            }
+            return p;
+        };
+        const std::function<void(mm::Engine&, long)> none;
+        int lat = 0;
+        // CUT : le CH a chaque pas ; coupe des pas 4 a 8, rendu ensuite
+        {
+            const mm::Program p = every(2, 1);
+            std::vector<float> ref, cut;
+            runPerf(p, 16 * 6000, none, ref, &lat);
+            runPerf(p, 16 * 6000, [](mm::Engine& e, long s) { e.setPerf(s >= 24000 && s < 48000 ? 1u << 2 : 0u, 0); }, cut, nullptr);
+            const double in = en(cut, 24500 + lat, 47500 + lat) / std::max(1e-12, en(ref, 24500 + lat, 47500 + lat));
+            const double back = en(cut, 54000 + lat, 90000 + lat) / std::max(1e-12, en(ref, 54000 + lat, 90000 + lat));
+            CHECK(in < 1e-4 && back > 0.95 && back < 1.05, "PERFORM CUT : la piste se tait tenue, revient relachee");
+        }
+        // LOW CUT : le kick a chaque temps perd ses basses ; FILTER : le CH au passe-bas ferme, le kick au passe-haut ferme
+        {
+            const mm::Program kick = every(0, 4), hats = every(2, 1);
+            std::vector<float> ref, low, hp, refH, lp;
+            runPerf(kick, 16 * 6000, none, ref, &lat);
+            runPerf(kick, 16 * 6000, [](mm::Engine& e, long) { e.setPerf(0, mm::Engine::PERF_LOWCUT); }, low, nullptr);
+            runPerf(kick, 16 * 6000, [](mm::Engine& e, long) { e.setFilter(1.f); }, hp, nullptr);
+            runPerf(hats, 16 * 6000, none, refH, nullptr);
+            runPerf(hats, 16 * 6000, [](mm::Engine& e, long) { e.setFilter(-1.f); }, lp, nullptr);
+            const double rLow = en(low, 12000, 96000) / en(ref, 12000, 96000);
+            const double rHp = en(hp, 12000, 96000) / en(ref, 12000, 96000);
+            const double rLp = en(lp, 12000, 96000) / en(refH, 12000, 96000);
+            if (std::getenv("MM_TEST_VERBOSE")) std::printf("   low cut %.3f, passe-haut %.4f, passe-bas %.5f\n", rLow, rHp, rLp);
+            CHECK(rLow < 0.35 && rHp < 0.05 && rLp < 0.02, "PERFORM LOW CUT et FILTER : les basses du kick partent, le passe-haut et le passe-bas ferment");
+        }
+        // BEAT REPEAT 1/8 (deux pas) tenu des 9000 : la boucle part de la grille (0) ; le deuxieme tour rejoue le premier
+        {
+            mm::Program p = baseProgram();
+            for (int k = 0; k < 4; ++k) {
+                mm::ProgHit h = p.tracks[static_cast<size_t>(k)].live;
+                h.g = k;
+                p.tracks[static_cast<size_t>(k)].hits = {h};
+            }
+            std::vector<float> ref, rep;
+            runPerf(p, 6 * 6000, none, ref, &lat);
+            runPerf(p, 6 * 6000, [](mm::Engine& e, long s) { e.setPerf(0, s >= 9000 ? 2 : 0); }, rep, nullptr);
+            auto corr = [](const std::vector<float>& a, long ia, const std::vector<float>& b, long ib, long n) {
+                double ab = 0, aa = 0, bb = 0;
+                for (long k = 0; k < n; ++k) {
+                    const double x = a[static_cast<size_t>(ia + k)], y = b[static_cast<size_t>(ib + k)];
+                    ab += x * y;
+                    aa += x * x;
+                    bb += y * y;
+                }
+                return aa > 0 && bb > 0 ? ab / std::sqrt(aa * bb) : 0.0;
+            };
+            bool firstLive = true;
+            for (long i = 0; i < 9000 + lat; ++i) firstLive = firstLive && rep[static_cast<size_t>(i)] == ref[static_cast<size_t>(i)];
+            const double loop = corr(rep, 12000 + lat + 300, ref, lat + 300, 11400);
+            const double loop2 = corr(rep, 24000 + lat + 300, ref, lat + 300, 11400);
+            const double notLive = corr(ref, 12000 + lat + 300, ref, lat + 300, 11400);
+            if (std::getenv("MM_TEST_VERBOSE")) std::printf("   repeat : %.4f %.4f (le direct %.3f), premier tour %d\n", loop, loop2, notLive, firstLive ? 1 : 0);
+            CHECK(firstLive && loop > 0.98 && loop2 > 0.98 && notLive < 0.9, "PERFORM REPEAT 1/8 : sur la grille, le premier tour en direct, puis la boucle");
+        }
+        // TAPE STOP : la bande ralentit puis se tait (0.7 s) ; relachee, le direct revient
+        {
+            const mm::Program p = every(2, 1);
+            std::vector<float> ref, tape;
+            runPerf(p, 16 * 6000, none, ref, &lat);
+            runPerf(p, 16 * 6000, [](mm::Engine& e, long s) { e.setPerf(0, s >= 24000 && s < 72000 ? mm::Engine::PERF_TAPE : 0); }, tape, nullptr);
+            const double early = en(tape, 24000 + lat + 500, 24000 + lat + 4500) / en(ref, 24000 + lat + 500, 24000 + lat + 4500);
+            const double end = en(tape, 24000 + lat + 36000, 72000 + lat) / en(ref, 24000 + lat + 36000, 72000 + lat);
+            const double back = en(tape, 76000 + lat, 95000) / en(ref, 76000 + lat, 95000);
+            if (std::getenv("MM_TEST_VERBOSE")) std::printf("   tape : debut %.3f, fin %.6f, retour %.3f\n", early, end, back);
+            CHECK(early > 0.3 && end < 1e-4 && back > 0.95 && back < 1.05, "PERFORM TAPE STOP : la bande ralentit jusqu'au silence, puis le direct revient");
+        }
+        // DELAY THROW et REVERB WASH : la caisse claire au pas 0, sans envoi ; jetee le temps du coup, son echo et sa queue
+        {
+            mm::Program p = baseProgram();
+            mm::ProgHit h = p.tracks[1].live;
+            h.g = 0;
+            p.tracks[1].hits = {h};
+            std::vector<float> ref, thd, thr;
+            runPerf(p, 6 * 6000, none, ref, &lat);
+            runPerf(p, 6 * 6000, [](mm::Engine& e, long s) { e.setPerf(0, s < 6000 ? mm::Engine::PERF_THROW_D : 0); }, thd, nullptr);
+            runPerf(p, 6 * 6000, [](mm::Engine& e, long s) { e.setPerf(0, s < 6000 ? mm::Engine::PERF_THROW_R : 0); }, thr, nullptr);
+            const long echo = static_cast<long>(mm::FxLaws::delaySeconds(0.4, 120) * SR);
+            const double d = en(thd, echo + lat, echo + lat + 6000), dRef = en(ref, echo + lat, echo + lat + 6000);
+            const double rv = en(thr, 12000 + lat, 30000 + lat), rvRef = en(ref, 12000 + lat, 30000 + lat);
+            if (std::getenv("MM_TEST_VERBOSE")) std::printf("   echo %.3g / %.3g, queue %.3g / %.3g\n", d, dRef, rv, rvRef);
+            CHECK(d > 1e-4 && d > 50 * dRef && rv > 1e-4 && rv > 50 * rvRef, "PERFORM DELAY THROW et REVERB WASH : l'echo et la queue d'un coup jete");
+        }
+    }
+
     // ---------------- phase 3 : FLTR ----------------
     {
         auto energyOf = [&](int track, int ft, double hz, double oct) {

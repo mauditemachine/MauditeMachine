@@ -19,7 +19,8 @@ import type { PageSlot, SlotTarget } from '../../../rytm/pages';
 import { registerDialSpec, registerScreenMenu, type ScreenMenu } from './registry';
 import { IN_PLUGIN } from '../../../pluginMode';
 import { acting } from './frame';
-import { menuChanged, screenTrack } from './open';
+import { menuChanged, openMenuId, screenTrack } from './open';
+import { perform } from '../../../state/perform';
 
 export const MIXER_PAGES = ['INTERNAL 1-8', 'INTERNAL 9-16', 'SCENES'] as const;
 let page = 0;
@@ -45,10 +46,13 @@ const PAGE_SLOTS: readonly (readonly PageSlot[])[] = [
 
 /**
  * PERFORM dans le plugin (2026-11-11, Mika : "a quoi sert le bouton PERFORM ? mets par defaut PERFORM, pour pouvoir faire des
- * choses en live") : une seule page, ce qu'on tourne en jouant : les six effets de toute la machine (ceux de la page FX
- * globale), MASTER et le crossfader. Une scene armee (SCENE A ou B, ou LEFT / RIGHT ici) les garde : le crossfader les mene.
+ * choses en live") ; le 2026-11-12 (Mika : "j'aimerais qu'il serve vraiment pour le live... au moins un bouton mixer") :
+ * trois sous-pages (UP / DOWN) : LIVE FX (le FILTER DJ, les effets de toute la machine, MASTER), MIXER 1-8 et MIXER 9-16 ; et
+ * sur toutes, les 16 touches de pas sont des pads tenus (state/perform.ts : CUT, REPEAT, LOW CUT, DELAY, REVERB, TAPE). Une
+ * scene armee (SCENE A ou B, ou LEFT / RIGHT ici) garde les effets : le crossfader les mene. LEVEL/DATA : le crossfader.
  */
 const PERFORM_SLOTS: readonly PageSlot[] = [
+  { label: 'FILTER', target: 'z:pfilt' as SlotTarget, scope: 'all', draw: 'barc' },
   { label: 'DIST', target: 'dist', scope: 'all', draw: 'bar' },
   { label: 'BIT', target: 'bits', scope: 'all', draw: 'bar' },
   { label: 'CHORUS', target: 'chorus', scope: 'all', draw: 'bar', noBd: true },
@@ -56,9 +60,30 @@ const PERFORM_SLOTS: readonly PageSlot[] = [
   { label: 'REVERB', target: 'reverb', scope: 'all', draw: 'bar', noBd: true },
   { label: 'COMP', target: 'comp', scope: 'all', draw: 'bar' },
   { label: 'MASTER', target: 'level', scope: 'all', draw: 'level' },
-  { label: 'XFADE', target: 'z:xf', scope: 'all', draw: 'barc' },
 ];
 const LIVE_PERFORM = (id: string): boolean => IN_PLUGIN && id === 'perform';
+/** Les sous-pages de PERFORM (le plugin) et celle affichee. */
+export const PERFORM_PAGES = ['LIVE FX', 'MIXER 1-8', 'MIXER 9-16'] as const;
+let perfPage = 0;
+const perfSlots = (): readonly PageSlot[] => (perfPage === 0 ? PERFORM_SLOTS : PAGE_SLOTS[perfPage === 1 ? 0 : 1]);
+export const performPageNow = (): number => perfPage;
+
+/** Le FILTER (un filtre DJ sur tout le mix, le parametre FILTER) : ce qu'il ecrit, en Hz. */
+const filterHz = (v: number): number => (v < 0 ? 20000 * Math.pow(80 / 20000, -v) : 20 * Math.pow(8000 / 20, v));
+const hzText = (f: number): string => (f >= 1000 ? `${(f / 1000).toFixed(f >= 10000 ? 0 : 1)}K` : String(Math.round(f)));
+registerDialSpec('z:pfilt', {
+  value: () => perform.filter(),
+  set: (v) => perform.setFilter(v),
+  range: () => [-1, 1],
+  steps: () => 0,
+  text: (v) => (Math.abs(v) < 0.02 ? 'OFF' : `${v < 0 ? 'LP' : 'HP'} ${hzText(filterHz(v))}`),
+  unit: (v) => (Math.abs(v) < 0.02 ? 'OPEN' : v < 0 ? 'LOW PASS' : 'HIGH PASS'),
+  reset: () => 0,
+});
+// Le FILTER mene par Ableton : les potards et l'ecran de PERFORM le suivent
+perform.subscribe(() => {
+  if (openMenuId() === 'perform') menuChanged();
+});
 
 /** Une scene armee ou desarmee par une tape (le potard presse, YES) : comme SCENE A ou B tapee aujourd'hui. */
 function tapScene(w: SceneId): void {
@@ -130,13 +155,19 @@ function menu(id: 'mixer' | 'scenes' | 'perform'): ScreenMenu {
   return {
     id,
     owner: 'B5',
-    title: () => (LIVE_PERFORM(id) ? 'PERFORM · LIVE FX' : id === 'perform' ? 'PERFORM · SCENES A / B' : `MIXER  ${MIXER_PAGES[page]}`),
-    slots: () => (LIVE_PERFORM(id) ? PERFORM_SLOTS : PAGE_SLOTS[page]),
-    pages: () => (LIVE_PERFORM(id) ? { n: 1, cur: 0 } : { n: MIXER_PAGES.length, cur: page }),
+    title: () => (LIVE_PERFORM(id) ? `PERFORM · ${PERFORM_PAGES[perfPage]}` : id === 'perform' ? 'PERFORM · SCENES A / B' : `MIXER  ${MIXER_PAGES[page]}`),
+    slots: () => (LIVE_PERFORM(id) ? perfSlots() : PAGE_SLOTS[page]),
+    pages: () => (LIVE_PERFORM(id) ? { n: PERFORM_PAGES.length, cur: perfPage } : { n: MIXER_PAGES.length, cur: page }),
     paint: () => 0,
     onOpen() {
       if (id === 'scenes' || id === 'perform') page = 2;
       else if (page === 2) page = 0;
+      // Le plugin : les touches de pas deviennent les pads de PERFORM ; l'ecran le dit
+      if (LIVE_PERFORM(id)) lcdMessage.show('TRIGS = PADS: HOLD THEM', 1800);
+    },
+    onClose() {
+      // PERFORM se ferme : aucun pad ne reste tenu ni garde
+      if (LIVE_PERFORM(id)) perform.releaseAll();
     },
     knobPress(k) {
       if (LIVE_PERFORM(id)) return false;
@@ -147,9 +178,13 @@ function menu(id: 'mixer' | 'scenes' | 'perform'): ScreenMenu {
     info: () => `${page + 1}/${MIXER_PAGES.length} ${MIXER_PAGES[page]}|A ${armed('a') ? 'ARMED' : 'off'} ${keysOf('a')}|B ${armed('b') ? 'ARMED' : 'off'} ${keysOf('b')}|X ${sceneCtl.x().toFixed(2)}`,
     onInput(i) {
       if (!acting(i)) return true;
-      // PERFORM du plugin : une page ; LEVEL/DATA le crossfader, LEFT / RIGHT arment SCENE A / B
+      // PERFORM du plugin : UP / DOWN les sous-pages ; LEVEL/DATA le crossfader, LEFT / RIGHT arment SCENE A / B
       if (LIVE_PERFORM(id)) {
-        if (i.kind === 'data') xfadeSet(Math.max(0, Math.min(1, sceneCtl.x() + ((i.delta ?? 0) * (i.func ? 8 : 1)) / 127)), 'ui');
+        if (i.kind === 'up' || i.kind === 'down') {
+          perfPage = (perfPage + (i.kind === 'up' ? -1 : 1) + PERFORM_PAGES.length) % PERFORM_PAGES.length;
+          lcdMessage.show(`PERFORM ${perfPage + 1}/${PERFORM_PAGES.length}  ${PERFORM_PAGES[perfPage]}`, 1200);
+          menuChanged();
+        } else if (i.kind === 'data') xfadeSet(Math.max(0, Math.min(1, sceneCtl.x() + ((i.delta ?? 0) * (i.func ? 8 : 1)) / 127)), 'ui');
         else if (i.kind === 'left' || i.kind === 'right') tapScene(i.kind === 'left' ? 'a' : 'b');
         else return i.kind !== 'no';
         return true;

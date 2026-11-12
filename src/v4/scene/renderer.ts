@@ -155,7 +155,8 @@ import { KeyLabelAtlas } from './keyLabels';
 import { RytmPageKeys } from './rytmPageKeys';
 import { RytmFaceKeys } from './rytmFaceKeys';
 import { SideKnobs } from './sideKnobs';
-import { autoRingPlan, dialEdit, dialRange, knobBlock, trackKeySpan, trackStepNow, type AutoRing, type DialId } from '../actions';
+import { autoRingPlan, dialEdit, dialRange, knobBlock, performPads, trackKeySpan, trackStepNow, type AutoRing, type DialId } from '../actions';
+import { PERF_PADS, perform, type PerfKind } from '../state/perform';
 import { faceKnobs, type FaceKnobChange, type KnobTone } from '../rytm/faceKnobs';
 import { faceTouch } from '../state/ctl';
 import { activeTrack, trk } from '../state/trk';
@@ -414,6 +415,25 @@ function wedgeOccluder(): { planes: number[]; corners: number[] } {
     for (const z of [-hz, hz]) corners.push(x, 0, z, x, chassisTopY(z), z);
   }
   return { planes, corners };
+}
+
+/**
+ * Les pads de PERFORM sur les 16 pas (le plugin, 2026-11-12, state/perform.ts) : chaque pad luit faiblement dans la teinte de
+ * sa famille (CUT violet, REPEAT blanc, LOW CUT orange, DELAY et REVERB bleus, TAPE jaune), plein quand il est tenu ou garde.
+ */
+const PERF_TONE: Readonly<Record<PerfKind, { tone: TrkLed['tone']; hex: keyof typeof DT_HEX }>> = {
+  cut: { tone: 'dmagenta', hex: 'magenta' },
+  repeat: { tone: 'dwhite', hex: 'white' },
+  lowcut: { tone: 'dorange', hex: 'orange' },
+  throwD: { tone: 'dblue', hex: 'blue' },
+  throwR: { tone: 'dblue', hex: 'blue' },
+  tape: { tone: 'dyellow', hex: 'yellow' },
+};
+function perfLeds(): TrkLed[] {
+  return PERF_PADS.map((p, i) => {
+    const t = PERF_TONE[p.kind];
+    return { color: DT_HEX[t.hex], level: perform.isOn(i) ? 1 : 0.09, bar: null, inst: null, tone: t.tone };
+  });
 }
 
 export class Stage {
@@ -1208,7 +1228,7 @@ export class Stage {
     // TRK (2026-10-27, la phase 2) : sa touche allumee tant qu'elle est engagee, les pas 1 a 8 allumes (une seule couleur, V.4.2)
     if (this.faceKeys) {
       // V.5.0 (2026-10-29, la face facon Digitakt) : FUNC, REC et le mode MUTE (FUNC + TRK) suivent leurs stores
-      const offTrk = [trk.subscribe(this.syncTrk), func.subscribe(this.syncFunc), dtFace.subscribe(this.syncDt), pattern.subscribe(this.syncTrk), ...(DT2_FACE ? [activeTrack.subscribe(this.syncPattern)] : []), ...(PLUGIN ? [muteHold.subscribe(this.syncTrk)] : [])];
+      const offTrk = [trk.subscribe(this.syncTrk), func.subscribe(this.syncFunc), dtFace.subscribe(this.syncDt), pattern.subscribe(this.syncTrk), ...(DT2_FACE ? [activeTrack.subscribe(this.syncPattern)] : []), ...(PLUGIN ? [muteHold.subscribe(this.syncTrk), perform.subscribe(this.syncTrk)] : [])];
       this.unsubTrk = () => offTrk.forEach((o) => o());
       this.syncTrk();
       this.syncFunc();
@@ -3521,12 +3541,16 @@ export class Stage {
     const sv = dtFace.solo();
     if (fk.setMuteMode(mv !== 'off')) changed = true;
     if (fk.setSoloMode(sv || voices.soloAll().length > 0)) changed = true;
-    if (m !== 'off' || mv !== 'off' || sv || this.trkShown) {
+    // PERFORM (le plugin, 2026-11-12) : les 16 pas sont des pads ; leurs legendes disent leur fonction
+    const perf = PLUGIN && performPads();
+    if (this.seq.setPerformLabels(perf)) changed = true;
+    if (m !== 'off' || mv !== 'off' || sv || this.trkShown || perf) {
       const v = voices.get();
       const pm = pattern.get().pmutes;
       let view: TrkLed[] | null = null;
+      if (perf) view = perfLeds();
       // La face DT2 (V.6.0, lane B4) : les 16 pistes sur les 16 TRIG, la piste active (1 a 16)
-      if (sv) view = DT2_FACE ? soloLeds(voices.soloAll(), DT_HEX, true) : soloLeds(v.solo, DT_HEX);
+      else if (sv) view = DT2_FACE ? soloLeds(voices.soloAll(), DT_HEX, true) : soloLeds(v.solo, DT_HEX);
       else if (mv !== 'off') {
         view = DT2_FACE ? muteLeds(mv, voices.mutedAll(), pm, voices.soloAll(), DT_HEX, true) : muteLeds(mv, v.muted, pm, v.solo, DT_HEX);
         // Le plugin (2026-11-11) : une piste tenue par Maj (state/muteHold.ts) a son pas en violet, plein
@@ -3666,7 +3690,8 @@ export class Stage {
         for (let k = 0; k < INSTRUMENTS.length; k += 1) {
           if (x.mask & (1 << k)) this.pads?.flash(INSTRUMENTS[k], PAD_FX.seqFlashMs, now);
         }
-        if (this.trkShown) this.trkHits(x.mask, x.step, this.flashClock());
+        // PERFORM : les pas sont des pads, aucun eclair de piste n'y passe
+        if (this.trkShown && !performPads()) this.trkHits(x.mask, x.step, this.flashClock());
       }
       return 'paint';
     }

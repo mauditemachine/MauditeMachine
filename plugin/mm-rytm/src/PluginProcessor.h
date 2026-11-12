@@ -48,6 +48,9 @@ public:
     void faceFill(bool on) { engine_.setFill(on); }
     // Le crossfader de la face : le parametre XFADE (Ableton l'enregistre en automation)
     void faceXf(float x);
+    // PERFORM (2026-11-12) : le FILTER de la face, le parametre FILTER (automatisable) ; les pads tenus (cut, flags)
+    void faceFilter(float v);
+    void facePerf(const juce::var& o);
     // Le pattern suivant et la chaine choisis sur la face : le moteur les joue a la fin du pattern
     void facePtn(const juce::var& o);
     // L'etat a rendre a la face a son ouverture (les cles mm.v4.* du site), "" sans etat.
@@ -73,6 +76,7 @@ public:
         int seq;
         int mask;
         double xf; // le crossfader (XFADE)
+        double pf; // le FILTER de PERFORM (-1 a 1)
         int pat;    // le pattern joue
         int patSeq; // +1 a chaque changement de pattern fait par le moteur
         int rel;    // les pas depuis le debut du pattern (LIVE REC : le pas d'une piste a sa longueur, TLEN) ; -1 a l'arret
@@ -105,6 +109,7 @@ private:
     double internalPpq_ = 0;
     std::atomic<float>* master_ = nullptr;
     std::atomic<float>* xfade_ = nullptr;
+    std::atomic<float>* filter_ = nullptr;
     std::atomic<float> outPk_[2] = {{0.f}, {0.f}};
     std::atomic<int> uiW_{0};
 

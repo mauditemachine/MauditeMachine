@@ -402,6 +402,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMRytmProcessor::makeLayout(
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"master", 1}, "Master", juce::NormalisableRange<float>(-60, 6, 0.1f, 2.5f), 0.f));
     // Le crossfader des scenes (2026-11-08, Octatrack) : A a 0, B a 1 ; automatisable, mappable a un controleur dans Ableton
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"xfade", 1}, "Crossfader", juce::NormalisableRange<float>(0, 1), 0.f));
+    // Le FILTER de PERFORM (2026-11-12) : un filtre DJ sur tout le mix, -1 passe-bas ... 0 ouvert ... 1 passe-haut ; mappable
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"filter", 1}, "Filter", juce::NormalisableRange<float>(-1, 1), 0.f));
     return layout;
 }
 
@@ -409,6 +411,7 @@ MMRytmProcessor::MMRytmProcessor()
     : AudioProcessor(BusesProperties().withOutput("Main", juce::AudioChannelSet::stereo(), true)), apvts(*this, nullptr, "MMRYTM", makeLayout()) {
     master_ = apvts.getRawParameterValue("master");
     xfade_ = apvts.getRawParameterValue("xfade");
+    filter_ = apvts.getRawParameterValue("filter");
     renderer_ = std::make_unique<Renderer>(*this);
     renderer_->startThread(juce::Thread::Priority::normal);
 }
@@ -522,14 +525,28 @@ void MMRytmProcessor::faceXf(float x) {
     }
 }
 
+void MMRytmProcessor::faceFilter(float v) {
+    if (auto* prm = apvts.getParameter("filter")) {
+        prm->beginChangeGesture();
+        prm->setValueNotifyingHost(prm->convertTo0to1(juce::jlimit(-1.f, 1.f, v)));
+        prm->endChangeGesture();
+    }
+}
+
+void MMRytmProcessor::facePerf(const juce::var& o) {
+    const auto cut = static_cast<uint32_t>(static_cast<int>(num(o, "cut", 0))) & 0xFFFFu;
+    engine_.setPerf(cut, static_cast<int>(num(o, "flags", 0)) & 127);
+}
+
 MMRytmProcessor::Feedback MMRytmProcessor::feedback() const {
-    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load()), engine_.fbPat.load(), engine_.fbPatSeq.load(), engine_.fbRel.load()};
+    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load()), static_cast<double>(filter_->load()), engine_.fbPat.load(), engine_.fbPatSeq.load(), engine_.fbRel.load()};
 }
 
 void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
     juce::ValueTree state("MMRYTM2");
     state.setProperty("master", master_->load(), nullptr);
     state.setProperty("xfade", xfade_->load(), nullptr);
+    state.setProperty("filter", filter_->load(), nullptr);
     if (uiW_.load() > 0) state.setProperty("uiW", uiW_.load(), nullptr);
     {
         std::lock_guard<std::mutex> lk(mx_);
@@ -547,6 +564,8 @@ void MMRytmProcessor::setStateInformation(const void* data, int sizeInBytes) {
         prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
     if (auto* prm = apvts.getParameter("xfade"))
         prm->setValueNotifyingHost(juce::jlimit(0.f, 1.f, static_cast<float>(static_cast<double>(state.getProperty("xfade", 0.0)))));
+    if (auto* prm = apvts.getParameter("filter"))
+        prm->setValueNotifyingHost(prm->convertTo0to1(juce::jlimit(-1.f, 1.f, static_cast<float>(static_cast<double>(state.getProperty("filter", 0.0))))));
     uiW_.store(static_cast<int>(state.getProperty("uiW", 0)));
     {
         std::lock_guard<std::mutex> lk(mx_);
@@ -620,6 +639,7 @@ void MMRytmProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     if (internal) internalPpq_ += n * tr.ppqPerSample;
 
     engine_.setX(xfade_->load());
+    engine_.setFilter(filter_->load());
     engine_.process(tr, buffer.getWritePointer(0), buffer.getWritePointer(1), n, notes.data(), nn);
     buffer.applyGain(dbToGain(master_->load()));
     // Les VU-metres : la crete de la sortie (apres MAIN VOLUME)

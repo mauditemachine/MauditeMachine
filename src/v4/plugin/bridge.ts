@@ -13,8 +13,8 @@
  *
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
- *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}
- *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pat, patSeq, rel}, mm_user {list}, mm_imported {track, key}
+ *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}, mm_pf {v}, mm_perf {cut, flags}
+ *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pf, pat, patSeq, rel}, mm_user {list}, mm_imported {track, key}
  */
 
 import { clock, type ExternalTransport } from '../audio/clock';
@@ -46,6 +46,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { voices } from '../state/voices';
 import { SWING } from '../theme';
 import { extHead, nextProgStep, type HeadEntry } from './head';
+import { perform, setFilterHook } from '../state/perform';
 
 /* ---------------- le programme (lu par plugin/mm-rytm/dsp/Program.cpp) ---------------- */
 
@@ -459,6 +460,8 @@ interface Transport {
   mask: number;
   /** le crossfader du plugin (le parametre XFADE d'Ableton) ; -1 : absent */
   xf: number;
+  /** le FILTER de PERFORM (le parametre FILTER d'Ableton) ; absent : 0 */
+  pf: number;
   /** le pattern que le moteur joue (0 a 127) ; patSeq : +1 a chaque changement fait par le moteur (fin de pattern, program change) */
   pat: number;
   patSeq: number;
@@ -466,7 +469,9 @@ interface Transport {
   rel: number;
 }
 
-let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pat: -1, patSeq: -1, rel: -1 };
+let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pf: 0, pat: -1, patSeq: -1, rel: -1 };
+/** le FILTER envoye par la face (l'hote ne le reprend pas aussitot) */
+let pfSentAt = -1e9;
 /** le dernier changement de pattern du moteur que la face a suivi (-2 : aucun message encore) */
 let patSeqSeen = -2;
 /** x pose par l'hote (la face ne le renvoie pas) ; l'heure du dernier x envoye par la face (l'hote ne le reprend pas aussitot) */
@@ -490,6 +495,7 @@ function onTransport(o: unknown): void {
     seq: typeof x.seq === 'number' ? x.seq : -1,
     mask: typeof x.mask === 'number' ? x.mask : 0,
     xf: typeof x.xf === 'number' ? x.xf : -1,
+    pf: typeof x.pf === 'number' ? x.pf : 0,
     pat: typeof x.pat === 'number' ? x.pat : -1,
     patSeq: typeof x.patSeq === 'number' ? x.patSeq : -1,
     rel: typeof x.rel === 'number' ? x.rel : -1,
@@ -513,6 +519,8 @@ function onTransport(o: unknown): void {
       xfFromHost = false;
     }
   }
+  // Le FILTER mene par Ableton : celui de la face le suit (jamais juste apres un geste de la face)
+  if (performance.now() - pfSentAt > 400 && Math.abs(transport.pf - perform.filter()) > 1e-4) perform.hostFilter(transport.pf);
 }
 
 const headOf = (): HeadEntry | null => (transport.playing && transport.step >= 0 ? { seq: transport.seq, step: transport.step, mask: transport.mask, pat: transport.pat, rel: transport.rel } : null);
@@ -645,6 +653,19 @@ export const bridge = {
     mix.subscribe(changed);
     // FILL (tenir PAGE ou YES) : les trigs a condition FILL jouent tant qu'il est tenu
     fill.subscribe(() => send('mm_fill', { on: fill.on }));
+    // PERFORM (2026-11-12) : les pads tenus partent au moteur a chaque changement ; le FILTER au parametre FILTER
+    let perfLast = '';
+    perform.subscribe(() => {
+      const st = perform.state();
+      const j = `${st.cut}|${st.flags}`;
+      if (j === perfLast) return;
+      perfLast = j;
+      send('mm_perf', st);
+    });
+    setFilterHook((v) => {
+      pfSentAt = performance.now();
+      send('mm_pf', { v });
+    });
     // Les samples perso (2026-11-08) : le dossier ~/Music/MM-RYTM Samples du Mac, que le plugin lit ; + LOAD A FILE... de
     // SOUNDS ouvre son choix de fichiers (copies dans le dossier du type de la piste), le premier devient le sample de la piste
     fileImport.plugin = (t) => {

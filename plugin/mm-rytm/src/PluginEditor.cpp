@@ -83,6 +83,9 @@ juce::WebBrowserComponent::Options MMRytmEditor::options() {
                  .withEventListener("mm_fill", [this](juce::var o) { proc_.faceFill(static_cast<bool>(o.getProperty("on", false))); })
                  .withEventListener("mm_xf", [this](juce::var o) { proc_.faceXf(static_cast<float>(static_cast<double>(o.getProperty("x", 0.0)))); })
                  .withEventListener("mm_ptn", [this](juce::var o) { proc_.facePtn(o); })
+                 // PERFORM (2026-11-12) : le FILTER de la face, les pads tenus
+                 .withEventListener("mm_pf", [this](juce::var o) { proc_.faceFilter(static_cast<float>(static_cast<double>(o.getProperty("v", 0.0)))); })
+                 .withEventListener("mm_perf", [this](juce::var o) { proc_.facePerf(o); })
                  // + LOAD A FILE... de SOUNDS : le choix de fichiers du Mac, copies dans le dossier du type de la piste
                  .withEventListener("mm_import", [this](juce::var o) { importFiles(static_cast<int>(o.getProperty("family", -1)), static_cast<int>(o.getProperty("track", -1))); })
                  // SAMPLES et OPEN (2026-11-09) : le dossier des samples perso dans le Finder (cree s'il manque), sa relecture
@@ -314,8 +317,9 @@ void MMRytmEditor::timerCallback() {
     const auto fb = proc_.feedback();
     ++quietTicks_;
     // Le crossfader mene par Ableton (automation, controleur) : la face le suit aussi a l'arret
-    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && std::abs(fb.xf - lastXf_) < 1e-4 && fb.patSeq == lastPatSeq_ && quietTicks_ < 30) return;
+    if (fb.seq == lastSeq_ && fb.playing == lastPlaying_ && fb.internal == lastInternal_ && std::abs(fb.xf - lastXf_) < 1e-4 && std::abs(fb.pf - lastPf_) < 1e-4 && fb.patSeq == lastPatSeq_ && quietTicks_ < 30) return;
     lastXf_ = fb.xf;
+    lastPf_ = fb.pf;
     lastPatSeq_ = fb.patSeq;
     lastSeq_ = fb.seq;
     lastPlaying_ = fb.playing;
@@ -328,6 +332,7 @@ void MMRytmEditor::timerCallback() {
     o->setProperty("seq", fb.seq);
     o->setProperty("mask", fb.mask);
     o->setProperty("xf", fb.xf);
+    o->setProperty("pf", fb.pf);
     o->setProperty("pat", fb.pat);
     o->setProperty("patSeq", fb.patSeq);
     o->setProperty("rel", fb.playing ? fb.rel : -1);

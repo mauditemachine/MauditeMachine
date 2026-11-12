@@ -23,6 +23,18 @@ struct GlobalFx {
     double level = 0.8; // LEVEL (gain au carre)
 };
 
+// PERFORM (2026-11-12, Mika : "le bouton PERFORM, j'aimerais qu'il serve vraiment pour le live, des cuts...") : ce que les
+// pads de performance et le FILTER demandent au master, a chaque bloc. Des gestes tenus : relaches, tout revient.
+struct PerfState {
+    uint32_t cut = 0;          // les pistes coupees (bit t), en 4 ms
+    int repeat = 0;            // le beat repeat : 0 aucun ; 1 a 4 : 1/4, 1/8, 1/16, 1/32 de mesure... de noire (voir REPEAT_PPQ)
+    bool lowCut = false;       // les basses tuees (sous ~200 Hz)
+    bool throwDelay = false;   // tout le mix part dans le DELAY
+    bool throwReverb = false;  // tout le mix part dans la REVERB
+    bool tape = false;         // le tape stop (la bande ralentit jusqu'a l'arret)
+    double filter = 0;         // le filtre DJ : -1 passe-bas ferme ... 0 ouvert ... 1 passe-haut ferme
+};
+
 // La tranche d'une piste (audio/voicelaw.ts VoiceFx) : TONE -1 a 1, DIST, CHORUS, envois DELAY et REVERB 0 a 1.
 struct SliceFx {
     double tone = 0, dist = 0, chorus = 0, delay = 0, reverb = 0;
@@ -68,6 +80,9 @@ public:
     // Les reglages (thread audio, au debut du bloc)
     void setGlobal(const GlobalFx& g, double bpm);
     void setSlice(int track, const SliceFx& s, bool kickLane);
+    // PERFORM (thread audio, au debut du bloc) : ce que les pads tiennent ; ppq et ppqPerSample : la grille du beat repeat
+    // (playing faux : pas de grille, le repeat attend)
+    void setPerf(const PerfState& p, double ppq, double ppqPerSample, bool playing);
 
     // Les tranches : la sortie des voix de chaque piste (kTracks x 2 x n), puis le master dans outL/outR (ajoute).
     float* trackL(int t) { return tl_[static_cast<size_t>(t)].data(); }
@@ -92,6 +107,9 @@ private:
         double z1[2] = {0, 0}, z2[2] = {0, 0};
         void lowpass(double f, double sr);
         void highpass(double f, double sr);
+        // Avec une resonance (le filtre DJ de PERFORM)
+        void lowpassQ(double f, double q, double sr);
+        void highpassQ(double f, double q, double sr);
         float run(int c, float x) {
             const double y = b0 * x + z1[c];
             z1[c] = b1 * x - a1 * y + z2[c];
@@ -156,6 +174,33 @@ private:
         double hx1[2] = {0, 0}, hx2[2] = {0, 0}, hy1[2] = {0, 0}, hy2[2] = {0, 0};
         void process(float* L, float* R, int n, const GlobalFx& g, double sr);
     };
+    // Le master de PERFORM : beat repeat et tape stop (un tampon de 4 s du mix), low cut, filtre DJ
+    struct Perf {
+        std::vector<float> rl, rr; // le tampon circulaire du mix
+        int w = 0;                 // la tete d'ecriture
+        // Le beat repeat : la boucle [start, start + len) ; k les echantillons depuis son debut ; mix vers la boucle (0 a 1)
+        int rDiv = 0;
+        long rStart = 0;
+        double rLen = 0, rK = 0;
+        double rMix = 0;
+        // La boucle d'avant (un autre repeat pendant qu'on tient) : elle s'efface pendant que la nouvelle entre
+        long oStart = 0;
+        double oLen = 0, oK = 0, oMix = 0;
+        // Le tape stop : la lecture (double), sa vitesse ; tMix vers la bande (0 a 1)
+        bool tOn = false;
+        double tPos = 0, tRate = 1, tMix = 0;
+        // Le low cut : deux passe-haut (24 dB) ; gLow la part du direct gardee (1 : rien ne change)
+        Bq lo1, lo2;
+        double gLow = 1;
+        // Le filtre DJ : la valeur lissee, son cote (-1, 0, 1), le biquad (2 etages)
+        double fNow = 0;
+        int fSide = 0;
+        double fWet = 0;
+        Bq f1, f2;
+        int fTick = 0;
+        void prepare(double sr);
+        void process(float* L, float* R, int n, const PerfState& p, double ppq, double pps, bool playing, double sr);
+    };
     struct Limiter {
         int Lw = 2;
         double rel = 0;
@@ -190,6 +235,13 @@ private:
     const ReverbIR* nextIR_ = nullptr;
     Glue glue_;
     Limiter limiter_;
+    // PERFORM : l'etat du bloc, la grille, le master ; les coupes de chaque piste (gain lisse) et les envois jetes (lisses)
+    PerfState perf_;
+    double perfPpq_ = 0, perfPps_ = 0;
+    bool perfPlaying_ = false;
+    Perf perfFx_;
+    std::array<float, kTracks> cutG_{};
+    double throwD_ = 0, throwR_ = 0;
     std::vector<float> padsL_, padsR_, kickL_, kickR_, revL_, revR_, delL_, delR_, wetL_, wetR_, mL_, mR_;
 };
 

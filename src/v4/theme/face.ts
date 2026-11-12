@@ -49,6 +49,7 @@ const PLUGIN_SILK: Readonly<Record<string, string>> = {
 };
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2StepRect, fpU, fpX, fpZ, rectCenter, stepRect, type FpMark } from '../rytm/faceplate';
 import type { Dt2KeyClass } from '../rytm/dtFaceIds';
+import { PERF_PADS } from '../state/perform';
 import { DT2_FACE, PLUGIN, type EncPlace, type FaceKeyId, faceKeyX, type FaceKnobId, FP_KNOBS, FP_OPEN, FP_STEPS, GLOBAL_ENC_LABELS, GLOBAL_FX_RULE, HEAD, KEY_MARK, type KeyLabelSpec, OLED, PAD, PAD_FACE, padLabel, PADS, PAGE_KEYS_PHONE_W, PAGE_KEYS_PHONE_Z, PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, pageKnobRow, pageKnobX, PORTRAIT, RYTM_FACE_VER, RYTM_PAGE_KEYS, SCENE_KEY, SILK, type SilkText } from './base';
 
 /** La face DT2 (V.6.0, ?face=dt2) : ses donnees en mm (rytm/faceplate.ts), lues seulement derriere DT2_FACE. */
@@ -436,7 +437,9 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
               const r = dt2StepRect(i);
               const L = RYTM_FACEPLATE.steps.legend.voice;
               const text = `${PLUGIN_TRACK_TYPES[i % 8]}${i >= 8 ? '2' : ''}`;
-              return { id: `stept-${i + 1}`, text, x: fpX(r.x + r.w / 2), z: fpZ(r.y + r.h - 4), w: fpU(r.w), d: fpU(r.h), group: 'stepv', rest: 'ink', cap: fpU(L.cap), qw: fpU(L.w), dz: 0 };
+              // PERFORM ouvert (2026-11-12) : le nom du pad a la place, en orange (state/perform.ts)
+              const altText = PERF_PADS[i]?.label;
+              return { id: `stept-${i + 1}`, text, x: fpX(r.x + r.w / 2), z: fpZ(r.y + r.h - 4), w: fpU(r.w), d: fpU(r.h), group: 'stepv', rest: 'ink', cap: fpU(L.cap), qw: fpU(L.w), dz: 0, ...(altText ? { altText } : {}) };
             })
           : []),
       ]

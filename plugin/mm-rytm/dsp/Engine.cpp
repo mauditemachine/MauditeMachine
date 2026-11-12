@@ -1334,6 +1334,17 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         if (any) fx_.markActive(t);
     }
     if (!dry_) {
+        // PERFORM : ce que les pads tiennent et le FILTER ; la grille du beat repeat (le transport du bloc)
+        PerfState pf;
+        const int fl = perfFlags_.load(std::memory_order_relaxed);
+        pf.cut = perfCut_.load(std::memory_order_relaxed);
+        pf.repeat = fl & 7;
+        pf.lowCut = (fl & PERF_LOWCUT) != 0;
+        pf.throwDelay = (fl & PERF_THROW_D) != 0;
+        pf.throwReverb = (fl & PERF_THROW_R) != 0;
+        pf.tape = (fl & PERF_TAPE) != 0;
+        pf.filter = static_cast<double>(perfFilter_.load(std::memory_order_relaxed));
+        fx_.setPerf(pf, tr.ppq, tr.ppqPerSample, tr.playing && seqOn_);
         fx_.process(L, R, n);
         for (int t = 0; t < kTracks; ++t) {
             const float p = fx_.takePeak(t);

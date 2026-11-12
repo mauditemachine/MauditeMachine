@@ -203,6 +203,17 @@ void FxChain::Bq::highpass(double f, double sr) {
     b0 = (1 + cw) / 2 / a0; b1 = -(1 + cw) / a0; b2 = b0; a1 = -2 * cw / a0; a2 = (1 - alpha) / a0;
 }
 
+void FxChain::Bq::lowpassQ(double f, double q, double sr) {
+    f = clampd(f, 20, sr / 2 * 0.999);
+    const double w = 2 * PI * f / sr, cw = std::cos(w), alpha = std::sin(w) / (2 * q), a0 = 1 + alpha;
+    b0 = (1 - cw) / 2 / a0; b1 = (1 - cw) / a0; b2 = b0; a1 = -2 * cw / a0; a2 = (1 - alpha) / a0;
+}
+void FxChain::Bq::highpassQ(double f, double q, double sr) {
+    f = clampd(f, 1, sr / 2 * 0.999);
+    const double w = 2 * PI * f / sr, cw = std::cos(w), alpha = std::sin(w) / (2 * q), a0 = 1 + alpha;
+    b0 = (1 + cw) / 2 / a0; b1 = -(1 + cw) / a0; b2 = b0; a1 = -2 * cw / a0; a2 = (1 - alpha) / a0;
+}
+
 // TONE (tone.ts) : a 0, rien ; sinon un passe-haut puis un passe-bas de Butterworth
 void FxChain::Tone::set(double tone, double sr) {
     double t = clampd(tone, -1, 1);
@@ -587,6 +598,203 @@ void FxChain::prepare(double sr) {
     limiter_.prepare(sr);
     for (auto* v : {&padsL_, &padsR_, &kickL_, &kickR_, &revL_, &revR_, &delL_, &delR_, &wetL_, &wetR_, &mL_, &mR_}) v->assign(kMaxBlock, 0.f);
     tail_.fill(0);
+    perfFx_.prepare(sr);
+    cutG_.fill(1.f);
+    throwD_ = throwR_ = 0;
+    perf_ = PerfState{};
+}
+
+void FxChain::setPerf(const PerfState& p, double ppq, double ppqPerSample, bool playing) {
+    perf_ = p;
+    perfPpq_ = ppq;
+    perfPps_ = ppqPerSample;
+    perfPlaying_ = playing;
+}
+
+/* ---------------- PERFORM : le master du live (2026-11-12) ---------------- */
+
+namespace {
+// Le beat repeat : la longueur de la boucle en noires (1/4, 1/8, 1/16, 1/32)
+constexpr double REPEAT_PPQ[5] = {0, 1, 0.5, 0.25, 0.125};
+constexpr double PERF_RING_S = 4.0;   // le tampon du mix
+constexpr double PERF_EDGE_S = 0.0015; // le fondu aux bords d'une boucle
+constexpr double PERF_XF_S = 0.004;   // vers la boucle ou la bande, et retour
+constexpr double TAPE_S = 0.7;        // le tape stop : de la vitesse 1 a l'arret
+constexpr double LOW_CUT_HZ = 200;
+constexpr double CUT_S = 0.004;       // une piste coupee ou rendue
+constexpr double THROW_S = 0.012;     // un envoi jete, ou repris
+constexpr double FILTER_Q = 0.9;
+} // namespace
+
+void FxChain::Perf::prepare(double sr) {
+    const size_t n = static_cast<size_t>(PERF_RING_S * sr) + 8;
+    rl.assign(n, 0.f);
+    rr.assign(n, 0.f);
+    w = 0;
+    rDiv = 0;
+    rStart = 0;
+    rLen = rK = rMix = 0;
+    oStart = 0;
+    oLen = oK = oMix = 0;
+    tOn = false;
+    tPos = 0;
+    tRate = 1;
+    tMix = 0;
+    lo1 = Bq{};
+    lo2 = Bq{};
+    lo1.highpass(LOW_CUT_HZ, sr);
+    lo2.highpass(LOW_CUT_HZ, sr);
+    gLow = 1;
+    fNow = 0;
+    fSide = 0;
+    fWet = 0;
+    f1 = Bq{};
+    f2 = Bq{};
+    fTick = 0;
+}
+
+// L'ordre : le beat repeat et le tape stop (sur le mix entier, ses retours compris), le low cut, le filtre DJ ; le GLUE et le
+// LIMITEUR viennent apres. Sans geste, le signal passe tel quel (a l'echantillon pres).
+void FxChain::Perf::process(float* L, float* R, int n, const PerfState& p, double ppq, double pps, bool playing, double sr) {
+    const long N = static_cast<long>(rl.size());
+    const double xfStep = 1.0 / std::max(1.0, PERF_XF_S * sr);
+    const double edge = std::max(1.0, PERF_EDGE_S * sr);
+    // Un autre repeat (ou aucun) : la boucle repart de la derniere frontiere de la grille, a cet echantillon
+    const int want = playing && pps > 0 && p.repeat >= 1 && p.repeat <= 4 ? p.repeat : 0;
+    if (want != rDiv) {
+        rDiv = want;
+        // La boucle qui jouait s'efface pendant que la nouvelle entre (pas de saut)
+        if (rMix > 0 && rLen > 0) {
+            oStart = rStart;
+            oLen = rLen;
+            oK = rK;
+            oMix = want ? rMix : 0;
+        }
+        if (want) {
+            const double div = REPEAT_PPQ[want];
+            const double ph = std::fmod(std::max(0.0, ppq), div);
+            const long since = static_cast<long>(std::floor(ph / pps + 0.5));
+            rLen = std::max(16.0, div / pps);
+            rK = static_cast<double>(std::min<long>(since, static_cast<long>(rLen) - 1));
+            rStart = ((w - static_cast<long>(rK)) % N + N) % N;
+        }
+    }
+    // Le tape stop : il part de la tete d'ecriture
+    if (p.tape && !tOn) {
+        tOn = true;
+        tPos = static_cast<double>(w);
+        tRate = 1;
+    } else if (!p.tape && tOn && tMix <= 0) {
+        tOn = false;
+    }
+    const double tStep = 1.0 / std::max(1.0, TAPE_S * sr);
+    const bool any = rDiv || rMix > 0 || oMix > 0 || tOn || tMix > 0;
+    // Un echantillon d'une boucle (start, len, k) avec ses bords adoucis
+    auto loopAt = [&](long start, double len, double k, double& bL, double& bR) {
+        const double kk = std::fmod(k, len);
+        const long idx = (start + static_cast<long>(kk)) % N;
+        double g = 1;
+        if (k >= len - edge && kk >= len - edge) g = (len - kk) / edge;
+        if (k >= len && kk < edge) g = std::min(g, kk / edge);
+        bL = rl[static_cast<size_t>(idx)] * g;
+        bR = rr[static_cast<size_t>(idx)] * g;
+    };
+    for (int i = 0; i < n; ++i) {
+        rl[static_cast<size_t>(w)] = L[i];
+        rr[static_cast<size_t>(w)] = R[i];
+        if (any) {
+            double oL = L[i], oR = R[i];
+            // Le beat repeat : la boucle (le premier tour, c'est le direct : il s'ecrit pendant qu'on le lit)
+            const double rTo = rDiv ? 1 : 0;
+            if (rMix != rTo) rMix = rTo > rMix ? std::min(1.0, rMix + xfStep) : std::max(0.0, rMix - xfStep);
+            if (rMix > 0 && rLen > 0) {
+                double bL, bR;
+                loopAt(rStart, rLen, rK, bL, bR);
+                // La boucle d'avant, en fondu
+                if (oMix > 0 && oLen > 0) {
+                    double cL, cR;
+                    loopAt(oStart, oLen, oK, cL, cR);
+                    bL = bL + (cL - bL) * oMix;
+                    bR = bR + (cR - bR) * oMix;
+                    oK += 1;
+                    oMix = std::max(0.0, oMix - xfStep);
+                }
+                oL = oL + (bL - oL) * rMix;
+                oR = oR + (bR - oR) * rMix;
+                // La boucle avance aussi pendant son fondu de sortie (relachee, elle ne s'arrete pas sur un echantillon)
+                rK += 1;
+            } else
+                oMix = 0;
+            // Le tape stop : la bande ralentit (lecture interpolee), puis se tait ; relache, le direct revient
+            const double tTo = tOn && p.tape ? 1 : 0;
+            if (tMix != tTo) tMix = tTo > tMix ? std::min(1.0, tMix + xfStep) : std::max(0.0, tMix - xfStep);
+            if (tMix > 0) {
+                const long i0 = static_cast<long>(std::floor(tPos));
+                const double fr = tPos - static_cast<double>(i0);
+                const size_t a = static_cast<size_t>((i0 % N + N) % N), b = static_cast<size_t>(((i0 + 1) % N + N) % N);
+                const double amp = std::min(1.0, tRate * 8); // la fin de la bande se tait
+                const double bL = (rl[a] + (rl[b] - rl[a]) * fr) * amp, bR = (rr[a] + (rr[b] - rr[a]) * fr) * amp;
+                oL = oL + (bL - oL) * tMix;
+                oR = oR + (bR - oR) * tMix;
+                // La bande avance encore pendant son fondu de sortie ; elle ne ralentit que tenue
+                tPos += tRate;
+                if (p.tape) tRate = std::max(0.0, tRate - tStep);
+            }
+            L[i] = static_cast<float>(oL);
+            R[i] = static_cast<float>(oR);
+        }
+        w = (w + 1) % static_cast<int>(N);
+    }
+    // Le low cut : le mix passe par un passe-haut (24 dB a 200 Hz), a la part (1 - gLow) ; gLow glisse en 12 ms ; au repos
+    // le direct tel quel
+    const double lowTo = p.lowCut ? 0 : 1;
+    const double lowStep = 1.0 / std::max(1.0, THROW_S * sr);
+    if (gLow != lowTo || p.lowCut)
+        for (int i = 0; i < n; ++i) {
+            if (gLow != lowTo) gLow = lowTo > gLow ? std::min(1.0, gLow + lowStep) : std::max(0.0, gLow - lowStep);
+            const double k = 1 - gLow;
+            const float a = lo2.run(0, lo1.run(0, L[i])), b = lo2.run(1, lo1.run(1, R[i]));
+            L[i] = static_cast<float>(L[i] + (a - L[i]) * k);
+            R[i] = static_cast<float>(R[i] + (b - R[i]) * k);
+        }
+    else {
+        lo1.clear();
+        lo2.clear();
+    }
+    // Le filtre DJ : a gauche un passe-bas (20 kHz a 80 Hz), a droite un passe-haut (20 Hz a 8 kHz), 24 dB ; au centre rien.
+    // La valeur glisse ; les coefficients tous les 32 echantillons ; changer de cote passe par le centre (etats remis)
+    // Le cote ne change qu'une fois le filtre efface (fWet a 0, pres du centre ou il est presque transparent) : il repart
+    // alors a froid, et entre en 5 ms
+    const double fTo = std::max(-1.0, std::min(1.0, p.filter));
+    const double wetStep = 1.0 / std::max(1.0, 0.005 * sr);
+    double wetTo = 0;
+    for (int i = 0; i < n; ++i) {
+        if ((fTick++ & 31) == 0) {
+            fNow += (fTo - fNow) * 0.12;
+            if (std::fabs(fTo - fNow) < 1e-4) fNow = fTo;
+            const int side = std::fabs(fNow) < 0.01 ? 0 : fNow < 0 ? -1 : 1;
+            if (side != fSide && fWet <= 0) {
+                fSide = side;
+                f1.clear();
+                f2.clear();
+            }
+            wetTo = fSide != 0 && side == fSide ? 1 : 0;
+            if (fSide < 0) {
+                const double f = 20000 * std::pow(80.0 / 20000, std::max(0.0, -fNow));
+                f1.lowpassQ(f, FILTER_Q, sr);
+                f2.lowpassQ(f, 0.707, sr);
+            } else if (fSide > 0) {
+                const double f = 20 * std::pow(8000.0 / 20, std::max(0.0, fNow));
+                f1.highpassQ(f, FILTER_Q, sr);
+                f2.highpassQ(f, 0.707, sr);
+            }
+        }
+        if (fSide == 0) continue;
+        if (fWet != wetTo) fWet = wetTo > fWet ? std::min(1.0, fWet + wetStep) : std::max(0.0, fWet - wetStep);
+        const float a = f2.run(0, f1.run(0, L[i])), b = f2.run(1, f1.run(1, R[i]));
+        L[i] = static_cast<float>(L[i] + (a - L[i]) * fWet);
+        R[i] = static_cast<float>(R[i] + (b - R[i]) * fWet);
+    }
 }
 
 void FxChain::reset() { prepare(sr_); }
@@ -634,9 +842,25 @@ void FxChain::process(float* outL, float* outR, int n) {
         const bool chorusOn = sChorus_[ti].t > 0;
         if (active_[ti]) tail_[ti] = chorusOn ? static_cast<int>(0.06 * sr_ / 64) + 4 : 0;
         else if (tail_[ti] > 0) --tail_[ti];
+        // PERFORM : une piste sans voix prend sa coupe tout de suite (rien ne sonne a adoucir)
+        const float cutTo = (perf_.cut >> t) & 1u ? 0.f : 1.f;
+        if (!active_[ti]) cutG_[ti] = cutTo;
         if (!active_[ti] && tail_[ti] <= 0) continue;
         float* L = tl_[ti].data();
         float* R = tr_[ti].data();
+        // PERFORM : la piste coupee (ou rendue) glisse en 4 ms, avant ses effets (ses queues de DELAY et REVERB restent)
+        {
+            const float to = cutTo;
+            float& g = cutG_[ti];
+            if (g != to || to == 0.f) {
+                const float st = static_cast<float>(1.0 / std::max(1.0, CUT_S * sr_));
+                for (int i = 0; i < n; ++i) {
+                    if (g != to) g = to > g ? std::min(1.f, g + st) : std::max(0.f, g - st);
+                    L[i] *= g;
+                    R[i] *= g;
+                }
+            }
+        }
         sTone_[ti].process(L, R, n);
         sDist_[ti].process(L, R, n);
         if (chorusOn) sChorus_[ti].process(L, R, n, sr_);
@@ -666,8 +890,25 @@ void FxChain::process(float* outL, float* outR, int n) {
     kickDist_.process(kickL_.data(), kickR_.data(), n);
     kickTone_.process(kickL_.data(), kickR_.data(), n);
     const double gr = g_.reverb * REVERB_SEND * lv, gd = g_.delay * DELAY_SEND * lv;
+    // PERFORM : DELAY THROW et REVERB WASH, tout le mix (les pads et le kick) part dans l'effet ; l'envoi glisse en 12 ms
+    const double thStep = 1.0 / std::max(1.0, THROW_S * sr_);
+    const double thDTo = perf_.throwDelay ? 1 : 0, thRTo = perf_.throwReverb ? 1 : 0;
+    const bool throwing = throwD_ > 0 || throwR_ > 0 || thDTo > 0 || thRTo > 0;
     for (int i = 0; i < n; ++i) {
         const size_t ii = static_cast<size_t>(i);
+        if (throwing) {
+            if (throwD_ != thDTo) throwD_ = thDTo > throwD_ ? std::min(1.0, throwD_ + thStep) : std::max(0.0, throwD_ - thStep);
+            if (throwR_ != thRTo) throwR_ = thRTo > throwR_ ? std::min(1.0, throwR_ + thStep) : std::max(0.0, throwR_ - thStep);
+            const double sumL = padsL_[ii] + kickL_[ii], sumR = padsR_[ii] + kickR_[ii];
+            if (throwD_ > 0) {
+                delL_[ii] += static_cast<float>(sumL * throwD_ * 0.8 * DELAY_SEND * lv);
+                delR_[ii] += static_cast<float>(sumR * throwD_ * 0.8 * DELAY_SEND * lv);
+            }
+            if (throwR_ > 0) {
+                revL_[ii] += static_cast<float>(sumL * throwR_ * 0.9 * REVERB_SEND * lv);
+                revR_[ii] += static_cast<float>(sumR * throwR_ * 0.9 * REVERB_SEND * lv);
+            }
+        }
         if (gr > 0) {
             revL_[ii] += static_cast<float>(padsL_[ii] * gr);
             revR_[ii] += static_cast<float>(padsR_[ii] * gr);
@@ -690,6 +931,8 @@ void FxChain::process(float* outL, float* outR, int n) {
         mL_[static_cast<size_t>(i)] += wetL_[static_cast<size_t>(i)];
         mR_[static_cast<size_t>(i)] += wetR_[static_cast<size_t>(i)];
     }
+    // PERFORM : le beat repeat, le tape stop, le low cut et le filtre DJ, avant le GLUE et le LIMITEUR
+    perfFx_.process(mL_.data(), mR_.data(), n, perf_, perfPpq_, perfPps_, perfPlaying_, sr_);
     masterOnly(mL_.data(), mR_.data(), n);
     for (int i = 0; i < n; ++i) {
         outL[i] += mL_[static_cast<size_t>(i)];

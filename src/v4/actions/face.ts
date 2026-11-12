@@ -31,6 +31,7 @@ import { section } from '../state/section';
 import { voices } from '../state/voices';
 import { DT2_FACE, DT_FACE, DT_GESTURE, LCD_NO_VOICE, PAD_DOUBLE_TAP_MS, type Inst } from '../theme';
 import { IN_PLUGIN } from '../pluginMode';
+import { PERF_PADS, perform } from '../state/perform';
 import type { Dt2ButtonId } from '../rytm/dtFaceIds';
 import { gesture as gestureLayer } from '../state/gesture';
 import { activeTrack } from '../state/trk';
@@ -1041,6 +1042,32 @@ export function faceKnobPress(k: number): boolean {
 export function stepMuteHold(i: number, stage: Stage | null): boolean {
   if (!DT2_FACE) return false;
   return trigMuteHold(i, stage);
+}
+
+/** PERFORM est-il ouvert dans le plugin (les 16 touches de pas sont des pads tenus, state/perform.ts) ? */
+export const performPads = (): boolean => IN_PLUGIN && DT2_FACE && dtFace.menu() === 'perform';
+
+/**
+ * Un pad de PERFORM (le plugin, 2026-11-12) appuye : l'effet part ; latch (Maj + clic) : il se garde, ou se rend. true si
+ * pris (PERFORM ouvert).
+ */
+export function perfPadDown(i: number, stage: Stage | null, latch = false): boolean {
+  if (!performPads() || i < 0 || i >= PERF_PADS.length) return false;
+  stage?.pressStep(i);
+  const p = PERF_PADS[i];
+  if (latch) {
+    const kept = perform.latch(i);
+    lcdMessage.show(kept ? `● ${p.say} (LOCKED)` : `${p.say}: OFF`, 1400);
+    return true;
+  }
+  perform.down(i);
+  lcdMessage.show(`● ${p.say}`, 1200);
+  return true;
+}
+
+/** Le pad relache : l'effet s'arrete (un pad garde reste). */
+export function perfPadUp(i: number): void {
+  perform.up(i);
 }
 
 /** Maj + clic sur un TRIG (la face DT2, GRID REC, cahier 2.7) : un TRIG tenu de plus (ou de moins) ; true si pris. */

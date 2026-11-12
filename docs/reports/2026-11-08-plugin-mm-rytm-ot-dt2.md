@@ -371,6 +371,27 @@ Mika, avec une capture (TRIG 2/2, TLEN 3) : « la longueur de steps, je devrais 
 
 - **Build vert du lot 22** (run 43160587380), la release **mm-rytm** republiee ; verifie : son zip porte `BUILD.txt` = commit 07557ac, branche claude/intelligent-ride-56tyeo, 2026-11-12 05:25 UTC.
 
+### Lot 23, PERFORM pour le live (2026-11-12)
+
+Mika, avec une capture de la premiere touche : « le bouton PERFORM, j'aimerais qu'il serve vraiment pour le live... trouve des fonctions interessantes pour que ce soit cool en live, des cuts, je sais pas ; si jamais y a rien, j'aimerais au moins un bouton mixer ; et la sous-page de MOD ce serait un MOD 2 encore... quelque chose qui fait varier le son ».
+
+- **Le moteur, un master de performance** (`plugin/mm-rytm/dsp/Fx.h`, `Fx.cpp` Perf ; `Engine.h`, `Engine.cpp` setPerf, setFilter) :
+  - CUT : la piste coupee glisse en 4 ms avant ses effets (ses queues de DELAY et REVERB restent) ; une piste sans voix prend sa coupe tout de suite.
+  - BEAT REPEAT 1/4, 1/8, 1/16, 1/32 : un tampon de 4 s du mix entier ; la boucle part de la derniere frontiere de la grille (le ppq de l'hote), son premier tour est le direct (il s'ecrit pendant qu'on le lit), puis il boucle ; bords adoucis (1,5 ms), entree et sortie en 4 ms, un autre repeat tenu prend la place en fondu.
+  - TAPE STOP : la lecture du tampon ralentit de la vitesse 1 a l'arret en 0,7 s (interpolee) ; relache, le direct revient en 4 ms.
+  - LOW CUT : le mix passe par un passe-haut 24 dB a 200 Hz, en fondu de 12 ms ; au repos, le direct tel quel.
+  - DELAY THROW et REVERB WASH : tout le mix (pads et kick) envoye dans l'effet, l'envoi glisse en 12 ms ; relache, la queue reste.
+  - FILTER : un filtre DJ 24 dB sur tout le mix, -1 passe-bas (20 kHz a 80 Hz), +1 passe-haut (20 Hz a 8 kHz), resonance legere ; la valeur glisse, un changement de cote passe par un fondu.
+  - L'ordre : repeat et tape, low cut, filtre, puis GLUE et LIMITEUR.
+- **Le plugin** (`src/PluginProcessor.*`, `PluginEditor.*`) : un parametre **Filter** (-1 a 1) a cote de Crossfader, garde dans le projet, automatisable et mappable ; les messages `mm_pf` (le FILTER de la face) et `mm_perf` (les pads tenus : `cut`, `flags`) ; le transport renvoie `pf` (la face suit l'automation).
+- **La face** :
+  - `src/v4/state/perform.ts` (nouveau) : les 16 pads (CUT de la piste imprimee et de sa jumelle ; RPT 1/4 1/8 1/16 1/32, LOW CUT, DELAY, REVERB, TAPE), tenus ou gardes (Maj + clic), le FILTER.
+  - `scene/screen/menus/mixer16.ts` : PERFORM a trois sous-pages (fleches haut / bas) : LIVE FX (A FILTER, puis DIST BIT CHORUS DELAY REVERB COMP MASTER ; XFADE quitte les potards, le crossfader et LEVEL/DATA le gardent), MIXER 1-8, MIXER 9-16 ; fermer PERFORM relache tout.
+  - `actions/face.ts` perfPadDown, perfPadUp ; `ui/Hotspots.tsx` : PERFORM ouvert, un pas tenu est un pad (Maj + clic le garde).
+  - `scene/renderer.ts` perfLeds, `scene/sequencer3d.ts` setPerformLabels, `theme/face.ts` (altText des pas) : les pads luisent dans la teinte de leur famille (CUT violet, REPEAT blanc, LOW CUT orange, DELAY et REVERB bleus, TAPE jaune), pleins tenus ; leur nom en orange a la place du type de piste.
+- `plugin/mm-rytm/tests/engine_test.cpp` : 5 tests de plus (63) : CUT (la piste se tait, revient a 1 % pres) ; LOW CUT (l'energie du kick a 0,7 %) et FILTER (passe-haut et passe-bas fermes : moins de 0,05 %) ; REPEAT 1/8 (le premier tour identique au direct a l'echantillon pres, puis la boucle : correlation 1,000) ; TAPE STOP (70 % au depart, le silence a la fin, le direct revient) ; DELAY THROW et REVERB WASH (l'echo et la queue d'un coup sans envoi).
+- Verifie dans Chromium, sans son : PERFORM s'ouvre sur LIVE FX (FILTER en A), les pads s'allument ; CUT BD tenu envoie `cut 257` (BD et BD2), relache `0` ; LOW CUT garde par Maj + clic (`flags 8`), RPT 1/8 tenu par-dessus (`10`), relache (`8`) ; FILTER tourne (`mm_pf -0.533`) ; l'automation d'Ableton (`pf 0.6`) ramene l'anneau ; les fleches : MIXER 1-8 puis 9-16 ; fermer PERFORM : tout relache. Captures.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -457,9 +478,15 @@ Mika, avec une capture (TRIG 2/2, TLEN 3) : « la longueur de steps, je devrais 
 - **En LIVE REC le potard regle toujours aussi la base** (comme avant, comme au site) : hors du geste, les pas jouent la valeur ou le potard s'est arrete.
 - **Lot 22 : eteindre et foncer plutot que cacher les touches** : une machine physique garde ses 16 touches ; celles que la piste ne joue pas s'eteignent comme sur une Elektron, et leur dessus et leurs legendes foncent pour que la limite se voie meme sans coup. Les coups au-dela restent gardes (remonter TLEN les rend), comme sur la Digitakt.
 - **Un clic sur une touche eteinte ne pose rien** : un coup pose la serait muet et invisible ; l'ecran dit pourquoi.
+- **Lot 23 : les pads de PERFORM sur les touches de pas**, comme le mode PERFORMANCE de l'Analog Rytm : sur la machine, ce sont les seules touches en nombre ; PERFORM ouvert, on ne pose plus de pas (on joue). La rangee du haut coupe ce qui est imprime sur la touche, pour qu'on n'ait rien a apprendre.
+- **Les effets de performance dans le moteur, pas dans la face** : un pad doit partir au bloc audio suivant (un programme recompile prendrait 50 ms et plus). Le beat repeat et le tape stop jouent le mix deja fait (un tampon de 4 s), ils prennent donc aussi les retours de DELAY et REVERB.
+- **Un FILTER DJ neuf plutot que le TONE global** : TONE change aussi la hauteur des sons ; un filtre DJ ne doit faire que filtrer. Il est un parametre du plugin pour qu'Ableton l'automatise et qu'un controleur le prenne.
+- **Les pads ne s'enregistrent pas** (ni en P-LOCK, ni dans le projet) : ce sont des gestes de live ; FILTER, lui, est garde comme le crossfader.
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 23)** : la commande mm-rytm, quitter et rouvrir Ableton. A l'oreille : chaque pad (surtout RPT, TAPE, LOW CUT) et le FILTER ; mapper le parametre **Filter** au Roto ou a l'APC. Dire si la liste des pads lui va (on peut en changer sans toucher au moteur) et si les durees (tape 0,7 s) sont bonnes. Rien n'a pu etre ecoute ici.
+- Lot 23, la suite possible : les pads au clavier et en MIDI (notes) ; un MOD 3/3 qui fait varier le son (le lot suivant).
 - **Cote Mika (lot 22)** : la commande mm-rytm ; TRIG 2/2, tourner TLEN (potard E) et dire si la limite se voit assez sur les touches (le dessus et les legendes peuvent foncer plus ou moins : `theme.ts` STEP_OUT).
 - **Cote Mika (lot 21)** : la commande mm-rytm, quitter et rouvrir Ableton. Refaire un geste en LIVE REC (les automations d'avant restent en escalier ; triple clic sur la touche de la page pour repartir de zero), puis dire a l'oreille si FREQ, TONE, TUNE et LEV sont fluides, et a l'oeil si les anneaux bougent comme le geste. Rien de cela n'a pu etre ecoute ici (verifie par des tests chiffres seulement).
 - Lot 21, la suite possible : l'ecran (les valeurs de la page) ne bouge pas en relecture, seuls les anneaux ; DEC, ATK et START pourraient glisser aussi ; un LFO sur PAN ou RESO bloque le glissement de ce reglage ; un geste plus fin que le pas (plusieurs points par pas) si une ligne droite par pas ne suffit pas a tempo lent.

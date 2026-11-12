@@ -655,6 +655,11 @@ export class Sequencer3D {
     return !this.patView && !this.trkView && (i < this.spanLo || i >= this.spanHi);
   }
 
+  /** PERFORM (le plugin, 2026-11-12) : les legendes des pas disent leur pad (CUT BD, RPT 1/8...) ; true s'il faut une frame. */
+  setPerformLabels(on: boolean): boolean {
+    return this.stepLabels?.setFuncMode(on) ?? false;
+  }
+
   /** Les touches que la piste joue (le plugin) : [lo, hi) de 0 a 16 ; true s'il faut une frame. */
   setSpan(lo: number, hi: number): boolean {
     const a = Math.max(0, Math.min(STEP_COUNT, Math.round(lo)));

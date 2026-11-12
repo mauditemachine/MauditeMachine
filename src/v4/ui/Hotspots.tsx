@@ -75,6 +75,8 @@ import {
   screenKnobPress,
   faceKnobPress,
   stepMuteHold,
+  perfPadDown,
+  perfPadUp,
   stepShiftHold,
   rytmLockEnter,
   rytmLockToggle,
@@ -390,6 +392,8 @@ interface Down {
   noUsed?: boolean;
   /** un pas qui efface sa voix (NO tenue, LIVE REC ; la face DT2 : 16 pistes) */
   erase?: TrackKey;
+  /** le plugin (2026-11-12) : le pad de PERFORM tenu par ce pointeur (relache au lacher) */
+  perfPad?: number;
   /** la face DT2 (V.6.0) : une touche nouvelle tenue par ce pointeur (KEYBOARD a PAGE, les fleches), sa source */
   faceKey?: Dt2ButtonId;
   faceSrc?: string;
@@ -1674,6 +1678,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           e.preventDefault();
           return;
         }
+        // Le plugin (2026-11-12) : PERFORM ouvert, le pas est un pad tenu (Maj + clic : garde) ; ni tape ni tenue au lacher
+        if (IN_PLUGIN && dt && !dt.info && perfPadDown(idx, stage, e.shiftKey)) {
+          if (!e.shiftKey) dt.perfPad = idx;
+          dt.trk = true;
+          e.preventDefault();
+          return;
+        }
         // Le plugin (2026-11-11, Mika : le mute tenu) : en mode MUTE, Maj + un pas bascule sa piste tant que Maj reste tenue
         // (state/muteHold.ts) ; le clic est pris, ni tape ni tenue au lacher
         if (IN_PLUGIN && e.shiftKey && dt && !dt.info && muteView() && stepMuteHold(idx, stage)) {
@@ -1858,6 +1869,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d.recSrc) recUp(d.recSrc);
       if (d.noSrc) noUp(d.noSrc);
       if (d.erase) liveEraseUp(d.erase);
+      if (d.perfPad !== undefined) perfPadUp(d.perfPad);
       if (DT_FACE && d.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, -1);
       if (d.xf) xfadeGesture('end', 'ptr');
@@ -1984,6 +1996,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d?.recSrc) d.recTaken = recUp(d.recSrc);
       if (d?.noSrc) d.noUsed = noUp(d.noSrc);
       if (d?.erase) liveEraseUp(d.erase);
+      if (d?.perfPad !== undefined) perfPadUp(d.perfPad);
       if (DT_FACE && d?.kind === 'pkey' && d.rpage) pageKeyHold(d.rpage, false);
       if (d?.scene && d.sceneSrc) sceneUp(d.scene, d.sceneSrc, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
       if (d?.xf) xfadeGesture('end', 'ptr');
