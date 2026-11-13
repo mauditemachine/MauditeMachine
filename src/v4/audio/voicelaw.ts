@@ -66,8 +66,9 @@ export type VoiceParam =
   | 'freso'
   | 'fenv'
   | 'fatk'
-  | 'fdec';
-export const VOICE_PARAMS: readonly VoiceParam[] = ['tone', 'decay', 'level', 'dist', 'reverb', 'delay', 'chorus', 'tune', 'pan', 'start', 'atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec'];
+  | 'fdec'
+  | 'hell';
+export const VOICE_PARAMS: readonly VoiceParam[] = ['tone', 'decay', 'level', 'dist', 'reverb', 'delay', 'chorus', 'tune', 'pan', 'start', 'atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec', 'hell'];
 
 /**
  * Les reglages d'une voix ; depuis V.5.1 (2026-10-29, la page MOD) aussi ses deux LFO (audio/lfo.ts : l1spd... l2dep, des
@@ -105,6 +106,7 @@ export const VOICE_FX_DEFAULT: Readonly<VoiceFx> = {
   fenv: 0,
   fatk: 0,
   fdec: 0.5,
+  hell: 0,
 };
 
 /* ---------------- l'enveloppe du coup (ENV, 2026-10-09) ---------------- */

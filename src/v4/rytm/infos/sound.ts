@@ -128,4 +128,11 @@ export const RAW_SOUND = {
     text: "Envoie la voix choisie dans la REVERB du MM-RYTM, celle de toutes les voix : une salle de 2,4 s au départ (-60 dB au bout), aux aigus qui s'éteignent avant les graves ; sa longueur, ses aigus et son pré-delay (SIZE, TONE, PRE) sont sur la page REVERB, à côté de cet envoi (une tape sur ce bloc l'ouvre sur la voix). Comme le DELAY, l'envoi part après MASTER.",
     tip: 'Peu de REVERB, et seulement sur la caisse claire, le clap ou la cymbale : le kick reste sec et devant.',
   },
+  vhell: {
+    section: 'VOICE FX',
+    title: 'HELL',
+    lock: 'yes',
+    text: "Envoie la voix choisie dans HELL (le plugin) : un décaleur de fréquence dans la boucle d'un écho. Chaque répétition est décalée de plus en plus, vers le haut ou vers le bas : des spirales, du métal, des phasers, des sirènes. Ses réglages (le décalage, le temps, le retour, le filtre, le LFO) et ses presets sont dans OPEN, onglet FX. Comme le DELAY, l'envoi part après MASTER.",
+    tip: 'Le kick reste sec : envoie plutôt un hat, une percussion ou un clap, ou une seule caisse en P-LOCK.',
+  },
 } satisfies Partial<Record<RytmInfoId, Raw>>;

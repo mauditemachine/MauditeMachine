@@ -25,6 +25,7 @@ import { LFO_PARAMS } from '../../audio/lfo';
 import { TRIG_PARAMS } from '../../audio/trig';
 import { TRACK_KEYS, TRACK_NAMES, trackIndex, tracks, type TrackKey } from '../../audio/tracks';
 import { VOICE_PARAMS } from '../../audio/voicefx';
+import { IN_PLUGIN } from '../../pluginMode';
 import { lcdMessage } from '../../state/lcdMessage';
 import { voices } from '../../state/voices';
 import { seqVoiceTrack } from '../seqlink';
@@ -87,7 +88,8 @@ export function tracks60Targets(out: MidiTarget[]): void {
     });
   }
   // 2. Les reglages de voix des pistes 9 a 16 (les memes que BD..CY)
-  for (const k of HI) for (const p of VOICE_PARAMS) out.push(hiVoiceTarget(k, p));
+  // HELL (2026-11-13) : le plugin seulement
+  for (const k of HI) for (const p of VOICE_PARAMS) if (p !== 'hell' || IN_PLUGIN) out.push(hiVoiceTarget(k, p));
   // 3. Leurs mutes directs (le Roto en live, comme rytm:voice:<BD..CY>:mute)
   for (const k of HI) {
     out.push({

@@ -19,6 +19,7 @@ import { VOICE_PARAMS, voiceFx } from '../../audio/voicefx';
 import { BANKS, BANK_SIZE, bankName } from '../../state/patterns';
 import { DT2_FACE, DT_FACE, ENCODERS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, VOICE_PARAM, isVoiceEnc, type EncId, type Inst, type VoiceFxEncId } from '../../theme';
 import { INSTRUMENTS, STEP_COUNT } from '../../audio/pattern';
+import { IN_PLUGIN } from '../../pluginMode';
 import { seqFollow, seqPress, seqRelease, seqSetFollow, seqVoice, seqWindow } from '../seqlink';
 import type { MidiTarget } from './types';
 import { stageNow as getStage } from './stage';
@@ -117,11 +118,16 @@ export function rytmTargets(out: MidiTarget[]): void {
   // MM-RYTM
   // La rangee VOICE regle la voix choisie (comme sur la machine) ; rytm:voice:... vise une voix sans la choisir. La face
   // DT2 (la relecture) : la piste active, T9 a T16 compris (voiceEncTarget)
-  for (const e of ENCODERS) out.push(isVoiceEnc(e.id) ? voiceEncTarget(e.id, `${e.label} (SELECTED VOICE)`) : dialTarget(`rytm:enc:${e.id}`, 'mm808', e.label, e.id));
+  // HELL (2026-11-13) : le plugin seulement (le site n'a pas l'effet)
+  for (const e of ENCODERS) {
+    if (e.id === 'vhell' && !IN_PLUGIN) continue;
+    out.push(isVoiceEnc(e.id) ? voiceEncTarget(e.id, `${e.label} (SELECTED VOICE)`) : dialTarget(`rytm:enc:${e.id}`, 'mm808', e.label, e.id));
+  }
   // Les huit voix d'INSTRUMENTS (2026-10-27, la face V.4.0 n'a plus de pads au desktop) : le meme ordre, les memes ids
   const voices: readonly Inst[] = INSTRUMENTS;
   for (const inst of voices) {
     for (const p of VOICE_PARAMS) {
+      if (p === 'hell' && !IN_PLUGIN) continue;
       // A zero au centre : TONE, et TUNE et PAN (2026-10-08), FINE et l'ENV du filtre (2026-10-09) ; TUNE a ses 49 crans
       // (le demi-ton), FINE ses 129 (le cent), le TYPE du filtre ses 3 (LP HP BP)
       const bip = p === 'tone' || p === 'tune' || p === 'pan' || p === 'fine' || p === 'fenv';

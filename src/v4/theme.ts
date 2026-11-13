@@ -546,6 +546,8 @@ export type EncId =
   | 'vchorus'
   | 'vdelay'
   | 'vreverb'
+  // HELL (2026-11-13, le plugin) : l'envoi de la voix vers HELL
+  | 'vhell'
   // TUNE, PAN et START de la voix (2026-10-08, l'etape R2 des P-locks) : sur les pages (SRC, AMP, SMPL), pas sur la face
   | 'vtune'
   | 'vpan'
@@ -597,6 +599,7 @@ export const VOICE_PARAM = {
   vchorus: 'chorus',
   vdelay: 'delay',
   vreverb: 'reverb',
+  vhell: 'hell',
   vtune: 'tune',
   vpan: 'pan',
   vstart: 'start',
@@ -642,6 +645,7 @@ export const VOICE_ENCODERS: readonly VoiceEncId[] = [
   'vfenv',
   'vfatk',
   'vfdec',
+  'vhell',
 ];
 export const isVoiceEnc = (id: EncId): id is VoiceEncId => (VOICE_ENCODERS as readonly string[]).includes(id);
 
@@ -730,6 +734,7 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'vchorus', label: 'CHORUS', aria: 'Voice chorus' },
   { id: 'vdelay', label: 'DELAY', aria: 'Voice delay' },
   { id: 'vreverb', label: 'REVERB', aria: 'Voice reverb' },
+  { id: 'vhell', label: 'HELL', aria: 'Voice send into HELL, the frequency shifter echo' },
   // Sur les pages seulement (2026-10-08) : SRC TUNE, AMP PAN, SMPL START ; PITCH de VOICE, PAN et START de ENV depuis le 2026-10-09
   { id: 'vtune', label: 'PITCH', aria: 'Voice pitch, in semitones' },
   { id: 'vpan', label: 'PAN', aria: 'Voice pan, left to right' },
@@ -1292,6 +1297,7 @@ export const POT_UI = {
     vchorus: 0,
     vdelay: 0,
     vreverb: 0,
+    vhell: 0,
     vtune: 0,
     vpan: 0,
     vstart: 0,

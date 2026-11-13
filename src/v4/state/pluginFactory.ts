@@ -84,7 +84,7 @@ export interface LfoSpec {
  */
 type Tk =
   | number
-  | { n: number; db?: number; pan?: number; decay?: number; tune?: number; reverb?: number; delay?: number; chorus?: number; dist?: number; ft?: 'LP' | 'HP' | 'BP'; cut?: number; res?: number; lfo?: LfoSpec };
+  | { n: number; db?: number; pan?: number; decay?: number; tune?: number; reverb?: number; delay?: number; chorus?: number; dist?: number; hell?: number; ft?: 'LP' | 'HP' | 'BP'; cut?: number; res?: number; lfo?: LfoSpec };
 type Kit = Partial<Record<TrackKey, Tk>>;
 type Rows = Partial<Record<TrackKey, string>>;
 /** Les reglages de trig de toute la piste (PROB, uTIME, TLEN, VAR...) ; c : sa COND par son nom ('1:8', '2:2', '!1ST'). */
@@ -671,6 +671,7 @@ export function trackEntry(i: number, key: string, q: TrackSpec): NonNullable<St
   if (q.delay) p.delay = q.delay;
   if (q.chorus) p.chorus = q.chorus;
   if (q.dist) p.dist = q.dist;
+  if (q.hell) p.hell = q.hell;
   if (q.ft !== undefined && FT[q.ft]) p.ftype = FT[q.ft];
   if (q.cut !== undefined) p.fcut = q.cut;
   if (q.res !== undefined) p.freso = q.res;

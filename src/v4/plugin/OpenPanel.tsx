@@ -8,6 +8,8 @@
  *   le fondu de la fin, l'enveloppe AMP (ATK, HOLD, DEC) par-dessus, a son echelle de temps ; les reglages du sample (START,
  *   LEN, TUNE, FINE, LEV, REVERSE), de l'enveloppe (ATK, HOLD, DEC, PAN) et du filtre (FREQ, RESO, TYPE) ; le sample d'avant
  *   ou d'apres, IMPORT, le dossier, ECOUTER (le moteur joue la piste une fois) ;
+ * - FX (2026-11-13) : HELL (le decaleur de frequence dans un echo) et la DIST facon Decapitator, leurs reglages et leurs
+ *   presets (plugin/FxTab.tsx) ;
  * - PATTERN (2026-11-10, Mika : "j'aime pas trop en dessous DRAG MIDI etc., la barre, je prefere que ce soit dans OPEN") :
  *   DRAG MIDI (la pattern qui joue, en clip a glisser sur une piste d'Ableton), SAVE .MID, NEW et CLEAR (confirmes ici) ;
  *   la poignee DRAG MIDI est aussi dans l'en-tete, sur chaque onglet ;
@@ -40,10 +42,13 @@ import { pattern } from '../audio/pattern';
 import { FONT_DISPLAY } from '../theme';
 import { KnobView, type KnobSpec } from '../ui/KnobPanel';
 import type { Stage } from '../scene/renderer';
+import { FX_TAB_CSS, FxTab } from './FxTab';
 
-type Tab = 'sample' | 'pattern' | 'settings';
+type Tab = 'sample' | 'fx' | 'pattern' | 'settings';
 const TABS: readonly { id: Tab; label: string }[] = [
   { id: 'sample', label: 'SAMPLE' },
+  // FX (2026-11-13, Mika : "une 2e page dans OPEN pour des parametres de FX type Echobode") : HELL et la DIST
+  { id: 'fx', label: 'FX' },
   { id: 'pattern', label: 'PATTERN · MIDI' },
   { id: 'settings', label: 'SETTINGS' },
 ];
@@ -921,7 +926,7 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         </button>
       )}
     <div className="mm-open-mod" style={{ left: box.left + pad, top: box.top + pad, width, height, fontSize: em }} onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
-      <style>{CSS}</style>
+      <style>{CSS + FX_TAB_CSS}</style>
       {/* Les matieres des potards en relief, d'apres la photo de Mika (ui/KnobPanel.tsx relief) : le filet du capuchon */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
@@ -972,6 +977,7 @@ export const OpenPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         )}
         <div className="mm-open-body">
           {tab === 'sample' && <SampleTab t={t} changes={changes} />}
+          {tab === 'fx' && <FxTab />}
           {tab === 'pattern' && <PatternTab />}
           {tab === 'settings' && <SettingsTab />}
         </div>

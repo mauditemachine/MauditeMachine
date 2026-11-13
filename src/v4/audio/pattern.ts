@@ -111,12 +111,54 @@ export interface Pattern {
 }
 
 /**
+ * HELL et la DIST facon Decapitator (2026-11-13, le plugin, Mika : "un effet type Echobode... tu peux l'appeler Hell" ;
+ * "pour la disto, des sous-parametres a la Decapitator") : leurs reglages, des effets du pattern comme le temps du DELAY
+ * (gardes avec lui, ses presets et l'UNDO), tous de 0 a 1 (0.5 : le milieu ; des crans pour les choix). Leurs lois et le
+ * son : le moteur du plugin (dsp/Fx.cpp FxLaws hell*, DistX). A leur depart rien ne change : aucun envoi vers HELL, la DIST
+ * d'avant. Le site les garde sans les jouer ; son stockage ne les ecrit que s'ils ont quitte leur depart.
+ */
+export const LAB_FX = {
+  // HELL : le retour ; RANGE (FINE, WIDE, SYNC), FREQ (0.5 : 0 Hz), PHASE, SIDEBAND (1 : vers le haut), ANTI ; TIME, SYNC,
+  // FEEDBACK, FILTER, CROSS, SMEAR ; le LFO : sa cible (OFF, FREQ, PHASE, DELAY), RATE, SYNC, AMOUNT, STEREO
+  hmix: 0.75,
+  hrange: 0,
+  hfreq: 0.587,
+  hphase: 0,
+  hside: 1,
+  hanti: 0.5,
+  htime: 0.545,
+  hsync: 1,
+  hfb: 0.6,
+  hfilt: 0.8,
+  hcross: 0,
+  hsmear: 0,
+  hlfo: 0,
+  hrate: 0.5,
+  hlsync: 1,
+  hamt: 0,
+  hstereo: 0,
+  // DIST : STYLE (MM, TAPE, DESK, IRON, TUBE, PENT), TONE (0.5 : neutre), LOW CUT, THUMP, STEEP, PUNISH, AUTO, MIX, OUTPUT
+  xstyle: 0,
+  xtilt: 0.5,
+  xlow: 0,
+  xthump: 0,
+  xsteep: 0,
+  xpunish: 0,
+  xauto: 0,
+  xmix: 1,
+  xout: 0.5,
+} as const;
+export type LabFxId = keyof typeof LAB_FX;
+export const LAB_FX_IDS = Object.keys(LAB_FX) as LabFxId[];
+export type LabFx = Record<LabFxId, number>;
+
+/**
  * SWING, DIST, REVERB (revision 2, spec 20.8), DELAY et CHORUS
  * (2026-10-01) : 0 a 1, 0 = neutre (le son de la revision 1). Les effets
  * de tout le pattern, persistes avec le motif ; un motif stocke sans
  * DELAY ni CHORUS les recoit a 0.
  */
-export interface Fx {
+export interface Fx extends LabFx {
   swing: number;
   drive: number;
   reverb: number;
@@ -302,8 +344,17 @@ export const delayFb = (v: number): number => DELAY_FB_MAX * Math.max(0, Math.mi
 export const DTIME_DEFAULT = 2 / (DELAY_DIVS.length - 1);
 export const DFB_DEFAULT = 2 / 3;
 
-export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0, ...FX_SETTINGS };
-const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus', 'dtime', 'dfb', 'bits', 'comp', ...FX_SETTING_IDS];
+export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0, ...FX_SETTINGS, ...LAB_FX };
+const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus', 'dtime', 'dfb', 'bits', 'comp', ...FX_SETTING_IDS, ...LAB_FX_IDS];
+/** Les reglages de HELL et de la DIST qui ont quitte leur depart (le stockage n'ecrit qu'eux : le JSON d'avant sinon). */
+const labOut = (f: Readonly<Partial<Fx>>): Partial<LabFx> => {
+  const o: Partial<LabFx> = {};
+  for (const k of LAB_FX_IDS) {
+    const v = f[k];
+    if (typeof v === 'number' && Math.abs(v - LAB_FX[k]) > 1e-6) o[k] = Math.round(v * 1000) / 1000;
+  }
+  return o;
+};
 
 /**
  * Forme stockee (et celle de window.__v4.state.pattern). fx vient de la
@@ -424,7 +475,7 @@ export const VEL_BARS: readonly number[] = [0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
  * doubles croches roulent, DIST et REVERB neutres. Un motif stocke garde
  * les siens.
  */
-export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0, ...FX_SETTINGS };
+export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0, ...FX_SETTINGS, ...LAB_FX };
 
 export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DEFAULT_STEPS } });
 
@@ -508,7 +559,7 @@ export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Reado
     bpm: clampBpm(p.bpm),
     // Les rangees 9 a 16 seulement si elles servent (V.5.9) : le JSON d'avant, octet pour octet, sans elles
     steps: stepsOut(p.steps),
-    fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0), ...(Object.fromEntries(FX_SETTING_IDS.map((k) => [k, r3(f[k] ?? FX_SETTINGS[k])])) as Record<FxSettingId, number>) },
+    fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0), ...(Object.fromEntries(FX_SETTING_IDS.map((k) => [k, r3(f[k] ?? FX_SETTINGS[k])])) as Record<FxSettingId, number>), ...labOut(f) } as Fx,
   };
   if (anyLocks(locks)) out.locks = locks as Locks;
   const sc = toStored(scenes);

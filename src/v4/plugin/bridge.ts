@@ -198,6 +198,8 @@ const sliceOf = (fx: Readonly<VoiceFx>, lock: Readonly<StepLock> | null): number
   r6(lock?.chorus ?? fx.chorus),
   r6(lock?.delay ?? fx.delay),
   r6(lock?.reverb ?? fx.reverb),
+  // HELL (2026-11-13) : l'envoi de la piste
+  r6(lock?.hell ?? fx.hell ?? 0),
 ];
 
 const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;

@@ -1349,6 +1349,149 @@ int main() {
         CHECK(e.fbPeak[1].load() == 0.f, "VU : la lecture remet la crete a zero");
     }
 
+    // ---------------- HELL et la DIST facon Decapitator (2026-11-13) ----------------
+    {
+        const double TWO_PI = 6.283185307179586;
+        auto gz = [&](const std::vector<float>& x, int a, int b, double f) {
+            double re = 0, im = 0;
+            for (int i = a; i < b; ++i) {
+                re += x[static_cast<size_t>(i)] * std::cos(TWO_PI * f * i / SR);
+                im -= x[static_cast<size_t>(i)] * std::sin(TWO_PI * f * i / SR);
+            }
+            return re * re + im * im;
+        };
+        auto runHell = [&](const mm::GlobalFx& g, const std::vector<float>& in, std::vector<float>& oL, std::vector<float>& oR) {
+            mm::FxChain fx;
+            fx.prepare(SR);
+            fx.setGlobal(g, 120);
+            const int N = static_cast<int>(in.size());
+            oL.assign(static_cast<size_t>(N), 0.f);
+            oR.assign(static_cast<size_t>(N), 0.f);
+            for (int i = 0; i < N; i += 256) {
+                const int n = std::min(256, N - i);
+                fx.hellOnly(in.data() + i, in.data() + i, oL.data() + i, oR.data() + i, n);
+            }
+        };
+        const int N = 48000;
+        std::vector<float> sine(static_cast<size_t>(N)), oL, oR;
+        for (int i = 0; i < N; ++i) sine[static_cast<size_t>(i)] = static_cast<float>(0.5 * std::sin(TWO_PI * 1000 * i / SR));
+        mm::GlobalFx g;
+        g.hrange = 0;
+        g.hfreq = 0.5 + 0.5 * std::sqrt(0.5); // FINE : 200 x 0.5 = +100 Hz
+        g.hside = 1;
+        g.hfb = 0;
+        g.hsync = 0;
+        g.htime = 0;
+        g.hanti = 0;
+        CHECK(std::fabs(mm::FxLaws::hellShiftHz(0, g.hfreq, 120) - 100) < 1e-6, "HELL : FINE au trois quarts de course = +100 Hz");
+        runHell(g, sine, oL, oR);
+        double up = gz(oL, 12000, N, 1100), at = gz(oL, 12000, N, 1000), dn = gz(oL, 12000, N, 900);
+        CHECK(up > 10000 * at && up > 10000 * dn, "HELL : un sinus de 1 kHz, +100 Hz, la bande du haut : il sort a 1.1 kHz (l autre bande a -40 dB au moins)");
+        g.hside = 0;
+        runHell(g, sine, oL, oR);
+        up = gz(oL, 12000, N, 1100);
+        dn = gz(oL, 12000, N, 900);
+        CHECK(dn > 10000 * up, "HELL : la bande du bas : il sort a 900 Hz (l autre a -40 dB au moins)");
+        // Les echos : une impulsion, TIME 1/16 en SYNC a 120 BPM (125 ms), FEEDBACK : un echo toutes les 6000 echantillons qui decroit
+        std::vector<float> imp(static_cast<size_t>(N), 0.f);
+        imp[0] = 1.f;
+        mm::GlobalFx e;
+        e.hfreq = 0.5;
+        e.hsync = 1;
+        e.htime = 3.0 / 11; // 1/16
+        e.hfb = 0.6;
+        CHECK(std::fabs(mm::FxLaws::hellSeconds(e.htime, true, 120) - 0.125) < 1e-9, "HELL : TIME 1/16 a 120 BPM = 125 ms");
+        runHell(e, imp, oL, oR);
+        const double e1 = energy(oL, 5900, 6600), e2 = energy(oL, 11900, 12600), e3 = energy(oL, 17900, 18600), gap = energy(oL, 8000, 11000);
+        CHECK(e1 > e2 && e2 > e3 && e3 > 0 && gap < 0.01 * e2, "HELL : un echo toutes les 125 ms, de plus en plus faible, rien entre");
+        // Le pire : FEEDBACK a fond, WIDE, SMEAR, CROSS, LFO sur DELAY et en stereo : 4 s de bruit, la sortie reste finie et bornee
+        std::vector<float> noise(static_cast<size_t>(4 * N));
+        uint32_t r = 12345;
+        for (auto& v : noise) {
+            r = r * 1664525u + 1013904223u;
+            v = static_cast<float>((r >> 8) / 16777216.0 - 0.5);
+        }
+        mm::GlobalFx w;
+        w.hrange = 0.5;
+        w.hfreq = 0.9;
+        w.hfb = 1;
+        w.hsmear = 1;
+        w.hcross = 1;
+        w.hlfo = 1;
+        w.hamt = 1;
+        w.hstereo = 1;
+        w.hsync = 0;
+        w.htime = 0.3;
+        runHell(w, noise, oL, oR);
+        bool fin = true;
+        double pk = 0;
+        for (size_t i = 0; i < oL.size(); ++i) {
+            fin = fin && std::isfinite(oL[i]) && std::isfinite(oR[i]);
+            pk = std::max(pk, static_cast<double>(std::max(std::fabs(oL[i]), std::fabs(oR[i]))));
+        }
+        CHECK(fin && pk < 9, "HELL : FEEDBACK a fond, WIDE, SMEAR, CROSS, LFO : 4 s de bruit, la sortie reste finie et bornee");
+        // Le repos : rien n'entre, rien ne sort
+        std::vector<float> zero(static_cast<size_t>(N), 0.f);
+        runHell(g, zero, oL, oR);
+        CHECK(energy(oL, 0, N) == 0 && energy(oR, 0, N) == 0, "HELL : rien n'entre, rien ne sort (et rien n'est calcule)");
+    }
+    {
+        // La DIST : au depart (les sous-reglages a leur valeur), exactement la DIST d'avant
+        const int N = 4800;
+        std::vector<float> x(static_cast<size_t>(N));
+        for (int i = 0; i < N; ++i) x[static_cast<size_t>(i)] = static_cast<float>(0.6 * std::sin(6.283185307179586 * 220 * i / SR));
+        auto distOf = [&](const mm::GlobalFx& gg, double amount) {
+            mm::FxChain fx;
+            fx.prepare(SR);
+            fx.setGlobal(gg, 120);
+            std::vector<float> L = x, R = x;
+            fx.distOnly(amount, L.data(), R.data(), N);
+            return L;
+        };
+        mm::GlobalFx g0;
+        const std::vector<float> y0 = distOf(g0, 0.6);
+        double maxd = 0;
+        {
+            const double d = 0.6, m = 0.85 * d, k = std::pow(10.0, -9 * d / 20), pre = (1 + 12 * d) / 8;
+            for (int i = 0; i < N; ++i) {
+                const double v = x[static_cast<size_t>(i)];
+                const double ref = k * (1 - m) * v + k * m * std::tanh(8 * std::max(-1.0, std::min(1.0, pre * v)));
+                maxd = std::max(maxd, std::fabs(ref - y0[static_cast<size_t>(i)]));
+            }
+        }
+        CHECK(maxd < 1e-6, "DIST : au depart, exactement la DIST d'avant");
+        // Chaque STYLE : fini, borne, et pas la meme courbe que MM
+        bool allOk = true;
+        for (int st = 1; st <= 5; ++st) {
+            mm::GlobalFx gs;
+            gs.xstyle = st / 5.0;
+            const auto y = distOf(gs, 0.6);
+            double diff = 0, pk = 0;
+            bool fin = true;
+            for (int i = 0; i < N; ++i) {
+                fin = fin && std::isfinite(y[static_cast<size_t>(i)]);
+                pk = std::max(pk, static_cast<double>(std::fabs(y[static_cast<size_t>(i)])));
+                diff += std::fabs(y[static_cast<size_t>(i)] - y0[static_cast<size_t>(i)]);
+            }
+            if (!fin || pk > 2 || diff < 1) allOk = false;
+        }
+        CHECK(allOk, "DIST : les cinq STYLE (TAPE DESK IRON TUBE PENT) : finis, bornes, chacun sa courbe");
+        // MIX 0 : le son d'entree ; OUTPUT +1 : +12 dB ; LOW CUT : les graves (50 Hz) baissent
+        mm::GlobalFx gm;
+        gm.xmix = 0;
+        gm.xout = 0.5001;
+        const auto ym = distOf(gm, 0.6);
+        double dm = 0;
+        for (int i = 0; i < N; ++i) dm = std::max(dm, static_cast<double>(std::fabs(ym[static_cast<size_t>(i)] - x[static_cast<size_t>(i)])));
+        CHECK(dm < 1e-6, "DIST : MIX a 0, le son d'entree tel quel");
+        mm::GlobalFx gp;
+        gp.xpunish = 1;
+        gp.xauto = 1;
+        const auto yp = distOf(gp, 0.6);
+        const double ein = energy(x, N / 2, N), eout = energy(yp, N / 2, N);
+        CHECK(eout > 0.3 * ein && eout < 3 * ein, "DIST : PUNISH (+20 dB) et AUTO : le niveau de sortie reste a 5 dB de celui d'entree");
+    }
+
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }

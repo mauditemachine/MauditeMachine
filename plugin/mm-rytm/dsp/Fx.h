@@ -21,6 +21,49 @@ struct GlobalFx {
     double catk = 0.742, crel = 1, cthr = 0.45, cratio = 0.571, cknee = 0.5, cmake = 0, chpf = 0.5;
     double tone = 0;   // TONE global (-1 a 1)
     double level = 0.8; // LEVEL (gain au carre)
+    // HELL (2026-11-13, Mika : "un effet type Echobode, pour avoir des choses vraiment pointues", "tu peux l'appeler Hell") :
+    // un decaleur de frequence (facon Bode) dans la boucle d'un delay ; chaque piste y envoie (SliceFx::hell), le retour
+    // (hmix) rejoint le master comme celui du DELAY. Tout de 0 a 1, comme les FX du pattern (des crans pour les choix).
+    double hmix = 0.75;   // le retour
+    double hrange = 0;    // 0 FINE (+/-200 Hz), 0.5 WIDE (+/-20 kHz), 1 SYNC (un tour par division)
+    double hfreq = 0.587; // 0.5 : 0 Hz ; vers 0 le decalage descend, vers 1 il monte (au depart : +6 Hz, une spirale douce)
+    double hphase = 0;    // la phase du decaleur (un tour)
+    double hside = 1;     // 0 la bande du bas, 1 celle du haut, entre les deux un melange
+    double hanti = 0.5;   // ANTI : le passe-haut qui empeche le repliement sous 0 Hz
+    double htime = 0.545; // libre : 0.02 ms a 1 s ; SYNC : un cran de HELL_DIVS (1/128 a 1/2 mesure ; au depart 1/8)
+    double hsync = 1;     // 1 : TIME cale sur le tempo
+    double hfb = 0.6;     // FEEDBACK
+    double hfilt = 0.8;   // FILTER : le passe-bas avant le decalage, 100 Hz (0) a 20 kHz (1)
+    double hcross = 0;    // CROSS : gauche et droite echangees dans la boucle
+    double hsmear = 0;    // SMEAR : la phase brouillee dans la boucle (des queues de reverb)
+    double hlfo = 0;      // la cible du LFO : 0 OFF, 1/3 FREQ, 2/3 PHASE, 1 DELAY
+    double hrate = 0.5;   // libre : 0.02 a 20 Hz ; SYNC : 8 mesures a 1/64
+    double hlsync = 1;    // 1 : le LFO cale sur le tempo
+    double hamt = 0;      // la profondeur du LFO
+    double hstereo = 0;   // 1 : le LFO a l'envers a droite
+    // La DIST facon Decapitator (2026-11-13, Mika : "pour la disto je voudrais des sous-parametres a la Decapitator") :
+    // des reglages de toute la machine, pour la DIST de chaque piste et celle du master. Au depart : la DIST d'avant.
+    double xstyle = 0;    // MM (celle d'avant), TAPE, DESK, IRON, TUBE, PENT : 0, 0.2, 0.4 ... 1
+    double xtilt = 0.5;   // TONE : 0 sombre ... 0.5 neutre ... 1 clair, avant la saturation
+    double xlow = 0;      // LOW CUT : 0 aucun, puis 30 a 500 Hz, avant la saturation
+    double xthump = 0;    // THUMP : une bosse a la frequence du LOW CUT
+    double xsteep = 0;    // STEEP : le HIGH CUT (TONE de DIST, xtone) a 36 dB par octave
+    double xpunish = 0;   // PUNISH : +20 dB dans la saturation
+    double xauto = 0;     // AUTO : le niveau de sortie suit celui d'entree
+    double xmix = 1;      // MIX : la part saturee
+    double xout = 0.5;    // OUTPUT : 0 a 1, -12 a +12 dB (0.5 : 0 dB)
+};
+
+// Les sous-reglages de la DIST (GlobalFx x...), tels que chaque DIST les lit
+struct DistX {
+    int style = 0;
+    double tilt = 0, low = 0, thump = 0, punish = 0, mix = 1, out = 0;
+    bool steep = false, autoG = false;
+    bool plain() const { return style == 0 && tilt == 0 && low == 0 && punish == 0 && mix >= 1 && out == 0 && !steep && !autoG; }
+    bool operator==(const DistX& o) const {
+        return style == o.style && tilt == o.tilt && low == o.low && thump == o.thump && punish == o.punish && mix == o.mix && out == o.out && steep == o.steep && autoG == o.autoG;
+    }
+    static DistX of(const GlobalFx& g);
 };
 
 // PERFORM (2026-11-12, Mika : "le bouton PERFORM, j'aimerais qu'il serve vraiment pour le live, des cuts...") : ce que les
@@ -39,6 +82,7 @@ struct PerfState {
 // La tranche d'une piste (audio/voicelaw.ts VoiceFx) : TONE -1 a 1, DIST, CHORUS, envois DELAY et REVERB 0 a 1.
 struct SliceFx {
     double tone = 0, dist = 0, chorus = 0, delay = 0, reverb = 0;
+    double hell = 0; // l'envoi vers HELL (2026-11-13)
 };
 
 // Les lois du site (pattern.ts fxLaw, drums.ts fxValue : la valeur de depart garde la constante d'avant).
@@ -53,6 +97,13 @@ struct FxLaws {
     static int bitRate(double v);
     static double delaySeconds(double dtime, double bpm);
     static double delayFeedback(double dfb);
+    // HELL : le decalage (Hz), le temps (s), le passe-bas, la vitesse du LFO (Hz)
+    static double hellShiftHz(double range, double freq, double bpm);
+    static double hellSeconds(double time, bool sync, double bpm);
+    static double hellFilterHz(double v);
+    static double hellRateHz(double rate, bool sync, double bpm);
+    // DIST : le LOW CUT (Hz, 0 : aucun)
+    static double distLowHz(double v);
 };
 
 // La reponse de la reverb (sends.ts makeImpulse, a l'identique) decoupee pour la convolution, calculee hors du thread audio.
@@ -101,6 +152,9 @@ public:
 
     // Pour les tests : le master seul (GLUE puis LIMITEUR) sur un signal
     void masterOnly(float* L, float* R, int n);
+    // Pour les tests : HELL seul (son entree, son retour sans hmix), une DIST seule (amount, sur place)
+    void hellOnly(const float* inL, const float* inR, float* outL, float* outR, int n);
+    void distOnly(double amount, float* L, float* R, int n);
 
 private:
     struct Bq {
@@ -111,6 +165,9 @@ private:
         // Avec une resonance (le filtre DJ de PERFORM)
         void lowpassQ(double f, double q, double sr);
         void highpassQ(double f, double q, double sr);
+        // Les etageres (le TONE de la DIST facon Decapitator)
+        void lowShelf(double f, double db, double sr);
+        void highShelf(double f, double db, double sr);
         float run(int c, float x) {
             const double y = b0 * x + z1[c];
             z1[c] = b1 * x - a1 * y + z2[c];
@@ -130,8 +187,57 @@ private:
         double dry = 1, wet = 0, pre = 0.125;
         bool lpOn = false;
         Bq lp;
+        // Les sous-reglages (DistX) : au depart (plain), le chemin d'avant, a l'identique
+        DistX X;
+        bool plain = true;
+        double xFor = -1;           // le xtone pour lequel les filtres sont poses
+        Bq lowSh, highSh, lowCut, lp2, lp3, dc;
+        bool tiltOn = false, lowOn = false;
+        double outG = 1, envIn = 0, envOut = 0, autoK = 1, ke = 0.00007;
         void set(double drive, double xtoneHz, double sr);
+        void setX(const DistX& x, double sr);
         void process(float* L, float* R, int n);
+        float shape(float u) const;
+    };
+    // HELL : un decaleur de frequence (deux chaines de passe-tout a 90 degres, un oscillateur en quadrature) dans la boucle
+    // d'un delay (lecture Hermite, temps lisse comme un delay analogique), son passe-bas, ANTI, SMEAR, CROSS, un LFO sinus
+    struct Hell {
+        struct Hilbert {
+            double xs[2][4][2] = {}, ys[2][4][2] = {};
+            double qd = 0;
+            void run(double x, double& i, double& q);
+            void clear();
+        };
+        struct Ap {
+            std::vector<float> b;
+            int w = 0;
+            float run(float x, float g) {
+                const float d = b[static_cast<size_t>(w)];
+                const float y = -g * x + d;
+                b[static_cast<size_t>(w)] = x + g * y;
+                if (++w >= static_cast<int>(b.size())) w = 0;
+                return y;
+            }
+        };
+        std::array<std::vector<float>, 2> buf;
+        int w = 0, len = 0;
+        std::array<Hilbert, 2> hil;
+        std::array<Bq, 1> lp, anti; // un biquad garde les deux cotes
+        std::array<std::array<Ap, 4>, 2> ap;
+        double z[2] = {0, 0}, dcx[2] = {0, 0}, dcy[2] = {0, 0}, th[2] = {0, 0};
+        double lfoPh = 0;
+        double fNow = 0, dNow = -1, fbNow = 0, filtFor = -1, antiFor = -1;
+        // Les reglages du bloc
+        double fTo = 0, dTo = 0.1, fbTo = 0, side = 1, phase = 0, antiK = 0.5, filtHz = 20000, smear = 0;
+        double lfoHz = 0, lfoAmt = 0, lfoMax = 200;
+        int lfoTarget = 0;
+        bool cross = false, stereo = false, lfoSync = false, shiftSync = false;
+        double syncCycleQ = 0, lfoCycleQ = 0; // SYNC : un tour du decaleur, du LFO, en noires
+        long quiet = 0;
+        bool idle = true;
+        void prepare(double sr);
+        void set(const GlobalFx& g, double bpm, double sr);
+        void process(const float* inL, const float* inR, float* outL, float* outR, int n, double sr, double ppq, double pps, bool playing);
     };
     struct Chorus {
         std::vector<float> bl, br;
@@ -232,6 +338,8 @@ private:
     Dist padsDist_, kickDist_;
     Chorus padsChorus_;
     DelayUnit delay_;
+    Hell hell_;
+    DistX distX_;
     Convolver reverb_;
     const ReverbIR* nextIR_ = nullptr;
     Glue glue_;
@@ -246,7 +354,8 @@ private:
     // Le SIDECHAIN : sa profondeur lissee, le gain de chaque echantillon du bloc
     double sideNow_ = 0;
     std::vector<float> duck_;
-    std::vector<float> padsL_, padsR_, kickL_, kickR_, revL_, revR_, delL_, delR_, wetL_, wetR_, mL_, mR_;
+    std::vector<float> padsL_, padsR_, kickL_, kickR_, revL_, revR_, delL_, delR_, wetL_, wetR_, mL_, mR_, hellL_, hellR_;
+    double bpm_ = 120;
 };
 
 } // namespace mm

@@ -96,6 +96,8 @@ export const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = {
   chorus: 'CHORUS',
   delay: 'DELAY',
   reverb: 'REVERB',
+  // HELL (2026-11-13, le plugin) : l'envoi de la piste vers HELL (dsp/Fx.cpp)
+  hell: 'HELL',
   tune: 'TUNE',
   pan: 'PAN',
   start: 'START',

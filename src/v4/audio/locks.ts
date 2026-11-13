@@ -82,8 +82,9 @@ import { LFO_PARAMS, clampLfo, isLfoParam, type LfoParam } from './lfo';
  *   pas a l'instant du coup, jusqu'au coup suivant de la voix (comme DELAY et
  *   REVERB, l'overdrive d'une piste Elektron).
  */
-export type VoiceLockId = 'atk' | 'hold' | 'fine' | 'ftype' | 'fcut' | 'freso' | 'fenv' | 'fatk' | 'fdec' | 'tone' | 'dist' | 'chorus';
-export const VOICE_LOCK_IDS: readonly VoiceLockId[] = ['atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec', 'tone', 'dist', 'chorus'];
+export type VoiceLockId = 'atk' | 'hold' | 'fine' | 'ftype' | 'fcut' | 'freso' | 'fenv' | 'fatk' | 'fdec' | 'tone' | 'dist' | 'chorus' | 'hell';
+/** hell (2026-11-13, le plugin) : l'envoi vers HELL, pose sur la tranche a l'instant du coup comme DELAY et REVERB. */
+export const VOICE_LOCK_IDS: readonly VoiceLockId[] = ['atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec', 'tone', 'dist', 'chorus', 'hell'];
 /**
  * V.5.1 (2026-10-29, l'etape D2) : les reglages de trig (audio/trig.ts : len prob cond utime lfot rtrg rate vfad rlen), les
  * LFO de la voix (audio/lfo.ts : l1spd... l2dep), des entiers, et ltrg (1 : le pas est un lock trig, il ne joue pas, ses

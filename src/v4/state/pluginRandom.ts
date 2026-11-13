@@ -17,7 +17,7 @@
  * - des P-LOCK : la caisse en retrig 1/32 a la fin d'une phrase, un fill de toms accordes, un ratchet de charley ;
  * - un ou deux LFO (un charley ouvert qui respire, un filtre qui balaie, une percussion qui voyage) ;
  * - les FX de toute la machine : SWING (celui du style), DRIVE, REVERB et sa taille, DELAY, son temps et son retour,
- *   CHORUS, COMP, parfois BIT.
+ *   CHORUS, COMP, parfois BIT ; depuis le 2026-11-13 HELL (un de ses presets, des envois) et le caractere de la DIST.
  * Des plages sures, par role : le kick reste devant, rien ne sature, le beat se tient. Le tempo, les scenes et les mutes
  * du pattern restent ceux de Mika. Pur : le hasard (r) et la liste des samples viennent de l'appelant.
  */
@@ -29,6 +29,7 @@ import { NEUTRAL_FX, type Fx, type Steps } from '../audio/pattern';
 import { TRACK_KEYS, type StoredKit16, type TrackKey } from '../audio/tracks';
 import { LEN_STEPS, RATE_DENS, type TrigRow, type TrigSet } from '../audio/trig';
 import { FAMS, ROLE_PAN, condIx, trackEntry, type Rate, type TrackSpec } from './pluginFactory';
+import { DIST_PRESETS, HELL_PRESETS, presetPatch } from './labFx';
 
 /** Les fichiers vides de la banque (a nettoyer un jour) : jamais tires. */
 const EMPTY: ReadonlySet<string> = new Set(['ch/Ch 14.wav', 'ch/Ch 16.wav']);
@@ -216,6 +217,8 @@ export function pluginRandom(current: Steps, last: BeatStyle | null, samples: (f
       if (chance(r, perc || i === 9 || i === 12 ? 0.45 : 0.25)) q.delay = r2(between(r, 0.08, 0.35));
       if (chance(r, 0.1)) q.chorus = r2(between(r, 0.1, 0.3));
       if (chance(r, snare ? 0.2 : 0.1)) q.dist = r2(between(r, 0.05, 0.25));
+      // HELL (2026-11-13) : une piste sur quatre y envoie (le kick jamais)
+      if (chance(r, 0.25)) q.hell = r2(between(r, 0.15, 0.6));
     }
     const l = lfoAt.get(i);
     if (l) Object.assign(q, l, { db: r2((q.db ?? 0) + (l.db ?? 0)) });
@@ -236,6 +239,10 @@ export function pluginRandom(current: Steps, last: BeatStyle | null, samples: (f
     comp: r2(between(r, 0, 0.3)),
     bits: chance(r, 0.15) ? r2(between(r, 0.05, 0.25)) : 0,
   };
+  // HELL : l'un de ses presets, son retour tire ; la DIST : le caractere d'un de ses presets, son DRIVE reste celui du tirage
+  Object.assign(fx, presetPatch(pick(r, HELL_PRESETS), 'hell'), { hmix: r2(between(r, 0.4, 0.8)) });
+  const drive = fx.drive;
+  Object.assign(fx, presetPatch(pick(r, DIST_PRESETS), 'dist'), { drive });
 
   const steps = Object.fromEntries(TRACK_KEYS.map((k, i) => [k, rows[i].map((v) => Math.max(0, Math.min(9, v))).join('')])) as unknown as Steps;
   const anyLock = Object.keys(locks).length > 0;

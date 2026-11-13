@@ -73,6 +73,7 @@ import { familyOf, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
 import { TYPED_TRACKS, normTrackKey, tracks } from '../audio/tracks';
+import { IN_PLUGIN } from '../pluginMode';
 import { activeTrack } from '../state/trk';
 import { DT2_FACE, DT_PAGE_KEYS, PORTRAIT, RYTM_PAGE_KEYS, type Inst } from '../theme';
 
@@ -522,7 +523,14 @@ const ENV: readonly PageSlot[] = [
 
 /** Un FX de la voix (VOICE FX) : un bloc normal sur la face DT2 (Mika : pas de bande etroite compressee), deux rangees ailleurs. */
 const voiceFx = (label: string, target: SlotTarget, lock: LockKey): PageSlot => ({ ...lockable(label, target, 'bar', lock), voiceTag: true, h: DT2_FACE ? 1 : 2 });
-const FXV: readonly PageSlot[] = [voiceFx('DIST', 'vdist', 'dist'), voiceFx('CHORUS', 'vchorus', 'chorus'), voiceFx('DELAY', 'vdelay', 'delay'), voiceFx('REVERB', 'vreverb', 'reverb')];
+// HELL (2026-11-13, le plugin) : l'envoi de la piste vers HELL, apres REVERB (ses reglages : OPEN, onglet FX)
+const FXV: readonly PageSlot[] = [
+  voiceFx('DIST', 'vdist', 'dist'),
+  voiceFx('CHORUS', 'vchorus', 'chorus'),
+  voiceFx('DELAY', 'vdelay', 'delay'),
+  voiceFx('REVERB', 'vreverb', 'reverb'),
+  ...(IN_PLUGIN ? [voiceFx('HELL', 'vhell', 'hell')] : []),
+];
 
 /** GLOBAL FX : les huit encodeurs du desktop, dans le meme ordre (theme.ts GLOBAL_ENCODERS) ; jamais verrouilles. */
 const FXG: readonly PageSlot[] = [

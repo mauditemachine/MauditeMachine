@@ -138,6 +138,76 @@ double FxLaws::delaySeconds(double dtime, double bpm) {
 }
 double FxLaws::delayFeedback(double dfb) { return clampd(0.87 * clampd(dfb, 0, 1), 0, 0.9); }
 
+/* ---------------- HELL et la DIST facon Decapitator (2026-11-13) : leurs lois ---------------- */
+
+namespace {
+// TIME en SYNC : 1/128 a 1/2 mesure, en doubles croches (1/16 = 1)
+constexpr double HELL_DIVS[] = {0.125, 0.25, 0.5, 1, 4.0 / 3, 1.5, 2, 8.0 / 3, 3, 4, 6, 8};
+constexpr int HELL_NDIV = 12;
+// Un tour du decaleur (RANGE SYNC) ou du LFO (SYNC) : 8 mesures a 1/64, en doubles croches
+constexpr double HELL_CYCLES[] = {128, 64, 32, 16, 8, 4, 2, 1, 0.5, 0.25};
+constexpr int HELL_NCYC = 10;
+// L'envoi et le retour : a envoi 1 et MIX 1, le premier echo ~6 dB au-dessus du son direct (mesure au rendu du moteur :
+// a 1.0 et 1.0, HELL n'ajoutait que 0.1 a 1 dB a une piste qui y envoyait a 60 %, trop discret pour un effet de caractere)
+constexpr double HELL_SEND = 1.5, HELL_RETURN = 1.3;
+constexpr double HELL_MAX_S = 2.0;
+// Les deux chaines de passe-tout a 90 degres d'Olli Niemitalo (4 sections du 2e ordre chacune ; 20 Hz a ~0.49 fs)
+constexpr double HIL_A[4] = {0.6923878, 0.9360654322959, 0.9882295226860, 0.9987488452737};
+constexpr double HIL_B[4] = {0.4021921162426, 0.8561710882420, 0.9722909545651, 0.9952884791278};
+// SMEAR : quatre passe-tout en serie (echantillons a 48 kHz), un jeu par cote
+constexpr int SMEAR_L[4] = {113, 337, 509, 709};
+constexpr int SMEAR_R[4] = {127, 353, 541, 739};
+} // namespace
+
+// range : le cran (0 FINE, 1 WIDE, 2 SYNC)
+double FxLaws::hellShiftHz(double range, double freq, double bpm) {
+    const double u = clampd(2 * freq - 1, -1, 1);
+    const double sg = u < 0 ? -1.0 : 1.0, a = std::fabs(u);
+    const long r = std::lround(range);
+    if (r == 1) return sg * 20000 * a * a * a;
+    if (r == 2) {
+        if (a < 1e-3) return 0;
+        const int k = std::min(HELL_NCYC - 1, static_cast<int>(std::floor(a * HELL_NCYC)));
+        return sg * (std::max(1.0, bpm) / 60 * 4) / HELL_CYCLES[k];
+    }
+    return sg * 200 * a * a;
+}
+double FxLaws::hellSeconds(double time, bool sync, double bpm) {
+    const double t = clampd(time, 0, 1);
+    if (sync) {
+        const int k = static_cast<int>(std::lround(t * (HELL_NDIV - 1)));
+        return std::min(HELL_MAX_S, HELL_DIVS[k] * 60 / std::max(1.0, bpm) / 4);
+    }
+    return std::min(HELL_MAX_S, 0.00002 * std::pow(50000.0, t));
+}
+double FxLaws::hellFilterHz(double v) { return 100 * std::pow(200.0, clampd(v, 0, 1)); }
+double FxLaws::hellRateHz(double rate, bool sync, double bpm) {
+    const double r = clampd(rate, 0, 1);
+    if (sync) {
+        const int k = static_cast<int>(std::lround(r * (HELL_NCYC - 1)));
+        return (std::max(1.0, bpm) / 60 * 4) / HELL_CYCLES[k];
+    }
+    return 0.02 * std::pow(1000.0, r);
+}
+double FxLaws::distLowHz(double v) { return v < 0.005 ? 0 : 30 * std::pow(500.0 / 30, clampd(v, 0, 1)); }
+
+DistX DistX::of(const GlobalFx& g) {
+    DistX x;
+    x.style = static_cast<int>(std::max(0L, std::min(5L, std::lround(clampd(g.xstyle, 0, 1) * 5))));
+    x.tilt = clampd(2 * g.xtilt - 1, -1, 1);
+    if (std::fabs(x.tilt) < 0.02) x.tilt = 0;
+    x.low = clampd(g.xlow, 0, 1);
+    if (x.low < 0.005) x.low = 0;
+    x.thump = clampd(g.xthump, 0, 1);
+    x.punish = g.xpunish >= 0.5 ? 1 : 0;
+    x.mix = clampd(g.xmix, 0, 1);
+    x.out = clampd(2 * g.xout - 1, -1, 1);
+    if (std::fabs(x.out) < 0.005) x.out = 0;
+    x.steep = g.xsteep >= 0.5;
+    x.autoG = g.xauto >= 0.5;
+    return x;
+}
+
 /* ---------------- la reponse de la reverb ---------------- */
 
 void ReverbIR::impulse(double seconds, double hiEnd, double preDelay, double sr, std::vector<float>& L, std::vector<float>& R) {
@@ -214,6 +284,28 @@ void FxChain::Bq::highpassQ(double f, double q, double sr) {
     b0 = (1 + cw) / 2 / a0; b1 = -(1 + cw) / a0; b2 = b0; a1 = -2 * cw / a0; a2 = (1 - alpha) / a0;
 }
 
+// Les etageres (RBJ, pente 1) : le TONE de la DIST facon Decapitator
+void FxChain::Bq::lowShelf(double f, double db, double sr) {
+    f = clampd(f, 20, sr / 2 * 0.999);
+    const double A = std::pow(10.0, db / 40), w = 2 * PI * f / sr, cw = std::cos(w), al = std::sin(w) / 2 * std::sqrt(2.0), sA = 2 * std::sqrt(A) * al;
+    const double a0 = (A + 1) + (A - 1) * cw + sA;
+    b0 = A * ((A + 1) - (A - 1) * cw + sA) / a0;
+    b1 = 2 * A * ((A - 1) - (A + 1) * cw) / a0;
+    b2 = A * ((A + 1) - (A - 1) * cw - sA) / a0;
+    a1 = -2 * ((A - 1) + (A + 1) * cw) / a0;
+    a2 = ((A + 1) + (A - 1) * cw - sA) / a0;
+}
+void FxChain::Bq::highShelf(double f, double db, double sr) {
+    f = clampd(f, 20, sr / 2 * 0.999);
+    const double A = std::pow(10.0, db / 40), w = 2 * PI * f / sr, cw = std::cos(w), al = std::sin(w) / 2 * std::sqrt(2.0), sA = 2 * std::sqrt(A) * al;
+    const double a0 = (A + 1) - (A - 1) * cw + sA;
+    b0 = A * ((A + 1) + (A - 1) * cw + sA) / a0;
+    b1 = -2 * A * ((A - 1) + (A + 1) * cw) / a0;
+    b2 = A * ((A + 1) + (A - 1) * cw - sA) / a0;
+    a1 = 2 * ((A - 1) - (A + 1) * cw) / a0;
+    a2 = ((A + 1) - (A - 1) * cw - sA) / a0;
+}
+
 // TONE (tone.ts) : a 0, rien ; sinon un passe-haut puis un passe-bas de Butterworth
 void FxChain::Tone::set(double tone, double sr) {
     double t = clampd(tone, -1, 1);
@@ -246,18 +338,118 @@ void FxChain::Dist::set(double drive, double xtoneHz, double sr) {
     lpOn = xtoneHz < 16000;
     if (lpOn && xtoneHz != x) lp.lowpass(clampd(xtoneHz, 20, sr / 2), sr);
     x = xtoneHz;
+    // STEEP : deux etages de plus au meme HIGH CUT (36 dB par octave)
+    if (!plain && X.steep && lpOn && xFor != xtoneHz) {
+        lp2.lowpass(clampd(xtoneHz, 20, sr / 2), sr);
+        lp3.lowpass(clampd(xtoneHz, 20, sr / 2), sr);
+        xFor = xtoneHz;
+    }
+}
+// Les sous-reglages facon Decapitator : poses une fois (setGlobal), pas a chaque coup
+void FxChain::Dist::setX(const DistX& nx, double sr) {
+    if (nx == X && !(plain && !nx.plain())) return;
+    const bool was = plain;
+    X = nx;
+    plain = X.plain();
+    if (plain) return;
+    if (was) {
+        lowSh.clear();
+        highSh.clear();
+        lowCut.clear();
+        lp2.clear();
+        lp3.clear();
+        dc.clear();
+        envIn = envOut = 0;
+        autoK = 1;
+    }
+    // TONE : sombre, les graves montent et les aigus baissent (6 dB au bout), autour de 700 Hz, avant la saturation
+    tiltOn = X.tilt != 0;
+    if (tiltOn) {
+        lowSh.lowShelf(700, -6 * X.tilt, sr);
+        highSh.highShelf(700, 6 * X.tilt, sr);
+    }
+    // LOW CUT et THUMP : un passe-haut avant la saturation, sa resonance fait la bosse
+    const double lo = FxLaws::distLowHz(X.low);
+    lowOn = lo > 0;
+    if (lowOn) lowCut.highpassQ(lo, 0.707 + 2.3 * X.thump, sr);
+    if (X.steep && lpOn) {
+        lp2.lowpass(clampd(x, 20, sr / 2), sr);
+        lp3.lowpass(clampd(x, 20, sr / 2), sr);
+        xFor = x;
+    } else {
+        xFor = -1;
+    }
+    dc.highpass(10, sr);
+    outG = std::pow(10.0, 12 * X.out / 20);
+    ke = 1 - std::exp(-1 / (0.3 * sr));
+}
+// Les courbes de saturation (u : le signal deja pousse par DIST et PUNISH)
+float FxChain::Dist::shape(float u) const {
+    switch (X.style) {
+        case 1: // TAPE : une courbe douce et symetrique, qui arrondit
+            return static_cast<float>(std::atan(6.0 * u) * (2 / PI));
+        case 2: { // DESK : asymetrique et brillante, une console poussee
+            const double b = 0.25;
+            return static_cast<float>(std::tanh(5.0 * u + b) - std::tanh(b));
+        }
+        case 3: { // IRON : un coude rond (cubique), le transformateur
+            const double v = clampd(4.0 * u, -1.5, 1.5);
+            return static_cast<float>(v - (4.0 / 27) * v * v * v);
+        }
+        case 4: { // TUBE : les harmoniques paires (une triode), son continu retire ensuite
+            const double v = clampd(4.0 * u, -16, 16);
+            return static_cast<float>(std::tanh(v + 0.3 * v * std::fabs(v)));
+        }
+        case 5: { // PENT : un coude dur (une pentode), les harmoniques impaires
+            const double v = clampd(8.0 * u, -64, 64);
+            return static_cast<float>(v / std::pow(1 + std::pow(std::fabs(v), 6.0), 1 / 6.0));
+        }
+        default: // MM : la DIST d'avant
+            return static_cast<float>(std::tanh(8 * clampd(u, -1, 1)));
+    }
 }
 void FxChain::Dist::process(float* L, float* R, int n) {
     if (d <= 0) return;
-    for (int i = 0; i < n; ++i) {
-        float sl = static_cast<float>(std::tanh(8 * clampd(pre * L[i], -1, 1)));
-        float sr = static_cast<float>(std::tanh(8 * clampd(pre * R[i], -1, 1)));
-        if (lpOn) {
-            sl = lp.run(0, sl);
-            sr = lp.run(1, sr);
+    if (plain) {
+        for (int i = 0; i < n; ++i) {
+            float sl = static_cast<float>(std::tanh(8 * clampd(pre * L[i], -1, 1)));
+            float sr = static_cast<float>(std::tanh(8 * clampd(pre * R[i], -1, 1)));
+            if (lpOn) {
+                sl = lp.run(0, sl);
+                sr = lp.run(1, sr);
+            }
+            L[i] = static_cast<float>(dry * L[i] + wet * sl);
+            R[i] = static_cast<float>(dry * R[i] + wet * sr);
         }
-        L[i] = static_cast<float>(dry * L[i] + wet * sl);
-        R[i] = static_cast<float>(dry * R[i] + wet * sr);
+        return;
+    }
+    const double pg = pre * (X.punish > 0 ? 10 : 1);
+    // AUTO : l'energie d'entree et de sortie (300 ms, ke), le gain qui les egalise, lisse
+    for (int i = 0; i < n; ++i) {
+        double y[2];
+        const float in[2] = {L[i], R[i]};
+        for (int c = 0; c < 2; ++c) {
+            double u = in[c];
+            if (lowOn) u = lowCut.run(c, static_cast<float>(u));
+            if (tiltOn) u = highSh.run(c, lowSh.run(c, static_cast<float>(u)));
+            float sh = shape(static_cast<float>(pg * u));
+            if (X.style == 4) sh = dc.run(c, sh);
+            if (lpOn) {
+                sh = lp.run(c, sh);
+                if (X.steep) sh = lp3.run(c, lp2.run(c, sh));
+            }
+            y[c] = dry * in[c] + wet * sh;
+        }
+        if (X.autoG) {
+            envIn += ke * ((in[0] * in[0] + in[1] * in[1]) * 0.5 - envIn);
+            envOut += ke * ((y[0] * y[0] + y[1] * y[1]) * 0.5 - envOut);
+            const double want = envOut > 1e-12 ? clampd(std::sqrt(envIn / envOut), 0.1, 2.0) : 1.0;
+            autoK += (want - autoK) * 0.001;
+            y[0] *= autoK;
+            y[1] *= autoK;
+        }
+        L[i] = static_cast<float>(((1 - X.mix) * in[0] + X.mix * y[0]) * outG);
+        R[i] = static_cast<float>(((1 - X.mix) * in[1] + X.mix * y[1]) * outG);
     }
 }
 
@@ -576,6 +768,205 @@ void FxChain::Limiter::process(float* L, float* R, int n) {
     boxSum = s;
 }
 
+/* ---------------- HELL (2026-11-13) ---------------- */
+
+// Le decaleur : la chaine A (un echantillon plus tard) donne la voie en phase, la chaine B la voie a 90 degres
+void FxChain::Hell::Hilbert::run(double x, double& i, double& q) {
+    double a = x, b = x;
+    for (int k = 0; k < 4; ++k) {
+        const double ca = HIL_A[k] * HIL_A[k];
+        const double ya = ca * (a + ys[0][k][1]) - xs[0][k][1];
+        xs[0][k][1] = xs[0][k][0];
+        xs[0][k][0] = a;
+        ys[0][k][1] = ys[0][k][0];
+        ys[0][k][0] = ya;
+        a = ya;
+        const double cb = HIL_B[k] * HIL_B[k];
+        const double yb = cb * (b + ys[1][k][1]) - xs[1][k][1];
+        xs[1][k][1] = xs[1][k][0];
+        xs[1][k][0] = b;
+        ys[1][k][1] = ys[1][k][0];
+        ys[1][k][0] = yb;
+        b = yb;
+    }
+    // La voie A retardee d'un echantillon, la voie B telle quelle : 90 degres a ~49 dB de rejet de l'autre bande (mesure)
+    i = qd;
+    qd = a;
+    q = b;
+}
+void FxChain::Hell::Hilbert::clear() {
+    for (auto& p : xs)
+        for (auto& k : p) k[0] = k[1] = 0;
+    for (auto& p : ys)
+        for (auto& k : p) k[0] = k[1] = 0;
+    qd = 0;
+}
+
+void FxChain::Hell::prepare(double sr) {
+    len = static_cast<int>(std::ceil((HELL_MAX_S + 0.05) * sr)) + 8;
+    for (auto& b : buf) b.assign(static_cast<size_t>(len), 0.f);
+    w = 0;
+    for (auto& h : hil) h.clear();
+    for (int c = 0; c < 2; ++c) {
+        for (int k = 0; k < 4; ++k) {
+            const int d = std::max(1, static_cast<int>(std::lround((c == 0 ? SMEAR_L[k] : SMEAR_R[k]) * sr / 48000)));
+            ap[static_cast<size_t>(c)][static_cast<size_t>(k)].b.assign(static_cast<size_t>(d), 0.f);
+            ap[static_cast<size_t>(c)][static_cast<size_t>(k)].w = 0;
+        }
+        z[c] = dcx[c] = dcy[c] = 0;
+        th[c] = 0;
+    }
+    lp[0].clear();
+    anti[0].clear();
+    lfoPh = 0;
+    fNow = fbNow = 0;
+    dNow = -1;
+    filtFor = antiFor = -1;
+    quiet = 0;
+    idle = true;
+}
+
+void FxChain::Hell::set(const GlobalFx& g, double bpm, double sr) {
+    (void)sr;
+    const long range = std::max(0L, std::min(2L, std::lround(clampd(g.hrange, 0, 1) * 2)));
+    shiftSync = range == 2;
+    fTo = FxLaws::hellShiftHz(static_cast<double>(range), g.hfreq, bpm);
+    syncCycleQ = shiftSync && fTo != 0 ? std::max(1.0, bpm) / 60 / std::fabs(fTo) : 0;
+    dTo = FxLaws::hellSeconds(g.htime, g.hsync >= 0.5, bpm);
+    fbTo = 0.98 * clampd(g.hfb, 0, 1);
+    side = clampd(g.hside, 0, 1);
+    phase = clampd(g.hphase, 0, 1);
+    antiK = clampd(g.hanti, 0, 1);
+    filtHz = FxLaws::hellFilterHz(g.hfilt);
+    smear = clampd(g.hsmear, 0, 1);
+    cross = g.hcross >= 0.5;
+    stereo = g.hstereo >= 0.5;
+    lfoTarget = static_cast<int>(std::max(0L, std::min(3L, std::lround(clampd(g.hlfo, 0, 1) * 3))));
+    lfoSync = g.hlsync >= 0.5;
+    lfoHz = FxLaws::hellRateHz(g.hrate, lfoSync, bpm);
+    lfoCycleQ = lfoSync && lfoHz > 0 ? std::max(1.0, bpm) / 60 / lfoHz : 0;
+    lfoAmt = clampd(g.hamt, 0, 1);
+    lfoMax = range == 1 ? 2000 : range == 2 ? std::max(1.0, std::fabs(fTo)) : 200;
+}
+
+void FxChain::Hell::process(const float* inL, const float* inR, float* outL, float* outR, int n, double sr, double ppq, double pps, bool playing) {
+    bool any = false;
+    for (int i = 0; i < n && !any; ++i) any = inL[i] != 0.f || inR[i] != 0.f;
+    // Au repos (rien n'entre, la boucle s'est tue) : rien a calculer
+    if (!any && idle) {
+        std::memset(outL, 0, sizeof(float) * static_cast<size_t>(n));
+        std::memset(outR, 0, sizeof(float) * static_cast<size_t>(n));
+        return;
+    }
+    if (any) {
+        idle = false;
+        quiet = 0;
+    }
+    // FILTER (le passe-bas avant le decalage) et ANTI (le passe-haut qui garde la bande du bas au-dessus de 0 Hz)
+    const double fHz = std::min(filtHz, sr * 0.45);
+    if (std::fabs(fHz - filtFor) > 0.5) {
+        lp[0].lowpass(fHz, sr);
+        filtFor = fHz;
+    }
+    const double aHz = antiK * (std::fabs(fTo) + (lfoTarget == 1 ? lfoAmt * lfoMax : 0));
+    const bool antiOn = aHz >= 20;
+    if (antiOn && std::fabs(aHz - antiFor) > 0.01 * aHz) {
+        anti[0].highpass(std::min(aHz, sr * 0.45), sr);
+        antiFor = aHz;
+    }
+    const double kf = 1 - std::exp(-1 / (0.02 * sr));
+    const double kd = 1 - std::exp(-1 / (0.05 * sr));
+    if (dNow < 0) dNow = dTo * sr;
+    const double dc = 1 - 2 * PI * 10 / sr;
+    const float g = 0.62f;
+    double peak = 0;
+    for (int i = 0; i < n; ++i) {
+        // Le LFO (un sinus) : cale sur la mesure en lecture, libre sinon
+        double lfo = 0;
+        if (lfoTarget > 0 && lfoAmt > 0) {
+            double ph;
+            if (lfoSync && playing && lfoCycleQ > 0) {
+                ph = std::fmod(std::max(0.0, ppq + i * pps) / lfoCycleQ, 1.0);
+            } else {
+                lfoPh += lfoHz / sr;
+                lfoPh -= std::floor(lfoPh);
+                ph = lfoPh;
+            }
+            lfo = std::sin(2 * PI * ph);
+        }
+        fNow += (fTo - fNow) * kf;
+        fbNow += (fbTo - fbNow) * kf;
+        dNow += (dTo * sr - dNow) * kd;
+        double y[2];
+        for (int c = 0; c < 2; ++c) {
+            const double l = c == 1 && stereo ? -lfo : lfo;
+            // La phase du decaleur : calee sur la mesure en RANGE SYNC (le meme tour a chaque lecture), libre sinon
+            if (shiftSync && playing && syncCycleQ > 0) {
+                const double t = std::fmod(std::max(0.0, ppq + i * pps) / syncCycleQ, 1.0);
+                th[c] = fTo < 0 ? -t : t;
+            } else {
+                const double f = fNow + (lfoTarget == 1 ? lfoAmt * lfoMax * l : 0);
+                th[c] += f / sr;
+                th[c] -= std::floor(th[c]);
+            }
+            double dS = dNow;
+            if (lfoTarget == 3) dS *= 1 + 0.9 * lfoAmt * l;
+            dS = clampd(dS, 2, len - 4);
+            // La lecture du delay (Hermite, 4 points)
+            double rp = w - dS;
+            while (rp < 0) rp += len;
+            const int i1 = static_cast<int>(rp);
+            const double fr = rp - i1;
+            const auto& b = buf[static_cast<size_t>(c)];
+            const double x0 = b[static_cast<size_t>((i1 - 1 + len) % len)], x1 = b[static_cast<size_t>(i1)];
+            const double x2 = b[static_cast<size_t>((i1 + 1) % len)], x3 = b[static_cast<size_t>((i1 + 2) % len)];
+            const double c1 = 0.5 * (x2 - x0), c2 = x0 - 2.5 * x1 + 2 * x2 - 0.5 * x3, c3 = 0.5 * (x3 - x0) + 1.5 * (x1 - x2);
+            double v = ((c3 * fr + c2) * fr + c1) * fr + x1;
+            v = lp[0].run(c, static_cast<float>(v));
+            if (antiOn) v = anti[0].run(c, static_cast<float>(v));
+            double I, Q;
+            hil[static_cast<size_t>(c)].run(v, I, Q);
+            double ph = th[c] + phase + (lfoTarget == 2 ? 0.5 * lfoAmt * l : 0);
+            const double a = 2 * PI * ph, cs = std::cos(a), sn = std::sin(a);
+            const double up = I * cs + Q * sn, dn = I * cs - Q * sn;
+            double o = side * up + (1 - side) * dn;
+            if (smear > 0) {
+                float s2 = static_cast<float>(o);
+                for (auto& u : ap[static_cast<size_t>(c)]) s2 = u.run(s2, g);
+                o += smear * (s2 - o);
+            }
+            // Le continu retire (10 Hz)
+            const double yo = o - dcx[c] + dc * dcy[c];
+            dcx[c] = o;
+            dcy[c] = yo;
+            y[c] = clampd(yo, -8, 8);
+        }
+        // CROSS : gauche et droite echangees, a la sortie et dans la boucle
+        const double zl = cross ? y[1] : y[0], zr = cross ? y[0] : y[1];
+        outL[i] = static_cast<float>(zl);
+        outR[i] = static_cast<float>(zr);
+        // L'entree plus le retour (adouci : la boucle ne s'emballe jamais)
+        buf[0][static_cast<size_t>(w)] = static_cast<float>(inL[i] + std::tanh(fbNow * zl));
+        buf[1][static_cast<size_t>(w)] = static_cast<float>(inR[i] + std::tanh(fbNow * zr));
+        if (++w >= len) w = 0;
+        peak = std::max(peak, std::max(std::fabs(zl), std::fabs(zr)));
+    }
+    // Le repos : plus rien n'entre et la sortie est restee muette plus longtemps que le delay
+    if (any || peak >= 1e-6) quiet = 0;
+    else quiet += n;
+    if (!any && quiet > static_cast<long>(dNow + 0.2 * sr)) idle = true;
+}
+
+void FxChain::hellOnly(const float* inL, const float* inR, float* outL, float* outR, int n) {
+    hell_.process(inL, inR, outL, outR, n, sr_, perfPpq_, perfPps_, perfPlaying_);
+}
+void FxChain::distOnly(double amount, float* L, float* R, int n) {
+    Dist d;
+    d.setX(distX_, sr_);
+    d.set(amount, FxLaws::xtoneHz(g_.xtone), sr_);
+    d.process(L, R, n);
+}
+
 /* ---------------- la chaine ---------------- */
 
 void FxChain::prepare(double sr) {
@@ -586,17 +977,21 @@ void FxChain::prepare(double sr) {
         sChorus_[static_cast<size_t>(t)].prepare(sr);
         sTone_[static_cast<size_t>(t)] = Tone{};
         sDist_[static_cast<size_t>(t)] = Dist{};
+        sDist_[static_cast<size_t>(t)].setX(distX_, sr);
     }
     padsChorus_.prepare(sr);
     padsTone_ = Tone{};
     kickTone_ = Tone{};
     padsDist_ = Dist{};
     kickDist_ = Dist{};
+    padsDist_.setX(distX_, sr);
+    kickDist_.setX(distX_, sr);
     delay_.prepare(sr);
+    hell_.prepare(sr);
     reverb_.prepare(sr);
     glue_ = Glue{};
     limiter_.prepare(sr);
-    for (auto* v : {&padsL_, &padsR_, &kickL_, &kickR_, &revL_, &revR_, &delL_, &delR_, &wetL_, &wetR_, &mL_, &mR_}) v->assign(kMaxBlock, 0.f);
+    for (auto* v : {&padsL_, &padsR_, &kickL_, &kickR_, &revL_, &revR_, &delL_, &delR_, &wetL_, &wetR_, &mL_, &mR_, &hellL_, &hellR_}) v->assign(kMaxBlock, 0.f);
     tail_.fill(0);
     perfFx_.prepare(sr);
     cutG_.fill(1.f);
@@ -803,6 +1198,13 @@ void FxChain::reset() { prepare(sr_); }
 
 void FxChain::setGlobal(const GlobalFx& g, double bpm) {
     g_ = g;
+    bpm_ = bpm;
+    // Les sous-reglages de la DIST (avant de poser les DIST), HELL
+    distX_ = DistX::of(g);
+    padsDist_.setX(distX_, sr_);
+    kickDist_.setX(distX_, sr_);
+    for (auto& d : sDist_) d.setX(distX_, sr_);
+    hell_.set(g, bpm, sr_);
     const double x = FxLaws::xtoneHz(g.xtone);
     padsDist_.set(g.drive, x, sr_);
     kickDist_.set(g.drive, x, sr_);
@@ -834,7 +1236,7 @@ void FxChain::clearTracks(int n) {
 
 void FxChain::process(float* outL, float* outR, int n) {
     if (nextIR_ != reverb_.ir && !(nextIR_ == nullptr && reverb_.ir == nullptr)) reverb_.attach(nextIR_);
-    for (auto* v : {&padsL_, &padsR_, &kickL_, &kickR_, &revL_, &revR_, &delL_, &delR_})
+    for (auto* v : {&padsL_, &padsR_, &kickL_, &kickR_, &revL_, &revR_, &delL_, &delR_, &hellL_, &hellR_})
         std::memset(v->data(), 0, sizeof(float) * static_cast<size_t>(n));
     const double lv = g_.level * g_.level; // LEVEL au carre : le bus et les prises des envois
     // Les tranches : TONE, DIST, CHORUS, puis le bus (kick ou pads) et les envois de la piste
@@ -868,7 +1270,7 @@ void FxChain::process(float* outL, float* outR, int n) {
         if (chorusOn) sChorus_[ti].process(L, R, n, sr_);
         float* bL = kick_[ti] ? kickL_.data() : padsL_.data();
         float* bR = kick_[ti] ? kickR_.data() : padsR_.data();
-        const double rs = s.reverb * REVERB_SEND * lv, ds = s.delay * DELAY_SEND * lv;
+        const double rs = s.reverb * REVERB_SEND * lv, ds = s.delay * DELAY_SEND * lv, hs = s.hell * HELL_SEND * lv;
         float pk = 0.f;
         for (int i = 0; i < n; ++i) {
             bL[i] += L[i];
@@ -881,6 +1283,10 @@ void FxChain::process(float* outL, float* outR, int n) {
             if (ds > 0) {
                 delL_[static_cast<size_t>(i)] += static_cast<float>(L[i] * ds);
                 delR_[static_cast<size_t>(i)] += static_cast<float>(R[i] * ds);
+            }
+            if (hs > 0) {
+                hellL_[static_cast<size_t>(i)] += static_cast<float>(L[i] * hs);
+                hellR_[static_cast<size_t>(i)] += static_cast<float>(R[i] * hs);
             }
         }
         peak_[ti] = std::max(peak_[ti], static_cast<float>(pk * lv));
@@ -952,6 +1358,16 @@ void FxChain::process(float* outL, float* outR, int n) {
         const float dk = ducking ? duck_[static_cast<size_t>(i)] : 1.f;
         mL_[static_cast<size_t>(i)] += wetL_[static_cast<size_t>(i)] * dk;
         mR_[static_cast<size_t>(i)] += wetR_[static_cast<size_t>(i)] * dk;
+    }
+    // HELL : son retour (hmix), comme celui du DELAY ; au repos, rien n'est calcule
+    hell_.process(hellL_.data(), hellR_.data(), wetL_.data(), wetR_.data(), n, sr_, perfPpq_, perfPps_, perfPlaying_);
+    if (!hell_.idle && g_.hmix > 0) {
+        const double hm = clampd(g_.hmix, 0, 1) * HELL_RETURN;
+        for (int i = 0; i < n; ++i) {
+            const float dk = ducking ? duck_[static_cast<size_t>(i)] : 1.f;
+            mL_[static_cast<size_t>(i)] += static_cast<float>(wetL_[static_cast<size_t>(i)] * hm) * dk;
+            mR_[static_cast<size_t>(i)] += static_cast<float>(wetR_[static_cast<size_t>(i)] * hm) * dk;
+        }
     }
     reverb_.process(revL_.data(), revR_.data(), wetL_.data(), wetR_.data(), n);
     for (int i = 0; i < n; ++i) {

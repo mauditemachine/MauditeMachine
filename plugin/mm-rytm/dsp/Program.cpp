@@ -59,7 +59,7 @@ ProgHit blendHit(const ProgHit& a, const ProgHit& b, double f) {
 }
 
 SliceFx blendSlice(const SliceFx& a, const SliceFx& b, double f) {
-    return {lin(a.tone, b.tone, f), lin(a.dist, b.dist, f), lin(a.chorus, b.chorus, f), lin(a.delay, b.delay, f), lin(a.reverb, b.reverb, f)};
+    return {lin(a.tone, b.tone, f), lin(a.dist, b.dist, f), lin(a.chorus, b.chorus, f), lin(a.delay, b.delay, f), lin(a.reverb, b.reverb, f), lin(a.hell, b.hell, f)};
 }
 
 GlobalFx blendFx(const GlobalFx& a, const GlobalFx& b, double f) {
@@ -86,6 +86,7 @@ GlobalFx blendFx(const GlobalFx& a, const GlobalFx& b, double f) {
     g.chpf = lin(a.chpf, b.chpf, f);
     g.tone = lin(a.tone, b.tone, f);
     g.level = lin(a.level, b.level, f);
+    g.hmix = lin(a.hmix, b.hmix, f);
     // La forme de la REVERB (rsize, rtone, rpre) : la reponse de la position la plus proche (calculee a part)
     return g;
 }

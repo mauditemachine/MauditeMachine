@@ -88,7 +88,7 @@ void parseHit(const juce::var& o, mm::ProgHit& h) {
     h.lt = num(o, "lt", 0) != 0;
     if (const auto* sl = o.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5) {
         h.hasSl = true;
-        h.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
+        h.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4]), sl->size() >= 6 ? static_cast<double>((*sl)[5]) : 0.0};
     }
     // Les LFO : [n, spd, mult, fade, dest, wave, phase, mode, depth] aux rangs du site (dsp/Lfo.h)
     h.nlfo = 0;
@@ -185,6 +185,33 @@ void parseFx(const juce::var& o, mm::GlobalFx& g) {
     g.chpf = num(o, "chpf", g.chpf);
     g.tone = num(o, "tone", g.tone);
     g.level = num(o, "level", g.level);
+    // HELL et la DIST facon Decapitator (2026-11-13)
+    g.hmix = num(o, "hmix", g.hmix);
+    g.hrange = num(o, "hrange", g.hrange);
+    g.hfreq = num(o, "hfreq", g.hfreq);
+    g.hphase = num(o, "hphase", g.hphase);
+    g.hside = num(o, "hside", g.hside);
+    g.hanti = num(o, "hanti", g.hanti);
+    g.htime = num(o, "htime", g.htime);
+    g.hsync = num(o, "hsync", g.hsync);
+    g.hfb = num(o, "hfb", g.hfb);
+    g.hfilt = num(o, "hfilt", g.hfilt);
+    g.hcross = num(o, "hcross", g.hcross);
+    g.hsmear = num(o, "hsmear", g.hsmear);
+    g.hlfo = num(o, "hlfo", g.hlfo);
+    g.hrate = num(o, "hrate", g.hrate);
+    g.hlsync = num(o, "hlsync", g.hlsync);
+    g.hamt = num(o, "hamt", g.hamt);
+    g.hstereo = num(o, "hstereo", g.hstereo);
+    g.xstyle = num(o, "xstyle", g.xstyle);
+    g.xtilt = num(o, "xtilt", g.xtilt);
+    g.xlow = num(o, "xlow", g.xlow);
+    g.xthump = num(o, "xthump", g.xthump);
+    g.xsteep = num(o, "xsteep", g.xsteep);
+    g.xpunish = num(o, "xpunish", g.xpunish);
+    g.xauto = num(o, "xauto", g.xauto);
+    g.xmix = num(o, "xmix", g.xmix);
+    g.xout = num(o, "xout", g.xout);
 }
 
 void parseXk(const juce::var& o, mm::Program& p);
@@ -217,7 +244,7 @@ bool parseProgram(const juce::String& json, mm::Program& p) {
             tr.tlen = std::max(0, std::min(128, static_cast<int>(num(tv, "tlen", 0))));
             parseVar(tv, tr.var);
             if (const auto* sl = tv.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5)
-                tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
+                tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4]), sl->size() >= 6 ? static_cast<double>((*sl)[5]) : 0.0};
             parseHit(tv.getProperty("live", juce::var()), tr.live);
             tr.hits.clear();
             if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
@@ -275,7 +302,7 @@ void parseXk(const juce::var& o, mm::Program& p) {
                 auto& tr = x.tracks[static_cast<size_t>(t)];
                 tr.slice = static_cast<float>(num(tv, "slice", 1));
                 if (const auto* sl = tv.getProperty("sl", juce::var()).getArray(); sl && sl->size() >= 5)
-                    tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4])};
+                    tr.sl = {static_cast<double>((*sl)[0]), static_cast<double>((*sl)[1]), static_cast<double>((*sl)[2]), static_cast<double>((*sl)[3]), static_cast<double>((*sl)[4]), sl->size() >= 6 ? static_cast<double>((*sl)[5]) : 0.0};
                 parseHit(tv.getProperty("live", juce::var()), tr.live);
                 if (const auto* hs = tv.getProperty("hits", juce::var()).getArray())
                     for (const auto& hv : *hs) {

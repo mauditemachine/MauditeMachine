@@ -90,6 +90,7 @@ const VOICE_CLASS: Readonly<Record<VoiceParam, MorphClass>> = {
   chorus: 'ramp',
   delay: 'ramp',
   reverb: 'ramp',
+  hell: 'ramp',
   tone: 'ramp',
   decay: 'hit',
   pan: 'hit',

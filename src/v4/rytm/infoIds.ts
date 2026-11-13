@@ -85,6 +85,7 @@ export const RYTM_PARAM_IDS = [
   'vchorus',
   'vdelay',
   'vreverb',
+  'vhell',
   'dist',
   'chorus',
   'delay',
