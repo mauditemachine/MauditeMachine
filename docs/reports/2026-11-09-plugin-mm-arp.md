@@ -371,3 +371,13 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Reste à faire
 - Mika : essai dans Ableton, surtout l'écran qui reste en place dans la WebView du Mac.
+
+## Suite 2026-11-13 : une seule page OPEN, fenêtre 2x
+
+### Ce qui a été fait
+- OPEN : une seule carte noire (`src/v4/plugin/arp/HoodBoard.tsx`, `hood.css`, `pcbui.tsx`, `hoodPage.ts`), plus de PCB vert ni de PAGE 1 / PAGE 2. Le capot se lève toujours avec le trou de l'écran, l'écran reste en place.
+- Sept onglets : TWEAKS (ex page 1), SOUND, FX, MOD, STEPS, LIBRARY (+ DISK), MIDI (DRAG MIDI + MIDI LEARN).
+- Fenêtre 2x par défaut (2200 x 1408), redimensionnable de 880 à 3300, bornée à l'écran (`PluginEditor.cpp`, état `editorW4`).
+
+### Reste à faire
+- Couleur jaune canard (#D28E05) et boutons au style de la face avant pour l'interface secondaire (demande de Mika, en cours).
