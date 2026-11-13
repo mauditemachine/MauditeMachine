@@ -93,9 +93,19 @@ const PLANE = {
   deck: { w: VOY_LID_W, d: VOY_BODY.d / 2 - VOY_BODY.bendZ, cz: (VOY_BODY.d / 2 + VOY_BODY.bendZ) / 2 },
 } as const;
 
+/**
+ * Les noms de potards poses par un autre que le site (2026-11-13 : HELL, le plugin MM-ARP seul, plugin/arp/hellKnob.ts) :
+ * vide au site. Meme corps que les noms des potards du plan.
+ */
+const EXTRA_KNOB_TEXTS: { where: VoySilkKind; text: string; x: number; z: number }[] = [];
+export function voySilkExtraKnob(where: VoySilkKind, text: string, x: number, labelZ: number): void {
+  if (!EXTRA_KNOB_TEXTS.some((t) => t.where === where && t.text === text)) EXTRA_KNOB_TEXTS.push({ where, text, x, z: labelZ });
+}
+
 /** Les libelles des potards d'un plan (meme corps pour tous : un seul groupe). */
 function knobTexts(where: VoySilkKind): Text[] {
   const out: Text[] = [];
+  for (const t of EXTRA_KNOB_TEXTS) if (t.where === where) out.push({ text: t.text, x: t.x, z: t.z, cap: PORTRAIT ? 0.1 : 0.068, maxW: PORTRAIT ? 0.84 : 0.76, group: PORTRAIT ? `knob${Math.round(t.z * 4)}` : 'knob' });
   for (const k of VOY_FACE_KNOBS) {
     const p = voyKnobPlace(k.id);
     if (p.where !== where) continue;

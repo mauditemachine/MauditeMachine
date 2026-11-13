@@ -17,7 +17,7 @@ import spec from '../../../../plugin/mm-arp/extra-params.json';
  * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
  * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell';
 
 export interface ExtraParam {
   id: string;
@@ -172,6 +172,26 @@ function text(id: string, v: number): string {
     case 'xCombFb':
     case 'xFlFb':
       return bipolar(v);
+    case 'xHellMix':
+      return dose(v);
+    case 'xHellTime': {
+      const t = 5 * Math.pow(400, v);
+      return t >= 1000 ? `${(t / 1000).toFixed(2)} s` : `${Math.round(t)} ms`;
+    }
+    case 'xHellShift': {
+      const x = 2 * v - 1;
+      const f = 5000 * x * x * x;
+      const a = Math.abs(f);
+      return a < 0.05 ? '0 Hz' : `${f > 0 ? '+' : '-'}${a >= 1000 ? `${(a / 1000).toFixed(2)} kHz` : a >= 100 ? `${Math.round(a)} Hz` : `${a.toFixed(1)} Hz`}`;
+    }
+    case 'xHellUpDown':
+      return v >= 0.999 ? 'UP' : v <= 0.001 ? 'DOWN' : `${Math.round((1 - v) * 100)} / ${Math.round(v * 100)}`;
+    case 'xHellLfoRate':
+      return hz(0.02 * Math.pow(500, v));
+    case 'xHellLfoDepth':
+      return v <= 0 ? 'OFF' : `${Math.round(400 * v * v)} Hz`;
+    case 'xHellTone':
+      return Math.abs(v - 0.5) <= 0.01 ? 'FLAT' : v < 0.5 ? `LP ${hz(600 * Math.pow(30, v / 0.49))}` : `HP ${hz(20 * Math.pow(150, (v - 0.51) / 0.49))}`;
     case 'xHpf':
       return v <= 0 ? 'OFF' : hz(hpfHz(v));
     case 'xPhRate':

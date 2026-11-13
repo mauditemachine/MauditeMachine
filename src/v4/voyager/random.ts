@@ -216,7 +216,15 @@ export interface VoyRandom {
   seq: Step[] | null;
   /** une progression imposee ; null : au choix de RANDOM (les progressions de chords.ts) */
   prog: readonly number[] | null;
+  /** ce que dit l'ecran apres RANDOM (absent : le style) */
+  label?: string;
 }
+
+/**
+ * Le RANDOM du plugin MM-ARP (2026-11-13, plugin/arp/hypno.ts) : il reprend le tirage du site et le rend hypnotique
+ * (suite courte qui boucle, pistes par pas coherentes). Vide au site : RANDOM ne change pas.
+ */
+export const voyRandomHook: { fn: ((r: VoyRandom) => VoyRandom) | null } = { fn: null };
 
 function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
   // La base : un patch complet (aucun reglage ne reste du precedent), puis le caractere du style

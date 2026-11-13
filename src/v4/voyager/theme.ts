@@ -442,6 +442,17 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
 }
 
 /**
+ * HELL (2026-11-13, le plugin MM-ARP seul : plugin/arp/hellKnob.ts) : un petit potard de plus sur le panneau, dans la
+ * colonne EFFECTS, sur la rangee du bas (vide : MOD est dans les colonnes des enveloppes), centre sous DELAY et REVERB.
+ * Ce n'est pas un potard du site (voyParams) : le plugin le pose lui-meme, le site ne l'appelle jamais.
+ */
+export const VOY_HELL_PLACE = (() => {
+  const s = VOY_KNOB.panelScale * SIZE_SCALE.s;
+  const z = RC;
+  return { x: (DESK_FX[0] + DESK_FX[1]) / 2, z, s, labelZ: z + VOY_KNOB.skirt.r * s + 0.13 };
+})();
+
+/**
  * Les LED d'un bouton poussoir et leurs noms au-dessus (plan de la touche) : une par cran a partir de ledFrom (SUB
  * OCT : -1, -2 ; CHORUS : I, II), step le cran qu'elle montre.
  */

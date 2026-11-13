@@ -9,6 +9,7 @@
 
 #include "Arp.h"
 #include "ArpFx.h"
+#include "Hell.h"
 #include "ExtraParams.h"
 #include "Params.h"
 #include "Voyager.h"
@@ -134,6 +135,8 @@ private:
     // Le moteur et sa chaine (thread audio, recrees par prepareToPlay)
     std::unique_ptr<mmarp::Voyager> voy_;
     mmarp::ArpFx fx_;
+    // HELL (2026-11-13) : delay + decaleur de Bode, apres la chaine ; contourne au bit pres a MIX 0
+    mmarp::Hell hell_;
     mmarp::Arp arp_;
     double sr_ = 0;
     int64_t frame_ = 0;

@@ -759,6 +759,92 @@
       "label": "TONE",
       "section": "dist",
       "def": 0.5
+    },
+    {
+      "id": "xHellMix",
+      "label": "HELL",
+      "section": "hell",
+      "def": 0,
+      "help": "HELL (2026-11-13, facon Echobode) : dose de l'effet, delay + decaleur de frequence de Bode dans la boucle ; 0 : contourne au bit pres"
+    },
+    {
+      "id": "xHellSync",
+      "label": "HELL TIME SYNC",
+      "section": "hell",
+      "def": 0.5384615384615384,
+      "steps": [
+        "FREE",
+        "1/32",
+        "1/16T",
+        "1/16",
+        "1/16.",
+        "1/8T",
+        "1/8",
+        "1/8.",
+        "1/4T",
+        "1/4",
+        "1/4.",
+        "1/2",
+        "1/2.",
+        "1 BAR"
+      ],
+      "help": "FREE : TIME en ms ; sinon le temps en notes, cale au tempo de l'hote (4 s au plus)"
+    },
+    {
+      "id": "xHellTime",
+      "label": "HELL TIME",
+      "section": "hell",
+      "def": 0.5,
+      "help": "en FREE : 5 a 2000 ms (5 x 400^v ; 0.5 : 100 ms)"
+    },
+    {
+      "id": "xHellFb",
+      "label": "HELL FEEDBACK",
+      "section": "hell",
+      "def": 0.5,
+      "help": "la reinjection, 0 a 1 (un limiteur doux tient la boucle)"
+    },
+    {
+      "id": "xHellShift",
+      "label": "HELL SHIFT",
+      "section": "hell",
+      "def": 0.5,
+      "help": "le decalage par tour : -5 a +5 kHz en loi cubique (5000 (2v-1)^3), fin pres de 0 ; 0.5 : 0 Hz"
+    },
+    {
+      "id": "xHellUpDown",
+      "label": "HELL UP/DOWN",
+      "section": "hell",
+      "def": 1,
+      "help": "0 : la bande decalee vers le bas seule ; 1 : vers le haut seule ; 0.5 : les deux"
+    },
+    {
+      "id": "xHellSpread",
+      "label": "HELL SPREAD",
+      "section": "hell",
+      "def": 0,
+      "help": "le canal droit : decalage x (1 - 2v) (1 : a l'oppose), LFO en quadrature, ligne +23 ms au plus"
+    },
+    {
+      "id": "xHellLfoRate",
+      "label": "HELL LFO RATE",
+      "section": "hell",
+      "def": 0.4,
+      "help": "0.02 a 10 Hz (0.02 x 500^v)"
+    },
+    {
+      "id": "xHellLfoDepth",
+      "label": "HELL LFO DEPTH",
+      "section": "hell",
+      "def": 0,
+      "help": "0 a 400 Hz ajoutes au decalage (400 v^2)"
+    },
+    {
+      "id": "xHellTone",
+      "label": "HELL TONE",
+      "section": "hell",
+      "def": 0.5,
+      "help": "dans la boucle : 0.5 neutre ; dessous passe-bas 18 kHz -> 600 Hz, dessus passe-haut 20 Hz -> 3 kHz"
     }
   ]
 }

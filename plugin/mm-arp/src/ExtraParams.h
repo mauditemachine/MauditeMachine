@@ -63,6 +63,12 @@ inline void exText(int e, double v, char* out, int max) {
     else if (e == ex_xEqAir) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", (v - 0.5) * 20);
     else if (e >= ex_xM1Src && e <= ex_xM6Amt && (e - ex_xM1Src) % 3 == 2) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
     else if (e == ex_xNoiseColor || e == ex_xCombFb || e == ex_xFlFb) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
+    else if (e == ex_xHellMix) { if (v > 0) std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 100))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
+    else if (e == ex_xHellTime) std::snprintf(out, static_cast<size_t>(max), "%d ms", static_cast<int>(std::lround(5.0 * std::pow(400.0, v))));
+    else if (e == ex_xHellShift) { const double x = 2 * v - 1; std::snprintf(out, static_cast<size_t>(max), "%+.1f Hz", 5000.0 * x * x * x); }
+    else if (e == ex_xHellLfoRate) std::snprintf(out, static_cast<size_t>(max), "%.2f Hz", 0.02 * std::pow(500.0, v));
+    else if (e == ex_xHellLfoDepth) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(400.0 * v * v)));
+    else if (e == ex_xHellUpDown || e == ex_xHellTone) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
     else if (e == ex_xWidth) std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 200)));
     else std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 100)));
 }

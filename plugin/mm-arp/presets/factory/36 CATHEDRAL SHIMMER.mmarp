@@ -3,7 +3,7 @@
   "v": 1,
   "name": "CATHEDRAL SHIMMER",
   "cat": "TEXTURE",
-  "desc": "A triangle and its double octave in a high pass, seven steps way up high, the shimmer climbing octave after octave in a nine second reverb.",
+  "desc": "A triangle and its double octave, seven steps way up high, the shimmer climbing octave after octave in a nine second reverb.",
   "bpm": 112,
   "knobs": {
     "rate": 0.3333333333333333,
@@ -49,7 +49,7 @@
     "chorus": 1,
     "delay": 0,
     "reverb": 0.7,
-    "volume": 0.571,
+    "volume": 0.549,
     "phase": 0,
     "drift": 0.5,
     "width": 0.8,
@@ -116,7 +116,7 @@
     "xFold": 0,
     "xNoiseColor": 0.5,
     "xUnison": 0,
-    "xHpf": 0.676,
+    "xHpf": 0,
     "xComb": 0,
     "xCombFb": 0.5,
     "xPhMix": 0,
@@ -161,7 +161,17 @@
     "xEqHigh": 0.5,
     "xEqAir": 0.5,
     "xDist": 0,
-    "xDistTone": 0.5
+    "xDistTone": 0.5,
+    "xHellMix": 0,
+    "xHellSync": 0.5384615384615384,
+    "xHellTime": 0.5,
+    "xHellFb": 0.5,
+    "xHellShift": 0.5,
+    "xHellUpDown": 1,
+    "xHellSpread": 0,
+    "xHellLfoRate": 0.4,
+    "xHellLfoDepth": 0,
+    "xHellTone": 0.5
   },
   "steps": {
     "acc": [

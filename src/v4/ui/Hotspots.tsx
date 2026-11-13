@@ -233,6 +233,7 @@ import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { voyEcho } from '../voyager/echo';
 import { voyInfoIdOf } from '../voyager/infoIds';
+import { faceDbl } from '../voyager/faceDbl';
 import { voyInfos } from '../state/voyInfos';
 import { rytmInfos } from '../state/rytmInfos';
 import { isRytmInfoHotspot } from '../rytm/infoIds';
@@ -510,6 +511,8 @@ export function registerTwin(id: string, el: HTMLElement | null): void {
   else twinEls.delete(id);
 }
 
+/** Alt, Cmd ou Ctrl tenu au dernier appui (le plugin MM-ARP : la remise d'un potard, voyager/faceDbl.ts). */
+let downMod = false;
 const isVoy = (k: DialId): boolean => k.startsWith('v:');
 /** Un TWEAK du MM-RYTM (audio/kit.ts, 2026-10-04) : ses potards de 0 a 1, ses choix de son a trois crans. */
 const isKit = (k: DialId): boolean => k.startsWith('r:');
@@ -990,6 +993,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         anyDial(k, ((i + 1) % n) / (n - 1));
         return;
       }
+      // Le plugin MM-ARP (2026-11-13, Mika : "au double-clic, ouvrir OPEN sur la page detaillee") : Alt / Cmd / Ctrl + clic
+      // remet le potard a son depart, tout de suite ; deux tapes ouvrent le capot sur sa page (voyager/faceDbl.ts)
+      if (PLUGIN_ARP && faceDbl.on() && downMod) {
+        lastTap.delete(k);
+        anyDial(k, anyDialReset(k));
+        return;
+      }
       // Un appui long immobile n'est pas une tape (2026-10-09) : il ne compte pas pour les deux tapes de la remise
       if (pressMs > TAP_MAX_MS) {
         lastTap.delete(k);
@@ -1000,6 +1010,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
         lastTap.delete(k);
         fxOpenCancel();
+        if (PLUGIN_ARP && faceDbl.open(k)) return;
         // Un potard de la face (2026-10-27) : son bloc remis (en LOCK, son verrou s'en va) au desktop ; au telephone son FX
         // global remis comme il tourne, avec son popup GLOBAL a l'ecran (revue du 2026-10-09)
         if (penc >= 0) faceKnobReset(penc);
@@ -1393,6 +1404,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       gesture();
+      // Le plugin MM-ARP (2026-11-13) : Alt / Cmd / Ctrl tenu a l'appui, la tape d'un potard le remet a son depart
+      downMod = e.altKey || e.metaKey || e.ctrlKey;
       // Le clavier reprend la ou il en etait, mais Espace redevient RUN/STOP
       const a = document.activeElement;
       if (a instanceof HTMLElement && a.classList.contains('v4-twin')) a.blur();

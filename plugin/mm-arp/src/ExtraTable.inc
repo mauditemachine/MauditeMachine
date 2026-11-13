@@ -1,5 +1,5 @@
 // GENERE par tests/extra-gen.mjs depuis extra-params.json : ne pas editer.
-enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_COUNT };
+enum ExtraId { ex_xQuality, ex_xLfo1Dest2, ex_xLfo1Depth2, ex_xLfo2Rate, ex_xLfo2Shape, ex_xLfo2Dest, ex_xLfo2Depth, ex_xRevSize, ex_xRevTone, ex_xRevPre, ex_xWarmth, ex_xBass, ex_xAir, ex_xWidth, ex_xSwing, ex_xRing, ex_xFold, ex_xNoiseColor, ex_xUnison, ex_xHpf, ex_xComb, ex_xCombFb, ex_xPhMix, ex_xPhRate, ex_xPhDepth, ex_xPhFb, ex_xFlMix, ex_xFlRate, ex_xFlDepth, ex_xFlFb, ex_xPumpDepth, ex_xPumpRate, ex_xPumpShape, ex_xCrushBits, ex_xCrushRate, ex_xDlyMode, ex_xShimmer, ex_xM1Src, ex_xM1Dst, ex_xM1Amt, ex_xM2Src, ex_xM2Dst, ex_xM2Amt, ex_xM3Src, ex_xM3Dst, ex_xM3Amt, ex_xM4Src, ex_xM4Dst, ex_xM4Amt, ex_xM5Src, ex_xM5Dst, ex_xM5Amt, ex_xM6Src, ex_xM6Dst, ex_xM6Amt, ex_xVoiceMode, ex_xPbRange, ex_xFeedback, ex_xAmpMode, ex_xEqLow, ex_xEqMid, ex_xEqHigh, ex_xEqAir, ex_xDist, ex_xDistTone, ex_xHellMix, ex_xHellSync, ex_xHellTime, ex_xHellFb, ex_xHellShift, ex_xHellUpDown, ex_xHellSpread, ex_xHellLfoRate, ex_xHellLfoDepth, ex_xHellTone, ex_COUNT };
 static const char* const kExSteps_xQuality[] = { "STD", "HQ" };
 static const char* const kExSteps_xLfo1Dest2[] = { "OFF", "RES", "AMP", "PAN", "OSC 2 PITCH", "OSC MIX", "NOISE", "SUB", "DRIVE", "STACK", "ENV AMT" };
 static const char* const kExSteps_xLfo2Rate[] = { "1/32", "1/16T", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.", "1/4", "1/2", "1 BAR", "2 BAR", "4 BAR", "8 BAR" };
@@ -24,6 +24,7 @@ static const char* const kExSteps_xM6Dst[] = { "OFF", "PITCH", "OSC 2 PITCH", "W
 static const char* const kExSteps_xVoiceMode[] = { "POLY", "MONO", "LEGATO" };
 static const char* const kExSteps_xPbRange[] = { "1", "2", "3", "5", "7", "12", "24" };
 static const char* const kExSteps_xAmpMode[] = { "CLEAN", "TRIODE", "PENTODE", "SATURATED" };
+static const char* const kExSteps_xHellSync[] = { "FREE", "1/32", "1/16T", "1/16", "1/16.", "1/8T", "1/8", "1/8.", "1/4T", "1/4", "1/4.", "1/2", "1/2.", "1 BAR" };
 static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xQuality", "QUALITY", "engine", 1, 2, kExSteps_xQuality },
   { "xLfo1Dest2", "TARGET 2", "lfo1", 0, 11, kExSteps_xLfo1Dest2 },
@@ -90,4 +91,14 @@ static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xEqAir", "AIR BAND", "eq", 0.5, 0, nullptr },
   { "xDist", "DISTORTION", "dist", 0, 0, nullptr },
   { "xDistTone", "TONE", "dist", 0.5, 0, nullptr },
+  { "xHellMix", "HELL", "hell", 0, 0, nullptr },
+  { "xHellSync", "HELL TIME SYNC", "hell", 0.5384615384615384, 14, kExSteps_xHellSync },
+  { "xHellTime", "HELL TIME", "hell", 0.5, 0, nullptr },
+  { "xHellFb", "HELL FEEDBACK", "hell", 0.5, 0, nullptr },
+  { "xHellShift", "HELL SHIFT", "hell", 0.5, 0, nullptr },
+  { "xHellUpDown", "HELL UP/DOWN", "hell", 1, 0, nullptr },
+  { "xHellSpread", "HELL SPREAD", "hell", 0, 0, nullptr },
+  { "xHellLfoRate", "HELL LFO RATE", "hell", 0.4, 0, nullptr },
+  { "xHellLfoDepth", "HELL LFO DEPTH", "hell", 0, 0, nullptr },
+  { "xHellTone", "HELL TONE", "hell", 0.5, 0, nullptr },
 };

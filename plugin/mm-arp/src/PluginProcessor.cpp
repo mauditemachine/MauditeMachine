@@ -623,6 +623,7 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     o.seed = seed_ == 0 ? 808u : seed_;
     voy_ = std::make_unique<mmarp::Voyager>(o);
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
+    hell_.prepare(sampleRate);
     // La reverb des reglages du projet, tout de suite (rien ne joue encore) ; ensuite le timer suit SIZE, TONE, PRE DELAY
     {
         const double rs = static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), rt = static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
@@ -832,6 +833,22 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // PUMP suit la position du morceau
     fx_.setTransport(ppq, pps, playing);
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);
+    // HELL : apres la chaine du site et le rack, avant MASTER (contourne au bit pres a MIX 0)
+    {
+        mmarp::HellSettings hs;
+        hs.mix = ex_[mmx::ex_xHellMix];
+        hs.sync = mmx::exStep(mmx::ex_xHellSync, ex_[mmx::ex_xHellSync]);
+        hs.timeMs = mmarp::Hell::timeMsOf(ex_[mmx::ex_xHellTime]);
+        hs.feedback = ex_[mmx::ex_xHellFb];
+        hs.shiftHz = mmarp::Hell::shiftHzOf(ex_[mmx::ex_xHellShift]);
+        hs.upDown = ex_[mmx::ex_xHellUpDown];
+        hs.spread = ex_[mmx::ex_xHellSpread];
+        hs.lfoHz = mmarp::Hell::lfoHzOf(ex_[mmx::ex_xHellLfoRate]);
+        hs.lfoDepthHz = mmarp::Hell::lfoDepthHzOf(ex_[mmx::ex_xHellLfoDepth]);
+        hs.tone = ex_[mmx::ex_xHellTone];
+        hell_.set(hs, bpm);
+        hell_.process(outL, outR, n);
+    }
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;
 

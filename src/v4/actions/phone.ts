@@ -28,7 +28,7 @@ import { arp } from '../voyager/arp';
 import { CHORDS, PROGRESSIONS } from '../voyager/chords';
 import { voyMsg } from '../voyager/msg';
 import { voyParams, type VoyKnobId } from '../voyager/params';
-import { randomVoyStyle, type VoyStyle } from '../voyager/random';
+import { randomVoyStyle, voyRandomHook, type VoyStyle } from '../voyager/random';
 import { SEQ_MAX, seq } from '../voyager/seq';
 import { gesture } from './shared';
 
@@ -78,7 +78,9 @@ export function voyRandom(stage: Stage | null = null): void {
   undo.boundary('voy', 'step');
   gesture();
   if (!arp.get().running) sc.pauseForRun();
-  const r = randomVoyStyle(lastVoyStyle);
+  const r0 = randomVoyStyle(lastVoyStyle);
+  // Le plugin MM-ARP (2026-11-13) : un hasard hypnotique (plugin/arp/hypno.ts) ; le site n'a pas de crochet
+  const r = voyRandomHook.fn ? voyRandomHook.fn(r0) : r0;
   lastVoyStyle = r.style;
   for (const [id, v] of Object.entries(r.patch) as [VoyKnobId, number][]) voyParams.set(id, v);
   if (r.seq) {
@@ -92,7 +94,7 @@ export function voyRandom(stage: Stage | null = null): void {
   const pick = r.prog ?? pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
   arp.set([...pick]);
   stage?.voy?.keys.pressButton('random');
-  voyMsg.show(`RANDOM ${r.style}`);
+  voyMsg.show(`RANDOM ${r.label ?? r.style}`);
 }
 
 /**

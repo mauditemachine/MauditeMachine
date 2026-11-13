@@ -78,13 +78,11 @@ const L2DEST = (n) => exStep('xLfo2Dest', n);
 const UNI = (n) => exStep('xUnison', String(n));
 const PUMP = (n) => exStep('xPumpRate', n);
 const DMODE = (n) => exStep('xDlyMode', n);
-/** HIGH PASS en Hz (20 x 100^v, 20 Hz a 2 kHz). */
-const hpHz = (hz) => r3(Math.log(hz / 20) / Math.log(100));
 /** PHASER RATE en Hz (0.05 x 160^v). */
 const phHz = (hz) => r3(Math.log(hz / 0.05) / Math.log(160));
 /** FLANGER RATE en Hz (0.03 x (5 / 0.03)^v). */
 const flHz = (hz) => r3(Math.log(hz / 0.03) / Math.log(5 / 0.03));
-/** Une reinjection signee -1..1 (COMB FB, FLANGER FB : 2 v - 1). */
+/** Une reinjection signee -1..1 (FLANGER FB : 2 v - 1). */
 const fb = (x) => r3((x + 1) / 2);
 /** CRUSH en bits (16 - 12 v). */
 const bits = (b) => r3((16 - b) / 12);
@@ -185,7 +183,7 @@ const BANK = [
     seq: AUTO,
     prog: [7, 2, 3, 0],
     steps: steps({ gate: [2, 2, 3, 2], acc: [1, 0, 1, 0] }),
-    extra: { xUnison: UNI(5), xHpf: hpHz(220), xPhMix: 0.7, xPhRate: phHz(0.12), xPhDepth: 0.75, xPhFb: 0.5, xRevSize: revS(3.2), xRevTone: 0.6, xRevPre: preMs(30), xAir: shelf(1.8), xWidth: 0.55 },
+    extra: { xUnison: UNI(5), xPhMix: 0.7, xPhRate: phHz(0.12), xPhDepth: 0.75, xPhFb: 0.5, xRevSize: revS(3.2), xRevTone: 0.6, xRevPre: preMs(30), xAir: shelf(1.8), xWidth: 0.55 },
   },
   {
     name: 'NEON GLIDE',
@@ -240,7 +238,7 @@ const BANK = [
     seq: AUTO,
     prog: [6, 4, 7, 2],
     steps: steps({ prob: [100, 100, 75, 100, 50, 100, 100, 75, 100, 50, 100], acc: [2, 1, 1, 0, 1] }),
-    extra: { xHpf: hpHz(300), xShimmer: 0.4, xDlyMode: DMODE('WIDE'), xLfo2Rate: L2RATE('1/2'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('PAN'), xLfo2Depth: 0.4, xRevSize: revS(4), xRevTone: 0.7, xAir: shelf(1.2) },
+    extra: { xShimmer: 0.4, xDlyMode: DMODE('WIDE'), xLfo2Rate: L2RATE('1/2'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('PAN'), xLfo2Depth: 0.4, xRevSize: revS(4), xRevTone: 0.7, xAir: shelf(1.2) },
   },
   {
     name: 'CLAVI FUNK',
@@ -251,7 +249,7 @@ const BANK = [
     seq: edit([0, R, 7, 0, R, 4, R, 7, R, 0, R, 4, 7, R, 6, R]),
     prog: [0, 4],
     steps: steps({ acc: [2, 1, 0, 2, 1, 1, 1, 0, 1, 2, 1, 0, 2, 1, 1, 1], gate: [1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 2, 1, 0, 1] }),
-    extra: { xSwing: 0.5, xPhMix: 0.55, xPhRate: phHz(0.9), xPhDepth: 0.5, xPhFb: 0.65, xHpf: hpHz(180), xRevSize: revS(0.9), xAir: shelf(3) },
+    extra: { xSwing: 0.5, xPhMix: 0.55, xPhRate: phHz(0.9), xPhDepth: 0.5, xPhFb: 0.65, xRevSize: revS(0.9), xAir: shelf(3) },
   },
   {
     name: 'LASER RATCHET',
@@ -262,7 +260,7 @@ const BANK = [
     seq: edit([0, 2, 4, 7, 9, 7, 4, 2]),
     prog: [0, 5, 1, 2],
     steps: steps({ rat: [1, 1, 1, 3, 1, 1, 4, 1, 1, 2, 1, 1, 1, 1, 4, 1], acc: [2, 1, 1, 2, 1, 1, 2, 1], gate: [1, 1, 1, 0, 1, 1, 0, 1] }),
-    extra: { xRing: 0.45, xLfo2Rate: L2RATE('1/8'), xLfo2Shape: L2SHAPE('SAW'), xLfo2Dest: L2DEST('OSC 2 PITCH'), xLfo2Depth: 0.6, xDlyMode: DMODE('STEREO'), xRevSize: revS(1.6), xHpf: hpHz(150) },
+    extra: { xRing: 0.45, xLfo2Rate: L2RATE('1/8'), xLfo2Shape: L2SHAPE('SAW'), xLfo2Dest: L2DEST('OSC 2 PITCH'), xLfo2Depth: 0.6, xDlyMode: DMODE('STEREO'), xRevSize: revS(1.6) },
   },
   {
     name: 'OFFBEAT BELL',
@@ -273,7 +271,7 @@ const BANK = [
     seq: edit([R, R, 0, R, R, R, 0, R, R, R, 0, R, R, R, 0, 0]),
     prog: [0],
     steps: steps({ acc: [1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 0], rat: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2], prob: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 50] }),
-    extra: { xRing: 0.5, xHpf: hpHz(400), xRevSize: revS(0.7), xRevTone: 0.55, xRevPre: preMs(10) },
+    extra: { xRing: 0.5, xRevSize: revS(0.7), xRevTone: 0.55, xRevPre: preMs(10) },
   },
   {
     name: 'SYN TOM FALL',
@@ -330,18 +328,18 @@ const BANK = [
     seq: edit([0, R, R, 4, R]),
     prog: [0, 0, 4, 4],
     steps: steps({ prob: [100, 100, 100, 75, 100], acc: [2, 1, 1, 0, 1] }),
-    extra: { xHpf: hpHz(120), xLfo2Rate: L2RATE('1/4'), xLfo2Shape: L2SHAPE('S&H'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.12, xRevSize: revS(6.5), xRevTone: 0.15, xRevPre: preMs(40) },
+    extra: { xLfo2Rate: L2RATE('1/4'), xLfo2Shape: L2SHAPE('S&H'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.12, xRevSize: revS(6.5), xRevTone: 0.15, xRevPre: preMs(40) },
   },
   {
-    name: 'SINGING COMB',
+    name: 'SINGING NOISE',
     cat: 'HYPNOTIC',
-    desc: 'A burst of pink noise sets a tuned comb filter ringing: plucked strings that sing the note, nine steps against the bar.',
+    desc: 'A burst of pink noise through a ringing resonant filter that sings the note: plucked breaths, nine steps against the bar.',
     bpm: 121,
-    knobs: { rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.5, noise: 1, load: 0.6, glue: 0.9, dist: 0.2, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.52, res: 0.1, envAmt: 0.6, keyTrack: 0.8, fA: 0, fD: 0.3, fS: 0.1, fR: 0.3, aA: 0, aD: 0.72, aS: 0, aR: 0.6, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.2, delay: 0.2, dlyTime: DLY['3/16'], reverb: 0.28, accent: 0.6, accFlt: 0.8, drift: 0.3, width: 0.6 },
+    knobs: { rate: RATE['1/16'], gate: 0.5, wave1: WAVE1.SAW, osc1: 0.5, noise: 1, load: 0.6, glue: 0.9, dist: 0.2, octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.5, res: 0.82, envAmt: 0.55, keyTrack: 1, fA: 0, fD: 0.3, fS: 0.1, fR: 0.3, aA: 0, aD: 0.72, aS: 0, aR: 0.6, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.TRI, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.2, delay: 0.2, dlyTime: DLY['3/16'], reverb: 0.28, accent: 0.6, accFlt: 0.8, drift: 0.3, width: 0.6 },
     seq: edit([0, R, 4, 7, R, 2, R, 9, 4]),
     prog: [0, 0, 5, 5],
     steps: steps({ prob: [100, 100, 100, 75, 100, 100, 100, 50, 100], acc: [2, 1, 1, 0, 1, 2, 1, 0, 1] }),
-    extra: { xComb: 0.9, xCombFb: fb(0.93), xNoiseColor: 0.4, xHpf: hpHz(110), xWarmth: 0.6, xBass: shelf(1.2), xDlyMode: DMODE('STEREO'), xRevSize: revS(2.6), xRevTone: 0.55 },
+    extra: { xNoiseColor: 0.4, xWarmth: 0.6, xBass: shelf(1.2), xDlyMode: DMODE('STEREO'), xRevSize: revS(2.6), xRevTone: 0.55 },
   },
   {
     name: 'RANDOM DROPLETS',
@@ -357,13 +355,13 @@ const BANK = [
   {
     name: 'GHOST RATCHETS',
     cat: 'HYPNOTIC',
-    desc: 'Metal ticks for a minimal groove: ring modulated squares through a high pass, ratchets and probabilities on every step so the bar never comes back the same.',
+    desc: 'Metal ticks for a minimal groove: thin ring modulated squares, ratchets and probabilities on every step so the bar never comes back the same.',
     bpm: 127,
     knobs: { rate: RATE['1/16'], gate: 0.3, wave1: WAVE1.SQUARE, osc1: 0.25, wave2: WAVE2.SQUARE, range2: FEET[2], semi2: SEMI(6), osc2: 0.25, octave: OCT(1), fmode: FMODE.HP, cutoff: 0.62, res: 0.3, envAmt: 0.2, keyTrack: 0.2, fA: 0, fD: 0.25, fS: 0, fR: 0.15, aA: 0, aD: 0.28, aS: 0, aR: 0.15, delay: 0.22, dlyTime: DLY['1/8'], reverb: 0.2, accent: 0.7, phase: 0.05, drift: 0.3, width: 0.8 },
     seq: edit([7, R, 7, 7, R, 7, R, 7, 7, R, 7, R, 7, 7, R, 7]),
     prog: [0],
     steps: steps({ rat: [1, 1, 2, 1, 1, 3, 1, 1, 2, 1, 4, 1, 1, 2, 1, 3], prob: [100, 100, 50, 75, 100, 50, 100, 100, 75, 100, 25, 100, 100, 50, 100, 50], acc: [2, 1, 0, 1, 1, 0, 1, 2, 1, 1, 0, 1, 2, 0, 1, 0] }),
-    extra: { xRing: 0.85, xHpf: hpHz(900), xDlyMode: DMODE('WIDE'), xLfo2Rate: L2RATE('1/16'), xLfo2Shape: L2SHAPE('S&H'), xLfo2Dest: L2DEST('PAN'), xLfo2Depth: 0.6, xRevSize: revS(0.8), xRevTone: 0.7, xRevPre: preMs(5) },
+    extra: { xRing: 0.85, xDlyMode: DMODE('WIDE'), xLfo2Rate: L2RATE('1/16'), xLfo2Shape: L2SHAPE('S&H'), xLfo2Dest: L2DEST('PAN'), xLfo2Depth: 0.6, xRevSize: revS(0.8), xRevTone: 0.7, xRevPre: preMs(5) },
   },
   {
     name: 'PENDULUM',
@@ -390,13 +388,13 @@ const BANK = [
   {
     name: 'WOODEN LOOP',
     cat: 'HYPNOTIC',
-    desc: 'A struck FM wood block over seven steps with a short tuned comb for its body, every hit somewhere else in the room, two of them left to chance.',
+    desc: 'A struck FM wood block over seven steps, every hit somewhere else in the room, two of them left to chance.',
     bpm: 122,
     knobs: { rate: RATE['1/16'], gate: 0.3, wave1: WAVE1.SINE, osc1: 0.9, fm: 0.5, ratio: RATIO('4'), octave: OCT(0), fmode: FMODE.LP12, cutoff: 0.55, res: 0.2, envAmt: 0.5, fD: 0.25, fS: 0, fR: 0.2, aD: 0.45, aS: 0, aR: 0.3, glue: 0.75, lfoRate: L1RATE['1/16'], lfoShape: L1SHAPE.SH, lfoDest: L1DEST.CUTOFF, lfoAmt: 0, delay: 0.22, dlyTime: DLY['1/4'], reverb: 0.22, phase: 0.04, drift: 0.2, accent: 0.6 },
     seq: edit([0, R, 4, 0, R, 7, 2]),
     prog: [0],
     steps: steps({ prob: [100, 100, 75, 100, 100, 50, 75], rat: [1, 1, 1, 1, 1, 2, 1], acc: [2, 1, 1, 1, 1, 0, 1] }),
-    extra: { xComb: 0.4, xCombFb: fb(0.6), xLfo1Dest2: L1D2('PAN'), xLfo1Depth2: 0.4, xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('FM'), xLfo2Depth: 0.35, xRevSize: revS(1.5), xRevTone: 0.4 },
+    extra: { xLfo1Dest2: L1D2('PAN'), xLfo1Depth2: 0.4, xLfo2Rate: L2RATE('4 BAR'), xLfo2Shape: L2SHAPE('TRI'), xLfo2Dest: L2DEST('FM'), xLfo2Depth: 0.35, xRevSize: revS(1.5), xRevTone: 0.4 },
   },
   {
     name: 'GREY DAWN PULSE',
@@ -412,7 +410,7 @@ const BANK = [
   {
     name: 'GLASS METRONOME',
     cat: 'HYPNOTIC',
-    desc: 'Nine glass steps against sixteen: a sine and its double octave in a high pass, a shimmer rising in the reverb, a wide dotted echo.',
+    desc: 'Nine glass steps against sixteen: a sine and its double octave, a shimmer rising in the reverb, a wide dotted echo.',
     bpm: 126,
     knobs: { rate: RATE['1/16'], gate: 0.25, wave1: 0.1, osc1: 1, wave2: WAVE2.SINE, range2: FEET[2], osc2: 0.4, octave: OCT(1), fmode: FMODE.HP, cutoff: 0.35, res: 0.5, envAmt: 0.25, fD: 0.3, fS: 0, fR: 0.3, aD: 0.4, aS: 0, aR: 0.35, lfoRate: L1RATE['1 BAR'], lfoShape: L1SHAPE.SAW, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.2, delay: 0.4, dlyTime: DLY['3/16'], reverb: 0.4, phase: 0.04, drift: 0.15 },
     seq: edit([7, R, 7, R, 4, R, 7, 9, R]),
@@ -521,7 +519,7 @@ const BANK = [
     seq: AUTO,
     prog: [7, 2, 6, 4],
     steps: steps({ gate: [3, 2, 2, 3] }),
-    extra: { xUnison: UNI(7), xDlyMode: DMODE('WIDE'), xHpf: hpHz(140), xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('PAN'), xLfo2Depth: 0.3, xRevSize: revS(8), xRevTone: 0.55, xRevPre: preMs(40), xWidth: 0.58 },
+    extra: { xUnison: UNI(7), xDlyMode: DMODE('WIDE'), xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('PAN'), xLfo2Depth: 0.3, xRevSize: revS(8), xRevTone: 0.55, xRevPre: preMs(40), xWidth: 0.58 },
   },
   {
     name: 'FROZEN LAKE',
@@ -548,13 +546,13 @@ const BANK = [
   {
     name: 'CATHEDRAL SHIMMER',
     cat: 'TEXTURE',
-    desc: 'A triangle and its double octave in a high pass, seven steps way up high, the shimmer climbing octave after octave in a nine second reverb.',
+    desc: 'A triangle and its double octave, seven steps way up high, the shimmer climbing octave after octave in a nine second reverb.',
     bpm: 112,
     knobs: { rate: RATE['1/8'], gate: 0.6, wave1: WAVE1.TRI, osc1: 0.85, wave2: WAVE2.SINE, range2: FEET[2], osc2: 0.35, stack: 0.25, wide: 0.7, octave: OCT(0), fmode: FMODE.HP, cutoff: 0.45, res: 0.3, envAmt: 0.1, fD: 0.5, fS: 0.5, fR: 0.6, aA: 0.45, aD: 0.6, aS: 0.5, aR: 0.85, chorus: CHORUS.II, reverb: 0.7, width: 0.8, accent: 0.3 },
     seq: edit([7, 9, 11, 14, 11, 9, R]),
     prog: [7, 0],
     steps: steps({ prob: [100, 100, 75, 100, 100, 50, 100] }),
-    extra: { xShimmer: 0.9, xHpf: hpHz(450), xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.3, xRevSize: revS(9.4), xRevTone: 0.65, xRevPre: preMs(60), xAir: shelf(1.2) },
+    extra: { xShimmer: 0.9, xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('CUTOFF'), xLfo2Depth: 0.3, xRevSize: revS(9.4), xRevTone: 0.65, xRevPre: preMs(60), xAir: shelf(1.2) },
   },
   {
     name: 'TAPE MEMORY',
@@ -581,13 +579,13 @@ const BANK = [
   {
     name: 'CRYSTAL MIST',
     cat: 'TEXTURE',
-    desc: 'A mist of bright noise tuned by a resonant comb and a band pass, nothing below 600 Hz, slow random notes of an eleventh chord dissolving in shimmer.',
+    desc: 'A mist of bright noise through a resonant band pass, slow random notes of an eleventh chord dissolving in shimmer.',
     bpm: 98,
     knobs: { rate: RATE['1/4'], mode: MODE.RAND, range: RANGE[2], notes: NOTES(0), chord: CHORD['11TH'], gate: 0.9, wave1: WAVE1.TRI, osc1: 0.6, noise: 0.5, octave: OCT(0), fmode: FMODE.BP, cutoff: 0.56, res: 0.5, envAmt: 0.1, keyTrack: 1, fA: 0.5, fD: 0.6, fS: 0.6, fR: 0.7, aA: 0.6, aD: 0.7, aS: 0.7, aR: 0.85, lfoRate: L1RATE['4 BAR'], lfoShape: L1SHAPE.RND, lfoDest: L1DEST.CUTOFF, lfoAmt: 0.2, delay: 0.3, dlyTime: DLY['1/4'], reverb: 0.65, width: 1, wide: 0.6, accent: 0.2 },
     seq: AUTO,
     prog: [6, 7],
     steps: steps({ gate: [3, 2, 3, 3], prob: [100, 75, 100, 50, 100] }),
-    extra: { xNoiseColor: 0.62, xComb: 0.8, xCombFb: fb(0.9), xAir: shelf(-4.8), xHpf: hpHz(600), xShimmer: 0.45, xDlyMode: DMODE('WIDE'), xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('NOISE'), xLfo2Depth: 0.3, xRevSize: revS(9), xRevTone: 0.7, xRevPre: preMs(40), xWidth: 0.75 },
+    extra: { xNoiseColor: 0.62, xAir: shelf(-4.8), xShimmer: 0.45, xDlyMode: DMODE('WIDE'), xLfo2Rate: L2RATE('8 BAR'), xLfo2Shape: L2SHAPE('SINE'), xLfo2Dest: L2DEST('NOISE'), xLfo2Depth: 0.3, xRevSize: revS(9), xRevTone: 0.7, xRevPre: preMs(40), xWidth: 0.75 },
   },
   {
     name: 'PHASE OCEAN',
@@ -639,6 +637,9 @@ function full(p) {
   const knobs = {};
   for (const k of VOY_KNOBS) knobs[k.id] = clean(k.id, raw[k.id]);
   for (const id of Object.keys(p.knobs)) if (!KNOB[id]) throw new Error(`${p.name} : potard inconnu ${id}`);
+  // FILTER + neutre dans toute la banque (2026-11-13, Mika : "ca denature le son directement") : HIGH PASS, COMB et
+  // COMB FB restent a leur neutre (absents), quel que soit le preset
+  for (const id of ['xHpf', 'xComb', 'xCombFb']) if (id in p.extra) throw new Error(`${p.name} : ${id} doit rester neutre (FILTER +)`);
   const ex = { ...EXTRA_DEF, xQuality: 1, ...p.extra };
   const extra = {};
   for (const e of EXTRA) extra[e.id] = cleanExtra(e.id, ex[e.id]);

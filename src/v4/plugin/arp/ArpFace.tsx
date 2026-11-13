@@ -5,8 +5,8 @@
  * capot). Le son vient du plugin (plugin/arp/bridge.ts).
  *
  * OPEN leve le capot du site (2026-11-09) ; depuis le 2026-11-13 (Mika : "je veux avoir qu'une seule page"), une seule
- * carte dessous, la noire (HoodBoard.tsx) : l'ecran reste a sa place par une decoupe, les TWEAKS, les reglages du VST3
- * seul, le sequenceur par pas, la banque, DISK, DRAG MIDI et MIDI LEARN dans ses onglets. OPEN, CLOSE, Echap ou O le
+ * carte dessous, la noire (HoodBoard.tsx) : pleine page depuis le 2026-11-13 (plus de decoupe), trois pages SOUND, FX
+ * (et HELL), SEQ, la banque, DISK, DRAG MIDI et MIDI LEARN dans deux volets. Le potard HELL de la face : hellKnob.tsx. OPEN, CLOSE, Echap ou O le
  * referment, comme au site.
  */
 
@@ -27,6 +27,8 @@ import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
 import { HoodBoard } from './HoodBoard';
+import { HellKnob } from './hellKnob';
+import './hypno';
 import { LearnMarks } from './HoodPanel';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
@@ -142,6 +144,7 @@ const ArpFace: React.FC = () => {
         <PresetNameDialog mobile={false} />
         <DiskNameDialog />
         <HoodBoard stage={stage} />
+        <HellKnob stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (
