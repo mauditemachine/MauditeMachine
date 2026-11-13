@@ -32,7 +32,7 @@ import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore
 import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { arpMidi } from './midimap';
-import { PcbDefs, PcbFrame, PcbKnob, PcbRotary, PcbSelect, PcbSwitch, setFullName } from './pcbui';
+import { PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbSwitch, setFullName } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
 import './hood.css';
 
@@ -45,6 +45,8 @@ const LCD_GLASS = { x: 338, y: 395, w: 425, h: 162 };
 /** La zone des reglages : au-dessus de l'ecran, toute la largeur. */
 const ZONE = { x: 24, w: 1052 };
 const FRAME_GAP = 14;
+/** Les touches du bandeau : celles de la face, en plus petit (le bandeau reste bas). */
+const STRIP_KEY = { w: 44, h: 18 };
 
 /* ---------------- les reglages, onglet par onglet ---------------- */
 
@@ -399,9 +401,7 @@ const Steps: React.FC = () => {
                 </button>
               );
             })}
-            <button type="button" className="mm-p2-st-clr" style={{ left: stepX(STEPS_N - 1) + 58 }} disabled={arpSteps.isDefault(t.id)} onClick={() => arpSteps.reset(t.id)} aria-label={`Reset ${t.label}`}>
-              CLR
-            </button>
+            <PcbKey className="mm-p2-st-clr" style={{ left: stepX(STEPS_N - 1) + 56 }} w={24} h={11} name="CLR" disabled={arpSteps.isDefault(t.id)} onClick={() => arpSteps.reset(t.id)} aria-label={`Reset ${t.label}`} />
           </div>
         ))}
       </div>
@@ -421,9 +421,7 @@ const StepsSide: React.FC = () => {
       <div className="mm-p2-st-help" style={{ left: ZONE.x + Math.round((ZONE.w - STEPS_W) / 2) + 124, top: 276 }}>
         <p>CLICK : NEXT VALUE · RIGHT CLICK : PREVIOUS · DRAG : PAINT THE ROW</p>
         <p>ONE STEP PER NOTE OF THE ARPEGGIO, THE LED FOLLOWS THE PLAYHEAD</p>
-        <button type="button" className="mm-p2-key" disabled={st === null || arpSteps.isDefault()} onClick={() => arpSteps.reset()}>
-          INIT ALL ROWS
-        </button>
+        <PcbKey className="mm-p2-init" name="INIT ALL ROWS" disabled={st === null || arpSteps.isDefault()} onClick={() => arpSteps.reset()} />
       </div>
     </>
   );
@@ -475,12 +473,8 @@ const Library: React.FC = () => {
           <span>{p ? `${p.cat} · ${p.bpm} BPM · ${p.desc}` : 'It loads at once, UNDO brings your sound back. The tempo shown is the one it was made at.'}</span>
         </p>
         <span className="mm-p2-lib-nav">
-          <button type="button" className="mm-p2-key" onClick={() => libStep(-1)} aria-label="Previous sound">
-            ◀ PREV
-          </button>
-          <button type="button" className="mm-p2-key" onClick={() => libStep(1)} aria-label="Next sound">
-            NEXT ▶
-          </button>
+          <PcbKey name="PREV" h={20} onClick={() => libStep(-1)} aria-label="Previous sound" />
+          <PcbKey name="NEXT" h={20} onClick={() => libStep(1)} aria-label="Next sound" />
         </span>
       </div>
     </>
@@ -496,13 +490,13 @@ const BoardArt: React.FC = () => (
       <path d="M326 470 H262 L240 448 V404 L222 386 H60" />
       <path d="M326 520 H286 L268 538 V546" />
       <path d="M560 573 V600 H596" />
-      <path d="M40 646 H300 L314 632 H560" />
+      <path d="M40 640 H300 L314 626 H560" />
     </g>
     <g className="mm-p2-via">
       {[
         [60, 386],
         [268, 546],
-        [560, 632],
+        [560, 626],
       ].map(([x, y]) => (
         <circle key={`${x}-${y}`} cx={x} cy={y} r="3.2" />
       ))}
@@ -542,8 +536,8 @@ const BoardArt: React.FC = () => (
     {[
       [32, 30],
       [1068, 30],
-      [32, 636],
-      [1068, 636],
+      [32, 630],
+      [1068, 630],
     ].map(([x, y]) => (
       <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} className="mm-p2-hole">
         <circle r="10.5" className="mm-p2-hole-ring" />
@@ -572,7 +566,7 @@ const BoardArt: React.FC = () => (
       </text>
     </g>
     {/* D1 PWR : la LED de la carte, comme sur la verte */}
-    <g transform="translate(980 640)">
+    <g transform="translate(980 638)">
       <circle r="9" className="mm-p2-pwr-glow" />
       <circle r="4.2" className="mm-p2-pwr" />
       <text x="12" y="-1" className="mm-p2-silk-ref mm-p2-silk-ref-w">
@@ -724,21 +718,13 @@ const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             </div>
           </div>
           <nav className="mm-p2-strip" aria-label="Hood pages">
-            <button type="button" className="mm-p2-pill mm-p2-learn" aria-pressed={midi.learning} data-on={midi.learning ? '1' : undefined} onClick={() => arpBridge.learnMode(!midi.learning)}>
-              <i className="mm-p2-pill-led" aria-hidden="true" />
-              MIDI LEARN
-            </button>
+            <PcbKey className="mm-p2-learn" aria-pressed={midi.learning} on={midi.learning} name="MIDI LEARN" w={STRIP_KEY.w} h={STRIP_KEY.h} onClick={() => arpBridge.learnMode(!midi.learning)} />
             <div className="mm-p2-tabs" role="tablist" aria-label="Hood sections">
               {HOOD_TABS.map((t) => (
-                <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="mm-p2-tabkey" data-on={t.id === tab ? '1' : undefined} onClick={() => hoodPage.set({ tab: t.id })}>
-                  {t.label}
-                </button>
+                <PcbKey key={t.id} role="tab" aria-selected={t.id === tab} className="mm-p2-tabkey" on={t.id === tab} name={t.label} w={STRIP_KEY.w} h={STRIP_KEY.h} onClick={() => hoodPage.set({ tab: t.id })} />
               ))}
             </div>
-            <button type="button" className="mm-p2-pill mm-p2-close" aria-label="Close the machine" onClick={() => openToggle(stage, 'voy')}>
-              <i className="mm-p2-pill-led" data-on="1" aria-hidden="true" />
-              CLOSE
-            </button>
+            <PcbKey className="mm-p2-close" accent name="CLOSE" w={STRIP_KEY.w} h={STRIP_KEY.h} aria-label="Close the machine" onClick={() => openToggle(stage, 'voy')} />
           </nav>
         </div>
         <LcdWindow stage={stage} />

@@ -13,6 +13,7 @@ import { presets } from '../../state/presets';
 import { suggestName, typeChars } from '../../state/presetName';
 import { arpBridge } from './bridge';
 import { arpDisk, DISK_NAME_MAX } from './disk';
+import { PcbKey } from './pcbui';
 
 /** Le nom propose : celui du preset charge (sans l'utilisateur), sinon un nom du site. */
 function proposedName(): string {
@@ -31,14 +32,9 @@ export function DiskPresets() {
   }, []);
   return (
     <section className="mm-arp-col mm-arp-disk" aria-label="Presets on disk">
-      <p className="mm-arp-col-title">DISK</p>
-      <div className="mm-arp-disk-keys">
-        <button type="button" className="mm-arp-disk-key" onClick={() => arpDisk.set({ naming: proposedName() })}>
-          SAVE TO DISK
-        </button>
-        <button type="button" className="mm-arp-disk-key" onClick={() => arpBridge.diskOpen()}>
-          OPEN FROM DISK
-        </button>
+      <div className="mm-arp-keys">
+        <PcbKey name="SAVE TO DISK" w={52} onClick={() => arpDisk.set({ naming: proposedName() })} />
+        <PcbKey name="OPEN FROM DISK" w={52} onClick={() => arpBridge.diskOpen()} />
       </div>
       <ul className="mm-arp-disk-list" aria-label="Presets folder">
         {st.items === null ? <li className="mm-arp-disk-none">…</li> : null}

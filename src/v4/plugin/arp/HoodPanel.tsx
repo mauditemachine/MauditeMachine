@@ -16,7 +16,7 @@ import { VOY_KNOBS } from '../../voyager/params';
 import { arpBridge } from './bridge';
 import { extraParam } from './extra';
 import { arpMidi, type ArpMidiState } from './midimap';
-import { fullName } from './pcbui';
+import { fullName, PcbKey } from './pcbui';
 
 /** Le glisser part apres ce deplacement (px), le bouton tenu. */
 const DRAG_PX = 4;
@@ -76,35 +76,30 @@ export const DragMidi: React.FC = () => {
 
   return (
     <section className="mm-arp-col mm-arp-drag" aria-label="Drag MIDI">
-      <p className="mm-arp-col-title">DRAG MIDI</p>
-      <button
-        type="button"
-        className="mm-arp-drag-handle"
+      <PcbKey
+        className="mm-drag-handle"
+        on
+        w={272}
+        h={40}
+        name="DRAG MIDI ONTO A TRACK"
+        cap={
+          <svg className="mm-arp-drag-grip" viewBox="0 0 12 18" aria-hidden="true">
+            {[3, 9].map((x) => [3, 9, 15].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}
+          </svg>
+        }
         draggable={false}
         title="Drag the arpeggio onto an Ableton track"
         aria-label={`Drag MIDI, ${st.cycles} times the progression, onto an Ableton track`}
         onPointerDown={onPointerDown}
         onDragStart={(e) => e.preventDefault()}
         onMouseDown={(e) => e.preventDefault()}
-      >
-        <svg className="mm-arp-drag-grip" viewBox="0 0 12 18" aria-hidden="true">
-          {[3, 9].map((x) => [3, 9, 15].map((y) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}
-        </svg>
-        <span className="mm-arp-drag-text">
-          <span className="mm-arp-drag-name">DRAG MIDI</span>
-          <span className="mm-arp-drag-sub">ONTO A TRACK</span>
-        </span>
-      </button>
-      <div className="mm-arp-seg" role="radiogroup" aria-label="Times the progression">
+      />
+      <div className="mm-arp-keys" role="radiogroup" aria-label="Times the progression">
         {CYCLES.map((c) => (
-          <button key={c} type="button" role="radio" aria-checked={st.cycles === c} className="mm-arp-seg-key" data-on={st.cycles === c ? '1' : undefined} onClick={() => arpMidi.set({ cycles: c })}>
-            x{c}
-          </button>
+          <PcbKey key={c} role="radio" aria-checked={st.cycles === c} on={st.cycles === c} name={`x${c}`} w={40} onClick={() => arpMidi.set({ cycles: c })} />
         ))}
+        <PcbKey className="mm-arp-savemid" name="SAVE .MID" w={60} onClick={() => arpBridge.saveMid(arpMidi.get().cycles)} />
       </div>
-      <button type="button" className="mm-arp-key" onClick={() => arpBridge.saveMid(arpMidi.get().cycles)}>
-        SAVE .MID
-      </button>
       <p className="mm-arp-status" role="status" data-ok={st.status ? (st.status.ok ? '1' : '0') : undefined}>
         {st.status?.msg ?? ''}
       </p>
@@ -120,15 +115,11 @@ export const MidiMap: React.FC = () => {
   return (
     <section className="mm-arp-col mm-arp-midi" aria-label="MIDI mapping">
       <div className="mm-arp-col-head">
-        <p className="mm-arp-col-title">MIDI</p>
-        <button type="button" className="mm-arp-learn" aria-pressed={st.learning} data-on={st.learning ? '1' : undefined} onClick={() => arpBridge.learnMode(!st.learning)}>
-          <span className="mm-arp-led" aria-hidden="true" />
-          LEARN
-        </button>
+        <PcbKey className="mm-learn-key" aria-pressed={st.learning} on={st.learning} name="LEARN" onClick={() => arpBridge.learnMode(!st.learning)} />
+        <p className="mm-arp-midi-line" data-on={st.learning ? '1' : undefined} role="status">
+          {line}
+        </p>
       </div>
-      <p className="mm-arp-midi-line" data-on={st.learning ? '1' : undefined} role="status">
-        {line}
-      </p>
       <ul className="mm-arp-list mm-arp-map" aria-label="MIDI CC map">
         {items.map((it) => (
           <li key={`${it.ch}-${it.cc}`} className="mm-arp-map-row" data-armed={it.id === st.armed ? '1' : undefined}>
@@ -143,9 +134,7 @@ export const MidiMap: React.FC = () => {
         ))}
       </ul>
       <div className="mm-arp-midi-foot">
-        <button type="button" className="mm-arp-key mm-arp-key-small" disabled={items.length === 0} onClick={() => arpBridge.unmapAll()}>
-          CLEAR ALL
-        </button>
+        <PcbKey name="CLEAR ALL" disabled={items.length === 0} onClick={() => arpBridge.unmapAll()} />
         <p className="mm-arp-help">Ableton : Cmd + M marche aussi</p>
       </div>
     </section>

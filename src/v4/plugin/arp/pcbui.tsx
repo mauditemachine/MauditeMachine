@@ -510,3 +510,40 @@ export const PcbFrame: React.FC<{ title: string; x: number; y: number; w?: numbe
     {children}
   </section>
 );
+
+/* ---------------- la touche ---------------- */
+
+/**
+ * La touche de la face avant (CLEAR, RANDOM, EDIT, PRESET, OPEN de la machine 3D, voyager/pads.ts) redessinee en HTML
+ * (2026-11-13, Mika : "les boutons doivent refleter aussi l'interface principale au lieu d'etre des cercles avec une
+ * ecriture dessus") : un capuchon carre sombre en relief, son nom ecrit dessous en petites capitales. Allumee (on) : le
+ * capuchon en jaune canard, comme la touche OPEN de la face s'allume capot ouvert ; accent : le nom en jaune (PRESET,
+ * OPEN). w, h : la taille du capuchon (px du cadre de 1100 x 704).
+ */
+export type PcbKeyProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'name'> & {
+  name: React.ReactNode;
+  on?: boolean;
+  accent?: boolean;
+  w?: number;
+  h?: number;
+  /** ce qui est grave sur le capuchon (la poignee de DRAG MIDI, une fleche) */
+  cap?: React.ReactNode;
+};
+
+export const PcbKey = React.forwardRef<HTMLButtonElement, PcbKeyProps>(({ name, on, accent, w = 44, h = 26, cap, className, style, ...rest }, ref) => (
+  <button
+    ref={ref}
+    type="button"
+    {...rest}
+    className={`mm-key${className ? ` ${className}` : ''}`}
+    data-on={on ? '1' : undefined}
+    data-accent={accent ? '1' : undefined}
+    style={{ ...style, ['--kw' as string]: `${w}px`, ['--kh' as string]: `${h}px` }}
+  >
+    <span className="mm-key-cap" aria-hidden="true">
+      {cap}
+    </span>
+    <span className="mm-key-name">{name}</span>
+  </button>
+));
+PcbKey.displayName = 'PcbKey';
