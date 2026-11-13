@@ -52,6 +52,8 @@ public:
     void faceFilter(float v);
     // Le SIDECHAIN de PERFORM : le parametre SIDECHAIN (automatisable)
     void faceSide(float v);
+    // Le MIX de HELL tourne sur la face (OPEN, onglet FX, un preset, un pattern) : il part au parametre Hell Mix
+    void faceHell(float v);
     void facePerf(const juce::var& o);
     // Le pattern suivant et la chaine choisis sur la face : le moteur les joue a la fin du pattern
     void facePtn(const juce::var& o);
@@ -83,6 +85,7 @@ public:
         int pat;    // le pattern joue
         int patSeq; // +1 a chaque changement de pattern fait par le moteur
         int rel;    // les pas depuis le debut du pattern (LIVE REC : le pas d'une piste a sa longueur, TLEN) ; -1 a l'arret
+        double hm;  // le MIX de HELL (le parametre Hell Mix, 0 a 1)
     };
     Feedback feedback() const;
     // Les VU-metres (2026-11-10) : les cretes depuis la derniere lecture (thread du message), 16 pistes et la sortie L, R,
@@ -114,6 +117,7 @@ private:
     std::atomic<float>* xfade_ = nullptr;
     std::atomic<float>* filter_ = nullptr;
     std::atomic<float>* side_ = nullptr;
+    std::atomic<float>* hell_ = nullptr;
     std::atomic<float> outPk_[2] = {{0.f}, {0.f}};
     std::atomic<int> uiW_{0};
 

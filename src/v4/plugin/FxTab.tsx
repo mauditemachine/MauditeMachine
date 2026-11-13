@@ -14,6 +14,7 @@ import { pattern, type Fx } from '../audio/pattern';
 import { KnobView, type KnobSpec } from '../ui/KnobPanel';
 import { lcdMessage } from '../state/lcdMessage';
 import { undo } from '../state/undo';
+import { perform } from '../state/perform';
 import {
   DIST_DRIVE,
   DIST_PRESETS,
@@ -41,11 +42,18 @@ const AMBER = '#FF8A1F';
 const subscribeFx = (fn: () => void): (() => void) => {
   const a = pattern.fx.subscribe(fn);
   const b = pattern.subscribe(fn);
+  const c = perform.subscribe(fn);
   return () => {
     a();
     b();
+    c();
   };
 };
+/**
+ * Les effets tels qu'ils jouent : ceux du pattern, le MIX de HELL celui du parametre Hell Mix (une automation d'Ableton le
+ * bouge sans toucher au pattern, 2026-11-13)
+ */
+const fxNow = (): Readonly<Fx> => ({ ...pattern.fx.get(), hmix: perform.hell() });
 const useFx = (): Readonly<Fx> => useSyncExternalStore(subscribeFx, () => pattern.fx.get());
 const bpmNow = (): number => pattern.get().bpm;
 
@@ -54,7 +62,7 @@ const LabKnobView: React.FC<{ k: LabKnob }> = ({ k }) => {
   const spec = useMemo<KnobSpec>(
     () => ({
       label: k.label,
-      get: () => pattern.fx.get()[k.id],
+      get: () => (k.id === 'hmix' ? perform.hell() : pattern.fx.get()[k.id]),
       set: (v) => pattern.fx.set({ [k.id]: k.steps > 1 ? Math.round(v * (k.steps - 1)) / (k.steps - 1) : Math.round(v * 1000) / 1000 }),
       reset: () => {
         const d = k.id === 'drive' ? 0 : k.id === 'xtone' ? 1 : (presetPatch({ name: '', tip: '', set: {} }, k.id.startsWith('h') ? 'hell' : 'dist')[k.id] ?? 0);
@@ -64,12 +72,12 @@ const LabKnobView: React.FC<{ k: LabKnob }> = ({ k }) => {
       range: [0, 1],
       steps: k.steps,
       bipolar: k.id === 'xtilt' || k.id === 'xout' || k.id === 'hfreq',
-      readout: () => k.read(pattern.fx.get(), bpmNow()),
-      valueText: () => k.read(pattern.fx.get(), bpmNow()),
-      unit: () => k.unit(pattern.fx.get(), bpmNow()),
+      readout: () => k.read(fxNow(), bpmNow()),
+      valueText: () => k.read(fxNow(), bpmNow()),
+      unit: () => k.unit(fxNow(), bpmNow()),
       nudge: (n) => {
         const step = k.steps > 1 ? 1 / (k.steps - 1) : 1 / 127;
-        pattern.fx.set({ [k.id]: Math.max(0, Math.min(1, pattern.fx.get()[k.id] + n * step)) });
+        pattern.fx.set({ [k.id]: Math.max(0, Math.min(1, (k.id === 'hmix' ? perform.hell() : pattern.fx.get()[k.id]) + n * step)) });
       },
       subscribe: subscribeFx,
     }),

@@ -995,7 +995,8 @@ void FxChain::prepare(double sr) {
     tail_.fill(0);
     perfFx_.prepare(sr);
     cutG_.fill(1.f);
-    throwD_ = throwR_ = 0;
+    throwD_ = throwR_ = throwH_ = 0;
+    hellRet_ = 0;
     sideNow_ = 0;
     duck_.assign(kMaxBlock, 1.f);
     perf_ = PerfState{};
@@ -1300,8 +1301,8 @@ void FxChain::process(float* outL, float* outR, int n) {
     const double gr = g_.reverb * REVERB_SEND * lv, gd = g_.delay * DELAY_SEND * lv;
     // PERFORM : DELAY THROW et REVERB WASH, tout le mix (les pads et le kick) part dans l'effet ; l'envoi glisse en 12 ms
     const double thStep = 1.0 / std::max(1.0, THROW_S * sr_);
-    const double thDTo = perf_.throwDelay ? 1 : 0, thRTo = perf_.throwReverb ? 1 : 0;
-    const bool throwing = throwD_ > 0 || throwR_ > 0 || thDTo > 0 || thRTo > 0;
+    const double thDTo = perf_.throwDelay ? 1 : 0, thRTo = perf_.throwReverb ? 1 : 0, thHTo = perf_.throwHell ? 1 : 0;
+    const bool throwing = throwD_ > 0 || throwR_ > 0 || throwH_ > 0 || thDTo > 0 || thRTo > 0 || thHTo > 0;
     // Le SIDECHAIN (2026-11-12, Mika : "dans PERFORM mets un sidechain, pas qui vient de quelque part, juste un sidechain
     // normal") : a chaque temps (une noire de la grille), le gain plonge en 3 ms de la profondeur choisie, puis remonte en
     // courbe sur un demi-temps ; sur tout sauf la voie du kick (les pads et les retours de DELAY et REVERB). A l'arret, rien.
@@ -1330,6 +1331,7 @@ void FxChain::process(float* outL, float* outR, int n) {
         if (throwing) {
             if (throwD_ != thDTo) throwD_ = thDTo > throwD_ ? std::min(1.0, throwD_ + thStep) : std::max(0.0, throwD_ - thStep);
             if (throwR_ != thRTo) throwR_ = thRTo > throwR_ ? std::min(1.0, throwR_ + thStep) : std::max(0.0, throwR_ - thStep);
+            if (throwH_ != thHTo) throwH_ = thHTo > throwH_ ? std::min(1.0, throwH_ + thStep) : std::max(0.0, throwH_ - thStep);
             const double sumL = padsL_[ii] + kickL_[ii], sumR = padsR_[ii] + kickR_[ii];
             if (throwD_ > 0) {
                 delL_[ii] += static_cast<float>(sumL * throwD_ * 0.8 * DELAY_SEND * lv);
@@ -1338,6 +1340,11 @@ void FxChain::process(float* outL, float* outR, int n) {
             if (throwR_ > 0) {
                 revL_[ii] += static_cast<float>(sumL * throwR_ * 0.9 * REVERB_SEND * lv);
                 revR_[ii] += static_cast<float>(sumR * throwR_ * 0.9 * REVERB_SEND * lv);
+            }
+            // HELL THROW (2026-11-13) : tout le mix dans HELL, ses spirales restent au relacher
+            if (throwH_ > 0) {
+                hellL_[ii] += static_cast<float>(sumL * throwH_ * 0.8 * HELL_SEND * lv);
+                hellR_[ii] += static_cast<float>(sumR * throwH_ * 0.8 * HELL_SEND * lv);
             }
         }
         if (gr > 0) {
@@ -1361,8 +1368,11 @@ void FxChain::process(float* outL, float* outR, int n) {
     }
     // HELL : son retour (hmix), comme celui du DELAY ; au repos, rien n'est calcule
     hell_.process(hellL_.data(), hellR_.data(), wetL_.data(), wetR_.data(), n, sr_, perfPpq_, perfPps_, perfPlaying_);
-    if (!hell_.idle && g_.hmix > 0) {
-        const double hm = clampd(g_.hmix, 0, 1) * HELL_RETURN;
+    // Le retour : le parametre Hell Mix s'il est la (le plugin), sinon celui du programme ; pendant HELL THROW au moins 0.75
+    const double hmix = perf_.hellMix >= 0 ? perf_.hellMix : g_.hmix;
+    hellRet_ = std::max(hellRet_ * 0.999, throwH_ > 0 ? 0.75 : 0.0);
+    if (!hell_.idle && (hmix > 0 || hellRet_ > 0)) {
+        const double hm = std::max(clampd(hmix, 0, 1), hellRet_) * HELL_RETURN;
         for (int i = 0; i < n; ++i) {
             const float dk = ducking ? duck_[static_cast<size_t>(i)] : 1.f;
             mL_[static_cast<size_t>(i)] += static_cast<float>(wetL_[static_cast<size_t>(i)] * hm) * dk;

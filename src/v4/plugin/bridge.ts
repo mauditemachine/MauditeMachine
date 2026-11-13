@@ -13,7 +13,7 @@
  *
  * Protocole (window.__JUCE__.backend, sans la bibliotheque JS de JUCE) :
  *   face -> C++ : mm_ready {}, mm_program {program}, mm_state {ls}, mm_hit {t, vel, hit}, mm_run {on}, mm_fill {on},
- *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}, mm_pf {v}, mm_ps {v}, mm_perf {cut, flags}
+ *                 mm_xf {x}, mm_ptn {next, chain}, mm_import {family, track}, mm_log {where, msg}, mm_pf {v}, mm_ps {v}, mm_hm {v}, mm_perf {cut, flags}
  *   C++ -> face : mm_transport {playing, internal, step, seq, mask, xf, pf, ps, pat, patSeq, rel}, mm_user {list}, mm_imported {track, key}
  */
 
@@ -46,7 +46,7 @@ import { sceneCtl } from '../state/sceneCtl';
 import { voices } from '../state/voices';
 import { SWING } from '../theme';
 import { extHead, nextProgStep, type HeadEntry } from './head';
-import { perform, setFilterHook, setSideHook } from '../state/perform';
+import { perform, setFilterHook, setHellHook, setSideHook } from '../state/perform';
 
 /* ---------------- le programme (lu par plugin/mm-rytm/dsp/Program.cpp) ---------------- */
 
@@ -484,6 +484,8 @@ interface Transport {
   pf: number;
   /** le SIDECHAIN de PERFORM (le parametre SIDECHAIN) ; absent : 0 */
   ps: number;
+  /** le MIX de HELL (le parametre Hell Mix, 2026-11-13) ; -1 : absent (un plugin d'avant) */
+  hm: number;
   /** le pattern que le moteur joue (0 a 127) ; patSeq : +1 a chaque changement fait par le moteur (fin de pattern, program change) */
   pat: number;
   patSeq: number;
@@ -491,10 +493,11 @@ interface Transport {
   rel: number;
 }
 
-let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pf: 0, ps: 0, pat: -1, patSeq: -1, rel: -1 };
+let transport: Transport = { playing: false, internal: false, step: -1, seq: -1, mask: 0, xf: -1, pf: 0, ps: 0, hm: -1, pat: -1, patSeq: -1, rel: -1 };
 /** le FILTER et le SIDECHAIN envoyes par la face (l'hote ne les reprend pas aussitot) */
 let pfSentAt = -1e9;
 let psSentAt = -1e9;
+let hmSentAt = -1e9;
 /** le dernier changement de pattern du moteur que la face a suivi (-2 : aucun message encore) */
 let patSeqSeen = -2;
 /** x pose par l'hote (la face ne le renvoie pas) ; l'heure du dernier x envoye par la face (l'hote ne le reprend pas aussitot) */
@@ -520,6 +523,7 @@ function onTransport(o: unknown): void {
     xf: typeof x.xf === 'number' ? x.xf : -1,
     pf: typeof x.pf === 'number' ? x.pf : 0,
     ps: typeof x.ps === 'number' ? x.ps : 0,
+    hm: typeof x.hm === 'number' ? x.hm : -1,
     pat: typeof x.pat === 'number' ? x.pat : -1,
     patSeq: typeof x.patSeq === 'number' ? x.patSeq : -1,
     rel: typeof x.rel === 'number' ? x.rel : -1,
@@ -546,6 +550,8 @@ function onTransport(o: unknown): void {
   // Le FILTER mene par Ableton : celui de la face le suit (jamais juste apres un geste de la face)
   if (performance.now() - pfSentAt > 400 && Math.abs(transport.pf - perform.filter()) > 1e-4) perform.hostFilter(transport.pf);
   if (performance.now() - psSentAt > 400 && Math.abs(transport.ps - perform.side()) > 1e-4) perform.hostSide(transport.ps);
+  // Le MIX de HELL mene par Ableton : la face le suit (sans l'ecrire dans le pattern : pas d'UNDO pour une automation)
+  if (transport.hm >= 0 && performance.now() - hmSentAt > 400 && Math.abs(transport.hm - perform.hell()) > 1e-4) perform.hostHell(transport.hm);
 }
 
 const headOf = (): HeadEntry | null => (transport.playing && transport.step >= 0 ? { seq: transport.seq, step: transport.step, mask: transport.mask, pat: transport.pat, rel: transport.rel } : null);
@@ -694,6 +700,19 @@ export const bridge = {
     setSideHook((v) => {
       psSentAt = performance.now();
       send('mm_ps', { v });
+    });
+    // Le MIX de HELL (2026-11-13) : celui du pattern (OPEN, un preset, un autre pattern, UNDO) part au parametre Hell Mix ;
+    // une automation d'Ableton revient par le transport (hm)
+    setHellHook((v) => {
+      hmSentAt = performance.now();
+      send('mm_hm', { v });
+    });
+    let hmixLast = pattern.fx.get().hmix;
+    pattern.fx.subscribe(() => {
+      const v = pattern.fx.get().hmix;
+      if (v === hmixLast) return;
+      hmixLast = v;
+      perform.setHell(v);
     });
     // Les samples perso (2026-11-08) : le dossier ~/Music/MM-RYTM Samples du Mac, que le plugin lit ; + LOAD A FILE... de
     // SOUNDS ouvre son choix de fichiers (copies dans le dossier du type de la piste), le premier devient le sample de la piste

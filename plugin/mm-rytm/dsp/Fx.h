@@ -77,6 +77,8 @@ struct PerfState {
     bool tape = false;         // le tape stop (la bande ralentit jusqu'a l'arret)
     double filter = 0;         // le filtre DJ : -1 passe-bas ferme ... 0 ouvert ... 1 passe-haut ferme
     double side = 0;           // le SIDECHAIN : 0 a 1, le mix (sauf la voie du kick) pompe a chaque temps
+    bool throwHell = false;    // HELL THROW (2026-11-13) : tout le mix part dans HELL
+    double hellMix = -1;       // le MIX de HELL (le parametre Hell Mix) ; negatif : celui du programme (hmix)
 };
 
 // La tranche d'une piste (audio/voicelaw.ts VoiceFx) : TONE -1 a 1, DIST, CHORUS, envois DELAY et REVERB 0 a 1.
@@ -350,7 +352,9 @@ private:
     bool perfPlaying_ = false;
     Perf perfFx_;
     std::array<float, kTracks> cutG_{};
-    double throwD_ = 0, throwR_ = 0;
+    double throwD_ = 0, throwR_ = 0, throwH_ = 0;
+    // Le retour de HELL garde pendant et apres un HELL THROW (il redescend doucement) : les spirales s'entendent meme a MIX 0
+    double hellRet_ = 0;
     // Le SIDECHAIN : sa profondeur lissee, le gain de chaque echantillon du bloc
     double sideNow_ = 0;
     std::vector<float> duck_;

@@ -452,6 +452,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMRytmProcessor::makeLayout(
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"filter", 1}, "Filter", juce::NormalisableRange<float>(-1, 1), 0.f));
     // Le SIDECHAIN de PERFORM : le mix (sauf le kick) pompe a chaque temps, 0 a 1 ; mappable
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"side", 1}, "Sidechain", juce::NormalisableRange<float>(0, 1), 0.f));
+    // Le MIX de HELL (2026-11-13, Mika : "ajoute le MIX de HELL dans Ableton") : le retour de HELL, 0 a 1 ; automatisable, mappable
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"hell", 1}, "Hell Mix", juce::NormalisableRange<float>(0, 1), 0.75f));
     return layout;
 }
 
@@ -461,6 +463,7 @@ MMRytmProcessor::MMRytmProcessor()
     xfade_ = apvts.getRawParameterValue("xfade");
     filter_ = apvts.getRawParameterValue("filter");
     side_ = apvts.getRawParameterValue("side");
+    hell_ = apvts.getRawParameterValue("hell");
     renderer_ = std::make_unique<Renderer>(*this);
     renderer_->startThread(juce::Thread::Priority::normal);
 }
@@ -590,13 +593,21 @@ void MMRytmProcessor::faceSide(float v) {
     }
 }
 
+void MMRytmProcessor::faceHell(float v) {
+    if (auto* prm = apvts.getParameter("hell")) {
+        prm->beginChangeGesture();
+        prm->setValueNotifyingHost(juce::jlimit(0.f, 1.f, v));
+        prm->endChangeGesture();
+    }
+}
+
 void MMRytmProcessor::facePerf(const juce::var& o) {
     const auto cut = static_cast<uint32_t>(static_cast<int>(num(o, "cut", 0))) & 0xFFFFu;
-    engine_.setPerf(cut, static_cast<int>(num(o, "flags", 0)) & 127);
+    engine_.setPerf(cut, static_cast<int>(num(o, "flags", 0)) & 255);
 }
 
 MMRytmProcessor::Feedback MMRytmProcessor::feedback() const {
-    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load()), static_cast<double>(filter_->load()), static_cast<double>(side_->load()), engine_.fbPat.load(), engine_.fbPatSeq.load(), engine_.fbRel.load()};
+    return {engine_.fbPlaying.load(), internalPlaying_.load(), engine_.fbStep.load(), engine_.fbSeq.load(), engine_.fbMask.load(), static_cast<double>(xfade_->load()), static_cast<double>(filter_->load()), static_cast<double>(side_->load()), engine_.fbPat.load(), engine_.fbPatSeq.load(), engine_.fbRel.load(), static_cast<double>(hell_->load())};
 }
 
 void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
@@ -605,6 +616,7 @@ void MMRytmProcessor::getStateInformation(juce::MemoryBlock& destData) {
     state.setProperty("xfade", xfade_->load(), nullptr);
     state.setProperty("filter", filter_->load(), nullptr);
     state.setProperty("side", side_->load(), nullptr);
+    state.setProperty("hell", hell_->load(), nullptr);
     if (uiW_.load() > 0) state.setProperty("uiW", uiW_.load(), nullptr);
     {
         std::lock_guard<std::mutex> lk(mx_);
@@ -626,6 +638,8 @@ void MMRytmProcessor::setStateInformation(const void* data, int sizeInBytes) {
         prm->setValueNotifyingHost(prm->convertTo0to1(juce::jlimit(-1.f, 1.f, static_cast<float>(static_cast<double>(state.getProperty("filter", 0.0))))));
     if (auto* prm = apvts.getParameter("side"))
         prm->setValueNotifyingHost(juce::jlimit(0.f, 1.f, static_cast<float>(static_cast<double>(state.getProperty("side", 0.0)))));
+    if (auto* prm = apvts.getParameter("hell"))
+        prm->setValueNotifyingHost(juce::jlimit(0.f, 1.f, static_cast<float>(static_cast<double>(state.getProperty("hell", 0.75)))));
     uiW_.store(static_cast<int>(state.getProperty("uiW", 0)));
     {
         std::lock_guard<std::mutex> lk(mx_);
@@ -701,6 +715,7 @@ void MMRytmProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
     engine_.setX(xfade_->load());
     engine_.setFilter(filter_->load());
     engine_.setSide(side_->load());
+    engine_.setHellMix(hell_->load());
     engine_.process(tr, buffer.getWritePointer(0), buffer.getWritePointer(1), n, notes.data(), nn);
     buffer.applyGain(dbToGain(master_->load()));
     // Les VU-metres : la crete de la sortie (apres MAIN VOLUME)

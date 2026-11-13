@@ -1492,6 +1492,54 @@ int main() {
         CHECK(eout > 0.3 * ein && eout < 3 * ein, "DIST : PUNISH (+20 dB) et AUTO : le niveau de sortie reste a 5 dB de celui d'entree");
     }
 
+    // ---------------- HELL THROW et le parametre Hell Mix (2026-11-13) ----------------
+    {
+        const double TWO_PI = 6.283185307179586;
+        const int N = 48000;
+        auto gz = [&](const std::vector<float>& x, int a, int b, double f) {
+            double re = 0, im = 0;
+            for (int i = a; i < b; ++i) {
+                re += x[static_cast<size_t>(i)] * std::cos(TWO_PI * f * i / SR);
+                im -= x[static_cast<size_t>(i)] * std::sin(TWO_PI * f * i / SR);
+            }
+            return re * re + im * im;
+        };
+        // Une piste (SD) qui joue un sinus de 1 kHz ; HELL : +100 Hz, la bande du haut, sans retour ni delay
+        auto run = [&](bool thr, double hellMix, double send) {
+            mm::FxChain fx;
+            fx.prepare(SR);
+            mm::GlobalFx g;
+            g.hfreq = 0.5 + 0.5 * std::sqrt(0.5);
+            g.hside = 1;
+            g.hfb = 0;
+            g.hsync = 0;
+            g.htime = 0;
+            g.hanti = 0;
+            g.hfilt = 1;
+            fx.setGlobal(g, 120);
+            mm::SliceFx sl;
+            sl.hell = send;
+            fx.setSlice(1, sl, false);
+            mm::PerfState pf;
+            pf.throwHell = thr;
+            pf.hellMix = hellMix;
+            fx.setPerf(pf, 0, 120.0 / 60 / SR, true);
+            std::vector<float> L(static_cast<size_t>(N), 0.f), R(static_cast<size_t>(N), 0.f);
+            for (int i = 0; i < N; i += 256) {
+                const int n = std::min(256, N - i);
+                fx.clearTracks(n);
+                for (int k = 0; k < n; ++k) fx.trackL(1)[k] = fx.trackR(1)[k] = static_cast<float>(0.3 * std::sin(TWO_PI * 1000 * (i + k) / SR));
+                fx.markActive(1);
+                fx.process(L.data() + i, R.data() + i, n);
+            }
+            return gz(L, 12000, N, 1100) / std::max(1e-12, gz(L, 12000, N, 1000));
+        };
+        const double none = run(false, 0.75, 0), thr = run(true, 0.75, 0), thr0 = run(true, 0, 0), mix0 = run(false, 0, 1), mix75 = run(false, 0.75, 1);
+        CHECK(none < 1e-6 && thr > 0.05, "HELL THROW : sans envoi, tenu, tout le mix part dans HELL (1 kHz ressort a 1.1 kHz)");
+        CHECK(thr0 > 0.05, "HELL THROW : meme au MIX 0, la spirale s'entend");
+        CHECK(mix0 < 1e-6 && mix75 > 0.05, "Hell Mix : le parametre d'Ableton remplace le MIX du programme (0 : rien ne revient)");
+    }
+
     std::printf("%s (%d echec%s)\n", fails ? "ECHEC" : "TOUT EST OK", fails, fails > 1 ? "s" : "");
     return fails ? 1 : 0;
 }

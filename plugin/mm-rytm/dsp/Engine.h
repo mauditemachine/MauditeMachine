@@ -99,9 +99,9 @@ public:
     // --- n'importe quel thread : le crossfader (le parametre XFADE), 0 = A, 1 = B
     void setX(float x) { x_.store(x, std::memory_order_relaxed); }
     // --- n'importe quel thread : PERFORM (2026-11-12). Les pads tenus : cut, les pistes coupees (bit t) ; flags, bits 0 a 2 le
-    // beat repeat (0 aucun, 1 a 4 : 1/4 1/8 1/16 1/32), 8 LOW CUT, 16 DELAY THROW, 32 REVERB WASH, 64 TAPE STOP. Le FILTER
-    // (le parametre FILTER) : -1 passe-bas ... 0 ouvert ... 1 passe-haut
-    enum { PERF_LOWCUT = 8, PERF_THROW_D = 16, PERF_THROW_R = 32, PERF_TAPE = 64 };
+    // beat repeat (0 aucun, 1 a 4 : 1/4 1/8 1/16 1/32), 8 LOW CUT, 16 DELAY THROW, 32 REVERB WASH, 64 TAPE STOP, 128 HELL THROW
+    // (2026-11-13). Le FILTER (le parametre FILTER) : -1 passe-bas ... 0 ouvert ... 1 passe-haut
+    enum { PERF_LOWCUT = 8, PERF_THROW_D = 16, PERF_THROW_R = 32, PERF_TAPE = 64, PERF_THROW_H = 128 };
     void setPerf(uint32_t cut, int flags) {
         perfCut_.store(cut, std::memory_order_relaxed);
         perfFlags_.store(flags, std::memory_order_relaxed);
@@ -109,6 +109,8 @@ public:
     void setFilter(float v) { perfFilter_.store(v, std::memory_order_relaxed); }
     // --- n'importe quel thread : le SIDECHAIN de PERFORM (le parametre SIDECHAIN), 0 a 1
     void setSide(float v) { perfSide_.store(v, std::memory_order_relaxed); }
+    // --- n'importe quel thread : le MIX de HELL (le parametre Hell Mix, 2026-11-13), 0 a 1 ; negatif : celui du programme
+    void setHellMix(float v) { hellMix_.store(v, std::memory_order_relaxed); }
     // La latence (echantillons) : l'avance du LIMITEUR
     int latency() const { return fx_.latency(); }
 
@@ -327,6 +329,7 @@ private:
     std::atomic<int> perfFlags_{0};
     std::atomic<float> perfFilter_{0};
     std::atomic<float> perfSide_{0};
+    std::atomic<float> hellMix_{-1};
     double xNow_ = 0, xFx_ = -1;
     bool xOn_ = false;
     std::array<int, kTracks> sliceSrc_{};

@@ -5,15 +5,15 @@
  * le rend). Le moteur C++ les joue (dsp/Fx.cpp Perf, Engine::setPerf) ; la face ne fait que dire ce qui est tenu.
  *
  * Rangee du haut (1 a 8) : CUT, la piste imprimee sur la touche et sa jumelle (BD coupe BD et BD2...).
- * Rangee du bas (9 a 16) : le beat repeat 1/4 1/8 1/16 1/32 (cale sur la grille, le dernier tenu gagne), LOW CUT (les
- * basses tuees), DELAY et REVERB (tout le mix jete dans l'effet, ses queues restent), TAPE (la bande ralentit jusqu'a
- * l'arret).
+ * Rangee du bas (9 a 16) : le beat repeat 1/8 1/16 1/32 (cale sur la grille, le dernier tenu gagne), LOW CUT (les
+ * basses tuees), DELAY, REVERB et HELL (tout le mix jete dans l'effet, ses queues restent), TAPE (la bande ralentit jusqu'a
+ * l'arret). HELL THROW (2026-11-13, Mika : "ajoute HELL THROW") a pris la place de RPT 1/4 (le moteur le joue encore).
  *
  * Et le FILTER (un filtre DJ sur tout le mix, -1 passe-bas ... 0 ouvert ... 1 passe-haut) : le parametre FILTER du plugin,
  * qu'Ableton automatise et mappe ; la face le suit. Module sans dependance du moteur : plugin/bridge.ts l'ecoute.
  */
 
-export type PerfKind = 'cut' | 'repeat' | 'lowcut' | 'throwD' | 'throwR' | 'tape';
+export type PerfKind = 'cut' | 'repeat' | 'lowcut' | 'throwD' | 'throwR' | 'throwH' | 'tape';
 export interface PerfPad {
   /** le nom sur la touche (sa legende orange, PERFORM ouvert) */
   label: string;
@@ -27,24 +27,26 @@ export interface PerfPad {
 const ROW1 = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 export const PERF_PADS: readonly PerfPad[] = [
   ...ROW1.map((n, k): PerfPad => ({ label: `CUT ${n}`, say: `CUT ${n} + ${n}2`, kind: 'cut', arg: (1 << k) | (1 << (k + 8)) })),
-  { label: 'RPT 1/4', say: 'REPEAT 1/4', kind: 'repeat', arg: 1 },
   { label: 'RPT 1/8', say: 'REPEAT 1/8', kind: 'repeat', arg: 2 },
   { label: 'RPT 1/16', say: 'REPEAT 1/16', kind: 'repeat', arg: 3 },
   { label: 'RPT 1/32', say: 'REPEAT 1/32', kind: 'repeat', arg: 4 },
   { label: 'LOW CUT', say: 'LOW CUT: NO BASS', kind: 'lowcut', arg: 0 },
   { label: 'DELAY', say: 'DELAY THROW', kind: 'throwD', arg: 0 },
   { label: 'REVERB', say: 'REVERB WASH', kind: 'throwR', arg: 0 },
+  { label: 'HELL', say: 'HELL THROW', kind: 'throwH', arg: 0 },
   { label: 'TAPE', say: 'TAPE STOP', kind: 'tape', arg: 0 },
 ];
 
 /** Les bits des drapeaux du moteur (dsp/Engine.h PERF_*) ; 0 a 2 : le beat repeat. */
-export const PERF_FLAG = { lowcut: 8, throwD: 16, throwR: 32, tape: 64 } as const;
+export const PERF_FLAG = { lowcut: 8, throwD: 16, throwR: 32, tape: 64, throwH: 128 } as const;
 
 /** Les pads tenus, dans l'ordre de l'appui (le dernier repeat gagne) ; ceux gardes par Maj + clic. */
 let held: number[] = [];
 const latched = new Set<number>();
 let filterV = 0;
 let sideV = 0;
+/** le MIX de HELL qui joue (le parametre Hell Mix d'Ableton) ; au depart celui de audio/pattern.ts LAB_FX */
+let hellV = 0.75;
 const listeners = new Set<() => void>();
 const emit = (): void => listeners.forEach((fn) => fn());
 
@@ -113,6 +115,25 @@ export const perform = {
     sideHook?.(x);
     emit();
   },
+  /**
+   * le MIX de HELL (2026-11-13, Mika : "ajoute le MIX de HELL dans Ableton") : la valeur qui joue, celle du parametre Hell
+   * Mix. La face y pose celui du pattern (OPEN, un preset, un autre pattern : plugin/bridge.ts), Ableton l'automatise.
+   */
+  hell: (): number => hellV,
+  setHell(v: number): void {
+    const x = Math.round(Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0.75)) * 1000) / 1000;
+    if (x === hellV) return;
+    hellV = x;
+    hellHook?.(x);
+    emit();
+  },
+  /** le MIX de HELL mene par Ableton (son automation, un controleur) : la face le suit sans le renvoyer ni l'ecrire dans le pattern */
+  hostHell(v: number): void {
+    const x = Math.max(0, Math.min(1, v));
+    if (Math.abs(x - hellV) < 1e-4) return;
+    hellV = x;
+    emit();
+  },
   /** le SIDECHAIN mene par Ableton : la face le suit sans le renvoyer */
   hostSide(v: number): void {
     const x = Math.max(0, Math.min(1, v));
@@ -139,6 +160,11 @@ export const perform = {
 let filterHook: ((v: number) => void) | null = null;
 export function setFilterHook(fn: ((v: number) => void) | null): void {
   filterHook = fn;
+}
+/** Le pont : le MIX de HELL change sur la face, il part au parametre Hell Mix du plugin. */
+let hellHook: ((v: number) => void) | null = null;
+export function setHellHook(fn: ((v: number) => void) | null): void {
+  hellHook = fn;
 }
 /** Le pont : le SIDECHAIN tourne sur la face, il part au parametre SIDECHAIN du plugin. */
 let sideHook: ((v: number) => void) | null = null;

@@ -1396,6 +1396,8 @@ void Engine::processChunk(const BlockTransport& tr, float* L, float* R, int n, c
         pf.throwDelay = (fl & PERF_THROW_D) != 0;
         pf.throwReverb = (fl & PERF_THROW_R) != 0;
         pf.tape = (fl & PERF_TAPE) != 0;
+        pf.throwHell = (fl & PERF_THROW_H) != 0;
+        pf.hellMix = static_cast<double>(hellMix_.load(std::memory_order_relaxed));
         pf.filter = static_cast<double>(perfFilter_.load(std::memory_order_relaxed));
         pf.side = static_cast<double>(perfSide_.load(std::memory_order_relaxed));
         fx_.setPerf(pf, tr.ppq, tr.ppqPerSample, tr.playing && seqOn_);

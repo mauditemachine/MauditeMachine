@@ -148,7 +148,7 @@ export const HELL_LFO: readonly LabKnob[] = [
   { id: 'hamt', label: 'AMOUNT', steps: 0, read: (f) => pc(f.hamt), unit: () => 'DEPTH', tip: 'The depth of the LFO' },
   { id: 'hstereo', label: 'STEREO', steps: 2, read: (f) => onOff(f.hstereo), unit: (f) => (f.hstereo >= 0.5 ? 'R INVERTED' : 'SAME L R'), tip: 'The LFO upside down on the right: the two sides move apart' },
 ];
-export const HELL_OUT: readonly LabKnob[] = [{ id: 'hmix', label: 'MIX', steps: 0, read: (f) => pc(f.hmix), unit: () => 'RETURN', tip: 'The level of HELL in the mix (each track sends into it with HELL on its FX page)' }];
+export const HELL_OUT: readonly LabKnob[] = [{ id: 'hmix', label: 'MIX', steps: 0, read: (f) => pc(f.hmix), unit: () => 'RETURN', tip: 'The level of HELL in the mix (each track sends into it with HELL on its FX page); the Hell Mix parameter in Ableton' }];
 
 export const DIST_DRIVE: readonly LabKnob[] = [
   { id: 'xstyle', label: 'STYLE', steps: 6, read: (f) => DIST_STYLES[notch(f.xstyle, 6)], unit: () => 'CIRCUIT', tip: 'The saturation circuit: MM (as before), TAPE, DESK, IRON, TUBE, PENT' },

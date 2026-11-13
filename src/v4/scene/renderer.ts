@@ -419,7 +419,8 @@ function wedgeOccluder(): { planes: number[]; corners: number[] } {
 
 /**
  * Les pads de PERFORM sur les 16 pas (le plugin, 2026-11-12, state/perform.ts) : chaque pad luit faiblement dans la teinte de
- * sa famille (CUT violet, REPEAT blanc, LOW CUT orange, DELAY et REVERB bleus, TAPE jaune), plein quand il est tenu ou garde.
+ * sa famille (CUT violet, REPEAT blanc, LOW CUT orange, DELAY et REVERB bleus, HELL rouge, TAPE jaune), plein quand il est
+ * tenu ou garde.
  */
 const PERF_TONE: Readonly<Record<PerfKind, { tone: TrkLed['tone']; hex: keyof typeof DT_HEX }>> = {
   cut: { tone: 'dmagenta', hex: 'magenta' },
@@ -427,6 +428,8 @@ const PERF_TONE: Readonly<Record<PerfKind, { tone: TrkLed['tone']; hex: keyof ty
   lowcut: { tone: 'dorange', hex: 'orange' },
   throwD: { tone: 'dblue', hex: 'blue' },
   throwR: { tone: 'dblue', hex: 'blue' },
+  // HELL THROW (2026-11-13) : rouge, comme l'enfer
+  throwH: { tone: 'dred', hex: 'red' },
   tape: { tone: 'dyellow', hex: 'yellow' },
 };
 function perfLeds(): TrkLed[] {
