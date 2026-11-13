@@ -381,3 +381,26 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Reste à faire
 - Interface secondaire en jaune canard (#D28E05) au lieu de l'orange ; boutons remplaces par des touches carrees sombres facon face avant (composant PcbKey, nom ecrit dessous, allumees en jaune quand actives) ; bandeau du bas de 46 px (MIDI LEARN, 7 onglets, CLOSE). Face avant inchangee au pixel.
+
+## 2026-11-13 (suite) : OPEN en 3 pages, HELL, random hypnotique
+
+### Ce qui a ete fait
+- OPEN : 7 onglets fusionnes en 3 pages (SOUND, FX avec sous-pages RACK et HELL, SEQ) ; LIBRARY/DISK, MIDI et LEARN en touches permanentes du bandeau ouvrant un volet.
+- Plus de trou pour l'ecran (copie du canvas LCD retiree) ; petit afficheur jaune canard dans le bandeau (parametre touche + valeur).
+- Knobs SVG en relief ; parametres 2 a 4 positions en touches noires facon CHORUS avec LED ; selecteurs regles au glisser vertical (14 px par cran), plus de changement au clic simple.
+- Double-clic sur la face avant ouvre OPEN sur la section correspondante ; le reset passe a Alt/Cmd/Ctrl + clic (le site garde son reset).
+- HELL : delay + decaleur de frequence de Bode dans la boucle de feedback (plugin/mm-arp/dsp/Hell.{h,cpp}), 10 params extra (75 au total), knob HELL (mix) sur la face dans EFFECTS, 12 presets originaux, test DSP dedie (MIX 0 bit-exact, stabilite).
+- FILTER + : HIGH PASS / COMB retires des 14 presets usine qui les activaient ; presets/build.mjs refuse desormais ces params ; SINGING COMB devient SINGING NOISE.
+- Random hypnotique (src/v4/plugin/arp/hypno.ts) : styles HYPNOTIC, PULSE, ROLLING (cellule de 2 a 4 notes qui boucle, seule la fin varie).
+
+### Decisions prises et pourquoi
+- Echobode (Sonic Charge) et non Echoboy : correction de Mika ; noms et valeurs de presets originaux.
+- Un preset HELL ne touche pas au MIX, sauf s'il est a 0 (passe a 35 % pour etre entendu).
+- Cause FILTER + : DSP deja en vrai bypass a OFF, le probleme venait des presets usine.
+
+### Ce qui reste a faire / points en suspens
+- Mika : ecouter HELL, ses presets et SINGING NOISE (regles sans ecoute).
+- Les projets Ableton deja sauves gardent leurs valeurs FILTER +.
+
+### Commandes utiles ajoutees
+- extra-gen --check et presets/build.mjs --check ajoutes au workflow plugin-arp.yml.
