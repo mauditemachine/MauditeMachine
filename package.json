@@ -7,6 +7,7 @@
     "dev": "vite --open",
     "admin": "node scripts/dev-admin.mjs",
     "covers": "node scripts/fetch-covers.mjs",
+    "covers:tracks": "node scripts/fetch-track-covers.mjs",
     "build": "vite build",
     "postbuild": "node scripts/prerender-seo.mjs && node scripts/press-pages.mjs && node scripts/generate-sitemap.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",

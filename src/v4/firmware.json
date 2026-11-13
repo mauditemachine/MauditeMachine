@@ -1,8 +1,8 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "7.1",
-    "fingerprint": "sha256:0c0163b97b34ef97a621c7a471034585c7b468d4debdcb9c9068191b74e755d7",
+    "version": "7.2",
+    "fingerprint": "sha256:773b949c299a45ae2ad1621471ea2193c2d8bdf80051e12d1a255c5f0955d37b",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -25,16 +25,18 @@
       { "version": "6.8", "date": "2026-11-03", "note": "Mode SOLO: activation directe, synchronisation d'etat et selection de piste en solo", "sha": "25d593cc" },
       { "version": "6.9", "date": "2026-11-03", "note": "Mode MUTE: activation directe, synchronisation d'etat et selection de piste en mute", "sha": "a24832bd" },
       { "version": "7.0", "date": "2026-11-10", "note": "face V.7.0 du site : ecran cliquable, 8 potards A a H a droite qui suivent la page, voix et 16 pas en bas ; telephone : languette TOUCH CONTROLS, cadrage sous la barre de Safari 26", "sha": "e4bf991" },
-      { "version": "7.1", "date": "2026-11-10", "note": "DIST refaite facon gros hardcore (gain jusqu'a 40 dB, ecretage dur, mordant a 2.5 kHz) et COMP qui pousse (plus dense, il pompe, plafonne a 0 dB)", "sha": "5ef8e6a" }
+      { "version": "7.1", "date": "2026-11-10", "note": "DIST refaite facon gros hardcore (gain jusqu'a 40 dB, ecretage dur, mordant a 2.5 kHz) et COMP qui pousse (plus dense, il pompe, plafonne a 0 dB)", "sha": "5ef8e6a" },
+      { "version": "7.2", "date": "2026-11-13", "note": "telephone : knobs GLOBAL FX plus gros, numeros sur les pas et noms sur les pads, plus de crochets", "sha": "e5ac5e9" }
     ]
   },
   "voy": {
     "name": "MM-ARP",
-    "version": "2.5",
-    "fingerprint": "sha256:bebc295d3db7678b0fed12351496f7a011c9f098a3b98df73e1f58cdf71fec4a",
+    "version": "2.6",
+    "fingerprint": "sha256:0c8cb7fa3422bc90550d62278e49a50d9babe6f9e308be3245594dee36a3509f",
     "history": [
       { "version": "2.4", "date": "2026-11-02", "note": "logotype sous le bouton volume", "sha": "f233efd9" },
-      { "version": "2.5", "date": "2026-11-03", "note": "bouton dedie preset et liste presets", "sha": "f96ca4f1" }
+      { "version": "2.5", "date": "2026-11-03", "note": "bouton dedie preset et liste presets", "sha": "f96ca4f1" },
+      { "version": "2.6", "date": "2026-11-13", "note": "telephone : noms des accords et des boutons sur les touches, pads carres, face epuree", "sha": "e5ac5e9" }
     ]
   },
   "bass": { "name": "MM-BASS", "version": "3.0", "fingerprint": "sha256:7d574b694a628af4f4001a08e03ca1a22d80e9106b0fdb946a51eb44df073ac7", "history": [] }

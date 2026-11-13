@@ -319,8 +319,9 @@ const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
  * l'arpege au pas des rangees de huit (0.88). Rangees en z : 2.95 et 4.35
  * avant (le plateau commencait a -0.5, il commence a -1.1).
  */
-const PORT_ARP_Z = 3.9;
-const PORT_E2 = 5.33;
+// 2026-11-13 : 0.3 plus haut (les noms des boutons sont sur eux, leur bande sous les touches est liberee)
+const PORT_ARP_Z = 3.6;
+const PORT_E2 = 5.03;
 const PORT_ARP_X = [-3.3, -2.42, -1.54, -0.66, 0.22, 1.1, 1.98] as const;
 const PORT_DECK: Partial<Record<VoyKnobId, Spot>> = {
   rate: [PORT_ARP_X[0], PORT_ARP_Z, 'm'],
@@ -507,7 +508,9 @@ export const VOY_HEAD = PORTRAIT
  */
 // Plus minces le 2026-10-08 (le grand ecran) : depth, la profondeur, plus courte que la largeur (size) ; carres de 0.86 et 0.98 avant (labelDz 0.62 et 0.72)
 export const VOY_PAD = PORTRAIT
-  ? { size: 0.86, depth: 0.66, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [6.72], perRow: 8, labelDz: 0.57 }
+  ? // 2026-11-13 (Mika : "met a hauteur les sons pour que ce soit pareil que Rytm") : carres comme les voix du MM-RYTM, le
+    // nom de l'accord dessus (voyager/pads.ts), remontes de la bande des noms des boutons ; labelDz ne place plus que le titre
+    { size: 0.86, depth: 0.86, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [6.52], perRow: 8, labelDz: 0.38 }
   : { size: 0.98, depth: 0.7, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [3.16], perRow: 8, labelDz: 0.55 };
 
 export const voyPadAt = (i: number): { x: number; z: number } => ({

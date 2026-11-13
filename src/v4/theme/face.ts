@@ -225,8 +225,8 @@ export const TRANSPORT = {
   d: PORTRAIT ? 0.44 : PAD_FACE ? 0.38 : FACE_KEY.d,
   h: PORTRAIT || PAD_FACE ? 0.1 : FACE_KEY.h,
   radius: PORTRAIT || PAD_FACE ? 0.05 : FACE_KEY.radius,
-  // V.7.0 (SIDE_FACE) : sur la ligne des touches de page (sous l'ecran), sous les potards
-  z: PORTRAIT ? 3.56 : SIDE_FACE ? SIDE_KEY_Z : PAD_FACE ? 0.71 : FACE_KEY.z,
+  // V.7.0 (SIDE_FACE) : sur la ligne des touches de page (sous l'ecran), sous les potards ; au telephone sous les pads (2026-11-13)
+  z: PORTRAIT ? 4.52 : SIDE_FACE ? SIDE_KEY_Z : PAD_FACE ? 0.71 : FACE_KEY.z,
   hitD: PORTRAIT ? 0.84 : PAD_FACE ? 0.38 : FACE_KEY.d,
   /** le temoin, celui des touches de page (a la largeur de la touche) */
   led: PORTRAIT || PAD_FACE ? { w: 0.62, d: 0.05, back: 0.11 } : FACE_KEY.led,
@@ -240,11 +240,12 @@ export const KEYS = {
   count: 16,
   x0: PORTRAIT ? -3.01 : PAD_FACE ? -5.625 : fpX(FP_STEPS.x0 + FP_STEPS.w / 2),
   pitch: PORTRAIT ? 0.86 : PAD_FACE ? 0.75 : fpU(FP_STEPS.pitch),
-  // V.7.0 (SIDE_FACE) : sous la rangee des voix
-  z: PORTRAIT ? 4.36 : SIDE_FACE ? 2.72 : PAD_FACE ? 2.38 : fpZ(FP_STEPS.rows[0] + FP_STEPS.h / 2),
+  // V.7.0 (SIDE_FACE) : sous la rangee des voix ; au telephone (2026-11-13) le numero est sur la touche, plus dessous :
+  // les deux rangees se rapprochent (0.92 : l'air entre elles, celui entre deux pas), plus de crochets
+  z: PORTRAIT ? 5.4 : SIDE_FACE ? 2.72 : PAD_FACE ? 2.38 : fpZ(FP_STEPS.rows[0] + FP_STEPS.h / 2),
   /** portrait : deux rangees de 8, la seconde rowDz plus bas ; V.1.0-V.3.0 : une rangee de 16 ; le desktop depuis V.4.0 : deux rangees de 8 */
   perRow: PORTRAIT ? 8 : PAD_FACE ? 16 : FP_STEPS.perRow,
-  rowDz: PORTRAIT ? 1.52 : PAD_FACE ? 0 : fpU(FP_STEPS.rows[1] - FP_STEPS.rows[0]),
+  rowDz: PORTRAIT ? 0.92 : PAD_FACE ? 0 : fpU(FP_STEPS.rows[1] - FP_STEPS.rows[0]),
   w: PORTRAIT ? 0.7 : PAD_FACE ? 0.62 : fpU(FP_STEPS.w),
   d: PORTRAIT ? 0.7 : PAD_FACE ? 0.62 : fpU(FP_STEPS.h),
   // desktop : la hauteur, les coins, le cadre des temps et la marque des verrous depuis RYTM_FACEPLATE.steps (2026-10-27)
@@ -264,8 +265,10 @@ export const KEYS = {
 export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * (i % KEYS.perRow);
 export const keyDz = (i: number): number => KEYS.rowDz * Math.floor(i / KEYS.perRow);
 
+// Au telephone (2026-11-13, Mika : "fais des knobs plus gros dans Rytm") : 1.65 (1.05 avant), le nom au-dessus du dessus
+// du potard vu de la camera (sa hauteur le repousse vers l'arriere), la zone du doigt du dessus du nom au bas de la jupe
 export const PAGE_KNOBS = PORTRAIT
-  ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.72, GLOBAL_FX_RULE.z + 1.88], s: 1.05, pitch: 0, cap: 0.1, nameDz: -0.52, hitD: 1.16, hitUp: 0.67, hitW: 1.78, hitR: 0, labelW: 1.78 - 0.2 } as const)
+  ? ({ rowZ: [GLOBAL_FX_RULE.z + 1.06, GLOBAL_FX_RULE.z + 2.64], s: 1.65, pitch: 0, cap: 0.105, nameDz: -0.84, hitD: 1.56, hitUp: 0.97, hitW: 1.78, hitR: 0, labelW: 1.78 - 0.2 } as const)
   : PAD_FACE && RYTM_FACE_VER === '1.0'
     ? ({ rowZ: [GLOBAL_FX_RULE.z + 0.52, GLOBAL_FX_RULE.z + 1.34], s: 0.88, pitch: 0, cap: 0.072, nameDz: -0.42, hitD: 0.82, hitUp: 0.46, hitW: 1.25, hitR: 0, labelW: 1.05 } as const)
     : SIDE_FACE
@@ -355,6 +358,42 @@ export const KEY_LABELS: readonly KeyLabelSpec[] = PORTRAIT || PAD_FACE
           ['solo', 'SOLO'],
         ] as const
       ).map(([id, text]): KeyLabelSpec => ({ id, text, x: TRANSPORT[id].x, z: TRANSPORT.z, w: TRANSPORT.w, d: TRANSPORT.d, group: 'tr', rest: id === 'run' ? 'bone' : 'ink' })),
+      // Au telephone (2026-11-13, Mika : "marque les numeros sur les steps eux-memes, ca fait gagner de l'espace, pareil pour
+      // les tracks, ecris dessus au lieu d'en dessous") : le numero au milieu du pas (la marque des verrous reste derriere
+      // lui), le nom de la voix, EDIT et OPEN (CLOSE la vue ouverte) au milieu de leur pad
+      ...(PORTRAIT
+        ? [
+            ...Array.from({ length: KEYS.count }, (_, i): KeyLabelSpec => ({
+              id: `stepn-${i + 1}`,
+              text: String(i + 1),
+              x: keyX(i),
+              z: KEYS.z + keyDz(i),
+              w: KEYS.w,
+              d: KEYS.d,
+              group: 'stepn',
+              rest: 'ink',
+              cap: 0.19,
+              qw: KEYS.w - 0.12,
+              dz: 0.04,
+            })),
+            ...PADS.map(
+              (p): KeyLabelSpec => ({
+                id: `pad-${p.id}`,
+                text: p.label,
+                x: p.x,
+                z: p.z,
+                w: PAD.size,
+                d: PAD.size,
+                group: 'pad',
+                rest: 'ink',
+                cap: 0.2,
+                qw: PAD.size - 0.16,
+                dz: 0,
+                ...(p.kind === 'open' ? { altText: 'CLOSE' } : {}),
+              })
+            ),
+          ]
+        : []),
     ]
   : DT2_FACE
     ? [
@@ -514,7 +553,8 @@ export const SILK_TEXTS: readonly SilkText[] = DT2_FACE ? DT2_SILK_TEXTS() : [
   // VOICES au-dessus des pads (2026-10-09, sur la ligne des noms de MASTER et TEMPO ; ils sont dans l'ecran depuis le
   // 2026-10-19, VOICES garde sa place au desktop, juste au-dessus des pads au telephone) ; plus de pads au desktop
   // depuis la face V.4.0 (2026-10-27), plus de VOICES
-  ...(PORTRAIT || PAD_FACE ? [{ text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - PAD.size / 2 - 0.14, cap: 0.075, align: 'left' as const }] : []),
+  // Au telephone (2026-11-13, Mika : "enleve les elements graphiques superflus") : plus de VOICES, les noms sont sur les pads
+  ...(PAD_FACE ? [{ text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - PAD.size / 2 - 0.14, cap: 0.075, align: 'left' as const }] : []),
   ...FACE_KNOBS.map((k, i) => ({
     // V.7.0 (SIDE_FACE) : les lettres A a H, les potards suivent la page
     text: PORTRAIT || (PAD_FACE && !SIDE_FACE) ? GLOBAL_ENC_LABELS[i] : (RYTM_FACEPLATE.knobs.labels[i] ?? PAGE_KNOB_LETTERS[i]),
@@ -527,8 +567,9 @@ export const SILK_TEXTS: readonly SilkText[] = DT2_FACE ? DT2_SILK_TEXTS() : [
     alpha: 0.9,
   })),
   ...(PORTRAIT || (PAD_FACE && !SIDE_FACE) ? [{ text: 'GLOBAL FX', x: OLED.x, z: GLOBAL_FX_RULE.z, cap: 0.075, weight: 700, alpha: 0.7 }] : []),
-  ...PADS.map(padLabel),
-  ...(PORTRAIT || PAD_FACE ? Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.095, weight: 600 })) : []),
+  // Au telephone (2026-11-13) : les noms des pads et les numeros des pas sont imprimes dessus (KEY_LABELS), plus dessous
+  ...(PORTRAIT ? [] : PADS.map(padLabel)),
+  ...(PAD_FACE ? Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.095, weight: 600 })) : []),
   ...(PORTRAIT || PAD_FACE
     ? []
     : [{ text: '\u25CF REC: WRITE STEPS \u00B7 WITHOUT REC: STEPS 1-8 PLAY THE VOICES \u00B7 HOLD A STEP + KNOB: P-LOCK \u00B7 FUNC + STEP 1-8: MUTE (REC: LOCK TRIG)', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8, maxW: fpU(RYTM_FACEPLATE.size.w - 16) }]),

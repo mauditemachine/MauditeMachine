@@ -51,6 +51,13 @@ export function page(id: PageId, stage: Stage | null): void {
   }
   // CONTACT ouvert directement : l'objet propose est Booking
   if (id === 'contact' && section.get() !== 'contact') contactDraft.set('booking');
+  // Au telephone (2026-11-13, Mika : "le menu Press devrait afficher directement le presskit en mobile et l'option de
+  // telechargement directe") : la visionneuse plein ecran (Download PDF dans sa barre), sans la feuille
+  if (id === 'press' && PORTRAIT) {
+    section.set(null);
+    presskit.open('press');
+    return;
+  }
   // Arrive par /presskit (2026-10-01) : PRESS rouvre la visionneuse, sur sa section
   if (id === 'press' && presskit.fromRoute()) {
     section.set('press');

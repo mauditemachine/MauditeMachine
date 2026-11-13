@@ -189,12 +189,11 @@
   }
 }
 
-/* Mobile : la zone de la machine, le Dock reste dessous */
+/* Mobile : tout l'ecran (2026-11-13, Mika : "le menu Press devrait afficher directement le presskit en mobile et
+   l'option de telechargement directe") ; la barre garde Download PDF et la croix sous la zone sure */
 @media (max-width: 767px) {
   .v4-kit {
-    bottom: auto;
-    height: 50vh;
-    height: var(--canvas-h-mobile);
+    inset: 0;
     padding: 0;
   }
 
@@ -227,7 +226,7 @@
 
   .v4-kit-pages {
     gap: 12px;
-    padding: 12px;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px) + var(--ios-bar, 0px));
   }
 
   .v4-kit-links {

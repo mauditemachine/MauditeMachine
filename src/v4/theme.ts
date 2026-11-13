@@ -1476,7 +1476,8 @@ export const SILK_STROKES: readonly { pts: readonly number[]; ink: 'alt'; width:
 export const SILK_LINES: readonly (readonly number[])[] = [
   // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
   // V.7.0 (SIDE_FACE) : entre CY et EDIT, sur la rangee des voix
-  ...(SIDE_FACE ? [[SIDE_PADS.ruleX, PAD.rowZ[0] - 0.5, SIDE_PADS.ruleX, PAD.rowZ[0] + 0.72]] : PORTRAIT || PAD_FACE ? [[PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72]] : []),
+  // Au telephone, plus de filet (2026-11-13, Mika : "enleve les elements graphiques superflus") : EDIT et OPEN portent leur nom
+  ...(SIDE_FACE ? [[SIDE_PADS.ruleX, PAD.rowZ[0] - 0.5, SIDE_PADS.ruleX, PAD.rowZ[0] + 0.72]] : PAD_FACE ? [[PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72]] : []),
   // Revue du 2026-10-09 : un filet sous les noms des touches de page, de la largeur du verre ; les touches et l'ecran
   // d'un cote, les huit encodeurs de l'autre (les noms se lisaient comme ceux des potards) ; sous les touches elles-memes
   // depuis le 2026-10-18 (leurs noms sont dessus) ; au telephone aussi depuis le 2026-10-19 (les encodeurs y reviennent)
@@ -1486,8 +1487,9 @@ export const SILK_LINES: readonly (readonly number[])[] = [
         [OLED.x + GLOBAL_FX_RULE.gap, GLOBAL_FX_RULE.z, OLED.x + OLED.w / 2, GLOBAL_FX_RULE.z],
       ]
     : []),
-  // Plus de crochets au desktop depuis la face V.4.0 (2026-10-27) : le cadre des temps 1 5 9 13 les marque
-  ...(PORTRAIT || PAD_FACE
+  // Plus de crochets au desktop depuis la face V.4.0 (2026-10-27) : le cadre des temps 1 5 9 13 les marque ; au telephone
+  // non plus depuis le 2026-11-13 (Mika : "cette ligne qui separe sert a rien")
+  ...(PAD_FACE
     ? [0, 1, 2, 3].map((g) => {
         const a = keyX(4 * g) - KEYS.w / 2;
         const b = keyX(4 * g + 3) + KEYS.w / 2;

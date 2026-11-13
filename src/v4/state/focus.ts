@@ -46,9 +46,11 @@ export const VOYAGER: boolean = (() => {
  * Sur la table pour tout le monde depuis le 2026-10-04 (Mika : "publie Deck
  * sans le drapeau") ; ?dj=0 le retire (retenu pour l'onglet), ?dj=1 le
  * remet. Il suppose le MM-VOYAGER sur la table.
+ * Jamais au telephone (2026-11-13, Mika : "supprime le deck, ne mets rien d'autre en mobile !") : la table s'arrete au
+ * MM-ARP, TRACKS et MIXTAPES y ont leur lecteur (ui/sections/PhonePlayer.tsx).
  */
 export const DJ: boolean = (() => {
-  if (typeof window === 'undefined' || !VOYAGER) return false;
+  if (typeof window === 'undefined' || !VOYAGER || PORTRAIT) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('dj');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.dj', q);

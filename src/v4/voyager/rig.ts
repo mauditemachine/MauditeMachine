@@ -171,8 +171,8 @@ export class VoyagerRig {
     this.lid.add(this.deckSilk.mesh);
     this.panel.add(this.panelSilk.mesh);
 
-    this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
-    this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed);
+    this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile, anisotropy: opts.anisotropy });
+    this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed, ...this.keys.labelMeshes());
     // Les boutons poussoirs (SUB OCT, 2026-10-11 ; CHORUS, 2026-10-12) : chacun sur son plan, comme sa serigraphie
     // (le panneau incline ; au telephone, CHORUS sur le plateau)
     this.panel.add(this.keys.pushes.panel);
@@ -617,6 +617,7 @@ export class VoyagerRig {
   /** Polices ou logos arrives : la serigraphie se redessine. */
   redrawText(): void {
     this.deckSilk.draw();
+    this.keys.drawLabels();
     this.panelSilk.draw();
     this.back.draw();
     this.pcb.redraw();

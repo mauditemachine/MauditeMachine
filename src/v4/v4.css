@@ -2427,6 +2427,15 @@ html:has(body.v4-active) {
     padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px) + var(--ios-bar));
     touch-action: pan-y;
   }
+
+  /* TRACKS, MIXTAPES (le lecteur, ui/sections/PhonePlayer.tsx) et CONTACT (le formulaire et le clavier) : la feuille
+     monte jusque sous l'en-tete (2026-11-13) ; les autres gardent 45 % */
+  .v4-panel[data-section='tracks'],
+  .v4-panel[data-section='mixtapes'],
+  .v4-panel[data-section='contact'] {
+    height: calc(100vh - 52px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 52px - env(safe-area-inset-top, 0px));
+  }
 }
 
 

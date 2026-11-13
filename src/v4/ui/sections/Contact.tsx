@@ -12,6 +12,7 @@
 
 import React from 'react';
 import { CONTACTS, CONTACT_LINKS, SOCIALS } from '../../data';
+import { PORTRAIT } from '../../theme';
 import { ExternalLink } from '../ExternalLink';
 import { SOCIAL_ICONS } from '../icons';
 import { SectionFrame, tabOf, type SectionProps } from './common';
@@ -19,8 +20,17 @@ import { ContactForm } from './ContactForm';
 
 export const Contact: React.FC<SectionProps> = ({ active, focusable }) => {
   const tab = tabOf(focusable);
+  // Au telephone (2026-11-13, Mika : "Contact devrait afficher un formulaire meme en mobile !") : le formulaire d'abord,
+  // les reseaux et les adresses ensuite (en bas de la feuille, il ne se voyait pas)
+  const form = (
+    <>
+      <h3 className="v4-sec-sub">Write to me</h3>
+      <ContactForm tab={tab} />
+    </>
+  );
   return (
     <SectionFrame id="contact" active={active}>
+      {PORTRAIT && form}
       <ul className="v4-socials" aria-label="Social links">
         {SOCIALS.map((s) => {
           const Icon = SOCIAL_ICONS[s.id];
@@ -63,8 +73,7 @@ export const Contact: React.FC<SectionProps> = ({ active, focusable }) => {
           </li>
         ))}
       </ul>
-      <h3 className="v4-sec-sub">Write to me</h3>
-      <ContactForm tab={tab} />
+      {!PORTRAIT && form}
     </SectionFrame>
   );
 };

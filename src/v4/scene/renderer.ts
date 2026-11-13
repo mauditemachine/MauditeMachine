@@ -785,6 +785,10 @@ export class Stage {
 
     // Moitie droite : les 12 pads (ils projettent leur ombre sur mobile
     // aussi ; leur lumiere seule ne refait pas la carte d'ombre) ; plus de pads au desktop depuis la face V.4.0 (2026-10-27)
+    // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture ; les
+    // legendes de la face V.4.0 du desktop (2026-10-27 ; V.4.2 : un mot par touche, les signes de RUN/STOP) aussi ; au
+    // telephone depuis le 2026-11-13, les numeros des pas et les noms des pads (avant les pads, qui les portent)
+    this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     this.pads = PORTRAIT || PAD_FACE
       ? new Pads({
           tweens: this.tweens,
@@ -792,11 +796,9 @@ export class Stage {
           repaint: () => this.repaint(),
           castShadow: true,
           mobile,
+          atlas: this.keyAtlas,
         })
       : null;
-    // Les noms imprimes sur les touches de page et du transport (2026-10-18, scene/keyLabels.ts) : une seule texture ; les
-    // legendes de la face V.4.0 du desktop (2026-10-27 ; V.4.2 : un mot par touche, les signes de RUN/STOP) aussi
-    this.keyAtlas = new KeyLabelAtlas(KEY_LABELS, aniso);
     // La face V.4.0 du desktop (2026-10-27) : TRK, EDIT, OPEN, SCENE A et B, le crossfader
     this.faceKeys = PORTRAIT || PAD_FACE ? null : new RytmFaceKeys({ mobile, atlas: this.keyAtlas, castShadow: !mobile });
     // Bas : touches trig (allumees par leur velocite depuis le 2026-10-19), RUN/STOP, CLEAR ; sous l'ecran : les huit encodeurs.
@@ -812,7 +814,7 @@ export class Stage {
     this.sideKnobs = DT2_FACE ? new SideKnobs({ mobile, castShadow: !mobile }) : null;
     // MASTER et TEMPO sont dans l'ecran depuis le 2026-10-19 (scene/screen.ts) ; les huit encodeurs au telephone aussi
     plateau.add(
-      ...(this.pads ? [this.pads.mesh, this.pads.halos] : []),
+      ...(this.pads ? [this.pads.mesh, this.pads.halos, ...(this.pads.labels ? [this.pads.labels.mesh] : [])] : []),
       ...this.seq.objects(),
       ...this.encoders.objects(),
       ...(this.pageKeys?.objects() ?? []),

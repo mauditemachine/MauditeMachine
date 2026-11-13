@@ -1,9 +1,14 @@
-/** TRACKS (spec 11.1) : les 37 sorties, melangees a chaque visite ; clic = lecture SoundCloud. */
+/**
+ * TRACKS (spec 11.1) : les 37 sorties, melangees a chaque visite ; clic = lecture SoundCloud. Au telephone
+ * (2026-11-13) : le lecteur avec les pochettes (PhonePlayer.tsx).
+ */
 
 import React, { useSyncExternalStore } from 'react';
 import { TRACKS, TRACK_QUEUE } from '../../data';
 import { missingTrack } from '../../state/sectionRoute';
+import { PORTRAIT } from '../../theme';
 import { PlayList, SectionFrame, tabOf, type SectionProps } from './common';
+import { PhonePlayer } from './PhonePlayer';
 
 export const Tracks: React.FC<SectionProps> = ({ active, focusable }) => {
   // Une adresse de morceau inconnue (2026-10-21, audit, state/sectionRoute.ts) : on le dit, la liste suit
@@ -15,7 +20,11 @@ export const Tracks: React.FC<SectionProps> = ({ active, focusable }) => {
           Track not found: {missing}. Here are all the tracks.
         </p>
       )}
-      <PlayList items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" active={active} />
+      {PORTRAIT ? (
+        <PhonePlayer items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" active={active} />
+      ) : (
+        <PlayList items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" active={active} />
+      )}
     </SectionFrame>
   );
 };

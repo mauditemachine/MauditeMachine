@@ -31,6 +31,10 @@
  * la joue (ui/Hotspots.tsx, phonePadTap). La serigraphie (BD SD...) ne change
  * pas : la bascule du Dock dit la rangee. Sans la bascule (aucune piste 9 a
  * 16), rien ne change.
+ *
+ * Les noms sur les pads (2026-11-13, au telephone ; Mika : "ecris dessus au lieu d'en dessous") : BD SD... EDIT et OPEN
+ * imprimes au milieu de leur pad (theme/face.ts KEY_LABELS pad-*, scene/keyLabels.ts), sur le haut du dome ; ils
+ * descendent avec lui, passent au noir quand il s'allume fort (frappe, EDIT, OPEN plein), OPEN devient CLOSE vue ouverte.
  */
 
 import {
@@ -50,13 +54,14 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, FLASH_TINT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, VOICE_TINT, gainOf, type Inst, type PadId, type PageId } from '../theme';
+import { COLOR, FLASH_TINT, KEY_LABELS, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, VOICE_TINT, gainOf, type Inst, type PadId, type PageId } from '../theme';
 import { phoneBank } from '../actions/phone';
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { TRACK_KEYS } from '../audio/tracks';
 import { playhead } from '../state/playhead';
 import type { HotspotDef } from './hit';
+import { KeyLabels, type KeyLabelAtlas } from './keyLabels';
 import { albedo, withInstanceEmissive } from './materials';
 import { makeHaloTexture } from './silk';
 import { easeOutCubic, linear, type Tweens } from './tween';
@@ -175,7 +180,12 @@ export interface PadsOpts {
   repaint: () => void;
   castShadow: boolean;
   mobile: boolean;
+  /** l'atlas des noms imprimes (le telephone : les noms sur les pads, KEY_LABELS pad-*) */
+  atlas?: KeyLabelAtlas;
 }
+
+/** Un pad dont le nom passe au noir : allume fort (une frappe, EDIT ou une page allumee, OPEN plein). */
+const LIT_NAME: readonly boolean[] = [false, false, false, false, true, true, true, false, false, false];
 
 export interface PadsInfo {
   ids: PadId[];
@@ -198,6 +208,8 @@ export interface PadsInfo {
 export class Pads {
   readonly mesh: InstancedMesh;
   readonly halos: InstancedMesh;
+  /** les noms sur les pads (le telephone, 2026-11-13) ; null sans eux */
+  readonly labels: KeyLabels | null;
   /** revue : dernier appui (performance.now) */
   readonly lastPress: PadsInfo['lastPress'] = { id: null, at: 0, count: 0 };
   private material: MeshStandardMaterial;
@@ -288,6 +300,9 @@ export class Pads {
     this.mesh.instanceMatrix.needsUpdate = true;
     this.halos.instanceMatrix.needsUpdate = true;
     this.halos.instanceColor?.setUsage(DynamicDrawUsage);
+    // Les noms sur les pads (le telephone) : dans l'ordre des pads, sur le haut du dome
+    const specs = PADS.map((p) => KEY_LABELS.find((l) => l.id === `pad-${p.id}`)).filter((l) => l !== undefined);
+    this.labels = opts.atlas && COUNT > 0 && specs.length === COUNT ? new KeyLabels(opts.atlas, specs, PAD.domeY + PAD.dome, 'pad') : null;
     for (let i = 0; i < COUNT; i += 1) this.setGlow(i, this.restGlow(i));
     // V.6.0 : la bascule 1-8 / 9-16 du telephone, et les coups des pistes 9 a 16 a chaque pas de la tete de lecture
     if (COUNT > 0) {
@@ -348,10 +363,12 @@ export class Pads {
     // Translation y de la matrice d'instance i (colonne 3, ligne 1)
     this.mesh.instanceMatrix.array[i * 16 + 13] = v;
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.labels?.setDy(i, v);
   }
 
   private setGlow(i: number, g: Glow): void {
     this.glow[i] = g;
+    this.labels?.setLit(i, LIT_NAME[g]);
     // OPEN qui respire : sa lumiere et son halo au facteur du moment ; une voix coupee, le mode ferme : sa LED a peine
     const k = i === OPEN_I && g === ORANGE ? this.breath : g === MUTED_DIM ? MUTED_DIM_K : 1;
     const a = this.emissive.array as Float32Array;
@@ -570,6 +587,8 @@ export class Pads {
   setOpen(on: boolean): boolean {
     if (on === this.open) return false;
     this.open = on;
+    // Le telephone : OPEN imprime sur son pad devient CLOSE vue ouverte (son texte secondaire)
+    this.labels?.setFuncMode(on);
     this.refresh(this.index('open'));
     return true;
   }
@@ -639,5 +658,6 @@ export class Pads {
     this.haloMat.dispose();
     this.haloTex.dispose();
     this.halos.dispose();
+    this.labels?.dispose();
   }
 }

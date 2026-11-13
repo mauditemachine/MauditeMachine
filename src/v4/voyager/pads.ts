@@ -23,6 +23,11 @@
  * InstancedMesh par plan ; eteinte, un peu de lumiere au survol, elle
  * s'enfonce a l'appui. Ses LED (-1, -2 ; I, II) sont dessinees sur la
  * serigraphie (silk.ts).
+ *
+ * Au telephone (2026-11-13, Mika : "Arp enleve les choses superflues ! et met a hauteur les sons pour que ce soit pareil
+ * que Rytm") : le nom de l'accord est imprime sur son pad et celui du bouton sur sa touche, comme les voix et le transport
+ * du MM-RYTM (scene/keyLabels.ts, un atlas a eux) ; ils descendent avec la touche, passent au noir quand elle s'allume
+ * fort, OPEN devient CLOSE machine ouverte.
  */
 
 import {
@@ -46,10 +51,11 @@ import {
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { HotspotDef } from '../scene/hit';
+import { KeyLabelAtlas, KeyLabels } from '../scene/keyLabels';
 import { albedo, withInstanceEmissive } from '../scene/materials';
 import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
-import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PORTRAIT, gainOf } from '../theme';
+import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, PORTRAIT, gainOf, type KeyLabelSpec } from '../theme';
 import { CHORDS } from './chords';
 import { VOY_FACE_KNOBS, voyKnob, type VoyKnobId } from './params';
 import { VOY_BUTTON, VOY_BUTTONS, VOY_KNOB, VOY_PAD, VOY_PUSH, isPush, voyKnobPlace, voyPadAt, voyPushLeds, type VoyButtonId, type VoyWhere } from './theme';
@@ -181,7 +187,38 @@ export interface VoyKeysOpts {
   reduced: () => boolean;
   repaint: () => void;
   mobile: boolean;
+  /** l'anisotropie de l'atlas des noms (le telephone : les noms sur les pads et les touches) */
+  anisotropy?: number;
 }
+
+/** Une touche dont le nom passe au noir : allumee fort (l'accord qui joue, un eclat, OPEN ou PRESET plein). */
+const LIT_NAME: Record<Glow, boolean> = { off: false, faint: false, hover: false, queued: false, active: true, flash: true, orange: true, orangeDim: false };
+
+/** Les noms imprimes au telephone : les huit accords sur leur pad, les six boutons sur leur touche (OPEN : CLOSE ouverte). */
+const PAD_NAMES: readonly KeyLabelSpec[] = PORTRAIT
+  ? CHORDS.map((c, i): KeyLabelSpec => {
+      const p = voyPadAt(i);
+      return { id: `chord-${i}`, text: c.label, x: p.x, z: p.z, w: VOY_PAD.size, d: VOY_PAD.depth, group: 'pad', rest: 'ink', cap: 0.16, qw: VOY_PAD.size - 0.12, dz: 0 };
+    })
+  : [];
+const BTN_NAMES: readonly KeyLabelSpec[] = PORTRAIT
+  ? VOY_BUTTONS.map(
+      (b): KeyLabelSpec => ({
+        id: `vbtn-${b.id}`,
+        text: b.label,
+        x: b.x,
+        z: b.z,
+        w: b.w,
+        d: b.d,
+        group: 'vbtn',
+        rest: b.id === 'run' ? 'bone' : 'ink',
+        cap: 0.12,
+        qw: b.w - 0.12,
+        dz: 0.04,
+        ...(b.id === 'open' ? { altText: 'CLOSE' } : {}),
+      })
+    )
+  : [];
 
 export class VoyKeys {
   readonly pads: InstancedMesh;
@@ -222,7 +259,17 @@ export class VoyKeys {
   private breath = 1;
   readonly flashes = new Uint32Array(PADS);
 
+  /** les noms imprimes (le telephone, 2026-11-13) : leur atlas, ceux des pads, ceux des boutons ; null sans eux */
+  private nameAtlas: KeyLabelAtlas | null = null;
+  readonly padLabels: KeyLabels | null = null;
+  readonly btnLabels: KeyLabels | null = null;
+
   constructor(private opts: VoyKeysOpts) {
+    if (PAD_NAMES.length === PADS && BTN_NAMES.length === BTNS) {
+      this.nameAtlas = new KeyLabelAtlas([...PAD_NAMES, ...BTN_NAMES], opts.anisotropy ?? 1);
+      this.padLabels = new KeyLabels(this.nameAtlas, PAD_NAMES, VOY_PAD.height + 0.002 + VOY_PAD.dome, 'voyPad');
+      this.btnLabels = new KeyLabels(this.nameAtlas, BTN_NAMES, VOY_BUTTON.h, 'voyBtn');
+    }
     const pg = padGeometry(opts.mobile);
     this.padEm = new InstancedBufferAttribute(new Float32Array(PADS * 3), 3);
     this.padEm.setUsage(DynamicDrawUsage);
@@ -310,12 +357,14 @@ export class VoyKeys {
     const p = voyPadAt(i);
     this.pads.setMatrixAt(i, m4.makeTranslation(p.x, this.padY[i], p.z));
     this.pads.instanceMatrix.needsUpdate = true;
+    this.padLabels?.setDy(i, this.padY[i]);
   }
 
   private placeButton(i: number): void {
     const b = VOY_BUTTONS[i];
     this.buttons.setMatrixAt(i, m4.compose(v3.set(b.x, this.btnY[i], b.z), q0, s3.set(b.w, 1, b.d)));
     this.buttons.instanceMatrix.needsUpdate = true;
+    this.btnLabels?.setDy(i, this.btnY[i]);
     // Le temoin suit sa touche quand elle s'enfonce
     if (i === RUN_I && this.runLed) this.runLed.position.set(b.x, this.btnY[i] + VOY_BUTTON.h + BTN_LED.y, b.z - b.d / 2 + BTN_LED.back);
   }
@@ -368,6 +417,7 @@ export class VoyKeys {
 
   private setPadGlow(i: number, g: Glow): void {
     this.padGlow[i] = g;
+    this.padLabels?.setLit(i, LIT_NAME[g]);
     const a = this.padEm.array as Float32Array;
     const c = RGB[g];
     a[i * 3] = c[0];
@@ -379,6 +429,7 @@ export class VoyKeys {
 
   private setBtnGlow(i: number, g: Glow): void {
     this.btnGlow[i] = g;
+    this.btnLabels?.setLit(i, LIT_NAME[g]);
     const k = i === OPEN_I && g === 'orange' ? this.breath : 1;
     const a = this.btnEm.array as Float32Array;
     const c = RGB[g];
@@ -473,8 +524,20 @@ export class VoyKeys {
   setOpen(on: boolean): boolean {
     if (on === this.open) return false;
     this.open = on;
+    // Le telephone : OPEN imprime sur sa touche devient CLOSE machine ouverte (son texte secondaire)
+    this.btnLabels?.setFuncMode(on);
     this.refreshBtn(OPEN_I);
     return true;
+  }
+
+  /** Les maillages des noms imprimes (le telephone), a poser avec les touches. */
+  labelMeshes(): Mesh[] {
+    return [...(this.padLabels ? [this.padLabels.mesh] : []), ...(this.btnLabels ? [this.btnLabels.mesh] : [])];
+  }
+
+  /** Les polices arrivees : les noms imprimes se redessinent. */
+  drawLabels(): void {
+    this.nameAtlas?.draw();
   }
 
   /** Survol a la souris : un pad (0 a 7) ou un bouton (8 et plus) ; -1 : aucun. */
@@ -581,9 +644,8 @@ export class VoyKeys {
 
   hotspots(layer: Object3D): HotspotDef[] {
     const out: HotspotDef[] = [];
-    // Au telephone (2026-10-22, audit SB-03 : 36 x 29 px, Mika les voulait plus petits le 2026-10-05) : le pad garde sa
-    // taille, sa zone descend jusque sous le nom de l'accord
-    const below = PORTRAIT ? VOY_PAD.labelDz + 0.12 : VOY_PAD.depth / 2;
+    // Le pad seul : au telephone, depuis le 2026-11-13, le nom de l'accord est sur lui (la zone descendait jusque sous lui)
+    const below = VOY_PAD.depth / 2;
     for (let i = 0; i < PADS; i += 1) {
       const p = voyPadAt(i);
       out.push({
@@ -660,5 +722,8 @@ export class VoyKeys {
     this.btnMat.dispose();
     this.haloMat.dispose();
     this.haloTex.dispose();
+    this.padLabels?.dispose();
+    this.btnLabels?.dispose();
+    this.nameAtlas?.dispose();
   }
 }

@@ -243,8 +243,10 @@ export const PAD = {
   // encore un peu (revue de R1 : les noms des touches de page touchaient les pads, 39 px entre leurs centres) ;
   // desktop : 0.25 plus bas le 2026-10-09 (Mika : "Master et Tempo des knobs differents au dessus des voices"),
   // la bande sous l'en-tete leur revient (dans l'ecran depuis le 2026-10-19, les pads restent) ;
-  // portrait : 1.02 plus bas le 2026-10-19, les deux rangees d'encodeurs GLOBAL FX au-dessus (FACE_KNOBS)
-  rowZ: PORTRAIT ? [1.22, 2.48] : SIDE_FACE ? [1.28, 1.28] : [-1.8, -0.5],
+  // portrait : 1.02 plus bas le 2026-10-19, les deux rangees d'encodeurs GLOBAL FX au-dessus (FACE_KNOBS) ;
+  // 2026-11-13 (Mika : "fais de l'espace, des knobs plus gros, ecris sur les pads au lieu d'en dessous") : les noms sont sur
+  // les pads (theme/face.ts KEY_LABELS), les potards plus grands au-dessus, les rangees a 1.3 l'une de l'autre
+  rowZ: PORTRAIT ? [2.2, 3.5] : SIDE_FACE ? [1.28, 1.28] : [-1.8, -0.5],
   /** serigraphie sous chaque pad (portrait : un rien plus pres, la rangee du bas garde son jour sur le transport) */
   labelDz: PORTRAIT ? 0.6 : 0.64,
   press: 0.06,
@@ -471,8 +473,11 @@ export interface KeyLabelSpec {
   /** la largeur et la profondeur de la touche */
   w: number;
   d: number;
-  /** face V.4.0 (2026-10-27) : face (les douze touches de la rangee depuis V.4.2), scene (A, B), stepn et stepv (le numero et la voix sur un pas) */
-  group: 'pkey' | 'tr' | 'face' | 'scene' | 'stepn' | 'stepv';
+  /**
+   * face V.4.0 (2026-10-27) : face (les douze touches de la rangee depuis V.4.2), scene (A, B), stepn et stepv (le numero et la
+   * voix sur un pas) ; pad (2026-11-13) : le nom d'une voix, EDIT et OPEN sur leur pad, au telephone
+   */
+  group: 'pkey' | 'tr' | 'face' | 'scene' | 'stepn' | 'stepv' | 'pad' | 'vbtn';
   /** l'encre au repos : celle de la serigraphie, ou l'os (RUN/STOP, sur son rouge, dans les deux apparences) */
   rest: 'ink' | 'bone';
   /**
