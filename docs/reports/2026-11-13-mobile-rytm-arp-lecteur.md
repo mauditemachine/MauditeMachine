@@ -20,6 +20,7 @@ Demande de Mika (captures iPhone) : faire de l'espace sur RYTM et ARP au télép
 - Pochettes : les 37 morceaux ont la leur, l'officielle de Bandcamp (`public/images/covers/`, 29 images WebP 480 px, 900 Ko au total), carte `src/v4/data/covers.json`, champ `cover` des lignes (`src/v4/data.ts`). Les mixtapes gardent leur artwork.
 - PRESS au téléphone : ouvre directement le presskit plein écran avec Download PDF (`src/v4/actions/nav.ts`, `ui/presskit-viewer.css`).
 - CONTACT au téléphone : le formulaire en premier, les réseaux et adresses ensuite, feuille haute pour le clavier (`ui/sections/Contact.tsx`, `v4.css`).
+- Retour de Mika le même jour ("Contact ne doit pas se voir à moins de cliquer dessus ; quand je clique sur le bouton contact, la fenêtre s'ouvre pour envoyer un message, tout simple") : la fenêtre CONTACT ne porte plus que le titre et le formulaire, au téléphone et sur l'ordi (`ui/sections/Contact.tsx`). Plus de réseaux, de liens ni d'adresses booking dedans.
 - Firmware : MM-RYTM 7.1 vers 7.2, MM-ARP 2.5 vers 2.6 (`src/v4/firmware.json`).
 
 ## 2. Décisions prises et pourquoi
@@ -28,7 +29,8 @@ Demande de Mika (captures iPhone) : faire de l'espace sur RYTM et ARP au télép
 - Les noms sur les touches réutilisent le mécanisme déjà en place (VOICE, RUN/STOP, numéros des pas de l'ordi) : ils s'enfoncent avec la touche et passent au noir quand elle s'allume fort.
 - Gardé sur l'ARP : les titres de groupes (deux ADSR à distinguer), les repères de MODE et les formes d'onde (positions des sélecteurs), les chiffres 1 et 2 des oscillateurs, les joues en bois.
 - Mixtapes au téléphone : le même lecteur que TRACKS, sinon c'était la seule liste de texte qui restait.
-- Tout est limité au téléphone (portrait) : l'ordi est vérifié inchangé.
+- Tout est limité au téléphone (portrait) : l'ordi est vérifié inchangé. Seule exception, la fenêtre CONTACT simplifiée, voulue partout (un seul bouton CONTACT, le même dans les deux menus).
+- CONTACT : les réseaux restent dans le menu (FOLLOW) ; les adresses booking restent dans le press kit et la page /contact/ du référencement. Avant de simplifier, testé sans pouvoir faire apparaître CONTACT sans clic (arrivée, menu, chaque page) ; question posée à Mika, qui a précisé ce qu'il voulait.
 - Vérifié par captures dans un navigateur sans carte graphique (iPhone 13, sombre et clair) ; les 181 zones de toucher pointées une par une tombent sur leur touche ; lecture testée avec le moteur factice du site, aucun son lancé. `tsc` reste à 105 erreurs (celles d'avant).
 
 ## 3. Ce qui reste à faire / points en suspens
