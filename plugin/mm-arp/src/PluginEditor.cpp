@@ -131,8 +131,15 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
     // la face suit seule (src/v4/plugin/arp/scale.ts) ; la taille choisie est gardee dans le projet
     setResizable(true, true);
     getConstrainer()->setFixedAspectRatio(static_cast<double>(kW) / kH);
-    setResizeLimits(880, 880 * kH / kW, 2200, 2200 * kH / kW);
-    const int w = juce::jlimit(880, 2200, proc_.editorWidth());
+    // 2026-11-13 (Mika : "par defaut grossis l'app 2x") : 2200 de large par defaut, de 880 a 3300 ; jamais plus grand
+    // que l'ecran (zone utile de l'ecran principal, marge pour la barre de fenetre d'Ableton)
+    int maxW = 3300;
+    if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()) {
+        const auto a = d->userArea;
+        maxW = juce::jmax(880, juce::jmin(maxW, a.getWidth() - 40, (a.getHeight() - 90) * kW / kH));
+    }
+    setResizeLimits(880, 880 * kH / kW, 3300, 3300 * kH / kW);
+    const int w = juce::jlimit(880, maxW, proc_.editorWidth());
     setSize(w, w * kH / kW);
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);

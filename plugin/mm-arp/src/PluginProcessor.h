@@ -180,7 +180,7 @@ private:
     std::shared_ptr<const MMArpProgram> retired_;
     std::shared_ptr<const MMArpProgram> current_;
     std::atomic<bool> knobsKnown_{false};
-    std::atomic<int> editorW_{1100};
+    std::atomic<int> editorW_{2200};
 
     // Le transport
     std::atomic<bool> runInternal_{false};
