@@ -1,28 +1,20 @@
 /**
- * Le panneau du capot du plugin MM-ARP (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
- * imprime, comme avant ! Et la doit y avoir le DRAG MIDI et la gestion MIDI") : OPEN ouvre le vrai capot du site (la carte
- * et ses TWEAKS, state/explode.ts voyExplode) ; ce panneau se pose en bande sous la carte (Stage.setInset : la carte tient
- * au-dessus, rien ne la cache), le temps que le capot est ouvert. Quatre blocs :
+ * Les blocs MIDI du capot du plugin MM-ARP (2026-11-09 ; depuis le 2026-11-13, Mika : "je veux avoir qu'une seule page",
+ * ils vivent dans les onglets de la carte noire, HoodBoard.tsx : DRAG MIDI et MIDI dans l'onglet MIDI, DISK dans LIBRARY) :
  * - DRAG MIDI : la poignee a glisser vers une piste d'Ableton (mm_drag_midi, une fois, des que le pointeur enfonce a bouge
  *   de 4 px : le C++ lance le glisser natif depuis l'evenement souris en cours), x1 / x2 / x4, SAVE .MID (mm_save_mid) ;
  *   le message du C++ (mm_drag_status) s'affiche un moment ;
- * - DISK : les presets sur le disque (DiskPresets.tsx) ;
  * - MIDI : MIDI LEARN (LEARN, un clic sur un potard, le prochain CC), la table des CC du plugin, une croix par ligne,
  *   CLEAR ALL ;
- * - CLOSE : referme le capot (comme OPEN, Echap ou la touche O).
  * LearnMarks (toujours monte) : le potard arme cerne d'orange sur la machine (son jumeau, ui/VoyTwins.tsx), et capot ferme,
  * une pastille MIDI LEARN (le mode survit a la fermeture : les potards de la face s'apprennent capot ferme).
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { openToggle } from '../../actions';
-import type { Stage } from '../../scene/renderer';
+import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import { voyExplode } from '../../state/explode';
 import { VOY_KNOBS } from '../../voyager/params';
 import { arpBridge } from './bridge';
-import { DiskPresets } from './DiskPresets';
 import { extraParam } from './extra';
-import { hoodPage } from './hoodPage';
 import { arpMidi, type ArpMidiState } from './midimap';
 import { fullName } from './pcbui';
 
@@ -43,7 +35,7 @@ const useHood = () => useSyncExternalStore(voyExplode.subscribe, voyExplode.get,
 const useArpMidi = () => useSyncExternalStore(arpMidi.subscribe, arpMidi.get, arpMidi.get);
 
 /** DRAG MIDI : la poignee, x1 / x2 / x4, SAVE .MID, le message du C++. */
-const DragMidi: React.FC = () => {
+export const DragMidi: React.FC = () => {
   const st = useArpMidi();
   const press = useRef<{ id: number; x: number; y: number; sent: boolean } | null>(null);
   const off = useRef<(() => void) | null>(null);
@@ -121,7 +113,7 @@ const DragMidi: React.FC = () => {
 };
 
 /** MIDI : LEARN, la table des CC, CLEAR ALL. */
-const MidiMap: React.FC = () => {
+export const MidiMap: React.FC = () => {
   const st = useArpMidi();
   const items = st.items ?? [];
   const line = st.learning ? (st.armed ? `WAITING CC FOR ${paramLabel(st.armed)}` : 'CLICK A KNOB') : st.items === null ? '…' : items.length === 0 ? 'NO CC MAPPED' : `${items.length} CC MAPPED`;
@@ -155,48 +147,6 @@ const MidiMap: React.FC = () => {
           CLEAR ALL
         </button>
         <p className="mm-arp-help">Ableton : Cmd + M marche aussi</p>
-      </div>
-    </section>
-  );
-};
-
-/** Le panneau, capot ouvert (ou qui s'ouvre) : la carte remonte au-dessus de lui. */
-export const HoodPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
-  const hood = useHood();
-  const open = hood === 'opening' || hood === 'open';
-  // La page 2 (Page2.tsx) passe par-dessus : le bandeau reste en place (la carte 3D garde son cadrage), cache
-  const page = useSyncExternalStore(hoodPage.subscribe, () => hoodPage.get().page);
-  const ref = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!stage || !el || !open) return undefined;
-    const apply = (): void => stage.setInset('voy', el.offsetHeight, 0);
-    apply();
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply);
-    ro?.observe(el);
-    return () => {
-      ro?.disconnect();
-      stage.setInset('voy', 0);
-    };
-  }, [stage, open]);
-  // Le capot s'ouvre : la table des CC a jour (la liste des presets : DiskPresets)
-  useEffect(() => {
-    if (open) arpBridge.midimapGet();
-  }, [open]);
-  if (!open) return null;
-  return (
-    <section ref={ref} className="mm-arp-hood" style={{ position: 'fixed', visibility: page === 2 ? 'hidden' : undefined }} aria-label="MM-ARP hood" aria-hidden={page === 2 ? true : undefined}>
-      <DragMidi />
-      <DiskPresets />
-      <MidiMap />
-      <div className="mm-arp-side">
-        <button type="button" className="mm-arp-close" aria-label="Close the machine" onClick={() => openToggle(stage, 'voy')}>
-          <span className="mm-arp-led" aria-hidden="true" />
-          CLOSE
-        </button>
-        <button type="button" className="mm-arp-page2" aria-label="Page 2: sound, effects, modulation, steps, library" onClick={() => hoodPage.set({ page: 2 })}>
-          PAGE 2 ›
-        </button>
       </div>
     </section>
   );

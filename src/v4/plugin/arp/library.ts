@@ -2,7 +2,7 @@
  * La banque d'usine du VST3 (2026-11-10 ; plugin/mm-arp/presets/factory.json, ecrite par presets/build.mjs) : seule la
  * face du plugin l'importe, le site ne la contient pas. Un preset se charge comme un preset du disque
  * (arpBridge.factoryLoad : potards, suite, progression, reglages du VST3 seul et pistes du sequenceur par pas ; une
- * etape d'UNDO ; QUALITY garde sa valeur). L'onglet LIBRARY de la page 2 du capot (Page2.tsx) la montre.
+ * etape d'UNDO ; QUALITY garde sa valeur). L'onglet LIBRARY du capot (HoodBoard.tsx) la montre.
  */
 
 import bank from '../../../../plugin/mm-arp/presets/factory.json';

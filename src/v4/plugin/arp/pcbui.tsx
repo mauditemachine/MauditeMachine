@@ -1,13 +1,14 @@
 /**
- * Les pieces de la carte noire du capot (page 2, Page2.tsx), dessinees comme les TWEAKS de la carte verte (page 1,
- * scene/tweakplate.ts) : le potard de precision (capuchon noir moletee, son trait blanc, sa rondelle d'aluminium, l'arc
+ * Les pieces de la carte noire du capot (HoodBoard.tsx), dessinees comme les TWEAKS de la carte verte du site
+ * (scene/tweakplate.ts) : le potard de precision (capuchon noir moletee, son trait blanc, sa rondelle d'aluminium, l'arc
  * de graduations), le commutateur a glissiere, le selecteur rotatif et ses crans ecrits autour, et, pour un reglage a
  * crans trop nombreux pour un rotatif lisible, un petit afficheur entre deux touches. Serigraphie : le nom au-dessus,
  * les bouts de course dessous, le designateur (RV20, SW4...) tout en bas ; un cadre fin par groupe, son titre dans
  * l'encoche.
  *
- * Toutes les valeurs sont des reglages du VST3 seul (extra.ts) : arpExtra.set suffit, le pont (bridge.ts) envoie
- * mm_param et mm_gesture. Le reglage touche s'ecrit sur l'ecran de la machine (voyMsg : la ligne du bas du LCD, qu'on
+ * Deux sources, memes pieces (2026-11-13) : un reglage du VST3 seul (extra.ts, arpExtra) ou un TWEAK du site
+ * (voyager/params.ts, voyParams : les potards de l'ancienne carte verte). Le pont (bridge.ts) envoie mm_param et
+ * mm_gesture pour l'un comme pour l'autre, aux memes ids. Le reglage touche s'ecrit sur l'ecran de la machine (voyMsg : la ligne du bas du LCD, qu'on
  * voit par la decoupe du capot) et, en orange, a la place du designateur.
  *
  * Potard : glisser vertical (Maj : fin), molette, double-clic = la valeur de depart, fleches (Maj : x10), Debut, Fin,
@@ -17,8 +18,32 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { voyMsg } from '../../voyager/msg';
 import { arpBridge } from './bridge';
-import { arpExtra, extraParam, extraStepIndex } from './extra';
+import { voyKnob, voyParams, voyReadout, voyValueText, VOY_KNOB_IDS, type VoyKnobId } from '../../voyager/params';
+import { arpExtra, extraParam, isExtra } from './extra';
 import { arpMidi } from './midimap';
+
+/* ---------------- la source d'un reglage ---------------- */
+
+const isVoy = (id: string): id is VoyKnobId => !isExtra(id) && (VOY_KNOB_IDS as readonly string[]).includes(id);
+
+/** La valeur, la valeur de depart, le texte, les crans d'un reglage, ou qu'il vive. */
+const SRC = {
+  of: (id: string): number => (isVoy(id) ? voyParams.of(id) : arpExtra.of(id)),
+  def: (id: string): number => (isVoy(id) ? voyParams.def(id) : arpExtra.def(id)),
+  set: (id: string, v: number): void => {
+    if (isVoy(id)) voyParams.set(id, Math.min(1, Math.max(0, v)));
+    else arpExtra.set(id, v);
+  },
+  text: (id: string, v: number = SRC.of(id)): string => (isVoy(id) ? voyValueText(id, v) : arpExtra.text(id, v)),
+  steps: (id: string): readonly string[] => (isVoy(id) ? (voyKnob(id).steps ?? []) : (extraParam(id)?.steps ?? [])),
+  subscribe: (id: string) => (isVoy(id) ? voyParams.subscribe : arpExtra.subscribe),
+};
+
+/** L'index du cran d'une valeur. */
+const stepOf = (id: string, v: number): number => {
+  const n = SRC.steps(id).length;
+  return n < 2 ? 0 : Math.max(0, Math.min(n - 1, Math.round(v * (n - 1))));
+};
 
 /* ---------------- ce qui est touche ---------------- */
 
@@ -53,7 +78,7 @@ export const pcbTouch = {
 };
 
 const useTouched = (id: string): boolean => useSyncExternalStore(pcbTouch.subscribe, () => pcbTouch.get() === id);
-const useValue = (id: string): number => useSyncExternalStore(arpExtra.subscribe, () => arpExtra.of(id));
+const useValue = (id: string): number => useSyncExternalStore(SRC.subscribe(id), () => SRC.of(id));
 const useArmed = (id: string): boolean => useSyncExternalStore(arpMidi.subscribe, () => arpMidi.get().learning && arpMidi.get().armed === id);
 const learning = (): boolean => arpMidi.get().learning;
 
@@ -62,15 +87,15 @@ const FULL: Record<string, string> = {};
 export const setFullName = (id: string, name: string): void => {
   FULL[id] = name;
 };
-export const fullName = (id: string): string => FULL[id] ?? extraParam(id)?.label ?? id;
+export const fullName = (id: string): string => FULL[id] ?? (isVoy(id) ? voyKnob(id).label : extraParam(id)?.label) ?? id;
 
 /** Le reglage sur l'ecran de la machine : son nom et sa valeur. */
 function say(id: string): void {
-  voyMsg.show(`${fullName(id)} ${arpExtra.text(id)}`, 2400);
+  voyMsg.show(isVoy(id) ? voyReadout(id, voyParams.of(id)) : `${fullName(id)} ${SRC.text(id)}`, 2400);
 }
 
 function setValue(id: string, v: number, hold = false): void {
-  arpExtra.set(id, v);
+  SRC.set(id, v);
   pcbTouch.set(id, hold);
   say(id);
 }
@@ -167,14 +192,14 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; v: number; pid: number } | null>(null);
 
-  useWheel(el, (t, fine) => setValue(id, arpExtra.of(id) + t * (fine ? 0.005 : 0.02)));
+  useWheel(el, (t, fine) => setValue(id, SRC.of(id) + t * (fine ? 0.005 : 0.02)));
 
   const onDown = (e: React.PointerEvent<HTMLDivElement>): void => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
     el.current?.focus({ preventScroll: true });
     if (tryLearn(id)) return;
-    drag.current = { y: e.clientY, v: arpExtra.of(id), pid: e.pointerId };
+    drag.current = { y: e.clientY, v: SRC.of(id), pid: e.pointerId };
     pcbTouch.set(id, true);
     say(id);
     try {
@@ -197,7 +222,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
     pcbTouch.set(id, false);
   };
   const onKey = (e: React.KeyboardEvent): void => {
-    const cur = arpExtra.of(id);
+    const cur = SRC.of(id);
     const big = e.shiftKey ? 0.1 : 0.01;
     let next: number;
     if (e.key === 'ArrowUp' || e.key === 'ArrowRight') next = cur + big;
@@ -206,7 +231,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
     else if (e.key === 'PageDown') next = cur - 0.1;
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = 1;
-    else if (e.key === 'Delete' || e.key === 'Backspace') next = arpExtra.def(id);
+    else if (e.key === 'Delete' || e.key === 'Backspace') next = SRC.def(id);
     else return;
     e.preventDefault();
     e.stopPropagation();
@@ -225,14 +250,14 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(v * 100)}
-        aria-valuetext={arpExtra.text(id, v)}
+        aria-valuetext={SRC.text(id, v)}
         data-armed={armed ? '1' : undefined}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
         onLostPointerCapture={onUp}
-        onDoubleClick={() => !learning() && setValue(id, arpExtra.def(id))}
+        onDoubleClick={() => !learning() && setValue(id, SRC.def(id))}
         onPointerEnter={() => pcbTouch.set(id)}
         onKeyDown={onKey}
       >
@@ -246,11 +271,11 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
       )}
       {small ? (
         <span className="mm-p2-val" data-on={on ? '1' : undefined}>
-          {arpExtra.text(id, v)}
+          {SRC.text(id, v)}
         </span>
       ) : (
         <span className="mm-p2-ref" data-on={on ? '1' : undefined}>
-          {on ? arpExtra.text(id, v) : ref_}
+          {on ? SRC.text(id, v) : ref_}
         </span>
       )}
     </div>
@@ -261,9 +286,9 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
 
 function useStepped(id: string): { idx: number; steps: readonly string[]; last: number; pick: (i: number) => void } {
   const v = useValue(id);
-  const steps = extraParam(id)?.steps ?? [];
+  const steps = SRC.steps(id);
   const last = Math.max(1, steps.length - 1);
-  const idx = extraStepIndex(id, v);
+  const idx = stepOf(id, v);
   const pick = (i: number): void => setValue(id, Math.min(last, Math.max(0, i)) / last);
   return { idx, steps, last, pick };
 }
@@ -274,7 +299,7 @@ function steppedKey(e: React.KeyboardEvent, id: string, idx: number, last: numbe
   else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') i = wrap && idx <= 0 ? last : idx - 1;
   else if (e.key === 'Home') i = 0;
   else if (e.key === 'End') i = last;
-  else if (e.key === 'Delete' || e.key === 'Backspace') i = extraStepIndex(id, arpExtra.def(id));
+  else if (e.key === 'Delete' || e.key === 'Backspace') i = stepOf(id, SRC.def(id));
   else return;
   e.preventDefault();
   e.stopPropagation();
@@ -325,7 +350,7 @@ export const PcbRotary: React.FC<CellProps & { w: number }> = ({ id, name, ref_,
   const armed = useArmed(id);
   const on = useTouched(id);
   const el = useRef<HTMLButtonElement>(null);
-  useWheel(el, (t) => pick(extraStepIndex(id, arpExtra.of(id)) + t));
+  useWheel(el, (t) => pick(stepOf(id, SRC.of(id)) + t));
   const n = steps.length;
   const spread = n <= 3 ? 180 : 240;
   const angles = steps.map((_, i) => -spread / 2 + (i * spread) / Math.max(1, n - 1));
@@ -389,7 +414,7 @@ export const PcbSelect: React.FC<CellProps & { w?: number; bare?: boolean; up?: 
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const face = useRef<HTMLButtonElement>(null);
-  useWheel(face, (t) => pick(extraStepIndex(id, arpExtra.of(id)) + t));
+  useWheel(face, (t) => pick(stepOf(id, SRC.of(id)) + t));
 
   useEffect(() => {
     if (!open) return undefined;
@@ -431,7 +456,7 @@ export const PcbSelect: React.FC<CellProps & { w?: number; bare?: boolean; up?: 
         data-off={idx === 0 && steps[0] === 'OFF' ? '1' : undefined}
         onClick={() => !tryLearn(id) && setOpen((o) => !o)}
       >
-        {arpExtra.text(id)}
+        {SRC.text(id)}
       </button>
       <button type="button" className="mm-p2-tact" tabIndex={-1} aria-label={`${fullName(id)}: next`} onClick={() => !tryLearn(id) && pick(idx >= last ? 0 : idx + 1)}>
         <span className="mm-p2-tact-cap" />

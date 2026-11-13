@@ -4,9 +4,10 @@
  * VST3. Comme la face du MM-RYTM (plugin/PluginFace.tsx) : rien du site (en-tete, Dock, sections, autres machines, intro,
  * capot). Le son vient du plugin (plugin/arp/bridge.ts).
  *
- * OPEN ouvre le vrai capot du site (2026-11-09, Mika : "quand je clique sur OPEN je dois voir l'interieur, le circuit
- * imprime, comme avant") : la carte et ses TWEAKS jouables, cadres au-dessus du panneau du capot (HoodPanel.tsx : DRAG MIDI,
- * DISK, MIDI LEARN, CLOSE). OPEN, CLOSE, Echap ou O le referment, comme au site.
+ * OPEN leve le capot du site (2026-11-09) ; depuis le 2026-11-13 (Mika : "je veux avoir qu'une seule page"), une seule
+ * carte dessous, la noire (HoodBoard.tsx) : l'ecran reste a sa place par une decoupe, les TWEAKS, les reglages du VST3
+ * seul, le sequenceur par pas, la banque, DISK, DRAG MIDI et MIDI LEARN dans ses onglets. OPEN, CLOSE, Echap ou O le
+ * referment, comme au site.
  */
 
 import React, { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ErrorInfo } from 'react';
@@ -25,8 +26,8 @@ import { VoyInfosCard } from '../../voyager/InfosCard';
 import { arp } from '../../voyager/arp';
 import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
-import { HoodPanel, LearnMarks } from './HoodPanel';
-import { Page2 } from './Page2';
+import { HoodBoard } from './HoodBoard';
+import { LearnMarks } from './HoodPanel';
 
 class Boundary extends Component<{ children: React.ReactNode; onError: (m: string) => void }, { failed: boolean }> {
   state = { failed: false };
@@ -140,8 +141,7 @@ const ArpFace: React.FC = () => {
         <VoyInfosCard stage={stage} />
         <PresetNameDialog mobile={false} />
         <DiskNameDialog />
-        <HoodPanel stage={stage} />
-        <Page2 stage={stage} />
+        <HoodBoard stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (

@@ -1,20 +1,19 @@
 /**
- * La page 2 du capot du MM-ARP (2026-11-12, Mika : "fais une seconde page quand on clic sur Open et qui rajoute toutes
- * les fonctions qu'on voulait ! pareillement avec un ecran mais cette fois-ci dans un environnement de PCB ... un PCB noir
- * plus sobre et le meme genre d'interface ... quand on clic sur Open la face avant se releve mais comme si il y avait une
- * decoupe sur l'ecran ce qui fait que l'ecran reste le meme en dessous").
+ * Le capot du MM-ARP : une seule carte, noire (2026-11-12, Mika : "un PCB noir plus sobre et le meme genre d'interface ...
+ * quand on clic sur Open la face avant se releve mais comme si il y avait une decoupe sur l'ecran" ; 2026-11-13 : "toujours
+ * un trou comme ca ca vient s'emboiter a chaque fois dans le meme ecran ... je veux avoir qu'une seule page").
  *
- * - Une carte noire (vernis noir mat, serigraphie blanche discrete, quelques pistes, peu de composants), les memes pieces
- *   que les TWEAKS de la carte verte (pcbui.tsx) : potards de precision, glissieres, rotatifs, cadres fins.
- * - L'ecran de la machine reste a sa place, comme vu par une decoupe du capot : la page recopie le canevas du LCD 3D
- *   (voyager/screen.ts, VoyScreen.texture) a chaque dessin, au pixel ou il est capot ferme. Il continue de vivre
- *   (accords, tempo, notes) et montre le reglage qu'on touche (voyMsg, sa ligne du bas).
- * - Capot ferme, OPEN rouvre la page quittee : sur la page 2, le capot 3D se leve derriere la carte noire qui apparait,
- *   l'ecran ne bouge pas.
- * - Cinq onglets (hoodPage.ts) : SOUND, FX, MOD (les LFO et la matrice de 6 lignes), STEPS (le sequenceur par pas, 16 pas,
- *   5 pistes, et SWING), LIBRARY (la banque d'usine, 40 presets). Les 65 reglages du VST3 seul (extra.ts) y sont tous.
+ * - OPEN leve le capot 3D sans son ecran ni la carte verte du site (le bac vide dessous) ; l'ecran reste a sa place, au
+ *   pixel ou il est capot ferme (LcdWindow : une image du canevas du LCD 3D, voyager/screen.ts, a chaque dessin), il
+ *   continue de vivre (accords, tempo, notes) et montre le reglage qu'on touche (voyMsg, sa ligne du bas). La carte noire
+ *   arrive quand le capot est monte. A la fermeture, le capot redescend sur l'ecran.
+ * - Vernis noir mat, serigraphie blanche discrete, quelques pistes, peu de composants ; les pieces des TWEAKS du site
+ *   (pcbui.tsx) : potards de precision, glissieres, rotatifs a crans nommes, afficheurs, cadres fins.
+ * - Sept onglets (hoodPage.ts) : TWEAKS (ceux de l'ancienne carte verte, voyParams), SOUND, FX, MOD (LFO, matrice de 6
+ *   lignes), STEPS (sequenceur par pas, 16 pas, 5 pistes, SWING), LIBRARY (banque d'usine, 40 presets, et DISK), MIDI
+ *   (DRAG MIDI, MIDI LEARN). Les 65 reglages du VST3 seul (extra.ts) y sont tous. MIDI LEARN et CLOSE dans le bandeau.
  *
- * La page vit dans un cadre de 1100 x 704 (la fenetre de base du VST3) mis a l'echelle de la fenetre (son rapport est
+ * La carte vit dans un cadre de 1100 x 704 (la fenetre de base du VST3) mis a l'echelle de la fenetre (son rapport est
  * fixe : PluginEditor.cpp) ; l'ecran garde ainsi la place qu'il a sur la face.
  */
 
@@ -23,17 +22,19 @@ import { openToggle } from '../../actions';
 import type { Stage } from '../../scene/renderer';
 import { voyExplode } from '../../state/explode';
 import { arp, arpExternal } from '../../voyager/arp';
-import { voyParams } from '../../voyager/params';
+import { voyParams, VOY_TWEAKS } from '../../voyager/params';
 import { seq } from '../../voyager/seq';
 import { extHead } from '../head';
 import { arpBridge } from './bridge';
 import { arpExtra, extraParam, MATRIX_ROWS } from './extra';
 import { HOOD_TABS, hoodPage, type HoodTab } from './hoodPage';
 import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore } from './library';
+import { DiskPresets } from './DiskPresets';
+import { DragMidi, MidiMap } from './HoodPanel';
 import { arpMidi } from './midimap';
 import { PcbDefs, PcbFrame, PcbKnob, PcbRotary, PcbSelect, PcbSwitch, setFullName } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
-import './page2.css';
+import './hood.css';
 
 /** Le cadre de la page (la fenetre de base du VST3). */
 const PAGE_W = 1100;
@@ -72,7 +73,28 @@ const cellW = (c: Ctl): number => (c.k === 'rot' ? c.w : c.k === 'sel' ? c.w + 4
 const frameW = (f: FrameSpec): number => f.ctls.reduce((s, c) => s + cellW(c), 0) + 20;
 const FRAME_H = 100;
 
-const ROWS: Record<'sound' | 'fx' | 'mod', { y: number; frames: FrameSpec[] }[]> = {
+const ROWS: Record<'tweaks' | 'sound' | 'fx' | 'mod', { y: number; frames: FrameSpec[] }[]> = {
+  // Les TWEAKS de l'ancienne carte verte (voyager/params.ts, section tweak), dans ses groupes et ses bouts de course
+  tweaks: [
+    {
+      y: 88,
+      frames: [
+        { title: 'OSCILLATORS', ctls: [knob('phase', 'PHASE', 'FREE', '360'), knob('drift', 'DRIFT', 'STABLE', 'LOOSE'), knob('stack', 'STACK', 'OFF', '30 CT'), sw('sync', 'SYNC')] },
+        {
+          title: 'OUTPUT',
+          ctls: [knob('width', 'WIDTH', 'MONO', 'WIDE'), knob('wide', 'WIDE', 'OFF', 'FULL'), knob('monoLow', 'BASS MONO', 'OFF', '300 HZ'), knob('glue', 'GLUE', 'OFF', 'TIGHT'), knob('duck', 'SIDECHAIN', 'OFF', '-24 DB')],
+        },
+      ],
+    },
+    {
+      y: 204,
+      frames: [
+        { title: 'PERFORMANCE', ctls: [knob('keyTrack', 'KEY TRACK', '0', 'FULL'), knob('accent', 'ACCENT', 'FLAT', 'HARD'), knob('accFlt', 'ACC FILTER', 'LEVEL', 'FILTER'), rot('chord', 'CHORD', 132)] },
+        { title: 'FILTER', ctls: [knob('load', 'LOAD', 'CLEAN', 'HOT'), knob('space', 'SPACE', 'OFF', '1 OCT'), sw('fpol', 'POLARITY')] },
+        { title: 'DELAY', ctls: [knob('dlyTime', 'DLY TIME', '1/8', '1/2'), knob('tape', 'TAPE', 'CLEAN', 'WORN')] },
+      ],
+    },
+  ],
   sound: [
     {
       y: 30,
@@ -142,9 +164,15 @@ const ROWS: Record<'sound' | 'fx' | 'mod', { y: number; frames: FrameSpec[] }[]>
   ],
 };
 
-/* Les designateurs (RV20, SW4...) : a la suite de ceux de la carte verte (RV19, SW3), dans l'ordre des onglets. */
+/*
+ * Les designateurs : les TWEAKS gardent ceux de la carte verte (RV5 a RV19, SW1 a SW3, dans l'ordre de VOY_TWEAKS), les
+ * reglages du VST3 seul suivent (RV20, SW4...), dans l'ordre des onglets.
+ */
 const REFS: Record<string, string> = {};
 {
+  let rvT = 5;
+  let swT = 1;
+  for (const k of VOY_TWEAKS) REFS[k.id] = k.id === 'sync' || k.id === 'chord' || k.id === 'fpol' ? `SW${swT++}` : `RV${rvT++}`;
   let rv = 20;
   let swn = 4;
   const all = [...ROWS.sound, ...ROWS.fx, ...ROWS.mod].flatMap((r) => r.frames.flatMap((f) => f.ctls));
@@ -404,6 +432,8 @@ const StepsSide: React.FC = () => {
 /* ---------------- LIBRARY : la banque d'usine ---------------- */
 
 const LIB_W = 984;
+/** DISK : a droite de l'ecran, sous la banque. */
+const DISK_BOX = { x: 792, y: 396, w: 250, h: 226 };
 const LIB_COL = (LIB_W - 20 - 3 * 14) / 4;
 
 const Library: React.FC = () => {
@@ -435,6 +465,10 @@ const Library: React.FC = () => {
           );
         })}
       </PcbFrame>
+      {/* DISK : les presets du dossier de l'utilisateur, a droite de l'ecran */}
+      <PcbFrame title="DISK" x={DISK_BOX.x} y={DISK_BOX.y} w={DISK_BOX.w} h={DISK_BOX.h} className="mm-p2-panel">
+        <DiskPresets />
+      </PcbFrame>
       <div className="mm-p2-lib-now" style={{ left: x0, top: 340, width: LIB_W }} role="status" aria-live="polite">
         <p>
           <b>{p ? p.name : 'PICK A SOUND'}</b>
@@ -461,25 +495,20 @@ const BoardArt: React.FC = () => (
     <g className="mm-p2-trace">
       <path d="M326 470 H262 L240 448 V404 L222 386 H60" />
       <path d="M326 520 H286 L268 538 V546" />
-      <path d="M775 452 H836 L852 436 V412" />
-      <path d="M775 500 H900 L918 518 V560 L936 578 H1010" />
-      <path d="M775 540 H860 L876 556 V618 L890 632 H1040" />
+      <path d="M560 573 V600 H596" />
       <path d="M40 646 H300 L314 632 H560" />
     </g>
     <g className="mm-p2-via">
       {[
         [60, 386],
         [268, 546],
-        [852, 412],
-        [1010, 578],
-        [1040, 632],
         [560, 632],
       ].map(([x, y]) => (
         <circle key={`${x}-${y}`} cx={x} cy={y} r="3.2" />
       ))}
     </g>
     {/* U7 : le processeur de l'extension, et deux resistances */}
-    <g transform="translate(870 400)">
+    <g transform="translate(600 590)">
       {Array.from({ length: 6 }, (_, i) => (
         <rect key={`a${i}`} x={6 + i * 9} y={-4} width="4" height="5" className="mm-p2-pin" />
       ))}
@@ -495,7 +524,7 @@ const BoardArt: React.FC = () => (
         U7
       </text>
     </g>
-    <g transform="translate(964 470)">
+    <g transform="translate(736 594)">
       <rect x="0" y="0" width="16" height="8" rx="1" className="mm-p2-smd" />
       <rect x="0" y="0" width="3.5" height="8" className="mm-p2-pin" />
       <rect x="12.5" y="0" width="3.5" height="8" className="mm-p2-pin" />
@@ -543,7 +572,7 @@ const BoardArt: React.FC = () => (
       </text>
     </g>
     {/* D1 PWR : la LED de la carte, comme sur la verte */}
-    <g transform="translate(1010 610)">
+    <g transform="translate(980 640)">
       <circle r="9" className="mm-p2-pwr-glow" />
       <circle r="4.2" className="mm-p2-pwr" />
       <text x="12" y="-1" className="mm-p2-silk-ref mm-p2-silk-ref-w">
@@ -590,7 +619,32 @@ const LcdWindow: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   );
 };
 
+/* ---------------- MIDI : DRAG MIDI, MIDI LEARN ---------------- */
+
+const MIDI_DRAG_W = 300;
+const MIDI_MAP_W = 640;
+
+const MidiTab: React.FC = () => {
+  const x0 = ZONE.x + Math.round((ZONE.w - MIDI_DRAG_W - FRAME_GAP - MIDI_MAP_W) / 2);
+  return (
+    <>
+      <PcbFrame title="DRAG MIDI" x={x0} y={88} w={MIDI_DRAG_W} h={232} className="mm-p2-panel">
+        <DragMidi />
+        <p className="mm-p2-note">
+          HOLD AND DRAG ONTO AN ABLETON TRACK
+          <br />
+          x1 x2 x4 : TIMES THE PROGRESSION
+        </p>
+      </PcbFrame>
+      <PcbFrame title="MIDI LEARN" x={x0 + MIDI_DRAG_W + FRAME_GAP} y={88} w={MIDI_MAP_W} h={232} className="mm-p2-panel">
+        <MidiMap />
+      </PcbFrame>
+    </>
+  );
+};
+
 const TabBody: React.FC<{ tab: HoodTab }> = ({ tab }) => {
+  if (tab === 'midi') return <MidiTab />;
   if (tab === 'steps')
     return (
       <>
@@ -625,35 +679,41 @@ function useScale(): number {
   return s;
 }
 
-export const Page2: React.FC<{ stage: Stage | null }> = ({ stage }) => {
+/** Le capot : monte de l'ouverture a la fin de la fermeture. */
+export const HoodBoard: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const hood = useHood();
-  const { page } = useHoodPage();
-  if (page !== 2 || hood === 'closed') return null;
-  return <Page2Body stage={stage} />;
+  if (hood === 'closed') return null;
+  return <HoodBody stage={stage} />;
 };
 
-const Page2Body: React.FC<{ stage: Stage | null }> = ({ stage }) => {
+const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const hood = useHood();
   const { tab } = useHoodPage();
   const midi = useArpMidi();
   const scale = useScale();
-  // Montee capot qui s'ouvre : la carte vient avec le capot qui se leve ; montee capot ouvert : on vient de la page 1
-  const [enter] = useState(() => (voyExplode.get() === 'open' ? 'swap' : 'lift'));
-  // La decoupe : le capot 3D se leve sans son ecran (l'ecran reste en place, LcdWindow) ; il le retrouve, capot pose
+  // La decoupe : le capot 3D se leve sans son ecran (l'ecran reste en place, LcdWindow) et sans la carte verte du site
+  // (sous le capot, le bac vide, puis la carte noire) ; il retrouve les deux, capot pose
   useEffect(() => {
-    const lcd = stage?.voy?.lcd;
-    if (!stage || !lcd) return undefined;
-    lcd.glass.visible = false;
-    lcd.bezel.visible = false;
+    const voy = stage?.voy;
+    if (!stage || !voy) return undefined;
+    const hidden = [voy.lcd.glass, voy.lcd.bezel, voy.pcb.board, voy.pcb.parts];
+    hidden.forEach((o) => {
+      o.visible = false;
+    });
     stage.invalidate();
     return () => {
-      lcd.glass.visible = true;
-      lcd.bezel.visible = true;
+      hidden.forEach((o) => {
+        o.visible = true;
+      });
       stage.invalidate();
     };
   }, [stage]);
+  // Le capot s'ouvre : la table des CC a jour (la liste des presets : DiskPresets, a son montage)
+  useEffect(() => {
+    arpBridge.midimapGet();
+  }, []);
   return (
-    <div className="mm-p2" style={{ position: 'fixed' }} data-phase={hood} data-enter={enter} aria-label="MM-ARP hood, page 2">
+    <div className="mm-p2" style={{ position: 'fixed' }} data-phase={hood} aria-label="MM-ARP hood">
       <div className="mm-p2-page" style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}>
         <PcbDefs />
         <div className="mm-p2-fade">
@@ -664,14 +724,11 @@ const Page2Body: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             </div>
           </div>
           <nav className="mm-p2-strip" aria-label="Hood pages">
-            <button type="button" className="mm-p2-pill" onClick={() => hoodPage.set({ page: 1 })} aria-label="Back to page 1">
-              ‹ PAGE 1
-            </button>
             <button type="button" className="mm-p2-pill mm-p2-learn" aria-pressed={midi.learning} data-on={midi.learning ? '1' : undefined} onClick={() => arpBridge.learnMode(!midi.learning)}>
               <i className="mm-p2-pill-led" aria-hidden="true" />
               MIDI LEARN
             </button>
-            <div className="mm-p2-tabs" role="tablist" aria-label="Page 2 sections">
+            <div className="mm-p2-tabs" role="tablist" aria-label="Hood sections">
               {HOOD_TABS.map((t) => (
                 <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className="mm-p2-tabkey" data-on={t.id === tab ? '1' : undefined} onClick={() => hoodPage.set({ tab: t.id })}>
                   {t.label}

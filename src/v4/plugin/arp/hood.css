@@ -1,4 +1,4 @@
-/* La page 2 du capot du MM-ARP (Page2.tsx, pcbui.tsx) : la carte noire, sobre. Vernis noir mat, serigraphie blanche
+/* Le capot du MM-ARP (HoodBoard.tsx, pcbui.tsx) : la carte noire, sobre. Vernis noir mat, serigraphie blanche
    discrete, l'orange de la carte verte pour le cran choisi. SF Pro Display, comme la serigraphie des TWEAKS. */
 
 .mm-plugin-arp .mm-p2 {
@@ -26,13 +26,9 @@
   pointer-events: auto;
 }
 
-/* Le capot se leve derriere : la carte arrive pendant qu'il monte, l'ecran ne bouge pas */
-.mm-plugin-arp .mm-p2[data-enter='lift'] .mm-p2-fade {
+/* Le capot se leve derriere : la carte arrive quand il est monte, l'ecran ne bouge pas */
+.mm-plugin-arp .mm-p2 .mm-p2-fade {
   animation: mm-p2-in 300ms ease-out 600ms both;
-}
-
-.mm-plugin-arp .mm-p2[data-enter='swap'] .mm-p2-fade {
-  animation: mm-p2-in 160ms ease-out both;
 }
 
 .mm-plugin-arp .mm-p2[data-phase='closing'] .mm-p2-fade {
@@ -1042,44 +1038,54 @@
   color: #ffb27f;
 }
 
-/* ---------- page 1 : la touche vers la page 2, sous CLOSE (HoodPanel.tsx) ---------- */
-.mm-plugin-arp .mm-arp-side {
-  position: relative;
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin: 0 0 0 12px;
-}
-
-.mm-plugin-arp .mm-arp-side .mm-arp-close {
-  margin: 0;
-}
-
-.mm-plugin-arp .mm-arp-page2 {
+/* ---------- DRAG MIDI, MIDI LEARN, DISK sur la carte (HoodPanel.tsx, DiskPresets.tsx) ---------- */
+.mm-plugin-arp .mm-p2-panel > .mm-arp-col {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 34px;
+  inset: 16px 12px 12px;
+  flex: none;
+  width: auto;
   padding: 0;
-  border-radius: 17px;
-  border: 1px solid rgba(255, 106, 19, 0.8);
-  background: rgba(255, 106, 19, 0.08);
-  color: #ff6a13;
-  font: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  white-space: nowrap;
-  cursor: pointer;
+  border: 0;
+  gap: 8px;
 }
 
-.mm-plugin-arp .mm-arp-page2:hover {
-  background: rgba(255, 106, 19, 0.18);
+.mm-plugin-arp .mm-p2-panel .mm-arp-col-title {
+  display: none;
 }
 
-.mm-plugin-arp .mm-arp-page2:focus-visible {
-  outline: 2px solid var(--yellow, #ffd23f);
-  outline-offset: 2px;
+.mm-plugin-arp .mm-p2-panel .mm-arp-col-head {
+  justify-content: flex-start;
+}
+
+.mm-plugin-arp .mm-p2-panel .mm-arp-list,
+.mm-plugin-arp .mm-p2-panel .mm-arp-disk-list {
+  border-color: #2c2e31;
+  border-radius: 3px;
+  background: linear-gradient(#030303, #0b0b0c);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.mm-plugin-arp .mm-p2-panel .mm-arp-drag-handle {
+  height: 54px;
+}
+
+.mm-plugin-arp .mm-p2-panel .mm-arp-status {
+  color: rgba(236, 232, 224, 0.6);
+}
+
+.mm-plugin-arp .mm-p2-panel .mm-arp-help {
+  color: rgba(236, 232, 224, 0.45);
+}
+
+.mm-plugin-arp .mm-p2-note {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  margin: 0;
+  font-size: 7.5px;
+  line-height: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(236, 232, 224, 0.45);
 }
