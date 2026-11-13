@@ -472,6 +472,7 @@ Mika : « je n'ai pas besoin de l'ecriture par defaut Track/Mute entre les pads,
 - `state/pluginFactory.ts` : `trackEntry` et `trimOf` (une piste a son role de mixage corrige du RMS) partages avec le RANDOM. Les 72 presets sortent identiques a l'octet pres.
 - `theme/face.ts`, `theme.ts` SILK_STROKES : dans le plugin, ni le mot Track/Mute ni son pointille entre les deux rangees de pads (le site garde TRACK/MUTE).
 - **Verifie** : dans Chromium, trois RANDOM de suite apres DARK DISCO 1. Les 16 pistes changent de sample. Le niveau du BD (`slice` 1.01, 0.95, 0.82), sa hauteur et son DEC bougent. Des pistes 9 a 16 se remplissent, avec VAR, COND, retrig, LFO et TLEN, et les FX globaux changent. Aucune erreur, aucun fichier manquant. Cmd+Z revient au tirage d'avant, trois Cmd+Z a DARK DISCO 1, au programme pres. Six tirages passes hors ligne dans le moteur C++ (aucun son joue) : cretes entre -5.3 et -7.6 dBFS, le kick toujours devant. Ce rendu a fait baisser les percussions et les charleys (une percussion longue, accordee haut et frequente montait a -5 dB du kick), retirer le passe-bande de la caisse et du clap (le backbeat s'y perdait) et remonter le kick fantome. Face : plus de Track/Mute. Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 43342471973), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 01c1172, branche claude/intelligent-ride-56tyeo, 2026-11-13 01:15 UTC.
 
 ## 2. Decisions prises et pourquoi
 
