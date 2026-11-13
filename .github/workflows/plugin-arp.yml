@@ -50,7 +50,7 @@ jobs:
         run: ./build-dsp/mmarp_hq2_test
       - name: Controleurs, matrice, MONO / LEGATO, FEEDBACK, AMP MODE, DISTORTION, EQ (neutre = avant, mesures)
         run: ./build-dsp/mmarp_hq3_test
-      - name: HELL (delay + decaleur de Bode) : MIX 0 au bit pres, decalage, spirale, stabilite
+      - name: "HELL (delay + decaleur de Bode) : MIX 0 au bit pres, decalage, spirale, stabilite"
         run: ./build-dsp/mmarp_hell_test
       - name: Banque d'usine a jour (FILTER + neutre partout)
         run: node plugin/mm-arp/presets/build.mjs --check
