@@ -39,13 +39,13 @@ import { LFO_DESTS, LFO_MODES, LFO_WAVES, type LfoDest, type LfoMode, type LfoWa
 import { LOCKS_V, type Locks, type StepLock } from '../audio/locks';
 import type { RytmFactory } from './factory';
 
-const FAMS: readonly KitFamily[] = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
+export const FAMS: readonly KitFamily[] = ['bd', 'sd', 'ch', 'oh', 'cp', 'tom', 'ht', 'cy'];
 const FILE: Readonly<Record<KitFamily, string>> = { bd: 'Bd', sd: 'Sd', ch: 'Ch', oh: 'Oh', cp: 'Cp', tom: 'Tom', ht: 'Ht', cy: 'Cy' };
 
 /** Le niveau de depart de chaque piste (dB, le kick a 0) : son role dans le mixage. */
-const ROLE_DB: readonly number[] = [0, -3, -10, -11, -4, -6, -7, -13, -6, -9, -14, -14, -9, -8, -9, -15];
+export const ROLE_DB: readonly number[] = [0, -3, -10, -11, -4, -6, -7, -13, -6, -9, -14, -14, -9, -8, -9, -15];
 /** Le panoramique de depart (-1 a 1) : le kick et la caisse au centre, le reste ouvert. */
-const ROLE_PAN: readonly number[] = [0, 0, 0.12, -0.12, 0, -0.3, 0.3, 0.2, 0, -0.15, -0.25, 0.25, 0.2, -0.4, 0.4, -0.2];
+export const ROLE_PAN: readonly number[] = [0, 0, 0.12, -0.12, 0, -0.3, 0.3, 0.2, 0, -0.15, -0.25, 0.25, 0.2, -0.4, 0.4, -0.2];
 /** Le choke : CH et OH (1), CH2 et OH2 (2). */
 const ROLE_CHOKE: readonly number[] = [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0];
 
@@ -65,12 +65,12 @@ const TRIM: Readonly<Record<string, number>> = {
 };
 
 /** La vitesse d'un LFO (comme MOD 1/2, actions/lfoRate.ts) : 4B un cycle en 4 mesures ... 1/16 un par double croche. */
-type Rate = '8B' | '4B' | '2B' | '1B' | '1/2' | '1/4' | '1/8' | '1/16';
+export type Rate = '8B' | '4B' | '2B' | '1B' | '1/2' | '1/4' | '1/8' | '1/16';
 const RATE_OF: Readonly<Record<Rate, readonly [number, number]>> = {
   '8B': [1, 0], '4B': [2, 0], '2B': [4, 0], '1B': [8, 0], '1/2': [16, 0], '1/4': [32, 0], '1/8': [32, 1], '1/16': [32, 2],
 };
 /** Un LFO de piste : sa destination, sa vitesse, sa profondeur (-64 a 63), sa forme (TRI) et son mode (FRE). */
-interface LfoSpec {
+export interface LfoSpec {
   d: LfoDest;
   r: Rate;
   dep: number;
@@ -647,40 +647,53 @@ const BLANK = '0000000000000000';
 /** Une rangee de 16 pas, toujours (des chiffres de 0 a 9). */
 const row = (s: string | undefined): string => (s && /^[0-9]{16}$/.test(s) ? s : BLANK);
 /** dB -> le reglage VOL d'une piste (gain (v / 0.8)^2 : 0 dB a 0.8, +3.9 dB a fond). */
-const levelOf = (db: number): number => Math.round(Math.max(0, Math.min(1, 0.8 * Math.pow(10, db / 40))) * 1000) / 1000;
+export const levelOf = (db: number): number => Math.round(Math.max(0, Math.min(1, 0.8 * Math.pow(10, db / 40))) * 1000) / 1000;
 /** Le rang d'une COND par son nom (NONE si inconnu). */
-const condIx = (label: string): number => Math.max(0, CONDS.findIndex((c) => c.label === label));
+export const condIx = (label: string): number => Math.max(0, CONDS.findIndex((c) => c.label === label));
 const FT = { LP: 0, HP: 0.5, BP: 1 } as const;
+
+/** Les reglages d'une piste (Tk sans son numero) : ce que les presets et le RANDOM du plugin (state/pluginRandom.ts) posent. */
+export type TrackSpec = Omit<Exclude<Tk, number>, 'n'>;
+/** La correction de RMS d'un sample de la banque par sa cle ("bd/Bd 14.wav" -> 'bd 14') ; 0 pour un sample perso. */
+export const trimOf = (key: string): number => {
+  const m = /^([a-z]+)\/[A-Za-z]+ (\d+)\.wav$/.exec(key);
+  return m ? (TRIM[`${m[1]} ${m[2]}`] ?? 0) : 0;
+};
+
+/** Une piste (i : 0 a 15) sur un sample (sa cle), a son role de mixage corrige de son RMS, avec ses reglages. */
+export function trackEntry(i: number, key: string, q: TrackSpec): NonNullable<StoredKit16['t']>[TrackKey] {
+  const p: Record<string, number> = { level: levelOf(ROLE_DB[i] + trimOf(key) + (q.db ?? 0)) };
+  const pan = q.pan ?? ROLE_PAN[i];
+  if (pan !== 0) p.pan = pan;
+  if (q.decay !== undefined) p.decay = q.decay;
+  if (q.tune !== undefined) p.tune = q.tune / 24;
+  if (q.reverb) p.reverb = q.reverb;
+  if (q.delay) p.delay = q.delay;
+  if (q.chorus) p.chorus = q.chorus;
+  if (q.dist) p.dist = q.dist;
+  if (q.ft !== undefined && FT[q.ft]) p.ftype = FT[q.ft];
+  if (q.cut !== undefined) p.fcut = q.cut;
+  if (q.res !== undefined) p.freso = q.res;
+  if (q.lfo) {
+    const [spd, mul] = RATE_OF[q.lfo.r];
+    p.l1dst = LFO_DESTS.indexOf(q.lfo.d);
+    p.l1spd = spd;
+    if (mul) p.l1mul = mul;
+    p.l1dep = q.lfo.dep;
+    if (q.lfo.w && q.lfo.w !== 'TRI') p.l1wav = LFO_WAVES.indexOf(q.lfo.w);
+    if (q.lfo.m && q.lfo.m !== 'FRE') p.l1mod = LFO_MODES.indexOf(q.lfo.m);
+  }
+  return { m: 'oneshot', s: key, p, ...(ROLE_CHOKE[i] ? { ch: ROLE_CHOKE[i] } : {}) };
+}
 
 function kitOf(base: Kit, over: Kit | undefined): StoredKit16 {
   const t: NonNullable<StoredKit16['t']> = {};
   TRACK_KEYS.forEach((key, i) => {
     const spec = over?.[key] ?? base[key];
     if (spec === undefined) return;
-    const q: Exclude<Tk, number> = typeof spec === 'number' ? { n: spec } : spec;
+    const { n, ...q }: Exclude<Tk, number> = typeof spec === 'number' ? { n: spec } : spec;
     const fam = FAMS[i % 8];
-    const p: Record<string, number> = { level: levelOf(ROLE_DB[i] + (TRIM[`${fam} ${q.n}`] ?? 0) + (q.db ?? 0)) };
-    const pan = q.pan ?? ROLE_PAN[i];
-    if (pan !== 0) p.pan = pan;
-    if (q.decay !== undefined) p.decay = q.decay;
-    if (q.tune !== undefined) p.tune = q.tune / 24;
-    if (q.reverb) p.reverb = q.reverb;
-    if (q.delay) p.delay = q.delay;
-    if (q.chorus) p.chorus = q.chorus;
-    if (q.dist) p.dist = q.dist;
-    if (q.ft !== undefined && FT[q.ft]) p.ftype = FT[q.ft];
-    if (q.cut !== undefined) p.fcut = q.cut;
-    if (q.res !== undefined) p.freso = q.res;
-    if (q.lfo) {
-      const [spd, mul] = RATE_OF[q.lfo.r];
-      p.l1dst = LFO_DESTS.indexOf(q.lfo.d);
-      p.l1spd = spd;
-      if (mul) p.l1mul = mul;
-      p.l1dep = q.lfo.dep;
-      if (q.lfo.w && q.lfo.w !== 'TRI') p.l1wav = LFO_WAVES.indexOf(q.lfo.w);
-      if (q.lfo.m && q.lfo.m !== 'FRE') p.l1mod = LFO_MODES.indexOf(q.lfo.m);
-    }
-    t[key] = { m: 'oneshot', s: `${fam}/${FILE[fam]} ${q.n}.wav`, p, ...(ROLE_CHOKE[i] ? { ch: ROLE_CHOKE[i] } : {}) };
+    t[key] = trackEntry(i, `${fam}/${FILE[fam]} ${n}.wav`, q);
   });
   return { v: 1, t };
 }

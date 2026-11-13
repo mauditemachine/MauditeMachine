@@ -458,6 +458,21 @@ Mika : « est-ce que tu peux mettre plus de presets encore et faire en sorte qu'
 - Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 43308901453), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 6871352, branche claude/intelligent-ride-56tyeo, 2026-11-12 21:24 UTC.
 
+### Lot 28, un RANDOM qui tire tout, plus de Track/Mute (2026-11-13)
+
+Mika : « je n'ai pas besoin de l'ecriture par defaut Track/Mute entre les pads, ca ne me sert a rien ; le random doit aussi jouer sur les levels des tracks ; je remarque que par defaut le BD est eteint pour tout, controle ca ; quand je veux du random je veux vraiment du random sur toutes les fonctions ».
+
+- **Controle du BD** : le RANDOM venait du site (`actions/patterns.ts` randomPattern, `audio/beats.ts`). Il tirait le motif et le son des 8 premieres voix, plus la couleur (TONE, VOL, DEC, PAN) de 7 d'entre elles : la grosse caisse n'en faisait pas partie (« elle garde sa couleur »). Son sample changeait, jamais son niveau, sa hauteur, son DEC ni son pan. Ni les pistes 9 a 16 ni le niveau des pistes n'etaient touches. Verifie dans le programme du moteur avant le correctif.
+- `src/v4/state/pluginRandom.ts` (neuf, le plugin seulement) : un RANDOM sur les **16 pistes**, pose comme un preset :
+  - les pas : le style du site pour les 8 premieres (`randomBeat`), puis T9 a T16 selon leur role (kick fantome en PROB, rim, shaker qui varie, charley ouvert, clap de relance en COND, deux percussions en euclidien ou sur 3, 5, 6 ou 7 pas, crash 1:8 ou ride) ;
+  - pour chaque piste : un sample de son type (banque et samples perso, jamais `Ch 14` ni `Ch 16`, vides), son **niveau** (son role de mixage corrige du RMS, plus ou moins quelques dB ; le kick entre -2 et +1.5 dB), TUNE, DEC, PAN, un filtre, REVERB, DELAY, CHORUS, DIST, **le kick compris** ;
+  - des reglages de trig (VAR sur les charleys et les percussions, uTIME du clap et de la caisse), des P-LOCK (roulement de caisse 1/32 en 4:4 ou 8:8, fill de toms accordes, ratchet de charley), zero a deux LFO (DEC du charley ouvert, filtre balaye, PAN ou hauteur d'une percussion) ;
+  - les FX de toute la machine : SWING du style, DRIVE, REVERB et sa taille, DELAY, son temps et son retour, CHORUS, COMP, parfois BIT.
+- `actions/patterns.ts` randomPattern : dans le plugin, une etape d'UNDO puis `apply` (le meme chemin qu'un preset, d'un bloc) ; le tempo, les scenes et les mutes du pattern restent ; le nom du preset s'efface (`presets.detach`). L'ecran dit « RANDOM MINIMAL ». Le site garde son RANDOM.
+- `state/pluginFactory.ts` : `trackEntry` et `trimOf` (une piste a son role de mixage corrige du RMS) partages avec le RANDOM. Les 72 presets sortent identiques a l'octet pres.
+- `theme/face.ts`, `theme.ts` SILK_STROKES : dans le plugin, ni le mot Track/Mute ni son pointille entre les deux rangees de pads (le site garde TRACK/MUTE).
+- **Verifie** : dans Chromium, trois RANDOM de suite apres DARK DISCO 1. Les 16 pistes changent de sample. Le niveau du BD (`slice` 1.01, 0.95, 0.82), sa hauteur et son DEC bougent. Des pistes 9 a 16 se remplissent, avec VAR, COND, retrig, LFO et TLEN, et les FX globaux changent. Aucune erreur, aucun fichier manquant. Cmd+Z revient au tirage d'avant, trois Cmd+Z a DARK DISCO 1, au programme pres. Six tirages passes hors ligne dans le moteur C++ (aucun son joue) : cretes entre -5.3 et -7.6 dBFS, le kick toujours devant. Ce rendu a fait baisser les percussions et les charleys (une percussion longue, accordee haut et frequente montait a -5 dB du kick), retirer le passe-bande de la caisse et du clap (le backbeat s'y perdait) et remonter le kick fantome. Face : plus de Track/Mute. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -554,12 +569,16 @@ Mika : « est-ce que tu peux mettre plus de presets encore et faire en sorte qu'
 - **Le SIDECHAIN sans source** : un ducking cale sur la grille (comme un LFO Tool), sur tout sauf la voie du kick, pour que le kick reste net et que le reste respire. Un parametre du plugin, comme FILTER, pour Ableton.
 - **MOD : cacher, pas retirer** : MULT, FADE, PHAS et MODE existent toujours (les patterns et presets qui s'en servent sonnent pareil) ; la page ne montre que ce qui sert en jouant. RATE ne se verrouille pas (il pose deux reglages).
 - **Lot 27 : ajouter a la fin, pas reclasser** : l'id d'un preset d'usine est son rang (`factory-rytm-<n>`) ; un projet Live qui a charge DARK DISCO 2 le retrouve sous ce nom. Les 12 styles d'avant gardent donc leurs rangs (et leur base, que Mika a deja entendue), les nouveaux suivent.
+- **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
+- **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
+- **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
 - **Faire vivre les presets avec les outils de la machine** (COND, PROB, VAR, uTIME, TLEN, LFO, P-LOCK) plutot qu'avec des patterns plus charges : une base qui ne fatigue pas et qui change toute seule sur 4 et 8 mesures, et tout se voit et se modifie dans TRIG, MOD et les P-LOCK. Rien de neuf dans le moteur : ces reglages y sont deja testes.
 - **La variation 1 reste nue** : seulement un peu de VAR sur les charleys et le clap un rien en retard ; les fills, les crashs et les percussions vivent en 2 et 3.
 - **Mesurer faute d'ecouter** : chaque preset est rendu par le vrai moteur C++ hors ligne (aucun son joue, la regle du projet) pour verifier ce qu'un controle de donnees ne voit pas : le niveau de chaque piste par rapport au kick, les cretes, et que les COND tombent sur les bonnes mesures. Ce rendu a montre que le passe-bas balaye coupait trop les charleys (9 dB de moins dans MINIMAL 3, 4 a 5 ailleurs) : sa coupure suit maintenant la brillance du charley, avec +2 dB.
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 28)** : la commande mm-rytm ; taper RANDOM plusieurs fois (Cmd+Z pour revenir) et dire si c'est assez fou ou trop (les plages par role se reglent dans `state/pluginRandom.ts`), et si un style manque.
 - **Cote Mika (lot 27)** : la commande mm-rytm, quitter et rouvrir Ableton ; ecouter les 72 presets en laissant tourner 8 mesures (les fills et les crashs arrivent aux mesures 2, 4 et 8, le crash a la 1re et a la 9e), dire lesquels garder, lesquels changer (un sample, un niveau, un style en trop ou qui manque). Les niveaux sont mesures, pas ecoutes.
 - **Cote Mika (lot 26)** : SOLO puis des clics (ca bascule), Maj + clics (plusieurs).
 - **Cote Mika (lot 25)** : dans PRESETS, tourner LEVEL/DATA puis cliquer dessus.

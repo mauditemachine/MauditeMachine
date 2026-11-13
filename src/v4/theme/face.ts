@@ -548,7 +548,9 @@ const DT2_SILK_TEXTS = (): SilkText[] => {
     if (s.alt) out.push({ text: s.alt, x: fpX(s.cx), z: fpZ(cy + S.legend.cap / 2 + S.alt.gap + S.alt.cap / 2), cap: fpU(S.alt.cap), maxW: fpU(21), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   }
   const T = DT2.silk.trackMute;
-  out.push({ text: PLUGIN ? 'Track/Mute' : T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: PLUGIN ? 400 : 700, ink: 'alt', alpha: PLUGIN ? 0.72 : 1, ...(PLUGIN ? { tracking: 0.04 } : {}) });
+  // Le plugin (2026-11-13, Mika : "je n'ai pas besoin de l'ecriture Track/Mute entre les pads, ca ne me sert a rien") : ni le
+  // mot ni son accolade (theme.ts SILK_STROKES) ; le site garde TRACK/MUTE
+  if (!PLUGIN) out.push({ text: T.text, x: fpX(T.cx), z: fpZ(T.cy), cap: fpU(T.cap), group: 'alt', weight: 700, ink: 'alt', alpha: 1 });
   if (PLUGIN) {
     // La fonction FUNC de chaque touche imprimee dessous, en orange (la DT2 : Quantize sous TRIG...), 1 sous la touche
     // 2026-11-11 (Mika : "les ecritures sous les boutons doivent etre plus discretes, regarde la Digitakt") : plus petites,

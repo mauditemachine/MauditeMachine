@@ -1485,9 +1485,9 @@ export const SILK_FRAMES: readonly { x: number; z: number; w: number; d: number;
 /**
  * Les traits de la face DT2 a part des filets (V.6.0, cahier 2.3) : l'accolade pointillee de TRACK/MUTE, en orange (alt,
  * DT_HEX.orange, comme le mot), un pointille de dash et son trou, une petite barre au bout (tick), en unites. Vide sur
- * la face de la V.5.3.
+ * la face de la V.5.3 et dans le plugin (2026-11-13 : Mika n'en a pas l'usage).
  */
-export const SILK_STROKES: readonly { pts: readonly number[]; ink: 'alt'; width: number; dash: readonly [number, number] | null }[] = DT2_FACE
+export const SILK_STROKES: readonly { pts: readonly number[]; ink: 'alt'; width: number; dash: readonly [number, number] | null }[] = DT2_FACE && !PLUGIN
   ? dt2TrackMuteDots().flatMap((t, i) => {
       const T = DT2_FACEPLATE.silk.trackMute;
       // La barre au bout de l'accolade, du cote du pas 1 (a gauche) ou du pas 8 (a droite), qui remonte vers le pas

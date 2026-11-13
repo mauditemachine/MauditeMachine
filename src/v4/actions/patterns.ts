@@ -27,6 +27,10 @@ import { kit16FromLegacy, tracks } from '../audio/tracks';
 import { defaultKit } from '../audio/kitlaw';
 import { parseVoices } from '../audio/voicelaw';
 import { voices } from '../state/voices';
+import { IN_PLUGIN } from '../pluginMode';
+import { samplesOf } from '../audio/samples';
+import { apply, capture, presets } from '../state/presets';
+import { pluginRandom } from '../state/pluginRandom';
 
 /* ---------------- les patterns du MM-RYTM (EDIT, 2026-10-05) ---------------- */
 
@@ -198,6 +202,20 @@ export function randomPattern(stage: Stage | null = null): void {
   // UNDO : chaque RANDOM fait son etape (le precedent etait mieux : UNDO y revient)
   undo.boundary('mm808', 'step');
   resume();
+  // Le plugin (2026-11-13, Mika : "quand je veux du random je veux vraiment du random sur toutes les fonctions") : les 16
+  // pistes, leurs sons, leurs niveaux et tous leurs reglages, les trigs, des P-LOCK, les FX (state/pluginRandom.ts) ; pose
+  // comme un preset, d'un bloc ; le tempo, les scenes et les mutes du pattern restent
+  if (IN_PLUGIN) {
+    const g = pluginRandom(pattern.get().steps, lastStyle, (f) => samplesOf(f).map((s) => s.key));
+    lastStyle = g.style;
+    const cur = capture('mm808') as Parameters<typeof apply>[1];
+    apply('mm808', { ...cur, steps: g.steps, fx: g.fx, trigs: g.trigs, locks: g.locks ?? {}, tracks: g.tracks } as Parameters<typeof apply>[1]);
+    // Ce n'est plus un preset : l'ecran ne nomme plus rien
+    presets.detach('mm808');
+    stage?.pressButton('random');
+    lcdMessage.show(`RANDOM ${g.style}`, 2200);
+    return;
+  }
   const { style, steps, swing } = randomBeat(pattern.get().steps, lastStyle);
   lastStyle = style;
   pattern.replace(steps);
