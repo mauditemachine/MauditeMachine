@@ -380,4 +380,4 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Fenêtre 2x par défaut (2200 x 1408), redimensionnable de 880 à 3300, bornée à l'écran (`PluginEditor.cpp`, état `editorW4`).
 
 ### Reste à faire
-- Couleur jaune canard (#D28E05) et boutons au style de la face avant pour l'interface secondaire (demande de Mika, en cours).
+- Interface secondaire en jaune canard (#D28E05) au lieu de l'orange ; boutons remplaces par des touches carrees sombres facon face avant (composant PcbKey, nom ecrit dessous, allumees en jaune quand actives) ; bandeau du bas de 46 px (MIDI LEARN, 7 onglets, CLOSE). Face avant inchangee au pixel.
