@@ -70,7 +70,8 @@ const engineWide = (): number => (coarse() ? 4 : 8);
  * avec le rattrapage de -3 dB des trois machines (drums.ts RYTM_TRIM).
  */
 // 0.66 le 2026-10-10 (+5 dB, le VU du MIXER : l'ARP cretait 10 dB sous le MM-RYTM, drums.ts RYTM_TRIM)
-const VOLUME_K = 0.66;
+// 0.56 le 2026-11-15 (-1.4 dB, Mika : "ARP est un peu plus fort que Rytm") : le MM-RYTM ne bouge pas
+const VOLUME_K = 0.56;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 /** REVERB : envoi renforce vers la reverbe partagee. */
 const REVERB_BOOST = 1.25;
