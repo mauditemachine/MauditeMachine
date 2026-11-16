@@ -84,3 +84,31 @@ cmake -S plugin/mm-arp -B build-dsp -DMM_BUILD_PLUGIN=OFF && cmake --build build
 ```bash
 cd build-dsp && ctest -R decap
 ```
+
+## Suite : le script de mesure du Decapitator
+
+### Ce qui a été fait
+- `plugin/mm-arp/tests/decap-measure/measure.py` : mesure en boîte noire, la même pour le Decapitator (par
+  `pedalboard`) et pour la DISTO (par `mmarp_decap_cli`). Mesures : lois des réglages, harmoniques par style, DRIVE et
+  niveau, AUTO, réponses des filtres, salve, retard. Mode `--compare` : les deux côte à côte.
+- `plugin/mm-arp/tests/decap-measure/run.sh` + `README.md` : une commande sur le Mac. Elle installe pedalboard et numpy
+  dans `~/.cache`, mesure le Decapitator, puis la DISTO et la comparaison si un compilateur C++ est là.
+- `plugin/mm-arp/tests/decap_cli.cpp` (cible `mmarp_decap_cli`) : la DISTO en ligne de commande.
+
+### Décisions prises et pourquoi
+- Mesure en boîte noire plutôt que désassemblage : légitime (la licence Soundtoys interdit la rétro-ingénierie) et plus
+  utile pour caler un son.
+- Les mesures linéaires (filtres, retard) sont faites à DRIVE 0.02 : à 0, la DISTO se contourne.
+- `run.sh` ne demande que Python (Mika ne compile pas sur le Mac : la CI fait les builds).
+- Testé ici avec un faux `pedalboard` (paramètres nommés comme un Decapitator, son de la DISTO) : détection des
+  réglages, lois, mesures et comparaison identiques des deux côtés. Pas encore testé avec le vrai Decapitator.
+
+### Ce qui reste à faire
+- Mika : lancer `bash plugin/mm-arp/tests/decap-measure/run.sh` sur le Mac, puis committer `results/` et pousser.
+- Claude : recaler Decap (courbes, lois de DRIVE et des filtres, THUMP, AUTO) sur les mesures, puis refaire la
+  comparaison.
+
+### Commandes utiles ajoutées
+```bash
+bash plugin/mm-arp/tests/decap-measure/run.sh --quick
+```
