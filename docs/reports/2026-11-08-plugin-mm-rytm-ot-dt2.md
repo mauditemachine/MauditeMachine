@@ -506,6 +506,7 @@ Mika : « j'aime bien ce kick la ! rajouter ca dans les parametres du vst ca je 
 - **Ou le trouver** : piste BD, SRC, potard SAMP, le dernier de la liste (39/39, BD 808 SUB BOOM, apres Bd 40) ; OPEN, SAMPLE, les fleches. RANDOM peut aussi le tirer.
 - **L'outil** : `node plugin/mm-rytm/tools/site-sound.mjs` refait le fichier (le DSP du site bundle a la volee par esbuild) ; il a regenere le meme fichier a l'octet pres. Pour un autre son du site : une entree de plus dans sa table SOUNDS.
 - **Verifie** : Chromium (sans son) : OPEN, SAMPLE, fleches sur BD : 39 samples, le dernier « BD 808 SUB BOOM 39 / 39 », le programme envoye au moteur dit `bd/Bd 808 Sub Boom.wav` et la face va chercher ce fichier ; le glob de CMake trouve 152 fichiers (151 + 1). tsc : 105. Le site n'est pas touche (rien dans `src/`).
+- **Build vert** (run 43786358144), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit f31c2ee, branche claude/intelligent-ride-56tyeo, 2026-11-16 01:35 UTC, et le binaire du VST3 contient bien `Bd 808 Sub Boom.wav`.
 
 ## 2. Decisions prises et pourquoi
 
