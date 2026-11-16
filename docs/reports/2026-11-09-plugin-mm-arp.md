@@ -460,3 +460,20 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Commandes utiles ajoutees
 - ./build-dsp/mmarp_sky_test (job dsp de plugin-arp.yml).
+
+## 2026-11-16 (suite 3) : cuir, boutons realistes, navigation par touches
+
+### Ce qui a ete fait
+- Retrait du cercle orange de focus partout ; valeur sous le knob en gris discret pendant le reglage.
+- Knobs OPEN regeneres en vue de dessus orthographique (concentriques) ; knob 3D de la face abaisse (RYTM_KNOB.h 0.27 -> 0.15) pour recentrer le capuchon.
+- Fond cuir/tolex noir : normal map sur le capot 3D (texture generee, 512 px), image retro/leather.png dans OPEN.
+- Boutons plus realistes : capuchon alu brosse bombe, jupe 40 cannelures, ombres ; touches caoutchouc avec arete et enfoncement ; LED a bague + lentille + halo (attenue).
+- Navigation OPEN : selecteur rotatif PAGE remplace par 5 touches encastrees (SOUND, RACK, HELL, REVERB, SEQ) a droite des logos, page active allumee ; fleches du clavier, Echap, croix, CLOSE conserves.
+
+### Decisions prises et pourquoi
+- Mika a rejete la maquette facon Legend HZ (bandeaux metal, echelles) : on garde la face actuelle, seuls cuir et boutons changent.
+- Navigation : variante C choisie par Mika.
+
+### Ce qui reste a faire / points en suspens
+- Fermeture d'OPEN parfois > 1,5 s en rendu logiciel : a verifier sur le Mac.
+- Grain du cuir dans OPEN = image fixe (pas de relief eclaire).
