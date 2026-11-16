@@ -803,9 +803,11 @@ const CSS = `
 .mm-open-head .mm-open-drag b{letter-spacing:.14em}
 .mm-open-tabs button:focus-visible,.mm-open .mm-open-close:focus-visible,.mm-open-head .mm-open-drag:focus-visible{outline:1px solid rgba(255,138,31,.7);outline-offset:.25em;border-radius:.15em}
 .mm-open-drag small{font-size:.85em;font-weight:600;letter-spacing:.06em;opacity:.8}
-.mm-open-drag-big{margin-left:0;padding:1em 1.5em;border-radius:.7em}
-.mm-open-drag-big svg{width:1em;height:1.5em}
-.mm-open-drag-big b{font-size:1.4em}
+/* La poignee de l'onglet PATTERN (2026-11-16, Mika : "ptete pas si gros que ca") : un bouton orange a la hauteur de
+   SAVE .MID, NEW et CLEAR */
+.mm-open-drag-big{margin-left:0;padding:.5em 1em;border-radius:.5em}
+.mm-open-drag-big svg{width:.8em;height:1.2em}
+.mm-open-drag-big b{font-size:1.05em}
 .mm-open-tracks{display:grid;grid-template-columns:repeat(16,1fr);gap:.3em;padding:.5em .9em;border-bottom:1px solid rgba(244,241,234,.08)}
 .mm-open-tracks button{padding:.35em 0;font-size:.92em}
 .mm-open-body{flex:1;min-height:0;display:flex;flex-direction:column;padding:.6em .9em .8em;overflow:hidden}

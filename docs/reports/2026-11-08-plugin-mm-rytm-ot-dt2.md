@@ -541,6 +541,7 @@ Mika : « Menu open le 1 serigraphie mon pref. Boutons drag midi close : le D »
 - **Le reste ne bouge pas** : les potards et la page entiere (« j'aime bien le design des knobs et la page en entier »), les boutons des pistes, des presets et des reglages.
 - **Verifie** : Chromium (vraie face, page FX et les 4 onglets) : l'onglet choisi en orange (#FF8A1F), les autres a 50 % ; CLOSE blanc au survol, DRAG MIDI orange sans fond ; CLOSE et Echap ferment toujours OPEN. Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 43795050003), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 1297810, branche claude/intelligent-ride-56tyeo, 2026-11-16 03:03 UTC.
+- **La grande poignee plus petite** (Mika, a la question de son style : « ptete pas si gros que ca ») : la poignee DRAG MIDI de l'onglet PATTERN reste un bouton orange, mais a la hauteur de SAVE .MID, NEW et CLEAR (`.mm-open-drag-big` : marges .5em 1em, titre 1.05em au lieu de 1.4em). Chromium : la rangee alignee, rien d'autre ne bouge ; site identique au pixel pres, tsc 105.
 
 ## 2. Decisions prises et pourquoi
 
@@ -659,7 +660,7 @@ Mika : « Menu open le 1 serigraphie mon pref. Boutons drag midi close : le D »
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- **Cote Mika (lot 34)** : la commande mm-rytm, OPEN : le menu facon serigraphie et DRAG MIDI / CLOSE en texte ; dire si la grande poignee DRAG MIDI de l'onglet PATTERN doit suivre le meme style.
+- **Cote Mika (lot 34)** : la commande mm-rytm, OPEN : le menu facon serigraphie, DRAG MIDI / CLOSE en texte, la poignee de l'onglet PATTERN plus petite.
 - **Cote Mika (lot 33)** : la commande mm-rytm ; BD, SAMP tout au bout (HARDGROOVE DRIVE, INDUSTRIAL SLAM), comparer au site.
 - **Cote Mika (lot 32)** : la commande mm-rytm ; BD, SAMP tout au bout (909 PUNCH, WAREHOUSE RUMBLE), comparer au site ; pour WAREHOUSE RUMBLE, REVERB de la piste a 28 comme le preset du site. Si sur le site il avait regle un autre DEC pour ces kicks, me le donner : un chiffre a changer dans l'outil.
 - **Cote Mika (lot 31)** : la commande mm-rytm, rouvrir Ableton ; piste BD, SAMP tout au bout (BD 808 SUB BOOM), ou OPEN, SAMPLE, fleche gauche depuis le 1er ; comparer au site. Dire si d'autres sons du site doivent suivre (909 PUNCH KICK, WAREHOUSE RUMBLE...) : une ligne chacun dans `tools/site-sound.mjs`.
