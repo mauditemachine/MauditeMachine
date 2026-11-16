@@ -50,8 +50,9 @@ juce_add_plugin(MM_RYTM
   VST3_CATEGORIES Instrument Drum
   COPY_PLUGIN_AFTER_BUILD FALSE)
 
-# Les samples de Mika (public/samples/rytm), embarques dans le binaire
-file(GLOB_RECURSE MM_SAMPLE_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../../public/samples/rytm/*.wav")
+# Les samples de Mika (public/samples/rytm), embarques dans le binaire ; et ceux du plugin seul (samples/<famille>/,
+# 2026-11-16 : le 808 SUB BOOM du site, rendu en fichier), le prefixe du nom dit leur famille (Bd ...)
+file(GLOB_RECURSE MM_SAMPLE_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../../public/samples/rytm/*.wav" "${CMAKE_CURRENT_SOURCE_DIR}/samples/*.wav")
 juce_add_binary_data(mm_samples SOURCES ${MM_SAMPLE_FILES})
 
 # La face (2026-11-08) : le build de src/v4/plugin (npm run plugin:web -> build-web), en un zip dans le binaire

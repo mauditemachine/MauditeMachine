@@ -496,6 +496,17 @@ Mika : « oui ajoute le MIX de HELL dans Ableton et HELL THROW ».
 - **Verifie** : 81 tests moteur (Release et Debug), dont 3 neufs (HELL THROW sans envoi : 1 kHz ressort a 1.1 kHz ; HELL THROW au MIX 0 ; Hell Mix a 0 coupe le retour malgre le MIX du programme). Chromium : le pad 15 dit HELL THROW, part au moteur (drapeau 128) et revient a 0 au relacher ; le preset METAL envoie son MIX (0.6) au parametre ; une automation a 0.2 s'affiche sur le potard MIX, n'est pas renvoyee et laisse le pattern a 0.6. Le code JUCE compile (syntaxe). Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 43464435435 ; son job macOS, annule une premiere fois faute de machine libre au bout de 15 minutes sans avoir rien execute, relance), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 9961e38, branche claude/intelligent-ride-56tyeo, 2026-11-13 17:06 UTC.
 
+### Lot 31, le kick 808 SUB BOOM du site dans la banque du plugin (2026-11-16)
+
+Mika : « j'aime bien ce kick la ! rajouter ca dans les parametres du vst ca je l'ai fait avec Rytm light du site web » (capture : 808 SUB BOOM sur BD, ENV ATK 0, HOLD 0, DEC 85, START 0, PAN 0).
+
+- **Le son du site rendu en fichier** : `plugin/mm-rytm/samples/bd/Bd 808 Sub Boom.wav` (mono, 48 kHz, 16 bits, 1.53 s). Le plugin ne joue pas la machine 808 du site ni sa banque synthetisee (JS) : le son est rendu par le DSP du site lui-meme (`audio/shotsdsp.ts` renderLayers, la machine 808 a SYN 0.75 sur le sample synthetise 91-808-Sub-Boom a LEV 0.85, K.DECAY 0.68, K.DRIVE 0.25, K.ATTACK 0.45 : le preset de `scene/screen/menus/preset.ts`), avec son DEC 85.
+- **DEC 124 = le DEC 85 du site** : le plugin multiplie le sample par son DEC de depart (124, tau 0.65 s) ; le fichier porte la difference (tau 0.26 s), les deux ensemble donnent exactement le tau du DEC 85 du site (0.186 s). Monter le DEC du plugin l'allonge, le baisser le raccourcit. Crete 0.9 comme les kicks de la banque, fin sous -80 dB avec 20 ms de fondu.
+- **Un dossier de samples du plugin seul** : `plugin/mm-rytm/samples/<famille>/`, embarque dans le VST3 a cote de `public/samples/rytm` (`CMakeLists.txt`, le meme glob ; `SampleBank.cpp` lit la famille dans le prefixe « Bd ») et liste par la face du plugin (`web/vite.config.ts` listSamples). Le site n'en voit rien : sa liste de samples ne change pas.
+- **Ou le trouver** : piste BD, SRC, potard SAMP, le dernier de la liste (39/39, BD 808 SUB BOOM, apres Bd 40) ; OPEN, SAMPLE, les fleches. RANDOM peut aussi le tirer.
+- **L'outil** : `node plugin/mm-rytm/tools/site-sound.mjs` refait le fichier (le DSP du site bundle a la volee par esbuild) ; il a regenere le meme fichier a l'octet pres. Pour un autre son du site : une entree de plus dans sa table SOUNDS.
+- **Verifie** : Chromium (sans son) : OPEN, SAMPLE, fleches sur BD : 39 samples, le dernier « BD 808 SUB BOOM 39 / 39 », le programme envoye au moteur dit `bd/Bd 808 Sub Boom.wav` et la face va chercher ce fichier ; le glob de CMake trouve 152 fichiers (151 + 1). tsc : 105. Le site n'est pas touche (rien dans `src/`).
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -595,6 +606,9 @@ Mika : « oui ajoute le MIX de HELL dans Ableton et HELL THROW ».
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 31 : un fichier plutot que la machine 808 du site dans le moteur** : porter la synthese 808, sa banque JS et sa chaine (drive, couches) en C++ pour un seul son serait un gros chantier ; le rendu par le code du site donne le meme son tout de suite, joue par le moteur qui existe deja.
+- **Lot 31 : le DEC cuit en partie dans le fichier** : sinon le kick sonnerait 4 fois plus long qu'a DEC 85 au depart du plugin (DEC 124). Ainsi il sonne comme sur le site sans rien toucher, et le DEC du plugin reste libre.
+- **Lot 31 : un dossier a part, pas `public/samples/rytm`** : ce dossier est la banque du site (sa liste, ses presets, l'admin) ; y mettre le kick l'aurait ajoute en double sur le site, ou il existe deja en preset de son.
 - **Lot 30 : le parametre mene le son, le pattern garde la valeur de depart** : comme FILTER, Hell Mix est la valeur qui joue ; le pattern, ses presets et l'UNDO gardent leur MIX et le renvoient au parametre quand on les change. Une automation qui s'ecrirait dans le pattern remplirait l'historique de Cmd+Z a chaque lecture.
 - **HELL a la place de RPT 1/4** : la rangee des effets de PERFORM etait pleine ; RPT 1/4 (un temps entier repete) est le moins joue des quatre repeats. Les throws sont maintenant cote a cote (DELAY, REVERB, HELL). Facile a changer si Mika prefere un autre pad.
 - **Le retour tenu pendant HELL THROW** : sans lui, un throw au MIX 0 serait muet ; il redescend lentement apres pour ne pas couper les spirales.
@@ -608,6 +622,7 @@ Mika : « oui ajoute le MIX de HELL dans Ableton et HELL THROW ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 31)** : la commande mm-rytm, rouvrir Ableton ; piste BD, SAMP tout au bout (BD 808 SUB BOOM), ou OPEN, SAMPLE, fleche gauche depuis le 1er ; comparer au site. Dire si d'autres sons du site doivent suivre (909 PUNCH KICK, WAREHOUSE RUMBLE...) : une ligne chacun dans `tools/site-sound.mjs`.
 - **Cote Mika (lot 30)** : la commande mm-rytm ; dans Ableton, mapper **Hell Mix** au Roto ou a l'APC et l'automatiser ; PERFORM : tenir le pad 15 (HELL) sur un breakdown. Dire si RPT 1/4 lui manque.
 - **Cote Mika (lot 29)** : la commande mm-rytm, rouvrir Ableton ; tourner HELL (potard E de la page FX) sur un hat ou un clap, puis OPEN, onglet FX : essayer les presets de HELL et de la DIST, dire lesquels sonnent et lesquels changer. A l'oreille seulement : le grain de chaque STYLE, la force de HELL a envoi et MIX moyens. Plus tard si Mika le veut : le MIX de HELL en parametre d'Ableton, un pad HELL THROW dans PERFORM.
 - **Cote Mika (lot 28)** : la commande mm-rytm ; taper RANDOM plusieurs fois (Cmd+Z pour revenir) et dire si c'est assez fou ou trop (les plages par role se reglent dans `state/pluginRandom.ts`), et si un style manque.
@@ -651,7 +666,9 @@ Mika : « oui ajoute le MIX de HELL dans Ableton et HELL THROW ».
 
 ## 4. Commandes utiles ajoutees
 
-Aucune nouvelle commande ; la mise a jour du plugin (release mm-rytm depuis le lot 9) :
+Lot 31 : `node plugin/mm-rytm/tools/site-sound.mjs ["808 SUB BOOM"]` rend un son du site en WAV pour la banque du plugin (`plugin/mm-rytm/samples/`).
+
+La mise a jour du plugin (release mm-rytm depuis le lot 9) :
 
 ```bash
 curl -fsSL https://github.com/mauditemachine/MauditeMachine/releases/download/mm-rytm/update.sh | bash

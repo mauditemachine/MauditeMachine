@@ -12,20 +12,23 @@ import { defineConfig } from 'vite';
 const REPO = resolve(__dirname, '../../..');
 const OUT = resolve(__dirname, '../build-web');
 const SAMPLE_DIR = resolve(REPO, 'public/samples/rytm');
+/** Les samples du plugin seul (2026-11-16 : le 808 SUB BOOM du site, rendu en fichier) : embarques comme la banque, absents du site */
+const PLUGIN_SAMPLE_DIR = resolve(__dirname, '../samples');
 const SAMPLE_EXT = /\.(wav|mp3|ogg|flac|aiff?|m4a)$/i;
 const SAMPLE_ID = 'virtual:rytm-samples';
 const FONTS = ['RobotRadicals.woff2', 'SF-Pro-Display-Regular.woff2', 'SF-Pro-Display-Medium.woff2', 'SF-Pro-Display-Semibold.woff2', 'SF-Pro-Display-Bold.woff2', 'SF-Pro-Display-Black.woff2'];
 
-function listSamples(): { family: string; file: string }[] {
-  if (!existsSync(SAMPLE_DIR)) return [];
-  return readdirSync(SAMPLE_DIR, { withFileTypes: true })
+function listDir(dir: string): { family: string; file: string }[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .flatMap((d) =>
-      readdirSync(resolve(SAMPLE_DIR, d.name))
+      readdirSync(resolve(dir, d.name))
         .filter((f) => SAMPLE_EXT.test(f) && !f.startsWith('.'))
         .map((file) => ({ family: d.name, file }))
     );
 }
+const listSamples = (): { family: string; file: string }[] => [...listDir(SAMPLE_DIR), ...listDir(PLUGIN_SAMPLE_DIR)];
 
 export default defineConfig({
   root: REPO,
