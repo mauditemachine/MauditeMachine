@@ -423,3 +423,19 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Commandes utiles ajoutees
 - Test DSP modview_test dans plugin-arp.yml.
+
+## 2026-11-16 (suite) : knobs facon MM-RYTM, selecteur PAGE, MODE en knob, retour a la face
+
+### Ce qui a ete fait
+- Knobs de la face et d'OPEN au dessin MM-RYTM (src/v4/voyager/rytmKnob.ts, knobLook.ts repris de la branche RYTM) : base ronde, prise noire 6 lobes, capuchon metal brosse, repere blanc d'un seul morceau, sans couronne de carres (l'arc lumineux reste).
+- Navigation OPEN : selecteur rotatif PAGE (SOUND, RACK, HELL, SEQ) dans l'en-tete ; clic sur un nom, glisser, molette, fleches gauche/droite (sauf si un reglage a le focus). Menus haut/bas supprimes ; LIBRARY, MIDI, LEARN en bas a gauche.
+- MODE (PING PONG / STEREO / WIDE) en selecteur rotatif a crans.
+- En-tete : gros logo MAUDITE MACHINE + MM-ARP (clic = retour a la face), croix retro en haut a droite, Echap et CLOSE.
+
+### Decisions prises et pourquoi
+- Mika a choisi la maquette C (selecteur PAGE) et rejete le knob alu au profit du dessin RYTM.
+
+### Ce qui reste a faire / points en suspens
+- Camera ARP plus inclinee que RYTM : le capuchon masque une partie du repere vers le haut.
+- Echap pendant l'animation d'ouverture : un echec sur trois en test, a surveiller.
+- Suite : moteur de reverb facon BigSky (12 machines) + page REVERB.
