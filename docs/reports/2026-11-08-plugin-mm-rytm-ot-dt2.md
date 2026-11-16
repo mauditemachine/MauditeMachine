@@ -529,6 +529,8 @@ Mika : « ajoute aussi HARDGROOVE KICK et INDUSTRIAL SLAM ».
 - **Plus bas au DEC 124** : HARDGROOVE environ 2 dB, INDUSTRIAL SLAM environ 4.5 dB sous les autres kicks (comme WAREHOUSE RUMBLE : la queue remontee touche la crete du fichier). Monter LEV si besoin.
 - **Ou les trouver** : BD, SAMP tout au bout : 808 SUB BOOM (39), 909 PUNCH (40), HARDGROOVE DRIVE (41), INDUSTRIAL SLAM (42), WAREHOUSE RUMBLE (43 / 43). HARDGROOVE porte le nom de son sample du site (HARDGROOVE DRIVE) : la face retire « Kick » des noms.
 - **Verifie** : le fichier sous l'enveloppe du DEC 124 contre le site : -94.5 dB (HARDGROOVE), -95.2 dB (INDUSTRIAL SLAM) ; les trois kicks d'avant regeneres a l'octet pres. Chromium sans son : 43 samples BD, les cinq du site a la fin, la face va chercher les cinq fichiers. Glob CMake : 156 fichiers. Site non touche, tsc 105.
+- **Build vert** (run 43792024470), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit a7b33c0, branche claude/intelligent-ride-56tyeo, 2026-11-16 02:31 UTC ; le binaire contient les cinq kicks du site.
+- **Maquettes d'OPEN** (Mika : « j'aime bien le design des knobs et la page en entier, juste je voudrais le menu different, je n'aime pas le design de ces boutons, montre moi des images ») : 4 menus (1 serigraphie, 2 touches a LED, 3 selecteur encastre, 4 ecran LCD) et 4 versions de DRAG MIDI / CLOSE (A contour discret, B touches a LED, C ronds : une prise MIDI a attraper et un capuchon chrome cannele comme les potards, D texte seul), rendues sur la vraie face (page FX) avec un CSS injecte dans Chromium, sans toucher au code. Reco : menu 1 + boutons C. Rien n'est change avant son choix.
 
 ## 2. Decisions prises et pourquoi
 
@@ -647,6 +649,7 @@ Mika : « ajoute aussi HARDGROOVE KICK et INDUSTRIAL SLAM ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (maquettes)** : choisir le menu d'OPEN (1 a 4) et les boutons DRAG MIDI / CLOSE (A a D).
 - **Cote Mika (lot 33)** : la commande mm-rytm ; BD, SAMP tout au bout (HARDGROOVE DRIVE, INDUSTRIAL SLAM), comparer au site.
 - **Cote Mika (lot 32)** : la commande mm-rytm ; BD, SAMP tout au bout (909 PUNCH, WAREHOUSE RUMBLE), comparer au site ; pour WAREHOUSE RUMBLE, REVERB de la piste a 28 comme le preset du site. Si sur le site il avait regle un autre DEC pour ces kicks, me le donner : un chiffre a changer dans l'outil.
 - **Cote Mika (lot 31)** : la commande mm-rytm, rouvrir Ableton ; piste BD, SAMP tout au bout (BD 808 SUB BOOM), ou OPEN, SAMPLE, fleche gauche depuis le 1er ; comparer au site. Dire si d'autres sons du site doivent suivre (909 PUNCH KICK, WAREHOUSE RUMBLE...) : une ligne chacun dans `tools/site-sound.mjs`.
