@@ -37,7 +37,7 @@ interface Dims {
 function dims(mobile: boolean): Dims {
   const R = RYTM_KNOB.R;
   const h = RYTM_KNOB.h;
-  return { R, rc: R * KNOB_LOOK.cap, h1: h * MOOG.hBase, h2: h * MOOG.hGrip, h3: h, b: R * 0.04, seg: mobile ? 96 : 144 };
+  return { R, rc: R * KNOB_LOOK.cap, h1: h * MOOG.hBase, h2: h * MOOG.hGrip, h3: h, b: R * 0.04, seg: mobile ? 96 : 320 };
 }
 
 /** Une geometrie non indexee, sans uv. */
@@ -59,7 +59,9 @@ function lobed(g: BufferGeometry, D: Dims): void {
     if (r < 1e-4) continue;
     const a = Math.atan2(x, -z);
     const out = Math.max(0, Math.min(1, (r - D.rc) / (rl - D.rc)));
-    const f = 1 + (gripRadius(a) / KNOB_LOOK.lobe - 1) * out;
+    // 2026-11-16 : la jupe cannelee (40 cannelures fines sur le flanc), plus definie
+    const flute = out > 0.98 ? 0.018 * Math.pow(Math.abs(Math.cos(a * 20)), 0.6) : 0;
+    const f = (1 + (gripRadius(a) / KNOB_LOOK.lobe - 1) * out) * (1 - flute);
     p.setX(i, x * f);
     p.setZ(i, z * f);
   }
@@ -67,7 +69,7 @@ function lobed(g: BufferGeometry, D: Dims): void {
 }
 
 /** Les facteurs d'albedo de la prise (MM-RYTM MOOG_GRIP). */
-const GRIP = { wall: 0.6, bevel: 2.4, top: 0.95 } as const;
+const GRIP = { wall: 0.75, bevel: 3.2, top: 0.95 } as const;
 
 /** Ce qui tourne : la prise a six lobes, son chanfrein, son dessus, le flanc du capuchon, le repere (withMark). */
 export function rytmKnobGeometry(mobile: boolean, withMark = true): BufferGeometry {
@@ -143,6 +145,8 @@ export function rytmKnobTexture(): CanvasTexture {
       if (rr <= capR + 0.01) {
         const k = rr / capR;
         g = capGrey(a) * (1 + 0.05 * noise(a, 900, 0) + 0.03 * noise(a, 150, 977));
+        // 2026-11-16 : le brossage circulaire (des cercles d'usinage fins, irreguliers) et un leger bombe
+        g *= 1 + 0.07 * streak(Math.floor(k * 190)) + 0.035 * Math.sin(k * 520) - 0.08 * k * k;
         if (k < 0.07) g = mean + (g - mean) * (k / 0.07);
         if (k > 0.94) g *= 0.62 + 0.7 * lit;
       } else {

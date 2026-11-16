@@ -34,7 +34,7 @@ import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { SkyPage } from './SkyPage';
 import { arpMidi } from './midimap';
-import { hoodLcd, RetroKnob, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
+import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
 import './hood.css';
 
@@ -690,112 +690,30 @@ const Overlay: React.FC<{ which: 'library' | 'midi' }> = ({ which }) => (
 /* ---------------- la carte ---------------- */
 
 /**
- * Le selecteur PAGE (2026-11-16, Mika, la maquette C : "un selecteur rotatif PAGE facon Moog dans l'en-tete") : le petit
- * commutateur rotatif de la face, SOUND, RACK, HELL, REVERB et SEQ ecrits autour. Un clic sur un nom y va ; glisser le potard
- * verticalement tourne d'un cran par 14 px (vers le haut : la page suivante) ; molette ; fleches gauche / droite du
- * clavier quand aucun reglage ne les prend (HoodBody). Le seul menu des pages : LIBRARY, MIDI et LEARN sont des outils
+ * La navigation des pages (2026-11-16, Mika : "C pour les boutons", a la place du selecteur rotatif PAGE) : cinq touches
+ * dans un bandeau encastre de l'en-tete, a droite des logos, le nom ecrit sur la touche, celle de la page montree allumee.
+ * Un clic y va (le volet LIBRARY / MIDI se ferme) ; les fleches gauche / droite du clavier passent de l'une a l'autre quand
+ * aucun reglage ne les prend (HoodBody, hoodPageStep). Le seul menu des pages : LIBRARY, MIDI et LEARN sont des outils
  * (le bandeau du bas).
  */
-const DIAL_ANGLES = [-80, -40, 0, 40, 80] as const;
-const PageDial: React.FC = () => {
+const PageKeys: React.FC = () => {
   const st = useHoodPage();
-  const cur = hoodPageIndex(st);
-  const el = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ y: number; i0: number; pid: number } | null>(null);
-  useEffect(() => {
-    const node = el.current;
-    if (!node) return undefined;
-    let acc = 0;
-    const onWheel = (e: WheelEvent): void => {
-      e.preventDefault();
-      acc += e.deltaY;
-      const t = Math.trunc(acc / 40);
-      if (t === 0) return;
-      acc -= t * 40;
-      hoodPageStep(-t, false);
-    };
-    node.addEventListener('wheel', onWheel, { passive: false });
-    return () => node.removeEventListener('wheel', onWheel);
-  }, []);
-  const cx = 110;
-  const cy = 38;
-  const R = 26;
-  const k = 0.88;
-  const box = 52 * k;
-  const go = (i: number): void => {
-    const p = HOOD_PAGES[Math.max(0, Math.min(HOOD_PAGES.length - 1, i))];
-    hoodPage.set({ tab: p.tab, fx: p.fx ?? st.fx, overlay: null });
-  };
-  const scale = (): number => (el.current ? el.current.getBoundingClientRect().height / (el.current.offsetHeight || 1) || 1 : 1);
+  const cur = st.overlay ? -1 : hoodPageIndex(st);
   return (
-    <div className="mm-r-dial" role="radiogroup" aria-label="Page">
-      <svg className="mm-r-dial-ticks" width="220" height="70" aria-hidden="true">
-        {DIAL_ANGLES.map((a, i) => {
-          const r = (a * Math.PI) / 180;
-          return <line key={a} x1={cx + Math.sin(r) * (R - 2)} y1={cy - Math.cos(r) * (R - 2)} x2={cx + Math.sin(r) * (R + 3)} y2={cy - Math.cos(r) * (R + 3)} data-on={i === cur ? '1' : undefined} />;
-        })}
-      </svg>
-      {HOOD_PAGES.map((p, i) => {
-        const r = (DIAL_ANGLES[i] * Math.PI) / 180;
-        return (
-          <button
-            key={p.id}
-            type="button"
-            role="radio"
-            aria-checked={i === cur}
-            className="mm-r-dial-pos"
-            data-on={i === cur ? '1' : undefined}
-            style={{ left: cx + Math.sin(r) * (R + 20), top: cy - Math.cos(r) * (R + 8) }}
-            onClick={() => go(i)}
-          >
-            {p.label}
-          </button>
-        );
-      })}
-      <div
-        ref={el}
-        className="mm-r-dial-knob"
-        role="slider"
-        tabIndex={0}
-        aria-label="Page"
-        aria-valuemin={0}
-        aria-valuemax={HOOD_PAGES.length - 1}
-        aria-valuenow={cur}
-        aria-valuetext={HOOD_PAGES[cur]?.label}
-        style={{ left: cx - box / 2, top: cy - box / 2, width: box, height: box }}
-        onPointerDown={(e) => {
-          if (e.pointerType === 'mouse' && e.button !== 0) return;
-          e.preventDefault();
-          drag.current = { y: e.clientY, i0: cur, pid: e.pointerId };
-          try {
-            e.currentTarget.setPointerCapture(e.pointerId);
-          } catch {
-            /* rien */
-          }
-        }}
-        onPointerMove={(e) => {
-          const d = drag.current;
-          if (!d || d.pid !== e.pointerId) return;
-          const i = d.i0 + Math.trunc((d.y - e.clientY) / scale() / 14);
-          if (i !== hoodPageIndex(hoodPage.get())) go(i);
-        }}
-        onPointerUp={() => {
-          drag.current = null;
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') go(cur + 1);
-          else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') go(cur - 1);
-          else return;
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-      >
-        <RetroKnob angle={cur >= 0 ? DIAL_ANGLES[cur] : 0} k={k} />
-      </div>
-      <span className="mm-r-dial-name">PAGE</span>
+    <div className="mm-r-nav" role="tablist" aria-label="Page">
+      {HOOD_PAGES.map((p, i) => (
+        <button
+          key={p.id}
+          type="button"
+          role="tab"
+          aria-selected={i === cur}
+          className="mm-r-nav-key"
+          data-on={i === cur ? '1' : undefined}
+          onClick={() => hoodPage.set({ tab: p.tab, fx: p.fx ?? st.fx, overlay: null })}
+        >
+          {p.label}
+        </button>
+      ))}
     </div>
   );
 };
@@ -819,7 +737,7 @@ const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <span className="mm-r-word" />
           <span className="mm-r-model">MM-ARP</span>
         </button>
-        <PageDial />
+        <PageKeys />
         {/* La croix : une petite touche de la face, la croix serigraphiee dessus */}
         <button type="button" className="mm-key mm-r-x" aria-label="Close the machine" title="Close" onClick={onClose}>
           <span className="mm-key-cap" aria-hidden="true">

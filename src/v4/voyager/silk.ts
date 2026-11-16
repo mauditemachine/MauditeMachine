@@ -24,9 +24,11 @@
  * a l'arrivee des polices et des logos, et OPEN <-> CLOSE.
  */
 
-import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
+import { Color, Mesh, MeshStandardMaterial, PlaneGeometry, Vector2, type CanvasTexture } from 'three';
+import { albedo } from '../scene/materials';
+import { makeLeather } from './leather';
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
-import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
+import { APPEARANCE, GAIN, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
 import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
@@ -235,6 +237,39 @@ export class VoySilk {
     this.mesh.name = `voySilk-${kind}`;
     this.mesh.position.y = 0.004;
     this.mesh.receiveShadow = true;
+    // 2026-11-16 (Mika : "fond en cuir") : le cuir du panneau, sous la serigraphie, en vrai relief (carte de normales
+    // eclairee par la scene) et a brillance variable ; meme teinte que le capot
+    if (PLUGIN_ARP) {
+      const L = makeLeather();
+      const TILE = 2.0;
+      const nrm = L.normal.clone();
+      const rgh = L.rough.clone();
+      for (const t of [nrm, rgh]) {
+        t.repeat.set(this.plane.w / TILE, this.plane.d / TILE);
+        t.needsUpdate = true;
+      }
+      const lg = new PlaneGeometry(this.plane.w, this.plane.d);
+      lg.rotateX(-Math.PI / 2);
+      lg.translate(0, 0, this.plane.cz);
+      const lm = new MeshStandardMaterial({
+        color: albedo('voyPanel', new Color(), (GAIN.voyPanel ?? GAIN.parts) * 0.9),
+        normalMap: nrm,
+        normalScale: new Vector2(0.6, 0.6),
+        roughnessMap: rgh,
+        roughness: 1,
+        metalness: 0,
+        polygonOffset: true,
+        polygonOffsetFactor: -0.5,
+        polygonOffsetUnits: -0.5,
+      });
+      lm.name = 'arpLeather';
+      const leather = new Mesh(lg, lm);
+      leather.name = `arpLeather-${kind}`;
+      leather.position.y = -0.002;
+      leather.receiveShadow = true;
+      leather.renderOrder = -1;
+      this.mesh.add(leather);
+    }
     this.draw();
   }
 
@@ -562,6 +597,45 @@ export class VoySilk {
     const x = this.px(lx);
     const y = this.py(lz);
     const r = VOY_LED.r * PPU;
+    if (PLUGIN_ARP) {
+      // 2026-11-16 : une vraie LED : la bague noire, la lentille bombee (son reflet), le halo allumee ; eteinte, un
+      // rouge sombre qu'on voit
+      if (lit) {
+        // le halo, attenue (2026-11-16, Mika : "trop fort")
+        const g = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 2.6);
+        g.addColorStop(0, 'rgba(255, 60, 40, 0.38)');
+        g.addColorStop(0.45, 'rgba(255, 50, 30, 0.12)');
+        g.addColorStop(1, 'rgba(255, 50, 30, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#050404';
+      ctx.beginPath();
+      ctx.arc(x, y + r * 0.08, r * 1.28, 0, Math.PI * 2);
+      ctx.fill();
+      const lens = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.05, x, y, r);
+      if (lit) {
+        lens.addColorStop(0, '#fff1e8');
+        lens.addColorStop(0.28, '#ff8a6a');
+        lens.addColorStop(0.7, '#ff2d1c');
+        lens.addColorStop(1, '#b3140a');
+      } else {
+        lens.addColorStop(0, '#7a3a34');
+        lens.addColorStop(0.35, '#4a1612');
+        lens.addColorStop(1, '#260806');
+      }
+      ctx.fillStyle = lens;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = lit ? 'rgba(255,255,255,0.75)' : 'rgba(255,220,210,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x - r * 0.32, y - r * 0.38, r * 0.28, r * 0.17, -0.6, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
     if (lit) {
       const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
       g.addColorStop(0, 'rgba(255, 70, 50, 0.55)');

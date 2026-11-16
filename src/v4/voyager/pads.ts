@@ -158,8 +158,32 @@ function padGeometry(mobile: boolean): BufferGeometry {
 }
 
 /** Un bouton poussoir du panneau (2026-10-11) : la touche du plateau a sa taille (des coins a sa mesure, pas ceux d'une touche reduite). */
+/**
+ * 2026-11-16 (Mika : "le design des boutons") : une vraie touche de caoutchouc, le corps a l'arete marquee et le dessus
+ * en leger plateau, un rien plus clair (son arete accroche la lumiere).
+ */
+function keyGeometry(w: number, h: number, d: number, r: number, mobile: boolean): BufferGeometry {
+  const body = new RoundedBoxGeometry(w, h * 0.82, d, mobile ? 2 : 4, Math.min(r, (h * 0.82) / 2 - 0.004));
+  body.translate(0, (h * 0.82) / 2, 0);
+  const ix = Math.min(w, d) * 0.09;
+  const top = new RoundedBoxGeometry(w - 2 * ix, h * 0.3, d - 2 * ix, mobile ? 2 : 4, Math.min(r * 0.8, h * 0.14));
+  top.translate(0, h * 0.7 + h * 0.15, 0);
+  const parts = [body, top].map((g) => {
+    const o = g.index ? g.toNonIndexed() : g;
+    o.deleteAttribute('uv');
+    paintRubber(o);
+    return o;
+  });
+  const c = parts[1].getAttribute('color');
+  for (let i = 0; i < c.count; i += 1) c.setXYZ(i, c.getX(i) * 1.35, c.getY(i) * 1.35, c.getZ(i) * 1.35);
+  const g = mergeGeometries(parts, false);
+  if (!g) throw new Error('voyager: key merge failed');
+  return g;
+}
+
 function pushGeometry(mobile: boolean): BufferGeometry {
   const P = VOY_PUSH;
+  if (PLUGIN_ARP) return keyGeometry(P.w, P.h, P.d, 0.035, mobile);
   const g = new RoundedBoxGeometry(P.w, P.h, P.d, mobile ? 2 : 3, Math.min(0.04, P.h / 2 - 0.005));
   g.translate(0, P.h / 2, 0);
   g.deleteAttribute('uv');
@@ -169,6 +193,7 @@ function pushGeometry(mobile: boolean): BufferGeometry {
 
 /** Touche unite (1 x h x 1), mise a l'echelle par instance. */
 function buttonGeometry(mobile: boolean): BufferGeometry {
+  if (PLUGIN_ARP) return keyGeometry(1, VOY_BUTTON.h, 1, VOY_BUTTON.radius, mobile);
   const g = new RoundedBoxGeometry(1, VOY_BUTTON.h, 1, mobile ? 2 : 3, VOY_BUTTON.radius);
   g.translate(0, VOY_BUTTON.h / 2, 0);
   g.deleteAttribute('uv');
@@ -239,7 +264,7 @@ export class VoyKeys {
     this.btnEm = new InstancedBufferAttribute(new Float32Array(BTNS * 3), 3);
     this.btnEm.setUsage(DynamicDrawUsage);
     bg.setAttribute('instanceEmissive', this.btnEm);
-    this.btnMat = withInstanceEmissive(new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.pad }), true);
+    this.btnMat = withInstanceEmissive(new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.pad, ...(PLUGIN_ARP ? { roughness: 0.5 } : {}) }), true);
     this.btnMat.name = 'voyButton';
     this.buttons = new InstancedMesh(bg, this.btnMat, BTNS);
     this.buttons.name = 'voyButtons';
