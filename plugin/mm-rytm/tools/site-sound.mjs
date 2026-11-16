@@ -72,6 +72,16 @@ const SOUNDS = {
     tw: { model: '909', tune: 0.5, attack: 0.5, decay: 0.54, drive: 0.72, snappy: 0.5, syn: 0.55, smp: { lev: 0.95, st: 0, start: 0, len: 1, rev: false } },
     dec: 127,
   },
+  // DEEP HOUSE THUMP (preset.ts : 808 a syn 0.5, slev 0.9, kdecay 0.44, kdrive 0.2 ; K.ATTACK a son depart), le DEC de
+  // depart du site (127)
+  'DEEP HOUSE THUMP': {
+    fam: 'bd',
+    voice: 'BD',
+    file: 'Bd Deep House Thump.wav',
+    sample: 'bd/95-Deep-House-Thump.wav',
+    tw: { model: '808', tune: 0.5, attack: 0.5, decay: 0.44, drive: 0.2, snappy: 0.5, syn: 0.5, smp: { lev: 0.9, st: 0, start: 0, len: 1, rev: false } },
+    dec: 127,
+  },
 };
 
 /** Le DEC AMP du site et du plugin (audio/voicelaw.ts decayTau) : null = tenu. */

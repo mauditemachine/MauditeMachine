@@ -544,6 +544,14 @@ Mika : « Menu open le 1 serigraphie mon pref. Boutons drag midi close : le D »
 - **La grande poignee plus petite** (Mika, a la question de son style : « ptete pas si gros que ca ») : la poignee DRAG MIDI de l'onglet PATTERN reste un bouton orange, mais a la hauteur de SAVE .MID, NEW et CLEAR (`.mm-open-drag-big` : marges .5em 1em, titre 1.05em au lieu de 1.4em). Chromium : la rangee alignee, rien d'autre ne bouge ; site identique au pixel pres, tsc 105.
 - **Build vert** (run 43800651686), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 244c32b, branche claude/intelligent-ride-56tyeo, 2026-11-16 03:57 UTC.
 
+### Lot 35, DEEP HOUSE THUMP du site (2026-11-16)
+
+Mika : « ajoute aussi DEEP HOUSE THUMP ».
+
+- **Un kick de plus** : `plugin/mm-rytm/samples/bd/Bd Deep House Thump.wav` (2.25 s, mono 48 kHz 16 bits), le preset de son du site (808 a SYN 0.5, sample 95-Deep-House-Thump a LEV 0.9, K.DECAY 0.44, K.DRIVE 0.2, K.ATTACK a son depart) rendu par `tools/site-sound.mjs` avec le DEC de depart du site (127), comme les lots 32 et 33. Au DEC 124 du plugin : le site a -92.6 dB pres, et au niveau des autres kicks (0.4 dB de moins).
+- **Ou le trouver** : BD, SAMP vers la fin : 808 SUB BOOM (39), 909 PUNCH (40), DEEP HOUSE THUMP (41), HARDGROOVE DRIVE (42), INDUSTRIAL SLAM (43), WAREHOUSE RUMBLE (44 / 44).
+- **Verifie** : les cinq kicks d'avant regeneres a l'octet pres ; Chromium sans son : 44 samples BD, les six du site dans cet ordre, la face va chercher les six fichiers ; glob CMake : 157 fichiers. Rien dans `src/`.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -661,6 +669,7 @@ Mika : « Menu open le 1 serigraphie mon pref. Boutons drag midi close : le D »
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 35)** : la commande mm-rytm ; BD, SAMP : DEEP HOUSE THUMP (41 / 44), comparer au site.
 - **Cote Mika (lot 34)** : la commande mm-rytm, OPEN : le menu facon serigraphie, DRAG MIDI / CLOSE en texte, la poignee de l'onglet PATTERN plus petite.
 - **Cote Mika (lot 33)** : la commande mm-rytm ; BD, SAMP tout au bout (HARDGROOVE DRIVE, INDUSTRIAL SLAM), comparer au site.
 - **Cote Mika (lot 32)** : la commande mm-rytm ; BD, SAMP tout au bout (909 PUNCH, WAREHOUSE RUMBLE), comparer au site ; pour WAREHOUSE RUMBLE, REVERB de la piste a 28 comme le preset du site. Si sur le site il avait regle un autre DEC pour ces kicks, me le donner : un chiffre a changer dans l'outil.
