@@ -518,6 +518,7 @@ Mika : « ajoute aussi le 909 PUNCH KICK et WAREHOUSE RUMBLE ».
 - **L'envoi REVERB du preset WAREHOUSE RUMBLE (0.22) n'est pas dans le fichier** : c'est un envoi vers la reverb de la machine, pas le son du kick ; dans le plugin : piste BD, FX, REVERB a 28.
 - **Ou les trouver** : BD, SAMP tout au bout : 808 SUB BOOM (39), 909 PUNCH (40), WAREHOUSE RUMBLE (41 / 41) ; OPEN, SAMPLE, fleche gauche depuis le 1er tombe sur WAREHOUSE RUMBLE. Le nom court cache « Kick » (la regle des noms de la face, `audio/samplelabel.ts`), d'ou 909 PUNCH.
 - **Verifie** : le fichier multiplie par l'enveloppe du plugin a DEC 124 (HOLD 4 ms, tau 0.65 s) contre le rendu du site a son DEC : ecart a -91 dB (808), -94 dB (909 PUNCH), -94 dB (WAREHOUSE RUMBLE), le bruit du 16 bits ; le 808 SUB BOOM regenere a l'octet pres. Chromium sans son : 41 samples BD, les trois derniers dans l'ordre, le programme dit `bd/Bd Warehouse Rumble.wav` et la face va chercher les trois fichiers. Glob CMake : 154 fichiers. Rien dans `src/` : site non touche, tsc inchange (105).
+- **Build vert** (run 43789438836), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 166abec, branche claude/intelligent-ride-56tyeo, 2026-11-16 02:06 UTC ; le binaire du VST3 contient les trois kicks.
 
 ## 2. Decisions prises et pourquoi
 
