@@ -28,6 +28,7 @@ import { arpBridge } from './bridge';
 import { voyKnob, voyParams, voyReadout, voyValueText, VOY_KNOB_IDS, type VoyKnobId } from '../../voyager/params';
 import { arpExtra, extraParam, isExtra } from './extra';
 import { arpMidi } from './midimap';
+import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
 
 /* ---------------- la source d'un reglage ---------------- */
 
@@ -226,6 +227,33 @@ export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 
   );
 };
 
+/**
+ * L'arc lumineux d'un potard d'OPEN module (modview.ts, la maquette A) : autour du pied du potard de l'image, sur ses
+ * 270 degres ; rien quand il n'est pas module.
+ */
+const KnobModArc: React.FC<{ id: string; k: number }> = ({ id, k }) => {
+  const m = useSyncExternalStore(arpMod.subscribe, () => arpMod.of(id));
+  if (!m) return null;
+  const box = KNOB_IMG.box * k;
+  const cx = 26 * k;
+  const cy = 28 * k;
+  const R = 24.5 * k;
+  const at = (v: number): readonly [number, number] => {
+    const a = ((-SWEEP + 2 * SWEEP * Math.min(1, Math.max(0, v))) * Math.PI) / 180;
+    return [cx + Math.sin(a) * R, cy - Math.cos(a) * R];
+  };
+  const a = modArcPaths(m, at, 3);
+  return (
+    <svg className="mm-mod-arc" data-id={id} width={box} height={box} viewBox={`0 0 ${box} ${box}`} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }} aria-hidden="true">
+      <path d={a.range} stroke={MOD_ORANGE} strokeOpacity={0.22} strokeWidth={3} fill="none" strokeLinecap="round" />
+      {a.trail.map((s, i) => (
+        <path key={i} d={s.d} stroke={MOD_ORANGE} strokeOpacity={s.o} strokeWidth={3.2} fill="none" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 2px rgba(255,106,42,0.8))' }} />
+      ))}
+      <circle cx={a.head[0]} cy={a.head[1]} r={2.4} fill={MOD_HEAD} style={{ filter: 'drop-shadow(0 0 2.5px rgba(255,160,100,0.9))' }} />
+    </svg>
+  );
+};
+
 /* ---------------- le potard ---------------- */
 
 export interface CellProps {
@@ -320,6 +348,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
         onKeyDown={onKey}
       >
         <RetroKnob angle={-SWEEP + v * 2 * SWEEP} k={k} />
+        <KnobModArc id={id} k={k} />
       </div>
       {!small && (
         <span className="mm-p2-ends" aria-hidden="true">

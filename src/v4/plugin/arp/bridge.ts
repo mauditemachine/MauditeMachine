@@ -47,6 +47,7 @@
  * suite), et dans le preset du disque (champ steps ; un preset sans steps remet les valeurs de depart).
  */
 
+import { arpMod } from './modview';
 import { pattern } from '../../audio/pattern';
 import { learnPick, learnToggle, midi } from '../../midi/midi';
 import { FLAGS } from '../../state/flags';
@@ -542,6 +543,8 @@ export const arpBridge = {
     be?.addEventListener('mm_saved', onSaved);
     be?.addEventListener('mm_drag_status', onDragStatus);
     be?.addEventListener('mm_midimap', onMidimap);
+    // L'arc lumineux des potards modules (2026-11-16, modview.ts)
+    be?.addEventListener('mm_mod', (o) => arpMod.receive(o));
     midi.subscribe(onLearnPick);
     // Echap eteint MIDI LEARN d'abord (avant hooks/useKeys : le capot reste ouvert), sauf pendant le nom d'un preset
     window.addEventListener(

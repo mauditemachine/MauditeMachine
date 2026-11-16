@@ -28,6 +28,7 @@ import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
 import { HoodBoard } from './HoodBoard';
 import { HellKnob } from './hellKnob';
+import { FaceModArcs } from './FaceModArcs';
 import './hypno';
 import { LearnMarks } from './HoodPanel';
 
@@ -145,6 +146,7 @@ const ArpFace: React.FC = () => {
         <DiskNameDialog />
         <HoodBoard stage={stage} />
         <HellKnob stage={stage} />
+        <FaceModArcs stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (
