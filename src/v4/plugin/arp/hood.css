@@ -2668,3 +2668,28 @@
   letter-spacing: 0.16em;
   fill: rgba(244, 241, 234, 0.45);
 }
+
+/* 2026-11-16 (Mika : "plus de cercle orange autour d'un knob") : aucun contour de focus ni de selection dans OPEN ; les
+   fleches du clavier marchent toujours, le reglage touche s'ecrit dans la fenetre du bandeau. MIDI LEARN garde son
+   clignotement ([data-armed]) : c'est un etat, pas un focus. */
+.mm-plugin-arp .mm-p2 :focus,
+.mm-plugin-arp .mm-p2 :focus-visible,
+.mm-plugin-arp .mm-p2 :focus .mm-key-cap,
+.mm-plugin-arp .mm-p2 :focus-visible .mm-key-cap,
+.mm-plugin-arp .mm-p2 :focus-visible .mm-p2-step-cap {
+  outline: none !important;
+}
+
+.mm-plugin-arp .mm-p2 [data-armed='1'] {
+  outline: 2px solid #f47b2f !important;
+}
+
+/* la valeur sous le nom pendant le geste : discrete (la serigraphie, plus l'orange) */
+.mm-plugin-arp .mm-p2-ref[data-on='1'] {
+  color: rgba(240, 234, 224, 0.62);
+}
+
+/* le potard vu de dessus (retro/knob.png) : son ombre portee, fixe */
+.mm-plugin-arp .mm-r-knob-img {
+  filter: drop-shadow(-1px 2px 2px rgba(0, 0, 0, 0.55));
+}

@@ -215,13 +215,14 @@ const DEG = Math.PI / 180;
 const SWEEP = 135;
 
 /**
- * L'image du potard de la face (retro/knob.png, 260 px pour 52 px de page) : depuis le 2026-11-16 le potard du MM-RYTM
- * (voyager/rytmKnob.ts : la base, la prise a six lobes, le capuchon de metal brosse), rendu par la scene sans son repere
- * (hellKnob.tsx ?knobshot). Le repere tourne autour de l'axe du potard au niveau du dessus de la prise (cx, cy), de r0 (le
- * bord du capuchon) a r1 (presque le bord de la base), large de w ; le capuchon (retro/knob-cap.png) repasse par-dessus,
- * comme dans la scene ou il cache le pied du repere. Mesure sur la face (le potard HELL a 0, 0.5 et 1, la meme prise).
+ * L'image du potard de la face (retro/knob.png, 260 px pour 52 px de page) : le potard du MM-RYTM (voyager/rytmKnob.ts :
+ * la base, la prise a six lobes, le capuchon de metal brosse) sans son repere, vu exactement de dessus (2026-11-16, Mika :
+ * "on dirait qu'ils sont deformes sur le bas" : l'image d'avant venait de la camera inclinee de la face, capuchon
+ * decentre). Rendu par three.js, camera orthographique dans l'axe du potard, la boite = la base + 4 % : base, prise et
+ * capuchon concentriques autour de (cx, cy). Le repere part du bord du capuchon (r0 : 0.62 de la base) et passe sur la
+ * prise jusqu'a r1 (pres du bout des lobes), large de w ; le capuchon (retro/knob-cap.png) repasse par-dessus son pied.
  */
-export const KNOB_IMG = { box: 52, cx: 26.9, cy: 29.0, r0: 13.2, r1: 20.4, w: 2.8 } as const;
+export const KNOB_IMG = { box: 52, cx: 26, cy: 26, r0: 15.2, r1: 22, w: 3 } as const;
 
 /** Le potard de la face : son image, son repere a l'angle (degres, 0 en haut), son capuchon. k : l'echelle. */
 export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 1 }) => {
@@ -245,9 +246,9 @@ const KnobModArc: React.FC<{ id: string; k: number }> = ({ id, k }) => {
   const m = useSyncExternalStore(arpMod.subscribe, () => arpMod.of(id));
   if (!m) return null;
   const box = KNOB_IMG.box * k;
-  const cx = 25.9 * k;
-  const cy = 27.6 * k;
-  const R = 23.5 * k;
+  const cx = 26 * k;
+  const cy = 26 * k;
+  const R = 27 * k;
   const at = (v: number): readonly [number, number] => {
     const a = ((-SWEEP + 2 * SWEEP * Math.min(1, Math.max(0, v))) * Math.PI) / 180;
     return [cx + Math.sin(a) * R, cy - Math.cos(a) * R];

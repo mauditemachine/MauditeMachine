@@ -24,7 +24,7 @@ import { registerDialSpec } from '../../scene/screen/menus/registry';
 import { voyExplode } from '../../state/explode';
 import { MATERIAL, type EncId } from '../../theme';
 import { faceDbl } from '../../voyager/faceDbl';
-import { rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry } from '../../voyager/rytmKnob';
+import { RYTM_KNOB, rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry } from '../../voyager/rytmKnob';
 import { voyMsg } from '../../voyager/msg';
 import { voyKnob, type VoyKnobId } from '../../voyager/params';
 import { voySilkExtraKnob } from '../../voyager/silk';
@@ -126,7 +126,7 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       hx: r,
       hz: r,
       y0: 0,
-      y1: 0.27 * P.s,
+      y1: RYTM_KNOB.h * P.s,
       enabled: true,
       machine: 'voy',
     };

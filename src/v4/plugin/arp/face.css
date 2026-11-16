@@ -449,3 +449,10 @@
   background: #ff6a13;
   animation: mm-arp-blink 0.9s steps(2, jump-none) infinite;
 }
+
+/* 2026-11-16 (Mika : "plus de cercle de selection") : aucun contour de focus sur la face du plugin (les jumeaux des
+   potards, les touches) ; le clavier marche toujours, l'ecran de la machine dit le reglage. */
+.mm-plugin-arp :focus,
+.mm-plugin-arp :focus-visible {
+  outline: none !important;
+}

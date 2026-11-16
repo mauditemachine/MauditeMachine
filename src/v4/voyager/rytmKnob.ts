@@ -22,7 +22,7 @@ import { LIT, gainOf } from '../theme';
  * Les cotes du potard (unites du potard, avant son echelle : voyager/theme.ts SIZE_SCALE) : la base au rayon de la jupe
  * des potards du MM-ARP (un rien plus large, comme le MM-RYTM : x 1.06), la hauteur dans le rapport du MM-RYTM.
  */
-export const RYTM_KNOB = { R: 0.3, h: 0.27, markH: 0.012 } as const;
+export const RYTM_KNOB = { R: 0.3, h: 0.15, markH: 0.012 } as const;
 
 const MOOG = { hBase: 0.22, hGrip: 0.6 } as const;
 interface Dims {

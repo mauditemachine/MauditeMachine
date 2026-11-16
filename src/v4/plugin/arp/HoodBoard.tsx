@@ -762,7 +762,7 @@ const PageDial: React.FC = () => {
         aria-valuemax={HOOD_PAGES.length - 1}
         aria-valuenow={cur}
         aria-valuetext={HOOD_PAGES[cur]?.label}
-        style={{ left: cx - box / 2 + 1.5, top: cy - box / 2 + 0.5, width: box, height: box }}
+        style={{ left: cx - box / 2, top: cy - box / 2, width: box, height: box }}
         onPointerDown={(e) => {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
           e.preventDefault();
