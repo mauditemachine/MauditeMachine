@@ -26,7 +26,7 @@
 
 import { Color, Mesh, MeshStandardMaterial, PlaneGeometry, Vector2, type CanvasTexture } from 'three';
 import { albedo } from '../scene/materials';
-import { makeLeather } from './leather';
+import { leatherGrain, leatherSkin } from './leather';
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { APPEARANCE, GAIN, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
@@ -179,6 +179,11 @@ function deckTexts(open: boolean): Text[] {
   return out;
 }
 
+/** Le cuir du plugin MM-ARP : son relief (normalScale a TEXTURE 100), sa teinte (part de la laque), sa brillance. */
+export const LEATHER = { def: 0.7, relief: 1.0, dark: 0.48, rough: 0.8 } as const;
+/** La lumiere du panneau (0..1, 0.5 neutre) : le gain de sa teinte, de 0.6 a 1.4. */
+export const lightGain = (light: number): number => 0.6 + 0.8 * Math.min(1, Math.max(0, light));
+
 export class VoySilk {
   readonly mesh: Mesh;
   readonly texture: CanvasTexture;
@@ -189,6 +194,9 @@ export class VoySilk {
   private plane: (typeof PLANE)[VoySilkKind];
   private open = false;
   draws = 0;
+  /** le cuir (le plugin MM-ARP seul), sa dose (0 : la laque, cache) et la force des aretes entre les sections */
+  leather: Mesh | null = null;
+  private seam = 0;
   /** logos poses au dernier dessin (panneau) */
   logos: string[] = [];
   /** crans choisis des deux selecteurs de forme */
@@ -237,25 +245,25 @@ export class VoySilk {
     this.mesh.name = `voySilk-${kind}`;
     this.mesh.position.y = 0.004;
     this.mesh.receiveShadow = true;
-    // 2026-11-16 (Mika : "fond en cuir") : le cuir du panneau, sous la serigraphie, en vrai relief (carte de normales
-    // eclairee par la scene) et a brillance variable ; meme teinte que le capot
+    // 2026-11-16 (Mika : "fond en cuir", puis : "regarde bien le fond de Legend HZ") : le cuir du panneau, sous la
+    // serigraphie : un cuir noir pleine fleur presque uni, le grain fin en relief (carte de normales eclairee par la
+    // scene, une tuile de 3 unites), la peau sans repetition (couleur, brillance) ; setLook le dose (TEXTURE, 0 : la
+    // laque d'avant, le plan cache) et regle sa lumiere (plugin/arp/look.ts)
     if (PLUGIN_ARP) {
-      const L = makeLeather();
-      const TILE = 2.0;
-      const nrm = L.normal.clone();
-      const rgh = L.rough.clone();
-      for (const t of [nrm, rgh]) {
-        t.repeat.set(this.plane.w / TILE, this.plane.d / TILE);
-        t.needsUpdate = true;
-      }
+      const TILE = 3.0;
+      const nrm = leatherGrain().clone();
+      nrm.repeat.set(this.plane.w / TILE, this.plane.d / TILE);
+      nrm.needsUpdate = true;
+      const skin = leatherSkin(this.plane.w, this.plane.d, kind === 'panel' ? 31 : 47);
       const lg = new PlaneGeometry(this.plane.w, this.plane.d);
       lg.rotateX(-Math.PI / 2);
       lg.translate(0, 0, this.plane.cz);
       const lm = new MeshStandardMaterial({
-        color: albedo('voyPanel', new Color(), (GAIN.voyPanel ?? GAIN.parts) * 0.9),
+        color: new Color(),
+        map: skin.color,
         normalMap: nrm,
-        normalScale: new Vector2(0.6, 0.6),
-        roughnessMap: rgh,
+        normalScale: new Vector2(LEATHER.relief, LEATHER.relief),
+        roughnessMap: skin.rough,
         roughness: 1,
         metalness: 0,
         polygonOffset: true,
@@ -269,8 +277,33 @@ export class VoySilk {
       leather.receiveShadow = true;
       leather.renderOrder = -1;
       this.mesh.add(leather);
+      this.leather = leather;
+      this.setLook(LEATHER.def, 0.5);
     }
     this.draw();
+  }
+
+  /**
+   * Le cuir dose (t : 0 la laque d'avant, 1 le cuir plein) et la lumiere du panneau (light : 0.5 neutre) ; true si la
+   * serigraphie est a redessiner (les aretes entre les sections suivent le cuir). Le plugin MM-ARP seul (look.ts).
+   */
+  setLook(t: number, light: number): boolean {
+    const L = this.leather;
+    if (!L) return false;
+    const m = L.material as MeshStandardMaterial;
+    const k = lightGain(light);
+    L.visible = t > 0.001;
+    const lac = albedo('voyPanel', new Color(), GAIN.voyPanel ?? GAIN.parts);
+    // la peau (base 0.8) : la couleur la compense ; du vernis de la laque au cuir mat
+    const c = lac.clone().lerp(lac.clone().multiplyScalar(LEATHER.dark), t).multiplyScalar(k / 0.8);
+    m.color.copy(c);
+    m.normalScale.setScalar(LEATHER.relief * t);
+    m.roughness = (0.68 + (LEATHER.rough - 0.68) * t) / 0.88;
+    m.metalness = 0.18 * (1 - t);
+    const seam = Math.round(Math.min(1, t * 1.5) * 20) / 20;
+    if (seam === this.seam) return false;
+    this.seam = seam;
+    return true;
   }
 
   private px(x: number): number {
@@ -304,6 +337,23 @@ export class VoySilk {
     // Filets entre les sections (desktop), crochets des groupes
     ctx.strokeStyle = silkA(SILK.lineAlpha);
     ctx.lineWidth = Math.max(1, SILK.lineWidth * PPU);
+    // Les aretes entre les sections (le cuir seul, 2026-11-16, comme des panneaux separes) : un sillon sombre a gauche
+    // du filet, un lisere clair a sa droite ; le filet reste
+    if (this.kind === 'panel' && this.seam > 0) {
+      ctx.save();
+      for (const l of VOY_RULES) {
+        const x = this.px(l[0]);
+        const y0 = this.py(l[1]);
+        const y1 = this.py(l[3]);
+        ctx.fillStyle = `rgba(0, 0, 0, ${(0.7 * this.seam).toFixed(3)})`;
+        ctx.fillRect(x - 0.03 * PPU, y0, 0.026 * PPU, y1 - y0);
+        ctx.fillStyle = `rgba(0, 0, 0, ${(0.3 * this.seam).toFixed(3)})`;
+        ctx.fillRect(x - 0.048 * PPU, y0, 0.018 * PPU, y1 - y0);
+        ctx.fillStyle = `rgba(255, 250, 240, ${(0.1 * this.seam).toFixed(3)})`;
+        ctx.fillRect(x + 0.006 * PPU, y0, Math.max(1, 0.008 * PPU), y1 - y0);
+      }
+      ctx.restore();
+    }
     if (this.kind === 'panel') {
       for (const l of VOY_RULES) {
         ctx.beginPath();

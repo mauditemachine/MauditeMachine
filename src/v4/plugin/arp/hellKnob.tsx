@@ -9,9 +9,7 @@
  * Le clic de la face (voyager/faceDbl.ts, 2026-11-16 ; le double clic avant) : un clic sans mouvement sur un potard ouvre
  * le capot sur la page qui le detaille (un glisser le tourne, rien ne s'ouvre ; la remise a la valeur de depart passe a
  * Alt / Cmd / Ctrl + clic) :
- *   HELL -> FX / HELL ; DELAY -> FX, DELAY ; REVERB -> la page REVERB (la reverbe facon BigSky) ; OVERDRIVE -> SOUND, DISTORTION ;
- *   oscillateurs -> SOUND, OSC + ; filtre -> SOUND, FILTER + ; enveloppes -> SOUND, AMP ; MOD -> SEQ, LFO 2 ;
- *   arpegiateur -> SEQ, STEP SEQUENCER ; VOLUME -> SOUND, MASTER.
+ *   HELL -> la page HELL ; REVERB -> la page REVERB ; DELAY -> RACK, DELAY. Les autres : rien (pageOf).
  */
 
 import { useEffect } from 'react';
@@ -26,7 +24,6 @@ import { MATERIAL, type EncId } from '../../theme';
 import { faceDbl } from '../../voyager/faceDbl';
 import { RYTM_KNOB, rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry } from '../../voyager/rytmKnob';
 import { voyMsg } from '../../voyager/msg';
-import { voyKnob, type VoyKnobId } from '../../voyager/params';
 import { voySilkExtraKnob } from '../../voyager/silk';
 import { VOY_HELL_PLACE, VOY_KNOB } from '../../voyager/theme';
 import { arpExtra } from './extra';
@@ -52,31 +49,16 @@ registerDialSpec(HELL_DIAL, {
   say: (v) => `HELL ${arpExtra.text(ID, v)}`,
 });
 
-/** La page d'un potard de la face : sa page du capot, sa sous-page, le cadre a montrer. */
+/**
+ * La page d'un potard de la face (2026-11-16, Mika : "seuls les boutons qui ont une page ou une section dediee dans OPEN
+ * l'ouvrent") : REVERB (sa page), HELL (sa page), DELAY (RACK, son cadre : TIME, TAPE, MODE). Tous les autres ne font
+ * rien au clic (ni OPEN, ni saut de valeur : ui/Hotspots.tsx tapDial) ; ils se tournent au glisser comme avant.
+ */
 function pageOf(dial: string): { tab: HoodTab; fx: HoodFx | null; focus: string } | null {
   if (dial === HELL_DIAL) return { tab: 'fx', fx: 'hell', focus: 'HELL' };
-  if (!dial.startsWith('v:')) return null;
-  const id = dial.slice(2) as VoyKnobId;
-  if (id === 'delay') return { tab: 'fx', fx: 'rack', focus: 'DELAY' };
-  if (id === 'reverb') return { tab: 'fx', fx: 'reverb', focus: 'REVERB' };
-  if (id === 'dist') return { tab: 'sound', fx: null, focus: 'DISTORTION' };
-  if (id === 'chorus') return { tab: 'fx', fx: 'rack', focus: 'DELAY' };
-  if (id === 'volume') return { tab: 'sound', fx: null, focus: 'MASTER' };
-  switch (voyKnob(id)?.section) {
-    case 'osc':
-      return { tab: 'sound', fx: null, focus: 'OSC +' };
-    case 'filter':
-      return { tab: 'sound', fx: null, focus: 'FILTER +' };
-    case 'feg':
-    case 'aeg':
-      return { tab: 'sound', fx: null, focus: 'AMP' };
-    case 'mod':
-      return { tab: 'seq', fx: null, focus: 'LFO 2' };
-    case 'arp':
-      return { tab: 'seq', fx: null, focus: 'STEP SEQUENCER' };
-    default:
-      return null;
-  }
+  if (dial === 'v:reverb') return { tab: 'fx', fx: 'reverb', focus: 'REVERB' };
+  if (dial === 'v:delay') return { tab: 'fx', fx: 'rack', focus: 'DELAY' };
+  return null;
 }
 
 const DEF_ANGLE_AXIS = new Vector3(0, 1, 0);

@@ -2683,17 +2683,67 @@
    2026-11-16 (Mika : "le front actuel me convient ... design des boutons et fond en cuir") : le cuir du panneau, des
    touches de caoutchouc a arete, de vraies LED a lentille, l'ombre douce des potards. Rien d'autre ne change.
    ===================================================================================================================== */
+/*
+ * Le fond : la laque d'avant, et le cuir par-dessus (::before), dose par --mm-leather (LEATHER TEXTURE, look.ts) ; la
+ * lumiere du panneau (--mm-light, 0.5 : neutre) assombrit ou eclaircit les deux. Le cuir (revu le 2026-11-16, Mika :
+ * "regarde bien le fond de Legend HZ") : noir presque uni, grain fin et mat (retro/leather.png, tuile de 256 px), de
+ * larges nappes de lumiere douces (les degrades) : rien ne se repete a l'oeil.
+ */
+.mm-plugin-arp .mm-p2 {
+  --mm-dim: linear-gradient(rgba(0, 0, 0, calc((0.5 - var(--mm-light, 0.5)) * 0.42)), rgba(0, 0, 0, calc((0.5 - var(--mm-light, 0.5)) * 0.42)));
+  --mm-lift: linear-gradient(rgba(255, 250, 240, calc((var(--mm-light, 0.5) - 0.5) * 0.09)), rgba(255, 250, 240, calc((var(--mm-light, 0.5) - 0.5) * 0.09)));
+  --mm-skin:
+    radial-gradient(55% 45% at 20% 28%, rgba(255, 255, 255, 0.022), transparent 70%),
+    radial-gradient(50% 60% at 80% 70%, rgba(0, 0, 0, 0.16), transparent 72%),
+    radial-gradient(40% 35% at 58% 14%, rgba(255, 255, 255, 0.018), transparent 70%),
+    radial-gradient(45% 40% at 35% 85%, rgba(0, 0, 0, 0.1), transparent 70%);
+}
+
 .mm-plugin-arp .mm-p2-board {
+  z-index: 0;
   background:
-    radial-gradient(140% 70% at 50% 0%, rgba(255, 245, 230, 0.04), transparent 70%),
-    url('./retro/leather.png') 0 0 / 128px 128px repeat,
-    #1f1d1c;
+    var(--mm-dim),
+    var(--mm-lift),
+    radial-gradient(140% 70% at 50% 0%, rgba(255, 245, 230, 0.035), transparent 70%),
+    linear-gradient(180deg, #262422 0%, #23211f 45%, #1f1d1b 100%);
+}
+
+.mm-plugin-arp .mm-p2-board::before,
+.mm-plugin-arp .mm-p2-strip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--mm-leather, 0.7);
+  background:
+    var(--mm-dim),
+    var(--mm-lift),
+    var(--mm-skin),
+    url('./retro/leather.png') 0 0 / 256px 256px repeat,
+    #161618;
 }
 
 .mm-plugin-arp .mm-p2-strip {
+  z-index: 0;
   background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.45)),
-    url('./retro/leather.png') 0 0 / 128px 128px repeat;
+    var(--mm-dim),
+    linear-gradient(180deg, #1c1a19, #191716);
+}
+
+.mm-plugin-arp .mm-p2-strip::before {
+  background:
+    var(--mm-dim),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.4)),
+    url('./retro/leather.png') 0 0 / 256px 256px repeat,
+    #161618;
+}
+
+/* les filets entre les cadres : de fines aretes, comme des panneaux separes (le cuir seul) */
+.mm-plugin-arp .mm-p2-frame[data-sep='1']::after {
+  box-shadow:
+    -1px 0 0 rgba(0, 0, 0, calc(0.75 * var(--mm-leather, 0.7))),
+    -2px 0 0 rgba(0, 0, 0, calc(0.3 * var(--mm-leather, 0.7)));
 }
 
 /* la touche : le corps de caoutchouc a l'arete marquee, le dessus en plateau un rien plus clair, un reflet doux */

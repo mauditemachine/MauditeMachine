@@ -33,6 +33,7 @@ import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore
 import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { SkyPage } from './SkyPage';
+import { HoodLookButton } from './LookPanel';
 import { arpMidi } from './midimap';
 import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
@@ -738,6 +739,8 @@ const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <span className="mm-r-model">MM-ARP</span>
         </button>
         <PageKeys />
+        {/* Les reglages d'aspect (2026-11-16) : le cuir, la lumiere du panneau */}
+        <HoodLookButton />
         {/* La croix : une petite touche de la face, la croix serigraphiee dessus */}
         <button type="button" className="mm-key mm-r-x" aria-label="Close the machine" title="Close" onClick={onClose}>
           <span className="mm-key-cap" aria-hidden="true">

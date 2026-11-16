@@ -64,6 +64,7 @@ import { STATE_PREFIX } from '../restore';
 import { arpDisk, DISK_FORMAT, type DiskItem } from './disk';
 import { arpExtra, EXTRA_IDS, isExtra } from './extra';
 import { arpMidi, type MidiMapItem } from './midimap';
+import { look } from './look';
 import { arpSteps } from './steps';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
@@ -578,6 +579,8 @@ export const arpBridge = {
     pattern.subscribe(changed);
     pattern.fx.subscribe(changed);
     presets.subscribe(stateChanged);
+    // Les reglages d'aspect (le cuir, la lumiere du panneau : look.ts) : dans l'etat du projet, pas a l'hote
+    look.subscribe(stateChanged);
     // Les gestes : un pointeur enfonce tient le geste des potards qui changent, relache il le ferme
     const opts = { capture: true, passive: true } as const;
     window.addEventListener('pointerdown', (e) => {

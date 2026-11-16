@@ -29,6 +29,7 @@ import { DiskNameDialog } from './DiskPresets';
 import { HoodBoard } from './HoodBoard';
 import { HellKnob } from './hellKnob';
 import { FaceModArcs } from './FaceModArcs';
+import { FaceLook, FaceLookButton } from './LookPanel';
 import './hypno';
 import { LearnMarks } from './HoodPanel';
 
@@ -147,6 +148,8 @@ const ArpFace: React.FC = () => {
         <HoodBoard stage={stage} />
         <HellKnob stage={stage} />
         <FaceModArcs stage={stage} />
+        <FaceLook stage={stage} />
+        <FaceLookButton stage={stage} />
         <LearnMarks />
       </Boundary>
       {error && (
