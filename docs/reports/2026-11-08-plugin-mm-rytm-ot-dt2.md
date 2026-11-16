@@ -520,6 +520,16 @@ Mika : « ajoute aussi le 909 PUNCH KICK et WAREHOUSE RUMBLE ».
 - **Verifie** : le fichier multiplie par l'enveloppe du plugin a DEC 124 (HOLD 4 ms, tau 0.65 s) contre le rendu du site a son DEC : ecart a -91 dB (808), -94 dB (909 PUNCH), -94 dB (WAREHOUSE RUMBLE), le bruit du 16 bits ; le 808 SUB BOOM regenere a l'octet pres. Chromium sans son : 41 samples BD, les trois derniers dans l'ordre, le programme dit `bd/Bd Warehouse Rumble.wav` et la face va chercher les trois fichiers. Glob CMake : 154 fichiers. Rien dans `src/` : site non touche, tsc inchange (105).
 - **Build vert** (run 43789438836), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 166abec, branche claude/intelligent-ride-56tyeo, 2026-11-16 02:06 UTC ; le binaire du VST3 contient les trois kicks.
 
+### Lot 33, HARDGROOVE KICK et INDUSTRIAL SLAM du site (2026-11-16)
+
+Mika : « ajoute aussi HARDGROOVE KICK et INDUSTRIAL SLAM ».
+
+- **Deux kicks de plus** : `plugin/mm-rytm/samples/bd/Bd Hardgroove Drive.wav` (1.27 s ; le preset du site : 909 a SYN 0.6, sample 93-Hardgroove-Drive a LEV 0.9, K.DECAY 0.42, K.DRIVE 0.5, K.ATTACK 0.72) et `Bd Industrial Slam.wav` (1.59 s ; 909 a SYN 0.55, sample 94-Industrial-Slam a LEV 0.95, K.DECAY 0.54, K.DRIVE 0.72), mono 48 kHz 16 bits, par `tools/site-sound.mjs` avec le DEC de depart du site (127), comme le lot 32.
+- **Le « drive: 0.35 » du preset INDUSTRIAL SLAM n'existe pas** : ce n'est pas un reglage de piste (`kdrive` l'est, deja a 0.72), le site l'ignore (c'est une des 105 erreurs de tsc, `preset.ts` ligne 45) ; le fichier rend donc ce que le site joue vraiment.
+- **Plus bas au DEC 124** : HARDGROOVE environ 2 dB, INDUSTRIAL SLAM environ 4.5 dB sous les autres kicks (comme WAREHOUSE RUMBLE : la queue remontee touche la crete du fichier). Monter LEV si besoin.
+- **Ou les trouver** : BD, SAMP tout au bout : 808 SUB BOOM (39), 909 PUNCH (40), HARDGROOVE DRIVE (41), INDUSTRIAL SLAM (42), WAREHOUSE RUMBLE (43 / 43). HARDGROOVE porte le nom de son sample du site (HARDGROOVE DRIVE) : la face retire « Kick » des noms.
+- **Verifie** : le fichier sous l'enveloppe du DEC 124 contre le site : -94.5 dB (HARDGROOVE), -95.2 dB (INDUSTRIAL SLAM) ; les trois kicks d'avant regeneres a l'octet pres. Chromium sans son : 43 samples BD, les cinq du site a la fin, la face va chercher les cinq fichiers. Glob CMake : 156 fichiers. Site non touche, tsc 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -637,6 +647,7 @@ Mika : « ajoute aussi le 909 PUNCH KICK et WAREHOUSE RUMBLE ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 33)** : la commande mm-rytm ; BD, SAMP tout au bout (HARDGROOVE DRIVE, INDUSTRIAL SLAM), comparer au site.
 - **Cote Mika (lot 32)** : la commande mm-rytm ; BD, SAMP tout au bout (909 PUNCH, WAREHOUSE RUMBLE), comparer au site ; pour WAREHOUSE RUMBLE, REVERB de la piste a 28 comme le preset du site. Si sur le site il avait regle un autre DEC pour ces kicks, me le donner : un chiffre a changer dans l'outil.
 - **Cote Mika (lot 31)** : la commande mm-rytm, rouvrir Ableton ; piste BD, SAMP tout au bout (BD 808 SUB BOOM), ou OPEN, SAMPLE, fleche gauche depuis le 1er ; comparer au site. Dire si d'autres sons du site doivent suivre (909 PUNCH KICK, WAREHOUSE RUMBLE...) : une ligne chacun dans `tools/site-sound.mjs`.
 - **Cote Mika (lot 30)** : la commande mm-rytm ; dans Ableton, mapper **Hell Mix** au Roto ou a l'APC et l'automatiser ; PERFORM : tenir le pad 15 (HELL) sur un breakdown. Dire si RPT 1/4 lui manque.

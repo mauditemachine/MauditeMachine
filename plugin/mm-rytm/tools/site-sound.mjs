@@ -53,6 +53,25 @@ const SOUNDS = {
     tw: { model: '909', tune: 0.5, attack: 0.5, decay: 0.55, drive: 0.45, snappy: 0.5, syn: 0.5, smp: { lev: 0.95, st: 0, start: 0, len: 1, rev: false } },
     dec: 127,
   },
+  // HARDGROOVE KICK (preset.ts : syn 0.6, slev 0.9, kdecay 0.42, kdrive 0.5, kattack 0.72), le DEC de depart du site (127)
+  'HARDGROOVE KICK': {
+    fam: 'bd',
+    voice: 'BD',
+    file: 'Bd Hardgroove Drive.wav',
+    sample: 'bd/93-Hardgroove-Drive.wav',
+    tw: { model: '909', tune: 0.5, attack: 0.72, decay: 0.42, drive: 0.5, snappy: 0.5, syn: 0.6, smp: { lev: 0.9, st: 0, start: 0, len: 1, rev: false } },
+    dec: 127,
+  },
+  // INDUSTRIAL SLAM (preset.ts : syn 0.55, slev 0.95, kdecay 0.54, kdrive 0.72 ; son "drive: 0.35" n'est pas un reglage de
+  // piste, le site l'ignore : rien ici non plus), le DEC de depart du site (127)
+  'INDUSTRIAL SLAM': {
+    fam: 'bd',
+    voice: 'BD',
+    file: 'Bd Industrial Slam.wav',
+    sample: 'bd/94-Industrial-Slam.wav',
+    tw: { model: '909', tune: 0.5, attack: 0.5, decay: 0.54, drive: 0.72, snappy: 0.5, syn: 0.55, smp: { lev: 0.95, st: 0, start: 0, len: 1, rev: false } },
+    dec: 127,
+  },
 };
 
 /** Le DEC AMP du site et du plugin (audio/voicelaw.ts decayTau) : null = tenu. */
