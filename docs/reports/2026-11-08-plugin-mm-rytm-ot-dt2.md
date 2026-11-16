@@ -542,6 +542,7 @@ Mika : « Menu open le 1 serigraphie mon pref. Boutons drag midi close : le D »
 - **Verifie** : Chromium (vraie face, page FX et les 4 onglets) : l'onglet choisi en orange (#FF8A1F), les autres a 50 % ; CLOSE blanc au survol, DRAG MIDI orange sans fond ; CLOSE et Echap ferment toujours OPEN. Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 43795050003), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 1297810, branche claude/intelligent-ride-56tyeo, 2026-11-16 03:03 UTC.
 - **La grande poignee plus petite** (Mika, a la question de son style : « ptete pas si gros que ca ») : la poignee DRAG MIDI de l'onglet PATTERN reste un bouton orange, mais a la hauteur de SAVE .MID, NEW et CLEAR (`.mm-open-drag-big` : marges .5em 1em, titre 1.05em au lieu de 1.4em). Chromium : la rangee alignee, rien d'autre ne bouge ; site identique au pixel pres, tsc 105.
+- **Build vert** (run 43800651686), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 244c32b, branche claude/intelligent-ride-56tyeo, 2026-11-16 03:57 UTC.
 
 ## 2. Decisions prises et pourquoi
 
