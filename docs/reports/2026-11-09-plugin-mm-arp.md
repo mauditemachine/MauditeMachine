@@ -439,3 +439,24 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 - Camera ARP plus inclinee que RYTM : le capuchon masque une partie du repere vers le haut.
 - Echap pendant l'animation d'ouverture : un echec sur trois en test, a surveiller.
 - Suite : moteur de reverb facon BigSky (12 machines) + page REVERB.
+
+## 2026-11-16 (suite 2) : reverb facon BigSky + page REVERB
+
+### Ce qui a ete fait
+- Moteur C++ porte depuis la reference JS (branche claude/gallant-franklin-3hka73, docs/vst3/sky-reference) : 12 machines (ROOM, HALL, PLATE, SPRING, SWELL, BLOOM, CLOUD, CHORALE, SHIMMER, MAGNETO, NONLINEAR, REFLECTIONS), FDN 8 lignes Householder, lecture Hermite modulee, amortissement 3 bandes cale sur le Tr60, diffuseurs, pre-delay glissant, premieres reflexions ; fondu de 20 ms sur changement de structure, rien d'alloue sur le thread audio.
+- 11 params hote (section sky, dont 5 places xSkyP1..P5 selon la machine) ; xSkyType 0 = CLASSIC (ancien convolver).
+- Page REVERB dans OPEN (SkyPage.tsx, sky.ts, skyModel.ts) : selecteur PAGE a 5 positions, clic sur le knob REVERB de la face = page REVERB, 12 touches TYPE, fenetre avec nom, enveloppe de queue et reglage touche, INIT, CLASSIC ; memoire par machine (mm.v4.plugin.arp.sky).
+- Test sky_test dans plugin-arp.yml : Tr60 HALL/ROOM -2 a -4 %, energie 0.9 a 1.03, 12 machines bornees au max, independance aux blocs, CPU 3.6 a 7 % d'un coeur.
+
+### Decisions prises et pourquoi
+- Source : demande de Mika transmise par la session Reverb, confirmee par Mika.
+- Projet neuf en HALL (DECAY 0.43 = 2.44 s) ; anciens projets, .mmarp et banque d'usine en CLASSIC (sans xSkyType) : aucun changement de son, tests bit-exact intacts.
+- revSize/revTone/revPre/shimmer gardes pour CLASSIC (pas de migration).
+
+### Ce qui reste a faire / points en suspens
+- Mika : ecouter les 12 machines (jamais ecoutees).
+- Cadre REVERB de la page RACK actif seulement en CLASSIC : a retirer ou annoter selon Mika.
+- Changement de machine par automation/preset : la memoire par machine n'est pas rechargee (voulu).
+
+### Commandes utiles ajoutees
+- ./build-dsp/mmarp_sky_test (job dsp de plugin-arp.yml).
