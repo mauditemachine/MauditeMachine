@@ -71,7 +71,7 @@ function rowHalfGap(id: VoyKnobId): number {
   return Number.isFinite(gap) ? gap / 2 : 0;
 }
 
-export function buildKnobGeometry(mobile: boolean): BufferGeometry {
+export function buildKnobGeometry(mobile: boolean, withMark = true): BufferGeometry {
   const K = VOY_KNOB;
   const seg = mobile ? K.segments.mobile : K.segments.desktop;
   // Jupe : un disque fin, son bord biseaute (rTop < r)
@@ -94,7 +94,8 @@ export function buildKnobGeometry(mobile: boolean): BufferGeometry {
   cap.translate(0, K.skirt.h + K.h / 2, 0);
   const mark = new BoxGeometry(K.mark.w, K.mark.h, K.mark.d);
   mark.translate(0, K.skirt.h + K.h + K.mark.h / 2 - 0.002, -K.mark.d / 2 - 0.02);
-  const parts = [skirt, cap, mark].map((g) => {
+  // Sans son repere (2026-11-16, le plugin MM-ARP : l'image du potard pour les pages d'OPEN, plugin/arp/hellKnob.tsx)
+  const parts = (withMark ? [skirt, cap, mark] : [skirt, cap]).map((g) => {
     const out = g.toNonIndexed();
     g.dispose();
     out.deleteAttribute('uv');
@@ -102,7 +103,8 @@ export function buildKnobGeometry(mobile: boolean): BufferGeometry {
   });
   paintSolid(parts[0], 'voySkirt');
   paintSolid(parts[1], 'voyKnob');
-  paintLinear(parts[2], LIT.mark);
+  if (withMark) paintLinear(parts[2], LIT.mark);
+  else mark.dispose();
   const g = mergeGeometries(parts, false);
   for (const q of parts) q.dispose();
   if (!g) throw new Error('voyager: knobs merge failed');

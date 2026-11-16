@@ -1,24 +1,25 @@
 /**
- * Les pieces de la carte noire du capot (HoodBoard.tsx). Refaites le 2026-11-13 (Mika : "le look d'OPEN n'est pas beau,
- * plus realiste : knobs avec relief, ombre, jupe crantee comme ceux de la face avant ; pour les reglages a peu de choix,
- * des petits boutons poussoirs 3D avec LED, ou le style du bouton CHORUS de la face" ; "les selecteurs a positions doivent
- * se regler au mouvement de souris, cran par cran, pas au clic").
+ * Les pieces du capot du MM-ARP (HoodBoard.tsx), habillees comme la face avant (2026-11-16, Mika : "la face avant a un
+ * look Moog retro, les pages OPEN font VST moderne ; on doit croire que c'est un deuxieme panneau du meme synthe").
  *
- * - PcbKnob : le potard de la face, en relief (ombre portee, jupe crantee, capuchon cannele, reflet fixe, trait blanc) ;
- *   une LED a cote de son nom s'allume quand le reglage colore le son (loin de son neutre : FILTER +, les doses d'effets,
- *   l'EQ...) : eteinte, le reglage ne fait rien. Un reglage sans effet tant qu'un autre est a zero (COMB FB sans COMB,
- *   RATE d'un phaser coupe) est grise.
- * - PcbStep : deux a quatre crans : la touche noire rectangulaire de CHORUS, ses LED et leurs noms au-dessus. Elle se
- *   regle en glissant verticalement, cran par cran (vers le haut : le cran suivant), a la molette, aux fleches ; un clic
- *   sans glisser ne change rien, sauf une touche a deux crans (ON / OFF) : un poussoir, un clic bascule.
- * - PcbSelect : plus de quatre crans (CHORD, BEND, les vitesses, la matrice) : un petit afficheur ; glisser verticalement
- *   passe d'un cran a l'autre, un clic sans glisser deroule la liste (le choix se fait dans la liste).
- * - PcbKey : la touche de la face (bandeau, banque, DRAG MIDI).
+ * - PcbKnob : LE potard de la face : son image rendue par la scene elle-meme (retro/knob.png : le potard HELL de la face
+ *   sans son repere, sous la lumiere de la machine, plugin/arp/hellKnob.tsx ?knobshot), et son repere blanc dessine
+ *   par-dessus, qui tourne autour du centre du capuchon (KNOB_IMG). Son nom dessous, serigraphie comme la face ; ses
+ *   bouts de course en petit de part et d'autre. Un reglage sans effet tant qu'un autre est a zero (COMB FB sans COMB)
+ *   est grise.
+ * - PcbStep (deux a quatre crans) : la touche de CHORUS de la face (retro/key.png), une LED rouge-orange par cran
+ *   au-dessus, leurs noms au-dessus des LED. Glisser vertical, cran par cran ; un clic sans glisser ne change rien,
+ *   sauf une touche a deux crans (ON / OFF) : un poussoir, un clic bascule.
+ * - PcbRotary (cinq a sept crans) : le petit commutateur rotatif de la face (MODE du filtre), ses crans ecrits autour ;
+ *   glisser vertical, cran par cran.
+ * - PcbSelect (plus de sept crans) : une fenetre de verre noir, comme l'ecran de la face ; glisser vertical, cran par
+ *   cran ; un clic sans glisser deroule la liste.
+ * - PcbKey : la touche noire de la face, sa LED rouge-orange au-dessus quand elle est allumee.
  *
  * Deux sources, memes pieces : un reglage du VST3 seul (extra.ts, arpExtra) ou un TWEAK du site (voyager/params.ts,
- * voyParams). Le reglage touche s'ecrit sur l'afficheur du bandeau (hoodLcd, et voyMsg pour l'ecran de la face).
- * Potard : glisser vertical (Maj : fin), molette, double-clic = la valeur de depart, fleches (Maj : x10), Debut, Fin,
- * Suppr. En MIDI LEARN, un clic arme le reglage (arpBridge.learnArm) sans le bouger.
+ * voyParams). Le reglage touche s'ecrit dans la fenetre du bandeau (hoodLcd) et sur l'ecran de la face (voyMsg).
+ * Potard : glisser vertical (Maj : fin), molette, double-clic ou Alt / Cmd / Ctrl + clic = la valeur de depart, fleches
+ * (Maj : x10), Debut, Fin, Suppr. En MIDI LEARN, un clic arme le reglage (arpBridge.learnArm) sans le bouger.
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -68,8 +69,6 @@ const MASTER_OF: Readonly<Record<string, string>> = {
   xPhRate: 'xPhMix', xPhDepth: 'xPhMix', xPhFb: 'xPhMix',
   xFlRate: 'xFlMix', xFlDepth: 'xFlMix', xFlFb: 'xFlMix',
   xPumpRate: 'xPumpDepth', xPumpShape: 'xPumpDepth',
-  xHellSync: 'xHellMix', xHellTime: 'xHellMix', xHellFb: 'xHellMix', xHellShift: 'xHellMix', xHellUpDown: 'xHellMix', xHellSpread: 'xHellMix',
-  xHellLfoRate: 'xHellMix', xHellLfoDepth: 'xHellMix', xHellTone: 'xHellMix',
 };
 const near = (a: number, b: number): boolean => Math.abs(a - b) < 0.0005;
 /** La LED d'un reglage : null s'il n'en a pas, sinon allumee quand il colore le son. */
@@ -201,92 +200,29 @@ const pageScale = (el: HTMLElement | null): number => (el ? el.getBoundingClient
 
 /* ---------------- le dessin ---------------- */
 
-/** Les degrades et l'ombre communs (une fois par page). */
-export const PcbDefs: React.FC = () => (
-  <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-    <defs>
-      {/* la jupe : de l'acier noirci, eclaire d'en haut a gauche */}
-      <linearGradient id="mm-k-skirt" x1="0.2" y1="0" x2="0.8" y2="1">
-        <stop offset="0" stopColor="#3b3b3c" />
-        <stop offset="0.45" stopColor="#1a1a1b" />
-        <stop offset="1" stopColor="#060606" />
-      </linearGradient>
-      {/* le flanc du capuchon */}
-      <linearGradient id="mm-k-side" x1="0.25" y1="0" x2="0.75" y2="1">
-        <stop offset="0" stopColor="#4a4a4b" />
-        <stop offset="0.35" stopColor="#1c1c1d" />
-        <stop offset="1" stopColor="#030303" />
-      </linearGradient>
-      {/* le dessus du capuchon, un peu bombe */}
-      <radialGradient id="mm-k-top" cx="40%" cy="32%" r="75%">
-        <stop offset="0" stopColor="#353536" />
-        <stop offset="0.6" stopColor="#161617" />
-        <stop offset="1" stopColor="#0a0a0a" />
-      </radialGradient>
-      <radialGradient id="mm-k-gloss" cx="38%" cy="26%" r="40%">
-        <stop offset="0" stopColor="rgba(255,255,255,0.22)" />
-        <stop offset="1" stopColor="rgba(255,255,255,0)" />
-      </radialGradient>
-      <filter id="mm-k-shadow" x="-40%" y="-40%" width="180%" height="190%">
-        <feGaussianBlur stdDeviation="2.2" />
-      </filter>
-      {/* la touche noire de CHORUS */}
-      <linearGradient id="mm-s-cap" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#2a2928" />
-        <stop offset="0.5" stopColor="#171615" />
-        <stop offset="1" stopColor="#0c0b0b" />
-      </linearGradient>
-    </defs>
-  </svg>
-);
+/** Plus rien a definir une fois par page (gardee pour HoodBoard). */
+export const PcbDefs: React.FC = () => null;
 
 const DEG = Math.PI / 180;
 const SWEEP = 135;
-const KNOB_TICKS = Array.from({ length: 11 }, (_, i) => -SWEEP + (i * 2 * SWEEP) / 10);
-const FLUTES = Array.from({ length: 24 }, (_, i) => i * 15);
-const KNURL = Array.from({ length: 60 }, (_, i) => i * 6);
 
 /**
- * Le potard en relief : ombre portee, jupe crantee, flanc et dessus du capuchon, 24 cannelures, le trait blanc ; la
- * lumiere ne tourne pas avec lui (reflets fixes), les cannelures et le trait tournent. size : le diametre de la jupe.
+ * L'image du potard de la face (retro/knob.png, 260 px pour 52 px de page) : le centre du capuchon, autour duquel tourne
+ * le repere, et le repere lui-meme (de r0 a r1 de ce centre, sa largeur w), mesures sur la face (le potard HELL a 0, 0.5
+ * et 1, la meme prise).
  */
-export const KnobSvg: React.FC<{ angle: number; size?: number; ticks?: boolean }> = ({ angle, size = 46, ticks = true }) => {
-  const V = 30;
+export const KNOB_IMG = { box: 52, cx: 27.8, cy: 32.2, r0: 1.6, r1: 11.6, w: 1.6 } as const;
+
+/** Le potard de la face : son image, son repere a l'angle (degres, 0 en haut). k : l'echelle (1 : un petit potard de la face). */
+export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 1 }) => {
+  const K = KNOB_IMG;
   return (
-    <svg className="mm-p2-knob-svg" width={size + 14} height={size + 14} viewBox={`${-V} ${-V} ${2 * V} ${2 * V}`} aria-hidden="true">
-      {ticks &&
-        KNOB_TICKS.map((a) => {
-          const s = Math.sin(a * DEG);
-          const c = -Math.cos(a * DEG);
-          return <line key={a} x1={s * 25} y1={c * 25} x2={s * 28} y2={c * 28} className="mm-p2-tick" />;
-        })}
-      {/* l'ombre portee, decalee vers le bas */}
-      <ellipse cx="1" cy="4" rx="21" ry="20.5" fill="rgba(0,0,0,0.75)" filter="url(#mm-k-shadow)" />
-      {/* la jupe et son crantage */}
-      <circle r="22" fill="url(#mm-k-skirt)" />
-      <g transform={`rotate(${angle})`}>
-        {KNURL.map((a) => (
-          <line key={a} x1="0" y1="-19.6" x2="0" y2="-21.7" transform={`rotate(${a})`} stroke="rgba(0,0,0,0.75)" strokeWidth="1.1" />
-        ))}
-      </g>
-      <circle r="22" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
-      {/* le flanc du capuchon */}
-      <circle r="17.6" fill="#020202" />
-      <circle r="17.2" fill="url(#mm-k-side)" />
-      <g transform={`rotate(${angle})`}>
-        {FLUTES.map((a) => (
-          <line key={a} x1="0" y1="-13.6" x2="0" y2="-17" transform={`rotate(${a})`} stroke="rgba(0,0,0,0.7)" strokeWidth="1.6" strokeLinecap="round" />
-        ))}
-      </g>
-      {/* le dessus, son reflet fixe, le trait */}
-      <circle r="13.4" fill="url(#mm-k-top)" />
-      <circle r="13.4" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
-      <circle r="13.4" fill="url(#mm-k-gloss)" />
-      <g transform={`rotate(${angle})`}>
-        <line x1="0" y1="-3" x2="0" y2="-16.4" stroke="rgba(0,0,0,0.6)" strokeWidth="3.4" strokeLinecap="round" />
-        <line x1="0" y1="-3.4" x2="0" y2="-16" stroke="#f4f1ea" strokeWidth="2.2" strokeLinecap="round" />
-      </g>
-    </svg>
+    <span className="mm-r-knob" style={{ width: K.box * k, height: K.box * k }} aria-hidden="true">
+      <span className="mm-r-knob-img" />
+      <span className="mm-r-knob-axis" style={{ left: K.cx * k, top: K.cy * k, transform: `rotate(${angle}deg)` }}>
+        <span className="mm-r-knob-mark" style={{ left: (-K.w * k) / 2, top: -K.r1 * k, width: K.w * k, height: (K.r1 - K.r0) * k }} />
+      </span>
+    </span>
   );
 };
 
@@ -307,7 +243,6 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
   const dim = useInert(id);
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; v: number; pid: number } | null>(null);
-  const led = colours(id, v);
 
   useWheel(el, (t, fine) => setValue(id, SRC.of(id) + t * (fine ? 0.005 : 0.02)));
 
@@ -358,16 +293,11 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
     e.stopPropagation();
     if (!learning()) setValue(id, next);
   };
-  const size = small ? 30 : big ? 54 : 40;
+  const k = small ? 0.78 : big ? 1.3 : 1;
+  const box = KNOB_IMG.box * k;
 
   return (
     <div className="mm-p2-cell mm-p2-knob" data-small={small ? '1' : undefined} data-big={big ? '1' : undefined} data-inert={dim ? '1' : undefined} data-x={id}>
-      {!small && (
-        <span className="mm-p2-name">
-          {name}
-          {led !== null && <i className="mm-p2-led mm-p2-name-led" data-on={led ? '1' : undefined} aria-hidden="true" />}
-        </span>
-      )}
       <div
         ref={el}
         className="mm-p2-knob-hit"
@@ -379,7 +309,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
         aria-valuenow={Math.round(v * 100)}
         aria-valuetext={SRC.text(id, v)}
         data-armed={armed ? '1' : undefined}
-        style={small ? { width: size + 14, height: size + 14, top: -2 } : { width: size + 14, height: size + 14, marginLeft: -(size + 14) / 2 }}
+        style={small ? { width: box, height: box } : { width: box, height: box, marginLeft: -box / 2 }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -389,12 +319,17 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
         onPointerEnter={() => pcbTouch.set(id)}
         onKeyDown={onKey}
       >
-        <KnobSvg angle={-SWEEP + v * 2 * SWEEP} size={size} ticks={!small} />
+        <RetroKnob angle={-SWEEP + v * 2 * SWEEP} k={k} />
       </div>
       {!small && (
         <span className="mm-p2-ends" aria-hidden="true">
           <span>{lo}</span>
           <span>{hi}</span>
+        </span>
+      )}
+      {!small && (
+        <span className="mm-p2-name">
+          {name}
         </span>
       )}
       {small ? (
@@ -403,7 +338,7 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
         </span>
       ) : (
         <span className="mm-p2-ref" data-on={on ? '1' : undefined}>
-          {on ? SRC.text(id, v) : ref_}
+          {on ? SRC.text(id, v) : ''}
         </span>
       )}
     </div>
@@ -540,7 +475,76 @@ export const PcbStep: React.FC<CellProps & { w?: number }> = ({ id, name, ref_, 
         <span className="mm-p2-step-cap" />
       </button>
       <span className="mm-p2-ref" data-on={on ? '1' : undefined}>
-        {on ? steps[idx] : ref_}
+        {on ? steps[idx] : ''}
+      </span>
+    </div>
+  );
+};
+
+/**
+ * Le commutateur rotatif de la face (MODE du filtre : un petit potard, ses crans ecrits autour, un trait par cran) pour
+ * cinq a sept crans. Glisser vertical, cran par cran ; molette, fleches.
+ */
+export const PcbRotary: React.FC<CellProps & { w?: number }> = ({ id, name, w = 108 }) => {
+  const { idx, steps, last, pick } = useStepped(id);
+  const armed = useArmed(id);
+  const on = useTouched(id);
+  const dim = useInert(id);
+  const el = useRef<HTMLDivElement>(null);
+  useWheel(el, (t) => pick(stepOf(id, SRC.of(id)) + t));
+  const g = useStepDrag(id, idx, last, pick);
+  const n = steps.length;
+  const spread = n <= 5 ? 150 : 210;
+  const angles = steps.map((_, i) => -spread / 2 + (i * spread) / Math.max(1, n - 1));
+  const k = 0.74;
+  const box = KNOB_IMG.box * k;
+  // le centre des crans : le pied du potard (sous le centre du capuchon de l'image)
+  const cx = w / 2;
+  const cy = 12 + box / 2 + 1;
+  const R = box / 2 + 9;
+  return (
+    <div className="mm-p2-cell mm-p2-rot" data-x={id} data-inert={dim ? '1' : undefined} style={{ width: w }}>
+      <svg className="mm-p2-rot-ticks" width={w} height={70} aria-hidden="true">
+        {angles.map((a, i) => (
+          <line key={i} x1={cx + Math.sin(a * DEG) * (R - 6)} y1={cy - Math.cos(a * DEG) * (R - 6)} x2={cx + Math.sin(a * DEG) * (R - 2)} y2={cy - Math.cos(a * DEG) * (R - 2)} data-on={i === idx ? '1' : undefined} />
+        ))}
+      </svg>
+      {steps.map((s, i) => {
+        const a = angles[i] * DEG;
+        const x = cx + Math.sin(a) * (R + 3);
+        const y = cy - Math.cos(a) * (R + 3);
+        const side = Math.abs(x - cx) < 4 ? 'c' : x < cx ? 'l' : 'r';
+        return (
+          <span key={s} className="mm-p2-rot-pos" data-side={side} data-on={i === idx ? '1' : undefined} style={{ left: x, top: y }} aria-hidden="true">
+            {s}
+          </span>
+        );
+      })}
+      <div
+        ref={el}
+        className="mm-p2-knob-hit mm-p2-rot-hit"
+        role="slider"
+        tabIndex={0}
+        aria-label={`${fullName(id)}: ${steps[idx]}`}
+        aria-valuemin={0}
+        aria-valuemax={last}
+        aria-valuenow={idx}
+        aria-valuetext={steps[idx]}
+        data-armed={armed ? '1' : undefined}
+        style={{ width: box, height: box, left: cx - box / 2, marginLeft: 0, top: 12 }}
+        onPointerDown={g.onPointerDown}
+        onPointerMove={g.onPointerMove}
+        onPointerUp={g.onPointerUp}
+        onPointerCancel={g.onPointerCancel}
+        onLostPointerCapture={g.onLostPointerCapture}
+        onPointerEnter={() => pcbTouch.set(id)}
+        onKeyDown={(e) => steppedKey(e, id, idx, last, pick)}
+      >
+        <RetroKnob angle={angles[idx] ?? 0} k={k} />
+      </div>
+      <span className="mm-p2-name">{name}</span>
+      <span className="mm-p2-ref" data-on={on ? '1' : undefined}>
+        {on ? steps[idx] : ''}
       </span>
     </div>
   );
@@ -637,7 +641,7 @@ export const PcbSelect: React.FC<CellProps & { w?: number; bare?: boolean; up?: 
       <span className="mm-p2-name">{name}</span>
       {body}
       <span className="mm-p2-ref" data-on={on ? '1' : undefined}>
-        {on ? `${idx + 1} / ${steps.length}` : ref_}
+        {on ? `${idx + 1} / ${steps.length}` : ''}
       </span>
     </div>
   );
@@ -645,8 +649,8 @@ export const PcbSelect: React.FC<CellProps & { w?: number; bare?: boolean; up?: 
 
 /* ---------------- le cadre d'un groupe ---------------- */
 
-export const PcbFrame: React.FC<{ title: string; x: number; y: number; w?: number; h?: number; children: React.ReactNode; className?: string; led?: boolean; flash?: boolean }> = ({ title, x, y, w, h, children, className, led, flash }) => (
-  <section className={`mm-p2-frame${className ? ` ${className}` : ''}`} data-flash={flash ? '1' : undefined} style={{ left: x, top: y, width: w, height: h }} aria-label={title}>
+export const PcbFrame: React.FC<{ title: string; x: number; y: number; w?: number; h?: number; children: React.ReactNode; className?: string; led?: boolean; flash?: boolean; sep?: boolean }> = ({ title, x, y, w, h, children, className, led, flash, sep }) => (
+  <section className={`mm-p2-frame${className ? ` ${className}` : ''}`} data-flash={flash ? '1' : undefined} data-sep={sep ? '1' : undefined} style={{ left: x, top: y, width: w, height: h }} aria-label={title}>
     <span className="mm-p2-frame-title">
       {title}
       {led !== undefined && <i className="mm-p2-led" data-on={led ? '1' : undefined} aria-hidden="true" />}
@@ -682,6 +686,7 @@ export const PcbKey = React.forwardRef<HTMLButtonElement, PcbKeyProps>(({ name, 
     data-accent={accent ? '1' : undefined}
     style={{ ...style, ['--kw' as string]: `${w}px`, ['--kh' as string]: `${h}px` }}
   >
+    {on !== undefined && <i className="mm-key-led" data-on={on ? '1' : undefined} aria-hidden="true" />}
     <span className="mm-key-cap" aria-hidden="true">
       {cap}
     </span>

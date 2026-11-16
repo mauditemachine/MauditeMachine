@@ -513,6 +513,8 @@ export function registerTwin(id: string, el: HTMLElement | null): void {
 
 /** Alt, Cmd ou Ctrl tenu au dernier appui (le plugin MM-ARP : la remise d'un potard, voyager/faceDbl.ts). */
 let downMod = false;
+/** Le clic d'un potard de la face du plugin MM-ARP qui ouvre sa page : immobile a 3 px pres, relache en 250 ms. */
+const FACE_CLICK = { px: 3.5, ms: 250 } as const;
 const isVoy = (k: DialId): boolean => k.startsWith('v:');
 /** Un TWEAK du MM-RYTM (audio/kit.ts, 2026-10-04) : ses potards de 0 a 1, ses choix de son a trois crans. */
 const isKit = (k: DialId): boolean => k.startsWith('r:');
@@ -986,18 +988,22 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart (penc : l'encodeur k du desktop, son FX global). */
     const tapDial = (k: DialId, pressMs = 0, penc = -1, screenDial = false): void => {
+      // Le plugin MM-ARP (2026-11-16, Mika : "clic simple sur un knob de la face = ouvre tres rapidement OPEN directement sur
+      // ses reglages ; le clic ne doit pas gener la rotation") : un clic sans mouvement (moins de FACE_CLICK.px, relache en
+      // moins de FACE_CLICK.ms) ouvre le capot sur sa page (voyager/faceDbl.ts) ; la valeur ne bouge pas. Un glisser tourne
+      // le potard et n'arrive jamais ici. Alt / Cmd / Ctrl + clic : la valeur de depart. Plus de double tape, plus de cran
+      // suivant au clic (MODE du filtre se tourne)
+      if (PLUGIN_ARP && faceDbl.on() && (isVoy(k) || k.startsWith('z:'))) {
+        lastTap.delete(k);
+        if (downMod) anyDial(k, anyDialReset(k));
+        else if (pressMs <= FACE_CLICK.ms && stage.orbit.lastTap.dist < FACE_CLICK.px) faceDbl.open(k);
+        return;
+      }
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
       if ((isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) || (isKit(k) && voySteps(k) > 1)) {
         const n = voySteps(k);
         const i = Math.round(anyDialValue(k) * (n - 1));
         anyDial(k, ((i + 1) % n) / (n - 1));
-        return;
-      }
-      // Le plugin MM-ARP (2026-11-13, Mika : "au double-clic, ouvrir OPEN sur la page detaillee") : Alt / Cmd / Ctrl + clic
-      // remet le potard a son depart, tout de suite ; deux tapes ouvrent le capot sur sa page (voyager/faceDbl.ts)
-      if (PLUGIN_ARP && faceDbl.on() && downMod) {
-        lastTap.delete(k);
-        anyDial(k, anyDialReset(k));
         return;
       }
       // Un appui long immobile n'est pas une tape (2026-10-09) : il ne compte pas pour les deux tapes de la remise
@@ -1010,7 +1016,6 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
         lastTap.delete(k);
         fxOpenCancel();
-        if (PLUGIN_ARP && faceDbl.open(k)) return;
         // Un potard de la face (2026-10-27) : son bloc remis (en LOCK, son verrou s'en va) au desktop ; au telephone son FX
         // global remis comme il tourne, avec son popup GLOBAL a l'ecran (revue du 2026-10-09)
         if (penc >= 0) faceKnobReset(penc);

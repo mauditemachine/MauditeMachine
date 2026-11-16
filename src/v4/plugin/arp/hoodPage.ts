@@ -3,7 +3,7 @@
  * pages") : trois pages, SOUND (les TWEAKS de la face, OSC +, FILTER +, AMP, VOICE, EQ, MASTER, DISTORTION, ENGINE), FX
  * (le rack, et HELL sur sa sous-page) et SEQ (le sequenceur par pas, RANDOM, les LFO, la matrice). LIBRARY (+ DISK) et
  * MIDI (DRAG MIDI, MIDI LEARN) ne sont plus des onglets : deux touches du bandeau ouvrent leur volet par-dessus la page.
- * OPEN rouvre la page qu'on a quittee (SOUND au chargement). focus : le cadre a faire clignoter (le double clic d'un
+ * OPEN rouvre la page qu'on a quittee (SOUND au chargement). focus : le cadre a faire clignoter (le clic d'un
  * potard de la face, plugin/arp/hellKnob.tsx). Rien n'est garde entre deux fenetres.
  */
 
@@ -21,7 +21,7 @@ export interface HoodPageState {
   tab: HoodTab;
   fx: HoodFx;
   overlay: HoodOverlay;
-  /** le titre du cadre montre (double clic sur la face), et son numero (chaque demande rejoue le clignotement) */
+  /** le titre du cadre montre (clic sur un potard de la face), et son numero (chaque demande rejoue le clignotement) */
   focus: string | null;
   focusN: number;
 }

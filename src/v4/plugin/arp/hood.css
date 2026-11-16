@@ -64,7 +64,7 @@
   border-radius: 8px;
   background:
     radial-gradient(120% 90% at 30% 18%, rgba(255, 255, 255, 0.035), transparent 60%),
-    #131416;
+    #23211f;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
     inset 0 0 40px rgba(0, 0, 0, 0.55),
@@ -102,7 +102,7 @@
 }
 
 .mm-plugin-arp .mm-p2-via circle {
-  fill: #131416;
+  fill: #23211f;
   stroke: #2a2c2f;
   stroke-width: 1.6;
 }
@@ -184,7 +184,7 @@
 }
 
 .mm-plugin-arp .mm-p2-cart-tag {
-  fill: #d28e05;
+  fill: #f47b2f;
   font-size: 6.5px;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -226,7 +226,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 5px;
-  background: #131416;
+  background: #23211f;
   font-size: 8px;
   line-height: 11px;
   font-weight: 600;
@@ -245,8 +245,8 @@
 }
 
 .mm-plugin-arp .mm-p2-led[data-on='1'] {
-  background: #d28e05;
-  box-shadow: 0 0 5px rgba(210, 142, 5, 0.85);
+  background: #f47b2f;
+  box-shadow: 0 0 5px rgba(244, 123, 47, 0.85);
 }
 
 .mm-plugin-arp .mm-p2-cells {
@@ -293,7 +293,7 @@
 }
 
 .mm-plugin-arp .mm-p2-ref[data-on='1'] {
-  color: #d28e05;
+  color: #f47b2f;
   font-size: 7.5px;
   letter-spacing: 0.06em;
 }
@@ -326,7 +326,7 @@
 }
 
 .mm-plugin-arp .mm-p2-tick[data-lit='1'] {
-  stroke: #d28e05;
+  stroke: #f47b2f;
   stroke-width: 1.3;
 }
 
@@ -334,19 +334,19 @@
 .mm-plugin-arp .mm-p2-sw-body:focus-visible,
 .mm-plugin-arp .mm-p2-win:focus-visible,
 .mm-plugin-arp .mm-p2-st-cell:focus-visible {
-  outline: 1.5px solid #ffd23f;
+  outline: 1.5px solid #f47b2f;
   outline-offset: 1px;
 }
 
 .mm-plugin-arp [data-armed='1'] {
-  outline: 2px solid #d28e05;
+  outline: 2px solid #f47b2f;
   outline-offset: 2px;
   animation: mm-p2-blink 0.9s ease-in-out infinite;
 }
 
 @keyframes mm-p2-blink {
   50% {
-    outline-color: rgba(210, 142, 5, 0.25);
+    outline-color: rgba(244, 123, 47, 0.25);
   }
 }
 
@@ -393,7 +393,7 @@
 }
 
 .mm-plugin-arp .mm-p2-val[data-on='1'] {
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 /* ---------- la glissiere ---------- */
@@ -424,7 +424,7 @@
 
 .mm-plugin-arp .mm-p2-sw-pos button[data-on='1'],
 .mm-plugin-arp .mm-p2-rot-pos[data-on='1'] {
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 .mm-plugin-arp .mm-p2-sw-body {
@@ -621,7 +621,7 @@
 }
 
 .mm-plugin-arp .mm-p2-menu button[data-on='1'] {
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 /* ---------- la matrice ---------- */
@@ -757,7 +757,7 @@
 }
 
 .mm-plugin-arp .mm-p2-st-cell[data-head='1'] {
-  box-shadow: inset 0 -2px 0 #d28e05;
+  box-shadow: inset 0 -2px 0 #f47b2f;
 }
 
 .mm-plugin-arp .mm-p2-st-help {
@@ -831,7 +831,7 @@
 }
 
 .mm-plugin-arp .mm-p2-lib-item[data-on='1'] {
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 .mm-plugin-arp .mm-p2-lib-bpm {
@@ -972,12 +972,12 @@
 
 /* Allumee : comme la touche OPEN de la face capot ouvert, en jaune canard */
 .mm-plugin-arp .mm-key[data-on='1'] .mm-key-cap {
-  background: linear-gradient(180deg, #e3a01c 0%, #d28e05 55%, #b97c03 100%);
+  background: linear-gradient(180deg, #2a2725 0%, #f47b2f 55%, #141211 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 236, 190, 0.35),
     inset 0 -1px 0 rgba(90, 58, 0, 0.5),
     0 3px 0 #6b4802,
-    0 4px 12px rgba(210, 142, 5, 0.3);
+    0 4px 12px rgba(244, 123, 47, 0.3);
 }
 
 .mm-plugin-arp .mm-key-name {
@@ -991,7 +991,7 @@
 
 .mm-plugin-arp .mm-key[data-on='1'] .mm-key-name,
 .mm-plugin-arp .mm-key[data-accent='1'] .mm-key-name {
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 .mm-plugin-arp .mm-key:disabled {
@@ -1007,7 +1007,7 @@
 }
 
 .mm-plugin-arp .mm-key:focus-visible .mm-key-cap {
-  outline: 1.5px solid #ffd23f;
+  outline: 1.5px solid #f47b2f;
   outline-offset: 2px;
 }
 
@@ -1023,7 +1023,7 @@
   align-items: flex-start;
   padding: 7px 18px 0;
   background: linear-gradient(#0d0d0e, #070708);
-  border-top: 1px solid rgba(210, 142, 5, 0.35);
+  border-top: 1px solid rgba(244, 123, 47, 0.35);
 }
 
 .mm-plugin-arp .mm-p2-strip > .mm-key {
@@ -1081,12 +1081,12 @@
 .mm-plugin-arp .mm-p2-panel .mm-arp-midi-line[data-on='1'],
 .mm-plugin-arp .mm-p2-panel .mm-arp-map-row[data-armed='1'],
 .mm-plugin-arp .mm-p2-panel .mm-arp-disk-item[data-on='1'] {
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 .mm-plugin-arp .mm-p2-panel .mm-arp-map-x:hover {
-  background: rgba(210, 142, 5, 0.16);
-  color: #d28e05;
+  background: rgba(244, 123, 47, 0.16);
+  color: #f47b2f;
 }
 
 .mm-plugin-arp .mm-p2-panel .mm-arp-status[data-ok='0'] {
@@ -1151,7 +1151,7 @@
 }
 
 .mm-plugin-arp .mm-p2-frame-title {
-  background: #131416;
+  background: #23211f;
   border-radius: 2px;
 }
 
@@ -1164,8 +1164,8 @@
   0%,
   30%,
   60% {
-    border-color: #d28e05;
-    box-shadow: 0 0 0 1px rgba(210, 142, 5, 0.6), 0 0 18px rgba(210, 142, 5, 0.25);
+    border-color: #f47b2f;
+    box-shadow: 0 0 0 1px rgba(244, 123, 47, 0.6), 0 0 18px rgba(244, 123, 47, 0.25);
   }
   15%,
   45% {
@@ -1290,14 +1290,14 @@
 }
 
 .mm-plugin-arp .mm-p2-step-led .mm-p2-led[data-on='1'] {
-  background: radial-gradient(circle at 40% 35%, #ffe2a0, #f0a51c 45%, #d28e05 75%);
+  background: radial-gradient(circle at 40% 35%, #ffe2a0, #f0a51c 45%, #f47b2f 75%);
   box-shadow:
     0 0 6px rgba(240, 165, 28, 0.9),
-    0 0 14px rgba(210, 142, 5, 0.35);
+    0 0 14px rgba(244, 123, 47, 0.35);
 }
 
 .mm-plugin-arp .mm-p2-step-led:has(.mm-p2-led[data-on='1']) b {
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 .mm-plugin-arp .mm-p2-step-key {
@@ -1348,7 +1348,7 @@
 }
 
 .mm-plugin-arp .mm-p2-step-key:focus-visible .mm-p2-step-cap {
-  outline: 1.5px solid #ffd23f;
+  outline: 1.5px solid #f47b2f;
   outline-offset: 2px;
 }
 
@@ -1370,20 +1370,20 @@
   box-shadow:
     inset 0 1px 4px rgba(0, 0, 0, 0.95),
     0 1px 0 rgba(255, 255, 255, 0.05);
-  color: #f0b23a;
-  text-shadow: 0 0 6px rgba(240, 165, 28, 0.45);
+  color: #f4f1ea;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0);
   line-height: 22px;
   cursor: ns-resize;
   touch-action: none;
 }
 
 .mm-plugin-arp .mm-p2-win[data-off='1'] {
-  color: rgba(240, 178, 58, 0.45);
+  color: rgba(244, 241, 234, 0.45);
   text-shadow: none;
 }
 
 .mm-plugin-arp .mm-p2-win[data-held='1'] {
-  border-color: rgba(210, 142, 5, 0.6);
+  border-color: rgba(244, 123, 47, 0.6);
 }
 
 /* les deux petites fleches haut / bas : on glisse */
@@ -1393,7 +1393,7 @@
   top: 6px;
   width: 5px;
   height: 10px;
-  background: rgba(240, 178, 58, 0.5);
+  background: rgba(244, 241, 234, 0.5);
   clip-path: polygon(50% 0, 100% 35%, 0 35%, 0 65%, 100% 65%, 50% 100%);
 }
 
@@ -1448,7 +1448,7 @@
 }
 
 .mm-plugin-arp .mm-p2-hellp-desc b {
-  color: #d28e05;
+  color: #f47b2f;
   letter-spacing: 0.18em;
   font-weight: 600;
   white-space: nowrap;
@@ -1547,7 +1547,7 @@
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.3em;
-  color: #d28e05;
+  color: #f47b2f;
 }
 
 .mm-plugin-arp .mm-p2-over-head .mm-key {
@@ -1619,7 +1619,7 @@
   line-height: 10px;
   font-weight: 600;
   letter-spacing: 0.2em;
-  color: rgba(240, 178, 58, 0.6);
+  color: rgba(244, 241, 234, 0.6);
 }
 
 .mm-plugin-arp .mm-p2-lcd-b {
@@ -1627,8 +1627,8 @@
   line-height: 13px;
   font-weight: 600;
   letter-spacing: 0.1em;
-  color: #f0b23a;
-  text-shadow: 0 0 6px rgba(240, 165, 28, 0.45);
+  color: #f4f1ea;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0);
 }
 
 /* ---------- le sequenceur, un peu plus serre ---------- */
@@ -1642,4 +1642,686 @@
   box-shadow:
     inset 0 0 0 0.6px rgba(0, 0, 0, 0.7),
     0 0 0 0.5px rgba(255, 255, 255, 0.06);
+}
+
+/* =====================================================================================================================
+   2026-11-16 : le deuxieme panneau du meme synthe (Mika : "la face avant a un look Moog retro ... les pages OPEN font
+   VST moderne"). La laque, la serigraphie, les potards, les touches, les LED et les joues de bois de la face.
+   Les couleurs sont relevees sur la face rendue (panneau #23211f, serigraphie os, LED #ff6a4b, touche #12100f).
+   ===================================================================================================================== */
+
+.mm-plugin-arp .mm-p2 {
+  --r-panel: #23211f;
+  --r-silk: rgba(240, 234, 224, 0.84);
+  --r-silk-dim: rgba(240, 234, 224, 0.55);
+  --r-line: rgba(240, 234, 224, 0.2);
+  --r-orange: #f47b2f;
+  --r-led: #ff6a4b;
+  --r-led-off: #3e1d1b;
+  --r-key: #12100f;
+  color: var(--r-silk);
+}
+
+/* OPEN tout de suite : la carte arrive en 140 ms, le capot monte derriere */
+.mm-plugin-arp .mm-p2 .mm-p2-fade {
+  background: var(--r-panel);
+  animation: mm-p2-in 140ms ease-out both;
+}
+
+.mm-plugin-arp .mm-p2[data-phase='closing'] .mm-p2-fade {
+  animation: mm-p2-out 140ms ease-in both;
+}
+
+.mm-plugin-arp .mm-p2-board {
+  left: 0;
+  top: 0;
+  width: 1100px;
+  height: 658px;
+  border-radius: 0;
+  box-shadow: none;
+  background:
+    radial-gradient(140% 70% at 50% 0%, rgba(255, 245, 230, 0.035), transparent 70%),
+    linear-gradient(180deg, #262422 0%, #23211f 45%, #1f1d1b 100%);
+}
+
+.mm-plugin-arp .mm-p2-art,
+.mm-plugin-arp .mm-p2-tab,
+.mm-plugin-arp .mm-p2-over {
+  left: 0;
+  top: 0;
+}
+
+.mm-plugin-arp .mm-p2-over {
+  background: transparent;
+}
+
+/* les joues de bois de la face ; un clic referme le capot */
+.mm-plugin-arp .mm-r-wood {
+  position: absolute;
+  top: 0;
+  z-index: 3;
+  width: 36px;
+  height: 704px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #2a1b12 center top / 36px 704px no-repeat;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.mm-plugin-arp .mm-r-wood-l {
+  left: 0;
+  background-image: url('./retro/wood-l.jpg');
+}
+
+.mm-plugin-arp .mm-r-wood-r {
+  right: 0;
+  background-image: url('./retro/wood-r.jpg');
+}
+
+.mm-plugin-arp .mm-r-wood:focus-visible {
+  outline: 1.5px solid var(--r-orange);
+  outline-offset: -3px;
+}
+
+/* l'en-tete, comme celui de la face : le wordmark, MM-ARP, la page a droite comme FIRMWARE */
+.mm-plugin-arp .mm-r-head {
+  position: absolute;
+  left: 70px;
+  right: 70px;
+  top: 0;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-r-word {
+  width: 196px;
+  height: 14px;
+  background: var(--r-silk);
+  -webkit-mask: url('/logo/mauditemachine-logo-aligned.svg') left center / contain no-repeat;
+  mask: url('/logo/mauditemachine-logo-aligned.svg') left center / contain no-repeat;
+}
+
+.mm-plugin-arp .mm-r-model {
+  font-size: 18px;
+  line-height: 20px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-r-page {
+  margin-left: auto;
+  font-size: 7.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--r-silk-dim);
+}
+
+/* ---------- les sections : le titre en haut, au milieu ; un filet vertical entre deux sections ---------- */
+.mm-plugin-arp .mm-p2-frame {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.mm-plugin-arp .mm-p2-frame[data-sep='1']::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 2px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--r-line);
+}
+
+.mm-plugin-arp .mm-p2-frame-title {
+  left: 0;
+  right: 0;
+  top: 0;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  font-size: 10.5px;
+  line-height: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-p2-frame[data-flash='1'] {
+  animation: mm-r-flash 1.6s ease-out both;
+}
+
+@keyframes mm-r-flash {
+  0%,
+  30%,
+  60% {
+    background: rgba(244, 123, 47, 0.07);
+    box-shadow: 0 0 0 1px rgba(244, 123, 47, 0.45);
+  }
+  15%,
+  45%,
+  100% {
+    background: none;
+    box-shadow: none;
+  }
+}
+
+/* les LED : rouge-orange, comme celles de CHORUS et SUB OCT */
+.mm-plugin-arp .mm-p2-led,
+.mm-plugin-arp .mm-p2-step-led .mm-p2-led {
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle at 45% 40%, #55271f, var(--r-led-off) 70%);
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.7);
+}
+
+.mm-plugin-arp .mm-p2-led[data-on='1'],
+.mm-plugin-arp .mm-p2-step-led .mm-p2-led[data-on='1'] {
+  background: radial-gradient(circle at 45% 40%, #ffd2c0 0%, #ff8a68 35%, var(--r-led) 70%);
+  box-shadow:
+    0 0 5px rgba(255, 106, 75, 0.9),
+    0 0 12px rgba(255, 106, 75, 0.4);
+}
+
+.mm-plugin-arp .mm-p2-frame-title .mm-p2-led {
+  width: 5px;
+  height: 5px;
+}
+
+/* ---------- une piece : la piece en haut, son nom dessous (comme la face) ---------- */
+.mm-plugin-arp .mm-p2-cells {
+  left: 10px;
+  top: 22px;
+}
+
+.mm-plugin-arp .mm-p2-cell {
+  width: 80px;
+  height: 96px;
+}
+
+.mm-plugin-arp .mm-p2-name {
+  top: 64px;
+  font-size: 9.5px;
+  line-height: 12px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-p2-ref {
+  top: 79px;
+  font-size: 8px;
+  line-height: 10px;
+  letter-spacing: 0.08em;
+  color: var(--r-orange);
+}
+
+.mm-plugin-arp .mm-p2-ref[data-on='1'] {
+  color: var(--r-orange);
+  font-size: 8px;
+}
+
+/* le potard : l'image de celui de la face, son repere par-dessus */
+.mm-plugin-arp .mm-p2-knob-hit {
+  top: 4px;
+  border-radius: 50%;
+}
+
+.mm-plugin-arp .mm-r-knob {
+  position: relative;
+  display: block;
+}
+
+.mm-plugin-arp .mm-r-knob-img {
+  position: absolute;
+  inset: 0;
+  background: url('./retro/knob.png') center / 100% 100% no-repeat;
+}
+
+.mm-plugin-arp .mm-r-knob-axis {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.mm-plugin-arp .mm-r-knob-mark {
+  position: absolute;
+  border-radius: 0.5px;
+  background: #f1ede5;
+  box-shadow: 0 0 0.6px rgba(0, 0, 0, 0.6);
+}
+
+.mm-plugin-arp .mm-p2-ends {
+  top: 50px;
+  left: 2px;
+  right: 2px;
+  font-size: 6.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-p2-knob[data-big='1'] {
+  width: 104px;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-big='1'] .mm-p2-knob-hit {
+  top: -2px;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-big='1'] .mm-p2-ends {
+  top: 56px;
+  left: 4px;
+  right: 4px;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-big='1'] .mm-p2-name {
+  top: 70px;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-big='1'] .mm-p2-ref {
+  top: 84px;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-small='1'] .mm-p2-knob-hit {
+  top: -1px;
+}
+
+.mm-plugin-arp .mm-p2-val {
+  left: 46px;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-p2-val[data-on='1'] {
+  color: var(--r-orange);
+}
+
+/* ---------- la touche de CHORUS : ses LED et leurs noms au-dessus ---------- */
+.mm-plugin-arp .mm-p2-step-leds {
+  top: 2px;
+}
+
+.mm-plugin-arp .mm-p2-step-led b {
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-p2-step-led:has(.mm-p2-led[data-on='1']) b {
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-p2-step-key {
+  top: 25px;
+  width: 43px;
+  height: 28px;
+  margin-left: -21.5px;
+}
+
+.mm-plugin-arp .mm-p2-step-cap {
+  inset: 0;
+  border-radius: 0;
+  background: url('./retro/key.png') center / 100% 100% no-repeat;
+  box-shadow: none;
+}
+
+.mm-plugin-arp .mm-p2-step-key:hover .mm-p2-step-cap {
+  background: url('./retro/key.png') center / 100% 100% no-repeat;
+  filter: brightness(1.15);
+}
+
+.mm-plugin-arp .mm-p2-step-key[data-held='1'] .mm-p2-step-cap,
+.mm-plugin-arp .mm-p2-step-key:active .mm-p2-step-cap {
+  transform: translateY(1.5px) scale(0.98);
+  box-shadow: none;
+  filter: brightness(0.85);
+}
+
+.mm-plugin-arp .mm-p2-step .mm-p2-ref {
+  top: 79px;
+}
+
+/* ---------- le commutateur rotatif (MODE du filtre de la face) ---------- */
+.mm-plugin-arp .mm-p2-rot-ticks {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-p2-rot-ticks line {
+  stroke: var(--r-silk-dim);
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-p2-rot-ticks line[data-on='1'] {
+  stroke: var(--r-silk);
+  stroke-width: 1.4;
+}
+
+.mm-plugin-arp .mm-p2-rot-pos {
+  position: absolute;
+  padding: 0;
+  font-size: 6.5px;
+  line-height: 8px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--r-silk-dim);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-p2-rot-pos[data-side='l'] {
+  transform: translate(-100%, -50%);
+}
+
+.mm-plugin-arp .mm-p2-rot-pos[data-side='r'] {
+  transform: translate(0, -50%);
+}
+
+.mm-plugin-arp .mm-p2-rot-pos[data-on='1'] {
+  color: var(--r-orange);
+}
+
+.mm-plugin-arp .mm-p2-rot-hit {
+  position: absolute;
+  cursor: ns-resize;
+}
+
+.mm-plugin-arp .mm-p2-rot .mm-p2-ref {
+  top: 79px;
+}
+
+/* ---------- la fenetre a crans : du verre noir, comme l'ecran de la face ---------- */
+.mm-plugin-arp .mm-p2-sel .mm-p2-selbox {
+  top: 24px;
+}
+
+.mm-plugin-arp .mm-p2-win {
+  height: 24px;
+  border: 1px solid #050505;
+  border-radius: 2px;
+  background: linear-gradient(#0b0b0b, #131313);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.95),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #f4f1ea;
+  text-shadow: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.mm-plugin-arp .mm-p2-win[data-off='1'] {
+  color: rgba(244, 241, 234, 0.45);
+}
+
+.mm-plugin-arp .mm-p2-win[data-held='1'] {
+  border-color: rgba(244, 123, 47, 0.7);
+}
+
+.mm-plugin-arp .mm-p2-win-arrows {
+  background: rgba(244, 241, 234, 0.4);
+}
+
+.mm-plugin-arp .mm-p2-menu {
+  border-color: #000;
+  background: #0d0d0d;
+}
+
+/* ---------- la touche de la face : noire, son nom dessous, sa LED au-dessus ---------- */
+.mm-plugin-arp .mm-key {
+  position: relative;
+  gap: 6px;
+}
+
+.mm-plugin-arp .mm-key-cap,
+.mm-plugin-arp .mm-key:hover .mm-key-cap,
+.mm-plugin-arp .mm-key[data-on='1'] .mm-key-cap {
+  border-radius: 3px;
+  background: linear-gradient(180deg, #171514 0%, var(--r-key) 60%, #0e0c0b 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.8),
+    0 2px 0 #0b0a09,
+    0 3px 7px rgba(0, 0, 0, 0.55);
+}
+
+.mm-plugin-arp .mm-key:hover .mm-key-cap {
+  filter: brightness(1.25);
+}
+
+.mm-plugin-arp .mm-key:active:not(:disabled) .mm-key-cap {
+  transform: translateY(1.5px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0.5px 0 #0b0a09,
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.mm-plugin-arp .mm-key-led {
+  position: absolute;
+  left: 50%;
+  top: -9px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #55271f, var(--r-led-off) 70%);
+}
+
+.mm-plugin-arp .mm-key-led[data-on='1'] {
+  background: radial-gradient(circle at 45% 40%, #ffd2c0 0%, #ff8a68 35%, var(--r-led) 70%);
+  box-shadow:
+    0 0 5px rgba(255, 106, 75, 0.9),
+    0 0 12px rgba(255, 106, 75, 0.4);
+}
+
+.mm-plugin-arp .mm-key-name {
+  font-size: 7.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-key[data-on='1'] .mm-key-name {
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-key[data-accent='1'] .mm-key-name {
+  color: var(--r-orange);
+}
+
+.mm-plugin-arp .mm-key:focus-visible .mm-key-cap {
+  outline: 1.5px solid var(--r-orange);
+}
+
+/* ---------- le bandeau : le bas de la face, ses touches, la fenetre de l'ecran ---------- */
+.mm-plugin-arp .mm-p2-strip {
+  left: 36px;
+  right: 36px;
+  top: 658px;
+  height: 46px;
+  padding: 11px 26px 0;
+  background: linear-gradient(180deg, #1c1a19, #191716);
+  border-top: 1px solid rgba(0, 0, 0, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.mm-plugin-arp .mm-p2-tools .mm-key,
+.mm-plugin-arp .mm-p2-strip > .mm-key {
+  width: 58px;
+}
+
+.mm-plugin-arp .mm-p2-tabs {
+  margin: 0 auto 0 136px;
+  gap: 18px;
+}
+
+.mm-plugin-arp .mm-p2-lcd {
+  width: 210px;
+  height: 30px;
+  margin: -6px 24px 0 0;
+  padding: 2px 10px;
+  border-radius: 2px;
+  background: linear-gradient(#070707, #0f0f0f);
+  box-shadow:
+    0 0 0 2px #0a0908,
+    0 0 0 3px rgba(255, 255, 255, 0.05),
+    inset 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+.mm-plugin-arp .mm-p2-lcd-a {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: rgba(244, 241, 234, 0.55);
+}
+
+.mm-plugin-arp .mm-p2-lcd-b {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f4f1ea;
+  text-shadow: none;
+}
+
+/* ---------- FX : la sous-page, a droite de l'en-tete ---------- */
+.mm-plugin-arp .mm-p2-sub {
+  top: 12px;
+  gap: 22px;
+}
+
+.mm-plugin-arp .mm-p2-sub .mm-key {
+  gap: 4px;
+}
+
+/* ---------- HELL ---------- */
+.mm-plugin-arp .mm-p2-hellp-keys {
+  top: 34px;
+  gap: 22px 12px;
+}
+
+.mm-plugin-arp .mm-p2-hellp-desc b {
+  color: var(--r-orange);
+}
+
+.mm-plugin-arp .mm-p2-hellp-desc {
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-p2-helld-line path {
+  stroke: var(--r-line);
+}
+
+.mm-plugin-arp .mm-p2-helld-box rect {
+  fill: none;
+  stroke: rgba(240, 234, 224, 0.35);
+}
+
+.mm-plugin-arp .mm-p2-helld-text text {
+  fill: var(--r-silk-dim);
+  font-weight: 500;
+}
+
+/* ---------- SEQ : le sequenceur, des cases sombres comme l'ecran, la tete en rouge-orange ---------- */
+.mm-plugin-arp .mm-p2-st-cell {
+  border-color: #0a0908;
+  background: linear-gradient(#141211, #1a1817);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-p2-st-cell[data-set='1'] {
+  color: #f4f1ea;
+  background: linear-gradient(#0b0b0b, #121212);
+}
+
+.mm-plugin-arp .mm-p2-st-cell[data-head='1'] {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 106, 75, 0.7),
+    0 0 6px rgba(255, 106, 75, 0.25);
+}
+
+.mm-plugin-arp .mm-p2-st-name,
+.mm-plugin-arp .mm-p2-mx-head,
+.mm-plugin-arp .mm-p2-mx-n,
+.mm-plugin-arp .mm-p2-st-head b {
+  color: var(--r-silk);
+  font-weight: 500;
+}
+
+.mm-plugin-arp .mm-p2-rnd-keys {
+  top: 34px;
+}
+
+.mm-plugin-arp .mm-p2-rnd-foot {
+  color: var(--r-silk-dim);
+}
+
+/* ---------- LIBRARY, MIDI ---------- */
+.mm-plugin-arp .mm-p2-over-head {
+  top: 60px;
+  left: 70px;
+  right: 70px;
+  display: none;
+}
+
+.mm-plugin-arp .mm-p2-over > .mm-p2-frame,
+.mm-plugin-arp .mm-p2-over > .mm-p2-lib-now {
+  margin-top: 0;
+}
+
+.mm-plugin-arp .mm-p2-lib-cat,
+.mm-plugin-arp .mm-p2-lib-item {
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-p2-lib-item[data-on='1'] {
+  color: var(--r-orange);
+}
+
+.mm-plugin-arp .mm-p2-lib-now b {
+  color: var(--r-silk);
+}
+
+/* les bouts de course, serres contre le potard (les voisins ne se touchent plus) */
+.mm-plugin-arp .mm-p2-knob:not([data-big='1']):not([data-small='1']) .mm-p2-ends {
+  left: 0;
+  right: 0;
+  display: block;
+}
+
+.mm-plugin-arp .mm-p2-knob:not([data-big='1']):not([data-small='1']) .mm-p2-ends span {
+  position: absolute;
+  top: 0;
+  font-size: 6px;
+  letter-spacing: 0.06em;
+}
+
+.mm-plugin-arp .mm-p2-knob:not([data-big='1']):not([data-small='1']) .mm-p2-ends span:first-child {
+  right: 55px;
+}
+
+.mm-plugin-arp .mm-p2-knob:not([data-big='1']):not([data-small='1']) .mm-p2-ends span:last-child {
+  left: 55px;
+}
+
+.mm-plugin-arp .mm-p2-mx-head {
+  top: 24px;
+}
+
+.mm-plugin-arp .mm-p2-strip .mm-key {
+  gap: 4px;
 }

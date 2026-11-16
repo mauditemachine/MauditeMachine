@@ -10,7 +10,7 @@
  *   LEARN) : deux touches du bandeau, leur volet par-dessus la page.
  * - Les pieces (pcbui.tsx) : potards en relief, touches a crans facon CHORUS (LED au-dessus), afficheurs a crans ; tous
  *   les reglages a crans se reglent en glissant, cran par cran.
- * - Le double clic d'un potard de la face ouvre la page qui le detaille, son cadre clignote (hellKnob.tsx).
+ * - Le clic d'un potard de la face ouvre la page qui le detaille, son cadre clignote (hellKnob.tsx).
  *
  * La carte vit dans un cadre de 1100 x 704 (la fenetre de base du VST3) mis a l'echelle de la fenetre (son rapport est
  * fixe : PluginEditor.cpp).
@@ -33,7 +33,7 @@ import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore
 import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { arpMidi } from './midimap';
-import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbSelect, PcbStep, setFullName } from './pcbui';
+import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
 import './hood.css';
 
@@ -41,16 +41,17 @@ import './hood.css';
 const PAGE_W = 1100;
 const PAGE_H = 704;
 /** La zone des reglages : toute la largeur de la carte. */
-const ZONE = { x: 24, w: 1052 };
-const FRAME_GAP = 16;
+const ZONE = { x: 44, w: 1012 };
+const FRAME_GAP = 22;
 /** Les touches du bandeau : celles de la face, en plus petit (le bandeau reste bas). */
-const STRIP_KEY = { w: 44, h: 18 };
+const STRIP_KEY = { w: 44, h: 16 };
 
 /* ---------------- les reglages, page par page ---------------- */
 
 type Ctl =
   | { k: 'knob'; id: string; name: string; lo: string; hi: string; full?: string; big?: boolean }
   | { k: 'step'; id: string; name: string; full?: string }
+  | { k: 'rot'; id: string; name: string; full?: string }
   | { k: 'sel'; id: string; name: string; w: number; full?: string };
 
 interface FrameSpec {
@@ -64,10 +65,12 @@ const knob = (id: string, name: string, lo: string, hi: string, full?: string): 
 const bigKnob = (id: string, name: string, lo: string, hi: string, full?: string): Ctl => ({ k: 'knob', id, name, lo, hi, full, big: true });
 const step = (id: string, name: string, full?: string): Ctl => ({ k: 'step', id, name, full });
 const sel = (id: string, name: string, w: number, full?: string): Ctl => ({ k: 'sel', id, name, w, full });
+const rot = (id: string, name: string, full?: string): Ctl => ({ k: 'rot', id, name, full });
 
 const X = (id: string): number => arpExtra.of(id);
 
-const CELL_W = 76;
+const CELL_W = 80;
+const ROT_W = 108;
 const stepsOf = (id: string): readonly string[] => extraParam(id)?.steps ?? VOY_TWEAKS.find((k) => k.id === id)?.steps ?? [];
 /** La largeur d'une touche a crans : une LED par cran (une seule pour un ON / OFF). */
 const stepW = (id: string): number => {
@@ -75,9 +78,9 @@ const stepW = (id: string): number => {
   const n = s.length === 2 && s[0] === 'OFF' ? 1 : s.length;
   return Math.max(CELL_W, n * 34 + 12);
 };
-const cellW = (c: Ctl): number => (c.k === 'step' ? stepW(c.id) : c.k === 'sel' ? c.w + 24 : c.big ? 96 : CELL_W);
+const cellW = (c: Ctl): number => (c.k === 'step' ? stepW(c.id) : c.k === 'rot' ? ROT_W : c.k === 'sel' ? c.w + 28 : c.big ? 104 : CELL_W);
 const frameW = (f: FrameSpec): number => f.ctls.reduce((s, c) => s + cellW(c), 0) + 20;
-const FRAME_H = 106;
+const FRAME_H = 120;
 
 type GridPage = 'sound' | 'rack' | 'hell';
 
@@ -85,18 +88,18 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
   // SOUND : les TWEAKS de la face (voyager/params.ts, section tweak) et le son du VST3 seul, du generateur a la sortie
   sound: [
     {
-      y: 34,
+      y: 64,
       frames: [
         { title: 'OSCILLATORS', ctls: [knob('phase', 'PHASE', 'FREE', '360'), knob('drift', 'DRIFT', 'STABLE', 'LOOSE'), knob('stack', 'STACK', 'OFF', '30 CT'), step('sync', 'SYNC')] },
         {
           title: 'OSC +',
           ctls: [knob('xRing', 'RING MOD', 'OFF', 'FULL'), knob('xFold', 'FOLD', 'OFF', 'FULL', 'WAVEFOLD'), knob('xNoiseColor', 'NOISE', 'DARK', 'BRIGHT', 'NOISE COLOR'), step('xUnison', 'UNISON')],
         },
-        { title: 'VOICE', ctls: [step('xVoiceMode', 'MODE', 'VOICE MODE'), sel('xPbRange', 'BEND', 52, 'BEND RANGE')] },
+        { title: 'VOICE', ctls: [step('xVoiceMode', 'MODE', 'VOICE MODE'), rot('xPbRange', 'BEND', 'BEND RANGE')] },
       ],
     },
     {
-      y: 164,
+      y: 212,
       frames: [
         { title: 'FILTER', ctls: [knob('load', 'LOAD', 'CLEAN', 'HOT'), knob('space', 'SPACE', 'OFF', '1 OCT'), knob('keyTrack', 'KEY TRACK', '0', 'FULL'), step('fpol', 'POLARITY')] },
         {
@@ -108,9 +111,9 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
       ],
     },
     {
-      y: 294,
+      y: 360,
       frames: [
-        { title: 'PERFORMANCE', ctls: [knob('accent', 'ACCENT', 'FLAT', 'HARD'), knob('accFlt', 'ACC FILTER', 'LEVEL', 'FILTER'), sel('chord', 'CHORD', 60)] },
+        { title: 'PERFORMANCE', ctls: [knob('accent', 'ACCENT', 'FLAT', 'HARD'), knob('accFlt', 'ACC FILTER', 'LEVEL', 'FILTER'), rot('chord', 'CHORD')] },
         {
           title: 'OUTPUT',
           ctls: [knob('width', 'WIDTH', 'MONO', 'WIDE'), knob('wide', 'WIDE', 'OFF', 'FULL'), knob('monoLow', 'BASS MONO', 'OFF', '300 HZ'), knob('glue', 'GLUE', 'OFF', 'TIGHT'), knob('duck', 'SIDECHAIN', 'OFF', '-24 DB')],
@@ -119,7 +122,7 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
       ],
     },
     {
-      y: 424,
+      y: 508,
       frames: [
         { title: 'EQ', ctls: [knob('xEqLow', 'LOW', '-12', '+12', 'EQ LOW'), knob('xEqMid', 'MID', '-12', '+12', 'EQ MID'), knob('xEqHigh', 'HIGH', '-12', '+12', 'EQ HIGH'), knob('xEqAir', 'AIR BAND', '-10', '+10', 'EQ AIR BAND')] },
         { title: 'MASTER', ctls: [knob('xWarmth', 'WARMTH', 'OFF', 'FULL'), knob('xBass', 'BASS', '-6', '+6', 'MASTER BASS'), knob('xAir', 'AIR', '-6', '+6', 'MASTER AIR'), knob('xWidth', 'WIDTH', 'MONO', '200 %')] },
@@ -130,14 +133,14 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
   // FX, le rack : le delay et la reverbe de la face et leurs reglages, puis les effets du VST3 seul
   rack: [
     {
-      y: 84,
+      y: 92,
       frames: [
-        { title: 'DELAY', ctls: [sel('dlyTime', 'TIME', 52, 'DLY TIME'), knob('tape', 'TAPE', 'CLEAN', 'WORN'), step('xDlyMode', 'MODE', 'DELAY MODE')] },
+        { title: 'DELAY', ctls: [rot('dlyTime', 'TIME', 'DLY TIME'), knob('tape', 'TAPE', 'CLEAN', 'WORN'), step('xDlyMode', 'MODE', 'DELAY MODE')] },
         { title: 'REVERB', ctls: [knob('xRevSize', 'SIZE', '0.6 S', '9.6 S', 'REVERB SIZE'), knob('xRevTone', 'TONE', 'DARK', 'BRIGHT', 'REVERB TONE'), knob('xRevPre', 'PRE DELAY', '0', '100 MS', 'REVERB PRE DELAY'), knob('xShimmer', 'SHIMMER', 'OFF', 'FULL')] },
       ],
     },
     {
-      y: 214,
+      y: 262,
       frames: [
         {
           title: 'PHASER',
@@ -152,7 +155,7 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
       ],
     },
     {
-      y: 344,
+      y: 432,
       frames: [
         { title: 'CRUSH', led: () => X('xCrushBits') > 0 || X('xCrushRate') > 0, ctls: [knob('xCrushBits', 'BITS', 'OFF', '4 BIT', 'BITCRUSH'), knob('xCrushRate', 'RATE', 'OFF', '2 KHZ', 'DOWNSAMPLE')] },
         { title: 'PUMP', led: () => X('xPumpDepth') > 0, ctls: [knob('xPumpDepth', 'DEPTH', 'OFF', 'FULL', 'PUMP'), step('xPumpRate', 'RATE', 'PUMP RATE'), knob('xPumpShape', 'RELEASE', 'SHORT', 'LONG', 'PUMP RELEASE')] },
@@ -163,9 +166,9 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
   // FX, HELL : le delay au decaleur de Bode (plugin/mm-arp/dsp/Hell.h)
   hell: [
     {
-      y: 84,
+      y: 70,
       frames: [
-        { title: 'TIME', ctls: [sel('xHellSync', 'SYNC', 52, 'HELL TIME SYNC'), knob('xHellTime', 'TIME', '5 MS', '2 S', 'HELL TIME')] },
+        { title: 'TIME', ctls: [sel('xHellSync', 'SYNC', 60, 'HELL TIME SYNC'), knob('xHellTime', 'TIME', '5 MS', '2 S', 'HELL TIME')] },
         { title: 'SHIFTER', ctls: [bigKnob('xHellShift', 'SHIFT', '-5K', '+5K', 'HELL SHIFT'), knob('xHellUpDown', 'UP / DOWN', 'DOWN', 'UP', 'HELL UP/DOWN'), knob('xHellSpread', 'SPREAD', '0', 'FULL', 'HELL SPREAD')] },
         { title: 'LOOP', ctls: [knob('xHellFb', 'FEEDBACK', '0', 'FULL', 'HELL FEEDBACK'), knob('xHellTone', 'TONE', 'LP', 'HP', 'HELL TONE')] },
         { title: 'LFO', ctls: [knob('xHellLfoRate', 'RATE', '.02', '10 HZ', 'HELL LFO RATE'), knob('xHellLfoDepth', 'DEPTH', '0', '400 HZ', 'HELL LFO DEPTH')] },
@@ -222,20 +225,22 @@ const CtlCell: React.FC<{ c: Ctl }> = ({ c }) => {
       return <PcbKnob id={c.id} name={c.name} ref_={ref_} lo={c.lo} hi={c.hi} big={c.big} />;
     case 'step':
       return <PcbStep id={c.id} name={c.name} ref_={ref_} w={stepW(c.id)} />;
+    case 'rot':
+      return <PcbRotary id={c.id} name={c.name} ref_={ref_} w={ROT_W} />;
     default:
       return <PcbSelect id={c.id} name={c.name} ref_={ref_} w={c.w} cols={stepsOf(c.id).length > 10 ? 3 : 2} />;
   }
 };
 
-/** Le cadre montre par le double clic de la face : il clignote une fois. */
+/** Le cadre montre par le clic d'un potard de la face : il clignote une fois. */
 function useFlash(title: string): boolean {
   const { focus, focusN } = useHoodPage();
   const [on, setOn] = useState(false);
   useEffect(() => {
     if (focus !== title) return undefined;
-    // apres l'arrivee de la carte (le capot monte, puis 300 ms de fondu : hood.css)
-    const a = window.setTimeout(() => setOn(true), 950);
-    const b = window.setTimeout(() => setOn(false), 950 + 1700);
+    // apres l'arrivee de la carte (140 ms de fondu : hood.css)
+    const a = window.setTimeout(() => setOn(true), 160);
+    const b = window.setTimeout(() => setOn(false), 160 + 1700);
     return () => {
       window.clearTimeout(a);
       window.clearTimeout(b);
@@ -245,10 +250,10 @@ function useFlash(title: string): boolean {
   return on;
 }
 
-const Frame: React.FC<{ f: FrameSpec; x: number; y: number }> = ({ f, x, y }) => {
+const Frame: React.FC<{ f: FrameSpec; x: number; y: number; sep?: boolean }> = ({ f, x, y, sep }) => {
   const flash = useFlash(f.title);
   return (
-    <PcbFrame title={f.title} x={x} y={y} w={frameW(f)} h={FRAME_H} led={f.led ? f.led() : undefined} flash={flash}>
+    <PcbFrame title={f.title} x={x} y={y} w={frameW(f)} h={FRAME_H} led={f.led ? f.led() : undefined} flash={flash} sep={sep}>
       <div className="mm-p2-cells">
         {f.ctls.map((c) => (
           <CtlCell key={c.id} c={c} />
@@ -265,10 +270,10 @@ const FrameRow: React.FC<{ y: number; frames: FrameSpec[] }> = ({ y, frames }) =
   let x = ZONE.x + Math.round((ZONE.w - total) / 2);
   return (
     <>
-      {frames.map((f) => {
+      {frames.map((f, i) => {
         const fx = x;
         x += frameW(f) + FRAME_GAP;
-        return <Frame key={f.title} f={f} x={fx} y={y} />;
+        return <Frame key={f.title} f={f} x={fx} y={y} sep={i < frames.length - 1} />;
       })}
     </>
   );
@@ -301,7 +306,7 @@ const HellPresets: React.FC = () => {
   const flash = useFlash('HELL PRESETS');
   const x0 = ZONE.x + Math.round((ZONE.w - HELL_W) / 2);
   return (
-    <PcbFrame title="HELL PRESETS" x={x0} y={216} w={HELL_W} h={150} className="mm-p2-hellp" flash={flash}>
+    <PcbFrame title="HELL PRESETS" x={x0} y={226} w={HELL_W} h={160} className="mm-p2-hellp" flash={flash}>
       <div className="mm-p2-hellp-keys">
         {HELL_PRESETS.map((p) => (
           <PcbKey key={p.name} name={p.name} w={56} h={16} on={cur?.name === p.name} aria-pressed={cur?.name === p.name} title={p.desc} onClick={() => hellLoad(p)} />
@@ -319,7 +324,7 @@ const HellPresets: React.FC = () => {
 const HellDiagram: React.FC = () => {
   const x0 = ZONE.x + Math.round((ZONE.w - 640) / 2);
   return (
-    <svg className="mm-p2-helld" style={{ left: x0, top: 392 }} width="640" height="96" viewBox="0 0 640 96" aria-hidden="true">
+    <svg className="mm-p2-helld" style={{ left: x0, top: 418 }} width="640" height="96" viewBox="0 0 640 96" aria-hidden="true">
       <g className="mm-p2-helld-line">
         <path d="M20 30 H96" />
         <path d="M188 30 H236" />
@@ -376,7 +381,7 @@ const Matrix: React.FC<{ y: number }> = ({ y }) => {
       const i = c * 3 + r + 1;
       const live = v[`xM${i}Src`] > 0 && v[`xM${i}Dst`] > 0 && Math.abs(v[`xM${i}Amt`] - 0.5) > 0.001;
       return (
-        <div key={i} className="mm-p2-mx-row" style={{ top: 30 + r * 44 }}>
+        <div key={i} className="mm-p2-mx-row" style={{ top: 40 + r * 42 }}>
           <span className="mm-p2-mx-n">{i}</span>
           <i className="mm-p2-led" data-on={live ? '1' : undefined} aria-hidden="true" />
           <PcbSelect id={`xM${i}Src`} name="" ref_="" w={104} bare up={r > 0} cols={2} />
@@ -389,7 +394,7 @@ const Matrix: React.FC<{ y: number }> = ({ y }) => {
       );
     });
   return (
-    <PcbFrame title="MOD MATRIX" x={ZONE.x + Math.round((ZONE.w - MATRIX_W) / 2)} y={y} w={MATRIX_W} h={166} className="mm-p2-mx" flash={flash}>
+    <PcbFrame title="MOD MATRIX" x={ZONE.x + Math.round((ZONE.w - MATRIX_W) / 2)} y={y} w={MATRIX_W} h={170} className="mm-p2-mx" flash={flash}>
       {[0, 1].map((c) => (
         <div key={c} className="mm-p2-mx-col" style={{ left: 14 + c * 474 }}>
           <span className="mm-p2-mx-head" style={{ left: 105 }}>
@@ -503,7 +508,7 @@ const Steps: React.FC = () => {
   };
 
   return (
-    <PcbFrame title="STEP SEQUENCER" x={ZONE.x + Math.round((ZONE.w - STEPS_W) / 2)} y={26} w={STEPS_W} h={204} className="mm-p2-steps" flash={flash}>
+    <PcbFrame title="STEP SEQUENCER" x={ZONE.x + Math.round((ZONE.w - STEPS_W) / 2)} y={62} w={STEPS_W} h={204} className="mm-p2-steps" flash={flash}>
       <div className="mm-p2-st-heads" aria-hidden="true">
         {Array.from({ length: STEPS_N }, (_, i) => (
           <span key={i} className="mm-p2-st-head" style={{ left: stepX(i) }} data-off={i >= len ? '1' : undefined}>
@@ -544,12 +549,13 @@ const Steps: React.FC = () => {
 };
 
 /** RANDOM : trois styles (hypno.ts), NEW SEQ tire une suite et ses pistes ; RANDOM de la face prend le meme style. */
+const RND_W = 236;
 const RandomBox: React.FC<{ x: number; y: number }> = ({ x, y }) => {
   const style = useSyncExternalStore(hypnoStyle.subscribe, hypnoStyle.get, hypnoStyle.get);
   const st = useSteps();
   const flash = useFlash('RANDOM');
   return (
-    <PcbFrame title="RANDOM" x={x} y={y} w={300} h={FRAME_H} className="mm-p2-rnd" flash={flash}>
+    <PcbFrame title="RANDOM" x={x} y={y} w={RND_W} h={FRAME_H} className="mm-p2-rnd" flash={flash} sep>
       <div className="mm-p2-rnd-keys" role="radiogroup" aria-label="Random style">
         {HYPNO_STYLES.map((s) => (
           <PcbKey key={s} role="radio" aria-checked={s === style} on={s === style} name={s} w={44} h={18} onClick={() => hypnoStyle.set(s)} />
@@ -567,31 +573,32 @@ const RandomBox: React.FC<{ x: number; y: number }> = ({ x, y }) => {
 
 const SEQ_ROW: FrameSpec[] = [
   { title: 'ARP', ctls: [knob('xSwing', 'SWING', '0', 'FULL')] },
-  { title: 'LFO 1 +', ctls: [sel('xLfo1Dest2', 'TARGET 2', 88, 'LFO 1 TARGET 2'), knob('xLfo1Depth2', 'DEPTH 2', '0', 'FULL', 'LFO 1 DEPTH 2')] },
+  { title: 'LFO 1 +', ctls: [sel('xLfo1Dest2', 'TARGET 2', 80, 'LFO 1 TARGET 2'), knob('xLfo1Depth2', 'DEPTH 2', '0', 'FULL', 'LFO 1 DEPTH 2')] },
   {
     title: 'LFO 2',
     led: () => X('xLfo2Dest') > 0,
-    ctls: [sel('xLfo2Rate', 'SPEED', 52, 'LFO 2 SPEED'), sel('xLfo2Shape', 'SHAPE', 48, 'LFO 2 SHAPE'), sel('xLfo2Dest', 'TARGET', 88, 'LFO 2 TARGET'), knob('xLfo2Depth', 'DEPTH', '0', 'FULL', 'LFO 2 DEPTH')],
+    ctls: [sel('xLfo2Rate', 'SPEED', 52, 'LFO 2 SPEED'), rot('xLfo2Shape', 'SHAPE', 'LFO 2 SHAPE'), sel('xLfo2Dest', 'TARGET', 80, 'LFO 2 TARGET'), knob('xLfo2Depth', 'DEPTH', '0', 'FULL', 'LFO 2 DEPTH')],
   },
 ];
 
 const SeqPage: React.FC = () => {
   useExtraAll();
-  const y = 250;
-  const rowW = SEQ_ROW.reduce((s, f) => s + frameW(f), 0) + FRAME_GAP * SEQ_ROW.length + 300;
+  const y = 290;
+  const GAP = 16;
+  const rowW = SEQ_ROW.reduce((s, f) => s + frameW(f), 0) + GAP * SEQ_ROW.length + RND_W;
   let x = ZONE.x + Math.round((ZONE.w - rowW) / 2);
   const rnd = x;
-  x += 300 + FRAME_GAP;
+  x += RND_W + GAP;
   return (
     <>
       <Steps />
       <RandomBox x={rnd} y={y} />
-      {SEQ_ROW.map((f) => {
+      {SEQ_ROW.map((f, i) => {
         const fx = x;
-        x += frameW(f) + FRAME_GAP;
-        return <Frame key={f.title} f={f} x={fx} y={y} />;
+        x += frameW(f) + GAP;
+        return <Frame key={f.title} f={f} x={fx} y={y} sep={i < SEQ_ROW.length - 1} />;
       })}
-      <Matrix y={y + FRAME_H + 22} />
+      <Matrix y={y + FRAME_H + 14} />
     </>
   );
 };
@@ -607,7 +614,7 @@ const LibraryPanel: React.FC = () => {
   const x0 = ZONE.x + Math.round((ZONE.w - LIB_W) / 2);
   return (
     <>
-      <PcbFrame title={`FACTORY BANK · ${LIB_PRESETS.length} SOUNDS`} x={x0} y={30} w={LIB_W - 270} h={330} className="mm-p2-lib">
+      <PcbFrame title={`FACTORY BANK · ${LIB_PRESETS.length} SOUNDS`} x={x0} y={70} w={LIB_W - 270} h={330} className="mm-p2-lib">
         {LIB_CATS.map((c, k) => {
           const list = libOfCat(c);
           const cw = (LIB_W - 270 - 20 - 3 * 12) / 4;
@@ -631,10 +638,10 @@ const LibraryPanel: React.FC = () => {
           );
         })}
       </PcbFrame>
-      <PcbFrame title="DISK" x={x0 + LIB_W - 254} y={30} w={254} h={330} className="mm-p2-panel">
+      <PcbFrame title="DISK" x={x0 + LIB_W - 254} y={70} w={254} h={330} className="mm-p2-panel">
         <DiskPresets />
       </PcbFrame>
-      <div className="mm-p2-lib-now" style={{ left: x0, top: 376, width: LIB_W }} role="status" aria-live="polite">
+      <div className="mm-p2-lib-now" style={{ left: x0, top: 416, width: LIB_W }} role="status" aria-live="polite">
         <p>
           <b>{p ? p.name : 'PICK A SOUND'}</b>
           <span>{p ? `${p.cat} · ${p.bpm} BPM · ${p.desc}` : 'It loads at once, UNDO brings your sound back. The tempo shown is the one it was made at.'}</span>
@@ -656,7 +663,7 @@ const MidiPanel: React.FC = () => {
   const x0 = ZONE.x + Math.round((ZONE.w - MIDI_DRAG_W - FRAME_GAP - MIDI_MAP_W) / 2);
   return (
     <>
-      <PcbFrame title="DRAG MIDI" x={x0} y={60} w={MIDI_DRAG_W} h={232} className="mm-p2-panel">
+      <PcbFrame title="DRAG MIDI" x={x0} y={84} w={MIDI_DRAG_W} h={232} className="mm-p2-panel">
         <DragMidi />
         <p className="mm-p2-note">
           HOLD AND DRAG ONTO AN ABLETON TRACK
@@ -664,7 +671,7 @@ const MidiPanel: React.FC = () => {
           x1 x2 x4 : TIMES THE PROGRESSION
         </p>
       </PcbFrame>
-      <PcbFrame title="MIDI LEARN" x={x0 + MIDI_DRAG_W + FRAME_GAP} y={60} w={MIDI_MAP_W} h={232} className="mm-p2-panel">
+      <PcbFrame title="MIDI LEARN" x={x0 + MIDI_DRAG_W + FRAME_GAP} y={84} w={MIDI_MAP_W} h={232} className="mm-p2-panel">
         <MidiMap />
       </PcbFrame>
     </>
@@ -683,77 +690,27 @@ const Overlay: React.FC<{ which: 'library' | 'midi' }> = ({ which }) => (
 
 /* ---------------- la carte ---------------- */
 
-/** Le decor de la carte : trous de fixation, quelques pistes en bas, le cartouche. Rien de cliquable. */
-const BoardArt: React.FC = () => (
-  <svg className="mm-p2-art" width={PAGE_W} height={PAGE_H} viewBox={`0 0 ${PAGE_W} ${PAGE_H}`} aria-hidden="true">
-    <g className="mm-p2-trace">
-      <path d="M300 600 H560 L574 586 H760" />
-      <path d="M40 628 H262 L276 614 H300" />
-    </g>
-    <g className="mm-p2-via">
-      {[
-        [300, 600],
-        [760, 586],
-      ].map(([x, y]) => (
-        <circle key={`${x}-${y}`} cx={x} cy={y} r="3.2" />
-      ))}
-    </g>
-    <g transform="translate(790 572)">
-      {Array.from({ length: 6 }, (_, i) => (
-        <rect key={`a${i}`} x={6 + i * 9} y={-4} width="4" height="5" className="mm-p2-pin" />
-      ))}
-      {Array.from({ length: 6 }, (_, i) => (
-        <rect key={`b${i}`} x={6 + i * 9} y={37} width="4" height="5" className="mm-p2-pin" />
-      ))}
-      <rect x="0" y="0" width="62" height="38" rx="2" className="mm-p2-chip" />
-      <circle cx="7" cy="7" r="2" className="mm-p2-chip-dot" />
-      <text x="31" y="23" className="mm-p2-chip-text">
-        MM-X2
-      </text>
-      <text x="74" y="22" className="mm-p2-silk-ref">
-        U7
-      </text>
-    </g>
-    {[
-      [32, 30],
-      [1068, 30],
-      [32, 630],
-      [1068, 630],
-    ].map(([x, y]) => (
-      <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} className="mm-p2-hole">
-        <circle r="10.5" className="mm-p2-hole-ring" />
-        <circle r="7" className="mm-p2-hole-screw" />
-        <path d="M-3.6 0 H3.6 M0 -3.6 V3.6" className="mm-p2-hole-cross" />
-      </g>
-    ))}
-    <g transform="translate(60 568)">
-      <rect x="0" y="0" width="236" height="50" rx="3" className="mm-p2-cart" />
-      <text x="12" y="20" className="mm-p2-cart-name">
-        MM-ARP
-      </text>
-      <text x="224" y="19" textAnchor="end" className="mm-p2-cart-tag">
-        EXPANSION
-      </text>
-      <line x1="12" y1="28" x2="224" y2="28" className="mm-p2-cart-line" />
-      <text x="12" y="41" className="mm-p2-cart-small">
-        DIGITAL CONTROL
-      </text>
-      <text x="224" y="41" textAnchor="end" className="mm-p2-cart-small">
-        REV 3.0 / 2026
-      </text>
-    </g>
-    <g transform="translate(980 612)">
-      <circle r="9" className="mm-p2-pwr-glow" />
-      <circle r="4.2" className="mm-p2-pwr" />
-      <text x="12" y="-1" className="mm-p2-silk-ref mm-p2-silk-ref-w">
-        D1
-      </text>
-      <text x="12" y="9" className="mm-p2-silk-ref mm-p2-silk-ref-w">
-        PWR
-      </text>
-    </g>
-  </svg>
-);
+/**
+ * Le panneau : celui de la face (la meme laque, la meme serigraphie), ses joues de bois (l'image de celles de la face),
+ * l'en-tete comme celui de la face (le wordmark, MM-ARP, la page a droite en petit, comme FIRMWARE). Un clic sur une joue
+ * referme le capot, comme CLOSE ou Echap.
+ */
+const PAGE_LABEL: Record<HoodTab, string> = { sound: 'SOUND', fx: 'EFFECTS', seq: 'SEQUENCER' };
+const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { tab, fx, overlay } = useHoodPage();
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' && fx === 'hell' ? 'EFFECTS / HELL' : PAGE_LABEL[tab];
+  return (
+    <>
+      <button type="button" className="mm-r-wood mm-r-wood-l" aria-label="Close the machine" title="Close" onClick={onClose} />
+      <button type="button" className="mm-r-wood mm-r-wood-r" aria-label="Close the machine" title="Close" onClick={onClose} />
+      <div className="mm-r-head" aria-hidden="true">
+        <span className="mm-r-word" />
+        <span className="mm-r-model">MM-ARP</span>
+        <span className="mm-r-page">EXPANSION PANEL &nbsp;·&nbsp; {page}</span>
+      </div>
+    </>
+  );
+};
 
 /** L'afficheur du bandeau : le reglage touche (nom, valeur), sinon la page. */
 const PAGE_NAME: Record<HoodTab, string> = { sound: 'SOUND', fx: 'FX', seq: 'SEQ' };
@@ -822,7 +779,7 @@ const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         <PcbDefs />
         <div className="mm-p2-fade">
           <div className="mm-p2-board">
-            <BoardArt />
+            <Panel onClose={() => openToggle(stage, 'voy')} />
             {overlay ? (
               <Overlay which={overlay} />
             ) : (

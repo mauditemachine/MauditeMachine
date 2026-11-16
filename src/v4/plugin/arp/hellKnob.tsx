@@ -6,8 +6,9 @@
  * inscrit comme une fiche (scene/screen/menus/registry.ts), que le geste des potards de la face (ui/Hotspots.tsx) tourne
  * comme les autres ; sa valeur s'ecrit sur l'ecran de la machine.
  *
- * Le double clic de la face (voyager/faceDbl.ts) : deux tapes sur un potard ouvrent le capot sur la page qui le detaille
- * (au site : la remise a la valeur de depart ; dans le plugin elle passe a Alt / Cmd / Ctrl + clic) :
+ * Le clic de la face (voyager/faceDbl.ts, 2026-11-16 ; le double clic avant) : un clic sans mouvement sur un potard ouvre
+ * le capot sur la page qui le detaille (un glisser le tourne, rien ne s'ouvre ; la remise a la valeur de depart passe a
+ * Alt / Cmd / Ctrl + clic) :
  *   HELL -> FX / HELL ; DELAY -> FX, DELAY ; REVERB -> FX, REVERB ; OVERDRIVE -> SOUND, DISTORTION ;
  *   oscillateurs -> SOUND, OSC + ; filtre -> SOUND, FILTER + ; enveloppes -> SOUND, AMP ; MOD -> SEQ, LFO 2 ;
  *   arpegiateur -> SEQ, STEP SEQUENCER ; VOLUME -> SOUND, MASTER.
@@ -80,7 +81,7 @@ function pageOf(dial: string): { tab: HoodTab; fx: HoodFx | null; focus: string 
 
 const DEF_ANGLE_AXIS = new Vector3(0, 1, 0);
 
-/** Le potard HELL dans la scene, et le double clic de la face ; rien a dessiner en HTML. */
+/** Le potard HELL dans la scene, et le clic des potards de la face ; rien a dessiner en HTML. */
 export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useEffect(() => {
     const rig = stage?.voy;
@@ -88,7 +89,9 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const P = VOY_HELL_PLACE;
     const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     material.name = 'voyHellKnob';
-    const mesh = new Mesh(buildKnobGeometry(false), material);
+    // ?knobshot : le potard sans repere (la prise de l'image des potards d'OPEN, plugin/arp/knob.png)
+    const shot = typeof location !== 'undefined' && location.search.includes('knobshot');
+    const mesh = new Mesh(buildKnobGeometry(false, !shot), material);
     mesh.name = 'voyHellKnob';
     mesh.castShadow = rig.knobs.mesh.castShadow;
     mesh.receiveShadow = true;
