@@ -532,6 +532,15 @@ Mika : « ajoute aussi HARDGROOVE KICK et INDUSTRIAL SLAM ».
 - **Build vert** (run 43792024470), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit a7b33c0, branche claude/intelligent-ride-56tyeo, 2026-11-16 02:31 UTC ; le binaire contient les cinq kicks du site.
 - **Maquettes d'OPEN** (Mika : « j'aime bien le design des knobs et la page en entier, juste je voudrais le menu different, je n'aime pas le design de ces boutons, montre moi des images ») : 4 menus (1 serigraphie, 2 touches a LED, 3 selecteur encastre, 4 ecran LCD) et 4 versions de DRAG MIDI / CLOSE (A contour discret, B touches a LED, C ronds : une prise MIDI a attraper et un capuchon chrome cannele comme les potards, D texte seul), rendues sur la vraie face (page FX) avec un CSS injecte dans Chromium, sans toucher au code. Reco : menu 1 + boutons C. Rien n'est change avant son choix.
 
+### Lot 34, le menu et les boutons d'OPEN choisis par Mika (2026-11-16)
+
+Mika : « Menu open le 1 serigraphie mon pref. Boutons drag midi close : le D ».
+
+- **Le menu (maquette 1, serigraphie)** : les onglets SAMPLE, FX, PATTERN · MIDI, SETTINGS en texte seul, capitales espacees comme les titres HELL et DIST, gris ; l'onglet choisi en orange avec un trait lumineux pose sur le filet de l'en-tete ; le survol les eclaircit (`src/v4/plugin/OpenPanel.tsx`, CSS `.mm-open-tabs`).
+- **DRAG MIDI et CLOSE (maquette D, texte seul)** : sans boite ; DRAG MIDI en orange (sa poignee aussi), plus clair au survol, a demi eteint quand il n'y a rien a glisser (comme avant) ; CLOSE en gris avec ESC dans un filet, blanc au survol. La grande poignee DRAG MIDI de l'onglet PATTERN garde son bouton orange (Mika n'en parlait pas, c'est le geste principal de cet onglet).
+- **Le reste ne bouge pas** : les potards et la page entiere (« j'aime bien le design des knobs et la page en entier »), les boutons des pistes, des presets et des reglages.
+- **Verifie** : Chromium (vraie face, page FX et les 4 onglets) : l'onglet choisi en orange (#FF8A1F), les autres a 50 % ; CLOSE blanc au survol, DRAG MIDI orange sans fond ; CLOSE et Echap ferment toujours OPEN. Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -649,7 +658,7 @@ Mika : « ajoute aussi HARDGROOVE KICK et INDUSTRIAL SLAM ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- **Cote Mika (maquettes)** : choisir le menu d'OPEN (1 a 4) et les boutons DRAG MIDI / CLOSE (A a D).
+- **Cote Mika (lot 34)** : la commande mm-rytm, OPEN : le menu facon serigraphie et DRAG MIDI / CLOSE en texte ; dire si la grande poignee DRAG MIDI de l'onglet PATTERN doit suivre le meme style.
 - **Cote Mika (lot 33)** : la commande mm-rytm ; BD, SAMP tout au bout (HARDGROOVE DRIVE, INDUSTRIAL SLAM), comparer au site.
 - **Cote Mika (lot 32)** : la commande mm-rytm ; BD, SAMP tout au bout (909 PUNCH, WAREHOUSE RUMBLE), comparer au site ; pour WAREHOUSE RUMBLE, REVERB de la piste a 28 comme le preset du site. Si sur le site il avait regle un autre DEC pour ces kicks, me le donner : un chiffre a changer dans l'outil.
 - **Cote Mika (lot 31)** : la commande mm-rytm, rouvrir Ableton ; piste BD, SAMP tout au bout (BD 808 SUB BOOM), ou OPEN, SAMPLE, fleche gauche depuis le 1er ; comparer au site. Dire si d'autres sons du site doivent suivre (909 PUNCH KICK, WAREHOUSE RUMBLE...) : une ligne chacun dans `tools/site-sound.mjs`.

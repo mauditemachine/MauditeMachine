@@ -771,14 +771,23 @@ const CSS = `
 .mm-open-head{display:flex;align-items:center;gap:1em;padding:.6em .9em;border-bottom:1px solid rgba(244,241,234,.12)}
 .mm-open-title{font-weight:800;letter-spacing:.14em;font-size:1.15em;white-space:nowrap}
 .mm-open-title i{font-style:normal;color:${W_AMBER}}
-.mm-open-tabs{display:flex;gap:.35em}
-.mm-open-tabs button,.mm-open-close,.mm-open-tracks button,.mm-open-row button,.mm-open-choice button,.mm-open-btn{background:rgba(244,241,234,.06);border:1px solid rgba(244,241,234,.2);border-radius:.5em;padding:.45em .8em;font-size:1em;font-weight:700;letter-spacing:.1em;color:${W_INK};white-space:nowrap}
-.mm-open-tabs button[aria-pressed=true],.mm-open-tracks button[aria-pressed=true],.mm-open-choice button[aria-pressed=true],.mm-open-row button[aria-pressed=true]{background:${W_RED};border-color:${W_RED};color:#0b0b0c}
-.mm-open-close:hover,.mm-open-tabs button:hover,.mm-open-row button:hover,.mm-open-btn:hover,.mm-open-tracks button:hover,.mm-open-choice button:hover{border-color:${W_AMBER}}
+/* Le menu (2026-11-16, Mika : la maquette 1, "serigraphie") : du texte seul en capitales espacees comme les titres
+   HELL et DIST, l'onglet choisi en orange avec un trait lumineux sur le filet de l'en-tete */
+.mm-open-tabs{display:flex;gap:1.7em;margin-left:.6em}
+.mm-open-tabs button{position:relative;background:none;border:0;border-radius:0;padding:.25em 0;font-size:1em;font-weight:800;letter-spacing:.16em;color:rgba(244,241,234,.5);white-space:nowrap;transition:color .12s}
+.mm-open-tabs button:hover{color:${W_INK}}
+.mm-open-tabs button[aria-pressed=true]{color:${W_AMBER}}
+.mm-open-tabs button[aria-pressed=true]::after{content:'';position:absolute;left:0;right:.16em;bottom:-.95em;height:.2em;border-radius:.1em;background:${W_AMBER};box-shadow:0 0 .7em rgba(255,138,31,.75)}
+.mm-open-tracks button,.mm-open-row button,.mm-open-choice button,.mm-open-btn{background:rgba(244,241,234,.06);border:1px solid rgba(244,241,234,.2);border-radius:.5em;padding:.45em .8em;font-size:1em;font-weight:700;letter-spacing:.1em;color:${W_INK};white-space:nowrap}
+.mm-open-tracks button[aria-pressed=true],.mm-open-choice button[aria-pressed=true],.mm-open-row button[aria-pressed=true]{background:${W_RED};border-color:${W_RED};color:#0b0b0c}
+.mm-open-row button:hover,.mm-open-btn:hover,.mm-open-tracks button:hover,.mm-open-choice button:hover{border-color:${W_AMBER}}
 .mm-open-btn{padding:.6em 1em}
-.mm-open .mm-open-close{display:flex;align-items:center;gap:.55em;background:${W_RED};border-color:${W_RED};color:#0b0b0c;font-weight:800;font-size:1.08em;padding:.5em 1em;box-shadow:0 0 0 .18em rgba(240,70,60,.22)}
-.mm-open .mm-open-close:hover{background:#ff5a4f;border-color:#fff}
-.mm-open-close kbd{font:inherit;font-size:.72em;font-weight:800;letter-spacing:.08em;padding:.12em .4em;border-radius:.3em;background:rgba(11,11,12,.22)}
+/* DRAG MIDI et CLOSE de l'en-tete (2026-11-16, Mika : la maquette D, "texte seul") : sans boite, DRAG MIDI en orange,
+   CLOSE en gris qui s'eclaire au survol ; la grande poignee de l'onglet PATTERN garde son bouton orange */
+.mm-open .mm-open-close{display:flex;align-items:center;gap:.45em;margin-left:1.4em;background:none;border:0;padding:.3em .2em;font-size:1em;font-weight:800;letter-spacing:.14em;color:rgba(244,241,234,.6);white-space:nowrap;transition:color .12s}
+.mm-open .mm-open-close:hover{color:#fff}
+.mm-open-close kbd{font:inherit;font-size:.72em;font-weight:800;letter-spacing:.08em;padding:.12em .4em;border-radius:.3em;border:1px solid rgba(244,241,234,.25);color:rgba(244,241,234,.45)}
+.mm-open .mm-open-close:hover kbd{border-color:rgba(244,241,234,.5);color:rgba(244,241,234,.75)}
 .mm-lid{position:fixed;left:0;right:0;top:0;z-index:41;display:flex;align-items:flex-end;justify-content:center;padding:0;border:0;background:linear-gradient(rgba(5,5,6,0),rgba(5,5,6,.28));cursor:pointer;font-family:${FONT_DISPLAY};animation:mm-open-in .32s ease-out both}
 .mm-lid span{margin-bottom:.35em;padding:.2em .9em;border-radius:1em;background:rgba(5,5,6,.72);border:1px solid rgba(244,241,234,.2);font-size:.8em;font-weight:800;letter-spacing:.2em;color:rgba(244,241,234,.6);white-space:nowrap;transition:color .12s,border-color .12s,background .12s}
 .mm-lid:hover span,.mm-lid:focus-visible span{color:#0b0b0c;background:${W_AMBER};border-color:${W_AMBER}}
@@ -789,6 +798,10 @@ const CSS = `
 .mm-open-drag svg{width:.75em;height:1.15em;fill:currentColor}
 .mm-open-drag span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}
 .mm-open-drag b{font-size:1em;font-weight:800;letter-spacing:.1em}
+.mm-open-head .mm-open-drag{background:none;border-color:transparent;padding:.3em .2em;color:${W_AMBER} !important;transition:color .12s}
+.mm-open-head .mm-open-drag:hover{color:#ffb066 !important}
+.mm-open-head .mm-open-drag b{letter-spacing:.14em}
+.mm-open-tabs button:focus-visible,.mm-open .mm-open-close:focus-visible,.mm-open-head .mm-open-drag:focus-visible{outline:1px solid rgba(255,138,31,.7);outline-offset:.25em;border-radius:.15em}
 .mm-open-drag small{font-size:.85em;font-weight:600;letter-spacing:.06em;opacity:.8}
 .mm-open-drag-big{margin-left:0;padding:1em 1.5em;border-radius:.7em}
 .mm-open-drag-big svg{width:1em;height:1.5em}
