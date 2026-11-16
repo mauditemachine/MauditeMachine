@@ -477,3 +477,17 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 ### Ce qui reste a faire / points en suspens
 - Fermeture d'OPEN parfois > 1,5 s en rendu logiciel : a verifier sur le Mac.
 - Grain du cuir dans OPEN = image fixe (pas de relief eclaire).
+
+## 2026-11-16 (suite 4) : cuir facon Legend HZ, panneau de reglages, clic limite aux knobs lies
+
+### Ce qui a ete fait
+- Cuir pleine fleur plus fin (grain ~2x plus fin, relief divise ~3, teinte ~#1A1817, ecart type du grain 2,8 contre 2,3-2,7 sur la reference), variations de lumiere larges, aretes sombres entre sections ; retro/leather.png regenere pour OPEN.
+- Panneau de reglages (icone 3 curseurs pres de FIRMWARE et dans l'en-tete d'OPEN) : LEATHER TEXTURE (defaut 70, 0 = laque d'avant au pixel pres), PANEL LIGHT (defaut 50), RESET ; sauve dans l'etat de la face (projet), pas un param hote.
+- Clic sur un knob de la face : seuls REVERB (page REVERB), HELL (page HELL), DELAY (RACK/DELAY) ouvrent OPEN ; les autres ne font rien au clic (glisser inchange). Table pageOf dans hellKnob.tsx.
+
+### Decisions prises et pourquoi
+- Mika : le cuir v20 etait trop gros et trop marque par rapport a Legend HZ ; il veut pouvoir l'attenuer.
+- Mika : seuls les boutons qui ont une page liee doivent ouvrir OPEN.
+
+### Ce qui reste a faire / points en suspens
+- Ajouts possibles a pageOf : CUTOFF -> SOUND/FILTER, oscillateurs -> SOUND/OSCILLATORS, MOD -> SEQ/LFO, arpegiateur -> SEQ/ARP, VOLUME -> SOUND/MASTER.
