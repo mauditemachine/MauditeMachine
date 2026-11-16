@@ -41,7 +41,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
-import { LIT, PORTRAIT, TEMPO_UI } from '../theme';
+import { LIT, MATERIAL, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
+import { rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry } from './rytmKnob';
 import { VOY_FACE_KNOBS, type VoyKnobId } from './params';
 import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isPush, isSwitch, knobThrowDeg, voyKnobPlace } from './theme';
 
@@ -114,18 +115,51 @@ export function buildKnobGeometry(mobile: boolean, withMark = true): BufferGeome
 export class VoyKnobs {
   readonly mesh: InstancedMesh;
   private material: MeshStandardMaterial;
+  /**
+   * Le plugin MM-ARP (2026-11-16, Mika : "le design des knobs de MM-RYTM") : le potard du MM-RYTM (voyager/rytmKnob.ts),
+   * mesh tourne (la prise, le repere), top ne tourne pas (la base et le dessus du capuchon, leurs reflets fixes). Au site :
+   * null, le potard de toujours.
+   */
+  readonly top: InstancedMesh | null = null;
+  private topMat: MeshStandardMaterial | null = null;
   private angle = new Map<VoyKnobId, number>();
 
   constructor(opts: { mobile: boolean; castShadow: boolean }) {
-    // Un peu de metal : la jupe d'aluminium accroche la lumiere, le capuchon reste mat
-    this.material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
-    this.material.name = 'voyKnob';
-    this.mesh = new InstancedMesh(buildKnobGeometry(opts.mobile), this.material, DIALS.length);
+    if (PLUGIN_ARP) {
+      this.material = new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.encoder });
+      this.material.name = 'voyKnobRytm';
+      this.mesh = new InstancedMesh(rytmKnobGeometry(opts.mobile), this.material, DIALS.length);
+      // la prise ne recoit pas l'ombre du capuchon (comme au MM-RYTM : un gris egal)
+      this.mesh.receiveShadow = false;
+      this.topMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28, map: rytmKnobTexture() });
+      this.topMat.name = 'voyKnobRytmTop';
+      const top = new InstancedMesh(rytmKnobTopGeometry(opts.mobile), this.topMat, DIALS.length);
+      top.name = 'voyKnobTops';
+      top.receiveShadow = false;
+      top.castShadow = opts.castShadow;
+      this.top = top;
+      this.mesh.add(top);
+    } else {
+      // Un peu de metal : la jupe d'aluminium accroche la lumiere, le capuchon reste mat
+      this.material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
+      this.material.name = 'voyKnob';
+      this.mesh = new InstancedMesh(buildKnobGeometry(opts.mobile), this.material, DIALS.length);
+      this.mesh.receiveShadow = true;
+    }
     this.mesh.name = 'voyKnobs';
     this.mesh.castShadow = opts.castShadow;
-    this.mesh.receiveShadow = true;
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     for (const k of DIALS) this.place(k.id);
+    if (this.top) {
+      for (const k of DIALS) {
+        const i = DIALS.findIndex((x) => x.id === k.id);
+        const pl = voyKnobPlace(k.id);
+        m4.compose(pos.set(pl.x, 0, pl.z), quat.identity(), scl.setScalar(pl.s));
+        if (pl.where === 'panel') m4.premultiply(PANEL_M);
+        this.top.setMatrixAt(i, m4);
+      }
+      this.top.instanceMatrix.needsUpdate = true;
+    }
   }
 
   private place(id: VoyKnobId): void {
@@ -189,6 +223,9 @@ export class VoyKnobs {
   }
 
   dispose(): void {
+    this.top?.geometry.dispose();
+    this.top?.dispose();
+    this.topMat?.dispose();
     this.mesh.geometry.dispose();
     this.mesh.dispose();
     this.material.dispose();

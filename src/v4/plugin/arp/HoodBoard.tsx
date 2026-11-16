@@ -27,13 +27,13 @@ import { extHead } from '../head';
 import { arpBridge } from './bridge';
 import { arpExtra, extraParam, MATRIX_ROWS } from './extra';
 import { HELL_PRESETS, hellCurrent, hellLoad } from './hell';
-import { HOOD_TABS, hoodPage, type HoodTab } from './hoodPage';
+import { HOOD_PAGES, hoodPage, hoodPageIndex, hoodPageStep, type HoodTab } from './hoodPage';
 import { hypnoNew, hypnoStyle, HYPNO_STYLES } from './hypno';
 import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore } from './library';
 import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { arpMidi } from './midimap';
-import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
+import { hoodLcd, RetroKnob, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
 import './hood.css';
 
@@ -289,16 +289,6 @@ const Grid: React.FC<{ page: GridPage }> = ({ page }) => (
 
 /* ---------------- FX : la sous-page, HELL et ses presets ---------------- */
 
-const FxSwitch: React.FC = () => {
-  const { fx } = useHoodPage();
-  return (
-    <div className="mm-p2-sub" role="tablist" aria-label="FX pages">
-      <PcbKey role="tab" aria-selected={fx === 'rack'} on={fx === 'rack'} name="RACK" w={40} h={14} onClick={() => hoodPage.set({ fx: 'rack' })} />
-      <PcbKey role="tab" aria-selected={fx === 'hell'} on={fx === 'hell'} name="HELL" w={40} h={14} onClick={() => hoodPage.set({ fx: 'hell' })} />
-    </div>
-  );
-};
-
 const HELL_W = 1000;
 const HellPresets: React.FC = () => {
   useExtraAll();
@@ -355,7 +345,6 @@ const FxPage: React.FC = () => {
   const { fx } = useHoodPage();
   return (
     <>
-      <FxSwitch />
       {fx === 'hell' ? (
         <>
           <Grid page="hell" />
@@ -691,6 +680,117 @@ const Overlay: React.FC<{ which: 'library' | 'midi' }> = ({ which }) => (
 /* ---------------- la carte ---------------- */
 
 /**
+ * Le selecteur PAGE (2026-11-16, Mika, la maquette C : "un selecteur rotatif PAGE facon Moog dans l'en-tete") : le petit
+ * commutateur rotatif de la face, SOUND, RACK, HELL et SEQ ecrits autour. Un clic sur un nom y va ; glisser le potard
+ * verticalement tourne d'un cran par 14 px (vers le haut : la page suivante) ; molette ; fleches gauche / droite du
+ * clavier quand aucun reglage ne les prend (HoodBody). Le seul menu des pages : LIBRARY, MIDI et LEARN sont des outils
+ * (le bandeau du bas).
+ */
+const DIAL_ANGLES = [-70, -24, 24, 70] as const;
+const PageDial: React.FC = () => {
+  const st = useHoodPage();
+  const cur = hoodPageIndex(st);
+  const el = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y: number; i0: number; pid: number } | null>(null);
+  useEffect(() => {
+    const node = el.current;
+    if (!node) return undefined;
+    let acc = 0;
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault();
+      acc += e.deltaY;
+      const t = Math.trunc(acc / 40);
+      if (t === 0) return;
+      acc -= t * 40;
+      hoodPageStep(-t, false);
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, []);
+  const cx = 110;
+  const cy = 38;
+  const R = 26;
+  const k = 0.88;
+  const box = 52 * k;
+  const go = (i: number): void => {
+    const p = HOOD_PAGES[Math.max(0, Math.min(HOOD_PAGES.length - 1, i))];
+    hoodPage.set({ tab: p.tab, fx: p.fx ?? st.fx, overlay: null });
+  };
+  const scale = (): number => (el.current ? el.current.getBoundingClientRect().height / (el.current.offsetHeight || 1) || 1 : 1);
+  return (
+    <div className="mm-r-dial" role="radiogroup" aria-label="Page">
+      <svg className="mm-r-dial-ticks" width="220" height="70" aria-hidden="true">
+        {DIAL_ANGLES.map((a, i) => {
+          const r = (a * Math.PI) / 180;
+          return <line key={a} x1={cx + Math.sin(r) * (R - 2)} y1={cy - Math.cos(r) * (R - 2)} x2={cx + Math.sin(r) * (R + 3)} y2={cy - Math.cos(r) * (R + 3)} data-on={i === cur ? '1' : undefined} />;
+        })}
+      </svg>
+      {HOOD_PAGES.map((p, i) => {
+        const r = (DIAL_ANGLES[i] * Math.PI) / 180;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            role="radio"
+            aria-checked={i === cur}
+            className="mm-r-dial-pos"
+            data-on={i === cur ? '1' : undefined}
+            style={{ left: cx + Math.sin(r) * (R + 20), top: cy - Math.cos(r) * (R + 8) }}
+            onClick={() => go(i)}
+          >
+            {p.label}
+          </button>
+        );
+      })}
+      <div
+        ref={el}
+        className="mm-r-dial-knob"
+        role="slider"
+        tabIndex={0}
+        aria-label="Page"
+        aria-valuemin={0}
+        aria-valuemax={HOOD_PAGES.length - 1}
+        aria-valuenow={cur}
+        aria-valuetext={HOOD_PAGES[cur]?.label}
+        style={{ left: cx - box / 2 + 1.5, top: cy - box / 2 + 0.5, width: box, height: box }}
+        onPointerDown={(e) => {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          e.preventDefault();
+          drag.current = { y: e.clientY, i0: cur, pid: e.pointerId };
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {
+            /* rien */
+          }
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          if (!d || d.pid !== e.pointerId) return;
+          const i = d.i0 + Math.trunc((d.y - e.clientY) / scale() / 14);
+          if (i !== hoodPageIndex(hoodPage.get())) go(i);
+        }}
+        onPointerUp={() => {
+          drag.current = null;
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') go(cur + 1);
+          else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') go(cur - 1);
+          else return;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <RetroKnob angle={cur >= 0 ? DIAL_ANGLES[cur] : 0} k={k} />
+      </div>
+      <span className="mm-r-dial-name">PAGE</span>
+    </div>
+  );
+};
+
+/**
  * Le panneau : celui de la face (la meme laque, la meme serigraphie), ses joues de bois (l'image de celles de la face),
  * l'en-tete comme celui de la face (le wordmark, MM-ARP, la page a droite en petit, comme FIRMWARE). Un clic sur une joue
  * referme le capot, comme CLOSE ou Echap.
@@ -709,9 +809,7 @@ const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <span className="mm-r-word" />
           <span className="mm-r-model">MM-ARP</span>
         </button>
-        <span className="mm-r-page" aria-hidden="true">
-          EXPANSION PANEL &nbsp;·&nbsp; {page}
-        </span>
+        <PageDial />
         {/* La croix : une petite touche de la face, la croix serigraphiee dessus */}
         <button type="button" className="mm-key mm-r-x" aria-label="Close the machine" title="Close" onClick={onClose}>
           <span className="mm-key-cap" aria-hidden="true">
@@ -786,6 +884,24 @@ const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useEffect(() => {
     arpBridge.midimapGet();
   }, []);
+  // Les fleches gauche / droite du clavier : la page d'avant, la suivante (2026-11-16), quand rien ne les prend (un
+  // potard, une touche a crans, une fenetre, le sequenceur : ils les gardent pour eux)
+  useEffect(() => {
+    const owns = (t: EventTarget | null): boolean => {
+      const n = t instanceof Element ? t : null;
+      return !!n?.closest('[role="slider"], .mm-p2-win, .mm-p2-st-grid, .mm-p2-menu, input, textarea, [contenteditable="true"]');
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      if (owns(e.target) || owns(document.activeElement)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hoodPageStep(e.key === 'ArrowRight' ? 1 : -1, true);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
   return (
     <div className="mm-p2" style={{ position: 'fixed' }} data-phase={hood} aria-label="MM-ARP hood">
       <div className="mm-p2-page" style={{ width: PAGE_W, height: PAGE_H, transform: `scale(${scale})` }}>
@@ -806,11 +922,6 @@ const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               <PcbKey on={overlay === 'library'} aria-pressed={overlay === 'library'} name="LIBRARY" w={STRIP_KEY.w} h={STRIP_KEY.h} onClick={() => hoodPage.set({ overlay: overlay === 'library' ? null : 'library' })} />
               <PcbKey on={overlay === 'midi'} aria-pressed={overlay === 'midi'} name="MIDI" w={STRIP_KEY.w} h={STRIP_KEY.h} onClick={() => hoodPage.set({ overlay: overlay === 'midi' ? null : 'midi' })} />
               <PcbKey className="mm-p2-learn" aria-pressed={midi.learning} on={midi.learning} name="LEARN" w={STRIP_KEY.w} h={STRIP_KEY.h} onClick={() => arpBridge.learnMode(!midi.learning)} aria-label="MIDI learn" />
-            </div>
-            <div className="mm-p2-tabs" role="tablist" aria-label="Hood pages">
-              {HOOD_TABS.map((t) => (
-                <PcbKey key={t.id} role="tab" aria-selected={t.id === tab && !overlay} className="mm-p2-tabkey" on={t.id === tab && !overlay} name={t.label} w={56} h={STRIP_KEY.h} onClick={() => hoodPage.set({ tab: t.id, overlay: null })} />
-              ))}
             </div>
             <HoodLcd />
             <PcbKey className="mm-p2-close" accent name="CLOSE" w={STRIP_KEY.w} h={STRIP_KEY.h} aria-label="Close the machine" onClick={() => openToggle(stage, 'voy')} />

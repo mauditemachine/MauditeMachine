@@ -22,9 +22,9 @@ import type { HotspotDef } from '../../scene/hit';
 import { potAngle } from '../../scene/encoders';
 import { registerDialSpec } from '../../scene/screen/menus/registry';
 import { voyExplode } from '../../state/explode';
-import type { EncId } from '../../theme';
+import { MATERIAL, type EncId } from '../../theme';
 import { faceDbl } from '../../voyager/faceDbl';
-import { buildKnobGeometry } from '../../voyager/knobs';
+import { rytmKnobGeometry, rytmKnobTexture, rytmKnobTopGeometry } from '../../voyager/rytmKnob';
 import { voyMsg } from '../../voyager/msg';
 import { voyKnob, type VoyKnobId } from '../../voyager/params';
 import { voySilkExtraKnob } from '../../voyager/silk';
@@ -87,17 +87,26 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     const rig = stage?.voy;
     if (!stage || !rig) return undefined;
     const P = VOY_HELL_PLACE;
-    const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
+    // Le potard du MM-RYTM, comme tous ceux de la face du plugin (voyager/rytmKnob.ts) : la prise et le repere tournent, la
+    // base et le dessus du capuchon (top) non
+    const material = new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.encoder });
     material.name = 'voyHellKnob';
-    // ?knobshot : le potard sans repere (la prise de l'image des potards d'OPEN, plugin/arp/knob.png)
+    // ?knobshot : le potard sans repere (la prise de l'image des potards d'OPEN, plugin/arp/retro/knob.png)
     const shot = typeof location !== 'undefined' && location.search.includes('knobshot');
-    const mesh = new Mesh(buildKnobGeometry(false, !shot), material);
+    const mesh = new Mesh(rytmKnobGeometry(false, !shot), material);
     mesh.name = 'voyHellKnob';
     mesh.castShadow = rig.knobs.mesh.castShadow;
-    mesh.receiveShadow = true;
+    mesh.receiveShadow = false;
     mesh.position.set(P.x, 0, P.z);
     mesh.scale.setScalar(P.s);
     rig.panel.add(mesh);
+    const topMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28, map: rytmKnobTexture() });
+    const top = new Mesh(rytmKnobTopGeometry(false), topMat);
+    top.castShadow = rig.knobs.mesh.castShadow;
+    top.receiveShadow = false;
+    top.position.set(P.x, 0, P.z);
+    top.scale.setScalar(P.s);
+    rig.panel.add(top);
     const q = new Quaternion();
     const turn = (): void => {
       mesh.quaternion.copy(q.setFromAxisAngle(DEF_ANGLE_AXIS, Math.fround(potAngle(arpExtra.of(ID)))));
@@ -117,7 +126,7 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       hx: r,
       hz: r,
       y0: 0,
-      y1: (VOY_KNOB.skirt.h + VOY_KNOB.h) * P.s,
+      y1: 0.27 * P.s,
       enabled: true,
       machine: 'voy',
     };
@@ -134,8 +143,11 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       faceDbl.set(null);
       def.enabled = false;
       rig.panel.remove(mesh);
+      rig.panel.remove(top);
       mesh.geometry.dispose();
+      top.geometry.dispose();
       material.dispose();
+      topMat.dispose();
     };
   }, [stage]);
   return null;

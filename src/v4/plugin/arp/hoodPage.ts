@@ -17,6 +17,16 @@ export const HOOD_TABS: readonly { id: HoodTab; label: string }[] = [
   { id: 'seq', label: 'SEQ' },
 ];
 
+/**
+ * Les pages a plat, celles du selecteur PAGE de l'en-tete (2026-11-16, Mika, la maquette C) : SOUND, RACK, HELL, SEQ.
+ */
+export const HOOD_PAGES: readonly { id: string; label: string; tab: HoodTab; fx: HoodFx | null }[] = [
+  { id: 'sound', label: 'SOUND', tab: 'sound', fx: null },
+  { id: 'rack', label: 'RACK', tab: 'fx', fx: 'rack' },
+  { id: 'hell', label: 'HELL', tab: 'fx', fx: 'hell' },
+  { id: 'seq', label: 'SEQ', tab: 'seq', fx: null },
+];
+
 export interface HoodPageState {
   tab: HoodTab;
   fx: HoodFx;
@@ -48,3 +58,18 @@ export const hoodPage = {
     };
   },
 };
+
+/** Le rang de la page montree dans HOOD_PAGES. */
+export function hoodPageIndex(s: HoodPageState): number {
+  return HOOD_PAGES.findIndex((p) => p.tab === s.tab && (p.fx === null || p.fx === s.fx));
+}
+
+/** La page d'avant ou la suivante (wrap : en boucle, pour les fleches du clavier) ; le volet par-dessus se ferme. */
+export function hoodPageStep(d: number, wrap: boolean): void {
+  const n = HOOD_PAGES.length;
+  const s = hoodPage.get();
+  const i0 = hoodPageIndex(s);
+  const i = wrap ? (((i0 + d) % n) + n) % n : Math.max(0, Math.min(n - 1, i0 + d));
+  const p = HOOD_PAGES[i];
+  hoodPage.set({ tab: p.tab, fx: p.fx ?? s.fx, overlay: null });
+}

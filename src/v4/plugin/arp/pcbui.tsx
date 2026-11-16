@@ -208,13 +208,15 @@ const DEG = Math.PI / 180;
 const SWEEP = 135;
 
 /**
- * L'image du potard de la face (retro/knob.png, 260 px pour 52 px de page) : le centre du capuchon, autour duquel tourne
- * le repere, et le repere lui-meme (de r0 a r1 de ce centre, sa largeur w), mesures sur la face (le potard HELL a 0, 0.5
- * et 1, la meme prise).
+ * L'image du potard de la face (retro/knob.png, 260 px pour 52 px de page) : depuis le 2026-11-16 le potard du MM-RYTM
+ * (voyager/rytmKnob.ts : la base, la prise a six lobes, le capuchon de metal brosse), rendu par la scene sans son repere
+ * (hellKnob.tsx ?knobshot). Le repere tourne autour de l'axe du potard au niveau du dessus de la prise (cx, cy), de r0 (le
+ * bord du capuchon) a r1 (presque le bord de la base), large de w ; le capuchon (retro/knob-cap.png) repasse par-dessus,
+ * comme dans la scene ou il cache le pied du repere. Mesure sur la face (le potard HELL a 0, 0.5 et 1, la meme prise).
  */
-export const KNOB_IMG = { box: 52, cx: 27.8, cy: 32.2, r0: 1.6, r1: 11.6, w: 1.6 } as const;
+export const KNOB_IMG = { box: 52, cx: 26.9, cy: 29.0, r0: 13.2, r1: 20.4, w: 2.8 } as const;
 
-/** Le potard de la face : son image, son repere a l'angle (degres, 0 en haut). k : l'echelle (1 : un petit potard de la face). */
+/** Le potard de la face : son image, son repere a l'angle (degres, 0 en haut), son capuchon. k : l'echelle. */
 export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 1 }) => {
   const K = KNOB_IMG;
   return (
@@ -223,6 +225,7 @@ export const RetroKnob: React.FC<{ angle: number; k?: number }> = ({ angle, k = 
       <span className="mm-r-knob-axis" style={{ left: K.cx * k, top: K.cy * k, transform: `rotate(${angle}deg)` }}>
         <span className="mm-r-knob-mark" style={{ left: (-K.w * k) / 2, top: -K.r1 * k, width: K.w * k, height: (K.r1 - K.r0) * k }} />
       </span>
+      <span className="mm-r-knob-cap" />
     </span>
   );
 };
@@ -235,9 +238,9 @@ const KnobModArc: React.FC<{ id: string; k: number }> = ({ id, k }) => {
   const m = useSyncExternalStore(arpMod.subscribe, () => arpMod.of(id));
   if (!m) return null;
   const box = KNOB_IMG.box * k;
-  const cx = 26 * k;
-  const cy = 28 * k;
-  const R = 24.5 * k;
+  const cx = 25.9 * k;
+  const cy = 27.6 * k;
+  const R = 23.5 * k;
   const at = (v: number): readonly [number, number] => {
     const a = ((-SWEEP + 2 * SWEEP * Math.min(1, Math.max(0, v))) * Math.PI) / 180;
     return [cx + Math.sin(a) * R, cy - Math.cos(a) * R];

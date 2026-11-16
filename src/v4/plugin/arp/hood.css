@@ -2402,3 +2402,106 @@
   top: 12px;
   transform: none;
 }
+
+/* le potard du MM-RYTM (2026-11-16) : son capuchon repasse par-dessus le repere */
+.mm-plugin-arp .mm-r-knob-cap {
+  position: absolute;
+  inset: 0;
+  background: url('./retro/knob-cap.png') center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-r-knob-mark {
+  border-radius: 0;
+  background: #efebe3;
+}
+
+/* ---------- le selecteur PAGE (2026-11-16) : le commutateur rotatif de la face, les pages ecrites autour ---------- */
+.mm-plugin-arp .mm-r-dial {
+  position: relative;
+  flex: none;
+  width: 220px;
+  height: 58px;
+  margin: 0 40px 0 auto;
+  pointer-events: auto;
+}
+
+.mm-plugin-arp .mm-r-dial-ticks {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-r-dial-ticks line {
+  stroke: var(--r-silk-dim);
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-r-dial-ticks line[data-on='1'] {
+  stroke: var(--r-silk);
+  stroke-width: 1.5;
+}
+
+.mm-plugin-arp .mm-r-dial-pos {
+  position: absolute;
+  margin: 0;
+  padding: 2px 3px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  font: inherit;
+  font-size: 8px;
+  line-height: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--r-silk-dim);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-r-dial-pos:hover {
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-r-dial-pos[data-on='1'] {
+  color: var(--r-orange);
+}
+
+.mm-plugin-arp .mm-r-dial-pos:focus-visible,
+.mm-plugin-arp .mm-r-dial-knob:focus-visible {
+  outline: 1.5px solid var(--r-orange);
+  outline-offset: 1px;
+}
+
+.mm-plugin-arp .mm-r-dial-knob {
+  position: absolute;
+  border-radius: 50%;
+  cursor: ns-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.mm-plugin-arp .mm-r-dial-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 64px;
+  display: none;
+}
+
+/* le bandeau : les outils a gauche, la fenetre et CLOSE a droite (plus de pages en bas) */
+.mm-plugin-arp .mm-p2-strip .mm-p2-lcd {
+  margin-left: auto;
+}
+
+/* le volet LIBRARY / MIDI laisse l'en-tete (logos, PAGE, croix) cliquable */
+.mm-plugin-arp .mm-p2-over {
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-p2-over > * {
+  pointer-events: auto;
+}
