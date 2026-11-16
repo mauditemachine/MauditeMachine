@@ -177,7 +177,18 @@
     "xHellSpread": 0,
     "xHellLfoRate": 0.4,
     "xHellLfoDepth": 0,
-    "xHellTone": 0.5
+    "xHellTone": 0.5,
+    "xSkyType": 0,
+    "xSkyDecay": 0.43,
+    "xSkyPre": 0.14,
+    "xSkyTone": 0.5,
+    "xSkyMod": 0.35,
+    "xSkyLow": 0.5,
+    "xSkyP1": 0.5,
+    "xSkyP2": 0,
+    "xSkyP3": 0,
+    "xSkyP4": 0,
+    "xSkyP5": 0
   },
   "steps": {
     "acc": [

@@ -845,6 +845,98 @@
       "section": "hell",
       "def": 0.5,
       "help": "dans la boucle : 0.5 neutre ; dessous passe-bas 18 kHz -> 600 Hz, dessus passe-haut 20 Hz -> 3 kHz"
+    },
+    {
+      "id": "xSkyType",
+      "label": "REVERB TYPE",
+      "section": "sky",
+      "def": 0.16666666666666666,
+      "steps": [
+        "CLASSIC",
+        "ROOM",
+        "HALL",
+        "PLATE",
+        "SPRING",
+        "SWELL",
+        "BLOOM",
+        "CLOUD",
+        "CHORALE",
+        "SHIMMER",
+        "MAGNETO",
+        "NONLINEAR",
+        "REFLECTIONS"
+      ],
+      "help": "La reverbe (2026-11-16, facon BigSky, dsp/Sky.h) : CLASSIC est la reverbe d'avant (la convolution du site, SIZE / TONE / PRE DELAY / SHIMMER), puis les douze machines. Un projet ou un preset d'avant (sans cette cle) revient a CLASSIC."
+    },
+    {
+      "id": "xSkyDecay",
+      "label": "REVERB DECAY",
+      "section": "sky",
+      "def": 0.43,
+      "help": "DECAY (TIME sur NONLINEAR, SIZE sur REFLECTIONS) : le vrai Tr60, expo sur la course de la machine (HALL : 0.5 a 20 s ; 0.43 : 2.44 s)"
+    },
+    {
+      "id": "xSkyPre",
+      "label": "REVERB PRE-DELAY",
+      "section": "sky",
+      "def": 0.14,
+      "help": "PRE-DELAY v^2 s (FEEDBACK sur MAGNETO et NONLINEAR)"
+    },
+    {
+      "id": "xSkyTone",
+      "label": "REVERB TONE",
+      "section": "sky",
+      "def": 0.5,
+      "help": "le passe-bas de sortie, 900 Hz a pleine bande"
+    },
+    {
+      "id": "xSkyMod",
+      "label": "REVERB MOD",
+      "section": "sky",
+      "def": 0.35,
+      "help": "la modulation des lignes ; au-dela de midi un chorus lent"
+    },
+    {
+      "id": "xSkyLow",
+      "label": "REVERB LOW END",
+      "section": "sky",
+      "def": 0.5,
+      "help": "le coupe-bas de l'entree (320 a 18 Hz) et la duree des graves"
+    },
+    {
+      "id": "xSkyP1",
+      "label": "REVERB PARAM 1",
+      "section": "sky",
+      "def": 0.5,
+      "help": "le premier reglage propre a la machine (sky.ts : HALL MID, ROOM SIZE, SPRING DWELL...)"
+    },
+    {
+      "id": "xSkyP2",
+      "label": "REVERB PARAM 2",
+      "section": "sky",
+      "def": 0,
+      "help": "le deuxieme reglage propre a la machine"
+    },
+    {
+      "id": "xSkyP3",
+      "label": "REVERB PARAM 3",
+      "section": "sky",
+      "def": 0,
+      "help": "le troisieme reglage propre a la machine"
+    },
+    {
+      "id": "xSkyP4",
+      "label": "REVERB PARAM 4",
+      "section": "sky",
+      "def": 0,
+      "help": "le quatrieme reglage propre a la machine"
+    },
+    {
+      "id": "xSkyP5",
+      "label": "REVERB PARAM 5",
+      "section": "sky",
+      "def": 0,
+      "help": "le cinquieme reglage propre a la machine (NONLINEAR MOD SPEED)"
     }
   ]
 }

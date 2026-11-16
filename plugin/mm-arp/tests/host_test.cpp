@@ -333,6 +333,42 @@ int main() {
         h2.playing = true;
         s = run(q, h2, 48000 * 2, 256);
         check(s.peak > 0.01, "projet recharge : il joue fenetre fermee");
+        // La reverbe facon BigSky (2026-11-16) : HALL par defaut ; le projet garde la sienne ; un projet d'avant (sans
+        // REVERB TYPE) revient a CLASSIC (la reverbe d'avant)
+        {
+            const int ti = mmx::allIndex("xSkyType");
+            check(std::fabs(p.knobParam(ti)->getValue() - 2.f / 12.f) < 1e-6f && std::fabs(q.knobParam(ti)->getValue() - 2.f / 12.f) < 1e-6f, "REVERB TYPE : HALL par defaut, et il revient avec le projet");
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            bool removed = false;
+            if (xml)
+                for (auto* e : xml->getChildIterator())
+                    for (auto* c : e->getChildIterator())
+                        if (c->getStringAttribute("id") == "xSkyType") {
+                            e->removeChildElement(c, true);
+                            removed = true;
+                            break;
+                        }
+            juce::MemoryBlock old;
+            if (xml) juce::AudioProcessor::copyXmlToBinary(*xml, old);
+            MMArpProcessor r;
+            Head h3;
+            r.setPlayHead(&h3);
+            r.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+            r.prepareToPlay(48000, 256);
+            check(removed && r.knobParam(ti)->getValue() == 0.f, "un projet d'avant (sans REVERB TYPE) : la reverbe d'avant (CLASSIC) " + std::string(removed ? "" : "[cle non trouvee] ") + juce::String(r.knobParam(ti)->getValue()).toStdString());
+            // chaque machine joue, finie et bornee, et le passage d'une machine a l'autre ne saute pas
+            h3.playing = true;
+            run(r, h3, 4800, 256);
+            bool ok = true;
+            double pk = 0;
+            for (int m = 0; m <= 12; ++m) {
+                r.knobParam(ti)->setValueNotifyingHost(m / 12.f);
+                const Stats st = run(r, h3, 24000, 256);
+                ok = ok && st.finite;
+                pk = std::max(pk, st.peak);
+            }
+            check(ok && pk < 2, "les 13 reverbes l'une apres l'autre (CLASSIC puis les douze machines) : fini, crete " + juce::String(pk, 2).toStdString());
+        }
     }
     {
         // Un projet de la premiere version (sans parametres) : les potards, la suite et la progression de l'etat de la face

@@ -483,8 +483,13 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
     mapChanged_.store(true);
     const auto params = state.getChildWithName(apvts.state.getType());
     if (params.isValid()) {
+        // Un projet d'avant la reverbe facon BigSky (2026-11-16) : sans REVERB TYPE, il garde la reverbe d'avant (CLASSIC).
+        // (lu avant replaceState : l'arbre est partage, et replaceState y ajoute les parametres qui manquent)
+        const bool hadSky = params.getChildWithProperty("id", "xSkyType").isValid();
         apvts.replaceState(params);
         knobsKnown_.store(true);
+        if (!hadSky)
+            if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -495,6 +500,8 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
     if (auto* prm = apvts.getParameter("arp")) prm->setValueNotifyingHost(static_cast<bool>(state.getProperty("arp", true)) ? 1.f : 0.f);
     legacyFromLs(ls);
+    // la premiere version : la reverbe d'avant
+    if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
 }
 
 /* ---------------- l'audio ---------------- */
@@ -620,6 +627,14 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         fx.eqMid = ex_[mmx::ex_xEqMid];
         fx.eqHigh = ex_[mmx::ex_xEqHigh];
         fx.eqAir = ex_[mmx::ex_xEqAir];
+        // La reverbe facon BigSky (2026-11-16, dsp/Sky.h) : CLASSIC (0) est la convolution d'avant
+        fx.skyType = mmx::exStep(mmx::ex_xSkyType, ex_[mmx::ex_xSkyType]);
+        fx.sky.decay = ex_[mmx::ex_xSkyDecay];
+        fx.sky.pre = ex_[mmx::ex_xSkyPre];
+        fx.sky.tone = ex_[mmx::ex_xSkyTone];
+        fx.sky.mod = ex_[mmx::ex_xSkyMod];
+        fx.sky.lowEnd = ex_[mmx::ex_xSkyLow];
+        fx.sky.p = {{ex_[mmx::ex_xSkyP1], ex_[mmx::ex_xSkyP2], ex_[mmx::ex_xSkyP3], ex_[mmx::ex_xSkyP4], ex_[mmx::ex_xSkyP5]}};
         // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
         fx.delaySeconds = std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
         auto eq = [](double a, double b) { return !(a < b || a > b); };
@@ -631,7 +646,10 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
                           eq(fx.pumpDepth, fxNow_.pumpDepth) && fx.pumpRate == fxNow_.pumpRate && eq(fx.pumpShape, fxNow_.pumpShape) &&
                           eq(fx.crushBits, fxNow_.crushBits) && eq(fx.crushRate, fxNow_.crushRate) && fx.dlyMode == fxNow_.dlyMode && eq(fx.shimmer, fxNow_.shimmer) &&
                           eq(fx.dist, fxNow_.dist) && eq(fx.distTone, fxNow_.distTone) && eq(fx.eqLow, fxNow_.eqLow) && eq(fx.eqMid, fxNow_.eqMid) &&
-                          eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir);
+                          eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir) && fx.skyType == fxNow_.skyType && eq(fx.sky.decay, fxNow_.sky.decay) &&
+                          eq(fx.sky.pre, fxNow_.sky.pre) && eq(fx.sky.tone, fxNow_.sky.tone) && eq(fx.sky.mod, fxNow_.sky.mod) && eq(fx.sky.lowEnd, fxNow_.sky.lowEnd) &&
+                          eq(fx.sky.p[0], fxNow_.sky.p[0]) && eq(fx.sky.p[1], fxNow_.sky.p[1]) && eq(fx.sky.p[2], fxNow_.sky.p[2]) && eq(fx.sky.p[3], fxNow_.sky.p[3]) &&
+                          eq(fx.sky.p[4], fxNow_.sky.p[4]);
         if (!same) fx_.set(fx, fresh_);
         fxNow_ = fx;
         dly16_ = dly16;

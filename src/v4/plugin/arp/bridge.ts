@@ -336,6 +336,8 @@ function applyExtra(raw: unknown): void {
   for (const id of EXTRA_IDS) {
     const v = x[id];
     if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);
+    // un preset d'avant la reverbe facon BigSky (2026-11-16) : la reverbe d'avant (CLASSIC)
+    else if (id === 'xSkyType') arpExtra.set(id, 0);
     else if (id !== 'xQuality') arpExtra.set(id, arpExtra.def(id));
   }
 }

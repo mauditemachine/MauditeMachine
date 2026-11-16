@@ -11,7 +11,7 @@ option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et s
 option(MM_HOST_TEST "Le banc du processeur sans fenetre (tests/host_test.cpp, Linux ou Mac), a la place du plugin" OFF)
 
 # --- le DSP, sans JUCE ---
-add_library(mmarp_dsp STATIC dsp/Voyager.cpp dsp/ArpFx.cpp dsp/Arp.cpp dsp/Params.cpp dsp/Hell.cpp)
+add_library(mmarp_dsp STATIC dsp/Voyager.cpp dsp/ArpFx.cpp dsp/Arp.cpp dsp/Params.cpp dsp/Hell.cpp dsp/Sky.cpp)
 target_include_directories(mmarp_dsp PUBLIC dsp)
 set_target_properties(mmarp_dsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # Le moteur est identique au bit pres au site (fdlibm de V8, dsp/Voyager.fdlibm.inc) : jamais de FMA, jamais de -ffast-math
@@ -42,6 +42,9 @@ add_test(NAME hell COMMAND mmarp_hell_test)
 add_executable(mmarp_modview_test tests/modview_test.cpp)
 target_link_libraries(mmarp_modview_test PRIVATE mmarp_dsp)
 add_test(NAME modview COMMAND mmarp_modview_test)
+add_executable(mmarp_sky_test tests/sky_test.cpp)
+target_link_libraries(mmarp_sky_test PRIVATE mmarp_dsp)
+add_test(NAME sky COMMAND mmarp_sky_test)
 
 if(NOT MM_BUILD_PLUGIN)
   return()

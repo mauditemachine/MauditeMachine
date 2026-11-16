@@ -163,6 +163,8 @@
 #include <memory>
 #include <vector>
 
+#include "Sky.h"
+
 namespace mmarp {
 
 struct ArpFxSettings {
@@ -204,6 +206,9 @@ struct ArpFxSettings {
     double eqMid = 0.5;         // EQ MID, cloche 900 Hz Q 0.9, -12 .. +12 dB
     double eqHigh = 0.5;        // EQ HIGH, plateau 5 kHz, -12 .. +12 dB
     double eqAir = 0.5;         // EQ AIR, plateau tres haut et large (20 kHz), -10 .. +10 dB
+    // --- 2026-11-16 : la reverbe facon BigSky (Sky.h) ; 0 : la reverbe d'avant (le convolueur, au bit pres) ---
+    int skyType = 0;            // 0 CLASSIC (la convolution du site), 1 a 12 : ROOM ... REFLECTIONS
+    SkyNorm sky{};              // ses reglages (DECAY, PRE-DELAY, TONE, MOD, LOW END, les cinq de la machine)
 };
 
 /**
@@ -752,6 +757,11 @@ private:
     // REVERB
     detail::Param rSend_;
     detail::Convolver conv_;
+    // la reverbe facon BigSky (skyType > 0) : a la place du convolueur, fondu enchaine de 20 ms entre les deux
+    Sky sky_;
+    double skyX_ = 0;
+    int skyT_ = 0;
+    bool convStale_ = false;
     // MASTER
     detail::Master master_;
     // Le rack du 2026-11-11 : CRUSH / PHASER / FLANGER avant la chaine, PUMP apres, SHIMMER autour de la reverb,
@@ -769,7 +779,7 @@ private:
     void delayClear();
 
     // tampons (prepare)
-    std::vector<float> bHiL_, bHiR_, bJL_, bJR_, bTL_, bTR_, bTo_L_, bTo_R_, bTime_, bRL_, bRR_, bRoL_, bRoR_, bPreL_, bPreR_;
+    std::vector<float> bHiL_, bHiR_, bJL_, bJR_, bTL_, bTR_, bTo_L_, bTo_R_, bTime_, bRL_, bRR_, bRoL_, bRoR_, bPreL_, bPreR_, bSkL_, bSkR_;
 };
 
 } // namespace mmarp

@@ -17,7 +17,7 @@ import spec from '../../../../plugin/mm-arp/extra-params.json';
  * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
  * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky';
 
 export interface ExtraParam {
   id: string;
@@ -70,6 +70,8 @@ function load(): Record<string, number> {
     const raw = JSON.parse(window.localStorage.getItem(EXTRA_STORAGE_KEY) ?? 'null') as { values?: unknown } | null;
     const vals = raw && typeof raw === 'object' && raw.values && typeof raw.values === 'object' ? (raw.values as Record<string, unknown>) : null;
     if (vals) for (const p of EXTRA_PARAMS) if (typeof vals[p.id] === 'number') out[p.id] = clean(p, vals[p.id] as number);
+    // un etat d'avant la reverbe facon BigSky (2026-11-16) : la reverbe d'avant (CLASSIC)
+    if (vals && typeof vals.xSkyType !== 'number') out.xSkyType = 0;
   } catch {
     /* illisible ou stockage refuse : les valeurs de depart */
   }

@@ -2124,7 +2124,7 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     sr_ = sampleRate;
     maxBlock_ = std::max(1, maxBlock);
     const size_t q = Q;
-    for (auto* b : {&bHiL_, &bHiR_, &bJL_, &bJR_, &bTL_, &bTR_, &bTo_L_, &bTo_R_, &bTime_, &bRL_, &bRR_, &bRoL_, &bRoR_, &bPreL_, &bPreR_}) b->assign(q, 0.f);
+    for (auto* b : {&bHiL_, &bHiR_, &bJL_, &bJR_, &bTL_, &bTR_, &bTo_L_, &bTo_R_, &bTime_, &bRL_, &bRR_, &bRoL_, &bRoR_, &bPreL_, &bPreR_, &bSkL_, &bSkR_}) b->assign(q, 0.f);
     pre_.prepare(sr_);
     pump_.prepare(sr_);
     shim_.prepare(sr_);
@@ -2134,6 +2134,10 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     dl_.prepare(PP_MAX_S, sr_);
     dr_.prepare(PP_MAX_S, sr_);
     conv_.prepare(sr_, detail::Convolver::make(sr_, have_ ? cur_.revSize : 0.5, have_ ? cur_.revTone : 0.5, have_ ? cur_.revPre : 0.2));
+    sky_.prepare(sr_);
+    skyX_ = have_ && cur_.skyType > 0 ? 1 : 0;
+    skyT_ = have_ && cur_.skyType > 0 ? 1 : 0;
+    convStale_ = false;
     master_.prepare(sr_);
     dHp_.set(false, PP_HIGHPASS, static_cast<float>(WEB_Q_DEFAULT), sr_);
     lpL_.set(true, PP_LOWPASS, static_cast<float>(WEB_Q_DEFAULT), sr_);
@@ -2250,6 +2254,18 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
     cur_ = s;
     have_ = true;
     chorusSet(s.chorus);
+    // la reverbe facon BigSky : la machine et ses reglages ; le passage avec le convolueur glisse en 20 ms
+    {
+        const int t = s.skyType > 0 && s.skyType <= kSkyMachines ? 1 : 0;
+        if (t) sky_.set(s.skyType - 1, s.sky, first || now);
+        if (t == 0 && skyT_ == 1 && convStale_) {
+            // le convolueur n'a rien recu pendant la machine : il repart vide
+            conv_.reset();
+            convStale_ = false;
+        }
+        skyT_ = t;
+        if (first || now) skyX_ = t;
+    }
     // REVERB : Send.set (sends.ts) : bornee, glisse en 20 ms (aussi en now), rien si la valeur ne change pas
     const double rv = std::isfinite(s.reverb) ? clampd(s.reverb, 0, 1) : 0;
     if (first ? rv != 0 : rv != revWas) glide(rSend_, REVERB_SEND * rv);
@@ -2341,6 +2357,8 @@ void ArpFx::reset() {
     std::fill(dr_.buf.begin(), dr_.buf.end(), 0.f);
     dl_.w = dr_.w = 0;
     conv_.reset();
+    sky_.reset();
+    convStale_ = false;
     master_.reset();
     for (auto& f : hp1_) f.clear();
     for (auto& f : hp2_) f.clear();
@@ -2569,7 +2587,28 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     // 5. la reverb
     float* roL = bRoL_.data();
     float* roR = bRoR_.data();
-    conv_.process(rinL, rinR, roL, roR, n);
+    if (skyX_ == 0 && skyT_ == 0) {
+        conv_.process(rinL, rinR, roL, roR, n);
+    } else {
+        // la reverbe facon BigSky (Sky.h), le convolueur tant que le fondu enchaine en a besoin
+        float* sL = bSkL_.data();
+        float* sR = bSkR_.data();
+        if (skyX_ < 1 || skyT_ == 0) conv_.process(rinL, rinR, roL, roR, n);
+        else {
+            convStale_ = true;
+            std::fill(roL, roL + n, 0.f);
+            std::fill(roR, roR + n, 0.f);
+        }
+        sky_.process(rinL, rinR, sL, sR, n);
+        const double step = 1.0 / (0.02 * sr_);
+        for (int i = 0; i < n; ++i) {
+            if (skyT_ == 1 && skyX_ < 1) skyX_ = std::min(1.0, skyX_ + step);
+            else if (skyT_ == 0 && skyX_ > 0) skyX_ = std::max(0.0, skyX_ - step);
+            const float x = static_cast<float>(skyX_);
+            roL[i] = roL[i] * (1 - x) + sL[i] * x;
+            roR[i] = roR[i] * (1 - x) + sR[i] * x;
+        }
+    }
     if (shOn) shim_.process(roL, roR, q0, n);
     // 6. la prise : sec + bas, wet x 0.8 (le merge et la bande), la reverb
     for (int i = 0; i < n; ++i) {
