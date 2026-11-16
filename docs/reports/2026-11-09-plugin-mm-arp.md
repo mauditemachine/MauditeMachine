@@ -404,3 +404,22 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 
 ### Commandes utiles ajoutees
 - extra-gen --check et presets/build.mjs --check ajoutes au workflow plugin-arp.yml.
+
+## 2026-11-16 : taille 2x persistante, OPEN Moog retro, clic = OPEN, arc de modulation
+
+### Ce qui a ete fait
+- Taille : setResizeLimits forcait 880 dans le constructeur et resized() le memorisait ; taille voulue lue avant, cle d'etat editorW5 (publie seul en 6d4d7cb).
+- OPEN restyle en panneau Moog retro (src/v4/plugin/arp/retro/) : potard rendu depuis la vraie scene (retro/knob.png), vraie touche CHORUS (retro/key.png) pour 2 a 4 crans, petit selecteur rotatif pour 5 a 7, laque #23211f, joues bois, bandeau a touches + fenetre de verre. PCB, jaune canard et LCD moderne abandonnes.
+- Clic simple immobile (< 3,5 px, < 250 ms) sur un potard de la face = OPEN sur sa section, sans changer la valeur ; glisser = rotation seule ; reset Alt/Cmd/Ctrl + clic ; fermeture CLOSE, Echap ou clic sur une joue.
+- Arc lumineux de modulation (maquette A) : Voyager::modView (lecture seule), 12 valeurs modulees en atomiques, evenement mm_mod a 30 Hz depuis l'editeur ; couche SVG sur la face, rAF seulement si modulation ; tests modview_test et host.
+
+### Decisions prises et pourquoi
+- Mika : le look VST moderne d'OPEN jurait avec la face Moog ; retour a la DA de la face.
+- Plage de l'arc estimee depuis les valeurs recues (min/max recents), pas une profondeur envoyee par le C++.
+
+### Ce qui reste a faire / points en suspens
+- Mika : verifier la vitesse d'ouverture d'OPEN sur le Mac et le seuil du clic (3,5 a 6 px = ni rotation ni ouverture).
+- OSC MIX, DRIVE, AMP, PAN, PITCH sans arc (pas de potard correspondant).
+
+### Commandes utiles ajoutees
+- Test DSP modview_test dans plugin-arp.yml.
