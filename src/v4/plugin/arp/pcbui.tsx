@@ -523,7 +523,7 @@ export const PcbRotary: React.FC<CellProps & { w?: number }> = ({ id, name, w = 
   useWheel(el, (t) => pick(stepOf(id, SRC.of(id)) + t));
   const g = useStepDrag(id, idx, last, pick);
   const n = steps.length;
-  const spread = n <= 5 ? 150 : 210;
+  const spread = n <= 3 ? 110 : n <= 5 ? 150 : 210;
   const angles = steps.map((_, i) => -spread / 2 + (i * spread) / Math.max(1, n - 1));
   const k = 0.74;
   const box = KNOB_IMG.box * k;

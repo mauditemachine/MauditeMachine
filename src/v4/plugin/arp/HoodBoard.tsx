@@ -135,7 +135,7 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
     {
       y: 92,
       frames: [
-        { title: 'DELAY', ctls: [rot('dlyTime', 'TIME', 'DLY TIME'), knob('tape', 'TAPE', 'CLEAN', 'WORN'), step('xDlyMode', 'MODE', 'DELAY MODE')] },
+        { title: 'DELAY', ctls: [rot('dlyTime', 'TIME', 'DLY TIME'), knob('tape', 'TAPE', 'CLEAN', 'WORN'), rot('xDlyMode', 'MODE', 'DELAY MODE')] },
         { title: 'REVERB', ctls: [knob('xRevSize', 'SIZE', '0.6 S', '9.6 S', 'REVERB SIZE'), knob('xRevTone', 'TONE', 'DARK', 'BRIGHT', 'REVERB TONE'), knob('xRevPre', 'PRE DELAY', '0', '100 MS', 'REVERB PRE DELAY'), knob('xShimmer', 'SHIMMER', 'OFF', 'FULL')] },
       ],
     },
@@ -703,10 +703,23 @@ const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     <>
       <button type="button" className="mm-r-wood mm-r-wood-l" aria-label="Close the machine" title="Close" onClick={onClose} />
       <button type="button" className="mm-r-wood mm-r-wood-r" aria-label="Close the machine" title="Close" onClick={onClose} />
-      <div className="mm-r-head" aria-hidden="true">
-        <span className="mm-r-word" />
-        <span className="mm-r-model">MM-ARP</span>
-        <span className="mm-r-page">EXPANSION PANEL &nbsp;·&nbsp; {page}</span>
+      <div className="mm-r-head">
+        {/* Les logos en grand (2026-11-16, Mika) : un clic ramene a la face, comme CLOSE, Echap ou la croix */}
+        <button type="button" className="mm-r-logo" aria-label="Back to the front panel" title="Back to the front panel" onClick={onClose}>
+          <span className="mm-r-word" />
+          <span className="mm-r-model">MM-ARP</span>
+        </button>
+        <span className="mm-r-page" aria-hidden="true">
+          EXPANSION PANEL &nbsp;·&nbsp; {page}
+        </span>
+        {/* La croix : une petite touche de la face, la croix serigraphiee dessus */}
+        <button type="button" className="mm-key mm-r-x" aria-label="Close the machine" title="Close" onClick={onClose}>
+          <span className="mm-key-cap" aria-hidden="true">
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <path d="M2 2 L8 8 M8 2 L2 8" />
+            </svg>
+          </span>
+        </button>
       </div>
     </>
   );

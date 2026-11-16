@@ -2325,3 +2325,80 @@
 .mm-plugin-arp .mm-p2-strip .mm-key {
   gap: 4px;
 }
+
+/* ---------- 2026-11-16 (suite) : les logos en grand (un clic : la face), la croix serigraphiee sur une petite touche ---------- */
+.mm-plugin-arp .mm-r-head {
+  left: 62px;
+  right: 58px;
+  height: 58px;
+  gap: 20px;
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-r-head > button {
+  pointer-events: auto;
+}
+
+.mm-plugin-arp .mm-r-logo {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-r-logo:hover .mm-r-word,
+.mm-plugin-arp .mm-r-logo:focus-visible .mm-r-word {
+  background: #fff8ee;
+}
+
+.mm-plugin-arp .mm-r-logo:hover .mm-r-model,
+.mm-plugin-arp .mm-r-logo:focus-visible .mm-r-model {
+  color: #fff8ee;
+}
+
+.mm-plugin-arp .mm-r-logo:focus-visible {
+  outline: 1.5px solid var(--r-orange);
+}
+
+.mm-plugin-arp .mm-r-word {
+  width: 300px;
+  height: 22px;
+}
+
+.mm-plugin-arp .mm-r-model {
+  font-size: 27px;
+  line-height: 30px;
+  letter-spacing: 0.2em;
+}
+
+.mm-plugin-arp .mm-r-page {
+  margin-left: auto;
+}
+
+.mm-plugin-arp .mm-r-x {
+  --kw: 24px;
+  --kh: 18px;
+}
+
+.mm-plugin-arp .mm-r-x .mm-key-cap svg {
+  display: block;
+}
+
+.mm-plugin-arp .mm-r-x .mm-key-cap path {
+  fill: none;
+  stroke: var(--r-silk);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+/* la sous-page de FX : a droite des logos */
+.mm-plugin-arp .mm-p2-sub {
+  left: 640px;
+  top: 12px;
+  transform: none;
+}
