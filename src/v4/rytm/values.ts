@@ -15,7 +15,7 @@ import { samplePcm } from '../audio/samples';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
 import { FENV_OCT, START_MAX, atkS, cutHz, decayTau, fatkS, fdecTau, fineCents, filterType, holdS, resoQ, tuneSt, voiceGain } from '../audio/voicefx';
-import { VEL_GAIN, VEL_MAX, VEL_NAMES, compMakeAuto, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern } from '../audio/pattern';
+import { VEL_GAIN, VEL_MAX, VEL_NAMES, compMakeAuto, compMakeup, compRelAuto, delayDiv, delayFb, fxLaw, pattern, rgateSeconds } from '../audio/pattern';
 import { swingRatio, type EncId } from '../theme';
 
 /** Le nombre 0 a 127 d'une course 0 a 1 ; a zero au centre : -64 a +63 (le centre exact vaut 0). */
@@ -209,6 +209,11 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       return `${fxLaw.rsize(v).toFixed(1)} S`;
     case 'rpre':
       return `${Math.round(fxLaw.rpre(v) * 1000)} MS`;
+    // Le GATE de la REVERB (2026-11-16, le plugin) : OFF, puis la duree ouverte apres chaque coup
+    case 'rgate': {
+      const s = rgateSeconds(v);
+      return s <= 0 ? 'OFF' : s >= 0.995 ? '1.0 S' : `${Math.round(s * 1000)} MS`;
+    }
     case 'crate': {
       // Au centieme pres (X1.0 au depart, pas X1.00 : la loi y donne 0.9993)
       const f = Math.round(fxLaw.crate(v) * 100) / 100;

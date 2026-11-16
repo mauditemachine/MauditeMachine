@@ -129,6 +129,8 @@ export function dial(id: EncId, v: number, popup = false): void {
   else if (id === 'dfb') pattern.fx.set({ dfb: v });
   else if (id === 'bits') pattern.fx.set({ bits: v });
   else if (id === 'comp') pattern.fx.set({ comp: v });
+  // Le GATE de la REVERB (2026-11-16, le plugin) : un reglage du pattern, comme ceux de HELL
+  else if (id === 'rgate') pattern.fx.set({ rgate: Math.max(0, Math.min(1, v)) });
   // Un reglage de FX (2026-10-10) ; a crans (RATIO et HPF du COMP, 2026-10-18) : sur son cran
   else if (isFxSetting(id)) pattern.fx.set({ [id]: fxSnap(id, v) });
   else setChorus(v);
@@ -333,6 +335,8 @@ export function dialValue(id: EncId): number {
       return pattern.fx.get().bits;
     case 'comp':
       return pattern.fx.get().comp;
+    case 'rgate':
+      return pattern.fx.get().rgate;
     default:
       if (isFxSetting(id)) return pattern.fx.get()[id];
       return mix.chorus;

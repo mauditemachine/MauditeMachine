@@ -172,6 +172,7 @@ void parseFx(const juce::var& o, mm::GlobalFx& g) {
     g.rsize = num(o, "rsize", g.rsize);
     g.rtone = num(o, "rtone", g.rtone);
     g.rpre = num(o, "rpre", g.rpre);
+    g.rgate = num(o, "rgate", g.rgate);
     g.xtone = num(o, "xtone", g.xtone);
     g.crate = num(o, "crate", g.crate);
     g.cdepth = num(o, "cdepth", g.cdepth);

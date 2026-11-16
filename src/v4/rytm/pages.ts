@@ -641,7 +641,11 @@ const FX_DETAIL_SLOTS: Readonly<Record<FxDetailId, readonly PageSlot[]>> = {
   // DELAY : son temps en divisions (large : ses six crans), ses repetitions, le passe-bas des echos
   fxdelay: [fxAmount('DELAY', 'delay', true), fxSet('TIME', 'dtime', 'time', 2, 1), fxSet('FEEDBACK', 'dfb', 'decay', 1, 1), fxSet('TONE', 'dtone', 'cut', 1, 1)],
   // REVERB : la longueur de sa queue (large), ses aigus, son pre-delay
-  fxreverb: [fxAmount('REVERB', 'reverb', true), fxSet('SIZE', 'rsize', 'decay', 2, 1), fxSet('TONE', 'rtone', 'cut', 1, 1), fxSet('PRE', 'rpre', 'start', 1, 1)],
+  // Le plugin (2026-11-16, Mika : "je veux un parametre gated reverb dans les fx") : le GATE en E, apres PRE (SIZE, TONE et
+  // PRE gardent leurs potards B, C, D) ; SIZE cede la moitie de sa case
+  fxreverb: IN_PLUGIN
+    ? [fxAmount('REVERB', 'reverb', true), fxSet('SIZE', 'rsize', 'decay', 1, 1), fxSet('TONE', 'rtone', 'cut', 1, 1), fxSet('PRE', 'rpre', 'start', 1, 1), fxSet('GATE', 'rgate', 'bar', 1, 1)]
+    : [fxAmount('REVERB', 'reverb', true), fxSet('SIZE', 'rsize', 'decay', 2, 1), fxSet('TONE', 'rtone', 'cut', 1, 1), fxSet('PRE', 'rpre', 'start', 1, 1)],
   // BIT : la profondeur, puis l'echantillonnage divise (RATE)
   fxbit: [fxAmount('BIT', 'bits', false), fxSet('RATE', 'brate', 'bar', 2, 2)],
   // COMP (refait le 2026-10-18, Mika : "donne-moi le choix avec du ratio et threshold !") : COMP, son MIX (0 : le son

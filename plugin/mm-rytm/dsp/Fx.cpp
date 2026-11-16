@@ -127,6 +127,8 @@ double FxLaws::dtoneHz(double v) { return near(v, 0.638) ? 4500 : clampd(800 * s
 double FxLaws::reverbSeconds(double v) { return near(v, 0.566) ? 2.4 : clampd(0.5 * std::pow(16.0, clampd(v, 0, 1)), 0.1, 10); }
 double FxLaws::reverbHiEnd(double v) { return near(v, 0.442) ? 3000 : clampd(1000 * std::pow(12.0, clampd(v, 0, 1)), 200, 20000); }
 double FxLaws::reverbPre(double v) { return near(v, 0.167) ? 0.02 : clampd(0.12 * clampd(v, 0, 1), 0, 0.25); }
+// GATE : 0 OFF ; 40 ms (le premier cran) a 1 s, en courbe (200 ms au milieu)
+double FxLaws::reverbGateSeconds(double v) { return v < 0.004 ? 0 : 0.04 * std::pow(25.0, clampd(v, 0, 1)); }
 double FxLaws::xtoneHz(double v) { return near(v, 1) ? 16000 : 1000 * std::pow(16.0, clampd(v, 0, 1)); }
 double FxLaws::chorusMul(double v) { return near(v, 0.624) ? 1 : clampd(0.1 * std::pow(40.0, clampd(v, 0, 1)), 0.05, 8); }
 double FxLaws::chorusDepth(double v) { return near(v, 0.5) ? 0.007 : clampd(0.014 * clampd(v, 0, 1), 0, 0.02); }
@@ -997,6 +999,10 @@ void FxChain::prepare(double sr) {
     cutG_.fill(1.f);
     throwD_ = throwR_ = throwH_ = 0;
     hellRet_ = 0;
+    gateF_ = gateS_ = 0;
+    gateG_ = 1;
+    gateHold_ = 0;
+    gateArm_ = true;
     sideNow_ = 0;
     duck_.assign(kMaxBlock, 1.f);
     perf_ = PerfState{};
@@ -1380,6 +1386,41 @@ void FxChain::process(float* outL, float* outR, int n) {
         }
     }
     reverb_.process(revL_.data(), revR_.data(), wetL_.data(), wetR_.data(), n);
+    // GATE (2026-11-16) : chaque coup qui entre dans la reverb l'ouvre pour la duree du GATE (plus le bloc de latence du
+    // retour), puis elle se ferme en 12 ms : la caisse claire gatee des annees 80. Un coup : l'enveloppe rapide de l'entree
+    // depasse deux fois la lente, une seule fois (rearme quand elle retombe sous 1.5 fois la lente) ; un coup pendant
+    // l'ouverture la relance. OFF : la queue entiere.
+    const double gateS = FxLaws::reverbGateSeconds(g_.rgate);
+    if (gateS > 0) {
+        const int holdN = static_cast<int>(gateS * sr_) + ReverbIR::B;
+        const double aF = std::exp(-1.0 / (0.0005 * sr_)), rF = std::exp(-1.0 / (0.010 * sr_)), cS = std::exp(-1.0 / (0.060 * sr_));
+        const double up = 1.0 / (0.0005 * sr_), down = 1.0 / (0.012 * sr_);
+        for (int i = 0; i < n; ++i) {
+            const size_t ii = static_cast<size_t>(i);
+            const double k = std::max(std::fabs(static_cast<double>(revL_[ii])), std::fabs(static_cast<double>(revR_[ii])));
+            gateF_ = k > gateF_ ? aF * gateF_ + (1 - aF) * k : rF * gateF_ + (1 - rF) * k;
+            gateS_ = cS * gateS_ + (1 - cS) * k;
+            if (gateArm_ && gateF_ > 1e-4 && gateF_ > 2 * gateS_) {
+                gateHold_ = holdN;
+                gateArm_ = false;
+            } else if (!gateArm_ && gateF_ < 1.5 * gateS_) {
+                gateArm_ = true;
+            }
+            if (gateHold_ > 0) {
+                --gateHold_;
+                gateG_ = std::min(1.0, gateG_ + up);
+            } else {
+                gateG_ = std::max(0.0, gateG_ - down);
+            }
+            wetL_[ii] = static_cast<float>(wetL_[ii] * gateG_);
+            wetR_[ii] = static_cast<float>(wetR_[ii] * gateG_);
+        }
+    } else {
+        gateF_ = gateS_ = 0;
+        gateG_ = 1;
+        gateHold_ = 0;
+        gateArm_ = true;
+    }
     for (int i = 0; i < n; ++i) {
         const float dk = ducking ? duck_[static_cast<size_t>(i)] : 1.f;
         mL_[static_cast<size_t>(i)] += wetL_[static_cast<size_t>(i)] * dk;

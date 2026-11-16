@@ -131,6 +131,13 @@ export const RAW_FX = {
     text: "Le pré-delay : le temps entre le coup et le début de sa REVERB, de 0 à 120 ms ; 20 ms au départ. Un peu de PRE garde la frappe sèche devant, la salle arrive juste après.",
     tip: '30 à 60 ms sur la caisse claire : elle garde son attaque, la reverbe suit derrière.',
   },
+  rgate: {
+    section: 'GLOBAL FX · REVERB',
+    title: 'GATE',
+    lock: 'global',
+    text: "La REVERB gatée : chaque coup qui entre dans la reverbe l'ouvre le temps du GATE, de 40 ms à 1 s, puis elle se coupe net au lieu de s'éteindre doucement ; un nouveau coup la rouvre. OFF tout en bas : la queue entière. Le plugin seulement.",
+    tip: '200 à 350 ms sur la caisse claire ou le clap, SIZE long et REVERB bien dosée : le gros son gaté des années 80 ; très court (40 à 80 ms) pour épaissir un hat sans traîne.',
+  },
   brate: {
     section: 'GLOBAL FX · BIT',
     title: 'RATE',

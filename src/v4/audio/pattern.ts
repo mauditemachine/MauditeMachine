@@ -147,8 +147,13 @@ export const LAB_FX = {
   xauto: 0,
   xmix: 1,
   xout: 0.5,
+  // REVERB : GATE (2026-11-16, Mika : "je veux un parametre gated reverb dans les fx") : 0 OFF (la queue entiere) ; sinon
+  // chaque coup ouvre la reverb le temps du GATE (40 ms a 1 s, rgateSeconds), puis elle se ferme net (dsp/Fx.cpp)
+  rgate: 0,
 } as const;
 export type LabFxId = keyof typeof LAB_FX;
+/** Le GATE de la REVERB en secondes (0 : OFF) ; la meme loi que le moteur (dsp/Fx.cpp FxLaws::reverbGateSeconds). */
+export const rgateSeconds = (v: number): number => (!(v >= 0.004) ? 0 : 0.04 * Math.pow(25, Math.min(1, v)));
 export const LAB_FX_IDS = Object.keys(LAB_FX) as LabFxId[];
 export type LabFx = Record<LabFxId, number>;
 

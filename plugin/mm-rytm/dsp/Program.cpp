@@ -87,7 +87,8 @@ GlobalFx blendFx(const GlobalFx& a, const GlobalFx& b, double f) {
     g.tone = lin(a.tone, b.tone, f);
     g.level = lin(a.level, b.level, f);
     g.hmix = lin(a.hmix, b.hmix, f);
-    // La forme de la REVERB (rsize, rtone, rpre) : la reponse de la position la plus proche (calculee a part)
+    // La forme de la REVERB (rsize, rtone, rpre) : la reponse de la position la plus proche (calculee a part) ; son GATE
+    // aussi (un fondu entre OFF et 40 ms n'aurait pas de sens)
     return g;
 }
 

@@ -879,6 +879,61 @@ int main() {
         std::vector<float> ls, rs;
         runFx(ps0, 1, ls, rs);
         CHECK(sdTail > 1e-3f && peakIn(ls, 24000, 48000) < 1e-6f && bdDiff < 1e-7, "REVERB : l'envoi global des pads a sa queue, la voie du kick n'en a pas");
+        // GATE (2026-11-16) : 250 ms apres le coup la queue se ferme ; avant, le meme son que sans GATE ; OFF : rien ne change
+        {
+            const double v250 = std::log(0.25 / 0.04) / std::log(25.0);
+            CHECK(std::fabs(mm::FxLaws::reverbGateSeconds(v250) - 0.25) < 1e-9 && mm::FxLaws::reverbGateSeconds(0) == 0 &&
+                      std::fabs(mm::FxLaws::reverbGateSeconds(1) - 1.0) < 1e-9,
+                  "GATE : la loi (OFF, 250 ms, 1 s)");
+            std::vector<float> lu, ru, lg, rg, ld, rd;
+            runFx(pr, 1, lu, ru);
+            mm::Program pg = pr;
+            pg.fx.rgate = v250;
+            runFx(pg, 1, lg, rg);
+            mm::Program pdry = pr;
+            pdry.fx.reverb = 0;
+            runFx(pdry, 1, ld, rd);
+            // Avant 0.225 s : le meme son que sans GATE (la queue y est) ; apres 0.5 s (la caisse claire seche s'est tue) : rien
+            double early = 0, openTail = 0;
+            for (size_t i = 2400; i < 10800; ++i) {
+                early = std::max(early, std::fabs(static_cast<double>(lg[i]) - lu[i]));
+                openTail = std::max(openTail, std::fabs(static_cast<double>(lg[i]) - ld[i]));
+            }
+            const float cut = peakIn(lg, 24000, 48000), freeTail = peakIn(lu, 24000, 48000);
+            size_t closeAt = 0;
+            for (size_t i = 2400; i < 48000 && !closeAt; ++i)
+                if (std::fabs(static_cast<double>(lg[i]) - lu[i]) > 1e-4) closeAt = i;
+            if (std::getenv("MM_TEST_VERBOSE")) std::printf("   gate : queue ouverte %.3g, ecart %.3g, apres %.3g (sans gate %.3g), fermeture a %.1f ms\n", openTail, early, cut, freeTail, closeAt * 1000.0 / SR);
+            CHECK(closeAt > 0.245 * SR && closeAt < 0.265 * SR, "GATE : la porte se ferme 250 ms apres le coup");
+            CHECK(openTail > 1e-3 && early < 1e-6 && freeTail > 1e-3f && cut < 1e-6f, "GATE : la queue jusqu'a 250 ms, puis plus rien");
+            // Un second coup a 0.5 s rouvre la porte (la queue revient), puis elle se referme
+            mm::Engine e;
+            e.prepare(SR);
+            auto st = makeState(pg);
+            st->reverbIR = mm::ReverbIR::make(2.4, 3000, 0.02, SR);
+            e.publish(st);
+            std::vector<float> l2(72000, 0.f), r2(72000, 0.f);
+            for (int off = 0; off < 72000; off += 480) {
+                if (off == 0 || off == 24000) e.pushLive(live(*st, 1));
+                e.process(stop, l2.data() + off, r2.data() + off, 480);
+            }
+            // La meme chose sans REVERB : la difference apres le second coup est sa queue
+            mm::Engine e0;
+            e0.prepare(SR);
+            auto s0 = makeState(pdry);
+            s0->reverbIR = mm::ReverbIR::make(2.4, 3000, 0.02, SR);
+            e0.publish(s0);
+            std::vector<float> d2(72000, 0.f), d2r(72000, 0.f);
+            for (int off = 0; off < 72000; off += 480) {
+                if (off == 0 || off == 24000) e0.pushLive(live(*s0, 1));
+                e0.process(stop, d2.data() + off, d2r.data() + off, 480);
+            }
+            float second = 0;
+            for (size_t i = 24000 + 2400; i < 24000 + 10800; ++i) second = std::max(second, std::fabs(l2[i] - d2[i]));
+            const float after = peakIn(l2, 48000, 72000);
+            if (std::getenv("MM_TEST_VERBOSE")) std::printf("   gate : second coup %.3g, apres %.3g\n", second, after);
+            CHECK(second > 1e-3f && after < 1e-6f, "GATE : chaque coup rouvre la queue");
+        }
         // DELAY de la piste : l'echo arrive au temps du DELAY (3 pas a 130 BPM = 0.346 s)
         mm::Program pd = p0;
         pd.tracks[2].sl.delay = 0.8;

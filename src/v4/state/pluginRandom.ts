@@ -243,6 +243,9 @@ export function pluginRandom(current: Steps, last: BeatStyle | null, samples: (f
   Object.assign(fx, presetPatch(pick(r, HELL_PRESETS), 'hell'), { hmix: r2(between(r, 0.4, 0.8)) });
   const drive = fx.drive;
   Object.assign(fx, presetPatch(pick(r, DIST_PRESETS), 'dist'), { drive });
+  // Le GATE de la REVERB (2026-11-16) : une fois sur sept environ, la reverbe gatee (150 a 300 ms) ; tire en dernier, rien
+  // d'autre du tirage ne change
+  fx.rgate = chance(r, 0.15) ? r2(between(r, 0.42, 0.62)) : 0;
 
   const steps = Object.fromEntries(TRACK_KEYS.map((k, i) => [k, rows[i].map((v) => Math.max(0, Math.min(9, v))).join('')])) as unknown as Steps;
   const anyLock = Object.keys(locks).length > 0;

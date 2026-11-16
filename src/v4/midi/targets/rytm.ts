@@ -120,7 +120,7 @@ export function rytmTargets(out: MidiTarget[]): void {
   // DT2 (la relecture) : la piste active, T9 a T16 compris (voiceEncTarget)
   // HELL (2026-11-13) : le plugin seulement (le site n'a pas l'effet)
   for (const e of ENCODERS) {
-    if (e.id === 'vhell' && !IN_PLUGIN) continue;
+    if ((e.id === 'vhell' || e.id === 'rgate') && !IN_PLUGIN) continue;
     out.push(isVoiceEnc(e.id) ? voiceEncTarget(e.id, `${e.label} (SELECTED VOICE)`) : dialTarget(`rytm:enc:${e.id}`, 'mm808', e.label, e.id));
   }
   // Les huit voix d'INSTRUMENTS (2026-10-27, la face V.4.0 n'a plus de pads au desktop) : le meme ordre, les memes ids

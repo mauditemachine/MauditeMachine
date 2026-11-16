@@ -573,6 +573,8 @@ export type EncId =
   | 'rsize'
   | 'rtone'
   | 'rpre'
+  // Le GATE de la REVERB (2026-11-16, le plugin : audio/pattern.ts LAB_FX rgate)
+  | 'rgate'
   | 'xtone'
   | 'crate'
   | 'cdepth'
@@ -757,6 +759,7 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'rsize', label: 'REV SIZE', aria: 'Reverb size, the length of its tail' },
   { id: 'rtone', label: 'REV TONE', aria: 'Reverb tone, the brightness of its tail' },
   { id: 'rpre', label: 'REV PRE', aria: 'Reverb pre-delay' },
+  { id: 'rgate', label: 'REV GATE', aria: 'Reverb gate: each hit opens the reverb this long, then a sharp cut (OFF: the whole tail)' },
   { id: 'xtone', label: 'DIST TONE', aria: 'Distortion tone, the low pass after the drive' },
   { id: 'crate', label: 'CHO RATE', aria: 'Chorus rate' },
   { id: 'cdepth', label: 'CHO DEPTH', aria: 'Chorus depth' },
@@ -1320,6 +1323,7 @@ export const POT_UI = {
     rsize: 0.566,
     rtone: 0.442,
     rpre: 0.167,
+    rgate: 0,
     xtone: 1,
     crate: 0.624,
     cdepth: 0.5,

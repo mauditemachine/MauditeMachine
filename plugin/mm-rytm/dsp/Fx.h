@@ -19,6 +19,9 @@ struct GlobalFx {
     double dtime = 0.4, dfb = 2.0 / 3, bits = 0, comp = 0;
     double dtone = 0.638, rsize = 0.566, rtone = 0.442, rpre = 0.167, xtone = 1, crate = 0.624, cdepth = 0.5, brate = 0;
     double catk = 0.742, crel = 1, cthr = 0.45, cratio = 0.571, cknee = 0.5, cmake = 0, chpf = 0.5;
+    // GATE de la REVERB (2026-11-16, Mika : "je veux un parametre gated reverb dans les fx") : 0 OFF (la queue entiere) ;
+    // sinon la duree ou chaque coup l'ouvre, puis elle se ferme net (FxLaws::reverbGateSeconds)
+    double rgate = 0;
     double tone = 0;   // TONE global (-1 a 1)
     double level = 0.8; // LEVEL (gain au carre)
     // HELL (2026-11-13, Mika : "un effet type Echobode, pour avoir des choses vraiment pointues", "tu peux l'appeler Hell") :
@@ -93,6 +96,7 @@ struct FxLaws {
     static double reverbSeconds(double v);
     static double reverbHiEnd(double v);
     static double reverbPre(double v);
+    static double reverbGateSeconds(double v); // 0 : OFF
     static double xtoneHz(double v); // >= 16000 : ouvert
     static double chorusMul(double v);
     static double chorusDepth(double v);
@@ -355,6 +359,10 @@ private:
     double throwD_ = 0, throwR_ = 0, throwH_ = 0;
     // Le retour de HELL garde pendant et apres un HELL THROW (il redescend doucement) : les spirales s'entendent meme a MIX 0
     double hellRet_ = 0;
+    // Le GATE de la REVERB : les enveloppes de son entree (rapide, lente), le temps ouvert qui reste, le gain du retour
+    double gateF_ = 0, gateS_ = 0, gateG_ = 1;
+    int gateHold_ = 0;
+    bool gateArm_ = true; // un coup ne compte qu'une fois : rearme quand l'enveloppe rapide retombe pres de la lente
     // Le SIDECHAIN : sa profondeur lissee, le gain de chaque echantillon du bloc
     double sideNow_ = 0;
     std::vector<float> duck_;

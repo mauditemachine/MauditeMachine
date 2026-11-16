@@ -551,6 +551,16 @@ Mika : « ajoute aussi DEEP HOUSE THUMP ».
 - **Un kick de plus** : `plugin/mm-rytm/samples/bd/Bd Deep House Thump.wav` (2.25 s, mono 48 kHz 16 bits), le preset de son du site (808 a SYN 0.5, sample 95-Deep-House-Thump a LEV 0.9, K.DECAY 0.44, K.DRIVE 0.2, K.ATTACK a son depart) rendu par `tools/site-sound.mjs` avec le DEC de depart du site (127), comme les lots 32 et 33. Au DEC 124 du plugin : le site a -92.6 dB pres, et au niveau des autres kicks (0.4 dB de moins).
 - **Ou le trouver** : BD, SAMP vers la fin : 808 SUB BOOM (39), 909 PUNCH (40), DEEP HOUSE THUMP (41), HARDGROOVE DRIVE (42), INDUSTRIAL SLAM (43), WAREHOUSE RUMBLE (44 / 44).
 - **Verifie** : les cinq kicks d'avant regeneres a l'octet pres ; Chromium sans son : 44 samples BD, les six du site dans cet ordre, la face va chercher les six fichiers ; glob CMake : 157 fichiers. Rien dans `src/`.
+- **Build vert** (run 43802362836), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 1a366d3, 2026-11-16 04:16 UTC ; le binaire contient le kick.
+
+### Lot 36, le GATE de la REVERB (2026-11-16)
+
+Mika : « je veux un parametre gated reverb dans les fx ».
+
+- **Le potard GATE** : page SEND FX, une tape sur le bloc REVERB : REVERB (A), SIZE (B), TONE (C), PRE (D) et **GATE (E)** ; SIZE, TONE et PRE gardent leurs potards. Tout en bas : OFF, la queue entiere (comme avant) ; ensuite la duree ou chaque coup ouvre la reverbe, de 40 ms a 1 s en courbe (200 ms au milieu), puis elle se coupe net en 12 ms : la caisse claire gatee des annees 80. Un coup pendant l'ouverture la relance (`src/v4/rytm/pages.ts` fxreverb du plugin, `rytm/values.ts` OFF / MS, `rytm/infos/fx.ts`, `actions/dials.ts`, `theme.ts` encodeur `rgate`).
+- **Un reglage du pattern** : `rgate` dans `LAB_FX` (`audio/pattern.ts`, avec HELL et la DIST) : garde avec le pattern, ses presets et l'UNDO ; le site le garde sans le jouer (son stockage ne l'ecrit que s'il a quitte OFF) ; au MIDI dans le plugin seulement. RANDOM le tire une fois sur sept environ (150 a 300 ms), en dernier : le reste du tirage ne change pas.
+- **Le moteur** (`dsp/Fx.cpp`, `FxLaws::reverbGateSeconds`) : une porte sur le retour de la REVERB, ouverte par les coups qui y entrent (l'enveloppe rapide de l'entree depasse deux fois la lente, une fois par coup, rearmee quand elle retombe), le bloc de latence de la convolution compte ; tous les envois y passent, REVERB WASH de PERFORM compris (un wash gate). Les scenes du crossfader prennent le GATE de la position la plus proche, comme la forme de la reverbe.
+- **Verifie** : 85 tests moteur (Release et Debug), dont 4 neufs : la loi (OFF, 250 ms, 1 s) ; avec GATE 250 ms, avant 0.225 s le son est exactement celui sans GATE, apres 0.5 s plus rien (sans GATE la queue y est encore) ; la porte se ferme 258 ms apres le coup (250 ms plus les 5 ms de latence de la convolution) ; un second coup a 0.5 s rouvre la queue puis elle se referme. Chromium (sans son) : la page REVERB montre GATE en E, 59 = 180 MS, la valeur part au moteur (`fx.rgate` 0.467), tout en bas OFF (0). Le code JUCE compile (syntaxe). Site : les 4 vues identiques au pixel pres. tsc : 105.
 
 ## 2. Decisions prises et pourquoi
 
@@ -651,6 +661,8 @@ Mika : « ajoute aussi DEEP HOUSE THUMP ».
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 36 : une porte declenchee par les coups plutot qu'un seuil de niveau** : un gate classique reste ouvert tant que le son depasse un seuil, sa duree depend du sample et du niveau d'envoi ; ici chaque coup donne exactement le temps du GATE ("250 ms" s'entend 250 ms), un seul potard suffit. Le prix : un son tenu qui entre dans la reverbe n'est gate qu'une fois par attaque.
+- **Lot 36 : GATE en E** : SIZE, TONE et PRE restent sur B, C et D, ou Mika les a deja dans les doigts.
 - **Lot 32 : remonter la queue plutot que laisser le DEC du plugin la couper** : Mika compare au site ; au depart du plugin (DEC 124) les deux kicks sonnent comme sur le site. Le prix : au DEC 127 du plugin, la queue traine plus, et WAREHOUSE RUMBLE sort un peu plus bas (une crete de fichier ne peut pas depasser 0.9 sans risque de saturer).
 - **Lot 32 : le DEC de depart du site (127)** : le preset de son ne touche pas l'enveloppe AMP ; sans capture de Mika pour ces deux-la, c'est ce qu'on entend en les chargeant sur une piste neuve du site.
 - **Lot 31 : un fichier plutot que la machine 808 du site dans le moteur** : porter la synthese 808, sa banque JS et sa chaine (drive, couches) en C++ pour un seul son serait un gros chantier ; le rendu par le code du site donne le meme son tout de suite, joue par le moteur qui existe deja.
@@ -669,6 +681,7 @@ Mika : « ajoute aussi DEEP HOUSE THUMP ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 36)** : la commande mm-rytm ; SEND FX, tape sur REVERB, GATE (potard E) vers 200 a 350 ms avec une REVERB bien dosee sur la caisse claire ou le clap et SIZE long ; dire si la coupure est trop seche ou pas assez, et si un mode qui suit le niveau (un vrai gate a seuil) manque.
 - **Cote Mika (lot 35)** : la commande mm-rytm ; BD, SAMP : DEEP HOUSE THUMP (41 / 44), comparer au site.
 - **Cote Mika (lot 34)** : la commande mm-rytm, OPEN : le menu facon serigraphie, DRAG MIDI / CLOSE en texte, la poignee de l'onglet PATTERN plus petite.
 - **Cote Mika (lot 33)** : la commande mm-rytm ; BD, SAMP tout au bout (HARDGROOVE DRIVE, INDUSTRIAL SLAM), comparer au site.

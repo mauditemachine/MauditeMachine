@@ -104,6 +104,7 @@ export const RYTM_PARAM_IDS = [
   'rsize',
   'rtone',
   'rpre',
+  'rgate',
   'brate',
   'catk',
   'crel',
