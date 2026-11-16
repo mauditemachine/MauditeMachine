@@ -254,8 +254,29 @@ struct ParamKV {
   double value;
 };
 
+/**
+ * Ce que la face montre des modulations (2026-11-16, le plugin MM-ARP : l'arc lumineux autour des potards modules) : les
+ * ecarts du dernier echantillon rendu, LFO 1 (ses deux destinations), LFO 2 et la matrice (les sources communes, et
+ * celles de la voix la plus recente), chacun dans l'unite de son reglage. Lu par le thread audio apres process ; rien
+ * du son n'en depend.
+ */
+struct ModView {
+  double wave = 0;       // formes d'onde (morphPos)
+  double cutOct = 0;     // CUTOFF, en octaves
+  double fm = 0;         // FM (unites du potard)
+  double res = 0;        // RES (unites du potard)
+  double noise = 0;      // NOISE (unites du potard)
+  double sub = 0;        // SUB (le niveau du moteur, 0..0.88)
+  double envOct = 0;     // ENV AMT, en octaves
+  double stackCents = 0; // STACK, en cents
+  double ring = 0, fold = 0, comb = 0; // RING, FOLD, COMB (les doses)
+  uint32_t seq = 0;      // le nombre de mises a jour
+};
+
 class Voyager {
  public:
+  /** Les modulations du dernier bloc rendu (voir ModView). */
+  const ModView& modView() const;
   static constexpr int kMaxBlock = 4096;
   static constexpr int kQueueCap = 1024;
   static constexpr int kBeatCap = 512;

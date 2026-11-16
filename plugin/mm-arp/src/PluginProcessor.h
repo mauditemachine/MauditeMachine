@@ -100,6 +100,13 @@ public:
     };
     Feedback feedback() const;
 
+    // L'arc lumineux de la face (2026-11-16) : les reglages que la face sait montrer modules, et leur valeur modulee
+    // (0..1, la valeur du potard + l'ecart des modulations du dernier bloc, Voyager::modView), NaN quand rien ne les
+    // module. Ecrites par le thread audio (des atomiques, sans allocation ni verrou), lues par le timer de l'editeur.
+    static constexpr int kModN = 12;
+    static const char* const kModIds[kModN];
+    float modValue(int i) const { return modVal_[static_cast<size_t>(i)].load(std::memory_order_relaxed); }
+
     // L'arpege en clip MIDI : la progression entiere, cycles fois, avec les reglages du moment (thread du message).
     // bars : le nombre de mesures (0 sans accord).
     juce::MidiFile arpMidi(int cycles, int& bars) const;
@@ -137,6 +144,9 @@ private:
     mmarp::ArpFx fx_;
     // HELL (2026-11-13) : delay + decaleur de Bode, apres la chaine ; contourne au bit pres a MIX 0
     mmarp::Hell hell_;
+    std::array<std::atomic<float>, kModN> modVal_{};
+    std::array<int, kModN> modKnob_{};
+    void publishMod();
     mmarp::Arp arp_;
     double sr_ = 0;
     int64_t frame_ = 0;

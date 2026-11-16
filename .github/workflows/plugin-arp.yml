@@ -52,6 +52,8 @@ jobs:
         run: ./build-dsp/mmarp_hq3_test
       - name: "HELL (delay + decaleur de Bode) : MIX 0 au bit pres, decalage, spirale, stabilite"
         run: ./build-dsp/mmarp_hell_test
+      - name: "Arc lumineux de la face : ce que le moteur dit des modulations (LFO, matrice)"
+        run: ./build-dsp/mmarp_modview_test
       - name: Banque d'usine a jour (FILTER + neutre partout)
         run: node plugin/mm-arp/presets/build.mjs --check
       - name: Chorus Juno et TAPE compares a chorus.worklet.js du site

@@ -222,6 +222,24 @@ void MMArpEditor::timerCallback() {
             delete changed;
         }
     }
+    // L'arc lumineux (2026-11-16) : les reglages modules et leur valeur modulee, 30 fois par seconde, d'un seul
+    // evenement ; un dernier evenement vide quand plus rien n'est module, puis plus rien
+    if (ready_) {
+        juce::Array<juce::var> ids, vals;
+        for (int i = 0; i < MMArpProcessor::kModN; ++i) {
+            const float v = proc_.modValue(i);
+            if (v != v) continue;
+            ids.add(juce::String(MMArpProcessor::kModIds[i]));
+            vals.add(static_cast<double>(v));
+        }
+        if (!ids.isEmpty() || modSent_) {
+            auto* o = new juce::DynamicObject();
+            o->setProperty("ids", ids);
+            o->setProperty("v", vals);
+            browser_->emitEventIfBrowserIsVisible("mm_mod", juce::var(o));
+            modSent_ = !ids.isEmpty();
+        }
+    }
     // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
     const auto fb = proc_.feedback();
     ++quietTicks_;

@@ -156,6 +156,10 @@ MMArpProcessor::MMArpProcessor()
     bpmId_ = mmarp::Voyager::paramIndex("bpm");
     const char* xk[13] = {"xl1Dest", "xl1Amt", "l2Beats", "l2Shape", "l2Dest", "l2Amt", "xRing", "xFold", "xNoiseCol", "xUnison", "xHpf", "xComb", "xCombFb"};
     for (size_t i = 0; i < 13; ++i) xId_[i] = mmarp::Voyager::paramIndex(xk[i]);
+    for (int i = 0; i < kModN; ++i) {
+        modKnob_[static_cast<size_t>(i)] = mmarp::knobIndex(kModIds[i]);
+        modVal_[static_cast<size_t>(i)].store(std::numeric_limits<float>::quiet_NaN());
+    }
     // La matrice (6 lignes : source, destination, quantite), puis pbRange, voiceMode, xFeedback, ampMode
     for (int l = 0; l < 6; ++l) {
         const std::string n = std::to_string(l + 1);
@@ -499,6 +503,37 @@ bool MMArpProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo() && layouts.inputBuses.isEmpty();
 }
 
+const char* const MMArpProcessor::kModIds[MMArpProcessor::kModN] = {"wave1", "wave2", "fm", "cutoff", "res", "noise", "sub", "envAmt", "stack", "xRing", "xFold", "xComb"};
+
+// L'arc lumineux de la face : la valeur modulee de chaque reglage que la face montre (thread audio, sans allocation)
+void MMArpProcessor::publishMod() {
+    const mmarp::ModView& m = voy_->modView();
+    const auto clamp01 = [](double x) { return x < 0 ? 0.0 : x > 1 ? 1.0 : x; };
+    const auto kn = [&](int i) { const int k = modKnob_[static_cast<size_t>(i)]; return k >= 0 ? knobs_[static_cast<size_t>(k)] : 0.0; };
+    const auto steps = [&](int i) { const int k = modKnob_[static_cast<size_t>(i)]; return k >= 0 && mmarp::kKnobDefs[k].nSteps > 1 ? mmarp::kKnobDefs[k].nSteps - 1 : 1; };
+    const double sub0 = 0.88 * kn(6) * kn(6);
+    const double st = kn(8);
+    const double stC = st < 0.02 ? 0 : 3 + (27 * (st - 0.02)) / 0.98;
+    const double stM = stC + m.stackCents;
+    const double d[kModN] = {m.wave / steps(0), m.wave / steps(1), m.fm, m.cutOct / 9.3, m.res, m.noise, 0, m.envOct / 6, 0, m.ring, m.fold, m.comb};
+    for (int i = 0; i < kModN; ++i) {
+        double v;
+        bool on;
+        if (i == 6) {
+            on = std::fabs(m.sub) > 1e-5;
+            v = std::sqrt(std::max(0.0, std::min(0.88, sub0 + m.sub)) / 0.88);
+        } else if (i == 8) {
+            on = std::fabs(m.stackCents) > 1e-3;
+            v = stM <= 0 ? 0 : stM < 3 ? 0.02 * stM / 3 : 0.02 + (stM - 3) * 0.98 / 27;
+        } else {
+            on = std::fabs(d[i]) > 1e-5;
+            const double base = i >= 9 ? ex_[static_cast<size_t>(i == 9 ? mmx::ex_xRing : i == 10 ? mmx::ex_xFold : mmx::ex_xComb)] : kn(i);
+            v = base + d[i];
+        }
+        modVal_[static_cast<size_t>(i)].store(on ? static_cast<float>(clamp01(v)) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
+    }
+}
+
 // Les pistes du sequenceur par pas et le swing propre de l'arpege, poses apres arpProgram()
 void MMArpProcessor::applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, double swingOwn) const {
     for (size_t i = 0; i < 16; ++i) {
@@ -830,6 +865,7 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     // l'hote, par morceaux de 128 au plus (plus de file de 128 echantillons : il ne reste que le retard des decimateurs,
     // 0.4 ms). Les morceaux ne tombent plus toujours sur la grille de 128 du site : ecart mesure 0.1 dB au plus.
     for (int i = 0; i < n; i += kChunk) voy_->process(dryL_.data() + i, dryR_.data() + i, std::min(kChunk, n - i));
+    publishMod();
     // PUMP suit la position du morceau
     fx_.setTransport(ppq, pps, playing);
     fx_.process(dryL_.data(), dryR_.data(), outL, outR, n);

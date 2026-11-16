@@ -965,6 +965,8 @@ struct Voyager::Impl {
     int lastMask = 0, lastV = 0;
     uint32_t seedSH = 0, seedRnd = 0;
   } xmx;
+  // Ce que la face montre des modulations (Voyager.h ModView) : ecrit au dernier echantillon de chaque bloc
+  ModView modv;
   // MONO / LEGATO : la voix, les notes tenues (dans l'ordre ou elles sont parties)
   struct MonoE {
     double midi, off, start, vel;
@@ -2662,6 +2664,19 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
     }
     bool xAmp = (xmask & (1 << E_AMP)) != 0;
     const bool xStack = (xmask & (1 << E_STACK)) != 0;
+    if (i2 == OS * N - 1) {
+      // La face : les ecarts des LFO de ce dernier echantillon (la matrice s'y ajoute avec la voix la plus recente)
+      modv.wave = waveMod;
+      modv.cutOct = cutMod;
+      modv.fm = (dest == 2 ? 0.6 * lfo : 0) + (fm2On ? fm2 : 0);
+      modv.res = X_RES * xm[E_RES];
+      modv.noise = X_NOISE * xm[E_NOISE];
+      modv.sub = X_SUB * xm[E_SUB];
+      modv.envOct = X_ENV * xm[E_ENV];
+      modv.stackCents = X_STACK * xm[E_STACK];
+      modv.ring = modv.fold = modv.comb = 0;
+      modv.seq += 1;
+    }
     const double pitchMod2 = (xmask & (1 << E_O2PITCH)) != 0 ? pitchMod + X_O2_CENTS * xm[E_O2PITCH] : pitchMod;
     // STACK : 1 les rapports modules (exp rapide), 2 retour aux rapports exacts (la modulation passe par 0)
     int stackMode = 0;
@@ -3022,6 +3037,19 @@ void Voyager::Impl::processBlockT(float* L, float* R, int N) {
             mv[vr[r].dst] += vr[r].a * sv;
         }
         const auto mxSum = [&](int d) { return (vdm & (1 << d)) != 0 ? mv[d] : 0.0; };
+        if (i2 == OS * N - 1 && vi == xmx.lastV) {
+          modv.wave += MX_WAVE * mxSum(MD_WAVE);
+          modv.cutOct += MX_CUT * mxSum(MD_CUTOFF);
+          modv.fm += MX_FM * mxSum(MD_FM);
+          modv.res += X_RES * mxSum(MD_RES);
+          modv.noise += X_NOISE * mxSum(MD_NOISE);
+          modv.sub += X_SUB * mxSum(MD_SUB);
+          modv.envOct += X_ENV * mxSum(MD_ENV);
+          modv.stackCents += X_STACK * mxSum(MD_STACK);
+          modv.ring = mxSum(MD_RING);
+          modv.fold = mxSum(MD_FOLD);
+          modv.comb = mxSum(MD_COMB);
+        }
         // (vRe : les valeurs cheres sont tenues au rythme du contexte, comme la coupure et la hauteur)
         const bool vRe = newNoise || !v.mxOk;
         v.mxOk = true;
@@ -4235,6 +4263,8 @@ void Voyager::process(float* L, float* R, int n) {
 }
 
 int64_t Voyager::currentFrame() const { return m_->cf; }
+const ModView& Voyager::modView() const { return m_->modv; }
+
 int Voyager::latencySamples() const {
   // Les demi-bandes (31 coefficients au rythme x4 : 15 / 4 ; 63 au rythme x2 : 31 / 2), en echantillons du contexte
   // (x8 : 23 coefficients de plus au rythme x8, 11 / 8 : 20.625 -> 21)

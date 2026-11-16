@@ -35,6 +35,8 @@ private:
     bool lastPlaying_ = false;
     bool lastInternal_ = false;
     int quietTicks_ = 0;
+    // mm_mod : le dernier evenement envoye avait des reglages modules
+    bool modSent_ = false;
     bool ready_ = false;
     bool sizing_ = true;  // pendant le constructeur : ne pas memoriser les tailles transitoires (880 force par les limites)
     // La derniere valeur de chaque potard connue de la face (-1 : a envoyer)

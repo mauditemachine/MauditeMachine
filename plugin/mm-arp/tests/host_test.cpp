@@ -106,6 +106,35 @@ int main() {
             check(cut->getText(0.5f, 32).isNotEmpty() && juce::String(txt) == "1/16", "le texte des parametres (RATE : " + juce::String(txt).toStdString() + ")");
             check(p.getParameters().size() == mmx::kAll + 3, "les potards du site en parametres de l'hote : " + juce::String(p.getParameters().size()).toStdString());
         }
+        // L'arc lumineux de la face (2026-11-16) : LFO 1 sur CUTOFF, la valeur modulee de CUTOFF part ; profondeur 0 : plus rien
+        {
+            auto* dst = p.knobParam(mmarp::knobIndex("lfoDest"));
+            auto* amt = p.knobParam(mmarp::knobIndex("lfoAmt"));
+            const float d0 = dst->getValue(), a0 = amt->getValue();
+            dst->setValueNotifyingHost(0.25f);
+            amt->setValueNotifyingHost(0.6f);
+            float lo = 2, hi = -1;
+            bool others = false;
+            for (int k = 0; k < 40; ++k) {
+                run(p, h, 1200, 512);
+                const float v = p.modValue(3);
+                if (v == v) {
+                    lo = std::min(lo, v);
+                    hi = std::max(hi, v);
+                }
+                for (int i = 0; i < MMArpProcessor::kModN; ++i)
+                    if (i != 3 && p.modValue(i) == p.modValue(i)) others = true;
+            }
+            check(hi > lo + 0.05 && hi <= 1 && lo >= 0 && !others && juce::String(MMArpProcessor::kModIds[3]) == "cutoff", "LFO 1 sur CUTOFF : la face recoit la coupure modulee (" + juce::String(lo, 2).toStdString() + " a " + juce::String(hi, 2).toStdString() + "), rien d'autre");
+            amt->setValueNotifyingHost(0.f);
+            run(p, h, 9600, 512);
+            bool none = true;
+            for (int i = 0; i < MMArpProcessor::kModN; ++i) none = none && p.modValue(i) != p.modValue(i);
+            check(none, "profondeur 0 : plus aucun reglage module");
+            dst->setValueNotifyingHost(d0);
+            amt->setValueNotifyingHost(a0);
+            run(p, h, 4800, 512);
+        }
         // DRAG MIDI : l'arpege en clip (F#m D, 2 mesures, 1/16 : 16 pas par mesure, 2 silences sur 8 dans la suite)
         {
             int bars = 0;
