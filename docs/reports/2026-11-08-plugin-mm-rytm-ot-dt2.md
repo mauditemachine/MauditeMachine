@@ -508,6 +508,17 @@ Mika : « j'aime bien ce kick la ! rajouter ca dans les parametres du vst ca je 
 - **Verifie** : Chromium (sans son) : OPEN, SAMPLE, fleches sur BD : 39 samples, le dernier « BD 808 SUB BOOM 39 / 39 », le programme envoye au moteur dit `bd/Bd 808 Sub Boom.wav` et la face va chercher ce fichier ; le glob de CMake trouve 152 fichiers (151 + 1). tsc : 105. Le site n'est pas touche (rien dans `src/`).
 - **Build vert** (run 43786358144), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit f31c2ee, branche claude/intelligent-ride-56tyeo, 2026-11-16 01:35 UTC, et le binaire du VST3 contient bien `Bd 808 Sub Boom.wav`.
 
+### Lot 32, 909 PUNCH KICK et WAREHOUSE RUMBLE du site (2026-11-16)
+
+Mika : « ajoute aussi le 909 PUNCH KICK et WAREHOUSE RUMBLE ».
+
+- **Deux kicks de plus dans la banque BD du plugin** : `plugin/mm-rytm/samples/bd/Bd 909 Punch.wav` (1.42 s) et `Bd Warehouse Rumble.wav` (1.63 s), mono 48 kHz 16 bits, rendus comme le 808 SUB BOOM par `tools/site-sound.mjs` (deux entrees de plus dans SOUNDS) : les presets de son du site (`scene/screen/menus/preset.ts` : 909 a SYN 0.65, sample 90-909-Punch a LEV 0.85, K.DECAY 0.48, K.DRIVE 0.35, K.ATTACK 0.65 ; 909 a SYN 0.5, sample 92-Warehouse-Rumble a LEV 0.95, K.DECAY 0.55, K.DRIVE 0.45), K.ATTACK et TUNE a leur depart quand le preset ne les donne pas.
+- **Le DEC du site : son depart, 127 (pas d'enveloppe)**, Mika n'ayant pas donne d'autre reglage. Sans rien faire, le DEC 124 du plugin les aurait raccourcis (6 dB de moins la ou le site est a -20 dB, 9 dB pour WAREHOUSE RUMBLE) : le fichier remonte donc la queue d'autant (le `tauBake` negatif de l'outil), et au DEC 124 on entend le site. Au DEC 127 du plugin, leur queue traine plus que sur le site.
+- **WAREHOUSE RUMBLE environ 3.5 dB plus bas** que les autres kicks au DEC 124 : sa queue remontee atteint la crete du fichier (0.9) apres l'attaque, le fichier ne peut pas monter plus sans saturer. Le 909 PUNCH n'y perd que 0.6 dB. Monter LEV si besoin.
+- **L'envoi REVERB du preset WAREHOUSE RUMBLE (0.22) n'est pas dans le fichier** : c'est un envoi vers la reverb de la machine, pas le son du kick ; dans le plugin : piste BD, FX, REVERB a 28.
+- **Ou les trouver** : BD, SAMP tout au bout : 808 SUB BOOM (39), 909 PUNCH (40), WAREHOUSE RUMBLE (41 / 41) ; OPEN, SAMPLE, fleche gauche depuis le 1er tombe sur WAREHOUSE RUMBLE. Le nom court cache « Kick » (la regle des noms de la face, `audio/samplelabel.ts`), d'ou 909 PUNCH.
+- **Verifie** : le fichier multiplie par l'enveloppe du plugin a DEC 124 (HOLD 4 ms, tau 0.65 s) contre le rendu du site a son DEC : ecart a -91 dB (808), -94 dB (909 PUNCH), -94 dB (WAREHOUSE RUMBLE), le bruit du 16 bits ; le 808 SUB BOOM regenere a l'octet pres. Chromium sans son : 41 samples BD, les trois derniers dans l'ordre, le programme dit `bd/Bd Warehouse Rumble.wav` et la face va chercher les trois fichiers. Glob CMake : 154 fichiers. Rien dans `src/` : site non touche, tsc inchange (105).
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -607,6 +618,8 @@ Mika : « j'aime bien ce kick la ! rajouter ca dans les parametres du vst ca je 
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 32 : remonter la queue plutot que laisser le DEC du plugin la couper** : Mika compare au site ; au depart du plugin (DEC 124) les deux kicks sonnent comme sur le site. Le prix : au DEC 127 du plugin, la queue traine plus, et WAREHOUSE RUMBLE sort un peu plus bas (une crete de fichier ne peut pas depasser 0.9 sans risque de saturer).
+- **Lot 32 : le DEC de depart du site (127)** : le preset de son ne touche pas l'enveloppe AMP ; sans capture de Mika pour ces deux-la, c'est ce qu'on entend en les chargeant sur une piste neuve du site.
 - **Lot 31 : un fichier plutot que la machine 808 du site dans le moteur** : porter la synthese 808, sa banque JS et sa chaine (drive, couches) en C++ pour un seul son serait un gros chantier ; le rendu par le code du site donne le meme son tout de suite, joue par le moteur qui existe deja.
 - **Lot 31 : le DEC cuit en partie dans le fichier** : sinon le kick sonnerait 4 fois plus long qu'a DEC 85 au depart du plugin (DEC 124). Ainsi il sonne comme sur le site sans rien toucher, et le DEC du plugin reste libre.
 - **Lot 31 : un dossier a part, pas `public/samples/rytm`** : ce dossier est la banque du site (sa liste, ses presets, l'admin) ; y mettre le kick l'aurait ajoute en double sur le site, ou il existe deja en preset de son.
@@ -623,6 +636,7 @@ Mika : « j'aime bien ce kick la ! rajouter ca dans les parametres du vst ca je 
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 32)** : la commande mm-rytm ; BD, SAMP tout au bout (909 PUNCH, WAREHOUSE RUMBLE), comparer au site ; pour WAREHOUSE RUMBLE, REVERB de la piste a 28 comme le preset du site. Si sur le site il avait regle un autre DEC pour ces kicks, me le donner : un chiffre a changer dans l'outil.
 - **Cote Mika (lot 31)** : la commande mm-rytm, rouvrir Ableton ; piste BD, SAMP tout au bout (BD 808 SUB BOOM), ou OPEN, SAMPLE, fleche gauche depuis le 1er ; comparer au site. Dire si d'autres sons du site doivent suivre (909 PUNCH KICK, WAREHOUSE RUMBLE...) : une ligne chacun dans `tools/site-sound.mjs`.
 - **Cote Mika (lot 30)** : la commande mm-rytm ; dans Ableton, mapper **Hell Mix** au Roto ou a l'APC et l'automatiser ; PERFORM : tenir le pad 15 (HELL) sur un breakdown. Dire si RPT 1/4 lui manque.
 - **Cote Mika (lot 29)** : la commande mm-rytm, rouvrir Ableton ; tourner HELL (potard E de la page FX) sur un hat ou un clap, puis OPEN, onglet FX : essayer les presets de HELL et de la DIST, dire lesquels sonnent et lesquels changer. A l'oreille seulement : le grain de chaque STYLE, la force de HELL a envoi et MIX moyens. Plus tard si Mika le veut : le MIX de HELL en parametre d'Ableton, un pad HELL THROW dans PERFORM.

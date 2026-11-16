@@ -4,6 +4,7 @@
 //   node plugin/mm-rytm/tools/site-sound.mjs            tous les sons de la table
 //   node plugin/mm-rytm/tools/site-sound.mjs "808 SUB BOOM"
 //
+// Crete : celle du fichier (jamais au-dessus de 0.9, rien ne sature).
 // Le rendu passe par le DSP du site lui-meme (src/v4/audio/shotsdsp.ts renderLayers, synthSamples.ts), bundle a la volee
 // par esbuild : le fichier est le son du site, a l'echantillon pres. L'enveloppe AMP du site (DEC) y est cuite en partie :
 // le plugin multiplie encore par son DEC de depart (124), le fichier porte la difference, pour qu'a DEC 124 le plugin rende
@@ -32,6 +33,25 @@ const SOUNDS = {
     sample: 'bd/91-808-Sub-Boom.wav',
     tw: { model: '808', tune: 0.5, attack: 0.45, decay: 0.68, drive: 0.25, snappy: 0.5, syn: 0.75, smp: { lev: 0.85, st: 0, start: 0, len: 1, rev: false } },
     dec: 85,
+  },
+  // 909 PUNCH KICK (preset.ts : syn 0.65, slev 0.85, kdecay 0.48, kdrive 0.35, kattack 0.65), le DEC de depart du site (127)
+  '909 PUNCH KICK': {
+    fam: 'bd',
+    voice: 'BD',
+    file: 'Bd 909 Punch.wav',
+    sample: 'bd/90-909-Punch.wav',
+    tw: { model: '909', tune: 0.5, attack: 0.65, decay: 0.48, drive: 0.35, snappy: 0.5, syn: 0.65, smp: { lev: 0.85, st: 0, start: 0, len: 1, rev: false } },
+    dec: 127,
+  },
+  // WAREHOUSE RUMBLE (preset.ts : syn 0.5, slev 0.95, kdecay 0.55, kdrive 0.45 ; son envoi REVERB 0.22 reste un envoi :
+  // dans le plugin, REVERB de la piste a 28), le DEC de depart du site (127)
+  'WAREHOUSE RUMBLE': {
+    fam: 'bd',
+    voice: 'BD',
+    file: 'Bd Warehouse Rumble.wav',
+    sample: 'bd/92-Warehouse-Rumble.wav',
+    tw: { model: '909', tune: 0.5, attack: 0.5, decay: 0.55, drive: 0.45, snappy: 0.5, syn: 0.5, smp: { lev: 0.95, st: 0, start: 0, len: 1, rev: false } },
+    dec: 127,
   },
 };
 
@@ -88,13 +108,15 @@ function render(dsp, name, s) {
   const mono = out.L === out.R;
   const tauSite = decayTau(s.dec / 127);
   const tauPlug = decayTau(PLUGIN_DEC);
-  const tauBake = tauSite === null ? null : 1 / (1 / tauSite - 1 / tauPlug);
+  // DEC 127 sur le site (tenu, tauSite null) : le fichier remonte la queue d'autant que le DEC 124 du plugin la baisse
+  // (tauBake negatif) ; au DEC 124 on entend le site, au DEC 127 du plugin la queue traine plus que sur le site
+  const tauBake = 1 / (1 / (tauSite ?? Infinity) - 1 / tauPlug);
   const L = new Float32Array(n);
   const R = mono ? null : new Float32Array(n);
   let peak = 0;
   for (let i = 0; i < n; i += 1) {
     const t = i / SR;
-    const e = tauBake === null || t < HOLD_S ? 1 : Math.exp(-(t - HOLD_S) / tauBake);
+    const e = t < HOLD_S ? 1 : Math.exp(-(t - HOLD_S) / tauBake);
     L[i] = out.L[i] * e;
     if (R) R[i] = out.R[i] * e;
     peak = Math.max(peak, Math.abs(L[i]), R ? Math.abs(R[i]) : 0);
