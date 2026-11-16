@@ -540,6 +540,7 @@ Mika : « Menu open le 1 serigraphie mon pref. Boutons drag midi close : le D »
 - **DRAG MIDI et CLOSE (maquette D, texte seul)** : sans boite ; DRAG MIDI en orange (sa poignee aussi), plus clair au survol, a demi eteint quand il n'y a rien a glisser (comme avant) ; CLOSE en gris avec ESC dans un filet, blanc au survol. La grande poignee DRAG MIDI de l'onglet PATTERN garde son bouton orange (Mika n'en parlait pas, c'est le geste principal de cet onglet).
 - **Le reste ne bouge pas** : les potards et la page entiere (« j'aime bien le design des knobs et la page en entier »), les boutons des pistes, des presets et des reglages.
 - **Verifie** : Chromium (vraie face, page FX et les 4 onglets) : l'onglet choisi en orange (#FF8A1F), les autres a 50 % ; CLOSE blanc au survol, DRAG MIDI orange sans fond ; CLOSE et Echap ferment toujours OPEN. Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 43795050003), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 1297810, branche claude/intelligent-ride-56tyeo, 2026-11-16 03:03 UTC.
 
 ## 2. Decisions prises et pourquoi
 
