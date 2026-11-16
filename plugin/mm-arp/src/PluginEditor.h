@@ -36,6 +36,7 @@ private:
     bool lastInternal_ = false;
     int quietTicks_ = 0;
     bool ready_ = false;
+    bool sizing_ = true;  // pendant le constructeur : ne pas memoriser les tailles transitoires (880 force par les limites)
     // La derniere valeur de chaque potard connue de la face (-1 : a envoyer)
     std::array<float, mmx::kAll> sent_{};
     std::unique_ptr<juce::FileChooser> chooser_;

@@ -125,6 +125,9 @@ std::optional<juce::WebBrowserComponent::Resource> MMArpEditor::resource(const j
 }
 
 MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p) {
+    // 2026-11-16 (Mika : "quand je change de piste et que je reviens ca revient tout petit") : la taille voulue est lue
+    // AVANT setResizeLimits, qui force 880 sur l'editeur vide et ecrasait la taille memorisee via resized()
+    const int wanted = proc_.editorWidth();
     browser_ = std::make_unique<Browser>(options());
     addAndMakeVisible(*browser_);
     // Redimensionnable a proportions fixes (2026-11-11, Mika : "je ne peux pas agrandir le plugin") : 880 a 2200 de large,
@@ -139,8 +142,9 @@ MMArpEditor::MMArpEditor(MMArpProcessor& p) : AudioProcessorEditor(&p), proc_(p)
         maxW = juce::jmax(880, juce::jmin(maxW, a.getWidth() - 40, (a.getHeight() - 90) * kW / kH));
     }
     setResizeLimits(880, 880 * kH / kW, 3300, 3300 * kH / kW);
-    const int w = juce::jlimit(880, maxW, proc_.editorWidth());
+    const int w = juce::jlimit(880, maxW, wanted);
     setSize(w, w * kH / kW);
+    sizing_ = false;
     browser_->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     startTimerHz(30);
 }
@@ -151,7 +155,7 @@ void MMArpEditor::paint(juce::Graphics& g) { g.fillAll(kInk); }
 
 void MMArpEditor::resized() {
     if (browser_) browser_->setBounds(getLocalBounds());
-    proc_.setEditorWidth(getWidth());
+    if (!sizing_ && getWidth() >= 880) proc_.setEditorWidth(getWidth());
 }
 
 void MMArpEditor::setHint(const juce::String& m) {
