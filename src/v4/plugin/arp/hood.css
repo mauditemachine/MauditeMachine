@@ -2505,3 +2505,166 @@
 .mm-plugin-arp .mm-p2-over > * {
   pointer-events: auto;
 }
+
+/* =====================================================================================================================
+   2026-11-16 : la page REVERB (SkyPage.tsx), la reverbe facon BigSky : TYPE en douze touches, la fenetre de verre noir
+   (le nom de la machine, l'enveloppe de sa queue, le reglage touche), les potards du MM-RYTM.
+   ===================================================================================================================== */
+
+.mm-plugin-arp .mm-sky-keys {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 30px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 22px 8px;
+  justify-items: center;
+}
+
+.mm-plugin-arp .mm-sky-keys .mm-key {
+  width: 100%;
+  gap: 6px;
+}
+
+.mm-plugin-arp .mm-sky-keys .mm-key-name {
+  letter-spacing: 0.1em;
+  font-size: 7.5px;
+}
+
+.mm-plugin-arp .mm-sky-mkeys {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 34px;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+}
+
+/* la fenetre : le verre noir de l'ecran de la face, en grand */
+.mm-plugin-arp .mm-sky-win {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(#0b0906, #141008);
+  box-shadow:
+    0 0 0 2px #050505,
+    0 0 0 3px rgba(255, 255, 255, 0.08),
+    inset 0 2px 10px rgba(0, 0, 0, 0.95);
+  overflow: hidden;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.mm-plugin-arp .mm-sky-type {
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  color: rgba(244, 241, 234, 0.5);
+}
+
+.mm-plugin-arp .mm-sky-name {
+  position: absolute;
+  left: 14px;
+  top: 26px;
+  font-size: 30px;
+  line-height: 34px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ff8a52;
+  text-shadow:
+    0 0 10px rgba(244, 123, 47, 0.55),
+    0 0 2px rgba(255, 190, 150, 0.6);
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-sky-blurb {
+  position: absolute;
+  left: 16px;
+  top: 66px;
+  width: 200px;
+  font-size: 8.5px;
+  line-height: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(244, 241, 234, 0.58);
+}
+
+.mm-plugin-arp .mm-sky-touch {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mm-plugin-arp .mm-sky-touch b {
+  font-size: 7.5px;
+  line-height: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: rgba(244, 241, 234, 0.55);
+}
+
+.mm-plugin-arp .mm-sky-touch span {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #f4f1ea;
+}
+
+.mm-plugin-arp .mm-sky-touch[data-on='1'] b {
+  color: #ff8a52;
+}
+
+.mm-plugin-arp .mm-sky-tail {
+  position: absolute;
+  right: 14px;
+  top: 22px;
+  overflow: visible;
+}
+
+.mm-plugin-arp .mm-sky-grid line {
+  stroke: rgba(244, 241, 234, 0.07);
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-sky-grid .mm-sky-axis {
+  stroke: rgba(244, 241, 234, 0.25);
+}
+
+.mm-plugin-arp .mm-sky-line {
+  fill: none;
+  stroke: #ff8a52;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px rgba(244, 123, 47, 0.8));
+}
+
+.mm-plugin-arp .mm-sky-line2 {
+  fill: none;
+  stroke: #ffd9b8;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.8;
+}
+
+.mm-plugin-arp .mm-sky-er {
+  stroke: #ffb38a;
+  stroke-width: 1.2;
+  opacity: 0.85;
+}
+
+.mm-plugin-arp .mm-sky-t {
+  font-size: 7px;
+  letter-spacing: 0.16em;
+  fill: rgba(244, 241, 234, 0.45);
+}

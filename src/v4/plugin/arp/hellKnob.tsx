@@ -9,7 +9,7 @@
  * Le clic de la face (voyager/faceDbl.ts, 2026-11-16 ; le double clic avant) : un clic sans mouvement sur un potard ouvre
  * le capot sur la page qui le detaille (un glisser le tourne, rien ne s'ouvre ; la remise a la valeur de depart passe a
  * Alt / Cmd / Ctrl + clic) :
- *   HELL -> FX / HELL ; DELAY -> FX, DELAY ; REVERB -> FX, REVERB ; OVERDRIVE -> SOUND, DISTORTION ;
+ *   HELL -> FX / HELL ; DELAY -> FX, DELAY ; REVERB -> la page REVERB (la reverbe facon BigSky) ; OVERDRIVE -> SOUND, DISTORTION ;
  *   oscillateurs -> SOUND, OSC + ; filtre -> SOUND, FILTER + ; enveloppes -> SOUND, AMP ; MOD -> SEQ, LFO 2 ;
  *   arpegiateur -> SEQ, STEP SEQUENCER ; VOLUME -> SOUND, MASTER.
  */
@@ -58,7 +58,7 @@ function pageOf(dial: string): { tab: HoodTab; fx: HoodFx | null; focus: string 
   if (!dial.startsWith('v:')) return null;
   const id = dial.slice(2) as VoyKnobId;
   if (id === 'delay') return { tab: 'fx', fx: 'rack', focus: 'DELAY' };
-  if (id === 'reverb') return { tab: 'fx', fx: 'rack', focus: 'REVERB' };
+  if (id === 'reverb') return { tab: 'fx', fx: 'reverb', focus: 'REVERB' };
   if (id === 'dist') return { tab: 'sound', fx: null, focus: 'DISTORTION' };
   if (id === 'chorus') return { tab: 'fx', fx: 'rack', focus: 'DELAY' };
   if (id === 'volume') return { tab: 'sound', fx: null, focus: 'MASTER' };

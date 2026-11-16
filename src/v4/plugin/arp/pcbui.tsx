@@ -29,6 +29,7 @@ import { voyKnob, voyParams, voyReadout, voyValueText, VOY_KNOB_IDS, type VoyKno
 import { arpExtra, extraParam, isExtra } from './extra';
 import { arpMidi } from './midimap';
 import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
+import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
 
 /* ---------------- la source d'un reglage ---------------- */
 
@@ -43,7 +44,8 @@ export const SRC = {
     else arpExtra.set(id, v);
   },
   text: (id: string, v: number = SRC.of(id)): string => (isVoy(id) ? voyValueText(id, v) : arpExtra.text(id, v)),
-  steps: (id: string): readonly string[] => (isVoy(id) ? (voyKnob(id).steps ?? []) : (extraParam(id)?.steps ?? [])),
+  // les places de la reverbe facon BigSky : leurs crans sont ceux de la machine du moment (skyModel.ts)
+  steps: (id: string): readonly string[] => (isVoy(id) ? (voyKnob(id).steps ?? []) : (skySteps(skyTypeIndex(arpExtra.of('xSkyType')), id) ?? extraParam(id)?.steps ?? [])),
   subscribe: (id: string) => (isVoy(id) ? voyParams.subscribe : arpExtra.subscribe),
 };
 
@@ -125,7 +127,12 @@ const FULL: Record<string, string> = {};
 export const setFullName = (id: string, name: string): void => {
   FULL[id] = name;
 };
-export const fullName = (id: string): string => FULL[id] ?? (isVoy(id) ? voyKnob(id).label : extraParam(id)?.label) ?? id;
+export const fullName = (id: string): string => {
+  // la reverbe facon BigSky : le nom depend de la machine (DECAY, TIME ou SIZE ; PRE-DELAY ou FEEDBACK ; ses places)
+  const sky = id.startsWith('xSky') ? skyLabel(skyTypeIndex(arpExtra.of('xSkyType')), id) : null;
+  if (sky) return `REVERB ${sky}`;
+  return FULL[id] ?? (isVoy(id) ? voyKnob(id).label : extraParam(id)?.label) ?? id;
+};
 
 /* ---------------- l'afficheur du bandeau ---------------- */
 

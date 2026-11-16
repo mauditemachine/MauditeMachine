@@ -10,6 +10,7 @@
  */
 
 import spec from '../../../../plugin/mm-arp/extra-params.json';
+import { skyText, skyTypeIndex } from './skyModel';
 
 /**
  * Les blocs du JSON. Les cinq premiers : la page SOUND+ du capot (SoundPlus.tsx). Les autres (2026-11-11) : le module
@@ -137,6 +138,8 @@ const bipolar = (v: number): string => `${signed((v - 0.5) * 200, 0)} %`;
 function text(id: string, v: number): string {
   const p = BY_ID.get(id);
   if (!p) return '';
+  // la reverbe facon BigSky : le texte depend de la machine (skyModel.ts)
+  if (p.section === 'sky' && id !== 'xSkyType') return skyText(skyTypeIndex(values.xSkyType ?? 0), id, v);
   if (id === 'xPbRange' && p.steps) return `${p.steps[extraStepIndex(id, v)]} ST`;
   if (p.steps) return p.steps[extraStepIndex(id, v)];
   if (MATRIX_AMT.test(id)) return `${signed(matrixPct(v), 0)} %`;

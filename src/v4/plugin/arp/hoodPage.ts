@@ -8,7 +8,7 @@
  */
 
 export type HoodTab = 'sound' | 'fx' | 'seq';
-export type HoodFx = 'rack' | 'hell';
+export type HoodFx = 'rack' | 'hell' | 'reverb';
 export type HoodOverlay = 'library' | 'midi' | null;
 
 export const HOOD_TABS: readonly { id: HoodTab; label: string }[] = [
@@ -18,12 +18,15 @@ export const HOOD_TABS: readonly { id: HoodTab; label: string }[] = [
 ];
 
 /**
- * Les pages a plat, celles du selecteur PAGE de l'en-tete (2026-11-16, Mika, la maquette C) : SOUND, RACK, HELL, SEQ.
+ * Les pages a plat, celles du selecteur PAGE de l'en-tete (2026-11-16, Mika, la maquette C) : SOUND, RACK, HELL,
+ * REVERB, SEQ.
  */
 export const HOOD_PAGES: readonly { id: string; label: string; tab: HoodTab; fx: HoodFx | null }[] = [
   { id: 'sound', label: 'SOUND', tab: 'sound', fx: null },
   { id: 'rack', label: 'RACK', tab: 'fx', fx: 'rack' },
   { id: 'hell', label: 'HELL', tab: 'fx', fx: 'hell' },
+  // la reverbe facon BigSky (2026-11-16, Mika) : le clic du potard REVERB de la face y mene
+  { id: 'reverb', label: 'REVERB', tab: 'fx', fx: 'reverb' },
   { id: 'seq', label: 'SEQ', tab: 'seq', fx: null },
 ];
 

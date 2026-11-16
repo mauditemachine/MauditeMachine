@@ -32,6 +32,7 @@ import { hypnoNew, hypnoStyle, HYPNO_STYLES } from './hypno';
 import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore } from './library';
 import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
+import { SkyPage } from './SkyPage';
 import { arpMidi } from './midimap';
 import { hoodLcd, RetroKnob, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
@@ -341,11 +342,20 @@ const HellDiagram: React.FC = () => {
   );
 };
 
+/** REVERB : la reverbe facon BigSky (SkyPage.tsx) ; le cadre REVERB clignote au clic du potard de la face. */
+const SkyHost: React.FC = () => {
+  const rev = useFlash('REVERB');
+  const typ = useFlash('TYPE');
+  return <SkyPage flash={(t) => (t === 'REVERB' ? rev : t === 'TYPE' ? typ : false)} />;
+};
+
 const FxPage: React.FC = () => {
   const { fx } = useHoodPage();
   return (
     <>
-      {fx === 'hell' ? (
+      {fx === 'reverb' ? (
+        <SkyHost />
+      ) : fx === 'hell' ? (
         <>
           <Grid page="hell" />
           <HellPresets />
@@ -681,12 +691,12 @@ const Overlay: React.FC<{ which: 'library' | 'midi' }> = ({ which }) => (
 
 /**
  * Le selecteur PAGE (2026-11-16, Mika, la maquette C : "un selecteur rotatif PAGE facon Moog dans l'en-tete") : le petit
- * commutateur rotatif de la face, SOUND, RACK, HELL et SEQ ecrits autour. Un clic sur un nom y va ; glisser le potard
+ * commutateur rotatif de la face, SOUND, RACK, HELL, REVERB et SEQ ecrits autour. Un clic sur un nom y va ; glisser le potard
  * verticalement tourne d'un cran par 14 px (vers le haut : la page suivante) ; molette ; fleches gauche / droite du
  * clavier quand aucun reglage ne les prend (HoodBody). Le seul menu des pages : LIBRARY, MIDI et LEARN sont des outils
  * (le bandeau du bas).
  */
-const DIAL_ANGLES = [-70, -24, 24, 70] as const;
+const DIAL_ANGLES = [-80, -40, 0, 40, 80] as const;
 const PageDial: React.FC = () => {
   const st = useHoodPage();
   const cur = hoodPageIndex(st);
@@ -798,7 +808,7 @@ const PageDial: React.FC = () => {
 const PAGE_LABEL: Record<HoodTab, string> = { sound: 'SOUND', fx: 'EFFECTS', seq: 'SEQUENCER' };
 const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' && fx === 'hell' ? 'EFFECTS / HELL' : PAGE_LABEL[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' && fx === 'hell' ? 'EFFECTS / HELL' : tab === 'fx' && fx === 'reverb' ? 'EFFECTS / REVERB' : PAGE_LABEL[tab];
   return (
     <>
       <button type="button" className="mm-r-wood mm-r-wood-l" aria-label="Close the machine" title="Close" onClick={onClose} />
@@ -828,7 +838,7 @@ const PAGE_NAME: Record<HoodTab, string> = { sound: 'SOUND', fx: 'FX', seq: 'SEQ
 const HoodLcd: React.FC = () => {
   const line = useSyncExternalStore(hoodLcd.subscribe, hoodLcd.get, hoodLcd.get);
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : 'RACK'}` : PAGE_NAME[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : 'RACK'}` : PAGE_NAME[tab];
   return (
     <div className="mm-p2-lcd" role="status" aria-live="polite">
       <span className="mm-p2-lcd-a">{line ? line.name : 'MM-ARP'}</span>
