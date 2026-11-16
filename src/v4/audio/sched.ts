@@ -82,19 +82,29 @@ export function reserve(seconds: number): void {
   for (const fn of reserveHooks) fn(reserveUntil);
 }
 
-/** Re-programmations demandees, groupees (un potard tourne : au plus une par image). */
+/**
+ * Re-programmations demandees, groupees (un potard tourne : au plus une par image). Au telephone (2026-11-16, Mika sur
+ * iPhone : "quand j'utilise Rytm et Arp le son bogue") : et au plus une toutes les ASK_GAP_MS. Un reglage de voix du
+ * RYTM tourne au doigt refaisait toutes les voix a venir de sa piste a chaque image (199 noeuds audio crees par
+ * seconde contre 33 au repos) ; le reglage arrive au plus 60 ms plus tard (un coup en double croche dure 125 ms a 120
+ * BPM). Un geste seul part toujours 12 ms apres, comme avant ; l'ordi ne change pas.
+ */
 const asked = new Set<Scheduler>();
 let askTimer = 0;
+const ASK_GAP_MS = COARSE ? 60 : 0;
+let flushedAt = -Infinity;
 
 export function askReschedule(s: Scheduler): void {
   asked.add(s);
   if (askTimer || typeof window === 'undefined') return;
+  const wait = Math.max(12, flushedAt + ASK_GAP_MS - performance.now());
   askTimer = window.setTimeout(() => {
     askTimer = 0;
+    flushedAt = performance.now();
     const list = [...asked].sort((a, b) => (a.order ?? 1) - (b.order ?? 1));
     asked.clear();
     for (const x of list) x.reschedule();
-  }, 12);
+  }, wait);
 }
 
 /** Une grille en doubles croches : la premiere frontiere a t ou apres, son rang dans la mesure (0 a 15), sa duree. */

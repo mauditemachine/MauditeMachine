@@ -44,6 +44,7 @@ import {
   type CanvasTexture,
   type InstancedMesh,
   type Mesh,
+  type Object3D,
   type Texture,
 } from 'three';
 import { clock } from '../audio/clock';
@@ -285,6 +286,20 @@ const FRAME_MIN_MS = 12;
  * rien rendu), false s'il n'a plus rien a faire.
  */
 export type Animator = (now: number, dt: number) => boolean | 'paint' | 'poll';
+
+/**
+ * Les animateurs d'une machine cachee (2026-11-16, Mika sur iPhone : "quand j'utilise Rytm et Arp le son bogue") : au
+ * telephone, la machine qu'on n'utilise pas a son root invisible (setShown) ; ses animateurs tournent toujours (son
+ * etat suit la musique) mais ne demandent plus d'image, invisible ne laisse aucun pixel : true et 'paint' deviennent
+ * 'poll'. setShown la remontre avec invalidate, l'image repart a jour. Avant : le MM-ARP cache faisait rendre le
+ * MM-RYTM a chaque note de l'arpege (et l'inverse), le GPU du telephone chauffait pour rien a cote du son.
+ */
+const hidden =
+  (root: Object3D, fn: Animator): Animator =>
+  (now, dt) => {
+    const r = fn(now, dt);
+    return r === false || r === 'poll' || root.visible ? r : 'poll';
+  };
 
 export interface StageOpts {
   /** conteneur du canvas : taille, visibilite */
@@ -827,7 +842,8 @@ export class Stage {
       aniso,
       () => {
         this.syncScreenTabs();
-        this.repaint();
+        // Machine cachee (le telephone sur le MM-ARP) : pas d'image pour rien (2026-11-16, voir hidden)
+        if (this.machine.root.visible) this.repaint();
       },
       mobile
     );
@@ -1070,8 +1086,13 @@ export class Stage {
         tweens: this.tweens,
         paintTweens: this.paintTweens,
         reduced: motion.reduced,
-        repaint: () => this.repaint(),
-        invalidate: () => this.invalidate(),
+        // Le MM-ARP cache (le telephone sur le MM-RYTM) : son etat suit, sans image (2026-11-16, voir hidden)
+        repaint: () => {
+          if (this.voy?.root.visible !== false) this.repaint();
+        },
+        invalidate: () => {
+          if (this.voy?.root.visible !== false) this.invalidate();
+        },
       });
       this.voy = voy;
       this.scene.add(voy.root);
@@ -1102,19 +1123,20 @@ export class Stage {
     this.orbit.apply();
     renderer.clear();
 
+    const rytmRoot = this.machine.root;
     this.animators.push(
       this.stepIntro,
       (now) => this.tweens.update(now),
       (now) => (this.paintTweens.update(now) ? 'paint' : false),
       this.stepExplode,
-      (now) => this.pads?.update(now) ?? false,
-      this.pollPlayhead,
+      hidden(rytmRoot, (now) => this.pads?.update(now) ?? false),
+      hidden(rytmRoot, this.pollPlayhead),
       this.stepBreathe,
-      this.stepLockBlink,
-      this.modeBlink,
-      this.faceBlink,
-      this.stepTrkFlash,
-      this.ptnBlink
+      hidden(rytmRoot, this.stepLockBlink),
+      hidden(rytmRoot, this.modeBlink),
+      hidden(rytmRoot, this.faceBlink),
+      hidden(rytmRoot, this.stepTrkFlash),
+      hidden(rytmRoot, this.ptnBlink)
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -1124,9 +1146,9 @@ export class Stage {
           this.updateCamera();
           return true;
         },
-        voyRig.stepKeys,
-        voyRig.stepArp,
-        voyRig.stepSeq
+        hidden(voyRig.root, voyRig.stepKeys),
+        hidden(voyRig.root, voyRig.stepArp),
+        hidden(voyRig.root, voyRig.stepSeq)
       );
     }
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend

@@ -1,8 +1,8 @@
 {
   "mm808": {
     "name": "MM-RYTM",
-    "version": "7.2",
-    "fingerprint": "sha256:421cab229007c710bba03e537b0a9eeb024f957835f68a009a53af42b4369f09",
+    "version": "7.3",
+    "fingerprint": "sha256:bb6500d14dc062c6c371bdbc7507c5c4f4b1ac633e0d0a08c8260a217a97ef96",
     "history": [
       { "version": "3.0", "date": "2026-10-08", "note": "machine Elektron, pages, P-LOCK" },
       { "version": "4.0", "date": "2026-10-27", "note": "face V.4.0 256 x 156 mm, ecran 4.3 pouces, 8 potards, 12 touches, sans pads" },
@@ -26,7 +26,8 @@
       { "version": "6.9", "date": "2026-11-03", "note": "Mode MUTE: activation directe, synchronisation d'etat et selection de piste en mute", "sha": "a24832bd" },
       { "version": "7.0", "date": "2026-11-10", "note": "face V.7.0 du site : ecran cliquable, 8 potards A a H a droite qui suivent la page, voix et 16 pas en bas ; telephone : languette TOUCH CONTROLS, cadrage sous la barre de Safari 26", "sha": "e4bf991" },
       { "version": "7.1", "date": "2026-11-10", "note": "DIST refaite facon gros hardcore (gain jusqu'a 40 dB, ecretage dur, mordant a 2.5 kHz) et COMP qui pousse (plus dense, il pompe, plafonne a 0 dB)", "sha": "5ef8e6a" },
-      { "version": "7.2", "date": "2026-11-13", "note": "telephone : knobs GLOBAL FX plus gros, numeros sur les pas et noms sur les pads, plus de crochets", "sha": "e5ac5e9" }
+      { "version": "7.2", "date": "2026-11-13", "note": "telephone : knobs GLOBAL FX plus gros, numeros sur les pas et noms sur les pads, plus de crochets", "sha": "e5ac5e9" },
+      { "version": "7.3", "date": "2026-11-16", "note": "telephone : moins de charge pendant la lecture avec MM-ARP (la machine cachee ne fait plus rendre d'images, les reglages tournes au doigt sont regroupes)", "sha": "c603f74" }
     ]
   },
   "voy": {
