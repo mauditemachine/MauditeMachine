@@ -82,7 +82,7 @@ const cellW = (c: Ctl): number => (c.k === 'step' ? stepW(c.id) : c.k === 'rot' 
 const frameW = (f: FrameSpec): number => f.ctls.reduce((s, c) => s + cellW(c), 0) + 20;
 const FRAME_H = 120;
 
-type GridPage = 'sound' | 'rack' | 'hell';
+type GridPage = 'sound' | 'rack' | 'hell' | 'disto';
 
 const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
   // SOUND : les TWEAKS de la face (voyager/params.ts, section tweak) et le son du VST3 seul, du generateur a la sortie
@@ -118,7 +118,6 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
           title: 'OUTPUT',
           ctls: [knob('width', 'WIDTH', 'MONO', 'WIDE'), knob('wide', 'WIDE', 'OFF', 'FULL'), knob('monoLow', 'BASS MONO', 'OFF', '300 HZ'), knob('glue', 'GLUE', 'OFF', 'TIGHT'), knob('duck', 'SIDECHAIN', 'OFF', '-24 DB')],
         },
-        { title: 'DISTORTION', led: () => X('xDist') > 0, ctls: [knob('xDist', 'AMOUNT', 'OFF', 'FULL', 'DISTORTION'), knob('xDistTone', 'TONE', 'DARK', 'BRIGHT', 'DIST TONE')] },
       ],
     },
     {
@@ -176,6 +175,29 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
       ],
     },
   ],
+  /*
+   * FX, DISTO (2026-11-16, Mika : "quand on clic sur le knob DISTO on tombe sur une page de configuration pour la disto
+   * avec tous les parametres AINSI QUE la qualite de Soundtoys Decapitator mais au design de MM-ARP") : la saturation
+   * facon Decapitator (plugin/mm-arp/dsp/Decap.h), ouverte par le clic sur le potard DISTO de la face ; DRIVE est ce potard
+   */
+  disto: [
+    {
+      y: 64,
+      frames: [
+        { title: 'STYLE', ctls: [step('xDStyle', 'STYLE', 'DISTO STYLE')] },
+        { title: 'DRIVE', led: () => voyParams.of('dist') > 0, ctls: [bigKnob('dist', 'DRIVE', 'OFF', '+36 DB', 'DISTO DRIVE'), step('xDPunish', 'PUNISH', 'DISTO PUNISH')] },
+        { title: 'OUTPUT', ctls: [knob('xDMix', 'MIX', 'DRY', 'WET', 'DISTO MIX'), knob('xDOut', 'OUTPUT', '-18', '+18', 'DISTO OUTPUT'), step('xDAuto', 'AUTO', 'DISTO AUTO')] },
+      ],
+    },
+    {
+      y: 212,
+      frames: [
+        { title: 'LOW CUT', ctls: [knob('xDLow', 'LOW CUT', 'OFF', '1 KHZ', 'DISTO LOW CUT'), step('xDThump', 'THUMP', 'DISTO THUMP')] },
+        { title: 'TONE', ctls: [knob('xDTone', 'TONE', 'DARK', 'BRIGHT', 'DISTO TONE')] },
+        { title: 'HIGH CUT', ctls: [knob('xDHigh', 'HIGH CUT', '1 KHZ', 'OFF', 'DISTO HIGH CUT'), step('xDSteep', 'STEEP', 'DISTO STEEP')] },
+      ],
+    },
+  ],
 };
 
 /*
@@ -189,12 +211,12 @@ const REFS: Record<string, string> = {};
   for (const k of VOY_TWEAKS) REFS[k.id] = k.id === 'sync' || k.id === 'chord' || k.id === 'fpol' ? `SW${swT++}` : `RV${rvT++}`;
   let rv = 20;
   let swn = 4;
-  const all = [...ROWS.sound, ...ROWS.rack, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls)).filter((c) => !(c.id in REFS));
+  const all = [...ROWS.sound, ...ROWS.rack, ...ROWS.hell, ...ROWS.disto].flatMap((r) => r.frames.flatMap((f) => f.ctls)).filter((c) => !(c.id in REFS));
   for (const c of all) {
     REFS[c.id] = c.k === 'knob' ? `RV${rv++}` : `SW${swn++}`;
     setFullName(c.id, c.full ?? c.name);
   }
-  for (const c of [...ROWS.sound, ...ROWS.rack, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls))) if (c.full) setFullName(c.id, c.full);
+  for (const c of [...ROWS.sound, ...ROWS.rack, ...ROWS.hell, ...ROWS.disto].flatMap((r) => r.frames.flatMap((f) => f.ctls))) if (c.full) setFullName(c.id, c.full);
   for (let i = 1; i <= MATRIX_ROWS; i += 1) {
     setFullName(`xM${i}Src`, `MATRIX ${i} SOURCE`);
     setFullName(`xM${i}Dst`, `MATRIX ${i} DEST`);
@@ -295,6 +317,7 @@ const FxSwitch: React.FC = () => {
     <div className="mm-p2-sub" role="tablist" aria-label="FX pages">
       <PcbKey role="tab" aria-selected={fx === 'rack'} on={fx === 'rack'} name="RACK" w={40} h={14} onClick={() => hoodPage.set({ fx: 'rack' })} />
       <PcbKey role="tab" aria-selected={fx === 'hell'} on={fx === 'hell'} name="HELL" w={40} h={14} onClick={() => hoodPage.set({ fx: 'hell' })} />
+      <PcbKey role="tab" aria-selected={fx === 'disto'} on={fx === 'disto'} name="DISTO" w={40} h={14} onClick={() => hoodPage.set({ fx: 'disto' })} />
     </div>
   );
 };
@@ -351,6 +374,117 @@ const HellDiagram: React.FC = () => {
   );
 };
 
+/* ---------------- FX, DISTO : l'ecran (la courbe du style, la reponse des filtres) ---------------- */
+
+/** Les courbes des styles (le miroir de plugin/mm-arp/dsp/Decap.cpp, pour le dessin) ; 0 : MM, l'OVERDRIVE du moteur. */
+const DC_BIAS = [0.22, 0.2, 0.04, 0.08, 0, 0.12];
+const DC_KNEE = [0, 0, 0.55, 0, 0, 0.85];
+const DISTO_NAMES = ['MM OVERDRIVE', 'TUBE PREAMP', 'TRANSISTOR', 'TRANSFORMER', 'TRIODE', 'PENTODE'];
+function dcRaw(s: number, u: number): number {
+  if (s === 2 || s === 5) {
+    const a = DC_KNEE[s];
+    const v = Math.abs(u);
+    if (v <= a) return u;
+    if (v >= 2 - a) return Math.sign(u);
+    const d = v - a;
+    return Math.sign(u) * (v - (d * d) / (4 * (1 - a)));
+  }
+  if (s === 3) return u > 1.5 ? 1 : u < -1.5 ? -1 : u - (4 / 27) * u * u * u;
+  if (s === 4) return u >= 0 ? Math.tanh(0.7 * u) / 0.7 : Math.tanh(1.5 * u) / 1.5;
+  return Math.tanh(u);
+}
+const dcCurve = (s: number, x: number): number => {
+  const b = DC_BIAS[s];
+  const sl = (dcRaw(s, b + 1e-4) - dcRaw(s, b - 1e-4)) / 2e-4;
+  return (dcRaw(s, x + b) - dcRaw(s, b)) / sl;
+};
+/** La reponse (dB) de LOW CUT (12 dB/oct, THUMP Q 2), TONE (bascule a 700 Hz) et HIGH CUT (6 ou 30 dB/oct) a f Hz. */
+function dcResponse(f: number, low: number, thump: boolean, tilt: number, high: number, steep: boolean): number {
+  let db = 0;
+  if (low > 0) {
+    const r = f / low;
+    const q = thump ? 2 : Math.SQRT1_2;
+    db += 20 * Math.log10((r * r) / Math.sqrt((1 - r * r) ** 2 + (r / q) ** 2));
+  }
+  if (Math.abs(tilt) > 0.001) {
+    const r = f / 700;
+    const lo = Math.pow(10, (-6 * tilt) / 20);
+    const hi = Math.pow(10, (6 * tilt) / 20);
+    db += 20 * Math.log10(Math.hypot((lo + hi * r * r) / (1 + r * r), ((hi - lo) * r) / (1 + r * r)));
+  }
+  if (high > 0) {
+    const r = f / high;
+    db += -10 * Math.log10(1 + r * r * (steep ? r ** 8 : 1));
+  }
+  return db;
+}
+
+const DS_W = 760;
+const DS_H = 150;
+const DistoScreen: React.FC = () => {
+  const x = useExtraAll();
+  const v = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
+  const st = Math.round(x.xDStyle * 5);
+  const drive = v.dist;
+  const off = drive <= 0;
+  const mm = st === 0;
+  const punish = x.xDPunish >= 0.5;
+  const g = 0.5 * (mm ? 1 + 40 * drive * drive : Math.pow(10, (36 * drive + (punish ? 20 : 0)) / 20));
+  const peak = Math.max(1e-6, Math.abs(dcCurve(st, g)), Math.abs(dcCurve(st, -g)));
+  const PW = 220;
+  const PH = DS_H - 34;
+  const tr: string[] = [];
+  for (let i = 0; i <= 80; i += 1) {
+    const u = -1 + (2 * i) / 80;
+    const y = off ? u : dcCurve(st, g * u) / peak;
+    tr.push(`${(PW / 2 + u * (PW / 2 - 8)).toFixed(1)},${(PH / 2 - y * (PH / 2 - 8)).toFixed(1)}`);
+  }
+  const low = x.xDLow < 0.02 ? 0 : 20 * Math.pow(50, (x.xDLow - 0.02) / 0.98);
+  const high = x.xDHigh > 0.98 ? 0 : 1000 * Math.pow(20, x.xDHigh / 0.98);
+  const eq: string[] = [];
+  for (let i = 0; i <= 100; i += 1) {
+    const f = 20 * Math.pow(1000, i / 100);
+    const db = off || mm ? 0 : dcResponse(f, low, x.xDThump >= 0.5, (x.xDTone - 0.5) * 2, high, x.xDSteep >= 0.5);
+    eq.push(`${(8 + (i / 100) * (PW - 16)).toFixed(1)},${(8 + ((12 - Math.max(-24, Math.min(12, db))) / 36) * (PH - 16)).toFixed(1)}`);
+  }
+  const x0 = ZONE.x + Math.round((ZONE.w - DS_W) / 2);
+  const read = [
+    ['STYLE', `${['MM', 'A', 'E', 'N', 'T', 'P'][st]} · ${DISTO_NAMES[st]}`],
+    ['DRIVE', off ? 'OFF' : `${Math.round(drive * 100)} %${punish && !mm ? ' + PUNISH' : ''}`],
+    ['LEVEL', mm ? 'ENGINE OVERDRIVE' : x.xDAuto >= 0.5 ? 'AUTO' : 'MANUAL'],
+  ];
+  return (
+    <div className="mm-p2-dscreen" style={{ left: x0, top: 372, width: DS_W, height: DS_H }} aria-hidden="true">
+      <svg className="mm-p2-dplot" width={PW} height={PH} viewBox={`0 0 ${PW} ${PH}`}>
+        <path className="grid" d={`M${PW / 2} 4V${PH - 4}M4 ${PH / 2}H${PW - 4}`} />
+        <path className="lin" d={`M8 ${PH - 8}L${PW - 8} 8`} />
+        <polyline className={off ? 'main off' : 'main'} points={tr.join(' ')} />
+        <text x="8" y="14">TRANSFER</text>
+      </svg>
+      <div className="mm-p2-dread">
+        {read.map(([k, val]) => (
+          <React.Fragment key={k}>
+            <span className="k">{k}</span>
+            <span className="v">{val}</span>
+          </React.Fragment>
+        ))}
+      </div>
+      <svg className="mm-p2-dplot" width={PW} height={PH} viewBox={`0 0 ${PW} ${PH}`}>
+        {[100, 1000, 10000].map((f) => {
+          const gx = 8 + (Math.log10(f / 20) / 3) * (PW - 16);
+          return <path key={f} className="grid" d={`M${gx.toFixed(1)} 4V${PH - 4}`} />;
+        })}
+        <path className="grid" d={`M4 ${(8 + (12 / 36) * (PH - 16)).toFixed(1)}H${PW - 4}`} />
+        <polyline className={off || mm ? 'main off' : 'main'} points={eq.join(' ')} />
+        <text x="8" y="14">FILTERS</text>
+        <text x={PW - 8} y={PH - 5} textAnchor="end">
+          20 HZ - 20 KHZ
+        </text>
+      </svg>
+    </div>
+  );
+};
+
 const FxPage: React.FC = () => {
   const { fx } = useHoodPage();
   return (
@@ -361,6 +495,11 @@ const FxPage: React.FC = () => {
           <Grid page="hell" />
           <HellPresets />
           <HellDiagram />
+        </>
+      ) : fx === 'disto' ? (
+        <>
+          <Grid page="disto" />
+          <DistoScreen />
         </>
       ) : (
         <Grid page="rack" />
@@ -698,7 +837,7 @@ const Overlay: React.FC<{ which: 'library' | 'midi' }> = ({ which }) => (
 const PAGE_LABEL: Record<HoodTab, string> = { sound: 'SOUND', fx: 'EFFECTS', seq: 'SEQUENCER' };
 const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' && fx === 'hell' ? 'EFFECTS / HELL' : PAGE_LABEL[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' && fx === 'hell' ? 'EFFECTS / HELL' : tab === 'fx' && fx === 'disto' ? 'EFFECTS / DISTO' : PAGE_LABEL[tab];
   return (
     <>
       <button type="button" className="mm-r-wood mm-r-wood-l" aria-label="Close the machine" title="Close" onClick={onClose} />
@@ -730,7 +869,7 @@ const PAGE_NAME: Record<HoodTab, string> = { sound: 'SOUND', fx: 'FX', seq: 'SEQ
 const HoodLcd: React.FC = () => {
   const line = useSyncExternalStore(hoodLcd.subscribe, hoodLcd.get, hoodLcd.get);
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : 'RACK'}` : PAGE_NAME[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : fx === 'disto' ? 'DISTO' : 'RACK'}` : PAGE_NAME[tab];
   return (
     <div className="mm-p2-lcd" role="status" aria-live="polite">
       <span className="mm-p2-lcd-a">{line ? line.name : 'MM-ARP'}</span>

@@ -17,7 +17,7 @@ import spec from '../../../../plugin/mm-arp/extra-params.json';
  * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
  * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'disto';
 
 export interface ExtraParam {
   id: string;
@@ -146,8 +146,22 @@ function text(id: string, v: number): string {
     case 'xEqAir':
       return `${signed(eqAirDb(v), 1)} dB`;
     case 'xFeedback':
-    case 'xDist':
       return dose(v);
+    // DISTO (2026-11-16, dsp/Decap.h)
+    case 'xDLow':
+      return v < 0.02 ? 'OFF' : hz(20 * Math.pow(50, (v - 0.02) / 0.98));
+    case 'xDHigh':
+      return v > 0.98 ? 'OFF' : hz(1000 * Math.pow(20, v / 0.98));
+    case 'xDTone': {
+      const t = (v - 0.5) * 2;
+      return Math.abs(t) < 0.02 ? 'FLAT' : `${t < 0 ? 'DARK' : 'BRIGHT'} ${Math.abs(t * 6).toFixed(1)} dB`;
+    }
+    case 'xDMix':
+      return `${Math.round(v * 100)} %`;
+    case 'xDOut': {
+      const d = -18 + 36 * v;
+      return Math.abs(d) < 0.05 ? '0.0 dB' : `${signed(d, 1)} dB`;
+    }
     case 'xRevSize': {
       const s = revSizeS(v);
       return `${s < 1 ? s.toFixed(2) : s.toFixed(1)} s`;

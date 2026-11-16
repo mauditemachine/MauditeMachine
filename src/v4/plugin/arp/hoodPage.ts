@@ -1,14 +1,14 @@
 /**
  * La page du capot du MM-ARP (2026-11-13, Mika : "trop de menus dans OPEN, fusionne les 7 onglets en beaucoup moins de
  * pages") : trois pages, SOUND (les TWEAKS de la face, OSC +, FILTER +, AMP, VOICE, EQ, MASTER, DISTORTION, ENGINE), FX
- * (le rack, et HELL sur sa sous-page) et SEQ (le sequenceur par pas, RANDOM, les LFO, la matrice). LIBRARY (+ DISK) et
+ * (le rack, HELL et la DISTO facon Decapitator sur leurs sous-pages) et SEQ (le sequenceur par pas, RANDOM, les LFO, la matrice). LIBRARY (+ DISK) et
  * MIDI (DRAG MIDI, MIDI LEARN) ne sont plus des onglets : deux touches du bandeau ouvrent leur volet par-dessus la page.
  * OPEN rouvre la page qu'on a quittee (SOUND au chargement). focus : le cadre a faire clignoter (le clic d'un
  * potard de la face, plugin/arp/hellKnob.tsx). Rien n'est garde entre deux fenetres.
  */
 
 export type HoodTab = 'sound' | 'fx' | 'seq';
-export type HoodFx = 'rack' | 'hell';
+export type HoodFx = 'rack' | 'hell' | 'disto';
 export type HoodOverlay = 'library' | 'midi' | null;
 
 export const HOOD_TABS: readonly { id: HoodTab; label: string }[] = [

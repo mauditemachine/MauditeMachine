@@ -9,6 +9,7 @@
 
 #include "Arp.h"
 #include "ArpFx.h"
+#include "Decap.h"
 #include "Hell.h"
 #include "ExtraParams.h"
 #include "Params.h"
@@ -144,6 +145,9 @@ private:
     mmarp::ArpFx fx_;
     // HELL (2026-11-13) : delay + decaleur de Bode, apres la chaine ; contourne au bit pres a MIX 0
     mmarp::Hell hell_;
+    // DISTO facon Decapitator (2026-11-16) : entre le moteur et la chaine, a la place de la DISTORTION d'avant
+    mmarp::Decap decap_;
+    int driveId_ = -1;
     std::array<std::atomic<float>, kModN> modVal_{};
     std::array<int, kModN> modKnob_{};
     void publishMod();

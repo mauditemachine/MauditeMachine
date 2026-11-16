@@ -59,7 +59,8 @@ function pageOf(dial: string): { tab: HoodTab; fx: HoodFx | null; focus: string 
   const id = dial.slice(2) as VoyKnobId;
   if (id === 'delay') return { tab: 'fx', fx: 'rack', focus: 'DELAY' };
   if (id === 'reverb') return { tab: 'fx', fx: 'rack', focus: 'REVERB' };
-  if (id === 'dist') return { tab: 'sound', fx: null, focus: 'DISTORTION' };
+  // DISTO (2026-11-16, Mika) : sa page, facon Decapitator
+  if (id === 'dist') return { tab: 'fx', fx: 'disto', focus: 'DRIVE' };
   if (id === 'chorus') return { tab: 'fx', fx: 'rack', focus: 'DELAY' };
   if (id === 'volume') return { tab: 'sound', fx: null, focus: 'MASTER' };
   switch (voyKnob(id)?.section) {

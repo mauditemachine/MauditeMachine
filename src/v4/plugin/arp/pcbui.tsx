@@ -61,16 +61,17 @@ const stepOf = (id: string, v: number): number => {
  */
 const COLOURS: ReadonlySet<string> = new Set([
   'xRing', 'xFold', 'xNoiseColor', 'xHpf', 'xComb', 'xFeedback', 'xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir', 'xWarmth', 'xBass', 'xAir', 'xWidth',
-  'xDist', 'xPhMix', 'xFlMix', 'xCrushBits', 'xCrushRate', 'xPumpDepth', 'xShimmer', 'xHellMix', 'xSwing', 'xLfo1Depth2', 'xLfo2Depth',
+  'xDPunish', 'xDLow', 'xDThump', 'xDTone', 'xDHigh', 'xDSteep', 'xDMix', 'xDOut', 'xPhMix', 'xFlMix', 'xCrushBits', 'xCrushRate', 'xPumpDepth', 'xShimmer', 'xHellMix', 'xSwing', 'xLfo1Depth2', 'xLfo2Depth',
 ]);
 /** Sans effet tant que leur maitre est a zero : grises. */
 const MASTER_OF: Readonly<Record<string, string>> = {
   xCombFb: 'xComb',
-  xDistTone: 'xDist',
   xPhRate: 'xPhMix', xPhDepth: 'xPhMix', xPhFb: 'xPhMix',
   xFlRate: 'xFlMix', xFlDepth: 'xFlMix', xFlFb: 'xFlMix',
   xPumpRate: 'xPumpDepth', xPumpShape: 'xPumpDepth',
 };
+/** Les reglages de la DISTO sans effet sur MM (2026-11-16). */
+const DISTO_DECAP: ReadonlySet<string> = new Set(['xDPunish', 'xDLow', 'xDThump', 'xDTone', 'xDHigh', 'xDSteep', 'xDMix', 'xDAuto']);
 const near = (a: number, b: number): boolean => Math.abs(a - b) < 0.0005;
 /** La LED d'un reglage : null s'il n'en a pas, sinon allumee quand il colore le son. */
 export const colours = (id: string, v: number): boolean | null => (COLOURS.has(id) ? !near(v, SRC.def(id)) : null);
@@ -78,6 +79,8 @@ export const colours = (id: string, v: number): boolean | null => (COLOURS.has(i
 export const inert = (id: string): boolean => {
   // TIME de HELL ne sert qu'en FREE
   if (id === 'xHellTime' && SRC.of('xHellSync') > 0) return true;
+  // DISTO (2026-11-16) : sur MM (l'OVERDRIVE du moteur), seuls DRIVE et OUTPUT agissent
+  if (DISTO_DECAP.has(id) && SRC.of('xDStyle') <= 0) return true;
   const m = MASTER_OF[id];
   return m !== undefined && SRC.of(m) <= 0;
 };

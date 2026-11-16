@@ -748,17 +748,98 @@
       "help": "plateau tres haut 20 kHz large, 0 a +10 dB au-dessus de 0.5"
     },
     {
-      "id": "xDist",
-      "label": "DISTORTION",
-      "section": "dist",
-      "def": 0,
-      "help": "pedale de distorsion, surechantillonnee ; 0 : contournee"
+      "id": "xDStyle",
+      "label": "DISTO STYLE",
+      "section": "disto",
+      "def": 0.2,
+      "steps": [
+        "MM",
+        "A",
+        "E",
+        "N",
+        "T",
+        "P"
+      ],
+      "help": "DISTO (2026-11-16, facon Decapitator ; remplace la DISTORTION d'avant) : MM, l'OVERDRIVE du moteur (le son du site) ; A preampli a lampes, E transistors, N transformateur, T triode, P pentode (dsp/Decap.h). Le DRIVE est le potard DISTO de la face (dist). A au depart, l'exception a la regle du _doc comme xQuality : Mika veut le Decapitator sur DISTO ; les presets d'usine regles sur l'OVERDRIVE gardent MM"
     },
     {
-      "id": "xDistTone",
-      "label": "TONE",
-      "section": "dist",
-      "def": 0.5
+      "id": "xDPunish",
+      "label": "DISTO PUNISH",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "+20 dB dans la saturation"
+    },
+    {
+      "id": "xDLow",
+      "label": "DISTO LOW CUT",
+      "section": "disto",
+      "def": 0,
+      "help": "avant la saturation, 12 dB/oct : OFF sous 0.02, puis 20 Hz a 1 kHz (20 x 50^u)"
+    },
+    {
+      "id": "xDThump",
+      "label": "DISTO THUMP",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "une bosse resonante (Q 2) sur la coupure du LOW CUT"
+    },
+    {
+      "id": "xDTone",
+      "label": "DISTO TONE",
+      "section": "disto",
+      "def": 0.5,
+      "help": "avant la saturation, bascule sombre / brillant +/- 6 dB autour de 700 Hz ; 0.5 : FLAT"
+    },
+    {
+      "id": "xDHigh",
+      "label": "DISTO HIGH CUT",
+      "section": "disto",
+      "def": 1,
+      "help": "apres la saturation, 6 dB/oct : 1 kHz a 20 kHz (1000 x 20^(v / 0.98)), OFF au-dessus de 0.98"
+    },
+    {
+      "id": "xDSteep",
+      "label": "DISTO STEEP",
+      "section": "disto",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "HIGH CUT a 30 dB/oct (Butterworth 5)"
+    },
+    {
+      "id": "xDMix",
+      "label": "DISTO MIX",
+      "section": "disto",
+      "def": 1,
+      "help": "le sec (retarde, en phase) contre le mouille"
+    },
+    {
+      "id": "xDOut",
+      "label": "DISTO OUTPUT",
+      "section": "disto",
+      "def": 0.5,
+      "help": "-18 a +18 dB (0.5 : 0 dB) ; sur MM aussi"
+    },
+    {
+      "id": "xDAuto",
+      "label": "DISTO AUTO",
+      "section": "disto",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "le niveau suit STYLE et DRIVE (table mesuree)"
     },
     {
       "id": "xHellMix",

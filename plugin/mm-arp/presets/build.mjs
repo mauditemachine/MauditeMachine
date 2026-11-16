@@ -640,7 +640,10 @@ function full(p) {
   // FILTER + neutre dans toute la banque (2026-11-13, Mika : "ca denature le son directement") : HIGH PASS, COMB et
   // COMB FB restent a leur neutre (absents), quel que soit le preset
   for (const id of ['xHpf', 'xComb', 'xCombFb']) if (id in p.extra) throw new Error(`${p.name} : ${id} doit rester neutre (FILTER +)`);
-  const ex = { ...EXTRA_DEF, xQuality: 1, ...p.extra };
+  // DISTO (2026-11-16) : un preset regle sur l'OVERDRIVE du moteur (DISTO au-dessus de 0) qui ne dit pas son style garde
+  // MM, le son sur lequel il a ete regle et cale (volumes.json) ; les autres prennent le style de depart (A)
+  const distoStyle = knobs.dist > 0 && !('xDStyle' in p.extra) ? { xDStyle: 0 } : {};
+  const ex = { ...EXTRA_DEF, xQuality: 1, ...distoStyle, ...p.extra };
   const extra = {};
   for (const e of EXTRA) extra[e.id] = cleanExtra(e.id, ex[e.id]);
   for (const id of Object.keys(p.extra)) if (!EXTRA.some((e) => e.id === id)) throw new Error(`${p.name} : reglage inconnu ${id}`);

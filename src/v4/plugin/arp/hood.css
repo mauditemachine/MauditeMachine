@@ -2402,3 +2402,81 @@
   top: 12px;
   transform: none;
 }
+
+/* ---------- FX : DISTO (2026-11-16), l'ecran de verre noir de la face, la courbe en orange ---------- */
+.mm-plugin-arp .mm-p2-dscreen {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 16px;
+  border: 1px solid #050505;
+  border-radius: 4px;
+  background: linear-gradient(#0b0b0b, #131313);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.95),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-p2-dplot {
+  flex: none;
+  display: block;
+}
+
+.mm-plugin-arp .mm-p2-dplot .grid {
+  fill: none;
+  stroke: rgba(244, 241, 234, 0.09);
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-p2-dplot .lin {
+  fill: none;
+  stroke: rgba(244, 241, 234, 0.18);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.mm-plugin-arp .mm-p2-dplot .main {
+  fill: none;
+  stroke: #f47b2f;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mm-plugin-arp .mm-p2-dplot .main.off {
+  stroke: rgba(244, 241, 234, 0.45);
+}
+
+.mm-plugin-arp .mm-p2-dplot text {
+  fill: rgba(244, 241, 234, 0.5);
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+.mm-plugin-arp .mm-p2-dread {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  text-align: center;
+  color: #f4f1ea;
+}
+
+.mm-plugin-arp .mm-p2-dread .k {
+  margin-top: 6px;
+  color: rgba(244, 241, 234, 0.5);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+}
+
+.mm-plugin-arp .mm-p2-dread .v {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}

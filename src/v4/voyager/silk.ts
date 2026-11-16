@@ -26,7 +26,7 @@
 
 import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
-import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
+import { APPEARANCE, HEX, PLUGIN_ARP, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
 import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, stepIndex, voyParams, type VoyKnobId } from './params';
@@ -111,7 +111,8 @@ function knobTexts(where: VoySilkKind): Text[] {
     if (p.where !== where) continue;
     // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE) ; SUB OCT et SUB WAVE en entier,
     // partout depuis le 2026-10-11 (desktop : OCT et WAVE avant, la rangee du bas au pas de 0.62 ; elle est au pas de 0.9)
-    const name = k.face ?? k.label;
+    // Le VST3 (2026-11-16, Mika) : OVERDRIVE devient DISTO, la DISTO facon Decapitator (son clic ouvre sa page) ; le site garde OVERDRIVE
+    const name = PLUGIN_ARP && k.id === 'dist' ? 'DISTO' : (k.face ?? k.label);
     // Au telephone tenu droit (2026-10-05, Mika : "trop difficile a lire") : des noms plus gros, un corps par rangee
     if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: PORTRAIT ? 0.1 : 0.068, maxW: PORTRAIT ? 0.84 : 0.76, group: PORTRAIT ? `knob${Math.round(p.labelZ * 4)}` : 'knob' });
     // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP)

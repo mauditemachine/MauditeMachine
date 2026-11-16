@@ -251,19 +251,25 @@ int main() {
             X("xM1Amt")->setValueNotifyingHost(0.5f);
             p.knobParam(mmarp::knobIndex("cutoff"))->setValueNotifyingHost(0.5f);
             check(open.finite && open.rms > shut.rms * 1.3, "MATRICE : MOD WHEEL -> CUTOFF ouvre le filtre (" + juce::String(db(shut.rms), 1).toStdString() + " -> " + juce::String(db(open.rms), 1).toStdString() + " dBFS)");
-            const char* on[] = {"xFeedback", "xDist", "xEqLow", "xEqHigh", "xEqAir"};
+            const char* on[] = {"xFeedback", "xEqLow", "xEqHigh", "xEqAir"};
             for (const char* id : on) X(id)->setValueNotifyingHost(1.f);
+            // DISTO (2026-11-16, a la place de la DISTORTION) : style P, PUNISH, DRIVE a fond
+            X("xDStyle")->setValueNotifyingHost(1.f);
+            X("xDPunish")->setValueNotifyingHost(1.f);
+            p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(1.f);
             X("xVoiceMode")->setValueNotifyingHost(1.f);
             X("xAmpMode")->setValueNotifyingHost(1.f);
             run(p, h, 9600, 512);
             const Stats all = run(p, h, 48000, 512);
             X("xFeedback")->setValueNotifyingHost(0.f);
-            X("xDist")->setValueNotifyingHost(0.f);
+            X("xDStyle")->setValueNotifyingHost(0.2f);
+            X("xDPunish")->setValueNotifyingHost(0.f);
+            p.knobParam(mmarp::knobIndex("dist"))->setValueNotifyingHost(0.f);
             for (const char* id : {"xEqLow", "xEqHigh", "xEqAir"}) X(id)->setValueNotifyingHost(0.5f);
             X("xVoiceMode")->setValueNotifyingHost(0.f);
             X("xAmpMode")->setValueNotifyingHost(0.f);
             run(p, h, 48000, 512);
-            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTORTION + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
+            check(all.finite && all.peak > 0.001 && all.peak < 4.0, "LEGATO + SATURATED + FEEDBACK + DISTO + EQ a fond : fini (crete " + juce::String(db(all.peak), 1).toStdString() + " dBFS)");
         }
         // MIDI LEARN : CUTOFF arme, le CC 74 du canal 2 l'assigne et le pilote
         {
