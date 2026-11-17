@@ -1,5 +1,5 @@
 /* La face du plugin MM-ARP (2026-11-09) : le panneau du capot (HoodPanel.tsx), une bande sous la carte ouverte :
-   DRAG MIDI, DISK, MIDI, CLOSE. Noir, orange #ff6a13, SF Pro Display ; les titres en Robot Radicals. */
+   DRAG MIDI, DISK, MIDI, CLOSE. Noir, orange var(--mm-accent), SF Pro Display ; les titres en Robot Radicals. */
 .mm-plugin-arp .mm-arp-hood {
   left: 0;
   right: 0;
@@ -12,7 +12,7 @@
   gap: 0;
   padding: 10px 12px 12px;
   background: linear-gradient(#0d0d0e, #070708);
-  border-top: 1px solid rgba(255, 106, 19, 0.45);
+  border-top: 1px solid color-mix(in srgb, var(--mm-accent) 45%, transparent);
   box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.45);
   color: #f6f1e7;
   font-family: 'SF Pro Display', system-ui, sans-serif;
@@ -61,7 +61,7 @@
   font-size: 13px;
   font-weight: 400;
   letter-spacing: 0.12em;
-  color: #ff6a13;
+  color: var(--mm-accent);
   line-height: 18px;
 }
 
@@ -73,9 +73,9 @@
   height: 28px;
   padding: 0 10px;
   border-radius: 9px;
-  border: 1px solid rgba(255, 106, 19, 0.8);
-  background: rgba(255, 106, 19, 0.08);
-  color: #ff6a13;
+  border: 1px solid color-mix(in srgb, var(--mm-accent) 80%, transparent);
+  background: color-mix(in srgb, var(--mm-accent) 8%, transparent);
+  color: var(--mm-accent);
   font: inherit;
   font-size: 10px;
   font-weight: 800;
@@ -87,7 +87,7 @@
 .mm-plugin-arp .mm-arp-seg-key:hover,
 .mm-plugin-arp .mm-arp-learn:hover,
 .mm-plugin-arp .mm-arp-close:hover {
-  background: rgba(255, 106, 19, 0.18);
+  background: color-mix(in srgb, var(--mm-accent) 18%, transparent);
 }
 
 .mm-plugin-arp .mm-arp-key:disabled {
@@ -136,8 +136,8 @@
   height: 46px;
   padding: 0 12px;
   border-radius: 11px;
-  border: 1px solid #ff6a13;
-  background: #ff6a13;
+  border: 1px solid var(--mm-accent);
+  background: var(--mm-accent);
   color: #0b0b0c;
   font: inherit;
   text-align: left;
@@ -147,7 +147,7 @@
   user-select: none;
   -webkit-user-drag: none;
   box-shadow:
-    0 0 14px rgba(255, 106, 19, 0.3),
+    0 0 14px color-mix(in srgb, var(--mm-accent) 30%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
@@ -192,13 +192,13 @@
 .mm-plugin-arp .mm-arp-seg-key {
   flex: 1;
   padding: 0;
-  border-color: rgba(255, 106, 19, 0.45);
+  border-color: color-mix(in srgb, var(--mm-accent) 45%, transparent);
   background: transparent;
 }
 
 .mm-plugin-arp .mm-arp-seg-key[data-on='1'] {
-  border-color: #ff6a13;
-  background: rgba(255, 106, 19, 0.22);
+  border-color: var(--mm-accent);
+  background: color-mix(in srgb, var(--mm-accent) 22%, transparent);
   color: #ffb27f;
 }
 
@@ -231,9 +231,9 @@
   height: 28px;
   padding: 0 6px;
   border-radius: 9px;
-  border: 1px solid rgba(255, 106, 19, 0.8);
-  background: rgba(255, 106, 19, 0.08);
-  color: #ff6a13;
+  border: 1px solid color-mix(in srgb, var(--mm-accent) 80%, transparent);
+  background: color-mix(in srgb, var(--mm-accent) 8%, transparent);
+  color: var(--mm-accent);
   font: inherit;
   font-size: 9px;
   font-weight: 800;
@@ -242,7 +242,7 @@
 }
 
 .mm-plugin-arp .mm-arp-disk-key:hover {
-  background: rgba(255, 106, 19, 0.18);
+  background: color-mix(in srgb, var(--mm-accent) 18%, transparent);
 }
 
 .mm-plugin-arp .mm-arp-disk-list,
@@ -287,7 +287,7 @@
 }
 
 .mm-plugin-arp .mm-arp-disk-item[data-on='1'] {
-  color: #ff6a13;
+  color: var(--mm-accent);
 }
 
 /* ---------- MIDI ---------- */
@@ -301,7 +301,7 @@
 }
 
 .mm-plugin-arp .mm-arp-learn[data-on='1'] {
-  background: #ff6a13;
+  background: var(--mm-accent);
   color: #0b0b0c;
 }
 
@@ -311,8 +311,8 @@
 }
 
 .mm-plugin-arp .mm-arp-close .mm-arp-led {
-  background: #ff6a13;
-  box-shadow: 0 0 6px rgba(255, 106, 19, 0.8);
+  background: var(--mm-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--mm-accent) 80%, transparent);
 }
 
 @keyframes mm-arp-blink {
@@ -333,7 +333,7 @@
 }
 
 .mm-plugin-arp .mm-arp-midi-line[data-on='1'] {
-  color: #ff6a13;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-arp-map-row {
@@ -351,7 +351,7 @@
 }
 
 .mm-plugin-arp .mm-arp-map-row[data-armed='1'] {
-  color: #ff6a13;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-arp-map-name {
@@ -385,8 +385,8 @@
 }
 
 .mm-plugin-arp .mm-arp-map-x:hover {
-  background: rgba(255, 106, 19, 0.18);
-  color: #ff6a13;
+  background: color-mix(in srgb, var(--mm-accent) 18%, transparent);
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-arp-midi-foot {
@@ -418,10 +418,10 @@
 
 /* ---------- MIDI LEARN : le potard arme, la pastille capot ferme ---------- */
 .mm-plugin-arp .v4-twin[data-mm-learn='armed'] {
-  outline: 2px solid #ff6a13;
+  outline: 2px solid var(--mm-accent);
   outline-offset: 3px;
   border-radius: 50%;
-  box-shadow: 0 0 16px rgba(255, 106, 19, 0.65);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--mm-accent) 65%, transparent);
   animation: mm-arp-blink 0.9s ease-in-out infinite;
 }
 
@@ -433,20 +433,20 @@
   height: 28px;
   padding: 0 16px;
   border-radius: 15px;
-  border: 1px solid #ff6a13;
+  border: 1px solid var(--mm-accent);
   background: rgba(10, 10, 11, 0.9);
-  color: #ff6a13;
+  color: var(--mm-accent);
   font-family: 'SF Pro Display', system-ui, sans-serif;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 0 14px rgba(255, 106, 19, 0.3);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--mm-accent) 30%, transparent);
 }
 
 .mm-plugin-arp .mm-arp-learn-pill .mm-arp-led {
-  background: #ff6a13;
+  background: var(--mm-accent);
   animation: mm-arp-blink 0.9s steps(2, jump-none) infinite;
 }
 

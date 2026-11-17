@@ -77,7 +77,8 @@ const RGB: Record<Glow, readonly number[]> = {
   off: [0, 0, 0],
   faint: PAD_GLOW.faint,
   hover: PAD_GLOW.hover,
-  queued: [0.3, 0.07, 0],
+  // v27 : la progression au jaune d'accent (le plugin)
+  queued: PLUGIN_ARP ? [0.46, 0.36, 0] : [0.3, 0.07, 0],
   active: PAD_GLOW.active,
   flash: PAD_GLOW.flash,
   orange: PAD_GLOW.orange,
@@ -348,7 +349,9 @@ export class VoyKeys {
   private placePush(i: number): void {
     const p = voyKnobPlace(PUSH_IDS[i]);
     const { where, j } = PUSH_SLOT[i];
-    this.pushes[where].setMatrixAt(j, m4.makeTranslation(p.x, this.pushY[i], p.z));
+    // v27 (le plugin) : SUB OCT devient un levier 3D (plugin/arp/faceExtras.tsx) : sa touche cachee, sa zone de prise reste
+    if (PLUGIN_ARP && PUSH_IDS[i] === 'subOct') this.pushes[where].setMatrixAt(j, m4.makeScale(0, 0, 0));
+    else this.pushes[where].setMatrixAt(j, m4.makeTranslation(p.x, this.pushY[i], p.z));
     this.pushes[where].instanceMatrix.needsUpdate = true;
   }
 

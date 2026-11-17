@@ -12,6 +12,7 @@
 import spec from '../../../../plugin/mm-arp/extra-params.json';
 import { skyText, skyTypeIndex } from './skyModel';
 import { hellShiftText, LFO_BEAT_NAMES } from './hell';
+import { delayText } from './delay';
 
 /**
  * Les blocs du JSON. Les cinq premiers : la page SOUND+ du capot (SoundPlus.tsx). Les autres (2026-11-11) : le module
@@ -19,7 +20,7 @@ import { hellShiftText, LFO_BEAT_NAMES } from './hell';
  * crush et space (FX RACK). Les derniers (2026-11-11, les pages du panneau d'OPEN) : matrix (la matrice de modulation, six
  * lignes source / destination / quantite : Matrix.tsx), voice, amp, eq et dist (la page OPTIONS).
  */
-export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky' | 'disto';
+export type ExtraSection = 'engine' | 'lfo1' | 'lfo2' | 'reverb' | 'master' | 'seq' | 'osc' | 'filter' | 'phaser' | 'flanger' | 'pump' | 'crush' | 'space' | 'matrix' | 'voice' | 'amp' | 'eq' | 'dist' | 'hell' | 'sky' | 'disto' | 'delay' | 'chorus' | 'old';
 
 export interface ExtraParam {
   id: string;
@@ -58,10 +59,14 @@ export function extraStepIndex(id: string, v: number): number {
   return Math.max(0, Math.min(s.length - 1, Math.round(v * (s.length - 1))));
 }
 
-/** Une valeur posee : bornee, ronde sur son cran, au millieme sinon. */
+/**
+ * Une valeur posee : bornee, ronde sur son cran, au millieme sinon. Sauf FEEDBACK de la page DELAY (v27) : la valeur
+ * exacte, celle que le site tirait de DELAY (0.35 + 0.33 x DELAY) pour l'ancien DELAY converti, au bit pres.
+ */
+const EXACT: ReadonlySet<string> = new Set(['xDlFb']);
 function clean(p: ExtraParam, v: number): number {
   const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : p.def;
-  return p.steps ? extraStepIndex(p.id, t) / (p.steps.length - 1) : Math.round(t * 1000) / 1000;
+  return p.steps ? extraStepIndex(p.id, t) / (p.steps.length - 1) : EXACT.has(p.id) ? t : Math.round(t * 1000) / 1000;
 }
 
 const DEFAULTS: ExtraValues = Object.fromEntries(EXTRA_PARAMS.map((p) => [p.id, clean(p, p.def)]));
@@ -136,9 +141,31 @@ const dose = (v: number): string => (v <= 0 ? 'OFF' : pct(v));
 /** Un reglage a zero au centre : -100 a +100 %. */
 const bipolar = (v: number): string => `${signed((v - 0.5) * 200, 0)} %`;
 
+/** Les notes au tempo de PHASER et FLANGER en SYNC (v27, PluginProcessor : 4 BAR a 1/16). */
+export const FX_SYNC_NAMES = ['4 BAR', '2 BAR', '1 BAR', '1/2', '1/4', '1/8', '1/16'] as const;
+const EQ_FREQ = /^xQ[1-6]Freq$/;
+const EQ_GAIN = /^xQ[1-6]Gain$/;
+const EQ_Q = /^xQ[1-6]Q$/;
+/** L'EQ parametrique (v27, dsp/ParamEq.h) : 20 Hz a 20 kHz, -18 a +18 dB, Q 0.3 a 18, OUTPUT -12 a +12 dB. */
+export const eqLaws = {
+  hz: (v: number): number => 20 * Math.pow(1000, Math.min(1, Math.max(0, v))),
+  hzV: (hz: number): number => Math.log(hz / 20) / Math.log(1000),
+  db: (v: number): number => 36 * (v - 0.5),
+  q: (v: number): number => 0.3 * Math.pow(60, Math.min(1, Math.max(0, v))),
+  out: (v: number): number => 24 * (v - 0.5),
+};
+
 function text(id: string, v: number): string {
   const p = BY_ID.get(id);
   if (!p) return '';
+  // v27 : la page DELAY (delay.ts)
+  if (p.section === 'delay') {
+    const t = delayText(id, v);
+    if (t !== null) return t;
+  }
+  if (EQ_FREQ.test(id)) return hz(eqLaws.hz(v));
+  if (EQ_GAIN.test(id)) return `${signed(eqLaws.db(v), 1)} dB`;
+  if (EQ_Q.test(id)) return `Q ${eqLaws.q(v).toFixed(2)}`;
   // la reverbe facon BigSky : le texte depend de la machine (skyModel.ts)
   if (p.section === 'sky' && id !== 'xSkyType') return skyText(skyTypeIndex(values.xSkyType ?? 0), id, v);
   if (id === 'xPbRange' && p.steps) return `${p.steps[extraStepIndex(id, v)]} ST`;
@@ -267,9 +294,37 @@ function text(id: string, v: number): string {
     case 'xHpf':
       return v <= 0 ? 'OFF' : hz(hpfHz(v));
     case 'xPhRate':
-      return hz(phRateHz(v));
+      return (values.xPhSync ?? 0) >= 0.5 ? FX_SYNC_NAMES[Math.round(Math.min(1, Math.max(0, v)) * 6)] : hz(phRateHz(v));
     case 'xFlRate':
-      return hz(flRateHz(v));
+      return (values.xFlSync ?? 0) >= 0.5 ? FX_SYNC_NAMES[Math.round(Math.min(1, Math.max(0, v)) * 6)] : hz(flRateHz(v));
+    // v27 : l'EQ parametrique et le rack enrichi
+    case 'xQOut': {
+      const d = eqLaws.out(v);
+      return Math.abs(d) < 0.05 ? '0.0 dB' : `${signed(d, 1)} dB`;
+    }
+    case 'xPhCenter':
+      return hz(800 * Math.pow(4, 2 * v - 1));
+    case 'xPhSpread':
+    case 'xFlSpread':
+      return `${Math.round(180 * v)} DEG`;
+    case 'xFlDelay':
+      return `${(2.5 * Math.pow(4, 2 * v - 1)).toFixed(2)} ms`;
+    case 'xChRate':
+      return `x${Math.pow(4, 2 * v - 1).toFixed(2)}`;
+    case 'xChDepth':
+      return `x${(v <= 0.5 ? 2 * v : 1 + 1.2 * (v - 0.5)).toFixed(2)}`;
+    case 'xChWidth':
+      return v <= 0 ? 'MONO' : `${Math.round(v * 100)} %`;
+    case 'xChMix':
+      return Math.abs(v - 0.5) < 0.005 ? 'JUNO' : v < 0.5 ? `DRY ${Math.round((1 - 2 * v) * 100)} %` : `WET ${Math.round((2 * v - 1) * 100)} %`;
+    case 'xCrTone':
+      return v >= 1 ? 'OFF' : hz(1500 * Math.pow(20000 / 1500, v));
+    case 'xCrMix':
+      return `${Math.round(v * 100)} %`;
+    case 'xPuAttack':
+      return `${(2 * Math.pow(25, 2 * v - 1)).toFixed(1)} ms`;
+    case 'xPuCurve':
+      return Math.abs(v - 0.5) < 0.005 ? 'SMOOTH' : v < 0.5 ? `HOLD ${Math.round((1 - 2 * v) * 100)} %` : `FAST ${Math.round((2 * v - 1) * 100)} %`;
     case 'xCrushBits':
       return v <= 0 ? 'OFF' : `${crushBits(v).toFixed(1)} BIT`;
     case 'xCrushRate':

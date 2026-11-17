@@ -621,7 +621,10 @@ export class VoyScreen {
     const settings = `${RATES[stepIndex('rate', v.rate)]}  ${MODES[stepIndex('mode', v.mode)]}  ${RANGES[stepIndex('range', v.range)]}`;
     const hint = edit
       ? DESK
-        ? 'DRAG ON THE STEPS BELOW  /  TAP A NOTE: REST  /  CLEAR: THE KNOBS'
+        ? // le plugin (v27) : l'encart d'EDIT regle le son, les notes sont dans OPEN, page SEQ
+          PLUGIN_ARP
+          ? 'THE SOUND BELOW  /  THE NOTES: OPEN > SEQ'
+          : 'DRAG ON THE STEPS BELOW  /  TAP A NOTE: REST  /  CLEAR: THE KNOBS'
         : 'DRAW IN THE PANEL BELOW'
       : !has
         ? 'TAP A CHORD PAD'

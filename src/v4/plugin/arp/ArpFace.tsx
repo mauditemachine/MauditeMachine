@@ -28,6 +28,7 @@ import { arpBridge } from './bridge';
 import { DiskNameDialog } from './DiskPresets';
 import { HoodBoard } from './HoodBoard';
 import { HellKnob } from './hellKnob';
+import { FaceExtras } from './faceExtras';
 import { FaceModArcs } from './FaceModArcs';
 import { FaceLook, FaceLookButton } from './LookPanel';
 import './hypno';
@@ -147,6 +148,7 @@ const ArpFace: React.FC = () => {
         <DiskNameDialog />
         <HoodBoard stage={stage} />
         <HellKnob stage={stage} />
+        <FaceExtras stage={stage} />
         <FaceModArcs stage={stage} />
         <FaceLook stage={stage} />
         <FaceLookButton stage={stage} />

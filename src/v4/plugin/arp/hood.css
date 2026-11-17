@@ -184,7 +184,7 @@
 }
 
 .mm-plugin-arp .mm-p2-cart-tag {
-  fill: #f47b2f;
+  fill: var(--mm-accent);
   font-size: 6.5px;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -245,8 +245,8 @@
 }
 
 .mm-plugin-arp .mm-p2-led[data-on='1'] {
-  background: #f47b2f;
-  box-shadow: 0 0 5px rgba(244, 123, 47, 0.85);
+  background: var(--mm-accent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--mm-accent) 85%, transparent);
 }
 
 .mm-plugin-arp .mm-p2-cells {
@@ -293,7 +293,7 @@
 }
 
 .mm-plugin-arp .mm-p2-ref[data-on='1'] {
-  color: #f47b2f;
+  color: var(--mm-accent);
   font-size: 7.5px;
   letter-spacing: 0.06em;
 }
@@ -326,7 +326,7 @@
 }
 
 .mm-plugin-arp .mm-p2-tick[data-lit='1'] {
-  stroke: #f47b2f;
+  stroke: var(--mm-accent);
   stroke-width: 1.3;
 }
 
@@ -334,19 +334,19 @@
 .mm-plugin-arp .mm-p2-sw-body:focus-visible,
 .mm-plugin-arp .mm-p2-win:focus-visible,
 .mm-plugin-arp .mm-p2-st-cell:focus-visible {
-  outline: 1.5px solid #f47b2f;
+  outline: 1.5px solid var(--mm-accent);
   outline-offset: 1px;
 }
 
 .mm-plugin-arp [data-armed='1'] {
-  outline: 2px solid #f47b2f;
+  outline: 2px solid var(--mm-accent);
   outline-offset: 2px;
   animation: mm-p2-blink 0.9s ease-in-out infinite;
 }
 
 @keyframes mm-p2-blink {
   50% {
-    outline-color: rgba(244, 123, 47, 0.25);
+    outline-color: color-mix(in srgb, var(--mm-accent) 25%, transparent);
   }
 }
 
@@ -393,7 +393,7 @@
 }
 
 .mm-plugin-arp .mm-p2-val[data-on='1'] {
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 /* ---------- la glissiere ---------- */
@@ -424,7 +424,7 @@
 
 .mm-plugin-arp .mm-p2-sw-pos button[data-on='1'],
 .mm-plugin-arp .mm-p2-rot-pos[data-on='1'] {
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-p2-sw-body {
@@ -621,7 +621,7 @@
 }
 
 .mm-plugin-arp .mm-p2-menu button[data-on='1'] {
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 /* ---------- la matrice ---------- */
@@ -757,7 +757,7 @@
 }
 
 .mm-plugin-arp .mm-p2-st-cell[data-head='1'] {
-  box-shadow: inset 0 -2px 0 #f47b2f;
+  box-shadow: inset 0 -2px 0 var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-p2-st-help {
@@ -831,7 +831,7 @@
 }
 
 .mm-plugin-arp .mm-p2-lib-item[data-on='1'] {
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-p2-lib-bpm {
@@ -972,12 +972,12 @@
 
 /* Allumee : comme la touche OPEN de la face capot ouvert, en jaune canard */
 .mm-plugin-arp .mm-key[data-on='1'] .mm-key-cap {
-  background: linear-gradient(180deg, #2a2725 0%, #f47b2f 55%, #141211 100%);
+  background: linear-gradient(180deg, #2a2725 0%, var(--mm-accent) 55%, #141211 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 236, 190, 0.35),
     inset 0 -1px 0 rgba(90, 58, 0, 0.5),
-    0 3px 0 #6b4802,
-    0 4px 12px rgba(244, 123, 47, 0.3);
+    0 3px 0 color-mix(in srgb, var(--mm-accent) 40%, #000),
+    0 4px 12px color-mix(in srgb, var(--mm-accent) 30%, transparent);
 }
 
 .mm-plugin-arp .mm-key-name {
@@ -991,7 +991,7 @@
 
 .mm-plugin-arp .mm-key[data-on='1'] .mm-key-name,
 .mm-plugin-arp .mm-key[data-accent='1'] .mm-key-name {
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-key:disabled {
@@ -1007,7 +1007,7 @@
 }
 
 .mm-plugin-arp .mm-key:focus-visible .mm-key-cap {
-  outline: 1.5px solid #f47b2f;
+  outline: 1.5px solid var(--mm-accent);
   outline-offset: 2px;
 }
 
@@ -1023,7 +1023,7 @@
   align-items: flex-start;
   padding: 7px 18px 0;
   background: linear-gradient(#0d0d0e, #070708);
-  border-top: 1px solid rgba(244, 123, 47, 0.35);
+  border-top: 1px solid color-mix(in srgb, var(--mm-accent) 35%, transparent);
 }
 
 .mm-plugin-arp .mm-p2-strip > .mm-key {
@@ -1081,12 +1081,12 @@
 .mm-plugin-arp .mm-p2-panel .mm-arp-midi-line[data-on='1'],
 .mm-plugin-arp .mm-p2-panel .mm-arp-map-row[data-armed='1'],
 .mm-plugin-arp .mm-p2-panel .mm-arp-disk-item[data-on='1'] {
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-p2-panel .mm-arp-map-x:hover {
-  background: rgba(244, 123, 47, 0.16);
-  color: #f47b2f;
+  background: color-mix(in srgb, var(--mm-accent) 16%, transparent);
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-p2-panel .mm-arp-status[data-ok='0'] {
@@ -1164,8 +1164,8 @@
   0%,
   30%,
   60% {
-    border-color: #f47b2f;
-    box-shadow: 0 0 0 1px rgba(244, 123, 47, 0.6), 0 0 18px rgba(244, 123, 47, 0.25);
+    border-color: var(--mm-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--mm-accent) 60%, transparent), 0 0 18px color-mix(in srgb, var(--mm-accent) 25%, transparent);
   }
   15%,
   45% {
@@ -1290,14 +1290,14 @@
 }
 
 .mm-plugin-arp .mm-p2-step-led .mm-p2-led[data-on='1'] {
-  background: radial-gradient(circle at 40% 35%, #ffe2a0, #f0a51c 45%, #f47b2f 75%);
+  background: radial-gradient(circle at 40% 35%, #ffe2a0, #f0a51c 45%, var(--mm-accent) 75%);
   box-shadow:
     0 0 6px rgba(240, 165, 28, 0.9),
-    0 0 14px rgba(244, 123, 47, 0.35);
+    0 0 14px color-mix(in srgb, var(--mm-accent) 35%, transparent);
 }
 
 .mm-plugin-arp .mm-p2-step-led:has(.mm-p2-led[data-on='1']) b {
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-p2-step-key {
@@ -1348,7 +1348,7 @@
 }
 
 .mm-plugin-arp .mm-p2-step-key:focus-visible .mm-p2-step-cap {
-  outline: 1.5px solid #f47b2f;
+  outline: 1.5px solid var(--mm-accent);
   outline-offset: 2px;
 }
 
@@ -1383,7 +1383,7 @@
 }
 
 .mm-plugin-arp .mm-p2-win[data-held='1'] {
-  border-color: rgba(244, 123, 47, 0.6);
+  border-color: color-mix(in srgb, var(--mm-accent) 60%, transparent);
 }
 
 /* les deux petites fleches haut / bas : on glisse */
@@ -1448,7 +1448,7 @@
 }
 
 .mm-plugin-arp .mm-p2-hellp-desc b {
-  color: #f47b2f;
+  color: var(--mm-accent);
   letter-spacing: 0.18em;
   font-weight: 600;
   white-space: nowrap;
@@ -1547,7 +1547,7 @@
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.3em;
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-p2-over-head .mm-key {
@@ -1655,7 +1655,7 @@
   --r-silk: rgba(240, 234, 224, 0.84);
   --r-silk-dim: rgba(240, 234, 224, 0.55);
   --r-line: rgba(240, 234, 224, 0.2);
-  --r-orange: #f47b2f;
+  --r-orange: var(--mm-accent);
   --r-led: #ff6a4b;
   --r-led-off: #3e1d1b;
   --r-key: #12100f;
@@ -1801,8 +1801,8 @@
   0%,
   30%,
   60% {
-    background: rgba(244, 123, 47, 0.07);
-    box-shadow: 0 0 0 1px rgba(244, 123, 47, 0.45);
+    background: color-mix(in srgb, var(--mm-accent) 7%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--mm-accent) 45%, transparent);
   }
   15%,
   45%,
@@ -2066,7 +2066,7 @@
 }
 
 .mm-plugin-arp .mm-p2-win[data-held='1'] {
-  border-color: rgba(244, 123, 47, 0.7);
+  border-color: color-mix(in srgb, var(--mm-accent) 70%, transparent);
 }
 
 .mm-plugin-arp .mm-p2-win-arrows {
@@ -2468,12 +2468,12 @@
 }
 
 .mm-plugin-arp .mm-r-nav-key[data-on='1'] {
-  color: #2a1205;
-  background: linear-gradient(180deg, #ffcfa8 0%, #ff8a4c 45%, #e8652a 100%);
+  color: #1c1700;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 45%, #fff) 0%, var(--mm-accent) 45%, color-mix(in srgb, var(--mm-accent) 82%, #000) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -1px 2px rgba(120, 40, 0, 0.45),
-    0 0 10px rgba(244, 123, 47, 0.55);
+    inset 0 -1px 2px color-mix(in srgb, var(--mm-accent) 45%, #000),
+    0 0 10px color-mix(in srgb, var(--mm-accent) 55%, transparent);
   text-shadow: 0 1px 0 rgba(255, 220, 190, 0.5);
 }
 
@@ -2562,9 +2562,9 @@
   line-height: 34px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #ff8a52;
+  color: var(--mm-accent);
   text-shadow:
-    0 0 10px rgba(244, 123, 47, 0.55),
+    0 0 10px color-mix(in srgb, var(--mm-accent) 55%, transparent),
     0 0 2px rgba(255, 190, 150, 0.6);
   white-space: nowrap;
 }
@@ -2607,7 +2607,7 @@
 }
 
 .mm-plugin-arp .mm-sky-touch[data-on='1'] b {
-  color: #ff8a52;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-sky-tail {
@@ -2628,10 +2628,10 @@
 
 .mm-plugin-arp .mm-sky-line {
   fill: none;
-  stroke: #ff8a52;
+  stroke: var(--mm-accent);
   stroke-width: 1.6;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px rgba(244, 123, 47, 0.8));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--mm-accent) 80%, transparent));
 }
 
 .mm-plugin-arp .mm-sky-line2 {
@@ -2666,7 +2666,7 @@
 }
 
 .mm-plugin-arp .mm-p2 [data-armed='1'] {
-  outline: 2px solid #f47b2f !important;
+  outline: 2px solid var(--mm-accent) !important;
 }
 
 /* la valeur sous le nom pendant le geste : discrete (la serigraphie, plus l'orange) */
@@ -3032,7 +3032,7 @@
 }
 
 .mm-plugin-arp .mm-p2-tog-sw[data-armed='1'] {
-  outline: 2px solid #f47b2f !important;
+  outline: 2px solid var(--mm-accent) !important;
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -3083,7 +3083,7 @@
 }
 
 .mm-plugin-arp .mm-hell-scale-t[data-zero='1'] {
-  fill: #f47b2f;
+  fill: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-hell-scale-sign {
@@ -3143,7 +3143,7 @@
   line-height: 16px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #f47b2f;
+  color: var(--mm-accent);
 }
 
 .mm-plugin-arp .mm-hell-value span {
@@ -3216,8 +3216,8 @@
   line-height: 18px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #ff8a52;
-  text-shadow: 0 0 8px rgba(244, 123, 47, 0.5);
+  color: var(--mm-accent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--mm-accent) 50%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3283,7 +3283,7 @@
 
 .mm-plugin-arp .mm-hell-plist button:hover,
 .mm-plugin-arp .mm-hell-plist button[data-on='1'] {
-  background: rgba(244, 123, 47, 0.18);
+  background: color-mix(in srgb, var(--mm-accent) 18%, transparent);
   color: #fff4ea;
 }
 
@@ -3454,9 +3454,9 @@
 
 .mm-plugin-arp .mm-dm-glass .main {
   fill: none;
-  stroke: #ff8a52;
+  stroke: var(--mm-accent);
   stroke-width: 1.5;
-  filter: drop-shadow(0 0 2px rgba(244, 123, 47, 0.7));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--mm-accent) 70%, transparent));
 }
 
 .mm-plugin-arp .mm-dm-glass text {
@@ -3467,7 +3467,7 @@
 }
 
 .mm-plugin-arp .mm-dm-glass text.hot {
-  fill: #ff8a52;
+  fill: var(--mm-accent);
   letter-spacing: 0.08em;
 }
 
@@ -3492,8 +3492,8 @@
   line-height: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #ff8a52;
-  text-shadow: 0 0 6px rgba(244, 123, 47, 0.45);
+  color: var(--mm-accent);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--mm-accent) 45%, transparent);
   white-space: nowrap;
 }
 
@@ -3591,8 +3591,8 @@
 
 /* MULTIBAND : la bande des frequences, la matrice des bandes */
 .mm-plugin-arp .mm-dm-bands .fill {
-  fill: rgba(244, 123, 47, 0.28);
-  stroke: rgba(255, 138, 82, 0.8);
+  fill: color-mix(in srgb, var(--mm-accent) 28%, transparent);
+  stroke: color-mix(in srgb, var(--mm-accent) 80%, transparent);
   stroke-width: 0.8;
 }
 
@@ -3693,14 +3693,294 @@
 }
 
 .mm-plugin-arp .mm-dm-keys .mm-key[data-on='1'] .mm-key-cap {
-  background: linear-gradient(180deg, #ff9a5c 0%, #f47b2f 55%, #c95a17 100%);
+  background: linear-gradient(180deg, var(--mm-accent) 0%, var(--mm-accent) 55%, color-mix(in srgb, var(--mm-accent) 70%, #000) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 236, 190, 0.45),
     inset 0 -1px 0 rgba(90, 40, 0, 0.5),
-    0 3px 0 #6b3202,
-    0 4px 12px rgba(244, 123, 47, 0.35);
+    0 3px 0 color-mix(in srgb, var(--mm-accent) 40%, #000),
+    0 4px 12px color-mix(in srgb, var(--mm-accent) 35%, transparent);
 }
 
 .mm-plugin-arp .mm-dm-keys .mm-key[data-on='1'] .mm-key-name {
-  color: #f47b2f;
+  color: var(--mm-accent);
+}
+
+/* =====================================================================================================================
+   v27 (la maquette v26 validee) : SEQ (la suite d'EDIT fusionnee), SOUND (l'EQ parametrique), DELAY (les echos, RHYTHM).
+   ===================================================================================================================== */
+.mm-plugin-arp .mm-sq-top {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mm-plugin-arp .mm-sq-top .mm-key,
+.mm-plugin-arp .mm-eq-bands .mm-key {
+  position: relative;
+  gap: 0;
+}
+
+.mm-plugin-arp .mm-sq-top .mm-key-name,
+.mm-plugin-arp .mm-eq-bands .mm-key-name {
+  display: none;
+}
+
+.mm-plugin-arp .mm-sq-top .mm-key-cap,
+.mm-plugin-arp .mm-eq-bands .mm-key-cap {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(240, 234, 224, 0.75);
+}
+
+.mm-plugin-arp .mm-sq-top .mm-key[data-on='1'] .mm-key-cap,
+.mm-plugin-arp .mm-eq-bands .mm-key[data-on='1'] .mm-key-cap {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 45%, #fff) 0%, var(--mm-accent) 50%, color-mix(in srgb, var(--mm-accent) 80%, #000) 100%);
+  color: #1c1700;
+}
+
+.mm-plugin-arp .mm-sq-top .mm-key-led,
+.mm-plugin-arp .mm-eq-bands .mm-key-led {
+  display: none;
+}
+
+.mm-plugin-arp .mm-sq-lab {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--r-silk-dim);
+  margin: 0 4px 0 10px;
+}
+
+.mm-plugin-arp .mm-sq-src {
+  margin-left: auto;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-sq-n {
+  min-width: 14px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-sq-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.mm-plugin-arp .mm-sq-name {
+  top: 26px;
+}
+
+.mm-plugin-arp .mm-sq-col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  border-radius: 3px;
+  background: linear-gradient(#0a0a0b, #0d0d0e);
+  box-shadow: inset 0 0 0 1px #050505;
+}
+
+.mm-plugin-arp .mm-sq-col[data-off='1'] {
+  opacity: 0.35;
+}
+
+.mm-plugin-arp .mm-sq-bar {
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 16px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(var(--mm-accent), color-mix(in srgb, var(--mm-accent) 35%, transparent));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--mm-accent) 35%, transparent);
+}
+
+.mm-plugin-arp .mm-sq-note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  text-align: center;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--r-silk);
+}
+
+.mm-plugin-arp .mm-sq-merged .mm-p2-st-cell {
+  height: 22px;
+}
+
+/* SOUND : l'EQ */
+.mm-plugin-arp .mm-eq-bands {
+  position: absolute;
+  left: 10px;
+  top: 196px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mm-plugin-arp .mm-eq-screen .grid.zero {
+  stroke: rgba(244, 241, 234, 0.28);
+}
+
+.mm-plugin-arp .mm-eq-screen .ana {
+  fill: rgba(244, 241, 234, 0.07);
+  stroke: rgba(244, 241, 234, 0.18);
+  stroke-width: 0.6;
+}
+
+.mm-plugin-arp .mm-eq-screen .eq-fill {
+  fill: color-mix(in srgb, var(--mm-accent) 12%, transparent);
+  stroke: none;
+}
+
+.mm-plugin-arp .mm-eq-screen .eq-node circle {
+  fill: #141008;
+  stroke: rgba(244, 241, 234, 0.45);
+  stroke-width: 1.2;
+}
+
+.mm-plugin-arp .mm-eq-screen .eq-node[data-on='1'] circle {
+  stroke: var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-eq-screen .eq-node[data-sel='1'] circle {
+  fill: var(--mm-accent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--mm-accent) 70%, transparent));
+}
+
+.mm-plugin-arp .mm-eq-screen .eq-node text {
+  font-size: 8px;
+  font-weight: 800;
+  fill: rgba(244, 241, 234, 0.85);
+  letter-spacing: 0;
+}
+
+.mm-plugin-arp .mm-eq-screen .eq-node[data-sel='1'] text {
+  fill: #1c1700;
+}
+
+.mm-plugin-arp .mm-dm-glass text.dim {
+  fill: rgba(244, 241, 234, 0.35);
+}
+
+/* DELAY */
+.mm-plugin-arp .mm-dm-glass .dl-echo {
+  fill: var(--mm-accent);
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--mm-accent) 60%, transparent));
+}
+
+.mm-plugin-arp .mm-dm-glass .dl-dry {
+  fill: rgba(244, 241, 234, 0.75);
+}
+
+.mm-plugin-arp .mm-dm-glass .dl-tap-base {
+  fill: rgba(244, 241, 234, 0.12);
+}
+
+.mm-plugin-arp .mm-dl-stylename {
+  display: block;
+  text-align: center;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--mm-accent);
+}
+
+.mm-plugin-arp .mm-dl-tap {
+  display: flex;
+  align-items: center;
+  height: 70px;
+  margin-left: 6px;
+}
+
+/* v27 : six pages dans le selecteur : les touches un rien plus etroites, MM-ARP sur une ligne */
+.mm-plugin-arp .mm-r-nav-key {
+  width: 56px;
+}
+
+.mm-plugin-arp .mm-r-nav {
+  margin-left: 22px;
+}
+
+.mm-plugin-arp .mm-r-model {
+  white-space: nowrap;
+}
+
+.mm-plugin-arp .mm-sq-top .mm-key[data-on='1'] .mm-key-cap::before,
+.mm-plugin-arp .mm-eq-bands .mm-key[data-on='1'] .mm-key-cap::before,
+.mm-plugin-arp .mm-dm-keys .mm-key[data-on='1'] .mm-key-cap::before {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mm-accent) 55%, #fff), var(--mm-accent));
+}
+
+/* v27 : l'EQ parametrique (la bande allumee : un point sous son chiffre), l'ancien EQ encore actif */
+.mm-eq-bon .mm-key-cap::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--mm-accent);
+  box-shadow: 0 0 4px var(--mm-accent);
+}
+.mm-eq-old {
+  position: absolute;
+  right: 14px;
+  top: 178px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 7px/1 var(--mm-font, inherit);
+  letter-spacing: 0.12em;
+  color: #ff5a3c;
+}
+.mm-eq-node-drag {
+  cursor: grabbing;
+}
+.mm-sq-src[data-edit='1'] {
+  color: var(--mm-accent);
+}
+.mm-sq-lane {
+  cursor: ns-resize;
+}
+.mm-sq-note {
+  cursor: pointer;
+}
+.mm-sq-col[data-head='1'] .mm-sq-bar {
+  filter: brightness(1.5);
+}
+/* v27 : la grille des pistes couvre le cadre ; la rangee du haut et la piste NOTES passent devant */
+.mm-plugin-arp .mm-sq-top,
+.mm-plugin-arp .mm-sq-lane {
+  z-index: 3;
+}
+/* v27 : ON de la bande choisie, sous les six touches */
+.mm-plugin-arp .mm-eq-bands {
+  flex-wrap: wrap;
+  width: 204px;
+  row-gap: 8px;
+}
+.mm-plugin-arp .mm-eq-on {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding-left: 2px;
+}
+.mm-plugin-arp .mm-eq-bands {
+  z-index: 3;
 }

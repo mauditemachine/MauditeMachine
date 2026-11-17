@@ -242,7 +242,7 @@ static const ExtraDef kExtraDefs[ex_COUNT] = {
   { "xDlSync", "DELAY SYNC", "delay", 1, 2, kExSteps_xDlSync },
   { "xDlDiv", "DELAY DIVISION", "delay", 0.3333333333333333, 7, kExSteps_xDlDiv },
   { "xDlNote", "DELAY NOTE", "delay", 0.5, 3, kExSteps_xDlNote },
-  { "xDlMs", "DELAY TIME", "delay", 0.720606469351524, 0, nullptr },
+  { "xDlMs", "DELAY TIME", "delay", 0.721, 0, nullptr },
   { "xDlFb", "DELAY FEEDBACK", "delay", 0.4325, 0, nullptr },
   { "xDlMode", "DELAY MODE", "delay", 0.5, 5, kExSteps_xDlMode },
   { "xDlWidth", "DELAY WIDTH", "delay", 1, 0, nullptr },

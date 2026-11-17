@@ -14,25 +14,33 @@ import { voyExplode } from '../../state/explode';
 import { VOY_FACE_KNOBS, type VoyKnobId } from '../../voyager/params';
 import { VOY_KNOB, voyKnobPlace } from '../../voyager/theme';
 import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
+import { editor } from '../../state/editor';
+import { faceArcPlaces, FLUTED } from './faceExtras';
+import { FLUTED_DIALS } from '../../voyager/knobs';
 
 const FACE_IDS: ReadonlySet<string> = new Set(VOY_FACE_KNOBS.map((k) => k.id));
 const SWEEP = 135;
 const N = 120;
 
-/** Les points de l'arc d'un potard a l'ecran (px CSS de la fenetre), pour v = i / N. */
+/**
+ * Les points de l'arc d'un potard a l'ecran (px CSS de la fenetre), pour v = i / N. v27 : un petit knob cannele a son
+ * rayon a lui (faceExtras.tsx FLUTED) ; DETUNE et les pieces de l'encart d'EDIT, leur place (faceArcPlaces).
+ */
 function arcPoints(stage: Stage, id: VoyKnobId): [number, number][] | null {
   const rig = stage.voy;
   if (!rig) return null;
-  const pl = voyKnobPlace(id);
-  const layer = pl.where === 'panel' ? rig.panel : rig.lid;
+  const extra = faceArcPlaces.get(id);
+  const pl = extra ? { x: extra.x, z: extra.z, s: 1, where: 'panel' as const } : voyKnobPlace(id);
+  const layer = extra ? extra.layer : pl.where === 'panel' ? rig.panel : rig.lid;
   layer.updateWorldMatrix(true, false);
-  const R = VOY_KNOB.skirt.r * pl.s * 1.13;
+  const R = extra ? extra.R : FLUTED_DIALS.has(id) ? FLUTED.r * FLUTED.scale * 1.13 : VOY_KNOB.skirt.r * pl.s * 1.13;
+  const y0 = extra ? extra.y : 0.004;
   const rect = stage.renderer.domElement.getBoundingClientRect();
   const out: [number, number][] = [];
   const p = new Vector3();
   for (let i = 0; i <= N; i += 1) {
     const th = ((SWEEP - 2 * SWEEP * (i / N)) * Math.PI) / 180;
-    p.set(pl.x - Math.sin(th) * R, 0.004, pl.z - Math.cos(th) * R);
+    p.set(pl.x - Math.sin(th) * R, y0, pl.z - Math.cos(th) * R);
     layer.localToWorld(p);
     p.project(stage.camera);
     out.push([rect.left + ((p.x + 1) / 2) * rect.width, rect.top + ((1 - p.y) / 2) * rect.height]);
@@ -42,6 +50,7 @@ function arcPoints(stage: Stage, id: VoyKnobId): [number, number][] | null {
 
 const useHood = () => useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
 const useMods = () => useSyncExternalStore(arpMod.subscribe, arpMod.get, arpMod.get);
+const useEdit = () => useSyncExternalStore(editor.subscribe, editor.get, editor.get);
 
 export const FaceModArcs: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const hood = useHood();
@@ -53,9 +62,11 @@ export const FaceModArcs: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
   }, []);
-  const ids = [...mods.keys()].filter((id) => FACE_IDS.has(id));
+  const edit = useEdit();
+  // les potards de la face ; DETUNE ; les pieces de l'encart tant qu'il est monte (EDIT)
+  const ids = [...mods.keys()].filter((id) => FACE_IDS.has(id) || (faceArcPlaces.get(id)?.live() ?? false));
   if (!stage || hood !== 'closed' || ids.length === 0) return null;
-  const key = (id: string): string => `${id}|${size}`;
+  const key = (id: string): string => `${id}|${size}|${edit === 'voy' ? 'e' : ''}`;
   const k = window.innerWidth / 1100;
   const w = 3 * k;
   return (

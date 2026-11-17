@@ -67,6 +67,8 @@ import { arpMidi, type MidiMapItem } from './midimap';
 import { look } from './look';
 import { hellMigrate } from './hell';
 import { distoFromPedal } from './disto';
+import { delayFromOld } from './delay';
+import { arpSpec } from './spec';
 import { arpSteps } from './steps';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
@@ -338,8 +340,10 @@ function applyExtra(raw: unknown): void {
   // un preset d'avant HELL complet (2026-11-17) : son decalage, TONE et LFO DEPTH passent aux nouveaux reglages
   const h = hellMigrate(raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {});
   // un preset qui avait la pedale DISTORTION (masquee le 2026-11-17, v25) : sa DISTO la plus proche (disto.ts)
-  const { x, dist } = distoFromPedal(h);
+  const { x: xd, dist } = distoFromPedal(h);
   if (dist !== undefined) voyParams.set('dist', dist);
+  // un preset d'avant la page DELAY (v27) : son ancien DELAY (DLY TIME, TAPE, DELAY MODE) y passe, au bit pres (delay.ts)
+  const x = delayFromOld(xd, { delay: voyParams.of('delay'), dlyTime: voyParams.of('dlyTime'), tape: voyParams.of('tape') });
   for (const id of EXTRA_IDS) {
     const v = x[id];
     if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);
@@ -554,6 +558,9 @@ export const arpBridge = {
     be?.addEventListener('mm_midimap', onMidimap);
     // L'arc lumineux des potards modules (2026-11-16, modview.ts)
     be?.addEventListener('mm_mod', (o) => arpMod.receive(o));
+    // L'analyseur de la page SOUND (v27, spec.ts) : le C++ ne le calcule que page ouverte (mm_view)
+    be?.addEventListener('mm_spec', (o) => arpSpec.receive(o));
+    arpSpec.onView((on) => send('mm_view', { spec: on }));
     midi.subscribe(onLearnPick);
     // Echap eteint MIDI LEARN d'abord (avant hooks/useKeys : le capot reste ouvert), sauf pendant le nom d'un preset
     window.addEventListener(

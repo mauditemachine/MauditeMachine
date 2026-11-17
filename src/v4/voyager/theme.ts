@@ -29,7 +29,7 @@
  * rejoint la rangee de l'arpegiateur (son crochet OUTPUT).
  */
 
-import { ORBIT, PCB, PORTRAIT, TEMPO_UI } from '../theme';
+import { ORBIT, PCB, PLUGIN_ARP, PORTRAIT, TEMPO_UI } from '../theme';
 import { BASS } from '../state/focus';
 import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
@@ -200,7 +200,8 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   range1: [DESK_OSC.range, RA, 's'],
   semi1: [DESK_OSC.semi, RA, 'm'],
   fine1: [DESK_OSC.fine, RA, 's'],
-  fm: [DESK_OSC.fm, RA, 'm'],
+  // v27 (le plugin) : FM devient un petit knob cannele, comme RATIO
+  fm: [DESK_OSC.fm, RA, PLUGIN_ARP ? 's' : 'm'],
   wave2: [DESK_OSC.wave, RB, 'sel'],
   range2: [DESK_OSC.range, RB, 's'],
   semi2: [DESK_OSC.semi, RB, 'm'],
@@ -243,7 +244,8 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
  * GLIDE en quinconce (entre les colonnes du dessus). Les colonnes
  * repondent a celles des touches, a droite de l'ecran (DESK_KEY_X).
  */
-const DESK_ARP_Z = [0.84, 1.9] as const;
+// v27 (le plugin) : resserrees, l'ecran plus bas (0.84 et 1.9 au site)
+const DESK_ARP_Z = PLUGIN_ARP ? ([0.72, 1.6] as const) : ([0.84, 1.9] as const);
 const DESK_ARP_X = [-5.75, -4.95, -4.15, -3.35] as const;
 const between = (a: number, b: number): number => (a + b) / 2;
 const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
@@ -452,6 +454,14 @@ export const VOY_HELL_PLACE = (() => {
   return { x: (DESK_FX[0] + DESK_FX[1]) / 2, z, s, labelZ: z + VOY_KNOB.skirt.r * s + 0.13 };
 })();
 
+/** v27 (le plugin) : DETUNE et SPREAD (Mika, 49.jpg) dans la colonne OUTPUT, sur la rangee du bas, sous le logotype. */
+export const VOY_DS_PLACE = (() => {
+  const s = VOY_KNOB.panelScale * 0.9;
+  const z = RC;
+  const lz = z + 0.24 * s + 0.13;
+  return { detune: { x: DESK_OUT_X - 0.34, z, s, labelZ: lz }, spread: { x: DESK_OUT_X + 0.34, z, s, labelZ: lz } };
+})();
+
 /**
  * Les LED d'un bouton poussoir et leurs noms au-dessus (plan de la touche) : une par cran a partir de ledFrom (SUB
  * OCT : -1, -2 ; CHORUS : I, II), step le cran qu'elle montre.
@@ -490,7 +500,13 @@ export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = P
 
 /** Filets verticaux entre les sections (desktop), jusqu'au bas de la troisieme rangee. */
 const RULE_END = RC + 0.5;
-export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT ? [] : DESK_RULES_X.map((x) => [x, DESK_TITLE_Z - 0.15, x, RULE_END]);
+export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
+  ? []
+  : [
+      ...DESK_RULES_X.map((x) => [x, DESK_TITLE_Z - 0.15, x, RULE_END]),
+      // v27 (le plugin) : le petit trait entre DETUNE et SPREAD
+      ...(PLUGIN_ARP ? [[DESK_OUT_X - 0.1, RC + 0.24 * 0.9 + 0.13, DESK_OUT_X + 0.1, RC + 0.24 * 0.9 + 0.13]] : []),
+    ];
 
 /**
  * En-tete du panneau, comme celui de la 808 : le wordmark a gauche,
@@ -504,7 +520,8 @@ export const VOY_HEAD = PORTRAIT
       word: { x: -5.9, w: 3.0 },
       model: { x: -2.6, cap: 0.14 },
       // desktop (Mika, 2026-11-02) : le logotype se place sous le potard de volume (OUTPUT)
-      mark: { x: DESK_OUT_X, h: 0.46, z: 1.35, align: 'center' as const },
+      // v27 (le plugin) : remonte, DETUNE et SPREAD dessous
+      mark: { x: DESK_OUT_X, h: 0.46, z: PLUGIN_ARP ? 0.98 : 1.35, align: 'center' as const },
       sub: { x: 5.9, text: fwText('voy') },
     };
 
@@ -519,7 +536,10 @@ export const VOY_HEAD = PORTRAIT
 // Plus minces le 2026-10-08 (le grand ecran) : depth, la profondeur, plus courte que la largeur (size) ; carres de 0.86 et 0.98 avant (labelDz 0.62 et 0.72)
 export const VOY_PAD = PORTRAIT
   ? { size: 0.86, depth: 0.66, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [6.72], perRow: 8, labelDz: 0.57 }
-  : { size: 0.98, depth: 0.7, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [3.16], perRow: 8, labelDz: 0.55 };
+  : PLUGIN_ARP
+    ? // v27 (le plugin, Mika 50.jpg) : des pads plus petits
+      { size: 0.8, depth: 0.5, height: 0.16, radius: 0.07, dome: 0.032, xs: [-3.85, -2.75, -1.65, -0.55, 0.55, 1.65, 2.75, 3.85], zs: [3.06], perRow: 8, labelDz: 0.44 }
+    : { size: 0.98, depth: 0.7, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [3.16], perRow: 8, labelDz: 0.55 };
 
 export const voyPadAt = (i: number): { x: number; z: number } => ({
   x: VOY_PAD.xs[i % VOY_PAD.perRow],
@@ -533,8 +553,11 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'preset' | 'open
  * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM, EDIT, PRESET (demande de Mika 2026-11-03:
  * bouton dedie aux presets sur le plateau) et OPEN.
  */
-const DESK_KEY_X = [3.55, 4.55, 5.55] as const;
-const DESK_KEY_Z = [0.8, 1.86] as const;
+// v27 (le plugin, Mika 50.jpg : les six touches plus petites) : 0.6 x 0.36 ; au site 0.82 x 0.52 au pas de 1.0 et 1.06
+const DESK_KEY_X = PLUGIN_ARP ? ([3.85, 4.6, 5.35] as const) : ([3.55, 4.55, 5.55] as const);
+const DESK_KEY_Z = PLUGIN_ARP ? ([0.74, 1.56] as const) : ([0.8, 1.86] as const);
+const KW = PLUGIN_ARP ? 0.6 : 0.82;
+const KD = PLUGIN_ARP ? 0.36 : 0.52;
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
   ? [
       { id: 'run', label: 'RUN/STOP', x: -2.75, z: 2.38, w: 1.02, d: 0.78 },
@@ -545,12 +568,12 @@ export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; 
       { id: 'open', label: 'OPEN', x: 2.75, z: 2.38, w: 1.02, d: 0.78 },
     ]
   : [
-      { id: 'run', label: 'RUN/STOP', x: DESK_KEY_X[0], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
-      { id: 'clear', label: 'CLEAR', x: DESK_KEY_X[0], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
-      { id: 'random', label: 'RANDOM', x: DESK_KEY_X[1], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
-      { id: 'edit', label: 'EDIT', x: DESK_KEY_X[2], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
-      { id: 'preset', label: 'PRESET', x: DESK_KEY_X[1], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
-      { id: 'open', label: 'OPEN', x: DESK_KEY_X[2], z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
+      { id: 'run', label: 'RUN/STOP', x: DESK_KEY_X[0], z: DESK_KEY_Z[1], w: KW, d: KD },
+      { id: 'clear', label: 'CLEAR', x: DESK_KEY_X[0], z: DESK_KEY_Z[0], w: KW, d: KD },
+      { id: 'random', label: 'RANDOM', x: DESK_KEY_X[1], z: DESK_KEY_Z[0], w: KW, d: KD },
+      { id: 'edit', label: 'EDIT', x: DESK_KEY_X[2], z: DESK_KEY_Z[0], w: KW, d: KD },
+      { id: 'preset', label: 'PRESET', x: DESK_KEY_X[1], z: DESK_KEY_Z[1], w: KW, d: KD },
+      { id: 'open', label: 'OPEN', x: DESK_KEY_X[2], z: DESK_KEY_Z[1], w: KW, d: KD },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
@@ -563,7 +586,9 @@ export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } 
  */
 export const VOY_LCD = PORTRAIT
   ? { x: 0, z: 0.4, w: 7.0, d: 2.42, bezel: { w: 7.34, d: 2.76, h: 0.02 }, tex: 1024 }
-  : { x: 0, z: 1.4, w: 5.3, d: 2.06, bezel: { w: 5.6, d: 2.36, h: 0.02 }, tex: 1280 };
+  : PLUGIN_ARP
+    ? { x: 0, z: 1.3, w: 5.3, d: 1.88, bezel: { w: 5.6, d: 2.18, h: 0.02 }, tex: 1280 } // v27 (le plugin) : reduit, l'encart d'EDIT plus haut
+    : { x: 0, z: 1.4, w: 5.3, d: 2.06, bezel: { w: 5.6, d: 2.36, h: 0.02 }, tex: 1280 };
 
 /**
  * La touche i de l'ecran (2026-10-08, Mika : "un petit bouton i dans

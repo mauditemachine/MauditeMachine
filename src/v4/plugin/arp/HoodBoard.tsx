@@ -25,7 +25,7 @@ import { voyParams, VOY_TWEAKS } from '../../voyager/params';
 import { seq } from '../../voyager/seq';
 import { extHead } from '../head';
 import { arpBridge } from './bridge';
-import { arpExtra, extraParam, MATRIX_ROWS } from './extra';
+import { arpExtra, eqLaws, extraParam, MATRIX_ROWS } from './extra';
 import { HOOD_PAGES, hoodPage, hoodPageIndex, hoodPageStep, type HoodTab } from './hoodPage';
 import { hypnoNew, hypnoStyle, HYPNO_STYLES } from './hypno';
 import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore } from './library';
@@ -34,9 +34,13 @@ import { DragMidi, MidiMap } from './HoodPanel';
 import { SkyPage } from './SkyPage';
 import { HellPage } from './HellPage';
 import { DistoPage } from './DistoPage';
+import { DelayPage } from './DelayPage';
+import { CHORDS, degreeName } from '../../voyager/chords';
+import { SEQ_MIN, SEQ_TOP } from '../../voyager/seq';
+import { arpSpec, SPEC_BINS } from './spec';
 import { HoodLookButton } from './LookPanel';
 import { arpMidi } from './midimap';
-import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
+import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, PcbToggle, registerVirtual, say, setFullName, SRC } from './pcbui';
 import { arpSteps, STEP_TRACKS, STEPS_N, type StepTrack } from './steps';
 import './hood.css';
 
@@ -126,7 +130,6 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
           title: 'OUTPUT',
           ctls: [knob('width', 'WIDTH', 'MONO', 'WIDE'), fine('wide', 'WIDE'), fine('monoLow', 'BASS MONO'), fine('glue', 'GLUE'), fine('duck', 'SIDECHAIN')],
         },
-        { title: 'EQ', ctls: [fine('xEqLow', 'LOW', 'EQ LOW'), fine('xEqMid', 'MID', 'EQ MID'), fine('xEqHigh', 'HIGH', 'EQ HIGH'), fine('xEqAir', 'AIR BAND', 'EQ AIR BAND')] },
         { title: 'ENGINE', ctls: [step('xQuality', 'QUALITY')] },
       ],
     },
@@ -134,7 +137,6 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
       y: 413,
       frames: [
         { title: 'MASTER', ctls: [knob('xWarmth', 'WARMTH', 'OFF', 'FULL'), fine('xBass', 'BASS', 'MASTER BASS'), fine('xAir', 'AIR', 'MASTER AIR'), fine('xWidth', 'WIDTH', 'MASTER WIDTH')] },
-        { title: 'DELAY', ctls: [rot('dlyTime', 'TIME', 'DLY TIME'), knob('tape', 'TAPE', 'CLEAN', 'WORN'), rot('xDlyMode', 'MODE', 'DELAY MODE')] },
         {
           title: 'PHASER',
           led: () => X('xPhMix') > 0,
@@ -298,6 +300,8 @@ const FxPage: React.FC = () => {
     <>
       {fx === 'reverb' ? (
         <SkyHost />
+      ) : fx === 'delay' ? (
+        <DelayPage />
       ) : fx === 'disto' ? (
         <DistoHost />
       ) : (
@@ -383,109 +387,6 @@ const STEP_PITCH = 50;
 const stepX = (i: number): number => 92 + i * STEP_PITCH + Math.floor(i / 4) * 8;
 const STEPS_W = stepX(STEPS_N - 1) + 44 + 60;
 
-const Steps: React.FC = () => {
-  const st = useSteps();
-  const hk = useSyncExternalStore(extHead.onWake, headKey, headKey);
-  useSyncExternalStore(seq.subscribe, seq.get, seq.get);
-  useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
-  useSyncExternalStore(arp.subscribe, arp.get, arp.get);
-  const flash = useFlash('STEP SEQUENCER');
-  const head = hk ? hk.split('|').map(Number) : null;
-  const len = Math.max(1, head && head[1] > 0 ? head[1] : idleLen());
-  const at = head ? head[0] % STEPS_N : -1;
-  const grid = useRef<HTMLDivElement>(null);
-  const paint = useRef<{ track: StepTrack; v: number; last: number } | null>(null);
-
-  const cellOf = (el: Element | null): { track: StepTrack; i: number } | null => {
-    const c = el?.closest<HTMLElement>('[data-st]');
-    if (!c || !grid.current?.contains(c)) return null;
-    return { track: c.dataset.st as StepTrack, i: Number(c.dataset.i) };
-  };
-  const onDown = (e: React.PointerEvent<HTMLDivElement>): void => {
-    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
-    const c = cellOf(e.target as Element);
-    if (!c) return;
-    e.preventDefault();
-    const v = arpSteps.next(c.track, c.i, e.button === 2 || e.shiftKey ? -1 : 1);
-    arpSteps.set(c.track, c.i, v);
-    paint.current = { track: c.track, v, last: c.i };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* rien */
-    }
-  };
-  const onMove = (e: React.PointerEvent<HTMLDivElement>): void => {
-    const p = paint.current;
-    if (!p) return;
-    const c = cellOf(document.elementFromPoint(e.clientX, e.clientY));
-    if (!c || c.track !== p.track || c.i === p.last) return;
-    const d = c.i > p.last ? 1 : -1;
-    for (let i = p.last + d; i !== c.i + d; i += d) arpSteps.set(p.track, i, p.v);
-    p.last = c.i;
-  };
-  const onEnd = (): void => {
-    paint.current = null;
-  };
-  const onKey = (e: React.KeyboardEvent<HTMLDivElement>): void => {
-    const c = cellOf(e.target as Element);
-    if (!c) return;
-    const t = STEP_TRACKS.findIndex((x) => x.id === c.track);
-    let nt = t;
-    let ni = c.i;
-    if (e.key === 'Enter' || e.key === ' ') arpSteps.set(c.track, c.i, arpSteps.next(c.track, c.i, e.shiftKey ? -1 : 1));
-    else if (e.key === 'Delete' || e.key === 'Backspace') arpSteps.set(c.track, c.i, STEP_TRACKS[t].def);
-    else if (e.key === 'ArrowRight') ni = Math.min(STEPS_N - 1, c.i + 1);
-    else if (e.key === 'ArrowLeft') ni = Math.max(0, c.i - 1);
-    else if (e.key === 'ArrowDown') nt = Math.min(STEP_TRACKS.length - 1, t + 1);
-    else if (e.key === 'ArrowUp') nt = Math.max(0, t - 1);
-    else return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (nt !== t || ni !== c.i) grid.current?.querySelector<HTMLElement>(`[data-st="${STEP_TRACKS[nt].id}"][data-i="${ni}"]`)?.focus({ preventScroll: true });
-  };
-
-  return (
-    <PcbFrame title="STEP SEQUENCER" x={ZONE.x + Math.round((ZONE.w - STEPS_W) / 2)} y={62} w={STEPS_W} h={204} className="mm-p2-steps" flash={flash}>
-      <div className="mm-p2-st-heads" aria-hidden="true">
-        {Array.from({ length: STEPS_N }, (_, i) => (
-          <span key={i} className="mm-p2-st-head" style={{ left: stepX(i) }} data-off={i >= len ? '1' : undefined}>
-            <b>{i + 1}</b>
-            <i className="mm-p2-led" data-on={i === at ? '1' : undefined} />
-          </span>
-        ))}
-      </div>
-      <div ref={grid} className="mm-p2-st-grid" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onEnd} onPointerCancel={onEnd} onContextMenu={(e) => e.preventDefault()} onKeyDown={onKey}>
-        {STEP_TRACKS.map((t, r) => (
-          <div key={t.id} className="mm-p2-st-row" style={{ top: 44 + r * 31 }}>
-            <span className="mm-p2-st-name">{t.label}</span>
-            {st[t.id].map((v, i) => {
-              const short = SHORT[t.id][v];
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  className="mm-p2-st-cell"
-                  style={{ left: stepX(i) }}
-                  data-st={t.id}
-                  data-i={i}
-                  data-set={short ? '1' : undefined}
-                  data-off={i >= len ? '1' : undefined}
-                  data-head={i === at ? '1' : undefined}
-                  aria-label={`${t.label} step ${i + 1}: ${t.names[t.values.indexOf(v)] ?? v}`}
-                >
-                  {short ?? '·'}
-                </button>
-              );
-            })}
-            <PcbKey className="mm-p2-st-clr" style={{ left: stepX(STEPS_N - 1) + 56 }} w={24} h={11} name="CLR" disabled={arpSteps.isDefault(t.id)} onClick={() => arpSteps.reset(t.id)} aria-label={`Reset ${t.label}`} />
-          </div>
-        ))}
-      </div>
-    </PcbFrame>
-  );
-};
-
 /** RANDOM : trois styles (hypno.ts), NEW SEQ tire une suite et ses pistes ; RANDOM de la face prend le meme style. */
 const RND_W = 236;
 const RandomBox: React.FC<{ x: number; y: number }> = ({ x, y }) => {
@@ -521,7 +422,7 @@ const SEQ_ROW: FrameSpec[] = [
 
 const SeqPage: React.FC = () => {
   useExtraAll();
-  const y = 290;
+  const y = 360;
   const GAP = 16;
   const rowW = SEQ_ROW.reduce((s, f) => s + frameW(f), 0) + GAP * SEQ_ROW.length + RND_W;
   let x = ZONE.x + Math.round((ZONE.w - rowW) / 2);
@@ -529,14 +430,598 @@ const SeqPage: React.FC = () => {
   x += RND_W + GAP;
   return (
     <>
-      <Steps />
+      <StepsMerged />
       <RandomBox x={rnd} y={y} />
       {SEQ_ROW.map((f, i) => {
         const fx = x;
         x += frameW(f) + GAP;
         return <Frame key={f.title} f={f} x={fx} y={y} sep={i < SEQ_ROW.length - 1} />;
       })}
-      <Matrix y={y + FRAME_H + 14} />
+      <Matrix y={y + FRAME_H + 8} />
+    </>
+  );
+};
+
+/* ---------------- SEQ : la suite d'EDIT fusionnee au sequenceur par pas (v27) ---------------- */
+
+/**
+ * La piste NOTES (v27, la maquette v26 validee) : les notes de la suite d'EDIT, qui quittent l'encart de la face. CHORD :
+ * l'accord dont on lit les notes (celui qui joue, sinon le premier de la progression ; un clic en choisit un, un second
+ * le rend) ; FROM THE KNOBS / YOUR NOTES : d'ou viennent les notes ; STEPS - + : leur nombre ; CLR : retour aux notes des
+ * potards. Une colonne : glisser de haut en bas choisit la note (le degre), la note ecrite dessous fait un silence ou le
+ * rend. Les memes gestes que l'ecran d'avant (voyager/seqscreen.ts), la meme suite (voyager/seq.ts).
+ */
+let notesView: number | null = null;
+const notesViewL = new Set<() => void>();
+const notesViewStore = {
+  get: (): number | null => notesView,
+  set(v: number | null): void {
+    notesView = v;
+    notesViewL.forEach((fn) => fn());
+  },
+  subscribe(fn: () => void): () => void {
+    notesViewL.add(fn);
+    return () => {
+      notesViewL.delete(fn);
+    };
+  },
+};
+const LANE = { top: 70, h: 64 };
+const LEVELS = SEQ_TOP - SEQ_MIN;
+
+const StepsMerged: React.FC = () => {
+  const st = useSteps();
+  const hk = useSyncExternalStore(extHead.onWake, headKey, headKey);
+  const sq = useSyncExternalStore(seq.subscribe, seq.get, seq.get);
+  useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
+  const ar = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
+  const view = useSyncExternalStore(notesViewStore.subscribe, notesViewStore.get, notesViewStore.get);
+  const flash = useFlash('STEP SEQUENCER');
+  const head = hk ? hk.split('|').map(Number) : null;
+  const playingChord = ar.running && arpExternal.headState.chord >= 0 ? arpExternal.headState.chord : -1;
+  const chord = view ?? (playingChord >= 0 ? playingChord : (ar.prog[0] ?? 0));
+  const notes = seq.shown(chord);
+  const len = Math.max(1, head && head[1] > 0 ? head[1] : sq.edit ? sq.len : notes.length || idleLen());
+  const at = head ? head[0] % STEPS_N : -1;
+  const grid = useRef<HTMLDivElement>(null);
+  const paint = useRef<{ track: StepTrack; v: number; last: number } | null>(null);
+  const lane = useRef<HTMLDivElement>(null);
+  const draw = useRef<{ i: number; d: number } | null>(null);
+
+  // la piste NOTES : le degre sous le pointeur (le haut : le plus aigu)
+  const noteAt = (e: React.PointerEvent): { i: number; d: number } | null => {
+    const el = lane.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const sx = r.width / el.offsetWidth || 1;
+    const lx = (e.clientX - r.left) / sx;
+    const ly = (e.clientY - r.top) / sx;
+    let i = -1;
+    for (let k = 0; k < STEPS_N; k += 1) if (lx >= stepX(k) - 4 && lx < stepX(k) + 40) i = k;
+    if (i < 0) return null;
+    const t = 1 - Math.min(1, Math.max(0, (ly - 6) / (LANE.h - 20)));
+    return { i, d: Math.round(SEQ_MIN + t * LEVELS) };
+  };
+  const onLaneDown = (e: React.PointerEvent<HTMLDivElement>): void => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const n = noteAt(e);
+    if (!n || n.i >= len) return;
+    e.preventDefault();
+    seq.setStep(chord, n.i, n.d);
+    draw.current = n;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* rien */
+    }
+  };
+  const onLaneMove = (e: React.PointerEvent<HTMLDivElement>): void => {
+    const g = draw.current;
+    if (!g) return;
+    const n = noteAt(e);
+    if (!n || n.i >= len) return;
+    if (Math.abs(n.i - g.i) > 1) {
+      const dir = n.i > g.i ? 1 : -1;
+      for (let j = g.i + dir; j !== n.i; j += dir) seq.setStep(chord, j, Math.round(g.d + ((n.d - g.d) * (j - g.i)) / (n.i - g.i)));
+    }
+    if (n.i !== g.i || n.d !== g.d) seq.setStep(chord, n.i, n.d);
+    draw.current = n;
+  };
+  const onLaneEnd = (): void => {
+    draw.current = null;
+  };
+  const before = useRef<(number | null)[]>([]);
+  const toggleRest = (i: number): void => {
+    const cur = seq.shown(chord)[i];
+    if (cur === null || cur === undefined) seq.setStep(chord, i, before.current[i] ?? 0);
+    else {
+      before.current[i] = cur;
+      seq.setStep(chord, i, null);
+    }
+  };
+
+  const cellOf = (el: Element | null): { track: StepTrack; i: number } | null => {
+    const c = el?.closest<HTMLElement>('[data-st]');
+    if (!c || !grid.current?.contains(c)) return null;
+    return { track: c.dataset.st as StepTrack, i: Number(c.dataset.i) };
+  };
+  const onDown = (e: React.PointerEvent<HTMLDivElement>): void => {
+    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
+    const c = cellOf(e.target as Element);
+    if (!c) return;
+    e.preventDefault();
+    const v = arpSteps.next(c.track, c.i, e.button === 2 || e.shiftKey ? -1 : 1);
+    arpSteps.set(c.track, c.i, v);
+    paint.current = { track: c.track, v, last: c.i };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* rien */
+    }
+  };
+  const onMove = (e: React.PointerEvent<HTMLDivElement>): void => {
+    const p = paint.current;
+    if (!p) return;
+    const c = cellOf(document.elementFromPoint(e.clientX, e.clientY));
+    if (!c || c.track !== p.track || c.i === p.last) return;
+    const d = c.i > p.last ? 1 : -1;
+    for (let i = p.last + d; i !== c.i + d; i += d) arpSteps.set(p.track, i, p.v);
+    p.last = c.i;
+  };
+  const onEnd = (): void => {
+    paint.current = null;
+  };
+  const ROW0 = 146;
+  const RP = 24;
+  return (
+    <PcbFrame title="STEP SEQUENCER" x={ZONE.x + Math.round((ZONE.w - STEPS_W) / 2)} y={60} w={STEPS_W} h={292} className="mm-p2-steps mm-sq-merged" flash={flash}>
+      <div className="mm-sq-top" style={{ top: 18 }}>
+        <span className="mm-sq-lab">CHORD</span>
+        {CHORDS.map((c, i) => (
+          <PcbKey
+            key={c.label}
+            name={c.label}
+            cap={<span>{c.label}</span>}
+            w={34}
+            h={13}
+            on={i === chord}
+            onClick={() => notesViewStore.set(notesView === i ? null : i)}
+            aria-label={`Notes of ${c.aria}${ar.prog.includes(i) ? ', in the progression' : ''}`}
+          />
+        ))}
+        <span className="mm-sq-src" data-edit={sq.edit ? '1' : undefined}>
+          {sq.edit ? 'YOUR NOTES' : 'FROM THE KNOBS'}
+        </span>
+        <span className="mm-sq-lab">STEPS</span>
+        <PcbKey name="−" cap={<span>−</span>} w={20} h={13} onClick={() => seq.setLen(chord, Math.min(seq.shown(chord).length, 16) - 1)} aria-label="Fewer steps" />
+        <b className="mm-sq-n">{seq.shown(chord).length}</b>
+        <PcbKey name="+" cap={<span>+</span>} w={20} h={13} onClick={() => seq.setLen(chord, Math.min(seq.shown(chord).length, 16) + 1)} aria-label="More steps" />
+      </div>
+      <div className="mm-p2-st-heads" aria-hidden="true" style={{ top: 30 }}>
+        {Array.from({ length: STEPS_N }, (_, i) => (
+          <span key={i} className="mm-p2-st-head" style={{ left: stepX(i) }} data-off={i >= len ? '1' : undefined}>
+            <b>{i + 1}</b>
+            <i className="mm-p2-led" data-on={i === at ? '1' : undefined} />
+          </span>
+        ))}
+      </div>
+      <div ref={lane} className="mm-sq-lane" style={{ top: LANE.top, height: LANE.h }} onPointerDown={onLaneDown} onPointerMove={onLaneMove} onPointerUp={onLaneEnd} onPointerCancel={onLaneEnd}>
+        <span className="mm-p2-st-name mm-sq-name">NOTES</span>
+        {Array.from({ length: STEPS_N }, (_, i) => {
+          const d = i < notes.length ? notes[i] : undefined;
+          const on = typeof d === 'number';
+          const t = on ? ((d as number) - SEQ_MIN) / LEVELS : 0;
+          return (
+            <div key={i} className="mm-sq-col" style={{ left: stepX(i) }} data-off={i >= len ? '1' : undefined} data-head={i === at ? '1' : undefined}>
+              {on && <i className="mm-sq-bar" style={{ height: 8 + t * (LANE.h - 26) }} />}
+              <b
+                className="mm-sq-note"
+                role="button"
+                tabIndex={i < len ? 0 : -1}
+                onPointerDown={(e) => {
+                  if (i >= len) return;
+                  e.stopPropagation();
+                  e.preventDefault();
+                  toggleRest(i);
+                }}
+                aria-label={`Step ${i + 1}: ${on ? degreeName(chord, d as number) : 'rest'}; click for a rest`}
+              >
+                {i >= len ? '' : on ? degreeName(chord, d as number) : 'REST'}
+              </b>
+            </div>
+          );
+        })}
+        <PcbKey className="mm-p2-st-clr" style={{ left: stepX(STEPS_N - 1) + 56, top: 26 }} w={24} h={11} name="CLR" disabled={!sq.edit} onClick={() => seq.auto()} aria-label="Notes from the knobs" />
+      </div>
+      <div ref={grid} className="mm-p2-st-grid" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onEnd} onPointerCancel={onEnd} onContextMenu={(e) => e.preventDefault()}>
+        {STEP_TRACKS.map((t, r) => (
+          <div key={t.id} className="mm-p2-st-row mm-sq-row" style={{ top: ROW0 + r * RP }}>
+            <span className="mm-p2-st-name">{t.label}</span>
+            {st[t.id].map((v, i) => {
+              const short = SHORT[t.id][v];
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className="mm-p2-st-cell"
+                  style={{ left: stepX(i) }}
+                  data-st={t.id}
+                  data-i={i}
+                  data-set={short ? '1' : undefined}
+                  data-off={i >= len ? '1' : undefined}
+                  data-head={i === at ? '1' : undefined}
+                  aria-label={`${t.label} step ${i + 1}: ${t.names[t.values.indexOf(v)] ?? v}`}
+                >
+                  {short ?? '·'}
+                </button>
+              );
+            })}
+            <PcbKey className="mm-p2-st-clr" style={{ left: stepX(STEPS_N - 1) + 56 }} w={24} h={11} name="CLR" disabled={arpSteps.isDefault(t.id)} onClick={() => arpSteps.reset(t.id)} aria-label={`Reset ${t.label}`} />
+          </div>
+        ))}
+      </div>
+    </PcbFrame>
+  );
+};
+
+/* ---------------- SOUND (v27) : l'EQ parametrique, ENGINE, MASTER, le rack enrichi ---------------- */
+
+const EQ_TYPES = extraParam('xQ1Type')?.steps ?? [];
+/** La bande choisie de l'EQ (la page ; 1 a 6). */
+let eqBand = 3;
+const eqBandL = new Set<() => void>();
+const eqBandStore = {
+  get: (): number => eqBand,
+  set(b: number): void {
+    eqBand = Math.max(1, Math.min(6, b));
+    eqBandL.forEach((fn) => fn());
+  },
+  subscribe(fn: () => void): () => void {
+    eqBandL.add(fn);
+    return () => {
+      eqBandL.delete(fn);
+    };
+  },
+};
+const qid = (b: number, k: 'On' | 'Type' | 'Freq' | 'Gain' | 'Q' | 'Slope'): string => `xQ${b}${k}`;
+interface EqB {
+  on: boolean;
+  type: string;
+  f: number;
+  g: number;
+  q: number;
+  slope: number;
+}
+const eqBandOf = (b: number): EqB => ({
+  on: X(qid(b, 'On')) >= 0.5,
+  type: EQ_TYPES[Math.round(X(qid(b, 'Type')) * (EQ_TYPES.length - 1))] ?? 'BELL',
+  f: eqLaws.hz(X(qid(b, 'Freq'))),
+  g: eqLaws.db(X(qid(b, 'Gain'))),
+  q: eqLaws.q(X(qid(b, 'Q'))),
+  slope: Math.round(X(qid(b, 'Slope')) * 2),
+});
+
+/** La reponse d'une bande (dB) a f Hz : le prototype analogique des SVF de ParamEq.cpp (HP / LP en cascade). */
+function bandDb(b: EqB, f: number): number {
+  const r = f / b.f;
+  const r2 = r * r;
+  const A = Math.pow(10, b.g / 40);
+  const mag = (nr: number, ni: number, dr: number, di: number): number => 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di));
+  const qs = (): number[] => (b.slope <= 0 ? [b.q] : b.slope === 1 ? [0.5412, 1.3066 * (b.q / 0.7071)] : [0.5098, 0.6013, 0.9, 2.5629 * (b.q / 0.7071)]);
+  switch (b.type) {
+    case 'HP':
+      return qs().reduce((s, q) => s + mag(-r2, 0, 1 - r2, r / q), 0);
+    case 'LP':
+      return qs().reduce((s, q) => s + mag(1, 0, 1 - r2, r / q), 0);
+    case 'BELL':
+      return mag(1 - r2, (r * A) / b.q, 1 - r2, r / (A * b.q));
+    case 'NOTCH':
+      return mag(1 - r2, 0, 1 - r2, r / b.q);
+    case 'LOW SHELF':
+      return mag(A - r2, (Math.sqrt(A) * r) / b.q, 1 - r2 / A, r / (Math.sqrt(A) * b.q));
+    case 'HIGH SHELF':
+      return mag(1 - r2 * A, (Math.sqrt(A) * r) / b.q, 1 / A - r2, r / (Math.sqrt(A) * b.q));
+    default:
+      return 0;
+  }
+}
+
+const useSpec = () => useSyncExternalStore(arpSpec.subscribe, arpSpec.get, arpSpec.get);
+
+/**
+ * L'ecran de l'EQ : la courbe (la somme des bandes allumees), l'analyseur du C++ (PRE ou POST, page ouverte seulement),
+ * les six points : un clic choisit la bande, glisser regle FREQ (de gauche a droite) et GAIN (de haut en bas), Maj : fin.
+ */
+const EqScreen: React.FC<{ w: number; h: number }> = ({ w, h }) => {
+  useExtraAll();
+  const sel = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
+  const spec = useSpec();
+  const hood = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
+  const ana = Math.round(X('xQAna') * 2);
+  // l'analyseur : seulement tant que cet ecran est la et le capot ouvert
+  useEffect(() => {
+    if (hood !== 'open' || ana === 0) return undefined;
+    arpSpec.watch(1);
+    return () => arpSpec.watch(-1);
+  }, [hood, ana]);
+  const fx = (f: number): number => 14 + (Math.log10(f / 20) / 3) * (w - 28);
+  const fy = (db: number): number => h / 2 - (db / 18) * (h / 2 - 16);
+  const bands = [1, 2, 3, 4, 5, 6].map(eqBandOf);
+  const out = eqLaws.out(X('xQOut'));
+  const pts: string[] = [];
+  for (let i = 0; i <= 240; i += 1) {
+    const f = 20 * Math.pow(1000, i / 240);
+    let db = out;
+    for (const b of bands) if (b.on) db += bandDb(b, f);
+    pts.push(`${fx(f).toFixed(1)},${fy(Math.max(-18, Math.min(18, db))).toFixed(1)}`);
+  }
+  const anaPts: string[] = [];
+  if (ana > 0 && spec.length === SPEC_BINS)
+    spec.forEach((db, j) => {
+      const f = 20 * Math.pow(1000, (j + 0.5) / SPEC_BINS);
+      // -78 dBFS au pied de l'ecran, -6 dBFS en haut
+      const y = h - 14 - (Math.max(0, Math.min(72, db + 78)) / 72) * (h - 30);
+      anaPts.push(`${fx(f).toFixed(1)},${y.toFixed(1)}`);
+    });
+  const nodeY = (b: EqB): number => fy(b.type === 'HP' || b.type === 'LP' || b.type === 'NOTCH' ? 0 : b.g);
+  const drag = useRef<{ b: number; x: number; y: number; f: number; g: number } | null>(null);
+  const svg = useRef<SVGSVGElement>(null);
+  const scale = (): number => {
+    const el = svg.current;
+    if (!el) return 1;
+    return el.getBoundingClientRect().width / w || 1;
+  };
+  const onNode = (b: number) => (e: React.PointerEvent<SVGGElement>): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    eqBandStore.set(b);
+    drag.current = { b, x: e.clientX, y: e.clientY, f: X(qid(b, 'Freq')), g: X(qid(b, 'Gain')) };
+    try {
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    } catch {
+      /* rien */
+    }
+  };
+  const onMove = (e: React.PointerEvent<SVGGElement>): void => {
+    const d = drag.current;
+    if (!d) return;
+    const k = scale() * (e.shiftKey ? 8 : 1);
+    const dx = (e.clientX - d.x) / k;
+    const dy = (e.clientY - d.y) / k;
+    SRC.set(qid(d.b, 'Freq'), d.f + dx / (w - 28));
+    say(qid(d.b, 'Freq'));
+    const t = eqBandOf(d.b).type;
+    if (t !== 'HP' && t !== 'LP' && t !== 'NOTCH') {
+      SRC.set(qid(d.b, 'Gain'), d.g - (dy / (h / 2 - 16)) * 0.5);
+      say(qid(d.b, 'Gain'));
+    }
+  };
+  const onUp = (): void => {
+    drag.current = null;
+  };
+  const sb = bands[sel - 1];
+  const head = `${sel} · ${sb.type} · ${extraTextOf(qid(sel, 'Freq')).toUpperCase()}${sb.type === 'HP' || sb.type === 'LP' ? ` · ${[12, 24, 48][sb.slope]} DB/OCT` : sb.type === 'NOTCH' ? '' : ` · ${extraTextOf(qid(sel, 'Gain')).toUpperCase()}`} · Q ${sb.q.toFixed(2)}${sb.on ? '' : ' · OFF'}`;
+  return (
+    <div className="mm-dm-glass mm-eq-screen" style={{ width: w, height: h }}>
+      <svg ref={svg} width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+        {[50, 100, 200, 500, 1000, 2000, 5000, 10000].map((f) => (
+          <g key={f}>
+            <path className="grid" d={`M${fx(f).toFixed(1)} 6V${h - 14}`} />
+            <text x={fx(f)} y={h - 4} textAnchor="middle">
+              {f >= 1000 ? `${f / 1000}K` : f}
+            </text>
+          </g>
+        ))}
+        {[-12, -6, 0, 6, 12].map((d) => (
+          <g key={d}>
+            <path className={d === 0 ? 'grid zero' : 'grid'} d={`M14 ${fy(d).toFixed(1)}H${w - 14}`} />
+            <text x={w - 6} y={fy(d) + 3} textAnchor="end">
+              {d > 0 ? `+${d}` : d}
+            </text>
+          </g>
+        ))}
+        {anaPts.length > 0 && <polygon className="ana" points={`${fx(20 * Math.pow(1000, 0.5 / SPEC_BINS)).toFixed(1)},${h - 14} ${anaPts.join(' ')} ${fx(20 * Math.pow(1000, (SPEC_BINS - 0.5) / SPEC_BINS)).toFixed(1)},${h - 14}`} />}
+        <polyline className="eq-fill" points={`14,${fy(0)} ${pts.join(' ')} ${w - 14},${fy(0)}`} />
+        <polyline className="main" points={pts.join(' ')} />
+        {bands.map((b, i) => (
+          <g key={i} className="eq-node" data-on={b.on ? '1' : undefined} data-sel={i + 1 === sel ? '1' : undefined} onPointerDown={onNode(i + 1)} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} style={{ cursor: 'grab' }}>
+            <circle cx={fx(b.f)} cy={nodeY(b)} r={i + 1 === sel ? 9 : 7.5} />
+            <text x={fx(b.f)} y={nodeY(b) + 3.2} textAnchor="middle">
+              {i + 1}
+            </text>
+          </g>
+        ))}
+        <text x="16" y="15">
+          PARAMETRIC EQ · 6 BANDS
+        </text>
+        <text x={w - 16} y="15" textAnchor="end" className="hot">
+          {head}
+        </text>
+        <text x={w / 2} y="15" textAnchor="middle" className="dim">
+          {ana === 0 ? 'ANALYZER OFF' : `ANALYZER ${ana === 1 ? 'PRE' : 'POST'}`}
+        </text>
+      </svg>
+    </div>
+  );
+};
+
+const extraTextOf = (id: string): string => SRC.text(id);
+
+/** BAND 1 a 6 (la LED : allumee), ON de la bande choisie. */
+const EqBandKeys: React.FC = () => {
+  useExtraAll();
+  const sel = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
+  const on = X(qid(sel, 'On')) >= 0.5;
+  return (
+    <div className="mm-eq-bands">
+      <span className="mm-sq-lab">BAND</span>
+      {[1, 2, 3, 4, 5, 6].map((b) => (
+        <PcbKey key={b} name={`${b}`} cap={<span>{b}</span>} w={24} h={15} on={b === sel} className={X(qid(b, 'On')) >= 0.5 ? 'mm-eq-bon' : undefined} onClick={() => eqBandStore.set(b)} aria-label={`EQ band ${b}${X(qid(b, 'On')) >= 0.5 ? ', on' : ', off'}`} />
+      ))}
+      <span className="mm-eq-on">
+        <span className="mm-sq-lab">{`BAND ${sel}`}</span>
+        <PcbKey name="ON" cap={<span>{on ? 'ON' : 'OFF'}</span>} w={30} h={15} on={on} onClick={() => SRC.set(qid(sel, 'On'), on ? 0 : 1)} aria-label={`EQ band ${sel} ${on ? 'on' : 'off'}`} />
+      </span>
+    </div>
+  );
+};
+
+/** CHORUS MODE (v27) : OFF, I, II (le potard CHORUS du site), I+II (xChBoth) ; une seule rotative. */
+const CH_MODES = ['OFF', 'I', 'II', 'I+II'] as const;
+registerVirtual('vChMode', {
+  of: () => {
+    const c = Math.round(voyParams.of('chorus') * 2);
+    return (c > 0 && X('xChBoth') >= 0.5 ? 3 : c) / 3;
+  },
+  def: () => 1 / 3,
+  set: (v) => {
+    const m = Math.round(v * 3);
+    voyParams.set('chorus', m === 0 ? 0 : m === 1 ? 0.5 : 1);
+    arpExtra.set('xChBoth', m === 3 ? 1 : 0);
+  },
+  text: (v) => CH_MODES[Math.round(v * 3)],
+  steps: CH_MODES,
+  name: 'CHORUS MODE',
+});
+
+const SoundPage: React.FC = () => {
+  useExtraAll();
+  useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
+  const band = useSyncExternalStore(eqBandStore.subscribe, eqBandStore.get, eqBandStore.get);
+  const X0 = ZONE.x;
+  const EQ = { x: X0, w: 722 };
+  const RX = EQ.x + EQ.w + 22;
+  const RW = ZONE.x + ZONE.w - RX;
+  const PH = { x: X0, w: 478 };
+  const FL = { x: PH.x + PH.w + 22, w: ZONE.x + ZONE.w - (PH.x + PH.w + 22) };
+  const CH = { x: X0, w: 342 };
+  const CR = { x: CH.x + CH.w + 22, w: 246 };
+  const PU = { x: CR.x + CR.w + 22, w: ZONE.x + ZONE.w - (CR.x + CR.w + 22) };
+  const R = (top: number, w: number, kids: React.ReactNode, left?: number) => (
+    <div className="mm-p2-cells mm-hell-row" style={{ top, width: w, left: left ?? undefined }}>
+      {kids}
+    </div>
+  );
+  const oldEq = ['xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir'].some((id) => Math.abs(X(id) - 0.5) > 0.0005);
+  return (
+    <>
+      <PcbFrame title="EQ" x={EQ.x} y={60} w={EQ.w} h={262} sep className="mm-hell-frame" led={[1, 2, 3, 4, 5, 6].some((b) => X(qid(b, 'On')) >= 0.5 && (Math.abs(X(qid(b, 'Gain')) - 0.5) > 0.0005 || X(qid(b, 'Type')) === 0 || X(qid(b, 'Type')) === 1 || Math.round(X(qid(b, 'Type')) * 5) === 3))}>
+        <div className="mm-dm-place" style={{ left: 12, top: 20 }}>
+          <EqScreen w={EQ.w - 24} h={150} />
+        </div>
+        <EqBandKeys />
+        {oldEq && (
+          <div className="mm-eq-old">
+            <span>OLD EQ ON</span>
+            <PcbKey name="RESET" w={40} h={13} onClick={() => ['xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir'].forEach((id) => arpExtra.set(id, 0.5))} aria-label="Reset the old 4 band EQ of this project" />
+          </div>
+        )}
+        {R(
+          176,
+          EQ.w - 186,
+          <>
+            <PcbSelect id={qid(band, 'Type')} name="TYPE" ref_="" w={84} cols={2} />
+            <PcbKnob id={qid(band, 'Freq')} name="FREQ" ref_="" lo="" hi="" fine />
+            <PcbKnob id={qid(band, 'Gain')} name="GAIN" ref_="" lo="" hi="" fine />
+            <PcbKnob id={qid(band, 'Q')} name="Q" ref_="" lo="" hi="" fine />
+            <PcbStep id={qid(band, 'Slope')} name="SLOPE" ref_="" w={110} />
+            <PcbKnob id="xQOut" name="OUTPUT" ref_="" lo="" hi="" fine />
+          </>,
+          176,
+        )}
+      </PcbFrame>
+      <PcbFrame title="ENGINE" x={RX} y={60} w={RW} h={104} className="mm-hell-frame">
+        {R(
+          14,
+          RW,
+          <>
+            <PcbStep id="xQuality" name="QUALITY" ref_="" />
+            <PcbStep id="xQAna" name="ANALYZER" ref_="" w={120} />
+          </>,
+        )}
+      </PcbFrame>
+      <PcbFrame title="MASTER" x={RX} y={176} w={RW} h={146} className="mm-hell-frame">
+        {R(
+          18,
+          RW,
+          <>
+            <PcbKnob id="xWarmth" name="WARMTH" ref_="" lo="OFF" hi="FULL" />
+            <PcbKnob id="xBass" name="BASS" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xAir" name="AIR" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xWidth" name="WIDTH" ref_="" lo="" hi="" fine />
+          </>,
+        )}
+      </PcbFrame>
+      <PcbFrame title="PHASER" x={PH.x} y={336} w={PH.w} h={112} sep className="mm-hell-frame" led={X('xPhMix') > 0}>
+        {R(
+          14,
+          PH.w,
+          <>
+            <PcbKnob id="xPhMix" name="MIX" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xPhRate" name="RATE" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xPhDepth" name="DEPTH" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xPhFb" name="FEEDBACK" ref_="" lo="" hi="" fine />
+            <PcbRotary id="xPhStages" name="STAGES" ref_="" w={80} />
+            <PcbKnob id="xPhCenter" name="CENTER" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xPhSpread" name="SPREAD" ref_="" lo="" hi="" fine />
+            <PcbToggle id="xPhSync" name="SYNC" ref_="" w={62} />
+          </>,
+        )}
+      </PcbFrame>
+      <PcbFrame title="FLANGER" x={FL.x} y={336} w={FL.w} h={112} className="mm-hell-frame" led={X('xFlMix') > 0}>
+        {R(
+          14,
+          FL.w,
+          <>
+            <PcbKnob id="xFlMix" name="MIX" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xFlRate" name="RATE" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xFlDepth" name="DEPTH" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xFlFb" name="FEEDBACK" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xFlDelay" name="DELAY" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xFlSpread" name="SPREAD" ref_="" lo="" hi="" fine />
+            <PcbToggle id="xFlSync" name="SYNC" ref_="" w={70} />
+            <PcbToggle id="xFlThru" name="THRU-0" ref_="" w={70} />
+          </>,
+        )}
+      </PcbFrame>
+      <PcbFrame title="CHORUS" x={CH.x} y={462} w={CH.w} h={112} sep className="mm-hell-frame" led={voyParams.of('chorus') > 0}>
+        {R(
+          14,
+          CH.w,
+          <>
+            <PcbRotary id="vChMode" name="MODE" ref_="" w={96} />
+            <PcbKnob id="xChRate" name="RATE" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xChDepth" name="DEPTH" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xChWidth" name="WIDTH" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xChMix" name="MIX" ref_="" lo="" hi="" fine />
+          </>,
+        )}
+      </PcbFrame>
+      <PcbFrame title="CRUSH" x={CR.x} y={462} w={CR.w} h={112} sep className="mm-hell-frame" led={X('xCrushBits') > 0 || X('xCrushRate') > 0}>
+        {R(
+          14,
+          CR.w,
+          <>
+            <PcbKnob id="xCrushBits" name="BITS" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xCrushRate" name="RATE" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xCrTone" name="TONE" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xCrMix" name="MIX" ref_="" lo="" hi="" fine />
+          </>,
+        )}
+      </PcbFrame>
+      <PcbFrame title="PUMP" x={PU.x} y={462} w={PU.w} h={112} className="mm-hell-frame" led={X('xPumpDepth') > 0}>
+        {R(
+          14,
+          PU.w,
+          <>
+            <PcbKnob id="xPumpDepth" name="DEPTH" ref_="" lo="" hi="" fine />
+            <PcbStep id="xPumpRate" name="RATE" ref_="" w={112} />
+            <PcbKnob id="xPuAttack" name="ATTACK" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xPumpShape" name="RELEASE" ref_="" lo="" hi="" fine />
+            <PcbKnob id="xPuCurve" name="CURVE" ref_="" lo="" hi="" fine />
+          </>,
+        )}
+      </PcbFrame>
     </>
   );
 };
@@ -665,7 +1150,7 @@ const PageKeys: React.FC = () => {
 const PAGE_LABEL: Record<HoodTab, string> = { sound: 'SOUND', fx: 'EFFECTS', seq: 'SEQUENCER' };
 const Panel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `EFFECTS / ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : 'DISTO'}` : PAGE_LABEL[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `EFFECTS / ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : fx === 'delay' ? 'DELAY' : 'DISTO'}` : PAGE_LABEL[tab];
   return (
     <>
       <button type="button" className="mm-r-wood mm-r-wood-l" aria-label="Close the machine" title="Close" onClick={onClose} />
@@ -697,7 +1182,7 @@ const PAGE_NAME: Record<HoodTab, string> = { sound: 'SOUND', fx: 'FX', seq: 'SEQ
 const HoodLcd: React.FC = () => {
   const line = useSyncExternalStore(hoodLcd.subscribe, hoodLcd.get, hoodLcd.get);
   const { tab, fx, overlay } = useHoodPage();
-  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : 'DISTO'}` : PAGE_NAME[tab];
+  const page = overlay ? overlay.toUpperCase() : tab === 'fx' ? `FX · ${fx === 'hell' ? 'HELL' : fx === 'reverb' ? 'REVERB' : fx === 'delay' ? 'DELAY' : 'DISTO'}` : PAGE_NAME[tab];
   return (
     <div className="mm-p2-lcd" role="status" aria-live="polite">
       <span className="mm-p2-lcd-a">{line ? line.name : 'MM-ARP'}</span>
@@ -782,7 +1267,7 @@ const HoodBody: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               <Overlay which={overlay} />
             ) : (
               <div className="mm-p2-tab" key={tab} data-tab={tab}>
-                {tab === 'sound' ? <Grid page="sound" /> : tab === 'fx' ? <FxPage /> : <SeqPage />}
+                {tab === 'sound' ? <SoundPage /> : tab === 'fx' ? <FxPage /> : <SeqPage />}
               </div>
             )}
           </div>

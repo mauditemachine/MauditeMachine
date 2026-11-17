@@ -35,7 +35,8 @@ const stepped = (steps, v) => {
   return Math.max(0, Math.min(n, Math.round(v * n))) / n;
 };
 const knobClean = (k, v) => (k.steps && !k.morph ? stepped(k.steps, v) : Math.round(v * 1000) / 1000);
-const exClean = (e, v) => (e.steps ? stepped(e.steps, v) : Math.round(v * 1000) / 1000);
+// v27 : FEEDBACK de la page DELAY garde sa valeur exacte (l'ancien DELAY converti au bit pres : 0.35 + 0.33 x DELAY)
+const exClean = (e, v) => (e.steps ? stepped(e.steps, v) : e.id === 'xDlFb' ? v : Math.round(v * 1000) / 1000);
 const okNum = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 
 if (bank.v !== 1 || !Array.isArray(bank.presets)) err('factory.json', 'pas de { v: 1, presets: [] }');

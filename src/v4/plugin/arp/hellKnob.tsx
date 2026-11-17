@@ -9,8 +9,9 @@
  * Le clic de la face (voyager/faceDbl.ts, 2026-11-16 ; le double clic avant) : un clic sans mouvement sur un potard ouvre
  * le capot sur la page qui le detaille (un glisser le tourne, rien ne s'ouvre ; la remise a la valeur de depart passe a
  * Alt / Cmd / Ctrl + clic) :
- *   HELL -> la page HELL ; REVERB -> la page REVERB ; DISTO -> la page DISTO ; DELAY -> SOUND, cadre DELAY. Les autres :
- *   rien (pageOf).
+ *   HELL -> la page HELL ; REVERB -> la page REVERB ; DISTO -> la page DISTO ; DELAY -> la page DELAY (v27). Les autres :
+ *   rien (pageOf). Les pieces de l'encart d'EDIT (v27, faceExtras.tsx) : un levier bascule, une touche passe au cran
+ *   suivant.
  */
 
 import { useEffect } from 'react';
@@ -29,6 +30,7 @@ import { voySilkExtraKnob } from '../../voyager/silk';
 import { VOY_HELL_PLACE, VOY_KNOB } from '../../voyager/theme';
 import { arpExtra } from './extra';
 import { hoodPage, type HoodFx, type HoodTab } from './hoodPage';
+import { encartTap } from './faceExtras';
 
 const ID = 'xHellMix';
 export const HELL_DIAL = 'z:hell';
@@ -52,13 +54,14 @@ registerDialSpec(HELL_DIAL, {
 
 /**
  * La page d'un potard de la face (2026-11-16, Mika : "seuls les boutons qui ont une page ou une section dediee dans OPEN
- * l'ouvrent") : REVERB (sa page), HELL (sa page), DISTO (sa page), DELAY (SOUND, son cadre : TIME, TAPE, MODE). Tous les autres ne font
+ * l'ouvrent") : REVERB (sa page), HELL (sa page), DISTO (sa page), DELAY (sa page, v27). Tous les autres ne font
  * rien au clic (ni OPEN, ni saut de valeur : ui/Hotspots.tsx tapDial) ; ils se tournent au glisser comme avant.
  */
 function pageOf(dial: string): { tab: HoodTab; fx: HoodFx | null; focus: string } | null {
   if (dial === HELL_DIAL) return { tab: 'fx', fx: 'hell', focus: 'HELL' };
   if (dial === 'v:reverb') return { tab: 'fx', fx: 'reverb', focus: 'REVERB' };
-  if (dial === 'v:delay') return { tab: 'sound', fx: null, focus: 'DELAY' };
+  // v27 : la page DELAY (facon EchoBoy / H-Delay), le cadre FEEDBACK · MIX (le potard DELAY de la face est MIX)
+  if (dial === 'v:delay') return { tab: 'fx', fx: 'delay', focus: 'FEEDBACK · MIX' };
   // DISTO (2026-11-17, la DISTO facon Decapitator) : sa page, le cadre DRIVE
   if (dial === 'v:dist') return { tab: 'fx', fx: 'disto', focus: 'DRIVE' };
   return null;
@@ -117,6 +120,7 @@ export const HellKnob: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     };
     stage.hit.add([def]);
     faceDbl.set((dial) => {
+      if (encartTap(dial)) return true;
       const pg = pageOf(dial);
       if (!pg) return false;
       hoodPage.show(pg.tab, pg.fx, pg.focus);

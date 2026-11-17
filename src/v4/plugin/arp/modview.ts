@@ -1,3 +1,4 @@
+import { MM_ACCENT } from './accent';
 /**
  * L'arc lumineux des potards modules (2026-11-16, Mika, la maquette A : "un arc ambre discret montre la plage du LFO,
  * une comete orange suit la valeur reelle"). Le C++ envoie, 30 fois par seconde, la valeur modulee (0..1) des reglages
@@ -101,8 +102,8 @@ export const arpMod = {
 
 /* ---------------- le dessin (commun a la face et a OPEN) ---------------- */
 
-export const MOD_ORANGE = '#ff6a2a';
-export const MOD_HEAD = '#ffd2a8';
+export const MOD_ORANGE = MM_ACCENT;
+export const MOD_HEAD = '#fff6c4';
 
 /**
  * L'arc d'un potard en SVG : at(v) donne le point (x, y) de la valeur v sur le cercle de l'arc ; w l'epaisseur, r le

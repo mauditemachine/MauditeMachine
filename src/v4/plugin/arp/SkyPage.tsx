@@ -173,8 +173,8 @@ const Tail: React.FC<{ m: SkyMachineDef }> = ({ m }) => {
     <svg className="mm-sky-tail" width={W} height={H + 12} viewBox={`0 0 ${W} ${H + 12}`} aria-hidden="true">
       <defs>
         <linearGradient id="mm-sky-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#f47b2f" stopOpacity="0.55" />
-          <stop offset="1" stopColor="#f47b2f" stopOpacity="0.04" />
+          <stop offset="0" style={{ stopColor: "var(--mm-accent)" }} stopOpacity="0.55" />
+          <stop offset="1" style={{ stopColor: "var(--mm-accent)" }} stopOpacity="0.04" />
         </linearGradient>
       </defs>
       <g className="mm-sky-grid">

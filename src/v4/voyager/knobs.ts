@@ -55,6 +55,8 @@ const scl = new Vector3();
 const PANEL_M = new Matrix4().compose(new Vector3(0, VOY_PANEL.cy, VOY_PANEL.cz), new Quaternion().setFromEuler(new Euler(VOY_PANEL.angle, 0, 0)), new Vector3(1, 1, 1));
 /** Les potards de la face, sans les boutons poussoirs (SUB OCT, 2026-10-11). */
 const DIALS = VOY_FACE_KNOBS.filter((k) => !isPush(k.id));
+/** v27 (le plugin) : les potards rendus en petits knobs canneles 3D (plugin/arp/faceExtras.tsx) : caches ici, leurs zones de prise restent. */
+export const FLUTED_DIALS: ReadonlySet<VoyKnobId> = new Set<VoyKnobId>(PLUGIN_ARP ? ['fm', 'ratio', 'osc1', 'osc2', 'noise', 'sub', 'subWave'] : []);
 
 /**
  * La moitie de l'ecart au plus proche voisin de la meme rangee (meme plan, z a 0.3 pres ; les poussoirs compris), en
@@ -154,7 +156,7 @@ export class VoyKnobs {
       for (const k of DIALS) {
         const i = DIALS.findIndex((x) => x.id === k.id);
         const pl = voyKnobPlace(k.id);
-        m4.compose(pos.set(pl.x, 0, pl.z), quat.identity(), scl.setScalar(pl.s));
+        m4.compose(pos.set(pl.x, 0, pl.z), quat.identity(), scl.setScalar(FLUTED_DIALS.has(k.id) ? 0 : pl.s));
         if (pl.where === 'panel') m4.premultiply(PANEL_M);
         this.top.setMatrixAt(i, m4);
       }
@@ -167,7 +169,7 @@ export class VoyKnobs {
     if (i < 0) return;
     const pl = voyKnobPlace(id);
     quat.setFromAxisAngle(AXIS_Y, this.angle.get(id) ?? 0);
-    m4.compose(pos.set(pl.x, 0, pl.z), quat, scl.setScalar(pl.s));
+    m4.compose(pos.set(pl.x, 0, pl.z), quat, scl.setScalar(FLUTED_DIALS.has(id) ? 0 : pl.s));
     if (pl.where === 'panel') m4.premultiply(PANEL_M);
     this.mesh.setMatrixAt(i, m4);
     this.mesh.instanceMatrix.needsUpdate = true;

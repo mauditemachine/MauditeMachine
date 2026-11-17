@@ -75,6 +75,13 @@ export const PLUGIN: boolean = PLUGIN_FLAG !== null;
 export const PLUGIN_KIND: PluginKind | null = PLUGIN_FLAG === null ? null : PLUGIN_FLAG === 'arp' ? 'arp' : 'rytm';
 /** Le plugin MM-ARP (raccourci de PLUGIN_KIND === 'arp'). */
 export const PLUGIN_ARP: boolean = PLUGIN_KIND === 'arp';
+/**
+ * v27 (Mika, v26 : l'orange "boring" devient un jaune vif) : LA couleur d'accent du plugin MM-ARP, un seul jeton : la
+ * face 3D (theme.ts HEX.orange, PAD_GLOW) et OPEN (la variable CSS --mm-accent, posee par plugin/arp/accent.ts).
+ */
+export const PLUGIN_ACCENT = '#FFD900';
+/** sur un fond clair (le VU creme) : le meme jaune, assombri pour se lire */
+export const PLUGIN_ACCENT_INK = '#7A6200';
 
 /**
  * La face Digitakt II de la V.6.0 (2026-10-30, docs/v4/dt2/dt2-master-spec.md 2 et 5.1, la lane B3) : depuis l'integration

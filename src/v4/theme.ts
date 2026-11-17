@@ -15,6 +15,7 @@
 import seoMeta from '../data/seo-meta.json';
 import { fwText } from './firmware';
 import { DT2_FACEPLATE, RYTM_FACEPLATE, dt2TrackMuteDots, fpU, fpX, fpZ, type FpMark } from './rytm/faceplate';
+import { PLUGIN_ACCENT } from './theme/base';
 import { DT2_FACE, GLOBAL_FX_RULE, HEAD, type Inst, KEY_MARK, OLED, OLED_UH, PAD, PAD_FACE, PAGE_KNOB_IDS, type PageId, type PageKnobId, PLUGIN, PLUGIN_ARP, PORTRAIT, RYTM_FACE_VER, SILK, type SilkLogoId, type SilkText, VOICE_COLS } from './theme/base';
 import { keyDz, KEYS, keyX, KNOB_RING, SILK_TEXTS } from './theme/face';
 export * from './theme/face';
@@ -34,7 +35,7 @@ export const HEX = {
   yellowHi: '#FFD75E',
   red: '#C8442F',
   /** orange de navigation : noms des pages et des puces, pas programmes (demande de Mika, 2026-09-30) */
-  orange: '#FF6A13',
+  orange: PLUGIN_ARP ? PLUGIN_ACCENT : '#FF6A13',
   /** pas programme : orange, pour voir d'un coup d'oeil quels pas sont mis (velocite forte) */
   ledSet: '#FF6A13',
   /** velocite moyenne : l'orange a 68 % */
@@ -850,11 +851,11 @@ export const PAD_GLOW = {
   /** dessus 86,71,24 : environ 30 % */
   hover: [0.085, 0.06, 0.003],
   /** dessus 246,223,124 (#FFD75E : 255,215,94, meme limite de gamut) */
-  active: [1.8, 0.85, 0.02],
-  /** OPEN, machine fermee (revision 4) : orange plein, l'action qui transforme la page */
-  orange: [1.6, 0.2, 0.004],
+  active: PLUGIN_ARP ? [1.7, 1.25, 0.0] : [1.8, 0.85, 0.02],
+  /** OPEN, machine fermee (revision 4) : orange plein, l'action qui transforme la page ; le plugin (v27) : le jaune d'accent */
+  orange: PLUGIN_ARP ? [1.6, 1.2, 0.0] : [1.6, 0.2, 0.004],
   /** OPEN devenu CLOSE, machine ouverte : orange faible */
-  orangeDim: [0.16, 0.024, 0],
+  orangeDim: PLUGIN_ARP ? [0.16, 0.12, 0] : [0.16, 0.024, 0],
   /** voix coupee (2026-10-07, Mika : "Mute en rouge, type LED a travers un caoutchouc") : une LED rouge allumee sous le pad */
   muted: [0.62, 0.025, 0.012],
 } as const;

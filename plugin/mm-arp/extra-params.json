@@ -1639,7 +1639,7 @@
       "id": "xDlMs",
       "label": "DELAY TIME",
       "section": "delay",
-      "def": 0.720606469351524,
+      "def": 0.721,
       "help": "le temps en FREE : 5 ms a 2 s"
     },
     {

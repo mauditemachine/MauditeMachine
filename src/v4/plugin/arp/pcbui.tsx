@@ -30,6 +30,7 @@ import { arpExtra, extraParam, isExtra } from './extra';
 import { arpMidi } from './midimap';
 import { arpMod, MOD_HEAD, MOD_ORANGE, modArcPaths } from './modview';
 import { distoInert } from './disto';
+import { delayInert } from './delay';
 import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
 
 /* ---------------- la source d'un reglage ---------------- */
@@ -49,6 +50,14 @@ export interface VirtualSrc {
   name?: string;
 }
 const VIRT = new Map<string, VirtualSrc>();
+const bothSubscribe = (fn: () => void): (() => void) => {
+  const a = voyParams.subscribe(fn);
+  const b = arpExtra.subscribe(fn);
+  return () => {
+    a();
+    b();
+  };
+};
 export const registerVirtual = (id: string, v: VirtualSrc): void => {
   VIRT.set(id, v);
 };
@@ -68,7 +77,8 @@ export const SRC = {
   // les places de la reverbe facon BigSky : leurs crans sont ceux de la machine du moment (skyModel.ts)
   steps: (id: string): readonly string[] =>
     virt(id) ? (virt(id)?.steps ?? []) : isVoy(id) ? (voyKnob(id).steps ?? []) : (skySteps(skyTypeIndex(arpExtra.of('xSkyType')), id) ?? extraParam(id)?.steps ?? []),
-  subscribe: (id: string) => (isVoy(id) ? voyParams.subscribe : arpExtra.subscribe),
+  // un reglage vu (v27 : CHORUS MODE lit le potard CHORUS du site et xChBoth) : les deux sources
+  subscribe: (id: string) => (virt(id) ? bothSubscribe : isVoy(id) ? voyParams.subscribe : arpExtra.subscribe),
 };
 
 /** L'index du cran d'une valeur. */
@@ -86,6 +96,9 @@ const stepOf = (id: string, v: number): number => {
 const COLOURS: ReadonlySet<string> = new Set([
   'xRing', 'xFold', 'xNoiseColor', 'xHpf', 'xComb', 'xFeedback', 'xEqLow', 'xEqMid', 'xEqHigh', 'xEqAir', 'xWarmth', 'xBass', 'xAir', 'xWidth',
   'xPhMix', 'xFlMix', 'xCrushBits', 'xCrushRate', 'xPumpDepth', 'xShimmer', 'xHellMix', 'xSwing', 'xLfo1Depth2', 'xLfo2Depth',
+  // v27 : le rack enrichi, la page DELAY
+  'xPhCenter', 'xPhSpread', 'xFlDelay', 'xFlSpread', 'xChRate', 'xChDepth', 'xChWidth', 'xChMix', 'xCrTone', 'xCrMix', 'xPuAttack', 'xPuCurve',
+  'xDlSat', 'xDlDiff', 'xDlAnalog', 'xDlDuck', 'xDlGroove', 'xDlFeel', 'xDlOffset', 'xDlLow', 'xDlHigh', 'xQOut',
 ]);
 /** Sans effet tant que leur maitre est a zero : grises. */
 const MASTER_OF: Readonly<Record<string, string>> = {
@@ -93,6 +106,11 @@ const MASTER_OF: Readonly<Record<string, string>> = {
   xPhRate: 'xPhMix', xPhDepth: 'xPhMix', xPhFb: 'xPhMix',
   xFlRate: 'xFlMix', xFlDepth: 'xFlMix', xFlFb: 'xFlMix',
   xPumpRate: 'xPumpDepth', xPumpShape: 'xPumpDepth',
+  // v27
+  xPhStages: 'xPhMix', xPhCenter: 'xPhMix', xPhSpread: 'xPhMix', xPhSync: 'xPhMix',
+  xFlDelay: 'xFlMix', xFlSpread: 'xFlMix', xFlSync: 'xFlMix', xFlThru: 'xFlMix',
+  xPuAttack: 'xPumpDepth', xPuCurve: 'xPumpDepth',
+  xChRate: 'chorus', xChDepth: 'chorus', xChWidth: 'chorus', xChMix: 'chorus',
 };
 /** Les reglages de la DISTO sans effet sur MM (2026-11-17). */
 const near = (a: number, b: number): boolean => Math.abs(a - b) < 0.0005;
@@ -105,6 +123,10 @@ export const inert = (id: string): boolean => {
   // DISTO (2026-11-17, v25) : sur MM (l'OVERDRIVE du moteur), seuls DRIVE et OUTPUT agissent ; une bande hors service,
   // une coupure sans bandes, une frequence sans son filtre... (disto.ts)
   if (distoInert(id)) return true;
+  // la page DELAY (v27, delay.ts) : OFFSET sans deux cotes, le motif hors RHYTHM, les ms en SYNC...
+  if (delayInert(id)) return true;
+  // CRUSH TONE et MIX sans CRUSH ni DOWNSAMPLE
+  if ((id === 'xCrTone' || id === 'xCrMix') && SRC.of('xCrushBits') <= 0 && SRC.of('xCrushRate') <= 0) return true;
   const m = MASTER_OF[id];
   return m !== undefined && SRC.of(m) <= 0;
 };
@@ -143,7 +165,7 @@ export const pcbTouch = {
 
 const useTouched = (id: string): boolean => useSyncExternalStore(pcbTouch.subscribe, () => pcbTouch.get() === id);
 const useValue = (id: string): number => useSyncExternalStore(SRC.subscribe(id), () => SRC.of(id));
-const useInert = (id: string): boolean => useSyncExternalStore(arpExtra.subscribe, () => inert(id));
+const useInert = (id: string): boolean => useSyncExternalStore(bothSubscribe, () => inert(id));
 const useArmed = (id: string): boolean => useSyncExternalStore(arpMidi.subscribe, () => arpMidi.get().learning && arpMidi.get().armed === id);
 const learning = (): boolean => arpMidi.get().learning;
 
@@ -320,9 +342,9 @@ const KnobModArc: React.FC<{ id: string; k: number; fine?: boolean }> = ({ id, k
     <svg className="mm-mod-arc" data-id={id} width={box} height={box} viewBox={`0 0 ${box} ${box}`} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }} aria-hidden="true">
       <path d={a.range} stroke={MOD_ORANGE} strokeOpacity={0.22} strokeWidth={3} fill="none" strokeLinecap="round" />
       {a.trail.map((s, i) => (
-        <path key={i} d={s.d} stroke={MOD_ORANGE} strokeOpacity={s.o} strokeWidth={3.2} fill="none" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 2px rgba(255,106,42,0.8))' }} />
+        <path key={i} d={s.d} stroke={MOD_ORANGE} strokeOpacity={s.o} strokeWidth={3.2} fill="none" strokeLinecap="round" style={{ filter: 'drop-shadow(0 0 2px color-mix(in srgb, var(--mm-accent) 80%, transparent))' }} />
       ))}
-      <circle cx={a.head[0]} cy={a.head[1]} r={2.4} fill={MOD_HEAD} style={{ filter: 'drop-shadow(0 0 2.5px rgba(255,160,100,0.9))' }} />
+      <circle cx={a.head[0]} cy={a.head[1]} r={2.4} fill={MOD_HEAD} style={{ filter: 'drop-shadow(0 0 2.5px color-mix(in srgb, var(--mm-accent) 90%, transparent))' }} />
     </svg>
   );
 };
