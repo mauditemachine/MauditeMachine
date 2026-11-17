@@ -45,7 +45,7 @@ import { BoxGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeomet
 import { disposeSheen, glassSheen } from '../scene/glassSheen';
 import { albedo } from '../scene/materials';
 import { makeCanvasTexture } from '../scene/silk';
-import { FONT_DISPLAY, GAIN, HEX, PORTRAIT } from '../theme';
+import { FONT_DISPLAY, GAIN, HEX, PLUGIN_ARP, PORTRAIT } from '../theme';
 import type { PresetView } from '../state/presetMode';
 import { CHORDS } from './chords';
 import { hzText, midiName, voyDiagram, type VoyDiagram } from './diagrams';
@@ -793,7 +793,8 @@ export class VoyScreen {
     const colW = UW * 0.4 - 10;
     const top = MAIN0 - 2;
     const bot = UH - 10;
-    const label = k.section === 'feg' ? `F.EG ${k.label}` : k.section === 'aeg' ? `A.EG ${k.label}` : k.label;
+    // Le VST3 (2026-11-17) : DISTO a la place d'OVERDRIVE, comme sur sa face
+    const label = k.section === 'feg' ? `F.EG ${k.label}` : k.section === 'aeg' ? `A.EG ${k.label}` : PLUGIN_ARP && id === 'dist' ? 'DISTO' : k.label;
     const ls = this.fit(label, 700, DESK ? 12 : 12.5, colW);
     const stepped = !!k.steps && !k.morph;
     const us = this.fit(unit, 600, FS.small, colW, 5);

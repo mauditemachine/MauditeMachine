@@ -642,6 +642,9 @@ function full(p) {
   for (const id of ['xHpf', 'xComb', 'xCombFb']) if (id in p.extra) throw new Error(`${p.name} : ${id} doit rester neutre (FILTER +)`);
   // La reverbe : CLASSIC (la reverbe d'avant, celle sur laquelle la banque est calee) tant qu'un preset n'en choisit pas d'autre
   const ex = { ...EXTRA_DEF, xQuality: 1, xSkyType: 0, ...p.extra };
+  // HELL et la reverbe facon BigSky inactifs dans toute la banque (2026-11-17, Mika) : MIX de HELL a 0, la reverbe d'avant
+  if (ex.xHellMix !== 0) throw new Error(`${p.name} : HELL doit rester coupe (xHellMix 0) dans la banque d'usine`);
+  if (ex.xSkyType !== 0) throw new Error(`${p.name} : la reverbe doit rester CLASSIC (xSkyType 0) dans la banque d'usine`);
   const extra = {};
   for (const e of EXTRA) extra[e.id] = cleanExtra(e.id, ex[e.id]);
   for (const id of Object.keys(p.extra)) if (!EXTRA.some((e) => e.id === id)) throw new Error(`${p.name} : reglage inconnu ${id}`);

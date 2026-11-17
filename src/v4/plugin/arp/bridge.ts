@@ -65,6 +65,7 @@ import { arpDisk, DISK_FORMAT, type DiskItem } from './disk';
 import { arpExtra, EXTRA_IDS, isExtra } from './extra';
 import { arpMidi, type MidiMapItem } from './midimap';
 import { look } from './look';
+import { hellMigrate } from './hell';
 import { arpSteps } from './steps';
 
 /* ---------------- le programme (lu par plugin/mm-arp/src) ---------------- */
@@ -333,7 +334,8 @@ function diskPreset(name: string): string {
  * a leur valeur de depart (le son du site), sauf xQuality qui reste ou il est.
  */
 function applyExtra(raw: unknown): void {
-  const x = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  // un preset d'avant HELL complet (2026-11-17) : son decalage, TONE et LFO DEPTH passent aux nouveaux reglages
+  const x = hellMigrate(raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {});
   for (const id of EXTRA_IDS) {
     const v = x[id];
     if (typeof v === 'number' && Number.isFinite(v)) arpExtra.set(id, v);

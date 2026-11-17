@@ -181,7 +181,19 @@
     "xSkyP2": 0,
     "xSkyP3": 0,
     "xSkyP4": 0,
-    "xSkyP5": 0
+    "xSkyP5": 0,
+    "xHellCross": 0,
+    "xHellHp": 0,
+    "xHellLp": 1,
+    "xHellSmear": 0,
+    "xHellRange": 0,
+    "xHellPhase": 0,
+    "xHellAntiRefl": 0,
+    "xHellLfoShape": 0,
+    "xHellLfoSync": 0,
+    "xHellLfoAmt": 0.5,
+    "xHellLfoStereo": 0,
+    "xHellLfoTarget": 0
   },
   "steps": {
     "acc": [

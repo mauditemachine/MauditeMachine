@@ -11,6 +11,7 @@
 
 import spec from '../../../../plugin/mm-arp/extra-params.json';
 import { skyText, skyTypeIndex } from './skyModel';
+import { hellShiftText, LFO_BEAT_NAMES } from './hell';
 
 /**
  * Les blocs du JSON. Les cinq premiers : la page SOUND+ du capot (SoundPlus.tsx). Les autres (2026-11-11) : le module
@@ -183,16 +184,23 @@ function text(id: string, v: number): string {
       const t = 5 * Math.pow(400, v);
       return t >= 1000 ? `${(t / 1000).toFixed(2)} s` : `${Math.round(t)} ms`;
     }
-    case 'xHellShift': {
-      const x = 2 * v - 1;
-      const f = 5000 * x * x * x;
-      const a = Math.abs(f);
-      return a < 0.05 ? '0 Hz' : `${f > 0 ? '+' : '-'}${a >= 1000 ? `${(a / 1000).toFixed(2)} kHz` : a >= 100 ? `${Math.round(a)} Hz` : `${a.toFixed(1)} Hz`}`;
-    }
+    // le decalage : sa loi depend de RANGE (hell.ts)
+    case 'xHellShift':
+      return hellShiftText(v, Math.round((values.xHellRange ?? 0) * 3));
     case 'xHellUpDown':
-      return v >= 0.999 ? 'UP' : v <= 0.001 ? 'DOWN' : `${Math.round((1 - v) * 100)} / ${Math.round(v * 100)}`;
+      return v >= 0.999 ? 'UP' : v <= 0.001 ? 'DOWN' : Math.abs(v - 0.5) < 0.01 ? 'R.M.' : `${Math.round((1 - v) * 100)} / ${Math.round(v * 100)}`;
     case 'xHellLfoRate':
-      return hz(0.02 * Math.pow(500, v));
+      return (values.xHellLfoSync ?? 0) >= 0.5 ? LFO_BEAT_NAMES[Math.round(Math.min(1, Math.max(0, v)) * (LFO_BEAT_NAMES.length - 1))] : hz(0.02 * Math.pow(500, v));
+    case 'xHellHp':
+      return v <= 0.001 ? 'OFF' : hz(20 * Math.pow(200, v));
+    case 'xHellLp':
+      return v >= 0.999 ? 'OFF' : hz(300 * Math.pow(20000 / 300, v));
+    case 'xHellSmear':
+      return dose(v);
+    case 'xHellPhase':
+      return `${Math.round(v * 360)} DEG`;
+    case 'xHellLfoAmt':
+      return bipolar(v);
     case 'xHellLfoDepth':
       return v <= 0 ? 'OFF' : `${Math.round(400 * v * v)} Hz`;
     case 'xHellTone':

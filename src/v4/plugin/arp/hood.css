@@ -3021,3 +3021,377 @@
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* =====================================================================================================================
+   2026-11-17 : la page HELL (HellPage.tsx), facon Echobode au design du MM-ARP : le FREQUENCY SHIFTER en vedette et son
+   echelle, le VU a aiguille du LFO, les presets.
+   ===================================================================================================================== */
+.mm-plugin-arp .mm-hell-row {
+  left: 0;
+  justify-content: center;
+}
+
+.mm-plugin-arp .mm-hell-hero {
+  position: absolute;
+}
+
+.mm-plugin-arp .mm-hell-scale {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+.mm-plugin-arp .mm-hell-scale-ring {
+  fill: none;
+  stroke: rgba(240, 234, 224, 0.18);
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-hell-scale-minor {
+  stroke: rgba(240, 234, 224, 0.4);
+  stroke-width: 0.7;
+}
+
+.mm-plugin-arp .mm-hell-scale-major {
+  stroke: rgba(240, 234, 224, 0.9);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.mm-plugin-arp .mm-hell-scale-t {
+  fill: rgba(240, 234, 224, 0.9);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-anchor: middle;
+}
+
+.mm-plugin-arp .mm-hell-scale-t[data-zero='1'] {
+  fill: #f47b2f;
+}
+
+.mm-plugin-arp .mm-hell-scale-sign {
+  fill: rgba(240, 234, 224, 0.8);
+  font-size: 13px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+/* le gros potard : le meme que les autres, en grand (k 2.3), son nom sous l'echelle */
+.mm-plugin-arp .mm-hell-hero-knob {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-hero='1'] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 120px;
+  height: 120px;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-hero='1'] .mm-p2-knob-hit {
+  top: 0;
+  left: 50%;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-hero='1'] .mm-p2-ends,
+.mm-plugin-arp .mm-p2-knob[data-hero='1'] .mm-p2-ref {
+  display: none;
+}
+
+.mm-plugin-arp .mm-p2-knob[data-hero='1'] .mm-p2-name {
+  top: 172px;
+  left: -60px;
+  right: -60px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+}
+
+.mm-plugin-arp .mm-hell-value {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-hell-value b {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f47b2f;
+}
+
+.mm-plugin-arp .mm-hell-value span {
+  font-size: 7px;
+  letter-spacing: 0.2em;
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-hell-rm {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--r-silk-dim);
+}
+
+/* les presets : une fenetre de verre noir, PREV / NEXT / INIT, la banque deroulee */
+.mm-plugin-arp .mm-hell-psub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 150px;
+  text-align: center;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--r-silk-dim);
+}
+
+.mm-plugin-arp .mm-hell-presets {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 166px;
+}
+
+.mm-plugin-arp .mm-hell-pwin {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 92px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 4px;
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(#0b0906, #141008);
+  box-shadow:
+    0 0 0 2px #050505,
+    0 0 0 3px rgba(255, 255, 255, 0.08),
+    inset 0 2px 10px rgba(0, 0, 0, 0.95);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-hell-pnum {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  color: rgba(244, 241, 234, 0.5);
+}
+
+.mm-plugin-arp .mm-hell-pwin b {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ff8a52;
+  text-shadow: 0 0 8px rgba(244, 123, 47, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-plugin-arp .mm-hell-pdesc {
+  margin-top: 4px;
+  font-size: 8px;
+  line-height: 11px;
+  letter-spacing: 0.03em;
+  color: rgba(244, 241, 234, 0.6);
+}
+
+.mm-plugin-arp .mm-hell-pkeys {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 0 10px;
+}
+
+.mm-plugin-arp .mm-hell-plist {
+  position: absolute;
+  z-index: 30;
+  left: -6px;
+  right: -6px;
+  top: 96px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 6px;
+  border-radius: 4px;
+  background: rgba(10, 9, 8, 0.96);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 10px 24px rgba(0, 0, 0, 0.7);
+}
+
+.mm-plugin-arp .mm-hell-plist button {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+  margin: 0;
+  padding: 2px 3px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  font: inherit;
+  font-size: 7.5px;
+  line-height: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(240, 234, 224, 0.8);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mm-plugin-arp .mm-hell-plist button span {
+  color: rgba(240, 234, 224, 0.4);
+}
+
+.mm-plugin-arp .mm-hell-plist button:hover,
+.mm-plugin-arp .mm-hell-plist button[data-on='1'] {
+  background: rgba(244, 123, 47, 0.18);
+  color: #fff4ea;
+}
+
+/* le VU : un boitier noir rond, sa bague, la face ivoire, l'aiguille, la vitre */
+.mm-plugin-arp .mm-hell-vu-place {
+  position: absolute;
+}
+
+.mm-plugin-arp .mm-hell-vu {
+  position: relative;
+  width: 172px;
+  height: 120px;
+  border-radius: 12px;
+  padding: 4px;
+  box-sizing: border-box;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 35%),
+    linear-gradient(180deg, #1f1e1d, #0b0a0a);
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.7),
+    -3px 6px 10px rgba(0, 0, 0, 0.7);
+}
+
+.mm-plugin-arp .mm-hell-vu-face {
+  position: relative;
+  width: 164px;
+  height: 112px;
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 100%, #e9dfc6 0%, #ddd1b4 55%, #c6b896 100%);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.mm-plugin-arp .mm-hell-vu-face svg {
+  position: absolute;
+  left: 7px;
+  top: 2px;
+}
+
+.mm-plugin-arp .mm-hell-vu[data-on='1'] .mm-hell-vu-face {
+  background:
+    radial-gradient(60% 50% at 50% 60%, rgba(255, 200, 120, 0.22), rgba(255, 200, 120, 0) 70%),
+    radial-gradient(120% 90% at 50% 100%, #efe5cb 0%, #e3d6b8 55%, #cbbd9a 100%);
+}
+
+.mm-plugin-arp .mm-hell-vu-arc {
+  fill: none;
+  stroke: #1b1714;
+  stroke-width: 1.1;
+}
+
+.mm-plugin-arp .mm-hell-vu-red {
+  fill: none;
+  stroke: #b3241a;
+  stroke-width: 3.5;
+}
+
+.mm-plugin-arp .mm-hell-vu-tick {
+  stroke: #1b1714;
+  stroke-width: 0.8;
+}
+
+.mm-plugin-arp .mm-hell-vu-tick[data-big='1'] {
+  stroke-width: 1.4;
+}
+
+.mm-plugin-arp .mm-hell-vu-t {
+  fill: #1b1714;
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.mm-plugin-arp .mm-hell-vu-name {
+  fill: #1b1714;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-anchor: middle;
+}
+
+.mm-plugin-arp .mm-hell-vu-brand {
+  fill: rgba(27, 23, 20, 0.6);
+  font-size: 4.5px;
+  letter-spacing: 0.3em;
+  text-anchor: middle;
+}
+
+.mm-plugin-arp .mm-hell-vu-needle {
+  stroke: #120f0d;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  filter: drop-shadow(1.5px 2px 1.2px rgba(0, 0, 0, 0.35));
+}
+
+.mm-plugin-arp .mm-hell-vu-pivot {
+  fill: #111;
+  stroke: #3a3836;
+  stroke-width: 1;
+}
+
+.mm-plugin-arp .mm-hell-vu-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.08) 28%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0) 30%);
+  pointer-events: none;
+}
+
+.mm-plugin-arp .mm-hell-sub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--r-silk-dim);
+}

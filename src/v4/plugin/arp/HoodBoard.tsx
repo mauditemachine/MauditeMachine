@@ -26,13 +26,13 @@ import { seq } from '../../voyager/seq';
 import { extHead } from '../head';
 import { arpBridge } from './bridge';
 import { arpExtra, extraParam, MATRIX_ROWS } from './extra';
-import { HELL_PRESETS, hellCurrent, hellLoad } from './hell';
 import { HOOD_PAGES, hoodPage, hoodPageIndex, hoodPageStep, type HoodTab } from './hoodPage';
 import { hypnoNew, hypnoStyle, HYPNO_STYLES } from './hypno';
 import { LIB_CATS, LIB_PRESETS, libCurrent, libLoad, libOfCat, libStep, libStore } from './library';
 import { DiskPresets } from './DiskPresets';
 import { DragMidi, MidiMap } from './HoodPanel';
 import { SkyPage } from './SkyPage';
+import { HellPage } from './HellPage';
 import { HoodLookButton } from './LookPanel';
 import { arpMidi } from './midimap';
 import { hoodLcd, PcbDefs, PcbFrame, PcbKey, PcbKnob, PcbRotary, PcbSelect, PcbStep, setFullName } from './pcbui';
@@ -64,7 +64,6 @@ interface FrameSpec {
 }
 
 const knob = (id: string, name: string, lo: string, hi: string, full?: string): Ctl => ({ k: 'knob', id, name, lo, hi, full });
-const bigKnob = (id: string, name: string, lo: string, hi: string, full?: string): Ctl => ({ k: 'knob', id, name, lo, hi, full, big: true });
 /** Le petit knob fin (2026-11-17) : un reglage secondaire ; les potards du MM-RYTM (knob) gardent les principaux. */
 const fine = (id: string, name: string, full?: string): Ctl => ({ k: 'knob', id, name, lo: '', hi: '', full, fine: true });
 const step = (id: string, name: string, full?: string): Ctl => ({ k: 'step', id, name, full });
@@ -88,7 +87,7 @@ const cellW = (c: Ctl): number => (c.k === 'step' ? stepW(c.id) : c.k === 'rot' 
 const frameW = (f: FrameSpec): number => f.ctls.reduce((s, c) => s + cellW(c), 0) + 20;
 const FRAME_H = 112;
 
-type GridPage = 'sound' | 'hell';
+type GridPage = 'sound';
 
 const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
   // SOUND (2026-11-17, Mika : "le plus de choses possible sur une seule page") : les TWEAKS de la face, le son du VST3
@@ -157,19 +156,6 @@ const ROWS: Record<GridPage, { y: number; frames: FrameSpec[] }[]> = {
       ],
     },
   ],
-  // FX, HELL : le delay au decaleur de Bode (plugin/mm-arp/dsp/Hell.h)
-  hell: [
-    {
-      y: 70,
-      frames: [
-        { title: 'TIME', ctls: [sel('xHellSync', 'SYNC', 60, 'HELL TIME SYNC'), knob('xHellTime', 'TIME', '5 MS', '2 S', 'HELL TIME')] },
-        { title: 'SHIFTER', ctls: [bigKnob('xHellShift', 'SHIFT', '-5K', '+5K', 'HELL SHIFT'), knob('xHellUpDown', 'UP / DOWN', 'DOWN', 'UP', 'HELL UP/DOWN'), knob('xHellSpread', 'SPREAD', '0', 'FULL', 'HELL SPREAD')] },
-        { title: 'LOOP', ctls: [knob('xHellFb', 'FEEDBACK', '0', 'FULL', 'HELL FEEDBACK'), knob('xHellTone', 'TONE', 'LP', 'HP', 'HELL TONE')] },
-        { title: 'LFO', ctls: [knob('xHellLfoRate', 'RATE', '.02', '10 HZ', 'HELL LFO RATE'), knob('xHellLfoDepth', 'DEPTH', '0', '400 HZ', 'HELL LFO DEPTH')] },
-        { title: 'HELL', led: () => X('xHellMix') > 0, ctls: [bigKnob('xHellMix', 'MIX', 'OFF', 'FULL', 'HELL')] },
-      ],
-    },
-  ],
 };
 
 /*
@@ -183,12 +169,12 @@ const REFS: Record<string, string> = {};
   for (const k of VOY_TWEAKS) REFS[k.id] = k.id === 'sync' || k.id === 'chord' || k.id === 'fpol' ? `SW${swT++}` : `RV${rvT++}`;
   let rv = 20;
   let swn = 4;
-  const all = [...ROWS.sound, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls)).filter((c) => !(c.id in REFS));
+  const all = [...ROWS.sound].flatMap((r) => r.frames.flatMap((f) => f.ctls)).filter((c) => !(c.id in REFS));
   for (const c of all) {
     REFS[c.id] = c.k === 'knob' ? `RV${rv++}` : `SW${swn++}`;
     setFullName(c.id, c.full ?? c.name);
   }
-  for (const c of [...ROWS.sound, ...ROWS.hell].flatMap((r) => r.frames.flatMap((f) => f.ctls))) if (c.full) setFullName(c.id, c.full);
+  for (const c of [...ROWS.sound].flatMap((r) => r.frames.flatMap((f) => f.ctls))) if (c.full) setFullName(c.id, c.full);
   for (let i = 1; i <= MATRIX_ROWS; i += 1) {
     setFullName(`xM${i}Src`, `MATRIX ${i} SOURCE`);
     setFullName(`xM${i}Dst`, `MATRIX ${i} DEST`);
@@ -207,6 +193,8 @@ const REFS: Record<string, string> = {};
     setFullName(id, n);
     REFS[id] = id.includes('Depth') || id === 'xSwing' ? `RV${rv++}` : `SW${swn++}`;
   }
+  // OVERDRIVE s'appelle DISTO dans le VST3 (2026-11-17, Mika)
+  setFullName('dist', 'DISTO');
 }
 
 const useExtraAll = () => useSyncExternalStore(arpExtra.subscribe, arpExtra.get, arpExtra.get);
@@ -281,58 +269,13 @@ const Grid: React.FC<{ page: GridPage }> = ({ page }) => (
   </>
 );
 
-/* ---------------- FX : la sous-page, HELL et ses presets ---------------- */
+/* ---------------- FX : HELL (HellPage.tsx), REVERB (SkyPage.tsx) ---------------- */
 
-const HELL_W = 1000;
-const HellPresets: React.FC = () => {
-  useExtraAll();
-  const cur = hellCurrent();
-  const flash = useFlash('HELL PRESETS');
-  const x0 = ZONE.x + Math.round((ZONE.w - HELL_W) / 2);
-  return (
-    <PcbFrame title="HELL PRESETS" x={x0} y={226} w={HELL_W} h={160} className="mm-p2-hellp" flash={flash}>
-      <div className="mm-p2-hellp-keys">
-        {HELL_PRESETS.map((p) => (
-          <PcbKey key={p.name} name={p.name} w={56} h={16} on={cur?.name === p.name} aria-pressed={cur?.name === p.name} title={p.desc} onClick={() => hellLoad(p)} />
-        ))}
-      </div>
-      <p className="mm-p2-hellp-desc" role="status" aria-live="polite">
-        <b>{cur ? cur.name : 'YOUR SETTING'}</b>
-        <span>{cur ? cur.desc : 'A preset sets every HELL control except MIX (if HELL is off, it comes in at 35 %).'}</span>
-      </p>
-    </PcbFrame>
-  );
-};
-
-/** Le chemin du signal de HELL, serigraphie (rien de cliquable). */
-const HellDiagram: React.FC = () => {
-  const x0 = ZONE.x + Math.round((ZONE.w - 640) / 2);
-  return (
-    <svg className="mm-p2-helld" style={{ left: x0, top: 418 }} width="640" height="96" viewBox="0 0 640 96" aria-hidden="true">
-      <g className="mm-p2-helld-line">
-        <path d="M20 30 H96" />
-        <path d="M188 30 H236" />
-        <path d="M352 30 H400" />
-        <path d="M492 30 H620" />
-        <path d="M446 46 V76 H142 V46" />
-        <path d="M58 30 V8 H560 V30" />
-      </g>
-      <g className="mm-p2-helld-box">
-        <rect x="96" y="14" width="92" height="32" rx="3" />
-        <rect x="236" y="14" width="116" height="32" rx="3" />
-        <rect x="400" y="14" width="92" height="32" rx="3" />
-      </g>
-      <g className="mm-p2-helld-text">
-        <text x="142" y="34">DELAY</text>
-        <text x="294" y="34">BODE SHIFT</text>
-        <text x="446" y="34">TONE</text>
-        <text x="294" y="90">FEEDBACK : EVERY REPEAT SHIFTS AGAIN</text>
-        <text x="20" y="22" textAnchor="start">IN</text>
-        <text x="620" y="22" textAnchor="end">OUT</text>
-        <text x="309" y="5">DRY</text>
-      </g>
-    </svg>
-  );
+/** HELL : la page facon Echobode ; le cadre HELL (MIX) clignote au clic du potard de la face. */
+const HellHost: React.FC = () => {
+  const h = useFlash('HELL');
+  const d = useFlash('DELAY');
+  return <HellPage flash={(t) => (t === 'HELL' ? h : t === 'HELL DELAY' ? d : false)} />;
 };
 
 /** REVERB : la reverbe facon BigSky (SkyPage.tsx) ; le cadre REVERB clignote au clic du potard de la face. */
@@ -349,11 +292,7 @@ const FxPage: React.FC = () => {
       {fx === 'reverb' ? (
         <SkyHost />
       ) : (
-        <>
-          <Grid page="hell" />
-          <HellPresets />
-          <HellDiagram />
-        </>
+        <HellHost />
       )}
     </>
   );

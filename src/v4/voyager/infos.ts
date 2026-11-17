@@ -17,6 +17,7 @@
 
 import type { VoyInfoId } from './diagrams';
 import { VOY_INFO_SECTION } from './infoIds';
+import { PLUGIN_ARP } from '../theme/base';
 
 export interface VoyInfo {
   /** la section du panneau (OSCILLATORS, FILTER...), en petites capitales sur la carte */
@@ -202,7 +203,8 @@ const RAW: Record<VoyInfoId, Omit<VoyInfo, 'section'>> = {
   lfoAmt: { title: 'DEPTH', text: "La profondeur du LFO sur sa cible. À 0, MOD ne fait rien.", tip: "Commence bas (15 %) : sur la coupure, un peu suffit." },
 
   /* ---------- EFFECTS / OUTPUT ---------- */
-  dist: { title: 'OVERDRIVE', text: "Un overdrive doux et asymétrique dans le filtre et à sa sortie : il ajoute des harmoniques et tasse les crêtes, le volume est rattrapé.", tip: "20 à 35 % pour la chaleur d'une console ; au-delà pour un arpège qui grogne." },
+  // le VST3 (2026-11-17) : DISTO
+  dist: { title: PLUGIN_ARP ? 'DISTO' : 'OVERDRIVE', text: "Un overdrive doux et asymétrique dans le filtre et à sa sortie : il ajoute des harmoniques et tasse les crêtes, le volume est rattrapé.", tip: "20 à 35 % pour la chaleur d'une console ; au-delà pour un arpège qui grogne." },
   // Le CHORUS du Juno-106, un bouton poussoir a trois modes (2026-10-12)
   chorus: {
     title: 'CHORUS',

@@ -35,17 +35,38 @@ import { skyLabel, skySteps, skyTypeIndex } from './skyModel';
 
 const isVoy = (id: string): id is VoyKnobId => !isExtra(id) && (VOY_KNOB_IDS as readonly string[]).includes(id);
 
+/**
+ * Un reglage vu par une page sans etre un parametre (2026-11-17 : HELL, DELAY qui suit SYNC, le levier SYNC ; hell.ts) :
+ * il lit et ecrit des reglages du VST3 seul (arpExtra). Pas de MIDI LEARN (l'hote ne le connait pas).
+ */
+export interface VirtualSrc {
+  of: () => number;
+  def: () => number;
+  set: (v: number) => void;
+  text: (v: number) => string;
+  steps?: readonly string[];
+  name?: string;
+}
+const VIRT = new Map<string, VirtualSrc>();
+export const registerVirtual = (id: string, v: VirtualSrc): void => {
+  VIRT.set(id, v);
+};
+const virt = (id: string): VirtualSrc | undefined => VIRT.get(id);
+
 /** La valeur, la valeur de depart, le texte, les crans d'un reglage, ou qu'il vive. */
 export const SRC = {
-  of: (id: string): number => (isVoy(id) ? voyParams.of(id) : arpExtra.of(id)),
-  def: (id: string): number => (isVoy(id) ? voyParams.def(id) : arpExtra.def(id)),
+  of: (id: string): number => virt(id)?.of() ?? (isVoy(id) ? voyParams.of(id) : arpExtra.of(id)),
+  def: (id: string): number => virt(id)?.def() ?? (isVoy(id) ? voyParams.def(id) : arpExtra.def(id)),
   set: (id: string, v: number): void => {
-    if (isVoy(id)) voyParams.set(id, Math.min(1, Math.max(0, v)));
+    const vs = virt(id);
+    if (vs) vs.set(Math.min(1, Math.max(0, v)));
+    else if (isVoy(id)) voyParams.set(id, Math.min(1, Math.max(0, v)));
     else arpExtra.set(id, v);
   },
-  text: (id: string, v: number = SRC.of(id)): string => (isVoy(id) ? voyValueText(id, v) : arpExtra.text(id, v)),
+  text: (id: string, v: number = SRC.of(id)): string => virt(id)?.text(v) ?? (isVoy(id) ? voyValueText(id, v) : arpExtra.text(id, v)),
   // les places de la reverbe facon BigSky : leurs crans sont ceux de la machine du moment (skyModel.ts)
-  steps: (id: string): readonly string[] => (isVoy(id) ? (voyKnob(id).steps ?? []) : (skySteps(skyTypeIndex(arpExtra.of('xSkyType')), id) ?? extraParam(id)?.steps ?? [])),
+  steps: (id: string): readonly string[] =>
+    virt(id) ? (virt(id)?.steps ?? []) : isVoy(id) ? (voyKnob(id).steps ?? []) : (skySteps(skyTypeIndex(arpExtra.of('xSkyType')), id) ?? extraParam(id)?.steps ?? []),
   subscribe: (id: string) => (isVoy(id) ? voyParams.subscribe : arpExtra.subscribe),
 };
 
@@ -128,6 +149,8 @@ export const setFullName = (id: string, name: string): void => {
   FULL[id] = name;
 };
 export const fullName = (id: string): string => {
+  const vn = VIRT.get(id)?.name;
+  if (vn) return vn;
   // la reverbe facon BigSky : le nom depend de la machine (DECAY, TIME ou SIZE ; PRE-DELAY ou FEEDBACK ; ses places)
   const sky = id.startsWith('xSky') ? skyLabel(skyTypeIndex(arpExtra.of('xSkyType')), id) : null;
   if (sky) return `REVERB ${sky}`;
@@ -162,7 +185,7 @@ export const hoodLcd = {
 /** Le reglage sur l'afficheur du bandeau et sur l'ecran de la machine : son nom et sa valeur. */
 export function say(id: string): void {
   hoodLcd.show(fullName(id), SRC.text(id));
-  voyMsg.show(isVoy(id) ? voyReadout(id, voyParams.of(id)) : `${fullName(id)} ${SRC.text(id)}`, 2400);
+  voyMsg.show(isVoy(id) ? voyReadout(id, voyParams.of(id)).replace(/^OVERDRIVE/, 'DISTO') : `${fullName(id)} ${SRC.text(id)}`, 2400);
 }
 
 function setValue(id: string, v: number, hold = false): void {
@@ -174,6 +197,8 @@ function setValue(id: string, v: number, hold = false): void {
 /** Un clic en MIDI LEARN : le reglage s'arme chez le C++ (il ne bouge pas). */
 function tryLearn(id: string): boolean {
   if (!learning()) return false;
+  // un reglage virtuel (hell.ts) : rien a apprendre, le geste est simplement avale
+  if (VIRT.has(id)) return true;
   arpBridge.learnArm(id);
   voyMsg.show(`MIDI LEARN ${fullName(id)}`, 1800);
   hoodLcd.show('MIDI LEARN', fullName(id), 1800);
@@ -307,7 +332,7 @@ export interface CellProps {
   ref_: string;
 }
 
-export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boolean; big?: boolean; fine?: boolean }> = ({ id, name, ref_, lo, hi, small, big, fine }) => {
+export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boolean; big?: boolean; fine?: boolean; hero?: number }> = ({ id, name, ref_, lo, hi, small, big, fine, hero }) => {
   const v = useValue(id);
   const on = useTouched(id);
   const armed = useArmed(id);
@@ -366,11 +391,12 @@ export const PcbKnob: React.FC<CellProps & { lo: string; hi: string; small?: boo
   };
   // le petit knob fin (FineKnob) : les reglages secondaires et la matrice (small)
   const thin = fine || small;
-  const k = big ? 1.3 : 1;
+  // hero : un potard en vedette (le FREQUENCY SHIFTER de HELL), a cette echelle
+  const k = hero ?? (big ? 1.3 : 1);
   const box = thin ? FINE_KNOB.box : KNOB_IMG.box * k;
 
   return (
-    <div className="mm-p2-cell mm-p2-knob" data-small={small ? '1' : undefined} data-big={big ? '1' : undefined} data-fine={fine ? '1' : undefined} data-inert={dim ? '1' : undefined} data-x={id}>
+    <div className="mm-p2-cell mm-p2-knob" data-small={small ? '1' : undefined} data-big={big ? '1' : undefined} data-fine={fine ? '1' : undefined} data-hero={hero ? '1' : undefined} data-inert={dim ? '1' : undefined} data-x={id}>
       <div
         ref={el}
         className="mm-p2-knob-hit"

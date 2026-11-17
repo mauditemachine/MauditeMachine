@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <limits>
 
 namespace {
@@ -117,7 +118,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMArpProcessor::makeLayout()
                             return juce::String(buf);
                         })
                         .withLabel("");
-        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, juce::String(d.label), juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
+        // OVERDRIVE s'appelle DISTO dans le VST3 (2026-11-17, Mika) : seul le nom montre a l'hote change, pas l'ID (dist) :
+        // l'automation et les projets restent
+        const juce::String name = std::strcmp(d.id, "dist") == 0 ? juce::String("DISTO") : juce::String(d.label);
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, name, juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
     }
     // Les reglages du VST3 seul (SOUND+ : QUALITY, LFO, reverb, master)
     for (int e = 0; e < mmx::kExtra; ++e) {
