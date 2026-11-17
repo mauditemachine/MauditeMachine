@@ -3971,7 +3971,7 @@
 /* v27 : ON de la bande choisie, sous les six touches */
 .mm-plugin-arp .mm-eq-bands {
   flex-wrap: wrap;
-  width: 204px;
+  width: 228px;
   row-gap: 8px;
 }
 .mm-plugin-arp .mm-eq-on {

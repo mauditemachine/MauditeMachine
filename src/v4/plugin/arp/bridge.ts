@@ -467,6 +467,13 @@ function onLearnPick(): void {
   if (!pick) return;
   learnPick(null);
   if (!arpMidi.get().learning) return;
+  // v27 : une piece de l'encart d'EDIT (faceExtras.tsx, DialId z:ed:<id>) s'apprend comme son reglage
+  const ed = pick.startsWith('rytm:enc:z:ed:') ? pick.slice('rytm:enc:z:ed:'.length) : '';
+  if (ed && (isExtra(ed) || isKnob(ed))) {
+    arpMidi.set({ armed: ed });
+    send('mm_learn', { id: ed });
+    return;
+  }
   const id = pick.startsWith('voy:knob:') ? pick.slice('voy:knob:'.length) : '';
   if (!isKnob(id)) {
     voyMsg.show('MIDI LEARN : KNOBS ONLY', 1600);

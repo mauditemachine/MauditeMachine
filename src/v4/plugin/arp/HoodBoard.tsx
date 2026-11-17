@@ -856,7 +856,7 @@ const EqBandKeys: React.FC = () => {
     <div className="mm-eq-bands">
       <span className="mm-sq-lab">BAND</span>
       {[1, 2, 3, 4, 5, 6].map((b) => (
-        <PcbKey key={b} name={`${b}`} cap={<span>{b}</span>} w={24} h={15} on={b === sel} className={X(qid(b, 'On')) >= 0.5 ? 'mm-eq-bon' : undefined} onClick={() => eqBandStore.set(b)} aria-label={`EQ band ${b}${X(qid(b, 'On')) >= 0.5 ? ', on' : ', off'}`} />
+        <PcbKey key={b} name={`${b}`} cap={<span>{b}</span>} w={20} h={15} on={b === sel} className={X(qid(b, 'On')) >= 0.5 ? 'mm-eq-bon' : undefined} onClick={() => eqBandStore.set(b)} aria-label={`EQ band ${b}${X(qid(b, 'On')) >= 0.5 ? ', on' : ', off'}`} />
       ))}
       <span className="mm-eq-on">
         <span className="mm-sq-lab">{`BAND ${sel}`}</span>
