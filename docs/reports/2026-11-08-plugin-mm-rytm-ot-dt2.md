@@ -592,6 +592,7 @@ Mika : « ajoute aussi DEEP HOUSE THUMP en preset d'usine ».
 - **Les variations** : 1 le thump, le clap, les charleys ; 2 le shaker sur les e et a, le rim dans un delay dub, les congas qui bougent de hauteur ; 3 plein : un kick fantome avant le 4e temps (PROB 55), une percussion sur 7 pas (TLEN), la caisse qui repond, le crash de la phrase.
 - **Les niveaux au rendu du moteur C++ hors ligne (aucun son)** : le premier jet avait les charleys, l'ouvert et les congas 2 dB sous DEEP HOUSE ; remontes : le meme equilibre (charleys et ouvert -23 dB du kick, clap -15, congas -17), RMS -20.2 dBFS (DEEP HOUSE -19.9), cretes -6.8 dBFS.
 - **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, 121 BPM, le kick `bd/Bd Deep House Thump.wav` part au moteur ; DEEP HOUSE garde ses ids (54 a 56). Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 44201589617), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 0e54aa7, branche claude/intelligent-ride-56tyeo, 2026-11-17 23:49 UTC.
 
 ## 2. Decisions prises et pourquoi
 
