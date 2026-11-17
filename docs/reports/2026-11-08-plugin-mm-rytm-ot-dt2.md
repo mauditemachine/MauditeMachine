@@ -571,6 +571,17 @@ Mika : « ajoute aussi un preset GATED dans les fx. La couleur secondaire au lie
 - **Le jaune #FFD900 a la place de l'orange, dans le plugin** (`theme.ts` PLUGIN_ACCENT) : FUNC, les touches allumees en orange (Presets avec PERFORM, OPEN), les fonctions imprimees sous les touches, les noms des pads de PERFORM (`scene/keyLabels.ts`), le pad LOW CUT, les pas de TRK (`rytm/faceplate.ts` trkColor), et tout OPEN (titre, onglet choisi, DRAG MIDI, titres des sections, presets de HELL, CLOSE THE LID ; `plugin/OpenPanel.tsx`, `plugin/FxTab.tsx`). Le site garde son orange.
 - **Le jaune sur les touches eclairees** : la lueur des touches (`KEY_LIT.glow`, lineaire avant le rendu filmique) calee a la lecture des pixels : [1.3, 0.85, 0] rend FUNC (219, 198, 84) et une touche allumee (238, 223, 125), la teinte de #FFD900 (51 degres) ; le rendu de la scene les palit comme il palissait l'orange (#FF6A13 rendait 209, 106, 53).
 - **Verifie** : Chromium (sans son), fenetre 1200 x 731 : GATED envoie au moteur reverb 0.35, rsize 0.792, rtone 0.721, rpre 0.067, rgate 0.605 (280 ms), s'allume, la ligne dit SIZE 4.5 S · TONE 6.0 KHZ · PRE 8 MS · GATE 280 MS ; Cmd+Z remet la reverbe d'avant ; les cartes HELL et DIST ne debordent pas. La face et OPEN en jaune (captures avant/apres). Site : les 4 vues identiques au pixel pres. tsc : 105.
+- **Build vert** (run 44024141421), la release **mm-rytm** republiee (commit 6d8c0d5).
+
+### Lot 38, le preset d'usine INDUSTRIAL SLAM (2026-11-17)
+
+Mika : « ajoute aussi INDUSTRIAL SLAM en preset dans PERFORM » ; a la question (un preset d'usine, un pad de PERFORM ou le son de piste seul) : « Preset d'usine complet ».
+
+- **Un 25e style, INDUSTRIAL SLAM 1, 2, 3** (`src/v4/state/pluginFactory.ts`), a la fin de la liste (FUNC + la touche PERFORM, Presets) : les 72 presets d'avant gardent leurs ids (`factory-rytm-72` a `74` pour les neufs). 138 BPM, sans swing. Le kick INDUSTRIAL SLAM du site (lot 33, `bd/Bd Industrial Slam.wav`) en quatre temps, le WAREHOUSE RUMBLE sous passe-bas dans une grande reverbe sombre sur les contretemps (T9, le grondement), des charleys metalliques en doubles croches qui bougent (VAR), le clap sur 2 et 4. La DIST IRON (THUMP, AUTO) a 0.5 et le COMP a 6:1 qui cognent, un peu de BIT.
+- **Les variations** : 1 le slam nu ; 2 les toms satures, une percussion sur 5 pas (TLEN), le charley ouvert, un clap dans HELL ; 3 plein : le kick double en fin de mesure une sur deux (COND 2:2), la caisse qui roule toutes les 4 mesures (retrig), le crash de la phrase.
+- **Les samples du plugin dans les presets** : un kit peut nommer un fichier de `plugin/mm-rytm/samples` au lieu d'un numero (`Tk.n` : 'Bd Industrial Slam.wav').
+- **Les niveaux, au rendu du vrai moteur C++ hors ligne (aucun son)** : le premier jet etait ecrase par le kick (sa queue d'1.6 s remplissait chaque temps : les charleys et le clap 11 a 12 dB sous l'equilibre d'INDUSTRIAL) ; DEC du kick raccourci (0.68), le kick a -2 dB et le reste a +2 : les charleys et le clap a -14 dB du kick (-12 a -13 dans INDUSTRIAL : le kick un peu devant), le grondement a -12, RMS -21.5 dBFS (INDUSTRIAL -19.6), cretes -7.6 dBFS au plus.
+- **Verifie** : Chromium (sans son) : les trois se chargent sans erreur ni EDITED, leur programme part au moteur avec `bd/Bd Industrial Slam.wav` et `bd/Bd Warehouse Rumble.wav` ; les 72 d'avant ont les memes ids (INDUSTRIAL toujours 66 a 68). Site : les 4 vues identiques au pixel pres. tsc : 105.
 
 ## 2. Decisions prises et pourquoi
 
@@ -671,6 +682,8 @@ Mika : « ajoute aussi un preset GATED dans les fx. La couleur secondaire au lie
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 38 : un style de 3 variations plutot qu'un preset seul** : tous les presets d'usine vont par trois (la base, le groove, le plein) ; INDUSTRIAL SLAM suit la regle. A la fin de la liste : les ids des 72 d'avant ne bougent pas (un projet Ableton qui en garde un le retrouve).
+- **Lot 38 : le kick raccourci dans le preset** : le fichier du site sonne comme le site au DEC 124, mais sa longue queue noie un quatre temps a 138 BPM ; le preset le coupe a DEC 0.68, le grondement vient de T9. DEC le rallonge.
 - **Lot 37 : GATED dans une bande REVERB d'OPEN plutot qu'a cote de HELL ou de la DIST** : ce n'est ni l'un ni l'autre ; une bande basse sur toute la largeur garde la page que Mika aime telle quelle. ROOM, HALL et TIGHT GATE l'entourent pour revenir a une reverbe normale en un clic.
 - **Lot 37 : le jaune partout ou l'orange servait d'accent dans le plugin, nulle part sur le site** : la consigne vise le plugin ; le rouge (les coups, SRC, REC) reste la couleur principale.
 - **Lot 36 : une porte declenchee par les coups plutot qu'un seuil de niveau** : un gate classique reste ouvert tant que le son depasse un seuil, sa duree depend du sample et du niveau d'envoi ; ici chaque coup donne exactement le temps du GATE ("250 ms" s'entend 250 ms), un seul potard suffit. Le prix : un son tenu qui entre dans la reverbe n'est gate qu'une fois par attaque.
@@ -693,6 +706,7 @@ Mika : « ajoute aussi un preset GATED dans les fx. La couleur secondaire au lie
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 38)** : la commande mm-rytm ; FUNC + PERFORM (Presets), tout en bas : INDUSTRIAL SLAM 1, 2, 3 ; laisser tourner 8 mesures, dire si le kick doit etre plus long (DEC) ou plus fort.
 - **Cote Mika (lot 37)** : la commande mm-rytm ; OPEN, FX, REVERB : GATED ; dire si le jaune des touches est assez vif (la lueur se regle dans `theme.ts` PLUGIN_ACCENT_GLOW).
 - **Cote Mika (lot 36)** : la commande mm-rytm ; SEND FX, tape sur REVERB, GATE (potard E) vers 200 a 350 ms avec une REVERB bien dosee sur la caisse claire ou le clap et SIZE long ; dire si la coupure est trop seche ou pas assez, et si un mode qui suit le niveau (un vrai gate a seuil) manque.
 - **Cote Mika (lot 35)** : la commande mm-rytm ; BD, SAMP : DEEP HOUSE THUMP (41 / 44), comparer au site.
