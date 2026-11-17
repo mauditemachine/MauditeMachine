@@ -38,7 +38,7 @@
 
 import { BufferAttribute, BufferGeometry, DynamicDrawUsage, Mesh, MeshStandardMaterial, type CanvasTexture } from 'three';
 import type { FpMark } from '../rytm/faceplate';
-import { APPEARANCE, FONT_DISPLAY, ICON_LINE, KEY_LABEL, KEY_MARK, MARK_ICON, SILK, markW, marksH, marksW, type KeyLabelSpec } from '../theme';
+import { APPEARANCE, FONT_DISPLAY, ICON_LINE, KEY_LABEL, KEY_MARK, MARK_ICON, PLUGIN, PLUGIN_ACCENT, SILK, markW, marksH, marksW, type KeyLabelSpec } from '../theme';
 import { drawTracked, makeCanvasTexture, trackedWidth } from './silk';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
@@ -400,7 +400,8 @@ export class KeyLabelAtlas {
     });
     const group = new Map<string, number>();
     this.specs.forEach((s, i) => group.set(s.group, Math.min(group.get(s.group) ?? 1, fit[i])));
-    const altOrange = APPEARANCE.current === 'light' ? '#D94E00' : '#FF781F';
+    // Le plugin (2026-11-17, Mika : "au lieu du orange boring je veux #FFD900") : sa couleur secondaire (noms des pads de PERFORM)
+    const altOrange = APPEARANCE.current === 'light' ? '#D94E00' : PLUGIN ? PLUGIN_ACCENT : '#FF781F';
     this.specs.forEach((s) => {
       for (const lit of [false, true]) {
         const c = this.cells.get(cellKey(s.id, lit));

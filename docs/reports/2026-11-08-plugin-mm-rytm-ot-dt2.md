@@ -563,6 +563,15 @@ Mika : « je veux un parametre gated reverb dans les fx ».
 - **Verifie** : 85 tests moteur (Release et Debug), dont 4 neufs : la loi (OFF, 250 ms, 1 s) ; avec GATE 250 ms, avant 0.225 s le son est exactement celui sans GATE, apres 0.5 s plus rien (sans GATE la queue y est encore) ; la porte se ferme 258 ms apres le coup (250 ms plus les 5 ms de latence de la convolution) ; un second coup a 0.5 s rouvre la queue puis elle se referme. Chromium (sans son) : la page REVERB montre GATE en E, 59 = 180 MS, la valeur part au moteur (`fx.rgate` 0.467), tout en bas OFF (0). Le code JUCE compile (syntaxe). Site : les 4 vues identiques au pixel pres. tsc : 105.
 - **Build vert** (run 43803808126 : le DSP et ses tests sur Linux, le VST3 macOS), la release **mm-rytm** republiee ; verifie : `BUILD.txt` = commit 5c55bb0, branche claude/intelligent-ride-56tyeo, 2026-11-16 04:30 UTC.
 
+### Lot 37, le preset GATED et le jaune #FFD900 (2026-11-17)
+
+Mika : « ajoute aussi un preset GATED dans les fx. La couleur secondaire au lieu du orange boring je veux #FFD900 ».
+
+- **REVERB dans OPEN, onglet FX** : une bande sur toute la largeur sous HELL et la DIST (`plugin/FxTab.tsx` `.mm-fx-rev`) : REVERB, sa forme en clair (SIZE, TONE, PRE, GATE) et ses presets : ROOM (1.2 s), HALL (3.5 s), **GATED** (la grosse reverbe gatee des annees 80 : REVERB 0.35, SIZE 4.5 s, TONE 6 kHz, PRE 8 ms, GATE 280 ms) et TIGHT GATE (3 s coupee a 120 ms). Un preset pose l'envoi global REVERB et la forme, comme ceux de la DIST posent DRIVE ; une etape de Cmd+Z ; le bouton du preset en cours s'allume (`state/labFx.ts` REVERB_PRESETS). Les potards restent sur la page REVERB de la machine (SEND FX, tape sur REVERB). HELL et la DIST gardent leur mise en page (rien de coupe, verifie a la plus petite fenetre).
+- **Le jaune #FFD900 a la place de l'orange, dans le plugin** (`theme.ts` PLUGIN_ACCENT) : FUNC, les touches allumees en orange (Presets avec PERFORM, OPEN), les fonctions imprimees sous les touches, les noms des pads de PERFORM (`scene/keyLabels.ts`), le pad LOW CUT, les pas de TRK (`rytm/faceplate.ts` trkColor), et tout OPEN (titre, onglet choisi, DRAG MIDI, titres des sections, presets de HELL, CLOSE THE LID ; `plugin/OpenPanel.tsx`, `plugin/FxTab.tsx`). Le site garde son orange.
+- **Le jaune sur les touches eclairees** : la lueur des touches (`KEY_LIT.glow`, lineaire avant le rendu filmique) calee a la lecture des pixels : [1.3, 0.85, 0] rend FUNC (219, 198, 84) et une touche allumee (238, 223, 125), la teinte de #FFD900 (51 degres) ; le rendu de la scene les palit comme il palissait l'orange (#FF6A13 rendait 209, 106, 53).
+- **Verifie** : Chromium (sans son), fenetre 1200 x 731 : GATED envoie au moteur reverb 0.35, rsize 0.792, rtone 0.721, rpre 0.067, rgate 0.605 (280 ms), s'allume, la ligne dit SIZE 4.5 S · TONE 6.0 KHZ · PRE 8 MS · GATE 280 MS ; Cmd+Z remet la reverbe d'avant ; les cartes HELL et DIST ne debordent pas. La face et OPEN en jaune (captures avant/apres). Site : les 4 vues identiques au pixel pres. tsc : 105.
+
 ## 2. Decisions prises et pourquoi
 
 - **9 positions plutot que les deux bouts** : les lois du site ne sont pas lineaires (LEVEL au carre, coupure exponentielle, crans des potards, hauteur sur sa grille) ; 9 positions calculees par le site lui-meme, puis une interpolation (en logarithme pour les grandeurs exponentielles) restent au plus pres du site sans recopier ses lois en C++.
@@ -662,6 +671,8 @@ Mika : « je veux un parametre gated reverb dans les fx ».
 - **Lot 28 : un RANDOM a part pour le plugin** : celui du site parle a l'ancien kit des 8 voix (machines 909, 808, MM que le plugin ne joue pas) ; celui du plugin construit les 16 pistes comme un preset et les pose d'un bloc, par le meme chemin. Une seule etape d'UNDO, un seul programme envoye au moteur.
 - **Du hasard dans des plages par role** : « vraiment du random » sur toutes les fonctions, mais un beat qui se tient a chaque tirage (le kick devant, la caisse et le clap jamais en passe-bande, rien qui sature), regle d'apres le rendu du moteur.
 - **Ce que RANDOM ne touche pas** : le tempo (Ableton le mene), les scenes du crossfader et les mutes du pattern (des choix de Mika pour le live).
+- **Lot 37 : GATED dans une bande REVERB d'OPEN plutot qu'a cote de HELL ou de la DIST** : ce n'est ni l'un ni l'autre ; une bande basse sur toute la largeur garde la page que Mika aime telle quelle. ROOM, HALL et TIGHT GATE l'entourent pour revenir a une reverbe normale en un clic.
+- **Lot 37 : le jaune partout ou l'orange servait d'accent dans le plugin, nulle part sur le site** : la consigne vise le plugin ; le rouge (les coups, SRC, REC) reste la couleur principale.
 - **Lot 36 : une porte declenchee par les coups plutot qu'un seuil de niveau** : un gate classique reste ouvert tant que le son depasse un seuil, sa duree depend du sample et du niveau d'envoi ; ici chaque coup donne exactement le temps du GATE ("250 ms" s'entend 250 ms), un seul potard suffit. Le prix : un son tenu qui entre dans la reverbe n'est gate qu'une fois par attaque.
 - **Lot 36 : GATE en E** : SIZE, TONE et PRE restent sur B, C et D, ou Mika les a deja dans les doigts.
 - **Lot 32 : remonter la queue plutot que laisser le DEC du plugin la couper** : Mika compare au site ; au depart du plugin (DEC 124) les deux kicks sonnent comme sur le site. Le prix : au DEC 127 du plugin, la queue traine plus, et WAREHOUSE RUMBLE sort un peu plus bas (une crete de fichier ne peut pas depasser 0.9 sans risque de saturer).
@@ -682,6 +693,7 @@ Mika : « je veux un parametre gated reverb dans les fx ».
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- **Cote Mika (lot 37)** : la commande mm-rytm ; OPEN, FX, REVERB : GATED ; dire si le jaune des touches est assez vif (la lueur se regle dans `theme.ts` PLUGIN_ACCENT_GLOW).
 - **Cote Mika (lot 36)** : la commande mm-rytm ; SEND FX, tape sur REVERB, GATE (potard E) vers 200 a 350 ms avec une REVERB bien dosee sur la caisse claire ou le clap et SIZE long ; dire si la coupure est trop seche ou pas assez, et si un mode qui suit le niveau (un vrai gate a seuil) manque.
 - **Cote Mika (lot 35)** : la commande mm-rytm ; BD, SAMP : DEEP HOUSE THUMP (41 / 44), comparer au site.
 - **Cote Mika (lot 34)** : la commande mm-rytm, OPEN : le menu facon serigraphie, DRAG MIDI / CLOSE en texte, la poignee de l'onglet PATTERN plus petite.

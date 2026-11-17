@@ -60,7 +60,8 @@ const TABS: readonly { id: Tab; label: string }[] = [
 const S_BG = '#050506';
 const W_INK = '#F4F1EA';
 const W_RED = '#F0463C';
-const W_AMBER = '#FF8A1F';
+// La couleur secondaire du plugin (2026-11-17, Mika : "au lieu du orange boring je veux #FFD900") : l'ancien orange #FF8A1F
+const W_AMBER = '#FFD900';
 const S_DIM = 'rgba(244,241,234,0.5)';
 const S_FAINT = 'rgba(244,241,234,0.14)';
 
@@ -777,7 +778,7 @@ const CSS = `
 .mm-open-tabs button{position:relative;background:none;border:0;border-radius:0;padding:.25em 0;font-size:1em;font-weight:800;letter-spacing:.16em;color:rgba(244,241,234,.5);white-space:nowrap;transition:color .12s}
 .mm-open-tabs button:hover{color:${W_INK}}
 .mm-open-tabs button[aria-pressed=true]{color:${W_AMBER}}
-.mm-open-tabs button[aria-pressed=true]::after{content:'';position:absolute;left:0;right:.16em;bottom:-.95em;height:.2em;border-radius:.1em;background:${W_AMBER};box-shadow:0 0 .7em rgba(255,138,31,.75)}
+.mm-open-tabs button[aria-pressed=true]::after{content:'';position:absolute;left:0;right:.16em;bottom:-.95em;height:.2em;border-radius:.1em;background:${W_AMBER};box-shadow:0 0 .7em rgba(255,217,0,.75)}
 .mm-open-tracks button,.mm-open-row button,.mm-open-choice button,.mm-open-btn{background:rgba(244,241,234,.06);border:1px solid rgba(244,241,234,.2);border-radius:.5em;padding:.45em .8em;font-size:1em;font-weight:700;letter-spacing:.1em;color:${W_INK};white-space:nowrap}
 .mm-open-tracks button[aria-pressed=true],.mm-open-choice button[aria-pressed=true],.mm-open-row button[aria-pressed=true]{background:${W_RED};border-color:${W_RED};color:#0b0b0c}
 .mm-open-row button:hover,.mm-open-btn:hover,.mm-open-tracks button:hover,.mm-open-choice button:hover{border-color:${W_AMBER}}
@@ -799,9 +800,9 @@ const CSS = `
 .mm-open-drag span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15}
 .mm-open-drag b{font-size:1em;font-weight:800;letter-spacing:.1em}
 .mm-open-head .mm-open-drag{background:none;border-color:transparent;padding:.3em .2em;color:${W_AMBER} !important;transition:color .12s}
-.mm-open-head .mm-open-drag:hover{color:#ffb066 !important}
+.mm-open-head .mm-open-drag:hover{color:#ffe866 !important}
 .mm-open-head .mm-open-drag b{letter-spacing:.14em}
-.mm-open-tabs button:focus-visible,.mm-open .mm-open-close:focus-visible,.mm-open-head .mm-open-drag:focus-visible{outline:1px solid rgba(255,138,31,.7);outline-offset:.25em;border-radius:.15em}
+.mm-open-tabs button:focus-visible,.mm-open .mm-open-close:focus-visible,.mm-open-head .mm-open-drag:focus-visible{outline:1px solid rgba(255,217,0,.7);outline-offset:.25em;border-radius:.15em}
 .mm-open-drag small{font-size:.85em;font-weight:600;letter-spacing:.06em;opacity:.8}
 /* La poignee de l'onglet PATTERN (2026-11-16, Mika : "ptete pas si gros que ca") : un bouton orange a la hauteur de
    SAVE .MID, NEW et CLEAR */

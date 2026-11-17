@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { pattern, type Fx } from '../audio/pattern';
+import { fxLaw, pattern, rgateSeconds, type Fx } from '../audio/pattern';
 import { KnobView, type KnobSpec } from '../ui/KnobPanel';
 import { lcdMessage } from '../state/lcdMessage';
 import { undo } from '../state/undo';
@@ -26,6 +26,7 @@ import {
   HELL_OUT,
   HELL_PRESETS,
   HELL_SHIFT,
+  REVERB_PRESETS,
   distCurve,
   hellSeconds,
   hellShiftHz,
@@ -33,11 +34,13 @@ import {
   presetPatch,
   type LabKnob,
   type LabPreset,
+  type RevPreset,
 } from '../state/labFx';
 
 const INK = '#F4F1EA';
 const RED = '#F0463C';
-const AMBER = '#FF8A1F';
+// La couleur secondaire du plugin (2026-11-17, Mika : "au lieu du orange boring je veux #FFD900")
+const AMBER = '#FFD900';
 
 const subscribeFx = (fn: () => void): (() => void) => {
   const a = pattern.fx.subscribe(fn);
@@ -102,13 +105,11 @@ const Group: React.FC<{ title: string; knobs: readonly LabKnob[] }> = ({ title, 
 );
 
 /** La rangee des presets : un clic pose tous les reglages de la sous-page (une etape d'UNDO). */
-const Presets: React.FC<{ list: readonly LabPreset[]; which: 'hell' | 'dist'; fx: Readonly<Fx> }> = ({ list, which, fx }) => {
-  const on = list.find((p) => {
-    const patch = presetPatch(p, which);
-    return Object.entries(patch).every(([k, v]) => Math.abs((fx[k as keyof Fx] as number) - (v as number)) < 0.002);
-  });
+type AnyPreset = { name: string; tip: string };
+const PresetRow = <P extends AnyPreset>({ list, label, patchOf, fx }: { list: readonly P[]; label: string; patchOf: (p: P) => Partial<Record<keyof Fx, number>>; fx: Readonly<Fx> }): React.ReactElement => {
+  const on = list.find((p) => Object.entries(patchOf(p)).every(([k, v]) => Math.abs((fx[k as keyof Fx] as number) - (v as number)) < 0.002));
   return (
-    <div className="mm-fx-presets" role="group" aria-label={`${which === 'hell' ? 'HELL' : 'DIST'} presets`}>
+    <div className="mm-fx-presets" role="group" aria-label={`${label} presets`}>
       {list.map((p) => (
         <button
           key={p.name}
@@ -117,8 +118,8 @@ const Presets: React.FC<{ list: readonly LabPreset[]; which: 'hell' | 'dist'; fx
           title={p.tip}
           onClick={() => {
             undo.boundary('mm808', 'step');
-            pattern.fx.set(presetPatch(p, which));
-            lcdMessage.show(`${which === 'hell' ? 'HELL' : 'DIST'} ${p.name}`, 1600);
+            pattern.fx.set(patchOf(p));
+            lcdMessage.show(`${label} ${p.name}`, 1600);
           }}
         >
           {p.name}
@@ -126,6 +127,17 @@ const Presets: React.FC<{ list: readonly LabPreset[]; which: 'hell' | 'dist'; fx
       ))}
     </div>
   );
+};
+const Presets: React.FC<{ list: readonly LabPreset[]; which: 'hell' | 'dist'; fx: Readonly<Fx> }> = ({ list, which, fx }) => (
+  <PresetRow list={list} label={which === 'hell' ? 'HELL' : 'DIST'} patchOf={(p) => presetPatch(p, which) as Partial<Record<keyof Fx, number>>} fx={fx} />
+);
+const revPatch = (p: RevPreset): Partial<Record<keyof Fx, number>> => ({ ...p.set });
+
+/** La forme de la REVERB en clair (ses potards : la page REVERB de la machine, SEND FX puis une tape sur REVERB). */
+const revText = (fx: Readonly<Fx>): string => {
+  const g = rgateSeconds(fx.rgate ?? 0);
+  const hz = fxLaw.rtone(fx.rtone);
+  return `SIZE ${fxLaw.rsize(fx.rsize).toFixed(1)} S · TONE ${hz >= 1000 ? `${(hz / 1000).toFixed(1)} KHZ` : `${Math.round(hz)} HZ`} · PRE ${Math.round(fxLaw.rpre(fx.rpre) * 1000)} MS · GATE ${g > 0 ? `${Math.round(g * 1000)} MS` : 'OFF'}`;
 };
 
 /** La spirale de HELL : une note de 1 kHz et ses echos, chacun decale et plus faible (log en frequence, temps en echos). */
@@ -281,13 +293,25 @@ export const FxTab: React.FC = () => {
           <Group title="TONE" knobs={DIST_TONE} />
         </div>
       </section>
+      <section className="mm-open-card mm-fx-rev">
+        <div className="mm-fx-head">
+          <h3>REVERB</h3>
+          <span className="mm-fx-note" title="Its knobs: SEND FX on the machine, then a tap on REVERB (GATE on E)">
+            {revText(fx)}
+          </span>
+        </div>
+        <PresetRow list={REVERB_PRESETS} label="REVERB" patchOf={revPatch} fx={fx} />
+      </section>
     </div>
   );
 };
 
 /** Les styles de l'onglet (ajoutes a ceux d'OPEN). */
 export const FX_TAB_CSS = `
-.mm-fx{flex:1;min-height:0;display:grid;grid-template-columns:1.25fr 1fr;gap:.6em;overflow:hidden}
+.mm-fx{flex:1;min-height:0;display:grid;grid-template-columns:1.25fr 1fr;grid-template-rows:minmax(0,1fr) auto;gap:.6em;overflow:hidden}
+/* REVERB (2026-11-17) : une bande sur toute la largeur, sous HELL et la DIST : son titre, sa forme en clair, ses presets */
+.mm-fx>.mm-open-card.mm-fx-rev{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5em 1.2em;text-align:left}
+.mm-fx-rev .mm-fx-head h3{margin:0}
 .mm-fx>.mm-open-card{display:flex;flex-direction:column;gap:.45em;min-height:0;overflow:hidden}
 .mm-fx-head{display:flex;align-items:baseline;gap:1em;min-width:0}
 .mm-fx-head h3{margin:0;white-space:nowrap}
@@ -298,7 +322,7 @@ export const FX_TAB_CSS = `
 .mm-fx-presets button[aria-pressed='true']{background:${RED};border-color:${RED};color:#0b0b0c}
 .mm-fx-row{display:flex;gap:.5em;min-height:0;align-items:stretch}
 .mm-fx-group{flex:1;min-width:0;border-top:1px solid rgba(244,241,234,.08);padding-top:.25em}
-.mm-fx-group h4{margin:0 0 .1em;font-size:.78em;font-weight:800;letter-spacing:.16em;color:rgba(255,138,31,.85)}
+.mm-fx-group h4{margin:0 0 .1em;font-size:.78em;font-weight:800;letter-spacing:.16em;color:rgba(255,217,0,.85)}
 .mm-fx-knob{flex:1;min-width:0;display:flex}
 .mm-fx-knob .v4-knob{flex:1}
 .mm-fx .mm-open-knobs .v4-knob-dial{width:4.3em;height:4.3em}

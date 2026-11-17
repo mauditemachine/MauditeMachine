@@ -23,6 +23,13 @@ export type { FaceKeyId, Inst, PageId, VoicePad, PagePad, OpenPad, EditPad, PadS
 
 /* ---------- couleurs (spec 4.4 et 20.3) ---------- */
 
+/**
+ * La couleur secondaire du plugin (2026-11-17, Mika : "la couleur secondaire au lieu du orange boring je veux #FFD900") :
+ * l'orange des fonctions imprimees, de FUNC, des touches allumees en orange, des noms des pads de PERFORM ; OPEN a la sienne
+ * (plugin/OpenPanel.tsx). Le site garde son orange.
+ */
+export const PLUGIN_ACCENT = '#FFD900';
+
 export const HEX = {
   ink: '#0A0A0B',
   graphite: '#141417',
@@ -33,8 +40,8 @@ export const HEX = {
   yellow: '#F2C230',
   yellowHi: '#FFD75E',
   red: '#C8442F',
-  /** orange de navigation : noms des pages et des puces, pas programmes (demande de Mika, 2026-09-30) */
-  orange: '#FF6A13',
+  /** orange de navigation : noms des pages et des puces, pas programmes (demande de Mika, 2026-09-30) ; le plugin : son jaune */
+  orange: PLUGIN ? PLUGIN_ACCENT : '#FF6A13',
   /** pas programme : orange, pour voir d'un coup d'oeil quels pas sont mis (velocite forte) */
   ledSet: '#FF6A13',
   /** velocite moyenne : l'orange a 68 % */
@@ -108,7 +115,8 @@ export const COLOR = Object.fromEntries(
 export const DT_FACE: boolean = !PORTRAIT && !PAD_FACE && RYTM_FACE_VER !== '4.0';
 export type DtTone = 'red' | 'yellow' | 'white' | 'green' | 'magenta' | 'blue' | 'orange';
 /** La palette de la machine noire : aussi celle du boitier (hw/snapshot.ts, la revue de D1, R10 : le boitier n'a pas de creme). */
-export const DT_HEX_DARK: Readonly<Record<DtTone, string>> = { red: '#FF2B2B', yellow: '#FFD75E', white: '#F4F1EA', green: '#3DDC5A', magenta: '#E04DD8', blue: '#4DA3FF', orange: '#FF6A13' };
+// Le plugin (2026-11-17) : l'orange devient sa couleur secondaire, PLUGIN_ACCENT
+export const DT_HEX_DARK: Readonly<Record<DtTone, string>> = { red: '#FF2B2B', yellow: '#FFD75E', white: '#F4F1EA', green: '#3DDC5A', magenta: '#E04DD8', blue: '#4DA3FF', orange: PLUGIN ? PLUGIN_ACCENT : '#FF6A13' };
 // L'orange de la creme (la revue de D1, R3) : #A84300, l'encre des fonctions secondaires sous l'eclairage (le #D9560A d'avant
 // lisait a 2,4:1 sur le panneau eclaire)
 const DT_HEX_LIGHT: Readonly<Record<DtTone, string>> = { red: '#D81E1E', yellow: '#E09A10', white: '#191919', green: '#1F9E3A', magenta: '#B23AAB', blue: '#2F78D6', orange: '#A84300' };
@@ -1050,12 +1058,15 @@ export const FACE_INERT: ReadonlySet<string> = new Set<string>(DT2_FACE ? [...DT
  */
 // dyellow (V.5.1, 2026-10-29) : un lock trig sur les pas (le jaune des verrous de la Digitakt, DT_HEX.yellow)
 export type KeyLitTone = 'orange' | 'run' | 'red' | 'blue' | 'dred' | 'dgreen' | 'dwhite' | 'dmagenta' | 'dblue' | 'dorange' | 'dyellow';
+/** Le jaune du plugin allume sur une touche de la machine noire (lineaire, avant l'ACES) */
+const PLUGIN_ACCENT_GLOW: readonly number[] = [1.3, 0.85, 0];
 export const KEY_LIT = {
   // Cales par lecture de pixels a 1440 x 900 (2026-10-18) : orange 244,110,56 (l'orange d'OPEN : 235,111,38), RUN 243,97,62
   // (au repos 192,70,52), MUTE 239,59,57, SOLO 97,133,230 ; plus fort, l'ACES les palissait en peche (252,160,75)
   // V.5.0 : les teintes d* a 0.9 de leur couleur lineaire environ (le blanc plus bas, il eblouissait)
   glow: {
-    orange: [0.95, 0.08, 0],
+    // Le plugin (2026-11-17) : le jaune #FFD900 (lineaire 1, 0.69, 0), cale a la lecture des pixels de FUNC
+    orange: PLUGIN ? PLUGIN_ACCENT_GLOW : [0.95, 0.08, 0],
     run: [0.5, 0.015, 0],
     red: [0.8, 0, 0],
     blue: [0.03, 0.15, 1.05],
@@ -1065,7 +1076,7 @@ export const KEY_LIT = {
     dmagenta: [0.66, 0.05, 0.6],
     dblue: [0.05, 0.3, 0.95],
     // La revue de D1 (R7) : 0.16 de vert (0.08 lisait a 11 degres de teinte, pres du rouge d'une touche allumee)
-    dorange: [0.95, 0.16, 0],
+    dorange: PLUGIN ? PLUGIN_ACCENT_GLOW : [0.95, 0.16, 0],
     // V.5.1 : le jaune #FFD75E des lock trigs (lineaire 1, 0.68, 0.11), un peu plus sature (l'ACES le palissait en paille)
     dyellow: [0.9, 0.52, 0.03],
   } as Readonly<Record<KeyLitTone, readonly number[]>>,

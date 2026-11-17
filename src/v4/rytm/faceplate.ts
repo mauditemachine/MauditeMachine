@@ -253,7 +253,8 @@ export const RYTM_FACEPLATE = {
      * Mika : "je veux des boutons d'une meme couleur et pas arc en ciel") : l'orange de la machine, la voix choisie plus
      * forte ; les LED RGB des pas du boitier, la meme (sRGB d'affichage). La table d'une couleur par voix est partie.
      */
-    trkColor: '#FF6A13',
+    // Le plugin (2026-11-17) : sa couleur secondaire, le jaune #FFD900 (theme.ts PLUGIN_ACCENT)
+    trkColor: IN_PLUGIN ? '#FFD900' : '#FF6A13',
   },
   /** la serigraphie : imprimee, jamais decoupee ; places provisoires (x : le bord d'alignement, cy : le centre) */
   silk: {

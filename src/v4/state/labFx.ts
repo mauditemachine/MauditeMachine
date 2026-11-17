@@ -248,6 +248,34 @@ export const HELL_PRESETS: readonly LabPreset[] = [
   { name: 'INFERNO', tip: 'Everything at once: wide shift, endless loop, smear, ping pong', set: P({ hrange: 0.5, hfreq: wide(600), htime: tDiv('1/16'), hsync: 1, hfb: 0.9, hsmear: 0.4, hcross: 1, hlfo: 1 / 3, hrate: rDiv('1 BAR'), hlsync: 1, hamt: 0.4, hstereo: 1, hfilt: fHz(5000), hmix: 0.6 }) },
 ];
 
+/* ---------------- REVERB (2026-11-17, Mika : "ajoute aussi un preset GATED dans les fx") ---------------- */
+
+/** Ce que pose un preset de REVERB : l'envoi global (REVERB) et la forme (SIZE, TONE, PRE, GATE), comme la DIST pose DRIVE. */
+export type RevKey = 'reverb' | 'rsize' | 'rtone' | 'rpre' | 'rgate';
+export interface RevPreset {
+  name: string;
+  tip: string;
+  set: Readonly<Record<RevKey, number>>;
+}
+/** SIZE (s), TONE (Hz), PRE (s), GATE (s, 0 : OFF) en reglages 0 a 1 (les lois de audio/pattern.ts fxLaw et rgateSeconds) */
+const rvSize = (s: number): number => Math.log(s / 0.5) / Math.log(16);
+const rvTone = (hz: number): number => Math.log(hz / 1000) / Math.log(12);
+const rvPre = (s: number): number => s / 0.12;
+const rvGate = (s: number): number => (s <= 0 ? 0 : Math.log(s / 0.04) / Math.log(25));
+const R = (reverb: number, size: number, toneHz: number, pre: number, gate: number): Record<RevKey, number> => ({
+  reverb: r3(reverb),
+  rsize: r3(rvSize(size)),
+  rtone: r3(rvTone(toneHz)),
+  rpre: r3(rvPre(pre)),
+  rgate: r3(rvGate(gate)),
+});
+export const REVERB_PRESETS: readonly RevPreset[] = [
+  { name: 'ROOM', tip: 'A small room, 1.2 s, no gate', set: R(0.2, 1.2, 3000, 0.01, 0) },
+  { name: 'HALL', tip: 'A long bright hall, 3.5 s, no gate', set: R(0.22, 3.5, 5000, 0.03, 0) },
+  { name: 'GATED', tip: 'The big 80s gated reverb: a long bright room cut 280 ms after each hit', set: R(0.35, 4.5, 6000, 0.008, 0.28) },
+  { name: 'TIGHT GATE', tip: 'A short burst of room, cut 120 ms after each hit', set: R(0.4, 3, 8000, 0, 0.12) },
+];
+
 export const DIST_PRESETS: readonly LabPreset[] = [
   { name: 'MM', tip: 'The distortion of the MM-RYTM, as before', set: P({ drive: 0.3 }) },
   { name: 'TAPE WARM', tip: 'Soft tape, a little dark, the level held', set: P({ xstyle: 0.2, xtilt: 0.4, xauto: 1, drive: 0.35 }) },
