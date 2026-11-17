@@ -45,7 +45,7 @@ struct Stats {
 };
 
 // n echantillons par blocs de block ; le transport avance si playing
-Stats run(MMArpProcessor& p, Head& h, int n, int block, juce::MidiBuffer* first = nullptr, std::vector<float>* keepL = nullptr) {
+Stats run(MMArpProcessor& p, Head& h, int n, int block, juce::MidiBuffer* first = nullptr, std::vector<float>* keepL = nullptr, std::vector<float>* keepR = nullptr) {
     Stats s;
     juce::AudioBuffer<float> buf(2, block);
     double sum = 0;
@@ -63,6 +63,7 @@ Stats run(MMArpProcessor& p, Head& h, int n, int block, juce::MidiBuffer* first 
                 s.peak = std::max(s.peak, static_cast<double>(std::fabs(v)));
                 sum += static_cast<double>(v) * v;
                 if (keepL && c == 0) keepL->push_back(v);
+                if (keepR && c == 1) keepR->push_back(v);
             }
         if (h.playing) h.ppq += m * h.bpm / 60.0 / 48000.0;
         done += m;
@@ -573,6 +574,173 @@ int main() {
         check(std::fabs(std::get<2>(low).at("xDMix") - 0.4) < 1e-6 && std::fabs(std::get<2>(low).at("dist") - 0.02) < 1e-6 && std::fabs(std::get<2>(keep).at("xDStyle") - 4.0 / 12) < 1e-6 &&
                   std::fabs(std::get<2>(keep).at("dist") - 0.6) < 1e-6 && std::get<2>(keep).at("xDist") == 0,
               "pedale a 2 % : MIX 40 % ; DISTO deja en T : la pedale seulement coupee, DRIVE garde");
+    }
+    {
+        // v27 : l'ancien DELAY (DLY TIME, TAPE, DELAY MODE) converti a l'ouverture vers la page DELAY. Le meme projet
+        // d'avant (sans aucun reglage v27 : DELAY, EQ parametrique, rack enrichi) rendu par l'ancien DELAY tel quel
+        // (testLegacyDelay) et par la page DELAY convertie : au bit pres. Puis l'ancien TAPE n'agit plus (OLD).
+        struct Old {
+            double delay, dlyTime, tape, mode;
+        };
+        auto render = [](const Old& o, bool legacy, bool strip, const std::vector<std::pair<const char*, double>>& after, std::map<std::string, double>* vals) {
+            MMArpProcessor::testLegacyDelay = legacy;
+            MMArpProcessor p;
+            Head h;
+            p.setPlayHead(&h);
+            juce::MemoryBlock mb;
+            p.getStateInformation(mb);
+            auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+            for (auto* e : xml->getChildIterator()) {
+                std::vector<juce::XmlElement*> kill;
+                for (auto* c : e->getChildIterator()) {
+                    const juce::String id = c->getStringAttribute("id");
+                    if (id == "delay") c->setAttribute("value", o.delay);
+                    if (id == "dlyTime") c->setAttribute("value", o.dlyTime);
+                    if (id == "tape") c->setAttribute("value", o.tape);
+                    if (id == "xDlyMode") c->setAttribute("value", o.mode);
+                    const int ix = mmx::allIndex(id.toRawUTF8());
+                    if (strip && ix >= mmarp::kKnobs + mmx::ex_xDlStyle) kill.push_back(c);
+                }
+                for (auto* c : kill) e->removeChildElement(c, true);
+            }
+            juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+            st.setProperty("seed", 12345, nullptr);
+            st.setProperty("program", program(), nullptr);
+            juce::MemoryBlock m2;
+            juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+            p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+            for (const auto& kv : after) p.knobParam(mmx::allIndex(kv.first))->setValueNotifyingHost(static_cast<float>(kv.second));
+            p.prepareToPlay(48000, 512);
+            h.playing = true;
+            std::vector<float> L, R;
+            run(p, h, 48000 * 3, 512, nullptr, &L, &R);
+            if (vals)
+                for (int e = mmx::ex_xDlStyle; e <= mmx::ex_xDlRhythm; ++e) (*vals)[mmx::kExtraDefs[e].id] = static_cast<double>(p.knobParam(mmarp::kKnobs + e)->getValue());
+            MMArpProcessor::testLegacyDelay = false;
+            L.insert(L.end(), R.begin(), R.end());
+            return L;
+        };
+        // le defaut du site (TAPE 0.3 : la bande), le ping-pong, STEREO, WIDE, la bande a fond ; tous les DLY TIME
+        const Old cases[] = {{0.25, 0.25, 0.3, 0}, {0.4, 0.75, 0, 0}, {0.55, 0.5, 0, 0.5}, {0.3, 1, 0, 1}, {0.45, 0, 0.65, 0.5}, {0.38, 0.25, 0.01, 0}};
+        int exact = 0;
+        double worst = 0, pk = 0;
+        std::string why;
+        for (const Old& o : cases) {
+            std::map<std::string, double> v;
+            const auto a = render(o, true, true, {}, nullptr), b = render(o, false, true, {}, &v);
+            double d = 0;
+            for (size_t i = 0; i < a.size() && i < b.size(); ++i) {
+                d = std::max(d, static_cast<double>(std::fabs(a[i] - b[i])));
+                pk = std::max(pk, static_cast<double>(std::fabs(a[i])));
+            }
+            worst = std::max(worst, d);
+            if (d <= 0 && a.size() == b.size()) ++exact;
+            else why += " cas " + std::to_string(&o - cases) + " ecart " + juce::String(d, 9).toStdString();
+        }
+        check(exact == 6 && pk > 0.01, "DELAY v27 : 6 projets d'avant (TAPE, PING PONG, STEREO, WIDE, tous les DLY TIME) convertis sonnent au bit pres comme l'ancien DELAY" + why);
+        // les valeurs converties : la bande, et le ping-pong STEREO a 1/4.
+        std::map<std::string, double> vt, vd;
+        render({0.25, 0.25, 0.3, 0}, false, true, {}, &vt);
+        render({0.55, 0.75, 0, 0.5}, false, true, {}, &vd);
+        const auto stepOf = [](int e, double v) { return mmx::exStep(e, v); };
+        const bool okT = stepOf(mmx::ex_xDlStyle, vt["xDlStyle"]) == mmarp::ES_TAPE && std::fabs(vt["xDlWobble"] - 0.3) < 1e-6 && stepOf(mmx::ex_xDlMode, vt["xDlMode"]) == mmarp::EM_PINGPONG &&
+                         stepOf(mmx::ex_xDlSync, vt["xDlSync"]) == 1 && stepOf(mmx::ex_xDlDiv, vt["xDlDiv"]) == 2 && stepOf(mmx::ex_xDlNote, vt["xDlNote"]) == 1 &&
+                         static_cast<float>(vt["xDlFb"]) == static_cast<float>(0.35 + (0.68 - 0.35) * 0.25);
+        const bool okD = stepOf(mmx::ex_xDlStyle, vd["xDlStyle"]) == mmarp::ES_DIGITAL && vd["xDlWobble"] == 0 && stepOf(mmx::ex_xDlMode, vd["xDlMode"]) == mmarp::EM_DUAL &&
+                         stepOf(mmx::ex_xDlDiv, vd["xDlDiv"]) == 3 && stepOf(mmx::ex_xDlNote, vd["xDlNote"]) == 1 && static_cast<float>(vd["xDlFb"]) == static_cast<float>(0.35 + (0.68 - 0.35) * 0.55);
+        check(okT && okD, "DELAY v27 : la regle de conversion (TAPE -> style TAPE, WOBBLE = TAPE, PING-PONG ; sinon DIGITAL, STEREO -> DUAL ; DLY TIME -> 1/8. ou 1/4. ; FEEDBACK = 0.35 + 0.33 x DELAY)");
+        // l'ancien TAPE (OLD TAPE) n'agit plus ; le STYLE de la page, si
+        const auto base = render({0.4, 0.25, 0.3, 0}, false, true, {}, nullptr);
+        const auto oldTape = render({0.4, 0.25, 0.3, 0}, false, true, {{"tape", 0.9}, {"dlyTime", 1}}, nullptr);
+        const auto style = render({0.4, 0.25, 0.3, 0}, false, true, {{"xDlStyle", 6.0 / 7}}, nullptr);
+        double dOld = 0, dSt = 0;
+        for (size_t i = 0; i < base.size() && i < oldTape.size() && i < style.size(); ++i) {
+            dOld = std::max(dOld, static_cast<double>(std::fabs(base[i] - oldTape[i])));
+            dSt = std::max(dSt, static_cast<double>(std::fabs(base[i] - style[i])));
+        }
+        check(dOld <= 0 && dSt > 0.001, "DELAY v27 : OLD TAPE et OLD DLY TIME automatises ne changent plus rien ; le STYLE CASSETTE de la page change le son (ecart " + juce::String(dSt, 3).toStdString() + ")");
+        // les noms dans l'hote : OLD devant
+        MMArpProcessor p;
+        check(p.knobParam(mmx::allIndex("tape"))->getName(64) == "OLD TAPE" && p.knobParam(mmx::allIndex("dlyTime"))->getName(64) == "OLD DLY TIME" &&
+                  p.knobParam(mmx::allIndex("xDlyMode"))->getName(64) == "OLD DLY MODE" && p.knobParam(mmx::allIndex("xEqLow"))->getName(64) == "OLD EQ LOW" &&
+                  p.knobParam(mmx::allIndex("xDlStyle"))->getName(64) == "DELAY STYLE" && p.knobParam(mmx::allIndex("xQ3Gain"))->getName(64) == "EQ 3 GAIN",
+              "DELAY v27 : dans l'hote, OLD TAPE, OLD DLY TIME, OLD DLY MODE, OLD EQ LOW ; les neufs en fin de liste (DELAY STYLE, EQ 3 GAIN)");
+        // les neufs sont en fin de liste : l'index des anciens ne bouge pas
+        check(mmx::ex_xDlStyle == 150 && mmx::ex_xPuCurve == mmx::kExtra - 1 && mmx::allIndex("xDBoxMix") == mmarp::kKnobs + 149, "v27 : 77 reglages neufs ajoutes en fin de liste (les 150 d'avant gardent leur place)");
+    }
+    {
+        // v27 : la banque d'usine (presets/factory.json, la page DELAY convertie par build.mjs) sonne au bit pres comme
+        // avec l'ancien DELAY (DLY TIME, TAPE, DELAY MODE du preset, testLegacyDelay)
+        const juce::File f = juce::File::getCurrentWorkingDirectory().getChildFile("plugin/mm-arp/presets/factory.json");
+        const juce::var bank = juce::JSON::parse(f.loadFileAsString());
+        const juce::var* list = bank.getDynamicObject() ? bank.getDynamicObject()->getProperties().getVarPointer("presets") : nullptr;
+        int n = 0, exact = 0;
+        std::string bad;
+        if (list && list->isArray())
+            for (const auto& pr : *list->getArray()) {
+                const auto play = [&](bool legacy) {
+                    MMArpProcessor::testLegacyDelay = legacy;
+                    MMArpProcessor p;
+                    Head h;
+                    h.bpm = static_cast<double>(pr.getProperty("bpm", 120));
+                    p.setPlayHead(&h);
+                    for (const char* part : {"knobs", "extra"})
+                        if (auto* o = pr.getProperty(part, juce::var()).getDynamicObject())
+                            for (const auto& kv : o->getProperties()) {
+                                const int ix = mmx::allIndex(kv.name.toString().toRawUTF8());
+                                if (ix >= 0) p.knobParam(ix)->setValueNotifyingHost(static_cast<float>(static_cast<double>(kv.value)));
+                            }
+                    juce::MemoryBlock mb;
+                    p.getStateInformation(mb);
+                    auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+                    juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+                    st.setProperty("seed", 777, nullptr);
+                    st.setProperty("program", program(), nullptr);
+                    juce::MemoryBlock m2;
+                    juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+                    p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+                    p.prepareToPlay(48000, 512);
+                    h.playing = true;
+                    std::vector<float> L, R;
+                    run(p, h, 48000 * 2, 512, nullptr, &L, &R);
+                    MMArpProcessor::testLegacyDelay = false;
+                    L.insert(L.end(), R.begin(), R.end());
+                    return L;
+                };
+                const auto a = play(true), b = play(false);
+                double d = 0;
+                for (size_t i = 0; i < a.size() && i < b.size(); ++i) d = std::max(d, static_cast<double>(std::fabs(a[i] - b[i])));
+                ++n;
+                if (d <= 0 && a.size() == b.size()) ++exact;
+                else bad += " " + pr.getProperty("name", "?").toString().toStdString();
+            }
+        check(n == 40 && exact == n, "DELAY v27 : la banque d'usine, " + std::to_string(exact) + " / " + std::to_string(n) + " presets au bit pres comme avec l'ancien DELAY" + bad);
+    }
+    {
+        // v27 : l'analyseur de la page SOUND (seulement page ouverte) : une note jouee, ses bandes au-dessus de -60 dB
+        MMArpProcessor p;
+        Head h;
+        p.setPlayHead(&h);
+        p.prepareToPlay(48000, 512);
+        juce::MemoryBlock mb;
+        p.getStateInformation(mb);
+        auto xml = juce::AudioProcessor::getXmlFromBinary(mb.getData(), static_cast<int>(mb.getSize()));
+        juce::ValueTree st = juce::ValueTree::fromXml(*xml);
+        st.setProperty("program", program(), nullptr);
+        juce::MemoryBlock m2;
+        juce::AudioProcessor::copyXmlToBinary(*st.createXml(), m2);
+        p.setStateInformation(m2.getData(), static_cast<int>(m2.getSize()));
+        h.playing = true;
+        float db[mmarp::SpecAnalyzer::kBins];
+        run(p, h, 48000, 512, nullptr, nullptr);
+        const bool idle = !p.specFrame(db);
+        p.setSpecOn(true);
+        run(p, h, 48000, 512, nullptr, nullptr);
+        const bool got = p.specFrame(db);
+        float top = -200;
+        for (float v : db) top = std::max(top, v);
+        p.setSpecOn(false);
+        check(idle && got && top > -60, "EQ ANALYZER : rien tant que la page est fermee ; page ouverte, 96 bandes (crete " + juce::String(top, 1).toStdString() + " dB)");
     }
     {
         // La taille de la fenetre (2026-11-17, v26) : 1870 par defaut ; un projet d'avant (editorW5) rouvre une fois a

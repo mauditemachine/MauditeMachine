@@ -163,6 +163,7 @@
 #include <memory>
 #include <vector>
 
+#include "Echo.h"
 #include "Sky.h"
 
 namespace mmarp {
@@ -209,6 +210,21 @@ struct ArpFxSettings {
     // --- 2026-11-16 : la reverbe facon BigSky (Sky.h) ; 0 : la reverbe d'avant (le convolueur, au bit pres) ---
     int skyType = 0;            // 0 CLASSIC (la convolution du site), 1 a 12 : ROOM ... REFLECTIONS
     SkyNorm sky{};              // ses reglages (DECAY, PRE-DELAY, TONE, MOD, LOW END, les cinq de la machine)
+    // --- v27 (2026-11-17) : la page DELAY (Echo.h ; style -1 : le DELAY du site, tape / dlyMode / la reinjection liee
+    // a DELAY) et le rack enrichi ; a ces defauts : la chaine d'avant au bit pres ---
+    EchoSettings echo{};
+    int phStages = 6;           // PHASER STAGES : 4, 6, 8, 12
+    double phCenter = 0.5;      // le centre du balayage, 800 Hz x 4^(2 v - 1)
+    double phSpread = 0.5;      // l'ecart gauche / droite, v / 2 cycle (0.5 : un quart)
+    double phSyncHz = 0;        // > 0 : la vitesse au tempo (SYNC), a la place de phRate
+    double flDelay = 0.5;       // FLANGER DELAY : 2.5 ms x 4^(2 v - 1)
+    double flSpread = 0.5;
+    double flSyncHz = 0;
+    bool flThru = true;         // a travers zero (celui d'avant) ; false : le flanger classique
+    bool chBoth = false;        // CHORUS I+II
+    double chRate = 0.5, chDepth = 0.5, chWidth = 1, chMix = 0.5;
+    double crTone = 1, crMix = 1;   // CRUSH TONE (1 : aucun passe-bas), CRUSH MIX (1 : celui d'avant)
+    double puAttack = 0.5, puCurve = 0.5;
 };
 
 /**
@@ -315,6 +331,7 @@ public:
     void prepare(double sr);
     void start(double dmin, double dmax, double rate); // un noeud neuf (processorOptions)
     void setRate(double rate) { rate_ = rate; }        // un message { rate }
+    void setDepth(double mul) { c1_ = c1Base_ * mul; } // v27 CHORUS DEPTH (1 : celle du Juno)
     // n echantillons d'un bloc de 128 ; endOfQuantum : le bloc finit ici (rinçage des etats)
     void process(const float* inL, const float* inR, float* oL, float* oR, int n, bool endOfQuantum);
 
@@ -322,7 +339,7 @@ private:
     double sr_ = 48000;
     std::vector<float> buf_;
     int w_ = 0;
-    double c0_ = 0, c1_ = 0, pb_ = 0, pa_ = 0, px_ = 0, py_ = 0, ph_ = 0, rate_ = 0.513;
+    double c0_ = 0, c1_ = 0, c1Base_ = 0, pb_ = 0, pa_ = 0, px_ = 0, py_ = 0, ph_ = 0, rate_ = 0.513;
     std::array<double, 12> bq_{};
     std::array<double, 8> bz_{};
 };
@@ -336,6 +353,21 @@ public:
     // echantillon (float, a-rate) ; fb et tape : les valeurs k-rate du bloc ; inL null : pas d'entree. Le sommeil se
     // decide par bloc de 128, comme le worklet, quelle que soit la taille des morceaux.
     void process(const float* inL, const float* inR, const float* times, float fb, float tape, float* oL, float* oR, int n, bool qStart = true, bool qEnd = true);
+    // v27 : ce que la page DELAY ajoute a la bande (neutre : process, au bit pres)
+    struct X {
+        int mode = EM_PINGPONG;       // SINGLE, DUAL, PING-PONG, WIDE (RHYTHM ne passe pas par la bande)
+        double kL = 1, kR = 1;        // les temps de chaque cote
+        double wowMul = 1;            // pleurage et scintillement (CASSETTE, SPACE)
+        double satAdd = 0;            // saturation ajoutee (k)
+        bool heads = false;           // SPACE : trois tetes
+        EchoLoop* loopL = nullptr;    // la chaine ajoutee (nulle : aucune)
+        EchoLoop* loopR = nullptr;
+        bool neutral() const { return mode == EM_PINGPONG && kL == 1 && kR == 1 && wowMul == 1 && satAdd == 0 && !heads && !loopL; }
+    };
+    void processX(const float* inL, const float* inR, const float* times, const float* send, float fb, float tape, float* oL, float* oR, int n, bool qStart, bool qEnd, const X& x);
+    /** Les filtres de la boucle (x celui du site : LOW CUT, HIGH CUT, le style) ; 1, 1 : ceux du site. */
+    void voicing(double lpMul, double hpMul);
+    bool settled() const { return mode_ == EM_PINGPONG && xf_ >= 1; }
 
 private:
     struct Bq {
@@ -356,6 +388,12 @@ private:
     long quiet_ = 0;
     bool asleep_ = false, qQuiet_ = true;
     int skipped_ = 0;
+    // v27
+    Bq hpInR_;
+    double lpMul_ = 1, hpMul_ = 1, lpMulAt_ = 1;
+    int mode_ = EM_PINGPONG, want_ = EM_PINGPONG;
+    double xf_ = 1;
+    void sleepCheck(double loud, double peak, bool qEnd);
 };
 
 // Le DelayNode : ligne en float, lecture en interpolation lineaire a delayTime x sr echantillons.
@@ -551,13 +589,13 @@ struct Ramp {
 // CRUSH -> PHASER -> FLANGER, en place, avant la chaine du site
 class PreFx {
 public:
-    static constexpr int kPhStages = 6, kCtl = 16;
+    static constexpr int kPhStages = 12, kCtl = 16;
     void prepare(double sr);
     void reset();
     void set(const ArpFxSettings& s, bool now);
     void process(float* L, float* R, int n);
     bool bypassed() const { return !crOn_ && !phOn_ && !flOn_ && !dsOn_; }
-    int latency() const { return flOn_ ? flD0_ : 0; }
+    int latency() const { return flOn_ && flThru_ ? flD0_ : 0; }
     static constexpr int kDistLatency = 39; // le retard de la DISTORTION engagee (les quatre demi-bandes du x4 local)
     int distLatency() const { return dsOnR_.target > 0 ? kDistLatency : 0; }
 
@@ -579,11 +617,17 @@ private:
     Ramp phMix_, phDepth_, phFb_;
     double phHz_ = 0.3, phPhase_ = 0, phA_[2] = {0, 0}, phDa_[2] = {0, 0}, phZ_[2][kPhStages] = {}, phLast_[2] = {0, 0};
     int phCtl_ = 0;
+    int phN_ = 6;                                  // v27 STAGES
+    double phC_ = 800, phOff_ = 0.25;              // v27 CENTER, SPREAD
     // FLANGER
     bool flOn_ = false;
     Ramp flOnR_, flMix_, flDepth_, flFb_;
     double flHz_ = 0.25, flPhase_ = 0, flLast_[2] = {0, 0};
     int flD0_ = 120, flMask_ = 0, flW_ = 0;
+    int flDBase_ = 120, flDMax_ = 480;            // v27 DELAY : D0 du depart, le plus long
+    double flOff_ = 0.25;                          // v27 SPREAD
+    bool flThru_ = true;                           // v27 THRU-0
+    double crMix_ = 1, crTone_ = 1, crLpA_ = 1, crLpY_[2] = {0, 0}; // v27 CRUSH MIX, TONE
     unsigned tick_ = 0;
     std::vector<float> flDry_[2], flWet_[2];
     // DISTORTION (entre CRUSH et PHASER) : x4 local (les demi-bandes de WARMTH), ecretage par sa primitive (ADAA)
@@ -633,12 +677,13 @@ class Pump {
 public:
     void prepare(double sr);
     void reset();
-    void set(double depth, int rate, double shape, bool now);
+    void set(double depth, int rate, double shape, bool now, double attack = 0.5, double curve = 0.5);
     void process(float* L, float* R, int n, double ppq, double ppqPerSample, bool playing);
     bool bypassed() const { return !on_; }
 
 private:
     double sr_ = 48000, beats_ = 1, shape_ = 0.5, g_ = 1, k_ = 1;
+    double atkS_ = 0.002, curve_ = 0.5;             // v27 ATTACK, CURVE
     int rampN_ = 960;
     bool on_ = false;
     Ramp depth_;
@@ -777,6 +822,23 @@ private:
     detail::WebBiquad dHpR_;
     float dFbL_ = 0, dFbR_ = 0;
     void delayClear();
+    // v27 : la page DELAY (Echo.h) autour des deux coeurs du site ; tout est contourne a son neutre
+    void echoSet(const ArpFxSettings& s, bool now);
+    void filterStep();
+    bool xTime_ = false, xMod_ = false, xLoopD_ = false, xLim_ = false, xPost_ = false, xTape_ = false;
+    double kL_ = 1, kR_ = 1;                       // les temps de chaque cote (GROOVE, FEEL, OFFSET, PRIME)
+    double wowS_ = 0, fltS_ = 0, mW_ = 0, mF_ = 0.25; // le pleurage du coeur numerique (WOBBLE)
+    double lpHz_ = 4800, lpHzT_ = 4800, hpHz_ = 260, hpHzT_ = 260; // ses filtres (HIGH CUT, LOW CUT, le style)
+    double tLp_ = 1, tHp_ = 1, tLpT_ = 1, tHpT_ = 1; // ceux de la bande
+    static int dModeOf(const ArpFxSettings& s);
+    EchoLoop loopDL_, loopDR_, loopTL_, loopTR_, loopR_;
+    EchoRhythm rhythm_;
+    EchoDuck duck_;
+    double eWidth_ = 1;
+    detail::TapeDelay::X tx_;
+    // v27 : le CHORUS enrichi
+    double chMixD_ = 1, chMixW_ = 1, chWidth_ = 1, chRateMul_ = 1, chDepthMul_ = 1;
+    bool chBoth_ = false;
 
     // tampons (prepare)
     std::vector<float> bHiL_, bHiR_, bJL_, bJR_, bTL_, bTR_, bTo_L_, bTo_R_, bTime_, bRL_, bRR_, bRoL_, bRoR_, bPreL_, bPreR_, bSkL_, bSkR_;

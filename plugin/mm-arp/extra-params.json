@@ -324,15 +324,15 @@
     },
     {
       "id": "xDlyMode",
-      "label": "DELAY MODE",
-      "section": "space",
+      "label": "OLD DLY MODE",
+      "section": "old",
       "def": 0,
       "steps": [
         "PING PONG",
         "STEREO",
         "WIDE"
       ],
-      "help": "PING PONG : le delay du site"
+      "help": "masque (v27) : converti au chargement vers la page DELAY (xDlMode) ; son automation ne fait plus rien"
     },
     {
       "id": "xShimmer",
@@ -721,31 +721,31 @@
     },
     {
       "id": "xEqLow",
-      "label": "LOW",
-      "section": "eq",
+      "label": "OLD EQ LOW",
+      "section": "old",
       "def": 0.5,
-      "help": "plateau 100 Hz, -12 a +12 dB"
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
     },
     {
       "id": "xEqMid",
-      "label": "MID",
-      "section": "eq",
+      "label": "OLD EQ MID",
+      "section": "old",
       "def": 0.5,
-      "help": "cloche 900 Hz, -12 a +12 dB"
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
     },
     {
       "id": "xEqHigh",
-      "label": "HIGH",
-      "section": "eq",
+      "label": "OLD EQ HIGH",
+      "section": "old",
       "def": 0.5,
-      "help": "plateau 5 kHz, -12 a +12 dB"
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
     },
     {
       "id": "xEqAir",
-      "label": "AIR BAND",
-      "section": "eq",
+      "label": "OLD EQ AIR",
+      "section": "old",
       "def": 0.5,
-      "help": "plateau tres haut 20 kHz large, 0 a +10 dB au-dessus de 0.5"
+      "help": "masque (v27) : l'ancien EQ 4 bandes, toujours actif pour les projets qui l'utilisaient ; la page SOUND a l'EQ parametrique"
     },
     {
       "id": "xDist",
@@ -1579,6 +1579,714 @@
       "section": "disto",
       "def": 1,
       "help": "la part de la caisse"
+    },
+    {
+      "id": "xDlStyle",
+      "label": "DELAY STYLE",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "TAPE",
+        "ANALOG",
+        "DIGITAL",
+        "SPACE",
+        "LO-FI",
+        "DUB",
+        "CASSETTE",
+        "CRYSTAL"
+      ],
+      "help": "TAPE : la bande du site (WOBBLE = l'ancien TAPE) ; DIGITAL : le ping-pong du site ; les autres : leur couleur"
+    },
+    {
+      "id": "xDlSync",
+      "label": "DELAY SYNC",
+      "section": "delay",
+      "def": 1,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : TIME en notes au tempo ; FREE : en ms"
+    },
+    {
+      "id": "xDlDiv",
+      "label": "DELAY DIVISION",
+      "section": "delay",
+      "def": 0.3333333333333333,
+      "steps": [
+        "1/32",
+        "1/16",
+        "1/8",
+        "1/4",
+        "1/2",
+        "1 BAR",
+        "2 BAR"
+      ],
+      "help": "le temps en SYNC (2 s au plus)"
+    },
+    {
+      "id": "xDlNote",
+      "label": "DELAY NOTE",
+      "section": "delay",
+      "def": 0.5,
+      "steps": [
+        "STRAIGHT",
+        "DOTTED",
+        "TRIPLET"
+      ]
+    },
+    {
+      "id": "xDlMs",
+      "label": "DELAY TIME",
+      "section": "delay",
+      "def": 0.720606469351524,
+      "help": "le temps en FREE : 5 ms a 2 s"
+    },
+    {
+      "id": "xDlFb",
+      "label": "DELAY FEEDBACK",
+      "section": "delay",
+      "def": 0.4325,
+      "help": "la reinjection, 0 a 100 % (stable au maximum) ; le depart : celle du site pour DELAY 0.25"
+    },
+    {
+      "id": "xDlMode",
+      "label": "DELAY MODE",
+      "section": "delay",
+      "def": 0.5,
+      "steps": [
+        "SINGLE",
+        "DUAL",
+        "PING-PONG",
+        "WIDE",
+        "RHYTHM"
+      ],
+      "help": "PING-PONG : le delay du site ; DUAL : l'ancien STEREO ; WIDE : la gauche a 3/4 ; RHYTHM : seize prises"
+    },
+    {
+      "id": "xDlWidth",
+      "label": "DELAY WIDTH",
+      "section": "delay",
+      "def": 1,
+      "help": "la largeur des echos : 0 mono, 100 % telle quelle"
+    },
+    {
+      "id": "xDlOffset",
+      "label": "DELAY OFFSET",
+      "section": "delay",
+      "def": 0.5,
+      "help": "la droite plus tot ou plus tard, -25 a +25 % du temps"
+    },
+    {
+      "id": "xDlSat",
+      "label": "DELAY SATURATION",
+      "section": "delay",
+      "def": 0
+    },
+    {
+      "id": "xDlWobble",
+      "label": "DELAY WOBBLE",
+      "section": "delay",
+      "def": 0.3,
+      "help": "pleurage et scintillement ; TAPE : la quantite de bande du site (l'ancien TAPE)"
+    },
+    {
+      "id": "xDlDiff",
+      "label": "DELAY DIFFUSION",
+      "section": "delay",
+      "def": 0
+    },
+    {
+      "id": "xDlLow",
+      "label": "DELAY LOW CUT",
+      "section": "delay",
+      "def": 0.5,
+      "help": "le passe-haut des echos ; 0.5 : celui du style"
+    },
+    {
+      "id": "xDlHigh",
+      "label": "DELAY HIGH CUT",
+      "section": "delay",
+      "def": 0.5,
+      "help": "le passe-bas dans la boucle ; 0.5 : celui du style"
+    },
+    {
+      "id": "xDlGroove",
+      "label": "DELAY GROOVE",
+      "section": "delay",
+      "def": 0,
+      "help": "le swing des echos"
+    },
+    {
+      "id": "xDlFeel",
+      "label": "DELAY FEEL",
+      "section": "delay",
+      "def": 0.5,
+      "help": "les echos en avance ou en retard"
+    },
+    {
+      "id": "xDlPrime",
+      "label": "DELAY PRIME",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "des temps en nombres premiers de ms : aucun echo ne se superpose"
+    },
+    {
+      "id": "xDlLofi",
+      "label": "DELAY LOFI",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xDlAnalog",
+      "label": "DELAY ANALOG",
+      "section": "delay",
+      "def": 0,
+      "help": "le souffle et la couleur des circuits"
+    },
+    {
+      "id": "xDlDuck",
+      "label": "DELAY DUCKING",
+      "section": "delay",
+      "def": 0,
+      "help": "les echos se taisent pendant que le son joue"
+    },
+    {
+      "id": "xDlDuckRel",
+      "label": "DELAY RELEASE",
+      "section": "delay",
+      "def": 0.35,
+      "help": "la remontee apres le ducking, 30 ms a 900 ms"
+    },
+    {
+      "id": "xDlRhythm",
+      "label": "DELAY RHYTHM",
+      "section": "delay",
+      "def": 0,
+      "steps": [
+        "MACHINE",
+        "FOUR",
+        "CLAVE",
+        "TRESILLO",
+        "GALLOP",
+        "DOTTED",
+        "OFFBEAT",
+        "BOUNCE",
+        "SWELL",
+        "ROLL",
+        "SPARSE",
+        "SKIP"
+      ],
+      "help": "le motif des seize prises du mode RHYTHM"
+    },
+    {
+      "id": "xQ1On",
+      "label": "EQ 1 ON",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ1Type",
+      "label": "EQ 1 TYPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ1Freq",
+      "label": "EQ 1 FREQ",
+      "section": "eq",
+      "def": 0.059,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ1Gain",
+      "label": "EQ 1 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ1Q",
+      "label": "EQ 1 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ1Slope",
+      "label": "EQ 1 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ2On",
+      "label": "EQ 2 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ2Type",
+      "label": "EQ 2 TYPE",
+      "section": "eq",
+      "def": 0.2,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ2Freq",
+      "label": "EQ 2 FREQ",
+      "section": "eq",
+      "def": 0.233,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ2Gain",
+      "label": "EQ 2 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ2Q",
+      "label": "EQ 2 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ2Slope",
+      "label": "EQ 2 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ3On",
+      "label": "EQ 3 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ3Type",
+      "label": "EQ 3 TYPE",
+      "section": "eq",
+      "def": 0.4,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ3Freq",
+      "label": "EQ 3 FREQ",
+      "section": "eq",
+      "def": 0.434,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ3Gain",
+      "label": "EQ 3 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ3Q",
+      "label": "EQ 3 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ3Slope",
+      "label": "EQ 3 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ4On",
+      "label": "EQ 4 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ4Type",
+      "label": "EQ 4 TYPE",
+      "section": "eq",
+      "def": 0.4,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ4Freq",
+      "label": "EQ 4 FREQ",
+      "section": "eq",
+      "def": 0.699,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ4Gain",
+      "label": "EQ 4 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ4Q",
+      "label": "EQ 4 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ4Slope",
+      "label": "EQ 4 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ5On",
+      "label": "EQ 5 ON",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ5Type",
+      "label": "EQ 5 TYPE",
+      "section": "eq",
+      "def": 0.8,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ5Freq",
+      "label": "EQ 5 FREQ",
+      "section": "eq",
+      "def": 0.867,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ5Gain",
+      "label": "EQ 5 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ5Q",
+      "label": "EQ 5 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ5Slope",
+      "label": "EQ 5 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQ6On",
+      "label": "EQ 6 ON",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ]
+    },
+    {
+      "id": "xQ6Type",
+      "label": "EQ 6 TYPE",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "HP",
+        "LOW SHELF",
+        "BELL",
+        "NOTCH",
+        "HIGH SHELF",
+        "LP"
+      ]
+    },
+    {
+      "id": "xQ6Freq",
+      "label": "EQ 6 FREQ",
+      "section": "eq",
+      "def": 0.985,
+      "help": "20 Hz a 20 kHz"
+    },
+    {
+      "id": "xQ6Gain",
+      "label": "EQ 6 GAIN",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-18 a +18 dB"
+    },
+    {
+      "id": "xQ6Q",
+      "label": "EQ 6 Q",
+      "section": "eq",
+      "def": 0.21,
+      "help": "Q 0.3 a 18"
+    },
+    {
+      "id": "xQ6Slope",
+      "label": "EQ 6 SLOPE",
+      "section": "eq",
+      "def": 0,
+      "steps": [
+        "12",
+        "24",
+        "48"
+      ],
+      "help": "la pente des HP et LP, en dB par octave"
+    },
+    {
+      "id": "xQOut",
+      "label": "EQ OUTPUT",
+      "section": "eq",
+      "def": 0.5,
+      "help": "-12 a +12 dB"
+    },
+    {
+      "id": "xQAna",
+      "label": "EQ ANALYZER",
+      "section": "eq",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "PRE",
+        "POST"
+      ],
+      "help": "l'analyseur de la page SOUND (calcule seulement quand la page est ouverte)"
+    },
+    {
+      "id": "xPhStages",
+      "label": "PHASER STAGES",
+      "section": "phaser",
+      "def": 0.3333333333333333,
+      "steps": [
+        "4",
+        "6",
+        "8",
+        "12"
+      ]
+    },
+    {
+      "id": "xPhCenter",
+      "label": "PHASER CENTER",
+      "section": "phaser",
+      "def": 0.5,
+      "help": "le centre du balayage, 200 Hz a 3.2 kHz (0.5 : 800 Hz)"
+    },
+    {
+      "id": "xPhSpread",
+      "label": "PHASER SPREAD",
+      "section": "phaser",
+      "def": 0.5,
+      "help": "l'ecart gauche / droite, 0 a 180 degres (0.5 : 90)"
+    },
+    {
+      "id": "xPhSync",
+      "label": "PHASER SYNC",
+      "section": "phaser",
+      "def": 0,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : RATE en notes au tempo"
+    },
+    {
+      "id": "xFlDelay",
+      "label": "FLANGER DELAY",
+      "section": "flanger",
+      "def": 0.5,
+      "help": "le retard de base, 0.6 a 10 ms (0.5 : 2.5 ms)"
+    },
+    {
+      "id": "xFlSpread",
+      "label": "FLANGER SPREAD",
+      "section": "flanger",
+      "def": 0.5,
+      "help": "l'ecart gauche / droite, 0 a 180 degres (0.5 : 90)"
+    },
+    {
+      "id": "xFlSync",
+      "label": "FLANGER SYNC",
+      "section": "flanger",
+      "def": 0,
+      "steps": [
+        "FREE",
+        "SYNC"
+      ],
+      "help": "SYNC : RATE en notes au tempo"
+    },
+    {
+      "id": "xFlThru",
+      "label": "FLANGER THRU-0",
+      "section": "flanger",
+      "def": 1,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "ON : a travers zero (celui du depart) ; OFF : le flanger classique"
+    },
+    {
+      "id": "xChBoth",
+      "label": "CHORUS I+II",
+      "section": "chorus",
+      "def": 0,
+      "steps": [
+        "OFF",
+        "ON"
+      ],
+      "help": "les deux touches du Juno ensemble : rapide et peu profond"
+    },
+    {
+      "id": "xChRate",
+      "label": "CHORUS RATE",
+      "section": "chorus",
+      "def": 0.5,
+      "help": "x1/4 a x4 (0.5 : celle du Juno)"
+    },
+    {
+      "id": "xChDepth",
+      "label": "CHORUS DEPTH",
+      "section": "chorus",
+      "def": 0.5,
+      "help": "0 a x1.6 (0.5 : celle du Juno)"
+    },
+    {
+      "id": "xChWidth",
+      "label": "CHORUS WIDTH",
+      "section": "chorus",
+      "def": 1,
+      "help": "la largeur du mouille : 0 mono, 100 % celle du Juno"
+    },
+    {
+      "id": "xChMix",
+      "label": "CHORUS MIX",
+      "section": "chorus",
+      "def": 0.5,
+      "help": "0.5 : le Juno ; 0 : sec ; 1 : mouille seul (vibrato)"
+    },
+    {
+      "id": "xCrTone",
+      "label": "CRUSH TONE",
+      "section": "crush",
+      "def": 1,
+      "help": "un passe-bas apres le CRUSH, 1.5 a 20 kHz ; 100 % : aucun"
+    },
+    {
+      "id": "xCrMix",
+      "label": "CRUSH MIX",
+      "section": "crush",
+      "def": 1,
+      "help": "la part du CRUSH (100 % : celui du depart)"
+    },
+    {
+      "id": "xPuAttack",
+      "label": "PUMP ATTACK",
+      "section": "pump",
+      "def": 0.5,
+      "help": "la plongee avant le temps, 0.08 a 50 ms (0.5 : 2 ms)"
+    },
+    {
+      "id": "xPuCurve",
+      "label": "PUMP CURVE",
+      "section": "pump",
+      "def": 0.5,
+      "help": "la courbe de la remontee : creuse a bombee"
     }
   ]
 }

@@ -11,6 +11,7 @@
 #include "ArpFx.h"
 #include "Decap.h"
 #include "Hell.h"
+#include "ParamEq.h"
 #include "ExtraParams.h"
 #include "Params.h"
 #include "Voyager.h"
@@ -112,6 +113,13 @@ public:
     float hellLfo() const { return hellLfo_.load(std::memory_order_relaxed); }
     // ATTITUDE, le VU de la page DISTO (2026-11-17, v25) : 0..1 pour -20..+3 dB dans la saturation ; NaN : DISTO coupee
     float distoVu() const { return distoVu_.load(std::memory_order_relaxed); }
+    // v27 : l'analyseur de la page SOUND, seulement quand la face dit que la page est visible (le thread audio copie
+    // alors la sortie dans un anneau ; specFrame, thread du message, en tire 96 bandes en dB, de 20 Hz a 20 kHz)
+    void setSpecOn(bool on) { specOn_.store(on, std::memory_order_relaxed); }
+    // Le banc seulement (tests/host_test.cpp) : rendre l'ancien DELAY (DLY TIME, TAPE, DELAY MODE) comme avant la v27
+    static inline bool testLegacyDelay = false;
+    bool specOn() const { return specOn_.load(std::memory_order_relaxed); }
+    bool specFrame(float* out96) { return spec_.frame(out96); }
 
     // L'arpege en clip MIDI : la progression entiere, cycles fois, avec les reglages du moment (thread du message).
     // bars : le nombre de mesures (0 sans accord).
@@ -159,6 +167,15 @@ private:
     void migrateHell();
     // La pedale DISTORTION (xDist, xDistTone), masquee en v25 : un projet qui l'avait passe a la DISTO (convertPedal)
     void convertPedal();
+    // v27 : l'ancien DELAY (DLY TIME, TAPE, DELAY MODE, masques : OLD ...) passe a la page DELAY (convertDelay)
+    void convertDelay();
+    // v27 : l'EQ parametrique 6 bandes (apres HELL), son analyseur
+    mmarp::ParamEq peq_;
+    mmarp::SpecAnalyzer spec_;
+    std::atomic<bool> specOn_{false};
+    double dlyFree_ = 0; // DELAY en FREE : son temps (s) ; 0 : au tempo (SYNC)
+    bool syncFx_ = false;
+    bool eqFresh_ = true;  // PHASER ou FLANGER au tempo : la chaine suit les changements de tempo
     std::array<std::atomic<float>, kModN> modVal_{};
     std::array<int, kModN> modKnob_{};
     void publishMod();

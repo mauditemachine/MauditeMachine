@@ -629,8 +629,41 @@ function cleanExtra(id, v) {
     const n = p.steps.length - 1;
     return Math.max(0, Math.min(n, Math.round(v * n))) / n;
   }
+  // v27 : FEEDBACK de la page DELAY garde sa valeur exacte (celle que le site tirait de DELAY : 0.35 + 0.33 x DELAY)
+  if (id === 'xDlFb') return v;
   return r3(v);
 }
+
+/*
+ * v27 (2026-11-17) : l'ancien DELAY (DLY TIME, TAPE, DELAY MODE, masques) passe a la page DELAY par la regle de
+ * PluginProcessor::convertDelay (et de la face, plugin/arp/delay.ts delayFromOld), au bit pres : TAPE au-dessus de
+ * 0.02 -> STYLE TAPE, WOBBLE = TAPE, PING-PONG ; sinon DIGITAL, WOBBLE 0, PING PONG / STEREO -> DUAL / WIDE ; DLY TIME ->
+ * SYNC, 1/8 1/8. 1/4 1/4. 1/2 ; FEEDBACK = 0.35 + 0.33 x DELAY. Le reste de la page a son depart.
+ */
+const DL_DIV = [2, 2, 3, 3, 4];
+const DL_NOTE = [0, 1, 0, 1, 0];
+function delayFrom(knobs, dlyMode) {
+  const out = {};
+  for (const e of EXTRA) if (e.section === 'delay') out[e.id] = e.def;
+  const dm = Math.round(dlyMode * 2);
+  if (knobs.tape >= 0.02) {
+    out.xDlStyle = exStep('xDlStyle', 'TAPE');
+    out.xDlWobble = knobs.tape;
+    out.xDlMode = exStep('xDlMode', 'PING-PONG');
+  } else {
+    out.xDlStyle = exStep('xDlStyle', 'DIGITAL');
+    out.xDlWobble = 0;
+    out.xDlMode = exStep('xDlMode', dm === 1 ? 'DUAL' : dm === 2 ? 'WIDE' : 'PING-PONG');
+  }
+  const dt = Math.max(0, Math.min(4, Math.round(knobs.dlyTime * 4)));
+  out.xDlSync = 1;
+  out.xDlDiv = DL_DIV[dt] / 6;
+  out.xDlNote = DL_NOTE[dt] / 2;
+  out.xDlFb = 0.35 + (0.68 - 0.35) * knobs.delay;
+  return out;
+}
+const V27_FROM = EXTRA.findIndex((e) => e.id === 'xDlStyle');
+const V27 = EXTRA.slice(V27_FROM);
 
 function full(p) {
   const raw = { ...SITE_DEF, ...BASE, ...p.knobs, volume: VOLUME[p.name] ?? VOLUME_DEF };
@@ -650,6 +683,11 @@ function full(p) {
   for (const e of EXTRA) if (e.section === 'disto' && ex[e.id] !== e.def) throw new Error(`${p.name} : la DISTO doit rester neutre (${e.id} a ${e.def}) dans la banque d'usine`);
   // la pedale DISTORTION est masquee (2026-11-17, v25) : jamais dans la banque d'usine (sinon elle serait convertie)
   if (ex.xDist !== 0 || ex.xDistTone !== 0.5) throw new Error(`${p.name} : la pedale DISTORTION masquee doit rester a 0 (xDist 0, xDistTone 0.5)`);
+  // v27 : aucun reglage neuf dans la banque (EQ parametrique, rack enrichi, page DELAY) : la page DELAY recoit l'ancien
+  // DELAY du preset, converti ; l'EQ et le rack enrichi restent a leur neutre (le son de la banque ne change pas)
+  for (const e of V27) if (e.id in p.extra) throw new Error(`${p.name} : ${e.id} (v27) doit rester a son neutre dans la banque d'usine (la page DELAY vient de la conversion)`);
+  Object.assign(ex, delayFrom(knobs, ex.xDlyMode));
+  for (const e of V27) if (e.section !== 'delay' && ex[e.id] !== e.def) throw new Error(`${p.name} : ${e.id} doit rester neutre (${e.def})`);
   const extra = {};
   for (const e of EXTRA) extra[e.id] = cleanExtra(e.id, ex[e.id]);
   for (const id of Object.keys(p.extra)) if (!EXTRA.some((e) => e.id === id)) throw new Error(`${p.name} : reglage inconnu ${id}`);

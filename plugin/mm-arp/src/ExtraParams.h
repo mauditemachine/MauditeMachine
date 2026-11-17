@@ -91,6 +91,33 @@ inline void exText(int e, double v, char* out, int max) {
     else if (e == ex_xHellLfoDepth) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(400.0 * v * v)));
     else if (e == ex_xHellUpDown || e == ex_xHellTone) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((2 * v - 1) * 100)));
     else if (e == ex_xWidth) std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 200)));
+    // v27 : la page DELAY (dsp/Echo.h)
+    else if (e == ex_xDlMs) {
+        const double ms = 5 * std::pow(400.0, v);
+        if (ms >= 1000) std::snprintf(out, static_cast<size_t>(max), "%.2f s", ms / 1000);
+        else std::snprintf(out, static_cast<size_t>(max), "%d ms", static_cast<int>(std::lround(ms)));
+    }
+    else if (e == ex_xDlOffset) std::snprintf(out, static_cast<size_t>(max), "%+d %%", static_cast<int>(std::lround((v - 0.5) * 50)));
+    else if (e == ex_xDlFeel) std::snprintf(out, static_cast<size_t>(max), "%+.1f %%", (v - 0.5) * 12);
+    else if (e == ex_xDlLow || e == ex_xDlHigh) std::snprintf(out, static_cast<size_t>(max), "%+.1f oct", 3 * (2 * v - 1));
+    else if (e == ex_xDlDuckRel) std::snprintf(out, static_cast<size_t>(max), "%d ms", static_cast<int>(std::lround(30 * std::pow(30.0, v))));
+    // v27 : l'EQ parametrique (dsp/ParamEq.h)
+    else if (e >= ex_xQ1On && e <= ex_xQ6Slope && (e - ex_xQ1On) % 6 == 2) {
+        const double hz = 20 * std::pow(1000.0, v);
+        if (hz >= 1000) std::snprintf(out, static_cast<size_t>(max), "%.2f kHz", hz / 1000);
+        else std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(hz)));
+    }
+    else if (e >= ex_xQ1On && e <= ex_xQ6Slope && (e - ex_xQ1On) % 6 == 3) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", 36 * (v - 0.5));
+    else if (e >= ex_xQ1On && e <= ex_xQ6Slope && (e - ex_xQ1On) % 6 == 4) std::snprintf(out, static_cast<size_t>(max), "Q %.2f", 0.3 * std::pow(60.0, v));
+    else if (e == ex_xQOut) std::snprintf(out, static_cast<size_t>(max), "%+.1f dB", 24 * (v - 0.5));
+    // v27 : le rack enrichi
+    else if (e == ex_xPhCenter) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(800 * std::pow(4.0, 2 * v - 1))));
+    else if (e == ex_xPhSpread || e == ex_xFlSpread) std::snprintf(out, static_cast<size_t>(max), "%d deg", static_cast<int>(std::lround(180 * v)));
+    else if (e == ex_xFlDelay) std::snprintf(out, static_cast<size_t>(max), "%.2f ms", 2.5 * std::pow(4.0, 2 * v - 1));
+    else if (e == ex_xChRate) std::snprintf(out, static_cast<size_t>(max), "x%.2f", std::pow(4.0, 2 * v - 1));
+    else if (e == ex_xChDepth) std::snprintf(out, static_cast<size_t>(max), "x%.2f", v <= 0.5 ? 2 * v : 1 + 1.2 * (v - 0.5));
+    else if (e == ex_xCrTone) { if (v < 1) std::snprintf(out, static_cast<size_t>(max), "%d Hz", static_cast<int>(std::lround(1500 * std::pow(20000.0 / 1500, v)))); else std::snprintf(out, static_cast<size_t>(max), "OFF"); }
+    else if (e == ex_xPuAttack) std::snprintf(out, static_cast<size_t>(max), "%.1f ms", 2 * std::pow(25.0, 2 * v - 1));
     else std::snprintf(out, static_cast<size_t>(max), "%d %%", static_cast<int>(std::lround(v * 100)));
 }
 

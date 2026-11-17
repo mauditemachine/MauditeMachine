@@ -28,6 +28,8 @@ constexpr double IR_SECONDS = 2.4, IR_HI_END = 3000, IR_PRE = 0.02;
 constexpr double GLIDE_S = 0.02, UNLINK_S = 0.06;
 // chorus.ts JUNO
 constexpr double JUNO_RATE_I = 0.513, JUNO_RATE_II = 0.863;
+// v27 CHORUS I+II (les deux touches du Juno-60 ensemble : rapide et peu profond)
+constexpr double JUNO_RATE_III = 9.75, JUNO_DEPTH_III = 0.25;
 constexpr double JUNO_DMIN = 0.00166, JUNO_DMAX = 0.00535, JUNO_FILTER_DELAY = 0.000106;
 constexpr double JUNO_BIQUADS[4][2] = {{9688, 0.549}, {10378, 1.291}, {9688, 0.549}, {10378, 1.291}};
 constexpr double JUNO_POLE = 7234, JUNO_WET = 1.16, JUNO_TRIM = 0.633, JUNO_PREROLL_S = 0.008;
@@ -303,6 +305,7 @@ void JunoChorus::start(double dminIn, double dmaxIn, double rate) {
     const double dmax = std::min(std::max(dmaxIn, dmin), 0.05);
     c0_ = 0.5 * (1 / dmin + 1 / dmax);
     c1_ = 0.5 * (1 / dmin - 1 / dmax);
+    c1Base_ = c1_;
     for (int i = 0; i < 4; ++i) {
         const double w0 = (TAU * std::min(JUNO_BIQUADS[i][0], sr * 0.45)) / sr;
         const double al = std::sin(w0) / (2 * JUNO_BIQUADS[i][1]);
@@ -399,13 +402,16 @@ void TapeDelay::reset() {
     w_ = 0;
     hpIn_ = Bq();
     hpIn_.make(false, TAPE_HP_IN, sr_, TAPE_QWEB);
+    hpInR_ = hpIn_;
     hpL_ = Bq();
-    hpL_.make(false, TAPE_HP_LOOP, sr_, SQRT1_2);
+    hpL_.make(false, TAPE_HP_LOOP * hpMul_, sr_, SQRT1_2);
     hpR_ = hpL_;
     lpL_ = Bq();
     lpL_.make(true, TAPE_LP0, sr_, TAPE_QWEB);
     lpR_ = lpL_;
     lpTape_ = -1;
+    mode_ = want_;
+    xf_ = 1;
     phW_ = 0;
     phF_ = 0.25;
     quiet_ = 0;
@@ -450,10 +456,11 @@ void TapeDelay::process(const float* inL, const float* inR, const float* times, 
     const double sr = sr_;
     const double fb = fbF;
     const double t = std::max(0.0, std::min(1.0, static_cast<double>(tapeF)));
-    if (t != lpTape_) {
+    if (t != lpTape_ || lpMul_ != lpMulAt_) {
         lpTape_ = t;
+        lpMulAt_ = lpMul_;
         Bq g;
-        g.make(true, TAPE_LP0 - TAPE_LP_SPAN * t, sr, TAPE_QWEB);
+        g.make(true, (TAPE_LP0 - TAPE_LP_SPAN * t) * lpMul_, sr, TAPE_QWEB);
         for (Bq* f : {&lpL_, &lpR_}) {
             f->b0 = g.b0;
             f->b1 = g.b1;
@@ -502,6 +509,172 @@ void TapeDelay::process(const float* inL, const float* inR, const float* times, 
             asleep_ = true;
         }
     } else quiet_ = 0;
+}
+
+// v27 : les filtres de la boucle (LOW CUT, HIGH CUT, le style) ; le passe-bas suit au prochain process
+void TapeDelay::voicing(double lpMul, double hpMul) {
+    lpMul_ = lpMul;
+    if (hpMul != hpMul_) {
+        hpMul_ = hpMul;
+        Bq g;
+        g.make(false, std::min(TAPE_HP_LOOP * hpMul, 0.4 * sr_), sr_, SQRT1_2);
+        for (Bq* f : {&hpL_, &hpR_}) {
+            f->b0 = g.b0;
+            f->b1 = g.b1;
+            f->b2 = g.b2;
+            f->a1 = g.a1;
+            f->a2 = g.a2;
+        }
+    }
+}
+
+void TapeDelay::sleepCheck(double loud, double peak, bool qEnd) {
+    if (!(loud < 1e-9 && peak < 1e-7)) qQuiet_ = false;
+    if (!qEnd) return;
+    if (qQuiet_) {
+        quiet_ += Q_;
+        if (quiet_ > static_cast<long>(bL_.size())) {
+            std::fill(bL_.begin(), bL_.end(), 0.f);
+            std::fill(bR_.begin(), bR_.end(), 0.f);
+            for (Bq* f : {&hpIn_, &hpInR_, &hpL_, &hpR_, &lpL_, &lpR_}) f->z1 = f->z2 = 0;
+            asleep_ = true;
+        }
+    } else quiet_ = 0;
+}
+
+/*
+ * v27 : la bande et ce que la page DELAY y ajoute : les modes (SINGLE : une ligne ; DUAL : deux lignes paralleles ;
+ * WIDE : la gauche a 3/4 ; PING-PONG : celui du site), les temps de chaque cote, plus de pleurage, plus de saturation,
+ * trois tetes (SPACE), la chaine de la boucle. Un changement de mode : le mouille descend en 20 ms, les lignes sont
+ * videes, il remonte. Les memes lignes, filtres et phases que process : on passe de l'un a l'autre sans couture.
+ */
+void TapeDelay::processX(const float* inL, const float* inR, const float* times, const float* send, float fbF, float tapeF, float* oL, float* oR, int N, bool qStart, bool qEnd, const X& x) {
+    float* bL = bL_.data();
+    float* bR = bR_.data();
+    const int n = static_cast<int>(bL_.size());
+    if (qStart) {
+        qQuiet_ = true;
+        skipped_ = 0;
+    }
+    want_ = x.mode == EM_RHYTHM ? EM_PINGPONG : x.mode;
+    double loud = 0;
+    if (inL)
+        for (int i = 0; i < N; ++i) loud = std::max(loud, std::max(std::fabs(static_cast<double>(inL[i])), std::fabs(static_cast<double>(inR[i]))));
+    if (asleep_) {
+        if (loud < 1e-9) {
+            std::memset(oL, 0, sizeof(float) * static_cast<size_t>(N));
+            std::memset(oR, 0, sizeof(float) * static_cast<size_t>(N));
+            skipped_ += N;
+            mode_ = want_; // endormie : rien a fondre
+            xf_ = 1;
+            return;
+        }
+        asleep_ = false;
+        quiet_ = 0;
+        for (int i = 0; i < skipped_; ++i) {
+            phW_ += TAPE_WOW_HZ / sr_;
+            if (phW_ >= 1) phW_ -= 1;
+            phF_ += TAPE_FLUTTER_HZ / sr_;
+            if (phF_ >= 1) phF_ -= 1;
+            bL[w_] = 0;
+            bR[w_] = 0;
+            if (++w_ == n) w_ = 0;
+        }
+        skipped_ = 0;
+    }
+    const double sr = sr_;
+    const double fb = fbF;
+    const double t = std::max(0.0, std::min(1.0, static_cast<double>(tapeF)));
+    if (t != lpTape_ || lpMul_ != lpMulAt_) {
+        lpTape_ = t;
+        lpMulAt_ = lpMul_;
+        Bq g;
+        g.make(true, (TAPE_LP0 - TAPE_LP_SPAN * t) * lpMul_, sr, TAPE_QWEB);
+        for (Bq* f : {&lpL_, &lpR_}) {
+            f->b0 = g.b0;
+            f->b1 = g.b1;
+            f->b2 = g.b2;
+            f->a1 = g.a1;
+            f->a2 = g.a2;
+        }
+    }
+    const double k = TAPE_SAT_MIN + TAPE_SAT_SPAN * t + x.satAdd;
+    const double wowA = TAPE_WOW_S * t * sr * x.wowMul;
+    const double fltA = TAPE_FLUTTER_S * t * sr * x.wowMul * (x.wowMul > 1.5 ? 1.6 : 1);
+    const double dW = TAPE_WOW_HZ / sr;
+    const double dF = TAPE_FLUTTER_HZ / sr;
+    const double xfStep = 1.0 / (0.02 * sr);
+    const double dMin = HALF + 1, dMax = n - TAPS - 2;
+    const auto cl = [&](double d) { return d < dMin ? dMin : d > dMax ? dMax : d; };
+    int w = w_;
+    double peak = 0;
+    for (int i = 0; i < N; ++i) {
+        const int mode = mode_;
+        const bool two = mode == EM_DUAL || mode == EM_WIDE;
+        double xh, xhR = 0;
+        if (two) {
+            xh = hpIn_.run(inL ? static_cast<double>(inL[i]) : 0);
+            xhR = hpInR_.run(inR ? static_cast<double>(inR[i]) : 0);
+        } else
+            xh = hpIn_.run(inL ? 0.5 * (static_cast<double>(inL[i]) + static_cast<double>(inR[i])) : 0);
+        const double base = static_cast<double>(times[i]) * sr;
+        const double d = base + wowA * std::sin(TAU * phW_) + fltA * std::sin(TAU * phF_);
+        phW_ += dW;
+        if (phW_ >= 1) phW_ -= 1;
+        phF_ += dF;
+        if (phF_ >= 1) phF_ -= 1;
+        const double dl = cl(d * x.kL * (mode == EM_WIDE ? 0.75 : 1));
+        const double dr = cl(d * x.kR);
+        double rl, rr = 0;
+        if (x.heads) {
+            // SPACE : trois tetes de lecture (1/3, 2/3, 1 du temps), la regeneration de toutes
+            rl = 0.42 * readFrac(bL, n, w, cl(dl / 3)) + 0.34 * readFrac(bL, n, w, cl(2 * dl / 3)) + 0.62 * readFrac(bL, n, w, dl);
+            if (mode != EM_SINGLE) rr = 0.42 * readFrac(bR, n, w, cl(dr / 3)) + 0.34 * readFrac(bR, n, w, cl(2 * dr / 3)) + 0.62 * readFrac(bR, n, w, dr);
+        } else {
+            rl = readFrac(bL, n, w, dl);
+            if (mode != EM_SINGLE) rr = readFrac(bR, n, w, dr);
+        }
+        double zL = std::tanh(k * lpL_.run(hpL_.run(rl))) / k;
+        double zR = mode == EM_SINGLE ? zL : std::tanh(k * lpR_.run(hpR_.run(rr))) / k;
+        if (x.loopL) {
+            const float sv = send ? send[i] : 1.f;
+            zL = x.loopL->run(static_cast<float>(zL), sv);
+            zR = mode == EM_SINGLE ? zL : x.loopR->run(static_cast<float>(zR), sv);
+        }
+        // le changement de mode : descendre, vider, remonter
+        double g = 1;
+        if (mode_ != want_) {
+            xf_ -= xfStep;
+            if (xf_ <= 0) {
+                xf_ = 0;
+                std::fill(bL_.begin(), bL_.end(), 0.f);
+                std::fill(bR_.begin(), bR_.end(), 0.f);
+                for (Bq* f : {&hpIn_, &hpInR_, &hpL_, &hpR_, &lpL_, &lpR_}) f->z1 = f->z2 = 0;
+                mode_ = want_;
+            }
+            g = xf_;
+        } else if (xf_ < 1) {
+            xf_ = std::min(1.0, xf_ + xfStep);
+            g = xf_;
+        }
+        oL[i] = static_cast<float>(zL * g);
+        oR[i] = static_cast<float>(zR * g);
+        if (mode == EM_PINGPONG) {
+            bL[w] = static_cast<float>(xh + fb * zR);
+            bR[w] = static_cast<float>(fb * zL);
+        } else if (two) {
+            bL[w] = static_cast<float>(xh + fb * zL);
+            bR[w] = static_cast<float>(xhR + fb * zR);
+        } else {
+            bL[w] = static_cast<float>(xh + fb * zL);
+            bR[w] = 0;
+        }
+        const double a = std::fabs(zL) + std::fabs(zR);
+        if (a > peak) peak = a;
+        if (++w == n) w = 0;
+    }
+    w_ = w;
+    sleepCheck(loud, peak, qEnd);
 }
 
 /* ---------------- la reverb ---------------- */
@@ -1406,8 +1579,11 @@ void PreFx::prepare(double sr) {
     sr_ = sr;
     rampN_ = std::max(1, static_cast<int>(jsRound(RAMP_S * sr)));
     flD0_ = std::max(8, static_cast<int>(jsRound(FL_D0_S * sr)));
+    flDBase_ = flD0_;
+    // v27 FLANGER DELAY : jusqu'a x4 (la ligne plus longue ne change rien a ce qu'elle rend)
+    flDMax_ = std::max(8, static_cast<int>(jsRound(4 * FL_D0_S * sr)));
     int len = 64;
-    while (len < 2 * flD0_ + 16) len *= 2;
+    while (len < 2 * flDMax_ + 16) len *= 2;
     flMask_ = len - 1;
     for (int c = 0; c < 2; ++c) {
         flDry_[c].assign(static_cast<size_t>(len), 0.f);
@@ -1480,6 +1656,7 @@ void PreFx::reset() {
     crPrev_[0] = crPrev_[1] = crHold_[0] = crHold_[1] = 0;
     phPhase_ = 0;
     phCtl_ = -1;
+    crLpY_[0] = crLpY_[1] = 0;
     for (int c = 0; c < 2; ++c) {
         phLast_[c] = flLast_[c] = 0;
         for (double& z : phZ_[c]) z = 0;
@@ -1496,8 +1673,20 @@ void PreFx::set(const ArpFxSettings& s, bool now) {
     const double pm = fin01(s.phMix, 0), pd = fin01(s.phDepth, 0.6), pf = PH_FB * fin01(s.phFb, 0.4);
     const double fm = fin01(s.flMix, 0), fd = fin01(s.flDepth, 0.6);
     const double ff = FL_FB * (std::isfinite(s.flFb) ? clampd(s.flFb, -1, 1) : 0);
-    phHz_ = ArpFxLaws::phaserHz(fin01(s.phRate, 0.3));
-    flHz_ = ArpFxLaws::flangerHz(fin01(s.flRate, 0.25));
+    phHz_ = s.phSyncHz > 0 ? s.phSyncHz : ArpFxLaws::phaserHz(fin01(s.phRate, 0.3));
+    flHz_ = s.flSyncHz > 0 ? s.flSyncHz : ArpFxLaws::flangerHz(fin01(s.flRate, 0.25));
+    // v27 : STAGES, CENTER, SPREAD ; FLANGER DELAY, SPREAD, THRU-0 ; CRUSH TONE, MIX (au depart : ceux d'avant, exactement)
+    phN_ = s.phStages == 4 || s.phStages == 8 || s.phStages == 12 ? s.phStages : 6;
+    phC_ = PH_HZ * std::pow(4.0, 2 * fin01(s.phCenter, 0.5) - 1);
+    phOff_ = 0.5 * fin01(s.phSpread, 0.5);
+    flOff_ = 0.5 * fin01(s.flSpread, 0.5);
+    flThru_ = s.flThru;
+    flD0_ = std::min(flDMax_, std::max(8, static_cast<int>(jsRound(FL_D0_S * std::pow(4.0, 2 * fin01(s.flDelay, 0.5) - 1) * sr_))));
+    crMix_ = fin01(s.crMix, 1);
+    {
+        const double t = fin01(s.crTone, 1);
+        crLpA_ = t < 1 ? 1 - std::exp(-2 * PI * std::min(0.45 * sr_, 1500 * std::pow(20000.0 / 1500, t)) / sr_) : 1;
+    }
     const double da = fin01(s.dist, 0), dt = fin01(s.distTone, 0.5);
     if (now) {
         // poses : une section qui s'engage part d'etats a zero
@@ -1621,6 +1810,7 @@ void PreFx::process(float* L, float* R, int n) {
         double x[2] = {L[i], R[i]};
         // 1. CRUSH : l'echantillonnage (passe-bas, bloqueur a l'instant exact) puis les bits
         if (crOn_) {
+            const double x0[2] = {x[0], x[1]};
             const double vr = crRate_.next(), vb = crBits_.next();
             crushCoefs(vr, vb);
             if (vr > 0) {
@@ -1648,6 +1838,11 @@ void PreFx::process(float* L, float* R, int n) {
                 const double w = std::min(1.0, vb * CRUSH_IN);
                 for (int c = 0; c < 2; ++c) x[c] += w * (std::floor(x[c] * crQ_ + 0.5) / crQ_ - x[c]);
             }
+            // v27 CRUSH TONE (un passe-bas du premier ordre) et MIX (au depart : rien de plus)
+            if (crLpA_ < 1)
+                for (int c = 0; c < 2; ++c) x[c] = crLpY_[c] += crLpA_ * (x[c] - crLpY_[c]);
+            if (crMix_ < 1)
+                for (int c = 0; c < 2; ++c) x[c] = x0[c] + crMix_ * (x[c] - x0[c]);
             if (!crRate_.moving() && !crBits_.moving() && isZero(crRate_.v) && isZero(crBits_.v)) crOn_ = false;
         }
         // 1 bis. DISTORTION : bloqueur de continu, gain, ecretage (x4 local, par sa primitive), TONE, compensation
@@ -1742,8 +1937,8 @@ void PreFx::process(float* L, float* R, int n) {
                 phPhase_ += kCtl * phHz_ / sr_;
                 phPhase_ -= std::floor(phPhase_);
                 for (int c = 0; c < 2; ++c) {
-                    const double lfo = std::sin(TAU * (phPhase_ + 0.25 * c));
-                    const double hz = std::min(0.4 * sr_, PH_HZ * std::pow(2.0, PH_OCT * dep * lfo));
+                    const double lfo = std::sin(TAU * (phPhase_ + phOff_ * c));
+                    const double hz = std::min(0.4 * sr_, phC_ * std::pow(2.0, PH_OCT * dep * lfo));
                     const double t = std::tan(PI * hz / sr_);
                     const double a = (t - 1) / (t + 1);
                     if (first) phA_[c] = a;
@@ -1755,7 +1950,8 @@ void PreFx::process(float* L, float* R, int n) {
                 phA_[c] += phDa_[c];
                 const double a = phA_[c];
                 double y = x[c] + fb * phLast_[c];
-                for (double& z : phZ_[c]) {
+                for (int j = 0; j < phN_; ++j) {
+                    double& z = phZ_[c][j];
                     const double o = a * y + z;
                     z = y - a * o;
                     y = o;
@@ -1772,11 +1968,11 @@ void PreFx::process(float* L, float* R, int n) {
             flPhase_ -= std::floor(flPhase_);
             const double afb = std::fabs(fb);
             for (int c = 0; c < 2; ++c) {
-                const double lfo = std::sin(TAU * (flPhase_ + 0.25 * c));
+                const double lfo = std::sin(TAU * (flPhase_ + flOff_ * c));
                 const double d = std::max(1.0, flD0_ * (1 + (1 - dep) * 0.5 + dep * lfo));
                 flDry_[c][static_cast<size_t>(flW_)] = static_cast<float>(x[c]);
                 flWet_[c][static_cast<size_t>(flW_)] = static_cast<float>(flush(x[c] + fb * flLast_[c]));
-                const double dry = flDry_[c][static_cast<size_t>((flW_ - flD0_) & flMask_)];
+                const double dry = flThru_ ? static_cast<double>(flDry_[c][static_cast<size_t>((flW_ - flD0_) & flMask_)]) : x[c];
                 const double wet = readLag3(flWet_[c].data(), flMask_, flW_, d);
                 flLast_[c] = wet;
                 const double y = (dry + m * wet * (1 - 0.45 * afb)) / (1 + 0.3 * m);
@@ -1796,6 +1992,7 @@ void PreFx::process(float* L, float* R, int n) {
                     f.ic2[c] = flush(f.ic2[c]);
                 }
                 for (double& z : phZ_[c]) z = flush(z);
+                crLpY_[c] = flush(crLpY_[c]);
                 phLast_[c] = flush(phLast_[c]);
                 flLast_[c] = flush(flLast_[c]);
                 DistCh& w = ds_[c];
@@ -1951,10 +2148,13 @@ void Pump::reset() {
     g_ = 1;
 }
 
-void Pump::set(double depth, int rate, double shape, bool now) {
+void Pump::set(double depth, int rate, double shape, bool now, double attack, double curve) {
     const double d = fin01(depth, 0);
     beats_ = ArpFxLaws::pumpBeats(rate);
     shape_ = fin01(shape, 0.5);
+    // v27 ATTACK : 2 ms x 25^(2 v - 1) (0.5 : 2 ms, exactement) ; CURVE : la remontee creuse (0) ou bombee (1)
+    atkS_ = PUMP_ATK_S * std::pow(25.0, 2 * fin01(attack, 0.5) - 1);
+    curve_ = fin01(curve, 0.5);
     if (now) {
         depth_.setNow(d);
         if (!(d > 0)) g_ = 1;
@@ -1972,7 +2172,8 @@ void Pump::process(float* L, float* R, int n, double ppq, double pps, bool playi
     if (!on_) return; // au neutre : la sortie d'avant, au bit pres
     const bool run = playing && pps > 0 && std::isfinite(ppq);
     const double per = run ? beats_ / pps : 1;          // la periode, en echantillons
-    const double atk = std::min(PUMP_ATK_S * sr_, 0.25 * per);
+    const double atk = std::min(atkS_ * sr_, 0.25 * per);
+    const double cexp = curve_ != 0.5 ? std::pow(3.0, 1 - 2 * curve_) : 1;
     const double rel = std::max(atk, std::min((0.15 + 0.8 * shape_) * per, per - atk));
     for (int i = 0; i < n; ++i) {
         const double dep = depth_.next();
@@ -1985,7 +2186,8 @@ void Pump::process(float* L, float* R, int n, double ppq, double pps, bool playi
                 // la plongee, dans les 2 ms qui precedent le temps
                 env = 0.5 - 0.5 * std::cos(PI * (1 - until / atk));
             } else if (since < rel) {
-                const double u = since / rel;
+                double u = since / rel;
+                if (cexp != 1) u = std::pow(u, cexp);
                 env = (1 - u) * (1 - u) * (1 + 2 * u);
             }
         }
@@ -2133,6 +2335,20 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     tape_.prepare(sr_, PP_MAX_S);
     dl_.prepare(PP_MAX_S, sr_);
     dr_.prepare(PP_MAX_S, sr_);
+    // v27 : la page DELAY
+    rhythm_.prepare(sr_);
+    loopDL_.prepare(sr_, 0x9E3779B9u);
+    loopDR_.prepare(sr_, 0x85EBCA6Bu);
+    loopTL_.prepare(sr_, 0xC2B2AE35u);
+    loopTR_.prepare(sr_, 0x27D4EB2Fu);
+    loopR_.prepare(sr_, 0x165667B1u);
+    duck_.prepare(sr_);
+    tape_.voicing(1, 1);
+    lpHz_ = lpHzT_ = PP_LOWPASS;
+    hpHz_ = hpHzT_ = PP_HIGHPASS;
+    tLp_ = tLpT_ = tHp_ = tHpT_ = 1;
+    mW_ = 0;
+    mF_ = 0.25;
     conv_.prepare(sr_, detail::Convolver::make(sr_, have_ ? cur_.revSize : 0.5, have_ ? cur_.revTone : 0.5, have_ ? cur_.revPre : 0.2));
     sky_.prepare(sr_);
     skyX_ = have_ && cur_.skyType > 0 ? 1 : 0;
@@ -2143,7 +2359,7 @@ void ArpFx::prepare(double sampleRate, int maxBlock) {
     lpL_.set(true, PP_LOWPASS, static_cast<float>(WEB_Q_DEFAULT), sr_);
     lpR_ = lpL_;
     dHpR_ = dHp_;
-    dMode_ = dWant_ = have_ ? std::min(2, std::max(0, cur_.dlyMode)) : 0;
+    dMode_ = dWant_ = have_ ? dModeOf(cur_) : 0;
     dXf_.setNow(1);
     dFbL_ = dFbR_ = 0;
     // Le graphe tel que build() le pose avant applyFx : tout a 0, la separation a 10 Hz, le CHORUS en lien direct
@@ -2228,7 +2444,7 @@ void ArpFx::insertRelease() {
 
 // chorus.ts buildJunoChorus set
 void ArpFx::chorusSet(int v) {
-    const int m = v >= 2 ? 2 : v >= 1 ? 1 : 0;
+    const int m = v >= 3 ? 3 : v >= 2 ? 2 : v >= 1 ? 1 : 0;
     if (m == mode_) return;
     const int was = mode_;
     mode_ = m;
@@ -2236,15 +2452,36 @@ void ArpFx::chorusSet(int v) {
         insertRelease();
         return;
     }
-    const double rate = m == 2 ? JUNO_RATE_II : JUNO_RATE_I;
-    if (branch_) pendingRate_ = rate;
-    else {
+    // v27 : I+II, RATE et DEPTH (au depart, x1 : les valeurs du site, exactement)
+    const double rate = (m == 3 ? JUNO_RATE_III : m == 2 ? JUNO_RATE_II : JUNO_RATE_I) * chRateMul_;
+    const double dmul = (m == 3 ? JUNO_DEPTH_III : 1.0) * chDepthMul_;
+    if (branch_) {
+        pendingRate_ = rate;
+        juno_.setDepth(dmul);
+    } else {
         juno_.start(JUNO_DMIN - JUNO_FILTER_DELAY, JUNO_DMAX - JUNO_FILTER_DELAY, rate);
+        if (dmul != 1) juno_.setDepth(dmul);
         pendingRate_ = 0;
         branch_ = true;
         notBefore_ = static_cast<double>(frame_) / sr_ + JUNO_PREROLL_S;
     }
-    if (was == 0) insertEngage(static_cast<float>(JUNO_TRIM), static_cast<float>(JUNO_TRIM * JUNO_WET));
+    if (was == 0) insertEngage(static_cast<float>(JUNO_TRIM * chMixD_), static_cast<float>(JUNO_TRIM * JUNO_WET * chMixW_));
+}
+
+int ArpFx::dModeOf(const ArpFxSettings& s) {
+    if (s.echo.style < 0) return std::min(2, std::max(0, s.dlyMode));
+    switch (s.echo.mode) {
+    case EM_DUAL:
+        return 1;
+    case EM_WIDE:
+        return 2;
+    case EM_SINGLE:
+        return 3;
+    case EM_RHYTHM:
+        return 4;
+    default:
+        return 0;
+    }
 }
 
 // synth.ts applyFx
@@ -2253,7 +2490,32 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
     const double revWas = have_ ? clampd(cur_.reverb, 0, 1) : 0;
     cur_ = s;
     have_ = true;
-    chorusSet(s.chorus);
+    {
+        // v27 : le CHORUS enrichi (RATE x1/4..x4, DEPTH 0..x1.6, MIX, WIDTH, I+II) ; 0.5 : le Juno, exactement
+        const auto c01 = [](double v, double d) { return std::isfinite(v) ? clampd(v, 0, 1) : d; };
+        const double rm = std::pow(4.0, 2 * c01(s.chRate, 0.5) - 1);
+        const double dv = c01(s.chDepth, 0.5);
+        const double dmv = dv <= 0.5 ? 2 * dv : 1 + 1.2 * (dv - 0.5);
+        const double mv = c01(s.chMix, 0.5);
+        const double md = mv <= 0.5 ? 1 : 1 - 2 * (mv - 0.5), mw = mv >= 0.5 ? 1 : 2 * mv;
+        const bool rateCh = rm != chRateMul_, depthCh = dmv != chDepthMul_, mixCh = md != chMixD_ || mw != chMixW_;
+        chRateMul_ = rm;
+        chDepthMul_ = dmv;
+        chMixD_ = md;
+        chMixW_ = mw;
+        chWidth_ = c01(s.chWidth, 1);
+        const int cm = s.chorus >= 1 && s.chBoth ? 3 : s.chorus;
+        const int was = mode_;
+        chorusSet(cm);
+        if (!first && was != 0 && mode_ == was) {
+            if (rateCh) pendingRate_ = (mode_ == 3 ? JUNO_RATE_III : mode_ == 2 ? JUNO_RATE_II : JUNO_RATE_I) * chRateMul_;
+            if (depthCh) juno_.setDepth((mode_ == 3 ? JUNO_DEPTH_III : 1.0) * chDepthMul_);
+            if (mixCh) {
+                insertRamp(dry_, static_cast<float>(JUNO_TRIM * chMixD_));
+                insertRamp(wet_, static_cast<float>(JUNO_TRIM * JUNO_WET * chMixW_));
+            }
+        }
+    }
     // la reverbe facon BigSky : la machine et ses reglages ; le passage avec le convolueur glisse en 20 ms
     {
         const int t = s.skyType > 0 && s.skyType <= kSkyMachines ? 1 : 0;
@@ -2269,9 +2531,14 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
     // REVERB : Send.set (sends.ts) : bornee, glisse en 20 ms (aussi en now), rien si la valeur ne change pas
     const double rv = std::isfinite(s.reverb) ? clampd(s.reverb, 0, 1) : 0;
     if (first ? rv != 0 : rv != revWas) glide(rSend_, REVERB_SEND * rv);
-    const double fb = PP_FB_MIN + (PP_FB_MAX - PP_FB_MIN) * s.delay;
-    const double tape = s.tape;
-    const bool onTape = tape > 0;
+    // v27 : la page DELAY (style -1 : le DELAY du site tel quel) ; TAPE et les styles a bande : la bande du site,
+    // WOBBLE = sa quantite ; RHYTHM passe par le coeur numerique
+    const bool echo = s.echo.style >= 0;
+    const bool rhythm = echo && s.echo.mode == EM_RHYTHM;
+    const bool eTape = echo && EchoLaws::voicing(s.echo.style).tape && !rhythm;
+    const double fb = echo ? (std::isfinite(s.echo.fb) ? clampd(s.echo.fb, 0, 1) : 0) : PP_FB_MIN + (PP_FB_MAX - PP_FB_MIN) * s.delay;
+    const double tape = echo ? (eTape ? clampd(s.echo.wobble, 0, 1) : 0) : s.tape;
+    const bool onTape = echo ? eTape : tape > 0;
     const double v = ArpFxLaws::volGain(s.volume, s.delay, s.reverb);
     const double hz = s.monoLowHz > 0 ? s.monoLowHz : MONO_OFF_HZ;
     const double low = v;
@@ -2299,10 +2566,10 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
     master_.set(s.warmth, s.bass, s.air, s.width, now);
     // Le rack du 2026-11-11
     pre_.set(s, now);
-    pump_.set(s.pumpDepth, s.pumpRate, s.pumpShape, now);
+    pump_.set(s.pumpDepth, s.pumpRate, s.pumpShape, now, s.puAttack, s.puCurve);
     shim_.set(s.shimmer, now);
     eq_.set(s.eqLow, s.eqMid, s.eqHigh, s.eqAir, now);
-    const int dm = std::min(2, std::max(0, s.dlyMode));
+    const int dm = dModeOf(s);
     if (now) {
         if (dm != dMode_) {
             delayClear();
@@ -2321,6 +2588,105 @@ void ArpFx::set(const ArpFxSettings& s, bool now) {
         tTime_.setNow(static_cast<float>(t));
         delayAt_ = t;
     } else if (t != delayAt_) retimeDelay(t);
+    echoSet(s, now);
+}
+
+// v27 : ce que la page DELAY ajoute autour des deux coeurs du site (Echo.h) ; tout est contourne a son neutre
+void ArpFx::echoSet(const ArpFxSettings& s, bool now) {
+    const EchoSettings& e = s.echo;
+    if (e.style < 0) {
+        xTime_ = xMod_ = xLoopD_ = xLim_ = xPost_ = xTape_ = false;
+        kL_ = kR_ = 1;
+        lpHzT_ = PP_LOWPASS;
+        hpHzT_ = PP_HIGHPASS;
+        tLpT_ = tHpT_ = 1;
+        tx_ = detail::TapeDelay::X();
+        duck_.set(0, 0.1);
+        eWidth_ = 1;
+    } else {
+        const auto c01 = [](double v, double d) { return std::isfinite(v) ? clampd(v, 0, 1) : d; };
+        const EchoVoicing& v = EchoLaws::voicing(e.style);
+        const bool rhythm = e.mode == EM_RHYTHM;
+        const bool dig = !v.tape || rhythm;
+        EchoLaws::ratios(e, std::min(PP_MAX_S, std::max(0.001, s.delaySeconds)), kL_, kR_);
+        xTime_ = kL_ != 1 || kR_ != 1;
+        const double lpMul = v.lpMul * EchoLaws::cutMul(c01(e.high, 0.5)), hpMul = v.hpMul * EchoLaws::cutMul(c01(e.low, 0.5));
+        // WOBBLE du coeur numerique : pleurage (0.55 Hz, jusqu'a 2.5 ms) et scintillement (6.5 Hz, 0.12 ms)
+        const double w = dig ? std::min(1.5, (v.tape ? 0.0 : v.wobble) + c01(e.wobble, 0)) : 0;
+        wowS_ = 0.0025 * w * w;
+        fltS_ = 0.00012 * w;
+        xMod_ = w > 0;
+        const double sat = c01(v.sat + c01(e.sat, 0), 0), diff = c01(v.diff + c01(e.diff, 0), 0);
+        const double noise = v.noise + 0.25 * c01(e.analog, 0);
+        const int lofi = v.lofi + (e.lofi ? 1 : 0);
+        if (dig) {
+            for (EchoLoop* l : {&loopDL_, &loopDR_, &loopR_}) l->set(sat, diff, lofi, noise, v.shimmer);
+            xLoopD_ = loopDL_.on();
+            lpHzT_ = std::min(0.45 * sr_, static_cast<double>(PP_LOWPASS) * lpMul);
+            hpHzT_ = std::min(0.4 * sr_, static_cast<double>(PP_HIGHPASS) * hpMul);
+            rhythm_.set(EchoLaws::rhythm(e.rhythm), c01(e.groove, 0) / 3, PP_LOWPASS * lpMul, 120 * hpMul);
+            tLpT_ = tHpT_ = 1;
+            tx_ = detail::TapeDelay::X();
+        } else {
+            xLoopD_ = false;
+            lpHzT_ = PP_LOWPASS;
+            hpHzT_ = PP_HIGHPASS;
+            tLpT_ = lpMul;
+            tHpT_ = hpMul;
+            for (EchoLoop* l : {&loopTL_, &loopTR_}) l->set(0, diff, lofi, noise, v.shimmer);
+            tx_.mode = e.mode;
+            tx_.kL = kL_;
+            tx_.kR = kR_;
+            tx_.wowMul = v.wobble;
+            tx_.satAdd = 3 * (v.sat + c01(e.sat, 0));
+            tx_.heads = v.heads;
+            tx_.loopL = loopTL_.on() ? &loopTL_ : nullptr;
+            tx_.loopR = loopTL_.on() ? &loopTR_ : nullptr;
+        }
+        // au-dela de la reinjection du site (0.68), un limiteur doux garde la boucle numerique stable
+        xLim_ = dig && e.fb > 0.7;
+        eWidth_ = c01(e.width, 1);
+        duck_.set(c01(e.duck, 0), EchoLaws::duckRelS(c01(e.duckRel, 0.35)));
+    }
+    xTape_ = !tx_.neutral();
+    xPost_ = eWidth_ != 1 || duck_.on();
+    if (now) {
+        lpHz_ = lpHzT_ + 1; // force le calcul
+        hpHz_ = hpHzT_ + 1;
+        tLp_ = tLpT_ + 1;
+        tHp_ = tHpT_ + 1;
+        filterStep();
+    }
+}
+
+// Les filtres de la boucle vers leur cible, une fois par bloc de 128 (comme un AudioParam k-rate) : un quart du
+// chemin (en octaves) a chaque bloc, posees au bout
+void ArpFx::filterStep() {
+    const auto stepTo = [](double& cur, double tgt) {
+        if (cur == tgt) return false;
+        const double r = tgt / cur;
+        if (r > 0.997 && r < 1.003) cur = tgt;
+        else cur *= std::pow(r, 0.25);
+        return true;
+    };
+    if (stepTo(lpHz_, lpHzT_)) {
+        lpL_.set(true, static_cast<float>(lpHz_), static_cast<float>(WEB_Q_DEFAULT), sr_);
+        lpR_.b0 = lpL_.b0;
+        lpR_.b1 = lpL_.b1;
+        lpR_.b2 = lpL_.b2;
+        lpR_.a1 = lpL_.a1;
+        lpR_.a2 = lpL_.a2;
+    }
+    if (stepTo(hpHz_, hpHzT_)) {
+        dHp_.set(false, static_cast<float>(hpHz_), static_cast<float>(WEB_Q_DEFAULT), sr_);
+        dHpR_.b0 = dHp_.b0;
+        dHpR_.b1 = dHp_.b1;
+        dHpR_.b2 = dHp_.b2;
+        dHpR_.a1 = dHp_.a1;
+        dHpR_.a2 = dHp_.a2;
+    }
+    const bool a = stepTo(tLp_, tLpT_), b = stepTo(tHp_, tHpT_);
+    if (a || b) tape_.voicing(tLp_, tHp_);
 }
 
 // synth.ts retimeAll
@@ -2331,6 +2697,14 @@ void ArpFx::retimeDelay(double seconds) {
     cur_.delaySeconds = t;
     retime(dTime_, t);
     retime(tTime_, t);
+    // v27 PRIME : les nombres premiers suivent le temps
+    if (cur_.echo.style >= 0 && cur_.echo.prime) {
+        EchoLaws::ratios(cur_.echo, t, kL_, kR_);
+        xTime_ = kL_ != 1 || kR_ != 1;
+        tx_.kL = kL_;
+        tx_.kR = kR_;
+        xTape_ = !tx_.neutral();
+    }
 }
 
 void ArpFx::delayClear() {
@@ -2342,6 +2716,8 @@ void ArpFx::delayClear() {
     lpR_.clear();
     lpHist_.fill(0);
     dFbL_ = dFbR_ = 0;
+    rhythm_.reset();
+    for (EchoLoop* l : {&loopDL_, &loopDR_, &loopR_}) l->reset();
 }
 
 void ArpFx::reset() {
@@ -2353,6 +2729,11 @@ void ArpFx::reset() {
     dFbL_ = dFbR_ = 0;
     dXf_.setNow(1);
     tape_.reset();
+    rhythm_.reset();
+    for (EchoLoop* l : {&loopDL_, &loopDR_, &loopTL_, &loopTR_, &loopR_}) l->reset();
+    duck_.reset();
+    mW_ = 0;
+    mF_ = 0.25;
     std::fill(dl_.buf.begin(), dl_.buf.end(), 0.f);
     std::fill(dr_.buf.begin(), dr_.buf.end(), 0.f);
     dl_.w = dr_.w = 0;
@@ -2380,13 +2761,20 @@ void ArpFx::reset() {
     set(s, true);
     const double rv = std::isfinite(s.reverb) ? clampd(s.reverb, 0, 1) : 0;
     rSend_.setNow(static_cast<float>(REVERB_SEND * rv));
-    mode_ = s.chorus >= 2 ? 2 : s.chorus >= 1 ? 1 : 0;
+    {
+        const int cm = s.chorus >= 1 && s.chBoth ? 3 : s.chorus;
+        mode_ = cm >= 3 ? 3 : cm >= 2 ? 2 : cm >= 1 ? 1 : 0;
+    }
     branch_ = mode_ != 0;
     direct_ = mode_ == 0;
     if (branch_) {
-        juno_.start(JUNO_DMIN - JUNO_FILTER_DELAY, JUNO_DMAX - JUNO_FILTER_DELAY, mode_ == 2 ? JUNO_RATE_II : JUNO_RATE_I);
-        dry_.setNow(static_cast<float>(JUNO_TRIM));
-        wet_.setNow(static_cast<float>(JUNO_TRIM * JUNO_WET));
+        juno_.start(JUNO_DMIN - JUNO_FILTER_DELAY, JUNO_DMAX - JUNO_FILTER_DELAY, (mode_ == 3 ? JUNO_RATE_III : mode_ == 2 ? JUNO_RATE_II : JUNO_RATE_I) * chRateMul_);
+        {
+            const double dmul = (mode_ == 3 ? JUNO_DEPTH_III : 1.0) * chDepthMul_;
+            if (dmul != 1) juno_.setDepth(dmul);
+        }
+        dry_.setNow(static_cast<float>(JUNO_TRIM * chMixD_));
+        wet_.setNow(static_cast<float>(JUNO_TRIM * JUNO_WET * chMixW_));
     } else {
         dry_.setNow(1);
         wet_.setNow(0);
@@ -2469,6 +2857,7 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         }
         qFb_ = tFb_.at(frame_);
         qTape_ = tAmt_.at(frame_);
+        filterStep(); // v27 : LOW CUT, HIGH CUT, le style (rien au neutre)
     }
     splitHz_.fill(frame_, n, aSplit_.data());
     low_.fill(frame_, n, aLow_.data());
@@ -2516,8 +2905,14 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
             cR = hiR[i];
         } else {
             const float dg = aDry_[static_cast<size_t>(i)], wg = aWet_[static_cast<size_t>(i)];
-            const float jL = branch_ ? bJL_[static_cast<size_t>(i)] : 0.f;
-            const float jR = branch_ ? bJR_[static_cast<size_t>(i)] : 0.f;
+            float jL = branch_ ? bJL_[static_cast<size_t>(i)] : 0.f;
+            float jR = branch_ ? bJR_[static_cast<size_t>(i)] : 0.f;
+            if (chWidth_ != 1) {
+                // v27 CHORUS WIDTH : le mouille resserre vers le centre
+                const float jm = 0.5f * (jL + jR), js = 0.5f * (jL - jR) * static_cast<float>(chWidth_);
+                jL = jm + js;
+                jR = jm - js;
+            }
             cL = hiL[i] * dg + jL * wg;
             cR = hiR[i] * dg + jR * wg;
         }
@@ -2530,24 +2925,70 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
         const float ds = aDs_[static_cast<size_t>(i)];
         const float fbv = aFb_[static_cast<size_t>(i)];
         const float dt = std::max(0.f, std::min(static_cast<float>(PP_MAX_S), aDt_[static_cast<size_t>(i)]));
+        // v27 : les temps de chaque cote (GROOVE, FEEL, OFFSET, PRIME) et le pleurage (WOBBLE) ; au neutre : dt
+        float dtL = dt, dtR = dt;
+        if (xTime_ || xMod_) {
+            double a = dt * kL_, b = dt * kR_;
+            if (xMod_) {
+                a += wowS_ * std::sin(TAU * mW_) + fltS_ * std::sin(TAU * mF_);
+                b += wowS_ * std::sin(TAU * (mW_ + 0.25)) + fltS_ * std::sin(TAU * (mF_ + 0.3));
+                mW_ += 0.55 / sr_;
+                if (mW_ >= 1) mW_ -= 1;
+                mF_ += 6.5 / sr_;
+                if (mF_ >= 1) mF_ -= 1;
+            }
+            dtL = static_cast<float>(std::max(0.0, std::min(PP_MAX_S, a)));
+            dtR = static_cast<float>(std::max(0.0, std::min(PP_MAX_S, b)));
+        }
+        const auto lim = [](float x) { return 1.2f * std::tanh(x * (1 / 1.2f)); };
         float lpLo, lpRo;
         if (dMode_ == 0) {
             const float sm = 0.5f * (vL * ds + vR * ds);
             const float h = dHp_.run(sm);
             const float rIn = fbv * lpHist_[static_cast<size_t>(lpHistI_)];
-            lpRo = lpR_.run(dr_.run(rIn, dt, sr_));
+            lpRo = lpR_.run(dr_.run(rIn, dtR, sr_));
+            if (xLoopD_) lpRo = loopDR_.run(lpRo, ds);
+            if (xLim_) lpRo = lim(lpRo);
             const float lIn = h + fbv * lpRo;
-            lpLo = lpL_.run(dl_.run(lIn, dt, sr_));
+            lpLo = lpL_.run(dl_.run(lIn, dtL, sr_));
+            if (xLoopD_) lpLo = loopDL_.run(lpLo, ds);
+            if (xLim_) lpLo = lim(lpLo);
             lpHist_[static_cast<size_t>(lpHistI_)] = lpLo;
             if (++lpHistI_ == Q) lpHistI_ = 0;
-        } else {
+        } else if (dMode_ <= 2) {
             // STEREO / WIDE (le plugin seul) : deux lignes paralleles, chacune sa reinjection ; WIDE : la gauche a 3/4
             const float hL = dHp_.run(vL * ds);
             const float hR = dHpR_.run(vR * ds);
-            lpLo = lpL_.run(dl_.run(hL + fbv * dFbL_, dMode_ == 2 ? dt * 0.75f : dt, sr_));
-            lpRo = lpR_.run(dr_.run(hR + fbv * dFbR_, dt, sr_));
+            lpLo = lpL_.run(dl_.run(hL + fbv * dFbL_, dMode_ == 2 ? dtL * 0.75f : dtL, sr_));
+            lpRo = lpR_.run(dr_.run(hR + fbv * dFbR_, dtR, sr_));
+            if (xLoopD_) {
+                lpLo = loopDL_.run(lpLo, ds);
+                lpRo = loopDR_.run(lpRo, ds);
+            }
+            if (xLim_) {
+                lpLo = lim(lpLo);
+                lpRo = lim(lpRo);
+            }
             dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
             dFbR_ = std::fabs(lpRo) < 1e-20f ? 0.f : lpRo;
+        } else if (dMode_ == 3) {
+            // v27 SINGLE : une ligne, au centre
+            const float sm = 0.5f * (vL * ds + vR * ds);
+            const float h = dHp_.run(sm);
+            lpLo = lpL_.run(dl_.run(h + fbv * dFbL_, dtL, sr_));
+            if (xLoopD_) lpLo = loopDL_.run(lpLo, ds);
+            if (xLim_) lpLo = lim(lpLo);
+            dFbL_ = std::fabs(lpLo) < 1e-20f ? 0.f : lpLo;
+            lpRo = lpLo;
+        } else {
+            // v27 RHYTHM : seize prises au pas du temps
+            const float sm = 0.5f * (vL * ds + vR * ds);
+            const float h = dHp_.run(sm);
+            rhythm_.run(h, dtL, fbv, xLoopD_ ? &loopR_ : nullptr, ds, lpLo, lpRo);
+            if (xLim_) {
+                lpLo = lim(lpLo);
+                lpRo = lim(lpRo);
+            }
         }
         if (dXf) {
             // un changement de mode en cours
@@ -2583,7 +3024,8 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     // 4. la bande
     float* toL = bHiL_.data(); // le haut n'est plus lu
     float* toR = bHiR_.data();
-    tape_.process(tinL, tinR, times, qFb_, qTape_, toL, toR, n, qStart, qEnd);
+    if (!xTape_ && tape_.settled()) tape_.process(tinL, tinR, times, qFb_, qTape_, toL, toR, n, qStart, qEnd);
+    else tape_.processX(tinL, tinR, times, aTs_.data(), qFb_, qTape_, toL, toR, n, qStart, qEnd, tx_); // v27
     // 5. la reverb
     float* roL = bRoL_.data();
     float* roR = bRoR_.data();
@@ -2611,9 +3053,30 @@ void ArpFx::processPiece(const float* inL, const float* inR, float* outL, float*
     }
     if (shOn) shim_.process(roL, roR, q0, n);
     // 6. la prise : sec + bas, wet x 0.8 (le merge et la bande), la reverb
-    for (int i = 0; i < n; ++i) {
-        outL[i] = (dL[i] + (mL[i] + toL[i]) * PP_WET) + roL[i];
-        outR[i] = (dR[i] + (mR[i] + toR[i]) * PP_WET) + roR[i];
+    if (!xPost_)
+        for (int i = 0; i < n; ++i) {
+            outL[i] = (dL[i] + (mL[i] + toL[i]) * PP_WET) + roL[i];
+            outR[i] = (dR[i] + (mR[i] + toR[i]) * PP_WET) + roR[i];
+        }
+    else {
+        // v27 : la largeur des echos (WIDTH) et le DUCKING (le sec les fait baisser)
+        const float wd = static_cast<float>(eWidth_);
+        const bool duck = duck_.on();
+        for (int i = 0; i < n; ++i) {
+            float wL = mL[i] + toL[i], wR = mR[i] + toR[i];
+            if (wd != 1) {
+                const float m = 0.5f * (wL + wR), sd = 0.5f * (wL - wR) * wd;
+                wL = m + sd;
+                wR = m - sd;
+            }
+            if (duck) {
+                const float g = duck_.gain(std::max(std::fabs(dL[i]), std::fabs(dR[i])));
+                wL *= g;
+                wR *= g;
+            }
+            outL[i] = (dL[i] + wL * PP_WET) + roL[i];
+            outR[i] = (dR[i] + wR * PP_WET) + roR[i];
+        }
     }
     if (qEnd) {
         for (auto& f : hp1_) f.endQuantum();

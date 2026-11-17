@@ -11,7 +11,7 @@ option(MM_BUILD_PLUGIN "Construire le plugin JUCE (sinon : seulement le DSP et s
 option(MM_HOST_TEST "Le banc du processeur sans fenetre (tests/host_test.cpp, Linux ou Mac), a la place du plugin" OFF)
 
 # --- le DSP, sans JUCE ---
-add_library(mmarp_dsp STATIC dsp/Voyager.cpp dsp/ArpFx.cpp dsp/Arp.cpp dsp/Params.cpp dsp/Hell.cpp dsp/Sky.cpp dsp/Decap.cpp)
+add_library(mmarp_dsp STATIC dsp/Voyager.cpp dsp/ArpFx.cpp dsp/Arp.cpp dsp/Params.cpp dsp/Hell.cpp dsp/Sky.cpp dsp/Decap.cpp dsp/Echo.cpp dsp/ParamEq.cpp)
 target_include_directories(mmarp_dsp PUBLIC dsp)
 set_target_properties(mmarp_dsp PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # Le moteur est identique au bit pres au site (fdlibm de V8, dsp/Voyager.fdlibm.inc) : jamais de FMA, jamais de -ffast-math
@@ -43,6 +43,10 @@ add_test(NAME hell COMMAND mmarp_hell_test)
 add_executable(mmarp_decap_test tests/decap_test.cpp)
 target_link_libraries(mmarp_decap_test PRIVATE mmarp_dsp)
 add_test(NAME decap COMMAND mmarp_decap_test)
+# v27 : la page DELAY, l'EQ parametrique et son analyseur, le rack enrichi
+add_executable(mmarp_echo_test tests/echo_test.cpp)
+target_link_libraries(mmarp_echo_test PRIVATE mmarp_dsp)
+add_test(NAME echo COMMAND mmarp_echo_test)
 # La DISTO en ligne de commande, pour la mesurer contre le Decapitator (tests/decap-measure, outil hors CI)
 add_executable(mmarp_decap_cli tests/decap_cli.cpp)
 target_link_libraries(mmarp_decap_cli PRIVATE mmarp_dsp)

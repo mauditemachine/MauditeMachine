@@ -56,9 +56,11 @@ jobs:
         run: ./build-dsp/mmarp_sky_test
       - name: "DISTO complete : DRIVE 0 et MM au bit pres, 12 styles, MORPH, multibande, BOX, filtres, DYNAMICS, FEEDBACK stable, ENV, LFO, blocs, MIX 0, cout"
         run: ./build-dsp/mmarp_decap_test
+      - name: "DELAY v27 : l'ancien DELAY converti au bit pres, temps exact, PING-PONG, RHYTHM, DUCKING, FEEDBACK stable, 8 styles x 5 modes, blocs, MIX 0 ; EQ 6 bandes mesuree et neutre ; rack enrichi ; cout"
+        run: ./build-dsp/mmarp_echo_test
       - name: "Arc lumineux de la face : ce que le moteur dit des modulations (LFO, matrice)"
         run: ./build-dsp/mmarp_modview_test
-      - name: "Banque d'usine a jour (FILTER + et DISTO neutres partout, sans la pedale)"
+      - name: "Banque d'usine a jour (FILTER +, DISTO, EQ et rack neutres partout, DELAY converti, sans la pedale)"
         run: node plugin/mm-arp/presets/build.mjs --check
       - name: Chorus Juno et TAPE compares a chorus.worklet.js du site
         run: |

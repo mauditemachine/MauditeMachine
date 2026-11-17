@@ -120,7 +120,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout MMArpProcessor::makeLayout()
                         .withLabel("");
         // OVERDRIVE s'appelle DISTO dans le VST3 (2026-11-17, Mika) : seul le nom montre a l'hote change, pas l'ID (dist) :
         // l'automation et les projets restent
-        const juce::String name = std::strcmp(d.id, "dist") == 0 ? juce::String("DISTO") : juce::String(d.label);
+        // v27 : DLY TIME et TAPE sont masques (la page DELAY les remplace, convertDelay) : OLD devant, l'ID reste
+        const juce::String name = std::strcmp(d.id, "dist") == 0       ? juce::String("DISTO")
+                                  : std::strcmp(d.id, "dlyTime") == 0 ? juce::String("OLD DLY TIME")
+                                  : std::strcmp(d.id, "tape") == 0    ? juce::String("OLD TAPE")
+                                                                      : juce::String(d.label);
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{d.id, 1}, name, juce::NormalisableRange<float>(0.f, 1.f), static_cast<float>(d.def), attr));
     }
     // Les reglages du VST3 seul (SOUND+ : QUALITY, LFO, reverb, master)
@@ -498,12 +502,22 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         const bool hadSky = params.getChildWithProperty("id", "xSkyType").isValid();
         // Un projet d'avant HELL complet (2026-11-17) : sans RANGE, son decalage, son TONE et son LFO DEPTH sont migres
         const bool hadRange = params.getChildWithProperty("id", "xHellRange").isValid();
+        // v27 : un projet d'avant la page DELAY (sans DELAY STYLE) : l'ancien DELAY y est converti, au bit pres
+        const bool hadEcho = params.getChildWithProperty("id", "xDlStyle").isValid();
+        // les reglages du VST3 seul que le projet ne connaissait pas : leur depart (le son d'avant), quelle que soit la
+        // valeur que l'instance avait avant l'ouverture
+        std::vector<int> missing;
+        for (int e = 0; e < mmx::kExtra; ++e)
+            if (!params.getChildWithProperty("id", mmx::kExtraDefs[e].id).isValid()) missing.push_back(e);
         apvts.replaceState(params);
         knobsKnown_.store(true);
+        for (int e : missing)
+            if (auto* prm = apvts.getParameter(mmx::kExtraDefs[e].id)) prm->setValueNotifyingHost(static_cast<float>(mmx::kExtraDefs[e].def));
         if (!hadSky)
             if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
         if (!hadRange) migrateHell();
         convertPedal();
+        if (!hadEcho) convertDelay();
         // La suite, la progression, le tempo de la face : le programme garde (le plugin joue fenetre fermee)
         const juce::String prog = state.getProperty("program", "").toString();
         if (prog.isNotEmpty()) faceProgram(prog);
@@ -514,8 +528,9 @@ void MMArpProcessor::setStateInformation(const void* data, int sizeInBytes) {
         prm->setValueNotifyingHost(prm->convertTo0to1(static_cast<float>(static_cast<double>(state.getProperty("master", 0.0)))));
     if (auto* prm = apvts.getParameter("arp")) prm->setValueNotifyingHost(static_cast<bool>(state.getProperty("arp", true)) ? 1.f : 0.f);
     legacyFromLs(ls);
-    // la premiere version : la reverbe d'avant
+    // la premiere version : la reverbe d'avant, l'ancien DELAY
     if (auto* prm = apvts.getParameter("xSkyType")) prm->setValueNotifyingHost(0.f);
+    convertDelay();
 }
 
 /*
@@ -595,6 +610,51 @@ void MMArpProcessor::convertPedal() {
     put("xDistTone", 0.5);
 }
 
+/*
+ * v27 : l'ancien DELAY passe a la page DELAY (dsp/Echo.h), au bit pres (tests/host_test.cpp) :
+ *   TAPE au-dessus de 0.02 -> STYLE TAPE (la bande du site), WOBBLE = TAPE, MODE PING-PONG (la bande l'etait deja) ;
+ *   sinon -> STYLE DIGITAL (le ping-pong du site), WOBBLE 0, MODE : PING PONG, STEREO -> DUAL, WIDE -> WIDE ;
+ *   DLY TIME -> SYNC et DIVISION / NOTE : 1/8, 1/8 DOTTED, 1/4, 1/4 DOTTED, 1/2 ;
+ *   FEEDBACK = la reinjection que le site tirait de DELAY, 0.35 + 0.33 x DELAY (a l'ouverture) ;
+ *   DELAY (le potard de la face) devient MIX, inchange ; le reste de la page a son neutre.
+ * Seul ecart : un projet qui AUTOMATISE DELAY (le potard) garde la reinjection de l'ouverture (avant, elle suivait).
+ * Les potards DLY TIME et TAPE et le reglage DELAY MODE restent dans l'hote (OLD ...), sans effet.
+ */
+void MMArpProcessor::convertDelay() {
+    const auto kn = [&](const char* id) {
+        const int i = mmarp::knobIndex(id);
+        auto* p = apvts.getParameter(id);
+        return i < 0 ? 0.0 : p ? mmarp::knobClean(i, static_cast<double>(p->getValue())) : mmarp::kKnobDefs[i].def;
+    };
+    const auto put = [&](const char* id, double v) {
+        if (auto* p = apvts.getParameter(id)) p->setValueNotifyingHost(static_cast<float>(std::min(1.0, std::max(0.0, v))));
+    };
+    const auto putStep = [&](int e, int i) { put(mmx::kExtraDefs[e].id, static_cast<double>(i) / (mmx::kExtraDefs[e].nSteps - 1)); };
+    const double delay = kn("delay"), tape = kn("tape");
+    const int dt = mmarp::knobStep(mmarp::knobIndex("dlyTime"), kn("dlyTime"));
+    auto* pm = apvts.getParameter("xDlyMode");
+    const int dm = pm ? mmx::exStep(mmx::ex_xDlyMode, static_cast<double>(pm->getValue())) : 0;
+    // le reste de la page a son neutre
+    for (int e = mmx::ex_xDlStyle; e <= mmx::ex_xDlRhythm; ++e) put(mmx::kExtraDefs[e].id, mmx::kExtraDefs[e].def);
+    if (mmarp::ArpFxLaws::fxAmount(tape) > 0) {
+        putStep(mmx::ex_xDlStyle, mmarp::ES_TAPE);
+        put("xDlWobble", tape);
+        putStep(mmx::ex_xDlMode, mmarp::EM_PINGPONG);
+    } else {
+        putStep(mmx::ex_xDlStyle, mmarp::ES_DIGITAL);
+        put("xDlWobble", 0);
+        putStep(mmx::ex_xDlMode, dm == 1 ? mmarp::EM_DUAL : dm == 2 ? mmarp::EM_WIDE : mmarp::EM_PINGPONG);
+    }
+    // 2, 3, 4, 6, 8 doubles croches : 1/8, 1/8., 1/4, 1/4., 1/2
+    static const int kDiv[5] = {2, 2, 3, 3, 4}, kNote[5] = {0, 1, 0, 1, 0};
+    const int k = std::max(0, std::min(4, dt));
+    putStep(mmx::ex_xDlSync, 1);
+    putStep(mmx::ex_xDlDiv, kDiv[k]);
+    putStep(mmx::ex_xDlNote, kNote[k]);
+    // la reinjection du site (ArpFx::set : PP_FB_MIN + (PP_FB_MAX - PP_FB_MIN) x delay)
+    put("xDlFb", 0.35 + (0.68 - 0.35) * delay);
+}
+
 /* ---------------- l'audio ---------------- */
 
 bool MMArpProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
@@ -643,6 +703,21 @@ void MMArpProcessor::applySteps(const MMArpProgram& p, mmarp::ArpProgram& out, d
     }
     out.swingOwn = swingOwn;
 }
+
+namespace {
+// v27 : les reglages neufs de la chaine sont-ils les memes (la chaine n'est reposee que si quelque chose change) ?
+bool sameV27(const mmarp::ArpFxSettings& a, const mmarp::ArpFxSettings& b) {
+    const auto eq = [](double x, double y) { return !(x < y || x > y); };
+    const mmarp::EchoSettings &e = a.echo, &f = b.echo;
+    return e.style == f.style && e.mode == f.mode && eq(e.fb, f.fb) && eq(e.width, f.width) && eq(e.offset, f.offset) && eq(e.sat, f.sat) &&
+           eq(e.wobble, f.wobble) && eq(e.diff, f.diff) && eq(e.low, f.low) && eq(e.high, f.high) && eq(e.groove, f.groove) && eq(e.feel, f.feel) &&
+           eq(e.analog, f.analog) && eq(e.duck, f.duck) && eq(e.duckRel, f.duckRel) && e.prime == f.prime && e.lofi == f.lofi && e.rhythm == f.rhythm &&
+           a.phStages == b.phStages && eq(a.phCenter, b.phCenter) && eq(a.phSpread, b.phSpread) && eq(a.phSyncHz, b.phSyncHz) && eq(a.flDelay, b.flDelay) &&
+           eq(a.flSpread, b.flSpread) && eq(a.flSyncHz, b.flSyncHz) && a.flThru == b.flThru && a.chBoth == b.chBoth && eq(a.chRate, b.chRate) &&
+           eq(a.chDepth, b.chDepth) && eq(a.chWidth, b.chWidth) && eq(a.chMix, b.chMix) && eq(a.crTone, b.crTone) && eq(a.crMix, b.crMix) &&
+           eq(a.puAttack, b.puAttack) && eq(a.puCurve, b.puCurve);
+}
+} // namespace
 
 // Les potards ou le programme ont change : le moteur, la chaine et l'arpege en sont tires (thread audio, sans allocation)
 void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
@@ -733,8 +808,64 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
         fx.sky.mod = ex_[mmx::ex_xSkyMod];
         fx.sky.lowEnd = ex_[mmx::ex_xSkyLow];
         fx.sky.p = {{ex_[mmx::ex_xSkyP1], ex_[mmx::ex_xSkyP2], ex_[mmx::ex_xSkyP3], ex_[mmx::ex_xSkyP4], ex_[mmx::ex_xSkyP5]}};
-        // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus)
-        fx.delaySeconds = std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
+        const auto st = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+        // v27 : la page DELAY (dsp/Echo.h) ; DLY TIME, TAPE et DELAY MODE d'avant sont masques (convertDelay). Le banc
+        // (testLegacyDelay) peut encore rendre l'ancien DELAY tel quel, pour comparer au bit pres
+        if (testLegacyDelay) dlyFree_ = 0;
+        else {
+            mmarp::EchoSettings& e = fx.echo;
+            e.style = st(mmx::ex_xDlStyle);
+            e.mode = st(mmx::ex_xDlMode);
+            e.fb = ex_[mmx::ex_xDlFb];
+            e.width = ex_[mmx::ex_xDlWidth];
+            e.offset = ex_[mmx::ex_xDlOffset];
+            e.sat = ex_[mmx::ex_xDlSat];
+            e.wobble = ex_[mmx::ex_xDlWobble];
+            e.diff = ex_[mmx::ex_xDlDiff];
+            e.low = ex_[mmx::ex_xDlLow];
+            e.high = ex_[mmx::ex_xDlHigh];
+            e.groove = ex_[mmx::ex_xDlGroove];
+            e.feel = ex_[mmx::ex_xDlFeel];
+            e.prime = st(mmx::ex_xDlPrime) == 1;
+            e.lofi = st(mmx::ex_xDlLofi) == 1;
+            e.analog = ex_[mmx::ex_xDlAnalog];
+            e.duck = ex_[mmx::ex_xDlDuck];
+            e.duckRel = ex_[mmx::ex_xDlDuckRel];
+            e.rhythm = st(mmx::ex_xDlRhythm);
+            fx.tape = 0;
+            fx.dlyMode = 0;
+            if (st(mmx::ex_xDlSync) == 1) {
+                dlyFree_ = 0;
+                dly16 = mmarp::EchoLaws::divSixteenths(st(mmx::ex_xDlDiv)) * mmarp::EchoLaws::noteMul(st(mmx::ex_xDlNote));
+            } else
+                dlyFree_ = mmarp::EchoLaws::msOf(ex_[mmx::ex_xDlMs]) / 1000;
+        }
+        // v27 : le rack enrichi
+        {
+            static const int kStages[4] = {4, 6, 8, 12};
+            static const double kBeats[7] = {16, 8, 4, 2, 1, 0.5, 0.25};
+            const auto syncHz = [&](double v) { return bpm / 60.0 / kBeats[std::max(0, std::min(6, static_cast<int>(std::lround(v * 6))))]; };
+            fx.phStages = kStages[st(mmx::ex_xPhStages)];
+            fx.phCenter = ex_[mmx::ex_xPhCenter];
+            fx.phSpread = ex_[mmx::ex_xPhSpread];
+            fx.phSyncHz = st(mmx::ex_xPhSync) == 1 ? syncHz(ex_[mmx::ex_xPhRate]) : 0;
+            fx.flDelay = ex_[mmx::ex_xFlDelay];
+            fx.flSpread = ex_[mmx::ex_xFlSpread];
+            fx.flSyncHz = st(mmx::ex_xFlSync) == 1 ? syncHz(ex_[mmx::ex_xFlRate]) : 0;
+            fx.flThru = st(mmx::ex_xFlThru) == 1;
+            fx.chBoth = st(mmx::ex_xChBoth) == 1;
+            fx.chRate = ex_[mmx::ex_xChRate];
+            fx.chDepth = ex_[mmx::ex_xChDepth];
+            fx.chWidth = ex_[mmx::ex_xChWidth];
+            fx.chMix = ex_[mmx::ex_xChMix];
+            fx.crTone = ex_[mmx::ex_xCrTone];
+            fx.crMix = ex_[mmx::ex_xCrMix];
+            fx.puAttack = ex_[mmx::ex_xPuAttack];
+            fx.puCurve = ex_[mmx::ex_xPuCurve];
+            syncFx_ = fx.phSyncHz > 0 || fx.flSyncHz > 0;
+        }
+        // DLY TIME au tempo de l'hote (audio/synth.ts delayS : 2 s au plus) ; v27 : FREE, en ms
+        fx.delaySeconds = dlyFree_ > 0 ? std::min(2.0, dlyFree_) : std::min(2.0, dly16 * 60.0 / std::max(20.0, bpm) / 4.0);
         auto eq = [](double a, double b) { return !(a < b || a > b); };
         const bool same = !fresh_ && fx.chorus == fxNow_.chorus && eq(fx.delay, fxNow_.delay) && eq(fx.reverb, fxNow_.reverb) && eq(fx.tape, fxNow_.tape) &&
                           eq(fx.delaySeconds, fxNow_.delaySeconds) && eq(fx.monoLowHz, fxNow_.monoLowHz) && eq(fx.volume, fxNow_.volume) &&
@@ -747,7 +878,7 @@ void MMArpProcessor::update(double bpm, bool knobsChanged, bool progChanged) {
                           eq(fx.eqHigh, fxNow_.eqHigh) && eq(fx.eqAir, fxNow_.eqAir) && fx.skyType == fxNow_.skyType && eq(fx.sky.decay, fxNow_.sky.decay) &&
                           eq(fx.sky.pre, fxNow_.sky.pre) && eq(fx.sky.tone, fxNow_.sky.tone) && eq(fx.sky.mod, fxNow_.sky.mod) && eq(fx.sky.lowEnd, fxNow_.sky.lowEnd) &&
                           eq(fx.sky.p[0], fxNow_.sky.p[0]) && eq(fx.sky.p[1], fxNow_.sky.p[1]) && eq(fx.sky.p[2], fxNow_.sky.p[2]) && eq(fx.sky.p[3], fxNow_.sky.p[3]) &&
-                          eq(fx.sky.p[4], fxNow_.sky.p[4]);
+                          eq(fx.sky.p[4], fxNow_.sky.p[4]) && sameV27(fx, fxNow_);
         if (!same) fx_.set(fx, fresh_);
         fxNow_ = fx;
         dly16_ = dly16;
@@ -776,6 +907,9 @@ void MMArpProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     fx_.prepare(sampleRate, std::max(samplesPerBlock, kChunk));
     hell_.prepare(sampleRate);
     decap_.prepare(sampleRate);
+    peq_.prepare(sampleRate);
+    spec_.prepare(sampleRate);
+    eqFresh_ = true;
     // La reverb des reglages du projet, tout de suite (rien ne joue encore) ; ensuite le timer suit SIZE, TONE, PRE DELAY
     {
         const double rs = static_cast<double>(exRaw_[mmx::ex_xRevSize]->load()), rt = static_cast<double>(exRaw_[mmx::ex_xRevTone]->load()),
@@ -912,8 +1046,18 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     if (current_ && std::fabs(bpm - lastBpm_) > 1e-9) {
         const mmarp::ParamKV b{bpmId_, bpm};
         voy_->params(&b, 1);
-        fx_.retimeDelay(std::min(2.0, dly16_ * 60.0 / std::max(20.0, bpm) / 4.0));
-        fxNow_.delaySeconds = std::min(2.0, dly16_ * 60.0 / std::max(20.0, bpm) / 4.0);
+        if (dlyFree_ <= 0) {
+            fx_.retimeDelay(std::min(2.0, dly16_ * 60.0 / std::max(20.0, bpm) / 4.0));
+            fxNow_.delaySeconds = std::min(2.0, dly16_ * 60.0 / std::max(20.0, bpm) / 4.0);
+        }
+        // v27 : PHASER ou FLANGER au tempo
+        if (syncFx_) {
+            static const double kBeats[7] = {16, 8, 4, 2, 1, 0.5, 0.25};
+            const auto syncHz = [&](double v) { return bpm / 60.0 / kBeats[std::max(0, std::min(6, static_cast<int>(std::lround(v * 6))))]; };
+            if (fxNow_.phSyncHz > 0) fxNow_.phSyncHz = syncHz(ex_[mmx::ex_xPhRate]);
+            if (fxNow_.flSyncHz > 0) fxNow_.flSyncHz = syncHz(ex_[mmx::ex_xFlRate]);
+            fx_.set(fxNow_, false);
+        }
         lastBpm_ = bpm;
     }
 
@@ -1082,6 +1226,27 @@ void MMArpProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         hell_.process(outL, outR, n);
         // le VU du LFO dans la face (mm_mod, id hellLfo) : NaN quand HELL est coupe
         hellLfo_.store(hell_.active() ? static_cast<float>(hell_.lfoValue()) : std::numeric_limits<float>::quiet_NaN(), std::memory_order_relaxed);
+    }
+    // v27 : l'EQ parametrique 6 bandes (contourne au neutre, au bit pres), l'analyseur de la page SOUND (PRE ou POST,
+    // seulement quand la page est visible)
+    {
+        const auto st = [&](int e) { return mmx::exStep(e, ex_[static_cast<size_t>(e)]); };
+        mmarp::EqBandSettings eb[mmarp::ParamEq::kBands];
+        for (int b = 0; (knobsChanged || eqFresh_) && b < mmarp::ParamEq::kBands; ++b) {
+            const int o = b * (mmx::ex_xQ2On - mmx::ex_xQ1On);
+            eb[b].on = st(mmx::ex_xQ1On + o) == 1;
+            eb[b].type = st(mmx::ex_xQ1Type + o);
+            eb[b].hz = mmarp::ParamEq::freqOf(ex_[static_cast<size_t>(mmx::ex_xQ1Freq + o)]);
+            eb[b].db = mmarp::ParamEq::gainDbOf(ex_[static_cast<size_t>(mmx::ex_xQ1Gain + o)]);
+            eb[b].q = mmarp::ParamEq::qOf(ex_[static_cast<size_t>(mmx::ex_xQ1Q + o)]);
+            eb[b].slope = st(mmx::ex_xQ1Slope + o);
+        }
+        if (knobsChanged || eqFresh_) peq_.set(eb, mmarp::ParamEq::outDbOf(ex_[mmx::ex_xQOut]), eqFresh_);
+        eqFresh_ = false;
+        const int ana = specOn_.load(std::memory_order_relaxed) ? st(mmx::ex_xQAna) : 0;
+        if (ana == 1) spec_.push(outL, outR, n);
+        peq_.process(outL, outR, n);
+        if (ana == 2) spec_.push(outL, outR, n);
     }
     buffer.applyGain(dbToGain(master_->load()));
     frame_ += n;

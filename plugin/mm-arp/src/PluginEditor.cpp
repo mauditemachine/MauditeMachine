@@ -2,6 +2,7 @@
 
 #include "WebData.h"
 
+#include <cmath>
 #include <map>
 
 namespace {
@@ -90,6 +91,8 @@ juce::WebBrowserComponent::Options MMArpEditor::options() {
                  })
                  // MIDI LEARN
                  .withEventListener("mm_learn", [this](juce::var o) { proc_.learn(o.getProperty("id", "").toString()); })
+                 // v27 : la page SOUND visible ou non (l'analyseur ne calcule que pendant qu'on le regarde)
+                 .withEventListener("mm_view", [this](juce::var o) { proc_.setSpecOn(static_cast<bool>(o.getProperty("spec", false))); })
                  .withEventListener("mm_unmap", [this](juce::var o) {
                      proc_.unmap(static_cast<int>(o.getProperty("ch", 0)) - 1, static_cast<int>(o.getProperty("cc", -1)));
                  })
@@ -252,6 +255,16 @@ void MMArpEditor::timerCallback() {
             browser_->emitEventIfBrowserIsVisible("mm_mod", juce::var(o));
             modSent_ = !ids.isEmpty();
         }
+    }
+    // v27 : l'analyseur de la page SOUND, 15 fois par seconde, seulement page ouverte (96 bandes en dB entiers)
+    if (ready_ && proc_.specOn() && (++specTick_ & 1) == 0) {
+        float db[mmarp::SpecAnalyzer::kBins];
+        proc_.specFrame(db);
+        juce::Array<juce::var> b;
+        for (float v : db) b.add(static_cast<int>(std::lround(v)));
+        auto* o = new juce::DynamicObject();
+        o->setProperty("b", b);
+        browser_->emitEventIfBrowserIsVisible("mm_spec", juce::var(o));
     }
     // La note jouee vers la face : a chaque note, a chaque depart ou arret (et une fois par seconde, au cas ou)
     const auto fb = proc_.feedback();
