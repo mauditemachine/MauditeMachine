@@ -509,3 +509,23 @@ Mika : « retourne à la version de base avant que nous décidions de rajouter p
 ### Ce qui reste a faire / points en suspens
 - Integration de la DISTO facon Decapitator (branche claude/admiring-feynman-5zsgxp) : demandee par Mika, a faire ici avec migration de xDist/xDistTone.
 - Presets HELL regles sans ecoute ; RANGE MIDI mis a jour par bloc ; LFO SYNC non recale sur la mesure.
+
+## 2026-11-17 (suite) : DISTO complete (Decapitator x Saturn x Trash), petit knob cannele, levier chrome
+
+### Ce qui a ete fait
+- DSP dsp/Decap : PRE FILTER -> saturation multibande (1 a 3 bandes) -> BOX -> POST FILTER -> DYNAMICS -> MIX -> OUTPUT, FEEDBACK, ENV -> DRIVE, LFO (5 formes, 6 cibles), MORPH entre styles ; 12 styles (A E N T P TAPE FUZZ DIODE AMP RECT FOLD CRUSH) + MM (defaut neutre) ; VU ATTITUDE reel (mm_mod distoVu).
+- 42 params hote ajoutes en fin de liste ; DRIVE = dist ; ExtraTable regenere (150 reglages).
+- Page DISTO dans OPEN (selecteur SOUND, DISTO, HELL, REVERB, SEQ) conforme a la maquette v24 validee, 20 presets, ecran TRANSFER ; clic sur DISTO de la face = page DISTO.
+- Pedale DISTORTION (xDist/xDistTone) masquee : params hote gardes (OLD PEDAL, sans effet), conversion au chargement (PluginProcessor::convertPedal, disto.ts distoFromPedal) vers DIODE / DRIVE = xDist / MIX min(1,20*xDist) / AUTO / POST LP 700*(18000/700)^tone.
+- Petit knob cannele et levier chrome (fondu 90 ms) partout.
+- Tests : decap_test 47/47, suite DSP complete, host 43 controles, evenements 13/13, tsc 105, YAML valide.
+- CPU : 1 bande x8 = 5,5 % d'un coeur ; pire cas 3 bandes ~14-15 % (x2/x4/x8 par bande, latence 32 echantillons).
+
+### Decisions prises et pourquoi
+- Mika a valide la maquette v24 et demande de masquer la pedale avec conversion.
+- MM reste le style par defaut : projets et banque d'usine identiques au bit pres ; build.mjs refuse une DISTO non neutre.
+
+### Ce qui reste a faire / points en suspens
+- Projets convertis depuis la pedale : la DISTO est placee apres le moteur (la pedale etait apres CRUSH).
+- Presets DISTO regles sans ecoute.
+- La branche claude/admiring-feynman-5zsgxp (session Decapitator) est desormais remplacee par ce portage ; elle publie encore sur mm-arp-latest.
